@@ -117,9 +117,7 @@ put_pending_size (tree expr)
 void
 put_pending_sizes (tree chain)
 {
-  if (pending_sizes)
-    abort ();
-
+  gcc_assert (!pending_sizes);
   pending_sizes = chain;
 }
 
@@ -160,7 +158,7 @@ variable_size (tree size)
   if (lang_hooks.decls.global_bindings_p ())
     {
       if (TREE_CONSTANT (size))
-	error ("type size can't be explicitly evaluated");
+	error ("type size can%'t be explicitly evaluated");
       else
 	error ("variable-size type declared outside of any function");
 
@@ -229,7 +227,7 @@ smallest_mode_for_size (unsigned int size, enum mode_class class)
     if (GET_MODE_PRECISION (mode) >= size)
       return mode;
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Find an integer mode of the exact same size, or BLKmode on failure.  */
@@ -259,7 +257,7 @@ int_mode_for_mode (enum machine_mode mode)
 
     case MODE_CC:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return mode;
@@ -311,10 +309,10 @@ layout_decl (tree decl, unsigned int known_align)
 
   if (code == CONST_DECL)
     return;
-  else if (code != VAR_DECL && code != PARM_DECL && code != RESULT_DECL
-	   && code != TYPE_DECL && code != FIELD_DECL)
-    abort ();
-
+  
+  gcc_assert (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL
+	      || code == TYPE_DECL ||code == FIELD_DECL);
+  
   rtl = DECL_RTL_IF_SET (decl);
 
   if (type == error_mark_node)
@@ -341,8 +339,8 @@ layout_decl (tree decl, unsigned int known_align)
     }
   else if (DECL_SIZE_UNIT (decl) == 0)
     DECL_SIZE_UNIT (decl)
-      = convert (sizetype, size_binop (CEIL_DIV_EXPR, DECL_SIZE (decl),
-				       bitsize_unit_node));
+      = fold_convert (sizetype, size_binop (CEIL_DIV_EXPR, DECL_SIZE (decl),
+					    bitsize_unit_node));
 
   if (code != FIELD_DECL)
     /* For non-fields, update the alignment from the type.  */
@@ -475,9 +473,9 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning ("%Jsize of '%D' is %d bytes", decl, decl, size_as_int);
+	    warning ("%Jsize of %qD is %d bytes", decl, decl, size_as_int);
 	  else
-	    warning ("%Jsize of '%D' is larger than %d bytes",
+	    warning ("%Jsize of %qD is larger than %d bytes",
                      decl, decl, larger_than_size);
 	}
     }
@@ -560,7 +558,8 @@ tree
 bit_from_pos (tree offset, tree bitpos)
 {
   return size_binop (PLUS_EXPR, bitpos,
-		     size_binop (MULT_EXPR, convert (bitsizetype, offset),
+		     size_binop (MULT_EXPR, 
+				 fold_convert (bitsizetype, offset),
 				 bitsize_unit_node));
 }
 
@@ -568,9 +567,9 @@ tree
 byte_from_pos (tree offset, tree bitpos)
 {
   return size_binop (PLUS_EXPR, offset,
-		     convert (sizetype,
-			      size_binop (TRUNC_DIV_EXPR, bitpos,
-					  bitsize_unit_node)));
+		     fold_convert (sizetype,
+				   size_binop (TRUNC_DIV_EXPR, bitpos,
+					       bitsize_unit_node)));
 }
 
 void
@@ -578,9 +577,9 @@ pos_from_bit (tree *poffset, tree *pbitpos, unsigned int off_align,
 	      tree pos)
 {
   *poffset = size_binop (MULT_EXPR,
-			 convert (sizetype,
-				  size_binop (FLOOR_DIV_EXPR, pos,
-					      bitsize_int (off_align))),
+			 fold_convert (sizetype,
+				       size_binop (FLOOR_DIV_EXPR, pos,
+						   bitsize_int (off_align))),
 			 size_int (off_align / BITS_PER_UNIT));
   *pbitpos = size_binop (FLOOR_MOD_EXPR, pos, bitsize_int (off_align));
 }
@@ -600,7 +599,8 @@ normalize_offset (tree *poffset, tree *pbitpos, unsigned int off_align)
 
       *poffset
 	= size_binop (PLUS_EXPR, *poffset,
-		      size_binop (MULT_EXPR, convert (sizetype, extra_aligns),
+		      size_binop (MULT_EXPR, 
+				  fold_convert (sizetype, extra_aligns),
 				  size_int (off_align / BITS_PER_UNIT)));
 
       *pbitpos
@@ -888,9 +888,9 @@ place_field (record_layout_info rli, tree field)
 	    {
 	      if (STRICT_ALIGNMENT)
 		warning ("%Jpacked attribute causes inefficient alignment "
-                         "for '%D'", field, field);
+                         "for %qD", field, field);
 	      else
-		warning ("%Jpacked attribute is unnecessary for '%D'",
+		warning ("%Jpacked attribute is unnecessary for %qD",
 			 field, field);
 	    }
 	}
@@ -906,7 +906,7 @@ place_field (record_layout_info rli, tree field)
 	 Bump the cumulative size to multiple of field alignment.  */
 
       if (warn_padded)
-	warning ("%Jpadding struct to align '%D'", field, field);
+	warning ("%Jpadding struct to align %qD", field, field);
 
       /* If the alignment is still within offset_align, just align
 	 the bit position.  */
@@ -917,9 +917,9 @@ place_field (record_layout_info rli, tree field)
 	  /* First adjust OFFSET by the partial bits, then align.  */
 	  rli->offset
 	    = size_binop (PLUS_EXPR, rli->offset,
-			  convert (sizetype,
-				   size_binop (CEIL_DIV_EXPR, rli->bitpos,
-					       bitsize_unit_node)));
+			  fold_convert (sizetype,
+					size_binop (CEIL_DIV_EXPR, rli->bitpos,
+						    bitsize_unit_node)));
 	  rli->bitpos = bitsize_zero_node;
 
 	  rli->offset = round_up (rli->offset, desired_align / BITS_PER_UNIT);
@@ -1216,9 +1216,9 @@ place_field (record_layout_info rli, tree field)
     {
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset,
-		      convert (sizetype,
-			       size_binop (CEIL_DIV_EXPR, rli->bitpos,
-					   bitsize_unit_node)));
+		      fold_convert (sizetype,
+				    size_binop (CEIL_DIV_EXPR, rli->bitpos,
+						bitsize_unit_node)));
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset, DECL_SIZE_UNIT (field));
       rli->bitpos = bitsize_zero_node;
@@ -1299,9 +1299,10 @@ finalize_record_size (record_layout_info rli)
 		name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (rli->t)));
 
 	      if (STRICT_ALIGNMENT)
-		warning ("packed attribute causes inefficient alignment for `%s'", name);
+		warning ("packed attribute causes inefficient "
+			 "alignment for %qs", name);
 	      else
-		warning ("packed attribute is unnecessary for `%s'", name);
+		warning ("packed attribute is unnecessary for %qs", name);
 	    }
 	  else
 	    {
@@ -1364,23 +1365,24 @@ compute_record_mode (tree type)
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
 
-  /* If we only have one real field; use its mode.  This only applies to
-     RECORD_TYPE.  This does not apply to unions.  */
-  if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode)
-    TYPE_MODE (type) = mode;
   /* APPLE LOCAL begin 8-byte-struct hack */
 #if defined RS6000_VARARGS_AREA
   /* Make 8-byte structs BLKmode instead of DImode, which fixes both
      struct-return methods and attempts to use floats in kernel code.
      This should probably become a generic macro similar to
      MEMBER_TYPE_FORCES_BLK above.  */
-  else if (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1) == DImode
-	   && flag_pic)
-    ;
+  if (! (mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1) == DImode
+	     && flag_pic))
 #endif
-/* APPLE LOCAL end */
-  else
-    TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
+  /* APPLE LOCAL end */
+  TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
+
+  /* If we only have one real field; use its mode if that mode's size
+     matches the type's size.  This only applies to RECORD_TYPE.  This
+     does not apply to unions.  */
+  if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode
+      && GET_MODE_SIZE (mode) == GET_MODE_SIZE (TYPE_MODE (type)))
+    TYPE_MODE (type) = mode;
 
   /* If structure's known alignment is less than what the scalar
      mode would need, and it matters, then stick with BLKmode.  */
@@ -1430,9 +1432,9 @@ finalize_type_size (tree type)
        result will fit in sizetype.  We will get more efficient code using
        sizetype, so we force a conversion.  */
     TYPE_SIZE_UNIT (type)
-      = convert (sizetype,
-		 size_binop (FLOOR_DIV_EXPR, TYPE_SIZE (type),
-			     bitsize_unit_node));
+      = fold_convert (sizetype,
+		      size_binop (FLOOR_DIV_EXPR, TYPE_SIZE (type),
+				  bitsize_unit_node));
 
   if (TYPE_SIZE (type) != 0)
     {
@@ -1555,8 +1557,7 @@ finish_builtin_struct (tree type, const char *name, tree fields,
 void
 layout_type (tree type)
 {
-  if (type == 0)
-    abort ();
+  gcc_assert (type);
 
   if (type == error_mark_node)
     return;
@@ -1570,7 +1571,7 @@ layout_type (tree type)
     case LANG_TYPE:
       /* This kind of type is the responsibility
 	 of the language-specific code.  */
-      abort ();
+      gcc_unreachable ();
 
     case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill.  */
       if (TYPE_PRECISION (type) == 0)
@@ -1614,8 +1615,7 @@ layout_type (tree type)
 	tree nunits_tree = build_int_cst (NULL_TREE, nunits);
 	tree innertype = TREE_TYPE (type);
 
-	if (nunits & (nunits - 1))
-	  abort ();
+	gcc_assert (!(nunits & (nunits - 1)));
 
 	/* Find an appropriate mode for the vector type.  */
 	if (TYPE_MODE (type) == VOIDmode)
@@ -1717,10 +1717,10 @@ layout_type (tree type)
 	    /* The initial subtraction should happen in the original type so
 	       that (possible) negative values are handled appropriately.  */
 	    length = size_binop (PLUS_EXPR, size_one_node,
-				 convert (sizetype,
-					  fold (build2 (MINUS_EXPR,
-							TREE_TYPE (lb),
-							ub, lb))));
+				 fold_convert (sizetype,
+					       fold (build2 (MINUS_EXPR,
+							     TREE_TYPE (lb),
+							     ub, lb))));
 
 	    /* Special handling for arrays of bits (for Chill).  */
 	    element_size = TYPE_SIZE (element);
@@ -1749,7 +1749,8 @@ layout_type (tree type)
 	      length = size_binop (MAX_EXPR, length, size_zero_node);
 
 	    TYPE_SIZE (type) = size_binop (MULT_EXPR, element_size,
-					   convert (bitsizetype, length));
+					   fold_convert (bitsizetype, 
+							 length));
 
 	    /* If we know the size of the element, calculate the total
 	       size directly, rather than do some division thing below.
@@ -1836,33 +1837,37 @@ layout_type (tree type)
       break;
 
     case SET_TYPE:  /* Used by Chill and Pascal.  */
-      if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST
-	  || TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) != INTEGER_CST)
-	abort ();
-      else
-	{
+      {
+	unsigned int alignment;
+	HOST_WIDE_INT size_in_bits;
+	HOST_WIDE_INT rounded_size;
+
+	gcc_assert (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
+		    == INTEGER_CST);
+	gcc_assert (TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type)))
+		    == INTEGER_CST);
+
 #ifndef SET_WORD_SIZE
 #define SET_WORD_SIZE BITS_PER_WORD
 #endif
-	  unsigned int alignment
-	    = set_alignment ? set_alignment : SET_WORD_SIZE;
-	  HOST_WIDE_INT size_in_bits
-	    = (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
-	       - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1);
-	  HOST_WIDE_INT rounded_size
-	    = ((size_in_bits + alignment - 1) / alignment) * alignment;
+	alignment = set_alignment ? set_alignment : SET_WORD_SIZE;
+	size_in_bits
+	  = (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
+	     - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1);
+	rounded_size
+	  = ((size_in_bits + alignment - 1) / alignment) * alignment;
 
-	  if (rounded_size > (int) alignment)
-	    TYPE_MODE (type) = BLKmode;
-	  else
-	    TYPE_MODE (type) = mode_for_size (alignment, MODE_INT, 1);
+	if (rounded_size > (int) alignment)
+	  TYPE_MODE (type) = BLKmode;
+	else
+	  TYPE_MODE (type) = mode_for_size (alignment, MODE_INT, 1);
 
-	  TYPE_SIZE (type) = bitsize_int (rounded_size);
-	  TYPE_SIZE_UNIT (type) = size_int (rounded_size / BITS_PER_UNIT);
-	  TYPE_ALIGN (type) = alignment;
-	  TYPE_USER_ALIGN (type) = 0;
-	  TYPE_PRECISION (type) = size_in_bits;
-	}
+	TYPE_SIZE (type) = bitsize_int (rounded_size);
+	TYPE_SIZE_UNIT (type) = size_int (rounded_size / BITS_PER_UNIT);
+	TYPE_ALIGN (type) = alignment;
+	TYPE_USER_ALIGN (type) = 0;
+	TYPE_PRECISION (type) = size_in_bits;
+      }
       break;
 
     case FILE_TYPE:
@@ -1874,7 +1879,7 @@ layout_type (tree type)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Compute the final TYPE_SIZE, TYPE_ALIGN, etc. for TYPE.  For
@@ -1964,8 +1969,7 @@ set_sizetype (tree type)
 		       2 * HOST_BITS_PER_WIDE_INT);
   tree t;
 
-  if (TYPE_UNSIGNED (type) != TYPE_UNSIGNED (sizetype))
-    abort ();
+  gcc_assert (TYPE_UNSIGNED (type) == TYPE_UNSIGNED (sizetype));
 
   t = build_distinct_type_copy (type);
   /* We do want to use sizetype's cache, as we will be replacing that
@@ -2187,8 +2191,7 @@ get_mode_bounds (enum machine_mode mode, int sign,
   unsigned size = GET_MODE_BITSIZE (mode);
   unsigned HOST_WIDE_INT min_val, max_val;
 
-  if (size > HOST_BITS_PER_WIDE_INT)
-    abort ();
+  gcc_assert (size <= HOST_BITS_PER_WIDE_INT);
 
   if (sign)
     {

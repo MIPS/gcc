@@ -40,7 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
-   increases effectivity of code motion optimizations, and reduces the need
+   increases effectiveness of code motion optimizations, and reduces the need
    for loop preconditioning.  */
 
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
@@ -59,20 +59,16 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (header->aux)
     return false;
 
-  if (!header->succ)
-    abort ();
-  if (!header->succ->succ_next)
+  gcc_assert (EDGE_COUNT (header->succs) > 0);
+  if (EDGE_COUNT (header->succs) == 1)
     return false;
-  if (header->succ->succ_next->succ_next)
-    return false;
-  if (flow_bb_inside_loop_p (loop, header->succ->dest)
-      && flow_bb_inside_loop_p (loop, header->succ->succ_next->dest))
+  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest)
+      && flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 1)->dest))
     return false;
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header
-      && header->pred->pred_next)
+  if (header != loop->header && EDGE_COUNT (header->preds) >= 2)
     return false;
 
   last = last_stmt (header);
@@ -131,15 +127,15 @@ copy_loop_headers (void)
   unsigned i;
   struct loop *loop;
   basic_block header;
-  /* APPLE LOCAL begin lno */
   edge exit;
   basic_block *bbs;
   unsigned n_bbs;
 
+  /* APPLE LOCAL lno */
   loops = tree_loop_optimizer_init (dump_file, true);
-  /* APPLE LOCAL end lno */
   if (!loops)
     return;
+  rewrite_into_loop_closed_ssa ();
   
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
@@ -149,7 +145,6 @@ copy_loop_headers (void)
   verify_loop_structure (loops);
 #endif
 
-  /* APPLE LOCAL lno */
   bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
 
   for (i = 1; i < loops->num; i++)
@@ -158,7 +153,6 @@ copy_loop_headers (void)
       int limit = 20;
 
       loop = loops->parray[i];
-      /* APPLE LOCAL lno */
       header = loop->header;
 
       /* If the loop is already a do-while style one (either because it was
@@ -168,23 +162,22 @@ copy_loop_headers (void)
       if (do_while_loop_p (loop))
 	continue;
 
-      /* APPLE LOCAL begin lno */
       /* Iterate the header copying up to limit; this takes care of the cases
 	 like while (a && b) {...}, where we want to have both of the conditions
 	 copied.  TODO -- handle while (a || b) - like cases, by not requiring
 	 the header to have just a single successor and copying up to
 	 postdominator.  */
+
       exit = NULL;
       n_bbs = 0;
-
       while (should_duplicate_loop_header_p (header, loop, &limit))
 	{
 	  /* Find a successor of header that is inside a loop; i.e. the new
 	     header after the condition is copied.  */
-	  if (flow_bb_inside_loop_p (loop, header->succ->dest))
-	    exit = header->succ;
+	  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
+	    exit = EDGE_SUCC (header, 0);
 	  else
-	    exit = header->succ->succ_next;
+	    exit = EDGE_SUCC (header, 1);
 	  bbs[n_bbs++] = header;
 	  header = exit->dest;
 	}
@@ -199,8 +192,8 @@ copy_loop_headers (void)
 
       /* Ensure that the header will have just the latch as a predecessor
 	 inside the loop.  */
-      if (exit->dest->pred->pred_next)
-	exit = loop_split_edge_with (exit, NULL)->succ;
+      if (EDGE_COUNT (exit->dest->preds) > 1)
+	exit = EDGE_SUCC (loop_split_edge_with (exit, NULL), 0);
 
       if (!tree_duplicate_sese_region (loop_preheader_edge (loop), exit,
 				       bbs, n_bbs, NULL))
@@ -216,8 +209,12 @@ copy_loop_headers (void)
     }
 
   free (bbs);
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
   loop_optimizer_finalize (loops, NULL);
-  /* APPLE LOCAL end lno */
 
   /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
      that we cleanup the blocks created in order to get the loops into a
@@ -240,7 +237,7 @@ struct tree_opt_pass pass_ch =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CH,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

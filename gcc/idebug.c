@@ -105,7 +105,7 @@ fn_1( TREE_PRIVATE, int, tree )
 fn_1( TREE_PROTECTED, int, tree )
 fn_1( TREE_BOUNDED, int, tree )
 fn_1( TREE_DEPRECATED, int, tree )
-/* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
+/* APPLE LOCAL "unavailable" attribute (Radar 2809697) */
 fn_1( TREE_UNAVAILABLE, int, tree )
 fn_1( TREE_LANG_FLAG_0, int, tree )
 fn_1( TREE_LANG_FLAG_1, int, tree )

@@ -214,7 +214,7 @@ extern int target_flags;
 
 /* APPLE LOCAL long-branch  */
 /* gen call addr in register for >64M range */
-#define MASK_LONG_BRANCH	0x02000000
+#define MASK_LONG_BRANCH	0x00200000
 
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
@@ -2858,6 +2858,8 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_ABS_V8HI,
   ALTIVEC_BUILTIN_ABS_V16QI,
   ALTIVEC_BUILTIN_COMPILETIME_ERROR,
+  ALTIVEC_BUILTIN_MASK_FOR_LOAD,
+  ALTIVEC_BUILTIN_MASK_FOR_STORE,
 
   /* SPE builtins.  */
   SPE_BUILTIN_EVADDW,

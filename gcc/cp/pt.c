@@ -71,6 +71,11 @@ static GTY(()) tree current_tinst_level;
 
 static GTY(()) tree saved_access_scope;
 
+/* Live only within one (recursive) call to tsubst_expr.  We use
+   this to pass the statement expression node from the STMT_EXPR
+   to the EXPR_STMT that is its result.  */
+static tree cur_stmt_expr;
+
 /* A map from local variable declarations in the body of the template
    presently being instantiated to the corresponding instantiated
    local variables.  */
@@ -85,12 +90,6 @@ static htab_t local_specializations;
 #define UNIFY_ALLOW_OUTER_MORE_CV_QUAL 32
 #define UNIFY_ALLOW_OUTER_LESS_CV_QUAL 64
 #define UNIFY_ALLOW_MAX_CORRECTION 128
-
-#define GTB_VIA_VIRTUAL 1 /* The base class we are examining is
-			     virtual, or a base class of a virtual
-			     base.  */
-#define GTB_IGNORE_TYPE 2 /* We don't need to try to unify the current
-			     type with the desired type.  */
 
 static void push_access_scope (tree);
 static void pop_access_scope (tree);
@@ -153,7 +152,6 @@ static tree process_partial_specialization (tree);
 static void set_current_access_from_decl (tree);
 static void check_default_tmpl_args (tree, tree, int, int);
 static tree tsubst_call_declarator_parms (tree, tree, tsubst_flags_t, tree);
-static tree get_template_base_recursive (tree, tree, tree, tree, tree, int); 
 static tree get_template_base (tree, tree, tree, tree);
 static int verify_class_unification (tree, tree, tree);
 static tree try_class_unification (tree, tree, tree, tree);
@@ -3386,6 +3384,8 @@ convert_nontype_argument (tree type, tree expr)
 
   switch (TREE_CODE (type))
     {
+      HOST_WIDE_INT saved_processing_template_decl;
+
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
     case ENUMERAL_TYPE:
@@ -3403,8 +3403,12 @@ convert_nontype_argument (tree type, tree expr)
 	  return error_mark_node;
 
       /* It's safe to call digest_init in this case; we know we're
-	 just converting one integral constant expression to another.  */
+	 just converting one integral constant expression to another.
+	 */
+      saved_processing_template_decl = processing_template_decl;
+      processing_template_decl = 0;
       expr = digest_init (type, expr, (tree*) 0);
+      processing_template_decl = saved_processing_template_decl;
 
       if (TREE_CODE (expr) != INTEGER_CST)
 	/* Curiously, some TREE_CONSTANT integral expressions do not
@@ -4909,7 +4913,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == TEMPLATE_PARM_INDEX
 	   || TREE_CODE (t) == OVERLOAD
 	   || TREE_CODE (t) == BASELINK
-	   || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
   else
@@ -4989,8 +4993,6 @@ pop_tinst_level (void)
   /* Restore the filename and line number stashed away when we started
      this instantiation.  */
   input_location = TINST_LOCATION (old);
-  extract_interface_info ();
-  
   current_tinst_level = TREE_CHAIN (old);
   --tinst_depth;
   ++tinst_level_tick;
@@ -5479,12 +5481,6 @@ instantiate_class_template (tree type)
   TYPE_HAS_CONST_INIT_REF (type) = TYPE_HAS_CONST_INIT_REF (pattern);
   TYPE_HAS_DEFAULT_CONSTRUCTOR (type) = TYPE_HAS_DEFAULT_CONSTRUCTOR (pattern);
   TYPE_HAS_CONVERSION (type) = TYPE_HAS_CONVERSION (pattern);
-  TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
-    = TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (pattern);
-  TYPE_USES_MULTIPLE_INHERITANCE (type)
-    = TYPE_USES_MULTIPLE_INHERITANCE (pattern);
-  TYPE_USES_VIRTUAL_BASECLASSES (type)
-    = TYPE_USES_VIRTUAL_BASECLASSES (pattern);
   TYPE_PACKED (type) = TYPE_PACKED (pattern);
   TYPE_ALIGN (type) = TYPE_ALIGN (pattern);
   TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (pattern);
@@ -7027,11 +7023,12 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	       single bad template instantiation.  */
 	    if (complain & tf_error
 #ifdef USE_MAPPED_LOCATION
-		&& last_loc != input_location)
+		&& last_loc != input_location
 #else
 		&& (last_loc.line != input_line
-		    || last_loc.file != input_filename))
+		    || last_loc.file != input_filename)
 #endif
+		  )
 	      {
 		if (TREE_CODE (type) == VOID_TYPE)
 		  error ("forming reference to void");
@@ -7343,11 +7340,23 @@ tsubst_baselink (tree baselink, tree object_type,
       }
     name = DECL_NAME (get_first_fn (fns));
     baselink = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
+    
+    /* If lookup found a single function, mark it as used at this
+       point.  (If it lookup found multiple functions the one selected
+       later by overload resolution will be marked as used at that
+       point.)  */
+    if (BASELINK_P (baselink))
+      fns = BASELINK_FUNCTIONS (baselink);
+    if (!template_id_p && !really_overloaded_fn (fns))
+      mark_used (OVL_CURRENT (fns));
+
+    /* Add back the template arguments, if present.  */
     if (BASELINK_P (baselink) && template_id_p)
       BASELINK_FUNCTIONS (baselink) 
 	= build_nt (TEMPLATE_ID_EXPR,
 		    BASELINK_FUNCTIONS (baselink),
 		    template_args);
+
     if (!object_type)
       object_type = current_class_type;
     return adjust_result_of_qualified_name_lookup (baselink, 
@@ -7815,11 +7824,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 static tree
 tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
-  /* Live only within one (recursive) call to tsubst_expr.  We use
-     this to pass the statement expression node from the STMT_EXPR
-     to the EXPR_STMT that is its result.  */
-  static tree cur_stmt_expr;
-
   tree stmt, tmp;
 
   if (t == NULL_TREE || t == error_mark_node)
@@ -7849,19 +7853,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       finish_return_stmt (tsubst_expr (TREE_OPERAND (t, 0),
 				       args, complain, in_decl));
       break;
-
-    case STMT_EXPR:
-      {
-	tree old_stmt_expr = cur_stmt_expr;
-	tree stmt_expr = begin_stmt_expr ();
-
-	cur_stmt_expr = stmt_expr;
-	tsubst_expr (STMT_EXPR_STMT (t), args, complain, in_decl);
-	stmt_expr = finish_stmt_expr (stmt_expr, false);
-	cur_stmt_expr = old_stmt_expr;
-
-	return stmt_expr;
-      }
 
     case EXPR_STMT:
       tmp = tsubst_expr (EXPR_STMT_EXPR (t), args, complain, in_decl);
@@ -8650,6 +8641,19 @@ tsubst_copy_and_build (tree t,
 
     case OFFSETOF_EXPR:
       return fold_offsetof (RECUR (TREE_OPERAND (t, 0)));
+
+    case STMT_EXPR:
+      {
+	tree old_stmt_expr = cur_stmt_expr;
+	tree stmt_expr = begin_stmt_expr ();
+
+	cur_stmt_expr = stmt_expr;
+	tsubst_expr (STMT_EXPR_STMT (t), args, complain, in_decl);
+	stmt_expr = finish_stmt_expr (stmt_expr, false);
+	cur_stmt_expr = old_stmt_expr;
+
+	return stmt_expr;
+      }
 
     default:
       /* APPLE LOCAL begin Objective-C++ */
@@ -9505,101 +9509,48 @@ try_class_unification (tree tparms, tree targs, tree parm, tree arg)
   return arg;
 }
 
-/* Subroutine of get_template_base.  RVAL, if non-NULL, is a base we
-   have already discovered to be satisfactory.  ARG_BINFO is the binfo
-   for the base class of ARG that we are currently examining.  */
-
-static tree
-get_template_base_recursive (tree tparms, 
-                             tree targs, 
-                             tree parm,
-                             tree arg_binfo, 
-                             tree rval, 
-                             int flags)
-{
-  tree base_binfo;
-  int i;
-  tree arg = BINFO_TYPE (arg_binfo);
-
-  if (!(flags & GTB_IGNORE_TYPE))
-    {
-      tree r = try_class_unification (tparms, targs,
-				      parm, arg);
-
-      /* If there is more than one satisfactory baseclass, then:
-
-	   [temp.deduct.call]
-
-	   If they yield more than one possible deduced A, the type
-	   deduction fails.
-
-	   applies.  */
-      if (r && rval && !same_type_p (r, rval))
-	return error_mark_node;
-      else if (r)
-	rval = r;
-    }
-
-  /* Process base types.  */
-  for (i = 0; BINFO_BASE_ITERATE (arg_binfo, i, base_binfo); i++)
-    {
-      int this_virtual;
-
-      /* Skip this base, if we've already seen it.  */
-      if (BINFO_MARKED (base_binfo))
-	continue;
-
-      this_virtual = 
-	(flags & GTB_VIA_VIRTUAL) || BINFO_VIRTUAL_P (base_binfo);
-      
-      /* When searching for a non-virtual, we cannot mark virtually
-	 found binfos.  */
-      if (! this_virtual)
-	BINFO_MARKED (base_binfo) = 1;
-      
-      rval = get_template_base_recursive (tparms, targs,
-					  parm,
-					  base_binfo, 
-					  rval,
-					  GTB_VIA_VIRTUAL * this_virtual);
-      
-      /* If we discovered more than one matching base class, we can
-	 stop now.  */
-      if (rval == error_mark_node)
-	return error_mark_node;
-    }
-
-  return rval;
-}
-
 /* Given a template type PARM and a class type ARG, find the unique
    base type in ARG that is an instance of PARM.  We do not examine
-   ARG itself; only its base-classes.  If there is no appropriate base
-   class, return NULL_TREE.  If there is more than one, return
-   error_mark_node.  PARM may be the type of a partial specialization,
-   as well as a plain template type.  Used by unify.  */
+   ARG itself; only its base-classes.  If there is not exactly one
+   appropriate base class, return NULL_TREE.  PARM may be the type of
+   a partial specialization, as well as a plain template type.  Used
+   by unify.  */
 
 static tree
 get_template_base (tree tparms, tree targs, tree parm, tree arg)
 {
-  tree rval;
-  tree arg_binfo;
+  tree rval = NULL_TREE;
+  tree binfo;
 
   gcc_assert (IS_AGGR_TYPE_CODE (TREE_CODE (arg)));
   
-  arg_binfo = TYPE_BINFO (complete_type (arg));
-  if (!arg_binfo)
+  binfo = TYPE_BINFO (complete_type (arg));
+  if (!binfo)
     /* The type could not be completed.  */
     return NULL_TREE;
-  
-  rval = get_template_base_recursive (tparms, targs,
-				      parm, arg_binfo, 
-				      NULL_TREE,
-				      GTB_IGNORE_TYPE);
 
-  /* Since get_template_base_recursive marks the bases classes, we
-     must unmark them here.  */
-  dfs_walk (arg_binfo, dfs_unmark, markedp, 0);
+  /* Walk in inheritance graph order.  The search order is not
+     important, and this avoids multiple walks of virtual bases.  */
+  for (binfo = TREE_CHAIN (binfo); binfo; binfo = TREE_CHAIN (binfo))
+    {
+      tree r = try_class_unification (tparms, targs, parm, BINFO_TYPE (binfo));
+
+      if (r)
+	{
+	  /* If there is more than one satisfactory baseclass, then:
+
+	       [temp.deduct.call]
+
+	      If they yield more than one possible deduced A, the type
+	      deduction fails.
+
+	     applies.  */
+	  if (rval && !same_type_p (r, rval))
+	    return NULL_TREE;
+	  
+	  rval = r;
+	}
+    }
 
   return rval;
 }
@@ -10012,6 +9963,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case VECTOR_TYPE:
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
+    case ENUMERAL_TYPE:
     case VOID_TYPE:
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
@@ -10087,10 +10039,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 		       a class of the form template-id, A can be a
 		       pointer to a derived class pointed to by the
 		       deduced A.  */
-		  t = get_template_base (tparms, targs,
-					 parm, arg);
+		  t = get_template_base (tparms, targs, parm, arg);
 
-		  if (! t || t == error_mark_node)
+		  if (!t)
 		    return 1;
 		}
 	    }
@@ -10145,39 +10096,32 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       return 1;
 
     default:
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (parm))))
-	{
-
-	  /* We're looking at an expression.  This can happen with
-	     something like: 
+      gcc_assert (EXPR_P (parm));
+      
+      /* We must be looking at an expression.  This can happen with
+	 something like: 
 	   
-	       template <int I>
-	       void foo(S<I>, S<I + 2>);
+	   template <int I>
+	   void foo(S<I>, S<I + 2>);
 
-	     This is a "nondeduced context":
+	 This is a "nondeduced context":
 
-	       [deduct.type]
+	   [deduct.type]
 	   
-	       The nondeduced contexts are:
+	   The nondeduced contexts are:
 
-	       --A type that is a template-id in which one or more of
-	         the template-arguments is an expression that references
-	         a template-parameter.  
+	   --A type that is a template-id in which one or more of
+	     the template-arguments is an expression that references
+	     a template-parameter.  
 
-	     In these cases, we assume deduction succeeded, but don't
-	     actually infer any unifications.  */
+	 In these cases, we assume deduction succeeded, but don't
+	 actually infer any unifications.  */
 
-	  if (!uses_template_parms (parm)
-	      && !template_args_equal (parm, arg))
-	    return 1;
-	  else
-	    return 0;
-	}
+      if (!uses_template_parms (parm)
+	  && !template_args_equal (parm, arg))
+	return 1;
       else
-	sorry ("use of `%s' in template type unification",
-	       tree_code_name [(int) TREE_CODE (parm)]);
-
-      return 1;
+	return 0;
     }
 }
 
@@ -11629,9 +11573,9 @@ dependent_type_p_r (tree type)
 
      A type is dependent if it is:
 
-     -- a template parameter. Template template parameters are
-	types for us (since TYPE_P holds true for them) so we
-	handle them here.  */
+     -- a template parameter. Template template parameters are types
+	for us (since TYPE_P holds true for them) so we handle
+	them here.  */
   if (TREE_CODE (type) == TEMPLATE_TYPE_PARM 
       || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
     return true;
@@ -11862,20 +11806,20 @@ value_dependent_expression_p (tree expression)
 	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expression))))
+  if (EXPR_P (expression))
     {
       switch (TREE_CODE_CLASS (TREE_CODE (expression)))
 	{
-	case '1':
+	case tcc_unary:
 	  return (value_dependent_expression_p 
 		  (TREE_OPERAND (expression, 0)));
-	case '<':
-	case '2':
+	case tcc_comparison:
+	case tcc_binary:
 	  return ((value_dependent_expression_p 
 		   (TREE_OPERAND (expression, 0)))
 		  || (value_dependent_expression_p 
 		      (TREE_OPERAND (expression, 1))));
-	case 'e':
+	case tcc_expression:
 	  {
 	    int i;
 	    for (i = 0; i < first_rtl_op (TREE_CODE (expression)); ++i)
@@ -11889,6 +11833,13 @@ value_dependent_expression_p (tree expression)
 		return true;
 	    return false;
 	  }
+	case tcc_reference:
+	case tcc_statement:
+	  /* These cannot be value dependent.  */
+	  return false;
+
+	default:
+	  gcc_unreachable ();
 	}
     }
 

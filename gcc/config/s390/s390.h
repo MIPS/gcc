@@ -80,6 +80,9 @@ extern const char *s390_stack_guard_string;
 
 /* Run-time target specification.  */
 
+/* This will be overridden by OS headers.  */
+#define TARGET_TPF 0
+
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
   do							\
@@ -649,26 +652,11 @@ extern int current_function_outgoing_args_size;
  { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},     \
  { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
-#define CAN_ELIMINATE(FROM, TO) (1)
+#define CAN_ELIMINATE(FROM, TO) \
+  s390_can_eliminate ((FROM), (TO))
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			  \
-{ if ((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) 	  \
-  { (OFFSET) = 0; }     						  \
-  else  if ((FROM) == FRAME_POINTER_REGNUM                                \
-	    && (TO) == HARD_FRAME_POINTER_REGNUM)                	  \
-  { (OFFSET) = 0; }     						  \
-  else if ((FROM) == ARG_POINTER_REGNUM                                   \
-            && (TO) == HARD_FRAME_POINTER_REGNUM)                         \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)  \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == RETURN_ADDRESS_POINTER_REGNUM                        \
-            && ((TO) == STACK_POINTER_REGNUM                              \
-                || (TO) == HARD_FRAME_POINTER_REGNUM))                    \
-  { (OFFSET) = s390_return_address_offset (); }     			  \
-  else									  \
-    abort();								  \
-}
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
+  (OFFSET) = s390_initial_elimination_offset ((FROM), (TO))
 
 
 /* Stack arguments.  */
@@ -1037,6 +1025,9 @@ do {									\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},					\
+  {"s390_comparison",     { EQ, NE, LT, GT, LE, GE, LTU, GTU, LEU, GEU,	\
+			    UNEQ, UNLT, UNGT, UNLE, UNGE, LTGT,		\
+			    UNORDERED, ORDERED }},			\
   {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
 			    LTU, GTU, LEU, GEU }},			\
   {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\

@@ -27,7 +27,6 @@ extern void dbxout_parms (tree);
 extern void dbxout_reg_parms (tree);
 extern int dbxout_syms (tree);
 
-/* APPLE LOCAL begin 3729261 FSF candidate */
 /* Language description for N_SO stabs.  */
 #define N_SO_AS          1
 #define N_SO_C           2
@@ -38,6 +37,5 @@ extern int dbxout_syms (tree);
 #define N_SO_FORTRAN90   7
 #define N_SO_OBJC        50
 #define N_SO_OBJCPLUS    51
-/* APPLE LOCAL end 3729261 FSF candidate */
 
 #endif /* GCC_DBXOUT_H */

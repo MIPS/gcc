@@ -61,7 +61,7 @@ debug_tree (tree node)
 void
 print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 {
-  char class;
+  enum tree_code_class class;
 
   if (node == 0)
     return;
@@ -75,12 +75,12 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
   fprintf (file, "%s <%s " HOST_PTR_PRINTF,
 	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
 
-  if (class == 'd')
+  if (class == tcc_declaration)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
     }
-  else if (class == 't')
+  else if (class == tcc_type)
     {
       if (TYPE_NAME (node))
 	{
@@ -156,7 +156,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   int hash;
   struct bucket *b;
   enum machine_mode mode;
-  char class;
+  enum tree_code_class class;
   int len;
   int first_rtl;
   int i;
@@ -177,7 +177,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       return;
     }
 
-  if (indent > 8 && (class == 't' || class == 'd'))
+  if (indent > 8 && (class == tcc_type || class == tcc_declaration))
     {
       print_node_brief (file, prefix, node, indent);
       return;
@@ -214,12 +214,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
 
   /* Print the name, if any.  */
-  if (class == 'd')
+  if (class == tcc_declaration)
     {
       if (DECL_NAME (node))
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
     }
-  else if (class == 't')
+  else if (class == tcc_type)
     {
       if (TYPE_NAME (node))
 	{
@@ -275,10 +275,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" static", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
-  /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
+  /* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) */
   if (TREE_UNAVAILABLE (node))
     fputs (" unavailable", file);
-  /* APPLE LOCAL end "unavailable" attribute --ilr */
+  /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
   if (TREE_VISITED (node))
     fputs (" visited", file);
   if (TREE_LANG_FLAG_0 (node))
@@ -300,7 +300,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
   switch (TREE_CODE_CLASS (TREE_CODE (node)))
     {
-    case 'd':
+    case tcc_declaration:
       mode = DECL_MODE (node);
 
       if (DECL_UNSIGNED (node))
@@ -465,7 +465,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	print_node_brief (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case 't':
+    case tcc_type:
       if (TYPE_UNSIGNED (node))
 	fputs (" unsigned", file);
 
@@ -577,12 +577,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node_brief (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case 'e':
-    case '<':
-    case '1':
-    case '2':
-    case 'r':
-    case 's':
+    case tcc_expression:
+    case tcc_comparison:
+    case tcc_unary:
+    case tcc_binary:
+    case tcc_reference:
+    case tcc_statement:
       if (TREE_CODE (node) == BIT_FIELD_REF && BIT_FIELD_REF_UNSIGNED (node))
 	fputs (" unsigned", file);
       if (TREE_CODE (node) == BIND_EXPR)
@@ -623,8 +623,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case 'c':
-    case 'x':
+    case tcc_constant:
+    case tcc_exceptional:
       switch (TREE_CODE (node))
 	{
 	case INTEGER_CST:
@@ -769,7 +769,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
 	default:
-	  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'x')
+	  if (EXCEPTIONAL_CLASS_P (node))
 	    lang_hooks.print_xnode (file, node, indent);
 	  break;
 	}

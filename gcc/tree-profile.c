@@ -99,7 +99,10 @@ tree_gen_interval_profiler (histogram_value value ATTRIBUTE_UNUSED,
 			    unsigned base ATTRIBUTE_UNUSED)
 {
   /* FIXME implement this.  */
-  abort ();
+#ifdef ENABLE_CHECKING
+  internal_error ("unimplemented functionality");
+#endif
+  gcc_unreachable ();
 }
 
 /* Output instructions as GIMPLE trees to increment the power of two histogram 
@@ -112,7 +115,10 @@ tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED,
 			unsigned base ATTRIBUTE_UNUSED)
 {
   /* FIXME implement this.  */
-  abort ();
+#ifdef ENABLE_CHECKING
+  internal_error ("unimplemented functionality");
+#endif
+  gcc_unreachable ();
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value.
@@ -125,7 +131,10 @@ tree_gen_one_value_profiler (histogram_value value ATTRIBUTE_UNUSED,
 			    unsigned base ATTRIBUTE_UNUSED)
 {
   /* FIXME implement this.  */
-  abort ();
+#ifdef ENABLE_CHECKING
+  internal_error ("unimplemented functionality");
+#endif
+  gcc_unreachable ();
 }
 
 /* Output instructions as GIMPLE trees for code to find the most common value 
@@ -139,7 +148,10 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
 				unsigned base ATTRIBUTE_UNUSED)
 {
   /* FIXME implement this.  */
-  abort ();
+#ifdef ENABLE_CHECKING
+  internal_error ("unimplemented functionality");
+#endif
+  gcc_unreachable ();
 }
 
 /* Return 1 if tree-based profiling is in effect, else 0.
@@ -148,12 +160,14 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
 
 static bool do_tree_profiling (void)
 {
-  if (flag_tree_based_profiling)
+  if (flag_tree_based_profiling
+      && (profile_arc_flag || flag_test_coverage || flag_branch_probabilities))
     {
       tree_register_profile_hooks ();
       tree_register_value_prof_hooks ();
+      return true;
     }
-  return flag_tree_based_profiling;
+  return false;
 }
 
 /* Return the file on which profile dump output goes, if any.  */

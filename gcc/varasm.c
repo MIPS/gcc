@@ -417,17 +417,19 @@ set_named_section_flags (const char *section, unsigned int flags)
   return true;
 }
 
-/* Tell assembler to change to section NAME with attributes FLAGS.  */
+/* Tell assembler to change to section NAME with attributes FLAGS.  If
+   DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with which
+   this section is associated.  */
 
 void
-named_section_flags (const char *name, unsigned int flags)
+named_section_real (const char *name, unsigned int flags, tree decl)
 {
   if (in_section != in_named || strcmp (name, in_named_name) != 0)
     {
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      targetm.asm_out.named_section (name, flags);
+      targetm.asm_out.named_section (name, flags, decl);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -480,7 +482,7 @@ named_section (tree decl, const char *name, int reloc)
 	error ("%J%D causes a section type conflict", decl, decl);
     }
 
-  named_section_flags (name, flags);
+  named_section_real (name, flags, decl);
 }
 
 /* If required, set DECL_SECTION_NAME to a unique name.  */
@@ -600,7 +602,7 @@ default_function_rodata_section (tree decl)
 
 	  memcpy (rname, name, len);
 	  rname[14] = 'r';
-	  named_section_flags (rname, SECTION_LINKONCE);
+	  named_section_real (rname, SECTION_LINKONCE, decl);
 	  return;
 	}
       /* For .text.foo we want to use .rodata.foo.  */
@@ -897,14 +899,14 @@ make_decl_rtl (tree decl)
     {
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
-	error ("%Jregister name not specified for '%D'", decl, decl);
+	error ("%Jregister name not specified for %qD", decl, decl);
       else if (reg_number < 0)
-	error ("%Jinvalid register name for '%D'", decl, decl);
+	error ("%Jinvalid register name for %qD", decl, decl);
       else if (TYPE_MODE (TREE_TYPE (decl)) == BLKmode)
-	error ("%Jdata type of '%D' isn't suitable for a register",
+	error ("%Jdata type of %qD isn%'t suitable for a register",
 	       decl, decl);
       else if (! HARD_REGNO_MODE_OK (reg_number, TYPE_MODE (TREE_TYPE (decl))))
-	error ("%Jregister specified for '%D' isn't suitable for data type",
+	error ("%Jregister specified for %qD isn%'t suitable for data type",
                decl, decl);
       /* Now handle properly declared static register variables.  */
       else
@@ -917,7 +919,8 @@ make_decl_rtl (tree decl)
 	      error ("global register variable has initial value");
 	    }
 	  if (TREE_THIS_VOLATILE (decl))
-	    warning ("volatile register variables don't work as you might wish");
+	    warning ("volatile register variables don%'t "
+		     "work as you might wish");
 
 	  /* If the user specified one of the eliminables registers here,
 	     e.g., FRAME_POINTER_REGNUM, we don't want to get this variable
@@ -949,7 +952,7 @@ make_decl_rtl (tree decl)
      Also handle vars declared register invalidly.  */
 
   if (name[0] == '*' && (reg_number >= 0 || reg_number == -3))
-    error ("%Jregister name given for non-register variable '%D'", decl, decl);
+    error ("%Jregister name given for non-register variable %qD", decl, decl);
 
   /* Specifying a section attribute on a variable forces it into a
      non-.bss section, and thus it cannot be common.  */
@@ -1521,7 +1524,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data && DECL_SIZE (decl) == 0)
     {
-      error ("%Jstorage size of `%D' isn't known", decl, decl);
+      error ("%Jstorage size of %qD isn%'t known", decl, decl);
       TREE_ASM_WRITTEN (decl) = 1;
       return;
     }
@@ -1553,7 +1556,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (! dont_output_data
       && ! host_integerp (DECL_SIZE_UNIT (decl), 1))
     {
-      error ("%Jsize of variable '%D' is too large", decl, decl);
+      error ("%Jsize of variable %qD is too large", decl, decl);
       return;
     }
 
@@ -1576,7 +1579,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      In particular, a.out format supports a maximum alignment of 4.  */
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning ("%Jalignment of '%D' is greater than maximum object "
+      warning ("%Jalignment of %qD is greater than maximum object "
                "file alignment.  Using %d", decl, decl,
 	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
@@ -1650,7 +1653,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
-	warning ("%Jrequested alignment for '%D' is greater than "
+	warning ("%Jrequested alignment for %qD is greater than "
                  "implemented alignment of %d", decl, decl, rounded);
 #endif
 
@@ -2034,6 +2037,9 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 			  int aligned_p ATTRIBUTE_UNUSED)
 {
   const char *op = integer_asm_op (size, aligned_p);
+  /* Avoid GAS bugs for values > word size.  */
+  if (size > UNITS_PER_WORD)
+    return false;
   return op && (assemble_integer_with_op (op, x), true);
 }
 
@@ -2507,7 +2513,7 @@ copy_constant (tree exp)
     case ADDR_EXPR:
       /* For ADDR_EXPR, we do not want to copy the decl whose address
 	 is requested.  We do want to copy constants though.  */
-      if (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (exp, 0))) == 'c')
+      if (CONSTANT_CLASS_P (TREE_OPERAND (exp, 0)))
 	return build1 (TREE_CODE (exp), TREE_TYPE (exp),
 		       copy_constant (TREE_OPERAND (exp, 0)));
       else
@@ -3426,8 +3432,7 @@ output_addressed_constants (tree exp)
 	   tem = TREE_OPERAND (tem, 0))
 	;
 
-      if (TREE_CODE_CLASS (TREE_CODE (tem)) == 'c'
-	  || TREE_CODE (tem) == CONSTRUCTOR)
+      if (CONSTANT_CLASS_P (tem) || TREE_CODE (tem) == CONSTRUCTOR)
 	output_constant_def (tem, 0);
       break;
 
@@ -4062,7 +4067,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 	  total_bytes += fieldsize;
 	}
       else if (val != 0 && TREE_CODE (val) != INTEGER_CST)
-	error ("invalid initial value for member `%s'",
+	error ("invalid initial value for member %qs",
 	       IDENTIFIER_POINTER (DECL_NAME (field)));
       else
 	{
@@ -4249,7 +4254,7 @@ merge_weak (tree newdecl, tree olddecl)
 	 declare_weak because the NEWDECL and OLDDECL was not yet
 	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
       if (TREE_ASM_WRITTEN (olddecl))
-	error ("%Jweak declaration of '%D' must precede definition",
+	error ("%Jweak declaration of %qD must precede definition",
 	       newdecl, newdecl);
 
       /* If we've already generated rtl referencing OLDDECL, we may
@@ -4257,7 +4262,7 @@ merge_weak (tree newdecl, tree olddecl)
 	 a weak symbol.  */
       else if (TREE_USED (olddecl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
-	warning ("%Jweak declaration of '%D' after first use results "
+	warning ("%Jweak declaration of %qD after first use results "
                  "in unspecified behavior", newdecl, newdecl);
 
       if (SUPPORTS_WEAK)
@@ -4301,16 +4306,16 @@ void
 declare_weak (tree decl)
 {
   if (! TREE_PUBLIC (decl))
-    error ("%Jweak declaration of '%D' must be public", decl, decl);
+    error ("%Jweak declaration of %qD must be public", decl, decl);
   else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
-    error ("%Jweak declaration of '%D' must precede definition", decl, decl);
+    error ("%Jweak declaration of %qD must precede definition", decl, decl);
   else if (SUPPORTS_WEAK)
     {
       if (! DECL_WEAK (decl))
 	weak_decls = tree_cons (NULL, decl, weak_decls);
     }
   else
-    warning ("%Jweak declaration of '%D' not supported", decl, decl);
+    warning ("%Jweak declaration of %qD not supported", decl, decl);
 
   mark_weak (decl);
 }
@@ -4645,7 +4650,8 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
 
 void
 default_no_named_section (const char *name ATTRIBUTE_UNUSED,
-			  unsigned int flags ATTRIBUTE_UNUSED)
+			  unsigned int flags ATTRIBUTE_UNUSED,
+			  tree decl ATTRIBUTE_UNUSED)
 {
   /* Some object formats don't support named sections at all.  The
      front-end should already have flagged this as an error.  */
@@ -4653,11 +4659,17 @@ default_no_named_section (const char *name ATTRIBUTE_UNUSED,
 }
 
 void
-default_elf_asm_named_section (const char *name, unsigned int flags)
+default_elf_asm_named_section (const char *name, unsigned int flags,
+			       tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[10], *f = flagchars;
 
-  if (! named_section_first_declaration (name))
+  /* If we have already declared this section, we can use an
+     abbreviated form to switch back to it -- unless this section is
+     part of a COMDAT groups, in which case GAS requires the full
+     declaration every time.  */
+  if (!(HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+      && ! named_section_first_declaration (name))
     {
       fprintf (asm_out_file, "\t.section\t%s\n", name);
       return;
@@ -4677,6 +4689,8 @@ default_elf_asm_named_section (const char *name, unsigned int flags)
     *f++ = 'S';
   if (flags & SECTION_TLS)
     *f++ = 'T';
+  if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+    *f++ = 'G';
   *f = '\0';
 
   fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
@@ -4684,23 +4698,35 @@ default_elf_asm_named_section (const char *name, unsigned int flags)
   if (!(flags & SECTION_NOTYPE))
     {
       const char *type;
+      const char *format;
 
       if (flags & SECTION_BSS)
 	type = "nobits";
       else
 	type = "progbits";
 
-      fprintf (asm_out_file, ",@%s", type);
+      format = ",@%s";
+#ifdef ASM_COMMENT_START
+      /* On platforms that use "@" as the assembly comment character,
+	 use "%" instead.  */
+      if (strcmp (ASM_COMMENT_START, "@") == 0)
+	format = ",%%%s";
+#endif
+      fprintf (asm_out_file, format, type);
 
       if (flags & SECTION_ENTSIZE)
 	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+      if (HAVE_GAS_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+	fprintf (asm_out_file, ",%s,comdat", 
+		 lang_hooks.decls.comdat_group (decl));
     }
 
   putc ('\n', asm_out_file);
 }
 
 void
-default_coff_asm_named_section (const char *name, unsigned int flags)
+default_coff_asm_named_section (const char *name, unsigned int flags, 
+				tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[8], *f = flagchars;
 
@@ -4714,9 +4740,10 @@ default_coff_asm_named_section (const char *name, unsigned int flags)
 }
 
 void
-default_pe_asm_named_section (const char *name, unsigned int flags)
+default_pe_asm_named_section (const char *name, unsigned int flags,
+			      tree decl)
 {
-  default_coff_asm_named_section (name, flags);
+  default_coff_asm_named_section (name, flags, decl);
 
   if (flags & SECTION_LINKONCE)
     {

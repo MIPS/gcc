@@ -79,7 +79,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it "
+	warning ("%Jfunction %qF can never be inlined because it "
 		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
@@ -89,7 +89,7 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it might not "
+	warning ("%Jfunction %qF can never be inlined because it might not "
 		 "be bound within this unit of translation", fn, fn);
       goto cannot_inline;
     }
@@ -97,7 +97,7 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (! function_attribute_inlinable_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
+	warning ("%Jfunction %qF can never be inlined because it uses "
 		 "attributes conflicting with inlining", fn, fn);
       goto cannot_inline;
     }
@@ -112,7 +112,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (t)
 	{
 	  if (do_warning)
-	    warning ("%Jfunction '%F' can never be inlined because it has "
+	    warning ("%Jfunction %qF can never be inlined because it has "
 		     "pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -125,7 +125,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
 	{
 	  if (do_warning)
-	    warning ("%Jnested function '%F' can never be inlined because it "
+	    warning ("%Jnested function %qF can never be inlined because it "
 		     "has possibly saved pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -188,7 +188,7 @@ c_objc_common_init (void)
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
-   %E: An expression,
+   %E: an identifier or expression,
    %F: a function declaration,
    %T: a type.
 
@@ -236,7 +236,10 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	n = IDENTIFIER_POINTER (t);
       else
-        return false;
+	{
+	  pp_expression (cpp, t);
+	  return true;
+	}
       break;
 
     default:

@@ -120,11 +120,10 @@ L0$_abort:
 .lazy_symbol_pointer
 L_abort$lazy_ptr:
         .indirect_symbol _abort
-	/* APPLE LOCAL 64-bit mainline */
 #ifdef __ppc64__
-	.quad dyld_stub_binding_helper
+	.quad	dyld_stub_binding_helper
 #else
-	.long dyld_stub_binding_helper
+	.long	dyld_stub_binding_helper
 #endif
 #else
 	bl	_abort

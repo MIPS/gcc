@@ -3415,7 +3415,8 @@
   if (i >= 0)
     sprintf (rd, \"movem [$sp+],$%s\", reg_names [i]);
 
-  if (regs_ever_live[CRIS_SRP_REGNUM])
+  if (regs_ever_live[CRIS_SRP_REGNUM]
+      || cris_return_address_on_stack ())
     {
       if (*rd)
 	output_asm_insn (rd, operands);
@@ -3433,7 +3434,10 @@
 }"
   [(set (attr "slottable")
 	(if_then_else
-	 (ne (symbol_ref "regs_ever_live[CRIS_SRP_REGNUM]") (const_int 0))
+	 (ne (symbol_ref
+	      "(regs_ever_live[CRIS_SRP_REGNUM]
+	        || cris_return_address_on_stack ())")
+	     (const_int 0))
 	 (const_string "no")	     ; If jump then not slottable.
 	 (if_then_else
 	  (ne (symbol_ref
@@ -4897,17 +4901,20 @@
     [(set (match_dup 4) (match_dup 6))
      (set (match_dup 0) (plus:SI (match_dup 7) (match_dup 8)))])]
 {
-  rtx reg
+  rtx otherop
     = rtx_equal_p (operands[2], operands[0]) ? operands[3] : operands[2];
 
-  if (REG_S_P (operands[1]))
+  /* Make sure we have canonical RTX so we match the insn pattern -
+     not a constant in the first operand.  We also require the order
+     (plus reg mem) to match the final pattern.  */
+  if (CONSTANT_P (otherop) || MEM_P (otherop))
     {
       operands[7] = operands[1];
-      operands[8] = reg;
+      operands[8] = otherop;
     }
   else
     {
-      operands[7] = reg;
+      operands[7] = otherop;
       operands[8] = operands[1];
     }
   operands[6]
@@ -4945,17 +4952,20 @@
     [(set (match_dup 6) (match_dup 5))
      (set (match_dup 0) (plus:SI (match_dup 7) (match_dup 8)))])]
 {
-  rtx reg
+  rtx otherop
     = rtx_equal_p (operands[2], operands[0]) ? operands[3] : operands[2];
 
-  if (REG_S_P (operands[1]))
+  /* Make sure we have canonical RTX so we match the insn pattern -
+     not a constant in the first operand.  We also require the order
+     (plus reg mem) to match the final pattern.  */
+  if (CONSTANT_P (otherop) || MEM_P (otherop))
     {
       operands[7] = operands[1];
-      operands[8] = reg;
+      operands[8] = otherop;
     }
   else
     {
-      operands[7] = reg;
+      operands[7] = otherop;
       operands[8] = operands[1];
     }
   operands[6]

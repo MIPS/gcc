@@ -206,8 +206,7 @@ remap_decl (tree decl, inline_data *id)
 	    {
 	      tree member = remap_decl (TREE_VALUE (src), id);
 
-	      if (TREE_PURPOSE (src))
-		abort ();
+	      gcc_assert (!TREE_PURPOSE (src));
 	      members = tree_cons (NULL, member, members);
 	    }
 	  DECL_ANON_UNION_ELEMS (t) = nreverse (members);
@@ -326,7 +325,7 @@ remap_type (tree type, inline_data *id)
     case OFFSET_TYPE:
     default:
       /* Shouldn't have been thought variable sized.  */
-      abort ();
+      gcc_unreachable ();
     }
 
   walk_tree (&TYPE_SIZE (new), copy_body_r, id, NULL);
@@ -354,12 +353,9 @@ remap_decls (tree decls, inline_data *id)
 	 already declared somewhere else, so don't declare it here.  */
       if (!new_var || new_var == id->retvar)
 	;
-#ifdef ENABLE_CHECKING
-      else if (!DECL_P (new_var))
-	abort ();
-#endif
       else
 	{
+	  gcc_assert (DECL_P (new_var));
 	  TREE_CHAIN (new_var) = new_decls;
 	  new_decls = new_var;
 	}
@@ -461,8 +457,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      what function they come from.  */
   if ((TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == LABEL_DECL)
       && DECL_NAMESPACE_SCOPE_P (*tp))
-    if (! DECL_EXTERNAL (*tp) && ! TREE_STATIC (*tp))
-      abort ();
+    gcc_assert (DECL_EXTERNAL (*tp) || TREE_STATIC (*tp));
 #endif
 
   /* If this is a RETURN_EXPR, change it into a MODIFY_EXPR and a
@@ -504,17 +499,11 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
       /* Remap the declaration.  */
       new_decl = remap_decl (*tp, id);
-      if (! new_decl)
-	abort ();
+      gcc_assert (new_decl);
       /* Replace this variable with the copy.  */
       STRIP_TYPE_NOPS (new_decl);
       *tp = new_decl;
     }
-#if 0
-  else if (nonstatic_local_decl_p (*tp)
-	   && DECL_CONTEXT (*tp) != VARRAY_TREE (id->fns, 0))
-    abort ();
-#endif
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
     copy_statement_list (tp);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
@@ -536,8 +525,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	= splay_tree_lookup (id->decl_map,
 			     (splay_tree_key) TREE_OPERAND (*tp, 0));
       /* We _must_ have seen the enclosing LABELED_BLOCK_EXPR.  */
-      if (! n)
-	abort ();
+      gcc_assert (n);
       *tp = copy_node (*tp);
       TREE_OPERAND (*tp, 0) = (tree) n->value;
     }
@@ -608,10 +596,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      for (node = id->node->next_clone; node; node = node->next_clone)
 		{
 		  edge = cgraph_edge (node, old_node);
-		  if (edge)
-		    edge->call_expr = *tp;
-		  else
-		    abort ();
+		  gcc_assert (edge);
+		  edge->call_expr = *tp;
 		}
 	    }
 	  else
@@ -632,6 +618,16 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	{
 	  TREE_OPERAND (*tp, 1) = TREE_OPERAND (*tp, 3);
 	  TREE_OPERAND (*tp, 3) = NULL_TREE;
+	}
+
+      /* Variable substitution need not be simple.  In particular, the
+	 INDIRECT_REF substitution above.  Make sure that TREE_CONSTANT
+	 and friends are up-to-date.  */
+      else if (TREE_CODE (*tp) == ADDR_EXPR)
+	{
+	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
+	  recompute_tree_invarant_for_addr_expr (*tp);
+	  *walk_subtrees = 0;
 	}
     }
 
@@ -793,11 +789,10 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
   if (p)
     {
       /* No static chain?  Seems like a bug in tree-nested.c.  */
-      if (!static_chain)
-	abort ();
+      gcc_assert (static_chain);
 
-       setup_one_parameter (id, p, static_chain, fn, &init_stmts, &vars,
-			    &gimplify_init_stmts_p);
+      setup_one_parameter (id, p, static_chain, fn, &init_stmts, &vars,
+			   &gimplify_init_stmts_p);
     }
 
   if (gimplify_init_stmts_p)
@@ -841,8 +836,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
     {
       /* The front end shouldn't have used both return_slot_addr and
 	 a modify expression.  */
-      if (modify_dest)
-	abort ();
+      gcc_assert (!modify_dest);
       if (DECL_BY_REFERENCE (result))
 	var = return_slot_addr;
       else
@@ -852,8 +846,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
     }
 
   /* All types requiring non-trivial constructors should have been handled.  */
-  if (TREE_ADDRESSABLE (callee_type))
-    abort ();
+  gcc_assert (!TREE_ADDRESSABLE (callee_type));
 
   /* Attempt to avoid creating a new temporary variable.  */
   if (modify_dest)
@@ -886,8 +879,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 	}
     }
 
-  if (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) != INTEGER_CST)
-    abort ();
+  gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
   var = copy_decl_for_inlining (result, callee, caller);
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
@@ -999,20 +991,6 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  default:
 	    break;
 	  }
-      break;
-
-    case BIND_EXPR:
-      for (t = BIND_EXPR_VARS (node); t ; t = TREE_CHAIN (t))
-	{
-          /* We cannot inline functions that contain other functions.  */
-	  if (TREE_CODE (t) == FUNCTION_DECL && DECL_INITIAL (t))
-	    {
-	      inline_forbidden_reason
-		= N_("%Jfunction '%F' can never be inlined "
-		     "because it contains a nested function");
-	      return node;
-	    }
-	}
       break;
 
     case GOTO_EXPR:
@@ -1167,7 +1145,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   int *count = data;
   tree x = *tp;
 
-  if (TYPE_P (x) || DECL_P (x))
+  if (IS_TYPE_OR_DECL_P (x))
     {
       *walk_subtrees = 0;
       return NULL;
@@ -1175,8 +1153,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   /* Assume that constants and references counts nothing.  These should
      be majorized by amount of operations among them we count later
      and are common target of CSE and similar optimizations.  */
-  else if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
-	   || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
+  else if (CONSTANT_CLASS_P (x) || REFERENCE_CLASS_P (x))
     return NULL;
 
   switch (TREE_CODE (x))
@@ -1359,7 +1336,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       }
     default:
       /* Abort here se we know we don't miss any nodes.  */
-      abort ();
+      gcc_unreachable ();
     }
   return NULL;
 }
@@ -1481,8 +1458,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
          where previous inlining turned indirect call into direct call by
          constant propagating arguments.  In all other cases we hit a bug
          (incorrect node sharing is most common reason for missing edges.  */
-      if (!dest->needed)
-	abort ();
+      gcc_assert (dest->needed || !flag_unit_at_a_time);
       cgraph_create_edge (id->node, dest, t)->inline_failed
 	= N_("originally indirect function call not considered for inlining");
       goto egress;
@@ -1585,9 +1561,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
   insert_decl_map (id, id->ret_label, id->ret_label);
 
-  if (! DECL_INITIAL (fn)
-      || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)
-    abort ();
+  gcc_assert (DECL_INITIAL (fn));
+  gcc_assert (TREE_CODE (DECL_INITIAL (fn)) == BLOCK);
 
   /* Find the lhs to which the result of this call is assigned.  */
   modify_dest = tsi_stmt (id->tsi);
@@ -1725,7 +1700,7 @@ expand_calls_inline (tree *stmt_p, inline_data *id)
 
     case COMPOUND_EXPR:
       /* We're gimple.  We should have gotten rid of all these.  */
-      abort ();
+      gcc_unreachable ();
 
     case RETURN_EXPR:
       stmt_p = &TREE_OPERAND (stmt, 0);
@@ -1817,8 +1792,7 @@ optimize_inline_calls (tree fn)
 
       /* Double check that we inlined everything we are supposed to inline.  */
       for (e = id.node->callees; e; e = e->next_callee)
-	if (!e->inline_failed)
-	  abort ();
+	gcc_assert (e->inline_failed);
     }
 #endif
 }
@@ -2269,7 +2243,6 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   /* We make copies of most nodes.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
-      || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
       || code == TYPE_DECL)
@@ -2299,13 +2272,14 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
 
-  else if (TREE_CODE_CLASS (code) == 't')
+  else if (TREE_CODE_CLASS (code) == tcc_type)
     *walk_subtrees = 0;
-  else if (TREE_CODE_CLASS (code) == 'd')
+  else if (TREE_CODE_CLASS (code) == tcc_declaration)
     *walk_subtrees = 0;
- else if (code == STATEMENT_LIST)
-    abort ();
-
+  else if (TREE_CODE_CLASS (code) == tcc_constant)
+    *walk_subtrees = 0;
+  else
+    gcc_assert (code != STATEMENT_LIST);
   return NULL_TREE;
 }
 

@@ -141,6 +141,10 @@ lvalue_p_1 (tree ref,
       gcc_unreachable ();
     case MAX_EXPR:
     case MIN_EXPR:
+      /* Disallow <? and >? as lvalues if either argument side-effects.  */
+      if (TREE_SIDE_EFFECTS (TREE_OPERAND (ref, 0))
+	  || TREE_SIDE_EFFECTS (TREE_OPERAND (ref, 1)))
+	return clk_none;
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
@@ -1566,12 +1570,12 @@ cp_tree_equal (tree t1, tree t2)
 
   switch (TREE_CODE_CLASS (code1))
     {
-    case '1':
-    case '2':
-    case '<':
-    case 'e':
-    case 'r':
-    case 's':
+    case tcc_unary:
+    case tcc_binary:
+    case tcc_comparison:
+    case tcc_expression:
+    case tcc_reference:
+    case tcc_statement:
       {
 	int i;
 
@@ -1582,11 +1586,12 @@ cp_tree_equal (tree t1, tree t2)
 	return true;
       }
 
-    case 't':
+    case tcc_type:
       return same_type_p (t1, t2);
+    default:
+      gcc_unreachable ();
     }
-
-  gcc_unreachable ();
+  /* We can get here with --disable-checking.  */
   return false;
 }
 
@@ -2336,6 +2341,19 @@ stabilize_init (tree init, tree *initp)
     }
 
   return true;
+}
+
+/* Like "fold", but should be used whenever we might be processing the
+   body of a template.  */
+
+tree
+fold_if_not_in_template (tree expr)
+{
+  /* In the body of a template, there is never any need to call
+     "fold".  We will call fold later when actually instantiating the
+     template.  Integral constant expressions in templates will be
+     evaluated via fold_non_dependent_expr, as necessary.  */
+  return (processing_template_decl ? expr : fold (expr));
 }
 
 

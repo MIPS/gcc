@@ -494,9 +494,11 @@ if $LINKS; then
   done 2> /dev/null
 fi
 
+# APPLE LOCAL begin 64bit hack around
 echo want to mkdir $LIB/machine
 mkdir $LIB/machine
 sed -e 's/defined *(__ppc__)/defined (__ppc__) || defined (__ppc64__)/' /usr/include/machine/limits.h >$LIB/machine/limits.h
+# APPLE LOCAL end 64bit hack around
 
 if test $VERBOSE -gt 0
 then echo fixincludes is done ; fi

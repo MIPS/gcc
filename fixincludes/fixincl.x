@@ -1996,6 +1996,43 @@ static const char* apzFreebsd_Gcc3_BreakagePatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Freebsd_Gcc4_Breakage fix
+ */
+tSCC zFreebsd_Gcc4_BreakageName[] =
+     "freebsd_gcc4_breakage";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zFreebsd_Gcc4_BreakageList[] =
+  "|sys/cdefs.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzFreebsd_Gcc4_BreakageMachs[] = {
+        "*-*-freebsd*",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zFreebsd_Gcc4_BreakageSelect0[] =
+       "^#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 \\|\\| __GNUC__ == 3$";
+
+#define    FREEBSD_GCC4_BREAKAGE_TEST_CT  1
+static tTestDesc aFreebsd_Gcc4_BreakageTests[] = {
+  { TT_EGREP,    zFreebsd_Gcc4_BreakageSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Freebsd_Gcc4_Breakage
+ */
+static const char* apzFreebsd_Gcc4_BreakagePatch[] = {
+    "format",
+    "#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Gnu_Types fix
  */
 tSCC zGnu_TypesName[] =
@@ -3456,73 +3493,120 @@ static const char* apzLimits_IfndefsPatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
- *  Description of Lynx_Void_Int fix
+ *  Description of Linux_Ia64_Ucontext fix
  */
-tSCC zLynx_Void_IntName[] =
-     "lynx_void_int";
+tSCC zLinux_Ia64_UcontextName[] =
+     "linux_ia64_ucontext";
 
 /*
  *  File name selection pattern
  */
-tSCC zLynx_Void_IntList[] =
-  "|curses.h|";
+tSCC zLinux_Ia64_UcontextList[] =
+  "|sys/ucontext.h|";
 /*
  *  Machine/OS name selection pattern
  */
-#define apzLynx_Void_IntMachs (const char**)NULL
+tSCC* apzLinux_Ia64_UcontextMachs[] = {
+        "ia64-*-linux*",
+        (const char*)NULL };
 
 /*
  *  content selection pattern - do fix if pattern found
  */
-tSCC zLynx_Void_IntSelect0[] =
-       "#[ \t]*define[ \t]+void[ \t]+int[ \t]*";
+tSCC zLinux_Ia64_UcontextSelect0[] =
+       "\\(\\(\\(char \\*\\) &\\(\\(struct sigcontext \\*\\) 0\\)->sc_gr\\[0\\]\\) - \\(char \\*\\) 0\\)";
 
-#define    LYNX_VOID_INT_TEST_CT  1
-static tTestDesc aLynx_Void_IntTests[] = {
-  { TT_EGREP,    zLynx_Void_IntSelect0, (regex_t*)NULL }, };
+#define    LINUX_IA64_UCONTEXT_TEST_CT  1
+static tTestDesc aLinux_Ia64_UcontextTests[] = {
+  { TT_EGREP,    zLinux_Ia64_UcontextSelect0, (regex_t*)NULL }, };
 
 /*
- *  Fix Command Arguments for Lynx_Void_Int
+ *  Fix Command Arguments for Linux_Ia64_Ucontext
  */
-static const char* apzLynx_Void_IntPatch[] = {
+static const char* apzLinux_Ia64_UcontextPatch[] = {
+    "format",
+    "__builtin_offsetof (struct sigcontext, sc_gr[0])",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ *  Description of Lynxos_No_Warning_In_Sys_Time_H fix
+ */
+tSCC zLynxos_No_Warning_In_Sys_Time_HName[] =
+     "lynxos_no_warning_in_sys_time_h";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zLynxos_No_Warning_In_Sys_Time_HList[] =
+  "|sys/time.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+#define apzLynxos_No_Warning_In_Sys_Time_HMachs (const char**)NULL
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zLynxos_No_Warning_In_Sys_Time_HSelect0[] =
+       "#warning[ \t]+Using <time.h> instead of <sys/time.h>";
+
+#define    LYNXOS_NO_WARNING_IN_SYS_TIME_H_TEST_CT  1
+static tTestDesc aLynxos_No_Warning_In_Sys_Time_HTests[] = {
+  { TT_EGREP,    zLynxos_No_Warning_In_Sys_Time_HSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Lynxos_No_Warning_In_Sys_Time_H
+ */
+static const char* apzLynxos_No_Warning_In_Sys_Time_HPatch[] = {
     "format",
     "",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
- *  Description of Lynxos_Fcntl_Proto fix
+ *  Description of Lynxos_Missing_Putenv fix
  */
-tSCC zLynxos_Fcntl_ProtoName[] =
-     "lynxos_fcntl_proto";
+tSCC zLynxos_Missing_PutenvName[] =
+     "lynxos_missing_putenv";
 
 /*
  *  File name selection pattern
  */
-tSCC zLynxos_Fcntl_ProtoList[] =
-  "|fcntl.h|";
+tSCC zLynxos_Missing_PutenvList[] =
+  "|stdlib.h|";
 /*
  *  Machine/OS name selection pattern
  */
-#define apzLynxos_Fcntl_ProtoMachs (const char**)NULL
+tSCC* apzLynxos_Missing_PutenvMachs[] = {
+        "*-*-lynxos*",
+        (const char*)NULL };
 
 /*
  *  content selection pattern - do fix if pattern found
  */
-tSCC zLynxos_Fcntl_ProtoSelect0[] =
-       "fcntl[ \t]*\\(int, int, int\\)";
-
-#define    LYNXOS_FCNTL_PROTO_TEST_CT  1
-static tTestDesc aLynxos_Fcntl_ProtoTests[] = {
-  { TT_EGREP,    zLynxos_Fcntl_ProtoSelect0, (regex_t*)NULL }, };
+tSCC zLynxos_Missing_PutenvSelect0[] =
+       "extern char \\*getenv[ \t]*_AP\\(\\(const char \\*\\)\\);";
 
 /*
- *  Fix Command Arguments for Lynxos_Fcntl_Proto
+ *  content bypass pattern - skip fix if pattern found
  */
-static const char* apzLynxos_Fcntl_ProtoPatch[] = {
+tSCC zLynxos_Missing_PutenvBypass0[] =
+       "putenv[ \\t]*\\(";
+
+#define    LYNXOS_MISSING_PUTENV_TEST_CT  2
+static tTestDesc aLynxos_Missing_PutenvTests[] = {
+  { TT_NEGREP,   zLynxos_Missing_PutenvBypass0, (regex_t*)NULL },
+  { TT_EGREP,    zLynxos_Missing_PutenvSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Lynxos_Missing_Putenv
+ */
+static const char* apzLynxos_Missing_PutenvPatch[] = {
     "format",
-    "%1...)",
-    "(fcntl[ \t]*\\(int, int, )int\\)",
+    "%0\n\
+extern int putenv\t\t\t\t_AP((char *));",
+    "extern char \\*getenv[ \t]*_AP\\(\\(const char \\*\\)\\);",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -7196,6 +7280,7 @@ typedef enum {
     ECD_CURSOR_FIXIDX,
     EXCEPTION_STRUCTURE_FIXIDX,
     FREEBSD_GCC3_BREAKAGE_FIXIDX,
+    FREEBSD_GCC4_BREAKAGE_FIXIDX,
     GNU_TYPES_FIXIDX,
     HP_INLINE_FIXIDX,
     HP_SYSFILE_FIXIDX,
@@ -7233,8 +7318,9 @@ typedef enum {
     LIBC1_G_VA_LIST_FIXIDX,
     LIBC1_IFDEFD_MEMX_FIXIDX,
     LIMITS_IFNDEFS_FIXIDX,
-    LYNX_VOID_INT_FIXIDX,
-    LYNXOS_FCNTL_PROTO_FIXIDX,
+    LINUX_IA64_UCONTEXT_FIXIDX,
+    LYNXOS_NO_WARNING_IN_SYS_TIME_H_FIXIDX,
+    LYNXOS_MISSING_PUTENV_FIXIDX,
     MACHINE_ANSI_H_VA_LIST_FIXIDX,
     MACHINE_NAME_FIXIDX,
     MATH_EXCEPTION_FIXIDX,
@@ -7567,6 +7653,11 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      FREEBSD_GCC3_BREAKAGE_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aFreebsd_Gcc3_BreakageTests,   apzFreebsd_Gcc3_BreakagePatch, 0 },
 
+  {  zFreebsd_Gcc4_BreakageName,    zFreebsd_Gcc4_BreakageList,
+     apzFreebsd_Gcc4_BreakageMachs,
+     FREEBSD_GCC4_BREAKAGE_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aFreebsd_Gcc4_BreakageTests,   apzFreebsd_Gcc4_BreakagePatch, 0 },
+
   {  zGnu_TypesName,    zGnu_TypesList,
      apzGnu_TypesMachs,
      GNU_TYPES_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
@@ -7752,15 +7843,20 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      LIMITS_IFNDEFS_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aLimits_IfndefsTests,   apzLimits_IfndefsPatch, 0 },
 
-  {  zLynx_Void_IntName,    zLynx_Void_IntList,
-     apzLynx_Void_IntMachs,
-     LYNX_VOID_INT_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
-     aLynx_Void_IntTests,   apzLynx_Void_IntPatch, 0 },
+  {  zLinux_Ia64_UcontextName,    zLinux_Ia64_UcontextList,
+     apzLinux_Ia64_UcontextMachs,
+     LINUX_IA64_UCONTEXT_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aLinux_Ia64_UcontextTests,   apzLinux_Ia64_UcontextPatch, 0 },
 
-  {  zLynxos_Fcntl_ProtoName,    zLynxos_Fcntl_ProtoList,
-     apzLynxos_Fcntl_ProtoMachs,
-     LYNXOS_FCNTL_PROTO_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
-     aLynxos_Fcntl_ProtoTests,   apzLynxos_Fcntl_ProtoPatch, 0 },
+  {  zLynxos_No_Warning_In_Sys_Time_HName,    zLynxos_No_Warning_In_Sys_Time_HList,
+     apzLynxos_No_Warning_In_Sys_Time_HMachs,
+     LYNXOS_NO_WARNING_IN_SYS_TIME_H_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aLynxos_No_Warning_In_Sys_Time_HTests,   apzLynxos_No_Warning_In_Sys_Time_HPatch, 0 },
+
+  {  zLynxos_Missing_PutenvName,    zLynxos_Missing_PutenvList,
+     apzLynxos_Missing_PutenvMachs,
+     LYNXOS_MISSING_PUTENV_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aLynxos_Missing_PutenvTests,   apzLynxos_Missing_PutenvPatch, 0 },
 
   {  zMachine_Ansi_H_Va_ListName,    zMachine_Ansi_H_Va_ListList,
      apzMachine_Ansi_H_Va_ListMachs,

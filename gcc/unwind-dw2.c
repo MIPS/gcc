@@ -60,11 +60,6 @@
 #define DWARF_REG_TO_UNWIND_COLUMN(REGNO) (REGNO)
 #endif
 
-/* A target can do some update context frobbing.  */
-#ifndef MD_FROB_UPDATE_CONTEXT
-#define MD_FROB_UPDATE_CONTEXT(CTX, FS) do { } while (0)
-#endif
-
 /* This is the register and unwind state for a particular frame.  This
    provides the information necessary to unwind up past a frame and return
    to its caller.  */
@@ -129,6 +124,11 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 {
   int size;
   void *ptr;
+
+#ifdef DWARF_ZERO_REG
+  if (index == DWARF_ZERO_REG)
+    return 0;
+#endif
 
   index = DWARF_REG_TO_UNWIND_COLUMN (index);
   if (index >= (int) sizeof(dwarf_reg_size_table))
@@ -251,6 +251,10 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *context)
 {
   return (_Unwind_Ptr) context->bases.tbase;
 }
+#endif
+
+#ifdef MD_UNWIND_SUPPORT
+#include MD_UNWIND_SUPPORT
 #endif
 
 /* Extract any interesting information from the CIE for the translation
@@ -841,7 +845,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 		unused_rs = unused_rs->prev;
 	      }
 	    else
-	      new_rs = __builtin_alloca (sizeof (struct frame_state_reg_info));
+	      new_rs = alloca (sizeof (struct frame_state_reg_info));
 
 	    *new_rs = fs->regs;
 	    fs->regs.prev = new_rs;
@@ -963,14 +967,11 @@ uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
   fde = _Unwind_Find_FDE (context->ra - 1, &context->bases);
   if (fde == NULL)
     {
+#ifdef MD_FALLBACK_FRAME_STATE_FOR
       /* Couldn't find frame unwind info for this function.  Try a
 	 target-specific fallback mechanism.  This will necessarily
 	 not provide a personality routine or LSDA.  */
-#ifdef MD_FALLBACK_FRAME_STATE_FOR
-      MD_FALLBACK_FRAME_STATE_FOR (context, fs, success);
-      return _URC_END_OF_STACK;
-    success:
-      return _URC_NO_REASON;
+      return MD_FALLBACK_FRAME_STATE_FOR (context, fs);
 #else
       return _URC_END_OF_STACK;
 #endif
@@ -1176,7 +1177,9 @@ uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 	break;
       }
 
+#ifdef MD_FROB_UPDATE_CONTEXT
   MD_FROB_UPDATE_CONTEXT (context, fs);
+#endif
 }
 
 /* CONTEXT describes the unwind state for a frame, and FS describes the FDE

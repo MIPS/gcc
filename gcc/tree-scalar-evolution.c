@@ -331,7 +331,7 @@ del_scev_info (void *e)
 
 /* Get the index corresponding to VAR in the current LOOP.  If
    it's the first time we ask for this VAR, then we return
-   chrec_not_analysed_yet for this VAR and return its index.  */
+   chrec_not_analyzed_yet for this VAR and return its index.  */
 
 static tree *
 find_var_scev_info (tree var)
@@ -506,9 +506,8 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 	      /* Number of iterations is off by one (the ssa name we
 		 analyze must be defined before the exit).  */
 	      nb_iter = chrec_fold_minus (chrec_type (nb_iter),
-					  nb_iter,
-					  fold_convert (chrec_type (nb_iter),
-						        integer_one_node));
+				nb_iter,
+				build_int_cst_type (chrec_type (nb_iter), 1));
 	      
 	      /* evolution_fn is the evolution function in LOOP.  Get
 		 its value in the nb_iter-th iteration.  */
@@ -896,7 +895,7 @@ add_to_evolution (unsigned loop_nb,
 
   if (code == MINUS_EXPR)
     to_add = chrec_fold_multiply (type, to_add, 
-				  fold_convert (type, integer_minus_one_node));
+				  build_int_cst_type (type, -1));
 
   res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
 
@@ -916,7 +915,9 @@ static inline tree
 set_nb_iterations_in_loop (struct loop *loop, 
 			   tree res)
 {
-  res = chrec_fold_plus (chrec_type (res), res, integer_one_node);
+  res = chrec_fold_plus (chrec_type (res), res,
+			 build_int_cst_type (chrec_type (res), 1));
+
   /* FIXME HWI: However we want to store one iteration less than the
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
@@ -1209,8 +1210,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		      (loop->num, 
 		       chrec_fold_multiply (type_rhs, 
 					    *evolution_of_loop, 
-					    fold_convert (type_rhs,
-						          integer_minus_one_node)),
+					    build_int_cst_type (type_rhs, -1)),
 		       PLUS_EXPR, rhs0);
 		}
 	    }
@@ -1241,7 +1241,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	      (loop->num, 
 	       chrec_fold_multiply (type_rhs, 
 				    *evolution_of_loop, 
-				    fold_convert (type_rhs, integer_minus_one_node)),
+				    build_int_cst_type (type_rhs, -1)),
 	       PLUS_EXPR, rhs0);
 	}
       
@@ -1367,7 +1367,7 @@ follow_ssa_edge_in_condition_phi_branch (int i,
     }
 
   /* This case occurs when one of the condition branches sets 
-     the variable to a constant: ie. a phi-node like
+     the variable to a constant: i.e. a phi-node like
      "a_2 = PHI <a_7(5), 2(6)>;".  
 	 
      FIXME:  This case have to be refined correctly: 
@@ -1491,7 +1491,7 @@ follow_ssa_edge (struct loop *loop,
 	return true;
 	  
       /* Otherwise, the evolution of the HALTING_PHI depends
-	 on the evolution of another loop-phi-node, ie. the
+	 on the evolution of another loop-phi-node, i.e. the
 	 evolution function is a higher degree polynomial.  */
       if (def_loop == loop)
 	return false;
@@ -1564,7 +1564,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	      
       /* When it is impossible to go back on the same
 	 loop_phi_node by following the ssa edges, the
-	 evolution is represented by a peeled chrec, ie. the
+	 evolution is represented by a peeled chrec, i.e. the
 	 first iteration, EV_FN has the value INIT_COND, then
 	 all the other iterations it has the value of ARG.  
 	 For the moment, PEELED_CHREC nodes are not built.  */

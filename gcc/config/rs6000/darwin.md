@@ -1,4 +1,3 @@
-/* APPLE LOCAL file 64-bit */
 /* Machine description patterns for PowerPC running Darwin (Mac OS X).
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
@@ -146,6 +145,7 @@ Boston, MA 02111-1307, USA.  */
 	(match_dup 2))]
   "")
 
+/* APPLE LOCAL begin 64-bit */
 (define_insn ""
   [(set (mem:V4SI (plus:DI (match_operand:DI 0 "gpc_reg_operand" "b,r")
 			 (match_operand:DI 1 "gpc_reg_operand" "r,b")))
@@ -391,3 +391,4 @@ Boston, MA 02111-1307, USA.  */
 "
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
+/* APPLE LOCAL end 64-bit */

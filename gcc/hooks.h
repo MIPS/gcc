@@ -46,6 +46,7 @@ extern void hook_void_FILEptr_constcharptr (FILE *, const char *);
 extern void hook_void_tree (tree);
 extern void hook_void_tree_treeptr (tree, tree *);
 
+extern int hook_int_tree_0 (tree);
 extern int hook_int_tree_tree_1 (tree, tree);
 extern int hook_int_rtx_0 (rtx);
 extern int hook_int_size_t_constcharptr_int_0 (size_t, const char *, int);
@@ -68,5 +69,5 @@ extern const char *hook_constcharptr_tree_null (tree);
 extern tree hook_tree_tree_null (tree);
 extern tree hook_tree_tree_tree_tree_null (tree, tree, tree);
 /* APPLE LOCAL end constant cfstrings */
-
+extern tree hook_tree_tree_bool_null (tree, bool);
 #endif

@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "tree-inline.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
@@ -49,7 +48,7 @@ extern void rename_ssa_copies (void);
 
    Each copy is examined to determine if it is possible to rename the base
    variable of one of the operands to the same variable as the other operand.
-   ie.
+   i.e.
    T.3_5 = <blah>
    a_1 = T.3_5
 
@@ -117,13 +116,12 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 {
   int p1, p2, p3;
   tree root1, root2;
+  tree rep1, rep2;
   var_ann_t ann1, ann2, ann3;
-  bool ign1, ign2;
+  bool ign1, ign2, abnorm;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (var1) != SSA_NAME || TREE_CODE (var2) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var1) == SSA_NAME);
+  gcc_assert (TREE_CODE (var2) == SSA_NAME);
 
   register_ssa_partition (map, var1, false);
   register_ssa_partition (map, var2, true);
@@ -140,26 +138,13 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       fprintf (debug, "(P%d)", p2);
     }
 
-#ifdef ENABLE_CHECKING
-  if (p1 == NO_PARTITION || p2 == NO_PARTITION)
-    abort ();
-#endif
+  gcc_assert (p1 != NO_PARTITION);
+  gcc_assert (p2 != NO_PARTITION);
 
-  root1 = SSA_NAME_VAR (partition_to_var (map, p1));
-  root2 = SSA_NAME_VAR (partition_to_var (map, p2));
-
-  if (DECL_HARD_REGISTER (root1) || DECL_HARD_REGISTER (root2))
-    {
-      if (debug)
-        {
-	  if (DECL_HARD_REGISTER (root1))
-	    print_generic_expr (debug, var1, TDF_SLIM);
-	  else
-	    print_generic_expr (debug, var2, TDF_SLIM);
-	  fprintf (debug, " is a hardware register.  No Coalescing.\n");
-	}
-      return;
-    }
+  rep1 = partition_to_var (map, p1);
+  rep2 = partition_to_var (map, p2);
+  root1 = SSA_NAME_VAR (rep1);
+  root2 = SSA_NAME_VAR (rep2);
 
   ann1 = var_ann (root1);
   ann2 = var_ann (root2);
@@ -168,6 +153,16 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Already coalesced.\n");
+      return;
+    }
+
+  /* Don't coalesce if one of the variables occurs in an abnormal PHI.  */
+  abnorm = (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep1)
+	    || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep2));
+  if (abnorm)
+    {
+      if (debug)
+	fprintf (debug, " : Abnormal PHI barrier.  No coalesce.\n");
       return;
     }
 

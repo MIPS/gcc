@@ -150,6 +150,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NO_DBX_FUNCTION_END 0
 #endif
 
+#ifndef NO_DBX_BNSYM_ENSYM
+#define NO_DBX_BNSYM_ENSYM 0
+#endif
+
 enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
 
 /* Structure recording information about a C data type.
@@ -343,8 +347,9 @@ static void emit_pending_bincls         (void);
 static inline void emit_pending_bincls_if_required (void);
 
 static void dbxout_init (const char *);
-/* APPLE LOCAL 3729261 FSF candidate */
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
 static unsigned int get_lang_number (void);
+#endif
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
@@ -414,7 +419,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
-  dbxout_handle_pch,		/* handle_pch */
+  dbxout_handle_pch,		         /* handle_pch */
   debug_nothing_rtx		         /* var_location */
 };
 #endif /* DBX_DEBUGGING_INFO  */
@@ -486,12 +491,12 @@ dbxout_function_end (void)
   fprintf (asmfile, "\n");
 #endif
 
-  if (!flag_debug_only_used_symbols)
+  if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
     fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_ENSYM);
 }
 #endif /* DBX_DEBUGGING_INFO */
 
-/* APPLE LOCAL begin 3729261 FSF candidate */
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
 /* Get lang description for N_SO stab.  */
 
 static unsigned int
@@ -511,11 +516,15 @@ get_lang_number (void)
     return N_SO_PASCAL;
   else if (strcmp (language_string, "GNU Objective-C") == 0)
     return N_SO_OBJC;
+  /* APPLE LOCAL begin Objective-C++ */
+  else if (strcmp (language_string, "GNU Objective-C++") == 0)
+    return N_SO_OBJCPLUS;
+  /* APPLE LOCAL end Objective-C++ */
   else
     return 0;
 
 }
-/* APPLE LOCAL end 3729261 FSF candidate */
+#endif
 
 /* At the beginning of compilation, start writing the symbol table.
    Initialize `typevec' and output the standard data types of C.  */
@@ -550,9 +559,8 @@ dbxout_init (const char *input_file_name)
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
 	  /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
-	  /* APPLE LOCAL 3729261 FSF candidate */
 	  fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
-	  /* APPLE LOCAL end */
+	  /* APPLE LOCAL end STABS SOL address suppression (radar 3109828) */
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	}
     }
@@ -566,11 +574,10 @@ dbxout_init (const char *input_file_name)
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
   /* APPLE LOCAL begin STABS SOL address suppression (radar 3109828) */
-  /* APPLE LOCAL 3729261 FSF candidate */
-  fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
+ fprintf (asmfile, ",%d,0,%d,0\n", N_SO, get_lang_number ());
+  /* APPLE LOCAL end STABS SOL address suppression (radar 3109828) */
   text_section ();
-  /* APPLE LOCAL end */
-  (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
+  targetm.asm_out.internal_label (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
 
 #ifdef DBX_OUTPUT_GCC_MARKER
@@ -795,7 +802,7 @@ dbxout_source_file (FILE *file, const char *filename)
       else
 	text_section ();
       /* APPLE LOCAL end hot/cold partitioning  */
-      (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
+      targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;
     }
@@ -808,6 +815,7 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
 {
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
+      && !NO_DBX_BNSYM_ENSYM
       && !flag_debug_only_used_symbols)
     fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_BNSYM);
 
@@ -1336,7 +1344,7 @@ dbxout_type (tree type, int full)
 	   || TREE_CODE (type) == QUAL_UNION_TYPE
 	   || TREE_CODE (type) == ENUMERAL_TYPE)
 	  && TYPE_STUB_DECL (type)
-	  && TREE_CODE_CLASS (TREE_CODE (TYPE_STUB_DECL (type))) == 'd'
+	  && DECL_P (TYPE_STUB_DECL (type))
 	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
 	debug_queue_symbol (TYPE_STUB_DECL (type));
       else if (TYPE_NAME (type)
@@ -1449,7 +1457,7 @@ dbxout_type (tree type, int full)
     {
     case VOID_TYPE:
     case LANG_TYPE:
-      /* For a void type, just define it as itself; ie, "5=5".
+      /* For a void type, just define it as itself; i.e., "5=5".
 	 This makes us consider it defined
 	 without saying what it is.  The debugger will make it
 	 a void type when the reference is seen, and nothing will
@@ -1726,8 +1734,7 @@ dbxout_type (tree type, int full)
 	    /* We shouldn't be outputting a reference to a type before its
 	       definition unless the type has a tag name.
 	       A typedef name without a tag name should be impossible.  */
-	    if (TREE_CODE (TYPE_NAME (type)) != IDENTIFIER_NODE)
-	      abort ();
+	    gcc_assert (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE);
 #endif
 	    if (TYPE_NAME (type) != 0)
 	      dbxout_type_name (type);
@@ -1962,7 +1969,7 @@ dbxout_type (tree type, int full)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2083,19 +2090,19 @@ print_wide_int (HOST_WIDE_INT c)
 static void
 dbxout_type_name (tree type)
 {
-  tree t;
-  if (TYPE_NAME (type) == 0)
-    abort ();
-  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+  tree t = TYPE_NAME (type);
+  
+  gcc_assert (t);
+  switch (TREE_CODE (t))
     {
-      t = TYPE_NAME (type);
+    case IDENTIFIER_NODE:
+      break;
+    case TYPE_DECL:
+      t = DECL_NAME (t);
+      break;
+    default:
+      gcc_unreachable ();
     }
-  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
-    {
-      t = DECL_NAME (TYPE_NAME (type));
-    }
-  else
-    abort ();
 
   fprintf (asmfile, "%s", IDENTIFIER_POINTER (t));
   CHARS (IDENTIFIER_LENGTH (t));
@@ -2198,19 +2205,19 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
            || TREE_CODE (t) == ENUMERAL_TYPE)
           && TYPE_STUB_DECL (t)
           && TYPE_STUB_DECL (t) != decl
-          && TREE_CODE_CLASS (TREE_CODE (TYPE_STUB_DECL (t))) == 'd'
+          && DECL_P (TYPE_STUB_DECL (t))
           && ! DECL_IGNORED_P (TYPE_STUB_DECL (t)))
         {
           debug_queue_symbol (TYPE_STUB_DECL (t));
           if (TYPE_NAME (t)
               && TYPE_NAME (t) != TYPE_STUB_DECL (t)
               && TYPE_NAME (t) != decl
-              && TREE_CODE_CLASS (TREE_CODE (TYPE_NAME (t))) == 'd')
+              && DECL_P (TYPE_NAME (t)))
             debug_queue_symbol (TYPE_NAME (t));
         }
       else if (TYPE_NAME (t)
 	       && TYPE_NAME (t) != decl
-	       && TREE_CODE_CLASS (TREE_CODE (TYPE_NAME (t))) == 'd')
+	       && DECL_P (TYPE_NAME (t)))
         debug_queue_symbol (TYPE_NAME (t));
     }
 
@@ -2436,7 +2443,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
     case PARM_DECL:
       /* Parm decls go in their own separate chains
 	 and are output by dbxout_reg_parms and dbxout_parms.  */
-      abort ();
+      gcc_unreachable ();
 
     case RESULT_DECL:
       /* Named return value, treat like a VAR_DECL.  */

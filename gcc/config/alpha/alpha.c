@@ -700,18 +700,14 @@ alpha_scalar_mode_supported_p (enum machine_mode mode)
 }
 
 /* Alpha implements a couple of integer vector mode operations when
-   TARGET_MAX is enabled.  */
+   TARGET_MAX is enabled.  We do not check TARGET_MAX here, however,
+   which allows the vectorizer to operate on e.g. move instructions,
+   or when expand_vector_operations can do something useful.  */
 
 static bool
 alpha_vector_mode_supported_p (enum machine_mode mode)
 {
-  if (TARGET_MAX
-      && (mode == V8QImode
-	  || mode == V4HImode
-	  || mode == V2SImode))
-    return true;
-
-  return false;
+  return mode == V8QImode || mode == V4HImode || mode == V2SImode;
 }
 
 /* Return 1 if this function can directly return via $26.  */
@@ -1208,17 +1204,8 @@ alpha_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   return decl_has_samegp (decl);
 }
 
-/* For TARGET_EXPLICIT_RELOCS, we don't obfuscate a SYMBOL_REF to a
-   small symbolic operand until after reload.  At which point we need
-   to replace (mem (symbol_ref)) with (mem (lo_sum $29 symbol_ref))
-   so that sched2 has the proper dependency information.  */
-/*
-  {"some_small_symbolic_operand", {SET, PARALLEL, PREFETCH, UNSPEC,	\
-				   UNSPEC_VOLATILE}},
-*/
-
-static int
-some_small_symbolic_operand_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
+int
+some_small_symbolic_operand_int (rtx *px, void *data ATTRIBUTE_UNUSED)
 {
   rtx x = *px;
 
@@ -1227,12 +1214,6 @@ some_small_symbolic_operand_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
     return -1;
 
   return small_symbolic_operand (x, Pmode) != 0;
-}
-
-int
-some_small_symbolic_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return for_each_rtx (&x, some_small_symbolic_operand_1, NULL);
 }
 
 static int
@@ -2001,10 +1982,35 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 bool
 alpha_expand_mov (enum machine_mode mode, rtx *operands)
 {
+  /* Honor misaligned loads, for those we promised to do so.  */
+  if (GET_CODE (operands[1]) == MEM
+      && alpha_vector_mode_supported_p (mode)
+      && MEM_ALIGN (operands[1]) < GET_MODE_ALIGNMENT (mode))
+    {
+      rtx tmp;
+      if (register_operand (operands[0], mode))
+	tmp = operands[0];
+      else
+	tmp = gen_reg_rtx (mode);
+      alpha_expand_unaligned_load (tmp, operands[1], 8, 0, 0);
+      if (tmp == operands[0])
+	return true;
+      operands[1] = tmp;
+    }
+
   /* If the output is not a register, the input must be.  */
   if (GET_CODE (operands[0]) == MEM
       && ! reg_or_0_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
+
+  /* Honor misaligned stores, for those we promised to do so.  */
+  if (GET_CODE (operands[0]) == MEM
+      && alpha_vector_mode_supported_p (mode)
+      && MEM_ALIGN (operands[0]) < GET_MODE_ALIGNMENT (mode))
+    {
+      alpha_expand_unaligned_store (operands[0], operands[1], 8, 0);
+      return true;
+    }
 
   /* Allow legitimize_address to perform some simplifications.  */
   if (mode == Pmode && symbolic_operand (operands[1], mode))
@@ -3352,7 +3358,7 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
     {
       addr = copy_addr_to_reg (plus_constant (dsta, ofs));
 
-      if (src != const0_rtx)
+      if (src != CONST0_RTX (GET_MODE (src)))
 	{
 	  emit_insn (gen_insxh (insh, gen_lowpart (DImode, src),
 				GEN_INT (size*8), addr));
@@ -3390,7 +3396,7 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
 	}
     }
 
-  if (src != const0_rtx)
+  if (src != CONST0_RTX (GET_MODE (src)))
     {
       dsth = expand_binop (DImode, ior_optab, insh, dsth, dsth, 0, OPTAB_WIDEN);
       dstl = expand_binop (DImode, ior_optab, insl, dstl, dstl, 0, OPTAB_WIDEN);
@@ -5918,11 +5924,6 @@ alpha_sa_mask (unsigned long *imaskP, unsigned long *fmaskP)
 	    break;
 	  imask |= 1UL << regno;
 	}
-
-      /* Glibc likes to use $31 as an unwind stopper for crt0.  To
-	 avoid hackery in unwind-dw2.c, we need to actively store a
-	 zero in the prologue of _Unwind_RaiseException et al.  */
-      imask |= 1UL << 31;
     }
 
   /* If any register spilled, then spill the return address also.  */
@@ -6179,7 +6180,7 @@ set_frame_related_p (void)
 #define FRP(exp)  (start_sequence (), exp, set_frame_related_p ())
 
 /* Generates a store with the proper unwind info attached.  VALUE is
-   stored at BASE_REG+BASE_OFS.  If FRAME_BIAS is non-zero, then BASE_REG
+   stored at BASE_REG+BASE_OFS.  If FRAME_BIAS is nonzero, then BASE_REG
    contains SP+FRAME_BIAS, and that is the unwind info that should be
    generated.  If FRAME_REG != VALUE, then VALUE is being stored on
    behalf of FRAME_REG, and FRAME_REG should be present in the unwind.  */
@@ -6444,14 +6445,6 @@ alpha_expand_prologue (void)
 	    emit_frame_store (i, sa_reg, sa_bias, reg_offset);
 	    reg_offset += 8;
 	  }
-
-      /* Store a zero if requested for unwinding.  */
-      if (imask & (1UL << 31))
-	{
-	  emit_frame_store_1 (const0_rtx, sa_reg, sa_bias, reg_offset,
-			      gen_rtx_REG (Pmode, 31));
-	  reg_offset += 8;
-	}
 
       for (i = 0; i < 31; i++)
 	if (fmask & (1UL << i))
@@ -6869,9 +6862,6 @@ alpha_expand_epilogue (void)
 	      }
 	    reg_offset += 8;
 	  }
-
-      if (imask & (1UL << 31))
-	reg_offset += 8;
 
       for (i = 0; i < 31; ++i)
 	if (fmask & (1UL << i))
@@ -8455,7 +8445,8 @@ vms_section_type_flags (tree decl, const char *name, int reloc)
    the section; 0 if the default should be used.  */
 
 static void
-vms_asm_named_section (const char *name, unsigned int flags)
+vms_asm_named_section (const char *name, unsigned int flags, 
+		       tree decl ATTRIBUTE_UNUSED)
 {
   fputc ('\n', asm_out_file);
   fprintf (asm_out_file, ".section\t%s", name);
@@ -8679,7 +8670,8 @@ unicosmk_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
    the section; 0 if the default should be used.  */
 
 static void
-unicosmk_asm_named_section (const char *name, unsigned int flags)
+unicosmk_asm_named_section (const char *name, unsigned int flags, 
+			    tree decl ATTRIBUTE_UNUSED)
 {
   const char *kind;
 
@@ -9439,6 +9431,9 @@ alpha_init_libfuncs (void)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
+
+#undef TARGET_VECTORIZE_MISALIGNED_MEM_OK
+#define TARGET_VECTORIZE_MISALIGNED_MEM_OK alpha_vector_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

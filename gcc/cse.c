@@ -5458,6 +5458,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 		  || (GET_CODE (trial) == LABEL_REF
 		      && ! condjump_p (insn))))
 	    {
+	      /* Don't substitute non-local labels, this confuses CFG.  */
+	      if (GET_CODE (trial) == LABEL_REF
+		  && LABEL_REF_NONLOCAL_P (trial))
+		continue;
+
 	      SET_SRC (sets[i].rtl) = trial;
 	      cse_jumps_altered = 1;
 	      break;
@@ -5695,7 +5700,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 
       /* If this SET is now setting PC to a label, we know it used to
 	 be a conditional or computed branch.  */
-      else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF)
+      else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF
+	       && !LABEL_REF_NONLOCAL_P (src))
 	{
 	  /* Now emit a BARRIER after the unconditional jump.  */
 	  if (NEXT_INSN (insn) == 0
@@ -7463,6 +7469,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   rtx last_insns[2];
   unsigned int i;
   rtx newreg;
+  edge_iterator ei;
 
   /* We expect to have two successors.  Look at both before picking
      the final mode for the comparison.  If we have more successors
@@ -7473,7 +7480,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   found_equiv = false;
   mode = GET_MODE (cc_src);
   insn_count = 0;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       rtx insn;
       rtx end;
@@ -7481,8 +7488,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
       if (e->flags & EDGE_COMPLEX)
 	continue;
 
-      if (! e->dest->pred
-	  || e->dest->pred->pred_next
+      if (EDGE_COUNT (e->dest->preds) != 1
 	  || e->dest == EXIT_BLOCK_PTR)
 	continue;
 

@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -76,7 +76,9 @@ struct lim_aux_data
 				   MAX_LOOP loop.  */
 };
 
-#define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
+#define LIM_DATA(STMT) (TREE_CODE (STMT) == PHI_NODE \
+			? NULL \
+			: (struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
 /* Description of a memory reference for store motion.  */
 
@@ -94,9 +96,20 @@ struct mem_ref
    block will be executed.  */
 #define ALWAYS_EXECUTED_IN(BB) ((struct loop *) (BB)->aux)
 
-/* Maximum uid in the statement in the function.  */
+static unsigned max_stmt_uid;	/* Maximal uid of a statement.  Uids to phi
+				   nodes are assigned using the versions of
+				   ssa names they define.  */
 
-static unsigned max_uid;
+/* Returns uid of statement STMT.  */
+
+static unsigned
+get_stmt_uid (tree stmt)
+{
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return SSA_NAME_VERSION (PHI_RESULT (stmt)) + max_stmt_uid;
+
+  return stmt_ann (stmt)->uid;
+}
 
 /* Calls CBCK for each index in memory reference ADDR_P.  There are two
    kinds situations handled; in each of these cases, the memory reference
@@ -115,7 +128,7 @@ static unsigned max_uid;
 bool
 for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 {
-  tree *nxt;
+  tree *nxt, *idx;
 
   for (; ; addr_p = nxt)
     {
@@ -124,16 +137,28 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case SSA_NAME:
 	  return cbck (*addr_p, addr_p, data);
 
+	case MISALIGNED_INDIRECT_REF:
+	case ALIGN_INDIRECT_REF:
 	case INDIRECT_REF:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  return cbck (*addr_p, nxt, data);
 
 	case BIT_FIELD_REF:
-	case COMPONENT_REF:
 	case VIEW_CONVERT_EXPR:
 	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  break;
+
+	case COMPONENT_REF:
+	  /* If the component has varying offset, it behaves like index
+	     as well.  */
+	  idx = &TREE_OPERAND (*addr_p, 2);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 
@@ -150,7 +175,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  return true;
 
 	default:
-    	  abort ();
+    	  gcc_unreachable ();
 	}
     }
 }
@@ -243,7 +268,7 @@ outermost_invariant_loop (tree def, struct loop *loop)
 static struct loop *
 outermost_invariant_loop_expr (tree expr, struct loop *loop)
 {
-  char class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
   struct loop *max_loop = superloop_at_depth (loop, 1), *aloop;
 
@@ -252,10 +277,10 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       || is_gimple_min_invariant (expr))
     return outermost_invariant_loop (expr, loop);
 
-  if (class != '1'
-      && class != '2'
-      && class != 'e'
-      && class != '<')
+  if (class != tcc_unary
+      && class != tcc_binary
+      && class != tcc_expression
+      && class != tcc_comparison)
     return NULL;
 
   nops = first_rtl_op (TREE_CODE (expr));
@@ -438,12 +463,9 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
   if (flow_loop_nested_p (stmt_loop, level))
     return;
 
-  if (!LIM_DATA (stmt))
-    abort ();
-
-  if (level != LIM_DATA (stmt)->max_loop
-      && !flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level))
-    abort ();
+  gcc_assert (LIM_DATA (stmt));
+  gcc_assert (level == LIM_DATA (stmt)->max_loop
+	      || flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level));
 
   LIM_DATA (stmt)->tgt_loop = level;
   for (dep = LIM_DATA (stmt)->depends; dep; dep = dep->next)
@@ -581,8 +603,8 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (bb->succ->dest->loop_father,
-					bb->pred->src->loop_father));
+		      find_common_loop (EDGE_SUCC (bb, 0)->dest->loop_father,
+					EDGE_PRED (bb, 0)->src->loop_father));
     }
 }
 
@@ -704,7 +726,7 @@ may_move_till (tree ref, tree *index, void *data)
 static void
 force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
 {
-  char class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
 
   if (TREE_CODE (expr) == SSA_NAME)
@@ -717,10 +739,10 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       return;
     }
 
-  if (class != '1'
-      && class != '2'
-      && class != 'e'
-      && class != '<')
+  if (class != tcc_unary
+      && class != tcc_binary
+      && class != tcc_expression
+      && class != tcc_comparison)
     return;
 
   nops = first_rtl_op (TREE_CODE (expr));
@@ -808,10 +830,10 @@ maybe_queue_var (tree var, struct loop *loop,
 	      
   if (!def_bb
       || !flow_bb_inside_loop_p (loop, def_bb)
-      || TEST_BIT (seen, stmt_ann (stmt)->uid))
+      || TEST_BIT (seen, get_stmt_uid (stmt)))
     return;
 	  
-  SET_BIT (seen, stmt_ann (stmt)->uid);
+  SET_BIT (seen, get_stmt_uid (stmt));
   queue[(*in_queue)++] = stmt;
 }
 
@@ -903,6 +925,7 @@ single_reachable_address (struct loop *loop, tree stmt,
 			  struct mem_ref **mem_refs,
 			  bool *seen_call_stmt)
 {
+  unsigned max_uid = max_stmt_uid + num_ssa_names;
   tree *queue = xmalloc (sizeof (tree) * max_uid);
   sbitmap seen = sbitmap_alloc (max_uid);
   unsigned in_queue = 1;
@@ -920,7 +943,7 @@ single_reachable_address (struct loop *loop, tree stmt,
   sra_data.common_ref = NULL_TREE;
 
   queue[0] = stmt;
-  SET_BIT (seen, stmt_ann (stmt)->uid);
+  SET_BIT (seen, get_stmt_uid (stmt));
   *seen_call_stmt = false;
 
   while (in_queue)
@@ -959,8 +982,9 @@ single_reachable_address (struct loop *loop, tree stmt,
 
 	case PHI_NODE:
 	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (stmt); i++)
-	    maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
-			     seen, queue, &in_queue);
+	    if (TREE_CODE (PHI_ARG_DEF (stmt, i)) == SSA_NAME)
+	      maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
+		               seen, queue, &in_queue);
 	  break;
 
 	default:
@@ -978,9 +1002,9 @@ single_reachable_address (struct loop *loop, tree stmt,
 	  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
 	    continue;
 
-	  if (TEST_BIT (seen, stmt_ann (stmt)->uid))
+	  if (TEST_BIT (seen, get_stmt_uid (stmt)))
 	    continue;
-	  SET_BIT (seen, stmt_ann (stmt)->uid);
+	  SET_BIT (seen, get_stmt_uid (stmt));
 
 	  queue[in_queue++] = stmt;
 	}
@@ -1090,7 +1114,7 @@ is_call_clobbered_ref (tree ref)
   if (DECL_P (base))
     return is_call_clobbered (base);
 
-  if (TREE_CODE (base) == INDIRECT_REF)
+  if (INDIRECT_REF_P (base))
     {
       /* Check whether the alias tags associated with the pointer
 	 are call clobbered.  */
@@ -1106,7 +1130,7 @@ is_call_clobbered_ref (tree ref)
       return false;
     }
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Determine whether all memory references inside LOOP corresponding to the
@@ -1233,17 +1257,13 @@ determine_lsm (struct loops *loops)
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */
-  max_uid = 0;
+  max_stmt_uid = 0;
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
-      tree phi;
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	stmt_ann (bsi_stmt (bsi))->uid = max_uid++;
-
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	stmt_ann (phi)->uid = max_uid++;
+	stmt_ann (bsi_stmt (bsi))->uid = max_stmt_uid++;
     }
 
   compute_immediate_uses (TDFA_USE_VOPS, NULL);
@@ -1295,6 +1315,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 
       for (i = 0; i < loop->num_nodes; i++)
 	{
+	  edge_iterator ei;
 	  bb = bbs[i];
 
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -1303,7 +1324,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (!flow_bb_inside_loop_p (loop, e->dest))
 	      break;
 	  if (e)

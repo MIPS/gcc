@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "c-pragma.h"
 #include "integrate.h"
+#include "dwarf2.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -283,6 +284,9 @@ static tree sh_build_builtin_va_list (void);
 static tree sh_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
+			      tree, bool);
+static int sh_dwarf_calling_convention (tree);
 
 
 /* Initialize the GCC target structure.  */
@@ -438,6 +442,8 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE sh_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES sh_callee_copies
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
@@ -449,6 +455,9 @@ static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 
 #undef TARGET_PCH_VALID_P
 #define TARGET_PCH_VALID_P sh_pch_valid_p
+
+#undef TARGET_DWARF_CALLING_CONVENTION
+#define TARGET_DWARF_CALLING_CONVENTION sh_dwarf_calling_convention
 
 /* Return regmode weight for insn.  */
 #define INSN_REGMODE_WEIGHT(INSN, MODE)  regmode_weight[((MODE) == SImode) ? 0 : 1][INSN_UID (INSN)]
@@ -5554,6 +5563,7 @@ sh_expand_prologue (void)
 	  enum machine_mode mode = entry->mode;
 	  int reg = entry->reg;
 	  rtx reg_rtx, mem_rtx, pre_dec = NULL_RTX;
+	  rtx orig_reg_rtx;
 
 	  offset = entry->offset;
 
@@ -5643,6 +5653,7 @@ sh_expand_prologue (void)
 	    abort ();
 
 	addr_ok:
+	  orig_reg_rtx = reg_rtx;
 	  if (TARGET_REGISTER_P (reg)
 	      || ((reg == PR_REG || SPECIAL_REGISTER_P (reg))
 		  && mem_rtx != pre_dec))
@@ -5670,6 +5681,22 @@ sh_expand_prologue (void)
 	    /* Mark as interesting for dwarf cfi generator */
 	    insn = emit_move_insn (mem_rtx, reg_rtx);
 	    RTX_FRAME_RELATED_P (insn) = 1;
+	    /* If we use an intermediate register for the save, we can't
+	       describe this exactly in cfi as a copy of the to-be-saved
+	       register into the temporary register and then the temporary
+	       register on the stack, because the temporary register can
+	       have a different natural size than the to-be-saved register.
+	       Thus, we gloss over the intermediate copy and pretend we do
+	       a direct save from the to-be-saved register.  */
+	    if (REGNO (reg_rtx) != reg)
+	      {
+		rtx set, note_rtx;
+
+		set = gen_rtx_SET (VOIDmode, mem_rtx, orig_reg_rtx);
+		note_rtx = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, set,
+					      REG_NOTES (insn));
+		REG_NOTES (insn) = note_rtx;
+	      }
 
 	    if (TARGET_SHCOMPACT && (offset_in_r0 != -1))
 	      {
@@ -6378,7 +6405,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
   tree addr, lab_over, result = NULL;
-  int pass_by_ref = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  int pass_by_ref = targetm.calls.must_pass_in_stack (TYPE_MODE (type), type);
 
   if (pass_by_ref)
     type = build_pointer_type (type);
@@ -6600,6 +6627,12 @@ sh_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (targetm.calls.must_pass_in_stack (mode, type))
     return true;
 
+  /* ??? std_gimplify_va_arg_expr passes NULL for cum.  That function
+     wants to know about pass-by-reference semantics for incoming
+     arguments.  */
+  if (! cum)
+    return false;
+
   if (TARGET_SHCOMPACT)
     {
       cum->byref = shcompact_byref (cum, mode, type, named);
@@ -6607,6 +6640,18 @@ sh_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   return false;
+}
+
+static bool
+sh_callee_copies (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		  tree type, bool named ATTRIBUTE_UNUSED)
+{
+  /* ??? How can it possibly be correct to return true only on the
+     caller side of the equation?  Is there someplace else in the
+     sh backend that's magically producing the copies?  */
+  return (cum->outgoing
+	  && ((mode == BLKmode ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode))
+	      % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0));
 }
 
 /* Define where to put the arguments to a function.
@@ -7043,7 +7088,7 @@ sh_insert_attributes (tree node, tree *attributes)
     return;
 
   /* We are only interested in fields.  */
-  if (TREE_CODE_CLASS (TREE_CODE (node)) != 'd')
+  if (!DECL_P (node))
     return;
 
   /* Add a 'handle_interrupt' attribute.  */
@@ -7139,8 +7184,8 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      sp_switch = gen_rtx_SYMBOL_REF (VOIDmode,
-				      TREE_STRING_POINTER (TREE_VALUE (args)));
+      char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
+      sp_switch = gen_rtx_SYMBOL_REF (VOIDmode, s);
     }
 
   return NULL_TREE;
@@ -9362,6 +9407,17 @@ sh_vector_mode_supported_p (enum machine_mode mode)
   return false;
 }
 
+/* Implements target hook dwarf_calling_convention.  Return an enum
+   of dwarf_calling_convention.  */
+int
+sh_dwarf_calling_convention (tree func)
+{
+  if (sh_attr_renesas_p (func))
+    return DW_CC_renesas_sh;
+
+  return DW_CC_normal;
+}
+
 static void
 sh_init_builtins (void)
 {
@@ -9995,4 +10051,76 @@ sh_fsca_int2sf (void)
 
   return sh_fsca_int2sf_rtx;
 }
+
+/* Initialize the CUMULATIVE_ARGS structure.  */
+
+void
+sh_init_cumulative_args (CUMULATIVE_ARGS *  pcum,
+			 tree               fntype,
+			 rtx		    libname ATTRIBUTE_UNUSED,
+			 tree               fndecl,
+			 signed int         n_named_args,
+			 enum machine_mode  mode)
+{
+  pcum->arg_count [(int) SH_ARG_FLOAT] = 0;
+  pcum->free_single_fp_reg = 0;
+  pcum->stack_regs = 0;
+  pcum->byref_regs = 0;
+  pcum->byref = 0;
+  pcum->outgoing = (n_named_args == -1) ? 0 : 1;
+
+  /* XXX - Should we check TARGET_HITACHI here ???  */
+  pcum->renesas_abi = sh_attr_renesas_p (fntype) ? 1 : 0;
+
+  if (fntype)
+    {
+      pcum->force_mem = ((TARGET_HITACHI || pcum->renesas_abi)
+			 && aggregate_value_p (TREE_TYPE (fntype), fndecl));
+      pcum->prototype_p = TYPE_ARG_TYPES (fntype) ? TRUE : FALSE;
+      pcum->arg_count [(int) SH_ARG_INT]
+	= TARGET_SH5 && aggregate_value_p (TREE_TYPE (fntype), fndecl);
+
+      pcum->call_cookie
+	= CALL_COOKIE_RET_TRAMP (TARGET_SHCOMPACT
+				 && pcum->arg_count [(int) SH_ARG_INT] == 0
+				 && (TYPE_MODE (TREE_TYPE (fntype)) == BLKmode
+				     ? int_size_in_bytes (TREE_TYPE (fntype))
+				     : GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (fntype)))) > 4
+				 && (BASE_RETURN_VALUE_REG (TYPE_MODE (TREE_TYPE (fntype)))
+				     == FIRST_RET_REG));
+    }
+  else
+    {
+      pcum->arg_count [(int) SH_ARG_INT] = 0;
+      pcum->prototype_p = FALSE;
+      if (mode != VOIDmode)
+	{
+	  pcum->call_cookie = 
+	    CALL_COOKIE_RET_TRAMP (TARGET_SHCOMPACT
+				   && GET_MODE_SIZE (mode) > 4
+				   && BASE_RETURN_VALUE_REG (mode) == FIRST_RET_REG);
+
+	  /* If the default ABI is the Renesas ABI then all library
+	     calls must assume that the library will be using the
+	     Renesas ABI.  So if the function would return its result
+	     in memory then we must force the address of this memory
+	     block onto the stack.  Ideally we would like to call
+	     targetm.calls.return_in_memory() here but we do not have
+	     the TYPE or the FNDECL available so we synthesize the
+	     contents of that function as best we can.  */
+	  pcum->force_mem =
+	    (TARGET_DEFAULT & HITACHI_BIT)
+	    && (mode == BLKmode
+		|| (GET_MODE_SIZE (mode) > 4
+		    && !(mode == DFmode
+			 && TARGET_FPU_DOUBLE)));
+	}
+      else
+	{
+	  pcum->call_cookie = 0;
+	  pcum->force_mem = FALSE;
+	}
+    }
+}
+
 #include "gt-sh.h"

@@ -97,7 +97,14 @@ bitmap *control_dependence_map;
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
 #define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
-  EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, CODE)
+  {									      \
+    bitmap_iterator bi;							      \
+									      \
+    EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, bi)  \
+      {									      \
+	CODE;								      \
+      }									      \
+  }
 
 /* Local function prototypes.  */
 static inline void set_control_dependence_map_bit (basic_block, int);
@@ -129,8 +136,7 @@ set_control_dependence_map_bit (basic_block bb, int edge_index)
 {
   if (bb == ENTRY_BLOCK_PTR)
     return;
-  if (bb == EXIT_BLOCK_PTR)
-    abort ();
+  gcc_assert (bb != EXIT_BLOCK_PTR);
   bitmap_set_bit (control_dependence_map[bb->index], edge_index);
 }
 
@@ -162,10 +168,7 @@ find_control_dependence (struct edge_list *el, int edge_index)
   basic_block current_block;
   basic_block ending_block;
 
-#ifdef ENABLE_CHECKING
-  if (INDEX_EDGE_PRED_BB (el, edge_index) == EXIT_BLOCK_PTR)
-    abort ();
-#endif
+  gcc_assert (INDEX_EDGE_PRED_BB (el, edge_index) != EXIT_BLOCK_PTR);
 
   if (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
     ending_block = ENTRY_BLOCK_PTR->next_bb;
@@ -194,9 +197,9 @@ find_control_dependence (struct edge_list *el, int edge_index)
 static inline basic_block
 find_pdom (basic_block block)
 {
-  if (block == ENTRY_BLOCK_PTR)
-    abort ();
-  else if (block == EXIT_BLOCK_PTR)
+  gcc_assert (block != ENTRY_BLOCK_PTR);
+
+  if (block == EXIT_BLOCK_PTR)
     return EXIT_BLOCK_PTR;
   else
     {
@@ -214,12 +217,9 @@ find_pdom (basic_block block)
 static inline void
 mark_stmt_necessary (tree stmt, bool add_to_worklist)
 {
-#ifdef ENABLE_CHECKING
-  if (stmt == NULL
-      || stmt == error_mark_node
-      || (stmt && DECL_P (stmt)))
-    abort ();
-#endif
+  gcc_assert (stmt);
+  gcc_assert (stmt != error_mark_node);
+  gcc_assert (!DECL_P (stmt));
 
   if (NECESSARY (stmt))
     return;
@@ -244,10 +244,7 @@ mark_operand_necessary (tree op)
   tree stmt;
   int ver;
 
-#ifdef ENABLE_CHECKING
-  if (op == NULL)
-    abort ();
-#endif
+  gcc_assert (op);
 
   ver = SSA_NAME_VERSION (op);
   if (TEST_BIT (processed, ver))
@@ -255,10 +252,7 @@ mark_operand_necessary (tree op)
   SET_BIT (processed, ver);
 
   stmt = SSA_NAME_DEF_STMT (op);
-#ifdef ENABLE_CHECKING
-  if (stmt == NULL)
-    abort ();
-#endif
+  gcc_assert (stmt);
 
   if (NECESSARY (stmt)
       || IS_EMPTY_STMT (stmt))
@@ -389,10 +383,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
     {
       tree lhs;
 
-#if defined ENABLE_CHECKING
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
-	abort ();
-#endif
+      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
       /* Note that we must not check the individual virtual operands
 	 here.  In particular, if this is an aliased store, we could
@@ -420,7 +411,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	 a global variable.  Otherwise, we check if the base variable
 	 is a global.  */
       lhs = TREE_OPERAND (stmt, 0);
-      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+      if (REFERENCE_CLASS_P (lhs))
 	lhs = get_base_address (lhs);
 
       if (lhs == NULL_TREE)
@@ -436,7 +427,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	  if (is_global_var (lhs))
 	    mark_stmt_necessary (stmt, true);
 	}
-      else if (TREE_CODE (lhs) == INDIRECT_REF)
+      else if (INDIRECT_REF_P (lhs))
 	{
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
@@ -453,7 +444,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	    }
 	}
       else
-	abort ();
+	gcc_unreachable ();
     }
 
   return;
@@ -519,7 +510,8 @@ find_obviously_necessary_stmts (struct edge_list *el)
 
       FOR_EACH_BB (bb)
 	{
-	  for (e = bb->succ; e; e = e->succ_next)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_DFS_BACK)
 	      mark_control_dependent_edges_necessary (e->dest, el);
 	}
@@ -534,10 +526,7 @@ mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
   int edge_number;
 
-#ifdef ENABLE_CHECKING
-  if (bb == EXIT_BLOCK_PTR)
-    abort ();
-#endif
+  gcc_assert (bb != EXIT_BLOCK_PTR);
 
   if (bb == ENTRY_BLOCK_PTR)
     return;
@@ -749,12 +738,8 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
-      edge e;
-#ifdef ENABLE_CHECKING
       /* The post dominance info has to be up-to-date.  */
-      if (dom_computed[CDI_POST_DOMINATORS] != DOM_OK)
-	abort ();
-#endif
+      gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
       post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, bb);
       /* Some blocks don't have an immediate post dominator.  This can happen
@@ -767,8 +752,10 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
 
       /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (bb->succ, post_dom_bb);
-      PENDING_STMT (bb->succ) = NULL;
+      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (bb, 0)->count = bb->count;
 
       /* APPLE LOCAL begin lno */
       /* Dominators are wrong now.  */
@@ -777,23 +764,19 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
-      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (bb, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
       /* If the edge reaches any block other than the exit, then it is a
 	 fallthru edge; if it reaches the exit, then it is not a fallthru
 	 edge.  */
       if (post_dom_bb != EXIT_BLOCK_PTR)
-	bb->succ->flags |= EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
       else
-	bb->succ->flags &= ~EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      for (e = bb->succ->succ_next; e != NULL;)
-	{
-	  edge tmp = e;
-	  e = e->succ_next;
-	  remove_edge (tmp);
-	}
+      while (EDGE_COUNT (bb->succs) != 1)
+        remove_edge (EDGE_SUCC (bb, 1));
     }
 
   bsi_remove (i);

@@ -1595,7 +1595,7 @@ enum reg_class
 #define CALL_SHORT		0x00000002	/* Never call indirect.  */
 
 /* These bits describe the different types of function supported
-   by the ARM backend.  They are exclusive.  ie a function cannot be both a
+   by the ARM backend.  They are exclusive.  i.e. a function cannot be both a
    normal function and an interworked function, for example.  Knowing the
    type of a function is important for determining its prologue and
    epilogue sequences.
@@ -2059,7 +2059,7 @@ typedef struct
 
 /* Set the short-call flag for any function compiled in the current
    compilation unit.  We skip this for functions with the section
-   attirubte when long-calls are in effect as this tells the compiler
+   attribute when long-calls are in effect as this tells the compiler
    that the section might be placed a long way from the caller.
    See arm_is_longcall_p() for more information.  */
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\

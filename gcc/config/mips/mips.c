@@ -349,6 +349,8 @@ static tree mips_build_builtin_va_list (void);
 static tree mips_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool mips_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode mode,
 				    tree, bool);
+static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
+				tree, bool);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -417,8 +419,12 @@ struct mips_arg_info
   /* The number of words passed in registers, rounded up.  */
   unsigned int reg_words;
 
-  /* The offset of the first register from GP_ARG_FIRST or FP_ARG_FIRST,
-     or MAX_ARGS_IN_REGISTERS if the argument is passed entirely
+  /* For EABI, the offset of the first register from GP_ARG_FIRST or
+     FP_ARG_FIRST.  For other ABIs, the offset of the first register from
+     the start of the ABI's argument structure (see the CUMULATIVE_ARGS
+     comment for details).
+
+     The value is MAX_ARGS_IN_REGISTERS if the argument is passed entirely
      on the stack.  */
   unsigned int reg_offset;
 
@@ -785,6 +791,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE mips_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES mips_callee_copies
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
@@ -1931,7 +1939,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int *total)
 
 	 Given the choice between "li R1,0...255" and "move R1,R2"
 	 (where R2 is a known constant), it is usually better to use "li",
-	 since we do not want to unnessarily extend the lifetime of R2.  */
+	 since we do not want to unnecessarily extend the lifetime of R2.  */
       if (outer_code == SET
 	  && INTVAL (x) >= 0
 	  && INTVAL (x) < 256)
@@ -3042,7 +3050,7 @@ static void
 mips_arg_info (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	       tree type, int named, struct mips_arg_info *info)
 {
-  bool even_reg_p;
+  bool doubleword_aligned_p;
   unsigned int num_bytes, num_words, max_regs;
 
   /* Work out the size of the argument.  */
@@ -3119,27 +3127,10 @@ mips_arg_info (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       gcc_unreachable ();
     }
 
-  /* Now decide whether the argument must go in an even-numbered register.
-     Usually this is determined by type alignment, but there are two
-     exceptions:
-
-     - Under the O64 ABI, the second float argument goes in $f14 if it
-       is single precision (doubles go in $f13 as expected).
-
-     - Floats passed in FPRs must be in an even-numbered register if
-       we're using paired FPRs.  */
-  if (type)
-    even_reg_p = TYPE_ALIGN (type) > BITS_PER_WORD;
-  else
-    even_reg_p = GET_MODE_UNIT_SIZE (mode) > UNITS_PER_WORD;
-
-  if (info->fpr_p)
-    {
-      if (mips_abi == ABI_O64 && mode == SFmode)
-	even_reg_p = true;
-      if (FP_INC > 1)
-	even_reg_p = true;
-    }
+  /* See whether the argument has doubleword alignment.  */
+  doubleword_aligned_p = (type
+			  ? TYPE_ALIGN (type) > BITS_PER_WORD
+			  : GET_MODE_UNIT_SIZE (mode) > UNITS_PER_WORD);
 
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
@@ -3148,12 +3139,13 @@ mips_arg_info (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		      ? cum->num_fprs
 		      : cum->num_gprs);
 
-  if (even_reg_p)
+  /* Advance to an even register if the argument is doubleword-aligned.  */
+  if (doubleword_aligned_p)
     info->reg_offset += info->reg_offset & 1;
 
-  /* The alignment applied to registers is also applied to stack arguments.  */
+  /* Work out the offset of a stack argument.  */
   info->stack_offset = cum->stack_words;
-  if (even_reg_p)
+  if (doubleword_aligned_p)
     info->stack_offset += info->stack_offset & 1;
 
   max_regs = MAX_ARGS_IN_REGISTERS - info->reg_offset;
@@ -3307,10 +3299,14 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
     }
 
-  if (info.fpr_p)
-    return gen_rtx_REG (mode, FP_ARG_FIRST + info.reg_offset);
-  else
+  if (!info.fpr_p)
     return gen_rtx_REG (mode, GP_ARG_FIRST + info.reg_offset);
+  else if (info.reg_offset == 1)
+    /* This code handles the special o32 case in which the second word
+       of the argument structure is passed in floating-point registers.  */
+    return gen_rtx_REG (mode, FP_ARG_FIRST + FP_INC);
+  else
+    return gen_rtx_REG (mode, FP_ARG_FIRST + info.reg_offset);
 }
 
 
@@ -6760,6 +6756,13 @@ mips_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
 	      mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 	    }
 	}
+
+      /* For EABI, the class of return register depends entirely on MODE.
+	 For example, "struct { some_type x; }" and "union { some_type x; }"
+	 are returned in the same way as a bare "some_type" would be.
+	 Other ABIs only use FPRs for scalar, complex or vector types.  */
+      if (mips_abi != ABI_EABI && !FLOAT_TYPE_P (valtype))
+	return gen_rtx_REG (mode, GP_RETURN);
     }
 
   if ((GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -6806,6 +6809,14 @@ mips_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
       /* If we have a variable-sized parameter, we have no choice.  */
       return targetm.calls.must_pass_in_stack (mode, type);
     }
+}
+
+static bool
+mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+		    enum machine_mode mode ATTRIBUTE_UNUSED,
+		    tree type ATTRIBUTE_UNUSED, bool named)
+{
+  return mips_abi == ABI_EABI && named;
 }
 
 /* Return the class of registers for which a mode change from FROM to TO
@@ -9398,6 +9409,36 @@ static const struct builtin_description mips_bdesc[] =
   MIPS_FP_CONDITIONS (CMP_BUILTINS)
 };
 
+/* Builtin functions for the SB-1 processor.  */
+
+#define CODE_FOR_mips_sqrt_ps CODE_FOR_sqrtv2sf2
+
+static const struct builtin_description sb1_bdesc[] =
+{
+  DIRECT_BUILTIN (sqrt_ps, MIPS_V2SF_FTYPE_V2SF, MASK_PAIRED_SINGLE)
+};
+
+/* This helps provide a mapping from builtin function codes to bdesc
+   arrays.  */
+
+struct bdesc_map
+{
+  /* The builtin function table that this entry describes.  */
+  const struct builtin_description *bdesc;
+
+  /* The number of entries in the builtin function table.  */
+  unsigned int size;
+
+  /* The target processor that supports these builtin functions.
+     PROCESSOR_DEFAULT means we enable them for all processors.  */
+  enum processor_type proc;
+};
+
+static const struct bdesc_map bdesc_arrays[] =
+{
+  { mips_bdesc, ARRAY_SIZE (mips_bdesc), PROCESSOR_DEFAULT },
+  { sb1_bdesc, ARRAY_SIZE (sb1_bdesc), PROCESSOR_SB1 }
+};
 
 /* Take the head of argument list *ARGLIST and convert it into a form
    suitable for input operand OP of instruction ICODE.  Return the value
@@ -9445,15 +9486,28 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   enum mips_builtin_type type;
   tree fndecl, arglist;
   unsigned int fcode;
+  const struct builtin_description *bdesc;
+  const struct bdesc_map *m;
 
   fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   arglist = TREE_OPERAND (exp, 1);
   fcode = DECL_FUNCTION_CODE (fndecl);
-  if (fcode >= ARRAY_SIZE (mips_bdesc))
+
+  bdesc = NULL;
+  for (m = bdesc_arrays; m < &bdesc_arrays[ARRAY_SIZE (bdesc_arrays)]; m++)
+    {
+      if (fcode < m->size)
+	{
+	  bdesc = m->bdesc;
+	  icode = bdesc[fcode].icode;
+	  type = bdesc[fcode].builtin_type;
+	  break;
+	}
+      fcode -= m->size;
+    }
+  if (bdesc == NULL)
     return 0;
 
-  icode = mips_bdesc[fcode].icode;
-  type = mips_bdesc[fcode].builtin_type;
   switch (type)
     {
     case MIPS_BUILTIN_DIRECT:
@@ -9461,7 +9515,7 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case MIPS_BUILTIN_MOVT:
     case MIPS_BUILTIN_MOVF:
-      return mips_expand_builtin_movtf (type, icode, mips_bdesc[fcode].cond,
+      return mips_expand_builtin_movtf (type, icode, bdesc[fcode].cond,
 					target, arglist);
 
     case MIPS_BUILTIN_CMP_ANY:
@@ -9469,7 +9523,7 @@ mips_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case MIPS_BUILTIN_CMP_UPPER:
     case MIPS_BUILTIN_CMP_LOWER:
     case MIPS_BUILTIN_CMP_SINGLE:
-      return mips_expand_builtin_compare (type, icode, mips_bdesc[fcode].cond,
+      return mips_expand_builtin_compare (type, icode, bdesc[fcode].cond,
 					  target, arglist);
 
     default:
@@ -9483,8 +9537,10 @@ void
 mips_init_builtins (void)
 {
   const struct builtin_description *d;
+  const struct bdesc_map *m;
   tree types[(int) MIPS_MAX_FTYPE_MAX];
   tree V2SF_type_node;
+  unsigned int offset;
 
   /* We have only builtins for -mpaired-single and -mips3d.  */
   if (!TARGET_PAIRED_SINGLE_FLOAT)
@@ -9549,10 +9605,20 @@ mips_init_builtins (void)
     = build_function_type_list (double_type_node,
 				double_type_node, double_type_node, NULL_TREE);
 
-  for (d = mips_bdesc; d < &mips_bdesc[ARRAY_SIZE (mips_bdesc)]; d++)
-    if ((d->target_flags & target_flags) == d->target_flags)
-      lang_hooks.builtin_function (d->name, types[d->function_type],
-				   d - mips_bdesc, BUILT_IN_MD, NULL, NULL);
+  /* Iterate through all of the bdesc arrays, initializing all of the
+     builtin functions.  */
+
+  offset = 0;
+  for (m = bdesc_arrays; m < &bdesc_arrays[ARRAY_SIZE (bdesc_arrays)]; m++)
+    {
+      if (m->proc == PROCESSOR_DEFAULT || (m->proc == mips_arch))
+	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
+	  if ((d->target_flags & target_flags) == d->target_flags)
+	    lang_hooks.builtin_function (d->name, types[d->function_type],
+					 d - m->bdesc + offset,
+					 BUILT_IN_MD, NULL, NULL);
+      offset += m->size;
+    }
 }
 
 /* Expand a MIPS_BUILTIN_DIRECT function.  ICODE is the code of the
@@ -9592,7 +9658,7 @@ mips_expand_builtin_direct (enum insn_code icode, rtx target, tree arglist)
 /* Expand a __builtin_mips_movt_*_ps() or __builtin_mips_movf_*_ps()
    function (TYPE says which).  ARGLIST is the list of arguments to the
    function, ICODE is the instruction that should be used to compare
-   the first two arguments, and COND is the conditon it should test.
+   the first two arguments, and COND is the condition it should test.
    TARGET, if nonnull, suggests a good place to put the result.  */
 
 static rtx

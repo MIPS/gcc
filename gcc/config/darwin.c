@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "target.h"
 #include "tm_p.h"
 #include "errors.h"
 #include "hashtab.h"
@@ -75,38 +76,7 @@ enum darwin_builtins
    are required by consumers of the generated code.  Currently, gdb
    uses this to patch in a jump to the overriding function, this
    allows all uses of the old name to forward to the replacement,
-   including existing function poiinters and virtual methods.  See
-   rs6000_emit_prologue for the code that handles the nop insertions.
- 
-   The added indirection allows gdb to redirect accesses to static
-   duration data from the newly loaded translation unit to the
-   existing data, if any.  @code{static} data is special and is
-   handled by setting the second word in the .non_lazy_symbol_pointer
-   data structure to the address of the data.  See indirect_data for
-   the code that handles the extra indirection, and
-   machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
-   the code that handles @code{static} data indirection.  */
-
-
-/* Darwin supports a feature called fix-and-continue, which is used
-   for rapid turn around debugging.  When code is compiled with the
-   -mfix-and-continue flag, two changes are made to the generated code
-   that allow the system to do things that it would normally not be
-   able to do easily.  These changes allow gdb to load in
-   recompilation of a translation unit that has been changed into a
-   running program and replace existing functions and methods of that
-   translation unit with with versions of those functions and methods
-   from the newly compiled translation unit.  The new functions access
-   the existing static data from the old translation unit, if the data
-   existed in the unit to be replaced, and from the new translation
-   unit, for new data.
-
-   The changes are to insert 4 nops at the beginning of all functions
-   and to use indirection to get at static duration data.  The 4 nops
-   are required by consumers of the generated code.  Currently, gdb
-   uses this to patch in a jump to the overriding function, this
-   allows all uses of the old name to forward to the replacement,
-   including existing function poiinters and virtual methods.  See
+   including existing function pointers and virtual methods.  See
    rs6000_emit_prologue for the code that handles the nop insertions.
  
    The added indirection allows gdb to redirect accesses to static
@@ -289,9 +259,8 @@ typedef struct machopic_indirection GTY (())
 {
   /* The SYMBOL_REF for the entity referenced.  */
   rtx symbol;
-  /* The IDENTIFIER_NODE giving the name of the stub or non-lazy
-     pointer.  */
-  tree ptr_name;
+  /* The name of the stub or non-lazy pointer.  */
+  const char * ptr_name;
   /* True iff this entry is for a stub (as opposed to a non-lazy
      pointer).  */
   bool stub_p;
@@ -311,7 +280,7 @@ static hashval_t
 machopic_indirection_hash (const void *slot)
 {
   const machopic_indirection *p = (const machopic_indirection *) slot;
-  return IDENTIFIER_HASH_VALUE (p->ptr_name);
+  return htab_hash_string (p->ptr_name);
 }
 
 /* Returns true if the KEY is the same as that associated with
@@ -320,7 +289,7 @@ machopic_indirection_hash (const void *slot)
 static int
 machopic_indirection_eq (const void *slot, const void *key)
 {
-  return ((const machopic_indirection *) slot)->ptr_name == (tree) key;
+  return strcmp (((const machopic_indirection *) slot)->ptr_name, key) == 0;
 }
 
 /* Return the name of the non-lazy pointer (if STUB_P is false) or
@@ -331,10 +300,10 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 {
   char *buffer;
   const char *name = XSTR (sym_ref, 0);
-  int namelen = strlen (name);
-  tree ptr_name;
+  size_t namelen = strlen (name);
   machopic_indirection *p;
-
+  void ** slot;
+  
   /* Construct the name of the non-lazy pointer or stub.  */
   if (stub_p)
     {
@@ -372,167 +341,69 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 		 user_label_prefix, name);
     }
 
-  /* See if we already have it.  */
-  ptr_name = maybe_get_identifier (buffer);
-  /* If not, create a mapping from the non-lazy pointer to the
-     SYMBOL_REF.  */
-  if (!ptr_name)
-    {
-      void **slot;
-      ptr_name = get_identifier (buffer);
-
-      /* APPLE LOCAL begin weak import */
-      IDENTIFIER_WEAK_IMPORT (ptr_name) = SYMBOL_REF_WEAK_IMPORT (sym_ref);
-      IDENTIFIER_WEAK_IMPORT (get_identifier (name)) = SYMBOL_REF_WEAK_IMPORT (sym_ref);
-      /* APPLE LOCAL end weak import */
+  if (!machopic_indirections)
+    machopic_indirections = htab_create_ggc (37, 
+					     machopic_indirection_hash,
+					     machopic_indirection_eq,
+					     /*htab_del=*/NULL);
   
+  slot = htab_find_slot_with_hash (machopic_indirections, buffer,
+				   htab_hash_string (buffer), INSERT);
+  if (*slot)
+    {
+      p = (machopic_indirection *) *slot;
+    }
+  else
+    {
       p = (machopic_indirection *) ggc_alloc (sizeof (machopic_indirection));
       p->symbol = sym_ref;
-      p->ptr_name = ptr_name;
+      p->ptr_name = xstrdup (buffer);
       p->stub_p = stub_p;
-      p->used = 0;
-      if (!machopic_indirections)
-	machopic_indirections 
-	  = htab_create_ggc (37, 
-			     machopic_indirection_hash,
-			     machopic_indirection_eq,
-			     /*htab_del=*/NULL);
-      slot = htab_find_slot_with_hash (machopic_indirections, ptr_name,
-				       IDENTIFIER_HASH_VALUE (ptr_name),
-				       INSERT);
-      *((machopic_indirection **) slot) = p;
+      p->used = false;
+      *slot = p;
     }
   
-  return IDENTIFIER_POINTER (ptr_name);
+  return p->ptr_name;
 }
 
 /* Return the name of the stub for the mcount function.  */
 
-#ifdef MERGE_BORKED_DARWIN
-/* APPLE LOCAL begin weak import */
-/* machopic_stub_list_entry separated from machopic_stub_name */
-static tree
-machopic_stub_list_entry (const char *name)
-#else
 const char*
 machopic_mcount_stub_name (void)
-#endif /* MERGE_BORKED_DARWIN */
 {
-#ifdef MERGE_BORKED_DARWIN
-  tree temp, ident = get_identifier (name);
-  const char *tname;
-
-  for (temp = machopic_stubs;
-       temp != NULL_TREE;
-       temp = TREE_CHAIN (temp))
-    {
-      if (ident == TREE_VALUE (temp))
-	return temp;
-      tname = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      if (strcmp (name, tname) == 0)
-	return temp;
-
-      /* APPLE LOCAL Stripped encodings ('!T_' and '!t_') should match.  */
-      if (name [0] == '!' && tname[0] == '!'
-	  && strcmp (name + 4, tname + 4) == 0)
-	return temp;
-
-      /* A library call name might not be section-encoded yet, so try
-	 it against a stripped name.  */
-      if (name[0] != '!'
-	  && tname[0] == '!'
-	  && strcmp (name, tname + 4) == 0)
-	return temp;
-    }
-
-  name = darwin_strip_name_encoding (name);
-
-  {
-    char *buffer;
-    int bufferlen = 0;
-    int namelen = strlen (name);
-    tree ptr_name;
-    int needs_quotes = name_needs_quotes (name);
-
-    buffer = alloca (namelen + 20);
-
-    if (needs_quotes)
-      {
-        strcpy (buffer, "&\"L");
-        bufferlen = strlen("&\"L");
-      }
-    else
-      {
-        strcpy (buffer, "&L");
-        bufferlen = strlen("&L");
-      }
-    
-    if (name[0] == '*')
-      {
-	memcpy (buffer + bufferlen, name+1, namelen - 1 +1);
-        bufferlen += namelen - 1;
-      }
-    else
-      {
-	strcpy (buffer + bufferlen, user_label_prefix);
-	bufferlen += strlen (user_label_prefix);
-	memcpy (buffer + bufferlen, name, namelen+1);
-        bufferlen += namelen;
-      }
-
-    if (needs_quotes)
-      {
-        memcpy (buffer + bufferlen, "$stub\"", strlen("$stub\"")+1);
-        bufferlen += strlen("$stub\"");
-      }
-    else
-      {
-        memcpy (buffer + bufferlen, "$stub", strlen("$stub")+1);
-        bufferlen += strlen("$stub");
-      }
-    ptr_name = get_identifier (buffer);
-#else
   rtx symbol = gen_rtx_SYMBOL_REF (Pmode, "*mcount");
   return machopic_indirection_name (symbol, /*stub_p=*/true);
 }
-#endif /* MERGE_BORKED_DARWIN */
 
-#ifdef MERGE_BORKED_DARWIN
-    machopic_stubs = tree_cons (ptr_name, ident, machopic_stubs);
-    TREE_USED (machopic_stubs) = 0;
-
-    return machopic_stubs;
-  }
-}
-#else
 /* If NAME is the name of a stub or a non-lazy pointer , mark the stub
    or non-lazy pointer as used -- and mark the object to which the
    pointer/stub refers as used as well, since the pointer/stub will
    emit a reference to it.  */
 
-/*const char * 
-machopic_stub_name (const char *name)
-{
-  return IDENTIFIER_POINTER (TREE_PURPOSE (machopic_stub_list_entry (name)));
-}*/
-/* APPLE LOCAL end weak import */
-#endif /* MERGE_BORKED_DARWIN */
-
 void
 machopic_validate_stub_or_non_lazy_ptr (const char *name)
 {
-  tree ident = get_identifier (name);
-
   machopic_indirection *p;
   
   p = ((machopic_indirection *) 
-       (htab_find_with_hash (machopic_indirections, ident,
-			     IDENTIFIER_HASH_VALUE (ident))));
-  if (p)
+       (htab_find_with_hash (machopic_indirections, name,
+			     htab_hash_string (name))));
+  if (p && ! p->used)
     {
-      p->used = 1;
-      mark_referenced (ident);
-      mark_referenced (get_identifier (XSTR (p->symbol, 0)));
+      const char *real_name;
+      tree id;
+      
+      p->used = true;
+
+      /* Do what output_addr_const will do when we actually call it.  */
+      if (SYMBOL_REF_DECL (p->symbol))
+	mark_decl_referenced (SYMBOL_REF_DECL (p->symbol));
+
+      real_name = targetm.strip_name_encoding (XSTR (p->symbol, 0));
+      
+      id = maybe_get_identifier (real_name);
+      if (id)
+	mark_referenced (id);
     }
 }
 
@@ -782,8 +653,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
-
-	      /* APPLE LOCAL 64-bit */      
+	      
 	      sum = gen_rtx_HIGH (Pmode, offset);
 	      if (! MACHO_DYNAMIC_NO_PIC_P)
 		sum = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, sum);
@@ -1042,7 +912,7 @@ machopic_output_indirection (void **slot, void *data)
 
   symbol = p->symbol;
   sym_name = XSTR (symbol, 0);
-  ptr_name = IDENTIFIER_POINTER (p->ptr_name);
+  ptr_name = p->ptr_name;
   
   /* APPLE LOCAL begin weak import */
   if (IDENTIFIER_WEAK_IMPORT (get_identifier (sym_name)))
@@ -1072,7 +942,7 @@ machopic_output_indirection (void **slot, void *data)
       else
 	sprintf (stub, "%s%s", user_label_prefix, ptr_name);
 
-      machopic_output_stub (asm_out_file, sym, stub);    
+      machopic_output_stub (asm_out_file, sym, stub);
     }
   else if (! indirect_data (symbol)
 	   && (machopic_symbol_defined_p (symbol)
@@ -1562,19 +1432,12 @@ darwin_set_section_for_var_p (tree exp, int reloc, int align)
 /* APPLE LOCAL end darwin_set_section_for_var_p  20020226 --turly  */
 
 void
-darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+darwin_asm_named_section (const char *name, 
+			  unsigned int flags ATTRIBUTE_UNUSED,
+			  tree decl ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file, ".section %s\n", name);
 }
-
-/* True, iff we're generating fast turn around debugging code.  When
-   true, we arrange for function prologues to start with 4 nops so
-   that gdb may insert code to redirect them, and for data to accessed
-   indirectly.  The runtime uses this indirection to forward
-   references for data to the original instance of that data.  */
-
-int darwin_fix_and_continue;
-const char *darwin_fix_and_continue_switch;
 
 unsigned int
 darwin_section_type_flags (tree decl, const char *name, int reloc)

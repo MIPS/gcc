@@ -1590,7 +1590,6 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
-      DECL_NEEDS_FINAL_OVERRIDER_P (newdecl) |= DECL_NEEDS_FINAL_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -1727,6 +1726,12 @@ duplicate_decls (tree newdecl, tree olddecl)
 	TREE_READONLY (olddecl) = 1;
       if (TREE_THIS_VOLATILE (newdecl))
 	TREE_THIS_VOLATILE (olddecl) = 1;
+      if (TREE_NOTHROW (newdecl))
+	TREE_NOTHROW (olddecl) = 1;
+
+      /* Merge deprecatedness.  */
+      if (TREE_DEPRECATED (newdecl))
+	TREE_DEPRECATED (olddecl) = 1;
 
       /* Merge the initialization information.  */
       if (DECL_INITIAL (newdecl) == NULL_TREE
@@ -4235,6 +4240,69 @@ next_initializable_field (tree field)
   return field;
 }
 
+/* Subroutine of reshape_init. Reshape the constructor for an array. INITP
+   is the pointer to the old constructor list (to the CONSTRUCTOR_ELTS of
+   the CONSTRUCTOR we are processing), while NEW_INIT is the CONSTRUCTOR we
+   are building.
+   ELT_TYPE is the element type of the array. MAX_INDEX is an INTEGER_CST
+   representing the size of the array minus one (the maximum index), or
+   NULL_TREE if the array was declared without specifying the size.  */
+
+static bool
+reshape_init_array (tree elt_type, tree max_index,
+		    tree *initp, tree new_init)
+{
+  bool sized_array_p = (max_index != NULL_TREE);
+  HOST_WIDE_INT max_index_cst = 0;
+  HOST_WIDE_INT index;
+
+  if (sized_array_p)
+    /* HWI is either 32bit or 64bit, so it must be enough to represent the
+	array size.  */
+    max_index_cst = tree_low_cst (max_index, 1);
+
+  /* Loop until there are no more initializers.  */
+  for (index = 0;
+       *initp && (!sized_array_p || index <= max_index_cst);
+       ++index)
+    {
+      tree element_init;
+      tree designated_index;
+
+      element_init = reshape_init (elt_type, initp);
+      if (element_init == error_mark_node)
+	return false;
+      TREE_CHAIN (element_init) = CONSTRUCTOR_ELTS (new_init);
+      CONSTRUCTOR_ELTS (new_init) = element_init;
+      designated_index = TREE_PURPOSE (element_init);
+      if (designated_index)
+      {
+	  /* Handle array designated initializers (GNU extension).  */
+	  if (TREE_CODE (designated_index) == IDENTIFIER_NODE)
+	    {
+	      error ("name `%D' used in a GNU-style designated "
+		    "initializer for an array", designated_index);
+	      TREE_PURPOSE (element_init) = NULL_TREE;
+	    }
+	  else
+	    {
+	      gcc_assert (TREE_CODE (designated_index) == INTEGER_CST);
+	      if (sized_array_p
+		  && tree_int_cst_lt (max_index, designated_index))
+		{
+		  error ("Designated initializer `%E' larger than array "
+			 "size", designated_index);
+		  TREE_PURPOSE (element_init) = NULL_TREE;
+		}
+	      else
+		index = tree_low_cst (designated_index, 1);
+	    }
+	}
+    }
+
+  return true;
+}
+
 /* Undo the brace-elision allowed by [dcl.init.aggr] in a
    brace-enclosed aggregate initializer.
 
@@ -4402,52 +4470,28 @@ reshape_init (tree type, tree *initp)
       else if (TREE_CODE (type) == ARRAY_TYPE
 	       || TREE_CODE (type) == VECTOR_TYPE)
 	{
-	  tree index;
-	  tree max_index;
+	    /* If the bound of the array is known, take no more initializers
+	      than are allowed.  */
+	    tree max_index = NULL_TREE;
+	    if (TREE_CODE (type) == ARRAY_TYPE)
+	      {
+		if (TYPE_DOMAIN (type))
+		  max_index = array_type_nelts (type);
+	      }
+	    else
+	      {
+		/* For a vector, the representation type is a struct
+		  containing a single member which is an array of the
+		  appropriate size.  */
+		tree rtype = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+		if (rtype && TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (rtype))))
+		  max_index = array_type_nelts (TREE_TYPE (TYPE_FIELDS
+							   (rtype)));
+	      }
 
-	  /* If the bound of the array is known, take no more initializers
-	     than are allowed.  */
-	  max_index = NULL_TREE;
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    {
-	      if (TYPE_DOMAIN (type))
-		max_index = array_type_nelts (type);
-	    }
-	  else
-	    {
-	      /* For a vector, the representation type is a struct
-		 containing a single member which is an array of the
-		 appropriate size.  */
-	      tree rtype = TYPE_DEBUG_REPRESENTATION_TYPE (type);
-	      if (rtype && TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (rtype))))
-		max_index = array_type_nelts (TREE_TYPE (TYPE_FIELDS (rtype)));
-	    }
-
-	  /* Loop through the array elements, gathering initializers.  */
-	  for (index = size_zero_node;
-	       *initp && (!max_index || !tree_int_cst_lt (max_index, index));
-	       index = size_binop (PLUS_EXPR, index, size_one_node))
-	    {
-	      tree element_init;
-
-	      element_init = reshape_init (TREE_TYPE (type), initp);
-	      if (element_init == error_mark_node)
-		return error_mark_node;
-	      TREE_CHAIN (element_init) = CONSTRUCTOR_ELTS (new_init);
-	      CONSTRUCTOR_ELTS (new_init) = element_init;
-	      if (TREE_PURPOSE (element_init))
-		{
-		  tree next_index = TREE_PURPOSE (element_init);
-		  if (TREE_CODE (next_index) == IDENTIFIER_NODE)
-		    {
-		      error ("name `%D' used in a GNU-style designated "
-			     "initializer for an array", next_index);
-		      TREE_PURPOSE (element_init) = NULL_TREE;
-		    }
-		  else
-		    index = next_index;
-		}
-	    }
+	  if (!reshape_init_array (TREE_TYPE (type), max_index,
+				   initp, new_init))
+	    return error_mark_node;
 	}
       else
 	gcc_unreachable ();
@@ -4687,10 +4731,11 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
-      if (!interface_unknown && !TREE_PUBLIC (decl))
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
-	  DECL_EXTERNAL (decl) = interface_only;
+	  DECL_EXTERNAL (decl) = finfo->interface_only;
 	}
 
       defer_p = 1;
@@ -5161,8 +5206,6 @@ static GTY(()) int start_cleanup_cnt;
 static tree
 start_cleanup_fn (void)
 {
-  int old_interface_only = interface_only;
-  int old_interface_unknown = interface_unknown;
   char name[32];
   tree parmtypes;
   tree fntype;
@@ -5172,9 +5215,6 @@ start_cleanup_fn (void)
 
   /* No need to mangle this.  */
   push_lang_context (lang_name_c);
-
-  interface_only = 0;
-  interface_unknown = 1;
 
   /* Build the parameter-types.  */
   parmtypes = void_list_node;
@@ -5214,9 +5254,6 @@ start_cleanup_fn (void)
 
   pushdecl (fndecl);
   start_preparsed_function (fndecl, NULL_TREE, SF_PRE_PARSED);
-
-  interface_unknown = old_interface_unknown;
-  interface_only = old_interface_only;
 
   pop_lang_context ();
 
@@ -5659,7 +5696,10 @@ grokfndecl (tree ctype,
 	error ("cannot declare `::main' to be static");
       if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			integer_type_node))
-	error ("`main' must return `int'");
+	{
+	  error ("`::main' must return `int'");
+	  TREE_TYPE (TREE_TYPE (decl)) = integer_type_node;
+	}
       inlinep = 0;
       publicp = 1;
     }
@@ -5839,7 +5879,7 @@ grokfndecl (tree ctype,
 				(processing_template_decl
 				 > template_class_depth (ctype))
 				? current_template_parms
-				: NULL_TREE);
+				: NULL_TREE); 
 
       if (old_decl && TREE_CODE (old_decl) == TEMPLATE_DECL)
 	/* Because grokfndecl is always supposed to return a
@@ -6008,17 +6048,29 @@ grokvardecl (tree type,
 	 or enumeration declared in a local scope) shall not be used to
 	 declare an entity with linkage.
 
-	 Only check this for public decls for now.  */
-      tree t = no_linkage_check (TREE_TYPE (decl),
-				 /*relaxed_p=*/false);
+	 Only check this for public decls for now. */
+      tree t1 = TREE_TYPE (decl);
+      tree t = no_linkage_check (t1, /*relaxed_p=*/false);
       if (t)
 	{
 	  if (TYPE_ANONYMOUS_P (t))
 	    {
 	      if (DECL_EXTERN_C_P (decl))
-		/* Allow this; it's pretty common in C.  */;
+		/* Allow this; it's pretty common in C.  */
+		  ;
+	      else if (same_type_ignoring_top_level_qualifiers_p(t1, t))
+	        /* This is something like "enum { a = 3 } x;", which is
+		   well formed.  The enum doesn't have "a name with no
+		   linkage", because it has no name.  See closed CWG issue
+		   132.
+
+		   Note that while this construct is well formed in C++03
+		   it is likely to become ill formed in C++0x.  See open
+		   CWG issue 389 and related issues. */
+		;
 	      else
 		{
+		  /* It's a typedef referring to an anonymous type. */
 		  pedwarn ("non-local variable `%#D' uses anonymous type",
 			   decl);
 		  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
@@ -6284,12 +6336,20 @@ compute_array_index_type (tree name, tree size)
     itype = build_min (MINUS_EXPR, sizetype, size, integer_one_node);
   else
     {
+      HOST_WIDE_INT saved_processing_template_decl;
+
       /* Compute the index of the largest element in the array.  It is
-     	 one less than the number of elements in the array.  */
-      itype
-	= fold (cp_build_binary_op (MINUS_EXPR,
-				    cp_convert (ssizetype, size),
-				    cp_convert (ssizetype, integer_one_node)));
+     	 one less than the number of elements in the array.  We save
+     	 and restore PROCESSING_TEMPLATE_DECL so that computations in
+     	 cp_build_binary_op will be appropriately folded.  */
+      saved_processing_template_decl = processing_template_decl;
+      processing_template_decl = 0;
+      itype = cp_build_binary_op (MINUS_EXPR,
+				  cp_convert (ssizetype, size),
+				  cp_convert (ssizetype, integer_one_node));
+      itype = fold (itype);
+      processing_template_decl = saved_processing_template_decl;
+
       if (!TREE_CONSTANT (itype))
 	/* A variable sized array.  */
 	itype = variable_size (itype);
@@ -6506,7 +6566,6 @@ grokdeclarator (const cp_declarator *declarator,
                 int initialized,
                 tree* attrlist)
 {
-
   tree type = NULL_TREE;
   int longlong = 0;
   int type_quals;
@@ -6559,6 +6618,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   /* APPLE LOCAL CW asm blocks */
   bool cw_asm_p;
+  bool type_was_error_mark_node = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
   unsigned_p = declspecs->specs[(int)ds_unsigned];
@@ -6761,9 +6821,10 @@ grokdeclarator (const cp_declarator *declarator,
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
-    type = NULL_TREE;
-  /* If the entire declaration is itself tagged as deprecated then
-     suppress reports of deprecated items.  */
+    {
+      type = NULL_TREE;
+      type_was_error_mark_node = true;
+    }
 
   /* APPLE LOCAL begin unavailable attribute (radar 2809697) --bowdidge */
   /* If the entire declaration is itself tagged as unavailable then
@@ -6777,7 +6838,9 @@ grokdeclarator (const cp_declarator *declarator,
     }
   else
   /* APPLE LOCAL end unavailable attribute (radar 2809697) --bowdidge */
-  if (type && TREE_DEPRECATED (type) 
+  /* If the entire declaration is itself tagged as deprecated then
+     suppress reports of deprecated items.  */
+  if (type && TREE_DEPRECATED (type)
       && deprecated_state != DEPRECATED_SUPPRESS)
     warn_deprecated_use (type);
   if (type && TREE_CODE (type) == TYPE_DECL)
@@ -6789,6 +6852,7 @@ grokdeclarator (const cp_declarator *declarator,
      because it was not a user-defined typedef.  */
   if (type == NULL_TREE && (signed_p || unsigned_p || long_p || short_p))
     {
+	 /* APPLE LOCAL CW asm blocks */
       /* There were changes here for code warrior assembler, but they no
 	 longer work because of the new declspecs implementation */
       /* These imply 'int'.  */
@@ -6869,7 +6933,9 @@ grokdeclarator (const cp_declarator *declarator,
 		 && in_namespace == NULL_TREE
 		 && current_namespace == global_namespace);
 
-      if (in_system_header || flag_ms_extensions)
+      if (type_was_error_mark_node)
+	/* We've already issued an error, don't complain more.  */;
+      else if (in_system_header || flag_ms_extensions)
 	/* Allow it, sigh.  */;
       else if (pedantic || ! is_main)
 	pedwarn ("ISO C++ forbids declaration of `%s' with no type",
@@ -9364,7 +9430,7 @@ xref_basetypes (tree ref, tree base_list)
 	}
     }
 
-  SET_CLASSTYPE_MARKED (ref);
+  TYPE_MARKED_P (ref) = 1;
 
   /* The binfo slot should be empty, unless this is an (ill-formed)
      redefinition.  */
@@ -9389,11 +9455,6 @@ xref_basetypes (tree ref, tree base_list)
 
   if (max_bases > 1)
     {
-      TYPE_USES_MULTIPLE_INHERITANCE (ref) = 1;
-      /* If there is more than one non-empty they cannot be at the
-	 same address.  */
-      TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (ref) = 1;
-
       if (TYPE_FOR_JAVA (ref))
 	error ("Java class '%T' cannot have multiple bases", ref);
     }
@@ -9401,10 +9462,6 @@ xref_basetypes (tree ref, tree base_list)
   if (max_vbases)
     {
       CLASSTYPE_VBASECLASSES (ref) = VEC_alloc (tree, max_vbases);
-      TYPE_USES_VIRTUAL_BASECLASSES (ref) = 1;
-      /* Converting to a virtual base class requires looking up the
-	 offset of the virtual base.  */
-      TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (ref) = 1;
 
       if (TYPE_FOR_JAVA (ref))
 	error ("Java class '%T' cannot have virtual bases", ref);
@@ -9431,16 +9488,6 @@ xref_basetypes (tree ref, tree base_list)
 	  continue;
 	}
 
-      if (CLASSTYPE_MARKED (basetype))
-	{
-	  if (basetype == ref)
-	    error ("recursive type `%T' undefined", basetype);
-	  else
-	    error ("duplicate base type `%T' invalid", basetype);
-	  continue;
-	}
-      SET_CLASSTYPE_MARKED (basetype);
-
       if (TYPE_FOR_JAVA (basetype) && (current_lang_depth () == 0))
 	TYPE_FOR_JAVA (ref) = 1;
 
@@ -9457,12 +9504,24 @@ xref_basetypes (tree ref, tree base_list)
 	  TYPE_HAS_ARRAY_NEW_OPERATOR (ref)
 	    |= TYPE_HAS_ARRAY_NEW_OPERATOR (basetype);
 	  TYPE_GETS_DELETE (ref) |= TYPE_GETS_DELETE (basetype);
-	  TYPE_USES_MULTIPLE_INHERITANCE (ref)
-	    |= TYPE_USES_MULTIPLE_INHERITANCE (basetype);
-	  TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (ref)
-	    |= TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype);
 	  TYPE_HAS_CONVERSION (ref) |= TYPE_HAS_CONVERSION (basetype);
+	  CLASSTYPE_DIAMOND_SHAPED_P (ref)
+	    |= CLASSTYPE_DIAMOND_SHAPED_P (basetype);
+	  CLASSTYPE_REPEATED_BASE_P (ref)
+	    |= CLASSTYPE_REPEATED_BASE_P (basetype);
 	}
+      
+      /* We must do this test after we've seen through a typedef
+	 type.  */
+      if (TYPE_MARKED_P (basetype))
+	{
+	  if (basetype == ref)
+	    error ("recursive type `%T' undefined", basetype);
+	  else
+	    error ("duplicate base type `%T' invalid", basetype);
+	  continue;
+	}
+      TYPE_MARKED_P (basetype) = 1;
 
       base_binfo = copy_binfo (base_binfo, basetype, ref,
 			       &igo_prev, via_virtual);
@@ -9473,10 +9532,36 @@ xref_basetypes (tree ref, tree base_list)
       BINFO_BASE_ACCESS_APPEND (binfo, access);
     }
 
+  if (VEC_space (tree, CLASSTYPE_VBASECLASSES (ref), 1))
+    /* If we have space in the vbase vector, we must have shared at
+       least one of them, and are therefore diamond shaped.  */
+    CLASSTYPE_DIAMOND_SHAPED_P (ref) = 1;
+
   /* Unmark all the types.  */
   for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
-    CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (base_binfo));
-  CLEAR_CLASSTYPE_MARKED (ref);
+    TYPE_MARKED_P (BINFO_TYPE (base_binfo)) = 0;
+  TYPE_MARKED_P (ref) = 0;
+
+  /* Now see if we have a repeated base type.  */
+  if (!CLASSTYPE_REPEATED_BASE_P (ref))
+    {
+      for (base_binfo = binfo; base_binfo;
+	   base_binfo = TREE_CHAIN (base_binfo))
+	{
+	  if (TYPE_MARKED_P (BINFO_TYPE (base_binfo)))
+	    {
+	      CLASSTYPE_REPEATED_BASE_P (ref) = 1;
+	      break;
+	    }
+	  TYPE_MARKED_P (BINFO_TYPE (base_binfo)) = 1;
+	}
+      for (base_binfo = binfo; base_binfo;
+	   base_binfo = TREE_CHAIN (base_binfo))
+	if (TYPE_MARKED_P (BINFO_TYPE (base_binfo)))
+	  TYPE_MARKED_P (BINFO_TYPE (base_binfo)) = 0;
+	else
+	  break;
+    }
 }
 
 
@@ -9878,6 +9963,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   int doing_friend = 0;
   struct cp_binding_level *bl;
   tree current_function_parms;
+  struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
 
   /* Sanity check.  */
   gcc_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE);
@@ -10104,7 +10190,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* If this function belongs to an interface, it is public.
      If it belongs to someone else's interface, it is also external.
      This only affects inlines and template instantiations.  */
-  else if (interface_unknown == 0
+  else if (finfo->interface_unknown == 0
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       if (DECL_DECLARED_INLINE_P (decl1)
@@ -10112,7 +10198,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	  || processing_template_decl)
 	{
 	  DECL_EXTERNAL (decl1)
-	    = (interface_only
+	    = (finfo->interface_only
 	       || (DECL_DECLARED_INLINE_P (decl1)
 		   && ! flag_implement_inlines
 		   && !DECL_VINDEX (decl1)));
@@ -10130,14 +10216,15 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       if (!DECL_EXTERNAL (decl1))
 	mark_needed (decl1);
     }
-  else if (interface_unknown && interface_only
+  else if (finfo->interface_unknown && finfo->interface_only
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma
-	 interface, we will have interface_only set but not
-	 interface_known.  In that case, we don't want to use the normal
-	 heuristics because someone will supply a #pragma implementation
-	 elsewhere, and deducing it here would produce a conflict.  */
+	 interface, we will have both finfo->interface_unknown and
+	 finfo->interface_only set.  In that case, we don't want to
+	 use the normal heuristics because someone will supply a
+	 #pragma implementation elsewhere, and deducing it here would
+	 produce a conflict.  */
       comdat_linkage (decl1);
       DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
@@ -10220,16 +10307,10 @@ start_function (cp_decl_specifier_seq *declspecs,
     maybe_apply_pragma_weak (decl1);
 
   if (DECL_MAIN_P (decl1))
-    {
-      /* If this doesn't return integer_type, or a typedef to
-	 integer_type, complain.  */
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl1)), integer_type_node))
-	{
-	  if (pedantic || warn_return_type)
-	    pedwarn ("return type for `main' changed to `int'");
-	  TREE_TYPE (decl1) = default_function_type;
-	}
-    }
+    /* main must return int.  grokfndecl should have corrected it
+       (and issued a diagnostic) if the user got it wrong.  */
+    gcc_assert (same_type_p (TREE_TYPE (TREE_TYPE (decl1)),
+			     integer_type_node));
 
   start_preparsed_function (decl1, attrs, /*flags=*/SF_DEFAULT);
 
@@ -10868,8 +10949,8 @@ finish_method (tree decl)
      for String.cc in libg++.  */
   if (DECL_FRIEND_P (fndecl))
     {
-      CLASSTYPE_INLINE_FRIENDS (current_class_type)
-	= tree_cons (NULL_TREE, fndecl, CLASSTYPE_INLINE_FRIENDS (current_class_type));
+      VEC_safe_push (tree, CLASSTYPE_INLINE_FRIENDS (current_class_type),
+		     fndecl);
       decl = void_type_node;
     }
 
@@ -10944,6 +11025,8 @@ cxx_maybe_build_cleanup (tree decl)
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
       tree rval;
+      bool has_vbases = (TREE_CODE (type) == RECORD_TYPE
+			 && CLASSTYPE_VBASECLASSES (type));
       /* APPLE LOCAL begin KEXT double destructor */
       special_function_kind dtor = sfk_complete_destructor;
       if (flag_apple_kext
@@ -10974,16 +11057,14 @@ cxx_maybe_build_cleanup (tree decl)
 	}
 
       /* Optimize for space over speed here.  */
-      if (! TYPE_USES_VIRTUAL_BASECLASSES (type)
-	  || flag_expensive_optimizations)
+      if (!has_vbases || flag_expensive_optimizations)
 	flags |= LOOKUP_NONVIRTUAL;
 
       rval = build_delete (TREE_TYPE (rval), rval,
 			   /* APPLE LOCAL KEXT double destructor  */
 			   dtor, flags, 0);
 
-      if (TYPE_USES_VIRTUAL_BASECLASSES (type)
-	  && ! TYPE_HAS_DESTRUCTOR (type))
+      if (has_vbases && !TYPE_HAS_DESTRUCTOR (type))
 	rval = build_compound_expr (rval, build_vbase_delete (type, decl));
 
       return rval;
@@ -11097,6 +11178,26 @@ cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);
+}
+
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+cxx_comdat_group (tree decl)
+{
+  tree name;
+
+  /* Virtual tables, construction virtual tables, and virtual table
+     tables all go in a single COMDAT group, named after the primary
+     virtual table.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_VTABLE_OR_VTT_P (decl))
+    name = DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (DECL_CONTEXT (decl)));
+  /* For all other DECLs, the COMDAT group is the mangled name of the
+     declaration itself.  */
+  else
+    name = DECL_ASSEMBLER_NAME (decl);
+
+  return IDENTIFIER_POINTER (name);
 }
 
 #include "gt-cp-decl.h"

@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define LAMBDA_H
 
 #include "vec.h"
+/* APPLE LOCAL lno */
 #include "ggc.h"
 
 /* An integer vector.  A vector formally consists of an element of a vector
@@ -106,7 +107,9 @@ typedef struct
 
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
-
+struct loop;
+struct loops;
+bool perfect_nest_p (struct loop *);
 bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
@@ -117,6 +120,7 @@ void print_lambda_loop (FILE *, lambda_loop, int, int, char);
 lambda_matrix lambda_matrix_new (int, int);
 
 void lambda_matrix_id (lambda_matrix, int);
+bool lambda_matrix_id_p (lambda_matrix, int);
 void lambda_matrix_copy (lambda_matrix, lambda_matrix, int, int);
 void lambda_matrix_negate (lambda_matrix, lambda_matrix, int, int);
 void lambda_matrix_transpose (lambda_matrix, lambda_matrix, int, int);
@@ -154,16 +158,17 @@ lambda_trans_matrix lambda_trans_matrix_inverse (lambda_trans_matrix);
 void print_lambda_trans_matrix (FILE *, lambda_trans_matrix);
 void lambda_matrix_vector_mult (lambda_matrix, int, int, lambda_vector, 
 				lambda_vector);
+bool lambda_trans_matrix_id_p (lambda_trans_matrix);
 
 lambda_body_vector lambda_body_vector_new (int);
 lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix, 
 						   lambda_body_vector);
 void print_lambda_body_vector (FILE *, lambda_body_vector);
-struct loop;
-
-lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loop *,
+lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loops *,
+						 struct loop *,
 						 VEC(tree) **,
-						 VEC(tree) **);
+						 VEC(tree) **,
+						 bool);
 void lambda_loopnest_to_gcc_loopnest (struct loop *, VEC(tree) *,
 				      VEC(tree) *,
 				      lambda_loopnest, 
@@ -283,7 +288,7 @@ lambda_vector_equal (lambda_vector vec1, lambda_vector vec2, int size)
   return true;
 }
 
-/* Return the minimum non-zero element in vector VEC1 between START and N.
+/* Return the minimum nonzero element in vector VEC1 between START and N.
    We must have START <= N.  */
 
 static inline int

@@ -134,13 +134,6 @@ extern int flag_print_asm_name;
 
 extern int flag_signed_char;
 
-/* APPLE LOCAL begin Pascal strings 2001-07-05 --zll */
-/* Nonzero means initial "\p" in string becomes a length byte and
-   string type becomes _unsigned_ char* .  */
-
-extern int flag_pascal_strings;
-/* APPLE LOCAL end Pascal strings 2001-07-05 --zll */
-
 /* Nonzero means give an enum type only as many bytes as it needs.  A value
    of 2 means it has not yet been initialized.  */
 
@@ -260,16 +253,6 @@ extern enum graph_dump_types graph_dump_format;
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 extern int flag_detailed_statistics;
-
-/* Enable points-to analysis on trees.  */
-enum pta_type
-  {
-    PTA_NONE,
-    PTA_ANDERSEN
-  };
-extern enum pta_type flag_tree_points_to;
-
-extern int flag_web;
 
 /* Nonzero means that we defer emitting functions until they are actually
    used.  */

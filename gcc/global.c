@@ -491,12 +491,12 @@ global_alloc (FILE *file)
 	&& (! current_function_has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
-	if (reg_renumber[i] < 0 && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
+	if (reg_renumber[i] < 0
+	    && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
 	  reg_allocno[i] = reg_allocno[reg_may_share[i]];
 	else
 	  reg_allocno[i] = max_allocno++;
-	if (REG_LIVE_LENGTH (i) == 0)
-	  abort ();
+	gcc_assert (REG_LIVE_LENGTH (i));
       }
     else
       reg_allocno[i] = -1;
@@ -778,7 +778,7 @@ global_conflicts (void)
 		   evaluates X.
 
 		3. Either X or Y is not evaluated on the path to P
-		   (ie it is used uninitialized) and thus the
+		   (i.e. it is used uninitialized) and thus the
 		   conflict can be ignored.
 
 	    In cases #1 and #2 the conflict will be recorded when we
@@ -792,8 +792,9 @@ global_conflicts (void)
 	   regs live across such edges.  */
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  for (e = b->pred; e ; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, b->preds)
 	    if (e->flags & EDGE_ABNORMAL)
 	      break;
 
@@ -1880,17 +1881,17 @@ build_insn_chain (rtx first)
       if (first == BB_HEAD (b))
 	{
 	  int i;
+	  bitmap_iterator bi;
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP
-	    (b->global_live_at_start, 0, i,
-	     {
-	       if (i < FIRST_PSEUDO_REGISTER
-		   ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
-		   : reg_renumber[i] >= 0)
-		 SET_REGNO_REG_SET (live_relevant_regs, i);
-	     });
+	  EXECUTE_IF_SET_IN_BITMAP (b->global_live_at_start, 0, i, bi)
+	    {
+	      if (i < FIRST_PSEUDO_REGISTER
+		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
+		  : reg_renumber[i] >= 0)
+		SET_REGNO_REG_SET (live_relevant_regs, i);
+	    }
 	}
 
       if (!NOTE_P (first) && !BARRIER_P (first))
@@ -1950,14 +1951,15 @@ build_insn_chain (rtx first)
 	 the previous real insn is a JUMP_INSN.  */
       if (b == EXIT_BLOCK_PTR)
 	{
-	  for (first = NEXT_INSN (first) ; first; first = NEXT_INSN (first))
-	    if (INSN_P (first)
-		&& GET_CODE (PATTERN (first)) != USE
-		&& ! ((GET_CODE (PATTERN (first)) == ADDR_VEC
-		       || GET_CODE (PATTERN (first)) == ADDR_DIFF_VEC)
-		      && prev_real_insn (first) != 0
-		      && JUMP_P (prev_real_insn (first))))
-	      abort ();
+#ifdef ENABLE_CHECKING
+	  for (first = NEXT_INSN (first); first; first = NEXT_INSN (first))
+	    gcc_assert (!INSN_P (first)
+			|| GET_CODE (PATTERN (first)) == USE
+			|| ((GET_CODE (PATTERN (first)) == ADDR_VEC
+			     || GET_CODE (PATTERN (first)) == ADDR_DIFF_VEC)
+			    && prev_real_insn (first) != 0
+			    && JUMP_P (prev_real_insn (first))));
+#endif
 	  break;
 	}
     }
@@ -2402,12 +2404,14 @@ calculate_reg_pav (void)
       sbitmap_zero (wset);
       for (i = 0; i < nel; i++)
 	{
+	  edge_iterator ei;
+
 	  bb = bb_array [i];
 	  changed_p = 0;
-	  for (e = bb->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
 	  if (changed_p)
-	    for (e = bb->succ; e; e = e->succ_next)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
 		succ = e->dest;
 		if (succ->index != EXIT_BLOCK && !TEST_BIT (wset, succ->index))

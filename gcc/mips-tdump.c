@@ -122,7 +122,7 @@ typedef enum st {
   st_Enum	= stEnum,	/* enum */
 #endif
   st_Str	= stStr,	/* string */
-  st_Number	= stNumber,	/* pure number (ie. 4 NOR 2+2) */
+  st_Number	= stNumber,	/* pure number (i.e. 4 NOR 2+2) */
   st_Expr	= stExpr,	/* 2+2 vs. 4 */
   st_Type	= stType,	/* post-coercion SER */
   st_Max	= stMax		/* max type+1 */
@@ -631,7 +631,7 @@ type_to_string (AUXU *aux_ptr, int index, FDR *fdp)
       /*
        * Snarf up any array bounds in the correct order.  Arrays
        * store 5 successive words in the aux. table:
-       *	word 0	RNDXR to type of the bounds (ie, int)
+       *	word 0	RNDXR to type of the bounds (i.e., int)
        *	word 1	Current file descriptor index
        *	word 2	low bound
        *	word 3	high bound (or -1 if [])
@@ -689,7 +689,7 @@ type_to_string (AUXU *aux_ptr, int index, FDR *fdp)
 		int first_array = i;
 		int j;
 
-		/* Print array bounds reversed (ie, in the order the C
+		/* Print array bounds reversed (i.e., in the order the C
 		   programmer writes them).  C is such a fun language....  */
 
 		while (i < 5 && qualifiers[i+1].type == tq_Array)

@@ -92,6 +92,7 @@ DEFTIMEVAR (TV_LIM                   , "loop invariant motion")
 /* APPLE LOCAL lno */
 DEFTIMEVAR (TV_UNSWITCH              , "loop unswitching")
 DEFTIMEVAR (TV_TREE_LOOP_IVCANON     , "tree canonical iv creation")
+DEFTIMEVAR (TV_TREE_LOOP_UNSWITCH    , "tree loop unswitching")
 DEFTIMEVAR (TV_COMPLETE_UNROLL       , "complete unrolling")
 DEFTIMEVAR (TV_TREE_VECTORIZATION    , "tree loop vectorization")
 DEFTIMEVAR (TV_TREE_LINEAR_TRANSFORM , "tree loop linear transforms")

@@ -254,6 +254,8 @@ extern int flow_loop_scan (struct loop *, int);
 extern void flow_loop_free (struct loop *);
 void mark_irreducible_loops (struct loops *);
 void mark_single_exit_loops (struct loops *);
+void update_single_exits_after_duplication (basic_block *, unsigned,
+					    struct loop *);
 extern void create_loop_notes (void);
 
 /* Loop data structure manipulation/querying.  */
@@ -312,14 +314,15 @@ extern struct loop * duplicate_loop (struct loops *,
 #define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
 					   duplicate_loop_to_header_edge.  */
 
+extern struct loop * duplicate_loop (struct loops *, struct loop *,
+				     struct loop *);
 extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned, sbitmap, edge, edge *,
 					  unsigned *, int);
-/* APPLE LOCAL lno */
 extern struct loop *loopify (struct loops *, edge, edge, basic_block, bool);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
-extern edge split_loop_bb (basic_block, rtx);
+extern edge split_loop_bb (basic_block, void *);
 
 /* Induction variable analysis.  */
 
@@ -415,6 +418,7 @@ extern void iv_analysis_loop_init (struct loop *);
 extern rtx iv_get_reaching_def (rtx, rtx);
 extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
+extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_number_of_iterations (struct loop *, rtx, rtx,
 				     struct niter_desc *);
@@ -462,5 +466,12 @@ enum
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
+
+/* Old loop optimizer interface.  */
+
+/* Flags passed to loop_optimize.  */
+#define LOOP_PREFETCH 1
+
+extern void loop_optimize (rtx, FILE *, int);
 
 #endif /* GCC_CFGLOOP_H */

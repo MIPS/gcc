@@ -44,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
-#include "tree-alias-common.h"
 #include "ggc.h"
 #include "cgraph.h"
 #include "graph.h"
@@ -286,7 +285,7 @@ static struct tree_opt_pass **
 next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 {
 
-  /* A non-zero static_pass_number indicates that the
+  /* A nonzero static_pass_number indicates that the
      pass is already in the list.  */
   if (pass->static_pass_number)
     {
@@ -346,7 +345,6 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -384,7 +382,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_late_warn_uninitialized);
-  NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
@@ -394,22 +391,20 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
-  /* APPLE LOCAL lno */
   NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_iv_canon);
-  /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_record_bounds);
+  /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_loop_test);
   NEXT_PASS (pass_elim_checks);
   NEXT_PASS (pass_mark_maybe_inf_loops);
   /* APPLE LOCAL end lno */
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_complete_unroll);
-  /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_complete_unroll);
+  /* APPLE LOCAL lno */
   NEXT_PASS (pass_loop_prefetch);
-  /* APPLE LOCAL end lno */
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
   *p = NULL;
@@ -562,21 +557,38 @@ execute_pass_list (struct tree_opt_pass *pass)
     }
   while (pass);
 }
+
+
+/* Update recursively all inlined_to pointers of functions
+   inlined into NODE to INLINED_TO.  */
+static void
+update_inlined_to_pointers (struct cgraph_node *node,
+			    struct cgraph_node *inlined_to)
+{
+  struct cgraph_edge *e;
+  for (e = node->callees; e; e = e->next_callee)
+    {
+      if (e->callee->global.inlined_to)
+	{
+	  e->callee->global.inlined_to = inlined_to;
+	  update_inlined_to_pointers (e->callee, inlined_to);
+	}
+    }
+}
 
 
 /* For functions-as-trees languages, this performs all optimization and
    compilation for FNDECL.  */
 
 void
-tree_rest_of_compilation (tree fndecl, bool nested_p)
+tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *saved_node = NULL, *node;
 
   timevar_push (TV_EXPAND);
 
-  if (flag_unit_at_a_time && !cgraph_global_info_ready)
-    abort ();
+  gcc_assert (!flag_unit_at_a_time || cgraph_global_info_ready);
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
@@ -625,13 +637,13 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
+  /* We are not going to maintain the cgraph edges up to date.
+     Kill it so it won't confuse us.  */
+  while (node->callees)
+    cgraph_remove_edge (node->callees);
+
   if (!vars_to_rename)
     vars_to_rename = BITMAP_XMALLOC ();
-
-  /* If this is a nested function, protect the local variables in the stack
-     above us from being collected while we're compiling this function.  */
-  if (nested_p)
-    ggc_push_context ();
 
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
@@ -649,11 +661,13 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       if (!flag_unit_at_a_time)
 	{
 	  struct cgraph_edge *e;
+
 	  while (node->callees)
 	    cgraph_remove_edge (node->callees);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
-	  for (e = saved_node->callees; e; e = e->next_callee)
+	  update_inlined_to_pointers (node, node);
+	  for (e = node->callees; e; e = e->next_callee)
 	    e->caller = node;
 	  cgraph_remove_node (saved_node);
 	}
@@ -686,7 +700,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  if (!nested_p && !flag_inline_trees)
+  if (!flag_inline_trees)
     {
       DECL_SAVED_TREE (fndecl) = NULL;
       if (DECL_STRUCT_FUNCTION (fndecl) == 0
@@ -705,9 +719,5 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   input_location = saved_loc;
 
   ggc_collect ();
-
-  /* Undo the GC context switch.  */
-  if (nested_p)
-    ggc_pop_context ();
   timevar_pop (TV_EXPAND);
 }

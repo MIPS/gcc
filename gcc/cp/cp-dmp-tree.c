@@ -277,8 +277,6 @@ cxx_dump_type (FILE *file, tree node, int indent, int after_id)
 	    fputs (" delete[]", file);
 	  if (TYPE_HAS_ASSIGN_REF (node))
 	    fputs (" this=(X&)", file);
-	  if (TYPE_USES_MULTIPLE_INHERITANCE (node))
-	    fputs (" uses-mult-inh", file);
         }
     }
     

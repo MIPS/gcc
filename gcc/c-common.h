@@ -164,7 +164,7 @@ enum c_tree_index
     CTI_WIDEST_UINT_LIT_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
-    /* APPLE LOCAL Pascal strings 2001-07-05 --zll */
+    /* APPLE LOCAL pascal strings */
     CTI_PASCAL_STRING_TYPE,    /* for Pascal strings */
     CTI_WCHAR_ARRAY_TYPE,
     CTI_INT_ARRAY_TYPE,
@@ -881,10 +881,6 @@ extern tree decl_constant_value (tree);
 /* Handle increment and decrement of boolean types.  */
 extern tree boolean_increment (enum tree_code, tree);
 
-/* Hook currently used only by the C++ front end to reset internal state
-   after entering or leaving a header file.  */
-extern void extract_interface_info (void);
-
 extern int case_compare (splay_tree_key, splay_tree_key);
 
 extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
@@ -920,7 +916,14 @@ extern GTY(()) int pending_lang_change;
 struct c_fileinfo
 {
   int time;	/* Time spent in the file.  */
-  short interface_only;		/* Flags - used only by C++ */
+
+  /* Flags used only by C++.
+     INTERFACE_ONLY nonzero means that we are in an "interface" section
+     of the compiler.  INTERFACE_UNKNOWN nonzero means we cannot trust
+     the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN is zero and
+     INTERFACE_ONLY is zero, it means that we are responsible for
+     exporting definitions that others might need.  */
+  short interface_only;
   short interface_unknown;
 };
 

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file lno */
 /* Linear Loop transforms
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
@@ -234,34 +233,26 @@ try_interchange_loops (lambda_trans_matrix trans,
   return trans;
 }
 
-  
 /* Perform a set of linear transforms on LOOPS.  */
 
 void
 linear_transform_loops (struct loops *loops)
 {
-  loops = 0;
-  (void)try_interchange_loops;
-/* APPLE LOCAL merge fixme */
-#if 0
   unsigned int i;
-  compute_immediate_uses (TDFA_USE_OPS, NULL);
+
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
-      bool need_perfect_nest = false;
       varray_type datarefs;
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
       struct loop *temp;
-      varray_type oldivs;
-      varray_type invariants;
+      VEC (tree) *oldivs;
+      VEC (tree) *invariants;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
-      flow_loop_scan (loop_nest, LOOP_ALL);
-      if (dump_file)
-	flow_loop_dump (loop_nest, dump_file, NULL, 0);
+      bool need_perfect_nest = false;
       /* If it's not a loop nest, we don't want it.
          We also don't handle sibling loops properly, 
          which are loops of the following form:
@@ -271,7 +262,7 @@ linear_transform_loops (struct loops *loops)
                {
 	        ...
                }
-             for (j = 0; j < 50; j++)
+           for (j = 0; j < 50; j++)
                {
                 ...
                }
@@ -282,8 +273,6 @@ linear_transform_loops (struct loops *loops)
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
 	  flow_loop_scan (temp, LOOP_ALL);
-	  if (dump_file)
-	    flow_loop_dump (temp, dump_file, NULL, 0);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
 	  if (temp->next || temp->num_exits != 1)
 	    {
@@ -305,21 +294,34 @@ linear_transform_loops (struct loops *loops)
       compute_data_dependences_for_loop (depth, loop_nest,
 					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
-	dump_dist_dir_vectors (dump_file, dependence_relations);
+	{
+	  unsigned int j;
+	  for (j = 0; j < VARRAY_ACTIVE_SIZE (dependence_relations); j++)
+	    {
+	      struct data_dependence_relation *ddr = 
+		(struct data_dependence_relation *) 
+		VARRAY_GENERIC_PTR (dependence_relations, j);
 
+	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+		{
+		  fprintf (dump_file, "DISTANCE_V (");
+		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), 
+				       loops->num);
+		  fprintf (dump_file, ")\n");
+		  fprintf (dump_file, "DIRECTION_V (");
+		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), 
+				       loops->num);
+		  fprintf (dump_file, ")\n");
+		}
+	    }
+	  fprintf (dump_file, "\n\n");
+	}
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
-#if 1
       lambda_matrix_id (LTM_MATRIX (trans), depth);
-      trans = try_interchange_loops (trans, depth, dependence_relations, 
+      trans = try_interchange_loops (trans, depth, dependence_relations,
 				     datarefs, loop_nest->num);
-#else
-      /* This is a 2x2 interchange matrix.  */
-      LTM_MATRIX (trans)[0][0] = 0;
-      LTM_MATRIX (trans)[0][1] = 1;
-      LTM_MATRIX (trans)[1][0] = 1;
-      LTM_MATRIX (trans)[1][1] = 0;
-#endif
+
       if (lambda_trans_matrix_id_p (trans))
 	{
 	  if (dump_file)
@@ -334,10 +336,9 @@ linear_transform_loops (struct loops *loops)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
 	  continue;
 	}
-      
       if (!perfect_nest_p (loop_nest))
 	need_perfect_nest = true;
-      before = gcc_loopnest_to_lambda_loopnest (loops, 
+      before = gcc_loopnest_to_lambda_loopnest (loops,
 						loop_nest, &oldivs, 
 						&invariants,
 						need_perfect_nest);
@@ -358,11 +359,11 @@ linear_transform_loops (struct loops *loops)
 	}
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
 				       after, trans);
-      varray_clear (oldivs);
-      varray_clear (invariants);
+      oldivs = NULL;
+      invariants = NULL;
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
-    }  
-/* APPLE LOCAL merge fixme */
-#endif
+    }
+  rewrite_into_loop_closed_ssa ();
+  free_df ();
 }

@@ -248,7 +248,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 0
 #endif
 
-/* This determines whether or not we need linkonce unwind information */
+/* This determines whether or not we need linkonce unwind information.  */
 #ifndef TARGET_USES_WEAK_UNWIND_INFO
 #define TARGET_USES_WEAK_UNWIND_INFO 0
 #endif
@@ -291,6 +291,11 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 # define USE_COMMON_FOR_ONE_ONLY 1
 #endif
 
+/* By default we can assume that all global symbols are in one namespace,
+   across all shared libraries.  */
+#ifndef MULTIPLE_SYMBOL_SPACES
+# define MULTIPLE_SYMBOL_SPACES 0
+#endif
 
 /* If the target supports init_priority C++ attribute, give
    SUPPORTS_INIT_PRIORITY a nonzero value.  */
@@ -627,7 +632,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
 
-/* True if the targets integer-comparision functions return { 0, 1, 2
+/* True if the targets integer-comparison functions return { 0, 1, 2
    } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
    instead.  The libgcc routines are biased.  */
 #ifndef TARGET_LIB_INT_CMP_BIASED

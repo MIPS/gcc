@@ -38,6 +38,49 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "toplev.h"
 
+/* Verify that there is exactly single jump instruction since last and attach
+   REG_BR_PROB note specifying probability.
+   ??? We really ought to pass the probability down to RTL expanders and let it
+   re-distribute it when the conditional expands into multiple conditionals.
+   This is however difficult to do.  */
+static void
+add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
+{
+  if (profile_status == PROFILE_ABSENT)
+    return;
+  for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
+    if (GET_CODE (last) == JUMP_INSN)
+      {
+	/* It is common to emit condjump-around-jump sequence when we don't know
+	   how to reverse the conditional.  Special case this.  */
+	if (!any_condjump_p (last)
+	    || GET_CODE (NEXT_INSN (last)) != JUMP_INSN
+	    || !simplejump_p (NEXT_INSN (last))
+	    || GET_CODE (NEXT_INSN (NEXT_INSN (last))) != BARRIER
+	    || GET_CODE (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))) != CODE_LABEL
+	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
+	  goto failed;
+	if (find_reg_note (last, REG_BR_PROB, 0))
+	  abort ();
+	REG_NOTES (last)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (REG_BR_PROB_BASE - probability),
+			       REG_NOTES (last));
+	return;
+      }
+  if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
+      goto failed;
+  if (find_reg_note (last, REG_BR_PROB, 0))
+    abort ();
+  REG_NOTES (last)
+    = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			 GEN_INT (probability), REG_NOTES (last));
+  return;
+failed:
+  if (dump_file)
+    fprintf (dump_file, "Failed to add probability note\n");
+}
+
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -670,12 +713,8 @@ expand_used_vars_for_block (tree block, bool toplevel)
       resize_stack_vars_conflict (new_sv_num);
 
       for (i = old_sv_num; i < new_sv_num; ++i)
-	for (j = i < this_sv_num ? i : this_sv_num; ; --j)
-	  {
-	    add_stack_var_conflict (i, j);
-	    if (j == old_sv_num)
-	      break;
-	  }
+	for (j = i < this_sv_num ? i+1 : this_sv_num; j-- > old_sv_num ;)
+	  add_stack_var_conflict (i, j);
     }
 }
 
@@ -808,7 +847,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   tree pred = COND_EXPR_COND (stmt);
   tree then_exp = COND_EXPR_THEN (stmt);
   tree else_exp = COND_EXPR_ELSE (stmt);
-  rtx last;
+  rtx last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (EXPR_LOCUS (stmt))
@@ -826,17 +865,20 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   if (TREE_CODE (then_exp) == GOTO_EXPR && IS_EMPTY_STMT (else_exp))
     {
       jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+      add_reg_br_prob_note (dump_file, last, true_edge->probability);
       return NULL;
     }
   if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
     {
       jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
+      add_reg_br_prob_note (dump_file, last, false_edge->probability);
       return NULL;
     }
   gcc_assert (TREE_CODE (then_exp) == GOTO_EXPR
 	      && TREE_CODE (else_exp) == GOTO_EXPR);
 
   jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+  add_reg_br_prob_note (dump_file, last, true_edge->probability);
   last = get_last_insn ();
   expand_expr (else_exp, const0_rtx, VOIDmode, 0);
 
@@ -882,6 +924,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 {
   rtx last = get_last_insn ();
   edge e;
+  edge_iterator ei;
   int probability;
   gcov_type count;
 
@@ -906,13 +949,11 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
      all edges here, or redirecting the existing fallthru edge to
      the exit block.  */
 
-  e = bb->succ;
   probability = 0;
   count = 0;
-  while (e)
-    {
-      edge next = e->succ_next;
 
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+    {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
 	  if (e->dest != EXIT_BLOCK_PTR)
@@ -928,8 +969,8 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 	  probability += e->probability;
 	  remove_edge (e);
 	}
-
-      e = next;
+      else
+	ei_next (&ei);
     }
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
@@ -978,6 +1019,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
+  edge_iterator ei;
 
   if (dump_file)
     {
@@ -1008,11 +1050,8 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  e = bb->succ;
-  while (e)
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
-      edge next = e->succ_next;
-
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
 
@@ -1021,8 +1060,8 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
-
-      e = next;
+      else
+	ei_next (&ei);
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
@@ -1086,11 +1125,22 @@ static basic_block
 construct_init_block (void)
 {
   basic_block init_block, first_block;
-  edge e;
+  edge e = NULL, e2;
+  edge_iterator ei;
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
-    if (e->dest == ENTRY_BLOCK_PTR->next_bb)
-      break;
+  FOR_EACH_EDGE (e2, ei, ENTRY_BLOCK_PTR->succs)
+    {
+      /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.
+
+	 For all other blocks this edge flag is cleared while expanding
+	 a basic block in expand_gimple_basic_block, but there we never
+	 looked at the successors of the entry block.
+	 This caused PR17513.  */
+      e2->flags &= ~EDGE_EXECUTABLE;
+
+      if (e2->dest == ENTRY_BLOCK_PTR->next_bb)
+	e = e2;
+    }
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
@@ -1121,7 +1171,9 @@ construct_exit_block (void)
   rtx head = get_last_insn ();
   rtx end;
   basic_block exit_block;
-  edge e, e2, next;
+  edge e, e2;
+  unsigned ix;
+  edge_iterator ei;
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
@@ -1147,16 +1199,21 @@ construct_exit_block (void)
 				   EXIT_BLOCK_PTR->prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
-  for (e = EXIT_BLOCK_PTR->pred; e; e = next)
+
+  ix = 0;
+  while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
     {
-      next = e->pred_next;
+      e = EDGE_I (EXIT_BLOCK_PTR->preds, ix);
       if (!(e->flags & EDGE_ABNORMAL))
-        redirect_edge_succ (e, exit_block);
+	redirect_edge_succ (e, exit_block);
+      else
+	ix++;
     }
+
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
-  for (e2 = EXIT_BLOCK_PTR->pred; e2; e2 = e2->pred_next)
+  FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
     if (e2 != e)
       {
         e->count -= e2->count;
@@ -1186,8 +1243,6 @@ tree_expand_cfg (void)
 {
   basic_block bb, init_block;
   sbitmap blocks;
-
-  profile_status = PROFILE_ABSENT;
 
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;

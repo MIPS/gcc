@@ -42,10 +42,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
-#include "tree-alias-common.h"
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
+#include "cgraph.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -108,6 +108,7 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
+  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -187,28 +188,46 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
 }
 
 
-/* Invalidates dataflow information for a statement STMT.  */
+/* Invalidates dataflow information for a statement STMT.   */
 
-static void
+void
 free_df_for_stmt (tree stmt)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
+  dataflow_t *df;
 
-  if (ann && ann->df)
+  if (TREE_CODE (stmt) == PHI_NODE)
+    df = &PHI_DF (stmt);
+  else
     {
-      /* If we have a varray of immediate uses, then go ahead and release
-	 it for re-use.  */
-      if (ann->df->immediate_uses)
-	ggc_free (ann->df->immediate_uses);
+      stmt_ann_t ann = stmt_ann (stmt);
 
-      /* Similarly for the main dataflow structure.  */
-      ggc_free (ann->df);
-      ann->df = NULL;
+      if (!ann)
+	return;
+
+      df = &ann->df;
     }
+
+  if (!*df)
+    return;
+      
+  /* If we have a varray of immediate uses, then go ahead and release
+     it for re-use.  */
+  if ((*df)->immediate_uses)
+    ggc_free ((*df)->immediate_uses);
+
+  /* Similarly for the main dataflow structure.  */
+  ggc_free (*df);
+  *df = NULL;
 }
 
 
-/* Invalidate dataflow information for the whole function.  */
+/* Invalidate dataflow information for the whole function. 
+
+   Note this only invalidates dataflow information on statements and
+   PHI nodes which are reachable.
+
+   A deleted statement may still have attached dataflow information
+   on it.  */
 
 void
 free_df (void)
@@ -244,10 +263,7 @@ compute_immediate_uses_for_phi (tree phi, bool (*calc_for)(tree))
 {
   int i;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (phi) != PHI_NODE)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (phi) == PHI_NODE);
 
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
@@ -274,11 +290,8 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
   tree use;
   ssa_op_iter iter;
 
-#ifdef ENABLE_CHECKING
   /* PHI nodes are handled elsewhere.  */
-  if (TREE_CODE (stmt) == PHI_NODE)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 
   /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
   if (flags & TDFA_USE_OPS)
@@ -309,28 +322,34 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 static void
 add_immediate_use (tree stmt, tree use_stmt)
 {
-  stmt_ann_t ann = get_stmt_ann (stmt);
-  struct dataflow_d *df;
+  struct dataflow_d **df;
 
-  df = ann->df;
-  if (df == NULL)
+  if (TREE_CODE (stmt) == PHI_NODE)
+    df = &PHI_DF (stmt);
+  else
     {
-      df = ann->df = ggc_alloc (sizeof (struct dataflow_d));
-      memset ((void *) df, 0, sizeof (struct dataflow_d));
-      df->uses[0] = use_stmt;
+      stmt_ann_t ann = get_stmt_ann (stmt);
+      df = &ann->df;
+    }
+
+  if (*df == NULL)
+    {
+      *df = ggc_alloc (sizeof (struct dataflow_d));
+      memset ((void *) *df, 0, sizeof (struct dataflow_d));
+      (*df)->uses[0] = use_stmt;
       return;
     }
 
-  if (!df->uses[1])
+  if (!(*df)->uses[1])
     {
-      df->uses[1] = use_stmt;
+      (*df)->uses[1] = use_stmt;
       return;
     }
 
-  if (ann->df->immediate_uses == NULL)
-    VARRAY_TREE_INIT (ann->df->immediate_uses, 4, "immediate_uses");
+  if ((*df)->immediate_uses == NULL)
+    VARRAY_TREE_INIT ((*df)->immediate_uses, 4, "immediate_uses");
 
-  VARRAY_PUSH_TREE (ann->df->immediate_uses, use_stmt);
+  VARRAY_PUSH_TREE ((*df)->immediate_uses, use_stmt);
 }
 
 
@@ -340,7 +359,7 @@ static void
 redirect_immediate_use (tree use, tree old, tree new)
 {
   tree imm_stmt = SSA_NAME_DEF_STMT (use);
-  struct dataflow_d *df = get_stmt_ann (imm_stmt)->df;
+  struct dataflow_d *df = get_immediate_uses (imm_stmt);
   unsigned int num_uses = num_immediate_uses (df);
   unsigned int i;
 
@@ -382,13 +401,9 @@ create_var_ann (tree t)
 {
   var_ann_t ann;
 
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || !DECL_P (t)
-      || (t->common.ann
-	  && t->common.ann->common.type != VAR_ANN))
-    abort ();
-#endif
+  gcc_assert (t);
+  gcc_assert (DECL_P (t));
+  gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
@@ -408,12 +423,8 @@ create_stmt_ann (tree t)
 {
   stmt_ann_t ann;
 
-#if defined ENABLE_CHECKING
-  if ((!is_gimple_stmt (t))
-      || (t->common.ann
-	  && t->common.ann->common.type != STMT_ANN))
-    abort ();
-#endif
+  gcc_assert (is_gimple_stmt (t));
+  gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
@@ -436,12 +447,8 @@ create_tree_ann (tree t)
 {
   tree_ann_t ann;
 
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || (t->common.ann
-	  && t->common.ann->common.type != TREE_ANN_COMMON))
-    abort ();
-#endif
+  gcc_assert (t);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
@@ -527,6 +534,9 @@ dump_variable (FILE *file, tree var)
 
   fprintf (file, ", UID %u", (unsigned) ann->uid);
 
+  fprintf (file, ", ");
+  print_generic_expr (file, TREE_TYPE (var), dump_flags);
+
   if (ann->type_mem_tag)
     {
       fprintf (file, ", type memory tag: ");
@@ -541,6 +551,9 @@ dump_variable (FILE *file, tree var)
   
   if (is_global_var (var))
     fprintf (file, ", is global");
+
+  if (TREE_THIS_VOLATILE (var))
+    fprintf (file, ", is volatile");
 
   if (is_call_clobbered (var))
     fprintf (file, ", call clobbered");
@@ -754,8 +767,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
   basic_block bb;
   block_stmt_iterator i;
 
-  if (dfa_stats_p == NULL)
-    abort ();
+  gcc_assert (dfa_stats_p);
 
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
@@ -842,9 +854,7 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
   /* Type, _DECL and constant nodes have no interesting children.
      Ignore them.  */
-  else if (DECL_P (*tp)
-	   || TYPE_P (*tp)
-	   || TREE_CODE_CLASS (TREE_CODE (*tp)) == 'c')
+  else if (IS_TYPE_OR_DECL_P (*tp) || CONSTANT_CLASS_P (*tp))
     *walk_subtrees = 0;
 
   return NULL_TREE;
@@ -885,12 +895,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
       if (is_global_var (var))
 	mark_call_clobbered (var);
 
-      /* If an initialized global variable then register the initializer
-	 as well.  */
-      if (POINTER_TYPE_P (TREE_TYPE (var))
-	  && TREE_READONLY (var)
-	  && DECL_INITIAL (var)
-	  && TREE_CODE (DECL_INITIAL (var)) == ADDR_EXPR)
+      /* Scan DECL_INITIAL for pointer variables as they may contain
+	 address arithmetic referencing the address of other
+	 variables.  */
+      if (DECL_INITIAL (var)
+	  && POINTER_TYPE_P (TREE_TYPE (var)))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
     }
 }
@@ -910,14 +919,11 @@ get_virtual_var (tree var)
 	 || handled_component_p (var))
     var = TREE_OPERAND (var, 0);
 
-#ifdef ENABLE_CHECKING
   /* Treating GIMPLE registers as virtual variables makes no sense.
      Also complain if we couldn't extract a _DECL out of the original
      expression.  */
-  if (!SSA_VAR_P (var)
-      || is_gimple_reg (var))
-    abort ();
-#endif
+  gcc_assert (SSA_VAR_P (var));
+  gcc_assert (!is_gimple_reg (var));
 
   return var;
 }
@@ -978,9 +984,7 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
   v_may_defs_after = NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt));
   v_must_defs_after = NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt));
 
-  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, 
-			     SSA_OP_VMAYDEF | SSA_OP_VUSE | SSA_OP_VMUSTDEF)
-
+  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_ALL_OPERANDS)
     {
       if (DECL_P (val))
 	{
@@ -1000,4 +1004,28 @@ mark_new_vars_to_rename (tree stmt, bitmap vars_to_rename)
     bitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
 
   BITMAP_XFREE (vars_in_vops_to_rename);
+}
+
+/* Find all variables within the gimplified statement that were not previously
+   visible to the function and add them to the referenced variables list.  */
+
+static tree
+find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
+			    void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
+    add_referenced_tmp_var (t);
+
+  if (IS_TYPE_OR_DECL_P (t))
+    *walk_subtrees = 0;
+
+  return NULL;
+}
+
+void
+find_new_referenced_vars (tree *stmt_p)
+{
+  walk_tree (stmt_p, find_new_referenced_vars_1, NULL, NULL);
 }

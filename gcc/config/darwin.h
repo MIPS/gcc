@@ -130,6 +130,10 @@ Boston, MA 02111-1307, USA.  */
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-segaddr", "-Zsegaddr" }, \
+  { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
+  { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
+  { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -278,10 +282,13 @@ do {					\
    !strcmp (STR, "read_only_relocs") ? 1 :      \
    !strcmp (STR, "sectcreate") ? 3 :            \
    !strcmp (STR, "sectorder") ? 3 :             \
+   !strcmp (STR, "Zsegaddr") ? 2 :              \
+   !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
+   !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
+   !strcmp (STR, "Zseg_addr_table") ? 1 :       \
    !strcmp (STR, "Zseg_addr_table_filename") ?1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
-   !strcmp (STR, "seg_addr_table") ? 1 :        \
    !strcmp (STR, "sub_library") ? 1 :           \
    !strcmp (STR, "sub_umbrella") ? 1 :          \
    !strcmp (STR, "umbrella") ? 1 :              \
@@ -351,6 +358,7 @@ do {					\
    their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
+   %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
    %{!Zdynamiclib: \
      %{Zbundle:-bundle} \
      %{Zbundle_loader*:-bundle_loader %*} \
@@ -395,7 +403,11 @@ do {					\
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
-   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} %{seg_addr_table*} \
+   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
+   %{Zsegaddr*:-segaddr %*} \
+   %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
+   %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
+   %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
@@ -1164,12 +1176,12 @@ extern int flag_export_coalesced;
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS darwin_section_type_flags
 
-#define DARWIN_REGISTER_TARGET_PRAGMAS()                        \
-  do {                                                          \
-    c_register_pragma (0, "mark", darwin_pragma_ignore);        \
-    c_register_pragma (0, "options", darwin_pragma_options);    \
-    c_register_pragma (0, "segment", darwin_pragma_ignore);     \
-    c_register_pragma (0, "unused", darwin_pragma_unused);      \
+#define DARWIN_REGISTER_TARGET_PRAGMAS()			\
+  do {								\
+    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
+    c_register_pragma (0, "options", darwin_pragma_options);	\
+    c_register_pragma (0, "segment", darwin_pragma_ignore);	\
+    c_register_pragma (0, "unused", darwin_pragma_unused);	\
   } while (0)
 
 /* APPLE LOCAL insert assembly ".abort" directive on fatal error   */
@@ -1199,7 +1211,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
    kext model. */
 #define SUBTARGET_ATTRIBUTE_TABLE					      \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */  \
-  { "apple_kext_compatibility", 0, 0, 0, 1, 0, darwin_handle_odd_attribute },
+  { "apple_kext_compatibility", 0, 0, false, true, false, darwin_handle_odd_attribute }
 
 /* Need a mechanism to tell whether a C++ operator delete is empty so
    we overload TREE_SIDE_EFFECTS here (it is unused for FUNCTION_DECLS.)
@@ -1253,9 +1265,9 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
 
-extern const char *machopic_non_lazy_ptr_name PARAMS ((const char *));
-
-void darwin_register_frameworks (int);
+void darwin_register_frameworks (const char *, const char *, int);
+void darwin_register_objc_includes (const char *, const char *, int);
+#define TARGET_EXTRA_PRE_INCLUDES darwin_register_objc_includes
 #define TARGET_EXTRA_INCLUDES darwin_register_frameworks
 
 void add_framework_path (char *);

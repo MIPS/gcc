@@ -273,8 +273,20 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
+#ifndef TARGET_VECTORIZE_MISALIGNED_MEM_OK
+#define TARGET_VECTORIZE_MISALIGNED_MEM_OK default_vect_misaligned_mem_ok
+#endif
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE 0
+
+#define TARGET_VECTORIZE                                                \
+  {TARGET_VECTORIZE_MISALIGNED_MEM_OK,                                  \
+   TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
+   TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE}
+
 /* APPLE LOCAL begin AV misaligned --haifa  */
 /* APPLE LOCAL begin AV if-conversion --dpatel  */
+/* MERGE FIXME - how many of these are now dead given TARGET_VECTORIZE and friends?  */
 /* Vectorizer hooks.  All of these default to null pointers, which
    tree-vectorizer.c looks for and handles.  */
 #define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
@@ -331,6 +343,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
+#define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
 
 /* APPLE LOCAL begin constant cfstrings */
 /* In c-common.c.  */
@@ -424,6 +437,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
 
+#define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
+
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
@@ -444,12 +459,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SPLIT_COMPLEX_ARG NULL
 
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
-
-#define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_false
-
+#define TARGET_PASS_BY_REFERENCE hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
-
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -467,7 +480,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    /* APPLE LOCAL begin Altivec */				\
    TARGET_SKIP_VEC_ARGS,					\
    /* APPLE LOCAL end Altivec */				\
-   TARGET_MUST_PASS_IN_STACK					\
+   TARGET_MUST_PASS_IN_STACK,					\
+   TARGET_CALLEE_COPIES						\
    }
 
 
@@ -530,6 +544,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 {						\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
+  TARGET_VECTORIZE,				\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
@@ -546,6 +561,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_EXPAND_TREE_BUILTIN,			\
   TARGET_CONSTRUCT_OBJC_STRING,			\
   /* APPLE LOCAL end constant cfstrings */	\
+  TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
@@ -580,6 +596,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_DEFAULT_SHORT_ENUMS,			\
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
+  TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

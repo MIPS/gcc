@@ -270,15 +270,29 @@ struct machine_function GTY(())
 {
   /* Some local-dynamic TLS symbol name.  */
   const char *some_ld_name;
+
+  /* True if the current function is leaf and uses only leaf regs,
+     so that the SPARC leaf function optimization can be applied.
+     Private version of current_function_uses_only_leaf_regs, see
+     sparc_expand_prologue for the rationale.  */
+  int leaf_function_p;
+
+  /* True if the data calculated by sparc_expand_prologue are valid.  */
+  bool prologue_data_valid_p;
 };
+
+#define sparc_leaf_function_p  cfun->machine->leaf_function_p
+#define sparc_prologue_data_valid_p  cfun->machine->prologue_data_valid_p
 
 /* Register we pretend to think the frame pointer is allocated to.
    Normally, this is %fp, but if we are in a leaf procedure, this
    is %sp+"something".  We record "something" separately as it may
    be too big for reg+constant addressing.  */
-
 static rtx frame_base_reg;
 static HOST_WIDE_INT frame_base_offset;
+
+/* 1 if the next opcode is to be specially indented.  */
+int sparc_indent_opcode = 0;
 
 static void sparc_init_modes (void);
 static void scan_record_type (tree, int *, int *, int *);
@@ -302,7 +316,7 @@ static void emit_restore_regs (void);
 static void sparc_asm_function_prologue (FILE *, HOST_WIDE_INT);
 static void sparc_asm_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef OBJECT_FORMAT_ELF
-static void sparc_elf_asm_named_section (const char *, unsigned int);
+static void sparc_elf_asm_named_section (const char *, unsigned int, tree);
 #endif
 
 static int sparc_adjust_cost (rtx, rtx, rtx, int);
@@ -449,9 +463,6 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
-
-#undef TARGET_LATE_RTL_PROLOGUE_EPILOGUE
-#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE true
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -1642,7 +1653,7 @@ sparc_emit_set_const32 (rtx op0, rtx op1)
 
 
 /* Load OP1, a symbolic 64-bit constant, into OP0, a DImode register.
-   If TEMP is non-zero, we are forbidden to use any other scratch
+   If TEMP is nonzero, we are forbidden to use any other scratch
    registers.  Otherwise, we are allowed to generate them as needed.
 
    Note that TEMP may have TImode if the code model is TARGET_CM_MEDANY
@@ -3152,7 +3163,6 @@ eligible_for_restore_insn (rtx trial, bool return_p)
 int
 eligible_for_return_delay (rtx trial)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
   rtx pat;
 
   if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
@@ -3172,7 +3182,7 @@ eligible_for_return_delay (rtx trial)
     return 0;
 
   /* In the case of a true leaf function, anything can go into the slot.  */
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     return get_attr_in_uncond_branch_delay (trial)
 	   == IN_UNCOND_BRANCH_DELAY_TRUE;
 
@@ -3202,7 +3212,6 @@ eligible_for_return_delay (rtx trial)
 int
 eligible_for_sibcall_delay (rtx trial)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
   rtx pat;
 
   if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
@@ -3213,7 +3222,7 @@ eligible_for_sibcall_delay (rtx trial)
 
   pat = PATTERN (trial);
 
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     {
       /* If the tail call is done using the call instruction,
 	 we have to restore %o7 in the delay slot.  */
@@ -4467,13 +4476,40 @@ emit_stack_pointer_decrement (rtx decrement)
 void
 sparc_expand_prologue (void)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
+  /* Compute a snapshot of current_function_uses_only_leaf_regs.  Relying
+     on the final value of the flag means deferring the prologue/epilogue
+     expansion until just before the second scheduling pass, which is too
+     late to emit multiple epilogues or return insns.
+
+     Of course we are making the assumption that the value of the flag
+     will not change between now and its final value.  Of the three parts
+     of the formula, only the last one can reasonably vary.  Let's take a
+     closer look, after assuming that the first two ones are set to true
+     (otherwise the last value is effectively silenced).
+
+     If only_leaf_regs_used returns false, the global predicate will also
+     be false so the actual frame size calculated below will be positive.
+     As a consequence, the save_register_window insn will be emitted in
+     the instruction stream; now this insn explicitly references %fp
+     which is not a leaf register so only_leaf_regs_used will always
+     return false subsequently.
+
+     If only_leaf_regs_used returns true, we hope that the subsequent
+     optimization passes won't cause non-leaf registers to pop up.  For
+     example, the regrename pass has special provisions to not rename to
+     non-leaf registers in a leaf function.  */
+  sparc_leaf_function_p
+    = optimize > 0 && leaf_function_p () && only_leaf_regs_used ();
 
   /* Need to use actual_fsize, since we are also allocating
      space for our callee (and our own register save area).  */
-  actual_fsize = sparc_compute_frame_size (get_frame_size(), leaf_function_p);
+  actual_fsize
+    = sparc_compute_frame_size (get_frame_size(), sparc_leaf_function_p);
 
-  if (leaf_function_p)
+  /* Advertise that the data calculated just above are now valid.  */
+  sparc_prologue_data_valid_p = true;
+
+  if (sparc_leaf_function_p)
     {
       frame_base_reg = stack_pointer_rtx;
       frame_base_offset = actual_fsize + SPARC_STACK_BIAS;
@@ -4486,7 +4522,7 @@ sparc_expand_prologue (void)
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
-  else if (leaf_function_p)
+  else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
 	emit_stack_pointer_increment (GEN_INT (- actual_fsize));
@@ -4540,7 +4576,9 @@ sparc_expand_prologue (void)
 static void
 sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
+  /* Check that the assumption we made in sparc_expand_prologue is valid.  */
+  if (sparc_leaf_function_p != current_function_uses_only_leaf_regs)
+    abort();
 
   sparc_output_scratch_registers (file);
 
@@ -4550,12 +4588,12 @@ sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       /* The canonical frame address refers to the top of the frame.  */
       dwarf2out_def_cfa (label,
-			 leaf_function_p
+			 sparc_leaf_function_p
 			 ? STACK_POINTER_REGNUM
 			 : HARD_FRAME_POINTER_REGNUM,
 			 frame_base_offset);
 
-      if (! leaf_function_p)
+      if (! sparc_leaf_function_p)
 	{
 	  /* Note the register window save.  This tells the unwinder that
 	     it needs to restore the window registers from the previous
@@ -4574,14 +4612,12 @@ sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 void
 sparc_expand_epilogue (void)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
-
   if (num_gfregs)
     emit_restore_regs ();
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
-  else if (leaf_function_p)
+  else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
 	emit_stack_pointer_decrement (GEN_INT (- actual_fsize));
@@ -4598,6 +4634,16 @@ sparc_expand_epilogue (void)
 	}
     }
 }
+
+/* Return true if it is appropriate to emit `return' instructions in the
+   body of a function.  */
+
+bool
+sparc_can_use_return_insn_p (void)
+{
+  return sparc_prologue_data_valid_p
+	 && (actual_fsize == 0 || !sparc_leaf_function_p);
+}
   
 /* This function generates the assembly code for function exit.  */
   
@@ -4607,7 +4653,7 @@ sparc_asm_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   /* If code does not drop into the epilogue, we have to still output
      a dummy nop for the sake of sane backtraces.  Otherwise, if the
      last two instructions of a function were "call foo; dslot;" this
-     can make the return PC of foo (ie. address of call instruction
+     can make the return PC of foo (i.e. address of call instruction
      plus 8) point to the first instruction in the next function.  */
 
   rtx insn, last_real_insn;
@@ -4675,44 +4721,17 @@ output_restore (rtx pat)
 const char *
 output_return (rtx insn)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
-  bool delay_slot_filled_p = dbr_sequence_length () > 0;
-  /* True if the caller has placed an "unimp" insn immediately after the call.
-     This insn is used in the 32-bit ABI when calling a function that returns
-     a non zero-sized structure. The 64-bit ABI doesn't have it.  Be careful
-     to have this test be the same as that used on the call.  */
-  bool sparc_skip_caller_unimp
-    = ! TARGET_ARCH64
-      && current_function_returns_struct
-      && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
-	  == INTEGER_CST)
-      && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl)));
-
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     {
       /* This is a leaf function so we don't have to bother restoring the
 	 register window, which frees us from dealing with the convoluted
 	 semantics of restore/return.  We simply output the jump to the
-	 return address and the insn in the delay slot, which usually is
-	 the substraction restoring the stack pointer %sp.  */
+	 return address and the insn in the delay slot (if any).  */
 
       if (current_function_calls_eh_return)
 	abort ();
 
-      fprintf (asm_out_file, "\tjmp\t%%o7+%d\n", sparc_skip_caller_unimp ? 12 : 8);
-
-      if (delay_slot_filled_p)
-	{
-	  rtx delay = NEXT_INSN (insn);
-	  if (! delay)
-	    abort ();
-
-	  final_scan_insn (delay, asm_out_file, 1, 0, 1, NULL);
-	  PATTERN (delay) = gen_blockage ();
-	  INSN_CODE (delay) = -1;
-	}
-      else
-	fputs ("\t nop\n", asm_out_file);
+      return "jmp\t%%o7+%)%#";
     }
   else
     {
@@ -4725,7 +4744,7 @@ output_return (rtx insn)
 	{
 	  /* If the function uses __builtin_eh_return, the eh_return
 	     machinery occupies the delay slot.  */
-	  if (delay_slot_filled_p || sparc_skip_caller_unimp)
+	  if (final_sequence)
 	    abort ();
 
 	  if (! flag_delayed_branch)
@@ -4741,7 +4760,7 @@ output_return (rtx insn)
 	  else
 	    fputs ("\t nop\n", asm_out_file);
 	}
-      else if (delay_slot_filled_p)
+      else if (final_sequence)
 	{
 	  rtx delay, pat;
 
@@ -4754,32 +4773,25 @@ output_return (rtx insn)
 	  if (TARGET_V9 && ! epilogue_renumber (&pat, 1))
 	    {
 	      epilogue_renumber (&pat, 0);
-	      fprintf (asm_out_file, "\treturn\t%%i7+%d\n",
-		       sparc_skip_caller_unimp ? 12 : 8);
-	      final_scan_insn (delay, asm_out_file, 1, 0, 1, NULL);
+	      return "return\t%%i7+%)%#";
 	    }
 	  else
 	    {
-	      fprintf (asm_out_file, "\tjmp\t%%i7+%d\n",
-		       sparc_skip_caller_unimp ? 12 : 8);
+	      output_asm_insn ("jmp\t%%i7+%)", NULL);
 	      output_restore (pat);
+	      PATTERN (delay) = gen_blockage ();
+	      INSN_CODE (delay) = -1;
 	    }
-
-	  PATTERN (delay) = gen_blockage ();
-	  INSN_CODE (delay) = -1;
 	}
       else
         {
 	  /* The delay slot is empty.  */
 	  if (TARGET_V9)
-	    fprintf (asm_out_file, "\treturn\t%%i7+%d\n\t nop\n",
-		     sparc_skip_caller_unimp ? 12 : 8);
+	    return "return\t%%i7+%)\n\t nop";
 	  else if (flag_delayed_branch)
-	    fprintf (asm_out_file, "\tjmp\t%%i7+%d\n\t restore\n",
-		     sparc_skip_caller_unimp ? 12 : 8);
+	    return "jmp\t%%i7+%)\n\t restore";
 	  else
-	    fprintf (asm_out_file, "\trestore\n\tjmp\t%%o7+%d\n\t nop\n",
-		     sparc_skip_caller_unimp ? 12 : 8);
+	    return "restore\n\tjmp\t%%o7+%)\n\t nop";
 	}
     }
 
@@ -4791,8 +4803,6 @@ output_return (rtx insn)
 const char *
 output_sibcall (rtx insn, rtx call_operand)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
-  bool delay_slot_filled_p = dbr_sequence_length () > 0;
   rtx operands[1];
 
   if (! flag_delayed_branch)
@@ -4800,36 +4810,23 @@ output_sibcall (rtx insn, rtx call_operand)
 
   operands[0] = call_operand;
 
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     {
       /* This is a leaf function so we don't have to bother restoring the
 	 register window.  We simply output the jump to the function and
 	 the insn in the delay slot (if any).  */
 
-      if (LEAF_SIBCALL_SLOT_RESERVED_P && delay_slot_filled_p)
+      if (LEAF_SIBCALL_SLOT_RESERVED_P && final_sequence)
 	abort();
 
-      if (delay_slot_filled_p)
-	{
-	  rtx delay = NEXT_INSN (insn);
-	  if (! delay)
-	    abort ();
-
-	  output_asm_insn ("sethi\t%%hi(%a0), %%g1", operands);
-	  output_asm_insn ("jmp\t%%g1 + %%lo(%a0)", operands);
-	  final_scan_insn (delay, asm_out_file, 1, 0, 1, NULL);
-
-	  PATTERN (delay) = gen_blockage ();
-	  INSN_CODE (delay) = -1;
-	}
+      if (final_sequence)
+	output_asm_insn ("sethi\t%%hi(%a0), %%g1\n\tjmp\t%%g1 + %%lo(%a0)%#",
+			 operands);
       else
-	{
-	  /* Use or with rs2 %%g0 instead of mov, so that as/ld can optimize
-	     it into branch if possible.  */
-	  output_asm_insn ("or\t%%o7, %%g0, %%g1", operands);
-	  output_asm_insn ("call\t%a0, 0", operands);
-	  output_asm_insn (" or\t%%g1, %%g0, %%o7", operands);
-	}
+	/* Use or with rs2 %%g0 instead of mov, so that as/ld can optimize
+	   it into branch if possible.  */
+	output_asm_insn ("or\t%%o7, %%g0, %%g1\n\tcall\t%a0, 0\n\t or\t%%g1, %%g0, %%o7",
+			 operands);
     }
   else
     {
@@ -4839,7 +4836,7 @@ output_sibcall (rtx insn, rtx call_operand)
 
       output_asm_insn ("call\t%a0, 0", operands);
 
-      if (delay_slot_filled_p)
+      if (final_sequence)
 	{
 	  rtx delay = NEXT_INSN (insn);
 	  if (! delay)
@@ -6118,51 +6115,29 @@ const char *
 output_ubranch (rtx dest, int label, rtx insn)
 {
   static char string[64];
-  bool noop = false;
+  bool v9_form = false;
   char *p;
 
-  /* TurboSPARC is reported to have problems with
-     with
-	foo: b,a foo
-     i.e. an empty loop with the annul bit set.  The workaround is to use 
-        foo: b foo; nop
-     instead.  */
-
-  if (! TARGET_V9 && flag_delayed_branch
-      && (INSN_ADDRESSES (INSN_UID (dest))
-	  == INSN_ADDRESSES (INSN_UID (insn))))
+  if (TARGET_V9 && INSN_ADDRESSES_SET_P ())
     {
-      strcpy (string, "b\t");
-      noop = true;
+      int delta = (INSN_ADDRESSES (INSN_UID (dest))
+		   - INSN_ADDRESSES (INSN_UID (insn)));
+      /* Leave some instructions for "slop".  */
+      if (delta >= -260000 && delta < 260000)
+	v9_form = true;
     }
+
+  if (v9_form)
+    strcpy (string, "ba%*,pt\t%%xcc, ");
   else
-    {
-      bool v9_form = false;
-
-      if (TARGET_V9 && INSN_ADDRESSES_SET_P ())
-	{
-	  int delta = (INSN_ADDRESSES (INSN_UID (dest))
-		       - INSN_ADDRESSES (INSN_UID (insn)));
-	  /* Leave some instructions for "slop".  */
-	  if (delta >= -260000 && delta < 260000)
-	    v9_form = true;
-	}
-
-      if (v9_form)
-	strcpy (string, "ba%*,pt\t%%xcc, ");
-      else
-	strcpy (string, "b%*\t");
-    }
+    strcpy (string, "b%*\t");
 
   p = strchr (string, '\0');
   *p++ = '%';
   *p++ = 'l';
   *p++ = '0' + label;
   *p++ = '%';
-  if (noop)
-    *p++ = '#';
-  else
-    *p++ = '(';
+  *p++ = '(';
   *p = '\0';
 
   return string;
@@ -6177,13 +6152,11 @@ output_ubranch (rtx dest, int label, rtx insn)
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is nonzero if we should generate an annulling branch.
-
-   NOOP is nonzero if we have to follow this branch by a noop.  */
+   ANNUL is nonzero if we should generate an annulling branch.  */
 
 const char *
 output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
-		int noop, rtx insn)
+		rtx insn)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
@@ -6406,18 +6379,18 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
   if (far)
     {
       strcpy (p, ".+12\n\t nop\n\tb\t");
-      if (annul || noop)
+      /* Skip the next insn if requested or
+	 if we know that it will be a nop.  */
+      if (annul || ! final_sequence)
         p[3] = '6';
       p += 14;
     }
   *p++ = '%';
   *p++ = 'l';
-  /* Set the char indicating the number of the operand containing the
-     label_ref.  */
   *p++ = label + '0';
+  *p++ = '%';
+  *p++ = '#';
   *p = '\0';
-  if (noop)
-    strcpy (p, "\n\t nop");
 
   return string;
 }
@@ -6644,13 +6617,11 @@ sparc_emit_fixunsdi (rtx *operands, enum machine_mode mode)
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is nonzero if we should generate an annulling branch.
-
-   NOOP is nonzero if we have to follow this branch by a noop.  */
+   ANNUL is nonzero if we should generate an annulling branch.  */
 
 const char *
 output_v9branch (rtx op, rtx dest, int reg, int label, int reversed,
-		 int annul, int noop, rtx insn)
+		 int annul, rtx insn)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
@@ -6759,7 +6730,9 @@ output_v9branch (rtx op, rtx dest, int reg, int label, int reversed,
 	}
 
       strcpy (p, ".+12\n\t nop\n\t");
-      if (annul || noop)
+      /* Skip the next insn if requested or
+	 if we know that it will be a nop.  */
+      if (annul || ! final_sequence)
         p[3] = '6';
       p += 12;
       if (veryfar)
@@ -6776,10 +6749,9 @@ output_v9branch (rtx op, rtx dest, int reg, int label, int reversed,
   *p++ = '%';
   *p++ = 'l';
   *p++ = '0' + label;
+  *p++ = '%';
+  *p++ = '#';
   *p = '\0';
-
-  if (noop)
-    strcpy (p, "\n\t nop");
 
   return string;
 }
@@ -7077,43 +7049,55 @@ print_operand (FILE *file, rtx x, int code)
   switch (code)
     {
     case '#':
-      /* Output a 'nop' if there's nothing for the delay slot.  */
-      if (dbr_sequence_length () == 0)
+      /* Output an insn in a delay slot.  */
+      if (final_sequence)
+        sparc_indent_opcode = 1;
+      else
 	fputs ("\n\t nop", file);
       return;
     case '*':
       /* Output an annul flag if there's nothing for the delay slot and we
-	 are optimizing.  This is always used with '(' below.  */
-      /* Sun OS 4.1.1 dbx can't handle an annulled unconditional branch;
-	 this is a dbx bug.  So, we only do this when optimizing.  */
-      /* On UltraSPARC, a branch in a delay slot causes a pipeline flush.
+	 are optimizing.  This is always used with '(' below.
+         Sun OS 4.1.1 dbx can't handle an annulled unconditional branch;
+	 this is a dbx bug.  So, we only do this when optimizing.
+         On UltraSPARC, a branch in a delay slot causes a pipeline flush.
 	 Always emit a nop in case the next instruction is a branch.  */
-      if (dbr_sequence_length () == 0
-	  && (optimize && (int)sparc_cpu < PROCESSOR_V9))
+      if (! final_sequence && (optimize && (int)sparc_cpu < PROCESSOR_V9))
 	fputs (",a", file);
       return;
     case '(':
       /* Output a 'nop' if there's nothing for the delay slot and we are
 	 not optimizing.  This is always used with '*' above.  */
-      if (dbr_sequence_length () == 0
-	  && ! (optimize && (int)sparc_cpu < PROCESSOR_V9))
+      if (! final_sequence && ! (optimize && (int)sparc_cpu < PROCESSOR_V9))
 	fputs ("\n\t nop", file);
+      else if (final_sequence)
+        sparc_indent_opcode = 1;
+      return;
+    case ')':
+      /* Output the right displacement from the saved PC on function return.
+	 The caller may have placed an "unimp" insn immediately after the call
+	 so we have to account for it.  This insn is used in the 32-bit ABI
+	 when calling a function that returns a non zero-sized structure. The
+	 64-bit ABI doesn't have it.  Be careful to have this test be the same
+	 as that used on the call.  */
+     if (! TARGET_ARCH64
+	 && current_function_returns_struct
+	 && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
+	     == INTEGER_CST)
+	 && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl))))
+	fputs ("12", file);
+      else
+        fputc ('8', file);
       return;
     case '_':
       /* Output the Embedded Medium/Anywhere code model base register.  */
       fputs (EMBMEDANY_BASE_REG, file);
       return;
-    case '@':
-      /* Print out what we are using as the frame pointer.  This might
-	 be %fp, or might be %sp+offset.  */
-      /* ??? What if offset is too big? Perhaps the caller knows it isn't? */
-      fprintf (file, "%s+"HOST_WIDE_INT_PRINT_DEC,
-	       reg_names[REGNO (frame_base_reg)], frame_base_offset);
-      return;
     case '&':
       /* Print some local dynamic TLS name.  */
       assemble_name (file, get_some_local_dynamic_name ());
       return;
+
     case 'Y':
       /* Adjust the operand to take into account a RESTORE operation.  */
       if (GET_CODE (x) == CONST_INT)
@@ -8120,13 +8104,14 @@ sparc_profile_hook (int labelno)
 
 #ifdef OBJECT_FORMAT_ELF
 static void
-sparc_elf_asm_named_section (const char *name, unsigned int flags)
+sparc_elf_asm_named_section (const char *name, unsigned int flags,
+			     tree decl)
 {
   if (flags & SECTION_MERGE)
     {
       /* entsize cannot be expressed in this section attributes
 	 encoding style.  */
-      default_elf_asm_named_section (name, flags);
+      default_elf_asm_named_section (name, flags, decl);
       return;
     }
 
@@ -8558,7 +8543,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit a regular sibcall below, so we need to instruct
 	 output_sibcall that we are in a leaf function.  */
-      current_function_uses_only_leaf_regs = 1;
+      sparc_leaf_function_p = 1;
 
       /* This will cause final.c to invoke leaf_renumber_regs so we
 	 must behave as if we were in a not-yet-leafified function.  */
@@ -8568,7 +8553,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit the sibcall manually below, so we will need to
 	 manually spill non-leaf registers.  */
-      current_function_uses_only_leaf_regs = 0;
+      sparc_leaf_function_p = 0;
 
       /* We really are in a leaf function.  */
       int_arg_first = SPARC_OUTGOING_INT_ARG_FIRST;

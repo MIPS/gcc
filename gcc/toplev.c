@@ -61,7 +61,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
-#include "loop.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -74,7 +73,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "cfglayout.h"
-#include "tree-alias-common.h" 
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
@@ -297,12 +295,6 @@ int flag_writable_strings = 0;
 
 int flag_complex_divide_method = 0;
 
-/* Nonzero means performs web construction pass.  When flag_web ==
-   AUTODETECT_FLAG_VAR_TRACKING it will be set according to optimize
-   and default_debug_hooks in process_options ().  */
-
-int flag_web = AUTODETECT_FLAG_VAR_TRACKING;
-
 /* APPLE LOCAL begin -fobey-inline */
 /* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
    of codesize.  */
@@ -363,9 +355,6 @@ rtx stack_limit_rtx;
    unused UIDs if there are a lot of instructions.  If greater than
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
-
-/* Enable points-to analysis on trees.  */
-enum pta_type flag_tree_points_to = PTA_NONE;
 
 /* APPLE LOCAL begin loop transposition */
 /* Nonzero if we should perform automatic loop transposition. */
@@ -463,7 +452,6 @@ int warn_return_type;
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
-FILE *cgraph_dump_file = NULL;
 char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
@@ -581,7 +569,7 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   if (*endp != 0)
     {
       if (pname != 0)
-	error ("invalid option argument `%s'", pname);
+	error ("invalid option argument %qs", pname);
       return defval;
     }
 
@@ -905,14 +893,16 @@ check_global_declarations (tree *vec, int len)
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
+	  && ! TREE_NO_WARNING (decl)
 	  && ! TREE_PUBLIC (decl)
 	  && (warn_unused_function
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	    pedwarn ("%J'%F' used but never defined", decl, decl);
+	    pedwarn ("%J%qF used but never defined", decl, decl);
 	  else
-	    warning ("%J'%F' declared `static' but never defined", decl, decl);
+	    warning ("%J%qF declared %<static%> but never defined",
+		     decl, decl);
 	  /* This symbol is effectively an "extern" declaration now.  */
 	  TREE_PUBLIC (decl) = 1;
 	  assemble_external (decl);
@@ -937,7 +927,7 @@ check_global_declarations (tree *vec, int len)
 	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
 	  /* Otherwise, ask the language.  */
 	  && lang_hooks.decls.warn_unused_global (decl))
-	warning ("%J'%D' defined but not used", decl, decl);
+	warning ("%J%qD defined but not used", decl, decl);
 
       /* Avoid confusing the debug information machinery when there are
 	 errors.  */
@@ -960,7 +950,7 @@ warn_deprecated_use (tree node)
   if (DECL_P (node))
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      warning ("`%s' is deprecated (declared at %s:%d)",
+      warning ("%qs is deprecated (declared at %s:%d)",
 	       IDENTIFIER_POINTER (DECL_NAME (node)),
 	       xloc.file, xloc.line);
     }
@@ -969,18 +959,21 @@ warn_deprecated_use (tree node)
       const char *what = NULL;
       tree decl = TYPE_STUB_DECL (node);
 
-      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-	what = IDENTIFIER_POINTER (TYPE_NAME (node));
-      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (node)))
-	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+      if (TYPE_NAME (node))
+	{
+	  if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	    what = IDENTIFIER_POINTER (TYPE_NAME (node));
+	  else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+		   && DECL_NAME (TYPE_NAME (node)))
+	    what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+	}
 
       if (decl)
 	{
 	  expanded_location xloc
 	    = expand_location (DECL_SOURCE_LOCATION (decl));
 	  if (what)
-	    warning ("`%s' is deprecated (declared at %s:%d)", what,
+	    warning ("%qs is deprecated (declared at %s:%d)", what,
 		       xloc.file, xloc.line);
 	  else
 	    warning ("type is deprecated (declared at %s:%d)",
@@ -989,9 +982,9 @@ warn_deprecated_use (tree node)
       else
 	{
 	  if (what)
-	    warning ("type is deprecated");
+	    warning ("%qs is deprecated", what);
 	  else
-	    warning ("`%s' is deprecated", what);
+	    warning ("type is deprecated", what);
 	}
     }
 }
@@ -1005,7 +998,7 @@ warn_unavailable_use (tree node)
     return;
 
   if (DECL_P (node))
-    warning ("`%s' is unavailable (declared at %s:%d)",
+    warning ("%qs is unavailable (declared at %s:%d)",
 	     IDENTIFIER_POINTER (DECL_NAME (node)),
 	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
   else if (TYPE_P (node))
@@ -1022,10 +1015,10 @@ warn_unavailable_use (tree node)
       if (what)
 	{
 	  if (decl)
-	    warning ("`%s' is unavailable (declared at %s:%d)", what,
+	    warning ("%qs is unavailable (declared at %s:%d)", what,
 		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
 	  else
-	    warning ("`%s' is unavailable", what);
+	    warning ("%qs is unavailable", what);
 	}
       else if (decl)
 	warning ("type is unavailable (declared at %s:%d)",
@@ -1086,6 +1079,7 @@ compile_file (void)
 {
   /* Initialize yet another pass.  */
 
+  init_cgraph ();
   init_final (main_input_filename);
   coverage_init (aux_base_name);
 
@@ -1327,7 +1321,7 @@ set_target_switch (const char *name)
      here.  For Radar 2865464.  */
   if (!valid_target_option && !arch_specified)
     /* APPLE LOCAL end fat builds */
-    error ("invalid option `%s'", name);
+    error ("invalid option %qs", name);
 }
 
 /* Print version information to FILE.
@@ -1516,7 +1510,7 @@ init_asm_output (const char *name)
       else
 	asm_out_file = fopen (asm_file_name, "w+b");
       if (asm_out_file == 0)
-	fatal_error ("can't open %s for writing: %m", asm_file_name);
+	fatal_error ("can%'t open %s for writing: %m", asm_file_name);
     }
 
 #ifdef IO_BUFFER_SIZE
@@ -1623,7 +1617,7 @@ default_pch_valid_p (const void *data_p, size_t len)
 	      goto make_message;
 	    }
 	}
-      abort ();
+      gcc_unreachable ();
     }
   data += sizeof (target_flags);
   len -= sizeof (target_flags);
@@ -1652,7 +1646,7 @@ default_pch_valid_p (const void *data_p, size_t len)
  make_message:
   {
     char *r;
-    asprintf (&r, _("created and used with differing settings of `-m%s'"),
+    asprintf (&r, _("created and used with differing settings of '-m%s'"),
 		  flag_that_differs);
     if (r == NULL)
       return _("out of memory");
@@ -1836,18 +1830,8 @@ process_options (void)
     flag_loop_optimize = 0;
  /* APPLE LOCAL end lno */
 
-  /* Old loop unrolling requires that strength_reduction be on also.  Silently
-     turn on strength reduction here if it isn't already on.  Also, the loop
-     unrolling code assumes that cse will be run after loop, so that must
-     be turned on also.  */
-  /* APPLE LOCAL lno */
-  if (flag_unroll_loops)
-    {
-      flag_strength_reduce = 1;
-      flag_rerun_cse_after_loop = 1;
-    }
-  /* APPLE LOCAL lno */
-  if (flag_peel_loops)
+  /* The loop unrolling code assumes that cse will be run after loop.  */
+  if (flag_unroll_loops || flag_peel_loops)
     flag_rerun_cse_after_loop = 1;
 
   /* If explicitly asked to run new loop optimizer, switch off the old
@@ -1897,8 +1881,6 @@ process_options (void)
     warning ("this target machine does not have delayed branches");
 #endif
 
-  if (flag_tree_based_profiling && flag_test_coverage)
-    sorry ("test-coverage not yet implemented in trees.");
   if (flag_tree_based_profiling && flag_profile_values)
     sorry ("value-based profiling not yet implemented in trees.");
 
@@ -1991,7 +1973,7 @@ process_options (void)
 	   debug_type_names[write_symbols]);
 
   /* Now we know which debug output will be used so we can set
-     flag_var_tracking, flag_rename_registers and flag_web if the user has
+     flag_var_tracking, flag_rename_registers if the user has
      not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
@@ -2012,10 +1994,6 @@ process_options (void)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
 
-  if (flag_web == AUTODETECT_FLAG_VAR_TRACKING)
-    flag_web = optimize >= 2 && (default_debug_hooks->var_location
-	    		         != do_nothing_debug_hooks.var_location);
-
   if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
     flag_var_tracking = optimize >= 1;
 
@@ -2026,7 +2004,7 @@ process_options (void)
     {
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
-	fatal_error ("can't open %s: %m", aux_info_file_name);
+	fatal_error ("can%'t open %s: %m", aux_info_file_name);
     }
 
   if (! targetm.have_named_sections)

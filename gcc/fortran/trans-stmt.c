@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include <assert.h>
 #include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
@@ -199,7 +198,7 @@ gfc_trans_call (gfc_code * code)
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
 
-  assert (code->resolved_sym);
+  gcc_assert (code->resolved_sym);
   has_alternate_specifier = 0;
 
   /* Translate the call.  */
@@ -214,7 +213,7 @@ gfc_trans_call (gfc_code * code)
       gfc_code *select_code;
       gfc_symbol *sym;
       select_code = code->next;
-      assert(select_code->op == EXEC_SELECT);
+      gcc_assert(select_code->op == EXEC_SELECT);
       sym = select_code->expr->symtree->n.sym;
       se.expr = convert (gfc_typenode_for_spec (&sym->ts), se.expr);
       gfc_add_modify_expr (&se.pre, sym->backend_decl, se.expr);
@@ -525,7 +524,7 @@ exit_label:
 
    TODO: Large loop counts
    Does not work loop counts which do not fit into a signed integer kind,
-   ie. Does not work for loop counts > 2^31 for integer(kind=4) variables
+   i.e. Does not work for loop counts > 2^31 for integer(kind=4) variables
    We must support the full range.  */
 
 tree
@@ -573,7 +572,7 @@ gfc_trans_do (gfc_code * code)
   gfc_add_block_to_block (&block, &se.pre);
   step = se.expr;
 
-  /* Initialise loop count. This code is executed before we enter the
+  /* Initialize loop count. This code is executed before we enter the
      loop body. We generate: count = (to + step - from) / step.  */
 
   tmp = fold (build2 (MINUS_EXPR, type, step, from));
@@ -583,7 +582,7 @@ gfc_trans_do (gfc_code * code)
   count = gfc_create_var (type, "count");
   gfc_add_modify_expr (&block, count, tmp);
 
-  /* Initialise the DO variable: dovar = from.  */
+  /* Initialize the DO variable: dovar = from.  */
   gfc_add_modify_expr (&block, dovar, from);
 
   /* Loop body.  */
@@ -1169,7 +1168,7 @@ gfc_trans_character_select (gfc_code *code)
 tree
 gfc_trans_select (gfc_code * code)
 {
-  assert (code && code->expr);
+  gcc_assert (code && code->expr);
 
   /* Empty SELECT constructs are legal.  */
   if (code->block == NULL)
@@ -1287,9 +1286,9 @@ gfc_trans_forall_loop (forall_info *forall_tmp, int nvar, tree body, int mask_fl
 
 
 /* Generate the body and loops according to MASK_FLAG and NEST_FLAG.
-   if MASK_FLAG is non-zero, the body is controlled by maskes in forall
+   if MASK_FLAG is nonzero, the body is controlled by maskes in forall
    nest, otherwise, the body is not controlled by maskes.
-   if NEST_FLAG is non-zero, generate loops for nested forall, otherwise,
+   if NEST_FLAG is nonzero, generate loops for nested forall, otherwise,
    only generate loops for the current forall level.  */
 
 static tree
@@ -1318,7 +1317,7 @@ gfc_trans_nested_forall_loop (forall_info * nested_forall_info, tree body,
 
               if (mask)
                 {
-                  /* If a mask was specified make the assignment contitional.  */
+                  /* If a mask was specified make the assignment conditional.  */
                   if (pmask)
 		    tmp = gfc_build_indirect_ref (mask);
                   else
@@ -1367,7 +1366,7 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
   type = build_array_type (elem_type, type);
   if (gfc_can_put_var_on_stack (bytesize))
     {
-      assert (INTEGER_CST_P (size));
+      gcc_assert (INTEGER_CST_P (size));
       tmpvar = gfc_create_var (type, "temp");
       *pdata = NULL_TREE;
     }
@@ -1382,7 +1381,7 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
       else if (gfc_index_integer_kind == 8)
 	tmp = gfor_fndecl_internal_malloc64;
       else
-	abort ();
+	gcc_unreachable ();
       tmp = gfc_build_function_call (tmp, args);
       tmp = convert (TREE_TYPE (tmpvar), tmp);
       gfc_add_modify_expr (pblock, tmpvar, tmp);
@@ -1546,10 +1545,10 @@ generate_loop_for_rhs_to_temp (gfc_expr *expr2, tree tmp1, tree size,
     }
   else
     {
-      /* Initilize count2.  */
+      /* Initialize count2.  */
       gfc_add_modify_expr (&block, count2, gfc_index_zero_node);
 
-      /* Initiliaze the loop.  */
+      /* Initialize the loop.  */
       gfc_init_loopinfo (&loop);
 
       /* We may need LSS to determine the shape of the expression.  */
@@ -1824,7 +1823,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2, tree wheremask,
   tmp = generate_loop_for_rhs_to_temp (expr2, tmp1, inner_size, count,
                                        count1, count2, lss, rss, wheremask);
 
-  /* Generate body and loops according to the inforamtion in
+  /* Generate body and loops according to the information in
      nested_forall_info.  */
   tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
   gfc_add_expr_to_block (block, tmp);
@@ -1851,7 +1850,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2, tree wheremask,
   tmp = generate_loop_for_temp_to_lhs (expr1, tmp1, inner_size, count,
                                        count1, count2, wheremask);
 
-  /* Generate body and loops according to the inforamtion in
+  /* Generate body and loops according to the information in
      nested_forall_info.  */
   tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
   gfc_add_expr_to_block (block, tmp);
@@ -1932,7 +1931,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
           forall_tmp = forall_tmp->next_nest;
         }
 
-      /* Generate body and loops according to the inforamtion in
+      /* Generate body and loops according to the information in
          nested_forall_info.  */
       tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
       gfc_add_expr_to_block (block, tmp);
@@ -1965,7 +1964,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       gfc_add_modify_expr (&body, count, tmp);
       tmp = gfc_finish_block (&body);
 
-      /* Generate body and loops according to the inforamtion in
+      /* Generate body and loops according to the information in
          nested_forall_info.  */
       tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
       gfc_add_expr_to_block (block, tmp);
@@ -2021,7 +2020,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
           forall_tmp = forall_tmp->next_nest;
         }
 
-      /* Generate body and loops according to the inforamtion in
+      /* Generate body and loops according to the information in
          nested_forall_info.  */
       tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1, 1);
       gfc_add_expr_to_block (block, tmp);
@@ -2102,7 +2101,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
     Note that this code only works when there are no dependencies.
     Forall loop with array assignments and data dependencies are a real pain,
     because the size of the temporary cannot always be determined before the
-    loop is executed.  This problem is compouded by the presence of nested
+    loop is executed.  This problem is compounded by the presence of nested
     FORALL constructs.
  */
 
@@ -2315,7 +2314,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
       switch (c->op)
 	{
 	case EXEC_ASSIGN:
-          /* A scalar or array assingment.  */
+          /* A scalar or array assignment.  */
 	  need_temp = gfc_check_dependency (c->expr, c->expr2, varexpr, nvar);
           /* Teporaries due to array assignment data dependencies introduce
              no end of problems.  */
@@ -2389,8 +2388,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
           break;
 
 	default:
-	  abort ();
-	  break;
+	  gcc_unreachable ();
 	}
 
       c = c->next;
@@ -2489,7 +2487,7 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
 
   /* Variable to index the temporary.  */
   count = gfc_create_var (gfc_array_index_type, "count");
-  /* Initilize count.  */
+  /* Initialize count.  */
   gfc_add_modify_expr (block, count, gfc_index_zero_node);
 
   gfc_start_block (&body);
@@ -2503,7 +2501,7 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
     }
   else
     {
-      /* Initiliaze the loop.  */
+      /* Initialize the loop.  */
       gfc_init_loopinfo (&loop);
 
       /* We may need LSS to determine the shape of the expression.  */
@@ -2614,7 +2612,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
 
   /* In each where-assign-stmt, the mask-expr and the variable being
      defined shall be arrays of the same shape.  */
-  assert (lss != gfc_ss_terminator);
+  gcc_assert (lss != gfc_ss_terminator);
 
   /* The assignment needs scalarization.  */
   lss_section = lss;
@@ -2624,7 +2622,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
          && lss_section->type != GFC_SS_SECTION)
     lss_section = lss_section->next;
 
-  assert (lss_section != gfc_ss_terminator);
+  gcc_assert (lss_section != gfc_ss_terminator);
 
   /* Initialize the scalarizer.  */
   gfc_init_loopinfo (&loop);
@@ -2717,10 +2715,8 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
     }
   else
     {
-      if (lse.ss != gfc_ss_terminator)
-        abort ();
-      if (rse.ss != gfc_ss_terminator)
-        abort ();
+      gcc_assert (lse.ss == gfc_ss_terminator
+		  && rse.ss == gfc_ss_terminator);
 
       if (loop.temp_ss != NULL)
         {
@@ -2744,11 +2740,8 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
           gfc_advance_se_ss_chain (&rse);
           gfc_conv_expr (&lse, expr1);
 
-          if (lse.ss != gfc_ss_terminator)
-            abort ();
-
-          if (rse.ss != gfc_ss_terminator)
-            abort ();
+          gcc_assert (lse.ss == gfc_ss_terminator
+		      && rse.ss == gfc_ss_terminator);
 
           /* Form the mask expression according to the mask tree list.  */
           index = count2;
@@ -2798,7 +2791,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
 
 
 /* Translate the WHERE construct or statement.
-   This fuction can be called iteratelly to translate the nested WHERE
+   This fuction can be called iteratively to translate the nested WHERE
    construct or statement.
    MASK is the control mask, and PMASK is the pending control mask.
    TEMP records the temporary address which must be freed later.  */
@@ -2923,7 +2916,7 @@ gfc_trans_where_2 (gfc_code * code, tree mask, tree pmask,
               break;
 
             default:
-              abort ();
+              gcc_unreachable ();
             }
 
          /* The next statement within the same where-body-construct.  */
@@ -3051,7 +3044,7 @@ gfc_trans_allocate (gfc_code * code)
       /* Find the last reference in the chain.  */
       while (ref && ref->next != NULL)
 	{
-	  assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT);
+	  gcc_assert (ref->type != REF_ARRAY || ref->u.ar.type == AR_ELEMENT);
 	  ref = ref->next;
 	}
 
@@ -3122,7 +3115,7 @@ gfc_trans_deallocate (gfc_code * code)
   for (al = code->ext.alloc_list; al != NULL; al = al->next)
     {
       expr = al->expr;
-      assert (expr->expr_type == EXPR_VARIABLE);
+      gcc_assert (expr->expr_type == EXPR_VARIABLE);
 
       gfc_init_se (&se, NULL);
       gfc_start_block (&se.pre);

@@ -280,6 +280,8 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
@@ -3457,7 +3459,7 @@ remove_useless_addtr_insns (int check_notes)
 	    {
 	      rtx pattern = PATTERN (next);
 
-	      /* If it a reversed fp conditional branch (eg uses add,tr)
+	      /* If it a reversed fp conditional branch (e.g. uses add,tr)
 		 and CCFP dies, then reverse our conditional and the branch
 		 to avoid the add,tr.  */
 	      if (GET_CODE (pattern) == SET
@@ -5100,7 +5102,10 @@ print_operand (FILE *file, rtx x, int code)
 	}
       return;
     /* For floating point comparisons.  Note that the output
-       predicates are the complement of the desired mode.  */
+       predicates are the complement of the desired mode.  The
+       conditions for GT, GE, LT, LE and LTGT cause an invalid
+       operation exception if the result is unordered and this
+       exception is enabled in the floating-point status register.  */
     case 'Y':
       switch (GET_CODE (x))
 	{
@@ -5119,19 +5124,19 @@ print_operand (FILE *file, rtx x, int code)
 	case LTGT:
 	  fputs ("!<>", file);  break;
 	case UNLE:
-	  fputs (">", file);  break;
+	  fputs ("!?<=", file);  break;
 	case UNLT:
-	  fputs (">=", file);  break;
+	  fputs ("!?<", file);  break;
 	case UNGE:
-	  fputs ("<", file);  break;
+	  fputs ("!?>=", file);  break;
 	case UNGT:
-	  fputs ("<=", file);  break;
+	  fputs ("!?>", file);  break;
 	case UNEQ:
-	  fputs ("<>", file);  break;
+	  fputs ("!?=", file);  break;
 	case UNORDERED:
-	  fputs ("<=>", file);  break;
+	  fputs ("!?", file);  break;
 	case ORDERED:
-	  fputs ("!<=>", file);  break;
+	  fputs ("?", file);  break;
 	default:
 	  abort ();
 	}
@@ -6189,7 +6194,7 @@ output_cbranch (rtx *operands, int nullify, int length, int negated, rtx insn)
   int useskip = 0;
   rtx xoperands[5];
 
-  /* A conditional branch to the following instruction (eg the delay slot)
+  /* A conditional branch to the following instruction (e.g. the delay slot)
      is asking for a disaster.  This can happen when not optimizing and
      when jump optimization fails.
 
@@ -6498,7 +6503,7 @@ output_bb (rtx *operands ATTRIBUTE_UNUSED, int nullify, int length,
   static char buf[100];
   int useskip = 0;
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  I do not think this can happen as this pattern
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
@@ -6643,7 +6648,7 @@ output_bvb (rtx *operands ATTRIBUTE_UNUSED, int nullify, int length,
   static char buf[100];
   int useskip = 0;
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  I do not think this can happen as this pattern
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
@@ -6783,7 +6788,7 @@ const char *
 output_dbra (rtx *operands, rtx insn, int which_alternative)
 {
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
   if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
@@ -6887,7 +6892,7 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
 	     int reverse_comparison)
 {
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
   if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
@@ -8551,7 +8556,7 @@ following_call (rtx insn)
    will adhere to those rules.
 
    So, late in the compilation process we find all the jump tables, and
-   expand them into real code -- eg each entry in the jump table vector
+   expand them into real code -- e.g. each entry in the jump table vector
    will get an appropriate label followed by a jump to the final target.
 
    Reorg and the final jump pass can then optimize these branches and
@@ -9340,8 +9345,7 @@ pa_select_section (tree exp, int reloc,
       else
 	readonly_data_section ();
     }
-  else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
-	   && !reloc)
+  else if (CONSTANT_CLASS_P (exp) && !reloc)
     readonly_data_section ();
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL

@@ -573,12 +573,15 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
     AC_TRY_LINK(
       [#include <unistd.h>
        #include <stdio.h>
+       #include <sys/stat.h>
       ],
       [FILE* fp;
        fopen64("t", "w");
        fseeko64(fp, 0, SEEK_CUR);
        ftello64(fp);
-       lseek64(1, 0, SEEK_CUR);],	
+       lseek64(1, 0, SEEK_CUR);
+       struct stat64 buf;
+       fstat64(1, &buf);],
       [glibcxx_cv_LFS=yes],
       [glibcxx_cv_LFS=no])
   ])
@@ -587,6 +590,25 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
   fi
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
+])
+
+
+dnl
+dnl Check for whether a fully dynamic basic_string implementation should
+dnl be turned on, that does not put empty objects in per-process static
+dnl memory (mostly useful together with shared memory allocators, see PR
+dnl libstdc++/16612 for details).
+dnl
+dnl --enable-fully-dynamic-string defines _GLIBCXX_FULLY_DYNAMIC_STRING
+dnl --disable-fully-dynamic-string leaves _GLIBCXX_FULLY_DYNAMIC_STRING undefined
+dnl  +  Usage:  GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING], [
+  GLIBCXX_ENABLE(fully-dynamic-string,$1,,[do not put empty strings in per-process static memory])
+  if test $enable_fully_dynamic_string = yes; then
+    AC_DEFINE(_GLIBCXX_FULLY_DYNAMIC_STRING)
+  fi
 ])
 
 

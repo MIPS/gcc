@@ -763,6 +763,7 @@ ac_env_CPP_value=$CPP
 ac_cv_env_CPP_set=${CPP+set}
 ac_cv_env_CPP_value=$CPP
 
+# APPLE LOCAL begin 64bit bringup hack
 # This is a cheesy 64-bit bringup hack where we edit out the -m64,
 # do configury tests (which would fail since 64-bit libsystem
 # doesn't exist yet), then add it back for compilation proper.
@@ -773,6 +774,7 @@ if test "$oldCC" != "$newCC" ; then
     CC="$newCC"
     add_m64_back=yes
 fi
+# APPLE LOCAL end 64bit bringup hack
 
 #
 # Report the --help message.
@@ -895,6 +897,9 @@ Optional Features:
   --enable-cxx-flags=FLAGS
                           pass compiler FLAGS when building library
                           [default=]
+  --enable-fully-dynamic-string
+                          do not put empty strings in per-process static
+                          memory [default=no]
   --enable-symvers=STYLE  enables symbol versioning of the shared library
                           [default=yes]
   --enable-version-specific-runtime-libs
@@ -4405,7 +4410,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4397 "configure"' > conftest.$ac_ext
+  echo '#line 4400 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5026,7 +5031,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 5018 "configure"
+#line 5021 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -7850,6 +7855,29 @@ echo "$as_me: error: compiler flags start with a -" >&2;}
   echo "$as_me:$LINENO: result: $EXTRA_CXX_FLAGS" >&5
 echo "${ECHO_T}$EXTRA_CXX_FLAGS" >&6
 
+
+
+   # Check whether --enable-fully-dynamic-string or --disable-fully-dynamic-string was given.
+if test "${enable_fully_dynamic_string+set}" = set; then
+  enableval="$enable_fully_dynamic_string"
+
+      case "$enableval" in
+       yes|no) ;;
+       *) { { echo "$as_me:$LINENO: error: Argument to enable/disable fully-dynamic-string must be yes or no" >&5
+echo "$as_me: error: Argument to enable/disable fully-dynamic-string must be yes or no" >&2;}
+   { (exit 1); exit 1; }; } ;;
+      esac
+
+else
+  enable_fully_dynamic_string=no
+fi;
+
+  if test $enable_fully_dynamic_string = yes; then
+    cat >>confdefs.h <<\_ACEOF
+#define _GLIBCXX_FULLY_DYNAMIC_STRING 1
+_ACEOF
+
+  fi
 
 
 # No surprises, no surprises...
@@ -30159,6 +30187,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <unistd.h>
        #include <stdio.h>
+       #include <sys/stat.h>
 
 int
 main ()
@@ -30168,6 +30197,8 @@ FILE* fp;
        fseeko64(fp, 0, SEEK_CUR);
        ftello64(fp);
        lseek64(1, 0, SEEK_CUR);
+       struct stat64 buf;
+       fstat64(1, &buf);
   ;
   return 0;
 }
@@ -97450,12 +97481,13 @@ else
   GLIBCXX_TEST_ABI_FALSE=
 fi
 
+# APPLE LOCAL begin 64bit bringup hack
 # Final part of 64-bit bringup hack
 if test $add_m64_back = yes; then
     CC="$CC -m64"
     add_m64_back=no
 fi
-
+# APPLE LOCAL end 64bit bringup hack
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure

@@ -1,4 +1,3 @@
-/* APPLE LOCAL file lno */
 /* Integer matrix math routines
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
@@ -39,7 +38,7 @@ lambda_matrix_new (int m, int n)
   lambda_matrix mat;
   int i;
 
-  mat = ggc_alloc_cleared (m * sizeof (int));
+  mat = ggc_alloc (m * sizeof (lambda_vector));
   
   for (i = 0; i < m; i++)
     mat[i] = lambda_vector_new (n);
@@ -69,6 +68,29 @@ lambda_matrix_id (lambda_matrix mat, int size)
   for (i = 0; i < size; i++)
     for (j = 0; j < size; j++)
       mat[i][j] = (i == j) ? 1 : 0;
+}
+
+/* Return true if MAT is the identity matrix of SIZE */
+
+bool
+lambda_matrix_id_p (lambda_matrix mat, int size)
+{
+  int i, j;
+  for (i = 0; i < size; i++)
+    for (j = 0; j < size; j++)
+      {
+	if (i == j)
+	  {
+	    if (mat[i][j] != 1)
+	      return false;
+	  }
+	else
+	  {
+	    if (mat[i][j] != 0)
+	      return false;
+	  }
+      }
+  return true;
 }
 
 /* Negate the elements of the M x N matrix MAT1 and store it in MAT2.  */
@@ -234,7 +256,7 @@ lambda_matrix_col_exchange (lambda_matrix mat, int m, int col1, int col2)
 }
 
 /* Add a multiple of column C1 of matrix MAT with M rows to column C2:
-   C2 = C1 + CONST1 * C2.  */
+   C2 = C2 + CONST1 * C1.  */
 
 void
 lambda_matrix_col_add (lambda_matrix mat, int m, int c1, int c2, int const1)
@@ -414,8 +436,9 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
   return determinant;
 }
 
-/* Decompose MAT to a product of a lower triangular H and a unimodular
-   U matrix.  */
+/* Decompose a N x N matrix MAT to a product of a lower triangular H
+   and a unimodular U matrix such that MAT = H.U.  N is the size of
+   the rows of MAT.  */
 
 void
 lambda_matrix_hermite (lambda_matrix mat, int n,
@@ -441,7 +464,7 @@ lambda_matrix_hermite (lambda_matrix mat, int n,
 	    }
 	}
 
-      /* Stop when only the diagonal element is non-zero.  */
+      /* Stop when only the diagonal element is nonzero.  */
       while (lambda_vector_first_nz (row, n, j + 1) < n)
 	{
 	  minimum_col = lambda_vector_min_nz (row, n, j);
@@ -548,14 +571,13 @@ lambda_matrix_left_hermite (lambda_matrix A, int m, int n,
     }
 }
 
-/* When it exists, return the first non-zero row in MAT after row
+/* When it exists, return the first nonzero row in MAT after row
    STARTROW.  Otherwise return rowsize.  */
 
 int
 lambda_matrix_first_nz_vec (lambda_matrix mat, int rowsize, int colsize,
 			    int startrow)
 {
-
   int j;
   bool found = false;
 
@@ -580,9 +602,9 @@ lambda_matrix_project_to_null (lambda_matrix B, int rowsize,
   lambda_matrix M1, M2, M3, I;
   int determinant;
 
-  /* compute c(I-B^T inv(B B^T) B) e sub k   */
+  /* Compute c(I-B^T inv(B B^T) B) e sub k.  */
 
-  /* M1 is the transpose of B */
+  /* M1 is the transpose of B.  */
   M1 = lambda_matrix_new (colsize, colsize);
   lambda_matrix_transpose (B, M1, rowsize, colsize);
 
@@ -625,6 +647,8 @@ lambda_matrix_vector_mult (lambda_matrix matrix, int m, int n,
     for (j = 0; j < n; j++)
       dest[i] += matrix[i][j] * vec[j];
 }
+
+/* Print out an M x N matrix MAT to OUTFILE.  */
 
 void
 print_lambda_matrix (FILE * outfile, lambda_matrix matrix, int m, int n)

@@ -43,25 +43,109 @@ enum tree_code {
 /* Number of language-independent tree codes.  */
 #define NUM_TREE_CODES ((int) LAST_AND_UNUSED_TREE_CODE)
 
-/* Indexed by enum tree_code, contains a character which is
-   `<' for a comparison expression, `1', for a unary arithmetic
-   expression, `2' for a binary arithmetic expression, `e' for
-   other types of expressions, `r' for a reference, `c' for a
-   constant, `d' for a decl, `t' for a type, `s' for a statement,
-   and `x' for anything else (TREE_LIST, IDENTIFIER, etc).  */
+/* Tree code classes.  */
+
+/* Each tree_code has an associated code class represented by a
+   TREE_CODE_CLASS.  */
+
+enum tree_code_class {
+  tcc_exceptional, /* An exceptional code (fits no category).  */
+  tcc_constant,    /* A constant.  */
+  tcc_type,        /* A type object code.  */
+  tcc_declaration, /* A declaration (also serving as variable refs).  */
+  tcc_reference,   /* A reference to storage.  */
+  tcc_comparison,  /* A comparison expression.  */
+  tcc_unary,       /* A unary arithmetic expression.  */
+  tcc_binary,      /* A binary arithmetic expression.  */
+  tcc_statement,   /* A statement expression, which have side effects
+		      but usually no interesting value.  */
+  tcc_expression   /* Any other expression.  */
+};
+
+/* Each tree code class has an associated string representation.
+   These must correspond to the tree_code_class entries.  */
+
+extern const char *const tree_code_class_strings[];
+
+/* Returns the string representing CLASS.  */
+
+#define TREE_CODE_CLASS_STRING(CLASS)\
+        tree_code_class_strings[(int) (CLASS)]
 
 #define MAX_TREE_CODES 256
-extern const char tree_code_type[];
+extern const enum tree_code_class tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
+
+/* Nonzero if CODE represents an exceptional code.  */
+
+#define EXCEPTIONAL_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_exceptional)
+
+/* Nonzero if CODE represents a constant.  */
+
+#define CONSTANT_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_constant)
+
+/* Nonzero if CODE represents a type.  */
+
+#define TYPE_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_type)
+
+/* Nonzero if CODE represents a declaration.  */
+
+#define DECL_P(CODE)\
+        (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
+
+/* Nonzero if CODE represents a INDIRECT_REF.  */
+#define INDIRECT_REF_P(CODE)\
+  (TREE_CODE (CODE) == INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+
+/* Nonzero if CODE represents a reference.  */
+
+#define REFERENCE_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_reference)
+
+/* Nonzero if CODE represents a comparison.  */
+
+#define COMPARISON_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_comparison)
+
+/* Nonzero if CODE represents a unary arithmetic expression.  */
+
+#define UNARY_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_unary)
+
+/* Nonzero if CODE represents a binary arithmetic expression.  */
+
+#define BINARY_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_binary)
+
+/* Nonzero if CODE represents a statement expression.  */
+
+#define STATEMENT_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_statement)
+
+/* Nonzero if CODE represents any other expression.  */
+
+#define EXPRESSION_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_expression)
 
 /* Returns nonzero iff CLASS is not the tree code of a type.  */
 
-#define IS_NON_TYPE_CODE_CLASS(CLASS) ((CLASS) != 't')
+#define IS_NON_TYPE_CODE_CLASS(CLASS) ((CLASS) != tcc_type)
+
+/* Returns nonzero iff CODE represents a type or declaration.  */
+
+#define IS_TYPE_OR_DECL_P(CODE)\
+	(TYPE_P (CODE) || DECL_P (CODE))
 
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
-#define IS_EXPR_CODE_CLASS(CLASS) (strchr ("<12ers", (CLASS)) != 0)
+#define IS_EXPR_CODE_CLASS(CLASS)\
+	(((CLASS) >= tcc_reference) && ((CLASS) <= tcc_expression))
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -76,8 +160,8 @@ extern const unsigned char tree_code_length[];
 
 extern const char *const tree_code_name[];
 
-/* A vector of trees.  */
-DEF_VEC_P(tree);
+/* A garbage collected vector of trees.  */
+DEF_VEC_GC_P(tree);
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -315,19 +399,19 @@ struct tree_common GTY(())
 	   ..._TYPE
 
        TREE_THIS_NOTRAP in
-          INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
+          (ALIGN/MISALIGNED_)INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
 
    deprecated_flag:
 
 	TREE_DEPRECATED in
 	   ..._DECL
 
-   APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr
+   APPLE LOCAL begin "unavailable" attribute (Radar 2809697)
    unavailable_flag:
 
 	TREE_UNAVAILABLE in
 	   ..._DECL
-   APPLE LOCAL end "unavailable" attribute --ilr
+   APPLE LOCAL end "unavailable" attribute (Radar 2809697)
 
    visited:
 
@@ -458,7 +542,7 @@ struct tree_common GTY(())
 ({  const tree __t = (T);						\
     char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
     if (!IS_EXPR_CODE_CLASS (__c))					\
-      tree_class_check_failed (__t, 'E', __FILE__, __LINE__,		\
+      tree_class_check_failed (__t, tcc_expression, __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
     __t; })
 
@@ -467,7 +551,7 @@ struct tree_common GTY(())
 ({  const tree __t = (T);						\
     char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
     if (!IS_NON_TYPE_CODE_CLASS (__c))					\
-      tree_class_check_failed (__t, 'T', __FILE__, __LINE__,		\
+      tree_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
     __t; })
 
@@ -527,7 +611,7 @@ extern void tree_check_failed (const tree, const char *, int, const char *,
 			       ...) ATTRIBUTE_NORETURN;
 extern void tree_not_check_failed (const tree, const char *, int, const char *,
 				   ...) ATTRIBUTE_NORETURN;
-extern void tree_class_check_failed (const tree, int,
+extern void tree_class_check_failed (const tree, const enum tree_code_class,
 				     const char *, int, const char *)
     ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed (int, int, const char *,
@@ -567,10 +651,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #include "tree-check.h"
 
-#define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, 't')
-#define DECL_CHECK(T)		TREE_CLASS_CHECK (T, 'd')
-#define CST_CHECK(T)		TREE_CLASS_CHECK (T, 'c')
-#define STMT_CHECK(T)		TREE_CLASS_CHECK (T, 's')
+#define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, tcc_type)
+#define DECL_CHECK(T)		TREE_CLASS_CHECK (T, tcc_declaration)
+#define CST_CHECK(T)		TREE_CLASS_CHECK (T, tcc_constant)
+#define STMT_CHECK(T)		TREE_CLASS_CHECK (T, tcc_statement)
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
@@ -722,9 +806,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (TREE_CODE (NODE) == ARRAY_TYPE ? TREE_TYPE (NODE) : (NODE)))
 
-/* Nonzero if TYPE represents a type.  */
-
-#define TYPE_P(TYPE)	(TREE_CODE_CLASS (TREE_CODE (TYPE)) == 't')
 
 /* Define many boolean fields that all tree nodes have.  */
 
@@ -836,7 +917,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
    this only applies to an object when used appropriately: it doesn't
-   mean that writing a READONLY mem won't trap.
+   mean that writing a READONLY mem won't trap. Similarly for
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
 
    In ARRAY_REF and ARRAY_RANGE_REF means that we know that the index
    (or slice of the array) always belongs to the range of the array.
@@ -849,7 +931,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->common.readonly_flag)
 
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
-#define TREE_READONLY_DECL_P(NODE) (DECL_P (NODE) && TREE_READONLY (NODE))
+#define TREE_READONLY_DECL_P(NODE)\
+	(DECL_P (NODE) && TREE_READONLY (NODE))
 
 /* Value of expression is constant.  Always on in all ..._CST nodes.  May
    also appear in an expression or decl where the value is constant.  */
@@ -922,11 +1005,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
 
-/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) --ilr */
+/* APPLE LOCAL begin "unavailable" attribute (Radar 2809697) */
 /* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
-/* APPLE LOCAL end "unavailable" attribute --ilr */
+/* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -993,13 +1076,13 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.pointer)
+#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char *pointer;
+  const char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -1085,8 +1168,9 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
-/* In INDIRECT_REF.  */
-#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
+/* In INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
+#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
+	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -1107,17 +1191,13 @@ struct tree_vec GTY(())
    decls and constants can be shared among multiple locations, so
    return nothing.  */
 #define EXPR_LOCATION(NODE)					\
-  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
-   ? (NODE)->exp.locus						\
-   : UNKNOWN_LOCATION)
+  (EXPR_P (NODE) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
 #define SET_EXPR_LOCATION(NODE, FROM) \
   (EXPR_CHECK (NODE)->exp.locus = (FROM))
 #define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
 /* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated.  */
 #define EXPR_LOCUS(NODE)					\
-  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
-   ? &(NODE)->exp.locus						\
-   : (location_t *)NULL)
+  (EXPR_P (NODE) ? &(NODE)->exp.locus : (location_t *)NULL)
 #define SET_EXPR_LOCUS(NODE, FROM) \
   do { source_location *loc_tmp = FROM; \
        EXPR_CHECK (NODE)->exp.locus \
@@ -1131,9 +1211,7 @@ struct tree_vec GTY(())
    decls and constants can be shared among multiple locations, so
    return nothing.  */
 #define EXPR_LOCUS(NODE)					\
-  (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))	\
-   ? (NODE)->exp.locus						\
-   : (location_t *)NULL)
+  (EXPR_P (NODE) ? (NODE)->exp.locus : (location_t *)NULL)
 #define SET_EXPR_LOCUS(NODE, FROM) \
   (EXPR_CHECK (NODE)->exp.locus = (FROM))
 #define SET_EXPR_LOCATION(NODE, FROM) annotate_with_locus (NODE, FROM)
@@ -1279,14 +1357,20 @@ struct tree_ssa_name GTY(())
   /* _DECL wrapped by this SSA name.  */
   tree var;
 
+  tree equiv;
+
   /* SSA version number.  */
   unsigned int version;
 
   /* Pointer attributes used for alias analysis.  */
   struct ptr_info_def *ptr_info;
 
-  /* Value for SSA name used by GVN.  */
-  tree GTY((skip)) value_handle;
+  /* Value for SSA name used by various passes.
+
+     Right now only invariants are allowed to persist beyond a pass in
+     this field; in the future we will allow VALUE_HANDLEs to persist
+     as well.  */
+  tree value_handle;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
@@ -1309,6 +1393,8 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
+#define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
+#define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
 
 struct edge_def;
 
@@ -1329,7 +1415,13 @@ struct tree_phi_node GTY(())
   /* Nonzero if the PHI node was rewritten by a previous pass through the
      SSA renamer.  */
   int rewritten;
-  
+
+  /* Basic block to that the phi node belongs.  */
+  struct basic_block_def *bb;
+
+  /* Dataflow information.  */
+  struct dataflow_d *df;
+
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 
@@ -1580,6 +1672,12 @@ struct tree_block GTY(())
    compact a way as possible.  */
 #define TYPE_PACKED(NODE) (TYPE_CHECK (NODE)->type.packed_flag)
 
+/* Used by type_contains_placeholder_p to avoid recomputation.
+   Values are: 0 (unknown), 1 (false), 2 (true).  Never access
+   this field directly.  */
+#define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
+  (TYPE_CHECK (NODE)->type.contains_placeholder_bits)
+
 struct die_struct;
 
 struct tree_type GTY(())
@@ -1600,7 +1698,7 @@ struct tree_type GTY(())
   unsigned transparent_union_flag : 1;
   unsigned packed_flag : 1;
   unsigned restrict_flag : 1;
-  unsigned spare : 2;
+  unsigned contains_placeholder_bits : 2;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1754,9 +1852,6 @@ struct tree_binfo GTY (())
 
 
 /* Define fields and accessors for nodes representing declared names.  */
-
-/* Nonzero if DECL represents a decl.  */
-#define DECL_P(DECL)	(TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')
 
 /* Nonzero if DECL represents a variable for the SSA passes.  */
 #define SSA_VAR_P(DECL) \
@@ -2044,7 +2139,7 @@ struct tree_binfo GTY (())
 
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
+#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl.inline_flag)
 
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
@@ -2693,6 +2788,11 @@ extern tree decl_assembler_name (tree);
 
 extern size_t tree_size (tree);
 
+/* Compute the number of bytes occupied by a tree with code CODE.  This
+   function cannot be used for TREE_VEC or PHI_NODE codes, which are of
+   variable length.  */
+extern size_t tree_code_size (enum tree_code);
+
 /* Lowest level primitive for allocating a node.
    The TREE_CODE is the only argument.  Contents are initialized
    to zero except for a few of the common fields.  */
@@ -2828,6 +2928,7 @@ extern tree build_empty_stmt (void);
 
 extern tree make_signed_type (int);
 extern tree make_unsigned_type (int);
+extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern void initialize_sizetypes (bool);
 extern void set_sizetype (tree);
@@ -3215,11 +3316,11 @@ extern int mostly_zeros_p (tree);
 
 extern void add_var_to_bind_expr (tree, tree);
 
-/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
+/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
 extern int integer_zerop (tree);
 
-/* integer_onep (tree x) is nonzero if X is an integer constant of value 1 */
+/* integer_onep (tree x) is nonzero if X is an integer constant of value 1.  */
 
 extern int integer_onep (tree);
 
@@ -3285,11 +3386,6 @@ extern bool contains_placeholder_p (tree);
    positions.  */
 
 extern bool type_contains_placeholder_p (tree);
-
-/* Return 1 if EXP contains any expressions that produce cleanups for an
-   outer scope to deal with.  Used by fold.  */
-
-extern int has_cleanups (tree);
 
 /* Given a tree EXP, a FIELD_DECL F, and a replacement value R,
    return a tree with all occurrences of references to F in a
@@ -3410,9 +3506,7 @@ extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) const char * current_function_func_begin_label;
-
-
-
+
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
@@ -3513,6 +3607,8 @@ extern tree constant_boolean_node (int, tree);
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
 
+extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
+
 /* In builtins.c */
 extern tree fold_builtin (tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
@@ -3522,9 +3618,9 @@ extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
-extern tree simplify_builtin (tree, int);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+extern tree build_va_arg_indirect_ref (tree);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);
@@ -3779,9 +3875,11 @@ enum tree_dump_index
 				   within it.  */
   TDI_vcg,			/* create a VCG graph file for each
 				   function's flowgraph.  */
-  TDI_xml,                      /* dump function call graph.  */
   TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
   TDI_rtl_all,                  /* enable all the RTL dumps.  */
+  TDI_ipa_all,                  /* enable all the IPA dumps.  */
+
+  TDI_cgraph,                   /* dump function call graph.  */
 
   DFI_MIN,                      /* For now, RTL dumps are placed here.  */
   DFI_sibling = DFI_MIN,
@@ -3841,6 +3939,7 @@ enum tree_dump_index
 
 #define TDF_TREE	(1 << 9)	/* is a tree dump */
 #define TDF_RTL		(1 << 10)	/* is a RTL dump */
+#define TDF_IPA		(1 << 11)	/* is an IPA dump */
 
 typedef struct dump_info *dump_info_p;
 

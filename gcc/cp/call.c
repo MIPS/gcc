@@ -191,23 +191,6 @@ static bool magic_varargs_p (tree);
 static tree build_temp (tree, tree, int, void (**)(const char *, ...));
 static void check_constructor_callable (tree, tree);
 
-tree
-build_vfield_ref (tree datum, tree type)
-{
-  if (datum == error_mark_node)
-    return error_mark_node;
-
-  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
-    datum = convert_from_reference (datum);
-
-  if (TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
-      && !same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
-    datum = convert_to_base (datum, type, /*check_access=*/false);
-
-  return build3 (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
-		 datum, TYPE_VFIELD (type), NULL_TREE);
-}
-
 /* Returns nonzero iff the destructor name specified in NAME
    (a BIT_NOT_EXPR) matches BASETYPE.  The operand of NAME can take many
    forms...  */
@@ -2196,7 +2179,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   if ((DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (tmpl)
        || DECL_BASE_CONSTRUCTOR_P (tmpl))
-      && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (tmpl)))
+      && CLASSTYPE_VBASECLASSES (DECL_CONTEXT (tmpl)))
     args_without_in_chrg = TREE_CHAIN (args_without_in_chrg);
 
   i = fn_type_unification (tmpl, explicit_targs, targs,
@@ -3459,7 +3442,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
     }
 
  valid_operands:
-  result = fold (build3 (COND_EXPR, result_type, arg1, arg2, arg3));
+  result = fold_if_not_in_template (build3 (COND_EXPR, result_type, arg1, 
+					    arg2, arg3));
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */
 
@@ -4906,8 +4890,10 @@ build_over_call (struct z_candidate *cand, int flags)
 				ba_any | ba_quiet,
 				NULL) != NULL);
 
-	if (TYPE_USES_MULTIPLE_INHERITANCE (call_site_type)
-	    || TYPE_USES_VIRTUAL_BASECLASSES (call_site_type))
+	if (BINFO_N_BASE_BINFOS (TYPE_BINFO (call_site_type)) > 0
+	    /* || TYPE_USES_VIRTUAL_BASECLASSES (call_site_type) */
+	    /* MERGE FIXME, does this get regular classes?  */
+	    || CLASSTYPE_VBASECLASSES (call_site_type))
 	  error ("indirect virtual calls are invalid for a type that uses multiple or virtual inheritance");
 
         fn = (build_vfn_ref_using_vtable
@@ -4947,7 +4933,7 @@ build_cxx_call (tree fn, tree args)
 
   /* Some built-in function calls will be evaluated at compile-time in
      fold ().  */
-  fn = fold (fn);
+  fn = fold_if_not_in_template (fn);
 
   if (VOID_TYPE_P (TREE_TYPE (fn)))
     return fn;
@@ -5130,7 +5116,7 @@ build_special_member_call (tree instance, tree name, tree args,
      the subobject.  */
   if ((name == base_ctor_identifier
        || name == base_dtor_identifier)
-      && TYPE_USES_VIRTUAL_BASECLASSES (class_type))
+      && CLASSTYPE_VBASECLASSES (class_type))
     {
       tree vtt;
       tree sub_vtt;
@@ -5390,16 +5376,18 @@ build_new_method_call (tree instance, tree fns, tree args,
 	}
       else
 	{
-	  if (DECL_PURE_VIRTUAL_P (cand->fn)
+	  if (!(flags & LOOKUP_NONVIRTUAL)
+	      && DECL_PURE_VIRTUAL_P (cand->fn)
 	      && instance == current_class_ref
 	      && (DECL_CONSTRUCTOR_P (current_function_decl)
-		  || DECL_DESTRUCTOR_P (current_function_decl))
-	      && ! (flags & LOOKUP_NONVIRTUAL)
-	      && value_member (cand->fn, CLASSTYPE_PURE_VIRTUALS (basetype)))
-	    error ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
-		    "abstract virtual `%#D' called from constructor"
-		    : "abstract virtual `%#D' called from destructor"),
-		   cand->fn);
+		  || DECL_DESTRUCTOR_P (current_function_decl)))
+	    /* This is not an error, it is runtime undefined
+	       behavior.  */
+	    warning ((DECL_CONSTRUCTOR_P (current_function_decl) ? 
+		      "abstract virtual `%#D' called from constructor"
+		      : "abstract virtual `%#D' called from destructor"),
+		     cand->fn);
+	  
 	  if (TREE_CODE (TREE_TYPE (cand->fn)) == METHOD_TYPE
 	      && is_dummy_object (instance_ptr))
 	    {
@@ -5943,7 +5931,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
   /* If we have two pseudo-candidates for conversions to the same type,
      or two candidates for the same function, arbitrarily pick one.  */
   if (cand1->fn == cand2->fn
-      && (TYPE_P (cand1->fn) || DECL_P (cand1->fn)))
+      && (IS_TYPE_OR_DECL_P (cand1->fn)))
     return 1;
 
   /* a viable function F1

@@ -165,7 +165,11 @@ static tree start_class (enum tree_code, tree, tree, tree);
 static tree continue_class (tree);
 static void finish_class (tree);
 static void start_method_def (tree);
+#ifdef OBJCPLUS
 static void objc_start_function (tree, tree, tree, tree);
+#else
+static void objc_start_function (tree, tree, tree, struct c_arg_info *);
+#endif
 static tree start_protocol (enum tree_code, tree, tree);
 static tree build_method_decl (enum tree_code, tree, tree, tree);
 static tree objc_add_method (tree, tree, int);
@@ -254,12 +258,20 @@ static void encode_gnu_bitfield (int, tree, int);
 static void encode_type (tree, int, int);
 static void encode_field_decl (tree, int, int);
 
+#ifdef OBJCPLUS
 static void really_start_method (tree, tree);
+#else
+static void really_start_method (tree, struct c_arg_info *);
+#endif
 static int objc_types_are_equivalent (tree, tree);
 static int comp_proto_with_proto (tree, tree);
 static tree get_arg_type_list (tree, int, int);
 static void objc_push_parm (tree);
+#ifdef OBJCPLUS
 static tree objc_get_parm_info (int);
+#else
+static struct c_arg_info *objc_get_parm_info (int);
+#endif
 static void synth_self_and_ucmd_args (void);
 
 /* Utilities for debugging and error diagnostics.  */
@@ -532,10 +544,12 @@ objc_init (void)
 #endif
     return false;
 
+#ifndef USE_MAPPED_LOCATION
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
      not to be built in.  */
   input_line = 0;
+#endif
 
 /* APPLE LOCAL begin new tree dump */
 #ifdef ENABLE_DMP_TREE
@@ -1297,7 +1311,7 @@ finish_var_decl (tree var, tree initializer)
   TREE_USED (var) = 1;
 }
 
-/* Find the decl for the constant string class refernce.  This is only
+/* Find the decl for the constant string class reference.  This is only
    used for the NeXT runtime.  */
 
 static tree
@@ -1889,7 +1903,8 @@ init_objc_symtab (tree type)
 
   /* sel_ref_cnt = { ..., 5, ... } */
 
-  initlist = build_tree_list (NULL_TREE, build_int_cst (NULL_TREE, 0));
+  initlist = build_tree_list (NULL_TREE,
+			      build_int_cst (long_integer_type_node, 0));
 
   /* refs = { ..., _OBJC_SELECTOR_TABLE, ... } */
 
@@ -1988,12 +2003,13 @@ init_module_descriptor (tree type)
 
   /* version = { 1, ... } */
 
-  expr = build_int_cst (NULL_TREE, OBJC_VERSION);
+  expr = build_int_cst (long_integer_type_node, OBJC_VERSION);
   initlist = build_tree_list (NULL_TREE, expr);
 
   /* size = { ..., sizeof (struct _objc_module), ... } */
 
-  expr = size_in_bytes (objc_module_template);
+  expr = convert (long_integer_type_node,
+		  size_in_bytes (objc_module_template));
   initlist = tree_cons (NULL_TREE, expr, initlist);
 
   /* name = { ..., "foo.m", ... } */
@@ -2326,15 +2342,8 @@ build_selector_translation_table (void)
               }
           }
         if (!found)
-          {
-            /* Adjust line number for warning message.  */
-            int save_lineno = input_line;
-            if (flag_next_runtime && TREE_PURPOSE (chain))
-              input_line = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
-            warning ("creating selector for non existant method %s",
-                     IDENTIFIER_POINTER (TREE_VALUE (chain)));
-            input_line = save_lineno;
-          }
+	  warning ("%Jcreating selector for nonexistent method %qE",
+		   TREE_PURPOSE (chain), TREE_VALUE (chain));
       }
 
       expr = build_selector (TREE_VALUE (chain));
@@ -3052,11 +3061,11 @@ next_sjlj_build_catch_list (void)
     {
       t = build (MODIFY_EXPR, void_type_node, cur_try_context->rethrow_decl,
 		 cur_try_context->caught_decl);
-      annotate_with_locus (t, cur_try_context->end_catch_locus);
+      SET_EXPR_LOCATION (t, cur_try_context->end_catch_locus);
       append_to_statement_list (t, last);
 
       t = next_sjlj_build_try_exit ();
-      annotate_with_locus (t, cur_try_context->end_catch_locus);
+      SET_EXPR_LOCATION (t, cur_try_context->end_catch_locus);
       append_to_statement_list (t, last);
     }
 
@@ -3115,20 +3124,20 @@ next_sjlj_build_try_catch_finally (void)
   TREE_THIS_VOLATILE (rethrow_decl) = 1;
   TREE_CHAIN (rethrow_decl) = stack_decl;
 
-  /* Build the outermost varible binding level.  */
+  /* Build the outermost variable binding level.  */
   bind = build (BIND_EXPR, void_type_node, rethrow_decl, NULL, NULL);
-  annotate_with_locus (bind, cur_try_context->try_locus);
+  SET_EXPR_LOCATION (bind, cur_try_context->try_locus);
   TREE_SIDE_EFFECTS (bind) = 1;
 
   /* Initialize rethrow_decl.  */
   t = build (MODIFY_EXPR, void_type_node, rethrow_decl,
 	     convert (objc_object_type, null_pointer_node));
-  annotate_with_locus (t, cur_try_context->try_locus);
+  SET_EXPR_LOCATION (t, cur_try_context->try_locus);
   append_to_statement_list (t, &BIND_EXPR_BODY (bind));
 
   /* Build the outermost TRY_FINALLY_EXPR.  */
   try_fin = build (TRY_FINALLY_EXPR, void_type_node, NULL, NULL);
-  annotate_with_locus (try_fin, cur_try_context->try_locus);
+  SET_EXPR_LOCATION (try_fin, cur_try_context->try_locus);
   TREE_SIDE_EFFECTS (try_fin) = 1;
   append_to_statement_list (try_fin, &BIND_EXPR_BODY (bind));
 
@@ -3148,11 +3157,11 @@ next_sjlj_build_try_catch_finally (void)
     }
   else
     catch_seq = next_sjlj_build_exc_extract (rethrow_decl);
-  annotate_with_locus (catch_seq, cur_try_context->end_try_locus);
+  SET_EXPR_LOCATION (catch_seq, cur_try_context->end_try_locus);
 
   /* Build the main register-and-try if statement.  */
   t = next_sjlj_build_enter_and_setjmp ();
-  annotate_with_locus (t, cur_try_context->try_locus);
+  SET_EXPR_LOCATION (t, cur_try_context->try_locus);
   COND_EXPR_THEN (t) = catch_seq;
   COND_EXPR_ELSE (t) = cur_try_context->try_body;
   TREE_OPERAND (try_fin, 0) = t;
@@ -3162,7 +3171,7 @@ next_sjlj_build_try_catch_finally (void)
   t = build_stmt (COND_EXPR,
 		  lang_hooks.truthvalue_conversion (rethrow_decl),
 		  NULL, t);
-  annotate_with_locus (t, cur_try_context->finally_locus);
+  SET_EXPR_LOCATION (t, cur_try_context->finally_locus);
   append_to_statement_list (t, &TREE_OPERAND (try_fin, 1));
 
   append_to_statement_list (cur_try_context->finally_body,
@@ -3173,7 +3182,7 @@ next_sjlj_build_try_catch_finally (void)
   t = build_stmt (COND_EXPR,
 		  lang_hooks.truthvalue_conversion (rethrow_decl),
 		  t, NULL);
-  annotate_with_locus (t, cur_try_context->end_finally_locus);
+  SET_EXPR_LOCATION (t, cur_try_context->end_finally_locus);
   append_to_statement_list (t, &TREE_OPERAND (try_fin, 1));
 
   return bind;
@@ -3314,12 +3323,12 @@ objc_finish_try_stmt (void)
       if (c->catch_list)
 	{
           stmt = build_stmt (TRY_CATCH_EXPR, stmt, c->catch_list);
-	  annotate_with_locus (stmt, cur_try_context->try_locus);
+	  SET_EXPR_LOCATION (stmt, cur_try_context->try_locus);
 	}
       if (c->finally_body)
 	{
 	  stmt = build_stmt (TRY_FINALLY_EXPR, stmt, c->finally_body);
-	  annotate_with_locus (stmt, cur_try_context->try_locus);
+	  SET_EXPR_LOCATION (stmt, cur_try_context->try_locus);
 	}
     }
   add_stmt (stmt);
@@ -3366,13 +3375,13 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
   mutex = save_expr (mutex);
   args = tree_cons (NULL, mutex, NULL);
   call = build_function_call (objc_sync_enter_decl, args);
-  annotate_with_locus (call, start_locus);
+  SET_EXPR_LOCATION (call, start_locus);
   add_stmt (call);
 
   /* Build the mutex unlock.  */
   args = tree_cons (NULL, mutex, NULL);
   call = build_function_call (objc_sync_exit_decl, args);
-  annotate_with_locus (call, input_location);
+  SET_EXPR_LOCATION (call, input_location);
 
   /* Put the that and the body in a TRY_FINALLY.  */
   objc_begin_try_stmt (start_locus, body);
@@ -3887,7 +3896,7 @@ generate_protocol_references (tree plist)
    objects).  Because, as explained above, the compiler generates as
    few Protocol objects as possible, some Protocol object might end up
    being referenced multiple times when compiled with the GNU runtime,
-   and end up being fixed up multiple times at runtime inizialization.
+   and end up being fixed up multiple times at runtime initialization.
    But that doesn't hurt, it's just a little inefficient.  */
 
 static void
@@ -4876,13 +4885,17 @@ build_shared_structure_initializer (tree type, tree isa, tree super,
   initlist = tree_cons (NULL_TREE, default_conversion (name), initlist);
 
   /* version = */
-  initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
+  initlist = tree_cons (NULL_TREE, build_int_cst (long_integer_type_node, 0),
+			initlist);
 
   /* info = */
-  initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, status), initlist);
+  initlist = tree_cons (NULL_TREE,
+			build_int_cst (long_integer_type_node, status),
+			initlist);
 
   /* instance_size = */
-  initlist = tree_cons (NULL_TREE, size, initlist);
+  initlist = tree_cons (NULL_TREE, convert (long_integer_type_node, size),
+			initlist);
 
   /* objc_ivar_list = */
   if (!ivar_list)
@@ -7386,19 +7399,25 @@ objc_push_parm (tree parm)
   objc_parmlist = chainon (objc_parmlist, parm);
 }
 
-/* Retrieve the formal paramter list constructed via preceding calls to
+/* Retrieve the formal parameter list constructed via preceding calls to
    objc_push_parm().  */
 
-static tree
 #ifdef OBJCPLUS
+static tree
 objc_get_parm_info (int have_ellipsis ATTRIBUTE_UNUSED)
 #else
+static struct c_arg_info *
 objc_get_parm_info (int have_ellipsis)
 #endif
 {
+#ifdef OBJCPLUS
   tree parm_info = objc_parmlist;
+  objc_parmlist = NULL_TREE;
 
-#ifndef OBJCPLUS
+  return parm_info;
+#else
+  tree parm_info = objc_parmlist;
+  struct c_arg_info *arg_info;
   /* The C front-end requires an elaborate song and dance at
      this point.  */
   push_scope ();
@@ -7411,12 +7430,11 @@ objc_get_parm_info (int have_ellipsis)
       pushdecl (parm_info);
       parm_info = next;
     }
-  parm_info = get_parm_info (have_ellipsis);
+  arg_info = get_parm_info (have_ellipsis);
   pop_scope ();
-#endif
   objc_parmlist = NULL_TREE;
-
-  return parm_info;
+  return arg_info;
+#endif
 }
 
 /* Synthesize the formal parameters 'id self' and 'SEL _cmd' needed for ObjC
@@ -7451,6 +7469,11 @@ static void
 start_method_def (tree method)
 {
   tree parmlist;
+#ifdef OBJCPLUS
+  tree parm_info;
+#else
+  struct c_arg_info *parm_info;
+#endif
   int have_ellipsis = 0;
 
   /* Required to implement _msgSuper.  */
@@ -7485,9 +7508,9 @@ start_method_def (tree method)
 	have_ellipsis = 1;
     }
 
-  parmlist = objc_get_parm_info (have_ellipsis);
+  parm_info = objc_get_parm_info (have_ellipsis);
 
-  really_start_method (objc_method_context, parmlist);
+  really_start_method (objc_method_context, parm_info);
 }
 
 static void
@@ -7559,12 +7582,47 @@ comp_proto_with_proto (tree proto1, tree proto2)
   return (!type1 && !type2);
 }
 
+/* Fold an OBJ_TYPE_REF expression for ObjC method dispatches, where
+   this occurs.  ObjC method dispatches are _not_ like C++ virtual
+   member function dispatches, and we account for the difference here.  */
+tree
+#ifdef OBJCPLUS
+objc_fold_obj_type_ref (tree ref, tree known_type)
+#else
+objc_fold_obj_type_ref (tree ref ATTRIBUTE_UNUSED,
+			tree known_type ATTRIBUTE_UNUSED)
+#endif
+{
+#ifdef OBJCPLUS
+  tree v = BINFO_VIRTUALS (TYPE_BINFO (known_type));
+
+  /* If the receiver does not have virtual member functions, there
+     is nothing we can (or need to) do here.  */
+  if (!v)
+    return NULL_TREE;
+
+  /* Let C++ handle C++ virtual functions.  */
+  return cp_fold_obj_type_ref (ref, known_type);
+#else
+  /* For plain ObjC, we currently do not need to do anything.  */
+  return NULL_TREE;
+#endif
+}
+
 static void
-objc_start_function (tree name, tree type, tree attrs, tree params)
+objc_start_function (tree name, tree type, tree attrs,
+#ifdef OBJCPLUS
+		     tree params
+#else
+		     struct c_arg_info *params
+#endif
+		     )
 {
   tree fndecl = build_decl (FUNCTION_DECL, name, type);
 
+#ifdef OBJCPLUS
   DECL_ARGUMENTS (fndecl) = params;
+#endif
   DECL_INITIAL (fndecl) = error_mark_node;
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
@@ -7583,7 +7641,7 @@ objc_start_function (tree name, tree type, tree attrs, tree params)
     = build_decl (RESULT_DECL, NULL_TREE,
 		  TREE_TYPE (TREE_TYPE (current_function_decl)));
   start_fname_decls ();
-  store_parm_decls_from (DECL_ARGUMENTS (current_function_decl));
+  store_parm_decls_from (params);
 #endif
 
   TREE_USED (current_function_decl) = 1;
@@ -7596,7 +7654,13 @@ objc_start_function (tree name, tree type, tree attrs, tree params)
    - If we have a prototype, check for type consistency.  */
 
 static void
-really_start_method (tree method, tree parmlist)
+really_start_method (tree method,
+#ifdef OBJCPLUS
+		     tree parmlist
+#else
+		     struct c_arg_info *parmlist
+#endif
+		     )
 {
   tree ret_type, meth_type;
   tree method_id;

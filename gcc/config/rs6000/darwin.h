@@ -48,6 +48,7 @@
 /* Handle #pragma weak and #pragma pack.  */
 #define HANDLE_SYSV_PRAGMA 1
 
+
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
     {                                           \
@@ -64,7 +65,6 @@
 
 /*  */
 #undef	SUBTARGET_SWITCHES
-/* APPLE LOCAL begin 64-bit */
 #define SUBTARGET_SWITCHES						\
   { "64",     MASK_64BIT | MASK_POWERPC64, \
         N_("Generate 64-bit code") }, \
@@ -73,7 +73,7 @@
   {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
       N_("Generate code suitable for executables (NOT shared libs)")},	\
   {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
-/* APPLE LOCAL end 64-bit */
+
 
 /* The Darwin ABI always includes AltiVec, can't be (validly) turned
    off.  */
@@ -122,6 +122,7 @@ do {									\
 
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
 
+
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
@@ -134,7 +135,6 @@ do {									\
 "%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
 /* APPLE LOCAL begin .machine assembler directive (radar 3492132) */
-
 /* It's virtually impossible to predict all the possible combinations
    of -mcpu and -maltivec and whatnot, so just supply
    -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
@@ -177,7 +177,6 @@ do {									\
   { "darwin_arch_asm_spec",	DARWIN_ARCH_ASM_SPEC },     \
   { "darwin_arch_ld_spec",	DARWIN_ARCH_LD_SPEC },     \
   { "darwin_arch", "ppc" },
-
 /* APPLE LOCAL end .machine assembler directive */
 
 /* The "-faltivec" option should have been called "-maltivec" all
@@ -260,7 +259,7 @@ do {									\
 (optimize >= 3   \
 || ((FIRST_REG) > 60 && (FIRST_REG) < 64) \
 || TARGET_LONG_BRANCH)
-/* APPLE LOCAL end */
+/* APPLE LOCAL end inline FP save/restore (radar 3414605) */
 
 /* Define cutoff for using external functions to save vector registers.  */
 
@@ -317,11 +316,14 @@ do {									\
    symbol.  */
 /* ? */
 #undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".comm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
-		(SIZE)); } while (0)
+#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)			\
+  do {									\
+    unsigned HOST_WIDE_INT _new_size = SIZE;				\
+    fputs (".comm ", (FILE));						\
+    RS6000_OUTPUT_BASENAME ((FILE), (NAME));				\
+    if (_new_size == 0) _new_size = 1;					\
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", _new_size);	\
+  } while (0)
 
 /* Override the standard rs6000 definition.  */
 
@@ -498,14 +500,7 @@ extern const char *darwin_one_byte_bool;
 #include <stdbool.h>
 #endif
 
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  {									\
-    extern bool _Unwind_fallback_frame_state_for			\
-      (struct _Unwind_Context *context, _Unwind_FrameState *fs);	\
-									\
-    if (_Unwind_fallback_frame_state_for (CONTEXT, FS))			\
-      goto SUCCESS;							\
-  }
+#define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 

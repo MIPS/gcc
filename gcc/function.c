@@ -230,7 +230,7 @@ find_function_data (tree decl)
     if (p->decl == decl)
       return p;
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Save the current context for compilation of a nested function.
@@ -621,12 +621,10 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
-  if (size == -1)
-    abort ();
+  gcc_assert (size != -1);
 
   /* These are now unused.  */
-  if (keep > 1)
-    abort ();
+  gcc_assert (keep <= 1);
 
   if (mode == BLKmode)
     align = BIGGEST_ALIGNMENT;
@@ -712,8 +710,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 	 So for requests which depended on the rounding of SIZE, we go ahead
 	 and round it now.  We also make sure ALIGNMENT is at least
 	 BIGGEST_ALIGNMENT.  */
-      if (mode == BLKmode && align < BIGGEST_ALIGNMENT)
-	abort ();
+      gcc_assert (mode != BLKmode || align == BIGGEST_ALIGNMENT);
       p->slot = assign_stack_local (mode,
 				    (mode == BLKmode
 				     ? CEIL_ROUND (size, (int) align / BITS_PER_UNIT)
@@ -851,7 +848,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
-	  error ("%Jsize of variable '%D' is too large", decl, decl);
+	  error ("%Jsize of variable %qD is too large", decl, decl);
 	  size = 1;
 	}
 
@@ -1451,13 +1448,9 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
 static void
 instantiate_virtual_regs_lossage (rtx insn)
 {
-  if (asm_noperands (PATTERN (insn)) >= 0)
-    {
-      error_for_asm (insn, "impossible constraint in `asm'");
-      delete_insn (insn);
-    }
-  else
-    abort ();
+  gcc_assert (asm_noperands (PATTERN (insn)) >= 0);
+  error_for_asm (insn, "impossible constraint in %<asm%>");
+  delete_insn (insn);
 }
 /* Given a pointer to a piece of rtx and an optional pointer to the
    containing object, instantiate any virtual registers present in it.
@@ -1879,7 +1872,7 @@ aggregate_value_p (tree exp, tree fntype)
 	break;
       default:
 	/* We don't expect other rtl types here.  */
-	abort();
+	gcc_unreachable ();
       }
 
   if (TREE_CODE (type) == VOID_TYPE)
@@ -1973,6 +1966,18 @@ pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
     }
 
   return targetm.calls.pass_by_reference (ca, mode, type, named_arg);
+}
+
+/* Return true if TYPE, which is passed by reference, should be callee
+   copied instead of caller copied.  */
+
+bool
+reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			 tree type, bool named_arg)
+{
+  if (type && TREE_ADDRESSABLE (type))
+    return false;
+  return targetm.calls.callee_copies (ca, mode, type, named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -2326,8 +2331,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 
 	  /* We assume at most one partial arg, and it must be the first
 	     argument on the stack.  */
-	  if (all->extra_pretend_bytes || all->pretend_args_size)
-	    abort ();
+	  gcc_assert (!all->extra_pretend_bytes && !all->pretend_args_size);
 
 	  pretend_bytes = partial * UNITS_PER_WORD;
 	  all->pretend_args_size = CEIL_ROUND (pretend_bytes, STACK_BYTES);
@@ -2548,7 +2552,7 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
   if (GET_CODE (entry_parm) == PARALLEL
       && data->nominal_mode != BLKmode
       && XVECLEN (entry_parm, 0) > 1
-      && optimize)
+      && use_register_for_decl (parm))
     {
       rtx parmreg = gen_reg_rtx (data->nominal_mode);
 
@@ -2584,8 +2588,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	}
       else if (GET_CODE (entry_parm) == PARALLEL)
 	;
-      else if (size != 0 && PARM_BOUNDARY % BITS_PER_WORD != 0)
-	abort ();
+      else
+	gcc_assert (!size || !(PARM_BOUNDARY % BITS_PER_WORD));
 
       mem = validize_mem (stack_parm);
 
@@ -2791,9 +2795,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
     {
       tree type = TREE_TYPE (data->passed_type);
     
-      if (FUNCTION_ARG_CALLEE_COPIES (all->args_so_far, TYPE_MODE (type),
-				      type, data->named_arg)
-	   && !TREE_ADDRESSABLE (type))
+      if (reference_callee_copied (&all->args_so_far, TYPE_MODE (type),
+				   type, data->named_arg))
 	{
 	  rtx copy;
 
@@ -3470,7 +3473,8 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
+	warning ("%Jvariable %qD might be clobbered by %<longjmp%>"
+		 " or %<vfork%>",
 		 decl, decl);
     }
 
@@ -3490,7 +3494,7 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning ("%Jargument '%D' might be clobbered by `longjmp' or `vfork'",
+      warning ("%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl, decl);
 }
 
@@ -4048,10 +4052,11 @@ expand_function_start (tree subr)
 	 so we may see a PARALLEL or a REG.  */
       if (REG_P (hard_reg))
 	SET_DECL_RTL (DECL_RESULT (subr), gen_reg_rtx (GET_MODE (hard_reg)));
-      else if (GET_CODE (hard_reg) == PARALLEL)
-	SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
       else
-	abort ();
+	{
+	  gcc_assert (GET_CODE (hard_reg) == PARALLEL);
+	  SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
+	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
 	 result to the real return register(s).  */
@@ -4213,7 +4218,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning ("%Junused parameter '%D'", decl, decl);
+      warning ("%Junused parameter %qD", decl, decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4340,8 +4345,7 @@ expand_function_end (void)
 	  rtx real_decl_rtl = current_function_return_rtx;
 
 	  /* This should be set in assign_parms.  */
-	  if (! REG_FUNCTION_VALUE_P (real_decl_rtl))
-	    abort ();
+	  gcc_assert (REG_FUNCTION_VALUE_P (real_decl_rtl));
 
 	  /* If this is a BLKmode structure being returned in registers,
 	     then use the mode computed in expand_return.  Note that if
@@ -4427,20 +4431,19 @@ expand_function_end (void)
 
   /* Emit the actual code to clobber return register.  */
   {
-    rtx seq, after;
+    rtx seq;
 
     start_sequence ();
     clobber_return_register ();
+    expand_naked_return ();
     seq = get_insns ();
     end_sequence ();
 
-    after = emit_insn_after (seq, clobber_after);
+    emit_insn_after (seq, clobber_after);
   }
 
-  /* Output the label for the naked return from the function, if one is
-     expected.  This is currently used only by __builtin_return.  */
-  if (naked_return_label)
-    emit_label (naked_return_label);
+  /* Output the label for the naked return from the function.  */
+  emit_label (naked_return_label);
 
   /* ??? This should no longer be necessary since stupid is no longer with
      us, but there are some parts of the compiler (eg reload_combine, and
@@ -4699,19 +4702,27 @@ keep_stack_depressed (rtx insns)
 	      insn = next;
 	      continue;
 	    }
-	  else if (MEM_P (retaddr)
-		   && REG_P (XEXP (retaddr, 0)))
-	    base = gen_rtx_REG (Pmode, REGNO (XEXP (retaddr, 0))), offset = 0;
-	  else if (MEM_P (retaddr)
-		   && GET_CODE (XEXP (retaddr, 0)) == PLUS
-		   && REG_P (XEXP (XEXP (retaddr, 0), 0))
-		   && GET_CODE (XEXP (XEXP (retaddr, 0), 1)) == CONST_INT)
-	    {
-	      base = gen_rtx_REG (Pmode, REGNO (XEXP (XEXP (retaddr, 0), 0)));
-	      offset = INTVAL (XEXP (XEXP (retaddr, 0), 1));
-	    }
 	  else
-	    abort ();
+	    {
+	      rtx ret_ptr;
+	      gcc_assert (MEM_P (retaddr));
+
+	      ret_ptr = XEXP (retaddr, 0);
+	      
+	      if (REG_P (ret_ptr))
+		{
+		  base = gen_rtx_REG (Pmode, REGNO (ret_ptr));
+		  offset = 0;
+		}
+	      else
+		{
+		  gcc_assert (GET_CODE (ret_ptr) == PLUS
+			      && REG_P (XEXP (ret_ptr, 0))
+			      && GET_CODE (XEXP (ret_ptr, 1)) == CONST_INT);
+		  base = gen_rtx_REG (Pmode, REGNO (XEXP (ret_ptr, 0)));
+		  offset = INTVAL (XEXP (ret_ptr, 1));
+		}
+	    }
 
 	  /* If the base of the location containing the return pointer
 	     is SP, we must update it with the replacement address.  Otherwise,
@@ -4746,8 +4757,7 @@ keep_stack_depressed (rtx insns)
 		    && info.const_equiv[regno] == 0)
 		  break;
 
-	      if (regno == FIRST_PSEUDO_REGISTER)
-		abort ();
+	      gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 	      reg = gen_rtx_REG (Pmode, regno);
 	      emit_move_insn (reg, retaddr);
@@ -4759,10 +4769,8 @@ keep_stack_depressed (rtx insns)
 
 	  /* Show the SET in the above insn is a RETURN.  */
 	  jump_set = single_set (jump_insn);
-	  if (jump_set == 0)
-	    abort ();
-	  else
-	    SET_IS_RETURN_P (jump_set) = 1;
+	  gcc_assert (jump_set);
+	  SET_IS_RETURN_P (jump_set) = 1;
 	}
 
       /* If SP is not mentioned in the pattern and its equivalent register, if
@@ -4777,11 +4785,13 @@ keep_stack_depressed (rtx insns)
 	       && (info.sp_equiv_reg == stack_pointer_rtx
 		   || !reg_set_p (info.sp_equiv_reg, insn)))
 	{
-	  if (! validate_replace_rtx (stack_pointer_rtx,
-				      plus_constant (info.sp_equiv_reg,
-						     info.sp_offset),
-				      insn))
-	    abort ();
+	  int changed;
+
+	  changed = validate_replace_rtx (stack_pointer_rtx,
+					  plus_constant (info.sp_equiv_reg,
+							 info.sp_offset),
+					  insn);
+	  gcc_assert (changed);
 
 	  add_insn (insn);
 	}
@@ -4821,21 +4831,22 @@ handle_epilogue_set (rtx set, struct epi_info *p)
      set from.  If unknown, abort.  */
   if (reg_set_p (stack_pointer_rtx, set))
     {
-      if (SET_DEST (set) != stack_pointer_rtx)
-	abort ();
+      gcc_assert (SET_DEST (set) == stack_pointer_rtx);
 
       if (GET_CODE (SET_SRC (set)) == PLUS)
 	{
 	  p->new_sp_equiv_reg = XEXP (SET_SRC (set), 0);
 	  if (GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT)
 	    p->new_sp_offset = INTVAL (XEXP (SET_SRC (set), 1));
-	  else if (REG_P (XEXP (SET_SRC (set), 1))
-		   && REGNO (XEXP (SET_SRC (set), 1)) < FIRST_PSEUDO_REGISTER
-		   && p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))] != 0)
-	    p->new_sp_offset
-	      = INTVAL (p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
 	  else
-	    abort ();
+	    {
+	      gcc_assert (REG_P (XEXP (SET_SRC (set), 1))
+			  && (REGNO (XEXP (SET_SRC (set), 1))
+			      < FIRST_PSEUDO_REGISTER)
+			  && p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
+	      p->new_sp_offset
+		= INTVAL (p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
+	    }
 	}
       else
 	p->new_sp_equiv_reg = SET_SRC (set), p->new_sp_offset = 0;
@@ -4847,8 +4858,7 @@ handle_epilogue_set (rtx set, struct epi_info *p)
 	  p->new_sp_offset += p->sp_offset;
 	}
 
-      if (p->new_sp_equiv_reg == 0 || !REG_P (p->new_sp_equiv_reg))
-	abort ();
+      gcc_assert (p->new_sp_equiv_reg && REG_P (p->new_sp_equiv_reg));
 
       return;
     }
@@ -4863,17 +4873,16 @@ handle_epilogue_set (rtx set, struct epi_info *p)
      Pmode).  */
   else if (p->new_sp_equiv_reg != 0 && reg_set_p (p->new_sp_equiv_reg, set))
     {
-      if (p->equiv_reg_src != 0
-	  || !REG_P (p->new_sp_equiv_reg)
-	  || !REG_P (SET_DEST (set))
-	  || GET_MODE_BITSIZE (GET_MODE (SET_DEST (set))) > BITS_PER_WORD
-	  || REGNO (p->new_sp_equiv_reg) != REGNO (SET_DEST (set)))
-	abort ();
-      else
-	p->equiv_reg_src
-	  = simplify_replace_rtx (SET_SRC (set), stack_pointer_rtx,
-				  plus_constant (p->sp_equiv_reg,
-						 p->sp_offset));
+      gcc_assert (!p->equiv_reg_src
+		  && REG_P (p->new_sp_equiv_reg)
+		  && REG_P (SET_DEST (set))
+		  && (GET_MODE_BITSIZE (GET_MODE (SET_DEST (set)))
+		      <= BITS_PER_WORD)
+		  && REGNO (p->new_sp_equiv_reg) == REGNO (SET_DEST (set)));
+      p->equiv_reg_src
+	= simplify_replace_rtx (SET_SRC (set), stack_pointer_rtx,
+				plus_constant (p->sp_equiv_reg,
+					       p->sp_offset));
     }
 
   /* Otherwise, replace any references to SP in the insn to its new value
@@ -4966,6 +4975,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
 #endif
+  edge_iterator ei;
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -4985,17 +4995,16 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      if (!ENTRY_BLOCK_PTR->succ || ENTRY_BLOCK_PTR->succ->succ_next)
-	abort ();
+      gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
 
-      insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+      insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
       inserted = 1;
     }
 #endif
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FAKE) == 0)
       break;
   if (e == NULL)
@@ -5011,10 +5020,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	 emit (conditional) return instructions.  */
 
       basic_block last;
-      edge e_next;
       rtx label;
 
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (e == NULL)
@@ -5032,6 +5040,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
+	  edge_iterator ei2;
 	  rtx epilogue_line_note = NULL_RTX;
 
 	  /* Locate the line number associated with the closing brace,
@@ -5045,18 +5054,23 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  for (e = last->pred; e; e = e_next)
+	  for (ei2 = ei_start (last->preds); (e = ei_safe_edge (ei2)); )
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
-	      e_next = e->pred_next;
 	      if (bb == ENTRY_BLOCK_PTR)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      jump = BB_END (bb);
 	      if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* If we have an unconditional jump, we can replace that
 		 with a simple return instruction.  */
@@ -5071,16 +5085,25 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	      else if (condjump_p (jump))
 		{
 		  if (! redirect_jump (jump, 0, 0))
-		    continue;
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (bb->succ->succ_next == NULL)
-		    continue;
+		  if (EDGE_COUNT (bb->succs) == 1)
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 		}
 	      else
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* Fix up the CFG for the successful change we just made.  */
 	      redirect_edge_succ (e, EXIT_BLOCK_PTR);
@@ -5092,7 +5115,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  last->succ->flags &= ~EDGE_FALLTHRU;
+	  EDGE_SUCC (last, 0)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5102,7 +5125,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e == NULL)
@@ -5163,7 +5186,7 @@ epilogue_done:
 
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
@@ -5172,7 +5195,10 @@ epilogue_done:
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       start_sequence ();
       emit_insn (gen_sibcall_epilogue ());
@@ -5187,6 +5213,7 @@ epilogue_done:
 
       i = PREV_INSN (insn);
       newinsn = emit_insn_before (seq, insn);
+      ei_next (&ei);
     }
 #endif
 

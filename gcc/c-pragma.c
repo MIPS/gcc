@@ -148,7 +148,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
   enum { set, push, pop } action;
 
   if (c_lex (&x) != CPP_OPEN_PAREN)
-    GCC_BAD ("missing '(' after '#pragma pack' - ignored");
+    GCC_BAD ("missing %<(%> after %<#pragma pack%> - ignored");
 
   token = c_lex (&x);
   if (token == CPP_CLOSE_PAREN)
@@ -161,14 +161,14 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
       align = TREE_INT_CST_LOW (x);
       action = set;
       if (c_lex (&x) != CPP_CLOSE_PAREN)
-	GCC_BAD ("malformed '#pragma pack' - ignored");
+	GCC_BAD ("malformed %<#pragma pack%> - ignored");
     }
   else if (token == CPP_NAME)
     {
 #define GCC_BAD_ACTION do { if (action != pop) \
-	  GCC_BAD ("malformed '#pragma pack(push[, id][, <n>])' - ignored"); \
+	  GCC_BAD ("malformed %<#pragma pack(push[, id][, <n>])%> - ignored"); \
 	else \
-	  GCC_BAD ("malformed '#pragma pack(pop[, id])' - ignored"); \
+	  GCC_BAD ("malformed %<#pragma pack(pop[, id])%> - ignored"); \
 	} while (0)
 
       const char *op = IDENTIFIER_POINTER (x);
@@ -177,7 +177,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
       else if (!strcmp (op, "pop"))
 	action = pop;
       else
-	GCC_BAD2 ("unknown action '%s' for '#pragma pack' - ignored", op);
+	GCC_BAD2 ("unknown action %qs for %<#pragma pack%> - ignored", op);
 
       while ((token = c_lex (&x)) == CPP_COMMA)
 	{
@@ -201,10 +201,10 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 #undef GCC_BAD_ACTION
     }
   else
-    GCC_BAD ("malformed '#pragma pack' - ignored");
+    GCC_BAD ("malformed %<#pragma pack%> - ignored");
 
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma pack'");
+    warning ("junk at end of %<#pragma pack%>");
 
   if (flag_pack_struct)
     GCC_BAD ("#pragma pack has no effect with -fpack-struct - ignored");
@@ -262,7 +262,7 @@ apply_pragma_weak (tree decl, tree value)
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning ("%Japplying #pragma weak '%D' after first use results "
+    warning ("%Japplying #pragma weak %qD after first use results "
              "in unspecified behavior", decl, decl);
 
   declare_weak (decl);
@@ -321,7 +321,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
     warning ("junk at end of #pragma weak");
 
   decl = identifier_global_value (name);
-  if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (decl && DECL_P (decl))
     {
       apply_pragma_weak (decl, value);
       if (value)
@@ -583,7 +583,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
         {
           if (!visidx)
             {
-              GCC_BAD ("No matching push for '#pragma GCC visibility pop'");
+              GCC_BAD ("No matching push for %<#pragma GCC visibility pop%>");
             }
           else
             {
@@ -594,7 +594,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
       else
         {
           if (c_lex (&x) != CPP_OPEN_PAREN)
-            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+            GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
           token = c_lex (&x);
           if (token != CPP_NAME)
             {
@@ -623,11 +623,11 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
               visibility_options.inpragma = 1;
             }
           if (c_lex (&x) != CPP_CLOSE_PAREN)
-            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+            GCC_BAD ("missing '(' after %<#pragma GCC visibility push%> - ignored");
         }
     }
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma GCC visibility'");
+    warning ("junk at end of %<#pragma GCC visibility%>");
 }
 
 #endif

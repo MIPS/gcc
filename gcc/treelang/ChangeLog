@@ -1,3 +1,70 @@
+2004-10-02  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR other/17762
+	* lex.l: Include input.h and errors.h
+	(lineno): New variable.
+	(LINEMAP_POSITION_FOR_COLUMN): Define as noop when USE_MAPPED_LOCATION
+	is not defined.
+	Set column position with LINEMAP_POSITION_FOR_COLUMN.
+	Use error instead of fprintf.
+	Set input_location with the value returned by linemap_start_line when
+	USE_MAPPED_LOCATION is defined.
+	(dump_lex_value): Use LOCATION_LINE.
+	* parse.y: Include errors.h.
+	Use error and warning instead of fprintf.
+	(return): Move exp to rule scope and always set to $2.  Test against
+	exp instead of $2.
+	(init): Set $$ to $2.
+	(print_token): Use LOCATION_LINE.
+	* tree1.c (treelang_init): Call treelang_init_decl_processing last.
+	Call linemap_add to set input_filename when USE_MAPPED_LOCATION is
+	defined.
+	(treelang_parse_file): Always start at line one.
+	Rename input_filename to main_input_filename when USE_MAPPED_LOCATION is
+	defined.
+	Leave main_input_filename when done parsing the input.
+	(insert_tree_name): Use error instead of fprintf.
+	* treetree.c (tree_code_get_expression): Wrap long line.
+	(tree_mark_addressable): Use %qD to print out DECLs.
+
+2004-10-02  James A. Morrison  <phython@gcc.gnu.org>
+
+	* parse.y: Use gcc_assert and gcc_unreachable instead of abort.
+	* tree1.c: Likewise.
+	* treetree.c: Likewise.
+
+2004-10-02  James A. Morrison  <phython@gcc.gnu.org>
+
+	* lex.l: Remove random whitespace.
+	* parse.y: Reformat copyright notice.  Indent declarations.
+	Wrap long lines, unwrap short lines.
+	* tree1.c: Reformat copyright notice.  Wrap long lines.
+	Remove random whitespace.
+	(lookup_tree_name): Use LOCATION_LINE.
+	* treetree.c: Reformat copyright notice.  Wrap long lines.
+	Remove random whitespace.
+
+2004-10-01  James A. Morrison  <phython@gcc.gnu.org>
+
+	* parse.y (ELSE): Set tok to $1.
+	* treelang.texi: Wrap comments in @r{}.  Indent example comments.
+	Use gcc when refering to the command line or website.  Update function
+	definition.
+
+2004-10-01  Jan Hubicka  <jh@suse.cz>
+
+	* treetree.c (treeland_expand_function): Update call of
+	tree_rest_of_compilation.
+
+2004-09-17  Jeffrey D. Oldham  <oldham@codesourcery.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* treetree.c: Update for new tree-class enumeration constants.
+
+2004-09-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in (treelang-warn): Set to $(STRICT_WARN).
+
 2004-08-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* treetree.c (tree_code_get_integer_value): Fix build_int_cst call.
@@ -100,7 +167,7 @@
 
 2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
 
-	* Make-lang.in (doc/treelang.dvi): Use $(abs_docdir). 
+	* Make-lang.in (doc/treelang.dvi): Use $(abs_docdir).
 
 2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
 
@@ -111,7 +178,7 @@
 2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (TREE_GENERATED): Delete reference to $(parsedir).
-	(treelang/parse.o, treelang/lex.o): Look for sources in build 
+	(treelang/parse.o, treelang/lex.o): Look for sources in build
 	directory.  Use implicit rule.
 	(treelang/parse.c, treelang/parse.h treelang/lex.c): Always build in
 	doc directory.

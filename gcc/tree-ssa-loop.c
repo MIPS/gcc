@@ -34,8 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "cfgloop.h"
-/* APPLE LOCAL lno */
-#include "tree-inline.h"
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
@@ -175,7 +173,6 @@ struct tree_opt_pass pass_lim =
   0					/* letter */
 };
 
-/* APPLE LOCAL begin lno */
 /* Loop unswitching pass.  */
 
 static void
@@ -201,44 +198,16 @@ struct tree_opt_pass pass_unswitch =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_UNSWITCH,				/* tv_id */
+  TV_TREE_LOOP_UNSWITCH,		/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,                	/* todo_flags_finish */
-  0
+  0					/* letter */
 };
 
-/* Record bounds on numbers of iterations of loops.  */
-
-static void
-tree_ssa_loop_bounds (void)
-{
-  if (!current_loops)
-    return;
-
-  estimate_numbers_of_iterations (current_loops);
-  scev_reset ();
-}
-
-struct tree_opt_pass pass_record_bounds =
-{
-  "bounds",				/* name */
-  NULL,					/* gate */
-  tree_ssa_loop_bounds,		       	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,			  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0, 			              	/* todo_flags_finish */
-  0
-};
-
+/* APPLE LOCAL begin lno */
 /* A pass for testing of loop infrastructure.  */
 
 static void
@@ -381,7 +350,7 @@ struct tree_opt_pass pass_vectorize =
   0					/* letter */
 };
 
-/* APPLE LOCAL begin lno */
+
 /* Loop nest optimizations.  */
 
 static void
@@ -413,9 +382,10 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,                	/* todo_flags_finish */
-  0
+  0				        /* letter */	
 };
 
+/* APPLE LOCAL begin lno */
 /* Prefetching.  */
 
 static void
@@ -449,7 +419,6 @@ struct tree_opt_pass pass_loop_prefetch =
   TODO_dump_func,                	/* todo_flags_finish */
   0
 };
-
 /* APPLE LOCAL end lno */
 
 /* Canonical induction variable creation pass.  */
@@ -483,6 +452,35 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Record bounds on numbers of iterations of loops.  */
+
+static void
+tree_ssa_loop_bounds (void)
+{
+  if (!current_loops)
+    return;
+
+  estimate_numbers_of_iterations (current_loops);
+  scev_reset ();
+}
+
+struct tree_opt_pass pass_record_bounds =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  tree_ssa_loop_bounds,		       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,			  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,			              	/* todo_flags_finish */
   0					/* letter */
 };
 

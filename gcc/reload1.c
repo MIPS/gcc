@@ -536,8 +536,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
 	      BASIC_BLOCK->global_live_at_start, which might still
 	      contain registers that have not actually been allocated
 	      since they have an equivalence.  */
-	   if (! reload_completed)
-	     abort ();
+	   gcc_assert (reload_completed);
 	 }
        else
 	 {
@@ -584,11 +583,12 @@ replace_pseudos_in (rtx *loc, enum machine_mode mem_mode, rtx usage)
 	*loc = reg_equiv_mem[regno];
       else if (reg_equiv_address[regno])
 	*loc = gen_rtx_MEM (GET_MODE (x), reg_equiv_address[regno]);
-      else if (!REG_P (regno_reg_rtx[regno])
-	       || REGNO (regno_reg_rtx[regno]) != regno)
-	*loc = regno_reg_rtx[regno];
       else
-	abort ();
+	{
+	  gcc_assert (!REG_P (regno_reg_rtx[regno])
+		      || REGNO (regno_reg_rtx[regno]) != regno);
+	  *loc = regno_reg_rtx[regno];
+	}
 
       return;
     }
@@ -1071,8 +1071,7 @@ reload (rtx first, int global)
 
       reload_as_needed (global);
 
-      if (old_frame_size != get_frame_size ())
-	abort ();
+      gcc_assert (old_frame_size == get_frame_size ());
 
       if (num_eliminable)
 	verify_initial_elim_offsets ();
@@ -1576,8 +1575,7 @@ count_pseudo (int reg)
 
   SET_REGNO_REG_SET (&pseudos_counted, reg);
 
-  if (r < 0)
-    abort ();
+  gcc_assert (r >= 0);
 
   spill_add_cost[r] += freq;
 
@@ -1750,9 +1748,8 @@ find_reg (struct insn_chain *chain, int order)
 
   for (i = 0; i < rl->nregs; i++)
     {
-      if (spill_cost[best_reg + i] != 0
-	  || spill_add_cost[best_reg + i] != 0)
-	abort ();
+      gcc_assert (spill_cost[best_reg + i] == 0);
+      gcc_assert (spill_add_cost[best_reg + i] == 0);
       SET_HARD_REG_BIT (used_spill_regs_local, best_reg + i);
     }
   return 1;
@@ -1874,11 +1871,12 @@ spill_failure (rtx insn, enum reg_class class)
 {
   static const char *const reg_class_names[] = REG_CLASS_NAMES;
   if (asm_noperands (PATTERN (insn)) >= 0)
-    error_for_asm (insn, "can't find a register in class `%s' while reloading `asm'",
+    error_for_asm (insn, "can't find a register in class %qs while "
+		   "reloading %<asm%>",
 		   reg_class_names[class]);
   else
     {
-      error ("unable to find a register to spill in class `%s'",
+      error ("unable to find a register to spill in class %qs",
 	     reg_class_names[class]);
       fatal_insn ("this is the insn:", insn);
     }
@@ -2034,7 +2032,7 @@ alter_reg (int i, int from_reg)
       /* If we have a decl for the original register, set it for the
 	 memory.  If this is a shared MEM, make a copy.  */
       if (REG_EXPR (regno_reg_rtx[i])
-	  && TREE_CODE_CLASS (TREE_CODE (REG_EXPR (regno_reg_rtx[i]))) == 'd')
+	  && DECL_P (REG_EXPR (regno_reg_rtx[i])))
 	{
 	  rtx decl = DECL_RTL_IF_SET (REG_EXPR (regno_reg_rtx[i]));
 
@@ -2187,7 +2185,7 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 	  return;
 
 	case LABEL_REF:
-	  set_label_offsets (XEXP (SET_SRC (x), 0), insn, initial_p);
+	  set_label_offsets (SET_SRC (x), insn, initial_p);
 	  return;
 
 	case IF_THEN_ELSE:
@@ -2555,7 +2553,7 @@ eliminate_regs (rtx x, enum machine_mode mem_mode, rtx insn)
     case CLOBBER:
     case ASM_OPERANDS:
     case SET:
-      abort ();
+      gcc_unreachable ();
 
     default:
       break;
@@ -2867,13 +2865,12 @@ eliminate_regs_in_insn (rtx insn, int replace)
 
   if (! insn_is_asm && icode < 0)
     {
-      if (GET_CODE (PATTERN (insn)) == USE
-	  || GET_CODE (PATTERN (insn)) == CLOBBER
-	  || GET_CODE (PATTERN (insn)) == ADDR_VEC
-	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-	  || GET_CODE (PATTERN (insn)) == ASM_INPUT)
-	return 0;
-      abort ();
+      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+		  || GET_CODE (PATTERN (insn)) == CLOBBER
+		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
+		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
+      return 0;
     }
 
   if (old_set != 0 && REG_P (SET_DEST (old_set))
@@ -3027,8 +3024,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		    PATTERN (insn) = gen_rtx_PARALLEL (VOIDmode, vec);
 		    add_clobbers (PATTERN (insn), INSN_CODE (insn));
 		  }
-		if (INSN_CODE (insn) < 0)
-		  abort ();
+		gcc_assert (INSN_CODE (insn) >= 0);
 	      }
 	    /* If we have a nonzero offset, and the source is already
 	       a simple REG, the following transformation would
@@ -3299,13 +3295,11 @@ verify_initial_elim_offsets (void)
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
-      if (t != ep->initial_offset)
-	abort ();
+      gcc_assert (t == ep->initial_offset);
     }
 #else
   INITIAL_FRAME_POINTER_OFFSET (t);
-  if (t != reg_eliminate[0].initial_offset)
-    abort ();
+  gcc_assert (t == reg_eliminate[0].initial_offset);
 #endif
 }
 
@@ -3590,8 +3584,7 @@ finish_spills (int global)
        /* Record the current hard register the pseudo is allocated to in
 	  pseudo_previous_regs so we avoid reallocating it to the same
 	  hard reg in a later pass.  */
-       if (reg_renumber[i] < 0)
-	 abort ();
+       gcc_assert (reg_renumber[i] >= 0);
 
        SET_HARD_REG_BIT (pseudo_previous_regs[i], reg_renumber[i]);
        /* Mark it as no longer having a hard register home.  */
@@ -3670,7 +3663,7 @@ finish_spills (int global)
 
 	  /* Make sure we only enlarge the set.  */
 	  GO_IF_HARD_REG_SUBSET (used_by_pseudos2, chain->used_spill_regs, ok);
-	  abort ();
+	  gcc_unreachable ();
 	ok:;
 	}
     }
@@ -3875,7 +3868,8 @@ reload_as_needed (int live_known)
 			  || (extract_insn (p), ! constrain_operands (1))))
 		    {
 		      error_for_asm (insn,
-				     "`asm' operand requires impossible reload");
+				     "%<asm%> operand requires "
+				     "impossible reload");
 		      delete_insn (p);
 		    }
 	    }
@@ -4265,7 +4259,7 @@ clear_reload_reg_in_use (unsigned int regno, int opnum,
       used_in_set = &reload_reg_used_in_insn;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   /* We resolve conflicts with remaining reloads of the same type by
      excluding the intervals of reload registers by them from the
@@ -4461,8 +4455,10 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
 
     case RELOAD_FOR_OTHER_ADDRESS:
       return ! TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno);
+
+    default:
+      gcc_unreachable ();
     }
-  abort ();
 }
 
 /* Return 1 if the value in reload reg REGNO, as used by a reload
@@ -4594,9 +4590,10 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return 1;
-    }
 
-  abort ();
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Return 1 if the reloads denoted by R1 and R2 cannot share a register.
@@ -4671,7 +4668,7 @@ reloads_conflict (int r1, int r2)
       return 1;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -4995,7 +4992,7 @@ failed_reload (rtx insn, int r)
   /* It's the user's fault; the operand's mode and constraint
      don't match.  Disable this reload so we don't crash in final.  */
   error_for_asm (insn,
-		 "`asm' operand constraint incompatible with operand size");
+		 "%<asm%> operand constraint incompatible with operand size");
   rld[r].in = 0;
   rld[r].out = 0;
   rld[r].reg_rtx = 0;
@@ -5591,17 +5588,16 @@ choose_reload_regs (struct insn_chain *chain)
 		{
 		  if (REG_P (equiv))
 		    regno = REGNO (equiv);
-		  else if (GET_CODE (equiv) == SUBREG)
+		  else
 		    {
 		      /* This must be a SUBREG of a hard register.
 			 Make a new REG since this might be used in an
 			 address and not all machines support SUBREGs
 			 there.  */
+		      gcc_assert (GET_CODE (equiv) == SUBREG);
 		      regno = subreg_regno (equiv);
 		      equiv = gen_rtx_REG (rld[r].mode, regno);
 		    }
-		  else
-		    abort ();
 		}
 
 	      /* If we found a spill reg, reject it unless it is free
@@ -5800,15 +5796,13 @@ choose_reload_regs (struct insn_chain *chain)
 
       /* Some sanity tests to verify that the reloads found in the first
 	 pass are identical to the ones we have now.  */
-      if (chain->n_reloads != n_reloads)
-	abort ();
+      gcc_assert (chain->n_reloads == n_reloads);
 
       for (i = 0; i < n_reloads; i++)
 	{
 	  if (chain->rld[i].regno < 0 || chain->rld[i].reg_rtx != 0)
 	    continue;
-	  if (chain->rld[i].when_needed != rld[i].when_needed)
-	    abort ();
+	  gcc_assert (chain->rld[i].when_needed == rld[i].when_needed);
 	  for (j = 0; j < n_spills; j++)
 	    if (spill_regs[j] == chain->rld[i].regno)
 	      if (! set_reload_reg (j, i))
@@ -5921,10 +5915,9 @@ choose_reload_regs (struct insn_chain *chain)
 		SET_HARD_REG_BIT (reg_is_output_reload, i + nr);
 	    }
 
-	  if (rld[r].when_needed != RELOAD_OTHER
-	      && rld[r].when_needed != RELOAD_FOR_OUTPUT
-	      && rld[r].when_needed != RELOAD_FOR_INSN)
-	    abort ();
+	  gcc_assert (rld[r].when_needed == RELOAD_OTHER
+		      || rld[r].when_needed == RELOAD_FOR_OUTPUT
+		      || rld[r].when_needed == RELOAD_FOR_INSN);
 	}
     }
 }
@@ -6070,11 +6063,12 @@ merge_assigned_reloads (rtx insn)
 		     so abort.  */
 		  if (rld[j].reg_rtx)
 		    for (k = 0; k < j; k++)
-		      if (rld[k].in != 0 && rld[k].reg_rtx != 0
-			  && rld[k].when_needed == rld[j].when_needed
-			  && rtx_equal_p (rld[k].reg_rtx, rld[j].reg_rtx)
-			  && ! rtx_equal_p (rld[k].in, rld[j].in))
-			abort ();
+		      gcc_assert (rld[k].in == 0 || rld[k].reg_rtx == 0
+				  || rld[k].when_needed != rld[j].when_needed
+				  || !rtx_equal_p (rld[k].reg_rtx,
+						   rld[j].reg_rtx)
+				  || rtx_equal_p (rld[k].in,
+						  rld[j].in));
 		}
 	}
     }
@@ -6288,7 +6282,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
       where = &other_input_address_reload_insns;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   push_to_sequence (*where);
@@ -6299,8 +6293,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
       /* We are not going to bother supporting the case where a
 	 incremented register can't be copied directly from
 	 OLDEQUIV since this seems highly unlikely.  */
-      if (rl->secondary_in_reload >= 0)
-	abort ();
+      gcc_assert (rl->secondary_in_reload < 0);
 
       if (reload_inherited[j])
 	oldequiv = reloadreg;
@@ -6613,7 +6606,7 @@ emit_output_reload_insns (struct insn_chain *chain, struct reload *rl,
       if (asm_noperands (PATTERN (insn)) < 0)
 	/* It's the compiler's fault.  */
 	fatal_insn ("VOIDmode on an output", insn);
-      error_for_asm (insn, "output operand is constant in `asm'");
+      error_for_asm (insn, "output operand is constant in %<asm%>");
       /* Prevent crash--use something we know is valid.  */
       mode = word_mode;
       old = gen_rtx_REG (mode, REGNO (reloadreg));
@@ -6916,8 +6909,7 @@ do_output_reload (struct insn_chain *chain, struct reload *rl, int j)
     return;
 
   /* If is a JUMP_INSN, we can't support output reloads yet.  */
-  if (JUMP_P (insn))
-    abort ();
+  gcc_assert (!JUMP_P (insn));
 
   emit_output_reload_insns (chain, rld + j, j);
 }
@@ -7011,25 +7003,25 @@ emit_reload_insns (struct insn_chain *chain)
      reloads for the operand.  The RELOAD_OTHER output reloads are
      output in descending order by reload number.  */
 
-  emit_insn_before_sameloc (other_input_address_reload_insns, insn);
-  emit_insn_before_sameloc (other_input_reload_insns, insn);
+  emit_insn_before (other_input_address_reload_insns, insn);
+  emit_insn_before (other_input_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      emit_insn_before_sameloc (inpaddr_address_reload_insns[j], insn);
-      emit_insn_before_sameloc (input_address_reload_insns[j], insn);
-      emit_insn_before_sameloc (input_reload_insns[j], insn);
+      emit_insn_before (inpaddr_address_reload_insns[j], insn);
+      emit_insn_before (input_address_reload_insns[j], insn);
+      emit_insn_before (input_reload_insns[j], insn);
     }
 
-  emit_insn_before_sameloc (other_operand_reload_insns, insn);
-  emit_insn_before_sameloc (operand_reload_insns, insn);
+  emit_insn_before (other_operand_reload_insns, insn);
+  emit_insn_before (operand_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      rtx x = emit_insn_after_sameloc (outaddr_address_reload_insns[j], insn);
-      x = emit_insn_after_sameloc (output_address_reload_insns[j], x);
-      x = emit_insn_after_sameloc (output_reload_insns[j], x);
-      emit_insn_after_sameloc (other_output_reload_insns[j], x);
+      rtx x = emit_insn_after (outaddr_address_reload_insns[j], insn);
+      x = emit_insn_after (output_address_reload_insns[j], x);
+      x = emit_insn_after (output_reload_insns[j], x);
+      emit_insn_after (other_output_reload_insns[j], x);
     }
 
   /* For all the spill regs newly reloaded in this instruction,
@@ -8036,10 +8028,11 @@ fixup_abnormal_edges (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
       /* Look for cases we are interested in - calls or instructions causing
          exceptions.  */
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->flags & EDGE_ABNORMAL_CALL)
 	    break;
@@ -8052,7 +8045,7 @@ fixup_abnormal_edges (void)
 	{
 	  rtx insn = BB_END (bb), stop = NEXT_INSN (BB_END (bb));
 	  rtx next;
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_FALLTHRU)
 	      break;
 	  /* Get past the new insns generated. Allow notes, as the insns may
@@ -8061,8 +8054,7 @@ fixup_abnormal_edges (void)
 		 && !can_throw_internal (insn)
 		 && insn != BB_HEAD (bb))
 	    insn = PREV_INSN (insn);
-	  if (!CALL_P (insn) && !can_throw_internal (insn))
-	    abort ();
+	  gcc_assert (CALL_P (insn) || can_throw_internal (insn));
 	  BB_END (bb) = insn;
 	  inserted = true;
 	  insn = NEXT_INSN (insn);

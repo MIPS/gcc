@@ -35,7 +35,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 #include "real.h"
-#include <assert.h>
 
 
 #if (GFC_MAX_DIMENSIONS < 10)
@@ -114,8 +113,7 @@ gfc_init_kinds (void)
       if (bitsize > 2*HOST_BITS_PER_WIDE_INT)
 	continue;
 
-      if (i_index == MAX_INT_KINDS)
-	abort ();
+      gcc_assert (i_index != MAX_INT_KINDS);
 
       /* Let the kind equal the bit size divided by 8.  This insulates the
 	 programmer from the underlying byte size.  */
@@ -170,11 +168,9 @@ gfc_init_kinds (void)
 	saw_r16 = true;
 
       /* Careful we don't stumble a wierd internal mode.  */
-      if (r_index > 0 && gfc_real_kinds[r_index-1].kind == kind)
-	abort ();
+      gcc_assert (r_index <= 0 || gfc_real_kinds[r_index-1].kind != kind);
       /* Or have too many modes for the allocated space.  */
-      if (r_index == MAX_REAL_KINDS)
-	abort ();
+      gcc_assert (r_index != MAX_REAL_KINDS);
 
       gfc_real_kinds[r_index].kind = kind;
       gfc_real_kinds[r_index].radix = fmt->b;
@@ -442,7 +438,7 @@ c_size_t_size (void)
     return LONG_TYPE_SIZE;
   if (strcmp (SIZE_TYPE, "short unsigned int") == 0)
     return SHORT_TYPE_SIZE;
-  abort ();
+  gcc_unreachable ();
 #else
   return LONG_TYPE_SIZE;
 #endif
@@ -614,8 +610,7 @@ gfc_typenode_for_spec (gfc_typespec * spec)
   switch (spec->type)
     {
     case BT_UNKNOWN:
-      abort ();
-      break;
+      gcc_unreachable ();
 
     case BT_INTEGER:
       basetype = gfc_get_int_type (spec->kind);
@@ -642,8 +637,7 @@ gfc_typenode_for_spec (gfc_typespec * spec)
       break;
 
     default:
-      abort ();
-      break;
+      gcc_unreachable ();
     }
   return basetype;
 }
@@ -670,18 +664,18 @@ gfc_get_element_type (tree type)
     {
       if (TREE_CODE (type) == POINTER_TYPE)
         type = TREE_TYPE (type);
-      assert (TREE_CODE (type) == ARRAY_TYPE);
+      gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
       element = TREE_TYPE (type);
     }
   else
     {
-      assert (GFC_DESCRIPTOR_TYPE_P (type));
+      gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
       element = TREE_TYPE (TYPE_FIELDS (type));
 
-      assert (TREE_CODE (element) == POINTER_TYPE);
+      gcc_assert (TREE_CODE (element) == POINTER_TYPE);
       element = TREE_TYPE (element);
 
-      assert (TREE_CODE (element) == ARRAY_TYPE);
+      gcc_assert (TREE_CODE (element) == ARRAY_TYPE);
       element = TREE_TYPE (element);
     }
 
@@ -745,7 +739,7 @@ gfc_get_element_type (tree type)
    the calculation for stride02 would overflow.  This may still work, but
    I haven't checked, and it relies on the overflow doing the right thing.
 
-   The way to fix this problem is to access alements as follows:
+   The way to fix this problem is to access elements as follows:
    data[(index0-lbound0)*stride0 + (index1-lbound1)*stride1]
    Obviously this is much slower.  I will make this a compile time option,
    something like -fsmall-array-offsets.  Mixing code compiled with and without
@@ -763,7 +757,7 @@ gfc_get_element_type (tree type)
 int
 gfc_is_nodesc_array (gfc_symbol * sym)
 {
-  assert (sym->attr.dimension);
+  gcc_assert (sym->attr.dimension);
 
   /* We only want local arrays.  */
   if (sym->attr.pointer || sym->attr.allocatable)
@@ -783,7 +777,7 @@ gfc_is_nodesc_array (gfc_symbol * sym)
   if (sym->attr.pointer || sym->attr.allocatable)
     return 0;
 
-  assert (sym->as->type == AS_EXPLICIT);
+  gcc_assert (sym->as->type == AS_EXPLICIT);
 
   return 1;
 }
@@ -900,7 +894,7 @@ gfc_get_dtype (tree type, int rank)
       return gfc_index_zero_node;
     }
 
-  assert (rank <= GFC_DTYPE_RANK_MASK);
+  gcc_assert (rank <= GFC_DTYPE_RANK_MASK);
   size = TYPE_SIZE_UNIT (type);
 
   i = rank | (n << GFC_DTYPE_TYPE_SHIFT);
@@ -950,7 +944,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   mpz_init (delta);
 
   /* We don't use build_array_type because this does not include include
-     lang-specific information (ie. the bounds of the array) when checking
+     lang-specific information (i.e. the bounds of the array) when checking
      for duplicates.  */
   type = make_node (ARRAY_TYPE);
 
@@ -1155,7 +1149,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 	  stride =
 	    fold (build2 (MULT_EXPR, gfc_array_index_type, tmp, stride));
 	  /* Check the folding worked.  */
-	  assert (INTEGER_CST_P (stride));
+	  gcc_assert (INTEGER_CST_P (stride));
 	}
       else
 	stride = NULL_TREE;
@@ -1347,7 +1341,7 @@ gfc_get_derived_type (gfc_symbol * derived)
   tree typenode, field, field_type, fieldlist;
   gfc_component *c;
 
-  assert (derived && derived->attr.flavor == FL_DERIVED);
+  gcc_assert (derived && derived->attr.flavor == FL_DERIVED);
 
   /* derived->backend_decl != 0 means we saw it before, but its
      components' backend_decl may have not been built.  */
@@ -1392,19 +1386,19 @@ gfc_get_derived_type (gfc_symbol * derived)
 	    {
 	      /* Evaluate the string length.  */
 	      gfc_conv_const_charlen (c->ts.cl);
-	      assert (c->ts.cl->backend_decl);
+	      gcc_assert (c->ts.cl->backend_decl);
 	    }
 
 	  field_type = gfc_typenode_for_spec (&c->ts);
 	}
 
-      /* This returns an array descriptor type.  Initialisation may be
+      /* This returns an array descriptor type.  Initialization may be
          required.  */
       if (c->dimension)
 	{
 	  if (c->pointer)
 	    {
-	      /* Pointers to arrays aren't actualy pointer types.  The
+	      /* Pointers to arrays aren't actually pointer types.  The
 	         descriptors are seperate, but the data is common.  */
 	      field_type = gfc_build_array_type (field_type, c->as);
 	    }
@@ -1420,7 +1414,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
 
-      assert (!c->backend_decl);
+      gcc_assert (!c->backend_decl);
       c->backend_decl = field;
     }
 
@@ -1440,8 +1434,6 @@ gfc_return_by_reference (gfc_symbol * sym)
 {
   if (!sym->attr.function)
     return 0;
-
-  assert (sym->attr.function);
 
   if (sym->result)
     sym = sym->result;
@@ -1467,7 +1459,7 @@ gfc_get_function_type (gfc_symbol * sym)
   int alternate_return;
 
   /* Make sure this symbol is a function or a subroutine.  */
-  assert (sym->attr.flavor == FL_PROCEDURE);
+  gcc_assert (sym->attr.flavor == FL_PROCEDURE);
 
   if (sym->backend_decl)
     return TREE_TYPE (sym->backend_decl);

@@ -114,6 +114,9 @@
 /* libm includes nextafterf */
 #undef HAVE_NEXTAFTERF
 
+/* libm includes powf */
+# undef HAVE_POWF
+
 /* libm includes round */
 #undef HAVE_ROUND
 
@@ -149,6 +152,9 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/mman.h> header file. */
+#undef HAVE_SYS_MMAN_H
 
 /* Define to 1 if you have the <sys/params.h> header file. */
 #undef HAVE_SYS_PARAMS_H

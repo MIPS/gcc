@@ -42,7 +42,6 @@
 .non_lazy_symbol_pointer
 L_has_vec$non_lazy_ptr:
 	.indirect_symbol __cpu_has_altivec
-	/* APPLE LOCAL 64-bit mainline */
 #ifdef __ppc64__
 	.quad	0
 #else
