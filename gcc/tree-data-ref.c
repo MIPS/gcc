@@ -1901,8 +1901,14 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
-	    if (lca_nb < 0 || lca_nb >= nb_loops)
+	    /* If we're considering just a sub-nest, then don't record
+	       any information on the outer loops.  */
+	    if (lca_nb < 0)
+	      break;
+
+	    if (lca_nb >= nb_loops)
 	      abort ();
+
 	    if (init_v[lca_nb] == 0)
 	      dist_v[lca_nb] = 1;
 	    lca = lca->outer;
@@ -2064,8 +2070,14 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
-	    if (lca_nb < 0 || lca_nb >= nb_loops)
+	    /* If we're considering just a sub-nest, then don't record
+	       any information on the outer loops.  */
+	    if (lca_nb < 0)
+	      break;
+
+	    if( lca_nb >= nb_loops)
 	      abort ();
+
 	    if (init_v[lca_nb] == 0)
 	      dir_v[lca_nb] = dir_positive;
 	    lca = lca->outer;

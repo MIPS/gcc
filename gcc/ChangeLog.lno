@@ -1,5 +1,11 @@
 2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-data-ref.c (build_classic_dist_vector, 
+	build_classic_dir_vector): Don't record information on loops
+	outer that the analyzed nest.
+
+2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-loop-linear.c (gather_interchange_stats): Gather the
 	sum of the access functions only for the inner loops.
 
