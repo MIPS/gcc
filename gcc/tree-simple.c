@@ -121,18 +121,7 @@ Boston, MA 02111-1307, USA.  */
       unary_expr
 	      : simp_expr
 	      | '*' ID
-	      | '&' original_expr	=> Original grammar only allows
-					   taking the address of varnames.
-					   But we can't simplify
-					   address expressions because we
-					   may end up taking the address of
-					   a temporary variable.
-					   FIXME: It should be possible to
-					   simplify this somewhat (i.e.,
-					   simplify parts of
-					   'original_expr' that do not
-					   imply converting 'original_expr'
-					   into a temporary).
+	      | '&' varname
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
@@ -578,10 +567,8 @@ is_simple_unary_expr (t)
       && is_simple_id (TREE_OPERAND (t, 0)))
     return 1;
 
-  /* Original grammar only allows taking the address of a varname.
-     However, we cannot simplify the operand of an address expression
-     (we might end up taking the address of a temporary).  */
-  if (TREE_CODE (t) == ADDR_EXPR)
+  if (TREE_CODE (t) == ADDR_EXPR
+      && is_simple_varname (TREE_OPERAND (t, 0)))
     return 1;
 
   if (is_simple_call_expr (t))
@@ -772,6 +759,8 @@ is_simple_id (t)
 	  /* Allow the address of a function decl.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
+	  /* Allow string constants.  */
+	  || TREE_CODE (t) == STRING_CST
 	  /* Allow C99 compound literals.  */
 	  || TREE_CODE (t) == COMPOUND_LITERAL_EXPR);
 }

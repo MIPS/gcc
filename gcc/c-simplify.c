@@ -61,6 +61,8 @@ static void simplify_do_stmt         PARAMS ((tree));
 static void simplify_if_stmt         PARAMS ((tree, tree *));
 static void simplify_switch_stmt     PARAMS ((tree, tree *));
 static void simplify_return_stmt     PARAMS ((tree, tree *));
+static bool simplify_expr_common     PARAMS ((tree *, tree *, tree *,
+                                              int (*) PARAMS ((tree)), tree));
 static void simplify_expr            PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *, tree));
@@ -74,7 +76,8 @@ static void simplify_boolean_expr    PARAMS ((tree *, tree *, tree));
 static void simplify_compound_expr   PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
                                               int (*) PARAMS ((tree)), tree));
-static void simplify_lvalue_expr     PARAMS ((tree *, tree *, tree *, tree));
+static void simplify_lvalue_expr     PARAMS ((tree *, tree *, tree *,
+					      int (*) PARAMS ((tree)), tree));
 static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
@@ -84,6 +87,7 @@ static tree convert_to_stmt_chain    PARAMS ((tree, tree));
 static int  stmt_has_effect          PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
+static tree build_addr_expr	     PARAMS ((tree));
 
 /* Local variables.  */
 static FILE *dump_file;
@@ -960,8 +964,8 @@ simplify_return_stmt (stmt, pre_p)
 	where simplifying an expression requires creating new statement
 	trees.  */
 
-static void
-simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
+static bool
+simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
@@ -972,7 +976,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
     abort ();
 
   if ((*simple_test_f) (*expr_p))
-    return;
+    return true;
 
   /* First deal with the special cases.  */
   switch (TREE_CODE (*expr_p))
@@ -1025,10 +1029,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
 	break;
       }
 
-    /* Address expressions must not be simplified.  If they are, we may
-       end up taking the address of a temporary, instead of the address
-       of the original object.  */
     case ADDR_EXPR:
+      simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			    is_simple_varname, stmt);
       break;
 
     /* va_arg expressions should also be left alone to avoid confusing the
@@ -1137,11 +1140,24 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
       }
     }
 
-  /* Test the simplified expression, if it's sufficiently simple already,
-     return.  */
-  if ((*simple_test_f) (*expr_p))
-    return;
+  /* Test the simplified expression.  */
+  return (*simple_test_f) (*expr_p);
+}
+
+static void
+simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+     int (*simple_test_f) PARAMS ((tree));
+     tree stmt;
+{
+  bool ok = simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt);
   
+  /* If it's sufficiently simple already, return.  */
+  if (ok)
+    return;
+
   /* Otherwise, we need to create a new temporary to hold the simplified
      expression.  At this point, the expression should be simple enough to
      qualify as a SIMPLE assignment RHS.  Otherwise, simplification has
@@ -1166,6 +1182,26 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
 
 /* }}} */
 
+/* Build an expression for the address of T.  Folds away INDIRECT_REF to
+   avoid confusing the simplify process.  */
+
+static tree
+build_addr_expr (t)
+     tree t;
+{
+  tree ptrtype = build_pointer_type (TREE_TYPE (t));
+  if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      t = TREE_OPERAND (t, 0);
+      if (TREE_TYPE (t) != ptrtype)
+	t = build1 (NOP_EXPR, ptrtype, t);
+    }
+  else
+    t = build1 (ADDR_EXPR, ptrtype, t);
+
+  return t;
+}
+  
 /** {{{ simplify_array_ref ()
 
     Re-write the ARRAY_REF node pointed by EXPR_P.
@@ -1191,7 +1227,7 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
      tree *post_p;
      tree stmt;
 {
-  tree base, array;
+  tree *p;
   varray_type dim_stack;
 
   if (TREE_CODE (*expr_p) != ARRAY_REF)
@@ -1201,37 +1237,21 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
 
   /* Create a stack with all the dimensions of the array so that they can
      be simplified from left to right.  */
-  base = *expr_p;
-  VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR)&(TREE_OPERAND (*expr_p, 1)));
-  while (TREE_CODE (TREE_OPERAND (base, 0)) == ARRAY_REF)
-    {
-      base = TREE_OPERAND (base, 0);
-      VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR)&(TREE_OPERAND (base, 1)));
-    }
+  for (p = expr_p; TREE_CODE (*p) == ARRAY_REF; p = &TREE_OPERAND (*p, 0))
+    VARRAY_PUSH_GENERIC_PTR (dim_stack, (PTR) &TREE_OPERAND (*p, 1));
 
-  /* After the loop above, 'base' contains the leftmost ARRAY_REF,
+  /* After the loop above, 'p' points to the first non-ARRAY_REF,
      and 'dim_stack' is a stack of pointers to all the dimensions in left
      to right order (the leftmost dimension is at the top of the stack).
 
      Simplify the base, and then each of the dimensions from left to
      right.  */
 
-  array = TREE_OPERAND (base, 0);
-  if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE)
-    abort ();
-  if (! is_simple_arraybase (array))
-    {
-      array = fold (build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (array)),
-			    array));
-      simplify_expr (&array, pre_p, post_p, is_simple_id, stmt);
-      array = build_indirect_ref (array, "");
-      TREE_OPERAND (base, 0) = array;
-    }
+  simplify_lvalue_expr (p, pre_p, post_p, is_simple_arraybase, stmt);
 
-  while (VARRAY_ACTIVE_SIZE (dim_stack) > 0)
+  for (; VARRAY_ACTIVE_SIZE (dim_stack) > 0; VARRAY_POP (dim_stack))
     {
       tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
-      VARRAY_POP (dim_stack);
       simplify_expr (dim_p, pre_p, post_p, is_simple_val, stmt);
     }
 
@@ -1275,10 +1295,13 @@ simplify_self_mod_expr (expr_p, pre_p, post_p, stmt)
   /* Simplify the LHS into a SIMPLE lvalue.  We need to deep copy the first
      operand because it will be simplified twice.  Once to convert it into
      a SIMPLE lvalue and the second time when we simplify the resulting
-     binary expression on the RHS of the assignment.  */
+     binary expression on the RHS of the assignment.
+
+     ??? This duplicates side-effects.  FIXME!  */
   lvalue = TREE_OPERAND (*expr_p, 0);
   walk_tree (&lvalue, copy_tree_r, NULL, NULL);
-  simplify_lvalue_expr (&lvalue, pre_p, post_p, stmt);
+  simplify_lvalue_expr (&lvalue, pre_p, post_p, is_simple_modify_expr_lhs,
+			stmt);
 
   /* Determine whether we need to create a PLUS or a MINUS operation.  */
   lhs = TREE_OPERAND (*expr_p, 0);
@@ -1326,14 +1349,18 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
      tree *post_p;
      tree stmt;
 {
+  tree *p;
+
   if (TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 
-  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-                 is_simple_compref_lhs, stmt);
+  for (p = expr_p; TREE_CODE (*p) == COMPONENT_REF; p = &TREE_OPERAND (*p, 0))
+    if (! is_simple_id (TREE_OPERAND (*p, 1)))
+      /* The RHS of a COMPONENT_REF should always be a FIELD_DECL.  */
+      abort ();
 
-  simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_id,
-                 stmt);
+  /* Now we're down to the first bit that isn't a COMPONENT_REF.  */
+  simplify_lvalue_expr (p, pre_p, post_p, is_simple_arraybase, stmt);
 }
 
 /* }}} */
@@ -1508,7 +1535,8 @@ simplify_modify_expr (expr_p, pre_p, post_p, stmt)
   if (TREE_CODE (*expr_p) != MODIFY_EXPR)
     abort ();
 
-  simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, stmt);
+  simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			is_simple_modify_expr_lhs, stmt);
   simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_rhs,
                  stmt);
 
@@ -1768,58 +1796,59 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f, stmt)
 	trees.  */
 
 static void
-simplify_lvalue_expr (expr_p, pre_p, post_p, stmt)
+simplify_lvalue_expr (expr_p, pre_p, post_p, simple_test_f, stmt)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
+     int (*simple_test_f) PARAMS ((tree));
      tree stmt;
 {
-  if (is_simple_modify_expr_lhs (*expr_p))
-    return;
+  bool ok;
+  tree expr;
 
-  if (TREE_CODE (*expr_p) == INDIRECT_REF)
+  if (TREE_CODE (*expr_p) == REALPART_EXPR
+      || TREE_CODE (*expr_p) == IMAGPART_EXPR)
     {
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
-	             stmt);
+      simplify_lvalue_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			    simple_test_f, stmt);
+      return;
     }
-  else if (TREE_CODE (*expr_p) == COMPONENT_REF
-	   && TREE_CODE (TREE_OPERAND (*expr_p, 0)) == INDIRECT_REF)
+
+  ok = simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt);
+
+  /* If it's sufficiently simple already, return.  */
+  if (ok)
     {
-      tree t = TREE_OPERAND (*expr_p, 0);
-      simplify_expr (&TREE_OPERAND (t, 0), pre_p, post_p, is_simple_id, stmt);
+      /* If we end up with a temporary variable, something broke.  */
+      if (simple_tmp_var_p (*expr_p))
+	abort ();
+      return;
     }
-  else if (TREE_CODE (*expr_p) == ARRAY_REF)
+
+  /* Otherwise, we need to create a new temporary to hold the address of
+     the simplified expression.  At this point, the expression should be
+     simple enough to qualify as a SIMPLE varname.  Otherwise,
+     simplification has failed.  */
+  if (!is_simple_varname (*expr_p))
     {
-      simplify_expr (expr_p, pre_p, post_p, is_simple_varname, stmt);
+      fprintf (stderr, "Expression is not a SIMPLE varname:\n");
+      debug_tree (*expr_p);
+      fprintf (stderr, "\n");
+      abort ();
     }
-  else if (TREE_CODE (*expr_p) == COMPONENT_REF)
-    {
-      /* Load the address of the base structure or union into a
-	 temporary.  Since address expressions are never simplified, we
-	 don't need to simplify the new lvalue.  */
-      tree lvalue, tmp, base;
-      
-      base = TREE_OPERAND (*expr_p, 0);
-      lvalue = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (base)), base);
-      tmp = create_tmp_var (TREE_TYPE (lvalue));
-      add_tree (build_modify_expr (tmp, NOP_EXPR, lvalue), pre_p);
-      
-      /* Re-write the base of the structure with a reference to the new
-	 temporary.  */
-      TREE_OPERAND (*expr_p, 0) = build1 (INDIRECT_REF, TREE_TYPE (base), tmp);
-    }
-  else if (TREE_CODE (*expr_p) == REALPART_EXPR
-	   || TREE_CODE (*expr_p) == IMAGPART_EXPR)
-    {
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		     is_simple_varname, stmt);
-    }
-  else
+
+  /* So take the address of the expression, store it in a temporary, and
+     replace the expression with an INDIRECT_REF of that temporary.  */
+  expr = *expr_p;
+  expr = build_addr_expr (expr);
+  simplify_expr (&expr, pre_p, post_p, is_simple_id, stmt);
+  expr = build_indirect_ref (expr, "");
+
+  /* Make sure the INDIRECT_REF matches our predicate.  */
+  if (!(*simple_test_f) (expr))
     abort ();
 
-  /* If we end up with a temporary variable, we've done something wrong.  */
-  if (simple_tmp_var_p (*expr_p))
-    abort ();
+  *expr_p = expr;
 }
 
 /* }}} */
