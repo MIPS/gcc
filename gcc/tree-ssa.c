@@ -3628,6 +3628,8 @@ get_def_blocks_for (tree var)
   dm.var = var;
   return (struct def_blocks_d *) htab_find (def_blocks, &dm);
 }
+
+
 /* Return true if EXPR is a useless type conversion, otherwise return
    false.  */
 
@@ -3641,41 +3643,46 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
       || TYPE_MAIN_VARIANT (inner_type) == TYPE_MAIN_VARIANT (outer_type))
     return true;
 
-  /* If the outer type is a (void *), then we can enter the
-     equivalence into the table.  The opposite is not true since
-     that conversion would result in a loss of information if
-     the equivalence was used.  Consider an indirect function call
-     where we need to know the exact type of the function to
-     correctly implement the ABI.  */
-  else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+  /* If both types are pointers and the outer type is a (void *), then
+     the conversion is not necessary.  The opposite is not true since
+     that conversion would result in a loss of information if the
+     equivalence was used.  Consider an indirect function call where
+     we need to know the exact type of the function to correctly
+     implement the ABI.  */
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
   /* Pointers and references are equivalent once we get to GENERIC,
      so strip conversions that just switch between them.  */
-  else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+  else if (POINTER_TYPE_P (inner_type)
+           && POINTER_TYPE_P (outer_type)
 	   && (TYPE_MAIN_VARIANT (TREE_TYPE (inner_type))
 	       == TYPE_MAIN_VARIANT (TREE_TYPE (outer_type))))
     return true;
 
-  /* If both the inner and outer types are integral types, then
-     we can enter the equivalence if they have the same mode
-     and signedness and precision (The type _Bool can have size of 4
-     (only happens on powerpc-darwin right now but can happen on any 
+  /* If both the inner and outer types are integral types, then the
+     conversion is not necessary if they have the same mode and
+     signedness and precision.  Note that type _Bool can have size of
+     4 (only happens on powerpc-darwin right now but can happen on any
      target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
-     precision of 1 while unsigned int is the same expect for a 
-     precision of 4 so testing of precision is necessary).  */
-  else if (INTEGRAL_TYPE_P (inner_type) && INTEGRAL_TYPE_P (outer_type)
+     precision of 1 while unsigned int is the same expect for a
+     precision of 4 so testing of precision is necessary.  */
+  else if (INTEGRAL_TYPE_P (inner_type)
+           && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     return true;
+
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
 	   && TREE_CODE (outer_type) == COMPLEX_TYPE
 	   && tree_ssa_useless_type_conversion_1 (TREE_TYPE (outer_type),
 						  TREE_TYPE (inner_type)))
     return true;
+
   return false;
 }
 

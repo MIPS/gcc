@@ -445,8 +445,24 @@ scalarize_structure_assignment (block_stmt_iterator *si_p)
     abort ();
 #endif
 
-  /* Remove unnecessary casts from RHS.  */
-  STRIP_USELESS_TYPE_CONVERSION (rhs);
+  /* Remove all type casts from RHS.  This may seem heavy handed but
+     it's actually safe and it is necessary in the presence of C++
+     reinterpret_cast<> where structure assignments of different
+     structures will be present in the IL.  This was the case of PR
+     13347 (http://gcc.gnu.org/bugzilla/show_bug.cgi?id=13347) which
+     had something like this:
+
+	struct A f;
+     	struct B g;
+	f = (struct A)g;
+
+     Both 'f' and 'g' were scalarizable, but the presence of the type
+     cast was causing SRA to not replace the RHS of the assignment
+     with g's scalar replacements.  Furthermore, the fact that this
+     assignment reached this point without causing syntax errors means
+     that the type cast is safe and that a field-by-field assignment
+     from 'g' into 'f' is the right thing to do.  */
+  STRIP_NOPS (rhs);
 
   lhs_ann = DECL_P (lhs) ? var_ann (lhs) : NULL;
   rhs_ann = DECL_P (rhs) ? var_ann (rhs) : NULL;

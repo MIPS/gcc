@@ -514,7 +514,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	     == TREE_TYPE (TREE_OPERAND (EXP, 0))))		\
     (EXP) = TREE_OPERAND (EXP, 0)
 
-/* Remove unnecessary type conversions according to tree_ssa_useless_type_conversion.  */
+/* Remove unnecessary type conversions according to
+   tree_ssa_useless_type_conversion.  */
 
 #define STRIP_USELESS_TYPE_CONVERSION(EXP)				\
       while (tree_ssa_useless_type_conversion (EXP))			\
