@@ -1,3 +1,12 @@
+2003-02-25  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c (likely_value): Renamed from may_fold_p.  Now
+	returns a latticevalue indicating the likely value for the
+	the RHS of the statement.
+	(evaluate_stmt): Update to use likely_value instead of may_fold_p.
+	Statements with UNDEFINED operands produce an UNDEFINED result.
+	(set_lattice_value): Reenable VARYING->CONSTANT sanity check.
+
 2003-02-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (bsi_init): Handle BIND_EXPR nodes inside a basic block.

@@ -117,7 +117,7 @@ static value evaluate_stmt		PARAMS ((tree));
 static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield		PARAMS ((tree, tree, tree));
 static bool replace_uses_in		PARAMS ((tree));
-static bool may_fold_p			PARAMS ((tree));
+static latticevalue likely_value	PARAMS ((tree));
 static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
@@ -748,21 +748,34 @@ evaluate_stmt (stmt)
 {
   value val;
   tree simplified;
+  latticevalue likelyvalue = likely_value (stmt);
 
-  val.lattice_val = VARYING;
-  val.const_val = NULL_TREE;
-
-  /* If one or more operands has been determined to be a constant,
-     then fold the expression.  */
-  if (may_fold_p (stmt))
+  /* If the statement is likely to have a CONSTANT result, then try
+     to fold the statement to determine the constant value.  */
+  if (likelyvalue == CONSTANT)
     simplified = ccp_fold (stmt);
-  else
+  /* If the statement is likely to have a VARYING result, then do not
+     bother folding the statement.  */
+  else if (likelyvalue == VARYING)
     simplified = get_rhs (stmt);
+  /* Otherwise the statement is likely to have an UNDEFINED value and
+     there will be nothing to do.  */
+  else
+    simplified = NULL_TREE;
 
   if (simplified && really_constant_p (simplified))
     {
+      /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
       val.const_val = simplified;
+    }
+  else
+    {
+      /* The statement produced a nonconstant value.  If the statement
+         had undefined operands, then the result of the statement should
+	 be undefined.  Else the result of the statement is VARYING.  */
+      val.lattice_val = (likelyvalue == UNDEFINED ? UNDEFINED : VARYING);
+      val.const_val = NULL_TREE;
     }
 
   /* Debugging dumps.  */
@@ -1031,16 +1044,12 @@ set_lattice_value (var, val)
 
           add_var_to_ssa_edges_worklist (var);
 
-  /* FIXME: Hideous hack to overcome bugs in ccp_fold() that returns
-     VARYING for expressions that will later become UNDEFINED or CONSTANT.  */
-#if 0
 #ifdef ENABLE_CHECKING
 	  /* VARYING -> CONSTANT is an invalid state transition, except
 	     for objects which start off in a VARYING state.  */
 	  if (old_val->lattice_val == VARYING
 	      && get_default_value (var).lattice_val != VARYING)
 	    abort ();
-#endif
 #endif
 
 	  /* If the constant for VAR has changed, then this VAR is
@@ -1090,19 +1099,21 @@ replace_uses_in (stmt)
   return replaced;
 }
 
+/* Return the likely latticevalue for STMT.
 
-/* Return nonzero if STMT has a reasonable chance of folding into
-   something simpler.
+   If any operands of STMT are undefined, then return UNDEFINED.
 
-   We consider STMT likely to fold if at least one of its operands
-   is a constant.  */
+   Else if any operands of STMT are constants, then return CONSTANT.
 
-static bool
-may_fold_p (stmt)
+   Else return VARYING.  */
+
+static latticevalue
+likely_value (stmt)
      tree stmt;
 {
   varray_type uses;
   size_t i;
+  int found_constant = 0;
 
   get_stmt_operands (stmt);
 
@@ -1112,11 +1123,14 @@ may_fold_p (stmt)
       tree *use = VARRAY_GENERIC_PTR (uses, i);
       value *val = get_value (*use);
 
+      if (val->lattice_val == UNDEFINED)
+	return UNDEFINED;
+
       if (val->lattice_val == CONSTANT)
-	return true;
+	found_constant = 1;
     }
 
-  return false;
+  return (found_constant ? CONSTANT : VARYING);
 }
 
 
