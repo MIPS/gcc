@@ -885,7 +885,7 @@ OBJS-common = \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
- tree-ssa-loop-unswitch.o tree-ssa-loop-niter.o				   \
+ tree-ssa-loop-unswitch.o tree-ssa-loop-niter.o tree-ssa-loop-ch.o	   \
  tree-vectorizer.o tree-ssa-loop-im.o tree-ssa-loop-manip.o		   \
  tree-ssa-loop-ivopts.o tree-ssa-loop-ivcanon.o tree-dg.o loop-invariant.o \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
@@ -1655,6 +1655,10 @@ tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h \
    $(GGC_H) tree-pass.h gt-tree-eh.h
 tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h tree-inline.h \
+   output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
+   tree-pass.h flags.h $(SCEV_H) tree-vectorizer.h
+tree-ssa-loop-ch.o : tree-ssa-loop-ch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) cfgloop.h tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h flags.h

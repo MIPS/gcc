@@ -218,14 +218,6 @@ Align the start of loops
 falign-loops=
 Common RejectNegative Joined UInteger
 
-fall-data-deps
-Common
-Analyze all the data dependences 
-
-ftree-ddg
-Common
-Enable data dependence graph
-
 fargument-alias
 Common
 Specify that arguments may alias each other and globals
@@ -438,6 +430,14 @@ finstrument-functions
 Common
 Instrument function entry and exit with profiling calls
 
+fivcanon
+Common
+Create canonical induction variables in loops
+
+fivopts
+Common
+Optimize induction variables on trees
+
 fkeep-inline-functions
 Common
 Generate code for functions even if they are fully inlined
@@ -457,6 +457,10 @@ Perform loop optimizations
 floop-optimize2
 Common
 Perform loop optimizations, new passes
+
+floop-test
+Common
+Run loop optimizer tests
 
 fmath-errno
 Common
@@ -617,10 +621,6 @@ frounding-math
 Common
 Disable optimizations that assume default FP rounding behavior
 
-fscalar-evolutions
-Common
-Enable the analysis of scalar evolutions on trees
-
 fsched-interblock
 Common
 Enable scheduling across basic blocks
@@ -776,13 +776,13 @@ ftree-elim-checks
 Common
 Eliminate checks based on scalar evolution informations
 
+ftree-lim
+Common
+Enable loop invariant motion on trees
+
 ftree-loop-linear
 Common
 Enable linear loop transforms on trees
-
-ftree-loop-optimize
-Common
-Enable loop optimizations on trees
 
 ftree-points-to=
 Common Joined RejectNegative

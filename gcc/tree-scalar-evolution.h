@@ -36,6 +36,7 @@ extern tree analyze_scalar_evolution_in_loop (struct loop *, struct loop *,
 extern tree instantiate_parameters (struct loop *, tree);
 extern void eliminate_redundant_checks (void);
 extern void gather_stats_on_scev_database (void);
+extern void scev_analysis (void);
 
 bool simple_iv (struct loop *, tree, tree, tree *, tree *);
 

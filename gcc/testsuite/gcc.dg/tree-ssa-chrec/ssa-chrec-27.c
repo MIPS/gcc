@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-details" } */
+/* { dg-options "-O1 -floop-test -fdump-tree-lptest-details" } */
 
 
 int bar (void);
@@ -34,7 +34,7 @@ int foo ()
 
 */
 
-/* { dg-final { scan-tree-dump-times "nb_iterations 100" 1 "scev"} } */
-/* { dg-final { scan-tree-dump-times "nb_iterations 26" 1 "scev"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 100" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "nb_iterations 26" 1 "lptest"} } */
 
 

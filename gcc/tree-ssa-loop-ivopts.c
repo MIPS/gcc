@@ -932,10 +932,6 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_uses, 20, "iv_uses");
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_candidates, 20, "iv_candidates");
   VARRAY_GENERIC_PTR_NOGC_INIT (decl_rtl_to_reset, 20, "decl_rtl_to_reset");
-
-  scev_initialize (loops);
-  estimate_numbers_of_iterations (loops);
-  scev_reset ();
 }
 
 /* Allocates an induction variable with given initial value BASE and step STEP
@@ -4629,9 +4625,6 @@ tree_ssa_iv_optimize_finalize (struct loops *loops, struct ivopts_data *data)
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (data->iv_uses);
   VARRAY_FREE (data->iv_candidates);
-
-  scev_finalize ();
-  free_numbers_of_iterations_estimates (loops);
 }
 
 /* Optimizes the LOOP.  Returns true if anything changed.  */
@@ -4714,7 +4707,6 @@ tree_ssa_iv_optimize (struct loops *loops)
   struct loop *loop;
   struct ivopts_data data;
 
-  timevar_push (TV_TREE_LOOP_IVOPTS);
   tree_ssa_iv_optimize_init (loops, &data);
 
   /* Optimize the loops starting with the innermost ones.  */
@@ -4747,6 +4739,4 @@ tree_ssa_iv_optimize (struct loops *loops)
     }
 
   tree_ssa_iv_optimize_finalize (loops, &data);
-
-  timevar_pop (TV_TREE_LOOP_IVOPTS);
 }

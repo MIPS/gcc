@@ -309,7 +309,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
-  NEXT_PASS (pass_scev);
   NEXT_PASS (pass_loop);
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
@@ -326,17 +325,19 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_del_cfg);
   *p = NULL;
 
-  p = &pass_scev.sub;
-  NEXT_PASS (pass_scev_init);
-  NEXT_PASS (pass_scev_anal);
-  NEXT_PASS (pass_scev_depend);
-  NEXT_PASS (pass_scev_elim_checks);
-  NEXT_PASS (pass_scev_iv_canon);
-  NEXT_PASS (pass_scev_linear_transform);
-  NEXT_PASS (pass_ddg);
-  NEXT_PASS (pass_scev_vectorize);
-  NEXT_PASS (pass_delete_ddg);
-  NEXT_PASS (pass_scev_done);
+  p = &pass_loop.sub;
+  NEXT_PASS (pass_loop_init);
+  NEXT_PASS (pass_lim);
+  NEXT_PASS (pass_unswitch);
+  NEXT_PASS (pass_iv_canon);
+  NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_loop_test);
+  NEXT_PASS (pass_elim_checks);
+  NEXT_PASS (pass_vectorize);
+  NEXT_PASS (pass_complete_unroll);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_optimize);
+  NEXT_PASS (pass_loop_done);
   *p = NULL;
 
 #undef NEXT_PASS

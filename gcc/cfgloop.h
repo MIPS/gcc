@@ -226,6 +226,10 @@ struct loops
   int state;
 };
 
+/* The loop tree currently optimized.  */
+
+extern struct loops *current_loops;
+
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */

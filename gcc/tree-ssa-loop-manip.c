@@ -429,34 +429,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   return true;
 }
 
-/* Unrolls and peels each loop twice for testing.  */
-
-void
-test_unrolling_and_peeling (struct loops *loops)
-{
-  struct loop *loop;
-  unsigned i;
-
-  for (i = 1; i < loops->num; i++)
-    {
-      loop = loops->parray[i];
-
-      if (!loop
-	  || loop->inner)
-	continue;
-
-      tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					  loops, 2, NULL, NULL, NULL, NULL, 0);
-      verify_loop_structure (loops);
-      verify_ssa ();
-
-      tree_duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-					  loops, 2, NULL, NULL, NULL, NULL, 0);
-      verify_loop_structure (loops);
-      verify_ssa ();
-    }
-}
-
 /*---------------------------------------------------------------------------
   Loop versioning
   ---------------------------------------------------------------------------*/
@@ -667,6 +639,7 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 /* Update loop versioning condition.
    This is used by other optimizations/transformations to disable
    one loop version.  */
+
 void
 update_lv_condition (basic_block *bb, tree new_cond)
 {
@@ -682,40 +655,6 @@ update_lv_condition (basic_block *bb, tree new_cond)
     }
   else
     abort ();
-}
-
-void
-test_loop_versioning (struct loops *loops)
-{
-  struct loop *loop;
-  unsigned i;
-  tree cond_expr;
-  
-  for (i = 1; i < loops->num; i = i+ 2)
-    {
-      struct loop *nloop;
-      basic_block condition_bb;
-      loop = loops->parray[i];
-      
-      if (!loop)
-	continue;
-      
-      cond_expr = build (EQ_EXPR, boolean_type_node,
-			 integer_one_node,
-			 integer_zero_node);
-      
-      nloop = tree_ssa_loop_version (loops, loop, cond_expr, &condition_bb);
-      
-      if (nloop)
-	{
-	  verify_loop_structure (loops);
-	  verify_dominators (CDI_DOMINATORS);
-	  verify_ssa ();
-	  
-	  update_lv_condition (&condition_bb, boolean_true_node);
-	}
-    }
-
 }
 
 /* Add exit phis for the USE on EXIT.  */

@@ -826,23 +826,23 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
-/* Enable the analysis of the scalar evolutions on trees.  */
-int flag_scalar_evolutions = 0;
-
-/* Enable the analysis of all data dependences.  */
-int flag_all_data_deps = 0;
-
-/* Enable data dependence graph.  */
-int flag_ddg = 0;
-
 /* Enable the elimination of checks on trees.  */
 int flag_tree_elim_checks = 0;
 
+/* Enable loop invariant motion on trees.  */
+int flag_tree_lim;
+
+/* Enable canonical induction variable creation.  */
+int flag_ivcanon;
+
+/* Enable induction variable optimization on trees.  */
+int flag_ivopts;
+
+/* Enable tree loop optimizer test pass.  */
+int flag_tree_ssa_loop_test;
+
 /* Enable linear loop transforms on trees.  */
 int flag_tree_loop_linear = 0;
-
-/* Enable loop optimizations on trees.  */
-int flag_tree_loop = 0;
 
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
@@ -1087,16 +1087,12 @@ static const lang_independent_options f_options[] =
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
-  { "scalar-evolutions", &flag_scalar_evolutions, 1 },
-  { "all-data-deps", &flag_all_data_deps, 1 },
   { "tree-elim-checks", &flag_tree_elim_checks, 1 },
-  { "tree-ddg", &flag_ddg, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-copyrename", &flag_tree_copyrename, 1 },
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
-  { "tree-loop-optimize", &flag_tree_loop, 1 },
   { "tree-loop-linear", &flag_tree_loop_linear, 1},
   { "tree-vectorize", &flag_tree_vectorize, 1},
   { "tree-lrs", &flag_tree_live_range_split, 1 },

@@ -273,13 +273,9 @@ tree chrec_top;
    happen, then it qualifies it with chrec_bot.  */
 tree chrec_bot;
 
-static struct loops *current_loops;
 static bitmap already_instantiated;
 
 static htab_t scalar_evolution_info;
-
-/* Flag to indicate availability of dependency info.  */
-static bool dd_info_available;
 
 
 /* Constructs a new SCEV_INFO_STR structure.  */
@@ -2846,17 +2842,6 @@ gather_stats_on_scev_database (void)
 
 
 static void initialize_scalar_evolutions_analyzer (void);
-static void scev_init (void);
-static void scev_analysis (void);
-static void scev_depend (void);
-static void scev_elim_checks (void);
-static void scev_vectorize (void);
-static void scev_done (void);
-static bool gate_scev (void);
-static bool gate_scev_analysis (void);
-static bool gate_scev_depend (void);
-static bool gate_scev_elim_checks (void);
-static bool gate_scev_vectorize (void);
 
 /* Initializer.  */
 
@@ -2911,17 +2896,6 @@ scev_reset (void)
     }
 }
 
-/* Initialize the analysis of scalar evolutions.  */
-
-static void
-scev_init (void)
-{
-  current_loops = tree_loop_optimizer_init (NULL, flag_tree_loop != 0);
-  if (!current_loops)
-    return;
-  scev_initialize (current_loops);
-}
-
 /* Checks whether OP behaves as a simple affine iv of LOOP in STMT and returns
    its BASE and STEP if possible.  */
 
@@ -2964,7 +2938,7 @@ simple_iv (struct loop *loop, tree stmt, tree op, tree *base, tree *step)
 
 /* Runs the analysis of scalar evolutions.  */
 
-static void
+void
 scev_analysis (void)
 {
   varray_type exit_conditions;
@@ -2972,57 +2946,11 @@ scev_analysis (void)
   VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
   select_loops_exit_conditions (current_loops, &exit_conditions);
 
-#if 0
-  dump_file = stderr;
-  dump_flags = 31;
-#endif
-  
   if (dump_file && (dump_flags & TDF_STATS))
     analyze_scalar_evolution_for_all_loop_phi_nodes (exit_conditions);
   
   number_of_iterations_for_all_loops (exit_conditions);
   VARRAY_CLEAR (exit_conditions);
-}
-
-/* Runs the analysis of all the data dependences.  */
-
-static void
-scev_depend (void)
-{
-  analyze_all_data_dependences (current_loops);
-  dd_info_available = true;
-}
-
-static void
-scev_elim_checks (void)
-{
-  eliminate_redundant_checks ();
-}
-
-/* Runs the linear loop transformations.  */
-
-static void
-scev_linear_transform (void)
-{
-  linear_transform_loops (current_loops);
-}
-
-/* Runs the canonical iv creation pass.  */
-
-static void
-scev_iv_canon (void)
-{
-  canonicalize_induction_variables (current_loops);
-}
-
-/* Runs the vectorization pass.  */
-
-static void
-scev_vectorize (void)
-{
-  bitmap_clear (vars_to_rename);
-
-  vectorize_loops (current_loops);
 }
 
 /* Finalize the scalar evolution analysis.  */
@@ -3032,263 +2960,5 @@ scev_finalize (void)
 {
   htab_delete (scalar_evolution_info);
   BITMAP_XFREE (already_instantiated);
-  current_loops = NULL;
 }
 
-/* Finalize the scalar evolution passes.  */
-
-static void
-scev_done (void)
-{
-  if (current_loops)
-    {
-      loop_optimizer_finalize (current_loops, NULL);
-      scev_finalize ();
-      cleanup_tree_cfg ();
-    }
-
-  dd_info_available = false;
-}
-
-static bool
-gate_scev (void)
-{
-  return (flag_scalar_evolutions != 0
-	  || flag_tree_vectorize != 0
-	  || flag_all_data_deps != 0
-	  || flag_tree_elim_checks != 0
-	  || flag_tree_loop_linear != 0);
-}
-
-static bool
-gate_scev_analysis (void)
-{
-  return current_loops && flag_scalar_evolutions != 0;
-}
-
-static bool
-gate_scev_depend (void)
-{
-  return current_loops && flag_all_data_deps != 0;
-}
-
-static bool 
-gate_scev_elim_checks (void)
-{
-  return current_loops && flag_tree_elim_checks != 0;
-}
-
-static bool
-gate_scev_linear_transform (void)
-{
-  return current_loops && flag_tree_loop_linear != 0;
-}
-
-static bool
-gate_scev_iv_canon (void)
-{
-  return (current_loops
-	  /* Only run this pass if we will be able to eliminate the
-	     superfluous ivs we create.   */
-	  && flag_tree_loop);
-}
-
-static bool
-gate_scev_vectorize (void)
-{
-  return current_loops && flag_tree_vectorize != 0;
-}
-
-static bool
-gate_ddg (void)
-{
-  return dd_info_available && flag_ddg && flag_scalar_evolutions != 0;
-}
-
-static bool
-gate_delete_ddg (void)
-{
-  return flag_ddg && flag_scalar_evolutions != 0;
-}
-
-static void
-create_dg_graph (void)
-{
-  dg_create_graph (current_loops);
-}
-
-struct tree_opt_pass pass_scev = 
-{
-  NULL,                                 /* name */
-  gate_scev,				/* gate */
-  NULL,					/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_init = 
-{
-  NULL,					/* name */
-  NULL,					/* gate */
-  scev_init,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_anal = 
-{
-  "scev",				/* name */
-  gate_scev_analysis,			/* gate */
-  scev_analysis,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_SCALAR_EVOLUTIONS,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,        				/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_depend = 
-{
-  "ddall",				/* name */
-  gate_scev_depend,			/* gate */
-  scev_depend,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_ALL_DATA_DEPS,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  PROP_scev,				/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_vectorize = 
-{
-  "vect",				/* name */
-  gate_scev_vectorize,			/* gate */
-  scev_vectorize,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_VECTORIZATION,		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_linear_transform =
-{
-  "ltrans",				/* name */
-  gate_scev_linear_transform,		/* gate */
-  scev_linear_transform,       		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_LINEAR_TRANSFORM,  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_iv_canon =
-{
-  "ivcan",				/* name */
-  gate_scev_iv_canon,			/* gate */
-  scev_iv_canon,	       		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_LOOP_IVCANON,	  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_elim_checks = 
-{
-  "elck",				/* name */
-  gate_scev_elim_checks,		/* gate */
-  scev_elim_checks,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_ELIM_CHECKS,  		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_scev_done = 
-{
-  NULL,					/* name */
-  NULL,					/* gate */
-  scev_done,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_ddg =
-{
-  "ddg",				/* name */
-  gate_ddg,			        /* gate */
-  create_dg_graph,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_DEP_GRAPH,			        /* tv_id */
-  PROP_scev,      			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};
-
-struct tree_opt_pass pass_delete_ddg =
-{
-  "delete ddg",				/* name */
-  gate_delete_ddg,		        /* gate */
-  dg_delete_graph,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_DEP_GRAPH,			        /* tv_id */
-  0,      			        /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
-};

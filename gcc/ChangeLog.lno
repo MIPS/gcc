@@ -1,3 +1,83 @@
+2004-06-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ch.c: New file.
+	* Makefile.in (tree-ssa-loop-ch.o): Add.
+	(tree-ssa-loop.o): Add SCEV_H and tree-vectorizer.h dependency.
+	* cfgloop.h (current_loops): Declare.
+	* common.opt (fivcanon, fivopts, floop-test, ftree-lim): Add.
+	(ftree-loop-optimize, fscalar-evolutions, fall-data-deps,
+	ftree-ddg): Remove.
+	* flags.h (flag_scalar_evolutions, flag_all_data_deps,
+	flag_tree_loop, flag_ddg): Removed.
+	(flag_tree_lim, flag_ivcanon, flag_ivopts,
+	flag_tree_ssa_loop_test): New.
+	(f_options): Remove scalar-evolutions, all-data-deps,
+	tree-ddg, tree-loop-optimize.
+	* toplev.c (flag_scalar_evolutions, flag_all_data_deps,
+	flag_tree_loop, flag_ddg): Removed.
+	(flag_tree_lim, flag_ivcanon, flag_ivopts,
+	flag_tree_ssa_loop_test): New.
+	* opts.c (decode_options, common_handle_option): Initialize new
+	options.
+	* timevar.def (TV_SCALAR_EVOLUTIONS, TV_ALL_DATA_DEPS): Removed.
+	(TV_TREE_ELIM_CHECKS, TV_DEP_GRAPH, TV_LIM, TV_COMPLETE_UNROLL,
+	TV_UNSWITCH): Added.
+	* tree-flow.h (test_unrolling_and_peeling, test_loop_versioning):
+	Removed.
+	(tree_unroll_loops_completely): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Reorganize loop
+	optimizer passes.
+	* tree-pass.h (pass_scev, pass_scev_init, pass_scev_anal,
+	pass_scev_depend, pass_scev_linear_transform, pass_scev_iv_canon,
+	pass_scev_elim_checks, pass_scev_vectorize, pass_scev_done, pass_ddg,
+	pass_delete_ddg): Removed.
+	(pass_loop_init, pass_loop_test, pass_lim, pass_unswitch,
+	pass_iv_canon, pass_record_bounds, pass_elim_checks, pass_vectorize,
+	pass_complete_unroll, pass_linear_transform, pass_iv_optimize,
+	pass_loop_done): Declare.
+	* tree-scalar-evolution.c (current_loops): Moved to tree-ssa-loop.c.
+	(dd_info_available): Removed.
+	(scev_init, scev_depend, scev_elim_checks, scev_vectorize, scev_done,
+	gate_scev, gate_scev_analysis, gate_scev_depend, gate_scev_elim_checks,
+	gate_scev_vectorize): Removed.
+	(pass_scev, pass_scev_init, pass_scev_anal, pass_scev_depend,
+	pass_scev_vectorize, pass_scev_linear_transform,
+	pass_scev_iv_canon, pass_scev_elim_checks, pass_scev_done,
+	pass_ddg, pass_delete_ddg): Removed.
+	* tree-scalar-evolution.h (scev_analysis): Declare.
+	(scev_analysis): Export.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):
+	Add parameter to control whether find_loop_niter_by_eval is run.
+	(canonicalize_induction_variables): Do not unroll loops.
+	(tree_unroll_loops_completely): Split from
+	canonicalize_induction_variables.
+	* tree-ssa-loop-ivopts.c (tree_ssa_iv_optimize_init,
+	tree_ssa_iv_optimize_finalize, tree_ssa_iv_optimize,
+	tree_ssa_iv_optimize): Global initialization/finalization removed.
+	* tree-ssa-loop-manip.c (test_unrolling_and_peeling,
+	test_loop_versioning): Removed.
+	* tree-ssa-loop.c: Include tree-scalar-evolution.h and
+	tree-vectorizer.h.
+	(current_loops): Moved from tree-scalar-evolution.c.
+	(tree_ssa_loop_opt): Removed.
+	(gate_loop): Removed.
+	(pass_loop): Modified.
+	(should_duplicate_loop_header_p, mark_defs_for_rewrite,
+	duplicate_blocks, do_while_loop_p, copy_loop_headers,
+	gate_ch, pass_ch): Moved to tree-ssa-loop-ch.c.
+	(tree_ssa_loop_init, pass_loop_init, tree_ssa_loop_im,
+	gate_tree_ssa_loop_im, pass_lim, tree_ssa_loop_unswitch,
+	gate_tree_ssa_loop_unswitch, pass_unswitch, tree_ssa_loop_ivcanon,
+	gate_tree_ssa_loop_ivcanon, pass_iv_canon, tree_ssa_loop_bounds,
+	pass_record_bounds, tree_ssa_loop_test, pass_loop_test,
+	tree_elim_checks, gate_tree_elim_checks, pass_elim_checks,
+	tree_vectorize, gate_tree_vectorize, pass_vectorize,
+	tree_complete_unroll, gate_tree_complete_unroll, pass_complete_unroll,
+	tree_linear_transform, gate_tree_linear_transform,
+	pass_linear_transform, tree_ssa_loop_ivopts, gate_tree_ssa_loop_ivopts,
+	pass_iv_optimize, tree_ssa_loop_done, pass_loop_done): New.
+	* testsuite/gcc.dg/tree-ssa-chrec/*: Updated.
+
 2004-06-10  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree.def: Remove EXPONENTIAL_CHREC node.

@@ -736,24 +736,23 @@ extern int flag_tree_ccp;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
-/* Enable SSA-CHREC on trees.  */
-extern int flag_scalar_evolutions;
+/* Enable loop invariant motion on trees.  */
+extern int flag_tree_lim;
 
-/* Enable the analysis of all the data dependences.  */
-extern int flag_all_data_deps;
+/* Enable canonical induction variable creation.  */
+extern int flag_ivcanon;
 
-/* Enable loop optimizations on trees.  */
+/* Enable induction variable optimization on trees.  */
+extern int flag_ivopts;
 
-extern int flag_tree_loop;
+/* Enable tree loop optimizer test pass.  */
+extern int flag_tree_ssa_loop_test;
 
 /* Enable linear loop transforms on trees. */
 extern int flag_tree_loop_linear;
 
 /* Enable the elimination of checks on trees.  */
 extern int flag_tree_elim_checks;
-
-/* Enable data dependence graph.  */
-extern int flag_ddg;
 
 /* Enable loop vectorization on trees */
 extern int flag_tree_vectorize;

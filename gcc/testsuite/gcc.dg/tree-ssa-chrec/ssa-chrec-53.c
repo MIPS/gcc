@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev-details -fall-data-deps -fdump-tree-ddall" } */
+/* { dg-options "-O1 -floop-test -fdump-tree-lptest-details  " } */
 
 #define N 16
 

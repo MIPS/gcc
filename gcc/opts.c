@@ -544,13 +544,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
-      flag_tree_loop = 1;
+      flag_tree_lim = 1;
+      flag_ivcanon = 1;
+      flag_ivopts = 1;
       flag_tree_vectorize = 0;
       flag_tree_pre = 1;
-      flag_scalar_evolutions = 1;
-      flag_all_data_deps = 0;
       flag_tree_elim_checks = 0;
-      flag_ddg = 0;
       flag_tree_ter = 1;
       flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
@@ -1502,28 +1501,24 @@ common_handle_option (size_t scode, const char *arg,
       flag_tree_dce = value;
       break;
 
-    case OPT_fscalar_evolutions:
-      flag_scalar_evolutions = value;
+    case OPT_ftree_lim:
+      flag_tree_lim = value;
       break;
 
-    case OPT_fall_data_deps:
-      flag_all_data_deps = value;
+    case OPT_fivcanon:
+      flag_ivcanon = value;
       break;
 
-    case OPT_ftree_loop_linear:
-      flag_tree_loop_linear = value;
+    case OPT_fivopts:
+      flag_ivopts = value;
       break;
 
-    case OPT_ftree_loop_optimize:
-      flag_tree_loop = value;
+    case OPT_floop_test:
+      flag_tree_ssa_loop_test = value;
       break;
 
     case OPT_ftree_elim_checks:
       flag_tree_elim_checks = value;
-      break;
-
-    case OPT_ftree_ddg:
-      flag_ddg = value;
       break;
 
     case OPT_ftree_vectorize:

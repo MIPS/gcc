@@ -616,15 +616,14 @@ struct loops *tree_loop_optimizer_init (FILE *, bool);
 void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
 void canonicalize_induction_variables (struct loops *loops);
-void test_unrolling_and_peeling (struct loops *loops);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,
 					 unsigned int *, int);
+void tree_unroll_loops_completely (struct loops *);
 bool tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
-void test_loop_versioning (struct loops *loops);
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 void update_lv_condition (basic_block *, tree);
