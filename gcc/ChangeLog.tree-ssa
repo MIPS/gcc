@@ -20,6 +20,9 @@
 
 2003-08-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): Be more aggressive about
+	creating equivalences from PHI nodes.
+
 	* tree-ssa-dom.c (optimize_stmt): Strip away certain NOP_EXPRs
 	before determining if we have an equivalence to enter into
 	the const_and_copies table.

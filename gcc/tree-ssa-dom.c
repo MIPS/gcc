@@ -259,14 +259,53 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		     const_and_copies);
     }
 
-  /* A PHI node with a single argument is effectively a copy which
-     creates an equivalence we can record into the const_and_copies table.  */
+  /* PHI nodes can create equivalences too.
+
+     Ignoring any alternatives which are the same as the result, if
+     all the alternatives are equal, then the PHI node creates an
+     equivalence.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    if (PHI_NUM_ARGS (phi) == 1
-	&& (TREE_CODE (PHI_ARG_DEF (phi, 0)) == SSA_NAME
-	    || TREE_CONSTANT (PHI_ARG_DEF (phi, 0)))
-	&& may_propagate_copy (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0)))
-      set_value_for (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0), const_and_copies);
+    {
+      tree lhs = PHI_RESULT (phi);
+      tree rhs = NULL;
+      int i;
+
+      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	{
+	  tree t = PHI_ARG_DEF (phi, i);
+
+	  if (TREE_CODE (t) == SSA_NAME || TREE_CONSTANT (t))
+	    {
+	      /* Ignore alternatives which are the same as our LHS.  */
+	      if (operand_equal_p (lhs, t, 0))
+		continue;
+
+	      /* If we have not processed an alternative yet, then set
+		 RHS to this alternative.  */
+	      if (rhs == NULL)
+		rhs = t;
+	      /* If we have processed an alternative (stored in RHS), then
+		 see if it is equal to this one.  If it isn't, then stop
+		 the search.  */
+	      else if (! operand_equal_p (rhs, t, 0))
+		break;
+	    }
+	  else
+	    break;
+	}
+
+      /* If we had no interesting alternatives, then all the RHS alternatives
+	 must have been the same as LHS.  */
+      if (!rhs)
+	rhs = lhs;
+
+      /* If we managed to iterate through each PHI alternative without
+	 breaking out of the loop, then we have a PHI which may create
+	 a useful equivalence.  */
+      if (i == PHI_NUM_ARGS (phi)
+	  && may_propagate_copy (lhs, rhs))
+	set_value_for (lhs, rhs, const_and_copies);
+    }
 
   /* Optimize each statement within the basic block.  */
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
