@@ -1,3 +1,8 @@
+2004-03-04  Steven Bosscher  <stevenb@suse.de>
+
+	* g++.dg/other/profile1.C: New test for PR11767.
+	* gcc.c-torture/execute/20040302-1.c: New test for PR14327.
+
 2004-02-25  Michael Matz  <matz@suse.de>
 
 	* gcc.dg/20000724-1.c: Fix regparm attributes.
