@@ -1701,19 +1701,26 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
   if (gfc_resolve_expr (index) == FAILURE)
     return FAILURE;
 
-  if (index->ts.type != BT_INTEGER)
-    {
-      gfc_error ("Array index at %L must be of INTEGER type", &index->where);
-      return FAILURE;
-    }
-
   if (check_scalar && index->rank != 0)
     {
       gfc_error ("Array index at %L must be scalar", &index->where);
       return FAILURE;
     }
 
-  if (index->ts.kind != gfc_index_integer_kind)
+  if (index->ts.type != BT_INTEGER && index->ts.type != BT_REAL)
+    {
+      gfc_error ("Array index at %L must be of INTEGER type",
+		 &index->where);
+      return FAILURE;
+    }
+
+  if (index->ts.type == BT_REAL)
+    if (gfc_notify_std (GFC_STD_GNU, "Extension: REAL array index at %L",
+			&index->where) == FAILURE)
+      return FAILURE;
+
+  if (index->ts.kind != gfc_index_integer_kind
+      || index->ts.type != BT_INTEGER)
     {
       ts.type = BT_INTEGER;
       ts.kind = gfc_index_integer_kind;
@@ -4749,10 +4756,11 @@ gfc_resolve (gfc_namespace * ns)
       if (cl->length == NULL || gfc_resolve_expr (cl->length) == FAILURE)
 	continue;
 
-      if (cl->length->ts.type != BT_INTEGER)
-	gfc_error
-	  ("Character length specification at %L must be of type INTEGER",
-	   &cl->length->where);
+      if (gfc_simplify_expr (cl->length, 0) == FAILURE)
+	continue;
+
+      if (gfc_specification_expr (cl->length) == FAILURE)
+	continue;
     }
 
   gfc_traverse_ns (ns, resolve_values);

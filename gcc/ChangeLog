@@ -1,3 +1,87 @@
+2005-03-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/20280
+	* gimplify.c (gimplify_cond_expr): Add fallback argument.  Use a
+	temporary variable of pointer type if an lvalues is required.
+	(gimplify_modify_expr_rhs): Request an rvalue from it.
+	(gimplify_expr): Pass fallback on.
+
+2005-03-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/18628
+	* cse.c (fold_rtx_mem): Don't fold a load from a jumptable into a
+	register.
+
+2005-03-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/invoke.texi: Document new MIPS -msym32 and -mno-sym32 options.
+	* config/mips/mips.h (MASK_SYM32, TARGET_SYM32): New macros.
+	(TARGET_SWITCHES): Add -msym32 and -mno-sym32.
+	(ABI_HAS_64BIT_SYMBOLS): Set to false if TARGET_SYM32.
+	(ASM_SPEC): Pass down -msym32 and -mno-sym32.
+
+2005-03-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (mips_fix_vr4130_string): Declare.
+	(TARGET_FIX_VR4130): New macro.
+	(TARGET_OPTIONS): Add -mfix-vr4130.
+	(ISA_HAS_MACCHI): New macro.
+	(ASM_SPEC): Add -mfix-vr4130.
+	* config/mips/mips.c (mips_fix_vr4130_string): New variable.
+	(override_options): Handle mips_fix_vr4130_string.
+	(mips_avoid_hazards): Clear all_noreorder_p
+	if we're working around VR4130 errata and the macc alternatives
+	are not available.
+	* config/mips/mips.md (mfhilo_<mode>): Turn into a define_expand.
+	(*mfhilo_<mode>, *mfhilo_<mode>_macc): New insns.
+	* config/mips/vr.h (DEFAULT_VR_ARCH): Set to mfix-vr4130.
+	(MULTILIB_DEFAULTS): Remove leading "march=".
+	(DRIVER_SELF_SPECS): Likewise.  Make -mfix-vr4130 imply -march=vr4130
+	if no architecture option is given.
+	* config/mips/t-vr (MULTILIB_OPTIONS): Use -mfix-vr4130 for the
+	VR4130 multilibs.
+	(MULTILIB_MATCHES): Map -march=vr4130 to the -mfix-vr4130 multilibs.
+	* doc/invoke.texi: Document -mfix-vr4130.
+
+2005-03-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19331
+	* tree.c (get_unwidened): Treat CONVERT_EXPR and NOP_EXPR identically.
+	* fold-const.c (fold_sign_changed_comparison): Likewise.
+	(fold_binary): Optimize comparisons against widened operands if
+	the extension is represented by a CONVERT_EXPR, same as a NOP_EXPR.
+
+2005-03-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* config.gcc: Remove excess indentation.
+	(powerpc*-*-*, rs6000-*-*): Accept --with-cpu/tune power5 and 8548.
+
+2005-03-13  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	PR target/20288
+	* config/avr/avr.c (print_operand): Add 'p' and 'r'.
+	(out_movhi_r_mr): Read low byte of volatile MEM first.
+	(out_movhi_mr_r): Write high byte of volatile MEM first.
+
+2005-03-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR rtl-optimization/20306
+	* expr.c (emit_move_complex): Set try_int false if mode is
+	MODE_COMPLEX_FLOAT and mov_optab exists for inner mode.  Only try
+	emit_block_move if try_int is true.
+
+2005-03-11  Richard Henderson  <rth@redhat.com>
+
+	PR target/20415
+	* config/i386/mmx.md (vec_dupv4hi): Fix predicate.
+	* config/i386/i386.c (ix86_expand_vector_init_duplicate): Update
+	to match.
+
+2005-03-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (override_options): Only warn about -mint64
+	deprecation if TARGET_INT64.
+
 2005-01-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	Fix PR debug/19345
@@ -18,7 +102,7 @@
 
 2005-03-10  Aldy Hernandez  <aldyh@redhat.com>
 
-        * doc/invoke.texi: Add 8540 to list of cpus in rs6000 cpu section.
+	* doc/invoke.texi: Add 8540 to list of cpus in rs6000 cpu section.
 
 2005-03-10  Bob Wilson  <bob.wilson@acm.org>
 
@@ -53,9 +137,9 @@
 
 2005-03-08  Ira Rosen  <irar@il.ibm.com>
 
-        PR tree-optimization/20122
-        * tree-vect-analyze.c (vect_object_analysis): Analyze initial
-        condition of access function instead of base.
+	PR tree-optimization/20122
+	* tree-vect-analyze.c (vect_object_analysis): Analyze initial
+	condition of access function instead of base.
 
 2005-03-07  Aldy Hernandez  <aldyh@redhat.com>
 

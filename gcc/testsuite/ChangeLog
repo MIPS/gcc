@@ -1,3 +1,59 @@
+2005-03-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/20280
+	* g++.dg/tree-ssa/pr20280.C: New.
+
+2005-03-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/pr18628.c: New.
+
+2005-03-14  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20467
+	* gfortran.dg/stfunc_2.f90: New test.
+
+2005-03-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/mips/fix-vr4130-[1-4].c: New tests.
+
+2005-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20157
+	* g++.dg/template/error18.C: New test.
+
+2005-03-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/anon-struct-6.c, gcc.dg/array-8.c,
+	gcc.dg/cpp/19940712-1.c, gcc.dg/cpp/19951025-1.c,
+	gcc.dg/cpp/tr-warn6.c, gcc.dg/deprecated.c, gcc.dg/init-bad-1.c,
+	gcc.dg/init-bad-2.c, gcc.dg/init-bad-3.c, gcc.dg/m-un-2.c,
+	gcc.dg/parm-mismatch-1.c, gcc.dg/redecl-1.c: Ensure uniqueness of
+	test assertion names.
+
+2003-03-13  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16907
+	* gfortran.dg/real_index_1.f90: New test.
+
+2005-03-13  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20323
+	* gfortran.dg/spec_expr_1.f90: New test.
+
+2005-03-12  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20361
+	* gfortran.dg/largeequiv_1.f90: New test.
+
+2005-03-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20124
+	* gfortran.dg/pr20124.f90: New Test
+
+2005-03-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* objc.dg/stabs-1.m (dg-final): Change regexp pattern for hppa SOM.
+
 2005-01-26  Daniel Berlin  <dberlin@dberlin.org>
 
 	Fix PR debug/19345
