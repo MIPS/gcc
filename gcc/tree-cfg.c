@@ -845,6 +845,8 @@ make_edges ()
   for (i = 0; i < VARRAY_ACTIVE_SIZE (try_finallys); i++)
     {
       tree try_finally = VARRAY_TREE (try_finallys, i);
+      tree *finally_p = &TREE_OPERAND (try_finally, 1);
+      basic_block finally_bb = first_exec_block (finally_p);
       tree *finally_last_p;
       basic_block last_bb;
       int bb;
@@ -861,27 +863,23 @@ make_edges ()
 					      try_targets,
 					      &finally_last_p);
 
-      /* Examine each basic block within the TRY block.  */
-      EXECUTE_IF_SET_IN_BITMAP (try_blocks, 0, bb,
+      /* If the FINALLY is not empty, then we'll need to create some more
+	 edges.  */
+      if (finally_bb)
 	{
-	  edge e;
-
-	  /* Look at each outgoing edge from the block.  */
-	  for (e = BASIC_BLOCK (bb)->succ; e; e = e->succ_next)
+	  /* Examine each basic block within the TRY block.  */
+	  EXECUTE_IF_SET_IN_BITMAP (try_blocks, 0, bb,
 	    {
-	      /* If the destination of this edge is not inside the
-		 TRY block, then wire up an edge from this block to
-		 the FINALLY block.  */
-	      if (! bitmap_bit_p (try_blocks, e->dest->index))
-	        {
-		  tree *finally_p = &TREE_OPERAND (try_finally, 1);
-		  basic_block finally_bb = first_exec_block (finally_p);
+	      edge e;
 
-		  if (finally_bb)
-		    make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
-		}
-	    }
-	});
+	      /* Look at each outgoing edge from the block, if the
+		 destination of the edge is not inside the TRY block,
+		 then wire up an edge from this block to the FINALLY block.  */
+	      for (e = BASIC_BLOCK (bb)->succ; e; e = e->succ_next)
+		if (! bitmap_bit_p (try_blocks, e->dest->index))
+		  make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
+	    });
+	}
 
       /* We need to know the last statement in the FINALLY so that
 	 we know where to wire up the additional outgoing edges from
@@ -900,10 +898,16 @@ make_edges ()
       if (last_bb)
 	EXECUTE_IF_AND_COMPL_IN_BITMAP (try_targets, try_blocks, 0, bb,
 	  {
-	    basic_block b;
+	    basic_block b
+	      = (bb == last_basic_block ? EXIT_BLOCK_PTR : BASIC_BLOCK (bb));
 
-	    b = (bb == last_basic_block ? EXIT_BLOCK_PTR : BASIC_BLOCK (bb));
-	    make_edge (last_bb, b, EDGE_ABNORMAL);
+	    /* Ignore original edges from the TRY block to the start of the
+	       FINALLY block.  Failure to do so will create an unnecessary
+	       loop within the FINALLY block since we create an edge from
+	       the end of the FINALLY to the target of edges out of the
+	       TRY block (ie the start of the FINALLY).  */
+	    if (b->index != finally_bb->index)
+	      make_edge (last_bb, b, EDGE_ABNORMAL);
 	  });
 
       BITMAP_XFREE (dummy_bitmap);

@@ -1,3 +1,10 @@
+2003-05-15  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (make_edges): Factor out loop invariants from
+	code to insert edges from the TRY to the FINALLY block.
+	Avoid creating unnecessary edges from the end of the
+	FINALLY block back to the start of the FINALLY block.
+
 2003-05-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.c (rewrite_out_of_ssa): Undo previous patch.
