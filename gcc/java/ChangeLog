@@ -1,5 +1,16 @@
 2005-03-29  Tom Tromey  <tromey@redhat.com>
 
+	* util.h: Changed header guard names.
+	* treegen.hh: Changed header guard names.
+	* hooks.hh: Changed header guard names.
+	* glue.hh: Changed header guard names.
+	* classobj.hh: Changed header guard names.
+	* builtins.hh: Changed header guard names.
+	* abi.hh: Changed header guard names.
+	* tree.hh: Changed header guard names.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
 	* jvgenmain.c: Include util.h, not jcf.h or java-tree.h.
 	* mangle_name.c: Include util.h, not jcf.h or java-tree.h.
 	* util.h: New file.

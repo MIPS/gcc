@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#ifndef GCC_TREE_BUILTINS_HH
-#define GCC_TREE_BUILTINS_HH
+#ifndef GCC_JAVA_BUILTINS_HH
+#define GCC_JAVA_BUILTINS_HH
 
 #include "java/abi.hh"
 
@@ -145,4 +145,4 @@ public:
   tree get_itable_decl (model_class *);
 };
 
-#endif // GCC_TREE_BUILTINS_HH
+#endif // GCC_JAVA_BUILTINS_HH

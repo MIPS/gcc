@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#ifndef GCC_TREE_GLUE_HH
-#define GCC_TREE_GLUE_HH
+#ifndef GCC_JAVA_GLUE_HH
+#define GCC_JAVA_GLUE_HH
 
 // Note that this header must be included before any header specific
 // to this front end.  See the '#undef's below to understand why.
@@ -104,4 +104,4 @@ extern "C"
 #include "java/hooks.hh"
 #include "java/classobj.hh"
 
-#endif // GCC_TREE_GLUE_HH
+#endif // GCC_JAVA_GLUE_HH

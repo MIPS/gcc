@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#ifndef GCC_TREE_CLASSOBJ_HH
-#define GCC_TREE_CLASSOBJ_HH
+#ifndef GCC_JAVA_CLASSOBJ_HH
+#define GCC_JAVA_CLASSOBJ_HH
 
 /// This is used to create an instance of a given record.
 class record_creator
@@ -92,4 +92,4 @@ public:
   }
 };
 
-#endif // GCC_TREE_CLASSOBJ_HH
+#endif // GCC_JAVA_CLASSOBJ_HH

@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#ifndef GCC_TREE_HOOKS_HH
-#define GCC_TREE_HOOKS_HH
+#ifndef GCC_JAVA_HOOKS_HH
+#define GCC_JAVA_HOOKS_HH
 
 // See decl.cc for documentation of these globals.
 extern GTY (()) tree all_decls;
@@ -138,4 +138,4 @@ namespace gcjx
   void initialize_decls ();
 };
 
-#endif // GCC_TREE_HOOKS_HH
+#endif // GCC_JAVA_HOOKS_HH

@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#ifndef GCC_TREE_TREEGEN_HH
-#define GCC_TREE_TREEGEN_HH
+#ifndef GCC_JAVA_TREEGEN_HH
+#define GCC_JAVA_TREEGEN_HH
 
 class tree_builtins;
 
@@ -55,4 +55,4 @@ public:
   }
 };
 
-#endif // GCC_TREE_TREEGEN_HH
+#endif // GCC_JAVA_TREEGEN_HH

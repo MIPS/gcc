@@ -24,8 +24,8 @@ Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
 The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
-#ifndef GCC_TREE_UTIL_H
-#define GCC_TREE_UTIL_H
+#ifndef GCC_JAVA_UTIL_H
+#define GCC_JAVA_UTIL_H
 
 /* Extract a character from a Java-style Utf8 string.
  * PTR points to the current character.
@@ -44,4 +44,4 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 extern void append_gpp_mangled_name (const char *name, int len);
 
-#endif /* GCC_TREE_UTIL_H */
+#endif /* GCC_JAVA_UTIL_H */
