@@ -423,6 +423,10 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
     {
       tree_ref ref;
 
+      /* Find references in the call address.  */
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, bb, parent_stmt,
+			 parent_expr);
+
       /* Find references in the argument list.  */
       find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, bb, parent_stmt,
 			 parent_expr);
