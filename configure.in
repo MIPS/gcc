@@ -164,15 +164,8 @@ target_tools="target-examples target-groff target-gperf target-rda"
 configdirs=`echo ${host_libs} ${host_tools}`
 target_configdirs=`echo ${target_libs} ${target_tools}`
 
-# Only make build modules if build != host.
-# This should be done more generally, but at the moment it doesn't matter.
-if test ${host_alias} != ${build_alias} ; then
-  # This is the only build module.
-  build_modules=libiberty
-else
-  build_modules=
-fi
-
+# Modules which run on the build machine.
+build_modules=libiberty
 
 ################################################################################
 
@@ -200,13 +193,11 @@ if test ! -d ${target_subdir} ; then
   fi
 fi
 
-if test x"${build_alias}" != x"${host}" ; then
-  if test ! -d ${build_subdir} ; then
-    if mkdir ${build_subdir} ; then true
-    else
-      echo "'*** could not make ${PWD=`${PWDCMD-pwd}`}/${build_subdir}" 1>&2
-      exit 1
-    fi
+if test ! -d ${build_subdir} ; then
+  if mkdir ${build_subdir} ; then true
+  else
+    echo "'*** could not make ${PWD=`${PWDCMD-pwd}`}/${build_subdir}" 1>&2
+    exit 1
   fi
 fi
 

@@ -1145,7 +1145,7 @@ fi
 if test x$host = x$build
 then
 	build_auto=auto-host.h
-	FORBUILD=..
+	FORBUILD=../build-$build_alias
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new

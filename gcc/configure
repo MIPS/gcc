@@ -5340,7 +5340,7 @@ fi
 if test x$host = x$build
 then
 	build_auto=auto-host.h
-	FORBUILD=..
+	FORBUILD=../build-$build_alias
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new
@@ -9656,7 +9656,7 @@ if test "$symbolic_link" = "ln -s"; then
    if test $d != ..; then
 	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
-	for t in stage1 stage2 stage3 stage4 include stageprofile stagefeedback
+	for t in stage1 stage2 stage3 stage4 stageprofile stagefeedback include
 	do
 		rm -f $t
 		$symbolic_link ../$t $t 2>/dev/null
