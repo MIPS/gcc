@@ -1983,7 +1983,8 @@ delete_useless_defs ()
       rtx insn = DF_REF_INSN (df->defs[i]);
       rtx set = single_set (insn);
       struct web *web = find_web_for_subweb (def2web[i]);
-      if (set && web->type == SPILLED && web->stack_slot == NULL)
+      if (set && web->type == SPILLED && web->stack_slot == NULL
+	  && !can_throw_internal (insn))
         {
 	  deleted_def_insns++;
 	  deleted_def_cost += BLOCK_FOR_INSN (insn)->frequency + 1;
@@ -2459,7 +2460,8 @@ assign_stack_slots_1 ()
 	  rtx dead = DF_REF_INSN (web->defs[0]);
 	  struct ra_insn_info *info = &insn_df[INSN_UID (dead)];
 
-	  if (info->num_defs != 1 || GET_CODE (dead) != INSN)
+	  if (info->num_defs != 1 || GET_CODE (dead) != INSN
+	      || can_throw_internal (dead))
 	    continue;
 	  for (i = 0; i < info->num_uses; ++i)
 	    {

@@ -279,8 +279,8 @@ copy_insn_p (insn, source, target)
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
   if ((s_regno < FIRST_PSEUDO_REGISTER
        && d_regno < FIRST_PSEUDO_REGISTER)
-      /*|| SPILL_SLOT_P (s_regno)
-      || SPILL_SLOT_P (d_regno)*/)
+      || SPILL_SLOT_P (s_regno)
+      || SPILL_SLOT_P (d_regno))
     return 0;
 
   if (source)
@@ -2599,6 +2599,8 @@ rematerializable_stack_arg_p (insn, src)
   return 0;
 }
 
+extern int flag_non_call_exceptions;
+
 /* Look at all webs, if they perhaps are rematerializable.
    They are, if all their defs are simple sets to the same value,
    and that value is simple enough, and want_to_remat() holds for it.  */
@@ -2657,6 +2659,8 @@ detect_remat_webs ()
 		   && bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
 		   && memref_is_stack_slot (src))
 	       || rematerializable_stack_arg_p (insn, src))
+	      /* Don't even try to rematerialize trapping things.  */
+	      && !(flag_non_call_exceptions && may_trap_p (src))
 	      /* And we must be able to construct an insn without
 		 side-effects to actually load that value into a reg.  */
 	      && want_to_remat (src))
@@ -3683,6 +3687,23 @@ conflicts_early_clobbered ()
     }
 }
 
+static int class_ok_for_mode PARAMS ((enum reg_class, enum machine_mode));
+     
+/* Returns true if at least one of the hardregs in CLASS is OK
+   for MODE.  */
+static int
+class_ok_for_mode (class, mode)
+     enum reg_class class;
+     enum machine_mode mode;
+{
+  int i;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (reg_class_contents[(int) class], i)
+	&& HARD_REGNO_MODE_OK (i, mode))
+      return 1;
+  return 0;
+}
+
 /* Select a reg_class for the WEB. Split the WEB if single reg_class
    can't be selected.  */
 static void
@@ -3752,6 +3773,9 @@ web_class (web)
     }
   else
     {
+      /* XXX Ugly hack to suppress repeated spilling tries for such webs.  */
+      if (!class_ok_for_mode (class, PSEUDO_REGNO_MODE (web->regno)))
+	class = GENERAL_REGS;
       web->regclass = class;
       COPY_HARD_REG_SET (web->usable_regs, usable_regs[class]);
     }

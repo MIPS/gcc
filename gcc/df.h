@@ -61,7 +61,10 @@ enum df_ref_flags
        I.e. you must check yourself if it's a pseudo.  */
     DF_REF_MODE_CHANGE = 2,
     DF_REF_DELETED = 4,
-    DF_REF_MEM_OK = 8
+    DF_REF_MEM_OK = 8,
+    DF_REF_ALREADY_SPILLED = 16,
+    DF_REF_COMPARE_RELATED = 32,
+    DF_REF_EARLYCLOBBER = 64
   };
 
 /* Define a register reference structure.  */

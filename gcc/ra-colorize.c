@@ -72,6 +72,7 @@ static int get_biased_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, HARD_REG_SET,
 				   HARD_REG_SET, enum machine_mode));
 static char * hardregset_to_string PARAMS ((HARD_REG_SET));
 static void calculate_dont_begin PARAMS ((struct web *, HARD_REG_SET *));
+static int proper_hard_reg_subset_p PARAMS ((HARD_REG_SET, HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
 static void assign_colors PARAMS ((void));
 static void try_recolor_web PARAMS ((struct web *));
@@ -1293,6 +1294,22 @@ calculate_dont_begin (web, result)
   COPY_HARD_REG_SET (*result, dont_begin);
 }
 
+/* Returns nonzero if S1 is a proper subset of S2.  */
+
+static int
+proper_hard_reg_subset_p (s1, s2)
+     HARD_REG_SET s1, s2;
+{
+  HARD_REG_SET s;
+  COPY_HARD_REG_SET (s, s2);
+  AND_COMPL_HARD_REG_SET (s, s1);
+  /* If s == s2 - s1 is empty s1 is not a proper subset of s2.  */
+  GO_IF_HARD_REG_SUBSET (s, reg_class_contents[(int) NO_REGS], lose);
+  return 1;
+lose:
+  return 0;
+}
+
 /* Try to assign a color to WEB.  If HARD if nonzero, we try many
    tricks to get it one color, including respilling already colored
    neighbors.
@@ -1619,7 +1636,12 @@ colorize_one_web (web, hard)
 		  /* If in the last iteration no insns were emitted for this
 		     web we also try to spill neighbors which are spill
 		     temps (and not only type 2 spill temps).  */
-		  if (web->changed && !aw->changed && aw->spill_temp)
+		  if (web->changed && aw->spill_temp
+		      && (!aw->changed
+			  /* Similar if the other (spill-temp) web has more
+			     usable regs than us.  */
+			  || proper_hard_reg_subset_p (web->usable_regs,
+						       aw->usable_regs)))
 		    set_cand (8, aw);
 		  if (aw->spill_temp && aw->span_deaths /* && !aw->changed */
 		      && !web->span_deaths

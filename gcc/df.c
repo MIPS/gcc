@@ -799,7 +799,9 @@ df_ref_search_cached (df, reg, loc, insn, ref_type, ref_flags)
 	  && DF_REF_LOC (this_ref) == loc
 	  && DF_REF_INSN (this_ref) == insn
 	  && DF_REF_TYPE (this_ref) == ref_type
-          && (DF_REF_FLAGS (this_ref) & ~DF_REF_DELETED) == ref_flags)
+          && (DF_REF_FLAGS (this_ref)
+	      & (DF_REF_READ_WRITE | DF_REF_MODE_CHANGE
+		 | DF_REF_COMPARE_RELATED)) == ref_flags)
 	{
 	  DF_REF_FLAGS (this_ref) &= ~DF_REF_DELETED;
 	  return this_ref;
@@ -939,23 +941,29 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
     }
 }
 
-/* Writes to paradoxical subregs, or subregs which are too narrow
-   are read-modify-write.  */
+/* Writes to subregs which are too narrow are read-modify-write.  */
 
 static inline bool
 read_modify_subreg_p (x)
      rtx x;
 {
   unsigned int isize, osize;
+  /* Hmm, with exact subreg tracking _no_ writes to subregs are
+     read-mod-write in any way.  Inside a STRICT_LOW_PART they are,
+     but not otherwise.  Narrow subregs at least clobber the whole word
+     they belong to, wider subregs a whole number of words.
+     Paradoxical subreg writes don't leave a trace of the old content.  */
+  return false;
   if (GET_CODE (x) != SUBREG)
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
+  /* Paradoxical subreg writes don't leave a trace of the old content.  */
   if (isize <= osize)
-    return true;
-  if (isize <= UNITS_PER_WORD)
     return false;
-  if (osize >= UNITS_PER_WORD)
+  if (osize >= GET_MODE_SIZE (SImode))
+    return false;
+  if (isize <= UNITS_PER_WORD)
     return false;
   return true;
 }
@@ -1225,6 +1233,10 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
       /* ... Fall through to handle uses ...  */
 
     default:
+      /* Mark registers used in comparisons, because we might want to adjust
+         their spill cost in the graph coloring register allocator.  */
+      if (GET_RTX_CLASS (code) == '<')
+	flags |= DF_REF_COMPARE_RELATED;
       break;
     }
 
