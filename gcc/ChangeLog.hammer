@@ -1,3 +1,8 @@
+2003-07-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopmanip.c (force_single_succ_latches): Force latch to be
+	different from header.
+
 Thu Jul  3 18:23:33 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3 branch (hammer-3_3-merge-20030703)
