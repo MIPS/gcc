@@ -1,3 +1,46 @@
+2000-01-19  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_pic_labelno): Always define.
+	(rs6000_pic_func_labelno): Delete.
+	(lmw_operation): Check for a zero base register,
+	which doesn't mean what we want.
+	(stmw_operation): New function.
+	(print_operand): Define new 'l' modifier.
+	(rs6000_stack_info): We must save all 64 bits of the registers
+	if TARGET_POWERPC64.
+	(rs6000_output_load_toc_table): Delete.
+	(rs6000_emit_load_toc_table): New function.
+	(rs6000_allocate_stack_space): Delete.
+	(rs6000_emit_allocate_stack): New function.
+	(rs6000_emit_prologue): New function.
+	(output_prolog): Use rs6000_emit_prologue.
+	(rs6000_emit_epilogue): Change a few variable names to be
+	more accurate.  Restore all 64 bits of the registers if
+	TARGET_POWERPC64.  Only restore the FP registers which were used
+	if they are being saved/restored one-at-a-time.
+	(output_mi_thunk): Delete inefficient code generation.
+	(output_function_profiler): Don't use rs6000_output_load_toc_table.
+	* rs6000.h: Declare rs6000_emit_load_toc_table,
+	rs6000_allocate_stack_space, stmw_operation.  Don't declare
+	rs6000_output_load_toc_table.
+	* rs6000.md (elf_high): Allow register 0, but discourage it
+	heavily.
+	(elf_low): Support loading into register 0.
+	(load_toc_aix_si): New pattern.
+	(load_toc_aix_di): New pattern.
+	(load_toc_v4_pic_si): New pattern.
+	(load_toc_v4_pic_di): New pattern.
+	(load_toc_v4_PIC_1): New pattern.
+	(load_toc_v4_PIC_1b): New pattern.
+	(load_toc_v4_PIC_2): New pattern.
+	(builtin_setjmp_receiver): Use rs6000_emit_load_toc_table.
+	(nonlocal_goto_receiver): Use rs6000_emit_load_toc_table.
+	(prologue): New expander.
+	(movesi_from_cr): New pattern.
+	(stmw): New pattern.
+	(save_fpregs_si): New pattern.
+	(save_fpregs_di): New pattern.
+
 2000-01-19  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.md (movsi): Don't use force_reg when no_new_pseudos.
