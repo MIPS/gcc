@@ -71,7 +71,6 @@ struct dfa_stats_d
 
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_counts_d dfa_counts;
-extern void tree_find_refs		PARAMS ((void));
 extern FILE *tree_ssa_dump_file;
 extern int tree_ssa_dump_flags;
 
@@ -492,7 +491,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
 ref_list
 create_ref_list ()
 {
-  ref_list list = xmalloc (sizeof (struct ref_list_priv));
+  ref_list list = ggc_alloc (sizeof (struct ref_list_priv));
   list->first = list->last = NULL;
   return list;
 }
@@ -504,42 +503,10 @@ void
 empty_ref_list (list)
      ref_list list;
 {
-  struct ref_list_node *node;
-
   if (list == NULL)
     return;
 
-  for (node = list->first; node; )
-    {
-      struct ref_list_node *tmp;
-      tmp = node;
-      node = node->next;
-      free (tmp);
-    }
   list->first = list->last = NULL;
-}
-
-
-/* Delete LIST, including the list itself.
-   (i.e., destroy the list).  */
-
-void
-delete_ref_list (list)
-     ref_list list;
-{
-  struct ref_list_node *node;
-
-  if (list == NULL)
-    return;
-
-  for (node = list->first; node; )
-    {
-      struct ref_list_node *tmp;
-      tmp = node;
-      node = node->next;
-      free (tmp);
-    }
-  free (list);
 }
 
 /* Remove REF from LIST.  */
@@ -565,7 +532,6 @@ remove_ref_from_list (list, ref)
   if (tmp->prev)
     tmp->prev->next = tmp->next;
 
-  free (tmp);
   return;
 }
 
@@ -577,7 +543,7 @@ add_ref_to_list_begin (list, ref)
      ref_list list;
      tree_ref ref;
 {
-  struct ref_list_node *node = xmalloc (sizeof (struct ref_list_node));
+  struct ref_list_node *node = ggc_alloc (sizeof (struct ref_list_node));
   node->ref = ref;
   if (list->first == NULL)
     {
@@ -599,7 +565,7 @@ add_ref_to_list_end (list, ref)
      ref_list list;
      tree_ref ref;
 {
-  struct ref_list_node *node = xmalloc (sizeof (struct ref_list_node));
+  struct ref_list_node *node = ggc_alloc (sizeof (struct ref_list_node));
   node->ref = ref;
 
   if (list->first == NULL)
@@ -686,7 +652,7 @@ add_ref_to_list_after (list, node, ref)
     add_ref_to_list_begin (list, ref);
   else
     {
-      struct ref_list_node *new = xmalloc (sizeof (struct ref_list_node));
+      struct ref_list_node *new = ggc_alloc (sizeof (struct ref_list_node));
       new->ref = ref;
       new->prev = node;
       new->next = node->next;
@@ -781,7 +747,7 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
       VARRAY_GENERIC_PTR_INIT (temp, 
 			       last_basic_block, "ephi_chain");
       set_exprphi_phi_args (ref, temp);
-      set_exprphi_processed (ref, BITMAP_XMALLOC ());
+      set_exprphi_processed (ref, BITMAP_GGC_ALLOC ());
       set_exprphi_downsafe (ref, 1);
       set_exprphi_canbeavail (ref, 1);
       set_exprphi_later (ref, 1);
@@ -947,29 +913,8 @@ create_tree_ann (t)
   memset ((void *) ann, 0, sizeof (*ann));
   STRIP_WFL (t);
   STRIP_NOPS (t);
-  t->common.aux = (void *) ann;
+  t->common.ann = ann;
   return ann;
-}
-
-
-/* Remove the annotation for tree T.  */
-
-void
-remove_tree_ann (t)
-     tree t;
-{
-  tree_ann ann;
-
-  /* NOTE: We can't call tree_annotation here, because it always returns
-     the annotation of wrapped trees.  If T is a WFL node, we will remove
-     the same annotation twice.  */
-  ann = (tree_ann)t->common.aux;
-  if (ann)
-    {
-      delete_ref_list (ann->refs);
-      memset ((void *) ann, 0, sizeof (*ann));
-      t->common.aux = NULL;
-    }
 }
 
 
@@ -1037,14 +982,14 @@ dump_ref (outf, prefix, ref, indent, details)
   fprintf (outf, "%s%s%s(", s_indent, prefix, type);
 
   if (ref_var (ref))
-    print_c_node (outf, ref_var (ref));
+    print_generic_node (outf, ref_var (ref));
   else
     fprintf (outf, "nil");
 
   fprintf (outf, "): line %d, bb %d, id %lu, ", lineno, bbix, ref_id (ref));
 
   if (ref_expr (ref))
-    print_c_node (outf, ref_expr (ref));
+    print_generic_node (outf, ref_expr (ref));
   else
     fprintf (outf, "<nil>");
 
@@ -1225,7 +1170,7 @@ dump_variable (file, var)
   size_t num;
 
   fprintf (file, "Variable: ");
-  print_c_node (file, var);
+  print_generic_node (file, var);
   
   num = num_may_alias (var);
   if (num > 0)
@@ -1236,7 +1181,7 @@ dump_variable (file, var)
 
       for (i = 0; i < num; i++)
 	{
-	  print_c_node (file, may_alias (var, i));
+	  print_generic_node (file, may_alias (var, i));
 	  if (i < num - 1)
 	    fprintf (file, ", ");
 	}
@@ -1499,7 +1444,7 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
 
   /* Don't call tree_annotation here because it strips the WFL and NOPS
      wrappers from T.  */
-  ann = (tree_ann)t->common.aux;
+  ann = t->common.ann;
   if (ann)
     {
       dfa_stats_p->num_tree_anns++;
@@ -1724,6 +1669,7 @@ compute_may_aliases ()
       if (POINTER_TYPE_P (TREE_TYPE (sym)))
 	find_may_aliases_for (var);
     }
+
   if (flag_tree_points_to)
     delete_alias_vars ();
 }
@@ -1795,7 +1741,6 @@ may_alias_p (ptr, var_sym)
     return true;
 
   return ptr_may_alias_var (ptr_sym, var_sym);
-
 }
 
 
@@ -1932,4 +1877,28 @@ get_alias_index (var1, var2)
       return i;
 
   return -1;
+}
+
+/* Return which tree_ref structure is used by REF.  */
+
+enum tree_ref_structure_enum
+tree_ref_structure (ref)
+     tree_ref ref;
+{
+  HOST_WIDE_INT type = ref_type (ref);
+
+  if (type & V_DEF)
+    return TR_VAR_DEF;
+  else if (type & V_USE)
+    return TR_VAR_USE;
+  else if (type & V_PHI)
+    return TR_VAR_PHI;
+  else if (type & E_PHI)
+    return TR_EXPR_PHI;
+  else if (type & E_USE)
+    return TR_EXPR_USE;
+  else if (type & E_KILL)
+    return TR_EXPR_REF_COMMON;
+
+  abort ();
 }

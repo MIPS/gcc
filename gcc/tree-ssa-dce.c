@@ -57,11 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
-
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
 
 
 /* Debugging dumps.  */
@@ -141,7 +136,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 
   stats.total = stats.removed = 0;
 
-  fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl));
+  fnbody = DECL_SAVED_TREE (fndecl);
   if (fnbody == NULL_TREE)
     abort ();
 
@@ -158,7 +153,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_c_tree (dump_file, fnbody);
+	print_generic_tree (dump_file, fnbody);
 
       fprintf (dump_file, "Finding obviously useful instructions:\n");
     }
@@ -177,7 +172,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 	{
 	  t = gsi_stmt (i);
 
-	  if (TREE_CODE (t) == ASM_STMT)
+	  if (TREE_CODE (t) == ASM_EXPR)
 	    {
 	      mark_necessary (t);
 	      VARRAY_PUSH_TREE (worklist, t);
@@ -276,13 +271,13 @@ tree_ssa_eliminate_dead_code (fndecl)
 	  stats.total++;
 
 	  /* If `i' is not in `necessary' then remove from B.  */
-	  if (!necessary_p (t) && (TREE_CODE (t) == EXPR_STMT))
+	  if (!necessary_p (t))
 	    {
 	      /* Remove `i' from B.  */
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "Warning: removing ");
-		  print_c_node (dump_file, t);
+		  print_generic_node (dump_file, t);
 		}
 	      stats.removed++;
 
@@ -312,7 +307,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
         dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-        print_c_tree (dump_file, fnbody);
+        print_generic_tree (dump_file, fnbody);
 
       print_stats ();
 

@@ -84,13 +84,13 @@ mudflap_c_function (t)
 
   if (getenv ("UNPARSE"))  /* XXX */
     {
-      print_c_tree (stderr, DECL_RESULT (t));
+      print_generic_tree (stderr, DECL_RESULT (t));
       fprintf (stderr, " ");
-      print_c_tree (stderr, DECL_NAME (t));
+      print_generic_tree (stderr, DECL_NAME (t));
       fprintf (stderr, " (");
-      print_c_tree (stderr, DECL_ARGUMENTS (t));
+      print_generic_tree (stderr, DECL_ARGUMENTS (t));
       fprintf (stderr, " )\n");
-      print_c_tree (stderr, DECL_SAVED_TREE (t));
+      print_generic_tree (stderr, DECL_SAVED_TREE (t));
     }
 
   mf_init_extern_trees ();
@@ -101,7 +101,7 @@ mudflap_c_function (t)
   if (getenv ("UNPARSE"))  /* XXX */
     {
       fprintf (stderr, "/* after -fmudflap: */\n");
-      print_c_tree (stderr, DECL_SAVED_TREE (t));
+      print_generic_tree (stderr, DECL_SAVED_TREE (t));
     }
 }
 
@@ -137,7 +137,7 @@ mudflap_enqueue_decl (obj, label)
 
   /*
   fprintf (stderr, "enqueue_decl obj=`");
-  print_c_tree (stderr, obj);
+  print_generic_tree (stderr, obj);
   fprintf (stderr, "' label=`%s'\n", label);
   */
 
@@ -379,7 +379,7 @@ mf_varname_tree (decl)
     output_add_string (buf, " ");
 
   /* Add <variable-declaration> */
-  dump_c_node (buf, decl, 0, 0);
+  dump_generic_node (buf, decl, 0, 0);
 
   /* Return the lot as a new STRING_CST.  */
   buf_contents = output_finalize_message (buf);
@@ -733,7 +733,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 
 #if 0
   fprintf (stderr, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
-  print_c_tree (stderr, *t);
+  print_generic_tree (stderr, *t);
   fprintf (stderr, "\n");
 #endif
 
@@ -830,7 +830,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 #if 0
 	    warning ("mudflap is omitting array bounds checks");
 	    fprintf (stderr, "  for expression: ");
-	    print_c_tree (stderr, *t);
+	    print_generic_tree (stderr, *t);
 	    fprintf (stderr, " array-size=%u", int_size_in_bytes (TREE_TYPE (base_array)));
 	    fprintf (stderr, " check-size=%u", TREE_INT_CST_LOW (check_size));
 	    fprintf (stderr, "\n");
@@ -1162,9 +1162,9 @@ mx_xfn_find_addrof (t, continue_p, data)
 	if (gotit != NULL)
 	  {
 	  fprintf (stderr, "matched decl=");
-	  print_c_tree (stderr, decl);
+	  print_generic_tree (stderr, decl);
 	  fprintf (stderr, " in tree=");
-	  print_c_tree (stderr, gotit);
+	  print_generic_tree (stderr, gotit);
 	  fprintf (stderr, "\n");
 	  }
 #endif

@@ -6546,7 +6546,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	    dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags,
 		       dump_file);
 	  else
-	    print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
+	    print_generic_tree (dump_file, DECL_SAVED_TREE (fndecl));
 	  fprintf (dump_file, "\n");
 
 	  dump_end (TDI_simple, dump_file);

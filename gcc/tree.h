@@ -121,12 +121,13 @@ extern tree built_in_decls[(int) END_BUILTINS];
 
    See the accessor macros, defined below, for documentation of the
    fields.  */
+struct tree_ann_d;
 
 struct tree_common GTY(())
 {
   tree chain;
   tree type;
-  PTR GTY ((skip (""))) aux;
+  struct tree_ann_d *ann;
 
   ENUM_BITFIELD(tree_code) code : 8;
 

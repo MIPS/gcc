@@ -106,7 +106,7 @@ construct_call_graph (buffer, t, spc)
 
 	  INDENT (spc);
 	  output_printf (buffer, "<caller id = \"");
-	  print_function_decl (buffer, node, 0);
+	  output_printf (buffer, get_name (node), 0);
 	  output_printf (buffer, "\">\n");
 
 	  /* What about definition of nested functions?  That will reset the
@@ -319,6 +319,6 @@ print_callee (buffer, node, spc)
 
   /* Print the node.  */
   output_printf (buffer, "<callee idref = \"");
-  print_function_decl (buffer, node, 0);
+  output_printf (buffer, get_name (node), 0);
   output_printf (buffer, "\"/>\n");
 }

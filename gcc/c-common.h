@@ -1220,4 +1220,12 @@ extern int c_simplify_expr			PARAMS ((tree *, tree *, tree *));
 extern tree c_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn, void*, void*));
 extern int c_tree_chain_matters_p		PARAMS ((tree));
 
+/* In c-pretty-print.c  */
+extern void print_c_tree		PARAMS ((FILE*, tree));
+extern void print_c_node		PARAMS ((FILE*, tree));
+extern void print_c_node_brief		PARAMS ((FILE*, tree));
+extern void debug_c_tree		PARAMS ((tree));
+extern void debug_c_node		PARAMS ((tree));
+extern void debug_c_node_brief		PARAMS ((tree));
+
 #endif /* ! GCC_C_COMMON_H */

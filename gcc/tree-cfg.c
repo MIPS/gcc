@@ -69,7 +69,6 @@ static basic_block latch_block		PARAMS ((basic_block));
 static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static bool block_invalidates_loop	PARAMS ((basic_block, struct loop *));
-static void remove_bb_ann		PARAMS ((basic_block));
 static basic_block switch_parent	PARAMS ((basic_block));
 
 /* Remove any COMPOUND_EXPR and WFL container from NODE.  */
@@ -396,24 +395,6 @@ create_bb_ann (bb)
   bb->aux = (void *) ann;
 
   return ann;
-}
-
-
-/* Remove the annotation from block BB.  */
-
-static void
-remove_bb_ann (bb)
-     basic_block bb;
-{
-  bb_ann ann = (bb_ann)bb->aux;
-
-  if (ann)
-    {
-      ann->parent_block = NULL;
-      delete_ref_list (ann->refs);
-    }
-
-  bb->aux = NULL;
 }
 
 
@@ -901,7 +882,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (head)
     {
       lineno = get_lineno (head);
-      print_c_node_brief (outf, head);
+      print_generic_node_brief (outf, head);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -911,7 +892,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (end)
     {
       lineno = get_lineno (end);
-      print_c_node_brief (outf, end);
+      print_generic_node_brief (outf, end);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -1233,11 +1214,10 @@ delete_tree_cfg ()
     return;
 
   FOR_EACH_BB (bb)
-    remove_bb_ann (bb);
+    bb->aux = NULL;
 
-  remove_bb_ann (ENTRY_BLOCK_PTR);
-  remove_bb_ann (EXIT_BLOCK_PTR);
-
+  ENTRY_BLOCK_PTR->aux = NULL;
+  EXIT_BLOCK_PTR->aux = NULL;
   clear_edges ();
   VARRAY_FREE (basic_block_info);
 }

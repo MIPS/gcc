@@ -1,3 +1,97 @@
+2002-10-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Add bitmap.h, basic-block.h,
+	hard-reg-set.h and tree-simple.h.  Update all users.
+	(C_AND_OBJC_OBJS): Move tree-cfg.o, tree-dfa.o,
+	tree-ssa.o, tree-optimize.o, c-simplify.o, c-call-graph.o,
+	tree-simple.o, simple-break-elim.o, simple-goto-elim.o, tree-dchain.o,
+	tree-ssa-pre.o, tree-alias-type.o, tree-mudflap.o, gimplify.o,
+	tree-alias-ecr.o, tree-alias-common.o, tree-alias-steen.o,
+	disjoint-set.o, tree-ssa-ccp.o and tree-ssa-dce.o ...
+	(OBJS): ... here.
+	(gimplify.o): Add dependency on $(TREE_FLOW_H).
+	(tree-pretty-print.o): New rule.
+	(GTFILES): Add tree-flow.h
+	* c-config-lang.in (gtfiles): Remove tree-flow.h
+	* c-simplify.c (copy_if_shared_r, unmark_visited_r,
+	unshare_all_trees, mark_not_simple): Move ...
+	* gimplify.c: ... here.
+	Include tree-flow.h
+	* tree-flow.h: Include hard-reg-set.h.
+
+	* c-common.h (print_c_tree, print_c_node, print_c_node_brief,
+	debug_c_tree, debug_c_node, debug_c_node_brief): Move declarations
+	from diagnostic.h.
+	* c-call-graph.c (construct_call_graph): Call get_name.
+	(print_callee): Likewise.
+	* c-pretty-print.c (print_declaration): Declare static.
+	(print_function_decl): Likewise.
+	(print_struct_decl): Likewise.
+	(dump_c_tree): Likewise.
+	(dump_c_node): Likewise.
+	* diagnostic.h (dump_generic_tree, dump_generic_node,
+	print_generic_tree, print_generic_node, print_generic_node_brief):
+	Declare.
+	* tree-pretty-print.c: New file.
+	* c-decl.c: Replace calls to print_c_node with print_generic_node.
+	* tree-alias-common.c: Likewise.
+	* tree-alias-steen.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-mudflap.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-ssa-dce.c: Likewise.
+	Don't include c-common.h nor c-tree.h
+	(tree_ssa_eliminate_dead_code): Don't call COMPOUND_BODY.
+	Replace ASM_STMT with ASM_EXPR.  Don't check for EXPR_STMT.
+
+2002-10-17  Daniel Berlin  <dberlin@dberlin.org>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_bb_ann): Remove.  Update all users.
+	(delete_tree_cfg): Set bb->aux to NULL in all basic blocks.
+	* tree-dfa.c: Remove extern declaration for tree_find_refs.
+	(create_ref_list): Allocate new list with ggc_alloc.
+	(empty_ref_list): Just set first and last element to NULL.
+	(delete_ref_list): Remove.  Update all users.
+	(remove_ref_from_list): Don't call free.
+	(add_ref_to_list_begin): Allocate new node with ggc_alloc.
+	(add_ref_to_list_end): Likewise.
+	(add_ref_to_list_after): Likewise.
+	(create_ref): Call BITMAP_GGC_ALLOC.
+	(remove_tree_ann): Remove.  Update all users.
+	(tree_ref_structure): New function.
+	* tree-flow.h (edge, basic_block): Forward declare if necessary.
+	(struct ref_list_node): Mark for garbage collection.
+	(struct ref_list_priv): Likewise.
+	(struct tree_ref_common): Likewise.
+	(struct var_ref): Likewise.
+	(struct var_def): Likewise.
+	(struct var_phi): Likewise.
+	(struct var_use): Likewise.
+	(struct phi_node_arg_d): Likewise.
+	(struct expr_ref_common): Likewise.
+	(struct expr_phi): Likewise.
+	(struct expr_use): Likewise.
+	(union tree_ref_d): Likewise.
+	(struct tree_ann_d): Likewise.
+	(struct bb_ann_def): Likewise.
+	(referenced_vars): Likewise.
+	(global_var): Likewise.
+	(enum tree_ref_structure_enum): New.
+	(call_sites): Remove unused function.
+	* tree-inline.c (copy_tree_r): Copy the 'ann' field from tree_common.
+	* old-tree-inline.c (copy_tree_r): Likewise.
+	* tree-ssa.c (added): Mark for garbage collection.
+	(in_work): Likewise.
+	(work_stack): Likewise.
+	(delete_tree_ssa): Set global_var to NULL_TREE.
+	* tree.h (struct tree_ann_d): Forward declare.
+	(struct tree_common): Rename field 'aux' to 'ann'.  Update all
+	users.  Don't mark it 'skip' for garbage collection.
+
 2002-10-16  Daniel Berlin  <dberlin@dberlin.org>
 	 
 	* tree-dfa.c (compute_may_aliases): Call create/delete_alias_vars

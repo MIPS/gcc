@@ -140,7 +140,6 @@ Boston, MA 02111-1307, USA.  */
    affected variables.  */
 
 
-
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */
 int tree_warn_uninitialized = 0;
@@ -158,9 +157,9 @@ int tree_ssa_dump_flags;
 
 /* Arrays used to keep track of where to insert PHI nodes for variables
    definitions (see insert_phi_nodes).  */
-static varray_type added = NULL;
-static varray_type in_work = NULL;
-static varray_type work_stack = NULL;
+static GTY (()) varray_type added = NULL;
+static GTY (()) varray_type in_work = NULL;
+static GTY (()) varray_type work_stack = NULL;
 
 /* Counters updated every time we allocate a new object.  Used to compare
    against the counts collected by collect_dfa_stats.  */
@@ -1006,10 +1005,11 @@ delete_tree_ssa (fnbody)
 
   /* Remove annotations from every referenced variable.  */
   for (i = 0; i < num_referenced_vars; i++)
-    remove_tree_ann (referenced_var (i));
+    referenced_var (i)->common.ann = NULL;
 
   num_referenced_vars = 0;
   referenced_vars = NULL;
+  global_var = NULL_TREE;
 }
 
 
@@ -1022,6 +1022,6 @@ remove_annotations_r (tp, walk_subtrees, data)
     int *walk_subtrees ATTRIBUTE_UNUSED;
     void *data ATTRIBUTE_UNUSED;
 {
-  remove_tree_ann (*tp);
+  (*tp)->common.ann = NULL;
   return NULL_TREE;
 }

@@ -86,8 +86,6 @@ static void pop_context              PARAMS ((void));
 static tree c_build_bind_expr	     PARAMS ((tree, tree));
 static void add_block_to_enclosing   PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
-static tree copy_if_shared_r         PARAMS ((tree *, int *, void *));
-static tree unmark_visited_r         PARAMS ((tree *, int *, void *));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
@@ -1077,59 +1075,6 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
-/* Callback for walk_tree to unshare most of the shared trees rooted at
-   *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
-   then *TP is deep copied by calling copy_tree_r.
-   
-   This unshares the same trees as copy_tree_r with the exception of
-   SAVE_EXPR nodes.  These nodes model computations that should only be
-   done once.  If we were to unshare something like SAVE_EXPR(i++), the
-   simplification process would create wrong code.  */
-
-static tree
-copy_if_shared_r (tp, walk_subtrees, data)
-    tree *tp;
-    int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data ATTRIBUTE_UNUSED;
-{
-  /* If this node has been visited already, unshare it and don't look
-     any deeper.  */
-  if (TREE_VISITED (*tp))
-    {
-      walk_tree (tp, mostly_copy_tree_r, NULL, NULL);
-      *walk_subtrees = 0;
-    }
-  else
-    /* Otherwise, mark the tree as visited and keep looking.  */
-    TREE_VISITED (*tp) = 1;
-
-  return NULL_TREE;
-}
-
-static tree
-unmark_visited_r (tp, walk_subtrees, data)
-    tree *tp;
-    int *walk_subtrees ATTRIBUTE_UNUSED;
-    void *data ATTRIBUTE_UNUSED;
-{
-  if (TREE_VISITED (*tp))
-    TREE_VISITED (*tp) = 0;
-  else
-    *walk_subtrees = 0;
-
-  return NULL_TREE;
-}
-
-
-/* Unshare T and all the trees reached from T via TREE_CHAIN.  */
-
-void
-unshare_all_trees (t)
-     tree t;
-{
-  walk_tree (&t, copy_if_shared_r, NULL, NULL);
-  walk_tree (&t, unmark_visited_r, NULL, NULL);
-}
 
 /*  Return nonzero if STMT is the last statement of its scope.  */
 
@@ -1140,11 +1085,4 @@ is_last_stmt_of_scope (stmt)
   return (TREE_CHAIN (stmt)
 	  && TREE_CODE (TREE_CHAIN (stmt)) == SCOPE_STMT
 	  && SCOPE_END_P (TREE_CHAIN (stmt)));
-}
-
-void
-mark_not_simple (expr_p)
-     tree *expr_p;
-{
-  TREE_NOT_GIMPLE (*expr_p) = 1;
 }

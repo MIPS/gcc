@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "tree-flow.h"
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
@@ -57,6 +58,9 @@ static inline void remove_suffix     PARAMS ((char *, int));
 static void push_gimplify_context	PARAMS ((void));
 static void pop_gimplify_context	PARAMS ((void));
 static void wrap_with_wfl PARAMS ((tree *));
+static tree copy_if_shared_r         PARAMS ((tree *, int *, void *));
+static tree unmark_visited_r         PARAMS ((tree *, int *, void *));
+static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 
 static struct gimplify_ctx
 {
@@ -497,7 +501,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   else
     {
       fprintf (stderr, "simplification failed:\n");
-      debug_c_tree (*expr_p);
+      print_generic_tree (stderr, *expr_p);
       debug_tree (*expr_p);
       abort ();
     }
@@ -1574,4 +1578,101 @@ remove_suffix (name, len)
 	  break;
 	}
     }
+}
+
+
+/* Unshare T and all the trees reached from T via TREE_CHAIN.  */
+
+void
+unshare_all_trees (t)
+     tree t;
+{
+  walk_tree (&t, copy_if_shared_r, NULL, NULL);
+  walk_tree (&t, unmark_visited_r, NULL, NULL);
+}
+
+
+/* Callback for walk_tree to unshare most of the shared trees rooted at
+   *TP.  If *TP has been visited already (i.e., TREE_VISITED (*TP) == 1),
+   then *TP is deep copied by calling copy_tree_r.
+   
+   This unshares the same trees as copy_tree_r with the exception of
+   SAVE_EXPR nodes.  These nodes model computations that should only be
+   done once.  If we were to unshare something like SAVE_EXPR(i++), the
+   simplification process would create wrong code.  */
+
+static tree
+copy_if_shared_r (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees ATTRIBUTE_UNUSED;
+    void *data ATTRIBUTE_UNUSED;
+{
+  /* If this node has been visited already, unshare it and don't look
+     any deeper.  */
+  if (TREE_VISITED (*tp))
+    {
+      walk_tree (tp, mostly_copy_tree_r, NULL, NULL);
+      *walk_subtrees = 0;
+    }
+  else
+    /* Otherwise, mark the tree as visited and keep looking.  */
+    TREE_VISITED (*tp) = 1;
+
+  return NULL_TREE;
+}
+
+static tree
+unmark_visited_r (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees ATTRIBUTE_UNUSED;
+    void *data ATTRIBUTE_UNUSED;
+{
+  if (TREE_VISITED (*tp))
+    TREE_VISITED (*tp) = 0;
+  else
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+/* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
+   model computations that should only be done once.  If we were to unshare
+   something like SAVE_EXPR(i++), the simplification process would create
+   wrong code.
+
+   Additionally, copy any flags that were set in the original tree.  */
+
+static tree
+mostly_copy_tree_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  enum tree_code code = TREE_CODE (*tp);
+  /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
+  if (TREE_CODE_CLASS (code) == 't'
+      || TREE_CODE_CLASS (code) == 'd'
+      || TREE_CODE_CLASS (code) == 'c'
+      || TREE_CODE_CLASS (code) == 'b'
+      || code == SAVE_EXPR
+      || *tp == empty_stmt_node)
+    *walk_subtrees = 0;
+  else if (code == BIND_EXPR)
+    abort ();
+  else
+    {
+      enum tree_flags flags = tree_flags (*tp);
+      copy_tree_r (tp, walk_subtrees, data);
+      if (flags)
+	set_tree_flag (*tp, flags);
+    }
+
+  return NULL_TREE;
+}
+
+void
+mark_not_simple (expr_p)
+     tree *expr_p;
+{
+  TREE_NOT_GIMPLE (*expr_p) = 1;
 }

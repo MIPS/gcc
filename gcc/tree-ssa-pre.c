@@ -1480,11 +1480,11 @@ finalize_1 (ei, temp)
 		    {
 		      fprintf (dump_file, "In BB %d, insert save of ",
 			       ref_bb (X)->index);
-		      print_c_tree (dump_file, ei->expr);
+		      print_generic_tree (dump_file, ei->expr);
 		      fprintf (dump_file, " to ");
-		      print_c_tree (dump_file, temp);
+		      print_generic_tree (dump_file, temp);
 		      fprintf (dump_file, " after ");
-		      print_c_node (dump_file, last_stmt (ref_bb (X)));
+		      print_generic_node (dump_file, last_stmt (ref_bb (X)));
 		      fprintf (dump_file, 
 			       " (at end of BB), because of ExprPhi");
 		      fprintf (dump_file, " in BB %d\n", 
@@ -1921,7 +1921,7 @@ calculate_increment (ei, expr)
   if (dump_file)
     {
       fprintf (dump_file, "Increment calculated to be: ");
-      print_c_tree (dump_file, incr);
+      print_generic_tree (dump_file, incr);
       fprintf (dump_file, "\n");
     }
 #endif
@@ -1972,7 +1972,7 @@ repair_injury (ei, use, temp, orig_euse)
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "Injuring def to repair is: ");
-		      print_c_tree (dump_file, ref_expr (v));
+		      print_generic_tree (dump_file, ref_expr (v));
 		      fprintf (dump_file, "\n");
 		    }
 #endif
@@ -2048,7 +2048,7 @@ repair_injury (ei, use, temp, orig_euse)
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "Injuring def to repair is: ");
-		      print_c_node (dump_file,ref_expr (imm_reaching_def (v)));
+		      print_generic_node (dump_file,ref_expr (imm_reaching_def (v)));
 		      fprintf (dump_file, "\n");
 		    }
 		  
@@ -2243,7 +2243,7 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
   {
     remove_tree_ref (ref_expr (use_orig_ref), tempref);
   }
-  remove_tree_ann (ref_expr (use_orig_ref));
+  ref_expr (use_orig_ref)->common.ann = NULL;
 #if 0
   replace_expr_in_tree (ref_stmt (use_orig_ref), newuse, temp);
 #endif
@@ -2299,12 +2299,6 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
       add_ref_to_list_end (reached_uses (reachingphi), newuseref);
       add_ref_to_list_end (imm_uses (reachingphi), newuseref);
     }
-  
-      
-  delete_ref_list (todelete);
-  delete_ref_list (reachedtoadd);
-  delete_ref_list (immtoadd);
-  
 }
 
      
@@ -2402,11 +2396,11 @@ code_motion (ei, temp)
 		{
 		  fprintf (dump_file, "In BB %d, insert save of ", 
 			   use_bb->index);
-		  print_c_tree (dump_file, use_expr);
+		  print_generic_tree (dump_file, use_expr);
 		  fprintf (dump_file, " to ");
-		  print_c_tree (dump_file, temp);
+		  print_generic_tree (dump_file, temp);
 		  fprintf (dump_file, " before statement ");
-		  print_c_tree (dump_file, TREE_OPERAND (use_stmt, 0));
+		  print_generic_tree (dump_file, TREE_OPERAND (use_stmt, 0));
 		  fprintf (dump_file, " on line %d\n", STMT_LINENO (use_stmt));
 		}
 	      newexpr = fold (build_modify_expr (temp, NOP_EXPR, 
@@ -2460,11 +2454,11 @@ code_motion (ei, temp)
                 {
 		  fprintf (dump_file, "In BB %d, insert reload of ", 
 			   use_bb->index);
-                  print_c_tree (dump_file, use_expr);
+                  print_generic_tree (dump_file, use_expr);
                   fprintf (dump_file, " from ");
-                  print_c_tree (dump_file, temp);
+                  print_generic_tree (dump_file, temp);
                   fprintf (dump_file, " in statement ");
-                  print_c_tree (dump_file, TREE_OPERAND (use_stmt, 0));
+                  print_generic_tree (dump_file, TREE_OPERAND (use_stmt, 0));
                   fprintf (dump_file, " on line %d\n", STMT_LINENO (use_stmt));
                 }
 	      /* Update the SSA representation for a new use of the temporary.
@@ -2607,7 +2601,7 @@ pre_part_1_trav (slot, data)
   if (dump_file)
     {
       fprintf (dump_file, "Occurrences for expression ");
-      print_c_tree (dump_file, ei->expr);
+      print_generic_tree (dump_file, ei->expr);
       fprintf (dump_file, "\n");
       dump_ref_array (dump_file, "", ei->refs, 0, 1);
     }
@@ -2616,7 +2610,7 @@ pre_part_1_trav (slot, data)
   if (dump_file)
     {
       fprintf (dump_file, "ExprPhi's for expression ");
-      print_c_tree (dump_file, ei->expr);
+      print_generic_tree (dump_file, ei->expr);
       fprintf (dump_file, "\n");
       dump_ref_array (dump_file, "", ei->phis, 0, 1);
     }
@@ -2831,7 +2825,7 @@ tree_perform_ssapre ()
       if (dump_flags & TDF_RAW)
         dump_node (fn, TDF_SLIM | dump_flags, dump_file);
       else
-        print_c_tree (dump_file, fn);
+        print_generic_tree (dump_file, fn);
 
       dump_end (TDI_pre, dump_file);
     }

@@ -107,7 +107,7 @@ optimize_function_tree (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_c_tree (dump_file, fnbody);
+	print_generic_tree (dump_file, fnbody);
       fprintf (dump_file, "\n");
 
       dump_end (TDI_optimized, dump_file);

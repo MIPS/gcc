@@ -1,6 +1,6 @@
-/* Pretty formatting of a tree in C syntax.
+/* Pretty formatting of GENERIC trees in C syntax.
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Sebastian Pop <s.pop@laposte.net>
+   Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
 
@@ -23,8 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "errors.h"
 #include "tree.h"
-#include "c-tree.h"
-#include "c-common.h"
 #include "diagnostic.h"
 #include "real.h"
 #include "hashtab.h"
@@ -34,23 +32,17 @@ static const char *op_symbol			PARAMS ((tree));
 static void pretty_print_string			PARAMS ((output_buffer *,
 							 const char*));
 static void print_call_name			PARAMS ((output_buffer *,
-							 tree));
+      							 tree));
 static void newline_and_indent			PARAMS ((output_buffer *, int));
 static inline void maybe_init_pretty_print	PARAMS ((void));
 static void print_declaration			PARAMS ((output_buffer *, tree,
       							 int, int));
-static void print_function_decl			PARAMS ((output_buffer *, tree,
-      							 int));
 static void print_struct_decl			PARAMS ((output_buffer *, tree,
       							 int));
-static void dump_c_tree				PARAMS ((output_buffer *, tree,
-      							 int));
-static int dump_c_node				PARAMS ((output_buffer *, tree,
-      							 int, int));
-
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
+
 #define NIY do { \
     output_add_string (buffer, "<<< Unknown tree: "); \
     output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]); \
@@ -61,19 +53,19 @@ static int dump_c_node				PARAMS ((output_buffer *, tree,
    IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (NODE, 0))) : \
    IDENTIFIER_POINTER (DECL_NAME (NODE)))
 
-
 static output_buffer buffer;
 static int initialized = 0;
+
 
 /* Print the tree T in full, on file FILE.  */
  
 void 
-print_c_tree (file, t)
+print_generic_tree (file, t)
      FILE *file;
      tree t;
 {
   maybe_init_pretty_print ();
-  dump_c_tree (&buffer, t, 0);
+  dump_generic_tree (&buffer, t, 0);
   fprintf (file, "%s", output_finalize_message (&buffer));
   output_clear_message_text (&buffer);
 }
@@ -81,12 +73,12 @@ print_c_tree (file, t)
 /* Print the node T on file FILE.  */
 
 void 
-print_c_node (file, t)
+print_generic_node (file, t)
      FILE *file;
      tree t;
 {
   maybe_init_pretty_print ();
-  dump_c_node (&buffer, t, 0, 0);
+  dump_generic_node (&buffer, t, 0, 0);
   fprintf (file, "%s", output_finalize_message (&buffer));
   output_clear_message_text (&buffer);
 }
@@ -95,44 +87,14 @@ print_c_node (file, t)
    nodes, only print the header expressions.  */
 
 void
-print_c_node_brief (file, t)
+print_generic_node_brief (file, t)
      FILE *file;
      tree t;
 {
   maybe_init_pretty_print ();
-  dump_c_node (&buffer, t, 0, 1);
+  dump_generic_node (&buffer, t, 0, 1);
   fprintf (file, "%s", output_finalize_message (&buffer));
   output_clear_message_text (&buffer);
-}
-
-/* Print the tree T in full, on stderr.  */
-
-void 
-debug_c_tree (t)
-     tree t;
-{
-  print_c_tree (stderr, t);
-  fputc ('\n', stderr);
-}
-
-/* Print the node T on stderr.  */
-
-void 
-debug_c_node (t)
-     tree t;
-{
-  print_c_node (stderr, t);
-  fputc ('\n', stderr);
-}
-
-/* Print brief version of node T on stderr.  */
-
-void
-debug_c_node_brief (t)
-     tree t;
-{
-  print_c_node_brief (stderr, t);
-  fputc ('\n', stderr);
 }
 
 static void
@@ -146,8 +108,8 @@ newline_and_indent (buffer, spc)
 
 /* Dump the tree T on the output_buffer BUFFER.  */
  
-static void 
-dump_c_tree (buffer, t, spc)
+void 
+dump_generic_tree (buffer, t, spc)
      output_buffer *buffer;
      tree t;
      int spc;
@@ -163,7 +125,7 @@ dump_c_tree (buffer, t, spc)
       slot = htab_find_slot (htab, node, INSERT);
       *slot = (void *) node;
 
-      spc = dump_c_node (buffer, node, spc, 0);
+      spc = dump_generic_node (buffer, node, spc, 0);
 
       if (circularity_p)
 	break;
@@ -195,8 +157,8 @@ dump_c_tree (buffer, t, spc)
 
 /* Dump the node NODE on the output_buffer BUFFER, SPC spaces of indent.  */
 
-static int
-dump_c_node (buffer, node, spc, brief_dump)
+int
+dump_generic_node (buffer, node, spc, brief_dump)
      output_buffer *buffer;
      tree node;
      int spc;
@@ -224,10 +186,10 @@ dump_c_node (buffer, node, spc, brief_dump)
 	{
 	  if (TREE_PURPOSE (node))
 	    {
-	      dump_c_node (buffer, TREE_PURPOSE (node), spc, brief_dump);
+	      dump_generic_node (buffer, TREE_PURPOSE (node), spc, brief_dump);
 	      output_add_space (buffer);
 	    }
-	  dump_c_node (buffer, TREE_VALUE (node), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_VALUE (node), spc, brief_dump);
 	  node = TREE_CHAIN (node);
 	  if (node && TREE_CODE (node) == TREE_LIST)
 	    {
@@ -238,7 +200,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       break;
 
     case TREE_VEC:
-      dump_c_node (buffer, BINFO_TYPE (node), spc, brief_dump);
+      dump_generic_node (buffer, BINFO_TYPE (node), spc, brief_dump);
       break;
 
     case BLOCK:
@@ -298,7 +260,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
         {
 	  tree fnode = TREE_TYPE (node);
-	  dump_c_node (buffer, TREE_TYPE (fnode), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_TYPE (fnode), spc, brief_dump);
 	  output_add_space (buffer);
 	  output_add_string (buffer, "(*");
 	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
@@ -315,7 +277,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	    tree tmp = TYPE_ARG_TYPES (fnode);
 	    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
 	      {
-		dump_c_node (buffer, TREE_VALUE (tmp), spc, brief_dump);
+		dump_generic_node (buffer, TREE_VALUE (tmp), spc, brief_dump);
 		tmp = TREE_CHAIN (tmp);
 		if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
 		  {
@@ -330,7 +292,7 @@ dump_c_node (buffer, node, spc, brief_dump)
         {
 	  unsigned int quals = TYPE_QUALS (node);
 
-          dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+          dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
 	  output_add_string (buffer, " *");
 	  
 	  if (quals & TYPE_QUAL_CONST)
@@ -350,7 +312,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case REFERENCE_TYPE:
       /* FIXME : What is the exact syntax of this node for C? */
-      dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+      dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
       break;
 
     case METHOD_TYPE:
@@ -368,7 +330,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	tree tmp;
 
 	/* Print the array type.  */
-	dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+	dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
 
 	/* Print the dimensions.  */
 	tmp = node;
@@ -398,7 +360,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	output_add_string (buffer, "union ");
 
       if (TYPE_NAME (node))
-	dump_c_node (buffer, TYPE_NAME (node), spc, brief_dump);
+	dump_generic_node (buffer, TYPE_NAME (node), spc, brief_dump);
       else
 	print_struct_decl (buffer, node, spc);
       break;
@@ -477,9 +439,9 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case COMPLEX_CST:
       output_add_string (buffer, "__complex__ (");
-      dump_c_node (buffer, TREE_REALPART (node), spc, brief_dump);
+      dump_generic_node (buffer, TREE_REALPART (node), spc, brief_dump);
       output_add_string (buffer, ", ");
-      dump_c_node (buffer, TREE_IMAGPART (node), spc, brief_dump);
+      dump_generic_node (buffer, TREE_IMAGPART (node), spc, brief_dump);
       output_add_string (buffer, ")");
       break;
 
@@ -527,12 +489,12 @@ dump_c_node (buffer, node, spc, brief_dump)
 	      /* The type is a c++ class: all structures have at least 
 		 4 methods. */
 	      output_add_string (buffer, "class ");
-	      dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+	      dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
 	    }
 	  else
 	    {
 	      output_add_string (buffer, "struct ");
-	      dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+	      dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
 	      output_add_character (buffer, ';');
 	      output_add_newline (buffer);
 	    }
@@ -548,7 +510,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       break;
 
     case RESULT_DECL:
-      dump_c_node (buffer, TREE_TYPE (node), spc, brief_dump);
+      dump_generic_node (buffer, TREE_TYPE (node), spc, brief_dump);
       break;
 
     case FIELD_DECL:
@@ -575,20 +537,20 @@ dump_c_node (buffer, node, spc, brief_dump)
 	}
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, '(');
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, ')');
       output_add_string (buffer, str);
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       break;
 
     case BIT_FIELD_REF:
       output_add_string (buffer, "BIT_FIELD_REF <");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, ", ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       output_add_string (buffer, ", ");
-      dump_c_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
       output_add_string (buffer, ">");
       break;
 
@@ -600,11 +562,11 @@ dump_c_node (buffer, node, spc, brief_dump)
       op0 = TREE_OPERAND (node, 0);
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, '(');
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, ')');
       output_add_character (buffer, '[');
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       output_add_character (buffer, ']');
       break;
 
@@ -617,7 +579,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	tree lnode;
 	bool is_struct_init = FALSE;
 	output_add_character (buffer, '{');     
-	/*	dump_c_node (buffer, TREE_OPERAND (node, 1), spc);  */
+	/*	dump_generic_node (buffer, TREE_OPERAND (node, 1), spc);  */
 	lnode = TREE_OPERAND (node, 1);
 	if (TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
 	    || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
@@ -628,7 +590,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	    if (TREE_PURPOSE (lnode) && is_struct_init)
 	      {
 		output_add_character (buffer, '.');
-		dump_c_node (buffer, TREE_PURPOSE (lnode), spc, brief_dump);
+		dump_generic_node (buffer, TREE_PURPOSE (lnode), spc, brief_dump);
 		output_add_string (buffer, "=");
 	      }
 	    val = TREE_VALUE (lnode);
@@ -644,7 +606,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	      }
 	    else
 	      {
-		dump_c_node (buffer, TREE_VALUE (lnode), spc, brief_dump);
+		dump_generic_node (buffer, TREE_VALUE (lnode), spc, brief_dump);
 	      }
 	    lnode = TREE_CHAIN (lnode);
 	    if (lnode && TREE_CODE (lnode) == TREE_LIST)
@@ -660,36 +622,36 @@ dump_c_node (buffer, node, spc, brief_dump)
     case COMPOUND_EXPR:
       if (TREE_TYPE (node) == void_type_node)
 	{
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	  if (!brief_dump)
 	    {
 	      output_add_character (buffer, ';');
 	      newline_and_indent (buffer, spc);
-	      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+	      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
 	    }
 	}
       else
 	{
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	  output_add_character (buffer, ',');
 	  output_add_space (buffer);
-	  dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
 	}
       break;
 
     case MODIFY_EXPR:
     case INIT_EXPR:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_space (buffer);
       output_add_character (buffer, '=');
       output_add_space (buffer);
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       break;
 
     case TARGET_EXPR:
-      dump_c_node (buffer, TYPE_NAME (TREE_TYPE (node)), spc, brief_dump);
+      dump_generic_node (buffer, TYPE_NAME (TREE_TYPE (node)), spc, brief_dump);
       output_add_character (buffer, '(');
-      dump_c_node (buffer, TARGET_EXPR_INITIAL (node), spc, brief_dump);
+      dump_generic_node (buffer, TARGET_EXPR_INITIAL (node), spc, brief_dump);
       output_add_character (buffer, ')');
       break;
 
@@ -697,7 +659,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (TREE_TYPE (node) == void_type_node)
 	{
 	  output_add_string (buffer, "if (");
-	  dump_c_node (buffer, COND_EXPR_COND (node), spc, brief_dump);
+	  dump_generic_node (buffer, COND_EXPR_COND (node), spc, brief_dump);
 	  output_add_character (buffer, ')');
 	  if (!brief_dump)
 	    {
@@ -710,7 +672,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '{');
 		  newline_and_indent (buffer, spc+4);
-		  dump_c_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
+		  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
 		}
@@ -721,7 +683,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '{');
 		  newline_and_indent (buffer, spc+4);
-		  dump_c_node (buffer, TREE_OPERAND (node, 2), spc+4,
+		  dump_generic_node (buffer, TREE_OPERAND (node, 2), spc+4,
 			       brief_dump);
 		  newline_and_indent (buffer, spc+2);
 		  output_add_character (buffer, '}');
@@ -730,15 +692,15 @@ dump_c_node (buffer, node, spc, brief_dump)
 	}
       else
 	{
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	  output_add_space (buffer);
 	  output_add_character (buffer, '?');
 	  output_add_space (buffer);
-	  dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
 	  output_add_space (buffer);
 	  output_add_character (buffer, ':');
 	  output_add_space (buffer);
-	  dump_c_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
 	}
       break;
 
@@ -752,7 +714,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	    print_declaration (buffer, op0, spc+2, brief_dump);
 
 	  newline_and_indent (buffer, spc+2);
-	  dump_c_node (buffer, BIND_EXPR_BODY (node), spc+2, brief_dump);
+	  dump_generic_node (buffer, BIND_EXPR_BODY (node), spc+2, brief_dump);
 	  newline_and_indent (buffer, spc);
 	  output_add_character (buffer, '}');
 	}
@@ -766,7 +728,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       output_add_character (buffer, '(');
       op1 = TREE_OPERAND (node, 1);
       if (op1)
-	dump_c_node (buffer, op1, 0, brief_dump);
+	dump_generic_node (buffer, op1, 0, brief_dump);
       output_add_character (buffer, ')');
       break;
 
@@ -838,11 +800,11 @@ dump_c_node (buffer, node, spc, brief_dump)
 	if (op_prio (op0) < op_prio (node))
 	  {
 	    output_add_character (buffer, '(');
-	    dump_c_node (buffer, op0, spc, brief_dump);
+	    dump_generic_node (buffer, op0, spc, brief_dump);
 	    output_add_character (buffer, ')');
 	  }
 	else
-	  dump_c_node (buffer, op0, spc, brief_dump);
+	  dump_generic_node (buffer, op0, spc, brief_dump);
 
 	output_add_space (buffer);
 	output_add_string (buffer, op);
@@ -853,11 +815,11 @@ dump_c_node (buffer, node, spc, brief_dump)
 	if (op_prio (op1) < op_prio (node))
 	  {
 	    output_add_character (buffer, '(');
-	    dump_c_node (buffer, op1, spc, brief_dump);
+	    dump_generic_node (buffer, op1, spc, brief_dump);
 	    output_add_character (buffer, ')');
 	  }
 	else
-	  dump_c_node (buffer, op1, spc, brief_dump);
+	  dump_generic_node (buffer, op1, spc, brief_dump);
       }
       break;
 
@@ -880,11 +842,11 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (op_prio (TREE_OPERAND (node, 0)) < op_prio (node))
 	{
 	  output_add_character (buffer, '(');
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	  output_add_character (buffer, ')');
 	}
       else
-	dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case POSTDECREMENT_EXPR:
@@ -892,43 +854,43 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (op_prio (TREE_OPERAND (node, 0)) < op_prio (node))
 	{
 	  output_add_character (buffer, '(');
-	  dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	  dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
 	  output_add_character (buffer, ')');
 	}
       else
-	dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+	dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, op_symbol (node));
       break;
 
     case MIN_EXPR:
       /* #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))  */
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " < ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       output_add_string (buffer, " ? ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " : ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       break;
 
     case MAX_EXPR:
       /* #define MAX(X,Y) ((X) > (Y) ? (X) : (Y))  */
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " > ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       output_add_string (buffer, " ? ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " : ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       break;
 
     case ABS_EXPR:
       /* n < 0 ? -n : n */
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " < 0 ? -");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, " : ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
       
     case FFS_EXPR:
@@ -971,29 +933,29 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (type != TREE_TYPE (op0))
 	{
 	  output_add_character (buffer, '(');
-	  dump_c_node (buffer, type, spc, brief_dump);
+	  dump_generic_node (buffer, type, spc, brief_dump);
 	  output_add_string (buffer, ")");
 	}
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, '(');
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       if (op_prio (op0) < op_prio (node))
 	output_add_character (buffer, ')');
       break;
 
     case NON_LVALUE_EXPR:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case SAVE_EXPR:
       output_add_string (buffer, "SAVE_EXPR <");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_character (buffer, '>');
       break;
 
     case UNSAVE_EXPR:
       output_add_string (buffer, "UNSAVE_EXPR <");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_character (buffer, '>');
       break;
 
@@ -1007,30 +969,30 @@ dump_c_node (buffer, node, spc, brief_dump)
 
     case COMPLEX_EXPR:
       output_add_string (buffer, "__complex__ (");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, ", ");
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
       output_add_string (buffer, ")");
       break;
 
     case CONJ_EXPR:
       output_add_string (buffer, "__builtin_conjf (");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case REALPART_EXPR:
       output_add_string (buffer, "__real__ ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case IMAGPART_EXPR:
       output_add_string (buffer, "__imag__ ");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case VA_ARG_EXPR:
       output_add_string (buffer, "__builtin_va_arg (");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, ")");
       break;
 
@@ -1040,7 +1002,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       newline_and_indent (buffer, spc+2);
       output_add_string (buffer, "{");
       newline_and_indent (buffer, spc+4);
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc+4, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc+4, brief_dump);
       newline_and_indent (buffer, spc+2);
       output_add_string (buffer, "}");
       newline_and_indent (buffer, spc);
@@ -1049,7 +1011,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       newline_and_indent (buffer, spc+2);
       output_add_string (buffer, "{");
       newline_and_indent (buffer, spc+4);
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
       newline_and_indent (buffer, spc+2);
       output_add_string (buffer, "}");
       break;
@@ -1068,7 +1030,7 @@ dump_c_node (buffer, node, spc, brief_dump)
 	      || strcmp (name, "continue") == 0)
 	    break;
 	}
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       output_add_character (buffer, ':');
       output_add_character (buffer, ';');
       break;
@@ -1082,15 +1044,15 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  if (strcmp (name, "break") == 0
 	      || strcmp (name, "continue") == 0)
 	    {
-	      dump_c_node (buffer, LABELED_BLOCK_BODY (node), spc, brief_dump);
+	      dump_generic_node (buffer, LABELED_BLOCK_BODY (node), spc, brief_dump);
 	      break;
 	    }
 	}
-      dump_c_node (buffer, LABELED_BLOCK_LABEL (node), spc, brief_dump);
+      dump_generic_node (buffer, LABELED_BLOCK_LABEL (node), spc, brief_dump);
       output_add_string (buffer, ": {");
       if (!brief_dump)
 	newline_and_indent (buffer, spc+2);
-      dump_c_node (buffer, LABELED_BLOCK_BODY (node), spc+2, brief_dump);
+      dump_generic_node (buffer, LABELED_BLOCK_BODY (node), spc+2, brief_dump);
       if (!brief_dump)
 	newline_and_indent (buffer, spc);
       output_add_character (buffer, '}');
@@ -1110,112 +1072,16 @@ dump_c_node (buffer, node, spc, brief_dump)
 	    }
 	}
       output_add_string (buffer, "<<<exit block ");
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       output_add_string (buffer, ">>>");
       break;
 
     case EXPR_WITH_FILE_LOCATION:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case EXC_PTR_EXPR:
       NIY;
-      break;
-
-      /* Nodes from 'c-common.def'.  */
-
-    case SRCLOC:
-      NIY;
-      break;
-
-    case SIZEOF_EXPR:
-      NIY;
-      break;
-
-    case ARROW_EXPR:
-      NIY;
-      break;
-
-    case ALIGNOF_EXPR:
-      NIY;
-      break;
-
-    case EXPR_STMT:
-      INDENT (spc);
-      dump_c_node (buffer, EXPR_STMT_EXPR (node), spc, brief_dump);
-      output_add_character (buffer, ';');
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
-    case COMPOUND_STMT:
-      if (!brief_dump)
-	dump_c_tree (buffer, COMPOUND_BODY (node), spc);
-      else
-	dump_c_node (buffer, COMPOUND_BODY (node), spc, brief_dump);
-      break;
-
-    case DECL_STMT:
-      print_declaration (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
-      break;
-
-    case CLEANUP_STMT:
-      output_add_string (buffer, "CLEANUP_STMT <");
-      dump_c_node (buffer, CLEANUP_DECL (node), spc, brief_dump);
-      output_add_string (buffer, ", ");
-      dump_c_node (buffer, CLEANUP_EXPR (node), spc, brief_dump);
-      output_add_string (buffer, ">;");
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
-    case IF_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "if (");
-      dump_c_node (buffer, IF_COND (node), spc, brief_dump);
-      output_add_character (buffer, ')');
-      if (!brief_dump)
-	{
-	  output_add_newline (buffer);
-	  dump_c_node (buffer, THEN_CLAUSE (node), spc+2, brief_dump);
-	  if (ELSE_CLAUSE (node))
-	    {
-	      INDENT (spc);
-	      output_add_string (buffer, "else");
-	      output_add_newline (buffer);
-	      dump_c_node (buffer, ELSE_CLAUSE (node), spc+2, brief_dump);
-	    }
-	}
-      break;
-
-    case FOR_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "for (");
-      if (TREE_CODE (FOR_INIT_STMT (node)) == EXPR_STMT)
-	{
-	  dump_c_node (buffer, EXPR_STMT_EXPR (FOR_INIT_STMT (node)), 0,
-		       brief_dump);
-	  output_add_character (buffer, ';');
-	}
-      else
-	dump_c_node (buffer, FOR_INIT_STMT (node), 0, brief_dump);
-      output_add_space (buffer);
-      dump_c_node (buffer, FOR_COND (node), 0, brief_dump);
-      output_add_character (buffer, ';');
-      output_add_space (buffer);
-      dump_c_node (buffer, FOR_EXPR (node), 0, brief_dump);
-      output_add_character (buffer, ')');
-      if (!brief_dump && FOR_BODY (node))
-	{
-	  output_add_newline (buffer);
-	  dump_c_node (buffer, FOR_BODY (node), spc+2, brief_dump);
-	}
-      else
-	{ 
-	  output_add_character (buffer, ';');
-	  if (!brief_dump)
-	    output_add_newline (buffer);
-	}
       break;
 
     case LOOP_EXPR:
@@ -1225,45 +1091,12 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '{');
 	  newline_and_indent (buffer, spc+4);
-	  dump_c_node (buffer, LOOP_EXPR_BODY (node), spc+4, brief_dump);
+	  dump_generic_node (buffer, LOOP_EXPR_BODY (node), spc+4, brief_dump);
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '}');
 	}
       break;
 
-      
-    case WHILE_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "while (");
-      dump_c_node (buffer, WHILE_COND (node), spc, brief_dump);
-      output_add_character (buffer, ')');
-      if (!brief_dump)
-	{
-	  output_add_newline (buffer);
-	  dump_c_node (buffer, WHILE_BODY (node), spc+2, brief_dump);
-	}
-      break;
-
-    case DO_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "do");
-      if (brief_dump)
-	output_add_string (buffer, " while (");
-      else
-	{
-	  output_add_newline (buffer);
-	  dump_c_node (buffer, DO_BODY (node), spc+2, brief_dump);
-	  INDENT (spc);
-	  output_add_string (buffer, "while (");
-	}
-      dump_c_node (buffer, DO_COND (node), spc, brief_dump);
-      output_add_character (buffer, ')');
-      output_add_character (buffer, ';');
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
-    case RETURN_STMT:
     case RETURN_EXPR:
       output_add_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);
@@ -1271,51 +1104,35 @@ dump_c_node (buffer, node, spc, brief_dump)
 	{
 	  output_add_space (buffer);
 	  if (TREE_CODE (op0) == MODIFY_EXPR)
-	    dump_c_node (buffer, TREE_OPERAND (op0, 1), spc, brief_dump);
+	    dump_generic_node (buffer, TREE_OPERAND (op0, 1), spc, brief_dump);
 	  else
-	    dump_c_node (buffer, op0, spc, brief_dump);
+	    dump_generic_node (buffer, op0, spc, brief_dump);
 	}
       output_add_character (buffer, ';');
       break;
 
     case EXIT_EXPR:
       output_add_string (buffer, "if (");
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       output_add_string (buffer, ") break;");
       break;
 
-    case BREAK_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "break;");
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
-    case CONTINUE_STMT:
-      INDENT (spc);
-      output_add_string (buffer, "continue;");
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
     case SWITCH_EXPR:
-    case SWITCH_STMT:
       output_add_string (buffer, "switch (");
-      dump_c_node (buffer, SWITCH_COND (node), spc, brief_dump);
+      dump_generic_node (buffer, SWITCH_COND (node), spc, brief_dump);
       output_add_character (buffer, ')');
       if (!brief_dump)
 	{
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '{');
 	  newline_and_indent (buffer, spc+4);
-	  dump_c_node (buffer, SWITCH_BODY (node), spc+4, brief_dump);
+	  dump_generic_node (buffer, SWITCH_BODY (node), spc+4, brief_dump);
 	  newline_and_indent (buffer, spc+2);
 	  output_add_character (buffer, '}');
 	}
       break;
 
     case GOTO_EXPR:
-    case GOTO_STMT:
       op0 = GOTO_DESTINATION (node);
       if (DECL_NAME (op0))
 	{
@@ -1328,101 +1145,47 @@ dump_c_node (buffer, node, spc, brief_dump)
 	    }
 	}
       output_add_string (buffer, "goto ");
-      dump_c_node (buffer, op0, spc, brief_dump);
+      dump_generic_node (buffer, op0, spc, brief_dump);
       output_add_character (buffer, ';');
       break;
 
-    case LABEL_STMT:
-      INDENT (spc);
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
-      output_add_character (buffer, ':');
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
     case ASM_EXPR:
-    case ASM_STMT:
       INDENT (spc);
       output_add_string (buffer, "__asm__");
       if (ASM_VOLATILE_P (node))
 	output_add_string (buffer, " __volatile__");
       output_add_character (buffer, '(');
-      dump_c_node (buffer, ASM_STRING (node), spc, brief_dump);
+      dump_generic_node (buffer, ASM_STRING (node), spc, brief_dump);
       output_add_character (buffer, ':');
-      dump_c_node (buffer, ASM_OUTPUTS (node), spc, brief_dump);
+      dump_generic_node (buffer, ASM_OUTPUTS (node), spc, brief_dump);
       output_add_character (buffer, ':');
-      dump_c_node (buffer, ASM_INPUTS (node), spc, brief_dump);
+      dump_generic_node (buffer, ASM_INPUTS (node), spc, brief_dump);
       if (ASM_CLOBBERS (node))
 	{
 	  output_add_character (buffer, ':');
-	  dump_c_node (buffer, ASM_CLOBBERS (node), spc, brief_dump);
+	  dump_generic_node (buffer, ASM_CLOBBERS (node), spc, brief_dump);
 	}
       output_add_string (buffer, ");");
       if (!brief_dump)
 	output_add_newline (buffer);      
       break;
       
-    case SCOPE_STMT:
-      if (SCOPE_BEGIN_P (node))
-	{
-	  INDENT (spc);
-	  output_add_character (buffer, '{');
-	  if (!brief_dump)
-	    output_add_newline (buffer);
-	  spc += 2;
-	}
-      else
-	{
-	  spc -= 2;
-	  INDENT (spc);
-	  output_add_character (buffer, '}');
-	  if (!brief_dump)
-	    output_add_newline (buffer);
-	}
-      break;
-
-    case CASE_LABEL:
     case CASE_LABEL_EXPR:
       if (CASE_LOW (node) && CASE_HIGH (node))
 	{
 	  output_add_string (buffer, "case ");
-	  dump_c_node (buffer, CASE_LOW (node), spc, brief_dump);
+	  dump_generic_node (buffer, CASE_LOW (node), spc, brief_dump);
 	  output_add_string (buffer, " ... ");
-	  dump_c_node (buffer, CASE_HIGH (node), spc, brief_dump);
+	  dump_generic_node (buffer, CASE_HIGH (node), spc, brief_dump);
 	}
       else if (CASE_LOW (node))
 	{
 	  output_add_string (buffer, "case ");
-	  dump_c_node (buffer, CASE_LOW (node), spc, brief_dump);
+	  dump_generic_node (buffer, CASE_LOW (node), spc, brief_dump);
 	}
       else
 	output_add_string (buffer, "default ");
       output_add_character (buffer, ':');
-      break;
-
-    case STMT_EXPR:
-      output_add_character (buffer, '(');
-      output_add_newline (buffer);
-      dump_c_node (buffer, STMT_EXPR_STMT (node), spc, brief_dump);
-      INDENT (spc);
-      output_add_character (buffer, ')');
-      break;
-
-    case FILE_STMT:
-      output_printf (buffer, "FILE_STMT <%s>", FILE_STMT_FILENAME (node));
-      if (!brief_dump)
-	output_add_newline (buffer);
-      break;
-
-    case COMPOUND_LITERAL_EXPR:
-      type = TREE_TYPE (node);
-      op0 = COMPOUND_LITERAL_EXPR_DECL_STMT (node);
-      op0 = DECL_STMT_DECL (op0);
-      op0 = DECL_INITIAL (op0);
-      output_add_character (buffer, '(');
-      dump_c_node (buffer, type, spc, brief_dump);
-      output_add_string (buffer, ")");
-      dump_c_node (buffer, op0, spc, brief_dump);
       break;
 
     default:
@@ -1463,11 +1226,11 @@ print_declaration (buffer, t, spc, brief_dump)
       tmp = TREE_TYPE (t);
       while (TREE_CODE (TREE_TYPE (tmp)) == ARRAY_TYPE)
 	tmp = TREE_TYPE (tmp);
-      dump_c_node (buffer, TREE_TYPE (tmp), spc, 0);
+      dump_generic_node (buffer, TREE_TYPE (tmp), spc, 0);
       
       /* Print variable's name.  */
       output_add_space (buffer);
-      dump_c_node (buffer, t, spc, 0);
+      dump_generic_node (buffer, t, spc, 0);
       
       /* Print the dimensions.  */
       tmp = TREE_TYPE (t);
@@ -1481,7 +1244,7 @@ print_declaration (buffer, t, spc, brief_dump)
 				TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
 				TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
 	      else
-		dump_c_node (buffer, TYPE_SIZE_UNIT (tmp), spc, 0);
+		dump_generic_node (buffer, TYPE_SIZE_UNIT (tmp), spc, 0);
 	    }
 	  output_add_character (buffer, ']');
 	  tmp = TREE_TYPE (tmp);
@@ -1490,11 +1253,11 @@ print_declaration (buffer, t, spc, brief_dump)
   else
     {
       /* Print type declaration.  */
-      dump_c_node (buffer, TREE_TYPE (t), spc, 0);
+      dump_generic_node (buffer, TREE_TYPE (t), spc, 0);
       
       /* Print variable's name.  */
       output_add_space (buffer);
-      dump_c_node (buffer, t, spc, 0);
+      dump_generic_node (buffer, t, spc, 0);
     }
   
   /* The initial value of a function serves to determine wether the function 
@@ -1508,7 +1271,7 @@ print_declaration (buffer, t, spc, brief_dump)
 	  output_add_space (buffer);
 	  output_add_character (buffer, '=');
 	  output_add_space (buffer);
-	  dump_c_node (buffer, DECL_INITIAL (t), spc, 0);
+	  dump_generic_node (buffer, DECL_INITIAL (t), spc, 0);
 	}
     }
   
@@ -1517,45 +1280,6 @@ print_declaration (buffer, t, spc, brief_dump)
     output_add_newline (buffer);
 }
 
-/* Print the declaration of a function given its declaration node.  */
-
-static void
-print_function_decl (buffer, node, spc)
-     output_buffer *buffer;
-     tree node;
-     int spc;
-{
-  if (TREE_CODE_CLASS (TREE_CODE (node)) != 'd')
-    NIY;
-  
-  INDENT (spc);
-
-  /* Print the return type.  */
-  dump_c_node (buffer, TREE_TYPE (TREE_TYPE (node)), 0, 0);
-  output_add_space (buffer);
-  /* Print the namespace.  */
-  dump_c_node (buffer, TREE_TYPE (node), 0, 0);
-  /* Print function name.  */
-  output_printf (buffer, "::%s (", TREE_CODE (node) == NOP_EXPR ?
-		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (node, 0))) :
-		 IDENTIFIER_POINTER (DECL_NAME (node)));
-  
-  /* Print the functions arguments.  */
-  {
-    tree tmp = TYPE_ARG_TYPES (TREE_TYPE (node));
-    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
-      {
-	dump_c_node (buffer, TREE_VALUE (tmp), 0, 0);
-	tmp = TREE_CHAIN (tmp);
-	if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
-	  {
-	    output_add_character (buffer, ',');
-	    output_add_space (buffer);
-	  }
-      }
-  }
-  output_add_character (buffer, ')');
-}
 
 /* Prints a structure: name, fields, and methods.  
    FIXME: Still incomplete.  */
@@ -1576,7 +1300,7 @@ print_struct_decl (buffer, node, spc)
 	output_add_string (buffer, "union ");
       else
 	NIY;
-      dump_c_node (buffer, TYPE_NAME (node), spc, 0);
+      dump_generic_node (buffer, TYPE_NAME (node), spc, 0);
     }
 
   /* Print the contents of the structure.  */  
@@ -1730,13 +1454,11 @@ op_prio (op)
       return 15;
 
       /* Special expressions.  */
-    case STMT_EXPR:
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-    case COMPOUND_LITERAL_EXPR:
       return 16;
 
     case SAVE_EXPR:
@@ -1915,7 +1637,7 @@ print_call_name (buffer, node)
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
         PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       else
-	dump_c_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
+	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       break;
     
     case COND_EXPR:
@@ -1929,7 +1651,7 @@ print_call_name (buffer, node)
 	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
       else
-	dump_c_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
+	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       /* else
 	 We can have several levels of structures and a function 
 	 pointer inside.  This is not implemented yet...  */
@@ -2038,7 +1760,7 @@ pretty_print_string (buffer, str)
     }
 }
 
-static inline void
+static void
 maybe_init_pretty_print ()
 {
   if (!initialized)

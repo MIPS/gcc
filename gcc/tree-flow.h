@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #define _TREE_FLOW_H 1
 
 #include "bitmap.h"
+#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "tree-simple.h"
 
@@ -66,7 +67,6 @@ extern const HOST_WIDE_INT V_PHI;
 extern const HOST_WIDE_INT E_PHI;
 extern const HOST_WIDE_INT E_USE;
 extern const HOST_WIDE_INT E_KILL;
-
 
 /*---------------------------------------------------------------------------
 			 Reference type modifiers
@@ -150,14 +150,14 @@ extern const HOST_WIDE_INT M_ADDRESSOF;
 ---------------------------------------------------------------------------*/
 union tree_ref_d;
 
-struct ref_list_node
+struct ref_list_node GTY(())
 {
   union tree_ref_d *ref;
   struct ref_list_node *prev;
   struct ref_list_node *next;
 };
 
-struct ref_list_priv
+struct ref_list_priv GTY(())
 {
   struct ref_list_node *first;
   struct ref_list_node *last;
@@ -178,12 +178,19 @@ typedef struct ref_list_priv *ref_list;
   if (LIST)							\
   FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
 
+/* Forward declare structures for the garbage collector GTY markers.  */
+#ifndef GCC_BASIC_BLOCK_H
+struct edge_def;
+typedef struct edge_def *edge;
+struct basic_block_def;
+typedef struct basic_block_def *basic_block;
+#endif
 
 /*---------------------------------------------------------------------------
 			      Variable references
 ---------------------------------------------------------------------------*/
 /* Common features of every variable reference.  */
-struct tree_ref_common
+struct tree_ref_common GTY(())
 {
   /* Reference type.  */
   HOST_WIDE_INT type;
@@ -194,31 +201,31 @@ struct tree_ref_common
 
   /* Statement containing the reference.  Maybe NULL for special references
      (e.g., default definitions inserted at the start of every function).  */
-  tree *stmt_p;
+  tree * GTY((skip (""))) stmt_p;
 
   /* Expression tree containing the reference.  Maybe NULL for special
      references (e.g., default definitions inserted at the start of every
      function).  */
-  tree *expr_p;
+  tree * GTY((skip (""))) expr_p;
 
   /* Pointer to operand of EXPR containing VAR.  Used when substituting the
      operand with some other value in transformations like constant
      propagation.  Maybe NULL for special references (e.g., default
      definitions inserted at the start of every function).  */
-  tree *operand_p;
+  tree * GTY((skip (""))) operand_p;
 
   /* Original value stored in *OPERAND_P.  Used by restore_ref_operand.  */
   tree orig_operand;
 
   /* Basic block containing the reference.  */
-  basic_block bb;
+  basic_block GTY((skip (""))) bb;
 
   /* Reference ID.  Unique within a single function.  */
   unsigned long id;
 };
 
 /* Generic variable references.  */
-struct var_ref
+struct var_ref GTY(())
 {
   struct tree_ref_common common;
 
@@ -231,11 +238,11 @@ struct var_ref
      reference.  This array is setup so that the Ith entry corresponds to
      the Ith alias of the variable associated to this reference (i.e., this
      is the Ith entry of the array MAY_ALIASES in struct tree_ann_d).  */
-  union tree_ref_d **alias_imm_rdefs;
+  union tree_ref_d ** GTY((skip (""))) alias_imm_rdefs;
 };
 
 /* Variable definitions.  */
-struct var_def
+struct var_def GTY(())
 {
   struct var_ref common;
 
@@ -247,7 +254,7 @@ struct var_def
 };
 
 /* Variable PHIs.  */
-struct var_phi
+struct var_phi GTY(())
 {
   struct var_def common;
 
@@ -258,7 +265,7 @@ struct var_phi
 };
 
 /* Variable uses.  */
-struct var_use
+struct var_use GTY(())
 {
   struct var_ref common;
 
@@ -276,13 +283,13 @@ struct var_use
    grow to the 100-300 Mb range.  Furthermore, the number of references
    would grow into the millions, making the optimizers waste unnecessary
    cycles when traversing all the references in the function.  */
-struct phi_node_arg_d
+struct phi_node_arg_d GTY(())
 {
   /* Immediate reaching definition for this argument.  */
   union tree_ref_d *def;
 
   /* Incoming edge where we are receiving imm_rdef from.  */
-  edge e;
+  edge GTY((skip (""))) e;
 };
 
 typedef struct phi_node_arg_d *phi_node_arg;
@@ -291,7 +298,7 @@ typedef struct phi_node_arg_d *phi_node_arg;
 			     Expression references
 ---------------------------------------------------------------------------*/
 /* Common feature of all expression references.  */
-struct expr_ref_common
+struct expr_ref_common GTY(())
 {
   struct tree_ref_common common;
 
@@ -309,9 +316,8 @@ struct expr_ref_common
 };
 
 
-
 /* Expression PHIs.  */
-struct expr_phi
+struct expr_phi GTY(())
 {
   struct expr_ref_common common;
   
@@ -338,9 +344,8 @@ struct expr_phi
 };
 
 
-
 /* Expressions uses.  */
-struct expr_use
+struct expr_use GTY(())
 {
   struct expr_ref_common common;
 
@@ -354,22 +359,36 @@ struct expr_use
   int has_real_use;
 };
 
+/* Not used?  */
+#if 0
 #define EXPRUSE_DEF(r) (r)->euse.def
 #define EXPRUSE_PHIOP(r) (r)->euse.op_occurrence
 #define EXPRUSE_HAS_REAL_USE(r) (r)->euse.has_real_use
+#endif
 
+enum tree_ref_structure_enum {
+    TR_COMMON,
+    TR_VAR_REF,
+    TR_VAR_DEF,
+    TR_VAR_PHI,
+    TR_VAR_USE,
+    TR_EXPR_REF_COMMON,
+    TR_EXPR_USE,
+    TR_EXPR_PHI,
+    LAST_TR_ENUM
+};
 
 /* Generic variable reference structure.  */
-union tree_ref_d
+union tree_ref_d GTY((desc ("tree_ref_structure (&%h)")))
 {
-  struct tree_ref_common common;
-  struct var_ref vref;
-  struct var_def vdef;
-  struct var_phi vphi;
-  struct var_use vuse;
-  struct expr_ref_common ecommon;
-  struct expr_use euse;
-  struct expr_phi ephi;
+  struct tree_ref_common GTY((tag ("TR_COMMON"))) common;
+  struct var_ref GTY((tag ("TR_VAR_REF"))) vref;
+  struct var_def GTY((tag ("TR_VAR_DEF"))) vdef;
+  struct var_phi GTY((tag ("TR_VAR_PHI"))) vphi;
+  struct var_use GTY((tag ("TR_VAR_USE"))) vuse;
+  struct expr_ref_common GTY((tag ("TR_EXPR_REF_COMMON"))) ecommon;
+  struct expr_use GTY((tag ("TR_EXPR_USE"))) euse;
+  struct expr_phi GTY((tag ("TR_EXPR_PHI"))) ephi;
 };
 
 typedef union tree_ref_d *tree_ref;
@@ -448,12 +467,12 @@ static inline bool exprphi_willbeavail PARAMS ((tree_ref));
 
 
 /*---------------------------------------------------------------------------
-		   Tree annotations stored in tree_common.aux
+		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-struct tree_ann_d
+struct tree_ann_d GTY(())
 {
   /* Basic block that contains this tree.  */
-  basic_block bb;
+  basic_block GTY((skip (""))) bb;
 
   /* For _DECL trees, list of references made to this variable.  For
      statement trees trees, list of references made in this statement.  For
@@ -517,14 +536,15 @@ static inline size_t num_may_alias	PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
 static inline bool is_exec_stmt		PARAMS ((tree));
 
+
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.aux
 ---------------------------------------------------------------------------*/
-struct bb_ann_def
+struct bb_ann_def GTY(())
 {
   /* Control flow parent.  This is the entry block to the control structure
      to which this block belongs to.  */
-  basic_block parent_block;
+  basic_block GTY((skip (""))) parent_block;
 
   /* List of references made in this block.  */
   ref_list refs;
@@ -583,9 +603,6 @@ extern int tree_warn_uninitialized;
 /* Array of all variables referenced in the function.  */
 extern varray_type referenced_vars;
 
-/* List of all call sites in the current function.  */
-extern ref_list call_sites;
-
 /* Next unique reference ID to be assigned by create_ref().  */
 extern unsigned long next_tree_ref_id;
 
@@ -631,7 +648,6 @@ extern tree last_stmt			PARAMS ((basic_block));
 /* In tree-dfa.c  */
 extern void tree_find_refs		PARAMS ((void));
 extern void find_refs_in_stmt           PARAMS ((tree *, basic_block));
-extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
 						 basic_block, tree *, tree *,
@@ -657,7 +673,6 @@ extern void debug_variable		PARAMS ((tree));
 extern int function_may_recurse_p	PARAMS ((void));
 extern ref_list create_ref_list		PARAMS ((void));
 extern void empty_ref_list		PARAMS ((ref_list));
-extern void delete_ref_list		PARAMS ((ref_list));
 extern void add_ref_to_list_end		PARAMS ((ref_list, tree_ref));
 extern void add_ref_to_list_begin	PARAMS ((ref_list, tree_ref));
 extern void add_ref_to_list_after	PARAMS ((ref_list,
@@ -672,6 +687,7 @@ extern bool validate_ref_type		PARAMS ((HOST_WIDE_INT));
 extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
 extern int get_alias_index		PARAMS ((tree, tree));
+extern enum tree_ref_structure_enum tree_ref_structure PARAMS ((tree_ref));
 
 
 /* In tree-ssa.c  */

@@ -190,7 +190,7 @@ tree_annotation (t)
 {
   STRIP_WFL (t);
   STRIP_NOPS (t);
-  return (tree_ann)t->common.aux;
+  return t->common.ann;
 }
 
 static inline basic_block

@@ -330,17 +330,12 @@ extern void inform                      PARAMS ((const char *, ...));
 
 extern void debug_output_buffer		PARAMS ((output_buffer *));
 
-/* In c-pretty-print.c  */
-extern void dump_c_tree	PARAMS ((output_buffer *, tree, int));
-extern int dump_c_node PARAMS ((output_buffer *, tree, int, int));
-extern void print_declaration PARAMS ((output_buffer *, tree, int, int));
-extern void print_function_decl PARAMS ((output_buffer *, tree, int));
-extern void print_struct_decl PARAMS ((output_buffer *, tree, int));
-extern void print_c_tree		PARAMS ((FILE*, tree));
-extern void print_c_node		PARAMS ((FILE*, tree));
-extern void print_c_node_brief		PARAMS ((FILE*, tree));
-extern void debug_c_tree		PARAMS ((tree));
-extern void debug_c_node		PARAMS ((tree));
-extern void debug_c_node_brief		PARAMS ((tree));
+/* In tree-pretty-print.c  */
+extern void dump_generic_tree		PARAMS ((output_buffer *, tree, int));
+extern int dump_generic_node		PARAMS ((output_buffer *, tree, int,
+      						 int));
+extern void print_generic_tree		PARAMS ((FILE*, tree));
+extern void print_generic_node		PARAMS ((FILE*, tree));
+extern void print_generic_node_brief	PARAMS ((FILE*, tree));
 
 #endif /* ! GCC_DIAGNOSTIC_H */

@@ -1338,9 +1338,6 @@ copy_tree_r (tp, walk_subtrees, data)
       /* Copy the node.  */
       *tp = copy_node (*tp);
 
-      /* FIXME aux isn't marked properly for GC, so don't copy it.  */
-      (*tp)->common.aux = 0;
-
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
       if (code == PARM_DECL || code == TREE_LIST
