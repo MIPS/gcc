@@ -97,6 +97,7 @@ __mf_set_default_options ()
   __mf_opts.heur_proc_map = 1;
   __mf_opts.heur_stack_bound = 0;
   __mf_opts.heur_start_end = 0;
+  __mf_opts.heur_argv_environ = 1;
 }
 
 static struct option
@@ -172,6 +173,9 @@ options [] =
     {"heur-start-end", 
      "support _start.._end heuristics",
      set_option, 1, &__mf_opts.heur_start_end},
+    {"heur-argv-environ", 
+     "support argv/environ heuristics",
+     set_option, 1, &__mf_opts.heur_argv_environ},
      
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
@@ -430,6 +434,16 @@ void __mf_init ()
   REG_RESERVED (__mf_lc_mask);
   REG_RESERVED (__mf_lc_shift);
   /* XXX: others of our statics?  */
+
+  /* XXX: bad hack: assumes Linux process layout */
+  if (__mf_opts.heur_argv_environ)
+    {
+      int foo = 0;
+      __mf_register ((uintptr_t) & foo,
+		     (uintptr_t) 0xC0000000 - (uintptr_t) (& foo),
+		     __MF_TYPE_GUESS,
+		     "argv/environ area");
+    }
 }
 
 

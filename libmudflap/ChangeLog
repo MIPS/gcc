@@ -1,3 +1,11 @@
+2002-09-24  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-heuristics.c (__init_misc, __mf_heuristic_check): Add
+	hypothetical #if-0'd argv/envp region registration.
+	* mf-runtime.c (__mf_init): Add kludged form of above.
+	(*) Add "heur_argv_environ" flag, default on, to govern this.
+	* mf-impl.h: Corresponding changes.
+
 2002-09-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/fail18-frag.c: New test file for NOACCESS regions.

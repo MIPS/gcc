@@ -33,6 +33,25 @@ is_stack_address (uintptr_t addr)
 }
 
 
+#if 0
+/* These are used by heur_argv_envp below.  */
+static int system_argc;
+static char **system_argv;
+static char **system_envp;
+
+/* Hack: intercept / override glibc's __init_misc routine to 
+   kidnap the process startup argc/argv/envp values. */
+void
+__init_misc (int argc, char **argv, char **envp)
+{
+  system_argc = argc;
+  system_argv = argv;
+  system_envp = envp;
+  /* XXX: would be nice to call over to the glibc __init_misc routine. */
+}
+#endif
+
+
 
 /* Run some quick validation of the given region.  If successful, return non-zero.
    If the result is cacheworthy, return something positive. */
@@ -148,6 +167,70 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
     if (ptr >= (uintptr_t) & _start && ptr_high <= (uintptr_t) & _end)
       return 1; /* uncacheable */
 
+#if 0
+  /* The fourth heuristic adds the startup argv/environ strings to the
+     list of GUESS regions.  */
+  if (__mf_opts.heur_argv_environ)
+    {
+      static unsigned done;
+      if (! done)
+	{
+	  DECLARE(size_t, strlen, const char *s);
+	  done = 1;
+
+	  /* Register the environment string sequence.  */
+	  if (system_envp)
+	    {
+	      int envp_length = 0;
+	      int i;
+	      while (system_envp[envp_length]) envp_length ++;
+	      if (envp_length)
+		__mf_register ((uintptr_t) system_envp,
+			       (uintptr_t) (sizeof (char*) * (envp_length + 1)),
+			       __MF_TYPE_GUESS, "environ[]");
+
+	      for (i=0; i<envp_length; i++)
+		{
+		  char * env = system_envp[i];
+		  if (env)
+		    {
+		      unsigned len = CALL_REAL (strlen, env);
+		      __mf_register ((uintptr_t) env,
+				     (uintptr_t) len+1,
+				     __MF_TYPE_GUESS,
+				     "envp[i]");
+		    }
+		}
+	    }
+
+	  /* Register the argument vector. */
+	  if (system_argv)
+	    {
+	      int i;
+
+	      __mf_register ((uintptr_t) system_argv,
+			     (uintptr_t) (sizeof (char *) * (system_argc + 1)),
+			     __MF_TYPE_GUESS,
+			     "argv");
+
+	      for (i=0; i<system_argc; i++)
+		{
+		  char * arg = system_argv[i];
+		  if (arg)
+		    {
+		      unsigned len = CALL_REAL (strlen, arg);
+		      __mf_register ((uintptr_t) arg,
+				     (uintptr_t) (len + 1),
+				     __MF_TYPE_GUESS,
+				     "argv[i]");
+		    }
+		}
+	    }
+
+	  return 0;
+	}
+    }
+#endif
 
   return -1; /* hard failure */
 }
