@@ -1,3 +1,12 @@
+2002-09-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* function.c (push_temp_slots_for_block): Remove.
+	(push_temp_slots_for_target): Likewise.
+	(get_target_temp_slot_level): Likewise.
+	(set_target_temp_slot_level): Likewise.
+	(get_first_block_beg): Likewise.
+	* function.h: Remove corresponding prototypes.
+
 2002-09-22  Roger Sayle  <roger@eyesopen.com>
 
 	* expr.c (STORE_BY_PIECES_P): New target macro.

@@ -1251,46 +1251,6 @@ push_temp_slots ()
   temp_slot_level++;
 }
 
-/* Likewise, but save the new level as the place to allocate variables
-   for blocks.  */
-
-#if 0
-void
-push_temp_slots_for_block ()
-{
-  push_temp_slots ();
-
-  var_temp_slot_level = temp_slot_level;
-}
-
-/* Likewise, but save the new level as the place to allocate temporaries
-   for TARGET_EXPRs.  */
-
-void
-push_temp_slots_for_target ()
-{
-  push_temp_slots ();
-
-  target_temp_slot_level = temp_slot_level;
-}
-
-/* Set and get the value of target_temp_slot_level.  The only
-   permitted use of these functions is to save and restore this value.  */
-
-int
-get_target_temp_slot_level ()
-{
-  return target_temp_slot_level;
-}
-
-void
-set_target_temp_slot_level (level)
-     int level;
-{
-  target_temp_slot_level = level;
-}
-#endif
-
 /* Pop a temporary nesting level.  All slots in use in the current level
    are freed.  */
 
@@ -4188,24 +4148,6 @@ get_first_nonparm_insn ()
   if (last_parm_insn)
     return NEXT_INSN (last_parm_insn);
   return get_insns ();
-}
-
-/* Return the first NOTE_INSN_BLOCK_BEG note in the function.
-   Crash if there is none.  */
-
-rtx
-get_first_block_beg ()
-{
-  rtx searcher;
-  rtx insn = get_first_nonparm_insn ();
-
-  for (searcher = insn; searcher; searcher = NEXT_INSN (searcher))
-    if (GET_CODE (searcher) == NOTE
-	&& NOTE_LINE_NUMBER (searcher) == NOTE_INSN_BLOCK_BEG)
-      return searcher;
-
-  abort ();	/* Invalid call to this function.  (See comments above.)  */
-  return NULL_RTX;
 }
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
