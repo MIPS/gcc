@@ -527,8 +527,7 @@ extern int x86_prefetch_sse;
 %n`-mpentium' is deprecated. Use `-march=pentium' or `-mtune=pentium' instead.\n} \
 %{mpentiumpro:-mtune=pentiumpro \
 %n`-mpentiumpro' is deprecated. Use `-march=pentiumpro' or `-mtune=pentiumpro' instead.\n} \
-%{mcpu=*:-mtune=%* \
-%n`-mcpu=' is deprecated. Use `-mtune=' or '-march=' instead.\n}} \
+%{mcpu=*:-mtune=%*}} \
 %<mcpu=* \
 %{mpni:-msse3 \
 %n`-mpni' is deprecated. Use `-msse3' instead.\n} \

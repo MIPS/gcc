@@ -1,3 +1,7 @@
+2004-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (CC1_CPU_SPEC): Allow -mcpu= for the time being.
+
 2002-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/7241
