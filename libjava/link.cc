@@ -331,6 +331,8 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	    sb->append(owner->getName());
 	    sb->append(JvNewStringLatin1("."));
 	    sb->append(_Jv_NewStringUTF(method_name->data));
+	    sb->append(JvNewStringLatin1(" with signature "));
+	    sb->append(_Jv_NewStringUTF(method_signature->data));
 	    sb->append(JvNewStringLatin1(" was not found."));
 	    throw new java::lang::NoSuchMethodError (sb->toString());
 	  }
