@@ -1,3 +1,8 @@
+2002-11-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/vxlib.c: Rewrite using generation numbers to identify
+	valid TSD keys.
+
 Sat Nov  9 00:10:54 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_machine_dependent_reorg): Fix even more side cases.
