@@ -438,9 +438,16 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
       || !may_assign_reg_p (SET_DEST (set)))
     return;
 
-  if (!always_reached
-      && may_trap_p (PATTERN (insn)))
-    return;
+  if (may_trap_p (PATTERN (insn)))
+    {
+      if (!always_reached)
+	return;
+
+      /* Unless the exceptions are handled, the behavior is undefined
+ 	 if the trap occurs.  */
+      if (flag_non_call_exceptions)
+	return;
+    }
 
   depends_on = BITMAP_XMALLOC ();
   if (!check_dependencies (insn, df, depends_on))

@@ -1,3 +1,8 @@
+2004-05-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-invariant.c (find_invariant_insn): Handle trapping insns
+	correctly.
+
 2004-05-10  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-chrec.h (build_chrec_top_type): Disabled, return chrec_top.
