@@ -1161,10 +1161,11 @@ enum machopic_addr_class {
 /* Java runtime class list.  */
 #define JCR_SECTION_NAME "__DATA,jcr,regular,no_dead_strip"
 
+/* APPLE LOCAL 64-bit mainline */
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \
-   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect) : \
+   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect | DW_EH_PE_sdata4 ) : \
      ((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
