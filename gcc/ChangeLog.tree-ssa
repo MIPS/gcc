@@ -5,6 +5,9 @@
 
 2004-02-16  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.dse.c (dse_optimize_stmt): Dump info when we delete
+	stores.
+
 	* tree-ssa-dse.c: Update comments.
 
 	* Makefile.in (OBJS-common): Add tree-ssa-dse.o

@@ -302,6 +302,13 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  else
 	    fix_stmt_vdefs (use, stmt);
 
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+            {
+              fprintf (tree_dump_file, "  Deleted dead store '");
+              print_generic_expr (tree_dump_file, bsi_stmt (bsi), 0);
+              fprintf (tree_dump_file, "'\n");
+            }
+
 	  /* Any immediate uses which reference STMT need to instead
 	     reference USE.  This allows us to cascade dead stores.  */
 	  redirect_immediate_uses (stmt, use);
