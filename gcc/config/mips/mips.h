@@ -91,17 +91,6 @@ enum processor_type {
 #define ABI_64  2
 #define ABI_EABI 3
 #define ABI_O64  4
-/* MEABI is gcc's internal name for MIPS' new EABI (defined by MIPS)
-   which is not the same as the above EABI (defined by Cygnus,
-   Greenhills, and Toshiba?).  MEABI is not yet complete or published,
-   but at this point it looks like N32 as far as calling conventions go,
-   but allows for either 32 or 64 bit registers.
-
-   Currently MIPS is calling their EABI "the" MIPS EABI, and Cygnus'
-   EABI the legacy EABI.  In the end we may end up calling both ABI's
-   EABI but give them different version numbers, but for now I'm going
-   with different names.  */
-#define ABI_MEABI 5
 
 /* Whether to emit abicalls code sequences or not.  */
 
@@ -524,8 +513,6 @@ extern void		sbss_section PARAMS ((void));
 
 #define TARGET_SWITCHES							\
 {									\
-  {"no-crt0",          0,                                               \
-     N_("No default crt0.o") },					 	\
   {"int64",		  MASK_INT64 | MASK_LONG64,			\
      N_("Use 64-bit int type")},					\
   {"long64",		  MASK_LONG64,					\
@@ -999,12 +986,6 @@ extern int mips_abi;
 #if MIPS_ABI_DEFAULT == ABI_EABI
 #define MULTILIB_ABI_DEFAULT "mabi=eabi"
 #define ASM_ABI_DEFAULT_SPEC "-mabi=eabi"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_MEABI
-/* Most GAS don't know about MEABI.  */
-#define MULTILIB_ABI_DEFAULT "mabi=meabi"
-#define ASM_ABI_DEFAULT_SPEC ""
 #endif
 
 /* Only ELF targets can switch the ABI.  */
@@ -1628,9 +1609,7 @@ do {							\
 
 /* Force right-alignment for small varargs in 32 bit little_endian mode */
 
-#define PAD_VARARGS_DOWN (TARGET_64BIT                                  \
-			  || mips_abi == ABI_MEABI                      \
-			     ? BYTES_BIG_ENDIAN : !BYTES_BIG_ENDIAN)
+#define PAD_VARARGS_DOWN (TARGET_64BIT ? BYTES_BIG_ENDIAN : !BYTES_BIG_ENDIAN)
 
 /* Define this macro if an argument declared as `char' or `short' in a
    prototype should actually be passed as an `int'.  In addition to

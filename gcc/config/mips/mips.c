@@ -3808,7 +3808,6 @@ output_block_move (insn, operands, num_regs, move_type)
      constant addresses into registers when generating N32/N64 code, just
      in case we might emit an unaligned load instruction.  */
   if (num_regs > 2 && (bytes > 2 * align || move_type != BLOCK_MOVE_NORMAL
-		       || mips_abi == ABI_MEABI
 		       || mips_abi == ABI_N32
 		       || mips_abi == ABI_64))
     {
@@ -4178,13 +4177,6 @@ mips_arg_info (cum, mode, type, named, info)
 	  info->fpr_p = true;
 	  break;
 
-	case ABI_MEABI:
-	  /* The MIPS eabi says only structures containing doubles get
-	     passed in a fp register, so force a structure containing
-	     a float to be passed in the integer registers.  */
-	  info->fpr_p = (named && !(mode == SFmode && info->struct_p));
-	  break;
-
 	default:
 	  info->fpr_p = named;
 	  break;
@@ -4273,8 +4265,7 @@ function_arg_advance (cum, mode, type, named)
       && info.reg_words == 1
       && info.num_bytes < UNITS_PER_WORD
       && !TARGET_64BIT
-      && mips_abi != ABI_EABI
-      && mips_abi != ABI_MEABI)
+      && mips_abi != ABI_EABI)
     {
       rtx amount = GEN_INT (BITS_PER_WORD - info.num_bytes * BITS_PER_UNIT);
       rtx reg = gen_rtx_REG (word_mode, GP_ARG_FIRST + info.reg_offset);
@@ -4406,25 +4397,6 @@ function_arg (cum, mode, type, named)
 	    }
 	  return ret;
 	}
-    }
-
-  if (mips_abi == ABI_MEABI && info.fpr_p && !cum->prototype)
-    {
-      /* To make K&R varargs work we need to pass floating
-	 point arguments in both integer and FP registers.  */
-      return gen_rtx_PARALLEL
-	(mode,
-	 gen_rtvec (2,
-		    gen_rtx_EXPR_LIST (VOIDmode,
-				       gen_rtx_REG (mode,
-						    GP_ARG_FIRST
-						    + info.reg_offset),
-				       const0_rtx),
-		    gen_rtx_EXPR_LIST (VOIDmode,
-				       gen_rtx_REG (mode,
-						    FP_ARG_FIRST
-						    + info.reg_offset),
-				       const0_rtx)));
     }
 
   if (info.fpr_p)
@@ -4985,8 +4957,6 @@ override_options ()
 	mips_abi = ABI_64;
       else if (strcmp (mips_abi_string, "eabi") == 0)
 	mips_abi = ABI_EABI;
-      else if (strcmp (mips_abi_string, "meabi") == 0)
-	mips_abi = ABI_MEABI;
       else
 	fatal_error ("bad value (%s) for -mabi= switch", mips_abi_string);
     }
@@ -5324,14 +5294,7 @@ override_options ()
 	    temp = ((regno & 1) == 0 || size <= UNITS_PER_WORD);
 
 	  else if (FP_REG_P (regno))
-	    temp = (((regno % FP_INC) == 0
-		     /* I think this change is OK regardless of abi, but
-                        I'm being cautions untill I can test this more.
-                        HARD_REGNO_MODE_OK is about whether or not you
-                        can move to and from a register without changing
-                        the value, not about whether math works on the
-                        register. */
-		     || (mips_abi == ABI_MEABI && size <= 4))
+	    temp = ((regno % FP_INC) == 0)
 		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
 			 && size <= UNITS_PER_FPVALUE)
 			/* Allow integer modes that fit into a single
@@ -5339,7 +5302,7 @@ override_options ()
 			   when using instructions like cvt and trunc.  */
 			|| (class == MODE_INT && size <= UNITS_PER_FPREG)
 			/* Allow TFmode for CCmode reloads.  */
-			|| (ISA_HAS_8CC && mode == TFmode)));
+			|| (ISA_HAS_8CC && mode == TFmode));
 
 	  else if (MD_REG_P (regno))
 	    temp = (class == MODE_INT
@@ -5423,7 +5386,7 @@ mips_conditional_register_usage ()
 	call_really_used_regs[regno] = call_used_regs[regno] = 1;
     }
   /* odd registers from fp21 to fp31 are now caller saved.  */
-  if (mips_abi == ABI_N32 || mips_abi == ABI_MEABI)
+  if (mips_abi == ABI_N32)
     {
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
@@ -6310,7 +6273,6 @@ mips_asm_file_start (stream)
 	case ABI_64:   abi_string = "abi64"; break;
 	case ABI_O64:  abi_string = "abiO64"; break;
 	case ABI_EABI: abi_string = TARGET_64BIT ? "eabi64" : "eabi32"; break;
-	case ABI_MEABI:abi_string = TARGET_64BIT ? "meabi64" : "meabi32"; break;
 	default:
 	  abort ();
 	}
@@ -6697,7 +6659,7 @@ mips_initial_elimination_offset (from, to)
     case ARG_POINTER_REGNUM:
       compute_frame_size (get_frame_size ());
       offset = cfun->machine->frame.total_size;
-      if (mips_abi == ABI_N32 || mips_abi == ABI_64 || mips_abi == ABI_MEABI)
+      if (mips_abi == ABI_N32 || mips_abi == ABI_64)
 	offset -= current_function_pretend_args_size;
       break;
 
@@ -8264,7 +8226,6 @@ function_arg_pass_by_reference (cum, mode, type, named)
   /* ??? cum can be NULL when called from mips_va_arg.  The problem handled
      here hopefully is not relevant to mips_va_arg.  */
   if (cum && MUST_PASS_IN_STACK (mode, type)
-      && mips_abi != ABI_MEABI
       && FUNCTION_ARG (*cum, mode, type, named) != 0)
     return 1;
 
@@ -10068,7 +10029,7 @@ mips_output_conditional_branch (insn,
 	     l:
 		.set macro
 		.set reorder
-	   
+
 	   When generating non-embedded PIC, instead of:
 
 	        j     target

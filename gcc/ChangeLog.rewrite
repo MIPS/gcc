@@ -1,3 +1,12 @@
+2003-01-08  Eric Christopher  <echristo@redhat.com>
+
+	* config.gcc (mipsisa32*): Change ABI_MEABI to ABI_EABI.
+	* config/mips/elf.h (STARTFILE_SPEC): Remove ABI_MEABI references and
+	configure check for libgloss.
+	* config/mips/elf64.h: Ditto.
+	* config/mips/mips.c: Remove ABI_MEABI.
+	* config/mips/mips.h: Ditto.
+
 2002-11-05  Richard Sandiford  <rsandifo@redhat.com>
 
 	Fix merge fallout.
