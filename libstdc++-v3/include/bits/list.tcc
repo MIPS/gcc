@@ -85,7 +85,7 @@ namespace _GLIBCXX_STD
     insert(iterator __position, const value_type& __x)
     {
       _Node* __tmp = _M_create_node(__x);
-      __tmp->hook(__position._M_node);
+      __tmp->_M_hook(__position._M_node);
       return __tmp;
     }
 

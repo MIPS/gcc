@@ -1,5 +1,24 @@
 2004-08-24  Paolo Carlini  <pcarlini@suse.de>
 
+	PR libstdc++/16896
+	* include/bits/stl_list.h (struct _List_node_base): Rename the
+	transfer member to _M_transfer, hook to _M_hook, and unhook to
+	_M_unhook.
+	* include/bits/list.tcc (list<>::insert): Tweak consistently.
+	* src/list.cc: Change consistently.
+	* config/linker-map.gnu: Likewise.	
+	* testsuite/23_containers/list/16896.cc: New.
+
+	* include/bits/stl_list.h: Trivial formatting fixes.
+
+	* config/linker-map.gnu: Move everything in GLIBCXX_3.4, 3.4.1
+	and 3.4.2 under GLIBCXX_3.6.
+	* testsuite/testsuite_abi.cc: Add GLIBCXX_3.6.
+	* configure.ac (libtool_VERSION): Bump to 7:0:0.
+	* configure: Regenerate.
+
+2004-08-24  Paolo Carlini  <pcarlini@suse.de>
+
         Merged to mainline at tag libstdcxx_so_7-merge-20040824.
 
 2004-08-19  Dhruv Matani  <dhruvbird@gmx.net>

@@ -20,7 +20,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-GLIBCXX_3.4 {
+GLIBCXX_3.6 {
 
   global:
 
@@ -55,11 +55,13 @@ GLIBCXX_3.4 {
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
       std::[A-Zm-z]*;
-      std::_List_node_base::hook*;
       std::_List_node_base::swap*;
-      std::_List_node_base::unhook*;
       std::_List_node_base::reverse*;
-      std::_List_node_base::transfer*;
+
+      # Changed in libstdcxx_so_7-branch
+      std::_List_node_base::_M_transfer*;
+      std::_List_node_base::_M_hook*;
+      std::_List_node_base::_M_unhook*;
       std::__throw_*;
       std::__timepunct*;
       std::__numeric_limits_base*;
@@ -73,11 +75,13 @@ GLIBCXX_3.4 {
       __gnu_debug::_Safe_iterator_base*;
       __gnu_debug::_Safe_sequence_base*;
       __gnu_debug::_Error_formatter*;
-      __gnu_norm::_List_node_base::hook*;
       __gnu_norm::_List_node_base::swap*;
-      __gnu_norm::_List_node_base::unhook*;
       __gnu_norm::_List_node_base::reverse*;
-      __gnu_norm::_List_node_base::transfer*
+
+      # Changed in libstdcxx_so_7-branch
+      __gnu_norm::_List_node_base::_M_transfer*;
+      __gnu_norm::_List_node_base::_M_hook*;
+      __gnu_norm::_List_node_base::_M_unhook*;
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -239,27 +243,21 @@ GLIBCXX_3.4 {
     _ZN9__gnu_cxx12__atomic_add*;
     _ZN9__gnu_cxx18__exchange_and_add*;
 
-  # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
-
-  local:
-    *;
-};
-
-GLIBCXX_3.4.1 {
- 
+    # In GLIBCXX_3.4.1
     _ZNSt12__basic_fileIcE4fileEv;
- 
-} GLIBCXX_3.4;
- 
-GLIBCXX_3.4.2 {
 
+    # In GLIBCXX_3.4.2
     _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE4fileEv;
 
     _ZN9__gnu_cxx11__pool_base9_M_refillE[jm];
     _ZN9__gnu_cxx11__pool_base16_M_get_free_listE[jm];
     _ZN9__gnu_cxx11__pool_base12_M_get_mutexEv;
 
-} GLIBCXX_3.4.1;
+  # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
+
+  local:
+    *;
+};
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {
