@@ -253,7 +253,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
       /* Set the current function to be the elaboration procedure and gimplify
 	 what we have.  */
       current_function_decl = info->elab_proc;
-      gimplify_body (&gnu_body, info->elab_proc);
+      gimplify_body (&gnu_body, info->elab_proc, false);
 
       /* We should have a BIND_EXPR, but it may or may not have any statements
 	 in it.  If it doesn't have any, we have nothing to do.  */
@@ -932,7 +932,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 			  && TREE_CODE (gnu_prefix) == FIELD_DECL));
 
 	get_inner_reference (gnu_prefix, &bitsize, &bitpos, &gnu_offset,
-			     &mode, &unsignedp, &volatilep);
+			     &mode, &unsignedp, &volatilep, false);
 
 	if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	  {
@@ -4283,9 +4283,10 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
     }
 }
 
-/* Utility function to mark nodes with TREE_VISITED.  Called from walk_tree.
-   We use this to indicate all variable sizes and positions in global types
-   may not be shared by any subprogram.  */
+/* Utility function to mark nodes with TREE_VISITED and types as having their
+   sized gimplified.  Called from walk_tree.  We use this to indicate all
+   variable sizes and positions in global types may not be shared by any
+   subprogram.  */
 
 static tree
 mark_visited (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
@@ -4297,6 +4298,9 @@ mark_visited (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
      and fields once it's filled in.  */
   else if (!TYPE_IS_DUMMY_P (*tp))
     TREE_VISITED (*tp) = 1;
+
+  if (TYPE_P (*tp))
+    TYPE_SIZES_GIMPLIFIED (*tp) = 1;
 
   return NULL_TREE;
 }

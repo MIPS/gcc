@@ -2431,8 +2431,7 @@ define_label (location_t location, tree name)
       check_previous_gotos (decl);
     }
 
-  timevar_pop (TV_NAME_LOOKUP);
-  return decl;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 }
 
 struct cp_switch
@@ -4596,6 +4595,12 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	  if (TREE_CODE (init) != TREE_VEC)
 	    {
 	      init_code = store_init_value (decl, init);
+	      if (pedantic && TREE_CODE (type) == ARRAY_TYPE
+		  && DECL_INITIAL (decl)
+		  && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
+		  && PAREN_STRING_LITERAL_P (DECL_INITIAL (decl)))
+		warning ("array %qD initialized by parenthesized string literal %qE",
+			 decl, DECL_INITIAL (decl));
 	      init = NULL;
 	    }
 	}
@@ -4644,7 +4649,12 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	  DECL_HARD_REGISTER (decl) = 1;
 	}
       else
-	set_user_assembler_name (decl, asmspec);
+	{
+	  if (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	    set_builtin_user_assembler_name (decl, asmspec);
+	  set_user_assembler_name (decl, asmspec);
+	}
     }
 
   /* Handle non-variables up front.  */
@@ -6735,7 +6745,7 @@ grokdeclarator (const cp_declarator *declarator,
       && ! (ctype && !declspecs->any_specifiers_p))
     {
       error ("declaration of %qD as non-function", dname);
-      return void_type_node;
+      return error_mark_node;
     }
 
   /* Anything declared one level down from the top level

@@ -1784,6 +1784,12 @@ cp_parser_error (cp_parser* parser, const char* message)
       /* This diagnostic makes more sense if it is tagged to the line
 	 of the token we just peeked at.  */
       cp_lexer_set_source_position_from_token (token);
+      if (token->type == CPP_PRAGMA)
+	{
+	  error ("%<#pragma%> is not allowed here"); 
+	  cp_lexer_purge_token (parser->lexer);
+	  return;
+	}
       c_parse_error (message,
 		     /* Because c_parser_error does not understand
 			CPP_KEYWORD, keywords are treated like
@@ -8016,9 +8022,10 @@ cp_parser_template_parameter_list (cp_parser* parser)
       /* Parse the template-parameter.  */
       parameter = cp_parser_template_parameter (parser, &is_non_type);
       /* Add it to the list.  */
-      parameter_list = process_template_parm (parameter_list,
-					      parameter,
-					      is_non_type);
+      if (parameter != error_mark_node)
+	parameter_list = process_template_parm (parameter_list,
+						parameter,
+						is_non_type);
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
       /* If it's not a `,', we're done.  */
@@ -8037,15 +8044,17 @@ cp_parser_template_parameter_list (cp_parser* parser)
      type-parameter
      parameter-declaration
 
-   Returns a TREE_LIST.  The TREE_VALUE represents the parameter.  The
-   TREE_PURPOSE is the default value, if any.  *IS_NON_TYPE is set to
-   true iff this parameter is a non-type parameter.  */
+   If all goes well, returns a TREE_LIST.  The TREE_VALUE represents
+   the parameter.  The TREE_PURPOSE is the default value, if any.
+   Returns ERROR_MARK_NODE on failure.  *IS_NON_TYPE is set to true
+   iff this parameter is a non-type parameter.  */
 
 static tree
 cp_parser_template_parameter (cp_parser* parser, bool *is_non_type)
 {
   cp_token *token;
   cp_parameter_declarator *parameter_declarator;
+  tree parm;
 
   /* Assume it is a type parameter or a template parameter.  */
   *is_non_type = false;
@@ -8094,12 +8103,13 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type)
   parameter_declarator
      = cp_parser_parameter_declaration (parser, /*template_parm_p=*/true,
 					/*parenthesized_p=*/NULL);
-  return (build_tree_list
-	  (parameter_declarator->default_argument,
-	   grokdeclarator (parameter_declarator->declarator,
-			   &parameter_declarator->decl_specifiers,
-			   PARM, /*initialized=*/0,
-			   /*attrlist=*/NULL)));
+  parm = grokdeclarator (parameter_declarator->declarator,
+			 &parameter_declarator->decl_specifiers,
+			 PARM, /*initialized=*/0,
+			 /*attrlist=*/NULL);
+  if (parm == error_mark_node)
+    return error_mark_node;
+  return build_tree_list (parameter_declarator->default_argument, parm);
 }
 
 /* Parse a type-parameter.

@@ -1,3 +1,566 @@
+2004-12-26  Richard Henderson  <rth@redhat.com>
+
+	* simplify-rtx.c (simplify_relational_operation_1): Don't simplify
+	plus/minus across EQ for floating-point.
+	
+2004-12-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/17643
+	* pa.c (pa_function_ok_for_sibcall): Sibcalls are not ok when
+	generating code for the portable runtime.
+
+2004-12-25  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (clear_storage): Validate CONST0_RTX extant.  Special case
+	complex modes.
+
+2004-12-25  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/19078
+	* tree-ssa-loop-ivopts.c (determine_use_iv_cost_generic,
+	determine_use_iv_cost_outer): Fix computing of cost for the original
+	bivs.
+	(dump_use): Handle case related_cands == NULL.
+
+2004-12-25  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	PR target/19059
+	* config/avr/avr.c (avr_mcu_types): Move attiny{13,2313} from avr4
+	to avr2.
+	* config/avr/avr.h (LINK_SPEC): Ditto.
+	* config/avr/t-avr (MULTILIB_MATCHES): Ditto.
+
+2004-12-25  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/19137
+	* config/rs6000/rs6000.md (movti_power, movti_string): Relax
+	operand[1] predicate to input_operand, and add r<-n alternative.
+	Move TImode const_double_operand splitter to where it belongs.
+
+2004-12-25  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/19147
+	* config/rs6000/rs6000.md (andsi3_internal7, andsi3_internal8): Delete.
+
+2004-12-24  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/i386.md (*fix_trunc{d,s,h}i_1):
+	Rename to *fix_trunc{d,s,h}i_i387.
+	(fix_trunc{d,s}fdi2): Reorder tests.
+
+2004-12-24  Daniel Berlin  <dberlin@dberlin.org>
+	
+	Fix PR debug/14638
+
+	* tree.h (DECL_DEBUG_ALIAS_OF): New macro.
+	* var-tracking.c (track_expr_p): Don't disqualify tracking of variables
+	that are aliases of variables we want to track, unless the
+	original variable is also ignored for debugging purposes.
+	(VARIABLE_HASH_VAL): Use DECL_UID, so that this is deterministic.
+ 	* tree-outof-ssa.c (create_temp): Note who we are a debug alias of.
+	* dwarf2out.c (dwarf2out_var_location): Add us to the location of
+	the decl we are an alias of.
+
+2004-12-24  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/19142
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Allow
+	DFmode for 32-bit again.
+
+2004-12-23  Roger Sayle  <roger@eyesopen.com>
+
+	* reload.c (regno_clobbered_p): Add a gcc_assert that regno
+	refers to a hard register.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* gimplify.c (gimplify_modify_expr_rhs): Use types_compatible_p.
+
+2004-12-23  DJ Delorie  <dj@redhat.com>
+
+	* genrecog.c (did_you_mean_codes): New.
+	(compute_predicate_codes): Fail unmatched codes.
+
+2004-12-23  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Add
+	assert for machine=mips for !TARGET_IRIX.
+	* config/mips/linux.h: Remove machine=mips assert.
+	* config/mips/netbsd.h: Ditto.
+	* config/mips/openbsd.h: Ditto.
+
+2004-12-23  Dale Johannesen  <dalej@apple.com>
+
+	* tree.c (iterative_hash_expr):  Canonicalize builtins.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/16819
+	* calls.c (load_register_parameters): Don't call use_regs when
+	nregs is zero.
+
+2004-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/17746
+	* expr.c (get_inner_reference): Add 'keep_aligning' parameter.
+	Break on aligning VIEW_CONVERT_EXPR nodes on STRICT_ALIGNMENT
+	platforms only if keep_aligning is true.
+	(expand_assignment): Adjust call to get_inner_reference.
+	(expand_expr_addr_expr_1): Likewise.
+	(expand_expr_real_1): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* dwarf2out.c (loc_descriptor_from_tree_1): Likewise.
+	* fold-const.c (optimize_bit_field_compare): Likewise.
+	(decode_field_reference): Likewise.
+	(split_address_to_core_and_offset): Likewise.
+	* tree-ssa-loop-ivopts.c (split_address_cost): Likewise.
+	* tree.h (get_inner_reference): Adjust prototype.
+
+2004-12-23  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (override_options): Revert last change
+	wrt fancy 387 math.
+
+2004-12-23  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (one_cmpl<mode>2, and<mode>3, andnot<mode>3,
+	ior<mode>3, iornot<mode>3, xor<mode>3, xornot<mode>3): New macroized
+	vector operate patterns.
+
+2004-12-23  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_vector_move): Tidy.
+	(ix86_expand_vector_move_misalign): New.
+	(ix86_misaligned_mem_ok): Remove.
+	(TARGET_VECTORIZE_MISALIGNED_MEM_OK): Remove.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/i386.md (SSEMODEI): Rename from SSEINT16.
+	(MMXMODEI): Rename from MMXINT8.
+	(SSEMODE, MMXMODE, movmisalign<mode>): New.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16405
+	* gimplify.c (gimplify_modify_expr_rhs): Handle
+	INDIRECT_REF/ADDR_EXPR combinations.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_expand_mov): Split out ...
+	(alpha_expand_movmisalign): ... misaligned vector support.
+	(TARGET_VECTORIZE_MISALIGNED_MEM_OK): Remove.
+	* config/alpha/alpha-protos.h: Update.
+	* config/alpha/alpha.md (VEC): New macro.
+	(movv8qi, movv4hi, movv2si): Compress with VEC.
+	(movv8qi_fix, movv4hi_fix, movv2si_fix): Likewise.
+	(movv8qi_nofix, movv4hi_nofix, movv2si_nofix): Likewise.
+	(movmisalign<mode>): New.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* optabs.h (OTI_movmisalign, movmisalign_optab): New.
+	* optabs.c (init_optabs): Create it.
+	* genopinit.c (optabs): Initialize it.
+	* expr.c (expand_expr_real_1) <MISALIGNED_INDIRECT_REF>: Use it.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Likewise.
+	* target-def.h (TARGET_VECTORIZE_MISALIGNED_MEM_OK): Remove.
+	* target.h (vectorize.misaligned_mem_ok): Remove.
+	* targhooks.c (default_vect_misaligned_mem_ok): Remove.
+	* doc/md.texi (movmisalign): New.
+	* doc/tm.texi (TARGET_VECTORIZE_MISALIGNED_MEM_OK): Remove.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/emmintrin.h (_mm_loadh_pd): Don't cast pointer arg
+	to __v2si.
+	(_mm_storeh_pd, _mm_loadl_pd, _mm_storel_pd): Likewise.
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Use double* or
+	const double* for __builtin_ia32_loadhpd, __builtin_ia32_loadlpd,
+	__builtin_ia32_storehpd, __builtin_ia32_storelpd.
+	(ix86_expand_builtin): Update to match.
+	(ix86_expand_vector_init): Use sse2_loadlpd.
+	* config/i386/i386.md (vec_setv2df): Use sse2_loadlpd, sse2_loadhpd.
+	(vec_extractv2df): Use sse2_storelpd, sse2_storehpd.
+	(sse2_storehpd, sse2_loadhpd, sse2_storelpd, sse2_loadlpd): New.
+	(sse2_movhpd): Remove.
+
+2004-12-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/18751
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Return
+	false for anything larger than 32 bits in 32-bit code.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.md (btsq, btrq, btcq): Fix modes.
+	(bt peepholes): Likewise.
+
+	* varasm.c (force_const_mem): Call set_mem_align.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/predicates.md (sse_comparison_operator): Fix
+	typo in ieee test.
+	(arith_or_logical_operator): Downcase codes.
+
+2004-12-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/18511
+	* reload1.c (emit_output_reload_insns): Check if OLD is a hard
+	register before calling regno_clobbered_p.
+	* reload.c: Update comment for regno_clobbered_p.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (override_options): Respect user disable of
+	fancy 387 math, sse, mmx.
+	(construct_container): Generate error if we need an sse regster
+	and sse has been disabled.
+	* config/i386/i386.h (TARGET_SWITCHES): Disabling sse also disables
+	later sse generations.  Disabling mmx also disables 3dnow.
+
+2004-12-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-inline.c (struct inline_data): Remove inlined_fns.
+	(expand_call_inline): Remove dead code setting
+	inlined_fns.
+	(optimize_inline_calls): Remove dead code setting DECL_INLINED_FNS.
+	* tree.h (struct tree_decl): Remove inlined_fns.
+
+2004-12-22  Roger Sayle  <roger@eyesopen.com>
+
+	* tree-browser.c: Remove obsolete #ifdef HOST_EBCDIC code.
+
+2004-12-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/18896
+	* function.c (split_complex_args): Set DECL_ARTIFICIAL, DECL_IGNORED_P
+	for real and imaginary parts if the parm is addressable.
+	(assign_parms_unsplit_complex): If parm addressable, save real
+	and imaginary parts to a stack temp.  Pass assign_parm_data_all.
+	(assign_parms): Adjust assign_parms_unsplit_complex call.
+
+2004-12-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (DECL_PTA_ALIASVAR): Dead.
+	(struct tree_decl): Remove alias_var field.
+
+2004-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* system.h (IN_RANGE): Restore HOST_WIDE_INT cast.
+	* tree.h (IS_EXPR_CODE_CLASS): Do not use IN_RANGE.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/i386.md (truncdfsf2): Don't create stack temp when
+	using sse math only.  Use truncdfsf2_with_temp.
+	(truncdfsf2_with_temp): New.
+	(truncdfsf_fast_i387): Rename from truncdfsf2_noop.  Add memory
+	output alternative.
+	(truncdfsf_mixed): Rename from truncdfsf2_1_sse.  Compress duplicate
+	alternatives.
+	(truncdfsf_fast_sse): Rename from truncdfsf2_2.  Remove f alternative.
+	(truncdfsf2_3, truncdfsf2_sse_only): Remove.
+	(truncdfsf_i387): Rename from truncdfsf2_1.  Compress duplicates.
+	(truncdfsf_fast_mixed): New.
+	(truncdfsf splitters): Remove all except the 387 load/store split.
+	(truncxfsf2_1, truncxfdf2_1): Unify enable constraint with
+	respect to TARGET_SSE2, TARGET_80387, TARGET_SSE_MATH and
+	TARGET_MIX_SSE_I387.
+	(*truncxf{s,d}f2_1): Rename to *truncxf{s,d}f2_mixed.
+	(truncxf{s,d}f2_noop) Rename to truncxf{d,s}f2_i387_noop.
+	(*truncxf{s,d}f2_i387): New patterns.
+	(*truncxf{s,d}f2_2): Rename to *truncxf{s,d}f2_i387_1.
+	(truncxf{s,d}f2, fmod{s,d}f3, drem{s,d}f3, log1p{s,d}f2,
+	rint{s,d}f2, floor{s,d}f2, ceil{s,d}f2, btrunc{s,d}f2,
+	nearbyint{s,d}f2): Use renamed patterns.
+
+2004-12-22  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* tree.h (TYPE_SIZES_GIMPLIFIED): New.
+	* function.c (gimplify_parm_type): Don't gimplify type if already done.
+	* gimplify.c (gimplify_decl_expr): Likewise.
+	(gimplify_type_sizes): Set TYPE_SIZES_GIMPLIFIED.  Examine nested
+	array types.
+
+2004-12-22  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (eval_save_expr): Remove.
+	(gimplify_one_sizepos): Unshare expr before gimplifying.
+	* stor-layout.c (variable_size): Revert 2004-12-19 change.
+	(layout_decl): Revert 2004-12-18 change.
+	(layout_type): Revert 2004-12-21 change.
+
+2004-12-22  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* tree-sra.c (type_can_be_decomposed_p): Reject variable sized types.
+
+2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (install-common): Remove special-case code for when
+	SPECS is defined.
+
+2004-12-22  Jan Beulich  <jbeulich@novell.com>
+
+	* config.gcc: Add dbxelf.h to NetWare's tm_file.
+	* config/i386/netware-crt0.c: Prototype __init_environment and
+	__deinit_environment prior to their definition.
+	(__init_environment): Correct invokation of constructor function.
+	* config/i386/netware.h (TARGET_OS_CPP_BUILTINS): Use
+	builtin_define_std rather than builtin_define on IAPX386.
+	* config/i386/nwld.h: Disable stabs debugging info with the linker
+	this file supports.
+	* config/i386/t-nwld (SHLIB_LINK): Do not use a temporary file for
+	the output. Add -posix to the options as that is the more compatible
+	mode.
+	* gthr-nks.h: Formatting.
+	(__gthread_mutex_init_function): Kill the dubious use of
+	NX_MUTEX_RECURSIVE as it is now clear that the traditional mutexes
+	were not meant to be recursive.
+	(__gthread_recursive_mutex_t, __GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION,
+	__gthread_recursive_mutex_init_function,
+	__gthread_recursive_mutex_lock, __gthread_recursive_mutex_trylock,
+	__gthread_recursive_mutex_unlock): New.
+
+2004-12-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/t-linux64: Remove code that messed with $(SPECS).
+	(MULTILIB_OPTIONS, MULTILIB_DIRNAMES, MULTILIB_OSDIRNAMES): Move
+	n32 to the front.
+	(MULTILIB_EXTRA_OPTS, CRTSTUFF_T_CFLAGS, CRTSTUFF_T_CFLAGS_S):
+	Removed.
+	* config/mips/linux64.h (DRIVER_SELF_SPECS): Don't handle
+	-mabi-fake-default.
+	(SUBTARGET_TARGET_SWITCHES): Likewise.
+
+2004-12-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18984
+	* pointer-set.c (pointer_set_contains): Add back.
+	* pointer-set.h (pointer_set_contains): Add back.
+
+2004-12-21  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (eval_save_expr): New.
+	(gimplify_one_sizepos): Use it.
+	* stor-layout.c (layout_type): Unshare TYPE_MIN/MAX_VALUE.
+
+2004-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* system.c (IN_RANGE): Use plain unsigned, not unsigned
+	HOST_WIDE_INT.
+	* tree.def (VOID_TYPE, INTEGER_TYPE, REAL_TYPE, COMPLEX_TYPE,
+	VECTOR_TYPE, OFFSET_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, CHAR_TYPE,
+	POINTER_TYPE, REFERENCE_TYPE, METHOD_TYPE, FUNCTION_TYPE,
+	FILE_TYPE, ARRAY_TYPE, RECORD_TYPE, UNION_TYPE,
+	QUAL_UNION_TYPE): Reorder for better code efficiency.
+	(CONST_DECL, TYPE_DECL, VAR_DECL, FIELD_DECL, PARM_DECL): Likewise.
+	(INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF): Likewise.
+	* tree.h (INDIRECT_REF_P): Reorder checks for better optimization.
+	(IS_EXPR_CODE_CLASS): Use IN_RANGE.
+	(INTEGRAL_TYPE_P, FLOAT_TYPE_P): Reorder checks for better
+	optimization.
+
+2004-12-21  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/freebsd-spec.h:  Use KSE pthread lib for -pthread.
+
+2004-12-21  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c/18963
+	* c-decl.c (pushdecl): Remove block trying to merge static function
+	declarations at block scope to file scope declarations.
+
+2004-12-21  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR c/18596
+	* c-parse.in (initdcl): Don't process a declaration if start_decl fails.
+	(notype_initdcl):  Don't process a declaration if start_decl fails.
+	* c-decl.c (start_decl): Fail if grokdeclarator fails.
+	(grokdeclarator): Fail if a function definition has an invalid storage
+	class.
+	* c-typeck.c (start_init): Treat error_mark_node the same as 0.
+
+2004-12-21  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (x86_sse_split_regs): Rename from
+	x86_sse_partial_regs.
+	* config/i386/i386.h (x86_sse_split_regs): Likewise.
+	(TARGET_SSE_SPLIT_REGS): Rename from TARGET_SSE_PARTIAL_REGS.
+	* config/i386/i386.md (*): Update to match.  Remove two
+	floatsisf splitters that use it.
+
+	* config/i386/i386.h (x86_sse_partial_regs_for_cvtsd2ss): Remove.
+
+	* config/i386/i386.c (x86_sse_partial_regs_for_cvtsd2ss): Remove.
+	* config/i386/i386.h (TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS): Remove.
+	* config/i386/i386.md (truncdfsf2_1_sse): Don't test it.
+	(truncdfsf2_2, truncdfsf2_sse_only): Likewise.
+	(truncdfsf2_1_sse_nooverlap, truncdfsf2_2_nooverlap): Remove.
+	(truncdfsf2_sse_only_nooverlap): Remove.
+
+	* config/i386/i386.h (TARGET_SSE_TYPELESS_LOAD0): Remove.
+
+2004-12-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* expr.c (emit_group_load_1): Return the source if the move
+	is a regular move between complex values.
+
+2004-12-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18683
+	* config/rs6000/rs6000.c (current_file_function_operand): Only check
+	current_function_decl's DECL_RTL if it has already been set.
+
+2004-12-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18683
+	* function.c (pop_function_context_from): Don't reset reg_renumber.
+
+2004-12-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/18776
+	* expr.c (write_complex_part): Use a subreg if the original object
+	is a hard reg that spans an even number of regs or a MEM.
+	(read_complex_part): Likewise.
+
+2004-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (install-common): Do not install the specs file
+	unless SPECS is defined.
+
+2004-12-20  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/18942
+	* simplify-rtx.c (simplify_relational_operation_1): Simplify
+	x + cst1 == cst2 to x == cst2 - cst1.  Made static.
+
+2004-12-20  Matt Austern  <austern@apple.com>
+
+	PR c++/19044
+	* c-common.c (set_builtin_user_assembler_name): New.
+	* c-common.h (set_builtin_user_assembler_name): Declare.
+	* c-decl.c (finish_decl): Use set_builtin_user_assembler_name
+
+2004-12-20  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/19080
+
+	Merge from tree-cleanup-branch
+
+	* tree-flow-inline.h (clear_call_clobbered): New function.
+	* tree-ssa-alias.c (init_alias_info): Call it.
+
+2004-12-20  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.md (sse2_movsd): Remove ix86_binary_operator_ok
+	check.
+
+2004-12-20  Steven Bosscher  <stevenb@suse.de>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/18191
+	PR middle-end/18965
+	PR middle-end/18999
+	* expr.c (categorize_ctor_elements_1): Count the total number
+	of elements in the constructor.
+	(categorize_ctor_elements): Return it in a new argument.
+	* tree.h (categorize_ctor_elements): Adjust prototype.
+	* gimplify.c (gimplify_init_ctor_eval_range): New.
+	(gimplify_init_ctor_eval): Gimplify RANGE_EXPR.
+	(gimplify_init_constructor): Block clear the object if the
+	constructor has fewer elements than the object type.  Only try
+	to add assignments to individual elements when we have to.
+
+2004-12-20  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Use
+	long_long_integer_type_node in building V2DI_type_node.
+
+	* config/i386/emmintrin.h: Use __vector_size__ instead of vector_size.
+	* config/i386/mmintrin.h, config/i386/xmmintrin.h: Likewise.
+
+2004-12-20  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/md.texi (Expander Definitions): Use @emph instead of @strong
+	around Note: text to workaround a limitation of the Info format.
+	* doc/cpp.texi (Invocation): Likewise.
+	* doc/cppopts.texi: Likewise.
+
+2004-12-19  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p):  Don't
+	reference operand 1 of ADDR_EXPRs.
+
+2004-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* defaults.h (ASM_OUTPUT_INTERNAL_LABEL): New macro.
+	* output.h (assemble_name_raw): Declare it.
+	* system.h (ASM_OUTPUT_INTERNAL_LABEL): Do not poison it.
+	* varasm.c (assemble_name_raw): New function.
+	(assemble_name): Use it.
+	(default_internal_label): Likewise.
+	* config/darwin.c (darwin_asm_output_dwarf_delta): Likewise.
+	* doc/tm.texi (ASM_OUTPUT_INTERNAL_LABEL): Document.
+
+2004-12-19  Richard Henderson  <rth@redhat.com>
+
+	PR 18067
+	* stor-layout.c (variable_size): Force creation of a SAVE_EXPR.
+
+2003-12-19  Steven Bosscher  <stevenb@suse.de>
+
+	* config/i386/i386.c (ix86_split_to_parts): Use an array with
+	four elements for decoding a CONST_DOUBLE on 64 bits targets.
+
+2004-12-19  Bernardo Innocenti  <bernie@develer.com>
+
+	* config/m68k/m68kemb.h (TARGET_OS_CPP_BUILTINS): Remove redundant
+	definition of mc68000, already present in TARGET_CPU_CPP_BUILTINS.
+
+2004-12-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (can_convert_to_perfect_nest): Make checking
+	match up with what perfect_nestify can actually handle.
+	(perfect_nestify): Don't return false in the phi node loop.
+
+2004-12-18  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.md (SSEINT16): New.
+	(movv16qi, movv8hi, movv4si, movv2di): Compress via macros.
+	(movv16qi_internal, movv8hi_internal, movv4si_internal,
+	movv2di_internal): Compress via macros.  Add SSE zero alternative.
+	Fix pure SSE alternatives to use 'x' instead of 'Y'.
+	(MMXINT8): New.
+	(movv8qi, movv4hi, movv2si, movv8qi_internal, movv4hi_internal,
+	movv2si_internal): Compress via macros.
+	(SSEPUSH, MMXPUSH): New.
+	(pushv18qi, pushv8hi, pushv4si, pushv2di, pushti, pushv4sf, pushv2df,
+	pushv8qi, pushv4hi, pushv2si, pushv2sf): Compress via macros.
+
+2004-12-18  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/16417
+	* c-decl.c (store_parm_decls): Clarify get_pending_sizes insertion
+	comment.
+	* c-objc-common.c (c_cannot_inline_tree_fn): Remove pending sizes
+	checks.
+	* c-tree.h (struct lang_decl): Remove pending_sizes.
+	* function.c: Include tree-gimple.h
+	(assign_parm_setup_reg): Remove callee-copies code.
+	(gimplify_parm_type, gimplify_parameters): New functions.
+	(expand_pending_sizes): Remove.
+	(expand_function_start): Don't call it.
+	* gimplify.c (gimplify_expr): Examine DECL_VALUE_EXPR for PARM_DECL.
+	(gimplify_body): Add do_parms argument.  Use gimplify_parameters.
+	(gimplify_function_tree): Setup cfun.  Update gimplify_body call.
+	* tree-gimple.h (gimplify_body): Update decl.
+	* tree-inline.c (initialize_inlined_parameters): Update gimplify_body
+	call.
+	* tree.h (gimplify_parameters): Declare.
+	* Makefile.in (function.o): Depend on TREE_GIMPLE_H.
+
 2004-12-18  Richard Henderson  <rth@redhat.com>
 
 	* c-decl.c (finish_struct): Add DECL_EXPR for variable sized
@@ -21,17 +584,17 @@
 
 2004-12-18  Zdenek Dvorak  <dvorakz@suse.cz>
 
-        PR tree-optimization/18800
-        * params.def (PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND): New parameter.
-        * tree-ssa-loop-ivopts.c (struct iv_ca): Add n_cands field.
-        (ALWAYS_PRUNE_CAND_SET_BOUND): New macro.
-        (iv_ca_set_no_cp, iv_ca_set_cp, iv_ca_new): Update n_cands field.
-        (iv_ca_delta_join, iv_ca_delta_reverse, iv_ca_n_cands, iv_ca_prune):
-        New functions.
-        (iv_ca_extend): Return number of candidates in the set.
-        (try_add_cand_for): Add argument to iv_ca_extend calls.
-        (try_improve_iv_set): Use iv_ca_prune.
-        * doc/invoke.texi (iv-always-prune-cand-set-bound): Document.
+	PR tree-optimization/18800
+	* params.def (PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND): New parameter.
+	* tree-ssa-loop-ivopts.c (struct iv_ca): Add n_cands field.
+	(ALWAYS_PRUNE_CAND_SET_BOUND): New macro.
+	(iv_ca_set_no_cp, iv_ca_set_cp, iv_ca_new): Update n_cands field.
+	(iv_ca_delta_join, iv_ca_delta_reverse, iv_ca_n_cands, iv_ca_prune):
+	New functions.
+	(iv_ca_extend): Return number of candidates in the set.
+	(try_add_cand_for): Add argument to iv_ca_extend calls.
+	(try_improve_iv_set): Use iv_ca_prune.
+	* doc/invoke.texi (iv-always-prune-cand-set-bound): Document.
 
 2004-12-18  Zdenek Dvorak  <dvorakz@suse.cz>
 

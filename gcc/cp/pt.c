@@ -1738,7 +1738,15 @@ check_explicit_specialization (tree declarator,
   tree dname = DECL_NAME (decl);
   tmpl_spec_kind tsk;
 
-  tsk = current_tmpl_spec_kind (template_count);
+  if (is_friend)
+    {
+      if (!processing_specialization)
+	tsk = tsk_none;
+      else
+	tsk = tsk_excessive_parms;
+    }
+  else
+    tsk = current_tmpl_spec_kind (template_count);
 
   switch (tsk)
     {
@@ -2051,6 +2059,10 @@ check_explicit_specialization (tree declarator,
 		  DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
 		  DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (tmpl))
 		    = DECL_SOURCE_LOCATION (decl);
+		  /* We want to use the argument list specified in the
+		     definition, not in the original declaration.  */
+		  DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (tmpl))
+		    = DECL_ARGUMENTS (decl);
 		}
 	      return tmpl;
 	    }
@@ -8914,9 +8926,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 
 	  if (nt)
 	    {
-	      if (!(complain & tf_error))
-		/*OK*/;
-	      else if (TYPE_ANONYMOUS_P (nt))
+	      if (TYPE_ANONYMOUS_P (nt))
 		error ("%qT uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);

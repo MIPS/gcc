@@ -558,7 +558,7 @@ get_constraint_for_component_ref (tree t)
       return result;
     }
   t = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
-			   &unsignedp, &volatilep);
+			   &unsignedp, &volatilep, false);
   result = get_constraint_for (t);
 
   /* Errf. No point in doing something weird here.  */

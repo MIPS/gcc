@@ -437,7 +437,6 @@ init_alias_info (void)
   if (aliases_computed_p)
     {
       unsigned i;
-      bitmap_iterator bi;
       basic_block bb;
   
      /* Make sure that every statement has a valid set of operands.
@@ -453,19 +452,6 @@ init_alias_info (void)
 	    get_stmt_operands (bsi_stmt (si));
 	}
 
-      /* Clear the call-clobbered set.  We are going to re-discover
-	  call-clobbered variables.  */
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	{
-	  tree var = referenced_var (i);
-
-	  /* Variables that are intrinsically call-clobbered (globals,
-	     local statics, etc) will not be marked by the aliasing
-	     code, so we can't remove them from CALL_CLOBBERED_VARS.  */
-	  if (!is_call_clobbered (var))
-	    bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
-	}
-
       /* Similarly, clear the set of addressable variables.  In this
 	 case, we can just clear the set because addressability is
 	 only computed here.  */
@@ -474,9 +460,26 @@ init_alias_info (void)
       /* Clear flow-insensitive alias information from each symbol.  */
       for (i = 0; i < num_referenced_vars; i++)
 	{
-	  var_ann_t ann = var_ann (referenced_var (i));
+	  tree var = referenced_var (i);
+	  var_ann_t ann = var_ann (var);
+
 	  ann->is_alias_tag = 0;
 	  ann->may_aliases = NULL;
+
+	  /* Since we are about to re-discover call-clobbered
+	     variables, clear the call-clobbered flag.  Variables that
+	     are intrinsically call-clobbered (globals, local statics,
+	     etc) will not be marked by the aliasing code, so we can't
+	     remove them from CALL_CLOBBERED_VARS.  
+
+	     NB: STRUCT_FIELDS are still call clobbered if they are for
+	     a global variable, so we *don't* clear their call clobberedness
+	     just because they are tags, though we will clear it if they
+	     aren't for global variables.  */
+	  if (ann->mem_tag_kind == NAME_TAG 
+	      || ann->mem_tag_kind == TYPE_TAG 
+	      || !is_global_var (var))
+	    clear_call_clobbered (var);
 	}
 
       /* Clear flow-sensitive points-to information from each SSA name.  */
@@ -1617,8 +1620,20 @@ maybe_create_global_var (struct alias_info *ai)
 	tree var = referenced_var (i);
 	if (var != global_var)
 	  {
-	     add_may_alias (var, global_var);
-	     bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	    VEC(tree_on_heap) *vars = NULL;
+	    add_may_alias (var, global_var);
+	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	    if (AGGREGATE_TYPE_P (TREE_TYPE (var))
+		&& TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
+		&& (vars = get_fake_vars_for_var (var)))
+	      {
+		tree v;
+		int i;
+		
+		for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
+		  bitmap_set_bit (vars_to_rename, var_ann (v)->uid);
+		VEC_free (tree_on_heap, vars);		 
+	      }
 	  }
       }
 }
@@ -2823,7 +2838,7 @@ create_overlap_variables_for (tree var)
   VEC(fieldoff_t) *fieldstack = NULL;
   used_part_t up;
   size_t uid = var_ann (var)->uid;
-  
+
   if (used_portions[uid] == NULL)
     return;
 
@@ -2890,17 +2905,19 @@ create_overlap_variables_for (tree var)
 	     was.  */
 	  if (DECL_EXTERNAL (var))
 	    DECL_EXTERNAL (sv->var) = 1;
+	  if (TREE_PUBLIC (var))
+	    TREE_PUBLIC  (sv->var) = 1;
 	  if (TREE_STATIC (var))
 	    TREE_STATIC (sv->var) = 1;
 	  if (TREE_READONLY (fo->field))
 	    TREE_READONLY (sv->var) = 1;
 	  TREE_ADDRESSABLE (sv->var) = 1;
-	  DECL_CONTEXT (sv->var) = current_function_decl;
+	  DECL_CONTEXT (sv->var) = DECL_CONTEXT (var);
 	  ann = get_var_ann (sv->var);
 	  ann->mem_tag_kind = STRUCT_FIELD; 
-	  ann->type_mem_tag = NULL;  
-
+	  ann->type_mem_tag = NULL;  	
 	  add_referenced_tmp_var (sv->var);
+	    
 	  *subvars = sv;
 	  free (fo);
 	}
@@ -2931,7 +2948,7 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	int volatilep;	
 	tree ref;
 	ref = get_inner_reference (*tp, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep);
+				   &unsignedp, &volatilep, false);
 	if (DECL_P (ref) && offset == NULL && bitsize != -1)
 	  {	    
 	    size_t uid = var_ann (ref)->uid;
@@ -3070,14 +3087,15 @@ VEC(tree_on_heap) *
 get_fake_vars_for_var (tree var)
 {
   VEC(tree_on_heap) *result = NULL;
-  subvar_t subvars = lookup_subvars_for_var (var);
-  subvar_t sv = subvars;
+  subvar_t subvars;
+  subvar_t sv;
 
   gcc_assert (SSA_VAR_P (var));  
 
   if (subvars_for_var == NULL)
     return NULL;
-
+  subvars = lookup_subvars_for_var (var);
+  sv = subvars;
   while (sv)
     {
       VEC_safe_push (tree_on_heap, result, sv->var);
@@ -3113,7 +3131,7 @@ get_fake_vars_for_component_ref (tree ref, bool *okay_for_killdef)
     return result;
     
   ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
-			     &unsignedp, &volatilep);
+			     &unsignedp, &volatilep, false);
   if (TREE_CODE (ref) == INDIRECT_REF)
     return result;
   else if (offset == NULL && bitsize != -1)

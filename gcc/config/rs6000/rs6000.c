@@ -2960,7 +2960,8 @@ current_file_function_operand (rtx op,
   return (GET_CODE (op) == SYMBOL_REF
 	  && (DEFAULT_ABI != ABI_AIX || SYMBOL_REF_FUNCTION_P (op))
 	  && (SYMBOL_REF_LOCAL_P (op)
-	      || (op == XEXP (DECL_RTL (current_function_decl), 0))));
+	      || (DECL_RTL_SET_P (current_function_decl)
+		  && op == XEXP (DECL_RTL (current_function_decl), 0))));
 }
 
 /* Return 1 if this operand is a valid input for a move insn.  */
@@ -3323,7 +3324,9 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
-      if (GET_MODE_BITSIZE (mode) > 64)
+      if (GET_MODE_BITSIZE (mode) > 64
+	  || (GET_MODE_BITSIZE (mode) > 32 && !TARGET_POWERPC64
+	      && !(TARGET_HARD_FLOAT && TARGET_FPRS && mode == DFmode)))
 	return false;
 
       return CONSTANT_P (x);

@@ -1,3 +1,114 @@
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17595
+	* parser.c (cp_parser_error): Issue better messages about
+	#pragma in locations where it is not permitted.
+
+	PR c++/17413
+	* pt.c (check_instantiated_args): Remove bogus SFINAE code.
+
+	* cvt.c (convert_to_void): Fix typo in comment.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/18962
+	* pt.c (check_explicit_specialization): Use the argument list from
+	the definition in a template function specialization definition.
+
+2004-12-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18733
+	* pt.c (check_explicit_specialization): Use special logic to validate
+	befriended specializations.
+
+2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtti.c (emit_support_tinfos): Avoid using C99 semantics.
+
+	PR c++/18464
+	* call.c (build_this): In templates, do not bother with
+	build_unary_op.
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications. 
+
+	PR c++/18492
+	* cp-gimplify.c (cp_genericize): Relax assertion.
+
+	PR c++/11224
+	* cvt.c (convert_to_void): Warn about unused values.
+
+	PR c++/18257
+	* rtti.c (emit_support_tinfos): On systems without weak symbols,
+	emit the runtime library type-info objects as non-COMDAT. 
+
+2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18378
+	* call.c (convert_like_real): Do not permit the use of a copy
+	constructor to copy a packed field.
+
+	PR c++/19063
+	* decl.c (grokdeclarator): Return error_mark_node, not
+	void_type_node, to indicate errors.
+	* parser.c (cp_parser_template_parameter_list): Robustify.
+	(cp_parser_template_parameter): Likewise.
+
+	PR c++/19034
+	* tree.c (cp_tree_equal): Handle OVERLOAD.
+
+2004-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (define_label): Use POP_TIMEVAR_AND_RETURN.
+	* name-lookup.c (pushdecl_class_level): Likewise.
+
+2004-12-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* name-lookup.c (pushtag): Add missing POP_TIMEVAR_AND_RETURN.
+
+2004-12-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18984
+	* cp-gimplify.c (cp_genericize_r): Don't insert first but instead
+	check to see if contains the pointer.  Insert the statement before
+	returning.
+
+2004-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14075
+	* decl.c (check_initializer): Check string initializer of array is
+	not parenthesized.
+	* cp-tree.h (PAREN_STRING_LITERAL_P): New.
+	* semantics.c (finish_parenthesized_expr): Mark a STRING_CST.
+	* error.c (dump_expr): <STRING_CST case> Add parens, if needed.
+
+	* cp-tree.def (TEMPLATE_TYPE_PARM,
+	BOUND_TEMPLATE_TEMPLATE_PARM, TYPE_OF_TYPE, TYPENAME_TYPE): Reorder 
+	for better code efficiency.
+	* cp-tree.h (CLASS_TYPE_P): Short circuit IS_AGGR_TYPE check.
+	(CAN_HAVE_FULL_LANG_DECL_P): Reorder for better optimization.
+	(INTEGRAL_CODE_P, CP_INTEGRAL_TYPE_P,
+	INTEGRAL_OR_ENUMERATION_TYPE_P, SCALAR_TYPE_P,
+	CP_AGGREGATE_TYPE_P, TYPE_PTROB_P, TYPE_REF_OBJ_P,
+	TYPE_PTROBV_P): Likewise. 
+
+	PR c++/18975
+	* method.c (do_build_copy_constructor): Refactor. Don't const
+	qualify a mutable field.
+	(do_build_assign_ref): Likewise.
+
+2004-12-20  Matt Austern <austern@apple.com>
+
+	PR c++/19044
+	* decl.c (make_rtl_for_nonlocal_decl): Use
+	set_builtin_user_assembler_name.
+	
+2004-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (note_decl_for_pch): New function.
+	* class.c (build_clone): Call note_decl_for_pch.
+	* semantics.c (finish_member_declaration): Likewise.
+	(note_decl_for_pch): New function.
+
 2004-12-17  Steven Bosscher  <stevenb@suse.de>
 
 	* init.c (build_zero_init): max_index is the number of
