@@ -1,3 +1,8 @@
+2003-01-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa.doxy (OUTPUT_DIRECTORY, INPUT_FILTER): Replace
+	hardwired values for with replaceable strings.
+
 2003-01-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* filter_params.pl: Change most comments to start with /**.
