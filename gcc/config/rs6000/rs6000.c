@@ -115,6 +115,14 @@ const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
 
+const char *rs6000_traceback_name;
+static enum {
+  traceback_default = 0,
+  traceback_none,
+  traceback_part,
+  traceback_full
+} rs6000_traceback;
+
 /* Flag to say the TOC is initialized */
 int toc_initialized;
 char toc_label_name[10];
@@ -533,6 +541,19 @@ rs6000_override_options (default_cpu)
 	rs6000_debug_arg = 1;
       else
 	error ("unknown -mdebug-%s switch", rs6000_debug_name);
+    }
+
+  if (rs6000_traceback_name)
+    {
+      if (! strncmp (rs6000_traceback_name, "full", 4))
+	rs6000_traceback = traceback_full;
+      else if (! strncmp (rs6000_traceback_name, "part", 4))
+	rs6000_traceback = traceback_part;
+      else if (! strncmp (rs6000_traceback_name, "no", 2))
+	rs6000_traceback = traceback_none;
+      else
+	error ("unknown -mtraceback arg `%s'; expecting `full', `partial' or `none'",
+	       rs6000_traceback_name);
     }
 
   /* Set size of long double */
@@ -9814,7 +9835,6 @@ rs6000_output_function_epilogue (file, size)
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   rs6000_stack_t *info = rs6000_stack_info ();
-  int optional_tbtab = (optimize_size || TARGET_ELF) ? 0 : 1;
 
   if (! HAVE_epilogue)
     {
@@ -9867,12 +9887,21 @@ rs6000_output_function_epilogue (file, size)
 
      System V.4 Powerpc's (and the embedded ABI derived from it) use a
      different traceback table.  */
-  if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive)
+  if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
+      && rs6000_traceback != traceback_none)
     {
       const char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
       const char *language_string = lang_hooks.name;
       int fixed_parms = 0, float_parms = 0, parm_info = 0;
       int i;
+      int optional_tbtab;
+
+      if (rs6000_traceback == traceback_full)
+	optional_tbtab = 1;
+      else if (rs6000_traceback == traceback_part)
+	optional_tbtab = 0;
+      else
+	optional_tbtab = !optimize_size && !TARGET_ELF;
 
       while (*fname == '.')	/* V.4 encodes . in the name */
 	fname++;
@@ -10066,7 +10095,6 @@ rs6000_output_function_epilogue (file, size)
 
       fputs ("\t.align 2\n", file);
     }
-  return;
 }
 
 /* A C compound statement that outputs the assembler code for a thunk
