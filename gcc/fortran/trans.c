@@ -365,7 +365,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
   args = gfc_chainon_list (args, tmp);
 
-  tmp = build_int_2 (input_line, 0);
+  tmp = build_int_cst (NULL_TREE, input_line, 0);
   args = gfc_chainon_list (args, tmp);
 
   tmp = gfc_build_function_call (gfor_fndecl_runtime_error, args);
@@ -514,6 +514,10 @@ gfc_trans_code (gfc_code * code)
 
 	case EXEC_GOTO:
 	  res = gfc_trans_goto (code);
+	  break;
+
+	case EXEC_ENTRY:
+	  res = gfc_trans_entry (code);
 	  break;
 
 	case EXEC_PAUSE:
@@ -679,7 +683,7 @@ gfc_generate_module_code (gfc_namespace * ns)
       if (!n->proc_name)
         continue;
 
-      gfc_build_function_decl (n->proc_name);
+      gfc_create_function_decl (n);
     }
 
   for (n = ns->contained; n; n = n->sibling)

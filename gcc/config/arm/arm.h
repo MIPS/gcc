@@ -1857,12 +1857,6 @@ typedef struct
    ((TO) == THUMB_HARD_FRAME_POINTER_REGNUM && TARGET_ARM) ? 0 :	\
    1)
 
-#define THUMB_REG_PUSHED_P(reg)					\
-  (regs_ever_live [reg]						\
-   && (! call_used_regs [reg]					\
-       || (flag_pic && (reg) == PIC_OFFSET_TABLE_REGNUM))	\
-   && !(TARGET_SINGLE_PIC_BASE && ((reg) == arm_pic_register)))
-     
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
@@ -2064,8 +2058,14 @@ typedef struct
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
    arm_asm_output_labelref (FILE, NAME)
 
+/* Set the short-call flag for any function compiled in the current
+   compilation unit.  We skip this for functions with the section
+   attirubte when long-calls are in effect as this tells the compiler
+   that the section might be placed a long way from the caller.
+   See arm_is_longcall_p() for more information.  */
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
-  arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
+  if (!TARGET_LONG_CALLS || ! DECL_SECTION_NAME (DECL)) \
+    arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2217,11 +2217,11 @@ do {							\
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE)						\
   (TARGET_THUMB ? ZERO_EXTEND :						\
    ((arm_arch4 || (MODE) == QImode) ? ZERO_EXTEND			\
-    : ((BYTES_BIG_ENDIAN && (MODE) == HImode) ? SIGN_EXTEND : NIL)))
+    : ((BYTES_BIG_ENDIAN && (MODE) == HImode) ? SIGN_EXTEND : UNKNOWN)))
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -2276,8 +2276,6 @@ extern const char * arm_pic_register_string;
 /* The register number of the register used to address a table of static
    data addresses in memory.  */
 #define PIC_OFFSET_TABLE_REGNUM arm_pic_register
-
-#define FINALIZE_PIC arm_finalize_pic (1)
 
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */

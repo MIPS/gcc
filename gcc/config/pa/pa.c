@@ -1013,15 +1013,13 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		      gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
 				    gen_rtx_HIGH (word_mode, orig)));
       pic_ref
-	= gen_rtx_MEM (Pmode,
-		       gen_rtx_LO_SUM (Pmode, tmp_reg,
-				       gen_rtx_UNSPEC (Pmode,
-						       gen_rtvec (1, orig),
-						       UNSPEC_DLTIND14R)));
+	= gen_const_mem (Pmode,
+		         gen_rtx_LO_SUM (Pmode, tmp_reg,
+				         gen_rtx_UNSPEC (Pmode,
+						         gen_rtvec (1, orig),
+						         UNSPEC_DLTIND14R)));
 
       current_function_uses_pic_offset_table = 1;
-      MEM_NOTRAP_P (pic_ref) = 1;
-      RTX_UNCHANGING_P (pic_ref) = 1;
       mark_reg_pointer (reg, BITS_PER_UNIT);
       insn = emit_move_insn (reg, pic_ref);
 
@@ -1091,7 +1089,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
    This is for CSE to find several similar references, and only use one Z.
 
-   X can either be a SYMBOL_REF or REG, but because combine can not
+   X can either be a SYMBOL_REF or REG, but because combine cannot
    perform a 4->2 combination we do nothing for SYMBOL_REF + D where
    D will not fit in 14 bits.
 
@@ -6119,8 +6117,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
-      u = build_int_2 ((size > 4 ? -8 : -4), -1);
-      u = fold_convert (valist_type, u);
+      u = build_int_cst (valist_type, (size > 4 ? -8 : -4), -1);
       t = build (BIT_AND_EXPR, valist_type, t, u);
 
       t = build (MODIFY_EXPR, valist_type, valist, t);
@@ -8108,13 +8105,13 @@ fmpyaddoperands (rtx *operands)
       && ! rtx_equal_p (operands[3], operands[5]))
     return 0;
 
-  /* Inout operand of add can not conflict with any operands from multiply.  */
+  /* Inout operand of add cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
     return 0;
 
-  /* multiply can not feed into addition operands.  */
+  /* multiply cannot feed into addition operands.  */
   if (rtx_equal_p (operands[4], operands[0])
       || rtx_equal_p (operands[5], operands[0]))
     return 0;
@@ -8274,11 +8271,11 @@ fmpysuboperands (rtx *operands)
   if (! rtx_equal_p (operands[3], operands[4]))
     return 0;
 
-  /* multiply can not feed into subtraction.  */
+  /* multiply cannot feed into subtraction.  */
   if (rtx_equal_p (operands[5], operands[0]))
     return 0;
 
-  /* Inout operand of sub can not conflict with any operands from multiply.  */
+  /* Inout operand of sub cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
@@ -8938,7 +8935,7 @@ pa_can_combine_p (rtx new, rtx anchor, rtx floater, int reversed, rtx dest,
    delay slot of the millicode call -- thus they act more like traditional
    CALL_INSNs.
 
-   Note we can not consider side effects of the insn to be delayed because
+   Note we cannot consider side effects of the insn to be delayed because
    the branch and link insn will clobber the return pointer.  If we happened
    to use the return pointer in the delay slot of the call, then we lose.
 

@@ -44,7 +44,6 @@ static hashval_t list_hash_pieces (tree, tree, tree);
 static hashval_t list_hash (const void *);
 static cp_lvalue_kind lvalue_p_1 (tree, int);
 static tree mark_local_for_remap_r (tree *, int *, void *);
-static tree cp_unsave_r (tree *, int *, void *);
 static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
@@ -235,8 +234,8 @@ build_target_expr (tree decl, tree value)
 {
   tree t;
 
-  t = build (TARGET_EXPR, TREE_TYPE (decl), decl, value,
-	     cxx_maybe_build_cleanup (decl), NULL_TREE);
+  t = build4 (TARGET_EXPR, TREE_TYPE (decl), decl, value,
+	      cxx_maybe_build_cleanup (decl), NULL_TREE);
   /* We always set TREE_SIDE_EFFECTS so that expand_expr does not
      ignore the TARGET_EXPR.  If there really turn out to be no
      side-effects, then the optimizer should be able to get rid of
@@ -301,8 +300,8 @@ build_cplus_new (tree type, tree init)
      type, don't mess with AGGR_INIT_EXPR.  */
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
-      rval = build (AGGR_INIT_EXPR, void_type_node, fn,
-		    TREE_OPERAND (init, 1), slot);
+      rval = build3 (AGGR_INIT_EXPR, void_type_node, fn,
+		     TREE_OPERAND (init, 1), slot);
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
     }
@@ -1155,9 +1154,9 @@ cxx_print_statistics (void)
 tree
 array_type_nelts_top (tree type)
 {
-  return fold (build (PLUS_EXPR, sizetype,
-		      array_type_nelts (type),
-		      integer_one_node));
+  return fold (build2 (PLUS_EXPR, sizetype,
+		       array_type_nelts (type),
+		       integer_one_node));
 }
 
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
@@ -1172,7 +1171,7 @@ array_type_nelts_total (tree type)
   while (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree n = array_type_nelts_top (type);
-      sz = fold (build (MULT_EXPR, sizetype, sz, n));
+      sz = fold (build2 (MULT_EXPR, sizetype, sz, n));
       type = TREE_TYPE (type);
     }
   return sz;
@@ -1365,25 +1364,6 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
 
   va_end (p);
   return t;
-}
-
-/* Returns an INTEGER_CST (of type `int') corresponding to I.
-   Multiple calls with the same value of I may or may not yield the
-   same node; therefore, callers should never modify the node
-   returned.  */
-
-static GTY(()) tree shared_int_cache[256];
-
-tree
-build_shared_int_cst (int i)
-{
-  if (i >= 256)
-    return build_int_2 (i, 0);
-
-  if (!shared_int_cache[i])
-    shared_int_cache[i] = build_int_2 (i, 0);
-
-  return shared_int_cache[i];
 }
 
 tree
@@ -2191,65 +2171,6 @@ mark_local_for_remap_r (tree* tp,
   return NULL_TREE;
 }
 
-/* Called via walk_tree when an expression is unsaved.  Using the
-   splay_tree pointed to by ST (which is really a `splay_tree'),
-   remaps all local declarations to appropriate replacements.  */
-
-static tree
-cp_unsave_r (tree* tp,
-             int* walk_subtrees,
-             void* data)
-{
-  splay_tree st = (splay_tree) data;
-  splay_tree_node n;
-
-  /* Only a local declaration (variable or label).  */
-  if (nonstatic_local_decl_p (*tp))
-    {
-      /* Lookup the declaration.  */
-      n = splay_tree_lookup (st, (splay_tree_key) *tp);
-
-      /* If it's there, remap it.  */
-      if (n)
-	*tp = (tree) n->value;
-    }
-  else if (TREE_CODE (*tp) == SAVE_EXPR)
-    remap_save_expr (tp, st, walk_subtrees);
-  else
-    {
-      copy_tree_r (tp, walk_subtrees, NULL);
-
-      /* Do whatever unsaving is required.  */
-      unsave_expr_1 (*tp);
-    }
-
-  /* Keep iterating.  */
-  return NULL_TREE;
-}
-
-/* Called whenever an expression needs to be unsaved.  */
-
-tree
-cxx_unsave_expr_now (tree tp)
-{
-  splay_tree st;
-
-  /* Create a splay-tree to map old local variable declarations to new
-     ones.  */
-  st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-
-  /* Walk the tree once figuring out what needs to be remapped.  */
-  walk_tree (&tp, mark_local_for_remap_r, st, NULL);
-
-  /* Walk the tree again, copying, remapping, and unsaving.  */
-  walk_tree (&tp, cp_unsave_r, st, NULL);
-
-  /* Clean up.  */
-  splay_tree_delete (st);
-
-  return tp;
-}
-
 /* Returns the kind of special function that DECL (a FUNCTION_DECL)
    is.  Note that sfk_none is zero, so this function can be used as a
    predicate to test whether or not DECL is a special function.  */
@@ -2404,7 +2325,7 @@ stabilize_call (tree call, tree *initp)
 	if (!init)
 	  /* Nothing.  */;
 	else if (inits)
-	  inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	  inits = build2 (COMPOUND_EXPR, void_type_node, inits, init);
 	else
 	  inits = init;
       }

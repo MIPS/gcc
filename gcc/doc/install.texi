@@ -313,7 +313,7 @@ to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.59 (exactly), but the toplevel
 still requires autoconf 2.13 (exactly).
 
-@item automake versions 1.4-gcj and 1.8.5
+@item automake versions 1.8.5 and 1.9.1
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
@@ -323,9 +323,7 @@ file.  Specifically this applies to the @file{gcc}, @file{intl},
 @file{libiberty}, @file{libobjc} directories as well as any
 of their subdirectories.
 
-The Java directory @file{libjava} requires a modified version of
-automake 1.4 downloadable from
-@uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
+The Java directory @file{libjava} requires a automake 1.9.1.
 
 Every other directory requires automake 1.8.5.
 
@@ -1381,16 +1379,6 @@ Do not try to compile and run a test libart program.
 
 Now that GCC is configured, you are ready to build the compiler and
 runtime libraries.
-
-We @strong{highly} recommend that GCC be built using GNU make;
-other versions may work, then again they might not.
-GNU make is required for compiling GNAT (the Ada compiler) and the Java
-runtime library.
-
-(For example, many broken versions of make will fail if you use the
-recommended setup where @var{objdir} is different from @var{srcdir}.
-Other broken versions may recompile parts of the compiler when
-installing the compiler.)
 
 Some commands executed when making the compiler may fail (return a
 nonzero status) and be ignored by @command{make}.  These failures, which
@@ -3419,9 +3407,9 @@ install GCC:
    % export CONFIG_SHELL
 @end smallexample
 
-and then proceed as described in @uref{build.html,,the build instructions},
-where we strongly recommend using GNU make and specifying an absolute path
-to invoke @var{srcdir}/configure.
+and then proceed as described in @uref{build.html,,the build instructions}.
+In addition we strongly recommend specifying an absolute path to invoke
+@var{srcdir}/configure.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
 are needed to use GCC fully, namely @code{SUNWarc},

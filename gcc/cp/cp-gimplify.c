@@ -46,7 +46,7 @@ genericize_try_block (tree *stmt_p)
   else
     gimplify_stmt (&cleanup);
 
-  *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
+  *stmt_p = build2 (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
 
 /* Genericize a HANDLER by converting to a CATCH_EXPR.  */
@@ -60,7 +60,7 @@ genericize_catch_block (tree *stmt_p)
   gimplify_stmt (&body);
 
   /* FIXME should the caught type go in TREE_TYPE?  */
-  *stmt_p = build (CATCH_EXPR, void_type_node, type, body);
+  *stmt_p = build2 (CATCH_EXPR, void_type_node, type, body);
 }
 
 /* Genericize an EH_SPEC_BLOCK by converting it to a
@@ -95,7 +95,7 @@ gimplify_if_stmt (tree *stmt_p)
   if (!else_)
     else_ = build_empty_stmt ();
 
-  stmt = build (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
+  stmt = build3 (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
   *stmt_p = stmt;
 }
 
@@ -210,12 +210,8 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case EMPTY_CLASS_EXPR:
-      {
-	/* Yes, an INTEGER_CST with RECORD_TYPE.  */
-	tree i = build_int_2 (0, 0);
-	TREE_TYPE (i) = TREE_TYPE (*expr_p);
-	*expr_p = i;
-      }
+      /* We create an INTEGER_CST with RECORD_TYPE and value zero.  */
+      *expr_p = build_int_cst (TREE_TYPE (*expr_p), 0, 0);
       ret = GS_OK;
       break;
 
@@ -314,8 +310,11 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
      to lower this construct before scanning it, so we need to lower these
      before doing anything else.  */
   else if (TREE_CODE (stmt) == CLEANUP_STMT)
-    *stmt_p = build (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR,
-		     void_type_node, CLEANUP_BODY (stmt), CLEANUP_EXPR (stmt));
+    *stmt_p = build2 (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR
+					     : TRY_FINALLY_EXPR,
+		      void_type_node,
+		      CLEANUP_BODY (stmt),
+		      CLEANUP_EXPR (stmt));
 
   *slot = *stmt_p;
   return NULL;

@@ -4765,14 +4765,6 @@ comparison operators, so the default returns false always.  Most ports
 don't need to define this macro.
 @end defmac
 
-@defmac TARGET_LIBGCC_FUNCS
-This macro should evaluate to @code{true} if the standard GCC library
-names (like @code{__modsi3}) should be used for functions provided in
-@file{libgcc.a}.  If this macro evaluates to @code{false}, then the
-target must explictily set the names of all desired library functions
-itself using the @code{TARGET_INIT_LIBFUNCS} hook.
-@end defmac
-
 @defmac TARGET_LIB_INT_CMP_BIASED
 This macro should evaluate to @code{true} if the integer comparison
 functions (like @code{__cmpdi2}) return 0 to indicate that the first
@@ -5933,6 +5925,15 @@ example, the function @code{foo} would be placed in @code{.text.foo}.
 Whatever the actual target object format, this is often good enough.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_ASM_FUNCTION_RODATA_SECTION (tree @var{decl})
+Switches to a readonly data section associated with
+@samp{DECL_SECTION_NAME (@var{decl})}.
+The default version of this function switches to @code{.gnu.linkonce.r.name}
+section if function's section is @code{.gnu.linkonce.t.name}, to
+@code{.rodata.name} if function is in @code{.text.name} section
+and otherwise switches to the normal readonly data section.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
 Switches to the appropriate section for output of constant pool entry
 @var{x} in @var{mode}.  You can assume that @var{x} is some kind of
@@ -6795,6 +6796,12 @@ pseudo-op to declare a library function name external.  The name of the
 library function is given by @var{symref}, which is a @code{symbol_ref}.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_ASM_MARK_DECL_PRESERVED (tree @var{decl})
+This target hook is a function to output to @var{asm_out_file} an assembler
+directive to annotate used symbol.  Darwin target use .no_dead_code_strip
+directive.
+@end deftypefn
+
 @defmac ASM_OUTPUT_LABELREF (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} a reference in assembler syntax to a label named
@@ -7558,12 +7565,13 @@ Otherwise, if your target supports this information (if it defines
 or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of
 1.
 
-If this macro is defined to 1, the DWARF 2 unwinder will be the default
-exception handling mechanism; otherwise, @code{setjmp}/@code{longjmp} will be used by
-default.
+If @code{TARGET_UNWIND_INFO} is defined, the target specific unwinder
+will be used in all cases.  Defining this macro will enable the generation
+of DWARF 2 frame debugging information.
 
-If this macro is defined to anything, the DWARF 2 unwinder will be used
-instead of inline unwinders and @code{__unwind_function} in the non-@code{setjmp} case.
+If @code{TARGET_UNWIND_INFO} is not defined, and this macro is defined to 1,
+the DWARF 2 unwinder will be the default exception handling mechanism;
+otherwise, @code{setjmp}/@code{longjmp} will be used by default.
 @end defmac
 
 @defmac TARGET_UNWIND_INFO
@@ -8539,6 +8547,29 @@ patterns.
 
 For each predicate function named in @code{PREDICATE_CODES}, a
 declaration will be generated in @file{insn-codes.h}.
+
+Use of this macro is deprecated; use @code{define_predicate} instead.
+@xref{Defining Predicates}.
+@end defmac
+
+@defmac SPECIAL_MODE_PREDICATES
+Define this if you have special predicates that know special things
+about modes.  Genrecog will warn about certain forms of
+@code{match_operand} without a mode; if the operand predicate is
+listed in @code{SPECIAL_MODE_PREDICATES}, the warning will be
+suppressed.
+
+Here is an example from the IA-32 port (@code{ext_register_operand}
+specially checks for @code{HImode} or @code{SImode} in preparation
+for a byte extraction from @code{%ah} etc.).
+
+@smallexample
+#define SPECIAL_MODE_PREDICATES \
+  "ext_register_operand",
+@end smallexample
+
+Use of this macro is deprecated; use @code{define_special_predicate}
+instead.  @xref{Defining Predicates}.
 @end defmac
 
 @defmac HAS_LONG_COND_BRANCH
@@ -8557,23 +8588,6 @@ conjunction with an optimization that partitions hot and cold basic
 blocks into separate sections of the executable.  If this macro is
 set to false, gcc will convert any unconditional branches that attempt
 to cross between sections into indirect jumps.
-@end defmac
-
-@defmac SPECIAL_MODE_PREDICATES
-Define this if you have special predicates that know special things
-about modes.  Genrecog will warn about certain forms of
-@code{match_operand} without a mode; if the operand predicate is
-listed in @code{SPECIAL_MODE_PREDICATES}, the warning will be
-suppressed.
-
-Here is an example from the IA-32 port (@code{ext_register_operand}
-specially checks for @code{HImode} or @code{SImode} in preparation
-for a byte extraction from @code{%ah} etc.).
-
-@smallexample
-#define SPECIAL_MODE_PREDICATES \
-  "ext_register_operand",
-@end smallexample
 @end defmac
 
 @defmac CASE_VECTOR_MODE
@@ -8635,21 +8649,21 @@ bits outside of @var{mem_mode} to be either the sign-extension or the
 zero-extension of the data read.  Return @code{SIGN_EXTEND} for values
 of @var{mem_mode} for which the
 insn sign-extends, @code{ZERO_EXTEND} for which it zero-extends, and
-@code{NIL} for other modes.
+@code{UNKNOWN} for other modes.
 
 This macro is not called with @var{mem_mode} non-integral or with a width
 greater than or equal to @code{BITS_PER_WORD}, so you may return any
 value in this case.  Do not define this macro if it would always return
-@code{NIL}.  On machines where this macro is defined, you will normally
+@code{UNKNOWN}.  On machines where this macro is defined, you will normally
 define it as the constant @code{SIGN_EXTEND} or @code{ZERO_EXTEND}.
 
-You may return a non-@code{NIL} value even if for some hard registers
+You may return a non-@code{UNKNOWN} value even if for some hard registers
 the sign extension is not performed, if for the @code{REGNO_REG_CLASS}
 of these hard registers @code{CANNOT_CHANGE_MODE_CLASS} returns nonzero
 when the @var{from} mode is @var{mem_mode} and the @var{to} mode is any
 integral mode larger than this but not larger than @code{word_mode}.
 
-You must return @code{NIL} if for some hard registers that allow this
+You must return @code{UNKNOWN} if for some hard registers that allow this
 mode, @code{CANNOT_CHANGE_MODE_CLASS} says that they cannot change to
 @code{word_mode}, but that they can change to another integral mode that
 is larger then @var{mem_mode} but still smaller than @code{word_mode}.

@@ -207,7 +207,7 @@
 ;; unit has a latency of 5 cycles when the results goes to a LS unit (excluding
 ;; store data), otherwise a latency of 1 cycle.
 
-;; ??? We can not handle latencies properly for simple alu instructions
+;; ??? We cannot handle latencies properly for simple alu instructions
 ;; within the DFA pipeline model.  Latencies can be defined only from one
 ;; insn reservation to another.  We can't make them depend on which function
 ;; unit was used.  This isn't a DFA flaw.  There is a conflict here, as we
@@ -390,7 +390,7 @@
 (define_insn_reservation "ir_sb1_mtxfer" 5
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "xfer")
-	    (match_operand 0 "fp_register_operand")))
+	    (match_operand 0 "fpr_operand")))
   "sb1_fp0")
 
 ;; mfc1 latency 1 cycle.  
@@ -398,7 +398,7 @@
 (define_insn_reservation "ir_sb1_mfxfer" 1
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "xfer")
-	    (not (match_operand 0 "fp_register_operand"))))
+	    (not (match_operand 0 "fpr_operand"))))
   "sb1_fp0")
 
 ;; ??? Can deliver at most 1 result per every 6 cycles because of issue
@@ -411,7 +411,7 @@
 		 (eq_attr "sb1_fp_pipes" "two"))))
   "sb1_fp1 | sb1_fp0")
 
-(define_insn_reservation "ir_sb1_divsf_1pipes" 24
+(define_insn_reservation "ir_sb1_divsf_1pipe" 24
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "fdiv")
 	    (and (eq_attr "mode" "SF")
@@ -424,14 +424,48 @@
 (define_insn_reservation "ir_sb1_divdf_2pipes" 32
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "fdiv")
-	    (and (eq_attr "mode" "SF")
+	    (and (eq_attr "mode" "DF")
 		 (eq_attr "sb1_fp_pipes" "two"))))
   "sb1_fp1 | sb1_fp0")
 
 (define_insn_reservation "ir_sb1_divdf_1pipe" 32
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "fdiv")
+	    (and (eq_attr "mode" "DF")
+		 (eq_attr "sb1_fp_pipes" "one"))))
+  "sb1_fp1")
+
+;; ??? Can deliver at most 1 result per every 3 cycles because of issue
+;; restrictions.
+
+(define_insn_reservation "ir_sb1_recipsf_2pipes" 12
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
 	    (and (eq_attr "mode" "SF")
+		 (eq_attr "sb1_fp_pipes" "two"))))
+  "sb1_fp1 | sb1_fp0")
+
+(define_insn_reservation "ir_sb1_recipsf_1pipe" 12
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "SF")
+		 (eq_attr "sb1_fp_pipes" "one"))))
+  "sb1_fp1")
+
+;; ??? Can deliver at most 1 result per every 5 cycles because of issue
+;; restrictions.
+
+(define_insn_reservation "ir_sb1_recipdf_2pipes" 20
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "DF")
+		 (eq_attr "sb1_fp_pipes" "two"))))
+  "sb1_fp1 | sb1_fp0")
+
+(define_insn_reservation "ir_sb1_recipdf_1pipe" 20
+  (and (eq_attr "cpu" "sb1")
+       (and (eq_attr "type" "frdiv")
+	    (and (eq_attr "mode" "DF")
 		 (eq_attr "sb1_fp_pipes" "one"))))
   "sb1_fp1")
 

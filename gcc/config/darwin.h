@@ -109,6 +109,8 @@ Boston, MA 02111-1307, USA.  */
   { "-bundle", "-Zbundle" },  \
   { "-bundle_loader", "-Zbundle_loader" },  \
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
+  { "-dead_strip", "-Zdead_strip" }, \
+  { "-no_dead_strip_inits_and_terms", "-Zno_dead_strip_inits_and_terms" }, \
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", "-Zdynamic" },  \
@@ -251,6 +253,8 @@ extern const char *darwin_one_byte_bool;
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
+   %{Zdead_strip:-dead_strip} \
+   %{Zno_dead_strip_inits_and_terms:-no_dead_strip_inits_and_terms} \
    %{Zdylib_file*:-dylib_file %*} \
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
@@ -655,7 +659,7 @@ SECTION_FUNCTION (objc_selector_refs_section,	\
 		  ".objc_message_refs", 1)	\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
-		  ".section __OBJC, __sel_fixup", 1)	\
+		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_symbols_section,		\
 		  in_objc_symbols,		\
 		  ".objc_symbols", 1)	\
@@ -670,11 +674,11 @@ SECTION_FUNCTION (objc_string_object_section,	\
 		  ".objc_string_object", 1)	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
-		  ".section __OBJC, __cstring_object", 1)	\
+		  ".section __OBJC, __cstring_object, regular, no_dead_strip", 1)	\
 /* Fix-and-Continue image marker.  */		\
 SECTION_FUNCTION (objc_image_info_section,	\
                   in_objc_image_info,		\
-                  ".section __OBJC, __image_info", 1)	\
+                  ".section __OBJC, __image_info, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
 		".objc_class_names", 1)	\
@@ -754,7 +758,8 @@ objc_section_init (void)			\
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
 #undef  TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
-
+#undef  TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
@@ -794,6 +799,9 @@ objc_section_init (void)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%ld", PREFIX, (long)(NUM))
 
+#undef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
+
 /* Since we have a separate readonly data section, define this so that
    jump tables end up in text rather than data.  */
 
@@ -804,8 +812,16 @@ objc_section_init (void)			\
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
    variable has been defined in this translation unit.  */
+
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
+/* Set on a symbol to indicate when fix-and-continue style code
+   generation is being used and the symbol refers to a static symbol
+   that should be rebound from new instances of a translation unit to
+   the original instance of the data.  */
+
+#define MACHO_SYMBOL_STATIC ((SYMBOL_FLAG_MACH_DEP) << 2)
 
 /* Symbolic names for various things we might know about a symbol.  */
 
@@ -890,7 +906,7 @@ enum machopic_addr_class {
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
 #define EH_FRAME_SECTION_NAME   "__TEXT"
-#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
+#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms+live_support"
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \

@@ -263,7 +263,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
--fdump-tree-nrv @gol
+-fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
@@ -318,7 +318,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-lim @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
--ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre @gol
+-ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -409,13 +409,15 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-all_load  -allowable_client  -arch  -arch_errors_fatal @gol
 -arch_only  -bind_at_load  -bundle  -bundle_loader @gol
 -client_name  -compatibility_version  -current_version @gol
+-dead_strip @gol
 -dependency-file  -dylib_file  -dylinker_install_name @gol
 -dynamic  -dynamiclib  -exported_symbols_list @gol
 -filelist  -flat_namespace  -force_cpusubtype_ALL @gol
 -force_flat_namespace  -headerpad_max_install_names @gol
 -image_base  -init  -install_name  -keep_private_externs @gol
 -multi_module  -multiply_defined  -multiply_defined_unused @gol
--noall_load  -nofixprebinding -nomultidefs  -noprebind  -noseglinkedit @gol
+-noall_load   -no_dead_strip_inits_and_terms @gol
+-nofixprebinding -nomultidefs  -noprebind  -noseglinkedit @gol
 -pagezero_size  -prebind  -prebind_all_twolevel_modules @gol
 -private_bundle  -read_only_relocs  -sectalign @gol
 -sectobjectsymbols  -whyload  -seg1addr @gol
@@ -615,10 +617,11 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
+-mhard-float  -msoft-float  -mbackchain  -mno-backchain -mkernel-backchain @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
--mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd}
+-mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
+-mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard}
 
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
@@ -3662,6 +3665,11 @@ Dump each function after applying the named return value optimization on
 generic trees.  The file name is made by appending @file{.nrv} to the source
 file name.
 
+@item vect
+@opindex fdump-tree-vect
+Dump each function after applying vectorization of loops.  The file name is 
+made by appending @file{.vect} to the source file name.
+
 @item all
 @opindex fdump-tree-all
 Enable all the available tree dumps with the flags provided in this option.
@@ -4048,10 +4056,11 @@ release to an another.
 
 @item -fkeep-inline-functions
 @opindex fkeep-inline-functions
-Even if all calls to a given function are integrated, and the function
-is declared @code{static}, nevertheless output a separate run-time
-callable version of the function.  This switch does not affect
-@code{extern inline} functions.
+In C, emit @code{static} functions that are declared @code{inline}
+into the object file, even if the function has been inlined into all
+of its callers.  This switch does not affect functions using the
+@code{extern inline} extension in GNU C.  In C++, emit any and all
+inline functions into the object file.
 
 @item -fkeep-static-consts
 @opindex fkeep-static-consts
@@ -4496,6 +4505,9 @@ enabled by default at -O and higher.
 Perform live range splitting during the SSA->normal phase.  Distinct live
 ranges of a variable are split into unique variables, allowing for better
 optimization later.  This is enabled by default at -O and higher.
+
+@item -ftree-vectorize
+Perform loop vectorization on trees.
 
 @item -ftracer
 @opindex ftracer
@@ -5387,6 +5399,12 @@ interblock scheduling.  The default value is 10.
 @item max-sched-region-insns
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
+
+@item integer-share-limit
+Small integer constants can use a shared data structure, reducing the
+compiler's memory usage and increasing its speed.  This sets the maximum
+value of a shared integer constant's.  The default value is 256.
+
 @end table
 @end table
 
@@ -6999,6 +7017,17 @@ without that switch.  Using this switch may require recompiling all
 other modules in a program, including system libraries.  Use this 
 switch to conform to a non-default data model.
 
+@item -mfix-and-continue
+@itemx -ffix-and-continue
+@itemx -findirect-data
+@opindex mfix-and-continue
+@opindex ffix-and-continue
+@opindex findirect-data
+Generate code suitable for fast turn around development.  Needed to
+enable gdb to dynamically load @code{.o} files into already running
+programs.  @option{-findirect-data} and @option{-ffix-and-continue}
+are provided for backwards compatibility.
+
 @item -all_load
 @opindex all_load
 Loads all members of static archive libraries.
@@ -7030,6 +7059,7 @@ output file being linked. See man ld(1) for more information.
 @itemx -client_name
 @itemx -compatibility_version
 @itemx -current_version
+@itemx -dead_strip
 @itemx -dependency-file
 @itemx -dylib_file
 @itemx -dylinker_install_name
@@ -7049,6 +7079,7 @@ output file being linked. See man ld(1) for more information.
 @itemx -multiply_defined
 @itemx -multiply_defined_unused
 @itemx -noall_load
+@itemx -no_dead_strip_inits_and_terms
 @itemx -nofixprebinding
 @itemx -nomultidefs
 @itemx -noprebind
@@ -7087,6 +7118,7 @@ output file being linked. See man ld(1) for more information.
 @opindex client_name
 @opindex compatibility_version
 @opindex current_version
+@opindex dead_strip
 @opindex dependency-file
 @opindex dylib_file
 @opindex dylinker_install_name
@@ -7106,6 +7138,7 @@ output file being linked. See man ld(1) for more information.
 @opindex multiply_defined
 @opindex multiply_defined_unused
 @opindex noall_load
+@opindex no_dead_strip_inits_and_terms
 @opindex nofixprebinding
 @opindex nomultidefs
 @opindex noprebind
@@ -9968,6 +10001,17 @@ This switch enables or disables the generation of floating point
 operations on the general purpose registers for architectures that
 support it.  This option is currently only available on the MPC8540.
 
+@item -m32
+@itemx -m64
+@opindex m32
+@opindex m64
+Generate code for 32-bit or 64-bit environments of Darwin and SVR4
+targets (including GNU/Linux).  The 32-bit environment sets int, long
+and pointer to 32 bits and generates code that runs on any PowerPC
+variant.  The 64-bit environment sets int to 32 bits and long and
+pointer to 64 bits, and generates code for PowerPC64, as for
+@option{-mpowerpc64}.
+
 @item -mfull-toc
 @itemx -mno-fp-in-toc
 @itemx -mno-sum-in-toc
@@ -10448,13 +10492,27 @@ generates IEEE floating-point instructions.  This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain
+@itemx -mkernel-backchain
 @opindex mbackchain
 @opindex mno-backchain
-Generate (or do not generate) code which maintains an explicit
-backchain within the stack frame that points to the caller's frame.
-This may be needed to allow debugging using tools that do not understand
-DWARF-2 call frame information.  The default is not to generate the
-backchain.
+@opindex mkernel-backchain
+In order to provide a backchain the address of the caller's frame
+is stored within the callee's stack frame.
+A backchain may be needed to allow debugging using tools that do not understand
+DWARF-2 call frame information.
+For @option{-mno-backchain} no backchain is maintained at all which is the 
+default. 
+If one of the other options is present the backchain pointer is placed either 
+on top of the stack frame  (@option{-mkernel-backchain}) or on
+the bottom (@option{-mbackchain}).
+Beside the different backchain location @option{-mkernel-backchain}
+also changes stack frame layout breaking the ABI. This option
+is intended to be used for code which internally needs a backchain but has
+to get by with a limited stack size e.g. the linux kernel. 
+Internal unwinding code not using DWARF-2 info has to be able to locate the
+return address of a function. That will be eased be the fact that
+the return address of a function is placed two words below the backchain 
+pointer.
 
 @item -msmall-exec
 @itemx -mno-small-exec
@@ -10536,6 +10594,34 @@ when compiling for the TPF OS.
 Generate code that uses (does not use) the floating point multiply and
 accumulate instructions.  These instructions are generated by default if
 hardware floating point is used.
+
+@item -mwarn-framesize=@var{framesize}
+@opindex mwarn-framesize
+Emit a warning if the current function exceeds the given frame size.  Because
+this is a compile time check it doesn't need to be a real problem when the program
+runs.  It is intended to identify functions which most probably cause 
+a stack overflow.  It is useful to be used in an environment with limited stack 
+size e.g. the linux kernel.
+
+@item -mwarn-dynamicstack
+@opindex mwarn-dynamicstack
+Emit a warning if the function calls alloca or uses dynamically
+sized arrays.  This is generally a bad idea with a limited stack size.
+
+@item -mstack-guard=@var{stack-guard}
+@item -mstack-size=@var{stack-size}
+@opindex mstack-guard
+@opindex mstack-size
+These arguments always have to be used in conjunction.  If they are present the s390
+back end emits additional instructions in the function prologue which trigger a trap
+if the stack size is @var{stack-guard} bytes above the @var{stack-size} 
+(remember that the stack on s390 grows downward).  These options are intended to 
+be used to help debugging stack overflow problems.  The additionally emitted code 
+cause only little overhead and hence can also be used in production like systems 
+without greater performance degradation.  The given values have to be exact 
+powers of 2 and @var{stack-size} has to be greater than @var{stack-guard}.
+In order to be efficient the extra code makes the assumption that the stack starts
+at an address aligned to the value given by @var{stack-size}.
 @end table
 
 @node SH Options

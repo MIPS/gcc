@@ -85,6 +85,7 @@
 #define MULTIPLE_SYMBOL_SPACES
 
 #define TARGET_ASM_UNIQUE_SECTION arm_pe_unique_section
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 
 #define SUPPORTS_ONE_ONLY 1
 
@@ -197,6 +198,7 @@ switch_to_section (enum in_section section, tree decl)		\
   switch (section)						\
     {								\
       case in_text: text_section (); break;			\
+      case in_unlikely_executed_text: unlikely_text_section (); break; \
       case in_data: data_section (); break;			\
       case in_named: named_section (decl, NULL, 0); break;	\
       case in_readonly_data: readonly_data_section (); break;	\

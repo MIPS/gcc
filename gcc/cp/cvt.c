@@ -261,15 +261,15 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
 
       if (TYPE_PTRMEM_P (type))
-	/* A NULL pointer-to-member is represented by -1, not by
-	   zero.  */
-	expr = build_int_2 (-1, -1);
+	{
+	  /* A NULL pointer-to-member is represented by -1, not by
+	     zero.  */
+	  expr = build_int_cst (type, -1, -1);
+	  /* Fix up the representation of -1 if appropriate.  */
+	  expr = force_fit_type (expr, 0, false, false);
+	}
       else
-	expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
-      
-      /* Fix up the representation of -1 if appropriate.  */
-      expr = force_fit_type (expr, 0, false, false);
+	expr = build_int_cst (type, 0, 0);
       
       return expr;
     }
@@ -810,8 +810,8 @@ convert_to_void (tree expr, const char *implicit)
 	  (op2, (implicit && !TREE_SIDE_EFFECTS (op1)
 		 ? "third operand of conditional" : NULL));
         
-	expr = build (COND_EXPR, TREE_TYPE (new_op1),
-		      TREE_OPERAND (expr, 0), new_op1, new_op2);
+	expr = build3 (COND_EXPR, TREE_TYPE (new_op1),
+		       TREE_OPERAND (expr, 0), new_op1, new_op2);
         break;
       }
     
@@ -825,8 +825,8 @@ convert_to_void (tree expr, const char *implicit)
         
         if (new_op1 != op1)
 	  {
-	    tree t = build (COMPOUND_EXPR, TREE_TYPE (new_op1),
-			    TREE_OPERAND (expr, 0), new_op1);
+	    tree t = build2 (COMPOUND_EXPR, TREE_TYPE (new_op1),
+			     TREE_OPERAND (expr, 0), new_op1);
 	    expr = t;
 	  }
 

@@ -796,7 +796,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 		  p = p->next;
 		}
 
-	      bound = build_int_2 (n - 1, 0);
+	      bound = build_int_cst (NULL_TREE, n - 1, 0);
               /* Create an array type to hold them.  */
 	      tmptype = build_range_type (gfc_array_index_type,
 					  gfc_index_zero_node, bound);
@@ -821,7 +821,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      init = gfc_build_addr_expr (NULL, init);
 
 	      size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type));
-	      bound = build_int_2 (n * size, 0);
+	      bound = build_int_cst (NULL_TREE, n * size, 0);
 	      tmp = gfc_chainon_list (NULL_TREE, tmp);
 	      tmp = gfc_chainon_list (tmp, init);
 	      tmp = gfc_chainon_list (tmp, bound);
@@ -2905,7 +2905,6 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   tree fndecl;
   tree size;
   tree offset;
-  tree args;
   bool onstack;
 
   assert (!(sym->attr.pointer || sym->attr.allocatable));
@@ -2926,15 +2925,9 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
     {
       gfc_trans_init_string_length (sym->ts.cl, &block);
 
-      DECL_DEFER_OUTPUT (decl) = 1;
-
-      /* Generate code to allocate the automatic variable.  It will be
-	 freed automatically.  */
-      tmp = gfc_build_addr_expr (NULL, decl);
-      args = gfc_chainon_list (NULL_TREE, tmp);
-      args = gfc_chainon_list (args, sym->ts.cl->backend_decl);
-      tmp = gfc_build_function_call (built_in_decls[BUILT_IN_STACK_ALLOC],
-				     args);
+      /* Emit a DECL_EXPR for this variable, which will cause the
+	 gimplifier to allocate stoage, and all that good stuff.  */
+      tmp = build (DECL_EXPR, TREE_TYPE (decl), decl);
       gfc_add_expr_to_block (&block, tmp);
     }
 
@@ -3081,6 +3074,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   int n;
   int checkparm;
   int no_repack;
+  bool optional_arg;
 
   /* Do nothing for pointer and allocatable arrays.  */
   if (sym->attr.pointer || sym->attr.allocatable)
@@ -3288,7 +3282,8 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 
   /* Only do the entry/initialization code if the arg is present.  */
   dumdesc = GFC_DECL_SAVED_DESCRIPTOR (tmpdesc);
-  if (sym->attr.optional)
+  optional_arg = sym->attr.optional || sym->ns->proc_name->attr.entry_master;
+  if (optional_arg)
     {
       tmp = gfc_conv_expr_present (sym);
       stmt = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());
@@ -3325,7 +3320,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
       tmp = build (NE_EXPR, boolean_type_node, tmp, tmpdesc);
       stmt = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());
 
-      if (sym->attr.optional)
+      if (optional_arg)
         {
           tmp = gfc_conv_expr_present (sym);
           stmt = build_v (COND_EXPR, tmp, stmt, build_empty_stmt ());

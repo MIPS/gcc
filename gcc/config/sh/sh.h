@@ -106,8 +106,12 @@ do { \
       fixed_regs[regno] = call_used_regs[regno] = 1;			\
   /* R8 and R9 are call-clobbered on SH5, but not on earlier SH ABIs.  */ \
   if (TARGET_SH5)							\
-    call_used_regs[FIRST_GENERAL_REG + 8]				\
-      = call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+    {									\
+      call_used_regs[FIRST_GENERAL_REG + 8]				\
+	= call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+      call_really_used_regs[FIRST_GENERAL_REG + 8]			\
+	= call_really_used_regs[FIRST_GENERAL_REG + 9] = 1;		\
+    }									\
   if (TARGET_SHMEDIA)							\
     {									\
       regno_reg_class[FIRST_GENERAL_REG] = GENERAL_REGS;		\
@@ -115,12 +119,15 @@ do { \
       regno_reg_class[FIRST_FP_REG] = FP_REGS;				\
     }									\
   if (flag_pic)								\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
+    {									\
+      fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
+      call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+    }									\
   /* Renesas saves and restores mac registers on call.  */		\
   if (TARGET_HITACHI && ! TARGET_NOMACSAVE)				\
     {									\
-      call_used_regs[MACH_REG] = 0;					\
-      call_used_regs[MACL_REG] = 0;					\
+      call_really_used_regs[MACH_REG] = 0;				\
+      call_really_used_regs[MACL_REG] = 0;				\
     }									\
   for (regno = FIRST_FP_REG + (TARGET_LITTLE_ENDIAN != 0);		\
        regno <= LAST_FP_REG; regno += 2)				\
@@ -128,12 +135,12 @@ do { \
   if (TARGET_SHMEDIA)							\
     {									\
       for (regno = FIRST_TARGET_REG; regno <= LAST_TARGET_REG; regno ++)\
-	if (! fixed_regs[regno] && call_used_regs[regno])		\
+	if (! fixed_regs[regno] && call_really_used_regs[regno])	\
 	  SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
     }									\
   else									\
     for (regno = FIRST_GENERAL_REG; regno <= LAST_GENERAL_REG; regno++)	\
-      if (! fixed_regs[regno] && call_used_regs[regno])			\
+      if (! fixed_regs[regno] && call_really_used_regs[regno])		\
 	SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
 } while (0)
 
@@ -1220,6 +1227,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 /*"rap" */								\
   1,									\
 }
+
+/* CONDITIONAL_REGISTER_USAGE might want to make a register call-used, yet
+   fixed, like PIC_OFFSET_TABLE_REGNUM.  */
+#define CALL_REALLY_USED_REGISTERS CALL_USED_REGISTERS
 
 /* Only the lower 32-bits of R10-R14 are guaranteed to be preserved
    across SHcompact function calls.  We can't tell whether a called
@@ -2929,13 +2940,13 @@ struct sh_args {
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 /* For SHmedia, we can truncate to QImode easier using zero extension.  */
 /* FP registers can load SImode values, but don't implicitly sign-extend
    them to DImode.  */
 #define LOAD_EXTEND_OP(MODE) \
  (((MODE) == QImode  && TARGET_SHMEDIA) ? ZERO_EXTEND \
-  : (MODE) != SImode ? SIGN_EXTEND : NIL)
+  : (MODE) != SImode ? SIGN_EXTEND : UNKNOWN)
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
@@ -3433,7 +3444,6 @@ extern int rtx_equal_function_value_matters;
   {"target_reg_operand", {SUBREG, REG}},				\
   {"target_operand", {SUBREG, REG, LABEL_REF, SYMBOL_REF, CONST, UNSPEC}},\
   {"trunc_hi_operand", {SUBREG, REG, TRUNCATE}},			\
-  {"register_operand", {SUBREG, REG}},					\
   {"sh_const_vec", {CONST_VECTOR}},					\
   {"sh_1el_vec", {CONST_VECTOR, PARALLEL}},				\
   {"sh_rep_vec", {CONST_VECTOR, PARALLEL}},				\

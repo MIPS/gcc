@@ -703,7 +703,7 @@ gfc_conv_intrinsic_abs (gfc_se * se, gfc_expr * expr)
 {
   tree args;
   tree val;
-  tree fndecl;
+  int n;
 
   args = gfc_conv_intrinsic_function_args (se, expr);
   assert (args && TREE_CHAIN (args) == NULL_TREE);
@@ -720,15 +720,15 @@ gfc_conv_intrinsic_abs (gfc_se * se, gfc_expr * expr)
       switch (expr->ts.kind)
 	{
 	case 4:
-	  fndecl = gfor_fndecl_math_cabsf;
+	  n = BUILT_IN_CABSF;
 	  break;
 	case 8:
-	  fndecl = gfor_fndecl_math_cabs;
+	  n = BUILT_IN_CABS;
 	  break;
 	default:
 	  abort ();
 	}
-      se->expr = gfc_build_function_call (fndecl, args);
+      se->expr = fold (gfc_build_function_call (built_in_decls[n], args));
       break;
 
     default:
@@ -893,15 +893,15 @@ gfc_conv_intrinsic_sign (gfc_se * se, gfc_expr * expr)
       switch (expr->ts.kind)
 	{
 	case 4:
-	  tmp = gfor_fndecl_math_sign4;
+	  tmp = built_in_decls[BUILT_IN_COPYSIGNF];
 	  break;
 	case 8:
-	  tmp = gfor_fndecl_math_sign8;
+	  tmp = built_in_decls[BUILT_IN_COPYSIGN];
 	  break;
 	default:
 	  abort ();
 	}
-      se->expr = gfc_build_function_call (tmp, arg);
+      se->expr = fold (gfc_build_function_call (tmp, arg));
       return;
     }
 
@@ -1760,7 +1760,7 @@ gfc_conv_intrinsic_ibits (gfc_se * se, gfc_expr * expr)
   arg2 = TREE_VALUE (arg2);
   type = TREE_TYPE (arg);
 
-  mask = build_int_2 (-1, ~(unsigned HOST_WIDE_INT) 0);
+  mask = build_int_cst (NULL_TREE, -1, ~(unsigned HOST_WIDE_INT) 0);
   mask = build (LSHIFT_EXPR, type, mask, arg3);
   mask = build1 (BIT_NOT_EXPR, type, mask);
 
@@ -1884,7 +1884,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
   switch (arg->expr_type)
     {
     case EXPR_CONSTANT:
-      len = build_int_2 (arg->value.character.length, 0);
+      len = build_int_cst (NULL_TREE, arg->value.character.length, 0);
       break;
 
     default:
@@ -2329,9 +2329,9 @@ void prepare_arg_info (gfc_se * se, gfc_expr * expr,
 
    /* Caculate the numbers of bits of exponent, fraction and word  */
    n = gfc_validate_kind (a1->ts.type, a1->ts.kind);
-   tmp = build_int_2 (gfc_real_kinds[n].digits - 1, 0);
+   tmp = build_int_cst (NULL_TREE, gfc_real_kinds[n].digits - 1, 0);
    rcs->fdigits = convert (masktype, tmp);
-   wbits = build_int_2 (TYPE_PRECISION (rcs->type) - 1, 0);
+   wbits = build_int_cst (NULL_TREE, TYPE_PRECISION (rcs->type) - 1, 0);
    wbits = convert (masktype, wbits);
    rcs->edigits = fold (build (MINUS_EXPR, masktype, wbits, tmp));
 

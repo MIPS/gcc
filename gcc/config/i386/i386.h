@@ -932,23 +932,25 @@ extern int x86_prefetch_sse;
    and are not available for the register allocator.
    On the 80386, the stack pointer is such, as is the arg pointer.
 
-   The value is a mask - bit 1 is set for fixed registers
-   for 32bit target, while 2 is set for fixed registers for 64bit.
-   Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
+   The value is zero if the register is not fixed on either 32 or
+   64 bit targets, one if the register if fixed on both 32 and 64
+   bit targets, two if it is only fixed on 32bit targets and three
+   if its only fixed on 64bit targets.
+   Proper values are computed in the CONDITIONAL_REGISTER_USAGE.
  */
 #define FIXED_REGISTERS						\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
-{  0, 0, 0, 0, 0, 0, 0, 3, 0,  0,  0,  0,  0,  0,  0,  0,	\
+{  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,	\
 /*arg,flags,fpsr,dir,frame*/					\
-    3,    3,   3,  3,    3,					\
+    1,    1,   1,  1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
-     1,   1,   1,   1,   1,   1,   1,   1,			\
+     2,   2,   2,   2,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     1,   1,    1,    1,    1,    1,    1,    1}
+     2,   2,    2,    2,    2,    2,    2,    2}
 
 
 /* 1 for registers not available across function calls.
@@ -958,23 +960,25 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is a mask - bit 1 is set for call used
-   for 32bit target, while 2 is set for call used for 64bit.
-   Proper value is computed in the CONDITIONAL_REGISTER_USAGE.
+   The value is zero if the register is not fixed on either 32 or
+   64 bit targets, one if the register if fixed on both 32 and 64
+   bit targets, two if it is only fixed on 32bit targets and three
+   if its only fixed on 64bit targets.
+   Proper values are computed in the CONDITIONAL_REGISTER_USAGE.
 */
 #define CALL_USED_REGISTERS					\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
-{  3, 3, 3, 0, 2, 2, 0, 3, 3,  3,  3,  3,  3,  3,  3,  3,	\
+{  1, 1, 1, 0, 3, 3, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,	\
 /*arg,flags,fpsr,dir,frame*/					\
-     3,   3,   3,  3,    3,					\
+     1,   1,   1,  1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
-     3,   3,   3,   3,   3,  3,    3,   3,			\
+     1,   1,   1,   1,   1,  1,    1,   1,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
-     3,   3,   3,   3,   3,   3,   3,   3,			\
+     1,   1,   1,   1,   1,   1,   1,   1,			\
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
-     3,   3,   3,   3,   1,   1,   1,   1,			\
+     1,   1,   1,   1,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     3,   3,    3,    3,    3,    3,    3,    3}		\
+     1,   1,    1,    1,    1,    1,    1,    1}		\
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -1004,9 +1008,11 @@ do {									\
     int i;								\
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)				\
       {									\
-        fixed_regs[i] = (fixed_regs[i] & (TARGET_64BIT ? 2 : 1)) != 0;	\
-        call_used_regs[i] = (call_used_regs[i]				\
-			     & (TARGET_64BIT ? 2 : 1)) != 0;		\
+	if (fixed_regs[i] > 1)						\
+	  fixed_regs[i] = (fixed_regs[i] == (TARGET_64BIT ? 3 : 2));	\
+	if (call_used_regs[i] > 1)					\
+	  call_used_regs[i] = (call_used_regs[i]			\
+			       == (TARGET_64BIT ? 3 : 2));		\
       }									\
     if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
       {									\
@@ -1079,6 +1085,9 @@ do {									\
     (VALID_SSE_REG_MODE (MODE) && TARGET_SSE ? 1			\
      : VALID_MMX_REG_MODE (MODE) && TARGET_MMX ? 1			\
      : VALID_MMX_REG_MODE_3DNOW (MODE) && TARGET_3DNOW ? 1 : 0)
+
+#define UNITS_PER_SIMD_WORD \
+    (TARGET_SSE ? 16 : TARGET_MMX || TARGET_3DNOW ? 8 : 0)
 
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
@@ -1502,10 +1511,10 @@ enum reg_class
    the constraint letter C.  If C is not defined as an extra
    constraint, the value returned should be 0 regardless of VALUE.  */
 
-#define EXTRA_CONSTRAINT(VALUE, D)				\
-  ((D) == 'e' ? x86_64_sign_extended_value (VALUE)		\
-   : (D) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
-   : (D) == 'C' ? standard_sse_constant_p (VALUE)		\
+#define EXTRA_CONSTRAINT(VALUE, D)					\
+  ((D) == 'e' ? x86_64_immediate_operand (VALUE, VOIDmode)		\
+   : (D) == 'Z' ? x86_64_zext_immediate_operand (VALUE, VOIDmode)	\
+   : (D) == 'C' ? standard_sse_constant_p (VALUE)			\
    : 0)
 
 /* Place additional restrictions on the register class to use when it
@@ -2829,94 +2838,6 @@ do {						\
 #define ASM_OPERAND_LETTER '#'
 #define RET return ""
 #define AT_SP(MODE) (gen_rtx_MEM ((MODE), stack_pointer_rtx))
-
-/* Define the codes that are matched by predicates in i386.c.  */
-
-#define PREDICATE_CODES							\
-  {"x86_64_immediate_operand", {CONST_INT, SUBREG, REG,			\
-				SYMBOL_REF, LABEL_REF, CONST}},		\
-  {"x86_64_nonmemory_operand", {CONST_INT, SUBREG, REG,			\
-				SYMBOL_REF, LABEL_REF, CONST}},		\
-  {"x86_64_movabs_operand", {CONST_INT, SUBREG, REG,			\
-				SYMBOL_REF, LABEL_REF, CONST}},		\
-  {"x86_64_szext_nonmemory_operand", {CONST_INT, SUBREG, REG,		\
-				     SYMBOL_REF, LABEL_REF, CONST}},	\
-  {"x86_64_general_operand", {CONST_INT, SUBREG, REG, MEM,		\
-			      SYMBOL_REF, LABEL_REF, CONST}},		\
-  {"x86_64_szext_general_operand", {CONST_INT, SUBREG, REG, MEM,	\
-				   SYMBOL_REF, LABEL_REF, CONST}},	\
-  {"x86_64_zext_immediate_operand", {CONST_INT, CONST_DOUBLE, CONST,	\
-				       SYMBOL_REF, LABEL_REF}},		\
-  {"shiftdi_operand", {SUBREG, REG, MEM}},				\
-  {"const_int_1_31_operand", {CONST_INT}},				\
-  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
-  {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
-		       LABEL_REF, SUBREG, REG, MEM}},			\
-  {"pic_symbolic_operand", {CONST}},					\
-  {"call_insn_operand", {REG, SUBREG, MEM, SYMBOL_REF}},		\
-  {"sibcall_insn_operand", {REG, SUBREG, SYMBOL_REF}},			\
-  {"constant_call_address_operand", {SYMBOL_REF, CONST}},		\
-  {"const0_operand", {CONST_INT, CONST_DOUBLE}},			\
-  {"const1_operand", {CONST_INT}},					\
-  {"const248_operand", {CONST_INT}},					\
-  {"const_0_to_3_operand", {CONST_INT}},				\
-  {"const_0_to_7_operand", {CONST_INT}},				\
-  {"const_0_to_15_operand", {CONST_INT}},				\
-  {"const_0_to_255_operand", {CONST_INT}},				\
-  {"incdec_operand", {CONST_INT}},					\
-  {"mmx_reg_operand", {REG}},						\
-  {"reg_no_sp_operand", {SUBREG, REG}},					\
-  {"general_no_elim_operand", {CONST_INT, CONST_DOUBLE, CONST,		\
-			SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM}},	\
-  {"nonmemory_no_elim_operand", {CONST_INT, REG, SUBREG}},		\
-  {"index_register_operand", {SUBREG, REG}},				\
-  {"flags_reg_operand", {REG}},						\
-  {"q_regs_operand", {SUBREG, REG}},					\
-  {"non_q_regs_operand", {SUBREG, REG}},				\
-  {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU, UNORDERED, \
-				 ORDERED, LT, UNLT, GT, UNGT, LE, UNLE,	\
-				 GE, UNGE, LTGT, UNEQ}},		\
-  {"sse_comparison_operator", {EQ, LT, LE, UNORDERED, NE, UNGE, UNGT,	\
-			       ORDERED, UNEQ, UNLT, UNLE, LTGT, GE, GT	\
-			       }},					\
-  {"ix86_comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU,	\
-			       GTU, UNORDERED, ORDERED, UNLE, UNLT,	\
-			       UNGE, UNGT, LTGT, UNEQ }},		\
-  {"ix86_carry_flag_operator", {LTU, LT, UNLT, GT, UNGT, LE, UNLE,	\
-				 GE, UNGE, LTGT, UNEQ}},		\
-  {"cmp_fp_expander_operand", {CONST_DOUBLE, SUBREG, REG, MEM}},	\
-  {"ext_register_operand", {SUBREG, REG}},				\
-  {"binary_fp_operator", {PLUS, MINUS, MULT, DIV}},			\
-  {"mult_operator", {MULT}},						\
-  {"div_operator", {DIV}},						\
-  {"arith_or_logical_operator", {PLUS, MULT, AND, IOR, XOR, SMIN, SMAX, \
-				 UMIN, UMAX, COMPARE, MINUS, DIV, MOD,	\
-				 UDIV, UMOD, ASHIFT, ROTATE, ASHIFTRT,	\
-				 LSHIFTRT, ROTATERT}},			\
-  {"promotable_binary_operator", {PLUS, MULT, AND, IOR, XOR, ASHIFT}},	\
-  {"memory_displacement_operand", {MEM}},				\
-  {"cmpsi_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
-		     LABEL_REF, SUBREG, REG, MEM, AND}},		\
-  {"long_memory_operand", {MEM}},					\
-  {"tls_symbolic_operand", {SYMBOL_REF}},				\
-  {"global_dynamic_symbolic_operand", {SYMBOL_REF}},			\
-  {"local_dynamic_symbolic_operand", {SYMBOL_REF}},			\
-  {"initial_exec_symbolic_operand", {SYMBOL_REF}},			\
-  {"local_exec_symbolic_operand", {SYMBOL_REF}},			\
-  {"any_fp_register_operand", {REG}},					\
-  {"register_and_not_any_fp_reg_operand", {REG}},			\
-  {"fp_register_operand", {REG}},					\
-  {"register_and_not_fp_reg_operand", {REG}},				\
-  {"zero_extended_scalar_load_operand", {MEM}},				\
-  {"vector_move_operand", {CONST_VECTOR, SUBREG, REG, MEM}},		\
-  {"no_seg_address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF, \
-			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}},
-
-/* A list of predicates that do special things with modes, and so
-   should not elicit warnings for VOIDmode match_operand.  */
-
-#define SPECIAL_MODE_PREDICATES \
-  "ext_register_operand",
 
 /* Which processor to schedule for. The cpu attribute defines a list that
    mirrors this list, so changes to i386.md must be made at the same time.  */

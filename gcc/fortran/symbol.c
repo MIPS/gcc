@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "gfortran.h"
 #include "parse.h"
@@ -1009,37 +1010,7 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 void
 gfc_clear_attr (symbol_attribute * attr)
 {
-
-  attr->allocatable = 0;
-  attr->dimension = 0;
-  attr->external = 0;
-  attr->intrinsic = 0;
-  attr->optional = 0;
-  attr->pointer = 0;
-  attr->save = 0;
-  attr->target = 0;
-  attr->dummy = 0;
-  attr->result = 0;
-  attr->entry = 0;
-  attr->data = 0;
-  attr->use_assoc = 0;
-  attr->in_namelist = 0;
-
-  attr->in_common = 0;
-  attr->function = 0;
-  attr->subroutine = 0;
-  attr->generic = 0;
-  attr->implicit_type = 0;
-  attr->sequence = 0;
-  attr->elemental = 0;
-  attr->pure = 0;
-  attr->recursive = 0;
-
-  attr->access = ACCESS_UNKNOWN;
-  attr->intent = INTENT_UNKNOWN;
-  attr->flavor = FL_UNKNOWN;
-  attr->proc = PROC_UNKNOWN;
-  attr->if_source = IFSRC_UNKNOWN;
+  memset (attr, 0, sizeof(symbol_attribute));
 }
 
 
@@ -1560,7 +1531,7 @@ done:
    symbols are kept in a singly linked list so that we can commit or
    undo the changes at a later time.
 
-   A symtree may point to a symbol node outside of it's namespace.  In
+   A symtree may point to a symbol node outside of its namespace.  In
    this case, that symbol has been used as a host associated variable
    at some previous time.  */
 
@@ -1613,6 +1584,8 @@ gfc_get_namespace (gfc_namespace * parent)
 	  ts->kind = gfc_default_real_kind ();
 	}
     }
+
+  ns->refs = 1;
 
   return ns;
 }
@@ -2227,6 +2200,11 @@ gfc_free_namespace (gfc_namespace * ns)
 
   if (ns == NULL)
     return;
+
+  ns->refs--;
+  if (ns->refs > 0)
+    return;
+  assert (ns->refs == 0);
 
   gfc_free_statements (ns->code);
 

@@ -723,6 +723,8 @@ gfc_init_builtin_functions (void)
 {
   tree mfunc_float[2];
   tree mfunc_double[2];
+  tree func_cfloat_float;
+  tree func_cdouble_double;
   tree ftype;
   tree tmp;
 
@@ -730,11 +732,19 @@ gfc_init_builtin_functions (void)
   mfunc_float[0] = build_function_type (float_type_node, tmp);
   tmp = tree_cons (NULL_TREE, float_type_node, tmp);
   mfunc_float[1] = build_function_type (float_type_node, tmp);
+  
+  tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
+  func_cfloat_float = build_function_type (float_type_node, tmp);
+  
 
   tmp = tree_cons (NULL_TREE, double_type_node, void_list_node);
   mfunc_double[0] = build_function_type (double_type_node, tmp);
   tmp = tree_cons (NULL_TREE, double_type_node, tmp);
   mfunc_double[1] = build_function_type (double_type_node, tmp);
+  
+  
+  tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
+  func_cdouble_double = build_function_type (double_type_node, tmp);
 
 #include "mathbuiltins.def"
 
@@ -748,6 +758,17 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
+  
+  gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
+		      BUILT_IN_CABS, "cabs", true);
+  gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
+		      BUILT_IN_CABSF, "cabsf", true);
+		      
+  
+  gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
+		      BUILT_IN_COPYSIGN, "copysign", true);
+  gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
+		      BUILT_IN_COPYSIGNF, "copysignf", true);
 
   /* These are used to implement the ** operator.  */
   gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
@@ -794,21 +815,23 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
 		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
-		      "stack_alloc", false);
+  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
+     They are inserted during gimplification to implement variable sized
+     stack allocation.  */
 
-  /* The stack_save and stack_restore builtins aren't used directly.  They
-     are inserted during gimplification to implement stack_alloc calls.  */
   ftype = build_function_type (pvoid_type_node, void_list_node);
   gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 		      "stack_save", false);
+
   tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
   ftype = build_function_type (void_type_node, tmp);
   gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
 		      "stack_restore", false);
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+		      "alloca", false);
 }
 
 #undef DEFINE_MATH_BUILTIN
