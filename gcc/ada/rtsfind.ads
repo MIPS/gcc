@@ -450,6 +450,13 @@ package Rtsfind is
      RE_List_Controller,                 -- Ada.Finalization.List_Controller
 
      RE_Interrupt_ID,                    -- Ada.Interrupts
+     RE_Is_Reserved,                     -- Ada.Interrupts
+     RE_Is_Attached,                     -- Ada.Interrupts
+     RE_Current_Handler,                 -- Ada.Interrupts
+     RE_Attach_Handler,                  -- Ada.Interrupts
+     RE_Exchange_Handler,                -- Ada.Interrupts
+     RE_Detach_Handler,                  -- Ada.Interrupts
+     RE_Reference,                       -- Ada.Interrupts
 
      RE_Names,                           -- Ada.Interupts.Names
 
@@ -489,7 +496,7 @@ package Rtsfind is
 
      RE_Abort_Task,                      -- Ada.Task_Identification
      RE_Current_Task,                    -- Ada.Task_Identification
-     RO_AT_Task_ID,                      -- Ada.Task_Identification
+     RO_AT_Task_Id,                      -- Ada.Task_Identification
 
      RO_CA_Time,                         -- Ada.Calendar
 
@@ -1005,11 +1012,16 @@ package Rtsfind is
      RE_Get_Unique_Remote_Pointer,       -- System.Partition_Interface
      RE_RACW_Stub_Type,                  -- System.Partition_Interface
      RE_RACW_Stub_Type_Access,           -- System.Partition_Interface
+     RE_RAS_Proxy_Type,                  -- System.Partition_Interface
+     RE_RAS_Proxy_Type_Access,           -- System.Partition_Interface
      RE_Raise_Program_Error_Unknown_Tag, -- System.Partition_Interface
      RE_Register_Passive_Package,        -- System.Partition_Interface
      RE_Register_Receiving_Stub,         -- System.Partition_Interface
      RE_RCI_Info,                        -- System.Partition_Interface
+     RE_RCI_Subp_Info,                   -- System.Partition_Interface
+     RE_RCI_Subp_Info_Array,             -- System.Partition_Interface
      RE_Subprogram_Id,                   -- System.Partition_Interface
+     RE_Get_RAS_Info,                    -- System.Partition_Interface
 
      RE_Global_Pool_Object,              -- System.Pool_Global
 
@@ -1066,9 +1078,6 @@ package Rtsfind is
      RE_Get_Reference,                   -- System.PolyORB_Interface
      RE_Local_Oid_To_Address,            -- System.PolyORB_Interface
      RE_RCI_Locator,                     -- System.PolyORB_Interface
-     RE_RCI_Subp_Info,                   -- System.PolyORB_Interface
-     RE_RCI_Subp_Info_Array,             -- System.PolyORB_Interface
-     RE_Get_RAS_Ref,                     -- System.PolyORB_Interface
      RE_Asynchronous_P_To_Sync_Scope,    -- System.PolyORB_Interface
      RE_Buffer_Stream_Type,              -- System.PolyORB_Interface
      RE_Allocate_Buffer,                 -- System.PolyORB_Interface
@@ -1151,6 +1160,7 @@ package Rtsfind is
      RE_TC_String,                       -- System.PolyORB_Interface,
      RE_TC_Struct,                       -- System.PolyORB_Interface,
      RE_TC_Union,                        -- System.PolyORB_Interface,
+     RE_TC_Object,                       -- System.PolyORB_Interface,
 
      RE_IS_Is1,                          -- System.Scalar_Values
      RE_IS_Is2,                          -- System.Scalar_Values
@@ -1256,13 +1266,15 @@ package Rtsfind is
 
      RE_Task_Procedure_Access,           -- System.Tasking
 
-     RO_ST_Task_ID,                      -- System.Tasking
+     RO_ST_Task_Id,                      -- System.Tasking
 
      RE_Call_Modes,                      -- System.Tasking
      RE_Simple_Call,                     -- System.Tasking
      RE_Conditional_Call,                -- System.Tasking
      RE_Asynchronous_Call,               -- System.Tasking
      RE_Timed_Call,                      -- System.Tasking
+
+     RE_Ada_Task_Control_Block,          -- System.Tasking
 
      RE_Task_List,                       -- System.Tasking
 
@@ -1522,6 +1534,13 @@ package Rtsfind is
      RE_List_Controller                  => Ada_Finalization_List_Controller,
 
      RE_Interrupt_ID                     => Ada_Interrupts,
+     RE_Is_Reserved                      => Ada_Interrupts,
+     RE_Is_Attached                      => Ada_Interrupts,
+     RE_Current_Handler                  => Ada_Interrupts,
+     RE_Attach_Handler                   => Ada_Interrupts,
+     RE_Exchange_Handler                 => Ada_Interrupts,
+     RE_Detach_Handler                   => Ada_Interrupts,
+     RE_Reference                        => Ada_Interrupts,
 
      RE_Names                            => Ada_Interrupts_Names,
 
@@ -1561,7 +1580,7 @@ package Rtsfind is
 
      RE_Abort_Task                       => Ada_Task_Identification,
      RE_Current_Task                     => Ada_Task_Identification,
-     RO_AT_Task_ID                       => Ada_Task_Identification,
+     RO_AT_Task_Id                       => Ada_Task_Identification,
 
      RO_CA_Time                          => Ada_Calendar,
      RO_CA_Delay_For                     => Ada_Calendar_Delays,
@@ -2075,11 +2094,16 @@ package Rtsfind is
      RE_Get_Unique_Remote_Pointer        => System_Partition_Interface,
      RE_RACW_Stub_Type                   => System_Partition_Interface,
      RE_RACW_Stub_Type_Access            => System_Partition_Interface,
+     RE_RAS_Proxy_Type                   => System_Partition_Interface,
+     RE_RAS_Proxy_Type_Access            => System_Partition_Interface,
      RE_Raise_Program_Error_Unknown_Tag  => System_Partition_Interface,
      RE_Register_Passive_Package         => System_Partition_Interface,
      RE_Register_Receiving_Stub          => System_Partition_Interface,
      RE_RCI_Info                         => System_Partition_Interface,
+     RE_RCI_Subp_Info                    => System_Partition_Interface,
+     RE_RCI_Subp_Info_Array              => System_Partition_Interface,
      RE_Subprogram_Id                    => System_Partition_Interface,
+     RE_Get_RAS_Info                     => System_Partition_Interface,
 
      RE_To_PolyORB_String                => System_PolyORB_Interface,
      RE_To_Standard_String               => System_PolyORB_Interface,
@@ -2124,9 +2148,6 @@ package Rtsfind is
      RE_Get_Reference                    => System_PolyORB_Interface,
      RE_Local_Oid_To_Address             => System_PolyORB_Interface,
      RE_RCI_Locator                      => System_PolyORB_Interface,
-     RE_RCI_Subp_Info                    => System_PolyORB_Interface,
-     RE_RCI_Subp_Info_Array              => System_PolyORB_Interface,
-     RE_Get_RAS_Ref                      => System_PolyORB_Interface,
      RE_Asynchronous_P_To_Sync_Scope     => System_PolyORB_Interface,
      RE_Buffer_Stream_Type               => System_PolyORB_Interface,
      RE_Allocate_Buffer                  => System_PolyORB_Interface,
@@ -2209,6 +2230,7 @@ package Rtsfind is
      RE_TC_String                        => System_PolyORB_Interface,
      RE_TC_Struct                        => System_PolyORB_Interface,
      RE_TC_Union                         => System_PolyORB_Interface,
+     RE_TC_Object                        => System_PolyORB_Interface,
 
      RE_Global_Pool_Object               => System_Pool_Global,
 
@@ -2326,13 +2348,15 @@ package Rtsfind is
 
      RE_Task_Procedure_Access            => System_Tasking,
 
-     RO_ST_Task_ID                       => System_Tasking,
+     RO_ST_Task_Id                       => System_Tasking,
 
      RE_Call_Modes                       => System_Tasking,
      RE_Simple_Call                      => System_Tasking,
      RE_Conditional_Call                 => System_Tasking,
      RE_Asynchronous_Call                => System_Tasking,
      RE_Timed_Call                       => System_Tasking,
+
+     RE_Ada_Task_Control_Block           => System_Tasking,
 
      RE_Task_List                        => System_Tasking,
 
@@ -2681,7 +2705,7 @@ package Rtsfind is
    --
    --  If RTE returns, the returned value is the required entity
    --
-   --  If the entity is not available, then an error message is given The
+   --  If the entity is not available, then an error message is given. The
    --  form of the message depends on whether we are in configurable run time
    --  mode or not. In configurable run time mode, a missing entity is not
    --  that surprising and merely says that the particular construct is not
@@ -2717,6 +2741,9 @@ package Rtsfind is
    --  Returns true if indicated unit has already been successfully loaded.
    --  If the unit has not been loaded, returns False. Note that this does
    --  not mean that an attempt to load it subsequently would fail.
+
+   procedure Set_RTU_Loaded (N : Node_Id);
+   --  Register the predefined unit N as already loaded.
 
    procedure Text_IO_Kludge (Nam : Node_Id);
    --  In Ada 83, and hence for compatibility in Ada 9X, package Text_IO has

@@ -58,7 +58,7 @@ with System.Parameters;
 
 with System.Tasking;
 --  used for Ada_Task_Control_Block
---           Task_ID
+--           Task_Id
 
 with System.Soft_Links;
 --  used for Defer/Undefer_Abort
@@ -67,7 +67,7 @@ with System.Soft_Links;
 --  Note that we do not use System.Tasking.Initialization directly since
 --  this is a higher level package that we shouldn't depend on. For example
 --  when using the restricted run time, it is replaced by
---  System.Tasking.Restricted.Initialization
+--  System.Tasking.Restricted.Stages.
 
 with System.OS_Primitives;
 --  used for Delay_Modes
@@ -98,8 +98,8 @@ package body System.Task_Primitives.Operations is
    -- Local Data --
    ----------------
 
-   Environment_Task_ID : Task_ID;
-   --  A variable to hold Task_ID for the environment task.
+   Environment_Task_Id : Task_Id;
+   --  A variable to hold Task_Id for the environment task.
 
    Single_RTS_Lock : aliased RTS_Lock;
    --  This is a lock to allow only one thread of control in the RTS at
@@ -137,7 +137,7 @@ package body System.Task_Primitives.Operations is
       pragma Inline (Is_Valid_Task);
       --  Does executing thread have a TCB?
 
-      procedure Set (Self_Id : Task_ID);
+      procedure Set (Self_Id : Task_Id);
       pragma Inline (Set);
       --  Set the self id for the current task.
 
@@ -150,7 +150,7 @@ package body System.Task_Primitives.Operations is
          return TlsGetValue (TlsIndex) /= System.Null_Address;
       end Is_Valid_Task;
 
-      procedure Set (Self_Id : Task_ID) is
+      procedure Set (Self_Id : Task_Id) is
          Succeeded : BOOL;
       begin
          Succeeded := TlsSetValue (TlsIndex, To_Address (Self_Id));
@@ -163,11 +163,11 @@ package body System.Task_Primitives.Operations is
    -- Support for foreign threads --
    ---------------------------------
 
-   function Register_Foreign_Thread (Thread : Thread_Id) return Task_ID;
+   function Register_Foreign_Thread (Thread : Thread_Id) return Task_Id;
    --  Allocate and Initialize a new ATCB for the current Thread.
 
    function Register_Foreign_Thread
-     (Thread : Thread_Id) return Task_ID is separate;
+     (Thread : Thread_Id) return Task_Id is separate;
 
    ----------------------------------
    -- Condition Variable Functions --
@@ -346,7 +346,7 @@ package body System.Task_Primitives.Operations is
    --  bottom of a thread stack, so nothing is needed.
    --  ??? Check the comment above
 
-   procedure Stack_Guard (T : ST.Task_ID; On : Boolean) is
+   procedure Stack_Guard (T : ST.Task_Id; On : Boolean) is
       pragma Warnings (Off, T);
       pragma Warnings (Off, On);
 
@@ -358,7 +358,7 @@ package body System.Task_Primitives.Operations is
    -- Get_Thread_Id  --
    --------------------
 
-   function Get_Thread_Id (T : ST.Task_ID) return OSI.Thread_Id is
+   function Get_Thread_Id (T : ST.Task_Id) return OSI.Thread_Id is
    begin
       return T.Common.LL.Thread;
    end Get_Thread_Id;
@@ -367,8 +367,8 @@ package body System.Task_Primitives.Operations is
    -- Self --
    ----------
 
-   function Self return Task_ID is
-      Self_Id : constant Task_ID := To_Task_ID (TlsGetValue (TlsIndex));
+   function Self return Task_Id is
+      Self_Id : constant Task_Id := To_Task_Id (TlsGetValue (TlsIndex));
    begin
       if Self_Id = null then
          return Register_Foreign_Thread (GetCurrentThread);
@@ -400,7 +400,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level) is
       pragma Unreferenced (Level);
-
    begin
       InitializeCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
    end Initialize_Lock;
@@ -447,7 +446,7 @@ package body System.Task_Primitives.Operations is
       end if;
    end Write_Lock;
 
-   procedure Write_Lock (T : Task_ID) is
+   procedure Write_Lock (T : Task_Id) is
    begin
       if not Single_Lock then
          EnterCriticalSection
@@ -480,7 +479,7 @@ package body System.Task_Primitives.Operations is
       end if;
    end Unlock;
 
-   procedure Unlock (T : Task_ID) is
+   procedure Unlock (T : Task_Id) is
    begin
       if not Single_Lock then
          LeaveCriticalSection
@@ -493,7 +492,7 @@ package body System.Task_Primitives.Operations is
    -----------
 
    procedure Sleep
-     (Self_ID : Task_ID;
+     (Self_ID : Task_Id;
       Reason  : System.Tasking.Task_States)
    is
       pragma Unreferenced (Reason);
@@ -524,7 +523,7 @@ package body System.Task_Primitives.Operations is
    --  holding its own ATCB lock.
 
    procedure Timed_Sleep
-     (Self_ID  : Task_ID;
+     (Self_ID  : Task_Id;
       Time     : Duration;
       Mode     : ST.Delay_Modes;
       Reason   : System.Tasking.Task_States;
@@ -585,7 +584,7 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    procedure Timed_Delay
-     (Self_ID  : Task_ID;
+     (Self_ID  : Task_Id;
       Time     : Duration;
       Mode     : ST.Delay_Modes)
    is
@@ -659,9 +658,8 @@ package body System.Task_Primitives.Operations is
    -- Wakeup --
    ------------
 
-   procedure Wakeup (T : Task_ID; Reason : System.Tasking.Task_States) is
+   procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
-
    begin
       Cond_Signal (T.Common.LL.CV'Access);
    end Wakeup;
@@ -692,7 +690,7 @@ package body System.Task_Primitives.Operations is
    --  scheduling.
 
    procedure Set_Priority
-     (T                   : Task_ID;
+     (T                   : Task_Id;
       Prio                : System.Any_Priority;
       Loss_Of_Inheritance : Boolean := False)
    is
@@ -740,7 +738,7 @@ package body System.Task_Primitives.Operations is
    -- Get_Priority --
    ------------------
 
-   function Get_Priority (T : Task_ID) return System.Any_Priority is
+   function Get_Priority (T : Task_Id) return System.Any_Priority is
    begin
       return T.Common.Current_Priority;
    end Get_Priority;
@@ -762,7 +760,7 @@ package body System.Task_Primitives.Operations is
    --  set in System.Task_Primitives.Operations.Create_Task during the
    --  thread creation.
 
-   procedure Enter_Task (Self_ID : Task_ID) is
+   procedure Enter_Task (Self_ID : Task_Id) is
       procedure Init_Float;
       pragma Import (C, Init_Float, "__gnat_init_float");
       --  Properly initializes the FPU for x86 systems.
@@ -790,7 +788,7 @@ package body System.Task_Primitives.Operations is
    -- New_ATCB --
    --------------
 
-   function New_ATCB (Entry_Num : Task_Entry_Index) return Task_ID is
+   function New_ATCB (Entry_Num : Task_Entry_Index) return Task_Id is
    begin
       return new Ada_Task_Control_Block (Entry_Num);
    end New_ATCB;
@@ -805,7 +803,7 @@ package body System.Task_Primitives.Operations is
    -- Register_Foreign_Thread --
    -----------------------------
 
-   function Register_Foreign_Thread return Task_ID is
+   function Register_Foreign_Thread return Task_Id is
    begin
       if Is_Valid_Task then
          return Self;
@@ -818,7 +816,7 @@ package body System.Task_Primitives.Operations is
    -- Initialize_TCB --
    --------------------
 
-   procedure Initialize_TCB (Self_ID : Task_ID; Succeeded : out Boolean) is
+   procedure Initialize_TCB (Self_ID : Task_Id; Succeeded : out Boolean) is
    begin
       --  Initialize thread ID to 0, this is needed to detect threads that
       --  are not yet activated.
@@ -839,7 +837,7 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    procedure Create_Task
-     (T          : Task_ID;
+     (T          : Task_Id;
       Wrapper    : System.Address;
       Stack_Size : System.Parameters.Size_Type;
       Priority   : System.Any_Priority;
@@ -848,28 +846,17 @@ package body System.Task_Primitives.Operations is
       hTask          : HANDLE;
       TaskId         : aliased DWORD;
       pTaskParameter : System.OS_Interface.PVOID;
-      dwStackSize    : DWORD;
       Result         : DWORD;
       Entry_Point    : PTHREAD_START_ROUTINE;
 
    begin
       pTaskParameter := To_Address (T);
 
-      if Stack_Size = Unspecified_Size then
-         dwStackSize := DWORD (Default_Stack_Size);
-
-      elsif Stack_Size < Minimum_Stack_Size then
-         dwStackSize := DWORD (Minimum_Stack_Size);
-
-      else
-         dwStackSize := DWORD (Stack_Size);
-      end if;
-
       Entry_Point := To_PTHREAD_START_ROUTINE (Wrapper);
 
       hTask := CreateThread
          (null,
-          dwStackSize,
+          DWORD (Adjust_Storage_Size (Stack_Size)),
           Entry_Point,
           pTaskParameter,
           DWORD (Create_Suspended),
@@ -909,14 +896,14 @@ package body System.Task_Primitives.Operations is
    -- Finalize_TCB --
    ------------------
 
-   procedure Finalize_TCB (T : Task_ID) is
-      Self_ID   : Task_ID := T;
+   procedure Finalize_TCB (T : Task_Id) is
+      Self_ID   : Task_Id := T;
       Result    : DWORD;
       Succeeded : BOOL;
       Is_Self   : constant Boolean := T = Self;
 
       procedure Free is new
-        Unchecked_Deallocation (Ada_Task_Control_Block, Task_ID);
+        Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
 
    begin
       if not Single_Lock then
@@ -960,8 +947,8 @@ package body System.Task_Primitives.Operations is
    -- Abort_Task --
    ----------------
 
-   procedure Abort_Task (T : Task_ID) is
-   pragma Unreferenced (T);
+   procedure Abort_Task (T : Task_Id) is
+      pragma Unreferenced (T);
    begin
       null;
    end Abort_Task;
@@ -970,9 +957,9 @@ package body System.Task_Primitives.Operations is
    -- Environment_Task --
    ----------------------
 
-   function Environment_Task return Task_ID is
+   function Environment_Task return Task_Id is
    begin
-      return Environment_Task_ID;
+      return Environment_Task_Id;
    end Environment_Task;
 
    --------------
@@ -997,12 +984,12 @@ package body System.Task_Primitives.Operations is
    -- Initialize --
    ----------------
 
-   procedure Initialize (Environment_Task : Task_ID) is
+   procedure Initialize (Environment_Task : Task_Id) is
       Discard : BOOL;
       pragma Unreferenced (Discard);
 
    begin
-      Environment_Task_ID := Environment_Task;
+      Environment_Task_Id := Environment_Task;
 
       if Time_Slice_Val = 0 or else FIFO_Within_Priorities then
 
@@ -1053,9 +1040,8 @@ package body System.Task_Primitives.Operations is
    --  Dummy versions.  The only currently working versions is for solaris
    --  (native).
 
-   function Check_Exit (Self_ID : ST.Task_ID) return Boolean is
+   function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
-
    begin
       return True;
    end Check_Exit;
@@ -1064,9 +1050,8 @@ package body System.Task_Primitives.Operations is
    -- Check_No_Locks --
    --------------------
 
-   function Check_No_Locks (Self_ID : ST.Task_ID) return Boolean is
+   function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
-
    begin
       return True;
    end Check_No_Locks;
@@ -1076,7 +1061,7 @@ package body System.Task_Primitives.Operations is
    ------------------
 
    function Suspend_Task
-     (T           : ST.Task_ID;
+     (T           : ST.Task_Id;
       Thread_Self : Thread_Id) return Boolean
    is
    begin
@@ -1092,7 +1077,7 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    function Resume_Task
-     (T           : ST.Task_ID;
+     (T           : ST.Task_Id;
       Thread_Self : Thread_Id) return Boolean
    is
    begin

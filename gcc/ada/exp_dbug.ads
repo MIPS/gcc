@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -99,23 +99,19 @@ package Exp_Dbug is
       --  subprograms, since overloading can legitimately result in a
       --  case of two entities with exactly the same fully qualified names.
       --  To distinguish between entries in a set of overloaded subprograms,
-      --  the encoded names are serialized by adding one of the suffixes:
+      --  the encoded names are serialized by adding the suffix:
 
-      --    $n    (dollar sign)
       --    __nn  (two underscores)
 
       --  where nn is a serial number (2 for the second overloaded function,
-      --  2 for the third, etc.). We use $ if this symbol is allowed, and
-      --  double underscore if it is not. In the remaining examples in this
-      --  section, we use a $ sign, but the $ is replaced by __ throughout
-      --  these examples if $ sign is not available. A suffix of $1 is
-      --  always omitted (i.e. no suffix implies the first instance).
+      --  3 for the third, etc.). A suffix of __1 is always omitted (i.e. no
+      --  suffix implies the first instance).
 
       --  These names are prefixed by the normal full qualification. So
       --  for example, the third instance of the subprogram qrs in package
       --  yz would have the name:
 
-      --    yz__qrs$3
+      --    yz__qrs__3
 
       --  A more subtle case arises with entities declared within overloaded
       --  subprograms. If we have two overloaded subprograms, and both declare
@@ -128,7 +124,7 @@ package Exp_Dbug is
       --  we are talking about. For this purpose, we use a more complex suffix
       --  which has the form:
 
-      --    $nn_nn_nn ...
+      --    __nn_nn_nn ...
 
       --  where the nn values are the homonym numbers as needed for any of
       --  the qualifying entities, separated by a single underscore. If all
@@ -141,13 +137,13 @@ package Exp_Dbug is
       --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv
       --      begin ... end Qrs;
 
-      --      procedure Qrs (X: Int) is      -- Name is yz__qrs$2
-      --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv$2_1
-      --        procedure Tuv (X: Int) is    -- Name is yz__qrs__tuv$2_2
+      --      procedure Qrs (X: Int) is      -- Name is yz__qrs__2
+      --        procedure Tuv is ... end;    -- Name is yz__qrs__tuv__2_1
+      --        procedure Tuv (X: Int) is    -- Name is yz__qrs__tuv__2_2
       --        begin ... end Tuv;
 
-      --        procedure Tuv (X: Float) is  -- Name is yz__qrs__tuv$2_3
-      --          type m is new float;       -- Name is yz__qrs__tuv__m$2_3
+      --        procedure Tuv (X: Float) is  -- Name is yz__qrs__tuv__2_3
+      --          type m is new float;       -- Name is yz__qrs__tuv__m__2_3
       --        begin ... end Tuv;
       --      begin ... end Qrs;
       --    end Yz;
@@ -498,18 +494,26 @@ package Exp_Dbug is
 
       --  In this case the compile generates a structure type y___PAD, which
       --  has a single field whose name is F. This single field is 64 bits
-      --  long and contains the actual value.
+      --  long and contains the actual value. This kind of padding is used
+      --  when the logical value to be stored is shorter than the object in
+      --  which it is allocated. For example if a size clause is used to set
+      --  a size of 256 for a signed integer value, then a typical choice is
+      --  to wrap a 64-bit integer in a 256 bit PAD structure.
 
       --  A similar encapsulation is done for some packed array types,
-      --  in which case the structure type is y___LJM and the field name
-      --  is OBJECT.
+      --  in which case the structure type is y___JM and the field name
+      --  is OBJECT. This is used in the case of a packed array stored
+      --  in modular representation (see section on representation of
+      --  packed array objects). In this case the JM wrapping is used to
+      --  achieve correct positioning of the packed array value (left or
+      --  right justified in its field depending on endianness.
 
       --  When the debugger sees an object of a type whose name has a
-      --  suffix not otherwise mentioned in this specification, the type
-      --  is a record containing a single field, and the name of that field
-      --  is all upper-case letters, it should look inside to get the value
-      --  of the field, and neither the outer structure name, nor the
-      --  field name should appear when the value is printed.
+      --  suffix of ___PAD or ___JM, the type will be a record containing
+      --  a single field, and the name of that field will be all upper case.
+      --  In this case, it should look inside to get the value of the inner
+      --  field, and neither the outer structure name, nor the field name
+      --  should appear when the value is printed.
 
       -----------------------
       -- Fixed-Point Types --
@@ -1078,6 +1082,10 @@ package Exp_Dbug is
    --  in this manner, it can use the original type to determine the bounds,
    --  and the component size to determine the packing details.
 
+   -------------------------------------------
+   -- Packed Array Representation in Memory --
+   -------------------------------------------
+
    --  Packed arrays are represented in tightly packed form, with no extra
    --  bits between components. This is true even when the component size
    --  is not a factor of the storage unit size, so that as a result it is
@@ -1104,7 +1112,7 @@ package Exp_Dbug is
 
    --        BV'Address + 2   BV'Address + 1    BV'Address + 0
    --     +-----------------+-----------------+-----------------+
-   --     | 0 0 0 0 0 0 1 1 | 0 1 0 1 1 0 0 0 | 1 1 0 1 0 0 0 1 |
+   --     | ? ? ? ? ? ? 1 1 | 0 1 0 1 1 0 0 0 | 1 1 0 1 0 0 0 1 |
    --     +-----------------+-----------------+-----------------+
    --       <---------> <-----> <---> <---> <-----> <---> <--->
    --       unused bits  BV(5)  BV(4) BV(3)  BV(2)  BV(1) BV(0)
@@ -1113,10 +1121,67 @@ package Exp_Dbug is
    --
    --        BV'Address + 0  BV'Address + 1    BV'Address + 2
    --     +-----------------+-----------------+-----------------+
-   --     | 0 0 1 0 1 0 0 1 | 1 1 0 0 1 0 1 1 | 1 0 0 0 0 0 0 0 |
+   --     | 0 0 1 0 1 0 0 1 | 1 1 0 0 1 0 1 1 | 1 0 ? ? ? ? ? ? |
    --     +-----------------+-----------------+-----------------+
    --       <---> <---> <-----> <---> <---> <-----> <--------->
    --       BV(0) BV(1)  BV(2)  BV(3) BV(4)  BV(5)  unused bits
+
+   --  Note that if a modular type is used to represent the array, the
+   --  allocation in memory is not the same as a normal modular type.
+   --  The difference occurs when the allocated object is larger than
+   --  the size of the array. For a normal modular type, we extend the
+   --  value on the left with zeroes.
+
+   --  For example, in the normal modular case, if we have a 6-bit
+   --  modular type, declared as mod 2**6, and we allocate an 8-bit
+   --  object for this type, then we extend the value with two bits
+   --  on the most significant end, and in either the little-endian
+   --  or big-endian case, the value 63 is represented as 00111111
+   --  in binary in memory.
+
+   --  For a modular type used to represent a packed array, the rule is
+   --  different. In this case, if we have to extend the value, then we
+   --  do it with undefined bits (which are not initialized and whose value
+   --  is irrelevant to any generated code). Furthermore these bits are on
+   --  the right (least significant bits) in the big-endian case, and on the
+   --  left (most significant bits) in the little-endian case.
+
+   --  For example, if we have a packed boolean array of 6 bits, all set
+   --  to True, stored in an 8-bit object, then the value in memory in
+   --  binary is ??111111 in the little-endian case, and 111111?? in the
+   --  big-endian case.
+
+   --  This is done so that the representation of packed arrays does not
+   --  depend on whether we use a modular representation or array of bytes
+   --  as previously described. This ensures that we can pass such values
+   --  by reference in the case where a subprogram has to be able to handle
+   --  values stored in either form.
+
+   --  Note that when we extract the value of such a modular packed array,
+   --  we expect to retrieve only the relevant bits, so in this same example,
+   --  when we extract the value, we get 111111 in both cases, and the code
+   --  generated by the front end assumes this, although it does not assume
+   --  that any high order bits are defined.
+
+   --  There are opportunities for optimization based on the knowledge that
+   --  the unused bits are irrelevant for these type of packed arrays. For
+   --  example if we have two such 6-bit-in-8-bit values and we do an
+   --  assignment:
+
+   --     a := b;
+
+   --  Then logically, we extract the 6 bits and store only 6 bits in the
+   --  result, but the back end is free to simply assign the entire 8-bits
+   --  in this case, since we don't actually care about the undefined bits.
+   --  However, in the equality case, it is important to ensure that the
+   --  undefined bits do not participate in an equality test.
+
+   --  If a modular packed array value is assigned to a register, then
+   --  logically it could always be held right justified, to avoid any
+   --  need to shift, e.g. when doing comparisons. But probably this is
+   --  a bad choice, as it would mean that an assignment such as a := b
+   --  above would require shifts when one value is in a register and the
+   --  other value is in memory.
 
    ------------------------------------------------------
    -- Subprograms for Handling Packed Array Type Names --

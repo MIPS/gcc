@@ -220,7 +220,7 @@ package body Lib.Writ is
          Item := First (Context_Items (Cunit));
          while Present (Item) loop
 
-            --  Ada0Y (AI-50217): limited with_clauses do not create
+            --  Ada 2005 (AI-50217): limited with_clauses do not create
             --  dependencies
 
             if Nkind (Item) = N_With_Clause
@@ -673,7 +673,7 @@ package body Lib.Writ is
                --  a body or if a body is present in Ada 83 mode.
 
                if Body_Required (Cunit)
-                 or else (Ada_83
+                 or else (Ada_Version = Ada_83
                            and then Full_Source_Name (Body_Fname) /= No_File)
                then
                   Write_Info_Name (Body_Fname);
@@ -856,6 +856,10 @@ package body Lib.Writ is
          Write_Info_Str (" CE");
       end if;
 
+      if Opt.Detect_Blocking then
+         Write_Info_Str (" DB");
+      end if;
+
       if Opt.Float_Format /= ' ' then
          Write_Info_Str (" F");
 
@@ -944,7 +948,9 @@ package body Lib.Writ is
       --  First the information for the boolean restrictions
 
       for R in All_Boolean_Restrictions loop
-         if Main_Restrictions.Set (R) then
+         if Main_Restrictions.Set (R)
+           and then not Restriction_Warnings (R)
+         then
             Write_Info_Char ('r');
          elsif Main_Restrictions.Violated (R) then
             Write_Info_Char ('v');
@@ -956,7 +962,9 @@ package body Lib.Writ is
       --  And now the information for the parameter restrictions
 
       for RP in All_Parameter_Restrictions loop
-         if Main_Restrictions.Set (RP) then
+         if Main_Restrictions.Set (RP)
+           and then not Restriction_Warnings (RP)
+         then
             Write_Info_Char ('r');
             Write_Info_Nat (Nat (Main_Restrictions.Value (RP)));
          else

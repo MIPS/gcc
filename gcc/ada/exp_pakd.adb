@@ -469,8 +469,7 @@ package body Exp_Pakd is
 
    function RJ_Unchecked_Convert_To
      (Typ  : Entity_Id;
-      Expr : Node_Id)
-      return Node_Id;
+      Expr : Node_Id) return Node_Id;
    --  The packed array code does unchecked conversions which in some cases
    --  may involve non-discrete types with differing sizes. The semantics of
    --  such conversions is potentially endian dependent, and the effect we
@@ -1156,7 +1155,7 @@ package body Exp_Pakd is
          --    subtype tttPn is
          --      System.Packed_Bytes{1,2,4} (0 .. (Bits + 7) / 8 - 1);
 
-         --  Bits is the length of the array in bits.
+         --  Bits is the length of the array in bits
 
          Set_PB_Type;
 
@@ -1197,6 +1196,12 @@ package body Exp_Pakd is
                            High_Bound => PAT_High)))));
 
          Install_PAT;
+
+         --  Currently the code in this unit requires that packed arrays
+         --  represented by non-modular arrays of bytes be on a byte
+         --  boundary.
+
+         Set_Must_Be_On_Byte_Boundary (Typ);
       end if;
    end Create_Packed_Array_Type;
 
@@ -2404,8 +2409,7 @@ package body Exp_Pakd is
 
    function RJ_Unchecked_Convert_To
      (Typ  : Entity_Id;
-      Expr : Node_Id)
-      return Node_Id
+      Expr : Node_Id) return Node_Id
    is
       Source_Typ : constant Entity_Id := Etype (Expr);
       Target_Typ : constant Entity_Id := Typ;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -467,6 +467,22 @@ package body Inline is
          return;
       end if;
 
+      --  If the instance appears within a generic subprogram there is nothing
+      --  to finalize either.
+
+      declare
+         S : Entity_Id;
+      begin
+         S := Scope (Inst);
+         while Present (S) and then S /= Standard_Standard loop
+            if Is_Generic_Subprogram (S) then
+               return;
+            end if;
+
+            S := Scope (S);
+         end loop;
+      end;
+
       Elmt := First_Elmt (To_Clean);
 
       while Present (Elmt) loop
@@ -685,9 +701,9 @@ package body Inline is
       end if;
    end Analyze_Inlined_Bodies;
 
-   --------------------------------
-   --  Check_Body_For_Inlining --
-   --------------------------------
+   -----------------------------
+   -- Check_Body_For_Inlining --
+   -----------------------------
 
    procedure Check_Body_For_Inlining (N : Node_Id; P : Entity_Id) is
       Bname : Unit_Name_Type;

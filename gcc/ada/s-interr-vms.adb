@@ -49,7 +49,7 @@
 --  rendezvous.
 
 with Ada.Task_Identification;
---  used for Task_ID type
+--  used for Task_Id type
 
 with Ada.Exceptions;
 --  used for Raise_Exception
@@ -100,7 +100,7 @@ with System.Storage_Elements;
 --           Integer_Address
 
 with System.Tasking;
---  used for Task_ID
+--  used for Task_Id
 --           Task_Entry_Index
 --           Null_Task
 --           Self
@@ -134,7 +134,7 @@ package body System.Interrupts is
    package IMOP renames System.Interrupt_Management.Operations;
 
    function To_System is new Unchecked_Conversion
-     (Ada.Task_Identification.Task_Id, Task_ID);
+     (Ada.Task_Identification.Task_Id, Task_Id);
 
    -----------------
    -- Local Tasks --
@@ -145,7 +145,7 @@ package body System.Interrupts is
    --  nizing it.
 
    task Interrupt_Manager is
-      entry Detach_Interrupt_Entries (T : Task_ID);
+      entry Detach_Interrupt_Entries (T : Task_Id);
 
       entry Initialize (Mask : IMNG.Interrupt_Mask);
 
@@ -166,7 +166,7 @@ package body System.Interrupts is
          Static      : Boolean);
 
       entry Bind_Interrupt_To_Entry
-        (T         : Task_ID;
+        (T         : Task_Id;
          E         : Task_Entry_Index;
          Interrupt : Interrupt_ID);
 
@@ -192,12 +192,12 @@ package body System.Interrupts is
 
    type Server_Task_Access is access Server_Task;
 
-   --------------------------------
-   --  Local Types and Variables --
-   --------------------------------
+   -------------------------------
+   -- Local Types and Variables --
+   -------------------------------
 
    type Entry_Assoc is record
-      T : Task_ID;
+      T : Task_Id;
       E : Task_Entry_Index;
    end record;
 
@@ -228,18 +228,18 @@ package body System.Interrupts is
    pragma Volatile_Components (Ignored);
    --  True iff the corresponding interrupt is blocked in the process level
 
-   Last_Unblocker : constant array (Interrupt_ID'Range) of Task_ID :=
+   Last_Unblocker : constant array (Interrupt_ID'Range) of Task_Id :=
      (others => Null_Task);
 --  ??? pragma Volatile_Components (Last_Unblocker);
    --  Holds the ID of the last Task which Unblocked this Interrupt.
    --  It contains Null_Task if no tasks have ever requested the
    --  Unblocking operation or the Interrupt is currently Blocked.
 
-   Server_ID : array (Interrupt_ID'Range) of Task_ID :=
+   Server_ID : array (Interrupt_ID'Range) of Task_Id :=
                  (others => Null_Task);
    pragma Atomic_Components (Server_ID);
-   --  Holds the Task_ID of the Server_Task for each interrupt.
-   --  Task_ID is needed to accomplish locking per Interrupt base. Also
+   --  Holds the Task_Id of the Server_Task for each interrupt.
+   --  Task_Id is needed to accomplish locking per Interrupt base. Also
    --  is needed to decide whether to create a new Server_Task.
 
    --  Type and Head, Tail of the list containing Registered Interrupt
@@ -406,8 +406,9 @@ package body System.Interrupts is
    -- Current_Handler --
    ---------------------
 
-   function Current_Handler (Interrupt : Interrupt_ID)
-     return Parameterless_Handler is
+   function Current_Handler
+     (Interrupt : Interrupt_ID) return Parameterless_Handler
+   is
    begin
       if Is_Reserved (Interrupt) then
          Raise_Exception (Program_Error'Identity, "Interrupt" &
@@ -523,7 +524,7 @@ package body System.Interrupts is
    --  already bound.
 
    procedure Bind_Interrupt_To_Entry
-     (T       : Task_ID;
+     (T       : Task_Id;
       E       : Task_Entry_Index;
       Int_Ref : System.Address)
    is
@@ -544,7 +545,7 @@ package body System.Interrupts is
    -- Detach_Interrupt_Entries --
    ------------------------------
 
-   procedure Detach_Interrupt_Entries (T : Task_ID) is
+   procedure Detach_Interrupt_Entries (T : Task_Id) is
    begin
       Interrupt_Manager.Detach_Interrupt_Entries (T);
    end Detach_Interrupt_Entries;
@@ -582,7 +583,7 @@ package body System.Interrupts is
    ------------------
 
    function Unblocked_By
-     (Interrupt : Interrupt_ID) return System.Tasking.Task_ID is
+     (Interrupt : Interrupt_ID) return System.Tasking.Task_Id is
    begin
       if Is_Reserved (Interrupt) then
          Raise_Exception (Program_Error'Identity, "Interrupt" &
@@ -626,9 +627,9 @@ package body System.Interrupts is
 
    task body Interrupt_Manager is
 
-      ---------------------
-      --  Local Routines --
-      ---------------------
+      --------------------
+      -- Local Routines --
+      --------------------
 
       procedure Unprotected_Exchange_Handler
         (Old_Handler : out Parameterless_Handler;
@@ -708,7 +709,7 @@ package body System.Interrupts is
          end if;
 
          --  Invoke a corresponding Server_Task if not yet created.
-         --  Place Task_ID info in Server_ID array.
+         --  Place Task_Id info in Server_ID array.
 
          if Server_ID (Interrupt) = Null_Task then
             Access_Hold := new Server_Task (Interrupt);
@@ -846,7 +847,7 @@ package body System.Interrupts is
             end Detach_Handler;
 
             or accept Bind_Interrupt_To_Entry
-              (T       : Task_ID;
+              (T       : Task_Id;
                E       : Task_Entry_Index;
                Interrupt : Interrupt_ID)
             do
@@ -875,7 +876,7 @@ package body System.Interrupts is
                T.Interrupt_Entry := True;
 
                --  Invoke a corresponding Server_Task if not yet created.
-               --  Place Task_ID info in Server_ID array.
+               --  Place Task_Id info in Server_ID array.
 
                if Server_ID (Interrupt) = Null_Task then
 
@@ -888,7 +889,7 @@ package body System.Interrupts is
                end if;
             end Bind_Interrupt_To_Entry;
 
-            or accept Detach_Interrupt_Entries (T : Task_ID)
+            or accept Detach_Interrupt_Entries (T : Task_Id)
             do
                for J in Interrupt_ID'Range loop
                   if not Is_Reserved (J) then
@@ -951,9 +952,9 @@ package body System.Interrupts is
    -----------------
 
    task body Server_Task is
-      Self_ID         : constant Task_ID := Self;
+      Self_ID         : constant Task_Id := Self;
       Tmp_Handler     : Parameterless_Handler;
-      Tmp_ID          : Task_ID;
+      Tmp_ID          : Task_Id;
       Tmp_Entry_Index : Task_Entry_Index;
       Intwait_Mask    : aliased IMNG.Interrupt_Mask;
 
@@ -1079,8 +1080,7 @@ package body System.Interrupts is
    -------------------------------------
 
    function Has_Interrupt_Or_Attach_Handler
-     (Object : access Dynamic_Interrupt_Protection)
-      return   Boolean
+     (Object : access Dynamic_Interrupt_Protection) return Boolean
    is
       pragma Warnings (Off, Object);
 
@@ -1088,14 +1088,15 @@ package body System.Interrupts is
       return True;
    end Has_Interrupt_Or_Attach_Handler;
 
-   ----------------
-   --  Finalize  --
-   ----------------
+   --------------
+   -- Finalize --
+   --------------
 
    procedure Finalize (Object : in out Static_Interrupt_Protection) is
    begin
       --  ??? loop to be executed only when we're not doing library level
       --  finalization, since in this case all interrupt tasks are gone.
+
       if not Interrupt_Manager'Terminated then
          for N in reverse Object.Previous_Handlers'Range loop
             Interrupt_Manager.Attach_Handler
@@ -1115,8 +1116,7 @@ package body System.Interrupts is
    -------------------------------------
 
    function Has_Interrupt_Or_Attach_Handler
-     (Object : access Static_Interrupt_Protection)
-      return   Boolean
+     (Object : access Static_Interrupt_Protection) return Boolean
    is
       pragma Warnings (Off, Object);
    begin

@@ -110,8 +110,7 @@ package Sem_Util is
 
    procedure Check_Potentially_Blocking_Operation (N : Node_Id);
    --  N is one of the statement forms that is a potentially blocking
-   --  operation. If it appears within a protected action, emit warning
-   --  and raise Program_Error.
+   --  operation. If it appears within a protected action, emit warning.
 
    procedure Check_VMS (Construct : Node_Id);
    --  Check that this the target is OpenVMS, and if so, return with
@@ -357,6 +356,13 @@ package Sem_Util is
    --  Task_Body_Procedure field from the corresponding task type
    --  declaration.
 
+   function Has_Access_Values (T : Entity_Id) return Boolean;
+   --  Returns true if type or subtype T is an access type, or has a
+   --  component (at any recursive level) that is an access type. This
+   --  is a conservative predicate, if it is not known whether or not
+   --  T contains access values (happens for generic formals in some
+   --  cases), then False is returned.
+
    function Has_Declarations (N : Node_Id) return Boolean;
    --  Determines if the node can have declarations
 
@@ -496,6 +502,7 @@ package Sem_Util is
    function Is_Local_Variable_Reference (Expr : Node_Id) return Boolean;
    --  Determines whether Expr is a refeference to a variable or IN OUT
    --  mode parameter of the current enclosing subprogram.
+   --  Why are OUT parameters not considered here ???
 
    function Is_Object_Reference (N : Node_Id) return Boolean;
    --  Determines if the tree referenced by N represents an object. Both
@@ -537,7 +544,8 @@ package Sem_Util is
    function Is_Statement (N : Node_Id) return Boolean;
    --  Check if the node N is a statement node. Note that this includes
    --  the case of procedure call statements (unlike the direct use of
-   --  the N_Statement_Other_Than_Procedure_Call subtype from Sinfo)
+   --  the N_Statement_Other_Than_Procedure_Call subtype from Sinfo).
+   --  Note that a label is *not* a statement, and will return False.
 
    function Is_Transfer (N : Node_Id) return Boolean;
    --  Returns True if the node N is a statement which is known to cause

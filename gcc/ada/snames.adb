@@ -65,6 +65,7 @@ package body Snames is
      "_abort_signal#" &
      "_alignment#" &
      "_assign#" &
+     "_atcb#" &
      "_chain#" &
      "_clean#" &
      "_controller#" &
@@ -81,6 +82,7 @@ package body Snames is
      "_secondary_stack#" &
      "_service#" &
      "_size#" &
+     "_stack#" &
      "_tags#" &
      "_task#" &
      "_task_id#" &
@@ -145,6 +147,7 @@ package body Snames is
      "target#" &
      "req#" &
      "obj_typecode#" &
+     "stub#" &
      "Oabs#" &
      "Oand#" &
      "Omod#" &
@@ -166,10 +169,12 @@ package body Snames is
      "Oexpon#" &
      "ada_83#" &
      "ada_95#" &
+     "ada_05#" &
      "c_pass_by_copy#" &
      "compile_time_warning#" &
      "component_alignment#" &
      "convention_identifier#" &
+     "detect_blocking#" &
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
@@ -190,6 +195,7 @@ package body Snames is
      "persistent_data#" &
      "persistent_object#" &
      "profile#" &
+     "profile_warnings#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -342,6 +348,7 @@ package body Snames is
      "link_name#" &
      "lowercase#" &
      "max_entry_queue_depth#" &
+     "max_entry_queue_length#" &
      "max_size#" &
      "mechanism#" &
      "mixedcase#" &
@@ -352,9 +359,12 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_dynamic_attachment#" &
      "no_dynamic_interrupts#" &
      "no_requeue#" &
+     "no_requeue_statements#" &
      "no_task_attributes#" &
+     "no_task_attributes_package#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &
@@ -363,6 +373,7 @@ package body Snames is
      "secondary_stack_size#" &
      "section#" &
      "semaphore#" &
+     "simple_barriers#" &
      "spec_file_name#" &
      "static#" &
      "stack_size#" &
@@ -417,6 +428,7 @@ package body Snames is
      "first_bit#" &
      "fixed_value#" &
      "fore#" &
+     "has_access_values#" &
      "has_discriminants#" &
      "identity#" &
      "img#" &
@@ -647,6 +659,7 @@ package body Snames is
      "linker#" &
      "local_configuration_pragmas#" &
      "locally_removed_files#" &
+     "metrics#" &
      "naming#" &
      "object_dir#" &
      "pretty_printer#" &

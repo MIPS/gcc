@@ -43,6 +43,7 @@ with Osint;    use Osint;
 with Osint.B;  use Osint.B;
 with Output;   use Output;
 with Rident;   use Rident;
+with Snames;
 with Switch;   use Switch;
 with Switch.B; use Switch.B;
 with Targparm; use Targparm;
@@ -444,6 +445,7 @@ begin
 
    Csets.Initialize;
    Namet.Initialize;
+   Snames.Initialize;
 
    --  Acquire target parameters
 
@@ -603,7 +605,7 @@ begin
          Error_Msg
            ("?may result in missing run-time elaboration checks");
          Error_Msg
-           ("?use -gnatE, pragma Suppress (Elaboration_Checks) instead");
+           ("?use -gnatE, pragma Suppress (Elaboration_Check) instead");
       end if;
 
       --  Quit if some file needs compiling

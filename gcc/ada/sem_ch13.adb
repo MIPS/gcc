@@ -207,7 +207,7 @@ package body Sem_Ch13 is
          Error_Msg_N
            ("at clause is an obsolescent feature ('R'M 'J.7(2))?", N);
          Error_Msg_N
-           ("|use address attribute definition clause instead?", N);
+           ("\use address attribute definition clause instead?", N);
       end if;
 
       Rewrite (N,
@@ -360,7 +360,7 @@ package body Sem_Ch13 is
                     ("attaching interrupt to task entry is an " &
                      "obsolescent feature ('R'M 'J.7.1)?", N);
                   Error_Msg_N
-                    ("|use interrupt procedure instead?", N);
+                    ("\use interrupt procedure instead?", N);
                end if;
 
             --  Case of an address clause for a controlled object:
@@ -1110,8 +1110,10 @@ package body Sem_Ch13 is
                            and then
                         Size /= System_Storage_Unit * 8
                      then
+                        Error_Msg_Uint_1 := UI_From_Int (System_Storage_Unit);
                         Error_Msg_N
-                          ("size for primitive object must be power of 2", N);
+                          ("size for primitive object must be a power of 2"
+                            & " and at least ^", N);
                      end if;
                   end if;
 
@@ -1190,7 +1192,7 @@ package body Sem_Ch13 is
                     ("storage size clause for task is an " &
                      "obsolescent feature ('R'M 'J.9)?", N);
                   Error_Msg_N
-                    ("|use Storage_Size pragma instead?", N);
+                    ("\use Storage_Size pragma instead?", N);
                end if;
 
                FOnly := True;
@@ -1955,7 +1957,7 @@ package body Sem_Ch13 is
                Error_Msg_N
                  ("mod clause is an obsolescent feature ('R'M 'J.8)?", N);
                Error_Msg_N
-                 ("|use alignment attribute definition clause instead?", N);
+                 ("\use alignment attribute definition clause instead?", N);
             end if;
 
             if Present (P) then
@@ -2092,7 +2094,6 @@ package body Sem_Ch13 is
                --  tag to get an explicit position.
 
                elsif Nkind (Component_Name (CC)) = N_Attribute_Reference then
-
                   if Attribute_Name (Component_Name (CC)) = Name_Tag then
                      Error_Msg_N ("position of tag cannot be specified", CC);
                   else
@@ -3422,10 +3423,7 @@ package body Sem_Ch13 is
    -- Rep_Item_Too_Early --
    ------------------------
 
-   function Rep_Item_Too_Early
-     (T : Entity_Id;
-      N : Node_Id) return Boolean
-   is
+   function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean is
    begin
       --  Cannot apply rep items that are not operational items
       --  to generic types
@@ -3480,11 +3478,17 @@ package body Sem_Ch13 is
       Parent_Type : Entity_Id;
 
       procedure Too_Late;
-      --  Output the too late message
+      --  Output the too late message. Note that this is not considered a
+      --  serious error, since the effect is simply that we ignore the
+      --  representation clause in this case.
+
+      --------------
+      -- Too_Late --
+      --------------
 
       procedure Too_Late is
       begin
-         Error_Msg_N ("representation item appears too late!", N);
+         Error_Msg_N ("|representation item appears too late!", N);
       end Too_Late;
 
    --  Start of processing for Rep_Item_Too_Late
@@ -3645,6 +3649,10 @@ package body Sem_Ch13 is
                function Same_Rep return Boolean;
                --  CD1 and CD2 are either components or discriminants. This
                --  function tests whether the two have the same representation
+
+               --------------
+               -- Same_Rep --
+               --------------
 
                function Same_Rep return Boolean is
                begin
