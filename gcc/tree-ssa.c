@@ -51,7 +51,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file builds the SSA form for a function as described in:
 
    R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck. Efficiently
-   Computing Static Single Sssignment Form and the Control Dependence
+   Computing Static Single Assignment Form and the Control Dependence
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
 
@@ -2232,6 +2232,15 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	  TREE_OPERAND (stmt, 1) = cached_lhs;
 	  ann->modified = 1;
 #else
+	  if (cached_lhs && get_value_for (*def_p, currdefs) == cached_lhs)
+	    {
+	      /* A redundant assignment to the same lhs, perhaps a new
+                 evaluation of an expression temporary that is still live.
+                 Just discard it.  */
+	      ssa_stats.num_re++;
+	      bsi_remove (&si);
+	      return;
+	    }
 	  if (var_is_live (cached_lhs, ann->bb))
 	    {
 	      register_new_def (*def_p, cached_lhs, block_defs_p);
@@ -2749,14 +2758,16 @@ static hashval_t
 avail_expr_hash (p)
      const void *p;
 {
-  hashval_t val;
+  hashval_t val = 0;
   tree rhs;
   size_t i;
   varray_type ops;
   tree stmt = (tree) p;
+  enum tree_code code;
 
   rhs = TREE_OPERAND (stmt, 1);
-  val = (hashval_t) TREE_CODE (rhs);
+  code = TREE_CODE (rhs);
+  val = iterative_hash_object (code, val);
 
   /* Add the SSA version numbers of every use operand.  */
   ops = use_ops (stmt);
@@ -2764,9 +2775,9 @@ avail_expr_hash (p)
     {
       tree op = *((tree *) VARRAY_GENERIC_PTR (ops, i));
       if (TREE_CODE (op) == SSA_NAME)
-	val += (hashval_t) SSA_NAME_VERSION (op);
+	val = iterative_hash_object (SSA_NAME_VERSION (op), val);
       else
-	val += htab_hash_pointer (op);
+	val = iterative_hash_object (op, val);
     }
 
   /* Add the SSA version numbers of every vuse operand.  This is important
@@ -2775,7 +2786,7 @@ avail_expr_hash (p)
      representing all the elements of the array.  */
   ops = vuse_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    val += (hashval_t) SSA_NAME_VERSION (VARRAY_TREE (ops, i));
+    val = iterative_hash_object (SSA_NAME_VERSION (VARRAY_TREE (ops, i)), val);
 
   return val;
 }
@@ -2805,8 +2816,7 @@ avail_expr_eq (p1, p2)
       if (ops1 == NULL && ops2 == NULL)
 	return true;
 
-      if (ops1 == ops2
-	  && VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
+      if (VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
 	{
 	  size_t i;
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ops1); i++)

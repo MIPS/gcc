@@ -1,3 +1,9 @@
+2003-05-13  Jason Merrill  <jason@redhat.com>
+
+	* tree-ssa.c (rewrite_stmt): Discard redundant assignments.
+	(avail_expr_eq): Don't test ops1 == ops2.
+	(avail_expr_hash): Use iterative_hash_object.
+
 2003-05-13  Jeff Law  <law@redhat.com>
 
 	* tree-flow.h (struct var_ann_d): New field occurs_in_abnormal_phi.
