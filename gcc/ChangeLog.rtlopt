@@ -1,3 +1,10 @@
+2003-01-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* flow.c (MAX_LIVENESS_ROUNDS): New.
+	(calculate_global_regs_live): Guarantee that liveness updating
+	will terminate.
+	(update_life_info_in_dirty_blocks): Remove hack that masked the bug.
+
 2003-01-27  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (track_expr_p): Variable rtx renamed to decl_rtl
