@@ -1,3 +1,51 @@
+2002-10-21  Matthias Klose  <doko@debian.org>
+
+	* Backport, without whitespace change:
+	2002-06-19 Akim Demaille  <akim@epita.fr>
+	* c-parse.in (initelt: identifier ':' initval): Add an empty
+	action to fix a type clash.
+	(aliasdecl, classdef): Add the missing closing `;'.
+
+Sat Oct 19 15:49:14 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* mmintrin.h (__m64): typedef it to v2si.
+	(_mm_cvtsi32_si64, _mm_cvtsi32_si64_mm_sll_pi16,
+	_mm_sll_pi32, _mm_sll_pi64, _mm_slli_pi64, _mm_sra_pi16,
+	_mm_sra_pi32, _mm_srl_pi16, _mm_srl_pi32, _mm_srl_pi64,
+	_mm_srli_pi64, _mm_and_si64, _mm_andnot_si64,
+	_mm_or_si64, _mm_xor_si64): Add neccesary casts.
+	* xmmintrin.h (_mm_setzero_si64): Likewise.
+
+	PR target/7693
+	Patch by Shawn Wagner
+	* mmintrin.h: Replace pi64 by si64.
+
+2002-10-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (start_decl): Point users of the old initialized-
+	typedef extension at __typeof__.
+
+Thu Oct 17 17:14:07 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/7630
+	* reload.c (reload_inner_reg_of_subreg): New argument output;
+	(push_reload): Update call.
+
+	PR c++/6419
+	* expr.c (expand_expr): Use DECL_RTL_SET_P.
+
+Wed Apr 24 23:45:37 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* calls.c (expand_call): Take current_function_pretend_args_size
+	into account when setting argblock for sibcalls.
+
+Wed Oct 16 19:43:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/7396
+	* i386.c (builtin_description):Drop cmpg[te]s[sd].
+	* xmmintrin.h (__mm_cmpg[te]_s[sd]): Rewrite using
+	swapped alternative.
+
 2002-10-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (x86_64_sign_extended_value): Add allow_rip
