@@ -4853,7 +4853,10 @@ rewrite_use_outer (struct ivopts_data *data,
       if (stmts)
 	compute_phi_arg_on_exit (exit, stmts, op);
 
-      remove_statement (use->stmt, true);
+      /* Enable removal of the statement.  We cannot remove it directly,
+	 since we may still need the aliasing information attached to the
+	 ssa name defined by it.  */
+      name_info (data, tgt)->iv->have_use_for = false;
       return;
     }
 

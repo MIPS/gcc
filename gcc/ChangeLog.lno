@@ -1,3 +1,8 @@
+2004-04-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (rewrite_use_outer): Do not remove ssa names
+	prematurely.
+
 2004-04-01 Mostafa Hagog  <mustafa@il.ibm.com>
 	   Dorit Naishlos <dorit@il.ibm.com>
 
