@@ -1,6 +1,5 @@
 // Build don't link: 
 // GROUPS passed ARM-compliance
-// excess errors test - XFAIL *-*-*
 // arm file
 // Message-Id: <199301260140.AA13734@world.std.com>
 // From: gparker@world.std.com (Glenn P Parker)
@@ -11,7 +10,7 @@ int f() {  return 1; }
 
 int main()
 {
-  int (&fr)() = f;  // g++ cannot compile it
+  int (&fr)() = f;
 
   return 0;
 }

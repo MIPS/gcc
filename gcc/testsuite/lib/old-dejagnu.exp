@@ -196,10 +196,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 # is right.  If no such Special Options are found, $default_cflags is used.
 # FIXME: Can there be multiple lines of these?
 #
-# Other keywords: "Build don't link:", "Build don't run:".
-
-    # FIXME: none of the current test cases use this, so It's not implemented
-    # set tmp [grep $prog "remove -sanitize"]
+# Other keywords: "Build don't link:", "Build don't run:", "Build then link:",
+#                 "Additional sources: <file>.cc ..."
 
     set name "[file tail [file dirname $prog]]/[file tail $prog]"
 
@@ -228,9 +226,20 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	lappend cflags "additional_flags=$cflagsx"
     }
 
+    set tmp [lindex [grep $prog "Additional sources: .*"] 0]
+    regsub -all "\n\[^\n\]+(\n|$)" $tmp "\n" tmp
+    set tmp [string trim $tmp]
+    if ![string match "" $tmp] then {
+	regsub "^.*Additional.*sources:" $tmp "" tmp
+	regsub -all " " $tmp " [file dirname $prog]/" tmp
+	lappend cflags "additional_flags=$tmp"
+	verbose "Adding sources $tmp"
+    }
+
     lappend cflags "compiler=$compiler"
 
-    set output "$tmpdir/a.out"
+    regsub -all "\[./\]" "$name" "-" output;
+    set output "$tmpdir/$output";
     set compile_type "executable"
 
     set tmp [lindex [grep $prog "Build don.t link:"] 0]
@@ -240,6 +249,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set output "$tmpdir/[file tail [file rootname $prog]].o"
 	verbose "Will compile $prog to object" 3
     }
+
+    set tmp [lindex [grep $prog "Build then link:"] 0]
+    if ![string match "" $tmp] then {
+	set compile_type "object"
+	set runflag 2
+	set final_output "$output"
+	set output "$tmpdir/[file tail [file rootname $prog]].o"
+	verbose "Will compile $prog to object, then link it" 3
+    }	
 
     set tmp [lindex [grep $prog "Build don.t run:"] 0]
     if ![string match "" $tmp] then {
@@ -360,9 +378,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set message [concat $message $tmp]
     }
 
-    set tmp [process-option $prog "execution test fails" "an execution failure" EXEC $text]
+    set tmp [process-option $prog "execution test fails" "an execution failure" EXECO $text]
     if ![string match "" $tmp] then {
 	set execbug_flag 1
+	set message [concat $message $tmp]
+	warning "please use execution test - XFAIL *-*-* in $prog instead"
+    }
+
+    set tmp [process-option $prog "execution test - " "an excess error failure" EXEC $text]
+    if ![string match "" $tmp] then {
 	set message [concat $message $tmp]
     }
 
@@ -378,6 +402,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set message [concat $message $tmp]
     }
 
+    set expect_crash \
+      [process-option $prog "crash test - " "a crash" CRASH $text]
+    if {$expect_crash != "" 
+        && [lindex [lindex $expect_crash 0] 1] == "XCRASH"} then {
+       set expect_crash 1
+    } else {
+       set expect_crash 0
+    }
+
 #
 #  run the compiler and analyze the results
 #
@@ -386,25 +419,29 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     # we can't run a.out when the compilation fails.
     remote_file build delete $output
     set comp_output [${tool}_target_compile $prog $output $compile_type $cflags]
+    if { $runflag == 2 && [file exists $output] } then {
+	set runflag 0
+	set comp_output [concat $comp_output [${tool}_target_compile $output $final_output "executable" $cflags]]
+	set output $final_output
+    }
 
     # Delete things like "ld.so: warning" messages.
     set comp_output [prune_warnings $comp_output]
 
-    if [string match "*Internal compiler error: program*got fatal signal 6" $comp_output] then {
-	fail "$name Got Signal 6"
-	remote_file build delete $output
-	return 1
-    }
-    if [string match "*Internal compiler error: program*got fatal signal 11" $comp_output] then {
-	fail "$name Got Signal 11"
-	remote_file build delete $output
-	return 1
+    if [string match "*Internal compiler error*" $comp_output] then {
+        if $expect_crash then {
+	    setup_xfail "*-*-*"
+	}
+        fail "$name caused compiler crash"
+        remote_file build delete $output
+        return 1
     }
 
     #send_user "\nold_dejagnu.exp: comp_output1 = :$comp_output:\n\n"
     #send_user "\nold_dejagnu.exp: message = :$message:\n\n"
     #send_user "\nold_dejagnu.exp: message length = [llength $message]\n\n"
 
+    set last_line 0
     foreach i $message {
 
 	#send_user "\nold_dejagnu.exp: i = :$i:\n\n"
@@ -413,7 +450,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	# in the source file.  If we find any, success!
 	set line [lindex $i 0]
 	set pattern [lindex $i 2]
-	if [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] then {
+
+	# Multiple tests one one line don't work, because we remove all 
+	# messages on the line for the first test.  So skip later ones.
+	if { $line == $last_line } {
+	    continue
+	}
+	set last_line $line
+
+	if [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] {
             set comp_output [string trimleft $comp_output]
 	    set ok pass
 	    set uhoh fail
@@ -471,7 +516,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    "XBADASM" {
 		x$uhoh "$name $pattern (test for bad assembler, line $line)"
 	    }
-	    "XEXEC" { }
+	    "XEXEC" {
+		set execbug_flag 1
+	    }
 	    "XEXCESS" {
 		set excessbug_flag 1
 	    }
@@ -483,6 +530,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     #look to see if this is all thats left, if so, all messages have been handled
     #send_user "comp_output: $comp_output\n"
     regsub -all "(^|\n)\[^\n\]*: In (function|method) \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*: In instantiation of \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*:   instantiated from \[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*: At top level:\[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*file path prefix \[^\n\]* never used" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*linker input file unused since linking not done" $comp_output "" comp_output
@@ -522,7 +571,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    set result [eval [format "%s_load %s" $tool $executable]]
 	    set status [lindex $result 0];
 	    set output [lindex $result 1];
-	    remote_file build delete $executable;
+	    if { $status == "pass" } {
+		remote_file build delete $executable;
+	    }
 	    if { $execbug_flag || $excessbug_flag } then {
 		setup_xfail "*-*-*"
 	    }

@@ -1,3 +1,773 @@
+1998-11-07  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* README: New file, general information about the testsuite and 
+	new description of the various C++ test subdirectories.
+	* README.g++: Eliminate obsolete information, update and move most
+	relevant stuff to README.
+
+Sat Nov  7 02:55:55 1998  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/compile/981107-1.c: New test.
+
+Mon Nov  2 11:16:03 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* execute/memcpy-bi.c: New testcase.
+
+1998-10-31  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/sizeof3.C: a similar testcase not involving
+	base classes
+
+	* g++.old-deja/g++.pt/sizeof2.C: incorrect specialization of base
+	template is selected
+
+	* g++.old-deja/g++.ext/arrnew2.C: if new T[n](i) is accepted for
+	classes, it should be accepted for all types.
+
+	* g++.old-deja/g++.eh/sjlj1.C: test checked sjlj-exception
+
+	* g++.old-deja/g++.pt/spec24.C: ensure that template
+	specializations start with template headers
+
+1998-10-29  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/dcast2.C: cannot dynamic downcast &x
+
+	* g++.old-deja/g++.other/init9.C: test cross initialization of
+	non-POD types
+
+1998-10-27  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* lib/old-dejagnu.exp (old-dejagnu): document `Additional sources'
+
+Thu Oct 22 16:01:44 1998  Andreas Schwab <schwab@issan.informatik.uni-dortmund.de>
+
+	* compile/981022-1.c, compile/981022-1.x: New test and driver.
+
+Mon Oct 19 14:03:07 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* 981019-1.c: New test.
+
+Wed Oct 14 21:11:19 1998  Robert Lipe <robertl@dgii.com>
+
+	* lib/objc-torture.exp (objc-torture-execute): Add -I so we can
+ 	find objc headers.
+
+1998-10-14  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
+
+	* compile/981001-4.c: Remove use of GCC extension that triggers a
+	compiler bug.
+
+1998-10-13  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* lib/old-dejagnu.exp (old-dejagnu): support `Additional sources:'
+
+1998-10-12  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/explicit74.C: New test.  Explicit
+ 	instantiation of template produces incorrect code for delete
+ 	expression.
+
+	* g++.old-deja/g++.pt/instantiate5.C: New test.  `global
+	constructors' name is not unique
+	* g++.old-deja/g++.pt/instantiate5.cc: ditto
+	* g++.old-deja/g++.pt/instantiate5-main.cc: ditto
+
+	* g++.old-deja/g++.other/init8.C: New test.  uninitialized
+ 	automatic array of const is ill-formed
+
+	* g++.old-deja/g++.pt/ttp53.C: New test.  incorrect substitution
+	of template parameter?
+
+	* g++.old-deja/g++.other/conv3.C: New test.  conversion discards
+	const
+
+	* g++.old-deja/g++.other/pmf2.C: New test.  invalid
+	pointer-to-member expression
+
+	* g++.old-deja/g++.other/friend5.C: New test.  bogus friend
+	declaration causes ICE
+
+1998-10-11  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.ns/main1.C: New test.  main() should only be
+ 	reserved in the global namespace
+
+	* g++.old-deja/g++.pt/instantiate4.C: New test: -frepo does not
+	generate needed virtual table
+
+	* lib/old-dejagnu.exp (old-dejagnu): support `Build then link:'
+
+1998-10-10  Dariush Eslimi  <eslimi@loran.com>
+
+	* g++.old-deja/g++.ext/typeof1.C: New test; typeof based on
+	template-dependent type
+
+1998-10-10  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.brendan/parse3.C: XFAILs, not ERRORs
+	* g++.old-deja/g++.brendan/parse5.C: XFAILs, not ERRORs
+	* g++.old-deja/g++.brendan/parse6.C: XFAILs, not ERRORs
+
+	* g++.old-deja/g++.other/using5.C: New test; using decl from base
+ 	class should be usable as argument of member function
+	* g++.old-deja/g++.other/using6.C: New test; using decl from base
+ 	class should be usable as return type of member function
+	* g++.old-deja/g++.other/using7.C: New test; using decl from base
+ 	class should be usable as type of data member
+
+	* g++.old-deja/g++.ns/extern1.C: fix XFAIL mark
+
+Fri Oct  9 19:19:19 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/special/920521-1.c: Fix bogus test.
+
+Thu Oct  8 19:14:05 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* gcc.dg/dll-?.c Add thumb to target list.
+	Fix assembler scan patterns to match current assembler output.
+
+1998-10-08  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/expr6.C: New test.  operator?: breaks
+	matching of template brackets.
+
+	* g++.old-deja/g++.other/using4.C: New test.  Test using
+ 	declarations of methods from base classes.
+
+	* g++.old-deja/g++.ns/extern1.C: New test.  Extern declarations
+ 	within functions should introduce names into the innermost
+ 	enclosing namespace
+
+	* g++.old-deja/g++.other/init7.C: New test.  Retry initialization
+ 	of static locals if first initialization throws
+
+Wed Oct  7 12:00:20 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* gcc.c-torture/compile/981007-1.c: New test for irix6 -O0 core dump.
+
+1998-10-06  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/friend35.C: New test.  A template function
+ 	must be declared before its specializations can be named in friend
+ 	declarations.
+
+1998-10-05  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/u77-test.f: Add regression test for RAND.
+
+	* g77.f-torture/execute/io1.f: New test.
+
+1998-10-04  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/overload5.C: New test; initialize variable
+ 	with pointer to template function, for which no argument deduction
+ 	is possible
+
+	* g++.old-deja/g++.pt/overload4.C: New test; passing pointer to
+	specialization of template function as argument to template
+	function
+
+	* g++.old-deja/g++.other/access2.C: New test; Inner class
+	shouldn't have privileged access to Outer's names
+
+1998-10-03  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/friend34.C: New test; name injection of
+	friend template declared within template class conflicts with
+	nested class of the same name
+
+	* g++.old-deja/g++.other/badopt1.C: New test; post-increment
+ 	is ignored
+
+	* g++.old-deja/g++.other/decl1.C: New test; incorrect parsing of
+	object with direct initializer as function declaration
+
+	* g++.old-deja/g++.other/decl2.C: New test; duplicate initializers
+
+	* g++.old-deja/g++.other/null2.C: New test; conditional operator
+ 	involving const pointer and NULL produces incorrect result
+
+	* g++.old-deja/g++.other/typename1.C: New test; template-dependent
+ 	type name without `typename' should be rejected with -pedantic
+
+Fri Oct  2 21:55:58 1998  Richard Henderson  <rth@cygnus.com>
+
+	* g++.old-deja/g++.other/addrof1.C: New test.
+
+Thu Oct  1 19:05:20 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/981001-2.c: New test.
+	* gcc.c-torture/compile/981001-3.c: New test.
+	* gcc.c-torture/compile/981001-4.c: New test.
+
+1998-10-01  Robert Lipe  <robertl@dgii.com>
+
+	* lib/objc.exp (objc_target_compile): Add -L during compiles for
+	multilibbed hosts.   Idea grafted from g77.exp.
+
+1998-09-30  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/u77-test.f (main): Excise `hostnm' to
+	avoid losing on systems which need -lsocket.
+
+1998-09-28  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/bitfld1.C: expected failure
+	* g++.old-deja/g++.other/nested2.C: ditto
+	* g++.old-deja/g++.robertl/eb132.C: no longer an expected failure
+
+1998-09-26  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/bitfld1.C: built-in operator!= should be
+	preferred over template operator!= for enum bitfields
+
+1998-09-18  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/nested2.C: different virtual base classes
+ 	that happen to have the same base name, but in different scopes,
+ 	are incorrectly rejected
+
+1998-09-16  Richard Henderson  <rth@cygnus.com>
+
+	* g++.old-deja/g++.brendan/array1.C: Size array via arithmetic based
+	on the native word size instead of an integer literal.
+
+1998-09-15  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/static2.C: invocation of static data
+ 	member of type pointer-to-function denoted as non-static member
+
+	* g++.old-deja/g++.other/typedef5.C: add some more tests involving 
+	checks involving function types and aliases
+
+1998-09-12  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.other/typedef5.C: check whether typedefs can be
+ 	redefined to the same non-trivial type
+
+	* g++.old-deja/g++.pt/explicit73.C: test for proper
+ 	namespace-qualification of template specializations declared in
+ 	other namespaces
+
+	* g++.old-deja/g++.other/friend4.C: check whether it is possible
+	to declare a subset of the specializations of a template function
+	as friends of specializations of a template class
+
+	* g++.old-deja/g++.pt/explicit71.C: make sure specializations of
+ 	member templates that do not fully specialize the enclosing
+ 	template class are rejected
+
+1998-09-11  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/u77-test.f: Fix bad consistency checks.
+
+1998-09-08  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/u77-test.f (main): New file, somewhat
+	altered from libf2c/libU77 version.
+
+1998-09-06  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/io0.f: Test formatted direct i/o too.
+
+1998-09-04  Reid M. Pinchback  <reidmp@MIT.EDU>, Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* g++.old-deja/g++.pt/explicit72.C: ensure that char and
+	(un)signed char are different types for template specialization
+	purposes.
+
+Thu Sep  3 00:40:32 1998  Ovidiu Predescu  <ovidiu@aracnet.com>
+
+	* lib/{objc.exp,objc-torture.exp}: New files for objc testing harness.
+	* objc: ObjC testsuite.
+
+Mon Aug 31 15:19:32 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* lib/c-torture.exp: Add support for
+	torture_eval_before_compile and torture_eval_before_execute
+	variables.
+
+Sun Aug 30 17:38:20 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980626-1.c: Delete this test.  We've declared the warning
+	this test triggers valid.
+
+Thu Aug 27 23:59:18 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980827-1.c: New test.
+
+Tue Aug 25 19:42:13 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/980825-1.c: New test.
+
+Mon Aug 24 16:38:52 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/930326-1.x: Fix typo.
+
+1998-08-23  Mark Mitchell  <mark@markmitchell.com>
+
+	* lib/old-dejagnu.exp: Make it possible to XFAIL a test that
+	causes an ICE.
+
+Fri Aug 21 23:59:18 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/unsorted/memtst.c: Reduce size of array when
+	STACK_SIZE is defined.
+	* gcc.c-torture/unsorted/stuct.c: Similarly.
+
+	* gcc.c-torture/compile/980821-1.c: New test.
+
+Fri Aug 21 03:14:04 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980526-2.c: Disable for targets with 16bit ints.
+
+1998-08-19  Mark Mitchell  <mark@markmitchell.com>
+
+	* lib/old-dejagnu.exp (old-dejagnu): Remove sig6/sig11 handling
+	code. 
+
+1998-08-09  Mark Mitchell  <mark@markmitchell.com>
+
+	* lib/old-dejagnu.exp: Revise handling of `Internal compiler
+	error'.
+
+Tue Aug 18 19:19:50 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/*.x: Some updates for the h8300 targets.
+
+Sun Aug 16 01:29:19 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/980816-1.c: New test.
+
+	* gcc.dg/980816-1.c: New test.
+
+1998-08-01  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/980729-0.f: New test.
+
+1998-07-30  Ken Raeburn  <raeburn@cygnus.com>
+
+	* gcc.c-torture/special/eeprof-1.c: New test, for
+	-finstrument-functions.
+	* gcc.c-torture/special/special.exp: Run it.
+
+Wed Jul 29 00:17:18 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/980729-1.c: New test.
+
+1998-07-26  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/noncompile/980615-0.f: New test.
+
+Sun Jul 26 01:15:56 1998  H.J. Lu  (hjl@gnu.org)
+
+	* gcc.dg/980312-1.c: Do link instead of compile.
+	* gcc.dg/980313-1.c: Likewise.
+
+Sun Jul 26 01:05:02 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/980726-1.c: New test.
+
+1998-07-25  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/io0.f: New test.
+
+Fri Jul 17 14:19:32 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* gcc.dg/980626-1.c: Expect failures for all toolchains until
+	c-decl.c:grokdeclarator can handle mode attributes.
+
+Thu Jul 16 21:42:50 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980716-1.c: New test.
+
+Mon Jul 13 22:26:37 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/920715-1.x: No longer expected to fail on
+	the mn10200.
+	* gcc.c-torture/execute/strct-varg-1.x: New file.  Expect failure on
+	the mn10200.
+	* gcc.c-torture/execute/va-arg-3.x: Similarly.
+	* gcc.c-torture/compile/930326-1.x: Similarly.
+
+1998-07-13  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/auto0.f, g77.f-torture/execute/auto1.f:
+	New test from Craig.
+
+1998-07-12  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/noncompile/980616-0.f: New test.
+
+	* g77.f-torture/execute/970816-3.f:  New test from Craig.
+
+Fri Jul 10 23:43:33 1998 Martin von Loewis <martin@mira.isdn.cs.tu-berlin.de>
+	
+	*  g++.other/singleton.C: Return error value instead of taking
+	SIGSEGV.
+
+Fri Jul 10 10:02:03 1998  Klaus-Georg Adams <Klaus-Georg.Adams@chemie.uni-karlsruhe.de> 
+
+	*  g++.other/singleton.C: New test.   Warning is under dispute.
+	Runtime crash is not.
+
+Thu Jul  9 23:07:45 1998  Martin von Loewis <martin@mira.isdn.cs.tu-berlin.de>
+
+	* g++.ns/{alias2.C, alias5.C, koenig4.C, lookup3.C ns13.C, 
+	ns14.C, ns15.C, template3.C, undef1.C, using4.C, using5.C, 
+	using6.C, using7.C}:  New namespace tests.
+
+Thu Jul  9 22:44:49 1998  Alexandre Oliva   <oliva@dcc.unicamp.br>
+
+        * g++.old-deja/g++.other/partspec1.C: test matching of partial
+        specialization with typedef'ed names used as array indexes.
+
+Thu Jul  9 00:38:51 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980709-1.c: New test.
+
+	* gcc.dg/980709-1.c: New test.
+
+Tue Jul  7 13:41:27 1998  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/bcp-1.c: New test.
+
+Tue Jul  7 11:49:04 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980707-1.c: New test.
+
+Mon Jul  6 18:20:27 1998  Kamil Iskra  <iskra@student.uci.agh.edu.pl>
+
+	* gcc.c-torture/compile/980706-1.c: New test.
+
+1998-07-01  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/980701-0.f,
+	g77.f-torture/execute/980701-1.f: New test from Craig.
+
+Wed Jul  1 00:52:51 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/980701-1.c: New test.
+
+	* gcc.c-torture/execute/980701-1.c: New test.
+
+Tue Jun 30 11:51:42 1998  Klaus-Georg Adams  <Klaus-Georg.Adams@chemie.uni-ka
+rlsruhe.de>
+
+	* g++.old-deja/g++.robertl/eb132.C: New test.
+	* g++.old-deja/g++.robertl/eb133.C: Likewise.
+
+1998-06-29  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/980628-7.f,
+	g77.f-torture/execute/980628-8.f,
+	g77.f-torture/execute/980628-9.f,
+	g77.f-torture/execute/980628-10.f: New tests from Craig.
+
+	* g77.f-torture/execute/980628-3.f: Remove mail headers.
+
+Sun Jun 28 12:49:02 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* g77.f-torture/execute/980628-4.f: New test from Craig.
+	* g77.f-torture/execute/980628-5.f: Likewise.
+	* g77.f-torture/execute/980628-2.f: Likewise.
+	* g77.f-torture/execute/980628-0.f: Likewise.
+	* g77.f-torture/execute/980628-1.f: Likewise.
+	* g77.f-torture/execute/980628-3.f: Likewise.
+	* g77.f-torture/execute/980628-6.f: Likewise.
+
+Sun Jun 28 00:37:26 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* lib/g77.exp (default_g77_version): Tweak to make it work in a build
+	directory when nothing has been installed yet.
+
+Sat Jun 27 23:23:18 1998  Carlo Wood  <carlo@runaway.xs4all.nl>
+
+	* gcc.c-torture/special/special.exp: Handle newer versions of
+	dejagnu.
+
+Fri Jun 26 17:57:40 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980626-1.c: New test.
+
+Fri Jun 19 23:26:12 1998  Bruno Haible <haible@ilog.fr>
+
+	* gcc.misc-tests/m-un-2.c: New test.
+	* g++.old-deja/g++.other/warn01.c: Likewise.
+
+Fri Jun 19 14:06:36 1998  Robert Lipe  <robertl@dgii.com>
+	
+	* gcc.dg/980414-1.c: Move comments outside of ASM to improve
+	compatibility with assmblers with a different comment character.
+	Eliminate use of GAS-specific extensions. 
+
+Fri Jun 19 02:05:14 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/ieee/980619-1.c: New test.
+
+Fri Jun 19 00:58:11 1998  Robert Lipe  <robertl@dgii.com>
+
+	*lib/g77.exp: Replace search for libf2c.a with search for newly
+	renamed libg2c.a
+
+Wed Jun 17 18:53:12 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980617-1.c: New test.
+
+Fri Jun 12 01:08:49 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980612-1.c: New test.
+
+Mon Jun  8 02:13:42 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980523-1.c: Only test on ppc-linux.
+	* gcc.dg/980526-1.c, gcc.dg/switch-1.c: Likewise.
+
+	* gcc.c-torture/execute/980608-1.c: New test.
+
+Thu Jun  4 01:39:24 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980604-1.c: New test.
+
+Tue Jun  2 20:51:43 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/980602-1.c: New test.
+	* gcc.c-torture/execute/980602-2.c: Likewise.
+
+1998-06-02  Dave Love  <d.love@dl.ac.uk>
+
+	* 970125-0.f: Fix per JCB.  Add commentary.
+
+Fri May 29 01:10:12 1998  Peter Leven <leven@lpr.e-technik.tu-muenchen.de>
+
+	* gcc.c-torture/execute/ieee/fp-cmp-1.c: Set up signal handler
+	earlier.
+
+Thu May 28 00:17:42 1998  Catherine Moore <clm@cygnus.com>
+
+	* gcc.c-torture/execute/980526-3.c: New test.
+
+1998-05-27  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* g++.old-deja/g++.jason/thunk2.C: Setup this test to be expected to
+	fail on m68k-motorola-sysv and m88k-motorola-sysv3.
+	* g++.old-deja/g++.jason/thunk3.C: Add m68k-motorola-sysv and
+	m88k-motorola-sysv3 to XFAIL.
+
+Tue May 26 23:58:03 1998  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.dg/980526-1.c: New test.
+	* gcc.c-torture/execute/980526-2.c: New test.
+
+Tue May 26 23:40:40 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980523-1.c: Change "ppc" to "powerpc".
+
+	* gcc.c-torture/execute/980526-1.c: New test.
+
+1998-05-26  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/alpha2.f: Add runtime test.
+
+1998-05-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* g++.old-deja/old-deja.exp: Strip leading directories.
+
+	* lib/old-dejagnu.exp: All tests fail if we got an internal compiler
+	error for the line.  Don't run multiple tests for the same line.
+
+Sat May 23 23:27:10 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980523-1.c: New test.
+
+1998-05-23  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/970915-0.f: New test.
+
+1998-05-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lib/old-dejagnu.exp: Ignore C++ "instantiated from" mesages.
+
+Thu May 21 23:23:21 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/980520-1.c: New test.
+
+Wed May 20 14:37:15 1998  Manfred Hollstein  <manfred@s-direktnet.de>
+
+	* gcc.dg/980502-1.c: Fix return type.
+
+Wed May 20 11:29:48 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/{980502-1.c, clobbers.c}: New tests.
+	* gcc.c-torture/compile/{980504-1.c, 980506-1.c}: Likewise.
+	* gcc.c-torture/compile/{980506-2.c, 980611-1.c}: Likewise.
+	* gcc.c-torture/execute/{980505-1.c, 980505-2.c, 980506-1.c}: Likewise.
+	* gcc.c-torture/execute/{980506-2.c, 980506-3.c}: Likewise.
+
+1998-05-20  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/980520-1.f: New test.
+
+1998-05-15  Dave Love  <d.love@dl.ac.uk>
+
+	* lib/mike-g77.exp: New file.
+
+	* g77.f-torture/noncompile/noncompile.exp,
+	g77.f-torture/noncompile/check0.f: New files.
+
+1998-05-14  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/short.f, g77.f-torture/execute/le.f,
+	g77.f-torture/execute/exp.f, g77.f-torture/execute/erfc.f,
+	g77.f-torture/execute/dnrm2.f, g77.f-torture/execute/dcomplex.f,
+	g77.f-torture/execute/cpp.F, g77.f-torture/execute/complex_1.f,
+	g77.f-torture/execute/claus.f, g77.f-torture/execute/cabs.f: Call
+	abort where appropriate.
+
+Tue May  5 19:20:13 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* lib/c-torture.exp (TORTURE_OPTIONS): Add -Os to options.
+	* lib/f-torture.exp (TORTURE_OPTIONS): Ditto.
+
+1998-04-29  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/980419-1.f: Removed since doesn't compile.
+
+1998-04-27  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/980427-0.f: New test.
+
+1998-04-24  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/980424-0.f: New test.
+
+1998-04-19  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/compile/980419-2.f (main): New test.
+	* g77.f-torture/compile/970125-0.f: New test.
+	* g77.f-torture/compile/980419-1.f: New test.
+
+Wed Mar 18 16:22:22 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* gcc.dg/980313-1.c: New test for fp conditional move on PPro.
+	* gcc.dg/980312-1.c: Fix typo in -march command.
+
+Mon Mar 16 20:01:30 1998  H.J. Lu  (hjl@gnu.org)
+
+	* gcc.dg/980312-1.c: New test for fp conditional move on PPro.
+
+Wed Mar 11 13:08:48 1998  Robert Lipe  <robertl@dgii.com>
+
+	* g77.f-torture/execute/980310-5.f: Deleted.  Craig Burley and
+	Dave Love agree the Fortran source is bogus.
+
+Wed Mar 11 00:03:49 1998  Robert Lipe  <robertl@dgii.com>
+
+	* g77.f-torture/compile/980310-1.f, g77.f-torture/compile/980310-2.f
+	g77.f-torture/compile/980310-3.f, g77.f-torture/compile/980310-4.f
+	g77.f-torture/compile/980310-6.f, g77.f-torture/compile/980310-7.f
+	g77.f-torture/compile/980310-8.f: New tests from egcs-bugs archives.
+	* g77.f-torture/execute/980310-5.f: New test from egcs-bugs archives.
+
+Tue Mar 10 00:31:51 1998  Alexandre Oliva   <oliva@dcc.unicamp.br>
+
+        * g++.old-deja/g++.other/friend1.C: New test.
+
+1998-02-18  Dave Love  <d.love@dl.ac.uk>
+
+	* g77.f-torture/execute/dnrm2.f (dnrm2): Avoid uninitialized (and
+	possibly uninitialized) variables and declare dnrm2.
+
+Fri Feb 13 00:36:07 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.dg/ifelse-1.c: New test.
+
+Mon Feb  9 02:08:47 1998  H.J. Lu  (hjl@gnu.org)
+
+	* lib/g77.exp (g77_target_compile): Fix multilibs for libf2c.
+
+        * lib/old-dejagnu.exp (old-dejagnu): Added the
+        "execution test - XFAIL *-*-*" handling in the spirit of
+        "excess errors test -". Changed the "execution test fails"
+        handling to be like "excess errors test fails".
+        * Update various tests accordingly.
+
+Sun Jan 18 01:33:59 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* lib/c-torture.exp: Look for .x files instead of .cexp files.
+	* lib/f-torture.exp: Similarly.
+	* gcc.c-torture: Rename all .cexp files to .x files.
+
+Tue Nov 25 16:18:51 1997  Kate Hedstrom  (kate@ahab.rutgers.edu)
+
+        * lib/f-torture.exp: Improve error and loop detection.
+
+Fri Sep 26 10:50:53 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* lib/c-torture.exp(c-torture-execute): Fix typo.
+
+	* lib/old-dejagnu.exp(old-dejagnu): Use a name derived from the
+	testcase as the executable name. Keep the executable around if
+	the test fails.
+
+Fri Sep 19 17:19:53 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* lib/c-torture.exp (TORTURE_OPTIONS): Removed unnecessary
+ 	changes.  Only test one -g option, and move it to the end of the
+ 	list of options to test.
+
+Fri Sep 19 17:58:00 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* lib/c-torture.exp (TORTURE_OPTIONS): Check for the environment
+	variable GCC_TORTURE_OPTIONS to supply default switches separated
+	by colons.  If no environment variable, run tests with -O0 -g, -O1
+	-g, and -O2 -g as well.
+
+Wed Sep 17 10:12:26 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* lib/plumhall.exp: Don't set PHSRC in this file. Add a few
+	explanatory comments. Fix indentation.
+
+Mon Sep 15 00:36:53 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* lib/g++.exp (g++_init): Look for xgcc in $basedir too.
+
+Thu Sep 11 13:54:47 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* g++.old-deja/g++.brendan/scope4.C: No longer expected to fail.
+	* g++.old-deja/g++.mike/p7325.C: Likewise.
+	* g++.old-deja/g++.mike/eh51.C: No longer expected to fail on the PA.
+
+Thu Sep 11 10:00:03 1997  Alexandre Oliva  (oliva@dcc.unicamp.br)
+
+	* g++.old-deja/g++.brendan/crash20.C: Rework to avoid libg++.
+	* g++.old-deja/g++.brendan/crash30.C: Likewise.
+	* g++.old-deja/g++.brendan/crash39.C: Likewise.
+	* g++.old-deja/g++.law/operators4.C: Likewise.
+
+Thu Sep 11 09:53:40 1997  Joe Buck  (jbuck@synopsys.com)
+
+	* g++.old-deja/g++.mike/p658.C: eliminate <bool.h> use.
+	* g++.old-deja/g++.mike/p784.C: Ditto.
+	* g++.old-deja/g++.mike/p785.C: Ditto.
+
+Fri Sep  5 00:21:42 1997  Jeffrey A Law  (law@cygnus.com)
+
+        * gcc.c-torture/execute/cbrt.c: Tweak to work on more targets.
+
+Wed Sep  3 17:15:00 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* lib/c-torture.exp(c-torture-execute): If the previous and the
+ 	current executables being tested are identical, we don't need to
+ 	run the executable again. Try to make the executable names
+ 	unique. Add an optional argument for passing additional compiler
+ 	flags.
+
+Tue Sep  2 16:34:31 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* lib/gcc-dg.exp (gcc-dg-test): Fix typos setting compile_type.
+
 Thu Jul 31 12:17:24 1997  Jeffrey A Law  (law@cygnus.com)
 
 	* gcc.c-torture/execute/920501-9.c: Fix to work on targets with

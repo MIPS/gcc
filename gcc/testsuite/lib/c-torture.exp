@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu.prep.ai.mit.edu
+# bug-dejagnu@gnu.org.
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
 
@@ -23,12 +23,16 @@
 # TORTURE_OPTIONS="{ { list1 } ... { listN } }"
 
 if ![info exists TORTURE_OPTIONS] {
-    # FIXME: We should test -g at least once.
+    # It is theoretically beneficial to group all of the O2 options together,
+    # as in many cases the compiler will generate identical executables for
+    # all of them--and the c-torture testsuite will skip testing identical
+    # executables multiple times.
     set TORTURE_OPTIONS [list \
 	{ -O0 } { -O1 } { -O2 } \
 	{ -O2 -fomit-frame-pointer -finline-functions } \
 	{ -O2 -fomit-frame-pointer -finline-functions -funroll-loops } \
-	{ -O2 -fomit-frame-pointer -finline-functions -funroll-all-loops }]
+	{ -O2 -fomit-frame-pointer -finline-functions -funroll-all-loops } \
+	{ -O2 -g } { -Os } ]
 }
 
 
@@ -124,20 +128,23 @@ proc c-torture-compile { src option } {
 #
 # SRC is the full pathname of the testcase.
 #
-# If the testcase has an associated .cexp file, we source that to run the
-# test instead.  We use .cexp instead of .exp so that the testcase is still
-# controlled by the main .exp driver (this is useful when one wants to only
-# run the compile.exp tests for example - one need only pass compile.exp to
-# dejagnu, and not compile.exp, foo1.exp, foo2.exp, etc.).
+# If the testcase has an associated .x file, we source that to run the
+# test instead.  We use .x so that we don't lengthen the existing filename
+# to more than 14 chars.
 #
-proc c-torture-execute { src } {
+proc c-torture-execute { src args } {
     global tmpdir tool srcdir output 
 
+    if { [llength $args] > 0 } {
+	set additional_flags [lindex $args 0];
+    } else {
+	set additional_flags "";
+    }
     # Check for alternate driver.
-    if [file exists [file rootname $src].cexp] {
-	verbose "Using alternate driver [file rootname [file tail $src]].cexp" 2
+    if [file exists [file rootname $src].x] {
+	verbose "Using alternate driver [file rootname [file tail $src]].x" 2
 	set done_p 0
-	catch "set done_p \[source [file rootname $src].cexp\]"
+	catch "set done_p \[source [file rootname $src].x\]"
 	if { $done_p } {
 	    return
 	}
@@ -163,31 +170,49 @@ proc c-torture-execute { src } {
 	set testcase "[file tail [file dirname $src]]/[file tail $src]"
     }
 
+    set count 0;
+    set oldstatus "foo";
     foreach option $option_list {
-	# torture_{compile,execute}_xfail are set by the .cexp script
+	if { $count > 0 } {
+	    set oldexec $execname;
+	}
+	set execname "${executable}${count}";
+	incr count;
+
+	# torture_{compile,execute}_xfail are set by the .x script
 	# (if present)
 	if [info exists torture_compile_xfail] {
 	    setup_xfail $torture_compile_xfail
 	}
-	remote_file build delete $executable
+	
+	# torture_execute_before_{compile,execute} can be set by the .x script
+	# (if present)
+	if [info exists torture_eval_before_compile] {
+            set ignore_me [eval $torture_eval_before_compile]
+	}
+	
+	remote_file build delete $execname;
 	verbose "Testing $testcase, $option" 1
 
 	set options ""
 	lappend options "additional_flags=-w $option"
-	set comp_output [gcc_target_compile "$src" "$executable" executable $options];
+	if { $additional_flags != "" } {
+	    lappend options "additional_flags=$additional_flags";
+	}
+	set comp_output [gcc_target_compile "$src" "${execname}" executable $options];
 
 	# Set a few common compiler messages.
 	set fatal_signal "*cc: Internal compiler error: program*got fatal signal"
 	
 	if [string match "$fatal_signal 6" $comp_output] then {
 	    gcc_fail $testcase "Got Signal 6, $option"
-	    remote_file build delete $executable
+	    remote_file build delete $execname
 	    continue
 	}
 	
 	if [string match "$fatal_signal 11" $comp_output] then {
 	    gcc_fail $testcase "Got Signal 11, $option"
-	    remote_file build delete $executable
+	    remote_file build delete $execname
 	    continue
 	}
 	
@@ -196,7 +221,7 @@ proc c-torture-execute { src } {
 	    warning "$testcase: (with warnings) $option"
 	    send_log "$comp_output\n"
 	    unresolved "$testcase, $option"
-	    remote_file build delete $executable
+	    remote_file build delete $execname
 	    continue
 	}
 	
@@ -207,7 +232,7 @@ proc c-torture-execute { src } {
 	if { $unsupported_message != "" } {
 	    unsupported "$testcase: $unsupported_message"
 	    continue
-	} elseif ![file exists $executable] {
+	} elseif ![file exists $execname] {
 	    if ![is3way] {
 		fail "$testcase compilation, $option"
 		untested "$testcase execution, $option"
@@ -234,14 +259,32 @@ proc c-torture-execute { src } {
 	if [info exists torture_execute_xfail] {
 	    setup_xfail $torture_execute_xfail
 	}
+
+	if [info exists torture_eval_before_execute] {
+            set ignore_me [eval $torture_eval_before_execute]
+	}
 	
-	set result [gcc_load "$executable" "" ""]
-	set status [lindex $result 0];
-	set output [lindex $result 1];
-        if { $status == "pass" } {
-	    remote_file build delete $executable
+	set skip 0;
+	if [info exists oldexec] {
+	    if { [remote_file build cmp $oldexec $execname] == 0 } {
+		set skip 1;
+	    }
+	}
+	if { $skip == 0 } {
+	    set result [gcc_load "$execname" "" ""]
+	    set status [lindex $result 0];
+	    set output [lindex $result 1];
+	}
+        if { $oldstatus == "pass" } {
+	    remote_file build delete $oldexec;
         }
 	$status "$testcase execution, $option"
+	set oldstatus $status;
+    }
+    if [info exists status] {
+	if { $status == "pass" } {
+	    remote_file build delete $execname;
+	}
     }
 }
 
@@ -267,11 +310,9 @@ proc search_for { file pattern } {
 # SRC is the full pathname of the testcase, or just a file name in which case
 # we prepend $srcdir/$subdir.
 #
-# If the testcase has an associated .cexp file, we source that to run the
-# test instead.  We use .cexp instead of .exp so that the testcase is still
-# controlled by the main .exp driver (this is useful when one wants to only
-# run the compile.exp tests for example - one need only pass compile.exp to
-# dejagnu, and not compile.exp, foo1.exp, foo2.exp, etc.).
+# If the testcase has an associated .x file, we source that to run the
+# test instead.  We use .x so that we don't lengthen the existing filename
+# to more than 14 chars.
 #
 proc c-torture { args } {
     global srcdir subdir
@@ -289,10 +330,10 @@ proc c-torture { args } {
     }
 
     # Check for alternate driver.
-    if [file exists [file rootname $src].cexp] {
-	verbose "Using alternate driver [file rootname [file tail $src]].cexp" 2
+    if [file exists [file rootname $src].x] {
+	verbose "Using alternate driver [file rootname [file tail $src]].x" 2
 	set done_p 0
-	catch "set done_p \[source [file rootname $src].cexp\]"
+	catch "set done_p \[source [file rootname $src].x\]"
 	if { $done_p } {
 	    return
 	}
@@ -309,11 +350,16 @@ proc c-torture { args } {
 
     # loop through all the options
     foreach option $option_list {
-	# torture_compile_xfail is set by the .cexp script (if present)
+	# torture_compile_xfail is set by the .x script (if present)
 	if [info exists torture_compile_xfail] {
 	    setup_xfail $torture_compile_xfail
 	}
 
+	# torture_execute_before_compile is set by the .x script (if present)
+	if [info exists torture_eval_before_compile] {
+            set ignore_me [eval $torture_eval_before_compile]
+	}
+	
 	c-torture-compile $src "$option $options"
     }
 }

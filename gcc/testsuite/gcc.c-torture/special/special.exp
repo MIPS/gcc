@@ -34,9 +34,23 @@ load_lib gcc-dg.exp
 
 ################## ADD NEXT CASE HERE (NOT AT THE END) ##################
 
+# 981006-1
+# For MIPS at least, pic is needed to trigger the problem.
+dg-init
+if { [istarget rs6000-*-aix*]
+     || [istarget powerpc*-*-aix*]
+     || [istarget arm*-*-*]
+} {
+    set extra_flags ""
+} else {
+    set extra_flags "-fpic"
+}
+dg-runtest $srcdir/$subdir/981006-1.c "-Wuninitialized -O2 $extra_flags" ""
+dg-finish
+
 # 921210-1
 set lines [gcc_target_compile $srcdir/$subdir/921210-1.c "" preprocess ""]
-set lines [split [prune_warnings [prune_gcc_output $lines]] "\n"]
+set lines [prune [split [prune_warnings [prune_gcc_output $lines]] "\n"] ""]
 set line [lindex $lines [expr [llength $lines]-1]]
 regsub -all " " $line "" clean
 if [expr [string compare $clean "(a->f+1)+1"]==0] then {
@@ -98,3 +112,5 @@ c-torture 960224-1.c "-E -ansi -pedantic-errors"
 
 # 960224-2
 #c-torture 960224-2.c "-E -ansi -pedantic-errors"
+
+c-torture-execute $srcdir/$subdir/eeprof-1.c "-finstrument-functions"

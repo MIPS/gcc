@@ -1,3 +1,111 @@
+Sun Oct 11 05:04:28 1998  Ken Raeburn  <raeburn@cygnus.com>
+
+	* execute/memcheck: New directory of tests for
+	-fcheck-memory-usage.
+
+1998-10-06  Ken Raeburn  <raeburn@cygnus.com>
+
+	* special/981006-1.c: New test.  Make sure gcc doesn't lose track
+	of the possible targets of tablejump insns.
+	* special/special.exp: Run it.
+
+Thu Oct  1 17:15:26 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* compile/981001-1.c: New test.
+	* execute/981001-1.c: New test.
+	
+Mon Aug 31 12:00:00 1998  Catherine Moore  <clm@cygnus.com>
+
+	* execute/941014-1.x:  New file.
+
+Wed Aug 26 16:10:00 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* execute/loop-4b.c: New test.
+
+Mon Aug 24 14:20:32 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/bcp-1.c (main): Fix optimize test loop to count number
+	tests in opt_t0 not good_t0.
+
+Thu Aug 13 00:13:55 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* execute/ieee/ieee.exp: Pass -ffloat-store to compiler for
+	ieee tests.
+
+Mon Jul 27 11:05:07 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/ieee/930529-1.c (main): Check to see if __thumb__ is
+	defined, and test for ARM style doubles if so.
+
+Fri Jul 24 11:02:43 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/comp-goto-1.c (main): Make main() return an int.
+
+Thu Jun 18 15:12:30 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/980618-{1,2}.c: New tests that showed up m32r bugs.
+
+Fri Jun  5 21:54:26 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* execute/980605-1.c: New test.
+
+Sun May 31 23:23:29 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/ieee/mzero2.c: New test to better test IEEE -0 support.
+
+Wed Apr  8 13:09:15 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* execute/980407-1.c: Delete test.  Is duplicate of loop-4.c.
+
+Tue Apr  7 12:01:24 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* execute/980407-1.c: New test from Joern Rennecke.
+
+Fri Apr  3 12:27:49 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* compile/980329-1.c: New test.
+
+Mon Feb 23 15:16:53 1998  Robert Lipe <robertl@dgii.com>
+	From Bruno Haible <haible@ilog.fr>:
+	* execute/980223.c: New test.
+
+Fri Feb  6 14:30:48 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* execute/980205.c: New test.
+
+Mon Dec  8 23:55:26 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* noncompile/noncompile.exp (921102-1.c): Fixed comment.
+	(940510-1.c): Removed duplicate.
+	(971104-1.c): New test.
+
+Wed Nov 19 14:27:04 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/950221-1.c (filler): If STACK_SIZE is defined, use that
+	to size the filler array.
+
+Wed Sep  3 17:29:35 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* execute/ieee/ieee.exp: Check for ieee_multilib_flags target
+	feature; pass this to c-torture-execute as needed.
+
+Fri Aug 29 12:48:09 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* execute/921007-1.c: Make strcmp static.
+
+Tue Jul 29 00:40:38 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* conversion.c (test_float_to_integer): Make double precision tests
+	dependent on sizeof (double).
+
+Tue Jun 17 22:11:16 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* compile/961203-1.cexp: New script.
+
+Wed Jun  4 03:38:50 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* execute/ieee/ieee.exp: Set -mieee for SH.
+
 Thu May 15 14:00:04 1997  Mike Meissner  <meissner@cygnus.com>
 
 	* execute/va-arg-3.c: If NO_VARARGS is defined, nop test.

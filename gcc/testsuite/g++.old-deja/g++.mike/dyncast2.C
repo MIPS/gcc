@@ -1,5 +1,5 @@
 // Special g++ Options: -fexceptions -w
-// excess errors test - XFAIL a29k-*-* sparc64-*-elf sh-*-* arm-*-pe powerpc-*-eabi
+// excess errors test - XFAIL a29k-*-* sparc64-*-elf sh-*-* arm-*-pe
 
 // Ensure reference handling works.
 
@@ -18,7 +18,7 @@ main() {
   try {
     void *vp = &dynamic_cast<D&>(*b);
     return 1;
-  } catch (bad_cast) {
+  } catch (std::bad_cast) {
     return 0;
   }
   return 1;

@@ -129,12 +129,8 @@ Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
-#include <bool.h>
+
 
 //# 25 "../../GctSymbol.h" 2
 
@@ -2140,10 +2136,6 @@ inline SubString String::_substr(int first, int l)
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "../../../../../../mips/include/Gct/Object/GctObject.h" 1
 // -*- C++ -*-
@@ -2165,10 +2157,6 @@ inline SubString String::_substr(int first, int l)
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/tostrstream.h" 1
 // -*- C++ -*-
@@ -2190,10 +2178,6 @@ inline SubString String::_substr(int first, int l)
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/strstream.h" 1
 //    This is part of the iostream library, providing input/output for C++.
@@ -2333,10 +2317,6 @@ public:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/tostrstream.h" 1
 // -*- C++ -*-
@@ -2365,10 +2345,6 @@ public:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -2408,10 +2384,6 @@ public:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 extern "C" {
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/stuff.h" 1
@@ -2423,10 +2395,6 @@ extern "C" {
  */
 
 /*
- * $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
- * $Revision: 1.6 $
- * $Author: jason $
- * $Date: 1994/05/16 09:13:02 $
  */
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/ansi.h" 1
@@ -2452,10 +2420,6 @@ extern "C" {
  */
 
 /*
- * $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
- * $Author: jason $
- * $Revision: 1.6 $
- * $Date: 1994/05/16 09:13:02 $
  *
  * Modifications
  * Wendell C Baker
@@ -2639,10 +2603,6 @@ extern ostream& operator<<(ostream&, bool);
 // Wendell Baker, Berkeley CAD Group, 1991 (wbaker@ic.Berkeley.EDU)
 //
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //
 // unit enum
@@ -2800,7 +2760,7 @@ public:
     //
     // Error messages
     //     - an unacceptable, but expected and recoverable condition
-    //       was was detected (but the test fails)
+    //       was detected (but the test fails)
     //     - errors are for ``the expected environment was not found''
     //       rather than for ``file couldn't be opened''
     //     - these messages cannot be shut off
@@ -2972,10 +2932,6 @@ extern ostream& operator<<(ostream&, GttObject&);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p784.C,v $
-// $Author: jason $
-// $Revision: 1.6 $
-// $Date: 1994/05/16 09:13:02 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -3132,7 +3088,7 @@ public:
     //
     // Error messages
     //     - an unacceptable, but expected and recoverable
-    //       condition was was detected
+    //       condition was detected
     //     - errors are for ``the expected environment was not found''
     //       rather than for ``file couldn't be opened''
     //     - these messages cannot be shut off
