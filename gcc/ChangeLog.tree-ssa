@@ -1,3 +1,8 @@
+2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (handle_switch_fallthru): Use bsi_link_after if stmt is
+	in a basic block.
+
 2003-07-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* opts.c (decode_options): Disable must-alias optimization.

@@ -3823,8 +3823,14 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
   stmt = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
 
   /* Update block in the new CE node.  */
-  tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
-  append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
+  tmp_bb = bb_for_stmt (tsi_stmt (tsi));
+  if (tmp_bb)
+    tsi = bsi_link_after (&tsi, stmt, tmp_bb, parent_stmt (tsi_stmt (tsi)));
+  else
+    {
+      tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
+      append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
+    }
   tsi_next (&tsi);
   append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
 
