@@ -1899,8 +1899,6 @@ rs6000_va_arg (valist, type)
     {
       HOST_WIDE_INT align, rounded_size;
       enum machine_mode mode;
-      enum direction dir;
-      int unsignedp;
       tree addr_tree;
 
       /* Compute the rounded size of the type.  */
