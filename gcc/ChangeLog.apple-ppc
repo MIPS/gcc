@@ -1,3 +1,9 @@
+2005-03-22  Devang Patel  <dpatel@apple.com>
+
+        Radar 4023104 
+        * config/darwin-driver.c (dash_capital_m_seen): Remove. 
+        (main) : Do not handle -M options.
+
 2005-03-21  Stuart Hastings  <stuart@apple.com>
 
 	Radars 3805723 4010664 3965893 4010496 4015764
