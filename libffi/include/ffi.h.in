@@ -435,6 +435,18 @@ struct ffi_ia64_trampoline_struct {
 #define FFI_TRAMPOLINE_SIZE 24 /* see struct below */ 
 #define FFI_NATIVE_RAW_API 0
 
+#elif defined(SPARC64)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(SPARC)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 16
+#define FFI_NATIVE_RAW_API 0
+
 #elif defined(S390)
 
 #define FFI_CLOSURES 1
