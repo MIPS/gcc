@@ -680,7 +680,7 @@ See RS/6000 and PowerPC Options.
 -mpowerpc  -mpowerpc64  -mno-powerpc @gol
 -maltivec  -mno-altivec @gol
 @c APPLE LOCAL AltiVec
--maltivec-pim -mno-altivec-pim @gol
+-mpim-altivec -mno-pim-altivec @gol
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
@@ -1272,15 +1272,7 @@ comments, after the declaration.
 @item -faltivec
 This flag is provided for compatibility with Metrowerks CodeWarrior and MrC
 compilers as well as previous Apple versions of GCC.  It causes the
-@option{-maltivec-pim} option to be turned on.
-
-In addition, the @option{-faltivec} option disables the inlining of
-functions containing AltiVec instructions into functions that do not make
-use of the vector unit.  Certain other optimizations, such as inline 
-vectorization of @code{memset} and @code{memcpy} calls, are also disabled.
-These adjustments make it possible to compile programs whose use of AltiVec
-instructions is preceded by a run-time check for the presence of AltiVec
-functionality, and that can therefore be made to run on G3 processors.
+@option{-mpim-altivec} option to be turned on.
 @c APPLE LOCAL end AltiVec
 
 @c APPLE LOCAL begin CW asm blocks
@@ -10760,10 +10752,10 @@ the AltiVec instruction set.  You may also need to set
 enhancements.
 
 @c APPLE LOCAL begin AltiVec
-@item -maltivec-pim
-@itemx -mno-altivec-pim
-@opindex maltivec-pim
-@opindex mno-altivec-pim
+@item -mpim-altivec
+@itemx -mno-pim-altivec
+@opindex mpim-altivec
+@opindex mno-pim-altivec
 Enable (or disable) built-in compiler support for the syntactic extensions as
 well as operations and predicates defined in the Motorola AltiVec
 Technology Programming Interface Manual (PIM).  This includes the
@@ -10774,7 +10766,18 @@ Note that unlike the option @option{-maltivec}, the extension does not require
 the inclusion of any special header files; if @code{<altivec.h>} is included,
 a warning will be issued and the contents of the header will be
 ignored.  The preprocessor shall provide an @code{__APPLE_ALTIVEC__}
-manifest constant when @option{-maltivec-pim} is specified.  (APPLE ONLY)
+manifest constant when @option{-mpim-altivec} is specified.  (APPLE ONLY)
+
+In addition, the @option{-mpim-altivec} option disables the inlining of
+functions containing AltiVec instructions into functions that do not make
+use of the vector unit.  Certain other optimizations, such as inline 
+vectorization of @code{memset} and @code{memcpy} calls, are also disabled.
+These adjustments make it possible to compile programs whose use of AltiVec
+instructions is preceded by a run-time check for the presence of AltiVec
+functionality, and that can therefore be made to run on G3 processors.
+Note that all of these optimizations may be re-enabled by supplying
+the @option{-maltivec} option, or an @option{-mcpu} option specifying
+a processor that supports AltiVec instructions.
 @c APPLE LOCAL end AltiVec
 
 @item -mabi=spe

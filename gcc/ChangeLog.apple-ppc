@@ -1,3 +1,26 @@
+2004-12-15  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3913672
+	* config/rs6000/darwin.h (SUBTARGET_OPTION_TRANSLATE_TABLE): For
+	'-faltivec', pass in '-pim-altivec' instead of '-maltivec
+	-maltivec-pim'.
+	* config/rs6000/rs6000.c (rs6000_altivec_switch): New.
+	(rs6000_override_options): Handle '-m(no)altivec' explicitly
+	(rather than via TARGET_SWITCHES); for '-maltivec' and
+	'-mcpu=xxx' (where xxx supports AltiVec), clear the
+	flag_disable_opts_for_faltivec flag, move handling of
+	'-m(no-)pim-altivec' (formerly '-m(no-)altivec-pim')
+	before handling of -maltivec and -mcpu, and have it
+	set MASK_ALTIVEC and flag_disable_opts_for_faltivec.
+	* config/rs6000/rs6000.h (TARGET_SWITCHES): Move
+	'-m(no-)altivec' to TARGET_OPTIONS.
+	(TARGET_OPTIONS): Rename '-m(no-)altivec-pim' to
+	'-m(no-)pim-altivec'; add in '-m(no-)altivec'.
+	(rs6000_altivec_switch): New forward declaration.
+	* doc/invoke.texi: Rename '-m(no-)altivec-pim' to
+        '-m(no-)pim-altivec'; move description of disabled
+	optimizations from '-faltivec' to '-mpim-altivec'.
+
 2004-12-14  Stuart Hastings <stuart@apple.com>
 
 	Radar 3910248

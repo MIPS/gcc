@@ -171,8 +171,8 @@ do {									\
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
   { "-ffix-and-continue", "-mfix-and-continue" },			\
   { "-findirect-data", "-mfix-and-continue" },				\
-  /* APPLE LOCAL AltiVec */			\
-  { "-faltivec", "-faltivec -maltivec -maltivec-pim" },	        \
+  /* APPLE LOCAL AltiVec */						\
+  { "-faltivec", "-faltivec -mpim-altivec" },				\
   { "-fno-altivec", "-mno-altivec" },					\
   { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
