@@ -1,3 +1,56 @@
+2003-05-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10956
+	* pt.c (instantiate_decl): Don't use full template arguments if
+	we are dealing with specializations.
+
+2003-05-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (ENABLE_CHECKING_SCOPES): New macro.
+	(binding_depth): Unconditionally define.
+	(is_class_level): Likewise.
+	(indent): Likewise.  Take an indenting parameter.
+	(push_binding_level): Remove conditional definittion. 
+	(pop_binding_level): Likewise.
+	(suspend_binding_level): Likewise.
+	(resume_binding_level): Likewise.
+	(pushlevel): Likewise.
+	(pushlevel_class): Likewise.
+	(poplevel_class): Likewise.
+	(pop_everything): Likewise.
+	
+2003-05-27  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* decl.c (global_scope_p): New macro.
+	(pop_binding_level): Use it.
+	(suspend_binding_level): Likewise.
+	(global_bindings_p): Likewise.
+	(print_other_binding_stack): Likewise.
+	(print_binding_stack): Likewise.
+	(maybe_push_to_top_level): Likewise.
+	(pushdecl_namespace_level): Likewise.
+	(start_decl): Likewise.
+	(cp_finish_decl): Likewise.
+	(start_function): Likewise.
+	(cxx_init_decl_processing): Don't refer to global_binding_level.
+	(global_binding_level): Remove.
+
+2003-05-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* search.c (type_access_control): Don't check access when
+	processing_specialization.
+
+2003-05-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10682
+	* pt.c (instantiate_class_template): Use DECL_ARTIFICIAL to
+	check for implicitly created typedef to an enum.
+
+2003-05-20  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (free_binding_entry):  Fix thinko.
+
 2003-05-19  Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 	* cp-tree.h (struct binding_entry_s): New datatype.

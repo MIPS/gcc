@@ -1,3 +1,27 @@
+2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-loop-3.c: New test.
+
+2003-05-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10956
+	* g++.dg/template/spec9.C: New test.
+
+2003-05-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* g++.dg/template/access10.C: New test.
+
+2003-05-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Kaveh R. Ghazi <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/compile/simd-5.x: XFAIL on SPARC64.
+
+2003-05-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10682
+	* g++.dg/template/instantiate4.C: New test.
+
 2003-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/builtins/string-4.c (main_test): Remove

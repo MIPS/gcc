@@ -1718,7 +1718,7 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#sparc-*-linux*,,sparc-*-linux*}
 @item
-@uref{#sparc64-*-*,,sparc64-*-*}
+@uref{#sparc64-*-solaris2*,,sparc64-*-solaris2*}
 @item
 @uref{#sparcv9-*-solaris2*,,sparcv9-*-solaris2*}
 @item
@@ -2795,6 +2795,9 @@ configure for @samp{mipsel-elf} as a workaround.  The
 @samp{mips*-*-linux*} target continues to use the MIPS II routines.  More
 work on this is expected in future releases.
 
+@html
+<hr />
+@end html
 @heading @anchor{mips-sgi-irix5}mips-sgi-irix5
 
 This configuration has considerable problems, which will be fixed in a
@@ -3176,6 +3179,16 @@ the bug.  The current (as of 2001-09-24) revision is -14, and is included in
 the Solaris 7 Recommended Patch Cluster.
 @end itemize
 
+GCC 3.3 triggers a bug in version 5.0 Alpha 03/27/98 of the Sun assembler,
+which causes a bootstrap failure when linking the 64-bit shared version of
+libgcc. A typical error message is:
+
+@smallexample
+ld: fatal: relocation error: R_SPARC_32: file libgcc/sparcv9/_muldi3.o:
+  symbol <unknown>:  offset 0xffffffff7ec133e7 is non-aligned.
+@end smallexample
+
+This bug has been fixed in the final 5.0 version of the assembler.
 
 @html
 <p>
@@ -3222,18 +3235,7 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 @html
 <hr />
 @end html
-@heading @anchor{sparc64-*-*}sparc64-*-*
-
-GCC version 2.95 is not able to compile code correctly for
-@code{sparc64} targets.  Users of the Linux kernel, at least,
-can use the @code{sparc32} program to start up a new shell
-invocation with an environment that causes @command{configure} to
-recognize (via @samp{uname -a}) the system as @samp{sparc-*-*} instead.
-
-@html
-<hr />
-@end html
-@heading @anchor{sparcv9-*-solaris2*}sparcv9-*-solaris2*
+@heading @anchor{sparc64-*-solaris2*}sparc64-*-solaris2*
 
 The following compiler flags must be specified in the configure
 step in order to bootstrap this target with the Sun compiler:
@@ -3243,7 +3245,14 @@ step in order to bootstrap this target with the Sun compiler:
 @end example
 
 @option{-xildoff} turns off the incremental linker, and @option{-xarch=v9}
-specifies the v9 architecture to the Sun linker and assembler.
+specifies the SPARC-V9 architecture to the Sun linker and assembler.
+
+@html
+<hr />
+@end html
+@heading @anchor{sparcv9-*-solaris2*}sparcv9-*-solaris2*
+
+This is a synonym for sparc64-*-solaris2*.
 
 @html
 <hr />

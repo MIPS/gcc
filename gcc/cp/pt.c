@@ -5528,7 +5528,7 @@ instantiate_class_template (type)
 		     CLASSTYPE_NESTED_UDTS case above.  */
 		  if (!(TREE_CODE (r) == TYPE_DECL
 			&& TREE_CODE (TREE_TYPE (r)) == ENUMERAL_TYPE
-			&& TYPE_CONTEXT (TREE_TYPE (r)) == type))
+			&& DECL_ARTIFICIAL (r)))
 		    {
 		      set_current_access_from_decl (r);
 		      finish_member_declaration (r);
@@ -10252,10 +10252,11 @@ instantiate_decl (d, defer_ok)
 
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
-  if (DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
+  if ((DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
+      || DECL_TEMPLATE_SPECIALIZATION (td))
     /* In the case of a friend template whose definition is provided
        outside the class, we may have too many arguments.  Drop the
-       ones we don't need.  */
+       ones we don't need.  The same is true for specializations.  */
     args = get_innermost_template_args
       (gen_args, TMPL_PARMS_DEPTH  (DECL_TEMPLATE_PARMS (td)));
   else

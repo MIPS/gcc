@@ -148,10 +148,6 @@ static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
 static tree reshape_init (tree, tree *);
 
-#if defined (DEBUG_BINDING_LEVELS)
-static void indent PARAMS ((void));
-#endif
-
 /* Erroneous argument lists can use this *IFF* they do not modify it.  */
 tree error_mark_list;
 
@@ -297,7 +293,7 @@ bool have_extern_spec;
 #define ENTRY_INDEX(HASH, COUNT) (((HASH) >> 3) & ((COUNT) - 1))
 
 /* A free list of "binding_entry"s awaiting for re-use.  */
-static binding_entry GTY((deletable(""))) free_binding_entry;
+static GTY((deletable("")))  binding_entry free_binding_entry;
 
 /* Create a binding_entry object for (NAME, TYPE).  */
 static inline binding_entry
@@ -669,6 +665,10 @@ struct cp_binding_level GTY(())
 
 #define NULL_BINDING_LEVEL ((struct cp_binding_level *) NULL)
 
+/* True if SCOPE designates the global scope binding contour.  */
+#define global_scope_p(SCOPE)  \
+  ((SCOPE) == NAMESPACE_LEVEL (global_namespace))
+
 /* The binding level currently in effect.  */
 
 #define current_binding_level			\
@@ -684,12 +684,6 @@ struct cp_binding_level GTY(())
 
 static GTY((deletable (""))) struct cp_binding_level *free_binding_level;
 
-/* The outermost binding level, for names of file scope.
-   This is created when the compiler is started and exists
-   through the entire run.  */
-
-static GTY(()) struct cp_binding_level *global_binding_level;
-
 /* Nonzero means unconditionally make a BLOCK for the next level pushed.  */
 
 static int keep_next_level_flag;
@@ -700,19 +694,23 @@ static int keep_next_level_flag;
 
 static GTY(()) tree incomplete_vars;
 
-#if defined(DEBUG_BINDING_LEVELS)
-static int binding_depth = 0;
+#ifndef ENABLE_SCOPE_CHECKING
+#  define ENABLE_SCOPE_CHECKING 0
+#else
+#  define ENABLE_SCOPE_CHECKING 1
+#endif
+
+static unsigned binding_depth = 0;
 static int is_class_level = 0;
 
 static void
-indent ()
+indent (unsigned depth)
 {
-  register unsigned i;
+  unsigned i;
 
-  for (i = 0; i < binding_depth*2; i++)
+  for (i = 0; i < depth * 2; i++)
     putc (' ', stderr);
 }
-#endif /* defined(DEBUG_BINDING_LEVELS) */
 
 static tree pushdecl_with_scope	PARAMS ((tree, struct cp_binding_level *));
 
@@ -730,14 +728,16 @@ push_binding_level (newlevel, tag_transparent, keep)
   newlevel->more_cleanups_ok = 1;
 
   newlevel->keep = keep;
-#if defined(DEBUG_BINDING_LEVELS)
-  newlevel->binding_depth = binding_depth;
-  indent ();
-  fprintf (stderr, "push %s level 0x%08x line %d\n",
-	   (is_class_level) ? "class" : "block", newlevel, lineno);
-  is_class_level = 0;
-  binding_depth++;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
+  if (ENABLE_SCOPE_CHECKING)
+    {
+      newlevel->binding_depth = binding_depth;
+      indent (binding_depth);
+      verbatim ("push %s level %p line %d\n",
+                (is_class_level) ? "class" : "block",
+                (void *) newlevel, lineno);
+      is_class_level = 0;
+      binding_depth++;
+    }
 }
 
 /* Find the innermost enclosing class scope, and reset
@@ -759,26 +759,24 @@ find_class_binding_level ()
 static void
 pop_binding_level ()
 {
-  if (global_binding_level)
-    {
-      /* Cannot pop a level, if there are none left to pop.  */
-      if (current_binding_level == global_binding_level)
-	abort ();
-    }
+  if (NAMESPACE_LEVEL (global_namespace))
+    /* Cannot pop a level, if there are none left to pop.  */
+    my_friendly_assert (!global_scope_p (current_binding_level), 20030527);
   /* Pop the current level, and free the structure for reuse.  */
-#if defined(DEBUG_BINDING_LEVELS)
-  binding_depth--;
-  indent ();
-  fprintf (stderr, "pop  %s level 0x%08x line %d\n",
-	  (is_class_level) ? "class" : "block",
-	  current_binding_level, lineno);
-  if (is_class_level != (current_binding_level == class_binding_level))
+  if (ENABLE_SCOPE_CHECKING)
     {
-      indent ();
-      fprintf (stderr, "XXX is_class_level != (current_binding_level == class_binding_level)\n");
+      indent (--binding_depth);
+      verbatim ("pop  %s level %p line %d\n",
+                (is_class_level) ? "class" : "block",
+                (void *) current_binding_level, lineno);
+      if (is_class_level != (current_binding_level == class_binding_level))
+        {
+          indent (binding_depth);
+          verbatim ("XXX is_class_level != (current_binding_level "
+                    "== class_binding_level)\n");
+        }
+      is_class_level = 0;
     }
-  is_class_level = 0;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
   {
     register struct cp_binding_level *level = current_binding_level;
     current_binding_level = current_binding_level->level_chain;
@@ -787,10 +785,8 @@ pop_binding_level ()
       binding_table_free (level->type_decls);
     else
       level->type_decls = NULL;
-#if 0 /* defined(DEBUG_BINDING_LEVELS) */
-    if (level->binding_depth != binding_depth)
-      abort ();
-#endif /* defined(DEBUG_BINDING_LEVELS) */
+    my_friendly_assert (!ENABLE_SCOPE_CHECKING
+                        || level->binding_depth == binding_depth, 20030529);
     free_binding_level = level;
     find_class_binding_level ();
   }
@@ -802,26 +798,23 @@ suspend_binding_level ()
   if (class_binding_level)
     current_binding_level = class_binding_level;
 
-  if (global_binding_level)
-    {
-      /* Cannot suspend a level, if there are none left to suspend.  */
-      if (current_binding_level == global_binding_level)
-	abort ();
-    }
+  if (NAMESPACE_LEVEL (global_namespace))
+    my_friendly_assert (!global_scope_p (current_binding_level), 20030527);
   /* Suspend the current level.  */
-#if defined(DEBUG_BINDING_LEVELS)
-  binding_depth--;
-  indent ();
-  fprintf (stderr, "suspend  %s level 0x%08x line %d\n",
-	  (is_class_level) ? "class" : "block",
-	  current_binding_level, lineno);
-  if (is_class_level != (current_binding_level == class_binding_level))
+  if (ENABLE_SCOPE_CHECKING)
     {
-      indent ();
-      fprintf (stderr, "XXX is_class_level != (current_binding_level == class_binding_level)\n");
+      indent (--binding_depth);
+      verbatim("suspend  %s level %p line %d\n",
+               (is_class_level) ? "class" : "block",
+               (void *) current_binding_level, lineno);
+      if (is_class_level != (current_binding_level == class_binding_level))
+        {
+          indent (binding_depth);
+          verbatim ("XXX is_class_level != (current_binding_level "
+                    "== class_binding_level)\n");
+        }
+      is_class_level = 0;
     }
-  is_class_level = 0;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
   current_binding_level = current_binding_level->level_chain;
   find_class_binding_level ();
 }
@@ -836,14 +829,15 @@ resume_binding_level (b)
   /* Also, resuming a non-directly nested namespace is a no-no.  */
   my_friendly_assert(b->level_chain == current_binding_level, 386);
   current_binding_level = b;
-#if defined(DEBUG_BINDING_LEVELS)
-  b->binding_depth = binding_depth;
-  indent ();
-  fprintf (stderr, "resume %s level 0x%08x line %d\n",
-	   (is_class_level) ? "class" : "block", b, lineno);
-  is_class_level = 0;
-  binding_depth++;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
+  if (ENABLE_SCOPE_CHECKING)
+    {
+      b->binding_depth = binding_depth;
+      indent (binding_depth);
+      verbatim ("resume %s level %p line %d\n",
+                (is_class_level) ? "class" : "block", (void *) b, lineno);
+      is_class_level = 0;
+      binding_depth++;
+    }
 }
 
 /* Create a new `struct cp_binding_level'.  */
@@ -861,7 +855,7 @@ make_binding_level ()
 int
 global_bindings_p ()
 {
-  return current_binding_level == global_binding_level;
+  return global_scope_p (current_binding_level);
 }
 
 /* Return the innermost binding level that is not for a class scope.  */
@@ -1052,11 +1046,7 @@ pushlevel (tag_transparent)
     return;
 
   /* Reuse or create a struct for this binding level.  */
-#if defined(DEBUG_BINDING_LEVELS)
-  if (0)
-#else /* !defined(DEBUG_BINDING_LEVELS) */
-  if (free_binding_level)
-#endif /* !defined(DEBUG_BINDING_LEVELS) */
+  if (!ENABLE_SCOPE_CHECKING && free_binding_level)
     {
       newlevel = free_binding_level;
       free_binding_level = free_binding_level->level_chain;
@@ -1878,11 +1868,7 @@ pushlevel_class ()
   register struct cp_binding_level *newlevel;
 
   /* Reuse or create a struct for this binding level.  */
-#if defined(DEBUG_BINDING_LEVELS)
-  if (0)
-#else /* !defined(DEBUG_BINDING_LEVELS) */
-  if (free_binding_level)
-#endif /* !defined(DEBUG_BINDING_LEVELS) */
+  if (!ENABLE_SCOPE_CHECKING && free_binding_level)
     {
       newlevel = free_binding_level;
       free_binding_level = free_binding_level->level_chain;
@@ -1890,9 +1876,8 @@ pushlevel_class ()
   else
     newlevel = make_binding_level ();
 
-#if defined(DEBUG_BINDING_LEVELS)
-  is_class_level = 1;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
+  if (ENABLE_SCOPE_CHECKING)
+    is_class_level = 1;
 
   push_binding_level (newlevel, 0, 0);
 
@@ -1970,9 +1955,8 @@ poplevel_class ()
 
   /* Now, pop out of the binding level which we created up in the
      `pushlevel_class' routine.  */
-#if defined(DEBUG_BINDING_LEVELS)
-  is_class_level = 1;
-#endif /* defined(DEBUG_BINDING_LEVELS) */
+  if (ENABLE_SCOPE_CHECKING)
+    is_class_level = 1;
 
   pop_binding_level ();
 
@@ -2302,7 +2286,7 @@ print_other_binding_stack (stack)
      struct cp_binding_level *stack;
 {
   struct cp_binding_level *level;
-  for (level = stack; level != global_binding_level; level = level->level_chain)
+  for (level = stack; !global_scope_p (level); level = level->level_chain)
     {
       fprintf (stderr, "binding level ");
       fprintf (stderr, HOST_PTR_PRINTF, level);
@@ -2319,8 +2303,9 @@ print_binding_stack ()
   fprintf (stderr, HOST_PTR_PRINTF, current_binding_level);
   fprintf (stderr, "\nclass_binding_level=");
   fprintf (stderr, HOST_PTR_PRINTF, class_binding_level);
-  fprintf (stderr, "\nglobal_binding_level=");
-  fprintf (stderr, HOST_PTR_PRINTF, global_binding_level);
+  fprintf (stderr, "\nNAMESPACE_LEVEL (global_namespace)=");
+  fprintf (stderr, HOST_PTR_PRINTF,
+           (void *) NAMESPACE_LEVEL (global_namespace));
   fprintf (stderr, "\n");
   if (class_binding_level)
     {
@@ -2336,7 +2321,7 @@ print_binding_stack ()
     b = current_binding_level;
   print_other_binding_stack (b);
   fprintf (stderr, "global:\n");
-  print_binding_level (global_binding_level);
+  print_binding_level (NAMESPACE_LEVEL (global_namespace));
 }
 
 /* Namespace binding access routines.   */
@@ -2667,7 +2652,7 @@ maybe_push_to_top_level (pseudo)
   if (scope_chain && previous_class_type)
     old_bindings = store_bindings (previous_class_values, old_bindings);
 
-  /* Have to include global_binding_level, because class-level decls
+  /* Have to include the global scope, because class-scope decls
      aren't listed anywhere useful.  */
   for (; b; b = b->level_chain)
     {
@@ -2677,7 +2662,7 @@ maybe_push_to_top_level (pseudo)
 	 inserted into namespace level, finish_file wouldn't find them
 	 when doing pending instantiations. Therefore, don't stop at
 	 namespace level, but continue until :: .  */
-      if (b == global_binding_level || (pseudo && b->template_parms_p))
+      if (global_scope_p (b) || (pseudo && b->template_parms_p))
 	break;
 
       old_bindings = store_bindings (b->names, old_bindings);
@@ -2820,9 +2805,8 @@ identifier_type_value (id)
 void
 pop_everything ()
 {
-#ifdef DEBUG_BINDING_LEVELS
-  fprintf (stderr, "XXX entering pop_everything ()\n");
-#endif
+  if (ENABLE_SCOPE_CHECKING)
+    verbatim ("XXX entering pop_everything ()\n");
   while (!toplevel_bindings_p ())
     {
       if (current_binding_level->parm_flag == 2)
@@ -2830,9 +2814,8 @@ pop_everything ()
       else
 	poplevel (0, 0, 0);
     }
-#ifdef DEBUG_BINDING_LEVELS
-  fprintf (stderr, "XXX leaving pop_everything ()\n");
-#endif
+  if (ENABLE_SCOPE_CHECKING)
+    verbatim ("XXX leaving pop_everything ()\n");
 }
 
 /* The type TYPE is being declared.  If it is a class template, or a
@@ -4555,7 +4538,7 @@ pushdecl_namespace_level (x)
       tree name = DECL_NAME (x);
       tree newval;
       tree *ptr = (tree *)0;
-      for (; b != global_binding_level; b = b->level_chain)
+      for (; !global_scope_p (b); b = b->level_chain)
         {
           tree shadowed = b->type_shadowed;
           for (; shadowed; shadowed = TREE_CHAIN (shadowed))
@@ -4582,8 +4565,7 @@ pushdecl_namespace_level (x)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
 }
 
-/* Like pushdecl, only it places X in GLOBAL_BINDING_LEVEL,
-   if appropriate.  */
+/* Like pushdecl, only it places X in the global scope if appropriate.  */
 
 tree
 pushdecl_top_level (x)
@@ -6884,13 +6866,12 @@ cxx_init_decl_processing ()
 
   /* Make the binding_level structure for global names.  */
   pushlevel (0);
-  global_binding_level = current_binding_level;
-  global_binding_level->type_decls = binding_table_new (GLOBAL_SCOPE_HT_SIZE);
+  current_binding_level->type_decls = binding_table_new (GLOBAL_SCOPE_HT_SIZE);
   /* The global level is the namespace level of ::.  */
-  NAMESPACE_LEVEL (global_namespace) = global_binding_level;
+  NAMESPACE_LEVEL (global_namespace) = current_binding_level;
   declare_namespace_level ();
 
-  VARRAY_TREE_INIT (global_binding_level->static_decls,
+  VARRAY_TREE_INIT (current_binding_level->static_decls,
 		    200,
 		    "Static declarations");
 
@@ -7685,7 +7666,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   cplus_decl_attributes (&decl, attributes, 0);
 
   /* If #pragma weak was used, mark the decl weak now.  */
-  if (current_binding_level == global_binding_level)
+  if (global_scope_p (current_binding_level))
     maybe_apply_pragma_weak (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
@@ -8709,7 +8690,7 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
     }
 
   /* If a name was specified, get the string.  */
-  if (current_binding_level == global_binding_level)
+  if (global_scope_p (current_binding_level))
     asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
@@ -14211,7 +14192,7 @@ start_function (declspecs, declarator, attrs, flags)
       cplus_decl_attributes (&decl1, attrs, 0);
 
       /* If #pragma weak was used, mark the decl weak now.  */
-      if (current_binding_level == global_binding_level)
+      if (global_scope_p (current_binding_level))
 	maybe_apply_pragma_weak (decl1);
 
       fntype = TREE_TYPE (decl1);

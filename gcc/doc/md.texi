@@ -2029,6 +2029,22 @@ Floating-point register that can hold 32- or 64-bit values.
 @item e
 Floating-point register that can hold 64- or 128-bit values.
 
+@item c
+Floating-point condition code register.
+
+@item d
+Floating-point register that can hold 32- or 64-bit values.
+It is only valid on the SPARC-V9 architecture when the Visual
+Instructions Set is available.
+
+@item b
+Floating-point register that can hold 64- or 128-bit values.
+It is only valid on the SPARC-V9 architecture when the Visual
+Instructions Set is available.
+
+@item h
+64-bit global or out register for the SPARC-V8+ architecture.
+
 @item I
 Signed 13-bit constant
 
@@ -5805,16 +5821,16 @@ incurred.  To describe all of this we could specify
 @smallexample
 (define_cpu_unit "div")
 
-(define_insn_reservation "simple" 2 (eq_attr "cpu" "int")
+(define_insn_reservation "simple" 2 (eq_attr "type" "int")
                          "(i0_pipeline | i1_pipeline), (port0 | port1)")
 
-(define_insn_reservation "mult" 4 (eq_attr "cpu" "mult")
+(define_insn_reservation "mult" 4 (eq_attr "type" "mult")
                          "i1_pipeline, nothing*2, (port0 | port1)")
 
-(define_insn_reservation "div" 8 (eq_attr "cpu" "div")
+(define_insn_reservation "div" 8 (eq_attr "type" "div")
                          "i1_pipeline, div*7, div + (port0 | port1)")
 
-(define_insn_reservation "float" 3 (eq_attr "cpu" "float")
+(define_insn_reservation "float" 3 (eq_attr "type" "float")
                          "f_pipeline, nothing, (port0 | port1))
 
 (define_bypass 4 "float" "simple,mult,div")
@@ -5830,7 +5846,7 @@ and use it in all @code{define_insn_reservation} as in the following
 construction
 
 @smallexample
-(define_insn_reservation "simple" 2 (eq_attr "cpu" "int")
+(define_insn_reservation "simple" 2 (eq_attr "type" "int")
                          "(i0_pipeline | i1_pipeline), finish")
 @end smallexample
 

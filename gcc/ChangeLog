@@ -1,3 +1,105 @@
+2003-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/11044
+	* config/i386/i386.md (length attribute): Set length to 4
+	for instructions of type "fcmp".
+
+2003-06-01  Josef Zlomek  <zlomekj@suse.cz>
+
+	* rtl.def (CONST_DOUBLE): Update comment.
+
+2003-06-01  Seth Arnold  <sarnold@wirex.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+	    PR10871	    
+	    * config/rs6000/rs6000.c (rs6000_stack_info): Do not add
+	    vrsave_size twice.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (mips-sgi-irix5): Add missing
+	HTML <hr> marker.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Machine Constraints): Document
+	missing SPARC constraints.
+
+2003-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Automaton pipeline description): Use
+	"type" instead of "cpu" as the attribute in the examples.
+
+2003-05-30  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/mips.h (SUBTARGET_ASM_DEBUGGING_SPEC): Move
+	-mdebug/-no-mdebug switches ...
+	(MDEBUG_ASM_SPEC): ... here.
+	Use only with gas.
+	(EXTRA_SPECS): Initialize mdebug_asm_spec.
+	(CONSTANT_ADDRESS_P): Allow native IRIX 6 O32 assembler.
+
+2003-05-29  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	* diagnostic.h (output_verbatim): Remove printf attribute.
+	(verbatim): Likewise.
+	* diagnostic.c (output_pointer): New function.
+	(output_format): Use it.  Handle %p format specifier.
+
+2003-05-27  Denis Chertykov  <denisc@overta.ru>
+
+	* cselib.c (cselib_invalidate_regno): Abort if hardreg have a
+	VOIDmode.
+	* cselib.c (cselib_process_insn): Pass reg_raw_mode for hardreg in
+	call of cselib_invalidate_regno.
+
+2003-05-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Update Kean Johnston.
+
+Fri May 23 21:19:31 CEST 2003  Jan Hubicka  <jh@suse.cz>
+			       Andreas Jaeger  <aj@suse.de>
+
+	* i386.h (TARGET_CPU_CPP_BUILTINS): Define __amd64 and __amd64__;
+	do not use assertion.
+
+Fri May 23 20:55:39 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_loadss, sse_loadss_1, sse2_loadsd, sse2_loadsd_1):
+	Rewrite
+
+2003-05-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi: Remove sparc64-*-*. Add sparc64-*-solaris2*.
+	Document sparcv9-*-solaris2* as a synonym for sparc64-*-solaris2*.
+
+2003-05-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR bootstrap/10805
+	* doc/install.texi (sparc-sun-solaris2.7): Document bootstrap
+	failure with Sun assembler 5.0 Alpha 03/27/98.
+
+2003-03-21  Loren James Rittle  <ljrittle@acm.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Add -D__sparcv9
+	-D__sparc__ to match system compiler convention.
+
+2003-05-20  Kevin Ryde <user42@zip.com.au>
+	    Wolfgang Bangerth <bangerth@dealii.org>
+
+	PR c/10355
+	* doc/extend.texi: Put a warning into the documentation
+	of attribute regparm.
+
+2003-05-20  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*iordi3_oi"): Do not mark commutative.
+	("*iorsi3_oi"): Likewise.
+
+2003-05-19  John David Anglin  <dave.anglin@nrc-gnrc.gc.ca>
+
+	* pa/milli64.S ($$mulI): Fix typo.
+
 2003-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.in (HAVE_LD_PIE): Check for ld -pie.
@@ -626,10 +728,10 @@
 	* unwind.h: Declare them.
 	* libgcc-std.ver (GCC_3.3): Export them.
 
-2003-05-02  Steven Bosscher  <steven@gcc.gnu.org>
+2003-05-02  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-inline.c (find_alloca_call):
-	Use walk_tree_without_duplicates, instead of walk_tree.
+	Use walk_tree_without_duplicates, instead of walk_tree.
 	(find_builtin_longjmp_call): Ditto.
 	* c-objc-common.c (c_cannot_inline_fn): Ditto.
 
