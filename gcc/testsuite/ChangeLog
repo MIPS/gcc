@@ -1,3 +1,7 @@
+2003-10-13  Geoffrey Keating  <geoffk@apple.com>
+ 
+	* g77.f-torture/execute/980520-1.x: XFAIL at -O0.
+ 
 2003-10-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/c90-array-lval-6.c: New test.
