@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4113,10 +4113,13 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
   /* Synthesize the deployment target manifest constant.  */
   if (macosx_version_min_required)
     {
-      char macro_def[40];
+#define VERSION_MIN_REQUIRED_FMT "-D__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__=%d"
+      char *macro_def = xmalloc (strlen (VERSION_MIN_REQUIRED_FMT) + 30);
       
-      sprintf (macro_def, "-D__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__=%d", macosx_version_min_required);
+      sprintf (macro_def, VERSION_MIN_REQUIRED_FMT, macosx_version_min_required);
       add_preprocessor_option (macro_def, strlen (macro_def));
+      free (macro_def);
+#undef VERSION_MIN_REQUIRED_FMT
     }    
   /* APPLE LOCAL end deployment target */
     

@@ -1,3 +1,8 @@
+2005-01-21  Stuart Hastings  <stuart@apple.com>
+
+	Radar 3959753
+        * gcc/gcc.c (process_command): Malloc overflowing static char array.
+
 2005-01-20  Dale Johannesen  <dalej@apple.com>
 	
 	Radar 3966230
