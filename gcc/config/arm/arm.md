@@ -214,11 +214,11 @@
 ; mav_dmult	Double multiplies (7 cycle)
 ;
 (define_attr "type"
-	"normal,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,branch,call,load,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult" 
+	"alu,alu_shift,alu_shift_reg,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,branch,call,load,load2,load3,load4,store1,store2,store3,store4,mav_farith,mav_dmult" 
 	(if_then_else 
 	 (eq_attr "insn" "smulxy,smlaxy,smlalxy,smulwy,smlawx,mul,muls,mla,mlas,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals")
 	 (const_string "mult")
-	 (const_string "normal")))
+	 (const_string "alu")))
 
 ; Load scheduling, set from the arm_ld_sched variable
 ; initialized by arm_override_options() 
@@ -274,7 +274,7 @@
 ; than one on the main cpu execution unit.
 (define_attr "core_cycles" "single,multi"
   (if_then_else (eq_attr "type"
-		 "normal,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith")
+		 "alu,alu_shift,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith")
 		(const_string "single")
 	        (const_string "multi")))
 
@@ -727,7 +727,10 @@
 		    (match_operand:SI 1 "s_register_operand" ""))))]
   "TARGET_ARM"
   "adc%?\\t%0, %1, %3%S2"
-  [(set_attr "conds" "use")]
+  [(set_attr "conds" "use")
+   (set (attr "type") (if_then_else (match_operand 4 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*addsi3_carryin_alt1"
@@ -1925,7 +1928,9 @@
   "bic%?\\t%0, %1, %2%S4"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "2")
-   ]
+   (set (attr "type") (if_then_else (match_operand 3 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*andsi_notsi_si_compare0"
@@ -2531,7 +2536,9 @@
   "mov%?\\t%0, %1%S3"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*shiftsi3_compare0"
@@ -2546,7 +2553,9 @@
   "mov%?s\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*shiftsi3_compare0_scratch"
@@ -2559,8 +2568,7 @@
   "TARGET_ARM"
   "mov%?s\\t%0, %1%S3"
   [(set_attr "conds" "set")
-   (set_attr "shift" "1")
-   ]
+   (set_attr "shift" "1")]
 )
 
 (define_insn "*notsi_shiftsi"
@@ -2572,7 +2580,9 @@
   "mvn%?\\t%0, %1%S3"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*notsi_shiftsi_compare0"
@@ -2587,7 +2597,9 @@
   "mvn%?s\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*not_shiftsi_compare0_scratch"
@@ -2601,7 +2613,9 @@
   "mvn%?s\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-  ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 ;; We don't really have extzv, but defining this using shifts helps
@@ -6305,7 +6319,9 @@
   "cmp%?\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*cmpsi_shiftsi_swp"
@@ -6318,7 +6334,9 @@
   "cmp%?\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*cmpsi_neg_shiftsi"
@@ -6331,7 +6349,9 @@
   "cmn%?\\t%0, %1%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
-   ]
+   (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 ;; Cirrus SF compare instruction
@@ -7490,7 +7510,9 @@
   "%i1%?\\t%0, %2, %4%S3"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "4")
-   ]
+   (set (attr "type") (if_then_else (match_operand 5 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*arith_shiftsi_compare0"
@@ -7508,7 +7530,9 @@
   "%i1%?s\\t%0, %2, %4%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "4")
-   ]
+   (set (attr "type") (if_then_else (match_operand 5 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*arith_shiftsi_compare0_scratch"
@@ -7524,7 +7548,9 @@
   "%i1%?s\\t%0, %2, %4%S3"
   [(set_attr "conds" "set")
    (set_attr "shift" "4")
-   ]
+   (set (attr "type") (if_then_else (match_operand 5 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*sub_shiftsi"
@@ -7537,7 +7563,9 @@
   "sub%?\\t%0, %1, %3%S2"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "3")
-   ]
+   (set (attr "type") (if_then_else (match_operand 4 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*sub_shiftsi_compare0"
@@ -7554,8 +7582,10 @@
   "TARGET_ARM"
   "sub%?s\\t%0, %1, %3%S2"
   [(set_attr "conds" "set")
-   (set_attr "shift" "3") 
-   ]
+   (set_attr "shift" "3")
+   (set (attr "type") (if_then_else (match_operand 4 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*sub_shiftsi_compare0_scratch"
@@ -7570,8 +7600,10 @@
   "TARGET_ARM"
   "sub%?s\\t%0, %1, %3%S2"
   [(set_attr "conds" "set")
-   (set_attr "shift" "3") 
-   ]
+   (set_attr "shift" "3")
+   (set (attr "type") (if_then_else (match_operand 4 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 
@@ -8406,7 +8438,10 @@
    mvn%D5\\t%0, #%B1\;mov%d5\\t%0, %2%S4"
   [(set_attr "conds" "use")
    (set_attr "shift" "2")
-   (set_attr "length" "4,8,8")]
+   (set_attr "length" "4,8,8")
+   (set (attr "type") (if_then_else (match_operand 3 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*ifcompare_move_shift"
@@ -8442,7 +8477,10 @@
    mvn%d5\\t%0, #%B1\;mov%D5\\t%0, %2%S4"
   [(set_attr "conds" "use")
    (set_attr "shift" "2")
-   (set_attr "length" "4,8,8")]
+   (set_attr "length" "4,8,8")
+   (set (attr "type") (if_then_else (match_operand 3 "const_int_operand" "")
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*ifcompare_shift_shift"
@@ -8479,7 +8517,12 @@
   "mov%d5\\t%0, %1%S6\;mov%D5\\t%0, %3%S7"
   [(set_attr "conds" "use")
    (set_attr "shift" "1")
-   (set_attr "length" "8")]
+   (set_attr "length" "8")
+   (set (attr "type") (if_then_else
+		        (and (match_operand 2 "const_int_operand" "")
+                             (match_operand 4 "const_int_operand" ""))
+		      (const_string "alu_shift")
+		      (const_string "alu_shift_reg")))]
 )
 
 (define_insn "*ifcompare_not_arith"

@@ -97,6 +97,7 @@ extern int cirrus_shift_const (rtx, enum machine_mode);
 extern int cirrus_memory_offset (rtx);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_dep (rtx, rtx);
+extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
 extern int arm_no_early_mul_dep (rtx, rtx);
 
 extern int symbol_mentioned_p (rtx);

@@ -73,14 +73,49 @@
 ;; If the destination register is the PC, the pipelines are stalled
 ;; for several cycles.  That case is not modelled here.
 
+;; ALU operations with no shifted operand
 (define_insn_reservation "11_alu_op" 2
  (and (eq_attr "tune" "arm1136js,arm1136jfs")
-      (eq_attr "type" "normal"))
+      (eq_attr "type" "alu"))
  "e_1,e_2,e_3,e_wb")
 
+;; ALU operations with a shift-by-constant operand
+(define_insn_reservation "11_alu_shift_op" 2
+ (and (eq_attr "tune" "arm1136js,arm1136jfs")
+      (eq_attr "type" "alu_shift"))
+ "e_1,e_2,e_3,e_wb")
+
+;; ALU operations with a shift-by-register operand
+;; These really stall in the decoder, in order to read
+;; the shift value in a second cycle. Pretend we take two cycles in
+;; the shift stage.
+(define_insn_reservation "11_alu_shift_reg_op" 3
+ (and (eq_attr "tune" "arm1136js,arm1136jfs")
+      (eq_attr "type" "alu_shift_reg"))
+ "e_1*2,e_2,e_3,e_wb")
+
 ;; alu_ops can start sooner, if there is no shifter dependency
-(define_bypass 1 "11_alu_op" "11_alu_op" "arm_no_early_alu_shift_dep")
-(define_bypass 1 "11_alu_op"
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_alu_op")
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_alu_shift_reg_op"
+	       "arm_no_early_alu_shift_dep")
+(define_bypass 2 "11_alu_shift_reg_op"
+	       "11_alu_op")
+(define_bypass 2 "11_alu_shift_reg_op"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 2 "11_alu_shift_reg_op"
+	       "11_alu_shift_reg_op"
+	       "arm_no_early_alu_shift_dep")
+
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
+	       "arm_no_early_mul_dep")
+(define_bypass 2 "11_alu_shift_reg_op"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
 
@@ -107,9 +142,16 @@
 (define_bypass 3 "11_mult1,11_mult2"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
-(define_bypass 3 "11_mult1,11_mult2" "11_alu_op"
+(define_bypass 3 "11_mult1,11_mult2"
+	       "11_alu_op")
+(define_bypass 3 "11_mult1,11_mult2"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 3 "11_mult1,11_mult2"
+	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
-(define_bypass 3 "11_mult1,11_mult2" "11_store1,11_store2,11_store34"
+(define_bypass 3 "11_mult1,11_mult2"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")
 
 ;; Signed and unsigned multiply long results are available across two cycles;
@@ -131,9 +173,16 @@
 (define_bypass 4 "11_mult3,11_mult4"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
-(define_bypass 4 "11_mult3,11_mult4" "11_alu_op"
+(define_bypass 4 "11_mult3,11_mult4"
+	       "11_alu_op")
+(define_bypass 4 "11_mult3,11_mult4"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 4 "11_mult3,11_mult4"
+	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
-(define_bypass 4 "11_mult3,11_mult4" "11_store1,11_store2,11_store34"
+(define_bypass 4 "11_mult3,11_mult4"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")
 
 ;; Various 16x16->32 multiplies and multiply-accumulates, using combinations
@@ -148,11 +197,17 @@
 (define_bypass 2 "11_mult5"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
-(define_bypass 2 "11_mult5" "11_alu_op"
+(define_bypass 2 "11_mult5"
+	       "11_alu_op")
+(define_bypass 2 "11_mult5"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 2 "11_mult5"
+	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
-(define_bypass 2 "11_mult5" "11_store1,11_store2,11_store34"
+(define_bypass 2 "11_mult5"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")
-
 
 ;; The same idea, then the 32-bit result is added to a 64-bit quantity.
 (define_insn_reservation "11_mult6" 4
@@ -170,9 +225,16 @@
 (define_bypass 3 "11_mult6,11_mult7"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
-(define_bypass 3 "11_mult6,11_mult7" "11_alu_op"
+(define_bypass 3 "11_mult6,11_mult7"
+	       "11_alu_op")
+(define_bypass 3 "11_mult6,11_mult7"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 3 "11_mult6,11_mult7"
+	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
-(define_bypass 3 "11_mult6,11_mult7" "11_store1,11_store2,11_store34"
+(define_bypass 3 "11_mult6,11_mult7"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -201,9 +263,14 @@
 ;; Branches are predicted. A correctly predicted branch will be no
 ;; cost, but we're conservative here, and use the timings a
 ;; late-register would give us.
-(define_bypass 1 "11_alu_op" "11_branches")
-(define_bypass 2 "11_load1,11_load2" "11_branches")
-(define_bypass 3 "11_load34" "11_branches")
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_branches")
+(define_bypass 2 "11_alu_shift_reg_op"
+	       "11_branches")
+(define_bypass 2 "11_load1,11_load2"
+	       "11_branches")
+(define_bypass 3 "11_load34"
+	       "11_branches")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Load/Store Instructions
@@ -253,29 +320,35 @@
 
 ;; A store can start immediately after an alu op, if that alu op does
 ;; not provide part of the address to access.
-(define_bypass 1 "11_alu_op" "11_store1,11_store2,11_store34"
+(define_bypass 1 "11_alu_op,11_alu_shift_op"
+	       "11_store1"
+	       "arm_no_early_store_addr_dep")
+(define_bypass 2 "11_alu_shift_reg_op"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")
 
 ;; An alu op can start sooner after a load, if that alu op does not
 ;; have an early register dependancy on the load
-(define_bypass 2 "11_load1,11_load2" "11_alu_op"
-	       "arm_no_early_alu_shift_dep")
-(define_bypass 3 "11_load34" "11_alu_op"
+(define_bypass 2 "11_load1"
+	       "11_alu_op")
+(define_bypass 2 "11_load1"
+	       "11_alu_shift_op"
+	       "arm_no_early_alu_shift_value_dep")
+(define_bypass 2 "11_load1"
+	       "11_alu_shift_reg_op"
 	       "arm_no_early_alu_shift_dep")
 
 ;; A mul op can start sooner after a load, if that mul op does not
 ;; have an early multipl dependency
-(define_bypass 2 "11_load1,11_load2"
+(define_bypass 2 "11_load1"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
 (define_bypass 3 "11_load34"
 	       "11_mult1,11_mult2,11_mult3,11_mult4,11_mult5,11_mult6,11_mult7"
 	       "arm_no_early_mul_dep")
 
-
 ;; A store can start sooner after a load, if that load does not
 ;; produce part of the address to access
-(define_bypass 2 "11_load1,11_load2" "11_store1,11_store2,11_store34"
-	       "arm_no_early_store_addr_dep")
-(define_bypass 3 "11_load34" "11_store1,11_store2,11_store34"
+(define_bypass 2 "11_load1"
+	       "11_store1"
 	       "arm_no_early_store_addr_dep")

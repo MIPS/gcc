@@ -64,10 +64,26 @@
 ;; If the destination register is the PC, the pipelines are stalled
 ;; for several cycles.  That case is not modeled here.
 
+;; ALU operations with no shifted operand
 (define_insn_reservation "alu_op" 1 
  (and (eq_attr "tune" "arm1026ejs")
-      (eq_attr "type" "normal"))
+      (eq_attr "type" "alu"))
  "a_e,a_m,a_w")
+
+;; ALU operations with a shift-by-constant operand
+(define_insn_reservation "alu_shift_op" 1 
+ (and (eq_attr "tune" "arm1026ejs")
+      (eq_attr "type" "alu_shift"))
+ "a_e,a_m,a_w")
+
+;; ALU operations with a shift-by-register operand
+;; These really stall in the decoder, in order to read
+;; the shift value in a second cycle. Pretend we take two cycles in
+;; the execute stage.
+(define_insn_reservation "alu_shift_reg_op" 2 
+ (and (eq_attr "tune" "arm1026ejs")
+      (eq_attr "type" "alu_shift_reg"))
+ "a_e*2,a_m,a_w")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Multiplication Instructions

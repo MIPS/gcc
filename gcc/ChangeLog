@@ -1,3 +1,30 @@
+2003-12-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_no_early_alu_shift_value_dep): Declare.
+	* config/arm/arm.c (arm_adjust_cost): Check shift cost for
+	TYPE_ALU_SHIFT and TYPE_ALU_SHIFT_REG.
+	(arm_no_early_store_addr_dep, arm_no_early_alu_shift_dep,
+	arm_no_early_mul_dep): Correctly deal with conditional execution,
+	parallels and single shift operations.
+	(arm_no_early_alu_shift_value_dep): Define.
+	* arm.md (attr type): Replace 'normal' with 'alu',
+	'alu_shift' and 'alu_shift_reg'.
+	(attr core_cycles): Adjust.
+	(*addsi3_carryin_shift, andsi_not_shiftsi_si, *arm_shiftsi3,
+	*shiftsi3_compare0, *notsi_shiftsi, *notsi_shiftsi_compare0,
+	*not_shiftsi_compare0_scratch, *cmpsi_shiftsi, *cmpsi_shiftsi_swp,
+	*cmpsi_neg_shiftsi, *arith_shiftsi, *arith_shiftsi_compare0,
+	*arith_shiftsi_compare0_scratch, *sub_shiftsi,
+	*sub_shiftsi_compare0, *sub_shiftsi_compare0_scratch,
+	*if_shift_move, *if_move_shift, *if_shift_shift): Set type
+	attribute appropriately.
+	* config/arm/arm1026ejs.md (alu_op): Adjust.
+	(alu_shift_op, alu_shift_reg_op): New.
+	* config/arm/arm1136.md: Add better bypasses for early
+	registers. Remove load[234] and store[234] bypasses.
+	(11_alu_op): Adjust.
+	(11_alu_shift_op, 11_alu_shift_reg_op): New.
+
 2003-12-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/arm/arm-protos.h (arm_no_early_store_addr_dep,

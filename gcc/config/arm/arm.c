@@ -3589,7 +3589,8 @@ arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
 	 operand for INSN.  If we have a shifted input operand and the
 	 instruction we depend on is another ALU instruction, then we may
 	 have to account for an additional stall.  */
-      if (shift_opnum != 0 && attr_type == TYPE_NORMAL)
+      if (shift_opnum != 0
+	  && (attr_type == TYPE_ALU_SHIFT || attr_type == TYPE_ALU_SHIFT_REG))
 	{
 	  rtx shifted_operand;
 	  int opno;
@@ -13225,24 +13226,86 @@ arm_output_load_gr (operands)
 int
 arm_no_early_store_addr_dep (rtx producer, rtx consumer)
 {
-  rtx value = XEXP (PATTERN (producer), 0);
-  rtx addr = XEXP (PATTERN (consumer), 0);
+  rtx value = PATTERN (producer);
+  rtx addr = PATTERN (consumer);
 
+  if (GET_CODE (value) == COND_EXEC)
+    value = COND_EXEC_CODE (value);
+  if (GET_CODE (value) == PARALLEL)
+    value = XVECEXP (value, 0, 0);
+  value = XEXP (value, 0);
+  if (GET_CODE (addr) == COND_EXEC)
+    addr = COND_EXEC_CODE (addr);
+  if (GET_CODE (addr) == PARALLEL)
+    addr = XVECEXP (addr, 0, 0);
+  addr = XEXP (addr, 0);
+  
   return !reg_overlap_mentioned_p (value, addr);
 }
 
 /* Return non-zero if the CONSUMER instruction (an ALU op) does not
-   have an early register shift dependency on the result of
-   PRODUCER.  */
+   have an early register shift value or amount dependency on the
+   result of PRODUCER.  */
 
 int
 arm_no_early_alu_shift_dep (rtx producer, rtx consumer)
 {
-  rtx value = XEXP (PATTERN (producer), 0);
-  rtx early_op = XEXP (XEXP (PATTERN (consumer), 1), 0);
+  rtx value = PATTERN (producer);
+  rtx op = PATTERN (consumer);
+  rtx early_op;
 
-  return (GET_CODE (early_op) != MULT
-	  || !reg_overlap_mentioned_p (value, early_op));
+  if (GET_CODE (value) == COND_EXEC)
+    value = COND_EXEC_CODE (value);
+  if (GET_CODE (value) == PARALLEL)
+    value = XVECEXP (value, 0, 0);
+  value = XEXP (value, 0);
+  if (GET_CODE (op) == COND_EXEC)
+    op = COND_EXEC_CODE (op);
+  if (GET_CODE (op) == PARALLEL)
+    op = XVECEXP (op, 0, 0);
+  op = XEXP (op, 1);
+  
+  early_op = XEXP (op, 0);
+  /* This is either an actual independent shift, or a shift applied to
+     the first operand of another operation.  We want the whole shift
+     operation.  */
+  if (GET_CODE (early_op) == REG)
+    early_op = op;
+
+  return !reg_overlap_mentioned_p (value, early_op);
+}
+
+/* Return non-zero if the CONSUMER instruction (an ALU op) does not
+   have an early register shift value dependency on the result of
+   PRODUCER.  */
+
+int
+arm_no_early_alu_shift_value_dep (rtx producer, rtx consumer)
+{
+  rtx value = PATTERN (producer);
+  rtx op = PATTERN (consumer);
+  rtx early_op;
+
+  if (GET_CODE (value) == COND_EXEC)
+    value = COND_EXEC_CODE (value);
+  if (GET_CODE (value) == PARALLEL)
+    value = XVECEXP (value, 0, 0);
+  value = XEXP (value, 0);
+  if (GET_CODE (op) == COND_EXEC)
+    op = COND_EXEC_CODE (op);
+  if (GET_CODE (op) == PARALLEL)
+    op = XVECEXP (op, 0, 0);
+  op = XEXP (op, 1);
+  
+  early_op = XEXP (op, 0);
+
+  /* This is either an actual independent shift, or a shift applied to
+     the first operand of another operation.  We want the value being
+     shifted, in either case.  */
+  if (GET_CODE (early_op) != REG)
+    early_op = XEXP (early_op, 0);
+  
+  return !reg_overlap_mentioned_p (value, early_op);
 }
 
 /* Return non-zero if the CONSUMER (a mul or mac op) does not
@@ -13252,10 +13315,21 @@ arm_no_early_alu_shift_dep (rtx producer, rtx consumer)
 int
 arm_no_early_mul_dep (rtx producer, rtx consumer)
 {
-  rtx value = XEXP (PATTERN (producer), 0);
-  rtx early_ops = XEXP (PATTERN (consumer), 1);
+  rtx value = PATTERN (producer);
+  rtx op = PATTERN (consumer);
 
-  return (GET_CODE (early_ops) == PLUS
-	  && !reg_overlap_mentioned_p (value, XEXP (early_ops, 0)));
+  if (GET_CODE (value) == COND_EXEC)
+    value = COND_EXEC_CODE (value);
+  if (GET_CODE (value) == PARALLEL)
+    value = XVECEXP (value, 0, 0);
+  value = XEXP (value, 0);
+  if (GET_CODE (op) == COND_EXEC)
+    op = COND_EXEC_CODE (op);
+  if (GET_CODE (op) == PARALLEL)
+    op = XVECEXP (op, 0, 0);
+  op = XEXP (op, 1);
+  
+  return (GET_CODE (op) == PLUS
+	  && !reg_overlap_mentioned_p (value, XEXP (op, 0)));
 }
 
