@@ -2500,7 +2500,7 @@ finish_case_label (tree low_value, tree high_value)
       /* For templates, just add the case label; we'll do semantic
 	 analysis at instantiation-time.  */
       label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      return add_stmt (build_case_label (low_value, high_value, label));
+      return add_stmt (build_stmt (CASE_LABEL_EXPR, low_value, high_value, label));
     }
 
   /* Find the condition on which this switch statement depends.  */

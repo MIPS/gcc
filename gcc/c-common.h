@@ -295,7 +295,6 @@ extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
-extern tree re_push_stmt_list (tree);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
@@ -795,12 +794,8 @@ extern int anon_aggr_type_p (tree);
 #define CLEAR_DECL_C_BIT_FIELD(NODE) \
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
-extern void emit_local_var (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
-extern tree build_case_label (tree, tree, tree);
-extern tree build_continue_stmt (void);
-extern tree build_break_stmt (void);
 
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
