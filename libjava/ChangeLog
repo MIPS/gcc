@@ -1,5 +1,9 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/Style.java: Added javadocs.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JComponent.java
 	(fireVetoableChange): Removed redundant cast.
 	* javax/swing/JLabel.java
