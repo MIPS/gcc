@@ -1,3 +1,13 @@
+2002-08-16  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (GCJH_OBJS): Add ggc-none.o.
+	(JCFDUMP_OBJS): Add ggc-none.o.
+	(java/jcf-dump.o): Depend on GGC_H.
+	* jcf-reader.c (jcf_parse_constant_pool): Use ggc_alloc to allocate
+	CPool substructures.
+	* jcf-parse.c (process_zip_dir): Use ggc_alloc to allocate JCFs.
+	* jcf-dump.c: Include ggc.h.
+
 2002-08-08  Geoffrey Keating  <geoffk@redhat.com>
 
 	* jcf.h (union cpool_entry): New.

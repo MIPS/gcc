@@ -1209,7 +1209,7 @@ process_zip_dir (FILE *finput)
 
       class_name = ALLOC (zdir->filename_length+1-6);
       file_name  = ALLOC (zdir->filename_length+1);
-      jcf = ALLOC (sizeof (JCF));
+      jcf = ggc_alloc (sizeof (JCF));
       JCF_ZERO (jcf);
 
       strncpy (class_name, class_name_in_zip_dir, zdir->filename_length-6);
