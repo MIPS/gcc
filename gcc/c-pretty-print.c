@@ -206,6 +206,8 @@ dump_c_node (buffer, node, spc)
 	    if (DECL_NAME (node))
 	      output_add_string (buffer, 
 				 IDENTIFIER_POINTER (DECL_NAME (node)));
+	    else
+              output_add_string (buffer, "<unnamed type decl>");
 	  }
 	else if (class == 't')
 	  {
@@ -218,13 +220,51 @@ dump_c_node (buffer, node, spc)
 			 && DECL_NAME (TYPE_NAME (node)))
 		  output_add_string (buffer,
 				     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
+		else
+                  output_add_string (buffer, "<unnamed type>");
 	      }
+	    else
+              output_add_string (buffer, "<unnamed type>");
 	  }
 	break;
       }
     case POINTER_TYPE:
-      dump_c_node (buffer, TREE_TYPE (node), spc);
-      output_add_string (buffer, " *");
+      if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
+        {
+	  tree fnode = TREE_TYPE (node);
+	  dump_c_node (buffer, TREE_TYPE (fnode), spc);
+	  output_add_space (buffer);
+	  output_add_string (buffer, "(*");
+	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
+	    output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
+	  else
+	    output_add_string (buffer, "<unnamed pfn>");
+	  
+	  output_add_character (buffer, ')');
+          output_add_space (buffer);
+	  output_add_character (buffer, '(');
+	  /* Print the argument types.  The last element in the list is a 
+	     VOID_TYPE.  The following avoid to print the last element.  */
+	  {
+	    tree tmp = TYPE_ARG_TYPES (TREE_TYPE (fnode));
+	    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
+	      {
+		dump_c_node (buffer, TREE_VALUE (tmp), spc);
+		tmp = TREE_CHAIN (tmp);
+		if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
+		  {
+		    output_add_character (buffer, ',');
+		    output_add_space (buffer);
+		  }
+	      }
+	  }
+	  output_add_character (buffer, ')');	  
+	}
+      else
+        {
+          dump_c_node (buffer, TREE_TYPE (node), spc);
+	  output_add_string (buffer, " *");
+	}
       break;
 
     case OFFSET_TYPE:
@@ -280,6 +320,8 @@ dump_c_node (buffer, node, spc)
 
 	  dump_c_node (buffer, TYPE_NAME (node), spc);
 	}
+      else
+        output_add_string (buffer, "<unnamed type>");
       /* Don't print the contents of the structure since the user don't asked 
 	 for explicitly.  */
       break;
@@ -287,8 +329,6 @@ dump_c_node (buffer, node, spc)
     case QUAL_UNION_TYPE:
       NIY;
 
-    case FUNCTION_TYPE:
-      break;
 
     case LANG_TYPE:
       NIY;
@@ -343,6 +383,8 @@ dump_c_node (buffer, node, spc)
       output_add_string (buffer, "\"");
       break;
 
+    case FUNCTION_TYPE:
+      break;
     case FUNCTION_DECL:
       /* Print the prototype of the function.  */
       INDENT (spc);
@@ -382,11 +424,15 @@ dump_c_node (buffer, node, spc)
     case LABEL_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else
+        output_add_string (buffer, "<unnamed label>");
       break;
 
     case CONST_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else
+        output_add_string (buffer, "<unnamed constant>");
       break;
 
     case TYPE_DECL:
@@ -424,6 +470,8 @@ dump_c_node (buffer, node, spc)
     case PARM_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else
+        output_add_string (buffer, "<unnamed var>");
       break;
 
     case RESULT_DECL:
@@ -433,11 +481,15 @@ dump_c_node (buffer, node, spc)
     case FIELD_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else
+        output_add_string (buffer, "<unnamed field>");
       break;
 
     case NAMESPACE_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else
+        output_add_string (buffer, "<unnamed namespace>");
       break;
 
     case COMPONENT_REF:
@@ -464,9 +516,48 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case CONSTRUCTOR:
-      output_add_character (buffer, '{');
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc);
-      output_add_character (buffer, '}');
+      {
+	tree lnode;
+	bool is_struct_init = FALSE;
+	output_add_character (buffer, '{');     
+	/*	dump_c_node (buffer, TREE_OPERAND (node, 1), spc);  */
+	lnode = TREE_OPERAND (node, 1);
+	if (TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
+	    || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
+	  is_struct_init = TRUE;
+	while (lnode && lnode != error_mark_node)
+	  {
+	    tree val;
+	    if (TREE_PURPOSE (lnode) && is_struct_init)
+	      {
+		output_add_character (buffer, '.');
+		dump_c_node (buffer, TREE_PURPOSE (lnode), spc);
+		output_add_string (buffer, "=");
+	      }
+	    val = TREE_VALUE (lnode);
+	    if (val && TREE_CODE (val) == ADDR_EXPR)
+	      if (TREE_CODE (TREE_OPERAND (val, 0)) == FUNCTION_DECL)
+		val = TREE_OPERAND (val, 0);
+	    if (val && TREE_CODE (val) == FUNCTION_DECL)	      
+	      {
+		if (DECL_NAME (val))
+		  output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (val)));
+		else
+		  output_add_string (buffer, "<unnamed function>");
+	      }
+	    else
+	      {
+		dump_c_node (buffer, TREE_VALUE (lnode), spc);
+	      }
+	    lnode = TREE_CHAIN (lnode);
+	    if (lnode && TREE_CODE (lnode) == TREE_LIST)
+	      {
+		output_add_character (buffer, ',');
+		output_add_space (buffer);
+	      }
+	  }
+	output_add_character (buffer, '}');
+      }
       break;
 
     case COMPOUND_EXPR:
@@ -721,7 +812,9 @@ dump_c_node (buffer, node, spc)
       break;
 
     case SAVE_EXPR:
+      output_add_string (buffer, "SAVE_EXPR (");
       dump_c_node (buffer, TREE_OPERAND (node, 0), spc);
+      output_add_character (buffer, ')');
       break;
 
     case UNSAVE_EXPR:
@@ -996,7 +1089,7 @@ dump_c_node (buffer, node, spc)
       break;
 
     case FILE_STMT:
-      // FIXME : What is the exact syntax of this node ? #line 123 ?
+      /* FIXME : What is the exact syntax of this node ? #line 123 ?*/
       output_printf (buffer, "<<< file : %s >>>\n", FILE_STMT_FILENAME (node));
       break;
 
@@ -1470,7 +1563,14 @@ print_call_name (buffer, node)
     case NOP_EXPR:
       PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       break;
-      
+    
+    case EXPR_WITH_FILE_LOCATION:
+      if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
+        PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+      else
+	dump_c_node (buffer, TREE_OPERAND (op0, 0), 0);
+      break;
+    
     case COND_EXPR:
       PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 1));
       PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 2));
@@ -1481,10 +1581,12 @@ print_call_name (buffer, node)
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
 	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+      else
+	dump_c_node (buffer, TREE_OPERAND (op0, 0), 0);
       /* else
 	 We can have several levels of structures and a function 
 	 pointer inside.  This is not implemented yet...  */
-      //		  NIY;
+      /*		  NIY;*/
       break;
       
     case ARRAY_REF:

@@ -1,3 +1,13 @@
+2002-05-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-pretty-print.c (dump_c_node): Print "<unnamed whatever>" for
+	types, variables, etc that have no name, rather than printing
+	nothing.
+	Handle PMF's properly.
+	Print out structure initializers in a somewhat sensible way.
+	Print SAVE_EXPR () around SAVE_EXPRs.
+	(print_call_name): Handle EXPR_WITH_FILE_LOCATION.
+
 2002-05-09  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (dump_varref): Tree inlining generates variables with
