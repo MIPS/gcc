@@ -1,3 +1,13 @@
+2004-12-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl.c (copy_tree_replacing_r, struct replace_node): New.
+	(grok_reference_init): Use them to replace uses of a reference
+	being initialized with a NULL dereference.
+
+2005-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/ref1.C: New test.
+
 2003-07-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/7053

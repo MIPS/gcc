@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -7535,6 +7535,30 @@ start_decl_1 (decl)
     DECL_INITIAL (decl) = NULL_TREE;
 }
 
+static tree copy_tree_replacing_r PARAMS ((tree *, int *, void *));
+
+struct replace_node
+{
+  tree from, to;
+};
+
+static tree
+copy_tree_replacing_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  struct replace_node *rn = data;
+
+  if (*tp != rn->from)
+    return copy_tree_r (tp, walk_subtrees, NULL);
+
+  *tp = rn->to;
+  *walk_subtrees = 0;
+
+  return NULL;
+}
+
 /* Handle initialization of references.
    These three arguments are from `cp_finish_decl', and have the
    same meaning here that they do there.
@@ -7563,6 +7587,35 @@ grok_reference_init (decl, type, init)
     {
       error ("ISO C++ forbids use of initializer list to initialize reference `%D'", decl);
       return NULL_TREE;
+    }
+
+  /* Replace occurrences of a reference variable in its own
+     initializer with a zero-initialized NULL reference.  If we don't
+     do this and the reference initializer ends up requiring a
+     temporary (as it almost always will in this case), we'll end up
+     with the initializer of the temporary referencing the reference
+     variable before it's in scope, which crashes because we haven't
+     expanded the reference declaration yet, so its DECL_RTL is NULL.
+     This is equivalent to zero-initializing the reference variable,
+     expanding the temporary definition with initializer, then binding
+     the reference to the temporary, without requiring all the revamp
+     in reference handling that mainline undergone for GCC 3.4.  It
+     actually changes behavior a little bit, in that a reference
+     initialized to itself will now be bound to a NULL reference
+     instead of getting an indeterminate value, but since using it
+     before initialization invokes undefined behavior, either way is
+     fine.  */
+  if (find_tree (init, decl))
+    {
+      struct replace_node rn;
+
+      rn.from = decl;
+      rn.to = build1 (NOP_EXPR, type, integer_zero_node);
+      
+      walk_tree (&init, copy_tree_replacing_r, &rn, NULL);
+
+      if (warn_uninitialized)
+	warning ("reference used in its own initializer");
     }
 
   if (TREE_CODE (init) == TREE_LIST)
