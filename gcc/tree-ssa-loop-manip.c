@@ -56,6 +56,7 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
     {
+      tree nlist;
       bb = BASIC_BLOCK (i);
       orig = bb->rbi->original;
 
@@ -85,6 +86,10 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 	      add_phi_arg (&new_phi, def, new_e);
 	    }
 	}
+
+      /* neverse phi nodes to keep them in original order.  */
+      nlist = nreverse (phi_nodes (bb));
+      set_phi_nodes (bb, nlist);
     }
 
   if (peeling)
@@ -513,17 +518,14 @@ static void
 lv_update_pending_stmts (edge e)
 {
   basic_block dest;
-  tree pending, phi, arg, def;
+  tree phi, arg, def;
 
   if (!PENDING_STMT (e))
     return;
 
   dest = e->dest;
 
-  pending = nreverse (PENDING_STMT (e));
-  PENDING_STMT (e) = NULL;
-
-  for (phi = phi_nodes (dest), arg = pending;
+  for (phi = phi_nodes (dest), arg = PENDING_STMT (e);
        phi;
        phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
     {
@@ -531,6 +533,7 @@ lv_update_pending_stmts (edge e)
       add_phi_arg (&phi, def, e);
     }
 
+  PENDING_STMT (e) = NULL;
 }
 
 /* Adjust phi nodes for 'first' basic block.  'second' basic block is a copy
@@ -548,10 +551,12 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 {
   tree phi1, phi2;
 
-  /* Browse all 'second' basic block phi nodes and find phi args that
-     are part of and edge from 'new_head' basic block.  */
+  /* Browse all 'second' basic block phi nodes and add phi args to
+     edge 'e' for 'first' head. PHI args are always in correct order.  */
 
-  for (phi2 = phi_nodes (second); phi2; phi2 = TREE_CHAIN (phi2))
+  for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
+       phi2 && phi1; 
+       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
     {
       int i;
       for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
@@ -559,29 +564,7 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 	  if (PHI_ARG_EDGE (phi2, i)->src == new_head)
 	    {
 	      tree def = PHI_ARG_DEF (phi2, i);
-	      tree var2 = SSA_NAME_VAR (PHI_RESULT (phi2)); 
-		  
-	      /* This phi node is on the edge whose  soure  is 'new_head'.
-		 Find corrosponding phi node for 'first' basic block.  */ 
-	      
-	      for (phi1 = phi_nodes (first); phi1; phi1 = TREE_CHAIN (phi1))
-		{
-		  tree var1 = SSA_NAME_VAR (PHI_RESULT (phi1));
-		  if (var1 == var2)
-		    {
-		      /* Add phi arg to edge 'e'.  */
-		      add_phi_arg (&phi1, def, e);
-		      
-		      /* There can not be second phi node for the same variable.
-			 Get out of the for loop that walks phi nodes of 'first'.
-		      */
-		      break;
-		    }
-		}
-
-	      /* In a phi node, there is only one edge from 'new_head'.
-		 Get out of the for loop that walks phi nodes for 'second'.  */
-	      break;
+	      add_phi_arg (&phi1, def, e);
 	    }
 	}
     }
@@ -598,10 +581,11 @@ may be a run time test for things that were not resolved by static
 analysis (overlapping ranges (anti-aliasing), alignment, etc.).  */
 
 struct loop *
-tree_ssa_loop_version (struct loops *loops, struct loop * loop, tree cond_expr)
+tree_ssa_loop_version (struct loops *loops, struct loop * loop, 
+		       tree cond_expr, basic_block *condition_bb)
 {
   edge entry, latch_edge;
-  basic_block first_head, second_head, condition_bb;
+  basic_block first_head, second_head;
   int irred_flag;
   struct loop *nloop;
 
@@ -630,33 +614,34 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop, tree cond_expr)
   second_head = entry->dest;
 
   /* Split loop entry edge and insert new block with cond expr.  */
-  condition_bb = lv_adjust_loop_entry_edge (first_head, second_head, entry, 
+  *condition_bb = lv_adjust_loop_entry_edge (first_head, second_head, entry, 
 					    cond_expr); 
 
   latch_edge = loop->latch->rbi->copy->succ;
   nloop = loopify (loops, 
 		   latch_edge,
 		   loop->header->rbi->copy->pred,
-		   condition_bb,
+		   *condition_bb,
 		   false /* Do not redirect all edges.  */);
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
   lv_update_pending_stmts (latch_edge);
 
   /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
-  lv_update_pending_stmts (FALLTHRU_EDGE (condition_bb));
+  lv_update_pending_stmts (FALLTHRU_EDGE (*condition_bb));
+
+  /* Adjust irreducible flag.  */
+  if (irred_flag)
+    {
+      (*condition_bb)->flags |= BB_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      (*condition_bb)->pred->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
 
   /* At this point condition_bb is loop predheader with two successors, 
      first_head and second_head.   Make sure that loop predheader has only 
      one successor. */
-  if (irred_flag)
-    {
-      condition_bb->flags |= BB_IRREDUCIBLE_LOOP;
-      loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      condition_bb->pred->flags |= EDGE_IRREDUCIBLE_LOOP;
-    }
-
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
   loop_split_edge_with (loop_preheader_edge (nloop), NULL);
 
@@ -665,6 +650,26 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop, tree cond_expr)
   loop_split_edge_with (loop_latch_edge (nloop), NULL);
 
   return nloop;
+}
+
+/* Update loop versioning condition.
+   This is used by other optimizations/transformations to disable
+   one loop version.  */
+void
+update_lv_condition (basic_block *bb, tree new_cond)
+{
+  tree stmt;
+  block_stmt_iterator bsi = bsi_last (*bb);
+
+  stmt = bsi_stmt (bsi);
+
+  if (TREE_CODE (stmt) == COND_EXPR)
+    {
+      TREE_OPERAND (stmt, 0) = new_cond;
+      modify_stmt (stmt);
+    }
+  else
+    abort ();
 }
 
 void
@@ -676,6 +681,8 @@ test_loop_versioning (struct loops *loops)
   
   for (i = 1; i < loops->num; i = i+ 2)
     {
+      struct loop *nloop;
+      basic_block condition_bb;
       loop = loops->parray[i];
       
       if (!loop)
@@ -685,10 +692,16 @@ test_loop_versioning (struct loops *loops)
 			 integer_one_node,
 			 integer_zero_node);
       
-      tree_ssa_loop_version (loops, loop, cond_expr);
+      nloop = tree_ssa_loop_version (loops, loop, cond_expr, &condition_bb);
       
-      verify_loop_structure (loops);
-      verify_ssa ();
+      if (nloop)
+	{
+	  verify_loop_structure (loops);
+	  verify_dominators (CDI_DOMINATORS);
+	  verify_ssa ();
+	  
+	  update_lv_condition (&condition_bb, boolean_true_node);
+	}
     }
 
 }

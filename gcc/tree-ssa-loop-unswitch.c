@@ -268,6 +268,7 @@ static struct loop *
 tree_unswitch_loop (struct loops *loops, struct loop *loop,
 		    basic_block unswitch_on, tree cond)
 {
+  basic_block condition_bb;
   /* Some sanity checking.  */
   if (!flow_bb_inside_loop_p (loop, unswitch_on))
     abort ();
@@ -277,5 +278,6 @@ tree_unswitch_loop (struct loops *loops, struct loop *loop,
   if (loop->inner)
     abort ();
 
-  return tree_ssa_loop_version (loops, loop, unshare_expr (cond));
+  return tree_ssa_loop_version (loops, loop, unshare_expr (cond), 
+				&condition_bb);
 }

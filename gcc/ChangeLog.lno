@@ -1,3 +1,17 @@
+2004-03-29  Devang Patel  <dpatel@apple.com>
+
+	* tree-flow.h (tree_ssa_loop_version): Add new parameter, basic_block *.
+	(update_lv_condition): New.
+	* tree-ssa-loop-manip.c (copy_phi_nodes): nreverse copied phi nodes list
+	to ensure that phi nodes remain in same order.
+	(lv_update_pending_stmts): Do not nreverse pending list.
+	(lv_adjust_loop_header_phi): Walk two phi nodes list in parallel.
+	(tree_ssa_loop_version): Now condition_bb is input parameter. 
+	(update_lv_condition): New.
+	(test_loop_versioning): Use update_lv_condition.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_loop): Update function
+	tree_ssa_loop_version () call by adding 4th parameter.
+	
 2004-03-29  Richard Guenther <rguenth@tat.physik.uni-tuebingen.de>
 
 	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):

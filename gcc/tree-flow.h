@@ -616,7 +616,9 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void test_loop_versioning (struct loops *loops);
-struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree);
+struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
+				    basic_block *);
+void update_lv_condition (basic_block *, tree);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void linear_transform_loops (struct loops *, varray_type);
 void loop_commit_inserts (void);
