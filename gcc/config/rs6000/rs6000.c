@@ -12936,7 +12936,7 @@ rs6000_emit_prologue (void)
 				    && DEFAULT_ABI != ABI_AIX
 				    && flag_pic
 				    && ! info->lr_save_p
-				    && EDGE_COUNT (EXIT_BLOCK_PTR->pred) > 0)
+				    && EDGE_COUNT (EXIT_BLOCK_PTR->pred) > 0);
     if (save_LR_around_toc_setup)
       {
 	rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
