@@ -209,34 +209,34 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   }
 
   /** Fired in a PropertyChangeEvent when the "inverted" property changes. */
-  public final static String INVERTED_CHANGED_PROPERTY = "inverted";
+  public static final String INVERTED_CHANGED_PROPERTY = "inverted";
 
   /** Fired in a PropertyChangeEvent when the "labelTable" property changes. */
-  public final static String LABEL_TABLE_CHANGED_PROPERTY = "labelTable";
+  public static final String LABEL_TABLE_CHANGED_PROPERTY = "labelTable";
 
   /**
    * Fired in a PropertyChangeEvent when the "majorTickSpacing" property
    * changes.
    */
-  public final static String MAJOR_TICK_SPACING_CHANGED_PROPERTY = "majorTickSpacing";
+  public static final String MAJOR_TICK_SPACING_CHANGED_PROPERTY = "majorTickSpacing";
 
   /**
    * Fired in a PropertyChangeEvent when the "minorTickSpacing" property
    * changes.
    */
-  public final static String MINOR_TICK_SPACING_CHANGED_PROPERTY = "minorTickSpacing";
+  public static final String MINOR_TICK_SPACING_CHANGED_PROPERTY = "minorTickSpacing";
 
   /** Fired in a PropertyChangeEvent when the "model" property changes. */
-  public final static String MODEL_CHANGED_PROPERTY = "model";
+  public static final String MODEL_CHANGED_PROPERTY = "model";
 
   /** Fired in a PropertyChangeEvent when the "orientation" property changes. */
-  public final static String ORIENTATION_CHANGED_PROPERTY = "orientation";
+  public static final String ORIENTATION_CHANGED_PROPERTY = "orientation";
 
   /** Fired in a PropertyChangeEvent when the "paintLabels" property changes. */
-  public final static String PAINT_LABELS_CHANGED_PROPERTY = "paintLabels";
+  public static final String PAINT_LABELS_CHANGED_PROPERTY = "paintLabels";
 
   /** Fired in a PropertyChangeEvent when the "paintTicks" property changes. */
-  public final static String PAINT_TICKS_CHANGED_PROPERTY = "paintTicks";
+  public static final String PAINT_TICKS_CHANGED_PROPERTY = "paintTicks";
   
   /** Whether or not this slider paints its ticks. */
   private transient boolean paintTicks = false;

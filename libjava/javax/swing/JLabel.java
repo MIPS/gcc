@@ -95,54 +95,54 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
   /**
    * Fired in a PropertyChangeEvent when the "disabledIcon" property changes.
    */
-  public final static String DISABLED_ICON_CHANGED_PROPERTY = "disabledIcon";
+  public static final String DISABLED_ICON_CHANGED_PROPERTY = "disabledIcon";
 
   /**
    * Fired in a PropertyChangeEvent when the "displayedMnemonic" property
    * changes.
    */
-  public final static String DISPLAYED_MNEMONIC_CHANGED_PROPERTY = "displayedMnemonic";
+  public static final String DISPLAYED_MNEMONIC_CHANGED_PROPERTY = "displayedMnemonic";
   
   /**
    * Fired in a PropertyChangeEvent when the "displayedMnemonicIndex"
    * property changes. */
-  public final static String DISPLAYED_MNEMONIC_INDEX_CHANGED_PROPERTY = "displayedMnemonicIndex";
+  public static final String DISPLAYED_MNEMONIC_INDEX_CHANGED_PROPERTY = "displayedMnemonicIndex";
 
   /**
    * Fired in a PropertyChangeEvent when the "horizontalAlignment" property
    * changes.
    */
-  public final static String HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY = "horizontalAlignment";
+  public static final String HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY = "horizontalAlignment";
 
   /**
    * Fired in a PropertyChangeEvent when the "horizontalTextPosition" property
    * changes.
    */
-  public final static String HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY = "horizontalTextPosition";
+  public static final String HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY = "horizontalTextPosition";
 
   /** Fired in a PropertyChangeEvent when the "icon" property changes. */
-  public final static String ICON_CHANGED_PROPERTY = "icon";
+  public static final String ICON_CHANGED_PROPERTY = "icon";
 
   /** Fired in a PropertyChangeEvent when the "iconTextGap" property changes. */
-  public final static String ICON_TEXT_GAP_CHANGED_PROPERTY = "iconTextGap";
+  public static final String ICON_TEXT_GAP_CHANGED_PROPERTY = "iconTextGap";
 
   /** Fired in a PropertyChangeEvent when the "labelFor" property changes. */
-  public final static String LABEL_FOR_CHANGED_PROPERTY = "labelFor";
+  public static final String LABEL_FOR_CHANGED_PROPERTY = "labelFor";
 
   /** Fired in a PropertyChangeEvent when the "text" property changes. */
-  public final static String TEXT_CHANGED_PROPERTY = "text";
+  public static final String TEXT_CHANGED_PROPERTY = "text";
 
   /**
    * Fired in a PropertyChangeEvent when the "verticalAlignment" property
    * changes.
    */
-  public final static String VERTICAL_ALIGNMENT_CHANGED_PROPERTY = "verticalAlignment";
+  public static final String VERTICAL_ALIGNMENT_CHANGED_PROPERTY = "verticalAlignment";
 
   /**
    * Fired in a PropertyChangeEvent when the "verticalTextPosition" property
    * changes.
    */
-  public final static String VERTICAL_TEXT_POSITION_CHANGED_PROPERTY = "verticalTextPosition";
+  public static final String VERTICAL_TEXT_POSITION_CHANGED_PROPERTY = "verticalTextPosition";
 
   /**
    * Creates a new horizontally and vertically centered JLabel object with no text and no
