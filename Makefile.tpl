@@ -1328,6 +1328,10 @@ install-binutils: install-opcodes
 # program on installation which uses the Tcl libraries.
 install-itcl: install-tcl
 
+# This is a slightly kludgy method of getting dependencies on 
+# all-build-libiberty correct; it would be better to build it every time.
+all-gcc: @all_build_modules@
+
 # Dependencies of all-build-foo on configure-build-foo.
 all-build-libiberty: configure-build-libiberty
 
