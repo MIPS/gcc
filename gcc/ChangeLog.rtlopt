@@ -1,5 +1,9 @@
 2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
 
+	* bb-reorder.c (copy_bb_p): Fix prototype and function header.
+
+2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
+
 	* Makefile.in (bb-reorder.o): Fix dependencies.
 	* bb-reorder.c: Remove superfluous #includes.
 
