@@ -1,3 +1,9 @@
+2004-01-10  Canqun Yang <canqun@nudt.edu.cn>
+
+	* trans-array (gfc_conv_loop_setup): Adjust comment to track
+	reality.
+	(gfc_array_allocate): Don't count size of element twice.
+
 2004-01-04  Paul Brook  <paul@codesourcery.com>
 
 	* lang.opt (i8, r8, std=*): Remove RejectNegative.
