@@ -12364,6 +12364,12 @@ prune_unused_types_walk (die)
     return;
 
   switch (die->die_tag) {
+  case DW_TAG_structure_type:
+    /* If the declaration is marked, mark the specification as well.  */
+    if ((c = get_AT_ref (die, DW_AT_specification)) != NULL
+	&& c->die_mark)
+      break;
+
   case DW_TAG_const_type:
   case DW_TAG_packed_type:
   case DW_TAG_pointer_type:
@@ -12371,7 +12377,6 @@ prune_unused_types_walk (die)
   case DW_TAG_volatile_type:
   case DW_TAG_typedef:
   case DW_TAG_array_type:
-  case DW_TAG_structure_type:
   case DW_TAG_union_type:
   case DW_TAG_class_type:
   case DW_TAG_friend:
