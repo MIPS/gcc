@@ -59,13 +59,13 @@ public class Segment
     this.offset = offset;
     this.count = count;
   }
-    
-    public Object clone()
-    {
+  
+  public Object clone()
+  {
     try
       {
-	    return super.clone();
-	}
+	return super.clone();
+      }
     catch (CloneNotSupportedException e)
       {
 	return null;

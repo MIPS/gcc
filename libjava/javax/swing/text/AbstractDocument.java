@@ -143,7 +143,7 @@ public abstract class AbstractDocument
   protected void fireUndoableEditUpdate(UndoableEditEvent event)
   {
     UndoableEditListener[] listeners = getUndoableEditListeners();
-    
+
     for (int index = 0; index < listeners.length; ++index)
       listeners[index].undoableEditHappened(event);
   }
@@ -223,9 +223,9 @@ public abstract class AbstractDocument
   }
 
   public String getText(int offset, int length) throws BadLocationException
-      {
-	return content.getString(offset, length);
-      }
+  {
+    return content.getString(offset, length);
+  }
 
   public void getText(int offset, int length, Segment segment)
     throws BadLocationException

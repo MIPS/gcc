@@ -94,7 +94,7 @@ public abstract class BasicTextUI extends TextUI
     {
     }
   }
-
+  
   private class RootView extends View
   {
     private View view;
@@ -113,8 +113,8 @@ public abstract class BasicTextUI extends TextUI
     }
 
     public void setView(View v)
-      {
-          if (view != null)
+    {
+      if (view != null)
 	view.setParent(null);
       
       if (v != null)
@@ -124,17 +124,17 @@ public abstract class BasicTextUI extends TextUI
     }
 
     public Container getContainer()
-              {
+    {
       return textComponent;
     }
-
+    
     public float getPreferredSpan(int axis)
     {
       if (view != null)
 	return view.getPreferredSpan(axis);
 
       return Integer.MAX_VALUE;
-              }
+    }
 
     public void paint(Graphics g, Shape s)
     {
@@ -188,7 +188,7 @@ public abstract class BasicTextUI extends TextUI
   {
     return textComponent;
   }
-
+  
   public void installUI(final JComponent c)
   {
     super.installUI(c);
@@ -366,7 +366,7 @@ public abstract class BasicTextUI extends TextUI
 
     return new Dimension((int) w, (int) h);
   }
-
+  
   public final void paint(Graphics g, JComponent c)
   {
     paintSafely(g);

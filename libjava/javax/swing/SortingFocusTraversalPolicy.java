@@ -141,7 +141,7 @@ public class SortingFocusTraversalPolicy
   {
     if (set == null)
       set = (getComparator() == null 
-             ? new TreeSet()  
+             ? new TreeSet()
              : new TreeSet(getComparator()));
     
     if (root != null) 

@@ -43,8 +43,8 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.util.Vector;
 import java.util.Hashtable;
+import java.util.Vector;
 
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;

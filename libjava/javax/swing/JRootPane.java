@@ -100,7 +100,7 @@ public class JRootPane extends JComponent
     protected RootLayout()
     {
     }
-    
+
     /**
      * DOCUMENT ME!
      *
@@ -230,8 +230,8 @@ public class JRootPane extends JComponent
 	    {
 	      glassPane.setBounds(0, 0, containerSize.width,
 	                          containerSize.height);
-	    contentPane.setBounds(0, 0, containerSize.width,
-	                          containerSize.height);
+	      contentPane.setBounds(0, 0, containerSize.width,
+	                            containerSize.height);
 	    }
 
 	  layeredPane.setSize(containerSize.width, containerSize.height);

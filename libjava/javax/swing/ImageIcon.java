@@ -57,7 +57,7 @@ public class ImageIcon
   public ImageIcon()
   {
   }
-
+  
   public ImageIcon(String file)
   {
     this(file, file);
@@ -98,12 +98,12 @@ public class ImageIcon
     this.image = Toolkit.getDefaultToolkit().createImage(image.getSource());
     this.description = description;
   }
-
+    
   public ImageObserver getImageObserver()
   {
     return observer;
   }
-
+  
   public void setImageObserver(ImageObserver newObserver)
   {
     observer = newObserver;
