@@ -20,11 +20,12 @@ Boston, MA 02111-1307, USA.  */
 
 extern int name_needs_quotes (const char *);
 
-extern void machopic_validate_stub_or_non_lazy_ptr (const char *, int);
+extern void machopic_validate_stub_or_non_lazy_ptr (const char *);
 
 extern const char *machopic_function_base_name (void);
 extern void machopic_output_function_base_name (FILE *);
-extern const char *machopic_stub_name (const char*);
+extern const char *machopic_indirection_name (rtx, bool);
+extern const char *machopic_mcount_stub_name (void);
 
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_picsymbol_stub1_section (void);
@@ -40,8 +41,9 @@ extern void mod_term_section (void);
 
 #ifdef RTX_CODE
 
+extern rtx machopic_function_base_sym (void);
 extern int machopic_operand_p (rtx);
-extern enum machopic_addr_class machopic_classify_name (const char*);
+extern enum machopic_addr_class machopic_classify_symbol (rtx);
 
 extern rtx machopic_indirect_data_reference (rtx, rtx);
 extern rtx machopic_indirect_call_target (rtx);
@@ -53,13 +55,8 @@ extern void machopic_asm_out_destructor (rtx, int);
 
 #ifdef TREE_CODE
 
-extern enum machopic_addr_class machopic_classify_ident (tree);
-extern void machopic_define_ident (tree);
-extern void machopic_define_name (const char*);
-extern int machopic_name_defined_p (const char*);
-extern int machopic_ident_defined_p (tree);
+extern void machopic_define_symbol (rtx);
 extern void darwin_encode_section_info (tree, rtx, int);
-extern const char *darwin_strip_name_encoding (const char *);
 
 #endif /* TREE_CODE */
 
@@ -72,11 +69,11 @@ extern void machopic_select_rtx_section (enum machine_mode, rtx,
 					 unsigned HOST_WIDE_INT);
 
 extern void darwin_unique_section (tree decl, int reloc);
-extern void darwin_asm_named_section (const char *, unsigned int);
+extern void darwin_asm_named_section (const char *, unsigned int, tree);
 extern unsigned int darwin_section_type_flags (tree, const char *, int);
 extern void darwin_non_lazy_pcrel (FILE *, rtx);
 
-extern void darwin_emit_unwind_label(FILE *, tree, int);
+extern void darwin_emit_unwind_label (FILE *, tree, int, int);
 
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
@@ -85,6 +82,7 @@ extern void darwin_pragma_unused (struct cpp_reader *);
 extern void darwin_file_end (void);
 
 extern void darwin_make_decl_one_only (tree decl);
+extern void darwin_mark_decl_preserved (const char *);
 
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
 extern void const_section (void);
