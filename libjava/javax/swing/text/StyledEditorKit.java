@@ -55,7 +55,7 @@ import javax.swing.event.CaretListener;
  */
 public class StyledEditorKit extends DefaultEditorKit
 {
-  static final long serialVersionUID = 7002391892985555948L;
+  private static final long serialVersionUID = 7002391892985555948L;
 
   /**
    * UnderlineAction

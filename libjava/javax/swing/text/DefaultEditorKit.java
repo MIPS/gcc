@@ -38,6 +38,7 @@ exception statement from your version. */
 package javax.swing.text;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
@@ -103,53 +104,59 @@ public class DefaultEditorKit extends EditorKit
   {
   }
 
-  void deinstall(JEditorPane c)
-  {
-    //      Called when the kit is being removed from the JEditorPane. 
-  }
-
-  void install(JEditorPane c)
+  /**
+   * Called when the kit is being removed from the JEditorPane.
+   */
+  public void deinstall(JEditorPane c)
   {
   }
 
-  Caret createCaret()
+  public void install(JEditorPane c)
+  {
+  }
+
+  public Caret createCaret()
   {
     return null;
   }
 
-  Document createDefaultDocument()
+  public Document createDefaultDocument()
   {
     return new PlainDocument();
   }
 
-  Action[] getActions()
+  public Action[] getActions()
   {
     return null;
   }
 
-  String getContentType()
+  public String getContentType()
   {
     return "text/plain";
   }
-
-  ViewFactory getViewFactory()
+  
+  public ViewFactory getViewFactory()
   {
     return null;
   }
 
-  void read(InputStream in, Document doc, int pos)
+  public void read(InputStream in, Document doc, int pos)
+    throws BadLocationException, IOException
   {
   }
 
-  void read(Reader in, Document doc, int pos)
+  public void read(Reader in, Document doc, int pos)
+    throws BadLocationException, IOException
   {
   }
 
-  void write(OutputStream out, Document doc, int pos, int len)
+  public void write(OutputStream out, Document doc, int pos, int len)
+    throws BadLocationException, IOException
   {
   }
 
-  void write(Writer out, Document doc, int pos, int len)
+  public void write(Writer out, Document doc, int pos, int len)
+    throws BadLocationException, IOException
   {
   }
 }

@@ -1,5 +1,48 @@
 2004-06-29  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/ImageIcon.java
+	(file): Removed.
+	(description): Renamed from descr.
+	(ImageIcon): Added missing constructors.
+	(setParent): Removed.
+	(setImageObserver): New method.
+	(getImageObserver): New method.
+	(paintIcon): Handle observer = null.
+	* javax/swing/JButton.java
+	(removeNotify): Fixed javadoc.
+	(updateUI): Simplified.
+	* javax/swing/JRootPane.java
+	(serialVersionUID): New constant field.
+	* javax/swing/UIManager.java:
+	Fixed javadocs all over.
+	(setLookAndFeel): Throws UnsupportedLookAndFeelException.
+	* javax/swing/text/AbstractDocument.java
+	(createPosition): Throws BadLocationException.
+	(getText): Likewise.
+	(remove): Likewise.
+	* javax/swing/text/ComponentView.java
+	(modelToView): Likewise.
+	* javax/swing/text/DefaultEditorKit.java:
+	Made all public methods public.
+	(read): Throws BadLocationException and IOException.
+	(write): Likewise.
+	* javax/swing/text/EditorKit.java:
+	Made all public methods public.
+	(serialVersionUID): New constant field.
+	(clone): New method.
+	(read): Throws BadLocationException and IOException.
+	(write): Likewise.
+	* javax/swing/text/Segment.java
+	(array): Made public.
+	(count): Likewise.
+	(offset): Likewise.
+	(Segment): New constructors.
+	(clone): Reimplemented.
+	* javax/swing/text/StyledEditorKit.java
+	(serialVersionUID): New constant field.
+
+2004-06-29  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JButton.java,
 	javax/swing/text/DefaultEditorKit.java,
 	javax/swing/text/EditorKit.java,

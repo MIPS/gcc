@@ -43,22 +43,31 @@ import java.text.CharacterIterator;
 public class Segment
   implements Cloneable, CharacterIterator
 {
-  char[] array;
-  int count;
-  int offset;
+  public char[] array;
+  public int count;
+  public int offset;
 
+  public Segment()
+  {
+  }
+
+  public Segment(char[] array, int offset, int count)
+  {
+    this.array = array;
+    this.offset = offset;
+    this.count = count;
+  }
+  
   public Object clone()
   {
     try
       {
 	return super.clone();
       }
-    catch (Exception e)
+    catch (CloneNotSupportedException e)
       {
-	System.err.println("Huuuhhh, this class implements cloneable !!!!!!");
-	System.err.println("I think there is a bug in this JVM somewhere");
+	return null;
       }
-    return null;
   }
 
   public char current()
