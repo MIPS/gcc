@@ -97,15 +97,6 @@
 	being reduced.
 	* tree.h (expand_stack_alloc): Declare.
 
-2003-08-26  Diego Novillo  <dnovillo@redhat.com>
-
-	* gimplify.c: Temporarily remove the following change.
-	It fails to bootstrap on ppc.
-
-	2003-08-25  Jason Merrill  <jason@redhat.com>
-	    * gimplify.c (gimplify_boolean_expr): Just replace
-	    with a COND_EXPR.
-
 2003-08-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa.c (build_dominator_tree): Use FOR_EACH_BB.
