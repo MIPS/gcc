@@ -1,5 +1,10 @@
 2005-01-27  Michael Koch  <konqueror@gmx.de>
 
+	* java/awt/dnd/DropTarget.java (addDropTargetListener):
+	Clarified comments.
+
+2005-01-27  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JComponent.java (getComponentGraphics):
 	Removed accidently commited code.
 
