@@ -153,6 +153,20 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	last_bb = curr_bb;
     }
 
+  if (dumping_stmts
+      && (flags & TDF_LINENO)
+      && EXPR_LOCUS (node))
+    {
+      pp_character (buffer, '[');
+      if (EXPR_FILENAME (node))
+	{
+	  pp_string (buffer, EXPR_FILENAME (node));
+	  pp_string (buffer, " : ");
+	}
+      pp_decimal_int (buffer, EXPR_LINENO (node));
+      pp_string (buffer, "] ");
+    }
+
   switch (TREE_CODE (node))
     {
     case ERROR_MARK:

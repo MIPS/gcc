@@ -1,5 +1,13 @@
 2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-dump.c (dump_options): Add TDF_LINENO.
+	* tree-pretty-print.c (dump_generic_node): Print line number for
+	statements if asked to.
+	* tree.h (TDF_LINENO): New.
+	* doc/invoke.texi (lineno): Document.
+
+2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* expr.c (expand_vars, expand_var): Split of ...
 	(expand_expr_1): ... here.
 	* expr.h (expand_var): Declare.

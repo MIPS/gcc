@@ -698,6 +698,7 @@ static const struct dump_option_value_info dump_options[] =
   {"stats", TDF_STATS},
   {"blocks", TDF_BLOCKS},
   {"vops", TDF_VOPS},
+  {"lineno", TDF_LINENO},
   {"all", ~(TDF_RAW | TDF_SLIM)},
   {NULL, 0}
 };

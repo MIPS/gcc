@@ -3491,6 +3491,8 @@ option).
 Enable showing basic block boundaries (disabled in raw dumps).
 @item vops
 Enable showing virtual operands for every statement.
+@item lineno
+Enable showing line numbers for statements.
 @item all
 Turn on all options.
 @end table
