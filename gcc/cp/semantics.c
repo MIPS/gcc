@@ -1536,8 +1536,13 @@ finish_qualified_call_expr (fn, args)
     return finish_call_expr (fn, args, /*koenig=*/0);
   else if (TREE_CODE (fn) == OFFSET_REF)
     {
-      scope = TREE_TYPE (TREE_OPERAND (fn, 0));
+      tree baselink;
+
       fn = TREE_OPERAND (fn, 1);
+      baselink = ((TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+		  ? TREE_OPERAND (fn, 0) : fn);
+      my_friendly_assert (TREE_CODE (baselink) == BASELINK, 20010814);
+      scope = TREE_TYPE (BASELINK_NAMING_SUBOBJECT (baselink));
     }
   else
     scope = CP_DECL_CONTEXT (get_first_fn (fn));

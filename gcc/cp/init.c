@@ -1525,36 +1525,6 @@ build_offset_ref (type, member)
   if (uses_template_parms (TREE_TYPE (decl)))
     return build_nt (SCOPE_REF, type, member);
 
-  /* A lot of this logic is now handled in lookup_member.  */
-  if (member && BASELINK_P (member))
-    {
-      /* Go from the TREE_BASELINK to the member function info.  */
-      tree fnfields = member;
-      tree t;
-
-      t = BASELINK_FUNCTIONS (fnfields);
-
-      if (!really_overloaded_fn (t))
-	{
-	  /* Get rid of a potential OVERLOAD around it */
-	  t = OVL_CURRENT (t);
-
-	  /* unique functions are handled easily.  */
-	  if (!enforce_access (basebinfo, t))
-	    return error_mark_node;
-	  mark_used (t);
-	  if (DECL_STATIC_FUNCTION_P (t))
-	    return t;
-	  t = build (OFFSET_REF, TREE_TYPE (t), decl, t);
-	  PTRMEM_OK_P (t) = 1;
-	  return t;
-	}
-
-      t = build (OFFSET_REF, unknown_type_node, decl, fnfields);
-      PTRMEM_OK_P (t) = 1;
-      return t;
-    }
-
   if (TREE_CODE (member) == TYPE_DECL)
     {
       TREE_USED (member) = 1;
@@ -1576,6 +1546,49 @@ build_offset_ref (type, member)
     {
       cp_error ("illegal pointer to bit field `%D'", member);
       return error_mark_node;
+    }
+
+  if (TREE_CODE (member) == TEMPLATE_ID_EXPR)
+    {
+      tree t;
+
+      t = build (OFFSET_REF, unknown_type_node, decl, member);
+      PTRMEM_OK_P (t) = 1;
+      return t;
+    }
+
+  /* A lot of this logic is now handled in lookup_member.  */
+  if (member && BASELINK_P (member))
+    {
+      /* Go from the TREE_BASELINK to the member function info.  */
+      tree fnfields = member;
+      tree t;
+
+      t = BASELINK_FUNCTIONS (fnfields);
+
+      if (!really_overloaded_fn (t))
+	{
+	  /* Get rid of a potential OVERLOAD around it */
+	  t = OVL_CURRENT (t);
+
+	  /* unique functions are handled easily.  */
+	  if (!enforce_access (basebinfo, t))
+	    return error_mark_node;
+	  mark_used (t);
+	  if (DECL_STATIC_FUNCTION_P (t))
+	    return t;
+	  fnfields = make_baselink (t, 
+				    BASELINK_SUBOBJECT (fnfields),
+				    BASELINK_NAMING_SUBOBJECT (fnfields),
+				    BASELINK_TYPE (fnfields));
+	  t = build (OFFSET_REF, TREE_TYPE (t), decl, fnfields);
+	  PTRMEM_OK_P (t) = 1;
+	  return t;
+	}
+
+      t = build (OFFSET_REF, unknown_type_node, decl, fnfields);
+      PTRMEM_OK_P (t) = 1;
+      return t;
     }
 
   /* In member functions, the form `type::name' is no longer
@@ -1618,6 +1631,10 @@ resolve_offset_ref (exp)
       type = TREE_TYPE (type);
       base = current_class_ref;
     }
+
+  if (BASELINK_P (member)
+      && TREE_CODE (BASELINK_FUNCTIONS (member)) != OVERLOAD)
+    member = BASELINK_FUNCTIONS (member);
 
   if (BASELINK_P (member) || TREE_CODE (member) == TEMPLATE_ID_EXPR)
     return build_unary_op (ADDR_EXPR, exp, 0);

@@ -4293,7 +4293,7 @@ type_requires_array_cookie (type)
   if (!fns || fns == error_mark_node)
     return false;
   /* Loop through all of the functions.  */
-  for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+  for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
     {
       tree fn;
       tree second_parm;

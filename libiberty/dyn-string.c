@@ -1,5 +1,5 @@
 /* An abstract string datatype.
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Mark Mitchell (mark@markmitchell.com).
 
 This file is part of GNU CC.
@@ -262,16 +262,14 @@ dyn_string_insert (dest, pos, src)
      size_t pos;
      dyn_string_t src;
 {
-  size_t i;
-
   if (src == dest)
     abort ();
 
   if (dyn_string_resize (dest, dest->length + src->length) == NULL)
     return 0;
   /* Make room for the insertion.  Be sure to copy the NUL.  */
-  for (i = dest->length; i >= pos; --i)
-    dest->s[i + src->length] = dest->s[i];
+  memmove (dest->s + pos, dest->s + pos + src->length,
+	   dest->length - pos + 1);
   /* Splice in the new stuff.  */
   strncpy (dest->s + pos, src->s, src->length);
   /* Compute the new length.  */
@@ -290,14 +288,14 @@ dyn_string_insert_cstr (dest, pos, src)
      size_t pos;
      const char *src;
 {
-  size_t i;
   size_t length = strlen (src);
 
   if (dyn_string_resize (dest, dest->length + length) == NULL)
     return 0;
   /* Make room for the insertion.  Be sure to copy the NUL.  */
-  for (i = dest->length; i >= pos; --i)
-    dest->s[i + length] = dest->s[i];
+  memmove (dest->s + pos + length, 
+	   dest->s + pos, 
+	   dest->length - pos + 1);
   /* Splice in the new stuff.  */
   strncpy (dest->s + pos, src, length);
   /* Compute the new length.  */
@@ -315,13 +313,12 @@ dyn_string_insert_char (dest, pos, c)
      size_t pos;
      int c;
 {
-  size_t i;
-
   if (dyn_string_resize (dest, dest->length + 1) == NULL)
     return 0;
   /* Make room for the insertion.  Be sure to copy the NUL.  */
-  for (i = dest->length; i >= pos; --i)
-    dest->s[i + 1] = dest->s[i];
+  memmove (dest->s + pos + 1,
+	   dest->s + pos,
+	   dest->length - pos + 1);
   /* Add the new character.  */
   dest->s[pos] = c;
   /* Compute the new length.  */
@@ -415,7 +412,6 @@ dyn_string_substring (dest, src, start, end)
      size_t start;
      size_t end;
 {
-  size_t i;
   size_t length = end - start;
 
   if (start > end || start > src->length || end > src->length)
@@ -425,8 +421,7 @@ dyn_string_substring (dest, src, start, end)
   if (dyn_string_resize (dest, length) == NULL)
     return 0;
   /* Copy the characters in the substring,  */
-  for (i = length; --i >= 0; )
-    dest->s[i] = src->s[start + i];
+  memcpy (dest->s, src->s + start, length);
   /* NUL-terimate the result.  */
   dest->s[length] = '\0';
   /* Record the length of the substring.  */

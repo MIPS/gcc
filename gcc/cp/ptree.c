@@ -199,6 +199,14 @@ lang_print_xnode (file, node, indent)
       fputs (" orig_level ", file);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_PARM_ORIG_LEVEL (node));
       break;
+    case BASELINK:
+      print_node (file, "functions", BASELINK_FUNCTIONS (node),
+		  indent + 4);
+      print_node (file, "subobject", BASELINK_SUBOBJECT (node),
+		  indent + 4);
+      print_node (file, "naming", BASELINK_NAMING_SUBOBJECT (node),
+		  indent + 4);
+      break;
     default:
       break;
     }

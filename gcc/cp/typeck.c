@@ -66,6 +66,7 @@ static int casts_away_constness PARAMS ((tree, tree));
 static void maybe_warn_about_returning_address_of_local PARAMS ((tree));
 static tree strip_all_pointer_quals PARAMS ((tree));
 static tree get_binfo_for_member PARAMS ((tree, tree, tree));
+static tree unary_complex_lvalue PARAMS ((enum tree_code, tree));
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -4257,9 +4258,9 @@ build_x_unary_op (code, xarg)
      error message.  */
   if (code == ADDR_EXPR
       && TREE_CODE (xarg) != TEMPLATE_ID_EXPR
-      && ((IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (xarg)))
-	   && !COMPLETE_TYPE_P (TREE_TYPE (xarg)))
-	  || (TREE_CODE (xarg) == OFFSET_REF)))
+      && ((TREE_CODE (xarg) == OFFSET_REF)
+	  || (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_TYPE (xarg)))
+	      && !COMPLETE_TYPE_P (TREE_TYPE (xarg)))))
     /* don't look for a function */;
   else
     {
@@ -4344,7 +4345,8 @@ build_unary_op (code, xarg, noconvert)
   const char *errstring = NULL;
   tree val;
 
-  if (arg == error_mark_node)
+  if (arg == error_mark_node 
+      || TREE_TYPE (arg) == error_mark_node)
     return error_mark_node;
 
   switch (code)
@@ -4761,7 +4763,7 @@ build_unary_op (code, xarg, noconvert)
 
    If ARG is not a kind of expression we can handle, return zero.  */
    
-tree
+static tree
 unary_complex_lvalue (code, arg)
      enum tree_code code;
      tree arg;
@@ -4823,6 +4825,8 @@ unary_complex_lvalue (code, arg)
 	return 0;
 
       t = TREE_OPERAND (arg, 1);
+      if (BASELINK_P (t))
+	t = BASELINK_FUNCTIONS (t);
 
       /* Check all this code for right semantics.  */	
       if (TREE_CODE (t) == FUNCTION_DECL)

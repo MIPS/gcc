@@ -1243,7 +1243,7 @@ static bool cp_parser_translation_unit
 static tree cp_parser_primary_expression
   PARAMS ((cp_parser *, cp_parser_id_kind *));
 static tree cp_parser_id_expression
-  PARAMS ((cp_parser *, bool));
+  PARAMS ((cp_parser *, bool, bool));
 static tree cp_parser_unqualified_id
   PARAMS ((cp_parser *, bool));
 static tree cp_parser_nested_name_specifier_opt
@@ -1354,7 +1354,7 @@ static void cp_parser_block_declaration
 static void cp_parser_simple_declaration
   PARAMS ((cp_parser *, bool));
 static tree cp_parser_decl_specifier_seq 
-  PARAMS ((cp_parser *, cp_parser_flags, tree *, bool *));
+  PARAMS ((cp_parser *, cp_parser_flags, tree *, bool *, bool *));
 static tree cp_parser_storage_class_specifier_opt
   PARAMS ((cp_parser *));
 static tree cp_parser_type_specifier
@@ -1573,6 +1573,8 @@ static cp_token *cp_parser_require
 static cp_token *cp_parser_require_keyword
   PARAMS ((cp_parser *, enum rid, const char *));
 static bool cp_parser_token_starts_function_definition_p 
+  PARAMS ((cp_token *));
+static cp_tag_kind cp_parser_token_is_class_key
   PARAMS ((cp_token *));
 static void cp_parser_parse_tentatively 
   PARAMS ((cp_parser *));
@@ -1873,11 +1875,36 @@ cp_parser_skip_to_end_of_statement (parser)
 	break;
       /* If the next token is a non-nested `}', then we have reached
 	 the end of the current block.  */
-      if (token->type == CPP_CLOSE_BRACE && nesting_depth-- == 0)
-	break;
+      if (token->type == CPP_CLOSE_BRACE)
+	{
+	  /* If this is a non-nested `}', stop before consuming it.
+	     That way, when confronted with something like:
+
+	       { 3 + } 
+
+	     we stop before consuming the closing `}', even though we
+	     have not yet reached a `;'.  */
+	  if (nesting_depth == 0)
+	    break;
+	  /* If it is the closing `}' for a block that we have
+	     scanned, stop -- but only after consuming the token.
+	     That way given:
+
+	        void f g () { ... }
+		typedef int I;
+
+	     we will stop after the body of the erroneously declared
+	     function, but before consuming the following `typedef'
+	     declaration.  */
+	  if (--nesting_depth == 0)
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      break;
+	    }
+	}
       /* If it the next token is a `{', then we are entering a new
 	 block.  Consume the entire block.  */
-      if (token->type == CPP_OPEN_BRACE)
+      else if (token->type == CPP_OPEN_BRACE)
 	++nesting_depth;
       /* Consume the token.  */
       cp_lexer_consume_token (parser->lexer);
@@ -2231,7 +2258,8 @@ cp_parser_primary_expression (parser, idk)
 
 	/* Parse the id-expression.  */
 	id_expression = cp_parser_id_expression (parser, 
-						 /*assume_typename_p=*/false);
+						 /*assume_typename_p=*/false,
+						 /*template_keyword_p=*/false);
 	/* If we have a template-id, then no further lookup is
 	   required.  If the template-id was for a template-class, we
 	   will sometimes have a TYPE_DECL at this point.  */
@@ -2296,6 +2324,13 @@ cp_parser_primary_expression (parser, idk)
 	       will succeed.  Issue a diagnostic here.  */
 	    else
 	      decl = check_for_out_of_scope_variable (decl);
+
+	    /* Remember that the name was used in the definition of
+	       the current class so that we can check later to see if
+	       the meaning would have been different after the class
+	       was entirely defined.  */
+	    if (!parser->scope && decl != error_mark_node)
+	      maybe_note_name_used_in_class (id_expression, decl);
 	  }
 
 	/* If we didn't find anything, or what we found was a type,
@@ -2459,6 +2494,9 @@ cp_parser_primary_expression (parser, idk)
 
    we are supposed to assume that `S<T>::R' is a class.
 
+   If TEMPLATE_KEYWORD_P is true, then we have just seen the
+   `template' keyword.
+
    FIXME: Perhaps the way we handle ASSUME_TYPENAME_P is wrong.
    Perhaps what we really want to do is look things up in the 
    unspecialized template.  Probably so.
@@ -2469,9 +2507,10 @@ cp_parser_primary_expression (parser, idk)
    pointer parameter, not implicitly via parser->scope?   */
 
 static tree
-cp_parser_id_expression (parser, assume_typename_p)
+cp_parser_id_expression (parser, assume_typename_p, template_keyword_p)
      cp_parser *parser;
      bool assume_typename_p;
+     bool template_keyword_p;
 {
   bool global_scope_p;
   bool nested_name_specifier_p;
@@ -2536,7 +2575,7 @@ cp_parser_id_expression (parser, assume_typename_p)
 	}
     }
   else
-    return cp_parser_unqualified_id (parser, /*template_keyword_p=*/false);
+    return cp_parser_unqualified_id (parser, template_keyword_p);
 }
 
 /* Parse an unqualified-id.
@@ -3192,6 +3231,7 @@ cp_parser_postfix_expression (parser)
 	    tree id_expression;
 	    tree name;
 	    bool dependent_p;
+	    bool template_p;
 	    tree scope = NULL_TREE;
 
 	    /* If this is a `->' operator, dereference the pointer.  */
@@ -3248,18 +3288,22 @@ cp_parser_postfix_expression (parser)
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Try the id-expression production first.  */
 	    cp_parser_parse_tentatively (parser);
-	    /* Peek at the next token.  */
-	    token = cp_lexer_peek_token (parser->lexer);
-	    /* If it is the optional `template' keyword, consume
-	       it.  */
-	    /* FIXME: We should handle the `template' keyword
-	       specially.  */
-	    if (token->keyword == RID_TEMPLATE)
-	      cp_lexer_consume_token (parser->lexer);
+	    /* Look for the optional `template' keyword.  */
+	    if (cp_lexer_next_token_is_keyword (parser->lexer,
+						RID_TEMPLATE))
+	      {
+		/* Remember that we saw the keyword.  */
+		template_p = true;
+		/* Consume the `template' token.  */
+		cp_lexer_consume_token (parser->lexer);
+	      }
+	    else
+	      template_p = false;
 	    /* Parse the id-expression.  */
 	    name
 	      = cp_parser_id_expression (parser,
-					 /*assume_typename_p=*/false);
+					 /*assume_typename_p=*/false,
+					 template_p);
 	    id_expression = name;
 	    /* Resolve the name, if we know the type of the
 	       postfix-expression.  */
@@ -5602,7 +5646,8 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
     = cp_parser_decl_specifier_seq (parser, 
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    /*friend_is_not_class_p=*/NULL);
   /* We no longer need to defer access checks.  */
   access_checks = cp_parser_stop_deferring_access_checks (parser);
 
@@ -5704,15 +5749,23 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
    representation of a type-specifier, see cp_parser_type_specifier.  
 
    If there are attributes, they will be stored in *ATTRIBUTES,
-   represented as described above cp_parser_attributes.  */
+   represented as described above cp_parser_attributes.  
+
+   If FRIEND_IS_NOT_CLASS_P is non-NULL, and the `friend' specifier
+   appears, and the entity that will be a friend is not going to be a
+   class, then *FRIEND_IS_NOT_CLASS_P will be set to TRUE.  Note that
+   even if *FRIEND_IS_NOT_CLASS_P is FALSE, the entity to which
+   friendship is granted might not be a class.  */
 
 static tree
 cp_parser_decl_specifier_seq (parser, flags, attributes,
-			      declares_class_or_enum)
+			      declares_class_or_enum,
+			      friend_is_not_class_p)
      cp_parser *parser;
      cp_parser_flags flags;
      tree *attributes;
      bool *declares_class_or_enum;
+     bool *friend_is_not_class_p;
 {
   tree decl_specs = NULL_TREE;
   bool friend_p = false;
@@ -5722,6 +5775,10 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 
   /* Assume there are no attributes.  */
   *attributes = NULL_TREE;
+
+  /* Assume that the object to which friendship can be a class.  */
+  if (friend_is_not_class_p)
+    *friend_is_not_class_p = FALSE;
 
   /* Keep reading specifiers until there are no more to read.  */
   while (true)
@@ -5749,8 +5806,24 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	  /* decl-specifier:
 	       friend  */
 	  friend_p = true;
+	  /* The representation of the specifier is simply the
+	     appropriate TREE_IDENTIFIER node.  */
+	  decl_spec = token->value;
+	  /* Consume the token.  */
+	  cp_lexer_consume_token (parser->lexer);
+	  /* If friendship is going to be granted to a class, the
+	     standard says that you have to use an
+	     elaborated-type-specifier.  It is not valid to say:
+	        
+	       class A {};
+	       class B { friend A; };  
 
-	  /* Fall through.  */
+	     You must write `friend class A' instead.  */
+	  if (friend_is_not_class_p
+	      && !cp_parser_token_is_class_key (cp_lexer_peek_token
+						(parser->lexer)))
+	    *friend_is_not_class_p = true;
+	  break;
 
 	  /* function-specifier:
 	       inline
@@ -6038,7 +6111,11 @@ cp_parser_linkage_specification (parser)
     }
   /* Otherwise, there's just one declaration.  */
   else
-    cp_parser_declaration (parser);
+    {
+      have_extern_spec = true;
+      cp_parser_declaration (parser);
+      have_extern_spec = false;
+    }
 
   /* We're done with the linkage-specification.  */
   pop_lang_context ();
@@ -6058,12 +6135,19 @@ cp_parser_conversion_function_id (parser)
      cp_parser *parser;
 {
   tree type;
+  tree saved_scope;
 
   /* Look for the `operator' token.  */
   if (!cp_parser_require_keyword (parser, RID_OPERATOR, "`operator'"))
     return error_mark_node;
+  /* When we parse the conversion-type-id, the current scope will be
+     reset.  However, we need that information in able to look up the
+     conversion function later, so we save it here.  */
+  saved_scope = parser->scope;
   /* Parse the conversion-type-id.  */
   type = cp_parser_conversion_type_id (parser);
+  /* Restore the saved scope.  */
+  parser->scope = saved_scope;
 
   return mangle_conv_op_name_for_type (type);
 }
@@ -6084,6 +6168,9 @@ cp_parser_conversion_type_id (parser)
 
   /* Parse the type-specifiers.  */
   type_specifiers = cp_parser_type_specifier_seq (parser);
+  /* If that didn't work, stop.  */
+  if (type_specifiers == error_mark_node)
+    return error_mark_node;
   /* Parse the conversion-declarator.  */
   declarator = cp_parser_conversion_declarator_opt (parser);
 
@@ -6830,7 +6917,8 @@ cp_parser_type_parameter (parser)
 	    /* Parse the id-expression.  */
 	    default_argument 
 	      = cp_parser_id_expression (parser,
-					 /*assume_typename_p=*/false);
+					 /*assume_typename_p=*/false,
+					 /*template_keyword_p=*/false);
 	    /* Look up the name.  */
 	    default_argument 
 	      = cp_parser_lookup_name (parser,
@@ -6994,8 +7082,7 @@ cp_parser_template_name (parser, template_keyword_p)
 
   /* If the name immediately followed the `template' keyword, then it
      is a template-name.  */
-  if (template_keyword_p 
-      && cp_parser_dependent_type_p (parser->scope))
+  if (template_keyword_p && processing_template_decl)
     return identifier;
 
   /* Look up the name.  */
@@ -7130,7 +7217,8 @@ cp_parser_template_argument (parser)
     return argument;
   /* It must be an id-expression.  */
   argument = cp_parser_id_expression (parser, 
-				      /*assume_typename_p=*/false);
+				      /*assume_typename_p=*/false,
+				      /*template_keyword_p=*/false);
   /* Figure out what is being referred to.  */
   return cp_parser_lookup_name (parser, 
 				argument, 
@@ -7182,7 +7270,8 @@ cp_parser_explicit_instantiation (parser)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    /*friend_is_not_class_p=*/NULL);
   /* FIXME: Issue an error message if attributes are present here?  */
   /* If there was exactly one decl-specifier, and it declared a class,
      and there's no declarator, then we have an explicit type
@@ -7580,31 +7669,34 @@ cp_parser_type_name (parser)
 				    /*template_keyword_p=*/false,
 				    /*type_p=*/false,
 				    /*check_access_p=*/true);
-  /* If it's a class-name, we're done.  */
-  if (cp_parser_parse_definitely (parser))
-    return type_decl;
-
-  /* Otherwise, it must be a typedef-name or an enum-name.  */
-  identifier = cp_parser_identifier (parser);
-  if (identifier == error_mark_node)
-    return error_mark_node;
-
-  /* Look up the type-name.  */
-  type_decl = cp_parser_lookup_name (parser, identifier, 
-				     /*check_access=*/true,
-				     /*is_type=*/false);
-  /* Check to see what kind of entity it is.  */
-  if (type_decl != error_mark_node
-      && TREE_CODE (type_decl) == TYPE_DECL
-      && (TREE_CODE (TREE_TYPE (type_decl)) == ENUMERAL_TYPE 
-	  /* FIXME: How do we figure out if we're looking a
-	     typedef, as opposed to a "stub decl", etc.?  */
-	  || true))
-    return type_decl;
+  /* If it's not a class-name, keep looking.  */
+  if (!cp_parser_parse_definitely (parser))
+    {
+      /* It must be a typedef-name or an enum-name.  */
+      identifier = cp_parser_identifier (parser);
+      if (identifier == error_mark_node)
+	return error_mark_node;
+      
+      /* Look up the type-name.  */
+      type_decl = cp_parser_lookup_name (parser, identifier, 
+					 /*check_access=*/true,
+					 /*is_type=*/false);
+      /* Issue an error if we did not find a type-name.  */
+      if (TREE_CODE (type_decl) != TYPE_DECL)
+	{
+	  cp_parser_error (parser, "expected type-name");
+	  type_decl = error_mark_node;
+	}
+      /* Remember that the name was used in the definition of the
+	 current class so that we can check later to see if the
+	 meaning would have been different after the class was
+	 entirely defined.  */
+      else if (type_decl != error_mark_node
+	       && !parser->scope)
+	maybe_note_name_used_in_class (identifier, type_decl);
+    }
   
-  /* We did not find a type-name.  */
-  cp_parser_error (parser, "expected type-name");
-  return error_mark_node;
+  return type_decl;
 }
 
 
@@ -8769,6 +8861,11 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	 try a parameter-declaration-clause.  */
       if (abstract_p && !cp_parser_parse_definitely (parser))
 	declarator = NULL_TREE;
+      /* If we were not parsing an abstract declarator, but failed to
+	 find a satisfactory nested declarator, then an error has
+	 occurred.  */
+      else if (!abstract_p && declarator == error_mark_node)
+	return error_mark_node;
     }
   /* Otherwise, for a non-abstract declarator, there should be a
      declarator-id.  */
@@ -9172,7 +9269,8 @@ cp_parser_declarator_id (parser)
 
      will work; we must treat `S<T>::R' as the name of a type.  */
   id_expression = cp_parser_id_expression (parser,
-					   /*assume_typename_p=*/true);
+					   /*assume_typename_p=*/true,
+					   /*template_keyword_p=*/false);
   /* If the name was qualified, create a SCOPE_REF to represent 
      that.  */
   if (parser->scope)
@@ -9453,7 +9551,8 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_NONE,
 				    &attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    /*friend_is_not_class_p=*/NULL);
   /* If an error occurred, there's no reason to attempt to parse the
      rest of the declaration.  */
   if (cp_parser_error_occurred (parser))
@@ -9684,7 +9783,8 @@ cp_parser_function_definition (parser,
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    /*friend_is_not_class_p=*/NULL);
   /* Figure out whether this declaration is a `friend'.  */
   if (friend_p)
     *friend_p = cp_parser_friend_p (decl_specifiers);
@@ -10429,28 +10529,18 @@ cp_parser_class_key (parser)
      cp_parser *parser;
 {
   cp_token *token;
-  enum rid keyword;
+  cp_tag_kind ctk;
 
   /* Look for the class-key.  */
   token = cp_parser_require (parser, CPP_KEYWORD, "class-key");
   if (!token)
     return ctk_none;
 
-  /* Keep track of whether this is a class, struct, or union.  */
-  keyword = token->keyword;
-  switch (keyword)
-    {
-    case RID_CLASS:
-      return ctk_class;
-    case RID_STRUCT:
-      return ctk_struct;
-    case RID_UNION:
-      return ctk_union;
-      
-    default:
-      cp_parser_error (parser, "expected class-key");
-      return ctk_none;
-    }
+  /* Check to see if the TOKEN is a class-key.  */
+  ctk = cp_parser_token_is_class_key (token);
+  if (!ctk)
+    cp_parser_error (parser, "expected class-key");
+  return ctk;
 }
 
 /* Parse an (optional) member-specification.
@@ -10534,6 +10624,7 @@ cp_parser_member_declaration (parser)
   tree decl;
   bool declares_class_or_enum;
   bool friend_p;
+  bool friend_is_not_class_p;
   cp_token *token;
   int saved_pedantic;
 
@@ -10577,7 +10668,8 @@ cp_parser_member_declaration (parser)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &prefix_attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    &friend_is_not_class_p);
   /* If there is no declarator, then the decl-specifier-seq should
      specify a type.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
@@ -10610,7 +10702,11 @@ cp_parser_member_declaration (parser)
 	  /* Nested classes have already been added to the class, but
 	     a `friend' needs to be explicitly registered.  */
 	  else if (friend_p)
-	    make_friend_class (current_class_type, type);
+	    {
+	      if (friend_is_not_class_p)
+		cp_error ("friend declaration requires class-key");
+	      make_friend_class (current_class_type, type);
+	    }
 	  /* An anonymous aggregate has to be handled specially; such
 	     a declaration really declares a data member (with a
 	     particular type), as opposed to a nested class.  */
@@ -12280,7 +12376,8 @@ cp_parser_single_declaration (parser,
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum);
+				    &declares_class_or_enum,
+				    /*friend_is_not_class_p=*/NULL);
   /* Gather up the access checks that occurred the
      decl-specifier-seq.  */
   access_checks = cp_parser_stop_deferring_access_checks (parser);
@@ -12667,6 +12764,27 @@ cp_parser_token_starts_function_definition_p (token)
 	  || token->type == CPP_COLON
 	  /* A function-try-block begins with `try'.  */
 	  || token->keyword == RID_TRY);
+}
+
+/* Returns the kind of tag indicated by TOKEN, if it is a class-key,
+   or ctk_none otherwise.  */
+
+static cp_tag_kind
+cp_parser_token_is_class_key (token)
+     cp_token *token;
+{
+  switch (token->keyword)
+    {
+    case RID_CLASS:
+      return ctk_class;
+    case RID_STRUCT:
+      return ctk_struct;
+    case RID_UNION:
+      return ctk_union;
+      
+    default:
+      return ctk_none;
+    }
 }
 
 /* Begin parsing tentatively.  We always save tokens while parsing

@@ -12,7 +12,7 @@ class QvGroup : public QvNode {
 class QvUnknownNode : public QvGroup
 {
 public:
-  QvUnknownNode :: QvUnknownNode ();
+  QvUnknownNode :: QvUnknownNode (); // ERROR - overqualification
 private:
   static QvFieldData *fieldData;
   virtual QvFieldData *getFieldData() { return fieldData; }

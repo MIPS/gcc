@@ -12,6 +12,6 @@ class foo {
 static void iteratorTest(const foo &x)
 {
    foo::const_iterator i = x.begin();		// ERROR - 
-   for (; i; ++i)
+   for (; i; ++i) // ERROR - cannot convert `i' to bool
       *i;
 }

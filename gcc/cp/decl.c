@@ -301,6 +301,11 @@ tree anonymous_namespace_name;
 int function_depth;
 
 const char * const language_string = "GNU C++";
+
+/* TRUE iff there is an external linkage specification in effect.  */
+
+bool have_extern_spec;
+
 
 /* For each binding contour we allocate a binding_level structure
    which records the names defined in that contour.
@@ -7038,6 +7043,14 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   tree context;
   tree attrlist;
 
+  /* This should only be done once on the top most decl.  */
+  if (have_extern_spec)
+    {
+      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"),
+			     declspecs);
+      have_extern_spec = 0;
+    }
+
   if (attributes || prefix_attributes)
     attrlist = build_tree_list (attributes, prefix_attributes);
   else
@@ -13049,6 +13062,13 @@ start_function (declspecs, declarator, attrs, flags)
   /* Sanity check.  */
   my_friendly_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE, 160);
   my_friendly_assert (TREE_CHAIN (void_list_node) == NULL_TREE, 161);
+
+  /* This should only be done once on the top most decl.  */
+  if (have_extern_spec)
+    {
+      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
+      have_extern_spec = 0;
+    }
 
   if (flags & SF_PRE_PARSED)
     {

@@ -2540,7 +2540,7 @@ extern ostream& operator<<(ostream&, bool);
 // theory.  For the pragmatic reason for its existence, see the example below.
 //
 enum unit {
-    UNIT = 1,
+  UNIT = 1, // ERROR - extra comma
 };
 
 extern const char *stringify(unit u);

@@ -2939,7 +2939,8 @@ enum ptrmemfunc_vbit_where_t
    correspond to the keywords that can be used to begin an
    elaborated-type-specifier.  */
 typedef enum cp_tag_kind { 
-  ctk_none,
+  ctk_none = 0, /* Not a tag.  Defined as zero so that a cp_tag_kind
+		   can be used as a boolean.  */
   ctk_struct,
   ctk_class,
   ctk_union,
@@ -3725,6 +3726,7 @@ extern tree cp_fname_init			PARAMS ((const char *));
 extern void unqualified_name_lookup_error       PARAMS ((tree));
 extern tree check_for_out_of_scope_variable     PARAMS ((tree));
 extern tree lookup_unqualified_name_and_check_access PARAMS ((tree));
+extern bool have_extern_spec;
 
 /* in decl2.c */
 extern void init_decl2				PARAMS ((void));
@@ -4256,7 +4258,6 @@ extern tree build_function_call_maybe		PARAMS ((tree, tree));
 extern tree convert_arguments			PARAMS ((tree, tree, tree, int));
 extern tree build_x_binary_op			PARAMS ((enum tree_code, tree, tree));
 extern tree build_x_unary_op			PARAMS ((enum tree_code, tree));
-extern tree unary_complex_lvalue		PARAMS ((enum tree_code, tree));
 extern tree build_x_conditional_expr		PARAMS ((tree, tree, tree));
 extern tree build_x_compound_expr		PARAMS ((tree));
 extern tree build_compound_expr			PARAMS ((tree));

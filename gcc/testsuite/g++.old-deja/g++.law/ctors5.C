@@ -20,8 +20,8 @@ class Y
   public:
     Y();
 }
-X::X( int xi )
-{// ERROR -  return.*
+X::X( int xi ) // ERROR -  return.*
+{
     x = xi;
 }
 

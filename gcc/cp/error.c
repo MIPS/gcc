@@ -1020,6 +1020,10 @@ dump_decl (t, flags)
       }
       break;
 
+    case BASELINK:
+      dump_decl (BASELINK_FUNCTIONS (t), flags);
+      break;
+
     case OVERLOAD:
       t = OVL_CURRENT (t);
       /* Fall through.  */
@@ -1921,7 +1925,6 @@ dump_expr (t, flags)
 	      output_add_string (scratch_buffer, "((");
 	      dump_type (TREE_TYPE (t), flags);
 	      output_add_string (scratch_buffer, ") 0)");
-	      break;
 	    }
 	  else if (host_integerp (idx, 0))
 	    {
@@ -1939,12 +1942,10 @@ dump_expr (t, flags)
 		  virtuals = TREE_CHAIN (virtuals);
 		}
 	      if (virtuals)
-		{
-		  dump_expr (BV_FN (virtuals),
-	                     flags | TFF_EXPR_IN_PARENS);
-		  break;
-		}
+		dump_expr (BV_FN (virtuals),
+			   flags | TFF_EXPR_IN_PARENS);
 	    }
+	  break;
 	}
       output_add_character (scratch_buffer, '{');
       dump_expr_list (CONSTRUCTOR_ELTS (t), flags);

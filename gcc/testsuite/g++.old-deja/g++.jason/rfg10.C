@@ -5,5 +5,5 @@
 enum COLOR
 {
     red,
-    green = ULONG_MAX, blue
-};				// ERROR - enum overflow
+    green = ULONG_MAX, blue // ERROR - enum overflow
+};				

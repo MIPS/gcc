@@ -1043,27 +1043,30 @@ several different ways.  A single function will be represented by a
 @code{OVERLOAD}.  Each @code{OVL_CURRENT} in the chain will be either
 a @code{FUNCTION_DECL} or a @code{TEMPLATE_DECL}.  
 
-If, in an expression, of the form @code{a->b}, @code{b} is a member
-function, or set of overloaded member functions, a
-@code{COMPONENT_REF} is used to represent the expression.  The second
-operand of the @code{COMPONENT_REF} is a @code{BASELINK}.  The
-@code{BASELINK_SUBOBJECT} indicates the subobject (a binfo) where the
-functions are located, relative to the class in which they are being
-accessed.  For example, in:
+A @code{BASELINK} represents a member function, or a set of overloaded
+member functions.  The @code{BASELINK_SUBOBJECT} indicates the subobject
+(a binfo) where the functions are located, relative to the class in
+which they are being accessed.  For example, in:
 @example
 struct S @{ void f(); @};
 struct T @{ void g() @{ f(); @} @};
 @end example
-the representation of @code{f} will be a @code{COMPONENT_REF}; the
-second operand will be a @code{BASELINK} whose
-@code{BASELINK_SUBOBJECT} is the @code{S}-in-@code{T} subobject.  The
-@code{BASELINK_FUNCTIONS} represent the functions themselves;
-@code{BASELINK_FUNCTIONS} are always a @code{FUNCTION_DECL},
-@code{TEMPLATE_DECL}, or @code{OVERLOAD}.
+the @code{BASELINK} for @code{f} will have a@code{BASELINK_SUBOBJECT} is
+the @code{S}-in-@code{T} subobject.  The @code{BASELINK_FUNCTIONS}
+represent the functions themselves; the @code{BASELINK_FUNCTIONS} are
+always a @code{FUNCTION_DECL}, @code{TEMPLATE_DECL}, or @code{OVERLOAD}.
 
-An expression of the form @code{A::b} where @code{b} is a member function,
-or set of overloaded member functions, is represented by an
-@code{OFFSET_REF}.
+A template-id, such as @code{f<int>} is represented by a
+@code{TEMPLATE_ID_EXPR}.  The first argument to the
+@code{TEMPLATE_ID_EXPR} is either a @code{TEMPLATE_DECL}, an
+@code{OVERLOAD}, or a @code{BASELINK}.
+
+If, in an expression, of the form @code{a->b}, @code{b} is a member
+function, or set of overloaded member functions, a @code{COMPONENT_REF}
+is used to represent the expression.  An expression of the form
+@code{A::b} where @code{b} is a member function, or set of overloaded
+member functions, is represented by an @code{OFFSET_REF}.  The second
+operand to the @code{OFFSET_REF} is a @code{BASELINK}.
 
 After parsing and semantic analysis (i.e., at the point that RTL is
 being generated), the only representation used for a function is the

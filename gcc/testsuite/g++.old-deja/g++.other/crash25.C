@@ -7,10 +7,10 @@ public:
   virtual ~X();
 }
 
-X::x()
-{				// ERROR - 
+X::x() // ERROR - 
+{				
 }
 
-X::~x()
-{				// ERROR - 
+X::~x() // ERROR - 
+{				
 }

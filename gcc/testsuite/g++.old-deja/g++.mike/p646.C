@@ -131,8 +131,8 @@ warn_foo_parm_returns_foo (foo f)
   f;
 }                              // WARNING - control reaches end
 
-main ()
-{				// WARNING - no type
+main () // WARNING - no type
+{				
   int ii = return_1 ();
   if (ii != 1)
     abort_because ("wrong value returned");
@@ -142,20 +142,18 @@ main ()
   int k = return_sum (-69, 69);
   if (k != 0)
     abort_because ("wrong value returned");
-  foo f1 = return_named_foo ();
-  if (foo::si != 1)
-    abort_because ("wrong number of foos");
+  foo f1;
   f1.i = 5;
   int l = foo_parm_returns_i (f1);
   if (l != 5)
     abort_because ("l != 5");
   foo f2 = foo_parm_returns_foo (f1);
-  if (foo::si != 2)
+  if (foo::si != 1)
     abort_because ("wrong number of foos");
   if (f2.i != 5)
     abort_because ("f2.i != 5");
   foo f3 = return_foo ();
-  if (foo::si != 3)
+  if (foo::si != 2)
     abort_because ("wrong number of foos");
   printf("PASS\n");
   return 0;

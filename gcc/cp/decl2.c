@@ -3810,6 +3810,17 @@ build_expr_from_tree (t)
 	scope = build_expr_from_tree (TREE_OPERAND (t, 0));
 	if (TREE_CODE (member) == IDENTIFIER_NODE)
 	  member = lookup_qualified_name (scope, member, /*is_type=*/0);
+	else if (TREE_CODE (member) == TEMPLATE_ID_EXPR
+		 && (TREE_CODE (TREE_OPERAND (member, 0)) 
+		     == IDENTIFIER_NODE))
+	  {
+	    tree tmpl;
+	    
+	    tmpl = TREE_OPERAND (member, 0);
+	    tmpl = lookup_qualified_name (scope, tmpl, /*is_type=*/0);
+	    member = lookup_template_function (tmpl, 
+					       TREE_OPERAND (member, 1));
+	  }
 
 	return build_offset_ref (scope, member);
       }
@@ -3911,7 +3922,8 @@ build_expr_from_tree (t)
 
 	args = build_expr_from_tree (TREE_OPERAND (t, 1));
 
-	if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
+	if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF
+	    || TREE_CODE (TREE_OPERAND (t, 0)) == OFFSET_REF)
 	  {
 	    tree ref
 	      = build_expr_from_tree (TREE_OPERAND (t, 0));

@@ -197,11 +197,21 @@ hack_identifier (value, name)
 	}
       TREE_USED (current_class_ptr) = 1;
 
-      /* Mark so that if we are in a constructor, and then find that
-	 this field was initialized by a base initializer,
-	 we can emit an error message.  */
-      TREE_USED (value) = 1;
-      value = build_component_ref (current_class_ref, value, NULL_TREE);
+      if (!DERIVED_FROM_P (context_for_name_lookup (value), 
+			   current_class_type))
+	{
+	  cp_error ("`%D' is not a member of `%T'", value, 
+		    current_class_type);
+	  value = error_mark_node;
+	}
+      else
+	{
+	  /* Mark so that if we are in a constructor, and then find that
+	     this field was initialized by a base initializer,
+	     we can emit an error message.  */
+	  TREE_USED (value) = 1;
+	  value = build_component_ref (current_class_ref, value, NULL_TREE);
+	}
     }
   else if ((TREE_CODE (value) == FUNCTION_DECL
 	    && DECL_FUNCTION_MEMBER_P (value))
