@@ -1,3 +1,119 @@
+2002-07-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/compile/20020706-1.c: New test.
+	* gcc.c-torture/compile/20020706-2.c: New test.
+
+2002-07-06  Brian R. Gaeke  <brg@dgate.ORG>, Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/warn/incomplete1.C: New test.
+
+2002-07-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR c++/7099
+        * g++.dg/warn/noreturn1.C: New test.
+
+2002-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6706
+	* g++.dg/debug/debug6.C: New test.
+	* g++.dg/debug/debug7.C: New test.
+
+Thu Jul  4 07:36:48 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/compile/simd-3.c: New test.
+
+2002-07-03  Chris Demetriou  <cgd@broadcom.com>
+
+	* g++.dg/abi/mangle6.C: Run for mipsisa64*-*-* targets.
+	* gcc.dg/20020620-1.c: Likewise.
+
+2002-07-03  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6944
+	* g++.dg/init/array4.C: New test.
+	* g++.dg/init/array5.C: New test.
+
+Wed Jul  3 10:25:41 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/simd-1.c (main): Also test &, |, ^, ~.
+	* gcc.c-torture/execute/simd-2.c (main): Likewise.
+
+2002-07-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/cpp/tr-warn2.c: Use traditional C style function definitions.
+	* gcc.dg/wtr-aggr-init-1.c: Likewise.
+	* gcc.dg/wtr-conversion-1.c: Likewise.
+	* gcc.dg/wtr-escape-1.c: Likewise.
+	* gcc.dg/wtr-int-type-1.c: Likewise.
+	* gcc.dg/wtr-label-1.c: Likewise.
+	* gcc.dg/wtr-static-1.c: Likewise.
+	* gcc.dg/wtr-strcat-1.c: Likewise.
+	* gcc.dg/wtr-suffix-1.c: Likewise.
+	* gcc.dg/wtr-switch-1.c: Likewise.
+	* gcc.dg/wtr-unary-plus-1.c: Likewise.
+	* gcc.dg/wtr-union-init-1.c: Likewise.
+	* gcc.dg/wtr-union-init-2.c: Likewise.
+	* gcc.dg/wtr-union-init-3.c: Likewise.
+
+	* gcc.dg/wtr-func-def-1.c: New test.
+
+2002-07-02 Devang Patel <dpatel@apple.com>
+
+	* objc.dg/param-1.m: New test.
+
+2002-07-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/directive.c: Add test.
+	* gcc.dg/cpp/trad/macroargs.c: Add test.
+	* gcc.dg/cpp/trad/recurse-3.c: Add tests.
+
+2002-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/cmdlne-M.c: New test.
+
+2002-07-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/desig-init-1.m: New test.
+
+2002-07-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6716
+	* g++.dg/template/instantiate1.C: New test.
+
+2002-07-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7112
+	* g++.dg/template/sizeof2.C: New test.
+
+2002-07-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/cmdlne-dD.c, gcc.dg/cpp/trad/cmdlne-dM.c,
+	gcc.dg/cpp/trad/include.c: New tests.
+
+2002-07-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/7177
+	* gcc.c-torture/compile/20020701-1.c: New test.
+
+2002-07-01  Stan Shebs  <shebs@apple.com>
+
+	* lib/objc.exp (objc_target_compile): Add the -I path to ObjC
+	header here...
+	* lib/objc-torture.exp (objc-torture-compile): ...instead of here
+	(objc-torture-execute): or here.
+
+Mon Jul  1 12:51:05 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/arith-rand-ll.c: New test.
+
+2002-07-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/escaped-nl.c: New test.
+
+2002-06-30  Devang Patel  <dpatel@apple.com>
+
+	* objc.dg/fsyntax-only.m: New test.
+
 2002-06-27  Aldy Hernandez  <aldyh@redhat.com>
 
         * gcc.c-torture/execute/string-opt-8.c (strncmp): Fix typo in

@@ -1,3 +1,107 @@
+2002-07-06  Andreas Jaeger  <aj@suse.de>
+
+	* toplev.c (set_fast_math_flags): Don't use ISO C style function
+	definitions.
+	* gengtype.c (open_base_files): Likewise.
+	(close_output_files): Likewise.
+	* tracer.c (find_best_predecessor): Likewise.
+	(find_best_successor): Likewise.
+	(ignore_bb_p): Likewise.
+
+2002-07-05  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/7099
+	* builtin-attrs.def: Define new attribute lists for use in
+	builtins.def.
+	* builtins.def [DEF_BUILTIN]: Modify to take an additional
+	ATTRS argument, an enumerated value defined in builtin-attrs.def
+	that represents the attribute list for the builtins.  Modify
+	all builtin functions to pass an appropriate attribute list.
+	Specify "abort", "exit", "_exit" and "_Exit" builtins here with
+	their required noreturn attributes.
+	* tree.h (enum_builtin_function): Ignore the additional parameter
+	to DEF_BUILTIN.
+	* builtins.c (built_in_names): Likewise.
+	* c-common.c: (builtin_function_2): Replace the "int noreturn_p"
+	argument with a tree representing the functions attribute list.
+	Pass this "attrs" argument to builtin_function.  No longer handle
+	the noreturn_p processing manually.
+	(built_in_attributes): Move the definitions from builtin-attrs.def
+	before c_common_nodes_and_builtins.
+	(c_common_nodes_and_builtins): Handle the new ATTRS parameter in
+	DEF_BUILTIN, passing it to both builtin_function and the changed
+	builtin_function_2.
+
+	* doc/extend.texi: Document __builtin_abort, __builtin_exit,
+	__builtin__exit and __builtin__Exit.
+
+2002-07-05  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("*movqi_68hc12"): Avoid allocating
+	QI mode registers in soft registers.
+	("zero_extendqihi2"): Do not take into account soft registers
+	for register allocation (use '*' constraint).
+
+2002-07-05  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("*ashlsi3"): Avoid saving y if we know
+	it is dead.
+	("*ashrsi3"): Likewise.
+	("*lshrsi3"): Likewise.
+
+2002-07-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (output_max_insn_queue_index_def): Take latencies
+	into account.
+
+2002-07-05  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md (peephole2): New peephole2 to optimize
+	address computation and memory moves.
+
+2002-07-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6706
+	* dwarfout.c (output_reg_number): Fix warning message.
+	(output_bound_representation): Check SAVE_EXPR_RTL is not NULL
+	before using it.
+
+2002-07-05  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* gcc/gcc.c (asm_debug): Move initialization ...
+	(init_spec): ... here.
+
+2002-07-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-parse.in (extdef): Append ';'.
+	(old_style_parm_decls): Append ';'.
+
+2002-07-04  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Correct typos: gcc_cv_as_gdwarf2_debug_flag to
+	gcc_cv_as_gdwarf2_flag and gcc_cv_as_gstabs_debug_flag
+	to gcc_cv_as_gstabs_flag.
+	* configure: Rebuilt.
+
+2002-07-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* ggc.h (ggc_add_root): Document as obsolete.
+
+Thu Jul  4 07:58:01 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (mshfhi_b, mshflo_b, mshfhi_l, mshflo_l, mshfhi_w): Add DONE.
+	(mshflo_w): Likewise.
+
+Thu Jul  4 07:36:29 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* simplify-rtx.c (simplify_subreg): Reduce problem of finding
+	vector mode subregs of constants to finding integer mode
+	subregs of constants.
+	* cse.c (cse_insn): Use simplify_gen_subreg.
+	* convert.c (convert_to_integer): Don't strip a NOP_EXPR
+	From a vector mode expression of different size than the
+	target mode.
+
 2002-07-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-simple.c (is_simplifiable_builtin): Don't simplify target
@@ -7,6 +111,350 @@
 
 	* c-simplify.c (simplify_decl_stmt): Unshare the
 	initializer nodes before simplification.
+
+2002-07-03  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/linux.h: Add #undef for SUBTARGET_CPP_SPEC.
+	* config/mips/mips.h: Remove deprecated -m<processor> options
+	and cc1_cpu_spec associated.
+	(CONSTANT_ADDRESS_P): Fix last patch.
+	(ASM_DECLARE_FUNCTION_NAME): Declare. Fix comment.
+	* config/mips/mips.md (bungt, bunge, sungt_df, sungt_sf, sunge_df,
+	sunge_sf): Remove.
+
+2002-07-03  Stan Shebs  <shebs@apple.com>
+
+	* config/darwin.h (APPLE_CC): Remove, not meaningful in FSF GCC.
+	(STRINGIFY_THIS, REALLY_STRINGIFY): Remove.
+	(CPP_SPEC): Remove insertion of APPLE_CC definition.
+
+2002-07-03  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (struct_undo): Change types of recorded substitutions
+	to be either "int" or "rtx", instead of "unsigned int" and "rtx".
+	(do_SUBST_INT): Change types of the substitution from unsigned int
+	to int, to avoid compilation warning from SUBST_INT's only caller.
+
+	(make_extraction): Add cast to avoid compilation warning.
+	(force_to_mode): Remove cast to avoid compilation warning.
+
+2002-07-03  Eric Botcazou  <ebotcazou@multimania.com>
+	    Jeff Law  <law@redhat.com>
+
+	* i386.md (length_immediate attribute): Fix typo.
+	(length_address attribute): Likewise.
+	(modrm attribute): Set it to 0 for immediate call instructions.
+	(jcc_1 pattern): Set modrm attribute to 0.
+	(jcc_2 pattern ): Likewise.
+	(jump pattern): Likewise.
+	(doloop_end_internal pattern): Explicitly set length.
+	(leave pattern): Fix typo.
+	(leave_rex64 pattern): Likewise.
+
+2002-07-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (fix_truncdfsi2_internal): Ignore DImode
+	in FPR as preference.
+	(fctiwz): Same.
+	(floatdidf2, fix_truncdfdi2): Same.
+	(floatdisf2, floatditf2, fix_trunctfdi2): Same.
+	(floatditf2): Same.
+	(floatsitf2, fix_trunctfsi2): SImode in GPR.
+	(ctrdi): Remove FPR alternative and splitter.
+
+2002-07-03  Will Cohen  <wcohen@redhat.com>
+
+	* config/i386/i386.c (x86_integer_DFmode_moves): Disable for PPro.
+
+Wed Jul  3 10:24:16 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* optabs.c (expand_vector_binop): Don't store using a SUBREG smaller
+	than UNITS_PER_WORD, unless this is little endian and the first unit
+	in this word.  Let extract_bit_field decide how to load an element.
+	Force arguments to matching mode.
+	(expand_vector_unop): Likewise.
+
+	* simplify-rtx.c (simplify_subreg): Don't assume that all vectors
+	consist of word_mode elements.
+	* c-typeck.c (build_binary_op): Allow vector types for BIT_AND_EXPR,
+	BIT_ANDTC_EXPR, BIT_IOR_EXPR and BIT_XOR_EXPR.
+	(build_unary_op): Allow vector types for BIT_NOT_EPR.
+	* emit-rtl.c (gen_lowpart_common): Use simplify_gen_subreg for
+	CONST_VECTOR.
+	* optabs.c (expand_vector_binop): Try to perform operation in
+	smaller vector modes with same inner size.  Add handling of AND, IOR
+	and XOR.  Reject expansion to inner-mode sized scalars when using
+	OPTAB_DIRECT.  Use simplify_gen_subreg on constants.
+	(expand_vector_unop): Try to perform operation in smaller vector
+	modes with same inner size.  Add handling of one's complement.
+	When there is no vector negate operation, try a vector subtract
+	operation.  Use simplify_gen_subreg on constants.
+	* simplify-rtx.c (simplify_subreg): Add capability to convert vector
+	constants into smaller vectors with same inner mode, and to
+	integer CONST_DOUBLEs.
+
+2002-07-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-parse.in (parsing_iso_function_signature): New variable.
+	(extdef_1): New, copied from...
+	(extdef): ... here.  Reset parsing_iso_function_signature.
+	(old_style_parm_decls):  Reset parsing_iso_function_signature.
+	(old_style_parm_decls_1): New, copied from old_style_parm_decls.
+	Warn about ISO C style function definitions.
+	(nested_function, notype_nested_function): Reset
+	parsing_iso_function_signature.
+	(parmlist_2): Set parsing_iso_function_signature.
+
+	* doc/invoke.texi (-Wtraditional): Document new behavior.
+
+2002-07-02  Chris Demetriou  <cgd@broadcom.com>
+
+	* config.gcc (mips*el-*-*): Use tm_defines to set
+	TARGET_ENDIAN_DEFAULT, rather than including mips/little.h.
+	* config/mips/little.h: Remove.
+
+2002-07-02 Devang Patel <dpatel@apple.com>
+
+	* objc/objc-act.c (adjust_type_for_id_default): Do not allow an
+	object as parameter. Prevent something like 'NSObject' to be
+	used as the type for a method argument.
+
+2002-07-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpptrad.c: Update comment.
+
+2002-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	* doc/cpp.texi: Update for traditional preprocessing changes.
+	* goc/cppopts.texi: Similarly.
+
+2002-07-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-parse.in (designator): Enable designated initializers if ObjC.
+	(objcmessageexpr): Remove references to objc_receiver_context.
+	* objc/objc-act.h (objc_receiver_context): Remove decl.
+	* objc/objc-act.c (objc_receiver_context): Remove.
+	(lookup_objc_ivar): Test objc_method_context instead of
+	objc_receiver_context.
+
+Tue Jul  2 18:45:45 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (print_operand, case 'N'): Allow zero vector.
+	(arith_reg_or_0_operand): Likewise.
+	(zero_vec_operand): Check for CONST_VECTOR, not PARALLEL.
+	* sh.h (CONST_COSTS): 0 has 0 cost.  Check OUTER_CODE for
+	IOR, XOR, PLUS and SET and take their respective constant
+	ranges into account.
+	(PREDICATE_CODES, arith_reg_or_0_operand): Can be CONST_VECTOR.
+	* sh.md (subdi3, subdi3_media): Allow zero operand.
+	(movv8qi_i+3): Only vector that is not split is the zero vector.
+	Fix operand 3 to simplify_subreg.
+	(movv2si_i): Split alternative 1.
+	(mshfhi_l_di_rev+1): New splitter.
+
+2002-07-02  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7029
+	* cppinit.c (cpp_handle_option):  Suppress warnings with an
+	implicit "-w" for "-M" and "-MM".
+	* doc/cppopts.texi: Update.
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* config/sh/sh.c (sh_media_init_builtins): Change use of poisoned
+	identifier "bzero" to "memset".  Pass extra NULL_TREE argument to
+	builtin_function.
+
+2002-07-02  Alan Modra  <amodra@bigpond.net.au>
+
+	* README.Portability: Fix typos.
+
+2002-07-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/7177
+	* config/cris/cris.h (LEGITIMIZE_RELOAD_ADDRESS): Correct number
+	of indirections for register inside sign-extended mem part.
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h:  Modify builtin_function interface to take an extra
+	argument ATTRS, which is a tree representing an attribute list.
+
+	* c-decl.c (builtin_function): Accept additional parameter.
+	* objc/objc-act.c (builtin_function): Likewise.
+	* f/com.c (builtin_function): Likewise.
+	* java/decl.c (builtin_function): Likewise.
+	* ada/utils.c (builtin_function): Likewise.
+	* cp/decl.c (builtin_function): Likewise.
+	(builtin_function_1): Likewise.
+
+	* c-common.c (c_common_nodes_and_builtins): Pass an additional
+	NULL_TREE argument to builtin_function.  (builtin_function_2):
+	Likewise.
+	* cp/call.c (build_java_interface_fn_ref): Likewise.
+	* objc/objc-act.c (synth_module_prologue): Likewise.
+	* java/decl.c (java_init_decl_processing): Likewise.
+	* f/com.c (ffe_com_init_0): Likewise.
+
+	* config/alpha/alpha.c (alpha_init_builtins): Pass an additional
+	NULL_TREE argument to builtin_function.
+	* config/arm/arm.c (def_builtin): Likewise.
+	* config/c4x/c4x.c (c4x_init_builtins): Likewise.
+	* config/i386/i386.c (def_builtin): Likewise.
+	* config/ia64/ia64.c (def_builtin): Likewise.
+	* config/rs6000/rs6000.c (def_builtin): Likewise.
+
+2002-07-01  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ip2k/t-ip2k: Remove LIBGCC1, CROSS_LIBGCC1, and LIBGCC1_TEST.
+	* config/mips/t-isa3264: Likewise.
+	* config/mmix/t-mmix: Likewise.
+
+2002-07-01  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* emit-rtl.c (init_emit_once): Add missing cast to HOST_WIDE_INT.
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR opt/4046
+	* fold-const.c (fold) [COND_EXPR]: Simplify A ? 0 : 1 to !A,
+	A ? B : 0 to A && B and A ? B : 1 into !A || B if both A and
+	B are truth values.
+
+2002-07-01  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config/mmix/t-mmix: Eliminate last reference to LIBGCC1_TEST.
+
+2002-07-01  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* README.Portability (Function prototypes): Give an example of
+	declaring and defining a function with no arguments.
+
+	* README.Portability (Function prototypes): Document new
+	variable-argument function macros.
+
+Mon Jul  1 19:55:17 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (langhooks.h): Include.
+	(sh_init_builtins, sh_media_init_builtins): New functions.
+	(sh_expand_builtin, arith_reg_dest,and_operand): Likewise.
+	(mextr_bit_offset, extend_reg_operand, zero_vec_operand): Likewise.
+	(sh_rep_vec, sh_1el_vec, sh_const_vec): Likewise.
+	(builtin_description): New struct tag.
+	(signature_args, bdesc): New arrays.
+	(TARGET_INIT_BUILTINS, TARGET_EXPAND_BUILTIN): Undef / define.
+	(print_operand): Add 'N' modifier.
+	* sh.h (VECTOR_MODE_SUPPORTED_P): Add SHmedia vector modes.
+	(EXTRA_CONSTRAINT_U, EXTRA_CONSTRAINT_W): New macros.
+	(EXTRA_CONSTRAINT): Add 'U' and 'W' cases.
+	(CONST_COSTS): Add special case for SHmedia AND.
+	(PREDICATE_CODES): Add and_operand, arith_reg_dest,
+	extend_reg_operand, extend_reg_or_0_operand, mextr_bit_offset,
+	sh_const_vec, sh_1el_vec, sh_rep_vec, zero_vec_operand.
+	target_operand can also be const or unspec.
+	* sh.md (UNSPEC_INIT_TRAMP, UNSPEC_FCOSA UNSPEC_FSRRA): New constants.
+	(UNSPEC_FSINA, UNSPEC_NSB, UNSPEC_ALLOCO): Likewise.
+	(attribute type): Add new types.
+	(anddi3): Add splitter.
+	(movdi_const_16bit+1): Add code to handle vector constants and
+	bitmasks efficiently.
+	(shori_media): Have generator function made.
+	(movv8qi, movv8qi_i, movv8qi_i+1, movv8qi_i+2): New patterns.
+	(movv8qi_i+3, movv2hi, movv2hi_i, movv4hi, movv4hi_i): Likewise.
+	(movv2si, movv2si_i, absv2si2, absv4hi2, addv2si3, addv4hi3): Likewise.
+	(ssaddv2si3, usaddv8qi3, ssaddv4hi3, negcmpeqv8qi): Likewise.
+	(negcmpeqv2si, negcmpeqv4hi, negcmpgtuv8qi, negcmpgtv2si): Likewise.
+	(negcmpgtv4hi, mcmv, mcnvs_lw, mcnvs_wb, mcnvs_wub): Likewise.
+	(mextr_rl, mextr_lr, mextr1, mextr2, mextr3, mextr4, mextr5): Likewise.
+	(mextr6, mextr7, mmacfx_wl, mmacfx_wl_i, mmacnfx_wl): Likewise.
+	(mmacnfx_wl_i, mulv2si3, mulv4hi3, mmulfx_l, mmulfx_w): Likewise.
+	(mmulfxrp_w, mmulhi_wl, mmullo_wl, mmul23_wl, mmul01_wl): Likewise.
+	(mmulsum_wq, mmulsum_wq_i, mperm_w, mperm_w_little): LIkewise.
+	(mperm_w_big, mperm_w0, msad_ubq, msad_ubq_i, mshalds_l): Likewise.
+	(mshalds_w, ashrv2si3, ashrv4hi3, mshards_q, mshfhi_b): Likewise.
+	(mshflo_b,  mshf4_b, mshf0_b, mshfhi_l, mshflo_l, mshf4_l): Likewsie.
+	(mshf0_l, mshfhi_w, mshflo_w, mshf4_w, mshf0_w, mshfhi_l_di): Likewise.
+	(mshfhi_l_di_rev, mshflo_l_di, mshflo_l_di_rev): Likewise.
+	(mshflo_l_di_x, mshflo_l_di_x_rev, ashlv2si3, ashlv4hi3): Likewise.
+	(lshrv2si3, lshrv4hi3, subv2si3, subv4hi3, sssubv2si3): Likewise.
+	(ussubv8qi3, sssubv4hi3, fcosa_s, fsina_s, fipr, fsrra_s): Likewise.
+	(ftrv): Likewise.
+
+	(fpu_switch+1, fpu_switch+2): Remove constraint.
+
+2002-07-01  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree.c (build_function_type_list): Update function comment.
+        Rename first argument to return_type.
+
+2002-07-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Makefile.in: Remove all trace of tradcpp.c, tradcpp.h,
+	tradcif.y and related files.
+
+2002-07-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpptrad.c (skip_whitespace): Pass pointer to prior char.
+
+2002-07-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
+
+2002-06-30  Devang Patel  <dpatel@apple.com>
+
+	* objc/objc-act.c (finish_file): Avoid finish_objc() if
+	-fsyntax-only.
+
+Fri Jun 28 17:22:37 2002  Denis Chertykov  <denisc@overta.ru>
+			  Frank Ch. Eigler  <fche@redhat.com>
+	                  Matthew Green  <mrg@redhat.com>
+			  Richard Henderson <rtl@redhat.com>
+			  Dave Hudson  <dave.hudson@ubicom.com>
+			  Jeff Johnston  <jjohnstn@redhat.com>
+			  Alan Lehotsky <apl@alum.mit.edu>
+			  Bernd Schmidt  <bernds@redhat.com>
+			  Graham Stott  <grahams@redhat.com>
+
+	* doc/extend.texi: Add ip2k port to description of attribute
+	naked.
+	* doc/install.texi (Specific): Add ip2k description.
+	* doc/install-old.texi (Configurations): Add ip2k to possible
+	cpu types.
+	* doc/md.texi: Document ip2k constraints.
+	* config/ip2k/crt0.S: New file.
+	* config/ip2k/ip2k-protos.h: New file.
+	* config/ip2k/ip2k.c: New file.
+	* config/ip2k/ip2k.h: New file.
+	* config/ip2k/ip2k.md: New file.
+	* config/ip2k/libgcc.S: New file.
+	* config/ip2k/t-ip2k: New file.
+
+2002-06-30  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.md ("return"): New pattern.
+	* config/mmix/mmix.h (TARGET_MASK_USE_RETURN_INSN)
+	(TARGET_USE_RETURN_INSN): New macros.
+	(TARGET_DEFAULT): Include TARGET_MASK_USE_RETURN_INSN.
+	(TARGET_SWITCHES): Add -msingle-exit and -mno-single-exit.
+	* config/mmix/mmix.c (MMIX_OUTPUT_REGNO): Fix spacing.
+	(MMIX_POP_ARGUMENT): New macro.
+	(mmix_target_asm_function_prologue): When no epilogue is executed,
+	just emit a blank line.  Use MMIX_POP_ARGUMENT with final POP insn.
+	(mmix_print_operand) <case '.'>: New case.
+	(mmix_print_operand_punct_valid_p): Match '.'.
+	(mmix_use_simple_return): New function.
+	* config/mmix/mmix-protos.h (mmix_use_simple_return): Prototype.
+	* doc/invoke.texi (Option Summary) <MMIX Summary>: Add
+	-msingle-exit, -mno-single-exit.
+	(MMIX Options): Ditto.
+
+2002-06-30  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/i386/i386.c (ix86_init_mmx_sse_builtins): Fix typos.
+
+2002-06-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gengtype.c (oprintf): Move VA_CLOSE after all fixedarg uses.
 
 2002-06-30  Alan Modra  <amodra@bigpond.net.au>
 
@@ -60,7 +508,7 @@
 
 	PR preprocessor/7150
 	* cppmain.c (scan_translation_unit_trad): Simplify.
-	* cpplib.c (cpp_scan_nooutput): Handle traditional case.
+	* cppmacro.c (cpp_scan_nooutput): Handle traditional case.
 
 2002-06-29  Neil Booth  <neil@daikokuya.demon.co.uk>
 
@@ -100,7 +548,7 @@
 	* config/m68hc11/m68hc11.md ("*addsi3"): Use 'o' constraint to
 	avoid the auto increment addressing modes.
 	("*subsi3"): Likewise.
-	(split for add/sub on address): For 68HC12 push the value on 
+	(split for add/sub on address): For 68HC12 push the value on
 	the stack and do the operation with a pop.
 
 2002-06-28  Neil Booth  <neil@daikokuya.co.uk>
@@ -201,7 +649,7 @@
 2002-06-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gcse.c (hoist_code): Rewrite to only get list of dominated
-	blocks once per BB. Also fix reversed test (by removing need for 
+	blocks once per BB. Also fix reversed test (by removing need for
 	the test at all).
 
 2002-06-27  Neil Booth  <neil@daikokuya.co.uk>
@@ -287,7 +735,7 @@ Tue Jun 25 21:51:13 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* optabs.c (expand_vector_binop, expand_vector_unop): Don't assume
 	GET_MODE_UNIT_SIZE (mode) == UNITS_PER_WORD.
 
-	* config/sh/lib1funcs.asm (udivdi3): Make first divide step 
+	* config/sh/lib1funcs.asm (udivdi3): Make first divide step
 	produce a 32 bit result before normalization, then normalize with a
 	left shift.  Compute approximative error of 2nd reciprocal
 	approximation in 2's complement.  Fix mask generation from upper
@@ -344,13 +792,14 @@ Mon Jun 24 21:05:09 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* doc/extend.texi: Change `@dots{}' to `/* @r{@dots{}} */'
 	in examples.
-	
+
 2002-06-24  Art Haas  <ahaas@neosoft.com>
 
 	* doc/extend.texi (Other Builtins): Change `...' to `@dots{}'.
 	* doc/tm.texi (Frame Layout): Likewise.
 
 2002-06-20  Steve Ellcey  <sje@cup.hp.com>
+
 	* gcc/config.gcc (ia64*-*-hpux*): Set use_collect2 to no.
 	Set float_format to i128.
 
@@ -757,7 +1206,7 @@ Thu Jun 20 12:14:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.md (xorqi_1_slp, xorqi_2_slp): New patterns.
 
 2002-06-16  Aldy Hernandez  <aldyh@redhat.com>
-	
+
 	* gcc.c-torture/execute/simd-1.c: New.
 
 	* gcc.dg/simd-1.c: New.
@@ -787,7 +1236,7 @@ Thu Jun 20 12:14:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(expand_unop): Open-code vector unops.
 	(expand_vector_binop): New.
 	(expand_vector_unop): New.
-	
+
 	* c-typeck.c (build_binary_op): Allow vectors in binops.
 	Allow vectors in conditional operatiors.
 	(build_unary_op): Allow vectors in unary minus.

@@ -602,7 +602,7 @@ in the following sections.
 -mlibfuncs -mno-libfuncs -mepsilon -mno-epsilon -mabi=gnu @gol
 -mabi=mmixware -mzero-extend -mknuthdiv -mtoplevel-symbols @gol
 -melf -mbranch-predict -mno-branch-predict -mbase-addresses @gol
--mno-base-addresses}
+-mno-base-addresses -msingle-exit -mno-single-exit}
 
 @emph{IA-64 Options}
 @gccoptlist{
@@ -2412,6 +2412,15 @@ Conversions by prototypes between fixed/floating point values and vice
 versa.  The absence of these prototypes when compiling with traditional
 C would cause serious problems.  This is a subset of the possible
 conversion warnings, for the full set use @option{-Wconversion}.
+
+@item
+Use of ISO C style function definitions.  This warning intentionally is
+@emph{not} issued for prototype declarations or variadic functions
+because these ISO C features will appear in your code when using
+libiberty's traditional C compatibility macros, @code{PARAMS} and
+@code{VPARAMS}.  This warning is also bypassed for nested functions
+because that feature is already a gcc extension and thus not relevant to
+traditional C compatibility.
 @end itemize
 
 @item -Wundef
@@ -9359,6 +9368,13 @@ to 255 from the value held in the register.  The generally leads to short
 and fast code, but the number of different data items that can be
 addressed is limited.  This means that a program that uses lots of static
 data may require @option{-mno-base-addresses}.
+
+@item -msingle-exit
+@itemx -mno-single-exit
+@opindex msingle-exit
+@opindex mno-single-exit
+Force (do not force) generated code to have a single exit point in each
+function.
 @end table
 
 @node PDP-11 Options

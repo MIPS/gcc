@@ -284,7 +284,7 @@ skip_whitespace (pfile, cur, skip_comments)
       out--;
       if (c == '\\' && is_vspace (*cur))
 	{
-	  cur = skip_escaped_newlines (pfile, cur);
+	  cur = skip_escaped_newlines (pfile, cur - 1);
 	  continue;
 	}
 
@@ -491,7 +491,8 @@ scan_out_logical_line (pfile, macro)
 	  if ((lex_state == ls_fun_open || lex_state == ls_fun_close)
 	      && !pfile->state.in_directive)
 	    {
-	      /* Newlines in arguments become a space.  */
+	      /* Newlines in arguments become a space, but we don't
+		 clear any in-progress quote.  */
 	      if (lex_state == ls_fun_close)
 		out[-1] = ' ';
 	      continue;

@@ -387,7 +387,7 @@ const int x86_sub_esp_4 = m_ATHLON | m_PPRO | m_PENT4;
 const int x86_sub_esp_8 = m_ATHLON | m_PPRO | m_386 | m_486 | m_PENT4;
 const int x86_add_esp_4 = m_ATHLON | m_K6 | m_PENT4;
 const int x86_add_esp_8 = m_ATHLON | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4;
-const int x86_integer_DFmode_moves = ~(m_ATHLON | m_PENT4);
+const int x86_integer_DFmode_moves = ~(m_ATHLON | m_PENT4 | m_PPRO);
 const int x86_partial_reg_dependency = m_ATHLON | m_PENT4;
 const int x86_memory_mismatch_stall = m_ATHLON | m_PENT4;
 const int x86_accumulate_outgoing_args = m_ATHLON | m_PENT4 | m_PPRO;
@@ -11463,10 +11463,11 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
     }
 }
 
-#define def_builtin(MASK, NAME, TYPE, CODE)				\
-do {									\
-  if ((MASK) & target_flags)						\
-    builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL);	\
+#define def_builtin(MASK, NAME, TYPE, CODE)			\
+do {								\
+  if ((MASK) & target_flags)					\
+    builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		      NULL, NULL_TREE);				\
 } while (0)
 
 struct builtin_description
@@ -11853,7 +11854,7 @@ ix86_init_mmx_sse_builtins ()
     = build_function_type_list (integer_type_node,
 				V4HI_type_node, integer_type_node, NULL_TREE);
   tree v4hi_ftype_v4hi_int_int
-    = build_function_type_list (V4HI_type_node,
+    = build_function_type_list (V4HI_type_node, V4HI_type_node,
 				integer_type_node, integer_type_node,
 				NULL_TREE);
   /* Miscellaneous.  */
@@ -11872,8 +11873,7 @@ ix86_init_mmx_sse_builtins ()
 				V4HI_type_node, V4HI_type_node, NULL_TREE);
   tree v4hi_ftype_v4hi_int
     = build_function_type_list (V4HI_type_node,
-				V4HI_type_node, V4HI_type_node,
-				integer_type_node, NULL_TREE);
+				V4HI_type_node, integer_type_node, NULL_TREE);
   tree v4hi_ftype_v4hi_di
     = build_function_type_list (V4HI_type_node,
 				V4HI_type_node, long_long_unsigned_type_node,

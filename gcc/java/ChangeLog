@@ -1,3 +1,25 @@
+2002-07-05  Roger Sayle  <roger@eyesopen.com>
+
+	* java/builtins.c (initialize_builtins): Ignore the additional
+	parameter to DEF_BUILTIN.  Handle more C/C++ specific junk in
+	the builtins.def file.
+
+2002-07-01  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/7073:
+	* parse.y (patch_incomplete_class_ref): Handle VOID_TYPE
+	specially.
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* java/decl.c (builtin_function): Accept additional parameter.
+	(java_init_decl_processing): Pass an additional NULL_TREE
+	argument to builtin_function.
+
+2002-06-29  T.J. Mather  <tjmather@maxmind.com>
+
+	* gcj.texi: Fixed gcj invocation example so that it compiles.
+
 2002-06-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* lex.c (java_init_lex): Avoid incorrect hardcoded constant 11.
