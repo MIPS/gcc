@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -66,27 +66,24 @@ namespace std {
     private:
       // Data Members:
       __file_type* 		_M_file;
-      bool			_M_last_overflowed;  // XXX Needed?
       __state_type		_M_state_cur;// Current state type for codecvt.
       __state_type 		_M_state_beg; 	
       const __codecvt_type*	_M_fcvt;       // Cached value from use_facet.
       __mutext_type           	_M_lock;
-
+      bool			_M_last_overflowed;  // XXX Needed?
+ 
     public:
       // Constructors/destructor:
       basic_filebuf();
 
       // Non-standard ctor:
-      basic_filebuf(int __fd, const char* __name = "unknown", 
-		    ios_base::openmode __mode = ios_base::in | ios_base::out);
+      basic_filebuf(int __fd, const char* __name, ios_base::openmode __mode);
 
       virtual 
       ~basic_filebuf() 
       { 
 	this->close();
 	_M_fcvt = NULL;
-	delete _M_file;
-	_M_file = NULL;
 	_M_last_overflowed = false;
       }
 
@@ -144,7 +141,10 @@ namespace std {
       setbuf(char_type* __s, streamsize __n)
       {
 	if (!this->is_open() && __s == 0 && __n == 0)
-	  _M_buf_size = 0;
+	  {
+	    _M_buf_size = 0;
+	    _M_buf_size_opt = 0;
+	  }
 	_M_last_overflowed = false;	
 	return this; 
       }
@@ -291,14 +291,14 @@ namespace std {
 	   ios_base::openmode __mode = ios_base::out | ios_base::trunc)
       { 
 	if (!rdbuf()->open(__s, __mode | ios_base::out))
-	  this->setstate (ios_base::failbit); 
+	  this->setstate(ios_base::failbit); 
       }
 
       void 
       close(void)
       { 
 	if (!rdbuf()->close())
-	  setstate (ios_base::failbit); 
+	  setstate(ios_base::failbit); 
       }
     };
 

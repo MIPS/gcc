@@ -22,6 +22,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "hashtab.h"
+#include "splay-tree.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "output.h"
@@ -226,6 +227,7 @@ static int opt_comp			PARAMS ((const void *, const void *));
 #endif
 static int parse_option			PARAMS ((const char *));
 static int handle_option		PARAMS ((cpp_reader *, int, char **));
+static int report_missing_guard		PARAMS ((splay_tree_node, void *));
 
 /* Fourth argument to append_include_chain: chain to use */
 enum { QUOTE = 0, BRACKET, SYSTEM, AFTER };
@@ -551,7 +553,7 @@ cpp_reader_init (pfile)
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
 
   _cpp_init_macro_hash (pfile);
-  _cpp_init_include_hash (pfile);
+  _cpp_init_include_table (pfile);
 }
 
 /* Initialize a cpp_printer structure.  As a side effect, open the
@@ -605,7 +607,7 @@ cpp_cleanup (pfile)
     deps_free (pfile->deps);
 
   htab_delete (pfile->hashtab);
-  htab_delete (pfile->all_include_files);
+  splay_tree_delete (pfile->all_include_files);
 }
 
 
@@ -1002,6 +1004,27 @@ cpp_start_read (pfile, print, fname)
   return 1;
 }
 
+static int
+report_missing_guard (n, b)
+     splay_tree_node n;
+     void *b;
+{
+  struct include_file *f = (struct include_file *) n->value;
+  int *bannerp = (int *)b;
+
+  if (f && f->cmacro == 0 && f->include_count == 1)
+    {
+      if (*bannerp == 0)
+	{
+	  fputs (_("Multiple include guards may be useful for:\n"), stderr);
+	  *bannerp = 1;
+	}
+      fputs (f->name, stderr);
+      putc ('\n', stderr);
+    }
+  return 0;
+}
+
 /* This is called at the end of preprocessing.  It pops the
    last buffer and writes dependency output.  It should also
    clear macro definitions, such that you could call cpp_start_read
@@ -1053,6 +1076,14 @@ cpp_finish (pfile, print)
       cpp_output_tokens (pfile, print);
       if (ferror (print->outf) || fclose (print->outf))
 	cpp_notice_from_errno (pfile, CPP_OPTION (pfile, out_fname));
+    }
+
+  /* Report on headers that could use multiple include guards.  */
+  if (CPP_OPTION (pfile, print_include_names))
+    {
+      int banner = 0;
+      splay_tree_foreach (pfile->all_include_files, report_missing_guard,
+			  (void *) &banner);
     }
 }
 

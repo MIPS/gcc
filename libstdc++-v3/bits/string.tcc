@@ -602,8 +602,7 @@ namespace std
       size_t __xpos = __pos;
       const _CharT* __data = _M_data();
       for (; __xpos + __n <= this->size(); ++__xpos)
-	if (traits_type::eq(__data[__xpos], *__s)
-	    && traits_type::compare(__data + __xpos, __s, __n) == 0)
+	if (traits_type::compare(__data + __xpos, __s, __n) == 0)
 	  return __xpos;
       return npos;
     }
@@ -635,14 +634,14 @@ namespace std
       size_type __size = this->size();
       if (__n <= __size)
 	{
-	  size_t __xpos = __size - __n;
-	  if (__xpos > __pos)
-	    __xpos = __pos;
-      
-	  for (++__xpos; __xpos-- > 0; )
-	    if (traits_type::eq(_M_data()[__xpos], *__s)
-		&& traits_type::compare(_M_data() + __xpos, __s, __n) == 0)
-	      return __xpos;
+	  __pos = std::min(__size - __n ,__pos);
+	  const _CharT* __data = _M_data();
+	  do 
+	    {
+	      if (traits_type::compare(__data + __pos, __s, __n) == 0)
+		return __pos;
+	    } 
+	  while (__pos-- > 0);
 	}
       return npos;
     }

@@ -333,7 +333,8 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
-   In ARRAY_TYPE nodes, this is the type of the elements.  */
+   In ARRAY_TYPE nodes, this is the type of the elements.
+   In VECTOR_TYPE nodes, this is the type of the elements.  */
 #define TREE_TYPE(NODE) ((NODE)->common.type)
 
 /* Nodes are chained together for many purposes.
@@ -898,6 +899,11 @@ struct tree_block
 #define TYPE_OBSTACK(NODE) (TYPE_CHECK (NODE)->type.obstack)
 #define TYPE_LANG_SPECIFIC(NODE) (TYPE_CHECK (NODE)->type.lang_specific)
 
+/* For a VECTOR_TYPE node, this describes a different type which is emitted
+   in the debugging output.  We use this to describe a vector as a
+   structure containing an array.  */
+#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (TYPE_CHECK (NODE)->type.values)
+
 /* Indirect types present difficulties because they may be represented
    as either POINTER_TYPE/REFERENCE_TYPE nodes (unbounded) or as
    RECORD_TYPE nodes (bounded).  Bounded and unbounded pointers might
@@ -1024,7 +1030,10 @@ struct tree_block
    object of the given ARRAY_TYPE.  This allows temporaries to be allocated. */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) TYPE_MAX_VALUE (ARRAY_TYPE)
 
-/* Indicates that objects of this type must be initialized by calling a
+/* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
+#define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) (GET_MODE_NUNITS (TYPE_CHECK (VECTOR_TYPE)->type.mode))
+
+  /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
   (TYPE_CHECK (NODE)->type.needs_constructing_flag)
@@ -1744,6 +1753,12 @@ enum tree_index
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
 
+  TI_V4SF_TYPE,
+  TI_V4SI_TYPE,
+  TI_V8QI_TYPE,
+  TI_V4HI_TYPE,
+  TI_V2SI_TYPE,
+
   TI_MAIN_IDENTIFIER,
 
   TI_CHECK_BOUNDS_FUNC,
@@ -1820,6 +1835,12 @@ extern tree global_trees[TI_MAX];
 
 #define trap_fndecl			global_trees[TI_TRAP_FUNC]
 
+#define V4SF_type_node			global_trees[TI_V4SF_TYPE]
+#define V4SI_type_node			global_trees[TI_V4SI_TYPE]
+#define V8QI_type_node			global_trees[TI_V8QI_TYPE]
+#define V4HI_type_node			global_trees[TI_V4HI_TYPE]
+#define V2SI_type_node			global_trees[TI_V2SI_TYPE]
+
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones.  */
 enum integer_type_kind 

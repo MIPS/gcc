@@ -101,39 +101,39 @@ extern int target_flags;
 #define TARGET_SWITCHES							\
 {									\
   { "big-endian",	MASK_BIG_ENDIAN,				\
-      "Generate big endian code" },					\
+      N_("Generate big endian code") },					\
   { "little-endian",	-MASK_BIG_ENDIAN,				\
-      "Generate little endian code" },					\
+      N_("Generate little endian code") },				\
   { "gnu-as",		MASK_GNU_AS,					\
-      "Generate code for GNU as" },					\
+      N_("Generate code for GNU as") },					\
   { "no-gnu-as",	-MASK_GNU_AS,					\
-      "Generate code for Intel as" },					\
+      N_("Generate code for Intel as") },				\
   { "gnu-ld",		MASK_GNU_LD,					\
-      "Generate code for GNU ld" },					\
+      N_("Generate code for GNU ld") },					\
   { "no-gnu-ld",	-MASK_GNU_LD,					\
-      "Generate code for Intel ld" },					\
+      N_("Generate code for Intel ld") },				\
   { "no-pic",		MASK_NO_PIC,					\
-      "Generate code without GP reg" },					\
+      N_("Generate code without GP reg") },				\
   { "volatile-asm-stop", MASK_VOL_ASM_STOP,				\
-      "Emit stop bits before and after volatile extended asms" },	\
+      N_("Emit stop bits before and after volatile extended asms") },	\
   { "no-volatile-asm-stop", -MASK_VOL_ASM_STOP,				\
-      "Don't emit stop bits before and after volatile extended asms" },	\
+      N_("Don't emit stop bits before and after volatile extended asms") }, \
   { "a-step",		MASK_A_STEP,					\
-      "Emit code for Itanium (TM) processor A step"},			\
+      N_("Emit code for Itanium (TM) processor A step")},		\
   { "register-names",	MASK_REG_NAMES,					\
-      "Use in/loc/out register names"},					\
+      N_("Use in/loc/out register names")},				\
   { "no-sdata",		MASK_NO_SDATA,					\
-      "Disable use of sdata/scommon/sbss"},				\
+      N_("Disable use of sdata/scommon/sbss")},				\
   { "sdata",		-MASK_NO_SDATA,					\
-      "Enable use of sdata/scommon/sbss"},				\
+      N_("Enable use of sdata/scommon/sbss")},				\
   { "constant-gp",	MASK_CONST_GP,					\
-      "gp is constant (but save/restore gp on indirect calls)" },	\
+      N_("gp is constant (but save/restore gp on indirect calls)") },	\
   { "auto-pic",		MASK_AUTO_PIC,					\
-      "Generate self-relocatable code" },				\
+      N_("Generate self-relocatable code") },				\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
-      "Enable Dwarf 2 line debug info via GNU as"},			\
+      N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
-      "Disable Dwarf 2 line debug info via GNU as"},			\
+      N_("Disable Dwarf 2 line debug info via GNU as")},		\
   { "",			TARGET_DEFAULT | TARGET_CPU_DEFAULT,		\
       NULL }								\
 }
@@ -156,7 +156,7 @@ extern const char *ia64_fixed_range_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
-      "Specify range of registers to make fixed."},			\
+      N_("Specify range of registers to make fixed.")},			\
 }
 
 /* This macro is a C statement to print on `stderr' a string describing the
@@ -810,7 +810,7 @@ while (0)
 /* A C expression that is nonzero if it is permissible to store a value of mode
    MODE in hard register number REGNO (or in several registers starting with
    that one).  */
-
+/* ??? movxf_internal does not support XFmode values in integer registers.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   (PR_REGNO_P (REGNO) ? (MODE) == CCmode : 1)
 
@@ -824,7 +824,12 @@ while (0)
 /* ??? If the comments are true, then this must be zero if one mode is CCmode,
    INTEGRAL_MODE_P or FLOAT_MODE_P and the other is not.  Otherwise, it is
    true.  */
-#define MODES_TIEABLE_P(MODE1, MODE2) 1
+/* Don't tie integer and FP modes, as that causes us to get integer registers
+   allocated for FP instructions.  XFmode only supported in FP registers at
+   the moment, so we can't tie it with any other modes.  */
+#define MODES_TIEABLE_P(MODE1, MODE2) \
+  ((GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)) \
+   && (((MODE1) == XFmode) == ((MODE2) == XFmode)))
 
 /* Define this macro if the compiler should avoid copies to/from CCmode
    registers.  You should only define this macro if support fo copying to/from
@@ -978,7 +983,14 @@ enum reg_class
    The value is a register class; perhaps CLASS, or perhaps another, smaller
    class.  */
 
-#define PREFERRED_RELOAD_CLASS(X, CLASS) CLASS
+/* Don't allow volatile mem reloads into floating point registers.  This
+   is defined to force reload to choose the r/m case instead of the f/f case
+   when reloading (set (reg fX) (mem/v)).  */
+
+#define PREFERRED_RELOAD_CLASS(X, CLASS) \
+  ((CLASS == FR_REGS && GET_CODE (X) == MEM && MEM_VOLATILE_P (X))	\
+   ? NO_REGS								\
+   : CLASS)
 
 /* You should define this macro to indicate to the reload phase that it may
    need to allocate at least one register for a reload in addition to the

@@ -11,6 +11,6 @@ main(void)
 {
   goto socket;
 
-  ENTRY(socket) /* { dg-warning "valid preprocessing token" "" } */
+  ENTRY(socket)
     return 0;
 }

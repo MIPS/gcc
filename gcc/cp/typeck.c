@@ -443,13 +443,13 @@ composite_pointer_type (t1, t2, arg1, arg2, location)
   
   if (comp_target_types (t1, t2, 1))
     result_type = common_type (t1, t2);
-  else if (TYPE_MAIN_VARIANT (TREE_TYPE (t1)) == void_type_node)
+  else if (VOID_TYPE_P (TREE_TYPE (t1)))
     {
       if (pedantic && TREE_CODE (t2) == FUNCTION_TYPE)
 	pedwarn ("ISO C++ forbids %s between pointer of type `void *' and pointer-to-function", location);
       result_type = qualify_type (t1, t2);
     }
-  else if (TYPE_MAIN_VARIANT (TREE_TYPE (t2)) == void_type_node)
+  else if (VOID_TYPE_P (TREE_TYPE (t2)))
     {
       if (pedantic && TREE_CODE (t1) == FUNCTION_TYPE)
 	pedwarn ("ISO C++ forbids %s between pointer of type `void *' and pointer-to-function", location);
@@ -600,7 +600,7 @@ common_type (t1, t2)
 
 	if (tt1 == tt2)
 	  target = tt1;
-	else if (tt1 == void_type_node || tt2 == void_type_node)
+	else if (VOID_TYPE_P (tt1) || VOID_TYPE_P (tt2))
 	  target = void_type_node;
 	else if (tt1 == unknown_type_node)
 	  target = tt2;
@@ -994,8 +994,9 @@ comptypes (t1, t2, strict)
       if (TEMPLATE_TYPE_IDX (t1) != TEMPLATE_TYPE_IDX (t2)
 	  || TEMPLATE_TYPE_LEVEL (t1) != TEMPLATE_TYPE_LEVEL (t2))
 	return 0;
-      if (! comp_template_parms (DECL_TEMPLATE_PARMS (TYPE_NAME (t1)),
-				 DECL_TEMPLATE_PARMS (TYPE_NAME (t2))))
+      if (! comp_template_parms
+	      (DECL_TEMPLATE_PARMS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t1)),
+	       DECL_TEMPLATE_PARMS (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t2))))
 	return 0;
       if (!TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t1) 
 	  && ! TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2))
@@ -2348,7 +2349,7 @@ build_indirect_ref (ptr, errorstring)
 	 types.  */
       tree t = canonical_type_variant (TREE_TYPE (type));
 
-      if (same_type_p (TYPE_MAIN_VARIANT (t), void_type_node))
+      if (VOID_TYPE_P (t))
         {
           /* A pointer to incomplete type (other than cv void) can be
              dereferenced [expr.unary.op]/1  */
@@ -2519,7 +2520,7 @@ build_array_ref (array, idx)
 	return error_mark_node;
       }
 
-    return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, ind),
+    return build_indirect_ref (cp_build_binary_op (PLUS_EXPR, ar, ind),
 			       "array indexing");
   }
 }
@@ -2870,12 +2871,12 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 easier to make this change.  */
       if (flag_new_abi)
 	{
-	  idx = build_binary_op (TRUNC_DIV_EXPR, 
-				 build1 (NOP_EXPR, vtable_index_type, e3),
-				 TYPE_SIZE_UNIT (vtable_entry_type));
-	  e1 = build_binary_op (BIT_AND_EXPR,
-				build1 (NOP_EXPR, vtable_index_type, e3),
-				integer_one_node);
+	  idx = cp_build_binary_op (TRUNC_DIV_EXPR, 
+				    build1 (NOP_EXPR, vtable_index_type, e3),
+				    TYPE_SIZE_UNIT (vtable_entry_type));
+	  e1 = cp_build_binary_op (BIT_AND_EXPR,
+				   build1 (NOP_EXPR, vtable_index_type, e3),
+				   integer_one_node);
 	}
       else
 	{
@@ -2883,8 +2884,8 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 		       (build_component_ref (function,
 					     index_identifier,
 					     NULL_TREE, 0)));
-	  e1 = build_binary_op (GE_EXPR, idx, integer_zero_node);
-	  idx = build_binary_op (MINUS_EXPR, idx, integer_one_node);
+	  e1 = cp_build_binary_op (GE_EXPR, idx, integer_zero_node);
+	  idx = cp_build_binary_op (MINUS_EXPR, idx, integer_one_node);
 	}
 
       vtbl = convert_pointer_to (ptr_type_node, instance);
@@ -2908,7 +2909,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	{
 	  aref = save_expr (aref);
 	  
-	  delta = build_binary_op
+	  delta = cp_build_binary_op
 	    (PLUS_EXPR,
 	     build_conditional_expr (e1,
 				     build_component_ref (aref,
@@ -3286,9 +3287,10 @@ build_x_binary_op (code, arg1, arg2)
    multiple inheritance, and deal with pointer to member functions.  */
 
 tree
-build_binary_op (code, orig_op0, orig_op1)
+build_binary_op (code, orig_op0, orig_op1, convert_p)
      enum tree_code code;
      tree orig_op0, orig_op1;
+     int convert_p ATTRIBUTE_UNUSED;
 {
   tree op0, op1;
   register enum tree_code code0, code1;
@@ -3600,7 +3602,7 @@ build_binary_op (code, orig_op0, orig_op1)
 
 	  if (comp_target_types (type0, type1, 1))
 	    result_type = common_type (type0, type1);
-	  else if (tt0 == void_type_node)
+	  else if (VOID_TYPE_P (tt0))
 	    {
 	      if (pedantic && TREE_CODE (tt1) == FUNCTION_TYPE
 		  && tree_int_cst_lt (TYPE_SIZE (type0), TYPE_SIZE (type1)))
@@ -3608,7 +3610,7 @@ build_binary_op (code, orig_op0, orig_op1)
 	      else if (TREE_CODE (tt1) == OFFSET_TYPE)
 		pedwarn ("ISO C++ forbids conversion of a pointer to member to `void *'");
 	    }
-	  else if (tt1 == void_type_node)
+	  else if (VOID_TYPE_P (tt1))
 	    {
 	      if (pedantic && TREE_CODE (tt0) == FUNCTION_TYPE
 		  && tree_int_cst_lt (TYPE_SIZE (type1), TYPE_SIZE (type0)))
@@ -3650,7 +3652,7 @@ build_binary_op (code, orig_op0, orig_op1)
 	  result_type = TREE_TYPE (op0);
 	}
       else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (op0))
-	return build_binary_op (code, op1, op0);
+	return cp_build_binary_op (code, op1, op0);
       else if (TYPE_PTRMEMFUNC_P (type0) && TYPE_PTRMEMFUNC_P (type1)
 	       && same_type_p (type0, type1))
 	{
@@ -3681,14 +3683,14 @@ build_binary_op (code, orig_op0, orig_op1)
 					    NULL_TREE, 0);
 	      delta1 = build_component_ref (op1, delta_identifier,
 					    NULL_TREE, 0);
-	      e1 = build_binary_op (EQ_EXPR, delta0, delta1);
-	      e2 = build_binary_op (NE_EXPR, 
-				    pfn0,
-				    cp_convert (TREE_TYPE (pfn0),
-						integer_zero_node));
-	      e1 = build_binary_op (TRUTH_ORIF_EXPR, e1, e2);
+	      e1 = cp_build_binary_op (EQ_EXPR, delta0, delta1);
+	      e2 = cp_build_binary_op (NE_EXPR, 
+				       pfn0,
+				       cp_convert (TREE_TYPE (pfn0),
+						   integer_zero_node));
+	      e1 = cp_build_binary_op (TRUTH_ORIF_EXPR, e1, e2);
 	      e2 = build (EQ_EXPR, boolean_type_node, pfn0, pfn1);
-	      e = build_binary_op (TRUTH_ANDIF_EXPR, e2, e1);
+	      e = cp_build_binary_op (TRUTH_ANDIF_EXPR, e2, e1);
 	    }
 	  else
 	    {
@@ -3708,21 +3710,23 @@ build_binary_op (code, orig_op0, orig_op1)
 	      tree delta21 = DELTA2_FROM_PTRMEMFUNC (op1);
 	      tree e3;
 	      tree integer_neg_one_node
-		= build_binary_op (MINUS_EXPR, integer_zero_node,
-				   integer_one_node);
-	      e1 = build_binary_op (EQ_EXPR, index0, index1);
-	      e2 = build_binary_op (NE_EXPR, index1, integer_neg_one_node);
-	      e2 = build_binary_op (TRUTH_ANDIF_EXPR, e2,
-				    build_binary_op (EQ_EXPR, delta20, delta21));
-	      /* We can't use build_binary_op for this cmp because it would get
-	     confused by the ptr to method types and think we want pmfs.  */
+		= cp_build_binary_op (MINUS_EXPR, integer_zero_node,
+				      integer_one_node);
+	      e1 = cp_build_binary_op (EQ_EXPR, index0, index1);
+	      e2 = cp_build_binary_op (NE_EXPR, index1, integer_neg_one_node);
+	      e2 = cp_build_binary_op (TRUTH_ANDIF_EXPR, e2,
+				       cp_build_binary_op (EQ_EXPR, 
+							   delta20, delta21));
+	      /* We can't use build_binary_op for this cmp because it
+		 would get confused by the ptr to method types and
+		 think we want pmfs.  */
 	      e3 = build (EQ_EXPR, boolean_type_node, pfn0, pfn1);
-	      e2 = build_binary_op (TRUTH_ORIF_EXPR, e2, e3);
-	      e = build_binary_op (TRUTH_ANDIF_EXPR, e1, e2);
+	      e2 = cp_build_binary_op (TRUTH_ORIF_EXPR, e2, e3);
+	      e = cp_build_binary_op (TRUTH_ANDIF_EXPR, e1, e2);
 	    }
 	  if (code == EQ_EXPR)
 	    return e;
-	  return build_binary_op (EQ_EXPR, e, integer_zero_node);
+	  return cp_build_binary_op (EQ_EXPR, e, integer_zero_node);
 	}
       else if ((TYPE_PTRMEMFUNC_P (type0)
 		&& same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0), type1))
@@ -4178,7 +4182,7 @@ pointer_int_sum (resultcode, ptrop, intop)
       enum tree_code subcode = resultcode;
       if (TREE_CODE (intop) == MINUS_EXPR)
 	subcode = (subcode == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
-      ptrop = build_binary_op (subcode, ptrop, TREE_OPERAND (intop, 1));
+      ptrop = cp_build_binary_op (subcode, ptrop, TREE_OPERAND (intop, 1));
       intop = TREE_OPERAND (intop, 0);
     }
 
@@ -4193,9 +4197,9 @@ pointer_int_sum (resultcode, ptrop, intop)
      pointer type (actually unsigned integral).  */
 
   intop = cp_convert (result_type,
-		      build_binary_op (MULT_EXPR, intop,
-				       cp_convert (TREE_TYPE (intop),
-						   size_exp)));
+		      cp_build_binary_op (MULT_EXPR, intop,
+					  cp_convert (TREE_TYPE (intop),
+						      size_exp)));
 
   /* Create the sum or difference.  */
 
@@ -4237,8 +4241,9 @@ pointer_diff (op0, op1, ptrtype)
   /* First do the subtraction as integers;
      then drop through to build the divide operator.  */
 
-  op0 = build_binary_op (MINUS_EXPR, cp_convert (restype, op0),
-			 cp_convert (restype, op1));
+  op0 = cp_build_binary_op (MINUS_EXPR, 
+			    cp_convert (restype, op0),
+			    cp_convert (restype, op1));
 
   /* This generates an error if op1 is a pointer to an incomplete type.  */
   if (!COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
@@ -4669,8 +4674,8 @@ build_unary_op (code, xarg, noconvert)
 	{
 	  if (mark_addressable (TREE_OPERAND (arg, 0)) == 0)
 	    return error_mark_node;
-	  return build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
-				  TREE_OPERAND (arg, 1));
+	  return cp_build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
+				     TREE_OPERAND (arg, 1));
 	}
 
       /* Uninstantiated types are all functions.  Taking the
@@ -5109,7 +5114,7 @@ build_x_compound_expr (list)
          unless it was explicitly cast to (void).  */
       if ((extra_warnings || warn_unused_value)
            && !(TREE_CODE (TREE_VALUE(list)) == CONVERT_EXPR
-                && TREE_TYPE (TREE_VALUE(list)) == void_type_node))
+                && VOID_TYPE_P (TREE_TYPE (TREE_VALUE(list)))))
         warning("left-hand operand of comma expression has no effect");
     }
 #if 0 /* this requires a gcc backend patch to export warn_if_unused_value */
@@ -5742,7 +5747,7 @@ build_modify_expr (lhs, modifycode, rhs)
   else
     {
       lhs = stabilize_reference (lhs);
-      newrhs = build_binary_op (modifycode, lhs, rhs);
+      newrhs = cp_build_binary_op (modifycode, lhs, rhs);
       if (newrhs == error_mark_node)
 	{
 	  cp_error ("  in evaluation of `%Q(%#T, %#T)'", modifycode,
@@ -6066,9 +6071,9 @@ get_delta_difference (from, to, force)
       delta = BINFO_OFFSET (binfo);
       delta = cp_convert (ptrdiff_type_node, delta);
       
-      return build_binary_op (MINUS_EXPR,
-			      integer_zero_node,
-			      delta);
+      return cp_build_binary_op (MINUS_EXPR,
+				 integer_zero_node,
+				 delta);
     }
 
   if (binfo_from_vbase (binfo))
@@ -6234,7 +6239,7 @@ build_ptrmemfunc (type, pfn, force)
 	  n = get_delta_difference (TYPE_PTRMEMFUNC_OBJECT_TYPE (pfn_type),
 				    TYPE_PTRMEMFUNC_OBJECT_TYPE (to_type),
 				    force);
-	  delta = build_binary_op (PLUS_EXPR, delta, n);
+	  delta = cp_build_binary_op (PLUS_EXPR, delta, n);
 	  return build_ptrmemfunc1 (to_type, delta, NULL_TREE, npfn,
 				    NULL_TREE);
 	}
@@ -6265,8 +6270,8 @@ build_ptrmemfunc (type, pfn, force)
       n = get_delta_difference (TYPE_PTRMEMFUNC_OBJECT_TYPE (pfn_type),
 				TYPE_PTRMEMFUNC_OBJECT_TYPE (to_type),
 				force);
-      delta = build_binary_op (PLUS_EXPR, ndelta, n);
-      delta2 = build_binary_op (PLUS_EXPR, ndelta2, n);
+      delta = cp_build_binary_op (PLUS_EXPR, ndelta, n);
+      delta2 = cp_build_binary_op (PLUS_EXPR, ndelta2, n);
       e1 = fold (build (GT_EXPR, boolean_type_node, idx, integer_zero_node));
 	  
       /* If it's a virtual function, this is what we want.  */
@@ -6850,7 +6855,7 @@ check_return_expr (retval)
   result = DECL_RESULT (current_function_decl);
   valtype = TREE_TYPE (result);
   my_friendly_assert (valtype != NULL_TREE, 19990924);
-  fn_returns_value_p = !same_type_p (valtype, void_type_node);
+  fn_returns_value_p = !VOID_TYPE_P (valtype);
   if (!retval && DECL_NAME (result) && fn_returns_value_p)
     retval = result;
 
@@ -6868,7 +6873,7 @@ check_return_expr (retval)
      isn't supposed to return a value.  */
   else if (retval && !fn_returns_value_p)
     {     
-      if (same_type_p (TREE_TYPE (retval), void_type_node))
+      if (VOID_TYPE_P (TREE_TYPE (retval)))
 	/* You can return a `void' value from a function of `void'
 	   type.  In that case, we have to evaluate the expression for
 	   its side-effects.  */

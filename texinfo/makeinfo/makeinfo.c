@@ -1,5 +1,5 @@
 /* Makeinfo -- convert Texinfo source files into Info files.
-   $Id: makeinfo.c,v 1.11 1998/07/06 21:58:00 law Exp $
+   $Id: makeinfo.c,v 1.12 1999/05/28 02:10:39 law Exp $
 
    Copyright (C) 1987, 92, 93, 94, 95, 96, 97, 98
    Free Software Foundation, Inc.
@@ -514,7 +514,7 @@ void command_name_condition (), misplaced_brace (), cm_obsolete (),
 
 typedef struct
 {
-  char *name;
+  const char *name;
   COMMAND_FUNCTION *proc;
   int argument_in_braces;
 } COMMAND;
@@ -7793,7 +7793,7 @@ init_indices ()
    Returns -1 if NAME isn't found. */
 int
 find_index_offset (name)
-     char *name;
+     const char *name;
 {
   register int i;
   for (i = 0; i < defined_indices; i++)
@@ -7864,7 +7864,7 @@ free_index (index)
    would be written by a @printindex command for this index. */
 void
 undefindex (name)
-     char *name;
+     const char *name;
 {
   int i;
   int which = find_index_offset (name);

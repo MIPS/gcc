@@ -22,6 +22,9 @@ Boston, MA 02111-1307, USA.  */
 #undef  POSIX
 #define POSIX
 
+/* vfork doesn't work with strace.  */
+#define vfork fork
+
 /* We do have one, but I'd like to use the one come with gcc since
    we have been doing that for a long time with USG defined.  H.J. */
 #undef HAVE_STAB_H

@@ -211,7 +211,7 @@ cpp_pop_buffer (pfile)
   if (ACTIVE_MARK_P (pfile))
     cpp_ice (pfile, "mark active in cpp_pop_buffer");
 
-  if (buf->ihash)
+  if (buf->inc)
     {
       _cpp_unwind_if_stack (pfile, buf);
       if (buf->buf)
@@ -220,10 +220,17 @@ cpp_pop_buffer (pfile)
 	pfile->system_include_depth--;
       if (pfile->potential_control_macro)
 	{
-	  buf->ihash->cmacro = pfile->potential_control_macro;
+	  if (buf->inc->cmacro != NEVER_REREAD)
+	    buf->inc->cmacro = pfile->potential_control_macro;
 	  pfile->potential_control_macro = 0;
 	}
       pfile->input_stack_listing_current = 0;
+      /* If the file will not be included again, then close it.  */
+      if (DO_NOT_REREAD (buf->inc))
+	{
+	  close (buf->inc->fd);
+	  buf->inc->fd = -1;
+	}
     }
   else if (buf->macro)
     {
@@ -321,13 +328,13 @@ output_line_command (pfile, print, line)
   if (CPP_OPTION (pfile, cplusplus))
     fprintf (print->outf, "# %u \"%s\"%s%s%s\n", line, ip->nominal_fname,
 	     codes[change],
-	     ip->system_header_p ? " 3" : "",
-	     (ip->system_header_p == 2) ? " 4" : "");
+	     ip->inc->sysp ? " 3" : "",
+	     (ip->inc->sysp == 2) ? " 4" : "");
   else
 #endif
     fprintf (print->outf, "# %u \"%s\"%s%s\n", line, ip->nominal_fname,
 	     codes[change],
-	     ip->system_header_p ? " 3" : "");
+	     ip->inc->sysp ? " 3" : "");
   print->lineno = line;
 }
 
@@ -516,7 +523,7 @@ cpp_file_buffer (pfile)
   cpp_buffer *ip;
 
   for (ip = CPP_BUFFER (pfile); ip; ip = CPP_PREV_BUFFER (ip))
-    if (ip->ihash != NULL)
+    if (ip->inc != NULL)
       return ip;
   return NULL;
 }
@@ -926,7 +933,7 @@ skip_comment (pfile, m)
     }
   else if (m == '/' && PEEKC() == '/')
     {
-      if (CPP_BUFFER (pfile)->system_header_p)
+      if (CPP_IN_SYSTEM_HEADER (pfile))
 	{
 	  /* We silently allow C++ comments in system headers, irrespective
 	     of conformance mode, because lots of busted systems do that
@@ -1108,7 +1115,10 @@ _cpp_parse_name (pfile, c)
 	  break;
       }
 
-      if (c == '$' && CPP_PEDANTIC (pfile))
+      /* $ is not a legal identifier character in the standard, but is
+	 commonly accepted as an extension.  Don't warn about it in
+	 skipped conditional blocks. */
+      if (c == '$' && CPP_PEDANTIC (pfile) && ! pfile->skipping)
 	cpp_pedwarn (pfile, "`$' in identifier");
 
       CPP_RESERVE(pfile, 2); /* One more for final NUL.  */
@@ -2974,7 +2984,7 @@ _cpp_lex_line (pfile, list)
 		     irrespective of conformance mode, because lots of
 		     broken systems do that and trying to clean it up
 		     in fixincludes is a nightmare.  */
-		  if (buffer->system_header_p)
+		  if (CPP_IN_SYSTEM_HEADER (pfile))
 		    goto do_line_comment;
 		  else if (CPP_OPTION (pfile, cplusplus_comments))
 		    {

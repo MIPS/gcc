@@ -1233,7 +1233,7 @@ build_bounded_ptr_field_ref (bp, field_number)
     {
       if (field_number)
 	error ("can't take __ptr%s of unbounded pointer",
-	       ((field_number == 1) ? "low_bound" : "high_bound"));
+	       ((field_number == 1) ? "low" : "high"));
       return bp;
     }
   if (! BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)))
@@ -1273,6 +1273,8 @@ build_bounded_ptr_field_ref (bp, field_number)
 	  return error_mark_node;
 	}
       value = TREE_VALUE (elts);
+      /* If the underlaying value is an integer type, keep it that way
+         for enclosing arithmetic.  */
       if (TREE_CODE (TREE_TYPE (value)) != INTEGER_TYPE
 	  && subtype != TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp)))
 	value = convert (subtype, value);
@@ -1323,6 +1325,10 @@ build_bounded_ptr_check (bp, length)
     bp = save_expr (bp);
 
   value = build_bounded_ptr_value_ref (bp);
+  /* The type of value might be integer, but since we're not doing
+     arithmetic, coerce it back to pointer.  */
+  if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE)
+    value = convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp)), value);
   low_bound = build_low_bound_ref (bp);
   high_bound = build_high_bound_ref (bp);
 
@@ -1849,8 +1855,12 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 	  || TREE_CODE (TREE_TYPE (val)) == FUNCTION_TYPE)
 	val = default_conversion (val);
 
-      if (TREE_BOUNDED (val) && !(type ? BOUNDED_POINTER_TYPE_P (type)
-				  : varargs_boundedp)
+      if (TREE_BOUNDED (val)
+	  && !(type ? (BOUNDED_POINTER_TYPE_P (type)
+		       || (TREE_CODE (type) == UNION_TYPE
+			   && TYPE_TRANSPARENT_UNION (type)
+			   && TYPE_BOUNDED (type)))
+	       : varargs_boundedp)
 	  && !(fundecl && DECL_BUILT_IN (fundecl)
 	       /* GKM FIXME: what other builtins need this? */
 	       && (DECL_FUNCTION_CODE (fundecl) == BUILT_IN_STDARG_START
@@ -5301,7 +5311,9 @@ digest_init (type, init, require_constant, constructor_constant)
   enum tree_code code = TREE_CODE (type);
   tree inside_init = init;
 
-  if (type == error_mark_node || init == error_mark_node)
+  if (type == error_mark_node
+      || init == error_mark_node
+      || TREE_TYPE (init)  == error_mark_node)
     return error_mark_node;
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
@@ -7371,8 +7383,9 @@ c_expand_return (retval)
   if (!retval)
     {
       current_function_returns_null = 1;
-      if (warn_return_type && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
-	warning ("`return' with no value, in function returning non-void");
+      if ((warn_return_type || flag_isoc99)
+	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
+	pedwarn_c99 ("`return' with no value, in function returning non-void");
       expand_null_return ();
     }
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
@@ -7499,4 +7512,28 @@ c_expand_start_case (exp)
   expand_start_case (1, exp, type, "switch statement");
 
   return exp;
+}
+
+/* Issue an ISO C99 pedantic warning MSGID.  */
+
+void
+pedwarn_c99 VPARAMS ((const char *msgid, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
+#endif
+  va_list ap;
+
+  VA_START (ap, msgid);
+
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
+#endif
+
+  if (flag_isoc99)
+    vpedwarn (msgid, ap);
+  else
+    vwarning (msgid, ap);
+
+  va_end (ap);
 }

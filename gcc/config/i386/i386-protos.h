@@ -114,7 +114,8 @@ extern void ix86_expand_strlensi_unroll_1 PARAMS ((rtx, rtx, rtx));
 extern int ix86_address_cost PARAMS ((rtx));
 
 extern rtx assign_386_stack_local PARAMS ((enum machine_mode, int));
-extern int ix86_attr_length_default PARAMS ((rtx));
+extern int ix86_attr_length_immediate_default PARAMS ((rtx, int));
+extern int ix86_attr_length_address_default PARAMS ((rtx));
 
 extern int ix86_issue_rate PARAMS ((void));
 extern int ix86_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -136,6 +137,10 @@ extern int ix86_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int ix86_comp_type_attributes PARAMS ((tree, tree));
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));
+
+extern int ix86_data_alignment PARAMS ((tree, int));
+extern int ix86_local_alignment PARAMS ((tree, int));
+extern int ix86_constant_alignment PARAMS ((tree, int));
 #endif
 
 

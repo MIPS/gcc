@@ -21,12 +21,12 @@
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
-      %{!dynamic-linker:-dynamic-linker /lib/ld-linux-ia64.so.1}} \
+      %{!dynamic-linker:-dynamic-linker /lib/ld-linux-ia64.so.2}} \
       %{static:-static}}"
 
 
 #define DONT_USE_BUILTIN_SETJMP
-#define JMP_BUF_SIZE  (8 * 76)
+#define JMP_BUF_SIZE  76
 
 /* Output any profiling code before the prologue.  */
 

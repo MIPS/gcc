@@ -537,25 +537,25 @@ static const char * const yytname[] = {   "$","error","$undefined.","IDENTIFIER"
 "TYPENAME","SCSPEC","TYPESPEC","TYPE_QUAL","CONSTANT","STRING","ELLIPSIS","SIZEOF",
 "ENUM","STRUCT","UNION","IF","ELSE","WHILE","DO","FOR","SWITCH","CASE","DEFAULT",
 "BREAK","CONTINUE","RETURN","GOTO","ASM_KEYWORD","TYPEOF","ALIGNOF","ATTRIBUTE",
-"EXTENSION","LABEL","REALPART","IMAGPART","VA_ARG","PTR_VALUE","PTR_LOW_BOUND","PTR_HIGH_BOUND",
-"END_OF_LINE","ASSIGN","'='","'?'","':'","OROR","ANDAND","'|'","'^'","'&'","EQCOMPARE",
-"ARITHCOMPARE","LSHIFT","RSHIFT","'+'","'-'","'*'","'/'","'%'","UNARY","PLUSPLUS",
-"MINUSMINUS","HYPERUNARY","POINTSAT","'.'","'('","'['","INTERFACE","IMPLEMENTATION",
-"END","SELECTOR","DEFS","ENCODE","CLASSNAME","PUBLIC","PRIVATE","PROTECTED",
-"PROTOCOL","OBJECTNAME","CLASS","ALIAS","OBJC_STRING","')'","';'","'{'","'}'",
-"'~'","'!'","','","']'","program","extdefs","@1","@2","extdefs_opt","extdef",
-"@3","datadef","fndef","@4","@5","@6","@7","@8","@9","identifier","unop","expr",
-"exprlist","nonnull_exprlist","unary_expr","sizeof","alignof","cast_expr","@10",
-"expr_no_commas","@11","@12","@13","@14","@15","primary","string","objc_string",
-"old_style_parm_decls","lineno_datadecl","datadecls","datadecl","lineno_decl",
-"decls","setspecs","setattrs","decl","typed_declspecs","reserved_declspecs",
-"typed_declspecs_no_prefix_attr","reserved_declspecs_no_prefix_attr","declmods",
-"declmods_no_prefix_attr","typed_typespecs","reserved_typespecquals","typespec",
-"typespecqual_reserved","initdecls","notype_initdecls","maybeasm","initdcl",
-"@16","notype_initdcl","@17","maybe_attribute","attributes","attribute","attribute_list",
-"attrib","any_word","init","@18","initlist_maybe_comma","initlist1","initelt",
-"@19","initval","@20","designator_list","designator","nested_function","@21",
-"@22","notype_nested_function","@23","@24","declarator","after_type_declarator",
+"EXTENSION","LABEL","REALPART","IMAGPART","VA_ARG","PTR_VALUE","PTR_LOW_BOUND",
+"PTR_HIGH_BOUND","END_OF_LINE","ASSIGN","'='","'?'","':'","OROR","ANDAND","'|'",
+"'^'","'&'","EQCOMPARE","ARITHCOMPARE","LSHIFT","RSHIFT","'+'","'-'","'*'","'/'",
+"'%'","UNARY","PLUSPLUS","MINUSMINUS","HYPERUNARY","POINTSAT","'.'","'('","'['",
+"INTERFACE","IMPLEMENTATION","END","SELECTOR","DEFS","ENCODE","CLASSNAME","PUBLIC",
+"PRIVATE","PROTECTED","PROTOCOL","OBJECTNAME","CLASS","ALIAS","OBJC_STRING",
+"')'","';'","'{'","'}'","'~'","'!'","','","']'","program","extdefs","@1","@2",
+"extdefs_opt","extdef","@3","datadef","fndef","@4","@5","@6","@7","@8","@9",
+"identifier","unop","expr","exprlist","nonnull_exprlist","unary_expr","sizeof",
+"alignof","cast_expr","@10","expr_no_commas","@11","@12","@13","@14","@15","primary",
+"string","objc_string","old_style_parm_decls","lineno_datadecl","datadecls",
+"datadecl","lineno_decl","decls","setspecs","setattrs","decl","typed_declspecs",
+"reserved_declspecs","typed_declspecs_no_prefix_attr","reserved_declspecs_no_prefix_attr",
+"declmods","declmods_no_prefix_attr","typed_typespecs","reserved_typespecquals",
+"typespec","typespecqual_reserved","initdecls","notype_initdecls","maybeasm",
+"initdcl","@16","notype_initdcl","@17","maybe_attribute","attributes","attribute",
+"attribute_list","attrib","any_word","init","@18","initlist_maybe_comma","initlist1",
+"initelt","@19","initval","@20","designator_list","designator","nested_function",
+"@21","@22","notype_nested_function","@23","@24","declarator","after_type_declarator",
 "parm_declarator","notype_declarator","struct_head","union_head","enum_head",
 "structsp","@25","@26","@27","@28","maybecomma","maybecomma_warn","component_decl_list",
 "component_decl_list2","component_decl","components","component_declarator",
@@ -2591,15 +2591,15 @@ case 62:
     break;}
 case 63:
 #line 506 "objc-parse.y"
-{ yyval.ttype = build_bounded_ptr_value_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_bounded_ptr_value_ref (default_conversion (yyvsp[0].ttype)); ;
     break;}
 case 64:
 #line 508 "objc-parse.y"
-{ yyval.ttype = build_low_bound_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_low_bound_ref (default_conversion (yyvsp[0].ttype)); ;
     break;}
 case 65:
 #line 510 "objc-parse.y"
-{ yyval.ttype = build_high_bound_ref (yyvsp[0].ttype); ;
+{ yyval.ttype = build_high_bound_ref (default_conversion (yyvsp[0].ttype)); ;
     break;}
 case 66:
 #line 512 "objc-parse.y"

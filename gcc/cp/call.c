@@ -2859,26 +2859,17 @@ build_conditional_expr (arg1, arg2, arg3)
      and third operands.  */
   arg2_type = TREE_TYPE (arg2);
   arg3_type = TREE_TYPE (arg3);
-  if (same_type_p (TYPE_MAIN_VARIANT (arg2_type), void_type_node)
-      || same_type_p (TYPE_MAIN_VARIANT (arg3_type), void_type_node))
+  if (VOID_TYPE_P (arg2_type) || VOID_TYPE_P (arg3_type))
     {
-      int arg2_void_p;
-      int arg3_void_p;
-
       /* Do the conversions.  We don't these for `void' type arguments
 	 since it can't have any effect and since decay_conversion
 	 does not handle that case gracefully.  */
-      if (!same_type_p (TYPE_MAIN_VARIANT (arg2_type), void_type_node))
+      if (!VOID_TYPE_P (arg2_type))
 	arg2 = decay_conversion (arg2);
-      if (!same_type_p (TYPE_MAIN_VARIANT (arg3_type), void_type_node))
+      if (!VOID_TYPE_P (arg3_type))
 	arg3 = decay_conversion (arg3);
       arg2_type = TREE_TYPE (arg2);
       arg3_type = TREE_TYPE (arg3);
-
-      arg2_void_p = same_type_p (TYPE_MAIN_VARIANT (arg2_type),
-				 void_type_node);
-      arg3_void_p = same_type_p (TYPE_MAIN_VARIANT (arg3_type),
-				 void_type_node);
 
       /* [expr.cond]
 
@@ -2894,12 +2885,12 @@ build_conditional_expr (arg1, arg2, arg3)
 	  ^ (TREE_CODE (arg3) == THROW_EXPR))
 	result_type = ((TREE_CODE (arg2) == THROW_EXPR) 
 		       ? arg3_type : arg2_type);
-      else if (arg2_void_p && arg3_void_p)
+      else if (VOID_TYPE_P (arg2_type) && VOID_TYPE_P (arg3_type))
 	result_type = void_type_node;
       else
 	{
 	  cp_error ("`%E' has type `void' and is not a throw-expression",
-		    arg2_void_p ? arg2 : arg3);
+		    VOID_TYPE_P (arg2_type) ? arg2 : arg3);
 	  return error_mark_node;
 	}
 
@@ -3454,7 +3445,7 @@ builtin:
     case BIT_XOR_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      return build_binary_op (code, arg1, arg2);
+      return cp_build_binary_op (code, arg1, arg2);
 
     case CONVERT_EXPR:
     case NEGATE_EXPR:
@@ -3848,6 +3839,9 @@ build_x_va_arg (expr, type)
      tree expr;
      tree type;
 {
+  if (processing_template_decl)
+    return build_min (VA_ARG_EXPR, type, expr);
+  
   type = complete_type_or_else (type, NULL_TREE);
 
   if (expr == error_mark_node || !type)

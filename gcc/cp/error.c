@@ -736,7 +736,7 @@ dump_type_suffix (t, flags)
 	    dump_expr (TREE_OPERAND (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0),
 	               flags & ~TS_EXPR_PARENS);
 	  else
-	    dump_expr (fold (build_binary_op
+	    dump_expr (fold (cp_build_binary_op
 			     (PLUS_EXPR, TYPE_MAX_VALUE (TYPE_DOMAIN (t)),
 			      integer_one_node)),
 	               flags & ~TS_EXPR_PARENS);
@@ -1741,9 +1741,11 @@ dump_expr (t, flags)
       break;
 
     case CONVERT_EXPR:
-      if (same_type_p (TREE_TYPE (t), void_type_node))
+      if (VOID_TYPE_P (TREE_TYPE (t)))
 	{
-	  OB_PUTS ("(void)");
+	  OB_PUTC ('(');
+	  dump_type (TREE_TYPE (t), flags);
+	  OB_PUTC (')');
 	  dump_expr (TREE_OPERAND (t, 0), flags);
 	}
       else
@@ -1876,7 +1878,7 @@ dump_expr (t, flags)
 		}
 	      if (virtuals)
 		{
-		  dump_expr (TREE_VALUE (virtuals),
+		  dump_expr (BV_FN (virtuals),
 	                     flags | TS_EXPR_PARENS);
 		  break;
 		}

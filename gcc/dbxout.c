@@ -1003,6 +1003,9 @@ dbxout_type (type, full, show_arg_types)
   register tree tem;
   static int anonymous_type_number = 0;
 
+  if (TREE_CODE (type) == VECTOR_TYPE)
+    type = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+
   /* If there was an input error and we don't really have a type,
      avoid crashing and write something that is at least valid
      by assuming `int'.  */
@@ -1939,8 +1942,8 @@ dbxout_symbol (decl, local)
 	  && DECL_INITIAL (decl) != 0
 	  && host_integerp (DECL_INITIAL (decl), 0)
 	  && ! TREE_ASM_WRITTEN (decl)
-	  && (DECL_FIELD_CONTEXT (decl) == NULL_TREE
-	      || TREE_CODE (DECL_FIELD_CONTEXT (decl)) == BLOCK))
+	  && (DECL_CONTEXT (decl) == NULL_TREE
+	      || TREE_CODE (DECL_CONTEXT (decl)) == BLOCK))
 	{
 	  if (TREE_PUBLIC (decl) == 0)
 	    {

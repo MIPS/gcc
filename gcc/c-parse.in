@@ -524,11 +524,11 @@ unary_expr:
 	| IMAGPART cast_expr %prec UNARY
 		{ $$ = build_unary_op (IMAGPART_EXPR, $2, 0); }
 	| PTR_VALUE cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_value_ref ($2); }
+		{ $$ = build_bounded_ptr_value_ref (default_conversion ($2)); }
 	| PTR_LOW_BOUND cast_expr %prec UNARY
-		{ $$ = build_low_bound_ref ($2); }
+		{ $$ = build_low_bound_ref (default_conversion ($2)); }
 	| PTR_HIGH_BOUND cast_expr %prec UNARY
-		{ $$ = build_high_bound_ref ($2); }
+		{ $$ = build_high_bound_ref (default_conversion ($2)); }
 	| VA_ARG '(' expr_no_commas ',' typename ')'
 		{ $$ = build_va_arg ($3, groktypename ($5)); }
 	;

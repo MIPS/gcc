@@ -52,7 +52,7 @@ struct if_stack
 /* Forward declarations.  */
 
 static void validate_else		PARAMS ((cpp_reader *, const U_CHAR *));
-static unsigned int parse_include	PARAMS ((cpp_reader *, const U_CHAR *));
+static unsigned int parse_include	PARAMS ((cpp_reader *, const U_CHAR *, int));
 static void push_conditional		PARAMS ((cpp_reader *, int, int,
 						 const cpp_hashnode *));
 static void pass_thru_directive		PARAMS ((const U_CHAR *, size_t,
@@ -214,7 +214,7 @@ _cpp_handle_directive (pfile)
 	return 0;
 
       if (CPP_PEDANTIC (pfile)
-	  && CPP_BUFFER (pfile)->ihash
+	  && CPP_BUFFER (pfile)->inc
 	  && ! CPP_OPTION (pfile, preprocessed))
 	cpp_pedwarn (pfile, "# followed by integer");
       i = T_LINE;
@@ -398,9 +398,10 @@ do_define (pfile)
 /* Handle #include and #import.  */
 
 static unsigned int
-parse_include (pfile, name)
+parse_include (pfile, name, trail)
      cpp_reader *pfile;
      const U_CHAR *name;
+     int trail;
 {
   long old_written = CPP_WRITTEN (pfile);
   enum cpp_ttype token;
@@ -420,7 +421,7 @@ parse_include (pfile, name)
       return 0;
     }
 
-  if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
+  if (!trail && _cpp_get_directive_token (pfile) != CPP_VSPACE)
     {
       cpp_error (pfile, "junk at end of #%s", name);
       _cpp_skip_rest_of_line (pfile);
@@ -441,7 +442,7 @@ do_include (pfile)
   unsigned int len;
   U_CHAR *token;
 
-  len = parse_include (pfile, dtable[T_INCLUDE].name);
+  len = parse_include (pfile, dtable[T_INCLUDE].name, 0);
   if (len == 0)
     return 0;
   token = (U_CHAR *) alloca (len + 1);
@@ -463,14 +464,14 @@ do_import (pfile)
   U_CHAR *token;
 
   if (CPP_OPTION (pfile, warn_import)
-      && !CPP_BUFFER (pfile)->system_header_p && !pfile->import_warning)
+      && !CPP_IN_SYSTEM_HEADER (pfile) && !pfile->import_warning)
     {
       pfile->import_warning = 1;
       cpp_warning (pfile,
 	   "#import is obsolete, use an #ifndef wrapper in the header file");
     }
 
-  len = parse_include (pfile, dtable[T_IMPORT].name);
+  len = parse_include (pfile, dtable[T_IMPORT].name, 0);
   if (len == 0)
     return 0;
   token = (U_CHAR *) alloca (len + 1);
@@ -492,7 +493,7 @@ do_include_next (pfile)
   U_CHAR *token;
   struct file_name_list *search_start = 0;
 
-  len = parse_include (pfile, dtable[T_INCLUDE_NEXT].name);
+  len = parse_include (pfile, dtable[T_INCLUDE_NEXT].name, 0);
   if (len == 0)
     return 0;
   token = (U_CHAR *) alloca (len + 1);
@@ -508,8 +509,8 @@ do_include_next (pfile)
      file like any other included source, but generate a warning.  */
   if (CPP_PREV_BUFFER (CPP_BUFFER (pfile)))
     {
-      if (CPP_BUFFER (pfile)->ihash->foundhere != ABSOLUTE_PATH)
-	search_start = CPP_BUFFER (pfile)->ihash->foundhere->next;
+      if (CPP_BUFFER (pfile)->inc->foundhere)
+	search_start = CPP_BUFFER (pfile)->inc->foundhere->next;
     }
   else
     cpp_warning (pfile, "#include_next in primary source file");
@@ -603,23 +604,23 @@ do_line (pfile)
 	  if (action_number == 1)
 	    {
 	      pfile->buffer_stack_depth++;
-	      ip->system_header_p = 0;
+	      cpp_make_system_header (pfile, ip, 0);
 	      read_line_number (pfile, &action_number);
 	    }
 	  else if (action_number == 2)
 	    {
 	      pfile->buffer_stack_depth--;
-	      ip->system_header_p = 0;
+	      cpp_make_system_header (pfile, ip, 0);
 	      read_line_number (pfile, &action_number);
 	    }
 	  if (action_number == 3)
 	    {
-	      ip->system_header_p = 1;
+	      cpp_make_system_header (pfile, ip, 1);
 	      read_line_number (pfile, &action_number);
 	    }
 	  if (action_number == 4)
 	    {
-	      ip->system_header_p = 2;
+	      cpp_make_system_header (pfile, ip, 2);
 	      read_line_number (pfile, &action_number);
 	    }
 	}
@@ -628,10 +629,10 @@ do_line (pfile)
       
       if (strcmp ((const char *)fname, ip->nominal_fname))
 	{
-	  if (!strcmp ((const char *)fname, ip->ihash->name))
-	    ip->nominal_fname = ip->ihash->name;
+	  if (!strcmp ((const char *)fname, ip->inc->name))
+	    ip->nominal_fname = ip->inc->name;
 	  else
-	    ip->nominal_fname = _cpp_fake_ihash (pfile, (const char *)fname);
+	    ip->nominal_fname = _cpp_fake_include (pfile, (const char *)fname);
 	}
     }
   else if (token != CPP_VSPACE && token != CPP_EOF)
@@ -789,11 +790,52 @@ do_ident (pfile)
 
 /* Sub-handlers for the pragmas needing treatment here.
    They return 1 if the token buffer is to be popped, 0 if not. */
+struct pragma_entry
+{
+  char const *name;
+  int (*handler) PARAMS ((cpp_reader *));
+};
+
+static int pragma_dispatch             
+    PARAMS ((cpp_reader *, const struct pragma_entry *, U_CHAR *, size_t));
 static int do_pragma_once		PARAMS ((cpp_reader *));
 static int do_pragma_implementation	PARAMS ((cpp_reader *));
 static int do_pragma_poison		PARAMS ((cpp_reader *));
 static int do_pragma_system_header	PARAMS ((cpp_reader *));
 static int do_pragma_default		PARAMS ((cpp_reader *));
+static int do_pragma_gcc                PARAMS ((cpp_reader *));
+static int do_pragma_dependency         PARAMS ((cpp_reader *));
+
+static const struct pragma_entry top_pragmas[] =
+{
+  {"once", do_pragma_once},
+  {"implementation", do_pragma_implementation},
+  {"poison", do_pragma_poison},
+  {"system_header", do_pragma_system_header},
+  {"GCC", do_pragma_gcc},
+  {NULL, do_pragma_default}
+};
+
+static const struct pragma_entry gcc_pragmas[] =
+{
+  {"implementation", do_pragma_implementation},
+  {"poison", do_pragma_poison},
+  {"system_header", do_pragma_system_header},
+  {"dependency", do_pragma_dependency},
+  {NULL, do_pragma_default}
+};
+
+static int pragma_dispatch (pfile, table, p, len)
+     cpp_reader *pfile;
+     const struct pragma_entry *table;
+     U_CHAR *p;
+     size_t len;
+{
+  for (; table->name; table++)
+    if (strlen (table->name) == len && !memcmp (p, table->name, len))
+      return (*table->handler) (pfile);
+  return (*table->handler) (pfile);
+}
 
 static int
 do_pragma (pfile)
@@ -803,6 +845,7 @@ do_pragma (pfile)
   U_CHAR *buf;
   int pop;
   enum cpp_ttype token;
+  size_t  len;
 
   here = CPP_WRITTEN (pfile);
   CPP_PUTS (pfile, "#pragma ", 8);
@@ -819,20 +862,10 @@ do_pragma (pfile)
     }
 
   buf = pfile->token_buffer + key;
+  len = CPP_WRITTEN (pfile) - key;
   CPP_PUTC (pfile, ' ');
 
-#define tokis(x) !strncmp((char *) buf, x, sizeof(x) - 1)
-  if (tokis ("once"))
-    pop = do_pragma_once (pfile);
-  else if (tokis ("implementation"))
-    pop = do_pragma_implementation (pfile);
-  else if (tokis ("poison"))
-    pop = do_pragma_poison (pfile);
-  else if (tokis ("system_header"))
-    pop = do_pragma_system_header (pfile);
-  else
-    pop = do_pragma_default (pfile);
-#undef tokis
+  pop = pragma_dispatch (pfile, top_pragmas, buf, len);
 
   if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
     goto skip;
@@ -861,6 +894,27 @@ do_pragma_default (pfile)
 }
 
 static int
+do_pragma_gcc (pfile)
+     cpp_reader *pfile;
+{
+  long key;
+  enum cpp_ttype token;
+  U_CHAR *buf;
+  size_t  len;
+  
+  key = CPP_WRITTEN (pfile);
+  token = _cpp_get_directive_token (pfile);
+  if (token != CPP_NAME)
+    return token == CPP_VSPACE;
+
+  buf = pfile->token_buffer + key;
+  len = CPP_WRITTEN (pfile) - key;
+  CPP_PUTC (pfile, ' ');
+  
+  return pragma_dispatch (pfile, gcc_pragmas, buf, len);
+}
+
+static int
 do_pragma_once (pfile)
      cpp_reader *pfile;
 {
@@ -868,13 +922,13 @@ do_pragma_once (pfile)
 
   /* Allow #pragma once in system headers, since that's not the user's
      fault.  */
-  if (!ip->system_header_p)
+  if (!CPP_IN_SYSTEM_HEADER (pfile))
     cpp_warning (pfile, "#pragma once is obsolete");
       
   if (CPP_PREV_BUFFER (ip) == NULL)
     cpp_warning (pfile, "#pragma once outside include file");
   else
-    ip->ihash->cmacro = NEVER_REINCLUDE;
+    ip->inc->cmacro = NEVER_REREAD;
 
   return 1;
 }
@@ -978,11 +1032,48 @@ do_pragma_system_header (pfile)
   if (CPP_PREV_BUFFER (ip) == NULL)
     cpp_warning (pfile, "#pragma system_header outside include file");
   else
-    ip->system_header_p = 1;
+    cpp_make_system_header (pfile, ip, 1);
 
   return 1;
 }
- 
+
+/* Check the modified date of the current include file against a specified
+   file. Issue a diagnostic, if the specified file is newer. We use this to
+   determine if a fixed header should be refixed.  */
+static int
+do_pragma_dependency (pfile)
+     cpp_reader *pfile;
+{
+  U_CHAR *original_name, *name;
+  unsigned len;
+  int ordering;
+  
+  len = parse_include (pfile, (const U_CHAR *)"pragma dependency", 1);
+  original_name = (U_CHAR *) alloca (len + 1);
+  name = (U_CHAR *) alloca (len + 1);
+  memcpy (original_name, CPP_PWRITTEN (pfile), len);
+  memcpy (name, CPP_PWRITTEN (pfile), len);
+  original_name[len] = name[len] = 0;
+  
+  ordering = _cpp_compare_file_date (pfile, name, len, 0);
+  if (ordering < 0)
+    cpp_warning (pfile, "cannot find source %s", original_name);
+  else if (ordering > 0)
+    {
+      const U_CHAR *text, *limit;
+      _cpp_skip_hspace (pfile);
+      text = CPP_BUFFER (pfile)->cur;
+      _cpp_skip_rest_of_line (pfile);
+      limit = CPP_BUFFER (pfile)->cur;
+      
+      cpp_warning (pfile, "current file is older than %s", original_name);
+      if (limit != text)
+        cpp_warning (pfile, "%.*s", (int)(limit - text), text);
+    }
+  _cpp_skip_rest_of_line (pfile);
+  return 1;
+}
+
 /* Just ignore #sccs, on systems where we define it at all.  */
 #ifdef SCCS_DIRECTIVE
 static int

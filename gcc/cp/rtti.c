@@ -233,7 +233,7 @@ get_tinfo_decl_dynamic (exp)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
   
-  if (type != void_type_node)
+  if (!VOID_TYPE_P (type))
     type = complete_type_or_else (type, exp);
   
   if (!type)
@@ -513,7 +513,7 @@ get_typeid (type)
      that is the operand of typeid are always ignored.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (type != void_type_node)
+  if (!VOID_TYPE_P (type))
     type = complete_type_or_else (type, NULL_TREE);
   
   if (!type)
@@ -549,10 +549,25 @@ get_base_offset (binfo, parent)
   else if (! vbase_offsets_in_vtable_p ())
     {
       const char *name;
+      tree result;
+      tree field;
     
       FORMAT_VBASE_NAME (name, BINFO_TYPE (binfo));
-      return byte_position (lookup_field (parent, get_identifier (name),
-					  0, 0));
+      field = lookup_field (parent, get_identifier (name), 0, 0);
+      result = byte_position (field);
+      
+      if (DECL_CONTEXT (field) != parent)
+        {
+          /* The vbase pointer might be in a non-virtual base of PARENT.
+           * Adjust for the offset of that base in PARENT.  */
+          tree path;
+          
+          get_base_distance (DECL_CONTEXT (field), parent, -1, &path);
+          result = build (PLUS_EXPR, TREE_TYPE (result),
+                          result, BINFO_OFFSET (path));
+          result = fold (result);
+        }
+      return result;
     }
   else
     /* Under the new ABI, we store the vtable offset at which
@@ -702,8 +717,7 @@ build_dynamic_cast_1 (type, expr)
     {
       tree expr1;
       /* if TYPE is `void *', return pointer to complete object.  */
-      if (tc == POINTER_TYPE
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (type)) == void_type_node)
+      if (tc == POINTER_TYPE && VOID_TYPE_P (TREE_TYPE (type)))
 	{
 	  /* if b is an object, dynamic_cast<void *>(&b) == (void *)&b.  */
 	  if (TREE_CODE (expr) == ADDR_EXPR
@@ -1203,7 +1217,7 @@ synthesize_tinfo_fn (fndecl)
   if_stmt = begin_if_stmt ();
   tmp = cp_convert (build_pointer_type (ptr_type_node), addr);
   tmp = build_indirect_ref (tmp, 0);
-  tmp = build_binary_op (EQ_EXPR, tmp, integer_zero_node);
+  tmp = cp_build_binary_op (EQ_EXPR, tmp, integer_zero_node);
   finish_if_stmt_cond (tmp, if_stmt);
   then_clause = begin_compound_stmt (/*has_no_scope=*/0);
 
@@ -1637,10 +1651,10 @@ synthesize_tinfo_var (target_type, real_name)
               is_simple = 0;
               
               /* combine offset and flags into one field */
-              offset = build_binary_op (LSHIFT_EXPR, offset,
-                                        build_int_2 (8, 0));
-              offset = build_binary_op (BIT_IOR_EXPR, offset,
-                                        build_int_2 (flags, 0));
+              offset = cp_build_binary_op (LSHIFT_EXPR, offset,
+					   build_int_2 (8, 0));
+              offset = cp_build_binary_op (BIT_IOR_EXPR, offset,
+					   build_int_2 (flags, 0));
               base_init = tree_cons (NULL_TREE, offset, base_init);
               base_init = tree_cons (NULL_TREE, tinfo, base_init);
               base_init = build (CONSTRUCTOR, NULL_TREE, NULL_TREE, base_init);

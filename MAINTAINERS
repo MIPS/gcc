@@ -27,6 +27,7 @@ mcore			Nick Clifton		nickc@redhat.com
 			Jim Dein		jdein@windriver.com
 mn10200 port		Jeff Law		law@cygnus.com
 mn10300 port		Jeff Law		law@cygnus.com
+mn10300 port		Alexandre Oliva		aoliva@cygnus.com
 hppa port		Jeff Law		law@cygnus.com
 m68k port (?)		Jeff Law		law@cygnus.com
 m68k-motorola-sysv port	Philippe De Muyter	phdm@macqel.be
@@ -58,6 +59,7 @@ cpplib/cccp		Per Bothner		per@bothner.com
 cpplib/cccp		Zack Weinberg		zack@wolery.cumb.org
 alias analysis		John Carr		jfc@mit.edu
 loop unrolling		Jim Wilson		wilson@cygnus.com
+loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 scheduler (+ haifa)	Jim Wilson		wilson@cygnus.com
 scheduler (+ haifa)	Michael Meissner	meissner@cygnus.com
 scheduler (+ haifa)	Jeff Law		law@cygnus.com

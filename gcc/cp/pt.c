@@ -347,7 +347,7 @@ push_inline_template_parms_recursive (parmlist, levels)
 	       available.  */
 	    tree decl = build_decl (CONST_DECL, DECL_NAME (parm),
 				    TREE_TYPE (parm));
-	    SET_DECL_ARTIFICIAL (decl);
+	    DECL_ARTIFICIAL (decl) = 1;
 	    DECL_INITIAL (decl) = DECL_INITIAL (parm);
 	    SET_DECL_TEMPLATE_PARM_P (decl);
 	    pushdecl (decl);
@@ -1300,8 +1300,12 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	  /* This case handles bogus declarations like template <>
 	     template <class T> void f<int>(); */
 
-	  cp_error ("template-id `%D' in declaration of primary template",
-		    declarator);
+	  if (uses_template_parms (declarator))
+	    cp_error ("partial specialization `%D' of function template",
+		      declarator);
+	  else
+	    cp_error ("template-id `%D' in declaration of primary template",
+		      declarator);
 	  return decl;
 	}
 
@@ -1793,10 +1797,8 @@ process_template_parm (list, next)
     {
       tree p = TREE_VALUE (tree_last (list));
 
-      if (TREE_CODE (p) == TYPE_DECL)
+      if (TREE_CODE (p) == TYPE_DECL || TREE_CODE (p) == TEMPLATE_DECL)
 	idx = TEMPLATE_TYPE_IDX (TREE_TYPE (p));
-      else if (TREE_CODE (p) == TEMPLATE_DECL)
-	idx = TEMPLATE_TYPE_IDX (TREE_TYPE (DECL_TEMPLATE_RESULT (p)));
       else
 	idx = TEMPLATE_PARM_IDX (DECL_INITIAL (p));
       ++idx;
@@ -1869,7 +1871,7 @@ process_template_parm (list, next)
 				     processing_template_decl,
 				     decl, TREE_TYPE (parm));
     }
-  SET_DECL_ARTIFICIAL (decl);
+  DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
   pushdecl (decl);
   parm = build_tree_list (defval, parm);
@@ -3799,8 +3801,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
       /* Create a new TEMPLATE_DECL and TEMPLATE_TEMPLATE_PARM node to store
          template arguments */
 
-      tree parm = copy_template_template_parm (TREE_TYPE (template));
-      tree template2 = TYPE_STUB_DECL (parm);
+      tree parm;
       tree arglist2;
 
       parmlist = DECL_INNERMOST_TEMPLATE_PARMS (template);
@@ -3809,8 +3810,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
       if (arglist2 == error_mark_node)
 	return error_mark_node;
 
-      TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (parm)
-	= tree_cons (template2, arglist2, NULL_TREE);
+      parm = copy_template_template_parm (TREE_TYPE (template), arglist2);
       TYPE_SIZE (parm) = 0;
       return parm;
     }
@@ -4507,7 +4507,11 @@ tsubst_friend_function (decl, args)
      instantiation of anything.  */
   DECL_USE_TEMPLATE (new_friend) = 0;
   if (TREE_CODE (decl) == TEMPLATE_DECL)
-    DECL_USE_TEMPLATE (DECL_TEMPLATE_RESULT (new_friend)) = 0;
+    {
+      DECL_USE_TEMPLATE (DECL_TEMPLATE_RESULT (new_friend)) = 0;
+      DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (new_friend))
+	= DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (decl));
+    }
 
   /* The mangled name for the NEW_FRIEND is incorrect.  The call to
      tsubst will have resulted in a call to
@@ -5727,6 +5731,7 @@ tsubst_decl (t, args, type, in_decl)
 	TREE_CHAIN (r) = NULL_TREE;
 	DECL_PENDING_INLINE_INFO (r) = 0;
 	DECL_PENDING_INLINE_P (r) = 0;
+	DECL_SAVED_TREE (r) = NULL_TREE;
 	TREE_USED (r) = 0;
 	if (DECL_CLONED_FUNCTION (r))
 	  {
@@ -5873,20 +5878,13 @@ tsubst_decl (t, args, type, in_decl)
       break;
 
     case TYPE_DECL:
-      if (DECL_IMPLICIT_TYPEDEF_P (t))
+      if (TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
+	  || t == TYPE_MAIN_DECL (TREE_TYPE (t)))
 	{
-	  /* For an implicit typedef, we just want the implicit
-	     typedef for the tsubst'd type.  We've already got the
-	     tsubst'd type, as TYPE, so we just need it's associated
-	     declaration.  */
-	  r = TYPE_NAME (type);
-	  break;
-	}
-      else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
-	       || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
-	{
-	  /* For a template type parameter, we don't have to do
-	     anything special.  */
+	  /* If this is the canonical decl, we don't have to mess with
+             instantiations, and often we can't (for typename, template
+	     type parms and such).  Note that TYPE_NAME is not correct for
+	     the above test if we've copied the type for a typedef.  */
 	  r = TYPE_NAME (type);
 	  break;
 	}
@@ -6331,7 +6329,7 @@ tsubst (t, args, complain, in_decl)
 			if (TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
 			  arg = TYPE_NAME (arg);
 
-			r = lookup_template_class (DECL_NAME (arg), 
+			r = lookup_template_class (arg, 
 						   argvec, in_decl, 
 						   DECL_CONTEXT (arg),
 						   /*entering_scope=*/0);
@@ -6363,25 +6361,34 @@ tsubst (t, args, complain, in_decl)
 	  {
 	  case TEMPLATE_TYPE_PARM:
 	  case TEMPLATE_TEMPLATE_PARM:
-	    r = copy_node (t);
-	    TEMPLATE_TYPE_PARM_INDEX (r)
-	      = reduce_template_parm_level (TEMPLATE_TYPE_PARM_INDEX (t),
-					    r, levels);
-	    TYPE_STUB_DECL (r) = TYPE_NAME (r) = TEMPLATE_TYPE_DECL (r);
-	    TYPE_MAIN_VARIANT (r) = r;
-	    TYPE_POINTER_TO (r) = NULL_TREE;
-	    TYPE_REFERENCE_TO (r) = NULL_TREE;
-
-	    if (TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM
-		&& TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t))
+	    if (CP_TYPE_QUALS (t))
 	      {
-		tree argvec = tsubst (TYPE_TI_ARGS (t), args,
-				      complain, in_decl); 
-		if (argvec == error_mark_node)
-		  return error_mark_node;
+		r = tsubst (TYPE_MAIN_VARIANT (t), args, complain, in_decl);
+		r = cp_build_qualified_type_real (r, CP_TYPE_QUALS (t),
+						  complain);
+	      }
+	    else
+	      {
+		r = copy_node (t);
+		TEMPLATE_TYPE_PARM_INDEX (r)
+		  = reduce_template_parm_level (TEMPLATE_TYPE_PARM_INDEX (t),
+						r, levels);
+		TYPE_STUB_DECL (r) = TYPE_NAME (r) = TEMPLATE_TYPE_DECL (r);
+		TYPE_MAIN_VARIANT (r) = r;
+		TYPE_POINTER_TO (r) = NULL_TREE;
+		TYPE_REFERENCE_TO (r) = NULL_TREE;
 
-		TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (r)
-		  = tree_cons (TYPE_NAME (t), argvec, NULL_TREE);
+		if (TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM
+		    && TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t))
+		  {
+		    tree argvec = tsubst (TYPE_TI_ARGS (t), args,
+					  complain, in_decl); 
+		    if (argvec == error_mark_node)
+		      return error_mark_node;
+
+		    TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (r)
+		      = tree_cons (TYPE_TI_TEMPLATE (t), argvec, NULL_TREE);
+		  }
 	      }
 	    break;
 
@@ -7106,7 +7113,7 @@ tsubst_copy (t, args, complain, in_decl)
       }
 
     case VA_ARG_EXPR:
-      return build_va_arg (tsubst_copy (TREE_OPERAND (t, 0), args, complain,
+      return build_x_va_arg (tsubst_copy (TREE_OPERAND (t, 0), args, complain,
 					in_decl),
 			   tsubst (TREE_TYPE (t), args, complain, in_decl));
 
@@ -7538,7 +7545,7 @@ overload_template_name (type)
     return;
 
   decl = build_decl (TYPE_DECL, id, type);
-  SET_DECL_ARTIFICIAL (decl);
+  DECL_ARTIFICIAL (decl) = 1;
   pushdecl_class_level (decl);
 }
 

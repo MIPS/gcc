@@ -62,7 +62,6 @@ typedef struct priority_info_s {
   int destructions_p;
 } *priority_info;
 
-static tree get_sentry PARAMS ((tree));
 static void mark_vtable_entries PARAMS ((tree));
 static void grok_function_init PARAMS ((tree, tree));
 static int finish_vtable_vardecl PARAMS ((tree *, void *));
@@ -95,6 +94,7 @@ static void write_out_vars PARAMS ((tree));
 static void import_export_class	PARAMS ((tree));
 static tree key_method PARAMS ((tree));
 static int compare_options PARAMS ((const PTR, const PTR));
+static tree get_guard_bits PARAMS ((tree));
 
 extern int current_class_depth;
 
@@ -959,7 +959,7 @@ build_artificial_parm (name, type)
   tree parm;
 
   parm = build_decl (PARM_DECL, name, type);
-  SET_DECL_ARTIFICIAL (parm);
+  DECL_ARTIFICIAL (parm) = 1;
   DECL_ARG_TYPE (parm) = type;
   return parm;
 }
@@ -1266,7 +1266,7 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
 
   if (doing_vec == 2)
     {
-      maxindex = build_binary_op (MINUS_EXPR, size, integer_one_node);
+      maxindex = cp_build_binary_op (MINUS_EXPR, size, integer_one_node);
       pedwarn ("anachronistic use of array size in vector delete");
     }
 
@@ -1283,8 +1283,11 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
 
   /* Deleting ptr to void is undefined behaviour [expr.delete/3].  */
   if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
-    cp_warning ("`%T' is not a pointer-to-object type", type);
-  
+    {
+      cp_warning ("deleting `%T' is undefined", type);
+      doing_vec = 0;
+    }
+
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (t) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
@@ -2095,32 +2098,24 @@ defer_fn (fn)
 /* Hand off a unique name which can be used for variable we don't really
    want to know about anyway, for example, the anonymous variables which
    are needed to make references work.  Declare this thing so we can use it.
-   The variable created will be of type TYPE.
-
-   STATICP is nonzero if this variable should be static.  */
+   The variable created will be of type TYPE, and will have internal
+   linkage.  */
 
 tree
-get_temp_name (type, staticp)
+get_temp_name (type)
      tree type;
-     int staticp;
 {
   char buf[sizeof (AUTO_TEMP_FORMAT) + 20];
   tree decl;
   int toplev = toplevel_bindings_p ();
 
-  if (toplev || staticp)
-    {
-      sprintf (buf, AUTO_TEMP_FORMAT, global_temp_name_counter++);
-      decl = pushdecl_top_level (build_decl (VAR_DECL, get_identifier (buf), type));
-    }
-  else
-    {
-      sprintf (buf, AUTO_TEMP_FORMAT, temp_name_counter++);
-      decl = pushdecl (build_decl (VAR_DECL, get_identifier (buf), type));
-    }
-  TREE_USED (decl) = 1;
-  TREE_STATIC (decl) = staticp;
+  sprintf (buf, AUTO_TEMP_FORMAT, global_temp_name_counter++);
+  decl = build_decl (VAR_DECL, get_identifier (buf), type);
   DECL_ARTIFICIAL (decl) = 1;
+  TREE_USED (decl) = 1;
+  TREE_STATIC (decl) = 1;
+  
+  decl = pushdecl_top_level (decl);
 
   /* If this is a local variable, then lay out its rtl now.
      Otherwise, callers of this function are responsible for dealing
@@ -2422,11 +2417,12 @@ mark_vtable_entries (decl)
 
       fn = TREE_OPERAND (fnaddr, 0);
       TREE_ADDRESSABLE (fn) = 1;
-      if (DECL_THUNK_P (fn) && DECL_EXTERNAL (fn))
-	{
-	  DECL_EXTERNAL (fn) = 0;
-	  emit_thunk (fn);
-	}
+      /* When we don't have vcall offsets, we output thunks whenever
+	 we output the vtables that contain them.  With vcall offsets,
+	 we know all the thunks we'll need when we emit a virtual
+	 function, so we emit the thunks there instead.  */
+      if (DECL_THUNK_P (fn)) 
+	use_thunk (fn, THUNK_GENERATE_WITH_VTABLE_P (fn));
       mark_used (fn);
     }
 }
@@ -2862,37 +2858,111 @@ build_cleanup (decl)
   return temp;
 }
 
-/* Returns the initialization guard variable for the non-local
-   variable DECL.  */
+/* Returns the initialization guard variable for the variable DECL,
+   which has static storage duration.  */
 
-static tree
-get_sentry (decl)
+tree
+get_guard (decl)
      tree decl;
 {
   tree sname;
-  tree sentry;
+  tree guard;
+
+  /* For a local variable, under the old ABI, we do not try to get a
+     unique mangled name for the DECL.  */
+  if (!flag_new_abi && !DECL_NAMESPACE_SCOPE_P (decl))
+    {
+      guard = get_temp_name (integer_type_node);
+      rest_of_decl_compilation (guard, NULL_PTR, 0, 0);
+    }
 
   if (!flag_new_abi)
+    /* For struct X foo __attribute__((weak)), there is a counter
+       __snfoo. Since base is already an assembler name, sname should
+       be globally unique */
     sname = get_id_2 ("__sn", DECL_ASSEMBLER_NAME (decl));
   else
     sname = mangle_guard_variable (decl);
 
-  /* For struct X foo __attribute__((weak)), there is a counter
-     __snfoo. Since base is already an assembler name, sname should
-     be globally unique */
-  sentry = IDENTIFIER_GLOBAL_VALUE (sname);
-  if (! sentry)
+  guard = IDENTIFIER_GLOBAL_VALUE (sname);
+  if (! guard)
     {
-      sentry = build_decl (VAR_DECL, sname, integer_type_node);
-      TREE_PUBLIC (sentry) = 1;
-      DECL_ARTIFICIAL (sentry) = 1;
-      TREE_STATIC (sentry) = 1;
-      TREE_USED (sentry) = 1;
-      DECL_COMMON (sentry) = 1;
-      pushdecl_top_level (sentry);
-      cp_finish_decl (sentry, NULL_TREE, NULL_TREE, 0);
+      tree guard_type;
+
+      /* Under the new ABI, we use a type that is big enough to
+	 contain a mutex as well as an integer counter.  */
+      if (flag_new_abi)
+	guard_type = long_long_integer_type_node;
+      else
+	guard_type = integer_type_node;
+
+      guard = build_decl (VAR_DECL, sname, guard_type);
+      TREE_PUBLIC (guard) = 1;
+      DECL_ARTIFICIAL (guard) = 1;
+      TREE_STATIC (guard) = 1;
+      TREE_USED (guard) = 1;
+      DECL_COMMON (guard) = 1;
+      pushdecl_top_level (guard);
+      cp_finish_decl (guard, NULL_TREE, NULL_TREE, 0);
     }
-  return sentry;
+  return guard;
+}
+
+/* Return those bits of the GUARD variable that should be set when the
+   guarded entity is actually initialized.  */
+
+static tree
+get_guard_bits (guard)
+     tree guard;
+{
+  if (!flag_new_abi)
+    return guard;
+
+  /* Under the new ABI, we only set the first byte of the guard,
+     in order to leave room for a mutex in the high-order bits.  */
+  guard = build1 (ADDR_EXPR, 
+		  build_pointer_type (TREE_TYPE (guard)),
+		  guard);
+  guard = build1 (NOP_EXPR, 
+		  build_pointer_type (char_type_node), 
+		  guard);
+  guard = build1 (INDIRECT_REF, char_type_node, guard);
+
+  return guard;
+}
+
+/* Return an expression which determines whether or not the GUARD
+   variable has already been initialized.  */
+
+tree
+get_guard_cond (guard)
+     tree guard;
+{
+  tree guard_value;
+
+  /* Check to see if the GUARD is zero.  */
+  guard = get_guard_bits (guard);
+  guard_value = integer_zero_node;
+  if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
+    guard_value = convert (TREE_TYPE (guard), guard_value);
+  return cp_build_binary_op (EQ_EXPR, guard, guard_value);
+}
+
+/* Return an expression which sets the GUARD variable, indicating that
+   the variable being guarded has been initialized.  */
+
+tree
+set_guard (guard)
+     tree guard;
+{
+  tree guard_init;
+
+  /* Set the GUARD to one.  */
+  guard = get_guard_bits (guard);
+  guard_init = integer_one_node;
+  if (!same_type_p (TREE_TYPE (guard_init), TREE_TYPE (guard)))
+    guard_init = convert (TREE_TYPE (guard), guard_init);
+  return build_modify_expr (guard, NOP_EXPR, guard_init);
 }
 
 /* Start the process of running a particular set of global constructors
@@ -3197,9 +3267,10 @@ start_static_initialization_or_destruction (decl, initp)
      tree decl;
      int initp;
 {
-  tree sentry_if_stmt = NULL_TREE;
+  tree guard_if_stmt = NULL_TREE;
   int priority;
   tree cond;
+  tree guard;
   tree init_cond;
   priority_info pi;
 
@@ -3243,17 +3314,19 @@ start_static_initialization_or_destruction (decl, initp)
   
   /* Conditionalize this initialization on being in the right priority
      and being initializing/finalizing appropriately.  */
-  sentry_if_stmt = begin_if_stmt ();
-  cond = build_binary_op (EQ_EXPR,
-			  priority_decl,
-			  build_int_2 (priority, 0));
+  guard_if_stmt = begin_if_stmt ();
+  cond = cp_build_binary_op (EQ_EXPR,
+			     priority_decl,
+			     build_int_2 (priority, 0));
   init_cond = initp ? integer_one_node : integer_zero_node;
-  init_cond = build_binary_op (EQ_EXPR,
-			       initialize_p_decl,
-			       init_cond);
-  cond = build_binary_op (TRUTH_ANDIF_EXPR, cond, init_cond);
+  init_cond = cp_build_binary_op (EQ_EXPR,
+				  initialize_p_decl,
+				  init_cond);
+  cond = cp_build_binary_op (TRUTH_ANDIF_EXPR, cond, init_cond);
 
-  /* We need a sentry if this is an object with external linkage that
+  /* Assume we don't need a guard.  */
+  guard = NULL_TREE;
+  /* We need a guard if this is an object with external linkage that
      might be initialized in more than one place.  (For example, a
      static data member of a template, when the data member requires
      construction.)  */
@@ -3261,45 +3334,60 @@ start_static_initialization_or_destruction (decl, initp)
 			     || DECL_ONE_ONLY (decl)
 			     || DECL_WEAK (decl)))
     {
-      tree sentry;
-      tree sentry_cond;
+      tree guard_cond;
 
-      sentry = get_sentry (decl);
+      guard = get_guard (decl);
 
-      /* We do initializations only if the SENTRY is zero, i.e., if we
-	 are the first to initialize the variable.  We do destructions
-	 only if the SENTRY is one, i.e., if we are the last to
-	 destroy the variable.  */
-      if (initp)
-	sentry_cond = build_binary_op (EQ_EXPR,
-				       build_unary_op (PREINCREMENT_EXPR,
-						       sentry,
-						       /*noconvert=*/1),
-				       integer_one_node);
+      /* When using __cxa_atexit, we just check the GUARD as we would
+	 for a local static.  */
+      if (flag_use_cxa_atexit)
+	{
+	  /* When using __cxa_atexit, we never try to destroy
+	     anything from a static destructor.  */
+	  my_friendly_assert (initp, 20000629);
+	  guard_cond = get_guard_cond (guard);
+	}
+      /* Under the old ABI, e do initializations only if the GUARD is
+	 zero, i.e., if we are the first to initialize the variable.
+	 We do destructions only if the GUARD is one, i.e., if we are
+	 the last to destroy the variable.  */
+      else if (initp)
+	guard_cond 
+	  = cp_build_binary_op (EQ_EXPR,
+				build_unary_op (PREINCREMENT_EXPR,
+						guard,
+						/*noconvert=*/1),
+				integer_one_node);
       else
-	sentry_cond = build_binary_op (EQ_EXPR,
-				       build_unary_op (PREDECREMENT_EXPR,
-						       sentry,
-						       /*noconvert=*/1),
-				       integer_zero_node);
+	guard_cond 
+	  = cp_build_binary_op (EQ_EXPR,
+				build_unary_op (PREDECREMENT_EXPR,
+						guard,
+						/*noconvert=*/1),
+				integer_zero_node);
 
-      cond = build_binary_op (TRUTH_ANDIF_EXPR, cond, sentry_cond);
+      cond = cp_build_binary_op (TRUTH_ANDIF_EXPR, cond, guard_cond);
     }
 
-  finish_if_stmt_cond (cond, sentry_if_stmt);
+  finish_if_stmt_cond (cond, guard_if_stmt);
 
-  return sentry_if_stmt;
+  /* Under the new ABI, we have not already set the GUARD, so we must
+     do so now.  */
+  if (guard && initp && flag_new_abi)
+    finish_expr_stmt (set_guard (guard));
+
+  return guard_if_stmt;
 }
 
 /* We've just finished generating code to do an initialization or
-   finalization.  SENTRY_IF_STMT is the if-statement we used to guard
+   finalization.  GUARD_IF_STMT is the if-statement we used to guard
    the initialization.  */
 
 static void
-finish_static_initialization_or_destruction (sentry_if_stmt)
-     tree sentry_if_stmt;
+finish_static_initialization_or_destruction (guard_if_stmt)
+     tree guard_if_stmt;
 {
-  finish_then_clause (sentry_if_stmt);
+  finish_then_clause (guard_if_stmt);
   finish_if_stmt ();
 
   /* Now that we're done with DECL we don't need to pretend to be a
@@ -3310,7 +3398,7 @@ finish_static_initialization_or_destruction (sentry_if_stmt)
 
 /* Generate code to do the static initialization of DECL.  The
    initialization is INIT.  If DECL may be initialized more than once
-   in different object files, SENTRY is the guard variable to 
+   in different object files, GUARD is the guard variable to 
    check.  PRIORITY is the priority for the initialization.  */
 
 static void
@@ -3319,10 +3407,10 @@ do_static_initialization (decl, init)
      tree init;
 {
   tree expr;
-  tree sentry_if_stmt;
+  tree guard_if_stmt;
 
   /* Set up for the initialization.  */
-  sentry_if_stmt
+  guard_if_stmt
     = start_static_initialization_or_destruction (decl,
 						  /*initp=*/1);
   
@@ -3347,11 +3435,11 @@ do_static_initialization (decl, init)
     register_dtor_fn (decl);
 
   /* Finsh up.  */
-  finish_static_initialization_or_destruction (sentry_if_stmt);
+  finish_static_initialization_or_destruction (guard_if_stmt);
 }
 
 /* Generate code to do the static destruction of DECL.  If DECL may be
-   initialized more than once in different object files, SENTRY is the
+   initialized more than once in different object files, GUARD is the
    guard variable to check.  PRIORITY is the priority for the
    destruction.  */
 
@@ -3359,7 +3447,7 @@ static void
 do_static_destruction (decl)
      tree decl;
 {
-  tree sentry_if_stmt;
+  tree guard_if_stmt;
 
   /* If we're using __cxa_atexit, then destructors are registered
      immediately after objects are initialized.  */
@@ -3370,10 +3458,10 @@ do_static_destruction (decl)
     return;
 
   /* Actually do the destruction.  */
-  sentry_if_stmt = start_static_initialization_or_destruction (decl,
+  guard_if_stmt = start_static_initialization_or_destruction (decl,
 							       /*initp=*/0);
   finish_expr_stmt (build_cleanup (decl));
-  finish_static_initialization_or_destruction (sentry_if_stmt);
+  finish_static_initialization_or_destruction (guard_if_stmt);
 }
 
 /* VARS is a list of variables with static storage duration which may
@@ -5358,7 +5446,9 @@ handle_class_head (aggr, scope, id)
   tree decl;
 
   if (TREE_CODE (id) == TYPE_DECL)
-    decl = id;
+    /* We must bash typedefs back to the main decl of the type. Otherwise
+       we become confused about scopes.  */
+    decl = TYPE_MAIN_DECL (TREE_TYPE (id));
   else if (DECL_CLASS_TEMPLATE_P (id))
     decl = DECL_TEMPLATE_RESULT (id);
   else 

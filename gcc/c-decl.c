@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "intl.h"
 #include "tree.h"
 #include "rtl.h"
 #include "flags.h"
@@ -4015,7 +4016,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 		      error ("`long long long' is too long for GCC");
 		    else
 		      {
-			if (pedantic && ! in_system_header && warn_long_long)
+			if (pedantic && !flag_isoc99 && ! in_system_header
+			    && warn_long_long)
 			  pedwarn ("ANSI C does not support `long long'");
 			longlong = 1;
 		      }
@@ -4078,7 +4080,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 	  if ((warn_implicit_int || warn_return_type) && funcdef_flag)
 	    warn_about_return_type = 1;
 	  else if (warn_implicit_int || flag_isoc99)
-	    warning ("type defaults to `int' in declaration of `%s'", name);
+	    pedwarn_c99 ("type defaults to `int' in declaration of `%s'", name);
 	}
 
       defaulted_int = 1;
@@ -4228,11 +4230,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
   restrictp = !! (specbits & 1 << (int) RID_RESTRICT) + TYPE_RESTRICT (type);
   volatilep = !! (specbits & 1 << (int) RID_VOLATILE) + TYPE_VOLATILE (type);
   inlinep = !! (specbits & (1 << (int) RID_INLINE));
-  if (constp > 1 && !flag_isoc99)
+  if (constp > 1 && ! flag_isoc99)
     pedwarn ("duplicate `const'");
-  if (restrictp > 1 && !flag_isoc99)
+  if (restrictp > 1 && ! flag_isoc99)
     pedwarn ("duplicate `restrict'");
-  if (volatilep > 1 && !flag_isoc99)
+  if (volatilep > 1 && ! flag_isoc99)
     pedwarn ("duplicate `volatile'");
 
   boundedp = BOUNDED_POINTER_TYPE_P (type);
@@ -4607,11 +4609,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 		      error ("invalid type modifier within pointer declarator");
 		    }
 		}
-	      if (constp > 1)
+	      if (constp > 1 && ! flag_isoc99)
 		pedwarn ("duplicate `const'");
-	      if (volatilep > 1)
+	      if (volatilep > 1 && ! flag_isoc99)
 		pedwarn ("duplicate `volatile'");
-	      if (restrictp > 1)
+	      if (restrictp > 1 && ! flag_isoc99)
 		pedwarn ("duplicate `restrict'");
 
 	      if (xboundedp && xunboundedp)
@@ -5186,11 +5188,15 @@ parmlist_tags_warning ()
 		  : "enum"),
 		 IDENTIFIER_POINTER (TREE_PURPOSE (elt)));
       else
-	warning ("anonymous %s declared inside parameter list",
-		 (code == RECORD_TYPE ? "struct"
-		  : code == UNION_TYPE ? "union"
-		  : "enum"));
-
+        {
+          /* For translation these need to be seperate warnings */
+          if (code == RECORD_TYPE)
+	    warning ("anonymous struct declared inside parameter list");
+	  else if (code == UNION_TYPE)
+	    warning ("anonymous union declared inside parameter list");
+	  else	  
+	    warning ("anonymous enum declared inside parameter list");
+	}
       if (! already)
 	{
 	  warning ("its scope is only this definition or declaration, which is probably not what you want.");
@@ -5334,10 +5340,10 @@ finish_struct (t, fieldlist, attributes)
       {
 	if (pedantic)
 	  pedwarn ("%s defined inside parms",
-		   TREE_CODE (t) == UNION_TYPE ? "union" : "structure");
+		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
 	else if (! flag_traditional)
 	  warning ("%s defined inside parms",
-		   TREE_CODE (t) == UNION_TYPE ? "union" : "structure");
+		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
       }
 
   if (pedantic)
@@ -5347,9 +5353,9 @@ finish_struct (t, fieldlist, attributes)
 	  break;
 
       if (x == 0)
-	pedwarn ("%s has no %smembers",
-		 TREE_CODE (t) == UNION_TYPE ? "union" : "struct",
-		 fieldlist ? "named " : "");
+	pedwarn ("%s has no %s",
+		 TREE_CODE (t) == UNION_TYPE ? _("union") : _("struct"),
+		 fieldlist ? _("named members") : _("members"));
     }
 
   /* Install struct as DECL_CONTEXT of each field decl.
@@ -5873,7 +5879,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
 
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl1))))
     {
-      error ("return-type is an incomplete type");
+      error ("return type is an incomplete type");
       /* Make it return void instead.  */
       TREE_TYPE (decl1)
 	= build_function_type (void_type_node,
@@ -5881,7 +5887,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
     }
 
   if (warn_about_return_type)
-    warning ("return-type defaults to `int'");
+    pedwarn_c99 ("return type defaults to `int'");
 
   /* Save the parm names or decls from this function's declarator
      where store_parm_decls will find them.  */

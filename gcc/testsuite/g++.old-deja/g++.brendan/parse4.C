@@ -12,13 +12,13 @@ public:
     void f() {}
 };
 
-int g() { return 0; } // gets bogus error - referenced below XFAIL *-*-*
+int g() { return 0; } // gets bogus error - referenced below
 
 int main()
 {
     int try1;
     B( try1 ).f();   // no syntax error
     B b( g() );      // no syntax error
-    B( ::g() ).f();  // no syntax error 
+    B( ::g() ).f();  // gets bogus error - treated as decl XFAIL *-*-*
     B( g() ).f();    // gets bogus error - treated as decl XFAIL *-*-*
 }

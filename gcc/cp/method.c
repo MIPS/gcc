@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "expr.h"
 #include "output.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -920,7 +919,7 @@ build_template_template_parm_names (parmlist)
 {
   int i, nparms;
 
-  my_friendly_assert (TREE_CODE (parmlist) == TREE_VEC, 246.5);
+  my_friendly_assert (TREE_CODE (parmlist) == TREE_VEC, 990228);
   nparms = TREE_VEC_LENGTH (parmlist);
   icat (nparms);
   for (i = 0; i < nparms; i++)
@@ -2068,15 +2067,29 @@ hack_identifier (value, name)
    DELTA is the offset to this and VCALL_INDEX is zero.  */
 
 tree
-make_thunk (function, delta, vcall_index)
+make_thunk (function, delta, vcall_index, generate_with_vtable_p)
      tree function;
-     int delta;
-     int vcall_index;
+     tree delta;
+     tree vcall_index;
+     int generate_with_vtable_p;
 {
   tree thunk_id;
   tree thunk;
   tree func_decl;
-  int vcall_offset = vcall_index * int_size_in_bytes (vtable_entry_type);
+  tree vcall_offset;
+  HOST_WIDE_INT d;
+
+  /* Scale the VCALL_INDEX to be in terms of bytes.  */
+  if (vcall_index)
+    vcall_offset 
+      = size_binop (MULT_EXPR,
+		    vcall_index,
+		    convert (ssizetype,
+			     TYPE_SIZE_UNIT (vtable_entry_type)));
+  else
+    vcall_offset = NULL_TREE;
+
+  d = tree_low_cst (delta, 0);
 
   if (TREE_CODE (function) != ADDR_EXPR)
     abort ();
@@ -2085,22 +2098,23 @@ make_thunk (function, delta, vcall_index)
     abort ();
 
   if (flag_new_abi) 
-    thunk_id = mangle_thunk (TREE_OPERAND (function, 0),  delta, vcall_offset);
+    thunk_id = mangle_thunk (TREE_OPERAND (function, 0), 
+			     delta, vcall_offset);
   else
     {
       OB_INIT ();
       OB_PUTS ("__thunk_");
-      if (delta > 0)
+      if (d > 0)
 	{
 	  OB_PUTC ('n');
-	  icat (delta);
+	  icat (d);
 	}
       else
-	icat (-delta);
+	icat (-d);
       OB_PUTC ('_');
       if (vcall_index)
 	{
-	  icat (vcall_index);
+	  icat (tree_low_cst (vcall_index, 0));
 	  OB_PUTC ('_');
 	}
       OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
@@ -2126,8 +2140,9 @@ make_thunk (function, delta, vcall_index)
       comdat_linkage (thunk);
       SET_DECL_THUNK_P (thunk);
       DECL_INITIAL (thunk) = function;
-      THUNK_DELTA (thunk) = delta;
+      THUNK_DELTA (thunk) = d;
       THUNK_VCALL_OFFSET (thunk) = vcall_offset;
+      THUNK_GENERATE_WITH_VTABLE_P (thunk) = generate_with_vtable_p;
       /* The thunk itself is not a constructor or destructor, even if
        the thing it is thunking to is.  */
       DECL_INTERFACE_KNOWN (thunk) = 1;
@@ -2147,6 +2162,8 @@ make_thunk (function, delta, vcall_index)
       DECL_DEFERRED_FN (thunk) = 0;
       /* So that finish_file can write out any thunks that need to be: */
       pushdecl_top_level (thunk);
+      /* Create RTL for this thunk so that its address can be taken.  */
+      make_function_rtl (thunk);
     }
   return thunk;
 }
@@ -2154,17 +2171,20 @@ make_thunk (function, delta, vcall_index)
 /* Emit the definition of a C++ multiple inheritance vtable thunk.  */
 
 void
-emit_thunk (thunk_fndecl)
+use_thunk (thunk_fndecl, emit_p)
      tree thunk_fndecl;
+     int emit_p;
+     
 {
   tree fnaddr;
   tree function;
-  int delta;
-  int vcall_offset;
+  tree vcall_offset;
+  HOST_WIDE_INT delta;
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
-
+  
+  fnaddr = DECL_INITIAL (thunk_fndecl);
   if (TREE_CODE (DECL_INITIAL (thunk_fndecl)) != ADDR_EXPR)
     /* We already turned this thunk into an ordinary function.
        There's no need to process this thunk again.  (We can't just
@@ -2172,16 +2192,25 @@ emit_thunk (thunk_fndecl)
        FNADDR_FROM_VTABLE_ENTRY and friends.)  */
     return;
 
-  fnaddr = DECL_INITIAL (thunk_fndecl);
+  /* Thunks are always addressable; they only appear in vtables.  */
+  TREE_ADDRESSABLE (thunk_fndecl) = 1;
+
+  /* Figure out what function is being thunked to.  It's referenced in
+     this translation unit.  */
   function = TREE_OPERAND (fnaddr, 0);
+  TREE_ADDRESSABLE (function) = 1;
+  mark_used (function);
+  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (function)) = 1;
+  if (!emit_p)
+    return;
+
   delta = THUNK_DELTA (thunk_fndecl);
   vcall_offset = THUNK_VCALL_OFFSET (thunk_fndecl);
 
-  TREE_ADDRESSABLE (function) = 1;
-  mark_used (function);
-
-  if (current_function_decl)
-    abort ();
+  /* And, if we need to emit the thunk, it's used.  */
+  mark_used (thunk_fndecl);
+  /* This thunk is actually defined.  */
+  DECL_EXTERNAL (thunk_fndecl) = 0;
 
   if (flag_syntax_only)
     {
@@ -2189,14 +2218,13 @@ emit_thunk (thunk_fndecl)
       return;
     }
 
+  push_to_top_level ();
+
 #ifdef ASM_OUTPUT_MI_THUNK
-  if (vcall_offset == 0)
+  if (!vcall_offset)
     {
       const char *fnname;
       current_function_decl = thunk_fndecl;
-      /* Make sure we build up its RTL before we go onto the
-	 temporary obstack.  */
-      make_function_rtl (thunk_fndecl);
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
       fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
@@ -2235,17 +2263,15 @@ emit_thunk (thunk_fndecl)
     DECL_ARGUMENTS (thunk_fndecl) = a;
     DECL_RESULT (thunk_fndecl) = NULL_TREE;
 
-    push_to_top_level ();
     start_function (NULL_TREE, thunk_fndecl, NULL_TREE, SF_PRE_PARSED);
     store_parm_decls ();
 
     /* Adjust the this pointer by the constant.  */
     t = ssize_int (delta);
-    TREE_TYPE (t) = signed_type (sizetype);
     t = fold (build (PLUS_EXPR, TREE_TYPE (a), a, t));
     /* If there's a vcall offset, look up that value in the vtable and
        adjust the `this' pointer again.  */
-    if (vcall_offset != 0)
+    if (!integer_zerop (vcall_offset))
       {
 	tree orig_this;
 
@@ -2259,7 +2285,7 @@ emit_thunk (thunk_fndecl)
 	/* Form the vtable address.  */
 	t = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (t)), t);
 	/* Find the entry with the vcall offset.  */
-	t = build (PLUS_EXPR, TREE_TYPE (t), t, ssize_int (vcall_offset));
+	t = build (PLUS_EXPR, TREE_TYPE (t), t, vcall_offset);
 	/* Calculate the offset itself.  */
 	t = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (t)), t);
 	/* Adjust the `this' pointer.  */
@@ -2275,10 +2301,10 @@ emit_thunk (thunk_fndecl)
       t = tree_cons (NULL_TREE, a, t);
     t = nreverse (t);
     t = build_call (function, t);
-    if (!same_type_p (TREE_TYPE (t), void_type_node))
-      finish_return_stmt (t);
-    else
+    if (VOID_TYPE_P (TREE_TYPE (t)))
       finish_expr_stmt (t);
+    else
+      finish_return_stmt (t);
 
     /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
        create one.  */
@@ -2286,8 +2312,9 @@ emit_thunk (thunk_fndecl)
     BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) 
       = DECL_ARGUMENTS (thunk_fndecl);
     expand_body (finish_function (0));
-    pop_from_top_level ();
   }
+
+  pop_from_top_level ();
 }
 
 /* Code for synthesizing methods which have default semantics defined.  */
@@ -2621,8 +2648,8 @@ implicitly_declare_fn (kind, type, const_p)
   my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 20000408);
 
   if (kind != sfk_constructor && kind != sfk_destructor)
-    SET_DECL_ARTIFICIAL (TREE_CHAIN (DECL_ARGUMENTS (fn)));
-  SET_DECL_ARTIFICIAL (fn);
+    DECL_ARTIFICIAL (TREE_CHAIN (DECL_ARGUMENTS (fn))) = 1;
+  DECL_ARTIFICIAL (fn) = 1;
   DECL_NOT_REALLY_EXTERN (fn) = 1;
   DECL_THIS_INLINE (fn) = 1;
   DECL_INLINE (fn) = 1;

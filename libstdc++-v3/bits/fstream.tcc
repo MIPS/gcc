@@ -55,16 +55,15 @@ namespace std
   template<typename _CharT, typename _Traits>
     basic_filebuf<_CharT, _Traits>::
     basic_filebuf() 
-    : __streambuf_type(), _M_file(NULL), _M_last_overflowed(false), 
-    _M_state_cur(), _M_state_beg() 
+    : __streambuf_type(), _M_file(NULL), _M_state_cur(), _M_state_beg(), 
+    _M_last_overflowed(false)
     { _M_fcvt = &use_facet<__codecvt_type>(this->getloc()); }
-
 
   template<typename _CharT, typename _Traits>
     basic_filebuf<_CharT, _Traits>::
     basic_filebuf(int __fd, const char* /*__name*/, ios_base::openmode __mode)
-    : __streambuf_type(), _M_last_overflowed(false),
-    _M_state_cur(), _M_state_beg()
+    : __streambuf_type(), _M_state_cur(), _M_state_beg(),
+    _M_last_overflowed(false)
     {
       _M_fcvt = &use_facet<__codecvt_type>(this->getloc());
       _M_init_filebuf();
@@ -142,9 +141,11 @@ namespace std
 	      _M_really_overflow(traits_type::eof());
 	    }
 #endif
-	  
-	  if (_M_file->close())
+
+	  if (_M_file)
 	    {
+	      delete _M_file;
+	      _M_file = NULL;
 	      _M_mode = ios_base::openmode(0);
 	      if (_M_buf_size)
 		delete [] _M_buf;

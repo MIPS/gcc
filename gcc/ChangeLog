@@ -1,3 +1,665 @@
+2000-06-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (c-common.o): Don't depend on c-tree.h or c-lex.h.
+	* c-common.c (ridpointers): Declare.
+	* c-common.h (enum rid): Declare.
+	(NORID): Likewise.
+	(ridpointers): Likewise.
+	* c-lex.c (ridpointers): Don't declare.
+	(init_lex): Initialize ridpointers.
+	* c-lex.h (enum rid): Don't declare.
+	(NORID): Likewise.
+	(RID_FIRST_MODIFIER): Likewise.
+	(ridpointers): Likewise.
+	
+2000-06-30  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/som.h (ASM_WEAKEN_LABEL): Export weak data symbols so that they
+	have global scope.
+
+2000-06-30  Martin von Loewis  <loewis@informatik.hu-berlin.de>
+
+	* invoke.texi (-Wreturn-type): In C++, a missing return type is
+	always an error.
+
+2000-06-30  Catherine Moore  <clm@cygnus.com>
+ 
+        * c-common.c (decl_attributes):  Differentiate between
+        types and type decls for alignment.
+
+2000-06-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cpp.texi: Document #pragma GCC dependency
+	* cppfiles.c (open_include_file): Set date to unknown.
+	(_cpp_compare_file_date): New function.
+	(read_include_file): Set file date.
+	* cpphash.h (struct include_file): Add date member.
+	(_cpp_compare_file_date): Prototype.
+	* cpplib.c (parse_include): Add trail parameter. Adjust.
+	(do_include): Adjust parse_include call.
+	(do_import): Likewise.
+	(do_include_next): Likewise.
+	(gcc_pragmas): Add dependency pragma.
+	(do_pragma_dependancy): New pragma.
+
+2000-06-29  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (output_loc_operands): Don't abort on codes that have
+	no operands.
+
+2000-06-29  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/ia64.h (PREFERRED_RELOAD_CLASS): Return NO_REGS for
+	a volatile mem and FR_REGS.
+
+2000-06-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-common.c: Include c-common.h, not c-lex.h or c-tree.h.
+	* c-common.h (flag_const_strings): Declare.
+	(warn_format): Likewise.
+	(flag_traditional): Likewise.
+	(flag_isoc99): Likewise.
+	(warn_parentheses): Likewise.
+	(warn_conversion): Likewise.
+	(C_TYPE_OBJECT_P): Likewise.
+	(C_TYPE_INCOMPLETE_P): Likewise.
+	(C_TYPE_FUNCTION_P): Likewise.
+	(C_TYPE_OBJECT_OR_INCOMPLETE_P): Likewise.
+	(C_EXP_ORIGINAL_CODE): Likewise.
+	(build_unary_op): Likewise.
+	(build_binary_op): Likewise.
+	(lvalue_p): Likewise.
+	(default_conversion): Likewise.
+	(common_type): Likewise.
+	* c-tree.h (C_TYPE_OBJECT_P): Remove.
+	(C_TYPE_INCOMPLETE_P): Likewise.
+	(C_TYPE_FUNCTION_P): Likewise.
+	(C_TYPE_OBJECT_OR_INCOMPLETE_P): Likewise.
+	(C_EXP_ORIGINAL_CODE): Likewise.
+	(common_type): Likewise.
+	(default_conversion): Likewise.
+	(build_binary_op): Likewise.
+	(build_unary_op): Likewise.
+	(lvalue_p): Likewise.
+	(flag_const_strings): Likewise.
+	(warn_format): Likewise.
+	(warn_conversion): Likewise.
+	(flag_traditional): Likewise.
+	(flag_isoc99): Likewise.
+	(warn_parentheses): Likewise.
+	
+2000-06-29  James E. Wilson  <wilson@cygnus.com>
+
+	* config/ia64/linux.h (LINK_SPEC): Change so.1 to so.2.
+	
+	* config/ia64/ia64.h (MODES_TIEABLE_P): Only tie if mode class is the
+	same.  Only tie XFmode with XFmode.
+
+2000-06-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* c-decl.c, timevar.c, tlink.c: Include intl.h.
+	* Makefile.in: Update deps.
+
+2000-06-29  Andrew Haley  <aph@cygnus.com>
+
+	* toplev.c (main): On an IA-64, make flag_unwind_tables defauit
+	to true.
+
+2000-06-29  Andrew Haley  <aph@cygnus.com>
+
+        * config/ia64/linux.h (JMP_BUF_SIZE): Size is in Pmode units, not
+        bytes: remove the multiply by 8.
+
+2000-06-29  Philipp Thomas  <pthomas@suse.de>
+
+	* rtl.c : Revert NLS changes.
+	* gcc.c : Fix bug in display_help introced by my last changes.
+
+Wed Jun 28 21:09:33 2000   Raja R Harinath <harinath@cs.umn.edu>
+
+	* dbxout.c (dbxout_symbol, case RESULT_DECL, VAR_DECL): Use
+	DECL_CONTEXT, not DECL_FIELD_CONTEXT.
+
+2000-06-29  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* flow.c (flow_depth_first_order_compute): Fix algorithm.
+
+2000-06-28  Philipp Thomas  <pthomas@suse.de>
+
+	* c-decl.c : Mark strings for translation.
+	(parmlist_tags_warning): Use distinct messages instead
+	of conditional expressions.
+	* diagnostic.c (v_message_with_decl): Mark string for translation.
+	* gcc.c: Mark messages for translation.
+	(display_help): Combine messages into one string where necessary.
+	* mips-tfile: Add intl.h. Mark messages for translation.
+	* rtl.c (fatal_with_file_and_line): Modify function for NLS. Mark
+	messages for translation.
+	* timevar.c: Mark messages for translation.
+	* tlink.c: Likewise.
+	* toplev.c: Likewise.
+
+Wed Jun 28 15:39:26 2000  Donn Terry (donnte@microsoft.com)
+
+	* i386-interix.h (STRIP_NAME_ENCODING): Declare _new_name properly.
+
+	* alpha/alpha-interix.h: Delete redundant -Asystem(interix),
+	use -isystem instead of -idirafter.
+	* i386/i386-interix.h: Likewise.
+
+2000-06-28  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (output_loc_operands): Don't support >1 byte output
+	unless DWARF2_DEBUGGING_INFO is defined.
+	(ASM_OUTPUT_DWARF_*): Wrap normal output defs with #ifndefs.
+
+2000-06-28  Richard Henderson  <rth@cygnus.com>
+
+	* config/alpha/alpha.c (summarize_insn): Ignore SCRATCH.
+
+2000-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* cpplex.c (output_line_command): Output correct #line if a header
+	is including itself and is not protected against multiple inclusion.
+
+2000-06-28  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppfiles.c (open_include_file): If open(2) returns EMFILE or
+	ENFILE, close all cached file descriptors and try again.      
+	(_cpp_execute_include): Keep a count of the number of times
+	each header is included.
+	(close_cached_fd): New function.
+	* cpphash.h (struct include_file): Rename before to
+	include_count; all users updated.  Make include_count and sysp
+	unsigned short.
+	* cppinit.c (cpp_finish): If -H, report headers that could use
+	reinclude guards.
+	(report_missing_guard): New function.
+
+Wed Jun 28 14:46:58 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (prologue_set_got): Set length_immediate field.
+	(testqi_ccno_1):  Add missing '@' character.
+
+2000-06-27  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (expand_builtin_init_dwarf_reg_sizes): Use
+	DWARF_FRAME_REGNUM.
+
+2000-06-27  Andrew Macleod <amacleod@cygnus.com>
+
+	* dwarf2out.c (ASM_OUTPUT_DWARF_DATA2): Provide default when no 
+	unsigned macros available.
+
+2000-06-27  Richard Henderson  <rth@cygnus.com>
+
+	* config/ia64/ia64.c (emit_insn_group_barriers): Special case
+	epilogue_deallocate_stack.
+
+	* config/ia64/ia64.c (ia64_print_operand) [case D]: Emit
+	completers for UNORDERED and ORDERED as well.
+	* config/ia64/ia64.md (bunordered, bordered): New.
+	(sunordered, sordered): New.
+
+Tue Jun 27 12:14:12 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* genattrtab.c (write_attr_value): Do not abort for CONST_INT operands.
+	* i386.c (ix86_attr_length_default): Kill.
+	(ix86_attr_length_immediate_default, ix86_attr_length_address_default):
+	New.
+	* i386-protos.h (ix86_attr_length_default): Kill
+	(ix86_attr_length_immediate_default, ix86_attr_length_address_default):
+	Add prototype
+	* i386.md (attribute type): Add "test".
+	(attribute length_prefix): Kill.
+	(attribute length_opcode): Kill.
+	(attribute i387, mode, length_immediate, length_address, prefix_data16,
+	prefix_rep, prefix_0f, modrm): New.
+	(attribute length): Compute using the new attributes.
+	(attribute pent_prefix): New.
+	(attribute pent_pair): Compute using pent_prefix.
+	(all insn patterns): Set mode,modrm and immediate_length attributes where
+	needed.
+	(cmpsi patterns): Compute sizes propertly for test instruction.
+	(movsi, movhi patterns): Compute sizes propertly for eax shortcuts.
+	(movstricthi_xor, movstrictqi_xor): New patterns.
+	(andsi/andhi): Use splitters to generate xor instructions.
+	(xorqi_ext_1): New pattern.
+	(movstricthi->movstricthi_xor peep2): New.
+
+Tue Jun 27 12:03:03 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (addqi_low_1): Remove.
+
+2000-06-27  Philipp Thomas  <pthomas@suse.de>
+
+	* 1750a.h: Mark help strings for options/switches for translation.
+	* a29k.h: Likewise.
+	* alpha.h: Likewise.
+	* arm.h: Likewise.
+	* pe.h: Likewise.
+	* riscix.h: Likewise.
+	* c4x.h: Likewise.
+	* clipper.h: Likewise.
+	* convex.h: Likewise. 
+	* elxsi.h: Likewise.
+	* fr30.h: Likewise.
+	* fx80.h: Likewise.
+	* h8300.h: Likewise.
+	* i370.h: Likewise.
+	* cygwin.h: Likewise.
+	* dgux.h: Likewise.
+	* djgpp.h: Likewise.
+	* i386.h: Likewise.
+	* osf1elf.h: Likewise.
+	* osfrose.h: Likewise.
+	* sco5.h: Likewise.
+	* win32.h: Likewise.
+	* i860.h: Likewise.
+	* paragon.h: Likewise.
+	* i960.h: Likewise.
+	* ia64.h: Likewise.
+	* m32r.h: Likewise.
+	* mcore.h: Likewise.
+	* mips.h: Likewise.
+	* mn10300.h: Likewise.
+	* ns32k.h: Likewise.
+	* pdp11.h: Likewise.
+	* pj.h: Likewise.
+	* aix.h: Likewise.
+	* aix41.h: Likewise.
+	* aix43.h: Likewise.
+	* beos.h: Likewise.
+	* rs6000.h: Likewise.
+	* sysv4.h: Likewise.
+	* linux.h: Likewise.
+	* linux64.h: Likewise.
+	* sp64-elf.h: Likewise.
+	* sparc.h: Likewise.
+	* splet.h: Likewise.
+	* v850.h: Likewise.
+	* convex.h (TARGET_SWITCHES): Provide descriptions and mark them
+	for translation.
+	* sp86x-aout.h: Remove bogus first definition of SUBTARGET_SWITCHES.
+	Properly document option and mark for translation.
+	* sp86x-elf.h: Likewise.
+
+2000-06-27  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	Add MMX and SSE registers to i386 machine description.
+	* i386-protos.h (ix86_constant_alignment, ix86_data_alignment,
+	ix86_local_alignment): Declare.
+
+	* i386.h (TARGET_MMX, TARGET_SSE): New.
+	(FIRST_PSEUDO_REGISTER, FIXED_REGISTERS, CALL_USED_REGISTERS,
+	REG_ALLOC_ORDER, HARD_REGNO_NREGS, HARD_REGNO_MODE_OK,
+	REG_CLASS_NAMES, REG_CLASS_CONTENTS,REG_CLASS_FROM_LETTER,
+	enum reg_class, HI_REGISTER_NAMES): Added MMX/SSE registers.
+	(FIRST_SSE_REG, LAST_SSE_REG, SSE_REGNO_P): New.
+	(FIRST_MMX_REG, LAST_MMX_REG, MMX_REGNO_P, MMX_REG_P): New macros.
+	(RETURN_IN_MEMORY): Handle MMX/SSE.
+	(REG_PARM_STACK_SPACE): Added so the first three TImode parameters
+	also get stack space.
+	(MUST_PASS_IN_STACK): Added TImode to the default definition.
+	(CUMULATIVE_ARGS): Added sse_nregs, sse_regno and sse_words.
+	(MMX_REGISTER_NAMES): New.
+	(ALIGN_MODE_128): New macro.
+	(CONSTANT_ALIGNMENT): Code moved out-of-line; just call the function.
+	(DATA_ALIGNMENT): Likewise.
+	(LOCAL_ALIGNMENT): Likewise.
+	(CONDITIONAL_REGISTER_USAGE): Make MMX/SSE regs fixed if not
+	TARGET_MMX/TARGET_SSE.
+	(VALID_SSE_REG_MODE, VALID_MMX_REG_MODE): New macros.
+	(REG_CLASS_FROM_LETTER): 'y' for MMX regs.
+	(SECONDARY_MEMORY_NEEDED): Be conservative about copying between
+	SSE/MMX regs and something else.
+	(CLASS_MAX_NREGS): 1 for SSE and MMX regs.
+	(REGISTER_MOVE_COST): 10 if trying to move between MMX and SSE regs,
+	3 if moving between MMX regs and something else.
+
+	* i386.c (reg_class): Add SSE_REGS, MMX_REGS.
+	(regclass_map): Add MMX/SSE registers.
+	(print_operand): Add code to print XMMWORD as appropriate.
+	(ix86_split_movdi): Abort for MMX regs.
+	(init_cumulative_args): Also allow SSE_REGS
+	(function_arg_advance, function_arg): Likewise
+	(print_reg): Support 'm'.  Add case for TImode.
+	(override_options): TARGET_SSE implies TARGET_MMX.
+	(ix86_constant_alignment, ix86_data_alignment, ix86_local_alignment):
+	New functions.
+
+	* config/i386/unix.h (VALUE_REGNO): VECTOR_MODE values go to
+	FIRST_SSE_REG.
+	* config/i386/ptx4-i.h (RETURN_IN_MEMORY): Return MMX values in
+	memory.
+	* config/i386/sysv4.h (RETURN_IN_MEMORY): Likewise.
+	* config/i386/i386elf.h (RETURN_IN_MEMORY): Likewise.
+
+2000-06-26  Geoff Keating  <geoffk@cygnus.com>
+
+	* ssa.c (struct rename_set_data): Change the name of field
+	'set_dest' to 'old_reg'.  Add comments.
+	(struct rename_context): Change the name of 'set_data' to
+	'new_renames'.  Add new field 'done_renames'.
+	(create_delayed_rename): New function.
+	(apply_delayed_renames): New function.
+	(rename_insn_1): Use the new functions.  Handle CLOBBERS.  Handle
+	SUBREGs and similar by emitting a move.
+	(new_registers_for_updates): Delete, functionality moved to
+	apply_delayed_renames.
+	(rename_block): Handle moves emitted by rename_insn_1 by putting
+	them into a SEQUENCE with the original insn.  Add sanity checks
+	and comments.
+	(rename_equivalent_regs_in_insn): Don't handle SUBREGs specially.
+	(rename_equivalent_regs): Expand SEQUENCEs out to individual insns.
+	
+2000-06-26  Andrew Macleod <amacleod@cygnus.com>
+	    Jason Merrill <jason@redhat.com>
+
+	* dwarf2.h (enum dwarf_call_frame_info): Add 
+	DW_CFA_def_cfa_expression.
+	* dwarf2out.c (union dw_cfi_oprnd_struct): Add a pointer to a
+	dw_loc_descr_struct entry.
+	(struct cfa_loc): New structure to track a CFA location.
+	(lookup_cfa): Take a cfa_loc parameter instead of a reg and an offset.
+	(lookup_cfa_1): Take a cfa_loc parameter instead of a reg and an
+	offset, plus handle DW_CFA_def_cfa_expression.
+	(def_cfa_1): Use to be dwarf2out_def_cfa, only now it uses a
+	cfa_loc record.
+	(dwarf2out_def_cfa): Entry point maintained for compatability.
+	(dwarf_cfi_name): Add DW_CFA_def_cfa_expression.
+	(cfa_reg, cfa_offset): Replace with cfa_loc record 'cfa'.
+	(cfa_store_reg, cfa_store_offset): Replace with cfa_loc 'cfa_store'.
+	(initial_return_save, dwarf2out_stack_adjust): Use cfa.reg, not
+	cfa_reg.
+	(dwarf2out_frame_debug_expr): Use new cfa_loc records. Recognize rtl
+	sequences for the new DW_CFA_def_cfa_expression record.
+	(dwarf2out_frame_debug): Use new variables/fields.A
+	(output_cfi): Handle DW_CFA_def_cfa_expression.
+	(output_cfa_loc): New function to generate a CFI record for 
+	DW_CFA_def_cfa_expression.
+	(get_cfa_from_loc_descr): New function to get a cfa_loc record from
+	a dw_loc_descr sequeunce.
+	(build_loc_descr): Build a dw_loc_descr from a cfa_loc record.
+	(dwarf_stack_op_name, new_loc_descr, add_loc_descr, size_of_loc_descr,
+	size_of_locs, output_loc_operands, output_loc_sequence): Move into
+	unwind info section.
+	* frame.h (frame_state): Add base_offset and indirect fields.
+	* frame-dwarf2.c (decode_stack_op): New function to interpret a
+	dw_loc_descr operation.
+	(execute_cfa_insn): Add support for DW_CFA_def_cfa_expression.
+	(struct frame_state): Add base offset and indirect fields.
+	* libgcc2.c (next_stack_level): Support indirect loading for CFA.
+
+2000-06-26  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* c-decl.c (grokdeclarator): Don't warn about `long long' in C99.
+	Make warnings about implicit int be pedwarns in C99.  Don't warn
+	about duplicate type qualifiers in C99.
+	(start_function): Make warning about implict int return type be a
+	pedwarn in C99.
+	* c-lex.c (yylex): Don't warn about `long long' in C99.
+	* c-typeck.c (c_expand_return): In C99, always pedwarn about
+	`return' with no value in function returning non-void.
+
+2000-06-26  Richard Henderson  <rth@cygnus.com>
+
+	* c-typeck.c (pedwarn_c99): New.
+	* diagnostic.c (verror, vwarning, vpedwarn): Export.
+	* toplev.h: Prototype them.
+
+2000-06-26  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* c-typeck.c (digest_init): Return error_mark_node node when
+	TREE_TYPE (init)  == error_mark_node.
+
+2000-06-26  Philipp Thomas  <pthomas@suse.de>
+
+	* aclocal.m4 (AM_WITH_NLS): Don't set MSGFMT or GMSGFMT to no,
+	test for msgfmt without path instead.
+	* configure: Rebuilt.
+
+2000-06-25 Theodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* gengenrtl.c (special_rtx): Fix typo in comment.
+
+2000-06-26  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* mklibgcc.in (LIB2FUNCS): Add missing space.
+
+2000-06-24  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* tree.h (enum tree_index): Add vector type nodes.
+	Add accessor macros for them.
+	(TYPE_REPRESENATION_TYPE): New macro.
+	* tree.c (build_common_tree_nodes_2): Build these nodes.
+	(finish_vector_type): New function.
+	* c-common.c (type_for_mode): Handle vector modes.
+	* tm.texi (VECTOR_MODE_SUPPORTED_P): Document.
+
+	* dbxout.c (dbxout_type): Handle VECTOR_TYPEs.
+	* dwarf.h (enum dwarf_fundamental_type): Add 128 bit integers.
+	* dwarf2out.c (lookup_type_die): Handle VECTOR_TYPEs.
+	(gen_type_die): Likewise.
+	* dwarfout.c (dwarf_fund_type_name): Handle 128 bit integers.
+	(fundamental_type_code): Likewise.
+	(type_is_fundamental): VECTOR_TYPEs aren't.
+	(output_type): Handle VECTOR_TYPEs.
+
+2000-06-25  Kazu Hirata  <kazu@hxi.com>
+
+	* config/arm.c: Fix a comment typo.
+	* config/arm.h: Likewise.
+
+2000-06-25  Philipp Thomas  <pthomas@suse.de>
+
+	* aclocal.m4 (AM_WITH_NLS): Set create_catalogs=no if no catalog
+	compiler found.
+	AM_GNU_GETTEXT: Don't set CATALOGS if create_catalogs=no.
+	* configure: Rebuilt.
+	
+2000-06-25  John David Anglin  <dave.anglin@nrc.ca>
+
+	* config/vax/vax.h (TARGET_SWITCHES): Provide descriptions.
+
+2000-06-25 Herman A.J. ten Brugge <Haj.Ten.Brugge@net.HCC.nl>
+
+	* mklibgcc.in: Prefer LIB1ASMFUNCS over LIB2FUNCS when generating
+	libgcc.a.
+
+2000-06-24  Marc Espie <espie@cvs.openbsd.org>
+
+	* collect2.c (resolve_lib_name): Move '/' check out of loop.
+
+2000-06-24  Dirk Duellmann  <Dirk.Duellmann@cern.ch>
+
+	* ginclude/stddef.h (NULL): define for non-gnu C++ parsers as 0.
+
+2000-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* stmt.c (expand_decl_cleanup): Emit a dummy insn after
+	last_unconditional_cleanup.
+
+2000-06-24  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* tree.def (VECTOR_TYPE): New node type.
+	* tree.h: Adjust some comments to reflect addition of vector types.
+	(TYPE_VECTOR_SUBPARTS): New macro.
+	* stor-layout.c (layout_type): Handle VECTOR_TYPE.
+	* c-convert.c (convert): Likewise.
+	* convert.c (convert_to_integer): Handle vector modes.
+	(convert_to_vector): New function.
+	* convert.h (convert_to_vector): Declare.
+	* expr.c (convert_move): Handle vector modes.
+	* expmed.c (extract_bit_field): Don't abort for vector modes.
+
+2000-06-24  Marek Michalkiewicz  <marekm@linux.org.pl>
+
+	* config/avr/avr-protos.h (avr_hard_regno_mode_ok): New prototype.
+	* config/avr/avr.c (out_adj_frame_ptr, out_set_stack_ptr):
+	New functions, common code moved from function_{prologue,epilogue}
+	and extended to support the -mtiny-stack option.
+	(function_prologue, function_epilogue): Use them.
+	Use lo8/hi8 consistently for asm output readability.
+	(avr_hard_regno_mode_ok): New function.
+	* config/avr/avr.h (TARGET_SWITCHES): Fix typo.  Add -mtiny-stack.
+	(UNITS_PER_WORD): Define as 4 (not 1) when compiling libgcc2.c.
+	(HARD_REGNO_MODE_OK): Call the avr_hard_regno_mode_ok function.
+	* config/avr/avr.md (*mov_sp_r): Add support for -mtiny-stack.
+	Write SPH before SPL.
+	(*movqi): No need to disable interrupts for just one "out"
+	in alternative 5.  Change length attribute from 4 to 1.
+	* config/avr/libgcc.S (__prologue_saves__, __epilogue_restores__):
+	Write SPH before SPL.
+
+2000-06-24  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* rtl.texi (Vector Operations): New node.
+	(Arithmetic): Add ss_plus, us_plus, ss_minus, us_minus.
+	(Conversions): Add ss_truncate, us_truncate.
+	* rtl.def (VEC_MERGE, VEC_SELECT, VEC_CONCAT, VEC_REORDER,
+	VEC_CONST, VEC_DUPLICATE, SS_PLUS, SS_MINUS, SS_TRUNCATE,
+	US_TRUNCATE): New rtx codes.
+	* machmode.def: Add vector modes.
+	* machmode.h (enum mode_class): Add MODE_VECTOR_INT and
+	MODE_VECTOR_FLOAT.
+	(INTEGER_MODE_P): Check for MODE_VECTOR_INT.
+	(FLOAT_MODE_P): Check for MODE_VECTOR_FLOAT.
+	(VECTOR_MODE_P): New.
+
+2000-06-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cpp.texi: Clarify #pragma GCC namespace.	
+
+2000-06-24  Philipp Thomas  <pthomas@suse.de>
+
+	* aclocal.m4(AM_GNU_GETTEXT): If LINGUAS isn't set, build
+	all catalogs specified in ALL_LINGUAS.
+	* configure: Rebuilt.
+
+2000-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.md (reload_outdi+1): Handle
+	HOST_BITS_PER_WIDE_INT == 64 case correctly.
+	(adddi3_insn_sp32+1, adddi3_insn_sp32+2, andsi3+2): Likewise.
+
+2000-06-23  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* alias.c (fixed_scalar_and_varying_struct_p): Don't examine
+	struct vs. scalar-ness when -fno-strict-aliasing.
+
+2000-06-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cpplib.c (struct pragma_entry): New structure.
+	(pragma_dispatch): Pragma dispatcher.
+	(top_pragmas, gcc_pragmas): New static variables.
+	(do_pragma): Use pragma_dispatch.
+	(do_pragma_gcc): New pragma handler.
+	* cpp.texi: Update.
+
+2000-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* calls.c (compute_argument_addresses): Force stack slots into
+	alias set 0.
+	* expr.c (emit_push_insn): Force pushes into alias set 0.
+
+2000-06-23  Richard Henderson  <rth@cygnus.com>
+
+	* config/ia64/ia64.md (pred_rel_mutex): Only take one register.
+	* config/ia64/ia64.c (emit_predicate_relation_info): Adjust to match.
+
+2000-06-22  Jason Merrill  <jason@redhat.com>
+
+	* toplev.c (compile_file): Always call timevar_print.
+	* Makefile.in (calls.o): Depend on TIMEVAR_H.
+
+2000-06-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* varasm.c (constant_descriptor): Make contents unsigned char.
+	(mark_const_hash_entry): Adjust.
+	(const_hash): Just hash the code of unknown nodes.
+	(compare_constant_1): Adjust for unsigned char.
+	Use language specific expander on unknown nodes.
+	(record_constant_1): Likewise.
+
+2000-06-21  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppfiles.c (cpp_make_system_header): New function.
+	* cpplib.h: Prototype it.
+	* cpplib.c (do_line, do_pragma_system_header): Use it.
+	* fix-header.c (read_scan_file): Use it.
+
+	* fix-header.c (check_macro_names): Cast second arg of
+	cpp_defined to const unsigned char *.
+	(read_scan_file): Make getchar_call const unsigned char.
+
+2000-06-21  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppfiles.c: Include splay-tree.h, not hashtab.h.
+	(redundant_include_p, make_IHASH, hash_IHASH, eq_IHASH): Delete.
+	(destroy_include_file_node): New.
+	(_cpp_init_include_hash): Rename _cpp_init_include_table.
+	Create a splay tree, not a hash table.
+	(open_include_file): Look up the path in the include table,
+	do the multiple include optimization here, etc.
+	(cpp_included): Walk the path.
+	(find_include_file): Just walk the path calling
+	open_include_file, or call it directly for an absolute path.
+	(_cpp_fake_ihash): Rename _cpp_fake_include and update for new
+	scheme.
+	(read_include_file): Update for new scheme.  Don't close the
+	file unless reading fails.
+	(_cpp_execute_include, cpp_read_file): Tweak for new scheme.
+
+	* cpphash.h (struct ihash, NEVER_REINCLUDE): Delete.
+	(struct include_file): New.
+	(NEVER_REREAD, DO_NOT_REREAD, CPP_IN_SYSTEM_HEADER): New
+	macros.
+	(CPP_PEDANTIC, CPP_WTRADITIONAL): Update.
+	Update prototypes.
+
+	* cppinit.c: Include splay-tree.h.
+	(cpp_reader_init, cpp_cleanup): Update.
+
+	* cpplib.h (struct cpp_buffer): Change ihash field to 
+	'struct include_file *inc'.  Remove system_header_p.
+	(struct cpp_reader): Change all_include_files to a
+	struct splay_tree_s *.
+
+	* cpplex.c: Update all references to cpp_buffer->ihash and/or
+	cpp_buffer->system_header_p.
+	(cpp_pop_buffer): Close file here, only if DO_NOT_REREAD.
+
+	* Makefile.in (SPLAY_TREE_H): New macro.
+	(cppfiles.o, cppinit.o): Update dependencies.
+
+Wed Jun 21 11:05:48 2000  Martin Buchholz <martin@xemacs.org>
+
+	* invoke.texi (g++): "g++" is not a script anymore.
+
+2000-06-20  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* function.c (round_down): Delete obsolete prototype.
+
+	* pa.h (CPP_SPEC): Add whitespace after -D__STDC_EXT__.
+
+2000-06-20  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* configure.in: Use 'test a = b' not 'test a == b'.
+	* configure: Regen.
+
+	* Makefile.in (fix-header): Link with $(LIBS) not $(HOST_LIBS).
+
+	* Makefile.in: Remove all references to HOST_INTLLIBS.
+
+	* cpplex.c (parse_name): Don't warn about $ in identifiers if
+	skipping.
+
+2000-06-20  Philipp Thomas  <pthomas@suse.de>
+
+	* config/pa/pa.h(TARGET_SWITCHES): Require binutils 2.10 or later
+	for PA 2.0.
+
 Mon Jun 19 23:26:40 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* Take REG_INC notes into account.

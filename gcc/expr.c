@@ -545,6 +545,23 @@ convert_move (to, from, unsignedp)
       return;
     }
 
+  if (VECTOR_MODE_P (to_mode) || VECTOR_MODE_P (from_mode))
+    {
+      if (GET_MODE_BITSIZE (from_mode) != GET_MODE_BITSIZE (to_mode))
+	abort ();
+      
+      if (VECTOR_MODE_P (to_mode))
+	from = gen_rtx_SUBREG (to_mode, from, 0);
+      else
+	to = gen_rtx_SUBREG (from_mode, to, 0);
+
+      emit_move_insn (to, from);
+      return;
+    }
+
+  if (to_real != from_real)
+    abort ();
+
   if (to_real)
     {
       rtx value;
@@ -3051,6 +3068,8 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
       else
 #endif /* PUSH_ROUNDING */
 	{
+	  rtx target;
+
 	  /* Otherwise make space on the stack and copy the data
 	     to the address of that space.  */
 
@@ -3085,8 +3104,6 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 						  skip));
 	  if (current_function_check_memory_usage && ! in_check_memory_usage)
 	    {
-	      rtx target;
-	      
 	      in_check_memory_usage = 1;
 	      target = copy_to_reg (temp);
 	      if (GET_CODE (x) == MEM && type && AGGREGATE_TYPE_P (type))
@@ -3103,27 +3120,29 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	      in_check_memory_usage = 0;
 	    }
 
+	    target = gen_rtx_MEM (BLKmode, temp);
+
+	    if (type != 0)
+	      {
+		set_mem_attributes (target, type, 1);
+		/* Function incoming arguments may overlap with sibling call
+		   outgoing arguments and we cannot allow reordering of reads
+		   from function arguments with stores to outgoing arguments
+		   of sibling calls.  */
+		MEM_ALIAS_SET (target) = 0;
+	      }
+
 	  /* TEMP is the address of the block.  Copy the data there.  */
 	  if (GET_CODE (size) == CONST_INT
 	      && MOVE_BY_PIECES_P ((unsigned) INTVAL (size), align))
 	    {
-	      rtx target = gen_rtx_MEM (BLKmode, temp);
-
-	      if (type != 0)
-		set_mem_attributes (target, type, 1);
-
-	      move_by_pieces (gen_rtx_MEM (BLKmode, temp), xinner,
-			      INTVAL (size), align);
+	      move_by_pieces (target, xinner, INTVAL (size), align);
 	      goto ret;
 	    }
 	  else
 	    {
 	      rtx opalign = GEN_INT (align / BITS_PER_UNIT);
 	      enum machine_mode mode;
-	      rtx target = gen_rtx_MEM (BLKmode, temp);
-
-	      if (type != 0)
-		set_mem_attributes (target, type, 1);
 
 	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 		   mode != VOIDmode;
@@ -3292,7 +3311,14 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 
       dest = gen_rtx_MEM (mode, addr);
       if (type != 0)
-	set_mem_attributes (dest, type, 1);
+	{
+	  set_mem_attributes (dest, type, 1);
+	  /* Function incoming arguments may overlap with sibling call
+	     outgoing arguments and we cannot allow reordering of reads
+	     from function arguments with stores to outgoing arguments
+	     of sibling calls.  */
+	  MEM_ALIAS_SET (dest) = 0;
+	}
 
       emit_move_insn (dest, x);
 
@@ -7096,7 +7122,11 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 	  return expand_expr (exp, target, tmode, modifier);
 	}
-      else if (! BOUNDED_POINTER_TYPE_P (type) && TREE_BOUNDED (TREE_OPERAND (exp, 0)))
+      else if (! (BOUNDED_POINTER_TYPE_P (type)
+		  || (TREE_CODE (type) == UNION_TYPE
+		      && TYPE_TRANSPARENT_UNION (type)
+		      && TYPE_BOUNDED (type)))
+	       && TREE_BOUNDED (TREE_OPERAND (exp, 0)))
 	{
 	  warning ("discarding pointer bounds in type conversion");
 	  exp = build_bounded_ptr_value_ref (TREE_OPERAND (exp, 0));

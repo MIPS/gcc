@@ -22,8 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
-#include "c-lex.h"
-#include "c-tree.h"
+#include "c-common.h"
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
@@ -135,6 +134,10 @@ enum cpp_token cpp_token;
 */
 
 tree c_global_trees[CTI_MAX];
+
+/* The elements of `ridpointers' are identifier nodes for the reserved
+   type names and storage classes.  It is indexed by a RID_... value.  */
+tree *ridpointers;
 
 tree (*make_fname_decl)                PARAMS ((tree, const char *, int));
 
@@ -794,8 +797,16 @@ decl_attributes (node, attributes, prefix_attributes)
 	      error ("requested alignment is too large");
 	    else if (is_type)
 	      {
-		TYPE_ALIGN (type) = (1 << i) * BITS_PER_UNIT;
-		TYPE_USER_ALIGN (type) = 1;
+		if (decl)
+		  {
+		    DECL_ALIGN (decl) = (1 << i) * BITS_PER_UNIT;
+		    DECL_USER_ALIGN (decl) = 1;
+		  }
+		else
+		  {
+		    TYPE_ALIGN (type) = (1 << i) * BITS_PER_UNIT;
+		    TYPE_USER_ALIGN (type) = 1;
+		  }
 	      }
 	    else if (TREE_CODE (decl) != VAR_DECL
 		     && TREE_CODE (decl) != FIELD_DECL)
@@ -2472,6 +2483,19 @@ type_for_mode (mode, unsignedp)
 
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
     return build_pointer_type (integer_type_node);
+
+#ifdef VECTOR_MODE_SUPPORTED_P
+  if (mode == TYPE_MODE (V4SF_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V4SF_type_node;
+  if (mode == TYPE_MODE (V4SI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V4SI_type_node;
+  if (mode == TYPE_MODE (V2SI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V2SI_type_node;
+  if (mode == TYPE_MODE (V4HI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V4HI_type_node;
+  if (mode == TYPE_MODE (V8QI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V8QI_type_node;
+#endif
 
   return 0;
 }

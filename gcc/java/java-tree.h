@@ -465,11 +465,12 @@ struct lang_identifier
 #define RETURN_MAP_ADJUSTED(NODE) TREE_LANG_FLAG_2(NODE)
 
 /* In the label of a sub-routine, a chain of the return location labels. */
-#define LABEL_RETURN_LABELS(node) DECL_RESULT (LABEL_RETURN_LABEL(node))
+#define LABEL_RETURN_LABELS(node) \
+  (LABEL_DECL_CHECK (LABEL_RETURN_LABEL(node))->decl.result)
 
 /* In a LABEL_DECL, the next pending label.
    See pending_blocks in expr.c. */
-#define LABEL_PENDING_CHAIN(NODE) DECL_RESULT(NODE)
+#define LABEL_PENDING_CHAIN(NODE) (LABEL_DECL_CHECK (NODE)->decl.result)
 
 /* In a LABEL_DECL, the corresponding bytecode program counter. */
 #define LABEL_PC(NODE) ((NODE)->decl.u2.i)
@@ -574,6 +575,7 @@ struct lang_decl_var
 /* The decl of the synthetic method `class$' used to handle `.class'
    for non primitive types when compiling to bytecode. */
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC(T)->dot_class)
+#define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->pic)
 
 struct lang_type
 {
@@ -588,6 +590,7 @@ struct lang_type
 				   needs to be invoked and generated when
 				   compiling to bytecode to implement
 				   <non_primitive_type>.class */
+  unsigned pic:1;		/* Private Inner Class. */
 };
 
 #ifdef JAVA_USE_HANDLES
@@ -836,6 +839,7 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define CLASS_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define CLASS_SUPER(DECL) DECL_LANG_FLAG_6 (DECL)
 #define CLASS_STATIC(DECL) DECL_LANG_FLAG_7 (DECL)
+#define CLASS_PRIVATE(DECL) (TYPE_PRIVATE_INNER_CLASS (TREE_TYPE (DECL)))
 
 /* @deprecated marker flag on methods, fields and classes */
 

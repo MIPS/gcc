@@ -222,6 +222,7 @@ SYSTEM_HEADER_DIR = /usr/include
 # Where to find some libiberty headers.
 HASHTAB_H   = $(srcdir)/../include/hashtab.h
 OBSTACK_H   = $(srcdir)/../include/obstack.h
+SPLAY_TREE_H= $(srcdir)/../include/splay-tree.h
 
 # Default cross SYSTEM_HEADER_DIR, to be overridden by targets.
 CROSS_SYSTEM_HEADER_DIR = $(tooldir)/sys-include
@@ -469,7 +470,6 @@ HOST_PREFIX_1=loser-
 HOST_CC=$(CC)
 HOST_CFLAGS=$(ALL_CFLAGS)
 HOST_CLIB=$(CLIB)
-HOST_INTLLIBS=$(INTLLIBS)
 HOST_LDFLAGS=$(LDFLAGS)
 HOST_CPPFLAGS=$(ALL_CPPFLAGS)
 HOST_ALLOCA=$(ALLOCA)
@@ -577,7 +577,7 @@ LIBDEPS= $(INTLLIBS) $(OBSTACK) $(ALLOCA) $(MALLOC) $(VFPRINTF) $(DOPRINT)
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
 # We don't use USE_ALLOCA because backquote expansion doesn't work in deps.
-HOST_LIBDEPS= $(HOST_PREFIX)$(HOST_INTLLIBS) $(HOST_PREFIX)$(HOST_OBSTACK) $(HOST_PREFIX)$(HOST_ALLOCA) $(HOST_PREFIX)$(HOST_MALLOC) $(HOST_PREFIX)$(HOST_VFPRINTF) $(HOST_PREFIX)$(HOST_DOPRINT)
+HOST_LIBDEPS= $(HOST_PREFIX)$(HOST_OBSTACK) $(HOST_PREFIX)$(HOST_ALLOCA) $(HOST_PREFIX)$(HOST_MALLOC) $(HOST_PREFIX)$(HOST_VFPRINTF) $(HOST_PREFIX)$(HOST_DOPRINT)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
@@ -586,8 +586,7 @@ LIBS = $(OBSTACK) $(USE_ALLOCA) $(MALLOC) $(INTLLIBS) @LIBS@ $(VFPRINTF) $(DOPRI
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
 HOST_LIBS = $(USE_HOST_OBSTACK) $(USE_HOST_ALLOCA) $(USE_HOST_MALLOC)  \
-	    $(HOST_INTLLIBS) $(USE_HOST_VFPRINTF) $(USE_HOST_DOPRINT) \
-	    $(HOST_CLIB)
+	    $(USE_HOST_VFPRINTF) $(USE_HOST_DOPRINT) $(HOST_CLIB)
 
 HOST_RTL = $(HOST_PREFIX)rtl.o $(HOST_PREFIX)bitmap.o \
 		$(HOST_PREFIX)ggc-none.o gensupport.o
@@ -1092,7 +1091,7 @@ $(srcdir)/c-gperf.h: c-parse.gperf
 
 c-decl.o : c-decl.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-tree.h \
     c-common.h $(GGC_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
-    toplev.h defaults.h
+    toplev.h defaults.h intl.h
 c-typeck.o : c-typeck.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h \
     flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h
 c-lang.o : c-lang.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h \
@@ -1125,7 +1124,7 @@ collect2.o : collect2.c $(CONFIG_H) system.h gstab.h intl.h \
 	-DTARGET_MACHINE=\"$(target_alias)\" $(MAYBE_USE_COLLECT2) \
 	-c `echo $(srcdir)/collect2.c | sed 's,^\./,,'`
 
-tlink.o: tlink.c $(DEMANGLE_H) hash.h $(CONFIG_H) system.h collect2.h
+tlink.o: tlink.c $(DEMANGLE_H) hash.h $(CONFIG_H) system.h collect2.h intl.h
 hash.o: hash.c hash.h system.h toplev.h
 
 vfprintf.o: $(srcdir)/../libiberty/vfprintf.c $(CONFIG_H) system.h
@@ -1156,7 +1155,7 @@ s-under: $(GCC_PASSES)
 
 # A file used by all variants of C.
 
-c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-lex.h \
+c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) \
 	c-common.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H)
 
@@ -1269,7 +1268,7 @@ builtins.o : builtins.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h
 calls.o : calls.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
-   insn-flags.h $(REGS_H) toplev.h output.h function.h
+   insn-flags.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H)
 expmed.o : expmed.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h  \
    insn-flags.h insn-config.h insn-codes.h $(EXPR_H) $(RECOG_H) real.h toplev.h
 explow.o : explow.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
@@ -1389,7 +1388,7 @@ lists.o: lists.c $(CONFIG_H) system.h toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) insn-flags.h function.h except.h $(EXPR_H)
-timevar.o : timevar.c $(CONFIG_H) system.h $(TIMEVAR_H) flags.h
+timevar.o : timevar.c $(CONFIG_H) system.h $(TIMEVAR_H) flags.h intl.h
 regrename.o : regrename.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h \
    $(RECOG_H) function.h resource.h
@@ -1801,10 +1800,10 @@ cppexp.o:   cppexp.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpplex.o:   cpplex.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H)
-cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H) mkdeps.h
+cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
 
-cppinit.o:  cppinit.c  $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H) mkdeps.h \
-		prefix.h output.h Makefile version.h
+cppinit.o: cppinit.c $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H) $(SPLAY_TREE_H) \
+		mkdeps.h prefix.h output.h Makefile version.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  $(PREPROCESSOR_DEFINES) \
 	  -c `echo $(srcdir)/cppinit.c | sed 's,^\./,,'`
@@ -2005,10 +2004,12 @@ xsys-protos.h: $(GCC_PASSES) $(srcdir)/sys-protos.h deduced.h gen-protos Makefil
 	mv xsys-protos.hT xsys-protos.h
 	rm -rf fixtmp.c
 
-fix-header: fix-header.o scan-decls.o scan.o xsys-protos.h $(HOST_LIBDEPS) \
+# This is nominally a 'build' program, but it's run only when host==build,
+# so we can (indeed, must) use $(LIBDEPS) and $(LIBS).
+fix-header: fix-header.o scan-decls.o scan.o xsys-protos.h $(LIBDEPS) \
 	    libcpp.a
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ fix-header.o \
-	   scan-decls.o scan.o libcpp.a $(HOST_LIBS) ../libiberty/libiberty.a
+	   scan-decls.o scan.o libcpp.a $(LIBS)
 
 fix-header.o: fix-header.c $(OBSTACK_H) scan.h \
 	xsys-protos.h $(build_xm_file) system.h cpplib.h

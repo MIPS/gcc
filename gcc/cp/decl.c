@@ -2369,6 +2369,7 @@ push_namespace (name)
 	 level is set elsewhere.  */
       if (!global)
 	{
+	  DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
 	  d = pushdecl (d);
 	  pushlevel (0);
 	  declare_namespace_level ();
@@ -2804,7 +2805,7 @@ create_implicit_typedef (name, type)
   tree decl;
 
   decl = build_decl (TYPE_DECL, name, type);
-  SET_DECL_ARTIFICIAL (decl);
+  DECL_ARTIFICIAL (decl) = 1;
   /* There are other implicit type declarations, like the one *within*
      a class that allows you to write `S::S'.  We must distinguish
      amongst these.  */
@@ -3092,7 +3093,8 @@ warn_extern_redeclared_static (newdecl, olddecl)
   tree name;
 
   if (TREE_CODE (newdecl) == TYPE_DECL
-      || TREE_CODE (newdecl) == TEMPLATE_DECL)
+      || TREE_CODE (newdecl) == TEMPLATE_DECL
+      || TREE_CODE (newdecl) == CONST_DECL)
     return;
 
   /* Don't get confused by static member functions; that's a different
@@ -3828,8 +3830,6 @@ pushdecl (x)
 	  && !(TREE_CODE (x) == VAR_DECL && DECL_EXTERNAL (x))
 	  && !DECL_CONTEXT (x))
 	DECL_CONTEXT (x) = current_function_decl;
-      if (!DECL_CONTEXT (x))
-	DECL_CONTEXT (x) = FROB_CONTEXT (current_namespace);
 
       /* If this is the declaration for a namespace-scope function,
 	 but the declaration itself is in a local scope, mark the
@@ -3863,14 +3863,20 @@ pushdecl (x)
 	 actually the same as the function we are declaring.  (If
 	 there is one, we have to merge our declaration with the
 	 previous declaration.)  */
-      if (t && TREE_CODE (t) == OVERLOAD && TREE_CODE (x) == FUNCTION_DECL)
+      if (t && TREE_CODE (t) == OVERLOAD)
 	{
 	  tree match;
 
-	  for (match = t; match; match = OVL_NEXT (match))
-	    if (DECL_ASSEMBLER_NAME (OVL_CURRENT (t))
-		== DECL_ASSEMBLER_NAME (x))
-	      break;
+	  if (TREE_CODE (x) == FUNCTION_DECL)
+	    for (match = t; match; match = OVL_NEXT (match))
+	      {
+		if (DECL_ASSEMBLER_NAME (OVL_CURRENT (t))
+		    == DECL_ASSEMBLER_NAME (x))
+		  break;
+	      }
+	  else
+	    /* Just choose one.  */
+	    match = t;
 
 	  if (match)
 	    t = OVL_CURRENT (match);
@@ -3972,7 +3978,7 @@ pushdecl (x)
       if (TREE_CODE (x) == TYPE_DECL)
 	{
 	  tree type = TREE_TYPE (x);
-          if (DECL_SOURCE_LINE (x) == 0)
+	  if (DECL_SOURCE_LINE (x) == 0)
             {
 	      if (TYPE_NAME (type) == 0)
 	        TYPE_NAME (type) = x;
@@ -4010,6 +4016,7 @@ pushdecl (x)
 	  tree decl;
 
 	  if (IDENTIFIER_NAMESPACE_VALUE (name) != NULL_TREE
+	      && IDENTIFIER_NAMESPACE_VALUE (name) != error_mark_node
 	      && (DECL_EXTERNAL (IDENTIFIER_NAMESPACE_VALUE (name))
 		  || TREE_PUBLIC (IDENTIFIER_NAMESPACE_VALUE (name))))
 	    decl = IDENTIFIER_NAMESPACE_VALUE (name);
@@ -4577,6 +4584,9 @@ push_overloaded_decl (decl, flags)
 		return fn;
 	    }
 	}
+      else if (old == error_mark_node)
+	/* Ignore the undefined symbol marker.  */
+	old = NULL_TREE;
       else
 	{
 	  cp_error_at ("previous non-function declaration `%#D'", old);
@@ -5023,6 +5033,11 @@ check_goto (decl)
   int identified = 0;
   tree bad;
   struct named_label_list *lab;
+
+  /* We can't know where a computed goto is jumping.  So we assume
+     that it's OK.  */
+  if (! DECL_P (decl))
+    return;
 
   /* If the label hasn't been defined yet, defer checking.  */
   if (! DECL_INITIAL (decl))
@@ -6108,7 +6123,7 @@ signal_catch (sig)
 }
 
 /* Push the declarations of builtin types into the namespace.
-   RID_INDEX, if < RID_MAX is the index of the builtin type
+   RID_INDEX, if < CP_RID_MAX is the index of the builtin type
    in the array RID_POINTERS.  NAME is the name used when looking
    up the builtin type.  TYPE is the _TYPE node for the builtin type.  */
 
@@ -6121,7 +6136,7 @@ record_builtin_type (rid_index, name, type)
   tree rname = NULL_TREE, tname = NULL_TREE;
   tree tdecl = NULL_TREE;
 
-  if ((int) rid_index < (int) RID_MAX)
+  if ((int) rid_index < (int) CP_RID_MAX)
     rname = ridpointers[(int) rid_index];
   if (name)
     tname = get_identifier (name);
@@ -6132,7 +6147,7 @@ record_builtin_type (rid_index, name, type)
     {
       tdecl = pushdecl (build_decl (TYPE_DECL, tname, type));
       set_identifier_type_value (tname, NULL_TREE);
-      if ((int) rid_index < (int) RID_MAX)
+      if ((int) rid_index < (int) CP_RID_MAX)
 	/* Built-in types live in the global namespace. */
 	SET_IDENTIFIER_GLOBAL_VALUE (tname, tdecl);
     }
@@ -6175,7 +6190,7 @@ record_builtin_java_type (name, size)
       TYPE_PRECISION (type) = - size;
       layout_type (type);
     }
-  record_builtin_type (RID_MAX, name, type);
+  record_builtin_type (CP_RID_MAX, name, type);
   decl = TYPE_NAME (type);
 
   /* Suppress generate debug symbol entries for these types,
@@ -6357,23 +6372,27 @@ init_decl_processing ()
   record_builtin_type (RID_SIGNED, NULL_PTR, integer_type_node);
   record_builtin_type (RID_LONG, "long int", long_integer_type_node);
   record_builtin_type (RID_UNSIGNED, "unsigned int", unsigned_type_node);
-  record_builtin_type (RID_MAX, "long unsigned int", long_unsigned_type_node);
-  record_builtin_type (RID_MAX, "unsigned long", long_unsigned_type_node);
-  record_builtin_type (RID_MAX, "long long int", long_long_integer_type_node);
-  record_builtin_type (RID_MAX, "long long unsigned int",
+  record_builtin_type (CP_RID_MAX, "long unsigned int",
+		       long_unsigned_type_node);
+  record_builtin_type (CP_RID_MAX, "unsigned long", long_unsigned_type_node);
+  record_builtin_type (CP_RID_MAX, "long long int",
+		       long_long_integer_type_node);
+  record_builtin_type (CP_RID_MAX, "long long unsigned int",
 		       long_long_unsigned_type_node);
-  record_builtin_type (RID_MAX, "long long unsigned",
+  record_builtin_type (CP_RID_MAX, "long long unsigned",
 		       long_long_unsigned_type_node);
   record_builtin_type (RID_SHORT, "short int", short_integer_type_node);
-  record_builtin_type (RID_MAX, "short unsigned int", short_unsigned_type_node);
-  record_builtin_type (RID_MAX, "unsigned short", short_unsigned_type_node);
+  record_builtin_type (CP_RID_MAX, "short unsigned int",
+		       short_unsigned_type_node); 
+  record_builtin_type (CP_RID_MAX, "unsigned short",
+		       short_unsigned_type_node);
 
   ptrdiff_type_node
     = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (get_identifier (PTRDIFF_TYPE)));
 
   /* Define both `signed char' and `unsigned char'.  */
-  record_builtin_type (RID_MAX, "signed char", signed_char_type_node);
-  record_builtin_type (RID_MAX, "unsigned char", unsigned_char_type_node);
+  record_builtin_type (CP_RID_MAX, "signed char", signed_char_type_node);
+  record_builtin_type (CP_RID_MAX, "unsigned char", unsigned_char_type_node);
 
   /* `unsigned long' is the standard type for sizeof.
      Note that stddef.h uses `unsigned long',
@@ -6436,7 +6455,7 @@ init_decl_processing ()
   signed_size_zero_node = build_int_2 (0, 0);
   record_builtin_type (RID_FLOAT, NULL_PTR, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL_PTR, double_type_node);
-  record_builtin_type (RID_MAX, "long double", long_double_type_node);
+  record_builtin_type (CP_RID_MAX, "long double", long_double_type_node);
 
   pushdecl (build_decl (TYPE_DECL, get_identifier ("complex int"),
 			complex_integer_type_node));
@@ -6463,7 +6482,7 @@ init_decl_processing ()
 						TYPE_QUAL_CONST));
   empty_except_spec = build_tree_list (NULL_TREE, NULL_TREE);
 #if 0
-  record_builtin_type (RID_MAX, NULL_PTR, string_type_node);
+  record_builtin_type (CP_RID_MAX, NULL_PTR, string_type_node);
 #endif
 
   /* Make a type to be the domain of a few array types
@@ -6580,16 +6599,16 @@ init_decl_processing ()
       vtable_entry_type = build_qualified_type (vtable_entry_type,
 						TYPE_QUAL_CONST);
     }
-  record_builtin_type (RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
+  record_builtin_type (CP_RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
 
   vtbl_type_node
     = build_cplus_array_type (vtable_entry_type, NULL_TREE);
   layout_type (vtbl_type_node);
   vtbl_type_node = build_qualified_type (vtbl_type_node, TYPE_QUAL_CONST);
-  record_builtin_type (RID_MAX, NULL_PTR, vtbl_type_node);
+  record_builtin_type (CP_RID_MAX, NULL_PTR, vtbl_type_node);
   vtbl_ptr_type_node = build_pointer_type (vtable_entry_type);
   layout_type (vtbl_ptr_type_node);
-  record_builtin_type (RID_MAX, NULL_PTR, vtbl_ptr_type_node);
+  record_builtin_type (CP_RID_MAX, NULL_PTR, vtbl_ptr_type_node);
 
   std_node = build_decl (NAMESPACE_DECL,
 			 flag_honor_std 
@@ -8017,7 +8036,8 @@ destroy_local_var (decl)
     return;
 
   /* And only things with destructors need cleaning up.  */
-  if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
+  if (type == error_mark_node
+      || TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     return;
 
   if (TREE_CODE (decl) == VAR_DECL &&
@@ -8556,19 +8576,19 @@ expand_static_init (decl, init)
   else if (! toplevel_bindings_p ())
     {
       /* Emit code to perform this initialization but once.  */
-      tree temp;
       tree if_stmt;
       tree then_clause;
       tree assignment;
-      tree temp_init;
+      tree guard;
+      tree guard_init;
 
       /* Emit code to perform this initialization but once.  This code
 	 looks like:
 
-           static int temp = 0;
-           if (!temp) {
+           static int guard = 0;
+           if (!guard) {
              // Do initialization.
-	     temp = 1;
+	     guard = 1;
 	     // Register variable for destruction at end of program.
 	   }
 
@@ -8586,14 +8606,13 @@ expand_static_init (decl, init)
          In theory, this process should be thread-safe, too; multiple
 	 threads should not be able to initialize the variable more
 	 than once.  We don't yet attempt to ensure thread-safety.  */
-      temp = get_temp_name (integer_type_node, 1);
-      rest_of_decl_compilation (temp, NULL_PTR, 0, 0);
+
+      /* Create the guard variable.  */
+      guard = get_guard (decl);
 
       /* Begin the conditional initialization.  */
       if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build_binary_op (EQ_EXPR, temp,
-					    integer_zero_node),
-			   if_stmt);
+      finish_if_stmt_cond (get_guard_cond (guard), if_stmt);
       then_clause = begin_compound_stmt (/*has_no_scope=*/0);
 
       /* Do the initialization itself.  */
@@ -8615,16 +8634,16 @@ expand_static_init (decl, init)
 	 the assignment to TEMP into a single expression, ensuring
 	 that when we call finish_expr_stmt the cleanups will not be
 	 run until after TEMP is set to 1.  */
-      temp_init = build_modify_expr (temp, NOP_EXPR, integer_one_node);
+      guard_init = set_guard (guard);
       if (assignment)
 	{
 	  assignment = tree_cons (NULL_TREE, assignment,
 				  build_tree_list (NULL_TREE,
-						   temp_init));
+						   guard_init));
 	  assignment = build_compound_expr (assignment);
 	}
       else
-	assignment = temp_init;
+	assignment = guard_init;
       finish_expr_stmt (assignment);
 
       /* Use atexit to register a function for destroying this static
@@ -8846,7 +8865,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
   /* If this decl has namespace scope, set that up.  */
   if (in_namespace)
     set_decl_namespace (decl, in_namespace, friendp);
-  else if (publicp && ! ctype)
+  else if (!ctype)
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 
   /* `main' and builtins have implicit 'C' linkage.  */
@@ -9405,10 +9424,10 @@ compute_array_index_type (name, size)
   /* Compute the index of the largest element in the array.  It is
      one less than the number of elements in the array.  */
   itype
-    = fold (build_binary_op (MINUS_EXPR,
-			     cp_convert (ssizetype, size),
-			     cp_convert (ssizetype,
-					 integer_one_node)));
+    = fold (cp_build_binary_op (MINUS_EXPR,
+				cp_convert (ssizetype, size),
+				cp_convert (ssizetype,
+					    integer_one_node)));
 
   /* Check for variable-sized arrays.  We allow such things as an
      extension, even though they are not allowed in ANSI/ISO C++.  */
@@ -10097,7 +10116,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    }
 	}
       /* C++ aggregate types.  */
-      else if (TREE_CODE (id) == TYPE_DECL || TREE_CODE (id) == TEMPLATE_DECL)
+      else if (TREE_CODE (id) == TYPE_DECL)
 	{
 	  if (type)
 	    cp_error ("multiple declarations `%T' and `%T'", type,
@@ -12614,7 +12633,7 @@ grok_op_properties (decl, virtualp, friendp)
 		  break;
 
 		case PREDECREMENT_EXPR:
-		  operator_code = PREDECREMENT_EXPR;
+		  operator_code = POSTDECREMENT_EXPR;
 		  break;
 
 		default:
@@ -13397,9 +13416,9 @@ build_enumerator (name, value, enumtype)
 	      /* The next value is the previous value ... */
 	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
 	      /* ... plus one.  */
-	      value = build_binary_op (PLUS_EXPR,
-				       prev_value,
-				       integer_one_node);
+	      value = cp_build_binary_op (PLUS_EXPR,
+					  prev_value,
+					  integer_one_node);
 
 	      if (tree_int_cst_lt (value, prev_value))
 		cp_error ("overflow in enumeration values at `%D'", name);
@@ -15084,6 +15103,8 @@ lang_mark_tree (t)
 	      && !DECL_GLOBAL_DTOR_P (t)
 	      && !DECL_THUNK_P (t))
 	    ggc_mark_tree (ld->decl_flags.u2.access);
+	  else if (DECL_THUNK_P (t))
+	    ggc_mark_tree (ld->decl_flags.u2.vcall_offset);
 	  ggc_mark_tree (ld->decl_flags.context);
 	  if (TREE_CODE (t) != NAMESPACE_DECL)
 	    ggc_mark_tree (ld->decl_flags.u.template_info);

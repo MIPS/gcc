@@ -1,3 +1,208 @@
+2000-06-29  scott snyder  <snyder@fnal.gov>
+
+        * bits/concept_checks.h
+        (__less_then_comparable_requirement_violation): Only check for <.
+	* testsuite/25_algorithms/lower_bound.cc: New file.
+	
+2000-06-29  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* testsuite/27_io/ostream_manip.cc (test02): Add tests.
+	* bits/ostream.tcc: Tweak.
+	* bits/std_fstream.h (basic_filebuf::setbuf): Reset
+	_M_buf_size_opt too.
+	* bits/std_streambuf.h (basic_streambuf::~basic_streambuf): Zero
+	out _M_buf_size_opt.
+	* bits/std_sstream.h (basic_stringbuf::_M_init_stringbuf): Set
+	_M_buf_size_opt out here.
+	* bits/char_traits.h (char_traits::eos): Non standard member
+	function, uglify to __eos. Return char_type().
+	* bits/std_ostream.h: Change.
+
+	* testsuite/27_io/ostream_seeks.cc (test01): New file.
+	* testsuite/27_io/ostream_seeks-1.tst: New file.
+	* testsuite/27_io/istream_unformatted.cc (main): Move test04 and
+	test05 to...
+	* testsuite/27_io/istream_seeks.cc: New file.
+
+2000-06-29  Branko Cibej  <branko.cibej@hermes.si>
+
+        * bits/std_memory.h (auto_ptr_ref): Reworked and defined only if
+        _GLIBCPP_RESOLVE_LIB_DEFECTS.
+        (auto_ptr): _M_ptr changed to void*.
+        (suto_ptr::get): Cast _M_ptr to element type.
+        (auto_ptr::auto_ptr(auto_ptr<Tp1>)): Test implicit convetsion.
+        (auto_ptr::~auto_ptr): Use this->get() instead of _M_ptr.
+        (auto_ptr::operator*): Likewise.
+        (auto_ptr::operator->): Likewise.
+        (auto_ptr::release): Likewise.
+        (auto_ptr::reset): Likewise.
+        (auto_ptr::auto_ptr(auto_ptr_ref)): Initialize from __ref._M_release.
+        (auto_ptr::operator auto_ptr_rev<_Tp1>): Updated.
+        Define nested auto_ptr_ref unless _GLIBCPP_RESOLVE_LIB_DEFECTS.
+        Define operator=(auto_ptr_ref) if _GLIBCPP_RESOLVE_LIB_DEFECTS.
+
+2000-06-28  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* testsuite/27_io/filebuf.cc: Tweak.
+	* testsuite/27_io/filebuf_members.cc (test_01): Fix.
+	* config/c_io_libio.cc (__basic_file::~__basic_file): Match libio
+	filebuf dtor.
+	(__basic_file::basic_file): Clean, add calls similar to
+	_IO_file_attach.
+	(__basic_file::open): Clean.
+	(__basic_file::sys_open): Clean.
+
+	* bits/std_fstream.h: Revert.
+	* bits/fstream.tcc (filebuf::close()): Revert.
+	(filebuf::basic_filebuf()): Revert.
+
+2000-06-27  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	Update to SGI STL 3.3
+	* ext/hash_map, ext/hash_set, ext/slist, ext/stl_bvector.h,
+	ext/stl_rope.h, ext/ropeimpl.h: Update.
+	* bits/std_bitset.h, bits/std_map, bits/std_memory.h,
+	bits/stl_algo.h, bits/stl_algobase.h, bits/stl_alloc.h,
+	bits/stl_config.h, bits/stl_construct.h, bits/stl_deque.h,
+	bits/stl_function.h, bits/stl_heap.h, bits/stl_iterator.h,
+	bits/stl_iterator_base.h, bits/stl_list.h, bits/stl_map.h,
+	bits/stl_multimap.h, bits/stl_multiset.h, bits/stl_numeric.h,
+	bits/stl_queue.h, bits/stl_set.h, bits/stl_stack.h,
+	bits/stl_string_fwd.h, bits/stl_threads.h, bits/stl_three.h,
+	bits/stl_uninitialized.h, bits/stl_vectory.h: Update.
+
+	* src/Makefile.am (headers): Add new files.
+	* src/Makefile.in: Regenerate.
+	* src/stl-inst.cc (std): Add instantiation for __sink_unused_warning.
+	* bits/concept_checks.h: New file.
+	* bits/container_concepts.h: New file.
+	* bits/sequence_concepts.h: New file.
+	
+2000-06-27  H.J. Lu  <hjl@gnu.org>
+            Loren J. Rittle  <ljrittle@acm.org>
+
+        * mkcheck.in: Add support to print standard flags needed to
+        test g++ in build tree.  Enhance command line error checking.
+
+2000-06-27  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* docs/install.html:  Fix minor typo as reported.
+
+2000-06-26  Brent Verner <brent@rcfile.org>
+
+	* bits/string.tcc (string::rfind): Fix.
+	* testsuite/21_strings/rfind.cc: New file.
+	
+2000-06-26  Anthony Williams  <anthony@anthonyw.cjb.net>
+
+	* testsuite/21_strings/ctor_copy_dtor.cc: Fixed logic error.
+	
+2000-06-26  Branko Cibej  <branko.cibej@hermes.si>
+
+        * testsuite/27_io/filebuf_members.cc (test_01): Fixed typos.
+
+        * mkcheck.in: Make the *.txt and *.tst files writable after
+	  copying them to $TEST_DIR.
+
+        * testsuite/27_io/ostream_inserter_arith.cc: Renamed
+	  __TEST_NUMPUT_VERBOSE to TEST_NUMPUT_VERBOSE.  Define
+	  TEST_NUMPUT_VERBOSE only if DEBUG_ASSERT.
+	
+2000-06-23  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* bits/fstream.tcc (basic_filebuf::basic_filebuf(fd)): Use it.
+	(basic_filebuf::close): Use it.
+	* bits/std_fstream.h (basic_filebuf): Remove default arguments for
+	filebuf ctor.
+	(basic_filebuf): Add _M_fileno_based data member.
+        As reported by brent verner <brent@rcfile.org> 
+	* testsuite/27_io/filebuf_members.cc: New file.
+	* testsuite/27_io/filebuf_members-1.tst: New file.
+
+	* bits/std_fstream.h: Formatting tweaks.
+	* testsuite/27_io/ofstream_members.cc: New file.
+	* testsuite/27_io/ofstream_members-1.tst: New file.
+	* testsuite/27_io/ifstream_members.cc: New file.
+	* testsuite/27_io/ifstream_members-1.tst: New file.
+
+2000-06-23  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+            Ulrich Drepper  <drepper@cygnus.com>
+	
+	* acinclude.m4 (GLIBCPP_CHECK_MATH_SUPPORT): Add -D_GNU_SOURCE, so
+	that all the freaky stuff like sincos will be around...
+
+2000-06-22  Branko Cibej  <branko.cibej@hermes.si>
+
+        * Makefile.am (AM_MAKEFLAGS): Added WERROR to list of flags.
+
+2000-06-22 Steven King <sxking@uswest.net>
+
+        * acinclude.m4: Check for sinl, _sinl using 1 parameter.
+
+2000-06-22  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT): Redo. Use the
+	same approach as GLIBCPP_CHECK_MATH_SUPPORT, only don't try to
+	link against libm and don't use -fno-builtins...
+	* math/mathconf.h: Change up builtin macros to new schema.
+	* bits/std_cmath.h: And here. Wheee!
+	* shadow/bits/std_cmath.h: And here.
+	* acconfig.h: Change up builtin macros here.
+	* math/cosf.c:  Remove.
+	* math/fabsf.c:  Likewise.
+	* math/sinf.c:  Likewise.
+	* math/sqrtf.c:  Likewise.
+	* math/Makefile.am (EXTRA_DIST):  Remove those four files.
+	* math/Makefile.in:  Regenerate.
+
+2000-06-22  Anthony Williams  <anthony@anthonyw.cjb.net>
+
+	* testsuite/21_strings/find.cc: Patch.
+
+2000-06-22  Benjamin Kosnik  <bkoz@soma.redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHEC_LINKER_FEATURES): Use gcc + -x c++ as
+	an easy way to get at g++ without having to link in libstdc++.
+
+2000-06-21  Benjamin Kosnik  <bkoz@soma.redhat.com>
+
+	Fix alpha, powerpc build failures.
+	* acinclude.m4 (GLIBCPP_CHECK_MATH_SUPPORT): Substantially
+	re-write. Need to check for both proper declaration when using a
+	c++ compiler, and "C" linkage when linking. Do both, and if both
+	exist, then define the HAVE_* bits in config.h.
+	(GLIBCPP_CHECK_MATH_DECL_AND_LINKAGE): New, uber-macro. Does all.
+	(GLIBCPP_CHECK_LINKER_FEATURES): Actually link and run this
+	program, doh.
+
+2000-06-20  Anthony Williams  <anthony@anthonyw.cjb.net>
+
+	* bits/string.tcc: Fix find.
+	* testsuite/21_strings/find.cc: Patch.
+	
+2000-06-20  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* docs/install.html: Update where to get automake, where to get
+	binutils.
+	* acinclude.m4: Need -fno-builtins too, so gcc doesn't recognize
+	builtins.
+
+2000-06-19  Benjamin Kosnik  <bkoz@soma.redhat.com>
+
+	* acinclude.m4 ((GLIBCPP_CHECK_MATH_SUPPORT): Revert last change.
+	Add -Werror-implicit-function-declaration instead.
+
+	Regenerate with fixed maintainer-tools.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* libio/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	
+2000-06-19  Russell Davidson  <russell@ehess.cnrs-mrs.fr>
+
+	* testsuite/27_io/istream_extractor_arith.cc: Patch.
+	* bits/locale_factets.tcc: Tweak.
+	
 2000-06-19  Raja R Harinath  <harinath@cs.umn.edu>
 	
 	* src/Makefile.am: change @WERROR@ to $(WERROR) so that this can
@@ -6,7 +211,7 @@
 2000-06-19  Benjamin Kosnik  <bkoz@soma.redhat.com>
 
 	* acinclude.m4 (GLIBCPP_CHECK_MATH_SUPPORT): Can't use
-	AC_LANG_CPLUSPLUS as this tries to link in libstdc++, Which we are
+	AC_LANG_CPLUSPLUS as this tries to link in libstdc++, which we are
 	building. Use -x c++ instead, which does not attempt to link
 	libstdc++.
 

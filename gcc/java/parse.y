@@ -99,8 +99,10 @@ static void complete_class_report_errors PARAMS ((jdep *));
 static int process_imports PARAMS ((void));
 static void read_import_dir PARAMS ((tree));
 static int find_in_imports_on_demand PARAMS ((tree));
-static int find_in_imports PARAMS ((tree));
+static void find_in_imports PARAMS ((tree));
+static void check_inner_class_access PARAMS ((tree, tree, tree));
 static int check_pkg_class_access PARAMS ((tree, tree));
+static void register_package PARAMS ((tree));
 static tree resolve_package PARAMS ((tree, tree *));
 static tree lookup_package_type PARAMS ((const char *, int));
 static tree lookup_package_type_and_set_next PARAMS ((const char *, int, tree *));
@@ -120,6 +122,7 @@ static tree patch_method_invocation PARAMS ((tree, tree, tree,
 					    int *, tree *));
 static int breakdown_qualified PARAMS ((tree *, tree *, tree));
 static tree resolve_and_layout PARAMS ((tree, tree));
+static tree qualify_and_find PARAMS ((tree, tree, tree));
 static tree resolve_no_layout PARAMS ((tree, tree));
 static int invocation_mode PARAMS ((tree, int));
 static tree find_applicable_accessible_methods_list PARAMS ((int, tree, 
@@ -180,7 +183,7 @@ static tree build_newarray_node PARAMS ((tree, tree, int));
 static tree patch_newarray PARAMS ((tree));
 static tree resolve_type_during_patch PARAMS ((tree));
 static tree build_this PARAMS ((int));
-static tree build_wfl_wrap PARAMS ((tree));
+static tree build_wfl_wrap PARAMS ((tree, int));
 static tree build_return PARAMS ((int, tree));
 static tree patch_return PARAMS ((tree));
 static tree maybe_access_field PARAMS ((tree, tree, tree));
@@ -682,7 +685,7 @@ package_declaration:
 	PACKAGE_TK name SC_TK
 		{ 
 		  ctxp->package = EXPR_WFL_NODE ($2);
-		  package_list = tree_cons (ctxp->package, NULL, package_list);
+		  register_package (ctxp->package);
 		}
 |	PACKAGE_TK error
 		{yyerror ("Missing name"); RECOVER;}
@@ -698,7 +701,7 @@ import_declaration:
 single_type_import_declaration:
 	IMPORT_TK name SC_TK
 		{
-		  tree name = EXPR_WFL_NODE ($2), node, last_name;
+		  tree name = EXPR_WFL_NODE ($2), last_name;
 		  int   i = IDENTIFIER_LENGTH (name)-1;
 		  const char *last = &IDENTIFIER_POINTER (name)[i];
 		  while (last != IDENTIFIER_POINTER (name))
@@ -717,7 +720,7 @@ single_type_import_declaration:
 			   IDENTIFIER_POINTER (name), 
 			   IDENTIFIER_POINTER (err));
 		      else
-			REGISTER_IMPORT ($2, last_name)
+			REGISTER_IMPORT ($2, last_name);
 		    }
 		  else
 		    REGISTER_IMPORT ($2, last_name);
@@ -735,10 +738,10 @@ type_import_on_demand_declaration:
 		  /* Don't import java.lang.* twice. */
 		  if (name != java_lang_id)
 		    {
-		      tree node = build_tree_list ($2, NULL_TREE);
 		      read_import_dir ($2);
-		      TREE_CHAIN (node) = ctxp->import_demand_list;
-		      ctxp->import_demand_list = node;
+		      ctxp->import_demand_list = 
+			chainon (ctxp->import_demand_list,
+				 build_tree_list ($2, NULL_TREE));
 		    }
 		}
 |	IMPORT_TK name DOT_TK error
@@ -1629,7 +1632,11 @@ do_statement:
 
 for_statement:
 	for_begin SC_TK expression SC_TK for_update CP_TK statement
-		{ $$ = finish_for_loop (EXPR_WFL_LINECOL ($3), $3, $5, $7); }
+		{
+		  if (TREE_CODE_CLASS (TREE_CODE ($3)) == 'c')
+		    $3 = build_wfl_node ($3);
+		  $$ = finish_for_loop (EXPR_WFL_LINECOL ($3), $3, $5, $7);
+		}
 |	for_begin SC_TK SC_TK for_update CP_TK statement
 		{ 
 		  $$ = finish_for_loop (0, NULL_TREE, $4, $6);
@@ -2079,6 +2086,11 @@ dim_exprs:
 dim_expr:
 	OSB_TK expression CSB_TK
 		{ 
+		  if (JNUMERIC_TYPE_P (TREE_TYPE ($2)))
+		    {
+		      $2 = build_wfl_node ($2);
+		      TREE_TYPE ($2) = NULL_TREE;
+		    }
 		  EXPR_WFL_LINECOL ($2) = $1.location;
 		  $$ = $2;
 		}
@@ -3993,22 +4005,26 @@ lookup_field_wrapper (class, name)
      tree class, name;
 {
   tree type = class;
-  tree decl;
+  tree decl = NULL_TREE;
   java_parser_context_save_global ();
-  decl = lookup_field (&type, name);
 
   /* Last chance: if we're within the context of an inner class, we
      might be trying to access a local variable defined in an outer
      context. We try to look for it now. */
-  if (INNER_CLASS_TYPE_P (class) && (!decl || decl == error_mark_node))
+  if (INNER_CLASS_TYPE_P (class))
     {
       char *alias_buffer;
+      tree new_name;
       MANGLE_OUTER_LOCAL_VARIABLE_NAME (alias_buffer, name);
-      name = get_identifier (alias_buffer);
-      type = class;
-      decl = lookup_field (&type, name);
+      new_name = get_identifier (alias_buffer);
+      decl = lookup_field (&type, new_name);
       if (decl && decl != error_mark_node)
 	FIELD_LOCAL_ALIAS_USED (decl) = 1;
+    }
+  if (!decl || decl == error_mark_node)
+    {
+      type = class;
+      decl = lookup_field (&type, name);
     }
 
   java_parser_context_restore_global ();
@@ -4102,11 +4118,11 @@ register_fields (flags, type, variable_list)
       tree init = TREE_VALUE (current);
       tree current_name = EXPR_WFL_NODE (cl);
 
-      /* Can't declare static fields in inner classes */
+      /* Can't declare non-final static fields in inner classes */
       if ((flags & ACC_STATIC) && !TOPLEVEL_CLASS_TYPE_P (class_type)
-	  && !CLASS_INTERFACE (TYPE_NAME (class_type)))
+          && !(flags & ACC_FINAL))
 	parse_error_context 
-	  (cl, "Field `%s' can't be static in innerclass `%s'. Only members of interfaces and top-level classes can be static",
+          (cl, "Field `%s' can't be static in inner class `%s' unless it is final",
 	   IDENTIFIER_POINTER (EXPR_WFL_NODE (cl)),
 	   lang_printable_name (class_type, 0));
 
@@ -4673,7 +4689,7 @@ method_declarator (id, list)
 
       /* Then this$<n> */
       type = TREE_TYPE (DECL_CONTEXT (GET_CPC ()));
-      thisn = build_current_thisn (TYPE_NAME (GET_CPC ()));
+      thisn = build_current_thisn (TREE_TYPE (GET_CPC ()));
       list = tree_cons (build_wfl_node (thisn), build_pointer_type (type),
 			list);
     }
@@ -5192,6 +5208,7 @@ jdep_resolve_class (dep)
   if (!decl)
     complete_class_report_errors (dep);
 
+  check_inner_class_access (decl, JDEP_ENCLOSING (dep), JDEP_WFL (dep));
   return decl;
 }
 
@@ -5207,10 +5224,8 @@ java_complete_class ()
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
 
-  /* Process imports and reverse the import on demand list */
+  /* Process imports */
   process_imports ();
-  if (ctxp->import_demand_list)
-    ctxp->import_demand_list = nreverse (ctxp->import_demand_list);
 
   /* Rever things so we have the right order */
   ctxp->class_list = nreverse (ctxp->class_list);
@@ -5415,10 +5430,10 @@ do_resolve_class (enclosing, class_type, decl, cl)
      tree enclosing, class_type, decl, cl;
 {
   tree new_class_decl;
-  tree original_name = NULL_TREE;
 
   /* Do not try to replace TYPE_NAME (class_type) by a variable, since
-     its is changed by find_in_imports{_on_demand} */
+     it is changed by find_in_imports{_on_demand} and (but it doesn't
+     really matter) qualify_and_find */
 
   /* 0- Search in the current class as an inner class */
 
@@ -5452,12 +5467,11 @@ do_resolve_class (enclosing, class_type, decl, cl)
       enclosing = do_resolve_class (NULL, name, NULL, NULL);
     }
 
-  /* 1- Check for the type in single imports */
-  if (find_in_imports (class_type))
-    return NULL_TREE;
+  /* 1- Check for the type in single imports. This will change
+     TYPE_NAME() if something relevant is found */
+  find_in_imports (class_type);
 
-  /* 2- And check for the type in the current compilation unit. If it fails,
-     try with a name qualified with the package name we've seen so far */
+  /* 2- And check for the type in the current compilation unit */
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
     {
       if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
@@ -5466,41 +5480,13 @@ do_resolve_class (enclosing, class_type, decl, cl)
       return IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
     }
 
-  original_name = TYPE_NAME (class_type);
+  /* 3- Search according to the current package definition */
   if (!QUALIFIED_P (TYPE_NAME (class_type)))
     {
-      tree package;
-      for (package = package_list; package; package = TREE_CHAIN (package))
-  	{
- 	  tree new_qualified;
- 	  
- 	  new_qualified = merge_qualified_name (TREE_PURPOSE (package),
- 						original_name);
- 	  TYPE_NAME (class_type) = new_qualified;
- 	  new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
- 	  if (!new_class_decl)
- 	    load_class (TYPE_NAME (class_type), 0);
- 	  new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
- 	  if (new_class_decl)
- 	    {
- 	      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
- 		  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
- 		load_class (TYPE_NAME (class_type), 0);
- 	      return IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
- 	    }
-	}
+      if ((new_class_decl = qualify_and_find (class_type, ctxp->package,
+					     TYPE_NAME (class_type))))
+	return new_class_decl;
     }
-
-  TYPE_NAME (class_type) = original_name;
-
-  /* 3- Check an other compilation unit that bears the name of type */
-  load_class (TYPE_NAME (class_type), 0);
-  if (check_pkg_class_access (TYPE_NAME (class_type), 
-			      (cl ? cl : lookup_cl (decl))))
-    return NULL_TREE;
-
-  if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
-    return new_class_decl;
 
   /* 4- Check the import on demands. Don't allow bar.baz to be
      imported from foo.* */
@@ -5508,8 +5494,55 @@ do_resolve_class (enclosing, class_type, decl, cl)
     if (find_in_imports_on_demand (class_type))
       return NULL_TREE;
 
-  /* 5- Last call for a resolution */
+  /* If found in find_in_imports_on_demant, the type has already been
+     loaded. */
+  if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
+    return new_class_decl;
+
+  /* 5- Try with a name qualified with the package name we've seen so far */
+  if (!QUALIFIED_P (TYPE_NAME (class_type)))
+    {
+      tree package;
+
+      /* If there is a current package (ctxp->package), it's the first
+	 element of package_list and we can skip it. */
+      for (package = (ctxp->package ? 
+		      TREE_CHAIN (package_list) : package_list);
+	   package; package = TREE_CHAIN (package))
+	if ((new_class_decl = qualify_and_find (class_type,
+					       TREE_PURPOSE (package), 
+					       TYPE_NAME (class_type))))
+	  return new_class_decl;
+    }
+
+  /* 5- Check an other compilation unit that bears the name of type */
+  load_class (TYPE_NAME (class_type), 0);
+  if (check_pkg_class_access (TYPE_NAME (class_type), 
+			      (cl ? cl : lookup_cl (decl))))
+    return NULL_TREE;
+
+  /* 6- Last call for a resolution */
   return IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
+}
+
+static tree
+qualify_and_find (class_type, package, name)
+     tree class_type, package, name;
+{
+  tree new_qualified = merge_qualified_name (package, name);
+  tree new_class_decl;
+
+  if (!IDENTIFIER_CLASS_VALUE (new_qualified))
+    load_class (new_qualified, 0);
+  if ((new_class_decl = IDENTIFIER_CLASS_VALUE (new_qualified)))
+    {
+      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
+	  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
+	load_class (new_qualified, 0);
+      TYPE_NAME (class_type) = new_qualified;
+      return IDENTIFIER_CLASS_VALUE (new_qualified);
+    }
+  return NULL_TREE;
 }
 
 /* Resolve NAME and lay it out (if not done and if not the current
@@ -5817,7 +5850,9 @@ check_abstract_method_definitions (do_interface, class_decl, type)
 	      other_name = EXPR_WFL_NODE (other_name);
 	    if (!DECL_CLINIT_P (other_method)
 		&& !DECL_CONSTRUCTOR_P (other_method)
-		&& method_name == other_name && method_sig == s)
+		&& method_name == other_name
+		&& method_sig == s
+		&& !METHOD_ABSTRACT (other_method))
              {
                found = 1;
                break;
@@ -6385,10 +6420,10 @@ process_imports ()
   return 0;
 }
 
-/* Possibly find a class imported by a single-type import statement. Return
-   1 if an error occured, 0 otherwise. */
+/* Possibly find and mark a class imported by a single-type import
+   statement.  */
 
-static int
+static void
 find_in_imports (class_type)
      tree class_type;
 {
@@ -6400,7 +6435,6 @@ find_in_imports (class_type)
 	TYPE_NAME (class_type) = EXPR_WFL_NODE (TREE_PURPOSE (import));
 	QUALIFIED_P (TYPE_NAME (class_type)) = 1;
       }
-  return 0;
 }
 
 static int
@@ -6610,6 +6644,30 @@ find_in_imports_on_demand (class_type)
     return (seen_once < 0 ? 0 : seen_once); /* It's ok not to have found */
 }
 
+/* Add package NAME to the list of package encountered so far. To
+   speed up class lookup in do_resolve_class, we make sure a
+   particular package is added only once.  */
+
+static void
+register_package (name)
+     tree name;
+{
+  static struct hash_table _pht, *pht = NULL;
+
+  if (!pht)
+    {
+      hash_table_init (&_pht, hash_newfunc, 
+		       java_hash_hash_tree_node, java_hash_compare_tree_node);
+      pht = &_pht;
+    }
+  
+  if (!hash_lookup (pht, (const hash_table_key) name, FALSE, NULL))
+    {
+      package_list = chainon (package_list, build_tree_list (name, NULL));
+      hash_lookup (pht, (const hash_table_key) name, TRUE, NULL);
+    }
+}
+
 static tree
 resolve_package (pkg, next)
      tree pkg, *next;
@@ -6722,6 +6780,27 @@ lookup_package_type (name, from)
   strncpy (subname, name, sub-name);
   subname [sub-name] = '\0';
   return get_identifier (subname);
+}
+
+static void
+check_inner_class_access (decl, enclosing_type, cl)
+     tree decl, enclosing_type, cl;
+{
+  /* We don't issue an error message when CL is null. CL can be null
+     as a result of processing a JDEP crafted by
+     source_start_java_method for the purpose of patching its parm
+     decl. But the error would have been already trapped when fixing
+     the method's signature. */
+  if (!(cl && PURE_INNER_CLASS_DECL_P (decl) && CLASS_PRIVATE (decl))
+      || (PURE_INNER_CLASS_DECL_P (enclosing_type)
+	  && common_enclosing_context_p (TREE_TYPE (enclosing_type), 
+					  TREE_TYPE (decl)))
+      || enclosing_context_p (TREE_TYPE (enclosing_type), TREE_TYPE (decl)))
+    return;
+
+  parse_error_context (cl, "Can't access nested %s %s. Only public classes and interfaces in other packages can be accessed",
+		       (CLASS_INTERFACE (decl) ? "interface" : "class"),
+		       lang_printable_name (decl, 0));
 }
 
 /* Check that CLASS_NAME refers to a PUBLIC class. Return 0 if no
@@ -7378,10 +7457,12 @@ maybe_generate_pre_expand_clinit (class_type)
   for (current = TYPE_CLINIT_STMT_LIST (class_type); current;
        current = TREE_CHAIN (current))
     {
+      tree stmt = current;
       /* We build the assignment expression that will initialize the
 	 field to its value. There are strict rules on static
 	 initializers (8.5). FIXME */
-      tree stmt = build_debugable_stmt (EXPR_WFL_LINECOL (current), current);
+      if (TREE_CODE (stmt) != BLOCK)
+	stmt = build_debugable_stmt (EXPR_WFL_LINECOL (stmt), stmt);
       java_method_add_stmt (mdecl, stmt);
     }
 
@@ -8299,18 +8380,19 @@ verify_constructor_super (mdecl)
       for (sdecl = TYPE_METHODS (class); sdecl; sdecl = TREE_CHAIN (sdecl))
 	if (DECL_CONSTRUCTOR_P (sdecl))
 	  {
+	    tree m_arg_type;
 	    tree arg_type = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (sdecl)));
 	    if (super_inner)
 	      arg_type = TREE_CHAIN (arg_type);
-	    for (; (arg_type != end_params_node 
-		    && mdecl_arg_type != end_params_node);
+	    for (m_arg_type = mdecl_arg_type; 
+		 (arg_type != end_params_node 
+		  && m_arg_type != end_params_node);
 		 arg_type = TREE_CHAIN (arg_type), 
-		 mdecl_arg_type = TREE_CHAIN (mdecl_arg_type))
-	      if (TREE_VALUE (arg_type) != TREE_VALUE (mdecl_arg_type))
+		   m_arg_type = TREE_CHAIN (m_arg_type))
+	      if (TREE_VALUE (arg_type) != TREE_VALUE (m_arg_type))
 		break;
 
-	    if (arg_type == end_params_node && 
-		mdecl_arg_type == end_params_node)
+	    if (arg_type == end_params_node && m_arg_type == end_params_node)
 	      return 0;
 	  }
     }
@@ -8341,12 +8423,6 @@ java_expand_classes ()
     return;
   java_layout_classes ();
   java_parse_abort_on_error ();
-
-  /* The list of packages declaration seen so far needs to be
-     reversed, so that package declared in a file being compiled gets
-     priority over packages declared as a side effect of parsing other
-     files.*/
-  package_list = nreverse (package_list);
 
   saved_ctxp = ctxp_for_generation;
   for (; ctxp_for_generation; ctxp_for_generation = ctxp_for_generation->next)
@@ -8426,7 +8502,7 @@ make_qualified_primary (primary, right, location)
   tree wfl;
 
   if (TREE_CODE (primary) != EXPR_WITH_FILE_LOCATION)
-    wfl = build_wfl_wrap (primary);
+    wfl = build_wfl_wrap (primary, location);
   else
     {
       wfl = primary;
@@ -8643,7 +8719,8 @@ resolve_field_access (qual_wfl, field_decl, field_type)
     return error_mark_node;
 
   /* Resolve the LENGTH field of an array here */
-  if (DECL_NAME (decl) == length_identifier_node && TYPE_ARRAY_P (type_found)
+  if (DECL_P (decl) && DECL_NAME (decl) == length_identifier_node 
+      && type_found && TYPE_ARRAY_P (type_found) 
       && ! flag_emit_class_files && ! flag_emit_xref)
     {
       tree length = build_java_array_length_access (where_found);
@@ -8676,7 +8753,7 @@ resolve_field_access (qual_wfl, field_decl, field_type)
 	  && JPRIMITIVE_TYPE_P (TREE_TYPE (decl))
 	  && DECL_INITIAL (decl))
 	{
-	  field_ref = java_complete_tree (DECL_INITIAL (decl));
+	  field_ref = java_complete_tree (decl);
 	  static_final_found = 1;
 	}
       else
@@ -10025,8 +10102,28 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
      int lc;
      tree class, name, arglist;
 {
-  static int object_done = 0;
+  static struct hash_table t, *searched_classes = NULL;
+  static int search_not_done = 0;
   tree list = NULL_TREE, all_list = NULL_TREE;
+
+  /* Check the hash table to determine if this class has been searched 
+     already. */
+  if (searched_classes)
+    {
+      if (hash_lookup (searched_classes, 
+                      (const hash_table_key) class, FALSE, NULL))
+       return NULL;
+    }
+  else
+    {
+      hash_table_init (&t, hash_newfunc, java_hash_hash_tree_node,
+                      java_hash_compare_tree_node);
+      searched_classes = &t;
+    }
+    
+  search_not_done++;
+  hash_lookup (searched_classes, 
+              (const hash_table_key) class, TRUE, NULL);
 
   if (!CLASS_LOADED_P (class) && !CLASS_FROM_SOURCE_P (class))
     {
@@ -10035,32 +10132,11 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
     }
 
   /* Search interfaces */
-  if (CLASS_INTERFACE (TYPE_NAME (class)))
+  if (TREE_CODE (TYPE_NAME (class)) == TYPE_DECL 
+      && CLASS_INTERFACE (TYPE_NAME (class)))
     {
-      static struct hash_table t, *searched_interfaces = NULL;
-      static int search_not_done = 0;
       int i, n;
       tree basetype_vec = TYPE_BINFO_BASETYPES (class);
-
-      /* Search in the hash table, otherwise create a new one if
-         necessary and insert the new entry. */
-
-      if (searched_interfaces)
-	{
-	  if (hash_lookup (searched_interfaces, 
-			   (const hash_table_key) class, FALSE, NULL))
-	    return NULL;
-	}
-      else
-	{
-	  hash_table_init (&t, hash_newfunc, java_hash_hash_tree_node,
-			   java_hash_compare_tree_node);
-	  searched_interfaces = &t;
-	}
-
-      hash_lookup (searched_interfaces, 
-		   (const hash_table_key) class, TRUE, NULL);
-
       search_applicable_methods_list (lc, TYPE_METHODS (class), 
 				      name, arglist, &list, &all_list);
       n = TREE_VEC_LENGTH (basetype_vec);
@@ -10069,23 +10145,9 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
 	  tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
 	  tree rlist;
 
-	  search_not_done++;
 	  rlist = find_applicable_accessible_methods_list (lc,  t, name, 
 							   arglist);
 	  list = chainon (rlist, list);
-	  search_not_done--;
-	}
-
-      /* We're done. Reset the searched interfaces list and finally search
-         java.lang.Object */
-      if (!search_not_done)
-	{  
-	  if (!object_done)
-	    search_applicable_methods_list (lc, 
-					    TYPE_METHODS (object_type_node),
-					    name, arglist, &list, &all_list);
-	  hash_table_free (searched_interfaces);
-	  searched_interfaces = NULL;  
 	}
     }
   /* Search classes */
@@ -10101,7 +10163,6 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
       {
 	tree basetype_vec = TYPE_BINFO_BASETYPES (sc);
 	int n = TREE_VEC_LENGTH (basetype_vec), i;
-	object_done = 1;
 	for (i = 1; i < n; i++)
 	  {
 	    tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
@@ -10113,7 +10174,6 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
 		list = chainon (rlist, list);
 	      }
 	  }
-	object_done = 0;
       }
 
       /* Search enclosing context of inner classes before looking
@@ -10134,10 +10194,35 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
       else
 	class = sc;
 
-      for (class = (lc ? NULL_TREE : CLASSTYPE_SUPER (class)); 
-        class; class = CLASSTYPE_SUPER (class))
-       search_applicable_methods_list (lc, TYPE_METHODS (class), 
-                                       name, arglist, &list, &all_list);
+      /* Search superclass */
+      if (!lc && CLASSTYPE_SUPER (class) != NULL_TREE)
+	{
+          tree rlist;
+          class = CLASSTYPE_SUPER (class);
+          rlist = find_applicable_accessible_methods_list (lc, class, 
+                                                           name, arglist);
+          list = chainon (rlist, list);
+        }
+    }
+
+  search_not_done--;
+
+  /* We're done. Reset the searched classes list and finally search
+     java.lang.Object if it wasn't searched already. */
+  if (!search_not_done)
+    {
+      if (!lc
+	  && TYPE_METHODS (object_type_node)
+	  && !hash_lookup (searched_classes, 
+                           (const hash_table_key) object_type_node, 
+                           FALSE, NULL))
+	{
+          search_applicable_methods_list (lc, 
+                                          TYPE_METHODS (object_type_node),
+                                          name, arglist, &list, &all_list);
+        }
+      hash_table_free (searched_classes);
+      searched_classes = NULL;
     }
 
   /* Either return the list obtained or all selected (but
@@ -10145,7 +10230,7 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
   return (!list ? all_list : list);
 }
 
-/* Effectively search for the approriate method in method */
+/* Effectively search for the appropriate method in method */
 
 static void 
 search_applicable_methods_list (lc, method, name, arglist, list, all_list)
@@ -10174,7 +10259,7 @@ search_applicable_methods_list (lc, method, name, arglist, list, all_list)
 	    *all_list = tree_cons (NULL_TREE, method, *list);
 	}
     }
-}    
+}
 
 /* 15.11.2.2 Choose the Most Specific Method */
 
@@ -10183,6 +10268,7 @@ find_most_specific_methods_list (list)
      tree list;
 {
   int max = 0;
+  int abstract, candidates;
   tree current, new_list = NULL_TREE;
   for (current = list; current; current = TREE_CHAIN (current))
     {
@@ -10209,24 +10295,33 @@ find_most_specific_methods_list (list)
     }
 
   /* Review the list and select the maximally specific methods */
-  for (current = list; current; current = TREE_CHAIN (current))
+  for (current = list, abstract = -1, candidates = -1;
+       current; current = TREE_CHAIN (current))
     if (DECL_SPECIFIC_COUNT (TREE_VALUE (current)) == max)
-      new_list = tree_cons (NULL_TREE, TREE_VALUE (current), new_list);
+      {
+	new_list = tree_cons (NULL_TREE, TREE_VALUE (current), new_list);
+	abstract += (METHOD_ABSTRACT (TREE_VALUE (current)) ? 1 : 0);
+	candidates++;
+      }
 
   /* If we have several and they're all abstract, just pick the
      closest one. */
-
-  if (new_list && TREE_CHAIN (new_list))
+  if (candidates > 0 && (candidates == abstract))
     {
-      tree c;
-      for (c = new_list; c && METHOD_ABSTRACT (TREE_VALUE (c)); 
-	   c = TREE_CHAIN (c))
-        ;
-      if (!c)
-	{
-	  new_list = nreverse (new_list);
-	  TREE_CHAIN (new_list) = NULL_TREE;
-	}
+      new_list = nreverse (new_list);
+      TREE_CHAIN (new_list) = NULL_TREE;
+    }
+
+  /* We have several, we couldn't find a most specific, all but one are
+     abstract, we pick the only non abstract one. */
+  if (candidates > 0 && !max && (candidates == abstract+1))
+    {
+      for (current = new_list; current; current = TREE_CHAIN (current))
+	if (!METHOD_ABSTRACT (TREE_VALUE (current)))
+	  {
+	    TREE_CHAIN (current) = NULL_TREE;
+	    new_list = current;
+	  }
     }
 
   /* If we can't find one, lower expectations and try to gather multiple
@@ -11465,8 +11560,9 @@ maybe_absorb_scoping_blocks ()
 
 /* Wrap a non WFL node around a WFL.  */
 static tree
-build_wfl_wrap (node)
+build_wfl_wrap (node, location)
     tree node;
+    int location;
 {
   tree wfl, node_to_insert = node;
   
@@ -11478,7 +11574,7 @@ build_wfl_wrap (node)
   else
     wfl = build_expr_wfl (NULL_TREE, ctxp->filename, 0, 0);
 
-  EXPR_WFL_LINECOL (wfl) = EXPR_WFL_LINECOL (node);
+  EXPR_WFL_LINECOL (wfl) = location;
   EXPR_WFL_QUALIFICATION (wfl) = build_tree_list (node_to_insert, NULL_TREE);
   return wfl;
 }
@@ -11644,7 +11740,8 @@ maybe_build_primttype_type_ref (rhs, wfl)
       tree n = TREE_OPERAND (rhs, 1);
       if (TREE_CODE (n) == VAR_DECL 
 	  && DECL_NAME (n) == TYPE_identifier_node
-	  && rhs_type == class_ptr_type)
+	  && rhs_type == class_ptr_type
+	  && TREE_CODE (EXPR_WFL_NODE (wfl)) == IDENTIFIER_NODE)
 	{
 	  const char *self_name = IDENTIFIER_POINTER (EXPR_WFL_NODE (wfl));
 	  if (!strncmp (self_name, "java.lang.", 10))
@@ -11980,7 +12077,7 @@ valid_ref_assignconv_cast_p (source, dest, cast)
       if (TYPE_CLASS_P (dest))
 	return  (source == dest 
 		 || inherits_from_p (source, dest)
-		 || enclosing_context_p (dest, source /*source, dest*/)
+		 || enclosing_context_p (source, dest)
 		 || (cast && inherits_from_p (dest, source)));
       if (TYPE_INTERFACE_P (dest))
 	{
@@ -12934,7 +13031,10 @@ patch_incomplete_class_ref (node)
     return error_mark_node;
 
   if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type))
-    return build_class_ref (ref_type);
+    {
+      /* A class referenced by `foo.class' is initialized.  */
+      return build_class_init (ref_type, build_class_ref (ref_type));
+    }
 
   /* If we're emitting class files and we have to deal with non
      primitive types, we invoke (and consider generating) the
@@ -13536,7 +13636,8 @@ patch_new_array_init (type, node)
 	  TREE_PURPOSE (current) = NULL_TREE;
 	  all_constant = 0;
 	}
-      if (elt && TREE_VALUE (elt) == error_mark_node)
+      if (elt && TREE_CODE (elt) == TREE_LIST 
+	  && TREE_VALUE (elt) == error_mark_node)
 	error_seen = 1;
     }
 

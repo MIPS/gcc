@@ -1,3 +1,320 @@
+2000-06-30  Nick Clifton  <nickc@cygnus.com>
+
+	* gcc.c-torture/compile/20000629-1.c: Add second, reversed, loop
+	to test case.
+
+2000-06-30  Catherine Moore  <clm@cygnus.com>
+
+	* gcc.c-torture/execute/align-1.c: New test.
+
+2000-06-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/expr8.C: New test.
+	* g++.old-deja/g++.pt/expr6.C: Remove XFAIL.
+
+2000-06-29  Nick Clifton  <nickc@cygnus.com>
+
+	* gcc.c-torture/compile/20000629-1.c: New test.
+
+2000-06-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+
+	Move the c-torture/noncompile tests to either gcc.dg/cpp or a new
+	gcc.dg/noncompile directory, depending on whether they're
+	preprocessor tests or not.  Annotate all the tests for the dg
+	framework.
+
+	* gcc.c-torture/noncompile/noncompile.exp: Delete.
+	* gcc.dg/noncompile/noncompile.exp: New.
+
+	* Moved files:
+	Old name				New name
+	gcc.c-torture/noncompile/920507-1.c	gcc.dg/noncompile/920507-1.c
+	gcc.c-torture/noncompile/920616-2.c	gcc.dg/noncompile/920616-2.c
+	gcc.c-torture/noncompile/920721-2.c	gcc.dg/noncompile/920721-2.c
+	gcc.c-torture/noncompile/920824-1.c	gcc.dg/noncompile/920824-1.c
+	gcc.c-torture/noncompile/920923-1.c	gcc.dg/noncompile/920923-1.c
+	gcc.c-torture/noncompile/921102-1.c	gcc.dg/noncompile/921102-1.c
+	gcc.c-torture/noncompile/921116-1.c	gcc.dg/noncompile/921116-1.c
+	gcc.c-torture/noncompile/930301-1.c	gcc.dg/noncompile/930301-1.c
+	gcc.c-torture/noncompile/930622-1.c	gcc.dg/noncompile/930622-1.c
+	gcc.c-torture/noncompile/930622-2.c	gcc.dg/noncompile/930622-2.c
+	gcc.c-torture/noncompile/930714-1.c	gcc.dg/noncompile/930714-1.c
+	gcc.c-torture/noncompile/931203-1.c	gcc.dg/noncompile/931203-1.c
+	gcc.c-torture/noncompile/940112-1.c	gcc.dg/noncompile/940112-1.c
+	gcc.c-torture/noncompile/940227-1.c	gcc.dg/noncompile/940227-1.c
+	gcc.c-torture/noncompile/940510-1.c	gcc.dg/noncompile/940510-1.c
+	gcc.c-torture/noncompile/950825-1.c	gcc.dg/noncompile/950825-1.c
+	gcc.c-torture/noncompile/950921-1.c	gcc.dg/noncompile/950921-1.c
+	gcc.c-torture/noncompile/951123-1.c	gcc.dg/noncompile/951123-1.c
+	gcc.c-torture/noncompile/971104-1.c	gcc.dg/noncompile/971104-1.c
+	gcc.c-torture/noncompile/990416-1.c	gcc.dg/noncompile/990416-1.c
+	gcc.c-torture/noncompile/init-1.c	gcc.dg/noncompile/init-1.c
+	gcc.c-torture/noncompile/init-2.c	gcc.dg/noncompile/init-2.c
+	gcc.c-torture/noncompile/invalid_asm.c	gcc.dg/noncompile/invalid_asm.c
+	gcc.c-torture/noncompile/va-arg-1.c	gcc.dg/noncompile/va-arg-1.c
+
+	gcc.c-torture/noncompile/940712-1.c	gcc.dg/cpp/19940712-1.c
+	gcc.c-torture/noncompile/940712-1.h	gcc.dg/cpp/19940712-1.h
+	gcc.c-torture/noncompile/940712-1a.h	gcc.dg/cpp/19940712-1a.h
+	gcc.c-torture/noncompile/940712-1b.h	gcc.dg/cpp/19940712-1b.h
+	gcc.c-torture/noncompile/951025-1.c	gcc.dg/cpp/19951025-1.c
+	gcc.c-torture/noncompile/951227-1.c	gcc.dg/cpp/19951227-1.c
+
+2000-06-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/20000628-1a.h: On each of the first three inclusions,
+	declare one variable.  On the fourth, error.
+	* gcc.dg/cpp/20000628-1.c (main): Reference the three variables
+	declared by 20000628-1a.h.
+
+2000-06-29  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/930529-1.x: New file.
+	* gcc.dg/920413-1.c: Adjust expected warning text.
+	* gcc.dg/980217-1.c: Declare abort.
+	* gcc.dg/cpp/20000628-1a.h: Use a declaration instead of an asm.
+
+Thu Jun 29 09:42:40 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* g77.f-torture/compile/20000629-1.f: New test.
+	* g77.f-torture/compile/20000629-1.x: Expected to fail.
+
+2000-06-28  Zack Weinberg  <zack@wolery.cumb.org>
+
+	Rearrange lots of files, removing entirely the
+	gcc.c-torture/special, gcc.c-torture/code_quality, and gcc.failure
+	directories.
+
+	* Deleted files:
+	gcc.c-torture/code_quality/code_quality.exp
+	gcc.c-torture/special/special.exp
+	gcc.failure/failure.exp
+	gcc.failure/940409-1.x
+	gcc.c-torture/compile/961203-1.x
+
+	* New files:
+	gcc.misc-tests/linkage.exp
+	gcc.c-torture/execute/920730-1t.c
+	gcc.c-torture/execute/920730-1t.x
+	gcc.c-torture/compile/920520-1.x
+	gcc.c-torture/compile/920521-1.x
+	gcc.c-torture/compile/981006-1.x
+	gcc.c-torture/execute/eeprof-1.x
+
+	* Moved files (possibly with modifications to fit a new harness):
+	Old name				New name
+	gcc.c-torture/code_quality/920608-1.c	gcc.c-torture/compile/920608-1.c
+	gcc.c-torture/special/920413-1.c	gcc.dg/920413-1.c
+	gcc.c-torture/special/920520-1.c	gcc.c-torture/compile/920520-1.c
+	gcc.c-torture/special/920521-1.c	gcc.c-torture/compile/920521-1.c
+	gcc.c-torture/special/920717-x.c	gcc.misc-tests/linkage-x.c
+	gcc.c-torture/special/920717-y.c	gcc.misc-tests/linkage-y.c
+	gcc.c-torture/special/920730-1.c	gcc.c-torture/execute/920730-1.c
+	gcc.c-torture/special/930510-1.c	gcc.dg/cpp/19930510-1.c
+	gcc.c-torture/special/951130-1.c	gcc.dg/951130-1.c
+	gcc.c-torture/special/960224-1.c	gcc.dg/cpp/19960224-1.c
+	gcc.c-torture/special/960224-2.c	gcc.dg/cpp/19960224-2.c
+	gcc.c-torture/special/981006-1.c	gcc.c-torture/compile/981006-1.c
+	gcc.c-torture/special/eeprof-1.c	gcc.c-torture/execute/eeprof-1.c
+	gcc.failure/940409-1.c			gcc.dg/940409-1.c
+
+2000-06-28  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* c-torture/compile/961203-1.x: Delete.
+
+	* gcc.misc-tests/acker1.c: Report failure.  Use return from main,
+	not exit. Include stdio.h.
+	* gcc.misc-tests/dg-11.c: Remove anchors from regexp.
+	* gcc.misc-tests/dg-12.c: Likewise.
+	* gcc.misc-tests/dg-5.c: Likewise.
+	* gcc.misc-tests/dg-6.c: Likewise.
+	* gcc.misc-tests/dg-7.c: Prototype abort.
+	* gcc.misc-tests/dg-9.c: Adjust error-message regexps.
+	* gcc.misc-tests/dhry.h: Include stdlib.h and string.h.
+	* gcc.misc-tests/matrix1.c: Report failure.  Use return from main,
+	not exit.
+	* gcc.misc-tests/sieve.c: Use return from main, not exit.
+	* gcc.misc-tests/sort2.c: Use return from main, not exit.
+
+2000-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cpp/20000628-1.c: New test.
+	* gcc.dg/cpp/20000628-1.h: New header for above test.
+	* gcc.dg/cpp/20000628-1a.h: Likewise.
+
+2000-06-27  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp: New directory.
+	* gcc.dg/cpp/cpp.exp: New driver.
+	* gcc.dg/cpp/20000627-1.c: New test.
+	* gcc.c-torture/special/special.exp: Remove entry for 921210-1.c.
+	* gcc.c-torture/special/921210-1.c: Move to gcc.dg/cpp/19921210-1.c
+	and rewrite as a compilation test.
+
+	* gcc.dg: Move many files into the cpp subdirectory, possibly
+	renaming or editing them as well.
+	Old name		New name
+	990119-1.c		cpp/19990119-1.c
+	990228-1.c		cpp/19990228-1.c
+	990407-1.c		cpp/19990407-1.c
+	990409-1.c		cpp/19990409-1.c
+	990413-1.c		cpp/19990413-1.c
+	990703-1.c		cpp/19990703-1.c
+	20000127-1.c		cpp/20000127-1.c
+	20000129-1.c		cpp/20000129-1.c
+	20000207-1.c		cpp/20000207-1.c
+	20000207-2.c		cpp/20000207-2.c
+	20000209-1.c		cpp/20000209-1.c
+	20000209-2.c		cpp/20000209-2.c
+	20000301-1.c		cpp/20000301-1.c
+	20000419-1.c		cpp/20000419-1.c
+	20000510-1.S		cpp/20000510-1.S
+	20000519-1.c		cpp/20000519-1.c
+	20000529-1.c		cpp/20000529-1.c
+	20000625-1.c		cpp/20000625-1.c
+	20000625-2.c		cpp/20000625-2.c
+	cpp-as1.c		cpp/assert1.c
+	cpp-as2.c		cpp/assert2.c
+	cxx-comments-1.c	cpp/cxxcom1.c
+	cxx-comments-2.c	cpp/cxxcom2.c
+	endif-label.c		cpp/endif.c
+	cpp-hash1.c		cpp/hash1.c
+	cpp-hash2.c		cpp/hash2.c
+	cpp-if1.c		cpp/if-1.c
+	cpp-if2.c		cpp/if-2.c
+	cpp-if3.c		cpp/if-3.c
+	cpp-if4.c		cpp/if-4.c
+	cpp-if5.c		cpp/if-5.c
+	cpp-cond.c		cpp/if-cexp.c
+	cpp-missingop.c		cpp/if-mop.c
+	cpp-missingparen.c	cpp/if-mpar.c
+	cpp-opprec.c		cpp/if-oppr.c
+	cpp-ifparen.c		cpp/if-paren.c
+	cpp-shortcircuit.c	cpp/if-sc.c
+	cpp-shift.c		cpp/if-shift.c
+	cpp-unary.c		cpp/if-unary.c
+	cpp-li1.c		cpp/line1.c
+	cpp-li2.c		cpp/line2.c
+	lineno.c		cpp/line3.c
+	lineno-2.c		cpp/line4.c
+	cpp-mi.c		cpp/mi1.c
+	cpp-mic.h		cpp/mi1c.h
+	cpp-micc.h		cpp/mi1cc.h
+	cpp-mind.h		cpp/mi1nd.h
+	cpp-mindp.h		cpp/mi1ndp.h
+	cpp-mix.h		cpp/mi1x.h
+	cpp-mi2.c		cpp/mi2.c
+	cpp-mi2a.h		cpp/mi2a.h
+	cpp-mi2b.h		cpp/mi2b.h
+	cpp-mi2c.h		cpp/mi2c.h
+	cpp-mi3.c		cpp/mi3.c
+	cpp-mi3.def		cpp/mi3.def
+	poison-1.c		cpp/poison.c
+	pr-impl.c		cpp/prag-imp.c
+	cpp-redef-2.c		cpp/redef1.c
+	cpp-redef.c		cpp/redef2.c
+	strpaste.c		cpp/strp1.c
+	strpaste-2.c		cpp/strp2.c
+	cpp-tradpaste.c		cpp/tr-paste.c
+	cpp-tradstringify.c	cpp/tr-str.c
+	cpp-tradwarn1.c		cpp/tr-warn1.c
+	cpp-tradwarn2.c		cpp/tr-warn2.c
+	trigraphs.c		cpp/trigraphs.c
+	cpp-unc1.c		cpp/unc1.c
+	cpp-unc2.c		cpp/unc2.c
+	cpp-unc3.c		cpp/unc3.c
+	cpp-unc.c		cpp/unc4.c
+	undef.c			cpp/undef1.c
+	undef-2.c		cpp/undef2.c
+	cpp-wi1.c		cpp/widestr1.c
+
+2000-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/g++.exp (g++_include_flags): Tweak.
+
+2000-06-27  H.J. Lu  <hjl@gnu.org>
+            Loren J. Rittle  <ljrittle@acm.org>
+
+        * lib/g++.exp (g++_include_flags): Override libgloss.exp
+        version with one that knows about the new gcc tree structure.
+        (g++_link_flags): Same.
+	
+2000-06-26  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/20000419-1.c, gcc.dg/cpp-mi.c, gcc.dg/cpp-tradwarn1.c,
+	gcc.dg/cpp-unc.c: Use "target *-*-*", not "target native", in
+	case we are cross-compiling.
+
+	* g++.old-deja/Makefile.in, g++.old-deja/configure.in,
+	g++.old-deja/g++.niklas/Makefile.in,           
+	g++.old-deja/g++.niklas/configure.in,
+	g++.old-deja/g++.other/Makefile.in,
+	g++.old-deja/g++.other/configure.in,
+	gcc.c-torture/code_quality/Makefile.in,
+	gcc.c-torture/code_quality/configure.in,
+	gcc.c-torture/compat/Makefile.in, gcc.c-torture/compat/configure.in,
+	gcc.c-torture/compile/Makefile.in, gcc.c-torture/compile/configure.in,
+	gcc.c-torture/execute/Makefile.in, gcc.c-torture/execute/configure.in,
+	gcc.c-torture/execute/ieee/Makefile.in,
+	gcc.c-torture/execute/ieee/configure.in,
+	gcc.c-torture/noncompile/Makefile.in,
+	gcc.c-torture/noncompile/configure.in,
+	gcc.c-torture/special/Makefile.in, gcc.c-torture/special/configure.in,
+	gcc.c-torture/unsorted/Makefile.in, gcc.c-torture/unsorted/configure.in,
+	gcc.misc-tests/Makefile.in, gcc.misc-tests/configure.in: Delete.
+
+2000-06-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/ambig3.C: New test.
+
+2000-06-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/syntax1.C: New test.
+	* g++.old-deja/g++.pt/syntax2.C: New test.
+	* g++.old-deja/g++.other/syntax3.C: New test.
+	* g++.old-deja/g++.other/syntax4.C: New test.
+
+2000-06-25  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/20000623-1.c: Prototype exit and abort.
+
+2000-06-25  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/20000625-1.c, gcc.dg/20000625-2.c, gcc.dg/cpp-mi3.c:
+        New tests.
+	* gcc.dg/cpp-mi3.def: New file.
+
+	* gcc.dg/cpp-as1.c: Also test that macro expansion does not occur
+	inside assertions.
+	* gcc.dg/cpp-as2.c: Make error regexps match either old or new
+	lexer's error messages.
+	* gcc.dg/cpp-mi.c: Use -H and examine the output, don't try to
+	divine anything from the linemarkers.
+	* gcc.dg/cpp-micc.h: Fix typo (declare int b, not int a);
+	* gcc.dg/poison-1.c: Preprocess only; apply -fno-show-column.
+
+2000-06-23  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* gcc.dg/20000623-1.c: New test.
+
+2000-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000622-1.c: New test.
+
+2000-06-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/init15.C: New test.
+
+2000-06-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/vaarg2.C: New test.
+	* g++.old-deja/g++.pt/vaarg3.C: New test.
+
+2000-06-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/dyncast6.C: New test.
+
 2000-06-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/loop-6.c: New test.

@@ -50,6 +50,7 @@ static tree expand_cond PARAMS ((tree));
 static tree maybe_convert_cond PARAMS ((tree));
 static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
 static void deferred_type_access_control PARAMS ((void));
+static void emit_associated_thunks PARAMS ((tree));
 
 /* Record the fact that STMT was the last statement added to the
    statement tree.  */
@@ -1340,18 +1341,11 @@ genrtl_asm_stmt (cv_qualifier, string, output_operands,
   emit_line_note (input_filename, lineno);
   if (output_operands != NULL_TREE || input_operands != NULL_TREE
       || clobbers != NULL_TREE)
-    {
-      tree t;
-      
-      for (t = input_operands; t; t = TREE_CHAIN (t))
-	TREE_VALUE (t) = decay_conversion (TREE_VALUE (t));
-      
-      c_expand_asm_operands (string, output_operands,
-			     input_operands, 
-			     clobbers,
-			     cv_qualifier != NULL_TREE,
-			     input_filename, lineno);
-    }
+    c_expand_asm_operands (string, output_operands,
+			   input_operands, 
+			   clobbers,
+			   cv_qualifier != NULL_TREE,
+			   input_filename, lineno);
   else
     expand_asm (string);
   
@@ -1372,6 +1366,8 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
      tree clobbers;
 {
   tree r;
+  tree t;
+
   if (TREE_CHAIN (string))
     string = combine_strings (string);
 
@@ -1382,6 +1378,10 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 		  IDENTIFIER_POINTER (cv_qualifier));
       cv_qualifier = NULL_TREE;
     }
+
+  if (!processing_template_decl)
+    for (t = input_operands; t; t = TREE_CHAIN (t))
+      TREE_VALUE (t) = decay_conversion (TREE_VALUE (t));
 
   r = build_min_nt (ASM_STMT, cv_qualifier, string,
 		    output_operands, input_operands,
@@ -1775,21 +1775,6 @@ finish_parenthesized_expr (expr)
   return expr;
 }
 
-/* The last_tree will be NULL_TREE when entering this function. Unlike
-   the other genrtl functions, in this function, that state can change
-   hence the check at the end as in the original version of
-   begin_stmt_expr. Generate the RTL for the start of a STMT_EXPR. */
-tree
-genrtl_begin_stmt_expr ()
-{
-  if (! cfun && !last_tree)
-    begin_stmt_tree (&scope_chain->x_saved_tree);
-
-  keep_next_level (1);
-  
-  return (last_tree != NULL_TREE) ? last_tree : expand_start_stmt_expr(); 
-}
-
 /* Begin a statement-expression.  The value returned must be passed to
    finish_stmt_expr.  */
 
@@ -1810,22 +1795,34 @@ begin_stmt_expr ()
   return last_tree; 
 }
 
-/* Generate the RTL for the end of the STMT_EXPR. */
+/* Used when beginning a statement-expression outside function scope.
+   For example, when handling a file-scope initializer, we use this
+   function.  */
+
+tree
+begin_global_stmt_expr ()
+{
+  if (! cfun && !last_tree)
+    begin_stmt_tree (&scope_chain->x_saved_tree);
+
+  keep_next_level (1);
+  
+  return (last_tree != NULL_TREE) ? last_tree : expand_start_stmt_expr(); 
+}
+
+/* Finish the STMT_EXPR last begun with begin_global_stmt_expr.  */
 
 tree 
-genrtl_finish_stmt_expr (rtl_expr)
-     tree rtl_expr;
+finish_global_stmt_expr (stmt_expr)
+     tree stmt_expr;
 {
-  tree result;
-
-  rtl_expr = expand_end_stmt_expr (rtl_expr);
-  result = rtl_expr;
+  stmt_expr = expand_end_stmt_expr (stmt_expr);
   
   if (! cfun
       && TREE_CHAIN (scope_chain->x_saved_tree) == NULL_TREE)
     finish_stmt_tree (&scope_chain->x_saved_tree);
 
-  return result;
+  return stmt_expr;
 }
 
 /* Finish a statement-expression.  RTL_EXPR should be the value
@@ -2234,7 +2231,7 @@ finish_template_template_parm (aggr, identifier)
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
-  SET_DECL_ARTIFICIAL (decl);
+  DECL_ARTIFICIAL (decl) = 1;
   end_template_decl ();
 
   return finish_template_type_parm (aggr, tmpl);
@@ -2962,6 +2959,53 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
+/* Emit all thunks to FN that should be emitted when FN is emitted.  */
+
+static void
+emit_associated_thunks (fn)
+     tree fn;
+{
+  /* When we use vcall offsets, we emit thunks with the virtual
+     functions to which they thunk. The whole point of vcall offsets
+     is so that you can know statically the entire set of thunks that
+     will ever be needed for a given virtual function, thereby
+     enabling you to output all the thunks with the function itself.  */
+  if (vcall_offsets_in_vtable_p () && DECL_VIRTUAL_P (fn))
+    {
+      tree binfo;
+      tree v;
+
+      for (binfo = TYPE_BINFO (DECL_CONTEXT (fn));
+	   binfo;
+	   binfo = TREE_CHAIN (binfo))
+	for (v = BINFO_VIRTUALS (binfo); v; v = TREE_CHAIN (v))
+	  if (BV_FN (v) == fn
+	      && (!integer_zerop (BV_DELTA (v))
+		  || BV_VCALL_INDEX (v)))
+	    {
+	      tree thunk;
+	      tree vcall_index;
+
+	      if (BV_USE_VCALL_INDEX_P (v))
+		{
+		  vcall_index = BV_VCALL_INDEX (v);
+		  my_friendly_assert (vcall_index != NULL_TREE, 20000621);
+		}
+	      else
+		vcall_index = NULL_TREE;
+
+	      thunk = make_thunk (build1 (ADDR_EXPR,
+					  vfunc_ptr_type_node,
+					  fn),
+				  BV_DELTA (v),
+				  vcall_index,
+				  /*generate_with_vtable_p=*/0);
+	      use_thunk (thunk, /*emit_p=*/1);
+	    }
+    }
+}
+
+
 /* Generate RTL for FN.  */
 
 void
@@ -3036,6 +3080,9 @@ expand_body (fn)
       note_deferral_of_defined_inline_function (fn);
       return;
     }
+
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
 
   timevar_push (TV_INTEGRATION);
 
