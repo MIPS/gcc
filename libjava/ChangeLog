@@ -1,3 +1,19 @@
+2004-06-30  Olga Rodimina  <rodimina@redhat.com>
+
+	* java/awt/Window.java: Changed constructors to use new
+	method that is described below. Constructors call this
+	methods only if newly created window should have an owner.
+	(setWindowOwner): New method. Implementation for
+	this method is moved from this(owner,configuration).
+	* javax/swing/JWindow.java:
+	(JWindow): Reimplement to use SwingUtilities.ownerFrame
+	instead of owner.
+	* javax/swing/SwingUtilities.java:
+	(ownerFrame): Change type of this field to OwnerFrame.
+	(getOwnerFrame): Changed to return object of type OwnerFrame.
+	(SwingUtilities.OwnerFrame): New class. Represents owner
+	of a Window that is not provided with one.
+
 2004-06-30  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/basic/BasicButtonUI.java

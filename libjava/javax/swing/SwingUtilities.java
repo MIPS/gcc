@@ -65,8 +65,11 @@ import java.lang.reflect.InvocationTargetException;
  */
 public class SwingUtilities implements SwingConstants
 {
-
-  private static Frame ownerFrame;
+  /** 
+   * This frame should be used as parent for JWindow or JDialog 
+   * that doesn't an owner
+   */
+  private static OwnerFrame ownerFrame;
 
   /**
    * Calculates the portion of the base rectangle which is inside the
@@ -836,15 +839,15 @@ public class SwingUtilities implements SwingConstants
   }
   
   /**
-   * This method returns the common Frame owner used in JDialogs
-   * when no owner is provided.
+   * This method returns the common Frame owner used in JDialogs or
+   * JWindow when no owner is provided.
    *
    * @return The common Frame 
    */
   static Frame getOwnerFrame()
   {
     if (ownerFrame == null)
-      ownerFrame = new Frame();
+      ownerFrame = new OwnerFrame();
     return ownerFrame;
   }
 
@@ -886,4 +889,16 @@ public class SwingUtilities implements SwingConstants
     return ((event.getModifiers() & InputEvent.BUTTON3_DOWN_MASK)
 	     == InputEvent.BUTTON3_DOWN_MASK);
   }
+  
+  /**
+   * This frame should be used when constructing a Window/JDialog without 
+   * a parent. In this case, we are forced to use this frame as a window's
+   * parent, because we simply cannot pass null instead of parent to Window
+   * constructor, since doing it will result in NullPointerException.
+   */
+  private class OwnerFrame extends Frame{
+    public OwnerFrame(){
+      super();
+  }
+} 
 }
