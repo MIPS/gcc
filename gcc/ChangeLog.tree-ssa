@@ -1,3 +1,12 @@
+2003-06-11  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (rewrite_and_optimize_stmt): Improve/correct setting of
+	may_optimize_p.  Simplify later code knowing may_optimize_p is
+	correctly set.
+	(avail_expr_hash): Do not use iterative_hash_object or deal with
+	SSA names for real operands.  Instead use iterative_hash_expr
+	which handles both.  Use operand_equal_p to test for equality.
+
 2003-06-11  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-flow.h, tree-ssa-ccp.c, tree-ssa-copyprop.c,

@@ -2068,11 +2068,12 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
      nor volatile references and no side effects (i.e., no VDEFs).  */
   may_optimize_p = !ann->makes_aliased_stores
 		   && !ann->has_volatile_ops
-		   && vdefs == NULL;
+		   && vdefs == NULL
+		   && def_p
+		   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1))
+		   && ! TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR;
 
-  if (may_optimize_p
-      && def_p
-      && TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR)
+  if (may_optimize_p)
     {
       /* Check if the RHS of the assignment has been computed before.  If
 	 so, use the LHS of the previously computed statement as the
@@ -2587,19 +2588,12 @@ avail_expr_hash (const void *p)
   size_t i;
   varray_type ops;
   tree stmt = (tree) p;
-  enum tree_code code;
 
+  /* iterative_hash_expr knows how to deal with any expression and
+     deals with commutative operators as well, so just use it instead
+     of duplicating such complexities here.  */
   rhs = TREE_OPERAND (stmt, 1);
-  code = TREE_CODE (rhs);
-  val = iterative_hash_object (code, val);
-
-  /* Add the SSA version numbers of every use operand.  */
-  ops = use_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    {
-      tree op = *((tree *) VARRAY_GENERIC_PTR (ops, i));
-      val = iterative_hash_expr (op, val);
-    }
+  val = iterative_hash_expr (rhs, val);
 
   /* Add the SSA version numbers of every vuse operand.  This is important
      because compound variables like arrays are not renamed in the
@@ -2626,8 +2620,7 @@ avail_expr_eq (const void *p1, const void *p2)
 
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && simple_cst_equal (rhs1, rhs2) == 1)
+  if (TREE_CODE (rhs1) == TREE_CODE (rhs2) && operand_equal_p (rhs1, rhs2, 0))
     {
       varray_type ops1 = vuse_ops (s1);
       varray_type ops2 = vuse_ops (s2);
