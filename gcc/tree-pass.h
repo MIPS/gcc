@@ -75,7 +75,7 @@ struct tree_opt_pass
 #define PROP_pta		(1 << 5)
 #define PROP_ssa		(1 << 6)
 #define PROP_no_crit_edges      (1 << 7)
-
+#define PROP_scev               (1 << 8)
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
 #define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
@@ -108,6 +108,7 @@ extern struct tree_opt_pass pass_scev_anal;
 extern struct tree_opt_pass pass_scev_depend;
 extern struct tree_opt_pass pass_scev_vectorize;
 extern struct tree_opt_pass pass_scev_done;
+extern struct tree_opt_pass pass_ddg;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_build_ssa;

@@ -22,7 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
 
-struct data_reference {
+struct data_reference GTY(())
+{
   /* An identifier.  */
   unsigned int id;
   
@@ -64,7 +65,8 @@ enum data_dependence_direction {
    are stored in the data_dependence_relation structure under the form
    of an array of subscripts.  */
 
-struct subscript {
+struct subscript GTY(()) 
+{
   /* A description of the iterations for which the elements are
      accessed twice.  */
   tree conflicting_iterations_in_a;
@@ -97,9 +99,11 @@ struct subscript {
 /* A data_dependence_relation represents a relation between two
    data_references A and B.  */
 
-struct data_dependence_relation {
+struct data_dependence_relation GTY(())
+{
   
-  struct data_reference *a, *b;
+  struct data_reference *a;
+  struct data_reference *b;
 
   /* A "yes/no/maybe" field for the dependence relation:
      
@@ -151,7 +155,7 @@ extern void dump_data_dependence_relation (FILE *,
 extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
-
+extern void compute_all_dependences (varray_type, varray_type);
 extern struct data_reference *analyze_array (tree, tree);
 
 

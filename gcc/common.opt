@@ -211,6 +211,10 @@ fall-data-deps
 Common
 Analyze all the data dependences 
 
+ftree-ddg
+Common
+Enable data dependence graph
+
 fargument-alias
 Common
 Specify that arguments may alias each other and globals

@@ -4347,7 +4347,7 @@ struct tree_opt_pass pass_scev_anal =
   0,					/* static_pass_number */
   TV_SCALAR_EVOLUTIONS,			/* tv_id */
   PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
+  PROP_scev,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */

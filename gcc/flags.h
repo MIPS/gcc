@@ -715,6 +715,9 @@ extern int flag_scalar_evolutions;
 /* Enable the analysis of all the data dependences.  */
 extern int flag_all_data_deps;
 
+/* Enable data dependence graph.  */
+extern int flag_ddg;
+
 /* Enable loop vectorization on trees */
 extern int flag_tree_vectorize;
 

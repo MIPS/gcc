@@ -964,6 +964,9 @@ int flag_scalar_evolutions = 0;
 /* Enable the analysis of all data dependences.  */
 int flag_all_data_deps = 0;
 
+/* Enable data dependence graph.  */
+int flag_ddg = 0;
+
 /* Enable loop vectorization on trees */
 int flag_tree_vectorize = 0;
 
@@ -1179,6 +1182,7 @@ static const lang_independent_options f_options[] =
   { "tree-dce", &flag_tree_dce, 1 },
   { "scalar-evolutions", &flag_scalar_evolutions, 1 },
   { "all-data-deps", &flag_all_data_deps, 1 },
+  { "tree-ddg", &flag_ddg, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },

@@ -1,3 +1,40 @@
+2004-02-16  Devang Patel  <dpatel@apple.com>
+
+        * Makefile.in (TREE_FLOW_H): Add tree-dg.h
+        (OBJS-common): Add tree-dg.o
+        (gtype-desc.o): Depend on tree-dg.h
+        (tree-dg.o): New rule.
+        (GTFILES): Add tree-data-ref.h, tree-data-ref.h 
+        * common.opt (ftree-ddg): Add new option.
+        * flags.h (flag_ddg): New extern.
+        * gengtype.c (open_base_files): Add tree-dg.h and tree-data-ref.h in 
+        the list.
+        * opts.c (decode_option): Set flag_ddg to zero.
+        (common_handle_option): Handle OPT_ftree_ddg.
+        * timevar.def (TV_DEP_GRAPH): New.
+        * toplev.c (flag_ddg): New flag.
+        (lang_independent_options): Add entry for -ftree-ddg.
+        * tree-data-ref.c (compute_all_dependences): Make externally visible.
+        * tree-data-ref.h (data_reference, subscript, data_dependence_relation)
+        Add GTY markers.
+        (compute_all_dependences): Make externally visible.
+        * tree-dg.c: New file.
+        * tree-dg.h: New file.
+        * tree-flow-inline.h (dg_node_for_stmt): New function.
+        * tree-flow.h (tree-dg.h): Include.
+        (stmt_ann_d): New member, dg_node.
+        * tree-optimize.c (init_tree_optimization_passes): Add pass_ddg.
+        * tree-pass.h (PROP_scev): Define.
+        (tree_opt_pass pass_ddg): Extern decl.
+        * tree-scalar-evolution.c (pass_scev_anal): Provide PROP_scev property.
+        * varray.c (element[NUM_VARRAY_DATA]): Add new member for dependence
+        graph.
+        * varray.h (varray_data_enum): New member VARRAY_DATA_DG.
+        (varray_data_tag): New member dg.
+        (VARRAY_DG_INIT): New #define.
+        (VARRAY_DG): New #define.
+        (VARRAY_PUSH_DG): New #define.
+
 2004-02-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-optimize.c (init_tree_optimization_passes): Move ch after

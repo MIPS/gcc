@@ -102,7 +102,6 @@ static bool access_functions_are_affine_or_constant_p (struct data_reference *);
 static struct data_dependence_relation *
 initialize_data_dependence_relation (struct data_reference *, 
 				     struct data_reference *);
-static void compute_all_dependences (varray_type, varray_type);
 
 static void subscript_dependence_tester (struct data_dependence_relation *);
 static void subscript_coupling_tester (struct data_dependence_relation *);
@@ -525,7 +524,7 @@ compute_direction_vector (struct data_dependence_relation *ddr)
 
 /* Compute all the data dependence relations.  */
 
-static void 
+void 
 compute_all_dependences (varray_type datarefs, 
 			 varray_type dependence_relations)
 {

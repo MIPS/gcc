@@ -695,7 +695,7 @@ CPPLIB_H = cpplib.h line-map.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
 TREE_SIMPLE_H = tree-simple.h tree-iterator.h
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h bitmap.h $(BASIC_BLOCK_H) \
-              hard-reg-set.h $(TREE_SIMPLE_H) $(HASHTAB_H)
+              hard-reg-set.h $(TREE_SIMPLE_H) $(HASHTAB_H) tree-dg.h
 PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
 C_PRETTY_PRINT_H = $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
@@ -875,7 +875,7 @@ OBJS-common = \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
  tree-vectorizer.o tree-ssa-loop-im.o tree-ssa-loop-manip.o		   \
- tree-ssa-loop-ivopts.o							   \
+ tree-ssa-loop-ivopts.o	tree-dg.o					   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-iv.o loop-init.o loop-unswitch.o	   \
@@ -1492,7 +1492,7 @@ version.o: version.c version.h
 gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) varray.h \
 	$(HASHTAB_H) $(TREE_H) $(RTL_H) function.h insn-config.h $(EXPR_H) $(OPTABS_H) \
 	libfuncs.h debug.h $(GGC_H) bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h \
-	cselib.h insn-addr.h $(TREE_FLOW_H)
+	cselib.h insn-addr.h $(TREE_FLOW_H) tree-data-ref.h tree-dg.h
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GGC_H) \
 	$(HASHTAB_H) toplev.h $(PARAMS_H) hosthooks.h
@@ -1640,6 +1640,11 @@ tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-chrec.h \
    tree-data-ref.h tree-scalar-evolution.h tree-fold-const.h tree-pass.h
+tree-dg.o: tree-dg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) flags.h \
+   errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) \
+   $(TIMEVAR_H) cfgloop.h tree-chrec.h tree-data-ref.h tree-scalar-evolution.h \
+   tree-pass.h tree-dg.h $(TIMEVAR_H) $(TREE_DUMP_H) diagnostic.h \
+   tree-fold-const.h
 tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-chrec.h tree-pass.h \
@@ -2229,13 +2234,13 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
-  $(srcdir)/fold-const.c $(srcdir)/function.c \
+  $(srcdir)/fold-const.c $(srcdir)/function.c $(srcdir)/tree-data-ref.h \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c $(srcdir)/langhooks.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
+  $(srcdir)/tree-mudflap.c $(srcdir)/tree-dg.h $(srcdir)/tree-flow.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c \
   $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \
