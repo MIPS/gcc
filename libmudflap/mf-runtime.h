@@ -12,7 +12,9 @@ struct __mf_cache { uintptr_t low; uintptr_t high; };
 extern struct __mf_cache __mf_lookup_cache [];
 extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
-extern int __mf_active_p;
+
+typedef enum {inactive, starting, active, reentrant} mf_state;
+extern mf_state __mf_state;
 
 #define UNLIKELY(e) (__builtin_expect (!!(e), 0))
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
@@ -39,13 +41,12 @@ extern void __mf_report ();
 #define __MF_PERSIST_MAX 256
 #define __MF_FREEQ_MAX 256
 
-#define TRACE_IN \
- if (__mf_opts.trace_mf_calls) \
- fprintf (stderr, "mf: enter %s\n", __FUNCTION__);
+#define TRACE(...)                         \
+  if (UNLIKELY (__mf_opts.trace_mf_calls)) \
+      fprintf (stderr, __VA_ARGS__);
 
-#define TRACE_OUT \
- if (__mf_opts.trace_mf_calls) \
- fprintf (stderr, "mf: exit %s\n", __FUNCTION__);
+#define TRACE_IN TRACE("mf: enter %s\n", __FUNCTION__)
+#define TRACE_OUT TRACE("mf: exit %s\n", __FUNCTION__)
 
 struct __mf_options
 {
@@ -69,6 +70,9 @@ struct __mf_options
 
   /* Support multiple threads. */
   int multi_threaded;
+
+  /* use __libc_stack_end heuristic */
+  int stack_bound;
   
   /* Maintain a queue of this many deferred free()s, 
      to trap use of freed memory. */

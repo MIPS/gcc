@@ -55,7 +55,19 @@ XXX: libgcc license?
 
 struct __mf_options __mf_opts;
 
-int __mf_active_p = 0;
+mf_state __mf_state = inactive;
+
+#define BEGIN_RECURSION_PROTECT           \
+  mf_state old_state;                     \
+  if (UNLIKELY (__mf_state == reentrant)) \
+    return;                               \
+  old_state = __mf_state;                 \
+  __mf_state = reentrant;
+
+#define END_RECURSION_PROTECT             \
+  __mf_state = old_state;
+
+
 
 static void
 __mf_set_default_options ()
@@ -67,6 +79,7 @@ __mf_set_default_options ()
   __mf_opts.verbose_violations = 0;
   __mf_opts.optimize_object_tree = 0;
   __mf_opts.multi_threaded = 0;
+  __mf_opts.stack_bound = 0;
   __mf_opts.free_queue_length = 0;
   __mf_opts.persistent_count = 0;
   __mf_opts.crumple_zone = 32;
@@ -142,6 +155,10 @@ options [] =
      "support /proc/self/map heuristics",
      set_option, 1, &__mf_opts.heur_proc_map},
 
+    {"stack-bound",
+     "enable a simple upper stack bound heuristic",
+     set_option, 1, &__mf_opts.stack_bound},
+     
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
      read_integer_option, 0, &__mf_opts.free_queue_length},
@@ -223,6 +240,7 @@ __mf_process_opts (char *optstr)
       case '-':
 	if (*optstr+1)
 	  {	    
+	    int negate = 0;
 	    optstr++;
 
 	    if (*optstr == '?' || strcmp (optstr, "help") == 0)
@@ -230,19 +248,18 @@ __mf_process_opts (char *optstr)
 		__mf_usage ();
 		exit (0);
 	      }
+
+	    
+	    if (strncmp (optstr, "no-", 3) == 0)
+	      {
+		negate = 1;
+		optstr = & optstr[3];
+	      }
 	    
 	    for (opts = options; opts->name; opts++)
 	      {
-		int negate = 0;
-
-		if (strncmp (optstr, "no-", 3) == 0)
-		  {
-		    negate = 1;
-		    optstr = & optstr[3];
-		  }
-
 		if (strncmp (optstr, opts->name, 
-				     strlen (opts->name)) == 0)
+			     strlen (opts->name)) == 0)
 		  {
 		    optstr += strlen (opts->name);
 		    assert (opts->target);
@@ -294,6 +311,8 @@ void __mf_init ()
 {
   char *ov = 0;
 
+  __mf_state = starting;
+
   __mf_set_default_options ();
 
   ov = getenv ("MUDFLAP_OPTIONS");
@@ -309,9 +328,9 @@ void __mf_init ()
 	}
     }
 
-  __mf_active_p = 1;
-
   __mf_init_heuristics ();
+
+  __mf_state = active;
 
   TRACE_OUT;
 }
@@ -414,8 +433,6 @@ __mf_object_tree_t *__mf_object_root;
 unsigned __mf_object_dead_head[__MF_TYPE_GUESS+1]; /* next empty spot */
 __mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_GUESS+1][__MF_PERSIST_MAX];
 
-unsigned __mf_recursion_protect;
-
 static __mf_object_tree_t *__mf_find_object (uintptr_t low, uintptr_t high);
 static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
 				   __mf_object_tree_t **objs, unsigned max_objs);
@@ -435,14 +452,10 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
   int violation_p = 0;
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
-  static unsigned recursion = 0;
 
   struct __mf_cache old_entry = *entry;
 
-  if (UNLIKELY (! __mf_active_p)) return;
-
-  if (UNLIKELY (recursion)) return;
-  recursion ++;
+  BEGIN_RECURSION_PROTECT;
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -467,8 +480,11 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
 	  }
 	else
 	  {
-	    /* XXX:  */
-	    violation_p = 1;
+	    if (! __mf_heuristic_check (ptr, ptr_high))
+	      {	      
+		/* XXX:  */
+		violation_p = 1;
+	      }
 	  }
       }    
       break;
@@ -486,14 +502,13 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
 	/* && (old_entry.low != 0) && (old_entry.high != 0)) */
 	__mf_lookup_cache_reusecount [entry_idx] ++;    
     }
-
-  if (__mf_opts.trace_mf_calls)
-    fprintf (stderr, "mf chk p=%08lx s=%lu\n", ptr, sz);
-
+  
+  TRACE ("mf: check p=%p s=%lu viol=%d\n", (void *)ptr, sz, violation_p);
+  END_RECURSION_PROTECT;
+  
   if (UNLIKELY (violation_p))
-    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), __MF_VIOL_CHECK);
-
-  recursion --;
+    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), 
+		    __MF_VIOL_CHECK);
 }
 
 /* }}} */
@@ -556,11 +571,11 @@ __mf_remove_old_object (__mf_object_tree_t *old_obj)
 void
 __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
-  if (UNLIKELY (! __mf_active_p)) return;
 
-  if (__mf_opts.trace_mf_calls)
-    fprintf (stderr, "mf reg p=%08lx s=%lu t=%d n=`%s'\n", 
-	     ptr, sz, type, name ? name : "");
+  if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return;
+
+  TRACE("mf: reg p=%p s=%lu t=%d n='%s'\n", (void *)ptr, sz, 
+	type, name ? name : "");
 
   switch (__mf_opts.mudflap_mode)
     {
@@ -582,13 +597,11 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	__mf_object_tree_t *ovr_obj[1];
 	__mf_object_tree_t *new_obj;
 	unsigned num_overlapping_objs;
-	static unsigned recursion = 0;
 	uintptr_t low = ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
 	uintptr_t pc = (uintptr_t) __builtin_return_address (0);
 	
-	if (UNLIKELY (recursion)) return;
-	recursion ++;
+	BEGIN_RECURSION_PROTECT;
 	
 	/* Treat unknown size indication as 1.  */
 	if (UNLIKELY (sz == 0)) sz = 1;
@@ -606,13 +619,15 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		ovr_obj[0]->data.high == high)
 	      {
 		/* do nothing */
-		recursion --;
+		TRACE ("mf: duplicate static reg %p\n", (void *)low);
+		END_RECURSION_PROTECT;
 		return;
 	      }
 	    else if (type == __MF_TYPE_GUESS)
 	      {
 		/* do nothing, someone has beat us here. */
-		recursion --;
+		TRACE ("mf: existing guessed reg %p\n", (void *)low);
+		END_RECURSION_PROTECT;
 		return;
 	      }
 	    else
@@ -641,18 +656,14 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
 			guess2_low = CLAMPADD (high, (1 + __mf_opts.crumple_zone));
 			guess2_high = ovr_obj[i]->data.high;
-			/* NB: split regions may disappear if low > high. */
-			
-			if (__mf_opts.trace_mf_calls)
-			  {
-			    fprintf (stderr, 
-				     "mf: splitting guess region %08lx-%08lx\n",
-				     guess1_low, guess2_high);
-			  }
 
-			__mf_unlink_object (ovr_obj[i]);
+			TRACE("mf: splitting guess region %p-%p\n", 
+			      guess1_low, guess2_high);
+		    
+			/* NB: split regions may disappear if low > high. */
+
+			__mf_remove_old_object (ovr_obj[i]);
 			__real_free (ovr_obj[i]->data.alloc_backtrace);
-			/* __real_free (ovr_obj[i]->data.dealloc_backtrace); */
 			__real_free (ovr_obj[i]);
 			ovr_obj[i] = NULL;
 
@@ -675,6 +686,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		    else
 		      {
 			/* Two or more *real* mappings here. */
+			TRACE("mf: reg violation %p\n", (void *)low);
 			__mf_violation 
 			  (ptr, sz, (uintptr_t) __builtin_return_address (0),
 			   __MF_VIOL_REGISTER);
@@ -688,7 +700,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	/* We could conceivably call __mf_check() here to prime the cache,
 	   but then the check_count field is not reliable.  */
 	
-	recursion --;	
+	END_RECURSION_PROTECT;
 	break;
       }
 
@@ -712,7 +724,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 
   extern void  __real_free (void *);
 
-  if (UNLIKELY (! __mf_active_p)) return;
+  BEGIN_RECURSION_PROTECT;
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -736,10 +748,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	__mf_object_tree_t *del_obj = NULL;  /* Object to actually delete. */
 	__mf_object_tree_t *objs[1] = {NULL};
 	unsigned num_overlapping_objs;
-	
-	if (UNLIKELY (recursion)) return;
-	recursion ++;
-	
+		
 	/* Treat unknown size indication as 1.  */
 	if (sz == 0) sz = 1;
 	
@@ -752,29 +761,26 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    {
 	      if (objs[i]->data.type == __MF_TYPE_GUESS)
 		{
-		  recursion--;
+		  TRACE("mf: ignored guess unreg %p\n", objs[i]->data.low); 		  
+		  END_RECURSION_PROTECT;
 		  return;
 		}
-	    }
-	    
+	    }	    
 	}
 
 	if (UNLIKELY (num_overlapping_objs != 1))
 	  {
 	    /* XXX: also: should match ptr == old_obj->low ? */
-	    
+	    TRACE("mf: unreg viol %p\n", (void *)ptr);
+	    END_RECURSION_PROTECT;
 	    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
 			    __MF_VIOL_UNREGISTER);
-	    recursion --;
 	    return;
 	  }
 	
 	old_obj = objs[0];
 
-	if (__mf_opts.trace_mf_calls)
-	  {
-	    fprintf (stderr, "mf: removing region %08lx-%08lx\n", old_obj->data.low, old_obj->data.high); 
-	  }
+	TRACE("mf: removing %p-%p\n", old_obj->data.low, old_obj->data.high); 
 
 	__mf_remove_old_object (old_obj);
 	
@@ -839,7 +845,6 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    __real_free (del_obj);
 	  }
 	
-	recursion --;
 	break;
       }
     } /* end switch (__mf_opts.mudflap_mode) */
@@ -851,8 +856,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
       __mf_total_unregister_size += sz;
     }
 
-  if (__mf_opts.trace_mf_calls)    
-    fprintf (stderr, "mf unr p=%08lx s=%lu\n", ptr, sz);
+  TRACE("mf: unr p=%p s=%lu\n", (void *)ptr, sz);
+  END_RECURSION_PROTECT;
 }
 
 /* }}} */
@@ -1008,7 +1013,7 @@ __mf_find_object (uintptr_t low, uintptr_t high)
   __mf_object_tree_t* objects[1]; /* Find at most one.  */
   unsigned count;
 
-  if (__mf_opts.internal_checking)
+  if (UNLIKELY(__mf_opts.internal_checking))
     __mf_validate_objects ();
 
   count = __mf_find_objects_rec (low, high, & __mf_object_root, objects, 1);
@@ -1023,7 +1028,7 @@ unsigned
 __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high,
 		   __mf_object_tree_t **objs, unsigned max_objs)
 {
-  if (__mf_opts.internal_checking)
+  if (UNLIKELY(__mf_opts.internal_checking))
     __mf_validate_objects ();
 
   return __mf_find_objects_rec (ptr_low, ptr_high, & __mf_object_root, objs, max_objs);
@@ -1038,7 +1043,7 @@ __mf_link_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
   __mf_object_tree_t *node = *link;
 
   assert (ptr != NULL);
-  if (node == NULL) 
+  if (UNLIKELY(node == NULL))
     {
       *link = ptr;
       return;
@@ -1056,7 +1061,7 @@ __mf_link_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
 void
 __mf_link_object (__mf_object_tree_t *ptr)
 {
-  if (__mf_opts.internal_checking)
+  if (UNLIKELY(__mf_opts.internal_checking))
     __mf_validate_objects ();
 
   return __mf_link_object2 (ptr, & __mf_object_root);
@@ -1071,7 +1076,7 @@ __mf_unlink_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
   __mf_object_tree_t *node = *link;
   
   assert (ptr != NULL);
-  if (node == ptr) 
+  if (UNLIKELY(node == ptr))
     {
       static unsigned promote_left_p = 0;
       promote_left_p = 1 - promote_left_p;
@@ -1178,7 +1183,8 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 static void
 __mf_describe_object (__mf_object_t *obj)
 {
-  if (UNLIKELY (! __mf_active_p)) return;
+
+  if (UNLIKELY (__mf_state != active)) return;
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
@@ -1246,7 +1252,7 @@ void
 __mf_report ()
 {
 
-  if (UNLIKELY (! __mf_active_p)) return;
+  if (UNLIKELY (__mf_state == active)) return;
 
   if (__mf_opts.collect_stats)
     {
@@ -1320,10 +1326,9 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
   static unsigned violation_number;
   extern void  __real_free (void *);
 
-  if (UNLIKELY (! __mf_active_p)) return;
+  BEGIN_RECURSION_PROTECT;
 
-  if (__mf_opts.trace_mf_calls)
-    fprintf (stderr, "mf violation pc=%08lx type=%d\n", pc, type);
+  TRACE("mf: violation pc=%p type=%d ptr=%p sz=%d\n", pc, type, ptr, sz);
 
   if (__mf_opts.collect_stats)
     __mf_count_violation [(type < 0) ? 0 :
@@ -1432,7 +1437,6 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
   switch (__mf_opts.violation_mode)
     {
     case viol_nop:
-      return;
       break;
     case viol_segv:
       kill (getpid(), SIGSEGV);
@@ -1445,6 +1449,8 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
       system (buf);
       break;
     }
+  
+  END_RECURSION_PROTECT;
 }
 
 /* }}} */
