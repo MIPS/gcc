@@ -1,5 +1,11 @@
 2004-06-14  Olga Rodimina  <rodimina@redhat.com>
 
+	* javax/swing/JPopupMenu.java:
+	(setVisible): Corrected location of a 
+	heavyweight popup menu.
+
+2004-06-14  Olga Rodimina  <rodimina@redhat.com>
+
 	* javax/swing/MenuSelectionManager.java: 
 	Ran through jalopy to fix formatting style.
 

@@ -71,7 +71,7 @@ import javax.swing.plaf.PopupMenuUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision$
+ * @version $Revision: 1.3.8.7 $
  */
 public class JPopupMenu extends JComponent implements Accessible, MenuElement
 {
@@ -601,8 +601,21 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 		popup.show(p.x, p.y, size.width, size.height);
 	      }
 	    else
-	      popup.show(popupLocation.x, popupLocation.y, size.width,
-	                 size.height);
+	      {
+		// Subtract insets of the top-level container if popup menu's
+		// top-left corner is inside it.
+		if (rootContainer.contains(popupLocation))
+		  {
+		    Insets insets = rootContainer.getInsets();
+		    popup.show(popupLocation.x - insets.left,
+		               popupLocation.y - insets.top, size.width,
+		               size.height);
+		  }
+
+		else
+		  popup.show(popupLocation.x, popupLocation.y, size.width,
+		             size.height);
+	      }
 	  }
 	else
 	  {
