@@ -3307,7 +3307,7 @@ _Jv_InitField (jobject obj, jclass klass, int index)
       /* fall through */
 
     case JV_CONSTANT_ResolvedString:
-      if (! (field->type == &StringClass
+      if (! (field->type == &java::lang::String::class$
  	     || field->type == &java::lang::Class::class$))
 	throw_class_format_error ("string initialiser to non-string field");
 

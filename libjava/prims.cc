@@ -759,7 +759,7 @@ JvConvertArgv (int argc, const char **argv)
 {
   if (argc < 0)
     argc = 0;
-  jobjectArray ar = JvNewObjectArray(argc, &StringClass, NULL);
+  jobjectArray ar = JvNewObjectArray(argc, &java::lang::String::class$, NULL);
   jobject *ptr = elements(ar);
   jbyteArray bytes = NULL;
   for (int i = 0;  i < argc;  i++)

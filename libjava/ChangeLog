@@ -1,5 +1,17 @@
 2004-09-14  Tom Tromey  <tromey@redhat.com>
 
+	* include/jvm.h (StringClass): Removed.
+	* jni.cc (_Jv_JNI_ThrowNew): Don't use StringClass.
+	* interpret.cc (_Jv_InitField): Don't use StringClass.
+	* java/lang/natString.cc (_Jv_StringFindSlot): Don't use
+	StringClass.
+	(rehash): Likewise
+	(intern): Likewise.
+	(_Jv_FinalizeString): Likewise.
+	(_Jv_NewStringUtf8Const): Likewise.
+	(equals): Likewise.
+	* prims.cc (JvConvertArgv): Don't use StringClass.
+
 	* gcj/field.h (struct _Jv_Field): Don't mention COMPACT_FIELDS.
 	* resolve.cc (ensure_fields_laid_out): Don't mention
 	COMPACT_FIELDS.

@@ -1,6 +1,6 @@
 // natString.cc - Implementation of java.lang.String native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -56,7 +56,7 @@ static int strhash_size = 0;  /* Number of slots available in strhash.
 jstring*
 _Jv_StringFindSlot (jchar* data, jint len, jint hash)
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   int start_index = hash & (strhash_size - 1);
   int deleted_index = -1;
@@ -119,7 +119,7 @@ _Jv_StringGetSlot (jstring str)
 void
 java::lang::String::rehash()
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   if (strhash == NULL)
     {
@@ -166,7 +166,7 @@ java::lang::String::rehash()
 jstring
 java::lang::String::intern()
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
   if (3 * strhash_count >= 2 * strhash_size)
     rehash();
   jstring* ptr = _Jv_StringGetSlot(this);
@@ -193,7 +193,7 @@ java::lang::String::intern()
 void
 _Jv_FinalizeString (jobject obj)
 {
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
 
   // We might not actually have intern()d any strings at all, if
   // we're being called from Reference.
@@ -285,7 +285,7 @@ _Jv_NewStringUtf8Const (Utf8Const* str)
     }
   chrs -= length;
 
-  JvSynchronize sync (&StringClass);
+  JvSynchronize sync (&java::lang::String::class$);
   if (3 * strhash_count >= 2 * strhash_size)
     java::lang::String::rehash();
   jstring* ptr = _Jv_StringFindSlot (chrs, length, hash);
@@ -526,7 +526,7 @@ java::lang::String::equals(jobject anObject)
     return false;
   if (anObject == this)
     return true;
-  if (anObject->getClass() != &StringClass)
+  if (anObject->getClass() != &java::lang::String::class$)
     return false;
   jstring other = (jstring) anObject;
   if (count != other->count)

@@ -225,9 +225,6 @@ inline _Jv_TempUTFString::~_Jv_TempUTFString ()
   char utfstr##_buf[utfstr##_len <= 256 ? utfstr##_len : 0]; \
   _Jv_TempUTFString utfstr(utfstr##thejstr, sizeof(utfstr##_buf)==0 ? 0 : utfstr##_buf)
 
-// FIXME: remove this define.
-#define StringClass java::lang::String::class$
-
 namespace gcj
 {
   /* Some constants used during lookup of special class methods.  */

@@ -560,11 +560,12 @@ static jint
 					       NULL);
 
       jclass *elts = elements (argtypes);
-      elts[0] = &StringClass;
+      elts[0] = &java::lang::String::class$;
 
       Constructor *cons = clazz->getConstructor (argtypes);
 
-      jobjectArray values = JvNewObjectArray (1, &StringClass, NULL);
+      jobjectArray values = JvNewObjectArray (1, &java::lang::String::class$,
+					      NULL);
       jobject *velts = elements (values);
       velts[0] = JvNewStringUTF (message);
 
