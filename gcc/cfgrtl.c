@@ -1791,6 +1791,7 @@ verify_flow_info ()
 
       if (INSN_P (bb->end)
 	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX))
+	  && bb->succ && bb->succ->succ_next
 	  && any_condjump_p (bb->end))
 	{
 	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
