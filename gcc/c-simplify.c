@@ -484,8 +484,11 @@ gimplify_expr_stmt (stmt_p)
 	}
     }
 
-  if (stmts_are_full_exprs_p ())
+  if (stmt == NULL_TREE)
+    stmt = build_empty_stmt ();
+  else if (stmts_are_full_exprs_p ())
     stmt = build1 (CLEANUP_POINT_EXPR, void_type_node, stmt);
+
   *stmt_p = stmt;
 }
 

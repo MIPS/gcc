@@ -54,7 +54,7 @@ static void gimplify_modify_expr     PARAMS ((tree *, tree *, tree *, int));
 static void gimplify_compound_expr   PARAMS ((tree *, tree *));
 static void gimplify_save_expr       PARAMS ((tree *, tree *, tree *));
 static void gimplify_addr_expr       PARAMS ((tree *, tree *, tree *));
-static void gimplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
+static void gimplify_self_mod_expr   PARAMS ((tree *, tree *, tree *, int));
 static void gimplify_cond_expr       PARAMS ((tree *, tree *, tree));
 static void gimplify_boolean_expr    PARAMS ((tree *, tree *));
 static void gimplify_return_expr     PARAMS ((tree, tree *));
@@ -354,7 +354,11 @@ gimplify_expr (expr_p, pre_p, post_p, gimple_test_f, fallback)
      true, regardless of the structure of the underlying tree, so
      if that is our predicate, then we bypass this test and 
      force gimplification of the expression.  FIXME, someone
-     should fix is_gimple_stmt.  */
+     should fix is_gimple_stmt.
+
+     Actually, my (jason's) theory has been for gimplification to be
+     idempotent, and for the predicates to only test for valid forms, not
+     whether they are fully simplified.  But we aren't there yet.  */
   if (gimple_test_f != is_gimple_stmt && (*gimple_test_f) (*expr_p))
     return 1;
 
@@ -408,7 +412,7 @@ gimplify_expr (expr_p, pre_p, post_p, gimple_test_f, fallback)
 	case POSTDECREMENT_EXPR:
 	case PREINCREMENT_EXPR:
 	case PREDECREMENT_EXPR:
-	  gimplify_self_mod_expr (expr_p, pre_p, post_p);
+	  gimplify_self_mod_expr (expr_p, pre_p, post_p, fallback != fb_none);
 	  break;
 
 	case ARRAY_REF:
@@ -690,6 +694,29 @@ gimplify_expr (expr_p, pre_p, post_p, gimple_test_f, fallback)
   /* If we replaced *expr_p, gimplify again.  */
   while (*expr_p && *expr_p != save_expr);
 
+  if (fallback == fb_none && !is_gimple_stmt (*expr_p))
+    {
+      /* We aren't looking for a value, and we don't have a valid
+	 statement.  If it doesn't have side-effects, throw it away.  */
+      if (!TREE_SIDE_EFFECTS (*expr_p))
+	*expr_p = build_empty_stmt ();
+      else if (!TREE_THIS_VOLATILE (*expr_p))
+	/* We only handle volatiles here; anything else with side-effects
+	   must be converted to a valid statement before we get here.  */
+	abort ();
+      else if (COMPLETE_TYPE_P (TREE_TYPE (*expr_p)))
+	{
+	  /* Historically, the compiler has treated a bare
+	     reference to a volatile lvalue as forcing a load.  */
+	  tree tmp = create_tmp_var (TREE_TYPE (*expr_p), "vol");
+	  *expr_p = build (MODIFY_EXPR, TREE_TYPE (tmp), tmp, *expr_p);
+	}
+      else
+	/* We can't do anything useful with a volatile reference to
+	   incomplete type, so just throw it away.  */
+	*expr_p = build_empty_stmt ();
+    }
+
   /* If we are gimplifying at the statement level, we're done.  Tack
      everything together and replace the original statement with the
      gimplified form.  */
@@ -898,57 +925,72 @@ gimplify_bind_expr (expr_p, pre_p)
    STMT should be stored.  */
 
 static void
-gimplify_return_expr (stmt, pre_p)
-     tree stmt;
-     tree *pre_p;
+gimplify_return_expr (tree stmt, tree *pre_p)
 {
   tree ret_expr = TREE_OPERAND (stmt, 0);
+  tree_stmt_iterator si;
 
-  if (ret_expr)
+  if (ret_expr && TREE_CODE (ret_expr) != RESULT_DECL)
     {
-      /* We need to pass the full MODIFY_EXPR down so that special handling
-	 can replace it with something else.  FIXME this code is way too
-	 complicated.  */
+      tree result;
+
       if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
-	{
-	  /* We are trying to return an expression in a void function; move
-	     the expression to before the return.   Note that RET_EXPR
-	     might be a POSTINCREMENT_EXPR or similar expression which
-	     requires even more special handling.  Ugh.  */
-	  gimplify_expr (&ret_expr, pre_p, NULL, is_gimple_stmt, fb_either);
-	  add_tree (ret_expr, pre_p);
-	  TREE_OPERAND (stmt, 0) = NULL_TREE;
-	  return;
-	}
-
-      gimplify_expr (&ret_expr, pre_p, NULL, is_gimple_stmt, fb_none);
-
-      /* When compiling C++ code, RET_EXPR can be a RESULT_DECL, which
-         is a legitimate return value.  */
-      if (TREE_CODE (ret_expr) == RESULT_DECL)
-	TREE_OPERAND (stmt, 0) = ret_expr;
-      else if (TREE_CODE (ret_expr) != MODIFY_EXPR)
-	{
-	  /* We're returning a value that is not necessarily a bitwise
-	     copy.  As in the previous case, move the expression to before
-	     the return.  */
-	  add_tree (ret_expr, pre_p);
-	  TREE_OPERAND (stmt, 0) = NULL_TREE;
-	}
+	result = NULL_TREE;
       else
-        {
-	  /* We want the RHS to be a value as that makes conversion
-	     of TRY_FINALLY_EXPRs into TRY_CATCH_EXPRs gimple.  The
-	     only RHS which needs special handling is CALL_EXPRs.
+	{
+	  result = TREE_OPERAND (ret_expr, 0);
+#ifdef ENABLE_CHECKING
+	  if ((TREE_CODE (ret_expr) != MODIFY_EXPR
+	       && TREE_CODE (ret_expr) != INIT_EXPR)
+	      || TREE_CODE (result) != RESULT_DECL)
+	    abort ();
+#endif
+	}
 
-	     Therefore, if the RHS is a CALL_EXPR, then gimplify the
-	     RHS to a gimple_val.  Otherwise allow any gimple_rhs.  */
-	  gimplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
-			 (TREE_CODE (TREE_OPERAND (ret_expr, 1)) == CALL_EXPR
-			  ? is_gimple_val : is_gimple_rhs),
-			 fb_rvalue);
-	  TREE_OPERAND (stmt, 0) = ret_expr;
-        }
+      /* We need to pass the full MODIFY_EXPR down so that special handling
+	 can replace it with something else.  */
+      gimplify_stmt (&ret_expr);
+
+      /* If there's still a MODIFY_EXPR of the RESULT_DECL after
+	 gimplification, find it so we can put it in the RETURN_EXPR.  */
+      TREE_OPERAND (stmt, 0) = NULL_TREE;
+      if (result)
+	{
+	  tree ret = NULL_TREE;
+	  tree last = NULL_TREE;
+
+	  for (si = tsi_start (&ret_expr); !tsi_end_p (si); tsi_next (&si))
+	    {
+	      last = tsi_stmt (si);
+	      if (TREE_CODE (last) == MODIFY_EXPR
+		  && TREE_OPERAND (last, 0) == result)
+		ret = last;
+	      else if (ret)
+		break;
+	    }
+
+	  /* If there were posteffects after the MODIFY_EXPR, we need a
+	     temporary.  We also copy the result of a CALL_EXPR into a
+	     temporary; apparently this simplifies dealing with
+	     TRY_FINALLY_EXPR somehow.  */
+	  if (ret
+	      && (ret != last
+		  || TREE_CODE (TREE_OPERAND (ret, 1)) == CALL_EXPR))
+	    {
+	      tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
+	      TREE_OPERAND (ret, 0) = tmp;
+	      ret = build (MODIFY_EXPR, TREE_TYPE (result), result, tmp);
+	    }
+
+	  if (ret)
+	    TREE_OPERAND (stmt, 0) = ret;
+	  else
+	    /* The return value must be set up some other way.  Just tell
+	       expand_return that we're returning the RESULT_DECL.  */
+	    TREE_OPERAND (stmt, 0) = result;
+	}
+
+      add_tree (ret_expr, pre_p);
     }
 }
 
@@ -1294,16 +1336,19 @@ gimplify_compound_lval (expr_p, pre_p, post_p)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-        *EXPR_P should be stored.  */
+        *EXPR_P should be stored.
+
+    WANT_VALUE is nonzero iff we want to use the value of this expression
+        in another expression.  */
 
 static void
-gimplify_self_mod_expr (expr_p, pre_p, post_p)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
+gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
+			int want_value)
 {
   enum tree_code code;
   tree lhs, lvalue, rhs, t1;
+  bool postfix;
+  enum tree_code arith_code;
 
   code = TREE_CODE (*expr_p);
 
@@ -1315,47 +1360,47 @@ gimplify_self_mod_expr (expr_p, pre_p, post_p)
     abort ();
 #endif
 
+  /* Prefix or postfix?  */
+  if (code == POSTINCREMENT_EXPR || code == POSTDECREMENT_EXPR)
+    /* Faster to treat as prefix if result is not used.  */
+    postfix = want_value;
+  else
+    postfix = false;
+
+  /* Add or subtract?  */
+  if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
+    arith_code = PLUS_EXPR;
+  else
+    arith_code = MINUS_EXPR;
+
   /* Gimplify the LHS into a GIMPLE lvalue.  */
   lvalue = TREE_OPERAND (*expr_p, 0);
   gimplify_expr (&lvalue, pre_p, post_p, is_gimple_modify_expr_lhs,
 		 fb_lvalue);
 
-  /* Extract the operands to the arithmetic operation, including an rvalue
-     version of our LHS.  */
+  /* Extract the operands to the arithmetic operation.  */
   lhs = lvalue;
-  /* And reduce it to an ID.  */
-  gimplify_expr (&lhs, pre_p, post_p, is_gimple_id, fb_rvalue);
   rhs = TREE_OPERAND (*expr_p, 1);
-  gimplify_expr (&rhs, pre_p, post_p, is_gimple_val, fb_rvalue);
 
-  /* Determine whether we need to create a PLUS or a MINUS operation.  */
-  if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
-    t1 = build (PLUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
-  else
-    t1 = build (MINUS_EXPR, TREE_TYPE (*expr_p), lhs, rhs);
+  if (postfix)
+    /* We want to return the original value.  */
+    gimplify_expr (&lhs, pre_p, post_p, is_gimple_val, fb_rvalue);
 
-#if defined ENABLE_CHECKING
-  if (!is_gimple_binary_expr (t1))
-    abort ();
-#endif
-
+  t1 = build (arith_code, TREE_TYPE (*expr_p), lhs, rhs);
   t1 = build (MODIFY_EXPR, TREE_TYPE (lvalue), lvalue, t1);
-  if (TREE_LOCUS (*expr_p))
-    TREE_LOCUS (t1) = TREE_LOCUS (*expr_p);
-  else
-    annotate_with_file_line (t1, input_filename, input_line);
 
-  /* Determine whether the new assignment should go before or after
-     the gimplified expression.  */
-  if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
-    add_tree (t1, pre_p);
+  if (postfix)
+    /* If this is a postfix operator, put the assignment in the postqueue
+       and replace the original expression with the (rvalue) LHS.  */
+    {
+      gimplify_stmt (&t1);
+      add_tree (t1, post_p);
+      *expr_p = lhs;
+    }
   else
-    add_tree (t1, post_p);
-
-  /* Replace the original expression with the LHS of the assignment.  */
-  *expr_p = lvalue;
+    /* Otherwise, just plug in the assignment and continue.  */
+    *expr_p = t1;
 }
-
 
 /*  Gimplify the COMPONENT_REF node pointed by EXPR_P.
 
@@ -1785,18 +1830,18 @@ gimplify_cond_expr (expr_p, pre_p, target)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-        *EXPR_P should be stored.  */
+        *EXPR_P should be stored.
+
+    WANT_VALUE is nonzero iff we want to use the value of this expression
+        in another expression.  */
 
 static void
-gimplify_modify_expr (expr_p, pre_p, post_p, want_value)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
-     int want_value;
+gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 {
   tree *from_p = &TREE_OPERAND (*expr_p, 1);
   tree *to_p = &TREE_OPERAND (*expr_p, 0);
   tree type = TREE_TYPE (*to_p);
+  int (*pred) (tree);
   
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
@@ -1868,18 +1913,15 @@ gimplify_modify_expr (expr_p, pre_p, post_p, want_value)
 	    }
 
 	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
-	  gimplify_expr (&init, pre_p, NULL, is_gimple_stmt, fb_none);
+	  gimplify_stmt (&init);
 	  add_tree (init, pre_p);
 	}
-      *expr_p = TREE_OPERAND (*expr_p, 0);
+      if (want_value)
+	*expr_p = *to_p;
+      else
+	*expr_p = build_empty_stmt ();
       return;
     }
-
-  /* If this is for a RETURN_EXPR, we can't have any posteffects.  */
-  if (!want_value)
-    post_p = NULL;
-
-  gimplify_expr (from_p, pre_p, post_p, is_gimple_rhs, fb_rvalue);
 
   /* If the RHS of the MODIFY_EXPR may throw and the LHS is a user
      variable, then we need to introduce a temporary.
@@ -1888,21 +1930,22 @@ gimplify_modify_expr (expr_p, pre_p, post_p, want_value)
      This way the optimizers can determine that the user variable is
      only modified if evaluation of the RHS does not throw.
 
-     FIXME.  What to do about cases where the LHS can throw?  */
+     FIXME this should be handled by the is_gimple_rhs predicate.  */
   if (flag_exceptions
       && ! (DECL_P (*to_p) && DECL_ARTIFICIAL (*to_p))
       && ((TREE_CODE (*from_p) == CALL_EXPR
 	   && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
 	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
-    {
-      tree tmp = get_initialized_tmp_var (*from_p, pre_p);
-      TREE_OPERAND (*expr_p, 1) = tmp;
-    }
+    pred = is_gimple_val;
+  else
+    pred = is_gimple_rhs;
+
+  gimplify_expr (from_p, pre_p, post_p, pred, fb_rvalue);
 
   if (want_value)
     {
       add_tree (*expr_p, pre_p);
-      *expr_p = TREE_OPERAND (*expr_p, 0);
+      *expr_p = *to_p;
     }
 }
 
@@ -2228,6 +2271,8 @@ create_tmp_var (type, prefix)
      frontend, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
     abort ();
+  if (!COMPLETE_TYPE_P (type))
+    abort ();
 #endif
 
   /* Make the type of the variable writable.  */
@@ -2293,7 +2338,7 @@ create_tmp_alias_var (type, prefix)
   DECL_CONTEXT (tmp_var) = current_function_decl;
   TREE_STATIC (tmp_var) = 0;
   TREE_USED (tmp_var) = 1;
-  TREE_THIS_VOLATILE (tmp_var) = TREE_THIS_VOLATILE (type);
+  TREE_THIS_VOLATILE (tmp_var) = TYPE_VOLATILE (type);
 
 
   return tmp_var;

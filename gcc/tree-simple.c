@@ -604,10 +604,45 @@ is_gimple_const (t)
 }
 
 int
-is_gimple_stmt (t)
-     tree t ATTRIBUTE_UNUSED;
+is_gimple_stmt (tree t)
 {
-  return 1;
+  enum tree_code code = TREE_CODE (t);
+  char class = TREE_CODE_CLASS (code);
+
+  if (IS_EMPTY_STMT (t))
+    return 1;
+
+  switch (class)
+    {
+    case 'r':
+    case '1':
+    case '2':
+    case '<':
+    case 'd':
+    case 'c':
+      /* These should never appear at statement level.  */
+      return 0;
+
+    case 'e':
+    case 's':
+      /* Might be OK.  */
+      break;
+
+    default:
+      /* Not an expression?!?  */
+      abort ();
+    }
+
+  switch (code)
+    {
+    case CALL_EXPR:
+    case MODIFY_EXPR:
+      return 1;
+
+    default:
+      /* FIXME enumerate the acceptable codes and change this to 0.  */
+      return 1;
+    }
 }
 
 /*  Return nonzero if T is a GIMPLE identifier.  */
@@ -643,11 +678,15 @@ is_gimple_id (t)
 /*  Return nonzero if T is an identifier or a constant.  */
 
 int
-is_gimple_val (t)
-     tree t;
+is_gimple_val (tree t)
 {
   if (t == NULL_TREE)
     return 1;
+
+  /* A volatile decl or _REF is not a valid operand, because we can't reuse
+     it as needed.  We need to copy it into a temp first.  */
+  if (TREE_THIS_VOLATILE (t))
+    return 0;
 
   return (is_gimple_id (t) || is_gimple_const (t));
 }

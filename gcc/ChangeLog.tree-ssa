@@ -1,3 +1,19 @@
+2003-06-24  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimplify_self_mod_expr): Add want_value parm.
+	For postfix ops, make sure it returns an rvalue.
+	(gimplify_expr): Copy a volatile reference into a temp.
+	(create_tmp_var): Require a complete type.
+	(create_tmp_alias_var): Use TYPE_VOLATILE on types.
+	* tree-simple.c (is_gimple_stmt): Flesh out a bit.
+	(is_gimple_val): Don't allow volatiles.
+
+	* c-simplify.c (gimplify_expr_stmt): Don't insert a null pointer.
+
+	* gimplify.c (gimplify_return_expr): Search through the gimple
+	form for the interesting MODIFY_EXPR.
+	(gimplify_modify_expr): Don't suppress posteffects if want_value.
+
 2003-06-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (struct dfa_stats_d): Remove obsolete fields
