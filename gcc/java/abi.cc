@@ -1,6 +1,6 @@
 // ABI interface.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -19,9 +19,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#include "tree/glue.hh"
-#include "tree/hooks.hh"
-#include "tree/builtins.hh"
+#include "java/glue.hh"
+#include "java/hooks.hh"
+#include "java/builtins.hh"
 
 gcj_abi::gcj_abi ()
 {

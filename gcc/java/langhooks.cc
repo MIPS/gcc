@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -23,7 +23,7 @@ Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
 The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
-#include "tree/glue.hh"
+#include "java/glue.hh"
 
 struct lang_identifier 
 {
@@ -114,8 +114,6 @@ const char *const tree_code_name[] = {
 /* #define LANG_HOOKS_DECL_PRINTABLE_NAME lang_printable_name */
 /* #undef LANG_HOOKS_PRINT_ERROR_FUNCTION */
 /* #define LANG_HOOKS_PRINT_ERROR_FUNCTION	gcjx::print_error_function */
-/* #undef LANG_HOOKS_CAN_USE_BIT_FIELDS_P */
-/* #define LANG_HOOKS_CAN_USE_BIT_FIELDS_P gcjx::can_use_bit_fields_p */
 
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE gcjx::type_for_mode
@@ -368,7 +366,7 @@ gcjx::decl_ok_for_sibcall (tree decl)
 void
 gcjx::expand_function (tree fndecl)
 {
-  tree_rest_of_compilation (fndecl, 0);
+  tree_rest_of_compilation (fndecl);
 }
 
 tree

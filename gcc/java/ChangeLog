@@ -1,3 +1,45 @@
+2005-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* treegen.cc: Fixed includes.
+	* tree.cc: Fixed includes.
+	* lower.cc: Fixed includes.
+	* langhooks.cc: Fixed includes.
+	(expand_function): Fixed.
+	* glue.hh: Fixed includes.
+	(PACKAGE, PACKAGE_BUGREPORT, PACKAGE_NAME, PACKAGE_STRING,
+	PACKAGE_TARNAME, PACKAGE_VERSION): Undefine.
+	* driver.cc: Fixed includes.
+	* decl.cc: Fixed includes.
+	* classobj.cc: Fixed includes.
+	* builtins.cc: Fixed includes.
+	* abi.cc: Fixed includes.
+	* Make-lang.in (JAVA_OBJS): Rewrote.
+	(GCJH_OBJS): Removed.
+	(JVSCAN_OBJS): Likewise.
+	(JCFDUMP_OBJS): Likewise.
+	(GCJH_TARGET_INSTALL_NAME): Removed.
+	(JAVA_MANFILES): Updated.
+	(java.install-common): Likewise.
+	(java.uninstall): Likewise.
+	(java.mostlyclean): Likewise.
+	(java.maintainer-clean): Likewise.
+	(.INTERMEDIATE): Likewise.
+	(gcjh.pod): Removed.
+	(jv-scan.pod): Removed.
+	(jcf-dump.pod): Removed.
+	(%.o:%.cc): New pattern rule.
+	(JAVA_TREE_H): Removed.
+	(JAVA_LEX_C): Likewise.
+	(java/jcf-dump.o, java/gjavah.o, java/buffer.o, java/builtins.o,
+	java/check-init.o, java/class.o, java/constants.o, java/decl.o,
+	java/except.o, java/expr.o, java/jcf-depend.o, java/jcf-parse.o,
+	java/jcf-write.o, java/jv-scan.o, java/lang.o, java/resource.o,
+	java/typeck.o, java/win32-host.o, java/verify.o,
+	java/verify-glue.o, java/verify-impl.o, java/xref.o,
+	java/zextract.o, java/parse-scan.o, java/parse.o, java/jcf-io.o,
+	java/jcf-path.o, java/java-tree-inline.o): Likewise.
+	* langhooks.cc: Removed old comment.
+
 2005-01-12  Tom Tromey  <tromey@redhat.com>
 
 	* glue.hh (TARGET_VTABLE_USES_DESCRIPTORS): Removed.

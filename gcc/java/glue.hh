@@ -73,11 +73,18 @@ extern "C"
 // define is just an optimization.  But FIXME anyway.
 #undef get_identifier
 
+// A few things redefined in the gcjx config header.
+#undef PACKAGE
+#undef PACKAGE_BUGREPORT
+#undef PACKAGE_NAME
+#undef PACKAGE_STRING
+#undef PACKAGE_TARNAME
+#undef PACKAGE_VERSION
 
 // Now include things from gcjx.
 #include "typedefs.hh"
-#include "tree/builtins.hh"
-#include "tree/hooks.hh"
-#include "tree/classobj.hh"
+#include "java/builtins.hh"
+#include "java/hooks.hh"
+#include "java/classobj.hh"
 
 #endif // GCC_TREE_GLUE_HH

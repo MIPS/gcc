@@ -1,6 +1,6 @@
 // Various built-in functions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -20,7 +20,7 @@
 // 02111-1307, USA.
 
 // This include must come first.
-#include "tree/glue.hh"
+#include "java/glue.hh"
 
 tree_builtins::tree_builtins ()
 {

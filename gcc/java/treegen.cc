@@ -1,6 +1,6 @@
 // Code generator for GENERIC.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -19,11 +19,11 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#include "tree/glue.hh"
+#include "java/glue.hh"
 
 #include "codegen.hh"
-#include "tree/treegen.hh"
-#include "tree/tree.hh"
+#include "java/treegen.hh"
+#include "java/tree.hh"
 
 tree_code_generator::tree_code_generator (compiler *, directory_cache &dirs)
   : code_generator (dirs),

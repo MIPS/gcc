@@ -1,6 +1,6 @@
 // Create a Class instance.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -19,7 +19,7 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#include "tree/glue.hh"
+#include "java/glue.hh"
 
 record_creator::record_creator (tree record_type)
 {

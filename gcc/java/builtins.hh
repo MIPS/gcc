@@ -1,6 +1,6 @@
 // Various built-in functions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,7 +22,7 @@
 #ifndef GCC_TREE_BUILTINS_HH
 #define GCC_TREE_BUILTINS_HH
 
-#include "tree/abi.hh"
+#include "java/abi.hh"
 
 class tree_builtins
 {

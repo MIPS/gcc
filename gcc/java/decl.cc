@@ -1,6 +1,6 @@
 // Initialization for all decls.
 
-// Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of GCC.
@@ -20,7 +20,7 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // 02111-1307, USA.
 
-#include "tree/glue.hh"
+#include "java/glue.hh"
 
 // FIXME: we can't include expr.h due to name clashes, so we declare
 // this explicitly.
