@@ -701,5 +701,5 @@ andersen_may_alias (ops, ptrtv, vartv)
 
   stupid_hack = ALIAS_TVAR_ATERM (vartv);
 
-  return aterm_list_find (ptset, eq_to_var);
+  return aterm_list_find (ptset, eq_to_var) != NULL;
 }

@@ -1927,6 +1927,7 @@ powerpc-*-darwin*)
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	extra_headers=altivec.h
+	rebuild_banshee=yes
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
