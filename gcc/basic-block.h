@@ -352,6 +352,12 @@ struct control_flow_graph GTY(())
   /* Mapping of labels to their associated blocks.  At present
      only used for the tree CFG.  */
   varray_type x_label_to_block_map;
+
+  enum profile_status {
+    PROFILE_ABSENT,
+    PROFILE_GUESSED,
+    PROFILE_READ
+  } x_profile_status;
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -374,6 +380,7 @@ struct control_flow_graph GTY(())
 #define n_edges			(cfun->cfg->x_n_edges)
 #define last_basic_block	(cfun->cfg->x_last_basic_block)
 #define label_to_block_map	(cfun->cfg->x_label_to_block_map)
+#define profile_status		(cfun->cfg->x_profile_status)
 
 #define BASIC_BLOCK(N)		(VARRAY_BB (basic_block_info, (N)))
 

@@ -438,6 +438,9 @@ check_bb_profile (basic_block bb, FILE * file)
   int sum = 0;
   gcov_type lsum;
 
+  if (profile_status == PROFILE_ABSENT)
+    return;
+
   if (bb != EXIT_BLOCK_PTR)
     {
       for (e = bb->succ; e; e = e->succ_next)

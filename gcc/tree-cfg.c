@@ -118,6 +118,7 @@ build_tree_cfg (tree *tp)
 
   /* Initialize the basic block array.  */
   init_flow ();
+  profile_status = PROFILE_ABSENT;
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");

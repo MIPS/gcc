@@ -58,6 +58,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "tree-scalar-evolution.h"
+#include "cfgloop.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
@@ -559,6 +561,12 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 {
   unsigned i;
 
+  if (!simpleloops)
+    {
+      scev_initialize (loops_info);
+      estimate_numbers_of_iterations (loops_info);
+    }
+
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
   for (i = 1; i < loops_info->num; i++)
@@ -593,6 +601,25 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 		prob = REG_BR_PROB_BASE - 1;
 	      predict_edge (desc.in_edge, PRED_LOOP_ITERATIONS,
 			    prob);
+	    }
+	}
+      else
+	{
+	  edge exit_edge;
+	  tree niter = find_loop_niter_by_eval (loop, &exit_edge);
+
+	  if (TREE_CODE (niter) == INTEGER_CST)
+	    {
+	      int probability;
+	      if (tree_int_cst_lt (niter, build_int_2 (REG_BR_PROB_BASE - 1, 0)))
+		{
+	          HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
+		  probability = (REG_BR_PROB_BASE + nitercst / 2) / nitercst;
+		}
+	      else
+		probability = 1;
+
+	      predict_edge (exit_edge, PRED_LOOP_ITERATIONS, probability);
 	    }
 	}
 
@@ -638,6 +665,12 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       
       /* Free basic blocks from get_loop_body.  */
       free (bbs);
+    }
+
+  if (!simpleloops)
+    {
+      free_numbers_of_iterations_estimates (loops_info);
+      scev_reset ();
     }
 }
 
@@ -815,6 +848,8 @@ estimate_probability (struct loops *loops_info)
   remove_fake_edges ();
   estimate_bb_frequencies (loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
+  if (profile_status == PROFILE_ABSENT)
+    profile_status = PROFILE_GUESSED;
 }
 
 /* Set edge->probability for each succestor edge of BB.  */
@@ -1249,6 +1284,8 @@ tree_estimate_probability (void)
   flow_loops_free (&loops_info);
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags);
+  if (profile_status == PROFILE_ABSENT)
+    profile_status = PROFILE_GUESSED;
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing expected

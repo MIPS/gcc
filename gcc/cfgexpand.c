@@ -44,6 +44,8 @@ Boston, MA 02111-1307, USA.  */
 static void
 add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
 {
+  if (profile_status == PROFILE_ABSENT)
+    return;
   for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
     if (GET_CODE (last) == JUMP_INSN)
       {

@@ -1088,6 +1088,7 @@ branch_prob (void)
     }
 
   free_edge_list (el);
+  profile_status = PROFILE_READ;
 }
 
 /* Union find algorithm implementation for the basic blocks using

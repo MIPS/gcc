@@ -1,3 +1,18 @@
+2004-08-06  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c: Include tree-scalar-evolution.h and cfgloop.h
+	(predict_loops): Use tree-ssa-loop-niter module to predict
+	number of iterations on trees.
+
+	* basic-block.h (struct control_flow_graph): add profile status
+	(profile_status): New macro.
+	* cfg.c (check_bb_profile): use profile_status
+	* cfgbuild.c (find_basic_blocks): Set profile_status.
+	* cfgexpand.c (tree_expand_cfg): Likewise.
+	* predict.c (estimate_probability): Likewise.
+	* profile.c (branch_prob): Likewise.
+	* tree-cfg.c (build_tree_cfg): Likewise.
+
 2004-08-02  Jan Hubicka  <jh@suse.cz>
 
 	* merge from mainline (tree-profiling-merge-20040602)
