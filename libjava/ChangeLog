@@ -1,3 +1,11 @@
+2004-06-14  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/JTabbedPane.java:
+	(setComponentAt): Set the component, not
+	the enabled status.
+	* javax/swing/plaf/basic/BasicDesktopIconUI.java
+	(actionPerformed): Let deiconize catch exception.
+
 2004-06-14  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/JPopupMenu.java:

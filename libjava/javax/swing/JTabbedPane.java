@@ -1344,7 +1344,7 @@ public class JTabbedPane extends JComponent implements Serializable,
   public void setComponentAt(int index, Component component)
   {
     checkIndex(index, 0, tabs.size());
-    ((Page) tabs.elementAt(index)).setEnabled(enabled);
+    ((Page) tabs.elementAt(index)).setComponent(component);
   }
 
   /**

@@ -479,14 +479,7 @@ public class BasicDesktopIconUI extends DesktopIconUI
         {
 	  public void actionPerformed(ActionEvent e)
 	  {
-	    try
-	      {
-		deiconize();
-	      }
-	    catch (PropertyVetoException pve)
-	      {
-		// do nothing.
-	      }
+            deiconize();
 	  }
         });
   }
