@@ -158,6 +158,7 @@ static int do_compile_separately (void);
 static int do_lipo_separately (void);
 static int add_arch_options (int, const char **, int);
 static int remove_arch_options (const char**, int);
+static void add_arch (const char *);
 
 /* Find arch name for the given input string. If input name is NULL then local 
    arch name is used.  */
@@ -326,7 +327,7 @@ strip_path_and_suffix (const char *full_name, const char *new_suffix)
   /* Now 'p' is a file name with suffix.  */
   name = (char *) malloc (strlen (p) + 1 + strlen (new_suffix));
 
-  name = p;
+  strcpy (name, p);
 
   p = name + strlen (name);
   while (p != name && *p != '.')
@@ -692,6 +693,24 @@ remove_arch_options (const char **current_argv, int arch_index)
   return 1;
 }
 
+/* Add new arch request.  */
+void
+add_arch (const char *new_arch)
+{
+  int i;
+
+  /* User can say cc -arch ppc -arch ppc foo.c
+     Do not invoke ppc compiler twice in this case.  */
+  for (i = 0; i < num_arches; i++)
+    {
+      if (!strcmp (arches[i], new_arch))
+	return;
+    }
+
+  arches[num_arches] = new_arch;
+  num_arches++;
+}
+
 /* Main entry point. This is gcc driver driver!
    Interpret -arch flag from the list of input arguments. Invoke appropriate
    compiler driver. 'lipo' the results if more than one -arch is supplied.  */
@@ -738,10 +757,7 @@ main (int argc, const char **argv)
 	  if (i + 1 >= argc)
 	    abort ();
 
-	  /*	  arches[num_arches] = get_arch_name (argv[i+1]);*/
-	  arches[num_arches] = argv[i+1];
-
-	  num_arches++;
+	  add_arch (argv[i+1]);
 	  i++;
 	}
       else if (!strcmp (argv[i], "-c"))

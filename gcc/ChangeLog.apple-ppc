@@ -1,5 +1,13 @@
 2004-06-07  Devang Patel  <dpatel@apple.com>
 
+	Radar 3673334
+	* config/darwin-driver.c (add_arch): New.
+	(strip_path_and_suffix): Use strcpy.
+	(main): Use add_arch().
+
+2004-06-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 3668208 and 3668213
 	* config/rs6000/darwin.h (CC1_SPEC): Handle -gused and -gfull.
 	* config/i386/darwin.h (CC1_SPEC): Same.
 
