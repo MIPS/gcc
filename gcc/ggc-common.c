@@ -465,6 +465,14 @@ ggc_realloc (x, size)
   return r;
 }
 
+/* Like ggc_alloc_cleared, but performs a multiplication.  */
+void *
+ggc_calloc (s1, s2)
+     size_t s1, s2;
+{
+  return ggc_alloc_cleared (s1 * s2);
+}
+
 /* Print statistics that are independent of the collector in use.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10 \
 		  ? (x) \

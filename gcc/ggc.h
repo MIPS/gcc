@@ -83,7 +83,7 @@ extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
 #define ggc_test_and_set_mark(EXPR) \
-  ((EXPR) != NULL && ! ggc_set_mark (EXPR))
+  ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1 && ! ggc_set_mark (EXPR))
 
 #define ggc_mark_rtx(EXPR)                      \
   do {                                          \
@@ -97,7 +97,7 @@ extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 #define ggc_mark(EXPR)				\
   do {						\
     const void *const a__ = (EXPR);		\
-    if (a__ != NULL)				\
+    if (a__ != NULL && a__ != (void *) 1)	\
       ggc_set_mark (a__);			\
   } while (0)
 
@@ -123,6 +123,8 @@ extern void *ggc_alloc		PARAMS ((size_t));
 extern void *ggc_alloc_cleared	PARAMS ((size_t));
 /* Resize a block.  */
 extern void *ggc_realloc	PARAMS ((void *, size_t));
+/* Like ggc_alloc_cleared, but performs a multiplication.  */
+extern void *ggc_calloc		PARAMS ((size_t, size_t));
 
 #define ggc_alloc_rtx(NSLOTS)						  \
   ((struct rtx_def *) ggc_alloc (sizeof (struct rtx_def)		  \
@@ -133,6 +135,9 @@ extern void *ggc_realloc	PARAMS ((void *, size_t));
 				   + ((NELT) - 1) * sizeof (rtx)))
 
 #define ggc_alloc_tree(LENGTH) ((union tree_node *) ggc_alloc (LENGTH))
+
+#define htab_create_ggc(SIZE, HASH, EQ, DEL) \
+  htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
 
 /* Allocate a gc-able string, and fill it with LENGTH bytes from CONTENTS.
    If LENGTH is -1, then CONTENTS is assumed to be a

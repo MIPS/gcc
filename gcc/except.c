@@ -106,11 +106,13 @@ struct ehl_map_entry GTY(())
   struct eh_region *region;
 };
 
-static htab_t exception_handler_label_map;
+static GTY ((param_is (struct ehl_map_entry))) 
+  htab_t exception_handler_label_map;
 
 static int call_site_base;
 static unsigned int sjlj_funcdef_number;
-static htab_t type_to_runtime_map;
+static GTY ((param_is (union tree_node)))
+  htab_t type_to_runtime_map;
 
 /* Describe the SjLj_Function_Context structure.  */
 static GTY(()) tree sjlj_fc_type_node;
@@ -258,8 +260,6 @@ struct eh_status GTY(())
 static int t2r_eq				PARAMS ((const PTR,
 							 const PTR));
 static hashval_t t2r_hash			PARAMS ((const PTR));
-static int t2r_mark_1				PARAMS ((PTR *, PTR));
-static void t2r_mark				PARAMS ((PTR));
 static void add_type_for_runtime		PARAMS ((tree));
 static tree lookup_type_for_runtime		PARAMS ((tree));
 
@@ -380,37 +380,13 @@ doing_eh (do_warn)
 }
 
 
-static int mark_ehl_map_entry			PARAMS ((PTR *, PTR));
-static void mark_ehl_map			PARAMS ((void *));
-
-static int
-mark_ehl_map_entry (pentry, data)
-     PTR *pentry;
-     PTR data ATTRIBUTE_UNUSED;
-{
-  gt_ggc_m_ehl_map_entry (*pentry);
-  return 1;
-}
-
-static void
-mark_ehl_map (pp)
-    void *pp;
-{
-  htab_t map = *(htab_t *) pp;
-  if (map)
-    htab_traverse (map, mark_ehl_map_entry, NULL);
-}
-
 void
 init_eh ()
 {
-  ggc_add_root (&exception_handler_label_map, 1, 1, mark_ehl_map);
-
   if (! flag_exceptions)
     return;
 
-  type_to_runtime_map = htab_create (31, t2r_hash, t2r_eq, NULL);
-  ggc_add_root (&type_to_runtime_map, 1, sizeof (htab_t), t2r_mark);
+  type_to_runtime_map = htab_create_ggc (31, t2r_hash, t2r_eq, NULL);
 
   /* Create the SjLj_Function_Context structure.  This should match
      the definition in unwind-sjlj.c.  */
@@ -1252,8 +1228,8 @@ find_exception_handler_labels ()
       /* ??? The expansion factor here (3/2) must be greater than the htab
 	 occupancy factor (4/3) to avoid unnecessary resizing.  */
       exception_handler_label_map
-        = htab_create (cfun->eh->last_region_number * 3 / 2,
-		       ehl_hash, ehl_eq, ehl_free);
+        = htab_create_ggc (cfun->eh->last_region_number * 3 / 2,
+			   ehl_hash, ehl_eq, NULL);
     }
 
   if (cfun->eh->region_tree == NULL)
@@ -1468,23 +1444,6 @@ t2r_hash (pentry)
 {
   tree entry = (tree) pentry;
   return TYPE_HASH (TREE_PURPOSE (entry));
-}
-
-static int
-t2r_mark_1 (slot, data)
-     PTR *slot;
-     PTR data ATTRIBUTE_UNUSED;
-{
-  tree contents = (tree) *slot;
-  ggc_mark_tree (contents);
-  return 1;
-}
-
-static void
-t2r_mark (addr)
-     PTR addr;
-{
-  htab_traverse (*(htab_t *)addr, t2r_mark_1, NULL);
 }
 
 static void

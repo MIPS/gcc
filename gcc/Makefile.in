@@ -1329,9 +1329,9 @@ dumpvers: dumpvers.c
 
 version.o: version.c version.h
 
-gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(TREE_H) \
-	$(RTL_H) function.h insn-config.h expr.h $(OPTABS_H) $(GGC_H) \
-	libfuncs.h
+gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(HASHTAB_H) \
+	$(TREE_H) $(RTL_H) function.h insn-config.h expr.h $(OPTABS_H) \
+	libfuncs.h debug.h $(GGC_H)
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h hash.h $(HASHTAB_H) $(TM_P_H) langhooks.h
@@ -1822,6 +1822,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(STAMP) s-preds
 
 GTFILES = $(GCONFIG_H) \
+  $(HASHTAB_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
@@ -1952,7 +1953,7 @@ genattrtab.o : genattrtab.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattrtab.c $(OUTPUT_OPTION)
 
 genautomata.o : genautomata.c $(RTL_H) $(OBSTACK_H) $(HCONFIG_H) \
-  $(SYSTEM_H) errors.h varray.h hash.h genattrtab.h
+  $(SYSTEM_H) errors.h varray.h hash.h genattrtab.h $(HASHTAB_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genautomata.c $(OUTPUT_OPTION)
 
 genoutput$(build_exeext) : genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)

@@ -1,3 +1,12 @@
+2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (gt-cp-tree.h): New rule.
+	(cp/tree.o): Depend on gt-cp-tree.h.
+	* config-lang.in (gtfiles): Add cp/tree.c.
+	* tree.c: Include gt-cp-tree.h.
+	(list_hash_table): Use gengtype to mark.
+	(init_tree): Use gengtype to mark trees.
+
 2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (cp/decl.o): Add debug.h dependency.

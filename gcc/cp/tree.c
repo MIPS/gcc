@@ -707,7 +707,7 @@ unshare_base_binfos (binfo)
    While all these live in the same table, they are completely independent,
    and the hash code is computed differently for each of these.  */
 
-static htab_t list_hash_table;
+static GTY ((param_is (union tree_node))) htab_t list_hash_table;
 
 struct list_proxy 
 {
@@ -2292,10 +2292,7 @@ void
 init_tree ()
 {
   lang_statement_code_p = cp_statement_code_p;
-  list_hash_table = htab_create (31, list_hash, list_hash_eq, NULL);
-  ggc_add_root (&list_hash_table, 1, 
-		sizeof (list_hash_table),
-		mark_tree_hashtable);
+  list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 
 /* Called via walk_tree.  If *TP points to a DECL_STMT for a local
@@ -2538,3 +2535,5 @@ lang_check_failed (file, line, function)
 		  function, trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
+
+#include "gt-cp-tree.h"

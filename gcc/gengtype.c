@@ -46,6 +46,7 @@ struct type string_type = {
 
 static pair_p typedefs;
 static type_p structures;
+static type_p param_structs;
 static type_p varrays;
 static pair_p variables;
 
@@ -245,18 +246,38 @@ adjust_field_type (t, opt)
      type_p t;
      options_p opt;
 {
-  if (t->kind == TYPE_POINTER
+  int length_p = 0;
+  const int pointer_p = t->kind == TYPE_POINTER;
+  
+  for (; opt; opt = opt->next)
+    if (strcmp (opt->name, "length") == 0)
+      length_p = 1;
+    else if (strcmp (opt->name, "param_is") == 0)
+      {
+	type_p realt;
+
+	if (pointer_p)
+	  t = t->u.p;
+	
+	for (realt = param_structs; realt; realt = realt->next)
+	  if (realt->u.param_struct.stru == t
+	      && realt->u.param_struct.param == (type_p) opt->info)
+	    return pointer_p ? create_pointer (realt) : realt;
+	realt = xcalloc (1, sizeof (*realt));
+	realt->kind = TYPE_PARAM_STRUCT;
+	realt->next = param_structs;
+	param_structs = realt;
+	realt->u.param_struct.stru = t;
+	realt->u.param_struct.param = (type_p) opt->info;
+	return pointer_p ? create_pointer (realt) : realt;
+      }
+  
+  if (! length_p
+      && pointer_p
       && t->u.p->kind == TYPE_SCALAR
       && (strcmp (t->u.p->u.sc, "char") == 0
 	  || strcmp (t->u.p->u.sc, "unsigned char") == 0))
-    {
-      while (opt != NULL)
-	if (strcmp (opt->name, "length") == 0)
-	  return t;
-	else
-	  opt = opt->next;
-      return &string_type;
-    }
+    return &string_type;
   return t;
 }
 
@@ -405,6 +426,12 @@ set_gc_used_type (t, level)
     case TYPE_LANG_STRUCT:
       for (t = t->u.s.lang_struct; t; t = t->next)
 	set_gc_used_type (t, level);
+      break;
+
+    case TYPE_PARAM_STRUCT:
+      set_gc_used_type (t->u.param_struct.param, GC_POINTED_TO);
+      set_gc_used_type (t->u.param_struct.stru, GC_USED);
+      break;
 
     default:
       break;
@@ -650,6 +677,7 @@ get_output_file_with_visibility (input_file)
 	  fputs ("#include \"config.h\"\n", fm->output);
 	  fputs ("#include \"system.h\"\n", fm->output);
 	  fputs ("#include \"varray.h\"\n", fm->output);
+	  fputs ("#include \"hashtab.h\"\n", fm->output);
 	  fputs ("#include \"tree.h\"\n", fm->output);
 	  fputs ("#include \"rtl.h\"\n", fm->output);
 	  fputs ("#include \"function.h\"\n", fm->output);
@@ -747,9 +775,9 @@ close_output_files PARAMS ((void))
 
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
-	   int, struct fileloc *, lang_bitmap));
-static void write_gc_marker_routine_for_structure PARAMS ((type_p));
-static void write_gc_types PARAMS ((type_p structures));
+	   int, struct fileloc *, lang_bitmap, type_p));
+static void write_gc_marker_routine_for_structure PARAMS ((type_p, type_p));
+static void write_gc_types PARAMS ((type_p structures, type_p param_structs));
 static void put_mangled_filename PARAMS ((FILE *, const char *));
 static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
 				   struct fileloc *));
@@ -758,7 +786,8 @@ static void write_gc_roots PARAMS ((pair_p));
 static int gc_counter;
 
 static void
-write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
+write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
+			   param)
      FILE *of;
      type_p s;
      const char *val;
@@ -767,6 +796,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
      int indent;
      struct fileloc *line;
      lang_bitmap bitmap;
+     type_p param;
 {
   pair_p f;
   int tagcounter = -1;
@@ -844,9 +874,21 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 	  always_p = 1;
 	else if (strcmp (oo->name, "desc") == 0 && UNION_P (t))
 	  ;
-	else if (strcmp (oo->name, "descbits") == 0 
-		 && t->kind == TYPE_UNION)
+	else if (strcmp (oo->name, "descbits") == 0 && UNION_P (t))
 	  ;
+	else if (strcmp (oo->name, "use_param") == 0)
+	  {
+	    if (param == NULL)
+	      error_at_line (&f->line, "no parameter defined");
+	    else
+	      {
+		type_p t1;
+		type_p nt = param;
+		for (t1 = t; t->kind == TYPE_POINTER; t = t->u.p)
+		  nt = create_pointer (nt);
+		t = nt;
+	      }
+	  }
 	else
 	  error_at_line (&f->line, "unknown field option `%s'\n", oo->name);
 
@@ -901,8 +943,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 
 	    newval = xmalloc (strlen (val) + sizeof (".") + strlen (f->name));
 	    sprintf (newval, "%s.%s", val, f->name);
-	    write_gc_structure_fields (of, t, newval, val,
-				       f->opt, indent, &f->line, bitmap);
+	    write_gc_structure_fields (of, t, newval, val, f->opt, indent, 
+				       &f->line, bitmap, param);
 	    free (newval);
 	    break;
 	  }
@@ -919,6 +961,12 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 		       || t->u.p->kind == TYPE_LANG_STRUCT)
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
 			 t->u.p->u.s.tag, val, f->name);
+	      else if (t->u.p->kind == TYPE_PARAM_STRUCT)
+		fprintf (of, "%*sgt_ggc_mm_%d%s_%s (%s.%s);\n", indent, "",
+			 strlen (t->u.p->u.param_struct.param->u.s.tag),
+			 t->u.p->u.param_struct.param->u.s.tag,
+			 t->u.p->u.param_struct.stru->u.s.tag,
+			 val, f->name);
 	      else
 		error_at_line (&f->line, "field `%s' is pointer to scalar",
 			       f->name);
@@ -958,13 +1006,14 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 		    sprintf (newval, "%s.%s[i%d]", val, f->name, loopcounter);
 		    write_gc_structure_fields (of, t->u.p, newval, val,
 					       f->opt, indent, &f->line,
-					       bitmap);
+					       bitmap, param);
 		    free (newval);
 		    break;
 		  }
 		case TYPE_POINTER:
 		  if (t->u.p->u.p->kind == TYPE_STRUCT
-		      || t->u.p->u.p->kind == TYPE_UNION)
+		      || t->u.p->u.p->kind == TYPE_UNION
+		      || t->u.p->u.p->kind == TYPE_LANG_STRUCT)
 		    fprintf (of, "%*sgt_ggc_m_%s (%s.%s[i%d]);\n", indent, "", 
 			     t->u.p->u.p->u.s.tag, val, f->name,
 			     loopcounter);
@@ -1106,7 +1155,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 		  sprintf (newval + strlen (newval), "[i%d_%d]", 
 			   loopcounter, i);
 		write_gc_structure_fields (of, t->u.p, newval, val,
-					   f->opt, indent, &f->line, bitmap);
+					   f->opt, indent, &f->line, bitmap,
+					   param);
 		free (newval);
 	      }
 	    else
@@ -1157,14 +1207,19 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap)
 }
 
 static void
-write_gc_marker_routine_for_structure (s)
+write_gc_marker_routine_for_structure (s, param)
      type_p s;
+     type_p param;
 {
   FILE *f = get_output_file_with_visibility (s->u.s.line.file);
   
   fputc ('\n', f);
   fputs ("void\n", f);
-  fprintf (f, "gt_ggc_m_%s (x_p)\n", s->u.s.tag);
+  if (param == NULL)
+    fprintf (f, "gt_ggc_m_%s (x_p)\n", s->u.s.tag);
+  else
+    fprintf (f, "gt_ggc_mm_%d%s_%s (x_p)\n", strlen (param->u.s.tag),
+	     param->u.s.tag, s->u.s.tag);
   fputs ("      void *x_p;\n", f);
   fputs ("{\n", f);
   fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
@@ -1175,15 +1230,17 @@ write_gc_marker_routine_for_structure (s)
   
   gc_counter = 0;
   write_gc_structure_fields (f, s, "(*x)", "not valid postage",
-			     s->u.s.opt, 2, &s->u.s.line, s->u.s.bitmap);
+			     s->u.s.opt, 2, &s->u.s.line, s->u.s.bitmap,
+			     param);
   
   fputs ("}\n", f);
 }
      
 
 static void
-write_gc_types (structures)
+write_gc_types (structures, param_structs)
      type_p structures;
+     type_p param_structs;
 {
   type_p s;
   
@@ -1232,10 +1289,47 @@ write_gc_types (structures)
 	  {
 	    type_p ss;
 	    for (ss = s->u.s.lang_struct; ss; ss = ss->next)
-	      write_gc_marker_routine_for_structure (ss);
+	      write_gc_marker_routine_for_structure (ss, NULL);
 	  }
 	else
-	  write_gc_marker_routine_for_structure (s);
+	  write_gc_marker_routine_for_structure (s, NULL);
+      }
+
+  for (s = param_structs; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO)
+      {
+	type_p param = s->u.param_struct.param;
+	type_p stru = s->u.param_struct.stru;
+
+	if (param->kind != TYPE_STRUCT && param->kind != TYPE_UNION
+	    && param->kind != TYPE_LANG_STRUCT)
+	  {
+	    error_at_line (&s->u.param_struct.line,
+			   "unsupported parameter type");
+	    continue;
+	  }
+	
+	/* Declare the marker procedure.  */
+	fprintf (header_file, 
+		 "extern void gt_ggc_mm_%d%s_%s PARAMS ((void *));\n",
+		 strlen (param->u.s.tag), param->u.s.tag,
+		 stru->u.s.tag);
+  
+	if (stru->u.s.line.file == NULL)
+	  {
+	    fprintf (stderr, "warning: structure `%s' used but not defined\n", 
+		     s->u.s.tag);
+	    continue;
+	  }
+  
+	if (stru->kind == TYPE_LANG_STRUCT)
+	  {
+	    type_p ss;
+	    for (ss = stru->u.s.lang_struct; ss; ss = ss->next)
+	      write_gc_marker_routine_for_structure (ss, param);
+	  }
+	else
+	  write_gc_marker_routine_for_structure (stru, param);
       }
 }
 
@@ -1445,6 +1539,13 @@ write_gc_root (f, v, type, name, has_length, line)
 	  {
 	    fprintf (f, "    &gt_ggc_m_%s\n", tp->u.s.tag);
 	  }
+	else if (! has_length && tp->kind == TYPE_PARAM_STRUCT)
+	  {
+	    fprintf (f, "    &gt_ggc_mm_%d%s_%s\n",
+		     strlen (tp->u.param_struct.param->u.s.tag),
+		     tp->u.param_struct.param->u.s.tag,
+		     tp->u.param_struct.stru->u.s.tag);
+	  }
 	else if (has_length
 		 && tp->kind == TYPE_POINTER)
 	  {
@@ -1491,6 +1592,8 @@ write_gc_roots (variables)
 	  length = (const char *)o->info;
 	else if (strcmp (o->name, "deletable") == 0)
 	  deletable_p = 1;
+	else if (strcmp (o->name, "param_is") == 0)
+	  ;
 	else
 	  error_at_line (&v->line, 
 			 "global `%s' has unknown option `%s'",
@@ -1554,7 +1657,8 @@ write_gc_roots (variables)
 	      fprintf (f, "    for (i = 0; i < (%s); i++)\n", length);
 	      fputs ("      {\n", f);
 	      write_gc_structure_fields (f, s, "x[i]", "x[i]",
-					 v->opt, 8, &v->line, s->u.s.bitmap);
+					 v->opt, 8, &v->line, s->u.s.bitmap,
+					 NULL);
 	      fputs ("      }\n", f);
 	    }
 
@@ -1575,10 +1679,6 @@ write_gc_roots (variables)
 	  length = (const char *)o->info;
 	else if (strcmp (o->name, "deletable") == 0)
 	  deletable_p = 1;
-	else
-	  error_at_line (&v->line, 
-			 "global `%s' has unknown option `%s'",
-			 v->name, o->name);
 
       if (deletable_p)
 	continue;
@@ -1651,6 +1751,9 @@ main(argc, argv)
 	      create_scalar_type ("REAL_VALUE_TYPE", 
 				  strlen ("REAL_VALUE_TYPE")),
 	      &pos);
+  do_typedef ("PTR", create_pointer (create_scalar_type ("void",
+							 strlen ("void"))),
+	      &pos);
 
   for (i = 1; i < argc; i++)
     parse_file (argv[i]);
@@ -1661,11 +1764,9 @@ main(argc, argv)
   set_gc_used (variables);
   set_gc_used_type (find_structure ("mem_attrs", 0), GC_POINTED_TO);
   set_gc_used_type (find_structure ("type_hash", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("deferred_string", 0), GC_POINTED_TO);
-  set_gc_used_type (find_structure ("ehl_map_entry", 0), GC_POINTED_TO);
 
   open_base_files ();
-  write_gc_types (structures);
+  write_gc_types (structures, param_structs);
   write_gc_roots (variables);
   close_output_files ();
 

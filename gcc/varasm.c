@@ -175,11 +175,8 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static int mark_const_str_htab_1	PARAMS ((void **, void *));
-static void mark_const_str_htab		PARAMS ((void *));
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
-static void const_str_htab_del		PARAMS ((void *));
 static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
 static void resolve_unique_section	PARAMS ((tree, int));
 
@@ -2412,28 +2409,7 @@ struct deferred_string GTY(())
   int labelno;
 };
 
-static htab_t const_str_htab;
-
-/* Mark the hash-table element X (which is really a pointer to an
-   struct deferred_string *).  */
-
-static int
-mark_const_str_htab_1 (x, data)
-     void **x;
-     void *data ATTRIBUTE_UNUSED;
-{
-  gt_ggc_m_deferred_string (*x);
-  return 1;
-}
-
-/* Mark a const_str_htab for GC.  */
-
-static void
-mark_const_str_htab (htab)
-     void *htab;
-{
-  htab_traverse (*((htab_t *) htab), mark_const_str_htab_1, NULL);
-}
+static GTY ((param_is (struct deferred_string))) htab_t const_str_htab;
 
 /* Returns a hash code for X (which is a really a
    struct deferred_string *).  */
@@ -2455,15 +2431,6 @@ const_str_htab_eq (x, y)
      const void *y;
 {
   return (((const struct deferred_string *) x)->label == (const char *) y);
-}
-
-/* Delete the hash table entry dfsp.  */
-
-static void
-const_str_htab_del (dfsp)
-    void *dfsp;
-{
-  /* No-op.  */
 }
 
 /* Compute a hash code for a constant expression.  */
@@ -4866,13 +4833,10 @@ make_decl_one_only (decl)
 void
 init_varasm_once ()
 {
-  const_str_htab = htab_create (128, const_str_htab_hash, const_str_htab_eq,
-  				const_str_htab_del);
+  const_str_htab = htab_create_ggc (128, const_str_htab_hash, 
+				    const_str_htab_eq, NULL);
   in_named_htab = htab_create (31, in_named_entry_hash,
 			       in_named_entry_eq, NULL);
-
-  ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
-		mark_const_str_htab);
 
   const_alias_set = new_alias_set ();
 }

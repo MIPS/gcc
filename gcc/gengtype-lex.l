@@ -49,7 +49,7 @@ update_lineno (l, len)
 
 ID	[[:alpha:]][[:alnum:]_]*
 WS	[[:space:]]+
-IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool
+IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool|size_t
 ITYPE	{IWORD}({WS}{IWORD})*
 
 %x in_struct in_struct_comment in_comment in_yacc_escape
@@ -131,6 +131,21 @@ ITYPE	{IWORD}({WS}{IWORD})*
   do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
   update_lineno (yytext, yyleng);
 }
+[^[:alnum:]_]typedef{WS}{ID}{WS}?"("{WS}?"*"{WS}?{ID}{WS}?")"{WS}?PARAMS {
+  char *namestart;
+  size_t namelen;
+  struct type *t;
+
+  for (namestart = yytext + yyleng - 7; !IDchar (*namestart); namestart--)
+    ;
+  for (namelen = 1; IDchar (namestart[-namelen]); namelen++)
+    ;
+  namestart -= namelen - 1;
+
+  t = create_scalar_type ("function type", sizeof ("function type")-1);
+  do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
+  update_lineno (yytext, yyleng);
+}
 
 [^[:alnum:]_](typedef{WS})?(struct|union){WS}{ID}{WS}/"GTY" {
   char *tagstart;
@@ -188,6 +203,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
 "struct"/[^[:alnum:]_]		{ return STRUCT; }
 "enum"/[^[:alnum:]_]		{ return ENUM; }
 "ptr_alias"/[^[:alnum:]_]	{ return ALIAS; }
+"param_is"/[^[:alnum:]_]	{ return PARAM_IS; }
 [0-9]+				{ return NUM; }
 
 {IWORD}({WS}{IWORD})*/[^[:alnum:]_]		|

@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %token STRUCT "struct"
 %token ENUM "enum"
 %token ALIAS "ptr_alias"
+%token PARAM_IS "param_is"
 %token VARRAY_TYPE "varray_type"
 %token NUM
 %token PERCENTPERCENT "%%"
@@ -82,7 +83,8 @@ typedef_struct: ENT_TYPEDEF_STRUCT options '{' struct_fields '}' ID
 
 externstatic: ENT_EXTERNSTATIC options lasttype ID semiequal
 	         {
-	           note_variable ($4, $3, $2, &lexer_line);
+	           note_variable ($4, adjust_field_type ($3, $2), $2, 
+				  &lexer_line);
 	         }
 	      | ENT_EXTERNSTATIC options lasttype ID ARRAY semiequal
 	         {
@@ -260,6 +262,8 @@ type_option : VARRAY_TYPE
 	        { $$ = "varray_type"; }
 	      | ALIAS
 	        { $$ = "ptr_alias"; }
+	      | PARAM_IS
+	        { $$ = "param_is"; }
 
 option:	type_option '(' type ')'
 	   {

@@ -1,3 +1,11 @@
+2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
+
+	* hashtab.c (htab_create): Delete.
+	(htab_try_create): Delete.
+	(htab_create_alloc): New.
+	(htab_delete): Support user-specified memory allocation.
+	(htab_expand): Likewise.
+
 2002-04-09  Richard Henderson  <rth@redhat.com>
 
 	* hashtab.c (higher_prime_number): Use 7 as minimum.

@@ -34,7 +34,8 @@ enum typekind {
   TYPE_POINTER,
   TYPE_VARRAY,
   TYPE_ARRAY,
-  TYPE_LANG_STRUCT
+  TYPE_LANG_STRUCT,
+  TYPE_PARAM_STRUCT
 };
 
 /* A way to pass data through to the output end.  */
@@ -83,6 +84,11 @@ struct type {
       type_p p;
       const char *len;
     } a;
+    struct {
+      type_p stru;
+      type_p param;
+      struct fileloc line;
+    } param_struct;
   } u;
 };
 

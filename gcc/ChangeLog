@@ -1,3 +1,52 @@
+2002-05-10  Geoffrey Keating  <geoffk@redhat.com>
+
+	* varasm.c (mark_const_str_htab_1): Delete.
+	(mark_const_str_htab): Delete.
+	(const_str_htab_del): Delete.
+	(const_str_htab): Use gengtype to mark.
+	(init_varasm_once): Use gengtype to mark hashtables.  Use GC to
+	allocate them.
+	* tree.c (mark_tree_hashtable_entry): Delete.
+	(mark_tree_hashtable): Delete.
+	* tree.h (mark_tree_hashtable): Delete prototype.
+	* ggc.h (ggc_test_and_set_mark): Treat (void *)1 like NULL.
+	(ggc_mark): Likewise.
+	(ggc_calloc): New.
+	(htab_create_ggc): New.
+	* ggc-common.c (ggc_calloc): New.
+	* gengtype.h (enum typekind): Add TYPE_PARAM_STRUCT.
+	(struct type): Add param_struct structure.
+	* gengtype.c (param_structs): New.
+	(adjust_field_type): Handle param_is option.
+	(set_gc_used_type): Handle TYPE_PARAM_STRUCT.
+	(get_output_file_with_visibility): Include hashtab.h in gtype-desc.c.
+	(write_gc_structure_fields): Add new PARAM parameter.  Update
+	callers.  Handle use_param option.  Handle TYPE_PARAM_STRUCT.
+	(write_gc_marker_routine_for_structure): Add new PARAM parameter.
+	Use it to generate function name.  Update callers.
+	(write_gc_types): Add new PARAM_STRUCTS parameter.  Update callers.
+	Process them.
+	(write_gc_roots): Handle TYPE_PARAM_STRUCT.  Allow param_is
+	option.
+	(main): Define PTR as pointer-to-scalar.  Don't specially
+	mark deferred_string or ehl_map_entry.
+	* gengtype-yacc.y (PARAM_IS): Add new token.
+	(externstatic): Use adjust_field_type.
+	(type_option): Add PARAM_IS.
+	* gengtype-lex.l: Add rule for typedef of function pointers.
+	Add rule for PARAM_IS.
+	(IWORD): Add size_t.
+	* except.c (exception_handler_label_map): Use gengtype to mark.
+	(type_to_runtime_map): Likewise.
+	(mark_ehl_map_entry): Delete.
+	(mark_ehl_map): Delete.
+	(init_eh): Use gengtype for roots; use GC to allocate hash tables.
+	(t2r_mark_1): Delete.
+	(t2r_mark): Delete.
+	* Makefile.in (gtype-desc.o): Correct dependencies.
+	(GTFILES): Add hashtab.h.
+	(genautomata.o): Actually uses hashtab.h.
+
 2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (stringpool.o): Add $(GGC_H).
