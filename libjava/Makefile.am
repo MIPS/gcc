@@ -1299,6 +1299,7 @@ javax/swing/border/TitledBorder.java \
 javax/swing/GrayFilter.java \
 javax/swing/AbstractAction.java \
 javax/swing/AbstractButton.java \
+javax/swing/AbstractSpinnerModel.java \
 javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
@@ -1326,6 +1327,7 @@ javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
 javax/swing/plaf/basic/BasicSeparatorUI.java \
 javax/swing/plaf/basic/BasicSliderUI.java \
+javax/swing/plaf/basic/BasicSpinnerUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
@@ -1434,6 +1436,7 @@ javax/swing/JRadioButton.java \
 javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
+javax/swing/JSpinner.java \
 javax/swing/JTabbedPane.java \
 javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
@@ -1448,6 +1451,8 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerModel.java \
+javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
 javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \

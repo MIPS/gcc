@@ -1,3 +1,18 @@
+2004-08-11  Ka-Hing Cheung  <kahing@javabsp.org>
+
+	* javax/swing/AbstractSpinnerModel.java,
+	javax/swing/JSpinner.java,
+	javax/swing/SpinnerNumberModel.java,
+	javax/swing/plaf/basic/BasicSpinnerUI.java:
+	New files.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	(initClassDefaults): Added defaults for BasicSpinnerUI.
+
+2004-08-11  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerated.
+
 2004-08-11  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/TransferHandler.java,
