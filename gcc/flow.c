@@ -5990,7 +5990,7 @@ update_life_info (notes, first, last, orig_first_insn, orig_last_insn)
 	break;
     }
 }
-
+
 /* Prepends the set of REG_NOTES in NEW to NOTES, and returns NEW. */
 static rtx
 prepend_reg_notes (notes, new)
@@ -6014,23 +6014,7 @@ prepend_reg_notes (notes, new)
   XEXP (end, 1) = notes;
   return new;
 }
-
-/* Return a non-zero value if INSN occurs between FIRST and LAST inclusive. */
-static int
-insn_within (insn, first, last)
-     rtx insn, first, last;
-{
-  rtx p;
-
-  if (insn == first || insn == last)
-    return 1;
-  for (p = first; p != NULL_RTX && p != last; p = NEXT_INSN (p))
-    if (p == insn)
-      return 1;
-
-  return 0;
-}
-
+
 /* Replace the insns from FIRST to LAST inclusive with the set of insns in
    NEW, and update the life analysis info accordingly. */
 void
@@ -6039,89 +6023,47 @@ replace_insns (first, last, first_new, notes)
 {
   rtx stop = NEXT_INSN (last);
   rtx last_new;
-  rtx curr;
+  rtx curr, next;
   rtx prev = PREV_INSN (first);
   int i;
-  basic_block bb = NULL;
-  int adjust_first = -1, adjust_last = -1;
-  int block_overlap = 0;
 
   if (notes == NULL_RTX)
     {
-      for (curr = first; curr != NULL && curr != stop; curr = NEXT_INSN (curr))
+      for (curr = first; curr != stop; curr = NEXT_INSN (curr))
 	{
-	  if (GET_CODE (curr) == NOTE
-	      && NOTE_LINE_NUMBER (curr) == NOTE_INSN_BASIC_BLOCK)
-	    {
-	      if (bb != NULL)
-		abort ();
-	      /* Oh dear. */
-	      bb = NOTE_BASIC_BLOCK (curr);
-	      if (bb->end != last)
-		abort ();
-	    }
-	  if (GET_CODE (curr) == INSN || GET_CODE (curr) == JUMP_INSN)
-	    notes = prepend_reg_notes (notes, REG_NOTES (curr));
+	  notes = prepend_reg_notes (notes, REG_NOTES (curr));
 	}
     }
-
-  for (curr = first; curr && curr != last; curr = NEXT_INSN (curr))
-    ;
-
-  if (curr != last)
-    abort ();
-
-  for (i = 0; i < n_basic_blocks; i++)
+  for (curr = first; curr; curr = next)
     {
-      if (BASIC_BLOCK (i) != bb)
-	{
-	  if (insn_within (BLOCK_HEAD (i), first, last))
-	    {
-	      block_overlap++;
-	      adjust_first = i;
-	    }
-	  if (insn_within (BLOCK_END (i), first, last))
-	    {
-	      block_overlap++;
-	      adjust_last = i;
-	    }
-	}
+      next = NEXT_INSN (curr);
+      delete_insn (curr);
+      if (curr == last)
+	break;
     }
-
-  /* The new insns cannot traverse more than one basic block unless they
-     completely replace the next block. */
-  if (block_overlap > 1)
-    abort ();
-
-  first = unlink_insn_chain (first, last);
-
   last_new = emit_insn_after (first_new, prev);
   first_new = NEXT_INSN (prev);
-
-  if (adjust_first != -1)
-    BLOCK_HEAD (adjust_first) = first_new;
-
-  if (adjust_last != -1)
-    BLOCK_END (adjust_last) = last_new;
-
-  update_life_info (notes, first_new, last_new, first, last);
-
-  /* Try to merge the two newly-adjacent blocks together. */
-  if (bb != NULL)
+  for (i = 0; i < n_basic_blocks; i++)
     {
-      int block_num = bb->index;
-      edge s;
-      basic_block b, c;
-
-      delete_block (bb);
-
-      b = BASIC_BLOCK (block_num - 1);
-      if ((s = b->succ) != NULL
-	  && s->succ_next == NULL
-	  && (c = s->dest) != EXIT_BLOCK_PTR
-	  && c->pred->pred_next == NULL)
-	merge_blocks (s, b, c);
+      if (BLOCK_HEAD (i) == first)
+	{
+	  BLOCK_HEAD (i) = first_new;
+	}
+      if (BLOCK_END (i) == last)
+	{
+	  BLOCK_END (i) = last_new;
+	}
     }
+  /* This is probably bogus. */
+  if (first_new == last_new)
+    {
+      if (GET_CODE (first_new) == SEQUENCE)
+	{
+	  first_new = XVECEXP (first_new, 0, 0);
+	  last_new = XVECEXP (last_new, 0, XVECLEN (last_new, 0) - 1);
+	}
+    }
+  update_life_info (notes, first_new, last_new, first, last);
 }
 
 /* Verify the CFG consistency.  This function check some CFG invariants and
