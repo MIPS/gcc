@@ -1,3 +1,8 @@
+2005-02-27  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (lay_out_class): Changed type of "data" field of
+	arrays.
+
 2005-02-26  Tom Tromey  <tromey@redhat.com>
 
 	* abi.cc (build_field_reference): Initialize class.

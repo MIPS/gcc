@@ -579,7 +579,8 @@ tree_builtins::lay_out_class (model_class *klass)
     {
       tree elt_type = map_type (klass->element_type ());
       tree data = build_decl (FIELD_DECL, get_identifier ("data"),
-			      build_array_type (elt_type, type_jint));
+			      build_array_type (elt_type,
+						build_index_type (integer_zero_node)));
       DECL_CONTEXT (data) = klass_record;
       TREE_PUBLIC (data) = 1;
       DECL_ARTIFICIAL (data) = 1;
