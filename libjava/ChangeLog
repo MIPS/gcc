@@ -1,5 +1,11 @@
 2004-05-25  David Jee  <djee@redhat.com>
 
+	* java/awt/Container.java
+	(remove): Set component's parent to null only after we removed the
+	component from its parent's layout manager.
+
+2004-05-25  David Jee  <djee@redhat.com>
+
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
 	(GtkComponentPeer): Set bounds regardless of whether awtComponent
 	is valid.

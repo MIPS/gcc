@@ -407,7 +407,6 @@ public class Container extends Component
       {
         Component r = component[index];
 
-        r.parent = null;
         r.removeNotify();
 
         System.arraycopy(component, index + 1, component, index,
@@ -418,6 +417,8 @@ public class Container extends Component
 
         if (layoutMgr != null)
           layoutMgr.removeLayoutComponent(r);
+
+        r.parent = null;
 
         // Post event to notify of adding the container.
         ContainerEvent ce = new ContainerEvent(this,
