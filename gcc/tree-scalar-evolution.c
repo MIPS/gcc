@@ -3047,7 +3047,10 @@ scev_initialize (struct loops *loops)
 
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
-      flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
+      {
+	flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
+	loops->parray[i]->nb_iterations = NULL_TREE;
+      }
 }
 
 /* Cleans up the information cached by the scalar evolutions analysis.  */

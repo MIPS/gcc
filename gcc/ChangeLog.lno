@@ -1,3 +1,11 @@
+2004-06-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR tree-optimization/15779
+	* tree-scalar-evolution.c (scev_initialize): Clean the nb_iterations
+	field.
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables): Do
+	not clean nb_iterations field.
+
 2004-06-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* version.c (version_string): Update "merged" stamp.

@@ -188,9 +188,6 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   edge exit = NULL;
   tree niter;
 
-  /* ??? Why is this needed?  I.e. from where comes the invalid info?  */
-  loop->nb_iterations = NULL;
-
   niter = number_of_iterations_in_loop (loop);
 
   if (TREE_CODE (niter) == INTEGER_CST)
