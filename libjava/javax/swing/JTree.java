@@ -456,7 +456,7 @@ public class JTree extends JComponent
     return showsRootHandles;
   }
 
-  public void setShowRootHandles(boolean flag)
+  public void setShowsRootHandles(boolean flag)
   {
     showsRootHandles = flag;
   }
