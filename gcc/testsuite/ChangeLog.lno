@@ -1,3 +1,7 @@
+2004-10-14  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* gcc.dg/vect/vect-50.c: Remove xfail *-*-*, now vectorized.
+
 2004-10-03  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* gcc.dg/vect/vect-29.c: Don't xfail on x86 (loop versioning for

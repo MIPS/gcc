@@ -1,3 +1,10 @@
+2004-10-14  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* tree-vectorizer.c (vect_enhance_data_refs_alignment): Remove test
+	that the loop upper bound is known at compile time.
+	(vect_transform_loop): Remove ifdef check that versioning is only being
+	done when the loop upper bound is known at compile time.
+
 2004-10-03  Dorit Naishlos  <dorit@il.ibm.com>
 	
 	* tree-vectorizer.c (BUILT_IN_build_mask_for_load): Removed.

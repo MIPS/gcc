@@ -3172,11 +3172,6 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       basic_block condition_bb;
       tree cond_expr;
 
-#ifdef ENABLE_CHECKING
-      if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)) /* FORNOW */
-        abort();
-#endif
-
       /* vect_create_cond_for_align_checks will fill in the left opnd later. */
       cond_expr = build2 (EQ_EXPR, boolean_type_node,
                                NULL_TREE, integer_zero_node);
@@ -4242,6 +4237,7 @@ vect_compute_data_refs_alignment (loop_vec_info loop_vinfo)
 {
   varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
   varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+
   unsigned int i;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
@@ -4373,11 +4369,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_info ATTRIBUTE_UNUSED)
      One possible solution is to do renaming immediately after a loop is
      vectorized.  Another possible solution is a form of tree_ssa_loop_version
      that updates vars_to_rename so that renaming can be delayed.  */
-  /* FORNOW: the loop versioning that is used to attempt vectorization on
-     potentially unaligned data refs isn't working with the loop peel
-     done for unknown loop bounds.  */
-  if ((bitmap_first_set_bit (vars_to_rename) >= 0)
-      ||(!LOOP_VINFO_NITERS_KNOWN_P (loop_info)))
+  if (bitmap_first_set_bit (vars_to_rename) >= 0)
     return;
 
   loop_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_info);
