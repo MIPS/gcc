@@ -786,7 +786,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
      arm will be taken.  */
   if (stmt
-      && (TREE_CODE (stmt) == COND_EXPR  || TREE_CODE (stmt) == SWITCH_EXPR))
+      && (TREE_CODE (stmt) == COND_EXPR
+	  || TREE_CODE (stmt) == SWITCH_EXPR))
     {
       tree cond, cached_lhs;
       edge e1;
@@ -1844,7 +1845,8 @@ find_equivalent_equality_comparison (tree cond)
       tree def_rhs = TREE_OPERAND (def_stmt, 1);
 
       /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
-      if (TREE_CODE (def_rhs) == NOP_EXPR
+      if ((TREE_CODE (def_rhs) == NOP_EXPR
+	   || TREE_CODE (def_rhs) == CONVERT_EXPR)
 	  && TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME)
 	{
 	  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
@@ -1862,7 +1864,8 @@ find_equivalent_equality_comparison (tree cond)
 	     If that is true, the build and return new equivalent
 	     condition which uses the source of the typecast and the
 	     new constant (which has only changed its type).  */
-	  new = fold (build1 (NOP_EXPR, def_rhs_inner_type, op1));
+	  new = fold (build1 (TREE_CODE (def_rhs),
+			      def_rhs_inner_type, op1));
 	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
 	    return build (TREE_CODE (cond), TREE_TYPE (cond),
 			  def_rhs_inner, new);
@@ -2425,9 +2428,10 @@ record_equivalences_from_stmt (tree stmt,
 	set_value_for (lhs, rhs, const_and_copies);
 
       /* alloca never returns zero and the address of a non-weak symbol
-	 is never zero.  NOP_EXPRs can be completely stripped as they
-	 do not affect this equivalence.  */
-      while (TREE_CODE (rhs) == NOP_EXPR)
+	 is never zero.  NOP_EXPRs and CONVERT_EXPRs can be completely
+	 stripped as they do not affect this equivalence.  */
+      while (TREE_CODE (rhs) == NOP_EXPR
+	     || TREE_CODE (rhs) == CONVERT_EXPR)
         rhs = TREE_OPERAND (rhs, 0);
 
       if (alloca_call_p (rhs)

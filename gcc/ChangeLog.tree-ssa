@@ -6,6 +6,11 @@
 
 2004-01-21  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (find_equivalent_equality_comparison): Treat
+	CONVERT_EXPRs just like NOP_EXPRs.
+	(record_equivalences_from_stmt): Similarly.
+	(thread_across_edge): Fix formatting goof.
+ 
 	* tree-ssa-dom.c (thread_across_edge): Remove bogus restriction
 	which prevents threading around to the top of a loop.
 
