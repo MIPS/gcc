@@ -1803,12 +1803,11 @@ namespace std
     do_get_time(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%X";
       locale __loc = __io.getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __times[2];
+      __tp._M_time_formats(__times);
+      _M_extract_via_format(__beg, __end, __io, __err, __tm, __times[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -1820,12 +1819,11 @@ namespace std
     do_get_date(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%x";
       locale __loc = __io.getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __dates[2];
+      __tp._M_date_formats(__dates);
+      _M_extract_via_format(__beg, __end, __io, __err, __tm, __dates[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
