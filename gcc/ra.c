@@ -439,12 +439,7 @@ rtx_to_bits (x)
   len = GET_MODE_SIZE (GET_MODE (x));
   if (GET_CODE (x) == SUBREG)
     {
-      if (len < UNITS_PER_WORD)
-	/* XXX Is this true?  Are narrow subregs with word != 0 allowed?
-	   What begin-byte are they?  */
-        beg = len * SUBREG_WORD (x);
-      else
-	beg = UNITS_PER_WORD * SUBREG_WORD (x);
+      beg = SUBREG_BYTE (x);
     }
   return (((len & 0xFFFF) << 16) | (beg & 0xFFFF));
 }
@@ -821,7 +816,7 @@ defuse_overlap_p (def, use)
 	if (GET_MODE_SIZE (GET_MODE (def)) == GET_MODE_SIZE (GET_MODE (use->x)))
 	  /* If the size of both things is the same, the subreg's overlap
 	     if they refer to the same word.  */
-	  if (SUBREG_WORD (def) == SUBREG_WORD (use->x))
+	  if (SUBREG_BYTE (def) == SUBREG_BYTE (use->x))
 	    return 1;
 	/* Now the more difficult part: the same regno is refered, but the
 	   sizes of the references or the words differ.  E.g.
@@ -1474,7 +1469,7 @@ find_subweb (web, reg)
     abort ();
   for (w = web->subreg_next; GET_CODE (w->orig_x) != REG; w = w->subreg_next)
     if (GET_MODE (w->orig_x) == GET_MODE (reg)
-	&& SUBREG_WORD (w->orig_x) == SUBREG_WORD (reg))
+	&& SUBREG_BYTE (w->orig_x) == SUBREG_BYTE (reg))
       return w;
   return NULL;
 }
@@ -1547,10 +1542,6 @@ add_subweb_2 (web, size, word)
     mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
   if (mode == BLKmode)
     abort ();
-  if (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
-    word = word / GET_MODE_SIZE (mode);
-  else
-    word = word /  UNITS_PER_WORD;
   w = add_subweb (web, gen_rtx_SUBREG (mode, web->orig_x, word));
   w->artificial = 1;
   return w;
@@ -2335,7 +2326,7 @@ dump_igraph (df)
 	        if (SUBWEB_P (id2web[def1]))
 		  debug_msg (0, "%d (SUBREG %d, %d) with ", def1,
 			     id2web[def1]->regno,
-			     SUBREG_WORD (id2web[def1]->orig_x));
+			     SUBREG_BYTE (id2web[def1]->orig_x));
 	        else
 	          debug_msg (0, "%d (REG %d) with ", def1,
 			     id2web[def1]->regno);
@@ -2346,7 +2337,7 @@ dump_igraph (df)
 	    num2++;
 	    if (SUBWEB_P (id2web[def2]))
 	      debug_msg (0, "%d(%d,%d) ", def2, id2web[def2]->regno,
-			 SUBREG_WORD (id2web[def2]->orig_x));
+			 SUBREG_BYTE (id2web[def2]->orig_x));
 	    else
 	      debug_msg (0, "%d(%d) ", def2, id2web[def2]->regno);
 	  }
@@ -3241,11 +3232,11 @@ colorize_one_web (web, hard)
 
 	      if (SUBWEB_P (w)
 		  && GET_MODE_SIZE (GET_MODE (w->orig_x)) >= UNITS_PER_WORD)
-		tofs = SUBREG_WORD (w->orig_x);
+		tofs = (SUBREG_BYTE (w->orig_x) / UNITS_PER_WORD);
 	      if (SUBWEB_P (source)
 		  && GET_MODE_SIZE (GET_MODE (source->orig_x))
 		     >= UNITS_PER_WORD)
-		  sofs = SUBREG_WORD (source->orig_x);
+		  sofs = (SUBREG_BYTE (source->orig_x) / UNITS_PER_WORD);
 	      c1 = ptarget->color + tofs - sofs - ssize + 1;
 	      c2 = ptarget->color + tofs + tsize - 1 - sofs;
 	      if (c2 >= 0)
@@ -3614,7 +3605,7 @@ rewrite_program (void)
       bitmap_clear (b);
       for (j = 0; j < web->num_defs; j++)
 	{
-	  rtx insns, source;
+	  rtx insns, source, dest;
 	  rtx insn = DF_REF_INSN (web->defs[j]);
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
@@ -3626,11 +3617,14 @@ rewrite_program (void)
 	  bitmap_set_bit (b, INSN_UID (insn));
 	  start_sequence ();
 	  source = DF_REF_REG (web->defs[j]);
-	  emit_insn (
-	    gen_move_insn (GET_CODE (source) == SUBREG
-			     ? gen_rtx_SUBREG (GET_MODE (source), slot,
-				               SUBREG_WORD (source))
-			     : slot, source));
+	  dest = slot;
+	  if (GET_CODE (source) == SUBREG)
+	    {
+	      dest = gen_rtx_MEM (GET_MODE (source),
+				  plus_constant (XEXP (dest, 0),
+						 SUBREG_BYTE (source)));
+	    }
+	  emit_insn (gen_move_insn (dest, source));
 	  insns = get_insns ();
 	  end_sequence ();
 	  emit_insns_after (insns, insn);
@@ -3644,7 +3638,7 @@ rewrite_program (void)
       bitmap_clear (b);
       for (j = 0; j < web->num_uses; j++)
 	{
-	  rtx insns, target;
+	  rtx insns, target, source;
 	  rtx insn = DF_REF_INSN (web->uses[j]);
 	  rtx prev = PREV_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
@@ -3656,11 +3650,14 @@ rewrite_program (void)
 	  bitmap_set_bit (b, INSN_UID (insn));
 	  start_sequence ();
 	  target = DF_REF_REG (web->uses[j]);
-	  emit_insn (
-	    gen_move_insn (target, GET_CODE (target) == SUBREG
-			     ? gen_rtx_SUBREG (GET_MODE (target), slot,
-					       SUBREG_WORD (target))
-			     : slot));
+	  source = slot;
+	  if (GET_CODE (target) == SUBREG)
+	    {
+	      source = gen_rtx_MEM (GET_MODE (target),
+				  plus_constant (XEXP (source, 0),
+						 SUBREG_BYTE (target)));
+	    }
+	  emit_insn (gen_move_insn (target, source));
 	  insns = get_insns ();
 	  end_sequence ();
 	  emit_insns_before (insns, insn);
@@ -3948,7 +3945,7 @@ dump_ra (df)
       debug_msg (0, "  %4d : regno %3d", i, web->regno);
       if (SUBWEB_P (web))
 	{
-	  debug_msg (0, " sub %d", SUBREG_WORD (web->orig_x));
+	  debug_msg (0, " sub %d", SUBREG_BYTE (web->orig_x));
 	  debug_msg (0, " par %d", find_web_for_subweb (web)->id);
 	}
       debug_msg (0, " +%d (span %d, weight %d) (%s)%s",

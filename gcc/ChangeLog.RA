@@ -1,3 +1,16 @@
+2001-07-20  Michael Matz <matzmich@cs.tu-berlin.de>
+
+	* ra.c : (rtx_to_bits): Use SUBREG_BYTE, instead of calculating
+	things from SUBREG_WORD.
+	(defuse_overlap_p, find_subweb): Dito.
+	(dump_igraph, dump_ra): s/SUBREG_WORD/SUBREG_BYTE/ .
+	(colorize_one_web): Simulate SUBREG_WORD.
+	(rewrite_program): Don't emit (subreg(mem ...)).
+
+	* rtl.h : (reg_spill_cost): Add prototype.
+
+	* cp/optimize.c : (inlinable_size_p): Replace with dummy.
+
 2001-07-13  Michael Matz <matzmich@cs.tu-berlin.de>
  
         preliminar dump_constraints()

@@ -774,10 +774,11 @@ static bool
 inlinable_size_p (fn)
      tree fn;
 {
-  return DECL_NUM_STMTS (fn)
+/*  return DECL_NUM_STMTS (fn)
     < (PARAM_VALUE (PARAM_MAX_INLINE_AST)
        + (PARAM_VALUE (PARAM_ARG_INLINE_AST)
-	  * type_num_arguments (TREE_TYPE (fn))));
+	  * type_num_arguments (TREE_TYPE (fn))));*/
+  return DECL_NUM_STMTS (fn) < 100;
 }
 
 /* Called via walk_trees, DATA is an inline_data. If *TP is a call to

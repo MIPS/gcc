@@ -1455,6 +1455,7 @@ extern const char *decode_asm_operands	PARAMS ((rtx, rtx *, rtx **,
 					       enum machine_mode *));
 
 extern enum reg_class reg_preferred_class PARAMS ((int));
+extern unsigned int reg_spill_cost PARAMS ((int));
 extern enum reg_class reg_alternate_class PARAMS ((int));
 
 extern rtx get_first_nonparm_insn	PARAMS ((void));
