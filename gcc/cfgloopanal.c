@@ -832,7 +832,9 @@ simple_increment (loops, loop, simple_increment_regs, desc)
   if (!rtx_equal_p (SET_DEST (set), desc->var))
     abort ();
 
-  set_src = SET_SRC (set);
+  set_src = find_reg_equal_equiv_note (mod_insn);
+  if (!set_src)
+    set_src = SET_SRC (set);
   if (GET_CODE (set_src) != PLUS)
     return NULL;
   if (!rtx_equal_p (XEXP (set_src, 0), desc->var))
