@@ -774,7 +774,7 @@ merge_blocks (e, b, c, mode)
 
   /* Otherwise we will need to move code around.  Do that only if expensive
      transformations are allowed.  */
-  else if ((mode & CLEANUP_EXPENSIVE) && !(mode & CLEANUP_PRE_SIBCALL))
+  else if (mode & CLEANUP_EXPENSIVE)
     {
       edge tmp_edge, b_fallthru_edge;
       bool c_has_outgoing_fallthru;
@@ -1174,14 +1174,10 @@ outgoing_edges_match (mode, bb1, bb2)
 	  /* Fail if the difference in probabilities is
 	     greater than 5%.  */
 	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20
-#if 0
 	      && (b1->probability < REG_BR_PROB_BASE * 0.1
 		  || b1->probability > REG_BR_PROB_BASE * 0.9)
 	      && (prob2 < REG_BR_PROB_BASE * 0.1
 		  || prob2 > REG_BR_PROB_BASE * 0.9))
-#else
-		  )
-#endif
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
