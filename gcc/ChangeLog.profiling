@@ -1,3 +1,13 @@
+2005-03-21  Razya Ladelsky  <razya@il.ibm.com>
+
+        * cgraphunit.c (cgraph_function_versioning): assign proper values to the 
+          TREE_DECL fields of the new version.
+        * gimplify.c (create_function_name): changed code to create a unique name 
+          for the versioned node.
+        * ipa_prop.c (constant_val_insert ): enable the insertion of the constant 
+          to the (versioned) function.
+          (ipcp_cval_equal_cvalues): fix float constant comparison.
+
 2005-03-17  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20051703)

@@ -995,14 +995,14 @@ ipcp_cval_equal_cvalues (union info *const_val1, union info *const_val2,
      return false;
   
   if (type1 == CONST_VALUE_INT  || type1 == CONST_VALUE_INT_REF) 
-  {
-    if ((const_val1->int_value.low == const_val2->int_value.low) 
-        && (const_val1->int_value.high == const_val2->int_value.high)) 
-      return true; 
-   }
-   else if(REAL_VALUES_EQUAL (const_val1->float_value, const_val2->float_value))
-       return true;  
- 
+    {
+      if ((const_val1->int_value.low == const_val2->int_value.low) 
+	  && (const_val1->int_value.high == const_val2->int_value.high)) 
+	return true; 
+    }
+  else if (REAL_VALUES_IDENTICAL (const_val1->float_value, const_val2->float_value))    
+    return true;  
+  
   return false;
 }
 
@@ -1015,34 +1015,15 @@ static void
 constant_val_insert (tree fn, tree parm1, tree val)
 {
   struct function *func;
-  basic_block bb;
-  block_stmt_iterator new_bsi;
-  tree init_stmt, stmt;
-  
-  /* Temporary, until it is debugged completely.  */  
-  return;
+  tree init_stmt;
+  edge e_step;
+  edge_iterator ei;  
   init_stmt = build2 (MODIFY_EXPR, void_type_node, parm1, val);
   func = DECL_STRUCT_FUNCTION (fn);
-  bb = ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->next_bb;
-  new_bsi = bsi_start (bb);
-  if (empty_block_p (bb))
-     {
-        bsi_insert_before (&new_bsi, init_stmt, BSI_NEW_STMT);
-      }
-  else
-  {
-  stmt = bsi_stmt (new_bsi);
-  if (TREE_CODE (stmt) == LABEL_EXPR)
-  {
-    new_bsi = bsi_after_labels (bb);
-    bsi_insert_after (&new_bsi, init_stmt, BSI_NEW_STMT);
-  } 
-  else
-    {
-    
-    bsi_insert_before (&new_bsi, init_stmt, BSI_NEW_STMT);
-    }
-  }
+  cfun = func; 
+  if (ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
+    FOR_EACH_EDGE(e_step,ei,ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
+      bsi_insert_on_edge_immediate (e_step, init_stmt);   
 }
 
 static tree 
@@ -1296,7 +1277,6 @@ ipcp_insert_stage (void)
       /* Redirecting all the callers of the node to the 
 	 new versioned node.  */
       node1 =  cgraph_function_versioning (node, redirect_callers, replace_trees);
-      
       VARRAY_CLEAR (redirect_callers);
       VARRAY_CLEAR (replace_trees);
       if (node1 == NULL)
@@ -1314,7 +1294,6 @@ ipcp_insert_stage (void)
 	      if ( type != CONST_VALUE_INT_REF && type != CONST_VALUE_FLOAT_REF 
 		   && !TREE_READONLY (parm_tree))
 		ipcp_propagate_const (node1, i, cvalue, type);
-    
 	    }
 	}
     }

@@ -337,7 +337,7 @@ create_function_name (const char *prefix)
   len = strlen (tmp_name);
   for (i=0; i < len; i++)
     {
-      if (tmp_name[i] == '.')
+      if (!ISALPHA (tmp_name[i]) && !ISDIGIT (tmp_name[i]) && tmp_name[i] != '.')
         tmp_name[i] = '_';
     }
   

@@ -1473,6 +1473,14 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   /* Update the call_expr on the edges
      to the new version node. */
   update_call_expr (new_version_node, redirect_callers);
+  DECL_EXTERNAL (new_version_node->decl) = 0;
+  DECL_ONE_ONLY (new_version_node->decl) = 0;  
+  TREE_PUBLIC (new_version_node->decl) = 0;
+  DECL_COMDAT (new_version_node->decl) = 0;
+  new_version_node->local.externally_visible = 0;
+  new_version_node->local.local = 1;
+  new_version_node->local.avail = AVAIL_LOCAL;
+  TREE_ADDRESSABLE (new_version_node->decl) = 0;
   return new_version_node;
 }
 
