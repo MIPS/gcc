@@ -9012,9 +9012,6 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
   else if (code == EQ_EXPR && !TREE_SIDE_EFFECTS (op0)
            && integer_zerop (op1) && tree_expr_nonzero_p (op0))
     tem = build_int_2 (0, 0);
-  else if (code == NE_EXPR && !TREE_SIDE_EFFECTS (op0)
-           && integer_zerop (op1) && tree_expr_nonzero_p (op0))
-    tem = build_int_2 (1, 0);
 
   /* Two real constants can be compared explicitly.  */
   else if (TREE_CODE (op0) == REAL_CST && TREE_CODE (op1) == REAL_CST)

@@ -1,9 +1,13 @@
-2003-03-19  Dale Johannesen  <dalej@apple.com>
+2004-03-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* fold-const.c (fold_relational_const): Remove dead code.
+
+2004-03-19  Dale Johannesen  <dalej@apple.com>
 
 	* tree-ssa-dse.c (dse_optimize_stmt):  Redirect uses feeding into
 	a deleted store correctly.
 
-2003-03-19  Jeff Law  <law@redhat.com>
+2004-03-19  Jeff Law  <law@redhat.com>
 
         * tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
         Eliminate unnecessary test of VAL.
@@ -36,7 +40,7 @@
 	* tree-ssa-alias.c (compute_points_to_and_addr_escape): Add
 	bibliographic reference.
 
-2003-03-18  Jeff Law  <law@redhat.com>
+2004-03-18  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (tree-tailcall.o): Depend on langhooks.h.
 	* tree-tailcall.c: Include langhooks.h.
@@ -46,7 +50,7 @@
 	* tree-nested.c (get_chain_decl): Mark the chain decl with
 	TREE_NO_WARNING.
 
-2003-03-18  Devang Patel  <dpatel@apple.com>
+2004-03-18  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to 
 	last_basic_block instead of n_basic_blocks.
