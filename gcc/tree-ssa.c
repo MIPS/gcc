@@ -554,7 +554,10 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-           && lang_hooks.types_compatible_p (inner_type, outer_type))
+	   /* APPLE LOCAL begin 3661661 FSF fix for PR 15577 --dbj */
+           && lang_hooks.types_compatible_p (TREE_TYPE (inner_type), 
+		TREE_TYPE (outer_type)))
+	   /* APPLE LOCAL end 3661661 FSF fix for PR 15577 --dbj */
     return true;
 
   /* If both the inner and outer types are integral types, then the

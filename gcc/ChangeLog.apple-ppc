@@ -1,4 +1,8 @@
 2004-06-14  Dale Johannesen  <dalej@apple.com>
+	Radar 3661661
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): fix from FSF.
+
+2004-06-14  Dale Johannesen  <dalej@apple.com>
 	Radar 3690727 (partial)
 	* gimplify.c (copy_if_shared_r): Add missing APPLE LOCAL.
 	* config/rs6000/t-darwin: Ditto.
