@@ -5,6 +5,9 @@
 
 2004-02-26  Jeff Law  <law@redhat.com>
 
+	* tree-nrv.c (tree_nrv): Only perform NRV optimization when the
+	return value lives in memory.
+ 
 	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): If an
 	operand is unsigned, then we can eliminate more ABS expressions
 	and turned div/mod expression into shift/and expressions.

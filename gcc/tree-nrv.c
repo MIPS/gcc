@@ -112,9 +112,9 @@ tree_nrv (void)
   basic_block bb;
   struct nrv_data data;
 
-  /* If this function does not return an aggregate type, then there is
-     nothing to do.  */
-  if (!AGGREGATE_TYPE_P (result_type))
+  /* If this function does not return an aggregate type in memory, then
+     there is nothing to do.  */
+  if (!aggregate_value_p (result, current_function_decl))
     return;
 
   /* Look through each block for suitable return expressions.   RETURN_EXPRs
