@@ -99,7 +99,7 @@ if [ "$SHLIB_LINK" ]; then
   # overriding that with #pragmas.  The dance with @ is to prevent
   # echo from seeing anything it might take for an option.
   echo "vis_hide := \$(strip \$(subst @,-,\\"
-  echo "    \$(shell if echo 'void foo(void);' | \\"
+  echo "    \$(shell if echo 'void foo(void); void foo(void) {}' | \\"
   echo "          $gcc_compile -fvisibility=hidden -Werror \\"
   echo "          -c -xc - -o /dev/null 2> /dev/null; \\"
   echo "          then echo @fvisibility=hidden @DHIDE_EXPORTS; \\"
@@ -160,6 +160,11 @@ for ml in $MULTILIBS; do
   libgcc_s_so=
   libunwind_a=
   libunwind_so=
+  if [ "$dir" = . ]; then
+    suffix=
+  else
+    suffix=`echo $dir | sed s,/,_,g`
+  fi
 
   if [ "$LIBUNWIND" ]; then
     libunwind_a=$dir/libunwind.a
@@ -168,22 +173,21 @@ for ml in $MULTILIBS; do
     if [ -z "$SHLIB_MULTILIB" ]; then
       if [ "$dir" = . ]; then
 	libgcc_eh_a=$dir/libgcc_eh.a
-	libgcc_s_so_base=$dir/libgcc_s
+	libgcc_s_so_base=libgcc_s
 	libgcc_s_so=${libgcc_s_so_base}${SHLIB_EXT}
 	libgcc_s_soname=libgcc_s
 	if [ "$LIBUNWIND" ]; then
-	  libunwind_so_base=$dir/libunwind
+	  libunwind_so_base=libunwind
 	  libunwind_so=${libunwind_so_base}${SHLIB_EXT}
 	  libunwind_soname=libunwind
 	fi
       else
-        suffix=`echo $dir | sed s,/,_,g`
 	libgcc_eh_a=$dir/libgcc_eh.a
-	libgcc_s_so_base=$dir/libgcc_s_${suffix}
+	libgcc_s_so_base=libgcc_s_${suffix}
 	libgcc_s_so=${libgcc_s_so_base}${SHLIB_EXT}
 	libgcc_s_soname=libgcc_s_${suffix}
 	if [ "$LIBUNWIND" ]; then
-	  libunwind_so_base=$dir/libunwind_${suffix}
+	  libunwind_so_base=libunwind_${suffix}
 	  libunwind_so=${libunwind_so_base}${SHLIB_EXT}
 	fi
       fi
@@ -211,11 +215,11 @@ for ml in $MULTILIBS; do
 
     elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
       libgcc_eh_a=$dir/libgcc_eh.a
-      libgcc_s_so_base=$dir/libgcc_s
+      libgcc_s_so_base=libgcc_s
       libgcc_s_so=${libgcc_s_so_base}${SHLIB_EXT}
       libgcc_s_soname=libgcc_s
       if [ "$LIBUNWIND" ]; then
-	libunwind_so_base=$dir/libunwind
+	libunwind_so_base=libunwind
 	libunwind_so=${libunwind_so_base}${SHLIB_EXT}
 	libunwind_soname=libunwind
       fi
@@ -655,37 +659,43 @@ for ml in $MULTILIBS; do
   done
 
   # EXTRA_MULTILIB_PARTS.
-  echo
-  for f in $EXTRA_MULTILIB_PARTS; do
-    case $dir in
-    .) out=$f ; t= ;;
-    *) out=$dir/$f ; t=$dir/ ;;
-    esac
-    case $out in
-    # Prevent `make' from interpreting $out as a macro assignment
-    *'$(EQ)'*) targ="T_TARGET=$out T_TARGET" ;;
-    *) targ=$out ;;
-    esac
+  if [ -n "$EXTRA_MULTILIB_PARTS" ]; then
+    # Each of the EXTRA_MULTILIB_PARTS is built by recursive invocation
+    # of the parent Makefile.  We must do this just once for each
+    # multilib, passing it all the EXTRA_MULTILIB_PARTS as
+    # simultaneous goal targets, so that rules which cannot execute
+    # simultaneously are properly serialized.
+    
+    extra=
+    echo
+    for f in $EXTRA_MULTILIB_PARTS; do
+      case $dir in
+      .) out=$f ; t= ;;
+      *) out=$dir/$f ; t=$dir/ ;;
+      esac
+      case $out in
+      # Prevent `make' from interpreting $out as a macro assignment
+      *'$(EQ)'*) targ="T_TARGET=$out T_TARGET" ;;
+      *) targ=$out ;;
+      esac
+      extra="$extra $targ"
+    done
 
-    echo $out: stmp-dirs
+    echo extra$suffix: stmp-dirs
     echo "	$make_compile" \\
     echo '	  LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)' $flags '" ' \\
-    echo '	  MULTILIB_CFLAGS="'$flags'"' T=$t $targ
-    echo "all: $out"
+    echo '	  MULTILIB_CFLAGS="'$flags'"' T=$t $extra
+    echo "all: extra$suffix"
 
-    # Make libunwind.so and libgcc_s.so depend on these, since they are
-    # likely to be implicitly used by the link process.  However, we must
-    # then arrange to remove them from the explicit object list generated
-    # from $^ - see below.
+    # Make libunwind.so and libgcc_s.so depend on these, since they
+    # are likely to be implicitly used by the link process.
     if [ "$libgcc_s_so" ]; then
-      libgcc_s_so_extra="$libgcc_s_so_extra $out"
-      echo "$libgcc_s_so: $out"
+      echo "$libgcc_s_so: extra$suffix"
     fi
     if [ "$libunwind_so" ]; then
-      libunwind_so_extra="$libunwind_so_extra $out"
-      echo "$libunwind_so: $out"
+      echo "$libunwind_so: extra$suffix"
     fi
-  done
+  fi
 
   # Library build rules.
   dir=`echo ${ml} | sed -e 's/;.*$//' -e 's/=/$(EQ)/g'`
@@ -760,11 +770,10 @@ EOF
     echo "	$SHLIB_LINK" \
 	 | sed -e "s%@multilib_flags@%$flags%g" \
 	       -e "s%@multilib_dir@%$dir%g" \
-	       -e "s%@shlib_objs@%\$(filter-out $libgcc_s_so_extra,\$(objects))%g" \
+	       -e "s%@shlib_objs@%\$(objects)%g" \
 	       -e "s%@shlib_base_name@%$libgcc_s_so_base%g" \
 	       -e "s%@shlib_so_name@%$libgcc_s_soname%g" \
 	       -e "s%@shlib_map_file@%$mapfile%g" \
-	       -e "s%@shlib_dir@%$shlib_dir%g" \
 	       -e "s%@shlib_slibdir_qual@%$shlib_dir_qual%g"
     echo "all: $libgcc_s_so"
   fi
@@ -775,10 +784,9 @@ EOF
     echo "	$SHLIBUNWIND_LINK" \
 	   | sed -e "s%@multilib_flags@%$flags%g" \
 		 -e "s%@multilib_dir@%$dir%g" \
-		 -e "s%@shlib_objs@%\$(filter-out $libunwind_so_extra,\$(objects))%g" \
+		 -e "s%@shlib_objs@%\$(objects)%g" \
 		 -e "s%@shlib_base_name@%$libunwind_so_base%g" \
 		 -e "s%@shlib_so_name@%$libunwind_soname%g" \
-		 -e "s%@shlib_dir@%$shlib_dir%g" \
 		 -e "s%@shlib_slibdir_qual@%$shlib_dir_qual%g"
     echo "all: $libunwind_so"
   fi
@@ -860,13 +868,11 @@ for ml in $MULTILIBS; do
       echo "	$SHLIB_INSTALL" \
 	| sed -e "s%@shlib_base_name@%$shlib_base_name%g" \
 	      -e "s%@shlib_so_name@%$shlib_so_name%g" \
-	      -e "s%@shlib_dir@%$shlib_dir%g" \
 	      -e "s%@shlib_slibdir_qual@%$shlib_slibdir_qual%g"
       if [ "$LIBUNWIND" ]; then
 	echo "	$SHLIBUNWIND_INSTALL" \
 	   | sed -e "s%@shlib_base_name@%$shlibunwind_base_name%g" \
 		 -e "s%@shlib_so_name@%$shlibunwind_so_name%g" \
-		 -e "s%@shlib_dir@%$shlib_dir%g" \
 		 -e "s%@shlib_slibdir_qual@%$shlib_slibdir_qual%g"
 	libunwinddir='$(DESTDIR)$(slibdir)$(shlib_slibdir_qual)/$(shlib_dir)'
 	echo '	$(INSTALL_DATA)' ${dir}/libunwind.a ${libunwinddir}/
@@ -877,13 +883,11 @@ for ml in $MULTILIBS; do
       echo "	$SHLIB_INSTALL" \
 	| sed -e "s%@shlib_base_name@%$shlib_base_name%g" \
 	      -e "s%@shlib_so_name@%$shlib_base_name%g" \
-	      -e "s%@shlib_dir@%%g" \
 	      -e "s%@shlib_slibdir_qual@%%g"
       if [ "$LIBUNWIND" ]; then
 	echo "	$SHLIBUNWIND_INSTALL" \
 	   | sed -e "s%@shlib_base_name@%$shlibunwind_base_name%g" \
 		 -e "s%@shlib_so_name@%$shlibunwind_base_name%g" \
-		 -e "s%@shlib_dir@%%g" \
 		 -e "s%@shlib_slibdir_qual@%%g"
 	libunwinddir='$(DESTDIR)$(slibdir)'
 	echo '	$(INSTALL_DATA)' ${dir}/libunwind.a ${libunwinddir}/

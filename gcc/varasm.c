@@ -791,7 +791,7 @@ set_user_assembler_name (tree decl, const char *name)
 int
 decode_reg_name (const char *asmspec)
 {
-  if (asmspec != 0 && strlen (asmspec) != 0)
+  if (asmspec != 0)
     {
       int i;
 
@@ -901,10 +901,10 @@ make_decl_rtl (tree decl)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-  reg_number = decode_reg_name (name);
 
   if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
+      reg_number = decode_reg_name (name);
       /* First detect errors in declaring global registers.  */
       if (reg_number == -1)
 	error ("%Jregister name not specified for %qD", decl, decl);
@@ -955,12 +955,19 @@ make_decl_rtl (tree decl)
 	  return;
 	}
     }
-
   /* Now handle ordinary static variables and functions (in memory).
      Also handle vars declared register invalidly.  */
-
-  if (name[0] == '*' && (reg_number >= 0 || reg_number == -3))
-    error ("%Jregister name given for non-register variable %qD", decl, decl);
+  else if (name[0] == '*')
+  {
+#ifdef REGISTER_PREFIX
+    if (strlen (REGISTER_PREFIX) != 0)
+      {
+	reg_number = decode_reg_name (name);
+	if (reg_number >= 0 || reg_number == -3)
+	  error ("%Jregister name given for non-register variable %qD", decl, decl);
+      }
+#endif
+  }
 
   /* Specifying a section attribute on a variable forces it into a
      non-.bss section, and thus it cannot be common.  */
@@ -1752,6 +1759,12 @@ contains_pointers_p (tree type)
     }
 }
 
+/* In unit-at-a-time mode, we delay assemble_external processing until
+   the compilation unit is finalized.  This is the best we can do for
+   right now (i.e. stage 3 of GCC 4.0) - the right thing is to delay
+   it all the way to final.  See PR 17982 for further discussion.  */
+static GTY(()) tree pending_assemble_externals;
+
 #ifdef ASM_OUTPUT_EXTERNAL
 /* True if DECL is a function decl for which no out-of-line copy exists.
    It is assumed that DECL's assembler name has been set.  */
@@ -1773,7 +1786,36 @@ incorporeal_function_p (tree decl)
     }
   return false;
 }
+
+/* Actually do the tests to determine if this is necessary, and invoke
+   ASM_OUTPUT_EXTERNAL.  */
+static void
+assemble_external_real (tree decl)
+{
+  rtx rtl = DECL_RTL (decl);
+
+  if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
+      && !SYMBOL_REF_USED (XEXP (rtl, 0))
+      && !incorporeal_function_p (decl))
+    {
+      /* Some systems do require some output.  */
+      SYMBOL_REF_USED (XEXP (rtl, 0)) = 1;
+      ASM_OUTPUT_EXTERNAL (asm_out_file, decl, XSTR (XEXP (rtl, 0), 0));
+    }
+}
 #endif
+
+void
+process_pending_assemble_externals (void)
+{
+#ifdef ASM_OUTPUT_EXTERNAL
+  tree list;
+  for (list = pending_assemble_externals; list; list = TREE_CHAIN (list))
+    assemble_external_real (TREE_VALUE (list));
+
+  pending_assemble_externals = 0;
+#endif
+}
 
 /* Output something to declare an external symbol to the assembler.
    (Most assemblers don't need this, so we normally output nothing.)
@@ -1786,23 +1828,17 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
      main body of this code is only rarely exercised.  To provide some
      testing, on all platforms, we make sure that the ASM_OUT_FILE is
      open.  If it's not, we should not be calling this function.  */
-  if (!asm_out_file)
-    abort ();
+  gcc_assert (asm_out_file);
 
 #ifdef ASM_OUTPUT_EXTERNAL
-  if (DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
-    {
-      rtx rtl = DECL_RTL (decl);
+  if (!DECL_P (decl) || !DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
+    return;
 
-      if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
-	  && !incorporeal_function_p (decl))
-	{
-	  /* Some systems do require some output.  */
-	  SYMBOL_REF_USED (XEXP (rtl, 0)) = 1;
-	  ASM_OUTPUT_EXTERNAL (asm_out_file, decl, XSTR (XEXP (rtl, 0), 0));
-	}
-    }
+  if (flag_unit_at_a_time)
+    pending_assemble_externals = tree_cons (0, decl,
+					    pending_assemble_externals);
+  else
+    assemble_external_real (decl);
 #endif
 }
 
@@ -2251,28 +2287,17 @@ const_hash_1 (const tree exp)
 	      + const_hash_1 (TREE_IMAGPART (exp)));
 
     case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	{
-	  char *tmp;
-
-	  len = int_size_in_bytes (TREE_TYPE (exp));
-	  tmp = alloca (len);
-	  get_set_constructor_bytes (exp, (unsigned char *) tmp, len);
-	  p = tmp;
-	  break;
-	}
-      else
-	{
-	  tree link;
-
-	  hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
-
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    if (TREE_VALUE (link))
-	      hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
-
-	  return hi;
-	}
+      {
+	tree link;
+	
+	hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
+	
+	for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
+	  if (TREE_VALUE (link))
+	    hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
+	
+	return hi;
+      }
 
     case ADDR_EXPR:
     case FDESC_EXPR:
@@ -2371,72 +2396,53 @@ compare_constant (const tree t1, const tree t2)
 	      && compare_constant (TREE_IMAGPART (t1), TREE_IMAGPART (t2)));
 
     case CONSTRUCTOR:
-      typecode = TREE_CODE (TREE_TYPE (t1));
-      if (typecode != TREE_CODE (TREE_TYPE (t2)))
-	return 0;
+      {
+	tree l1, l2;
+	
+	typecode = TREE_CODE (TREE_TYPE (t1));
+	if (typecode != TREE_CODE (TREE_TYPE (t2)))
+	  return 0;
 
-      if (typecode == SET_TYPE)
-	{
-	  int len = int_size_in_bytes (TREE_TYPE (t2));
-	  unsigned char *tmp1, *tmp2;
+	if (typecode == ARRAY_TYPE)
+	  {
+	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
+	    /* For arrays, check that the sizes all match.  */
+	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
+		|| size_1 == -1
+		|| size_1 != int_size_in_bytes (TREE_TYPE (t2)))
+	      return 0;
+	  }
+	else
+	  {
+	    /* For record and union constructors, require exact type
+               equality.  */
+	    if (TREE_TYPE (t1) != TREE_TYPE (t2))
+	      return 0;
+	  }
 
-	  if (int_size_in_bytes (TREE_TYPE (t1)) != len)
-	    return 0;
-
-	  tmp1 = alloca (len);
-	  tmp2 = alloca (len);
-
-	  if (get_set_constructor_bytes (t1, tmp1, len) != NULL_TREE)
-	    return 0;
-	  if (get_set_constructor_bytes (t2, tmp2, len) != NULL_TREE)
-	    return 0;
-
-	  return memcmp (tmp1, tmp2, len) == 0;
-	}
-      else
-	{
-	  tree l1, l2;
-
-	  if (typecode == ARRAY_TYPE)
-	    {
-	      HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
-	      /* For arrays, check that the sizes all match.  */
-	      if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
-		  || size_1 == -1
-		  || size_1 != int_size_in_bytes (TREE_TYPE (t2)))
-		return 0;
-	    }
-	  else
-	    {
-	      /* For record and union constructors, require exact type
-                 equality.  */
-	      if (TREE_TYPE (t1) != TREE_TYPE (t2))
-		return 0;
-	    }
-
-	  for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
-	       l1 && l2;
-	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
-	    {
-	      /* Check that each value is the same...  */
-	      if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
-		return 0;
-	      /* ... and that they apply to the same fields!  */
-	      if (typecode == ARRAY_TYPE)
-		{
-		  if (! compare_constant (TREE_PURPOSE (l1),
-					  TREE_PURPOSE (l2)))
-		    return 0;
-		}
-	      else
-		{
-		  if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
-		    return 0;
-		}
-	    }
-
-	  return l1 == NULL_TREE && l2 == NULL_TREE;
-	}
+	for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
+	     l1 && l2;
+	     l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
+	  {
+	    /* Check that each value is the same...  */
+	    if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
+	      return 0;
+	    /* ... and that they apply to the same fields!  */
+	    if (typecode == ARRAY_TYPE)
+	      {
+		if (! compare_constant (TREE_PURPOSE (l1),
+					TREE_PURPOSE (l2)))
+		  return 0;
+	      }
+	    else
+	      {
+		if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
+		  return 0;
+	      }
+	  }
+	
+	return l1 == NULL_TREE && l2 == NULL_TREE;
+      }
 
     case ADDR_EXPR:
     case FDESC_EXPR:
@@ -2526,9 +2532,6 @@ copy_constant (tree exp)
 	CONSTRUCTOR_ELTS (copy) = list;
 	for (tail = list; tail; tail = TREE_CHAIN (tail))
 	  TREE_VALUE (tail) = copy_constant (TREE_VALUE (tail));
-	if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	  for (tail = list; tail; tail = TREE_CHAIN (tail))
-	    TREE_PURPOSE (tail) = copy_constant (TREE_PURPOSE (tail));
 
 	return copy;
       }
@@ -3789,22 +3792,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	output_constructor (exp, size, align);
       else
 	abort ();
-      return;
-
-    case SET_TYPE:
-      if (TREE_CODE (exp) == INTEGER_CST)
-	assemble_integer (expand_expr (exp, NULL_RTX,
-				       VOIDmode, EXPAND_INITIALIZER),
-			  thissize, align, 1);
-      else if (TREE_CODE (exp) == CONSTRUCTOR)
-	{
-	  unsigned char *buffer = alloca (thissize);
-	  if (get_set_constructor_bytes (exp, buffer, thissize))
-	    abort ();
-	  assemble_string ((char *) buffer, thissize);
-	}
-      else
-	error ("unknown set constructor type");
       return;
 
     case ERROR_MARK:

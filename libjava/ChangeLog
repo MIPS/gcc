@@ -1,3 +1,38 @@
+2004-12-08  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/util/IdentityHashMap.java (put): Replace mistaken use
+	of "<<" by "*".
+
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/14853:
+	* testsuite/libjava.compile/PR14853.java: New file.
+	* testsuite/libjava.compile/PR14853.xfail: New file.
+
+2004-12-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR libgcj/7305
+	* configure.ac: Use TL_AC_GXX_INCLUDE_DIR.
+	* Makefile.am (install-data-local): Install headers into 
+	$(gxx_include_dir) rather than $(includedir).
+	(AM_MAKEFLAGS): Pass down gxx_include_dir.
+	* gcj/Makefile.am (gcjdir): Set to $(gxx_include_dir)/gcj.
+	* include/Makefile.am (tool_include__HEADERS): Define this...
+	(include_HEADERS): ...instead of this.
+	* configure, aclocal.m4, Makefile.in, gcj/Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-12-02  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/16675:
+	* testsuite/libjava.compile/PR16675.java: New file.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* configure, aclocal.m4, Makefile.in, gcj/Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
 2004-12-01  Tom Tromey  <tromey@redhat.com>
 
 	* include/no-threads.h (_Jv_ThreadDestroyData): Removed argument

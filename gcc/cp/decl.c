@@ -3972,9 +3972,6 @@ grok_reference_init (tree decl, tree type, tree init, tree *cleanup)
   if (TREE_CODE (init) == TREE_LIST)
     init = build_x_compound_expr_from_list (init, "initializer");
 
-  if (TREE_CODE (TREE_TYPE (init)) == REFERENCE_TYPE)
-    init = convert_from_reference (init);
-
   if (TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (init)) == ARRAY_TYPE)
     /* Note: default conversion is only called in very special cases.  */
@@ -7430,8 +7427,19 @@ grokdeclarator (const cp_declarator *declarator,
 	  else if (TREE_CODE (type) == METHOD_TYPE)
 	    type = build_ptrmemfunc_type (build_pointer_type (type));
 	  else if (declarator->kind == cdk_ptrmem)
-	    type = build_ptrmem_type (declarator->u.pointer.class_type,
-				      type);
+	    {
+	      /* We might have parsed a namespace as the class type.  */
+	      if (TREE_CODE (declarator->u.pointer.class_type)
+		  == NAMESPACE_DECL)
+		{
+		  error ("%qD is a namespace",
+			 declarator->u.pointer.class_type);
+		  type = build_pointer_type (type);
+		}
+	      else
+		type = build_ptrmem_type (declarator->u.pointer.class_type,
+					  type);
+	    }
 	  else
 	    type = build_pointer_type (type);
 
@@ -9161,6 +9169,18 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 
   if (decl && TREE_CODE (decl) == TYPE_DECL)
     {
+      /* Look for invalid nested type:
+	   class C {
+	     class C {};
+	   };  */
+      if (scope == ts_current && DECL_SELF_REFERENCE_P (decl))
+	{
+	  error ("%qD has the same name as the class in which it is "
+		 "declared",
+		 decl);
+	  return error_mark_node;
+	}
+
       /* Two cases we need to consider when deciding if a class
 	 template is allowed as an elaborated type specifier:
 	 1. It is a self reference to its own class.

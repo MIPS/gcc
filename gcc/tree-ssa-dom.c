@@ -773,12 +773,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	     otherwise look it up in the hash tables.  */
 	  cached_lhs = local_fold (COND_EXPR_COND (dummy_cond));
 	  if (! is_gimple_min_invariant (cached_lhs))
-	    cached_lhs = lookup_avail_expr (dummy_cond, false);
- 	  if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
 	    {
-	      cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond,
-								NULL,
-								false);
+	      cached_lhs = lookup_avail_expr (dummy_cond, false);
+	      if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
+		cached_lhs = simplify_cond_and_lookup_avail_expr (dummy_cond,
+								  NULL,
+								  false);
 	    }
 	}
       /* We can have conditionals which just test the state of a
@@ -1205,23 +1205,18 @@ record_equivalences_from_phis (basic_block bb)
 	{
 	  tree t = PHI_ARG_DEF (phi, i);
 
-	  if (TREE_CODE (t) == SSA_NAME || is_gimple_min_invariant (t))
-	    {
-	      /* Ignore alternatives which are the same as our LHS.  */
-	      if (operand_equal_for_phi_arg_p (lhs, t))
-		continue;
+	  /* Ignore alternatives which are the same as our LHS.  */
+	  if (operand_equal_for_phi_arg_p (lhs, t))
+	    continue;
 
-	      /* If we have not processed an alternative yet, then set
-		 RHS to this alternative.  */
-	      if (rhs == NULL)
-		rhs = t;
-	      /* If we have processed an alternative (stored in RHS), then
-		 see if it is equal to this one.  If it isn't, then stop
-		 the search.  */
-	      else if (! operand_equal_for_phi_arg_p (rhs, t))
-		break;
-	    }
-	  else
+	  /* If we have not processed an alternative yet, then set
+	     RHS to this alternative.  */
+	  if (rhs == NULL)
+	    rhs = t;
+	  /* If we have processed an alternative (stored in RHS), then
+	     see if it is equal to this one.  If it isn't, then stop
+	     the search.  */
+	  else if (! operand_equal_for_phi_arg_p (rhs, t))
 	    break;
 	}
 

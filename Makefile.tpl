@@ -528,6 +528,7 @@ EXTRA_HOST_FLAGS = \
 	'DLLTOOL=$(DLLTOOL)' \
 	'LD=$(LD)' \
 	'NM=$(NM)' \
+	'PICFLAG=$(PICFLAG)' \
 	'RANLIB=$(RANLIB)' \
 	'WINDRES=$(WINDRES)'
 
@@ -560,6 +561,7 @@ EXTRA_TARGET_FLAGS = \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
+	'PICFLAG=$$(PICFLAG_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
 	'WINDRES=$$(WINDRES_FOR_TARGET)'
 
@@ -694,6 +696,7 @@ clean-target-libgcc:
 	(cd gcc/libgcc && find . -type d -print) | \
 	while read d; do rm -f gcc/$$d/libgcc.a || : ; done
 	-rm -rf gcc/libgcc
+	-rm -f gcc/stmp-dirs
 
 # Check target.
 
@@ -1624,8 +1627,8 @@ configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
    (define dep-maybe (lambda ()
       (if (exist? "hard") "" "maybe-")))
 
-   ;; dep-kind returns "normal" is the dependency is on an "install" target,
-   ;; or if the LHS module is not bootstrapped.  It returns "bootstrap" for
+   ;; dep-kind returns "normal" if the dependency is on an "install" target,
+   ;; or if either module is not bootstrapped.  It returns "bootstrap" for
    ;; configure or build dependencies between bootstrapped modules; it returns
    ;; "prebootstrap" for configure or build dependencies of bootstrapped
    ;; modules on a build module (e.g. all-gcc on all-build-bison).  All this
@@ -1637,7 +1640,8 @@ configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
 
 	  (if (or (= (dep-subtarget "on") "install-")
 		  (=* (dep-module "on") "target-")
-		  (not (hash-ref boot-modules (dep-module "module"))))
+		  (not (hash-ref boot-modules (dep-module "module")))
+		  (not (hash-ref boot-modules (dep-module "on"))))
               "normal"
 	      "bootstrap"))))
 

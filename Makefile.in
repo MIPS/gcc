@@ -561,6 +561,7 @@ BASE_FLAGS_TO_PASS = \
 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
 	"LIBCXXFLAGS_FOR_TARGET=$(LIBCXXFLAGS_FOR_TARGET)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
+	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
 	"WINDRES_FOR_TARGET=$(WINDRES_FOR_TARGET)" \
 	"CONFIG_SHELL=$(SHELL)" \
@@ -587,6 +588,7 @@ EXTRA_HOST_FLAGS = \
 	'DLLTOOL=$(DLLTOOL)' \
 	'LD=$(LD)' \
 	'NM=$(NM)' \
+	'PICFLAG=$(PICFLAG)' \
 	'RANLIB=$(RANLIB)' \
 	'WINDRES=$(WINDRES)'
 
@@ -619,6 +621,7 @@ EXTRA_TARGET_FLAGS = \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
+	'PICFLAG=$$(PICFLAG_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
 	'WINDRES=$$(WINDRES_FOR_TARGET)'
 
@@ -1828,6 +1831,7 @@ clean-target-libgcc:
 	(cd gcc/libgcc && find . -type d -print) | \
 	while read d; do rm -f gcc/$$d/libgcc.a || : ; done
 	-rm -rf gcc/libgcc
+	-rm -f gcc/stmp-dirs
 
 # Check target.
 
@@ -35171,13 +35175,6 @@ all-stage4-gcc: maybe-all-stage4-libiberty
 all-stageprofile-gcc: maybe-all-stageprofile-libiberty
 all-stagefeedback-gcc: maybe-all-stagefeedback-libiberty
 all-gcc: maybe-all-fixincludes
-
-all-stage1-gcc: maybe-all-stage1-fixincludes
-all-stage2-gcc: maybe-all-stage2-fixincludes
-all-stage3-gcc: maybe-all-stage3-fixincludes
-all-stage4-gcc: maybe-all-stage4-fixincludes
-all-stageprofile-gcc: maybe-all-stageprofile-fixincludes
-all-stagefeedback-gcc: maybe-all-stagefeedback-fixincludes
 install-gcc: maybe-install-fixincludes
 configure-libcpp: configure-libiberty
 

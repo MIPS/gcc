@@ -185,7 +185,6 @@ static tree fold_builtin_strcat (tree);
 static tree fold_builtin_strncat (tree);
 static tree fold_builtin_strspn (tree);
 static tree fold_builtin_strcspn (tree);
-static void fold_builtin_next_arg (tree);
 static tree fold_builtin_sprintf (tree, int);
 
 
@@ -1476,7 +1475,6 @@ type_to_class (tree type)
     case QUAL_UNION_TYPE:  return union_type_class;
     case ARRAY_TYPE:	   return (TYPE_STRING_FLAG (type)
 				   ? string_type_class : array_type_class);
-    case SET_TYPE:	   return set_type_class;
     case FILE_TYPE:	   return file_type_class;
     case LANG_TYPE:	   return lang_type_class;
     default:		   return no_type_class;
@@ -3868,7 +3866,10 @@ expand_builtin_va_start (tree arglist)
   if (TREE_CHAIN (chain))
     error ("too many arguments to function %<va_start%>");
 
-  fold_builtin_next_arg (chain);
+  if (fold_builtin_next_arg (chain))
+    {
+      return const0_rtx;
+    }
 
   nextarg = expand_builtin_next_arg (chain);
   valist = stabilize_va_list (TREE_VALUE (arglist), 1);
@@ -5249,7 +5250,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
-      fold_builtin_next_arg (arglist);
+      if (fold_builtin_next_arg (arglist))
+        return const0_rtx;
       return expand_builtin_next_arg (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
@@ -8650,7 +8652,10 @@ fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
   return build_function_call_expr (fn, arglist);
 }
 
-static void
+/* Fold the new_arg's arguments (ARGLIST). Returns true if there was an error
+   produced.  False otherwise.  This is done so that we don't output the error
+   or warning twice or three times.  */
+bool
 fold_builtin_next_arg (tree arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
@@ -8658,7 +8663,10 @@ fold_builtin_next_arg (tree arglist)
   if (TYPE_ARG_TYPES (fntype) == 0
       || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	  == void_type_node))
-    error ("%<va_start%> used in function with fixed args");
+    {
+      error ("%<va_start%> used in function with fixed args");
+      return true;
+    }
   else if (arglist)
     {
       tree last_parm = tree_last (DECL_ARGUMENTS (current_function_decl));
@@ -8674,13 +8682,25 @@ fold_builtin_next_arg (tree arglist)
 	     || TREE_CODE (arg) == INDIRECT_REF)
 	arg = TREE_OPERAND (arg, 0);
       if (arg != last_parm)
-	warning ("second parameter of %<va_start%> not last named argument");
+        {
+	  /* FIXME: Sometimes with the tree optimizers we can get the
+	     not the last argument even though the user used the last
+	     argument.  We just warn and set the arg to be the last
+	     argument so that we will get wrong-code because of
+	     it.  */
+	  arg = last_parm;
+	  warning ("second parameter of %<va_start%> not last named argument");
+	}
       TREE_VALUE (arglist) = arg;
     }
   else
-    /* Evidently an out of date version of <stdarg.h>; can't validate
-       va_start's second argument, but can still work as intended.  */
-    warning ("%<__builtin_next_arg%> called without an argument");
+    {
+      /* Evidently an out of date version of <stdarg.h>; can't validate
+	 va_start's second argument, but can still work as intended.  */
+      warning ("%<__builtin_next_arg%> called without an argument");
+      return true;
+    }
+  return false;
 }
 
 

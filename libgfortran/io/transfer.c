@@ -271,6 +271,13 @@ unformatted_read (bt type, void *dest, int length)
 {
   void *source;
   int w;
+
+  /* Transfer functions get passed the kind of the entity, so we have
+     to fix this for COMPLEX data which are twice the size of their
+     kind.  */
+  if (type == BT_COMPLEX)
+    length *= 2;
+
   w = length;
   source = read_block (&w);
 
@@ -288,9 +295,14 @@ static void
 unformatted_write (bt type, void *source, int length)
 {
   void *dest;
-   dest = write_block (length);
-   if (dest != NULL)
-     memcpy (dest, source, length);
+
+  /* Correction for kind vs. length as in unformatted_read.  */
+  if (type == BT_COMPLEX)
+    length *= 2;
+
+  dest = write_block (length);
+  if (dest != NULL)
+    memcpy (dest, source, length);
 }
 
 
@@ -733,14 +745,12 @@ formatted_transfer (bt type, void *p, int len)
 
   return;
 
-/* Come here when we need a data descriptor but don't have one.  We
-   push the current format node back onto the input, then return and
-   let the user program call us back with the data.  */
-
-need_data:
+  /* Come here when we need a data descriptor but don't have one.  We
+     push the current format node back onto the input, then return and
+     let the user program call us back with the data.  */
+ need_data:
   unget_format (f);
 }
-
 
 
 /* Data transfer entry points.  The type of the data entity is
@@ -750,7 +760,6 @@ need_data:
 void
 transfer_integer (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -761,7 +770,6 @@ transfer_integer (void *p, int kind)
 void
 transfer_real (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -772,7 +780,6 @@ transfer_real (void *p, int kind)
 void
 transfer_logical (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -783,7 +790,6 @@ transfer_logical (void *p, int kind)
 void
 transfer_character (void *p, int len)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -794,7 +800,6 @@ transfer_character (void *p, int len)
 void
 transfer_complex (void *p, int kind)
 {
-
   g.item_count++;
   if (ioparm.library_return != LIBRARY_OK)
     return;
@@ -861,7 +866,6 @@ us_write (void)
 static void
 pre_position (void)
 {
-
   if (current_unit->current_record)
     return;			/* Already positioned.  */
 
@@ -1128,9 +1132,7 @@ data_transfer_init (int read_flag)
   /* Start the data transfer if we are doing a formatted transfer.  */
   if (current_unit->flags.form == FORM_FORMATTED && !ioparm.list_format
       && ioparm.namelist_name == NULL && ionml == NULL)
-
-     formatted_transfer (0, NULL, 0);
-
+    formatted_transfer (0, NULL, 0);
 }
 
 
@@ -1186,7 +1188,6 @@ next_record_r (int done)
 	      current_unit->bytes_left -= length;
 	    }
 	}
-
       break;
 
     case FORMATTED_SEQUENTIAL:
@@ -1355,7 +1356,6 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
-
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)
@@ -1417,7 +1417,6 @@ iolength_transfer (bt type, void *dest, int len)
 static void
 iolength_transfer_init (void)
 {
-
   if (ioparm.iolength != NULL)
     *ioparm.iolength = 0;
 
@@ -1426,7 +1425,6 @@ iolength_transfer_init (void)
   /* Set up the subroutine that will handle the transfers.  */
 
   transfer = iolength_transfer;
-
 }
 
 
@@ -1439,7 +1437,6 @@ void
 st_iolength (void)
 {
   library_start ();
-
   iolength_transfer_init ();
 }
 
@@ -1455,7 +1452,6 @@ st_iolength_done (void)
 void
 st_read (void)
 {
-
   library_start ();
 
   data_transfer_init (1);
@@ -1490,7 +1486,6 @@ void
 st_read_done (void)
 {
   finalize_transfer ();
-
   library_end ();
 }
 
@@ -1498,7 +1493,6 @@ st_read_done (void)
 void
 st_write (void)
 {
-
   library_start ();
   data_transfer_init (0);
 }
@@ -1507,7 +1501,6 @@ st_write (void)
 void
 st_write_done (void)
 {
-
   finalize_transfer ();
 
   /* Deal with endfile conditions associated with sequential files.  */
@@ -1578,7 +1571,6 @@ void
 st_set_nml_var_int (void * var_addr, char * var_name, int var_name_len,
 		    int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_INTEGER, 0);
 }
 
@@ -1586,7 +1578,6 @@ void
 st_set_nml_var_float (void * var_addr, char * var_name, int var_name_len,
 		      int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_REAL, 0);
 }
 
@@ -1594,7 +1585,6 @@ void
 st_set_nml_var_char (void * var_addr, char * var_name, int var_name_len,
 		     int kind, gfc_charlen_type string_length)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_CHARACTER,
 		  string_length);
 }
@@ -1603,7 +1593,6 @@ void
 st_set_nml_var_complex (void * var_addr, char * var_name, int var_name_len,
 			int kind)
 {
-
   st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_COMPLEX, 0);
 }
 
@@ -1611,7 +1600,5 @@ void
 st_set_nml_var_log (void * var_addr, char * var_name, int var_name_len,
 		    int kind)
 {
-  
    st_set_nml_var (var_addr, var_name, var_name_len, kind, BT_LOGICAL, 0);
 }
-

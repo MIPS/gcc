@@ -4901,15 +4901,7 @@ cp_parser_new_type_id (cp_parser* parser, tree *nelts)
       *nelts = declarator->u.array.bounds;
       if (*nelts == error_mark_node)
 	*nelts = integer_one_node;
-      else if (!processing_template_decl)
-	{
-	  if (!build_expr_type_conversion (WANT_INT | WANT_ENUM, *nelts,
-					   false))
-	    pedwarn ("size in array new must have integral type");
-	  *nelts = save_expr (cp_convert (sizetype, *nelts));
-	  if (*nelts == integer_zero_node)
-	    warning ("zero size array reserves no space");
-	}
+      
       if (outer_declarator)
 	outer_declarator->declarator = declarator->declarator;
       else
@@ -8424,8 +8416,9 @@ cp_parser_template_id (cp_parser *parser,
      should we re-parse the token stream, we will not have to repeat
      the effort required to do the parse, nor will we issue duplicate
      error messages about problems during instantiation of the
-     template.  */
-  if (start_of_id)
+     template.  Do so only if parsing succeeded, otherwise we may
+     silently accept template arguments with syntax errors.  */
+  if (start_of_id && !cp_parser_error_occurred (parser))
     {
       cp_token *token = cp_lexer_token_at (parser->lexer, start_of_id);
       
@@ -8821,6 +8814,7 @@ cp_parser_template_argument (cp_parser* parser)
       if (cp_parser_parse_definitely (parser))
 	return argument;
     }
+
   /* If the next token is "&", the argument must be the address of an
      object or function with external linkage.  */
   address_p = cp_lexer_next_token_is (parser->lexer, CPP_AND);
@@ -8843,6 +8837,12 @@ cp_parser_template_argument (cp_parser* parser)
 	cp_parser_abort_tentative_parse (parser);
       else
 	{
+	  if (TREE_CODE (argument) == INDIRECT_REF)
+	    {
+	      gcc_assert (REFERENCE_REF_P (argument));
+	      argument = TREE_OPERAND (argument, 0);
+	    }
+	  
 	  if (qualifying_class)
 	    argument = finish_qualified_id_expr (qualifying_class,
 						 argument,
@@ -8866,6 +8866,8 @@ cp_parser_template_argument (cp_parser* parser)
 		       || TREE_CODE (argument) == SCOPE_REF))
 	    /* A pointer-to-member.  */
 	    ;
+	  else if (TREE_CODE (argument) == TEMPLATE_PARM_INDEX)
+	    ;
 	  else
 	    cp_parser_simulate_error (parser);
 
@@ -8884,6 +8886,7 @@ cp_parser_template_argument (cp_parser* parser)
       cp_parser_error (parser, "invalid non-type template argument");
       return error_mark_node;
     }
+
   /* If the argument wasn't successfully parsed as a type-id followed
      by '>>', the argument can only be a constant expression now.
      Otherwise, we try parsing the constant-expression tentatively,
@@ -9130,7 +9133,15 @@ cp_parser_type_specifier (cp_parser* parser,
 	      && cp_lexer_peek_nth_token (parser->lexer, 3)->type
 	         == CPP_OPEN_BRACE))
 	{
-	  type_spec = cp_parser_enum_specifier (parser);
+	  if (parser->num_template_parameter_lists)
+	    {
+	      error ("template declaration of %qs", "enum");
+	      cp_parser_skip_to_end_of_block_or_statement (parser);
+	      type_spec = error_mark_node;
+	    }
+	  else
+	    type_spec = cp_parser_enum_specifier (parser);
+
 	  if (declares_class_or_enum)
 	    *declares_class_or_enum = 2;
 	  if (decl_specs)
@@ -12435,6 +12446,8 @@ cp_parser_class_specifier (cp_parser* parser)
    *NESTED_NAME_SPECIFIER_P to TRUE iff one of the productions
    involving a nested-name-specifier was used, and FALSE otherwise.
 
+   Returns error_mark_node if this is not a class-head.
+   
    Returns NULL_TREE if the class-head is syntactically valid, but
    semantically invalid in a way that means we should skip the entire
    body of the class.  */
@@ -12607,6 +12620,15 @@ cp_parser_class_head (cp_parser* parser,
   else if (nested_name_specifier)
     {
       tree scope;
+
+      /* Reject typedef-names in class heads.  */
+      if (!DECL_IMPLICIT_TYPEDEF_P (type))
+	{
+	  error ("invalid class name in declaration of %qD", type);
+	  type = NULL_TREE;
+	  goto done;
+	}
+
       /* Figure out in what scope the declaration is being placed.  */
       scope = current_scope ();
       /* If that scope does not contain the scope in which the
@@ -12706,7 +12728,15 @@ cp_parser_class_head (cp_parser* parser,
       type = TYPE_MAIN_DECL (TREE_TYPE (type));
       if (PROCESSING_REAL_TEMPLATE_DECL_P ()
 	  && !CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (type)))
-	type = push_template_decl (type);
+	{
+	  type = push_template_decl (type);
+	  if (type == error_mark_node)
+	    {
+	      type = NULL_TREE;
+	      goto done;
+	    }
+	}
+      
       type = TREE_TYPE (type);
       if (nested_name_specifier)
 	{
@@ -13123,7 +13153,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		initializer = NULL_TREE;
 
 	      /* See if we are probably looking at a function
-		 definition.  We are certainly not looking at at a
+		 definition.  We are certainly not looking at a
 		 member-declarator.  Calling `grokfield' has
 		 side-effects, so we must not do it unless we are sure
 		 that we are looking at a member-declarator.  */

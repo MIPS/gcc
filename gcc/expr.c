@@ -2580,16 +2580,32 @@ clear_storage_libcall_fn (int for_call)
 static void
 write_complex_part (rtx cplx, rtx val, bool imag_p)
 {
-  if (GET_CODE (cplx) == CONCAT)
-    emit_move_insn (XEXP (cplx, imag_p), val);
-  else
-    {
-      enum machine_mode cmode = GET_MODE (cplx);
-      enum machine_mode imode = GET_MODE_INNER (cmode);
-      unsigned ibitsize = GET_MODE_BITSIZE (imode);
+  enum machine_mode cmode;
+  enum machine_mode imode;
+  unsigned ibitsize;
 
-      store_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0, imode, val);
+  if (GET_CODE (cplx) == CONCAT)
+    {
+      emit_move_insn (XEXP (cplx, imag_p), val);
+      return;
     }
+
+  cmode = GET_MODE (cplx);
+  imode = GET_MODE_INNER (cmode);
+  ibitsize = GET_MODE_BITSIZE (imode);
+
+  /* If the sub-object is at least word sized, then we know that subregging
+     will work.  This special case is important, since store_bit_field
+     wants to operate on integer modes, and there's rarely an OImode to
+     correspond to TCmode.  */
+  if (ibitsize >= BITS_PER_WORD)
+    {
+      rtx part = simplify_gen_subreg (imode, cplx, cmode,
+				      imag_p ? GET_MODE_SIZE (imode) : 0);
+      emit_move_insn (part, val);
+    }
+  else
+    store_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0, imode, val);
 }
 
 /* Extract one of the components of the complex value CPLX.  Extract the
@@ -2618,6 +2634,18 @@ read_complex_part (rtx cplx, bool imag_p)
 	  if (CONSTANT_CLASS_P (part))
 	    return expand_expr (part, NULL_RTX, imode, EXPAND_NORMAL);
 	}
+    }
+
+  /* If the sub-object is at least word sized, then we know that subregging
+     will work.  This special case is important, since extract_bit_field
+     wants to operate on integer modes, and there's rarely an OImode to
+     correspond to TCmode.  */
+  if (ibitsize >= BITS_PER_WORD)
+    {
+      rtx ret = simplify_gen_subreg (imode, cplx, cmode,
+				     imag_p ? GET_MODE_SIZE (imode) : 0);
+      gcc_assert (ret != NULL);
+      return ret;
     }
 
   return extract_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0,
@@ -3757,8 +3785,16 @@ expand_assignment (tree to, tree from)
       /* Handle expand_expr of a complex value returning a CONCAT.  */
       if (GET_CODE (to_rtx) == CONCAT)
 	{
-	  gcc_assert (bitpos == 0 || bitpos == GET_MODE_BITSIZE (mode1));
-	  result = store_expr (from, XEXP (to_rtx, bitpos != 0), false);
+	  if (TREE_CODE (TREE_TYPE (from)) == COMPLEX_TYPE)
+	    {
+	      gcc_assert (bitpos == 0);
+	      result = store_expr (from, to_rtx, false);
+	    }
+	  else
+	    {
+	      gcc_assert (bitpos == 0 || bitpos == GET_MODE_BITSIZE (mode1));
+	      result = store_expr (from, XEXP (to_rtx, bitpos != 0), false);
+	    }
 	}
       else
 	{
@@ -3774,8 +3810,7 @@ expand_assignment (tree to, tree from)
 		 done for MEM.  Also set MEM_KEEP_ALIAS_SET_P if needed.  */
 	      if (volatilep)
 		MEM_VOLATILE_P (to_rtx) = 1;
-
-	      if (!can_address_p (to))
+	      if (component_uses_parent_alias_set (to))
 		MEM_KEEP_ALIAS_SET_P (to_rtx) = 1;
 	    }
 
@@ -4336,7 +4371,6 @@ count_type_elements (tree type)
     case VOID_TYPE:
     case METHOD_TYPE:
     case FILE_TYPE:
-    case SET_TYPE:
     case FUNCTION_TYPE:
     case LANG_TYPE:
     default:
@@ -4353,10 +4387,6 @@ mostly_zeros_p (tree exp)
 
     {
       HOST_WIDE_INT nz_elts, nc_elts, elts;
-
-      /* If there are no ranges of true bits, it is all zero.  */
-      if (TREE_TYPE (exp) && TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	return CONSTRUCTOR_ELTS (exp) == NULL_TREE;
 
       categorize_ctor_elements (exp, &nz_elts, &nc_elts);
       elts = count_type_elements (TREE_TYPE (exp));
@@ -4976,184 +5006,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					gen_rtvec_v (n_elts, vector))));
 	break;
       }
-
-      /* Set constructor assignments.  */
-    case SET_TYPE:
-      {
-	tree elt = CONSTRUCTOR_ELTS (exp);
-	unsigned HOST_WIDE_INT nbytes = int_size_in_bytes (type), nbits;
-	tree domain = TYPE_DOMAIN (type);
-	tree domain_min, domain_max, bitlength;
-	
-	/* The default implementation strategy is to extract the
-	   constant parts of the constructor, use that to initialize
-	   the target, and then "or" in whatever non-constant ranges
-	   we need in addition.
-
-	   If a large set is all zero or all ones, it is probably
-	   better to set it using memset.  Also, if a large set has
-	   just a single range, it may also be better to first clear
-	   all the first clear the set (using memset), and set the
-	   bits we want.  */
-
-	/* Check for all zeros.  */
-	if (elt == NULL_TREE && size > 0)
-	  {
-	    if (!cleared)
-	      clear_storage (target, GEN_INT (size));
-	    return;
-	  }
-	
-	domain_min = convert (sizetype, TYPE_MIN_VALUE (domain));
-	domain_max = convert (sizetype, TYPE_MAX_VALUE (domain));
-	bitlength = size_binop (PLUS_EXPR,
-				size_diffop (domain_max, domain_min),
-				ssize_int (1));
-	
-	nbits = tree_low_cst (bitlength, 1);
-
-        /* For "small" sets, or "medium-sized" (up to 32 bytes) sets
-	   that are "complicated" (more than one range), initialize
-	   (the constant parts) by copying from a constant.  */
-	if (GET_MODE (target) != BLKmode || nbits <= 2 * BITS_PER_WORD
-	    || (nbytes <= 32 && TREE_CHAIN (elt) != NULL_TREE))
-	  {
-	    unsigned int set_word_size = TYPE_ALIGN (TREE_TYPE (exp));
-	    enum machine_mode mode = mode_for_size (set_word_size, MODE_INT, 1);
-	    char *bit_buffer = alloca (nbits);
-	    HOST_WIDE_INT word = 0;
-	    unsigned int bit_pos = 0;
-	    unsigned int ibit = 0;
-	    unsigned int offset = 0;  /* In bytes from beginning of set.  */
-	    
-	    elt = get_set_constructor_bits (exp, bit_buffer, nbits);
-	    for (;;)
-	      {
-		if (bit_buffer[ibit])
-		  {
-		    if (BYTES_BIG_ENDIAN)
-		      word |= (1 << (set_word_size - 1 - bit_pos));
-		    else
-		      word |= 1 << bit_pos;
-		  }
-		
-		bit_pos++;  ibit++;
-		if (bit_pos >= set_word_size || ibit == nbits)
-		  {
-		    if (word != 0 || ! cleared)
-		      {
-			rtx datum = gen_int_mode (word, mode);
-			rtx to_rtx;
-			
-			/* The assumption here is that it is safe to
-			   use XEXP if the set is multi-word, but not
-			   if it's single-word.  */
-			if (MEM_P (target))
-			  to_rtx = adjust_address (target, mode, offset);
-			else
-			  {
-			    gcc_assert (!offset);
-			    to_rtx = target;
-			  }
-			emit_move_insn (to_rtx, datum);
-		      }
-		    
-		    if (ibit == nbits)
-		      break;
-		    word = 0;
-		    bit_pos = 0;
-		    offset += set_word_size / BITS_PER_UNIT;
-		  }
-	      }
-	  }
-	else if (!cleared)
-	  /* Don't bother clearing storage if the set is all ones.  */
-	  if (TREE_CHAIN (elt) != NULL_TREE
-	      || (TREE_PURPOSE (elt) == NULL_TREE
-		  ? nbits != 1
-		  : ( ! host_integerp (TREE_VALUE (elt), 0)
-		      || ! host_integerp (TREE_PURPOSE (elt), 0)
-		      || (tree_low_cst (TREE_VALUE (elt), 0)
-			  - tree_low_cst (TREE_PURPOSE (elt), 0) + 1
-			  != (HOST_WIDE_INT) nbits))))
-	    clear_storage (target, expr_size (exp));
-	
-	for (; elt != NULL_TREE; elt = TREE_CHAIN (elt))
-	  {
-	    /* Start of range of element or NULL.  */
-	    tree startbit = TREE_PURPOSE (elt);
- 	    /* End of range of element, or element value.  */
-	    tree endbit   = TREE_VALUE (elt);
-	    HOST_WIDE_INT startb, endb;
-	    rtx bitlength_rtx, startbit_rtx, endbit_rtx, targetx;
-	    
-	    bitlength_rtx = expand_expr (bitlength,
-					 NULL_RTX, MEM, EXPAND_CONST_ADDRESS);
-	    
-	    /* Handle non-range tuple element like [ expr ].  */
-	    if (startbit == NULL_TREE)
-	      {
-		startbit = save_expr (endbit);
-		endbit = startbit;
-	      }
-	    
-	    startbit = convert (sizetype, startbit);
-	    endbit = convert (sizetype, endbit);
-	    if (! integer_zerop (domain_min))
-	      {
-		startbit = size_binop (MINUS_EXPR, startbit, domain_min);
-		endbit = size_binop (MINUS_EXPR, endbit, domain_min);
-	      }
-	    startbit_rtx = expand_expr (startbit, NULL_RTX, MEM,
-					EXPAND_CONST_ADDRESS);
-	    endbit_rtx = expand_expr (endbit, NULL_RTX, MEM,
-				      EXPAND_CONST_ADDRESS);
-	    
-	    if (REG_P (target))
-	      {
-		targetx
-		  = assign_temp
-		  ((build_qualified_type (lang_hooks.types.type_for_mode
-					  (GET_MODE (target), 0),
-					  TYPE_QUAL_CONST)),
-		   0, 1, 1);
-		emit_move_insn (targetx, target);
-	      }
-	    
-	    else
-	      {
-		gcc_assert (MEM_P (target));
-		targetx = target;
-	      }
-
-	    /* Optimization:  If startbit and endbit are constants divisible
-	       by BITS_PER_UNIT, call memset instead.  */
-	    if (TREE_CODE (startbit) == INTEGER_CST
-		&& TREE_CODE (endbit) == INTEGER_CST
-		&& (startb = TREE_INT_CST_LOW (startbit)) % BITS_PER_UNIT == 0
-		&& (endb = TREE_INT_CST_LOW (endbit) + 1) % BITS_PER_UNIT == 0)
-	      {
-		emit_library_call (memset_libfunc, LCT_NORMAL,
-				   VOIDmode, 3,
-				   plus_constant (XEXP (targetx, 0),
-						  startb / BITS_PER_UNIT),
-				   Pmode,
-				   constm1_rtx, TYPE_MODE (integer_type_node),
-				   GEN_INT ((endb - startb) / BITS_PER_UNIT),
-				   TYPE_MODE (sizetype));
-	      }
-	    else
-	      emit_library_call (setbits_libfunc, LCT_NORMAL,
-				 VOIDmode, 4, XEXP (targetx, 0),
-				 Pmode, bitlength_rtx, TYPE_MODE (sizetype),
-				 startbit_rtx, TYPE_MODE (sizetype),
-				 endbit_rtx, TYPE_MODE (sizetype));
-	    
-	    if (REG_P (target))
-	      emit_move_insn (target, targetx);
-	  }
-	break;
-      }
+      
     default:
       gcc_unreachable ();
     }
@@ -5909,7 +5762,7 @@ safe_from_p (rtx x, tree exp, int top_p)
       if (exp_rtl)
 	break;
 
-      nops = first_rtl_op (TREE_CODE (exp));
+      nops = TREE_CODE_LENGTH (TREE_CODE (exp));
       for (i = 0; i < nops; i++)
 	if (TREE_OPERAND (exp, i) != 0
 	    && ! safe_from_p (x, TREE_OPERAND (exp, i), 0))
@@ -6472,12 +6325,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  expand_expr (TREE_OPERAND (exp, 1), const0_rtx, VOIDmode, modifier);
 	  return const0_rtx;
 	}
-      else if ((code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR)
-	       && ! TREE_SIDE_EFFECTS (TREE_OPERAND (exp, 1)))
-	/* If the second operand has no side effects, just evaluate
-	   the first.  */
-	return expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
-			    modifier);
       else if (code == BIT_FIELD_REF)
 	{
 	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, modifier);
@@ -8028,21 +7875,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return const0_rtx;
 
     case COND_EXPR:
-      /* If it's void, we don't need to worry about computing a value.  */
-      if (VOID_TYPE_P (TREE_TYPE (exp)))
-	{
-	  tree pred = TREE_OPERAND (exp, 0);
-  	  tree then_ = TREE_OPERAND (exp, 1);
-  	  tree else_ = TREE_OPERAND (exp, 2);
-
-	  gcc_assert (TREE_CODE (then_) == GOTO_EXPR
-		      && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL
-		      && TREE_CODE (else_) == GOTO_EXPR
-		      && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL);
-
-	  jumpif (pred, label_rtx (GOTO_DESTINATION (then_)));
-	  return expand_expr (else_, const0_rtx, VOIDmode, 0);
-  	}
+      /* A COND_EXPR with its type being VOID_TYPE represents a
+	 conditional jump and is handled in
+	 expand_gimple_cond_expr.  */
+      gcc_assert (!VOID_TYPE_P (TREE_TYPE (exp)));
 
         /* Note that COND_EXPRs whose type is a structure or union
   	 are required to be constructed to contain assignments of

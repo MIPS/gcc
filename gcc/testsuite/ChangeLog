@@ -1,3 +1,279 @@
+2004-12-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/18903
+	* gcc.c-torture/compile/pr18903.c: New test.
+
+2004-12-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20041210-1.c: New test.
+
+2004-12-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18731
+	* g++.dg/parser/struct-1.C: New test.
+	* g++.dg/parser/struct-2.C: New test.
+	* g++.dg/parser/struct-3.C: New test.
+
+2004-12-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/loop-3.c: Don't use i386 tuning for amd64.
+
+	* gcc.c-torture/execute/ieee/fp-cmp-4q.c: Remove.
+	* gcc.c-torture/execute/ieee/fp-cmp-8q.c: Remove.
+
+2004-12-09  Matt Austern  <austern@apple.com>
+
+	PR c++/18514
+	* g++.dg/ext/builtin1.C: New
+	* g++.dg/ext/builtin2.C: New
+	* g++.dg/ext/builtin3.C: New
+	* g++.dg/ext/builtin4.C: New
+	* g++.dg/ext/builtin5.C: New
+
+2004-12-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18904
+	* g++.dg/opt/ptrmem5.C: New test.
+
+2004-12-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/parse/typename5.C: Adjust for new error.
+	* g++.dg/parse/typename7.C: New.
+
+2004-12-09  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18073
+	* g++.dg/other/mmintrin.C: New test.
+
+2004-12-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16681
+	* g++.dg/init/array15.C: New.
+	* g++.dg/init/array16.C: New.
+
+2004-12-08  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18826
+	* gfortran.dg/assign_1.f90: New test.
+
+2004-12-08  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/xstormy16/bss_below100: New directory containing tests.
+	* gcc.target/xstormy16/data_below100: Likewise.
+	* gcc.target/xstormy16/sfr: Likewise.
+	* gcc.target/xstormy16/below100.S: New test source file.
+	* gcc.target/xstormy16/below100.ld: New test linker script.
+	* gcc.target/xstormy16/xstormy16.exp: Run the new tests.
+	* gcc.target/xstormy16/below_100.c: Fix scan to allow for bn or
+	bp instructions.
+	* gcc.target/xstormy16/bp.c: Likewise.
+
+	* gcc.target/xstormy16/bss_below100: New files:
+	01_const_to_b100b.c, 02_const_to_b100w.c, 03_var_to_b100b.c,
+	04_var_to_b100w.c, 05_b100b_to_var.c, 06_b100w_to_var.c,
+	10_set_b100b_bit_0.c, 10_set_b100b_bit_7.c, 11_clr_b100b_bit_0.c,
+	11_clr_b100b_bit_7.c, 12_if1_b100b_bit_0.c, 12_if1_b100b_bit_3.c,
+	12_if1_b100b_bit_7.c, 13_if0_b100b_bit_0.c, 13_if0_b100b_bit_3.c,
+	13_if0_b100b_bit_7.c, 14_set_b100w_bit_0.c, 14_set_b100w_bit_7.c,
+	14_set_b100w_bit_8.c, 14_set_b100w_bit_f.c, 15_clr_b100w_bit_0.c,
+	15_clr_b100w_bit_7.c, 15_clr_b100w_bit_8.c, 15_clr_b100w_bit_f.c,
+	16_if1_b100w_bit_0.c, 16_if1_b100w_bit_3.c, 16_if1_b100w_bit_7.c,
+	16_if1_b100w_bit_8.c, 16_if1_b100w_bit_b.c, 16_if1_b100w_bit_f.c,
+	17_if0_b100w_bit_0.c, 17_if0_b100w_bit_3.c, 17_if0_b100w_bit_7.c,
+	17_if0_b100w_bit_8.c, 17_if0_b100w_bit_b.c, 17_if0_b100w_bit_f.c,
+	20_set_b100b_bitfield_0.c, 20_set_b100b_bitfield_7.c,
+	21_clr_b100b_bitfield_0.c, 21_clr_b100b_bitfield_7.c,
+	22_if1_b100b_bitfield_0.c, 22_if1_b100b_bitfield_3.c,
+	22_if1_b100b_bitfield_7.c, 23_if0_b100b_bitfield_0.c,
+	23_if0_b100b_bitfield_3.c, 23_if0_b100b_bitfield_7.c,
+	24_set_b100w_bitfield_0.c, 24_set_b100w_bitfield_7.c,
+	24_set_b100w_bitfield_8.c, 24_set_b100w_bitfield_f.c,
+	25_clr_b100w_bitfield_0.c, 25_clr_b100w_bitfield_7.c,
+	25_clr_b100w_bitfield_8.c, 25_clr_b100w_bitfield_f.c,
+	26_if1_b100w_bitfield_0.c, 26_if1_b100w_bitfield_3.c,
+	26_if1_b100w_bitfield_7.c, 26_if1_b100w_bitfield_8.c,
+	26_if1_b100w_bitfield_b.c, 26_if1_b100w_bitfield_f.c,
+	27_if0_b100w_bitfield_0.c, 27_if0_b100w_bitfield_3.c,
+	27_if0_b100w_bitfield_7.c, 27_if0_b100w_bitfield_8.c,
+	27_if0_b100w_bitfield_b.c, 27_if0_b100w_bitfield_f.c
+
+	* gcc.target/xstormy16/data_below100: New files:
+	01_const_to_b100b.c, 02_const_to_b100w.c, 03_var_to_b100b.c,
+	04_var_to_b100w.c, 05_b100b_to_var.c, 06_b100w_to_var.c,
+	10_set_b100b_bit_0.c, 10_set_b100b_bit_7.c, 11_clr_b100b_bit_0.c,
+	11_clr_b100b_bit_7.c, 12_if1_b100b_bit_0.c, 12_if1_b100b_bit_3.c,
+	12_if1_b100b_bit_7.c, 13_if0_b100b_bit_0.c, 13_if0_b100b_bit_3.c,
+	13_if0_b100b_bit_7.c, 14_set_b100w_bit_0.c, 14_set_b100w_bit_7.c,
+	14_set_b100w_bit_8.c, 14_set_b100w_bit_f.c, 15_clr_b100w_bit_0.c,
+	15_clr_b100w_bit_7.c, 15_clr_b100w_bit_8.c, 15_clr_b100w_bit_f.c,
+	16_if1_b100w_bit_0.c, 16_if1_b100w_bit_3.c, 16_if1_b100w_bit_7.c,
+	16_if1_b100w_bit_8.c, 16_if1_b100w_bit_b.c, 16_if1_b100w_bit_f.c,
+	17_if0_b100w_bit_0.c, 17_if0_b100w_bit_3.c, 17_if0_b100w_bit_7.c,
+	17_if0_b100w_bit_8.c, 17_if0_b100w_bit_b.c, 17_if0_b100w_bit_f.c,
+	20_set_b100b_bitfield_0.c, 20_set_b100b_bitfield_7.c,
+	21_clr_b100b_bitfield_0.c, 21_clr_b100b_bitfield_7.c,
+	22_if1_b100b_bitfield_0.c, 22_if1_b100b_bitfield_3.c,
+	22_if1_b100b_bitfield_7.c, 23_if0_b100b_bitfield_0.c,
+	23_if0_b100b_bitfield_3.c, 23_if0_b100b_bitfield_7.c,
+	24_set_b100w_bitfield_0.c, 24_set_b100w_bitfield_7.c,
+	24_set_b100w_bitfield_8.c, 24_set_b100w_bitfield_f.c,
+	25_clr_b100w_bitfield_0.c, 25_clr_b100w_bitfield_7.c,
+	25_clr_b100w_bitfield_8.c, 25_clr_b100w_bitfield_f.c,
+	26_if1_b100w_bitfield_0.c, 26_if1_b100w_bitfield_3.c,
+	26_if1_b100w_bitfield_7.c, 26_if1_b100w_bitfield_8.c,
+	26_if1_b100w_bitfield_b.c, 26_if1_b100w_bitfield_f.c,
+	27_if0_b100w_bitfield_0.c, 27_if0_b100w_bitfield_3.c,
+	27_if0_b100w_bitfield_7.c, 27_if0_b100w_bitfield_8.c,
+	27_if0_b100w_bitfield_b.c, 27_if0_b100w_bitfield_f.c
+
+	* gcc.target/xstormy16/sfr: New files:
+	01_const_to_sfrb.c, 02_const_to_sfrw.c, 03_var_to_sfrb.c,
+	04_var_to_sfrw.c, 05_sfrb_to_var.c, 06_sfrw_to_var.c,
+	10_set_sfrb_bit_0.c, 10_set_sfrb_bit_7.c, 11_clr_sfrb_bit_0.c,
+	11_clr_sfrb_bit_7.c, 12_if1_sfrb_bit_0.c, 12_if1_sfrb_bit_3.c,
+	12_if1_sfrb_bit_7.c, 13_if0_sfrb_bit_0.c, 13_if0_sfrb_bit_3.c,
+	13_if0_sfrb_bit_7.c, 14_set_sfrw_bit_0.c, 14_set_sfrw_bit_3.c,
+	14_set_sfrw_bit_7.c, 14_set_sfrw_bit_8.c, 14_set_sfrw_bit_b.c,
+	14_set_sfrw_bit_f.c, 15_clr_sfrw_bit_0.c, 15_clr_sfrw_bit_3.c,
+	15_clr_sfrw_bit_7.c, 15_clr_sfrw_bit_8.c, 15_clr_sfrw_bit_b.c,
+	15_clr_sfrw_bit_f.c, 16_if1_sfrw_bit_0.c, 16_if1_sfrw_bit_3.c,
+	16_if1_sfrw_bit_7.c, 16_if1_sfrw_bit_8.c, 16_if1_sfrw_bit_b.c,
+	16_if1_sfrw_bit_f.c, 17_if0_sfrw_bit_0.c, 17_if0_sfrw_bit_3.c,
+	17_if0_sfrw_bit_7.c, 17_if0_sfrw_bit_8.c, 17_if0_sfrw_bit_b.c,
+	17_if0_sfrw_bit_f.c, 20_set_sfrb_bitfield_0.c,
+	20_set_sfrb_bitfield_7.c, 21_clr_sfrb_bitfield_0.c,
+	21_clr_sfrb_bitfield_7.c, 22_if1_sfrb_bitfield_0.c,
+	22_if1_sfrb_bitfield_3.c, 22_if1_sfrb_bitfield_7.c,
+	23_if0_sfrb_bitfield_0.c, 23_if0_sfrb_bitfield_3.c,
+	23_if0_sfrb_bitfield_7.c, 24_set_sfrw_bitfield_0.c,
+	24_set_sfrw_bitfield_7.c, 24_set_sfrw_bitfield_8.c,
+	24_set_sfrw_bitfield_f.c, 25_clr_sfrw_bitfield_0.c,
+	25_clr_sfrw_bitfield_7.c, 25_clr_sfrw_bitfield_8.c,
+	25_clr_sfrw_bitfield_f.c, 26_if1_sfrw_bitfield_0.c,
+	26_if1_sfrw_bitfield_3.c, 26_if1_sfrw_bitfield_7.c,
+	26_if1_sfrw_bitfield_8.c, 26_if1_sfrw_bitfield_b.c,
+	26_if1_sfrw_bitfield_f.c, 27_if0_sfrw_bitfield_0.c,
+	27_if0_sfrw_bitfield_3.c, 27_if0_sfrw_bitfield_7.c,
+	27_if0_sfrw_bitfield_8.c, 27_if0_sfrw_bitfield_b.c,
+	27_if0_sfrw_bitfield_f.c
+
+2004-12-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18100
+	* g++.dg/lookup/name-clash4.C: New test.
+
+2004-12-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18672
+	* g++.dg/opt/array1.C: New.
+	
+	PR c++/18803
+	* g++.dg/template/operator5.C: New.
+
+2004-12-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR c/18867
+	* gcc.dg/noncompile/20041207.c: Fix typo in dg directive.
+
+2004-12-07  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/noncompile/20041207.c: New test.
+
+2004-12-07  Volker Reichelt  <reichelt@gcc.gnu.org>
+
+	* g++.dg/other/unreachable-1.C: New test.
+
+2004-12-06  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.dg/builtins-config.h: Use <sys/types.h> instead of
+	<limits.h> because the latter comes from gcc's include/ directory
+	and not the newlib/libc/include directory.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/loop-5.c: Use long instead of int.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_gc_sections_available): Disable
+	for alpha and ia64.
+
+2004-12-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17909
+	* g++.dg/other/vararg-2.C: New test.
+
+2004-12-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17011, c++/17971
+	* g++.dg/template/error15.C: Adjust expected error.
+	* g++.dg/template/instantiate3.C: Likewise.
+
+2004-12-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-18.c: Fix for darwin
+
+2004-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18782
+	* g++.dg/parse/ptrmem2.C: New.
+
+	PR c++/18318
+	* g++.dg/template/new1.C: New.
+
+2004-12-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18710
+	* gfortran.dg/direct_io_3.f90: New test.
+
+2004-12-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 18758
+	* g++.dg/parse/crash21.C: New.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/15664, c++/18276
+	* g++.dg/template/ttp13.C: New test.
+	* g++.dg/template/ttp14.C: Likewise.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18123
+	* g++.dg/parse/enum2.C: New test.
+	* g++.old-deja/g++.pt/enum5.C: Adjust error location.
+
+2004-12-02  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/xstormy16: New test directory.
+	* gcc.target/xstormy16/xstormy16.exp: Run the new tests.
+	* gcc.target/xstormy16/bp.c: Check the generation of bp
+	instructions.
+	* gcc.target/xstormy16/below_100.c: Check the generation of bp and
+	bn instructions and the BELOW100 attribute.
+
+2004-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/16952
+	* gcc.dg/ppc-eabi.c: New.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/18284
+	* gfortran.dg/backspace.f90
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	* gfortran.dg/inquire.f90: New test.
+
+2004-12-01  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-process-target): Wrapper for dg function to
+	handle effective-target-keyword.
+	(dg-skip-if): Support effective-target keyword as target list.
+	(dg-xfail-if): Ditto.
+	* lib/target-supports.exp (is-effective-target-keyword): New proc.
+
 2004-12-01  Diego Novillo  <dnovillo@redhat.com>
 
 	PR tree-optimization/18291

@@ -277,7 +277,6 @@ static tree maybe_build_array_element_wfl (tree);
 static int array_constructor_check_entry (tree, tree);
 static const char *purify_type_name (const char *);
 static tree fold_constant_for_init (tree, tree);
-static tree strip_out_static_field_access_decl (tree);
 static jdeplist *reverse_jdep_list (struct parser_ctxt *);
 static void static_ref_err (tree, tree, tree);
 static void parser_add_interface (tree, tree, tree);
@@ -5591,6 +5590,10 @@ craft_constructor (tree class_decl, tree args)
   /* Then if there are any args to be enforced, enforce them now */
   for (; args && args != end_params_node; args = TREE_CHAIN (args))
     {
+      /* If we see a `void *', we need to change it to Object.  */
+      if (TREE_VALUE (args) == TREE_TYPE (null_pointer_node))
+	TREE_VALUE (args) = object_ptr_type_node;
+
       sprintf (buffer, "parm%d", i++);
       parm = tree_cons (get_identifier (buffer), TREE_VALUE (args), parm);
     }
@@ -9674,12 +9677,12 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
   return field_ref;
 }
 
-/* If NODE is an access to f static field, strip out the class
+/* If NODE is an access to a static field, strip out the class
    initialization part and return the field decl, otherwise, return
    NODE. */
 
-static tree
-strip_out_static_field_access_decl (tree node)
+tree
+extract_field_decl (tree node)
 {
   if (TREE_CODE (node) == COMPOUND_EXPR)
     {
@@ -14256,7 +14259,7 @@ patch_unaryop (tree node, tree wfl_op)
     case PREINCREMENT_EXPR:
       /* 15.14.2 Prefix Decrement Operator -- */
     case PREDECREMENT_EXPR:
-      op = decl = strip_out_static_field_access_decl (op);
+      op = decl = extract_field_decl (op);
       outer_field_flag = outer_field_expanded_access_p (op, NULL, NULL, NULL);
       /* We might be trying to change an outer field accessed using
          access method. */

@@ -73,6 +73,10 @@ struct lang_type GTY(())
   /* In an ENUMERAL_TYPE, the min and max values.  */
   tree enum_min;
   tree enum_max;
+  /* In a RECORD_TYPE, information specific to Objective-C, such
+     as a list of adopted protocols or a pointer to a corresponding
+     @interface.  See objc/objc-act.h for details.  */
+  tree objc_info;
 };
 
 /* Record whether a type or decl was written with nonconstant size.

@@ -1,3 +1,66 @@
+2004-12-07  Andrew Haley  <aph@redhat.com>
+
+	PR java/18811:
+	* jcf-parse.c (load_class): Remove sanity test for missing inner
+	class file.
+	
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (JAVA_MANFILES): Added gcj-dbtool.
+	(java.uninstall): Likewise.
+	(java.maintainer-clean): Likewise.
+	(.INTERMEDIATE): Likewise.
+	(java.install-man): Likewise.
+	(gcj-dbtool.pod): New target.
+	* gcj.texi (Code Generation): Document -findirect-dispatch.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.precompiled.db.path.
+	(Top): Link to "Invoking gcj-dbtool".
+
+2004-12-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/14853:
+	* java-tree.h (extract_field_decl): Declare.
+	* parse.y (extract_field_decl): Renamed from
+	strip_out_static_field_access_decl.  No longer static.
+	* check-init.c (get_variable_decl): Unwrap COMPOUND_EXPRs.
+
+2004-12-03  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (flag_new_verifier): Define.
+	(java_post_options): Set flag_new_verifier if indirect dispatch
+	is being used.
+	* lang.opt (fnew-verifier): Removed.
+
+2004-12-03  Tom Tromey  <tromey@redhat.com>
+
+	PR bootstrap/14614:
+	* Make-lang.in (java.install-common): Only install transformed
+	gcjh if gcj-cross exists.
+
+2004-12-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/18812
+	* except.c (link_handler): Patch 'outer' field of siblings of the
+	range we're demoting.
+
+2004-12-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/18697 
+	* class.c (layout_class_method): Don't fail to override a method
+	simply because it has DECL_ARTIFICIAL set.
+
+2004-12-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/16675:
+	* parse.y (craft_constructor): Special case null_pointer_node.
+
+2004-12-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/18741:
+	* java-gimplify.c (java_gimplify_expr): Don't call
+	SET_EXPR_LOCATION unless wrapped tree is an expression.
+
 2004-11-27  Per Bothner  <per@bothner.com>
 
 	* jcf-parse.c (set_source_filename):  Improvement to Andrew's fix:

@@ -214,7 +214,6 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree index;
       tree max_index;
       tree inits;
 
@@ -228,14 +227,16 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       /* A zero-sized array, which is accepted as an extension, will
 	 have an upper bound of -1.  */
       if (!tree_int_cst_equal (max_index, integer_minus_one_node))
-	for (index = size_zero_node;
-	     !tree_int_cst_lt (max_index, index);
-	     index = size_binop (PLUS_EXPR, index, size_one_node))
-	  inits = tree_cons (index,
-			     build_zero_init (TREE_TYPE (type),
-					      /*nelts=*/NULL_TREE,
-					      static_storage_p),
-			     inits);
+	{
+	  tree elt_init = build_zero_init (TREE_TYPE (type),
+					   /*nelts=*/NULL_TREE,
+					   static_storage_p);
+	  tree range = build2 (RANGE_EXPR,
+			       sizetype, size_zero_node, max_index);
+	  
+	  inits = tree_cons (range, elt_init, inits);
+	}
+      
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
   else
@@ -1633,6 +1634,15 @@ build_new (tree placement, tree type, tree nelts, tree init,
       return rval;
     }
 
+  if (nelts)
+    {
+      if (!build_expr_type_conversion (WANT_INT | WANT_ENUM, nelts, false))
+	pedwarn ("size in array new must have integral type");
+      nelts = save_expr (cp_convert (sizetype, nelts));
+      if (nelts == integer_zero_node)
+	warning ("zero size array reserves no space");
+    }
+
   /* ``A reference cannot be created by the new operator.  A reference
      is not an object (8.2.2, 8.4.3), so a pointer to it could not be
      returned by new.'' ARM 5.3.3 */
@@ -2666,8 +2676,6 @@ build_dtor_call (tree exp, special_function_kind dtor_kind, int flags)
     default:
       gcc_unreachable ();
     }
-
-  exp = convert_from_reference (exp);
   fn = lookup_fnfields (TREE_TYPE (exp), name, /*protect=*/2);
   return build_new_method_call (exp, fn, 
 				/*args=*/NULL_TREE,

@@ -1,3 +1,155 @@
+2004-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement remove_const, remove_volatile,
+	and remove_cv.
+	* testsuite/tr1/4_metaprogramming/const_volatile_modifications/
+	remove_const.cc: New.
+	* testsuite/tr1/4_metaprogramming/const_volatile_modifications/
+	remove_cv.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/const_volatile_modifications/
+	remove_volatile.cc: Likewise.
+
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_array/is_array.cc: Slightly tweak consistently, remove typedefs,
+	add a few tests.
+
+2004-12-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement remove_extent and
+	remove_all_extents.
+	* testsuite/tr1/4_metaprogramming/array_modifications/
+	remove_all_extents.cc: New.
+	* testsuite/tr1/4_metaprogramming/array_modifications/
+	remove_extent.cc: Likewise.
+
+2004-12-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_same, add_reference and
+	remove_reference.
+	* testsuite/testsuite_tr1.h (test_relationship): New.
+	* testsuite/tr1/4_metaprogramming/reference_modifications/
+	add_reference.cc: New.
+	* testsuite/tr1/4_metaprogramming/reference_modifications/
+	remove_reference.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_same/is_same.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_same/typedefs.cc: Likewise.
+
+	* testsuite/tr1/4_metaprogramming/type_properties/is_const/
+	is_const.cc: Minor tweaks.
+	* testsuite/tr1/4_metaprogramming/type_properties/is_volatile/
+	is_volatile.cc: Likewise.
+
+2004-12-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (AM_MAKEFLAGS): Remove duplicate LIBCFLAGS and
+	PICFLAG.
+	* Makefile.in: Regenerated.
+
+2004-12-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_const and is_volatile.
+	* testsuite/testsuite_tr1.h (test_property): New.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_const/is_const.c: New.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_const/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_volatile/is_volatile.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	is_volatile/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_arithmetic/is_arithmetic.cc: Slightly tweak to use ClassType
+	from testsuite_tr1.h.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_fundamental/is_fundamental.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_array/is_array.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_floating_point/is_floating_point.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_integral/is_integral.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_reference/is_reference.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_void/is_void.cc: Likewise.
+
+2004-12-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_reference.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_reference/is_reference.cc: New.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_reference/typedefs.cc: Likewise.
+
+2004-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/18837
+	* testsuite/testsuite_performance.h: Fix mallinfo macros for
+	hpux.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* testsuite/26_numerics/complex/pow.cc: Use -mieee on alpha.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* include/ext/malloc_allocator.h: Include cstdlib.
+
+2004-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: New.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/testsuite_tr1.h: New.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_arithmetic/is_arithmetic.cc: New.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_arithmetic/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_fundamental/is_fundamental.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_fundamental/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/helper_classes/
+	true_false_type.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/helper_classes/
+	true_false_type_typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/helper_classes/
+	typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_array/is_array.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_array/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_floating_point/is_floating_point.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_floating_point/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_integral/is_integral.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_integral/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_void/is_void.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_void/typedefs.cc: Likewise.
+
+2004-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/testsuite_io.h (class sync_buf): New, templatized
+	version of sync_streambuf; add typedefs for streambuf/wstreambuf.
+	(class fail_buf): Likewise, for fail_streambuf.
+	(class fail_num_get): Templatize and add char/wchar_t typedefs.
+	(class fail_num_put): Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/
+	exceptions_badbit_throw.cc: Use the latter.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/
+	exceptions_failbit_throw.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/
+	exceptions_badbit_throw.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/
+	exceptions_failbit_throw.cc: Likewise.
+
 2004-12-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/27_io/basic_istream/get/wchar_t/1.cc: New.

@@ -323,7 +323,6 @@ remap_type (tree type, inline_data *id)
       break;
 
     case FILE_TYPE:
-    case SET_TYPE:
     case OFFSET_TYPE:
     default:
       /* Shouldn't have been thought variable sized.  */
@@ -1183,6 +1182,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case SAVE_EXPR:
     case ADDR_EXPR:
     case COMPLEX_EXPR:
+    case RANGE_EXPR:
     case CASE_LABEL_EXPR:
     case SSA_NAME:
     case CATCH_EXPR:
@@ -1391,7 +1391,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (TREE_CODE (*tp) == TARGET_EXPR)
     {
 #if 0
-      int i, len = first_rtl_op (TARGET_EXPR);
+      int i, len = TREE_CODE_LENGTH (TARGET_EXPR);
 
       /* We're walking our own subtrees.  */
       *walk_subtrees = 0;
@@ -2088,7 +2088,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
       int i, len;
 
       /* Walk over all the sub-trees of this operand.  */
-      len = first_rtl_op (code);
+      len = TREE_CODE_LENGTH (code);
       /* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
 	 But, we only want to walk once.  */
       if (code == TARGET_EXPR

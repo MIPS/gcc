@@ -421,7 +421,7 @@ gfc_resolve_cshift (gfc_expr * f, gfc_expr * array,
       gfc_resolve_index (dim, 1);
       /* Convert dim to shift's kind, so we don't need so many variations.  */
       if (dim->ts.kind != shift->ts.kind)
-	gfc_convert_type (dim, &shift->ts, 2);
+	gfc_convert_type_warn (dim, &shift->ts, 2, 0);
     }
   f->value.function.name =
     gfc_get_string ("__cshift%d_%d", n, shift->ts.kind);
@@ -510,7 +510,7 @@ gfc_resolve_eoshift (gfc_expr * f, gfc_expr * array,
   /* Convert dim to the same type as shift, so we don't need quite so many
      variations.  */
   if (dim != NULL && dim->ts.kind != shift->ts.kind)
-    gfc_convert_type (dim, &shift->ts, 2);
+    gfc_convert_type_warn (dim, &shift->ts, 2, 0);
 
   f->value.function.name =
     gfc_get_string ("__eoshift%d_%d", n, shift->ts.kind);
@@ -549,6 +549,18 @@ gfc_resolve_floor (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
   f->value.function.name =
     gfc_get_string ("__floor%d_%c%d", f->ts.kind,
 		    gfc_type_letter (a->ts.type), a->ts.kind);
+}
+
+
+void
+gfc_resolve_fnum (gfc_expr * f, gfc_expr * n)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  if (n->ts.kind != f->ts.kind)
+    gfc_convert_type (n, &f->ts, 2);
+  f->value.function.name = gfc_get_string (PREFIX("fnum_i%d"), f->ts.kind);
 }
 
 
@@ -1160,6 +1172,17 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
 	  c = c->next;
 	}
     }
+
+  /* Force-convert both SHAPE and ORDER to index_kind so that we don't need
+     so many runtime variations.  */
+  if (shape->ts.kind != gfc_index_integer_kind)
+    {
+      gfc_typespec ts = shape->ts;
+      ts.kind = gfc_index_integer_kind;
+      gfc_convert_type_warn (shape, &ts, 2, 0);
+    }
+  if (order && order->ts.kind != gfc_index_integer_kind)
+    gfc_convert_type_warn (order, &shape->ts, 2, 0);
 }
 
 
@@ -1280,6 +1303,32 @@ gfc_resolve_sqrt (gfc_expr * f, gfc_expr * x)
   f->ts = x->ts;
   f->value.function.name =
     gfc_get_string ("__sqrt_%c%d", gfc_type_letter (x->ts.type), x->ts.kind);
+}
+
+
+/* Resolve the g77 compatibility function STAT AND FSTAT.  */
+
+void
+gfc_resolve_stat (gfc_expr * f, gfc_expr * n ATTRIBUTE_UNUSED,
+		  gfc_expr * a ATTRIBUTE_UNUSED)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  f->value.function.name = gfc_get_string (PREFIX("stat_i%d"), f->ts.kind);
+}
+
+
+void
+gfc_resolve_fstat (gfc_expr * f, gfc_expr * n, gfc_expr * a ATTRIBUTE_UNUSED)
+{
+
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = gfc_default_integer_kind;
+  if (n->ts.kind != f->ts.kind)
+    gfc_convert_type (n, &f->ts, 2);
+
+  f->value.function.name = gfc_get_string (PREFIX("fstat_i%d"), f->ts.kind);
 }
 
 
@@ -1676,6 +1725,53 @@ gfc_resolve_exit (gfc_code * c)
     kind = gfc_default_integer_kind;
 
   name = gfc_get_string (PREFIX("exit_i%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the FLUSH intrinsic subroutine.  */
+
+void
+gfc_resolve_flush (gfc_code * c)
+{
+  const char *name;
+  gfc_typespec ts;
+  gfc_expr *n;
+
+  ts.type = BT_INTEGER;
+  ts.kind = gfc_default_integer_kind;
+  n = c->ext.actual->expr;
+  if (n != NULL
+      && n->ts.kind != ts.kind)
+    gfc_convert_type (n, &ts, 2);
+
+  name = gfc_get_string (PREFIX("flush_i%d"), ts.kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+/* Resolve the STAT and FSTAT intrinsic subroutines.  */
+
+void
+gfc_resolve_stat_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("stat_i%d_sub"), gfc_default_integer_kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+void
+gfc_resolve_fstat_sub (gfc_code * c)
+{
+  const char *name;
+  gfc_expr *u;
+  gfc_typespec *ts;
+
+  u = c->ext.actual->expr;
+  ts = &c->ext.actual->next->expr->ts;
+  if (u->ts.kind != ts->kind)
+    gfc_convert_type (u, ts, 2);
+  name = gfc_get_string (PREFIX("fstat_i%d_sub"), ts->kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 

@@ -65,7 +65,7 @@ __eoshift2 (gfc_array_char * ret, const gfc_array_char * array,
     {
       int i;
 
-      ret->data = internal_malloc (size * size0 ((array_t *)array));
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
       ret->base = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
@@ -220,4 +220,3 @@ __eoshift2_8 (gfc_array_char * ret, const gfc_array_char * array,
 {
   __eoshift2 (ret, array, *pshift, bound, pdim ? *pdim : 1);
 }
-

@@ -193,6 +193,14 @@ proc check_gc_sections_available { } {
     global tool
 
     if {![info exists gc_sections_available_saved]} {
+	# Some targets don't support gc-sections despite whatever's
+	# advertised by ld's options.
+	if { [istarget alpha*-*-*]
+	     || [istarget ia64-*-*] } {
+	    set gc_sections_available_saved 0
+	    return 0
+	}
+
 	# Check if the ld used by gcc supports --gc-sections.
 	set gcc_spec [${tool}_target_compile "-dumpspecs" "" "none" ""]
 	regsub ".*\n\*linker:\[ \t\]*\n(\[^ \t\n\]*).*" "$gcc_spec" {\1} linker
@@ -537,4 +545,20 @@ proc is-effective-target { arg } {
     }
     verbose "is-effective-target: $arg $selected" 2
     return $selected
+}
+
+# Return 1 if the argument is an effective-target keyword, 0 otherwise.
+
+proc is-effective-target-keyword { arg } {
+    if { [info procs check_effective_target_${arg}] != [list] } {
+	return 1
+    } else {
+	# These have different names for their check_* procs.
+	switch $arg {
+	  "vmx_hw"         { return 1 }
+	  "named_sections" { return 1 }
+	  "gc_sections"    { return 1 }
+	  default          { return 0 }
+	}
+    }
 }

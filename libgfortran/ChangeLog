@@ -1,3 +1,103 @@
+2004-12-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR bootstrap/18895
+	Revert 2004-12-07 change.
+	* Makefile.am (AM_MAKEFLAGS): Delete.
+	* Makefile.in: Regenerate.
+
+2004-12-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* libgfortran/Makefile.am (AM_MAKEFLAGS): New.
+	* libgfortran/Makefile.in: Regenerate
+
+2004-12-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/io.h (open_external): Change prototype.
+	* io/unix.c (regular_file): Change prototype and set flags->action if
+	needed.
+	(open_external): Ditto.
+	* io/open.c (new_unit): Let open_external set flags->action.
+
+2004-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac: Check for ieeefp.h.  Check for fabsf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* c99_protos.h: New file.
+	* libgfortran.h: Include c99_protos.h and conditionally ieeefp.h.
+	* intrinsics/c99_functions.c (fabsf): New function.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/cshift0.c, intrinsics/eoshift0.c, intrinsics/eoshift2.c,
+	intrinsics/pack_generic.c, intrinsics/string_intrinsics.c,
+	intrinsics/transpose_generic.c, m4/ifunction.m4, m4/matmul.m4,
+	m4/matmull.m4, m4/transpose.m4: Use internal_malloc_size instead
+	of internal_malloc.
+	* generated/*: Rebuild.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/c99_functions.c, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c, intrinsics/exit.c, intrinsics/flush.c,
+	intrinsics/ishftc.c, intrinsics/mvbits.c, intrinsics/pack_generic.c,
+	intrinsics/random.c, intrinsics/reshape_generic.c, intrinsics/size.c,
+	intrinsics/spread_generic.c, intrinsics/stat.c,
+	intrinsics/string_intrinsics.c, intrinsics/system_clock.c,
+	intrinsics/transpose_generic.c, intrinsics/unlink.c,
+	intrinsics/unpack_generic.c, io/backspace.c, io/format.c,
+	io/list_read.c, io/lock.c, io/open.c, io/transfer.c, io/unix.c,
+	io/write.c, runtime/environ.c, runtime/error.c,
+	runtime/in_pack_generic.c, runtime/in_unpack_generic.c, runtime/main.c,
+	runtime/memory.c, runtime/pause.c, runtime/stop.c,
+	runtime/string.c: Whitespace fixes.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.am: Generate all m4 output under $(srcdir).
+	* Makefile.in: Regenerate.
+
+2004-12-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18710
+	* io/transfer.c (unformatted_read, unformatted_write): width of
+	a COMPLEX is twice its kind.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* configure, aclocal.m4, Makefile.in: Regenerate.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	PR libfortran/18284
+	* io/unix.c (fd_alloc_w_at): Update file_length when extending.
+	* io/backspace.c (formatted_backspace): Reset endfile after backspace.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	* io/inquire.c (inquire_via_unit): do not allow a direct access
+	file to be opened for sequential I/O.
+
+2004-12-02  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	* intrinsics/flush.c: New file.
+	* intrinsics/fnum.c: ditto
+	* intrinsics/stat.c: ditto
+	* io/io.h (unit_to_fd): Add prototype.
+	* io/unix.c (unit_to_fd): New function.
+	* configure.ac: Add test for members of struct stat.  Check for
+	sys/types.h and sys/stat.h
+	* Makefile.am: Add intrinsics/{flush.c,fnum.c,stat.c}
+	* configure.in: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+
+2004-12-01  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* Makefile.am (AM_CPPFLAGS): Use -iquote instead of -I.
+
 2004-11-28  Bud Davis  <bdavis9659@comcast.net>
 
 	* io/unix.c (mmap_alloc_w_a): check for a write to a location
