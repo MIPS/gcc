@@ -1146,9 +1146,9 @@ public abstract class AbstractButton extends JComponent
     if (t != old)
       {
         firePropertyChange(TEXT_CHANGED_PROPERTY, old, t);
-    revalidate();
-    repaint();
-  }
+        revalidate();
+        repaint();
+      }
   }
 
   /**

@@ -252,11 +252,18 @@ public class RepaintManager
    */
   public synchronized void addInvalidComponent(JComponent component)
   {
-    while ((component.getParent() != null)
-           && (component.getParent() instanceof JComponent)
-           && (component.isValidateRoot()))
-      component = (JComponent) component.getParent();
-    
+    Component ancestor = component.getParent();
+
+    while (ancestor != null
+           && (! (ancestor instanceof JComponent)
+               || ! ((JComponent) ancestor).isValidateRoot() ))
+      ancestor = ancestor.getParent();
+
+    if (ancestor != null
+        && ancestor instanceof JComponent
+        && ((JComponent) ancestor).isValidateRoot())
+      component = (JComponent) ancestor;
+
     if (invalidComponents.contains(component))
       return;
 

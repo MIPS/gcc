@@ -1,3 +1,12 @@
+2004-06-30  David Jee  <djee@redhat.com>
+
+	* java/awt/GridBagLayout.java
+	(ArrangeGrid): Use PREFERREDSIZE instead of MINSIZE.
+	* javax/swing/AbstractButton.java
+	(setText): Reindent.
+	* javax/swing/RepaintManager.java
+	(addInvalidComponent): Find the first ancestor that isValidateRoot().
+
 2004-06-30  Olga Rodimina  <rodimina@redhat.com>
 
 	* java/awt/Window.java: Changed constructors to use new
