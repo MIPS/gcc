@@ -1,3 +1,8 @@
+2004-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (operand_equal_p): Require equal sign also for
+	FIX_{CEIL,TRUNC,FLOOR,ROUND}_EXPR.
+
 2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
 	    Brian Ryner  <bryner@brianryner.com>
 
