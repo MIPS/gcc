@@ -4899,10 +4899,14 @@ validate_nonmember_using_decl (decl, scope, name)
           
           /* 7.3.3/5
              A using-declaration shall not name a template-id.  */
-          if (TREE_CODE (*name) == TEMPLATE_ID_EXPR)
+          if (TREE_CODE (*name) == TEMPLATE_ID_EXPR
+	      /* template-ids for types appear as artificial type
+     	         decls with template information.  Checking this gives
+     	         a better diagnostic.  */
+	      || (TREE_CODE (*name) == TYPE_DECL && DECL_ARTIFICIAL (*name)
+		  && CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (*name))))
             {
-              *name = TREE_OPERAND (*name, 0);
-              cp_error ("a using-declaration cannot specify a template-id.  Try `using %D'", *name);
+              cp_error ("using-declaration for template-id");
               return NULL_TREE;
             }
         }
@@ -5109,12 +5113,17 @@ do_class_using_decl (decl)
       cp_error ("using-declaration for destructor");
       return NULL_TREE;
     }
-  else if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+  else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
+	   /* template-ids for types appear as artificial type decls
+     	      with template information.  Checking this gives a better
+     	      diagnostic.  */
+	   || (TREE_CODE (name) == TYPE_DECL && DECL_ARTIFICIAL (name)
+	       && CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (name))))
     {
-      name = TREE_OPERAND (name, 0);
-      cp_error ("a using-declaration cannot specify a template-id.  Try  `using %T::%D'", TREE_OPERAND (decl, 0), name);
+      cp_error ("using-declaration for template-id");
       return NULL_TREE;
     }
+  
   if (TREE_CODE (name) == TYPE_DECL || TREE_CODE (name) == TEMPLATE_DECL)
     name = DECL_NAME (name);
 

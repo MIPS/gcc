@@ -39,6 +39,6 @@ struct B : A {
 
 struct C : A {
   using A::f<double>; // { dg-error "using-declaration" "" }
-  using A::X<int>;    // { dg-error "parse error" "" }
+  using A::X<int>;    // { dg-error "using-declaration" "" }
 };
 
