@@ -1,4 +1,14 @@
-2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org
+2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.ac: Fix dumb bug in TRACE clause.
+
+	* configure.ac: Remove bits moved to gnattools/configure.ac.
+	* configure: Regenerate.
+	* Makefile.in: Move gnattools{1,1re,2,3,4} and corresponding flags
+	into code in gnattools/Makefile.in.  Remove direct dependencies on
+	stamp-tools by tools clauses.
+
+2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: New.  Include most per-host/per-target
 	configuration gunk from Makefile.in and necessary bits from

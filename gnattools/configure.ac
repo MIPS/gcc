@@ -65,6 +65,89 @@ else
 fi
 AC_SUBST([default_gnattools_target])
 
+# Target-specific stuff (defaults)
+TOOLS_TARGET_PAIRS=
+AC_SUBST(TOOLS_TARGET_PAIRS)
+EXTRA_GNATTOOLS=
+AC_SUBST(EXTRA_GNATTOOLS)
+
+# Per-target case statement
+# -------------------------
+case "${target}" in
+  alpha*-dec-vx*) # Unlike all other Vxworks
+    ;;
+  m68k*-wrs-vx* \
+  | powerpc*-wrs-vxworks \
+  | sparc*-wrs-vx* \
+  | *86-wrs-vxworks \
+  | xscale*-wrs-vx* \
+  | xscale*-wrs-coff \
+  | mips*-wrs-vx*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
+    ;;
+  sparc-sun-solaris*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
+    ;;
+  *86-*-solaris2*) # Unlike sparc-solaris
+    ;;
+  *86-*-linux* \
+  | powerpc*-*-linux*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb \
+    indepsw.adb<indepsw-linux.adb"
+    ;;
+  *ia64-*-linux* \
+  | *x86_64-*-linux* \
+  | s390*-*-linux*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
+    ;;
+  *86-*-freebsd*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb"
+    ;;
+  mips-sgi-irix*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-irix.adb"
+    ;;
+  hppa*-hp-hpux10*) # Unlike hpux11
+    ;;
+  hppa*-hp-hpux11*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-hpux.adb"
+    ;;
+  *-ibm-aix*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-aix.adb \
+    indepsw.adb<indepsw-aix.adb"
+    ;;
+  alpha*-dec-osf*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
+    ;;
+  alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
+  | alpha*-hp-vms* | alpha*-hp-openvms* | alpha*-hp-vms*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-vms-alpha.adb \
+    symbols.adb<symbols-vms-alpha.adb"
+
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    ;;
+  ia64*-dec-vms* | ia64*-dec-openvms* | ia64*-dec-vms* \
+  | ia64*-hp-vms* | ia64*-hp-openvms* | ia64*-hp-vms*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-vms-ia64.adb \
+    symbols.adb<symbols-vms-ia64.adb"
+
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    ;;
+  *-*-cygwin32* | *-*-mingw32* | *-*-pe)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-mingw.adb \
+    indepsw.adb<indepsw-mingw.adb"
+    EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
+    ;;
+  powerpc-*-darwin*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-darwin.adb"
+    ;;
+esac
+
 # Output: create a Makefile.
 AC_CONFIG_FILES([Makefile])
 

@@ -150,8 +150,6 @@ AC_SUBST(GMEM_LIB)
 TGT_LIB=
 AC_SUBST(TGT_LIB)
 
-TOOLS_TARGET_PAIRS=
-AC_SUBST(TOOLS_TARGET_PAIRS)
 EXTRA_GNATRTL_NONTASKING_OBJS=
 AC_SUBST(EXTRA_GNATRTL_NONTASKING_OBJS)
 EXTRA_GNATRTL_TASKING_OBJS=
@@ -160,8 +158,6 @@ EXTRA_LIBGNAT_SRCS=
 AC_SUBST(EXTRA_LIBGNAT_SRCS)
 EXTRA_LIBGNAT_OBJS=
 AC_SUBST(EXTRA_LIBGNAT_OBJS)
-EXTRA_GNATTOOLS=
-AC_SUBST(EXTRA_GNATTOOLS)
 EXTRA_GNATMAKE_OBJS=
 AC_SUBST(EXTRA_GNATMAKE_OBJS)
 
@@ -316,8 +312,6 @@ m68k*-wrs-vx*)
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-vxworks-m68k.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
-
   EXTRA_GNATRTL_NONTASKING_OBJS="i-vxwork.o i-vxwoio.o"
   EXTRA_GNATRTL_TASKING_OBJS="s-vxwork.o"
 
@@ -325,9 +319,9 @@ m68k*-wrs-vx*)
     yes)
       LIBGNAT_TARGET_PAIRS="${LIBGNAT_TARGET_PAIRS} \
       s-traces.adb<s-traces-default.adb \
-      s-tratas.adb<s-tratas-default.adb \
       s-trafor.adb<s-trafor-default.adb \
       s-trafor.ads<s-trafor-default.ads \
+      s-tratas.adb<s-tratas-default.adb \
       s-tfsetr.adb<s-tfsetr-vxworks.adb"
       ;;
   esac
@@ -358,15 +352,14 @@ powerpc*-wrs-vxworks)
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-vxworks-ppc.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
-
   case "${TRACE}" in
     yes)
+      LIBGNAT_TARGET_PAIRS="${LIBGNAT_TARGET_PAIRS} \
       s-traces.adb<s-traces-default.adb \
       s-trafor.adb<s-trafor-default.adb \
       s-trafor.ads<s-trafor-default.ads \
       s-tratas.adb<s-tratas-default.adb \
-      s-tfsetr.adb<s-tfsetr-vxworks.adb 
+      s-tfsetr.adb<s-tfsetr-vxworks.adb"
     ;;
   esac
 
@@ -399,8 +392,6 @@ sparc*-wrs-vx*)
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-vxworks-sparcv9.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
-
   EXTRA_GNATRTL_NONTASKING_OBJS="i-vxwork.o i-vxwoio.o"
   EXTRA_GNATRTL_TASKING_OBJS="s-vxwork.o"
   ;;
@@ -431,8 +422,6 @@ sparc*-wrs-vx*)
   g-socthi.ads<g-socthi-vxworks.ads \
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-vxworks-x86.ads"
-
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
 
   case "${TRACE}" in
     yes)
@@ -474,8 +463,6 @@ xscale*-wrs-vx* | xscale*-wrs-coff)
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-elf-sparc.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
-
   EXTRA_GNATRTL_NONTASKING_OBJS="i-vxwork.o i-vxwoio.o"
   EXTRA_GNATRTL_TASKING_OBJS="s-vxwork.o"
   ;;
@@ -504,8 +491,6 @@ mips*-wrs-vx*)
   g-socthi.adb<g-socthi-vxworks.adb \
   system.ads<system-vxworks-mips.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
-
   EXTRA_GNATRTL_NONTASKING_OBJS="i-vxwork.o i-vxwoio.o"
   EXTRA_GNATRTL_TASKING_OBJS="s-vxwork.o"
   ;;
@@ -527,8 +512,6 @@ sparc-sun-solaris*)
   g-soccon.ads<g-soccon-solaris.ads \
   g-soliop.ads<g-soliop-solaris.ads \
   system.ads<system-solaris-sparc.ads"
-
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
 
   THREADSLIB="-lposix4 -lthread"
   MISCLIB="-lposix4 -lnsl -lsocket"
@@ -643,10 +626,6 @@ sparc-sun-solaris*)
   s-parame.adb<s-parame-linux.adb \
   system.ads<system-linux-x86.ads"
 
-  TOOLS_TARGET_PAIRS="\
-    mlib-tgt.adb<mlib-tgt-linux.adb \
-    indepsw.adb<indepsw-linux.adb"
-
   SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
@@ -693,9 +672,6 @@ sparc-sun-solaris*)
   s-tpopsp.adb<s-tpopsp-posix.adb \
   system.ads<system-freebsd-x86.ads"
 
-  TOOLS_TARGET_PAIRS="\
-  mlib-tgt.adb<mlib-tgt-linux.adb"
-
   GNATLIB_SHARED="gnatlib-shared-dual"
 
   SYMLIB='$(ADDR2LINE_SYMLIB)'
@@ -736,9 +712,6 @@ s390*-*-linux*)
     system.ads<system-linux-s390.ads"
     ;;
   esac
-
-  TOOLS_TARGET_PAIRS="\
-    mlib-tgt.adb<mlib-tgt-linux.adb"
 
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
@@ -792,7 +765,6 @@ mips-sgi-irix*)
     ;;
   esac
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-irix.adb"
   TGT_LIB="-lexc"
   MISCLIB="-lexc"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
@@ -835,7 +807,6 @@ hppa*-hp-hpux11*)
   g-soccon.ads<g-soccon-hpux.ads \
   system.ads<system-hpux.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-hpux.adb"
   TGT_LIB="/usr/lib/libcl.a"
   THREADSLIB="-lpthread"
   SYMLIB='$(ADDR2LINE_SYMLIB)'
@@ -905,10 +876,6 @@ hppa*-hp-hpux11*)
     THREADSLIB="-lgthreads -lmalloc"
     ;;
   esac
-
-  TOOLS_TARGET_PAIRS="\
-  mlib-tgt.adb<mlib-tgt-aix.adb \
-  indepsw.adb<indepsw-aix.adb"
 
   GMEM_LIB="gmemlib"
   SYMLIB='$(ADDR2LINE_SYMLIB)'
@@ -997,8 +964,6 @@ alpha*-dec-osf*)
   g-soccon.ads<g-soccon-tru64.ads \
   system.ads<system-tru64.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
-
   GMEM_LIB="gmemlib"
   SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread -lmach -lexc -lrt"
@@ -1073,19 +1038,6 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
     ;;
   esac
 
-  case ${target} in
-    ia64-hp-vms* | ia64-hp-openvms*)
-      TOOLS_TARGET_PAIRS="\
-      mlib-tgt.adb<mlib-tgt-vms-ia64.adb \
-      symbols.adb<symbols-vms-ia64.adb"
-      ;;
-    *) # not ia64-hp
-      TOOLS_TARGET_PAIRS="\
-      mlib-tgt.adb<mlib-tgt-vms-alpha.adb \
-      symbols.adb<symbols-vms-alpha.adb"
-      ;;
-  esac
-
   GNATLIB_SHARED="gnatlib-shared-vms"
 
   case ${target} in
@@ -1096,7 +1048,6 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   esac
 
   EXTRA_GNATRTL_TASKING_OBJS="s-tpopde.o"
-  EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
 
   # NCN MAKEISMS
   # This command transforms (YYYYMMDD) into YY,MMDD
@@ -1132,15 +1083,10 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
   g-soliop.ads<g-soliop-mingw.ads \
   system.ads<system-mingw.ads"
 
-  TOOLS_TARGET_PAIRS="\
-  mlib-tgt.adb<mlib-tgt-mingw.adb \
-  indepsw.adb<indepsw-mingw.adb"
-
   MISCLIB="-lwsock32"
   SYMLIB='$(ADDR2LINE_SYMLIB)'
   GMEM_LIB="gmemlib"
   PREFIX_OBJS='$(PREFIX_REAL_OBJS)'
-  EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
   EXTRA_GNATMAKE_OBJS="mdll.o mdll-utl.o mdll-fil.o"
   EXTRA_GNATRTL_NONTASKING_OBJS="g-regist.o"
   soext='.dll'
@@ -1164,10 +1110,6 @@ powerpc*-*-linux*)
   s-parame.adb<s-parame-linux.adb \
   system.ads<system-linux-ppc.ads"
 
-  TOOLS_TARGET_PAIRS="\
-    mlib-tgt.adb<mlib-tgt-linux.adb \
-    indepsw.adb<indepsw-linux.adb"
-
   SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
@@ -1190,7 +1132,6 @@ powerpc*-*-linux*)
   s-taspri.ads<s-taspri-linux.ads \
   system.ads<system-linux-ia64.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
   MISCLIB=
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
@@ -1213,7 +1154,6 @@ powerpc*-*-linux*)
   s-taspri.ads<s-taspri-linux.ads \
   system.ads<system-linux-x86_64.ads"
 
-  TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
   SYMLIB='$(ADDR2LINE_SYMLIB)'
   THREADSLIB="-lpthread"
   GNATLIB_SHARED="gnatlib-shared-dual"
@@ -1235,9 +1175,6 @@ powerpc-*-darwin*)
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   g-soccon.ads<g-soccon-aix.ads \
   system.ads<system-darwin-ppc.ads"
-
-  TOOLS_TARGET_PAIRS="\
-    mlib-tgt.adb<mlib-tgt-darwin.adb"
 
   GNATLIB_SHARED="gnatlib-shared-darwin"
   SO_OPTS="-Wl,-flat_namespace"

@@ -39,6 +39,7 @@ ADA_FOR_BUILD=
 ADA_FOR_TARGET=
 LDFLAGS=
 STAGE_PREFIX=
+PWD_COMMAND = $${PWDCMD-pwd}
 
 # The tedious process of getting CFLAGS right.
 CFLAGS=-g
@@ -69,61 +70,167 @@ ifneq ($(xmake_file),)
 include $(xmake_file)
 endif
 
-FLAGS_TO_PASS = \
-        "MAKEOVERRIDES=" \
-        "LDFLAGS=$(LDFLAGS)" \
-        "LN_S=$(LN_S)" \
-        "SHELL=$(SHELL)" \
-        "exeext=$(exeext)" \
-        "objext=$(objext)" \
-        "prefix=$(prefix)" \
-        "STAGE_PREFIX=$(STAGE_PREFIX)" \
+# Absolute srcdir for gcc/ada (why do we want absolute?  I dunno)
+fsrcdir := $(shell cd $(srcdir)/../gcc/ada/; ${PWD_COMMAND})
+
+# Useful "subroutines" for the excess includes
+INCLUDES_FOR_SUBDIR = -I. -I.. -I../.. -I$(fsrcdir) -I$(fsrcdir)/../config \
+	-I$(fsrcdir)/../../include -I$(fsrcdir)/..
+ADA_INCLUDES_FOR_SUBDIR = -I. -I$(fsrcdir)
+
+# Variables for gnattools1, native
+TOOLS_FLAGS_TO_PASS_1= \
+	"CC=../../xgcc -B../../" \
+	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"ADAFLAGS=$(ADAFLAGS)" \
+	"INCLUDES=$(INCLUDES_FOR_SUBDIR)" \
+	"ADA_INCLUDES=-I- -I../rts $(ADA_INCLUDES_FOR_SUBDIR)"\
+	"exeext=$(exeext)" \
+	"fsrcdir=$(fsrcdir)" \
+	"srcdir=$(fsrcdir)" \
+	"GNATBIND=../../gnatbind" \
+	"TOOLSCASE=native"
+
+# Variables for regnattools
+TOOLS_FLAGS_TO_PASS_1re= \
+	"CC=../../xgcc -B../../" \
+	"CFLAGS=$(CFLAGS)" \
+	"ADAFLAGS=$(ADAFLAGS)" \
+	"INCLUDES=$(INCLUDES_FOR_SUBDIR)" \
+	"ADA_INCLUDES=-I../rts $(ADA_INCLUDES_FOR_SUBDIR)"\
+	"exeext=$(exeext)" \
+	"fsrcdir=$(fsrcdir)" \
+	"srcdir=$(fsrcdir)" \
+	"GNATMAKE=../../gnatmake" \
+	"GNATLINK=../../gnatlink" \
+	"GNATBIND=../../gnatbind" \
+	"TOOLSCASE=cross" \
+	"INCLUDES="
+
+# Variables for gnattools2, native
+TOOLS_FLAGS_TO_PASS_NATIVE= \
+	"CC=../../xgcc -B../../" \
+	"CFLAGS=$(CFLAGS)" \
+	"ADAFLAGS=$(ADAFLAGS)" \
+	"INCLUDES=$(INCLUDES_FOR_SUBDIR)" \
+	"ADA_INCLUDES=-I../rts $(ADA_INCLUDES_FOR_SUBDIR)" \
+	"exeext=$(exeext)" \
+	"fsrcdir=$(fsrcdir)" \
+	"srcdir=$(fsrcdir)" \
+	"GNATMAKE=../../gnatmake" \
+	"GNATLINK=../../gnatlink" \
+	"GNATBIND=../../gnatbind" \
+	"TOOLSCASE=native"
+
+# Variables for gnattools, cross
+TOOLS_FLAGS_TO_PASS_CROSS= \
 	"CC=$(cc_set_by_configure)" \
-        "CFLAGS=$(CFLAGS) $(WARN_CFLAGS)"
+	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"ADAFLAGS=$(ADAFLAGS)"	\
+	"INCLUDES=$(INCLUDES_FOR_SUBDIR)" \
+	"ADA_INCLUDES=-I$(RTS_DIR)../adainclude -I$(RTS_DIR) $(ADA_INCLUDES_FOR_SUBDIR)" \
+	"exeext=$(exeext)" \
+	"fsrcdir=$(fsrcdir)" \
+	"srcdir=$(fsrcdir)" \
+	"GNATMAKE=gnatmake" \
+	"GNATLINK=gnatlink" \
+	"GNATBIND=gnatbind" \
+	"TOOLSCASE=cross" \
+	"LIBGNAT="
 
-ADA_FLAGS_TO_PASS = \
-        "ADA_FOR_BUILD=$(ADA_FOR_BUILD)"        \
-        "ADA_INCLUDE_DIR=$(ADA_INCLUDE_DIR)"    \
-        "ADA_RTL_OBJ_DIR=$(ADA_RTL_OBJ_DIR)"    \
-        "ADAFLAGS=$(ADAFLAGS)"                  \
-        "ADA_FOR_TARGET=$(ADA_FOR_TARGET)"      \
-        "INSTALL=$(INSTALL)"                    \
-        "INSTALL_DATA=$(INSTALL_DATA)"          \
-        "INSTALL_PROGRAM=$(INSTALL_PROGRAM)"
+# File lists
+# ----------
 
-ADA_TOOLS_FLAGS_TO_PASS=\
-        "CC=../../xgcc -B../../"        \
-        "CFLAGS=$(CFLAGS)"              \
-        "exeext=$(exeext)"              \
-        "ADAFLAGS=$(ADAFLAGS)"          \
-        "ADA_INCLUDES=-I../rts"         \
-        "GNATMAKE=../../gnatmake"       \
-        "GNATLINK=../../gnatlink"       \
-        "GNATBIND=../../gnatbind"
+# File associations set by configure
+EXTRA_GNATTOOLS = @EXTRA_GNATTOOLS@
+TOOLS_TARGET_PAIRS = @TOOLS_TARGET_PAIRS@
+
+
+# These are built by gnatmake, and in both native and cross configurations.
+GNATTOOLS2_FILES = \
+	../../gnatchop$(exeext) \
+	../../gnat$(exeext) \
+	../../gnatkr$(exeext) \
+	../../gnatls$(exeext) \
+	../../gnatprep$(exeext) \
+	../../gnatxref$(exeext) \
+	../../gnatfind$(exeext) \
+	../../gnatname$(exeext) \
+	../../gnatclean$(exeext) \
+	../../gprmake$(exeext) \
+	../../gprcmd$(exeext) \
+	../../gpr2make$(exeext)
+
+# Makefile targets
+# ----------------
 
 .PHONY: gnattools gnattools-native gnattools-cross regnattools
 gnattools: @default_gnattools_target@
 
-gnattools-native:
-	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
-	  ADA_INCLUDES="-I- -I../rts" \
-	  CC="../../xgcc -B../../" STAGE_PREFIX=../../  gnattools1
-	$(MAKE) -C $(GCC_DIR)/ada $(ADA_TOOLS_FLAGS_TO_PASS) gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada $(ADA_TOOLS_FLAGS_TO_PASS) gnattools3
+# Build directory for the tools. Let's copy the target-dependent
+# sources using the same mechanism as for gnatlib. The other sources are
+# accessed using the vpath directive in ada/Makefile.in
+
+$(GCC_DIR)/stamp-tools:
+	-rm -rf $(GCC_DIR)/ada/tools
+	-mkdir -p $(GCC_DIR)/ada/tools
+	-(cd $(GCC_DIR)/ada/tools; $(LN_S) ../sdefault.adb .)
+	-$(foreach PAIR,$(TOOLS_TARGET_PAIRS), \
+	          rm -f $(GCC_DIR)/ada/tools/$(word 1,$(subst <, ,$(PAIR)));\
+	          $(LN_S) $(fsrcdir)/$(word 2,$(subst <, ,$(PAIR))) \
+	                $(GCC_DIR)/ada/tools/$(word 1,$(subst <, ,$(PAIR)));)
+	touch $(GCC_DIR)/stamp-tools
+
+# gnatmake/link tools cannot always be built with gnatmake/link for bootstrap 
+# reasons: gnatmake should be built with a recent compiler, a recent compiler
+# may not generate ALI files compatible with an old gnatmake so it is important
+# to be able to build gnatmake without a version of gnatmake around. Once 
+# everything has been compiled once, gnatmake can be recompiled with itself 
+# (see target regnattools) 
+gnattools-native: $(GCC_DIR)/stamp-tools
+	# gnattools1
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_1) \
+	  ../../gnatmake$(exeext) ../../gnatlink$(exeext) ../../gnatbl$(exeext)
+	# gnattools2
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
+	  $(GNATTOOLS2_FILES)
+
+# gnatmake/link can be built with recent gnatmake/link if they are available.
+# This is especially convenient for building cross tools or for rebuilding
+# the tools when the original bootstrap has already be done.
+regnattools:
+	# gnattools1-re
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_1re) \
+	  gnatmake-re gnatlink-re
+	# gnattools2
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
+	  $(GNATTOOLS2_FILES)
 
 # For cross builds of gnattools,
 # put the host RTS dir first in the PATH to hide the default runtime
 # files that are among the sources
 # FIXME: This should be done in configure.
 RTS_DIR:=$(strip $(subst \,/,$(shell gnatls -v | grep adalib )))
-gnattools-cross:
-	$(MAKE)  -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
-	  ADA_INCLUDES="-I$(RTS_DIR)../adainclude -I$(RTS_DIR)" \
-	  GNATMAKE="gnatmake" \
-	  GNATBIND="gnatbind" \
-	  GNATLINK="gnatlink" \
-	  LIBGNAT="" \
-	  gnattools1-re gnattools2 gnattools4
+gnattools-cross: $(GCC_DIR)/stamp-tools
+	# gnattools1-re
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_CROSS) INCLUDES="" \
+	  gnatmake-re gnatlink-re
+	# gnattools2
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
+	  $(GNATTOOLS2_FILES)
+	# gnattools4 (cross only)
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
+	  top_buildir=../../.. \
+           ../../vxaddr2line$(exeext)
 	# Rename cross tools to where the GCC makefile wants them when
 	# installing.  FIXME: installation should be done elsewhere.
 	if [ -f $(GCC_DIR)/gnatbind$(exeext) ] ; then \
@@ -178,10 +285,8 @@ gnattools-cross:
 	  mv $(GCC_DIR)/gprcmd$(exeext) $(GCC_DIR)/gprcmd-cross$(exeext); \
 	fi
 
-regnattools:
-	$(MAKE) -C $(GCC_DIR)/ada $(ADA_TOOLS_FLAGS_TO_PASS) gnattools1-re
-	$(MAKE) -C $(GCC_DIR)/ada $(ADA_TOOLS_FLAGS_TO_PASS) gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada $(ADA_TOOLS_FLAGS_TO_PASS) gnattools3
+# Other
+# -----
 
 # Check uninstalled version.
 check:
@@ -228,3 +333,4 @@ $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac
 # Don't export variables to the environment, in order to not confuse
 # configure.
 .NOEXPORT:
+

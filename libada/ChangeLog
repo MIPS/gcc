@@ -1,3 +1,8 @@
+2004-12-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Add stamp file for building libada, to avoid
+	duplicate builds every time all-gnattools is called.
+
 2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Build gcc/ada/Makefile (by running gcc/ada/configure)

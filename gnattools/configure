@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="Makefile.in"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS MAINT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S x_ada_cflags default_gnattools_target LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS MAINT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S x_ada_cflags default_gnattools_target TOOLS_TARGET_PAIRS EXTRA_GNATTOOLS LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -1548,6 +1548,89 @@ else
 fi
 
 
+# Target-specific stuff (defaults)
+TOOLS_TARGET_PAIRS=
+
+EXTRA_GNATTOOLS=
+
+
+# Per-target case statement
+# -------------------------
+case "${target}" in
+  alpha*-dec-vx*) # Unlike all other Vxworks
+    ;;
+  m68k*-wrs-vx* \
+  | powerpc*-wrs-vxworks \
+  | sparc*-wrs-vx* \
+  | *86-wrs-vxworks \
+  | xscale*-wrs-vx* \
+  | xscale*-wrs-coff \
+  | mips*-wrs-vx*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-vxworks.adb"
+    ;;
+  sparc-sun-solaris*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-solaris.adb"
+    ;;
+  *86-*-solaris2*) # Unlike sparc-solaris
+    ;;
+  *86-*-linux* \
+  | powerpc*-*-linux*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb \
+    indepsw.adb<indepsw-linux.adb"
+    ;;
+  *ia64-*-linux* \
+  | *x86_64-*-linux* \
+  | s390*-*-linux*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-linux.adb"
+    ;;
+  *86-*-freebsd*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-linux.adb"
+    ;;
+  mips-sgi-irix*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-irix.adb"
+    ;;
+  hppa*-hp-hpux10*) # Unlike hpux11
+    ;;
+  hppa*-hp-hpux11*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-hpux.adb"
+    ;;
+  *-ibm-aix*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-aix.adb \
+    indepsw.adb<indepsw-aix.adb"
+    ;;
+  alpha*-dec-osf*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-tru64.adb"
+    ;;
+  alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
+  | alpha*-hp-vms* | alpha*-hp-openvms* | alpha*-hp-vms*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-vms-alpha.adb \
+    symbols.adb<symbols-vms-alpha.adb"
+
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    ;;
+  ia64*-dec-vms* | ia64*-dec-openvms* | ia64*-dec-vms* \
+  | ia64*-hp-vms* | ia64*-hp-openvms* | ia64*-hp-vms*)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-vms-ia64.adb \
+    symbols.adb<symbols-vms-ia64.adb"
+
+    EXTRA_GNATTOOLS='../../gnatlbr$(exeext) ,,/../gnatsym$(exeext)'
+    ;;
+  *-*-cygwin32* | *-*-mingw32* | *-*-pe)
+    TOOLS_TARGET_PAIRS="\
+    mlib-tgt.adb<mlib-tgt-mingw.adb \
+    indepsw.adb<indepsw-mingw.adb"
+    EXTRA_GNATTOOLS='../../gnatdll$(exeext)'
+    ;;
+  powerpc-*-darwin*)
+    TOOLS_TARGET_PAIRS="mlib-tgt.adb<mlib-tgt-darwin.adb"
+    ;;
+esac
+
 # Output: create a Makefile.
           ac_config_files="$ac_config_files Makefile"
 
@@ -2207,6 +2290,8 @@ s,@target_noncanonical@,$target_noncanonical,;t t
 s,@LN_S@,$LN_S,;t t
 s,@x_ada_cflags@,$x_ada_cflags,;t t
 s,@default_gnattools_target@,$default_gnattools_target,;t t
+s,@TOOLS_TARGET_PAIRS@,$TOOLS_TARGET_PAIRS,;t t
+s,@EXTRA_GNATTOOLS@,$EXTRA_GNATTOOLS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

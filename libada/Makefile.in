@@ -91,22 +91,26 @@ $(GCC_DIR)/ada/Makefile:
 gnatlib: @default_gnatlib_target@
 
 gnatlib-plain: $(GCC_DIR)/ada/Makefile
+	test -f stamp-libada || \
 	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
 	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
 	  THREAD_KIND="$(THREAD_KIND)" \
 	  TRACE="$(TRACE)" \
-	  gnatlib
+	  gnatlib \
+	&& touch stamp-libada
 
 gnatlib-sjlj gnatlib-zcx gnatlib-shared: $(GCC_DIR)/ada/Makefile
+	test -f stamp-libada || \
 	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
 	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	  TARGET_LIBGCC2_CFLAGS="$(TARGET_LIBGCC2_CFLAGS)" \
 	  THREAD_KIND="$(THREAD_KIND)" \
 	  TRACE="$(TRACE)" \
-	  $@
+	  $@ \
+	&& touch stamp-libada
 
 # Check uninstalled version.
 check:

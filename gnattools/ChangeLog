@@ -1,3 +1,14 @@
+2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Inline gnattools{1,1-re,2,3,4} targets from
+	gcc/ada/configure.ac into gnattools-native and gnattools-cross
+	targets, collecting flags as appropriate from here,
+	gcc/ada/Makefile.in, gcc/ada/configure.ac, etc.  Attempt to retain
+	identical behavior.
+	* configure.ac: Add necessary configure bits from
+	gcc/ada/configure.ac.
+	* configure: Regenerate.
+
 2004-08-16  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: Replace AC_CANONICAL_SYSTEM with _BUILD, _HOST,
