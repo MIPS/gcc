@@ -12,8 +12,8 @@ SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
 	-Wl,-h,$(SHLIB_SONAME) -Wl,-z,text -Wl,-z,defs \
 	-Wl,-M,$(SHLIB_MAP) -o $(SHLIB_NAME) \
 	@multilib_flags@ $(SHLIB_OBJS) -lc && \
-	rm -f $(SHLIB_SOLINK) && \
-	$(LN_S) $(SHLIB_NAME) $(SHLIB_SOLINK)
+	rm -f @shlib_dir@$(SHLIB_SOLINK) && \
+	$(LN_S) @shlib_so_name@.so.1 @shlib_dir@$(SHLIB_SOLINK)
 # $(slibdir) double quoted to protect it from expansion while building
 # libgcc.mk.  We want this delayed until actual install time.
 SHLIB_INSTALL = \

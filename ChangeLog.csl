@@ -1,3 +1,8 @@
+2004-10-14  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc/config/t-slibgcc-sld (SHLIB_LINK): Make symlinks entirely
+	within the multilib directory.
+	
 2004-10-12  Mark Mitchell <mark@codesourcery.com>
 
 	* gcc/gcc.c (do_spec_1): Do not add a -L path for a directory in
