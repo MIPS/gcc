@@ -345,6 +345,41 @@ analyze_array (tree stmt, tree ref, bool is_read)
 }
 
 /* For a data reference REF contained in the statemet STMT, initialize
+   a DATA_REFERENCE structure, and return it.  */
+
+struct data_reference *
+init_data_ref (tree stmt, 
+	       tree ref,
+	       tree base,
+	       tree access_fn)
+{
+  struct data_reference *res;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(init_data_ref \n");
+      fprintf (dump_file, "  (ref = ");
+      print_generic_stmt (dump_file, ref, 0);
+      fprintf (dump_file, ")\n");
+    }
+  
+  res = ggc_alloc (sizeof (struct data_reference));
+  
+  DR_ID (res) = data_ref_id++;
+  DR_STMT (res) = stmt;
+  DR_REF (res) = ref;
+  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
+  DR_BASE_NAME (res) = base;
+  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
+  
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, ")\n");
+  
+  return res;
+}
+
+
+/* For a data reference REF contained in the statemet STMT, initialize
    a DATA_REFERENCE structure, and return it.  Set the IS_READ flag to
    true when REF is in the right hand side of an assignment.  */
 

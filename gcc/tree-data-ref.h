@@ -148,8 +148,8 @@ extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *, 
 					       varray_type *, varray_type *);
+extern struct data_reference * init_data_ref (tree, tree, tree, tree);
 extern struct data_reference *analyze_array (tree, tree, bool);
-
 
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void dump_data_references (FILE *, varray_type);

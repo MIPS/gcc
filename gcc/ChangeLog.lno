@@ -1,3 +1,41 @@
+2004-06-14  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-data-ref.c (init_data_ref): New function.
+        * tree-data-ref.h (init_data_ref): New function.
+        * tree-vectorizer.c (vect_get_array_first_index): Return index instead
+        of success status, and support pointers.
+        (vect_create_index_for_array_ref): Remove ARRAY_REF restriction, and
+        change call to vect_get_array_first_index.
+        (vect_create_data_ref): Handle INDIRECT_REFs.
+        (vect_is_supportable_store): Handle INDIRECT_REFs.
+        (vect_is_supportable_load): Handle INDIRECT_REFs.
+        (vect_analyze_data_ref_dependence): Handle INDIRECT_REFs.
+        (vect_analyze_data_ref_dependences): Remove usage of variable 'ok'.
+        (get_array_base): Removed (not used anymore).
+        (vect_force_dr_alignment_p): Use DR_BASE_NAME instead of
+        get_array_base.
+        (vect_align_data_ref): Likewise.
+        (vect_transform_store): Remove ARRAY_REF restriction.
+        (vect_transform_load): Remove ARRAY_REF restriction.
+        (vect_compute_data_ref_alignment): Support pointers.
+        (vect_analyze_data_refs): Support pointers.
+
+        (vect_debug_stats): New Function.
+        (vect_debug_details): New Function.
+        (vect_transform_loop): Use vect_debug_stats and vec_debug_details.
+        (vect_analyze_loop): Use vect_debug_details.
+        (vect_analyze_scalar_cycles): Use vect_debug_stats.
+        (vect_analyze_data_ref_dependence): Likewse.
+        (vect_analyze_data_refs_alignment): Likewise.
+        (vect_analyze_data_ref_accesses): Likewise.
+        (vect_analyze_data_refs): Likewise.
+        (vect_analyze_loop_form): Likewise.
+
+        (vect_gen_if_guard): Formatting fixes (avoid 80 column overflow).
+        (vect_update_initial_conditions_of_duplicatd_loop): Likewise.
+        (vect_transform_loop): Likewise.
+        (vect_analyze_loop_form): Likewise.
+
 2004-06-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline (lno-merge-20040612).
