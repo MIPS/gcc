@@ -5023,6 +5023,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    case BUILT_IN_STACK_ALLOC:
+      expand_stack_alloc (TREE_VALUE (arglist),
+			  TREE_VALUE (TREE_CHAIN (arglist)));
+      return NULL_RTX;
+
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:
     case BUILT_IN_FFSLL:

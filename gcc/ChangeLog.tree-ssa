@@ -1,3 +1,15 @@
+2003-08-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* builtins.c (expand_builtin): Handle STACK_ALLOC.
+	* builtins.def (BUILT_IN_STACK_ALLOC): New.
+	* c-simplify.c (gimplify_decl_stmt, c_gimplify_stmt,
+	gimplify_compound_literal_expr): Arrange explicit stack allocation.
+	* expr.c (expand_expr): Handle deferred variables.
+	* stmt.c (expand_stack_alloc): New.
+	* tree-simple.c (is_gimple_val): Prevent ADDR_EXPRs of vla's from
+	being reduced.
+	* tree.h (expand_stack_alloc): Declare.
+
 2003-08-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c: Temporarily remove the following change.

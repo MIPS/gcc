@@ -3064,6 +3064,7 @@ extern int expand_exit_loop_if_false (struct nesting *,tree);
 extern int expand_exit_loop_top_cond (struct nesting *, tree);
 extern int expand_exit_something (void);
 
+extern void expand_stack_alloc (tree, tree);
 extern void expand_return (tree);
 extern int optimize_tail_recursion (tree, rtx);
 extern void expand_start_bindings_and_block (int, tree);

@@ -465,6 +465,14 @@ is_gimple_val (tree t)
 	  ))
     return 1;
 
+  /* Allow address of vla, so that we do not replace it in the call_expr of
+     stack_alloc builtin.  */
+  if (TREE_CODE (t) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
+      && DECL_SIZE_UNIT (TREE_OPERAND (t, 0))
+      && !TREE_CONSTANT (DECL_SIZE_UNIT (TREE_OPERAND (t, 0))))
+    return 1;
+
   return (is_gimple_variable (t) || is_gimple_const (t));
 }
 

@@ -72,7 +72,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 void c_gimplify_stmt (tree *);
 static void gimplify_expr_stmt (tree *);
-static void gimplify_decl_stmt (tree *, tree *);
+static void gimplify_decl_stmt (tree *);
 static void gimplify_for_stmt (tree *, tree *);
 static void gimplify_while_stmt (tree *);
 static void gimplify_do_stmt (tree *);
@@ -243,7 +243,7 @@ c_gimplify_stmt (tree *stmt_p)
 	  break;
 
 	case DECL_STMT:
-	  gimplify_decl_stmt (&stmt, &next);
+	  gimplify_decl_stmt (&stmt);
 	  break;
 
 	case LABEL_STMT:
@@ -812,7 +812,7 @@ mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
    different if the DECL_STMT is somehow embedded in an expression.  */
 
 static void
-gimplify_decl_stmt (tree *stmt_p, tree *next_p)
+gimplify_decl_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   tree decl = DECL_STMT_DECL (stmt);
@@ -824,42 +824,20 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 
       if (!TREE_CONSTANT (DECL_SIZE (decl)))
 	{
-	  /* This is a variable-sized decl.  We need to wrap it in a new
-	     block so that we can gimplify the expressions for calculating
-	     its size, and so that any other local variables used in those
-	     expressions will have been initialized.  */
+	  tree pt_type = build_pointer_type (TREE_TYPE (decl));
+	  tree alloc, size;
 
-	  /* FIXME break the allocation out into a separate statement?  */
+	  /* This is a variable-sized decl.  Simplify its size and mark it
+	     for deferred expansion.  */
 
-	  tree usize = DECL_SIZE_UNIT (decl);
-	  tree bind;
-	  tree *p;
-
-	  usize = get_initialized_tmp_var (usize, &pre);
-
-	  /* Mark the unit size as being used in the VLA's declaration so
-	     it will not be deleted by DCE.  */
-	  set_has_hidden_use (usize);
-
-	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
-
-	  /* Prune this decl and any others after it out of the enclosing
-	     block.  */
-	  for (p = &BIND_EXPR_VARS (gimple_current_bind_expr ());
-	       *p != decl; p = &TREE_CHAIN (*p))
-	    /* search */;
-	  *p = NULL_TREE;
-	  if (BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
-	      == decl)
-	    BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
-	      = NULL_TREE;
-
-	  bind = c_build_bind_expr (decl, TREE_CHAIN (stmt));
-
-	  add_tree (bind, &pre);
-
-	  if (next_p)
-	    *next_p = NULL_TREE;
+	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre);
+	  DECL_DEFER_OUTPUT (decl) = 1;
+	  alloc = build_function_call_expr (
+			implicit_built_in_decls[BUILT_IN_STACK_ALLOC],
+			tree_cons (NULL_TREE,
+				   build1 (ADDR_EXPR, pt_type, decl),
+				   tree_cons (NULL_TREE, size, NULL_TREE)));
+	  add_tree (alloc, &pre);
 	}
 
       if (init && init != error_mark_node)
@@ -903,7 +881,7 @@ gimplify_compound_literal_expr (tree *expr_p)
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
 
-  gimplify_decl_stmt (&decl_s, NULL);
+  gimplify_decl_stmt (&decl_s);
   *expr_p = decl_s ? decl_s : decl;
 }
 

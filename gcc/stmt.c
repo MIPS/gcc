@@ -4044,6 +4044,51 @@ expand_decl (tree decl)
     }
 }
 
+/* Emit code to allocate T_SIZE bytes of dynamic stack space for ALLOC.  */
+void
+expand_stack_alloc (tree alloc, tree t_size)
+{
+  rtx address, dest, size;
+  tree var, type;
+
+  if (TREE_CODE (alloc) != ADDR_EXPR)
+    abort ();
+  var = TREE_OPERAND (alloc, 0);
+  if (TREE_CODE (var) != VAR_DECL)
+    abort ();
+
+  type = TREE_TYPE (var);
+
+  /* Record the stack pointer on entry to block, if have
+     not already done so.  */
+  do_pending_stack_adjust ();
+  save_stack_pointer ();
+
+  /* In function-at-a-time mode, variable_size doesn't expand this,
+     so do it now.  */
+  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+    expand_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
+		 const0_rtx, VOIDmode, 0);
+
+  /* Compute the variable's size, in bytes.  */
+  size = expand_expr (t_size, NULL_RTX, VOIDmode, 0);
+  free_temp_slots ();
+
+  /* Allocate space on the stack for the variable.  */
+  address = XEXP (DECL_RTL (var), 0);
+  dest = allocate_dynamic_stack_space (size, address, TYPE_ALIGN (type));
+  if (dest != address)
+    emit_move_insn (address, dest);
+
+  /* Indicate the alignment we actually gave this variable.  */
+#ifdef STACK_BOUNDARY
+  DECL_ALIGN (var) = STACK_BOUNDARY;
+#else
+  DECL_ALIGN (var) = BIGGEST_ALIGNMENT;
+#endif
+  DECL_USER_ALIGN (var) = 0;
+}
+
 /* Emit code to perform the initialization of a declaration DECL.  */
 
 void
