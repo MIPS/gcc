@@ -290,22 +290,21 @@ visit_phi_node (tree phi)
 	{
 	  rdef_val.lattice_val = KNOWN;
 	  rdef_val.alignment.n = TREE_INT_CST_LOW (rdef) * BITS_PER_UNIT;
-    if (rdef_val.alignment.n == 0)
-      rdef_val.alignment.n = 1;
+	  if (rdef_val.alignment.n == 0)
+	    rdef_val.alignment.n = 1;
 	  rdef_val.alignment.offset = 0;
 	}
       else  if (TREE_CODE (rdef) == SSA_NAME)
 	{
-	  rdef_val = *(get_value (rdef));      
+	  rdef_val = *(get_value (rdef));
 	}
       else
 	{
 	  rdef_val.lattice_val = KNOWN;
 	  rdef_val.alignment.n = BITS_PER_UNIT;
 	  rdef_val.alignment.offset = 0;
-
 	}
-	  phi_val = cp_lattice_meet (phi_val, rdef_val);
+      phi_val = cp_lattice_meet (phi_val, rdef_val);
       
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -314,15 +313,14 @@ visit_phi_node (tree phi)
 	  dump_lattice_value (dump_file, "\tValue: ", rdef_val);
 	  fprintf (dump_file, "\n");
 	}
-      
     }
-
+  
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
       fprintf (dump_file, "\n\n");
     }
-
+  
   set_lattice_value (PHI_RESULT (phi), phi_val);
 }
 
@@ -565,17 +563,27 @@ need_imm_uses_for (tree var ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Add CFG blocks to worklist in dominator tree order.  */
 
+static void
+add_cfg_blocks_in_dt_order (basic_block block)
+{
+  basic_block son;
+  cfg_blocks_add (block);
+  for (son = first_dom_son (CDI_DOMINATORS, block);
+       son;
+       son = next_dom_son (CDI_DOMINATORS, son))
+    add_cfg_blocks_in_dt_order (son);
+}
 /* Initialize local data structures and worklists for CCP.  */
 
 static void
 initialize (void)
 {
-  basic_block bb;
-
   /* Worklists of SSA edges.  */
   VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
 
+  calculate_dominance_info (CDI_DOMINATORS);
   visited_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited_blocks);
 
@@ -592,10 +600,7 @@ initialize (void)
     dump_immediate_uses (dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
-  FOR_ALL_BB (bb)
-    {
-      cfg_blocks_add (bb);
-    }
+  add_cfg_blocks_in_dt_order (ENTRY_BLOCK_PTR);
 }
 
 
@@ -722,8 +727,10 @@ set_lattice_value (tree var, value val)
 #ifdef ENABLE_CHECKING
   if (val.lattice_val == UNDEFINED)
     {
-      /* (KNOWN->UNDEFINED) is never a valid state transition.  */
-      if (old->lattice_val == KNOWN)
+      /* (KNOWN->UNDEFINED) is never a valid state transition, unless
+	 the default value f the var was known.  */
+      if (old->lattice_val == KNOWN 
+	  && get_default_value (var).lattice_val  != KNOWN)
 	abort ();
     }
 #endif  
@@ -736,7 +743,6 @@ set_lattice_value (tree var, value val)
 			      "Lattice value changed to ", val);
 	  fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	}
-
       add_var_to_ssa_edges_worklist (var);
       *old = val;
     }
@@ -841,7 +847,6 @@ get_default_value (tree var)
 	    }
 	}
     }
-
   return val;
 }
 
@@ -906,7 +911,7 @@ dump_align_info (FILE *file)
   const char *fname =
     lang_hooks.decl_printable_name (current_function_decl, 2);
 
-  fprintf (file, "\n\nPointed-to sets for pointers in %s\n\n", fname);
+  fprintf (file, "\nAlignment info for pointers in %s\n\n", fname);
 
   /* First dump points-to information for the default definitions of
      pointer variables.  This is necessary because default definitions are

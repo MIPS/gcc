@@ -1,3 +1,11 @@
+2004-08-11  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-ssa-align.c: Fix indentation.
+	(add_cfg_blocks_in_dt_order):  New function.
+	(initialize): Use it.
+	(set_lattice_value): Allow transition from KNOWN to UNDEFINED when KNOWN
+	was the default value. 
+
 2004-08-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* lambda-code.c (lambda_transform_legal_p): Transforms are legal for loops
