@@ -4778,6 +4778,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   tree cleanup;
   const char *asmspec = NULL;
   int was_readonly = 0;
+  bool var_definition_p = false;
 
   if (decl == error_mark_node)
     return;
@@ -4930,6 +4931,11 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  /* Remember that the initialization for this variable has
 	     taken place.  */
 	  DECL_INITIALIZED_P (decl) = 1;
+	  /* This declaration is the definition of this variable,
+	     unless we are initializing a static data member within
+	     the class specifier.  */
+	  if (!DECL_EXTERNAL (decl))
+	    var_definition_p = true;
 	}
       /* If the variable has an array type, lay out the type, even if
 	 there is no initializer.  It is valid to index through the
@@ -5004,8 +5010,16 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 		initialize_local_var (decl, init);
 	    }
 
-	  if (TREE_STATIC (decl))
-	    expand_static_init (decl, init);
+	  /* If a variable is defined, and then a subsequent
+	     definintion with external linkage is encountered, we will
+	     get here twice for the same variable.  We want to avoid
+	     calling expand_static_init more than once.  For variables
+	     that are not static data members, we can call
+	     expand_static_init only when we actually process the
+	     initializer.  It is not legal to redeclare a static data
+	     member, so this issue does not arise in that case.  */
+	  if (var_definition_p && TREE_STATIC (decl))
+	    expand_static_init (decl, init); 
 	}
     finish_end0:
 
@@ -6369,6 +6383,32 @@ check_special_function_return_type (special_function_kind sfk,
       break;
     }
 
+  return type;
+}
+
+/* A variable or data member (whose unqualified name is IDENTIFIER)
+   has been declared with the indicated TYPE.  If the TYPE is not
+   acceptable, issue an error message and return a type to use for
+   error-recovery purposes. */
+
+tree
+check_var_type (tree identifier, tree type)
+{
+  if (VOID_TYPE_P (type))
+    {
+      if (!identifier)
+	error ("unnamed variable or field declared void");
+      else if (TREE_CODE (identifier) == IDENTIFIER_NODE)
+	{
+	  if (IDENTIFIER_OPNAME_P (identifier))
+	    abort ();
+	  error ("variable or field `%E' declared void", identifier);
+	}
+      else
+	error ("variable or field declared void");
+      type = integer_type_node;
+    }
+  
   return type;
 }
 
@@ -8071,29 +8111,24 @@ grokdeclarator (tree declarator,
 	   && ! bitfield)
     {
       error ("abstract declarator `%T' used as declaration", type);
-      declarator = make_anon_name ();
+      return error_mark_node;
     }
 
-  /* `void' at top level (not within pointer)
-     is allowed only in typedefs or type names.
-     We don't complain about parms either, but that is because
-     a better error message can be made later.  */
-
-  if (TREE_CODE (type) == VOID_TYPE && decl_context != PARM)
+  /* Only functions may be declared using an operator-function-id.  */
+  if (declarator
+      && TREE_CODE (declarator) == IDENTIFIER_NODE
+      && IDENTIFIER_OPNAME_P (declarator)
+      && TREE_CODE (type) != FUNCTION_TYPE
+      && TREE_CODE (type) != METHOD_TYPE)
     {
-      if (! declarator)
-	error ("unnamed variable or field declared void");
-      else if (TREE_CODE (declarator) == IDENTIFIER_NODE)
-	{
-	  if (IDENTIFIER_OPNAME_P (declarator))
-	    abort ();
-	  else
-	    error ("variable or field `%s' declared void", name);
-	}
-      else
-	error ("variable or field declared void");
-      type = integer_type_node;
+      error ("declaration of `%D' as non-function", declarator);
+      return error_mark_node;
     }
+
+  /* We don't check parameter types here because we can emit a better
+     error message later.  */
+  if (decl_context != PARM)
+    type = check_var_type (declarator, type);
 
   /* Now create the decl, which may be a VAR_DECL, a PARM_DECL
      or a FUNCTION_DECL, depending on DECL_CONTEXT and TYPE.  */

@@ -1,3 +1,38 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-11-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/17783
+	* configure.in: Set up LD_LIBRARY_PATH by default for gcc.
+	* configure: Regenerated.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.SCO: Update per FSF instructions.
+
+2004-10-06  Josef Zlomek  <josef.zlomek@email.cz>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2004-09-24  Michael Roth  <mroth@nessie.de>
+
+	* configure.in (--without-headers): Add missing double quotes.
+	* configure: Regenerate.
+
+2004-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17369
+	* Makefile.tpl (REALLY_SET_LIB_PATH): Add @SET_GCC_LIB_PATH@.
+	(configure-target-[+module+]): Add @SET_GCC_LIB_PATH@. Set and
+	export SET_GCC_LIB_PATH_CMD.
+	(configure-gcc): Likewise.
+	* Makefile.in: Regenerated.
+
+	* configure.in (SET_GCC_LIB_PATH): Set and substitute.
+	* configure: Regenerated.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.

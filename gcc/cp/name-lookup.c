@@ -3210,6 +3210,9 @@ do_namespace_alias (tree alias, tree namespace)
   alias = build_lang_decl (NAMESPACE_DECL, alias, void_type_node);     
   DECL_NAMESPACE_ALIAS (alias) = namespace;
   DECL_EXTERNAL (alias) = 1;
+  DECL_CONTEXT (alias) = current_scope ();
+  if (!DECL_CONTEXT (alias))
+    DECL_CONTEXT (alias) = FROB_CONTEXT (current_namespace);
   pushdecl (alias);
 }
 
@@ -3384,7 +3387,7 @@ parse_using_directive (tree namespace, tree attribs)
 	{
 	  if (!toplevel_bindings_p ())
 	    error ("strong using only meaningful at namespace scope");
-	  else
+	  else if (namespace != error_mark_node)
 	    DECL_NAMESPACE_ASSOCIATIONS (namespace)
 	      = tree_cons (current_namespace, 0,
 			   DECL_NAMESPACE_ASSOCIATIONS (namespace));
