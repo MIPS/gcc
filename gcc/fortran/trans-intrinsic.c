@@ -686,18 +686,21 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   se->expr = fold (build (COMPLEX_EXPR, type, real, imag));
 }
 
-
-/* Remainder function MOD(A, P) = A - INT(A / P) * P.  */
+/* Remainder function MOD(A, P) = A - INT(A / P) * P.
+   MODULO(A, P) = (A==0 .or. !(A>0 .xor. P>0))? MOD(A,P):MOD(A,P)+P.  */
 /* TODO: MOD(x, 0)  */
 
 static void
-gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr)
+gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
 {
   tree arg;
   tree arg2;
   tree type;
   tree itype;
   tree tmp;
+  tree zero;
+  tree test1;
+  tree test2;
 
   arg = gfc_conv_intrinsic_function_args (se, expr);
   arg2 = TREE_VALUE (TREE_CHAIN (arg));
@@ -727,8 +730,23 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr)
     default:
       abort ();
     }
-}
 
+  if (modulo)
+    {
+     zero = gfc_build_const (type, integer_zero_node);
+     /* Build !(A > 0 .xor. P > 0).  */
+     test1 = build (GT_EXPR, boolean_type_node, arg, zero);
+     test2 = build (GT_EXPR, boolean_type_node, arg2, zero);
+     test1 = build (TRUTH_XOR_EXPR, boolean_type_node, test1, test2);
+     test1 = build1 (TRUTH_NOT_EXPR, boolean_type_node, test1);
+     /* Build (A == 0) .or. !(A > 0 .xor. P > 0).  */
+     test2 = build (EQ_EXPR, boolean_type_node, arg, zero);
+     test1 = build (TRUTH_OR_EXPR, boolean_type_node, test1, test2);
+
+     se->expr = build (COND_EXPR, type, test1, se->expr, 
+               build (PLUS_EXPR, type, se->expr, arg2));
+    }
+}
 
 /* Positive difference DIM (x, y) = ((x - y) < 0) ? 0 : x - y.  */
 
@@ -2171,7 +2189,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_CSHIFT:
     case GFC_ISYM_EXPONENT:
     case GFC_ISYM_FRACTION:
-    case GFC_ISYM_MODULO:
     case GFC_ISYM_NEAREST:
     case GFC_ISYM_REPEAT:
     case GFC_ISYM_RRSPACING:
@@ -2266,7 +2283,11 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_MOD:
-      gfc_conv_intrinsic_mod (se, expr);
+      gfc_conv_intrinsic_mod (se, expr, 0);
+      break;
+
+    case GFC_ISYM_MODULO:
+      gfc_conv_intrinsic_mod (se, expr, 1);
       break;
 
     case GFC_ISYM_CMPLX:
