@@ -1374,7 +1374,9 @@ lower_catch (struct leh_state *state, tree *tp)
       catch = tsi_stmt (i);
       catch_region = gen_eh_region_catch (try_region, CATCH_TYPES (catch));
 
-      lower_eh_constructs_1 (state, &CATCH_BODY (catch));
+      this_state.cur_region = catch_region;
+      this_state.prev_try = state->prev_try;
+      lower_eh_constructs_1 (&this_state, &CATCH_BODY (catch));
 
       eh_label = create_artificial_label ();
       set_eh_region_tree_label (catch_region, eh_label);
