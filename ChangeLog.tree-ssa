@@ -1,3 +1,7 @@
+2003-04-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* MAINTAINERS.tree-ssa: New file.
+
 2003-01-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* configure.in: Use ac_configure_args for libbanshee option
