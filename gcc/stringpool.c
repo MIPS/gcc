@@ -48,7 +48,6 @@ static struct obstack string_stack;
 
 static hashnode alloc_node PARAMS ((hash_table *));
 static int mark_ident PARAMS ((struct cpp_reader *, hashnode, const PTR));
-static void mark_ident_hash PARAMS ((void *));
 
 /* Initialize the string pool.  */
 void
@@ -58,7 +57,6 @@ init_stringpool ()
   ident_hash = ht_create (14);
   ident_hash->alloc_node = alloc_node;
   gcc_obstack_init (&string_stack);
-  ggc_add_root (&ident_hash, 1, sizeof ident_hash, mark_ident_hash);
 }
 
 /* Allocate a hash node.  */
@@ -158,15 +156,16 @@ mark_ident (pfile, h, v)
      hashnode h;
      const PTR v ATTRIBUTE_UNUSED;
 {
-  ggc_mark_tree (HT_IDENT_TO_GCC_IDENT (h));
+  gt_ggc_m_9tree_node (HT_IDENT_TO_GCC_IDENT (h));
   return 1;
 }
 
-/* Mark all identifiers for GC.  */
+/* Mark the trees hanging off the identifier node for GGC.  These are
+   handled specially (not using gengtype) because of the special
+   treatment for strings.  */
 
-static void
-mark_ident_hash (arg)
-     PTR arg ATTRIBUTE_UNUSED;
+void
+ggc_mark_stringpool ()
 {
   ht_forall (ident_hash, mark_ident, NULL);
 }

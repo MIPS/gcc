@@ -23,13 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-#include "rtl.h"
-#include "tree.h"
-#include "tm_p.h"
 #include "hashtab.h"
-#include "varray.h"
 #include "ggc.h"
-#include "langhooks.h"
 
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
@@ -37,42 +32,6 @@ static ggc_statistics *ggc_stats;
 static int ggc_htab_delete PARAMS ((void **, void *));
 
 /* Maintain global roots that are preserved during GC.  */
-
-/* Global roots that are preserved during calls to gc.  */
-
-struct ggc_root
-{
-  struct ggc_root *next;
-  void *base;
-  int nelt;
-  int size;
-  void (*cb) PARAMS ((void *));
-};
-
-static struct ggc_root *roots;
-
-/* Add BASE as a new garbage collection root.  It is an array of
-   length NELT with each element SIZE bytes long.  CB is a
-   function that will be called with a pointer to each element
-   of the array; it is the intention that CB call the appropriate
-   routine to mark gc-able memory for that element.  */
-
-void
-ggc_add_root (base, nelt, size, cb)
-     void *base;
-     int nelt, size;
-     void (*cb) PARAMS ((void *));
-{
-  struct ggc_root *x = (struct ggc_root *) xmalloc (sizeof (*x));
-
-  x->next = roots;
-  x->base = base;
-  x->nelt = nelt;
-  x->size = size;
-  x->cb = cb;
-
-  roots = x;
-}
 
 /* Process a slot of an htab by deleting it if it has not been marked.  */
 
@@ -112,16 +71,7 @@ ggc_mark_roots ()
       for (i = 0; i < rti->nelt; i++)
 	(*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
 
-  for (x = roots; x != NULL; x = x->next)
-    {
-      char *elt = x->base;
-      int s = x->size, n = x->nelt;
-      void (*cb) PARAMS ((void *)) = x->cb;
-      int i;
-
-      for (i = 0; i < n; ++i, elt += s)
-	(*cb)(elt);
-    }
+  ggc_mark_stringpool ();
 
   /* Now scan all hash tables that have objects which are to be deleted if
      they are not already marked.  */
@@ -211,57 +161,7 @@ ggc_print_common_statistics (stream, stats)
   /* Then do one collection to fill in the statistics.  */
   ggc_collect ();
 
-  /* Total the statistics.  */
-  for (code = 0; code < MAX_TREE_CODES; ++code)
-    {
-      stats->total_num_trees += stats->num_trees[code];
-      stats->total_size_trees += stats->size_trees[code];
-    }
-  for (code = 0; code < NUM_RTX_CODE; ++code)
-    {
-      stats->total_num_rtxs += stats->num_rtxs[code];
-      stats->total_size_rtxs += stats->size_rtxs[code];
-    }
-
-  /* Print the statistics for trees.  */
-  fprintf (stream, "\n%-17s%10s %16s %10s\n", "Tree",
-	   "Number", "Bytes", "% Total");
-  for (code = 0; code < MAX_TREE_CODES; ++code)
-    if (ggc_stats->num_trees[code])
-      {
-	fprintf (stream, "%-17s%10u%16ld%c %10.3f\n",
-		 tree_code_name[code],
-		 ggc_stats->num_trees[code],
-		 SCALE (ggc_stats->size_trees[code]),
-		 LABEL (ggc_stats->size_trees[code]),
-		 (100 * ((double) ggc_stats->size_trees[code])
-		  / ggc_stats->total_size_trees));
-      }
-  fprintf (stream,
-	   "%-17s%10u%16ld%c\n", "Total",
-	   ggc_stats->total_num_trees,
-	   SCALE (ggc_stats->total_size_trees),
-	   LABEL (ggc_stats->total_size_trees));
-
-  /* Print the statistics for RTL.  */
-  fprintf (stream, "\n%-17s%10s %16s %10s\n", "RTX",
-	   "Number", "Bytes", "% Total");
-  for (code = 0; code < NUM_RTX_CODE; ++code)
-    if (ggc_stats->num_rtxs[code])
-      {
-	fprintf (stream, "%-17s%10u%16ld%c %10.3f\n",
-		 rtx_name[code],
-		 ggc_stats->num_rtxs[code],
-		 SCALE (ggc_stats->size_rtxs[code]),
-		 LABEL (ggc_stats->size_rtxs[code]),
-		 (100 * ((double) ggc_stats->size_rtxs[code])
-		  / ggc_stats->total_size_rtxs));
-      }
-  fprintf (stream,
-	   "%-17s%10u%16ld%c\n", "Total",
-	   ggc_stats->total_num_rtxs,
-	   SCALE (ggc_stats->total_size_rtxs),
-	   LABEL (ggc_stats->total_size_rtxs));
+  /* At present, we don't really gather any interesting statistics.  */
 
   /* Don't gather statistics any more.  */
   ggc_stats = NULL;

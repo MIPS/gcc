@@ -46,6 +46,7 @@ end ifc
 #include "c-pragma.h"		/* For YYDEBUG definition, and parse_in.  */
 #include "c-tree.h"
 #include "flags.h"
+#include "varray.h"
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
