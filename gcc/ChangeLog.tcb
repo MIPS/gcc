@@ -1,5 +1,10 @@
 2004-10-19  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Always
+	start with a nil copy-of value.
+
+2004-10-19  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-ccp.c (replace_vuses_in): Revert inadvertent
 	early return.
 

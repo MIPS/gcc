@@ -674,17 +674,14 @@ copy_prop_visit_phi_node (tree phi)
   enum ssa_prop_result retval;
   int i;
   tree lhs;
-  prop_value_t phi_val;
+  prop_value_t phi_val = { 0, NULL_TREE, NULL_TREE };
 
   lhs = PHI_RESULT (phi);
-  phi_val = *(get_copy_of_val (lhs));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
       print_generic_expr (dump_file, phi, dump_flags);
-      fprintf (dump_file, "\nCurrent value: ");
-      dump_copy_of (dump_file, lhs);
       fprintf (dump_file, "\n\n");
     }
 
