@@ -1,3 +1,9 @@
+2003-06-04  Jason Merrill  <jason@redhat.com>
+
+	* stmt.c (expand_decl): Fix merge error: again, put artificial
+	vars into registers even when not optimizing, and don't mark the
+	regs as user vars.
+
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (simplify_call_expr): Move code to mark MD builtins
@@ -74,7 +80,7 @@
 	* expr.c (expand_expr) <COND_EXPR>: Use the if-statement code if
 	it's void.
 
-2003-06-01  Daniel Berlin  <dberlin@dberlin.org
+2003-06-01  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c: Remove setting of DECL_CONTEXT in temp vars,
 	it's done in create_tmp_alias_var for us.

@@ -3987,7 +3987,7 @@ expand_decl (decl)
 		&& TREE_CODE (type) == REAL_TYPE)
 	   && ! TREE_THIS_VOLATILE (decl)
 	   && ! DECL_NONLOCAL (decl)
-	   && (DECL_REGISTER (decl) || optimize))
+	   && (DECL_REGISTER (decl) || DECL_ARTIFICIAL (decl) || optimize))
     {
       /* Automatic variable that can go in a register.  */
       int unsignedp = TREE_UNSIGNED (type);
@@ -3996,7 +3996,8 @@ expand_decl (decl)
 
       SET_DECL_RTL (decl, gen_reg_rtx (reg_mode));
 
-      mark_user_reg (DECL_RTL (decl));
+      if (!DECL_ARTIFICIAL (decl))
+	mark_user_reg (DECL_RTL (decl));
 
       if (POINTER_TYPE_P (type))
 	mark_reg_pointer (DECL_RTL (decl),
