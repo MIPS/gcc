@@ -305,7 +305,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
             {
               fprintf (dump_file, "  Deleted dead store '");
-              print_generic_expr (dump_file, bsi_stmt (bsi), 0);
+              print_generic_expr (dump_file, bsi_stmt (bsi), dump_flags);
               fprintf (dump_file, "'\n");
             }
 

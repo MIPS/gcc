@@ -3937,7 +3937,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   arg = DECL_ARGUMENTS (fn);
   while (arg)
     {
-      print_generic_expr (file, arg, 0);
+      print_generic_expr (file, arg, dump_flags);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);

@@ -1479,13 +1479,13 @@ add_pointed_to_expr (tree ptr, tree value)
   if (dump_file)
     {
       fprintf (dump_file, "Pointer ");
-      print_generic_expr (dump_file, ptr, 0);
+      print_generic_expr (dump_file, ptr, dump_flags);
       fprintf (dump_file, " points to ");
       if (ann->pt_malloc)
 	fprintf (dump_file, "malloc space: ");
       else
 	fprintf (dump_file, "an arbitrary address: ");
-      print_generic_expr (dump_file, value, 0);
+      print_generic_expr (dump_file, value, dump_flags);
       fprintf (dump_file, "\n");
     }
 }
@@ -1543,7 +1543,7 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Visiting use-def links for ");
-      print_generic_expr (dump_file, var, 0);
+      print_generic_expr (dump_file, var, dump_flags);
       fprintf (dump_file, "\n");
     }
 
@@ -1892,7 +1892,7 @@ dump_points_to_info_for (FILE *file, tree ptr)
   ssa_name_ann_t ann = ssa_name_ann (ptr);
 
   fprintf (file, "Pointer ");
-  print_generic_expr (file, ptr, 0);
+  print_generic_expr (file, ptr, dump_flags);
 
   if (ann == NULL)
     return;
@@ -1900,7 +1900,7 @@ dump_points_to_info_for (FILE *file, tree ptr)
   if (ann->name_mem_tag)
     {
       fprintf (file, ", name memory tag: ");
-      print_generic_expr (file, ann->name_mem_tag, 0);
+      print_generic_expr (file, ann->name_mem_tag, dump_flags);
     }
 
   if (ann->value_escapes_p)
@@ -1919,7 +1919,7 @@ dump_points_to_info_for (FILE *file, tree ptr)
       fprintf (file, ", points-to vars: { ");
       EXECUTE_IF_SET_IN_BITMAP (ann->pt_vars, 0, ix,
 	  {
-	    print_generic_expr (file, referenced_var (ix), 0);
+	    print_generic_expr (file, referenced_var (ix), dump_flags);
 	    fprintf (file, " ");
 	  });
       fprintf (file, "}");
@@ -2009,7 +2009,7 @@ dump_may_aliases_for (FILE *file, tree var)
       fprintf (file, "{ ");
       for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	{
-	  print_generic_expr (file, VARRAY_TREE (aliases, i), 0);
+	  print_generic_expr (file, VARRAY_TREE (aliases, i), dump_flags);
 	  fprintf (file, " ");
 	}
       fprintf (file, "}");

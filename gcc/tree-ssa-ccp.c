@@ -310,7 +310,7 @@ simulate_stmt (tree use_stmt)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nSimulating statement (from ssa_edges): ");
-      print_generic_stmt (dump_file, use_stmt, 0);
+      print_generic_stmt (dump_file, use_stmt, dump_flags);
     }
 
   if (TREE_CODE (use_stmt) == PHI_NODE)
@@ -425,7 +425,7 @@ visit_phi_node (tree phi)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (dump_file, phi, 0);
+      print_generic_expr (dump_file, phi, dump_flags);
     }
 
   curr_val = get_value (PHI_RESULT (phi));
@@ -493,7 +493,7 @@ visit_phi_node (tree phi)
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
 		fprintf (dump_file, "\t");
-		print_generic_expr (dump_file, rdef, 0);
+		print_generic_expr (dump_file, rdef, dump_flags);
 		dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
 		fprintf (dump_file, "\n");
 	      }
@@ -975,7 +975,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
       break;
     case CONSTANT:
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_expr (outf, val.const_val, 0);
+      print_generic_expr (outf, val.const_val, dump_flags);
       break;
     default:
       abort ();
@@ -2316,7 +2316,7 @@ execute_fold_all_builtins (void)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Simplified\n  ");
-	      print_generic_stmt (dump_file, *stmtp, 0);
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
 	  set_rhs (stmtp, result);
@@ -2325,7 +2325,7 @@ execute_fold_all_builtins (void)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "to\n  ");
-	      print_generic_stmt (dump_file, *stmtp, 0);
+	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 	}

@@ -293,7 +293,7 @@ can_be_scalarized_p (tree var)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
+	  print_generic_expr (dump_file, var, dump_flags);
 	  fprintf (dump_file, " because it must live in memory\n");
 	}
       return false;
@@ -304,7 +304,7 @@ can_be_scalarized_p (tree var)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Cannot scalarize variable ");
-	  print_generic_expr (dump_file, var, 0);	 
+	  print_generic_expr (dump_file, var, dump_flags);
 	  fprintf (dump_file, " because it is declared volatile\n");
 	}
       return false;
@@ -328,10 +328,10 @@ can_be_scalarized_p (tree var)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
+	      print_generic_expr (dump_file, var, dump_flags);
 	      fprintf (dump_file,
 		       " because it contains an aggregate type field, ");
-	      print_generic_expr (dump_file, field, 0);
+	      print_generic_expr (dump_file, field, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 	  return false;
@@ -346,10 +346,10 @@ can_be_scalarized_p (tree var)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);
+	      print_generic_expr (dump_file, var, dump_flags);
 	      fprintf (dump_file,
 		       " because it contains a __complex__ field, ");
-	      print_generic_expr (dump_file, field, 0);
+	      print_generic_expr (dump_file, field, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 	  return false;
@@ -364,10 +364,10 @@ can_be_scalarized_p (tree var)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
+	      print_generic_expr (dump_file, var, dump_flags);
 	      fprintf (dump_file,
 		       " because it contains a bit-field, ");
-	      print_generic_expr (dump_file, field, 0);
+	      print_generic_expr (dump_file, field, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 	  return false;
@@ -379,7 +379,7 @@ can_be_scalarized_p (tree var)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Cannot scalarize variable ");
-	      print_generic_expr (dump_file, var, 0);	 
+	      print_generic_expr (dump_file, var, dump_flags);
 	      fprintf (dump_file,
 		       " because it contains more than %d fields\n", 
 		       MAX_NFIELDS_FOR_SRA);
@@ -1087,16 +1087,16 @@ dump_sra_map_trav (void **slot, void *data)
     {
     case REALPART_EXPR:
       fputs ("__real__ ", f);
-      print_generic_expr (dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, dump_flags);
       fprintf (f, " -> %s\n", get_name (e->replace));
       break;
     case IMAGPART_EXPR:
       fputs ("__imag__ ", f);
-      print_generic_expr (dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, dump_flags);
       fprintf (f, " -> %s\n", get_name (e->replace));
       break;
     case COMPONENT_REF:
-      print_generic_expr (dump_file, e->base, 0);
+      print_generic_expr (dump_file, e->base, dump_flags);
       fprintf (f, ".%s -> %s\n", get_name (e->field), get_name (e->replace));
       break;
     default:

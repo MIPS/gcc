@@ -746,7 +746,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
 	  fprintf (dump_file, "Found tail call ");
-	  print_generic_expr (dump_file, stmt, 0);
+	  print_generic_expr (dump_file, stmt, dump_flags);
 	  fprintf (dump_file, " in bb %i\n", t->call_block->index);
 	}
     }

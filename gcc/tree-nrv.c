@@ -170,9 +170,9 @@ tree_nrv (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "NRV Replaced: ");
-      print_generic_expr (dump_file, found, 0);
+      print_generic_expr (dump_file, found, dump_flags);
       fprintf (dump_file, "  with: ");
-      print_generic_expr (dump_file, result, 0);
+      print_generic_expr (dump_file, result, dump_flags);
       fprintf (dump_file, "\n");
     }
 

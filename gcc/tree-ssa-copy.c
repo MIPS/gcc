@@ -240,11 +240,11 @@ cprop_into_stmt (tree stmt, varray_type const_and_copies)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "  Replaced '");
-		  print_generic_expr (dump_file, *op_p, 0);
+		  print_generic_expr (dump_file, *op_p, dump_flags);
 		  fprintf (dump_file, "' with %s '",
 			   (TREE_CODE (val) != SSA_NAME
 			      ? "constant" : "variable"));
-		  print_generic_expr (dump_file, val, 0);
+		  print_generic_expr (dump_file, val, dump_flags);
 		  fprintf (dump_file, "'\n");
 		}
 

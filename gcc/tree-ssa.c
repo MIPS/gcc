@@ -2910,7 +2910,7 @@ dump_tree_ssa (FILE *file)
     {
       dump_bb (bb, file, 0);
       fputs ("    ", file);
-      print_generic_stmt (file, phi_nodes (bb), 0);
+      print_generic_stmt (file, phi_nodes (bb), dump_flags);
       fputs ("\n\n", file);
     }
 }
@@ -3623,7 +3623,7 @@ debug_def_blocks_r (void **slot, void *data ATTRIBUTE_UNUSED)
   struct def_blocks_d *db_p = (struct def_blocks_d *) *slot;
   
   fprintf (stderr, "VAR: ");
-  print_generic_expr (stderr, db_p->var, 0);
+  print_generic_expr (stderr, db_p->var, dump_flags);
   fprintf (stderr, ", DEF_BLOCKS: { ");
   EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i,
 			    fprintf (stderr, "%ld ", i));

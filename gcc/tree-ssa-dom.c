@@ -2269,9 +2269,9 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (dump_file, *expr_p, 0);
+	  print_generic_expr (dump_file, *expr_p, dump_flags);
 	  fprintf (dump_file, "' with '");
-	  print_generic_expr (dump_file, cached_lhs, 0);
+	  print_generic_expr (dump_file, cached_lhs, dump_flags);
 	   fprintf (dump_file, "'\n");
 	}
 

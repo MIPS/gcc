@@ -3642,7 +3642,8 @@ enum tree_dump_index
 					   each pass */
 #define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
 #define TDF_VOPS	(1 << 6)	/* display virtual operands */
-#define TDF_LINENO	(1 << 7)	/* display line numbers for statements */
+#define TDF_LINENO	(1 << 7)	/* display statement line numbers */
+#define TDF_UID		(1 << 8)	/* display decl UIDs */
 
 
 typedef struct dump_info *dump_info_p;

@@ -933,9 +933,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 		    {
 		      fprintf (dump_file,
 			  "NOTE: no flow-sensitive alias info for ");
-		      print_generic_expr (dump_file, ptr, 0);
+		      print_generic_expr (dump_file, ptr, dump_flags);
 		      fprintf (dump_file, " in ");
-		      print_generic_stmt (dump_file, stmt, 0);
+		      print_generic_stmt (dump_file, stmt, dump_flags);
 		    }
 
 		  if (TREE_CODE (ptr) == SSA_NAME)

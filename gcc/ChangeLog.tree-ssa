@@ -1,3 +1,21 @@
+2004-03-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (struct dump_option_value_info): Add TDF_UID.
+	* tree.h (TDF_UID): Define.
+	* doc/invoke.texi: Document -ftree-dump-...-uid.
+	* tree-pretty-print.c (debug_generic_expr): Add TDF_UID.
+	(debug_generic_stmt): Likewise.
+	(dump_decl_name): New function.
+	(dump_generic_node): Call it.
+	(print_declaration): Add new argument 'flags'.  Update all users.
+	(print_struct_decl): Likewise.
+	* tree-alias-ander.c, tree-cfg.c, tree-dfa.c, tree-mudflap.c,
+	tree-nrv.c, tree-sra.c, tree-ssa-alias.c, tree-ssa-ccp.c,
+	tree-ssa-copy.c, tree-ssa-dom.c, tree-ssa-dse.c,
+	tree-ssa-forwprop.c, tree-ssa-operands.c, tree-ssa-pre.c,
+	tree-ssa.c, tree-tail-call.c: Call print_generic_* with
+	'dump_flags'.
+
 2004-03-16  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in (tree-ssa-phiopt.o): add langhooks.h dependency.

@@ -529,7 +529,7 @@ dump_variable (FILE *file, tree var)
       return;
     }
 
-  print_generic_expr (file, var, 0);
+  print_generic_expr (file, var, dump_flags);
   
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -544,7 +544,7 @@ dump_variable (FILE *file, tree var)
   if (ann->type_mem_tag)
     {
       fprintf (file, ", type memory tag: ");
-      print_generic_expr (file, ann->type_mem_tag, 0);
+      print_generic_expr (file, ann->type_mem_tag, dump_flags);
     }
 
   if (ann->is_alias_tag)
@@ -559,7 +559,7 @@ dump_variable (FILE *file, tree var)
   if (ann->default_def)
     {
       fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, 0);
+      print_generic_expr (file, ann->default_def, dump_flags);
     }
 
   if (ann->may_aliases)
