@@ -1,5 +1,10 @@
 2002-12-01  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-optimize.c (optimize_function_tree): Undo
+	inadvertent change in previous commit.
+
+2002-12-01  Diego Novillo  <dnovillo@redhat.com>
+
 	* fold-const.c (operand_equal_p): Check for NULL TREE_TYPEs.
 
 	* tree-cfg.c (remove_stmt): Call remove_ref.

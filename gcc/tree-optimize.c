@@ -80,7 +80,7 @@ optimize_function_tree (fndecl)
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
       
-      if (flag_tree_dce || getenv ("TREE_DCE"))
+      if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
     }
 
