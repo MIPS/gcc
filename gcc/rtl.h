@@ -1929,6 +1929,7 @@ extern int initialize_uninitialized_subregs	PARAMS ((void));
 extern void print_rtl_with_bb			PARAMS ((FILE *, rtx));
 extern void dump_flow_info			PARAMS ((FILE *));
 #endif
+void delete_dead_jumptables		PARAMS ((void));
 
 /* In expmed.c */
 extern void init_expmed			PARAMS ((void));

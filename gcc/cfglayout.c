@@ -897,6 +897,10 @@ cfg_layout_duplicate_bb (bb, e)
 void
 cfg_layout_initialize ()
 {
+  /* Our algorithm depends on fact that there are now dead jumptables
+     around the code.  */
+  delete_trivially_dead_insns (get_insns (), max_reg_num (), 0);
+  delete_dead_jumptables ();
   alloc_aux_for_blocks (sizeof (struct reorder_block_def));
   cleanup_unconditional_jumps ();
   scope_to_insns_initialize ();

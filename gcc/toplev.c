@@ -2882,6 +2882,7 @@ rest_of_compilation (decl)
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
+      rebuild_jump_labels (insns);
 
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
