@@ -812,7 +812,7 @@ OBJS = algebraic.o alias.o bb-reorder.o bitmap.o builtins.o caller-save.o  \
  loop-init.o loop-unswitch.o loop-unroll.o loop-iv.o loop-invariant.o	   \
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
- real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
+ real.o recog.o reg-stack.o regclass.o regmove.o regrename.o loop-ivopts.o \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
@@ -1701,7 +1701,11 @@ algebraic.o : algebraic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
 loop-invariant.o: loop-invariant.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h loop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_P_H) $(RECOG_H) insn-config.h \
-   $(REGS_H) function.h df.h flags.h algebraic.h el-rtx.h
+   $(REGS_H) function.h df.h flags.h  el-rtx.h algebraic.h
+loop-ivopts.o: loop-ivopts.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h loop.h cfglayout.h params.h \
+   output.h $(EXPR_H) coretypes.h $(TM_P_H) $(RECOG_H) insn-config.h \
+   $(REGS_H) function.h df.h flags.h el-rtx.h algebraic.h
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h

@@ -157,11 +157,9 @@ static void move_movables (struct movable_list *);
 static void free_movables (struct movable_list *);
 static void prescan_loop (struct loop *);
 static void note_addr_stored (rtx, rtx, void *);
-static void estimate_replacement_possibilities (rtx, struct loop *, rtx,
-						int *, rtx *);
+static bool estimate_replacement_possibilities (rtx, struct loop *, rtx);
 static void free_loop_info (struct loop *);
 static void make_dependency_substs (rtx *, struct movable *, int);
-static void hoist_insn_to_depth (struct loop *, int, rtx, int);
 static void replace_insn_by (rtx, rtx);
 static void free_movable_list (struct movable_list *);
 static void make_single_target_m (struct movable *);
@@ -375,24 +373,18 @@ prescan_loop (struct loop *loop)
 }
 
 /* Checks whether it is ok to hoist the possibly invariant set of REG
-   in INSN out of LOOP -- then REPLACEABLE is set to 1, and whether
-   there is just a single use inside LOOP (then it is set to SINGLE_USE).  */
-static void
-estimate_replacement_possibilities (rtx reg, struct loop *loop, rtx insn,
-				    int *replaceable, rtx *single_use)
+   in INSN out of LOOP.  */
+static bool
+estimate_replacement_possibilities (rtx reg, struct loop *loop, rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   int maybe_never = TEST_BIT (loop->info->bb_after_exit, bb->index);
   struct df_link *def, *use, *ddef;
-  int n_uses = 0;
 
   for (def = DF_INSN_DEFS (loop_df, insn);
        DF_REF_REGNO (def->ref) != REGNO (reg);
        def = def->next)
     continue;
-
-  *replaceable = 1;
-  *single_use = NULL;
 
   /* Check all the uses of the reg.  */
   for (use = loop_df->regs[REGNO (reg)].uses; use; use = use->next)
@@ -405,31 +397,49 @@ estimate_replacement_possibilities (rtx reg, struct loop *loop, rtx insn,
       for (ddef = DF_REF_CHAIN (use->ref); ddef; ddef = ddef->next)
 	if (ddef->ref == def->ref)
 	  break;
+      if (ddef
+	  && (maybe_never || flow_bb_inside_loop_p (loop, bb))
+	  && DF_REF_CHAIN (use->ref)->next)
+	return false;
+    }
+
+  return true;
+}
+
+/* Find single use of definition of REG in INSN inside LOOP.  */
+rtx
+find_single_def_use (rtx reg, struct loop *loop, rtx insn)
+{
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  struct df_link *def, *use, *ddef;
+  rtx single_use = NULL;
+
+  for (def = DF_INSN_DEFS (loop_df, insn);
+       DF_REF_REGNO (def->ref) != REGNO (reg);
+       def = def->next)
+    continue;
+
+  /* Check all the uses of the reg.  */
+  for (use = loop_df->regs[REGNO (reg)].uses; use; use = use->next)
+    {
+      bb = DF_REF_BB (use->ref);
+
+      for (ddef = DF_REF_CHAIN (use->ref); ddef; ddef = ddef->next)
+	if (ddef->ref == def->ref)
+	  break;
+
       if (ddef)
 	{
-	  if (maybe_never || flow_bb_inside_loop_p (loop, bb))
-	    if (DF_REF_CHAIN (use->ref)->next)
-	      *replaceable = 0;
-	  if (!flow_bb_inside_loop_p (loop, bb)
+	  if (single_use
+	      || !flow_bb_inside_loop_p (loop, bb)
 	      || DF_REF_CHAIN (use->ref)->next)
-	    n_uses = 2;
-	  else
-	    {
-	      n_uses++;
-	      *single_use = DF_REF_INSN (use->ref);
-	    }
-	}
-
-      /* Shortcut for defs that are used on many places.  */
-      if (!*replaceable && n_uses > 1)
-	{
-	  *single_use = NULL;
-	  return;
+	    return NULL;
+	      
+	  single_use = DF_REF_INSN (use->ref);
 	}
     }
 
-  if (n_uses > 1)
-    *single_use = NULL;
+  return single_use;
 }
 
 /* Tries to estimate LIFETIME of reference DEF as well as whether it is
@@ -515,7 +525,6 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
   struct movable *act;
   int n_movables, depth, d, am, i;
   struct movable_gain **gains;
-  int *avail_regs;
   int *niter, aniter;
   struct movable_list *m, *m1;
   struct loop *loop, *tloop;
@@ -613,7 +622,6 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
     fprintf (rtl_dump_file, "\nLoops:\n\n");
 
   /* Count the information for loops.  */
-  avail_regs = xmalloc (loops->num * sizeof (int));
   niter = xmalloc (loops->num * sizeof (int));
   niter[0] = 1;
   for (i = 1; i < (int) loops->num; i++)
@@ -625,14 +633,14 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
       if (niter[i] == 0)
 	niter[i] = 1;
 
-      avail_regs[i] = N_USABLE_REGS
-		      - (loop->info->has_call ? N_CALL_REGS : 0)
-		      - REGS_PER_LOOP_LEVEL * get_loop_level (loop) 
-		      - loop->ninsns / INSNS_PER_REG;
+      loop_avail_regs[i] = N_USABLE_REGS
+	      - (loop->info->has_call ? N_CALL_REGS : 0)
+	      - REGS_PER_LOOP_LEVEL * get_loop_level (loop) 
+	      - loop->ninsns / INSNS_PER_REG;
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, " %d niter %d regs %d\n",
-		 i, niter[i], avail_regs[i]);
+		 i, niter[i], loop_avail_regs[i]);
     }
   
   /* Allocate the structures and count the costs.  */
@@ -736,7 +744,7 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
 	    tloop = act->loop;
 	  else
 	    tloop = act->loop->pred[d + 1];
-	  if (avail_regs[tloop->num] >= gains[am][d].req_regs)
+	  if (loop_avail_regs[tloop->num] >= gains[am][d].req_regs)
 	    {
 	      act_gain = gains[am][d].gain_in_reg;
 	      if (rtl_dump_file)
@@ -787,7 +795,7 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
 	  for (tloop = act->loop;
 	       tloop->depth != best_depth;
 	       tloop = tloop->outer)
-	    avail_regs[tloop->num] -= gains[am][best_depth].req_regs;
+	    loop_avail_regs[tloop->num] -= gains[am][best_depth].req_regs;
 	}
 
       /* Force dependencies to move low enough.  */
@@ -799,7 +807,6 @@ determine_move_depth (struct loops *loops, struct movable_list *movables)
 
   free (gains);
   free (marray);
-  free (avail_regs);
 }
 
 /* Called through for_each_rtx, evaluates whether the EXPR is movable.
@@ -1055,8 +1062,8 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
        def = def->next)
     continue;
   estimate_lifetime (def->ref, &local, &lifetime);
-  estimate_replacement_possibilities (dest, loop, insn,
-				      &replaceable, &single_target);
+  replaceable = estimate_replacement_possibilities (dest, loop, insn);
+  single_target = find_single_def_use (dest, loop, insn);
   
   /* Now we are sure that it is movable on some higher level and know its
      dependencies.  Let's find whether there is not already equivalent
@@ -1090,7 +1097,7 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
 	m1->local = 0;
 
       m1->savings += cost;
-      m1->replaceable += replaceable;
+      m1->replaceable += (replaceable != 0);
       m1->single_targets = alloc_INSN_LIST (single_target,
 						m1->single_targets);
       DF_REF_AUX_MOVABLE (def->ref) = m1;
@@ -1124,7 +1131,7 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
   m1->cost = cost;
   m1->savings = cost;
   m1->move_depth = loop->depth;
-  m1->replaceable = replaceable;
+  m1->replaceable = (replaceable != 0);
   m1->single_targets = alloc_INSN_LIST (single_target, NULL);
   m1->single_targets_m = NULL;
   DF_REF_AUX_MOVABLE (def->ref) = m1;
@@ -1263,7 +1270,7 @@ make_dependency_substs (rtx *subst, struct movable *m, int clear)
 
 /* Hoist insn sequence SEQ to DEPTH above LOOP; if PREHEADER is true,
    then to preheader, otherwise to landing pad.  */
-static void
+void
 hoist_insn_to_depth (struct loop *loop, int depth, rtx seq, int preheader)
 {
   struct loop *tgt = depth == loop->depth - 1 ? loop : loop->pred[depth + 1];

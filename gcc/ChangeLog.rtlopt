@@ -1,3 +1,32 @@
+2003-07-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-ivopts.c: New file.
+	* Makefile.in (loop-ivopts.o): New.
+	* cfgloop.h (loop_max_regno): Declare.
+	(struct iv_occurence): Add aux field.
+	(struct movable_list): Comment.
+	(struct ivopt_actions): New structure.
+	(loop_avail_regs): Declare.
+	(hoist_insn_to_depth, find_single_def_use, detect_strength_reductions,
+	execute_strength_reductions): Declare.
+	* loop-init.c (loop_avail_regs): Moved from loop-invariant.c, renamed
+	and exported.
+	(loop_optimizer_optimize): Add induction variable optimizations.
+	* loop-invariant.c (estimate_replacement_possibilities): Split off ...
+	(find_single_def_use): ... new.
+	(hoist_insn_to_depth): Export.
+	(determine_move_depth): Use loop_avail_regs instead of avail_regs.
+	(detect_movable_set): Use find_single_def_use.
+	* loop-iv.c (max_regno): Rename to loop_max_regno and export.
+	(dump_equations, simplify_ivs_using_values, initialize_iv_analysis,
+	compute_loop_end_values, compute_initial_values,
+	iv_new_insn_changes_commit, analyse_induction_variables): Use
+	loop_max_regno instead of max_regno.
+	(enter_iv_occurence): Initialize aux field.
+	(compute_loop_end_values): Initialize values correctly.
+	* params.def (STR_N_USABLE_REGS, STR_SPILL_COST, STR_REG_WEIGHT):
+	New.
+
 2003-07-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-invariant.c: New file.

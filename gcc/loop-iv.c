@@ -91,7 +91,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    add it as new fields to struct loops?  */
 
 /* Maximal register number.  */
-static unsigned max_regno;
+unsigned loop_max_regno;
 
 /* The loops for that we compute the ivs.  */
 static struct loops *current_loops;
@@ -189,13 +189,13 @@ dump_equations (file, values)
   unsigned regno;
 
   fprintf (file, "   unchanged:");
-  for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+  for (regno = 0; regno < loop_max_regno; regno++)
     if (TEST_BIT (iv_interesting_reg, regno)
 	&& values[regno] == gen_initial_value (regno))
       fprintf (file, " %d", regno);
   fprintf (file, "\n");
 
-  for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+  for (regno = 0; regno < loop_max_regno; regno++)
     if (TEST_BIT (iv_interesting_reg, regno)
 	&& values[regno] != gen_initial_value (regno))
       {
@@ -494,7 +494,7 @@ simplify_ivs_using_values (values, initial_values)
   unsigned regno;
   rtx value, svalue;
 
-  for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+  for (regno = 0; regno < loop_max_regno; regno++)
     if (TEST_BIT (iv_interesting_reg, regno))
       {
 	value = values[regno];
@@ -978,20 +978,21 @@ initialize_iv_analysis (loops)
   sbitmap_zero (loop_rd_in_ok);
 
   current_loops = loops;
-  max_regno = max_reg_num ();
+  loop_max_regno = max_reg_num ();
 
-  iv_interesting_reg = sbitmap_alloc (max_regno);
+  iv_interesting_reg = sbitmap_alloc (loop_max_regno);
   sbitmap_zero (iv_interesting_reg);
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < loop_max_regno; i++)
     {
       mode = GET_MODE (regno_reg_rtx[i]);
       if (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
 	SET_BIT (iv_interesting_reg, i);
     }
+  SET_BIT (iv_interesting_reg, REGNO (frame_pointer_rtx));
 
-  initial_value_rtx = xmalloc (sizeof (rtx) * max_regno);
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  initial_value_rtx = xmalloc (sizeof (rtx) * loop_max_regno);
+  for (i = FIRST_PSEUDO_REGISTER; i < loop_max_regno; i++)
     {
       mode = GET_MODE (regno_reg_rtx[i]);
 
@@ -1001,13 +1002,17 @@ initialize_iv_analysis (loops)
 	initial_value_rtx[i] = gen_rtx_fmt_e (INITIAL_VALUE,
 					      mode, regno_reg_rtx[i]);
     }
+  initial_value_rtx[REGNO (frame_pointer_rtx)] =
+	  gen_rtx_fmt_e (INITIAL_VALUE,
+			 GET_MODE (frame_pointer_rtx),
+			 frame_pointer_rtx);
 
   modified_regs = xmalloc (current_loops->num * sizeof (sbitmap));
   for (i = 0; i < current_loops->num; i++)
     if (current_loops->parray[i])
-      modified_regs[i] = sbitmap_alloc (max_regno);
+      modified_regs[i] = sbitmap_alloc (loop_max_regno);
   insn_processed = sbitmap_alloc (get_max_uid () + 1);
-  iv_register_values = xmalloc (max_regno * sizeof (rtx));
+  iv_register_values = xmalloc (loop_max_regno * sizeof (rtx));
 
   initial_values = xmalloc (sizeof (rtx *) * current_loops->num);
   loop_entry_values = xmalloc (sizeof (rtx *) * current_loops->num);
@@ -1015,9 +1020,9 @@ initialize_iv_analysis (loops)
   for (i = 0; i < current_loops->num; i++)
     if (current_loops->parray[i])
       {
-	initial_values[i] = xmalloc (sizeof (rtx) * max_regno);
-	loop_entry_values[i] = xmalloc (sizeof (rtx) * max_regno);
-	loop_end_values[i] = xmalloc (sizeof (rtx) * max_regno);
+	initial_values[i] = xmalloc (sizeof (rtx) * loop_max_regno);
+	loop_entry_values[i] = xmalloc (sizeof (rtx) * loop_max_regno);
+	loop_end_values[i] = xmalloc (sizeof (rtx) * loop_max_regno);
       }
 
   iv_occurences = xcalloc (current_loops->num,
@@ -1107,9 +1112,13 @@ compute_loop_end_values (loop, values)
   int defno;
   struct ref *def;
   basic_block def_bb;
-  struct ref **found_def = xcalloc (max_regno, sizeof (struct ref *));
-  sbitmap invalid = sbitmap_alloc (max_regno);
+  struct ref **found_def = xcalloc (loop_max_regno, sizeof (struct ref *));
+  sbitmap invalid = sbitmap_alloc (loop_max_regno);
   sbitmap_zero (invalid);
+
+  for (regno = 0; regno < loop_max_regno; regno++)
+    if (TEST_BIT (iv_interesting_reg, regno))
+      values[regno] = gen_initial_value (regno);
 
   /* There must be exactly one definition of reg coming from inside of the
      loop that dominates the loop latch and belongs directly to the loop.  */
@@ -1136,8 +1145,6 @@ compute_loop_end_values (loop, values)
 	{
 	  if (found_def[regno])
 	    values[regno] = DF_REF_AUX_VALUE (found_def[regno]);
-	  else
-	    values[regno] = gen_initial_value (regno);
   	}
       else
 	values[regno] = NULL_RTX;
@@ -1210,8 +1217,8 @@ compute_initial_values (loop)
 {
   rtx *values = initial_values[loop->num];
   unsigned defno, regno;
-  struct ref **found_def = xcalloc (max_regno, sizeof (struct ref *));
-  sbitmap invalid = sbitmap_alloc (max_regno);
+  struct ref **found_def = xcalloc (loop_max_regno, sizeof (struct ref *));
+  sbitmap invalid = sbitmap_alloc (loop_max_regno);
   basic_block preheader = loop_preheader_edge (loop)->src;
   struct loop *outer = loop->outer;
   rtx outer_preheader_end;
@@ -1252,7 +1259,7 @@ compute_initial_values (loop)
 	}
     });
 
-  for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+  for (regno = 0; regno < loop_max_regno; regno++)
     {
       def = found_def[regno];
       if (!TEST_BIT (iv_interesting_reg, regno))
@@ -1312,6 +1319,7 @@ enter_iv_occurence (struct iv_occurence_step_class **to, rtx value, rtx base,
   nw->extended_mode = extended_mode;
   nw->extend = extend;
   nw->base_class = *bc;
+  nw->aux = NULL;
   nw->oc_next = (*bc)->oc_first;
   (*bc)->oc_first = nw;
 }
@@ -1478,10 +1486,10 @@ iv_new_insn_changes_commit (bb, first, last)
     }
   df_refs_process (loop_df);
     
-  if (new_max_regno > max_regno)
+  if (new_max_regno > loop_max_regno)
     {
       iv_interesting_reg = sbitmap_resize (iv_interesting_reg, new_max_regno, 0);
-      for (regno = max_regno; regno < new_max_regno; regno++)
+      for (regno = loop_max_regno; regno < new_max_regno; regno++)
 	{
 	  mode = GET_MODE (regno_reg_rtx[regno]);
 	  if (GET_MODE_CLASS (mode) == MODE_INT
@@ -1491,7 +1499,7 @@ iv_new_insn_changes_commit (bb, first, last)
 
       initial_value_rtx = xrealloc (initial_value_rtx,
 				    sizeof (rtx) * new_max_regno);
-      for (regno = max_regno; regno < new_max_regno; regno++)
+      for (regno = loop_max_regno; regno < new_max_regno; regno++)
 	{
 	  mode = GET_MODE (regno_reg_rtx[regno]);
 	  if (!TEST_BIT (iv_interesting_reg, regno))
@@ -1519,7 +1527,7 @@ iv_new_insn_changes_commit (bb, first, last)
 					  sizeof (rtx) * new_max_regno);
 	    loop_entry_values[i] = xrealloc (loop_entry_values[i],
 					     sizeof (rtx) * new_max_regno);
-	    for (regno = max_regno; regno < new_max_regno; regno++)
+	    for (regno = loop_max_regno; regno < new_max_regno; regno++)
 	      {
 		if (!TEST_BIT (iv_interesting_reg, regno))
 		  continue;
@@ -1539,7 +1547,7 @@ iv_new_insn_changes_commit (bb, first, last)
 				   new_max_regno * sizeof (struct ref *));
       df_reg_table_realloc (loop_df, new_max_regno);
       loop_df->n_regs = new_max_regno;
-      max_regno = new_max_regno;
+      loop_max_regno = new_max_regno;
     }
 
   if (loop_df->def_id > loop_df->n_defs)
@@ -1573,7 +1581,7 @@ iv_new_insn_changes_commit (bb, first, last)
 
   insn_processed = sbitmap_resize (insn_processed, get_max_uid () + 1, 0);
 
-  memset (loop_df->reg_def_last, 0, max_regno * sizeof (struct ref *));
+  memset (loop_df->reg_def_last, 0, loop_max_regno * sizeof (struct ref *));
   for (x = bb->head; x != first; x = NEXT_INSN (x))
     {
       if (! INSN_P (x))
@@ -1661,7 +1669,7 @@ analyse_induction_variables ()
     if (current_loops->parray[i])
       {
 	sbitmap_zero (modified_regs[i]);
-	for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+	for (regno = 0; regno < loop_max_regno; regno++)
 	  loop_entry_values[i][regno] = gen_initial_value (regno);
       }
   compute_register_values (true);
@@ -1746,7 +1754,7 @@ analyse_induction_variables ()
      that when we refer to a value that is defined in a previous loop,
      we already know their initial values and we may use them).  */
   insn = ENTRY_BLOCK_PTR->succ->dest->head;
-  for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+  for (regno = 0; regno < loop_max_regno; regno++)
     initial_values[0][regno] = gen_value_at (regno, insn, false);
   for (i = 1; i < real_loops_num; i++)
     {

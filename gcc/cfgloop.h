@@ -287,6 +287,9 @@ struct loops
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
 #define LOOP_ALL	       15	/* All of the above  */
 
+/* The maximal register number considered in iv analysis.  */
+extern unsigned loop_max_regno;
+
 /* An array that holds some temporary values of registers.  Used during
    the iv analysis, then left for free use by anyone to save time with
    allocating/freeing it.  */
@@ -330,6 +333,7 @@ struct iv_occurence
   rtx *occurence;			/* The occurence itself. Either
 					   a set with this value, or a mem
 					   whose address is this value.  */
+  void *aux;				/* Pass specific information.  */
 };
 
 struct iv_occurence_base_class
@@ -352,12 +356,21 @@ struct iv_occurence_step_class
   rtx step;				/* Step of ivs in this class.  */
 };
 
+/* List of movables.  */
 struct movable_list
 {
   struct movable *elt;
   struct movable_list *next;
 };
 
+/* Actions scheduled by strength reduction.  */
+struct ivopt_actions
+{
+  struct str_red *ivs;
+  struct repl *replacements;
+};
+
+/* Information added to dataflow by loop optimizer.  */
 struct loop_df_info
 {
   rtx value;			/* For induction variable analysis.  */
@@ -374,6 +387,10 @@ extern struct df *loop_df;
 
 /* The list of blocks in dominance order.  */
 extern basic_block *block_dominance_order;
+
+/* Estimate on number of available registers shared between invariant motion
+   and induction variable optimizations.  */
+extern int *loop_avail_regs;
 
 /* Loop recognition.  */
 extern int flow_loops_find (struct loops *, int flags);
@@ -475,6 +492,11 @@ extern rtx iv_omit_initial_values (rtx);
 extern rtx iv_emit_insn_before (rtx, rtx);
 extern rtx iv_emit_insn_after (rtx, rtx);
 
+/* Utility functions shared by induction variable optimizations and
+   invariant motion.  */
+extern void hoist_insn_to_depth (struct loop *, int, rtx, int);
+extern rtx find_single_def_use (rtx, struct loop *, rtx);
+
 /* Loop optimizer driver.  */
 extern struct loops *loop_optimizer_init (FILE *);
 extern void loop_optimizer_optimize (struct loops *);
@@ -497,3 +519,6 @@ extern void prefetch_loop_arrays (struct loops *);
 extern bool reroll_loops (void);
 extern struct movable_list *find_movables (struct loops *);
 extern void loops_invariant_motion (struct loops *, struct movable_list *);
+extern void detect_strength_reductions (struct loops *loops,
+					 struct ivopt_actions *);
+extern void execute_strength_reductions (struct ivopt_actions *);

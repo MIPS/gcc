@@ -33,6 +33,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "timevar.h"
 
+/* Estimate on number of available registers in loops.  */
+int *loop_avail_regs;
+
 /* Initialize loop optimizer.  */
 
 struct loops *
@@ -126,6 +129,7 @@ void
 loop_optimizer_optimize (struct loops *loops)
 {
   struct movable_list *movables;
+  struct ivopt_actions ivopt_actions;
 
   if (flag_unswitch_loops)
     unswitch_loops (loops);
@@ -154,16 +158,23 @@ loop_optimizer_optimize (struct loops *loops)
     prefetch_loop_arrays (loops);
 #endif
 
-  /* Detect the movables, using the iv information we have.  */
+  /* Detect the movables and induction variables to strength reduce.  */
+  loop_avail_regs = xcalloc (loops->num, sizeof (int));
   movables = find_movables (loops);
+  ivopt_actions.ivs = NULL;
+  ivopt_actions.replacements = NULL;
+  if (flag_strength_reduce)
+    detect_strength_reductions (loops, &ivopt_actions);
+  free (loop_avail_regs);
 
   timevar_push (TV_IV_ANAL);
   finalize_iv_analysis ();
   timevar_pop (TV_IV_ANAL);
 
-  /* Now move the movables; it is easier to have it split into two parts,
-     so that we do not have to update iv information.  */
+  /* Now move the movables and reduce the variables; it is easier to have it
+     split into two parts, so that we do not have to update iv information.  */
   loops_invariant_motion (loops, movables);
+  execute_strength_reductions (&ivopt_actions);
 
   if (flag_peel_loops || flag_unroll_loops)
     unroll_and_peel_loops (loops);

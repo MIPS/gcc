@@ -349,6 +349,27 @@ DEFPARAM(LIM_REG_WEIGHT,
 	 "Weight for change of number of registers in decision heuristics.",
 	 1000)
 
+/* Parameters for strength reduction. The values here are optimized for i686,
+   they of course must be overriden for other targets.  */
+
+/* Number of registers available for strength reduction.  */
+DEFPARAM(STR_N_USABLE_REGS,
+	 "str-n-usable-regs",
+	 "Number of registers available for strength reduction.",
+	 6)
+
+/* Cost for replacing giv in case there is not enough registers.  */
+DEFPARAM(STR_SPILL_COST,
+	 "str-spill-cost",
+	 "Cost for replacing giv without available register.",
+	 5)
+
+/* Weight for change of number of registers in decision heuristics. */
+DEFPARAM(STR_REG_WEIGHT,
+	 "str-reg-weight",
+	 "Weight for change of number of registers in decision heuristics.",
+	 10)
+
 /*
 Local variables:
 mode:c
