@@ -1,3 +1,10 @@
+2004-11-22  Devang Patel  <dpatel@apple.com>
+
+	Backport from Mainline.
+	2004-11-22  Devang Patel  <dpatel@apple.com>
+
+        * tree-if-conv.c (clean_predicate_lists): Clean all basic blocks. 
+
 2004-11-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Makefile.in (OBJS-common): Add tree-ssa-align.o
