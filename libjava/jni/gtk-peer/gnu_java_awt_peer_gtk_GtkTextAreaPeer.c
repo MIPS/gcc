@@ -54,6 +54,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_create
 
   text = gtk_text_view_new ();
   gtk_widget_set_size_request (text, textview_width, textview_height);
+  gtk_text_view_set_cursor_visible(text, TRUE);
+
   gtk_widget_show (text);
 
   sw = gtk_scrolled_window_new (NULL, NULL);

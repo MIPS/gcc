@@ -1131,12 +1131,23 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilt
 
       filterobj = GTK_OBJECT(layout);
     }
+  else if (GTK_IS_SCROLLED_WINDOW(ptr))
+    {
+      // The event will go to the parent GtkLayout.
+      filterobj = GTK_OBJECT(GTK_WIDGET(ptr)->parent);
+    }
   else
     {
       filterobj = GTK_OBJECT(ptr);
     }
 
-  g_signal_handlers_block_by_func (filterobj, *pre_event_handler, *gref);
+  gulong hid = g_signal_handler_find(filterobj,
+                                     G_SIGNAL_MATCH_FUNC,
+                                     0, 0, NULL, *pre_event_handler, NULL);
+  if (hid > 0)
+  {
+    g_signal_handler_block(filterobj, hid);
+  }
   g_signal_connect( filterobj, "event",
                     G_CALLBACK(filter_expose_event_handler), *gref);
 
@@ -1175,6 +1186,11 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeF
 
       filterobj = GTK_OBJECT(layout);
     }
+  else if (GTK_IS_SCROLLED_WINDOW(ptr))
+    {
+      // The event will go to the parent GtkLayout.
+      filterobj = GTK_OBJECT(GTK_WIDGET(ptr)->parent);
+    }
   else
     {
       filterobj = GTK_OBJECT(ptr);
@@ -1182,7 +1198,13 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeF
 
   g_signal_handlers_disconnect_by_func (filterobj,
                                         *filter_expose_event_handler, *gref);
-  g_signal_handlers_unblock_by_func (filterobj, *pre_event_handler, *gref);
+  gulong hid = g_signal_handler_find(filterobj,
+                                     G_SIGNAL_MATCH_FUNC,
+                                     0, 0, NULL, *pre_event_handler, NULL);
+  if (hid > 0)
+  {
+    g_signal_handler_unblock(filterobj, hid);
+  }
 
   gdk_threads_leave ();
 }

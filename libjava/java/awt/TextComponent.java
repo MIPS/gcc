@@ -142,6 +142,7 @@ setText(String text)
   TextComponentPeer tcp = (TextComponentPeer)getPeer();
   if (tcp != null)
     tcp.setText(text);
+  setCaretPosition(0);
 }
 
 /*************************************************************************/

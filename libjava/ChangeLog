@@ -1,3 +1,18 @@
+2004-06-09  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
+	(GtkTextComponentPeer): Set caret position to 0.
+	* java/awt/TextComponent.java
+	(setText): Set caret position to 0.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_addExposeFilter):
+	Handle GtkScrolledWindow separately. Fix signal handler blocking.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_removeExposeFilter):
+	Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_create): Make cursor
+	visible.
+
 2004-06-09  Kim Ho  <kho@redhat.com>
 
 	* Makefile.am: New files
