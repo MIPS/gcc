@@ -6283,7 +6283,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	     enum expand_modifier modifier)
 {
   int rn = -1;
-  rtx ret, last;
+  rtx ret, last = NULL;
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
