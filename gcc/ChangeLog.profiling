@@ -1,5 +1,12 @@
 2004-04-18  Jan Hubicka  <jh@suse.cz>
 
+	* cfgexpand.c (add_reg_br_prob_note): New debug output.
+	(expand_block): Pass file argument.
+	(construct_exit_block): Properly compute frequencies of exit block.
+	(tree_expand_cfg): Output function name being lowered.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
 	* basic-block.h (check_bb_profile):  Declare.
 	* cfg.c (check_bb_function):  Break out from...
 	(dump_flow_info): This one.

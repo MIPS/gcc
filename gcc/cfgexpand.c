@@ -42,18 +42,22 @@ Boston, MA 02111-1307, USA.  */
    re-distribute it when the conditional expands into multiple coniditionals.
    This is however dificult to do.  */
 static void
-add_reg_br_prob_note (rtx last, int probability)
+add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
 {
   for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
     if (GET_CODE (last) == JUMP_INSN)
-      return;
+      goto failed;
   if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
-      return;
+      goto failed;
   if (find_reg_note (last, REG_BR_PROB, 0))
     abort ();
   REG_NOTES (last)
     = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			 GEN_INT (probability), REG_NOTES (last));
+  return;
+failed:
+  if (dump_file)
+    fprintf (dump_file, "Failed to add probability note\n");
 }
 
 /* Expand basic block BB from GIMPLE trees to RTL.  */
@@ -150,14 +154,14 @@ expand_block (basic_block bb, FILE * dump_file)
 		&& TREE_CODE (else_exp) == NOP_EXPR)
 	      {
 		jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
-		add_reg_br_prob_note (last, true_edge->probability);
+		add_reg_br_prob_note (dump_file, last, true_edge->probability);
 		break;
 	      }
 	    if (TREE_CODE (else_exp) == GOTO_EXPR
 		&& TREE_CODE (then_exp) == NOP_EXPR)
 	      {
 		jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
-		add_reg_br_prob_note (last, false_edge->probability);
+		add_reg_br_prob_note (dump_file, last, false_edge->probability);
 		break;
 	      }
 	    if (TREE_CODE (then_exp) != GOTO_EXPR
@@ -165,7 +169,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	      abort ();
 
 	    jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
-	    add_reg_br_prob_note (last, true_edge->probability);
+	    add_reg_br_prob_note (dump_file, last, true_edge->probability);
 	    last = get_last_insn ();
 	    expand_expr (else_exp, const0_rtx, VOIDmode, 0);
 
@@ -320,7 +324,7 @@ construct_exit_block (void)
   rtx end;
   basic_block exit_block;
   tree bind_expr = DECL_SAVED_TREE (current_function_decl);
-  edge e, next;
+  edge e, e2, next;
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -347,6 +351,8 @@ construct_exit_block (void)
   end = get_last_insn ();
   if (head == end)
     return;
+  while (NEXT_INSN (head) && GET_CODE (NEXT_INSN (head)) == NOTE)
+    head = NEXT_INSN (head);
   exit_block = create_basic_block (NEXT_INSN (head), end, EXIT_BLOCK_PTR->prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
@@ -359,6 +365,19 @@ construct_exit_block (void)
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
+  for (e2 = EXIT_BLOCK_PTR->pred; e2; e2 = e2->pred_next)
+    if (e2 != e)
+      {
+        e->count -= e2->count;
+	exit_block->count -= e2->count;
+	exit_block->frequency -= EDGE_FREQUENCY (e2);
+      }
+  if (e->count < 0)
+    e->count = 0;
+  if (exit_block->count < 0)
+    exit_block->count = 0;
+  if (exit_block->frequency < 0)
+    exit_block->frequency = 0;
   update_bb_for_insn (exit_block);
 }
 
@@ -379,6 +398,14 @@ tree_expand_cfg (void)
   sbitmap blocks;
   int dump_flags;
   FILE *dump_file = dump_begin (TDI_expand, &dump_flags);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\n;; Function %s",
+	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+      fprintf (dump_file, " (%s)\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
+    }
 
   /* Write the flowgraph to a dot file.  */
   rtl_register_cfg_hooks ();
