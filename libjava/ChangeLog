@@ -1,3 +1,12 @@
+2004-11-29  Sven de Marothy  <sven@physto.se>
+
+	* java/awt/image/IndexColorModel.java:
+	Add FIXME with respect to alpha handling.
+	(getAlpha): Default to returning opaque pixels. 
+	* java/awt/image/MultiPixelPackedSampleModel.java
+	(MultiPixelPackedSampleModel): Corrected parameters, order of
+	bit shifts and masks, stride length off by one.
+
 2004-11-26  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JList.java, javax/swing/JTree.java:
