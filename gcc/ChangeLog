@@ -1,3 +1,8 @@
+2002-11-19  Andreas Schwab  <schwab@suse.de>
+
+	* unwind.h (_Unwind_GetTextRelBase): Revert last change, this is
+	not valid in C++.
+
 2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in, Makefile.in: Correct BUILD/HOST confusion.
