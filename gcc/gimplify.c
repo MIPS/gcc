@@ -350,6 +350,10 @@ create_tmp_var (tree type, const char *prefix)
     abort ();
   if (!COMPLETE_TYPE_P (type))
     abort ();
+  /* Variable sized types require lots of machinery to create; the
+     optimizers shouldn't be doing anything of the sort.  */
+  if (TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)
+    abort ();
 #endif
 
   tmp_var = create_tmp_var_raw (type, prefix);
@@ -2459,7 +2463,11 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 
       /* If the value being copied is of variable width, expose the length
 	 if the copy by converting the whole thing to a memcpy.  */
-      if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p))) != INTEGER_CST)
+      /* ??? Except that we can't manage this with VA_ARG_EXPR.  Yes, this
+	 does leave us with an edge condition that doesn't work.  The only
+	 way out is to rearrange how VA_ARG_EXPR works.  */
+      if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p))) != INTEGER_CST
+	  && TREE_CODE (*from_p) != VA_ARG_EXPR)
 	{
 	  tree args, t, dest;
 
