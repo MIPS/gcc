@@ -1315,29 +1315,9 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
       return;
     }
 
-  type = gfc_typenode_for_spec (&expr->ts);
   /* Initialize the result.  */
-  limit = gfc_create_var (type, "limit");
   pos = gfc_create_var (gfc_array_index_type, "pos");
-  n = gfc_validate_kind (expr->ts.type, expr->ts.kind);
-  switch (expr->ts.type)
-    {
-    case BT_REAL:
-      tmp = gfc_conv_mpf_to_tree (gfc_real_kinds[n].huge, expr->ts.kind);
-      break;
-
-    case BT_INTEGER:
-      tmp = gfc_conv_mpz_to_tree (gfc_integer_kinds[n].huge, expr->ts.kind);
-      break;
-
-    default:
-      abort ();
-    }
-
-  /* Most negative(+HUGE) for maxval, most negative (-HUGE) for minval.  */
-  if (op == GT_EXPR)
-    tmp = fold (build1 (NEGATE_EXPR, TREE_TYPE (tmp), tmp));
-  gfc_add_modify_expr (&se->pre, limit, tmp);
+  type = gfc_typenode_for_spec (&expr->ts);
 
   /* Walk the arguments.  */
   actual = expr->value.function.actual;
@@ -1355,6 +1335,28 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
     }
   else
     maskss = NULL;
+
+  limit = gfc_create_var (gfc_typenode_for_spec (&arrayexpr->ts), "limit");
+  n = gfc_validate_kind (arrayexpr->ts.type, arrayexpr->ts.kind);
+  switch (arrayexpr->ts.type)
+    {
+    case BT_REAL:
+      tmp = gfc_conv_mpf_to_tree (gfc_real_kinds[n].huge, arrayexpr->ts.kind);
+      break;
+
+    case BT_INTEGER:
+      tmp = gfc_conv_mpz_to_tree (gfc_integer_kinds[n].huge,
+				  arrayexpr->ts.kind);
+      break;
+
+    default:
+      abort ();
+    }
+
+  /* Most negative(+HUGE) for maxval, most negative (-HUGE) for minval.  */
+  if (op == GT_EXPR)
+    tmp = fold (build1 (NEGATE_EXPR, TREE_TYPE (tmp), tmp));
+  gfc_add_modify_expr (&se->pre, limit, tmp);
 
   /* Initialize the scalarizer.  */
   gfc_init_loopinfo (&loop);
@@ -1433,7 +1435,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 		     integer_one_node));
   tmp = fold (build (MINUS_EXPR, gfc_array_index_type, pos, tmp));
   /* And convert to the required type.  */
-  se->expr = convert (type, pos);
+  se->expr = convert (type, tmp);
 }
 
 static void
