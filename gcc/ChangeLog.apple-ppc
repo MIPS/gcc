@@ -1,3 +1,10 @@
+2005-02-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4011924
+	PR 19241 (patch from mainline)
+	* tree-inline.c (copy_body_r):  Don't recurse when
+	remapping variables.
+
 2005-02-23  Devang Patel  <dpatel@apple.com>
 	
 	Radar 4021019
