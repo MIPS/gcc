@@ -258,10 +258,31 @@ GLIBCXX_3.6 {
     _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEPFvPvE;
     _ZN9__gnu_cxx6__poolILb1EE21_M_destroy_thread_keyEPv;
     _ZN9__gnu_cxx6__poolILb1EE16_M_get_thread_idEv;
-    _ZN9__gnu_cxx6__poolILb[01]EE17_M_reserve_memoryE[jm][jm];
-    _ZN9__gnu_cxx6__poolILb[01]EE17_M_reclaim_memoryEPc[jm];
-    _ZN9__gnu_cxx20__common_pool_policyILb[01]EE11_S_get_poolEv;	
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reserve_blockE[jm][jm];
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reclaim_blockEPc[jm];
+    _ZN9__gnu_cxx6__poolILb[01]EED[12]Ev;
 
+    # stub functions from libmath
+    acosf;
+    acosl;
+    asinf;
+    asinl;
+    atanf;
+    atanl;
+    ceilf;
+    ceill;
+    floorf;
+    floorl;
+    fmodf;
+    fmodl;
+    frexpf;
+    frexpl;
+    ldexpf;
+    ldexpl;
+    modff;
+    modfl;
+
+	
   # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 
   local:

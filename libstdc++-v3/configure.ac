@@ -78,6 +78,7 @@ GLIBCXX_ENABLE_HOSTED
 
 # Check for support bits and g++ features that don't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
+GLIBCXX_ENABLE_CXA_ATEXIT([no])
 GLIBCXX_ENABLE_PCH($is_hosted)
 
 # Enable all the variable C++ runtime options.  
@@ -194,7 +195,6 @@ else
 
     # GLIBCXX_CHECK_STDLIB_SUPPORT
     AC_DEFINE(HAVE_STRTOF)        
-    AC_DEFINE(HAVE_STRTOLD)        
     # AC_FUNC_MMAP
     AC_DEFINE(HAVE_MMAP)
 
