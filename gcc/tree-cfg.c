@@ -1307,7 +1307,9 @@ cfg_remove_useless_stmts_bb (basic_block bb)
       else if ((TREE_CODE (cond) == EQ_EXPR)
 	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
 		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	       && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+	       && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
+		   || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
+		   || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
 	{
 	  var = TREE_OPERAND (cond, 0);
 	  val = TREE_OPERAND (cond, 1);
@@ -1321,6 +1323,15 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	      || ann->may_aliases
 	      || TREE_ADDRESSABLE (var))
 	    var = NULL_TREE;
+
+	  if (! TREE_CONSTANT (val))
+	    {
+	      ann = var_ann (val);
+	      if (!ann
+		  || ann->may_aliases
+		  || TREE_ADDRESSABLE (val))
+		val = NULL_TREE;
+	    }
 	}
 
       /* Ignore floating point variables, since comparison behaves weird for
@@ -1345,7 +1356,7 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	 THEN/ELSE clause.  */
       if (TREE_CODE (stmt) == MODIFY_EXPR
 	  && TREE_OPERAND (stmt, 0) == var
-	  && operand_equal_p (val, TREE_OPERAND (stmt, 1), 1))
+	  && operand_equal_p (val, TREE_OPERAND (stmt, 1), 0))
 	{
 	  bsi_remove (&bsi);
 	  continue;
@@ -1356,6 +1367,7 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	  || TREE_CODE (stmt) == VA_ARG_EXPR
 	  || (TREE_CODE (stmt) == MODIFY_EXPR
 	      && (TREE_OPERAND (stmt, 0) == var
+		  || TREE_OPERAND (stmt, 0) == val
 		  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
 	var = NULL_TREE;
   

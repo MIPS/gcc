@@ -1,3 +1,8 @@
+2003-11-13  Jeff Law  <law@redhat.com
+
+	* tree-cfg.c (cfg_remove_useless_stmts_bb): Also detect useless
+	var->var copies created by the out-of-ssa translation.
+ 
 2003-11-13  Steven Bosscher  <steven@suse.de>
 
 	* tree-inline.c (walk_tree): Handle PLACEHOLDER_EXPR.
