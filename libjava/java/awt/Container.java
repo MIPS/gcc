@@ -1248,17 +1248,11 @@ public class Container extends Component
                           Component comp)
   {
     Rectangle bounds = comp.getBounds();
-    Rectangle candidate = comp.getBounds();
     Rectangle oldClip = gfx.getClipBounds();
     if (oldClip == null)
       oldClip = bounds;
-    else
-    {
-      candidate.x += oldClip.x;
-      candidate.y += oldClip.y;
-    }
 
-    Rectangle clip = oldClip.intersection(candidate);
+    Rectangle clip = oldClip.intersection(bounds);
 
     if (clip.isEmpty()) return;
 

@@ -235,8 +235,8 @@ public class GtkComponentPeer extends GtkGenericPeer
               // Some peers like GtkFileDialogPeer are repainted by Gtk itself
               if (g == null)
                 break;
-              // FIXME: Find the proper clip.
-              //g.setClip (((PaintEvent)event).getUpdateRect());
+		
+              g.setClip (((PaintEvent)event).getUpdateRect());
 
               if (id == PaintEvent.PAINT)
                 awtComponent.paint (g);

@@ -1,3 +1,11 @@
+2004-03-10  Kim Ho  <kho@redhat.com>
+
+	* java/awt/Container.java: (visitChild):
+	Remove candidate clip. Use the component
+	clip to intersect.
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java:
+	(handleEvent): Use the PaintEvent's clip.
+
 2004-03-10  Kim Ho  <kho@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java:
