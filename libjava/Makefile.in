@@ -1079,6 +1079,7 @@ javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
 javax/swing/JTabbedPane.java \
+javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
 javax/swing/JToggleButton.java \
 javax/swing/JToolTip.java \
@@ -3093,14 +3094,14 @@ javax/swing/JList.lo javax/swing/JMenuBar.lo javax/swing/JOptionPane.lo \
 javax/swing/JPanel.lo javax/swing/JRadioButton.lo \
 javax/swing/JRootPane.lo javax/swing/JScrollBar.lo \
 javax/swing/JScrollPane.lo javax/swing/JTabbedPane.lo \
-javax/swing/JTextField.lo javax/swing/JToggleButton.lo \
-javax/swing/JToolTip.lo javax/swing/JTree.lo javax/swing/JViewport.lo \
-javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
-javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
-javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
-javax/swing/Scrollable.lo javax/swing/SwingConstants.lo \
-javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
-javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
+javax/swing/JTextArea.lo javax/swing/JTextField.lo \
+javax/swing/JToggleButton.lo javax/swing/JToolTip.lo \
+javax/swing/JTree.lo javax/swing/JViewport.lo javax/swing/JWindow.lo \
+javax/swing/KeyStroke.lo javax/swing/ListCellRenderer.lo \
+javax/swing/ListModel.lo javax/swing/ListSelectionModel.lo \
+javax/swing/LookAndFeel.lo javax/swing/Scrollable.lo \
+javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
+javax/swing/Timer.lo javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
 javax/swing/UnsupportedLookAndFeelException.lo \
 javax/swing/event/AncestorEvent.lo \
 javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
@@ -4981,14 +4982,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/JScrollBar.P .deps/javax/swing/JScrollPane.P \
 .deps/javax/swing/JSeparator.P .deps/javax/swing/JSlider.P \
 .deps/javax/swing/JSplitPane.P .deps/javax/swing/JTabbedPane.P \
-.deps/javax/swing/JTable.P .deps/javax/swing/JTextField.P \
-.deps/javax/swing/JTextPane.P .deps/javax/swing/JToggleButton.P \
-.deps/javax/swing/JToolBar.P .deps/javax/swing/JToolTip.P \
-.deps/javax/swing/JTree.P .deps/javax/swing/JViewport.P \
-.deps/javax/swing/JWindow.P .deps/javax/swing/KeyStroke.P \
-.deps/javax/swing/ListCellRenderer.P .deps/javax/swing/ListModel.P \
-.deps/javax/swing/ListSelectionModel.P .deps/javax/swing/LookAndFeel.P \
-.deps/javax/swing/MenuElement.P \
+.deps/javax/swing/JTable.P .deps/javax/swing/JTextArea.P \
+.deps/javax/swing/JTextField.P .deps/javax/swing/JTextPane.P \
+.deps/javax/swing/JToggleButton.P .deps/javax/swing/JToolBar.P \
+.deps/javax/swing/JToolTip.P .deps/javax/swing/JTree.P \
+.deps/javax/swing/JViewport.P .deps/javax/swing/JWindow.P \
+.deps/javax/swing/KeyStroke.P .deps/javax/swing/ListCellRenderer.P \
+.deps/javax/swing/ListModel.P .deps/javax/swing/ListSelectionModel.P \
+.deps/javax/swing/LookAndFeel.P .deps/javax/swing/MenuElement.P \
 .deps/javax/swing/MenuSelectionManager.P \
 .deps/javax/swing/MutableComboBoxModel.P \
 .deps/javax/swing/OverlayLayout.P .deps/javax/swing/Popup.P \

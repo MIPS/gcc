@@ -1374,6 +1374,7 @@ javax/swing/JRootPane.java \
 javax/swing/JScrollBar.java \
 javax/swing/JScrollPane.java \
 javax/swing/JTabbedPane.java \
+javax/swing/JTextArea.java \
 javax/swing/JTextField.java \
 javax/swing/JToggleButton.java \
 javax/swing/JToolTip.java \

@@ -1,5 +1,5 @@
 /* JTextComponent.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,8 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.InputMethodListener;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -51,6 +53,7 @@ import javax.accessibility.AccessibleStateSet;
 import javax.accessibility.AccessibleText;
 import javax.swing.Icon;
 import javax.swing.JComponent;
+import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.Scrollable;
 import javax.swing.UIManager;
@@ -76,6 +79,8 @@ public abstract class JTextComponent extends JComponent
   public class AccessibleJTextComponent extends AccessibleJComponent
     implements AccessibleText, CaretListener, DocumentListener
   {
+    private static final long serialVersionUID = 7664188944091413696L;
+
     /**
      * caretPos
      */
@@ -282,46 +287,18 @@ public abstract class JTextComponent extends JComponent
     }
   } // class KeyBinding
 
-  int icon_gap;
-  Icon icon;
-  int align;
-  Document doc;
+  private static final long serialVersionUID = -8796518220218978795L;
+  
+  public static final String DEFAULT_KEYMAP = "default";
+  public static final String FOCUS_ACCELERATOR_KEY = "focusAcceleratorKey";
+
+  private Document doc;
+  private int icon_gap;
+  private Icon icon;
+  private int align;
 
   public JTextComponent()
   {
-    this("", null, 0);
-  }
-
-  public JTextComponent(Icon image)
-  {
-    this("", image, 0);
-  }
-
-  public JTextComponent(Icon image, int horizontalAlignment)
-  {
-    this("", image, horizontalAlignment);
-  }
-
-  public JTextComponent(String text)
-  {
-    this(text, null, 0);
-  }
-
-  public JTextComponent(String text, int horizontalAlignment)
-  {
-    this(text, null, horizontalAlignment);
-  }
-
-  public JTextComponent(String text, Icon icon, int horizontalAlignment)
-  {
-    setDocument(new PlainDocument());
-
-    // do the work.....
-    setText(text);
-    this.icon = icon;
-    this.align = horizontalAlignment;
-
-    // its an editor, so:
     enableEvents(AWTEvent.KEY_EVENT_MASK);
     updateUI();
   }
@@ -520,5 +497,21 @@ public abstract class JTextComponent extends JComponent
                                          int direction)
   {
     return 0;
+  }
+
+  public boolean getScrollableTracksViewportHeight()
+  {
+    if (getParent() instanceof JViewport)
+      return ((JViewport) getParent()).getHeight() > getPreferredSize().height;
+
+    return false;
+  }
+
+  public boolean getScrollableTracksViewportWidth()
+  {
+    if (getParent() instanceof JViewport)
+      return ((JViewport) getParent()).getWidth() > getPreferredSize().width;
+
+    return false;
   }
 }

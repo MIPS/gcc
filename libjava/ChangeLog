@@ -1,3 +1,33 @@
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTextArea.java: New file.
+	* javax/swing/JTextField.java
+	(actions): Removed.
+	(notifyAction): New constant.
+	(columns): New field.
+	(JTextField): New constructors.
+	(createDefaultModel): New method.
+	(addActionListener): Reimplmemented.
+	(removeActionListener): Reimplemented.
+	(getActionListeners): New method.
+	(fireActionPerformed): New method.
+	(getColumns): New method.
+	(setColumne): New method.
+	* javax/swing/text/JTextComponent.java
+	(AccessibleJTextComponent.serialVersionUID): New field.
+	(serialVersionUID): Likewise.
+	(DEFAULT_KEYMAP): Likewise.
+	(FOCUS_ACCELERATOR_KEY): Likewise.
+	(doc): Made private.
+	(icon_gap): Likewise.
+	(icon): Likewise.
+	(align): Likewise.
+	(JTextComponent): Some constructors removed.
+	(getScrollableTracksViewportHeight): New method.
+	(getScrollableTracksViewportWidth): Likewise.
+	* Makefile.am: Added javax/swing/JTextArea.java.
+	* Makefile.in: Regenerated.
+
 2004-06-15  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/ImageIcon.java (ImageIcon): New constructor.
