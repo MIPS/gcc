@@ -2872,7 +2872,14 @@ copy_constant (exp)
       }
 
     default:
-      abort ();
+      {
+	tree t;
+	t = (*lang_hooks.expand_constant) (exp);
+	if (t != exp)
+	  return copy_constant (t);
+	else
+	  abort ();
+      }
     }
 }
 
