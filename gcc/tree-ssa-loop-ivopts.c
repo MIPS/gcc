@@ -1986,7 +1986,7 @@ idx_find_step (tree base, tree *idx, void *data)
 {
   tree *step_p = data;
   struct iv *iv;
-  tree step, type;
+  tree step, type, iv_type;
   
   if (TREE_CODE (*idx) != SSA_NAME)
     return true;
@@ -2000,19 +2000,45 @@ idx_find_step (tree base, tree *idx, void *data)
   if (!iv->step)
     return true;
 
+  iv_type = TREE_TYPE (iv->base);
   if (base)
     {
-      step = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (base)));
       type = array2ptr (TREE_TYPE (base));
+      step = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (base)));
     }
   else
     {
-      /* The step for pointer arithmetics already is 1 byte.  */
-      step = integer_one_node;
       type = TREE_TYPE (*idx);
+      /* The step for pointer arithmetics already is 1 byte.  */
+      step = convert (type, integer_one_node);
     }
 
-  step = EXEC_BINARY (MULT_EXPR, type, step, iv->step);
+  if (TYPE_PRECISION (iv_type) < TYPE_PRECISION (type))
+    {
+      /* The index might wrap.  */
+
+      /* TODO -- this is especially bad for targets where
+	 sizeof (int) < sizeof (void *).  We should at least:
+
+	 1) Use the number of iterations of the current loop to prove
+	    that the index cannot wrap.
+	 2) Record whether only a signed arithmetics is used during computation
+	    of the index (behavior of overflows during signed arithmetics is
+	    undefined, so we may assume that it does not happen). Problems:
+	    * The optimizations may create overflowing signed arithmetics.
+	    * And they may also remove the no-op casts used to make the
+	      behavior of overflows defined.
+	 3) Use array bounds when known (if the memory is accessed at each
+	    iteration, we know the index cannot come out of them).  Better,
+	    use this to estimate the number of iterations of the loop.
+	 4) If all indices are of the same type, we can also rewrite the
+	    access as &base + (extend) (step * i), and optimize the step * i
+	    part separately.  */
+      return false;
+    }
+
+  step = EXEC_BINARY (MULT_EXPR, type, step,
+		      convert (type, iv->step));
 
   if (!*step_p)
     *step_p = step;

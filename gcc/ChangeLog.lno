@@ -1,3 +1,8 @@
+2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (idx_find_step): Prevent misscompilation
+	in case the index overflows.
+
 2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>,
 	    Dorit Naishlos <DORIT@il.ibm.com>
 
