@@ -1,3 +1,11 @@
+2004-07-19  Michael Matz  <matz@suse.de>
+
+	Backport (for #42522):
+	2004-04-04  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/14804
+        * varasm.c (initializer_constant_valid_p): Allow NOP_EXPRs to
+        RECORD_TYPEs.
+
 2004-07-05  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (adjust_stack_reference): Do not adjust if
