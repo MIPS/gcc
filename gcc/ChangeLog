@@ -1,3 +1,10 @@
+Sat Nov 16 16:49:58 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (truncdfsf2_1_sse, truncdfsf2_1_sse_nooverlap, truncdfsf2_2,
+	floats?dff2_i387):
+	Work around regclass stupidity.
+	(truncdfsf_2_1_sse splitter):  Accept !TARGET_PARTIAL_SSE_REGS
+
 Sat Nov 16 02:17:48 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (fop_df_6): New pattern.
