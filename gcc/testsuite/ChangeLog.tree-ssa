@@ -1,3 +1,7 @@
+2003-09-25  Jeff Law  <law@redhat.com>
+
+        * gcc.dg/tree-ssa/20030922-2.c: New test.
+
 2003-09-24  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030708-1.c: Expect all IF conditions to be
