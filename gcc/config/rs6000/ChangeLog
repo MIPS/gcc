@@ -1,3 +1,9 @@
+1999-12-29  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_build_va_list): Use 'char *' rather than 'void *'
+	for va_list on AIX.  Use unsigned_char_type_node rather than
+	constructing our own version on svr4.
+
 1999-12-17  Geoff Keating  <geoffk@cygnus.com>
 
 	* tramp.asm (__trampoline_size): Delete CYGNUS LOCAL comment,

@@ -1776,18 +1776,19 @@ tree
 rs6000_build_va_list ()
 {
   tree f_gpr, f_fpr, f_ovf, f_sav, record, type_decl;
-  tree uchar_type_node;
 
-  /* Only SVR4 needs something special.  */
+  /* For AIX, prefer 'char *' because that's what the system
+     header files like.  */
   if (DEFAULT_ABI != ABI_V4 && DEFAULT_ABI != ABI_SOLARIS)
-    return ptr_type_node;
+    return build_pointer_type (char_type_node);
 
   record = make_lang_type (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
-  uchar_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
 
-  f_gpr = build_decl (FIELD_DECL, get_identifier ("gpr"), uchar_type_node);
-  f_fpr = build_decl (FIELD_DECL, get_identifier ("fpr"), uchar_type_node);
+  f_gpr = build_decl (FIELD_DECL, get_identifier ("gpr"), 
+		      unsigned_char_type_node);
+  f_fpr = build_decl (FIELD_DECL, get_identifier ("fpr"), 
+		      unsigned_char_type_node);
   f_ovf = build_decl (FIELD_DECL, get_identifier ("overflow_arg_area"),
 		      ptr_type_node);
   f_sav = build_decl (FIELD_DECL, get_identifier ("reg_save_area"),
