@@ -1563,6 +1563,23 @@ bootstrap bootstrap-lean bootstrap2 bootstrap2-lean bootstrap3 bootstrap3-lean b
 	echo "Building runtime libraries"; \
 	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 
+profiledbootstrap: all-bootstrap
+	@r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(SET_LIB_PATH) \
+	echo "Bootstrapping the compiler"; \
+	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
+	@r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}` ; export s; \
+	$(SET_LIB_PATH) \
+	echo "Building runtime libraries and training compiler"; \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
+	@r=`${PWD}`; export r; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
+	$(SET_LIB_PATH) \
+	echo "Building feedback based compiler"; \
+	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
+
 .PHONY: cross
 cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 	@r=`${PWD}`; export r; \

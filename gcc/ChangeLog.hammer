@@ -1,3 +1,21 @@
+Wed Apr  2 23:57:03 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* install.tex: Document profiledbootstrap.
+
+	* Makefile.in (profiledbootstrap): New target
+
+	* Makefile.in (clean, distclean): Kill new stages
+	(POSTSTAGE1_FLAGS_TO_PASS): Break from ...
+	(STAGE2_FLAGS_TO_PASS): ... this one.
+	(STAGEPROFILE_FLAGS_TO_PASS, STAGEFEEDBACK_FLAGS_TO_PASS): New.
+	(stage[2-4]_build): Add POSTSTAGE1_FLAGS_TO_PASS.
+	(stageprofile_build, stageprofile_copy, stagefeedback_build,
+	stagefeedback_copy): New.
+	(restageprofile, restagefeedback, stageprofile-start, 
+	stageprofile, stagefeedback-start): Likewise.
+
+	* Make-lang.in:  Add support for stageprofile and stagefeedback
+
 Wed Apr  2 23:54:55 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md:  Temporarily replace rep ; ret by nop ; ret.
