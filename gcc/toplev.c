@@ -69,7 +69,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
-
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif
@@ -856,6 +855,9 @@ int flag_renumber_insns = 1;
 /* Enable the SSA tree optimizer.  */
 int flag_tree_ssa = 0;
 
+/* Enable the SSA-PRE tree optimization.  */
+int flag_tree_ssa_pre = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1156,6 +1158,8 @@ static const lang_independent_options f_options[] =
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
   { "tree-ssa", &flag_tree_ssa, 1,
    N_("Enable SSA optimizations on trees") },
+  { "tree-ssa-pre", &flag_tree_ssa_pre, 1,
+   N_("Enable SSA-PRE optimization on trees") },
 };
 
 /* Table of language-specific options.  */
@@ -2041,12 +2045,10 @@ static void
 compile_file ()
 {
   tree globals;
-
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
   init_branch_prob (dump_base_name);
-
   timevar_push (TV_PARSE);
 
   /* Call the parser, which parses the entire file (calling

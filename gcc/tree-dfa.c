@@ -45,7 +45,7 @@ static int dump_flags;
 
 /* Local functions.  */
 static void find_refs_in_stmt PARAMS ((tree, basic_block));
-static void find_refs_in_expr PARAMS ((tree, enum varref_type, basic_block,
+static void find_refs_in_expr PARAMS ((tree, enum treeref_type, basic_block,
 				       tree, tree));
 static void create_tree_ann PARAMS ((tree));
 static void add_ref_symbol PARAMS ((tree));
@@ -229,7 +229,7 @@ find_refs_in_stmt (t, bb)
 static void
 find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
      tree expr;
-     enum varref_type ref_type;
+     enum treeref_type ref_type;
      basic_block bb;
      tree parent_stmt;
      tree parent_expr;
@@ -246,7 +246,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
       || code == PARM_DECL
       || code == FIELD_DECL)
     {
-      create_varref (expr, ref_type, bb, parent_stmt, parent_expr);
+      create_ref (expr, ref_type, bb, parent_stmt, parent_expr);
       return;
     }
 
@@ -451,7 +451,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
 
 /* Create references and associations to symbols and basic blocks.  */
 
-/* {{{ create_varref()
+/* {{{ create_ref()
 
    Create a new variable reference for symbol SYM and add it to the list
    of references for SYM and the basic block that holds the reference.
@@ -460,9 +460,9 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
    reference.  */
 
 varref
-create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
+create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
      tree sym;
-     enum varref_type ref_type;
+     enum treeref_type ref_type;
      basic_block bb;
      tree parent_stmt;
      tree parent_expr;
@@ -487,29 +487,43 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
       VARRAY_GENERIC_PTR_INIT (VARDEF_IMM_USES (ref), 3, "imm_uses");
       VARRAY_GENERIC_PTR_INIT (VARDEF_RUSES (ref), 5, "ruses");
       if (ref_type == VARPHI)
-	VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_CHAIN (ref), 3, "phi_chain");
+	{
+	  VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_CHAIN (ref), 3, "phi_chain");
+	  VARRAY_BB_INIT (VARDEF_PHI_CHAIN_BB (ref), 3, "phi_chain_bb");
+	}
     }
   else if (ref_type == VARUSE)
     VARRAY_GENERIC_PTR_INIT (VARUSE_RDEFS (ref), 3, "rdefs");
-
-  /* Add the symbol to the list of symbols referenced in this function.  */
-  add_ref_symbol (sym);
-
-  /* Add this reference to the list of references for the symbol.  */
-  VARRAY_PUSH_GENERIC_PTR (get_tree_ann (sym)->refs, ref);
-
-  /* Add this reference to the list of references for the containing
-     statement.  */
-  if (parent_stmt)
-    VARRAY_PUSH_GENERIC_PTR (get_tree_ann (parent_stmt)->refs, ref);
-
+  else if (ref_type == EXPRPHI)
+    {
+      VARRAY_GENERIC_PTR_INIT (EXPRPHI_PHI_CHAIN (ref), 
+			       n_basic_blocks, "ephi_chain");
+      EXPRPHI_PROCESSED (ref) = BITMAP_XMALLOC ();
+      EXPRPHI_DOWNSAFE (ref) = 1;
+      EXPRPHI_CANBEAVAIL (ref) = 1;
+      EXPRPHI_LATER (ref) = 1;
+      EXPRPHI_EXTRANEOUS (ref) = 1;
+    }
+  if (sym)
+    {
+      /* Add the symbol to the list of symbols referenced in this function.  */
+      add_ref_symbol (sym);
+      
+      /* Add this reference to the list of references for the symbol.  */
+      VARRAY_PUSH_GENERIC_PTR (get_tree_ann (sym)->refs, ref);
+      
+      /* Add this reference to the list of references for the containing
+	 statement.  */
+      if (parent_stmt)
+	VARRAY_PUSH_GENERIC_PTR (get_tree_ann (parent_stmt)->refs, ref);
+    }
   /* Add this reference to the list of references for the basic block.  */
   VARRAY_PUSH_GENERIC_PTR (get_bb_ann (bb)->refs, ref);
 
   /* Make sure that PHI terms are added at the beginning of the list,
      otherwise FUD chaining will fail to link local uses to the PHI
      term in this basic block.  */
-  if (ref_type == VARPHI)
+  if (ref_type == VARPHI || ref_type == EXPRPHI)
     {
       varray_type refs = BB_REFS (bb);
       char *src = refs->data.c;
@@ -738,15 +752,22 @@ dump_varref (outf, prefix, ref, indent, details)
 
   lineno = (VARREF_STMT (ref)) ? STMT_LINENO (VARREF_STMT (ref)) : -1;
 
-  sym = (VARREF_SYM (ref))
+  sym = (VARREF_SYM (ref) 
+	 && VARREF_TYPE (ref) != EXPRPHI 
+	 && VARREF_TYPE (ref) != EXPRUSE
+	 && VARREF_TYPE (ref) != EXPRKILL)
     ? IDENTIFIER_POINTER (DECL_NAME (VARREF_SYM (ref))) : "nil";
 
   bbix = (VARREF_BB (ref)) ? VARREF_BB (ref)->index : -1;
 
   type = (VARREF_TYPE (ref) == VARDEF) ? "DEF" :
-         (VARREF_TYPE (ref) == VARUSE) ? "USE" :
-	 (VARREF_TYPE (ref) == VARPHI) ? "PHI" :
-	 "???";
+    (VARREF_TYPE (ref) == VARUSE) ? "USE" :
+    (VARREF_TYPE (ref) == VARPHI) ? "PHI" :
+    (VARREF_TYPE (ref) == EXPRPHI) ? "EXPRPHI" :
+    (VARREF_TYPE (ref) == EXPRUSE) ? "EXPRUSE" :
+    (VARREF_TYPE (ref) == EXPRKILL) ? "EXPRKILL" :
+    (VARREF_TYPE (ref) == EXPRINJ) ? "EXPRINJ" :
+    "???";
 
   fprintf (outf, "%s%s%s(%s): line %d, bb %d, ", s_indent, prefix, type,
 	   sym, lineno, bbix);
@@ -764,6 +785,11 @@ dump_varref (outf, prefix, ref, indent, details)
 	  fputs (" phi-args:\n", outf);
 	  dump_varref_list (outf, prefix, VARDEF_PHI_CHAIN (ref), indent + 4, 0);
 	}
+      else if (VARREF_TYPE (ref) == EXPRPHI && EXPRPHI_PHI_CHAIN (ref))
+	{
+	  fputs (" exprphi-args:\n", outf);
+	  dump_varref_list (outf, prefix, EXPRPHI_PHI_CHAIN (ref), indent + 4, 0);
+	}	
       else if (VARREF_TYPE (ref) == VARDEF && VARDEF_IMM_USES (ref))
 	{
 	  fputs (" immediate uses:\n", outf);
@@ -774,7 +800,7 @@ dump_varref (outf, prefix, ref, indent, details)
 	{
 	  fputs (" reaching def:\n", outf);
 	  dump_varref (outf, prefix, VARUSE_CHAIN (ref), indent + 4, 0);
-	}
+	}	  
     }
 
   fputc ('\n', outf);
@@ -815,9 +841,10 @@ dump_varref_list (outf, prefix, reflist, indent, details)
   if (reflist == NULL)
     return;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (reflist); i++)
-    dump_varref (outf, prefix, VARRAY_GENERIC_PTR (reflist, i), 
-		 indent, details);
+  for (i = 0; i < VARRAY_SIZE (reflist); i++)
+    if (VARRAY_GENERIC_PTR (reflist, i))
+      dump_varref (outf, prefix, VARRAY_GENERIC_PTR (reflist, i), 
+		   indent, details);
 }
 
 /* }}} */

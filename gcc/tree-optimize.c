@@ -48,9 +48,12 @@ optimize_tree (t)
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
-
+  
   /* Build the SSA representation for the function.  */
-  build_tree_ssa (t);
+  build_tree_ssa (t); 
+  if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
+    if (flag_tree_ssa_pre)
+      tree_perform_ssapre ();
 
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
@@ -78,7 +81,7 @@ build_tree_ssa (t)
     {
       tree_find_varrefs ();
       tree_build_ssa ();
-      tree_compute_rdefs ();
+      tree_compute_rdefs ();    
     }
 }
 

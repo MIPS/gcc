@@ -1,3 +1,36 @@
+2002-05-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	s/varref_type/treeref_type/g
+	s/create_varref/create_ref/g
+	
+	* tree-flow.h: Add EXPRPHI, EXPRUSE, EXPRKILL, EXPRINJ.
+	Add structures and macros for each.
+	Add tree_perform_ssapre prototype.
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-ssa-pre.o
+	(tree-ssa-pre.o): Add dependencies for tree-ssa-pre.o
+
+	* cp/Make-lang.in: Add tree-ssa-pre.o
+	
+	* flags.h: Add flag_tree_ssa_pre.
+
+	* tree-ssa-pre.c: New file, SSA-PRE.
+
+	* toplev.c: Add flag_tree_ssa_pre.
+	(lang_independent_options): Add tree-ssa-pre.
+
+	* tree-dump.c (dump_files): Add ssapre dump.
+
+	* tree-optimize.c (optimize_tree): Do SSAPRE if requested.
+
+	* tree.h (dump_index): Add TDI_ssa_pre.
+
+	* tree-dfa.c (create_ref): Add support for creating the EXPR*'s refs.
+	(dump_varref): Add support for dumping EXPR* refs.
+
+	* tree-ssa.c (search_fud_chains): Add BB to VARDEF_PHI_CHAIN_BB.
+	
+
 2002-05-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c (op_prio): Handle ABS_EXPR.

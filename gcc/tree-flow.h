@@ -22,9 +22,12 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _TREE_FLOW_H
 #define _TREE_FLOW_H 1
 
+#include "bitmap.h"
+
 /* {{{ Types of references.  */
 
-enum varref_type { VARDEF, VARUSE, VARPHI };
+enum treeref_type { VARDEF, VARUSE, VARPHI, 
+		    EXPRPHI, EXPRUSE, EXPRKILL, EXPRINJ };
 
 union varref_def;
 
@@ -32,7 +35,7 @@ union varref_def;
 
 /* {{{ Common features of every variable reference.  */
 
-struct varref_common
+struct treeref_common
 {
   /* Base symbol.  */
   tree sym;
@@ -47,16 +50,71 @@ struct varref_common
   basic_block bb;
 
   /* Reference type.  */
-  enum varref_type type;
+  enum treeref_type type;
+
 };
 
 /* }}} */
+
+/* Stuff common to all expression references.  */
+struct exprref_common
+{
+  struct treeref_common common;
+
+  /* SSAPRE: True if expression needs to be saved to a temporary. */
+  int save:1;
+  
+  /* SSAPRE: True if expression needs to be reloaded from a
+     temporary.  */
+  int reload:1;
+
+  /* SSAPRE: True if expression was inserted as a PHI operand
+     occurrence.  */
+  int inserted:1;
+  
+  /* SSAPRE: Redundancy class of expression.  */
+  int class;
+};
+
+/* Expression PHI's */
+struct exprphi
+{
+  struct exprref_common common;
+  
+  /* Expression PHI operands.  This is an array of size
+     n_basic_blocks, with operands ordered by pre-order index of the
+     BB it's from.  */
+  varray_type phi_chain;
+
+  /* SSAPRE: True if PHI is downsafe.  */
+  unsigned int downsafe:1;
+  
+  /* SSAPRE: True if PHI is can_be_avail.  */
+  unsigned int can_be_avail:1;
+
+  /* SSAPRE: True if PHI is later.  */
+  unsigned int later:1;
+
+  /* SSAPRE: True if PHI is expression.  */
+  unsigned int extraneous:1;
+
+  /* SSAPRE: Bitmap to track which operands we've processed during
+     various algorithms.  */
+  bitmap processed;
+};
+#define EXPRPHI_PHI_CHAIN(r) (r)->ephi.phi_chain
+#define EXPRPHI_DOWNSAFE(r) (r)->ephi.downsafe
+#define EXPRPHI_CANBEAVAIL(r) (r)->ephi.can_be_avail
+#define EXPRPHI_LATER(r) (r)->ephi.later
+#define EXPRPHI_EXTRANEOUS(r) (r)->ephi.extraneous
+#define EXPRPHI_PROCESSED(r) (r)->ephi.processed
+#define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
 /* {{{ Variable definitions.  */
 
 struct vardef
 {
-  struct varref_common common;
+  struct treeref_common common;
 
   /* Immediate uses for this definition.  */
   varray_type imm_uses;
@@ -72,13 +130,20 @@ struct vardef
 
   /* PHI arguments (not used with real definitions).  */
   varray_type phi_chain;
+  
+  /* PHI argument BB's 
+     This is which bb this argument reaches us from, *not* which bb
+     the argument is *in*.  */
+  varray_type phi_chain_bb;
 };
+
 
 #define VARDEF_IMM_USES(r) (r)->def.imm_uses
 #define VARDEF_SAVE_CHAIN(r) (r)->def.save_chain
 #define VARDEF_RUSES(r) (r)->def.ruses
 #define VARDEF_MARKED(r) (r)->def.marked
 #define VARDEF_PHI_CHAIN(r) (r)->def.phi_chain
+#define VARDEF_PHI_CHAIN_BB(r) (r)->def.phi_chain_bb
 
 /* }}} */
 
@@ -86,7 +151,7 @@ struct vardef
 
 struct varuse
 {
-  struct varref_common common;
+  struct exprref_common common;
 
   /* Definition chain.  */
   union varref_def *chain;
@@ -100,13 +165,39 @@ struct varuse
 
 /* }}} */
 
+/* {{{ Expressions uses.  */
+
+struct expruse
+{
+  struct exprref_common common;
+
+  /* Definition chain.  */
+  union varref_def *def;
+  
+  /* True if this use is a phi operand occurrence. */
+  int op_occurrence;
+
+  /* SSAPRE: True if this is an operand, and it has a real use. */
+  int has_real_use;
+};
+
+#define EXPRUSE_DEF(r) (r)->euse.def
+#define EXPRUSE_PHIOP(r) (r)->euse.op_occurrence
+#define EXPRUSE_HAS_REAL_USE(r) (r)->euse.has_real_use
+
+
+/* }}} */
+
 /* {{{ Generic variable reference structure.  */
 
 union varref_def
 {
-  struct varref_common common;
+  struct treeref_common common;
+  struct exprref_common ecommon;
   struct vardef def;
   struct varuse use;
+  struct expruse euse;
+  struct exprphi ephi;
 };
 
 typedef union varref_def *varref;
@@ -116,6 +207,16 @@ typedef union varref_def *varref;
 #define VARREF_EXPR(r) (r)->common.expr
 #define VARREF_STMT(r) (r)->common.stmt
 #define VARREF_SYM(r) (r)->common.sym
+
+#define EXPRREF_TYPE(r) (r)->common.type
+#define EXPRREF_BB(r) (r)->common.bb
+#define EXPRREF_EXPR(r) (r)->common.expr
+#define EXPRREF_STMT(r) (r)->common.stmt
+#define EXPRREF_SYM(r) (r)->common.sym
+#define EXPRREF_CLASS(r) (r)->ecommon.class
+#define EXPRREF_INSERTED(r) (r)->ecommon.inserted
+#define EXPRREF_SAVE(r) (r)->ecommon.save
+#define EXPRREF_RELOAD(r) (r)->ecommon.reload
 
 /* Return nonzero if R is a ghost definition.  */
 #define IS_GHOST_DEF(R)		\
@@ -288,8 +389,8 @@ extern basic_block tree_split_bb PARAMS ((basic_block, tree));
 
 extern void tree_find_varrefs PARAMS ((void));
 extern tree_ann get_tree_ann PARAMS ((tree));
-extern varref create_varref PARAMS ((tree, enum varref_type,
-				     basic_block, tree, tree));
+extern varref create_ref PARAMS ((tree, enum treeref_type,
+				  basic_block, tree, tree));
 extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
 extern void debug_varref_list PARAMS ((varray_type));
@@ -300,6 +401,13 @@ extern void get_fcalls PARAMS ((varray_type *, unsigned));
 extern basic_block find_declaration PARAMS ((tree));
 
 /* }}} */
+
+/* {{{ Functions in tree-ssa-pre.c */
+
+extern void tree_perform_ssapre PARAMS ((void));
+
+/* }}} */
+
 
 /* {{{ Functions in tree-ssa.c  */
 

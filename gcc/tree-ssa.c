@@ -33,12 +33,13 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
+#include "tree-inline.h"
 #include "ssa.h"
-
+#include "varray.h"
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
-
+#include "bitmap.h"
 /* Nonzero to warn about variables used before they are initialized.  Used
    by analyze_rdefs().  */
 
@@ -74,7 +75,7 @@ tree_build_ssa ()
   sbitmap *dfs;
   int *idom;
   size_t i;
-
+  
   /* Compute immediate dominators.  */
   idom = (int *) xmalloc ((size_t) n_basic_blocks * sizeof (int));
   memset ((void *) idom, -1, (size_t) n_basic_blocks * sizeof (int));
@@ -92,7 +93,7 @@ tree_build_ssa ()
      with no statement or expression (to distinguish them from actual
      definitions).  */
   for (i = 0; i < NREF_SYMBOLS; i++)
-    create_varref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR, NULL, NULL);
+    create_ref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR, NULL, NULL);
 
   /* Insert the PHI terms and build FUD chains.  */
   insert_phi_terms (dfs);
@@ -212,7 +213,7 @@ insert_phi_terms (dfs)
 		  if (stmt_bb == NULL)
 		    abort ();
 
-		  phi = create_varref (sym, VARPHI, bb, stmt_bb->head_tree,
+		  phi = create_ref (sym, VARPHI, bb, stmt_bb->head_tree,
 		                       NULL);
 		  VARRAY_TREE (added, w) = sym;
 
@@ -341,7 +342,10 @@ search_fud_chains (bb, idom)
 	  currdef = TREE_CURRDEF (sym);
 
 	  if (currdef)
-	    VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), currdef);
+	    {
+	      VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), currdef);
+	      VARRAY_PUSH_BB (VARDEF_PHI_CHAIN_BB (phi), bb);
+	    }
 	}
     }
 
@@ -416,16 +420,21 @@ delete_refs (refs)
 	  VARRAY_FREE (VARDEF_IMM_USES (ref));
 	  VARRAY_FREE (VARDEF_RUSES (ref));
 	  VARRAY_FREE (VARDEF_PHI_CHAIN (ref));
+	  VARRAY_FREE (VARDEF_PHI_CHAIN_BB (ref));
 	}
       else if (VARREF_TYPE (ref) == VARUSE)
 	VARRAY_FREE (VARUSE_RDEFS (ref));
+      else if (VARREF_TYPE (ref) == EXPRPHI)
+	{
+	  BITMAP_XFREE (EXPRPHI_PROCESSED (ref));
+	  VARRAY_FREE (EXPRPHI_PHI_CHAIN (ref));	  
+	}
     }
 
   VARRAY_FREE (refs);
 }
 
 /* }}} */
-
 
 /* Reaching definitions.  */
 

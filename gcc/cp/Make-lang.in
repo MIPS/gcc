@@ -97,7 +97,7 @@ $(DEMANGLER_PROG): cxxmain.o underscore.o $(LIBDEPS)
 # Shared with C front end:
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
  $(CXX_TARGET_OBJS) \
-  tree-cfg.o tree-dfa.o tree-optimize.o tree-ssa.o c-simplify.o \
+  tree-cfg.o tree-dfa.o tree-optimize.o tree-ssa.o tree-ssa-pre.o c-simplify.o \
   c-pretty-print.o tree-simple.o
 
 # Language-specific object files.

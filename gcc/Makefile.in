@@ -708,7 +708,7 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-objc-common.o libcpp.a $(C_TARGET_OBJS) \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o c-pretty-print.o \
   c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
-  simple-goto-elim.o tree-dchain.o
+  simple-goto-elim.o tree-dchain.o tree-ssa-pre.o
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -1349,6 +1349,9 @@ print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
+tree-ssa-pre.o : tree-ssa-pre.c tree-optimize.h tree-flow.h $(CONFIG_H) \
+   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
+   $(C_COMMON_H) $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
 tree-cfg.o : tree-cfg.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
    $(GGC_H) flags.h output.h diagnostic.h errors.h
