@@ -168,10 +168,6 @@ do {				\
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -190,15 +186,6 @@ do {				\
 #else
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -1142,7 +1129,7 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
    Branch to absolute address insns take an address that is right-shifted
    by 2.  We encode the fact that we have a function here, and then emit a
    special assembler op when outputting the address.  */
-#define ENCODE_SECTION_INFO(DECL) \
+#define ENCODE_SECTION_INFO(DECL, FIRST)		\
 do {							\
   if (TREE_CODE (DECL) == FUNCTION_DECL)		\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\

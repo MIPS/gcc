@@ -231,6 +231,7 @@ extern const char *cris_elinux_stacksize_str;
    link them to crt0.o to be prepared.  Use scrt0.c if running the
    simulator, linear style, or s2crt0.c if fixed style.  */
 /* We need to remove any previous definition (elfos.h).  */
+#undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
  "%{sim2:s2crt0.o%s}\
   %{!sim2:%{sim:scrt0.o%s}\
@@ -238,6 +239,7 @@ extern const char *cris_elinux_stacksize_str;
     %{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
   crtbegin.o%s"
 
+#undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s"
 
 #define EXTRA_SPECS				\
@@ -472,10 +474,6 @@ extern int target_flags;
    we use little-endianness, and we may also be able to use
    post-increment on DImode indirect.  */
 #define WORDS_BIG_ENDIAN 0
-
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 32
 
 #define UNITS_PER_WORD 4
 
@@ -1446,19 +1444,28 @@ struct cum_args {int regs;};
 
 /* We need to code in PIC-specific flags into SYMBOL_REF_FLAG.  */
 
-#define ENCODE_SECTION_INFO(EXP) cris_encode_section_info (EXP)
+#define ENCODE_SECTION_INFO(EXP, FIRST) cris_encode_section_info (EXP, FIRST)
 
 /* We pull a little trick to register the _fini function with atexit,
    after (presumably) registering the eh frame info, since we don't handle
-   _fini (a.k.a. ___fini_start) in crt0 or have a crti for "pure" ELF.  */
+   _fini (a.k.a. ___fini_start) in crt0 or have a crti for "pure" ELF.  If
+   you change this, don't forget that you can't have library function
+   references (e.g. to atexit) in crtend.o, since those won't be resolved
+   to libraries; those are linked in *before* crtend.o.  */
 #ifdef CRT_BEGIN
-#define FORCE_INIT_SECTION_ALIGN		\
- do						\
-   {						\
-     extern void __fini__start (void);		\
-     atexit (__fini__start);			\
-   }						\
- while (0)
+# define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)		\
+static void __attribute__((__used__))				\
+call_ ## FUNC (void)						\
+{								\
+  asm (SECTION_OP);						\
+  FUNC ();							\
+  if (__builtin_strcmp (#FUNC, "frame_dummy") == 0)		\
+   {								\
+     extern void __fini__start (void);				\
+     atexit (__fini__start);					\
+   }								\
+  asm (TEXT_SECTION_ASM_OP);					\
+}
 #endif
 
 /* Node: PIC */
@@ -1737,13 +1744,7 @@ struct cum_args {int regs;};
 
 
 /* Node: SDB and DWARF */
-
-#define DWARF_LINE_MIN_INSTR_LENGTH 2
-
-
-/* Node: Cross-compilation */
-#define REAL_ARITHMETIC
-
+/* (no definitions) */
 
 /* Node: Misc */
 

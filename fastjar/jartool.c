@@ -303,8 +303,8 @@ int number_of_entries; /* number of entries in the linked list */
 
 #define OPT_HELP     LONG_OPT (0)
 
-/* This holds all options except `-C', which is handled specially.  */
-#define OPTION_STRING "-ctxuvVf:m:0ME@"
+/* This holds all options.  */
+#define OPTION_STRING "-ctxuvVf:m:C:0ME@"
 
 static const struct option options[] =
 {
@@ -348,9 +348,11 @@ int main(int argc, char **argv){
   while ((opt = getopt_long (argc, argv, OPTION_STRING,
 			     options, NULL)) != -1) {
     switch(opt){
+    case 'C':
+      new_argv[new_argc++] = (char *) "-C";
+      /* ... fall through ... */
     case 1:
-      /* File name or unparsed option, due to RETURN_IN_ORDER.  In
-	 particular `-C' is handled here and not elsewhere.  */
+      /* File name or unparsed option, due to RETURN_IN_ORDER.  */
       new_argv[new_argc++] = optarg;
       break;
     case 'c':
@@ -404,6 +406,7 @@ int main(int argc, char **argv){
      all following options are handled as file names.  */
   while (optind < argc)
     new_argv[new_argc++] = argv[optind++];
+  new_argv[new_argc] = NULL;
 
   if(action == ACTION_NONE){
     fprintf(stderr, "One of options -{ctxu} must be specified.\n");
@@ -495,7 +498,7 @@ int main(int argc, char **argv){
     else if(manifest)
       make_manifest(jarfd, NULL);
     
-    init_args (new_argv, new_argc);
+    init_args (new_argv, 0);
     /* now we add the files to the archive */
     while ((arg = get_next_arg ())){
 

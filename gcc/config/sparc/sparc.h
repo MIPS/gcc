@@ -687,10 +687,6 @@ extern struct sparc_cpu_select sparc_select[];
 
 /* target machine storage layout */
 
-/* Define for cross-compilation to a sparc target with no TFmode from a host
-   with a different float format (e.g. VAX).  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -710,14 +706,6 @@ extern struct sparc_cpu_select sparc_select[];
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		(TARGET_ARCH64 ? 64 : 32)
 #define MAX_BITS_PER_WORD	64
 
 /* Width of a word, in units (bytes).  */
@@ -740,7 +728,7 @@ extern struct sparc_cpu_select sparc_select[];
 #if 0
 /* ??? This does not work in SunOS 4.x, so it is not enabled here.
    Instead, it is enabled in sol2.h, because it does work under Solaris.  */
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 #endif
@@ -894,9 +882,10 @@ if (TARGET_ARCH64				\
    accessible.  We still account for them to simplify register computations
    (eg: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
-   Register 100 is used as the integer condition code register.  */
+   Register 100 is used as the integer condition code register.
+   Register 101 is used as the soft frame pointer register.  */
 
-#define FIRST_PSEUDO_REGISTER 101
+#define FIRST_PSEUDO_REGISTER 102
 
 #define SPARC_FIRST_FP_REG     32
 /* Additional V9 fp regs.  */
@@ -962,7 +951,7 @@ if (TARGET_ARCH64				\
   0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
 				\
-  0, 0, 0, 0, 0}
+  0, 0, 0, 0, 0, 1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -987,7 +976,7 @@ if (TARGET_ARCH64				\
   1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1,	\
 				\
-  1, 1, 1, 1, 1}
+  1, 1, 1, 1, 1, 1}
 
 /* If !TARGET_FPU, then make the fp registers and fp cc regs fixed so that
    they won't be allocated.  */
@@ -1042,7 +1031,7 @@ do								\
 	/* Let the compiler believe the frame pointer is still	\
 	   %fp, but output it as %i7.  */			\
 	fixed_regs[31] = 1;					\
-	reg_names[FRAME_POINTER_REGNUM] = "%i7";		\
+	reg_names[HARD_FRAME_POINTER_REGNUM] = "%i7";		\
 	/* Disable leaf functions */				\
 	memset (sparc_leaf_regs, 0, FIRST_PSEUDO_REGISTER);	\
       }								\
@@ -1062,9 +1051,9 @@ while (0)
 
 #define HARD_REGNO_NREGS(REGNO, MODE) \
   (TARGET_ARCH64							\
-   ?  ((REGNO) < 32							\
-       ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD	\
-       : (GET_MODE_SIZE (MODE) + 3) / 4)				\
+   ? ((REGNO) < 32 || (REGNO) == FRAME_POINTER_REGNUM			\
+      ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD	\
+      : (GET_MODE_SIZE (MODE) + 3) / 4)					\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Due to the ARCH64 descrepancy above we must override this next
@@ -1107,27 +1096,32 @@ extern int sparc_mode_class[];
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM 14
 
+/* The stack bias (amount by which the hardware register is offset by).  */
+#define SPARC_STACK_BIAS ((TARGET_ARCH64 && TARGET_STACK_BIAS) ? 2047 : 0)
+
 /* Actual top-of-stack address is 92/176 greater than the contents of the
    stack pointer register for !v9/v9.  That is:
    - !v9: 64 bytes for the in and local registers, 4 bytes for structure return
      address, and 6*4 bytes for the 6 register parameters.
    - v9: 128 bytes for the in and local registers + 6*8 bytes for the integer
      parameter regs.  */
-#define STACK_POINTER_OFFSET FIRST_PARM_OFFSET(0)
-
-/* The stack bias (amount by which the hardware register is offset by).  */
-#define SPARC_STACK_BIAS ((TARGET_ARCH64 && TARGET_STACK_BIAS) ? 2047 : 0)
-
-/* Is stack biased? */
-#define STACK_BIAS SPARC_STACK_BIAS
+#define STACK_POINTER_OFFSET (FIRST_PARM_OFFSET(0) + SPARC_STACK_BIAS)
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 30
+#define HARD_FRAME_POINTER_REGNUM 30
 
-#if 0
-/* Register that is used for the return address for the flat model.  */
-#define RETURN_ADDR_REGNUM 15
-#endif
+/* The soft frame pointer does not have the stack bias applied.  */
+#define FRAME_POINTER_REGNUM 101
+
+/* Given the stack bias, the stack pointer isn't actually aligned.  */
+#define INIT_EXPANDERS							 \
+  do {									 \
+    if (cfun && cfun->emit->regno_pointer_align && SPARC_STACK_BIAS)	 \
+      {									 \
+	REGNO_POINTER_ALIGN (STACK_POINTER_REGNUM) = BITS_PER_UNIT;	 \
+	REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_UNIT; \
+      }									 \
+  } while (0)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -1138,9 +1132,11 @@ extern int sparc_mode_class[];
    Being a non-leaf function does not mean a frame pointer is needed in the
    flat window model.  However, the debugger won't be able to backtrace through
    us with out it.  */
-#define FRAME_POINTER_REQUIRED \
-  (TARGET_FLAT ? (current_function_calls_alloca || current_function_varargs \
-		  || !leaf_function_p ()) \
+#define FRAME_POINTER_REQUIRED				\
+  (TARGET_FLAT						\
+   ? (current_function_calls_alloca			\
+      || current_function_varargs			\
+      || !leaf_function_p ())				\
    : ! (leaf_function_p () && only_leaf_regs_used ()))
 
 /* C statement to store the difference between the frame pointer
@@ -1275,10 +1271,16 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
 
-#define REG_CLASS_CONTENTS \
-  {{0, 0, 0, 0}, {0, 0, 0, 0xf}, {0xffff, 0, 0, 0}, \
-   {-1, 0, 0, 0}, {0, -1, 0, 0}, {0, -1, -1, 0}, \
-   {-1, -1, 0, 0}, {-1, -1, -1, 0}, {-1, -1, -1, 0x1f}}
+#define REG_CLASS_CONTENTS				\
+  {{0, 0, 0, 0},	/* NO_REGS */			\
+   {0, 0, 0, 0xf},	/* FPCC_REGS */			\
+   {0xffff, 0, 0, 0},	/* I64_REGS */			\
+   {-1, 0, 0, 0x20},	/* GENERAL_REGS */		\
+   {0, -1, 0, 0},	/* FP_REGS */			\
+   {0, -1, -1, 0},	/* EXTRA_FP_REGS */		\
+   {-1, -1, 0, 0x20},	/* GENERAL_OR_FP_REGS */	\
+   {-1, -1, -1, 0x20},	/* GENERAL_OR_EXTRA_FP_REGS */	\
+   {-1, -1, -1, 0x3f}}	/* ALL_REGS */
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1310,7 +1312,7 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
   88, 89, 90, 91, 92, 93, 94, 95,	/* %f56-%f63 */ \
   32, 33,				/* %f0,%f1 */   \
   96, 97, 98, 99, 100,			/* %fcc0-3, %icc */ \
-  1, 4, 5, 6, 7, 0, 14, 30}
+  1, 4, 5, 6, 7, 0, 14, 30, 101}
 
 /* This is the order in which to allocate registers for
    leaf functions.  If all registers can fit in the "gi" registers,
@@ -1331,7 +1333,7 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
   88, 89, 90, 91, 92, 93, 94, 95,	\
   32, 33,				\
   96, 97, 98, 99, 100,			\
-  0, 14, 30, 31}
+  0, 14, 30, 31, 101}
   
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
 
@@ -1379,7 +1381,8 @@ extern const char leaf_reg_remap[];
    `J' is used for the range which is just zero (since that is R0).
    `K' is used for constants which can be loaded with a single sethi insn.
    `L' is used for the range of constants supported by the movcc insns.
-   `M' is used for the range of constants supported by the movrcc insns.  */
+   `M' is used for the range of constants supported by the movrcc insns.
+   `N' is like K, but for constants wider than 32 bits.  */
 
 #define SPARC_SIMM10_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x200 < 0x400)
 #define SPARC_SIMM11_P(X) ((unsigned HOST_WIDE_INT) (X) + 0x400 < 0x800)
@@ -1388,17 +1391,21 @@ extern const char leaf_reg_remap[];
    SMALL_INT is used throughout the port so we continue to use it.  */
 #define SMALL_INT(X) (SPARC_SIMM13_P (INTVAL (X)))
 /* 13 bit immediate, considering only the low 32 bits */
-#define SMALL_INT32(X) (SPARC_SIMM13_P ((int)INTVAL (X) & 0xffffffff))
+#define SMALL_INT32(X) (SPARC_SIMM13_P (trunc_int_for_mode \
+					(INTVAL (X), SImode)))
 #define SPARC_SETHI_P(X) \
-(((unsigned HOST_WIDE_INT) (X) & \
-  (TARGET_ARCH64 ? ~(unsigned HOST_WIDE_INT) 0xfffffc00 : 0x3ff)) == 0)
+  (((unsigned HOST_WIDE_INT) (X) \
+    & ((unsigned HOST_WIDE_INT) 0x3ff - GET_MODE_MASK (SImode) - 1)) == 0)
+#define SPARC_SETHI32_P(X) \
+  (SPARC_SETHI_P ((unsigned HOST_WIDE_INT) (X) & GET_MODE_MASK (SImode)))
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)  \
   ((C) == 'I' ? SPARC_SIMM13_P (VALUE)			\
    : (C) == 'J' ? (VALUE) == 0				\
-   : (C) == 'K' ? SPARC_SETHI_P (VALUE)			\
+   : (C) == 'K' ? SPARC_SETHI32_P (VALUE)		\
    : (C) == 'L' ? SPARC_SIMM11_P (VALUE)		\
    : (C) == 'M' ? SPARC_SIMM10_P (VALUE)		\
+   : (C) == 'N' ? SPARC_SETHI_P (VALUE)			\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1535,7 +1542,7 @@ extern const char leaf_reg_remap[];
    of the first local allocated.  */
 /* This allows space for one TFmode floating point value.  */
 #define STARTING_FRAME_OFFSET \
-  (TARGET_ARCH64 ? (SPARC_STACK_BIAS - 16) \
+  (TARGET_ARCH64 ? -16 \
    : (-SPARC_STACK_ALIGN (LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)))
 
 /* If we generate an insn to push BYTES bytes,
@@ -1548,14 +1555,12 @@ extern const char leaf_reg_remap[];
    even if this function isn't going to use it.
    v9: This is 128 for the ins and locals.  */
 #define FIRST_PARM_OFFSET(FNDECL) \
-  (TARGET_ARCH64 ? (SPARC_STACK_BIAS + 16 * UNITS_PER_WORD) \
-   : (STRUCT_VALUE_OFFSET + UNITS_PER_WORD))
+  (TARGET_ARCH64 ? 16 * UNITS_PER_WORD : STRUCT_VALUE_OFFSET + UNITS_PER_WORD)
 
 /* Offset from the argument pointer register value to the CFA.
    This is different from FIRST_PARM_OFFSET because the register window
    comes between the CFA and the arguments.  */
-
-#define ARG_POINTER_CFA_OFFSET(FNDECL)  SPARC_STACK_BIAS
+#define ARG_POINTER_CFA_OFFSET(FNDECL)  0
 
 /* When a parameter is passed in a register, stack space is still
    allocated for it.
@@ -1567,6 +1572,17 @@ extern const char leaf_reg_remap[];
    registers than we've provided space.  Ugly, ugly.  So for now we retain
    all 6 slots even for v9.  */
 #define REG_PARM_STACK_SPACE(DECL) (6 * UNITS_PER_WORD)
+
+/* Definitions for register elimination.  */
+/* ??? In TARGET_FLAT mode we needn't have a hard frame pointer.  */
+   
+#define ELIMINABLE_REGS \
+  {{ FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
+
+#define CAN_ELIMINATE(FROM, TO) 1
+
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
+  ((OFFSET) = SPARC_STACK_BIAS)
 
 /* Keep the stack pointer constant throughout the function.
    This is both an optimization and a necessity: longjmp
@@ -1996,9 +2012,12 @@ do {									\
    has been allocated, which happens in local-alloc.c.  */
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) \
-((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < (unsigned)32)
-#define REGNO_OK_FOR_BASE_P(REGNO) \
-((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < (unsigned)32)
+((REGNO) < 32 || (unsigned) reg_renumber[REGNO] < (unsigned)32	\
+ || (REGNO) == FRAME_POINTER_REGNUM				\
+ || reg_renumber[REGNO] == FRAME_POINTER_REGNUM)
+
+#define REGNO_OK_FOR_BASE_P(REGNO)  REGNO_OK_FOR_INDEX_P (REGNO)
+
 #define REGNO_OK_FOR_FP_P(REGNO) \
   (((unsigned) (REGNO) - 32 < (TARGET_V9 ? (unsigned)64 : (unsigned)32)) \
    || ((unsigned) reg_renumber[REGNO] - 32 < (TARGET_V9 ? (unsigned)64 : (unsigned)32)))
@@ -2092,11 +2111,13 @@ do {									\
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X) \
-  (((unsigned) REGNO (X)) - 32 >= (FIRST_PSEUDO_REGISTER - 32))
+  (REGNO (X) < 32				\
+   || REGNO (X) == FRAME_POINTER_REGNUM		\
+   || REGNO (X) >= FIRST_PSEUDO_REGISTER)
+
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
-#define REG_OK_FOR_BASE_P(X) \
-  (((unsigned) REGNO (X)) - 32 >= (FIRST_PSEUDO_REGISTER - 32))
+#define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_INDEX_P (X)
 
 /* 'T', 'U' are for aligned memory loads which aren't needed for arch64.  */
 
@@ -2353,10 +2374,10 @@ do {                                                                    \
    In the Embedded Medium/Anywhere code model, %g4 points to the data segment
    so we must not add it to function addresses.  */
 
-#define ENCODE_SECTION_INFO(DECL) \
-  do {							\
-    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL) \
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
+  do {									\
+    if (TARGET_CM_EMBMEDANY && TREE_CODE (DECL) == FUNCTION_DECL)	\
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;			\
   } while (0)
 
 /* Specify the machine mode that this machine uses
@@ -2675,7 +2696,7 @@ do {									\
  "%f40", "%f41", "%f42", "%f43", "%f44", "%f45", "%f46", "%f47",	\
  "%f48", "%f49", "%f50", "%f51", "%f52", "%f53", "%f54", "%f55",	\
  "%f56", "%f57", "%f58", "%f59", "%f60", "%f61", "%f62", "%f63",	\
- "%fcc0", "%fcc1", "%fcc2", "%fcc3", "%icc"}
+ "%fcc0", "%fcc1", "%fcc2", "%fcc3", "%icc", "%sfp" }
 
 /* Define additional names for use in asm clobbers and asm declarations.  */
 

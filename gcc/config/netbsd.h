@@ -70,12 +70,12 @@
   "%{!symbolic:			\
      %{!shared:			\
        %{!p:			\
-	 %{!pg:-lgcc}}}		\
-     %{shared:-lgcc_pic}	\
-     %{p:-lgcc_p}		\
-     %{pg:-lgcc_p}}"
+	 %{!pg: -lgcc}}}		\
+     %{shared: -lgcc_pic}	\
+     %{p: -lgcc_p}		\
+     %{pg: -lgcc_p}}"
 #else
-#define LIBGCC_SPEC "%{!shared:%{!symbolic:-lgcc}}"
+#define LIBGCC_SPEC "%{!shared:%{!symbolic: -lgcc}}"
 #endif
 
 /* When building shared libraries, the initialization and finalization 
@@ -109,3 +109,16 @@
 /* Handle #pragma weak and #pragma pack.  */
 
 #define HANDLE_SYSV_PRAGMA
+
+
+/* Define some types that are the same on all NetBSD platforms,
+   making them agree with <machine/ansi.h>.  */
+
+#undef WCHAR_TYPE
+#define WCHAR_TYPE "int"
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
+
+#undef WINT_TYPE
+#define WINT_TYPE "int"

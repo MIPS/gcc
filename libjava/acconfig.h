@@ -89,9 +89,6 @@
 /* Define if global `timezone' exists.  */
 #undef HAVE_TIMEZONE
 
-/* Define to version of GCJ in use.  */
-#undef GCJVERSION
-
 /* Define if you have the appropriate function.  */
 #undef HAVE_ACCESS
 #undef HAVE_STAT
@@ -123,6 +120,9 @@
    getenv("GCJ_PROPERTIES").  */
 #undef DISABLE_GETENV_PROPERTIES
 
+/* Define if we should ignore arguments to main().  */
+#undef DISABLE_MAIN_ARGS
+
 /* Define if using setjmp/longjmp exceptions.  */
 #undef SJLJ_EXCEPTIONS
 
@@ -132,6 +132,9 @@
 /* Define if you have dladdr() */
 #undef HAVE_DLADDR
  
+/* Define if tzname is missing.  */
+#undef NO_TZNAME
+
 /* Define if getuid() and friends are missing.  */
 #undef NO_GETUID
 

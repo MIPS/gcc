@@ -762,6 +762,9 @@ scan_loop (loop, flags)
       if (GET_CODE (p) == INSN
 	  && (set = single_set (p))
 	  && GET_CODE (SET_DEST (set)) == REG
+#ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
+	  && SET_DEST (set) != pic_offset_table_rtx
+#endif
 	  && ! regs->array[REGNO (SET_DEST (set))].may_not_optimize)
 	{
 	  int tem1 = 0;
@@ -1099,7 +1102,25 @@ scan_loop (loop, flags)
      optimizing for code size.  */
 
   if (! optimize_size)
-    move_movables (loop, movables, threshold, insn_count);
+    {
+      move_movables (loop, movables, threshold, insn_count);
+
+      /* Recalculate regs->array if move_movables has created new
+	 registers.  */
+      if (max_reg_num () > regs->num)
+	{
+	  loop_regs_scan (loop, 0);
+	  for (update_start = loop_start;
+	       PREV_INSN (update_start)
+	       && GET_CODE (PREV_INSN (update_start)) != CODE_LABEL;
+	       update_start = PREV_INSN (update_start))
+	    ;
+	  update_end = NEXT_INSN (loop_end);
+
+	  reg_scan_update (update_start, update_end, loop_max_reg);
+	  loop_max_reg = max_reg_num ();
+	}
+    }
 
   /* Now candidates that still are negative are those not moved.
      Change regs->array[I].set_in_loop to indicate that those are not actually
@@ -2483,16 +2504,17 @@ prescan_loop (loop)
 
 	      if (set)
 		{
+		  rtx src = SET_SRC (set);
 		  rtx label1, label2;
 
-		  if (GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
+		  if (GET_CODE (src) == IF_THEN_ELSE)
 		    {
-		      label1 = XEXP (SET_SRC (set), 1);
-		      label2 = XEXP (SET_SRC (set), 2);
+		      label1 = XEXP (src, 1);
+		      label2 = XEXP (src, 2);
 		    }
 		  else
 		    {
-		      label1 = SET_SRC (PATTERN (insn));
+		      label1 = src;
 		      label2 = NULL_RTX;
 		    }
 
@@ -3227,7 +3249,7 @@ loop_invariant_p (loop, x)
 	 since the reg might be set by initialization within the loop.  */
 
       if ((x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-	   || x == arg_pointer_rtx)
+	   || x == arg_pointer_rtx || x == pic_offset_table_rtx)
 	  && ! current_function_has_nonlocal_goto)
 	return 1;
 
@@ -3680,8 +3702,19 @@ remove_constant_addition (x)
   HOST_WIDE_INT addval = 0;
   rtx exp = *x;
 
+  /* Avoid clobbering a shared CONST expression.  */
   if (GET_CODE (exp) == CONST)
-    exp = XEXP (exp, 0);
+    {
+      if (GET_CODE (XEXP (exp, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (exp, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (exp, 0), 1)) == CONST_INT)
+	{
+	  *x = XEXP (XEXP (exp, 0), 0);
+	  return INTVAL (XEXP (XEXP (exp, 0), 1));
+	}
+      return 0;
+    }
+
   if (GET_CODE (exp) == CONST_INT)
     {
       addval = INTVAL (exp);
@@ -5129,6 +5162,11 @@ strength_reduce (loop, flags)
 	    fprintf (loop_dump_stream, "Reg %d: biv eliminated\n",
 		     bl->regno);
 	}
+      /* See above note wrt final_value.  But since we couldn't eliminate
+	 the biv, we must set the value after the loop instead of before.  */
+      else if (bl->final_value && ! bl->reversed)
+	loop_insn_sink (loop, gen_move_insn (bl->biv->dest_reg,
+					     bl->final_value));
     }
 
   /* Go through all the instructions in the loop, making all the
@@ -6108,13 +6146,13 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
       return 1;
 
     case SUBREG:
-      /* If this is a SUBREG for a promoted variable, check the inner
-	 value.  */
-      if (SUBREG_PROMOTED_VAR_P (x))
-	return basic_induction_var (loop, SUBREG_REG (x),
-				    GET_MODE (SUBREG_REG (x)),
-				    dest_reg, p, inc_val, mult_val, location);
-      return 0;
+      /* If what's inside the SUBREG is a BIV, then the SUBREG.  This will
+	 handle addition of promoted variables.
+	 ??? The comment at the start of this function is wrong: promoted
+	 variable increments don't look like it says they do.  */
+      return basic_induction_var (loop, SUBREG_REG (x),
+				  GET_MODE (SUBREG_REG (x)),
+				  dest_reg, p, inc_val, mult_val, location);
 
     case REG:
       /* If this register is assigned in a previous insn, look at its
@@ -7623,9 +7661,9 @@ loop_regs_update (loop, seq)
     }
   else
     {
-      rtx set = single_set (seq);
-      if (set && GET_CODE (SET_DEST (set)) == REG)
-	record_base_value (REGNO (SET_DEST (set)), SET_SRC (set), 0);
+      if (GET_CODE (seq) == SET
+	  && GET_CODE (SET_DEST (seq)) == REG)
+	record_base_value (REGNO (SET_DEST (seq)), SET_SRC (seq), 0);
     }
 }
 
@@ -7651,7 +7689,7 @@ loop_iv_add_mult_emit_before (loop, b, m, a, reg, before_bb, before_insn)
     }
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   /* Increase the lifetime of any invariants moved further in code.  */
   update_reg_last_use (a, before_insn);
@@ -7679,7 +7717,7 @@ loop_iv_add_mult_sink (loop, b, m, a, reg)
   rtx seq;
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   /* Increase the lifetime of any invariants moved further in code.
      ???? Is this really necessary?  */
@@ -7708,7 +7746,7 @@ loop_iv_add_mult_hoist (loop, b, m, a, reg)
   rtx seq;
 
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
-  seq = gen_add_mult (copy_rtx (b), m, copy_rtx (a), reg);
+  seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
   loop_insn_hoist (loop, seq);
 

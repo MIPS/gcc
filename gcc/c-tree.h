@@ -132,6 +132,10 @@ struct lang_type
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
 
+/* For a FUNCTION_DECL, nonzero if it was defined without an explicit
+   return type.  */
+#define C_FUNCTION_IMPLICIT_INT(EXP) DECL_LANG_FLAG_1 (EXP)
+
 /* Nonzero for a declaration of a built in function if there has been no
    occasion that would declare the function in ordinary C.
    Using the function draws a pedantic warning in this case.  */
@@ -164,6 +168,7 @@ extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
 
 /* in c-decl.c */
 extern void c_init_decl_processing		PARAMS ((void));
+extern void c_dup_lang_specific_decl		PARAMS ((tree));
 extern void c_print_identifier			PARAMS ((FILE *, tree, int));
 extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
@@ -277,6 +282,11 @@ extern int current_function_returns_value;
 
 extern int current_function_returns_null;
 
+/* Set to 0 at beginning of a function definition, set to 1 if
+   a call to a noreturn function is seen.  */
+
+extern int current_function_returns_abnormally;
+
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
 
@@ -338,10 +348,6 @@ extern int warn_char_subscripts;
 /* Warn if main is suspicious.  */
 
 extern int warn_main;
-
-/* Nonzero means to allow single precision math even if we're generally
-   being traditional.  */
-extern int flag_allow_single_precision;
 
 /* Warn if initializer is not completely bracketed.  */
 

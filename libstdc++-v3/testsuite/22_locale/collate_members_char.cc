@@ -142,17 +142,29 @@ void test02()
   if (!setenv("LANG", "de_DE", 1))
     {
       test01();
-      setenv("LANG", oldLANG, 1);
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
     }
 #endif
+}
+
+void test03()
+{
+  bool test = true;
+  std::string str1("fffff");
+  std::string str2("ffffffffffff");
+
+  const std::locale cloc = std::locale::classic();
+  const std::collate<char> &col = std::use_facet<std::collate<char> >(cloc);
+
+  long l1 = col.hash(str1.c_str(), str1.c_str() + str1.size());
+  long l2 = col.hash(str2.c_str(), str2.c_str() + str2.size());
+  VERIFY( l1 != l2 );
 }
 
 int main()
 {
   test01();
   test02();
+  test03();
   return 0;
 }
-
-
-

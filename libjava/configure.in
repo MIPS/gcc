@@ -63,6 +63,14 @@ if test "$enable_getenv_properties" = no; then
    AC_DEFINE(DISABLE_GETENV_PROPERTIES)
 fi
 
+dnl Whether we should use arguments to main()
+if test -z "$enable_main_args"; then
+   enable_main_args=${enable_main_args_default-yes}
+fi
+if test "$enable_main_args" = no; then
+   AC_DEFINE(DISABLE_MAIN_ARGS)
+fi
+
 
 dnl Should we use hashtable-based synchronization?
 dnl Currently works only for Linux X86/ia64
@@ -187,23 +195,36 @@ dnl If the target is an eCos system, use the appropriate eCos
 dnl I/O routines.
 dnl FIXME: this should not be a local option but a global target
 dnl system; at present there is no eCos target.
-TARGET_ECOS="no"
+TARGET_ECOS=${PROCESS-"no"}
 AC_ARG_WITH(ecos,
 [  --with-ecos             enable runtime eCos target support],
 TARGET_ECOS="$with_ecos"
 )
 
+PLATFORMOBJS=
 case "$TARGET_ECOS" in
-   no)
-      FILE_DESCRIPTOR=natFileDescriptorPosix.cc
-      PROCESS=${PROCESS-Posix}
+   no) case "$host" in
+      *mingw*)
+            PLATFORM=Win32
+            PLATFORMOBJS=win32.lo
+	    PLATFORMH=win32.h
+      ;;
+      *)
+            PLATFORM=Posix
+            PLATFORMOBJS=posix.lo
+	    PLATFORMH=posix.h
+      ;;
+      esac
       ;;
    *)
-      FILE_DESCRIPTOR=natFileDescriptorEcos.cc
-      PROCESS=Ecos
+      PLATFORM=Ecos
       AC_DEFINE(ECOS)
+      PLATFORMOBJS=posix.lo
+      PLATFORMH=posix.h
       ;;
 esac
+AC_SUBST(PLATFORMOBJS)
+AC_LINK_FILES(include/$PLATFORMH, include/platform.h)
 
 AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED))
 AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED))
@@ -221,14 +242,22 @@ dnl to create the link will fail.
 test -d java || mkdir java
 test -d java/io || mkdir java/io
 test -d gnu || mkdir gnu
-AC_LINK_FILES(java/io/$FILE_DESCRIPTOR, java/io/natFileDescriptor.cc)
+AC_LINK_FILES(java/io/natFile${PLATFORM}.cc, java/io/natFile.cc)
+AC_LINK_FILES(java/io/natFileDescriptor${PLATFORM}.cc, java/io/natFileDescriptor.cc)
 
 dnl Likewise for ConcreteProcess.java and natConcreteProcess.cc.
 test -d java/lang || mkdir java/lang
-AC_LINK_FILES(java/lang/${PROCESS}Process.java, java/lang/ConcreteProcess.java)
-AC_LINK_FILES(java/lang/nat${PROCESS}Process.cc, java/lang/natConcreteProcess.cc)
+AC_LINK_FILES(java/lang/${PLATFORM}Process.java, java/lang/ConcreteProcess.java)
+AC_LINK_FILES(java/lang/nat${PLATFORM}Process.cc, java/lang/natConcreteProcess.cc)
 
-SYSTEMSPEC=
+case "${host}" in
+    *mingw*)
+      SYSTEMSPEC="-lgdi32 -lwsock32 -lws2_32"
+    ;;
+    *)
+      SYSTEMSPEC=
+    ;;
+esac
 AC_SUBST(SYSTEMSPEC)
 
 LIBGCJTESTSPEC="-L`pwd`/.libs -rpath `pwd`/.libs"
@@ -313,7 +342,9 @@ case "$THREADS" in
 	;;
     esac
     ;;
- decosf1 | irix | mach | os2 | solaris | win32 | dce | vxworks)
+ win32)
+    ;;
+ decosf1 | irix | mach | os2 | solaris | dce | vxworks)
     AC_MSG_ERROR(thread package $THREADS not yet supported)
     ;;
  *)
@@ -372,6 +403,11 @@ changequote([,])
        AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads])
     fi
     AC_DEFINE(_POSIX_PTHREAD_SEMANTICS, 1, [Required define if using POSIX threads])
+    ;;
+
+ win32)
+    THREADOBJS=win32-threads.lo
+    THREADH=win32-threads.h
     ;;
 
  none)
@@ -436,7 +472,7 @@ if test -n "${with_cross_host}"; then
    fi
    NATIVE=no
 else
-   AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep)
+   AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep opendir)
    AC_CHECK_FUNCS(gmtime_r localtime_r readdir_r getpwuid_r getcwd)
    AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath utime chmod)
    AC_CHECK_FUNCS(nl_langinfo setlocale)
@@ -680,8 +716,7 @@ LT_AC_PROG_GCJ
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-dnl FIXME: cross compilation
-AC_CHECK_SIZEOF(void *)
+AC_COMPILE_CHECK_SIZEOF(void *)
 
 ZLIBS=
 ZDEPS=
@@ -708,13 +743,6 @@ AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
-# Determine gcj version number.
-changequote(<<,>>)
-gcjvers="`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`"
-changequote([,])
-AC_DEFINE_UNQUOTED(GCJVERSION, "$gcjvers")
-AC_SUBST(GCJVERSION)
-
 AC_SUBST(AM_RUNTESTFLAGS)
 
 dnl Work around a g++ bug.  Reported to gcc-bugs@gcc.gnu.org on Jan 22, 2000.
@@ -738,6 +766,7 @@ AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
 ])
+AC_HEADER_SYS_WAIT
 
 AC_CHECK_TYPE([ssize_t], [int])
 
@@ -816,6 +845,9 @@ case "${host}" in
     ;;
  alpha*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ *mingw*)
+    SIGNAL_HANDLER=include/win32-signal.h
     ;;
  *)
     SIGNAL_HANDLER=include/default-signal.h

@@ -95,7 +95,7 @@ void test01()
   VERIFY( eto_next == e_arr );
 
   int i = cvt->encoding();
-  VERIFY( i == 0 );
+  VERIFY( i == 4 ); // Target-dependent.
 
   VERIFY( !cvt->always_noconv() );
 
@@ -124,7 +124,7 @@ void test02()
   if (!setenv("LANG", "de_DE", 1))
     {
       test01();
-      setenv("LANG", oldLANG, 1);
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
     }
 #endif
 }

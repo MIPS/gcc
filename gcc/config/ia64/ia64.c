@@ -1664,10 +1664,9 @@ ia64_initial_elimination_offset (from, to)
       /* Arguments start above the 16 byte save area, unless stdarg
 	 in which case we store through the 16 byte save area.  */
       if (to == HARD_FRAME_POINTER_REGNUM)
-	offset = 16 - current_function_pretend_args_size;
+	offset = 16;
       else if (to == STACK_POINTER_REGNUM)
-	offset = (current_frame_info.total_size
-		  + 16 - current_function_pretend_args_size);
+	offset = current_frame_info.total_size + 16;
       else
 	abort ();
       break;
@@ -3220,7 +3219,7 @@ ia64_va_start (stdarg_p, valist, nextarg)
   else
     ofs = (arg_words >= MAX_ARGUMENT_SLOTS ? -UNITS_PER_WORD : 0);
 
-  nextarg = plus_constant (nextarg, ofs);
+  nextarg = plus_constant (nextarg, ofs - current_function_pretend_args_size);
   std_expand_builtin_va_start (1, valist, nextarg);
 }
 
@@ -5348,6 +5347,7 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
       if (reg_overlap_mentioned_p (SET_DEST (set), addr))
 	return cost + 1;
     }
+
   if ((dep_class == ITANIUM_CLASS_IALU
        || dep_class == ITANIUM_CLASS_ILOG
        || dep_class == ITANIUM_CLASS_LD)
@@ -5355,25 +5355,28 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
 	  || insn_class == ITANIUM_CLASS_MMSHF
 	  || insn_class == ITANIUM_CLASS_MMSHFI))
     return 3;
+
   if (dep_class == ITANIUM_CLASS_FMAC
       && (insn_class == ITANIUM_CLASS_FMISC
 	  || insn_class == ITANIUM_CLASS_FCVTFX
 	  || insn_class == ITANIUM_CLASS_XMPY))
     return 7;
+
   if ((dep_class == ITANIUM_CLASS_FMAC
        || dep_class == ITANIUM_CLASS_FMISC
        || dep_class == ITANIUM_CLASS_FCVTFX
        || dep_class == ITANIUM_CLASS_XMPY)
       && insn_class == ITANIUM_CLASS_STF)
     return 8;
+
+  /* Intel docs say only LD, ST, IALU, ILOG, ISHF consumers have latency 4,
+     but HP engineers say any non-MM operation.  */
   if ((dep_class == ITANIUM_CLASS_MMMUL
        || dep_class == ITANIUM_CLASS_MMSHF
        || dep_class == ITANIUM_CLASS_MMSHFI)
-      && (insn_class == ITANIUM_CLASS_LD
-	  || insn_class == ITANIUM_CLASS_ST
-	  || insn_class == ITANIUM_CLASS_IALU
-	  || insn_class == ITANIUM_CLASS_ILOG
-	  || insn_class == ITANIUM_CLASS_ISHF))
+      && insn_class != ITANIUM_CLASS_MMMUL
+      && insn_class != ITANIUM_CLASS_MMSHF
+      && insn_class != ITANIUM_CLASS_MMSHFI)
     return 4;
 
   return cost;
@@ -6074,12 +6077,6 @@ static int prev_cycle;
    value of sched_data.first_slot.  */
 static int prev_first;
 
-/* The last insn that has been scheduled.  At the start of a new cycle
-   we know that we can emit new insns after it; the main scheduling code
-   has already emitted a cycle_display insn after it and is using that
-   as its current last insn.  */
-static rtx last_issued;
-
 /* Emit NOPs to fill the delay between PREV_CYCLE and CLOCK_VAR.  Used to
    pad out the delay between MM (shifts, etc.) and integer operations.  */
 
@@ -6090,12 +6087,13 @@ nop_cycles_until (clock_var, dump)
 {
   int prev_clock = prev_cycle;
   int cycles_left = clock_var - prev_clock;
+  bool did_stop = false;
 
   /* Finish the previous cycle; pad it out with NOPs.  */
   if (sched_data.cur == 3)
     {
-      rtx t = gen_insn_group_barrier (GEN_INT (3));
-      last_issued = emit_insn_after (t, last_issued);
+      sched_emit_insn (gen_insn_group_barrier (GEN_INT (3)));
+      did_stop = true;
       maybe_rotate (dump);
     }
   else if (sched_data.cur > 0)
@@ -6114,12 +6112,9 @@ nop_cycles_until (clock_var, dump)
 	  int i;
 	  for (i = sched_data.cur; i < split; i++)
 	    {
-	      rtx t;
-
-	      t = gen_nop_type (sched_data.packet->t[i]);
-	      last_issued = emit_insn_after (t, last_issued);
+	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
 	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
-	      sched_data.insns[i] = last_issued;
+	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
 	  sched_data.cur = split;
@@ -6131,12 +6126,9 @@ nop_cycles_until (clock_var, dump)
 	  int i;
 	  for (i = sched_data.cur; i < 6; i++)
 	    {
-	      rtx t;
-
-	      t = gen_nop_type (sched_data.packet->t[i]);
-	      last_issued = emit_insn_after (t, last_issued);
+	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
 	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
-	      sched_data.insns[i] = last_issued;
+	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
 	  sched_data.cur = 6;
@@ -6146,8 +6138,8 @@ nop_cycles_until (clock_var, dump)
 
       if (need_stop || sched_data.cur == 6)
 	{
-	  rtx t = gen_insn_group_barrier (GEN_INT (3));
-	  last_issued = emit_insn_after (t, last_issued);
+	  sched_emit_insn (gen_insn_group_barrier (GEN_INT (3)));
+	  did_stop = true;
 	}
       maybe_rotate (dump);
     }
@@ -6155,24 +6147,22 @@ nop_cycles_until (clock_var, dump)
   cycles_left--;
   while (cycles_left > 0)
     {
-      rtx t = gen_bundle_selector (GEN_INT (0));
-      last_issued = emit_insn_after (t, last_issued);
-      t = gen_nop_type (TYPE_M);
-      last_issued = emit_insn_after (t, last_issued);
-      t = gen_nop_type (TYPE_I);
-      last_issued = emit_insn_after (t, last_issued);
+      sched_emit_insn (gen_bundle_selector (GEN_INT (0)));
+      sched_emit_insn (gen_nop_type (TYPE_M));
+      sched_emit_insn (gen_nop_type (TYPE_I));
       if (cycles_left > 1)
 	{
-	  t = gen_insn_group_barrier (GEN_INT (2));
-	  last_issued = emit_insn_after (t, last_issued);
+	  sched_emit_insn (gen_insn_group_barrier (GEN_INT (2)));
 	  cycles_left--;
 	}
-      t = gen_nop_type (TYPE_I);
-      last_issued = emit_insn_after (t, last_issued);
-      t = gen_insn_group_barrier (GEN_INT (3));
-      last_issued = emit_insn_after (t, last_issued);
+      sched_emit_insn (gen_nop_type (TYPE_I));
+      sched_emit_insn (gen_insn_group_barrier (GEN_INT (3)));
+      did_stop = true;
       cycles_left--;
     }
+
+  if (did_stop)
+    init_insn_group_barriers ();
 }
 
 /* We are about to being issuing insns for this clock cycle.
@@ -6198,31 +6188,34 @@ ia64_internal_sched_reorder (dump, sched_verbose, ready, pn_ready,
       dump_current_packet (dump);
     }
 
+  /* Work around the pipeline flush that will occurr if the results of
+     an MM instruction are accessed before the result is ready.  Intel
+     documentation says this only happens with IALU, ISHF, ILOG, LD,
+     and ST consumers, but experimental evidence shows that *any* non-MM
+     type instruction will incurr the flush.  */
   if (reorder_type == 0 && clock_var > 0 && ia64_final_schedule)
     {
       for (insnp = ready; insnp < e_ready; insnp++)
 	{
-	  rtx insn = *insnp;
+	  rtx insn = *insnp, link;
 	  enum attr_itanium_class t = ia64_safe_itanium_class (insn);
-	  if (t == ITANIUM_CLASS_IALU || t == ITANIUM_CLASS_ISHF
-	      || t == ITANIUM_CLASS_ILOG
-	      || t == ITANIUM_CLASS_LD || t == ITANIUM_CLASS_ST)
-	    {
-	      rtx link;
-	      for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-		if (REG_NOTE_KIND (link) != REG_DEP_OUTPUT
-		    && REG_NOTE_KIND (link) != REG_DEP_ANTI)
+
+	  if (t == ITANIUM_CLASS_MMMUL
+	      || t == ITANIUM_CLASS_MMSHF
+	      || t == ITANIUM_CLASS_MMSHFI)
+	    continue;
+
+	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) == 0)
+	      {
+		rtx other = XEXP (link, 0);
+		enum attr_itanium_class t0 = ia64_safe_itanium_class (other);
+		if (t0 == ITANIUM_CLASS_MMSHF || t0 == ITANIUM_CLASS_MMMUL)
 		  {
-		    rtx other = XEXP (link, 0);
-		    enum attr_itanium_class t0 = ia64_safe_itanium_class (other);
-		    if (t0 == ITANIUM_CLASS_MMSHF
-			|| t0 == ITANIUM_CLASS_MMMUL)
-		      {
-			nop_cycles_until (clock_var, sched_verbose ? dump : NULL);
-			goto out;
-		      }
+		    nop_cycles_until (clock_var, sched_verbose ? dump : NULL);
+		    goto out;
 		  }
-	    }
+	      }
 	}
     }
  out:
@@ -6485,8 +6478,6 @@ ia64_variable_issue (dump, sched_verbose, insn, can_issue_more)
      int can_issue_more ATTRIBUTE_UNUSED;
 {
   enum attr_type t = ia64_safe_type (insn);
-
-  last_issued = insn;
 
   if (sched_data.last_was_stop)
     {
@@ -6866,8 +6857,9 @@ const struct attribute_spec ia64_attribute_table[] =
 extern struct obstack * saveable_obstack;
 
 void
-ia64_encode_section_info (decl)
+ia64_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
 
@@ -6897,13 +6889,14 @@ ia64_encode_section_info (decl)
      statically allocated, but the space is allocated somewhere else.  Such
      decls can not be own data.  */
   if (! TARGET_NO_SDATA
-      && TREE_STATIC (decl) && ! DECL_EXTERNAL (decl)
-      && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-      && ! (TREE_PUBLIC (decl)
-	    && (flag_pic
-		|| (DECL_COMMON (decl)
-		    && (DECL_INITIAL (decl) == 0
-			|| DECL_INITIAL (decl) == error_mark_node))))
+      && ((TREE_STATIC (decl) && ! DECL_EXTERNAL (decl)
+	   && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
+	   && ! (TREE_PUBLIC (decl)
+		 && (flag_pic
+		     || (DECL_COMMON (decl)
+			 && (DECL_INITIAL (decl) == 0
+			     || DECL_INITIAL (decl) == error_mark_node)))))
+	  || MODULE_LOCAL_P (decl))
       /* Either the variable must be declared without a section attribute,
 	 or the section must be sdata or sbss.  */
       && (DECL_SECTION_NAME (decl) == 0
@@ -6923,9 +6916,12 @@ ia64_encode_section_info (decl)
 	;
 
       /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.  */
-      else if (size > 0
-	       && size <= (HOST_WIDE_INT) ia64_section_threshold
+	 sdata because it might be too big when completed.
+	 Objects bigger than threshold should have SDATA_NAME_FLAG_CHAR
+	 added if they are in .sdata or .sbss explicitely.  */
+      else if (((size > 0
+		 && size <= (HOST_WIDE_INT) ia64_section_threshold)
+		|| DECL_SECTION_NAME (decl))
 	       && symbol_str[0] != SDATA_NAME_FLAG_CHAR)
 	{
 	  size_t len = strlen (symbol_str);

@@ -408,6 +408,9 @@ build_call (function, parms)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
+  if (decl && TREE_THIS_VOLATILE (decl))
+    current_function_returns_abnormally = 1;
+
   if (decl && TREE_DEPRECATED (decl))
     warn_deprecated_use (decl);
 
@@ -702,7 +705,7 @@ standard_conversion (to, from, expr)
   if ((TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
       && expr && type_unknown_p (expr))
     {
-      expr = instantiate_type (to, expr, itf_none);
+      expr = instantiate_type (to, expr, tf_none);
       if (expr == error_mark_node)
 	return NULL_TREE;
       from = TREE_TYPE (expr);
@@ -1105,7 +1108,7 @@ reference_binding (rto, rfrom, expr, flags)
 
   if (TREE_CODE (to) == FUNCTION_TYPE && expr && type_unknown_p (expr))
     {
-      expr = instantiate_type (to, expr, itf_none);
+      expr = instantiate_type (to, expr, tf_none);
       if (expr == error_mark_node)
 	return NULL_TREE;
       from = TREE_TYPE (expr);
@@ -3861,7 +3864,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
       }
     case IDENTITY_CONV:
       if (type_unknown_p (expr))
-	expr = instantiate_type (totype, expr, itf_complain);
+	expr = instantiate_type (totype, expr, tf_error | tf_warning);
       return expr;
     case AMBIG_CONV:
       /* Call build_user_type_conversion again for the error.  */

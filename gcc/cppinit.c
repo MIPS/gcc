@@ -376,7 +376,8 @@ merge_include_chains (pfile)
       qtail->next = brack;
 
       /* If brack == qtail, remove brack as it's simpler.  */
-      if (INO_T_EQ (qtail->ino, brack->ino) && qtail->dev == brack->dev)
+      if (brack && INO_T_EQ (qtail->ino, brack->ino)
+	  && qtail->dev == brack->dev)
 	brack = remove_dup_dir (pfile, qtail);
     }
   else
@@ -490,6 +491,11 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
+#if DEFAULT_SIGNED_CHAR
+  CPP_OPTION (pfile, signed_char) = 1;
+#else
+  CPP_OPTION (pfile, signed_char) = 0;
+#endif
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
@@ -684,8 +690,7 @@ static const struct builtin builtin_array[] =
 #undef C
 #undef X
 #undef O
-#define builtin_array_end \
- builtin_array + sizeof(builtin_array)/sizeof(struct builtin)
+#define builtin_array_end (builtin_array + ARRAY_SIZE (builtin_array))
 
 /* Subroutine of cpp_read_main_file; reads the builtins table above and
    enters them, and language-specific macros, into the hash table.  */
@@ -760,6 +765,9 @@ init_builtins (pfile)
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199409L");
   else if (CPP_OPTION (pfile, c99))
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199901L");
+
+  if (CPP_OPTION (pfile, signed_char) == 0)
+    _cpp_define_builtin (pfile, "__CHAR_UNSIGNED__ 1");
 
   if (CPP_OPTION (pfile, lang) == CLK_STDC89
       || CPP_OPTION (pfile, lang) == CLK_STDC94
@@ -1075,7 +1083,7 @@ output_deps (pfile)
   const char *const deps_mode =
     CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
 
-  if (CPP_OPTION (pfile, deps_file) == 0)
+  if (CPP_OPTION (pfile, deps_file)[0] == '\0')
     deps_stream = stdout;
   else
     {
@@ -1093,7 +1101,7 @@ output_deps (pfile)
     deps_phony_targets (pfile->deps, deps_stream);
 
   /* Don't close stdout.  */
-  if (CPP_OPTION (pfile, deps_file))
+  if (deps_stream != stdout)
     {
       if (ferror (deps_stream) || fclose (deps_stream) != 0)
 	cpp_fatal (pfile, "I/O error on output");
@@ -1186,7 +1194,9 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("fno-show-column",          0,      OPT_fno_show_column)            \
   DEF_OPT("fpreprocessed",            0,      OPT_fpreprocessed)              \
   DEF_OPT("fshow-column",             0,      OPT_fshow_column)               \
+  DEF_OPT("fsigned-char",             0,      OPT_fsigned_char)               \
   DEF_OPT("ftabstop=",                no_num, OPT_ftabstop)                   \
+  DEF_OPT("funsigned-char",           0,      OPT_funsigned_char)             \
   DEF_OPT("h",                        0,      OPT_h)                          \
   DEF_OPT("idirafter",                no_dir, OPT_idirafter)                  \
   DEF_OPT("imacros",                  no_fil, OPT_imacros)                    \
@@ -1317,12 +1327,14 @@ parse_option (input)
 
 /* Handle one command-line option in (argc, argv).
    Can be called multiple times, to handle multiple sets of options.
+   If ignore is non-zero, this will ignore unrecognized -W* options.
    Returns number of strings consumed.  */
 int
-cpp_handle_option (pfile, argc, argv)
+cpp_handle_option (pfile, argc, argv, ignore)
      cpp_reader *pfile;
      int argc;
      char **argv;
+     int ignore;
 {
   int i = 0;
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
@@ -1392,6 +1404,12 @@ cpp_handle_option (pfile, argc, argv)
 	  break;
 	case OPT_fno_show_column:
 	  CPP_OPTION (pfile, show_column) = 0;
+	  break;
+	case OPT_fsigned_char:
+	  CPP_OPTION (pfile, signed_char) = 1;
+	  break;
+	case OPT_funsigned_char:
+	  CPP_OPTION (pfile, signed_char) = 0;
 	  break;
 	case OPT_ftabstop:
 	  /* Silently ignore empty string, non-longs and silly values.  */
@@ -1733,6 +1751,8 @@ cpp_handle_option (pfile, argc, argv)
 	    CPP_OPTION (pfile, warnings_are_errors) = 0;
 	  else if (!strcmp (argv[i], "-Wno-system-headers"))
 	    CPP_OPTION (pfile, warn_system_headers) = 0;
+	  else if (! ignore)
+	    return i;
 	  break;
  	}
     }
@@ -1754,7 +1774,7 @@ cpp_handle_options (pfile, argc, argv)
 
   for (i = 0; i < argc; i += strings_processed)
     {
-      strings_processed = cpp_handle_option (pfile, argc - i, argv + i);
+      strings_processed = cpp_handle_option (pfile, argc - i, argv + i, 1);
       if (strings_processed == 0)
 	break;
     }
@@ -1814,7 +1834,8 @@ cpp_post_options (pfile)
     cpp_fatal (pfile, "you must additionally specify either -M or -MM");
 }
 
-/* Set up dependency-file output.  */
+/* Set up dependency-file output.  On exit, if print_deps is non-zero
+   then deps_file is not NULL; stdout is the empty string.  */
 static void
 init_dependency_output (pfile)
      cpp_reader *pfile;
@@ -1853,21 +1874,22 @@ init_dependency_output (pfile)
       else
 	output_file = spec;
 
-      /* Command line overrides environment variables.  */
+      /* Command line -MF overrides environment variables and default.  */
       if (CPP_OPTION (pfile, deps_file) == 0)
 	CPP_OPTION (pfile, deps_file) = output_file;
+
       CPP_OPTION (pfile, print_deps_append) = 1;
     }
+  else if (CPP_OPTION (pfile, deps_file) == 0)
+    /* If -M or -MM was seen, default output to wherever was specified
+       with -o.  out_fname is non-NULL here.  */
+    CPP_OPTION (pfile, deps_file) = CPP_OPTION (pfile, out_fname);
 
-  /* If dependencies go to standard output, or -MG is used, we should
-     suppress output, including -dM, -dI etc.  */
-  if (CPP_OPTION (pfile, deps_file) == 0
-      || CPP_OPTION (pfile, print_deps_missing_files))
-    {
-      CPP_OPTION (pfile, no_output) = 1;
-      CPP_OPTION (pfile, dump_macros) = 0;
-      CPP_OPTION (pfile, dump_includes) = 0;
-    }
+  /* When doing dependencies, we should suppress all output, including
+     -dM, -dI etc.  */
+  CPP_OPTION (pfile, no_output) = 1;
+  CPP_OPTION (pfile, dump_macros) = 0;
+  CPP_OPTION (pfile, dump_includes) = 0;
 }
 
 /* Handle --help output.  */

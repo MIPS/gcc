@@ -2557,7 +2557,18 @@ mips_move_2words (operands, insn)
 	      operands[2] = GEN_INT (INTVAL (operands[1]) >> 16 >> 16);
 	      operands[1]
 		= GEN_INT (INTVAL (operands[1]) << 16 << 16 >> 16 >> 16);
-	      ret = "li\t%M0,%2\n\tli\t%L0,%1";
+	      if (TARGET_MIPS16)
+		{
+		  if (INTVAL (op1) >= 0 && INTVAL (op1) <= 0xffff)
+		    ret = "li\t%M0,%2\n\tli\t%L0,%1";
+		  else if (INTVAL (op1) < 0 && INTVAL (op1) >= -0xffff)
+		    {
+		      operands[2] = GEN_INT (1);
+		      ret = "li\t%M0,%2\n\tneg\t%M0\n\tli\t%L0,%n1\n\tneg\t%L0";
+		    }
+		}
+	      else
+		ret = "li\t%M0,%2\n\tli\t%L0,%1";
 	    }
 	}
 
@@ -3948,6 +3959,7 @@ function_arg_advance (cum, mode, type, named)
       break;
 
     case DImode:
+    case TImode:
       cum->gp_reg_found = 1;
       cum->arg_words += (TARGET_64BIT ? 1 : 2);
       break;
@@ -4074,6 +4086,7 @@ function_arg (cum, mode, type, named)
       break;
 
     case DImode:
+    case TImode:
       if (! TARGET_64BIT)
 	cum->arg_words += (cum->arg_words & 1);
       regbase = GP_ARG_FIRST;
@@ -4797,6 +4810,10 @@ override_options ()
   if (mips_isa_string == 0)
     mips_isa = MIPS_ISA_DEFAULT;
 
+  else if (mips_isa_string != 0
+	   && mips_arch_string != 0)
+      warning ("The -march option is incompatible to -mipsN and therefore ignored.");
+
   else if (ISDIGIT (*mips_isa_string))
     {
       mips_isa = atoi (mips_isa_string);
@@ -4925,7 +4942,7 @@ override_options ()
       mips_cpu = mips_parse_cpu (mips_cpu_string);
       if (mips_cpu == PROCESSOR_DEFAULT)
 	{
-	  error ("bad value (%s) for -mcpu= switch", mips_arch_string);
+	  error ("bad value (%s) for -mcpu= switch", mips_cpu_string);
 	  mips_cpu_string = "default";
 	}
       mips_arch = mips_cpu;
@@ -5018,19 +5035,6 @@ override_options ()
 	  mips_tune_string = "default";
 	}
     }
-
-  if ((mips_arch == PROCESSOR_R3000 && (mips_isa != 1))
-      || (mips_arch == PROCESSOR_R4KC && mips_isa != 32)
-      || ((mips_arch == PROCESSOR_R5KC
-	   || mips_arch == PROCESSOR_R20KC) && mips_isa != 64)
-      || (mips_arch == PROCESSOR_R6000 && mips_isa != 1 && mips_isa != 2)
-      || ((mips_arch == PROCESSOR_R4000
-	   || mips_arch == PROCESSOR_R4100
-	   || mips_arch == PROCESSOR_R4300
-	   || mips_arch == PROCESSOR_R4600
-	   || mips_arch == PROCESSOR_R4650)
-	  && mips_isa != 1 && mips_isa != 2 && mips_isa != 3))
-    error ("-march=%s does not support -mips%d", mips_arch_string, mips_isa);
 
   /* make sure sizes of ints/longs/etc. are ok */
   if (! ISA_HAS_64BIT_REGS)
@@ -6443,7 +6447,7 @@ compute_frame_size (size)
     }
 
   /* This loop must iterate over the same space as its companion in
-     save_restore_regs.  */
+     save_restore_insns.  */
   for (regno = (FP_REG_LAST - fp_inc + 1);
        regno >= FP_REG_FIRST;
        regno -= fp_inc)
@@ -6671,7 +6675,7 @@ save_restore_insns (store_p, large_reg, large_offset, file)
   if (! store_p
       && TARGET_ABICALLS
       && (mips_abi == ABI_32 || mips_abi == ABI_O64))
-    mask &= ~(1 << (PIC_OFFSET_TABLE_REGNUM - GP_REG_FIRST));
+    mask &= ~(1L << (PIC_OFFSET_TABLE_REGNUM - GP_REG_FIRST));
 
   if (mask == 0 && fmask == 0)
     return;
@@ -6765,7 +6769,7 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 
 		/* The mips16 does not have an instruction to load
                    $31, so we load $7 instead, and work things out
-                   in the caller.  */
+                   in mips_expand_epilogue.  */
 		if (TARGET_MIPS16 && ! store_p && regno == GP_REG_FIRST + 31)
 		  reg_rtx = gen_rtx (REG, gpr_mode, GP_REG_FIRST + 7);
 		/* The mips16 sometimes needs to save $18.  */
@@ -7651,7 +7655,7 @@ mips_expand_epilogue ()
 	    {
 	      tsize -= current_function_outgoing_args_size;
 
-	      /* If we have a large frame, it's easier to add to $17
+	      /* If we have a large frame, it's easier to add to $6
                  than to $sp, since the mips16 has no instruction to
                  add a register to $sp.  */
 	      if (orig_tsize > 32767)
@@ -7711,12 +7715,37 @@ mips_expand_epilogue ()
 
       if (tsize != 0 || current_function_calls_eh_return)
 	{
-	  if (Pmode == DImode)
-	    emit_insn (gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx,
-				   tsize_rtx));
+	  if (!TARGET_MIPS16)
+	    {
+	      if (Pmode == DImode)
+		emit_insn (gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx,
+				       tsize_rtx));
+	      else
+		emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
+				       tsize_rtx));
+	    }
 	  else
-	    emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-				   tsize_rtx));
+	    {
+	      /* We need to work around not being able to add a register
+		 to the stack pointer directly. Use register $6 as an
+		 intermediate step.  */
+
+	      rtx g6_rtx = gen_rtx (REG, Pmode, GP_REG_FIRST + 6);
+
+	      if (Pmode == DImode)
+		{
+		  emit_insn (gen_movdi (g6_rtx, stack_pointer_rtx));
+		  emit_insn (gen_adddi3 (g6_rtx, g6_rtx, tsize_rtx));
+		  emit_insn (gen_movdi (stack_pointer_rtx, g6_rtx));
+		}
+	      else
+		{
+		  emit_insn (gen_movsi (g6_rtx, stack_pointer_rtx));
+		  emit_insn (gen_addsi3 (g6_rtx, g6_rtx, tsize_rtx));
+		  emit_insn (gen_movsi (stack_pointer_rtx, g6_rtx));
+		}
+	    }
+
 	}
     }
 
@@ -9818,7 +9847,7 @@ mips_add_gc_roots ()
   ggc_add_rtx_root (&mips_load_reg2, 1);
   ggc_add_rtx_root (&mips_load_reg3, 1);
   ggc_add_rtx_root (&mips_load_reg4, 1);
-  ggc_add_rtx_root (branch_cmp, sizeof (branch_cmp) / sizeof (rtx));
+  ggc_add_rtx_root (branch_cmp, ARRAY_SIZE (branch_cmp));
   ggc_add_rtx_root (&embedded_pic_fnaddr_rtx, 1);
   ggc_add_rtx_root (&mips16_gp_pseudo_rtx, 1);
 }

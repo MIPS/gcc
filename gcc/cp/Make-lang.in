@@ -104,7 +104,7 @@ CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
 CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parse.o cp/ptree.o cp/rtti.o \
  cp/spew.o cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
- cp/search.o cp/semantics.o cp/tree.o cp/xref.o cp/repo.o cp/dump.o \
+ cp/search.o cp/semantics.o cp/tree.o cp/repo.o cp/dump.o \
  cp/optimize.o cp/mangle.o cp/cp-lang.o
 
 # Use loose warnings for this front end.
@@ -122,10 +122,16 @@ $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 
 $(srcdir)/cp/parse.h: $(srcdir)/cp/parse.c
 $(srcdir)/cp/parse.c: $(srcdir)/cp/parse.y
-	@echo "Expect 36 shift/reduce conflicts and 58 reduce/reduce conflicts."
-	cd $(srcdir)/cp; $(BISON) $(BISONFLAGS) -d -o p$$$$.c parse.y ; \
-	grep '^#define[ 	]*YYEMPTY' p$$$$.c >> p$$$$.h ; \
-	mv -f p$$$$.c parse.c ; mv -f p$$$$.h parse.h
+	@echo "Expect 33 shift/reduce conflicts and 58 reduce/reduce conflicts."
+	cd $(srcdir)/cp && \
+	if $(BISON) $(BISONFLAGS) -d -o p$$$$.c parse.y; then \
+	  grep '^#define[ 	]*YYEMPTY' p$$$$.c >> p$$$$.h ; \
+	  test -f p$$$$.output && mv -f p$$$$.output parse.output ; \
+	  mv -f p$$$$.c parse.c ; mv -f p$$$$.h parse.h ; \
+	else \
+	  rm -f p$$$$.* ; \
+	  false ; \
+	fi
 
 #
 # Build hooks:
@@ -258,7 +264,7 @@ cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h $(TM_P_H) \
    diagnostic.h
 cp/typeck.o: cp/typeck.c $(CXX_TREE_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
    diagnostic.h
-cp/class.o: cp/class.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H)
+cp/class.o: cp/class.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(TARGET_H)
 cp/call.o: cp/call.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(EXPR_H) \
      $(GGC_H) diagnostic.h
 cp/friend.o: cp/friend.c $(CXX_TREE_H) flags.h $(RTL_H) toplev.h $(EXPR_H)
@@ -273,10 +279,9 @@ cp/tree.o: cp/tree.c $(CXX_TREE_H) flags.h toplev.h $(GGC_H) $(RTL_H) \
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(SYSTEM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) flags.h toplev.h
 cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
-  cp/cfns.h $(EXPR_H) libfuncs.h cp/decl.h $(OBSTACK_H)
+  cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
-cp/xref.o: cp/xref.c $(CXX_TREE_H) input.h toplev.h
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
   $(GGC_H) $(RTL_H) except.h tree-inline.h
 cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h

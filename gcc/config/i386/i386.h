@@ -281,18 +281,23 @@ extern int x86_prefetch_sse;
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
 
+/* WARNING: Do not mark empty strings for translation, as calling
+            gettext on an empty string does NOT return an empty
+            string. */
+
+
 #define TARGET_SWITCHES							      \
 { { "80387",			 MASK_80387, N_("Use hardware fp") },	      \
   { "no-80387",			-MASK_80387, N_("Do not use hardware fp") },  \
   { "hard-float",		 MASK_80387, N_("Use hardware fp") },	      \
   { "soft-float",		-MASK_80387, N_("Do not use hardware fp") },  \
   { "no-soft-float",		 MASK_80387, N_("Use hardware fp") },	      \
-  { "386",			 0, N_("") /*Deprecated.*/},		      \
-  { "486",			 0, N_("") /*Deprecated.*/},		      \
-  { "pentium",			 0, N_("") /*Deprecated.*/},		      \
-  { "pentiumpro",		 0, N_("") /*Deprecated.*/},		      \
-  { "intel-syntax",		 0, N_("") /*Deprecated.*/},	 	      \
-  { "no-intel-syntax",		 0, N_("") /*Deprecated.*/},	 	      \
+  { "386",			 0, "" /*Deprecated.*/},		      \
+  { "486",			 0, "" /*Deprecated.*/},		      \
+  { "pentium",			 0, "" /*Deprecated.*/},		      \
+  { "pentiumpro",		 0, "" /*Deprecated.*/},		      \
+  { "intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
+  { "no-intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "rtd",			 MASK_RTD,				      \
     N_("Alternate calling convention") },				      \
   { "no-rtd",			-MASK_RTD,				      \
@@ -346,20 +351,20 @@ extern int x86_prefetch_sse;
     N_("Support MMX built-in functions") },				      \
   { "no-mmx",			 -MASK_MMX,				      \
     N_("Do not support MMX built-in functions") },			      \
-  { "no-mmx",			 MASK_MMX_SET, N_("") },		      \
+  { "no-mmx",			 MASK_MMX_SET, "" },			      \
   { "3dnow",                     MASK_3DNOW | MASK_3DNOW_SET,		      \
     N_("Support 3DNow! built-in functions") },				      \
-  { "no-3dnow",                  -MASK_3DNOW, N_("") },			      \
+  { "no-3dnow",                  -MASK_3DNOW, "" },			      \
   { "no-3dnow",                  MASK_3DNOW_SET,			      \
     N_("Do not support 3DNow! built-in functions") },			      \
   { "sse",			 MASK_SSE | MASK_SSE_SET,		      \
     N_("Support MMX and SSE built-in functions and code generation") },	      \
-  { "no-sse",			 -MASK_SSE, N_("") },	 		      \
+  { "no-sse",			 -MASK_SSE, "" },	 		      \
   { "no-sse",			 MASK_SSE_SET,				      \
     N_("Do not support MMX and SSE built-in functions and code generation") },\
   { "sse2",			 MASK_SSE2 | MASK_SSE2_SET,		      \
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
-  { "no-sse2",			 -MASK_SSE2, N_("") },			      \
+  { "no-sse2",			 -MASK_SSE2, "" },			      \
   { "no-sse2",			 MASK_SSE2_SET,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
@@ -440,9 +445,9 @@ extern int ix86_arch;
   { "cmodel=", &ix86_cmodel_string,				\
     N_("Use given x86-64 code model") },			\
   { "debug-arg", &ix86_debug_arg_string,			\
-    N_("" /* Undocumented. */) },				\
+    "" /* Undocumented. */ },					\
   { "debug-addr", &ix86_debug_addr_string,			\
-    N_("" /* Undocumented. */) },				\
+    "" /* Undocumented. */ },					\
   { "asm=", &ix86_asm_string,					\
     N_("Use given assembler dialect") },			\
   SUBTARGET_OPTIONS						\
@@ -606,10 +611,10 @@ extern int ix86_arch;
 %{march=athlon-tbird|march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4:\
 -D__SSE__ }\
 %{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
-march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
+|march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp|march=pentium2|march=pentium3|march=pentium4: -D__MMX__ }\
 %{march=k6-2|march=k6-3\
-march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
+|march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW__ }\
 %{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW_A__ }\
@@ -664,8 +669,6 @@ march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 /* target machine storage layout */
 
 /* Define for XFmode or TFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.
- 
    The XFmode is specified by i386 ABI, while TFmode may be faster
    due to alignment and simplifications in the address calculations.
  */
@@ -697,11 +700,6 @@ march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 #define MAX_LONG_TYPE_SIZE 32
 #endif
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-/* #define REAL_ARITHMETIC */
-
 /* Define this if most significant byte of a word is the lowest numbered.  */
 /* That is true on the 80386.  */
 
@@ -715,15 +713,6 @@ march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
    numbered.  */
 /* Not true for 80386 */
 #define WORDS_BIG_ENDIAN 0
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 80386, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
@@ -926,38 +915,21 @@ march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
    registers listed in CALL_USED_REGISTERS, keeping the others
    available for storage of persistent values.
 
-   Three different versions of REG_ALLOC_ORDER have been tried:
-
-   If the order is edx, ecx, eax, ... it produces a slightly faster compiler,
-   but slower code on simple functions returning values in eax.
-
-   If the order is eax, ecx, edx, ... it causes reload to abort when compiling
-   perl 4.036 due to not being able to create a DImode register (to hold a 2
-   word union).
-
-   If the order is eax, edx, ecx, ... it produces better code for simple
-   functions, and a slightly slower compiler.  Users complained about the code
-   generated by allocating edx first, so restore the 'natural' order of things.  */
+   The ORDER_REGS_FOR_LOCAL_ALLOC actually overwrite the order,
+   so this is just empty initializer for array.  */
 
 #define REG_ALLOC_ORDER 					\
-/*ax,dx,cx,*/							\
-{  0, 1, 2,							\
-/* bx,si,di,bp,sp,*/						\
-   3, 4, 5, 6, 7,						\
-/*r8,r9,r10,r11,*/						\
-  37,38, 39, 40,						\
-/*r12,r15,r14,r13*/						\
-  41, 44, 43, 42,						\
-/*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
-    21,  22,  23,  24,  25,  26,  27,  28,			\
-/*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-    45,  46,   47,   48,   49,   50,   51,   52,		\
-/*st,st1,st2,st3,st4,st5,st6,st7*/				\
-   8,  9, 10, 11, 12, 13, 14, 15,				\
-/*,arg,cc,fpsr,dir,frame*/					\
-     16,17, 18, 19,   20,					\
-/*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
-    29,  30,  31,  32,  33,  34,  35,  36 }
+{  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,\
+   18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,	\
+   33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,  \
+   48, 49, 50, 51, 52 }
+
+/* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
+   to be rearranged based on a particular function.  When using sse math,
+   we want to allocase SSE before x87 registers and vice vera.  */
+
+#define ORDER_REGS_FOR_LOCAL_ALLOC x86_order_regs_for_local_alloc ()
+
 
 /* Macro to conditionally modify fixed_regs/call_used_regs.  */
 #define CONDITIONAL_REGISTER_USAGE					\
@@ -969,7 +941,7 @@ do {									\
         call_used_regs[i] = (call_used_regs[i]				\
 			     & (TARGET_64BIT ? 2 : 1)) != 0;		\
       }									\
-    if (flag_pic)							\
+    if (flag_pic && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)		\
       {									\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
@@ -1456,7 +1428,8 @@ enum reg_class
 
 #define LIMIT_RELOAD_CLASS(MODE, CLASS) 			\
   ((MODE) == QImode && !TARGET_64BIT				\
-   && ((CLASS) == ALL_REGS || (CLASS) == GENERAL_REGS) 		\
+   && ((CLASS) == ALL_REGS || (CLASS) == GENERAL_REGS		\
+       || (CLASS) == LEGACY_REGS || (CLASS) == INDEX_REGS)	\
    ? Q_REGS : (CLASS))
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -1485,7 +1458,8 @@ enum reg_class
    pseudo.  */
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)			\
-  ((CLASS) == GENERAL_REGS && !TARGET_64BIT && (MODE) == QImode		\
+  (((CLASS) == GENERAL_REGS || (CLASS) == LEGACY_REGS			\
+    || (CLASS) == INDEX_REGS) && !TARGET_64BIT && (MODE) == QImode	\
    ? Q_REGS : NO_REGS)
 
 /* Return the maximum number of consecutive registers
@@ -2257,7 +2231,7 @@ enum ix86_builtins
    On i386, if using PIC, mark a SYMBOL_REF for a non-global symbol
    so that we may access it directly in the GOT.  */
 
-#define ENCODE_SECTION_INFO(DECL)				\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
 do {								\
     if (flag_pic)						\
       {								\
@@ -2276,7 +2250,8 @@ do {								\
 	    							\
 	    SYMBOL_REF_FLAG (XEXP (rtl, 0))			\
 	      = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		 || ! TREE_PUBLIC (DECL));			\
+		 || ! TREE_PUBLIC (DECL)			\
+		 || MODULE_LOCAL_P (DECL));			\
 	  }							\
       }								\
 } while (0)
@@ -2911,6 +2886,14 @@ extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
 #define ASM_SIMPLIFY_DWARF_ADDR(X) \
   i386_simplify_dwarf_addr (X)
+
+/* Switch to init or fini section via SECTION_OP, emit a call to FUNC,
+   and switch back.  For x86 we do this only to save a few bytes that
+   would otherwise be unused in the text section.  */
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n\t"				\
+	"call " USER_LABEL_PREFIX #FUNC "\n"		\
+	TEXT_SECTION_ASM_OP);
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

@@ -15,8 +15,12 @@
 <h1 class="centered">libstdc++ Frequently Asked Questions</h1>
 
 <p>The latest version of this document is always available at
-<a href="http://gcc.gnu.org/onlinedocs/libstdc++/faq/">
-http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.</p>
+   <a href="http://gcc.gnu.org/onlinedocs/libstdc++/faq/">
+   http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.  The main documentation
+   page is at
+   <a href="http://gcc.gnu.org/onlinedocs/libstdc++/documentation.html">
+   http://gcc.gnu.org/onlinedocs/libstdc++/documentation.html</a>.
+</p>
 
 <p>To the <a href="http://gcc.gnu.org/libstdc++/">libstdc++-v3 homepage</a>.
 
@@ -53,7 +57,7 @@ http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.</p>
          <li><a href="#3_1">Can libstdc++-v3 be used with &lt;my
                             favorite compiler&gt;?</a>
          <li><a href="#3_2">[removed]</a>
-         <li><a href="#3_3">Building under DEC OSF kills the assembler</a>
+         <li><a href="#3_3">[removed]</a>
          <li><a href="#3_4">I can't use 'long long' on Solaris</a>
       </ol>
 
@@ -105,7 +109,7 @@ http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.</p>
          library reaches stable plateaus, it is captured in a snapshot
          and released.  The current release is
          <a href="http://gcc.gnu.org/libstdc++/download.html">the
-         twelfth snapshot</a>.  For those who want to see exactly how
+         thirteenth snapshot</a>.  For those who want to see exactly how
          far the project has come, or just want the latest
          bleeding-edge code, the up-to-date source is available over
          anonymous CVS, and can even be browsed over the Web (see below). 
@@ -161,7 +165,7 @@ http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.</p>
 
 <hr>
    <h2><a name="1_4">1.4 How do I get libstdc++?</a></h2>
-      <p>The twelfth (and latest) snapshot of libstdc++-v3 is
+      <p>The thirteenth (and latest) snapshot of libstdc++-v3 is
          <a href="http://gcc.gnu.org/libstdc++/download.html">available via
          ftp</a>.
       </p>
@@ -407,18 +411,9 @@ which is no longer available, thanks deja...-->
       </p>
 
 <hr>
-   <h2><a name="3_3">3.3 Building DEC OSF kills the assembler</a></h2>
-      <p>The <code>atomicity.h</code> header for the Alpha processor
-         currently uses pseudo-operators which the DEC assembler
-         doesn't understand (in particular, .subsection and .previous).
-         The simple solution is to install GNU <code>as</code> and arrange
-         for the GCC build to use it (or merge the sources and build
-         it during the bootstrap).
-      </p>
-      <p>Anyone who
-         <a href="http://gcc.gnu.org/ml/libstdc++/2000-12/msg00279.html">knows
-         the DEC assembler well enough</a> to provide the equivalent of
-         these two pseudos would win praise and accolades from many.
+   <h2><a name="3_3">3.3 [removed]</a></h2>
+      <p>This question has become moot and has been removed.  The stub
+         is here to preserve numbering (and hence links/bookmarks).
       </p>
 
 <hr>
@@ -460,13 +455,26 @@ which is no longer available, thanks deja...-->
 
    <h2><a name="4_1">4.1 What works already?</a></h2>
       <p>This is a verbatim clip from the &quot;Status&quot; section
-          of the RELEASE-NOTES for the latest snapshot.
+         of the RELEASE-NOTES for the latest snapshot.  For a list of
+         fixed bugs, see that file.
       </p> 
 
 <!-- Yeah, I meant that "verbatim clip" thing literally... :-)  -->
 
 <pre>
-New:
+New in 3.0.96:
+---
+- more doxygen documentation.
+- extensions moved out of namespace std
+- HPUX long long support
+- more string optimizations
+- support for NetBSD cross compiles
+- concept_check merge from boost
+- header simplification
+- named locale bug shakeout
+- thread testsuite
+
+New in 3.0.95:
 ---
 - add S390, m68k, x86-64 support.
 - doxygen documentation has been extended, including man pages.
@@ -498,10 +506,21 @@ New:
          problems, you can find more information on the libstdc++ and
          the GCC mailing lists.
       </p>
+      <p>Before reporting a bug, examine the
+         <a href="http://gcc.gnu.org/bugs.html">bugs database</a> with the
+         category set to &quot;libstdc++&quot;.  The BUGS file in the source
+         tree also tracks known serious problems.
+      </p>
       <ul>
-         <li>As of 3.0.95, those bugs have all been fixed.  We look forward
-             to new ones, well, not exactly...  Existing bugs are listed in
-             the BUGS file, and the GCC GNATS database.
+         <li>Debugging is problematic, due to bugs in line-number generation
+             (mostly fixed in the compiler) and gdb lagging behind the
+             compiler (lack of personnel).  We recommend configuring the
+             compiler using <code>--with-dwarf2</code> if the DWARF2
+             debugging format is not already the default on your platform.
+             Also,
+<a href="http://gcc.gnu.org/ml/libstdc++/2002-02/msg00034.html">changing your
+             GDB settings</a> can have a profound effect on your C++ debugging
+             experiences.  :-)</li>
       </ul>
 
 <hr>
@@ -536,8 +555,7 @@ New:
            libstdc++ &quot;-Weffc++-clean&quot; is not a goal of the project,
            for a few reasons.  Mainly, that option tries to enforce
            object-oriented programming, while the Standard Library isn't
-           necessarily trying to be OO.  There are multiple solutions
-           under discussion.
+           necessarily trying to be OO.
         </p>
       </a>
       <a name="4_4_iostreamclear">

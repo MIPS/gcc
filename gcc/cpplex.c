@@ -828,7 +828,10 @@ _cpp_lex_token (pfile)
 	  /* Is this a directive.  If _cpp_handle_directive returns
 	     false, it is an assembler #.  */
 	  if (result->type == CPP_HASH
-	      && !pfile->state.parsing_args
+	      /* 6.10.3 p 11: Directives in a list of macro arguments
+		 gives undefined behavior.  This implementation
+		 handles the directive as normal.  */
+	      && pfile->state.parsing_args != 1
 	      && _cpp_handle_directive (pfile, result->flags & PREV_WHITE))
 	    continue;
 	  if (pfile->cb.line_change && !pfile->state.skipping)
@@ -1632,7 +1635,7 @@ maybe_read_ucs (pfile, pstr, limit, pc)
     return 1;
 
   if (CPP_WTRADITIONAL (pfile))
-    cpp_warning (pfile, "the meaning of '\\%c' varies with -traditional", c);
+    cpp_warning (pfile, "the meaning of '\\%c' is different in traditional C", c);
 
   length = (c == 'u' ? 4: 8);
 
@@ -1685,17 +1688,15 @@ maybe_read_ucs (pfile, pstr, limit, pc)
 /* Interpret an escape sequence, and return its value.  PSTR points to
    the input pointer, which is just after the backslash.  LIMIT is how
    much text we have.  MASK is a bitmask for the precision for the
-   destination type (char or wchar_t).  TRADITIONAL, if true, does not
-   interpret escapes that did not exist in traditional C.
+   destination type (char or wchar_t).
 
    Handles all relevant diagnostics.  */
 unsigned int
-cpp_parse_escape (pfile, pstr, limit, mask, traditional)
+cpp_parse_escape (pfile, pstr, limit, mask)
      cpp_reader *pfile;
      const unsigned char **pstr;
      const unsigned char *limit;
      unsigned HOST_WIDE_INT mask;
-     int traditional;
 {
   int unknown = 0;
   const unsigned char *str = *pstr;
@@ -1719,9 +1720,8 @@ cpp_parse_escape (pfile, pstr, limit, mask, traditional)
 
     case 'a':
       if (CPP_WTRADITIONAL (pfile))
-	cpp_warning (pfile, "the meaning of '\\a' varies with -traditional");
-      if (!traditional)
-	c = TARGET_BELL;
+	cpp_warning (pfile, "the meaning of '\\a' is different in traditional C");
+      c = TARGET_BELL;
       break;
 
     case 'e': case 'E':
@@ -1736,9 +1736,8 @@ cpp_parse_escape (pfile, pstr, limit, mask, traditional)
 
     case 'x':
       if (CPP_WTRADITIONAL (pfile))
-	cpp_warning (pfile, "the meaning of '\\x' varies with -traditional");
+	cpp_warning (pfile, "the meaning of '\\x' is different in traditional C");
 
-      if (!traditional)
 	{
 	  unsigned int i = 0, overflow = 0;
 	  int digits_found = 0;
@@ -1819,16 +1818,13 @@ cpp_parse_escape (pfile, pstr, limit, mask, traditional)
 #endif
 
 /* Interpret a (possibly wide) character constant in TOKEN.
-   WARN_MULTI warns about multi-character charconsts, if not
-   TRADITIONAL.  TRADITIONAL also indicates not to interpret escapes
-   that did not exist in traditional C.  PCHARS_SEEN points to a
-   variable that is filled in with the number of characters seen.  */
+   WARN_MULTI warns about multi-character charconsts.  PCHARS_SEEN points
+   to a variable that is filled in with the number of characters seen.  */
 HOST_WIDE_INT
-cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
+cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen)
      cpp_reader *pfile;
      const cpp_token *token;
      int warn_multi;
-     int traditional;
      unsigned int *pchars_seen;
 {
   const unsigned char *str = token->val.str.text;
@@ -1837,6 +1833,7 @@ cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
   unsigned int width, max_chars, c;
   unsigned HOST_WIDE_INT mask;
   HOST_WIDE_INT result = 0;
+  bool unsigned_p;
 
 #ifdef MULTIBYTE_CHARS
   (void) local_mbtowc (NULL, NULL, 0);
@@ -1844,9 +1841,15 @@ cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
 
   /* Width in bits.  */
   if (token->type == CPP_CHAR)
-    width = MAX_CHAR_TYPE_SIZE;
+    {
+      width = MAX_CHAR_TYPE_SIZE;
+      unsigned_p = CPP_OPTION (pfile, signed_char) == 0;
+    }
   else
-    width = MAX_WCHAR_TYPE_SIZE;
+    {
+      width = MAX_WCHAR_TYPE_SIZE;
+      unsigned_p = WCHAR_UNSIGNED;
+    }
 
   if (width < HOST_BITS_PER_WIDE_INT)
     mask = ((unsigned HOST_WIDE_INT) 1 << width) - 1;
@@ -1876,7 +1879,7 @@ cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
 #endif
 
       if (c == '\\')
-	c = cpp_parse_escape (pfile, &str, limit, mask, traditional);
+	c = cpp_parse_escape (pfile, &str, limit, mask);
 
 #ifdef MAP_CHARACTER
       if (ISPRINT (c))
@@ -1900,18 +1903,16 @@ cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
       chars_seen = max_chars;
       cpp_warning (pfile, "character constant too long");
     }
-  else if (chars_seen > 1 && !traditional && warn_multi)
+  else if (chars_seen > 1 && warn_multi)
     cpp_warning (pfile, "multi-character character constant");
 
-  /* If char type is signed, sign-extend the constant.  The
-     __CHAR_UNSIGNED__ macro is set by the driver if appropriate.  */
-  if (token->type == CPP_CHAR && chars_seen)
+  /* If relevant type is signed, sign-extend the constant.  */
+  if (chars_seen)
     {
       unsigned int nbits = chars_seen * width;
 
       mask = (unsigned HOST_WIDE_INT) ~0 >> (HOST_BITS_PER_WIDE_INT - nbits);
-      if (pfile->spec_nodes.n__CHAR_UNSIGNED__->type == NT_MACRO
-	  || ((result >> (nbits - 1)) & 1) == 0)
+      if (unsigned_p || ((result >> (nbits - 1)) & 1) == 0)
 	result &= mask;
       else
 	result |= ~mask;

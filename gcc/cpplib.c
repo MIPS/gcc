@@ -287,7 +287,7 @@ directive_diagnostics (pfile, dir, indented)
 	 compilers, directives added by C89 must have their #
 	 indented, and directives present in traditional C must not.
 	 This is true even of directives in skipped conditional
-	 blocks.  */
+	 blocks.  #elif cannot be used at all.  */
       if (CPP_WTRADITIONAL (pfile))
 	{
 	  if (dir == &dtable[T_ELIF])
@@ -316,8 +316,17 @@ _cpp_handle_directive (pfile, indented)
 {
   const directive *dir = 0;
   const cpp_token *dname;
+  bool was_parsing_args = pfile->state.parsing_args;
   int skip = 1;
 
+  if (was_parsing_args)
+    {
+      if (CPP_OPTION (pfile, pedantic))
+	cpp_pedwarn (pfile,
+	     "embedding a directive within macro arguments is not portable");
+      pfile->state.parsing_args = 0;
+      pfile->state.prevent_expansion = 0;
+    }
   start_directive (pfile);
   dname = _cpp_lex_token (pfile);
 
@@ -393,6 +402,13 @@ _cpp_handle_directive (pfile, indented)
     _cpp_backup_tokens (pfile, 1);
 
   end_directive (pfile, skip);
+  if (was_parsing_args)
+    {
+      /* Restore state when within macro args.  */
+      pfile->state.parsing_args = 2;
+      pfile->state.prevent_expansion = 1;
+      pfile->buffer->saved_flags |= PREV_WHITE;
+    }
   return skip;
 }
 
@@ -507,13 +523,12 @@ glue_header_name (pfile)
 {
   cpp_token *header = NULL;
   const cpp_token *token;
-  unsigned char *dest;
-  size_t len;
+  unsigned char *buffer;
+  size_t len, total_len = 0, capacity = 1024;
 
   /* To avoid lexed tokens overwriting our glued name, we can only
      allocate from the string pool once we've lexed everything.  */
-
-  dest = BUFF_FRONT (pfile->u_buff);
+  buffer = (unsigned char *) xmalloc (capacity);
   for (;;)
     {
       token = cpp_get_token (pfile);
@@ -521,34 +536,35 @@ glue_header_name (pfile)
       if (token->type == CPP_GREATER || token->type == CPP_EOF)
 	break;
 
-      /* + 1 for terminating NUL.  */
-      len = cpp_token_len (token) + 1;
-      if ((size_t) (BUFF_LIMIT (pfile->u_buff) - dest) < len)
+      len = cpp_token_len (token);
+      if (total_len + len > capacity)
 	{
-	  size_t len_so_far = dest - BUFF_FRONT (pfile->u_buff);
-	  _cpp_extend_buff (pfile, &pfile->u_buff, len);
-	  dest = BUFF_FRONT (pfile->u_buff) + len_so_far;
+	  capacity = (capacity + len) * 2;
+	  buffer = (unsigned char *) xrealloc (buffer, capacity);
 	}
 
       if (token->flags & PREV_WHITE)
-	*dest++ = ' ';
+	buffer[total_len++] = ' ';
 
-      dest = cpp_spell_token (pfile, token, dest);
+      total_len = cpp_spell_token (pfile, token, &buffer[total_len]) - buffer;
     }
 
   if (token->type == CPP_EOF)
     cpp_error (pfile, "missing terminating > character");
   else
     {
+      unsigned char *token_mem = _cpp_unaligned_alloc (pfile, total_len + 1);
+      memcpy (token_mem, buffer, total_len);
+      token_mem[total_len] = '\0';
+
       header = _cpp_temp_token (pfile);
       header->type = CPP_HEADER_NAME;
       header->flags = 0;
-      header->val.str.len = dest - BUFF_FRONT (pfile->u_buff);
-      header->val.str.text = BUFF_FRONT (pfile->u_buff);
-      *dest++ = '\0';
-      BUFF_FRONT (pfile->u_buff) = dest;
+      header->val.str.len = total_len;
+      header->val.str.text = token_mem;
     }
 
+  free ((PTR) buffer);
   return header;
 }
 

@@ -85,7 +85,8 @@ end ifobjc
 
 /* Reserved words that specify storage class.
    yylval contains an IDENTIFIER_NODE which indicates which one.  */
-%token SCSPEC
+%token SCSPEC			/* Storage class other than static.  */
+%token STATIC			/* Static storage class.  */
 
 /* Reserved words that specify type.
    yylval contains an IDENTIFIER_NODE which indicates which one.  */
@@ -167,7 +168,7 @@ end ifobjc
 %type <ttype> typespec_reserved_nonattr typespec_reserved_attr
 %type <ttype> typespec_nonreserved_nonattr
 
-%type <ttype> SCSPEC TYPESPEC TYPE_QUAL maybe_type_qual
+%type <ttype> scspec SCSPEC STATIC TYPESPEC TYPE_QUAL maybe_type_qual
 %type <ttype> initdecls notype_initdecls initdcl notype_initdcl
 %type <ttype> init maybeasm
 %type <ttype> asm_operands nonnull_asm_operands asm_operand asm_clobbers
@@ -329,9 +330,10 @@ program: /* empty */
 		     get us back to the global binding level.  */
 		  while (! global_bindings_p ())
 		    poplevel (0, 0, 0);
-ifc
+		  /* __FUNCTION__ is defined at file scope ("").  This
+		     call may not be necessary as my tests indicate it
+		     still works without it.  */
 		  finish_fname_decls ();
-end ifc
                   finish_file ();
 		}
 	;
@@ -367,7 +369,7 @@ datadef:
 	  setspecs notype_initdecls ';'
 		{ if (pedantic)
 		    error ("ISO C forbids data definition with no type or storage class");
-		  else if (!flag_traditional)
+		  else
 		    warning ("data definition has no type or storage class"); 
 
 		  POP_DECLSPEC_STACK; }
@@ -854,7 +856,7 @@ decl:
 
 /* A list of declaration specifiers.  These are:
 
-   - Storage class specifiers (SCSPEC), which for GCC currently include
+   - Storage class specifiers (scspec), which for GCC currently includes
    function specifiers ("inline").
 
    - Type specifiers (typespec_*).
@@ -1025,7 +1027,7 @@ declspecs_nosc_ts_sa_ea:
 	;
 
 declspecs_sc_nots_nosa_noea:
-	  SCSPEC
+	  scspec
 		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE);
 		  TREE_STATIC ($$) = 0; }
 	| declspecs_sc_nots_nosa_noea TYPE_QUAL
@@ -1034,25 +1036,25 @@ declspecs_sc_nots_nosa_noea:
 	| declspecs_sc_nots_nosa_ea TYPE_QUAL
 		{ $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = 1; }
-	| declspecs_nosc_nots_nosa_noea SCSPEC
+	| declspecs_nosc_nots_nosa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_nosc_nots_nosa_ea SCSPEC
+	| declspecs_nosc_nots_nosa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_nots_nosa_noea SCSPEC
+	| declspecs_sc_nots_nosa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_nots_nosa_ea SCSPEC
+	| declspecs_sc_nots_nosa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
@@ -1073,25 +1075,25 @@ declspecs_sc_nots_sa_noea:
 	| declspecs_sc_nots_sa_ea TYPE_QUAL
 		{ $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = 1; }
-	| declspecs_nosc_nots_sa_noea SCSPEC
+	| declspecs_nosc_nots_sa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_nosc_nots_sa_ea SCSPEC
+	| declspecs_nosc_nots_sa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_nots_sa_noea SCSPEC
+	| declspecs_sc_nots_sa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_nots_sa_ea SCSPEC
+	| declspecs_sc_nots_sa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
@@ -1124,25 +1126,25 @@ declspecs_sc_ts_nosa_noea:
 	| declspecs_sc_nots_nosa_ea typespec_nonattr
 		{ $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = 1; }
-	| declspecs_nosc_ts_nosa_noea SCSPEC
+	| declspecs_nosc_ts_nosa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_nosc_ts_nosa_ea SCSPEC
+	| declspecs_nosc_ts_nosa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_ts_nosa_noea SCSPEC
+	| declspecs_sc_ts_nosa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_ts_nosa_ea SCSPEC
+	| declspecs_sc_ts_nosa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
@@ -1187,25 +1189,25 @@ declspecs_sc_ts_sa_noea:
 	| declspecs_sc_nots_sa_ea typespec_nonattr
 		{ $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = 1; }
-	| declspecs_nosc_ts_sa_noea SCSPEC
+	| declspecs_nosc_ts_sa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_nosc_ts_sa_ea SCSPEC
+	| declspecs_nosc_ts_sa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_ts_sa_noea SCSPEC
+	| declspecs_sc_ts_sa_noea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
 		  $$ = tree_cons (NULL_TREE, $2, $1);
 		  TREE_STATIC ($$) = TREE_STATIC ($1); }
-	| declspecs_sc_ts_sa_ea SCSPEC
+	| declspecs_sc_ts_sa_ea scspec
 		{ if (extra_warnings && TREE_STATIC ($1))
 		    warning ("`%s' is not at beginning of declaration",
 			     IDENTIFIER_POINTER ($2));
@@ -1479,9 +1481,14 @@ attrib:
 
 any_word:
 	  identifier
-	| SCSPEC
+	| scspec
 	| TYPESPEC
 	| TYPE_QUAL
+	;
+
+scspec:
+	  STATIC
+	| SCSPEC
 	;
 
 /* Initializers.  `init' is the entry point.  */
@@ -1972,30 +1979,17 @@ direct_absdcl1:
 /* The [...] part of a declarator for an array type.  */
 
 array_declarator:
-	  '[' expr ']'
-		{ $$ = build_array_declarator ($2, NULL_TREE, 0, 0); }
-	| '[' declspecs_nosc expr ']'
+	'[' maybe_type_quals_attrs expr ']'
 		{ $$ = build_array_declarator ($3, $2, 0, 0); }
-	| '[' ']'
-		{ $$ = build_array_declarator (NULL_TREE, NULL_TREE, 0, 0); }
-	| '[' declspecs_nosc ']'
+	| '[' maybe_type_quals_attrs ']'
 		{ $$ = build_array_declarator (NULL_TREE, $2, 0, 0); }
-	| '[' '*' ']'
-		{ $$ = build_array_declarator (NULL_TREE, NULL_TREE, 0, 1); }
-	| '[' declspecs_nosc '*' ']'
+	| '[' maybe_type_quals_attrs '*' ']'
 		{ $$ = build_array_declarator (NULL_TREE, $2, 0, 1); }
-	| '[' SCSPEC expr ']'
-		{ if (C_RID_CODE ($2) != RID_STATIC)
-		    error ("storage class specifier in array declarator");
-		  $$ = build_array_declarator ($3, NULL_TREE, 1, 0); }
-	| '[' SCSPEC declspecs_nosc expr ']'
-		{ if (C_RID_CODE ($2) != RID_STATIC)
-		    error ("storage class specifier in array declarator");
-		  $$ = build_array_declarator ($4, $3, 1, 0); }
-	| '[' declspecs_nosc SCSPEC expr ']'
-		{ if (C_RID_CODE ($3) != RID_STATIC)
-		    error ("storage class specifier in array declarator");
-		  $$ = build_array_declarator ($4, $2, 1, 0); }
+	| '[' STATIC maybe_type_quals_attrs expr ']'
+		{ $$ = build_array_declarator ($4, $3, 1, 0); }
+	/* declspecs_nosc_nots is a synonym for type_quals_attrs.  */
+	| '[' declspecs_nosc_nots STATIC expr ']'
+		{ $$ = build_array_declarator ($4, $2, 1, 0); }
 	;
 
 /* A nonempty series of declarations and statements (possibly followed by
@@ -2172,6 +2166,7 @@ compstmt_primary_start:
 
 compstmt: compstmt_start compstmt_nostart
 		{ RECHAIN_STMTS ($1, COMPOUND_BODY ($1)); 
+		  last_expr_type = NULL_TREE;
                   $$ = $1; }
 	;
 
@@ -3279,11 +3274,10 @@ struct resword
 
 /* Disable mask.  Keywords are disabled if (reswords[i].disable & mask) is
    _true_.  */
-#define D_TRAD	0x01	/* not in traditional C */
-#define D_C89	0x02	/* not in C89 */
-#define D_EXT	0x04	/* GCC extension */
-#define D_EXT89	0x08	/* GCC extension incorporated in C99 */
-#define D_OBJC	0x10	/* Objective C only */
+#define D_C89	0x01	/* not in C89 */
+#define D_EXT	0x02	/* GCC extension */
+#define D_EXT89	0x04	/* GCC extension incorporated in C99 */
+#define D_OBJC	0x08	/* Objective C only */
 
 static const struct resword reswords[] =
 {
@@ -3336,7 +3330,7 @@ static const struct resword reswords[] =
   { "break",		RID_BREAK,	0 },
   { "case",		RID_CASE,	0 },
   { "char",		RID_CHAR,	0 },
-  { "const",		RID_CONST,	D_TRAD },
+  { "const",		RID_CONST,	0 },
   { "continue",		RID_CONTINUE,	0 },
   { "default",		RID_DEFAULT,	0 },
   { "do",		RID_DO,		0 },
@@ -3348,24 +3342,24 @@ static const struct resword reswords[] =
   { "for",		RID_FOR,	0 },
   { "goto",		RID_GOTO,	0 },
   { "if",		RID_IF,		0 },
-  { "inline",		RID_INLINE,	D_TRAD|D_EXT89 },
+  { "inline",		RID_INLINE,	D_EXT89 },
   { "int",		RID_INT,	0 },
   { "long",		RID_LONG,	0 },
   { "register",		RID_REGISTER,	0 },
-  { "restrict",		RID_RESTRICT,	D_TRAD|D_C89 },
+  { "restrict",		RID_RESTRICT,	D_C89 },
   { "return",		RID_RETURN,	0 },
   { "short",		RID_SHORT,	0 },
-  { "signed",		RID_SIGNED,	D_TRAD },
+  { "signed",		RID_SIGNED,	0 },
   { "sizeof",		RID_SIZEOF,	0 },
   { "static",		RID_STATIC,	0 },
   { "struct",		RID_STRUCT,	0 },
   { "switch",		RID_SWITCH,	0 },
   { "typedef",		RID_TYPEDEF,	0 },
-  { "typeof",		RID_TYPEOF,	D_TRAD|D_EXT },
+  { "typeof",		RID_TYPEOF,	D_EXT },
   { "union",		RID_UNION,	0 },
   { "unsigned",		RID_UNSIGNED,	0 },
   { "void",		RID_VOID,	0 },
-  { "volatile",		RID_VOLATILE,	D_TRAD },
+  { "volatile",		RID_VOLATILE,	0 },
   { "while",		RID_WHILE,	0 },
 ifobjc
   { "id",		RID_ID,			D_OBJC },
@@ -3402,7 +3396,7 @@ end ifobjc
    three languages.  */
 static const short rid_to_yy[RID_MAX] =
 {
-  /* RID_STATIC */	SCSPEC,
+  /* RID_STATIC */	STATIC,
   /* RID_UNSIGNED */	TYPESPEC,
   /* RID_LONG */	TYPESPEC,
   /* RID_CONST */	TYPE_QUAL,
@@ -3544,7 +3538,6 @@ init_reswords ()
   unsigned int i;
   tree id;
   int mask = (flag_isoc99 ? 0 : D_C89)
-	      | (flag_traditional ? D_TRAD : 0)
 	      | (flag_no_asm ? (flag_isoc99 ? D_EXT : D_EXT|D_EXT89) : 0);
 
   if (c_language != clk_objective_c)
@@ -3836,6 +3829,7 @@ yyprint (file, yychar, yyl)
     case TYPESPEC:
     case TYPE_QUAL:
     case SCSPEC:
+    case STATIC:
       if (IDENTIFIER_POINTER (t))
 	fprintf (file, " `%s'", IDENTIFIER_POINTER (t));
       break;

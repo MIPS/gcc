@@ -470,7 +470,7 @@ init_reg_sets_1 ()
 	;
 #endif
 #ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
-      else if (i == PIC_OFFSET_TABLE_REGNUM && flag_pic)
+      else if (i == PIC_OFFSET_TABLE_REGNUM && fixed_regs[i])
 	;
 #endif
       else if (0
@@ -1635,18 +1635,6 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 		break;
 
 	      case 'E':
-#ifndef REAL_ARITHMETIC
-		/* Match any floating double constant, but only if
-		   we can examine the bits of it reliably.  */
-		if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-		     || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
-		    && GET_MODE (op) != VOIDmode && ! flag_pretend_float)
-		  break;
-#endif
-		if (GET_CODE (op) == CONST_DOUBLE)
-		  win = 1;
-		break;
-
 	      case 'F':
 		if (GET_CODE (op) == CONST_DOUBLE)
 		  win = 1;
@@ -2416,6 +2404,7 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case SYMBOL_REF:

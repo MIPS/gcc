@@ -32,9 +32,9 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
-/** @file std_ostream.h
- *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+/** @file ostream
+ *  This is a Standard C++ Library header.  You should @c #include this header
+ *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
 #ifndef _CPP_OSTREAM
@@ -172,15 +172,6 @@ namespace std
 
       __ostream_type& 
       seekp(off_type, ios_base::seekdir);
-
-    private:
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-      // Not defined.  (Side effect of DR 50.)
-      __ostream_type& 
-      operator=(const __ostream_type&);
-
-      basic_ostream(const __ostream_type&);
-#endif
     };
 
   // 27.6.2.3  Class basic_ostream::sentry
@@ -279,10 +270,9 @@ namespace std
 
 #ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
 # define export
+#endif
 #ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
 # include <bits/ostream.tcc>
 #endif
-#endif
 
 #endif	/* _CPP_OSTREAM */
-

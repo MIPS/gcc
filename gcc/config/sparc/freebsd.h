@@ -27,7 +27,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define CPP_PREDEFINES FBSD_CPP_PREDEFINES
 
 #define LINK_SPEC "-m elf64_sparc %(link_arch)				\
-  %{!mno-relax:%{!r:-relax}						\
+  %{!mno-relax:%{!r:-relax}}						\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
   %{Wl,*:%*}								\
   %{assert*} %{R*} %{rpath*} %{defsym*}					\
@@ -56,7 +56,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #undef  LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
@@ -91,8 +91,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT \
-  (MASK_V9 + MASK_64BIT + MASK_PTR64 + MASK_VIS + MASK_FASTER_STRUCTS \
-   + MASK_STACK_BIAS + MASK_APP_REGS /* + MASK_EPILOGUE */ + MASK_FPU \
+  (MASK_V9 + MASK_64BIT + MASK_PTR64 /* + MASK_FASTER_STRUCTS */ \
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU \
    + MASK_LONG_DOUBLE_128 /* + MASK_HARD_QUAD */)
 
 /* The default code model.  */
@@ -101,12 +101,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 /************************[  Assembler stuff  ]********************************/
-
-/* XXX */
-#if 0
-#undef  ASM_CPU_DEFAULT_SPEC
-#define ASM_CPU_DEFAULT_SPEC "-Av9a"
-#endif
 
 /* XXX2 */
 /* This is how to output a definition of an internal numbered label where

@@ -123,7 +123,9 @@ struct tree_common
   tree chain;
   tree type;
   void *aux;
+
   ENUM_BITFIELD(tree_code) code : 8;
+
   unsigned side_effects_flag : 1;
   unsigned constant_flag : 1;
   unsigned addressable_flag : 1;
@@ -131,6 +133,7 @@ struct tree_common
   unsigned readonly_flag : 1;
   unsigned unsigned_flag : 1;
   unsigned asm_written_flag: 1;
+  unsigned unused_0 : 1;
 
   unsigned used_flag : 1;
   unsigned nothrow_flag : 1;
@@ -148,10 +151,7 @@ struct tree_common
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
-  /* This flag is presently unused.  However, language front-ends
-     should not make use of this flag; it is reserved for future
-     expansion.  */
-  unsigned dummy : 1;
+  unsigned unused_1 : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -175,14 +175,14 @@ struct tree_common
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST
+           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
 
    public_flag:
 
        TREE_OVERFLOW in
-           INTEGER_CST, REAL_CST, COMPLEX_CST
+           INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
@@ -512,9 +512,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    chain is via a `virtual' declaration.  */
 #define TREE_VIA_VIRTUAL(NODE) ((NODE)->common.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, or COMPLEX_CST, this means there was an
-   overflow in folding.  This is distinct from TREE_OVERFLOW because ANSI C
-   requires a diagnostic when overflows occur in constant expressions.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
+   there was an overflow in folding.  This is distinct from
+   TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
+   occur in constant expressions.  */
 #define TREE_CONSTANT_OVERFLOW(NODE) ((NODE)->common.static_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
@@ -522,9 +523,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 #define TREE_SYMBOL_REFERENCED(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->common.static_flag)
 
-/* In an INTEGER_CST, REAL_CST, of COMPLEX_CST, this means there was an
-   overflow in folding, and no warning has been issued for this subexpression.
-   TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW, but not vice versa.  */
+/* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
+   there was an overflow in folding, and no warning has been issued
+   for this subexpression.  TREE_OVERFLOW implies
+   TREE_CONSTANT_OVERFLOW, but not vice versa.  */
 #define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
@@ -707,9 +709,9 @@ struct tree_int_cst
   } int_cst;
 };
 
-/* In REAL_CST, STRING_CST, COMPLEX_CST nodes, and CONSTRUCTOR nodes,
-   and generally in all kinds of constants that could
-   be given labels (rather than being immediate).  */
+/* In REAL_CST, STRING_CST, COMPLEX_CST, VECTOR_CST nodes, and
+   CONSTRUCTOR nodes, and generally in all kinds of constants that
+   could be given labels (rather than being immediate).  */
 
 #define TREE_CST_RTL(NODE) (CST_OR_CONSTRUCTOR_CHECK (NODE)->real_cst.rtl)
 
@@ -751,6 +753,16 @@ struct tree_complex
   rtx rtl;	/* acts as link to register transfer language (rtl) info */
   tree real;
   tree imag;
+};
+
+/* In a VECTOR_CST node.  */
+#define TREE_VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elements)
+
+struct tree_vector
+{
+  struct tree_common common;
+  rtx rtl;
+  tree elements;
 };
 
 #include "hashtable.h"
@@ -856,6 +868,11 @@ struct tree_vec
 #define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+
+/* In a TARGET_EXPR node.  */
+#define TARGET_EXPR_SLOT(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 0)
+#define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 1)
+#define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 2)
 
 struct tree_exp
 {
@@ -1843,6 +1860,7 @@ union tree_node
   struct tree_common common;
   struct tree_int_cst int_cst;
   struct tree_real_cst real_cst;
+  struct tree_vector vector;
   struct tree_string string;
   struct tree_complex complex;
   struct tree_identifier identifier;
@@ -1910,6 +1928,7 @@ enum tree_index
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
+  TI_V16SF_TYPE,
   TI_V4SI_TYPE,
   TI_V8HI_TYPE,
   TI_V8QI_TYPE,
@@ -1992,6 +2011,7 @@ extern tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones.  */
@@ -2091,6 +2111,7 @@ extern tree build			PARAMS ((enum tree_code, tree, ...));
 extern tree build_nt			PARAMS ((enum tree_code, ...));
 
 extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
+extern tree build_vector                PARAMS ((tree, tree));
 extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
 extern tree build_real_from_int_cst 	PARAMS ((tree, tree));
 extern tree build_complex		PARAMS ((tree, tree, tree));
@@ -2234,6 +2255,7 @@ extern int default_comp_type_attributes PARAMS ((tree, tree));
 extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
 extern bool default_function_attribute_inlinable_p PARAMS ((tree));
+extern bool default_ms_bitfield_layout_p PARAMS ((tree));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2266,6 +2288,11 @@ extern tree merge_attributes		PARAMS ((tree, tree));
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
+
+/* Return true if DECL will be always resolved to a symbol defined in the
+   same module (shared library or program).  */
+#define MODULE_LOCAL_P(DECL) \
+  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
@@ -2323,6 +2350,8 @@ typedef struct record_layout_info_s
   /* The alignment of the record so far, allowing for the record to be
      padded only at the end, in bits.  */
   unsigned int unpadded_align;
+  /* The previous field layed out.  */
+  tree prev_field;
   /* The static variables (i.e., class variables, as opposed to
      instance variables) encountered in T.  */
   tree pending_statics;
@@ -2466,6 +2495,11 @@ extern int list_length			PARAMS ((tree));
 /* Returns the number of FIELD_DECLs in a type.  */
 
 extern int fields_length		PARAMS ((tree));
+
+/* Given an initializer INIT, return TRUE if INIT is zero or some
+   aggregate of zeros.  Otherwise return FALSE.  */
+
+extern bool initializer_zerop		PARAMS ((tree));
 
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
 
@@ -2751,7 +2785,9 @@ extern void expand_end_null_loop		PARAMS ((void));
 extern int expand_continue_loop			PARAMS ((struct nesting *));
 extern int expand_exit_loop			PARAMS ((struct nesting *));
 extern int expand_exit_loop_if_false		PARAMS ((struct nesting *,
-						       tree));
+						         tree));
+extern int expand_exit_loop_top_cond		PARAMS ((struct nesting *,
+							 tree));
 extern int expand_exit_something		PARAMS ((void));
 
 extern void expand_return			PARAMS ((tree));
@@ -2770,7 +2806,8 @@ extern struct nesting * current_nesting_level	PARAMS ((void));
 extern tree last_cleanup_this_contour		PARAMS ((void));
 extern void expand_start_case			PARAMS ((int, tree, tree,
 						       const char *));
-extern void expand_end_case			PARAMS ((tree));
+extern void expand_end_case_type		PARAMS ((tree, tree));
+#define expand_end_case(cond) expand_end_case_type (cond, NULL)
 extern int add_case_node                        PARAMS ((tree, tree,
 							 tree, tree *));
 extern int pushcase				PARAMS ((tree,
@@ -2832,9 +2869,6 @@ extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 /* The language front-end must define these functions.  */
-
-/* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
-extern void copy_lang_decl			PARAMS ((tree));
 
 /* Function called with no arguments to parse and compile the input.  */
 extern int yyparse				PARAMS ((void));

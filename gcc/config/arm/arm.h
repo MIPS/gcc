@@ -81,8 +81,6 @@ extern struct rtx_def * pool_vector_label;
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed. */
 extern int return_used_this_function;
-/* Nonzero if the prologue must setup `fp'.  */
-extern int current_function_anonymous_args;
 
 /* Just in case configure has failed to define anything. */
 #ifndef TARGET_CPU_DEFAULT
@@ -649,8 +647,6 @@ extern int arm_is_6_or_7;
 /* This is required to ensure that push insns always push a word.  */
 #define PROMOTE_FUNCTION_ARGS
 
-/* Define for XFmode extended real floating point support.
-   This will automatically cause REAL_ARITHMETIC to be defined.  */
 /* For the ARM:
    I think I have added all the code to make this work.  Unfortunately,
    early releases of the floating point emulation code on RISCiX used a
@@ -664,12 +660,6 @@ extern int arm_is_6_or_7;
 
 /* Disable XFmode patterns in md file */
 #define ENABLE_XF_PATTERNS 0
-
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-/* See comment above */
-#define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -697,11 +687,6 @@ extern int arm_is_6_or_7;
 /* Define this if most significant word of doubles is the lowest numbered.
    This is always true, even when in little-endian mode.  */
 #define FLOAT_WORDS_BIG_ENDIAN 1
-
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT  8
-
-#define BITS_PER_WORD  32
 
 #define UNITS_PER_WORD	4
 
@@ -1029,6 +1014,13 @@ extern const char * structure_size_string;
     16, 17, 18, 19, 20, 21, 22, 23, \
     24, 25, 26			    \
 }
+
+/* Interrupt functions can only use registers that have already been
+   saved by the prologue, even if they would normally be
+   call-clobbered.  */
+#define HARD_REGNO_RENAME_OK(SRC, DST)					\
+	(! IS_INTERRUPT (cfun->machine->func_type) ||			\
+		regs_ever_live[DST])
 
 /* Register and constant classes.  */
 
@@ -1454,6 +1446,8 @@ typedef struct machine_function
   int lr_save_eliminated;
   /* Records the type of the current function.  */
   unsigned long func_type;
+  /* Record if the function has a variable argument list.  */
+  int uses_anonymous_args;
 }
 machine_function;
 
@@ -1536,8 +1530,7 @@ typedef struct
    that way.  */
 #define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PRETEND_SIZE, NO_RTL)	\
 {									\
-  extern int current_function_anonymous_args;				\
-  current_function_anonymous_args = 1;					\
+  cfun->machine->uses_anonymous_args = 1;				\
   if ((CUM).nregs < NUM_ARG_REGS)					\
     (PRETEND_SIZE) = (NUM_ARG_REGS - (CUM).nregs) * UNITS_PER_WORD;	\
 }
@@ -1844,7 +1837,8 @@ typedef struct
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
-  || CONSTANT_ADDRESS_P (X))
+  || CONSTANT_ADDRESS_P (X)		\
+  || flag_pic)
 
 #define LEGITIMATE_CONSTANT_P(X)	\
   (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X) : THUMB_LEGITIMATE_CONSTANT_P (X))
@@ -1892,9 +1886,9 @@ typedef struct
    or known to be defined in this file then encode a short call flag.
    This macro is used inside the ENCODE_SECTION macro.  */
 #define ARM_ENCODE_CALL_TYPE(decl)					\
-  if (TREE_CODE (decl) == FUNCTION_DECL)				\
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')			\
     {									\
-      if (DECL_WEAK (decl))						\
+      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))	\
         arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);		\
       else if (! TREE_PUBLIC (decl))        				\
         arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);		\
@@ -1908,7 +1902,7 @@ typedef struct
 /* This doesn't work with AOF syntax, since the string table may be in
    a different AREA.  */
 #ifndef AOF_ASSEMBLER
-#define ENCODE_SECTION_INFO(decl)					\
+#define ENCODE_SECTION_INFO(decl, first)				\
 {									\
   if (optimize > 0 && TREE_CONSTANT (decl)				\
       && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))	\
@@ -1917,12 +1911,14 @@ typedef struct
                  ? TREE_CST_RTL (decl) : DECL_RTL (decl));		\
       SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;				\
     }									\
-  ARM_ENCODE_CALL_TYPE (decl)						\
+  if (first)								\
+    ARM_ENCODE_CALL_TYPE (decl)						\
 }
 #else
-#define ENCODE_SECTION_INFO(decl)					\
+#define ENCODE_SECTION_INFO(decl, first)				\
 {									\
-  ARM_ENCODE_CALL_TYPE (decl)						\
+  if (first)								\
+    ARM_ENCODE_CALL_TYPE (decl)						\
 }
 #endif
 

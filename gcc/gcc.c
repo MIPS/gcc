@@ -445,7 +445,6 @@ or with constant text in a single argument.
 	if multilib_dir is not set or is ".", output "".
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
- %c	process SIGNED_CHAR_SPEC as a spec.
  %C     process CPP_SPEC as a spec.
  %1	process CC1_SPEC as a spec.
  %2	process CC1PLUS_SPEC as a spec.
@@ -511,7 +510,7 @@ CC also knows implicitly that arguments starting in `-l' are to be
 treated as compiler output files, and passed to the linker in their
 proper position among the other output files.  */
 
-/* Define the macros used for specs %a, %l, %L, %S, %c, %C, %1.  */
+/* Define the macros used for specs %a, %l, %L, %S, %C, %1.  */
 
 /* config.h can define ASM_SPEC to provide extra args to the assembler
    or extra switch-translations.  */
@@ -582,17 +581,6 @@ proper position among the other output files.  */
 #define ENDFILE_SPEC ""
 #endif
 
-/* This spec is used for telling cpp whether char is signed or not.  */
-#ifndef SIGNED_CHAR_SPEC
-/* Use #if rather than ?:
-   because MIPS C compiler rejects like ?: in initializers.  */
-#if DEFAULT_SIGNED_CHAR
-#define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
-#else
-#define SIGNED_CHAR_SPEC "%{!fsigned-char:-D__CHAR_UNSIGNED__}"
-#endif
-#endif
-
 #ifndef LINKER_NAME
 #define LINKER_NAME "collect2"
 #endif
@@ -651,7 +639,6 @@ static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
-static const char *signed_char_spec = SIGNED_CHAR_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -673,32 +660,38 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *trad_capable_cpp =
 "%{traditional|ftraditional|traditional-cpp:trad}cpp0";
 
-static const char *cpp_options =
+static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
- %{std*} %{nostdinc*}\
- %{C} %{v} %{I*} %{P} %{$} %I\
+ %{nostdinc*} %{C} %{v} %{I*} %{P} %{$} %I\
  %{MD:-M -MF %W{!o: %b.d}%W{o*:%.d%*}}\
  %{MMD:-MM -MF %W{!o: %b.d}%W{o*:%.d%*}}\
- %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*} %{M|MD|MM|MMD:%{o*:-MQ %*}}\
+ %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
+ %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
- %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
+ %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
  %{fno-inline|O0|!O*:-D__NO_INLINE__} %{ffast-math:-D__FAST_MATH__}\
  %{fshort-wchar:-U__WCHAR_TYPE__ -D__WCHAR_TYPE__=short\\ unsigned\\ int}\
  %{ffreestanding:-D__STDC_HOSTED__=0} %{fno-hosted:-D__STDC_HOSTED__=0}\
- %{!ffreestanding:%{!fno-hosted:-D__STDC_HOSTED__=1}}\
+ %{!ffreestanding:%{!fno-hosted:-D__STDC_HOSTED__=1}} %{remap}\
+ %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{E|M|MM:%W{o*}}";
+
+/* This contains cpp options which are common with cc1_options and are passed
+   only when preprocessing only to avoid duplication.  */
+static const char *cpp_options =
+"%(cpp_unique_options) %{std*} %{d*} %{W*} %{w} %{pedantic*}\
  %{fshow-column} %{fno-show-column}\
+ %{fsigned-char&funsigned-char}\
  %{fleading-underscore} %{fno-leading-underscore}\
- %{fno-operator-names} %{ftabstop=*} %{remap}\
- %{g3:-dD} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*&U*&A*} %{i*} %Z %i\
- %{E:%{!M*:%W{o*}}}";
+ %{fno-operator-names} %{ftabstop=*}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
- %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
+ %{v:-version} %{pg:-p} %{p} %{f*}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
@@ -829,18 +822,16 @@ static const struct compiler default_compilers[] =
   {".c", "@c", 0},
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
-      external preprocessor if -save-temps or -traditional is given.  */
+      external preprocessor if -save-temps is given.  */
      "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)}\
       %{!E:%{!M:%{!MM:\
-	  %{save-temps:%(trad_capable_cpp) -lang-c %{ansi:-std=c89}\
-		%(cpp_options) %b.i \n\
+          %{traditional|ftraditional:\
+%eGNU C no longer supports -traditional without -E}\
+	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
+		-lang-c %{ansi:-std=c89} %(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
-	  %{!save-temps:\
-	    %{traditional|ftraditional|traditional-cpp:\
-		tradcpp0 -lang-c %{ansi:-std=c89} %(cpp_options) %{!pipe:%g.i} |\n\
-		    cc1 -fpreprocessed %{!pipe:%g.i} %(cc1_options)}\
-	    %{!traditional:%{!ftraditional:%{!traditional-cpp:\
-		cc1 -lang-c %{ansi:-std=c89} %(cpp_options) %(cc1_options)}}}}\
+	  %{!save-temps:%{!traditional-cpp:\
+		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
@@ -867,8 +858,7 @@ static const struct compiler default_compilers[] =
 
 /* Number of elements in default_compilers, not counting the terminator.  */
 
-static int n_default_compilers
-  = (sizeof default_compilers / sizeof (struct compiler)) - 1;
+static const int n_default_compilers = ARRAY_SIZE (default_compilers) - 1;
 
 /* A vector of options to give to the linker.
    These options are accumulated by %x,
@@ -915,7 +905,8 @@ static const struct option_map option_map[] =
    {"--assemble", "-S", 0},
    {"--assert", "-A", "a"},
    {"--classpath", "-fclasspath=", "aj"},
-   {"--CLASSPATH", "-fCLASSPATH=", "aj"},
+   {"--bootclasspath", "-fbootclasspath=", "aj"},
+   {"--CLASSPATH", "-fclasspath=", "aj"},
    {"--comments", "-C", 0},
    {"--compile", "-c", 0},
    {"--debug", "-g", "oj"},
@@ -1367,6 +1358,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("invoke_as",		&invoke_as),
   INIT_STATIC_SPEC ("cpp",			&cpp_spec),
   INIT_STATIC_SPEC ("cpp_options",		&cpp_options),
+  INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
@@ -1377,7 +1369,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
-  INIT_STATIC_SPEC ("signed_char",		&signed_char_spec),
   INIT_STATIC_SPEC ("predefines",		&cpp_predefines),
   INIT_STATIC_SPEC ("cross_compile",		&cross_compile),
   INIT_STATIC_SPEC ("version",			&compiler_version),
@@ -1421,31 +1412,23 @@ init_gcc_specs (obstack, shared_name, static_name, eh_name)
      const char *static_name;
      const char *eh_name;
 {
-  char buffer[128];
-  const char *p;
+  char *buf;
 
-  /* If we see -shared-libgcc, then use the shared version.  */
-  sprintf (buffer, "%%{shared-libgcc:%s %s}", shared_name, static_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* If we see -static-libgcc, then use the static version.  */
-  sprintf (buffer, "%%{static-libgcc:%s %s}", static_name, eh_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* Otherwise, if we see -shared, then use the shared version
-     if using EH registration routines or static version without
-     exception handling routines otherwise.  */
-  p = "%{!shared-libgcc:%{!static-libgcc:%{shared:";
-  obstack_grow (obstack, p, strlen (p));
+  buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
+		"}%{!static:%{!static-libgcc:",
+		"%{!shared:%{!shared-libgcc:", static_name, " ",
+		eh_name, "}%{shared-libgcc:", shared_name, " ",
+		static_name, "}}%{shared:",
 #ifdef LINK_EH_SPEC
-  sprintf (buffer, "%s}}}", static_name);
+		"%{shared-libgcc:", shared_name,
+		"}%{!shared-libgcc:", static_name, "}",
 #else
-  sprintf (buffer, "%s}}}", shared_name);
+		shared_name,
 #endif
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* Otherwise, use the static version.  */
-  sprintf (buffer, 
-	   "%%{!shared-libgcc:%%{!static-libgcc:%%{!shared:%s %s}}}", 
-	   static_name, eh_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
+		"}}}", NULL);
+
+  obstack_grow (obstack, buf, strlen (buf));
+  free (buf);
 }
 #endif /* ENABLE_SHARED_LIBGCC */
 
@@ -1780,7 +1763,7 @@ load_specs (filename)
 
    A suffix which starts with `*' is a definition for
    one of the machine-specific sub-specs.  The "suffix" should be
-   *asm, *cc1, *cpp, *link, *startfile, *signed_char, etc.
+   *asm, *cc1, *cpp, *link, *startfile, etc.
    The corresponding spec is stored in asm_spec, etc.,
    rather than in the `compilers' vector.
 
@@ -3702,8 +3685,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 #ifdef MODIFY_TARGET_NAME
 	      is_modify_target_name = 0;
 
-	      for (j = 0;
-		   j < sizeof modify_target / sizeof modify_target[0]; j++)
+	      for (j = 0; j < ARRAY_SIZE (modify_target); j++)
 		if (! strcmp (argv[i], modify_target[j].sw))
 		  {
 		    char *new_name
@@ -3838,7 +3820,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 #ifdef MODIFY_TARGET_NAME
       is_modify_target_name = 0;
 
-      for (j = 0; j < sizeof modify_target / sizeof modify_target[0]; j++)
+      for (j = 0; j < ARRAY_SIZE (modify_target); j++)
 	if (! strcmp (argv[i], modify_target[j].sw))
 	  is_modify_target_name = 1;
 
@@ -4774,12 +4756,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 	  case 'A':
 	    value = do_spec_1 (asm_final_spec, 0, NULL);
-	    if (value != 0)
-	      return value;
-	    break;
-
-	  case 'c':
-	    value = do_spec_1 (signed_char_spec, 0, NULL);
 	    if (value != 0)
 	      return value;
 	    break;

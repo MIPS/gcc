@@ -50,7 +50,7 @@ fi
 
 libstdcxx_version="target-libstdc++-v3"
 # Don't use libstdc++-v3's flags to configure/build itself.
-libstdcxx_flags='`case $$dir in libstdc++-v3) ;; *) test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags --build-includes;; esac` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
+libstdcxx_flags='`case $$dir in libstdc++-v3 | libjava) ;; *) test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags --build-includes;; esac` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -617,6 +617,17 @@ case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
+  *-*-netbsd*)
+    # Skip some stuff on all NetBSD configurations.
+    skipdirs="$skipdirs target-newlib target-libiberty target-libgloss"
+
+    # Skip some stuff that's unsupported on some NetBSD configurations.
+    case "${target}" in
+      *)
+	noconfigdirs="$noconfigdirs ${libgcj}"
+	;;
+    esac
+    ;;
   *-*-netware)
     noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-newlib target-libiberty target-libgloss ${libgcj}"
     ;;
@@ -953,6 +964,9 @@ case "${target}" in
       i[3456]86-*-msdosdjgpp*) ;; # don't add gprof back in
       *) skipdirs=`echo " ${skipdirs} " | sed -e 's/ gprof / /'` ;;
     esac
+    noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+    ;;
+  sh64-*-*)
     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
     ;;
   sparc-*-elf*)
@@ -1534,7 +1548,10 @@ fi
 if test "x${CXX_FOR_TARGET+set}" = xset; then
   :
 elif test -d ${topsrcdir}/gcc; then
-  CXX_FOR_TARGET='$$r/gcc/`case $$dir in libstdc++-v3) echo xgcc ;; *) echo g++ ;; esac` -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
+  # We add -shared-libgcc to CXX_FOR_TARGET whenever we use xgcc instead
+  # of g++ for linking C++ or Java, because g++ has -shared-libgcc by
+  # default whereas gcc does not.
+  CXX_FOR_TARGET='$$r/gcc/`case $$dir in libstdc++-v3 | libjava) echo xgcc -shared-libgcc ;; *) echo g++ ;; esac` -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
 elif test "$host" = "$target"; then
   CXX_FOR_TARGET='$(CXX)'
 else

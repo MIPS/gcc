@@ -622,6 +622,17 @@ short_memory_operand (x, mode)
   return (GET_CODE (XEXP (x, 0)) != PLUS);
 }
 
+int
+nonimmediate_nonstack_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* 'Q' is for pushes, 'R' for pops.  */
+  return (nonimmediate_operand (op, mode) 
+	  && ! xstormy16_extra_constraint_p (op, 'Q')
+	  && ! xstormy16_extra_constraint_p (op, 'R'));
+}
+
 /* Splitter for the 'move' patterns, for modes not directly implemeted
    by hardware.  Emit insns to copy a value of mode MODE from SRC to
    DEST.
@@ -1383,8 +1394,9 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
 /* Mark functions with SYMBOL_REF_FLAG.  */
 
 void
-xstormy16_encode_section_info (decl)
+xstormy16_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;

@@ -69,9 +69,9 @@ endif # CANADIAN
 ## compiles.
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
 
-GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fassume-compiled -fclasspath=$(here) -L$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
+GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
-LIBLINK = $(LIBTOOL) --tag=CC --mode=link $(CC) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
+LIBLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXX) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
 
 ## We define this because otherwise libtool can be run with different
 ## values of `CXX' and will then get confused and fail to work.  So,
@@ -123,16 +123,17 @@ javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
 x_javao_files = $(x_java_source_files:.java=.lo)
 
-libgcj_la_SOURCES = prims.cc posix.cc jni.cc exception.cc \
+libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc name-finder.cc verify.cc \
 	$(nat_source_files)
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
+	win32-threads.cc posix.cc win32.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
 libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
-	$(c_files) $(GCOBJS) $(THREADOBJS) $(LIBLTDL)
+	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL)
 
 libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
-	$(THREADOBJS)
+	$(THREADOBJS) $(PLATFORMOBJS)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
@@ -185,8 +186,8 @@ libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_file
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
 	javac="$(JAVAC)"; \
 	cat tmp-list | (while read f; do \
-	  echo $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f; \
-	  $$javac $(JCFLAGS) -classpath $(here):$(srcdir) -d $(here) $$f \
+	  echo $$javac $(JCFLAGS) -bootclasspath $(here):$(srcdir) -d $(here) $$f; \
+	  $$javac $(JCFLAGS) -bootclasspath $(here):$(srcdir) -d $(here) $$f \
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
 	test "$$fail" = no)
@@ -202,6 +203,10 @@ CLEANFILES = tmp-list libgcj.jar
 clean-local:
 ## We just remove every .class file that was created.
 	find . -name '*.class' -print | xargs rm -f
+
+# Just remove the objects from C++ sources, for testing the C++ compiler.
+clean-nat:
+	rm -f $(nat_files) $(x_nat_files)
 
 SUFFIXES = .class .java .h
 
@@ -251,7 +256,7 @@ libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
 
 .class.h:
 ## FIXME: GNU make specific.
-	$(GCJH) -classpath $(top_builddir) $(basename $<)
+	$(GCJH) -bootclasspath $(top_builddir) $(basename $<)
 
 ## Header files used when compiling some of the nat* files.
 ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
@@ -267,13 +272,13 @@ x_nat_headers = $(x_java_source_files:.java=.h)
 $(ordinary_nat_headers) $(x_nat_headers): %.h: %.class
 
 java/lang/ClassLoader.h: java/lang/ClassLoader.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 		-friend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
 		-friend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
 		$(basename $<)
 
 java/lang/Thread.h: java/lang/Thread.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 		-prepend 'class _Jv_JNIEnv;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
@@ -286,7 +291,7 @@ java/lang/Thread.h: java/lang/Thread.class
 		$(basename $<)
 
 java/lang/String.h: java/lang/String.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	    -friend 'jchar* _Jv_GetStringChars (jstring str);' \
 	    -friend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
 	    -friend 'jstring* _Jv_StringGetSlot (jstring);' \
@@ -296,21 +301,21 @@ java/lang/String.h: java/lang/String.class
 	    $(basename $<)
 
 java/lang/reflect/Constructor.h: java/lang/reflect/Constructor.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
 
 java/lang/reflect/Field.h: java/lang/reflect/Field.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	    -friend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
 	    -friend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
 	    -friend 'class java::lang::Class;' \
 	    $(basename $<)
 
 java/lang/reflect/Method.h: java/lang/reflect/Method.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	    -friend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
 	    -friend 'class java::lang::Class;' \
 	    -friend 'class java::io::ObjectInputStream;' \
@@ -318,16 +323,16 @@ java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	    $(basename $<)
 
 gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	    -friend 'class ::java::lang::ClassLoader;' \
 	    $(basename $<)
 
 java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	'java/io/ObjectInputStream$$GetField'
 
 java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
-	$(GCJH) -classpath $(top_builddir) \
+	$(GCJH) -bootclasspath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
 
 ## Headers we maintain by hand and which we want to install.
@@ -1097,6 +1102,7 @@ java/lang/SecurityException.java \
 java/lang/SecurityManager.java \
 java/lang/Short.java \
 java/lang/StackOverflowError.java \
+java/lang/StrictMath.java \
 java/lang/String.java \
 java/lang/StringBuffer.java \
 java/lang/StringIndexOutOfBoundsException.java \

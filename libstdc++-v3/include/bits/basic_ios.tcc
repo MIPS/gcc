@@ -30,8 +30,22 @@
 #ifndef _CPP_BITS_BASICIOS_TCC
 #define _CPP_BITS_BASICIOS_TCC 1
 
+#pragma GCC system_header
+
 namespace std
 {
+  template<typename _CharT, typename _Traits>
+    void
+    basic_ios<_CharT, _Traits>::clear(iostate __state)
+    { 
+      if (this->rdbuf())
+	_M_streambuf_state = __state;
+      else
+	  _M_streambuf_state = __state | badbit;
+      if ((this->rdstate() & this->exceptions()))
+	__throw_ios_failure("basic_ios::clear(iostate) caused exception");
+    }
+  
   template<typename _CharT, typename _Traits>
     basic_streambuf<_CharT, _Traits>* 
     basic_ios<_CharT, _Traits>::rdbuf(basic_streambuf<_CharT, _Traits>* __sb)
@@ -92,7 +106,7 @@ namespace std
     char
     basic_ios<_CharT, _Traits>::narrow(char_type __c, char __dfault) const
     { 
-      char __ret;
+      char __ret = __dfault;
       if (_M_check_facet(_M_ios_fctype))
 	__ret = _M_ios_fctype->narrow(__c, __dfault); 
       return __ret;
@@ -102,7 +116,7 @@ namespace std
     _CharT
     basic_ios<_CharT, _Traits>::widen(char __c) const
     {
-      char_type __ret;
+      char_type __ret = char_type();
       if (_M_check_facet(_M_ios_fctype))
 	__ret = _M_ios_fctype->widen(__c); 
       return __ret;
@@ -130,17 +144,20 @@ namespace std
       _M_cache_facets(_M_ios_locale);
       _M_tie = 0;
 
-      // NB: The 27.4.4.1 Postconditions Table only specifies
-      // requirements after basic_ios::init() has been called. As part
-      // of this, fill() must return widen(' '), which needs an imbued
-      // ctype facet of char_type to return without throwing an
-      // exception. This is not a required facet, so streams with
-      // char_type != [char, wchar_t] will not have it by
-      // default. However, because fill()'s signature is const, this
-      // data member cannot be lazily initialized.  Thus, thoughts of
-      // using a non-const helper function in ostream inserters is
-      // really besides the point.
-      _M_fill = this->widen(' ');
+      // NB: The 27.4.4.1 Postconditions Table specifies requirements
+      // after basic_ios::init() has been called. As part of this,
+      // fill() must return widen(' ') any time after init() has been
+      // called, which needs an imbued ctype facet of char_type to
+      // return without throwing an exception. Unfortunately,
+      // ctype<char_type> is not necessarily a required facet, so
+      // streams with char_type != [char, wchar_t] will not have it by
+      // default. Because of this, the correct value for _M_fill is
+      // constructed on the first call of fill(). That way,
+      // unformatted input and output with non-required basic_ios
+      // instantiations is possible even without imbuing the expected
+      // ctype<char_type> facet.
+      _M_fill = 0;
+      _M_fill_init = false;
 
       _M_exception = goodbit;
       _M_streambuf = __sb;
@@ -165,6 +182,12 @@ namespace std
       else
 	_M_fnumget = 0;
     }
+
+  // Inhibit implicit instantiations for required instantiations,
+  // which are defined via explicit instantiations elsewhere.  
+  // NB:  This syntax is a GNU extension.
+  extern template class basic_ios<char>;
+  extern template class basic_ios<wchar_t>;
 } // namespace std
 
 #endif 

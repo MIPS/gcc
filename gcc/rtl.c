@@ -30,30 +30,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Calculate the format for CONST_DOUBLE.  This depends on the relative
    widths of HOST_WIDE_INT and REAL_VALUE_TYPE.
 
-   We need to go out to 0wwwww, since REAL_ARITHMETIC assumes 16-bits
-   per element in REAL_VALUE_TYPE.
+   We need to go out to 0wwwww, since real.c assumes 16 bits per element
+   in REAL_VALUE_TYPE.
 
    This is duplicated in gengenrtl.c.
 
    A number of places assume that there are always at least two 'w'
    slots in a CONST_DOUBLE, so we provide them even if one would suffice.  */
 
-#ifdef REAL_ARITHMETIC
-# if MAX_LONG_DOUBLE_TYPE_SIZE == 96
-#  define REAL_WIDTH	\
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
+# define REAL_WIDTH	\
      (11*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-# else
-#  if MAX_LONG_DOUBLE_TYPE_SIZE == 128
-#   define REAL_WIDTH	\
+#else
+# if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#  define REAL_WIDTH	\
       (19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#  else
-#   if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-#    define REAL_WIDTH	\
+# else
+#  if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
+#   define REAL_WIDTH	\
        (7*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#   endif
 #  endif
 # endif
-#endif /* REAL_ARITHMETIC */
+#endif
 
 #ifndef REAL_WIDTH
 # if HOST_BITS_PER_WIDE_INT*2 >= MAX_LONG_DOUBLE_TYPE_SIZE
@@ -115,7 +113,7 @@ const char * const rtx_name[NUM_RTX_CODE] = {
 /* Indexed by machine mode, gives the name of that machine mode.
    This name does not include the letters "mode".  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  NAME,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  NAME,
 
 const char * const mode_name[NUM_MACHINE_MODES] = {
 #include "machmode.def"
@@ -125,7 +123,7 @@ const char * const mode_name[NUM_MACHINE_MODES] = {
 
 /* Indexed by machine mode, gives the class mode for GET_MODE_CLASS.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  CLASS,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  CLASS,
 
 const enum mode_class mode_class[NUM_MACHINE_MODES] = {
 #include "machmode.def"
@@ -136,7 +134,7 @@ const enum mode_class mode_class[NUM_MACHINE_MODES] = {
 /* Indexed by machine mode, gives the length of the mode, in bits.
    GET_MODE_BITSIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  BITSIZE,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  BITSIZE,
 
 const unsigned short mode_bitsize[NUM_MACHINE_MODES] = {
 #include "machmode.def"
@@ -147,7 +145,7 @@ const unsigned short mode_bitsize[NUM_MACHINE_MODES] = {
 /* Indexed by machine mode, gives the length of the mode, in bytes.
    GET_MODE_SIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  SIZE,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  SIZE,
 
 const unsigned char mode_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"
@@ -158,7 +156,7 @@ const unsigned char mode_size[NUM_MACHINE_MODES] = {
 /* Indexed by machine mode, gives the length of the mode's subunit.
    GET_MODE_UNIT_SIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  UNIT,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  UNIT,
 
 const unsigned char mode_unit_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"		/* machine modes are documented here */
@@ -170,7 +168,7 @@ const unsigned char mode_unit_size[NUM_MACHINE_MODES] = {
    (QI -> HI -> SI -> DI, etc.)  Widening multiply instructions
    use this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  \
   (unsigned char) WIDER,
 
 const unsigned char mode_wider_mode[NUM_MACHINE_MODES] = {
@@ -179,12 +177,23 @@ const unsigned char mode_wider_mode[NUM_MACHINE_MODES] = {
 
 #undef DEF_MACHMODE
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  \
   ((BITSIZE) >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT) 0 : ((unsigned HOST_WIDE_INT) 1 << (BITSIZE)) - 1,
 
 /* Indexed by machine mode, gives mask of significant bits in mode.  */
 
 const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES] = {
+#include "machmode.def"
+};
+
+#undef DEF_MACHMODE
+
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER) INNER,
+
+/* Indexed by machine mode, gives the mode of the inner elements in a
+   vector type.  */
+
+const enum machine_mode inner_mode_array[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -263,7 +272,7 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
   "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_FUNCTION_END",
+  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
@@ -346,6 +355,7 @@ copy_rtx (orig)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -455,6 +465,7 @@ copy_most_rtx (orig, may_share)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -560,7 +571,13 @@ unsigned int
 get_mode_alignment (mode)
      enum machine_mode mode;
 {
-  unsigned int alignment = GET_MODE_UNIT_SIZE (mode);
+  unsigned int alignment;
+
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
+    alignment = GET_MODE_UNIT_SIZE (mode);
+  else
+    alignment = GET_MODE_SIZE (mode);
   
   /* Extract the LSB of the size.  */
   alignment = alignment & -alignment;
@@ -626,6 +643,7 @@ rtx_equal_p (x, y)
     case SCRATCH:
     case CONST_DOUBLE:
     case CONST_INT:
+    case CONST_VECTOR:
       return 0;
 
     default:

@@ -135,6 +135,11 @@ int current_function_returns_value;
 
 int current_function_returns_null;
 
+/* Set to 0 at beginning of a function definition, set to 1 if
+   a call to a noreturn function is seen.  */
+
+int current_function_returns_abnormally;
+
 /* Set to nonzero by `grokdeclarator' for a function
    whose return type is defaulted, if warnings for this are desired.  */
 
@@ -295,10 +300,6 @@ int flag_cond_mismatch;
 
 int flag_no_asm;
 
-/* Nonzero means do some things the same way PCC does.  */
-
-int flag_traditional;
-
 /* Nonzero means enable C89 Amendment 1 features.  */
 
 int flag_isoc94 = 0;
@@ -315,10 +316,6 @@ int flag_hosted = 1;
    in ISO C.  */
 
 int flag_noniso_default_format_attributes = 1;
-
-/* Nonzero means to allow single precision math even if we're generally
-   being traditional.  */
-int flag_allow_single_precision = 0;
 
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
@@ -464,17 +461,9 @@ c_decode_option (argc, argv)
   int strings_processed;
   char *p = argv[0];
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv);
+  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
 
-  if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
-    {
-      warning ("-traditional is deprecated and may be removed");
-      flag_traditional = 1;
-      flag_writable_strings = 1;
-    }
-  else if (!strcmp (p, "-fallow-single-precision"))
-    flag_allow_single_precision = 1;
-  else if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
+  if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
     {
       flag_hosted = 1;
       flag_no_builtin = 0;
@@ -486,11 +475,6 @@ c_decode_option (argc, argv)
       /* warn_main will be 2 if set by -Wall, 1 if set by -Wmain */
       if (warn_main == 2)
 	warn_main = 0;
-    }
-  else if (!strcmp (p, "-fnotraditional") || !strcmp (p, "-fno-traditional"))
-    {
-      flag_traditional = 0;
-      flag_writable_strings = 0;
     }
   else if (!strncmp (p, "-std=", 5))
     {
@@ -512,7 +496,6 @@ c_decode_option (argc, argv)
 	iso_1990:
 	  flag_isoc94 = 0;
 	iso_1994:
-	  flag_traditional = 0;
 	  flag_writable_strings = 0;
 	  flag_no_asm = 1;
 	  flag_no_nonansi_builtin = 1;
@@ -529,7 +512,6 @@ c_decode_option (argc, argv)
 	       || !strcmp (argstart, "c9x")
 	       || !strcmp (argstart, "c99"))
 	{
-	  flag_traditional = 0;
 	  flag_writable_strings = 0;
 	  flag_no_asm = 1;
 	  flag_no_nonansi_builtin = 1;
@@ -539,7 +521,6 @@ c_decode_option (argc, argv)
 	}
       else if (!strcmp (argstart, "gnu89"))
 	{
-	  flag_traditional = 0;
 	  flag_writable_strings = 0;
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
@@ -549,7 +530,6 @@ c_decode_option (argc, argv)
 	}
       else if (!strcmp (argstart, "gnu9x") || !strcmp (argstart, "gnu99"))
 	{
-	  flag_traditional = 0;
 	  flag_writable_strings = 0;
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
@@ -1478,14 +1458,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
      match enough.  Ultimately, copy most of the information from the new
      decl to the old one, and keep using the old one.  */
 
-  if (flag_traditional && TREE_CODE (newdecl) == FUNCTION_DECL
-      && IDENTIFIER_IMPLICIT_DECL (DECL_NAME (newdecl)) == olddecl
-      && DECL_INITIAL (olddecl) == 0)
-    /* If -traditional, avoid error for redeclaring fcn
-       after implicit decl.  */
-    ;
-  else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && DECL_BUILT_IN (olddecl))
+  if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_BUILT_IN (olddecl))
     {
       /* A function declaration for a built-in function.  */
       if (!TREE_PUBLIC (newdecl))
@@ -1541,6 +1514,22 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	      if (types_match)
 		oldtype = trytype;
 	    }
+	  if (! different_binding_level)
+	    TREE_TYPE (olddecl) = oldtype;
+	}
+      else if (TYPE_ARG_TYPES (oldtype) == NULL
+	       && TYPE_ARG_TYPES (newtype) != NULL)
+	{
+	  /* For bcmp, bzero, fputs the builtin type has arguments not
+	     specified.  Use the ones from the prototype so that type checking
+	     is done for them.  */
+	  tree trytype
+	    = build_function_type (TREE_TYPE (oldtype),
+				   TYPE_ARG_TYPES (newtype));
+	  trytype = build_type_attribute_variant (trytype,
+						  TYPE_ATTRIBUTES (oldtype));
+
+	  oldtype = trytype;
 	  if (! different_binding_level)
 	    TREE_TYPE (olddecl) = oldtype;
 	}
@@ -1670,6 +1659,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 			     && current_binding_level == global_binding_level)
 			    ? "`%s' previously defined here"
 			    : "`%s' previously declared here"));
+	  return 0;
 	}
       else if (TREE_CODE (newdecl) == TYPE_DECL
                && (DECL_IN_SYSTEM_HEADER (olddecl)
@@ -1717,12 +1707,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 		}
 	      /* Type for passing arg must be consistent
 		 with that declared for the arg.  */
-	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type))
-		  /* If -traditional, allow `unsigned int' instead of `int'
-		     in the prototype.  */
-		  && (! (flag_traditional
-			 && TYPE_MAIN_VARIANT (TREE_VALUE (parm)) == integer_type_node
-			 && TYPE_MAIN_VARIANT (TREE_VALUE (type)) == unsigned_type_node)))
+	      if (! comptypes (TREE_VALUE (parm), TREE_VALUE (type)))
 		{
 		  error_with_decl (newdecl,
 				   "prototype for `%s' follows and argument %d doesn't match",
@@ -2173,16 +2158,15 @@ pushdecl (x)
 		 IDENTIFIER_POINTER (name));
 
       t = lookup_name_current_level (name);
-      /* Don't type check externs here when -traditional.  This is so that
-	 code with conflicting declarations inside blocks will get warnings
-	 not errors.  X11 for instance depends on this.  */
-      if (! t && DECL_EXTERNAL (x) && TREE_PUBLIC (x) && ! flag_traditional)
+      if (! t && DECL_EXTERNAL (x) && TREE_PUBLIC (x))
 	{
-	  t = lookup_name (name);
+	  t = IDENTIFIER_GLOBAL_VALUE (name);
 	  /* Type decls at global scope don't conflict with externs declared
 	     inside lexical blocks.  */
-	  if (t && TREE_CODE (t) == TYPE_DECL)
-	    t = 0;
+	  if (! t || TREE_CODE (t) == TYPE_DECL)
+	    /* If there's no visible global declaration, try for an
+               invisible one.  */
+	    t = IDENTIFIER_LIMBO_VALUE (name);
 	  different_binding_level = 1;
 	}
       if (t != 0 && t == error_mark_node)
@@ -2193,9 +2177,8 @@ pushdecl (x)
 	}
 
       /* If this decl is `static' and an implicit decl was seen previously,
-	 warn.  But don't complain if -traditional,
-	 since traditional compilers don't complain.  */
-      if (! flag_traditional && TREE_PUBLIC (name)
+	 warn.  */
+      if (TREE_PUBLIC (name)
 	  /* Don't test for DECL_EXTERNAL, because grokdeclarator
 	     sets this for all functions.  */
 	  && ! TREE_PUBLIC (x)
@@ -2289,9 +2272,6 @@ pushdecl (x)
 	}
 
       /* Multiple external decls of the same identifier ought to match.
-	 Check against both global declarations (when traditional) and out of
-	 scope (limbo) block level declarations.
-
 	 We get warnings about inline functions where they are defined.
 	 Avoid duplicate warnings where they are used.  */
       if (TREE_PUBLIC (x)
@@ -2299,11 +2279,7 @@ pushdecl (x)
 	{
 	  tree decl;
 
-	  if (flag_traditional && IDENTIFIER_GLOBAL_VALUE (name) != 0
-	      && (DECL_EXTERNAL (IDENTIFIER_GLOBAL_VALUE (name))
-		  || TREE_PUBLIC (IDENTIFIER_GLOBAL_VALUE (name))))
-	    decl = IDENTIFIER_GLOBAL_VALUE (name);
-	  else if (IDENTIFIER_LIMBO_VALUE (name) != 0)
+	  if (IDENTIFIER_LIMBO_VALUE (name) != 0)
 	    /* Decls in limbo are always extern, so no need to check that.  */
 	    decl = IDENTIFIER_LIMBO_VALUE (name);
 	  else
@@ -2331,39 +2307,6 @@ pushdecl (x)
 	  warning_with_decl (x, "type mismatch with previous implicit declaration");
 	  warning_with_decl (IDENTIFIER_IMPLICIT_DECL (name),
 			     "previous implicit declaration of `%s'");
-	}
-
-      /* In PCC-compatibility mode, extern decls of vars with no current decl
-	 take effect at top level no matter where they are.  */
-      if (flag_traditional && DECL_EXTERNAL (x)
-	  && lookup_name (name) == 0)
-	{
-	  tree type = TREE_TYPE (x);
-
-	  /* But don't do this if the type contains temporary nodes.  */
-	  while (type)
-	    {
-	      if (type == error_mark_node)
-		break;
-	      if (TYPE_CONTEXT (type))
-		{
-		  warning_with_decl (x, "type of external `%s' is not global");
-		  /* By exiting the loop early, we leave TYPE nonzero,
-		     and thus prevent globalization of the decl.  */
-		  break;
-		}
-	      else if (TREE_CODE (type) == FUNCTION_TYPE
-		       && TYPE_ARG_TYPES (type) != 0)
-		/* The types might not be truly local,
-		   but the list of arg types certainly is temporary.
-		   Since prototypes are nontraditional,
-		   ok not to do the traditional thing.  */
-		break;
-	      type = TREE_TYPE (type);
-	    }
-
-	  if (type == 0)
-	    b = global_binding_level;
 	}
 
       /* This name is new in its binding level.
@@ -2599,8 +2542,7 @@ implicitly_declare (functionid)
   IDENTIFIER_IMPLICIT_DECL (functionid) = decl;
 
   /* ANSI standard says implicit declarations are in the innermost block.
-     So we record the decl in the standard fashion.
-     If flag_traditional is set, pushdecl does it top-level.  */
+     So we record the decl in the standard fashion.  */
   pushdecl (decl);
 
   /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
@@ -2648,17 +2590,8 @@ redeclaration_error_message (newdecl, olddecl)
 {
   if (TREE_CODE (newdecl) == TYPE_DECL)
     {
-      if (flag_traditional && TREE_TYPE (newdecl) == TREE_TYPE (olddecl))
-	return 0;
-      /* pushdecl creates distinct types for TYPE_DECLs by calling
-	 build_type_copy, so the above comparison generally fails.  We do
-	 another test against the TYPE_MAIN_VARIANT of the olddecl, which
-	 is equivalent to what this code used to do before the build_type_copy
-	 call.  The variant type distinction should not matter for traditional
-	 code, because it doesn't have type qualifiers.  */
-      if (flag_traditional
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (olddecl)) == TREE_TYPE (newdecl))
-	return 0;
+      /* Do not complain about type redeclarations where at least one
+	 declaration was in a system header.  */
       if (DECL_IN_SYSTEM_HEADER (olddecl) || DECL_IN_SYSTEM_HEADER (newdecl))
 	return 0;
       return 1;
@@ -3203,17 +3136,16 @@ builtin_function (name, type, function_code, class, library_name)
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
-  /* If -traditional, permit redefining a builtin function any way you like.
-     (Though really, if the program redefines these functions,
-     it probably won't work right unless compiled with -fno-builtin.)  */
-  if (flag_traditional && name[0] != '_')
-    DECL_BUILT_IN_NONANSI (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
   make_decl_rtl (decl, NULL);
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
+
+  /* The return builtins leave the current function.  */
+  if (function_code == BUILT_IN_RETURN || function_code == BUILT_IN_EH_RETURN)
+    TREE_THIS_VOLATILE (decl) = 1;
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
@@ -3545,7 +3477,7 @@ start_decl (declarator, declspecs, initialized, attributes)
      initializer equal to zero.  (Section 3.7.2)
      -fno-common gives strict ANSI behavior.  Usually you don't want it.
      This matters only for variables with external linkage.  */
-  if (! flag_no_common || ! TREE_PUBLIC (decl))
+  if (!initialized && (! flag_no_common || ! TREE_PUBLIC (decl)))
     DECL_COMMON (decl) = 1;
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
@@ -4154,9 +4086,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       /* Actual typedefs come to us as TYPE_DECL nodes.  */
       else if (TREE_CODE (id) == TYPE_DECL)
 	{
-	  type = TREE_TYPE (id);
-	  decl_attr = DECL_ATTRIBUTES (id);
-	  typedef_decl = id;
+	  if (TREE_TYPE (id) == error_mark_node)
+	    ; /* Allow the type to default to int to avoid cascading errors.  */
+	  else
+	    {
+	      type = TREE_TYPE (id);
+	      decl_attr = DECL_ATTRIBUTES (id);
+	      typedef_decl = id;
+	    }
 	}
       /* Built-in types come as identifiers.  */
       else if (TREE_CODE (id) == IDENTIFIER_NODE)
@@ -4287,9 +4224,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   /* Decide whether an integer type is signed or not.
      Optionally treat bitfields as signed by default.  */
   if (specbits & 1 << (int) RID_UNSIGNED
-      /* Traditionally, all bitfields are unsigned.  */
-      || (bitfield && flag_traditional
-	  && (! explicit_flag_signed_bitfields || !flag_signed_bitfields))
       || (bitfield && ! flag_signed_bitfields
 	  && (explicit_int || defaulted_int || explicit_char
 	      /* A typedef for plain `int' without `signed'
@@ -4505,9 +4439,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  if (inner_decl == NULL_TREE
 	      || TREE_CODE (inner_decl) == IDENTIFIER_NODE)
 	    attr_flags |= (int) ATTR_FLAG_DECL_NEXT;
-	  if (TREE_CODE (inner_decl) == CALL_EXPR)
+	  else if (TREE_CODE (inner_decl) == CALL_EXPR)
 	    attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
-	  if (TREE_CODE (inner_decl) == ARRAY_REF)
+	  else if (TREE_CODE (inner_decl) == ARRAY_REF)
 	    attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
 	  returned_attrs = decl_attributes (&type,
 					    chainon (returned_attrs, attrs),
@@ -4702,13 +4636,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      error ("`%s' declared as function returning an array", name);
 	      type = integer_type_node;
 	    }
-
-#ifndef TRADITIONAL_RETURN_FLOAT
-	  /* Traditionally, declaring return type float means double.  */
-
-	  if (flag_traditional && TYPE_MAIN_VARIANT (type) == float_type_node)
-	    type = double_type_node;
-#endif /* TRADITIONAL_RETURN_FLOAT */
 
 	  /* Construct the function type and go to the next
 	     inner layer of declarator.  */
@@ -5081,6 +5008,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	/* Record absence of global scope for `static' or `auto'.  */
 	TREE_PUBLIC (decl)
 	  = !(specbits & ((1 << (int) RID_STATIC) | (1 << (int) RID_AUTO)));
+
+	if (defaulted_int)
+	  C_FUNCTION_IMPLICIT_INT (decl) = 1;
 
 	/* Record presence of `inline', if it is reasonable.  */
 	if (MAIN_NAME_P (declarator))
@@ -5599,7 +5529,7 @@ finish_struct (t, fieldlist, attributes)
 	if (pedantic)
 	  pedwarn ("%s defined inside parms",
 		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
-	else if (! flag_traditional)
+	else
 	  warning ("%s defined inside parms",
 		   TREE_CODE (t) == UNION_TYPE ? _("union") : _("structure"));
       }
@@ -5723,7 +5653,8 @@ finish_struct (t, fieldlist, attributes)
 	      DECL_BIT_FIELD (x) = 1;
 	      SET_DECL_C_BIT_FIELD (x);
 
-	      if (width == 0)
+	      if (width == 0
+		  && ! (* targetm.ms_bitfield_layout_p) (t))
 		{
 		  /* field size 0 => force desired amount of alignment.  */
 #ifdef EMPTY_FIELD_BOUNDARY
@@ -6136,8 +6067,7 @@ build_enumerator (name, value)
   type = TREE_TYPE (value);
   type = type_for_size (MAX (TYPE_PRECISION (type),
 			     TYPE_PRECISION (integer_type_node)),
-			((flag_traditional
-			  || TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node))
+			(TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node)
 			 && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
@@ -6170,6 +6100,7 @@ start_function (declspecs, declarator, attributes)
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
+  current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
   c_function_varargs = 0;
@@ -6365,12 +6296,10 @@ start_function (declspecs, declarator, attributes)
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
     {
-      /* It retains unsignedness if traditional
-	 or if not really getting wider.  */
+      /* It retains unsignedness if not really getting wider.  */
       if (TREE_UNSIGNED (restype)
-	  && (flag_traditional
-	      || (TYPE_PRECISION (restype)
-		  == TYPE_PRECISION (integer_type_node))))
+	  && (TYPE_PRECISION (restype)
+		  == TYPE_PRECISION (integer_type_node)))
 	restype = unsigned_type_node;
       else
 	restype = integer_type_node;
@@ -6589,15 +6518,6 @@ store_parm_decls ()
 	      layout_decl (found, 0);
 	    }
 
-	  /* Traditionally, a parm declared float is actually a double.  */
-	  if (found && flag_traditional
-	      && TYPE_MAIN_VARIANT (TREE_TYPE (found)) == float_type_node)
-	    {
-	      TREE_TYPE (found) = double_type_node;
-	      DECL_ARG_TYPE (found) = double_type_node;
-	      layout_decl (found, 0);
-	    }
-
 	  /* If no declaration found, default to int.  */
 	  if (!found)
 	    {
@@ -6731,11 +6651,7 @@ store_parm_decls ()
 			     "prototype declaration");
 			}
 		    }
-		  /* If -traditional, allow `int' argument to match
-		     `unsigned' prototype.  */
-		  else if (! (flag_traditional
-			      && TYPE_MAIN_VARIANT (TREE_TYPE (parm)) == integer_type_node
-			      && TYPE_MAIN_VARIANT (TREE_VALUE (type)) == unsigned_type_node))
+		  else
 		    {
 		      error ("argument `%s' doesn't match prototype",
 			     IDENTIFIER_POINTER (DECL_NAME (parm)));
@@ -6866,13 +6782,6 @@ finish_function (nested)
 
   DECL_CONTEXT (DECL_RESULT (fndecl)) = fndecl;
 
-  /* Obey `register' declarations if `setjmp' is called in this fn.  */
-  if (flag_traditional && current_function_calls_setjmp)
-    {
-      setjmp_protect (DECL_INITIAL (fndecl));
-      setjmp_protect_args ();
-    }
-
   if (MAIN_NAME_P (DECL_NAME (fndecl)) && flag_hosted)
     {
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (fndecl)))
@@ -6899,6 +6808,22 @@ finish_function (nested)
 
   /* Tie off the statement tree for this function.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+
+  /* Complain if there's just no return statement.  */
+  if (warn_return_type
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (fndecl))) != VOID_TYPE
+      && !current_function_returns_value && !current_function_returns_null
+      /* Don't complain if we abort.  */
+      && !current_function_returns_abnormally
+      /* Don't warn for main().  */
+      && !MAIN_NAME_P (DECL_NAME (fndecl))
+      /* Or if they didn't actually specify a return type.  */
+      && !C_FUNCTION_IMPLICIT_INT (fndecl)
+      /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
+	 inline function, as we might never be compiled separately.  */
+      && DECL_INLINE (fndecl))
+    warning ("no return statement in function returning non-void");
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -7000,6 +6925,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
+  input_filename = DECL_SOURCE_FILE (fndecl);
   init_function_start (fndecl, input_filename, DECL_SOURCE_LINE (fndecl));
 
   /* This function is being processed in whole-function mode.  */
@@ -7241,6 +7167,7 @@ struct c_language_function
   tree shadowed_labels;
   int returns_value;
   int returns_null;
+  int returns_abnormally;
   int warn_about_return_type;
   int extern_inline;
   struct binding_level *binding_level;
@@ -7264,6 +7191,7 @@ push_c_function_context (f)
   p->shadowed_labels = shadowed_labels;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
+  p->returns_abnormally = current_function_returns_abnormally;
   p->warn_about_return_type = warn_about_return_type;
   p->extern_inline = current_extern_inline;
   p->binding_level = current_binding_level;
@@ -7301,6 +7229,7 @@ pop_c_function_context (f)
   shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
+  current_function_returns_abnormally = p->returns_abnormally;
   warn_about_return_type = p->warn_about_return_type;
   current_extern_inline = p->extern_inline;
   current_binding_level = p->binding_level;
@@ -7327,10 +7256,10 @@ mark_c_function_context (f)
   mark_binding_level (&p->binding_level);
 }
 
-/* Copy the DECL_LANG_SPECIFIC data associated with NODE.  */
+/* Copy the DECL_LANG_SPECIFIC data associated with DECL.  */
 
 void
-copy_lang_decl (decl)
+c_dup_lang_specific_decl (decl)
      tree decl;
 {
   struct lang_decl *ld;

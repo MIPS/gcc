@@ -1,5 +1,5 @@
 /* com.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
@@ -3113,6 +3113,7 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
 
 	      if (ffesymbol_hook (s).assign_tree == NULL_TREE)
 		{
+		  /* xgettext:no-c-format */
 		  ffebad_start_msg ("ASSIGN'ed label cannot fit into `%A' at %0 -- using wider sibling",
 				    FFEBAD_severityWARNING);
 		  ffebad_string (ffesymbol_text (s));
@@ -3727,6 +3728,10 @@ ffecom_expr_ (ffebld expr, tree dest_tree, ffebld dest,
 
     case FFEBLD_opPERCENT_LOC:
       item = ffecom_arg_ptr_to_expr (ffebld_left (expr), &list);
+      return convert (tree_type, item);
+
+    case FFEBLD_opPERCENT_VAL:
+      item = ffecom_arg_expr (ffebld_left (expr), &list);
       return convert (tree_type, item);
 
     case FFEBLD_opITEM:
@@ -11794,11 +11799,7 @@ ffecom_init_0 ()
   {
     REAL_VALUE_TYPE point_5;
 
-#ifdef REAL_ARITHMETIC
     REAL_ARITHMETIC (point_5, RDIV_EXPR, dconst1, dconst2);
-#else
-    point_5 = .5;
-#endif
     ffecom_float_half_ = build_real (float_type_node, point_5);
     ffecom_double_half_ = build_real (double_type_node, point_5);
   }
@@ -11823,8 +11824,7 @@ ffecom_init_0 ()
       warning ("and pointers are %d bits wide, but g77 doesn't yet work",
 	  (int) TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (null_pointer_node))));
       warning ("properly unless they all are 32 bits wide");
-      warning ("Please keep this in mind before you report bugs.  g77 should");
-      warning ("support non-32-bit machines better as of version 0.6");
+      warning ("Please keep this in mind before you report bugs.");
     }
 #endif
 
@@ -14045,15 +14045,6 @@ convert (type, expr)
   return error_mark_node;
 }
 
-/* integrate_decl_tree calls this function, but since we don't use the
-   DECL_LANG_SPECIFIC field, this is a no-op.  */
-
-void
-copy_lang_decl (node)
-     tree node UNUSED;
-{
-}
-
 /* Return the list of declarations of the current level.
    Note that this list is in reverse order unless/until
    you nreverse it; and when you do nreverse it, you must
@@ -15373,6 +15364,7 @@ print_containing_files (ffebadSeverity sev)
 	else
 	  str2 = "";
 
+	/* xgettext:no-c-format */
 	ffebad_start_msg ("%A from %B at %0%C", sev);
 	ffebad_here (0, ip->line, ip->column);
 	ffebad_string (str1);
@@ -15692,6 +15684,7 @@ ffecom_open_include_ (char *name, ffewhereLine l, ffewhereColumn c)
 	  if (f == NULL && errno == EACCES)
 	    {
 	      print_containing_files (FFEBAD_severityWARNING);
+	      /* xgettext:no-c-format */
 	      ffebad_start_msg ("At %0, INCLUDE file %A exists, but is not readable",
 				FFEBAD_severityWARNING);
 	      ffebad_string (fname);
@@ -15726,6 +15719,7 @@ ffecom_open_include_ (char *name, ffewhereLine l, ffewhereColumn c)
   if (indepth >= (INPUT_STACK_MAX - 1))
     {
       print_containing_files (FFEBAD_severityFATAL);
+      /* xgettext:no-c-format */
       ffebad_start_msg ("At %0, INCLUDE nesting too deep",
 			FFEBAD_severityFATAL);
       ffebad_string (fname);
@@ -16190,7 +16184,7 @@ typedef doublereal E_f; // real function with -R not specified //
 
 // (No such symbols should be defined in a strict ANSI C compiler.
    We can avoid trouble with f2c-translated code by using
-   gcc -ansi [-traditional].) //
+   gcc -ansi.) //
 
 
 

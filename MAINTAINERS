@@ -30,6 +30,7 @@ h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@hxi.com
 hppa port		Jeff Law		law@redhat.com
 hppa port		Dave Anglin		dave.anglin@nrc.ca
+i386 port		Richard Henderson	rth@redhat.com
 i860 port		Jason Eckhardt		jle@redhat.com
 i960 port		Jim Wilson		wilson@redhat.com
 ia64 port		Jim Wilson		wilson@redhat.com
@@ -53,7 +54,7 @@ sh port			Alexandre Oliva		aoliva@redhat.com
 sparc port		Richard Henderson	rth@redhat.com
 sparc port		David S. Miller		davem@redhat.com
 sparc port		Jakub Jelinek		jakub@redhat.com
-x86 ports		Stan Cox		scox@redhat.com
+x86-64 port		Jan Hubicka		jh@suse.cz
 xstormy16 port		Geoffrey Keating	geoffk@redhat.com
 v850 port		Nick Clifton		nickc@redhat.com
 v850 port		Michael Meissner	meissner@redhat.com
@@ -98,7 +99,7 @@ debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
-c++ runtime libs	Phil Edwards		pedwards@jaj.com
+c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
 *c-torture		Torbjorn Granlund	tege@swox.com
@@ -122,6 +123,7 @@ docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill
 predict.def		Jan Hubicka		jh@suse.cz
+contrib/regression	Geoff Keating		geoffk@redhat.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -136,6 +138,7 @@ Hans Boehm					hboehm@gcc.gnu.org
 Andrew Cagney					cagney@redhat.com
 Paolo Carlini					pcarlini@unitus.it
 William Cohen					wcohen@redhat.com
+Chris Demetriou					cgd@broadcom.com
 *Paul Eggert					eggert@twinsun.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
@@ -147,7 +150,6 @@ Andrew Haley					aph@redhat.com
 Aldy Hernandez					aldyh@redhat.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mhollstein@redhat.com
-Jan Hubicka					hubicka@freesoft.cz
 Andreas Jaeger					aj@suse.de
 Jakub Jelinek					jakub@redhat.com
 Dale Johannesen 				dalej@apple.com
@@ -217,6 +219,7 @@ Richard Stallman				rms@gnu.org
 Graham Stott					grahams@redhat.com
 Florian Weimer					fw@deneb.enyo.de
 Bob Wilson					bob.wilson@acm.org
+Adam Megacz					adam@xwt.org
 
 GNATS only accounts
 Peter Bienstman(?)

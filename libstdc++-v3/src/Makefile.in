@@ -65,6 +65,7 @@ target_triplet = @target@
 AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
+AWK = @AWK@
 BASIC_FILE_H = @BASIC_FILE_H@
 BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
 CATALOGS = @CATALOGS@
@@ -203,10 +204,12 @@ libstdc___la_LIBADD = \
 	../libmath/libmath.la @libio_la@ \
 	../libsupc++/libsupc++convenience.la
 
+@GLIBCPP_BUILD_VERSIONED_SHLIB_TRUE@version_arg = @GLIBCPP_BUILD_VERSIONED_SHLIB_TRUE@-Wl,--version-script=linker.map
+@GLIBCPP_BUILD_VERSIONED_SHLIB_FALSE@version_arg = 
 
-libstdc___la_LDFLAGS = -version-info @libtool_VERSION@ -lm
+libstdc___la_LDFLAGS = -version-info @libtool_VERSION@ -lm ${version_arg}
 
-libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
+libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD) linker.map
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.

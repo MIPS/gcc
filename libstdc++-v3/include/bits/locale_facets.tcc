@@ -33,6 +33,8 @@
 #ifndef _CPP_BITS_LOCFACETS_TCC
 #define _CPP_BITS_LOCFACETS_TCC 1
 
+#pragma GCC system_header
+
 #include <cerrno>
 #include <clocale>   // For localeconv
 #include <cstdlib>   // For strof, strtold
@@ -308,7 +310,7 @@ namespace std
       __ctype.widen(_S_atoms, _S_atoms + __len, __watoms);
       string __found_grouping;
       const string __grouping = __np.grouping();
-      bool __check_grouping = __grouping.size() && __base == 10;
+      bool __check_grouping = __grouping.size();
       int __sep_pos = 0;
       const char_type __sep = __np.thousands_sep();
       while (__beg != __end)
@@ -724,18 +726,32 @@ namespace std
 							    * __len * 2));
       __ctype.widen(__cs, __cs + __len, __ws);
 
-      // Add grouping, if necessary.
+      // Add grouping, if necessary. 
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
       const string __grouping = __np.grouping();
-      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
-      bool __dec = __basefield != ios_base::oct 
-	           && __basefield != ios_base::hex;
-      if (__grouping.size() && __dec)
+      const ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
+      if (__grouping.size())
 	{
+	  // By itself __add_grouping cannot deal correctly with __ws when
+	  // ios::showbase is set and ios_base::oct || ios_base::hex.
+	  // Therefore we take care "by hand" of the initial 0, 0x or 0X.
+	  streamsize __off = 0;
+	  if (__io.flags() & ios_base::showbase)
+	    if (__basefield == ios_base::oct)
+	      {
+		__off = 1;
+		*__ws2 = *__ws;
+	      }
+	    else if (__basefield == ios_base::hex)
+	      {
+		__off = 2;
+		*__ws2 = *__ws;
+		*(__ws2 + 1) = *(__ws + 1);
+	      }
 	  _CharT* __p;
-	  __p = __add_grouping(__ws2, __np.thousands_sep(), __grouping.c_str(),
+	  __p = __add_grouping(__ws2 + __off, __np.thousands_sep(), __grouping.c_str(),
 			       __grouping.c_str() + __grouping.size(),
-			       __ws, __ws + __len);
+			       __ws + __off, __ws + __len);
 	  __len = __p - __ws2;
 	  // Switch strings.
 	  __ws = __ws2;
@@ -930,6 +946,9 @@ namespace std
       // Flag marking when a decimal point is found.
       bool __testdecfound = false; 
 
+      // The tentative returned string is stored here.
+      string_type __temp_units;
+
       char_type __c = *__beg;
       char_type __eof = static_cast<char_type>(char_traits<char_type>::eof());
       for (int __i = 0; __beg != __end && __i < 4 && __testvalid; ++__i)
@@ -938,20 +957,27 @@ namespace std
 	  switch (__which)
 		{
 		case money_base::symbol:
-		  if (__io.flags() & ios_base::showbase)
+		  if (__io.flags() & ios_base::showbase
+		      || __i < 2
+		      || (__i == 2 && static_cast<part>(__p.field[3]) != money_base::none)
+		      || __sign.size() > 1)
 		    {
-		      // Symbol is required.
+		      // According to 22.2.6.1.2.2, symbol is required if
+		      // (__io.flags() & ios_base::showbase), otherwise is optional
+		      // and consumed only if other characters are needed to complete
+		      // the format.
 		      const string_type __symbol = __intl ? __mpt.curr_symbol()
 						    	 : __mpf.curr_symbol();
 		      size_type __len = __symbol.size();
-		      size_type __i = 0;
+		      size_type __j = 0;
 		      while (__beg != __end 
-			     && __i < __len && __symbol[__i] == __c)
+			     && __j < __len && __symbol[__j] == __c)
 			{
 			  __c = *(++__beg);
-			  ++__i;
+			  ++__j;
 			}
-		      if (__i != __len)
+		      // When (__io.flags() & ios_base::showbase) symbol is required.
+		      if (__j != __len && (__io.flags() & ios_base::showbase))
 			__testvalid = false;
 		    }
 		  break;
@@ -1014,7 +1040,7 @@ namespace std
 			}
 		      else
 			{
-			  __units += __c;
+			  __temp_units += __c;
 			  ++__sep_pos;
 			}
 		      __c = *(++__beg);
@@ -1045,11 +1071,11 @@ namespace std
 	}
 
       // Strip leading zeros.
-      while (__units[0] == __ctype.widen('0'))
-	__units.erase(__units.begin());
+      while (__temp_units[0] == __ctype.widen('0'))
+	__temp_units.erase(__temp_units.begin());
 
       if (__sign.size() && __sign == __neg_sign)
-	__units.insert(__units.begin(), __ctype.widen('-'));
+	__temp_units.insert(__temp_units.begin(), __ctype.widen('-'));
 
       // Test for grouping fidelity.
       if (__grouping.size() && __grouping_tmp.size())
@@ -1063,8 +1089,12 @@ namespace std
 	__err |= ios_base::eofbit;
 
       // Iff valid sequence is not recognized.
-      if (!__testvalid || !__units.size())
+      if (!__testvalid || !__temp_units.size())
 	__err |= ios_base::failbit;
+      else
+	// Use the "swap trick" to copy __temp_units into __units.
+	__temp_units.swap(__units);
+
       return __beg; 
     }
 
@@ -1214,7 +1244,7 @@ namespace std
 		  if (__testipad)
 		    __res += string_type(__width - __len, __fill);
 		  else
-		    __res += __ctype.widen(' ');
+		    __res += __ctype.widen(__fill);
 		  break;
 		case money_base::none:
 		  if (__testipad)
@@ -1841,7 +1871,7 @@ namespace std
       unsigned long __val = 0;
       for (; __lo < __hi; ++__lo)
 	__val = *__lo + ((__val << 7) | 
-		       (__val >> (numeric_limits<unsigned long>::digits - 1)));
+		       (__val >> (numeric_limits<unsigned long>::digits - 7)));
       return static_cast<long>(__val);
     }
 
@@ -2024,6 +2054,59 @@ namespace std
       while (__first != __last);
       return __s;
     }
+
+  // Inhibit implicit instantiations for required instantiations,
+  // which are defined via explicit instantiations elsewhere.  
+  // NB: This syntax is a GNU extension.
+  extern template class moneypunct<char, false>;
+  extern template class moneypunct<char, true>;
+  extern template class moneypunct_byname<char, false>;
+  extern template class moneypunct_byname<char, true>;
+  extern template class money_get<char, istreambuf_iterator<char> >;
+  extern template class money_put<char, ostreambuf_iterator<char> >;
+  extern template class moneypunct<wchar_t, false>;
+  extern template class moneypunct<wchar_t, true>;
+  extern template class moneypunct_byname<wchar_t, false>;
+  extern template class moneypunct_byname<wchar_t, true>;
+  extern template class money_get<wchar_t, istreambuf_iterator<wchar_t> >;
+  extern template class money_put<wchar_t, ostreambuf_iterator<wchar_t> >;
+  extern template class numpunct<char>;
+  extern template class numpunct_byname<char>;
+  extern template class num_get<char, istreambuf_iterator<char> >;
+  extern template class num_put<char, ostreambuf_iterator<char> >; 
+  extern template class numpunct<wchar_t>;
+  extern template class numpunct_byname<wchar_t>;
+  extern template class num_get<wchar_t, istreambuf_iterator<wchar_t> >;
+  extern template class num_put<wchar_t, ostreambuf_iterator<wchar_t> >;
+  extern template class __timepunct<char>;
+  extern template class time_put<char, ostreambuf_iterator<char> >;
+  extern template class time_put_byname<char, ostreambuf_iterator<char> >;
+  extern template class time_get<char, istreambuf_iterator<char> >;
+  extern template class time_get_byname<char, istreambuf_iterator<char> >;
+  extern template class __timepunct<wchar_t>;
+  extern template class time_put<wchar_t, ostreambuf_iterator<wchar_t> >;
+  extern template class time_put_byname<wchar_t, ostreambuf_iterator<wchar_t> >;
+  extern template class time_get<wchar_t, istreambuf_iterator<wchar_t> >;
+  extern template class time_get_byname<wchar_t, istreambuf_iterator<wchar_t> >;
+  extern template class messages<char>;
+  extern template class messages_byname<char>;
+  extern template class messages<wchar_t>;
+  extern template class messages_byname<wchar_t>;
+  extern template class ctype_byname<char>;
+  extern template class ctype_byname<wchar_t>;
+  extern template class codecvt_byname<char, char, mbstate_t>;
+  extern template class codecvt_byname<wchar_t, char, mbstate_t>;
+  extern template class collate<char>;
+  extern template class collate_byname<char>;
+  extern template class collate<wchar_t>;
+  extern template class collate_byname<wchar_t>;
 } // namespace std
 
 #endif
+
+
+
+
+
+
+

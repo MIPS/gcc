@@ -142,7 +142,7 @@ M4 = `if [ -f $$r/m4/m4 ] ; \
 
 # For an installed makeinfo, we require it to be from texinfo 4 or
 # higher, else we use the "missing" dummy.
-MAKEINFO = `if [ -f $$r/texinfo/makeinfo/Makefile ] ; \
+MAKEINFO = `if [ -f $$r/texinfo/makeinfo/makeinfo ] ; \
 	then echo $$r/texinfo/makeinfo/makeinfo ; \
 	else if (makeinfo --version \
 	  | egrep 'texinfo[^0-9]*([1-3][0-9]|[4-9])') >/dev/null 2>&1; \
@@ -1711,7 +1711,7 @@ all-bash:
 all-bfd: all-libiberty all-intl
 all-binutils: all-libiberty all-opcodes all-bfd all-flex all-bison all-byacc all-intl
 all-bison: all-texinfo
-configure-target-boehm-gc: $(ALL_GCC_CXX) configure-target-qthreads
+configure-target-boehm-gc: $(ALL_GCC_C) configure-target-qthreads
 all-target-boehm-gc: configure-target-boehm-gc
 configure-target-bsp: $(ALL_GCC_C)
 all-target-bsp: configure-target-bsp
@@ -1767,7 +1767,7 @@ all-build-libiberty: configure-build-libiberty
 
 configure-target-libffi: $(ALL_GCC_C) 
 all-target-libffi: configure-target-libffi
-configure-target-libjava: $(ALL_GCC_CXX) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
+configure-target-libjava: $(ALL_GCC_C) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
 all-target-libjava: configure-target-libjava all-fastjar all-target-zlib all-target-boehm-gc all-target-qthreads all-target-libffi
 configure-target-librx: $(ALL_GCC_C)
 all-target-librx: configure-target-librx

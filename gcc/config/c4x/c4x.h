@@ -339,7 +339,6 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    sizeof(int) = sizeof(long) = sizeof(float) = sizeof(double) = 1.  */
 
 #define BITS_PER_UNIT		32
-#define BITS_PER_WORD		32
 #define UNITS_PER_WORD		1
 #define POINTER_SIZE		32
 #define PARM_BOUNDARY	        32
@@ -360,11 +359,6 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    load of an immediate constant.  */
 #define BITS_PER_HIGH 16
 #define BITS_PER_LO_SUM 16
-
-/* Use the internal floating point stuff in the compiler and not the
-   host floating point stuff.  */
-
-#define REAL_ARITHMETIC
 
 /* Define register numbers.  */
 
@@ -1540,7 +1534,7 @@ CUMULATIVE_ARGS;
    On the C4x we use this to indicate if a symbol is in text or
    data space.  */
 
-#define ENCODE_SECTION_INFO(DECL) c4x_encode_section_info (DECL);
+#define ENCODE_SECTION_INFO(DECL, FIRST) c4x_encode_section_info (DECL, FIRST);
 
 /* Descripting Relative Cost of Operations.  */
 
@@ -2169,32 +2163,26 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, FNADDR,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
-			   gen_rtx (CONST_INT, VOIDmode, 0x5069),	\
-			   size_int (16), 0, 1);			\
+			   GEN_INT (0x5069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx (MEM, QImode,				\
 			       plus_constant (tramp, 0)), tmp1);	\
-      tmp1 = expand_and (FNADDR, gen_rtx (CONST_INT, VOIDmode,		\
-					  0xffff), 0);			\
+      tmp1 = expand_and (QImode, FNADDR, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
-			   gen_rtx (CONST_INT, VOIDmode, 0x1069),	\
-			   size_int (16), 0, 1);			\
+			   GEN_INT (0x1069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx (MEM, QImode,				\
 			       plus_constant (tramp, 2)), tmp1);	\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, CXT,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
-			   gen_rtx (CONST_INT, VOIDmode, 0x5068),	\
-			   size_int (16), 0, 1);			\
+			   GEN_INT (0x5068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx (MEM, QImode,				\
 			       plus_constant (tramp, 3)), tmp1);	\
-      tmp1 = expand_and (CXT, gen_rtx (CONST_INT, VOIDmode,		\
-				       0xffff), 0);			\
+      tmp1 = expand_and (QImode, CXT, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
-			   gen_rtx (CONST_INT, VOIDmode, 0x1068),	\
-			   size_int (16), 0, 1);			\
+			   GEN_INT (0x1068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx (MEM, QImode,				\
 			       plus_constant (tramp, 6)), tmp1);	\
@@ -2300,6 +2288,8 @@ if (final_sequence != NULL_RTX)				\
   {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
   {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"tsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
+  {"nonimmediate_src_operand", {SUBREG, REG, MEM}}, 		\
+  {"nonimmediate_lsrc_operand", {SUBREG, REG, MEM}}, 		\
   {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"par_ind_operand", {MEM}},					\
   {"parallel_operand", {SUBREG, REG, MEM}},			\

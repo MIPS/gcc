@@ -45,7 +45,7 @@ Boston, MA 02111-1307, USA.  */
 
 static tree convert_for_assignment PARAMS ((tree, tree, const char *, tree,
 					  int));
-static tree pointer_int_sum PARAMS ((enum tree_code, tree, tree));
+static tree cp_pointer_int_sum PARAMS ((enum tree_code, tree, tree));
 static tree rationalize_conditional_expr PARAMS ((enum tree_code, tree));
 static int comp_target_parms PARAMS ((tree, tree));
 static int comp_ptr_ttypes_real PARAMS ((tree, tree, int));
@@ -1999,6 +1999,8 @@ build_component_ref (datum, component, basetype_path, protect)
   register tree ref;
   tree field_type;
   int type_quals;
+  tree old_datum;
+  tree old_basetype;
 
   if (processing_template_decl)
     return build_min_nt (COMPONENT_REF, datum, component);
@@ -2202,6 +2204,9 @@ build_component_ref (datum, component, basetype_path, protect)
   if (TREE_DEPRECATED (field))
     warn_deprecated_use (field);
 
+  old_datum = datum;
+  old_basetype = basetype;
+
   /* See if we have to do any conversions so that we pick up the field from the
      right context.  */
   if (DECL_FIELD_CONTEXT (field) != basetype)
@@ -2215,12 +2220,17 @@ build_component_ref (datum, component, basetype_path, protect)
       /* Handle base classes here...  */
       if (base != basetype && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
 	{
- 	  tree binfo = lookup_base (TREE_TYPE (datum), base, ba_check, NULL);
- 
+	  base_kind kind;
+ 	  tree binfo = lookup_base (TREE_TYPE (datum), base, ba_check, &kind);
+
+	  /* Complain about use of offsetof which will break.  */
 	  if (TREE_CODE (datum) == INDIRECT_REF
-	      && integer_zerop (TREE_OPERAND (datum, 0)))
+	      && integer_zerop (TREE_OPERAND (datum, 0))
+	      && kind == bk_via_virtual)
 	    {
-	      error ("invalid reference to NULL ptr, use ptr-to-member instead");
+	      error ("\
+invalid offsetof from non-POD type `%#T'; use pointer to member instead",
+		     basetype);
 	      return error_mark_node;
 	    }
  	  datum = build_base_path (PLUS_EXPR, datum, binfo, 1);
@@ -2238,6 +2248,18 @@ build_component_ref (datum, component, basetype_path, protect)
 	  return build_component_ref (subdatum, field, basetype_path, protect);
 	}
     }
+
+  /* Complain about other invalid uses of offsetof, even though they will
+     give the right answer.  Note that we complain whether or not they
+     actually used the offsetof macro, since there's no way to know at this
+     point.  So we just give a warning, instead of a pedwarn.  */
+  if (protect
+      && CLASSTYPE_NON_POD_P (old_basetype)
+      && TREE_CODE (old_datum) == INDIRECT_REF
+      && integer_zerop (TREE_OPERAND (old_datum, 0)))
+    warning ("\
+invalid offsetof from non-POD type `%#T'; use pointer to member instead",
+	     basetype);
 
   /* Compute the type of the field, as described in [expr.ref].  */
   type_quals = TYPE_UNQUALIFIED;
@@ -2991,10 +3013,6 @@ build_function_call_real (function, params, require_complete, flags)
       name = DECL_NAME (function);
       assembler_name = DECL_ASSEMBLER_NAME (function);
 
-      GNU_xref_call (current_function_decl,
-		     IDENTIFIER_POINTER (name ? name
-					 : TYPE_IDENTIFIER (DECL_CLASS_CONTEXT
-							    (function))));
       mark_used (function);
       fndecl = function;
 
@@ -3396,7 +3414,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   /* DTRT if one side is an overloaded function, but complain about it.  */
   if (type_unknown_p (op0))
     {
-      tree t = instantiate_type (TREE_TYPE (op1), op0, itf_none);
+      tree t = instantiate_type (TREE_TYPE (op1), op0, tf_none);
       if (t != error_mark_node)
 	{
 	  pedwarn ("assuming cast to type `%T' from overloaded function",
@@ -3406,7 +3424,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     }
   if (type_unknown_p (op1))
     {
-      tree t = instantiate_type (TREE_TYPE (op0), op1, itf_none);
+      tree t = instantiate_type (TREE_TYPE (op0), op1, tf_none);
       if (t != error_mark_node)
 	{
 	  pedwarn ("assuming cast to type `%T' from overloaded function",
@@ -3434,9 +3452,9 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     case PLUS_EXPR:
       /* Handle the pointer + int case.  */
       if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return pointer_int_sum (PLUS_EXPR, op0, op1);
+	return cp_pointer_int_sum (PLUS_EXPR, op0, op1);
       else if (code1 == POINTER_TYPE && code0 == INTEGER_TYPE)
-	return pointer_int_sum (PLUS_EXPR, op1, op0);
+	return cp_pointer_int_sum (PLUS_EXPR, op1, op0);
       else
 	common = 1;
       break;
@@ -3449,7 +3467,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	return pointer_diff (op0, op1, common_type (type0, type1));
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return pointer_int_sum (MINUS_EXPR, op0, op1);
+	return cp_pointer_int_sum (MINUS_EXPR, op0, op1);
       else
 	common = 1;
       break;
@@ -3496,31 +3514,6 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	shorten = -1;
-      /* If one operand is a constant, and the other is a short type
-	 that has been converted to an int,
-	 really do the work in the short type and then convert the
-	 result to int.  If we are lucky, the constant will be 0 or 1
-	 in the short type, making the entire operation go away.  */
-      if (TREE_CODE (op0) == INTEGER_CST
-	  && TREE_CODE (op1) == NOP_EXPR
-	  && (TYPE_PRECISION (type1)
-	      > TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0))))
-	  && TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op1, 0))))
-	{
-	  final_type = result_type;
-	  op1 = TREE_OPERAND (op1, 0);
-	  result_type = TREE_TYPE (op1);
-	}
-      if (TREE_CODE (op1) == INTEGER_CST
-	  && TREE_CODE (op0) == NOP_EXPR
-	  && (TYPE_PRECISION (type0)
-	      > TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0))))
-	  && TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op0, 0))))
-	{
-	  final_type = result_type;
-	  op0 = TREE_OPERAND (op0, 0);
-	  result_type = TREE_TYPE (op0);
-	}
       break;
 
     case TRUNC_MOD_EXPR:
@@ -4079,94 +4072,20 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
    of pointer PTROP and integer INTOP.  */
 
 static tree
-pointer_int_sum (resultcode, ptrop, intop)
+cp_pointer_int_sum (resultcode, ptrop, intop)
      enum tree_code resultcode;
      register tree ptrop, intop;
 {
-  tree size_exp;
+  tree res_type = TREE_TYPE (ptrop);
 
-  register tree result;
-  register tree folded = fold (intop);
+  /* pointer_int_sum() uses size_in_bytes() on the TREE_TYPE(res_type)
+     in certain circumstance (when it's valid to do so).  So we need
+     to make sure it's complete.  We don't need to check here, if we
+     can actually complete it at all, as those checks will be done in
+     pointer_int_sum() anyway.  */
+  complete_type (TREE_TYPE (res_type));
 
-  /* The result is a pointer of the same type that is being added.  */
-
-  register tree result_type = TREE_TYPE (ptrop);
-
-  if (!complete_type_or_else (result_type, ptrop))
-    return error_mark_node;
-
-  if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids using pointer of type `void *' in pointer arithmetic");
-      size_exp = integer_one_node;
-    }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids using a pointer-to-function in pointer arithmetic");
-      size_exp = integer_one_node;
-    }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids using a pointer to member function in pointer arithmetic");
-      size_exp = integer_one_node;
-    }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == OFFSET_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids using pointer to a member in pointer arithmetic");
-      size_exp = integer_one_node;
-    }
-  else
-    size_exp = size_in_bytes (complete_type (TREE_TYPE (result_type)));
-
-  /* Needed to make OOPS V2R3 work.  */
-  intop = folded;
-  if (integer_zerop (intop))
-    return ptrop;
-
-  /* If what we are about to multiply by the size of the elements
-     contains a constant term, apply distributive law
-     and multiply that constant term separately.
-     This helps produce common subexpressions.  */
-
-  if ((TREE_CODE (intop) == PLUS_EXPR || TREE_CODE (intop) == MINUS_EXPR)
-      && ! TREE_CONSTANT (intop)
-      && TREE_CONSTANT (TREE_OPERAND (intop, 1))
-      && TREE_CONSTANT (size_exp))
-    {
-      enum tree_code subcode = resultcode;
-      if (TREE_CODE (intop) == MINUS_EXPR)
-	subcode = (subcode == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
-      ptrop = cp_build_binary_op (subcode, ptrop, TREE_OPERAND (intop, 1));
-      intop = TREE_OPERAND (intop, 0);
-    }
-
-  /* Convert the integer argument to a type the same size as sizetype
-     so the multiply won't overflow spuriously.  */
-
-  if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype))
-    intop = cp_convert (type_for_size (TYPE_PRECISION (sizetype), 0), intop);
-
-  /* Replace the integer argument with a suitable product by the object size.
-     Do this multiplication as signed, then convert to the appropriate
-     pointer type (actually unsigned integral).  */
-
-  intop = cp_convert (result_type,
-		      cp_build_binary_op (MULT_EXPR, intop,
-					  cp_convert (TREE_TYPE (intop),
-						      size_exp)));
-
-  /* Create the sum or difference.  */
-
-  result = build (resultcode, result_type, ptrop, intop);
-
-  folded = fold (result);
-  if (folded == result)
-    TREE_CONSTANT (folded) = TREE_CONSTANT (ptrop) & TREE_CONSTANT (intop);
-  return folded;
+  return pointer_int_sum (resultcode, ptrop, fold (intop));
 }
 
 /* Return a tree for the difference of pointers OP0 and OP1.
@@ -5726,8 +5645,6 @@ build_modify_expr (lhs, modifycode, rhs)
   if (!lvalue_or_else (lhs, "assignment"))
     return error_mark_node;
 
-  GNU_xref_assign (lhs);
-
   /* Warn about modifying something that is `const'.  Don't warn if
      this is initialization.  */
   if (modifycode != INIT_EXPR
@@ -6090,7 +6007,7 @@ build_ptrmemfunc (type, pfn, force)
     }
 
   if (type_unknown_p (pfn))
-    return instantiate_type (type, pfn, itf_complain);
+    return instantiate_type (type, pfn, tf_error | tf_warning);
 
   fn = TREE_OPERAND (pfn, 0);
   my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 0);
@@ -6318,7 +6235,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
 	     overloaded function.  Call instantiate_type to get error
 	     messages.  */
 	  if (rhstype == unknown_type_node)
-	    instantiate_type (type, rhs, itf_complain);
+	    instantiate_type (type, rhs, tf_error | tf_warning);
 	  else if (fndecl)
 	    error ("cannot convert `%T' to `%T' for argument `%P' to `%D'",
 		      rhstype, type, parmnum, fndecl);

@@ -83,7 +83,7 @@ Boston, MA 02111-1307, USA.  */
 #undef DBX_REGISTER_NUMBER
 /* Same as sparc.h */
 #define DBX_REGISTER_NUMBER(REGNO) \
-  (TARGET_FLAT && REGNO == FRAME_POINTER_REGNUM ? 31 : REGNO)
+  (TARGET_FLAT && (REGNO) == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
@@ -131,9 +131,7 @@ Boston, MA 02111-1307, USA.  */
                             %{!pg:crt1.o%s}}}} \
 			crti.o%s \
 			%{ansi:values-Xc.o%s} \
-			%{!ansi: \
-			 %{traditional:values-Xt.o%s} \
-			 %{!traditional:values-Xa.o%s}} \
+			%{!ansi:values-Xa.o%s} \
 			crtbegin.o%s"
 
 /* ??? Note: in order for -compat-bsd to work fully,
@@ -198,7 +196,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* ??? This does not work in SunOS 4.x, so it is not enabled in sparc.h.
    Instead, it is enabled here, because it does work under Solaris.  */
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 
@@ -243,7 +241,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* This declares mprotect (used in TRANSFER_FROM_TRAMPOLINE) for
    libgcc2.c.  */
-#ifdef L_trampoline
+/* We don't want to include this because sys/mman.h is not present on
+   some non-Solaris configurations that use sol2.h.  */
+#if 0 /* def L_trampoline */
 #include <sys/mman.h>
 #endif
 

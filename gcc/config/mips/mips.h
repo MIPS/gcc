@@ -577,9 +577,9 @@ extern void		sbss_section PARAMS ((void));
 
 #ifndef ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == 0
-#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EL} %{EB}"
+#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EB|meb:-EB}"
 #else
-#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EB} %{EL}"
+#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EL|mel:-EL}"
 #endif
 #endif
 
@@ -1369,7 +1369,7 @@ extern int mips_abi;
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
 
 /* Describe how we implement __builtin_eh_return.  */
-#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
+#define EH_RETURN_DATA_REGNO(N) ((N) < (TARGET_MIPS16 ? 2 : 4) ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, GP_REG_FIRST + 3)
 
 /* Offsets recorded in opcodes are a multiple of this alignment factor.
@@ -1546,10 +1546,6 @@ do {							\
 
 /* Target machine storage layout */
 
-/* Define in order to support both big and little endian float formats
-   in the same gcc binary.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
 */
@@ -1569,14 +1565,6 @@ do {							\
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
 
 /* Width of a word, in units (bytes).  */
@@ -1615,12 +1603,6 @@ do {							\
    words.  */
 #define LONG_LONG_TYPE_SIZE 64
 
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
-
 /* A C expression for the size in bits of the type `float' on the
    target machine.  If you don't define this, the default is one
    word.  */
@@ -1646,7 +1628,9 @@ do {							\
 #define POINTER_BOUNDARY (Pmode == DImode ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
-#define PARM_BOUNDARY (TARGET_64BIT ? 64 : 32)
+#define PARM_BOUNDARY ((mips_abi == ABI_O64 || mips_abi == ABI_N32 \
+			|| mips_abi == ABI_64 \
+			|| (mips_abi == ABI_EABI && TARGET_64BIT)) ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -2867,18 +2851,16 @@ typedef struct mips_args {
 {									\
   if (TARGET_MIPS16)							\
     sorry ("mips16 function profiling");				\
-  fprintf (FILE, "\t.set\tnoreorder\n");				\
   fprintf (FILE, "\t.set\tnoat\n");					\
   fprintf (FILE, "\tmove\t%s,%s\t\t# save current return address\n",	\
 	   reg_names[GP_REG_FIRST + 1], reg_names[GP_REG_FIRST + 31]);	\
-  fprintf (FILE, "\tjal\t_mcount\n");					\
   fprintf (FILE,							\
 	   "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",	\
 	   TARGET_64BIT ? "dsubu" : "subu",				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   Pmode == DImode ? 16 : 8);					\
-  fprintf (FILE, "\t.set\treorder\n");					\
+  fprintf (FILE, "\tjal\t_mcount\n");                                   \
   fprintf (FILE, "\t.set\tat\n");					\
 }
 
@@ -3346,12 +3328,12 @@ typedef struct mips_args {
    If you are changing this macro, you should look at
    mips_select_section and see if it needs a similar change.  */
 
-#define ENCODE_SECTION_INFO(DECL)					\
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
 do									\
   {									\
     if (TARGET_MIPS16)							\
       {									\
-	if (TREE_CODE (DECL) == STRING_CST				\
+	if ((FIRST) && TREE_CODE (DECL) == STRING_CST			\
 	    && ! flag_writable_strings					\
 	    /* If this string is from a function, and the function will	\
 	       go in a gnu linkonce section, then we can't directly	\
@@ -3418,7 +3400,8 @@ do									\
 									\
     else if (HALF_PIC_P ())						\
       {									\
-        HALF_PIC_ENCODE (DECL);						\
+	if (FIRST)							\
+          HALF_PIC_ENCODE (DECL);					\
       }									\
   }									\
 while (0)

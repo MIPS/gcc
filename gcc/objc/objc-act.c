@@ -1131,9 +1131,6 @@ synth_module_prologue ()
       DECL_INLINE (umsg_decl) = 1;
       DECL_ARTIFICIAL (umsg_decl) = 1;
 
-      if (flag_traditional && TAG_MSGSEND[0] != '_')
-	DECL_BUILT_IN_NONANSI (umsg_decl) = 1;
-
       make_decl_rtl (umsg_decl, NULL);
       pushdecl (umsg_decl);
     }
@@ -8330,7 +8327,7 @@ handle_impent (impent)
 
       string = (char *) alloca (strlen (class_name) + 30);
 
-      sprintf (string, "*%sobjc_class_name_%s",
+      sprintf (string, "%sobjc_class_name_%s",
                (flag_next_runtime ? "." : "__"), class_name);
     }
   else if (TREE_CODE (impent->imp_context) == CATEGORY_IMPLEMENTATION_TYPE)

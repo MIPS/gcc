@@ -306,13 +306,7 @@ get_constant (jcf, index)
       {
 	jint num = JPOOL_INT(jcf, index);
 	REAL_VALUE_TYPE d;
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_SINGLE (num);
-#else
-	union { float f;  jint i; } u;
-	u.i = num;
-	d = u.f;
-#endif
 	value = build_real (float_type_node, d);
 	break;
       }
@@ -343,16 +337,7 @@ get_constant (jcf, index)
 	    num[0] = lo;
 	    num[1] = hi;
 	  }
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_DOUBLE (num);
-#else
-	{
-	  union { double d;  jint i[2]; } u;
-	  u.i[0] = (jint) num[0];
-	  u.i[1] = (jint) num[1];
-	  d = u.d;
-	}
-#endif
 	value = build_real (double_type_node, d);
 	break;
       }
@@ -669,20 +654,20 @@ load_class (class_or_name, verbose)
   saved = name;
   while (1)
     {
-      char *dollar;
+      char *separator;
 
       if ((class_loaded = read_class (name)))
 	break;
 
       /* We failed loading name. Now consider that we might be looking
-	 for a inner class but it's only available in source for in
-	 its enclosing context. */
-      if ((dollar = strrchr (IDENTIFIER_POINTER (name), '$')))
+	 for a inner class. */
+      if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
+	  || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
 	{
-	  int c = *dollar;
-	  *dollar = '\0';
+	  int c = *separator;
+	  *separator = '\0';
 	  name = get_identifier (IDENTIFIER_POINTER (name));
-	  *dollar = c;
+	  *separator = c;
 	}
       /* Otherwise, we failed, we bail. */
       else
@@ -793,7 +778,7 @@ init_outgoing_cpool ()
 static void
 parse_class_file ()
 {
-  tree method;
+  tree method, field;
   const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
@@ -808,8 +793,13 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
-	method != NULL_TREE; method = TREE_CHAIN (method))
+  for (field = TYPE_FIELDS (CLASS_TO_HANDLE_TYPE (current_class));
+       field != NULL_TREE; field = TREE_CHAIN (field))
+    if (FIELD_STATIC (field))
+      DECL_EXTERNAL (field) = 0;
+
+  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+       method != NULL_TREE; method = TREE_CHAIN (method))
     {
       JCF *jcf = current_jcf;
 
@@ -911,13 +901,11 @@ parse_source_file_1 (file, finput)
   /* There's no point in trying to find the current encoding unless we
      are going to do something intelligent with it -- hence the test
      for iconv.  */
-#ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
   setlocale (LC_CTYPE, "");
   if (current_encoding == NULL)
     current_encoding = nl_langinfo (CODESET);
-#endif /* HAVE_NL_LANGINFO */
-#endif /* HAVE_ICONV */
+#endif 
   if (current_encoding == NULL || *current_encoding == '\0')
     current_encoding = DEFAULT_ENCODING;
 
@@ -1323,7 +1311,7 @@ void
 init_jcf_parse ()
 {
   /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (parse_roots, sizeof (parse_roots) / sizeof(tree));
+  ggc_add_tree_root (parse_roots, ARRAY_SIZE (parse_roots));
 
   ggc_add_root (&current_jcf, 1, sizeof (JCF), (void (*)(void *))ggc_mark_jcf);
 

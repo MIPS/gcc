@@ -240,6 +240,9 @@ struct cpp_options
   /* Non-0 means -v, so print the full set of include dirs.  */
   unsigned char verbose;
 
+  /* Nonzero means chars are signed.  */
+  unsigned char signed_char;
+
   /* Nonzero means use extra default include directories for C++.  */
   unsigned char cplusplus;
 
@@ -473,7 +476,7 @@ extern void cpp_set_callbacks PARAMS ((cpp_reader *, cpp_callbacks *));
    structure reliable.  Options processing is not completed until you
    call cpp_finish_options.  */
 extern int cpp_handle_options PARAMS ((cpp_reader *, int, char **));
-extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **));
+extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **, int));
 extern void cpp_post_options PARAMS ((cpp_reader *));
 
 /* This function reads the file, but does not start preprocessing.  It
@@ -524,7 +527,7 @@ extern void _cpp_backup_tokens PARAMS ((cpp_reader *, unsigned int));
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
 extern HOST_WIDE_INT
 cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
-				 int, int, unsigned int *));
+				 int, unsigned int *));
 
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
@@ -572,7 +575,7 @@ extern const char *cpp_type2name	PARAMS ((enum cpp_ttype));
 extern unsigned int cpp_parse_escape	PARAMS ((cpp_reader *,
 						 const unsigned char **,
 						 const unsigned char *,
-						 unsigned HOST_WIDE_INT, int));
+						 unsigned HOST_WIDE_INT));
 
 /* In cpphash.c */
 

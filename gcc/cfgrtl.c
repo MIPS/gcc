@@ -271,6 +271,7 @@ create_basic_block_structure (index, head, end, bb_note)
   bb->head = head;
   bb->end = end;
   bb->index = index;
+  bb->flags = BB_NEW;
   BASIC_BLOCK (index) = bb;
   if (basic_block_for_insn)
     update_bb_for_insn (bb);
@@ -338,7 +339,7 @@ flow_delete_block (b)
 
   insn = b->head;
 
-  never_reached_warning (insn);
+  never_reached_warning (insn, b->end);
 
   if (GET_CODE (insn) == CODE_LABEL)
     maybe_remove_eh_handler (insn);
@@ -592,6 +593,7 @@ merge_blocks_nomove (a, b)
   for (e = b->succ; e; e = e->succ_next)
     e->src = a;
   a->succ = b->succ;
+  a->flags |= b->flags;
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->pred = b->succ = NULL;
@@ -714,7 +716,7 @@ try_redirect_by_replacing_jump (e, target)
   else
     {
       rtx target_label = block_label (target);
-      rtx barrier;
+      rtx barrier, tmp;
 
       emit_jump_insn_after (gen_jump (target_label), insn);
       JUMP_LABEL (src->end) = target_label;
@@ -723,7 +725,20 @@ try_redirect_by_replacing_jump (e, target)
 	fprintf (rtl_dump_file, "Replacing insn %i by jump %i\n",
 		 INSN_UID (insn), INSN_UID (src->end));
 
+
       delete_insn_chain (kill_from, insn);
+
+      /* Recognize a tablejump that we are converting to a
+	 simple jump and remove its associated CODE_LABEL
+	 and ADDR_VEC or ADDR_DIFF_VEC.  */
+      if ((tmp = JUMP_LABEL (insn)) != NULL_RTX
+	  && (tmp = NEXT_INSN (tmp)) != NULL_RTX
+	  && GET_CODE (tmp) == JUMP_INSN
+	  && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
+	      || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
+	{
+	  delete_insn_chain (JUMP_LABEL (insn), tmp);
+	}
 
       barrier = next_nonnote_insn (src->end);
       if (!barrier || GET_CODE (barrier) != BARRIER)
@@ -905,7 +920,28 @@ force_nonfallthru_and_redirect (e, target)
     abort ();
   else if (!(e->flags & EDGE_FALLTHRU))
     abort ();
-  else if (e->src->succ->succ_next)
+  else if (e->src == ENTRY_BLOCK_PTR)
+    {
+      /* We can't redirect the entry block.  Create an empty block at the
+         start of the function which we use to add the new jump.  */
+      edge *pe1;
+      basic_block bb = create_basic_block (0, e->dest->head, NULL);
+
+      /* Change the existing edge's source to be the new block, and add
+	 a new edge from the entry block to the new block.  */
+      e->src = bb;
+      for (pe1 = &ENTRY_BLOCK_PTR->succ; *pe1; pe1 = &(*pe1)->succ_next)
+	if (*pe1 == e)
+	  {
+	    *pe1 = e->succ_next;
+	    break;
+	  }
+      e->succ_next = 0;
+      bb->succ = e;
+      make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
+    }
+
+  if (e->src->succ->succ_next)
     {
       /* Create the new structures.  */
       note = last_loop_beg_note (e->src->end);
@@ -1863,9 +1899,30 @@ purge_dead_edges (bb)
   rtx insn = bb->end, note;
   bool purged = false;
 
-  /* ??? This makes no sense since the later test includes more cases.  */
-  if (GET_CODE (insn) == JUMP_INSN && !simplejump_p (insn))
-    return false;
+  /* If this instruction cannot trap, remove REG_EH_REGION notes.  */
+  if (GET_CODE (insn) == INSN
+      && (note = find_reg_note (insn, REG_EH_REGION, NULL)))
+    {
+      rtx eqnote;
+
+      if (! may_trap_p (PATTERN (insn))
+	  || ((eqnote = find_reg_equal_equiv_note (insn))
+	      && ! may_trap_p (XEXP (eqnote, 0))))
+	remove_note (insn, note);
+    }
+
+  /* Cleanup abnormal edges caused by throwing insns that have been
+     eliminated.  */
+  if (! can_throw_internal (bb->end))
+    for (e = bb->succ; e; e = next)
+      {
+	next = e->succ_next;
+	if (e->flags & EDGE_EH)
+	  {
+	    remove_edge (e);
+	    purged = true;
+	  }
+      }
 
   if (GET_CODE (insn) == JUMP_INSN)
     {
@@ -1933,31 +1990,6 @@ purge_dead_edges (bb)
 
       return purged;
     }
-
-  /* If this instruction cannot trap, remove REG_EH_REGION notes.  */
-  if (GET_CODE (insn) == INSN
-      && (note = find_reg_note (insn, REG_EH_REGION, NULL)))
-    {
-      rtx eqnote;
-
-      if (! may_trap_p (PATTERN (insn))
-	  || ((eqnote = find_reg_equal_equiv_note (insn))
-	      && ! may_trap_p (XEXP (eqnote, 0))))
-	remove_note (insn, note);
-    }
-
-  /* Cleanup abnormal edges caused by throwing insns that have been
-     eliminated.  */
-  if (! can_throw_internal (bb->end))
-    for (e = bb->succ; e; e = next)
-      {
-	next = e->succ_next;
-	if (e->flags & EDGE_EH)
-	  {
-	    remove_edge (e);
-	    purged = true;
-	  }
-      }
 
   /* If we don't see a jump insn, we don't know exactly why the block would
      have been broken at this point.  Look for a simple, non-fallthru edge,

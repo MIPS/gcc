@@ -2053,14 +2053,8 @@
      a double if needed.  */
   if (GET_CODE (operands[1]) == CONST_DOUBLE)
     {
-      operands[1] = GEN_INT (CONST_DOUBLE_LOW (operands[1]) & 0xff);
-    }
-  else if (GET_CODE (operands[1]) == CONST_INT)
-    {
-      /* And further, we know for all QI cases that only the
-	 low byte is significant, which we can always process
-	 in a single insn.  So mask it now.  */
-      operands[1] = GEN_INT (INTVAL (operands[1]) & 0xff);
+      operands[1] = GEN_INT (trunc_int_for_mode
+			     (CONST_DOUBLE_LOW (operands[1]), QImode));
     }
 
   /* Handle sets of MEM first.  */
@@ -2521,7 +2515,7 @@
 
 (define_insn "*movdi_insn_sp64_novis"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,m,?e,?e,?m")
-        (match_operand:DI 1 "input_operand"   "rI,K,J,m,rJ,e,m,e"))]
+        (match_operand:DI 1 "input_operand"   "rI,N,J,m,rJ,e,m,e"))]
   "TARGET_ARCH64 && ! TARGET_VIS
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -2539,7 +2533,7 @@
 
 (define_insn "*movdi_insn_sp64_vis"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,m,?e,?e,?m,b")
-        (match_operand:DI 1 "input_operand"   "rI,K,J,m,rJ,e,m,e,J"))]
+        (match_operand:DI 1 "input_operand"   "rI,N,J,m,rJ,e,m,e,J"))]
   "TARGET_ARCH64 && TARGET_VIS &&
    (register_operand (operands[0], DImode)
     || reg_or_0_operand (operands[1], DImode))"
@@ -2734,8 +2728,7 @@
    && ! flag_pic"
   "
 {
-  sparc_emit_set_symbolic_const64 (operands[0], operands[1],
-                                   gen_rtx_REG (DImode, REGNO (operands[2])));
+  sparc_emit_set_symbolic_const64 (operands[0], operands[1], operands[2]);
   DONE;
 }")
 
@@ -2748,8 +2741,7 @@
    && ! flag_pic"
   "
 {
-  sparc_emit_set_symbolic_const64 (operands[0], operands[1],
-                                   gen_rtx_REG (DImode, REGNO (operands[2])));
+  sparc_emit_set_symbolic_const64 (operands[0], operands[1], operands[2]);
   DONE;
 }")
 
@@ -2771,8 +2763,8 @@
 #else
   unsigned int low, high;
 
-  low = INTVAL (operands[1]) & 0xffffffff;
-  high = (INTVAL (operands[1]) >> 32) & 0xffffffff;
+  low = trunc_int_for_mode (INTVAL (operands[1]), SImode);
+  high = trunc_int_for_mode (INTVAL (operands[1]) >> 32, SImode);
   emit_insn (gen_movsi (gen_highpart (SImode, operands[0]), GEN_INT (high)));
 
   /* Slick... but this trick loses if this subreg constant part
@@ -2799,7 +2791,7 @@
   /* Slick... but this trick loses if this subreg constant part
      can be done in one insn.  */
   if (CONST_DOUBLE_LOW (operands[1]) == CONST_DOUBLE_HIGH (operands[1])
-      && !(SPARC_SETHI_P (CONST_DOUBLE_HIGH (operands[1]))
+      && !(SPARC_SETHI32_P (CONST_DOUBLE_HIGH (operands[1]))
 	   || SPARC_SIMM13_P (CONST_DOUBLE_HIGH (operands[1]))))
     {
       emit_insn (gen_movsi (gen_lowpart (SImode, operands[0]),
@@ -3411,7 +3403,7 @@
       /* Slick... but this trick loses if this subreg constant part
          can be done in one insn.  */
       if (l[1] == l[0]
-          && !(SPARC_SETHI_P (l[0])
+          && !(SPARC_SETHI32_P (l[0])
 	       || SPARC_SIMM13_P (l[0])))
         {
           emit_insn (gen_movsi (gen_lowpart (SImode, operands[0]),
@@ -6576,7 +6568,7 @@
    (set (match_dup 0) (and:SI (not:SI (match_dup 3)) (match_dup 1)))]
   "
 {
-  operands[4] = GEN_INT (~INTVAL (operands[2]) & 0xffffffff);
+  operands[4] = GEN_INT (~INTVAL (operands[2]));
 }")
 
 ;; Split DImode logical operations requiring two instructions.
@@ -6719,7 +6711,7 @@
    (set (match_dup 0) (ior:SI (not:SI (match_dup 3)) (match_dup 1)))]
   "
 {
-  operands[4] = GEN_INT (~INTVAL (operands[2]) & 0xffffffff);
+  operands[4] = GEN_INT (~INTVAL (operands[2]));
 }")
 
 (define_insn "*or_not_di_sp32"
@@ -6835,7 +6827,7 @@
    (set (match_dup 0) (not:SI (xor:SI (match_dup 3) (match_dup 1))))]
   "
 {
-  operands[4] = GEN_INT (~INTVAL (operands[2]) & 0xffffffff);
+  operands[4] = GEN_INT (~INTVAL (operands[2]));
 }")
 
 (define_split
@@ -6850,7 +6842,7 @@
    (set (match_dup 0) (xor:SI (match_dup 3) (match_dup 1)))]
   "
 {
-  operands[4] = GEN_INT (~INTVAL (operands[2]) & 0xffffffff);
+  operands[4] = GEN_INT (~INTVAL (operands[2]));
 }")
 
 ;; xnor patterns.  Note that (a ^ ~b) == (~a ^ b) == ~(a ^ b).
@@ -8737,7 +8729,7 @@
   /* Restore %fp from stack pointer value for containing function.
      The restore insn that follows will move this to %sp,
      and reload the appropriate value into %fp.  */
-  emit_move_insn (frame_pointer_rtx, stack);
+  emit_move_insn (hard_frame_pointer_rtx, stack);
 
   /* USE of frame_pointer_rtx added for consistency; not clear if
      really needed.  */

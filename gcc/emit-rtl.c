@@ -196,6 +196,7 @@ static mem_attrs *get_mem_attrs		PARAMS ((HOST_WIDE_INT, tree, rtx,
 						 rtx, unsigned int,
 						 enum machine_mode));
 static tree component_ref_for_mem_expr	PARAMS ((tree));
+static rtx gen_const_vector_0		PARAMS ((enum machine_mode));
 
 /* Probability of the conditional branch currently proceeded by try_split.
    Set to -1 otherwise.  */
@@ -292,7 +293,8 @@ get_mem_attrs (alias, expr, offset, size, align, mode)
       && (size == 0
 	  || (mode != BLKmode && GET_MODE_SIZE (mode) == INTVAL (size)))
       && (align == BITS_PER_UNIT
-	  || (mode != BLKmode && align == GET_MODE_ALIGNMENT (mode))))
+	  || (STRICT_ALIGNMENT
+	      && mode != BLKmode && align == GET_MODE_ALIGNMENT (mode))))
     return 0;
 
   attrs.alias = alias;
@@ -410,6 +412,9 @@ gen_rtx_REG (mode, regno)
       if (regno == RETURN_ADDRESS_POINTER_REGNUM)
 	return return_address_pointer_rtx;
 #endif
+      if (regno == PIC_OFFSET_TABLE_REGNUM
+	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+        return pic_offset_table_rtx;
       if (regno == STACK_POINTER_REGNUM)
 	return stack_pointer_rtx;
     }
@@ -882,94 +887,7 @@ gen_lowpart_common (mode, x)
 	}
     }
 
-#ifndef REAL_ARITHMETIC
-  /* If X is an integral constant but we want it in floating-point, it
-     must be the case that we have a union of an integer and a floating-point
-     value.  If the machine-parameters allow it, simulate that union here
-     and return the result.  The two-word and single-word cases are
-     different.  */
-
-  else if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	     && HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-	    || flag_pretend_float)
-	   && GET_MODE_CLASS (mode) == MODE_FLOAT
-	   && GET_MODE_SIZE (mode) == UNITS_PER_WORD
-	   && GET_CODE (x) == CONST_INT
-	   && sizeof (float) * HOST_BITS_PER_CHAR == HOST_BITS_PER_WIDE_INT)
-    {
-      union {HOST_WIDE_INT i; float d; } u;
-
-      u.i = INTVAL (x);
-      return CONST_DOUBLE_FROM_REAL_VALUE (u.d, mode);
-    }
-  else if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	     && HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-	    || flag_pretend_float)
-	   && GET_MODE_CLASS (mode) == MODE_FLOAT
-	   && GET_MODE_SIZE (mode) == 2 * UNITS_PER_WORD
-	   && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
-	   && GET_MODE (x) == VOIDmode
-	   && (sizeof (double) * HOST_BITS_PER_CHAR
-	       == 2 * HOST_BITS_PER_WIDE_INT))
-    {
-      union {HOST_WIDE_INT i[2]; double d; } u;
-      HOST_WIDE_INT low, high;
-
-      if (GET_CODE (x) == CONST_INT)
-	low = INTVAL (x), high = low >> (HOST_BITS_PER_WIDE_INT -1);
-      else
-	low = CONST_DOUBLE_LOW (x), high = CONST_DOUBLE_HIGH (x);
-#ifdef HOST_WORDS_BIG_ENDIAN
-      u.i[0] = high, u.i[1] = low;
-#else
-      u.i[0] = low, u.i[1] = high;
-#endif
-      return CONST_DOUBLE_FROM_REAL_VALUE (u.d, mode);
-    }
-
-  /* Similarly, if this is converting a floating-point value into a
-     single-word integer.  Only do this is the host and target parameters are
-     compatible.  */
-
-  else if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	     && HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-	    || flag_pretend_float)
-	   && (GET_MODE_CLASS (mode) == MODE_INT
-	       || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-	   && GET_CODE (x) == CONST_DOUBLE
-	   && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
-	   && GET_MODE_BITSIZE (mode) == BITS_PER_WORD)
-    return constant_subword (x, (offset / UNITS_PER_WORD), GET_MODE (x));
-
-  /* Similarly, if this is converting a floating-point value into a
-     two-word integer, we can do this one word at a time and make an
-     integer.  Only do this is the host and target parameters are
-     compatible.  */
-
-  else if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	     && HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-	    || flag_pretend_float)
-	   && (GET_MODE_CLASS (mode) == MODE_INT
-	       || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-	   && GET_CODE (x) == CONST_DOUBLE
-	   && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
-	   && GET_MODE_BITSIZE (mode) == 2 * BITS_PER_WORD)
-    {
-      rtx lowpart, highpart;
-
-      lowpart = constant_subword (x,
-				  (offset / UNITS_PER_WORD) + WORDS_BIG_ENDIAN,
-				  GET_MODE (x));
-      highpart = constant_subword (x,
-				   (offset / UNITS_PER_WORD) + (! WORDS_BIG_ENDIAN),
-				   GET_MODE (x));
-      if (lowpart && GET_CODE (lowpart) == CONST_INT
-	  && highpart && GET_CODE (highpart) == CONST_INT)
-	return immed_double_const (INTVAL (lowpart), INTVAL (highpart), mode);
-    }
-#else /* ifndef REAL_ARITHMETIC */
-
-  /* When we have a FP emulator, we can handle all conversions between
+  /* The floating-point emulator can handle all conversions between
      FP and integer operands.  This simplifies reload because it
      doesn't have to deal with constructs like (subreg:DI
      (const_double:SF ...)) or (subreg:DF (const_int ...)).  */
@@ -1071,7 +989,6 @@ gen_lowpart_common (mode, x)
 				 mode);
 #endif
     }
-#endif /* ifndef REAL_ARITHMETIC */
 
   /* Otherwise, we can't do this.  */
   return 0;
@@ -1305,7 +1222,6 @@ constant_subword (op, offset, mode)
       && GET_MODE_SIZE (mode) == UNITS_PER_WORD)
     return op;
 
-#ifdef REAL_ARITHMETIC
   /* The output is some bits, the width of the target machine's word.
      A wider-word host can surely hold them in a CONST_INT. A narrower-word
      host can't.  */
@@ -1384,32 +1300,10 @@ constant_subword (op, offset, mode)
       else
 	abort ();
     }
-#else /* no REAL_ARITHMETIC */
-  if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	&& HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-       || flag_pretend_float)
-      && GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE_SIZE (mode) == 2 * UNITS_PER_WORD
-      && GET_CODE (op) == CONST_DOUBLE)
-    {
-      /* The constant is stored in the host's word-ordering,
-	 but we want to access it in the target's word-ordering.  Some
-	 compilers don't like a conditional inside macro args, so we have two
-	 copies of the return.  */
-#ifdef HOST_WORDS_BIG_ENDIAN
-      return GEN_INT (offset == WORDS_BIG_ENDIAN
-		      ? CONST_DOUBLE_HIGH (op) : CONST_DOUBLE_LOW (op));
-#else
-      return GEN_INT (offset != WORDS_BIG_ENDIAN
-		      ? CONST_DOUBLE_HIGH (op) : CONST_DOUBLE_LOW (op));
-#endif
-    }
-#endif /* no REAL_ARITHMETIC */
 
   /* Single word float is a little harder, since single- and double-word
      values often do not have the same high-order bits.  We have already
      verified that we want the only defined word of the single-word value.  */
-#ifdef REAL_ARITHMETIC
   if (GET_MODE_CLASS (mode) == MODE_FLOAT
       && GET_MODE_BITSIZE (mode) == 32
       && GET_CODE (op) == CONST_DOUBLE)
@@ -1433,40 +1327,6 @@ constant_subword (op, offset, mode)
 
       return GEN_INT (val);
     }
-#else
-  if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	&& HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-       || flag_pretend_float)
-      && sizeof (float) * 8 == HOST_BITS_PER_WIDE_INT
-      && GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE_SIZE (mode) == UNITS_PER_WORD
-      && GET_CODE (op) == CONST_DOUBLE)
-    {
-      double d;
-      union {float f; HOST_WIDE_INT i; } u;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-
-      u.f = d;
-      return GEN_INT (u.i);
-    }
-  if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
-	&& HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
-       || flag_pretend_float)
-      && sizeof (double) * 8 == HOST_BITS_PER_WIDE_INT
-      && GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE_SIZE (mode) == UNITS_PER_WORD
-      && GET_CODE (op) == CONST_DOUBLE)
-    {
-      double d;
-      union {double d; HOST_WIDE_INT i; } u;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-
-      u.d = d;
-      return GEN_INT (u.i);
-    }
-#endif /* no REAL_ARITHMETIC */
 
   /* The only remaining cases that we can handle are integers.
      Convert to proper endianness now since these cases need it.
@@ -2042,9 +1902,27 @@ offset_address (memref, offset, pow2)
      rtx offset;
      HOST_WIDE_INT pow2;
 {
-  rtx new = change_address_1 (memref, VOIDmode,
-			      gen_rtx_PLUS (Pmode, XEXP (memref, 0),
-					    force_reg (Pmode, offset)), 1);
+  rtx new, addr = XEXP (memref, 0);
+
+  new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+
+  /* At this point we don't know _why_ the address is invalid.  It 
+     could have secondary memory refereces, multiplies or anything.
+
+     However, if we did go and rearrange things, we can wind up not
+     being able to recognize the magic around pic_offset_table_rtx.
+     This stuff is fragile, and is yet another example of why it is
+     bad to expose PIC machinery too early.  */
+  if (! memory_address_p (GET_MODE (memref), new)
+      && GET_CODE (addr) == PLUS
+      && XEXP (addr, 0) == pic_offset_table_rtx)
+    {
+      addr = force_reg (GET_MODE (addr), addr);
+      new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+    }
+
+  update_temp_slot_address (XEXP (memref, 0), new);
+  new = change_address_1 (memref, VOIDmode, new, 1);
 
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
@@ -2386,6 +2264,7 @@ copy_rtx_if_shared (orig)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -2502,6 +2381,7 @@ reset_used_flags (x)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -3252,6 +3132,8 @@ add_insn_after (insn, after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEL.  */
       if (bb->end == after
@@ -3319,6 +3201,8 @@ add_insn_before (insn, before)
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEl.  */
       if (bb->head == insn
@@ -3396,6 +3280,8 @@ remove_insn (insn)
       && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (insn)))
     {
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       if (bb->head == insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole basic
@@ -3473,6 +3359,7 @@ reorder_insns (from, to, after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
+      bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
 	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
@@ -3480,6 +3367,7 @@ reorder_insns (from, to, after)
 	{
 	  if (bb2->end == to)
 	    bb2->end = prev;
+	  bb2->flags |= BB_DIRTY;
 	}
 
       if (bb->end == after)
@@ -3558,6 +3446,7 @@ remove_unnecessary_notes ()
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
+	case NOTE_INSN_LOOP_END_TOP_COND:
 	  remove_insn (insn);
 	  break;
 
@@ -4003,6 +3892,7 @@ emit_insns_after (first, after)
       && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
+      bb->flags |= BB_DIRTY;
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
 	set_block_for_insn (last, bb);
       set_block_for_insn (last, bb);
@@ -4536,6 +4426,7 @@ copy_insn_1 (orig)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -4774,6 +4665,33 @@ mark_emit_status (es)
   ggc_mark_rtx (es->x_first_insn);
 }
 
+/* Generate the constant 0.  */
+
+static rtx
+gen_const_vector_0 (mode)
+     enum machine_mode mode;
+{
+  rtx tem;
+  rtvec v;
+  int units, i;
+  enum machine_mode inner;
+
+  units = GET_MODE_NUNITS (mode);
+  inner = GET_MODE_INNER (mode);
+
+  v = rtvec_alloc (units);
+
+  /* We need to call this function after we to set CONST0_RTX first.  */
+  if (!CONST0_RTX (inner))
+    abort ();
+
+  for (i = 0; i < units; ++i)
+    RTVEC_ELT (v, i) = CONST0_RTX (inner);
+
+  tem = gen_rtx_CONST_VECTOR (mode, v);
+  return tem;
+}
+
 /* Create some permanent unique rtl objects shared between all functions.
    LINE_NUMBERS is nonzero if line numbers are to be generated.  */
 
@@ -4915,6 +4833,16 @@ init_emit_once (line_numbers)
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
     }
 
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
+
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
     if (GET_MODE_CLASS ((enum machine_mode) i) == MODE_CC)
       const_tiny_rtx[0][i] = const0_rtx;
@@ -4974,7 +4902,7 @@ init_emit_once (line_numbers)
 #endif
 
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-    pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
+    pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 
   ggc_add_rtx_root (&pic_offset_table_rtx, 1);
   ggc_add_rtx_root (&struct_value_rtx, 1);

@@ -86,14 +86,6 @@ extern int mvs_function_name_length;
 
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit.  */
-
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 
 #define UNITS_PER_WORD 4
@@ -295,7 +287,7 @@ extern int mvs_function_name_length;
 
 /* Mark external references.  */
 
-#define ENCODE_SECTION_INFO(decl)  					\
+#define ENCODE_SECTION_INFO(decl, first)  				\
   if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 			\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 

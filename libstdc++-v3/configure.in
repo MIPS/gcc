@@ -249,6 +249,8 @@ else
   GLIBCPP_CONFIGURE_TESTSUITE
 fi
 
+# This depends on the possibly-skipped linker test above.
+GLIBCPP_ENABLE_SYMVERS([yes])
 
 # Propagate the target-specific source directories through the build chain.
 OS_INC_SRCDIR=$os_include_dir/bits

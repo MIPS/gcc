@@ -9,7 +9,7 @@
 # Contents:
 #   Script to create a GCC release.
 #
-# Copyright (c) 2001 Free Software Foundation.
+# Copyright (c) 2001, 2002 Free Software Foundation.
 #
 # This file is part of GNU CC.
 #
@@ -284,13 +284,6 @@ build_tarfiles() {
   build_tarfile gcc-core-${RELEASE} ${EXCLUDES} \
     `basename ${SOURCE_DIRECTORY}`
 
-  # Possibly build diffs.
-  if [ -n "$OLD_TARS" ]; then
-    for old_tar in $OLD_TARS; do
-      build_diffs $old_tar
-    done
-  fi
-
   # Build .bz2 files.
   for f in ${FILE_LIST}; do
     bzfile=${f%.gz}.bz2
@@ -341,12 +334,14 @@ upload_files() {
 
   changedir "${WORKING_DIRECTORY}"
 
-  if [ $LOCAL -ne 0 ]; then
+  # Make sure the directory exists on the server.
+  if [ $LOCAL -eq 0 ]; then
+    ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} mkdir ${FTP_PATH}
+  else
     mkdir -p "${FTP_PATH}" \
       || error "Could not create \`${FTP_PATH}'"
   fi
 
-  # Copy the tar files to the FTP server.
   for x in gcc*.gz gcc*.bz2; do
     if [ -e ${x} ]; then
       # Make sure the file will be readable on the server.
@@ -375,8 +370,12 @@ CVS_PROTOCOL="ext"
 # The username to use when connecting to the server.
 CVS_USERNAME="${USER}"
 
-# The path to the directory where the files are uploaded for FTP.
-FTP_PATH="gccadmin@gcc.gnu.org:~ftp/pub/gcc"
+# The machine to which files will be uploaded.
+GCC_HOSTNAME="gcc.gnu.org"
+# The name of the account on the machine to which files are uploaded.
+GCC_USERNAME="gccadmin"
+# The directory in which the files will be placed.
+FTP_PATH="~ftp/pub/gcc"
 
 # The major number for the release.  For release `3.0.2' this would be 
 # `3'
@@ -429,6 +428,7 @@ SNAPSHOT=0
 LOCAL=0
 
 # Major operation modes.
+MODE_DIFFS=0
 MODE_SOURCES=0
 MODE_TARFILES=0
 MODE_UPLOAD=0
@@ -444,6 +444,7 @@ DIFF="${DIFF:-diff -Nrc3pad}"
 ENV="${ENV:-env}"
 GZIP="${GZIP:-gzip --best}"
 SCP="${SCP:-scp -p}"
+SSH="${SSH:-ssh}"
 TAR="${TAR:-tar}"
 
 ########################################################################
@@ -463,7 +464,10 @@ while getopts "d:fr:u:t:p:sl" ARG; do
 	  SCP=cp
 	  FTP_PATH=~ftp/pub/gcc
 	  PATH=~:/usr/local/bin:$PATH;;
-    p)    OLD_TARS="${OLD_TARS} ${OPTARG}";;
+    p)    OLD_TARS="${OLD_TARS} ${OPTARG}"
+          if [ -d ${OPTARG} ]; then
+	    error "-p argument must name a tarball"
+	  fi;;
     \?)   usage;;
     esac
 done
@@ -506,14 +510,14 @@ if [ $SNAPSHOT -eq 0 ]; then
   # If this is not a final release, set various parameters acordingly.
   if [ ${FINAL} -ne 1 ]; then
     RELEASE="${RELEASE}-${DATE}"
-    FTP_PATH="${FTP_PATH}/snapshots"
+    FTP_PATH="${FTP_PATH}/snapshots/"
   else
-    FTP_PATH="${FTP_PATH}/releases/gcc-${RELEASE}"
+    FTP_PATH="${FTP_PATH}/releases/gcc-${RELEASE}/"
   fi
 else
   RELEASE=$DATE
-  # For now snapshots come from the mainline.
-  BRANCH=HEAD
+  # For now snapshots come from the 3.1 branch.
+  BRANCH=gcc-3_1-branch
   FTP_PATH="${FTP_PATH}/snapshots/${LONG_DATE}"
   TAG=gcc_ss_${DATE}
 
@@ -521,7 +525,6 @@ else
   # was.
   if [ $LOCAL -ne 0 ]; then
     LAST_DATE=`cat ~/.snapshot_date`
-    PREV_LAST_DATE=`cat ~/.prev_snapshot_date`
     LAST_LONG_DATE=`date --date=$LAST_DATE +%Y-%m-%d`
     LAST_DIR=~ftp/pub/gcc/snapshots/${LAST_LONG_DATE}
     OLD_TARS=${LAST_DIR}/gcc-${LAST_DATE}.tar.gz
@@ -558,10 +561,11 @@ export CVSROOT
 # Handle the major modes.
 while [ $# -ne 0 ]; do
     case $1 in
+    diffs)    MODE_DIFFS=1;;
     sources)  MODE_SOURCES=1;;
     tarfiles) MODE_TARFILES=1;;
     upload)   MODE_UPLOAD=1;;
-    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_UPLOAD=1;;
+    all)      MODE_SOURCES=1; MODE_TARFILES=1; MODE_DIFFS=1; MODE_UPLOAD=1;;
     *)        error "Unknown mode $1";;
     esac
     shift
@@ -579,6 +583,17 @@ if [ $MODE_TARFILES -ne 0 ]; then
   build_tarfiles
 fi
 
+# Build diffs
+
+if [ $MODE_DIFFS -ne 0 ]; then
+  # Possibly build diffs.
+  if [ -n "$OLD_TARS" ]; then
+    for old_tar in $OLD_TARS; do
+      build_diffs $old_tar
+    done
+  fi
+fi
+
 # Upload them to the FTP server.
 
 if [ $MODE_UPLOAD -ne 0 ]; then
@@ -588,15 +603,14 @@ if [ $MODE_UPLOAD -ne 0 ]; then
   if [ $SNAPSHOT -ne 0 ] && [ $LOCAL -ne 0 ]; then
     # Update links on the FTP server.
     TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
-    LAST_TEXT_DATE=`date --date=$LAST_DATE +%B\ %d,\ %Y`
     cd ~ftp/pub/gcc/snapshots
-    sed -e "s%$LAST_DATE%$DATE%g" -e "s%$PREV_LAST_DATE%$LAST_DATE%g" \
-      -e "s%$LAST_LONG_DATE%$LONG_DATE%g" \
-      -e "s%$LAST_TEXT_DATE%$TEXT_DATE%g" < README > $$
+    sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
+      -e "s%@LONG_DATE@%$LONG_DATE%g" \
+      -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-README > $$
     mv $$ README
-    sed -e "s%$LAST_DATE%$DATE%g" -e "s%$PREV_LAST_DATE%$LAST_DATE%g" \
-      -e "s%$LAST_LONG_DATE%$LONG_DATE%g" \
-      -e "s%$LAST_TEXT_DATE%$TEXT_DATE%g" < index.html > $$
+    sed -e "s%@DATE@%$DATE%g" -e "s%@LAST_DATE@%$LAST_DATE%g" \
+      -e "s%@LONG_DATE@%$LONG_DATE%g" \
+      -e "s%@TEXT_DATE@%$TEXT_DATE%g" < ~/scripts/snapshot-index.html > $$
     mv $$ index.html
 
     touch LATEST-IS-$LONG_DATE
@@ -604,7 +618,6 @@ if [ $MODE_UPLOAD -ne 0 ]; then
 
     # Update snapshot date file.
     changedir ~
-    mv .snapshot_date .prev_snapshot_date
     echo $DATE >.snapshot_date
 
     # Update gcc_latest_snapshot tag.
@@ -612,6 +625,7 @@ if [ $MODE_UPLOAD -ne 0 ]; then
     ${CVS} rtag -rgcc_ss_${DATE} gcc_latest_snapshot gcc
 
     # Announce the snapshot.
+    export QMAILHOST=gcc.gnu.org
     mail -s "gcc-ss-$DATE is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/README
 
     # Remove working directory

@@ -1,8 +1,600 @@
+2002-03-03  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Use -bootclasspath, not -CLASSPATH.
+	* Makefile.in: Rebuilt.
+
+2002-03-03 Mark Wielaard <mark@klomp.org>
+
+	* java/util/Timer (TaskQueue.stop): set elements to zero.
+
+2002-02-28  Anthony Green  <green@redhat.com>
+
+	* java/lang/reflect/natMethod.cc (result): Add void* element.
+	(_Jv_CallAnyMethodA): Handle FFI_TYPE_POINTER arguments.  Move
+	constructor test.
+
+2002-02-27  Adam Megacz <adam@xwt.org>
+
+	* java/net/natInetAddress.cc: Changed USE_WINSOCK to WIN32, added
+	'#undef STRICT'.
+
+2002-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (init_properties): Use __VERSION__.
+	* gij.cc (version): Use __VERSION__.
+	* include/config.h.in: Rebuilt.
+	* acconfig.h (GCJVERSION): Removed.
+	* configure: Rebuilt.
+	* configure.in (GCJVERSION): Removed.
+
+2002-02-26  Andreas Schwab  <schwab@suse.de>
+
+	* acinclude.m4 (LIB_AC_PROG_CXX): Use glibjava_CXX instead of
+	glibcpp_CXX, since libjava uses even another CXX.
+	* aclocal.m4, configure: Regenerated.
+
+2002-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (startProcess): Use FD_CLOEXEC, not
+	`1'.
+
+2002-02-25  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am (GCJCOMPILE): Use -fCLASSPATH not -fclasspath. Fixes
+	dependency tracking for .java files.
+	* Makefile.in: Rebuilt.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/net/natPlainDatagramSocketImpl.cc: whops; removed 'make'
+	typo. Sorry.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/net/natPlainDatagramSocketImpl.cc: Updated #includes
+	for Win32, changed #ifdefs to check WIN32 instead of the
+	(now-obsolete) USE_WINSOCK, and removed support for socket
+	timeouts on Win32 pending further discussion.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* win32-threads.cc (_Jv_ThreadInitData): _Jv_Malloc instead of new
+	* win32-threads.cc (_Jv_ThreadDestroyData): _Jv_Free instead of
+	delete
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/lang/Win32Process.java: Created a dummy class to allow
+	build process to run to completion.
+
+2002-02-24  Jeff Sturm  <jsturm@one-point.com>
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA):
+	Define ffi_result union for ffi_call result.  Cast
+	ffi_result members to jvalue.
+ 
+2002-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in, gcj/Makefile.in, include/Makefile.in: Rebuilt.
+	* testsuite/Makefile.in: Likewise.
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* java/net/URL.java (getPath):  New JDK 1.3 method.
+
+	* java/net/URLStreamHandler.java (parseURL):
+	It is wrong to prepend '/' to the file part of a relative url.
+
+	* java/net/URLStreamHandler.java (parseURL):
+	Minor optizations - append '/' rather than "/".
+
+	* java/net/URLStreamHandler.java (parseURL):
+	Don't canonicalize "xx/.." or "./" URLs - JDK doesn't.
+	We probably should canonicalize for a context-relative url, though.
+	* java/net/URL.java (sameFile):  Delegate to URLStreamHandler.
+	* java/net/URLStreamHandler.java (canonicalizeFilename):  New helper.
+	(sameFile):  New method.  Uses canonicalizeFilename.
+
+2002-02-22  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (init_properties): Include the `Inc.' in
+	java.vendor and java.vm.vendor.
+	* gnu/java/rmi/rmic/RMIC.java (parseOptions): Only print most
+	recent copyright date.
+	* gnu/gcj/convert/Convert.java (version): Print `Inc'.
+	* gij.cc (version): Print `Inc'.
+
+2002-02-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (CXX): AC_SUBST it, instead of glibcpp_CXX.
+	* aclocal.m4, configure: Rebuilt.
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* gnu/gcj/protocol/file/Connection.java (conect):  Open the input
+	and/or output streams immediately here, instead of using File.exists.
+	(inputStream, outputStream):  New fields to save open streams.
+	(getInputStream, getOutputStream):  Use already-opened streams.
+
+2002-02-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (LIB_AC_PROG_CXX): Copied from libstdc++-v3.
+	Use it.
+	* Makefile.am (LIBLINK): Use CXX (and its tag) for linking.
+	* aclocal.m4, configure, Makefile.in: Rebuilt.
+
+2002-02-19  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/5696:
+	* verify.cc (is_assignable_from_slow): Never call
+	_Jv_IsAssignableFrom.
+	(verify_instructions_0): Added new debug statement.
+	(state::print): Print information about whether local has
+	changed.
+	(state::merge): Don't call note_variable when merging locals.
+	(state::set_exception): Removed old FIXME comment.
+
+2002-02-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/net/natPlainDatagramSocketImpl.cc (bind): Call setsockopt to
+	enable SO_BROADCAST.
+
+2002-02-18  Jason Merrill  <jason@redhat.com>
+
+	* name-finder.cc (toHex): Use word mode, not long long.
+
+	* gnu/gcj/convert/natIconv.cc (write): Avoid sign-compare warning.
+
+2002-02-15  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/5695:
+	* verify.cc (is_assignable_from_slow): Check to see if target is
+	an Object before checking to see if source is an interface.
+	(verify_instructions_0) [op_invokeinterface]: Handle case where
+	we're making an interface call on Object.
+
+2002-02-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.in: Rebuilt with Eric's change below.
+
+	* java/lang/natMath.cc (abs(jdouble), abs(jfloat), round(jfloat),
+	round(jdouble), min(jfloat), max(jfloat), min(jdouble), min(jfloat)):
+	Removed functions which are now implemented in Math.java.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* gcj/javaprims.h (java::lang): Add java::lang::StrictMath.
+	* Makefile.am (core_java_source_files): Add
+	java/lang/StrictMath.java.
+	* java/lang/Math.java: Merge with Classpath.
+	* java/lang/StrictMath.java: New file - merge with Classpath.
+
+2002-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* java/math/BigInteger.java: import gnu.java.math.MPN not the whole
+	package as a workaround for gcj 3.0.x
+
+2002-02-14  Mark Wielaard <mark@klomp.org>
+
+	* java/security/BasicPermission.java: extends with fully qualified
+	classname as workaround for gcj 3.0.4.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/net/DatagramSocketImpl.java (setOption, getOption): Work
+	around gcj bug of wrong emitted qualifier for inherited method.
+	* java/net/SocketImpl.java (setOption, getOption): Ditto.
+	* java/util/WeakHashMap.java (WeakEntrySet): Add non-private
+	constructor to reduce amount of emitted bytecode. While this
+	happens to work around a jikes 1.15 bug, it is still a useful
+	patch even for correct compilers.
+	* java/rmi/server/RMIClassLoader.java (MyClassLoader): Ditto.
+	* gnu/java/rmi/server/UnicastRemoteCall.java
+	(DummyObjectOutputStream, DummyObjectInputStream): Ditto.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/net/DatagramSocketImpl.java: Reformat (no code changes).
+	* java/net/SocketImpl.java: Ditto.
+	* java/rmi/server/RMIClassLoader.java: Ditto.
+	* gnu/java/rmi/server/UnicastRemoteCall.java: Ditto.
+
+2002-02-14  Mark Wielaard <mark@klomp.org>
+
+	Thanks to Takashi Okamoto
+	* java/util/Arrays.java (ArrayList.indexOf()): this.equals().
+	* java/util/Arrays.java (ArrayList.lastIndexOf()): Likewise.
+	* java/util/WeakHashMap.java (WeakEntry.getEntry()): this.get().
+
+2002-02-13  Todd Stock  <toddastock@yahoo.com>
+
+	Fix for PR libgcj/5670:
+	* verify.cc (is_assignable_from_slow): If `source' is interface,
+	recursively look for merge with `target'.
+
+2002-02-14  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* include/jni.h: Fix typo.
+
+2002-02-13  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* jni.cc (_Jv_JNI_AttachCurrentThread): env->locals assigned
+	correctly.
+
+2002-02-13  Todd Stock  <toddastock@yahoo.com>
+
+	Fix for PR libgcj/5671:
+	* verify.cc (state::merge): Handle case where we're merging
+	against an interface.
+
+2002-02-12  Tom Tromey  <tromey@redhat.com>
+
+	* exception.cc (std::abort): Mark as noreturn.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+        * java/lang/Win32Process.java: Filled in a placeholder
+	implementation so Win32 will build.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+        * java/io/natFilePosix.cc: Copied this from natFile.cc.
+	* java/io/natFile.cc: Removed from repository.
+	* configure.in: Added AC_LINK_FILES for natFile${PLATFORM}.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+	* win32.cc: Added two #includes to make win32.cc compile.
+
+2002-02-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* boehm.cc (initialized, obj_kind_x, obj_free_list): Removed unused
+	declarations.
+	(_Jv_InitGC): Don't bother locking, as this is always called from a 
+	single-thread. Turn off GC_all_interior_pointers. Remove dead code.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* include/win32.h: Added _Jv_platform_gettimeofday.
+	* win32.cc (_Jv_platform_gettimeofday): Added dummy function.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* java/io/natFileWin32.cc, java/io/natFileDescriptorWin32.cc:
+	Added #undef STRICT to make windows.h and
+	java/lang/reflect/Modifier.h cooperate.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* java/io/natFileWin32.cc: Created a placeholder class with lots
+	of FIXMEs.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* exception.cc (_Jv_Throw, PERSONALITY_FUNCTION): Changed
+	std::abort() to simply abort(). Also added "fake" std::abort() so
+	we can #include unwind-pe.h without having to link against
+	libstdc++-v3.
+
+2002-02-10  Andreas Tobler  <toa@pop.agri.ch>
+
+	* interpret.cc (continue1) [insn_f2l]: Use PUSHL, not PUSHI.
+
+2002-02-08  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (convert): New function.
+	(continue1) [insn_d2i, insn_d2l, insn_f2i, insn_f2l]: Use
+	convert.
+	Include Long.h.
+
+2002-02-08  Anthony Green  <green@redhat.com>
+
+	* configure.host: Add support for xscale-elf embedded target.
+
+2002-02-08  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* jni.cc (_Jv_JNI_NewLocalRef): Make sure, that NULL frame is not
+	dereferenced.
+	(_Jv_JNI_AttachCurrentThread): Produce full featured env->locals
+	frame.
+
+2002-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFile.cc (_access): Use __builtin_alloca.
+	(_stat): Likewise.
+	(attr): Likewise.
+	(getCanonicalPath): Likewise.
+	(performList): Likewise.
+	(performMkdir): Likewise.
+	(performSetReadOnly): Likewise.
+	(performRenameTo): Likewise.
+	(performSetLastModified): Likewise.
+	(performCreate): Likewise.
+	(performDelete): Likewise.
+
+2002-02-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* HACKING: Fix URL for the automake-gcj.
+
+2002-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natThrowable.cc: Updated copyright.
+	* java/io/natFileWin32.cc: Updated copyright.
+	* java/io/natFileDescriptorWin32.cc: Updated copyright.
+	* win32-threads.cc: Updated copyright.
+	* name-finder.cc: Updated copyright.
+	* include/name-finder.h: Updated copyright.
+
+	* include/name-finder.h: Conditionally include sys/wait.h.
+	* include/config.h.in: Rebuilt.
+
+	* java/io/natFile.cc (_access): Don't stack-allocate buffer.
+	Size buffer based on real size of string.
+	(_stat): Likewise.
+	(attr): Likewise.
+	(getCanonicalPath): Likewise.
+	(performList): Likewise.
+	(performMkdir): Likewise.
+	(performSetReadOnly): Likewise.
+	(unixroot): Removed.
+	(performRenameTo): Likewise.
+	(performSetLastModified): Likewise.
+	(performCreate): Likewise.
+	(performDelete): Likewise.
+	(performListRoots): Always return new array.
+
+	* prims.cc (_Jv_CreateJavaVM): Call _Jv_platform_initialize.
+	* win32.cc (win32_exception_handler): Now static.
+	* include/win32.h (_Jv_platform_initialize): Declare.
+	(win32_exception_handler): Don't declare.
+	* java/lang/natSystem.cc (currentTimeMillis): Use
+	_Jv_platform_gettimeofday.
+	* posix.cc (_Jv_platform_gettimeofday): Renamed.
+	(_Jv_select): Use new name.
+	(_Jv_platform_initialize): New function.
+	* include/posix.h (_Jv_platform_gettimeofday): Renamed from
+	_Jv_gettimeofday.
+	(_Jv_platform_initialize): Declare.
+
+	* configure: Rebuilt.
+	* configure.in: Removed unnecessary parens.
+
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+       * configure.in: Changed mingw) to *mingw*).
+       * win32.cc: Created this file.
+       * win32.h: Created this file.
+       * win32.cc, prims.cc, win32.h (win32_exception_handler): Moved
+       win32_exception_handler from prims.cc to win32.cc, added
+       header in win32.h.
+       * prims.cc: removed some #ifdef-WIN32'd headers which are no
+       longer needed now that we have platform.h
+
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+	* gnu/gcj/io/shs.h, gnu/gcj/io/shs.cc, gnu/gcj/io/natSimpleSHSStream.cc:
+	use uint<n>_t instead of LONG and BYTE
+	
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+	* name-finder.h: don't #include sys/wait.h unless HAVE_SYS_WAIT_H
+	
+2002-02-06  Anthony Green  <green@redhat.com>
+
+	* java/net/natPlainSocketImpl.cc: Fix DISABLE_JAVA_NET targets.
+	Implement missing method stubs.
+	java/net/natPlainDatagramSocketImpl.cc: Fix DISABLE_JAVA_NET
+	targets.
+	* java/lang/natSystem.cc (getSystemTimeZone): Some targets have no
+	concept of timezones.
+	(init_properties): Don't refer to _Jv_Environment_Properties
+	when this feature is not available.
+	* include/config.h.in: Rebuilt.
+	* acconfig.h: Add DISABLE_MAIN_ARGS.
+	* prims.cc (_Jv_RunMain): Use DISABLE_MAIN_ARGS.
+	* configure: Rebuilt.
+	* configure.in: Add --disable-main-args option.  Test for
+          opendir function.  Replace AC_CHECK_SIZEOF with
+          AC_COMPILE_CHECK_SIZEOF.
+	* java/io/natFile.cc (performList): Check HAVE_OPENDIR.
+	* aclocal.m4: Rebuilt.
+	* acinclude.m4: Add AC_COMPILE_CHECK_SIZEOF.
+
+2002-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (require_array_type): If argument is a null array of
+	references, return null as the element type.
+
+2002-02-06  Mark Wielaard  <mark@klomp.org>
+
+	* verify.cc (verify_instructions_0) [op_dup2]: Actually push the
+	duplicate of a wide type.
+
+2002-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (type::isnull): New method.
+	(require_array_type): Handle case where array is null.
+	(verify_instructions_0) [op_arraylength]: Likewise.
+
+2002-02-05  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* configure.in: Set up PLATFORMOBJS not PLATFORM_SPECIFIC_SOURCES.
+	Symlink PLATFORMH to platform.h.
+	* Makefile.am (libgcj_la_DEPENDENCIES, libgcj_la_LIBADD): Add
+	PLATFORMOBJS.
+	* java/lang/natSystem.cc: #include platform.h not posix.h.
+	* Makefile.in: Rebuilt with libgcj automake.
+	* configure: Rebuilt.
+
+2002-02-05  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in: Undo munging last change.
+
+2002-02-04  Adam Megacz <adam@xwt.org>
+
+	* win32.cc: Created it.
+	* configure.in: Added PLATFORM_SPECIFIC_SOURCES,
+	which is set to posix.cc or win32.cc.
+	* Makefile.am: Updated it to use $(PLATFORM_SPECIFIC_SOURCES).
+	
+2002-02-04  Adam Megacz <adam@xwt.org>
+
+	* configure.in: Corrected mingw case branches; added * before
+	and after.
+
+2002-02-04  Adam Megacz <adam@xwt.org>
+
+	* configure.in: Add -lgdi32 -lwsock32 -lws2_32 to libgcj.spec
+	if compiling for win32
+
+2002-02-04  Adam Megacz <adam@xwt.org>
+
+	* win32-threads.cc: #undef STRICT after gc.h inclusion
+
+2002-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+
+2002-02-02  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.am (clean-nat): New target.
+
+2002-02-02  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFile.cc: Removed old "FIXME" comments.
+
+2002-02-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (myclose): New function.
+	(fail): Use it.
+	(startProcess): Likewise.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* prims.cc: Added #undef STRICT after #include<windows.h>.
+	
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* prims.cc
+	(_Jv_CreateJavaVM): We now use WIN32 instead of
+	USE_WIN32_SIGNALLING and USE_WINSOCK.
+	(win32_exception_handler): Now throws an exception out of
+	the signal handler; assumes SJLJ.
+	
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* win32-threads.cc:
+	(_Jv_CondWait, _Jv_CondNotify, _Jv_CondNotifyAll): Corrected
+	wait() algorithm to make it safe.
+	(ensure_condvar_initialized, _Jv_CondInit, _Jv_CondDestroy):
+	Added lazy creation of Win32 Events for better performance
+	(really_start): This now uses GC_CreateThread so boehm-gc
+	knows about new threads even when statically linked.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* include/win32-threads.h (_Jv_ConditionVariable_t): Now a struct, to
+	enable safer wait() algorithm.
+	(_Jv_CondWait, _Jv_CondInit, _Jv_CondDestroy, _Jv_CondNotify,
+	_Jv_CondNotifyAll): Implementations moved to win32-threads.cc.
+	(_Jv_MutexInit, _Jv_HaveMutexDestroy, _Jv_MutexUnlock,
+	_Jv_MutexLock, _Jv_ThreadYield): Reimplement using CRITICAL_SECTIONs
+	instead of mutex.
+	(_Jv_ThreadYield): Don't call Sleep(), because it crashes win98.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* configure.in: Added support for mingw.
+	* java/lang/Win32Process.java: Created as empty file.
+	* java/lang/natWin32Process.cc: Created as empty file.
+
+2002-02-01  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR java/4972
+	* aclocal.m4, acinclude.m4 (AM_ICONV): Put linking flags 
+	for libiconv in LIBICONV variable.
+	* configure: Regenerated.
+
+2002-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (state::enter_subroutine): New method.
+	(handle_jsr_insn): Use it.
+	(state::merge): When processing a `ret', correctly use
+	subroutine's state to determine which local variables have
+	changed.
+	(push_exception_jump): Don't let stack overflow.
+
+2002-01-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gnu/gcj/convert/Convert.java: Only include one copyright year in
+	--version output.
+
+2002-01-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainSocketImpl.cc (_Jv_recv): Added template
+	parameter for `recv' return type.
+
+	* verify.cc (handle_ret_insn): Check for subroutine merge here...
+	(state::merge): ... not here.
+	(subr_entry_info): New structure.
+	(entry_points): New field.
+	(~_Jv_BytecodeVerifier): Correctly free jsr_ptrs.  Free
+	entry_points.
+
+2002-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/List.java (addNotify): Correctly check to see if peer
+	does not exist.
+
+	* java/awt/GridLayout.java (layoutContainer): Use number of rows
+	to compute height of each cell, and number of columns to compute
+	width of each cell.
+	* java/awt/Window.java (getOwnedWindows): Don't return null.
+	* java/awt/FlowLayout.java (layoutContainer): Set width and height
+	of component.  Increment x using horizontal gap, not vertical
+	gap.
+
+2002-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (class _Jv_BytecodeVerifier) [op_invokeinterface]:
+	`nargs' byte is number of words, not number of arguments.
+
+2002-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/event/MouseEvent.java (modifiers): Removed field.
+	(when): Likewise.
+	* java/awt/event/InputEvent.java (modifiers, when): Now
+	package-private.
+
+	* verify.cc (class _Jv_BytecodeVerifier): Removed `FIXME' comment
+	and to-do list.
+	(state::merge): Use current class' class loader.
+	(state::print): Print subroutine.
+	(state::merge): Don't look at subroutine of unmerged `ret'.
+
+2002-01-26 Andreas Tobler <a.tobler@schweiz.ch>
+
+	* nogc.cc: Remove warnings.
+	(_Jv_GCRegisterDisappearingLink, _Jv_GCCanReclaimSoftReference):
+	New functions.
+
 2002-01-25  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* java/awt/image/MemoryImageSource.java (newPixels(byte[], ColorModel,
 	int, int):  Remove empty "if" statement to work around compiler bug.
 	(newPixels(int[], ColorModel, int, int): Likewise.
+
+2002-01-25  Per Bothner  <per@bothner.com>
+
+	* verify.cc (verify_fail):  Change from being a top-level function
+	to e method of _Jv_BytecodeVerifier.  Emit current method name.
+	Pass the current verifier to type: and state: methods as needed,
+	for better error messages, and for resolve.
+	(resolve):  Pass current class's loader for Class.forName and
+	_Jv_FindClassFromSignature, rather than using the default loader.
+	(various type: and state: methods):  Take _Jv_BytecodeVerifier* arg.
+	(get_type_val_for_signature):  Make non-static.
+	(various methods):  Pass start_PC implicitly, not explicitly.
 
 2002-01-25  Tom Tromey  <tromey@redhat.com>
 

@@ -35,6 +35,10 @@
 
 #include <locale>
 
+#ifdef _GLIBCPP_HAVE_IEEEFP_H
+#include <ieeefp.h>
+#endif
+
 namespace std 
 {
   // Specializations for all types used in num_get.
@@ -48,7 +52,7 @@ namespace std
 	char* __sanity;
 	errno = 0;
 	long __l = strtol(__s, &__sanity, __base);
-	if (__sanity != __s && *__sanity == '\0' && errno == 0)
+	if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	  __v = __l;
 	else
 	  __err |= ios_base::failbit;
@@ -65,7 +69,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  unsigned long __ul = strtoul(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __ul;
 	  else
 	    __err |= ios_base::failbit;
@@ -83,7 +87,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  long long __ll = strtoll(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __ll;
 	  else
 	    __err |= ios_base::failbit;
@@ -100,7 +104,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  unsigned long long __ull = strtoull(__s, &__sanity, __base);
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __ull;
 	  else
 	    __err |= ios_base::failbit;
@@ -119,12 +123,26 @@ namespace std
 	  const char* __old = setlocale(LC_ALL, "C");
 	  char* __sanity;
 	  errno = 0;
-#ifdef _GLIBCPP_USE_C99
+#if defined(_GLIBCPP_USE_C99)
 	  float __f = strtof(__s, &__sanity);
 #else
-	  float __f = static_cast<float>(strtod(__s, &__sanity));
+	  double __d = strtod(__s, &__sanity);
+	  float __f = static_cast<float>(__d);
+#ifdef _GLIBCPP_HAVE_FINITEF
+	  if (!finitef (__f))
+	    errno = ERANGE;
+#elif defined (_GLIBCPP_HAVE_FINITE)
+	  if (!finite (static_cast<double> (__f)))
+	    errno = ERANGE;
+#elif defined (_GLIBCPP_HAVE_ISINF)
+	  if (isinf (static_cast<double> (__f)))
+	    errno = ERANGE;
+#else
+	  if (fabs(__d) > numeric_limits<float>::max())
+	    errno = ERANGE;
 #endif
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+#endif
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __f;
 	  else
 	    __err |= ios_base::failbit;
@@ -144,7 +162,7 @@ namespace std
 	  char* __sanity;
 	  errno = 0;
 	  double __d = strtod(__s, &__sanity);
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __d;
 	  else
 	    __err |= ios_base::failbit;
@@ -161,16 +179,23 @@ namespace std
 	{
 	  // Assumes __s formatted for "C" locale.
 	  const char* __old = setlocale(LC_ALL, "C");
-#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
+#if defined(_GLIBCPP_USE_C99)
 	  char* __sanity;
 	  errno = 0;
 	  long double __ld = strtold(__s, &__sanity);
-          if (__sanity != __s && *__sanity == '\0' && errno == 0)
+          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
 	    __v = __ld;
 #else
 	  typedef char_traits<char>::int_type int_type;
 	  long double __ld;
+	  errno = 0;
 	  int __p = sscanf(__s, "%Lf", &__ld);
+	  if (errno == ERANGE)
+	    __p = 0;
+#ifdef _GLIBCPP_HAVE_FINITEL
+	  if ((__p == 1) && !finitel (__ld))
+	    __p = 0;
+#endif
 	  if (__p && static_cast<int_type>(__p) != char_traits<char>::eof())
 	    __v = __ld;
 #endif

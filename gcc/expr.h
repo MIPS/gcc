@@ -97,7 +97,8 @@ struct args_size
    of type ssizetype.  */
 #define ARGS_SIZE_TREE(SIZE)					\
 ((SIZE).var == 0 ? ssize_int ((SIZE).constant)			\
- : size_binop (PLUS_EXPR, (SIZE).var, ssize_int ((SIZE).constant)))
+ : size_binop (PLUS_EXPR, convert (ssizetype, (SIZE).var),	\
+	       ssize_int ((SIZE).constant)))
 
 /* Convert the implicit sum in a `struct args_size' into an rtx.  */
 #define ARGS_SIZE_RTX(SIZE)					\
@@ -308,7 +309,7 @@ int can_conditionally_move_p PARAMS ((enum machine_mode mode));
 extern rtx negate_rtx PARAMS ((enum machine_mode, rtx));
 
 /* Expand a logical AND operation.  */
-extern rtx expand_and PARAMS ((rtx, rtx, rtx));
+extern rtx expand_and PARAMS ((enum machine_mode, rtx, rtx, rtx));
 
 /* Emit a store-flag operation.  */
 extern rtx emit_store_flag PARAMS ((rtx, enum rtx_code, rtx, rtx,

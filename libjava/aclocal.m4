@@ -10,6 +10,32 @@ dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
+AC_DEFUN([AC_COMPILE_CHECK_SIZEOF],
+[changequote(<<, >>)dnl
+dnl The name to #define.
+define(<<AC_TYPE_NAME>>, translit(sizeof_$1, [a-z *], [A-Z_P]))dnl
+dnl The cache variable name.
+define(<<AC_CV_NAME>>, translit(ac_cv_sizeof_$1, [ *], [_p]))dnl
+changequote([, ])dnl
+AC_MSG_CHECKING(size of $1)
+AC_CACHE_VAL(AC_CV_NAME,
+[for ac_size in 4 8 1 2 16 12 $2 ; do # List sizes in rough order of prevalence.
+  AC_TRY_COMPILE([#include "confdefs.h"
+#include <sys/types.h>
+$2
+], [switch (0) case 0: case (sizeof ($1) == $ac_size):;], AC_CV_NAME=$ac_size)
+  if test x$AC_CV_NAME != x ; then break; fi
+done
+])
+if test x$AC_CV_NAME = x ; then
+  AC_MSG_ERROR([cannot determine a size for $1])
+fi
+AC_MSG_RESULT($AC_CV_NAME)
+AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME, [The number of bytes in type $1])
+undefine([AC_TYPE_NAME])dnl
+undefine([AC_CV_NAME])dnl
+])
+
 AC_DEFUN(LIBGCJ_CONFIGURE,
 [
 dnl Default to --enable-multilib
@@ -66,7 +92,50 @@ define([AC_PROG_CC_WORKS],[])
 define([AC_PROG_CXX_WORKS],[])
 
 AC_PROG_CC
-AC_PROG_CXX
+
+# We use the libstdc++-v3 version of LIB_AC_PROG_CXX, but use
+# glibjava_CXX instead of glibcpp_CXX.  That's because we're passed a
+# different definition of CXX than other directories, since we don't
+# depend on libstdc++-v3 having already been built.
+AC_DEFUN(LIB_AC_PROG_CXX,
+[AC_BEFORE([$0], [AC_PROG_CXXCPP])dnl
+dnl Fool anybody using AC_PROG_CXX.
+AC_PROVIDE([AC_PROG_CXX])
+# Use glibjava_CXX so that we do not cause CXX to be cached with the
+# flags that come in CXX while configuring libjava.  They're different
+# from those used for all other target libraries.  If CXX is set in
+# the environment, respect that here.
+glibjava_CXX=$CXX
+AC_CHECK_PROGS(glibjava_CXX, $CCC c++ g++ gcc CC cxx cc++, gcc)
+AC_SUBST(CXX)
+CXX=$glibjava_CXX
+test -z "$glibjava_CXX" && AC_MSG_ERROR([no acceptable c++ found in \$PATH])
+
+AC_PROG_CXX_GNU
+
+if test $ac_cv_prog_gxx = yes; then
+  GXX=yes
+dnl Check whether -g works, even if CXXFLAGS is set, in case the package
+dnl plays around with CXXFLAGS (such as to build both debugging and
+dnl normal versions of a library), tasteless as that idea is.
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS=
+  AC_PROG_CXX_G
+  if test "$ac_test_CXXFLAGS" = set; then
+    CXXFLAGS="$ac_save_CXXFLAGS"
+  elif test $ac_cv_prog_cxx_g = yes; then
+    CXXFLAGS="-g -O2"
+  else
+    CXXFLAGS="-O2"
+  fi
+else
+  GXX=
+  test "${CXXFLAGS+set}" = set || CXXFLAGS="-g"
+fi
+])
+
+LIB_AC_PROG_CXX
 
 dnl version is pulled out to make it a bit easier to change using sed.
 version=0.0.7
@@ -143,11 +212,12 @@ AC_DEFUN([AM_ICONV],
   dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
   dnl those with the standalone portable GNU libiconv installed).
 
+  am_cv_lib_iconv_ldpath=
   AC_ARG_WITH([libiconv-prefix],
 [  --with-libiconv-prefix=DIR  search for libiconv in DIR/include and DIR/lib], [
     for dir in `echo "$withval" | tr : ' '`; do
       if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
-      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+      if test -d $dir/lib; then am_cv_lib_iconv_ldpath="-L$dir/lib"; fi
     done
    ])
 
@@ -162,7 +232,7 @@ AC_DEFUN([AM_ICONV],
       am_cv_func_iconv=yes)
     if test "$am_cv_func_iconv" != yes; then
       am_save_LIBS="$LIBS"
-      LIBS="$LIBS -liconv"
+      LIBS="$LIBS $am_cv_libiconv_ldpath -liconv"
       AC_TRY_LINK([#include <stdlib.h>
 #include <iconv.h>],
         [iconv_t cd = iconv_open("","");
@@ -199,7 +269,7 @@ size_t iconv();
   fi
   LIBICONV=
   if test "$am_cv_lib_iconv" = yes; then
-    LIBICONV="-liconv"
+    LIBICONV="$am_cv_lib_iconv_ldpath -liconv"
   fi
   AC_SUBST(LIBICONV)
 ])

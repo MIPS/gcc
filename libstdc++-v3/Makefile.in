@@ -66,6 +66,7 @@ target_triplet = @target@
 AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
+AWK = @AWK@
 BASIC_FILE_H = @BASIC_FILE_H@
 BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
 CATALOGS = @CATALOGS@
@@ -497,20 +498,26 @@ check-script-install: $(top_builddir)/mkcheck
 	  cd testsuite; \
 	  @glibcpp_builddir@/mkcheck 1)
 
-# These two rules might seem messy, but are hella worth it.
+# These rules are messy, but are hella worth it.
 doxygen:
 	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  outdir=`pwd`; \
+	  builddir=`pwd`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
-	            --mode=user $${srcdir} $${outdir})
+	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
 	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  outdir=`pwd`; \
+	  builddir=`pwd`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
-	            --mode=maint $${srcdir} $${outdir})
+	            --mode=maint $${srcdir} $${builddir})
 
-.PHONY: doxygen doxygen-maint
+doxygen-man:
+	-(srcdir=`cd ${top_srcdir}; pwd`; \
+	  builddir=`pwd`; \
+	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	            --mode=man $${srcdir} $${builddir})
+
+.PHONY: doxygen doxygen-maint doxygen-man
 
 # Multilib Makefile bits.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \

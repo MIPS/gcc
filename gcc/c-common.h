@@ -420,10 +420,6 @@ extern int warn_pointer_arith;
 /* Nonzero means to warn about compile-time division by zero.  */
 extern int warn_div_by_zero;
 
-/* Nonzero means do some things the same way PCC does.  */
-
-extern int flag_traditional;
-
 /* Nonzero means enable C89 Amendment 1 features.  */
 
 extern int flag_isoc94;
@@ -538,6 +534,7 @@ extern char *get_directive_line			PARAMS ((void));
    and, if so, perhaps change them both back to their original type.  */
 extern tree shorten_compare			PARAMS ((tree *, tree *, tree *, enum tree_code *));
 
+extern tree pointer_int_sum			PARAMS ((enum tree_code, tree, tree));
 extern unsigned int min_precision		PARAMS ((tree, int));
 
 /* Add qualifiers to a type, in the fashion for C.  */
@@ -603,10 +600,12 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define FOR_EXPR(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 2)
 #define FOR_BODY(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 3)
 
-/* SWITCH_STMT accessors. These give access to the condition and body
+/* SWITCH_STMT accessors. These give access to the condition, body and
+   original condition type (before any compiler conversions)
    of the switch statement, respectively.  */
 #define SWITCH_COND(NODE)       TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 0)
 #define SWITCH_BODY(NODE)       TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 1)
+#define SWITCH_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
 
 /* CASE_LABEL accessors. These give access to the high and low values
    of a case label, respectively.  */

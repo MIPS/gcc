@@ -1,3 +1,65 @@
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* Makefile.am: Added win32_threads.c to sources list.
+	* win32_threads.c: Added two */'s which I had neglected.
+
+2002-02-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Re-add SUBDIRS parameter which was lost in merge.
+	* Makefile.in: Rebuilt.
+
+2002-02-13  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* dbg_mlc.c (GC_debug_generic_malloc): Removed.
+	
+	* sparc_mach_dep.S: Rename from sparc_mach_dep.s as it is a 
+	preprocessor file.
+	* mips_sgi_mach_dep.S: Likewise.
+	* Makefile.am: Update for above changes.
+	* Makefile.in: Rebuilt.
+
+2002-02-12  Richard Henderson  <rth@redhat.com>
+
+	* configure.in: Re-apply 2001-06-26 configure change.
+	* configure: Rebuild.
+
+2002-02-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Imported GC 6.1 Alpha 3.
+
+	* sparc_mach_dep.S: Delete incorrectly named file.
+
+2001-02-11  Adam Megacz <adam@xwt.org
+
+	* configure.in: support for win32, saner
+	cross-compile options
+
+2001-02-08  Anthony Green  <green@redhat.com>
+
+	* include/private/gcconfig.h: Add XSCALE NOSYS support for bare
+	  board embedded targets.
+	* os_dep.c: Avoid signal handling code for NOSYS/ECOS targets.
+	  Use GC_get_stack_base for NOSYS/ECOS targets.  Clean up some
+	  redundant uses of ECOS.
+	* misc.c: Use NOSYS where ECOS is being used.
+	  Don't define GC_write twice for ECOS systems.
+	  (GC_write): New function for NOSYS targets.
+
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc/include/gc.h: (GC_CreateThread) This function is
+	now exposed on all Win32 platforms.
+	* boehm-gc/win32_threads.c: (GC_CreateThread) This now
+	compiles on Win32; it invokes CreateThread() if GC is built
+	as a DLL; otherwise it registers the thread.
+	* boehm-gc/misc.c (GC_init): Initialize GC_allocate_ml in case
+	libgcjgc was not built as a DLL.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc on win32 now automatically detects if it is being built
+	as a DLL; see http://gcc.gnu.org/ml/java/2001-12/msg00240.html
+	
 2002-01-25  David Edelsohn  <edelsohn@gnu.org>
 
 	* include/gc.h (GC_INIT): Add DATASTART and DATAEND roots on AIX.

@@ -1479,16 +1479,12 @@ c4x_emit_libcall_mulhi (libcall, code, mode, operands)
 /* Set the SYMBOL_REF_FLAG for a function decl.  However, wo do not
    yet use this info.  */
 void
-c4x_encode_section_info (decl)
-  tree decl;
+c4x_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
-#if 0
-  if (TREE_CODE (TREE_TYPE (decl)) == FUNCTION_TYPE)   
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
-#else
   if (TREE_CODE (decl) == FUNCTION_DECL)   
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
-#endif
 }
 
 
@@ -3466,6 +3462,34 @@ tsrc_operand (op, mode)
     return c4x_L_constant (op) || c4x_N_constant (op) || c4x_J_constant (op);
 
   return src_operand (op, mode);
+}
+
+
+/* Check src operand of two operand non immedidate instructions.  */
+
+int
+nonimmediate_src_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_DOUBLE)
+    return 0;
+
+  return src_operand (op, mode);
+}
+
+
+/* Check logical src operand of two operand non immedidate instructions.  */
+
+int
+nonimmediate_lsrc_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_DOUBLE)
+    return 0;
+
+  return lsrc_operand (op, mode);
 }
 
 

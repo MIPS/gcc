@@ -294,11 +294,6 @@ extern int target_flags;
 
 /* STORAGE LAYOUT */
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
  */
@@ -315,12 +310,6 @@ extern int target_flags;
 
 /* number of bits in an addressable storage unit */
 #define BITS_PER_UNIT 16
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 16
 
 /* Maximum number of bits in a word.  */
 #define MAX_BITS_PER_WORD 16
@@ -368,7 +357,6 @@ extern int target_flags;
 
 /* LAYOUT OF SOURCE LANGUAGE DATA TYPES */
 
-#define CHAR_TYPE_SIZE         16
 #define SHORT_TYPE_SIZE        16
 #define INT_TYPE_SIZE          16
 #define LONG_TYPE_SIZE         32

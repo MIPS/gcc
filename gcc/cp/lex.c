@@ -263,8 +263,6 @@ cxx_init_options ()
 void
 cxx_finish ()
 {
-  if (flag_gnu_xref)
-    GNU_xref_end (errorcount + sorrycount);
   c_common_finish ();
 }
 
@@ -486,7 +484,6 @@ static const struct resword reswords[] =
   { "xor_eq",		RID_XOR_EQ,	D_OPNAME },
 
 };
-#define N_reswords (sizeof reswords / sizeof (struct resword))
 
 /* Table mapping from RID_* constants to yacc token numbers.
    Unfortunately we have to have entries for all the keywords in all
@@ -641,7 +638,7 @@ init_reswords ()
      all the trees it points to are permanently interned in the
      get_identifier hash anyway.  */
   ridpointers = (tree *) xcalloc ((int) RID_MAX, sizeof (tree));
-  for (i = 0; i < N_reswords; i++)
+  for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
       C_RID_CODE (id) = reswords[i].rid;
@@ -733,8 +730,6 @@ cxx_init (filename)
 
   init_cp_pragma ();
 
-  if (flag_gnu_xref)
-    GNU_xref_begin (filename);
   init_repo (filename);
 
   return filename;
@@ -816,8 +811,8 @@ static int *reduce_count;
 int *token_count;
 
 #if 0
-#define REDUCE_LENGTH (sizeof (yyr2) / sizeof (yyr2[0]))
-#define TOKEN_LENGTH (256 + sizeof (yytname) / sizeof (yytname[0]))
+#define REDUCE_LENGTH ARRAY_SIZE (yyr2)
+#define TOKEN_LENGTH (256 + ARRAY_SIZE (yytname))
 #endif
 
 #ifdef GATHER_STATISTICS
@@ -931,9 +926,6 @@ extract_interface_info ()
 
   interface_only = finfo->interface_only;
   interface_unknown = finfo->interface_unknown;
-
-  /* This happens to be a convenient place to put this.  */
-  if (flag_gnu_xref) GNU_xref_file (input_filename);
 }
 
 /* Return nonzero if S is not considered part of an
@@ -1523,7 +1515,7 @@ retrofit_lang_decl (t)
 }
 
 void
-copy_lang_decl (node)
+cxx_dup_lang_specific_decl (node)
      tree node;
 {
   int size;
@@ -1555,7 +1547,7 @@ copy_decl (decl)
   tree copy;
 
   copy = copy_node (decl);
-  copy_lang_decl (copy);
+  cxx_dup_lang_specific_decl (copy);
   return copy;
 }
 

@@ -121,6 +121,7 @@ Macros
 * Variadic Macros::
 * Predefined Macros::
 * Undefining and Redefining Macros::
+* Directives Within Macro Arguments::
 * Macro Pitfalls::
 
 Predefined Macros
@@ -1115,6 +1116,7 @@ macros when you are compiling C++.
 * Variadic Macros::
 * Predefined Macros::
 * Undefining and Redefining Macros::
+* Directives Within Macro Arguments::
 * Macro Pitfalls::
 @end menu
 
@@ -2116,6 +2118,48 @@ the same, the redefinition is silently ignored.  This allows, for
 instance, two different headers to define a common macro.  The
 preprocessor will only complain if the definitions do not match.
 
+@node Directives Within Macro Arguments
+@section Directives Within Macro Arguments
+@cindex macro arguments and directives
+
+Occasionally it is convenient to use preprocessor directives within
+the arguments of a macro.  The C and C++ standards declare that
+behavior in these cases is undefined.
+
+Versions of GNU CPP prior to 3.2 would reject such constructs with an
+error message.  This was the only syntactic difference between normal
+functions and function-like macros, so it seemed attractive to remove
+this limitation, and people would often be surprised that they could
+not use macros in this way.  Moreover, sometimes people would use
+conditional compilation in the argument list to a normal library
+function like @samp{printf}, only to find that after a library upgrade
+@samp{printf} had changed to be a function-like macro, and their code
+would no longer compile.  So from version 3.2 we changed CPP to
+successfully process arbitrary directives within macro arguments in
+exactly the same way as it would have processed the directive were the
+function-like macro invocation not present.
+
+If, within a macro invocation, that macro is redefined, then the new
+definition takes effect in time for argument pre-expansion, but the
+original definition is still used for argument replacement.  Here is a
+pathological example:
+
+@smallexample
+#define f(x) x x
+f (1
+#undef f
+#define f 2
+f)
+@end smallexample
+
+@noindent which expands to
+
+@smallexample
+1 2 1 2
+@end smallexample
+
+@noindent with the semantics described above.
+
 @node Macro Pitfalls
 @section Macro Pitfalls
 @cindex problems with macros
@@ -3044,7 +3088,35 @@ The result should match one of the above two forms.
 @samp{#line} directives alter the results of the @code{__FILE__} and
 @code{__LINE__} predefined macros from that point on.  @xref{Standard
 Predefined Macros}.  They do not have any effect on @samp{#include}'s
-idea of the directory containing the current file.
+idea of the directory containing the current file.  This is a change
+from GCC 2.95.  Previously, a file reading
+
+@smallexample
+#line 1 "../src/gram.y"
+#include "gram.h"
+@end smallexample
+
+would search for @file{gram.h} in @file{../src}, then the @option{-I}
+chain; the directory containing the physical source file would not be
+searched.  In GCC 3.0 and later, the @samp{#include} is not affected by
+the presence of a @samp{#line} referring to a different directory.
+
+We made this change because the old behavior caused problems when
+generated source files were transported between machines.  For instance,
+it is common practice to ship generated parsers with a source release,
+so that people building the distribution do not need to have yacc or
+Bison installed.  These files frequently have @samp{#line} directives
+referring to the directory tree of the system where the distribution was
+created.  If GCC tries to search for headers in those directories, the
+build is likely to fail.
+
+The new behavior can cause failures too, if the generated file is not
+in the same directory as its source and it attempts to include a header
+which would be visible searching from the directory containing the
+source file.  However, this problem is easily solved with an additional
+@option{-I} switch on the command line.  The failures caused by the old
+semantics could sometimes be corrected only by editing the generated
+files, which is difficult and error-prone.
 
 @node Pragmas
 @chapter Pragmas
@@ -3271,8 +3343,8 @@ preprocessor.  We do not guarantee that GCC's behavior under
 
 Traditional mode exists only for backward compatibility.  We have no
 plans to augment it in any way nor will we change it except to fix
-catastrophic bugs.  You should be aware that modern C libraries often
-have header files which are incompatible with traditional mode.
+catastrophic bugs.  As of GCC 3.2, traditional mode is not supported for
+compilation, only preprocessing.
 
 This is a list of the differences.  It may not be complete, and may not
 correspond exactly to the behavior of either GCC or a true traditional
@@ -3780,6 +3852,14 @@ were still available in traditional mode.  It is now a separate program
 and does not implement any of the GNU extensions, except for a partial
 implementation of assertions.  Even those may be removed in a future
 release.
+
+@item @samp{#line} and @samp{#include}
+
+The @samp{#line} directive used to change GCC's notion of the
+``directory containing the current file,'' used by @samp{#include} with
+a double-quoted header file name.  In 3.0 and later, it does not.
+@xref{Line Control}, for further explanation.
+
 @end itemize
 
 @node Invocation
@@ -3956,17 +4036,27 @@ suffix replaced with object file suffix.  If there are many included
 files then the rule is split into several lines using @samp{\}-newline.
 The rule has no commands.
 
+Passing @option{-M} to the driver implies @option{-E}.
+
 @item -MM
-Like @option{-M}, but mention only the files included with @code{@w{#include
-"@var{file}"}} or with @option{-include} or @option{-imacros} command line
-options.  System header files included with @code{@w{#include <@var{file}>}}
-are omitted.
+Like @option{-M} but do not mention header files that are found in
+system header directories, nor header files that are included,
+directly or indirectly, from such a header.
+
+This implies that the choice of angle brackets or double quotes in an
+@samp{#include} directive does not in itself determine whether that
+header will appear in @option{-MM} dependency output.  This is a
+slight change in semantics from GCC versions 3.0 and earlier.
 
 @item -MF @var{file}
-When used with @option{-M} or @option{-MM}, specifies a file to write the
-dependencies to.  This allows the preprocessor to write the preprocessed
-file to stdout normally.  If no @option{-MF} switch is given, CPP sends
-the rules to stdout and suppresses normal preprocessed output.
+@anchor{-MF}
+When used with @option{-M} or @option{-MM}, specifies a
+file to write the dependencies to.  If no @option{-MF} switch is given
+the preprocessor sends the rules to the same place it would have sent
+preprocessed output.
+
+When used with the driver options @option{-MD} or @option{-MMD},
+@option{-MF} overrides the default dependency output file.
 
 @item -MG
 When used with @option{-M} or @option{-MM}, @option{-MG} says to treat missing
@@ -4019,14 +4109,24 @@ $$(objpfx)foo.o: foo.c
 The default target is automatically quoted, as if it were given with
 @option{-MQ}.
 
-@item -MD @var{file}
-@itemx -MMD @var{file}
-@option{-MD @var{file}} is equivalent to @option{-M -MF @var{file}}, and
-@option{-MMD @var{file}} is equivalent to @option{-MM -MF @var{file}}.
+@item -MD
+@option{-MD} is equivalent to @option{-M -MF @var{file}}, except that
+@option{-E} is not implied.  The driver determines @var{file} based on
+whether an @option{-o} option is given.  If it is, the driver uses its
+argument but with a suffix of @file{.d}, otherwise it take the
+basename of the input file and applies a @file{.d} suffix.
 
-Due to limitations in the compiler driver, you must use these switches
-when you want to generate a dependency file as a side-effect of normal
-compilation.
+If @option{-MD} is used in conjunction with @option{-E}, any
+@option{-o} switch is understood to specify the dependency output file
+(but @pxref{-MF}), but if used without @option{-E}, each @option{-o}
+is understood to specify a target object file.
+
+Since @option{-E} is not implied, @option{-MD} can be used to generate
+a dependency output file as a side-effect of the compilation process.
+
+@item -MMD
+Like @option{-MD} except mention only user header files, not system
+-header files.
 
 @item -x c
 @itemx -x c++
@@ -4251,8 +4351,8 @@ Define the macros @sc{__gnuc__}, @sc{__gnuc_minor__} and
 @option{-no-gcc}.
 
 @item -traditional
-Try to imitate the behavior of old-fashioned C, as opposed to ISO
-C@.  @xref{Traditional Mode}.
+Try to imitate the behavior of the old-fashioned C preprocessor, as
+opposed to the behavior specified by ISO C@.  @xref{Traditional Mode}.
 
 @item -trigraphs
 Process trigraph sequences.  @xref{Initial processing}.

@@ -40,6 +40,7 @@ extern int cc_reg_operand PARAMS ((rtx, enum machine_mode));
 extern int cc_reg_not_cr0_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_short_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_neg_short_operand PARAMS ((rtx, enum machine_mode));
+extern int reg_or_aligned_short_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_u_short_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_cint_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_arith_cint_operand PARAMS ((rtx, enum machine_mode));
@@ -51,6 +52,7 @@ extern int got_no_const_operand PARAMS ((rtx, enum machine_mode));
 extern int num_insns_constant PARAMS ((rtx, enum machine_mode));
 extern int easy_fp_constant PARAMS ((rtx, enum machine_mode));
 extern int zero_fp_constant PARAMS ((rtx, enum machine_mode));
+extern int zero_constant PARAMS ((rtx, enum machine_mode));
 extern int volatile_mem_operand PARAMS ((rtx, enum machine_mode));
 extern int offsettable_mem_operand PARAMS ((rtx, enum machine_mode));
 extern int mem_or_easy_const_operand PARAMS ((rtx, enum machine_mode));
@@ -142,7 +144,7 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    int *, int));
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern void output_mi_thunk PARAMS ((FILE *, tree, int, tree));
-extern void rs6000_encode_section_info PARAMS ((tree));
+extern void rs6000_encode_section_info PARAMS ((tree, int));
 extern void rs6000_select_section PARAMS ((tree, int));
 extern void rs6000_unique_section PARAMS ((tree, int));
 #ifdef ARGS_SIZE_RTX

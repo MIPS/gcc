@@ -30,8 +30,9 @@ Boston, MA 02111-1307, USA.  */
 /* Names to predefine in the preprocessor for this target machine.  */
 #define CPP_PREDEFINES "-Di960 -Di80960 -DI960 -DI80960 -Acpu=i960 -Amachine=i960"
 
-/* Name to predefine in the preprocessor for processor variations.  */
-#define	CPP_SPEC "%{mic*:-D__i960\
+/* Name to predefine in the preprocessor for processor variations.
+   -mic* options make characters signed by default.  */
+#define	CPP_SPEC "%{mic*:-D__i960 -fsigned-char\
 			%{mka:-D__i960KA}%{mkb:-D__i960KB}\
 			%{mja:-D__i960JA}%{mjd:-D__i960JD}%{mjf:-D__i960JF}\
 			%{mrp:-D__i960RP}\
@@ -52,20 +53,13 @@ Boston, MA 02111-1307, USA.  */
 		%{!mcc:%{!mcf:-D__i960_KB -D__i960KB__ %{mic*:-D__i960KB}}}}}}}}}\
 	%{mlong-double-64:-D__LONG_DOUBLE_64__}"
 
-/* -mic* options make characters signed by default.  */
-/* Use #if rather than ?: because MIPS C compiler rejects ?: in
-   initializers.  */
-#if DEFAULT_SIGNED_CHAR
-#define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
-#else
-#define SIGNED_CHAR_SPEC "%{!fsigned-char:%{!mic*:-D__CHAR_UNSIGNED__}}"
-#endif
-
 /* Specs for the compiler, to handle processor variations. 
    If the user gives an explicit -gstabs or -gcoff option, then do not
-   try to add an implicit one, as this will fail.  */
+   try to add an implicit one, as this will fail. 
+   -mic* options make characters signed by default.  */
 #define CC1_SPEC \
-	"%{!mka:%{!mkb:%{!msa:%{!msb:%{!mmc:%{!mca:%{!mcc:%{!mcf:%{!mja:%{!mjd:%{!mjf:%{!mrp:-mka}}}}}}}}}}}}\
+	"%{mic*:-fsigned-char}\
+%{!mka:%{!mkb:%{!msa:%{!msb:%{!mmc:%{!mca:%{!mcc:%{!mcf:%{!mja:%{!mjd:%{!mjf:%{!mrp:-mka}}}}}}}}}}}}\
 	 %{!gs*:%{!gc*:%{mbout:%{g*:-gstabs}}\
 		       %{mcoff:%{g*:-gcoff}}\
 		       %{!mbout:%{!mcoff:%{g*:-gstabs}}}}}"
@@ -386,10 +380,6 @@ extern int target_flags;
 
 /* Target machine storage layout.  */
 
-/* Define for cross-compilation from a host with a different float format
-   or endianness, as well as to support 80 bit long doubles on the i960.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 0
@@ -403,17 +393,8 @@ extern int target_flags;
    numbered.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
 /* Bitfields cannot cross word boundaries.  */
 #define BITFIELD_NBYTES_LIMITED 1
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4

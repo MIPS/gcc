@@ -28,6 +28,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_CP_TREE_H
 #define GCC_CP_TREE_H
 
+#ifndef __GNUC__
+#error "You should be using 'make bootstrap' -- see installation instructions"
+#endif
+
 #include "c-common.h"
 
 /* Usage of TREE_LANG_FLAG_?:
@@ -821,6 +825,7 @@ struct cp_language_function
 
   int returns_value;
   int returns_null;
+  int returns_abnormally;
   int in_function_try_handler;
   int x_expanding_p;
 
@@ -883,6 +888,12 @@ struct cp_language_function
 
 #define current_function_returns_null cp_function_chain->returns_null
 
+/* Set to 0 at beginning of a function definition, set to 1 if
+   a call to a noreturn function is seen.  */
+
+#define current_function_returns_abnormally \
+  cp_function_chain->returns_abnormally
+
 /* Non-zero if we should generate RTL for functions that we process.
    When this is zero, we just accumulate tree structure, without
    interacting with the back end.  */
@@ -924,10 +935,6 @@ extern int flag_no_gnu_keywords;
 /* Nonzero means recognize the named operators from C++98.  */
 
 extern int flag_operator_names;
-
-/* For cross referencing.  */
-
-extern int flag_gnu_xref;
 
 /* For environments where you can use GNU binutils (as, ld in particular).  */
 
@@ -1583,7 +1590,7 @@ struct lang_type
 #define SET_BINFO_MARKED(NODE)			\
   (TREE_VIA_VIRTUAL(NODE)			\
    ? SET_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 1))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 1))
 #define CLEAR_BINFO_MARKED(NODE)		\
   (TREE_VIA_VIRTUAL (NODE)			\
    ? CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
@@ -3060,13 +3067,19 @@ typedef enum linkage_kind {
   lk_external              /* External linkage.  */
 } linkage_kind;
 
-/* Bitmask flags to pass to instantiate_type.  */
-typedef enum instantiate_type_flags {
-  itf_none = 0,               /* nothing special */
-  itf_complain = 1 << 0,      /* complain about errors */
-  itf_no_attributes = 1 << 1, /* ignore attributes on comparisons */
-  itf_ptrmem_ok = 1 << 2,     /* pointers to member ok (internal use) */
-} instantiate_type_flags;
+/* Bitmask flags to control type substitution.  */
+typedef enum tsubst_flags_t {
+  tf_none = 0,               /* nothing special */
+  tf_error = 1 << 0,         /* give error messages  */
+  tf_warning = 1 << 1,       /* give warnings too  */
+  tf_no_attributes = 1 << 2, /* ignore attributes on comparisons
+				(instantiate_type use) */
+  tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
+				   (make_typename_type use) */
+  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
+				instantiate_type use) */
+} tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy. */
 typedef enum base_access {
@@ -3595,7 +3608,7 @@ extern void pop_nested_class			PARAMS ((void));
 extern int current_lang_depth			PARAMS ((void));
 extern void push_lang_context			PARAMS ((tree));
 extern void pop_lang_context			PARAMS ((void));
-extern tree instantiate_type			PARAMS ((tree, tree, enum instantiate_type_flags));
+extern tree instantiate_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern void print_class_statistics              PARAMS ((void));
 extern void cxx_print_statistics		PARAMS ((void));
 extern void cxx_print_xnode			PARAMS ((FILE *, tree, int));
@@ -3687,7 +3700,7 @@ extern tree namespace_binding                   PARAMS ((tree, tree));
 extern void set_namespace_binding               PARAMS ((tree, tree, tree));
 extern tree lookup_namespace_name		PARAMS ((tree, tree));
 extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
-extern tree make_typename_type			PARAMS ((tree, tree, int));
+extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
@@ -3891,6 +3904,7 @@ extern void init_init_processing		PARAMS ((void));
 extern void emit_base_init			PARAMS ((tree, tree));
 extern tree expand_member_init			PARAMS ((tree, tree, tree));
 extern tree build_aggr_init			PARAMS ((tree, tree, int));
+extern tree build_init				PARAMS ((tree, tree, int));
 extern int is_aggr_type				PARAMS ((tree, int));
 extern tree get_aggr_from_typedef		PARAMS ((tree, int));
 extern tree get_type_value			PARAMS ((tree));
@@ -3913,6 +3927,7 @@ extern tree build_java_class_ref                PARAMS ((tree));
 /* in input.c */
 
 /* in lex.c */
+extern void cxx_dup_lang_specific_decl		PARAMS ((tree));
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 extern tree make_reference_declarator		PARAMS ((tree, tree));
 extern tree make_call_declarator		PARAMS ((tree, tree, tree, tree));
@@ -3969,9 +3984,9 @@ extern int maybe_clone_body                     PARAMS ((tree));
 extern void init_pt                             PARAMS ((void));
 extern void check_template_shadow		PARAMS ((tree));
 extern tree get_innermost_template_args         PARAMS ((tree, int));
-extern tree tsubst				PARAMS ((tree, tree, int, tree));
-extern tree tsubst_expr				PARAMS ((tree, tree, int, tree));
-extern tree tsubst_copy				PARAMS ((tree, tree, int, tree));
+extern tree tsubst				PARAMS ((tree, tree, tsubst_flags_t, tree));
+extern tree tsubst_expr				PARAMS ((tree, tree, tsubst_flags_t, tree));
+extern tree tsubst_copy				PARAMS ((tree, tree, tsubst_flags_t, tree));
 extern void maybe_begin_member_template_processing PARAMS ((tree));
 extern void maybe_end_member_template_processing PARAMS ((void));
 extern tree finish_member_template_decl         PARAMS ((tree));
@@ -3989,7 +4004,7 @@ extern tree current_template_args		PARAMS ((void));
 extern tree push_template_decl			PARAMS ((tree));
 extern tree push_template_decl_real             PARAMS ((tree, int));
 extern void redeclare_class_template            PARAMS ((tree, tree));
-extern tree lookup_template_class		PARAMS ((tree, tree, tree, tree, int, int));
+extern tree lookup_template_class		PARAMS ((tree, tree, tree, tree, int, tsubst_flags_t));
 extern tree lookup_template_function            PARAMS ((tree, tree));
 extern int uses_template_parms			PARAMS ((tree));
 extern tree instantiate_class_template		PARAMS ((tree));
@@ -4000,7 +4015,7 @@ extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, int, int));
 extern void mark_class_instantiated		PARAMS ((tree, int));
 extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
-extern void do_type_instantiation		PARAMS ((tree, tree, int));
+extern void do_type_instantiation		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
 extern int push_tinst_level			PARAMS ((tree));
@@ -4259,9 +4274,9 @@ extern tree maybe_dummy_object			PARAMS ((tree, tree *));
 extern int is_dummy_object			PARAMS ((tree));
 extern const struct attribute_spec cp_attribute_table[];
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
-extern tree cp_build_qualified_type_real        PARAMS ((tree, int, int));
+extern tree cp_build_qualified_type_real        PARAMS ((tree, int, tsubst_flags_t));
 #define cp_build_qualified_type(TYPE, QUALS) \
-  cp_build_qualified_type_real ((TYPE), (QUALS), /*complain=*/1)
+  cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
 extern tree build_shared_int_cst                PARAMS ((int));
 extern special_function_kind special_function_p PARAMS ((tree));
 extern int count_trees                          PARAMS ((tree));
@@ -4362,20 +4377,6 @@ extern tree build_functional_cast		PARAMS ((tree, tree));
 extern void check_for_new_type			PARAMS ((const char *, flagged_type_tree));
 extern tree add_exception_specifier             PARAMS ((tree, tree, int));
 extern tree merge_exception_specifiers          PARAMS ((tree, tree));
-
-/* in xref.c */
-extern void GNU_xref_begin			PARAMS ((const char *));
-extern void GNU_xref_end			PARAMS ((int));
-extern void GNU_xref_file			PARAMS ((const char *));
-extern void GNU_xref_start_scope		PARAMS ((HOST_WIDE_INT));
-extern void GNU_xref_end_scope			PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT, int, int));
-extern void GNU_xref_ref			PARAMS ((tree, const char *));
-extern void GNU_xref_decl			PARAMS ((tree, tree));
-extern void GNU_xref_call			PARAMS ((tree, const char *));
-extern void GNU_xref_function			PARAMS ((tree, tree));
-extern void GNU_xref_assign			PARAMS ((tree));
-extern void GNU_xref_hier			PARAMS ((tree, tree, int, int, int));
-extern void GNU_xref_member			PARAMS ((tree, tree));
 
 /* in mangle.c */
 extern void init_mangle                         PARAMS ((void));

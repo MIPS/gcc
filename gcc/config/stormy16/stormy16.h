@@ -89,10 +89,6 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 0
 
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 16
-
 #define UNITS_PER_WORD 2
 
 #define POINTER_SIZE 16
@@ -145,8 +141,6 @@ do {									\
 #define LONG_TYPE_SIZE 32
 
 #define LONG_LONG_TYPE_SIZE 64
-
-#define CHAR_TYPE_SIZE 8
 
 #define FLOAT_TYPE_SIZE 32
 
@@ -1415,10 +1409,6 @@ typedef int CUMULATIVE_ARGS;
    function call.  */
 #define RETURN_VALUE_REGNUM	FIRST_ARGUMENT_REGISTER
      
-/* Define this macro if `-traditional' should not cause functions declared to
-   return `float' to convert the value to `double'.  */
-/* #define TRADITIONAL_RETURN_FLOAT */
-
 /* A C expression to create an RTX representing the place where a function
    returns a value of data type VALTYPE.  VALTYPE is a tree node representing a
    data type.  Write `TYPE_MODE (VALTYPE)' to get the machine mode used to
@@ -2599,7 +2589,8 @@ do {							\
    The usual thing for this macro to do is to record a flag in the `symbol_ref'
    (such as `SYMBOL_REF_FLAG') or to store a modified name string in the
    `symbol_ref' (if one bit is not enough information).  */
-#define ENCODE_SECTION_INFO(DECL)  xstormy16_encode_section_info(DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+  xstormy16_encode_section_info(DECL, FIRST)
 
 /* Decode SYM_NAME and store the real name part in VAR, sans the characters
    that encode section info.  Define this macro if `ENCODE_SECTION_INFO' alters
@@ -2816,30 +2807,6 @@ do {							\
    If you do not define this macro, the default is that only the character `;'
    is treated as a logical line separator.  */
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '|')
-
-/* These macros are provided by `real.h' for writing the definitions of
-   `ASM_OUTPUT_DOUBLE' and the like: */
-
-/* These translate X, of type `REAL_VALUE_TYPE', to the target's floating point
-   representation, and store its bit pattern in the array of `long int' whose
-   address is L.  The number of elements in the output array is determined by
-   the size of the desired target floating point data type: 32 bits of it go in
-   each `long int' array element.  Each array element holds 32 bits of the
-   result, even if `long int' is wider than 32 bits on the host machine.
-
-   The array element values are designed so that you can print them out using
-   `fprintf' in the order they should appear in the target machine's memory.  */
-/* #define REAL_VALUE_TO_TARGET_SINGLE(X, L) */
-/* #define REAL_VALUE_TO_TARGET_DOUBLE(X, L) */
-/* #define REAL_VALUE_TO_TARGET_LONG_DOUBLE(X, L) */
-
-/* This macro converts X, of type `REAL_VALUE_TYPE', to a decimal number and
-   stores it as a string into STRING.  You must pass, as STRING, the address of
-   a long enough block of space to hold the result.
-
-   The argument FORMAT is a `printf'-specification that serves as a suggestion
-   for how to format the output string.  */
-/* #define REAL_VALUE_TO_DECIMAL(X, FORMAT, STRING) */
 
 
 /* Output of Uninitialized Variables.  */
@@ -3868,10 +3835,6 @@ do {									\
 
 /* Miscellaneous Parameters.  */
 
-/* Define REAL_ARITHMETIC to use a software emulator for the target floating
-   point mode.  Otherwise the host floating point mode is used.  */
-#define REAL_ARITHMETIC
-
 /* Define this if you have defined special-purpose predicates in the file
    `MACHINE.c'.  This macro is called within an initializer of an array of
    structures.  The first field in the structure is the name of a predicate and
@@ -3894,8 +3857,8 @@ do {									\
   {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT }},	\
   {"equality_operator", {EQ, NE }},			\
   {"inequality_operator", {GE, GT, LE, LT, GEU, GTU, LEU, LTU }}, \
-  {"xstormy16_ineqsi_operator", {LT, GE, LTU, GEU }},
-
+  {"xstormy16_ineqsi_operator", {LT, GE, LTU, GEU }}, \
+  {"nonimmediate_nonstack_operand", {REG, MEM}},
 /* An alias for a machine mode name.  This is the machine mode that elements of
    a jump-table should have.  */
 #define CASE_VECTOR_MODE SImode
@@ -4138,13 +4101,6 @@ do {									\
    #pragma pack(push,<n>) and #pragma pack(pop).  */
 /* HANDLE_PRAGMA_PACK_PUSH_POP 1 */
    
-/* Define this macro to control use of the character `$' in identifier names.
-   The value should be 0, 1, or 2.  0 means `$' is not allowed by default; 1
-   means it is allowed by default if `-traditional' is used; 2 means it is
-   allowed by default provided `-ansi' is not used.  1 is the default; there is
-   no need to define this macro in that case.  */
-/* #define DOLLARS_IN_IDENTIFIERS */
-
 /* Define this macro if the assembler does not accept the character `$' in
    label names.  By default constructors and destructors in G++ have `$' in the
    identifiers.  If this macro is defined, `.' is used instead.

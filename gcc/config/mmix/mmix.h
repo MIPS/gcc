@@ -157,6 +157,16 @@ extern int target_flags;
 #define TARGET_MASK_TOPLEVEL_SYMBOLS 32
 #define TARGET_MASK_BRANCH_PREDICT 64
 
+/* We use the term "base address" since that's what Knuth uses.  The base
+   address goes in a global register.  When addressing, it's more like
+   "base address plus offset", with the offset being 0..255 from the base,
+   which itself can be a symbol plus an offset.  The effect is like having
+   a constant pool in global registers, code offseting from those
+   registers (automatically causing a request for a suitable constant base
+   address register) without having to know the specific register or the
+   specific offset.  */
+#define TARGET_MASK_BASE_ADDRESSES 128
+
 /* FIXME: Get rid of this one.  */
 #define TARGET_LIBFUNC (target_flags & TARGET_MASK_LIBFUNCS)
 #define TARGET_ABI_GNU (target_flags & TARGET_MASK_ABI_GNU)
@@ -165,9 +175,10 @@ extern int target_flags;
 #define TARGET_KNUTH_DIVISION (target_flags & TARGET_MASK_KNUTH_DIVISION)
 #define TARGET_TOPLEVEL_SYMBOLS (target_flags & TARGET_MASK_TOPLEVEL_SYMBOLS)
 #define TARGET_BRANCH_PREDICT (target_flags & TARGET_MASK_BRANCH_PREDICT)
+#define TARGET_BASE_ADDRESSES (target_flags & TARGET_MASK_BASE_ADDRESSES)
 
 #define TARGET_DEFAULT \
- (TARGET_MASK_BRANCH_PREDICT)
+ (TARGET_MASK_BRANCH_PREDICT | TARGET_MASK_BASE_ADDRESSES)
 
 /* FIXME: Provide a way to *load* the epsilon register.  */
 #define TARGET_SWITCHES							\
@@ -198,6 +209,10 @@ extern int target_flags;
    N_("Use P-mnemonics for branches statically predicted as taken")},	\
   {"no-branch-predict",	-TARGET_MASK_BRANCH_PREDICT,			\
    N_("Don't use P-mnemonics for branches")},				\
+  {"base-addresses",	TARGET_MASK_BASE_ADDRESSES,			\
+   N_("Use addresses that allocate global registers")},			\
+  {"no-base-addresses",	-TARGET_MASK_BASE_ADDRESSES,			\
+   N_("Do not use addresses that allocate global registers")},		\
   {"",			TARGET_DEFAULT, ""}}
 
 /* Unfortunately, this must not reference anything in "mmix.c".  */
@@ -236,8 +251,6 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
 #define FLOAT_WORDS_BIG_ENDIAN 1
-#define BITS_PER_UNIT 8
-#define BITS_PER_WORD 64
 #define UNITS_PER_WORD 8
 #define POINTER_SIZE 64
 
@@ -366,8 +379,8 @@ extern int target_flags;
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-   1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, \
+   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
+   1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, \
    1, 1, 0, 0, 0, 1 \
  }
 
@@ -419,8 +432,6 @@ extern int target_flags;
    24, 25, 26, 27, 28, 29, 30, 31,    		\
 						\
    252, 251, 250, 249, 248, 247, 		\
-   246, 245, 244, 243, 242, 241, 240, 239,	\
-   238, 237, 236, 235, 234, 233, 232, 231,	\
 						\
    253,						\
 						\
@@ -451,6 +462,9 @@ extern int target_flags;
    208, 209, 210, 211, 212, 213, 214, 215,	\
    216, 217, 218, 219, 220, 221, 222, 223,	\
    224, 225, 226, 227, 228, 229, 230, 231,	\
+   232, 233, 234, 235, 236, 237, 238, 239,	\
+   240, 241, 242, 243, 244, 245, 246,		\
+						\
    254, 255, 256, 257, 261 			\
  }
 
@@ -469,7 +483,7 @@ extern int target_flags;
 #define MMIX_GNU_ABI_REG_ALLOC_ORDER		\
 {  252, 251, 250, 249, 248, 247, 246,		\
    245, 244, 243, 242, 241, 240, 239, 238,	\
-   237, 236, 235, 234, 233, 232,		\
+   237, 236, 235, 234, 233, 232, 231,		\
 						\
    0, 1, 2, 3, 4, 5, 6, 7,			\
    8, 9, 10, 11, 12, 13, 14, 15,		\
@@ -504,7 +518,8 @@ extern int target_flags;
    200, 201, 202, 203, 204, 205, 206, 207,	\
    208, 209, 210, 211, 212, 213, 214, 215,	\
    216, 217, 218, 219, 220, 221, 222, 223,	\
-   224, 225, 226, 227, 228, 229, 230, 231,	\
+   224, 225, 226, 227, 228, 229, 230,		\
+						\
    254, 255, 256, 257, 261 			\
  }
 
@@ -1138,17 +1153,6 @@ const_section ()						\
 /* Node: SDB and DWARF */
 #define DWARF2_DEBUGGING_INFO
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-/* Node: Cross-compilation */
-
-/* FIXME: I don't know whether it is best to tweak emit-rtl.c to handle
-   the case where sizeof (float) == word_size / 2 on the target, or to fix
-   real.h to define REAL_ARITHMETIC in that case.  Anyway, it should be
-   documented that a target can define this to force emulation.  Note that
-   we don't check #ifdef CROSS_COMPILE here; not even if mmix gets
-   self-hosted must we do that.  Case gcc.c-torture/compile/930611-1.c.  */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 

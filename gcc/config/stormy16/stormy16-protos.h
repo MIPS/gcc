@@ -38,7 +38,7 @@ extern CUMULATIVE_ARGS xstormy16_function_arg_advance
 extern void    xstormy16_setup_incoming_varargs 
   PARAMS ((CUMULATIVE_ARGS, int, tree, int *));
 extern tree    xstormy16_build_va_list PARAMS ((void));
-extern void    xstormy16_encode_section_info PARAMS ((tree));
+extern void    xstormy16_encode_section_info PARAMS ((tree, int));
 #endif
 
 #if defined (TREE_CODE) && defined (RTX_CODE)
@@ -73,6 +73,7 @@ extern int inequality_operator PARAMS ((rtx, enum machine_mode));
 extern void xstormy16_split_cbranch PARAMS ((enum machine_mode, 
 					   rtx, rtx, rtx, rtx));
 extern int  short_memory_operand PARAMS ((rtx, enum machine_mode));
+extern int  nonimmediate_nonstack_operand PARAMS ((rtx, enum machine_mode));
 extern enum reg_class xstormy16_secondary_reload_class 
   PARAMS ((enum reg_class, enum machine_mode, rtx));
 extern int  xstormy16_carry_plus_operand PARAMS ((rtx, enum machine_mode));

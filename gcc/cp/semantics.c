@@ -500,7 +500,7 @@ tree
 begin_switch_stmt ()
 {
   tree r;
-  r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE);
+  r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   add_stmt (r);
   do_pushlevel ();
   return r;
@@ -513,9 +513,9 @@ finish_switch_cond (cond, switch_stmt)
      tree cond;
      tree switch_stmt;
 {
+  tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree type;
       tree index;
 
       /* Convert the condition to an integer or enumeration type.  */
@@ -525,23 +525,27 @@ finish_switch_cond (cond, switch_stmt)
 	  error ("switch quantity not an integer");
 	  cond = error_mark_node;
 	}
+      orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
 	  cond = default_conversion (cond);
 	  cond = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (cond), cond));
 	}
 
-      type = TREE_TYPE (cond);
-      index = get_unwidened (cond, NULL_TREE);
-      /* We can't strip a conversion from a signed type to an unsigned,
-	 because if we did, int_fits_type_p would do the wrong thing
-	 when checking case values for being in range,
-	 and it's too hard to do the right thing.  */
-      if (TREE_UNSIGNED (TREE_TYPE (cond))
-	  == TREE_UNSIGNED (TREE_TYPE (index)))
-	cond = index;
+      if (cond != error_mark_node)
+	{
+	  index = get_unwidened (cond, NULL_TREE);
+	  /* We can't strip a conversion from a signed type to an unsigned,
+	     because if we did, int_fits_type_p would do the wrong thing
+	     when checking case values for being in range,
+	     and it's too hard to do the right thing.  */
+	  if (TREE_UNSIGNED (TREE_TYPE (cond))
+	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	    cond = index;
+	}
     }
   FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
+  SWITCH_TYPE (switch_stmt) = orig_type;
   push_switch (switch_stmt);
 }
 
@@ -1891,8 +1895,8 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 
   /* If we got any attributes in class_head, xref_tag will stick them in
      TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TREE_TYPE (t), attributes);
-  TREE_TYPE (t) = NULL_TREE;
+  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
+  TYPE_ATTRIBUTES (t) = NULL_TREE;
 
   if (TREE_CODE (t) == ENUMERAL_TYPE)
     ;
@@ -2397,9 +2401,6 @@ expand_body (fn)
   if (DECL_EXTERNAL (fn))
     return;
 
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
-
   timevar_push (TV_INTEGRATION);
 
   /* Optimize the body of the function before expanding it.  */
@@ -2452,6 +2453,9 @@ expand_body (fn)
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
+
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
 }
 
 /* Helper function for walk_tree, used by finish_function to override all
@@ -2525,10 +2529,6 @@ genrtl_start_function (fn)
       free (DECL_SAVED_FUNCTION_DATA (fn));
       DECL_SAVED_FUNCTION_DATA (fn) = NULL;
     }
-
-  /* Tell the cross-reference machinery that we're defining this
-     function.  */
-  GNU_xref_function (fn, DECL_ARGUMENTS (fn));
 
   /* Keep track of how many functions we're presently expanding.  */
   ++function_depth;

@@ -214,7 +214,7 @@ void test01()
   VERIFY( err == goodbit );
 
   // const void
-  iss.str(L"0xbffff74c.");
+  iss.str(L"0xbffff74c,");
   iss.clear();
   err = goodbit;
   ng.get(iss.rdbuf(), 0, iss, err, v);
@@ -329,9 +329,67 @@ void test03()
     {
       test01();
       test02();
-      setenv("LANG", oldLANG, 1);
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
     }
 #endif
+}
+
+// Testing the correct parsing of grouped hexadecimals and octals.
+void test04()
+{
+  using namespace std;
+
+  bool test = true;
+ 
+  unsigned long ul;
+
+  wistringstream iss;
+
+  // A locale that expects grouping
+  locale loc_de("de_DE");
+  iss.imbue(loc_de);
+
+  const num_get<wchar_t>& ng = use_facet<num_get<wchar_t> >(iss.getloc()); 
+  const ios_base::iostate goodbit = ios_base::goodbit;
+  ios_base::iostate err = ios_base::goodbit;
+
+  iss.setf(ios::hex, ios::basefield);
+  iss.str(L"0xbf.fff.74c ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 0xbffff74c );
+
+  iss.str(L"0Xf.fff ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 0xffff );
+
+  iss.str(L"ffe ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 0xffe );
+
+  iss.setf(ios::oct, ios::basefield);
+  iss.str(L"07.654.321 ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 07654321 );
+
+  iss.str(L"07.777 ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 07777 );
+
+  iss.str(L"776 ");
+  err = goodbit;
+  ng.get(iss.rdbuf(), 0, iss, err, ul);
+  VERIFY( err == goodbit );
+  VERIFY( ul == 0776 );
 }
 #endif
 
@@ -341,6 +399,7 @@ int main()
   test01();
   test02();
   test03();
+  test04();
 #endif
   return 0;
 }

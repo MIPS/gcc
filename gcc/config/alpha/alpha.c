@@ -46,9 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
-
-/* External data.  */
-extern int rtx_equal_function_value_matters;
+#include "debug.h"
 
 /* Specify which cpu to schedule for.  */
 
@@ -116,9 +114,9 @@ int alpha_this_gpdisp_sequence_number;
 /* Declarations of static functions.  */
 static bool decl_in_text_section
   PARAMS ((tree));
-static int some_small_symbolic_mem_operand_1
+static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
-static int split_small_symbolic_mem_operand_1
+static int split_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static bool local_symbol_p
   PARAMS ((rtx));
@@ -1556,8 +1554,9 @@ decl_in_text_section (decl)
    then add "@s" instead.  */
 
 void
-alpha_encode_section_info (decl)
+alpha_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
   bool is_local, is_small;
@@ -1568,6 +1567,7 @@ alpha_encode_section_info (decl)
 	 don't know that they exist in this unit of translation.  */
       if (TREE_PUBLIC (decl))
 	return;
+
       /* Do not mark functions that are not in .text; otherwise we
 	 don't know that they are near enough for a direct branch.  */
       if (! decl_in_text_section (decl))
@@ -1591,11 +1591,16 @@ alpha_encode_section_info (decl)
 
   /* A variable is considered "local" if it is defined in this module.  */
 
-  if (DECL_EXTERNAL (decl))
+  /* Local binding occurs for any non-default visibility.  */
+  if (MODULE_LOCAL_P (decl))
+    is_local = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (decl))
     is_local = false;
   /* Linkonce and weak data is never local.  */
   else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
     is_local = false;
+  /* Static variables are always local.  */
   else if (! TREE_PUBLIC (decl))
     is_local = true;
   /* If PIC, then assume that any global name can be overridden by
@@ -1874,61 +1879,55 @@ alpha_legitimize_address (x, scratch, mode)
    so that sched2 has the proper dependency information.  */
 
 int
-some_small_symbolic_mem_operand (x, mode)
+some_small_symbolic_operand (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return for_each_rtx (&x, some_small_symbolic_mem_operand_1, NULL);
+  return for_each_rtx (&x, some_small_symbolic_operand_1, NULL);
 }
 
 static int
-some_small_symbolic_mem_operand_1 (px, data)
+some_small_symbolic_operand_1 (px, data)
      rtx *px;
      void *data ATTRIBUTE_UNUSED;
 {
   rtx x = *px;
 
-  if (GET_CODE (x) != MEM)
-    return 0;
-  x = XEXP (x, 0);
+  /* Don't re-split.  */
+  if (GET_CODE (x) == LO_SUM)
+    return -1;
 
-  /* If this is an ldq_u type address, discard the outer AND.  */
-  if (GET_CODE (x) == AND)
-    x = XEXP (x, 0);
-
-  return small_symbolic_operand (x, Pmode) ? 1 : -1;
+  return small_symbolic_operand (x, Pmode) != 0;
 }
 
 rtx
-split_small_symbolic_mem_operand (x)
+split_small_symbolic_operand (x)
      rtx x;
 {
   x = copy_insn (x);
-  for_each_rtx (&x, split_small_symbolic_mem_operand_1, NULL);
+  for_each_rtx (&x, split_small_symbolic_operand_1, NULL);
   return x;
 }
 
 static int
-split_small_symbolic_mem_operand_1 (px, data)
+split_small_symbolic_operand_1 (px, data)
      rtx *px;
      void *data ATTRIBUTE_UNUSED;
 {
   rtx x = *px;
 
-  if (GET_CODE (x) != MEM)
-    return 0;
-
-  px = &XEXP (x, 0), x = *px;
-  if (GET_CODE (x) == AND)
-    px = &XEXP (x, 0), x = *px;
+  /* Don't re-split.  */
+  if (GET_CODE (x) == LO_SUM)
+    return -1;
 
   if (small_symbolic_operand (x, Pmode))
     {
       x = gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, x);
       *px = x;
+      return -1;
     }
 
-  return -1;
+  return 0;
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -2236,15 +2235,29 @@ alpha_emit_set_const (target, mode, c, n)
      HOST_WIDE_INT c;
      int n;
 {
-  rtx pat;
+  rtx result = 0;
+  rtx orig_target = target;
   int i;
 
-  /* Try 1 insn, then 2, then up to N.  */
-  for (i = 1; i <= n; i++)
-    if ((pat = alpha_emit_set_const_1 (target, mode, c, i)) != 0)
-      return pat;
+  /* If we can't make any pseudos, TARGET is an SImode hard register, we
+     can't load this constant in one insn, do this in DImode.  */
+  if (no_new_pseudos && mode == SImode
+      && GET_CODE (target) == REG && REGNO (target) < FIRST_PSEUDO_REGISTER
+      && (result = alpha_emit_set_const_1 (target, mode, c, 1)) == 0)
+    {
+      target = gen_lowpart (DImode, target);
+      mode = DImode;
+    }
 
-  return 0;
+  /* Try 1 insn, then 2, then up to N.  */
+  for (i = 1; i <= n && result == 0; i++)
+    result = alpha_emit_set_const_1 (target, mode, c, i);
+
+  /* Allow for the case where we changed the mode of TARGET.  */
+  if (result == target)
+    result = orig_target;
+
+  return result;
 }
 
 /* Internal routine for the above to check for N or below insns.  */
@@ -2260,8 +2273,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
   int i, bits;
   /* Use a pseudo if highly optimizing and still generating RTL.  */
   rtx subtarget
-    = (flag_expensive_optimizations && rtx_equal_function_value_matters
-       ? 0 : target);
+    = (flag_expensive_optimizations && !no_new_pseudos ? 0 : target);
   rtx temp;
 
 #if HOST_BITS_PER_WIDE_INT == 64
@@ -2326,8 +2338,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
      we can't make pseudos, we can't do anything since the expand_binop
      and expand_unop calls will widen and try to make pseudos.  */
 
-  if (n == 1
-      || (mode == SImode && ! rtx_equal_function_value_matters))
+  if (n == 1 || (mode == SImode && no_new_pseudos))
     return 0;
 
   /* Next, see if we can load a related constant and then shift and possibly
@@ -4993,10 +5004,6 @@ alpha_ra_ever_killed ()
 {
   rtx top;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    return 0;
-#endif
   if (!has_hard_reg_initial_val (Pmode, REG_RA))
     return regs_ever_live[REG_RA];
 
@@ -5512,12 +5519,13 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
 			   OPTAB_WIDEN);
       temp = expand_shift (RSHIFT_EXPR, Pmode, temp,
 		           build_int_2 (2, 0), NULL_RTX, 1);
-      temp = expand_and (gen_lowpart (SImode, temp), GEN_INT (0x3fff), 0);
+      temp = expand_and (SImode, gen_lowpart (SImode, temp),
+			 GEN_INT (0x3fff), 0);
 
       /* Merge in the hint.  */
       addr = memory_address (SImode, plus_constant (tramp, jmpofs));
       temp1 = force_reg (SImode, gen_rtx_MEM (SImode, addr));
-      temp1 = expand_and (temp1, GEN_INT (0xffffc000), NULL_RTX);
+      temp1 = expand_and (SImode, temp1, GEN_INT (0xffffc000), NULL_RTX);
       temp1 = expand_binop (SImode, ior_optab, temp1, temp, temp1, 1,
 			    OPTAB_WIDEN);
       emit_move_insn (gen_rtx_MEM (SImode, addr), temp1);
@@ -5835,7 +5843,8 @@ alpha_va_arg (valist, type)
    descriptior to generate.  */
 
 /* Nonzero if we need a stack procedure.  */
-static int alpha_is_stack_procedure;
+enum alpha_procedure_types {PT_NULL = 0, PT_REGISTER = 1, PT_STACK = 2};
+static enum alpha_procedure_types alpha_procedure_type;
 
 /* Register number (either FP or SP) that is used to unwind the frame.  */
 static int vms_unwind_regno;
@@ -5859,46 +5868,48 @@ alpha_sa_mask (imaskP, fmaskP)
   unsigned long fmask = 0;
   unsigned int i;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (!current_function_is_thunk)
-#endif
+  /* Irritatingly, there are two kinds of thunks -- those created with
+     ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go through
+     the regular part of the compiler.  In the ASM_OUTPUT_MI_THUNK case
+     we don't have valid register life info, but assemble_start_function
+     wants to output .frame and .mask directives.  */
+  if (current_function_is_thunk && !no_new_pseudos)
     {
-      if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
-	imask |= (1L << HARD_FRAME_POINTER_REGNUM);
-
-      /* One for every register we have to save.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (! fixed_regs[i] && ! call_used_regs[i]
-	    && regs_ever_live[i] && i != REG_RA
-	    && (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
-	  {
-	    if (i < 32)
-	      imask |= (1L << i);
-	    else
-	      fmask |= (1L << (i - 32));
-	  }
-
-      /* We need to restore these for the handler.  */
-      if (current_function_calls_eh_return)
-	{
-	  for (i = 0; ; ++i)
-	    {
-	      unsigned regno = EH_RETURN_DATA_REGNO (i);
-	      if (regno == INVALID_REGNUM)
-		break;
-	      imask |= 1L << regno;
-	    }
-	}
-     
-      if (!TARGET_ABI_UNICOSMK)
-	{
-	  /* If any register spilled, then spill the return address also.  */
-	  /* ??? This is required by the Digital stack unwind specification
-	     and isn't needed if we're doing Dwarf2 unwinding.  */
-	  if (imask || fmask || alpha_ra_ever_killed ())
-	    imask |= (1L << REG_RA);
-	}
+      *imaskP = 0;
+      *fmaskP = 0;
+      return;
     }
+
+  if (TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_STACK)
+    imask |= (1L << HARD_FRAME_POINTER_REGNUM);
+
+  /* One for every register we have to save.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (! fixed_regs[i] && ! call_used_regs[i]
+	&& regs_ever_live[i] && i != REG_RA
+	&& (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
+      {
+	if (i < 32)
+	  imask |= (1L << i);
+	else
+	  fmask |= (1L << (i - 32));
+      }
+
+  /* We need to restore these for the handler.  */
+  if (current_function_calls_eh_return)
+    for (i = 0; ; ++i)
+      {
+	unsigned regno = EH_RETURN_DATA_REGNO (i);
+	if (regno == INVALID_REGNUM)
+	  break;
+	imask |= 1L << regno;
+      }
+     
+  /* If any register spilled, then spill the return address also.  */
+  /* ??? This is required by the Digital stack unwind specification
+     and isn't needed if we're doing Dwarf2 unwinding.  */
+  if (imask || fmask || alpha_ra_ever_killed ())
+    imask |= (1L << REG_RA);
 
   *imaskP = imask;
   *fmaskP = fmask;
@@ -5907,34 +5918,23 @@ alpha_sa_mask (imaskP, fmaskP)
 int
 alpha_sa_size ()
 {
+  unsigned long mask[2];
   int sa_size = 0;
-  int i;
+  int i, j;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    sa_size = 0;
-  else
-#endif
+  alpha_sa_mask (&mask[0], &mask[1]);
+
+  if (TARGET_ABI_UNICOSMK)
     {
-      if (TARGET_ABI_UNICOSMK)
-	{
-	  for (i = 9; i < 15 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	  for (i = 32 + 2; i < 32 + 10 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	}
-      else
-	{
-	  /* One for every register we have to save.  */
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-	        && regs_ever_live[i] && i != REG_RA)
-	      sa_size++;
-	}
+      if (mask[0] || mask[1])
+	sa_size = 14;
+    }
+  else
+    {
+      for (j = 0; j < 2; ++j)
+	for (i = 0; i < 32; ++i)
+	  if ((mask[j] >> i) & 1)
+	    sa_size++;
     }
 
   if (TARGET_ABI_UNICOSMK)
@@ -5945,18 +5945,16 @@ alpha_sa_size ()
 	 use alloca and have not determined that we need a frame for other
 	 reasons.  */
 
-      alpha_is_stack_procedure = sa_size != 0
-				|| alpha_ra_ever_killed ()
-				|| get_frame_size() != 0
-				|| current_function_outgoing_args_size
-				|| current_function_varargs
-				|| current_function_stdarg
-				|| current_function_calls_alloca
-				|| frame_pointer_needed;
+      alpha_procedure_type
+	= (sa_size || get_frame_size() != 0
+	   || current_function_outgoing_args_size || current_function_varargs
+	   || current_function_stdarg || current_function_calls_alloca
+	   || frame_pointer_needed)
+	  ? PT_STACK : PT_REGISTER;
 
       /* Always reserve space for saving callee-saved registers if we
 	 need a frame as required by the calling convention.  */
-      if (alpha_is_stack_procedure)
+      if (alpha_procedure_type == PT_STACK)
         sa_size = 14;
     }
   else if (TARGET_ABI_OPEN_VMS)
@@ -5964,17 +5962,29 @@ alpha_sa_size ()
       /* Start by assuming we can use a register procedure if we don't
 	 make any calls (REG_RA not used) or need to save any
 	 registers and a stack procedure if we do.  */
-      alpha_is_stack_procedure = sa_size != 0 || alpha_ra_ever_killed ();
+      if ((mask[0] >> REG_RA) & 1)
+	alpha_procedure_type = PT_STACK;
+      else if (get_frame_size() != 0)
+	alpha_procedure_type = PT_REGISTER;
+      else
+	alpha_procedure_type = PT_NULL;
+
+      /* Don't reserve space for saving RA yet.  Do that later after we've
+	 made the final decision on stack procedure vs register procedure.  */
+      if (alpha_procedure_type == PT_STACK)
+	sa_size--;
 
       /* Decide whether to refer to objects off our PV via FP or PV.
 	 If we need FP for something else or if we receive a nonlocal
 	 goto (which expects PV to contain the value), we must use PV.
 	 Otherwise, start by assuming we can use FP.  */
-      vms_base_regno = (frame_pointer_needed
-			|| current_function_has_nonlocal_label
-			|| alpha_is_stack_procedure
-			|| current_function_outgoing_args_size
-			? REG_PV : HARD_FRAME_POINTER_REGNUM);
+
+      vms_base_regno
+	= (frame_pointer_needed
+	   || current_function_has_nonlocal_label
+	   || alpha_procedure_type == PT_STACK
+	   || current_function_outgoing_args_size)
+	  ? REG_PV : HARD_FRAME_POINTER_REGNUM;
 
       /* If we want to copy PV into FP, we need to find some register
 	 in which to save FP.  */
@@ -5985,24 +5995,21 @@ alpha_sa_size ()
 	  if (! fixed_regs[i] && call_used_regs[i] && ! regs_ever_live[i])
 	    vms_save_fp_regno = i;
 
-      if (vms_save_fp_regno == -1)
-	vms_base_regno = REG_PV, alpha_is_stack_procedure = 1;
+      if (vms_save_fp_regno == -1 && alpha_procedure_type == PT_REGISTER)
+	vms_base_regno = REG_PV, alpha_procedure_type = PT_STACK;
+      else if (alpha_procedure_type == PT_NULL)
+	vms_base_regno = REG_PV;
 
       /* Stack unwinding should be done via FP unless we use it for PV.  */
       vms_unwind_regno = (vms_base_regno == REG_PV
 			  ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
 
       /* If this is a stack procedure, allow space for saving FP and RA.  */
-      if (alpha_is_stack_procedure)
+      if (alpha_procedure_type == PT_STACK)
 	sa_size += 2;
     }
   else
     {
-      /* If some registers were saved but not RA, RA must also be saved,
-	 so leave space for it.  */
-      if (!TARGET_ABI_UNICOSMK && (sa_size != 0 || alpha_ra_ever_killed ()))
-	sa_size++;
-
       /* Our size must be even (multiple of 16 bytes).  */
       if (sa_size & 1)
 	sa_size++;
@@ -6015,7 +6022,7 @@ int
 alpha_pv_save_size ()
 {
   alpha_sa_size ();
-  return alpha_is_stack_procedure ? 8 : 0;
+  return alpha_procedure_type == PT_STACK ? 8 : 0;
 }
 
 int
@@ -6058,10 +6065,8 @@ alpha_does_function_need_gp ()
   if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
-#ifdef ASM_OUTPUT_MI_THUNK
   if (current_function_is_thunk)
     return 1;
-#endif
 
   /* If we need a GP (we have a LDSYM insn or a CALL_INSN), load it first. 
      Even if we are a static function, we still need to do this in case
@@ -6166,13 +6171,13 @@ alpha_expand_prologue ()
   frame_size = get_frame_size ();
   if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
-			      + (alpha_is_stack_procedure ? 8 : 0)
+			      + (alpha_procedure_type == PT_STACK ? 8 : 0)
 			      + frame_size
 			      + current_function_pretend_args_size);
   else if (TARGET_ABI_UNICOSMK)
     /* We have to allocate space for the DSIB if we generate a frame.  */
     frame_size = ALPHA_ROUND (sa_size
-			      + (alpha_is_stack_procedure ? 48 : 0))
+			      + (alpha_procedure_type == PT_STACK ? 48 : 0))
 		 + ALPHA_ROUND (frame_size
 				+ current_function_outgoing_args_size);
   else
@@ -6327,7 +6332,7 @@ alpha_expand_prologue ()
 	}
     
       /* Save regs in stack order.  Beginning with VMS PV.  */
-      if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
+      if (TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_STACK)
 	{
 	  mem = gen_rtx_MEM (DImode, stack_pointer_rtx);
 	  set_mem_alias_set (mem, alpha_sr_alias_set);
@@ -6363,7 +6368,7 @@ alpha_expand_prologue ()
 	    reg_offset += 8;
 	  }
     }
-  else if (TARGET_ABI_UNICOSMK && alpha_is_stack_procedure)
+  else if (TARGET_ABI_UNICOSMK && alpha_procedure_type == PT_STACK)
     {
       /* The standard frame on the T3E includes space for saving registers.
 	 We just have to use it. We don't have to save the return address and
@@ -6392,17 +6397,18 @@ alpha_expand_prologue ()
 
   if (TARGET_ABI_OPEN_VMS)
     {
-      if (!alpha_is_stack_procedure)
-	/* Register frame procedures save the fp.  */
-	/* ??? Ought to have a dwarf2 save for this.  */
+      if (alpha_procedure_type == PT_REGISTER)
+	/* Register frame procedures save the fp.
+	   ?? Ought to have a dwarf2 save for this.  */
 	emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
 			hard_frame_pointer_rtx);
 
-      if (vms_base_regno != REG_PV)
+      if (alpha_procedure_type != PT_NULL && vms_base_regno != REG_PV)
 	emit_insn (gen_force_movdi (gen_rtx_REG (DImode, vms_base_regno),
 				    gen_rtx_REG (DImode, REG_PV)));
 
-      if (vms_unwind_regno == HARD_FRAME_POINTER_REGNUM)
+      if (alpha_procedure_type != PT_NULL
+	  && vms_unwind_regno == HARD_FRAME_POINTER_REGNUM)
 	FRP (emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx));
 
       /* If we have to allocate space for outgoing args, do it now.  */
@@ -6475,12 +6481,12 @@ alpha_start_function (file, fnname, decl)
   frame_size = get_frame_size ();
   if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
-			      + (alpha_is_stack_procedure ? 8 : 0)
+			      + (alpha_procedure_type == PT_STACK ? 8 : 0)
 			      + frame_size
 			      + current_function_pretend_args_size);
   else if (TARGET_ABI_UNICOSMK)
     frame_size = ALPHA_ROUND (sa_size
-			      + (alpha_is_stack_procedure ? 48 : 0))
+			      + (alpha_procedure_type == PT_STACK ? 48 : 0))
 		 + ALPHA_ROUND (frame_size
 			      + current_function_outgoing_args_size);
   else
@@ -6527,7 +6533,9 @@ alpha_start_function (file, fnname, decl)
 
       /* If the function needs GP, we'll write the "..ng" label there.
 	 Otherwise, do it here.  */
-      if (TARGET_ABI_OSF && ! alpha_function_needs_gp)
+      if (TARGET_ABI_OSF
+          && ! alpha_function_needs_gp
+	  && ! current_function_is_thunk)
 	{
 	  putc ('$', file);
 	  assemble_name (file, fnname);
@@ -6598,7 +6606,7 @@ alpha_start_function (file, fnname, decl)
 	fprintf (file, "\t.mask 0x%lx,0\n", imask & ~(1L << REG_RA));
       if (fmask)
 	fprintf (file, "\t.fmask 0x%lx,0\n", fmask);
-      if (!alpha_is_stack_procedure)
+      if (alpha_procedure_type == PT_REGISTER)
 	fprintf (file, "\t.fp_save $%d\n", vms_save_fp_regno);
     }
   else if (!flag_inhibit_size_directive)
@@ -6642,7 +6650,9 @@ alpha_start_function (file, fnname, decl)
   ASM_OUTPUT_LABEL (file, fnname);
   fprintf (file, "\t.pdesc ");
   assemble_name (file, fnname);
-  fprintf (file, "..en,%s\n", alpha_is_stack_procedure ? "stack" : "reg");
+  fprintf (file, "..en,%s\n",
+	   alpha_procedure_type == PT_STACK ? "stack"
+	   : alpha_procedure_type == PT_REGISTER ? "reg" : "null");
   alpha_need_linkage (fnname, 1);
   text_section ();
 #endif
@@ -6661,7 +6671,8 @@ alpha_output_function_end_prologue (file)
   else if (TARGET_ABI_WINDOWS_NT)
     fputs ("\t.prologue 0\n", file);
   else if (!flag_inhibit_size_directive)
-    fprintf (file, "\t.prologue %d\n", alpha_function_needs_gp);
+    fprintf (file, "\t.prologue %d\n",
+	     alpha_function_needs_gp || current_function_is_thunk);
 }
 
 /* Write function epilogue.  */
@@ -6695,12 +6706,12 @@ alpha_expand_epilogue ()
   frame_size = get_frame_size ();
   if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
-			      + (alpha_is_stack_procedure ? 8 : 0)
+			      + (alpha_procedure_type == PT_STACK ? 8 : 0)
 			      + frame_size
 			      + current_function_pretend_args_size);
   else if (TARGET_ABI_UNICOSMK)
     frame_size = ALPHA_ROUND (sa_size
-			      + (alpha_is_stack_procedure ? 48 : 0))
+			      + (alpha_procedure_type == PT_STACK ? 48 : 0))
 		 + ALPHA_ROUND (frame_size
 			      + current_function_outgoing_args_size);
   else
@@ -6710,14 +6721,20 @@ alpha_expand_epilogue ()
 				 + current_function_pretend_args_size));
 
   if (TARGET_ABI_OPEN_VMS)
-    reg_offset = 8;
+    {
+       if (alpha_procedure_type == PT_STACK)
+          reg_offset = 8;
+       else
+          reg_offset = 0;
+    }
   else
     reg_offset = ALPHA_ROUND (current_function_outgoing_args_size);
 
   alpha_sa_mask (&imask, &fmask);
 
-  fp_is_frame_pointer = ((TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
-			 || (!TARGET_ABI_OPEN_VMS && frame_pointer_needed));
+  fp_is_frame_pointer
+    = ((TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_STACK)
+       || (!TARGET_ABI_OPEN_VMS && frame_pointer_needed));
   fp_offset = 0;
   sa_reg = stack_pointer_rtx;
 
@@ -6784,7 +6801,7 @@ alpha_expand_epilogue ()
 	    reg_offset += 8;
 	  }
     }
-  else if (TARGET_ABI_UNICOSMK && alpha_is_stack_procedure)
+  else if (TARGET_ABI_UNICOSMK && alpha_procedure_type == PT_STACK)
     {
       /* Restore callee-saved general-purpose registers.  */
 
@@ -6904,13 +6921,13 @@ alpha_expand_epilogue ()
     }
   else 
     {
-      if (TARGET_ABI_OPEN_VMS && !alpha_is_stack_procedure)
+      if (TARGET_ABI_OPEN_VMS && alpha_procedure_type == PT_REGISTER)
         {
           emit_insn (gen_blockage ());
           FRP (emit_move_insn (hard_frame_pointer_rtx,
 			       gen_rtx_REG (DImode, vms_save_fp_regno)));
         }
-      else if (TARGET_ABI_UNICOSMK && !alpha_is_stack_procedure)
+      else if (TARGET_ABI_UNICOSMK && alpha_procedure_type != PT_STACK)
 	{
 	  /* Decrement the frame pointer if the function does not have a
 	     frame.  */
@@ -6960,6 +6977,76 @@ alpha_end_function (file, fnname, decl)
       unicosmk_output_ssib (file, fnname);
       unicosmk_output_deferred_case_vectors (file);
     }
+}
+
+/* Emit a tail call to FUNCTION after adjusting THIS by DELTA. 
+
+   In order to avoid the hordes of differences between generated code
+   with and without TARGET_EXPLICIT_RELOCS, and to avoid duplicating
+   lots of code loading up large constants, generate rtl and emit it
+   instead of going straight to text.
+
+   Not sure why this idea hasn't been explored before...  */
+
+void
+alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  HOST_WIDE_INT hi, lo;
+  rtx this, insn, funexp;
+
+  /* We always require a valid GP.  */
+  emit_insn (gen_prologue_ldgp ());
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  If the function returns a structure,
+     the structure return pointer is in $16.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, 17);
+  else
+    this = gen_rtx_REG (Pmode, 16);
+
+  /* Add DELTA.  When possible we use ldah+lda.  Otherwise load the
+     entire constant for the add.  */
+  lo = ((delta & 0xffff) ^ 0x8000) - 0x8000;
+  hi = (((delta - lo) & 0xffffffff) ^ 0x80000000) - 0x80000000;
+  if (hi + lo == delta)
+    {
+      if (hi)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (hi)));
+      if (lo)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (lo)));
+    }
+  else
+    {
+      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0),
+					   delta, -(delta < 0));
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp, const0_rtx));
+  SIBLING_CALL_P (insn) = 1;
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
 }
 
 /* Debugging support.  */
@@ -8643,7 +8730,7 @@ static void
 unicosmk_gen_dsib (imaskP)
       unsigned long * imaskP;
 {
-  if (alpha_is_stack_procedure)
+  if (alpha_procedure_type == PT_STACK)
     {
       const char *ssib_name;
       rtx mem;

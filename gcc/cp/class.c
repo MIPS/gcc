@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "lex.h"
+#include "target.h"
 
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
@@ -3106,7 +3107,8 @@ check_bitfield_decl (field)
       DECL_SIZE (field) = convert (bitsizetype, w);
       DECL_BIT_FIELD (field) = 1;
 
-      if (integer_zerop (w))
+      if (integer_zerop (w)
+	  && ! (* targetm.ms_bitfield_layout_p) (DECL_FIELD_CONTEXT (field)))
 	{
 #ifdef EMPTY_FIELD_BOUNDARY
 	  DECL_ALIGN (field) = MAX (DECL_ALIGN (field), 
@@ -3283,8 +3285,6 @@ check_field_decls (t, access_decls, empty_p,
     {
       tree x = *field;
       tree type = TREE_TYPE (x);
-
-      GNU_xref_member (current_class_name, x);
 
       next = &TREE_CHAIN (x);
 
@@ -3925,8 +3925,6 @@ check_methods (t)
 
   for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
-      GNU_xref_member (current_class_name, x);
-
       /* If this was an evil function, don't keep it in class.  */
       if (DECL_ASSEMBLER_NAME_SET_P (x) 
 	  && IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
@@ -4040,7 +4038,7 @@ build_clone (fn, name)
       for (parms = DECL_ARGUMENTS (clone); parms; parms = TREE_CHAIN (parms))
 	{
 	  DECL_CONTEXT (parms) = clone;
-	  copy_lang_decl (parms);
+	  cxx_dup_lang_specific_decl (parms);
 	}
     }
 
@@ -5049,8 +5047,6 @@ finish_struct_1 (t)
       return;
     }
 
-  GNU_xref_decl (current_function_decl, t);
-
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
   TYPE_SIZE (t) = NULL_TREE;
@@ -6047,14 +6043,14 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 tree
 instantiate_type (lhstype, rhs, flags)
      tree lhstype, rhs;
-     enum instantiate_type_flags flags;
+     tsubst_flags_t flags;
 {
-  int complain = (flags & itf_complain);
-  int strict = (flags & itf_no_attributes)
+  int complain = (flags & tf_error);
+  int strict = (flags & tf_no_attributes)
                ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
-  int allow_ptrmem = flags & itf_ptrmem_ok;
+  int allow_ptrmem = flags & tf_ptrmem_ok;
   
-  flags &= ~itf_ptrmem_ok;
+  flags &= ~tf_ptrmem_ok;
   
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
@@ -6261,7 +6257,7 @@ instantiate_type (lhstype, rhs, flags)
     case ADDR_EXPR:
     {
       if (PTRMEM_OK_P (rhs))
-        flags |= itf_ptrmem_ok;
+        flags |= tf_ptrmem_ok;
       
       return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
     }

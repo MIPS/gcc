@@ -64,6 +64,7 @@ rtx_unstable_p (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -139,6 +140,7 @@ rtx_varies_p (x, for_alias)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -502,6 +504,7 @@ count_occurrences (x, find, count_dest)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -580,7 +583,8 @@ reg_mentioned_p (reg, in)
 
     case CONST_INT:
       return GET_CODE (reg) == CONST_INT && INTVAL (in) == INTVAL (reg);
-      
+
+    case CONST_VECTOR:
     case CONST_DOUBLE:
       /* These are kept unique for a given value.  */
       return 0;
@@ -829,6 +833,7 @@ regs_set_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -875,6 +880,7 @@ modified_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -930,6 +936,7 @@ modified_in_p (x, insn)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2021,6 +2028,7 @@ volatile_insn_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2087,6 +2095,7 @@ volatile_refs_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2153,6 +2162,7 @@ side_effects_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2231,6 +2241,7 @@ may_trap_p (x)
       /* Handle these cases quickly.  */
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST:
@@ -2339,6 +2350,7 @@ inequality_comparisons_p (x)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -2405,6 +2417,40 @@ replace_rtx (x, from, to)
   if (x == 0)
     return 0;
 
+  if (GET_CODE (x) == SUBREG)
+    {
+      rtx new = replace_rtx (SUBREG_REG (x), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_subreg (GET_MODE (x), new,
+			       GET_MODE (SUBREG_REG (x)),
+			       SUBREG_BYTE (x));
+	  if (! x)
+	    abort ();
+	}
+      else
+	SUBREG_REG (x) = new;
+
+      return x;
+    }
+  else if (GET_CODE (x) == ZERO_EXTEND)
+    {
+      rtx new = replace_rtx (XEXP (x, 0), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+					new, GET_MODE (XEXP (x, 0)));
+	  if (! x)
+	    abort ();
+	}
+      else
+	XEXP (x, 0) = new;
+
+      return x;
+    }
+
   fmt = GET_RTX_FORMAT (GET_CODE (x));
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
     {
@@ -2452,6 +2498,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2542,6 +2589,7 @@ computed_jump_p_1 (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case REG:
       return 1;
@@ -2947,9 +2995,7 @@ subreg_lsb (x)
    xmode  - The mode of xregno.
    offset - The byte offset.
    ymode  - The mode of a top level SUBREG (or what may become one).
-   RETURN - The regno offset which would be used.  
-   This function can be overridden by defining SUBREG_REGNO_OFFSET,
-   taking the same parameters.  */
+   RETURN - The regno offset which would be used.  */
 unsigned int
 subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int xregno;
@@ -2957,15 +3003,10 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int offset;
      enum machine_mode ymode;
 {
-  unsigned ret;
   int nregs_xmode, nregs_ymode;
   int mode_multiple, nregs_multiple;
   int y_offset;
 
-/* Check for an override, and use it instead.  */
-#ifdef SUBREG_REGNO_OFFSET
-  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode);
-#else
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
@@ -2981,10 +3022,7 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
 
   y_offset = offset / GET_MODE_SIZE (ymode);
   nregs_multiple =  nregs_xmode / nregs_ymode;
-  ret = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
-#endif
-
-  return ret;
+  return (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
 }
 
 /* Return the final regno that a subreg expression refers to.  */
