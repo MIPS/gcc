@@ -3305,38 +3305,52 @@ colorize_one_web (web)
 		   web->id);
       if (web->was_spilled < 0 || web->spill_temp)
 	{
-	  for (wl = web->conflict_list; wl; wl = wl->next)
+	  unsigned int loop;
+	  struct web *try = NULL;
+
+	  /* We make two passes over our conflicts, first trying to
+	     spill those webs, which only got a color by chance, but
+	     were potential spill ones, and if that isn't enough, in a second
+	     pass also to spill normal colored webs.  */
+	  for (loop = 0; (try == NULL && loop < 2); loop++)
+	    for (wl = web->conflict_list; wl; wl = wl->next)
+	      {
+	        /* Normally we would have w=alias(wl->t), to get to all
+		   conflicts.  But we can't simply spill webs which are
+		   involved in coalescing anyway.  The premise for combining
+		   webs was, that the final one will get a color.  One reason
+		   is, that the code inserting the spill insns can't cope
+		   with aliased webs (yet, may be, we should extend that).  */
+		struct web *w = wl->t;
+	        if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
+		    && (w->was_spilled > 0 || loop > 0)
+		    /*&& w->add_hardregs >= web->add_hardregs
+		    && w->span_insns > web->span_insns*/)
+		  {
+		    try = w;
+		    break;
+		  }
+	      }
+	  if (try)
 	    {
-	      /* Normally we would have w=alias(wl->t), to get to all
-		 conflicts.  But we can't simply spill webs which are
-		 involved in coalescing anyway.  The premise for combining
-		 webs was, that the final one will get a color.  One reason
-		 is, that the code inserting the spill insns can't cope
-		 with aliased webs (yet, may be, we should extend that).  */
-	      struct web *w = wl->t;
-	      if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
-		  /*&& w->add_hardregs >= web->add_hardregs
-		  && w->span_insns > web->span_insns*/)
+	      int old_c = try->color;
+	      remove_list (try->dlink, &colored_nodes);
+	      put_web (try, SPILLED);
+	      /* Now try to colorize us again.  Can recursively make other
+		 webs also spill, until there are no more unspilled
+		 neighbors.  */
+	      colorize_one_web (web);
+	      if (web->type != COLORED)
 		{
-		  int old_c = w->color;
-		  remove_list (w->dlink, &colored_nodes);
-		  put_web (w, SPILLED);
-		  /* Now try to colorize us again.  Can recursively make other
-		     webs also spill, until there are no more unspilled
-		     neighbors.  */
-		  colorize_one_web (web);
-		  if (web->type != COLORED)
-		    {
-		      /* We tried recursively to spill all already colored
-			 neighbors, but we are still uncolorable.  So it made
-			 no sense to spill those neighbors.  Recolor them.  */
-		      remove_list (w->dlink, &spilled_nodes);
-		      put_web (w, COLORED);
-		      w->color = old_c;
-		    }
-		  break;
+		  /* We tried recursively to spill all already colored
+		     neighbors, but we are still uncolorable.  So it made
+		     no sense to spill those neighbors.  Recolor them.  */
+		  remove_list (try->dlink, &spilled_nodes);
+		  put_web (try, COLORED);
+		  try->color = old_c;
 		}
 	    }
+
 	  /* Here we either have got a color for us (from recursive calls),
 	     or not.  In the latter case we give up hope, and just spill
 	     ourself.  */
@@ -3702,6 +3716,8 @@ dump_ra (df)
 	         web->spill_temp ? " (spilltemp)" : "");
       if (web->type == PRECOLORED)
         debug_msg (0, " (precolored, color=%d)", web->color);
+      if (find_web_for_subweb (web)->num_uses == 0)
+	debug_msg (0, " dead");
       debug_msg (0, "\n");
     }
   debug_msg (0, "\nColored:\n");
