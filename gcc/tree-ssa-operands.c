@@ -126,7 +126,7 @@ tree check_build_stmt;
 def_operand_p NULL_DEF_OPERAND_P = { NULL };
 
 static void note_addressable (tree, stmt_ann_t);
-static void get_expr_operands (tree, tree *, int, stmt_operands_t *);
+static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
@@ -948,7 +948,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
@@ -958,18 +958,18 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	     modified in that case.  FIXME we should represent somehow
 	     that it is killed on the fallthrough path.  */
 	  || tree_could_throw_p (TREE_OPERAND (stmt, 1)))
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, old_ops);
+        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def);
       else
         get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), 
-	                   opf_is_def | opf_kill_def, old_ops);
+	                   opf_is_def | opf_kill_def);
       break;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, old_ops);
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none);
       break;
 
     case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, old_ops);
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none);
       break;
 
     case ASM_EXPR:
@@ -977,15 +977,15 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
       break;
 
     case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none);
       break;
 
     case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, old_ops);
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none);
       break;
 
     case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, old_ops);
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none);
       break;
 
       /* These nodes contain no variable references.  */
@@ -1004,7 +1004,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	 append_use.  This default will handle statements like empty
 	 statements, or CALL_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none, old_ops);
+      get_expr_operands (stmt, &stmt, opf_none);
       break;
     }
 
@@ -1082,7 +1082,7 @@ update_stmt_operands (tree stmt)
    operands found.  */
 
 static void
-get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
+get_expr_operands (tree stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
   enum tree_code_class class;
@@ -1115,7 +1115,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	 does not allow non-registers as array indices).  */
       flags |= opf_no_vops;
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case SSA_NAME:
@@ -1129,7 +1129,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       return;
 
     case MISALIGNED_INDIRECT_REF:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
       /* fall through */
 
     case ALIGN_INDIRECT_REF:
@@ -1149,11 +1149,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
       return;
 
     case COMPONENT_REF:
@@ -1177,17 +1177,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
       if (code == COMPONENT_REF)
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
 
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case CALL_EXPR:
@@ -1196,9 +1196,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
 
     case MODIFY_EXPR:
@@ -1206,7 +1206,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	int subflags;
 	tree op;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
 
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
@@ -1220,7 +1220,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	else
 	  subflags = opf_is_def | opf_kill_def;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags);
 	return;
       }
 
@@ -1231,7 +1231,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 
 	tree t;
 	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
-	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none, old_ops);
+	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none);
 
 	return;
       }
@@ -1240,7 +1240,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
     case BIT_FIELD_REF:
     case VIEW_CONVERT_EXPR:
     do_unary:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case TRUTH_AND_EXPR:
@@ -1261,16 +1261,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 	   when the statement is modified.  */
 	if (tree_swap_operands_p (op0, op1, false))
 	  {
-	    use_operand_p use1 = NULL_USE_OPERAND_P;
-	    use_operand_p use2 = NULL_USE_OPERAND_P;
-#if 0
-	    if (old_ops && NUM_USES (old_ops->use_ops) == 2)
-	      {
-	        use1 = USE_OP_PTR (old_ops->use_ops, 0);
-	        use2 = USE_OP_PTR (old_ops->use_ops, 1);
-	      }
-#endif
-
 	    /* For relationals we need to swap the operands
 	       and change the code.  */
 	    if (code == LT_EXPR
@@ -1279,48 +1269,28 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 		|| code == GE_EXPR)
 	      {
 		TREE_SET_CODE (expr, swap_tree_comparison (code));
-		if (use1 != NULL_USE_OPERAND_P)
-		  {
-		    SET_USE (use1, op1);
-		    SET_USE (use2, op0);
-		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
-		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
-		  }
-		else
-		  {
-		    TREE_OPERAND (expr, 0) = op1;
-		    TREE_OPERAND (expr, 1) = op0;
-		  }
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
 	      }
 	  
 	    /* For a commutative operator we can just swap the operands.  */
 	    else if (commutative_tree_code (code))
 	      {
-		if (use1 != NULL_USE_OPERAND_P)
-		  {
-		    SET_USE (use1, op1);
-		    SET_USE (use2, op0);
-		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
-		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
-		  }
-		else
-		  {
-		    TREE_OPERAND (expr, 0) = op1;
-		    TREE_OPERAND (expr, 1) = op0;
-		  }
+		TREE_OPERAND (expr, 0) = op1;
+		TREE_OPERAND (expr, 1) = op0;
 	      }
 	  }
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
 	return;
       }
 
     case REALIGN_LOAD_EXPR:
       {
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
         return;
       }
 
@@ -1385,7 +1355,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def, NULL);
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
     }
 
   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
@@ -1404,7 +1374,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), 0,  NULL);
+      get_expr_operands (stmt, &TREE_VALUE (link), 0);
     }
 
 
@@ -1528,7 +1498,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
       /* Mark the object itself with a VUSE.  */
       pptr = &TREE_OPERAND (*pptr, 0);
-      get_expr_operands (stmt, pptr, flags, NULL);
+      get_expr_operands (stmt, pptr, flags);
       return;
     }
 
@@ -1537,7 +1507,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
     gcc_unreachable ();
 
   /* Add a USE operand for the base pointer.  */
-  get_expr_operands (stmt, pptr, opf_none, NULL);
+  get_expr_operands (stmt, pptr, opf_none);
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
@@ -1550,12 +1520,12 @@ get_call_expr_operands (tree stmt, tree expr)
   tree callee = get_callee_fndecl (expr);
 
   /* Find uses in the called function.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, NULL);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
 
   for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-    get_expr_operands (stmt, &TREE_VALUE (op), opf_none, NULL);
+    get_expr_operands (stmt, &TREE_VALUE (op), opf_none);
 
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, NULL);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
 
   if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
     {
