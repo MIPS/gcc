@@ -198,5 +198,6 @@ extern struct tree_opt_pass pass_maybe_create_global_var;
 extern struct tree_opt_pass pass_lower_memref;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_static;
+extern struct tree_opt_pass pass_promote_statics;
 
 #endif /* GCC_TREE_PASS_H */

@@ -214,6 +214,7 @@ extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
+extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
 
 extern GTY(()) int cgraph_varpool_n_nodes;

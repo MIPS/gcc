@@ -919,7 +919,7 @@ OBJS-common = \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o modulo-sched.o optabs.o options.o opts.o			   \
  params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o pointer-set.o postreload.o				   \
+ insn-preds.o pointer-set.o postreload.o tree-promote-statics.o		   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -1984,6 +1984,9 @@ tree-complex.o : tree-complex.c $(CONFIG_H) system.h $(TREE_H) \
     $(TM_H) $(TREE_FLOW_H) $(TREE_GIMPLE_H) tree-iterator.h tree-pass.h \
     $(FLAGS_H) $(OPTABS_H) $(RTL_H) $(MACHMODE_H) $(EXPR_H) \
     langhooks.h $(FLAGS_H) $(DIAGNOSTIC_H) gt-tree-complex.h $(GGC_H)
+tree-promote-statics.o : tree-promote-statics.c $(CONFIG_H) system.h \
+   $(TREE_H) $(TM_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) $(IPA_STATIC_H) \
+   bitmap.h tree-pass.h $(FLAGS_H) 
 df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) function.h $(REGS_H) alloc-pool.h hard-reg-set.h \
    $(BASIC_BLOCK_H) $(DF_H)

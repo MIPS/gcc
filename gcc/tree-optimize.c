@@ -413,6 +413,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_maybe_create_global_var);
   NEXT_PASS (pass_lower_memref);
+  NEXT_PASS (pass_promote_statics);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);

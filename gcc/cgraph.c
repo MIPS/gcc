@@ -116,6 +116,9 @@ int cgraph_max_uid;
 /* Set when whole unit has been analyzed so we can access global info.  */
 bool cgraph_global_info_ready = false;
 
+/* Set when the cgraph is fully build and the basic flags are computed.  */
+bool cgraph_function_flags_ready = false;
+
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_varpool_node))) htab_t cgraph_varpool_hash;
 
@@ -547,8 +550,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
 	     node->global.inlined_to->uid);
-  fprintf (f, " availability:%s", 
-	   availability_names [cgraph_function_body_availability (node)]);
+  if (cgraph_function_flags_ready)
+    fprintf (f, " availability:%s", 
+	     availability_names [cgraph_function_body_availability (node)]);
   if (node->local.self_insns)
     fprintf (f, " %i insns", node->local.self_insns);
   if (node->local.self_insns)
@@ -985,10 +989,14 @@ enum availability
 cgraph_function_body_availability (struct cgraph_node *node)
 {
   enum availability avail = node->local.avail;
+  enum availability old_avail = avail;
 
+  gcc_assert (cgraph_function_flags_ready);
+#if 0
   if (avail != AVAIL_UNSET)
-    return avail;
-  else if (!node->local.finalized)
+    return avail; 
+#endif
+  if (!node->local.finalized)
     avail = AVAIL_NOT_AVAILABLE;
   else if (node->local.local)
     avail = AVAIL_LOCAL;
@@ -1017,6 +1025,11 @@ cgraph_function_body_availability (struct cgraph_node *node)
     else 
       avail = AVAIL_OVERWRITABLE;
   else avail = AVAIL_AVAILABLE;
+
+  if ((old_avail != AVAIL_UNSET) && (avail != old_avail)
+      && (avail != AVAIL_LOCAL || old_avail != AVAIL_AVAILABLE))
+    abort ();
+
   node->local.avail = avail;
   return avail;
 }
@@ -1026,6 +1039,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
 enum availability
 cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
 {
+  gcc_assert (cgraph_function_flags_ready);
   if (!node->finalized)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))

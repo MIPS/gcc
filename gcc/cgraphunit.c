@@ -1122,6 +1122,7 @@ cgraph_function_and_variable_visibility (void)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\n");
     }
+  cgraph_function_flags_ready = true;
 }
 
 /* Return true when function body of DECL still needs to be kept around
