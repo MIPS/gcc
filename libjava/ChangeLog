@@ -1,3 +1,29 @@
+2004-10-25  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFilenameFilter):
+	Fix pointer warning.
+
+	* jni/gtk-peer/gtkpeer.h: Introduce widget_union to fix type punned
+	warnings.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics_clearRect): Use widget_union
+	to fix type punned pointer warning.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c (pre_event_handler):
+	Likewise.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(window_get_new_state): Introduce unions to fix warnings as above.
+	(window_property_changed_cb): Likewise.
+	(window_active_state_change_cb): Mark unused variables unused.
+	(window_focus_state_change_cb): Likewise.
+	(window_focus_in_cb): Likewise.
+	(window_focus_out_cb): Likewise.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c
+	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_setFont): Convert
+	PangoFontMap correctly with PANGO_FT2FONT_MAP macro.
+
 2004-10-25  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JMenuBar.java

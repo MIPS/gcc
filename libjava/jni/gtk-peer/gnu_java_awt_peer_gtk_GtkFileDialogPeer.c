@@ -160,11 +160,8 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFilenameFilter
   gdk_threads_enter ();
 
   filter = gtk_file_filter_new();
-  gtk_file_filter_add_custom(filter,
-                             GTK_FILE_FILTER_FILENAME,
-                             G_CALLBACK(filenameFilterCallback),
-                             obj,
-                             NULL);
+  gtk_file_filter_add_custom(filter, GTK_FILE_FILTER_FILENAME,
+			     filenameFilterCallback, obj, NULL);
 
   gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(ptr), filter);
 
