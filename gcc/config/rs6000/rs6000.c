@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "hashtab.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -5084,6 +5085,171 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 }
 
 
+/* A quick summary of the various types of 'constant-pool tables'
+   under PowerPC:
+
+   Target	Flags		Name		One table per	
+   AIX		(none)		AIX TOC		object file
+   AIX		-mfull-toc	AIX TOC		object file
+   AIX		-mminimal-toc	AIX minimal TOC	function
+   SVR4/EABI	(none)		SVR4 SDATA	object file
+   SVR4/EABI	-mtoc		AIX minimal TOC	function
+   SVR4/EABI	-fpic		SVR4 pic	object file
+   SVR4/EABI	-fPIC		SVR4 PIC	function
+   SVR4/EABI	-mrelocatable	EABI TOC	function
+
+   Name			Reg.	Set by	entries	      contains:
+					made by	 addrs?	fp?	sum?
+
+   AIX TOC		2	crt0	as	 Y	option	option
+   AIX minimal TOC	30	prolog	gcc	 Y	Y	option
+   SVR4 SDATA		13	crt0	gcc	 N	Y	N
+   SVR4 pic		30	prolog	ld	 Y	not yet	N
+   SVR4 PIC		30	prolog	gcc	 Y	option	option
+   EABI TOC		30	prolog	gcc	 Y	option	option
+
+*/
+
+/* Hash table stuff for keeping track of TOC entries.  */
+
+struct toc_hash_struct 
+{
+  /* `key' will satisfy CONSTANT_P; in fact, it will satisfy
+     ASM_OUTPUT_SPECIAL_POOL_ENTRY_P.  */
+  rtx key;
+  int labelno;
+};
+
+static hash_table_t toc_hash_table;
+
+/* Hash functions for the hash table.  */
+
+static unsigned
+rs6000_hash_constant (k)
+     rtx k;
+{
+  unsigned result = GET_CODE (k);
+  const char *format = GET_RTX_FORMAT (GET_CODE (k));
+  int flen = strlen (format);
+  int fidx;
+  
+  if (GET_CODE (k) == LABEL_REF)
+    return result * 1231 + XINT (XEXP (k, 0), 3);
+
+  if (GET_CODE (k) == CONST_DOUBLE)
+    fidx = 2;
+  else if (GET_CODE (k) == CODE_LABEL)
+    fidx = 3;
+  else
+    fidx = 0;
+
+  for (; fidx < flen; fidx++)
+    switch (format[fidx])
+      {
+      case 's':
+	{
+	  unsigned i, len;
+	  char *str = XSTR (k, fidx);
+	  len = strlen (str);
+	  result = result * 613 + len;
+	  for (i = 0; i < len; i++)
+	    result = result * 613 + (unsigned) str[i];
+	  break;
+	}
+      case 'u':
+      case 'e':
+	result = result * 1231 + rs6000_hash_constant (XEXP (k, fidx));
+	break;
+      case 'i':
+      case 'n':
+	result = result * 613 + (unsigned) XINT (k, fidx);
+	break;
+      case 'w':
+	if (sizeof (unsigned) >= sizeof (HOST_WIDE_INT))
+	  result = result * 613 + (unsigned) XWINT (k, fidx);
+	else
+	  {
+	    size_t i;
+	    for (i = 0; i < sizeof(HOST_WIDE_INT)/sizeof(unsigned); i++)
+	      result = result * 613 + (unsigned) (XWINT (k, fidx)
+						  >> CHAR_BIT * i);
+	  }
+	break;
+      default:
+	abort();
+      }
+  return result;
+}
+
+static unsigned
+toc_hash_function (hash_entry)
+     hash_table_entry_t hash_entry;
+{
+  return rs6000_hash_constant (((struct toc_hash_struct *) hash_entry)->key);
+}
+
+/* Compare H1 and H2 for equivalence.  */
+
+static int
+toc_hash_eq (h1, h2)
+     hash_table_entry_t h1, h2;
+{
+  rtx r1 = ((struct toc_hash_struct *) h1)->key;
+  rtx r2 = ((struct toc_hash_struct *) h2)->key;
+
+  /* Gotcha:  One of these const_doubles will be in memory.
+     The other may be on the constant-pool chain.
+     So rtx_equal_p will think they are different... */
+  if (r1 == r2)
+    return 1;
+  if (GET_CODE (r1) != GET_CODE (r2)
+      || GET_MODE (r1) != GET_MODE (r2))
+    return 0;
+  if (GET_CODE (r1) == CONST_DOUBLE)
+    {
+      int format_len = strlen (GET_RTX_FORMAT (CONST_DOUBLE));
+      int i;
+      for (i = 2; i < format_len; i++)
+	if (XWINT (r1, i) != XWINT (r2, i))
+	  return 0;
+      
+      return 1;
+    }
+  else if (GET_CODE (r1) == LABEL_REF)
+    return XINT (XEXP (r1, 0), 3) == XINT (XEXP (r2, 0), 3);
+  else
+    return rtx_equal_p (r1, r2);
+}
+
+/* Mark the hash table-entry HASH_ENTRY.  */
+
+static int
+toc_hash_mark_entry (hash_entry, unused)
+     hash_table_entry_t hash_entry;
+     void * unused ATTRIBUTE_UNUSED;
+{
+  rtx r = ((struct toc_hash_struct *) hash_entry)->key;
+  ggc_set_mark ((void *)hash_entry);
+  /* For CODE_LABELS, we don't want to drag in the whole insn chain... */
+  if (GET_CODE (r) == LABEL_REF)
+    {
+      ggc_set_mark (r);
+      ggc_set_mark (XEXP (r, 0));
+    }
+  else
+    ggc_mark_rtx (r);
+  return 1;
+}
+
+/* Mark all the elements of the TOC hash-table *HT.  */
+
+static void
+toc_hash_mark_table (ht)
+     hash_table_t *ht;
+{
+  traverse_hash_table (*ht, toc_hash_mark_entry, 0);
+}
+
 /* Output a TOC entry.  We derive the entry name from what is
    being written.  */
 
@@ -5102,15 +5268,44 @@ output_toc (file, x, labelno)
   if (TARGET_NO_TOC)
     abort ();
 
-  /* if we're going to put a double constant in the TOC, make sure it's
-     aligned properly when strict alignment is on. */
+  /* When the TOC is shared among the whole file, 
+     don't output duplicate entries. 
+     This won't work if we are not garbage collecting, so 
+     we don't do it, sorry.  */
+  if (! TARGET_ELF && ! TARGET_MINIMAL_TOC && ggc_p)
+    {
+      struct toc_hash_struct *h;
+      hash_table_entry_t * found;
+      
+      h = ggc_alloc (sizeof (*h));
+      h->key = x;
+      h->labelno = labelno;
+      
+      found = find_hash_table_entry (toc_hash_table, h, 1);
+      if (*found == NULL)
+	*found = h;
+      else  /* This is indeed a duplicate.  
+	       Set this label equal to that label.  */
+	{
+	  char s1[40], s2[40];
+	  fputs ("\t.set ", file);
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
+	  fprintf (file, "%d,", labelno);
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
+	  fprintf (file, "%d\n", ((*(struct toc_hash_struct **) 
+					      found)->labelno));
+	  return;
+	}
+    }
+
+  /* If we're going to put a double constant in the TOC, make sure it's
+     aligned properly when strict alignment is on.  */
   if (GET_CODE (x) == CONST_DOUBLE
       && STRICT_ALIGNMENT
       && GET_MODE (x) == DFmode
       && ! (TARGET_NO_FP_IN_TOC && ! TARGET_MINIMAL_TOC)) {
     ASM_OUTPUT_ALIGN (file, 3);
   }
-
 
   if (TARGET_ELF && TARGET_MINIMAL_TOC)
     {
@@ -6170,4 +6365,8 @@ rs6000_add_gc_roots ()
 {
   ggc_add_rtx_root (&rs6000_compare_op0, 1);
   ggc_add_rtx_root (&rs6000_compare_op1, 1);
+
+  toc_hash_table = create_hash_table (1021, toc_hash_function, toc_hash_eq);
+  ggc_add_root (&toc_hash_table, 1, sizeof (toc_hash_table), 
+		toc_hash_mark_table);
 }

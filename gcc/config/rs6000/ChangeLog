@@ -1,3 +1,20 @@
+1999-12-30  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (toc_hash_table): New variable.
+	(rs6000_hash_constant): New function.
+	(toc_hash_function): New function.
+	(toc_hash_eq): New function.
+	(toc_hash_mark_entry): New function.
+	(toc_hash_mark_table): New function.
+	(output_toc): Don't output duplicate TOC entries in
+	a single file.
+	(rs6000_add_gc_roots): Add the hash table as a GC root.
+	* t-aix43: Move AR_FOR_TARGET and CLIB here from x-aix43,
+	where they clearly shouldn't be.  This may need to be fixed
+	later when there is a GNU ar for AIX.
+	* x-aix43: Don't define CLIB or AR_FOR_TARGET.
+	Don't define BOOT_LDFLAGS as it is now not necessary.
+
 1999-12-29  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (rs6000_build_va_list): Use 'char *' rather than 'void *'
