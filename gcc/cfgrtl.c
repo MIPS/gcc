@@ -1588,313 +1588,6 @@ verify_flow_info ()
       int has_fallthru = 0;
       edge e;
 
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  if (last_visited [e->dest->index + 2] == bb)
-	    {
-	      error ("verify_flow_info: Duplicate edge %i->%i",
-		     e->src->index, e->dest->index);
-	      err = 1;
-	    }
-
-	  last_visited [e->dest->index + 2] = bb;
-
-	  if (e->flags & EDGE_FALLTHRU)
-	    has_fallthru = 1;
-
-	  if ((e->flags & EDGE_FALLTHRU)
-	      && e->src != ENTRY_BLOCK_PTR
-	      && e->dest != EXIT_BLOCK_PTR)
-	    {
-	      rtx insn;
-
-	      if (e->src->index + 1 != e->dest->index)
-		{
-		  error
-		    ("verify_flow_info: Incorrect blocks for fallthru %i->%i",
-		     e->src->index, e->dest->index);
-		  err = 1;
-		}
-	      else
-		for (insn = NEXT_INSN (e->src->end); insn != e->dest->head;
-		     insn = NEXT_INSN (insn))
-		  if (GET_CODE (insn) == BARRIER
-#ifndef CASE_DROPS_THROUGH
-		      || INSN_P (insn)
-#else
-		      || (INSN_P (insn) && ! JUMP_TABLE_DATA_P (insn))
-#endif
-		      )
-		    {
-		      error ("verify_flow_info: Incorrect fallthru %i->%i",
-			     e->src->index, e->dest->index);
-		      fatal_insn ("wrong insn in the fallthru edge", insn);
-		      err = 1;
-		    }
-	    }
-
-	  if (e->src != bb)
-	    {
-	      error ("verify_flow_info: Basic block %d succ edge is corrupted",
-		     bb->index);
-	      fprintf (stderr, "Predecessor: ");
-	      dump_edge_info (stderr, e, 0);
-	      fprintf (stderr, "\nSuccessor: ");
-	      dump_edge_info (stderr, e, 1);
-	      fprintf (stderr, "\n");
-	      err = 1;
-	    }
-
-	  edge_checksum[e->dest->index + 2] += (size_t) e;
-	}
-
-      if (!has_fallthru)
-	{
-	  rtx insn;
-
-	  /* Ensure existence of barrier in BB with no fallthru edges.  */
-	  for (insn = bb->end; !insn || GET_CODE (insn) != BARRIER;
-	       insn = NEXT_INSN (insn))
-	    if (!insn
-		|| (GET_CODE (insn) == NOTE
-		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BASIC_BLOCK))
-		{
-		  error ("missing barrier after block %i", bb->index);
-		  err = 1;
-		  break;
-		}
-	}
-
-      for (e = bb->pred; e; e = e->pred_next)
-	{
-	  if (e->dest != bb)
-	    {
-	      error ("basic block %d pred edge is corrupted", bb->index);
-	      fputs ("Predecessor: ", stderr);
-	      dump_edge_info (stderr, e, 0);
-	      fputs ("\nSuccessor: ", stderr);
-	      dump_edge_info (stderr, e, 1);
-	      fputc ('\n', stderr);
-	      err = 1;
-	    }
-	  edge_checksum[e->dest->index + 2] -= (size_t) e;
-	}
-
-      for (x = bb->head; x != NEXT_INSN (bb->end); x = NEXT_INSN (x))
-	if (basic_block_for_insn && BLOCK_FOR_INSN (x) != bb)
-	  {
-	    debug_rtx (x);
-	    if (! BLOCK_FOR_INSN (x))
-	      error
-		("insn %d inside basic block %d but block_for_insn is NULL",
-		 INSN_UID (x), bb->index);
-	    else
-	      error
-		("insn %d inside basic block %d but block_for_insn is %i",
-		 INSN_UID (x), bb->index, BLOCK_FOR_INSN (x)->index);
-
-	    err = 1;
-	  }
-
-      /* OK pointers are correct.  Now check the header of basic
-         block.  It ought to contain optional CODE_LABEL followed
-	 by NOTE_BASIC_BLOCK.  */
-      x = bb->head;
-      if (GET_CODE (x) == CODE_LABEL)
-	{
-	  if (bb->end == x)
-	    {
-	      error ("NOTE_INSN_BASIC_BLOCK is missing for block %d",
-		     bb->index);
-	      err = 1;
-	    }
-
-	  x = NEXT_INSN (x);
-	}
-
-      if (!NOTE_INSN_BASIC_BLOCK_P (x) || NOTE_BASIC_BLOCK (x) != bb)
-	{
-	  error ("NOTE_INSN_BASIC_BLOCK is missing for block %d",
-		 bb->index);
-	  err = 1;
-	}
-
-      if (bb->end == x)
-	/* Do checks for empty blocks her. e */
-	;
-      else
-	for (x = NEXT_INSN (x); x; x = NEXT_INSN (x))
-	  {
-	    if (NOTE_INSN_BASIC_BLOCK_P (x))
-	      {
-		error ("NOTE_INSN_BASIC_BLOCK %d in middle of basic block %d",
-		       INSN_UID (x), bb->index);
-		err = 1;
-	      }
-
-	    if (x == bb->end)
-	      break;
-
-	    if (GET_CODE (x) == JUMP_INSN
-		|| GET_CODE (x) == CODE_LABEL
-		|| GET_CODE (x) == BARRIER)
-	      {
-		error ("in basic block %d:", bb->index);
-		fatal_insn ("flow control insn inside a basic block", x);
-	      }
-	  }
-    }
-
-  /* Complete edge checksumming for ENTRY and EXIT.  */
-  {
-    edge e;
-
-    for (e = ENTRY_BLOCK_PTR->succ; e ; e = e->succ_next)
-      edge_checksum[e->dest->index + 2] += (size_t) e;
-
-    for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
-      edge_checksum[e->dest->index + 2] -= (size_t) e;
-  }
-
-  for (i = -2; i < n_basic_blocks; ++i)
-    if (edge_checksum[i + 2])
-      {
-	error ("basic block %i edge lists are corrupted", i);
-	err = 1;
-      }
-
-  last_bb_num_seen = -1;
-  num_bb_notes = 0;
-  for (x = rtx_first; x; x = NEXT_INSN (x))
-    {
-      if (NOTE_INSN_BASIC_BLOCK_P (x))
-	{
-	  basic_block bb = NOTE_BASIC_BLOCK (x);
-
-	  num_bb_notes++;
-	  if (bb->index != last_bb_num_seen + 1)
-	    internal_error ("basic blocks not numbered consecutively");
-
-	  last_bb_num_seen = bb->index;
-	}
-
-      if (!bb_info[INSN_UID (x)])
-	{
-	  switch (GET_CODE (x))
-	    {
-	    case BARRIER:
-	    case NOTE:
-	      break;
-
-	    case CODE_LABEL:
-	      /* An addr_vec is placed outside any block block.  */
-	      if (NEXT_INSN (x)
-		  && GET_CODE (NEXT_INSN (x)) == JUMP_INSN
-		  && (GET_CODE (PATTERN (NEXT_INSN (x))) == ADDR_DIFF_VEC
-		      || GET_CODE (PATTERN (NEXT_INSN (x))) == ADDR_VEC))
-		x = NEXT_INSN (x);
-
-	      /* But in any case, non-deletable labels can appear anywhere.  */
-	      break;
-
-	    default:
-	      fatal_insn ("insn outside basic block", x);
-	    }
-	}
-
-      if (INSN_P (x)
-	  && GET_CODE (x) == JUMP_INSN
-	  && returnjump_p (x) && ! condjump_p (x)
-	  && ! (NEXT_INSN (x) && GET_CODE (NEXT_INSN (x)) == BARRIER))
-	    fatal_insn ("return not followed by barrier", x);
-    }
-
-  if (num_bb_notes != n_basic_blocks)
-    internal_error
-      ("number of bb notes in insn chain (%d) != n_basic_blocks (%d)",
-       num_bb_notes, n_basic_blocks);
-
-  if (err)
-    internal_error ("verify_flow_info failed");
-
-  /* Clean up.  */
-  free (bb_info);
-  free (last_visited);
-  free (edge_checksum);
-}
-#if 0
-void
-verify_flow_info ()
-{
-  const int max_uid = get_max_uid ();
-  const rtx rtx_first = get_insns ();
-  rtx last_head = get_last_insn ();
-  basic_block *bb_info, *last_visited;
-  size_t *edge_checksum;
-  rtx x;
-  int i, last_bb_num_seen, num_bb_notes, err = 0;
-
-  return;
-
-  bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
-  last_visited = (basic_block *) xcalloc (n_basic_blocks + 2,
-					  sizeof (basic_block));
-  edge_checksum = (size_t *) xcalloc (n_basic_blocks + 2, sizeof (size_t));
-
-  for (i = n_basic_blocks - 1; i >= 0; i--)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      rtx head = bb->head;
-      rtx end = bb->end;
-
-      /* Verify the end of the basic block is in the INSN chain.  */
-      for (x = last_head; x != NULL_RTX; x = PREV_INSN (x))
-	if (x == end)
-	  break;
-
-      if (!x)
-	{
-	  error ("end insn %d for block %d not found in the insn stream",
-		 INSN_UID (end), bb->index);
-	  err = 1;
-	}
-
-      /* Work backwards from the end to the head of the basic block
-	 to verify the head is in the RTL chain.  */
-      for (; x != NULL_RTX; x = PREV_INSN (x))
-	{
-	  /* While walking over the insn chain, verify insns appear
-	     in only one basic block and initialize the BB_INFO array
-	     used by other passes.  */
-	  if (bb_info[INSN_UID (x)] != NULL)
-	    {
-	      error ("insn %d is in multiple basic blocks (%d and %d)",
-		     INSN_UID (x), bb->index, bb_info[INSN_UID (x)]->index);
-	      err = 1;
-	    }
-
-	  bb_info[INSN_UID (x)] = bb;
-
-	  if (x == head)
-	    break;
-	}
-      if (!x)
-	{
-	  error ("head insn %d for block %d not found in the insn stream",
-		 INSN_UID (head), bb->index);
-	  err = 1;
-	}
-
-      last_head = x;
-    }
-
-  /* Now check the basic blocks (boundaries etc.) */
-  for (i = n_basic_blocks - 1; i >= 0; i--)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      int has_fallthru = 0;
-      edge e;
-
       if (bb->count < 0)
         {
           error ("verify_flow_info: Wrong count of block %i %i",
@@ -1907,12 +1600,8 @@ verify_flow_info ()
 	         bb->index, bb->frequency);
           err = 1;
         }
-      e = bb->succ;
-      e = bb->succ;
       for (e = bb->succ; e; e = e->succ_next)
 	{
-	  last_visited [e->dest->index + 2] = bb;
-
 	  if (last_visited [e->dest->index + 2] == bb)
 	    {
 	      error ("verify_flow_info: Duplicate edge %i->%i",
@@ -1931,6 +1620,9 @@ verify_flow_info ()
 		     e->src->index, e->dest->index, (int)e->count);
 	      err = 1;
 	    }
+
+	  last_visited [e->dest->index + 2] = bb;
+
 	  if (e->flags & EDGE_FALLTHRU)
 	    has_fallthru = 1;
 
@@ -1966,8 +1658,6 @@ verify_flow_info ()
 	    }
 
 	  if (e->src != bb)
-	  last_visited [e->dest->index + 2] = bb;
-
 	    {
 	      error ("verify_flow_info: Basic block %d succ edge is corrupted",
 		     bb->index);
@@ -2156,7 +1846,6 @@ verify_flow_info ()
   free (last_visited);
   free (edge_checksum);
 }
-#endif
 
 /* Assume that the preceding pass has possibly eliminated jump instructions
    or converted the unconditional jumps.  Eliminate the edges from CFG.
