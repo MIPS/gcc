@@ -1,5 +1,8 @@
 2004-07-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkArg.java: Remove file.
+	* gnu/java/awt/peer/gtk/GtkArgList.java: Remove file.
+
 	* Makefile.am (gtk_awt_peer_sources): Remove GtkArg.java and
 	GtkArgList.java.
 	(gtk_c_files): Use CAIRO_CFLAGS and PANGOFT2_CFLAGS, not _LIBS.
