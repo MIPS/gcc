@@ -49,7 +49,15 @@
    (UNSPEC_ALIGN_4		19)
    (UNSPEC_ALIGN_8		20)
    (UNSPEC_CPADD		21)
-   (UNSPEC_RELOC_GPREL16       100)])
+   (UNSPEC_HIGH			22)
+   (RELOC_GPREL16		100)
+   (RELOC_GOT_HI		101)
+   (RELOC_GOT_LO		102)
+   (RELOC_GOT_PAGE		103)
+   (RELOC_GOT_DISP		104)
+   (RELOC_CALL16		105)
+   (RELOC_CALL_HI		106)
+   (RELOC_CALL_LO		107)])
 
 
 ;; ....................
@@ -95,6 +103,10 @@
 ;; Main data type used by the insn
 (define_attr "mode" "unknown,none,QI,HI,SI,DI,SF,DF,FPSW" (const_string "unknown"))
 
+;; Are calls implemented by assembler macros?
+(define_attr "macro_calls" "no,yes"
+  (const (symbol_ref "TARGET_ABICALLS && !TARGET_NEWABI")))
+
 ;; Length (in # of bytes).  A conditional branch is allowed only to a
 ;; location within a signed 18-bit offset of the delay slot.  If that
 ;; provides too smal a range, we use the `j' instruction.  This
@@ -120,6 +132,20 @@
 	  (symbol_ref "mips_fetch_insns (operands[1]) * 4")
 	  (eq_attr "type" "store")
 	  (symbol_ref "mips_fetch_insns (operands[0]) * 4")
+	  ;; In the worst case, a call macro will take 8 instructions:
+	  ;;
+	  ;;	 lui $25,%call_hi(FOO)
+	  ;;	 addu $25,$25,$28
+	  ;;     lw $25,%call_lo(FOO)($25)
+	  ;;	 nop
+	  ;;	 jalr $25
+	  ;;	 nop
+	  ;;	 lw $gp,X($sp)
+	  ;;	 nop
+	  (eq_attr "type" "call")
+	  (if_then_else (eq_attr "macro_calls" "yes")
+			(const_int 32)
+			(const_int 4))
 	  ] (const_int 4)))
 
 ;; Attribute describing the processor.  This attribute must match exactly
@@ -194,7 +220,8 @@
    (nil)
    (nil)])
 
-(define_delay (eq_attr "type" "call")
+(define_delay (and (eq_attr "type" "call")
+		   (eq_attr "macro_calls" "no"))
   [(eq_attr "can_delay" "yes")
    (nil)
    (nil)])
@@ -5110,12 +5137,34 @@ move\\t%0,%z4\\n\\
    (set_attr "mode"	"SI")
    (set_attr "length"	"8")])
 
+
+;; Instructions for loading a relocation expression using "lui".
+
+(define_insn "luisi"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
+  ""
+  "lui\t%0,%1"
+  [(set_attr "type" "arith")])
+
+(define_insn "luidi"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand 1 "const_arith_operand" "")] UNSPEC_HIGH))]
+  "TARGET_64BIT"
+  "lui\t%0,%1"
+  [(set_attr "type" "arith")])
+
+
+;; Instructions for adding the low 16 bits of an address to a register.
+;; Operand 2 is the address: print_operand works out which relocation
+;; should be applied.
+
 (define_insn "lowsi"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(lo_sum:SI (match_operand:SI 1 "register_operand" "r")
 		   (match_operand:SI 2 "immediate_operand" "")))]
-  "mips_split_addresses && !TARGET_MIPS16"
-  "addiu\\t%0,%1,%%lo(%2)"
+  "!TARGET_MIPS16"
+  "addiu\\t%0,%1,%R2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
 
@@ -5123,18 +5172,8 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
 		   (match_operand:DI 2 "immediate_operand" "")))]
-  "mips_split_addresses && !TARGET_MIPS16 && TARGET_64BIT"
-  "daddiu\\t%0,%1,%%lo(%2)"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"DI")])
-
-(define_insn "lowdi_extend"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(sign_extend:DI
-	 (lo_sum:SI (match_operand:SI 1 "register_operand" "r")
-		    (match_operand:SI 2 "immediate_operand" ""))))]
-  "mips_split_addresses && !TARGET_MIPS16 && TARGET_64BIT"
-  "daddiu\\t%0,%1,%%lo(%2)"
+  "!TARGET_MIPS16 && TARGET_64BIT"
+  "daddiu\\t%0,%1,%R2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")])
 
@@ -6279,12 +6318,12 @@ move\\t%0,%z4\\n\\
 
 (define_insn "loadgp"
   [(set (reg:DI 28)
-	(unspec_volatile:DI [(match_operand:DI 0 "immediate_operand" "")
+	(unspec_volatile:DI [(match_operand 0 "immediate_operand" "")
 			     (match_operand:DI 1 "register_operand" "")]
 			    UNSPEC_LOADGP))
    (clobber (reg:DI 1))]
   ""
-  "%[lui\\t$1,%%hi(%%neg(%%gp_rel(%a0)))\\n\\taddiu\\t$1,$1,%%lo(%%neg(%%gp_rel(%a0)))\\n\\tdaddu\\t$gp,$1,%1%]"
+  "%[lui\\t$1,%%hi(%%neg(%%gp_rel(%0)))\\n\\taddiu\\t$1,$1,%%lo(%%neg(%%gp_rel(%0)))\\n\\tdaddu\\t$gp,$1,%1%]"
   [(set_attr "type"	"move")
    (set_attr "mode"	"DI")
    (set_attr "length"	"12")])
@@ -9900,13 +9939,11 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 })
 
 (define_insn "call_internal"
-  [(call (mem:SI (match_operand 0 "call_insn_operand" "c,S"))
-	 (match_operand 1 "" "i,i"))
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "cS"))
+	 (match_operand 1 "" "i"))
    (clobber (reg:SI 31))]
   ""
-  "@
-    %*jalr\\t%0
-    %*jal\\t%0"
+  "%*jal\\t%0"
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
 
@@ -9923,29 +9960,25 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 })
 
 (define_insn "call_value_internal"
-  [(set (match_operand 0 "register_operand" "=df,df")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "c,S"))
-              (match_operand 2 "" "i,i")))
+  [(set (match_operand 0 "register_operand" "=df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
+              (match_operand 2 "" "i")))
    (clobber (reg:SI 31))]
   ""
-  "@
-    %*jalr\\t%1
-    %*jal\\t%1"
+  "%*jal\\t%1"
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
 
 (define_insn "call_value_multiple_internal"
-  [(set (match_operand 0 "register_operand" "=df,df")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "c,S"))
-              (match_operand 2 "" "i,i")))
-   (set (match_operand 3 "register_operand" "=df,df")
+  [(set (match_operand 0 "register_operand" "=df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
+              (match_operand 2 "" "i")))
+   (set (match_operand 3 "register_operand" "=df")
 	(call (mem:SI (match_dup 1))
 	      (match_dup 2)))
    (clobber (reg:SI 31))]
   ""
-  "@
-    %*jalr\\t%1
-    %*jal\\t%1"
+  "%*jal\\t%1"
   [(set_attr "type"	"call")
    (set_attr "mode"	"none")])
 
@@ -10528,7 +10561,3 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   [(set_attr "type"	"branch")
    (set_attr "mode"	"none")
    (set_attr "length"	"8")])
-
-(define_expand "reloc_gprel16"
-  [(const (unspec [(match_operand:SI 0 "" "")] UNSPEC_RELOC_GPREL16))]
-  "" "")

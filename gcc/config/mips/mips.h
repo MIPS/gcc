@@ -366,6 +366,10 @@ extern void		sbss_section PARAMS ((void));
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
 #define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
+#define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
+
+#define TARGET_EXPLICIT_RELOCS	    TARGET_NEWABI
+
 /* Define preprocessor macros for the -march and -mtune options.
    PREFIX is either _MIPS_ARCH or _MIPS_TUNE, INFO is the selected
    processor.  If INFO's canonical name is "foo", define PREFIX to
@@ -1273,6 +1277,8 @@ extern int mips_abi;
    The default for this in 64-bit mode is 8, which causes problems with
    SFmode register saves.  */
 #define DWARF_CIE_DATA_ALIGNMENT 4
+
+#define ASM_SIMPLIFY_DWARF_ADDR mips_simplify_dwarf_addr
 
 /* Overrides for the COFF debug format.  */
 #define PUT_SDB_SCL(a)					\
@@ -2274,7 +2280,7 @@ extern enum reg_class mips_char_to_class[256];
 #define EXTRA_CONSTRAINT(OP,CODE)					\
   (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
    : ((CODE) == 'R')	  ? (CONSTANT_P (OP) && move_operand (OP, VOIDmode)) \
-   : ((CODE) == 'S')	  ? (CONSTANT_P (OP) && !TARGET_ABICALLS	\
+   : ((CODE) == 'S')	  ? (CONSTANT_P (OP)				\
 			     && call_insn_operand (OP, VOIDmode))	\
    : FALSE)
 

@@ -1,3 +1,66 @@
+2003-02-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_simplify_dwarf_addr): Declare.
+	* config/mips/mips.h (TARGET_EXPLICIT_RELOCS, TARGET_NEWABI): New.
+	(ASM_SIMPLIFY_DWARF_ADDR): Define to mips_simplify_dwarf_addr.
+	(EXTRA_CONSTRAINT): Allow symbolic call addresses for TARGET_ABICALLS.
+	* config/mips/mips.md (UNSPEC_HIGH): New constant.
+	(UNSPEC_RELOC_GPREL16): Rename to...
+	(RELOC_GPREL16): ...this.
+	(RELOC_GOT_HI, RELOC_GOT_LO, RELOC_GOT_PAGE, RELOC_GOT_DISP): New.
+	(RELOC_CALL16, RELOC_CALL_HI, RELOC_CALL_LO): New.
+	(macro_calls): New attribute.
+	(length): Use it to set the default length of calls.  Don't allow
+	calls to have delay slots if macro_calls is "yes".
+	(luisi, luidi): New patterns.
+	(lowsi, lowdi): Use '%R' to print the relocation.
+	(lowdi_extend): Remove.
+	(loadgp): Remove mode from operand 0.  Use '%0' instead of '%a0'.
+	(call_internal): Merge alternatives.  Always use "jal".
+	(call_value_internal, call_value_multiple_internal): Likewise.
+	(reloc_gprel16): Remove.
+	* config/mips/mips.c (mips_got_alias_set): New variable.
+	(mips_classify_constant): Handle the new relocation constants.
+	(mips_classify_symbol): Reverse the sense of SYMBOL_REF_FLAG for PIC.
+	(mips_symbolic_address_p): Return false if generating explicit relocs.
+	Otherwise allow local PIC symbols to have an offset.
+	(mips_splittable_symbol_p): New function.
+	(mips_classify_address): Use it to check whether a LO_SUM is valid.
+	(mips_const_insns): Always accept HIGH.
+	(call_insn_operand): Don't accept global symbols if using explicit
+	relocs.
+	(move_operand): Don't accept HIGH when generating PIC.
+	(mips_reloc, mips_lui_reloc): New functions.
+	(mips_force_temporary): Remove MODE argument.  Expect VALUE to
+	be a valid right-hand-side for a SET pattern.
+	(mips_load_got, mips_load_got16, mips_load_got32): New functions.
+	(mips_emit_high): New function.
+	(mips_legitimize_symbol): Use mips_reloc for the mips16 gp-relative
+	case.  Use mips_splittable_symbol_p to check whether a LO_SUM
+	address should be used.  Use mips_emit_high to generate the
+	high part of such an address.  Adjust the global symbol + offset
+	case to match the change to mips_force_temprorary.
+	(mips_legitimize_move): Shuffle call to mips_legitimize_symbol.
+	If generating explicit-reloc PIC, load the address of global
+	symbols from the GOT.  Use mips_emit_high to emit the high part
+	of an address.
+	(mips_simplify_dwarf_addr): New function.
+	(mips_move_1word): Use lwc1 instead of l.s and swc1 instead of s.s.
+	(mips_move_2words): Likewise ldc1/l.d and sdc1/s.d if TARGET_64BIT.
+	(mips_expand_call): Load the addresses of global functions using
+	%call* relocs if generating explicit-reloc PIC.  Don't generate
+	an exception_receiver pattern.
+	(override_options): Initialize mips_got_alias_set.
+	(print_relocation): Remove in favour of...
+	(mips_reloc_string): ...this new function.
+	(print_operand): Handle '%R'.  Use mips_reloc_string.
+	(print_operand_address): Use print_operand to print the symbolic
+	part of a LO_SUM address.
+	(mips_output_function_prologue): Use .cprestore, reverting last patch.
+	(mips_encode_section_info): Factor out DECL_RTL accesses.  Reverse
+	sense of SYMBOL_REF_FLAG for PIC, using binds_local_p to check
+	for local symbols.
+
 2003-02-02  Eric Christopher  <echristo@redhat.com>
 
 	* config/mips/mips.c (mips_sign_extend): Remove.
