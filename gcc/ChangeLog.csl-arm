@@ -1,3 +1,7 @@
+2005-01-22  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md: Use "Uy" constraint for wcgr load/stores.
+
 2005-01-21  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define. 
