@@ -74,6 +74,18 @@ static struct cfg_stats_d cfg_stats;
 static struct obstack block_tree_ann_obstack;
 static void *first_block_tree_ann_obj = 0;
 
+/* Nonzero if we found a computed goto while building basic blocks.  */
+static bool found_computed_goto;
+
+/* If we found computed gotos, then they are all revectored to this
+   location.  We try to unfactor them after we have translated out
+   of SSA form.  */
+static tree factored_computed_goto_label;
+
+/* The factored computed goto.  We cache this so we can easily recover
+   the destation of computed gotos when unfactoring them.  */
+static tree factored_computed_goto;
+
 /* Basic blocks and flowgraphs.  */
 static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
@@ -87,6 +99,7 @@ static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
 static inline void add_stmt_to_bb (tree *, basic_block, tree);
 static inline void append_stmt_to_bb (tree *, basic_block, tree);
 static inline void set_parent_stmt (tree *, tree);
+static void factor_computed_gotos (void);
 
 /* Edges.  */
 static void make_edges (void);
@@ -251,7 +264,16 @@ build_tree_cfg (tree fnbody)
   first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
   if (first_p)
     {
+      found_computed_goto = 0;
       make_blocks (first_p, NULL_TREE, NULL, NULL, fnbody);
+
+      /* Computed gotos are hell to deal with, especially if there are
+	 lots of them with a large number of destinations.  So we factor
+	 them to a common computed goto location before we build the
+	 edge list.  After we convert back to normal form, we will un-factor
+	 the computed gotos since factoring introduces an unwanted jump.  */
+      if (found_computed_goto)
+	factor_computed_gotos ();
 
       if (n_basic_blocks > 0)
 	{
@@ -305,6 +327,101 @@ build_tree_cfg (tree fnbody)
     }
 }
 
+/* Search the CFG for any computed gotos.  If found, factor them to a 
+   common computed goto site.  Also record the location of that site so
+   that we can un-factor the gotos after we have converted back to 
+   normal form.  */
+
+static void
+factor_computed_gotos ()
+{
+  basic_block bb;
+  tree factored_label_decl = NULL;
+  tree var = NULL;
+
+  /* We know there are one or more computed gotos in this function.
+     Examine the last statement in each basic block to see if the block
+     ends with a computed goto.  */
+	
+  FOR_EACH_BB (bb)
+    {
+      tree *last_p = last_stmt_ptr (bb);
+      tree last = *last_p;
+
+      /* Ignore the computed goto we create when we factor the original
+	 computed gotos.  */
+      if (last == factored_computed_goto)
+	continue;
+
+      /* If the last statement is a compted goto, factor it.  */
+      if (is_computed_goto (last))
+	{
+	  tree assignment;
+	  block_stmt_iterator bsi = bsi_last (bb);
+
+	  /* The first time we find a computed goto we need to create
+	     the factored goto block and the variable each original
+	     computed goto will use for their goto destination.  */
+	  if (! factored_computed_goto)
+	    {
+	      tree compound;
+	      tree_stmt_iterator tsi = tsi_from_bsi (bsi);
+
+	      /* Create the destination of the factored goto.  Each original
+		 computed goto will put its desired destination into this
+		 variable and jump to the label we create immediately
+		 below.  */
+	      var = create_tmp_var (ptr_type_node, "gotovar");
+
+	      /* Build a label for the new block which will contain the
+		 factored computed goto.  */
+	      factored_label_decl
+		= build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+	      DECL_CONTEXT (factored_label_decl) = current_function_decl;
+	      factored_computed_goto_label
+		= build1 (LABEL_EXPR, void_type_node, factored_label_decl);
+	      modify_stmt (factored_computed_goto_label);
+
+	      /* Build our new computed goto.  */
+	      factored_computed_goto = build1 (GOTO_EXPR, void_type_node, var);
+	      modify_stmt (factored_computed_goto);
+
+	      /* Cram the new label and the computed goto into a container.  */
+	      compound = build (COMPOUND_EXPR, void_type_node,
+				factored_computed_goto_label,
+				factored_computed_goto);
+
+	      /* Ugh.  We want to pass the address of the container to
+		 make_blocks call below.  But we certainly don't want to
+		 to pass along the address of a global.  There's got to be
+		 a better way to do this than to create a dummy container.  */
+	      compound = build (COMPOUND_EXPR, void_type_node, compound, NULL);
+
+	      /* Put the new statements into a new basic block.  This must
+		 be done before we link them into the statement chain!  */
+	      make_blocks (&TREE_OPERAND (compound, 0), NULL, NULL, NULL, NULL);
+
+	      /* Now it is safe to link in the new statements.  */
+	      tsi_link_chain_after (&tsi,
+				    TREE_OPERAND (compound, 0),
+				    TSI_CHAIN_START);
+	    }
+
+	  /* Copy the original computed goto's destination into VAR.  */
+          assignment = build (MODIFY_EXPR, ptr_type_node,
+			      var, GOTO_DESTINATION (last));
+	  modify_stmt (assignment);
+
+	  /* Insert that assignment just before the original computed
+	     goto.  */
+          set_bb_for_stmt (assignment, bb);
+	  bsi_insert_before (&bsi, assignment, BSI_NEW_STMT);
+
+	  /* And revector the computed goto to the new destination.  */
+          GOTO_DESTINATION (last) = factored_label_decl;
+	}
+    }
+}
 /* Create annotations for all the basic blocks.  */
 
 static void create_blocks_annotations (void)
@@ -416,6 +533,9 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 	 codes.  */
       append_stmt_to_bb (stmt_p, bb, parent_stmt);
       get_stmt_ann (stmt)->scope = scope;
+
+      if (is_computed_goto (*stmt_p))
+	found_computed_goto = true;
 
       if (code == COND_EXPR)
 	make_cond_expr_blocks (stmt_p, next_block_link, bb, scope);
@@ -1436,6 +1556,14 @@ remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
 {
   tree_stmt_iterator tsi = i;
 
+  if (factored_computed_goto_label
+      && (GOTO_DESTINATION (*stmt_p)
+	  == LABEL_EXPR_LABEL (factored_computed_goto_label)))
+    {
+      GOTO_DESTINATION (*stmt_p) = GOTO_DESTINATION (factored_computed_goto);
+      return;
+    }
+
   /* Step past the GOTO_EXPR statement.  */
   tsi_next (&tsi);
   if (! tsi_end_p (tsi))
@@ -1562,6 +1690,9 @@ remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
       remove_useless_stmts_and_vars_1 (first_p, &data);
     }
   while (data.repeat);
+
+  factored_computed_goto = NULL;
+  factored_computed_goto_label = NULL;
 }
 
 /* Delete all unreachable basic blocks.  Return true if any unreachable

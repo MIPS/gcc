@@ -12,6 +12,16 @@
 
 2003-10-16  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (found_computed_goto): New global for computed goto
+	factoring/unfactoring.
+	(factored_computed_goto_label, factored_computed_goto): Likewise.
+	(factor_computed_gotos): New function.
+	(build_tree_cfg): Use it.
+	(make_blocks): Record whether or not we find a computed goto.
+	(remove_useless_stmts_and_vars): Un-factor computed gotos.
+	(remove_useless_stmts_and_vars): Reset factored_computed_goto_label
+	and factored_computed_goto.
+
 	* tree-ssa-dom.c (get_value_for, set_value_for): Move to the start
 	of the file.  Delete pointless sanity checking.
 
