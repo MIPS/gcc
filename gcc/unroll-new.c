@@ -705,19 +705,19 @@ peel_loop (loops, loop, will_unroll)
       
   /* Do not peel loops that roll too much.  */
   niter = expected_loop_iterations (loop);
-  if (niter > 2 * PARAM_VALUE (MAX_PEEL_TIMES))
+  if (niter > 2 * PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     {
       if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [2 * maximum peelings])\n", niter, 2 * PARAM_VALUE (MAX_PEEL_TIMES));    
+	fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [2 * maximum peelings])\n", niter, 2 * PARAM_VALUE (PARAM_MAX_PEEL_TIMES));    
       return 1;
     }
   
 
   ninsns = num_loop_insns (loop);
 
-  npeel = PARAM_VALUE (MAX_PEELED_INSNS) / ninsns - 1;
-  if (npeel > PARAM_VALUE (MAX_PEEL_TIMES))
-    npeel = PARAM_VALUE (MAX_PEEL_TIMES);
+  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns - 1;
+  if (npeel > PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
+    npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
   /* Neither big loops.  */
   if (npeel > 0)
     {
@@ -766,9 +766,9 @@ unroll_loop_new (loops, loop, unroll_all)
 
   ninsns = num_loop_insns (loop);
 
-  nunroll = PARAM_VALUE (MAX_UNROLLED_INSNS) / ninsns - 1;
-  if (nunroll > PARAM_VALUE (MAX_UNROLL_TIMES))
-    nunroll = PARAM_VALUE (MAX_UNROLL_TIMES);
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / ninsns - 1;
+  if (nunroll > PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
+    nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
   /* Neither big loops.  */
   if (nunroll > 0)
@@ -785,7 +785,7 @@ unroll_loop_new (loops, loop, unroll_all)
 	{
 	  /* Do not unroll loops that do not roll.  */
 	  niter = expected_loop_iterations (loop);
-	  if (niter < 2 * PARAM_VALUE (MAX_UNROLL_TIMES))
+	  if (niter < 2 * PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");

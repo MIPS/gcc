@@ -458,7 +458,7 @@ unswitch_single_loop (loops, loop, cond_checked, num)
   edge e;
 
   /* Do not unswitch too much.  */
-  if (num > PARAM_VALUE (MAX_UNSWITCH_LEVEL))
+  if (num > PARAM_VALUE (PARAM_MAX_UNSWITCH_LEVEL))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Not unswitching anymore, hit max level\n");
@@ -482,7 +482,7 @@ unswitch_single_loop (loops, loop, cond_checked, num)
     }
 
   /* Check the size of loop.  */
-  if (num_loop_insns (loop) > PARAM_VALUE (MAX_UNSWITCH_INSNS))
+  if (num_loop_insns (loop) > PARAM_VALUE (PARAM_MAX_UNSWITCH_INSNS))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Not unswitching, loop too big\n");
