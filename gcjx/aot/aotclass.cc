@@ -47,7 +47,13 @@ aot_class::lay_out_vtable ()
        i != klass->end_all_methods ();
        ++i)
     {
-      if ((*i)->static_p ())
+      // Static methods, private methods, and constructors do not
+      // appear in the vtable.  Note that final methods must appear
+      // there, because they can be called using the vtable via
+      // reflection.
+      if ((*i)->static_p ()
+	  || (*i)->constructor_p ()
+	  || ((*i)->get_modifiers () & ACC_PRIVATE) != 0)
 	continue;
 
       model_class *declaring_class = (*i)->get_declaring_class ();
