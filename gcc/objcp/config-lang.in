@@ -37,7 +37,8 @@ stagestuff=""
 diff_excludes=""
 
 # Per GCC Steering Committee.
-build_by_default="no"
+# APPLE LOCAL build objc++ by default
+# build_by_default="no"
 
 # By building the Objective-C and C++ front-ends, we will get
 # the object files we need, along with the libraries (libstdc++,
