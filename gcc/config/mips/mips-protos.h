@@ -127,6 +127,7 @@ extern int		coprocessor2_operand PARAMS ((rtx, enum machine_mode));
 extern int		mips_address_insns PARAMS ((rtx, enum machine_mode));
 extern int		mips_fetch_insns PARAMS ((rtx));
 extern int		mips_const_insns PARAMS ((rtx));
+extern bool		mips_global_pic_constant_p PARAMS ((rtx));
 extern bool		mips_legitimate_address_p PARAMS ((enum machine_mode,
 							   rtx, int));
 extern bool		mips_legitimize_address PARAMS ((rtx *,

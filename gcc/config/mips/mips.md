@@ -5268,17 +5268,17 @@ move\\t%0,%z4\\n\\
   "")
 
 (define_insn "movdi_internal2"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,m,*f,*f,*f,*d,*m,*x,*d,*x,*a,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:DI 1 "move_operand" "d,R,m,dJ,*f,*d*J,*m,*f,*f,*J,*x,*d,*J,*d,*m,*B*C*D,*B*C*D"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*f,*d,*m,*x,*d,*x,*a,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:DI 1 "move_operand" "d,R,T,m,dJ,*f,*d*J,*m,*f,*f,*J,*x,*d,*J,*d,*m,*B*C*D,*B*C*D"))]
   "TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode)
        || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0)
        || operands[1] == CONST0_RTX (DImode))"
   "* return mips_move_2words (operands, insn); "
-  [(set_attr "type"	"move,const,load,store,move,xfer,load,xfer,store,hilo,hilo,hilo,hilo,xfer,load,xfer,store")
+  [(set_attr "type"	"move,const,const,load,store,move,xfer,load,xfer,store,hilo,hilo,hilo,hilo,xfer,load,xfer,store")
    (set_attr "mode"	"DI")
-   (set_attr "length"	"4,*,*,*,4,4,*,4,*,4,4,4,8,8,*,8,*")])
+   (set_attr "length"	"4,*,*,*,*,4,4,*,4,*,4,4,4,8,8,*,8,*")])
 
 ;; Sign-extended operands are reloaded using this instruction, so the
 ;; constraints must handle every SImode source operand X and destination
@@ -5581,16 +5581,16 @@ move\\t%0,%z4\\n\\
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "movsi_internal"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,d,m,*f,*f,*f,*d,*m,*d,*z,*x,*d,*x,*d,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:SI 1 "move_operand" "d,R,m,dJ,*f,*d*J,*m,*f,*f,*z,*d,J,*x,*d,*a,*d,*m,*B*C*D,*B*C*D"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*f,*d,*m,*d,*z,*x,*d,*x,*d,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:SI 1 "move_operand" "d,R,T,m,dJ,*f,*d*J,*m,*f,*f,*z,*d,J,*x,*d,*a,*d,*m,*B*C*D,*B*C*D"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode)
        || (GET_CODE (operands[1]) == CONST_INT && INTVAL (operands[1]) == 0))"
   "* return mips_move_1word (operands, insn, FALSE);"
-  [(set_attr "type"	"move,const,load,store,move,xfer,load,xfer,store,xfer,xfer,hilo,hilo,hilo,hilo,xfer,load,xfer,store")
+  [(set_attr "type"	"move,const,const,load,store,move,xfer,load,xfer,store,xfer,xfer,hilo,hilo,hilo,hilo,xfer,load,xfer,store")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"4,*,*,*,4,4,*,4,*,4,4,4,4,4,4,4,*,4,*")])
+   (set_attr "length"	"4,*,*,*,*,4,4,*,4,*,4,4,4,4,4,4,4,*,4,*")])
 
 (define_insn ""
   [(set (match_operand:SI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,m,*d,*d")

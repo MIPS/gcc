@@ -624,14 +624,14 @@ char mips_sw_reg_names[][8] =
 /* Map hard register number to register class */
 const enum reg_class mips_regno_to_class[] =
 {
-  GR_REGS,	GR_REGS,	M16_NA_REGS,	M16_NA_REGS,
+  LEA_REGS,	LEA_REGS,	M16_NA_REGS,	M16_NA_REGS,
   M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  M16_NA_REGS,	M16_NA_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  T_REG,	PIC_FN_ADDR_REG, GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
+  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  M16_NA_REGS,	M16_NA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  T_REG,	PIC_FN_ADDR_REG, LEA_REGS,	LEA_REGS,
+  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -1300,6 +1300,20 @@ mips_fetch_insns (x)
     abort ();
 
   return mips_address_insns (XEXP (x, 0), GET_MODE (x));
+}
+
+
+/* Return true if OP is a symbolic constant that refers to a
+   global PIC symbol.  */
+
+int
+mips_global_pic_constant_p (op)
+     rtx op;
+{
+  struct mips_constant_info c;
+
+  return (mips_classify_constant (&c, op) == CONSTANT_SYMBOLIC
+	  && mips_classify_symbol (c.symbol) == SYMBOL_GOT_GLOBAL);
 }
 
 
@@ -5686,6 +5700,7 @@ override_options ()
   mips_char_to_class['c'] = (TARGET_ABICALLS ? PIC_FN_ADDR_REG :
 			     TARGET_MIPS16 ? M16_NA_REGS :
 			     GR_REGS);
+  mips_char_to_class['e'] = LEA_REGS;
   mips_char_to_class['y'] = GR_REGS;
   mips_char_to_class['z'] = ST_REGS;
   mips_char_to_class['B'] = COP0_REGS;
@@ -8783,6 +8798,10 @@ mips_secondary_reload_class (class, mode, x, in_p)
     regno = true_regnum (x);
 
   gp_reg_p = TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
+
+  if (TEST_HARD_REG_BIT (reg_class_contents[(int) class], 25)
+      && DANGEROUS_FOR_LA25_P (x))
+    return LEA_REGS;
 
   /* We always require a general register when copying anything to
      HILO_REGNUM, except when copying an SImode value from HILO_REGNUM

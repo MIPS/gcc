@@ -1997,6 +1997,7 @@ enum reg_class
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
   PIC_FN_ADDR_REG,		/* SVR4 PIC function address register */
+  LEA_REGS,			/* Every GPR except $25 */
   GR_REGS,			/* integer registers */
   FP_REGS,			/* floating point registers */
   HI_REG,			/* hi register */
@@ -2036,6 +2037,7 @@ enum reg_class
   "T_REG",								\
   "M16_T_REGS",								\
   "PIC_FN_ADDR_REG",							\
+  "LEA_REGS",								\
   "GR_REGS",								\
   "FP_REGS",								\
   "HI_REG",								\
@@ -2078,6 +2080,7 @@ enum reg_class
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* mips16 T register */	\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* mips16 and T regs */ \
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SVR4 PIC function address register */ \
+  { 0xfdffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* Every other GPR */ \
   { 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* integer registers */	\
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* floating registers*/	\
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000 },	/* hi register */	\
@@ -2135,7 +2138,7 @@ extern const enum reg_class mips_regno_to_class[];
 #define GR_REG_CLASS_P(CLASS)						\
   ((CLASS) == GR_REGS || (CLASS) == M16_REGS || (CLASS) == T_REG	\
    || (CLASS) == M16_T_REGS || (CLASS) == M16_NA_REGS			\
-   || (CLASS) == PIC_FN_ADDR_REG)
+   || (CLASS) == PIC_FN_ADDR_REG || (CLASS) == LEA_REGS)
 
 /* This macro is also used later on in the file.  */
 #define COP_REG_CLASS_P(CLASS)						\
@@ -2275,6 +2278,15 @@ extern enum reg_class mips_char_to_class[256];
   ((C) == 'G'								\
    && (VALUE) == CONST0_RTX (GET_MODE (VALUE)))
 
+/* True if OP is a constant that should not be moved into $25.
+   We need this because many versions of gas treat 'la $25,foo' as
+   part of a call sequence and allow a global 'foo' to be lazily bound.  */
+
+#define DANGEROUS_FOR_LA25_P(OP)					\
+  (TARGET_ABICALLS							\
+   && !TARGET_EXPLICIT_RELOCS						\
+   && mips_global_pic_constant_p (OP))
+
 /* Letters in the range `Q' through `U' may be defined in a
    machine-dependent fashion to stand for arbitrary operand types.
    The machine description macro `EXTRA_CONSTRAINT' is passed the
@@ -2282,14 +2294,20 @@ extern enum reg_class mips_char_to_class[256];
    second operand.
 
    `Q' is for signed 16-bit constants.
-   `R' is for constant move_operands.
-   `S' is for legitimate constant call addresses.  */
+   `R' is for constant move_operands that can be safely loaded into $25.
+   `S' is for legitimate constant call addresses.
+   `T' is for constant move_operands that cannot be safely loaded into $25.  */
 
 #define EXTRA_CONSTRAINT(OP,CODE)					\
   (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
-   : ((CODE) == 'R')	  ? (CONSTANT_P (OP) && move_operand (OP, VOIDmode)) \
+   : ((CODE) == 'R')	  ? (CONSTANT_P (OP)				\
+			     && move_operand (OP, VOIDmode)		\
+			     && !DANGEROUS_FOR_LA25_P (OP))		\
    : ((CODE) == 'S')	  ? (CONSTANT_P (OP)				\
 			     && call_insn_operand (OP, VOIDmode))	\
+   : ((CODE) == 'T')	  ? (CONSTANT_P (OP)				\
+			     && move_operand (OP, VOIDmode)		\
+			     && DANGEROUS_FOR_LA25_P (OP))		\
    : FALSE)
 
 /* Given an rtx X being reloaded into a reg required to be

@@ -1,3 +1,21 @@
+2003-02-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_global_pic_constant_p): Declare.
+	* config/mips/mips.h (LEA_REGS): New register class.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Add entries for it.
+	(GR_REG_CLASS_P): Include LEA_REGS.
+	(DANGEROUS_FOR_LA25_P): New macro.
+	(EXTRA_CONSTRAINT): Add !DANGEROUS_FOR_LA25_P to R's condition.
+	Add a T constraint for the DANGEROUS_FOR_LA25_P case.
+	* config/mips/mips.c (mips_regno_to_class): Change GR_REGS
+	entries to LEA_REGS.
+	(mips_global_pic_constant_p): New function.
+	(override_options): Add 'e' register constraint.
+	(mips_secondary_reload_class): Return LEA_REGS when reloading
+	a dangerous constant into a class containing $25.
+	* config/mips/mips.md (movdi_internal2): Add an e <- T alternative.
+	(movsi_internal): Likewise.
+
 2003-02-23  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.h (TARGET_SPLIT_CALLS): New macro.
