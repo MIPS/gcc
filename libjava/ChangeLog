@@ -1,3 +1,11 @@
+2004-04-30  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JApplet.java: Indicated that JApplet
+	implements RootPaneContainer and made method of this
+	interface public. 
+	* javax/swing/JFrame.java: Ditto.
+	* javax/swing/JWindow.java: Ditto.
+	
 2004-04-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
