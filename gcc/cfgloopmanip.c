@@ -1212,7 +1212,6 @@ loop_split_edge_with (edge e, rtx insns)
   /* Create basic block for it.  */
 
   new_bb = split_edge (e);
-  add_to_dominance_info (CDI_DOMINATORS, new_bb);
   add_bb_to_loop (new_bb, loop_c);
   new_bb->flags = insns ? BB_SUPERBLOCK : 0;
 
@@ -1225,10 +1224,6 @@ loop_split_edge_with (edge e, rtx insns)
 
   if (insns)
     emit_insn_after (insns, new_bb->end);
-
-  set_immediate_dominator (CDI_DOMINATORS, new_bb, src);
-  set_immediate_dominator (CDI_DOMINATORS, dest,
-			   recount_dominator (CDI_DOMINATORS, dest));
 
   if (dest->loop_father->latch == src)
     dest->loop_father->latch = new_bb;

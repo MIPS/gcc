@@ -1,3 +1,12 @@
+2003-12-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (tree_make_forwarder_block): Use split_block.
+	(tree_split_block): New.
+	(tree_cfg_hooks): Add tree_split_block.
+	(tree_loop_optimizer_init):  Enable force_single_succ_latches.
+	* cfgloopmanip.c (loop_split_edge_with): Don't update dominators.
+	* cfgrtl.c (rtl_split_edge, cfg_layout_split_edge): Update dominators.
+
 2003-12-19  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (alias_stats_d): New structure.

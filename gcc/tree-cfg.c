@@ -3142,40 +3142,13 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
 {
   edge e, next_e, new_e, fallthru;
   basic_block dummy;
-  tree phi, new_phi, var, label;
+  tree phi, new_phi, var;
   bool first;
-  block_stmt_iterator bsi, bsi_tgt;
 
   free_dominance_info (CDI_DOMINATORS);
 
-  dummy = create_bb (NULL, bb->prev_bb);
-  create_block_annotation (dummy);
-  dummy->count = bb->count;
-  dummy->frequency = bb->frequency;
-  dummy->loop_depth = bb->loop_depth;
-
-  /* Redirect the incoming edges.  */
-  dummy->pred = bb->pred;
-  bb->pred = NULL;
-  for (e = dummy->pred; e; e = e->pred_next)
-    e->dest = dummy;
-
-  /* Move the phi nodes to the dummy block.  */
-  set_phi_nodes (dummy, phi_nodes (bb));
-  set_phi_nodes (bb, NULL_TREE);
-
-  /* Move the labels to the new basic block.  */
-  for (bsi = bsi_start (bb), bsi_tgt = bsi_start (dummy); !bsi_end_p (bsi); )
-    {
-      label = bsi_stmt (bsi);
-      if (TREE_CODE (label) != LABEL_EXPR)
-	break;
-
-      bsi_remove (&bsi);
-      bsi_insert_after (&bsi_tgt, label, BSI_NEW_STMT);
-    }
-
-  fallthru = make_edge (dummy, bb, EDGE_FALLTHRU);
+  fallthru = split_block (bb, NULL);
+  dummy = fallthru->src;
 
   alloc_aux_for_block (dummy, sizeof (int));
   HEADER_BLOCK (dummy) = 0;
@@ -3267,12 +3240,8 @@ tree_loop_optimizer_init (FILE *dumpfile)
   free (loops->cfg.dfs_order);
   loops->cfg.dfs_order = NULL;
 
-#if 0
-  /* Does not work just now.  It will be easier to fix it in the no-gotos
-     form.  */
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);
-#endif
 
   /* Mark irreducible loops.  */
   mark_irreducible_loops (loops);
@@ -3660,6 +3629,64 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
   return NULL;
 }
 
+/* Splits basic block BB after statement STMT (but at least after the
+   labels).  If STMT is NULL, the BB is split just after the labels.  */
+
+static edge
+tree_split_block (basic_block bb, void *stmt)
+{
+  block_stmt_iterator bsi, bsi_tgt;
+  tree last, label;
+  basic_block dummy;
+  edge e;
+
+  dummy = create_bb (NULL, bb->prev_bb);
+  create_block_annotation (dummy);
+  dummy->count = bb->count;
+  dummy->frequency = bb->frequency;
+  dummy->loop_depth = bb->loop_depth;
+
+  /* Redirect the incoming edges.  */
+  dummy->pred = bb->pred;
+  bb->pred = NULL;
+  for (e = dummy->pred; e; e = e->pred_next)
+    e->dest = dummy;
+
+  /* Move the phi nodes to the dummy block.  */
+  set_phi_nodes (dummy, phi_nodes (bb));
+  set_phi_nodes (bb, NULL_TREE);
+
+  /* Move everything up to BSI to the new basic block.  */
+  last = NULL_TREE;
+  for (bsi = bsi_start (bb), bsi_tgt = bsi_start (dummy); !bsi_end_p (bsi); )
+    {
+      label = bsi_stmt (bsi);
+      if (TREE_CODE (label) != LABEL_EXPR)
+	break;
+
+      bsi_remove (&bsi);
+      bsi_insert_after (&bsi_tgt, label, BSI_NEW_STMT);
+      if (label == stmt)
+	last = label;
+    }
+
+  while (!bsi_end_p (bsi) && last != stmt)
+    {
+      last = bsi_stmt (bsi);
+      bsi_remove (&bsi);
+      bsi_insert_after (&bsi_tgt, last, BSI_NEW_STMT);
+    }
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    {
+      set_immediate_dominator (CDI_DOMINATORS, dummy,
+	get_immediate_dominator (CDI_DOMINATORS, bb));
+      set_immediate_dominator (CDI_DOMINATORS, bb, dummy);
+    }
+
+  return make_edge (dummy, bb, EDGE_FALLTHRU);
+}
+
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
 void
@@ -3772,7 +3799,7 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_redirect_edge_and_branch,/* redirect_edge_and_branch  */
   tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
   NULL,				/* delete_basic_block  */
-  NULL,				/* split_block  */
+  tree_split_block,		/* split_block  */
   NULL,				/* can_merge_blocks_p  */
   NULL,				/* merge_blocks  */
   tree_split_edge,		/* cfgh_split_edge  */

@@ -1375,6 +1375,17 @@ rtl_split_edge (edge edge_in)
   else
     redirect_edge_succ (edge_in, bb);
 
+  if (dom_computed[CDI_DOMINATORS])
+    add_to_dominance_info (CDI_DOMINATORS, bb);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    set_immediate_dominator (CDI_DOMINATORS, bb, bb->pred->src);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+    set_immediate_dominator (CDI_DOMINATORS, bb->succ->dest,
+			     recount_dominator (CDI_DOMINATORS,
+						bb->succ->dest));
+
   return bb;
 }
 
@@ -2711,6 +2722,17 @@ cfg_layout_split_edge (edge e)
   new_e->probability = REG_BR_PROB_BASE;
   new_e->count = e->count;
   redirect_edge_and_branch_force (e, new_bb);
+
+  if (dom_computed[CDI_DOMINATORS])
+    add_to_dominance_info (CDI_DOMINATORS, new_bb);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+    set_immediate_dominator (CDI_DOMINATORS, new_bb, new_bb->pred->src);
+
+  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+    set_immediate_dominator (CDI_DOMINATORS, new_bb->succ->dest,
+			     recount_dominator (CDI_DOMINATORS,
+						new_bb->succ->dest));
 
   return new_bb;
 }
