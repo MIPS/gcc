@@ -2061,9 +2061,9 @@ init_ready_list (ready)
 			  && insn_issue_delay (insn) <= 3)
 			 || (targetm.sched.use_dfa_pipeline_interface
 			     && (*targetm.sched.use_dfa_pipeline_interface) ()
-			     && recog_memoized (insn) >= 0
-			     && min_insn_conflict_delay (curr_state, insn,
-							 insn) <= 3))
+			     && (recog_memoized (insn) < 0
+			         || min_insn_conflict_delay (curr_state,
+							     insn, insn) <= 3)))
 			&& check_live (insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
 	      {
@@ -2174,9 +2174,9 @@ new_ready (next)
 	      && (0
 		  || (targetm.sched.use_dfa_pipeline_interface
 		      && (*targetm.sched.use_dfa_pipeline_interface) ()
-		      && (recog_memoized (next) < 0
-			  || min_insn_conflict_delay (curr_state, next,
-						      next) > 3))
+		      && recog_memoized (next) >= 0
+		      && min_insn_conflict_delay (curr_state, next,
+						  next) > 3)
 		  || ((!targetm.sched.use_dfa_pipeline_interface
 		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
 		      && insn_issue_delay (next) > 3)

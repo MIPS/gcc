@@ -1,9 +1,16 @@
+Thu Apr 18 08:57:06 2002  Jeffrey A Law  (law@redhat.com)
+
+        * sched-rgn.c (init_ready_list): Make the DFA code handle
+        USE/CLOBBER insns in the same way as the traditional
+        scheduler.
+        (new_ready): Similarly..
+
 2002-04-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* haifa-sched.c (schedule_block): Change the DFA state only after
 	issuing insn.
 
-Wed Apr 17 15:38:36 2002  Jeffrey A Law  (law@cygnus.com)
+Wed Apr 17 15:38:36 2002  Jeffrey A Law  (law@redhat.com)
 
 	* pa.c (hppa_use_dfa_pipeline_interface): New function.
 	(TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE): Define.
