@@ -1476,7 +1476,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
     update_aliases (local_var, local_var_index, pc);
 }
 
-      
+
 tree
 build_java_soft_divmod (enum tree_code op, tree type, tree op1, tree op2)
 {
@@ -2077,8 +2077,8 @@ invoke_build_dtable (int is_invoke_interface, tree arg_list)
 
 /* Determine the index in SYMBOL_TABLE for a reference to the decl
    T. If this decl has not been seen before, it will be added to the
-   otable_methods. If it has, the existing table slot will be
-   reused. */
+   [oa]table_methods. If it has, the existing table slot will be
+   reused.  */
 
 int
 get_symbol_table_index (tree t, tree *symbol_table)
@@ -2098,7 +2098,7 @@ get_symbol_table_index (tree t, tree *symbol_table)
     {
       tree value = TREE_VALUE (method_list);
       if (value == t)
-        return i;
+	return i;
       i++;
       if (TREE_CHAIN (method_list) == NULL_TREE)
         break;
@@ -2164,9 +2164,7 @@ build_invokeinterface (tree dtable, tree method)
   tree interface;
   tree idx;
 
-  /* We expand invokeinterface here.  _Jv_LookupInterfaceMethod() will
-     ensure that the selected method exists, is public and not
-     abstract nor static.  */
+  /* We expand invokeinterface here.  */
 	    
   if (class_ident == NULL_TREE)
     class_ident = get_identifier ("class");
@@ -2183,49 +2181,39 @@ build_invokeinterface (tree dtable, tree method)
   
   if (flag_indirect_dispatch)
     {
-      // FIXME: We look up the interface by name every time we make an
-      // interface call.  There is an interface cache in the runtime
-      // library, but even so this sucks.
-
-      // PR 12760 says: "... the best solution would be to make the
-      // "otable" for interfaces have a pair of values - interface
-      // where the target method is found in addition to offset.  Both
-      // of these would be passed to _Jv_LookupInterfaceMethodIdx."
-      // However, other Java implementations seem to resolve
-      // interfaces lazily, so there is some compatibility advantage
-      // in doing things this way.
-
-      tree method_signature = TYPE_SIGNATURE (TREE_TYPE (method));
-      tree method_name = DECL_NAME (method);
-
-      lookup_arg = build_tree_list (NULL_TREE, 
-				    (build_utf8_ref 
-				     (unmangle_classname
-				      (IDENTIFIER_POINTER(method_signature),
-				       IDENTIFIER_LENGTH(method_signature)))));
-      lookup_arg = tree_cons (NULL_TREE, dtable,
-			      tree_cons (NULL_TREE, build_utf8_ref (method_name),
-					 lookup_arg));
-      return build (CALL_EXPR, ptr_type_node, 
-		    build_address_of (soft_lookupinterfacemethodbyname_node),
-		    lookup_arg, NULL_TREE);
+      int itable_index 
+	= 2 * (get_symbol_table_index 
+	       (method, &TYPE_ITABLE_METHODS (output_class)));
+      interface 
+	= build (ARRAY_REF, 
+		 TREE_TYPE (TREE_TYPE (TYPE_ITABLE_DECL (output_class))),
+		 TYPE_ITABLE_DECL (output_class), 
+		 build_int_2 (itable_index-1, 0));
+      idx 
+	= build (ARRAY_REF, 
+		 TREE_TYPE (TREE_TYPE (TYPE_ITABLE_DECL (output_class))),
+		 TYPE_ITABLE_DECL (output_class), 
+		 build_int_2 (itable_index, 0));
+      interface = convert (class_ptr_type, interface);
+      idx = convert (integer_type_node, idx);
     }
   else
     {
       idx = build_int_2 (get_interface_method_index (method, interface), 0);
+      interface = build_class_ref (interface);
     }
-
-  lookup_arg = tree_cons (NULL_TREE, dtable,
-                          tree_cons (NULL_TREE, build_class_ref (interface),
-			             build_tree_list (NULL_TREE, idx)));
 				     			  
+  lookup_arg = tree_cons (NULL_TREE, dtable,
+			  tree_cons (NULL_TREE, interface,
+				     build_tree_list (NULL_TREE, idx)));
+
   return build (CALL_EXPR, ptr_type_node, 
 		build_address_of (soft_lookupinterfacemethod_node),
 		lookup_arg, NULL_TREE);
 }
   
 /* Expand one of the invoke_* opcodes.
-   OCPODE is the specific opcode.
+   OPCODE is the specific opcode.
    METHOD_REF_INDEX is an index into the constant pool.
    NARGS is the number of arguments, or -1 if not specified. */
 

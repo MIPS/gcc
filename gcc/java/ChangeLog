@@ -1,3 +1,20 @@
+2004-09-10  Andrew Haley  <aph@redhat.com>
+
+	PR java/12760
+	* expr.c (build_invokeinterface): Use fast method for interface
+	dispatch.
+	* java-tree.h (enum java_tree_index): Add JTI_ITABLE_TYPE,
+	JTI_ITABLE_PTR_TYPE.
+	(struct lang_type): Add  itable_methods, itable_decl, itable_syms_decl.
+	(emit_symbol_table): Add new arg, element_size.
+	* decl.c (java_init_decl_processing): Initialize Class.itable.
+	* class.c (GEN_TABLE): New macro.
+	(gen_indirect_dispatch_tables): Use it.  Add itable.
+	(make_class_data): Add new arg for emit_symbol_table().
+	Emit itable.
+	(add_miranda_methods): Make sure search_class has been parsed.
+	(emit_symbol_table): Add new arg, element_size.
+
 2004-09-06  Andrew Haley  <aph@redhat.com>
 
 	* verify.c (merge_types): Return Object for all merges of

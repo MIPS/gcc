@@ -349,8 +349,38 @@ unmangle_classname (const char *name, int name_length)
   return to_return;
 }
 
+#define GEN_TABLE(TABLE, NAME, TABLE_TYPE, TYPE)			\
+do									\
+{									\
+  const char *typename = IDENTIFIER_POINTER (mangled_classname ("", TYPE)); \
+  char *buf = alloca (strlen (typename) + strlen (#NAME "_syms_") + 1);	\
+  tree decl;								\
+									\
+  sprintf (buf, #NAME "_%s", typename);					\
+  TYPE_## TABLE ##_DECL (type) = decl =					\
+    build_decl (VAR_DECL, get_identifier (buf), TABLE_TYPE);		\
+  DECL_EXTERNAL (decl) = 1;						\
+  TREE_STATIC (decl) = 1;						\
+  TREE_READONLY (decl) = 1;						\
+  TREE_CONSTANT (decl) = 1;						\
+  DECL_IGNORED_P (decl) = 1;						\
+  /* Mark the table as belonging to this class.  */			\
+  pushdecl (decl);							\
+  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);				\
+  DECL_OWNER (decl) = TYPE;						\
+  sprintf (buf, #NAME "_syms_%s", typename);				\
+  TYPE_## TABLE ##_SYMS_DECL (TYPE) =					\
+    build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);	\
+  TREE_STATIC (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;			\
+  TREE_CONSTANT (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;		\
+  DECL_IGNORED_P (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;		\
+  pushdecl (TYPE_## TABLE ##_SYMS_DECL (TYPE));				\
+}									\
+while (0)
 
-/* Given a class, create the DECLs for all its associated indirect dispatch tables.  */
+
+/* Given a class, create the DECLs for all its associated indirect
+   dispatch tables.  */
 void
 gen_indirect_dispatch_tables (tree type)
 {
@@ -378,55 +408,13 @@ gen_indirect_dispatch_tables (tree type)
 
   if (flag_indirect_dispatch)
     {
-      {
-	char *buf = alloca (strlen (typename) + strlen ("_otable_syms_") + 1);
-
-	sprintf (buf, "_otable_%s", typename);
-	TYPE_OTABLE_DECL (type) = 
-	  build_decl (VAR_DECL, get_identifier (buf), otable_type);
-	DECL_EXTERNAL (TYPE_OTABLE_DECL (type)) = 1;
-	TREE_STATIC (TYPE_OTABLE_DECL (type)) = 1;
-	TREE_READONLY (TYPE_OTABLE_DECL (type)) = 1;
-	TREE_CONSTANT (TYPE_OTABLE_DECL (type)) = 1;
-	DECL_IGNORED_P (TYPE_OTABLE_DECL (type)) = 1;
-	pushdecl (TYPE_OTABLE_DECL (type));  
-	MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (TYPE_OTABLE_DECL (type));
-	DECL_OWNER (TYPE_OTABLE_DECL (type)) = type;
-	sprintf (buf, "_otable_syms_%s", typename);
-	TYPE_OTABLE_SYMS_DECL (type) = 
-	  build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);
-	TREE_STATIC (TYPE_OTABLE_SYMS_DECL (type)) = 1;
-	TREE_CONSTANT (TYPE_OTABLE_SYMS_DECL (type)) = 1;
-	DECL_IGNORED_P(TYPE_OTABLE_SYMS_DECL (type)) = 1;
-	pushdecl (TYPE_OTABLE_SYMS_DECL (type));
-      }
-
-      {
-	char *buf = alloca (strlen (typename) + strlen ("_atable_syms_") + 1);
-	tree decl;
-
-	sprintf (buf, "_atable_%s", typename);
-	TYPE_ATABLE_DECL (type) = decl =
-	  build_decl (VAR_DECL, get_identifier (buf), atable_type);
-	DECL_EXTERNAL (decl) = 1;
-	TREE_STATIC (decl) = 1;
-	TREE_READONLY (decl) = 1;
-	TREE_CONSTANT (decl) = 1;
-	DECL_IGNORED_P (decl) = 1;
-	/* Mark the atable as belonging to this class.  */
-	pushdecl (decl);  
-	MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
-	DECL_OWNER (decl) = type;
-	sprintf (buf, "_atable_syms_%s", typename);
-	TYPE_ATABLE_SYMS_DECL (type) = 
-	  build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);
-	TREE_STATIC (TYPE_ATABLE_SYMS_DECL (type)) = 1;
-	TREE_CONSTANT (TYPE_ATABLE_SYMS_DECL (type)) = 1;
-	DECL_IGNORED_P (TYPE_ATABLE_SYMS_DECL (type)) = 1;
-	pushdecl (TYPE_ATABLE_SYMS_DECL (type));
-      }
+      GEN_TABLE (ATABLE, _atable, atable_type, type);
+      GEN_TABLE (OTABLE, _otable, otable_type, type);
+      GEN_TABLE (ITABLE, _itable, itable_type, type);
     }
 }
+
+#undef GEN_TABLE
 
 tree
 push_class (tree class_type, tree class_name)
@@ -1683,13 +1671,19 @@ make_class_data (tree type)
 	= emit_symbol_table 
 	(DECL_NAME (TYPE_OTABLE_DECL (type)), 
 	 TYPE_OTABLE_DECL (type), TYPE_OTABLE_METHODS (type), 
-	 TYPE_OTABLE_SYMS_DECL (type), integer_type_node);
+	 TYPE_OTABLE_SYMS_DECL (type), integer_type_node, 1);
        
       TYPE_ATABLE_DECL (type) 
 	= emit_symbol_table 
 	(DECL_NAME (TYPE_ATABLE_DECL (type)), 
 	 TYPE_ATABLE_DECL (type), TYPE_ATABLE_METHODS (type), 
-	 TYPE_ATABLE_SYMS_DECL (type), ptr_type_node);
+	 TYPE_ATABLE_SYMS_DECL (type), ptr_type_node, 1);
+       
+      TYPE_ITABLE_DECL (type) 
+	= emit_symbol_table 
+	(DECL_NAME (TYPE_ITABLE_DECL (type)), 
+	 TYPE_ITABLE_DECL (type), TYPE_ITABLE_METHODS (type), 
+	 TYPE_ITABLE_SYMS_DECL (type), ptr_type_node, 2);
     }
   
   TYPE_CTABLE_DECL (type) = emit_catch_table (type);
@@ -1772,6 +1766,21 @@ make_class_data (tree type)
 				TYPE_ATABLE_SYMS_DECL (type)));
       TREE_CONSTANT (TYPE_ATABLE_DECL (type)) = 1;
       TREE_INVARIANT (TYPE_ATABLE_DECL (type)) = 1;
+    }
+   if (TYPE_ITABLE_METHODS(type) == NULL_TREE)
+    {
+      PUSH_FIELD_VALUE (cons, "itable", null_pointer_node);
+      PUSH_FIELD_VALUE (cons, "itable_syms", null_pointer_node);
+    }
+  else
+    {
+      PUSH_FIELD_VALUE (cons, "itable",
+			build1 (ADDR_EXPR, itable_ptr_type, TYPE_ITABLE_DECL (type)));
+      PUSH_FIELD_VALUE (cons, "itable_syms",
+			build1 (ADDR_EXPR, symbols_array_ptr_type,
+				TYPE_ITABLE_SYMS_DECL (type)));
+      TREE_CONSTANT (TYPE_ITABLE_DECL (type)) = 1;
+      TREE_INVARIANT (TYPE_ITABLE_DECL (type)) = 1;
     }
  
   PUSH_FIELD_VALUE (cons, "catch_classes",
@@ -2108,8 +2117,12 @@ layout_class (tree this_class)
 static void
 add_miranda_methods (tree base_class, tree search_class)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (search_class);
-  int i, n = TREE_VEC_LENGTH (basetype_vec);
+  tree basetype_vec;
+  int i, n;
+  if (!CLASS_PARSED_P (search_class))
+    load_class (search_class, 1);
+  basetype_vec = TYPE_BINFO_BASETYPES (search_class);
+  n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 1; i < n; ++i)
     {
       tree method_decl;
@@ -2407,7 +2420,7 @@ build_symbol_entry (tree decl)
   signature = build_utf8_ref (unmangle_classname 
 			      (IDENTIFIER_POINTER (signature),
 			       IDENTIFIER_LENGTH (signature)));
-
+      
   START_RECORD_CONSTRUCTOR (sym, symbol_type);
   PUSH_FIELD_VALUE (sym, "clname", clname);
   PUSH_FIELD_VALUE (sym, "name", name);
@@ -2419,11 +2432,12 @@ build_symbol_entry (tree decl)
   return sym;
 } 
 
-/* Emit a symbol table: used by -findirect-dispatch.  */
+/* Emit a symbol table: used by -findirect-dispatch.  ELEMENT_SIZE is
+   the number of elements per symbol.  */
 
 tree
 emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl, 
-			  tree the_array_element_type)
+		   tree the_array_element_type, int element_size)
 {
   tree method_list, method, table, list, null_symbol;
   tree table_size, the_array_type;
@@ -2470,7 +2484,7 @@ emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl
      uninitialized static array of INDEX + 1 elements. The extra entry
      is used by the runtime to track whether the table has been
      initialized. */
-  table_size = build_index_type (build_int_2 (index, 0));
+  table_size = build_index_type (build_int_2 (index * element_size + 1, 0));
   the_array_type = build_array_type (the_array_element_type, table_size);
   the_table = build_decl (VAR_DECL, name, the_array_type);
   TREE_STATIC (the_table) = 1;

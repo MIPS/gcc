@@ -1,3 +1,14 @@
+2004-09-10  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Class.h (_Jv_getInterfaceMethod(): new friend.
+	* java/lang/natClass.cc (initializeClass): Check itable.
+	(_Jv_getInterfaceMethod): New.
+	(_Jv_LinkSymbolTable): Rewrite code that handles inerface calls.
+	Check that an interface method isn't called with invokevirtual.
+
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Make sure
+	super_meth is virtual.
+
 2004-09-01  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/Class.h (_Jv_CheckAccessNoInit): Declare as friend.

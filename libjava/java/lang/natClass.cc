@@ -877,7 +877,7 @@ java::lang::Class::initializeClass (void)
   if (vtable == NULL)
     _Jv_MakeVTable(this);
 
-  if (otable || atable)
+  if (otable || atable || itable)
     _Jv_LinkSymbolTable(this);
 
   _Jv_linkExceptionClassTable (this);
@@ -1681,17 +1681,81 @@ java::lang::Class::setSigners(JArray<jobject> *s)
   hack_signers = s;
 }
 
-// Set this to true to enable debugging of indirect dispatch tables/linking.
-static bool debug_link = false;
+
+// Lookup an interface method by name.  This is very similar to
+// purpose to _getMethod, but the interfaces are quite different.  It
+// might be a good idea for _getMethod to call this function.
+//
+// Return true of the method is found, with the class in FOUND_CLASS
+// and the index in INDEX.
+
+bool
+_Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
+		    const _Jv_Utf8Const *utf_name,  
+		    const _Jv_Utf8Const *utf_sig)
+{
+   for (jclass klass = search_class; klass; klass = klass->getSuperclass())
+    {
+      // FIXME: Throw an exception?
+      if (!klass->isInterface ())
+	return false;
+      
+      int i = klass->method_count;
+      while (--i >= 0)
+	{
+	  if (_Jv_equalUtf8Consts (klass->methods[i].name, utf_name)
+	      && _Jv_equalUtf8Consts (klass->methods[i].signature, utf_sig))
+	    {
+	      // Found it.
+	      using namespace java::lang::reflect;
+
+	      // FIXME: Method must be public.  Throw an exception?
+	      if (! Modifier::isPublic (klass->methods[i].accflags))
+		break;
+
+	      found_class = klass;
+	      // Interface method indexes count from 1.
+	      index = i+1;
+	      return true;
+	    }
+	}
+    }
+
+  // If we haven't found a match, and this class is an interface, then
+  // check all the superinterfaces.
+  if (search_class->isInterface())
+    {
+      for (int i = 0; i < search_class->interface_count; ++i)
+	{
+	  using namespace java::lang::reflect;
+	  bool found = _Jv_getInterfaceMethod (search_class->interfaces[i], 
+					   found_class, index,
+					   utf_name, utf_sig);
+	  if (found)
+	    return true;
+	}
+    }
+
+  return false;
+}
+
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
 
-// There are two tables, atable and otable.  atable is an array of
-// addresses, and otable is an array of offsets, and these are used
-// for static and virtual members respectively.
+// There are three tables, atable otable and itable.  atable is an
+// array of addresses, and otable is an array of offsets, and these
+// are used for static and virtual members respectively.  itable is an
+// array of pairs {address, index} where each address is a pointer to
+// an interface.
 
-// {a,o}table_syms is an array of _Jv_MethodSymbols.  Each such symbol
-// is a tuple of {classname, member name, signature}.
+// {a,o,i}table_syms is an array of _Jv_MethodSymbols.  Each such
+// symbol is a tuple of {classname, member name, signature}.
+
+
+// Set this to true to enable debugging of indirect dispatch tables/linking.
+static bool debug_link = false;
+
+
 // _Jv_LinkSymbolTable() scans these two arrays and fills in the
 // corresponding atable and otable with the addresses of static
 // members and the offsets of virtual members.
@@ -1717,7 +1781,8 @@ _Jv_LinkSymbolTable(jclass klass)
 
   if (debug_link)
     fprintf (stderr, "Fixing up otable in %s:\n", klass->name->data);
-  for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
+  for (index = 0; sym = klass->otable_syms[index], sym.class_name != NULL; 
+       index++)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
@@ -1734,42 +1799,22 @@ _Jv_LinkSymbolTable(jclass klass)
 	throw new java::lang::NoClassDefFoundError 
 	  (_Jv_NewStringUTF (sym.class_name->data));
 
-      if (target_class->isInterface())
-	{
-	  // FIXME: This does not yet fully conform to binary compatibility
-	  // rules. It will break if a declaration is moved into a 
-	  // superinterface.
-	  for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
-	    {
-	      for (int i=0; i < cls->method_count; i++)
-		{
-		  meth = &cls->methods[i];
-		  if (_Jv_equalUtf8Consts (sym.name, meth->name)
-		      && _Jv_equalUtf8Consts (signature, meth->signature))
-		    {
-		      klass->otable->offsets[index] = i + 1;
-		      if (debug_link)
-			fprintf (stderr, "  offsets[%d] = %d (interface %s@%p : %s(%s))\n",
-				 index,
-				 klass->otable->offsets[index],
-				 (const char*)cls->name->data,
-				 klass,
-				 (const char*)sym.name->data,
-				 (const char*)signature->data);
-		      goto found;
-		    }
-		}
-	    
-	    }
-	found:
-	  continue;
-	}
-
       // We're looking for a field or a method, and we can tell
       // which is needed by looking at the signature.
       if (signature->length >= 2
 	  && signature->data[0] == '(')
 	{
+	  // Looks like someone is trying to invoke an interface method
+	  if (target_class->isInterface())
+	    {
+	      using namespace java::lang;
+	      StringBuffer *sb = new StringBuffer();
+	      sb->append(JvNewStringLatin1("found interface "));
+	      sb->append(target_class->getName());
+	      sb->append(JvNewStringLatin1(" when searching for a class"));
+	      throw new VerifyError(sb->toString());
+	    }
+
  	  // If the target class does not have a vtable_method_count yet, 
 	  // then we can't tell the offsets for its methods, so we must lay 
 	  // it out now.
@@ -1866,11 +1911,12 @@ _Jv_LinkSymbolTable(jclass klass)
  atable:
   if (klass->atable == NULL
       || klass->atable->state != 0)
-    return;
+    goto itable;
 
   klass->atable->state = 1;
 
-  for (index = 0; sym = klass->atable_syms[index], sym.name != NULL; index++)
+  for (index = 0; sym = klass->atable_syms[index], sym.class_name != NULL; 
+       index++)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
       _Jv_Method *meth = NULL;            
@@ -1898,6 +1944,17 @@ _Jv_LinkSymbolTable(jclass klass)
 	      _Jv_LayoutVTableMethods (target_class);
 	    }
 	  
+	  // Interface methods cannot have bodies.
+	  if (target_class->isInterface())
+	    {
+	      using namespace java::lang;
+	      StringBuffer *sb = new StringBuffer();
+	      sb->append(JvNewStringLatin1("class "));
+	      sb->append(target_class->getName());
+	      sb->append(JvNewStringLatin1(" is an interface: class expected"));
+	      throw new VerifyError(sb->toString());
+	    }
+
 	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
 					  sym.signature);
 	  
@@ -2003,6 +2060,49 @@ _Jv_LinkSymbolTable(jclass klass)
 	  }
       }
     }
+
+ itable:
+  if (klass->itable == NULL
+      || klass->itable->state != 0)
+    return;
+
+  klass->itable->state = 1;
+
+  for (index = 0; sym = klass->itable_syms[index], sym.class_name != NULL; 
+       index++)
+    {
+      jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
+      const _Jv_Utf8Const *signature = sym.signature;
+
+      jclass cls;
+      int i;
+      
+      bool found 
+	= _Jv_getInterfaceMethod (target_class, cls, i, sym.name, sym.signature);
+      
+      if (found)
+	{
+	  klass->itable->addresses[index*2] = cls;
+	  klass->itable->addresses[index*2 + 1] = (void*)i;			  
+	  if (debug_link)
+	    {
+	      fprintf (stderr, "  interfaces[%d] = %p (interface %s@%p : %s(%s))\n",
+		       index,
+		       klass->itable->addresses[index*2],
+		       (const char*)cls->name->data,
+		       cls,
+		       (const char*)sym.name->data,
+		       (const char*)signature->data);
+	      fprintf (stderr, "            [%d] = offset %d\n",
+		       index + 1,
+		       (int)klass->itable->addresses[index*2 + 1]);
+	    }
+
+	}
+      else
+	throw new java::lang::IncompatibleClassChangeError;
+    }
+
 }
 
 
@@ -2110,7 +2210,7 @@ _Jv_LayoutVTableMethods (jclass klass)
 	    }
 	}
 
-      if (super_meth)
+      if (super_meth && _Jv_isVirtualMethod (super_meth))
         meth->index = super_meth->index;
       else
 	meth->index = index++;

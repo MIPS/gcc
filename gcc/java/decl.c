@@ -703,6 +703,11 @@ java_init_decl_processing (void)
   TYPE_NONALIASED_COMPONENT (atable_type) = 1;
   atable_ptr_type = build_pointer_type (atable_type);
 
+  itable_type = build_array_type (ptr_type_node, 
+				  one_elt_array_domain_type);
+  TYPE_NONALIASED_COMPONENT (itable_type) = 1;
+  itable_ptr_type = build_pointer_type (itable_type);
+
   symbol_type = make_node (RECORD_TYPE);
   PUSH_FIELD (symbol_type, field, "clname", utf8const_ptr_type);
   PUSH_FIELD (symbol_type, field, "name", utf8const_ptr_type);
@@ -828,6 +833,9 @@ java_init_decl_processing (void)
   	      symbols_array_ptr_type);
   PUSH_FIELD (class_type_node, field, "atable", atable_ptr_type);
   PUSH_FIELD (class_type_node, field, "atable_syms", 
+  	      symbols_array_ptr_type);
+  PUSH_FIELD (class_type_node, field, "itable", itable_ptr_type);
+  PUSH_FIELD (class_type_node, field, "itable_syms", 
   	      symbols_array_ptr_type);
   PUSH_FIELD (class_type_node, field, "catch_classes", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "interfaces",

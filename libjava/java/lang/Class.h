@@ -378,6 +378,8 @@ private:
 					 jint flags);
   
   friend bool _Jv_isBinaryCompatible (jclass);
+  friend bool _Jv_getInterfaceMethod(jclass, jclass&, int&, 
+				     const _Jv_Utf8Const*, const _Jv_Utf8Const*);
 
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
@@ -453,8 +455,12 @@ private:
   _Jv_OffsetTable *otable;
   // Offset table symbols.
   _Jv_MethodSymbol *otable_syms;
+  // Address table
   _Jv_AddressTable *atable;
   _Jv_MethodSymbol *atable_syms;
+  // Interface table
+  _Jv_AddressTable *itable;
+  _Jv_MethodSymbol *itable_syms;
   _Jv_CatchClass *catch_classes;
   // Interfaces implemented by this class.
   jclass *interfaces;

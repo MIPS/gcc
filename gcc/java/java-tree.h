@@ -377,6 +377,8 @@ enum java_tree_index
   JTI_OTABLE_PTR_TYPE,
   JTI_ATABLE_TYPE,
   JTI_ATABLE_PTR_TYPE,
+  JTI_ITABLE_TYPE,
+  JTI_ITABLE_PTR_TYPE,
   JTI_SYMBOL_TYPE,
   JTI_SYMBOLS_ARRAY_TYPE,
   JTI_SYMBOLS_ARRAY_PTR_TYPE,
@@ -612,10 +614,14 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_OTABLE_TYPE]
 #define atable_type \
   java_global_trees[JTI_ATABLE_TYPE]
+#define itable_type \
+  java_global_trees[JTI_ITABLE_TYPE]
 #define otable_ptr_type \
   java_global_trees[JTI_OTABLE_PTR_TYPE]
 #define atable_ptr_type \
   java_global_trees[JTI_ATABLE_PTR_TYPE]
+#define itable_ptr_type \
+  java_global_trees[JTI_ITABLE_PTR_TYPE]
 #define symbol_type \
   java_global_trees[JTI_SYMBOL_TYPE]
 #define symbols_array_type \
@@ -1085,6 +1091,10 @@ struct lang_decl GTY(())
 #define TYPE_OTABLE_SYMS_DECL(T) (TYPE_LANG_SPECIFIC (T)->otable_syms_decl)
 #define TYPE_OTABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->otable_decl)
 
+#define TYPE_ITABLE_METHODS(T)   (TYPE_LANG_SPECIFIC (T)->itable_methods)
+#define TYPE_ITABLE_SYMS_DECL(T) (TYPE_LANG_SPECIFIC (T)->itable_syms_decl)
+#define TYPE_ITABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->itable_decl)
+
 #define TYPE_CTABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->ctable_decl)
 #define TYPE_CATCH_CLASSES(T)    (TYPE_LANG_SPECIFIC (T)->catch_classes)
 #define TYPE_VERIFY_METHOD(T)    (TYPE_LANG_SPECIFIC (T)->verify_method)
@@ -1118,6 +1128,11 @@ struct lang_type GTY(())
 				   class.  */
   tree atable_decl;		/* The static address table.  */
   tree atable_syms_decl;
+
+  tree itable_methods;          /* List of interfaces methods referred
+				   to by this class.  */
+  tree itable_decl;		/* The interfaces table.  */
+  tree itable_syms_decl;
 
   tree ctable_decl;             /* The table of classes for the runtime
 				   type matcher.  */
@@ -1276,7 +1291,7 @@ extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
 extern void emit_register_classes (void);
-extern tree emit_symbol_table (tree, tree, tree, tree, tree);
+extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
