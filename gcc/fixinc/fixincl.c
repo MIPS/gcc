@@ -788,6 +788,7 @@ process (pzDta, pzDir, pzFile)
 
           for (;;)
             {
+              static int failCt = 0;
               int newFd = chainOpen (fdp.readFd,
                                      (tpChar *) pFD->papzPatchArgs,
                                      (chainHead == -1)
@@ -802,7 +803,7 @@ process (pzDta, pzDir, pzFile)
                        "for %s\n", errno, strerror (errno),
                        pFD->pzFixName);
 
-              if (errno != EAGAIN)
+              if ((errno != EAGAIN) || (++failCt > 10))
                 exit (EXIT_FAILURE);
               sleep (1);
             }
