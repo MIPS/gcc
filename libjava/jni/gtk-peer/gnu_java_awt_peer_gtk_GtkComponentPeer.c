@@ -583,8 +583,10 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
       return;
     }
 
-  if (n_keys > 1)
-    g_printerr ("warning: using hardware keycode from first keymap entry, though multiple entries were found\n");
+  /* Note: if n_keys > 1 then there are multiple hardware keycodes
+     that translate to lookup_keyval.  We arbitrarily choose the first
+     hardware keycode from the list returned by
+     gdk_keymap_get_entries_for_keyval. */
 
   event->key.hardware_keycode = keymap_keys[0].keycode;
   event->key.group =  keymap_keys[0].group;
