@@ -1345,7 +1345,7 @@ cfg_remove_useless_stmts_bb (basic_block bb)
     {
       stmt = bsi_stmt (bsi);
 
-      if (!var)
+      if (!var || !val)
 	{
 	  bsi_next (&bsi);
 	  continue;
