@@ -1,7 +1,7 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting:
    C front-end interface.
 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -81,6 +81,7 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 
   DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
   TREE_PUBLIC (current_function_decl) = 0;
+  mf_mark (current_function_decl);
 
   body = c_begin_compound_stmt ();
   pushlevel (0);

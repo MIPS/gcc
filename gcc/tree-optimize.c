@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -421,7 +421,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   dump_function (TDI_useless, fndecl);
 
   /* Mudflap-instrument any relevant declarations.  */
-  if (flag_mudflap)
+  if (flag_mudflap && ! mf_marked_p (fndecl))
     mudflap_c_function_decls (fndecl);
 
   /* Lower the structured statements.  */
@@ -438,7 +438,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
 
   /* Mudflap-instrument any relevant operations.  */
-  if (flag_mudflap)
+  if (flag_mudflap && ! mf_marked_p (fndecl))
     {
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)

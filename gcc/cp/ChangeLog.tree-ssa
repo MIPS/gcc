@@ -1,3 +1,7 @@
+2004-01-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	* cp-mudflap.c (mflang_flush_calls): mf_mark synthetic function.
+
 2004-01-04  Richard Henderson  <rth@redhat.com>
 
 	* call.c (build_over_call): Don't create a save_expr of an

@@ -1,3 +1,11 @@
+2004-01-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_build_string): Properly mf_mark string.
+	(mf_varname_tree): Remove redundant marking.
+	* tree-optimize.c (tree_rest_of_compilation): Skip mudflap processing
+	of mf_marked functions.
+	* c-mudflap.c (mflang_flush_calls): mf_mark synthetic function.
+
 2004-01-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (OBJS-common): Remove tree-must-alias.o

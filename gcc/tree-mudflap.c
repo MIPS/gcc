@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -90,7 +90,7 @@ static tree
 mf_build_string (const char *string)
 {
   size_t len = strlen (string);
-  tree result = build_string (len + 1, string);
+  tree result = mf_mark (build_string (len + 1, string));
 
   TREE_TYPE (result)
       = build_array_type (char_type_node,
@@ -102,7 +102,7 @@ mf_build_string (const char *string)
 
   result = build1 (ADDR_EXPR, build_pointer_type (char_type_node), result);
 
-  return result;
+  return mf_mark (result);
 }
 
 /* Perform the declaration-related mudflap tree transforms on the
@@ -321,7 +321,7 @@ mf_varname_tree (tree decl)
   result = mf_build_string (buf_contents);
   pp_clear_output_area (buf);
 
-  return mf_mark (result);
+  return result;
 }
 
 
