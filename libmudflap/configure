@@ -1694,7 +1694,7 @@ else
 fi
 
 echo $ac_n "checking how to recognise dependant libraries""... $ac_c" 1>&6
-echo "configure:1698: checking how to recognise dependant libraries" >&5,
+echo "configure:1698: checking how to recognise dependant libraries" >&5
 lt_cv_file_magic_cmd='$MAGIC_CMD'
 lt_cv_file_magic_test_file=
 lt_cv_deplibs_check_method='unknown'
