@@ -1,3 +1,12 @@
+2003-11-03  Josef Zlomek  <zlomekj@suse.cz>
+
+	Speedup var-tracking similarly to VRP.
+	* var-tracking.c (vt_hybrid_search): Deleted.
+	(vt_iterative_dataflow): Deleted.
+	(vt_find_locations): New function - faster dataflow solver.
+	(variable_tracking_main): Computing the order of blocks moved to
+	vt_find_locations.
+
 2003-11-01  Andreas Schwab  <schwab@suse.de>
 
 	Merge from mainline:

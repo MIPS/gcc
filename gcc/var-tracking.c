@@ -85,13 +85,6 @@
       or a parallel of register/memory references (for a large variables
       which consist of several parts, for example long long).
 
-
-   References:
-   "Implementation Techniques for Efficient Data-Flow Analysis of Large
-   Programs"
-   D. C. Atkinson, W. G. Griswold.
-   http://citeseer.nj.nec.com/atkinson01implementation.html
-
 */
 
 #include "config.h"
@@ -317,9 +310,7 @@ static void count_stores		PARAMS ((rtx, rtx, void *));
 static void add_uses			PARAMS ((rtx, void *));
 static void add_stores			PARAMS ((rtx, rtx, void *));
 static bool compute_bb_dataflow		PARAMS ((basic_block));
-static void vt_hybrid_search		PARAMS ((basic_block, sbitmap,
-						 sbitmap));
-static void vt_iterative_dataflow	PARAMS ((int *));
+static void vt_find_locations		PARAMS ((void));
 
 static void dump_attrs_list		PARAMS ((attrs));
 static int dump_variable		PARAMS ((void **, void *));
@@ -1601,102 +1592,107 @@ compute_bb_dataflow (bb)
   return changed;
 }
 
-/* Hybrid search.  It is the same as hybrid_search_bitmap in df.c but modified
-   for different data structures.
-   Search from basic block BB and use the bitmaps VISITED and PENDING
-   to control the searching.  */
+/* Find the locations of variables in the whole function.  */
 
 static void
-vt_hybrid_search (bb, visited, pending)
-     basic_block bb;
-     sbitmap visited;
-     sbitmap pending;
+vt_find_locations ()
 {
-  bool changed;
-  edge e;
-
-  SET_BIT (visited, bb->index);
-  if (TEST_BIT (pending, bb->index))
-    {
-      /* Calculate the IN set as union of predecessor OUT sets.  */
-      dataflow_set_clear (&VTI (bb)->in);
-      for (e = bb->pred; e; e = e->pred_next)
-	{
-	  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
-	}
-
-      RESET_BIT (pending, bb->index);
-      changed = compute_bb_dataflow (bb);
-
-      if (changed)
-	{
-	  for (e = bb->succ; e; e = e->succ_next)
-	    {
-	      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-		continue;
-	      SET_BIT (pending, e->dest->index);
-	    }
-	}
-    }
-  for (e = bb->succ; e != 0; e = e->succ_next)
-    {
-      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-	continue;
-      if (!TEST_BIT (visited, e->dest->index))
-	vt_hybrid_search (e->dest, visited, pending);
-    }
-}
-
-/* This function will perform iterative dataflow, producing the in and out
-   sets.  It is the same as iterative_dataflow_bitmap in df.c but modified
-   for different data structures.
-   BB_ORDER is the order to iterate in (should map block numbers -> order).
-   Because this is a forward dataflow problem we pass in a mapping of block
-   number to rc_order (like df->inverse_rc_map).  */
-
-static void
-vt_iterative_dataflow (bb_order)
-     int *bb_order;
-{
-  fibheap_t worklist;
+  fibheap_t worklist, pending, fibheap_swap;
+  sbitmap visited, in_worklist, in_pending, sbitmap_swap;
   basic_block bb;
-  sbitmap visited, pending;
+  edge e;
+  int *bb_order;
+  int *rc_order;
+  int i;
 
-  pending = sbitmap_alloc (last_basic_block);
-  visited = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (pending);
-  sbitmap_zero (visited);
+  /* Compute reverse completion order of depth first search of the CFG
+     so that the data-flow runs faster.  */
+  rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
+  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
+  flow_depth_first_order_compute (NULL, rc_order);
+  for (i = 0; i < n_basic_blocks; i++)
+    bb_order[rc_order[i]] = i;
+  free (rc_order);
+
   worklist = fibheap_new ();
+  pending = fibheap_new ();
+  visited = sbitmap_alloc (last_basic_block);
+  in_worklist = sbitmap_alloc (last_basic_block);
+  in_pending = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (in_worklist);
+  sbitmap_zero (in_pending);
 
   FOR_EACH_BB (bb)
     {
-      fibheap_insert (worklist, bb_order[bb->index], bb);
-      SET_BIT (pending, bb->index);
+      fibheap_insert (pending, bb_order[bb->index], bb);
+      SET_BIT (in_pending, bb->index);
     }
-  while (sbitmap_first_set_bit (pending) != -1)
+
+  while (!fibheap_empty (pending))
     {
+      fibheap_swap = pending;
+      pending = worklist;
+      worklist = fibheap_swap;
+      sbitmap_swap = in_pending;
+      in_pending = in_worklist;
+      in_worklist = sbitmap_swap;
+
+      sbitmap_zero (visited);
+
       while (!fibheap_empty (worklist))
 	{
 	  bb = fibheap_extract_min (worklist);
+	  RESET_BIT (in_worklist, bb->index);
 	  if (!TEST_BIT (visited, bb->index))
-	    vt_hybrid_search (bb, visited, pending);
-	}
-      if (sbitmap_first_set_bit (pending) != -1)
-	{
-	  FOR_EACH_BB (bb)
 	    {
-	      fibheap_insert (worklist, bb_order[bb->index], bb);
+	      bool changed;
+
+	      SET_BIT (visited, bb->index);
+
+	      /* Calculate the IN set as union of predecessor OUT sets.  */
+	      dataflow_set_clear (&VTI (bb)->in);
+	      for (e = bb->pred; e; e = e->pred_next)
+		{
+		  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
+		}
+
+	      changed = compute_bb_dataflow (bb);
+	      if (changed)
+		{
+		  for (e = bb->succ; e; e = e->succ_next)
+		    {
+		      if (e->dest == EXIT_BLOCK_PTR)
+			continue;
+
+		      if (TEST_BIT (visited, e->dest->index))
+			{
+			  if (!TEST_BIT (in_pending, e->dest->index))
+			    {
+			      /* Send E->DEST to next round.  */
+			      SET_BIT (in_pending, e->dest->index);
+			      fibheap_insert (pending, bb_order[e->dest->index],
+					      e->dest);
+			    }
+			}
+		      else if (!TEST_BIT (in_worklist, e->dest->index))
+			{
+			  /* Add E->DEST to current round.  */
+			  SET_BIT (in_worklist, e->dest->index);
+			  fibheap_insert (worklist, bb_order[e->dest->index],
+					  e->dest);
+			}
+		    }
+		}
 	    }
-	  sbitmap_zero (visited);
-	}
-      else
-	{
-	  break;
 	}
     }
-  sbitmap_free (pending);
-  sbitmap_free (visited);
+
+  free (bb_order);
   fibheap_delete (worklist);
+  fibheap_delete (pending);
+  sbitmap_free (visited);
+  sbitmap_free (in_worklist);
+  sbitmap_free (in_pending);
 }
 
 /* Print the content of the LIST to dump file.  */
@@ -2588,10 +2584,6 @@ vt_finalize ()
 void
 variable_tracking_main ()
 {
-  int i;
-  int *rc_order;
-  int *bb_order;
-
   mark_dfs_back_edges ();
   vt_initialize ();
   if (!frame_pointer_needed)
@@ -2603,16 +2595,7 @@ variable_tracking_main ()
 	}
     }
 
-  /* Compute reverse completion order of depth first search of the CFG
-     so that the dataflow could possibly run faster.  */
-  rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
-  flow_depth_first_order_compute (NULL, rc_order);
-  for (i = 0; i < n_basic_blocks; i++)
-    bb_order[rc_order[i]] = i;
-  free (rc_order);
-
-  vt_iterative_dataflow (bb_order);
+  vt_find_locations ();
   vt_emit_notes ();
 
   if (rtl_dump_file)
@@ -2621,6 +2604,5 @@ variable_tracking_main ()
       dump_flow_info (rtl_dump_file);
     }
 
-  free (bb_order);
   vt_finalize ();
 }
