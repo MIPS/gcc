@@ -1030,8 +1030,8 @@ actual_directory (pfile, fname)
     }
   else
     {
-      dir[0] = '.';
-      dir[1] = '\0';
+      free (dir);
+      dir = xstrdup (".");
       dlen = 1;
     }
 
