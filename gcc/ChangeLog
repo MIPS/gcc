@@ -1,3 +1,15 @@
+2002-07-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/2454
+	* combine.c (nonzero_bits): LOAD_EXTEND_OP should only apply
+	to SUBREGs of MEMs.  (num_sign_bit_copies): Likewise.
+
+2003-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (x86_64_sign_extended_value): Don't allow
+	tls_symbolic_operand.
+	(x86_64_zero_extended_value): Likewise.
+
 2003-04-22  Release Manager
 
 	* GCC 3.2.3 Released.
