@@ -1,3 +1,14 @@
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+
+        * config/darwin.c (machopic_output_possible_stub_label):  Remove.
+        config/darwin-protos.h:  Ditto.
+        config/darwin.h:  Remove call to it.
+
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+
+	* combine.c (distribute_notes): Do not place a REG_DEAD note
+	when value is both set and used.
+
 2004-02-25  Richard Henderson  <rth@redhat.com>
 
         * explow.c (force_reg): Call mark_reg_pointer as appropriate.
