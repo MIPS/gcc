@@ -382,6 +382,10 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
       tree case_value = NULL_TREE;
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
 
+      /* Strip away any useless type conversions.  */
+      while (tree_ssa_useless_type_conversion (switch_cond))
+	switch_cond = TREE_OPERAND (switch_cond, 0);
+
       /* If the switch's condition is an SSA variable, then we may
 	 know its value at each of the case labels.  */
       if (TREE_CODE (switch_cond) == SSA_NAME)
