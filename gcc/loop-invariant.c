@@ -240,7 +240,7 @@ find_exits (struct loop *loop, basic_block *body,
 		}
 	    }
 
-	  FOR_EACH_EDGE (e, body[i]->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, body[i], ix)
 	    {
 	      if (flow_bb_inside_loop_p (loop, e->dest))
 		continue;

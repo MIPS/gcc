@@ -1461,7 +1461,7 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
-  FOR_EACH_EDGE (e, BLOCK_FOR_INSN (insn)->pred, ix)
+  FOR_EACH_PRED_EDGE (e, BLOCK_FOR_INSN (insn), ix)
     if (e->flags & EDGE_FALLTHRU)
       force_nonfallthru (e);
   last = emit_insn_before (seq, insn);
@@ -1629,8 +1629,8 @@ connect_post_landing_pads (void)
 	  emit_jump (outer->post_landing_pad);
 	  src = BLOCK_FOR_INSN (region->resume);
 	  dest = BLOCK_FOR_INSN (outer->post_landing_pad);
-	  while (EDGE_COUNT (src->succ) > 0)
-	    remove_edge (EDGE_0 (src->succ));
+	  while (EDGE_SUCC_COUNT (src) > 0)
+	    remove_edge (EDGE_SUCC (src, 0));
 	  e = make_edge (src, dest, 0);
 	  e->probability = REG_BR_PROB_BASE;
 	  e->count = src->count;
@@ -1997,10 +1997,10 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	    || NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK))
       break;
   if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
-    insert_insn_on_edge (seq, EDGE_0 (ENTRY_BLOCK_PTR->succ));
+    insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
   else
     {
-      rtx last = BB_END (EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest);
+      rtx last = BB_END (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest);
       for (; ; fn_begin = NEXT_INSN (fn_begin))
 	if ((NOTE_P (fn_begin)
 	     && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
@@ -2038,7 +2038,7 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e)
@@ -2210,7 +2210,7 @@ finish_eh_generation (void)
       edge e;
       unsigned ix;
       bool eh = false;
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (e->flags & EDGE_EH)
 	    {

@@ -84,7 +84,7 @@ forwarder_block_p (basic_block bb)
   rtx insn;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR
-      || EDGE_COUNT (bb->succ) != 1)
+      || EDGE_SUCC_COUNT (bb) != 1)
     return false;
 
   for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
@@ -110,7 +110,7 @@ can_fallthru (basic_block src, basic_block target)
     return true;
   if (src->next_bb != target)
     return 0;
-  FOR_EACH_EDGE (e, src->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, src, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
       return 0;
 
@@ -133,7 +133,7 @@ could_fall_through (basic_block src, basic_block target)
 
   if (target == EXIT_BLOCK_PTR)
     return true;
-  FOR_EACH_EDGE (e, src->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, src, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
       return 0;
   return true;
@@ -176,7 +176,7 @@ mark_dfs_back_edges (void)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -200,11 +200,11 @@ mark_dfs_back_edges (void)
 	  SET_BIT (visited, dest->index);
 
 	  pre[dest->index] = prenum++;
-	  if (EDGE_COUNT (dest->succ) > 0)
+	  if (EDGE_SUCC_COUNT (dest) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succ;
+	      stack[sp].ev = dest->succ_;
 	      stack[sp++].ix = 0;
 	    }
 	  else
@@ -247,7 +247,7 @@ set_edge_can_fallthru_flag (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  e->flags &= ~EDGE_CAN_FALLTHRU;
 
@@ -258,15 +258,15 @@ set_edge_can_fallthru_flag (void)
 
       /* If the BB ends with an invertible condjump all (2) edges are
 	 CAN_FALLTHRU edges.  */
-      if (EDGE_COUNT (bb->succ) != 2)
+      if (EDGE_SUCC_COUNT (bb) != 2)
 	continue;
       if (!any_condjump_p (BB_END (bb)))
 	continue;
       if (!invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0))
 	continue;
       invert_jump (BB_END (bb), JUMP_LABEL (BB_END (bb)), 0);
-      EDGE_0 (bb->succ)->flags |= EDGE_CAN_FALLTHRU;
-      EDGE_1 (bb->succ)->flags |= EDGE_CAN_FALLTHRU;
+      EDGE_SUCC (bb, 0)->flags |= EDGE_CAN_FALLTHRU;
+      EDGE_SUCC (bb, 1)->flags |= EDGE_CAN_FALLTHRU;
     }
 }
 
@@ -292,7 +292,7 @@ find_unreachable_blocks (void)
      be only one.  It isn't inconceivable that we might one day directly
      support Fortran alternate entry points.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     {
       *tos++ = e->dest;
 
@@ -306,7 +306,7 @@ find_unreachable_blocks (void)
     {
       basic_block b = *--tos;
 
-      FOR_EACH_EDGE (e, b->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, b, ix)
 	if (!(e->dest->flags & BB_REACHABLE))
 	  {
 	    *tos++ = e->dest;
@@ -348,7 +348,7 @@ create_edge_list (void)
      edges on each basic block.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      num_edges += EDGE_COUNT (bb->succ);
+      num_edges += EDGE_SUCC_COUNT (bb);
     }
 
   elist = xmalloc (sizeof (struct edge_list));
@@ -360,7 +360,7 @@ create_edge_list (void)
 
   /* Follow successors of blocks, and register these edges.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    FOR_EACH_EDGE (e, bb->succ, ix)
+    FOR_EACH_SUCC_EDGE (e, bb, ix)
       elist->index_to_edge[num_edges++] = e;
 
   return elist;
@@ -417,7 +417,7 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  pred = e->src->index;
 	  succ = e->dest->index;
@@ -445,14 +445,14 @@ verify_edge_list (FILE *f, struct edge_list *elist)
       {
 	int found_edge = 0;
 
-	FOR_EACH_EDGE (e, p->succ, ix)
+	FOR_EACH_SUCC_EDGE (e, p, ix)
 	  if (e->dest == s)
 	    {
 	      found_edge = 1;
 	      break;
 	    }
 
-	FOR_EACH_EDGE (e, s->pred, ix)
+	FOR_EACH_PRED_EDGE (e, s, ix)
 	  if (e->src == p)
 	    {
 	      found_edge = 1;
@@ -479,7 +479,7 @@ find_edge (basic_block pred, basic_block succ)
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, pred->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, pred, ix)
     if (e->dest == succ)
       return e;
 
@@ -546,7 +546,7 @@ remove_fake_predecessors (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     {
       if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
 	{
@@ -588,7 +588,7 @@ add_noreturn_fake_exit_edges (void)
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    if (EDGE_COUNT (bb->succ) == 0)
+    if (EDGE_SUCC_COUNT (bb) == 0)
       make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 }
 
@@ -650,7 +650,7 @@ flow_reverse_top_sort_order_compute (int *rts_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -672,11 +672,11 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	  /* Mark that we have visited the destination.  */
 	  SET_BIT (visited, dest->index);
 
-	  if (EDGE_COUNT (dest->succ) > 0)
+	  if (EDGE_SUCC_COUNT (dest) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ;
+	      stack[sp].ev = dest->succ_;
 	      stack[sp++].ix = 0;
 	    }
 	  else
@@ -725,7 +725,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -752,11 +752,11 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 
 	  dfsnum++;
 
-	  if (EDGE_COUNT (dest->succ) > 0)
+	  if (EDGE_SUCC_COUNT (dest) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ;
+	      stack[sp].ev = dest->succ_;
 	      stack[sp++].ix = 0;
 	    }
 	  else if (rc_order)
@@ -834,7 +834,7 @@ flow_preorder_transversal_compute (int *pot_order)
 
   FOR_EACH_BB (bb)
     {
-      max_successors = EDGE_COUNT (bb->succ);
+      max_successors = EDGE_SUCC_COUNT (bb);
       dfst[bb->index].node
 	= (max_successors
 	   ? xcalloc (max_successors, sizeof (struct dfst_node *)) : NULL);
@@ -847,7 +847,7 @@ flow_preorder_transversal_compute (int *pot_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -875,11 +875,11 @@ flow_preorder_transversal_compute (int *pot_order)
 	      dfst[dest->index].up = &dfst[src->index];
 	    }
 
-	  if (EDGE_COUNT (dest->succ) > 0)
+	  if (EDGE_SUCC_COUNT (dest) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ;
+	      stack[sp].ev = dest->succ_;
 	      stack[sp++].ix = 0;
 	    }
 	}
@@ -995,7 +995,7 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
       bb = data->stack[--data->sp];
 
       /* Perform depth-first search on adjacent vertices.  */
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	if (!TEST_BIT (data->visited_blocks,
 		       e->src->index - (INVALID_BLOCK + 1)))
 	  flow_dfs_compute_reverse_add_bb (data, e->src);
@@ -1040,7 +1040,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
       lbb = st[--sp];
       if (reverse)
         {
-	  FOR_EACH_EDGE (e, lbb->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, lbb, ix)
 	    if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 	      {
 	        if (tv == rslt_max)
@@ -1051,7 +1051,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
         }
       else
         {
-	  FOR_EACH_EDGE (e, lbb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, lbb, ix)
 	    if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 	      {
 	        if (tv == rslt_max)

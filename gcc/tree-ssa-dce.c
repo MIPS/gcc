@@ -469,7 +469,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
       FOR_EACH_BB (bb)
 	{
 	  unsigned ix;
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    if (e->flags & EDGE_DFS_BACK)
 	      mark_control_dependent_edges_necessary (e->dest, el);
 	}
@@ -728,24 +728,24 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
 
       /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (EDGE_0 (bb->succ), post_dom_bb);
-      PENDING_STMT (EDGE_0 (bb->succ)) = NULL;
+      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
-      EDGE_0 (bb->succ)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (bb, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
       /* If the edge reaches any block other than the exit, then it is a
 	 fallthru edge; if it reaches the exit, then it is not a fallthru
 	 edge.  */
       if (post_dom_bb != EXIT_BLOCK_PTR)
-	EDGE_0 (bb->succ)->flags |= EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
       else
-	EDGE_0 (bb->succ)->flags &= ~EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      while (EDGE_COUNT (bb->succ) != 1)
-        remove_edge (EDGE_0 (bb->succ));
+      while (EDGE_SUCC_COUNT (bb) != 1)
+        remove_edge (EDGE_SUCC (bb, 0));
     }
 
   bsi_remove (i);

@@ -251,7 +251,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 	    edge e;
 	    unsigned ix;
 
-	    FOR_EACH_EDGE (e, bb->succ, ix)
+	    FOR_EACH_SUCC_EDGE (e, bb, ix)
 	      if (e->dest != EXIT_BLOCK_PTR)
 		SET_BIT (edge_cache[bb->index], e->dest->index);
 	  }
@@ -389,7 +389,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	  {
 	    insn = 0;
@@ -641,7 +641,7 @@ compute_outgoing_frequencies (basic_block b)
 {
   edge e, f;
 
-  if (EDGE_COUNT (b->succ) == 2)
+  if (EDGE_SUCC_COUNT (b) == 2)
     {
       rtx note = find_reg_note (BB_END (b), REG_BR_PROB, NULL);
       int probability;
@@ -659,9 +659,9 @@ compute_outgoing_frequencies (basic_block b)
       f->count = b->count - e->count;
     }
 
-  if (EDGE_COUNT (b->succ) == 1)
+  if (EDGE_SUCC_COUNT (b) == 1)
     {
-      e = EDGE_0 (b->succ);
+      e = EDGE_SUCC (b, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = b->count;
     }
@@ -709,7 +709,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	{
 	  bb->count = 0;
 	  bb->frequency = 0;
-	  FOR_EACH_EDGE (e, bb->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, bb, ix)
 	    {
 	      bb->count += e->count;
 	      bb->frequency += EDGE_FREQUENCY (e);
@@ -750,7 +750,7 @@ find_sub_basic_blocks (basic_block bb)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  FOR_EACH_EDGE (e, b->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, b, ix)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);

@@ -59,17 +59,17 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (header->aux)
     return false;
 
-  if (EDGE_COUNT (header->succ) == 0)
+  if (EDGE_SUCC_COUNT (header) == 0)
     abort ();
-  if (EDGE_COUNT (header->succ) != 2)
+  if (EDGE_SUCC_COUNT (header) != 2)
     return false;
-  if (flow_bb_inside_loop_p (loop, EDGE_0 (header->succ)->dest)
-      && flow_bb_inside_loop_p (loop, EDGE_1 (header->succ)->dest))
+  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest)
+      && flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 1)->dest))
     return false;
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header && EDGE_COUNT (header->pred) >= 2)
+  if (header != loop->header && EDGE_PRED_COUNT (header) >= 2)
     return false;
 
   last = last_stmt (header);
@@ -193,14 +193,14 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
-      FOR_EACH_EDGE (e, header->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, header, ix)
 	{
 	  edge e1;
 	  unsigned ix1;
-	  FOR_EACH_EDGE (e1, new_header->succ, ix1)
+	  FOR_EACH_SUCC_EDGE (e1, new_header, ix1)
 	    if (e1->dest == e->dest)
 	      break;
-	  if (e1 == NULL || ix1 > EDGE_COUNT (new_header->succ))
+	  if (e1 == NULL || ix1 > EDGE_SUCC_COUNT (new_header))
 	    abort ();
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
@@ -306,10 +306,10 @@ copy_loop_headers (void)
 
 	  /* Find a successor of header that is inside a loop; i.e. the new
 	     header after the condition is copied.  */
-	  if (flow_bb_inside_loop_p (loop, EDGE_0 (header->succ)->dest))
-	    preheader_edge = EDGE_0 (header->succ);
+	  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
+	    preheader_edge = EDGE_SUCC (header, 0);
 	  else
-	    preheader_edge = EDGE_1 (header->succ);
+	    preheader_edge = EDGE_SUCC (header, 1);
 	  header = preheader_edge->dest;
 	}
     }

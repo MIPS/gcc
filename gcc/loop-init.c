@@ -46,8 +46,8 @@ loop_optimizer_init (FILE *dumpfile)
 
   /* Avoid annoying special cases of edges going to exit
      block.  */
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
-    if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succ) > 1)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
+    if ((e->flags & EDGE_FALLTHRU) && EDGE_SUCC_COUNT (e->src) > 1)
       split_edge (e);
 
   /* Find the loops.  */

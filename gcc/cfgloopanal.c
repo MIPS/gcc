@@ -281,7 +281,7 @@ mark_irreducible_loops (struct loops *loops)
     {
       unsigned ix;
       act->flags &= ~BB_IRREDUCIBLE_LOOP;
-      FOR_EACH_EDGE (e, act->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, act, ix)
 	e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
     }
 
@@ -289,7 +289,7 @@ mark_irreducible_loops (struct loops *loops)
   g = new_graph (last_basic_block + loops->num);
 
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    FOR_EACH_EDGE (e, act->succ, ix)
+    FOR_EACH_SUCC_EDGE (e, act, ix)
       {
         /* Ignore edges to exit.  */
         if (e->dest == EXIT_BLOCK_PTR)
@@ -427,7 +427,7 @@ expected_loop_iterations (const struct loop *loop)
       count_in = 0;
       count_latch = 0;
 
-      FOR_EACH_EDGE (e, loop->header->pred, ix)
+      FOR_EACH_PRED_EDGE (e, loop->header, ix)
 	if (e->src == loop->latch)
 	  count_latch = e->count;
 	else
@@ -448,7 +448,7 @@ expected_loop_iterations (const struct loop *loop)
       freq_in = 0;
       freq_latch = 0;
 
-      FOR_EACH_EDGE (e, loop->header->pred, ix)
+      FOR_EACH_PRED_EDGE (e, loop->header, ix)
 	if (e->src == loop->latch)
 	  freq_latch = EDGE_FREQUENCY (e);
 	else

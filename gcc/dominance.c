@@ -223,13 +223,13 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* Initialize our border blocks, and the first edge.  */
   if (reverse)
     {
-      ev = bb->pred;
+      ev = bb->pred_;
       en_block = EXIT_BLOCK_PTR;
       ex_block = ENTRY_BLOCK_PTR;
     }
   else
     {
-      ev = bb->succ;
+      ev = bb->succ_;
       en_block = ENTRY_BLOCK_PTR;
       ex_block = EXIT_BLOCK_PTR;
     }
@@ -262,7 +262,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 		}
 	      bb = e->dest;
 	      ix_next = 0;
-	      ev_next = bn->pred;
+	      ev_next = bn->pred_;
 	    }
 	  else
 	    {
@@ -274,7 +274,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 		}
 	      bb = e->src;
 	      ix_next = 0;
-	      ev_next = bn->succ;
+	      ev_next = bn->succ_;
 	    }
 
 	  if (bn == en_block)
@@ -349,7 +349,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
 
       FOR_EACH_BB_REVERSE (b)
 	{
-	  if (b->succ)
+	  if (EDGE_SUCC_COUNT (b) > 0)
 	    {
 	      if (di->dfs_order[b->index] == 0)
 		saw_unconnected = true;
@@ -504,7 +504,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 
       par = di->dfs_parent[v];
       k = v;
-      ev = (reverse) ? bb->succ : bb->pred;
+      ev = (reverse) ? bb->succ_ : bb->pred_;
       if (reverse)
 	{
 	  /* If this block has a fake edge to exit, process that first.  */
@@ -839,7 +839,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 
   if (dir == CDI_DOMINATORS)
     {
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	{
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
@@ -847,7 +847,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     }
   else
     {
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);

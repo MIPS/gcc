@@ -239,7 +239,7 @@ find_traces (int *n_traces, struct trace *traces)
   heap = fibheap_new ();
   max_entry_frequency = 0;
   max_entry_count = 0;
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     {
       bbd[e->dest->index].heap = heap;
       bbd[e->dest->index].node = fibheap_insert (heap, bb_to_key (e->dest),
@@ -309,7 +309,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (e->dest != EXIT_BLOCK_PTR
 	    && e->dest->rbi->visited != trace_n
 	    && (e->flags & EDGE_CAN_FALLTHRU)
@@ -380,15 +380,15 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 	  prev_bb->rbi->next = best_bb->rbi->next;
 
 	  /* Try to get rid of uncond jump to cond jump.  */
-	  if (EDGE_COUNT (prev_bb->succ) == 1)
+	  if (EDGE_SUCC_COUNT (prev_bb) == 1)
 	    {
-	      basic_block header = EDGE_0 (prev_bb->succ)->dest;
+	      basic_block header = EDGE_SUCC (prev_bb, 0)->dest;
 
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
 	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0))
 		{
-		  copy_bb (header, EDGE_0 (prev_bb->succ), prev_bb, trace_n);
+		  copy_bb (header, EDGE_SUCC (prev_bb, 0), prev_bb, trace_n);
 		}
 	    }
 	}
@@ -495,7 +495,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 		     bb->index, *n_traces - 1);
 
 	  /* Select the successor that will be placed after BB.  */
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    {
 #ifdef ENABLE_CHECKING
 	      if (e->flags & EDGE_FAKE)
@@ -537,12 +537,12 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	  /* If the best destination has multiple predecessors, and can be
 	     duplicated cheaper than a jump, don't allow it to be added
 	     to a trace.  We'll duplicate it when connecting traces.  */
-	  if (best_edge && EDGE_COUNT (best_edge->dest->pred) >= 2
+	  if (best_edge && EDGE_PRED_COUNT (best_edge->dest) >= 2
 	      && copy_bb_p (best_edge->dest, 0))
 	    best_edge = NULL;
 
 	  /* Add all non-selected successors to the heaps.  */
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    {
 	      if (e == best_edge
 		  || e->dest == EXIT_BLOCK_PTR
@@ -637,7 +637,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
 			  /* Check whether there is another edge from BB.  */
 			  edge another_edge;
-			  FOR_EACH_EDGE (another_edge, bb->succ, ix)
+			  FOR_EACH_SUCC_EDGE (another_edge, bb, ix)
 			    if (another_edge != best_edge)
 			      break;
 
@@ -676,17 +676,17 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
 		  */
 
-		  FOR_EACH_EDGE (e, bb->succ, ix)
+		  FOR_EACH_SUCC_EDGE (e, bb, ix)
 		    if (e != best_edge
 			&& (e->flags & EDGE_CAN_FALLTHRU)
 			&& !(e->flags & EDGE_COMPLEX)
 			&& !e->dest->rbi->visited
-			&& EDGE_COUNT (e->dest->pred) == 1
+			&& EDGE_PRED_COUNT (e->dest) == 1
 			&& !e->crossing_edge
-			&& EDGE_COUNT (e->dest->succ) == 1
-			&& (EDGE_0 (e->dest->succ)->flags & EDGE_CAN_FALLTHRU)
-			&& !(EDGE_0 (e->dest->succ)->flags & EDGE_COMPLEX)
-			&& EDGE_0 (e->dest->succ)->dest == best_edge->dest
+			&& EDGE_SUCC_COUNT (e->dest) == 1
+			&& (EDGE_SUCC (e->dest, 0)->flags & EDGE_CAN_FALLTHRU)
+			&& !(EDGE_SUCC (e->dest, 0)->flags & EDGE_COMPLEX)
+			&& EDGE_SUCC (e->dest, 0)->dest == best_edge->dest
 			&& 2 * e->dest->frequency >= EDGE_FREQUENCY (best_edge))
 		      {
 			best_edge = e;
@@ -709,7 +709,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
       /* The trace is terminated so we have to recount the keys in heap
 	 (some block can have a lower key because now one of its predecessors
 	 is an end of the trace).  */
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR
 	      || e->dest->rbi->visited)
@@ -808,7 +808,7 @@ bb_to_key (basic_block bb)
 
   /* Prefer blocks whose predecessor is an end of some trace
      or whose predecessor edge is EDGE_DFS_BACK.  */
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     {
       if ((e->src != ENTRY_BLOCK_PTR && bbd[e->src->index].end_of_trace >= 0)
 	  || (e->flags & EDGE_DFS_BACK))
@@ -968,7 +968,7 @@ connect_traces (int n_traces, struct trace *traces)
 	  unsigned ix;
 	  best = NULL;
 	  best_len = 0;
-	  FOR_EACH_EDGE (e, traces[t2].first->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, traces[t2].first, ix)
 	    {
 	      int si = e->src->index;
 
@@ -1016,7 +1016,7 @@ connect_traces (int n_traces, struct trace *traces)
 	  /* Find the continuation of the chain.  */
 	  best = NULL;
 	  best_len = 0;
-	  FOR_EACH_EDGE (e, traces[t].last->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, traces[t].last, ix)
 	    {
 	      int di = e->dest->index;
 
@@ -1057,7 +1057,7 @@ connect_traces (int n_traces, struct trace *traces)
 	      basic_block next_bb = NULL;
 	      bool try_copy = false;
 
-	      FOR_EACH_EDGE (e, traces[t].last->succ, ix)
+	      FOR_EACH_SUCC_EDGE (e, traces[t].last, ix)
 		if (e->dest != EXIT_BLOCK_PTR
 		    && (e->flags & EDGE_CAN_FALLTHRU)
 		    && !(e->flags & EDGE_COMPLEX)
@@ -1078,7 +1078,7 @@ connect_traces (int n_traces, struct trace *traces)
 			continue;
 		      }
 
-		    FOR_EACH_EDGE (e2, e->dest->succ, ix2)
+		    FOR_EACH_SUCC_EDGE (e2, e->dest, ix2)
 		      {
 			int di = e2->dest->index;
 
@@ -1179,13 +1179,13 @@ copy_bb_p (basic_block bb, int code_may_grow)
 
   if (!bb->frequency)
     return false;
-  if (EDGE_COUNT (bb->pred) < 2)
+  if (EDGE_PRED_COUNT (bb) < 2)
     return false;
   if (!can_duplicate_block_p (bb))
     return false;
 
   /* Avoid duplicating blocks which have many successors (PR/13430).  */
-  if (EDGE_COUNT (bb->succ) > 8)
+  if (EDGE_SUCC_COUNT (bb) > 8)
     return false;
 
   if (code_may_grow && maybe_hot_bb_p (bb))
@@ -1267,7 +1267,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 
   i = 0;
   FOR_EACH_BB (bb)
-    FOR_EACH_EDGE (e, bb->succ, ix)
+    FOR_EACH_SUCC_EDGE (e, bb, ix)
       {
 	if (e->src != ENTRY_BLOCK_PTR
 	    && e->dest != EXIT_BLOCK_PTR
@@ -1363,7 +1363,7 @@ add_labels_and_missing_jumps (edge *crossing_edges, int n_crossing_edges)
  		    /* bb just falls through.  */
  		    {
  		      /* make sure there's only one successor */
-		      if (EDGE_COUNT (src->succ) == 1)
+		      if (EDGE_SUCC_COUNT (src) == 1)
  			{
  			  /* Find label in dest block.  */
 			  label = block_label (dest);
@@ -1420,13 +1420,13 @@ fix_up_fall_thru_edges (void)
   FOR_EACH_BB (cur_bb)
     {
       fall_thru = NULL;
-      if (EDGE_COUNT (cur_bb->succ) > 0)
-	succ1 = EDGE_0 (cur_bb->succ);
+      if (EDGE_SUCC_COUNT (cur_bb) > 0)
+	succ1 = EDGE_SUCC (cur_bb, 0);
       else
 	succ1 = NULL;
 
-      if (EDGE_COUNT (cur_bb->succ) > 1)
-  	succ2 = EDGE_1 (cur_bb->succ);
+      if (EDGE_SUCC_COUNT (cur_bb) > 1)
+  	succ2 = EDGE_SUCC (cur_bb, 1);
       else
   	succ2 = NULL;
       
@@ -1514,7 +1514,7 @@ fix_up_fall_thru_edges (void)
 			 partition as bb it's falling through from.  */
  		      
 		      new_bb->partition = cur_bb->partition;
-		      EDGE_0 (new_bb->succ)->crossing_edge = true;
+		      EDGE_SUCC (new_bb, 0)->crossing_edge = true;
  		    }
 		  
  		  /* Add barrier after new jump */
@@ -1551,7 +1551,7 @@ find_jump_block (basic_block jump_dest)
   rtx insn;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, jump_dest->pred, ix)
+  FOR_EACH_PRED_EDGE (e, jump_dest, ix)
     if (e->crossing_edge)
       {
 	basic_block src = e->src;
@@ -1612,13 +1612,13 @@ fix_crossing_conditional_branches (void)
   FOR_EACH_BB (cur_bb)
     {
       crossing_edge = NULL;
-      if (EDGE_COUNT (cur_bb->succ) > 0)
-	succ1 = EDGE_0 (cur_bb->succ);
+      if (EDGE_SUCC_COUNT (cur_bb) > 0)
+	succ1 = EDGE_SUCC (cur_bb, 0);
       else
 	succ1 = NULL;
     
-      if (EDGE_COUNT (cur_bb->succ) > 1)
-	succ2 = EDGE_1 (cur_bb->succ);
+      if (EDGE_SUCC_COUNT (cur_bb) > 1)
+	succ2 = EDGE_SUCC (cur_bb, 1);
       else
 	succ2 = NULL;
       
@@ -1735,10 +1735,10 @@ fix_crossing_conditional_branches (void)
 		 will be a successor for new_bb and a predecessor
 		 for 'dest'.  */
 	      
-	      if (EDGE_COUNT (new_bb->succ) == 0)
+	      if (EDGE_SUCC_COUNT (new_bb) == 0)
 		new_edge = make_edge (new_bb, dest, 0);
 	      else
-		new_edge = EDGE_0 (new_bb->succ);
+		new_edge = EDGE_SUCC (new_bb, 0);
 	      
 	      crossing_edge->crossing_edge = false;
 	      new_edge->crossing_edge = true;
@@ -1766,7 +1766,7 @@ fix_crossing_unconditional_branches (void)
   FOR_EACH_BB (cur_bb)
     {
       last_insn = BB_END (cur_bb);
-      succ = EDGE_0 (cur_bb->succ);
+      succ = EDGE_SUCC (cur_bb, 0);
 
       /* Check to see if bb ends in a crossing (unconditional) jump.  At
          this point, no crossing jumps should be conditional.  */
@@ -1840,7 +1840,7 @@ add_reg_crossing_jump_notes (void)
   unsigned ix;
 
   FOR_EACH_BB (bb)
-    FOR_EACH_EDGE (e, bb->succ, ix)
+    FOR_EACH_SUCC_EDGE (e, bb, ix)
       if (e->crossing_edge
 	  && JUMP_P (BB_END (e->src)))
 	REG_NOTES (BB_END (e->src)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP, 

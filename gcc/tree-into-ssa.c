@@ -230,7 +230,7 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
       bb = *--tos;
 
       /* For each predecessor block.  */
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	{
 	  basic_block pred = e->src;
 	  int pred_index = pred->index;
@@ -301,7 +301,7 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
   tree phi, use;
   unsigned uid, ix;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -833,7 +833,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     if (e->flags & EDGE_ABNORMAL)
       break;
   abnormal_phi = (e != NULL);
@@ -872,7 +872,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       tree phi;
 
@@ -902,7 +902,7 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
   sbitmap names_to_rename = walk_data->global_data;
   use_operand_p op;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       tree phi;
 
@@ -1125,7 +1125,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	if (TREE_CODE (var) == SSA_NAME)
 	  {
 	    unsigned ix;
-	    FOR_EACH_EDGE (e, bb->pred, ix)
+	    FOR_EACH_PRED_EDGE (e, bb, ix)
 	      add_phi_arg (&phi, var, e);
 	  }
       }
@@ -1644,7 +1644,7 @@ rewrite_into_ssa (bool all)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      bb_ann (bb)->num_preds = EDGE_COUNT (bb->pred);
+      bb_ann (bb)->num_preds = EDGE_PRED_COUNT (bb);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
@@ -1768,7 +1768,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      bb_ann (bb)->num_preds = EDGE_COUNT (bb->pred);
+      bb_ann (bb)->num_preds = EDGE_PRED_COUNT (bb);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 

@@ -507,7 +507,7 @@ live_worklist (tree_live_info_p live, varray_type stack, int i)
       b = VARRAY_TOP_INT (stack);
       VARRAY_POP (stack);
 
-      FOR_EACH_EDGE (e, BASIC_BLOCK (b)->pred, ix)
+      FOR_EACH_PRED_EDGE (e, BASIC_BLOCK (b), ix)
         if (e->src != ENTRY_BLOCK_PTR)
 	  {
 	    /* Its not live on entry to the block its defined in.  */
@@ -648,7 +648,7 @@ calculate_live_on_entry (var_map map)
 
   bb = ENTRY_BLOCK_PTR;
   num = 0;
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       int entry_block = e->dest->index;
       if (e->dest == EXIT_BLOCK_PTR)
@@ -771,7 +771,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
       on_entry = live_entry_blocks (liveinfo, i);
       EXECUTE_IF_SET_IN_BITMAP (on_entry, 0, b,
         {
-	  FOR_EACH_EDGE (e, BASIC_BLOCK (b)->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, BASIC_BLOCK (b), ix)
 	    if (e->src != ENTRY_BLOCK_PTR)
 	      bitmap_set_bit (on_exit[e->src->index], i);
 	});

@@ -2121,7 +2121,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
         if (flags & TDF_SLIM)
 	  {
 	    pp_string (buffer, " ");
@@ -2161,7 +2161,7 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     if (flags & TDF_SLIM)
       {
 	pp_string (buffer, " ");
@@ -2231,7 +2231,7 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e && e->dest != bb->next_bb)

@@ -1106,8 +1106,8 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       /* Begin by propagating live_at_start from the successor blocks.  */
       CLEAR_REG_SET (new_live_at_end);
 
-      if (bb->succ)
-	FOR_EACH_EDGE (e, bb->succ, ix)
+      if (EDGE_SUCC_COUNT (bb) > 0)
+	FOR_EACH_SUCC_EDGE (e, bb, ix)
 	  {
 	    basic_block sb = e->dest;
 
@@ -1263,7 +1263,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       /* Queue all predecessors of BB so that we may re-examine
 	 their live_at_end.  */
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	{
 	  basic_block pb = e->src;
 	  if (pb->aux == NULL)
@@ -1370,7 +1370,7 @@ initialize_uninitialized_subregs (void)
   int reg, did_something = 0;
   find_regno_partial_param param;
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;
@@ -1927,9 +1927,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
       && (flags & PROP_SCAN_DEAD_STORES)
-      && (EDGE_COUNT (bb->succ) == 0
-	  || (EDGE_COUNT (bb->succ) == 1
-	      && EDGE_0 (bb->succ)->dest == EXIT_BLOCK_PTR
+      && (EDGE_SUCC_COUNT (bb) == 0
+	  || (EDGE_SUCC_COUNT (bb) == 1
+	      && EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR
 	      && ! current_function_calls_eh_return)))
     {
       rtx insn, set;

@@ -177,7 +177,7 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, b->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, b, ix)
     if (e->flags & EDGE_FALLTHRU)
       /* The jump may be a by-product of a branch that has been merged
 	 in the main codepath after being conditionalized.  Therefore
@@ -296,7 +296,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	         do the split and re-emit it back in case this will ever
 	         trigger problem.  */
 
-	      FOR_EACH_EDGE (f, bb->prev_bb->succ, ix)
+	      FOR_EACH_SUCC_EDGE (f, bb->prev_bb, ix)
 		if (f->flags & EDGE_FALLTHRU)
 		  break;
 
@@ -599,7 +599,7 @@ schedule_ebbs (FILE *dump_file)
 	  if (bb->next_bb == EXIT_BLOCK_PTR
 	      || LABEL_P (BB_HEAD (bb->next_bb)))
 	    break;
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    if ((e->flags & EDGE_FALLTHRU) != 0)
 	      break;
 	  if (! e)

@@ -127,7 +127,7 @@ mark_loop_exit_edges (void)
       FOR_EACH_BB (bb)
 	{
 	  unsigned int ix;
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    {
 	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
 		  != bb->loop_father)
@@ -252,7 +252,7 @@ block_fallthru (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     if (! (e->flags & EDGE_FALLTHRU))
       break;
 
@@ -2236,7 +2236,7 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_COUNT (combo_bb->succ) == 0)
+      if (EDGE_SUCC_COUNT (combo_bb) == 0)
 	{
 	  if (find_reg_note (last, REG_NORETURN, NULL))
 	    ;
@@ -2252,11 +2252,11 @@ merge_if_block (struct ce_if_block * ce_info)
          blocks taking us to our final destination.  */
       else if (JUMP_P (last))
 	;
-      else if (EDGE_0 (combo_bb->succ)->dest == EXIT_BLOCK_PTR
+      else if (EDGE_SUCC (combo_bb, 0)->dest == EXIT_BLOCK_PTR
 	       && CALL_P (last)
 	       && SIBLING_CALL_P (last))
 	;
-      else if ((EDGE_0 (combo_bb->succ)->flags & EDGE_EH)
+      else if ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
 	       && can_throw_internal (last))
 	;
       else
@@ -2269,7 +2269,7 @@ merge_if_block (struct ce_if_block * ce_info)
      is more than one remaining edge, it must come from elsewhere.  There
      may be zero incoming edges if the THEN block didn't actually join
      back up (as with a call to abort).  */
-  else if (EDGE_COUNT (join_bb->pred) < 2
+  else if (EDGE_PRED_COUNT (join_bb) < 2
 	   && join_bb != EXIT_BLOCK_PTR)
     {
       /* We can merge the JOIN.  */
@@ -2286,13 +2286,13 @@ merge_if_block (struct ce_if_block * ce_info)
 
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
-      if (EDGE_COUNT (combo_bb->succ) > 1
-	  || EDGE_0 (combo_bb->succ)->dest != join_bb)
+      if (EDGE_SUCC_COUNT (combo_bb) > 1
+	  || EDGE_SUCC (combo_bb, 0)->dest != join_bb)
 	abort ();
 
       /* Remove the jump and cruft from the end of the COMBO block.  */
       if (join_bb != EXIT_BLOCK_PTR)
-	tidy_fallthru_edge (EDGE_0 (combo_bb->succ));
+	tidy_fallthru_edge (EDGE_SUCC (combo_bb, 0));
     }
 
   num_updated_if_blocks++;
@@ -2311,11 +2311,11 @@ find_if_header (basic_block test_bb, int pass)
   edge else_edge;
 
   /* The kind of block we're looking for has exactly two successors.  */
-  if (EDGE_COUNT (test_bb->succ) != 2)
+  if (EDGE_SUCC_COUNT (test_bb) != 2)
     return NULL;
 
-  then_edge = EDGE_0 (test_bb->succ);
-  else_edge = EDGE_1 (test_bb->succ);
+  then_edge = EDGE_SUCC (test_bb, 0);
+  else_edge = EDGE_SUCC (test_bb, 1);
 
   /* Neither edge should be abnormal.  */
   if ((then_edge->flags & EDGE_COMPLEX)
@@ -2394,10 +2394,10 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
     return -1;
 
   /* If no edges, obviously it doesn't jump or fallthru.  */
-  if (EDGE_COUNT (cur_bb->succ) == 0)
+  if (EDGE_SUCC_COUNT (cur_bb) == 0)
     return FALSE;
 
-  FOR_EACH_EDGE (cur_edge, cur_bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (cur_edge, cur_bb, ix)
     {
       if (cur_edge->flags & EDGE_COMPLEX)
 	/* Anything complex isn't what we want.  */
@@ -2454,8 +2454,6 @@ find_if_block (struct ce_if_block * ce_info)
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
   basic_block join_bb = NULL_BLOCK;
-  VEC(edge) *then_succ = then_bb->succ;
-  VEC(edge) *else_succ = else_bb->succ;
   int then_predecessors;
   int else_predecessors;
   edge cur_edge;
@@ -2468,10 +2466,10 @@ find_if_block (struct ce_if_block * ce_info)
      were && tests (which jump to the else block) or || tests (which jump to
      the then block).  */
   if (HAVE_conditional_execution && reload_completed
-      && EDGE_COUNT (test_bb->pred) == 1
-      && EDGE_0 (test_bb->pred)->flags == EDGE_FALLTHRU)
+      && EDGE_PRED_COUNT (test_bb) == 1
+      && EDGE_PRED (test_bb, 0)->flags == EDGE_FALLTHRU)
     {
-      basic_block bb = EDGE_0 (test_bb->pred)->src;
+      basic_block bb = EDGE_PRED (test_bb, 0)->src;
       basic_block target_bb;
       int max_insns = MAX_CONDITIONAL_EXECUTE;
       int n_insns;
@@ -2504,10 +2502,10 @@ find_if_block (struct ce_if_block * ce_info)
 	      total_insns += n_insns;
 	      blocks++;
 
-	      if (EDGE_COUNT (bb->pred) != 1)
+	      if (EDGE_PRED_COUNT (bb) != 1)
 		break;
 
-	      bb = EDGE_0 (bb->pred)->src;
+	      bb = EDGE_PRED (bb, 0)->src;
 	      n_insns = block_jumps_and_fallthru_p (bb, target_bb);
 	    }
 	  while (n_insns >= 0 && (total_insns + n_insns) <= max_insns);
@@ -2524,7 +2522,7 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* Count the number of edges the THEN and ELSE blocks have.  */
   then_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, then_bb->pred, ix)
+  FOR_EACH_PRED_EDGE (cur_edge, then_bb, ix)
     {
       then_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)
@@ -2532,7 +2530,7 @@ find_if_block (struct ce_if_block * ce_info)
     }
 
   else_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, else_bb->pred, ix)
+  FOR_EACH_PRED_EDGE (cur_edge, else_bb, ix)
     {
       else_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)
@@ -2545,9 +2543,9 @@ find_if_block (struct ce_if_block * ce_info)
     return FALSE;
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
-  if (EDGE_COUNT (then_succ) > 0
-      && (EDGE_COUNT (then_succ) > 1
-          || (EDGE_0 (then_succ)->flags & EDGE_COMPLEX)
+  if (EDGE_SUCC_COUNT (then_bb) > 0
+      && (EDGE_SUCC_COUNT (then_bb) > 1
+          || (EDGE_SUCC (then_bb, 0)->flags & EDGE_COMPLEX)
 	  || (flow2_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
     return FALSE;
 
@@ -2557,9 +2555,9 @@ find_if_block (struct ce_if_block * ce_info)
      Check for the last insn of the THEN block being an indirect jump, which
      is listed as not having any successors, but confuses the rest of the CE
      code processing.  ??? we should fix this in the future.  */
-  if (EDGE_COUNT (then_succ) == 0)
+  if (EDGE_SUCC_COUNT (then_bb) == 0)
     {
-      if (EDGE_COUNT (else_bb->pred) == 1)
+      if (EDGE_PRED_COUNT (else_bb) == 1)
 	{
 	  rtx last_insn = BB_END (then_bb);
 
@@ -2582,7 +2580,7 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* If the THEN block's successor is the other edge out of the TEST block,
      then we have an IF-THEN combo without an ELSE.  */
-  else if (EDGE_0 (then_succ)->dest == else_bb)
+  else if (EDGE_SUCC (then_bb, 0)->dest == else_bb)
     {
       join_bb = else_bb;
       else_bb = NULL_BLOCK;
@@ -2591,12 +2589,12 @@ find_if_block (struct ce_if_block * ce_info)
   /* If the THEN and ELSE block meet in a subsequent block, and the ELSE
      has exactly one predecessor and one successor, and the outgoing edge
      is not complex, then we have an IF-THEN-ELSE combo.  */
-  else if (EDGE_COUNT (else_succ) == 1
-	   && EDGE_0 (then_succ)->dest == EDGE_0 (else_succ)->dest
-	   && EDGE_COUNT (else_bb->pred) == 1
-	   && ! (EDGE_0 (else_succ)->flags & EDGE_COMPLEX)
+  else if (EDGE_SUCC_COUNT (else_bb) == 1
+	   && EDGE_SUCC (then_bb, 0)->dest == EDGE_SUCC (else_bb, 0)->dest
+	   && EDGE_PRED_COUNT (else_bb) == 1
+	   && ! (EDGE_SUCC (else_bb, 0)->flags & EDGE_COMPLEX)
 	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
-    join_bb = EDGE_0 (else_succ)->dest;
+    join_bb = EDGE_SUCC (else_bb, 0)->dest;
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
   else
@@ -2730,7 +2728,7 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
-  if (EDGE_COUNT (trap_bb->pred) == 0)
+  if (EDGE_PRED_COUNT (trap_bb) == 0)
     delete_basic_block (trap_bb);
 
   /* If the non-trap block and the test are now adjacent, merge them.
@@ -2775,7 +2773,7 @@ block_has_only_trap (basic_block bb)
     return NULL_RTX;
 
   /* The block must have no successors.  */
-  if (EDGE_COUNT (bb->succ) == 0)
+  if (EDGE_SUCC_COUNT (bb) == 0)
     return NULL_RTX;
 
   /* The only instruction in the THEN block must be the trap.  */
@@ -2885,15 +2883,15 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* THEN has one successor.  */
-  if (EDGE_COUNT (then_bb->succ) != 1)
+  if (EDGE_SUCC_COUNT (then_bb) != 1)
     return FALSE;
 
   /* THEN does not fall through, but is not strange either.  */
-  if (EDGE_0 (then_bb->succ)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
+  if (EDGE_SUCC (then_bb, 0)->flags & (EDGE_COMPLEX | EDGE_FALLTHRU))
     return FALSE;
 
   /* THEN has one predecessor.  */
-  if (EDGE_COUNT (then_bb->pred) != 1)
+  if (EDGE_PRED_COUNT (then_bb) != 1)
     return FALSE;
 
   /* THEN must do something.  */
@@ -2913,7 +2911,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Registers set are dead, or are predicable.  */
   if (! dead_or_predicable (test_bb, then_bb, else_bb,
-			    EDGE_0 (then_bb->succ)->dest, 1))
+			    EDGE_SUCC (then_bb, 0)->dest, 1))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
@@ -2967,17 +2965,17 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* ELSE has one successor.  */
-  if (EDGE_COUNT (else_bb->succ) != 1)
+  if (EDGE_SUCC_COUNT (else_bb) != 1)
     return FALSE;
   else
-    else_succ = EDGE_0 (else_bb->succ);
+    else_succ = EDGE_SUCC (else_bb, 0);
 
   /* ELSE outgoing edge is not complex.  */
   if (else_succ->flags & EDGE_COMPLEX)
     return FALSE;
 
   /* ELSE has one predecessor.  */
-  if (EDGE_COUNT (else_bb->pred) != 1)
+  if (EDGE_PRED_COUNT (else_bb) != 1)
     return FALSE;
   
   /* THEN is not EXIT.  */

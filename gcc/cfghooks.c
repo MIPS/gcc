@@ -120,7 +120,7 @@ verify_flow_info (void)
 	         bb->index, bb->frequency);
 	  err = 1;
 	}
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (last_visited [e->dest->index + 2] == bb)
 	    {
@@ -166,7 +166,7 @@ verify_flow_info (void)
 	  err = 1;
 	}
 
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	{
 	  if (e->dest != bb)
 	    {
@@ -187,10 +187,10 @@ verify_flow_info (void)
     edge e;
     unsigned ix;
 
-    FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+    FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
       edge_checksum[e->dest->index + 2] += (size_t) e;
 
-    FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+    FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
       edge_checksum[e->dest->index + 2] -= (size_t) e;
   }
 
@@ -248,12 +248,12 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   fprintf (outf, ";;%s pred:      ", s_indent);
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     dump_edge_info (outf, e, 0);
   putc ('\n', outf);
 
   fprintf (outf, ";;%s succ:      ", s_indent);
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     dump_edge_info (outf, e, 1);
   putc ('\n', outf);
 
@@ -363,13 +363,13 @@ delete_basic_block (basic_block bb)
 
   /* Remove the edges into and out of this block.  Note that there may
      indeed be edges in, if we are removing an unreachable loop.  */
-  while (EDGE_COUNT (bb->pred) != 0)
-    remove_edge (EDGE_0 (bb->pred));
-  while (EDGE_COUNT (bb->succ) != 0)
-    remove_edge (EDGE_0 (bb->succ));
+  while (EDGE_PRED_COUNT (bb) != 0)
+    remove_edge (EDGE_PRED (bb, 0));
+  while (EDGE_SUCC_COUNT (bb) != 0)
+    remove_edge (EDGE_SUCC (bb, 0));
 
-  VEC_truncate (edge, bb->pred, 0);
-  VEC_truncate (edge, bb->succ, 0);
+  VEC_truncate (edge, bb->pred_, 0);
+  VEC_truncate (edge, bb->succ_, 0);
 
   if (dom_computed[CDI_DOMINATORS])
     delete_from_dominance_info (CDI_DOMINATORS, bb);
@@ -397,11 +397,11 @@ split_edge (edge e)
   ret = cfg_hooks->split_edge (e);
   ret->count = count;
   ret->frequency = freq;
-  EDGE_0 (ret->succ)->probability = REG_BR_PROB_BASE;
-  EDGE_0 (ret->succ)->count = count;
+  EDGE_SUCC (ret, 0)->probability = REG_BR_PROB_BASE;
+  EDGE_SUCC (ret, 0)->count = count;
 
   if (dom_computed[CDI_DOMINATORS])
-    set_immediate_dominator (CDI_DOMINATORS, ret, EDGE_0 (ret->pred)->src);
+    set_immediate_dominator (CDI_DOMINATORS, ret, EDGE_PRED (ret, 0)->src);
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
     {
@@ -414,21 +414,21 @@ split_edge (edge e)
 	 ret, provided that all other predecessors of e->dest are
 	 dominated by e->dest.  */
 
-      if (get_immediate_dominator (CDI_DOMINATORS, EDGE_0 (ret->succ)->dest)
-	  == EDGE_0 (ret->pred)->src)
+      if (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest)
+	  == EDGE_PRED (ret, 0)->src)
 	{
-	  FOR_EACH_EDGE (f, EDGE_0 (ret->succ)->dest->pred, ix)
+	  FOR_EACH_PRED_EDGE (f, EDGE_SUCC (ret, 0)->dest, ix)
 	    {
-	      if (f == EDGE_0 (ret->succ))
+	      if (f == EDGE_SUCC (ret, 0))
 		continue;
 
 	      if (!dominated_by_p (CDI_DOMINATORS, f->src,
-				   EDGE_0 (ret->succ)->dest))
+				   EDGE_SUCC (ret, 0)->dest))
 		break;
 	    }
 
 	  if (!f)
-	    set_immediate_dominator (CDI_DOMINATORS, EDGE_0 (ret->succ)->dest, ret);
+	    set_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest, ret);
 	}
     };
 
@@ -516,17 +516,17 @@ merge_blocks (basic_block a, basic_block b)
      be merging a TEST block with THEN and ELSE successors.  Free the
      whole lot of them and hope the caller knows what they're doing.  */
 
-  while (EDGE_COUNT (a->succ) != 0)
-   remove_edge (EDGE_0 (a->succ));
+  while (EDGE_SUCC_COUNT (a) != 0)
+   remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
-  FOR_EACH_EDGE (e, b->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, b, ix)
     e->src = a;
-  a->succ = b->succ;
+  a->succ_ = b->succ_;
   a->flags |= b->flags;
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
-  b->pred = b->succ = NULL;
+  b->pred_ = b->succ_ = NULL;
   a->global_live_at_end = b->global_live_at_end;
 
   if (dom_computed[CDI_DOMINATORS])
@@ -561,7 +561,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   bb = fallthru->dest;
 
   /* Redirect back edges we want to keep.  */
-  FOR_EACH_EDGE (e, dummy->pred, ix)
+  FOR_EACH_PRED_EDGE (e, dummy, ix)
     {
       if (redirect_edge_p (e))
 	continue;
@@ -636,9 +636,9 @@ tidy_fallthru_edges (void)
 	 merge the flags for the duplicate edges.  So we do not want to
 	 check that the edge is not a FALLTHRU edge.  */
 
-      if (EDGE_COUNT (b->succ) == 1)
+      if (EDGE_SUCC_COUNT (b) == 1)
 	{
-	  s = EDGE_0 (b->succ);
+	  s = EDGE_SUCC (b, 0);
 	  if (! (s->flags & EDGE_COMPLEX)
 	      && s->dest == c
 	      && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
@@ -664,7 +664,7 @@ can_duplicate_block_p (basic_block bb)
 
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
        return false;
 
@@ -688,7 +688,7 @@ duplicate_block (basic_block bb, edge e)
 
   if (bb->count < new_count)
     new_count = bb->count;
-  if (EDGE_COUNT (bb->pred) == 0)
+  if (EDGE_PRED_COUNT (bb) == 0)
     abort ();
 #ifdef ENABLE_CHECKING
   if (!can_duplicate_block_p (bb))
@@ -699,7 +699,7 @@ duplicate_block (basic_block bb, edge e)
 
   new_bb->loop_depth = bb->loop_depth;
   new_bb->flags = bb->flags;
-  FOR_EACH_EDGE (s, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (s, bb, ix)
     {
       /* Since we are creating edges from a new block to successors
 	 of another block (which therefore are known to be disjoint), there

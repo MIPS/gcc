@@ -749,7 +749,7 @@ global_conflicts (void)
 	  edge e;
 	  unsigned ix;
 
-	  FOR_EACH_EDGE (e, b->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, b, ix)
 	    if (e->flags & EDGE_ABNORMAL)
 	      break;
 
@@ -2341,10 +2341,10 @@ calculate_reg_pav (void)
 	{
 	  bb = bb_array [i];
 	  changed_p = 0;
-	  FOR_EACH_EDGE (e, bb->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, bb, ix)
 	    changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
 	  if (changed_p)
-	    FOR_EACH_EDGE (e, bb->succ, ix)
+	    FOR_EACH_SUCC_EDGE (e, bb, ix)
 	      {
 		succ = e->dest;
 		if (succ->index != EXIT_BLOCK && !TEST_BIT (wset, succ->index))

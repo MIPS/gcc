@@ -7634,7 +7634,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   found_equiv = false;
   mode = GET_MODE (cc_src);
   insn_count = 0;
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       rtx insn;
       rtx end;
@@ -7642,7 +7642,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
       if (e->flags & EDGE_COMPLEX)
 	continue;
 
-      if (EDGE_COUNT (e->dest->pred) != 1
+      if (EDGE_PRED_COUNT (e->dest) != 1
 	  || e->dest == EXIT_BLOCK_PTR)
 	continue;
 

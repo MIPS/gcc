@@ -318,7 +318,7 @@ simulate_block (basic_block block)
       normal_edge_count = 0;
       normal_edge = NULL;
 
-      FOR_EACH_EDGE (e, block->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, block, ix)
         {
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
@@ -783,7 +783,7 @@ add_outgoing_control_edges (basic_block bb)
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     add_control_edge (e);
 }
 
@@ -1183,7 +1183,7 @@ initialize (void)
 	    }
 	}
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	e->flags &= ~EDGE_EXECUTABLE;
     }
 
@@ -1231,7 +1231,7 @@ initialize (void)
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     {
       if (e->dest != EXIT_BLOCK_PTR)
         {

@@ -3142,7 +3142,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		      unsigned ix;
 		      edge eh_edge;
 
-		      FOR_EACH_EDGE (eh_edge, bb->succ, ix)
+		      FOR_EACH_SUCC_EDGE (eh_edge, bb, ix)
 			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			  break;
 

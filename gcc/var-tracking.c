@@ -539,7 +539,7 @@ vt_stack_adjustments (void)
   sp = 0;
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -561,11 +561,11 @@ vt_stack_adjustments (void)
 	  VTI (dest)->in.stack_adjust = VTI (src)->out.stack_adjust;
 	  bb_stack_adjust_offset (dest);
 
-	  if (EDGE_COUNT (dest->succ) > 0)
+	  if (EDGE_SUCC_COUNT (dest) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succ;
+	      stack[sp].ev = dest->succ_;
 	      stack[sp++].ix = 0;
 	    }
 	}
@@ -1738,7 +1738,7 @@ vt_find_locations (void)
 
 	      /* Calculate the IN set as union of predecessor OUT sets.  */
 	      dataflow_set_clear (&VTI (bb)->in);
-	      FOR_EACH_EDGE (e, bb->pred, ix)
+	      FOR_EACH_PRED_EDGE (e, bb, ix)
 		{
 		  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
 		}
@@ -1746,7 +1746,7 @@ vt_find_locations (void)
 	      changed = compute_bb_dataflow (bb);
 	      if (changed)
 		{
-		  FOR_EACH_EDGE (e, bb->succ, ix)
+		  FOR_EACH_SUCC_EDGE (e, bb, ix)
 		    {
 		      if (e->dest == EXIT_BLOCK_PTR)
 			continue;

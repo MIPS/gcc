@@ -637,14 +637,14 @@ fixup_reorder_chain (void)
       basic_block old_bb;
       unsigned ix;
 
-      if (EDGE_COUNT (bb->succ) == 0)
+      if (EDGE_SUCC_COUNT (bb) == 0)
 	continue;
 
       /* Find the old fallthru edge, and another non-EH edge for
 	 a taken jump.  */
       e_taken = e_fall = NULL;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  e_fall = e;
 	else if (! (e->flags & EDGE_EH))
@@ -791,10 +791,10 @@ fixup_reorder_chain (void)
 	  
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source).  */
-	  e_fall->src->partition = EDGE_0 (bb->pred)->src->partition;
+	  e_fall->src->partition = EDGE_PRED (bb, 0)->src->partition;
 	  if (flag_reorder_blocks_and_partition)
 	    {
-	      if (EDGE_0 (bb->pred)->src->partition == COLD_PARTITION)
+	      if (EDGE_PRED (bb, 0)->src->partition == COLD_PARTITION)
 		{
 		  rtx new_note;
 		  rtx note = BB_HEAD (e_fall->src);
@@ -810,7 +810,7 @@ fixup_reorder_chain (void)
 		}
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && EDGE_0 (bb->succ)->crossing_edge)
+		  && EDGE_SUCC (bb, 0)->crossing_edge)
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }
@@ -862,7 +862,7 @@ fixup_reorder_chain (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
 
@@ -932,7 +932,7 @@ fixup_fallthru_exit_predecessor (void)
   if (! reload_completed)
     abort ();
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     if (e->flags & EDGE_FALLTHRU)
       bb = e->src;
 
@@ -1240,7 +1240,7 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
     {
       /* In case we should redirect abnormal edge during duplication, fail.  */
 
-      FOR_EACH_EDGE (e, bbs[i]->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bbs[i], ix)
 	if ((e->flags & EDGE_ABNORMAL)
 	    && e->dest->rbi->duplicated)
 	  {
@@ -1326,7 +1326,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i];
       bb = bbs[i];
 
-      FOR_EACH_EDGE (e, new_bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, new_bb, ix)
 	{
 	  for (j = 0; j < n_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)

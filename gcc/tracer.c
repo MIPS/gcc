@@ -120,7 +120,7 @@ find_best_successor (basic_block bb)
   edge best = NULL;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->dest))
@@ -139,7 +139,7 @@ find_best_predecessor (basic_block bb)
   edge best = NULL;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->src))
@@ -272,14 +272,14 @@ tail_duplicate (void)
 	      blocks[bb2->index] = NULL;
 	    }
 	  traced_insns += bb2->frequency * counts [bb2->index];
-	  if (EDGE_COUNT (bb2->pred) > 1
+	  if (EDGE_PRED_COUNT (bb2) > 1
 	      && can_duplicate_block_p (bb2))
 	    {
 	      edge e;
 	      unsigned ix;
 	      basic_block old = bb2;
 
-	      FOR_EACH_EDGE (e, bb2->pred, ix)
+	      FOR_EACH_PRED_EDGE (e, bb2, ix)
 		if (e->src == bb)
 		  break;
 
@@ -325,8 +325,8 @@ tail_duplicate (void)
 static void
 layout_superblocks (void)
 {
-  basic_block end = EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest;
-  basic_block bb = EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest->next_bb;
+  basic_block end = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
+  basic_block bb = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->next_bb;
 
   while (bb != EXIT_BLOCK_PTR)
     {
@@ -335,9 +335,9 @@ layout_superblocks (void)
       while (end->rbi->next)
 	end = end->rbi->next;
 
-      FOR_EACH_EDGE (e, end->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, end, ix)
 	if (e->dest != EXIT_BLOCK_PTR
-	    && e->dest != EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest
+	    && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
 	    && !e->dest->rbi->visited
 	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
 	  best = e;

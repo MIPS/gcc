@@ -389,9 +389,9 @@ build_control_flow (struct edge_list *edge_list)
   unreachable = 0;
   FOR_EACH_BB (b)
     {
-      if (EDGE_COUNT (b->pred) == 0
-	  || (EDGE_0 (b->pred)->src == b
-	      && EDGE_COUNT (b->pred) == 1))
+      if (EDGE_PRED_COUNT (b) == 0
+	  || (EDGE_PRED (b, 0)->src == b
+	      && EDGE_PRED_COUNT (b) == 1))
 	unreachable = 1;
     }
 
@@ -616,7 +616,7 @@ find_rgns (struct edge_list *edge_list)
   char no_loops = 1;
   int node, child, loop_head, i, head, tail;
   int count = 0, sp, idx = 0;
-  int current_edge = out_edges[EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest->index];
+  int current_edge = out_edges[EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->index];
   int num_bbs, num_insns, unreachable;
   int too_large_failure;
   basic_block bb;
@@ -845,7 +845,7 @@ find_rgns (struct edge_list *edge_list)
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
 
-	      FOR_EACH_EDGE (e, bb->succ, ix)
+	      FOR_EACH_SUCC_EDGE (e, bb, ix)
 		if (e->dest != EXIT_BLOCK_PTR)
 		  --degree[e->dest->index];
 
@@ -863,8 +863,8 @@ find_rgns (struct edge_list *edge_list)
 		  FOR_EACH_BB (jbb)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (EDGE_COUNT (jbb->succ) == 1
-			&& EDGE_0 (jbb->succ)->dest == EXIT_BLOCK_PTR)
+		    if (EDGE_SUCC_COUNT (jbb) == 1
+			&& EDGE_SUCC (jbb, 0)->dest == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;
 			SET_BIT (in_queue, jbb->index);
@@ -881,7 +881,7 @@ find_rgns (struct edge_list *edge_list)
 		  edge e;
 		  unsigned ix;
 
-		  FOR_EACH_EDGE (e, bb->pred, ix)
+		  FOR_EACH_PRED_EDGE (e, bb, ix)
 		    {
 		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
@@ -939,7 +939,7 @@ find_rgns (struct edge_list *edge_list)
 		  unsigned ix;
 		  child = queue[++head];
 
-		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->pred, ix)
+		  FOR_EACH_PRED_EDGE (e, BASIC_BLOCK (child), ix)
 		    {
 		      node = e->src->index;
 
@@ -994,7 +994,7 @@ find_rgns (struct edge_list *edge_list)
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succ, ix)
+			  FOR_EACH_SUCC_EDGE (e, BASIC_BLOCK (child), ix)
 			    if (e->dest != EXIT_BLOCK_PTR)
 			      --degree[e->dest->index];
 			}

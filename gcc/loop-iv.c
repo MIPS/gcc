@@ -1767,8 +1767,8 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	}
 
-      e = EDGE_0 (e->src->pred);
-      if (EDGE_COUNT (e->src->pred) > 1
+      e = EDGE_PRED (e->src, 0);
+      if (EDGE_PRED_COUNT (e->src) > 1
 	  || e->src == ENTRY_BLOCK_PTR)
 	break;
     }
@@ -2464,9 +2464,9 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   if (!any_condjump_p (BB_END (exit_bb)))
     return;
 
-  ei = EDGE_0 (exit_bb->succ);
+  ei = EDGE_SUCC (exit_bb, 0);
   if (ei == e)
-    ei = EDGE_1 (exit_bb->succ);
+    ei = EDGE_SUCC (exit_bb, 1);
 
   desc->out_edge = e;
   desc->in_edge = ei;
@@ -2504,7 +2504,7 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
   for (i = 0; i < loop->num_nodes; i++)
     {
       unsigned ix;
-      FOR_EACH_EDGE (e, body[i]->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, body[i], ix)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    continue;

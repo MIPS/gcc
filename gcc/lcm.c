@@ -126,7 +126,7 @@ compute_antinout_edge (sbitmap *antloc, sbitmap *transp, sbitmap *antin,
 
   /* Mark blocks which are predecessors of the exit block so that we
      can easily identify them below.  */
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     e->src->aux = EXIT_BLOCK_PTR;
 
   /* Iterate until the worklist is empty.  */
@@ -157,7 +157,7 @@ compute_antinout_edge (sbitmap *antloc, sbitmap *transp, sbitmap *antin,
 	/* If the in state of this block changed, then we need
 	   to add the predecessors of this block to the worklist
 	   if they are not already on the worklist.  */
-	FOR_EACH_EDGE (e, bb->pred, ix)
+	FOR_EACH_PRED_EDGE (e, bb, ix)
 	  if (!e->src->aux && e->src != ENTRY_BLOCK_PTR)
 	    {
 	      *qin++ = e->src;
@@ -280,7 +280,7 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
      do not want to be overly optimistic.  Consider an outgoing edge from
      the entry block.  That edge should always have a LATER value the
      same as EARLIEST for that edge.  */
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     sbitmap_copy (later[(size_t) e->aux], earliest[(size_t) e->aux]);
 
   /* Add all the blocks to the worklist.  This prevents an early exit from
@@ -309,11 +309,11 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
 
       /* Compute the intersection of LATERIN for each incoming edge to B.  */
       sbitmap_ones (laterin[bb->index]);
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	sbitmap_a_and_b (laterin[bb->index], laterin[bb->index], later[(size_t)e->aux]);
 
       /* Calculate LATER for all outgoing edges.  */
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (sbitmap_union_of_diff_cg (later[(size_t) e->aux],
 				      earliest[(size_t) e->aux],
 				      laterin[e->src->index],
@@ -334,7 +334,7 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
      for the EXIT block.  We allocated an extra entry in the LATERIN array
      for just this purpose.  */
   sbitmap_ones (laterin[last_basic_block]);
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     sbitmap_a_and_b (laterin[last_basic_block],
 		     laterin[last_basic_block],
 		     later[(size_t) e->aux]);
@@ -498,7 +498,7 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
 
   /* Mark blocks which are successors of the entry block so that we
      can easily identify them below.  */
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     e->dest->aux = ENTRY_BLOCK_PTR;
 
   /* Iterate until the worklist is empty.  */
@@ -530,7 +530,7 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
 	/* If the out state of this block changed, then we need
 	   to add the successors of this block to the worklist
 	   if they are not already on the worklist.  */
-	FOR_EACH_EDGE (e, bb->succ, ix)
+	FOR_EACH_SUCC_EDGE (e, bb, ix)
 	  if (!e->dest->aux && e->dest != EXIT_BLOCK_PTR)
 	    {
 	      *qin++ = e->dest;
@@ -621,7 +621,7 @@ compute_nearerout (struct edge_list *edge_list, sbitmap *farthest,
      do not want to be overly optimistic.  Consider an incoming edge to
      the exit block.  That edge should always have a NEARER value the
      same as FARTHEST for that edge.  */
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     sbitmap_copy (nearer[(size_t)e->aux], farthest[(size_t)e->aux]);
 
   /* Add all the blocks to the worklist.  This prevents an early exit
@@ -641,12 +641,12 @@ compute_nearerout (struct edge_list *edge_list, sbitmap *farthest,
 
       /* Compute the intersection of NEARER for each outgoing edge from B.  */
       sbitmap_ones (nearerout[bb->index]);
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	sbitmap_a_and_b (nearerout[bb->index], nearerout[bb->index],
 			 nearer[(size_t) e->aux]);
 
       /* Calculate NEARER for all incoming edges.  */
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	if (sbitmap_union_of_diff_cg (nearer[(size_t) e->aux],
 				      farthest[(size_t) e->aux],
 				      nearerout[e->dest->index],
@@ -664,7 +664,7 @@ compute_nearerout (struct edge_list *edge_list, sbitmap *farthest,
      for the ENTRY block.  We allocated an extra entry in the NEAREROUT array
      for just this purpose.  */
   sbitmap_ones (nearerout[last_basic_block]);
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     sbitmap_a_and_b (nearerout[last_basic_block],
 		     nearerout[last_basic_block],
 		     nearer[(size_t) e->aux]);
@@ -910,7 +910,7 @@ make_preds_opaque (basic_block b, int j)
   edge e;
   unsigned ix;
 
-  FOR_EACH_EDGE (e, b->pred, ix)
+  FOR_EACH_PRED_EDGE (e, b, ix)
     {
       basic_block pb = e->src;
 

@@ -444,7 +444,7 @@ reg_to_stack (FILE *file)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	if (!(e->flags & EDGE_DFS_BACK)
 	    && e->src != ENTRY_BLOCK_PTR)
 	  BLOCK_INFO (bb)->predecessors++;
@@ -2585,7 +2585,7 @@ convert_regs_entry (void)
      Note that we are inserting converted code here.  This code is
      never seen by the convert_regs pass.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     {
       basic_block block = e->dest;
       block_info bi = BLOCK_INFO (block);
@@ -2745,7 +2745,7 @@ compensate_edge (edge e, FILE *file)
      instead of to the edge, because emit_swap can do minimal
      insn scheduling.  We can do this when there is only one
      edge out, and it is not abnormal.  */
-  else if (EDGE_COUNT (block->succ) == 1 && !(e->flags & EDGE_ABNORMAL))
+  else if (EDGE_SUCC_COUNT (block) == 1 && !(e->flags & EDGE_ABNORMAL))
     {
       /* change_stack kills values in regstack.  */
       tmpstack = regstack;
@@ -2804,7 +2804,7 @@ convert_regs_1 (FILE *file, basic_block block)
      if multiple such exists, take one with largest count, prefer critical
      one (as splitting critical edges is more expensive), or one with lowest
      index, to avoid random changes with different orders of the edges.  */
-  FOR_EACH_EDGE (e, block->pred, ix)
+  FOR_EACH_PRED_EDGE (e, block, ix)
     {
       if (e->flags & EDGE_DFS_BACK)
 	;
@@ -2955,7 +2955,7 @@ convert_regs_1 (FILE *file, basic_block block)
   bi->stack_out = regstack;
 
   /* Compensate the back edges, as those wasn't visited yet.  */
-  FOR_EACH_EDGE (e, block->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, block, ix)
     {
       if (e->flags & EDGE_DFS_BACK
 	  || (e->dest == EXIT_BLOCK_PTR))
@@ -2966,7 +2966,7 @@ convert_regs_1 (FILE *file, basic_block block)
 	  inserted |= compensate_edge (e, file);
 	}
     }
-  FOR_EACH_EDGE (e, block->pred, ix)
+  FOR_EACH_PRED_EDGE (e, block, ix)
     {
       if (e != beste && !(e->flags & EDGE_DFS_BACK)
 	  && e->src != ENTRY_BLOCK_PTR)
@@ -3018,7 +3018,7 @@ convert_regs_2 (FILE *file, basic_block block)
 	 stack the successor in all cases and hand over the task of
 	 fixing up the discrepancy to convert_regs_1.  */
 
-      FOR_EACH_EDGE (e, block->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, block, ix)
 	if (! (e->flags & EDGE_DFS_BACK))
 	  {
 	    BLOCK_INFO (e->dest)->predecessors--;
@@ -3059,7 +3059,7 @@ convert_regs (FILE *file)
 
   /* Process all blocks reachable from all entry points.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     inserted |= convert_regs_2 (file, e->dest);
 
   /* ??? Process all unreachable blocks.  Though there's no excuse

@@ -3784,7 +3784,7 @@ find_implicit_sets (void)
   count = 0;
   FOR_EACH_BB (bb)
     /* Check for more than one successor.  */
-    if (EDGE_COUNT (bb->succ) > 1)
+    if (EDGE_SUCC_COUNT (bb) > 1)
       {
 	cond = fis_get_condition (BB_END (bb));
 
@@ -3797,7 +3797,7 @@ find_implicit_sets (void)
 	    dest = GET_CODE (cond) == EQ ? BRANCH_EDGE (bb)->dest
 					 : FALLTHRU_EDGE (bb)->dest;
 
-	    if (dest && EDGE_COUNT (dest->pred) == 1
+	    if (dest && EDGE_PRED_COUNT (dest) == 1
 		&& dest != EXIT_BLOCK_PTR)
 	      {
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
@@ -3969,7 +3969,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 
   may_be_loop_header = false;
 
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     if (e->flags & EDGE_DFS_BACK)
       {
 	may_be_loop_header = true;
@@ -3977,7 +3977,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
       }
 
   change = 0;
-  FOR_EACH_EDGE (e, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (e, bb, ix)
     {
       if (e->flags & EDGE_COMPLEX)
 	continue;
@@ -4038,7 +4038,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	      unsigned ix;
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      FOR_EACH_EDGE (edest, bb->succ, ix)
+	      FOR_EACH_SUCC_EDGE (edest, bb, ix)
 		if (edest->dest == dest && edest->insns.r)
 		  {
 		    dest = NULL;
@@ -4056,7 +4056,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    {
 	      edge e2;
 	      unsigned ix;
-	      FOR_EACH_EDGE (e2, e->src->succ, ix)
+	      FOR_EACH_SUCC_EDGE (e2, e->src, ix)
 		if (e2->dest == dest)
 		  {
 		    dest = NULL;
@@ -4124,7 +4124,7 @@ bypass_conditional_jumps (void)
 		  EXIT_BLOCK_PTR, next_bb)
     {
       /* Check for more than one predecessor.  */
-      if (EDGE_COUNT (bb->pred) > 1)
+      if (EDGE_PRED_COUNT (bb) > 1)
 	{
 	  setcc = NULL_RTX;
 	  for (insn = BB_HEAD (bb);
@@ -4277,7 +4277,7 @@ compute_pre_data (void)
 	 kill all trapping expressions because we won't be able to properly
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
-      FOR_EACH_EDGE (e, bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, bb, ix)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
@@ -4319,7 +4319,7 @@ pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_bloc
   edge pred;
   unsigned ix;
   
-  FOR_EACH_EDGE (pred, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (pred, bb, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -4433,8 +4433,8 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   if (JUMP_P (insn)
       || (NONJUMP_INSN_P (insn)
-	  && (EDGE_COUNT (bb->succ) > 1
-	      || EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL)))
+	  && (EDGE_SUCC_COUNT (bb) > 1
+	      || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
       rtx note;
@@ -4476,7 +4476,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
   /* Likewise if the last insn is a call, as will happen in the presence
      of exception handling.  */
   else if (CALL_P (insn)
-	   && (EDGE_COUNT (bb->succ) > 1 || EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL))
+	   && (EDGE_SUCC_COUNT (bb) > 1 || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
     {
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
@@ -5199,7 +5199,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
       visited = xcalloc (last_basic_block, 1);
     }
 
-  FOR_EACH_EDGE (pred, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (pred, bb, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -6590,7 +6590,7 @@ insert_store (struct ls_expr * expr, edge e)
      insert it at the start of the BB, and reset the insert bits on the other
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
-  FOR_EACH_EDGE (tmp, e->dest->pred, ix)
+  FOR_EACH_PRED_EDGE (tmp, e->dest, ix)
     if (!(tmp->flags & EDGE_FAKE))
       {
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
@@ -6604,7 +6604,7 @@ insert_store (struct ls_expr * expr, edge e)
      insertion vector for these edges, and insert at the start of the BB.  */
   if (!tmp && bb != EXIT_BLOCK_PTR)
     {
-      FOR_EACH_EDGE (tmp, e->dest->pred, ix)
+      FOR_EACH_PRED_EDGE (tmp, e->dest, ix)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
@@ -6650,7 +6650,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
   unsigned ix = 0;
 
   sbitmap_zero (visited);
-  act = (EDGE_COUNT (bb->succ) > 0) ? EDGE_0 (bb->succ) : NULL;
+  act = (EDGE_SUCC_COUNT (bb) > 0) ? EDGE_SUCC (bb, 0) : NULL;
 
   while (1)
     {
@@ -6670,7 +6670,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	  || TEST_BIT (visited, bb->index))
 	{
 	  ix++;
-	  act = (ix >= EDGE_COUNT (bb->succ)) ? NULL : EDGE_I (bb->succ, ix);
+	  act = (ix >= EDGE_SUCC_COUNT (bb)) ? NULL : EDGE_SUCC (bb, ix);
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6699,13 +6699,13 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	    remove_note (insn, note);
 	  }
       ix++;
-      act = (ix >= EDGE_COUNT (bb->succ)) ? NULL : EDGE_I (bb->succ, ix);
-      if (EDGE_COUNT (bb->succ) > 0)
+      act = (ix >= EDGE_SUCC_COUNT (bb)) ? NULL : EDGE_SUCC (bb, ix);
+      if (EDGE_SUCC_COUNT (bb) > 0)
 	{
 	  if (act)
 	    stack[stack_top++] = act;
 	  ix = 0;
-	  act = EDGE_0 (bb->succ);
+	  act = EDGE_SUCC (bb, 0);
 	}
     }
 }
@@ -7134,9 +7134,9 @@ bb_has_well_behaved_predecessors (basic_block bb)
   edge pred;
   unsigned ix;
 
-  if (! bb->pred)
+  if (EDGE_PRED_COUNT (bb) == 0)
     return false;
-  FOR_EACH_EDGE (pred, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (pred, bb, ix)
     if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
 	|| is_jump_table_basic_block (pred->src))
       return false;
@@ -7215,7 +7215,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
-  FOR_EACH_EDGE (pred, bb->pred, ix)
+  FOR_EACH_PRED_EDGE (pred, bb, ix)
     {
       rtx next_pred_bb_end;
 

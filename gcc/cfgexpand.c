@@ -76,7 +76,7 @@ expand_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
@@ -190,7 +190,7 @@ expand_block (basic_block bb, FILE * dump_file)
 
 		  do_pending_stack_adjust ();
 
-		  FOR_EACH_EDGE (e, bb->succ, ix)
+		  FOR_EACH_SUCC_EDGE (e, bb, ix)
 		    {
 		      if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 			{
@@ -273,7 +273,7 @@ construct_init_block (void)
 
   expand_start_bindings_and_block (0, NULL_TREE);
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, ENTRY_BLOCK_PTR, ix)
     if (e->dest == ENTRY_BLOCK_PTR->next_bb)
       break;
 
@@ -335,7 +335,7 @@ construct_exit_block (void)
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     {
       if (!(e->flags & EDGE_ABNORMAL))
         redirect_edge_succ (e, exit_block);
@@ -344,7 +344,7 @@ construct_exit_block (void)
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->pred, ix)
+  FOR_EACH_PRED_EDGE (e2, EXIT_BLOCK_PTR, ix)
     if (e2 != e)
       {
         e->count -= e2->count;

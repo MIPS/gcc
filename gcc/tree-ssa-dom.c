@@ -422,10 +422,10 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 #ifdef ENABLE_CHECKING
 	  /* There should only be a single successor if the
 	     original edge was split.  */
-	  if (EDGE_COUNT (e->dest->succ) != 1)
+	  if (EDGE_SUCC_COUNT (e->dest) != 1)
 	    abort ();
 #endif
-	  e = EDGE_0 (e->dest->succ);
+	  e = EDGE_SUCC (e->dest, 0);
 
 	  /* Replace the edge in REDIRECTION_EDGES for the
 	     loop below.  */
@@ -849,7 +849,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
-	  FOR_EACH_EDGE (e1, e->dest->pred, ix)
+	  FOR_EACH_PRED_EDGE (e1, e->dest, ix)
 	    if (e1->flags & EDGE_DFS_BACK)
 	      break;
 	  if (e1)
@@ -1188,21 +1188,21 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (EDGE_COUNT (bb->succ) == 1
-      && (EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_0 (bb->succ)->dest) != bb
-	  || phi_nodes (EDGE_0 (bb->succ)->dest)))
+  if (EDGE_SUCC_COUNT (bb) == 1
+      && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
+      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (bb, 0)->dest) != bb
+	  || phi_nodes (EDGE_SUCC (bb, 0)->dest)))
 	
     {
-      thread_across_edge (walk_data, EDGE_0 (bb->succ));
+      thread_across_edge (walk_data, EDGE_SUCC (bb, 0));
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
 	   && (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
 	       || TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
-	   && EDGE_COUNT (bb->succ) == 2
-	   && (EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL) == 0
-	   && (EDGE_1 (bb->succ)->flags & EDGE_ABNORMAL) == 0)
+	   && EDGE_SUCC_COUNT (bb) == 2
+	   && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
+	   && (EDGE_SUCC (bb, 1)->flags & EDGE_ABNORMAL) == 0)
     {
       edge true_edge, false_edge;
       tree cond, inverted = NULL;
@@ -1436,11 +1436,11 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
      PARENT_BLOCK_LAST_STMT since they're not needed.  */
-  if (EDGE_COUNT (bb->pred) == 1
+  if (EDGE_PRED_COUNT (bb) == 1
       && parent_block_last_stmt
-      && bb_for_stmt (parent_block_last_stmt) == EDGE_0 (bb->pred)->src)
+      && bb_for_stmt (parent_block_last_stmt) == EDGE_PRED (bb, 0)->src)
     {
-      edge_flags = EDGE_0 (bb->pred)->flags;
+      edge_flags = EDGE_PRED (bb, 0)->flags;
     }
   else
     {
@@ -1460,7 +1460,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
      the copy and constant propagator can find more propagation
      opportunities.  */
   if (parent_block_last_stmt
-      && EDGE_COUNT (bb->pred) == 1
+      && EDGE_PRED_COUNT (bb) == 1
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
@@ -1472,8 +1472,8 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
      We can only know the value of the switch's condition if the dominator
      parent is also the only predecessor of this block.  */
   else if (parent_block_last_stmt
-	   && EDGE_COUNT (bb->pred) == 1
-	   && EDGE_0 (bb->pred)->src == parent
+	   && EDGE_PRED_COUNT (bb) == 1
+	   && EDGE_PRED (bb, 0)->src == parent
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
@@ -2518,7 +2518,7 @@ cprop_into_successor_phis (basic_block bb,
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       tree phi;
       int phi_num_args;

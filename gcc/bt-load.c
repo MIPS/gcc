@@ -899,7 +899,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  fprintf (dump_file, "\n");
 	}
 
-      FOR_EACH_EDGE (e, head_bb->pred, ix)
+      FOR_EACH_PRED_EDGE (e, head_bb, ix)
 	*tos++ = e->src;
     }
   else
@@ -925,7 +925,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	      fprintf (dump_file, "\n");
 	    }
 	  
-	  FOR_EACH_EDGE (e, bb->pred, ix)
+	  FOR_EACH_PRED_EDGE (e, bb, ix)
 	    {
 	      basic_block pred = e->src;
 	      if (!bitmap_bit_p (live_range, pred->index))

@@ -495,9 +495,9 @@ rtl_split_block (basic_block bb, void *insnp)
   BB_END (bb) = insn;
 
   /* Redirect the outgoing edges.  */
-  new_bb->succ = bb->succ;
-  bb->succ = NULL;
-  FOR_EACH_EDGE (e, new_bb->succ, ix)
+  new_bb->succ_ = bb->succ_;
+  bb->succ_ = NULL;
+  FOR_EACH_SUCC_EDGE (e, new_bb, ix)
     e->src = new_bb;
 
   if (bb->global_live_at_start)
@@ -634,12 +634,12 @@ rtl_can_merge_blocks (basic_block a, basic_block b)
     partitions_ok = false;
 
   /* There must be exactly one edge in between the blocks.  */
-  return (EDGE_COUNT (a->succ) == 1
-	  && EDGE_0 (a->succ)->dest == b
-	  && EDGE_COUNT (b->pred) == 1
+  return (EDGE_SUCC_COUNT (a) == 1
+	  && EDGE_SUCC (a, 0)->dest == b
+	  && EDGE_PRED_COUNT (b) == 1
 	  && a != b
 	  /* Must be simple edge.  */
-	  && !(EDGE_0 (a->succ)->flags & EDGE_COMPLEX)
+	  && !(EDGE_SUCC (a, 0)->flags & EDGE_COMPLEX)
 	  && partitions_ok
 	  && a->next_bb == b
 	  && a != ENTRY_BLOCK_PTR && b != EXIT_BLOCK_PTR
@@ -691,7 +691,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
     return NULL;
 
   /* Verify that all targets will be TARGET.  */
-  FOR_EACH_EDGE (tmp, src->succ, ix)
+  FOR_EACH_SUCC_EDGE (tmp, src, ix)
     if (tmp->dest != target && tmp != e)
       break;
 
@@ -820,10 +820,10 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
     }
 
   /* Keep only one edge out and set proper flags.  */
-  while (EDGE_COUNT (src->succ) > 1)
+  while (EDGE_SUCC_COUNT (src) > 1)
     remove_edge (e);
 
-  e = EDGE_0 (src->succ);
+  e = EDGE_SUCC (src, 0);
   if (fallthru)
     e->flags = EDGE_FALLTHRU;
   else
@@ -1057,10 +1057,10 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
       e->src = bb;
-      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succ, ix)
+      FOR_EACH_SUCC_EDGE (tmp, ENTRY_BLOCK_PTR, ix)
         if (tmp == e)
           {
-            VEC_ordered_remove (edge, ENTRY_BLOCK_PTR->succ, ix);
+            VEC_ordered_remove (edge, ENTRY_BLOCK_PTR->succ_, ix);
             found = true;
             break;
           }
@@ -1068,11 +1068,11 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       if (!found)
         abort ();
 
-      VEC_safe_insert (edge, bb->succ, 0, &e);
+      VEC_safe_insert (edge, bb->succ_, 0, &e);
       make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
     }
 
-  if (EDGE_COUNT (e->src->succ) >= 2 || abnormal_edge_flags)
+  if (EDGE_SUCC_COUNT (e->src) >= 2 || abnormal_edge_flags)
     {
       /* Create the new structures.  */
 
@@ -1124,7 +1124,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	    }
 	  if (JUMP_P (BB_END (jump_block))
 	      && !any_condjump_p (BB_END (jump_block))
-	      && EDGE_0 (jump_block->succ)->crossing_edge)
+	      && EDGE_SUCC (jump_block, 0)->crossing_edge)
 	    REG_NOTES (BB_END (jump_block)) = gen_rtx_EXPR_LIST 
 	      (REG_CROSSING_JUMP, NULL_RTX, 
 	       REG_NOTES (BB_END (jump_block)));
@@ -1207,7 +1207,7 @@ rtl_tidy_fallthru_edge (edge e)
   edge e2;
   unsigned ix;
 
-  FOR_EACH_EDGE (e2, b->succ, ix)
+  FOR_EACH_SUCC_EDGE (e2, b, ix)
     if (e == e2)
       break;
 
@@ -1233,7 +1233,7 @@ rtl_tidy_fallthru_edge (edge e)
       && onlyjump_p (q)
       && (any_uncondjump_p (q)
 	  /* FIXME: correct? */
-	  || (EDGE_0 (b->succ) == e && ix == EDGE_COUNT (b->succ) - 1)))
+	  || (EDGE_SUCC (b, 0) == e && ix == EDGE_SUCC_COUNT (b) - 1)))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
@@ -1324,7 +1324,7 @@ rtl_split_edge (edge edge_in)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, edge_in->dest->pred, ix)
+      FOR_EACH_PRED_EDGE (e, edge_in->dest, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
 
@@ -1535,7 +1535,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
   /* Special case -- avoid inserting code between call and storing
      its return value.  */
   if (watch_calls && (e->flags & EDGE_FALLTHRU)
-      && EDGE_COUNT (e->dest->pred) == 1
+      && EDGE_PRED_COUNT (e->dest) == 1
       && e->src != ENTRY_BLOCK_PTR
       && CALL_P (BB_END (e->src)))
     {
@@ -1555,7 +1555,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
     {
       /* Figure out where to put these things.  If the destination has
          one predecessor, insert there.  Except for the exit block.  */
-      if (EDGE_COUNT (e->dest->pred) == 1 && e->dest != EXIT_BLOCK_PTR)
+      if (EDGE_PRED_COUNT (e->dest) == 1 && e->dest != EXIT_BLOCK_PTR)
 	{
 	  bb = e->dest;
 
@@ -1581,7 +1581,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
       /* If the source has one successor and the edge is not abnormal,
          insert there.  Except for the entry block.  */
       else if ((e->flags & EDGE_ABNORMAL) == 0
-	       && EDGE_COUNT (e->src->succ) == 1
+	       && EDGE_SUCC_COUNT (e->src) == 1
 	       && e->src != ENTRY_BLOCK_PTR)
 	{
 	  bb = e->src;
@@ -1638,7 +1638,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	      NOTE_BASIC_BLOCK (new_note) = bb;
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && EDGE_0 (bb->succ)->crossing_edge)
+		  && EDGE_SUCC (bb, 0)->crossing_edge)
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	      if (after == bb_note)
@@ -1664,9 +1664,9 @@ commit_one_edge_insertion (edge e, int watch_calls)
          for the (single) epilogue, which already has a fallthru edge
          to EXIT.  */
 
-      e = EDGE_0 (bb->succ);
+      e = EDGE_SUCC (bb, 0);
       if (e->dest != EXIT_BLOCK_PTR
-	  || EDGE_COUNT (bb->succ) > 1 || (e->flags & EDGE_FALLTHRU) == 0)
+	  || EDGE_SUCC_COUNT (bb) > 1 || (e->flags & EDGE_FALLTHRU) == 0)
 	abort ();
 
       e->flags &= ~EDGE_FALLTHRU;
@@ -1700,7 +1700,7 @@ commit_edge_insertions (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (e->insns.r)
 	    {
@@ -1748,7 +1748,7 @@ commit_edge_insertions_watch_calls (void)
       edge e;
       unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (e->insns.r)
 	    {
@@ -1989,7 +1989,7 @@ rtl_verify_flow_info_1 (void)
 
       if (INSN_P (BB_END (bb))
 	  && (note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX))
-	  && EDGE_COUNT (bb->succ) >= 2
+	  && EDGE_SUCC_COUNT (bb) >= 2
 	  && any_condjump_p (BB_END (bb)))
 	{
 	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
@@ -1999,7 +1999,7 @@ rtl_verify_flow_info_1 (void)
 	      err = 1;
 	    }
 	}
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
@@ -2163,7 +2163,7 @@ rtl_verify_flow_info (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (!e)
@@ -2296,7 +2296,7 @@ purge_dead_edges (basic_block bb)
     }
 
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       if (e->flags & EDGE_EH)
 	{
@@ -2341,7 +2341,7 @@ purge_dead_edges (basic_block bb)
 	    remove_note (insn, note);
 	}
 
-      FOR_EACH_EDGE (e, bb->succ, ix)
+      FOR_EACH_SUCC_EDGE (e, bb, ix)
 	{
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
@@ -2378,7 +2378,7 @@ purge_dead_edges (basic_block bb)
 	  ix--;
 	}
 
-      if (EDGE_COUNT (bb->succ) == 0 || !purged)
+      if (EDGE_SUCC_COUNT (bb) == 0 || !purged)
 	return purged;
 
       if (dump_file)
@@ -2388,10 +2388,10 @@ purge_dead_edges (basic_block bb)
 	return purged;
 
       /* Redistribute probabilities.  */
-      if (EDGE_COUNT (bb->succ) == 1)
+      if (EDGE_SUCC_COUNT (bb) == 1)
 	{
-	  EDGE_0 (bb->succ)->probability = REG_BR_PROB_BASE;
-	  EDGE_0 (bb->succ)->count = bb->count;
+	  EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+	  EDGE_SUCC (bb, 0)->count = bb->count;
 	}
       else
 	{
@@ -2415,9 +2415,9 @@ purge_dead_edges (basic_block bb)
 	 from non-local gotos and the like.  If there were, we shouldn't
 	 have created the sibcall in the first place.  Second, there
 	 should of course never have been a fallthru edge.  */
-      if (EDGE_COUNT (bb->succ) != 1)
+      if (EDGE_SUCC_COUNT (bb) != 1)
 	abort ();
-      if (EDGE_0 (bb->succ)->flags != (EDGE_SIBCALL | EDGE_ABNORMAL))
+      if (EDGE_SUCC (bb, 0)->flags != (EDGE_SIBCALL | EDGE_ABNORMAL))
 	abort ();
 
       return 0;
@@ -2429,7 +2429,7 @@ purge_dead_edges (basic_block bb)
      edge we know that there used to be a jump here and can then safely
      remove all non-fallthru edges.  */
   found = false;
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       if (! (e->flags & (EDGE_COMPLEX | EDGE_FALLTHRU)))
 	{
@@ -2440,7 +2440,7 @@ purge_dead_edges (basic_block bb)
   if (!found)
     return purged;
 
-  FOR_EACH_EDGE (e, bb->succ, ix)
+  FOR_EACH_SUCC_EDGE (e, bb, ix)
     {
       if (!(e->flags & EDGE_FALLTHRU))
 	{
@@ -2451,11 +2451,11 @@ purge_dead_edges (basic_block bb)
 	}
     }
 
-  if (EDGE_COUNT (bb->succ) != 1)
+  if (EDGE_SUCC_COUNT (bb) != 1)
     abort ();
 
-  EDGE_0 (bb->succ)->probability = REG_BR_PROB_BASE;
-  EDGE_0 (bb->succ)->count = bb->count;
+  EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+  EDGE_SUCC (bb, 0)->count = bb->count;
 
   if (dump_file)
     fprintf (dump_file, "Purged non-fallthru edges from bb %i\n",
@@ -2569,13 +2569,13 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	}
       /* In case we are redirecting fallthru edge to the branch edge
          of conditional jump, remove it.  */
-      if (EDGE_COUNT (src->succ) == 2)
+      if (EDGE_SUCC_COUNT (src) == 2)
 	{
 	  bool found = false;
 	  unsigned ix;
 	  edge tmp, s;
 
-	  FOR_EACH_EDGE (tmp, src->succ, ix)
+	  FOR_EACH_SUCC_EDGE (tmp, src, ix)
 	    if (e == tmp)
 	      {
 		found = true;
@@ -2584,11 +2584,11 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  if (!found)
 	    abort ();
 
-	  /* FIXME: Err, isn't this always EDGE_1? */
-	  if (EDGE_COUNT (src->succ) > (ix + 1))
-	    s = EDGE_I (src->succ, ix + 1);
+	  /* FIXME: Err, isn't this always edge 1? */
+	  if (EDGE_SUCC_COUNT (src) > (ix + 1))
+	    s = EDGE_SUCC (src, ix + 1);
 	  else
-	    s = EDGE_0 (src->succ);
+	    s = EDGE_SUCC (src, 0);
 
 	  if (s->dest == dest
 	      && any_condjump_p (BB_END (src))
@@ -2719,12 +2719,12 @@ cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
     partitions_ok = false;
 
   /* There must be exactly one edge in between the blocks.  */
-  return (EDGE_COUNT (a->succ) == 1
-	  && EDGE_0 (a->succ)->dest == b
-	  && EDGE_COUNT (b->pred) == 1
+  return (EDGE_SUCC_COUNT (a) == 1
+	  && EDGE_SUCC (a, 0)->dest == b
+	  && EDGE_PRED_COUNT (b) == 1
 	  && a != b
 	  /* Must be simple edge.  */
-	  && !(EDGE_0 (a->succ)->flags & EDGE_COMPLEX)
+	  && !(EDGE_SUCC (a, 0)->flags & EDGE_COMPLEX)
 	  && partitions_ok
 	  && a != ENTRY_BLOCK_PTR && b != EXIT_BLOCK_PTR
 	  /* If the jump insn has side effects,
@@ -2750,7 +2750,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
   /* We should have fallthru edge in a, or we can do dummy redirection to get
      it cleaned up.  */
   if (JUMP_P (BB_END (a)))
-    try_redirect_by_replacing_jump (EDGE_0 (a->succ), b, true);
+    try_redirect_by_replacing_jump (EDGE_SUCC (a, 0), b, true);
   if (JUMP_P (BB_END (a)))
     abort ();
 
@@ -2942,7 +2942,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 	  edge e;
 	  unsigned ix;
 
-	  FOR_EACH_EDGE (e, bb->succ, ix)
+	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    if (e->dest == EXIT_BLOCK_PTR)
 	      {
 		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
@@ -2991,7 +2991,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 
 #ifdef ENABLE_CHECKING
 	      if (split_at_insn == BB_END (bb))
-		FOR_EACH_EDGE (e, bb->succ, ix)
+		FOR_EACH_SUCC_EDGE (e, bb, ix)
 		  if (e->dest == EXIT_BLOCK_PTR)
 		    abort ();
 #endif

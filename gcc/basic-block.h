@@ -229,8 +229,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  VEC(edge) *pred;
-  VEC(edge) *succ;
+  VEC(edge) *pred_;
+  VEC(edge) *succ_;
 
   /* Liveness info.  */
 
@@ -500,12 +500,12 @@ struct edge_list
 #define NUM_EDGES(el)			((el)->num_edges)
 
 /* BB is assumed to contain conditional jump.  Return the fallthru edge.  */
-#define FALLTHRU_EDGE(bb)		(EDGE_0 ((bb)->succ)->flags & EDGE_FALLTHRU \
-					 ? EDGE_0 ((bb)->succ) : EDGE_1 ((bb)->succ))
+#define FALLTHRU_EDGE(bb)		(EDGE_SUCC ((bb), 0)->flags & EDGE_FALLTHRU \
+					 ? EDGE_SUCC ((bb), 0) : EDGE_SUCC ((bb), 1))
 
 /* BB is assumed to contain conditional jump.  Return the branch edge.  */
-#define BRANCH_EDGE(bb)			(EDGE_0 ((bb)->succ)->flags & EDGE_FALLTHRU \
-					 ? EDGE_1 ((bb)->succ) : EDGE_0 ((bb)->succ))
+#define BRANCH_EDGE(bb)			(EDGE_SUCC ((bb), 0)->flags & EDGE_FALLTHRU \
+					 ? EDGE_SUCC ((bb), 1) : EDGE_SUCC ((bb), 0))
 
 /* Return expected execution frequency of the edge E.  */
 #define EDGE_FREQUENCY(e)		(((e)->src->frequency \
@@ -514,24 +514,34 @@ struct edge_list
 					 / REG_BR_PROB_BASE)
 
 /* Return nonzero if edge is critical.  */
-#define EDGE_CRITICAL_P(e)		(VEC_length(edge, (e)->src->succ) >= 2 \
-					 && VEC_length(edge, (e)->dest->pred) >= 2)
+#define EDGE_CRITICAL_P(e)		(EDGE_SUCC_COUNT ((e)->src) >= 2 \
+					 && EDGE_PRED_COUNT ((e)->dest) >= 2)
 
-/* FIXME: this is bloody awful. */
 #define FOR_EACH_EDGE(e, vec, iter) \
   for ((e) = NULL, (iter) = 0; \
        ((e) = VEC_iterate (edge, (vec), (iter)) \
          ? *(VEC_iterate (edge, (vec), (iter))) : NULL); \
        (iter)++)
 
-/* A shortcut to the wordy vector API.  */
-#define EDGE_I(ev, i)			(*(VEC_index(edge, ev, i)))
+#define FOR_EACH_PRED_EDGE(e, vec, iter) \
+  for ((e) = NULL, (iter) = 0; \
+       ((e) = VEC_iterate (edge, (vec)->pred_, (iter)) \
+         ? *(VEC_iterate (edge, (vec)->pred_, (iter))) : NULL); \
+       (iter)++)
 
-/* Specialised EDGE_I's.  */
-#define EDGE_0(ev)			EDGE_I (ev, 0)
-#define EDGE_1(ev)			EDGE_I (ev, 1)
+#define FOR_EACH_SUCC_EDGE(e, vec, iter) \
+  for ((e) = NULL, (iter) = 0; \
+       ((e) = VEC_iterate (edge, (vec)->succ_, (iter)) \
+         ? *(VEC_iterate (edge, (vec)->succ_, (iter))) : NULL); \
+       (iter)++)
 
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
+#define EDGE_PRED_COUNT(bb)		VEC_length (edge, (bb)->pred_)
+#define EDGE_SUCC_COUNT(bb)		VEC_length (edge, (bb)->succ_)
+
+#define EDGE_I(ev,i)			(*(VEC_index(edge, (ev), (i))))
+#define EDGE_PRED(bb,i)			(*(VEC_index(edge, (bb)->pred_, (i))))
+#define EDGE_SUCC(bb,i)			(*(VEC_index(edge, (bb)->succ_, (i))))
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);

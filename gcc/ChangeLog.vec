@@ -1,3 +1,33 @@
+2004-07-29  Ben Elliston  <bje@au.ibm.com>
+
+	NOTE: struct basic_block_def members pred and succ have been
+	temporarily renamed to pred_ and succ_, respectively.  This will
+	be undone just prior to merging and will make it easier to track
+	mainline changes.
+
+	* basic-block.h (FALLTHRU_EDGE): Use EDGE_SUCC.
+	(BRANCH_EDGE): Likewise.
+	(EDGE_CRITICAL_P): Use EDGE_{PRED,SUCC}_COUNT.
+	(FOR_EACH_PRED_EDGE, FOR_EACH_SUCC_EDGE): New.
+	(EDGE_PRED_COUNT, EDGE_SUCC_COUNT): Likewise.
+	(EDGE_PRED, EDGE_SUCC): Likewise.
+	* bb-reorder.c, bt-load.c, cfg.c, cfganal.c, cfgbuild.c,
+	cfgcleanup.c, cfgexpand.c, cfghooks.c, cfglayout.c, cfgloop.c,
+	cfgloopanal.c, cfgloopmanip.c, cfgrtl.c, cse.c, df.c, dominance.c,
+	domwalk.c, except.c, final.c, flow.c, function.c, gcse.c,
+	gdbinit.in, global.c, graph.c, ifcvt.c, lcm.c, loop-doloop.c,
+	loop-init.c, loop-invariant.c, loop-iv.c, loop-unroll.c,
+	loop-unswitch.c, modulo-sched.c, predict.c, profile.c, ra-build.c,
+	ra-rewrite.c, ra.c, recog.c, reg-stack.c, regrename.c, reload1.c,
+	sbitmap.c, sched-ebb.c, sched-rgn.c, tracer.c, tree-cfg.c,
+	tree-into-ssa.c, tree-mudflap.c, tree-outof-ssa.c,
+	tree-pretty-print.c, tree-sra.c, tree-ssa-ccp.c, tree-ssa-dce.c,
+	tree-ssa-dom.c, tree-ssa-live.c, tree-ssa-loop-ch.c,
+	tree-ssa-loop-im.c, tree-ssa-loop-niter.c, tree-ssa-phiopt.c,
+	tree-ssa-pre.c, tree-ssa.c, tree-tailcall.c, var-tracking.c,
+	config/frv/frv.c, config/i386/i386.c, config/ia64/ia64.c,
+	config/rs6000/rs6000.c: Update all callers.
+
 2004-07-26  Ben Elliston  <bje@au.ibm.com>
 
 	* bb-reorder.c (connect_traces): Use distinct iterator variables
@@ -6,7 +36,7 @@
 2004-07-26  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* bb-reorder.c (fix_up_fall_thru_edges): Fix up when there is no edge
-	and when only on exists.
+	and when only one exists.
 	(fix_crossing_conditional_branches): Likewise.
 	Use EDGE_COUNT.
 	* cfgcleanup.c (outgoing_edges_match): Speedup loop and use FOR_EACH_EDGE.
