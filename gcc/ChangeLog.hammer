@@ -1,3 +1,13 @@
+2003-12-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from mainline:
+
+	2003-11-12  Jason Merrill  <jason@redhat.com>
+
+		PR optimization/12547
+		* java/lang.c (java_tree_inlining_walk_subtrees): Just walk
+		BLOCK_EXPR_BODY directly.
+
 2003-12-20  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (bb_stack_adjust_offset): Adjust memory references

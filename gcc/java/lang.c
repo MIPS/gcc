@@ -911,16 +911,8 @@ java_tree_inlining_walk_subtrees (tp,subtrees,func,data,htab)
     {
     case BLOCK:
       if (BLOCK_EXPR_BODY (t))
-	{
-	  tree *prev = &BLOCK_EXPR_BODY (*tp);
-	  while (*prev)
-	    {
-	      WALK_SUBTREE (*prev);
-	      prev = &TREE_CHAIN (*prev);
-	    }	    
-	}
+	WALK_SUBTREE (BLOCK_EXPR_BODY (t));
       return NULL_TREE;
-      break;
 
     default:
       return NULL_TREE;
