@@ -221,13 +221,20 @@ DEF_UNUSED_BUILTIN(BUILT_IN_FCEIL)
 DEF_UNUSED_BUILTIN(BUILT_IN_FMOD)
 DEF_UNUSED_BUILTIN(BUILT_IN_FREM)
 
-/* The system prototypes for `bzero' and `bcmp' functions have many
-   variations, so don't specify parameters to avoid conflicts.  The
-   expand_* functions check the argument types anyway.  */
+/* The system prototypes for `bzero', 'bcopy' and `bcmp' functions
+   have many variations, so don't specify parameters to avoid conflicts.
+   The expand_* functions check the argument types anyway.  */
 DEF_BUILTIN (BUILT_IN_BZERO,
 	     "__builtin_bzero",
 	     BUILT_IN_NORMAL,
 	     BT_FN_VOID_PTR_SIZE, 
+	     BT_FN_VOID_VAR,
+	     true, true, true,
+	     ATTR_NOTHROW_LIST)
+DEF_BUILTIN (BUILT_IN_BCOPY,
+	     "__builtin_bcopy",
+	     BUILT_IN_NORMAL,
+	     BT_FN_VOID_CONST_PTR_PTR_SIZE,
 	     BT_FN_VOID_VAR,
 	     true, true, true,
 	     ATTR_NOTHROW_LIST)
@@ -256,6 +263,10 @@ DEF_LIB_BUILTIN(BUILT_IN_MEMCPY,
 		"__builtin_memcpy",
 		BT_FN_PTR_PTR_CONST_PTR_SIZE,
 		ATTR_NOTHROW_LIST)
+DEF_LIB_BUILTIN(BUILT_IN_MEMMOVE,
+		"__builtin_memmove",
+		BT_FN_PTR_PTR_CONST_PTR_SIZE,
+		ATTR_NOTHROW_LIST)
 DEF_LIB_BUILTIN(BUILT_IN_MEMCMP,
 		"__builtin_memcmp",
 		BT_FN_INT_CONST_PTR_CONST_PTR_SIZE,
@@ -263,6 +274,10 @@ DEF_LIB_BUILTIN(BUILT_IN_MEMCMP,
 DEF_LIB_BUILTIN(BUILT_IN_MEMSET,
 		"__builtin_memset",
 		BT_FN_PTR_PTR_INT_SIZE,
+		ATTR_NOTHROW_LIST)
+DEF_EXT_LIB_BUILTIN(BUILT_IN_MEMPCPY,
+		"__builtin_mempcpy",
+		BT_FN_PTR_PTR_CONST_PTR_SIZE,
 		ATTR_NOTHROW_LIST)
 
 DEF_LIB_BUILTIN(BUILT_IN_STRCAT,
@@ -272,6 +287,10 @@ DEF_LIB_BUILTIN(BUILT_IN_STRCAT,
 DEF_LIB_BUILTIN(BUILT_IN_STRNCAT,
 		"__builtin_strncat",
 		BT_FN_STRING_STRING_CONST_STRING_SIZE,
+		ATTR_NOTHROW_LIST)
+DEF_EXT_LIB_BUILTIN(BUILT_IN_STPCPY,
+		"__builtin_stpcpy",
+		BT_FN_STRING_STRING_CONST_STRING,
 		ATTR_NOTHROW_LIST)
 DEF_LIB_BUILTIN(BUILT_IN_STRCPY,
 		"__builtin_strcpy",

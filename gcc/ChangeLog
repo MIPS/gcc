@@ -1,3 +1,63 @@
+2003-05-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (readonly_data_expr): New function.
+	(expand_builtin_memmove): Optimize any rodata source, not just
+	strings.
+
+2003-05-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (expand_builtin_stpcpy): Only expand when the length
+	of the source string can be evaluated at compile-time.
+
+2003-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.c (expand_builtin_mempcpy): New function.
+	(expand_builtin_stpcpy): Optimize stpcpy whose return value is
+	ignored into strcpy no matter what arguments it has.
+	(expand_builtin) <case BUILT_IN_MEMPCPY>: Call
+	expand_builtin_mempcpy.
+
+2003-05-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (expand_builtin_stpcpy): Copy `arglist' before
+	modifying it.
+
+2003-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (finish_decl): When prototype with asmspec is found
+	for built-in, adjust built_in_decls as well as expr.c decls.
+	* expr.c (init_block_move_fn, init_block_clear_fn): New functions.
+	(emit_block_move_libcall_fn, clear_storage_libcall_fn): Use it.
+	* expr.h (init_block_move_fn, init_block_clear_fn): New prototypes.
+
+2003-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_BCOPY, BUILT_IN_MEMMOVE): New.
+	* builtin-types.def (BT_FN_VOID_CONST_PTR_PTR_SIZE): New.
+	* builtins.c (expand_builtin_memmove, expand_builtin_bcopy): New
+	functions.
+	(expand_builtin): Handle BUILT_IN_BCOPY and BUILT_IN_MEMMOVE.
+
+2003-04-23  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/10339
+	* builtins.c (expand_builtin_strcmp): Try to emit cmpstrsi insn
+	directly instead of unsafely transforming call into a memcmp.
+	(expand_builtin_strncmp): Likewise.
+
+2003-04-19  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin):  Don't expand a pure or const
+	built-in function if the result will be ignored and none of
+	its arguments are volatile.
+
+2003-04-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (expand_builtin_memcpy): Add `endp' argument, use it.
+	(expand_builtin_stpcpy): New.
+	(expand_builtin): Add BUILT_IN_MEMPCPY & BUILT_IN_STPCPY.
+	* builtins.def: Add mempcpy & stpcpy support.
+
 2003-04-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (x86_64_sign_extended_value): Don't allow
