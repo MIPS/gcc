@@ -1921,6 +1921,10 @@ compute_alias_sets (void)
 	  if (!mem_ann->is_stored && !v_ann->is_stored)
 	    continue;
 	     
+	  /* Skip memory tags which are written if the variable is readonly.  */
+	  if (mem_ann->is_stored && TREE_READONLY (var->var))
+	    continue;
+
 	  if (may_alias_p (ptr->var, ptr->set, var->var, var->set))
 	    {
 	      /* If MEM has less than 5 aliases in its alias set, add
