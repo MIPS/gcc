@@ -6285,35 +6285,44 @@ insert_store (struct ls_expr * expr, edge e)
 static void
 remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 {
-  edge *stack = xmalloc (sizeof (edge) * n_basic_blocks), act;
+  struct edge_stack *stack;
+  int sp;
+  VEC(edge) *ev;
+  unsigned ix;
+  edge act;
   sbitmap visited = sbitmap_alloc (last_basic_block);
-  int stack_top = 0;
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
-  unsigned ix = 0;
+
+  stack = xmalloc (sizeof (edge) * n_basic_blocks);
+  sp = 0;
+
+  ev = bb->succs;
+  ix = 0;
 
   sbitmap_zero (visited);
-  act = (EDGE_COUNT (bb->succs) > 0) ? EDGE_SUCC (bb, 0) : NULL;
 
+  act = (EDGE_COUNT (ev) > 0 ? EDGE_I (ev, 0) : NULL);
   while (1)
     {
       if (!act)
 	{
-	  if (!stack_top)
+	  if (!sp)
 	    {
 	      free (stack);
 	      sbitmap_free (visited);
 	      return;
 	    }
-	  act = stack[--stack_top];
+	  ev = stack[--sp].ev;
+	  ix = stack[sp].ix;
+	  act = EDGE_I (ev, ix);
 	}
       bb = act->dest;
 
       if (bb == EXIT_BLOCK_PTR
 	  || TEST_BIT (visited, bb->index))
 	{
-	  ix++;
-	  act = (ix >= EDGE_COUNT (bb->succs)) ? NULL : EDGE_SUCC (bb, ix);
+	  act = (EDGE_COUNT (ev) > ++ix ? EDGE_I (ev, ix) : NULL);
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6341,14 +6350,18 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 		       INSN_UID (insn));
 	    remove_note (insn, note);
 	  }
-      ix++;
-      act = (ix >= EDGE_COUNT (bb->succs)) ? NULL : EDGE_SUCC (bb, ix);
+
+      act = (EDGE_COUNT (ev) > ++ix ? EDGE_I (ev, ix) : NULL);
       if (EDGE_COUNT (bb->succs) > 0)
 	{
 	  if (act)
-	    stack[stack_top++] = act;
+	    {
+	      stack[sp].ev = ev;
+	      stack[sp++].ix = ix;
+	    }
+	  ev = bb->succs;
 	  ix = 0;
-	  act = EDGE_SUCC (bb, 0);
+	  act = (EDGE_COUNT (ev) > 0 ? EDGE_I (ev, 0) : NULL);
 	}
     }
 }
