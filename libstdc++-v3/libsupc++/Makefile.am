@@ -1,0 +1,162 @@
+## Makefile for the GNU C++ Support library.
+##
+## Copyright (C) 2000 Free Software Foundation, Inc.
+##
+## Process this file with automake to produce Makefile.in.
+##
+## This file is part of GNU CC.
+##
+## GNU CC is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2, or (at your option)
+## any later version.
+##
+## GNU CC is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with GNU CC; see the file COPYING.  If not, write to
+## the Free Software Foundation, 59 Temple Place - Suite 330,
+## Boston, MA 02111-1307, USA. 
+
+AUTOMAKE_OPTIONS = 1.3 cygnus
+MAINT_CHARSET = latin1
+
+# Cross compiler and multilib support.
+# Install a library built with a cross compiler in tooldir, not libdir.
+if USE_LIBDIR
+if VERSION_SPECIFIC_LIBS
+gcc_version = @gcc_version@
+toolexecdir = $(libdir)/gcc-lib/$(target_alias)
+toolexeclibdir = $(toolexecdir)/$(gcc_version)
+else
+toolexeclibdir = $(libdir)$(MULTISUBDIR)
+endif
+else
+toolexecdir = $(exec_prefix)/$(target_alias)
+toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
+endif
+
+
+# Need this library to both be part of libstdc++.a, and installed
+# separately too.
+# 1) separate libsupc++.la 
+toolexeclib_LTLIBRARIES = libsupc++.la
+# 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
+noinst_LTLIBRARIES = libsupc++convenience.la
+
+
+# Compile flags that should be constant throughout the build, both for
+# SUBDIRS and for libstdc++-v3 in general.
+OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
+
+# These bits are all figured out from configure. Look in acinclude.m4
+# or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
+# NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
+CONFIG_CXXFLAGS = \
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+
+# Warning flags to use.
+WARN_CXXFLAGS = \
+	@WARN_FLAGS@ $(WERROR) @WFMT_FLAGS@
+
+# Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
+GLIBCPP_INCLUDE_DIR = @GLIBCPP_INCLUDE_DIR@
+C_INCLUDE_DIR = @C_INCLUDE_DIR@
+CSTD_INCLUDES = @CSTD_INCLUDES@
+LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
+LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
+LIBIO_INCLUDES = @LIBIO_INCLUDES@
+TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
+
+INCLUDES = \
+	-I$(top_srcdir)/../gcc -I$(top_srcdir)/../include \
+	-I$(GLIBCPP_INCLUDE_DIR) $(CSTD_INCLUDES) -I$(top_builddir)/include \
+	 $(LIBSUPCXX_INCLUDES)
+
+headers = \
+	cxxabi.h exception new typeinfo
+
+sources = \
+	del_op.cc \
+	del_opnt.cc \
+	del_opv.cc \
+	del_opvnt.cc \
+	exception_support.cc \
+	new_handler.cc \
+	new_op.cc \
+	new_opnt.cc \
+	new_opv.cc \
+	new_opvnt.cc \
+	pure.cc \
+	tinfo.cc \
+	tinfo2.cc \
+	vec.cc
+
+libsupc___la_SOURCES = $(sources)
+libsupc__convenience_la_SOURCES = $(sources)
+
+# Check for various configure bits that change where the headers get installed.
+if GXX_INCLUDE_DIR
+glibcppinstalldir = @gxx_include_dir@
+else
+if VERSION_SPECIFIC_LIBS
+glibcppinstalldir = $(libdir)/gcc-lib/$(target_alias)/@gcc_version@/include/g++
+else
+glibcppinstalldir = $(prefix)/include/g++-@libstdcxx_interface@
+endif
+endif
+
+glibcppinstall_HEADERS = $(headers)
+
+# Flags to force separate libtool library to be static only.
+LIBTOOL = @LIBTOOL@ --tag disable-shared
+LIBSUPCXX_CXXFLAGS = -prefer-pic
+
+# AM_CXXFLAGS needs to be in each subdirectory so that it can be
+# modified in a per-library or per-sub-library way.  Need to manually
+# set this option because CONFIG_CXXFLAGS has to be after
+# OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
+# as the occasion call for it. (ie, --enable-debug)
+AM_CXXFLAGS = \
+	-fno-implicit-templates \
+	$(LIBSUPCXX_CXXFLAGS) \
+	$(WARN_CXXFLAGS) \
+	$(OPTIMIZE_CXXFLAGS) \
+	$(CONFIG_CXXFLAGS) 
+
+# libstdc++ libtool notes
+
+# 1) Need to explicitly set LTCXXCOMPILE so that AM_CXXFLAGS is
+# last. (That way, things like -O2 passed down from the toplevel can
+# be overridden by --enable-debug.)
+
+# 2) In general, libtool expects an argument such as `--tag=CXX' when
+# using the C++ compiler, because that will enable the settings
+# detected when C++ support was being configured.  However, when no
+# such flag is given in the command line, libtool attempts to figure
+# it out by matching the compiler name in each configuration section
+# against a prefix of the command line.  The problem is that, if the
+# compiler name and its initial flags stored in the libtool
+# configuration file don't match those in the command line, libtool
+# can't decide which configuration to use, and it gives up.  The
+# correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
+# CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
+# attempt to infer which configuration to use
+LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
+	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS) 
+
+# 3) We have a problem when building the shared libstdc++ object if
+# the rules automake generates would be used.  We cannot allow CXX to
+# be used in libtool since this would add -lstdc++ to the link line
+# which of course is problematic at this point.
+CXXLINK = $(LIBTOOL) --mode=link "$(CC)" \
+	  @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+
+
+
+
+
+
