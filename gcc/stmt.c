@@ -2480,6 +2480,7 @@ expand_end_loop ()
   rtx start_label = loop_stack->data.loop.start_label;
   rtx etc_note;
   int eh_regions, debug_blocks;
+  bool empty_test;
 
   /* Mark the continue-point at the top of the loop if none elsewhere.  */
   if (start_label == loop_stack->data.loop.continue_label)
@@ -2523,6 +2524,7 @@ expand_end_loop ()
 
   /* Scan insns from the top of the loop looking for the END_TOP_COND note.  */
 
+  empty_test = true;
   eh_regions = debug_blocks = 0;
   for (etc_note = start_label; etc_note ; etc_note = NEXT_INSN (etc_note))
     if (GET_CODE (etc_note) == NOTE)
@@ -2563,9 +2565,12 @@ expand_end_loop ()
 	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_BLOCK_END)
 	  debug_blocks--;
       }
+    else if (INSN_P (etc_note))
+      empty_test = false;
 
   if (etc_note
       && optimize
+      && ! empty_test
       && eh_regions == 0
       && (debug_blocks == 0 || optimize >= 2)
       && NEXT_INSN (etc_note) != NULL_RTX
@@ -2684,17 +2689,24 @@ expand_exit_loop_if_false (whichloop, cond)
      struct nesting *whichloop;
      tree cond;
 {
-  rtx label = gen_label_rtx ();
+  rtx label;
   clear_last_expr ();
 
   if (whichloop == 0)
     whichloop = loop_stack;
   if (whichloop == 0)
     return 0;
+
+  if (integer_nonzerop (cond))
+    return 1;
+  if (integer_zerop (cond))
+    return expand_exit_loop (whichloop);
+
   /* In order to handle fixups, we actually create a conditional jump
      around an unconditional branch to exit the loop.  If fixups are
      necessary, they go before the unconditional branch.  */
 
+  label = gen_label_rtx ();
   do_jump (cond, NULL_RTX, label);
   expand_goto_internal (NULL_TREE, whichloop->data.loop.end_label,
 			NULL_RTX);

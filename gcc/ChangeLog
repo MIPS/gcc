@@ -1,3 +1,16 @@
+2002-09-19  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.c (integer_nonzerop): New predicate for nonzero integers.
+	* tree.h (integer_nonzerop): Add function prototype.
+	* stmt.c (expand_end_loop):  Don't rotate the loop when there
+	are no instructions in the test, i.e. the loop is unconditional.
+	(expand_exit_loop_if_false):  Optimize RTL generation of loop
+	tests when the condition is always true or always false.
+	* c-semantics.c (genrtl_do_stmt):  Optimize RTL generation of
+	do-loops when the condition is always true.
+	(genrtl_for_stmt):  Optimize RTL generation of for-loops when
+	the for-expression is empty.
+
 2002-09-19  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.c (use_pipes): New flag.
