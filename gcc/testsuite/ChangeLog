@@ -1,3 +1,8 @@
+2003-07-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/Wdeclaration-after-statement-1.c,
+	gcc.dg/Wdeclaration-after-statement-2.c: New tests.
+
 2003-07-24  Alexandre Oliva  <aoliva@redhat.com>
 
 	* g++.dg/init/enum2.C: New.

@@ -133,6 +133,8 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("Wcomments",              CL_ALL,   OPT_Wcomments)		     \
   OPT("Wconversion",		CL_ALL,   OPT_Wconversion)		     \
   OPT("Wctor-dtor-privacy",	CL_CXX,   OPT_Wctor_dtor_privacy)	     \
+  OPT("Wdeclaration-after-statement",					     \
+				CL_C,     OPT_Wdeclaration_after_statement)  \
   OPT("Wdeprecated",		CL_CXX,   OPT_Wdeprecated)		     \
   OPT("Wdiv-by-zero",		CL_C,     OPT_Wdiv_by_zero)		     \
   OPT("Weffc++",		CL_CXX,   OPT_Weffcxx)			     \
@@ -756,6 +758,10 @@ c_common_decode_option (argc, argv)
 
     case OPT_Wctor_dtor_privacy:
       warn_ctor_dtor_privacy = on;
+      break;
+
+    case OPT_Wdeclaration_after_statement:
+      warn_declaration_after_statement = on;
       break;
 
     case OPT_Wdeprecated:
