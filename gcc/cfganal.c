@@ -1,6 +1,6 @@
 /* Control flow graph analysis code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -936,7 +936,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
 /* Compute dominance frontiers, ala Harvey, Ferrante, et al.
    
    This algorithm can be found in Timothy Harvey's PhD thesis, at
-   http://www.cs.rice.edu/~harv/thesis.pdf in the section on iterative
+   http://www.cs.rice.edu/~harv/dissertation.pdf in the section on iterative
    dominance algorithms.
 
    First, we identify each join point, j (any node with more than one

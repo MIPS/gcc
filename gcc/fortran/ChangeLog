@@ -1,3 +1,101 @@
+2006-01-30  Richard Henderson  <rth@redhat.com>
+
+	* options.c (gfc_init_options): Zero flag_errno_math.
+
+2005-01-29  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/18565
+	* check.c (real_or_complex_check): New function.
+	(gfc_check_fn_c, gfc_check_fn_r, gfc_check_fn_rc): New functions.
+	* intrinsic.c (add_functions): Use new check functions.
+	* intrinsic.h (gfc_check_fn_c, gfc_check_fn_r, gfc_check_fn_rc):
+	Add prototypes.
+
+2005-01-29  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/19589
+	* expr.c (gfc_check_assign):  Check for conformance of logical operands
+
+2004-01-27  Steven Bosscher  <stevenb@suse.de>
+
+	* trans-decl.c (gfc_build_label_decl): Set DECL_ARTIFICAL and
+	TREE_USED for all labels.
+	(gfc_trans_entry_master_switch): Use it instead of building a
+	label by hand.
+	* trans-io.c (add_case): Likewise.
+	* trans-stmt.c (gfc_trans_integer_select): Likewise.
+
+2004-01-23  Paul Brook  <paul@codesourcery.com>
+	Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/17941
+	* arith.c (gfc_convert_real): Remove sign handling.
+	* primary.c (match_digits): Allow whitespace after initial sign.
+	(match_real_const): Handle signs here.  Allow whitespace after
+	initial sign.  Remove dead code.
+	(match_const_complex_part): Remove.
+	(match_complex_part): Use match_{real,integer}_const.
+	(match_complex_constant): Cross-promote integer types.
+
+2005-01-23  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR fortran/19294
+	* iresolve.c (gfc_resolve_transpose): Resolve to transpose_c4 or
+	transpose_c8 for complex types.
+
+2005-01-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* data.c, dependency.c, f95-lang.c, io.c, trans-array.c,
+	trans-decl.c, trans-expr.c, trans-intrinsic.c, trans-io.c,
+	trans-stmt.c, trans-types.c, trans.h: Fix comment typos.
+	Follow spelling conventions.
+
+2005-01-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/19313
+	* trans-io.c (gfc_trans_inquire): Added code to support
+	pad.
+
+2005-01-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsic.c (make_alias):  Add standard argument. 
+	(add_functions): Update make_alias calls.
+
+2005-01-22  Paul Brook  <paul@codesourcery.com>
+
+	* trans-expr.c (gfc_conv_function_call): Remove bogus TODO.
+
+2005-01-22  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.h (gfc_check_access): Add prototype.
+	* match.c (gfc_match_namelist): Remove TODO.
+	* module.c (check_access): Rename ...
+	(gfc_check_access): ... to this.  Boolify.  Update callers.
+	* resolve.c (resolve_symbol): Check for private objects in public
+	namelists.
+
+2005-01-22  Paul Brook  <paul@codesourcery.com>
+
+	* primary.c (gfc_match_rvalue): Only apply implicit type if variable
+	does not have an explicit type.
+	(gfc_match_variable): Resolve implicit derived types in all cases.
+	Resolve contained function types from their own namespace, not the
+	parent.
+	* resolve.c (resolve_contained_fntype): Remove duplicate sym->result
+	checking.  Resolve from the contained namespace, not the parent.
+
+2005-01-22  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/19543
+	* trans-const.c (gfc_conv_constant_to_tree): Give logical
+	constants the correct type.
+
+	PR fortran/19194
+	* trans-io.c (ADD_STRING): Use gfc_charlen_type_node for string
+	length parameters.
+	(gfc_build_io_library_fndecls): 'rec' and 'recl_in' are not
+	pointer fields.
+
 2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* arith.c, array.c, check.c, decl.c, expr.c, f95-lang.c,

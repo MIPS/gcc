@@ -202,15 +202,6 @@ Related expressions:
    so that it is possible to find out if there exists any
    register equivalent to an expression related to a given expression.  */
 
-/* One plus largest register number used in this function.  */
-
-static int max_reg;
-
-/* One plus largest instruction UID used in this function at time of
-   cse_main call.  */
-
-static int max_insn_uid;
-
 /* Length of qty_table vector.  We know in advance we will not need
    a quantity number this big.  */
 
@@ -311,14 +302,8 @@ static struct reg_eqv_elem *reg_eqv_table;
 
 struct cse_reg_info
 {
-  /* Next in hash chain.  */
-  struct cse_reg_info *hash_next;
-
-  /* The next cse_reg_info structure in the free or used list.  */
-  struct cse_reg_info *next;
-
-  /* Search key */
-  unsigned int regno;
+  /* The timestamp at which this register is initialized.  */
+  unsigned int timestamp;
 
   /* The quantity number of the register's current contents.  */
   int reg_qty;
@@ -338,26 +323,22 @@ struct cse_reg_info
   unsigned int subreg_ticked;
 };
 
-/* A free list of cse_reg_info entries.  */
-static struct cse_reg_info *cse_reg_info_free_list;
+/* A table of cse_reg_info indexed by register numbers.  */
+struct cse_reg_info *cse_reg_info_table;
 
-/* A used list of cse_reg_info entries.  */
-static struct cse_reg_info *cse_reg_info_used_list;
-static struct cse_reg_info *cse_reg_info_used_list_end;
+/* The size of the above table.  */
+static unsigned int cse_reg_info_table_size;
 
-/* A mapping from registers to cse_reg_info data structures.  */
-#define REGHASH_SHIFT	7
-#define REGHASH_SIZE	(1 << REGHASH_SHIFT)
-#define REGHASH_MASK	(REGHASH_SIZE - 1)
-static struct cse_reg_info *reg_hash[REGHASH_SIZE];
+/* The index of the first entry that has not been initialized.  */
+static unsigned int cse_reg_info_table_first_uninitialized;
 
-#define REGHASH_FN(REGNO)	\
-	(((REGNO) ^ ((REGNO) >> REGHASH_SHIFT)) & REGHASH_MASK)
-
-/* The last lookup we did into the cse_reg_info_tree.  This allows us
-   to cache repeated lookups.  */
-static unsigned int cached_regno;
-static struct cse_reg_info *cached_cse_reg_info;
+/* The timestamp at the beginning of the current run of
+   cse_basic_block.  We increment this variable at at the beginning of
+   the current run of cse_basic_block.  The timestamp field of a
+   cse_reg_info entry matches the value of this variable if and only
+   if the entry has been initialized during the current run of
+   cse_basic_block.  */
+static unsigned int cse_reg_info_timestamp;
 
 /* A HARD_REG_SET containing all the hard registers for which there is
    currently a REG expression in the hash table.  Note the difference
@@ -519,29 +500,23 @@ struct table_elt
 #define COST(X) (REG_P (X) ? 0 : notreg_cost (X, SET))
 #define COST_IN(X,OUTER) (REG_P (X) ? 0 : notreg_cost (X, OUTER))
 
-/* Get the info associated with register N.  */
-
-#define GET_CSE_REG_INFO(N)			\
-  (((N) == cached_regno && cached_cse_reg_info)	\
-   ? cached_cse_reg_info : get_cse_reg_info ((N)))
-
 /* Get the number of times this register has been updated in this
    basic block.  */
 
-#define REG_TICK(N) ((GET_CSE_REG_INFO (N))->reg_tick)
+#define REG_TICK(N) (get_cse_reg_info (N)->reg_tick)
 
 /* Get the point at which REG was recorded in the table.  */
 
-#define REG_IN_TABLE(N) ((GET_CSE_REG_INFO (N))->reg_in_table)
+#define REG_IN_TABLE(N) (get_cse_reg_info (N)->reg_in_table)
 
 /* Get the SUBREG set at the last increment to REG_TICK (-1 if not a
    SUBREG).  */
 
-#define SUBREG_TICKED(N) ((GET_CSE_REG_INFO (N))->subreg_ticked)
+#define SUBREG_TICKED(N) (get_cse_reg_info (N)->subreg_ticked)
 
 /* Get the quantity number for REG.  */
 
-#define REG_QTY(N) ((GET_CSE_REG_INFO (N))->reg_qty)
+#define REG_QTY(N) (get_cse_reg_info (N)->reg_qty)
 
 /* Determine if the quantity number for register X represents a valid index
    into the qty_table.  */
@@ -554,15 +529,6 @@ static struct table_elt *table[HASH_SIZE];
    but currently removed from the table.  */
 
 static struct table_elt *free_element_chain;
-
-/* Number of `struct table_elt' structures made so far for this function.  */
-
-static int n_elements_made;
-
-/* Maximum value `n_elements_made' has had so far in this compilation
-   for functions previously processed.  */
-
-static int max_elements_made;
 
 /* Set to the cost of a constant pool reference if one was found for a
    symbolic constant.  If this was found, it means we should try to
@@ -652,7 +618,8 @@ static rtx cse_basic_block (rtx, rtx, struct branch_path *);
 static void count_reg_usage (rtx, int *, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
-static struct cse_reg_info * get_cse_reg_info (unsigned int);
+static void get_cse_reg_info_1 (unsigned int regno);
+static struct cse_reg_info * get_cse_reg_info (unsigned int regno);
 static int check_dependence (rtx *, void *);
 
 static void flush_hash_table (void);
@@ -867,47 +834,84 @@ notreg_cost (rtx x, enum rtx_code outer)
 }
 
 
-static struct cse_reg_info *
-get_cse_reg_info (unsigned int regno)
+/* Initialize CSE_REG_INFO_TABLE.  */
+
+static void
+init_cse_reg_info (unsigned int nregs)
 {
-  struct cse_reg_info **hash_head = &reg_hash[REGHASH_FN (regno)];
-  struct cse_reg_info *p;
-
-  for (p = *hash_head; p != NULL; p = p->hash_next)
-    if (p->regno == regno)
-      break;
-
-  if (p == NULL)
+  /* Do we need to grow the table?  */
+  if (nregs > cse_reg_info_table_size)
     {
-      /* Get a new cse_reg_info structure.  */
-      if (cse_reg_info_free_list)
+      unsigned int new_size;
+
+      if (cse_reg_info_table_size < 2048)
 	{
-	  p = cse_reg_info_free_list;
-	  cse_reg_info_free_list = p->next;
+	  /* Compute a new size that is a power of 2 and no smaller
+	     than the large of NREGS and 64.  */
+	  new_size = (cse_reg_info_table_size
+		      ? cse_reg_info_table_size : 64);
+
+	  while (new_size < nregs)
+	    new_size *= 2;
 	}
       else
-	p = xmalloc (sizeof (struct cse_reg_info));
+	{
+	  /* If we need a big table, allocate just enough to hold
+	     NREGS registers.  */
+	  new_size = nregs;
+	}
 
-      /* Insert into hash table.  */
-      p->hash_next = *hash_head;
-      *hash_head = p;
-
-      /* Initialize it.  */
-      p->reg_tick = 1;
-      p->reg_in_table = -1;
-      p->subreg_ticked = -1;
-      p->reg_qty = -regno - 1;
-      p->regno = regno;
-      p->next = cse_reg_info_used_list;
-      cse_reg_info_used_list = p;
-      if (!cse_reg_info_used_list_end)
-	cse_reg_info_used_list_end = p;
+      /* Reallocate the table with NEW_SIZE entries.  */
+      cse_reg_info_table = xrealloc (cse_reg_info_table,
+				     (sizeof (struct cse_reg_info)
+				      * new_size));
+      cse_reg_info_table_size = new_size;
     }
 
-  /* Cache this lookup; we tend to be looking up information about the
-     same register several times in a row.  */
-  cached_regno = regno;
-  cached_cse_reg_info = p;
+  /* Do we have all of the first NREGS entries initialized?  */
+  if (cse_reg_info_table_first_uninitialized < nregs)
+    {
+      unsigned int old_timestamp = cse_reg_info_timestamp - 1;
+      unsigned int i;
+
+      /* Put the old timestamp on newly allocated entries so that they
+	 will all be considered out of date.  We do not touch those
+	 entries beyond the first NREGS entries to be nice to the
+	 virtual memory.  */
+      for (i = cse_reg_info_table_first_uninitialized; i < nregs; i++)
+	cse_reg_info_table[i].timestamp = old_timestamp;
+
+      cse_reg_info_table_first_uninitialized = nregs;
+    }
+}
+
+/* Given REGNO, initialize the cse_reg_info entry for REGNO.  */
+
+static void
+get_cse_reg_info_1 (unsigned int regno)
+{
+  /* Set TIMESTAMP field to CSE_REG_INFO_TIMESTAMP so that this
+     entry will be considered to have been initialized.  */
+  cse_reg_info_table[regno].timestamp = cse_reg_info_timestamp;
+
+  /* Initialize the rest of the entry.  */
+  cse_reg_info_table[regno].reg_tick = 1;
+  cse_reg_info_table[regno].reg_in_table = -1;
+  cse_reg_info_table[regno].subreg_ticked = -1;
+  cse_reg_info_table[regno].reg_qty = -regno - 1;
+}
+
+/* Find a cse_reg_info entry for REGNO.  */
+
+static inline struct cse_reg_info *
+get_cse_reg_info (unsigned int regno)
+{
+  struct cse_reg_info *p = &cse_reg_info_table[regno];
+
+  /* If this entry has not been initialized, go ahead and initialize
+     it.  */
+  if (p->timestamp != cse_reg_info_timestamp)
+    get_cse_reg_info_1 (regno);
 
   return p;
 }
@@ -922,18 +926,10 @@ new_basic_block (void)
 
   next_qty = 0;
 
+  /* Invalidate cse_reg_info_table.  */
+  cse_reg_info_timestamp++;
+
   /* Clear out hash table state for this pass.  */
-
-  memset (reg_hash, 0, sizeof reg_hash);
-
-  if (cse_reg_info_used_list)
-    {
-      cse_reg_info_used_list_end->next = cse_reg_info_free_list;
-      cse_reg_info_free_list = cse_reg_info_used_list;
-      cse_reg_info_used_list = cse_reg_info_used_list_end = 0;
-    }
-  cached_cse_reg_info = 0;
-
   CLEAR_HARD_REG_SET (hard_regs_in_table);
 
   /* The per-quantity values used to be initialized here, but it is
@@ -1493,10 +1489,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    {
-      n_elements_made++;
-      elt = xmalloc (sizeof (struct table_elt));
-    }
+    elt = xmalloc (sizeof (struct table_elt));
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -2853,18 +2846,21 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
      be valid and produce better code.  */
   if (!REG_P (addr))
     {
-      rtx folded = fold_rtx (copy_rtx (addr), NULL_RTX);
-      int addr_folded_cost = address_cost (folded, mode);
-      int addr_cost = address_cost (addr, mode);
+      rtx folded = fold_rtx (addr, NULL_RTX);
+      if (folded != addr)
+	{
+	  int addr_folded_cost = address_cost (folded, mode);
+	  int addr_cost = address_cost (addr, mode);
 
-      if ((addr_folded_cost < addr_cost
-	   || (addr_folded_cost == addr_cost
-	       /* ??? The rtx_cost comparison is left over from an older
-		  version of this code.  It is probably no longer helpful.  */
-	       && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
-		   || approx_reg_cost (folded) < approx_reg_cost (addr))))
-	  && validate_change (insn, loc, folded, 0))
-	addr = folded;
+	  if ((addr_folded_cost < addr_cost
+	       || (addr_folded_cost == addr_cost
+		   /* ??? The rtx_cost comparison is left over from an older
+		      version of this code.  It is probably no longer helpful.*/
+		   && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
+		       || approx_reg_cost (folded) < approx_reg_cost (addr))))
+	      && validate_change (insn, loc, folded, 0))
+	    addr = folded;
+	}
     }
 
   /* If this address is not in the hash table, we can't look for equivalences
@@ -3262,6 +3258,7 @@ fold_rtx (rtx x, rtx insn)
     case SYMBOL_REF:
     case LABEL_REF:
     case REG:
+    case PC:
       /* No use simplifying an EXPR_LIST
 	 since they are used only for lists of args
 	 in a function call's REG_EQUAL note.  */
@@ -3272,17 +3269,6 @@ fold_rtx (rtx x, rtx insn)
     case CC0:
       return prev_insn_cc0;
 #endif
-
-    case PC:
-      /* If the next insn is a CODE_LABEL followed by a jump table,
-	 PC's value is a LABEL_REF pointing to that label.  That
-	 lets us fold switch statements on the VAX.  */
-      {
-	rtx next;
-	if (insn && tablejump_p (insn, &next, NULL))
-	  return gen_rtx_LABEL_REF (Pmode, next);
-      }
-      break;
 
     case SUBREG:
       /* See if we previously assigned a constant value to this SUBREG.  */
@@ -3617,9 +3603,12 @@ fold_rtx (rtx x, rtx insn)
 #endif
 
     case ASM_OPERANDS:
-      for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
-			 fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
+      if (insn)
+	{
+	  for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
+	    validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
+			     fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
+	}
       break;
 
     default:
@@ -3886,8 +3875,6 @@ fold_rtx (rtx x, rtx insn)
 
 	  code = find_comparison_args (code, &folded_arg0, &folded_arg1,
 				       &mode_arg0, &mode_arg1);
-	  const_arg0 = equiv_constant (folded_arg0);
-	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If the mode is VOIDmode or a MODE_CC mode, we don't know
 	     what kinds of things are being compared, so we can't do
@@ -3895,6 +3882,9 @@ fold_rtx (rtx x, rtx insn)
 
 	  if (mode_arg0 == VOIDmode || GET_MODE_CLASS (mode_arg0) == MODE_CC)
 	    break;
+
+	  const_arg0 = equiv_constant (folded_arg0);
+	  const_arg1 = equiv_constant (folded_arg1);
 
 	  /* If we do not now have two constants being compared, see
 	     if we can nevertheless deduce some things about the
@@ -6713,6 +6703,8 @@ cse_main (rtx f, int nregs, FILE *file)
   rtx insn = f;
   int i;
 
+  init_cse_reg_info (nregs);
+
   val.path = xmalloc (sizeof (struct branch_path)
 		      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 
@@ -6726,15 +6718,7 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  max_reg = nregs;
-
-  max_insn_uid = get_max_uid ();
-
   reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
-
-  /* Reset the counter indicating how many elements have been made
-     thus far.  */
-  n_elements_made = 0;
 
   /* Find the largest uid.  */
 
@@ -6819,9 +6803,6 @@ cse_main (rtx f, int nregs, FILE *file)
       alloca (0);
 #endif
     }
-
-  if (max_elements_made < n_elements_made)
-    max_elements_made = n_elements_made;
 
   /* Clean up.  */
   end_alias_analysis ();
@@ -7294,7 +7275,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   int *counts;
   rtx insn, prev;
   int in_libcall = 0, dead_libcall = 0;
-  int ndead = 0, nlastdead, niterations = 0;
+  int ndead = 0;
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
@@ -7302,65 +7283,59 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
     count_reg_usage (insn, counts, 1);
 
-  do
+  /* Go from the last insn to the first and delete insns that only set unused
+     registers or copy a register to itself.  As we delete an insn, remove
+     usage counts for registers it uses.
+
+     The first jump optimization pass may leave a real insn as the last
+     insn in the function.   We must not skip that insn or we may end
+     up deleting code that is not really dead.  */
+  insn = get_last_insn ();
+  if (! INSN_P (insn))
+    insn = prev_real_insn (insn);
+
+  for (; insn; insn = prev)
     {
-      nlastdead = ndead;
-      niterations++;
-      /* Go from the last insn to the first and delete insns that only set unused
-	 registers or copy a register to itself.  As we delete an insn, remove
-	 usage counts for registers it uses.
+      int live_insn = 0;
 
-	 The first jump optimization pass may leave a real insn as the last
-	 insn in the function.   We must not skip that insn or we may end
-	 up deleting code that is not really dead.  */
-      insn = get_last_insn ();
-      if (! INSN_P (insn))
-	insn = prev_real_insn (insn);
+      prev = prev_real_insn (insn);
 
-      for (; insn; insn = prev)
+      /* Don't delete any insns that are part of a libcall block unless
+	 we can delete the whole libcall block.
+
+	 Flow or loop might get confused if we did that.  Remember
+	 that we are scanning backwards.  */
+      if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
 	{
-	  int live_insn = 0;
+	  in_libcall = 1;
+	  live_insn = 1;
+	  dead_libcall = dead_libcall_p (insn, counts);
+	}
+      else if (in_libcall)
+	live_insn = ! dead_libcall;
+      else
+	live_insn = insn_live_p (insn, counts);
 
-	  prev = prev_real_insn (insn);
+      /* If this is a dead insn, delete it and show registers in it aren't
+	 being used.  */
 
-	  /* Don't delete any insns that are part of a libcall block unless
-	     we can delete the whole libcall block.
+      if (! live_insn)
+	{
+	  count_reg_usage (insn, counts, -1);
+	  delete_insn_and_edges (insn);
+	  ndead++;
+	}
 
-	     Flow or loop might get confused if we did that.  Remember
-	     that we are scanning backwards.  */
-	  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	    {
-	      in_libcall = 1;
-	      live_insn = 1;
-	      dead_libcall = dead_libcall_p (insn, counts);
-	    }
-	  else if (in_libcall)
-	    live_insn = ! dead_libcall;
-	  else
-	    live_insn = insn_live_p (insn, counts);
-
-	  /* If this is a dead insn, delete it and show registers in it aren't
-	     being used.  */
-
-	  if (! live_insn)
-	    {
-	      count_reg_usage (insn, counts, -1);
-	      delete_insn_and_edges (insn);
-	      ndead++;
-	    }
-
-	  if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	    {
-	      in_libcall = 0;
-	      dead_libcall = 0;
-	    }
+      if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+	{
+	  in_libcall = 0;
+	  dead_libcall = 0;
 	}
     }
-  while (ndead != nlastdead);
 
   if (dump_file && ndead)
-    fprintf (dump_file, "Deleted %i trivially dead insns; %i iterations\n",
-	     ndead, niterations);
+    fprintf (dump_file, "Deleted %i trivially dead insns\n",
+	     ndead);
   /* Clean up.  */
   free (counts);
   timevar_pop (TV_DELETE_TRIVIALLY_DEAD);

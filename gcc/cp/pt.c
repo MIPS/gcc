@@ -3236,6 +3236,13 @@ redeclare_class_template (tree type, tree parms)
        type.  */
     return;
 
+  if (!parms)
+    {
+      error ("template specifiers not specified in declaration of %qD",
+	     tmpl);
+      return;
+    }
+
   parms = INNERMOST_TEMPLATE_PARMS (parms);
   tmpl_parms = DECL_INNERMOST_TEMPLATE_PARMS (tmpl);
 
@@ -3332,13 +3339,13 @@ fold_non_dependent_expr (tree expr)
 tree
 fold_decl_constant_value (tree expr)
 {
-  while (true)
+  tree const_expr = expr;
+  do
     {
-      tree const_expr = integral_constant_value (expr);
-      if (expr == const_expr)
-	break;
       expr = fold_non_dependent_expr (const_expr);
+      const_expr = integral_constant_value (expr);
     }
+  while (expr != const_expr);
 
   return expr;
 }
@@ -6970,8 +6977,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	/* The array dimension behaves like a non-type template arg,
 	   in that we want to fold it as much as possible.  */
 	max = tsubst_template_arg (omax, args, complain, in_decl);
-	if (!processing_template_decl)
-	  max = integral_constant_value (max);
+	max = fold_decl_constant_value (max);
 
 	if (integer_zerop (omax))
 	  {
@@ -8193,9 +8199,9 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case SWITCH_STMT:
       stmt = begin_switch_stmt ();
-      tmp = tsubst_expr (SWITCH_COND (t), args, complain, in_decl);
+      tmp = tsubst_expr (SWITCH_STMT_COND (t), args, complain, in_decl);
       finish_switch_cond (tmp, stmt);
-      tsubst_expr (SWITCH_BODY (t), args, complain, in_decl);
+      tsubst_expr (SWITCH_STMT_BODY (t), args, complain, in_decl);
       finish_switch_stmt (stmt);
       break;
 
@@ -8897,6 +8903,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 {
   int ix, len = DECL_NTPARMS (tmpl);
   bool result = false;
+  bool error_p = complain & tf_error;
 
   for (ix = 0; ix != len; ix++)
     {
@@ -8914,10 +8921,11 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  if (nt)
 	    {
 	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT uses anonymous type", t);
+		error ("%qT is/uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);
 	      result = true;
+	      error_p = true;
 	    }
 	  /* In order to avoid all sorts of complications, we do not
 	     allow variably-modified types as template arguments.  */
@@ -8939,7 +8947,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  result = true;
 	}
     }
-  if (result && complain & tf_error)
+  if (result && error_p)
     error ("  trying to instantiate %qD", tmpl);
   return result;
 }
@@ -9116,6 +9124,9 @@ fn_type_unification (tree fn,
       int i;
       tree converted_args;
       bool incomplete;
+
+      if (explicit_targs == error_mark_node)
+	return 1;
 
       converted_args
 	= (coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (fn), 
@@ -12009,6 +12020,36 @@ value_dependent_expression_p (tree expression)
   if (TREE_CODE (expression) == COMPONENT_REF)
     return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
 	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
+
+  /* A CALL_EXPR is value-dependent if any argument is
+     value-dependent.  Why do we have to handle CALL_EXPRs in this
+     function at all?  First, some function calls, those for which
+     value_dependent_expression_p is true, man appear in constant
+     expressions.  Second, there appear to be bugs which result in
+     other CALL_EXPRs reaching this point. */
+  if (TREE_CODE (expression) == CALL_EXPR)
+    {
+      tree function = TREE_OPERAND (expression, 0);
+      tree args = TREE_OPERAND (expression, 1);
+
+      if (value_dependent_expression_p (function))
+	return true;
+      else if (! args)
+	return false;
+      else if (TREE_CODE (args) == TREE_LIST)
+	{
+	  do
+	    {
+	      if (value_dependent_expression_p (TREE_VALUE (args)))
+		return true;
+	      args = TREE_CHAIN (args);
+	    }
+	  while (args);
+	  return false;
+	}
+      else
+	return value_dependent_expression_p (args);
+    }
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
   if (EXPR_P (expression))

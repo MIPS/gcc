@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -131,6 +131,14 @@ get_filename (tree expr)
     return "???";
 }
 
+/* Return true if T is a noreturn call.  */
+static inline bool
+noreturn_call_p (tree t)
+{
+  tree call = get_call_expr_in (t);
+  return call != 0 && (call_expr_flags (call) & ECF_NORETURN) != 0;
+}
+
 /* Mark statement T as modified.  */
 static inline void
 modify_stmt (tree t)
@@ -138,6 +146,8 @@ modify_stmt (tree t)
   stmt_ann_t ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
+  else if (noreturn_call_p (t))
+    VEC_safe_push (tree, modified_noreturn_calls, t);
   ann->modified = 1;
 }
 
@@ -387,15 +397,6 @@ set_phi_nodes (basic_block bb, tree l)
   bb_ann (bb)->phi_nodes = l;
   for (phi = l; phi; phi = PHI_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
-}
-
-/* Return the phi index number for an edge.  */
-static inline int
-phi_arg_from_edge (tree phi, edge e)
-{
-  gcc_assert (phi);
-  gcc_assert (TREE_CODE (phi) == PHI_NODE);
-  return e->dest_idx;
 }
 
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */

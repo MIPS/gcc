@@ -1,3 +1,8 @@
+2005-02-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (push_fields_onto_typestack): Add bitpos_of_field
+        to naked FIELD_DECL.
+
 2005-01-12  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-alias.c (setup_pointers_and_addressables):

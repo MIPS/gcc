@@ -1,4 +1,4 @@
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -303,6 +303,7 @@ static rtx frv_read_iacc_argument		(enum machine_mode, tree *);
 static int frv_check_constant_argument		(enum insn_code, int, rtx);
 static rtx frv_legitimize_target		(enum insn_code, rtx);
 static rtx frv_legitimize_argument		(enum insn_code, int, rtx);
+static rtx frv_legitimize_tls_address		(rtx, enum tls_model);
 static rtx frv_expand_set_builtin		(enum insn_code, tree, rtx);
 static rtx frv_expand_unop_builtin		(enum insn_code, tree, rtx);
 static rtx frv_expand_binop_builtin		(enum insn_code, tree, rtx);
@@ -414,6 +415,9 @@ static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM frv_cannot_force_const_mem
 
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS HAVE_AS_TLS
+
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX frv_struct_value_rtx
 #undef TARGET_MUST_PASS_IN_STACK
@@ -431,6 +435,10 @@ static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_MACHINE_DEPENDENT_REORG frv_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+#define FRV_SYMBOL_REF_TLS_P(RTX) \
+  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
+
 
 /* Any function call that satisfies the machine-independent
    requirements is eligible on FR-V.  */
@@ -640,7 +648,20 @@ frv_override_options (void)
       if (GPR_P (regno))
 	{
 	  int gpr_reg = regno - GPR_FIRST;
-	  if ((gpr_reg & 3) == 0)
+
+	  if (gpr_reg == GR8_REG)
+	    class = GR8_REGS;
+
+	  else if (gpr_reg == GR9_REG)
+	    class = GR9_REGS;
+
+	  else if (gpr_reg == GR14_REG)
+	    class = FDPIC_FPTR_REGS;
+
+	  else if (gpr_reg == FDPIC_REGNO)
+	    class = FDPIC_REGS;
+
+	  else if ((gpr_reg & 3) == 0)
 	    class = QUAD_REGS;
 
 	  else if ((gpr_reg & 1) == 0)
@@ -3304,6 +3325,9 @@ frv_legitimate_address_p (enum machine_mode mode,
   HOST_WIDE_INT value;
   unsigned regno0;
 
+  if (FRV_SYMBOL_REF_TLS_P (x))
+    return 0;
+
   switch (GET_CODE (x))
     {
     default:
@@ -3421,11 +3445,178 @@ frv_legitimate_address_p (enum machine_mode mode,
   return ret;
 }
 
+/* Given an ADDR, generate code to inline the PLT.  */
+static rtx
+gen_inlined_tls_plt (rtx addr)
+{
+  rtx mem, retval, dest;
+  rtx picreg = get_hard_reg_initial_val (Pmode, FDPIC_REG);
+
+
+  dest = gen_reg_rtx (DImode);
+
+  if (flag_pic == 1)
+    {
+      /*
+	-fpic version:
+
+	lddi.p  @(gr15, #gottlsdesc12(ADDR)), gr8
+	calll    #gettlsoff(ADDR)@(gr8, gr0)
+      */
+      emit_insn (gen_tls_lddi (dest, addr, picreg));
+    }
+  else
+    {
+      /*
+	-fPIC version:
+
+	sethi.p #gottlsdeschi(ADDR), gr8
+	setlo   #gottlsdesclo(ADDR), gr8
+	ldd     #tlsdesc(ADDR)@(gr15, gr8), gr8
+	calll   #gettlsoff(ADDR)@(gr8, gr0)
+      */
+      rtx reguse = gen_reg_rtx (Pmode);
+      emit_insn (gen_tlsoff_hilo (reguse, addr, GEN_INT (R_FRV_GOTTLSDESCHI)));
+      emit_insn (gen_tls_tlsdesc_ldd (dest, picreg, reguse, addr));
+    }
+
+  retval = gen_reg_rtx (Pmode);
+  emit_insn (gen_tls_indirect_call (retval, addr, dest, gen_reg_rtx (Pmode),
+				    picreg));
+  return retval;
+}
+
+/* Emit a TLSMOFF or TLSMOFF12 offset, depending on -mTLS.  Returns
+   the destination address.  */
+static rtx
+gen_tlsmoff (rtx addr, rtx reg)
+{
+  rtx dest = gen_reg_rtx (Pmode);
+
+  if (TARGET_BIG_TLS)
+    {
+      /* sethi.p #tlsmoffhi(x), grA
+	 setlo   #tlsmofflo(x), grA
+      */
+      dest = gen_reg_rtx (Pmode);
+      emit_insn (gen_tlsoff_hilo (dest, addr,
+				  GEN_INT (R_FRV_TLSMOFFHI)));
+      dest = gen_rtx_PLUS (Pmode, dest, reg);
+    }
+  else
+    {
+      /* addi grB, #tlsmoff12(x), grC
+	   -or-
+	 ld/st @(grB, #tlsmoff12(x)), grC
+      */
+      dest = gen_reg_rtx (Pmode);
+      emit_insn (gen_symGOTOFF2reg_i (dest, addr, reg,
+				      GEN_INT (R_FRV_TLSMOFF12)));
+    }
+  return dest;
+}
+
+/* Generate code for a TLS address.  */
+static rtx
+frv_legitimize_tls_address (rtx addr, enum tls_model model)
+{
+  rtx dest, tp = gen_rtx_REG (Pmode, 29);
+  rtx picreg = get_hard_reg_initial_val (Pmode, 15);
+
+  switch (model)
+    {
+    case TLS_MODEL_INITIAL_EXEC:
+      if (flag_pic == 1)
+	{
+	  /* -fpic version.
+	     ldi @(gr15, #gottlsoff12(x)), gr5
+	   */
+	  dest = gen_reg_rtx (Pmode);
+	  emit_insn (gen_tls_load_gottlsoff12 (dest, addr, picreg));
+	  dest = gen_rtx_PLUS (Pmode, tp, dest);
+	}
+      else
+	{
+	  /* -fPIC or anything else.
+
+	    sethi.p #gottlsoffhi(x), gr14
+	    setlo   #gottlsofflo(x), gr14
+	    ld      #tlsoff(x)@(gr15, gr14), gr9
+	  */
+	  rtx tmp = gen_reg_rtx (Pmode);
+	  dest = gen_reg_rtx (Pmode);
+	  emit_insn (gen_tlsoff_hilo (tmp, addr,
+				      GEN_INT (R_FRV_GOTTLSOFF_HI)));
+
+	  emit_insn (gen_tls_tlsoff_ld (dest, picreg, tmp, addr));
+	  dest = gen_rtx_PLUS (Pmode, tp, dest);
+	}
+      break;
+    case TLS_MODEL_LOCAL_DYNAMIC:
+      {
+	rtx reg, retval;
+
+	if (TARGET_INLINE_PLT)
+	  retval = gen_inlined_tls_plt (GEN_INT (0));
+	else
+	  {
+	    /* call #gettlsoff(0) */
+	    retval = gen_reg_rtx (Pmode);
+	    emit_insn (gen_call_gettlsoff (retval, GEN_INT (0), picreg));
+	  }
+
+	reg = gen_reg_rtx (Pmode);
+	emit_insn (gen_rtx_SET (VOIDmode, reg,
+				gen_rtx_PLUS (Pmode,
+					      retval, tp)));
+
+	dest = gen_tlsmoff (addr, reg);
+
+	/*
+	dest = gen_reg_rtx (Pmode);
+	emit_insn (gen_tlsoff_hilo (dest, addr,
+				    GEN_INT (R_FRV_TLSMOFFHI)));
+	dest = gen_rtx_PLUS (Pmode, dest, reg);
+	*/
+	break;
+      }
+    case TLS_MODEL_LOCAL_EXEC:
+      dest = gen_tlsmoff (addr, gen_rtx_REG (Pmode, 29));
+      break;
+    case TLS_MODEL_GLOBAL_DYNAMIC:
+      {
+	rtx retval;
+
+	if (TARGET_INLINE_PLT)
+	  retval = gen_inlined_tls_plt (addr);
+	else
+	  {
+	    /* call #gettlsoff(x) */
+	    retval = gen_reg_rtx (Pmode);
+	    emit_insn (gen_call_gettlsoff (retval, addr, picreg));
+	  }
+	dest = gen_rtx_PLUS (Pmode, retval, tp);
+	break;
+      }
+    default:
+      abort ();
+    }
+
+  return dest;
+}
+
 rtx
-frv_legitimize_address (rtx x ATTRIBUTE_UNUSED,
+frv_legitimize_address (rtx x,
 			rtx oldx ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED)
 {
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      enum tls_model model = SYMBOL_REF_TLS_MODEL (x);
+      if (model != 0)
+        return frv_legitimize_tls_address (x, model);
+    }
+
   return NULL_RTX;
 }
 
@@ -3501,6 +3692,15 @@ unspec_got_name (int i)
     case R_FRV_GPREL12: return "gprel12";
     case R_FRV_GPRELHI: return "gprelhi";
     case R_FRV_GPRELLO: return "gprello";
+    case R_FRV_GOTTLSOFF_HI: return "gottlsoffhi";
+    case R_FRV_GOTTLSOFF_LO: return "gottlsofflo";
+    case R_FRV_TLSMOFFHI: return "tlsmoffhi";
+    case R_FRV_TLSMOFFLO: return "tlsmofflo";
+    case R_FRV_TLSMOFF12: return "tlsmoff12";
+    case R_FRV_TLSDESCHI: return "tlsdeschi";
+    case R_FRV_TLSDESCLO: return "tlsdesclo";
+    case R_FRV_GOTTLSDESCHI: return "gottlsdeschi";
+    case R_FRV_GOTTLSDESCLO: return "gottlsdesclo";
     default: abort ();
     }
 }
@@ -4369,6 +4569,19 @@ move_destination_operand (rtx op, enum machine_mode mode)
   return FALSE;
 }
 
+/* Return true if we the operand is a valid destination for a movcc_fp
+   instruction.  This means rejecting fcc_operands, since we need
+   scratch registers to write to them.  */
+
+int
+movcc_fp_destination_operand (rtx op, enum machine_mode mode)
+{
+  if (fcc_operand (op, mode))
+    return FALSE;
+
+  return move_destination_operand (op, mode);
+}
+
 /* Look for a SYMBOL_REF of a function in an rtx.  We always want to
    process these separately from any offsets, such that we add any
    offsets to the function descriptor (the actual pointer), not to the
@@ -4617,6 +4830,7 @@ got12_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       case R_FRV_FUNCDESC_GOT12:
       case R_FRV_FUNCDESC_GOTOFF12:
       case R_FRV_GPREL12:
+      case R_FRV_TLSMOFF12:
 	return true;
       }
   return false;
@@ -4631,13 +4845,46 @@ const_unspec_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
   return frv_const_unspec_p (op, &unspec);
 }
-/* Return true if operand is a gpr register or a valid memory operation.  */
+
+/* Return true if operand is a gpr register or a valid memory operand.  */
 
 int
 gpr_or_memory_operand (rtx op, enum machine_mode mode)
 {
   return (integer_register_operand (op, mode)
 	  || frv_legitimate_memory_operand (op, mode, FALSE));
+}
+
+/* Return true if operand is a gpr register, a valid memory operand,
+   or a memory operand that can be made valid using an additional gpr
+   register.  */
+
+int
+gpr_or_memory_operand_with_scratch (rtx op, enum machine_mode mode)
+{
+  rtx addr;
+
+  if (gpr_or_memory_operand (op, mode))
+    return TRUE;
+
+  if (GET_CODE (op) != MEM)
+    return FALSE;
+
+  if (GET_MODE (op) != mode)
+    return FALSE;
+
+  addr = XEXP (op, 0);
+
+  if (GET_CODE (addr) != PLUS)
+    return FALSE;
+      
+  if (!integer_register_operand (XEXP (addr, 0), Pmode))
+    return FALSE;
+
+  if (GET_CODE (XEXP (addr, 1)) != CONST_INT)
+    return FALSE;
+
+  return TRUE;
 }
 
 /* Return true if operand is a fpr register or a valid memory operation.  */
@@ -4788,6 +5035,24 @@ sibcall_operand (rtx op, enum machine_mode mode)
      properly of a call through a pointer on a function that calls
      vfork/setjmp, etc. due to the need to flush all of the registers to stack.  */
   return gpr_or_int12_operand (op, mode);
+}
+
+/* Returns 1 if OP is either a SYMBOL_REF or a constant.  */
+int
+symbolic_operand (register rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  enum rtx_code c = GET_CODE (op);
+
+  if (c == CONST)
+    {
+      /* Allow (const:SI (plus:SI (symbol_ref) (const_int))).  */
+      return GET_MODE (op) == SImode
+	&& GET_CODE (XEXP (op, 0)) == PLUS
+	&& GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
+	&& GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT;
+    }
+
+  return c == SYMBOL_REF || c == CONST_INT;
 }
 
 /* Return true if operator is a kind of relational operator.  */
@@ -5181,6 +5446,13 @@ direct_return_p (void)
 void
 frv_emit_move (enum machine_mode mode, rtx dest, rtx src)
 {
+  if (GET_CODE (src) == SYMBOL_REF)
+    {
+      enum tls_model model = SYMBOL_REF_TLS_MODEL (src);
+      if (model != 0)
+	src = frv_legitimize_tls_address (src, model);
+    }
+
   switch (mode)
     {
     case SImode:
@@ -5314,6 +5586,15 @@ frv_emit_movsi (rtx dest, rtx src)
     handle_sym:
       if (TARGET_FDPIC)
 	{
+	  enum tls_model model = SYMBOL_REF_TLS_MODEL (sym);
+
+	  if (model != 0)
+	    {
+	      src = frv_legitimize_tls_address (src, model);
+	      emit_move_insn (dest, src);
+	      return TRUE;
+	    }
+
 	  if (SYMBOL_REF_FUNCTION_P (sym))
 	    {
 	      if (frv_local_funcdesc_p (sym))
@@ -7668,6 +7949,11 @@ frv_class_likely_spilled_p (enum reg_class class)
     default:
       break;
 
+    case GR8_REGS:
+    case GR9_REGS:
+    case GR89_REGS:
+    case FDPIC_FPTR_REGS:
+    case FDPIC_REGS:
     case ICC_REGS:
     case FCC_REGS:
     case CC_REGS:
@@ -9109,7 +9395,6 @@ static struct builtin_description bdesc_2arg[] =
   { CODE_FOR_mqsubhss, "__MQSUBHSS", FRV_BUILTIN_MQSUBHSS, 0, 0 },
   { CODE_FOR_mqsubhus, "__MQSUBHUS", FRV_BUILTIN_MQSUBHUS, 0, 0 },
   { CODE_FOR_mpackh, "__MPACKH", FRV_BUILTIN_MPACKH, 0, 0 },
-  { CODE_FOR_mdpackh, "__MDPACKH", FRV_BUILTIN_MDPACKH, 0, 0 },
   { CODE_FOR_mcop1, "__Mcop1", FRV_BUILTIN_MCOP1, 0, 0 },
   { CODE_FOR_mcop2, "__Mcop2", FRV_BUILTIN_MCOP2, 0, 0 },
   { CODE_FOR_mwcut, "__MWCUT", FRV_BUILTIN_MWCUT, 0, 0 },
@@ -9254,6 +9539,12 @@ frv_init_builtins (void)
 			    tree_cons (NULL_TREE, T2, \
 			    tree_cons (NULL_TREE, T3, endlink))))
 
+#define QUAD(RET, T1, T2, T3, T4) \
+  build_function_type (RET, tree_cons (NULL_TREE, T1, \
+			    tree_cons (NULL_TREE, T2, \
+			    tree_cons (NULL_TREE, T3, \
+			    tree_cons (NULL_TREE, T4, endlink)))))
+
   tree void_ftype_void = build_function_type (voidt, endlink);
 
   tree void_ftype_acc = UNARY (voidt, accumulator);
@@ -9287,6 +9578,7 @@ frv_init_builtins (void)
   tree uw2_ftype_uw2_uw2 = BINARY (uword2, uword2, uword2);
   tree uw2_ftype_uw2_int = BINARY (uword2, uword2, integer);
   tree uw2_ftype_acc_int = BINARY (uword2, accumulator, integer);
+  tree uw2_ftype_uh_uh_uh_uh = QUAD (uword2, uhalf, uhalf, uhalf, uhalf);
 
   tree sw2_ftype_sw2_sw2 = BINARY (sword2, sword2, sword2);
   tree sw2_ftype_sw2_int   = BINARY (sword2, sword2, integer);
@@ -9349,7 +9641,7 @@ frv_init_builtins (void)
   def_builtin ("__MEXPDHD", uw2_ftype_uw1_int, FRV_BUILTIN_MEXPDHD);
   def_builtin ("__MPACKH", uw1_ftype_uh_uh, FRV_BUILTIN_MPACKH);
   def_builtin ("__MUNPACKH", uw2_ftype_uw1, FRV_BUILTIN_MUNPACKH);
-  def_builtin ("__MDPACKH", uw2_ftype_uw2_uw2, FRV_BUILTIN_MDPACKH);
+  def_builtin ("__MDPACKH", uw2_ftype_uh_uh_uh_uh, FRV_BUILTIN_MDPACKH);
   def_builtin ("__MDUNPACKH", void_ftype_uw4_uw2, FRV_BUILTIN_MDUNPACKH);
   def_builtin ("__MBTOH", uw2_ftype_uw1, FRV_BUILTIN_MBTOH);
   def_builtin ("__MHTOB", uw1_ftype_uw2, FRV_BUILTIN_MHTOB);
@@ -9408,6 +9700,7 @@ frv_init_builtins (void)
 #undef UNARY
 #undef BINARY
 #undef TRINARY
+#undef QUAD
 }
 
 /* Set the names for various arithmetic operations according to the
@@ -9876,6 +10169,44 @@ frv_expand_voidaccop_builtin (enum insn_code icode, tree arglist)
   return NULL_RTX;
 }
 
+/* Expand the MDPACKH builtin.  It takes four unsigned short arguments and
+   each argument forms one word of the two double-word input registers.
+   ARGLIST is a TREE_LIST of the arguments and TARGET, if nonnull,
+   suggests a good place to put the return value.  */
+
+static rtx
+frv_expand_mdpackh_builtin (tree arglist, rtx target)
+{
+  enum insn_code icode = CODE_FOR_mdpackh;
+  rtx pat, op0, op1;
+  rtx arg1 = frv_read_argument (&arglist);
+  rtx arg2 = frv_read_argument (&arglist);
+  rtx arg3 = frv_read_argument (&arglist);
+  rtx arg4 = frv_read_argument (&arglist);
+
+  target = frv_legitimize_target (icode, target);
+  op0 = gen_reg_rtx (DImode);
+  op1 = gen_reg_rtx (DImode);
+
+  /* The high half of each word is not explicitly initialised, so indicate
+     that the input operands are not live before this point.  */
+  emit_insn (gen_rtx_CLOBBER (DImode, op0));
+  emit_insn (gen_rtx_CLOBBER (DImode, op1));
+
+  /* Move each argument into the low half of its associated input word.  */
+  emit_move_insn (simplify_gen_subreg (HImode, op0, DImode, 2), arg1);
+  emit_move_insn (simplify_gen_subreg (HImode, op0, DImode, 6), arg2);
+  emit_move_insn (simplify_gen_subreg (HImode, op1, DImode, 2), arg3);
+  emit_move_insn (simplify_gen_subreg (HImode, op1, DImode, 6), arg4);
+
+  pat = GEN_FCN (icode) (target, op0, op1);
+  if (! pat)
+    return NULL_RTX;
+
+  emit_insn (pat);
+  return target;
+}
+
 /* Expand the MCLRACC builtin.  This builtin takes a single accumulator
    number as argument.  */
 
@@ -10103,6 +10434,9 @@ frv_expand_builtin (tree exp,
     case FRV_BUILTIN_MWTACCG:
       return frv_expand_mwtacc_builtin (CODE_FOR_mwtaccg, arglist);
 
+    case FRV_BUILTIN_MDPACKH:
+      return frv_expand_mdpackh_builtin (arglist, target);
+
     case FRV_BUILTIN_IACCreadll:
       {
 	rtx src = frv_read_iacc_argument (DImode, &arglist);
@@ -10325,6 +10659,23 @@ frv_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 		      int incoming ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (Pmode, FRV_STRUCT_VALUE_REGNUM);
+}
+
+#define TLS_BIAS (2048 - 16)
+
+/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+   We need to emit DTP-relative relocations.  */
+
+void
+frv_output_dwarf_dtprel (FILE *file, int size, rtx x)
+{
+  if (size != 4)
+    abort ();
+  fputs ("\t.picptr\ttlsmoff(", file);
+  /* We want the unbiased TLS offset, so add the bias to the
+     expression, such that the implicit biasing cancels out.  */
+  output_addr_const (file, plus_constant (x, TLS_BIAS));
+  fputs (")", file);
 }
 
 #include "gt-frv.h"

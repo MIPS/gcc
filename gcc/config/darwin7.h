@@ -1,4 +1,4 @@
-/* Target definitions for Darwin 7.0 and above (Mac OS X) systems.
+/* Target definitions for Darwin 7.x (Mac OS X) systems.
    Copyright (C) 2004
    Free Software Foundation, Inc.
 

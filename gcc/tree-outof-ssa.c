@@ -157,10 +157,16 @@ create_temp (tree t)
     name = "temp";
   tmp = create_tmp_var (type, name);
 
-  if (DECL_DEBUG_ALIAS_OF (t))
-    DECL_DEBUG_ALIAS_OF (tmp) = DECL_DEBUG_ALIAS_OF (t);  
+  if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+    {
+      DECL_DEBUG_EXPR (tmp) = DECL_DEBUG_EXPR (t);  
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
   else if (!DECL_IGNORED_P (t))
-    DECL_DEBUG_ALIAS_OF (tmp) = t;
+    {
+      DECL_DEBUG_EXPR (tmp) = t;
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
   add_referenced_tmp_var (tmp);
@@ -1460,6 +1466,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   int num_use_ops, version;
   var_map map = tab->map;
   ssa_op_iter iter;
+  tree call_expr;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1485,6 +1492,15 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   /* Float expressions must go through memory if float-store is on.  */
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
     return false;
+
+  /* Calls to functions with side-effects cannot be replaced.  */
+  if ((call_expr = get_call_expr_in (stmt)) != NULL_TREE)
+    {
+      int call_flags = call_expr_flags (call_expr);
+      if (TREE_SIDE_EFFECTS (call_expr)
+	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
+	return false;
+    }
 
   uses = USE_OPS (ann);
   num_use_ops = NUM_USES (uses);
@@ -2417,7 +2433,7 @@ insert_backedge_copies (void)
 		     start of a loop should be with a COND_EXPR or GOTO_EXPR.
 		     However, better safe than sorry. 
 
-		     If the block ends with a control statment or
+		     If the block ends with a control statement or
 		     something that might throw, then we have to
 		     insert this assignment before the last
 		     statement.  Else insert it after the last statement.  */

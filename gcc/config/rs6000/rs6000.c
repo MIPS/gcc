@@ -1768,6 +1768,12 @@ rs6000_file_start (void)
       if (*start == '\0')
 	putc ('\n', file);
     }
+
+  if (DEFAULT_ABI == ABI_AIX || (TARGET_ELF && flag_pic == 2))
+    {
+      toc_section ();
+      text_section ();
+    }
 }
 
 
@@ -5164,11 +5170,14 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
      are passed and returned in a pair of GPRs for ABI compatibility.  */
   if (TARGET_E500_DOUBLE && (mode == DFmode || mode == DCmode))
     {
-      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
-      gregno += (1 - gregno) & 1;
+      int n_words = rs6000_arg_size (mode, type);
 
-      /* We do not split between registers and stack.  */
-      if (gregno + 1 > GP_ARG_MAX_REG)
+      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
+      if (mode == DFmode)
+	gregno += (1 - gregno) & 1;
+
+      /* Multi-reg args are not split between registers and stack.  */
+      if (gregno + n_words - 1 > GP_ARG_MAX_REG)
 	return NULL_RTX;
 
       return spe_build_register_parallel (mode, gregno);
@@ -5995,8 +6004,10 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   /* Count number of gp and fp argument registers used.  */
   words = current_function_args_info.words;
-  n_gpr = current_function_args_info.sysv_gregno - GP_ARG_MIN_REG;
-  n_fpr = current_function_args_info.fregno - FP_ARG_MIN_REG;
+  n_gpr = MIN (current_function_args_info.sysv_gregno - GP_ARG_MIN_REG,
+	       GP_ARG_NUM_REG);
+  n_fpr = MIN (current_function_args_info.fregno - FP_ARG_MIN_REG,
+	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
     fprintf (stderr, "va_start: words = "HOST_WIDE_INT_PRINT_DEC", n_gpr = "
@@ -7214,7 +7225,7 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	  }
 
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
-	  op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+	  op0 = copy_to_mode_reg (Pmode, op0);
 	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
 	  op1 = copy_to_mode_reg (mode1, op1);
 
@@ -13292,13 +13303,6 @@ rs6000_emit_load_toc_table (int fromprolog)
 		   : gen_reg_rtx (Pmode));
       rtx symF;
 
-      /* possibly create the toc section */
-      if (! toc_initialized)
-	{
-	  toc_section ();
-	  function_section (current_function_decl);
-	}
-
       if (fromprolog)
 	{
 	  rtx symL;
@@ -18084,7 +18088,6 @@ rs6000_xcoff_file_start (void)
   fputs ("\t.file\t", asm_out_file);
   output_quoted_string (asm_out_file, main_input_filename);
   fputc ('\n', asm_out_file);
-  toc_section ();
   if (write_symbols != NO_DEBUG)
     private_data_section ();
   text_section ();

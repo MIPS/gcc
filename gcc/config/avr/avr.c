@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -1229,6 +1229,7 @@ notice_update_cc (rtx body ATTRIBUTE_UNUSED, rtx insn)
 	      rtx x = XEXP (src, 1);
 
 	      if (GET_CODE (x) == CONST_INT
+		  && INTVAL (x) > 0
 		  && INTVAL (x) != 6)
 		{
 		  cc_status.value1 = SET_DEST (set);
@@ -2749,6 +2750,13 @@ out_shift_with_cnt (const char *template, rtx insn, rtx operands[],
       int count = INTVAL (operands[2]);
       int max_len = 10;  /* If larger than this, always use a loop.  */
 
+      if (count <= 0)
+	{
+	  if (len)
+	    *len = 0;
+	  return;
+	}
+
       if (count < 8 && !scratch)
 	use_zero_reg = 1;
 
@@ -2871,6 +2879,9 @@ ashlqi3_out (rtx insn, rtx operands[], int *len)
       switch (INTVAL (operands[2]))
 	{
 	default:
+	  if (INTVAL (operands[2]) < 8)
+	    break;
+
 	  *len = 1;
 	  return AS1 (clr,%0);
 	  
@@ -2967,6 +2978,14 @@ ashlhi3_out (rtx insn, rtx operands[], int *len)
       
       switch (INTVAL (operands[2]))
 	{
+	default:
+	  if (INTVAL (operands[2]) < 16)
+	    break;
+
+	  *len = 2;
+	  return (AS1 (clr,%B0) CR_TAB
+		  AS1 (clr,%A0));
+
 	case 4:
 	  if (optimize_size && scratch)
 	    break;  /* 5 */
@@ -3218,6 +3237,20 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
       
       switch (INTVAL (operands[2]))
 	{
+	default:
+	  if (INTVAL (operands[2]) < 32)
+	    break;
+
+	  if (AVR_ENHANCED)
+	    return *len = 3, (AS1 (clr,%D0) CR_TAB
+			      AS1 (clr,%C0) CR_TAB
+			      AS2 (movw,%A0,%C0));
+	  *len = 4;
+	  return (AS1 (clr,%D0) CR_TAB
+		  AS1 (clr,%C0) CR_TAB
+		  AS1 (clr,%B0) CR_TAB
+		  AS1 (clr,%A0));
+
 	case 8:
 	  {
 	    int reg0 = true_regnum (operands[0]);
@@ -3356,6 +3389,11 @@ ashrqi3_out (rtx insn, rtx operands[], int *len)
 		  AS2 (bld,%0,0));
 
 	default:
+	  if (INTVAL (operands[2]) < 8)
+	    break;
+
+	  /* fall through */
+
 	case 7:
 	  *len = 2;
 	  return (AS1 (lsl,%0) CR_TAB
@@ -3519,6 +3557,12 @@ ashrhi3_out (rtx insn, rtx operands[], int *len)
 		  AS2 (mov,%B0,%A0) CR_TAB
 		  AS1 (rol,%A0));
 
+	default:
+	  if (INTVAL (operands[2]) < 16)
+	    break;
+
+	  /* fall through */
+
 	case 15:
 	  return *len = 3, (AS1 (lsl,%B0)     CR_TAB
 			    AS2 (sbc,%A0,%A0) CR_TAB
@@ -3626,6 +3670,12 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 			      AS2 (mov,%B0,%D0) CR_TAB
 			      AS2 (mov,%C0,%D0));
 
+	default:
+	  if (INTVAL (operands[2]) < 32)
+	    break;
+
+	  /* fall through */
+
 	case 31:
 	  if (AVR_ENHANCED)
 	    return *len = 4, (AS1 (lsl,%D0)     CR_TAB
@@ -3664,6 +3714,9 @@ lshrqi3_out (rtx insn, rtx operands[], int *len)
       switch (INTVAL (operands[2]))
 	{
 	default:
+	  if (INTVAL (operands[2]) < 8)
+	    break;
+
 	  *len = 1;
 	  return AS1 (clr,%0);
 
@@ -3758,6 +3811,14 @@ lshrhi3_out (rtx insn, rtx operands[], int *len)
       
       switch (INTVAL (operands[2]))
 	{
+	default:
+	  if (INTVAL (operands[2]) < 16)
+	    break;
+
+	  *len = 2;
+	  return (AS1 (clr,%B0) CR_TAB
+		  AS1 (clr,%A0));
+
 	case 4:
 	  if (optimize_size && scratch)
 	    break;  /* 5 */
@@ -4008,6 +4069,20 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
       
       switch (INTVAL (operands[2]))
 	{
+	default:
+	  if (INTVAL (operands[2]) < 32)
+	    break;
+
+	  if (AVR_ENHANCED)
+	    return *len = 3, (AS1 (clr,%D0) CR_TAB
+			      AS1 (clr,%C0) CR_TAB
+			      AS2 (movw,%A0,%C0));
+	  *len = 4;
+	  return (AS1 (clr,%D0) CR_TAB
+		  AS1 (clr,%C0) CR_TAB
+		  AS1 (clr,%B0) CR_TAB
+		  AS1 (clr,%A0));
+
 	case 8:
 	  {
 	    int reg0 = true_regnum (operands[0]);
@@ -5121,23 +5196,22 @@ jump_over_one_insn_p (rtx insn, rtx dest)
 int
 avr_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
-  /* Bug workaround: recog.c (peep2_find_free_register) and probably
-     a few other places assume that the frame pointer is a single hard
-     register, so r29 may be allocated and overwrite the high byte of
-     the frame pointer.  Do not allow any value to start in r29.  */
-  if (regno == REG_Y + 1)
-    return 0;
+  /* The only thing that can go into registers r28:r29 is a Pmode.  */
+  if (regno == REG_Y && mode == Pmode)
+    return 1;
 
-  /* Reload can use r28:r29 for reload register and for frame pointer
-   in one insn. It's wrong. We must disable it.  */
-  if (mode != Pmode && reload_in_progress && frame_pointer_required_p ()
-      && regno <= REG_Y && (regno + GET_MODE_SIZE (mode)) >= (REG_Y + 1))
+  /* Otherwise disallow all regno/mode combinations that span r28:r29.  */
+  if (regno <= (REG_Y + 1) && (regno + GET_MODE_SIZE (mode)) >= (REG_Y + 1))
     return 0;
 
   if (mode == QImode)
     return 1;
-  /*  if (regno < 24 && !AVR_ENHANCED)
-      return 1;*/
+
+  /* Modes larger than QImode occupy consecutive registers.  */
+  if (regno + GET_MODE_SIZE (mode) > FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  /* All modes larger than QImode should start in an even register.  */
   return !(regno & 1);
 }
 

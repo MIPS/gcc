@@ -2,7 +2,7 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -454,12 +454,12 @@ gimplify_switch_stmt (tree *stmt_p)
 
   break_block = begin_bc_block (bc_break);
 
-  body = SWITCH_BODY (stmt);
+  body = SWITCH_STMT_BODY (stmt);
   if (!body)
     body = build_empty_stmt ();
 
-  *stmt_p = build3 (SWITCH_EXPR, SWITCH_TYPE (stmt), SWITCH_COND (stmt),
-		    body, NULL_TREE);
+  *stmt_p = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
+		    SWITCH_STMT_COND (stmt), body, NULL_TREE);
   SET_EXPR_LOCATION (*stmt_p, stmt_locus);
   gimplify_stmt (stmt_p);
 

@@ -487,7 +487,7 @@ DEFTREECODE (TARGET_EXPR, "target_expr", tcc_expression, 4)
    have VOID_TYPE.  The same constraints apply to operand 2.  */
 DEFTREECODE (COND_EXPR, "cond_expr", tcc_expression, 3)
 
-/* Vector conditional expresion. It is like COND_EXPR, but with
+/* Vector conditional expression. It is like COND_EXPR, but with
    vector operands.
 
    A = VEC_COND_EXPR ( X < Y, B, C)
@@ -650,6 +650,9 @@ DEFTREECODE (FLOAT_EXPR, "float_expr", tcc_unary, 1)
 /* Unary negation.  */
 DEFTREECODE (NEGATE_EXPR, "negate_expr", tcc_unary, 1)
 
+/* Minimum and maximum values.  When used with floating point, if both
+   operands are zeros, or if either operand is NaN, then it is unspecified
+   which of the two operands is returned as the result.  */
 DEFTREECODE (MIN_EXPR, "min_expr", tcc_binary, 2)
 DEFTREECODE (MAX_EXPR, "max_expr", tcc_binary, 2)
 

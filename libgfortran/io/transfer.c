@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -1041,7 +1041,7 @@ data_transfer_init (int read_flag)
 
   if (read_flag)
     {
-      if (ioparm.eor != 0 && advance_status == ADVANCE_NO)
+      if (ioparm.eor != 0 && advance_status != ADVANCE_NO)
 	generate_error (ERROR_MISSING_OPTION,
 			"EOR specification requires an ADVANCE specification of NO");
 
@@ -1363,6 +1363,9 @@ next_record (int done)
   else
     next_record_w (done);
 
+  /* keep position up to date for INQUIRE */
+  current_unit->flags.position = POSITION_ASIS;
+
   current_unit->current_record = 0;
   if (current_unit->flags.access == ACCESS_DIRECT)
    {
@@ -1386,6 +1389,9 @@ next_record (int done)
 static void
 finalize_transfer (void)
 {
+  if (ioparm.library_return != LIBRARY_OK)
+    return;
+
   if ((ionml != NULL) && (ioparm.namelist_name != NULL))
     {
        if (ioparm.namelist_read_mode)

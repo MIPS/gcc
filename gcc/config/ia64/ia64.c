@@ -5350,6 +5350,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 
 	case UNSPEC_FR_RECIP_APPROX:
 	case UNSPEC_SHRP:
+	case UNSPEC_COPYSIGN:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
@@ -5851,7 +5852,7 @@ static const char *bundle_name [NR_BUNDLES] =
 
 int ia64_final_schedule = 0;
 
-/* Codes of the corresponding quieryied units: */
+/* Codes of the corresponding queried units: */
 
 static int _0mii_, _0mmi_, _0mfi_, _0mmf_;
 static int _0bbb_, _0mbb_, _0mib_, _0mmb_, _0mfb_, _0mlx_;

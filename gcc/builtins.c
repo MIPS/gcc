@@ -201,7 +201,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 {
   unsigned int align, inner;
 
-  if (TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (exp)))
     return 0;
 
   align = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
@@ -215,7 +215,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	case CONVERT_EXPR:
 	case NON_LVALUE_EXPR:
 	  exp = TREE_OPERAND (exp, 0);
-	  if (TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
+	  if (! POINTER_TYPE_P (TREE_TYPE (exp)))
 	    return align;
 
 	  inner = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
@@ -3988,7 +3988,7 @@ gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
          In that case, unwrap both types so that we can compare the
 	 underlying records.  */
       if (TREE_CODE (have_va_type) == ARRAY_TYPE
-	  || TREE_CODE (have_va_type) == POINTER_TYPE)
+	  || POINTER_TYPE_P (have_va_type))
 	{
 	  want_va_type = TREE_TYPE (want_va_type);
 	  have_va_type = TREE_TYPE (have_va_type);
@@ -4436,6 +4436,29 @@ expand_builtin_fabs (tree arglist, rtx target, rtx subtarget)
   return expand_abs (mode, op0, target, 0, safe_from_p (target, arg, 1));
 }
 
+/* Expand a call to copysign, copysignf, or copysignl with arguments ARGLIST.
+   Return NULL is a normal call should be emitted rather than expanding the
+   function inline.  If convenient, the result should be placed in TARGET.
+   SUBTARGET may be used as the target for computing the operand.  */
+
+static rtx
+expand_builtin_copysign (tree arglist, rtx target, rtx subtarget)
+{
+  rtx op0, op1;
+  tree arg;
+
+  if (!validate_arglist (arglist, REAL_TYPE, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+
+  arg = TREE_VALUE (TREE_CHAIN (arglist));
+  op1 = expand_expr (arg, NULL, VOIDmode, 0);
+
+  return expand_copysign (op0, op1, target);
+}
+
 /* Create a new constant string literal and return a char* pointer to it.
    The STRING_CST value is the LEN characters at STR.  */
 static tree
@@ -4486,7 +4509,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4499,7 +4522,7 @@ expand_builtin_printf (tree arglist, rtx target, enum machine_mode mode,
   if (strcmp (fmt_str, "%s\n") == 0)
     {
       if (! arglist
-          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
 	  || TREE_CHAIN (arglist))
 	return 0;
       fn = fn_puts;
@@ -4588,13 +4611,13 @@ expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
   if (! arglist)
     return 0;
   fp = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fp)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fp)))
     return 0;
   arglist = TREE_CHAIN (arglist);
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4607,7 +4630,7 @@ expand_builtin_fprintf (tree arglist, rtx target, enum machine_mode mode,
   if (strcmp (fmt_str, "%s") == 0)
     {
       if (! arglist
-          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != POINTER_TYPE
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
 	  || TREE_CHAIN (arglist))
 	return 0;
       arg = TREE_VALUE (arglist);
@@ -4675,13 +4698,13 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
   if (! arglist)
     return 0;
   dest = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (dest)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (dest)))
     return 0;
   arglist = TREE_CHAIN (arglist);
   if (! arglist)
     return 0;
   fmt = TREE_VALUE (arglist);
-  if (TREE_CODE (TREE_TYPE (fmt)) != POINTER_TYPE)
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
     return 0;
   arglist = TREE_CHAIN (arglist);
 
@@ -4717,7 +4740,7 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
       if (! arglist || TREE_CHAIN (arglist))
 	return 0;
       arg = TREE_VALUE (arglist);
-      if (TREE_CODE (TREE_TYPE (arg)) != POINTER_TYPE)
+      if (! POINTER_TYPE_P (TREE_TYPE (arg)))
 	return 0;
 
       if (target != const0_rtx)
@@ -5063,6 +5086,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       target = expand_builtin_fabs (arglist, target, subtarget);
       if (target)
         return target;
+      break;
+
+    case BUILT_IN_COPYSIGN:
+    case BUILT_IN_COPYSIGNF:
+    case BUILT_IN_COPYSIGNL:
+      target = expand_builtin_copysign (arglist, target, subtarget);
+      if (target)
+	return target;
       break;
 
       /* Just do a normal library call if we were unable to fold
@@ -8058,8 +8089,14 @@ validate_arglist (tree arglist, ...)
 	  /* If no parameters remain or the parameter's code does not
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
-	  if (arglist == 0
-	      || code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
+	  if (arglist == 0)
+	    goto end;
+	  if (code == POINTER_TYPE)
+	    {
+	      if (! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist))))
+		goto end;
+	    }
+	  else if (code != TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))))
 	    goto end;
 	  break;
 	}

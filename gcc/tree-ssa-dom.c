@@ -246,7 +246,7 @@ struct vrp_hash_elt
    in this basic block.  We use this during finalization to know
    which variables need their VRP data updated.  */
 
-/* Stack of SSA_NAMEs which had their values constrainted by operations
+/* Stack of SSA_NAMEs which had their values constrained by operations
    in this basic block.  During finalization of this block we use this
    list to determine which variables need their VRP data updated.
 
@@ -479,7 +479,7 @@ tree_ssa_dominator_optimize (void)
 	    SSA_NAME_VALUE (name) = NULL;
 	}
     }
-  while (cfg_altered);
+  while (optimize > 1 && cfg_altered);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -1255,7 +1255,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
   basic_block parent;
   struct edge_info *edge_info;
 
-  /* If our parent block ended with a control statment, then we may be
+  /* If our parent block ended with a control statement, then we may be
      able to record some equivalences based on which outgoing edge from
      the parent was followed.  */
   parent = get_immediate_dominator (CDI_DOMINATORS, bb);
@@ -1386,7 +1386,7 @@ record_cond (tree cond, tree value)
   initialize_hash_element (cond, value, element);
 
   slot = htab_find_slot_with_hash (avail_exprs, (void *)element,
-				   element->hash, true);
+				   element->hash, INSERT);
   if (*slot == NULL)
     {
       *slot = (void *) element;
@@ -2818,6 +2818,14 @@ cprop_operand (tree stmt, use_operand_p op_p)
 	 to their interaction with exception handling and some GCC
 	 extensions.  */
       else if (!may_propagate_copy (op, val))
+	return false;
+      
+      /* Do not propagate copies if the propagated value is at a deeper loop
+	 depth than the propagatee.  Otherwise, this may move loop variant
+	 variables outside of their loops and prevent coalescing
+	 opportunities.  If the value was loop invariant, it will be hoisted
+	 by LICM and exposed for copy propagation.  */
+      if (loop_depth_of_name (val) > loop_depth_of_name (op))
 	return false;
 
       /* Dump details.  */

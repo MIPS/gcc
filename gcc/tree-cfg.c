@@ -114,6 +114,7 @@ static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
 static void split_critical_edges (void);
+static bool remove_fallthru_edge (VEC(edge) *);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -2051,6 +2052,14 @@ remove_bb (basic_block bb)
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
 }
 
+/* A list of all the noreturn calls passed to modify_stmt.
+   cleanup_control_flow uses it to detect cases where a mid-block
+   indirect call has been turned into a noreturn call.  When this
+   happens, all the instructions after the call are no longer
+   reachable and must be deleted as dead.  */
+
+VEC(tree) *modified_noreturn_calls;
+
 /* Try to remove superfluous control structures.  */
 
 static bool
@@ -2060,6 +2069,15 @@ cleanup_control_flow (void)
   block_stmt_iterator bsi;
   bool retval = false;
   tree stmt;
+
+  /* Detect cases where a mid-block call is now known not to return.  */
+  while (VEC_length (tree, modified_noreturn_calls))
+    {
+      stmt = VEC_pop (tree, modified_noreturn_calls);
+      bb = bb_for_stmt (stmt);
+      if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
+	split_block (bb, stmt);
+    }
 
   FOR_EACH_BB (bb)
     {
@@ -2072,6 +2090,14 @@ cleanup_control_flow (void)
       if (TREE_CODE (stmt) == COND_EXPR
 	  || TREE_CODE (stmt) == SWITCH_EXPR)
 	retval |= cleanup_control_expr_graph (bb, bsi);
+
+      /* Check for indirect calls that have been turned into
+	 noreturn calls.  */
+      if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
+	{
+	  free_dominance_info (CDI_DOMINATORS);
+	  retval = true;
+	}
     }
   return retval;
 }
@@ -2140,6 +2166,22 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   return retval;
 }
 
+/* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
+
+static bool
+remove_fallthru_edge (VEC(edge) *ev)
+{
+  edge_iterator ei;
+  edge e;
+
+  FOR_EACH_EDGE (e, ei, ev)
+    if ((e->flags & EDGE_FALLTHRU) != 0)
+      {
+	remove_edge (e);
+	return true;
+      }
+  return false;
+}
 
 /* Given a basic block BB ending with COND_EXPR or SWITCH_EXPR, and a
    predicate VAL, return the edge that will be taken out of the block.
@@ -3203,12 +3245,14 @@ has_label_p (basic_block bb, tree label)
 
 
 /* Callback for walk_tree, check that all elements with address taken are
-   properly noticed as such.  */
+   properly noticed as such.  The DATA is an int* that is 1 if TP was seen
+   inside a PHI node.  */
 
 static tree
 verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp, x;
+  bool in_phi = (data != NULL);
 
   if (TYPE_P (t))
     *walk_subtrees = 0;
@@ -3242,6 +3286,16 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case ADDR_EXPR:
+      /* ??? tree-ssa-alias.c may have overlooked dead PHI nodes, missing
+	 dead PHIs that take the address of something.  But if the PHI
+	 result is dead, the fact that it takes the address of anything
+	 is irrelevant.  Because we can not tell from here if a PHI result
+	 is dead, we just skip this check for PHIs altogether.  This means
+	 we may be missing "valid" checks, but what can you do?
+	 This was PR19217.  */
+      if (in_phi)
+	break;
+
       /* Skip any references (they will be checked when we recurse down the
 	 tree) and ensure that any variable used as a prefix is marked
 	 addressable.  */
@@ -3518,7 +3572,7 @@ verify_stmts (void)
 		  err |= true;
 		}
 
-	      addr = walk_tree (&t, verify_expr, NULL, NULL);
+	      addr = walk_tree (&t, verify_expr, (void *) 1, NULL);
 	      if (addr)
 		{
 		  debug_generic_stmt (addr);
@@ -3595,25 +3649,38 @@ tree_verify_flow_info (void)
     {
       bool found_ctrl_stmt = false;
 
+      stmt = NULL_TREE;
+
       /* Skip labels on the start of basic block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
-	  if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
+	  tree prev_stmt = stmt;
+
+	  stmt = bsi_stmt (bsi);
+
+	  if (TREE_CODE (stmt) != LABEL_EXPR)
 	    break;
 
-	  if (label_to_block (LABEL_EXPR_LABEL (bsi_stmt (bsi))) != bb)
+	  if (prev_stmt && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
 	    {
-	      tree stmt = bsi_stmt (bsi);
+	      error ("Nonlocal label %s is not first "
+		     "in a sequence of labels in bb %d",
+		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
+		     bb->index);
+	      err = 1;
+	    }
+
+	  if (label_to_block (LABEL_EXPR_LABEL (stmt)) != bb)
+	    {
 	      error ("Label %s to block does not match in bb %d\n",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
 	    }
 
-	  if (decl_function_context (LABEL_EXPR_LABEL (bsi_stmt (bsi)))
+	  if (decl_function_context (LABEL_EXPR_LABEL (stmt))
 	      != current_function_decl)
 	    {
-	      tree stmt = bsi_stmt (bsi);
 	      error ("Label %s has incorrect context in bb %d\n",
 		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
@@ -3970,7 +4037,7 @@ remove_forwarder_block (basic_block bb, basic_block **worklist)
   if (dest == bb)
     return false;
 
-  /* If the destination block consists of an nonlocal label, do not merge
+  /* If the destination block consists of a nonlocal label, do not merge
      it.  */
   label = first_stmt (dest);
   if (label
@@ -4117,8 +4184,8 @@ remove_forwarder_block_with_phi (basic_block bb)
 {
   edge succ = EDGE_SUCC (bb, 0);
   basic_block dest = succ->dest;
+  tree label;
   basic_block dombb, domdest, dom;
-  block_stmt_iterator bsi;
 
   /* We check for infinite loops already in tree_forwarder_block_p.
      However it may happen that the infinite loop is created
@@ -4128,16 +4195,11 @@ remove_forwarder_block_with_phi (basic_block bb)
 
   /* If the destination block consists of a nonlocal label, do not
      merge it.  */
-  for (bsi = bsi_start (dest); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      tree stmt = bsi_stmt (bsi);
-
-      if (TREE_CODE (stmt) != LABEL_EXPR)
-	break;
-
-      if (DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
-	return;
-    }
+  label = first_stmt (dest);
+  if (label
+      && TREE_CODE (label) == LABEL_EXPR
+      && DECL_NONLOCAL (LABEL_EXPR_LABEL (label)))
+    return;
 
   /* Redirect each incoming edge to BB to DEST.  */
   while (EDGE_COUNT (bb->preds) > 0)
@@ -4158,7 +4220,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 	      continue;
 	    }
 
-	  /* PHI arguemnts are different.  Create a forwarder block by
+	  /* PHI arguments are different.  Create a forwarder block by
 	     splitting E so that we can merge PHI arguments on E to
 	     DEST.  */
 	  e = EDGE_SUCC (split_edge (e), 0);
@@ -4220,8 +4282,8 @@ remove_forwarder_block_with_phi (basic_block bb)
   delete_basic_block (bb);
 }
 
-/* This pass performs merges PHI nodes if one feeds into another.  For
-   example, suppose we have the following:
+/* This pass merges PHI nodes if one feeds into another.  For example,
+   suppose we have the following:
 
   goto <bb 9> (<L9>);
 
@@ -5664,6 +5726,7 @@ execute_warn_function_return (void)
   /* If we see "return;" in some basic block, then we do reach the end
      without returning a value.  */
   else if (warn_return_type
+	   && !TREE_NO_WARNING (cfun->decl)
 	   && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0
 	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (cfun->decl))))
     {
@@ -5684,6 +5747,7 @@ execute_warn_function_return (void)
 		locus = &cfun->function_end_locus;
 	      warning ("%Hcontrol reaches end of non-void function", locus);
 #endif
+	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;
 	    }
 	}

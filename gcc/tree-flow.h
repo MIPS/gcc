@@ -66,6 +66,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer points to a global variable.  */
   unsigned int pt_global_mem : 1;
 
+  /* Nonzero if this pointer points to NULL.  */
+  unsigned int pt_null : 1;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -315,6 +318,8 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
+extern GTY(()) VEC(tree) *modified_noreturn_calls;
+
 typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
@@ -328,6 +333,7 @@ static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
+static inline bool noreturn_call_p (tree);
 static inline void modify_stmt (tree);
 static inline void unmodify_stmt (tree);
 static inline bool stmt_modified_p (tree);
@@ -722,7 +728,6 @@ enum move_pos
 extern enum move_pos movement_possibility (tree);
 
 /* In tree-flow-inline.h  */
-static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);

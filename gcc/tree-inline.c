@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-mudflap.h"
+#include "tree-flow.h"
 #include "function.h"
 #include "diagnostic.h"
 #include "debug.h"
@@ -503,6 +504,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Replace this variable with the copy.  */
       STRIP_TYPE_NOPS (new_decl);
       *tp = new_decl;
+      *walk_subtrees = 0;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
     copy_statement_list (tp);
@@ -808,6 +810,8 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
+  if (fn == current_function_decl)
+    p = DECL_STRUCT_FUNCTION (fn)->saved_static_chain_decl;
   if (p)
     {
       /* No static chain?  Seems like a bug in tree-nested.c.  */
@@ -1607,9 +1611,26 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      function itself.  */
   {
     struct cgraph_node *old_node = id->current_node;
+    tree copy;
 
     id->current_node = edge->callee;
-    append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
+    copy = copy_body (id);
+
+    /* If the function uses a return slot, then it may legitimately
+       fall through while still returning a value, so we have to skip
+       the warning here.  */
+    if (warn_return_type
+	&& !TREE_NO_WARNING (fn)
+	&& !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+	&& return_slot_addr == NULL_TREE
+	&& block_may_fallthru (copy))
+      {
+	warning ("control may reach end of non-void function %qD being inlined",
+		 fn);
+	TREE_NO_WARNING (fn) = 1;
+      }
+
+    append_to_statement_list (copy, &BIND_EXPR_BODY (expr));
     id->current_node = old_node;
   }
   inlined_body = &BIND_EXPR_BODY (expr);

@@ -966,6 +966,7 @@ enum label_kind
    not to use an rtx with this cost under any circumstances.  */
 #define MAX_COST INT_MAX
 
+extern void init_rtlanal (void);
 extern int rtx_cost (rtx, enum rtx_code);
 extern int address_cost (rtx, enum machine_mode);
 extern unsigned int subreg_lsb (rtx);
@@ -2028,8 +2029,6 @@ extern void dump_flow_info (FILE *);
 extern void init_expmed (void);
 extern void expand_inc (rtx, rtx);
 extern void expand_dec (rtx, rtx);
-extern rtx expand_mult_highpart (enum machine_mode, rtx,
-				 unsigned HOST_WIDE_INT, rtx, int, int);
 
 /* In gcse.c */
 extern bool can_copy_p (enum machine_mode);
