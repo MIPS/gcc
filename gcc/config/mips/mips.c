@@ -1097,8 +1097,11 @@ static bool
 mips_splittable_symbol_p (type)
      enum mips_symbol_type type;
 {
-  return ((type == SYMBOL_GENERAL && mips_split_addresses)
-	  || (type == SYMBOL_GOT_LOCAL && TARGET_EXPLICIT_RELOCS));
+  if (TARGET_EXPLICIT_RELOCS)
+    return (type == SYMBOL_GENERAL || type == SYMBOL_GOT_LOCAL);
+  if (mips_split_addresses)
+    return (type == SYMBOL_GENERAL);
+  return false;
 }
 
 
