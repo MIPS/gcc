@@ -16274,7 +16274,35 @@ cp_parser_cw_identifier (cp_parser* parser)
   char *buf;
   const char *str = "";
 
-  t = cp_parser_identifier (parser);
+  /* We have to accept certain keywords.  */
+  token = cp_lexer_peek_token (parser->lexer);
+  if (token->flags | NAMED_OP)
+    {
+      const char *s = 0;
+      switch (token->type) {
+      case CPP_AND_AND: s="and"; break;
+      case CPP_AND_EQ: s="and_eq"; break;
+      case CPP_AND: s="bitand"; break;
+      case CPP_OR: s="bitor"; break;
+      case CPP_COMPL: s="compl"; break;
+      case CPP_NOT: s="not"; break;
+      case CPP_NOT_EQ: s="not_eq"; break;
+      case CPP_OR_OR: s="or"; break;
+      case CPP_OR_EQ: s="or_eq"; break;
+      case CPP_XOR: s="xor"; break;
+      case CPP_XOR_EQ: s="xor_eq"; break;
+      }
+
+      /* The above list is the entire list of named operators.  We
+	 can't fail to translate the name.  See operator_array in
+	 libcpp/init.c.  */
+      gcc_assert (s != 0);
+      cp_lexer_consume_token (parser->lexer);
+      t = get_identifier (s);
+    }
+  else
+    t = cp_parser_identifier (parser);
+
   if (t == error_mark_node)
     return t;
 
