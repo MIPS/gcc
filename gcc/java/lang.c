@@ -66,7 +66,6 @@ static bool java_can_use_bit_fields_p (void);
 static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
-static int java_start_inlining (tree);
 static tree java_get_callee_fndecl (tree);
 
 #ifndef TARGET_OBJECT_SUFFIX
@@ -248,9 +247,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_UNSIGNED_TYPE java_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE java_signed_or_unsigned_type
-
-#undef LANG_HOOKS_TREE_INLINING_START_INLINING
-#define LANG_HOOKS_TREE_INLINING_START_INLINING java_start_inlining
 
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
@@ -1106,18 +1102,6 @@ static bool
 java_decl_ok_for_sibcall (tree decl)
 {
   return decl != NULL && DECL_CONTEXT (decl) == current_class;
-}
-
-/* Start inlining fn.  Called by the tree inliner via
-   lang_hooks.tree_inlining.cannot_inline_tree_fn.  */
-
-static int
-java_start_inlining (tree fn)
-{
-  /* A java function's body doesn't have a BLOCK structure suitable
-     for debug output until it is expanded.  Prevent inlining functions
-     that are not yet expanded.  */
-  return TREE_ASM_WRITTEN (fn) ? 1 : 0;
 }
 
 /* Given a call_expr, try to figure out what its target might be.  In

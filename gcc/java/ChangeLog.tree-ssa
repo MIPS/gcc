@@ -1,5 +1,10 @@
 2003-11-31  Richard Henderson  <rth@redhat.com>
 
+	* lang.c (java_start_inlining): Remove.
+	(LANG_HOOKS_TREE_INLINING_START_INLINING): Remove.
+
+2003-11-31  Richard Henderson  <rth@redhat.com>
+
         * jcf-parse.c (java_parse_file): Finalize cgraph after emitting
         class tables.
 
