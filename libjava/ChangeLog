@@ -1,3 +1,23 @@
+2004-06-09  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/border/TitledBorder.java,
+	javax/swing/filechooser/FileSystemView.java,
+	javax/swing/plaf/basic/BasicButtonListener.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java,
+	javax/swing/plaf/basic/BasicScrollBarUI.java,
+	javax/swing/plaf/basic/BasicScrollPaneUI.java,
+	javax/swing/plaf/basic/BasicSliderUI.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicToggleButtonUI.java,
+	javax/swing/table/JTableHeader.java,
+	javax/swing/text/AbstractDocument.java,
+	javax/swing/text/DefaultCaret.java,
+	javax/swing/text/StyledEditorKit.java,
+	javax/swing/tree/DefaultTreeCellEditor.java:
+	Reworked import statements.
+
 2004-06-08  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/Box.java: Temporarily comment out code
