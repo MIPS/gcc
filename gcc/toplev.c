@@ -908,6 +908,9 @@ int flag_tree_ccp = 0;
 /* Enable SSA-CP on trees.  */
 int flag_tree_cp = 0;
 
+/* Enable SSA-Copy propagation on trees.  */
+int flag_tree_copyprop;
+
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
@@ -1235,8 +1238,8 @@ static const lang_independent_options f_options[] =
    N_("Enable SSA-PRE optimization on trees") },
   { "tree-ccp", &flag_tree_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
-  { "tree-cp", &flag_tree_cp, 1,
-   N_("Enable SSA-CP optimization on trees") },
+  { "tree-copyprop", &flag_tree_copyprop, 1,
+   N_("Enable SSA copy propagation optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
    N_("Enable SSA dead code elimination optimization on trees") }
 };

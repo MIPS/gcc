@@ -104,7 +104,6 @@ static bool may_access_global_mem_p 	PARAMS ((tree, tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
 static void add_vdef			PARAMS ((tree, tree, voperands_t));
-static void add_vuse			PARAMS ((tree, tree, voperands_t));
 static void add_stmt_operand		PARAMS ((tree *, tree, int, int,
       						 voperands_t));
 static void add_immediate_use		PARAMS ((tree, tree));
@@ -385,7 +384,7 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       /* Add all the arguments to the function.  If the function will not
 	 clobber any local variable, check if it may dereference a local
 	 pointer.  If so, add a VUSE for the dereferenced pointer.  This is
-	 to address the following problem: Supose that function 'foo' is
+	 to address the following problem: Suppose that function 'foo' is
 	 constant but receives a pointer to a local variable:
 
 	    int foo (int *x)
@@ -751,7 +750,7 @@ add_vdef (var, stmt, prev_vops)
    existing VUSE will be added to STMT.  This is done to preserve the
    SSA numbering of virtual operands.  */
 
-static void
+void
 add_vuse (var, stmt, prev_vops)
      tree var;
      tree stmt;

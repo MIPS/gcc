@@ -1,3 +1,25 @@
+2003-02-28  Aldy Hernandez  <aldyh@redhat.com>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (OBJS): Add tree-ssa-copyprop.o.
+	(tree-ssa-copyprop.o): New rule.
+	(tree-ssa-ccp.o): Add dependency on $(TREE_SIMPLE_H).
+
+	* timevar.def (TV_TREE_COPYPROP): New timevar.
+	* flags.h (flag_tree_copyprop): Declare.
+	* toplev.c (flag_tree_copyprop): Define.
+	(f_options): Add -ftree-copyprop.
+	* tree.h (tree_dump_index): Add TDI_copyprop.
+	* tree-dump.c (dump_files): Add entry for -fdump-tree-copyprop.
+	* doc/invoke.texi: Document -ftree-copyprop and -fdump-tree-copyprop.
+
+	* tree-ssa-copyprop.c: New file.
+	* tree-flow.h (tree_ssa_copyprop): Declare.
+	* tree-optimize.c (optimize_function_tree): Call it.
+	* tree-dfa.c (add_vuse): Make extern.  Update all users.
+
+	* tree-ssa.c (mark_def_sites): VUSEs are stored in a varray of trees.
+
 2003-02-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mudflap_enqueue_decl): Ignore extern artificial

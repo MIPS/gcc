@@ -78,6 +78,9 @@ optimize_function_tree (fndecl)
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
       
+      if (flag_tree_copyprop)
+	tree_ssa_copyprop (fndecl);
+
       if (flag_tree_dce)
 	tree_ssa_dce (fndecl);
     }

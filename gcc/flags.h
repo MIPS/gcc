@@ -666,6 +666,9 @@ extern int flag_tree_cp;
 /* Enable SSA-CCP on trees.  */
 extern int flag_tree_ccp;
 
+/* Enable SSA-Copy Propagation on trees.  */
+extern int flag_tree_copyprop;
+
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 

@@ -382,7 +382,7 @@ mark_def_sites (idom, globals)
 	  ops = vuse_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      tree use = VARRAY_GENERIC_PTR (ops, i);
+	      tree use = VARRAY_TREE (ops, i);
 	      int uid = var_ann (use)->uid;
 
 	      if (! TEST_BIT (kills, uid))

@@ -378,6 +378,7 @@ extern tree copy_stmt			PARAMS ((tree));
 extern void dump_alias_info		PARAMS ((FILE *));
 extern void debug_alias_info		PARAMS ((void));
 extern tree get_virtual_var		PARAMS ((tree));
+extern void add_vuse			PARAMS ((tree, tree, voperands_t));
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0
@@ -405,6 +406,9 @@ void tree_ssa_ccp			PARAMS ((tree));
 
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce			PARAMS ((tree));
+
+/* In tree-ssa-copyprop.c  */
+void tree_ssa_copyprop			PARAMS ((tree));
 
 #include "tree-flow-inline.h"
 

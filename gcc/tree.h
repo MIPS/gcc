@@ -3489,6 +3489,8 @@ enum tree_dump_index
 				   function.  */
   TDI_pre,                      /* dump SSA PRE information for each
 				   function.  */
+  TDI_copyprop,			/* dump SSA Copy propagation information for
+				   each function.  */
   TDI_dce,                      /* dump SSA DCE information for each
 				   function.  */
   TDI_optimized,		/* dump each function after optimizing it.  */
