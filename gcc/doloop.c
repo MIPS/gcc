@@ -786,7 +786,7 @@ doloop_optimize (const struct loop *loop)
   if (n_iterations)
     {
       /* See the comment in doloop_modify_runtime.  */
-      if (loop->scan_start)
+      if (loop->top)
 	n_iterations += loop_info->unroll_number;
 
       /* This is the simple case where the initial and final loop
