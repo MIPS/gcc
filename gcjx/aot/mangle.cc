@@ -117,8 +117,12 @@ mangler::update (model_package *p)
     {
       if (p->get_parent ())
 	update (p->get_parent ());
-      update (p->get_simple_name ());
-      insert (p, false);
+      std::string name = p->get_simple_name ();
+      if (! name.empty ())
+	{
+	  update (name);
+	  insert (p, false);
+	}
     }
 }
 
@@ -181,7 +185,7 @@ mangler::update (model_type *t, bool is_pointer)
 	  model_class *k = assert_cast<model_class *> (t);
 	  if (k->get_package ())
 	    update (k->get_package ());
-	  result += k->get_name ();
+	  update (k->get_name ());
 	  enter = true;
 	  // This is a hack: we know only the outer-most class
 	  // reference will be called with is_pointer == false.

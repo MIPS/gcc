@@ -1,5 +1,10 @@
 2005-01-30  Tom Tromey  <tromey@redhat.com>
 
+	* model/package.hh (model_package::get_simple_name): Handle
+	unnamed package.
+	* aot/mangle.cc (update): Handle empty package name.
+	(update): Emit count before class name.
+
 	* aot/aotclass.cc (lay_out_vtable): Check 'super' before copying
 	vtable.
 

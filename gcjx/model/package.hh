@@ -1,6 +1,6 @@
 // Representation of a package.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -105,7 +105,7 @@ public:
 
   std::string get_simple_name () const
   {
-    return ::get_simple_name (name);
+    return name.empty () ? std::string () : ::get_simple_name (name);
   }
 
   std::string get_fully_qualified_name () const
