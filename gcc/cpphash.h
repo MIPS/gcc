@@ -483,7 +483,7 @@ struct cpp_reader
     uchar *base;
     uchar *limit;
     uchar *cur;
-    unsigned int first_line;
+    fileline first_line;
   } out;
 
   /* Used to save the original line number during traditional
