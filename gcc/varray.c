@@ -48,6 +48,7 @@ static const struct {
   { sizeof (HOST_WIDE_INT), 1 },
   { sizeof (unsigned HOST_WIDE_INT), 1 },
   { sizeof (void *), 1 },
+  { sizeof (void *), 0 },
   { sizeof (char *), 1 },
   { sizeof (struct rtx_def *), 1 },
   { sizeof (struct rtvec_def *), 1 },

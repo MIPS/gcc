@@ -867,7 +867,7 @@ OBJS-common = \
  tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
  tree-ssa-pre.o tree-ssa-copyprop.o tree-ssa-live.o tree-must-alias.o	   \
- tree-ssa-dom.o domwalk.o tree-tailcall.o				   \
+ tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o			   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
@@ -1573,6 +1573,10 @@ c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h \
    $(TM_H) coretypes.h $(C_PRETTY_PRINT_H)
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
+   diagnostic.h $(TREE_SIMPLE_H) tree-inline.h varray.h langhooks.h \
+   langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
+   flags.h $(RTL_H)
+gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h $(TREE_SIMPLE_H) tree-inline.h varray.h langhooks.h \
    langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
    flags.h $(RTL_H)

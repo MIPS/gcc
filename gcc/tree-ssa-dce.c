@@ -276,15 +276,12 @@ stmt_useful_p (tree stmt)
       break;
 
     case COND_EXPR:
-      if (TREE_CODE (COND_EXPR_THEN (stmt)) == GOTO_EXPR
-	  && TREE_CODE (COND_EXPR_ELSE (stmt)) == GOTO_EXPR)
-        {
-	  /* Check if the dest labels are the same. If they are, the condition
-	     is useless.  */
-	  if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
-	      == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
-	    return false;
-	}
+      /* Check if the dest labels are the same. If they are, the condition
+	 is useless.  */
+      if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
+	  == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
+	return false;
+
     default:
       break;
     }
@@ -320,7 +317,6 @@ stmt_useful_p (tree stmt)
 static void
 process_worklist (void)
 {
-  basic_block bb;
   tree i;
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
@@ -336,11 +332,6 @@ process_worklist (void)
 	  fprintf (dump_file, "\n");
 	}
 
-      /* Find any predecessor which 'goto's this block, and mark the goto
-	 as necessary since it is control flow.  A block's predecessors only
-	 need to be checked once.  */
-      bb = bb_for_stmt (i);
-      
       if (TREE_CODE (i) == PHI_NODE)
 	{
 	  int k;
@@ -461,7 +452,7 @@ remove_dead_phis (basic_block bb)
 }
 
 
-/* Remove dead statement pointed by iterator I from block BB.  */
+/* Remove dead statement pointed by iterator I.  */
 
 static void
 remove_dead_stmt (block_stmt_iterator *i)

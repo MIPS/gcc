@@ -72,6 +72,7 @@ enum varray_data_enum {
   VARRAY_DATA_HINT,
   VARRAY_DATA_UHINT,
   VARRAY_DATA_GENERIC,
+  VARRAY_DATA_GENERIC_NOGC,
   VARRAY_DATA_CPTR,
   VARRAY_DATA_RTX,
   VARRAY_DATA_RTVEC,
@@ -110,6 +111,8 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_UHINT")))	uhint[1];
   PTR			  GTY ((length ("%0.num_elements"), use_param (""),
 				tag ("VARRAY_DATA_GENERIC")))	generic[1];
+  PTR			  GTY ((length ("%0.num_elements"), skip (""),
+				tag ("VARRAY_DATA_GENERIC_NOGC")))	generic_nogc[1];
   char			 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_CPTR")))	cptr[1];
   rtx			  GTY ((length ("%0.num_elements"),
@@ -182,6 +185,9 @@ extern varray_type varray_init (size_t, enum varray_data_enum, const char *);
 
 #define VARRAY_GENERIC_PTR_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_GENERIC, name)
+
+#define VARRAY_GENERIC_PTR_NOGC_INIT(va, num, name) \
+  va = varray_init (num, VARRAY_DATA_GENERIC_NOGC, name)
 
 #define VARRAY_CHAR_PTR_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_CPTR, name)
@@ -280,6 +286,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_WIDE_INT(VA, N)		VARRAY_CHECK (VA, N, hint)
 #define VARRAY_UWIDE_INT(VA, N)		VARRAY_CHECK (VA, N, uhint)
 #define VARRAY_GENERIC_PTR(VA,N)	VARRAY_CHECK (VA, N, generic)
+#define VARRAY_GENERIC_PTR_NOGC(VA,N)	VARRAY_CHECK (VA, N, generic_nogc)
 #define VARRAY_CHAR_PTR(VA,N)		VARRAY_CHECK (VA, N, cptr)
 #define VARRAY_RTX(VA, N)		VARRAY_CHECK (VA, N, rtx)
 #define VARRAY_RTVEC(VA, N)		VARRAY_CHECK (VA, N, rtvec)
@@ -304,6 +311,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_PUSH_WIDE_INT(VA, X)	VARRAY_PUSH (VA, hint, X)
 #define VARRAY_PUSH_UWIDE_INT(VA, X)	VARRAY_PUSH (VA, uhint, X)
 #define VARRAY_PUSH_GENERIC_PTR(VA, X)	VARRAY_PUSH (VA, generic, X)
+#define VARRAY_PUSH_GENERIC_PTR_NOGC(VA, X)	VARRAY_PUSH (VA, generic_nogc, X)
 #define VARRAY_PUSH_CHAR_PTR(VA, X)	VARRAY_PUSH (VA, cptr, X)
 #define VARRAY_PUSH_RTX(VA, X)		VARRAY_PUSH (VA, rtx, X)
 #define VARRAY_PUSH_RTVEC(VA, X)	VARRAY_PUSH (VA, rtvec, X)
@@ -327,6 +335,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_TOP_WIDE_INT(VA)	        VARRAY_TOP (VA, hint)
 #define VARRAY_TOP_UWIDE_INT(VA)	VARRAY_TOP (VA, uhint)
 #define VARRAY_TOP_GENERIC_PTR(VA)	VARRAY_TOP (VA, generic)
+#define VARRAY_TOP_GENERIC_PTR_NOGC(VA)	VARRAY_TOP (VA, generic_nogc)
 #define VARRAY_TOP_CHAR_PTR(VA)		VARRAY_TOP (VA, cptr)
 #define VARRAY_TOP_RTX(VA)		VARRAY_TOP (VA, rtx)
 #define VARRAY_TOP_RTVEC(VA)	        VARRAY_TOP (VA, rtvec)

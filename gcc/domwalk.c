@@ -84,7 +84,9 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
 
       /* If this block ends with a control structure, then get the
 	 control structure so we can pass it down.  */
-      if (bb->flags & BB_CONTROL_STRUCTURE)
+      if ((bb->flags & BB_CONTROL_STRUCTURE)
+	  || (bb->succ && (bb->succ->flags & (EDGE_TRUE_VALUE
+					      | EDGE_FALSE_VALUE))))
 	last = last_stmt (bb);
       else
 	last = NULL;

@@ -51,9 +51,9 @@ struct dominance_info
 };
 
 #define BB_NODE(info, bb) \
-  ((et_forest_node_t)VARRAY_GENERIC_PTR ((info)->varray, (bb)->index + 2))
+  ((et_forest_node_t)VARRAY_GENERIC_PTR_NOGC ((info)->varray, (bb)->index + 2))
 #define SET_BB_NODE(info, bb, node) \
-  (VARRAY_GENERIC_PTR ((info)->varray, (bb)->index + 2) = (node))
+  (VARRAY_GENERIC_PTR_NOGC ((info)->varray, (bb)->index + 2) = (node))
 
 /* We name our nodes with integers, beginning with 1.  Zero is reserved for
    'undefined' or 'end of list'.  The name of each node is given by the dfs
@@ -551,7 +551,7 @@ calculate_dominance_info (enum cdi_direction reverse)
   info->forest = et_forest_create ();
   info->idom = xcalloc (last_basic_block, sizeof (basic_block));
 
-  VARRAY_GENERIC_PTR_INIT (info->varray, last_basic_block + 3, "dominance info");
+  VARRAY_GENERIC_PTR_NOGC_INIT (info->varray, last_basic_block + 3, "dominance info");
 
   /* Add the two well-known basic blocks.  */
   SET_BB_NODE (info, ENTRY_BLOCK_PTR, et_forest_add_node (info->forest,

@@ -1,3 +1,56 @@
+2003-10-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gimple-low.c: New.
+	* Makefile.in (gimple-low.o): Add.
+	* domwalk.c (walk_dominator_tree): Consider COND_EXPR a control
+	structure.
+	* tree-cfg.c (make_cond_expr_blocks, linearize_control_structures,
+	linearize_cond_expr): Removed.
+	(thread_jumps, tree_forwarder_block_p): New.
+	(merge_tree_blocks): Unused now.
+	(phi_alternatives_equal): Modified for use in jump threading.
+	(enum find_location_action): Remove EDGE_INSERT_LOCATION_NEW_ELSE.
+	(make_blocks): Don't call make_cond_expr_blocks.
+	(set_parent_stmt): Ensure we don't set COND_EXPR as a parent
+	statement.
+	(find_contained_blocks): Remove COND_EXPR alternative.
+	(make_cond_expr_edges): Handle lowered gotos.
+	(cleanup_tree_cfg): Don't call linearize_control_structures,
+	call thread_jumps and verify_flow_info and rerun cleanup_control_flow.
+	(remove_unreachable_block): Remove handling of structured COND_EXPRs.
+	(remove_bb): Fix warning for removed goto exprs.
+	(cleanup_control_flow, cleanup_cond_expr_graph,
+	cleanup_switch_expr_graph, find_taken_edge_cond_expr,
+	bsi_insert_before, find_insert_location, bsi_insert_on_edge_immediate):
+	Handle lowered COND_EXPRs.
+	(is_ctrl_structure): Remove COND_EXPR.
+	(is_ctrl_stmt): Add COND_EXPR.
+	(tree_verify_flow_info): Check validity of COND_EXPRs.
+	(thread_edge): Moved from tree-ssa-dom.c.
+	* tree-flow.h (cleanup_cond_expr_graph, cleanup_switch_expr_graph):
+	Declaration changed.
+	(thread_edge, lower_function_body): Declare.
+	* tree-optimize.c (optimize_function_tree): Call lower_function_body.
+	* tree-pretty-print.c (dump_generic_node): Dump lowered cond_exprs in
+	full.
+	* tree-ssa-copyprop.c (fixup_var_scope): Handle non-SSA_NAMEs.
+	* tree-ssa-dce.c (stmt_useful_p, process_worklist): Cleaned up when
+	COND_EXPRs are lowered.
+	* tree-ssa-dom.c (thread_edge): Moved to tree-cfg.c.
+	(tree_ssa_dominator_optimize_1): Dumps and setting of vars_to_rename
+	moved from thread_edge.
+	(optimize_stmt): Pass block iterator to cleanup_cond_expr_graph and
+	cleanup_switch_expr_graph.
+	* tree-ssa.c (insert_copy_on_edge): Fixup scope for emitted variables.
+
+	* dominance.c (BB_NODE): Use VARRAY_GENERIC_PTR_NOGC.
+	(calculate_dominance_info): Use VARRAY_GENERIC_PTR_NOGC_INIT.
+	* varray.c (element): Add GENERIC_PTR_NOGC entry.
+	* varray.h (enum varray_data_enum): Add VARRAY_DATA_GENERIC_NOGC.
+	(union varray_data_tag): Add generic_nogc.
+	(VARRAY_GENERIC_PTR_NOGC_INIT,  VARRAY_GENERIC_PTR_NOGC,
+	VARRAY_PUSH_GENERIC_PTR_NOGC, VARRAY_TOP_GENERIC_PTR_NOGC): New.
+
 2003-10-25  Jan Hubicka  <jh@suse.cz>
 
 	* cppcharset.c (one_utf8_to_utf32): Initialize 's' to silence warning.

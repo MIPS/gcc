@@ -183,7 +183,6 @@ static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 static void record_cond_is_false (tree, varray_type *);
 static void record_cond_is_true (tree, varray_type *);
-static void thread_edge (edge, basic_block);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
 					      stmt_ann_t, bool);
 static tree simplify_rhs_and_lookup_avail_expr (tree, varray_type *,
@@ -313,6 +312,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   basic_block bb;
   edge e;
   struct dom_walk_data walk_data;
+  tree phi;
 
   timevar_push (timevar);
 
@@ -399,12 +399,34 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
 
 	  while (VARRAY_ACTIVE_SIZE (edges_to_redirect) > 0)
 	    {
+	      basic_block src;
+
 	      e = VARRAY_TOP_EDGE (edges_to_redirect);
 	      tgt = VARRAY_TOP_BB (redirection_targets);
 	      VARRAY_POP (edges_to_redirect);
 	      VARRAY_POP (redirection_targets);
 
-	      thread_edge (e, tgt);
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
+			 e->src->index, e->dest->index, tgt->index);
+
+	      src = e->src;
+	      /* If there are PHI nodes at the original destination, then we need to
+		 re-rename the variables referenced by those PHI nodes.
+
+	    	 Since we only thread through blocks with PHI nodes before doing
+		 any kind of propagation or redundancy elimination, we know that
+		 all the PHI arguments are different versions of the same variable,
+		 so we only need to mark the underlying variable for PHI_RESULT.  */
+	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+		SET_BIT (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
+
+	      e = thread_edge (e, tgt);
+	      
+	      if ((dump_file && (dump_flags & TDF_DETAILS))
+    		  && e->src != src)
+		fprintf (dump_file, "    basic block %d created\n",
+			 e->src->index);
 	    }
 
 	  cfg_altered = true;
@@ -457,90 +479,6 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   VARRAY_FREE (redirection_targets);
 
   timevar_pop (timevar);
-}
-
-
-/* Redirects edge E to basic block DEST.  */
-
-static void
-thread_edge (edge e, basic_block dest)
-{
-  block_stmt_iterator dest_iterator = bsi_start (dest);
-  tree dest_stmt = first_stmt (dest);
-  tree label, goto_stmt, stmt;
-  basic_block bb = e->src, new_bb;
-  int flags = e->flags;
-  tree phi;
-
-#ifdef ENABLE_CHECKING
-  if (e != bb->succ
-      || bb->succ->succ_next)
-    abort ();
-
-  if (! thread_through_phis
-      && (phi_nodes (e->dest) || phi_nodes (dest)))
-    abort ();
-#endif
-
-  /* Remove EDGE_FALLTHRU from the edge (by convention, control edges are
-     not fallthru).  */
-  flags &= ~EDGE_FALLTHRU;
-
-  /* If there are PHI nodes at the original destination, then we need to
-     re-rename the variables referenced by those PHI nodes.
-
-     Since we only thread through blocks with PHI nodes before doing
-     any kind of propagation or redundancy elimination, we know that
-     all the PHI arguments are different versions of the same variable,
-     so we only need to mark the underlying variable for PHI_RESULT.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-    SET_BIT (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
-
-  /* We need a label at our final destination.  If it does not already exist,
-     create it.  */
-  if (!dest_stmt
-      || TREE_CODE (dest_stmt) != LABEL_EXPR)
-    {
-      label = create_artificial_label ();
-      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
-      bsi_insert_before (&dest_iterator, dest_stmt, BSI_NEW_STMT);
-    }
-  else
-    label = LABEL_EXPR_LABEL (dest_stmt);
-
-  /* If our block does not end with a GOTO, then create one.  Otherwise
-     redirect the existing GOTO_EXPR to LABEL.  */
-  stmt = last_stmt (bb);
-  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
-    {
-      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
-      bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
-    }
-  else
-    {
-      GOTO_DESTINATION (stmt) = label;
-      new_bb = NULL;
-    }
-
-  /* Now update the edges in the CFG.  */
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
-	       e->src->index, e->dest->index, dest->index);
-      if (new_bb)
-	fprintf (dump_file, "    basic block %d created\n", new_bb->index);
-    }
-
-  if (new_bb)
-    {
-      ssa_remove_edge (new_bb->succ);
-      make_edge (new_bb, dest, 0);
-    }
-  else
-    {
-      ssa_remove_edge (e);
-      make_edge (bb, dest, flags);
-    }
 }
 
 /* We are exiting BB, see if the target block begins with a conditional
@@ -2107,10 +2045,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   if (ann->modified)
     {
       if (TREE_CODE (stmt) == COND_EXPR)
-	cfg_altered |= cleanup_cond_expr_graph (bb_for_stmt (stmt), stmt);
+	cfg_altered |= cleanup_cond_expr_graph (bb_for_stmt (stmt), si);
 
       if (TREE_CODE (stmt) == SWITCH_EXPR)
-	cfg_altered |= cleanup_switch_expr_graph (bb_for_stmt (stmt), stmt);
+	cfg_altered |= cleanup_switch_expr_graph (bb_for_stmt (stmt), si);
     }
                                                                                 
   return may_have_exposed_new_symbols;

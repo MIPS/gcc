@@ -255,7 +255,11 @@ propagate_copy (tree *op_p, tree var, tree scope)
 void
 fixup_var_scope (tree var, tree scope)
 {
-  tree old_scope = var_ann (SSA_NAME_VAR (var))->scope;
+  tree old_scope;
+  
+  if (TREE_CODE (var) == SSA_NAME)
+    var = SSA_NAME_VAR (var);
+  old_scope = var_ann (var)->scope;
 
   /* If there is no old_scope, it is a newly created temporary, i.e. it is
      in the topmost bind_expr and we have nothing to do.  */
@@ -270,7 +274,7 @@ fixup_var_scope (tree var, tree scope)
 	    scope = stmt_ann (scope)->scope;
 	}
       if (scope != old_scope)
-	move_var_to_scope (SSA_NAME_VAR (var), old_scope,
+	move_var_to_scope (var, old_scope,
 			   DECL_SAVED_TREE (current_function_decl));
     }
 }

@@ -92,7 +92,6 @@ static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
-static void make_cond_expr_blocks (tree *, tree, basic_block, tree);
 static void make_switch_expr_blocks (tree *, tree, basic_block, tree);
 static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
 					  tree);
@@ -121,6 +120,8 @@ static int tree_verify_flow_info (void);
 static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
 static struct loops *tree_loop_optimizer_init (FILE *);
 static void tree_loop_optimizer_finalize (struct loops *, FILE *);
+static void thread_jumps (void);
+static bool tree_forwarder_block_p (basic_block);
 
 /* Flowgraph optimization and cleanup.  */
 
@@ -142,11 +143,10 @@ static bool disconnect_unreachable_case_labels (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static bool value_matches_some_label (edge, tree, edge *);
-static void linearize_control_structures (void);
-static bool linearize_cond_expr (tree *, basic_block);
 static void replace_stmt (tree *, tree *);
 static void move_outgoing_edges (basic_block, basic_block);
-static void merge_tree_blocks (basic_block, basic_block);
+static void merge_tree_blocks (basic_block, basic_block) ATTRIBUTE_UNUSED;
+static int phi_alternatives_equal (basic_block, edge, edge);
 static bool remap_stmts (basic_block, basic_block, tree *);
 static tree *handle_switch_split (basic_block, basic_block);
 static tree *handle_switch_fallthru (tree, basic_block, basic_block);
@@ -166,7 +166,6 @@ enum find_location_action {
   EDGE_INSERT_LOCATION_AFTER,
   EDGE_INSERT_LOCATION_THEN,
   EDGE_INSERT_LOCATION_ELSE,
-  EDGE_INSERT_LOCATION_NEW_ELSE,
   EDGE_INSERT_LOCATION_BSI_AFTER };
 
 static tree_stmt_iterator find_insert_location
@@ -334,7 +333,7 @@ build_tree_cfg (tree fnbody)
    normal form.  */
 
 static void
-factor_computed_gotos ()
+factor_computed_gotos (void)
 {
   basic_block bb;
   tree factored_label_decl = NULL;
@@ -536,9 +535,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
       if (is_computed_goto (*stmt_p))
 	found_computed_goto = true;
 
-      if (code == COND_EXPR)
-	make_cond_expr_blocks (stmt_p, next_block_link, bb, scope);
-      else if (code == SWITCH_EXPR)
+      if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == BIND_EXPR)
 	{
@@ -619,41 +616,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
   return NULL;
 }
 
-/* Create the blocks for the COND_EXPR node pointed by COND_P.
-
-   NEXT_BLOCK_LINK is the first statement of the successor basic block for
-      the block holding *COND_P.  If *COND_P is the last statement inside a
-      lexical scope, this will be the statement that comes after COND_P's
-      container (see the documentation for NEXT_BLOCK_LINK).
-
-   ENTRY is the block whose last statement is *COND_P.
-   
-   SCOPE is the BIND_EXPR node holding *COND_P.  */
-
-static void
-make_cond_expr_blocks (tree *cond_p, tree next_block_link,
-		       basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree cond = *cond_p;
-  entry->flags |= BB_CONTROL_STRUCTURE;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
-  si = tsi_start (cond_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
-
-  STRIP_CONTAINERS (cond);
-  make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL, scope);
-  make_blocks (&COND_EXPR_ELSE (cond), next_block_link, cond, NULL, scope);
-}
-
 /* Create the blocks for the SWITCH_EXPR node pointed by SWITCH_E_P.
 
    NEXT_BLOCK_LINK is the first statement of the successor basic block for
@@ -673,7 +635,7 @@ make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
   tree switch_e = *switch_e_p;
   entry->flags |= BB_CONTROL_STRUCTURE;
 
-  /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
+  /* Determine NEXT_BLOCK_LINK for statements inside the SWITCH_EXPR body.  */
   si = tsi_start (switch_e_p);
   tsi_next (&si);
 
@@ -746,6 +708,10 @@ static inline void
 set_parent_stmt (tree *stmt_p, tree parent_stmt)
 {
   tree t;
+
+  if (parent_stmt
+      && TREE_CODE (parent_stmt) == COND_EXPR)
+    abort ();
 
   /* Associate *STMT_P (and the trees it contains) to its control parent.  */
   t = *stmt_p;
@@ -924,12 +890,7 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 
       /* And recurse down into control structures.  */
       code = TREE_CODE (stmt);
-      if (code == COND_EXPR)
-	{
-	  find_contained_blocks (&COND_EXPR_THEN (stmt), my_blocks, last_p);
-	  find_contained_blocks (&COND_EXPR_ELSE (stmt), my_blocks, last_p);
-	}
-      else if (code == CATCH_EXPR)
+      if (code == CATCH_EXPR)
 	{
 	  find_contained_blocks (&CATCH_BODY (stmt), my_blocks, last_p);
 	}
@@ -1098,7 +1059,8 @@ static void
 make_cond_expr_edges (basic_block bb)
 {
   tree entry = last_stmt (bb);
-  basic_block successor_bb, then_bb, else_bb;
+  basic_block then_bb, else_bb;
+  tree then_label, else_label;
 
 #if defined ENABLE_CHECKING
   if (entry == NULL_TREE || TREE_CODE (entry) != COND_EXPR)
@@ -1106,20 +1068,13 @@ make_cond_expr_edges (basic_block bb)
 #endif
 
   /* Entry basic blocks for each component.  */
-  then_bb = bb_for_stmt (COND_EXPR_THEN (entry));
-  else_bb = bb_for_stmt (COND_EXPR_ELSE (entry));
-  successor_bb = successor_block (bb);
+  then_label = GOTO_DESTINATION (COND_EXPR_THEN (entry));
+  else_label = GOTO_DESTINATION (COND_EXPR_ELSE (entry));
+  then_bb = VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (then_label));
+  else_bb = VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (else_label));
 
-  if (then_bb)
-    make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-
-  if (else_bb)
-    make_edge (bb, else_bb, EDGE_FALSE_VALUE);
-
-  /* If conditional is missing one of the clauses, make an edge between the
-     entry block and the first block outside the conditional.  */
-  if (!then_bb || !else_bb)
-    make_edge (bb, successor_bb, 0);
+  make_edge (bb, then_bb, EDGE_TRUE_VALUE);
+  make_edge (bb, else_bb, EDGE_FALSE_VALUE);
 }
 
 basic_block
@@ -1171,26 +1126,30 @@ make_goto_expr_edges (basic_block bb)
      in the CFG.  */
   FOR_EACH_BB (target_bb)
     {
-      tree target = first_stmt (target_bb);
+      block_stmt_iterator bsi;
 
-      if (target == NULL_TREE)
-        continue;
+      for (bsi = bsi_start (target_bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree target = bsi_stmt (bsi);
 
-      /* Computed GOTOs.  Make an edge to every label block that has
-	 been marked as a potential target for a computed goto.  */
-      if (TREE_CODE (dest) != LABEL_DECL
-	       && TREE_CODE (target) == LABEL_EXPR
-	       && FORCED_LABEL (LABEL_EXPR_LABEL (target))
-	       && for_call == 0)
-	make_edge (bb, target_bb, edge_flags);
+	  if (TREE_CODE (target) != LABEL_EXPR)
+	    break;
 
-      /* Nonlocal GOTO target.  Make an edge to every label block that has
-	 been marked as a potential target for a nonlocal goto.  */
-      else if (TREE_CODE (dest) != LABEL_DECL
-	       && TREE_CODE (target) == LABEL_EXPR
-	       && NONLOCAL_LABEL (LABEL_EXPR_LABEL (target))
-	       && for_call == 1)
-	make_edge (bb, target_bb, edge_flags);
+	  if (TREE_CODE (dest) == LABEL_DECL)
+	    continue;
+
+	  if (
+	      /* Computed GOTOs.  Make an edge to every label block that has
+		 been marked as a potential target for a computed goto.  */
+	      (FORCED_LABEL (LABEL_EXPR_LABEL (target)) && for_call == 0)
+	      /* Nonlocal GOTO target.  Make an edge to every label block that has
+		 been marked as a potential target for a nonlocal goto.  */
+	      || (NONLOCAL_LABEL (LABEL_EXPR_LABEL (target)) && for_call == 1))
+	    {
+	      make_edge (bb, target_bb, edge_flags);
+	      break;
+	    }
+	}
     }
 }
 
@@ -1229,8 +1188,9 @@ cleanup_tree_cfg (void)
 
   thread_unconditional_jumps ();
   cleanup_control_flow ();
+  thread_jumps ();
+  cleanup_control_flow ();
   remove_unreachable_blocks ();
-  linearize_control_structures ();
   if (pdom_info != NULL)
     {
       free_dominance_info (pdom_info);
@@ -1248,6 +1208,9 @@ cleanup_tree_cfg (void)
 	clear_dom_children (bb);
     }
 
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 
@@ -1781,9 +1744,7 @@ remove_unreachable_block (basic_block bb)
 
 	     So cleanup any variable references in toplevel control
 	     structures.  This may or may not be sufficient.  */
-	  if (TREE_CODE (*last_p) == COND_EXPR)
-	    COND_EXPR_COND (*last_p) = integer_zero_node;
-	  else if (TREE_CODE (*last_p) == SWITCH_EXPR)
+	  if (TREE_CODE (*last_p) == SWITCH_EXPR)
 	    SWITCH_COND (*last_p) = integer_zero_node;
 	  remove_bb (bb, REMOVE_NON_CONTROL_STRUCTS);
 	}
@@ -1838,6 +1799,7 @@ remove_bb (basic_block bb, int remove_stmt_flags)
   block_stmt_iterator i;
   bsi_list_p stack;
   location_t loc;
+  bool empty = true;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -1860,8 +1822,16 @@ remove_bb (basic_block bb, int remove_stmt_flags)
         {
 	  int ctrl_struct = is_ctrl_structure (stmt);
 
-	  loc.file = get_filename (stmt);
-	  loc.line = get_lineno (stmt);
+	  if (get_lineno (stmt) != -1
+	      /* Don't warn for removed gotos.  Gotos are often removed due to jump threading,
+		 thus resulting into bogus warnings.  Not great, since this way we lose warnings
+		 for gotos in the original program that are indeed unreachable.  */
+	      && TREE_CODE (stmt) != GOTO_EXPR)
+	    {
+	      loc.file = get_filename (stmt);
+	      loc.line = get_lineno (stmt);
+	      empty = false;
+	    }
 	  if ((ctrl_struct && (remove_stmt_flags & REMOVE_CONTROL_STRUCTS))
 	      || (!ctrl_struct && (remove_stmt_flags & REMOVE_NON_CONTROL_STRUCTS)))
 	    bsi_remove (&i);
@@ -1872,7 +1842,7 @@ remove_bb (basic_block bb, int remove_stmt_flags)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-  if (remove_stmt_flags && warn_notreached)
+  if (remove_stmt_flags && warn_notreached && !empty)
     warning ("%Hwill never be executed", &loc);
 
   if (bb->head_tree_p)
@@ -2021,8 +1991,6 @@ bsi_replace (block_stmt_iterator bsi, tree stmt)
   replace_stmt (bsi.tp, &stmt);
   modify_stmt (bsi_stmt (bsi));
 }
-
-
 
 /* Remove statement *STMT_P.
 
@@ -2293,43 +2261,50 @@ static void
 cleanup_control_flow (void)
 {
   basic_block bb;
+  block_stmt_iterator bsi;
 
   FOR_EACH_BB (bb)
-    if (bb->flags & BB_CONTROL_STRUCTURE)
-      {
-	tree last = last_stmt (bb);
-	if (last)
-	  {
-	    enum tree_code code = TREE_CODE (last);
-	    if (code == COND_EXPR)
-	      cleanup_cond_expr_graph (bb, last);
-	    else if (code == SWITCH_EXPR)
-	      cleanup_switch_expr_graph (bb, last);
-	  }
-      }
+    {
+      bsi = bsi_last (bb);
+
+      if (!bsi_end_p (bsi))
+	{
+	  enum tree_code code = TREE_CODE (bsi_stmt (bsi));
+	  if (code == COND_EXPR)
+	    cleanup_cond_expr_graph (bb, bsi);
+	  else if (code == SWITCH_EXPR)
+	    cleanup_switch_expr_graph (bb, bsi);
+	}
+    }
 }
 
 
 /* Disconnect an unreachable block in the conditional expression starting
-   at block BB.
-
-   If the predicate of the COND_EXPR node in block BB is constant,
-   disconnect the subgraph that contains the clause that is never executed.  */
+   at block BB.  */
 
 bool
-cleanup_cond_expr_graph (basic_block bb, tree cond_expr)
+cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
 {
   tree val;
   edge taken_edge;
   bool retval = false;
+  tree cond_expr = bsi_stmt (bsi);
 
 #if defined ENABLE_CHECKING
-  if (cond_expr == NULL_TREE || TREE_CODE (cond_expr) != COND_EXPR)
+  if (cond_expr == NULL_TREE
+      || TREE_CODE (cond_expr) != COND_EXPR
+      || !bb->succ)
     abort ();
 #endif
 
-  val = COND_EXPR_COND (cond_expr);
-  taken_edge = find_taken_edge (bb, val);
+  if (bb->succ->succ_next)
+    {
+      val = COND_EXPR_COND (cond_expr);
+      taken_edge = find_taken_edge (bb, val);
+    }
+  else
+    taken_edge = bb->succ;
+
   if (taken_edge)
     {
       edge e, next;
@@ -2344,7 +2319,15 @@ cleanup_cond_expr_graph (basic_block bb, tree cond_expr)
 	      retval = true;
 	    }
 	}
+
+      if (taken_edge->flags & EDGE_TRUE_VALUE)
+	bsi_replace (bsi, COND_EXPR_THEN (cond_expr));
+      else if (taken_edge->flags & EDGE_FALSE_VALUE)
+	bsi_replace (bsi, COND_EXPR_ELSE (cond_expr));
+      else
+	abort ();
     }
+
   return retval;
 }
 
@@ -2357,11 +2340,12 @@ cleanup_cond_expr_graph (basic_block bb, tree cond_expr)
    never be taken.  */
 
 bool
-cleanup_switch_expr_graph (basic_block switch_bb, tree switch_expr)
+cleanup_switch_expr_graph (basic_block switch_bb, block_stmt_iterator bsi)
 {
   int found = 0;
   edge e;
   bool retval;
+  tree switch_expr = bsi_stmt (bsi);
 
 #if defined ENABLE_CHECKING
   if (switch_expr == NULL_TREE || TREE_CODE (switch_expr) != SWITCH_EXPR)
@@ -2447,7 +2431,7 @@ find_taken_edge (basic_block bb, tree val)
   stmt = last_stmt (bb);
 
 #if defined ENABLE_CHECKING
-  if (stmt == NULL_TREE || !is_ctrl_structure (stmt))
+  if (stmt == NULL_TREE || !is_ctrl_stmt (stmt))
     abort ();
 #endif
 
@@ -2492,9 +2476,8 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
 	|| ((e->flags & EDGE_FALSE_VALUE) && always_false))
       return e;
 
-  /* If E is not going to the THEN nor the ELSE clause, then it's
-     the fallthru edge to the successor block of the if() block.  */
-  return find_edge (bb, successor_block (bb));
+  /* There always should be an edge that is taken.  */
+  abort ();
 }
 
 
@@ -2576,177 +2559,35 @@ value_matches_some_label (edge dest_edge, tree val, edge *default_edge_p)
   return false;
 }
 
-
-/* Convert control structures into linear code whenever possible.  */
-
-static void
-linearize_control_structures (void)
-{
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      tree *entry_p;
-
-      if (!(bb->flags & BB_CONTROL_STRUCTURE))
-	continue;
-
-      /* After converting the current COND_EXPR into straight line code it
-	 may happen that the block that was merged into BB also ends in a
-	 COND_EXPR (nested conditionals).  Therefore, we need to iterate
-	 until we either fail to linearize the conditional or BB ends in
-	 something other than a conditional.  */
-      entry_p = last_stmt_ptr (bb);
-      while (entry_p
-	     && TREE_CODE (*entry_p) == COND_EXPR
-	     && linearize_cond_expr (entry_p, bb))
-	entry_p = last_stmt_ptr (bb);
-    }
-}
-
-/* If all the phi nodes in PHI have alternatives for BB1 and BB2 and
-   those alternatives are equal in each of the PHI nodes, then return
+/* If all the phi nodes in DEST have alternatives for E1 and E2 and
+   those alterantives are equal in each of the PHI nodes, then return
    nonzero, else return zero.  */
 
 static int
-phi_alternatives_equal (tree phi, basic_block bb1, basic_block bb2)
+phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 {
-  /* Walk through each PHI nodes on the chain.  */
-  for ( ; phi ; phi = TREE_CHAIN (phi))
+  tree phi, val1, val2;
+  int n1, n2;
+
+  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
     {
-      int i;
-      tree val1 = NULL;
-      tree val2 = NULL;
+      n1 = phi_arg_from_edge (phi, e1);
+      n2 = phi_arg_from_edge (phi, e2);
 
-      /* Find the alternative associated with BB1 and BB2.  Quit when we
-	 have found both or we exhaust the alternatives.  */
-      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	{
-	  if (PHI_ARG_EDGE (phi, i)->src == bb1)
-	    val1 = PHI_ARG_DEF (phi, i);
-	  if (PHI_ARG_EDGE (phi, i)->src == bb2)
-	    val2 = PHI_ARG_DEF (phi, i);
+#ifdef ENABLE_CHECKING
+      if (n1 < 0 || n2 < 0)
+	abort ();
+#endif
 
-	  if (val1 && val2)
-	    break;
-	}
+      val1 = PHI_ARG_DEF (phi, n1);
+      val2 = PHI_ARG_DEF (phi, n2);
 
-      /* If we exhausted the alternatives or the alternatives found are
-	 not equal, then return false.  */
-      if (i == PHI_NUM_ARGS (phi)
-	  || ! operand_equal_p (val1, val2, 0))
+      if (!operand_equal_p (val1, val2, false))
 	return false;
     }
 
   return true;
 }
-
-/* Convert conditional expressions of the form 'if (1)' and 'if (0)' into
-   straight line code.  ENTRY_P is a pointer to the COND_EXPR statement to
-   check.  Return true if the conditional was modified.  */
-
-static bool
-linearize_cond_expr (tree *entry_p, basic_block bb)
-{
-  basic_block pdom_bb;
-  tree entry = *entry_p;
-  tree pred = COND_EXPR_COND (entry);
-  tree then_clause = COND_EXPR_THEN (entry);
-  tree else_clause = COND_EXPR_ELSE (entry);
-  basic_block then_block = bb_for_stmt (then_clause);
-  basic_block else_block = bb_for_stmt (else_clause);
-  int always_true = (simple_cst_equal (pred, integer_one_node) == 1);
-  int always_false = (simple_cst_equal (pred, integer_zero_node) == 1);
-
-  /* Remove the conditional if both branches have been removed.  */
-  if (body_is_empty (then_clause) && body_is_empty (else_clause))
-    {
-      /* Calculate dominance info, if it hasn't been computed yet.  */
-      if (pdom_info == NULL)
-	pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
-      pdom_bb = get_immediate_dominator (pdom_info, bb);
-
-      /* If there is no post dominator, or the post dominator has no
-	 PHI nodes, or the PHI node alternatives are equal, then we
-	 can eliminate this conditional.  */
-      if (!pdom_bb
-	  || !phi_nodes (pdom_bb)
-	  || phi_alternatives_equal (phi_nodes (pdom_bb),
-				     then_block, else_block))
-        {
-	  /* While neither arm of the conditional has any code, there
-	     may still be important edges attached to those arms such
-	     as the backedge in a loop, or exception handling related
-	     edges (the common characteristic is they are edges implied
-	     by control structures which are not explicitly represented
-	     in the IL).  */
-	  if ((always_true || ! always_false) && then_block)
-	    move_outgoing_edges (bb, then_block);
-
-	  if ((always_false || ! always_true) && else_block)
-	    move_outgoing_edges (bb, else_block);
-
-	  /* Now that we've moved all the edges, go ahead and remove
-	     the disconnected blocks.  Note this will remove any edges
-	     from BB to the disconnected blocks.  */
-	  if (then_block)
-	    remove_bb (then_block, REMOVE_NO_STMTS);
-	  if (else_block)
-	    remove_bb (else_block, REMOVE_NO_STMTS);
-
-	  /* And finally remove the useless statement.  */
-	  remove_stmt (entry_p, true);
-	  return true;
-	}
-    }
-
-  /* There should be no other entry edges into the branches, otherwise
-     merging the blocks would be an error.  */
-  if ((then_block && then_block->pred->pred_next)
-      || (else_block && else_block->pred->pred_next))
-    return false;
-  
-  /* Linearize 'if (1)'.  */
-  if (always_true && body_is_empty (else_clause))
-    {
-      /* If there is no THEN_CLAUSE, remove the conditional.  */
-      if (body_is_empty (then_clause))
-	{
-	  if (then_block)
-	    {
-	      move_outgoing_edges (bb, then_block);
-	      remove_bb (then_block, REMOVE_NO_STMTS);
-	    }
-	  remove_stmt (entry_p, true);
-	}
-      else
-	merge_tree_blocks (bb, bb_for_stmt (then_clause));
-
-      return true;
-    }
-
-  /* Linearize 'if (0)'.  */
-  if (always_false && body_is_empty (then_clause))
-    {
-      /* If there is no ELSE_CLAUSE, remove the conditional.  */
-      if (body_is_empty (else_clause))
-	{
-	  if (else_block)
-	    {
-	      move_outgoing_edges (bb, else_block);
-	      remove_bb (else_block, REMOVE_NO_STMTS);
-	    }
-	  remove_stmt (entry_p, true);
-	}
-      else
-	merge_tree_blocks (bb, bb_for_stmt (else_clause));
-
-      return true;
-    }
-
-  return false;
-}
-
 
 /*---------------------------------------------------------------------------
 			 Code insertion and replacement
@@ -3097,8 +2938,7 @@ is_ctrl_structure (tree t)
     abort ();
 #endif
 
-  return (TREE_CODE (t) == COND_EXPR
-	  || TREE_CODE (t) == CATCH_EXPR
+  return (TREE_CODE (t) == CATCH_EXPR
 	  || TREE_CODE (t) == EH_FILTER_EXPR
 	  || TREE_CODE (t) == TRY_CATCH_EXPR
 	  || TREE_CODE (t) == TRY_FINALLY_EXPR
@@ -3111,6 +2951,7 @@ bool
 is_ctrl_stmt (tree t)
 {
   return (is_ctrl_structure (t)
+	  || TREE_CODE (t) == COND_EXPR
 	  || TREE_CODE (t) == GOTO_EXPR
 	  || TREE_CODE (t) == RETURN_EXPR
 	  || TREE_CODE (t) == RESX_EXPR);
@@ -3864,30 +3705,6 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
   add_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
 
-  if (curr_container == curr_bb->head_tree_p)
-    {
-      curr_bb->head_tree_p = tsi_container (inserted_tsi);
-      /* If the parent block is a COND_EXPR, check if this
-	 is the block which they point to and update if necessary.  */
-      if (parent)
-        {
-	  tree insert_container = *tsi_container (inserted_tsi);
-	  switch (TREE_CODE (parent))
-	    {
-	      case COND_EXPR:
-		if (bb_for_stmt (COND_EXPR_THEN (parent)) == curr_bb)
-		  COND_EXPR_THEN (parent) = insert_container;
-		else
-		  if (bb_for_stmt (COND_EXPR_ELSE (parent)) == curr_bb)
-		    COND_EXPR_ELSE (parent) = insert_container;
-		break;
-
-	      default:
-		break;
-	    }
-	}
-    }
-
   same_tsi = inserted_tsi;
   tsi_next (&same_tsi);
 
@@ -4182,6 +3999,7 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 {
   block_stmt_iterator bsi;
   tree *ret, stmt;
+  edge e;
 
   *location = EDGE_INSERT_LOCATION_BEFORE;
   bsi = bsi_last (src);
@@ -4191,31 +4009,17 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
       switch (TREE_CODE (stmt))
 	{
 	  case COND_EXPR:
-	    /* If the ELSE block is non-existent, and this is an edge from the
-	       COND_EXPR to a block other than the THEN block, then we create
-	       a new ELSE clause.  */
-	    if (bb_for_stmt (COND_EXPR_ELSE (stmt)) == NULL)
-	      if (bb_for_stmt (COND_EXPR_THEN (stmt)) != dest)
-		{
-		  ret = &COND_EXPR_ELSE (stmt);
-		  *location = EDGE_INSERT_LOCATION_NEW_ELSE;
-		  break;
-		}
+	    e = find_edge (src, new_block);
+	    if (!e)
+	      abort ();
+	    ret = src->end_tree_p;
 
-	    /* It must be an edge from the COND_EXPR to either the THEN or
-	       ELSE block. We will need to insert a new stmt in front of the
-	       first stmt in the block, *and* update the pointer to the
-	       THEN or ELSE clause.  */
-	    if (bb_for_stmt (COND_EXPR_THEN (stmt)) == dest)
-	      {
-		ret = &COND_EXPR_THEN (stmt);
-		*location = EDGE_INSERT_LOCATION_THEN;
-	      }
+	    if (e->flags & EDGE_TRUE_VALUE)
+	      *location = EDGE_INSERT_LOCATION_THEN;
+	    else if (e->flags & EDGE_FALSE_VALUE)
+	      *location = EDGE_INSERT_LOCATION_ELSE;
 	    else
-	      {
-		ret = &COND_EXPR_ELSE (stmt);
-		*location = EDGE_INSERT_LOCATION_ELSE;
-	      }
+	      abort ();
 	    break;
 
 	  case TRY_CATCH_EXPR:
@@ -4280,7 +4084,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   tree_stmt_iterator tsi;
   int num_exit, num_entry;
   enum find_location_action location;
-  tree first, last, inserted_stmt, parent;
+  tree first, last, inserted_stmt, parent, label, gto, old_gto;
   bb_ann_t ann;
   edge e2;
 
@@ -4424,10 +4228,28 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   switch (location)
     {
       case EDGE_INSERT_LOCATION_BEFORE:
+	tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
+	break;
+
       case EDGE_INSERT_LOCATION_THEN:
       case EDGE_INSERT_LOCATION_ELSE:
-      case EDGE_INSERT_LOCATION_NEW_ELSE:
-	tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
+	new_bb->succ->flags &= ~EDGE_FALLTHRU;
+	label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	gto = build_and_jump (&LABEL_EXPR_LABEL (label));
+	if (location == EDGE_INSERT_LOCATION_THEN)
+	  {
+	    old_gto = COND_EXPR_THEN (tsi_stmt (tsi));
+	    COND_EXPR_THEN (tsi_stmt (tsi)) = gto;
+	  }
+	else
+	  {
+	    old_gto = COND_EXPR_ELSE (tsi_stmt (tsi));
+	    COND_EXPR_ELSE (tsi_stmt (tsi)) = gto;
+	  }
+	tsi_link_after (&tsi, label, TSI_NEW_STMT);
+	append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+	tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
+	tsi_link_after (&tsi, old_gto, TSI_SAME_STMT);
 	break;
 
       case EDGE_INSERT_LOCATION_AFTER:
@@ -4452,12 +4274,9 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
     {
       case EDGE_INSERT_LOCATION_THEN:
       case EDGE_INSERT_LOCATION_ELSE:
-	stmt = last_stmt (src);
-	if (location == EDGE_INSERT_LOCATION_THEN)
-	  COND_EXPR_THEN (stmt) = *tsi_container (tsi);
-	else
-	  COND_EXPR_ELSE (stmt) = *tsi_container (tsi);
-	/* Fallthru.  */
+	tsi_next (&tsi);
+	append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+	break;
 
       case EDGE_INSERT_LOCATION_BEFORE:
       case EDGE_INSERT_LOCATION_AFTER:
@@ -4470,17 +4289,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	      dest->end_tree_p = tsi_container (tsi);
 	    dest->head_tree_p = tsi_container (tsi);
 	  }
-	break;
-
-      case EDGE_INSERT_LOCATION_NEW_ELSE:
-	/* This causes a new stmt chain to be formed, and the ELSE clause needs
-	   to be set.  Set the block number for the empty stmt which might
-	   follow this stmt as well.  */
-	stmt = last_stmt (src);
-	COND_EXPR_ELSE (stmt) = inserted_stmt;
-	tsi_next (&tsi);
-	if (tsi_container (tsi))
-	  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
 	break;
 
       case EDGE_INSERT_LOCATION_BSI_AFTER:
@@ -4864,7 +4672,40 @@ tree_split_edge (edge edge_in)
 static int
 tree_verify_flow_info (void)
 {
-  return 0;
+  int err = 0;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  tree stmt;
+
+  FOR_EACH_BB (bb)
+    {
+      bsi = bsi_last (bb);
+      if (bsi_end_p (bsi))
+	continue;
+
+      stmt = bsi_stmt (bsi);
+      switch (TREE_CODE (stmt))
+	{
+	case COND_EXPR:
+	  if (TREE_CODE (COND_EXPR_THEN (stmt)) != GOTO_EXPR
+	      || TREE_CODE (COND_EXPR_ELSE (stmt)) != GOTO_EXPR)
+	    {
+	      fprintf (stderr, "Structured COND_EXPR at end of bb %d\n",
+		       bb->index);
+	      err = 1;
+	    }
+	  if (bb->flags & BB_CONTROL_STRUCTURE)
+	    {
+	      fprintf (stderr, "COND_EXPR in BB_CONTROL_STRUCTURE bb %d\n",
+		       bb->index);
+	      err = 1;
+	    }
+	  break;
+	default: ;
+	}
+    }
+
+  return err;
 }
 
 
@@ -4928,7 +4769,7 @@ tree_make_forwarder_block (basic_block bb, int redirect_latch,
 /* Initialization of functions specific to the tree IR.  */
 
 void
-tree_register_cfg_hooks ()
+tree_register_cfg_hooks (void)
 {
   cfg_hooks = &tree_cfg_hooks;
 }
@@ -5000,4 +4841,221 @@ assign_vars_to_scope (tree scope)
 
   for (var = BIND_EXPR_VARS (scope); var; var = TREE_CHAIN (var))
     get_var_ann (var)->scope = scope;
+}
+
+/* Checks whether the basic block BB does nothing except for jump.  */
+static bool
+tree_forwarder_block_p (basic_block bb)
+{
+  block_stmt_iterator bsi;
+
+  if (!bb->succ
+      || bb->succ->succ_next
+      || (bb->succ->flags & EDGE_ABNORMAL)
+      || bb == ENTRY_BLOCK_PTR)
+    return false; 
+
+  if (phi_nodes (bb))
+    return false;
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    switch (TREE_CODE (bsi_stmt (bsi)))
+      {
+      case LABEL_EXPR:
+      case GOTO_EXPR:
+	break;
+
+      default:
+	return false;
+      }
+
+  return true;
+}
+
+/* Threads jumps over empty statements.  Later we may add threading over
+   obviously equivalent conditions (this of course is already handled by
+   dominator optimization, but it might be useful to clean up things created
+   later).  */
+static void
+thread_jumps (void)
+{
+  edge e, next, last, old;
+  basic_block bb, dest, tmp;
+  tree phi, stmt;
+  int arg;
+
+  FOR_EACH_BB (bb)
+    bb_ann (bb)->forwardable = 1;
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    {
+      /* Don't waste time on unreachable blocks.  */
+      if (!bb->pred)
+	continue;
+
+      /* Nor on forwarders.  */
+      if (tree_forwarder_block_p (bb))
+	continue;
+
+      /* Due to limitations of ir, it is difficult to redirect edge except
+	 in some simple cases.  Given that ir is slowly getting more sane,
+	 don't invest too much energy into monsters of bsi_insert_on_edge
+	 type.  */
+      stmt = last_stmt (bb);
+      if (stmt
+	  && stmt_ends_bb_p (stmt)
+	  && TREE_CODE (stmt) != GOTO_EXPR
+	  && TREE_CODE (stmt) != COND_EXPR)
+	continue;
+
+      bb_ann (bb)->forwardable = 0;
+
+      for (e = bb->succ; e; e = next)
+	{
+	  next = e->succ_next;
+
+	  if ((e->flags & EDGE_ABNORMAL)
+	      || e->dest == EXIT_BLOCK_PTR
+	      || !tree_forwarder_block_p (e->dest)
+	      /* Don't waste time, since threading it any further is
+		 impossible.  */
+	      || e->dest->succ->dest == EXIT_BLOCK_PTR
+	      || !bb_ann (e->dest)->forwardable)
+	    continue;
+
+	  last = e->dest->succ;
+	  bb_ann (e->dest)->forwardable = 0;
+	  for (dest = e->dest->succ->dest;
+	       tree_forwarder_block_p (dest);
+	       last = dest->succ,
+	       dest = dest->succ->dest)
+	    {
+	      /* An infinite loop detected.  We redirect the edge anyway, so
+		 that the loop is shrinked into single basic block.  */
+	      if (!bb_ann (dest)->forwardable)
+		break;
+
+	      if (dest->succ->dest == EXIT_BLOCK_PTR)
+		break;
+
+	      bb_ann (dest)->forwardable = 0;
+	    }
+
+	  /* Reset the forwardable marks to 1.  */
+	  for (tmp = e->dest;
+	       tmp != EXIT_BLOCK_PTR && !bb_ann (tmp)->forwardable;
+	       tmp = tmp->succ->dest)
+	    bb_ann (tmp)->forwardable = 1;
+
+	  if (dest == e->dest)
+	    continue;
+	      
+	  old = find_edge (bb, dest);
+	  if (old)
+	    {
+	      /* If there already is an edge, check whether the values
+		 in phi nodes differ.  */
+	      if (!phi_alternatives_equal (dest, last, old))
+		{
+		  /* The previous block is forwarder, so there are no
+		     phi nodes to update.  */
+		  dest = last->src;
+	  
+		  if (dest == e->dest)
+		    continue;
+		  old = find_edge (bb, dest);
+		}
+	    }
+
+	  /* If the target starts with case label, it would be difficult to
+	     do the redirection.  Since we are going to lower switch_exprs
+	     soon, I don't want to spend too much time on it.  */
+	  if (first_stmt (dest)
+	      && TREE_CODE (first_stmt (dest)) == CASE_LABEL_EXPR)
+	    continue;
+
+	  /* Perform the redirection.  */
+	  e = thread_edge (e, dest);
+	  if (!old)
+	    {
+	      /* Update phi nodes.  */
+	      for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+		{
+		  arg = phi_arg_from_edge (phi, last);
+		  if (arg < 0)
+		    abort ();
+		  add_phi_arg (&phi, PHI_ARG_DEF (phi, arg), e);
+		}
+	    }
+	}
+
+      bb_ann (bb)->forwardable = 1;
+    }
+}
+
+/* Redirects edge E to basic block DEST.  Returns the new edge to DEST.  */
+edge
+thread_edge (edge e, basic_block dest)
+{
+  block_stmt_iterator dest_iterator = bsi_start (dest);
+  tree dest_stmt = first_stmt (dest);
+  tree label, goto_stmt, stmt;
+  basic_block bb = e->src, new_bb;
+  int flags;
+
+  /* We need a label at our final destination.  If it does not already exist,
+     create it.  */
+  if (!dest_stmt
+      || TREE_CODE (dest_stmt) != LABEL_EXPR)
+    {
+      if (dest_stmt && TREE_CODE (dest_stmt) == CASE_LABEL_EXPR)
+	abort ();
+
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (label) = current_function_decl;
+      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
+      bsi_insert_before (&dest_iterator, dest_stmt, BSI_SAME_STMT);
+    }
+  else
+    label = LABEL_EXPR_LABEL (dest_stmt);
+
+  /* If our block does not end with a GOTO, then create one.  Otherwise redirect
+     the existing GOTO_EXPR to LABEL.  */
+  stmt = last_stmt (bb);
+  if (stmt && TREE_CODE (stmt) == COND_EXPR)
+    {
+      stmt = (e->flags & EDGE_TRUE_VALUE
+	      ? COND_EXPR_THEN (stmt)
+	      : COND_EXPR_ELSE (stmt));
+      flags = e->flags;
+      if (TREE_CODE (stmt) != GOTO_EXPR)
+	abort ();
+    }
+  else
+    flags = 0;
+
+  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
+    {
+      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
+      bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
+    }
+  else
+    {
+      GOTO_DESTINATION (stmt) = label;
+      new_bb = NULL;
+    }
+
+  /* Update/insert PHI nodes as necessary.  */
+
+  /* Now update the edges in the CFG.  */
+  if (new_bb)
+    {
+      ssa_remove_edge (new_bb->succ);
+      return make_edge (new_bb, dest, 0);
+    }
+  else
+    {
+      ssa_remove_edge (e);
+      return make_edge (bb, dest, flags);
+    }
 }

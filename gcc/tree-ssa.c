@@ -915,7 +915,7 @@ create_temp (tree t)
 static void
 insert_copy_on_edge (edge e, tree dest, tree src)
 {
-  tree copy;
+  tree copy, scope, s1, s2;
 
   copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
   set_is_used (dest);
@@ -934,6 +934,24 @@ insert_copy_on_edge (edge e, tree dest, tree src)
       print_generic_expr (dump_file, copy, dump_flags);
       fprintf (dump_file, "\n");
     }
+  /* If we are inserting a variable on boundaries of scopes, rather reset
+     the scope completely, since we don't know for sure where it should
+     be placed.  */
+  s1 = last_stmt (e->src);
+  s2 = last_stmt (e->dest);
+  if (!s1
+      || !s2
+      || !stmt_ann (s1)->scope
+      || !stmt_ann (s2)->scope
+      || stmt_ann (s1)->scope != stmt_ann (s2)->scope)
+    scope = NULL_TREE;
+  else
+    scope = stmt_ann (s1)->scope;
+
+  if (TREE_CODE (src) == VAR_DECL)
+    fixup_var_scope (src, scope);
+  fixup_var_scope (dest, scope);
+
   bsi_insert_on_edge (e, copy);
 }
 

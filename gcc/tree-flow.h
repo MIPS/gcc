@@ -441,9 +441,10 @@ extern basic_block tree_split_edge (edge);
 extern void bsi_move_before (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
+extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern bool cleanup_cond_expr_graph (basic_block, tree);
-extern bool cleanup_switch_expr_graph (basic_block, tree);
+extern bool cleanup_cond_expr_graph (basic_block, block_stmt_iterator);
+extern bool cleanup_switch_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (void);
 extern basic_block tree_block_forwards_to (basic_block bb);
 
@@ -544,6 +545,9 @@ extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
+
+/* In gimple-low.c  */
+void lower_function_body (tree *);
 
 #include "tree-flow-inline.h"
 

@@ -58,6 +58,9 @@ optimize_function_tree (tree fndecl)
   if (errorcount || sorrycount)
     return;
 
+  /* Lower the structured statements.  */
+  lower_function_body (&DECL_SAVED_TREE (fndecl));
+
   /* Build the flowgraph.  */
   init_flow ();
 
