@@ -1,3 +1,11 @@
+2004-06-16  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (free_after_compilation): Do not free computed_goto_common*.
+	* function.h (struct function): Kill computed_goto_common*.
+	* stmt.c (expand_computed_goto): Do not commonize the computed gotos.
+	* tree-cfg.c (disband_implicit_edges): Do not forward across the
+	commonized computed goto.
+
 2004-06-10  Steven Bosscher  <stevenb@suse.de>
 
 	* Makefile.in: Add function.h to BASIC_BLOCK_H.  Remove all
