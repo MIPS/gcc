@@ -1889,7 +1889,7 @@ tree_block_forwards_to (basic_block bb)
       /* Recursive call to pick up chains of forwarding blocks.  */
       dest = tree_block_forwards_to (EDGE_SUCC (bb, 0)->dest);
 
-      /* If none found, we forward to bb->succ at minimum.  */
+      /* If none found, we forward to bb->succs[0] at minimum.  */
       if (!dest)
 	dest = EDGE_SUCC (bb, 0);
 

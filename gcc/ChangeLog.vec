@@ -1,5 +1,8 @@
 2004-08-31  Ben Elliston  <bje@au.ibm.com>
 
+	* modulo-sched.c (sms_schedule): Comment fix.
+	(tree_block_forwards_to): Likewise.
+
 	* flow.c (init_propagate_block_info): Convert to vec usage.
 
 2004-08-31  Steven Bosscher  <stevenb@suse.de>
