@@ -824,8 +824,6 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
         {                                                                    
           /* try to find the tag from the actual pointer used in the stmt  */
           tree ptr;                                                          
-          if (TREE_CODE (ref) != INDIRECT_REF)                               
-            abort ();                                                        
           ptr = TREE_OPERAND (ref, 0);                                       
           symbl = SSA_NAME_VAR (ptr);                                        
           tag = get_var_ann (symbl)->type_mem_tag;                           
@@ -851,22 +849,12 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
       tree use = VUSE_OP (vuses, i);
       if (TREE_CODE (use) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
-      else
-        abort (); /* CHECKME */
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        print_generic_expr (dump_file, use, TDF_SLIM);
     }
   for (i = 0; i < nvdefs; i++)
     {
       tree def = VDEF_RESULT (vdefs, i);
       if (TREE_CODE (def) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
-      else
-        abort (); /* CHECKME */
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        print_generic_expr (dump_file, def, TDF_SLIM);
     }
 
 
@@ -1023,11 +1011,12 @@ vect_init_vector (tree stmt, tree vector_var)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
-  block_stmt_iterator pre_header_bsi;
   tree new_var;
   tree init_stmt;
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo); 
   tree vec_oprnd;
+  edge pe;
+  basic_block new_bb;
  
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
   add_referenced_tmp_var (new_var); 
@@ -1046,13 +1035,10 @@ vect_init_vector (tree stmt, tree vector_var)
       fprintf (dump_file, "\n");
     }
 
-  /* CHECKME: Is there a utility for inserting code at the end of a basic block?  */
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
+  if (new_bb)
+    abort ();
 
   vec_oprnd = TREE_OPERAND (init_stmt, 0);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1609,7 +1595,7 @@ vect_finish_stmt_generation_in_preheader (tree vec_stmt,
   pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 }
 
 static void
@@ -2529,6 +2515,17 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	(loop_vinfo, ratio_mult_vf_name, new_loop_header, e, exit_ep);
       /* APPLE LOCAL end --haifa  */
     }
+
+
+  /* 1) Make sure the loop header has exactly two entries
+     2) Make sure we have a preheader basic block.  */
+
+  if (!loop->header->pred->pred_next
+      || loop->header->pred->pred_next->pred_next)
+    abort ();
+
+  loop_split_edge_with (loop_preheader_edge (loop), NULL);
+
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
      of one basic block + header. When the vectorizer will support more
@@ -4292,6 +4289,22 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 	
+          if (TREE_CODE (DR_BASE_NAME (dr)) == SSA_NAME)
+            {
+              tree symbl = SSA_NAME_VAR (DR_BASE_NAME (dr));
+              tree tag = get_var_ann (symbl)->type_mem_tag;
+              if (!tag)
+                {
+                  tree ptr = TREE_OPERAND (memref, 0);
+                  if (TREE_CODE (ptr) != SSA_NAME)
+                    return false;
+                  symbl = SSA_NAME_VAR (ptr);
+                  tag = get_var_ann (symbl)->type_mem_tag;
+                }
+              if (!tag)
+                return false;
+            }
+
 	  VARRAY_PUSH_GENERIC_PTR (*datarefs, dr);
 	  STMT_VINFO_DATA_REF (stmt_info) = dr;
 	}

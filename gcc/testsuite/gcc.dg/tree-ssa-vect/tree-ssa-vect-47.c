@@ -18,7 +18,7 @@ void bar (afloat *pa, afloat *pb, afloat *pc)
   for (i = 0; i < N; i++)
     {
       if (pa[i] != (pb[i] * pc[i]))
-        printf("%f * %f != %f\n",pb[i],pc[i],pa[i]);
+	abort ();
     }
 
   return;

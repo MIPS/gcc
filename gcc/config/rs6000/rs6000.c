@@ -5070,7 +5070,7 @@ rs6000_build_vmul_uch (tree vx, tree vy, tree vz, edge pe,
   TREE_OPERAND (stmt, 0) = mask_name;
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 
   /* Build argument list.  */
   arg_list = tree_cons (NULL_TREE, mask_name, NULL_TREE);
@@ -5183,7 +5183,7 @@ rs6000_build_vector_init (tree type, tree def, edge pe,
   add_referenced_tmp_var (tmp_ptr);
   get_var_ann (tmp_ptr)->type_mem_tag = vtmp;
   bitmap_set_bit (vars_to_rename, var_ann (vtmp)->uid);
-  mark_call_clobbered (vtmp);
+  DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (vtmp) = 1;
  
   TREE_ADDRESSABLE (vtmp) = 1;
   vptr_type = build_pointer_type (type);
@@ -5194,13 +5194,13 @@ rs6000_build_vector_init (tree type, tree def, edge pe,
   TREE_OPERAND (stmt, 0) = tmp_ptr_name;
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 
   stmt = build (MODIFY_EXPR, void_type_node, 
 		build1 (INDIRECT_REF, inner_type, tmp_ptr_name), def);
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 
 
   /** vx = lve (0, tmp_ptr) **/ 
@@ -5221,7 +5221,7 @@ rs6000_build_vector_init (tree type, tree def, edge pe,
   TREE_OPERAND (stmt, 0) = vx_name;
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 
 
   /** vy = splt (vx, 0) **/ 
@@ -5242,7 +5242,7 @@ rs6000_build_vector_init (tree type, tree def, edge pe,
   TREE_OPERAND (stmt, 0) = vy_name;
   new_bb = bsi_insert_on_edge_immediate (pe, stmt);
   if (new_bb)
-    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    abort ();
 
   return vy_name;
 }

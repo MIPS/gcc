@@ -18,7 +18,7 @@ void bar (afloat *pa, afloat *pb, afloat *pc)
   for (i = 0; i < N/2; i++)
     {
       if (pa[i] != (pb[i+1] * pc[i+1]))
-        printf("%f * %f != %f\n",pb[i],pc[i+1],pa[i+1]);
+	abort ();
     }
 
   return;
@@ -34,8 +34,6 @@ main1 (int n , afloat * __restrict__ pa, afloat * __restrict__ pb, afloat * __re
     {
       pa[i] = pb[i+1] * pc[i+1];
     }
-
-  bar (pa,pb,pc);
 
   return 0;
 }
@@ -61,6 +59,8 @@ int main (void)
   signal (SIGILL, SIG_DFL);
 
   main1 (n,a,b,c);
+  bar (a,b,c);
+  return 0;
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */

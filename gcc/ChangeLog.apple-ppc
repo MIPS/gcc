@@ -1,3 +1,17 @@
+2004-06-29  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_create_data_ref) INDIRECT_REF check moved to 
+	analysis. Redundant checks removed. 
+	(vect_analyze_data_refs): Make sure we have a mem_tag.
+	(vect_transform_loop): Make sure that we have a preheader bb.
+	(vect_init_vector): Insert on preheader edge instead of using bsi.
+	(vect_finish_stmt_generation_in_preheader): Now that a preheader bb is
+	created before vectorizing stmts, we do not expect a new bb to be 
+	created (thereofore, abort instead of add_bb_to_loop). 
+	* config/rs6000/rs6000.c (rs6000_build_vmul_uch): Likewise.
+	(rs6000_build_vector_init): Likewise. Also replace mark_call_clobbered
+	with direct setting of DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL.
+
 2004-06-28  Devang Patel  <dpatel@apple.com>
 
 	* Makefile.in (tree-ssa-loop-manip.o): Depend on tree-scalar-evolution.h
