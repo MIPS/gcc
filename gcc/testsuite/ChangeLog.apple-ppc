@@ -1,3 +1,9 @@
+2005-01-27  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3974393
+	PR 19650
+	* g++.dg/pr19650.C:  New.
+
 2005-01-27  Mike Stump  <mrs@apple.com>
 
 	Radar 3978098

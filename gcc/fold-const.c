@@ -5391,11 +5391,17 @@ fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
     }
 
   if (lhs == 0)
-    lhs = fold (cond_first_p ? build2 (code, type, true_value, arg)
+    {
+      true_value = fold_convert (type, true_value);
+      lhs = fold (cond_first_p ? build2 (code, type, true_value, arg)
 			     : build2 (code, type, arg, true_value));
+    }
   if (rhs == 0)
-    rhs = fold (cond_first_p ? build2 (code, type, false_value, arg)
+    {
+      false_value = fold_convert (type, false_value);
+      rhs = fold (cond_first_p ? build2 (code, type, false_value, arg)
 			     : build2 (code, type, arg, false_value));
+    }
 
   test = fold (build3 (COND_EXPR, type, test, lhs, rhs));
   return fold_convert (type, test);
