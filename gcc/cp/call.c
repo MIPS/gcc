@@ -130,7 +130,7 @@ build_field_call (basetype_path, instance_ptr, name, parms)
 {
   tree field, instance;
 
-  if (IDENTIFIER_CTOR_OR_DTOR_P (name))
+  if (name == ctor_identifier || name == dtor_identifier)
     return NULL_TREE;
 
   /* Speed up the common case.  */
@@ -1265,7 +1265,7 @@ add_function_candidate (candidates, fn, ctype, arglist, flags)
     {
       parmlist = TREE_CHAIN (parmlist);
       arglist = TREE_CHAIN (arglist);
-      if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+      if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
 	{
 	  parmlist = TREE_CHAIN (parmlist);
 	  arglist = TREE_CHAIN (arglist);
@@ -2277,12 +2277,7 @@ build_user_type_conversion_1 (totype, expr, flags)
   tree templates = NULL_TREE;
 
   if (IS_AGGR_TYPE (totype))
-    ctors = lookup_fnfields (TYPE_BINFO (totype),
-			     (flag_new_abi 
-			      ? complete_ctor_identifier
-			      : ctor_identifier),
-			     0);
-
+    ctors = lookup_fnfields (TYPE_BINFO (totype), ctor_identifier, 0);
   if (IS_AGGR_TYPE (fromtype)
       && (! IS_AGGR_TYPE (totype) || ! DERIVED_FROM_P (totype, fromtype)))
     convs = lookup_conversions (fromtype);
@@ -2292,16 +2287,14 @@ build_user_type_conversion_1 (totype, expr, flags)
 
   if (ctors)
     {
-      tree t;
-
-      ctors = TREE_VALUE (ctors);
-
-      t = build_int_2 (0, 0);
+      tree t = build_int_2 (0, 0);
       TREE_TYPE (t) = build_pointer_type (totype);
       args = build_tree_list (NULL_TREE, expr);
-      if (DECL_HAS_IN_CHARGE_PARM_P (OVL_CURRENT (ctors)))
+      if (TYPE_USES_VIRTUAL_BASECLASSES (totype))
 	args = tree_cons (NULL_TREE, integer_one_node, args);
       args = tree_cons (NULL_TREE, t, args);
+
+      ctors = TREE_VALUE (ctors);
     }
   for (; ctors; ctors = OVL_NEXT (ctors))
     {
@@ -3665,7 +3658,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
 	    TREE_TYPE (t) = build_pointer_type (DECL_CONTEXT (fn));
 
 	    args = build_tree_list (NULL_TREE, expr);
-	    if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+	    if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
 	      args = tree_cons (NULL_TREE, integer_one_node, args);
 	    args = tree_cons (NULL_TREE, t, args);
 	  }
@@ -3937,7 +3930,7 @@ build_over_call (cand, args, flags)
       converted_args = tree_cons (NULL_TREE, TREE_VALUE (arg), converted_args);
       arg = TREE_CHAIN (arg);
       parm = TREE_CHAIN (parm);
-      if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+      if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
 	{
 	  converted_args = tree_cons
 	    (NULL_TREE, TREE_VALUE (arg), converted_args);
@@ -4038,12 +4031,13 @@ build_over_call (cand, args, flags)
 
   if (! flag_elide_constructors)
     /* Do things the hard way.  */;
-  else if (TREE_VEC_LENGTH (convs) == 1
-	   && DECL_COPY_CONSTRUCTOR_P (fn))
+  else if (DECL_CONSTRUCTOR_P (fn)
+	   && TREE_VEC_LENGTH (convs) == 1
+	   && copy_args_p (fn))
     {
       tree targ;
       arg = TREE_CHAIN (converted_args);
-      if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+      if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
 	arg = TREE_CHAIN (arg);
       arg = TREE_VALUE (arg);
 
@@ -4172,29 +4166,6 @@ build_over_call (cand, args, flags)
   return convert_from_reference (fn);
 }
 
-/* Returns the value to use for the in-charge parameter when making a
-   call to a function with the indicated NAME.  */
-
-tree
-in_charge_arg_for_name (name)
-     tree name;
-{
-  if (name == base_ctor_identifier
-      || name == base_dtor_identifier)
-    return integer_zero_node;
-  else if (name == complete_ctor_identifier)
-    return integer_one_node;
-  else if (name == complete_dtor_identifier)
-    return integer_two_node;
-  else if (name == deleting_dtor_identifier)
-    return integer_three_node;
-
-  /* This function should only be called with one of the names listed
-     above.  */
-  my_friendly_abort (20000411);
-  return NULL_TREE;
-}
-
 static tree
 build_new_method_call (instance, name, args, basetype_path, flags)
      tree instance, name, args, basetype_path;
@@ -4276,31 +4247,27 @@ build_new_method_call (instance, name, args, basetype_path, flags)
   /* Callers should explicitly indicate whether they want to construct
      the complete object or just the part without virtual bases.  */
   my_friendly_assert (name != ctor_identifier, 20000408);
-  /* Similarly for destructors.  */
-  my_friendly_assert (name != dtor_identifier, 20000408);
 
-  if (IDENTIFIER_CTOR_OR_DTOR_P (name))
+  if (name == complete_ctor_identifier 
+      || name == base_ctor_identifier)
     {
-      int constructor_p;
-
-      constructor_p = (name == complete_ctor_identifier
-		       || name == base_ctor_identifier);
-      pretty_name = (constructor_p 
-		     ? constructor_name (basetype) : dtor_identifier);
-
-      if (!flag_new_abi)
+      pretty_name = constructor_name (basetype);
+      /* Add the in-charge parameter as an implicit first argument.  */
+      if (TYPE_USES_VIRTUAL_BASECLASSES (basetype))
 	{
-	  /* Add the in-charge parameter as an implicit first argument.  */
-	  if (!constructor_p
-	      || TYPE_USES_VIRTUAL_BASECLASSES (basetype))
-	    args = tree_cons (NULL_TREE,
-			      in_charge_arg_for_name (name),
-			      args);
+	  tree in_charge;
 
-	  /* We want to call the normal constructor function under the
-	     old ABI.  */
-	  name = constructor_p ? ctor_identifier : dtor_identifier;
+	  if (name == complete_ctor_identifier)
+	    in_charge = integer_one_node;
+	  else
+	    in_charge = integer_zero_node;
+
+	  args = tree_cons (NULL_TREE, in_charge, args);
 	}
+
+      /* We want to call the normal constructor function under the old
+	 ABI.  */
+      name = ctor_identifier;
     }
   else
     pretty_name = name;
@@ -4923,9 +4890,8 @@ joust (cand1, cand2, warn)
     return -1;
 
   /* If we have two pseudo-candidates for conversions to the same type,
-     or two candidates for the same function, arbitrarily pick one.  */
-  if (cand1->fn == cand2->fn
-      && (TYPE_P (cand1->fn) || DECL_P (cand1->fn)))
+     arbitrarily pick one.  */
+  if (TYPE_P (cand1->fn) && cand1->fn == cand2->fn)
     return 1;
 
   /* a viable function F1

@@ -928,11 +928,7 @@ convert_to_void (expr, implicit)
                       expr, type, implicit ? implicit : "void context");
         break;
       }
-
-    case OFFSET_REF:
-      expr = resolve_offset_ref (expr);
-      break;
-
+    
     default:;
     }
   {

@@ -27,7 +27,6 @@ int test0 ()
     {
       return 0;
     }
-  return -1;
 }
 
 int test1 ()
@@ -45,7 +44,6 @@ int test1 ()
     {
       return 0;
     }
-  return -1;
 }
 
 int test2 ()
@@ -63,7 +61,6 @@ int test2 ()
     {
       return 1;
     }
-  return -1;
 }
 
 int test3 ()
@@ -81,7 +78,6 @@ int test3 ()
     {
       return 1;
     }
-  return -1;
 }
 
 int test4 ()
@@ -104,7 +100,6 @@ int test4 ()
     {
       return 2;
     }
-  return -1;
 }
 
 int test5 ()
@@ -121,7 +116,6 @@ int test5 ()
     {
       return 1;
     }
-  return -1;
 }
 
 int test6 ()
@@ -154,7 +148,6 @@ int test6 ()
     {
       return 1;
     }
-  return -1;
 }
 
 int test7 ()
@@ -179,13 +172,11 @@ int test7 ()
     {
       return 3;
     }
-  return -1;
 }
 
+#if 0
 int test8 ()
 {
-#if defined (__GXX_ABI_VERSION) && __GXX_ABI_VERSION >= 100
-// old-abi fails this test, by segfaulting in the runtime.
   try
     {
       throw (B **)0;
@@ -202,35 +193,8 @@ int test8 ()
     {
       return 2;
     }
-  return -1;
-#endif
-  return 0;
 }
-
-int test9 ()
-{
-#if defined (__GXX_ABI_VERSION) && __GXX_ABI_VERSION >= 100
-// old-abi fails this test, by segfaulting in the runtime.
-  try
-    {
-      throw (B **)0;
-    }
-  catch (C const *const *)
-    {
-      return 1;
-    }
-  catch (B const *const *)
-    {
-      return 0;
-    }
-  catch (...)
-    {
-      return 2;
-    }
-  return -1;
 #endif
-  return 0;
-}
 
 static int (*tests[])() =
 {
@@ -244,8 +208,9 @@ static int (*tests[])() =
   test6,
   test7,
   
+#if 0
   test8,
-  test9,
+#endif
   
   NULL
 };

@@ -10,8 +10,6 @@ f(n)
 }
 main()
 {
-#ifndef NO_TRAMPOLINES
   if(f(2)!=4711)abort();
-#endif
   exit(0);
 }

@@ -106,14 +106,6 @@ static int count_cond		PARAMS ((tree, int));
 #define BRANCH_COST 1
 #endif
 
-#if defined(HOST_EBCDIC)
-/* bit 8 is significant in EBCDIC */
-#define CHARMASK 0xff
-#else
-#define CHARMASK 0x7f
-#endif
-
-
 /* We know that A1 + B1 = SUM1, using 2's complement arithmetic and ignoring
    overflow.  Suppose A, B and SUM have the same respective signs as A1, B1,
    and SUM1.  Then this yields nonzero if overflow occurred during the
@@ -1099,8 +1091,8 @@ real_hex_to_f (s, mode)
        if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')
 	   || (c >= 'a' && c <= 'f'))
 	 {
-	   k = c & CHARMASK;
-	   if (k >= 'a' && k <= 'f')
+	   k = c & 0x7f;
+	   if (k >= 'a')
 	     k = k - 'a' + 10;
 	   else if (k >= 'A')
 	     k = k - 'A' + 10;
@@ -1145,7 +1137,7 @@ real_hex_to_f (s, mode)
 	      The exponent field is a decimal integer.  */
 	   while (ISDIGIT(*p))
 	     {
-	       k = (*p++ & CHARMASK) - '0';
+	       k = (*p++ & 0x7f) - '0';
 	       expon = 10 * expon + k;
 	     }
 
@@ -4486,14 +4478,6 @@ extract_muldiv (t, c, code, wide_type)
       /* Now do the operation and verify it doesn't overflow.  */
       op1 = const_binop (code, convert (ctype, op1), convert (ctype, c), 0);
       if (op1 == 0 || TREE_OVERFLOW (op1))
-	break;
-
-      /* If we have an unsigned type is not a sizetype, we cannot widen
-	 the operation since it will change the result if the original
-	 computation overflowed.  */
-      if (TREE_UNSIGNED (ctype)
-	  && ! TYPE_IS_SIZETYPE (ctype)
-	  && ctype != type)
 	break;
 
       /* If we were able to eliminate our operation from the first side,

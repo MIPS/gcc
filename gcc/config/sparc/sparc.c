@@ -2504,7 +2504,7 @@ eligible_for_sibcall_delay (trial)
     {
       /* If the tail call is done using the call instruction,
 	 we have to restore %o7 in the delay slot.  */
-      if ((TARGET_ARCH64 && ! TARGET_CM_MEDLOW) || flag_pic)
+      if (TARGET_ARCH64 && ! TARGET_CM_MEDLOW)
 	return 0;
 
       /* %g1 is used to build the function address */
@@ -3735,7 +3735,7 @@ output_sibcall (insn, call_operand)
 
   if (leaf_regs)
     {
-      int spare_slot = ((TARGET_ARCH32 || TARGET_CM_MEDLOW) && ! flag_pic);
+      int spare_slot = (TARGET_ARCH32 || TARGET_CM_MEDLOW);
       int size = 0;
 
       if ((actual_fsize || ! spare_slot) && delay_slot)

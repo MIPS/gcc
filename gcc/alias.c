@@ -1424,15 +1424,10 @@ nonlocal_reference_p (x)
 
   if (GET_RTX_CLASS (code) == 'i')
     {
-      /* Constant functions can be constant if they don't use
-         scratch memory used to mark function w/o side effects.  */
+      /* Constant functions are constant.  */
       if (code == CALL_INSN && CONST_CALL_P (x))
-        {
-	  x = CALL_INSN_FUNCTION_USAGE (x);
-	  if (!x) return 0;
-        }
-      else
-        x = PATTERN (x);
+	return 0;
+      x = PATTERN (x);
       code = GET_CODE (x);
     }
 
@@ -1525,7 +1520,7 @@ nonlocal_reference_p (x)
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
-	if (fmt[i] == 'e' && XEXP (x, i))
+	if (fmt[i] == 'e')
 	  {
 	    if (nonlocal_reference_p (XEXP (x, i)))
 	      return 1;

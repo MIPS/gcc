@@ -160,11 +160,6 @@ c_parse_init ()
   ggc_add_tree_root (&declspec_stack, 1);
   ggc_add_tree_root (&current_declspecs, 1);
   ggc_add_tree_root (&prefix_attributes, 1);
-  ggc_add_tree_root (&objc_interface_context, 1);
-  ggc_add_tree_root (&objc_implementation_context, 1);
-  ggc_add_tree_root (&objc_method_context, 1);
-  ggc_add_tree_root (&objc_ivar_chain, 1);
-  ggc_add_tree_root (&objc_ivar_context, 1);
 }
 
 #include <stdio.h>
@@ -4886,7 +4881,7 @@ case 515:
 #line 2809 "objc-parse.y"
 {
 		  /* oh what a kludge! */
-		  yyval.ttype = objc_ellipsis_node;
+		  yyval.ttype = (tree)1;
 		;
     break;}
 case 516:

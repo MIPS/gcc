@@ -72,7 +72,6 @@ print_rtx (in_rtx)
   register int j;
   register const char *format_ptr;
   register int is_insn;
-  rtx tem;
 
   if (sawclose)
     {
@@ -162,19 +161,18 @@ print_rtx (in_rtx)
       case '0':
 	if (i == 3 && GET_CODE (in_rtx) == NOTE)
 	  {
-	    switch (NOTE_LINE_NUMBER (in_rtx))
+	    if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END)
 	      {
-	      case NOTE_INSN_EH_REGION_BEG:
-	      case NOTE_INSN_EH_REGION_END:
 		if (flag_dump_unnumbered)
 		  fprintf (outfile, " #");
 		else
 		  fprintf (outfile, " %d", NOTE_EH_HANDLER (in_rtx));
 		sawclose = 1;
-		break;
-
-	      case NOTE_INSN_BLOCK_BEG:
-	      case NOTE_INSN_BLOCK_END:
+	      }
+	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
+		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END)
+	      {
 		fprintf (outfile, " ");
 		if (flag_dump_unnumbered)
 		  fprintf (outfile, "#");
@@ -182,51 +180,34 @@ print_rtx (in_rtx)
 		  fprintf (outfile, HOST_PTR_PRINTF, 
 			   (char *) NOTE_BLOCK (in_rtx));
 		sawclose = 1;
-		break;
-
-	      case NOTE_INSN_RANGE_BEG:
-	      case NOTE_INSN_RANGE_END:
-	      case NOTE_INSN_LIVE:
+	      }
+	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_START
+		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_END
+		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_LIVE)
+	      {
 		indent += 2;
 		if (!sawclose)
 		  fprintf (outfile, " ");
 		print_rtx (NOTE_RANGE_INFO (in_rtx));
 		indent -= 2;
-		break;
-
-	      case NOTE_INSN_BASIC_BLOCK:
-		{
-		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
-		  if (bb != 0)
-		    fprintf (outfile, " [bb %d]", bb->index);
-		  break;
-	        }
-
-	      case NOTE_INSN_EXPECTED_VALUE:
-		indent += 2;
-		if (!sawclose)
-		  fprintf (outfile, " ");
-		print_rtx (NOTE_EXPECTED_VALUE (in_rtx));
-		indent -= 2;
-		break;
-
-	      default:
-		{
-		  const char * const str = X0STR (in_rtx, i);
-
-		  if (NOTE_LINE_NUMBER (in_rtx) < 0)
-		    ;
-		  else if (str == 0)
-		    fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
-		  else
-		    {
-		      if (dump_for_graph)
-		        fprintf (outfile, " (\\\"%s\\\")", str);
-		      else
-		        fprintf (outfile, " (\"%s\")", str);
-		    }
-		  break;
-		}
+	      }
+	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BASIC_BLOCK)
+	      {
+		basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
+		fprintf (outfile, " [bb %d]", bb->index);
+	      }
+	    else
+	      {
+		const char * const str = X0STR (in_rtx, i);
+		if (str == 0)
+		  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
+		else
+		  {
+		    if (dump_for_graph)
+		      fprintf (outfile, " (\\\"%s\\\")", str);
+		    else
+		      fprintf (outfile, " (\"%s\")", str);
+		  }
 	      }
 	  }
 	break;
@@ -334,7 +315,8 @@ print_rtx (in_rtx)
 	    rtx sub = XEXP (in_rtx, i);
 	    enum rtx_code subc = GET_CODE (sub);
 
-	    if (GET_CODE (in_rtx) == LABEL_REF && subc != CODE_LABEL)
+	    if (GET_CODE (in_rtx) == LABEL_REF
+		&& subc != CODE_LABEL)
 	      goto do_e;
 
 	    if (flag_dump_unnumbered)
@@ -386,21 +368,11 @@ print_rtx (in_rtx)
 
   if (GET_CODE (in_rtx) == CODE_LABEL)
     {
-      fprintf (outfile, " [%d uses]", LABEL_NUSES (in_rtx));
+      fprintf (outfile, " [num uses: %d]", LABEL_NUSES (in_rtx));
       if (LABEL_ALTERNATE_NAME (in_rtx))
-        fprintf (outfile, " [alternate name: %s]",
-		 LABEL_ALTERNATE_NAME (in_rtx));
+        fprintf (outfile, " [alternate name: %s]", LABEL_ALTERNATE_NAME (in_rtx));
     }
   
-  if (GET_CODE (in_rtx) == CALL_PLACEHOLDER)
-    for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
-      if (GET_CODE (tem) == CALL_INSN)
-	{
-	  fprintf (outfile, " ");
-	  print_rtx (tem);
-	  break;
-	}
-
   if (dump_for_graph
       && (is_insn || GET_CODE (in_rtx) == NOTE
 	  || GET_CODE (in_rtx) == CODE_LABEL || GET_CODE (in_rtx) == BARRIER))
@@ -543,13 +515,16 @@ print_rtl (outf, rtx_first)
       case NOTE:
       case CODE_LABEL:
       case BARRIER:
-	for (tmp_rtx = rtx_first; tmp_rtx != 0; tmp_rtx = NEXT_INSN (tmp_rtx))
-	  if (! flag_dump_unnumbered
-	      || GET_CODE (tmp_rtx) != NOTE || NOTE_LINE_NUMBER (tmp_rtx) < 0)
-	    {
-	      print_rtx (tmp_rtx);
-	      fprintf (outfile, "\n");
-	    }
+	for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
+	  {
+	    if (! flag_dump_unnumbered
+		|| GET_CODE (tmp_rtx) != NOTE
+		|| NOTE_LINE_NUMBER (tmp_rtx) < 0)
+	      {
+		print_rtx (tmp_rtx);
+		fprintf (outfile, "\n");
+	      }
+	  }
 	break;
 
       default:

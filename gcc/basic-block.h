@@ -449,7 +449,6 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 
 /* In predict.c */
 extern void estimate_probability        PARAMS ((struct loops *));
-extern void expected_value_to_br_prob	PARAMS ((void));
 
 /* In flow.c */
 extern void reorder_basic_blocks	PARAMS ((void));

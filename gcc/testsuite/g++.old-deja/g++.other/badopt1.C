@@ -3,6 +3,8 @@
 
 // Special g++ Options: -O2
 
+#include <cstdlib>
+
 struct Base { Base() {} }; // removing the constructor fixes the problem
 struct Derived : Base {}; // so does removing the base class
 
@@ -11,5 +13,5 @@ int main() {
   Derived* array[1]; // making this Base*[1] does not fix the problem
   array[count++] = new Derived (); // but then new Base() does
   if (count!=1)
-    return 1;
+    std::abort();
 }

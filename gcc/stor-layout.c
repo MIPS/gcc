@@ -306,12 +306,10 @@ layout_decl (decl, known_align)
      also happens with other fields.  For example, the C++ front-end creates
      zero-sized fields corresponding to empty base classes, and depends on
      layout_type setting DECL_FIELD_BITPOS correctly for the field.  Set the
-     size in bytes from the size in bits.  If we have already set the mode,
-     don't set it again since we can be called twice for FIELD_DECLs.  */
+     size in bytes from the size in bits.  */
 
+  DECL_MODE (decl) = TYPE_MODE (type);
   TREE_UNSIGNED (decl) = TREE_UNSIGNED (type);
-  if (DECL_MODE (decl) == VOIDmode)
-    DECL_MODE (decl) = TYPE_MODE (type);
 
   if (DECL_SIZE (decl) == 0)
     {
@@ -353,7 +351,7 @@ layout_decl (decl, known_align)
       register enum machine_mode xmode
 	= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
 
-      if (xmode != BLKmode && known_align >= GET_MODE_ALIGNMENT (xmode))
+      if (xmode != BLKmode && known_align > GET_MODE_ALIGNMENT (xmode))
 	{
 	  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
 				   DECL_ALIGN (decl));
@@ -365,7 +363,7 @@ layout_decl (decl, known_align)
   /* Turn off DECL_BIT_FIELD if we won't need it set.  */
   if (code == FIELD_DECL && DECL_BIT_FIELD (decl)
       && TYPE_MODE (type) == BLKmode && DECL_MODE (decl) == BLKmode
-      && known_align >= TYPE_ALIGN (type)
+      && known_align > TYPE_ALIGN (type)
       && DECL_ALIGN (decl) >= TYPE_ALIGN (type)
       && DECL_SIZE_UNIT (decl) != 0)
     DECL_BIT_FIELD (decl) = 0;
@@ -644,11 +642,9 @@ place_field (rli, field)
 
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
-  if (! integer_zerop (rli->bitpos))
+  if (! integer_zerop (rli->bitpos) && TREE_CONSTANT (rli->offset))
     known_align = (tree_low_cst (rli->bitpos, 1)
 		   & - tree_low_cst (rli->bitpos, 1));
-  else if (integer_zerop (rli->offset))
-    known_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (rli->offset, 1))
     known_align = (BITS_PER_UNIT
 		   * (tree_low_cst (rli->offset, 1)
@@ -757,9 +753,6 @@ place_field (rli, field)
 	  rli->offset = round_up (rli->offset, desired_align / BITS_PER_UNIT);
 	}
 
-      if (! TREE_CONSTANT (rli->offset))
-	rli->offset_align = desired_align;
-
     }
 
   /* Handle compatibility with PCC.  Note that if the record has any
@@ -828,6 +821,9 @@ place_field (rli, field)
     }
 #endif
 
+  if (! TREE_CONSTANT (rli->offset))
+    rli->offset_align = DECL_ALIGN (field);
+
   /* Offset so far becomes the position of this field after normalizing.  */
   normalize_rli (rli);
   DECL_FIELD_OFFSET (field) = rli->offset;
@@ -837,11 +833,10 @@ place_field (rli, field)
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
-  if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field)))
+  if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field))
+      && TREE_CONSTANT (DECL_FIELD_OFFSET (field)))
     actual_align = (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
 		    & - tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1));
-  else if (integer_zerop (DECL_FIELD_OFFSET (field)))
-    actual_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (DECL_FIELD_OFFSET (field), 1))
     actual_align = (BITS_PER_UNIT
 		   * (tree_low_cst (DECL_FIELD_OFFSET (field), 1)
@@ -871,7 +866,6 @@ place_field (rli, field)
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset, DECL_SIZE_UNIT (field));
       rli->bitpos = bitsize_zero_node;
-      rli->offset_align = MIN (rli->offset_align, DECL_ALIGN (field));
     }
   else
     {

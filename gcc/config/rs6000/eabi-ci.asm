@@ -107,18 +107,18 @@ __EXCEPT_START__:
 	.type	__EH_FRAME_BEGIN__,@object
 __EH_FRAME_BEGIN__:
 
-# Head of __init function used for static constructors
+# Head of __init function used for static constructors in Solaris
 	.section ".init","ax"
 	.align 2
 FUNC_START(__init)
-	stwu 1,-16(1)
+	stwu 1,-8(1)
 	mflr 0
-	stw 0,20(1)
+	stw 0,12(1)
 
-# Head of __fini function used for static destructors
+# Head of __fini function used for static destructors in Solaris
 	.section ".fini","ax"
 	.align 2
 FUNC_START(__fini)
-	stwu 1,-16(1)
+	stwu 1,-8(1)
 	mflr 0
-	stw 0,20(1)
+	stw 0,12(1)

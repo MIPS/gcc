@@ -337,8 +337,10 @@ extern int target_flags;
 
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
-/* Define these to avoid dependence on meaning of `int'.  */
- 
+/* Define these to avoid dependence on meaning of `int'.
+   Note that WCHAR_TYPE_SIZE is used in cexp.y,
+   where TARGET_SHORT is not available.  */
+
 #define WCHAR_TYPE "long int"
 #define WCHAR_TYPE_SIZE 32
 

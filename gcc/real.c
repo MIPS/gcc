@@ -337,13 +337,6 @@ do {									\
 /* The exponent of 1.0 */
 #define EXONE (0x3fff)
 
-#if defined(HOST_EBCDIC)
-/* bit 8 is significant in EBCDIC */
-#define CHARMASK 0xff
-#else
-#define CHARMASK 0x7f
-#endif
-
 extern int extra_warnings;
 extern unsigned EMUSHORT ezero[], ehalf[], eone[], etwo[];
 extern unsigned EMUSHORT elog2[], esqrt2[];
@@ -3653,13 +3646,10 @@ toe64 (a, b)
   else
     {
       q = b + 4;			/* point to output exponent */
-      /* The purpose of this conditional is to avoid scribbling beyond
-         the end of a long double, in case the type is only 80 bits wide.  */
-      if (LONG_DOUBLE_TYPE_SIZE == 96)
-	{
-	  /* Clear the last two bytes of 12-byte Intel format */
-	  *(q+1) = 0;
-	}
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
+      /* Clear the last two bytes of 12-byte Intel format */
+      *(q+1) = 0;
+#endif
     }
 #endif
 
@@ -4988,7 +4978,7 @@ etoasc (x, string, ndigs)
       /* Round up and propagate carry-outs */
     roun:
       --s;
-      k = *s & CHARMASK;
+      k = *s & 0x7f;
       /* Carry out to most significant digit? */
       if (k == '.')
 	{
@@ -5149,7 +5139,7 @@ asctoeg (ss, y, oprec)
  nxtcom:
   if (*s >= '0' && *s <= '9')
     k = *s - '0';
-  else if (*s >= 'a' && *s <= 'f')
+  else if (*s >= 'a')
     k = 10 + *s - 'a';
   else
     k = 10 + *s - 'A';
@@ -5167,7 +5157,7 @@ asctoeg (ss, y, oprec)
 				    || (*sp >= 'A' && *sp <= 'F'))))
 	    ++sp;
 	  /* Check for syntax error */
-	  c = *sp & CHARMASK;
+	  c = *sp & 0x7f;
 	  if ((base != 10 || ((c != 'e') && (c != 'E')))
 	      && (base != 16 || ((c != 'p') && (c != 'P')))
 	      && (c != '\0')

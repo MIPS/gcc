@@ -1,7 +1,3 @@
-2000-04-19  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
-
-	* stkalign.C: New test.
-
 1999-12-22  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
 
 	* nameret2.C: New test.
