@@ -459,7 +459,7 @@ lambda_matrix_hermite (lambda_matrix mat, int n,
 
 /* Given an M x N integer matrix A, this function determines an M x
    M unimodular matrix U, and an M x N echelon matrix S such that
-   "U.MAT = S".  This decomposition is also known as "right Hermite".
+   "U.A = S".  This decomposition is also known as "right Hermite".
    
    Ref: Algorithm 2.1 page 33 in "Loop Transformations for
    Restructuring Compilers" Utpal Banerjee. */
@@ -473,7 +473,7 @@ lambda_matrix_right_hermite (lambda_matrix A, int m, int n,
   lambda_matrix_copy (A, S, m, n);
   lambda_matrix_id (U, m);
 
-  for (j = 0; j < m; j++)
+  for (j = 0; j < n; j++)
     {
       if (lambda_vector_first_nz (S[j], m, i0) < m)
 	{
@@ -493,7 +493,7 @@ lambda_matrix_right_hermite (lambda_matrix A, int m, int n,
 
 		  lambda_matrix_row_add (S, n, i, i-1, -factor);
 		  lambda_matrix_row_exchange (S, i, i-1);
-		      
+
 		  lambda_matrix_row_add (U, m, i, i-1, -factor);
 		  lambda_matrix_row_exchange (U, i, i-1);
 		}
@@ -518,7 +518,7 @@ lambda_matrix_left_hermite (lambda_matrix A, int m, int n,
   lambda_matrix_copy (A, S, m, n);
   lambda_matrix_id (V, m);
 
-  for (j = 0; j < m; j++)
+  for (j = 0; j < n; j++)
     {
       if (lambda_vector_first_nz (S[j], m, i0) < m)
 	{

@@ -1,3 +1,9 @@
+2004-07-30  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* lambda-mat.c (lambda_matrix_right_hermite, 
+	lambda_matrix_left_hermite): Fix the bounds for the iteration on 
+	columns.
+
 2004-07-29  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* lambda-mat.c (lambda_matrix_new): Size of a matrix row is sizeof 
