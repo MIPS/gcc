@@ -1,5 +1,10 @@
 2004-02-25  Michael Matz  <matz@suse.de>
 
+	* gcc.dg/20000724-1.c: Fix regparm attributes.
+	* gcc.dg/991214-1.c: Likewise.
+
+2004-02-25  Michael Matz  <matz@suse.de>
+
 	* gcc.dg/i386-regparm.c: New.
 
 2004-02-16  Alan Modra  <amodra@bigpond.net.au>
