@@ -242,6 +242,12 @@ find_moveable_store (insn, regs_set_before, regs_set_after)
   if (side_effects_p (dest))
     return;
 
+  /* If we are handling exceptions, we must be careful with memory references
+     that may trap. If we are not, the behavior is undefined, so we may just
+     continue.  */
+  if (flag_exceptions && may_trap_p (dest))
+    return;
+
   /* Do not consider MEMs that mention stack pointer; in the following
      we rely on that constant functions do not read memory, which of course
      does not include their arguments if passed on stack.  */

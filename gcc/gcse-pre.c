@@ -532,6 +532,12 @@ simple_mem (x)
   if (GET_MODE (x) == BLKmode)
     return 0;
 
+  /* If we are handling exceptions, we must be careful with memory references
+     that may trap. If we are not, the behavior is undefined, so we may just
+     continue.  */
+  if (flag_exceptions && may_trap_p (x))
+    return 0;
+
   if (side_effects_p (x))
     return 0;
 

@@ -1,3 +1,8 @@
+2003-03-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcse-pre.c (simple_mem): Handle trapping mems.
+	* gcse-store.c (find_moveable_store): Ditto.
+
 Wed Mar  5 18:25:28 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	Merge from mainline (rtlopt-merge-20030305).
