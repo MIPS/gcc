@@ -112,6 +112,7 @@ struct arch_config_guess_map arch_config_map [] =
 {
   {"i386", "i686"},
   {"ppc", "powerpc"},
+  {"ppc64", "powerpc"},
   {NULL, NULL}
 };
 
@@ -659,6 +660,8 @@ add_arch_options (int index, const char **current_argv, int arch_index)
     current_argv[arch_index] = "-mcpu=7450";
   else if (!strcmp (arches[index], "ppc970"))
     current_argv[arch_index] = "-mcpu=970";
+  else if (!strcmp (arches[index], "ppc64"))
+    current_argv[arch_index] = "-m64";
   else if (!strcmp (arches[index], "i386"))
     current_argv[arch_index] = "-march=i386";
   else if (!strcmp (arches[index], "i486"))

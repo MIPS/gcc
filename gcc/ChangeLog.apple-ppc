@@ -1,3 +1,8 @@
+2004-08-22  Stan Shebs  <shebs@apple.com>
+
+	* config/darwin-driver.c (arch_config): Add ppc64.
+	(add_arch_options): Similarly.
+
 2004-08-22  Andrew Pinski  <apinski@apple.com>
 
 	PR c/15262
