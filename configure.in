@@ -151,7 +151,8 @@ target_libraries="target-libiberty \
 		target-libstdc++-v3 \
 		target-libf2c \
 		${libgcj} \
-		target-libobjc"
+		target-libobjc \
+		target-libada"
 
 # these tools are built using the target libraries, and are intended to
 # run only in the target environment

@@ -1345,6 +1345,7 @@ ALL_GCC_CXX = $(ALL_GCC_C) maybe-all-target-libstdc++-v3
 configure-target-boehm-gc: $(ALL_GCC_C) maybe-configure-target-qthreads
 configure-target-fastjar: maybe-configure-target-zlib
 all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
+configure-target-libada: $(ALL_GCC_C)
 configure-target-libf2c: $(ALL_GCC_C)
 all-target-libf2c: maybe-all-target-libiberty
 configure-target-libffi: $(ALL_GCC_C) 
