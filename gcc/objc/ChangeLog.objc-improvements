@@ -1,6 +1,8 @@
 2004-08-10  Ziemowit Laski  <zlaski@apple.com>
 
-	* objc-act.c (string_descriptor): New type.
+	* Make-lang.in (objc/objc-act.o): Depend on $(HASHTAB_H).
+	* objc-act.c: Include hashtab.h.
+	(string_descriptor): New type.
 	(string_htab): New hash table, for constant strings.
 	(string_hash, string_eq): New functions.
 	(hash_init): Initialize string_htab hash table.
