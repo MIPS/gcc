@@ -333,6 +333,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_after_stmts = dom_opt_finalize_block;
+  walk_data.global_data = NULL;
 
   /* Customize walker based on whether or not we are threading jumps
      through blocks with PHI nodes or not.  */

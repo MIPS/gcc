@@ -52,6 +52,22 @@
 
 2003-11-03  Jeff Law  <law@redhat.com>
 
+	* domwalk.h (struct dom_walk_data): New field "global_data".
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize_1): Initialize new
+	"global_data" field.
+	* tree-flow.h (enum need_phi_state): New enumeration.
+	(var_ann_d): Add bitfield for need_phi_state.
+	* tree-ssa.c (mark_def_sites_global_data): New structure to hold
+	global data for mark_def_sites dominator walk.
+	(mark_def_sites): Revamp to be called via the dominator walker.
+	(set_def_block): Update need_phi_state for the variable as needed.
+	(set_livein_block): Similarly.
+	(rewrite_into_ssa): Use dominator walker to call mark_def_sites.
+	Delay freeing dominance info.  Kill "globals" bitmap.
+	(insert_phi_nodes): No longer need "globals" bitmap.  Use
+	need_phi_state in variable's annotation to determine if a PHI
+	may be needed.
+
         * tree-ssa-dom.c (dom_opt_finalize_block): Try to thread across the
         edges leaving COND_EXPR nodes which are leafs in the dominator
         tree.

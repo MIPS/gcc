@@ -85,6 +85,20 @@ struct GTY(()) def_blocks_d
   bitmap livein_blocks;
 };
 
+/* Global data to attach to the main dominator walk structure.  */
+struct mark_def_sites_global_data
+{
+  /* This sbitmap contains the variables which are set before they
+     are used in a basic block.  We keep it as a global variable
+     solely to avoid the overhead of allocating and deallocating
+     the bitmap.  */
+  sbitmap kills;
+
+  /* We need dominance information when we find a use of a variable
+     that is not proceeded by a set of the variable in the same block.  */
+  dominance_info idom;
+};
+
 /* Table to store the current reaching definition for every variable in
    the function.  Given a variable V, its entry will be its immediately
    reaching SSA_NAME node.  */
@@ -164,12 +178,14 @@ static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
 static void rewrite_add_phi_arguments (struct dom_walk_data *,
 				       basic_block, tree);
 static void delete_tree_ssa (tree);
-static void mark_def_sites (sbitmap);
+static void mark_def_sites (struct dom_walk_data *walk_data,
+			    basic_block bb,
+			    tree parent_block_last_stmt ATTRIBUTE_UNUSED);
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
-static void set_livein_block (tree, basic_block);
+static void set_livein_block (tree, basic_block, dominance_info);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
-static void insert_phi_nodes (bitmap *, sbitmap);
+static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
@@ -320,10 +336,10 @@ void
 rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 {
   bitmap *dfs;
-  sbitmap globals;
   dominance_info idom;
   basic_block bb;
   struct dom_walk_data walk_data;
+  struct mark_def_sites_global_data mark_def_sites_global_data;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -348,14 +364,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 
   VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
 
-  /* Allocate memory for the GLOBALS bitmap which will indicate which
-     variables are live across basic block boundaries.  Note that this
-     bitmap is indexed by variable UID, so it must always be large enough
-     to accommodate all the variables referenced in the program, not just
-     the ones we are renaming.  */
-  globals = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (globals);
-
   /* Initialize dominance frontier and immediate dominator bitmaps. 
 
      Also count the number of predecessors for each block.  Doing so
@@ -376,17 +384,42 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   /* Compute immediate dominators, dominance frontiers and the dominator
      tree.  FIXME: DFS and dominator tree information should be cached.
      Although, right now the only pass that doesn't mess dominance
-     information is must-alias.  */
+     information is must-alias. 
+
+     We also use the dominator information during the dominator walk to
+     find def/use sites.  So the dominator information can not be freed
+     until after the mark_def_sites dominator walk.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
   build_dominator_tree (idom);
   compute_dominance_frontiers (dfs, idom);
+
+  /* Setup callbacks for the generic dominator tree walker to find and
+     mark definition sites.  */
+  walk_data.block_data_stack = NULL;
+  walk_data.before_dom_children_before_stmts = NULL;
+  walk_data.before_dom_children_walk_stmts = mark_def_sites;
+  walk_data.before_dom_children_after_stmts = NULL; 
+  walk_data.after_dom_children_before_stmts =  NULL;
+  walk_data.after_dom_children_walk_stmts =  NULL;
+  walk_data.after_dom_children_after_stmts =  NULL;
+  /* Notice that this bitmap is indexed using variable UIDs, so it must be
+     large enough to accommodate all the variables referenced in the
+     function, not just the ones we are renaming.  */
+  mark_def_sites_global_data.kills = sbitmap_alloc (num_referenced_vars);
+  mark_def_sites_global_data.idom = idom;
+  walk_data.global_data = &mark_def_sites_global_data;
+
+  /* Recursively walk the dominator tree.  */
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+
+  /* We no longer need this bitmap, clear and free it.  */
+  sbitmap_free (mark_def_sites_global_data.kills);
+
+  /* We are done with the dominance information.  Release it.  */
   free_dominance_info (idom);
 
-  /* Find variable references and mark definition sites.  */
-  mark_def_sites (globals);
-
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs, globals);
+  insert_phi_nodes (dfs);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -399,6 +432,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
+  walk_data.global_data = NULL;
 
   /* Recursively walk the dominator tree rewriting each statement in
      each basic block.  */
@@ -423,7 +457,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
     BITMAP_XFREE (dfs[bb->index]);
   free (dfs);
 
-  sbitmap_free (globals);
   if (vars == NULL)
     sbitmap_free (vars_to_rename);
 
@@ -513,102 +546,86 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
    we create.  */
 
 static void
-mark_def_sites (sbitmap globals)
+mark_def_sites (struct dom_walk_data *walk_data,
+                basic_block bb,
+                tree parent_block_last_stmt ATTRIBUTE_UNUSED)
 {
-  basic_block bb;
+  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  sbitmap kills = gd->kills;
+  dominance_info idom = gd->idom;
   block_stmt_iterator si;
-  sbitmap kills;
-
-  /* Notice that this bitmap is indexed using variable UIDs, so it must be
-     large enough to accommodate all the variables referenced in the
-     function, not just the ones we are renaming.  */
-  kills = sbitmap_alloc (num_referenced_vars);
 
   /* Mark all the blocks that have definitions for each variable in the
      VARS_TO_RENAME bitmap.  */
-  FOR_EACH_BB (bb)
+  sbitmap_zero (kills);
+
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
-      sbitmap_zero (kills);
+      varray_type ops;
+      size_t i, uid;
+      tree stmt;
+      stmt_ann_t ann;
 
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	{
-	  varray_type ops;
-	  size_t i, uid;
-	  tree stmt;
-	  stmt_ann_t ann;
+      stmt = bsi_stmt (si);
+      get_stmt_operands (stmt);
+      ann = stmt_ann (stmt);
 
-	  stmt = bsi_stmt (si);
-	  get_stmt_operands (stmt);
-	  ann = stmt_ann (stmt);
+      /* If a variable is used before being set, then the variable
+         is live across a block boundary, so add it to NONLOCAL_VARS.  */
+      ops = use_ops (ann);
+      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+        {
+          tree *use_p = VARRAY_TREE_PTR (ops, i);
 
-	  /* If a variable is used before being set, then the variable
-	     is live across a block boundary, so add it to NONLOCAL_VARS.  */
-	  ops = use_ops (ann);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree *use_p = VARRAY_TREE_PTR (ops, i);
-
-	      if (prepare_operand_for_rename (use_p, &uid)
-		  && !TEST_BIT (kills, uid))
-		{
-	          SET_BIT (globals, uid);
-		  set_livein_block (*use_p, bb);
-		}
-	    }
+          if (prepare_operand_for_rename (use_p, &uid)
+	      && !TEST_BIT (kills, uid))
+	    set_livein_block (*use_p, bb, idom);
+	}
 	  
-	  /* Similarly for virtual uses.  */
-	  ops = vuse_ops (ann);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree *use_p = &VARRAY_TREE (ops, i);
+      /* Similarly for virtual uses.  */
+      ops = vuse_ops (ann);
+      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+        {
+          tree *use_p = &VARRAY_TREE (ops, i);
 
-	      if (prepare_operand_for_rename (use_p, &uid)
-		  && !TEST_BIT (kills, uid))
-	        {
-	          SET_BIT (globals, uid);
-		  set_livein_block (*use_p, bb);
-		}
+          if (prepare_operand_for_rename (use_p, &uid)
+	      && !TEST_BIT (kills, uid))
+	    set_livein_block (*use_p, bb, idom);
+	}
+
+      /* Note that virtual definitions are irrelevant for computing
+	 KILLED_VARS because a VDEF does not constitute a killing
+	 definition of the variable.  However, the operand of a virtual
+	 definitions is a use of the variable, so it may affect
+	 GLOBALS.  */
+      ops = vdef_ops (ann);
+      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+        {
+          tree vdef = VARRAY_TREE (ops, i);
+
+          if (prepare_operand_for_rename (&VDEF_OP (vdef), &uid))
+	    {
+	      VDEF_RESULT (vdef) = VDEF_OP (vdef);
+
+	      set_def_block (VDEF_RESULT (vdef), bb);
+	      if (!TEST_BIT (kills, uid))
+		set_livein_block (VDEF_OP (vdef), bb, idom);
 	    }
+	}
 
-	  /* Note that virtual definitions are irrelevant for computing
-	     KILLED_VARS because a VDEF does not constitute a killing
-	     definition of the variable.  However, the operand of a virtual
-	     definitions is a use of the variable, so it may affect
-	     GLOBALS.  */
-	  ops = vdef_ops (ann);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+      /* Now process the definition made by this statement.  */
+      ops = def_ops (ann);
+      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+        {
+          tree *def_p = VARRAY_TREE_PTR (ops, i);
+
+          if (prepare_operand_for_rename (def_p, &uid))
 	    {
-	      tree vdef = VARRAY_TREE (ops, i);
-
-	      if (prepare_operand_for_rename (&VDEF_OP (vdef), &uid))
-		{
-		  VDEF_RESULT (vdef) = VDEF_OP (vdef);
-
-		  set_def_block (VDEF_RESULT (vdef), bb);
-		  if (!TEST_BIT (kills, uid))
-		    {
-		      SET_BIT (globals, uid);
-		      set_livein_block (VDEF_OP (vdef), bb);
-		    }
-		}
-	    }
-
-	  /* Now process the definition made by this statement.  */
-	  ops = def_ops (ann);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree *def_p = VARRAY_TREE_PTR (ops, i);
-
-	      if (prepare_operand_for_rename (def_p, &uid))
-		{
-		  set_def_block (*def_p, bb);
-		  SET_BIT (kills, uid);
-		}
+	      set_def_block (*def_p, bb);
+	      SET_BIT (kills, uid);
 	    }
 	}
     }
-
-  sbitmap_free (kills);
 }
 
 /* Mark block BB as the definition site for variable VAR.  */
@@ -618,6 +635,7 @@ set_def_block (tree var, basic_block bb)
 {
   struct def_blocks_d db, *db_p;
   void **slot;
+  enum need_phi_state state = var_ann (var)->need_phi_state;
 
   /* Find the DEFS bitmap associated with variable VAR.  */
   db.var = var;
@@ -635,15 +653,33 @@ set_def_block (tree var, basic_block bb)
 
   /* Set the bit corresponding to the block where VAR is defined.  */
   bitmap_set_bit (db_p->def_blocks, bb->index);
+
+  /* Keep track of whether or not we may need to insert phi nodes.
+
+     If we are in the UNKNOWN state, then this is the first definition
+     of VAR.  Additionally, we have not seen any uses of VAR yet, so we
+     do not need a phi node for this variable at this time (ie, transition
+     to NEED_PHI_STATE_NO).
+
+     If we are in any other state, then we either have multiple definitions
+     of this variable occuring in different blocks or we saw a use of the
+     variable which was not dominated by the block containing the
+     definition(s).  In this case we may need a PHI node, so enter
+     state NEED_PHI_STATE_MAYBE.  */
+  if (state == NEED_PHI_STATE_UNKNOWN)
+    var_ann (var)->need_phi_state = NEED_PHI_STATE_NO;
+  else
+    var_ann (var)->need_phi_state = NEED_PHI_STATE_MAYBE;
 }
 
 /* Mark block BB as having VAR live at the entry to BB.  */
 
 static void
-set_livein_block (tree var, basic_block bb)
+set_livein_block (tree var, basic_block bb, dominance_info idom)
 {
   struct def_blocks_d db, *db_p;
   void **slot;
+  enum need_phi_state state = var_ann (var)->need_phi_state;
 
   /* Find the DEFS bitmap associated with variable VAR.  */
   db.var = var;
@@ -659,8 +695,25 @@ set_livein_block (tree var, basic_block bb)
   else
     db_p = (struct def_blocks_d *) *slot;
 
-  /* Set the bit corresponding to the block where VAR is defined.  */
+  /* Set the bit corresponding to the block where VAR is live in.  */
   bitmap_set_bit (db_p->livein_blocks, bb->index);
+
+  /* Keep track of whether or not we may need to insert phi nodes.
+
+     If we reach here in NEED_PHI_STATE_NO, see if this use is dominated
+     by the single block containing the definition(s) of this variable.  If
+     it is, then we remain in NEED_PHI_STATE_NO, otherwise we transition to
+     NEED_PHI_STATE_MAYBE.  */
+  if (state == NEED_PHI_STATE_NO)
+    {
+      int def_block_index = bitmap_first_set_bit (db_p->def_blocks);
+
+      if (def_block_index == -1
+	  || ! dominated_by_p (idom, bb, BASIC_BLOCK (def_block_index)))
+	var_ann (var)->need_phi_state = NEED_PHI_STATE_MAYBE;
+    }
+  else
+    var_ann (var)->need_phi_state = NEED_PHI_STATE_MAYBE;
 }
 
 
@@ -697,7 +750,7 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p)
    nodes.  */
 
 static void
-insert_phi_nodes (bitmap *dfs, sbitmap globals)
+insert_phi_nodes (bitmap *dfs)
 {
   size_t i;
 
@@ -716,7 +769,7 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
       tree var = referenced_var (i);
       var_ann_t ann = var_ann (var);
 
-      if (TEST_BIT (globals, ann->uid))
+      if (ann->need_phi_state != NEED_PHI_STATE_NO)
 	insert_phi_nodes_for (var, dfs);
     });
 

@@ -61,6 +61,9 @@ struct dom_walk_data
   void (*after_dom_children_after_stmts) (struct dom_walk_data *,
 					  basic_block, tree);
 
+  /* Global data for a walk through the dominator tree.  */
+  void *global_data;
+
   /* Stack of any data we need to keep on a per-block basis.  */
   varray_type block_data_stack;
 };

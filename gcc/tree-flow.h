@@ -47,6 +47,29 @@ struct tree_ann_common_d GTY(())
   enum tree_ann_type type;
 };
 
+/* It is advantageous to avoid things like life analysis for variables which
+   do not need PHI nodes.  This enum describes whether or not a particular
+   variable may need a PHI node.  */
+
+enum need_phi_state {
+  /* This is the default.  If we are still in this state after finding
+     all the definition and use sites, then we will assume the variable
+     needs PHI nodes.  This is probably an overly conservative assumption.  */
+  NEED_PHI_STATE_UNKNOWN,
+
+  /* This state indicates that we have seen one or more sets of the 
+     variable in a single basic block and that the sets dominate all
+     uses seen so far.  If after finding all definition and use sites
+     we are still in this state, then the variable does not need any
+     PHI nodes.  */
+  NEED_PHI_STATE_NO,
+
+  /* This state indicates that we have either seen multiple definitions of
+     the variable in multiple blocks, or that we encountered a use in a
+     block that was not dominated by the block containing the set(s) of
+     this variable.  This variable is assumed to need PHI nodes.  */
+  NEED_PHI_STATE_MAYBE
+};
 
 struct var_ann_d GTY(())
 {
@@ -100,6 +123,11 @@ struct var_ann_d GTY(())
      VA_ARG_EXPR both reads and modifies its argument and it can't be
      modified by optimizations.  */
   unsigned is_in_va_arg_expr : 1;
+
+  /* This field indicates whether or not the variable may need PHI nodes.
+     See the enum's definition for more detailed information about the
+     states.  */
+  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
   /* A VAR_DECL used to associated pointers with the memory location that
      they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
