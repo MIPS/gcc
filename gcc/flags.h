@@ -727,6 +727,9 @@ extern int flag_tree_ter;
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
 
+/* Enable loop copy headers on tree-ssa.  */
+extern int flag_tree_ch;
+
 /* Enable loop optimization on tree-ssa.  */
 extern int flag_tree_loop;
 

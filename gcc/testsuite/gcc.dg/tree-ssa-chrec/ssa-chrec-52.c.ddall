@@ -1,23 +1,43 @@
+
+;; Function foo (foo)
+
+
+
+  Scalar evolution functions: 
+
+T.1
+  ->  {18, +, 1}_1
+
+
+
+  Scalar evolution functions: 
+
+x
+  ->  {16, +, 1}_1
+
+T.3
+  ->  {15, +, 1}_1
+
 (Data Ref 0: 
-  stmt: T.2_10 = c[T.1_9];
-  ref: c[T.1_9];
+  stmt: T.2_7 = c[T.1_6];
+  ref: c[T.1_6];
   base_name: c
   Access function 0: {18, +, 1}_1
 )
 (Data Ref 1: 
-  stmt: T.4_12 = c[T.3_11];
-  ref: c[T.3_11];
+  stmt: T.4_9 = c[T.3_8];
+  ref: c[T.3_8];
   base_name: c
   Access function 0: {15, +, 1}_1
 )
 (Data Ref 2: 
-  stmt: c[x_8] = T.5_13;
-  ref: c[x_8];
+  stmt: c[x_5] = T.5_10;
+  ref: c[x_5];
   base_name: c
   Access function 0: {16, +, 1}_1
 )
 (Data Ref 3: 
-  stmt: T.6_6 = c[1];
+  stmt: T.6_4 = c[1];
   ref: c[1];
   base_name: c
   Access function 0: 1

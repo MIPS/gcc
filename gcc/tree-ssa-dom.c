@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "timevar.h"
+#include "cfgloop.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
@@ -321,6 +322,10 @@ tree_ssa_dominator_optimize (void)
   edge e;
   struct dom_walk_data walk_data;
   tree phi;
+  struct loops* loops;
+
+  /* Compute the natural loops.  */
+  loops = loop_optimizer_init (NULL);
 
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transforming natural loop into irreducible
@@ -579,6 +584,8 @@ tree_ssa_dominator_optimize (void)
 
   /* Remove any unreachable blocks left behind and linearize the CFG.  */
   cleanup_tree_cfg ();
+
+  loop_optimizer_finalize (loops, NULL);
 
   /* Debugging dumps.  */
   if (tree_dump_file && (tree_dump_flags & TDF_STATS))
@@ -1644,7 +1651,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
 	{
 	  tree rhs_def_operand;
 
@@ -1673,7 +1681,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
+	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code
+	  && loop_of_stmt (rhs_def_stmt) == loop_of_stmt (stmt))
 	{
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);

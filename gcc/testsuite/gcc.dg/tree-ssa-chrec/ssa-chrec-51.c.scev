@@ -1,12 +1,15 @@
 
+;; Function foo (foo)
+
+
 
   Scalar evolution functions: 
 
 temp_var
-  ->  i_1 + j_4;
+  ->  i_1 + j_5;
 
 i
-  ->  {0, +, j_4 + 2}_1
+  ->  {0, +, j_5 + 2}_1
 
 
 
@@ -16,4 +19,9 @@ j
   ->  not_analyzed_yet
 
 
+
+  Scalar evolution functions: 
+
+j
+  ->  not_analyzed_yet
 

@@ -217,6 +217,12 @@ gate_loop (void)
   return flag_tree_loop != 0;
 }
 
+static bool
+gate_ch (void)
+{
+  return flag_tree_ch != 0;
+}
+
 struct tree_opt_pass pass_loop = 
 {
   "loop",				/* name */
@@ -236,7 +242,7 @@ struct tree_opt_pass pass_loop =
 struct tree_opt_pass pass_ch = 
 {
   "ch",					/* name */
-  gate_loop,				/* gate */
+  gate_ch,				/* gate */
   copy_loop_headers,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

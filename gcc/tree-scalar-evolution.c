@@ -157,11 +157,14 @@ static void matched_a_wrap_around (enum tree_code, unsigned, tree, tree, tree,
 static void matched_an_arithmetic_wrap_around (unsigned, tree, tree, 
 					       tree *, tree *);
 static inline bool evolution_of_phi_already_analyzed_p (tree);
+static tree symbolically_analyze (tree);
 static void scev_analyze_modify_expr (unsigned, tree, tree, tree, 
 				      tree *, tree *);
-static void scev_follow_ssa_edge       (tree, tree);
-static tree compute_value_on_exit_of_loop (tree);
-static void compute_overall_effect_of_inner_loop (tree, unsigned);
+static void scev_follow_ssa_edge (tree, tree);
+static void scev_follow_ssa_edge_same_loop (tree, tree);
+static void scev_analyze_inner_loop_phi (tree, tree)
+static void scev_follow_ssa_edge_inner_loop (tree, tree);
+static tree compute_overall_effect_of_inner_loop (tree, unsigned);
 static inline bool no_ssa_name_in_arguments_of_phi_node (tree);
 static tree get_loop_phi_node_for_variable (struct loop *, tree);
 
@@ -269,6 +272,18 @@ loop_is_included_in (unsigned a, unsigned b)
 {
   if (a == b)
     return true;
+  
+  return flow_loop_nested_p (loop_from_num (scev_loops, b),
+			     loop_from_num (scev_loops, a));
+}
+
+/* Determines whether loop A is strictly contained in loop B.  */
+
+static bool
+loop_is_strictly_included_in (unsigned a, unsigned b)
+{
+  if (a == b)
+    return false;
   
   return flow_loop_nested_p (loop_from_num (scev_loops, b),
 			     loop_from_num (scev_loops, a));
@@ -414,10 +429,23 @@ analyze_evolution (tree version_to_analyze)
 	 "updated" at every iteration of the loop.  */
       if (loop_phi_node)
 	{
-	  VARRAY_TREE_INIT (already_visited, 5, "already_visited");
+	  /* Avoid recursions when there are circular phi nodes, as in
+	     gcc/gcc/calls.c:expand_call, where we have the following phis:
+	     
+	     "normal_call_insns_8 = PHI <0B(380), normal_call_insns_9(782)>;
+	     ...
+	     normal_call_insns_9 = PHI <normal_call_insns_8(773), T.1529_2087(777), T.1529_2087(778)>;"
+	  */
+	  if (PHI_MARKED (loop_phi_node) == 1)
+	    return;
+	  
+	  else
+	    PHI_MARKED (loop_phi_node) = 1;
+	  
 	  analyze_initial_condition (loop_phi_node);
 	  analyze_evolution_in_loop (loop_phi_node);
-	  varray_clear (already_visited);
+	  
+	  PHI_MARKED (loop_phi_node) = 0;
 	}
 
       /* Otherwise, the variable is a temporary (such as those
@@ -641,43 +669,49 @@ analyze_evolution_in_loop (tree loop_phi_node)
 	  
 	  /* Select the edges that enter the loop body.  */
 	  if (inner_chain != NULL_TREE 
-	      && TREE_CODE (inner_chain) != NOP_EXPR
-	      && (loop_depth (loop_of_stmt (inner_chain))
-		  >= loop_depth (loop_of_stmt (loop_phi_node))))
+	      && TREE_CODE (inner_chain) != NOP_EXPR)
 	    {
-	      if (SSA_NAME_VAR (arg) 
-		  == SSA_NAME_VAR (PHI_RESULT (loop_phi_node)))
-		scev_follow_ssa_edge (inner_chain, loop_phi_node);
-	      
-	      else
+	      if (loop_of_stmt (inner_chain) == loop_of_stmt (loop_phi_node))
 		{
-		  /* The phi node is under the form: 
-		     "a = phi (..., t, ...)", where t has already 
-		     been analyzed symbolically. 
-		     testsuite/.../ssa-chrec-36.c  */
-		  tree evolution_function, effect_after_execution;
-		  unsigned loop_nb = loop_num (loop_of_stmt (loop_phi_node));
+		  if (SSA_NAME_VAR (arg) 
+		      == SSA_NAME_VAR (PHI_RESULT (loop_phi_node)))
+		    scev_follow_ssa_edge_same_loop (inner_chain, loop_phi_node);
 		  
-		  scev_analyze_modify_expr 
-		    (loop_nb,
-		     PHI_RESULT (loop_phi_node),
-		     arg,
-		     loop_phi_node, 
-		     &evolution_function, 
-		     &effect_after_execution);
-		  
-		  /* Set the evolution_function, but don't update the
-		     effect_after_execution, because the loop-phi-node
-		     has the right initial condition already set, and
-		     its value on exit of the loop is computed after
-		     the computation of the number of iterations.  */
-		  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), 
-			    evolution_function);
+		  else
+		    {
+		      /* The phi node is under the form: 
+			 "a = phi (..., t, ...)", where t has already 
+			 been analyzed symbolically. 
+			 testsuite/.../ssa-chrec-36.c  */
+		      tree evolution_function, effect_after_execution;
+		      unsigned loop_nb = loop_num (loop_of_stmt (loop_phi_node));
+		      
+		      scev_analyze_modify_expr 
+			(loop_nb,
+			 PHI_RESULT (loop_phi_node),
+			 arg,
+			 loop_phi_node, 
+			 &evolution_function, 
+			 &effect_after_execution);
+		      
+		      /* Set the evolution_function, but don't update the
+			 effect_after_execution, because the loop-phi-node
+			 has the right initial condition already set, and
+			 its value on exit of the loop is computed after
+			 the computation of the number of iterations.  */
+		      set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), 
+				evolution_function);
+		    }
 		}
+	      
+	      else if (loop_is_included_in 
+		       (loop_num (loop_of_stmt (inner_chain)),
+			loop_num (loop_of_stmt (loop_phi_node))))
+		scev_follow_ssa_edge_inner_loop (inner_chain, loop_phi_node);
 	    }
 	}
     }
-  
+
   DBG_S (fprintf (stderr, ")\n"));
 }
 
@@ -1078,9 +1112,8 @@ matched_an_increment (unsigned loop_nb,
   
   /* Recursively construct the SSA path.  */
   scev_follow_ssa_edge (upper_chain, halting_phi);
-  
+    
   /* Analyze the assignment on the return walk.  */
-  
   chrec_before = get_scev (0, var);
   if (chrec_should_remain_symbolic (chrec_before))
     /* KEEP_IT_SYMBOLIC.  */
@@ -1129,8 +1162,8 @@ matched_an_exponentiation (unsigned loop_nb,
   
   /* Recursively construct the SSA path.  */
   scev_follow_ssa_edge (upper_chain, halting_phi);
-  /* Then, analyze the assignment on the return walk.  */
   
+  /* Analyze the assignment on the return walk.  */
   chrec_before = get_scev (0, var);
   if (chrec_should_remain_symbolic (chrec_before))
     /* KEEP_IT_SYMBOLIC.  */
@@ -1254,20 +1287,38 @@ matched_an_arithmetic_wrap_around (unsigned loop_nb,
     (loop_nb, chrec_before, chrec_top);
 }
 
-/* Given a loop-phi-node RDEF, determines whether its evolution has
-   already been analyzed.  */
+/* Given a loop phi-node, determines whether its evolution has already
+   been analyzed.  */
 
 static inline bool
-evolution_of_phi_already_analyzed_p (tree rdef)
+evolution_of_phi_already_analyzed_p (tree loop_phi)
 {
   /* Another way to check this property would be: "if all the edges
-     that enter the loop have been analyzed, then the loop-phi-node
-     has already been analyzed".  */
+     that point to definitions contained in the loop have been
+     analyzed, then the loop phi-node has already been analyzed".  */
   
   return (evolution_part_in_loop_num 
-	  (get_scev (0, SSA_NAME_VAR (PHI_RESULT (rdef))), 
-	   loop_num (loop_of_stmt (rdef)))
+	  (get_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi))), 
+	   loop_num (loop_of_stmt (loop_phi)))
 	  == NULL_TREE);
+}
+
+/* Analyze VERSION and keep the reconstructed tree under a symbolic
+   form.  */
+
+static tree
+symbolically_analyze (tree version)
+{
+  tree def = SSA_NAME_DEF_STMT (version);
+  
+  switch (TREE_CODE (def))
+    {
+    case MODIFY_EXPR:
+      return TREE_OPERAND (def, 1);
+      
+    default:
+      return version;
+    }
 }
 
 /* Helper function for analyzing a modify expression "OPND0 = OPND1"
@@ -1340,20 +1391,40 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	  chrec1 = evolution_at_version (loop_nb, opnd1);
 	  init_cond = initial_condition (chrec1);
 	  
-	  /* If VAR occurs in the initial condition of opnd1
-	     then the analyzed modify expression is not a
-	     wrap-around: it is just an expression that has
-	     been gimplified using temporary variables.  */
-	  if (expression_contains_variable_p 
-	      (init_cond, SSA_NAME_VAR (opnd0)))
-	    analyze_non_gimple_initial_condition 
-	      (loop_nb, opnd0, chrec_before, 
-	       chrec1, init_cond,
-	       evolution_function, effect_after_execution);
-	  
-	  else
-	    {
-	      /* FIXME wrap_around.  */
+ 	  /* When the evolution of opnd1 is not yet known, we have to
+ 	     analyze it before going further.  */
+ 	  if (chrec1 == opnd1)
+ 	    {
+ 	      /* testsuite/.../ssa-chrec-53.c.  */
+ 	      init_cond = symbolically_analyze (opnd1);
+ 	      chrec1 = replace_initial_condition (chrec_before, init_cond);
+ 	      
+ 	      if (expression_contains_variable_p 
+ 		  (init_cond, SSA_NAME_VAR (opnd0)))
+ 		analyze_non_gimple_initial_condition
+ 		  (loop_nb, opnd0, chrec_before, chrec1, init_cond, 
+ 		   evolution_function, effect_after_execution);
+	      else
+		{
+		  /* FIXME wrap_around.  */
+		  *effect_after_execution = chrec1;
+		  *evolution_function = reset_evolution_in_loop 
+		    (loop_nb, chrec_before, chrec_top);
+		}
+ 	    }
+ 	  
+ 	  /* If VAR occurs in the initial condition of opnd1 then the
+ 	     analyzed modify expression is not a wrap-around: it is
+ 	     just an expression that has been gimplified using
+ 	     temporary variables.  */
+ 	  else if (expression_contains_variable_p 
+ 		   (init_cond, SSA_NAME_VAR (opnd0)))
+  	    analyze_non_gimple_initial_condition 
+ 	      (loop_nb, opnd0, chrec_before, chrec1, init_cond,
+  	       evolution_function, effect_after_execution);
+  	  else
+  	    {
+  	      /* FIXME wrap_around.  */
 	      *effect_after_execution = chrec1;
 	      *evolution_function = reset_evolution_in_loop 
 		(loop_nb, chrec_before, chrec_top);
@@ -1455,9 +1526,8 @@ scev_analyze_modify_expr (unsigned loop_nb,
 		      
 		/* Recursively construct the SSA path.  */
 		scev_follow_ssa_edge (upper_chain, halting_phi);
-		      
+		
 		/* Analyze the assignment on the return walk.  */
-		      
 		chrec_before = get_scev (0, var);
 		if (chrec_should_remain_symbolic (chrec_before))
 		  /* KEEP_IT_SYMBOLIC.  */
@@ -1619,24 +1689,39 @@ scev_analyze_modify_expr (unsigned loop_nb,
   DBG_S (fprintf (stderr, ")\n"));
 }
 
-/* This recursive function follows an SSA edge from a loop phi node to
-   itself, constructing a path that is analyzed on the return
-   walk.  */
+/* Helper function.  */
 
 static void
 scev_follow_ssa_edge (tree rdef, 
 		      tree halting_phi)
 {
-  unsigned rdef_num, rdef_depth;
-  unsigned halting_num, halting_depth;
-  
   if (rdef == NULL_TREE 
       || TREE_CODE (rdef) == NOP_EXPR
       /* End the recursion when the halting_phi node is reached.  */
-      || rdef == halting_phi
-      /* Avoid infinite recursion on bizarre cases.  */
-      || node_already_visited_by_ssa_path (rdef))
+      || rdef == halting_phi)
     return;
+  
+  /* Dispatch the call to the right function handler.  */
+  if (loop_of_stmt (rdef) == loop_of_stmt (halting_phi))
+    scev_follow_ssa_edge_same_loop (rdef, halting_phi);
+  
+  else 
+    scev_follow_ssa_edge_inner_loop (rdef, halting_phi);
+}
+
+/* This recursive function follows an SSA edge from a loop phi node to
+   itself, constructing a path that is analyzed on the return walk.
+   This function is called for each version of a variable in the
+   current analyzed loop.  The number of calls to this function is
+   equal to the number of versions of the variable in the loop of the
+   halting_phi, excluding all the versions defined in inner loops.  */
+
+static void
+scev_follow_ssa_edge_same_loop (tree rdef, 
+				tree halting_phi)
+{
+  unsigned rdef_num, rdef_depth;
+  unsigned halting_num, halting_depth;
   
   rdef_num = loop_num (loop_of_stmt (rdef));
   rdef_depth = loop_depth (loop_of_stmt (rdef));
@@ -1650,99 +1735,18 @@ scev_follow_ssa_edge (tree rdef,
   switch (TREE_CODE (rdef))
     {
     case PHI_NODE:
-      /* Determine whether the PHI_NODE is a loop phi or a conditional
-	 phi.  */
-      if (rdef_depth > halting_depth)
-	{
-	  /* This is a inner-loop-phi-node: the rdef is in an inner loop.
-	     
-	     First, follow the upper chain for determining the initial
-	     conditions from the analysis of the outer loop.  Then
-	     analyze the evolution in the inner loop.  */
-	  
-	  int i;
-	  
-	  for (i = 0; i < PHI_NUM_ARGS (rdef); i++)
-	    {
-	      tree arg = PHI_ARG_DEF (rdef, i);
-	      tree upper_branch;
-	      unsigned upper_depth, upper_num;
-	      
-	      if (TREE_CODE (arg) == INTEGER_CST)
-		{
-		  set_scev (rdef_num, PHI_RESULT (rdef), arg);
-		  break;
-		}
-	      
-	      upper_branch = SSA_NAME_DEF_STMT (arg);
-	      upper_depth = loop_depth (loop_of_stmt (upper_branch));
-	      upper_num = loop_num (loop_of_stmt (upper_branch));
-	      
-	      if (upper_depth < rdef_depth)
-		{
-		  /* This is an out of analyzed-loop edge.  */
-		  tree res;
-		  
-		  switch (TREE_CODE (upper_branch))
-		    {
-		    case MODIFY_EXPR:
-		      scev_follow_ssa_edge (upper_branch, halting_phi);
-		      res = evolution_at_version 
-			(upper_num, TREE_OPERAND (upper_branch, 0));
-		      break;
-		      
-		    case PHI_NODE:
-		      scev_follow_ssa_edge (upper_branch, halting_phi);
-		      res = evolution_at_version 
-			(upper_num, PHI_RESULT (upper_branch));
-		      break;
-		      
-		    default:
-		      debug_tree (rdef);
-		      res = chrec_top;
-		    }
-		  
-		  set_scev (rdef_num, PHI_RESULT (rdef), 
-			    initial_condition (res));
-		}
-	    }
-	  
-	  /* Avoid the analysis of the inner loop when it has already
-	     been analyzed: testsuite/.../ssa-chrec-01.c  */
-	  if (evolution_of_phi_already_analyzed_p (rdef))
-	    analyze_evolution_in_loop (rdef);
-	  
-	  /* After having determined the evolution in the inner loop,
-	     the analyzer computes the overall effect of the inner
-	     loop on the analyzed variable.
-	     
-	     Example:  
-	     
-	     | loop 10 times
-	     |   i = i + 2
-	     | endloop
-	     
-	     This loop has the same effect as:
-	     
-	     | i = i + 20
-	  */
-	  compute_overall_effect_of_inner_loop (rdef, halting_num);
-	}
-      
-      else
-	/* RDEF is a CONDITION-phi-node.
-	   
-	   Follow the branches, and record their evolutions.  Finally,
-	   merge the collected information and set the approximation
-	   to the main variable.
-	   
-	   FIXME: It is possible to improve the analysis speed by not
-	   following the whole chain to the loop-phi-node.  A better
-	   solution is to analyze the evolution only on the portions
-	   of paths that differ, ie. do not analyze n times outside
-	   the if-body.  */
-	merge_branches_of_condition_phi_node_in_loop (rdef, halting_phi);
-      
+      /* RDEF is a CONDITION-phi-node.
+	 
+	 Follow the branches, and record their evolutions.  Finally,
+	 merge the collected information and set the approximation to
+	 the main variable.
+	 
+	 FIXME: It is possible to improve the analysis speed by not
+	 following the whole chain to the loop-phi-node.  A better
+	 solution is to analyze the evolution only on the portions of
+	 paths that differ, ie. do not analyze n times outside the
+	 if-body.  */
+      merge_branches_of_condition_phi_node_in_loop (rdef, halting_phi);
       break;
       
     case MODIFY_EXPR:
@@ -1773,67 +1777,152 @@ scev_follow_ssa_edge (tree rdef,
     }
 }
 
-/* Compute the value of loop_phi_node on exit of the loop.  */
+/* Given an inner loop phi-node, follow the upper chain for
+   determining the initial conditions from the analysis of the outer
+   loop.  Then analyze the evolution in the inner loop.  */
 
-static tree
-compute_value_on_exit_of_loop (tree loop_phi_node)
+static void
+scev_analyze_inner_loop_phi (tree inner_loop_phi, 
+			     tree halting_phi)
 {
-  tree exit_value, nb_iter;
+  int i;
   
-  DBG_S (fprintf (stderr, "(compute_value_on_exit_of_loop \n"));
+  if (inner_loop_phi == NULL_TREE)
+    return;
   
-  nb_iter = number_of_iterations_in_loop (loop_of_stmt (loop_phi_node));
-  if (nb_iter == chrec_top)
-    exit_value = chrec_top;
-  
-  else
+  for (i = 0; i < PHI_NUM_ARGS (inner_loop_phi); i++)
     {
-      tree overall_effect;
-      tree evolution_fn;
-		  
-      /* An example: given the evolution 
-	 "{{22, +, 4}_1, +, [1,3]}_2", 
-	 
-	 and the fact that the loop 2 runs exactly 6 times, the
-	 overall effect is obtained by evaluating:
-	 
-	 "({{22, +, 4}_1, +, [1,3]}_2 - initial_conditions) (2, 6)"
-	 "({{22, +, 4}_1, +, [1,3]}_2 - 22) (2, 6)"
-	 "{{0, +, 4}_1, +, [1,3]}_2 (2, 6)"
-	 "[6,18]".
-      */
+      tree arg = PHI_ARG_DEF (inner_loop_phi, i);
+      tree upper_branch;
       
-      evolution_fn = get_scev 
-	(0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
+      if (TREE_CODE (arg) == INTEGER_CST)
+	{
+	  set_scev (loop_num (loop_of_stmt (inner_loop_phi)), 
+		    PHI_RESULT (inner_loop_phi), arg);
+	  break;
+	}
       
-      overall_effect = chrec_apply
-	(loop_num (loop_of_stmt (loop_phi_node)), 
-	 update_initial_condition_to_origin
-	 (evolution_function_in_loop_num 
-	  (evolution_fn, loop_num (loop_of_stmt (loop_phi_node)))),
-	 nb_iter);
+      upper_branch = SSA_NAME_DEF_STMT (arg);
+      if (TREE_CODE (upper_branch) == NOP_EXPR)
+	continue;
       
-      /* On exit of the loop, the value of the variable is equal to
-	 the sum of its initial condition with the loop's overall
-	 effect.  */
-      exit_value = chrec_fold_plus 
-	(get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
-		   PHI_RESULT (loop_phi_node)), 
-	 overall_effect);
-      
-      /* A loop phi node has two values: 
-	 
-         - one exposed to the statements in the inner loop,
-	 
-	 - the other that is seen by the statements after the loop.
-	 
-	 This updates the exit value of the loop's phi node.  */
-      set_scev_outer_value (PHI_RESULT (loop_phi_node), 
-			    exit_value);
+      if (loop_is_strictly_included_in 
+	  (loop_num (loop_of_stmt (inner_loop_phi)),
+	   loop_num (loop_of_stmt (upper_branch))))
+	{
+	  tree res;
+	  
+	  switch (TREE_CODE (upper_branch))
+	    {
+	    case MODIFY_EXPR:
+	      scev_follow_ssa_edge (upper_branch, halting_phi);
+	      res = evolution_at_version 
+		(loop_num (loop_of_stmt (upper_branch)), 
+		 TREE_OPERAND (upper_branch, 0));
+	      break;
+	      
+	    case PHI_NODE:
+	      scev_follow_ssa_edge (upper_branch, halting_phi);
+	      res = evolution_at_version 
+		(loop_num (loop_of_stmt (upper_branch)), 
+		 PHI_RESULT (upper_branch));
+	      break;
+	      
+	    default:
+	      debug_tree (inner_loop_phi);
+	      res = chrec_top;
+	    }
+	  
+	  set_scev (loop_num (loop_of_stmt (inner_loop_phi)),
+		    PHI_RESULT (inner_loop_phi), 
+		    initial_condition (res));
+	}
     }
-  
-  DBG_S (fprintf (stderr, ")\n"));
-  return exit_value;
+	  
+  /* Avoid the analysis of the inner loop when it has already
+     been analyzed: testsuite/.../ssa-chrec-01.c  */
+  if (evolution_of_phi_already_analyzed_p (inner_loop_phi))
+    analyze_evolution_in_loop (inner_loop_phi);
+}
+
+/* This recursive function follows an SSA edge from a loop phi node to
+   itself, constructing a path that is analyzed on the return
+   walk.  */
+
+static void
+scev_follow_ssa_edge_inner_loop (tree rdef, 
+				 tree halting_phi)
+{
+  /* We have to deal with only three cases in an update expression: 
+     - an inner loop PHI_NODE, 
+     - a conditional PHI_NODE, 
+     - a MODIFY_EXPR.  */
+  switch (TREE_CODE (rdef))
+    {
+    case PHI_NODE:
+      /* This is a inner-loop-phi-node.  */
+      scev_analyze_inner_loop_phi (rdef, halting_phi);
+      
+      /* After having determined the evolution in the inner loop,
+	 the analyzer computes the overall effect of the inner
+	 loop on the analyzed variable.
+	 
+	 Example:  
+	 
+	 | loop 10 times
+	 |   i = i + 2
+	 | endloop
+	 
+	 This loop has the same effect as:
+	 
+	 | i = i + 20
+      */
+      compute_overall_effect_of_inner_loop 
+	(PHI_RESULT (rdef), 
+	 loop_num (loop_of_stmt (halting_phi)));
+      break;
+            
+    case MODIFY_EXPR:
+      {
+	/* This is an inner loop modify-expression.  The first step
+	   finds the inner loop phi-node and follows its initial
+	   condition branch.  Then the evolution of the inner loop is
+	   computed, and finally the overall effect of this inner loop
+	   on the analyzed variable is computed.  */
+	tree loop_phi_node = get_loop_phi_node_for_variable 
+	  (loop_of_stmt (rdef), SSA_NAME_VAR (TREE_OPERAND (rdef, 0)));
+	
+	if (loop_phi_node != NULL_TREE)
+	  {
+	    scev_analyze_inner_loop_phi (loop_phi_node, halting_phi);
+	    compute_overall_effect_of_inner_loop 
+	      (TREE_OPERAND (rdef, 0), 
+	       loop_num (loop_of_stmt (halting_phi)));
+	  }
+	
+	else
+	  {
+	    /* This modify expression is in a loop, but does not have
+	       a loop phi node.  It's a quite strange case, don't know
+	       if this case occurs in the SSA IR, but if it happens, I
+	       think that this have to be solved in the same time as
+	       the FIXME wrap_around.  */
+	    tree var = SSA_NAME_VAR (TREE_OPERAND (rdef, 0));
+	    set_scev (0, var, 
+		      reset_evolution_in_loop 
+		      (loop_num (loop_of_stmt (halting_phi)), 
+		       get_scev (0, var), chrec_top));
+	  }
+      	break;
+      }
+      
+    default:
+      /* At this level of abstraction, the program is just a set of
+	 MODIFY_EXPRs and PHI_NODEs.  In principle there is no other
+	 node to be handled.  */
+      abort ();
+      break;
+    }
 }
 
 /* Compute the overall effect of a loop on a variable. 
@@ -1841,15 +1930,19 @@ compute_value_on_exit_of_loop (tree loop_phi_node)
    2. compute the number of iterations in the loop,
    3. compute the value of the variable after crossing the loop.  */
 
-static void
-compute_overall_effect_of_inner_loop (tree loop_phi_node, 
+static tree 
+compute_overall_effect_of_inner_loop (tree version, 
 				      unsigned halting_num)
 {
+  tree exit_value;
   tree nb_iter;
+  struct loop *loop = loop_of_stmt (SSA_NAME_DEF_STMT (version));
+  unsigned loop_nb = loop_num (loop);
+  tree var = SSA_NAME_VAR (version);
   
   DBG_S (fprintf (stderr, "(compute_overall_effect_of_inner_loop \n"));
   
-  nb_iter = number_of_iterations_in_loop (loop_of_stmt (loop_phi_node));
+  nb_iter = number_of_iterations_in_loop (loop);
   if (nb_iter == chrec_top)
     {
       /* If the number of iterations is not known, set the
@@ -1878,21 +1971,21 @@ compute_overall_effect_of_inner_loop (tree loop_phi_node,
 	 {5, +, [-oo, +oo]}_1.
       */
       if (halting_num != 0)
-	{
-	  tree snv = SSA_NAME_VAR (PHI_RESULT (loop_phi_node));
-	  set_scev (0, snv, 
-		    reset_evolution_in_loop (halting_num, 
-					     get_scev (0, snv),
-					     chrec_top));
-	}
+	set_scev (0, var, 
+		  reset_evolution_in_loop (halting_num, 
+					   get_scev (0, var),
+					   chrec_top));
+      
+      exit_value = chrec_top;
     }
   
   else
     {
       tree overall_effect;
-      tree new_evol, exit_value;
+      tree new_evol;
       tree evolution_fn;
-		  
+      tree loop_phi_node;
+      
       /* An example: given the evolution 
 	 "{{22, +, 4}_1, +, [1,3]}_2", 
 	 
@@ -1910,33 +2003,37 @@ compute_overall_effect_of_inner_loop (tree loop_phi_node,
 	 function is: "{{22, +, [10,22]}_1, +, [1,3]}_2".
       */
       
-      evolution_fn = get_scev 
-	(0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)));
+      evolution_fn = get_scev (0, var);
       
       overall_effect = chrec_apply
-	(loop_num (loop_of_stmt (loop_phi_node)), 
-	 update_initial_condition_to_origin
+	(loop_nb, update_initial_condition_to_origin
 	 (evolution_function_in_loop_num 
-	  (evolution_fn, loop_num (loop_of_stmt (loop_phi_node)))),
+	  (evolution_fn, loop_nb)),
 	 nb_iter);
       
       /* On exit of the loop, the value of the variable is equal to
-	 the sum of its initial condition with the loop's overall
-	 effect.  */
-      exit_value = chrec_fold_plus 
-	(get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
-		   PHI_RESULT (loop_phi_node)), 
-	 overall_effect);
+	 the sum of its initial condition when entering the loop
+	 (ie. the initial condition of the loop phi-node), with the
+	 loop's overall effect.  */
+      loop_phi_node = get_loop_phi_node_for_variable 
+	(loop_of_stmt (SSA_NAME_DEF_STMT (version)), 
+	 SSA_NAME_VAR (version));
       
-      /* A loop phi node has two values: 
+      if (loop_phi_node == NULL_TREE)
+	exit_value = chrec_top;
+      
+      else
+	exit_value = chrec_fold_plus 
+	  (get_scev (loop_nb, PHI_RESULT (loop_phi_node)), overall_effect);
+      
+      /* A VERSION has two values: 
 	 
          - one exposed to the statements in the inner loop,
 	 
 	 - the other that is seen by the statements after the loop.
 	 
 	 This updates the exit value of the loop's phi node.  */
-      set_scev_outer_value (PHI_RESULT (loop_phi_node), 
-			    exit_value);
+      set_scev_outer_value (version, exit_value);
       
       /* We're not interested in the evolution in the outermost scope:
 	 loop 0 represents the analyzed function.  Maybe in an
@@ -1945,36 +2042,30 @@ compute_overall_effect_of_inner_loop (tree loop_phi_node,
 	 of loop indexing.  */
       if (halting_num != 0)
 	{
+	  unsigned out_loop_nb = loop_num (outer_loop (loop));
+	  
 	  if (TREE_CODE (overall_effect) == EXPONENTIAL_CHREC)
 	    /* testsuite/.../ssa-chrec-41.c.  */
-	    new_evol = multiply_evolution
-	      (loop_num (outer_loop (loop_of_stmt (loop_phi_node))),
-	       get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
-			 SSA_NAME_VAR 
-			 (PHI_RESULT (loop_phi_node))), 
-	       overall_effect);
-		      
+	    new_evol = multiply_evolution (out_loop_nb, 
+					   get_scev (loop_nb, var), 
+					   overall_effect);
+	  
 	  else 
 	    {
-	      unsigned loop_nb = loop_num 
-		(outer_loop (loop_of_stmt (loop_phi_node)));
-
 	      overall_effect = select_outer_and_current_evolutions 
-		(loop_nb, overall_effect);
+		(out_loop_nb, overall_effect);
 	      
-	      new_evol = add_to_evolution 
-		(loop_nb,
-		 get_scev (loop_num (loop_of_stmt (loop_phi_node)), 
-			   SSA_NAME_VAR
-			   (PHI_RESULT (loop_phi_node))), 
-		 overall_effect);
+	      new_evol = add_to_evolution (out_loop_nb,
+					   get_scev (loop_nb, var), 
+					   overall_effect);
 	    }
 	  
-	  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)),
-		    new_evol);
+	  set_scev (0, var, new_evol);
 	}
     }
+  
   DBG_S (fprintf (stderr, ")\n"));
+  return exit_value;
 }
 
 /* Determines whether the PHI_NODE has SSA_NAMEs in its arguments.  */
@@ -2105,7 +2196,6 @@ set_scev (unsigned loop_nb,
   
   MI_LOOP_NUM (var_info) = loop_nb;
   MI_INNER_LOOPS_CHREC (var_info) = chrec;
-  MI_OUTER_LOOPS_CHREC (var_info) = chrec;
 }
 
 /* Associate the value CHREC exposed to the statements in the inner
@@ -2170,7 +2260,8 @@ get_scev (unsigned loop_nb,
   struct scev_info_str *var_info;
   tree res = NULL_TREE;
   
-  DBG_S (fprintf (stderr, "(get_scev \n"));
+  DBG_S (fprintf (stderr, "(get_scev \n");
+	 fprintf (stderr, "  (loop_nb = %d)\n", loop_nb));
   
   switch (TREE_CODE (var))
     {
@@ -2196,7 +2287,7 @@ get_scev (unsigned loop_nb,
 	  res = MI_OUTER_LOOPS_CHREC (var_info);
 	  
 	  if (res == chrec_not_analyzed_yet)
-	    res = compute_value_on_exit_of_loop (SSA_NAME_DEF_STMT (var));
+	    res = compute_overall_effect_of_inner_loop (var, 0);
 	}
       
       break;
@@ -2288,7 +2379,7 @@ merge_evolutions (tree original_chrec,
       /* In the case where there is a single branch, there is no need
 	 to merge evolution functions.  */
       if (nb_branches == 1) 
-	res = VARRAY_TREE (branch_chrecs, 0);
+	res = chrec_merge (original_chrec, VARRAY_TREE (branch_chrecs, 0));
       
       /* Otherwise merge the different branches.  */
       else
@@ -2320,6 +2411,9 @@ merge_evolutions (tree original_chrec,
   	}
     }
   
+  else
+    res = original_chrec;
+  
   DBG_S (fprintf (stderr, "  (evolution_after_merge = ");
 	 debug_generic_expr (res);
 	 fprintf (stderr, "  )\n");
@@ -2338,6 +2432,12 @@ merge_branches_of_condition_phi_node_in_loop (tree condition_phi,
   int i;
   tree original_chrec, res;
   varray_type branch_chrecs;
+
+  if (PHI_MARKED (condition_phi) == 1)
+    return;
+  
+  else
+    PHI_MARKED (condition_phi) = 1;
   
   VARRAY_TREE_INIT (branch_chrecs, 2, "branch_chrecs");
   original_chrec = get_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)));
@@ -2385,31 +2485,40 @@ merge_branches_of_condition_phi_node_in_loop (tree condition_phi,
 				       res));
   
   varray_clear (branch_chrecs);
+  PHI_MARKED (condition_phi) = 0;
 }
 
-/* This function merges the branches of a condition phi node whose
-   arguments are already analyzed.  */
+/* This function merges the branches of a condition phi node,
+   contained in the outermost loop, and whose arguments are already
+   analyzed.  */
 
 static void
 merge_branches_of_condition_phi_node (tree condition_phi)
 {
   int i;
-  tree res;
+  tree res, var, chrec;
   varray_type branch_chrecs;
   int loop_nb = loop_num (loop_of_stmt (condition_phi));
   
   VARRAY_TREE_INIT (branch_chrecs, 2, "branch_chrecs");
   
   for (i = 1; i < PHI_NUM_ARGS (condition_phi); i++)
-    VARRAY_PUSH_TREE 
-      (branch_chrecs, evolution_at_version 
-       (loop_nb, PHI_ARG_DEF (condition_phi, i)));
+    {
+      chrec = get_scev (loop_nb, PHI_ARG_DEF (condition_phi, i));
+      if (chrec != chrec_not_analyzed_yet)
+	VARRAY_PUSH_TREE (branch_chrecs, chrec);
+      else
+	VARRAY_PUSH_TREE (branch_chrecs, PHI_ARG_DEF (condition_phi, i));
+    }
   
-  res = merge_evolutions 
-    (evolution_at_version (loop_nb, PHI_ARG_DEF (condition_phi, 0)), 
-     branch_chrecs);
+  chrec = get_scev (loop_nb, PHI_ARG_DEF (condition_phi, 0));
+  if (chrec != chrec_not_analyzed_yet)
+    res = merge_evolutions (chrec, branch_chrecs);
+  else
+    res = merge_evolutions (PHI_ARG_DEF (condition_phi, 0), branch_chrecs);
   
-  set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), res);
+  var = SSA_NAME_VAR (PHI_RESULT (condition_phi));
+  set_scev (0, var, replace_initial_condition (get_scev (0, var), res));
   set_scev (loop_nb, PHI_RESULT (condition_phi), 
 	    chrec_eval_next_init_cond (loop_nb, res));
   
@@ -2934,11 +3043,14 @@ static inline tree
 set_nb_iterations_in_loop (struct loop *loop, 
 			   tree res)
 {
+  /* After the loop copy headers has transformed the code, each loop
+     runs at least once.  */
+  res = chrec_fold_plus (res, integer_one_node);
   DBG_S (fprintf (stderr, "  (set_nb_iterations_in_loop = ");
 	 debug_generic_expr (res);
 	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
-  
+
   loop->nb_iterations = res;
   return res;
 }
@@ -3054,7 +3166,9 @@ record_dependences_for_opnd (unsigned loop_nb,
 					      complete_imperative_list))
 	    SDD_insert (lhs, opnd, sdd_graph);
 	  
-	  else
+	  /* Analyze dependences only on the current loop.  */
+	  else if (loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (opnd))) 
+		   == loop_nb)
 	    record_dependences_for_definition 
 	      (loop_nb, SSA_NAME_DEF_STMT (opnd), sdd_graph, 
 	       complete_imperative_list);
@@ -3683,6 +3797,26 @@ draw_SDD (varray_type sdd_graph)
       system ("dotty tree_sdd.dot");
     }
 }
+
+extern void draw_tree_cfg (void);
+
+/* Draw the flow graph.  */
+
+void
+draw_tree_cfg (void)
+{
+  FILE *dump_file;
+  if (n_basic_blocks > 0)
+    {
+      dump_file = fopen ("tree_cfg.dot", "w");
+      if (dump_file)
+        {
+          tree_cfg2dot (dump_file);
+          fclose (dump_file);
+          system ("dotty tree_cfg.dot");
+        }
+    }
+}
      
 /* The Scalar Data Dependence (SDD) graph is stored in an array by
    tuples with the following convention:
@@ -4227,7 +4361,7 @@ gate_scev_depend (void)
 
 struct tree_opt_pass pass_scev_depend = 
 {
-  "alldd",				/* name */
+  "ddall",				/* name */
   gate_scev_depend,			/* gate */
   scev_depend,				/* execute */
   NULL,					/* sub */

@@ -1,38 +1,59 @@
+
+;; Function foo (foo)
+
+
+
+  Scalar evolution functions: 
+
+T.1
+  ->  {k_1, +, -1}_2
+
+T.2
+  ->  {k_1 * 2, +, -2}_2
+
+T.3
+  ->  {k_1 * 2 + 1, +, -2}_2
+
+
+
+  Scalar evolution functions: 
+
+k
+  ->  {10, +, 1}_1
+
+
+
+  Scalar evolution functions: 
+
+T.6
+  ->  {0, +, 2}_2
+
+T.7
+  ->  {1, +, 2}_2
+
 (Data Ref 0: 
-  stmt: T.4_77 = input[T.3_76];
-  ref: input[T.3_76];
+  stmt: T.4_25 = input[T.3_24];
+  ref: input[T.3_24];
   base_name: input
   Access function 0: {{21, +, 2}_1, +, -2}_2
 )
 (Data Ref 1: 
-  stmt: T.8_81 = coefs[T.7_80];
-  ref: coefs[T.7_80];
+  stmt: T.8_29 = coefs[T.7_28];
+  ref: coefs[T.7_28];
   base_name: coefs
   Access function 0: {1, +, 2}_2
 )
 (Data Ref 2: 
-  stmt: T.11_86 = input[T.2_75];
-  ref: input[T.2_75];
+  stmt: T.11_34 = input[T.2_23];
+  ref: input[T.2_23];
   base_name: input
   Access function 0: {{20, +, 2}_1, +, -2}_2
 )
 (Data Ref 3: 
-  stmt: T.13_89 = coefs[T.6_79];
-  ref: coefs[T.6_79];
+  stmt: T.13_37 = coefs[T.6_27];
+  ref: coefs[T.6_27];
   base_name: coefs
   Access function 0: {0, +, 2}_2
-)
-(Data Ref 4: 
-  stmt: output[T.21_66] = T.22_67;
-  ref: output[T.21_66];
-  base_name: output
-  Access function 0: {1, +, 2}_1
-)
-(Data Ref 5: 
-  stmt: output[T.20_65] = T.23_70;
-  ref: output[T.20_65];
-  base_name: output
-  Access function 0: {0, +, 2}_1
 )
 
 (Data Dep (A = 0, B = 0):
@@ -64,12 +85,6 @@
 (Data Dep (A = 0, B = 3):    (no dependence)
 
 )
-(Data Dep (A = 0, B = 4):    (no dependence)
-
-)
-(Data Dep (A = 0, B = 5):    (no dependence)
-
-)
 (Data Dep (A = 1, B = 0):    (no dependence)
 
 )
@@ -97,12 +112,6 @@
 
 )
 (Data Dep (A = 1, B = 3):    (no dependence)
-
-)
-(Data Dep (A = 1, B = 4):    (no dependence)
-
-)
-(Data Dep (A = 1, B = 5):    (no dependence)
 
 )
 (Data Dep (A = 2, B = 0):    (no dependence)
@@ -134,12 +143,6 @@
 (Data Dep (A = 2, B = 3):    (no dependence)
 
 )
-(Data Dep (A = 2, B = 4):    (no dependence)
-
-)
-(Data Dep (A = 2, B = 5):    (no dependence)
-
-)
 (Data Dep (A = 3, B = 0):    (no dependence)
 
 )
@@ -158,82 +161,6 @@
   iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
   iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
-  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
- )
- (Distance Vector: 
-(0
-)
- )
- (Direction Vector: 
-(=)
- )
-
-)
-(Data Dep (A = 3, B = 4):    (no dependence)
-
-)
-(Data Dep (A = 3, B = 5):    (no dependence)
-
-)
-(Data Dep (A = 4, B = 0):    (no dependence)
-
-)
-(Data Dep (A = 4, B = 1):    (no dependence)
-
-)
-(Data Dep (A = 4, B = 2):    (no dependence)
-
-)
-(Data Dep (A = 4, B = 3):    (no dependence)
-
-)
-(Data Dep (A = 4, B = 4):
- (subscript 0:
-  base_name_A: output
-  base_name_B: output
-  access_fn_A: {1, +, 2}_1
-  access_fn_B: {1, +, 2}_1
-  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
-  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
-  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
- )
- (Distance Vector: 
-(0
-)
- )
- (Direction Vector: 
-(=)
- )
-
-)
-(Data Dep (A = 4, B = 5):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 0):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 1):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 2):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 3):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 4):    (no dependence)
-
-)
-(Data Dep (A = 5, B = 5):
- (subscript 0:
-  base_name_A: output
-  base_name_B: output
-  access_fn_A: {0, +, 2}_1
-  access_fn_B: {0, +, 2}_1
-  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
-  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 

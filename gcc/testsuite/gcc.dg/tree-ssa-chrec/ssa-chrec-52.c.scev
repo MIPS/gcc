@@ -1,26 +1,10 @@
 
+;; Function foo (foo)
+
+
 
   Scalar evolution functions: 
 
 a
   ->  {11, +, 1}_1
-
-
-
-  Scalar evolution functions: 
-
-T.1
-  ->  {18, +, 1}_1
-
-
-
-  Scalar evolution functions: 
-
-x
-  ->  {16, +, 1}_1
-
-T.3
-  ->  {15, +, 1}_1
-
-
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-alldd" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
 
 void bar (int);
 
@@ -31,4 +31,4 @@ short foo (short image[][M], short block[][N]){
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */
-/* { dg-final { diff-tree-dumps "alldd" } } */
+/* { dg-final { diff-tree-dumps "ddall" } } */

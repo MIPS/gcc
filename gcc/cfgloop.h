@@ -197,8 +197,10 @@ struct loop
      loops nested inside it.  */
   int exit_count;
 
-  /* The number of probable iterations.  This is either an INTERVAL_CHREC
-     or an INTEGER_CST.  */
+  /* The probable number of times the loop is executed at runtime.
+     This is either an INTERVAL_CHREC or an INTEGER_CST.  Don't access
+     this field directly: number_of_iterations_in_loop computes and
+     caches the computed information in this field.  */
   tree nb_iterations;
 };
 

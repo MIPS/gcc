@@ -250,7 +250,7 @@ in the following sections.
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-dot -fdump-tree-alias @gol
--fdump-tree-copy-headers @gol
+-fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
@@ -310,7 +310,7 @@ in the following sections.
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -fdisable-tree-ssa -ftree-dominator-opts @gol
 -fscalar-evolutions -fall-data-deps @gol
--ftree-loop-optimize -ftree-sra @gol
+-ftree-ch -ftree-loop-optimize -ftree-sra @gol
 -ftree-vectorize @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3503,13 +3503,10 @@ made by appending @file{.cfg} to the source file name.
 Dump a dot language representation of the control flow graph to a file.  The
 file name is made by appending @file{.dot} to the source file name.
 
-@item copy-headers
-@opindex fdump-tree-copy-headers
+@item ch
+@opindex fdump-tree-ch
 Dump each function after copying loop headers.  The file name is made by
 appending @file{.ch} to the source file name.
-
-Dump the control flow graph of each function to a file.  The file name is
-made by appending @file{.cfg} to the source file name.
 
 @item ssa
 @opindex fdump-tree-ssa
@@ -3546,15 +3543,15 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
-@item scalar-evolutions
-@opindex fdump-scalar-evolutions
+@item scev
+@opindex fdump-tree-scev
 Dump the information gathered by the scalar evolution analyzer.
 The file name is made by appending @file{.scev} to the source file name.
 
-@item all-data-deps
-@opindex fdump-all-data-deps
+@item ddall
+@opindex fdump-tree-ddall
 Dump all the data dependence relations.
-The file name is made by appending @file{.alldd} to the source file name.
+The file name is made by appending @file{.ddall} to the source file name.
 
 @item sra
 @opindex fdump-tree-sra
@@ -4326,6 +4323,10 @@ default at -O and higher.
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at -O and higher.
 
+@item -ftree-ch
+Perform loop copy headers on trees.  This flag is enabled by
+default at -O and higher.
+
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
@@ -4335,11 +4336,15 @@ Perform loop vectorization on trees.  This flag is disabled by
 default.
 
 @item -fscalar-evolutions
-Perform the scalar evolution analysis on trees.  This analysis extracts
-for a variable an approximation of the evolution function.  
+Analyzes the scalar variables that determine the exit condition of a
+loop, and try to determine the number of iterations.  This pass is
+only used for verifying the correctness of the analyzer, and it is not
+enabled by default.
 
 @item -fall-data-deps
-Perform the data dependence analysis on all the data references.  
+Perform the data dependence analysis on all the data references.  This
+pass is only used for verifying the correctness of the analyzer, and
+it is not enabled by default.
 
 @item -ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure

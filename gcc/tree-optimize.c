@@ -288,7 +288,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
-  NEXT_PASS (pass_scev);
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_dce));
   NEXT_PASS (pass_tail_recursion);
@@ -296,6 +295,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_scev);
   NEXT_PASS (pass_loop);
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_dce));

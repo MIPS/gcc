@@ -1,19 +1,22 @@
+
+;; Function main (main)
+
 (Data Ref 0: 
-  stmt: c[T.1_11][a_1] = 2;
-  ref: c[T.1_11][a_1];
+  stmt: c[T.1_9][a_1] = 2;
+  ref: c[T.1_9][a_1];
   base_name: c
   Access function 0: {1, +, 1}_1
   Access function 1: {2, +, 1}_1
 )
 (Data Ref 1: 
-  stmt: T.2_13 = c[a_1][a_1];
+  stmt: T.2_10 = c[a_1][a_1];
   ref: c[a_1][a_1];
   base_name: c
   Access function 0: {1, +, 1}_1
   Access function 1: {1, +, 1}_1
 )
 (Data Ref 2: 
-  stmt: T.3_7 = c[12][13];
+  stmt: T.3_6 = c[12][13];
   ref: c[12][13];
   base_name: c
   Access function 0: 13

@@ -1,6 +1,7 @@
 /* { dg-do compile } */ 
 /* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev" } */
 
+int foo (void);
 
 int main (void)
 {
@@ -11,7 +12,7 @@ int main (void)
   
   while (d)
     {
-      if (a < 30)
+      if (foo ())
 	a += b;
       else
 	a += c;

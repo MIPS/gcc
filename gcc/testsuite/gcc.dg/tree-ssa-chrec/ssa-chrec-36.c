@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-scalar-evolutions -fall-data-deps -fdump-tree-alldd" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
 
 int foo (int);
 
@@ -34,5 +34,5 @@ int main ()
 /* { dg -final FIXME fails-for-the-moment { scan-tree-dump "a\\\n  -\>  \{?1, \\+, 1\}_1" "scev"} } */
 
 /* { dg-final { diff-tree-dumps "scev" } } */
-/* { dg-final { diff-tree-dumps "alldd" } } */
-y
+/* { dg-final { diff-tree-dumps "ddall" } } */
+

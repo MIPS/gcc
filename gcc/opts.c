@@ -541,11 +541,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
+      flag_tree_ch = 1;
       flag_tree_loop = 0;
       flag_tree_vectorize = 0;
       flag_tree_pre = 1;
-      flag_scalar_evolutions = 1;
-      flag_all_data_deps = 1;
+      flag_scalar_evolutions = 0;
+      flag_all_data_deps = 0;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
     }
@@ -1455,6 +1456,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_dominator_opts:
       flag_tree_dom = value;
+      break;
+
+    case OPT_ftree_ch:
+      flag_tree_ch = value;
       break;
 
     case OPT_ftree_loop_optimize:

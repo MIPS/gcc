@@ -811,8 +811,13 @@ analyze_all_data_dependences (void)
   varray_type datarefs;
   varray_type dependence_relations;
   
-  VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
-  VARRAY_GENERIC_PTR_INIT (dependence_relations, 10*10,
+  /* When computing the whole data dependence graph, this is the
+     maximum number of nodes that we want to compute.  */
+  int alldd_max_size = 100;
+  
+  VARRAY_GENERIC_PTR_INIT (datarefs, alldd_max_size, "datarefs");
+  VARRAY_GENERIC_PTR_INIT (dependence_relations, 
+			   alldd_max_size * alldd_max_size,
 			   "dependence_relations");
   
   find_data_references (datarefs);

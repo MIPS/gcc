@@ -1,12 +1,13 @@
 
+;; Function main (main)
+
+
 
   Scalar evolution functions: 
-
-T.1
-  ->  a_1 + 1;
 
 a
   ->  {1, +, 1}_1
 
-
+T.1
+  ->  {2, +, 1}_1
 

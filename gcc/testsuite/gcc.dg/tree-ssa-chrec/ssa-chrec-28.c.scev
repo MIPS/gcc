@@ -1,4 +1,7 @@
 
+;; Function foo (foo)
+
+
 
   Scalar evolution functions: 
 
@@ -10,7 +13,12 @@ i
   Scalar evolution functions: 
 
 a
+  ->  {a_6, +, 4}_2
+
+
+
+  Scalar evolution functions: 
+
+a
   ->  {{2, *, [-oo, +oo]}_1, +, 4}_2
-
-
 

@@ -719,6 +719,10 @@ ftree-dominator-opts
 Common
 Enable dominator optimizations
 
+ftree-ch
+Common
+Enable loop copy headers on trees
+
 ftree-loop-optimize
 Common
 Enable loop optimizations on trees

@@ -1,3 +1,21 @@
+2004-01-29  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* ssa-chrec-{01, 10, 30, 31, 32, 33, 34, 35, 36, 52, 53}.c: Update                       
+	comments.
+	* ssa-chrec-{13, 14}.c: Use call functions for avoid optimisations
+	touching the condition.
+	* ssa-chrec-{01, 06, 09, 10, 13, 14, 17, 24, 25, 26, 27, 28, 30, 33,
+	36, 38, 39, 41, 43, 46, 47, 51, 52, 53}.c.scev: Adjusted.
+
+	* ssa-chrec-10.c.ddall ssa-chrec-30.c.ddall
+	ssa-chrec-31.c.ddall ssa-chrec-32.c.ddall ssa-chrec-33.c.ddall
+	ssa-chrec-34.c.ddall ssa-chrec-35.c.ddall ssa-chrec-36.c.ddall
+	ssa-chrec-52.c.ddall: New files.
+	* ssa-chrec-10.c.alldd ssa-chrec-30.c.alldd
+	ssa-chrec-31.c.alldd ssa-chrec-32.c.alldd ssa-chrec-33.c.alldd
+	ssa-chrec-34.c.alldd ssa-chrec-35.c.alldd ssa-chrec-36.c.alldd
+	ssa-chrec-52.c.alldd ssa-chrec-53.c.alldd: Removed.
+
 2004-01-21  Sebastian Pop  <s.pop@laposte.net>
 
 	* ssa-chrec-*: Replace -fdump-scalar-evolutions with

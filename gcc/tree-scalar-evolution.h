@@ -45,7 +45,7 @@ extern void finalize_scalar_evolutions_analyzer (void);
    Example:
    
    |  a_0 = 0
-   |  loop 
+   |  loop_1
    |    a_1 = phi (a_0, a_2)
    |    if (a_1 > 9)
    |      goto exit_loop
@@ -57,7 +57,7 @@ extern void finalize_scalar_evolutions_analyzer (void);
    |var                |  a_0  |   a_1   |  a_2  |        a           |
    |loop_num           |   0   |    1    |   1   |        0           |
    |inner_loops_chrec  |   0   |    0    |   1   |    {0, +, 1}_1     |
-   |outer_loops_chrec  |   0   |   10    |   1   |    {0, +, 1}_1     |
+   |outer_loops_chrec  |   0   |   10    |  nay  |    {0, +, 1}_1     |
    -------------------------------------------------------------------
    
    A loop phi node (a_1) has two visible values: (see the comments in

@@ -1,4 +1,7 @@
 
+;; Function foo (foo)
+
+
 
   Scalar evolution functions: 
 
@@ -9,11 +12,8 @@ d
 
   Scalar evolution functions: 
 
-b
-  ->  {2, +, 25}_1
-
 a
-  ->  {{{3, +, ParmN_12 * 5 + 27}_1, +, 25}_1, +, ParmN_12}_2
+  ->  {a_10, +, ParmN_12}_2
 
 
 
@@ -23,4 +23,12 @@ ParmN
   ->  not_analyzed_yet
 
 
+
+  Scalar evolution functions: 
+
+b
+  ->  {2, +, 25}_1
+
+a
+  ->  {{{3, +, ParmN_12 * 5 + 27}_1, +, 25}_1, +, ParmN_12}_2
 

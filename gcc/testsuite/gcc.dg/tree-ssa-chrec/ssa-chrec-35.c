@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-alldd" } */
+/* { dg-options "-O1 -fscalar-evolutions -fdump-tree-scev -fall-data-deps -fdump-tree-ddall" } */
 
 #define L 100
 #define M 100
@@ -32,4 +32,4 @@ int foo (float A[][M][N])
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */
-/* { dg-final { diff-tree-dumps "alldd" } } */
+/* { dg-final { diff-tree-dumps "ddall" } } */

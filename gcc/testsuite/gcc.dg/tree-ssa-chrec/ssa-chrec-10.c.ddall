@@ -1,26 +1,60 @@
+
+;; Function foo (foo)
+
+
+
+  Scalar evolution functions: 
+
+T.3
+  ->  {14, +, 1}_1
+
+
+
+  Scalar evolution functions: 
+
+T.2
+  ->  {18, +, 1}_1
+
+
+
+  Scalar evolution functions: 
+
+T.6
+  ->  {13, +, 1}_1
+
+
+
+  Scalar evolution functions: 
+
+x
+  ->  {16, +, 1}_1
+
+T.5
+  ->  {15, +, 1}_1
+
 (Data Ref 0: 
-  stmt: T.4_11 = c[T.2_9][T.3_10];
-  ref: c[T.2_9][T.3_10];
+  stmt: T.4_8 = c[T.2_6][T.3_7];
+  ref: c[T.2_6][T.3_7];
   base_name: c
   Access function 0: {14, +, 1}_1
   Access function 1: {18, +, 1}_1
 )
 (Data Ref 1: 
-  stmt: T.7_14 = c[T.5_12][T.6_13];
-  ref: c[T.5_12][T.6_13];
+  stmt: T.7_11 = c[T.5_9][T.6_10];
+  ref: c[T.5_9][T.6_10];
   base_name: c
   Access function 0: {13, +, 1}_1
   Access function 1: {15, +, 1}_1
 )
 (Data Ref 2: 
-  stmt: c[x_7][T.1_8] = T.8_15;
-  ref: c[x_7][T.1_8];
+  stmt: c[x_4][T.1_5] = T.8_12;
+  ref: c[x_4][T.1_5];
   base_name: c
   Access function 0: {12, +, 1}_1
   Access function 1: {16, +, 1}_1
 )
 (Data Ref 3: 
-  stmt: T.9_5 = c[1][2];
+  stmt: T.9_3 = c[1][2];
   ref: c[1][2];
   base_name: c
   Access function 0: 2

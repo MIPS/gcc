@@ -1,23 +1,17 @@
 
-
-  Scalar evolution functions: 
-
-p
-  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
+;; Function foo (foo)
 
 
 
   Scalar evolution functions: 
 
 p
-  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
+  ->  {p_2, +, -1}_1
 
 
 
   Scalar evolution functions: 
 
 p
-  ->  {[MIN_EXPR <p_5, p_7>, MAX_EXPR <p_5, p_7>], +, -1}_1
-
-
+  ->  {[MIN_EXPR <p_6, p_8>, MAX_EXPR <p_6, p_8>], +, -1}_1
 

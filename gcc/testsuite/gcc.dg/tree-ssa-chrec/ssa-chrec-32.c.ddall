@@ -1,20 +1,27 @@
+
+;; Function foo (foo)
+
+
+
+  Scalar evolution functions: 
+
+T.1
+  ->  {{0, +, 1}_1, +, -1}_2
+
+T.2
+  ->  {{10, +, 1}_1, +, -1}_2
+
 (Data Ref 0: 
-  stmt: T.3_27 = input[T.2_26];
-  ref: input[T.2_26];
+  stmt: T.3_16 = input[T.2_15];
+  ref: input[T.2_15];
   base_name: input
   Access function 0: {{10, +, 1}_1, +, -1}_2
 )
 (Data Ref 1: 
-  stmt: T.5_29 = coef[j_4];
-  ref: coef[j_4];
+  stmt: T.5_18 = coef[j_5];
+  ref: coef[j_5];
   base_name: coef
   Access function 0: {0, +, 1}_2
-)
-(Data Ref 2: 
-  stmt: output[i_1] = T.8_22;
-  ref: output[i_1];
-  base_name: output
-  Access function 0: {0, +, 1}_1
 )
 
 (Data Dep (A = 0, B = 0):
@@ -40,9 +47,6 @@
 (Data Dep (A = 0, B = 1):    (no dependence)
 
 )
-(Data Dep (A = 0, B = 2):    (no dependence)
-
-)
 (Data Dep (A = 1, B = 0):    (no dependence)
 
 )
@@ -55,35 +59,6 @@
   iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
   iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
-  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
- )
- (Distance Vector: 
-(0
-)
- )
- (Direction Vector: 
-(=)
- )
-
-)
-(Data Dep (A = 1, B = 2):    (no dependence)
-
-)
-(Data Dep (A = 2, B = 0):    (no dependence)
-
-)
-(Data Dep (A = 2, B = 1):    (no dependence)
-
-)
-(Data Dep (A = 2, B = 2):
- (subscript 0:
-  base_name_A: output
-  base_name_B: output
-  access_fn_A: {0, +, 1}_1
-  access_fn_B: {0, +, 1}_1
-  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
-  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 

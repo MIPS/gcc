@@ -1,9 +1,17 @@
 
+;; Function foo (foo)
+
+
+
+  Scalar evolution functions: 
+
+c
+  ->  {c_2, +, 5}_1
+
+
 
   Scalar evolution functions: 
 
 c
   ->  {[2, 3], +, 5}_1
-
-
 

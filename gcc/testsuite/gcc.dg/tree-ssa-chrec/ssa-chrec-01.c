@@ -6,8 +6,12 @@ int main(void)
   int a;
   int b;
   int c;
+  
+  /* loop_1 runs exactly 4 times. */
   for (a = 22; a < 50; a+=1)
     {
+      
+      /* loop_2 runs exactly 6 times.  On exit, the variable B is equal to 53.  */
       for (b = 23; b < 50; b+=5)
 	{
 	  ++a;

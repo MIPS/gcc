@@ -1,20 +1,23 @@
+
+;; Function foo (foo)
+
 (Data Ref 0: 
-  stmt: T.4_29 = (*T.3_27)[j_5];
-  ref: (*T.3_27)[j_5];
-  base_name: *T.3_27;
+  stmt: T.4_20 = (*T.3_19)[j_6];
+  ref: (*T.3_19)[j_6];
+  base_name: *T.3_19;
   Access function 0: {0, +, 1}_2
 )
 (Data Ref 1: 
-  stmt: T.8_35 = (*T.7_34)[j_5];
-  ref: (*T.7_34)[j_5];
-  base_name: *T.7_34;
+  stmt: T.8_26 = (*T.7_25)[j_6];
+  ref: (*T.7_25)[j_6];
+  base_name: *T.7_25;
   Access function 0: {0, +, 1}_2
 )
 
 (Data Dep (A = 0, B = 0):
  (subscript 0:
-  base_name_A: *T.3_27;
-  base_name_B: *T.3_27;
+  base_name_A: *T.3_19;
+  base_name_B: *T.3_19;
   access_fn_A: {0, +, 1}_2
   access_fn_B: {0, +, 1}_2
   iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
@@ -39,8 +42,8 @@
 )
 (Data Dep (A = 1, B = 1):
  (subscript 0:
-  base_name_A: *T.7_34;
-  base_name_B: *T.7_34;
+  base_name_A: *T.7_25;
+  base_name_B: *T.7_25;
   access_fn_A: {0, +, 1}_2
   access_fn_B: {0, +, 1}_2
   iterations_that_access_an_element_twice_in_A: {0, +, 1}_2

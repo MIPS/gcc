@@ -1,23 +1,26 @@
+
+;; Function foo (foo)
+
 (Data Ref 0: 
-  stmt: T.1_12 = b[i_1];
+  stmt: T.1_5 = b[i_1];
   ref: b[i_1];
   base_name: b
   Access function 0: {0, +, 1}_1
 )
 (Data Ref 1: 
-  stmt: T.2_13 = c[i_1];
+  stmt: T.2_6 = c[i_1];
   ref: c[i_1];
   base_name: c
   Access function 0: {0, +, 1}_1
 )
 (Data Ref 2: 
-  stmt: a[i_1] = T.3_14;
+  stmt: a[i_1] = T.3_7;
   ref: a[i_1];
   base_name: a
   Access function 0: {0, +, 1}_1
 )
 (Data Ref 3: 
-  stmt: T.4_5 = a[2];
+  stmt: T.4_3 = a[2];
   ref: a[2];
   base_name: a
   Access function 0: 2

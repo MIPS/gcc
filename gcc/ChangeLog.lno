@@ -1,3 +1,51 @@
+2004-01-29  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* Makefile.in (tree-ssa-dom.o): Depends on cfgloop.h.
+	* tree-flow-inline.h (loop_of_stmt): New function.                 
+	* tree-ssa-dom.c: Include cfgloop.h.
+	(tree_ssa_dominator_optimize): Detect and finalize the natural
+	loops structure.
+	(simplify_rhs_and_lookup_avail_expr): Verify that the folded     
+	operations belong to the same loop.
+
+	* cfgloop.h (loop): Rewrite comments for the nb_iterations field.
+	* tree-data-ref.c (analyze_all_data_dependences): Increase the size
+	of the dependence graph when computing all the dependences.              
+	* tree-optimize.c (init_tree_optimization_passes): Move the
+	pass_scev after the pass_pre.
+	* tree-scalar-evolution.h: Update comments.
+	* tree-scalar-evolution.c (symbolically_analyze,
+	scev_follow_ssa_edge_same_loop, scev_follow_ssa_edge_inner_loop,
+	loop_is_strictly_included_in, scev_analyze_inner_loop_phi,
+	draw_tree_cfg): New functions.
+	(compute_value_on_exit_of_loop): Removed.
+	(analyze_evolution): Mark phi nodes instead of looking into
+	the already_visited array.
+	(analyze_evolution_in_loop): Use scev_follow_ssa_edge_same_loop,
+	scev_follow_ssa_edge_inner_loop.
+	(scev_analyze_modify_expr): Refine the wrap-around case.
+	(scev_follow_ssa_edge): Handle edges to the current and inner loops
+	separately calling scev_follow_ssa_edge_same_loop or
+	scev_follow_ssa_edge_inner_loop.
+	(merge_branches_of_condition_phi_node): Restructure.
+	(set_nb_iterations_in_loop): Add one to the number of iterations.
+	When the loop copy headers is on, we always exit the loop after
+	having executed once its body.
+	(record_dependences_for_opnd): Do not record dependences on variables
+	that are not in the current loop.
+	(pass_scev_depend): Rename the pass from alldd to ddall.
+	* tree-ssa-loop.c (gate_ch): New function.
+	(pass_ch): Use gate_ch.
+	* doc/invoke.texi (-ftree-ch, -fdump-tree-ch): Document flags.
+	(fdump-tree-scev, fdump-tree-ddall): Update names, and comments.
+
+	* common.opt (ftree-ch): Document.
+	* flags.h (flag_tree_ch): Declare.
+	* opts.c (flag_tree_ch): Set it on by default.
+	(flag_scalar_evolutions, flag_all_data_deps): Turn off by default.
+	(OPT_ftree_ch): Handle this case.
+	* toplev.c (lang_independent_options): Register flag_tree_ch.
+
 2004-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfghooks.c (split_block): Update probabilities.

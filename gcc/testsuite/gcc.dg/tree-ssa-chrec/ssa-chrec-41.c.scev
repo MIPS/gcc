@@ -1,4 +1,7 @@
 
+;; Function main (main)
+
+
 
   Scalar evolution functions: 
 
@@ -13,7 +16,12 @@ b
   ->  {4, *, 5}_1
 
 a
+  ->  {a_9, *, {4, *, 5}_1}_2
+
+
+
+  Scalar evolution functions: 
+
+a
   ->  {{2, *, {120, *, 5}_1}_1, *, {4, *, 5}_1}_2
-
-
 
