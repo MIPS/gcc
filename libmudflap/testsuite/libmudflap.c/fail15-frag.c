@@ -18,7 +18,7 @@ volatile struct base *bp;
 bp = (struct base *)&b;
 
 bp->basic = 10;
-((struct derived *)bp)->extra = 'x';
+((struct derived volatile *)bp)->extra = 'x';
 return 0;
 }
 /* { dg-output "mudflap violation 1.*" } */

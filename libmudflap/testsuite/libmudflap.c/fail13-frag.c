@@ -16,7 +16,7 @@ struct b {
 
 struct b k;
 
-(*((volatile struct a*) &k)).z = 'q';
+(*((volatile struct a *) &k)).z = 'q';
 
 return 0;
 }
