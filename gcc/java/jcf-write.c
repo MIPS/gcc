@@ -828,12 +828,20 @@ find_constant_index (value, state)
       long words[2];
       if (TYPE_PRECISION (TREE_TYPE (value)) == 32)
 	{
+	  if (REAL_VALUE_ISNAN (TREE_REAL_CST (value))
+	      && flag_emit_class_files)
+	    return find_constant1 (&state->cpool, CONSTANT_Float,
+				   0x7fc00000);
 	  words[0] = etarsingle (TREE_REAL_CST (value)) & 0xFFFFFFFF;
 	  return find_constant1 (&state->cpool, CONSTANT_Float, 
 				 (jword)words[0]);
 	}
       else
 	{
+	  if (REAL_VALUE_ISNAN (TREE_REAL_CST (value))
+	      && flag_emit_class_files)
+	    return find_constant2 (&state->cpool, CONSTANT_Double,
+				   0x7ff80000, 0x00000000);
 	  etardouble (TREE_REAL_CST (value), words);
 	  return find_constant2 (&state->cpool, CONSTANT_Double,
 				 (jword)(words[1-FLOAT_WORDS_BIG_ENDIAN] & 

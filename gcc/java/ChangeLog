@@ -1,3 +1,7 @@
+2004-08-13  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (find_constant_index): Canonicalize NaN.
+
 2002-11-05  Tom Tromey  <tromey@redhat.com>
 
 	Fix for PR java/6388.
