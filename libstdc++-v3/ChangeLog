@@ -1,3 +1,30 @@
+2002-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (INTERFACE): Remove.
+	(release_VERSION): Remove.
+	* acinclude.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Change include placement.
+	(libstdcxx_interface): Change. Use gcc methods to determine version.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2002-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4: Fix last checkin.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2002-06-25  DJ Delorie  <dj@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CONFIGURE): Split out
+	GLIBCPP_TOPREL_CONFIGURE.
+	* aclocal.m4: Likewise.
+	* configure.in: Call it before AC_CANONICAL_SYSTEM.
+	* configure: Regenerate.
+
+2002-06-20  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.target (CPULIMITSH): Use powerpc directory for rs6000.
+
 2002-06-14  J.T. Conklin  <jtc@acorntoolworks.com>
 
 	* configure.in (target_alias): Fix.

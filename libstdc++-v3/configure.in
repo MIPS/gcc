@@ -12,12 +12,11 @@ ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 PACKAGE=libstdc++
 AC_SUBST(PACKAGE)
-# For typical GNU versioning info, format is MAJOR.MINOR.MICRO
-release_VERSION=3.1.1
-AC_SUBST(release_VERSION)
 # For libtool versioning info, format is CURRENT:REVISION:AGE
 libtool_VERSION=4:1:0
 AC_SUBST(libtool_VERSION)
+
+GLIBCPP_TOPREL_CONFIGURE
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 # AC 2.5x sets target_alias iff the user specified --target, but we use it
@@ -316,9 +315,6 @@ if test "${multilib}" = "yes"; then
 else
   multilib_arg=
 fi
-
-# Needed so that g++ can find the correct include subdir automatically.
-INTERFACE=v3
 
 # Export all the install information
 GLIBCPP_EXPORT_INSTALL_INFO
