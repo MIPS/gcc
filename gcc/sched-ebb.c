@@ -150,7 +150,7 @@ ebb_print_insn (insn, aligned)
 
 static int
 rank (insn1, insn2)
-     rtx insn1 ATTRIBUTE_UNUSED, insn2 ATTRIBUTE_UNUSED;
+     rtx insn1, insn2;
 {
   basic_block bb1 = BLOCK_FOR_INSN (insn1);
   basic_block bb2 = BLOCK_FOR_INSN (insn2);
