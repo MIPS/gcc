@@ -1,5 +1,5 @@
 /* Implements exception handling.
-   Copyright (C) 1989, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1992-1999 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GNU CC.
@@ -428,69 +428,10 @@ int protect_cleanup_actions_with_terminate;
 
 rtx exception_handler_labels;
 
-/* The EH context.  Nonzero if the function has already
-   fetched a pointer to the EH context  for exception handling.  */
-
-rtx current_function_ehc;
-
-/* A stack used for keeping track of the currently active exception
-   handling region.  As each exception region is started, an entry
-   describing the region is pushed onto this stack.  The current
-   region can be found by looking at the top of the stack, and as we
-   exit regions, the corresponding entries are popped. 
-
-   Entries cannot overlap; they can be nested. So there is only one
-   entry at most that corresponds to the current instruction, and that
-   is the entry on the top of the stack.  */
-
-static struct eh_stack ehstack;
-
-
-/* This stack is used to represent what the current eh region is
-   for the catch blocks beings processed */
-
-static struct eh_stack catchstack;
-
-/* A queue used for tracking which exception regions have closed but
-   whose handlers have not yet been expanded. Regions are emitted in
-   groups in an attempt to improve paging performance.
-
-   As we exit a region, we enqueue a new entry. The entries are then
-   dequeued during expand_leftover_cleanups and expand_start_all_catch,
-
-   We should redo things so that we either take RTL for the handler,
-   or we expand the handler expressed as a tree immediately at region
-   end time.  */
-
-static struct eh_queue ehqueue;
-
-/* Insns for all of the exception handlers for the current function.
-   They are currently emitted by the frontend code.  */
-
-rtx catch_clauses;
-
-/* A TREE_CHAINed list of handlers for regions that are not yet
-   closed. The TREE_VALUE of each entry contains the handler for the
-   corresponding entry on the ehstack.  */
-
-static tree protect_list;
-
-/* Stacks to keep track of various labels.  */
-
-/* Keeps track of the label to resume to should one want to resume
-   normal control flow out of a handler (instead of, say, returning to
-   the caller of the current function or exiting the program).  */
-
-struct label_node *caught_return_label_stack = NULL;
-
 /* Keeps track of the label used as the context of a throw to rethrow an
    exception to the outer exception region.  */
 
 struct label_node *outer_context_label_stack = NULL;
-
-/* A random data area for the front end's own use.  */
-
-struct label_node *false_label_stack = NULL;
 
 /* Pseudos used to hold exception return data in the interim between
    __builtin_eh_return and the end of the function.  */
@@ -498,11 +439,6 @@ struct label_node *false_label_stack = NULL;
 static rtx eh_return_context;
 static rtx eh_return_stack_adjust;
 static rtx eh_return_handler;
-
-/* Used to mark the eh return stub for flow, so that the Right Thing
-   happens with the values for the hardregs therin.  */
-
-rtx eh_return_stub_label;
 
 /* This is used for targets which can call rethrow with an offset instead
    of an address. This is subtracted from the rethrow label we are
@@ -741,8 +677,9 @@ receive_exception_label (handler_label)
 
 struct func_eh_entry 
 {
-  int range_number;   /* EH region number from EH NOTE insn's */
-  rtx rethrow_label;  /* Label for rethrow */
+  int range_number;   /* EH region number from EH NOTE insn's.  */
+  rtx rethrow_label;  /* Label for rethrow.  */
+  int rethrow_ref;    /* Is rethrow referenced?  */
   struct handler_info *handlers;
 };
 
@@ -1045,7 +982,7 @@ rethrow_symbol_map (sym, map)
           {
             x = duplicate_eh_handlers (CODE_LABEL_NUMBER (l1), y, map);
             /* Since we're mapping it, it must be used. */
-            SYMBOL_REF_USED (function_eh_regions[x].rethrow_label) = 1;
+            function_eh_regions[x].rethrow_ref = 1;
           }
         return function_eh_regions[x].rethrow_label;
       }
@@ -1058,8 +995,8 @@ rethrow_used (region)
 {
   if (flag_new_exceptions)
     {
-      rtx lab = function_eh_regions[find_func_region (region)].rethrow_label;
-      return (SYMBOL_REF_USED (lab));
+      int ret = function_eh_regions[find_func_region (region)].rethrow_ref;
+      return ret;
     }
   return 0;
 }
@@ -1464,23 +1401,21 @@ expand_eh_region_start_for_decl (decl)
   if (! doing_eh (0))
     return;
 
+  /* We need a new block to record the start and end of the
+     dynamic handler chain.  We also want to prevent jumping into
+     a try block.  */
+  expand_start_bindings (0);
+
+  /* But we don't need or want a new temporary level.  */
+  pop_temp_slots ();
+
+  /* Mark this block as created by expand_eh_region_start.  This
+     is so that we can pop the block with expand_end_bindings
+     automatically.  */
+  mark_block_as_eh_region ();
+
   if (exceptions_via_longjmp)
     {
-      /* We need a new block to record the start and end of the
-	 dynamic handler chain.  We could always do this, but we
-	 really want to permit jumping into such a block, and we want
-	 to avoid any errors or performance impact in the SJ EH code
-	 for now.  */
-      expand_start_bindings (0);
-
-      /* But we don't need or want a new temporary level.  */
-      pop_temp_slots ();
-
-      /* Mark this block as created by expand_eh_region_start.  This
-	 is so that we can pop the block with expand_end_bindings
-	 automatically.  */
-      mark_block_as_eh_region ();
-
       /* Arrange for returns and gotos to pop the entry we make on the
 	 dynamic handler stack.  */
       expand_dhc_cleanup (decl);
@@ -1553,8 +1488,7 @@ expand_eh_region_end (handler)
 
   enqueue_eh_entry (&ehqueue, entry);
 
-  /* If we have already started ending the bindings, don't recurse.
-     This only happens when exceptions_via_longjmp is true.  */
+  /* If we have already started ending the bindings, don't recurse.  */
   if (is_eh_region ())
     {
       /* Because we don't need or want a new temporary level and
@@ -1565,7 +1499,6 @@ expand_eh_region_end (handler)
 
       mark_block_as_not_eh_region ();
 
-      /* Maybe do this to prevent jumping in and so on...  */
       expand_end_bindings (NULL_TREE, 0, 0);
     }
 }
@@ -1968,23 +1901,24 @@ expand_rethrow (label)
   else
     if (flag_new_exceptions)
       {
-        rtx insn, val;
-        if (label == NULL_RTX)
-          label = last_rethrow_symbol;
-        emit_library_call (rethrow_libfunc, 0, VOIDmode, 1, label, Pmode);
-        SYMBOL_REF_USED (label) = 1;
+	rtx insn, val;
+	int region;
+	if (label == NULL_RTX)
+	  label = last_rethrow_symbol;
+	emit_library_call (rethrow_libfunc, 0, VOIDmode, 1, label, Pmode);
+	region = find_func_region (eh_region_from_symbol (label));
+	function_eh_regions[region].rethrow_ref = 1;
 
 	/* Search backwards for the actual call insn.  */
-        insn = get_last_insn ();
+	insn = get_last_insn ();
 	while (GET_CODE (insn) != CALL_INSN)
 	  insn = PREV_INSN (insn);
 	delete_insns_since (insn);
-	
-        /* Mark the label/symbol on the call. */
-        val = GEN_INT (eh_region_from_symbol (label));
-        REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_RETHROW, val,
+
+	/* Mark the label/symbol on the call. */
+	REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_RETHROW, label,
 					      REG_NOTES (insn));
-        emit_barrier ();
+	emit_barrier ();
       }
     else
       emit_jump (label);
@@ -2130,7 +2064,7 @@ output_exception_table_entry (file, n)
   if (rethrow != NULL_RTX && !flag_new_exceptions)
       rethrow = NULL_RTX;
   if (rethrow != NULL_RTX && handler == NULL)
-    if (! SYMBOL_REF_USED (rethrow))
+    if (! function_eh_regions[index].rethrow_ref)
       rethrow = NULL_RTX;
 
 
@@ -2415,6 +2349,8 @@ init_eh ()
 void
 init_eh_for_function ()
 {
+  current_function->eh = (struct eh_status *) xmalloc (sizeof (struct eh_status));
+
   ehstack.top = 0;
   catchstack.top = 0;
   ehqueue.head = ehqueue.tail = 0;
@@ -2428,53 +2364,6 @@ init_eh_for_function ()
   eh_return_handler = NULL_RTX;
   eh_return_stub_label = NULL_RTX;
 }
-
-/* Save some of the per-function EH info into the save area denoted by
-   P. 
-
-   This is currently called from save_stmt_status.  */
-
-void
-save_eh_status (p)
-     struct function *p;
-{
-  if (p == NULL)
-    abort ();
-
-  p->ehstack = ehstack;
-  p->catchstack = catchstack;
-  p->ehqueue = ehqueue;
-  p->catch_clauses = catch_clauses;
-  p->false_label_stack = false_label_stack;
-  p->caught_return_label_stack = caught_return_label_stack;
-  p->protect_list = protect_list;
-  p->ehc = current_function_ehc;
-  p->eh_return_stub_label = eh_return_stub_label;
-
-  init_eh_for_function ();
-}
-
-/* Restore the per-function EH info saved into the area denoted by P.  
-
-   This is currently called from restore_stmt_status.  */
-
-void
-restore_eh_status (p)
-     struct function *p;
-{
-  if (p == NULL)
-    abort ();
-
-  protect_list = p->protect_list;
-  caught_return_label_stack = p->caught_return_label_stack;
-  false_label_stack = p->false_label_stack;
-  catch_clauses	= p->catch_clauses;
-  ehqueue = p->ehqueue;
-  ehstack = p->ehstack;
-  catchstack = p->catchstack;
-  current_function_ehc = p->ehc;
-  eh_return_stub_label = p->eh_return_stub_label;
-}
 
 /* This section is for the exception handling specific optimization
    pass.  First are the internal routines, and then the main
@@ -2486,9 +2375,14 @@ static int
 can_throw (insn)
      rtx insn;
 {
-  /* Calls can always potentially throw exceptions.  */
+  /* Calls can always potentially throw exceptions, unless they have
+     a REG_EH_REGION note with a value of 0 or less.  */
   if (GET_CODE (insn) == CALL_INSN)
-    return 1;
+    {
+      rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+      if (!note || XINT (XEXP (note, 0), 0) > 0)
+	return 1;
+    }
 
   if (asynchronous_exceptions)
     {
@@ -2529,9 +2423,8 @@ scan_region (insn, n, delete_outer)
   /* Assume we can delete the region.  */
   int delete = 1;
 
-  int r = find_func_region (n);
   /* Can't delete something which is rethrown to. */
-  if (SYMBOL_REF_USED((function_eh_regions[r].rethrow_label)))
+  if (rethrow_used (n))
     delete = 0;
 
   if (insn == NULL_RTX
@@ -2645,6 +2538,53 @@ exception_optimize ()
 	  insn = scan_region (insn, NOTE_BLOCK_NUMBER (insn), &n);
 	}
     }
+}
+
+/* This function determines whether any of the exception regions in the
+   current function are targets of a rethrow or not, and set the 
+   reference flag according.  */
+void
+update_rethrow_references ()
+{
+  rtx insn;
+  int x, region;
+  int *saw_region, *saw_rethrow;
+
+  if (!flag_new_exceptions)
+    return;
+
+  saw_region = (int *) alloca (current_func_eh_entry * sizeof (int));
+  saw_rethrow = (int *) alloca (current_func_eh_entry * sizeof (int));
+  bzero ((char *) saw_region, (current_func_eh_entry * sizeof (int)));
+  bzero ((char *) saw_rethrow, (current_func_eh_entry * sizeof (int)));
+
+  /* Determine what regions exist, and whether there are any rethrows
+     to those regions or not.  */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (GET_CODE (insn) == CALL_INSN)
+      {
+	rtx note = find_reg_note (insn, REG_EH_RETHROW, NULL_RTX);
+	if (note)
+	  {
+            region = eh_region_from_symbol (XEXP (note, 0));
+	    region = find_func_region  (region);
+	    saw_rethrow[region] = 1;
+	  }
+      }
+    else
+      if (GET_CODE (insn) == NOTE)
+        {
+	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG)
+	    {
+	      region = find_func_region (NOTE_BLOCK_NUMBER (insn));
+	      saw_region[region] = 1;
+	    }
+	}
+
+  /* For any regions we did see, set the referenced flag.  */
+  for (x = 0; x < current_func_eh_entry; x++)
+    if (saw_region[x])
+      function_eh_regions[x].rethrow_ref = saw_rethrow[x];
 }
 
 /* Various hooks for the DWARF 2 __throw routine.  */
@@ -2966,4 +2906,249 @@ in_same_eh_region (insn1, insn2)
   ret = (insn_eh_region[uid1] == insn_eh_region[uid2]);
   return ret;
 }
+
 
+/* This function will initialize the handler list for a specified block.
+   It may recursively call itself if the outer block hasn't been processed
+   yet.  At some point in the future we can trim out handlers which we
+   know cannot be called. (ie, if a block has an INT type handler,
+   control will never be passed to an outer INT type handler).  */
+static void 
+process_nestinfo (block, info, nested_eh_region)
+     int block;
+     eh_nesting_info *info;
+     int *nested_eh_region;
+{
+  handler_info *ptr, *last_ptr = NULL;
+  int x, y, count = 0;
+  int extra = 0;
+  handler_info **extra_handlers;
+  int index = info->region_index[block];
+
+  /* If we've already processed this block, simply return. */
+  if (info->num_handlers[index] > 0)
+    return;
+
+  for (ptr = get_first_handler (block); ptr; last_ptr = ptr, ptr = ptr->next)
+    count++;
+
+ /* pick up any information from the next outer region.  It will already
+    contain a summary of itself and all outer regions to it.  */
+
+  if (nested_eh_region [block] != 0) 
+    {
+      int nested_index = info->region_index[nested_eh_region[block]];
+      process_nestinfo (nested_eh_region[block], info, nested_eh_region);
+      extra = info->num_handlers[nested_index];
+      extra_handlers = info->handlers[nested_index];
+      info->outer_index[index] = nested_index;
+    }
+
+  /* If the last handler is either a CATCH_ALL or a cleanup, then we
+     won't use the outer ones since we know control will not go past the
+     catch-all or cleanup.  */
+
+  if (last_ptr != NULL && (last_ptr->type_info == NULL 
+  			   || last_ptr->type_info == CATCH_ALL_TYPE))
+    extra = 0;
+
+  info->num_handlers[index] = count + extra;
+  info->handlers[index] = (handler_info **) malloc ((count + extra) 
+  						    * sizeof (handler_info **));
+
+  /* First put all our handlers into the list.  */
+  ptr = get_first_handler (block);
+  for (x = 0; x < count; x++)
+    {
+      info->handlers[index][x] = ptr;
+      ptr = ptr->next;
+    }
+
+  /* Now add all the outer region handlers, if they aren't they same as 
+     one of the types in the current block.  We won't worry about
+     derived types yet, we'll just look for the exact type.  */
+  for (y =0, x = 0; x < extra ; x++)
+    {
+      int i, ok;
+      ok = 1;
+      /* Check to see if we have a type duplication.  */
+      for (i = 0; i < count; i++)
+        if (info->handlers[index][i]->type_info == extra_handlers[x]->type_info)
+	  {
+	    ok = 0;
+	    /* Record one less handler.  */
+	    (info->num_handlers[index])--;
+	    break;
+	  }
+      if (ok)
+        {
+	  info->handlers[index][y + count] = extra_handlers[x];
+	  y++;
+	}
+    }
+}
+
+/* This function will allocate and initialize an eh_nesting_info structure. 
+   It returns a pointer to the completed data structure.  If there are
+   no exception regions, a NULL value is returned.  */
+eh_nesting_info *
+init_eh_nesting_info ()
+{
+  int *nested_eh_region;
+  int region_count = 0;
+  rtx eh_note = NULL_RTX;
+  eh_nesting_info *info;
+  rtx insn;
+  int x;
+
+  info = (eh_nesting_info *) malloc (sizeof (eh_nesting_info));
+  info->region_index = (int *) malloc ((max_label_num () + 1) * sizeof (int));
+  bzero ((char *) info->region_index, (max_label_num () + 1) * sizeof (int));
+
+  nested_eh_region = (int *) alloca ((max_label_num () + 1) * sizeof (int));
+  bzero ((char *) nested_eh_region, (max_label_num () + 1) * sizeof (int));
+
+  /* Create the nested_eh_region list.  If indexed with a block number, it 
+     returns the block number of the next outermost region, if any. 
+     We can count the number of regions and initialize the region_index
+     vector at the same time.  */
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    {
+      if (GET_CODE (insn) == NOTE)
+	{
+          if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG)
+            {
+	      int block = NOTE_BLOCK_NUMBER (insn);
+	      region_count++;
+	      info->region_index[block] = region_count;
+              if (eh_note)
+                nested_eh_region [block] =
+                                     NOTE_BLOCK_NUMBER (XEXP (eh_note, 0));
+              else
+                nested_eh_region [block] = 0;
+              eh_note = gen_rtx_EXPR_LIST (VOIDmode, insn, eh_note);
+            }
+          else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
+            eh_note = XEXP (eh_note, 1);
+        }
+    }
+  
+  /* If there are no regions, wrap it up now.  */
+  if (region_count == 0)
+    {
+      free (info->region_index);
+      free (info);
+      return NULL;
+    }
+
+  region_count++;
+  info->handlers = (handler_info ***) malloc (region_count 
+					      * sizeof (handler_info ***));
+  info->num_handlers = (int *) malloc (region_count * sizeof (int));
+  info->outer_index = (int *) malloc (region_count * sizeof (int));
+
+  bzero ((char *) info->handlers, region_count * sizeof (rtx *));
+  bzero ((char *) info->num_handlers, region_count * sizeof (int));
+  bzero ((char *) info->outer_index, region_count * sizeof (int));
+
+ /* Now initialize the handler lists for all exception blocks.  */
+  for (x = 0; x <= max_label_num (); x++)
+    {
+      if (info->region_index[x] != 0)
+	process_nestinfo (x, info, nested_eh_region);
+    }
+  info->region_count = region_count;
+  return info;
+}
+
+
+/* This function is used to retreive the vector of handlers which 
+   can be reached by a given insn in a given exception region.
+   BLOCK is the exception block the insn is in.
+   INFO is the eh_nesting_info structure.
+   INSN is the (optional) insn within the block.  If insn is not NULL_RTX,
+   it may contain reg notes which modify its throwing behavior, and
+   these will be obeyed.  If NULL_RTX is passed, then we simply return the
+   handlers for block.
+   HANDLERS is the address of a pointer to a vector of handler_info pointers.
+   Upon return, this will have the handlers which can be reached by block.
+   This function returns the number of elements in the handlers vector.  */
+int 
+reachable_handlers (block, info, insn, handlers)
+     int block;
+     eh_nesting_info *info;
+     rtx insn ;
+     handler_info ***handlers;
+{
+  int index = 0;
+  *handlers = NULL;
+
+  if (info == NULL)
+    return 0;
+  if (block > 0)
+    index = info->region_index[block];
+
+  if (insn && GET_CODE (insn) == CALL_INSN)
+    {
+      /* RETHROWs specify a region number from which we are going to rethrow.
+	 This means we wont pass control to handlers in the specified
+	 region, but rather any region OUTSIDE the specified region.
+	 We accomplish this by setting block to the outer_index of the
+	 specified region.  */
+      rtx note = find_reg_note (insn, REG_EH_RETHROW, NULL_RTX);
+      if (note)
+	{
+          index = eh_region_from_symbol (XEXP (note, 0));
+	  index = info->region_index[index];
+	  if (index)
+	    index = info->outer_index[index];
+	}
+      else
+        {
+	  /* If there is no rethrow, we look for a REG_EH_REGION, and
+	     we'll throw from that block.  A value of 0 or less
+	     indicates that this insn cannot throw.  */
+	  note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	  if (note)
+	    {
+	      int b = XINT (XEXP (note, 0), 0);
+	      if (b <= 0)
+	        index = 0;
+	      else
+		index = info->region_index[b];
+	    }
+	}
+    }
+  /* If we reach this point, and index is 0, there is no throw.  */
+  if (index == 0)
+    return 0;
+  
+  *handlers = info->handlers[index];
+  return info->num_handlers[index];
+}
+
+
+/* This function will free all memory associated with the eh_nesting info.  */
+
+void 
+free_eh_nesting_info (info)
+     eh_nesting_info *info;
+{
+  int x;
+  if (info != NULL)
+    {
+      if (info->region_index)
+        free (info->region_index);
+      if (info->num_handlers)
+        free (info->num_handlers);
+      if (info->outer_index)
+        free (info->outer_index);
+      if (info->handlers)
+        {
+	  for (x = 0; x < info->region_count; x++)
+	    if (info->handlers[x])
+	      free (info->handlers[x]);
+	  free (info->handlers);
+	}
+    }
+}

@@ -79,6 +79,10 @@ extern int extra_warnings;
 
 extern int warn_unused;
 
+/* Nonzero to warn about code which is never reached.  */
+
+extern int warn_notreached;
+
 /* Nonzero means warn if inline function is too large.  */
 
 extern int warn_inline;
@@ -345,7 +349,6 @@ extern int flag_shared_data;
 extern int flag_schedule_insns;
 extern int flag_schedule_insns_after_reload;
 
-#ifdef HAIFA
 /* The following flags have effect only for scheduling before register
    allocation:
 
@@ -360,7 +363,6 @@ extern int flag_schedule_interblock;
 extern int flag_schedule_speculative;
 extern int flag_schedule_speculative_load;
 extern int flag_schedule_speculative_load_dangerous;
-#endif  /* HAIFA */
 
 /* flag_on_branch_count_reg means try to replace add-1,compare,branch tupple
    by a cheaper branch, on a count register. */
@@ -488,23 +490,6 @@ extern int frame_pointer_needed;
 
 extern int can_reach_end;
 
-/* Nonzero if function being compiled receives nonlocal gotos
-   from nested functions.  */
-
-extern int current_function_has_nonlocal_label;
-
-/* Nonzero if function being compiled has nonlocal gotos to parent
-   function.  */
-
-extern int current_function_has_nonlocal_goto;
-
-/* Nonzero if this function has a computed goto.
-
-   It is computed during find_basic_blocks or during stupid life
-   analysis.  */
-
-extern int current_function_has_computed_jump;
-
 /* Nonzero if GCC must add code to check memory access (used by Checker).  */
 
 extern int flag_check_memory_usage;
@@ -513,9 +498,6 @@ extern int flag_check_memory_usage;
    flag_check_memory_usage).  */
 
 extern int flag_prefix_function_name;
-/* Nonzero if the current function is a thunk, so we should try to cut
-   corners where we can.  */
-extern int current_function_is_thunk;
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 extern int g_switch_value;

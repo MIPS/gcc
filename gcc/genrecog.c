@@ -221,7 +221,7 @@ make_insn_sequence (insn, type)
   struct decision_head head;
 
   {
-    static char *last_real_name = "insn";
+    static const char *last_real_name = "insn";
     static int last_real_code = 0;
     char *name;
 
@@ -315,11 +315,13 @@ make_insn_sequence (insn, type)
 
   if (type == SPLIT)
     /* Define the subroutine we will call below and emit in genemit.  */
-    printf ("extern rtx gen_split_%d ();\n", last->insn_code_number);
+    printf ("extern rtx gen_split_%d PROTO ((rtx *));\n",
+	    last->insn_code_number);
 
-  if (type == PEEPHOLE2)
+  else if (type == PEEPHOLE2)
     /* Define the subroutine we will call below and emit in genemit.  */
-    printf ("extern rtx gen_peephole2_%d ();\n", last->insn_code_number);
+    printf ("extern rtx gen_peephole2_%d PROTO ((rtx, rtx *));\n",
+	    last->insn_code_number);
 
   return head;
 }
@@ -349,7 +351,7 @@ add_to_sequence (pattern, last, position, insn_type, top)
     = (struct decision *) xmalloc (sizeof (struct decision));
   struct decision *this;
   char *newpos;
-  register char *fmt;
+  register const char *fmt;
   register size_t i;
   int depth = strlen (position);
   int len;
@@ -1086,6 +1088,23 @@ write_subroutine (tree, type)
   int i;
 
   if (type == PEEPHOLE2)
+    printf ("extern rtx peephole2");
+  else if (type == SPLIT)
+    printf ("extern rtx split");
+  else
+    printf ("extern int recog");
+  if (tree != 0 && tree->subroutine_number > 0)
+    printf ("_%d", tree->subroutine_number);
+  else if (type == SPLIT)
+    printf ("_insns");
+  printf (" PROTO ((rtx, rtx");
+  if (type == RECOG)
+    printf (", int *");
+  else if (type == PEEPHOLE2)
+    printf (", rtx *");
+  printf ("));\n");
+
+  if (type == PEEPHOLE2)
     printf ("rtx\npeephole2");
   else if (type == SPLIT)
     printf ("rtx\nsplit");
@@ -1100,7 +1119,7 @@ write_subroutine (tree, type)
   printf (" (x0, insn");
   if (type == RECOG)
     printf (", pnum_clobbers");
-  if (type == PEEPHOLE2)
+  else if (type == PEEPHOLE2)
     printf (", _last_insn");
 
   printf (")\n");
@@ -1109,7 +1128,7 @@ write_subroutine (tree, type)
   printf ("     register rtx x0;\n     rtx insn ATTRIBUTE_UNUSED;\n");
   if (type == RECOG)
     printf ("     int *pnum_clobbers ATTRIBUTE_UNUSED;\n");
-  if (type == PEEPHOLE2)
+  else if (type == PEEPHOLE2)
     printf ("     rtx *_last_insn ATTRIBUTE_UNUSED;\n");
 
   printf ("{\n");
@@ -1611,7 +1630,7 @@ static void
 print_code (code)
      enum rtx_code code;
 {
-  register char *p1;
+  register const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
     {
       if (*p1 >= 'a' && *p1 <= 'z')
@@ -1909,6 +1928,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"rtl.h\"\n");
+  printf ("#include \"function.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"recog.h\"\n");
   printf ("#include \"real.h\"\n");

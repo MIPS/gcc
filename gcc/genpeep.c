@@ -159,7 +159,7 @@ match_rtx (x, path, fail_label)
   register RTX_CODE code;
   register int i;
   register int len;
-  register char *fmt;
+  register const char *fmt;
   struct link link;
 
   if (x == 0)
@@ -374,7 +374,7 @@ static void
 print_code (code)
      RTX_CODE code;
 {
-  register char *p1;
+  register const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
     {
       if (*p1 >= 'a' && *p1 <= 'z')
@@ -477,6 +477,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"recog.h\"\n");
   printf ("#include \"except.h\"\n\n");
+  printf ("#include \"function.h\"\n\n");
 
   printf ("#ifdef HAVE_peephole\n");
   printf ("extern rtx peep_operand[];\n\n");

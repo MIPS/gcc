@@ -37,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "flags.h"
 #include "tree.h"
-#include "except.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
@@ -267,9 +266,11 @@ static void set_type_quals PROTO((tree, int));
 static void append_random_chars PROTO((char *));
 static void build_real_from_int_cst_1 PROTO((PTR));
 
-extern char *mode_name[];
-
 void gcc_obstack_init ();
+
+/* If non-null, a language specific helper for unsave_expr_now. */
+
+int (*lang_unsave_expr_now) PROTO((tree));
 
 /* Init the principal obstacks.  */
 
@@ -1951,7 +1952,9 @@ chainon (op1, op2)
   if (op1)
     {
       register tree t1;
+#ifdef ENABLE_CHECKING
       register tree t2;
+#endif
 
       for (t1 = op1; TREE_CHAIN (t1); t1 = TREE_CHAIN (t1))
 	;
@@ -2425,7 +2428,11 @@ first_rtl_op (code)
 }
 
 /* Modify a tree in place so that all the evaluate only once things
-   are cleared out.  Return the EXPR given.  */
+   are cleared out.  Return the EXPR given.  
+
+   LANG_UNSAVE_EXPR_NOW, if set, is a pointer to a function to handle
+   language specific nodes.
+*/
 
 tree
 unsave_expr_now (expr)
@@ -2472,6 +2479,8 @@ unsave_expr_now (expr)
       break;
 
     default:
+      if (lang_unsave_expr_now)
+	(*lang_unsave_expr_now) (expr);
       break;
     }
 
@@ -3748,7 +3757,7 @@ type_hash_add (hashcode, type)
 {
   register struct type_hash *h;
 
-  h = (struct type_hash *) oballoc (sizeof (struct type_hash));
+  h = (struct type_hash *) permalloc (sizeof (struct type_hash));
   h->hashcode = hashcode;
   h->type = type;
   h->next = type_hash_table[hashcode % TYPE_HASH_SIZE];
@@ -5066,81 +5075,112 @@ get_set_constructor_bytes (init, buffer, wd_size)
 
 #ifdef ENABLE_CHECKING
 
-/* Complain if the tree code does not match the expected one.
-   NODE is the tree node in question, CODE is the expected tree code,
-   and FILE and LINE are the filename and line number, respectively,
-   of the line on which the check was done.  If NONFATAL is nonzero,
-   don't abort if the reference is invalid; instead, return 0.
-   If the reference is valid, return NODE.  */
+#if defined __GNUC__ && (__GNUC__ > 2 || __GNUC_MINOR__ > 6)
 
-tree
-tree_check (node, code, file, line, nofatal)
-     tree node;
+/* Complain that the tree code of NODE does not match the expected CODE.
+   FILE, LINE, and FUNCTION are of the caller.
+
+   FIXME: should print the blather about reporting the bug. */
+void
+tree_check_failed (node, code, file, line, function)
+     const tree node;
      enum tree_code code;
      const char *file;
      int line;
-     int nofatal;
+     const char *function;
 {
-  if (TREE_CODE (node) == code)
-    return node;
-  else if (nofatal)
-    return 0;
-  else
-    fatal ("%s:%d: Expect %s, have %s\n", file, line,
-	   tree_code_name[code], tree_code_name[TREE_CODE (node)]);
+  fatal ("Internal compiler error in `%s', at %s:%d:\n\
+\texpected %s, have %s\n",
+	 function, trim_filename (file), line,
+	 tree_code_name[code], tree_code_name[TREE_CODE (node)]);
 }
 
 /* Similar to above, except that we check for a class of tree
    code, given in CL.  */
-
-tree
-tree_class_check (node, cl, file, line, nofatal)
-     tree node;
+void
+tree_class_check_failed (node, cl, file, line, function)
+     const tree node;
      char cl;
      const char *file;
      int line;
-     int nofatal;
+     const char *function;
 {
-  if (TREE_CODE_CLASS (TREE_CODE (node)) == cl)
-    return node;
-  else if (nofatal)
-    return 0;
-  else
-    fatal ("%s:%d: Expect '%c', have '%s'\n", file, line,
-	   cl, tree_code_name[TREE_CODE (node)]);
+  fatal ("Internal compiler error in `%s', at %s:%d:\n\
+\texpected '%c', have '%c' (%s)\n",
+	 function, trim_filename (file), line, cl,
+	 TREE_CODE_CLASS (TREE_CODE (node)),
+	 tree_code_name[TREE_CODE (node)]);
 }
 
-/* Likewise, but complain if the tree node is not an expression.  */
+#else /* not gcc or old gcc */
 
+/* These functions are just like the above, but they have to
+   do the check as well as report the error.  */
 tree
-expr_check (node, ignored, file, line, nofatal)
-     tree node;
-     int ignored;
+tree_check (node, code, file, line)
+     const tree node;
+     enum tree_code code;
      const char *file;
      int line;
-     int nofatal;
-{
-  switch (TREE_CODE_CLASS (TREE_CODE (node)))
-    {
-    case 'r':
-    case 's':
-    case 'e':
-    case '<':
-    case '1':
-    case '2':
-      break;
+{	
+  if (TREE_CODE (node) == code)
+    return node;
 
-    default:
-      if (nofatal)
-	return 0;
-      else
-	fatal ("%s:%d: Expect expression, have '%s'\n", file, line,
-	       tree_code_name[TREE_CODE (node)]);
-    }
-
-  return node;
+  fatal ("Internal compiler error at %s:%d:\n\texpected %s, have %s\n",
+	 file, trim_filename (file), tree_code_name[code], tree_code_name[TREE_CODE(node)]);
 }
-#endif
+
+tree
+tree_class_check (node, class, file, line)
+     const tree node;
+     char class;
+     const char *file;
+     int line;
+{	
+  if (TREE_CODE_CLASS (TREE_CODE (node)) == class)
+    return node;
+
+  fatal ("Internal compiler error at %s:%d:\n\
+\texpected '%c', have '%c' (%s)\n",
+	 file, trim_filename (file), class, TREE_CODE_CLASS (TREE_CODE (node)),
+	 tree_code_name[TREE_CODE(node)]);
+}
+
+tree
+cst_or_constructor_check (node, file, line)
+     const tree node;
+     const char *file;
+     int line;
+{
+  enum tree_code code = TREE_CODE (node);
+  
+  if (code == CONSTRUCTOR || TREE_CODE_CLASS (code) == 'c')
+    return node;
+
+  fatal ("Internal compiler error at %s:%d:\n\
+\texpected constructor, have %s\n",
+	 file, line, tree_code_name[code]);
+}
+
+tree
+expr_check (node, file, line)
+     const tree node;
+     const char *file;
+     int line;
+{
+  char c = TREE_CODE_CLASS (TREE_CODE (node));
+
+  if (c == 'r' || c == 's' || c == '<'
+      || c == '1' || c == '2' || c == 'e')
+    return node;
+
+  fatal ("Internal compiler error at %s:%d:\n\
+\texpected 'e', have '%c' (%s)\n",
+	 file, trim_filename (file), c, tree_code_name[TREE_CODE (node)]);
+}
+
+#endif /* not gcc or old gcc */
+#endif /* ENABLE_CHECKING */
 
 /* Return the alias set for T, which may be either a type or an
    expression.  */

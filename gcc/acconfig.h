@@ -10,6 +10,13 @@
 /* Define to 1 if NLS is requested.  */
 #undef ENABLE_NLS
 
+/* Define to 1 if installation paths should be looked up in Windows32
+   Registry. Ignored on non windows32 hosts. */
+#undef ENABLE_WIN32_REGISTRY
+
+/* Define to be the last portion of registry key on windows hosts.  */
+#undef WIN32_REGISTRY_KEY
+
 /* Define as 1 if you have catgets and don't want to use GNU gettext.  */
 #undef HAVE_CATGETS
 
@@ -28,6 +35,12 @@
 
 /* Define if your assembler supports .balign and .p2align.  */
 #undef HAVE_GAS_BALIGN_AND_P2ALIGN
+
+/* Define if your assembler supports offsetable %lo().  */
+#undef HAVE_AS_OFFSETABLE_LO10
+
+/* Define if your assembler supports .register.  */
+#undef HAVE_AS_REGISTER_PSEUDO_OP
 
 /* Define if your assembler supports .subsection and .subsection -1 starts
    emitting at the beginning of your section */

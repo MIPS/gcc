@@ -432,12 +432,14 @@ fix = {
     /*
      *  Test that the file-to-fix does not from a C++ directory
      *  Also, only accept double slashes that are not part of URL's
+     *  and do not appear to be within a single-line C-style comment
      *  and are not the end of a quoted string.
      */
     test   = ' -z "`echo ${file} | egrep \'(CC|cxx|\+\+)/\'`"';
     select = '(^|[^:])//[^"*]';
     sed    = 's,^//.*$,,';
-    sed    = 's,[^:]//[^"].*$,,';
+    sed    = 's,\(/\*.*\)//\(.*\*/\),\1/ /\2,g';
+    sed    = 's,\([^:]\)//[^"].*$,\1,';
 };
 
 
@@ -741,6 +743,20 @@ fix = {
     files = rpc/xdr.h;
     sed   = "/xdrstdio_create.*struct __file_s/i\\\n"
             "struct __file_s;\n";
+};
+
+
+/*
+ *  IRIX 5.2's <sys/asm.h> contains an asm comment with a contraction
+ *  that causes the assembly preprocessor to complain about an
+ *  unterminated character constant.
+ */
+fix = {
+    hackname = irix_asm_apostrophe;
+    files    = sys/asm.h;
+
+    select   = "^[ \t]*#.*[Ww]e're";
+    sed      = "/^[ \t]*#/s/\\([Ww]e\\)'re/\\1 are/";
 };
 
 
@@ -2083,6 +2099,7 @@ fix = {
     sed   = "s/char[ \t]*\\*[ \t]*calloc/void \\*\tcalloc/g";
     sed   = "s/char[ \t]*\\*[ \t]*malloc/void \\*\tmalloc/g";
     sed   = "s/char[ \t]*\\*[ \t]*realloc/void \\*\trealloc/g";
+    sed   = "s/char[ \t]*\\*[ \t]*bsearch/void \\*\tbsearch/g";
     sed   = "s/int[ \t][ \t]*exit/void\texit/g";
 
     sed   = "/typedef[ \ta-zA-Z_]*[ \t]size_t[ \t]*;/i\\\n"

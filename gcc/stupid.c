@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "regs.h"
+#include "function.h"
 #include "insn-config.h"
 #include "reload.h"
 #include "flags.h"
@@ -599,7 +600,7 @@ stupid_mark_refs (x, chain)
      struct insn_chain *chain;
 {
   register RTX_CODE code;
-  register char *fmt;
+  register const char *fmt;
   register int regno, i;
   rtx insn = chain->insn;
 

@@ -62,6 +62,7 @@ Boston, MA 02111-1307, USA.  */
 #include "defaults.h"
 #include "output.h"
 #include "except.h"
+#include "function.h"
 #include "toplev.h"
 #include "reload.h"
 #include "intl.h"
@@ -315,7 +316,7 @@ extern char *getpwd ();
 
 void
 init_final (filename)
-     char *filename;
+     const char *filename ATTRIBUTE_UNUSED;
 {
   next_block_index = 2;
   app_on = 0;
@@ -1115,18 +1116,32 @@ shorten_branches (first)
 	       && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
 	{
 	  rtx label;
+	  int nest = 0;
 
+	  /* Search for the label that starts the loop.
+	     Don't skip past the end of the loop, since that could
+	     lead to putting an alignment where it does not belong.
+	     However, a label after a nested (non-)loop would be OK.  */
 	  for (label = insn; label; label = NEXT_INSN (label))
-	    if (GET_CODE (label) == CODE_LABEL)
-	      {
-		log = LOOP_ALIGN (insn);
-		if (max_log < log)
-		  {
-		    max_log = log;
-		    max_skip = LOOP_ALIGN_MAX_SKIP;
-		  }
+	    {
+	      if (GET_CODE (label) == NOTE
+		  && NOTE_LINE_NUMBER (label) == NOTE_INSN_LOOP_BEG)
+		nest++;
+	      else if (GET_CODE (label) == NOTE
+		       && NOTE_LINE_NUMBER (label) == NOTE_INSN_LOOP_END
+		       && --nest == 0)
 		break;
-	      }
+	      else if (GET_CODE (label) == CODE_LABEL)
+		{
+		  log = LOOP_ALIGN (insn);
+		  if (max_log < log)
+		    {
+		      max_log = log;
+		      max_skip = LOOP_ALIGN_MAX_SKIP;
+		    }
+		  break;
+		}
+	    }
 	}
       else
 	continue;
@@ -1585,7 +1600,7 @@ void
 final_start_function (first, file, optimize)
      rtx first;
      FILE *file;
-     int optimize;
+     int optimize ATTRIBUTE_UNUSED;
 {
   block_depth = 0;
 
@@ -1777,9 +1792,9 @@ profile_function (file)
 
 void
 final_end_function (first, file, optimize)
-     rtx first;
+     rtx first ATTRIBUTE_UNUSED;
      FILE *file;
-     int optimize;
+     int optimize ATTRIBUTE_UNUSED;
 {
   if (app_on)
     {
@@ -2971,7 +2986,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 static void
 output_source_line (file, insn)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
      rtx insn;
 {
   register char *filename = NOTE_SOURCE_FILE (insn);
@@ -3660,9 +3675,9 @@ output_addr_const (file, x)
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && INTVAL (XEXP (x, 1)) < 0)
 	{
-	  fprintf (file, ASM_OPEN_PAREN);
+	  fprintf (file, "%s", ASM_OPEN_PAREN);
 	  output_addr_const (file, XEXP (x, 1));
-	  fprintf (file, ASM_CLOSE_PAREN);
+	  fprintf (file, "%s", ASM_CLOSE_PAREN);
 	}
       else
 	output_addr_const (file, XEXP (x, 1));
@@ -4092,7 +4107,7 @@ leaf_renumber_regs_insn (in_rtx)
      register rtx in_rtx;
 {
   register int i, j;
-  register char *format_ptr;
+  register const char *format_ptr;
 
   if (in_rtx == 0)
     return;

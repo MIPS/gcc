@@ -6,7 +6,7 @@
 # files which are fixed to work correctly with ANSI C and placed in a
 # directory that GNU C will search.
 #
-# This script contains 104 fixup scripts.
+# This script contains 106 fixup scripts.
 #
 # See README-fixinc for more information.
 #
@@ -406,8 +406,10 @@ done
 #
 # # # # # # # # # # # # # # # # # # # # #
 
-cd $ORIGDIR
-rm -f include/assert.h
-cp ${srcdir}/assert.h include/assert.h || exit 1
-chmod a+r include/assert.h
-
+if [ x${INSTALL_ASSERT_H} != x ] && [ -f ${srcdir}/assert.h ]
+then
+  cd $ORIGDIR
+  rm -f include/assert.h
+  cp ${srcdir}/assert.h include/assert.h || exit 1
+  chmod a+r include/assert.h
+fi

@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "system.h"
 #include "basic-block.h"
+#include "function.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
@@ -183,7 +184,7 @@ mark_referenced_resources (x, res, include_delayed_effects)
 {
   register enum rtx_code code = GET_CODE (x);
   register int i, j;
-  register char *format_ptr;
+  register const char *format_ptr;
 
   /* Handle leaf items for which we set resource flags.  Also, special-case
      CALL, SET and CLOBBER operators.  */
@@ -590,7 +591,7 @@ mark_set_resources (x, res, in_dest, include_delayed_effects)
 {
   register enum rtx_code code;
   register int i, j;
-  register char *format_ptr;
+  register const char *format_ptr;
 
  restart:
 
@@ -966,7 +967,7 @@ mark_target_live_regs (insns, target, res)
 #if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
 		    && ! (i == ARG_POINTER_REGNUM && fixed_regs[i])
 #endif
-#ifdef PIC_OFFSET_TABLE_REGNUM
+#if defined (PIC_OFFSET_TABLE_REGNUM) && !defined (PIC_OFFSET_TABLE_REG_CALL_CLOBBERED)
 		    && ! (i == PIC_OFFSET_TABLE_REGNUM && flag_pic)
 #endif
 		    )

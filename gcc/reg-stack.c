@@ -154,6 +154,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -280,7 +281,7 @@ static int
 stack_regs_mentioned_p (pat)
      rtx pat;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i;
 
   if (STACK_REG_P (pat))
@@ -604,7 +605,7 @@ record_label_references (insn, pat)
 {
   register enum rtx_code code = GET_CODE (pat);
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   if (code == LABEL_REF)
     {
@@ -917,7 +918,7 @@ record_reg_life_pat (pat, src, dest, douse)
      HARD_REG_SET *src, *dest;
      int douse;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i;
 
   if (STACK_REG_P (pat)
@@ -1724,7 +1725,7 @@ static int
 swap_rtx_condition_1 (pat)
      rtx pat;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i, r = 0;
 
   if (GET_RTX_CLASS (GET_CODE (pat)) == '<')
@@ -2676,43 +2677,46 @@ change_stack (insn, old, new, when)
       if (old->top != new->top)
 	abort ();
 
-      /* Loop here emitting swaps until the stack is correct.  The
-	 worst case number of swaps emitted is N + 2, where N is the
+      /* If the stack is not empty (new->top != -1), loop here emitting
+	 swaps until the stack is correct. 
+
+	 The worst case number of swaps emitted is N + 2, where N is the
 	 depth of the stack.  In some cases, the reg at the top of
 	 stack may be correct, but swapped anyway in order to fix
 	 other regs.  But since we never swap any other reg away from
 	 its correct slot, this algorithm will converge.  */
 
-      do
-	{
-	  /* Swap the reg at top of stack into the position it is
-	     supposed to be in, until the correct top of stack appears.  */
+      if (new->top != -1)
+	do
+	  {
+	    /* Swap the reg at top of stack into the position it is
+	       supposed to be in, until the correct top of stack appears.  */
 
-	  while (old->reg[old->top] != new->reg[new->top])
-	    {
-	      for (reg = new->top; reg >= 0; reg--)
-		if (new->reg[reg] == old->reg[old->top])
-		  break;
+	    while (old->reg[old->top] != new->reg[new->top])
+	      {
+		for (reg = new->top; reg >= 0; reg--)
+		  if (new->reg[reg] == old->reg[old->top])
+		    break;
 
-	      if (reg == -1)
-		abort ();
+		if (reg == -1)
+		  abort ();
 
-	      emit_swap_insn (insn, old,
-			      FP_MODE_REG (old->reg[reg], DFmode));
-	    }
+		emit_swap_insn (insn, old,
+				FP_MODE_REG (old->reg[reg], DFmode));
+	      }
 
-	  /* See if any regs remain incorrect.  If so, bring an
+	    /* See if any regs remain incorrect.  If so, bring an
 	     incorrect reg to the top of stack, and let the while loop
 	     above fix it.  */
 
-	  for (reg = new->top; reg >= 0; reg--)
-	    if (new->reg[reg] != old->reg[reg])
-	      {
-		emit_swap_insn (insn, old,
-				FP_MODE_REG (old->reg[reg], DFmode));
-		break;
-	      }
-	} while (reg >= 0);
+	    for (reg = new->top; reg >= 0; reg--)
+	      if (new->reg[reg] != old->reg[reg])
+		{
+		  emit_swap_insn (insn, old,
+				  FP_MODE_REG (old->reg[reg], DFmode));
+		  break;
+		}
+	  } while (reg >= 0);
 
       /* At this point there must be no differences.  */
 
@@ -2753,7 +2757,7 @@ goto_block_pat (insn, regstack, pat)
     default:
       {
 	int i, j;
-	char *fmt = GET_RTX_FORMAT (GET_CODE (pat));
+	const char *fmt = GET_RTX_FORMAT (GET_CODE (pat));
 
 	for (i = GET_RTX_LENGTH (GET_CODE (pat)) - 1; i >= 0; i--)
 	  {
@@ -2963,7 +2967,7 @@ print_blocks (file, insn, pat)
 {
   register RTX_CODE code = GET_CODE (pat);
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   if (code == LABEL_REF)
     {

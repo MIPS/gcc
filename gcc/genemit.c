@@ -84,7 +84,7 @@ max_operand_1 (x)
   register RTX_CODE code;
   register int i;
   register int len;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     return;
@@ -140,7 +140,7 @@ static void
 print_code (code)
      RTX_CODE code;
 {
-  register char *p1;
+  register const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
     {
       if (*p1 >= 'a' && *p1 <= 'z')
@@ -176,7 +176,7 @@ gen_exp (x, subroutine_type)
   register RTX_CODE code;
   register int i;
   register int len;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     {
@@ -522,10 +522,11 @@ gen_expand (expand)
       else if (GET_CODE (next) == CODE_LABEL)
 	printf ("  emit_label (");
       else if (GET_CODE (next) == MATCH_OPERAND
-	       || GET_CODE (next) == MATCH_OPERATOR
-	       || GET_CODE (next) == MATCH_PARALLEL
-	       || GET_CODE (next) == MATCH_OP_DUP
 	       || GET_CODE (next) == MATCH_DUP
+	       || GET_CODE (next) == MATCH_OPERATOR
+	       || GET_CODE (next) == MATCH_OP_DUP
+	       || GET_CODE (next) == MATCH_PARALLEL
+	       || GET_CODE (next) == MATCH_PAR_DUP
 	       || GET_CODE (next) == PARALLEL)
 	printf ("  emit (");
       else
@@ -570,16 +571,18 @@ gen_split (split)
   max_operand_vec (split, 2);
   operands = MAX (max_opno, MAX (max_dup_opno, max_scratch_opno)) + 1;
 
-  /* Output the function name and argument declarations.  */
+  /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
     {
+      printf ("extern rtx gen_%s_%d PROTO ((rtx, rtx *));\n",
+	      name, insn_code_number);
       printf ("rtx\ngen_%s_%d (curr_insn, operands)\n     rtx curr_insn;\n\
     rtx *operands;\n", 
-	      name,
-	      insn_code_number);
+	      name, insn_code_number);
     }
   else
     {
+      printf ("extern rtx gen_split_%d PROTO ((rtx *));\n", insn_code_number);
       printf ("rtx\ngen_%s_%d (operands)\n     rtx *operands;\n", name,
 	      insn_code_number);
     }
@@ -861,6 +864,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"rtl.h\"\n");
+  printf ("#include \"function.h\"\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"flags.h\"\n");

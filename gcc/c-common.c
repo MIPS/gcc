@@ -3401,11 +3401,54 @@ c_get_alias_set (t)
        whose type is the same as one of the fields, recursively, but
        we don't yet make any use of that information.)  */
     TYPE_ALIAS_SET (type) = 0;
+  else if (TREE_CODE (type) == POINTER_TYPE
+	   || TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      tree t;
+
+      /* Unfortunately, there is no canonical form of a pointer type.
+	 In particular, if we have `typedef int I', then `int *', and
+	 `I *' are different types.  So, we have to pick a canonical
+	 representative.  We do this below.
+	 
+	 Technically, this approach is actually more conservative that
+	 it needs to be.  In particular, `const int *' and `int *'
+	 chould be in different alias sets, according to the C and C++
+	 standard, since their types are not the same, and so,
+	 technically, an `int **' and `const int **' cannot point at
+	 the same thing.
+
+         But, the standard is wrong.  In particular, this code is
+	 legal C++:
+
+            int *ip;
+            int **ipp = &ip;
+            const int* const* cipp = &ip;
+
+         And, it doesn't make sense for that to be legal unless you
+	 can dereference IPP and CIPP.  So, we ignore cv-qualifiers on
+	 the pointed-to types.  This issue has been reported to the
+	 C++ committee.  */
+      t = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+      t = ((TREE_CODE (type) == POINTER_TYPE)
+	   ? build_pointer_type (t) : build_reference_type (t));
+      if (t != type)
+	TYPE_ALIAS_SET (type) = c_get_alias_set (t);
+    }
 
   if (!TYPE_ALIAS_SET_KNOWN_P (type)) 
-    /* TYPE is something we haven't seen before.  Put it in a new
-       alias set.  */
-    TYPE_ALIAS_SET (type) = new_alias_set ();
+    {
+      /* Types that are not allocated on the permanent obstack are not
+	 placed in the type hash table.  Thus, there can be multiple
+	 copies of identical types in local scopes.  In the long run,
+	 all types should be permanent.  */
+      if (! TREE_PERMANENT (type))
+	TYPE_ALIAS_SET (type) = 0;
+      else
+	/* TYPE is something we haven't seen before.  Put it in a new
+	   alias set.  */
+	TYPE_ALIAS_SET (type) = new_alias_set ();
+    }
 
   return TYPE_ALIAS_SET (type);
 }
@@ -3767,3 +3810,159 @@ build_va_arg (expr, type)
 {
   return build1 (VA_ARG_EXPR, type, expr);
 }
+
+/* Return nonzero if VALUE is a valid constant-valued expression
+   for use in initializing a static variable; one that can be an
+   element of a "constant" initializer.
+
+   Return null_pointer_node if the value is absolute;
+   if it is relocatable, return the variable that determines the relocation.
+   We assume that VALUE has been folded as much as possible;
+   therefore, we do not need to check for such things as
+   arithmetic-combinations of integers.  */
+
+tree
+initializer_constant_valid_p (value, endtype)
+     tree value;
+     tree endtype;
+{
+  switch (TREE_CODE (value))
+    {
+    case CONSTRUCTOR:
+      if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
+	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
+	  && TREE_CONSTANT (value)
+	  && CONSTRUCTOR_ELTS (value))
+	return
+	  initializer_constant_valid_p (TREE_VALUE (CONSTRUCTOR_ELTS (value)),
+					endtype);
+	
+      return TREE_STATIC (value) ? null_pointer_node : 0;
+
+    case INTEGER_CST:
+    case REAL_CST:
+    case STRING_CST:
+    case COMPLEX_CST:
+      return null_pointer_node;
+
+    case ADDR_EXPR:
+      return TREE_OPERAND (value, 0);
+
+    case NON_LVALUE_EXPR:
+      return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+
+    case CONVERT_EXPR:
+    case NOP_EXPR:
+      /* Allow conversions between pointer types.  */
+      if (POINTER_TYPE_P (TREE_TYPE (value))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+
+      /* Allow conversions between real types.  */
+      if (FLOAT_TYPE_P (TREE_TYPE (value))
+	  && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+
+      /* Allow length-preserving conversions between integer types.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
+	  && (TYPE_PRECISION (TREE_TYPE (value))
+	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
+	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
+
+      /* Allow conversions between other integer types only if
+	 explicit value.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+	{
+	  tree inner = initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						     endtype);
+	  if (inner == null_pointer_node)
+	    return null_pointer_node;
+	  break;
+	}
+
+      /* Allow (int) &foo provided int is as wide as a pointer.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (value))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
+	  && (TYPE_PRECISION (TREE_TYPE (value))
+	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
+	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
+					     endtype);
+
+      /* Likewise conversions from int to pointers, but also allow
+	 conversions from 0.  */
+      if (POINTER_TYPE_P (TREE_TYPE (value))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+	{
+	  if (integer_zerop (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  else if (TYPE_PRECISION (TREE_TYPE (value))
+		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
+	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						 endtype);
+	}
+
+      /* Allow conversions to union types if the value inside is okay.  */
+      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
+	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
+					     endtype);
+      break;
+
+    case PLUS_EXPR:
+      if (! INTEGRAL_TYPE_P (endtype)
+	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
+        {
+	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						      endtype);
+	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
+						      endtype);
+	  /* If either term is absolute, use the other terms relocation.  */
+	  if (valid0 == null_pointer_node)
+	    return valid1;
+	  if (valid1 == null_pointer_node)
+	    return valid0;
+        }
+      break;
+
+    case MINUS_EXPR:
+      if (! INTEGRAL_TYPE_P (endtype)
+	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
+	{
+	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						      endtype);
+	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
+						      endtype);
+	  /* Win if second argument is absolute.  */
+	  if (valid1 == null_pointer_node)
+	    return valid0;
+	  /* Win if both arguments have the same relocation.
+	     Then the value is absolute.  */
+	  if (valid0 == valid1)
+	    return null_pointer_node;
+	}
+
+      /* Support differences between labels.  */
+      if (INTEGRAL_TYPE_P (endtype))
+	{
+	  tree op0, op1;
+	  op0 = TREE_OPERAND (value, 0);
+	  op1 = TREE_OPERAND (value, 1);
+	  STRIP_NOPS (op0);
+	  STRIP_NOPS (op1);
+
+	  if (TREE_CODE (op0) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
+	      && TREE_CODE (op1) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL)
+	    return null_pointer_node;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return 0;
+}
+

@@ -82,6 +82,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
+#include "function.h"
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move. */
 #include "expr.h"
 #include "insn-flags.h"
@@ -1338,7 +1339,7 @@ try_combine (i3, i2, i1)
   /* Nonzero is I2's body now appears in I3.  */
   int i2_is_used;
   /* INSN_CODEs for new I3, new I2, and user of condition code.  */
-  int insn_code_number, i2_code_number, other_code_number;
+  int insn_code_number, i2_code_number = 0, other_code_number = 0;
   /* Contains I3 if the destination of I3 is used in its source, which means
      that the old life of I3 is being killed.  If that usage is placed into
      I2 and not in I3, a REG_DEAD note must be made.  */
@@ -2592,8 +2593,8 @@ find_split_point (loc, insn)
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
   rtx *split;
-  int len = 0, pos, unsignedp;
-  rtx inner;
+  int len = 0, pos = 0, unsignedp = 0;
+  rtx inner = NULL_RTX;
 
   /* First special-case some codes.  */
   switch (code)
@@ -3006,7 +3007,7 @@ subst (x, from, to, in_dest, unique_copy)
 {
   register enum rtx_code code = GET_CODE (x);
   enum machine_mode op0_mode = VOIDmode;
-  register char *fmt;
+  register const char *fmt;
   register int len, i;
   rtx new;
 
@@ -4456,9 +4457,9 @@ simplify_if_then_else (x)
       rtx f = make_compound_operation (false, SET);
       rtx cond_op0 = XEXP (cond, 0);
       rtx cond_op1 = XEXP (cond, 1);
-      enum rtx_code op, extend_op = NIL;
+      enum rtx_code op = NIL, extend_op = NIL;
       enum machine_mode m = mode;
-      rtx z = 0, c1;
+      rtx z = 0, c1 = NULL_RTX;
 
       if ((GET_CODE (t) == PLUS || GET_CODE (t) == MINUS
 	   || GET_CODE (t) == IOR || GET_CODE (t) == XOR
@@ -5923,7 +5924,7 @@ make_compound_operation (x, in_code)
   int i;
   rtx new = 0;
   rtx tem;
-  char *fmt;
+  const char *fmt;
 
   /* Select the code to be used in recursive calls.  Once we are inside an
      address, we stay there.  If we have a comparison, set to COMPARE,
@@ -6574,7 +6575,8 @@ force_to_mode (x, mode, mask, reg, just_select)
 	x = gen_binary (LSHIFTRT, GET_MODE (x), XEXP (x, 0),
 			GEN_INT (GET_MODE_BITSIZE (GET_MODE (x))
 				 - exact_log2 (mask + 1)));
-      break;
+
+      goto shiftrt;
 
     case ASHIFTRT:
       /* If we are just looking for the sign bit, we don't need this shift at
@@ -6639,7 +6641,9 @@ force_to_mode (x, mode, mask, reg, just_select)
       if (mask == 1)
 	x = gen_binary (LSHIFTRT, GET_MODE (x), XEXP (x, 0), XEXP (x, 1));
 
-      /* If this is a sign-extension operation that just affects bits
+    shiftrt:
+
+      /* If this is a zero- or sign-extension operation that just affects bits
 	 we don't care about, remove it.  Be sure the call above returned
 	 something that is still a shift.  */
 
@@ -6947,7 +6951,7 @@ known_cond (x, cond, reg, val)
 {
   enum rtx_code code = GET_CODE (x);
   rtx temp;
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   if (side_effects_p (x))
@@ -7319,7 +7323,6 @@ simplify_and_const_int (x, mode, varop, constop)
      unsigned HOST_WIDE_INT constop;
 {
   unsigned HOST_WIDE_INT nonzero;
-  int width = GET_MODE_BITSIZE (mode);
   int i;
 
   /* Simplify VAROP knowing that we will be only looking at some of the
@@ -7518,8 +7521,11 @@ nonzero_bits (x, mode)
 
       if (reg_last_set_value[REGNO (x)] != 0
 	  && reg_last_set_mode[REGNO (x)] == mode
-	  && (REG_N_SETS (REGNO (x)) == 1
-	      || reg_last_set_label[REGNO (x)] == label_tick)
+	  && (reg_last_set_label[REGNO (x)] == label_tick
+	      || (REGNO (x) >= FIRST_PSEUDO_REGISTER
+		  && REG_N_SETS (REGNO (x)) == 1
+		  && ! REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, 
+					REGNO (x))))
 	  && INSN_CUID (reg_last_set[REGNO (x)]) < subst_low_cuid)
 	return reg_last_set_nonzero_bits[REGNO (x)];
 
@@ -7908,8 +7914,11 @@ num_sign_bit_copies (x, mode)
 
       if (reg_last_set_value[REGNO (x)] != 0
 	  && reg_last_set_mode[REGNO (x)] == mode
-	  && (REG_N_SETS (REGNO (x)) == 1
-	      || reg_last_set_label[REGNO (x)] == label_tick)
+	  && (reg_last_set_label[REGNO (x)] == label_tick
+	      || (REGNO (x) >= FIRST_PSEUDO_REGISTER
+		  && REG_N_SETS (REGNO (x)) == 1
+		  && ! REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start,
+					REGNO (x))))
 	  && INSN_CUID (reg_last_set[REGNO (x)]) < subst_low_cuid)
 	return reg_last_set_sign_bit_copies[REGNO (x)];
 
@@ -8220,7 +8229,6 @@ merge_outer_ops (pop0, pconst0, op1, const1, mode, pcomp_p)
 {
   enum rtx_code op0 = *pop0;
   HOST_WIDE_INT const0 = *pconst0;
-  int width = GET_MODE_BITSIZE (mode);
 
   const0 &= GET_MODE_MASK (mode);
   const1 &= GET_MODE_MASK (mode);
@@ -9272,7 +9280,7 @@ gen_rtx_combine VPROTO((enum rtx_code code, enum machine_mode mode, ...))
   int n_args;
   rtx args[3];
   int j;
-  char *fmt;
+  const char *fmt;
   rtx rt;
   struct undo *undo;
 
@@ -10495,7 +10503,7 @@ update_table_tick (x)
      rtx x;
 {
   register enum rtx_code code = GET_CODE (x);
-  register char *fmt = GET_RTX_FORMAT (code);
+  register const char *fmt = GET_RTX_FORMAT (code);
   register int i;
 
   if (code == REG)
@@ -10719,7 +10727,7 @@ get_last_value_validate (loc, insn, tick, replace)
      int replace;
 {
   rtx x = *loc;
-  char *fmt = GET_RTX_FORMAT (GET_CODE (x));
+  const char *fmt = GET_RTX_FORMAT (GET_CODE (x));
   int len = GET_RTX_LENGTH (GET_CODE (x));
   int i;
 
@@ -10732,9 +10740,11 @@ get_last_value_validate (loc, insn, tick, replace)
 
       for (j = regno; j < endregno; j++)
 	if (reg_last_set_invalid[j]
-	    /* If this is a pseudo-register that was only set once, it is
-	       always valid.  */
-	    || (! (regno >= FIRST_PSEUDO_REGISTER && REG_N_SETS (regno) == 1)
+	    /* If this is a pseudo-register that was only set once and not
+	       live at the beginning of the function, it is always valid.  */
+	    || (! (regno >= FIRST_PSEUDO_REGISTER 
+		   && REG_N_SETS (regno) == 1
+		   && ! REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno))
 		&& reg_last_set_label[j] > tick))
 	  {
 	    if (replace)
@@ -10793,12 +10803,21 @@ get_last_value (x)
   regno = REGNO (x);
   value = reg_last_set_value[regno];
 
-  /* If we don't have a value or if it isn't for this basic block,
-     return 0.  */
+  /* If we don't have a value, or if it isn't for this basic block and
+     it's either a hard register, set more than once, or it's a live
+     at the beginning of the function, return 0.  
+
+     Because if it's not live at the beginnning of the function then the reg 
+     is always set before being used (is never used without being set).
+     And, if it's set only once, and it's always set before use, then all
+     uses must have the same last value, even if it's not from this basic
+     block.  */
 
   if (value == 0
-      || (REG_N_SETS (regno) != 1
-	  && reg_last_set_label[regno] != label_tick))
+      || (reg_last_set_label[regno] != label_tick
+	  && (regno < FIRST_PSEUDO_REGISTER
+	      || REG_N_SETS (regno) != 1
+	      || REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -10877,7 +10896,7 @@ use_crosses_set_p (x, from_cuid)
      register rtx x;
      int from_cuid;
 {
-  register char *fmt;
+  register const char *fmt;
   register int i;
   register enum rtx_code code = GET_CODE (x);
 
@@ -11100,7 +11119,7 @@ mark_used_regs_combine (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register char *fmt = GET_RTX_FORMAT (code);
+    register const char *fmt = GET_RTX_FORMAT (code);
 
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -11156,7 +11175,7 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
      rtx to_insn;
      rtx *pnotes;
 {
-  register char *fmt;
+  register const char *fmt;
   register int len, i;
   register enum rtx_code code = GET_CODE (x);
 
@@ -11403,8 +11422,9 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 	  break;
 
 	case REG_EH_REGION:
-	  /* This note must remain with the call.  It should not be possible
-	     for both I2 and I3 to be a call.  */
+	case REG_EH_RETHROW:
+	  /* These notes must remain with the call.  It should not be
+	     possible for both I2 and I3 to be a call.  */
 	  if (GET_CODE (i3) == CALL_INSN) 
 	    place = i3;
 	  else if (i2 && GET_CODE (i2) == CALL_INSN)

@@ -47,7 +47,7 @@ int rtx_length[NUM_RTX_CODE + 1];
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
 
-char *rtx_name[] = {
+const char * const rtx_name[] = {
 #include "rtl.def"		/* rtl expressions are documented here */
 };
 
@@ -58,7 +58,7 @@ char *rtx_name[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, SIZE, UNIT, WIDER)  NAME,
 
-char *mode_name[(int) MAX_MACHINE_MODE + 1] = {
+const char * const mode_name[(int) MAX_MACHINE_MODE + 1] = {
 #include "machmode.def"
 
 #ifdef EXTRA_CC_MODES
@@ -134,7 +134,7 @@ enum machine_mode class_narrowest_mode[(int) MAX_MODE_CLASS];
    rtx's of that code.  The sequence is a C string in which
    each character describes one operand.  */
 
-char *rtx_format[] = {
+const char *rtx_format[] = {
   /* "*" undefined.
          can cause a warning message
      "0" field is unused (or used in a phase-dependent manner)
@@ -167,7 +167,7 @@ char *rtx_format[] = {
 /* Indexed by rtx code, gives a character representing the "class" of
    that rtx code.  See rtl.def for documentation on the defined classes.  */
 
-char rtx_class[] = {
+const char rtx_class[] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   CLASS, 
 #include "rtl.def"		/* rtl expressions are defined here */
 #undef DEF_RTL_EXPR
@@ -175,7 +175,7 @@ char rtx_class[] = {
 
 /* Names for kinds of NOTEs and REG_NOTEs.  */
 
-char *note_insn_name[] = { 0                    , "NOTE_INSN_DELETED",
+const char * const note_insn_name[] = { 0       , "NOTE_INSN_DELETED",
 			   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
 			   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
 			   "NOTE_INSN_FUNCTION_END", "NOTE_INSN_SETJMP",
@@ -187,7 +187,7 @@ char *note_insn_name[] = { 0                    , "NOTE_INSN_DELETED",
 			   "NOTE_INSN_RANGE_END", "NOTE_INSN_LIVE",
 			   "NOTE_INSN_BASIC_BLOCK" };
 
-char *reg_note_name[] = { "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_WAS_0",
+const char * const reg_note_name[] = { "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_WAS_0",
 			  "REG_EQUAL", "REG_RETVAL", "REG_LIBCALL",
 			  "REG_NONNEG", "REG_NO_CONFLICT", "REG_UNUSED",
 			  "REG_CC_SETTER", "REG_CC_USER", "REG_LABEL",
@@ -212,13 +212,13 @@ rtvec_alloc (n)
 
   rt = (rtvec) obstack_alloc (rtl_obstack,
 			      sizeof (struct rtvec_def)
-			      + (( n - 1) * sizeof (rtunion)));
+			      + (( n - 1) * sizeof (rtx)));
 
   /* clear out the vector */
   PUT_NUM_ELEM (rt, n);
 
   for (i = 0; i < n; i++)
-    rt->elem[i].rtwint = 0;
+    rt->elem[i] = 0;
 
   return rt;
 }
@@ -282,7 +282,7 @@ copy_rtx (orig)
   register rtx copy;
   register int i, j;
   register RTX_CODE code;
-  register char *format_ptr;
+  register const char *format_ptr;
 
   code = GET_CODE (orig);
 
@@ -410,7 +410,7 @@ copy_most_rtx (orig, may_share)
   register rtx copy;
   register int i, j;
   register RTX_CODE code;
-  register char *format_ptr;
+  register const char *format_ptr;
 
   if (orig == may_share)
     return orig;
@@ -475,6 +475,10 @@ copy_most_rtx (orig, may_share)
 	case 'n':
 	case 'i':
 	  XINT (copy, i) = XINT (orig, i);
+	  break;
+
+	case 't':
+	  XTREE (copy, i) = XTREE (orig, i);
 	  break;
 
 	case 's':
@@ -661,7 +665,7 @@ read_rtx (infile)
 {
   register int i, j, list_counter;
   RTX_CODE tmp_code;
-  register char *format_ptr;
+  register const char *format_ptr;
   /* tmp_char is a buffer used for reading decimal integers
      and names of rtx types and machine modes.
      Therefore, 256 must be enough.  */
@@ -906,7 +910,7 @@ init_rtl ()
   int i;
 
   for (i = 0; i < NUM_RTX_CODE; i++)
-    rtx_length[i] = strlen (rtx_format[i]);
+    rtx_length[i] = strlen (GET_RTX_FORMAT(i));
 
   /* Make CONST_DOUBLE bigger, if real values are bigger than
      it normally expects to have room for.

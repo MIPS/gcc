@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "function.h"
 #include "expr.h"
 #include "toplev.h"
 #include "output.h"
@@ -692,8 +693,6 @@ static void check_fold_consts	PROTO((PTR));
 static struct cse_reg_info* get_cse_reg_info PROTO((int));
 static void free_cse_reg_info   PROTO((splay_tree_value));
 static void flush_hash_table	PROTO((void));
-
-extern int rtx_equal_function_value_matters;
 
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
@@ -754,7 +753,7 @@ rtx_cost (x, outer_code)
 {
   register int i, j;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
   register int total;
 
   if (x == 0)
@@ -1058,7 +1057,7 @@ mention_regs (x)
 {
   register enum rtx_code code;
   register int i, j;
-  register char *fmt;
+  register const char *fmt;
   register int changed = 0;
 
   if (x == 0)
@@ -2098,7 +2097,7 @@ canon_hash (x, mode)
   register int i, j;
   register unsigned hash = 0;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   /* repeat is used to turn tail-recursion into iteration.  */
  repeat:
@@ -2260,7 +2259,7 @@ canon_hash (x, mode)
 	  register unsigned tem = XINT (x, i);
 	  hash += tem;
 	}
-      else if (fmt[i] == '0')
+      else if (fmt[i] == '0' || fmt[i] == 't')
 	/* unused */;
       else
 	abort ();
@@ -2308,7 +2307,7 @@ exp_equiv_p (x, y, validate, equal_values)
 {
   register int i, j;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   /* Note: it is incorrect to assume an expression is equivalent to itself
      if VALIDATE is nonzero.  */
@@ -2443,6 +2442,7 @@ exp_equiv_p (x, y, validate, equal_values)
 	break;
 
 	case '0':
+	case 't':
 	  break;
 
 	default:
@@ -2463,7 +2463,7 @@ refers_to_p (x, y)
 {
   register int i;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
  repeat:
   if (x == y)
@@ -2723,7 +2723,7 @@ canon_reg (x, insn)
 {
   register int i;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     return x;
@@ -4198,7 +4198,7 @@ simplify_binary_operation (code, mode, op0, op1)
 	case ROTATE:
 	  /* Rotating ~0 always results in ~0.  */
 	  if (GET_CODE (op0) == CONST_INT && width <= HOST_BITS_PER_WIDE_INT
-	      && INTVAL (op0) == GET_MODE_MASK (mode)
+	      && (unsigned HOST_WIDE_INT) INTVAL (op0) == GET_MODE_MASK (mode)
 	      && ! side_effects_p (op1))
 	    return op0;
 
@@ -4224,7 +4224,7 @@ simplify_binary_operation (code, mode, op0, op1)
 	   
 	case SMAX:
 	  if (width <= HOST_BITS_PER_WIDE_INT && GET_CODE (op1) == CONST_INT
-	      && (INTVAL (op1)
+	      && ((unsigned HOST_WIDE_INT) INTVAL (op1)
 		  == (unsigned HOST_WIDE_INT) GET_MODE_MASK (mode) >> 1)
 	      && ! side_effects_p (op0))
 	    return op1;
@@ -4839,14 +4839,14 @@ simplify_relational_operation (code, mode, op0, op1)
 	  /* Unsigned values are never greater than the largest
 	     unsigned value.  */
 	  if (GET_CODE (op1) == CONST_INT
-	      && INTVAL (op1) == GET_MODE_MASK (mode)
+	      && (unsigned HOST_WIDE_INT) INTVAL (op1) == GET_MODE_MASK (mode)
 	    && INTEGRAL_MODE_P (mode))
 	  return const_true_rtx;
 	  break;
 
 	case GTU:
 	  if (GET_CODE (op1) == CONST_INT
-	      && INTVAL (op1) == GET_MODE_MASK (mode)
+	      && (unsigned HOST_WIDE_INT) INTVAL (op1) == GET_MODE_MASK (mode)
 	      && INTEGRAL_MODE_P (mode))
 	    return const0_rtx;
 	  break;
@@ -4998,7 +4998,7 @@ fold_rtx (x, insn)
 {
   register enum rtx_code code;
   register enum machine_mode mode;
-  register char *fmt;
+  register const char *fmt;
   register int i;
   rtx new = 0;
   int copied = 0;
@@ -6377,12 +6377,12 @@ cse_insn (insn, libcall_insn)
 
   rtx src_eqv = 0;
   struct table_elt *src_eqv_elt = 0;
-  int src_eqv_volatile;
-  int src_eqv_in_memory;
-  int src_eqv_in_struct;
-  unsigned src_eqv_hash;
+  int src_eqv_volatile = 0;
+  int src_eqv_in_memory = 0;
+  int src_eqv_in_struct = 0;
+  unsigned src_eqv_hash = 0;
 
-  struct set *sets;
+  struct set *sets = NULL_PTR;
 
   this_insn = insn;
 
@@ -7418,15 +7418,20 @@ cse_insn (insn, libcall_insn)
 	     not delete NOTEs except for NOTE_INSN_DELETED since later
 	     phases assume these notes are retained.  */
 
+	  never_reached_warning (insn);
+
 	  p = insn;
 
 	  while (NEXT_INSN (p) != 0
 		 && GET_CODE (NEXT_INSN (p)) != BARRIER
 		 && GET_CODE (NEXT_INSN (p)) != CODE_LABEL)
 	    {
+	      /* Note, we must update P with the return value from
+		 delete_insn, otherwise we could get an infinite loop
+		 if NEXT_INSN (p) had INSN_DELETED_P set.  */
 	      if (GET_CODE (NEXT_INSN (p)) != NOTE
 		  || NOTE_LINE_NUMBER (NEXT_INSN (p)) == NOTE_INSN_DELETED)
-		delete_insn (NEXT_INSN (p));
+		p = PREV_INSN (delete_insn (NEXT_INSN (p)));
 	      else
 		p = NEXT_INSN (p);
 	    }
@@ -8046,7 +8051,7 @@ cse_process_notes (x, object)
      rtx object;
 {
   enum rtx_code code = GET_CODE (x);
-  char *fmt = GET_RTX_FORMAT (code);
+  const char *fmt = GET_RTX_FORMAT (code);
   int i;
 
   switch (code)
@@ -9012,7 +9017,7 @@ count_reg_usage (x, counts, dest, incr)
      int incr;
 {
   enum rtx_code code;
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   if (x == 0)

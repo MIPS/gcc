@@ -25,7 +25,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "flags.h"
-#include "except.h"
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
@@ -1353,7 +1352,7 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
 	break;
     }
 
-  if (mode == MAX_MACHINE_MODE
+  if (mode == VOIDmode
       /* It is tempting to omit the following line
 	 if STRICT_ALIGNMENT is true.
 	 But that is incorrect, since if the bitfield uses part of 3 bytes
@@ -1386,30 +1385,4 @@ get_best_mode (bitsize, bitpos, align, largest_mode, volatilep)
     }
 
   return mode;
-}
-
-/* Save all variables describing the current status into the structure *P.
-   This is used before starting a nested function.  */
-
-void
-save_storage_status (p)
-     struct function *p ATTRIBUTE_UNUSED;
-{
-#if 0  /* Need not save, since always 0 and non0 (resp.) within a function.  */
-  p->pending_sizes = pending_sizes;
-  p->immediate_size_expand = immediate_size_expand;
-#endif /* 0 */
-}
-
-/* Restore all variables describing the current status from the structure *P.
-   This is used after a nested function.  */
-
-void
-restore_storage_status (p)
-     struct function *p ATTRIBUTE_UNUSED;
-{
-#if 0
-  pending_sizes = p->pending_sizes;
-  immediate_size_expand = p->immediate_size_expand;
-#endif /* 0 */
 }

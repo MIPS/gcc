@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "defaults.h"
 #include "output.h"
 #include "except.h"
+#include "function.h"
 #include "toplev.h"
 #include "expr.h"
 #include "basic-block.h"
@@ -135,8 +136,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
 #endif
-
-extern int rtx_equal_function_value_matters;
 
 #if ! (defined (VMS) || defined (OS2))
 extern char **environ;
@@ -265,10 +264,6 @@ struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
-
-/* FUNCTION_DECL for function now being parsed or compiled.  */
-
-extern tree current_function_decl;
 
 /* Name to use as base of names for dump output files.  */
 
@@ -652,7 +647,7 @@ int flag_exceptions;
 /* Nonzero means use the new model for exception handling. Replaces 
    -DNEW_EH_MODEL as a compile option. */
 
-int flag_new_exceptions = 0;
+int flag_new_exceptions = 1;
 
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
@@ -678,7 +673,6 @@ int flag_pedantic_errors = 0;
 int flag_schedule_insns = 0;
 int flag_schedule_insns_after_reload = 0;
 
-#ifdef HAIFA
 /* The following flags have effect only for scheduling before register
    allocation:
 
@@ -693,7 +687,6 @@ int flag_schedule_interblock = 1;
 int flag_schedule_speculative = 1;
 int flag_schedule_speculative_load = 0;
 int flag_schedule_speculative_load_dangerous = 0;
-#endif  /* HAIFA */
 
 /* flag_on_branch_count_reg means try to replace add-1,compare,branch tupple
    by a cheaper branch, on a count register. */
@@ -912,7 +905,6 @@ lang_independent_options f_options[] =
    "Reschedule instructions to avoid pipeline stalls"},
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
   "Run two passes of the instruction scheduler"},
-#ifdef HAIFA
   {"sched-interblock",&flag_schedule_interblock, 1,
    "Enable scheduling across basic blocks" },
   {"sched-spec",&flag_schedule_speculative, 1,
@@ -921,7 +913,6 @@ lang_independent_options f_options[] =
    "Allow speculative motion of some loads" },
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
    "Allow speculative motion of more loads" },
-#endif  /* HAIFA */
   {"branch-count-reg",&flag_branch_on_count_reg, 1,
    "Replace add,compare,branch with branch on count reg"},
   {"pic", &flag_pic, 1,
@@ -1204,6 +1195,10 @@ int warnings_are_errors = 0;
 
 int warn_unused;
 
+/* Nonzero to warn about code which is never reached.  */
+
+int warn_notreached;
+
 /* Nonzero to warn about variables used before they are initialized.  */
 
 int warn_uninitialized;
@@ -1262,6 +1257,8 @@ lang_independent_options W_options[] =
    "Warn about returning structures, unions or arrays" },
   {"cast-align", &warn_cast_align, 1,
    "Warn about pointer casts which increase alignment" },
+  {"unreachable-code", &warn_notreached, 1, 
+   "Warn about code that will never be executed" },
   {"uninitialized", &warn_uninitialized, 1,
    "Warn about unitialized automatic variables"},
   {"inline", &warn_inline, 1,
@@ -2953,19 +2950,24 @@ compile_file (name)
   init_rtl ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
-		  || flag_test_coverage);
+		  || flag_test_coverage
+		  || warn_notreached);
   init_regs ();
   init_decl_processing ();
   init_optabs ();
   init_stmt ();
-  init_expmed ();
-  init_expr_once ();
   init_loop ();
   init_reload ();
   init_alias_once ();
 
+  /* The following initialization functions need to generate rtl, so
+     provide a dummy function context for them.  */
+  init_dummy_function_start ();
+  init_expmed ();
+  init_expr_once ();
   if (flag_caller_saves)
     init_caller_save ();
+  expand_dummy_function_end ();
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -3742,7 +3744,7 @@ rest_of_compilation (decl)
 	    }
 #endif
 	  TIMEVAR (integration_time, save_for_inline_nocopy (decl));
-	  RTX_INTEGRATED_P (DECL_SAVED_INSNS (decl)) = inlinable;
+	  DECL_SAVED_INSNS (decl)->inlinable = inlinable;
 	  goto exit_rest_of_compilation;
 	}
 
@@ -3777,7 +3779,7 @@ rest_of_compilation (decl)
 	  saved_block_tree = DECL_INITIAL (decl);
 	  saved_arguments = DECL_ARGUMENTS (decl);
 	  TIMEVAR (integration_time, save_for_inline_copying (decl));
-	  RTX_INTEGRATED_P (DECL_SAVED_INSNS (decl)) = inlinable;
+	  DECL_SAVED_INSNS (decl)->inlinable = inlinable;
 	}
 
       /* If specified extern inline but we aren't inlining it, we are
@@ -3786,6 +3788,9 @@ rest_of_compilation (decl)
       if (DECL_EXTERNAL (decl))
 	goto exit_rest_of_compilation;
     }
+
+  /* Initialize some variables used by the optimizers.  */
+  init_function_for_compilation ();
 
   if (! DECL_DEFER_OUTPUT (decl))
     TREE_ASM_WRITTEN (decl) = 1;
@@ -3828,6 +3833,8 @@ rest_of_compilation (decl)
 
   unshare_all_rtl (insns);
 
+  init_EXPR_INSN_LIST_cache ();
+
 #ifdef SETJMP_VIA_SAVE_AREA
   /* This must be performed before virutal register instantiation.  */
   if (current_function_calls_alloca)
@@ -3858,9 +3865,8 @@ rest_of_compilation (decl)
     goto exit_rest_of_compilation;
 
   /* Dump rtl code after jump, if we are doing that.  */
-
-    if (jump_opt_dump)
-      dump_rtl (".jump", decl, print_rtl, insns);
+  if (jump_opt_dump)
+    dump_rtl (".jump", decl, print_rtl, insns);
 
   /* Perform common subexpression elimination.
      Nonzero value from `cse_main' means that jumps were simplified
@@ -3912,7 +3918,7 @@ rest_of_compilation (decl)
   if (optimize > 0 && flag_gcse)
     {
       if (gcse_dump)
-	open_dump_file (".gcse", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	open_dump_file (".gcse", decl_printable_name (decl, 2));
 
       TIMEVAR (gcse_time, tem = gcse_main (insns, rtl_dump_file));
 
@@ -4347,11 +4353,14 @@ rest_of_compilation (decl)
 
   /* If a machine dependent reorganization is needed, call it.  */
 #ifdef MACHINE_DEPENDENT_REORG
+  if (mach_dep_reorg_dump)
+    open_dump_file (".mach", decl_printable_name (decl, 2));
+
    MACHINE_DEPENDENT_REORG (insns);
 
    if (mach_dep_reorg_dump)
      {
-       dump_rtl (".mach", decl, print_rtl_with_bb, insns);
+       close_dump_file (print_rtl_with_bb, insns);
        if (graph_dump_format != no_graph)
 	 print_rtl_graph_with_bb (dump_base_name, ".mach", insns);
      }
@@ -4586,7 +4595,7 @@ display_help ()
   printf ("  -version                Display the compiler's version\n");
   printf ("  -d[letters]             Enable dumps from specific passes of the compiler\n");
   printf ("  -dumpbase <file>        Base name to be used for dumps from specific passes\n");
-#if defined HAIFA || defined INSN_SCHEDULING
+#if defined INSN_SCHEDULING
   printf ("  -sched-verbose-<number> Set the verbosity level of the scheduler\n");
 #endif
   printf ("  --help                  Display this information\n");
@@ -4988,6 +4997,7 @@ main (argc, argv)
 #ifdef MACHINE_DEPENDENT_REORG
 		    mach_dep_reorg_dump = 1;
 #endif
+		    peephole2_dump = 1;
 		    break;
 		  case 'A':
 		    flag_debug_asm = 1;
@@ -5117,12 +5127,10 @@ main (argc, argv)
 	      else if (!strncmp (p, "inline-limit-", 13))
 	        inline_max_insns =
 		  read_integral_parameter (p + 13, p - 2, inline_max_insns);
-#ifdef HAIFA
 #ifdef INSN_SCHEDULING
 	      else if (!strncmp (p, "sched-verbose-",14))
 		fix_sched_param("verbose",&p[14]);
 #endif
-#endif  /* HAIFA */
 	      else if (!strncmp (p, "fixed-", 6))
 		fix_register (&p[6], 1, 1);
 	      else if (!strncmp (p, "call-used-", 10))

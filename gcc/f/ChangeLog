@@ -1,3 +1,18 @@
+Wed Aug 25 01:21:06 1999  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* lang-specs.h: Pass cc1 spec to f771.
+
+Mon Aug  9 19:44:08 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+        * com.c (lang_print_error_function): Constify a char*.
+        (init_parse): Remove redundant prototype for `print_error_function'.
+        (lang_identify): Constify a char*.
+
+Thu Aug  5 02:40:42 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* g77spec.c: Update URLS and mail addresses.
+	* root.texi: Update URLS and mail addresses.
+
 1999-07-25  Richard Henderson  <rth@cygnus.com>
 
 	* com.c (ptr_type_node, va_list_type_node): New.

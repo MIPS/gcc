@@ -61,6 +61,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-flags.h"
 #include "insn-attr.h"
 #include "recog.h"
+#include "function.h"
 #include "expr.h"
 #include "real.h"
 #include "except.h"
@@ -88,10 +89,6 @@ Boston, MA 02111-1307, USA.  */
    (It is safe to use element 0 because insn uid 0 is not used.  */
 
 static rtx *jump_chain;
-
-/* List of labels referred to from initializers.
-   These can never be deleted.  */
-rtx forced_labels;
 
 /* Maximum index in jump_chain.  */
 
@@ -964,15 +961,23 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 		/* ??? Assume for the moment that AVAL is ok.  */
 		aval = temp3;
 
-		/* Duplicate the computation and replace the destination
-		   with a new temporary.  */
-		bval = gen_reg_rtx (GET_MODE (var));
-		new_insn = copy_rtx (temp);
-		temp6 = single_set (new_insn);
-		SET_DEST (temp6) = bval;
-		  
 		start_sequence ();
-		emit_insn (PATTERN (new_insn));
+
+		/* If we're not dealing with a register or the insn is more
+		   complex than a simple SET, duplicate the computation and
+		   replace the destination with a new temporary.  */
+		if (register_operand (temp2, GET_MODE (var))
+		    && GET_CODE (PATTERN (temp)) == SET)
+		  bval = temp2;
+		else
+		  {
+		    bval = gen_reg_rtx (GET_MODE (var));
+		    new_insn = copy_rtx (temp);
+		    temp6 = single_set (new_insn);
+		    SET_DEST (temp6) = bval;
+		    emit_insn (PATTERN (new_insn));
+		  }
+		  
 		target = emit_conditional_move (var, code,
 						cond0, cond1, VOIDmode,
 						aval, bval, GET_MODE (var),
@@ -2163,6 +2168,9 @@ delete_barrier_successors (f)
       if (GET_CODE (insn) == BARRIER)
 	{
 	  insn = NEXT_INSN (insn);
+
+	  never_reached_warning (insn);
+
 	  while (insn != 0 && GET_CODE (insn) != CODE_LABEL)
 	    {
 	      if (GET_CODE (insn) == NOTE
@@ -2177,6 +2185,7 @@ delete_barrier_successors (f)
 	 gcse.  We eliminate such insns now to avoid having them
 	 cause problems later.  */
       else if (GET_CODE (insn) == JUMP_INSN
+	       && GET_CODE (PATTERN (insn)) == SET
 	       && SET_SRC (PATTERN (insn)) == pc_rtx
 	       && SET_DEST (PATTERN (insn)) == pc_rtx)
 	insn = delete_insn (insn);
@@ -3539,6 +3548,29 @@ returnjump_p (insn)
   return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
 }
 
+/* Return true if INSN is a jump that only transfers control and
+   nothing more.  */
+
+int
+onlyjump_p (insn)
+     rtx insn;
+{
+  rtx set;
+
+  if (GET_CODE (insn) != JUMP_INSN)
+    return 0;
+
+  set = single_set (insn);
+  if (set == NULL)
+    return 0;
+  if (GET_CODE (SET_DEST (set)) != PC)
+    return 0;
+  if (side_effects_p (SET_SRC (set)))
+    return 0;
+
+  return 1;
+}
+
 #ifdef HAVE_cc0
 
 /* Return 1 if X is an RTX that does nothing but set the condition codes
@@ -3681,7 +3713,7 @@ mark_jump_label (x, insn, cross_jump)
 {
   register RTX_CODE code = GET_CODE (x);
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   switch (code)
     {
@@ -3822,6 +3854,112 @@ delete_jump (insn)
     delete_computation (insn);
 }
 
+/* Recursively delete prior insns that compute the value (used only by INSN
+   which the caller is deleting) stored in the register mentioned by NOTE
+   which is a REG_DEAD note associated with INSN.  */
+
+static void
+delete_prior_computation (note, insn)
+     rtx note;
+     rtx insn;
+{
+  rtx our_prev;
+  rtx reg = XEXP (note, 0);
+
+  for (our_prev = prev_nonnote_insn (insn);
+       our_prev && GET_CODE (our_prev) == INSN;
+       our_prev = prev_nonnote_insn (our_prev))
+    {
+      rtx pat = PATTERN (our_prev);
+
+      /* If we reach a SEQUENCE, it is too complex to try to
+	 do anything with it, so give up.  */
+      if (GET_CODE (pat) == SEQUENCE)
+	break;
+
+      if (GET_CODE (pat) == USE
+	  && GET_CODE (XEXP (pat, 0)) == INSN)
+	/* reorg creates USEs that look like this.  We leave them
+	   alone because reorg needs them for its own purposes.  */
+	break;
+
+      if (reg_set_p (reg, pat))
+	{
+	  if (side_effects_p (pat))
+	    break;
+
+	  if (GET_CODE (pat) == PARALLEL)
+	    {
+	      /* If we find a SET of something else, we can't
+		 delete the insn.  */
+
+	      int i;
+
+	      for (i = 0; i < XVECLEN (pat, 0); i++)
+		{
+		  rtx part = XVECEXP (pat, 0, i);
+
+		  if (GET_CODE (part) == SET
+		      && SET_DEST (part) != reg)
+		    break;
+		}
+
+	      if (i == XVECLEN (pat, 0))
+		delete_computation (our_prev);
+	    }
+	  else if (GET_CODE (pat) == SET
+		   && GET_CODE (SET_DEST (pat)) == REG)
+	    {
+	      int dest_regno = REGNO (SET_DEST (pat));
+	      int dest_endregno
+		    = dest_regno + (dest_regno < FIRST_PSEUDO_REGISTER 
+		      ? HARD_REGNO_NREGS (dest_regno,
+				GET_MODE (SET_DEST (pat))) : 1);
+	      int regno = REGNO (reg);
+	      int endregno = regno + (regno < FIRST_PSEUDO_REGISTER 
+			     ? HARD_REGNO_NREGS (regno, GET_MODE (reg)) : 1);
+
+	      if (dest_regno >= regno
+		  && dest_endregno <= endregno)
+		delete_computation (our_prev);
+
+	      /* We may have a multi-word hard register and some, but not
+		 all, of the words of the register are needed in subsequent
+		 insns.  Write REG_UNUSED notes for those parts that were not
+		 needed.  */
+	      else if (dest_regno <= regno
+		       && dest_endregno >= endregno
+		       && ! find_regno_note (our_prev, REG_UNUSED, REGNO(reg)))
+		{
+		  int i;
+
+		  REG_NOTES (our_prev)
+		    = gen_rtx_EXPR_LIST (REG_UNUSED, reg, REG_NOTES (our_prev));
+
+		  for (i = dest_regno; i < dest_endregno; i++)
+		    if (! find_regno_note (our_prev, REG_UNUSED, i))
+		      break;
+
+		  if (i == dest_endregno)
+		    delete_computation (our_prev);
+		}
+	    }
+
+	  break;
+	}
+
+      /* If PAT references the register that dies here, it is an
+	 additional use.  Hence any prior SET isn't dead.  However, this
+	 insn becomes the new place for the REG_DEAD note.  */
+      if (reg_overlap_mentioned_p (reg, pat))
+	{
+	  XEXP (note, 1) = REG_NOTES (our_prev);
+	  REG_NOTES (our_prev) = note;
+	  break;
+	}
+    }
+}
+
 /* Delete INSN and recursively delete insns that compute values used only
    by INSN.  This uses the REG_DEAD notes computed during flow analysis.
    If we are running before flow.c, we need do nothing since flow.c will
@@ -3840,6 +3978,7 @@ delete_computation (insn)
      rtx insn;
 {
   rtx note, next;
+  rtx set;
 
 #ifdef HAVE_cc0
   if (reg_referenced_p (cc0_rtx, PATTERN (insn)))
@@ -3855,7 +3994,7 @@ delete_computation (insn)
 	  && sets_cc0_p (PATTERN (prev)))
 	{
 	  if (sets_cc0_p (PATTERN (prev)) > 0
-	      && !FIND_REG_INC_NOTE (prev, NULL_RTX))
+	      && ! side_effects_p (PATTERN (prev)))
 	    delete_computation (prev);
 	  else
 	    /* Otherwise, show that cc0 won't be used.  */
@@ -3876,10 +4015,10 @@ delete_computation (insn)
     }
 #endif
 
+  set = single_set (insn);
+
   for (note = REG_NOTES (insn); note; note = next)
     {
-      rtx our_prev;
-
       next = XEXP (note, 1);
 
       if (REG_NOTE_KIND (note) != REG_DEAD
@@ -3887,63 +4026,20 @@ delete_computation (insn)
 	  || GET_CODE (XEXP (note, 0)) != REG)
 	continue;
 
-      for (our_prev = prev_nonnote_insn (insn);
-	   our_prev && GET_CODE (our_prev) == INSN;
-	   our_prev = prev_nonnote_insn (our_prev))
-	{
-	  /* If we reach a SEQUENCE, it is too complex to try to
-	     do anything with it, so give up.  */
-	  if (GET_CODE (PATTERN (our_prev)) == SEQUENCE)
-	    break;
+      if (set && reg_overlap_mentioned_p (SET_DEST (set), XEXP (note, 0)))
+	set = NULL_RTX;
 
-	  if (GET_CODE (PATTERN (our_prev)) == USE
-	      && GET_CODE (XEXP (PATTERN (our_prev), 0)) == INSN)
-	    /* reorg creates USEs that look like this.  We leave them
-	       alone because reorg needs them for its own purposes.  */
-	    break;
+      delete_prior_computation (note, insn);
+    }
 
-	  if (reg_set_p (XEXP (note, 0), PATTERN (our_prev)))
-	    {
-	      if (FIND_REG_INC_NOTE (our_prev, NULL_RTX))
-		break;
-
-	      if (GET_CODE (PATTERN (our_prev)) == PARALLEL)
-		{
-		  /* If we find a SET of something else, we can't
-		     delete the insn.  */
-
-		  int i;
-
-		  for (i = 0; i < XVECLEN (PATTERN (our_prev), 0); i++)
-		    {
-		      rtx part = XVECEXP (PATTERN (our_prev), 0, i);
-
-		      if (GET_CODE (part) == SET
-			  && SET_DEST (part) != XEXP (note, 0))
-			break;
-		    }
-
-		  if (i == XVECLEN (PATTERN (our_prev), 0))
-		    delete_computation (our_prev);
-		}
-	      else if (GET_CODE (PATTERN (our_prev)) == SET
-		       && SET_DEST (PATTERN (our_prev)) == XEXP (note, 0))
-		delete_computation (our_prev);
-
-	      break;
-	    }
-
-	  /* If OUR_PREV references the register that dies here, it is an
-	     additional use.  Hence any prior SET isn't dead.  However, this
-	     insn becomes the new place for the REG_DEAD note.  */
-	  if (reg_overlap_mentioned_p (XEXP (note, 0),
-				       PATTERN (our_prev)))
-	    {
-	      XEXP (note, 1) = REG_NOTES (our_prev);
-	      REG_NOTES (our_prev) = note;
-	      break;
-	    }
-	}
+  /* The REG_DEAD note may have been omitted for a register
+     which is both set and used by the insn.  */
+  if (set
+      && GET_CODE (SET_DEST (set)) == REG
+      && reg_mentioned_p (SET_DEST (set), SET_SRC (set)))
+    {
+      note = gen_rtx_EXPR_LIST (REG_DEAD, SET_DEST (set), NULL_RTX);
+      delete_prior_computation (note, insn);
     }
 
   delete_insn (insn);
@@ -4028,20 +4124,36 @@ delete_insn (insn)
      and delete the label if it is now unused.  */
 
   if (GET_CODE (insn) == JUMP_INSN && JUMP_LABEL (insn))
-    if (--LABEL_NUSES (JUMP_LABEL (insn)) == 0)
-      {
-	/* This can delete NEXT or PREV,
-	   either directly if NEXT is JUMP_LABEL (INSN),
-	   or indirectly through more levels of jumps.  */
-	delete_insn (JUMP_LABEL (insn));
-	/* I feel a little doubtful about this loop,
-	   but I see no clean and sure alternative way
-	   to find the first insn after INSN that is not now deleted.
-	   I hope this works.  */
-	while (next && INSN_DELETED_P (next))
-	  next = NEXT_INSN (next);
-	return next;
-      }
+    {
+      rtx lab = JUMP_LABEL (insn), lab_next;
+
+      if (--LABEL_NUSES (lab) == 0)
+	{
+	  /* This can delete NEXT or PREV,
+	     either directly if NEXT is JUMP_LABEL (INSN),
+	     or indirectly through more levels of jumps.  */
+	  delete_insn (lab);
+
+	  /* I feel a little doubtful about this loop,
+	     but I see no clean and sure alternative way
+	     to find the first insn after INSN that is not now deleted.
+	     I hope this works.  */
+	  while (next && INSN_DELETED_P (next))
+	    next = NEXT_INSN (next);
+	  return next;
+	}
+      else if ((lab_next = next_nonnote_insn (lab)) != NULL
+	       && GET_CODE (lab_next) == JUMP_INSN
+	       && (GET_CODE (PATTERN (lab_next)) == ADDR_VEC
+		   || GET_CODE (PATTERN (lab_next)) == ADDR_DIFF_VEC))
+	{
+	  /* If we're deleting the tablejump, delete the dispatch table.
+	     We may not be able to kill the label immediately preceeding
+	     just yet, as it might be referenced in code leading up to
+	     the tablejump.  */
+	  delete_insn (lab_next);
+	}
+    }
 
   /* Likewise if we're deleting a dispatch table.  */
 
@@ -4156,6 +4268,52 @@ delete_for_peephole (from, to)
      is also an unconditional jump in that case.  */
 }
 
+/* We have determined that INSN is never reached, and are about to
+   delete it.  Print a warning if the user asked for one.
+
+   To try to make this warning more useful, this should only be called
+   once per basic block not reached, and it only warns when the basic
+   block contains more than one line from the current function, and
+   contains at least one operation.  CSE and inlining can duplicate insns,
+   so it's possible to get spurious warnings from this.  */
+
+void
+never_reached_warning (avoided_insn)
+     rtx avoided_insn;
+{
+  rtx insn;
+  rtx a_line_note = NULL;
+  int two_avoided_lines = 0;
+  int contains_insn = 0;
+  
+  if (! warn_notreached)
+    return;
+
+  /* Scan forwards, looking at LINE_NUMBER notes, until
+     we hit a LABEL or we run out of insns.  */
+  
+  for (insn = avoided_insn; insn != NULL; insn = NEXT_INSN (insn))
+    {
+       if (GET_CODE (insn) == CODE_LABEL)
+	 break;
+       else if (GET_CODE (insn) == NOTE		/* A line number note? */ 
+		&& NOTE_LINE_NUMBER (insn) >= 0)
+	{
+	  if (a_line_note == NULL)
+	    a_line_note = insn;
+	  else
+	    two_avoided_lines |= (NOTE_LINE_NUMBER (a_line_note)
+				  != NOTE_LINE_NUMBER (insn));
+	}
+       else if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+	 contains_insn = 1;
+    }
+  if (two_avoided_lines && contains_insn)
+    warning_with_file_and_line (NOTE_SOURCE_FILE (a_line_note),
+				NOTE_LINE_NUMBER (a_line_note),
+				"will never be executed");
+}
+
 /* Invert the condition of the jump JUMP, and make it jump
    to label NLABEL instead of where it jumps now.  */
 
@@ -4207,7 +4365,7 @@ invert_exp (x, insn)
 {
   register RTX_CODE code;
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   code = GET_CODE (x);
 
@@ -4357,7 +4515,7 @@ redirect_exp (loc, olabel, nlabel, insn)
   register rtx x = *loc;
   register RTX_CODE code = GET_CODE (x);
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   if (code == LABEL_REF)
     {
@@ -4492,7 +4650,7 @@ rtx_renumbered_equal_p (x, y)
 {
   register int i;
   register RTX_CODE code = GET_CODE (x);
-  register char *fmt;
+  register const char *fmt;
       
   if (x == y)
     return 1;
@@ -4958,7 +5116,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
   register int i;
   register int j;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   code = GET_CODE (x);
   /* Rtx's of different codes cannot be equal.  */
@@ -5115,6 +5273,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
 	  break;
 
 	case '0':
+	case 't':
 	  break;
 
 	  /* It is believed that rtx's at this level will never

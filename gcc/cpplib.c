@@ -731,15 +731,42 @@ cpp_scan_buffer (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = CPP_BUFFER (pfile);
-  for (;;)
+  enum cpp_token token;
+  if (CPP_OPTIONS (pfile)->no_output)
     {
-      enum cpp_token token = cpp_get_token (pfile);
-      if (token == CPP_EOF) /* Should not happen ...  */
-	break;
-      if (token == CPP_POP && CPP_BUFFER (pfile) == buffer)
+      long old_written = CPP_WRITTEN (pfile);
+      /* In no-output mode, we can ignore everything but directives.  */
+      for (;;)
 	{
-	  cpp_pop_buffer (pfile);
-	  break;
+	  if (! pfile->only_seen_white)
+	    skip_rest_of_line (pfile);
+	  token = cpp_get_token (pfile);
+	  if (token == CPP_EOF) /* Should not happen ...  */
+	    break;
+	  if (token == CPP_POP && CPP_BUFFER (pfile) == buffer)
+	    {
+	      if (CPP_PREV_BUFFER (CPP_BUFFER (pfile))
+		  != CPP_NULL_BUFFER (pfile))
+		cpp_pop_buffer (pfile);
+	      break;
+	    }
+	}
+      CPP_SET_WRITTEN (pfile, old_written);
+    }
+  else
+    {
+      for (;;)
+	{
+	  token = cpp_get_token (pfile);
+	  if (token == CPP_EOF) /* Should not happen ...  */
+	    break;
+	  if (token == CPP_POP && CPP_BUFFER (pfile) == buffer)
+	    {
+	      if (CPP_PREV_BUFFER (CPP_BUFFER (pfile))
+		  != CPP_NULL_BUFFER (pfile))
+		cpp_pop_buffer (pfile);
+	      break;
+	    }
 	}
     }
 }
@@ -760,13 +787,8 @@ cpp_expand_to_buffer (pfile, buf, length)
      int length;
 {
   register cpp_buffer *ip;
-#if 0
-  cpp_buffer obuf;
-#endif
   U_CHAR *buf1;
-#if 0
-  int odepth = indepth;
-#endif
+  int save_no_output;
 
   if (length < 0)
     {
@@ -784,12 +806,12 @@ cpp_expand_to_buffer (pfile, buf, length)
   if (ip == NULL)
     return;
   ip->has_escapes = 1;
-#if 0
-  ip->lineno = obuf.lineno = 1;
-#endif
 
   /* Scan the input, create the output.  */
+  save_no_output = CPP_OPTIONS (pfile)->no_output;
+  CPP_OPTIONS (pfile)->no_output = 0;
   cpp_scan_buffer (pfile);
+  CPP_OPTIONS (pfile)->no_output = save_no_output;
 
   CPP_NUL_TERMINATE (pfile);
 }
@@ -1186,6 +1208,34 @@ do_include (pfile, keyword)
   return 0;
 }
 
+/* Subroutine of do_line.  Read next token from PFILE without adding it to
+   the output buffer.  If it is a number between 1 and 4, store it in *NUM
+   and return 1; otherwise, return 0 and complain if we aren't at the end
+   of the directive.  */
+
+static int
+read_line_number (pfile, num)
+     cpp_reader *pfile;
+     int *num;
+{
+  long save_written = CPP_WRITTEN (pfile);
+  U_CHAR *p = pfile->token_buffer + save_written;
+  enum cpp_token token = get_directive_token (pfile);
+  CPP_SET_WRITTEN (pfile, save_written);
+
+  if (token == CPP_NUMBER && *p >= '1' && *p <= '4' && p[1] == '\0')
+    {
+      *num = p[0] - '0';
+      return 1;
+    }
+  else
+    {
+      if (token != CPP_VSPACE && token != CPP_EOF && token != CPP_POP)
+	cpp_error (pfile, "invalid format `#line' command");
+      return 0;
+    }
+}
+
 /* Interpret #line command.
    Note that the filename string (if any) is treated as if it were an
    include filename.  That means no escape handling.  */
@@ -1227,41 +1277,32 @@ do_line (pfile, keyword)
     {
       U_CHAR *fname = pfile->token_buffer + old_written + 1;
       U_CHAR *end_name = CPP_PWRITTEN (pfile) - 1;
-      long num_start = CPP_WRITTEN (pfile);
+      int action_number = 0;
 
-      token = get_directive_token (pfile);
-      if (token != CPP_VSPACE && token != CPP_EOF && token != CPP_POP)
+      if (read_line_number (pfile, &action_number))
 	{
-	  U_CHAR *p = pfile->token_buffer + num_start;
 	  if (CPP_PEDANTIC (pfile))
 	    cpp_pedwarn (pfile, "garbage at end of `#line' command");
 
-	  if (token != CPP_NUMBER || *p < '0' || *p > '4' || p[1] != '\0')
+	  if (action_number == 1)
 	    {
-	      cpp_error (pfile, "invalid format `#line' command");
-	      goto bad_line_directive;
+	      file_change = enter_file;
+	      read_line_number (pfile, &action_number);
 	    }
-	  if (*p == '1')
-	    file_change = enter_file;
-	  else if (*p == '2')
-	    file_change = leave_file;
-	  else if (*p == '3')
-	    ip->system_header_p = 1;
-	  else /* if (*p == '4') */
-	    ip->system_header_p = 2;
-
-	  CPP_SET_WRITTEN (pfile, num_start);
-	  token = get_directive_token (pfile);
-	  p = pfile->token_buffer + num_start;
-	  if (token == CPP_NUMBER && p[1] == '\0' && (*p == '3' || *p== '4'))
+	  else if (action_number == 2)
 	    {
-	      ip->system_header_p = *p == '3' ? 1 : 2;
-	      token = get_directive_token (pfile);
+	      file_change = leave_file;
+	      read_line_number (pfile, &action_number);
 	    }
-	  if (token != CPP_VSPACE)
+	  if (action_number == 3)
 	    {
-	      cpp_error (pfile, "invalid format `#line' command");
-	      goto bad_line_directive;
+	      ip->system_header_p = 1;
+	      read_line_number (pfile, &action_number);
+	    }
+	  if (action_number == 4)
+	    {
+	      ip->system_header_p = 2;
+	      read_line_number (pfile, &action_number);
 	    }
 	}
       
@@ -2183,7 +2224,6 @@ cpp_get_token (pfile)
 	      if (opts->cplusplus && PEEKN (1) == '*')
 		{
 		  /* In C++, there's a ->* operator.  */
-		op3:
 		  token = CPP_OTHER;
 		  pfile->only_seen_white = 0;
 		  CPP_RESERVE (pfile, 4);

@@ -65,6 +65,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "basic-block.h"
 #include "regs.h"
+#include "function.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
 #include "insn-attr.h"
@@ -507,7 +508,7 @@ contains_replace_regs (x, reg_equiv_replace)
      char *reg_equiv_replace;
 {
   int i, j;
-  char *fmt;
+  const char *fmt;
   enum rtx_code code = GET_CODE (x);
 
   switch (code)
@@ -557,7 +558,7 @@ memref_referenced_p (memref, x)
      rtx memref;
 {
   int i, j;
-  char *fmt;
+  const char *fmt;
   enum rtx_code code = GET_CODE (x);
 
   switch (code)

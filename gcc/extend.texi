@@ -295,10 +295,22 @@ Another use of label values is in an interpreter for threaded code.
 The labels within the interpreter function can be stored in the
 threaded code for super-fast dispatching.
 
-You can use this mechanism to jump to code in a different function.  If
-you do that, totally unpredictable things will happen.  The best way to
+You may not use this mechanism to jump to code in a different function. 
+If you do that, totally unpredictable things will happen.  The best way to
 avoid this is to store the label address only in automatic variables and
 never pass it as an argument.
+
+An alternate way to write the above example is
+
+@example
+static const int array[] = @{ &&foo - &&foo, &&bar - &&foo, &&hack - &&foo @};
+goto *(&&foo + array[i]);
+@end example
+
+@noindent
+This is more friendly to code living in shared libraries, as it reduces
+the number of dynamic relocations that are needed, and by consequence,
+allows the data to be read-only.
 
 @node Nested Functions
 @section Nested Functions
@@ -3097,7 +3109,7 @@ specify the @samp{-O} option.
 
 In the past, the GNU C++ compiler was extended to experiment with new
 features, at a time when the C++ language was still evolving. Now that
-the C++ standard is complete, some of those features are superceded by
+the C++ standard is complete, some of those features are superseded by
 superior alternatives. Using the old features might cause a warning in
 some cases that the feature will be dropped in the future. In other
 cases, the feature might be gone already.
@@ -3138,17 +3150,12 @@ Predefined Macros,cpp.info,The C Preprocessor}).
 @menu
 * Naming Results::      Giving a name to C++ function return values.
 * Min and Max::		C++ Minimum and maximum operators.
-* Destructors and Goto:: Goto is safe to use in C++ even when destructors
-                           are needed.
 * C++ Interface::       You can use a single C++ header file for both
                          declarations and definitions.
 * Template Instantiation:: Methods for ensuring that exactly one copy of
                          each needed template instantiation is emitted.
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
-* C++ Signatures::	You can specify abstract types to get subtype
-			 polymorphism independent from inheritance.
-                        
 @end menu
 
 @node Naming Results
@@ -3308,19 +3315,6 @@ write @w{@samp{int min = i <? j;}} instead.
 Since @code{<?} and @code{>?} are built into the compiler, they properly
 handle expressions with side-effects;  @w{@samp{int min = i++ <? j++;}}
 works correctly.
-
-@node Destructors and Goto
-@section @code{goto} and Destructors in GNU C++
-
-@cindex @code{goto} in C++
-@cindex destructors vs @code{goto}
-In C++ programs, you can safely use the @code{goto} statement.  When you
-use it to exit a block which contains aggregates requiring destructors,
-the destructors will run before the @code{goto} transfers control.
-
-@cindex constructors vs @code{goto}
-The compiler still forbids using @code{goto} to @emph{enter} a scope
-that requires constructors.
 
 @node C++ Interface
 @section Declarations and Definitions in One Header
@@ -3642,141 +3636,3 @@ fptr p = (fptr)(a.*fp);
 
 You must specify @samp{-Wno-pmf-conversions} to use this extension.
 
-@node C++ Signatures
-@section Type Abstraction using Signatures
-
-@findex signature
-@cindex type abstraction, C++
-@cindex C++ type abstraction
-@cindex subtype polymorphism, C++
-@cindex C++ subtype polymorphism
-@cindex signatures, C++
-@cindex C++ signatures
-
-In GNU C++, you can use the keyword @code{signature} to define a
-completely abstract class interface as a datatype.  You can connect this
-abstraction with actual classes using signature pointers.  If you want
-to use signatures, run the GNU compiler with the
-@samp{-fhandle-signatures} command-line option.  (With this option, the
-compiler reserves a second keyword @code{sigof} as well, for a future
-extension.)
-
-Roughly, signatures are type abstractions or interfaces of classes.
-Some other languages have similar facilities.  C++ signatures are
-related to ML's signatures, Haskell's type classes, definition modules
-in Modula-2, interface modules in Modula-3, abstract types in Emerald,
-type modules in Trellis/Owl, categories in Scratchpad II, and types in
-POOL-I.  For a more detailed discussion of signatures, see
-@cite{Signatures: A Language Extension for Improving Type Abstraction and
-Subtype Polymorphism in C++}
-by @w{Gerald} Baumgartner and Vincent F. Russo (Tech report
-CSD--TR--95--051, Dept. of Computer Sciences, Purdue University,
-August 1995, a slightly improved version appeared in
-@emph{Software---Practice & Experience}, @b{25}(8), pp. 863--889,
-August 1995).  You can get the tech report by anonymous FTP from
-@code{ftp.cs.purdue.edu} in @file{pub/gb/Signature-design.ps.gz}.
-
-Syntactically, a signature declaration is a collection of
-member function declarations and nested type declarations.
-For example, this signature declaration defines a new abstract type
-@code{S} with member functions @samp{int foo ()} and @samp{int bar (int)}:
-
-@example
-signature S
-@{
-  int foo ();
-  int bar (int);
-@};
-@end example
-
-Since signature types do not include implementation definitions, you
-cannot write an instance of a signature directly.  Instead, you can
-define a pointer to any class that contains the required interfaces as a
-@dfn{signature pointer}.  Such a class @dfn{implements} the signature
-type.
-@c Eventually signature references should work too.
-
-To use a class as an implementation of @code{S}, you must ensure that
-the class has public member functions @samp{int foo ()} and @samp{int
-bar (int)}.  The class can have other member functions as well, public
-or not; as long as it offers what's declared in the signature, it is
-suitable as an implementation of that signature type.
-
-For example, suppose that @code{C} is a class that meets the
-requirements of signature @code{S} (@code{C} @dfn{conforms to}
-@code{S}).  Then
-
-@example
-C obj;
-S * p = &obj;
-@end example
-
-@noindent
-defines a signature pointer @code{p} and initializes it to point to an
-object of type @code{C}.
-The member function call @w{@samp{int i = p->foo ();}}
-executes @samp{obj.foo ()}.
-
-@cindex @code{signature} in C++, advantages
-Abstract virtual classes provide somewhat similar facilities in standard
-C++.  There are two main advantages to using signatures instead:
-
-@enumerate
-@item
-Subtyping becomes independent from inheritance.  A class or signature
-type @code{T} is a subtype of a signature type @code{S} independent of
-any inheritance hierarchy as long as all the member functions declared
-in @code{S} are also found in @code{T}.  So you can define a subtype
-hierarchy that is completely independent from any inheritance
-(implementation) hierarchy, instead of being forced to use types that
-mirror the class inheritance hierarchy.
-
-@item
-Signatures allow you to work with existing class hierarchies as
-implementations of a signature type.  If those class hierarchies are
-only available in compiled form, you're out of luck with abstract virtual
-classes, since an abstract virtual class cannot be retrofitted on top of
-existing class hierarchies.  So you would be required to write interface
-classes as subtypes of the abstract virtual class.
-@end enumerate
-
-@cindex default implementation, signature member function
-@cindex signature member function default implementation
-There is one more detail about signatures.  A signature declaration can
-contain member function @emph{definitions} as well as member function
-declarations.  A signature member function with a full definition is
-called a @emph{default implementation}; classes need not contain that
-particular interface in order to conform.  For example, a
-class @code{C} can conform to the signature
-
-@example
-signature T
-@{
-  int f (int);
-  int f0 () @{ return f (0); @};
-@};
-@end example
-
-@noindent
-whether or not @code{C} implements the member function @samp{int f0 ()}.
-If you define @code{C::f0}, that definition takes precedence;
-otherwise, the default implementation @code{S::f0} applies.
-
-@ignore
-There will be more support for signatures in the future.
-Add to this doc as the implementation grows.
-In particular, the following features are planned but not yet
-implemented:
-@itemize @bullet
-@item signature references,
-@item signature inheritance,
-@item the @code{sigof} construct for extracting the signature information
-      of a class,
-@item views for renaming member functions when matching a class type
-      with a signature type,
-@item specifying exceptions with signature member functions, and
-@item signature templates.
-@end itemize
-This list is roughly in the order in which we intend to implement
-them.  Watch this space for updates.
-@end ignore

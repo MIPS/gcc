@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "obstack.h"
+#include "function.h"
 #include "expr.h"
 #include "insn-config.h"
 #include "insn-flags.h"
@@ -1203,7 +1204,7 @@ record_excess_regs (in_this, not_in_this, output)
      rtx *output;
 {
   enum rtx_code code;
-  char *fmt;
+  const char *fmt;
   int i;
 
   code = GET_CODE (in_this);
@@ -1602,7 +1603,7 @@ rtx_equal_for_loop_p (x, y, movables)
   register int j;
   register struct movable *m;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == y)
     return 1;
@@ -1715,7 +1716,7 @@ add_label_notes (x, insns)
 {
   enum rtx_code code = GET_CODE (x);
   int i, j;
-  char *fmt;
+  const char *fmt;
   rtx insn;
 
   if (code == LABEL_REF && !LABEL_REF_NONLOCAL_P (x))
@@ -1852,7 +1853,7 @@ move_movables (movables, threshold, insn_count, loop_start, end, nregs)
 	    {
 	      int count;
 	      register struct movable *m1;
-	      rtx first;
+	      rtx first = NULL_RTX;
 
 	      /* Now move the insns that set the reg.  */
 
@@ -2260,7 +2261,7 @@ replace_call_address (x, reg, addr)
 {
   register enum rtx_code code;
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     return;
@@ -2323,7 +2324,7 @@ count_nonfixed_reads (x)
 {
   register enum rtx_code code;
   register int i;
-  register char *fmt;
+  register const char *fmt;
   int value;
 
   if (x == 0)
@@ -3177,7 +3178,7 @@ invariant_p (x)
 {
   register int i;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
   int conditional = 0;
   rtx mem_list_entry;
 
@@ -3422,7 +3423,7 @@ find_single_use_in_loop (insn, x, usage)
      varray_type usage;
 {
   enum rtx_code code = GET_CODE (x);
-  char *fmt = GET_RTX_FORMAT (code);
+  const char *fmt = GET_RTX_FORMAT (code);
   int i, j;
 
   if (code == REG)
@@ -3719,6 +3720,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
   int n_extra_increment;
   struct loop_info loop_iteration_info;
   struct loop_info *loop_info = &loop_iteration_info;
+  int unrolled_insn_copies;
 
   /* If scan_start points to the loop exit test, we have to be wary of
      subversive use of gotos inside expression statements.  */
@@ -4050,7 +4052,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
       else
 	{
 	  struct iv_class *bl2 = 0;
-	  rtx increment;
+	  rtx increment = NULL_RTX;
 
 	  /* Biv initial value is not a simple move.  If it is the sum of
 	     another biv and a constant, check if both bivs are incremented
@@ -4108,6 +4110,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		fprintf (loop_dump_stream, "is giv of biv %d\n", bl2->regno);
 	      /* Let this giv be discovered by the generic code.  */
 	      REG_IV_TYPE (bl->regno) = UNKNOWN_INDUCT;
+	      reg_biv_class[bl->regno] = NULL_PTR;
 	      /* We can get better optimization if we can move the giv setting
 		 before the first giv use.  */
 	      if (dominator
@@ -4159,7 +4162,13 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		}
 	      /* Remove this biv from the chain.  */
 	      if (bl->next)
-		*bl = *bl->next;
+		{
+		  /* We move the following giv from *bl->next into *bl.
+		     We have to update reg_biv_class for that moved biv
+		     to point to its new address.  */
+		  *bl = *bl->next;
+		  reg_biv_class[bl->regno] = bl;
+		}
 	      else
 		{
 		  *backbl = 0;
@@ -4234,7 +4243,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	  for (vp = &bl->biv, next = *vp; v = next, next = v->next_iv;)
 	    {
 	      HOST_WIDE_INT offset;
-	      rtx set, add_val, old_reg, dest_reg, last_use_insn;
+	      rtx set, add_val, old_reg, dest_reg, last_use_insn, note;
 	      int old_regno, new_regno;
 
 	      if (! v->always_executed
@@ -4340,7 +4349,13 @@ strength_reduce (scan_start, end, loop_top, insn_count,
     
 	      REG_IV_TYPE (new_regno) = GENERAL_INDUCT;
 	      REG_IV_INFO (new_regno) = v;
-    
+
+	      /* If next_insn has a REG_EQUAL note that mentiones OLD_REG,
+		 it must be replaced.  */
+	      note = find_reg_note (next->insn, REG_EQUAL, NULL_RTX);
+	      if (note && reg_mentioned_p (old_reg, XEXP (note, 0)))
+		XEXP (note, 0) = copy_rtx (SET_SRC (single_set (next->insn)));
+
 	      /* Remove the increment from the list of biv increments,
 		 and record it as a giv.  */
 	      *vp = next;
@@ -5169,11 +5184,40 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	INSN_CODE (p) = -1;
       }
 
+  if (loop_info->n_iterations > 0)
+    {
+      /* When we completely unroll a loop we will likely not need the increment
+	 of the loop BIV and we will not need the conditional branch at the
+	 end of the loop.  */
+      unrolled_insn_copies = insn_count - 2;
+
+#ifdef HAVE_cc0
+      /* When we completely unroll a loop on a HAVE_cc0 machine we will not
+	 need the comparison before the conditional branch at the end of the
+	 loop.  */
+      unrolled_insn_copies -= 1;
+#endif
+
+      /* We'll need one copy for each loop iteration.  */
+      unrolled_insn_copies *= loop_info->n_iterations;
+
+      /* A little slop to account for the ability to remove initialization
+	 code, better CSE, and other secondary benefits of completely
+	 unrolling some loops.  */
+      unrolled_insn_copies -= 1;
+
+      /* Clamp the value.  */
+      if (unrolled_insn_copies < 0)
+	unrolled_insn_copies = 0;
+    }
+  
   /* Unroll loops from within strength reduction so that we can use the
      induction variable information that strength_reduce has already
-     collected.  */
-  
-  if (unroll_p)
+     collected.  Always unroll loops that would be as small or smaller
+     unrolled than when rolled.  */
+  if (unroll_p
+      || (loop_info->n_iterations > 0
+	  && unrolled_insn_copies <= insn_count))
     unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 		 loop_info, 1);
 
@@ -5243,7 +5287,7 @@ find_mem_givs (x, insn, not_every_iteration, loop_start, loop_end)
 {
   register int i, j;
   register enum rtx_code code;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     return;
@@ -7241,7 +7285,7 @@ find_life_end (x, stats, insn, biv)
      struct recombine_givs_stats *stats;
 {
   enum rtx_code code;
-  char *fmt;
+  const char *fmt;
   int i, j;
   int retval;
 
@@ -7357,16 +7401,18 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
       for (p = v->insn; INSN_UID (p) >= max_uid_for_loop; )
 	p = PREV_INSN (p);
       stats[i].start_luid = INSN_LUID (p);
-      v->ix = i;
       i++;
     }
 
   qsort (stats, giv_count, sizeof(*stats), cmp_recombine_givs_stats);
 
-  /* Do the actual most-recently-used recombination.  */
+  /* Set up the ix field for each giv in stats to name
+     the corresponding index into stats, and
+     do the actual most-recently-used recombination.  */
   for (last_giv = 0, i = giv_count - 1; i >= 0; i--)
     {
       v = giv_array[stats[i].giv_number];
+      v->ix = i;
       if (v->same)
 	{
 	  struct induction *old_same = v->same;
@@ -7412,8 +7458,9 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
   ends_need_computing = 0;
   /* For each DEST_REG giv, compute lifetime starts, and try to compute
      lifetime ends from regscan info.  */
-  for (i = 0, v = bl->giv; v; v = v->next_iv)
+  for (i = giv_count - 1; i >= 0; i--)
     {
+      v = giv_array[stats[i].giv_number];
       if (v->ignore)
 	continue;
       if (v->giv_type == DEST_ADDR)
@@ -7482,7 +7529,6 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 		}
 	    }
 	}
-      i++;
     }
 
   /* If the regscan information was unconclusive for one or more DEST_REG
@@ -7506,21 +7552,22 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 
   /* Set start_luid back to the last insn that sets the giv.  This allows
      more combinations.  */
-  for (i = 0, v = bl->giv; v; v = v->next_iv)
+  for (i = giv_count - 1; i >= 0; i--)
     {
+      v = giv_array[stats[i].giv_number];
       if (v->ignore)
 	continue;
       if (INSN_UID (v->insn) < max_uid_for_loop)
 	stats[i].start_luid = INSN_LUID (v->insn);
-      i++;
     }
 
   /* Now adjust lifetime ends by taking combined givs into account.  */
-  for (i = 0, v = bl->giv; v; v = v->next_iv)
+  for (i = giv_count - 1; i >= 0; i--)
     {
       unsigned luid;
       int j;
 
+      v = giv_array[stats[i].giv_number];
       if (v->ignore)
 	continue;
       if (v->same && ! v->same->ignore)
@@ -7532,7 +7579,6 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 	      > (unsigned) stats[j].end_luid - stats[j].start_luid)
 	    stats[j].end_luid = luid;
 	}
-      i++;
     }
 
   qsort (stats, giv_count, sizeof(*stats), cmp_recombine_givs_stats);
@@ -8160,7 +8206,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 		  || (GET_CODE (comparison) == LE
 		      && no_use_except_counting)))
 	    {
-	      HOST_WIDE_INT add_val, add_adjust, comparison_val;
+	      HOST_WIDE_INT add_val, add_adjust, comparison_val = 0;
 	      rtx initial_value, comparison_value;
 	      int nonneg = 0;
 	      enum rtx_code cmp_code;
@@ -8425,7 +8471,7 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
 		       REG_EQUAL notes should still be correct.  */
 		    if (! set
 			|| GET_CODE (SET_DEST (set)) != REG
-			|| REGNO (SET_DEST (set)) >= reg_iv_type->num_elements
+			|| (size_t) REGNO (SET_DEST (set)) >= reg_iv_type->num_elements
 			|| REG_IV_TYPE (REGNO (SET_DEST (set))) != GENERAL_INDUCT
 			|| REG_IV_INFO (REGNO (SET_DEST (set)))->src_reg != bl->biv->src_reg)
 		      for (pnote = &REG_NOTES (p); *pnote;)
@@ -9190,7 +9236,7 @@ maybe_eliminate_biv_1 (x, insn, bl, eliminate_p, where)
   rtx new;
 #endif
   int arg_operand;
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   switch (code)
@@ -9583,7 +9629,7 @@ update_reg_last_use (x, insn)
   else
     {
       register int i, j;
-      register char *fmt = GET_RTX_FORMAT (GET_CODE (x));
+      register const char *fmt = GET_RTX_FORMAT (GET_CODE (x));
       for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
 	{
 	  if (fmt[i] == 'e')
@@ -10074,19 +10120,10 @@ insert_bct (loop_start, loop_end, loop_info)
 				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
 	if (increment_value_abs != 1)
-	  {
-	    /* ??? This will generate an expensive divide instruction for
-	       most targets.  The original authors apparently expected this
-	       to be a shift, since they test for power-of-2 divisors above,
-	       but just naively generating a divide instruction will not give 
-	       a shift.  It happens to work for the PowerPC target because
-	       the rs6000.md file has a divide pattern that emits shifts.
-	       It will probably not work for any other target.  */
-	    iterations_num_reg = expand_binop (loop_var_mode, sdiv_optab,
-					       temp_reg,
-					       GEN_INT (increment_value_abs),
-					       NULL_RTX, 0, OPTAB_LIB_WIDEN);
-	  }
+	  iterations_num_reg = expand_binop (loop_var_mode, asr_optab,
+					     temp_reg,
+					     GEN_INT (exact_log2 (increment_value_abs)),
+					     NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	else
 	  iterations_num_reg = temp_reg;
       }
@@ -10327,7 +10364,7 @@ load_mems (scan_start, end, loop_top, start)
   int i;
   rtx p;
   rtx label = NULL_RTX;
-  rtx end_label;
+  rtx end_label = NULL_RTX;
 
   if (loop_mems_idx > 0) 
     {

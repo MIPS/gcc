@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
+#include "function.h"
 #include "regs.h"
 #include "insn-flags.h"
 #include "toplev.h"
@@ -218,8 +219,7 @@ calls_function_1 (exp, which)
 	  if ((DECL_BUILT_IN (fndecl)
 	       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
 	      || (DECL_SAVED_INSNS (fndecl)
-		  && (FUNCTION_FLAGS (DECL_SAVED_INSNS (fndecl))
-		      & FUNCTION_FLAGS_CALLS_ALLOCA)))
+		  && DECL_SAVED_INSNS (fndecl)->calls_alloca))
 	    return 1;
 	}
 
@@ -380,7 +380,7 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
      rtx funexp;
      tree fndecl ATTRIBUTE_UNUSED;
      tree funtype ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT stack_size;
+     HOST_WIDE_INT stack_size ATTRIBUTE_UNUSED;
      HOST_WIDE_INT rounded_stack_size;
      HOST_WIDE_INT struct_value_size;
      rtx next_arg_reg;
@@ -405,7 +405,16 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
 #ifndef ACCUMULATE_OUTGOING_ARGS
 #if defined (HAVE_call_pop) && defined (HAVE_call_value_pop)
-  if (HAVE_call_pop && HAVE_call_value_pop && n_popped > 0)
+/* If the target has "call" or "call_value" insns, then prefer them
+   if no arguments are actually popped.  If the target does not have
+   "call" or "call_value" insns, then we must use the popping versions
+   even if the call has no arguments to pop.  */
+#if defined (HAVE_call) && defined (HAVE_call_value)
+  if (HAVE_call && HAVE_call_value && HAVE_call_pop && HAVE_call_value_pop
+       && n_popped > 0)
+#else
+  if (HAVE_call_pop && HAVE_call_value_pop)
+#endif
     {
       rtx n_pop = GEN_INT (n_popped);
       rtx pat;
@@ -1649,7 +1658,7 @@ expand_call (exp, target, ignore)
 	      && fndecl != current_function_decl
 	      && DECL_INLINE (fndecl)
 	      && DECL_SAVED_INSNS (fndecl)
-	      && RTX_INTEGRATED_P (DECL_SAVED_INSNS (fndecl)))
+	      && DECL_SAVED_INSNS (fndecl)->inlinable)
 	    is_integrable = 1;
 	  else if (! TREE_ADDRESSABLE (fndecl))
 	    {
@@ -1783,14 +1792,14 @@ expand_call (exp, target, ignore)
 	    {
 	      rtx first_insn
 		= before_call ? NEXT_INSN (before_call) : get_insns ();
-	      rtx insn, seq;
+	      rtx insn = NULL_RTX, seq;
 
 	      /* Look for a call in the inline function code.
-		 If OUTGOING_ARGS_SIZE (DECL_SAVED_INSNS (fndecl)) is
+		 If DECL_SAVED_INSNS (fndecl)->outgoing_args_size is
 		 nonzero then there is a call and it is not necessary
 		 to scan the insns.  */
 
-	      if (OUTGOING_ARGS_SIZE (DECL_SAVED_INSNS (fndecl)) == 0)
+	      if (DECL_SAVED_INSNS (fndecl)->outgoing_args_size == 0)
 		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
 		  if (GET_CODE (insn) == CALL_INSN)
 		    break;
@@ -1814,7 +1823,7 @@ expand_call (exp, target, ignore)
 		     value of reg_parm_stack_space is wrong, but gives
 		     correct results on all supported machines.  */
 
-		  int adjust = (OUTGOING_ARGS_SIZE (DECL_SAVED_INSNS (fndecl))
+		  int adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
 				+ reg_parm_stack_space);
 
 		  start_sequence ();
@@ -2574,7 +2583,7 @@ emit_library_call VPROTO((rtx orgfun, int no_queue, enum machine_mode outmode,
 #if defined(ACCUMULATE_OUTGOING_ARGS) && defined(REG_PARM_STACK_SPACE)
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save = -1, high_to_save;
+  int low_to_save = -1, high_to_save = 0;
   rtx save_area = 0;            /* Place that it is saved */
 #endif
 
@@ -3073,7 +3082,7 @@ emit_library_call_value VPROTO((rtx orgfun, rtx value, int no_queue,
 #if defined(ACCUMULATE_OUTGOING_ARGS) && defined(REG_PARM_STACK_SPACE)
   /* Define the boundary of the register parm stack space that needs to be
      save, if any.  */
-  int low_to_save = -1, high_to_save;
+  int low_to_save = -1, high_to_save = 0;
   rtx save_area = 0;            /* Place that it is saved */
 #endif
 
@@ -3685,7 +3694,7 @@ store_one_arg (arg, argblock, may_be_alloca, variable_size,
   int partial = 0;
   int used = 0;
 #ifdef ACCUMULATE_OUTGOING_ARGS
-  int i, lower_bound, upper_bound;
+  int i, lower_bound = 0, upper_bound = 0;
 #endif
 
   if (TREE_CODE (pval) == ERROR_MARK)

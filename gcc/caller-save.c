@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "basic-block.h"
 #include "reload.h"
+#include "function.h"
 #include "expr.h"
 #include "toplev.h"
 
@@ -494,7 +495,7 @@ mark_referenced_regs (x)
      rtx x;
 {
   enum rtx_code code = GET_CODE (x);
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   if (code == SET)

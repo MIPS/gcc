@@ -101,12 +101,14 @@ gen_attr (attr)
      rtx attr;
 {
   char *p;
+  int is_const = GET_CODE (XEXP (attr, 2)) == CONST;  
 
   printf ("#define HAVE_ATTR_%s\n", XSTR (attr, 0));
 
   /* If numeric attribute, don't need to write an enum.  */
   if (*XSTR (attr, 1) == '\0')
-    printf ("extern int get_attr_%s ();\n", XSTR (attr, 0));
+    printf ("extern int get_attr_%s PROTO((%s));\n", XSTR (attr, 0),
+	    (is_const ? "void" : "rtx"));
   else
     {
       printf ("enum attr_%s {", XSTR (attr, 0));
@@ -128,15 +130,14 @@ gen_attr (attr)
 	}
 
       printf ("};\n");
-      printf ("extern enum attr_%s get_attr_%s ();\n\n",
-	      XSTR (attr, 0), XSTR (attr, 0));
+      printf ("extern enum attr_%s get_attr_%s PROTO((%s));\n\n",
+	      XSTR (attr, 0), XSTR (attr, 0), (is_const ? "void" : "rtx"));
     }
 
   /* If `length' attribute, write additional function definitions and define
      variables used by `insn_current_length'.  */
   if (! strcmp (XSTR (attr, 0), "length"))
     {
-      printf ("extern void init_lengths ();\n");
       printf ("extern void shorten_branches PROTO((rtx));\n");
       printf ("extern int insn_default_length PROTO((rtx));\n");
       printf ("extern int insn_variable_length_p PROTO((rtx));\n");
@@ -163,17 +164,17 @@ write_units (num_units, multiplicity, simultaneity,
   printf ("extern int function_units_used PROTO((rtx));\n\n");
   printf ("extern struct function_unit_desc\n");
   printf ("{\n");
-  printf ("  char *name;\n");
+  printf ("  const char *name;\n");
   printf ("  int bitmask;\n");
   printf ("  int multiplicity;\n");
   printf ("  int simultaneity;\n");
   printf ("  int default_cost;\n");
   printf ("  int max_issue_delay;\n");
-  printf ("  int (*ready_cost_function) ();\n");
-  printf ("  int (*conflict_cost_function) ();\n");
+  printf ("  int (*ready_cost_function) PROTO ((rtx));\n");
+  printf ("  int (*conflict_cost_function) PROTO ((rtx, rtx));\n");
   printf ("  int max_blockage;\n");
-  printf ("  unsigned int (*blockage_range_function) ();\n");
-  printf ("  int (*blockage_function) ();\n");
+  printf ("  unsigned int (*blockage_range_function) PROTO ((rtx));\n");
+  printf ("  int (*blockage_function) PROTO ((rtx, rtx));\n");
   printf ("} function_units[];\n\n");
   printf ("#define FUNCTION_UNITS_SIZE %d\n", num_units);
   printf ("#define MIN_MULTIPLICITY %d\n", multiplicity->min);
@@ -329,14 +330,14 @@ from the machine description file `md'.  */\n\n");
 	      if (XVECEXP (desc, 1, i + 1) && ! have_annul_true)
 		{
 		  printf ("#define ANNUL_IFTRUE_SLOTS\n");
-		  printf ("extern int eligible_for_annul_true ();\n");
+		  printf ("extern int eligible_for_annul_true PROTO ((rtx, int, rtx, int));\n");
 		  have_annul_true = 1;
 		}
 
 	      if (XVECEXP (desc, 1, i + 2) && ! have_annul_false)
 		{
 		  printf ("#define ANNUL_IFFALSE_SLOTS\n");
-		  printf ("extern int eligible_for_annul_false ();\n");
+		  printf ("extern int eligible_for_annul_false PROTO ((rtx, int, rtx, int));\n");
 		  have_annul_false = 1;
 		}
 	    }

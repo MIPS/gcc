@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "regs.h"
 #include "hard-reg-set.h"
+#include "function.h"
 #include "flags.h"
 #include "real.h"
 #include "toplev.h"
@@ -441,7 +442,7 @@ validate_replace_rtx_1 (loc, from, to, object)
      rtx from, to, object;
 {
   register int i, j;
-  register char *fmt;
+  register const char *fmt;
   register rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
 
@@ -744,7 +745,7 @@ find_single_use_1 (dest, loc)
   rtx *result = 0;
   rtx *this_result;
   int i;
-  char *fmt;
+  const char *fmt;
 
   switch (code)
     {
@@ -2094,6 +2095,7 @@ preprocess_constraints ()
 {
   int i;
 
+  bzero (recog_op_alt, sizeof recog_op_alt);
   for (i = 0; i < recog_n_operands; i++)
     {
       int j;
@@ -2668,7 +2670,7 @@ split_block_insns (b, do_split)
 	      /* try_split returns the NOTE that INSN became.  */
 	      first = NEXT_INSN (first);
 #ifdef INSN_SCHEDULING
-	      update_flow_info (notes, first, last, insn);
+	      update_life_info (notes, first, last, insn, insn);
 #endif
 	      PUT_CODE (insn, NOTE);
 	      NOTE_SOURCE_FILE (insn) = 0;

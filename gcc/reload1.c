@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-flags.h"
 #include "insn-codes.h"
 #include "flags.h"
+#include "function.h"
 #include "expr.h"
 #include "regs.h"
 #include "basic-block.h"
@@ -278,9 +279,6 @@ char *reload_firstobj;
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
-
-/* List of labels that must never be deleted.  */
-extern rtx forced_labels;
 
 /* List of insn_chain instructions, one for every insn that reload needs to
    examine.  */
@@ -1091,7 +1089,7 @@ reload (first, global, dumpfile)
     {
       rtx addr = 0;
       int in_struct = 0;
-      int is_scalar;
+      int is_scalar = 0;
       int is_readonly = 0;
 
       if (reg_equiv_memory_loc[i])
@@ -2033,7 +2031,7 @@ dump_needs (chain, dumpfile)
      struct insn_chain *chain;
      FILE *dumpfile;
 {
-  static char *reg_class_names[] = REG_CLASS_NAMES;
+  static const char * const reg_class_names[] = REG_CLASS_NAMES;
   int i;
   struct needs *n = &chain->need;
 
@@ -2053,7 +2051,7 @@ dump_needs (chain, dumpfile)
 	fprintf (dumpfile,
 		 ";; Need %d group%s (%smode) of class %s.\n",
 		 n->groups[i], n->groups[i] == 1 ? "" : "s",
-		 mode_name[(int) chain->group_mode[i]],
+		 GET_MODE_NAME(chain->group_mode[i]),
 		 reg_class_names[i]);
     }
 }
@@ -2294,7 +2292,7 @@ new_spill_reg (chain, i, class, nongroup, dumpfile)
 
   if (TEST_HARD_REG_BIT (bad_spill_regs, regno))
     {
-      static char *reg_class_names[] = REG_CLASS_NAMES;
+      static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
       if (asm_noperands (PATTERN (chain->insn)) < 0)
 	{
@@ -2708,7 +2706,7 @@ eliminate_regs (x, mem_mode, insn)
   int regno;
   rtx new;
   int i, j;
-  char *fmt;
+  const char *fmt;
   int copied = 0;
 
   if (! current_function_decl)
@@ -3227,8 +3225,8 @@ eliminate_regs (x, mem_mode, insn)
 	      new = eliminate_regs (XVECEXP (x, i, j), mem_mode, insn);
 	      if (new != XVECEXP (x, i, j) && ! copied_vec)
 		{
-		  rtvec new_v = gen_rtvec_vv (XVECLEN (x, i),
-					      XVEC (x, i)->elem);
+		  rtvec new_v = gen_rtvec_v (XVECLEN (x, i),
+					     XVEC (x, i)->elem);
 		  if (! copied)
 		    {
 		      rtx new_x = rtx_alloc (code);
@@ -3796,7 +3794,7 @@ init_elim_table ()
 static void
 spill_hard_reg (regno, dumpfile, cant_eliminate)
      register int regno;
-     FILE *dumpfile;
+     FILE *dumpfile ATTRIBUTE_UNUSED;
      int cant_eliminate;
 {
   register int i;
@@ -3989,7 +3987,7 @@ scan_paradoxical_subregs (x)
      register rtx x;
 {
   register int i;
-  register char *fmt;
+  register const char *fmt;
   register enum rtx_code code = GET_CODE (x);
 
   switch (code)
@@ -5847,7 +5845,7 @@ choose_reload_regs (chain)
 	    {
 	      int word = 0;
 	      register int regno = -1;
-	      enum machine_mode mode;
+	      enum machine_mode mode = VOIDmode;
 
 	      if (reload_in[r] == 0)
 		;
@@ -7624,7 +7622,7 @@ emit_reload_insns (chain)
 	  register int nregno = REGNO (out);
 	  if (nregno >= FIRST_PSEUDO_REGISTER)
 	    {
-	      rtx src_reg, store_insn;
+	      rtx src_reg, store_insn = NULL_RTX;
 
 	      reg_last_reload_reg[nregno] = 0;
 
@@ -8136,7 +8134,7 @@ delete_address_reloads_1 (dead_insn, x, current_insn)
 
   if (code != REG)
     {
-      char *fmt= GET_RTX_FORMAT (code);
+      const char *fmt= GET_RTX_FORMAT (code);
       for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	{
 	  if (fmt[i] == 'e')
@@ -8395,7 +8393,7 @@ count_occurrences (x, find)
 {
   register int i, j;
   register enum rtx_code code;
-  register char *format_ptr;
+  register const char *format_ptr;
   int count;
 
   if (x == find)
@@ -8570,7 +8568,7 @@ reload_cse_mem_conflict_p (mem_base, val)
      rtx val;
 {
   enum rtx_code code;
-  char *fmt;
+  const char *fmt;
   int i;
 
   code = GET_CODE (val);
@@ -8970,7 +8968,7 @@ reload_cse_regno_equal_p (regno, val, mode)
 static int
 reload_cse_noop_set_p (set, insn)
      rtx set;
-     rtx insn;
+     rtx insn ATTRIBUTE_UNUSED;
 {
   rtx src, dest;
   enum machine_mode dest_mode;
@@ -9652,7 +9650,7 @@ reload_combine ()
 	  rtx prev = prev_nonnote_insn (insn);
 	  rtx prev_set = prev ? single_set (prev) : NULL_RTX;
 	  int regno = REGNO (reg);
-	  rtx const_reg;
+	  rtx const_reg = NULL_RTX;
 	  rtx reg_sum = NULL_RTX;
 
 	  /* Now, we need an index register.
@@ -9861,7 +9859,7 @@ reload_combine_note_use (xp, insn)
 {
   rtx x = *xp;
   enum rtx_code code = x->code;
-  char *fmt;
+  const char *fmt;
   int i, j;
   rtx offset = const0_rtx; /* For the REG case below.  */
 
@@ -10076,7 +10074,7 @@ reload_cse_move2add (first)
 		       && reg_set_luid[regno] > reg_set_luid[REGNO (src)])
 		{
 		  rtx next = next_nonnote_insn (insn);
-		  rtx set;
+		  rtx set = NULL_RTX;
 		  if (next)
 		    set = single_set (next);
 		  if (next
@@ -10236,7 +10234,7 @@ add_auto_inc_notes (insn, x)
      rtx x;
 {
   enum rtx_code code = GET_CODE (x);
-  char *fmt;
+  const char *fmt;
   int i, j;
 
   if (code == MEM && auto_inc_p (XEXP (x, 0)))

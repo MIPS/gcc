@@ -5,7 +5,7 @@
 @c The text of this file appears in the file INSTALL
 @c in the GCC distribution, as well as in the GCC manual.
 
-Note most of this information is out of date and superceded by the EGCS
+Note most of this information is out of date and superseded by the EGCS
 install procedures.  It is provided for historical reference only.
 
 @ifclear INSTALLONLY
@@ -305,6 +305,25 @@ inferior @code{catgets} interface, the GCC build procedure normally
 ignores @code{catgets} and instead uses GCC's copy of the GNU
 @code{gettext} library.  The @samp{--with-catgets} option causes the
 build procedure to use the host's @code{catgets} in this situation.
+
+@cindex Windows32 Registry support
+@item --enable-win32-registry
+@itemx --enable-win32-registry=@var{KEY}
+@itemx --disable-win32-registry
+The @samp{--enable-win32-registry} option enables Windows-hosted GCC
+to look up installations paths in the registry using the following key:
+
+@smallexample
+@code{HKEY_LOCAL_MACHINE\SOFTWARE\Free Software Foundation\<KEY>}
+@end smallexample
+
+<KEY> defaults to GCC version number, and can be overridden by the
+@code{--enable-win32-registry=KEY} option. Vendors and distributors
+who use custom installers are encouraged to provide a different key,
+perhaps one comprised of vendor name and GCC version number, to
+avoid conflict with existing installations. This feature is enabled
+by default, and can be disabled by @code{--disable-win32-registry}
+option.  This option has no effect on the other hosts.
 @end table
 
 @item
@@ -914,12 +933,23 @@ produce @file{a.out} format object modules.
 You may need to make a variant of the file @file{arm.h} for your particular
 configuration.
 
-@item arm-*-linuxaout
-Any of the ARM family processors running the Linux-based GNU system with
-the @file{a.out} binary format (ELF is not yet supported).  You must use
-version 2.8.1.0.7 or later of the GNU/Linux binutils, which you can download
-from @file{sunsite.unc.edu:/pub/Linux/GCC} and other mirror sites for
-Linux-based GNU systems.
+@item arm-*-elf
+This configuration is intended for embedded systems.
+
+@item arm-*-linux-gnuaout
+Any of the ARM-family processors running the Linux-based GNU system with
+the @file{a.out} binary format.  This is an obsolete configuration.
+
+@item arm-*-linux-gnu
+@itemx arm-*-linux-gnuoldld
+Any of the ARM-family processors running the Linux-based GNU system with
+the @file{ELF} binary format.  You must use version 2.9.1.0.22 or later
+of the GNU/Linux binutils, which you can download from
+@file{ftp.varesearch.com:/pub/support/hjl/binutils}.
+
+These two configurations differ only in the required version of GNU
+binutils.  For binutils 2.9.1.0.x, use @samp{arm-*-linux-gnuoldld}.  For 
+newer versions of binutils, use @samp{arm-*-linux-gnu}.
 
 @item arm-*-riscix
 The ARM2 or ARM3 processor running RISC iX, Acorn's port of BSD Unix.

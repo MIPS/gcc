@@ -38,9 +38,9 @@ Boston, MA 02111-1307, USA.  */
 /* Array containing all of the register names */
 
 #ifdef DEBUG_REGISTER_NAMES
-static char *reg_names[] = DEBUG_REGISTER_NAMES;
+static const char * const reg_names[] = DEBUG_REGISTER_NAMES;
 #else
-static char *reg_names[] = REGISTER_NAMES;
+static const char * const reg_names[] = REGISTER_NAMES;
 #endif
 
 static FILE *outfile;
@@ -73,7 +73,7 @@ print_rtx (in_rtx)
 {
   register int i = 0;
   register int j;
-  register char *format_ptr;
+  register const char *format_ptr;
   register int is_insn;
 
   if (sawclose)
@@ -146,38 +146,6 @@ print_rtx (in_rtx)
       {
       case 'S':
       case 's':
-	if (i == 3 && GET_CODE (in_rtx) == NOTE
-	    && (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END))
-	  {
-	    fprintf (outfile, " %d", NOTE_BLOCK_NUMBER (in_rtx));
-	    sawclose = 1;
-	    break;
-	  }
-
-	if (i == 3 && GET_CODE (in_rtx) == NOTE
-	    && (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_START
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_END
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_LIVE))
-	  {
-	    indent += 2;
-	    if (!sawclose)
-	      fprintf (outfile, " ");
-	    print_rtx (NOTE_RANGE_INFO (in_rtx));
-	    indent -= 2;
-	    break;
-	  }
-
-	if (i == 3 && GET_CODE (in_rtx) == NOTE
-	    && NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BASIC_BLOCK)
-	  {
-	    basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
-	    fprintf (outfile, " [bb %d]", bb->index);
-	    break;
-	  }
-
 	if (XSTR (in_rtx, i) == 0)
 	  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
 	else
@@ -186,8 +154,47 @@ print_rtx (in_rtx)
 	sawclose = 1;
 	break;
 
-	/* 0 indicates a field for internal use that should not be printed.  */
+	/* 0 indicates a field for internal use that should not be printed.
+	   An exception is the third field of a NOTE, where it indicates
+	   that the field has several different valid contents.  */
       case '0':
+	if (i == 3 && GET_CODE (in_rtx) == NOTE)
+	  {
+	    if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END)
+	      {
+		fprintf (outfile, " %d", NOTE_BLOCK_NUMBER (in_rtx));
+		sawclose = 1;
+	      }
+	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_START
+		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_END
+		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_LIVE)
+	      {
+		indent += 2;
+		if (!sawclose)
+		  fprintf (outfile, " ");
+		print_rtx (NOTE_RANGE_INFO (in_rtx));
+		indent -= 2;
+	      }
+	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BASIC_BLOCK)
+	      {
+		basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
+		fprintf (outfile, " [bb %d]", bb->index);
+	      }
+	    else
+	      {
+		/* Can't use XSTR because of type checking.  */
+		char *str = in_rtx->fld[i].rtstr;
+		if (str == 0)
+		  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
+		else
+		  fprintf (outfile,
+			   dump_for_graph ? " (\\\"%s\\\")" : " (\"%s\")",
+			   str);
+	      }
+	  }
 	break;
 
       case 'e':

@@ -260,7 +260,12 @@ do {						\
 #define MAXDECEXP 4932
 #define MINDECEXP -4977
 #define GET_REAL(r,e) bcopy ((char *) r, (char *) e, 2*NE)
-#define PUT_REAL(e,r) bcopy ((char *) e, (char *) r, 2*NE)
+#define PUT_REAL(e,r)				\
+do {						\
+  if (2*NE < sizeof(*r))			\
+    bzero((char *)r, sizeof(*r));		\
+  bcopy ((char *) e, (char *) r, 2*NE);		\
+} while (0)
 #else
 #define NE 6
 #define MAXDECEXP 4932
@@ -269,34 +274,34 @@ do {						\
 /* Emulator uses target format internally
    but host stores it in host endian-ness.  */
 
-#define GET_REAL(r,e)						\
-do {								\
-     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)	\
-       e53toe ((unsigned EMUSHORT *) (r), (e));			\
-     else							\
-       {							\
-	 unsigned EMUSHORT w[4];				\
-	 w[3] = ((EMUSHORT *) r)[0];				\
-	 w[2] = ((EMUSHORT *) r)[1];				\
-	 w[1] = ((EMUSHORT *) r)[2];				\
-	 w[0] = ((EMUSHORT *) r)[3];				\
-	 e53toe (w, (e));					\
-       }							\
+#define GET_REAL(r,e)							\
+do {									\
+     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)		\
+       e53toe ((unsigned EMUSHORT *) (r), (e));				\
+     else								\
+       {								\
+	 unsigned EMUSHORT w[4];					\
+         memcpy (&w[3], ((EMUSHORT *) r), sizeof (EMUSHORT));		\
+         memcpy (&w[2], ((EMUSHORT *) r) + 1, sizeof (EMUSHORT));	\
+         memcpy (&w[1], ((EMUSHORT *) r) + 2, sizeof (EMUSHORT));	\
+         memcpy (&w[0], ((EMUSHORT *) r) + 3, sizeof (EMUSHORT));	\
+	 e53toe (w, (e));						\
+       }								\
    } while (0)
 
-#define PUT_REAL(e,r)						\
-do {								\
-     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)	\
-       etoe53 ((e), (unsigned EMUSHORT *) (r));			\
-     else							\
-       {							\
-	 unsigned EMUSHORT w[4];				\
-	 etoe53 ((e), w);					\
-	 *((EMUSHORT *) r) = w[3];				\
-	 *((EMUSHORT *) r + 1) = w[2];				\
-	 *((EMUSHORT *) r + 2) = w[1];				\
-	 *((EMUSHORT *) r + 3) = w[0];				\
-       }							\
+#define PUT_REAL(e,r)							\
+do {									\
+     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)		\
+       etoe53 ((e), (unsigned EMUSHORT *) (r));				\
+     else								\
+       {								\
+	 unsigned EMUSHORT w[4];					\
+	 etoe53 ((e), w);						\
+         memcpy (((EMUSHORT *) r), &w[3], sizeof (EMUSHORT));		\
+         memcpy (((EMUSHORT *) r) + 1, &w[2], sizeof (EMUSHORT));	\
+         memcpy (((EMUSHORT *) r) + 2, &w[1], sizeof (EMUSHORT));	\
+         memcpy (((EMUSHORT *) r) + 3, &w[0], sizeof (EMUSHORT));	\
+       }								\
    } while (0)
 
 #else /* not REAL_ARITHMETIC */

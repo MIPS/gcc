@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
+#include "function.h"
 #include "expr.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -730,7 +731,12 @@ force_reg (mode, x)
 
   if (GET_CODE (x) == REG)
     return x;
+  
   temp = gen_reg_rtx (mode);
+  
+  if (! general_operand (x, mode))
+    x = force_operand (x, NULL_RTX);
+  
   insn = emit_move_insn (temp, x);
 
   /* Let optimizers know that TEMP's value never changes
@@ -1523,7 +1529,7 @@ hard_function_value (valtype, func)
       int bytes = int_size_in_bytes (valtype);
       enum machine_mode tmpmode;
       for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-           tmpmode != MAX_MACHINE_MODE;
+           tmpmode != VOIDmode;
            tmpmode = GET_MODE_WIDER_MODE (tmpmode))
         {
           /* Have we found a large enough mode?  */
@@ -1532,7 +1538,7 @@ hard_function_value (valtype, func)
         }
 
       /* No suitable mode found.  */
-      if (tmpmode == MAX_MACHINE_MODE)
+      if (tmpmode == VOIDmode)
         abort ();
 
       PUT_MODE (val, tmpmode);

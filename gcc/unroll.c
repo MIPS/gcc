@@ -154,6 +154,7 @@ enum unroll_types { UNROLL_COMPLETELY, UNROLL_MODULO, UNROLL_NAIVE };
 #include "regs.h"
 #include "recog.h"
 #include "flags.h"
+#include "function.h"
 #include "expr.h"
 #include "loop.h"
 #include "toplev.h"
@@ -236,7 +237,7 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
   int max_labelno, max_insnno;
   rtx insert_before;
   struct inline_remap *map;
-  char *local_label;
+  char *local_label = NULL;
   char *local_regno;
   int max_local_regnum;
   int maxregnum;
@@ -338,21 +339,19 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	}
       else if (GET_CODE (last_loop_insn) == JUMP_INSN)
 	{
+	  rtx prev = PREV_INSN (last_loop_insn);
+	  delete_insn (last_loop_insn);
 #ifdef HAVE_cc0
-	  /* The immediately preceding insn is a compare which must be
+	  /* The immediately preceding insn may be a compare which must be
 	     deleted.  */
-	  delete_insn (last_loop_insn);
-	  delete_insn (PREV_INSN (last_loop_insn));
-#else
-	  /* The immediately preceding insn may not be the compare, so don't
-	     delete it.  */
-	  delete_insn (last_loop_insn);
+	  if (sets_cc0_p (prev))
+	    delete_insn (prev);
 #endif
 	}
       return;
     }
   else if (loop_info->n_iterations > 0
-      && loop_info->n_iterations * insn_count < MAX_UNROLLED_INSNS)
+	   && loop_info->n_iterations * insn_count < MAX_UNROLLED_INSNS)
     {
       unroll_number = loop_info->n_iterations;
       unroll_type = UNROLL_COMPLETELY;
@@ -478,14 +477,12 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	copy_end = PREV_INSN (PREV_INSN (last_loop_insn));
       else if (GET_CODE (last_loop_insn) == JUMP_INSN)
 	{
-#ifdef HAVE_cc0
-	  /* The instruction immediately before the JUMP_INSN is a compare
-	     instruction which we do not want to copy.  */
-	  copy_end = PREV_INSN (PREV_INSN (last_loop_insn));
-#else
-	  /* The instruction immediately before the JUMP_INSN may not be the
-	     compare, so we must copy it.  */
 	  copy_end = PREV_INSN (last_loop_insn);
+#ifdef HAVE_cc0
+	  /* The instruction immediately before the JUMP_INSN may be a compare
+	     instruction which we do not want to copy.  */
+	  if (sets_cc0_p (PREV_INSN (copy_end)))
+	    copy_end = PREV_INSN (copy_end);
 #endif
 	}
       else
@@ -519,17 +516,14 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	}
       else if (GET_CODE (last_loop_insn) == JUMP_INSN)
 	{
-#ifdef HAVE_cc0
-	  /* The instruction immediately before the JUMP_INSN is a compare
-	     instruction which we do not want to copy or delete.  */
-	  insert_before = PREV_INSN (last_loop_insn);
-	  copy_end = PREV_INSN (insert_before);
-#else
-	  /* The instruction immediately before the JUMP_INSN may not be the
-	     compare, so we must copy it.  */
 	  insert_before = last_loop_insn;
-	  copy_end = PREV_INSN (last_loop_insn);
+#ifdef HAVE_cc0
+	  /* The instruction immediately before the JUMP_INSN may be a compare
+	     instruction which we do not want to copy or delete.  */
+	  if (sets_cc0_p (PREV_INSN (insert_before)))
+	    insert_before = PREV_INSN (insert_before);
 #endif
+	  copy_end = PREV_INSN (insert_before);
 	}
       else
 	{
@@ -782,71 +776,71 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
   /* Mark all local registers, i.e. the ones which are referenced only
      inside the loop.  */
   if (INSN_UID (copy_end) < max_uid_for_loop)
-  {
-    int copy_start_luid = INSN_LUID (copy_start);
-    int copy_end_luid = INSN_LUID (copy_end);
+    {
+      int copy_start_luid = INSN_LUID (copy_start);
+      int copy_end_luid = INSN_LUID (copy_end);
 
-    /* If a register is used in the jump insn, we must not duplicate it
-       since it will also be used outside the loop.  */
-    if (GET_CODE (copy_end) == JUMP_INSN)
-      copy_end_luid--;
+      /* If a register is used in the jump insn, we must not duplicate it
+	 since it will also be used outside the loop.  */
+      if (GET_CODE (copy_end) == JUMP_INSN)
+	copy_end_luid--;
 
-    /* If we have a target that uses cc0, then we also must not duplicate
-       the insn that sets cc0 before the jump insn.  */
+      /* If we have a target that uses cc0, then we also must not duplicate
+	 the insn that sets cc0 before the jump insn, if one is present.  */
 #ifdef HAVE_cc0
-    if (GET_CODE (copy_end) == JUMP_INSN)
-      copy_end_luid--;
+      if (GET_CODE (copy_end) == JUMP_INSN && sets_cc0_p (PREV_INSN (copy_end)))
+	copy_end_luid--;
 #endif
 
-    /* If copy_start points to the NOTE that starts the loop, then we must
-       use the next luid, because invariant pseudo-regs moved out of the loop
-       have their lifetimes modified to start here, but they are not safe
-       to duplicate.  */
-    if (copy_start == loop_start)
-      copy_start_luid++;
+      /* If copy_start points to the NOTE that starts the loop, then we must
+	 use the next luid, because invariant pseudo-regs moved out of the loop
+	 have their lifetimes modified to start here, but they are not safe
+	 to duplicate.  */
+      if (copy_start == loop_start)
+	copy_start_luid++;
 
-    /* If a pseudo's lifetime is entirely contained within this loop, then we
-       can use a different pseudo in each unrolled copy of the loop.  This
-       results in better code.  */
-    /* We must limit the generic test to max_reg_before_loop, because only
-       these pseudo registers have valid regno_first_uid info.  */
-    for (j = FIRST_PSEUDO_REGISTER; j < max_reg_before_loop; ++j)
-      if (REGNO_FIRST_UID (j) > 0 && REGNO_FIRST_UID (j) <= max_uid_for_loop
-	  && uid_luid[REGNO_FIRST_UID (j)] >= copy_start_luid
-	  && REGNO_LAST_UID (j) > 0 && REGNO_LAST_UID (j) <= max_uid_for_loop
-	  && uid_luid[REGNO_LAST_UID (j)] <= copy_end_luid)
+      /* If a pseudo's lifetime is entirely contained within this loop, then we
+	 can use a different pseudo in each unrolled copy of the loop.  This
+	 results in better code.  */
+      /* We must limit the generic test to max_reg_before_loop, because only
+	 these pseudo registers have valid regno_first_uid info.  */
+      for (j = FIRST_PSEUDO_REGISTER; j < max_reg_before_loop; ++j)
+	if (REGNO_FIRST_UID (j) > 0 && REGNO_FIRST_UID (j) <= max_uid_for_loop
+	    && uid_luid[REGNO_FIRST_UID (j)] >= copy_start_luid
+	    && REGNO_LAST_UID (j) > 0 && REGNO_LAST_UID (j) <= max_uid_for_loop
+	    && uid_luid[REGNO_LAST_UID (j)] <= copy_end_luid)
+	  {
+	    /* However, we must also check for loop-carried dependencies.
+	       If the value the pseudo has at the end of iteration X is
+	       used by iteration X+1, then we can not use a different pseudo
+	       for each unrolled copy of the loop.  */
+	    /* A pseudo is safe if regno_first_uid is a set, and this
+	       set dominates all instructions from regno_first_uid to
+	       regno_last_uid.  */
+	    /* ??? This check is simplistic.  We would get better code if
+	       this check was more sophisticated.  */
+	    if (set_dominates_use (j, REGNO_FIRST_UID (j), REGNO_LAST_UID (j),
+				   copy_start, copy_end))
+	      local_regno[j] = 1;
+
+	    if (loop_dump_stream)
+	      {
+		if (local_regno[j])
+		  fprintf (loop_dump_stream, "Marked reg %d as local\n", j);
+		else
+		  fprintf (loop_dump_stream, "Did not mark reg %d as local\n",
+			   j);
+	      }
+	  }
+      /* Givs that have been created from multiple biv increments always have
+	 local registers.  */
+      for (j = first_increment_giv; j <= last_increment_giv; j++)
 	{
-	  /* However, we must also check for loop-carried dependencies.
-	     If the value the pseudo has at the end of iteration X is
-	     used by iteration X+1, then we can not use a different pseudo
-	     for each unrolled copy of the loop.  */
-	  /* A pseudo is safe if regno_first_uid is a set, and this
-	     set dominates all instructions from regno_first_uid to
-	     regno_last_uid.  */
-	  /* ??? This check is simplistic.  We would get better code if
-	     this check was more sophisticated.  */
-	  if (set_dominates_use (j, REGNO_FIRST_UID (j), REGNO_LAST_UID (j),
-				 copy_start, copy_end))
-	    local_regno[j] = 1;
-
+	  local_regno[j] = 1;
 	  if (loop_dump_stream)
-	    {
-	      if (local_regno[j])
-		fprintf (loop_dump_stream, "Marked reg %d as local\n", j);
-	      else
-		fprintf (loop_dump_stream, "Did not mark reg %d as local\n",
-			 j);
-	    }
+	    fprintf (loop_dump_stream, "Marked reg %d as local\n", j);
 	}
-    /* Givs that have been created from multiple biv increments always have
-       local registers.  */
-    for (j = first_increment_giv; j <= last_increment_giv; j++)
-      {
-	local_regno[j] = 1;
-	if (loop_dump_stream)
-	  fprintf (loop_dump_stream, "Marked reg %d as local\n", j);
-      }
-  }
+    }
 
   /* If this loop requires exit tests when unrolled, check to see if we
      can precondition the loop so as to make the exit tests unnecessary.
@@ -1035,14 +1029,12 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	    copy_end = PREV_INSN (PREV_INSN (last_loop_insn));
 	  else if (GET_CODE (last_loop_insn) == JUMP_INSN)
 	    {
-#ifdef HAVE_cc0
-	      /* The immediately preceding insn is a compare which we do not
-		 want to copy.  */
-	      copy_end = PREV_INSN (PREV_INSN (last_loop_insn));
-#else
-	      /* The immediately preceding insn may not be a compare, so we
-		 must copy it.  */
 	      copy_end = PREV_INSN (last_loop_insn);
+#ifdef HAVE_cc0
+	      /* The immediately preceding insn may be a compare which we do not
+		 want to copy.  */
+	      if (sets_cc0_p (PREV_INSN (copy_end)))
+		copy_end = PREV_INSN (copy_end);
 #endif
 	    }
 	  else
@@ -1097,17 +1089,14 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	    }
 	  else
 	    {
-#ifdef HAVE_cc0
-	      /* The immediately preceding insn is a compare which we do not
-		 want to copy.  */
-	      insert_before = PREV_INSN (last_loop_insn);
-	      copy_end = PREV_INSN (insert_before);
-#else
-	      /* The immediately preceding insn may not be a compare, so we
-		 must copy it.  */
 	      insert_before = last_loop_insn;
-	      copy_end = PREV_INSN (last_loop_insn);
+#ifdef HAVE_cc0
+	      /* The instruction immediately before the JUMP_INSN may be a compare
+		 instruction which we do not want to copy or delete.  */
+	      if (sets_cc0_p (PREV_INSN (insert_before)))
+		insert_before = PREV_INSN (insert_before);
 #endif
+	      copy_end = PREV_INSN (insert_before);
 	    }
 
 	  /* Set unroll type to MODULO now.  */
@@ -1180,8 +1169,8 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
     }
 
   /* Use our current register alignment and pointer flags.  */
-  map->regno_pointer_flag = regno_pointer_flag;
-  map->regno_pointer_align = regno_pointer_align;
+  map->regno_pointer_flag = current_function->emit->regno_pointer_flag;
+  map->regno_pointer_align = current_function->emit->regno_pointer_align;
 
   /* If the loop is being partially unrolled, and the iteration variables
      are being split, and are being renamed for the split, then must fix up
@@ -1974,7 +1963,7 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	    {
 	      int regno = REGNO (SET_DEST (pattern));
 
-	      if (regno < VARRAY_SIZE (map->const_equiv_varray)
+	      if ((size_t) regno < VARRAY_SIZE (map->const_equiv_varray)
 		  && (VARRAY_CONST_EQUIV (map->const_equiv_varray, regno).age
 		      == map->const_age))
 		VARRAY_CONST_EQUIV (map->const_equiv_varray, regno).age = -1;
@@ -2088,8 +2077,9 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	  if (condjump_p (insn) && !simplejump_p (insn) && map->last_pc_value)
 	    {
 #ifdef HAVE_cc0
-	      /* The previous insn set cc0 for us.  So delete it.  */
-	      delete_insn (PREV_INSN (copy));
+	      /* If the previous insn set cc0 for us, delete it.  */
+	      if (sets_cc0_p (PREV_INSN (copy)))
+		delete_insn (PREV_INSN (copy));
 #endif
 
 	      /* If this is now a no-op, delete it.  */
@@ -4070,7 +4060,7 @@ remap_split_bivs (x)
 {
   register enum rtx_code code;
   register int i;
-  register char *fmt;
+  register const char *fmt;
 
   if (x == 0)
     return x;

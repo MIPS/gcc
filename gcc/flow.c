@@ -127,6 +127,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "flags.h"
 #include "output.h"
+#include "function.h"
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
@@ -153,9 +154,6 @@ Boston, MA 02111-1307, USA.  */
    Separate obstacks are made for nested functions.  */
 
 extern struct obstack *function_obstack;
-
-/* List of labels that must never be deleted.  */
-extern rtx forced_labels;
 
 /* Number of basic blocks in the current function.  */
 
@@ -877,6 +875,7 @@ make_edges (label_value_list, bb_eh_end)
      rtx *bb_eh_end;
 {
   int i;
+  eh_nesting_info *eh_nest_info = init_eh_nesting_info ();
 
   /* Assume no computed jump; revise as we create edges.  */
   current_function_has_computed_jump = 0;
@@ -986,41 +985,19 @@ make_edges (label_value_list, bb_eh_end)
       if (code == CALL_INSN || asynchronous_exceptions)
 	{
 	  int is_call = (code == CALL_INSN ? EDGE_ABNORMAL_CALL : 0);
-	  handler_info *ptr;
+	  handler_info **handler_list;
+	  int eh_region = -1;
+	  int num;
 
-	  /* Use REG_EH_RETHROW and REG_EH_REGION if available.  */
-	  /* ??? REG_EH_REGION is not generated presently.  Is it
-	     inteded that there be multiple notes for the regions?
-	     or is my eh_list collection redundant with handler linking?  */
+	  if (eh_list)
+	    eh_region = NOTE_BLOCK_NUMBER (XEXP (eh_list, 0));
 
-	  x = find_reg_note (insn, REG_EH_RETHROW, 0);
-	  if (!x)
-	    x = find_reg_note (insn, REG_EH_REGION, 0);
-	  if (x)
+	  num = reachable_handlers (eh_region, eh_nest_info,
+				    insn, &handler_list);
+	  for ( ; num > 0; num--)
 	    {
-	      if (XINT (XEXP (x, 0), 0) > 0)
-		{
-		  ptr = get_first_handler (XINT (XEXP (x, 0), 0));
-		  while (ptr)
-		    {
-		      make_label_edge (bb, ptr->handler_label,
-				       EDGE_ABNORMAL | EDGE_EH | is_call);
-		      ptr = ptr->next;
-		    }
-		}
-	    }
-	  else
-	    {
-	      for (x = eh_list; x; x = XEXP (x, 1))
-		{
-		  ptr = get_first_handler (NOTE_BLOCK_NUMBER (XEXP (x, 0)));
-		  while (ptr)
-		    {
-		      make_label_edge (bb, ptr->handler_label,
-				       EDGE_ABNORMAL | EDGE_EH | is_call);
-		      ptr = ptr->next;
-		    }
-		}
+	      make_label_edge (bb, handler_list[num - 1]->handler_label,
+			       EDGE_ABNORMAL | EDGE_EH | is_call);
 	    }
 
 	  if (code == CALL_INSN && nonlocal_goto_handler_labels)
@@ -1032,10 +1009,13 @@ make_edges (label_value_list, bb_eh_end)
 		 gotos do not have their addresses taken, then only calls to
 		 those functions or to other nested functions that use them
 		 could possibly do nonlocal gotos.  */
-
-	      for (x = nonlocal_goto_handler_labels; x ; x = XEXP (x, 1))
-	        make_label_edge (bb, XEXP (x, 0),
-			         EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
+	      /* We do know that a REG_EH_REGION note with a value less
+		 than 0 is guaranteed not to perform a non-local goto.  */
+	      rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	      if (!note || XINT (XEXP (note, 0), 0) >=  0)
+		for (x = nonlocal_goto_handler_labels; x ; x = XEXP (x, 1))
+		  make_label_edge (bb, XEXP (x, 0),
+				   EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
 	    }
 	}
 
@@ -1060,6 +1040,7 @@ make_edges (label_value_list, bb_eh_end)
 	    make_edge (bb, BASIC_BLOCK (i + 1), EDGE_FALLTHRU);
 	}
     }
+  free_eh_nesting_info (eh_nest_info);
 }
 
 /* Create an edge between two basic blocks.  FLAGS are auxiliary information
@@ -1270,6 +1251,7 @@ split_edge (edge_in)
 	  emit_barrier_after (pos);
 
 	  /* ... let jump know that label is in use, ...  */
+	  JUMP_LABEL (pos) = old_succ->head;
 	  ++LABEL_NUSES (old_succ->head);
 	  
 	  /* ... and clear fallthru on the outgoing edge.  */
@@ -1445,11 +1427,20 @@ commit_one_edge_insertion (e)
   /* Now that we've found the spot, do the insertion.  */
   tmp = e->insns;
   e->insns = NULL_RTX;
+
+  /* Set the new block number for these insns, if structure is allocated.  */
+  if (basic_block_for_insn)
+    {
+      rtx i;
+      for (i = tmp; i != NULL_RTX; i = NEXT_INSN (i))
+	set_block_for_insn (i, bb);
+    }
+
   if (before)
     {
       emit_insns_before (tmp, before);
       if (before == bb->head)
-	bb->head = before;
+	bb->head = tmp;
     }
   else
     {
@@ -1570,7 +1561,10 @@ delete_unreachable_blocks ()
 	 check that the edge is not a FALLTHRU edge.  */
       if ((s = b->succ) != NULL
 	  && s->succ_next == NULL
-	  && s->dest == c)
+	  && s->dest == c
+	  /* If the jump insn has side effects, we can't tidy the edge.  */
+	  && (GET_CODE (b->end) != JUMP_INSN
+	      || onlyjump_p (b->end)))
 	tidy_fallthru_edge (s, b, c);
     }
 
@@ -1589,6 +1583,9 @@ delete_unreachable_blocks ()
 	     && (s->flags & EDGE_EH) == 0
 	     && (c = s->dest) != EXIT_BLOCK_PTR
 	     && c->pred->pred_next == NULL
+	     /* If the jump insn has side effects, we can't kill the edge.  */
+	     && (GET_CODE (b->end) != JUMP_INSN
+		 || onlyjump_p (b->end))
 	     && merge_blocks (s, b, c))
 	continue;
 
@@ -1609,6 +1606,8 @@ delete_eh_regions ()
 {
   rtx insn;
 
+  update_rethrow_references ();
+
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (GET_CODE (insn) == NOTE)
       {
@@ -1616,8 +1615,9 @@ delete_eh_regions ()
 	    (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)) 
 	  {
 	    int num = CODE_LABEL_NUMBER (insn);
-	    /* A NULL handler indicates a region is no longer needed */
-	    if (get_first_handler (num) == NULL)
+	    /* A NULL handler indicates a region is no longer needed,
+	       as long as it isn't the target of a rethrow.  */
+	    if (get_first_handler (num) == NULL && ! rethrow_used (num))
 	      {
 		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
 		NOTE_SOURCE_FILE (insn) = 0;
@@ -1685,11 +1685,13 @@ delete_block (b)
      label for an exception handler which can't be reached.
 
      We need to remove the label from the exception_handler_label list
-     and remove the associated NOTE_EH_REGION_BEG and NOTE_EH_REGION_END
-     notes.  */
+     and remove the associated NOTE_INSN_EH_REGION_BEG and
+     NOTE_INSN_EH_REGION_END notes.  */
 
   insn = b->head;
   
+  never_reached_warning (insn);
+
   if (GET_CODE (insn) == CODE_LABEL)
     {
       rtx x, *prev = &exception_handler_labels;
@@ -2004,7 +2006,7 @@ tidy_fallthru_edge (e, b, c)
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
 	 the insn that set cc0.  */
-      if (! simplejump_p (q) && condjump_p (q))
+      if (! simplejump_p (q) && condjump_p (q) && sets_cc0_p (PREV_INSN (q)))
 	q = PREV_INSN (q);
 #endif
 
@@ -2093,7 +2095,12 @@ life_analysis (f, nregs, file, remove_dead_code)
 
   /* We want alias analysis information for local dead store elimination.  */
   init_alias_analysis ();
+
   life_analysis_1 (f, nregs, remove_dead_code);
+
+  if (! reload_completed)
+    mark_constant_function ();
+
   end_alias_analysis ();
 
   if (file)
@@ -4013,7 +4020,7 @@ mark_used_regs (needed, live, x, final, insn)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register char *fmt = GET_RTX_FORMAT (code);
+    register const char *fmt = GET_RTX_FORMAT (code);
     register int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -4171,7 +4178,7 @@ find_use_as_address (x, reg, plusconst)
      HOST_WIDE_INT plusconst;
 {
   enum rtx_code code = GET_CODE (x);
-  char *fmt = GET_RTX_FORMAT (code);
+  const char *fmt = GET_RTX_FORMAT (code);
   register int i;
   register rtx value = 0;
   register rtx tem;
@@ -4231,7 +4238,7 @@ dump_flow_info (file)
      FILE *file;
 {
   register int i;
-  static char *reg_class_names[] = REG_CLASS_NAMES;
+  static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
   fprintf (file, "%d registers.\n", max_regno);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
@@ -4334,7 +4341,7 @@ dump_edge_info (file, e, do_succ)
 
   if (e->flags)
     {
-      static char * bitnames[] = {
+      static const char * const bitnames[] = {
 	"fallthru", "crit", "ab", "abcall", "eh", "fake"
       };
       int comma = 0;
@@ -4671,6 +4678,50 @@ compute_dominators (dominators, post_dominators, s_preds, s_succs)
   free (temp_bitmap);
 }
 
+/* Compute dominator relationships using new flow graph structures.  */
+void
+compute_flow_dominators (dominators, post_dominators)
+     sbitmap *dominators;
+     sbitmap *post_dominators;
+{
+  int bb, changed, passes;
+  sbitmap *temp_bitmap;
+
+  temp_bitmap = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  sbitmap_vector_ones (dominators, n_basic_blocks);
+  sbitmap_vector_ones (post_dominators, n_basic_blocks);
+  sbitmap_vector_zero (temp_bitmap, n_basic_blocks);
+
+  sbitmap_zero (dominators[0]);
+  SET_BIT (dominators[0], 0);
+
+  sbitmap_zero (post_dominators[n_basic_blocks - 1]);
+  SET_BIT (post_dominators[n_basic_blocks - 1], 0);
+
+  passes = 0;
+  changed = 1;
+  while (changed)
+    {
+      changed = 0;
+      for (bb = 1; bb < n_basic_blocks; bb++)
+	{
+	  sbitmap_intersection_of_preds (temp_bitmap[bb], dominators, bb);
+	  SET_BIT (temp_bitmap[bb], bb);
+	  changed |= sbitmap_a_and_b (dominators[bb],
+				      dominators[bb],
+				      temp_bitmap[bb]);
+	  sbitmap_intersection_of_succs (temp_bitmap[bb], post_dominators, bb);
+	  SET_BIT (temp_bitmap[bb], bb);
+	  changed |= sbitmap_a_and_b (post_dominators[bb],
+				      post_dominators[bb],
+				      temp_bitmap[bb]);
+	}
+      passes++;
+    }
+
+  free (temp_bitmap);
+}
+
 /* Given DOMINATORS, compute the immediate dominators into IDOM.  */
 
 void
@@ -4886,7 +4937,7 @@ count_reg_references (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register char *fmt = GET_RTX_FORMAT (code);
+    register const char *fmt = GET_RTX_FORMAT (code);
     register int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -6292,3 +6343,268 @@ verify_flow_info ()
       x = NEXT_INSN (x);
     }
 }
+
+/* Functions to access an edge list with a vector representation.
+   Enough data is kept such that given an index number, the 
+   pred and succ that edge reprsents can be determined, or
+   given a pred and a succ, it's index number can be returned.
+   This allows algorithms which comsume a lot of memory to 
+   represent the normally full matrix of edge (pred,succ) with a
+   single indexed vector,  edge (EDGE_INDEX (pred, succ)), with no
+   wasted space in the client code due to sparse flow graphs.  */
+
+/* This functions initializes the edge list. Basically the entire 
+   flowgraph is processed, and all edges are assigned a number,
+   and the data structure is filed in.  */
+struct edge_list *
+create_edge_list ()
+{
+  struct edge_list *elist;
+  edge e;
+  int num_edges;
+  int x,y;
+  int_list_ptr ptr;
+  int block_count;
+
+  block_count = n_basic_blocks + 2;   /* Include the entry and exit blocks.  */
+
+  num_edges = 0;
+
+  /* Determine the number of edges in the flow graph by counting successor
+     edges on each basic block.  */
+  for (x = 0; x < n_basic_blocks; x++)
+    {
+      basic_block bb = BASIC_BLOCK (x);
+
+      for (e = bb->succ; e; e = e->succ_next)
+	num_edges++;
+    }
+  /* Don't forget successors of the entry block.  */
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    num_edges++;
+
+  elist = xmalloc (sizeof (struct edge_list));
+  elist->num_blocks = block_count;
+  elist->num_edges = num_edges;
+  elist->index_to_edge = xmalloc (sizeof (edge) * num_edges);
+
+  num_edges = 0;
+
+  /* Follow successors of the entry block, and register these edges.  */
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    {
+      elist->index_to_edge[num_edges] = e;
+      num_edges++;
+    }
+  
+  for (x = 0; x < n_basic_blocks; x++)
+    {
+      basic_block bb = BASIC_BLOCK (x);
+
+      /* Follow all successors of blocks, and register these edges.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  elist->index_to_edge[num_edges] = e;
+	  num_edges++;
+	}
+    }
+  return elist;
+}
+
+/* This function free's memory associated with an edge list.  */
+void
+free_edge_list (elist)
+     struct edge_list *elist;
+{
+  if (elist)
+    {
+      free (elist->index_to_edge);
+      free (elist);
+    }
+}
+
+/* This function provides debug output showing an edge list.  */
+void 
+print_edge_list (f, elist)
+     FILE *f;
+     struct edge_list *elist;
+{
+  int x;
+  fprintf(f, "Compressed edge list, %d BBs + entry & exit, and %d edges\n",
+	  elist->num_blocks - 2, elist->num_edges);
+
+  for (x = 0; x < elist->num_edges; x++)
+    {
+      fprintf (f, " %-4d - edge(", x);
+      if (INDEX_EDGE_PRED_BB (elist, x) == ENTRY_BLOCK_PTR)
+        fprintf (f,"entry,");
+      else
+        fprintf (f,"%d,", INDEX_EDGE_PRED_BB (elist, x)->index);
+
+      if (INDEX_EDGE_SUCC_BB (elist, x) == EXIT_BLOCK_PTR)
+        fprintf (f,"exit)\n");
+      else
+        fprintf (f,"%d)\n", INDEX_EDGE_SUCC_BB (elist, x)->index);
+    }
+}
+
+/* This function provides an internal consistancy check of an edge list,
+   verifying that all edges are present, and that there are no 
+   extra edges.  */
+void
+verify_edge_list (f, elist)
+     FILE *f;
+     struct edge_list *elist;
+{
+  int x, pred, succ, index;
+  int_list_ptr ptr;
+  int flawed = 0;
+  edge e;
+
+  for (x = 0; x < n_basic_blocks; x++)
+    {
+      basic_block bb = BASIC_BLOCK (x);
+
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  pred = e->src->index;
+	  succ = e->dest->index;
+	  index = EDGE_INDEX (elist, pred, succ);
+	  if (index == EDGE_INDEX_NO_EDGE)
+	    {
+	      fprintf (f, "*p* No index for edge from %d to %d\n",pred, succ);
+	      continue;
+	    }
+	  if (INDEX_EDGE_PRED_BB (elist, index)->index != pred)
+	    fprintf (f, "*p* Pred for index %d should be %d not %d\n",
+		     index, pred, INDEX_EDGE_PRED_BB (elist, index)->index);
+	  if (INDEX_EDGE_SUCC_BB (elist, index)->index != succ)
+	    fprintf (f, "*p* Succ for index %d should be %d not %d\n",
+		     index, succ, INDEX_EDGE_SUCC_BB (elist, index)->index);
+	}
+    }
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    {
+      pred = e->src->index;
+      succ = e->dest->index;
+      index = EDGE_INDEX (elist, pred, succ);
+      if (index == EDGE_INDEX_NO_EDGE)
+	{
+	  fprintf (f, "*p* No index for edge from %d to %d\n",pred, succ);
+	  continue;
+	}
+      if (INDEX_EDGE_PRED_BB (elist, index)->index != pred)
+	fprintf (f, "*p* Pred for index %d should be %d not %d\n",
+		 index, pred, INDEX_EDGE_PRED_BB (elist, index)->index);
+      if (INDEX_EDGE_SUCC_BB (elist, index)->index != succ)
+	fprintf (f, "*p* Succ for index %d should be %d not %d\n",
+		 index, succ, INDEX_EDGE_SUCC_BB (elist, index)->index);
+    }
+  /* We've verified that all the edges are in the list, no lets make sure
+     there are no spurious edges in the list.  */
+  
+  for (pred = 0 ; pred < n_basic_blocks; pred++)
+    for (succ = 0 ; succ < n_basic_blocks; succ++)
+      {
+        basic_block p = BASIC_BLOCK (pred);
+        basic_block s = BASIC_BLOCK (succ);
+
+        int found_edge = 0;
+
+        for (e = p->succ; e; e = e->succ_next)
+          if (e->dest == s)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        for (e = s->pred; e; e = e->pred_next)
+          if (e->src == p)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        if (EDGE_INDEX (elist, pred, succ) == EDGE_INDEX_NO_EDGE 
+	    && found_edge != 0)
+	  fprintf (f, "*** Edge (%d, %d) appears to not have an index\n",
+	  	   pred, succ);
+        if (EDGE_INDEX (elist, pred, succ) != EDGE_INDEX_NO_EDGE
+	    && found_edge == 0)
+	  fprintf (f, "*** Edge (%d, %d) has index %d, but there is no edge\n",
+	  	   pred, succ, EDGE_INDEX (elist, pred, succ));
+      }
+    for (succ = 0 ; succ < n_basic_blocks; succ++)
+      {
+        basic_block p = ENTRY_BLOCK_PTR;
+        basic_block s = BASIC_BLOCK (succ);
+
+        int found_edge = 0;
+
+        for (e = p->succ; e; e = e->succ_next)
+          if (e->dest == s)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        for (e = s->pred; e; e = e->pred_next)
+          if (e->src == p)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        if (EDGE_INDEX (elist, ENTRY_BLOCK, succ) == EDGE_INDEX_NO_EDGE 
+	    && found_edge != 0)
+	  fprintf (f, "*** Edge (entry, %d) appears to not have an index\n",
+	  	   succ);
+        if (EDGE_INDEX (elist, ENTRY_BLOCK, succ) != EDGE_INDEX_NO_EDGE
+	    && found_edge == 0)
+	  fprintf (f, "*** Edge (entry, %d) has index %d, but no edge exists\n",
+	  	   succ, EDGE_INDEX (elist, ENTRY_BLOCK, succ));
+      }
+    for (pred = 0 ; pred < n_basic_blocks; pred++)
+      {
+        basic_block p = BASIC_BLOCK (pred);
+        basic_block s = EXIT_BLOCK_PTR;
+
+        int found_edge = 0;
+
+        for (e = p->succ; e; e = e->succ_next)
+          if (e->dest == s)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        for (e = s->pred; e; e = e->pred_next)
+          if (e->src == p)
+	    {
+	      found_edge = 1;
+	      break;
+	    }
+        if (EDGE_INDEX (elist, pred, EXIT_BLOCK) == EDGE_INDEX_NO_EDGE
+	    && found_edge != 0)
+	  fprintf (f, "*** Edge (%d, exit) appears to not have an index\n",
+	  	   pred);
+        if (EDGE_INDEX (elist, pred, EXIT_BLOCK) != EDGE_INDEX_NO_EDGE
+	    && found_edge == 0)
+	  fprintf (f, "*** Edge (%d, exit) has index %d, but no edge exists\n",
+	  	   pred, EDGE_INDEX (elist, pred, EXIT_BLOCK));
+      }
+}
+
+/* This routine will determine what, if any, edge there is between
+   a specified predecessor and successor.  */
+
+int
+find_edge_index (edge_list, pred, succ)
+     struct edge_list *edge_list;
+     int pred, succ;
+{
+  int x;
+  for (x = 0; x < NUM_EDGES (edge_list); x++)
+    {
+      if (INDEX_EDGE_PRED_BB (edge_list, x)->index == pred
+	  && INDEX_EDGE_SUCC_BB (edge_list, x)->index == succ)
+	return x;
+    }
+  return (EDGE_INDEX_NO_EDGE);
+}
+
