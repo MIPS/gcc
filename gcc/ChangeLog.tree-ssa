@@ -1,3 +1,7 @@
+2004-03-01  Frank Ch. Eigler  <fche@redhat.com>
+
+	* doc/passes.texi: Add information about mudflap.
+
 2004-03-01  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR middle-end/13066
