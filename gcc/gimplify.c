@@ -1731,10 +1731,21 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	{
 	  /* Gimplify the dimension.  */
 	  enum gimplify_status tret;
-	  tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
-	  if (tret == GS_ERROR)
-	    ret = GS_ERROR;
+	  /* Temporary fix for gcc.c-torture/execute/20040313-1.c.
+	     Gimplify non-constant array indices into a temporary
+	     variable.
+	     FIXME - The real fix is to gimplify post-modify
+	     expressions into a minimal gimple lvalue.  However, that
+	     exposes bugs in alias analysis.  The alias analyzer does
+	     not handle &PTR->FIELD very well.  Will fix after the
+	     branch is merged into mainline (dnovillo 2004-05-03).  */
+	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+	    {
+	      tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
+				    is_gimple_tmp_var, fb_rvalue);
+	      if (tret == GS_ERROR)
+		ret = GS_ERROR;
+	    }
 	}
       recalculate_side_effects (t);
       VARRAY_POP (stack);
