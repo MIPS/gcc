@@ -1559,7 +1559,7 @@ tree-ssa-dom.o : tree-ssa-dom.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(BASIC_BLOCK_H) domwalk.h
 tree-ssanames.o : tree-ssanames.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) $(TREE_H) varray.h
+   $(TM_H) $(TREE_H) varray.h $(GGC_H) gt-tree-ssanames.h 
 domwalk.o : domwalk.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) domwalk.h $(GGC_H)
 tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
@@ -1585,7 +1585,8 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    tree-alias-common.h convert.h $(TM_H) coretypes.h langhooks.h \
    $(TREE_DUMP_H)
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
-   $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h
+   $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h \
+   $(GGC_H) gt-tree-eh.h
 tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h flags.h tree-alias-common.h \
@@ -2201,7 +2202,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(srcdir)/stringpool.c $(srcdir)/targhooks.c $(srcdir)/tree.c \
-  $(srcdir)/varasm.c \
+  $(srcdir)/varasm.c $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c \
   $(srcdir)/tree-ssa.c $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-ccp.c \
   $(srcdir)/tree-ssa-pre.c $(srcdir)/tree-iterator.c $(out_file) \
   @all_gtfiles@
@@ -2221,8 +2222,8 @@ gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-stringpool.h gt-targhooks.h gt-langhooks.h \
 gt-tree-alias-common.h gt-tree-mudflap.h gt-dependence.h \
-gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h \
-gt-tree-ssa-pre.h gt-tree-iterator.h : s-gtype ; @true
+gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h gt-tree-eh.h \
+gt-tree-ssa-pre.h gt-tree-ssanames.h gt-tree-iterator.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h

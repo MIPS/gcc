@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "timevar.h"
 #include "langhooks.h"
-
+#include "ggc.h"
 
 /* HACK */
 extern int using_eh_for_cleanups_p;
@@ -90,7 +90,7 @@ record_stmt_eh_region (struct eh_region *region, tree t)
   if (!region)
     return;
 
-  n = xmalloc (sizeof (*n));
+  n = ggc_alloc (sizeof (*n));
   n->stmt = t;
   n->region_nr = get_eh_region_number (region);
 
@@ -109,7 +109,7 @@ add_stmt_to_eh_region (tree t, int num)
   if (num < 0)
     abort ();
 
-  n = xmalloc (sizeof (*n));
+  n = ggc_alloc (sizeof (*n));
   n->stmt = t;
   n->region_nr = num;
 
@@ -1596,7 +1596,7 @@ lower_eh_constructs (tree *tp)
   timevar_push (TV_TREE_EH);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
-  throw_stmt_table = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
+  throw_stmt_table = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, free);
 
   collect_finally_tree (*tp, NULL);
 
@@ -1719,3 +1719,4 @@ tree_can_throw_external (tree stmt)
     return false;
   return can_throw_external_1 (region_nr);
 }
+#include "gt-tree-eh.h"

@@ -1,3 +1,19 @@
+2003-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (tree-ssanames.o): Depend on gt-tree-ssanames.h.
+	(tree-eh.o): Depend on gt-tree-eh.h.
+	(gr-tree-ssanames.h, gt-tree-eh.h): New targets.
+	(GTFILES): Add tree-ssanames.c, tree-eh.c
+	* tree-eh.c: Include ggc.h and gt-tree-eh.h
+	(lower_eh_constructs): Allecate throw_stmt_table in ggc.
+	* tree-ssanames.c: Include ggc.h and gt-tree-ssanames.h
+
+	* function.h (struct function): Add saved_tree/saved_args.
+	* toplev.c (rest_of_compilation): Move code to  clear cfun and
+	DECL_SAVED_INSNS and call to ggc_collect to ...
+	* tree-optimize.c (tree_rest_of_compilation): ... this function. Use
+	cfun to save/restore function body.
+
 2003-11-28  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (create_tmp_var_raw): Split out from create_tmp_var.

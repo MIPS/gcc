@@ -266,7 +266,7 @@ void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
-  tree saved_tree = NULL, saved_args = NULL, chain;
+  tree chain;
 
   timevar_push (TV_EXPAND);
 
@@ -293,11 +293,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      it inline somewhere else.  This means not lowering some constructs
      such as exception handling.  */
   if (DECL_INLINE (fndecl) && flag_inline_trees)
-    {
-      saved_tree = save_body (fndecl, &saved_args);
-      /* ??? We're saving this value here on the stack.  Don't gc it.  */
-      nested_p = true;
-    }
+    cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
 
   /* Mudflap-instrument any relevant declarations.  */
   if (flag_mudflap)
@@ -404,6 +400,16 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (nested_p)
     ggc_pop_context ();
 
+  /* Restore original body if still needed.  */
+  if (cfun->saved_tree)
+    {
+      DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
+      DECL_ARGUMENTS (fndecl) = cfun->saved_args;
+    }
+  cfun = 0;
+  DECL_SAVED_INSNS (fndecl) = 0;
+  ggc_collect ();
+
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
      take up a lot of stack space.  */
@@ -430,13 +436,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* ??? Looks like some of this could be combined.  */
 
-  if (DECL_INLINE (fndecl) && flag_inline_trees)
-    {
-      /* We might need the body of this function so that we can expand
-         it inline somewhere else.  */
-      DECL_SAVED_TREE (fndecl) = saved_tree;
-      DECL_ARGUMENTS (fndecl) = saved_args;
-    }
 
   /* If possible, obliterate the body of the function so that it can
      be garbage collected.  */

@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "tree.h"
 #include "varray.h"
+#include "ggc.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -179,3 +180,5 @@ release_ssa_name (tree var)
       free_ssanames = var;
     }
 }
+
+#include "gt-tree-ssanames.h"
