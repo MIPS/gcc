@@ -2098,11 +2098,10 @@ _cpp_pop_buffer (cpp_reader *pfile)
     {
       _cpp_pop_file_buffer (pfile, inc);
 
-      /* Don't generate a callback for popping the main file.  */
+      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
+
       if (pfile->buffer)
 	{
-	  _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
-
 	  _cpp_start_fragment (pfile);
 	}
     }
