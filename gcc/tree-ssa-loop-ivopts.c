@@ -3600,8 +3600,9 @@ static tree
 iv_value (struct iv *iv, tree niter)
 {
   tree val;
-  tree type = TREE_TYPE (niter);
+  tree type = TREE_TYPE (iv->base);
 
+  niter = convert (type, niter);
   val = fold (build (MULT_EXPR, type, iv->step, niter));
 
   return fold (build (PLUS_EXPR, type, iv->base, val));
@@ -3648,6 +3649,9 @@ may_eliminate_iv (struct loop *loop,
       || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
     return false;
 
+  /* FIXME -- we ignore the possible overflow here.  For example
+     in case the loop iterates MAX_UNSIGNED_INT / 2 times and
+     the step of candidate is 4, this is wrong.  */
   if (exit->flags & EDGE_TRUE_VALUE)
     *compare = EQ_EXPR;
   else

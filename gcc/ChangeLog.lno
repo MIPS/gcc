@@ -1,3 +1,8 @@
+2004-03-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (iv_value): Use correct type.
+	(may_eliminate_iv): Add a fixme comment.
+
 2004-03-29  Devang Patel  <dpatel@apple.com>
 
 	* tree-flow.h (tree_ssa_loop_version): Add new parameter, basic_block *.
