@@ -1,3 +1,42 @@
+2004-03-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct walk_state): Remove fields 'is_store' and
+	'is_indirect_ref'.  Update all users.
+	* tree-flow.h (struct var_ann_d): Remove fields 'is_stored',
+	'is_dereferenced_store' and 'is_dereferenced_load'.  Update
+	all users.
+	* tree-simple.c (get_base_address): Handle BIT_FIELD_REF.
+	* tree-ssa-alias.c (struct alias_info): Add fields
+	'written_vars', 'dereferenced_ptrs_store' and
+	'dereferenced_ptrs_load'.
+	(init_alias_info): Initialize them.
+	(delete_alias_info): Free them.
+	(find_ptr_dereference): New.
+	(ptr_is_dereferenced_by): Call it.
+	Add new argument 'is_store'.  Set to true if the
+	expression is an indirect store operation.
+	(compute_points_to_and_addr_escape): If the statement
+	makes a store, load or write operation, update the
+	corresponding bitmap.
+	(compute_flow_insensitive_aliasing): Test the
+	'written_vars' bitmap to determine if alias sets should
+	be computed.
+	(setup_pointers_and_addressables): Always assume that
+	volatile pointers and hidden pointers have been used in a
+	memory store operation.
+	* tree-ssa-operands.c (add_stmt_operand): Do add an
+	operand for may-aliased variables before computing
+	aliases.
+
+2004-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-optimize.c (init_tree_optimization_passes): Move
+	pass_tail_recursion and pass_ch after pass_may_alias.
+	* tree-ssa-loop.c (mark_defs_for_rewrite): Mark type tags
+	for rewriting.
+	* tree-ssa.c (mark_def_sites): Process the operand of a
+	VDEF before the result.
+
 2004-03-11  Richard Henderson  <rth@redhat.com>
 
 	PR 14204

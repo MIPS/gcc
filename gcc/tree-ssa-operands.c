@@ -1199,15 +1199,12 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
       aliases = v_ann->may_aliases;
 
-      /* If alias information hasn't been computed yet, then addressable
-	 variables will not be an alias tag nor will they have aliases.  In
-	 this case, simply mark the statement as having volatile operands
-	 and return.  */
+      /* If alias information hasn't been computed yet, then
+	 addressable variables will not be an alias tag nor will they
+	 have aliases.  In this case, mark the statement as having
+	 volatile operands.  */
       if (!aliases_computed_p && may_be_aliased (var))
-	{
-	  s_ann->has_volatile_ops = true;
-	  return;
-	}
+	s_ann->has_volatile_ops = true;
 
       if (aliases == NULL)
 	{

@@ -152,6 +152,13 @@ mark_defs_for_rewrite (basic_block bb)
     {
       var = SSA_NAME_VAR (PHI_RESULT (stmt));
       bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+
+      /* If we have a type_mem_tag, add it as well.  Due to rewriting the
+	 variable out of ssa, we lose its name tag, so we use type_mem_tag
+	 instead.  */
+      var = var_ann (var)->type_mem_tag;
+      if (var)
+	bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
     }
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -165,6 +172,13 @@ mark_defs_for_rewrite (basic_block bb)
 	{
 	  var = SSA_NAME_VAR (DEF_OP (defs, i));
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+
+	  /* If we have a type_mem_tag, add it as well.  Due to rewriting the
+	     variable out of ssa, we lose its name tag, so we use type_mem_tag
+	     instead.  */
+	  var = var_ann (var)->type_mem_tag;
+	  if (var)
+	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
       vdefs = VDEF_OPS (ann);

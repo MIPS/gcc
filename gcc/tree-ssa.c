@@ -622,9 +622,9 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	{
 	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
 
-	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	  if (!TEST_BIT (kills, uid))
 	    set_livein_block (VDEF_OP (vdefs, i), bb);
+	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	}
     }
 
@@ -973,11 +973,8 @@ create_temp (tree t)
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
   var_ann (tmp)->type_mem_tag = var_ann (t)->type_mem_tag;
-  var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
-  var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
   if (is_call_clobbered (t))
     mark_call_clobbered (tmp);
-  var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
 }

@@ -79,13 +79,6 @@ replace_ssa_names (tree *op_p,
       var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
       var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
 
-      /* Merge the dereferenced attributes for the replacement variable.
-	 Note that we cannot just copy them.  Otherwise, we would mess
-	 things up if the original variable wasn't dereferenced but the
-	 replacement was.  */
-      new_ann->is_dereferenced_store |= orig_ann->is_dereferenced_store;
-      new_ann->is_dereferenced_load |= orig_ann->is_dereferenced_load;
-
       if (new_ann->type_mem_tag == NULL_TREE)
 	new_ann->type_mem_tag = orig_ann->type_mem_tag;
       else if (orig_ann->type_mem_tag == NULL_TREE)
