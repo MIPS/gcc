@@ -121,11 +121,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 	      to repeat the SSA renaming process for those symbols.  */
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Do a first DCE pass prior to must-alias.  This pass will remove
 	 dead pointer assignments taking the address of local variables.  */
@@ -139,7 +139,13 @@ optimize_function_tree (tree fndecl, tree *chain)
 #endif
 
       if (flag_tree_loop)
-	tree_ssa_loop_opt (fndecl, TDI_loop);
+	{
+	  tree_ssa_loop_opt (fndecl, TDI_loop);
+
+#ifdef ENABLE_CHECKING
+	  verify_ssa ();
+#endif
+	}
 
       /* The must-alias pass removes the aliasing and addressability bits
 	 from variables that used to have their address taken.  */
@@ -152,11 +158,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
           ggc_collect ();
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Eliminate tail recursion calls.  */
       tree_optimize_tail_calls ();
@@ -175,11 +181,11 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
           ggc_collect ();
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Run SCCP (Sparse Conditional Constant Propagation).  */
       if (flag_tree_ccp)
@@ -191,22 +197,22 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
           ggc_collect ();
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Run SSA-PRE (Partial Redundancy Elimination).  */
       if (flag_tree_pre)
 	{
 	  tree_perform_ssapre (fndecl, TDI_pre);
 	  ggc_collect ();
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Perform a second pass of dominator optimizations.  */
       if (flag_tree_dom)
@@ -217,22 +223,22 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  /* Run the SSA pass again if we need to rename new variables.  */
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
       /* Do a second DCE pass.  */
       if (flag_tree_dce)
 	{
 	  tree_ssa_dce (fndecl, TDI_dce_2);
 	  ggc_collect ();
-	}
 
 #ifdef ENABLE_CHECKING
-      verify_ssa ();
+	  verify_ssa ();
 #endif
+	}
 
 #if 0
       /* Eliminate tail recursion calls and discover sibling calls.  */

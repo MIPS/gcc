@@ -1,3 +1,8 @@
+2003-12-08  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-optimize.c (optimize_function_tree): Move verify_ssa calls
+	into conditionals.
+
 2003-12-08  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c (andersen_same_points_to_set): Fix memory leak.
