@@ -1,3 +1,8 @@
+2004-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix.h (MFWRAP_SPEC): Define.
+	(MFLIB_SPEC): Define.
+
 2004-02-19  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-phiopt.c (tree_ssa_phiopt): TRUTH_NOT_EXPR is valid
