@@ -575,8 +575,9 @@ comptypes (tree type1, tree type2, int flags)
 
     case VECTOR_TYPE:
       /* The target might allow certain vector types to be compatible.  */
-      val = (*targetm.vector_opaque_p) (t1)
-	|| (*targetm.vector_opaque_p) (t2);
+      val = targetm.vector_opaque_p (t1)
+	|| targetm.vector_opaque_p (t2)
+	|| TYPE_MODE (t1) == TYPE_MODE (t2);
       break;
 
     default:
@@ -630,7 +631,7 @@ same_translation_unit_p (tree t1, tree t2)
   while (t2 && TREE_CODE (t2) != TRANSLATION_UNIT_DECL)
     switch (TREE_CODE_CLASS (TREE_CODE (t2)))
       {
-      case 'd': t2 = DECL_CONTEXT (t1); break;
+      case 'd': t2 = DECL_CONTEXT (t2); break;
       case 't': t2 = TYPE_CONTEXT (t2); break;
       case 'b': t2 = BLOCK_SUPERCONTEXT (t2); break;
       default: abort ();
@@ -1902,17 +1903,6 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 
       val = require_complete_type (val);
 
-      /* APPLE LOCAL begin AltiVec */
-      /* Ensure that a prototype is present if a vector type is involved.  */
-      if (typelist == 0 
-	  && TREE_CODE (TREE_TYPE (val)) == VECTOR_TYPE
-	  && !(DECL_BUILT_IN (fundecl)
-	       && (DECL_FUNCTION_CODE (fundecl) == BUILT_IN_NEXT_ARG
-		   || DECL_FUNCTION_CODE (fundecl) == BUILT_IN_CLASSIFY_TYPE)))
-	error ("vector argument %d requires a prototype for `%s'",
-	       parmnum + 1, IDENTIFIER_POINTER (name));
-      /* APPLE LOCAL end AltiVec */
-
       if (type != 0)
 	{
 	  /* Formal parm type is specified by a function prototype.  */
@@ -2910,15 +2900,6 @@ internal_build_compound_expr (tree list, int first_p)
       if (warn_unused_value
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
-	/* APPLE LOCAL begin AltiVec */
-	/* Inhibit bogus warnings for "vector int x = (vector
-	   int)(1,2,3,4);" Unfortunately, we have no way of knowing
-	   whether the expression we're currently parsing is part of a
-	   vector constant, so we just inhibit this warning when
-	   "-faltivec" was specified.  I know, I know, it's a crummy
-	   solution, but it'll do for now.  */
-	if (!(flag_altivec && !extra_warnings))
-	/* APPLE LOCAL end AltiVec */
         warning ("left-hand operand of comma expression has no effect");
     }
 
@@ -2996,17 +2977,6 @@ build_c_cast (tree type, tree expr)
       error ("cast to union type from type not present in union");
       return error_mark_node;
     }
-  /* APPLE LOCAL begin AltiVec */
-  /* Handle "(vector float)(vector unsigned long) (0x1,0x2,0x3,0x4)"
-     which means a vector float using the given values (with no
-     conversion.)  */
-  else if (TREE_CODE (type) == VECTOR_TYPE && TREE_CODE (expr) == VECTOR_CST
-	   && TREE_TYPE (expr) != type)
-    { 
-      TREE_TYPE (expr) = type;
-      return expr;
-    } 
-  /* APPLE LOCAL end AltiVec */
   else
     {
       tree otype, ovalue;
@@ -3356,9 +3326,8 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
       return rhs;
     }
   /* Some types can interconvert without explicit casts.  */
-  else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
-	   && ((*targetm.vector_opaque_p) (type)
-	       || (*targetm.vector_opaque_p) (rhstype)))
+  else if (codel == VECTOR_TYPE
+           && comptypes (type, TREE_TYPE (rhs), COMPARE_STRICT) == 1)
     return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE

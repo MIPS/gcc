@@ -6458,12 +6458,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   rtx subtarget, original_target;
   int ignore;
   tree context;
-  /* APPLE LOCAL begin AltiVec */
-  /* Do not replace elements of const arrays with the constant; 
-     add a REG_EQUAL NOTE instead.  Seems to be equivalent for
-     int and float consts, better for vectors.  */
-  rtx const_value = NULL_RTX;
-  /* APPLE LOCAL end AltiVec */
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
@@ -7134,10 +7128,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      ;
 
 	    if (elem)
-	      /* APPLE LOCAL begin AltiVec */
-	      const_value = expand_expr (fold (TREE_VALUE (elem)), target,
-					 tmode, modifier);
-	      /* APPLE LOCAL end AltiVec */
+	      return expand_expr (fold (TREE_VALUE (elem)), target, tmode,
+				  modifier);
 	  }
 
 	else if (optimize >= 1
@@ -7164,10 +7156,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		      ;
 
 		    if (elem && !TREE_SIDE_EFFECTS (TREE_VALUE (elem)))
-		      /* APPLE LOCAL begin AltiVec */
-		      const_value = expand_expr (fold (TREE_VALUE (elem)),
-						 target, tmode, modifier);
-		    /* APPLE LOCAL end AltiVec */
+		      return expand_expr (fold (TREE_VALUE (elem)), target,
+					  tmode, modifier);
 		  }
 		else if (TREE_CODE (init) == STRING_CST
 			 && 0 > compare_tree_int (index,
@@ -7515,28 +7505,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	if (mode == mode1 || mode1 == BLKmode || mode1 == tmode
 	    || modifier == EXPAND_CONST_ADDRESS
 	    || modifier == EXPAND_INITIALIZER)
-	  /* APPLE LOCAL begin AltiVec */
-	  {
-	    /* For now, only do this if there is a reg type the
-	       same size as the const, and only if no conversion
-	       is required.  */
-	    if (const_value
-		&& (tmode == VOIDmode || tmode == mode )
-		&& (mode == SImode || mode == SFmode || mode == DFmode
-		    || VECTOR_MODE_P (mode)))
-	      {
-		rtx insn;
-		if (target == 0)
-		  target = gen_reg_rtx (tmode != VOIDmode ? tmode : mode);
-		insn = emit_move_insn (target, op0);
-		REG_NOTES (insn) = 
-		    gen_rtx_EXPR_LIST (REG_EQUAL, const_value, REG_NOTES (insn));
-		return target;
-	      }
-	    else
-	      return op0;
-	  }
-	  /* APPLE LOCAL end AltiVec */
+	  return op0;
 	else if (target == 0)
 	  target = gen_reg_rtx (tmode != VOIDmode ? tmode : mode);
 
@@ -10253,14 +10222,8 @@ const_vector_from_tree (tree exp)
       elt = TREE_VALUE (link);
 
       if (TREE_CODE (elt) == REAL_CST)
-	/* APPLE LOCAL begin AltiVec */
-	{
-	  /* FIXME this only works for 'float'.  */
-	  HOST_WIDE_INT u1;
-	  REAL_VALUE_TO_TARGET_SINGLE (TREE_REAL_CST (elt), u1);
-	  RTVEC_ELT (v, i) = GEN_INT (u1);
-	}
-        /* APPLE LOCAL end AltiVec */
+	RTVEC_ELT (v, i) = CONST_DOUBLE_FROM_REAL_VALUE (TREE_REAL_CST (elt),
+							 inner);
       else
 	RTVEC_ELT (v, i) = immed_double_const (TREE_INT_CST_LOW (elt),
 					       TREE_INT_CST_HIGH (elt),

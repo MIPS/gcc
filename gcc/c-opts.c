@@ -437,12 +437,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->warn_multichar = value;	/* Was C++ only.  */
       break;
 
-      /* APPLE LOCAL begin AltiVec */
-    case OPT_Waltivec_long_deprecated:
-      warn_altivec_long_deprecated = value;
-      break;
-      /* APPLE LOCAL end AltiVec */
-
     case OPT_Wbad_function_cast:
       warn_bad_function_cast = value;
       break;
@@ -801,12 +795,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_faccess_control:
       flag_access_control = value;
       break;
-
-      /* APPLE LOCAL begin AltiVec */
-    case OPT_faltivec:
-      flag_altivec = value;
-      break;
-      /* APPLE LOCAL end AltiVec */
 
       /* APPLE LOCAL begin -fapple-kext */
     case OPT_fapple_kext:

@@ -57,10 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "objc-act.h"
 @@end_ifobjc
 
-/* APPLE LOCAL AltiVec */
-extern int altivec_context;
-static tree last_compound_expr, last_compound_list;
-
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
 
@@ -153,8 +149,6 @@ do {									\
 %token REALPART IMAGPART VA_ARG CHOOSE_EXPR TYPES_COMPATIBLE_P
 %token PTR_VALUE PTR_BASE PTR_EXTENT
 %token FUNC_NAME
-/* APPLE LOCAL AltiVec */
-%token VEC_STEP
 
 /* Add precedence rules to solve dangling else s/r conflict */
 %nonassoc IF
@@ -485,9 +479,7 @@ unop:     '&'
 	;
 
 expr:	nonnull_exprlist
-		/* APPLE LOCAL AltiVec */
-		{ $$ = last_compound_expr
-		    = build_compound_expr (last_compound_list = $1); }
+		{ $$ = build_compound_expr ($1); }
 	;
 
 exprlist:
@@ -532,13 +524,6 @@ unary_expr:
 	| alignof '(' typename ')'  %prec HYPERUNARY
 		{ skip_evaluation--;
 		  $$ = c_alignof (groktypename ($3)); }
-	/* APPLE LOCAL AltiVec */
-	| vec_step unary_expr  %prec UNARY
-		{ skip_evaluation--;
-		  $$ = altivec_vec_step_expr ($2); }
-	| vec_step '(' typename ')'  %prec HYPERUNARY
-		{ skip_evaluation--;
-		  $$ = altivec_vec_step (groktypename ($3)); }
 	| REALPART cast_expr %prec UNARY
 		{ $$ = build_unary_op (REALPART_EXPR, $2, 0); }
 	| IMAGPART cast_expr %prec UNARY
@@ -557,47 +542,10 @@ typeof:
 	TYPEOF { skip_evaluation++; }
 	;
 
-/* APPLE LOCAL begin AltiVec */
-vec_step:
-	VEC_STEP { skip_evaluation++; }
-	;
-/* APPLE LOCAL end AltiVec */
-
 cast_expr:
 	unary_expr
 	| '(' typename ')' cast_expr  %prec UNARY
-		/* APPLE LOCAL AltiVec */
-		{ tree type, last;
-		  int SAVED_warn_strict_prototypes = warn_strict_prototypes;
-		  /* This avoids warnings about unprototyped casts on
-                     integers.  E.g. "#define SIG_DFL (void(*)())0".  */
-		  if (TREE_CODE ($4) == INTEGER_CST)
-		    warn_strict_prototypes = 0;
-		  type = groktypename ($2);
-		  warn_strict_prototypes = SAVED_warn_strict_prototypes;
-		/* APPLE LOCAL AltiVec */
-  		  /* If typename is a vector type, check for the form of a
-		     vector constant.  The cast_expr must be of the form
-		     '(' nonnull_expr_list ')' and the expression list must
-		     consist of integer constants or floating point
-		     constants.  Unfortunately, we need the actual list of
-		     constants, not the value after the list was reduced by
-		     build_compound_expr.  We hack around this by saving
-		     the last input and result of build_compound_expr and
-		     using them here.  */
-		  last = $4;
-		  STRIP_NOPS(last);
-		  if (TREE_CODE (type) == VECTOR_TYPE
-		      && $4 == last_compound_expr
-		      && ((TREE_CODE (last) == COMPOUND_EXPR)?
-			  (TREE_CODE (TREE_VALUE(last)) == INTEGER_CST
-			   || TREE_CODE (TREE_VALUE(last)) == REAL_CST):
-			  (TREE_CODE (last) == INTEGER_CST
-			   || TREE_CODE (last) == REAL_CST)))
-		    $$ = altivec_vector_constant (type, last_compound_list);
-		  else
-		    $$ = build_c_cast (type, $4); }
-/* or { $$ = c_cast_expr ($2, $4); } ? */
+		{ $$ = c_cast_expr ($2, $4); }
 	;
 
 expr_no_commas:
@@ -3366,8 +3314,6 @@ struct resword
 #define D_EXT	0x02	/* GCC extension */
 #define D_EXT89	0x04	/* GCC extension incorporated in C99 */
 #define D_OBJC	0x08	/* Objective C only */
-/* APPLE LOCAL AltiVec */
-#define D_ALTIVEC 0x80	/* AltiVec keywords */
 
 static const struct resword reswords[] =
 {
@@ -3481,19 +3427,6 @@ static const struct resword reswords[] =
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
 @@end_ifobjc
-  /* APPLE LOCAL AltiVec */
-  /* All keywords which follow are only recognized when
-     -faltivec is specified.  */
-  { "vec_step",		RID_ALTIVEC_VEC_STEP,	D_ALTIVEC },
-  { "__vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
-  { "__pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
-  { "__bool",		RID_ALTIVEC_BOOL,	D_ALTIVEC },
-  /* In addition, the following function solely as type 
-     specifiers, and are treated as ordinary identifiers
-     in other contexts.  */
-  { "vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
-  { "pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
-  { "bool",		RID_ALTIVEC_BOOL,	D_ALTIVEC },
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
@@ -3539,11 +3472,6 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_BYREF */	TYPE_QUAL,
   /* RID_ONEWAY */	TYPE_QUAL,
 
-  /* APPLE LOCAL AltiVec */
-  /* RID_ALTIVEC_VECTOR */	TYPESPEC,
-  /* RID_ALTIVEC_PIXEL */	TYPESPEC,
-  /* RID_ALTIVEC_BOOL */	TYPESPEC,
-
   /* C */
   /* RID_INT */		TYPESPEC,
   /* RID_CHAR */	TYPESPEC,
@@ -3566,9 +3494,6 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_RETURN */	RETURN,
   /* RID_GOTO */	GOTO,
   /* RID_SIZEOF */	SIZEOF,
-
-  /* APPLE LOCAL AltiVec */
-  /* RID_ALTIVEC_VEC_STEP */	VEC_STEP,
 
   /* C extensions */
   /* RID_ASM */		ASM_KEYWORD,
@@ -3653,10 +3578,6 @@ init_reswords (void)
   if (!c_dialect_objc ())
      mask |= D_OBJC;
      
-  /* APPLE LOCAL AltiVec */
-  if (!flag_altivec)
-    mask |= D_ALTIVEC;
-
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < N_reswords; i++)
     {
@@ -3707,8 +3628,6 @@ yylexname (void)
       if (!OBJC_IS_AT_KEYWORD (rid_code)
 	  && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
 @@end_ifobjc
-      /* APPLE LOCAL AltiVec  */
-      if (altivec_treat_as_keyword (yylval.ttype))
       {
 	/* Return the canonical spelling for this keyword.  */
 	yylval.ttype = ridpointers[(int) rid_code];
@@ -3748,8 +3667,7 @@ _yylex (void)
   last_token = c_lex (&yylval.ttype);
   switch (last_token)
     {
-    /* APPLE LOCAL AltiVec */
-    case CPP_EQ:	altivec_context = 0;		return '=';
+    case CPP_EQ:					return '=';
     case CPP_NOT:					return '!';
     case CPP_GREATER:	yylval.code = GT_EXPR;		return ARITHCOMPARE;
     case CPP_LESS:	yylval.code = LT_EXPR;		return ARITHCOMPARE;
@@ -3768,8 +3686,7 @@ _yylex (void)
     case CPP_AND_AND:					return ANDAND;
     case CPP_OR_OR:					return OROR;
     case CPP_QUERY:					return '?';
-    /* APPLE LOCAL AltiVec */    
-    case CPP_OPEN_PAREN:	altivec_context = 0;	return '(';
+    case CPP_OPEN_PAREN:				return '(';
     case CPP_EQ_EQ:	yylval.code = EQ_EXPR;		return EQCOMPARE;
     case CPP_NOT_EQ:	yylval.code = NE_EXPR;		return EQCOMPARE;
     case CPP_GREATER_EQ:yylval.code = GE_EXPR;		return ARITHCOMPARE;
@@ -3799,11 +3716,10 @@ _yylex (void)
 
       /* The following tokens may affect the interpretation of any
 	 identifiers following, if doing Objective-C.  */
-    /* APPLE LOCAL AltiVec */	 
-    case CPP_COLON:		altivec_context = 0;	OBJC_NEED_RAW_IDENTIFIER (0);	return ':';
-    case CPP_COMMA:		altivec_context = 0;	OBJC_NEED_RAW_IDENTIFIER (0);	return ',';
-    case CPP_CLOSE_PAREN:	altivec_context = 0;	OBJC_NEED_RAW_IDENTIFIER (0);	return ')';
-    case CPP_SEMICOLON:		altivec_context = 0;	OBJC_NEED_RAW_IDENTIFIER (0);	return ';';
+    case CPP_COLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ':';
+    case CPP_COMMA:		OBJC_NEED_RAW_IDENTIFIER (0);	return ',';
+    case CPP_CLOSE_PAREN:	OBJC_NEED_RAW_IDENTIFIER (0);	return ')';
+    case CPP_SEMICOLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ';';
 
     case CPP_EOF:
       return 0;

@@ -89,9 +89,6 @@ typedef struct rs6000_stack {
   int toc_save_p;		/* true if the TOC needs to be saved */
   int push_p;			/* true if we need to allocate stack space */
   int calls_p;			/* true if the function makes any calls */
-  /* APPLE LOCAL */
-  int world_save_p;		/* true if we're saving *everything*:
-				   r13-r31, cr, f13-f31, vrsave, v20-v31  */
   enum rs6000_abi abi;		/* which ABI to use */
   int gp_save_offset;		/* offset to save GP regs from initial SP */
   int fp_save_offset;		/* offset to save FP regs from initial SP */
@@ -227,9 +224,16 @@ int rs6000_debug_arg;		/* debug argument handling */
 static GTY(()) tree opaque_V2SI_type_node;
 static GTY(()) tree opaque_V2SF_type_node;
 static GTY(()) tree opaque_p_V2SI_type_node;
-
-/* AltiVec requires a few more basic types in addition to the vector
-   types already defined in tree.c.  */
+static GTY(()) tree V16QI_type_node;
+static GTY(()) tree V2SI_type_node;
+static GTY(()) tree V2SF_type_node;
+static GTY(()) tree V4HI_type_node;
+static GTY(()) tree V4SI_type_node;
+static GTY(()) tree V4SF_type_node;
+static GTY(()) tree V8HI_type_node;
+static GTY(()) tree unsigned_V16QI_type_node;
+static GTY(()) tree unsigned_V8HI_type_node;
+static GTY(()) tree unsigned_V4SI_type_node;
 static GTY(()) tree bool_char_type_node;	/* __bool char */
 static GTY(()) tree bool_short_type_node;	/* __bool short */
 static GTY(()) tree bool_int_type_node;		/* __bool int */
@@ -313,6 +317,7 @@ static void rs6000_assemble_visibility (tree, int);
 static int rs6000_ra_ever_killed (void);
 static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
 static void rs6000_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -346,8 +351,6 @@ static unsigned int rs6000_xcoff_section_type_flags (tree, const char *, int);
 static void rs6000_xcoff_file_start (void);
 static void rs6000_xcoff_file_end (void);
 #endif
-
-
 #if TARGET_MACHO
 static bool rs6000_binds_local_p (tree);
 #endif
@@ -423,7 +426,7 @@ static rtx rs6000_spe_function_arg (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree);
 static rtx rs6000_mixed_function_arg (CUMULATIVE_ARGS *,
 				      enum machine_mode, tree, int);
-static void rs6000_move_block_from_reg(int regno, rtx x, int nregs);
+static void rs6000_move_block_from_reg (int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree,
 				    int *, int);
@@ -587,6 +590,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
+
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE rs6000_mangle_fundamental_type
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS rs6000_init_libfuncs
@@ -941,12 +947,6 @@ rs6000_override_options (const char *default_cpu)
   /* Handle -malign-XXXXX option.  */
   rs6000_parse_alignment_option ();
 
-  /* APPLE LOCAL begin AltiVec */
-  /* -faltivec implies -maltivec.  */
-  if (flag_altivec)
-    target_flags |= MASK_ALTIVEC;
-  /* APPLE LOCAL end AltiVec */
-    
   /* Handle generic -mFOO=YES/NO options.  */
   rs6000_parse_yes_no_option ("vrsave", rs6000_altivec_vrsave_string,
 			      &rs6000_altivec_vrsave);
@@ -1259,7 +1259,6 @@ rs6000_file_start (void)
 	putc ('\n', file);
     }
 }
-
 
 /* Return nonzero if this function is known to have a null epilogue.  */
 
@@ -1786,12 +1785,12 @@ easy_vector_constant (rtx op, enum machine_mode mode)
 
   if (GET_CODE (op) != CONST_VECTOR
       || (!TARGET_ALTIVEC
-          && !TARGET_SPE))
+	  && !TARGET_SPE))
     return 0;
 
   if (zero_constant (op, mode)
       && ((TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
-          || (TARGET_SPE && SPE_VECTOR_MODE (mode))))
+	  || (TARGET_SPE && SPE_VECTOR_MODE (mode))))
     return 1;
 
   if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
@@ -1818,25 +1817,25 @@ easy_vector_constant (rtx op, enum machine_mode mode)
     return 1;
 
   if (TARGET_ALTIVEC)
-    switch (mode)
+    switch (mode) 
       {
       case V4SImode:
-        if (EASY_VECTOR_15 (cst, op, mode))
-          return 1;
-        if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
-          break;
-        cst = cst >> 16;
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
+	  break;
+	cst = cst >> 16;
       case V8HImode:
-        if (EASY_VECTOR_15 (cst, op, mode))
-          return 1;
-        if ((cst & 0xff) != ((cst >> 8) & 0xff))
-          break;
-        cst = cst >> 8;
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xff) != ((cst >> 8) & 0xff))
+	  break;
+	cst = cst >> 8;
       case V16QImode:
-        if (EASY_VECTOR_15 (cst, op, mode))
-          return 1;
-      default:
-        break;
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+      default: 
+	break;
       }
 
   if (TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode))
@@ -1877,56 +1876,56 @@ output_vec_const_move (rtx *operands)
   if (TARGET_ALTIVEC)
     {
       if (zero_constant (vec, mode))
-        return "vxor %0,%0,%0";
+	return "vxor %0,%0,%0";
       else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
-        return "#";
+	return "#";
       else if (easy_vector_constant (vec, mode))
-        {
-          operands[1] = GEN_INT (cst);
-          switch (mode)
-            {
-            case V4SImode:
-              if (EASY_VECTOR_15 (cst, vec, mode))
-                {
-                  operands[1] = GEN_INT (cst);
-                  return "vspltisw %0,%1";
-                }
-              cst = cst >> 16;
-            case V8HImode:
-              if (EASY_VECTOR_15 (cst, vec, mode))
-                {
-                  operands[1] = GEN_INT (cst);
-                  return "vspltish %0,%1";
-                }
-              cst = cst >> 8;
-            case V16QImode:
-              if (EASY_VECTOR_15 (cst, vec, mode))
-                {
-                  operands[1] = GEN_INT (cst);
-                  return "vspltisb %0,%1";
-                }
-            default:
-              abort ();
-            }
-        }
+	{
+	  operands[1] = GEN_INT (cst);
+	  switch (mode)
+	    {
+	    case V4SImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisw %0,%1";
+		}
+	      cst = cst >> 16;
+	    case V8HImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltish %0,%1";
+		}
+	      cst = cst >> 8;
+	    case V16QImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisb %0,%1";
+		}
+	    default:
+	      abort ();
+	    }
+	}
       else
-        abort ();
+	abort ();
     }
 
   if (TARGET_SPE)
     {
       /* Vector constant 0 is handled as a splitter of V2SI, and in the
-         pattern of V1DI, V4HI, and V2SF.
+	 pattern of V1DI, V4HI, and V2SF.
 
-         FIXME: We should probably return # and add post reload
-         splitters for these, but this way is so easy ;-).
+	 FIXME: We should probably return # and add post reload
+	 splitters for these, but this way is so easy ;-).
       */
       operands[1] = GEN_INT (cst);
       operands[2] = GEN_INT (cst2);
       if (cst == cst2)
-        return "li %0,%1\n\tevmergelo %0,%0,%0";
+	return "li %0,%1\n\tevmergelo %0,%0,%0";
       else
-        return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
+	return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
     }
 
   abort ();
@@ -2465,7 +2464,7 @@ rs6000_special_round_type_align (tree type, int computed, int specified)
   tree field = TYPE_FIELDS (type);
 
   /* Skip all the static variables only if ABI is greater than
-     1 or equal to 0.   */
+     1 or equal to 0.  */
   while (field != NULL && TREE_CODE (field) == VAR_DECL)
     field = TREE_CHAIN (field);
 
@@ -4030,18 +4029,17 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
       fprintf (stderr, " proto = %d, nargs = %d\n",
 	       cum->prototype, cum->nargs_prototype);
     }
-
-    if (fntype
-        && !TARGET_ALTIVEC
-        && TARGET_ALTIVEC_ABI
+  
+    if (fntype 
+	&& !TARGET_ALTIVEC 
+	&& TARGET_ALTIVEC_ABI
         && ALTIVEC_VECTOR_MODE (TYPE_MODE (TREE_TYPE (fntype))))
       {
-        error ("Cannot return value in vector register because"
-               " altivec instructions are disabled, use -maltivec"
-               " to enable them.");
+	error ("Cannot return value in vector register because"
+	       " altivec instructions are disabled, use -maltivec"
+	       " to enable them.");
       }
 }
-
 
 /* If defined, a C expression which determines whether, and in which
    direction, to pad out an argument with extra space.  The value
@@ -6052,6 +6050,7 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	    || arg2 == error_mark_node)
 	  return const0_rtx;
 
+	*expandedp = true;
 	STRIP_NOPS (arg2);
 	if (TREE_CODE (arg2) != INTEGER_CST
 	    || TREE_INT_CST_LOW (arg2) & ~0x3)
@@ -6069,7 +6068,6 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	if (pat != 0)
 	  emit_insn (pat);
 
-	*expandedp = true;
 	return NULL_RTX;
       }
 
@@ -6623,6 +6621,18 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 static void
 rs6000_init_builtins (void)
 {
+  V2SI_type_node = build_vector_type (intSI_type_node, 2);
+  V2SF_type_node = build_vector_type (float_type_node, 2);
+  V4HI_type_node = build_vector_type (intHI_type_node, 4);
+  V4SI_type_node = build_vector_type (intSI_type_node, 4);
+  V4SF_type_node = build_vector_type (float_type_node, 4);
+  V8HI_type_node = build_vector_type (intHI_type_node, 8);
+  V16QI_type_node = build_vector_type (intQI_type_node, 16);
+
+  unsigned_V16QI_type_node = build_vector_type (unsigned_intQI_type_node, 16);
+  unsigned_V8HI_type_node = build_vector_type (unsigned_intHI_type_node, 8);
+  unsigned_V4SI_type_node = build_vector_type (unsigned_intSI_type_node, 4);
+
   opaque_V2SI_type_node = copy_node (V2SI_type_node);
   opaque_V2SF_type_node = copy_node (V2SF_type_node);
   opaque_p_V2SI_type_node = build_pointer_type (opaque_V2SI_type_node);
@@ -6653,10 +6663,10 @@ rs6000_init_builtins (void)
 					    get_identifier ("__pixel"),
 					    pixel_type_node));
 
-  bool_V16QI_type_node = make_vector (V16QImode, bool_char_type_node, 1);
-  bool_V8HI_type_node = make_vector (V8HImode, bool_short_type_node, 1);
-  bool_V4SI_type_node = make_vector (V4SImode, bool_int_type_node, 1);
-  pixel_V8HI_type_node = make_vector (V8HImode, pixel_type_node, 1);
+  bool_V16QI_type_node = build_vector_type (bool_char_type_node, 16);
+  bool_V8HI_type_node = build_vector_type (bool_short_type_node, 8);
+  bool_V4SI_type_node = build_vector_type (bool_int_type_node, 4);
+  pixel_V8HI_type_node = build_vector_type (pixel_type_node, 8);
 
   (*lang_hooks.decls.pushdecl) (build_decl (TYPE_DECL,
 					    get_identifier ("__vector unsigned char"),
@@ -10700,8 +10710,6 @@ is_altivec_return_reg (rtx reg, void *xyes)
 
    The required alignment for AIX configurations is two words (i.e., 8
    or 16 bytes).
-   APPLE LOCAL darwin native
-   For Darwin/Mac OS X, it is 16 bytes.
 
 
    V.4 stack frames look like:
@@ -10833,7 +10841,7 @@ rs6000_stack_info (void)
       || info_ptr->first_altivec_reg_save <= LAST_ALTIVEC_REGNO
       || (DEFAULT_ABI == ABI_V4 && current_function_calls_alloca)
       || (DEFAULT_ABI == ABI_DARWIN
-          && flag_pic
+	  && flag_pic
 	  && current_function_uses_pic_offset_table)
       || info_ptr->calls_p)
     {
@@ -12167,7 +12175,6 @@ rs6000_emit_prologue (void)
 	  /* If we're saving vector or FP regs via a function call,
 	     then don't bother with this ObjC R12 optimization.
 	     This test also eliminates world_save.  */
-	  && (!info->world_save_p)
 	  && (info->first_altivec_reg_save > LAST_ALTIVEC_REGNO
 	      || VECTOR_SAVE_INLINE (info->first_altivec_reg_save))
 	  && (info->first_fp_reg_save == 64 
@@ -15299,6 +15306,21 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
   return NULL_TREE;
 }
 
+/* AltiVec defines four built-in scalar types that serve as vector
+   elements; we must teach the compiler how to mangle them.  */
+
+static const char *
+rs6000_mangle_fundamental_type (tree type)
+{
+  if (type == bool_char_type_node) return "U6__boolc";
+  if (type == bool_short_type_node) return "U6__bools";
+  if (type == pixel_type_node) return "u7__pixel";
+  if (type == bool_int_type_node) return "U6__booli";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+
 /* Handle a "longcall" or "shortcall" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -15959,7 +15981,7 @@ round_type_align (the_struct, computed, specified)
      unsigned computed;
      unsigned specified;
 {
-  if (flag_altivec && TREE_CODE (the_struct) == VECTOR_TYPE)
+  if (TARGET_ALTIVEC && TREE_CODE (the_struct) == VECTOR_TYPE)
     {
       /* All vectors are (at least) 16-byte aligned.  A struct or
 	 union with a vector element is also 16-byte aligned.  */
@@ -16005,7 +16027,7 @@ round_type_align (the_struct, computed, specified)
 
               val = MAX (computed, specified);
 
-              if (TREE_CODE (the_struct) == UNION_TYPE && ! flag_altivec)
+              if (TREE_CODE (the_struct) == UNION_TYPE && !TARGET_ALTIVEC)
                 {
                   tree field = first_field;
                   

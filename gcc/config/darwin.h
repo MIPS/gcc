@@ -1070,7 +1070,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
    mac68k alignment mode, the 128-bit alignment of vectors *MUST*
    be preserved.  */
 #define PEG_ALIGN_FOR_MAC68K(DESIRED)           \
-        ((flag_altivec && (DESIRED) == RS6000_VECTOR_ALIGNMENT) \
+        ((TARGET_ALTIVEC && (DESIRED) == RS6000_VECTOR_ALIGNMENT) \
          ? RS6000_VECTOR_ALIGNMENT              \
          : MIN ((DESIRED), 16))
 #else

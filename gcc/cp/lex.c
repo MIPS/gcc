@@ -241,8 +241,6 @@ struct resword
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
 /* APPLE LOCAL Objective-C++ */
 #define D_OBJC		0x10	/* Objective C only */
-/* APPLE LOCAL AltiVec */
-#define D_ALTIVEC 	0x80	/* AltiVec keywords */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -376,19 +374,6 @@ static const struct resword reswords[] =
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
   /* APPLE LOCAL end Objective-C++ */
-
-  /* APPLE LOCAL AltiVec */
-  /* All keywords which follow are only recognized when
-     -faltivec is specified.  */
-  { "vec_step",		RID_ALTIVEC_VEC_STEP,	D_ALTIVEC },
-  { "__vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
-  { "__pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
-  { "__bool",		RID_ALTIVEC_BOOL,	D_ALTIVEC },
-  /* In addition, the following function solely as type 
-     specifiers, and are treated as ordinary identifiers
-     in other contexts.  */
-  { "vector",		RID_ALTIVEC_VECTOR,	D_ALTIVEC },
-  { "pixel",		RID_ALTIVEC_PIXEL,	D_ALTIVEC },
 };
 
 void
@@ -398,10 +383,6 @@ init_reswords (void)
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
-
-  /* APPLE LOCAL AltiVec */
-  if (!flag_altivec)
-     mask |= D_ALTIVEC;
 
   /* APPLE LOCAL objc++ */
   mask |= D_OBJC;

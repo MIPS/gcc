@@ -2372,14 +2372,6 @@ builtin_function (const char *name, tree type, int function_code,
   return decl;
 }
 
-/* APPLE LOCAL begin AltiVec */
-tree lang_build_type_variant PARAMS ((tree, int, int));
-tree
-lang_build_type_variant (tree type, int constp, int volatilep)
-{
-  return c_build_type_variant (type, constp, volatilep);
-}
-/* APPLE LOCAL end AltiVec */
 
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited
@@ -3355,8 +3347,6 @@ grokdeclarator (tree declarator, tree declspecs,
   int inlinep;
   int explicit_int = 0;
   int explicit_char = 0;
-  /* APPLE LOCAL AltiVec */
-  int explicit_bool = 0;
   int defaulted_int = 0;
   tree typedef_decl = 0;
   const char *name, *orig_name;
@@ -3459,37 +3449,14 @@ grokdeclarator (tree declarator, tree declspecs,
         }
       /* APPLE LOCAL end unavailable */
 
-      /* APPLE LOCAL begin AltiVec */
-      /* grokdeclarator processes declspecs in reverse order; hence, vector
-	 context may not be known until we've already parsed _Bool as a C99
-	 type.  */
-      if (id == ridpointers[(int) RID_INT]) {
+      if (id == ridpointers[(int) RID_INT])
 	explicit_int = 1;
-	if (flag_altivec && explicit_bool) {
-	  type = NULL_TREE;
-	  specbits |= (1 << (int) RID_ALTIVEC_BOOL);
-	}  
-      }
-      if (id == ridpointers[(int) RID_CHAR]) {
+      if (id == ridpointers[(int) RID_CHAR])
 	explicit_char = 1;
-	if (flag_altivec && explicit_bool) {
-	  type = NULL_TREE;
-	  specbits |= (1 << (int) RID_ALTIVEC_BOOL);
-	}  
-      }
-      /* APPLE LOCAL end AltiVec */
 
       if (TREE_CODE (id) == IDENTIFIER_NODE && C_IS_RESERVED_WORD (id))
 	{
 	  enum rid i = C_RID_CODE (id);
-	  /* APPLE LOCAL begin AltiVec */
-	  if (i == RID_BOOL || i == RID_ALTIVEC_BOOL)
-	    {
-	      explicit_bool = 1;
-	      if (flag_altivec && type)
-		i = RID_ALTIVEC_BOOL;
-	    }
-	  /* APPLE LOCAL end AltiVec */	
 	  if ((int) i <= (int) RID_LAST_MODIFIER)
 	    {
 	      if (i == RID_LONG && (specbits & (1 << (int) RID_LONG)))
@@ -3579,9 +3546,6 @@ grokdeclarator (tree declarator, tree declspecs,
       if ((! (specbits & ((1 << (int) RID_LONG) | (1 << (int) RID_SHORT)
 			  | (1 << (int) RID_SIGNED)
 			  | (1 << (int) RID_UNSIGNED)
-			  /* APPLE LOCAL AltiVec */
-			  | (1 << (int) RID_ALTIVEC_VECTOR)
-			  | (1 << (int) RID_ALTIVEC_PIXEL)
 			  | (1 << (int) RID_COMPLEX))))
 	  /* Don't warn about typedef foo = bar.  */
 	  && ! (specbits & (1 << (int) RID_TYPEDEF) && initialized)
@@ -3646,15 +3610,12 @@ grokdeclarator (tree declarator, tree declspecs,
       else if ((specbits & 1 << (int) RID_SIGNED)
 	       && (specbits & 1 << (int) RID_UNSIGNED))
 	error ("both signed and unsigned specified for `%s'", name);
-      /* APPLE LOCAL AltiVec */	
-      else if (TREE_CODE (type) != INTEGER_TYPE 
-	       && (!flag_altivec || TREE_CODE (type) != BOOLEAN_TYPE))
+      else if (TREE_CODE (type) != INTEGER_TYPE)
 	error ("long, short, signed or unsigned invalid for `%s'", name);
       else
 	{
 	  ok = 1;
-	  /* APPLE LOCAL AltiVec */
-	  if (!explicit_int && !explicit_bool && !defaulted_int && !explicit_char)
+	  if (!explicit_int && !defaulted_int && !explicit_char)
 	    {
 	      error ("long, short, signed or unsigned used invalidly for `%s'",
 		     name);

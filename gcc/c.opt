@@ -161,11 +161,6 @@ Wall
 C ObjC C++ ObjC++
 Enable most warning messages
 
-; APPLE LOCAL AltiVec
-Waltivec-long-deprecated
-C ObjC C++ ObjC++
-Warn about use of 'long' in AltiVec types
-
 Wbad-function-cast
 C ObjC
 Warn about casting functions to incompatible types
@@ -479,11 +474,6 @@ C++ ObjC++
 falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
-
-; APPLE LOCAL AltiVec
-faltivec
-C C++ ObjC ObjC++
-Enable the AltiVec language extensions
 
 ; APPLE LOCAL -fapple-kext
 fapple-kext

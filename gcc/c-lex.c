@@ -774,46 +774,6 @@ lex_charconst (const cpp_token *token)
   return value;
 }
 
-/* APPLE LOCAL begin AltiVec */
-int altivec_context = 0;
-   
-int
-altivec_treat_as_keyword (tree rid)
-{
-  enum rid rid_code = C_RID_CODE (rid);
-  /* If the AltiVec context is already enabled, see if we should
-     disable it.  */
-  if (altivec_context == 3 
-      || (altivec_context == 2 && ALTIVEC_IS_QUALIFIER (rid_code)))
-    /* Allow this one as a keyword, but no more thereafter.  */  
-    return altivec_context = 1; 
-    
-  /* Every AltiVec typespec must begin with 'vector' or '__vector'.
-     Check if we should enable the AltiVec context.  */
-  if (altivec_context == 0 && rid_code == RID_ALTIVEC_VECTOR)
-    {
-      tree next_tok;
-      enum rid next_code = RID_MAX;
-      enum cpp_ttype next_tok_type = c_lex (&next_tok);
-
-      /* Take a sneak peek at the next token in the stream.  */
-      if (next_tok_type == CPP_NAME)
-	next_code = C_RID_CODE (next_tok);
-      _cpp_backup_tokens (parse_in, 1);
-
-      if (next_code == RID_FLOAT || next_code == RID_ALTIVEC_PIXEL)
-        altivec_context = 3;
-      else if (ALTIVEC_IS_QUALIFIER (next_code) 
-               || next_code == RID_INT || next_code == RID_CHAR 
-	       || next_code == RID_LONG || next_code == RID_SHORT)
-	altivec_context = 2;
-    }
-  /* AltiVec keywords beginning with '__' are always let through.  */
-  return (!ALTIVEC_IS_CONTEXT_KEYWORD (rid_code) || altivec_context >= 2 
-	  || *IDENTIFIER_POINTER (rid) == '_');
-}
-/* APPLE LOCAL end AltiVec */
-
 /* APPLE LOCAL begin Symbol Separation */
 
 /* Write context information in .cinfo file.

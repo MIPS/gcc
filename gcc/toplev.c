@@ -323,10 +323,6 @@ int flag_signed_char;
 
 int flag_short_enums;
 
-/* APPLE LOCAL AltiVec */
-/* Nonzero means enable AltiVec extensions.  */
-int flag_altivec = 0;   /* Ignore for now */
-
 /* APPLE LOCAL begin -fast */
 /* Nonzero if we should perform SPEC oriented optimizations.  */
 int flag_fast = 0;
@@ -1023,8 +1019,6 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
-  /* APPLE LOCAL -faltivec */
-  {"altivec", &flag_altivec, 1 },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1 },
   {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1 },
   {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1 },

@@ -841,12 +841,6 @@ static char *exec_merge_spec = "\
 				  %{o}%{!o:-o a.out}\n}}}}}}}";
 /* APPLE LOCAL end fat builds */
 
-/* APPLE LOCAL begin AltiVec */
-#ifdef CPP_ALTIVEC_SPEC
-static const char *cpp_altivec_flags = CPP_ALTIVEC_SPEC;
-#endif
-/* APPLE LOCAL end AltiVec */
-
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
    but we need to copy them to the specs file so that newer versions
@@ -873,8 +867,6 @@ static const char *dbg_ss= "%{fsave-repository*: -gfull %(invoke_as)}";
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
-"/* APPLE LOCAL AltiVec */"\
- %(cpp_altivec_flags)\
 "/* APPLE LOCAL framework headers */"\
  %{!traditional:%{!ftraditional:%{!traditional-cpp:%Q}}} %{F*}\
  %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
@@ -1689,11 +1681,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
-  /* APPLE LOCAL begin AltiVec */
-#ifdef CPP_ALTIVEC_SPEC
-  INIT_STATIC_SPEC ("cpp_altivec_flags",	&cpp_altivec_flags),
-#endif
-  /* APPLE LOCAL end AltiVec */
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };

@@ -84,8 +84,7 @@
   [(set_attr "type" "vecstore")])
 
 ;; Vector move instructions.
-;; APPLE LOCAL disable generic AltiVec patterns
-(define_expand "av_movv4si"
+(define_expand "movv4si"
   [(set (match_operand:V4SI 0 "nonimmediate_operand" "")
 	(match_operand:V4SI 1 "any_operand" ""))]
   "TARGET_ALTIVEC"
@@ -133,8 +132,7 @@
   "
 { operands[3] = GEN_INT (INTVAL (CONST_VECTOR_ELT (operands[1], 0)) >> 1); }")
 
-;; APPLE LOCAL disable generic AltiVec patterns
-(define_expand "av_movv8hi"
+(define_expand "movv8hi"
   [(set (match_operand:V8HI 0 "nonimmediate_operand" "")
 	(match_operand:V8HI 1 "any_operand" ""))]
   "TARGET_ALTIVEC"
@@ -182,8 +180,7 @@
   "
 { operands[3] = GEN_INT (INTVAL (CONST_VECTOR_ELT (operands[1], 0)) >> 1); }")
 
-;; APPLE LOCAL disable generic AltiVec patterns
-(define_expand "av_movv16qi"
+(define_expand "movv16qi"
   [(set (match_operand:V16QI 0 "nonimmediate_operand" "")
 	(match_operand:V16QI 1 "any_operand" ""))]
   "TARGET_ALTIVEC"
@@ -231,8 +228,7 @@
   "
 { operands[3] = GEN_INT (INTVAL (CONST_VECTOR_ELT (operands[1], 0)) >> 1); }")
 
-;; APPLE LOCAL disable generic AltiVec patterns
-(define_expand "av_movv4sf"
+(define_expand "movv4sf"
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
 	(match_operand:V4SF 1 "any_operand" ""))]
   "TARGET_ALTIVEC"

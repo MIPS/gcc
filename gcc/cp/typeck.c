@@ -4560,11 +4560,6 @@ build_static_cast (tree type, tree expr)
      floating point conversions, floating-integral conversions,
      pointer conversions, and pointer to member conversions.  */
   if ((ARITHMETIC_TYPE_P (type) && ARITHMETIC_TYPE_P (intype))
-      /* APPLE LOCAL begin AltiVec */
-      /* Allow static_cast<> among the various AltiVec types.  */
-      || (TREE_CODE (intype) == VECTOR_TYPE
-	  && TREE_CODE (type) == VECTOR_TYPE)
-      /* APPLE LOCAL end AltiVec */
       /* DR 128
 
          A value of integral _or enumeration_ type can be explicitly

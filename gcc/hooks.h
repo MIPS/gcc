@@ -60,5 +60,5 @@ extern rtx hook_rtx_tree_int_null (tree, int);
 extern void * hook_voidp_size_t_null (size_t);
 extern bool hook_bool_voidp_size_t_false (void *, size_t);
 extern tree hook_tree_tree_identity (tree a);
-
+extern const char *hook_constcharptr_tree_null (tree);
 #endif

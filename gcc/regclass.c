@@ -1619,13 +1619,6 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    win = 1;
 		  break;
 
-/* APPLE LOCAL: AltiVec */
-#ifdef EXTRA_CONSTANT_CONSTRAINTS
-		case 'A':
-		case 'B':
-		case 'C':
-		case 'D':
-#endif
 		case 'I':
 		case 'J':
 		case 'K':

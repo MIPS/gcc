@@ -69,10 +69,6 @@ const char *weak_global_object_name;
 
 struct addr_const;
 struct constant_descriptor_rtx;
-/* APPLE LOCAL begin AltiVec */
-struct rtx_const;
-struct pool_constant;
-/* APPLE LOCAL end AltiVec */
 struct rtx_constant_pool;
 
 struct varasm_status GTY(())
@@ -2077,8 +2073,6 @@ decode_addr_const (tree exp, struct addr_const *value)
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
-    /* APPLE LOCAL AltiVec */
-    case VECTOR_CST:
     case CONSTRUCTOR:
     case INTEGER_CST:
       x = output_constant_def (target, 1);
@@ -2096,38 +2090,6 @@ decode_addr_const (tree exp, struct addr_const *value)
   value->offset = offset;
 }
 
-/* We do RTX_UNSPEC + XINT (blah), so nothing can go after RTX_UNSPEC.  */
-/* APPLE LOCAL AltiVec */
-/* rearrange so >RTX_DOUBLE works */
-enum kind { RTX_UNKNOWN, RTX_VECTOR, RTX_DOUBLE, RTX_INT, RTX_UNSPEC };
-struct rtx_const GTY(())
-{
-  ENUM_BITFIELD(kind) kind : 16;
-  ENUM_BITFIELD(machine_mode) mode : 16;
-  union rtx_const_un {
-    REAL_VALUE_TYPE GTY ((tag ("4"))) du;
-    struct rtx_const_u_addr {
-      rtx base;
-      const char *symbol;
-      HOST_WIDE_INT offset;
-    } GTY ((tag ("1"))) addr;
-    struct rtx_const_u_di {
-      HOST_WIDE_INT high;
-      HOST_WIDE_INT low;
-    } GTY ((tag ("0"))) di;
-
-    /* The max vector size we have is 16 wide; two variants for
-       integral and floating point vectors.  */
-    struct rtx_const_int_vec {
-      HOST_WIDE_INT high;
-      HOST_WIDE_INT low;
-    } GTY ((tag ("2"))) int_vec[16];
-
-    REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
-
-  } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
-};
-
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
    in `const_desc_table'.  */
@@ -2184,17 +2146,6 @@ const_hash_1 (const tree exp)
     case COMPLEX_CST:
       return (const_hash_1 (TREE_REALPART (exp)) * 5
 	      + const_hash_1 (TREE_IMAGPART (exp)));
-
-    /* APPLE LOCAL begin AltiVec */
-    case VECTOR_CST:
-      {
-	int hash = 0;
-	tree t;
-	for ( t = TREE_VECTOR_CST_ELTS (exp); t; t = TREE_CHAIN (t))
-	  hash += const_hash_1 (TREE_VALUE (t)) * 11;
-	return hash;
-      }
-    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
@@ -2315,21 +2266,6 @@ compare_constant (const tree t1, const tree t2)
     case COMPLEX_CST:
       return (compare_constant (TREE_REALPART (t1), TREE_REALPART (t2))
 	      && compare_constant (TREE_IMAGPART (t1), TREE_IMAGPART (t2)));
-
-    /* APPLE LOCAL begin AltiVec */
-    case VECTOR_CST:
-      {
-	tree t1e, t2e;
-	for (t1e = TREE_VECTOR_CST_ELTS (t1), t2e = TREE_VECTOR_CST_ELTS (t2);
-	     t1e && t2e;
-	     t1e = TREE_CHAIN (t1e), t2e = TREE_CHAIN (t2e))
-	  {
-	    if (!compare_constant (t1e, t2e))
-	      return 0;
-	  }
-	return 1;
-      }
-    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
       typecode = TREE_CODE (TREE_TYPE (t1));
@@ -2463,17 +2399,6 @@ copy_constant (tree exp)
       return build_complex (TREE_TYPE (exp),
 			    copy_constant (TREE_REALPART (exp)),
 			    copy_constant (TREE_IMAGPART (exp)));
-
-    /* APPLE LOCAL AltiVec */
-    case VECTOR_CST:
-      {
-	tree list = copy_list (TREE_VECTOR_CST_ELTS (exp));
-	tree t, l;
-	for ( t = TREE_VECTOR_CST_ELTS (exp), l = list; t;
-	      t = TREE_CHAIN (t), l = TREE_CHAIN (l))
-	  TREE_VALUE (l) = copy_constant (TREE_VALUE (t));
-        return build_vector (TREE_TYPE (exp), list);
-      }
 
     case PLUS_EXPR:
     case MINUS_EXPR:

@@ -1427,16 +1427,11 @@ common_handle_option (size_t scode, const char *arg,
       flag_pie = value + value;
       break;
 
-    /* APPLE LOCAL -faltivec */
-    /* APPLE LOCAL, for now ignore -faltivec as it is broken in mainline. */
-    case OPT_faltivec:
-      flag_altivec = 0;
-      break;
-
-    /* APPLE LOCAL -floop-transpose */
+    /* APPLE LOCAL begin -floop-transpose */
     case OPT_floop_transpose:
       flag_loop_transpose = value;
       break;
+    /* APPLE LOCAL end -floop-transpose */
 
     case OPT_fabi_version_:
       flag_abi_version = value;

@@ -46,9 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Reserved identifiers.  This is the union of all the keywords for C,
    C++, and Objective-C.  All the type modifiers have to be in one
    block at the beginning, because they are used as mask bits.  There
-   APPLE LOCAL AltiVec
-   are 27 type modifiers (30 with AltiVec modifiers); if we add many more
-   we will have to redesign the mask mechanism.  */
+   are 27 type modifiers; if we add many more we will have to redesign
+   the mask mechanism.  */
 
 enum rid
 {
@@ -71,19 +70,12 @@ enum rid
   /* ObjC */
   RID_IN, RID_OUT, RID_INOUT, RID_BYCOPY, RID_BYREF, RID_ONEWAY,
 
-  /* APPLE LOCAL AltiVec */
-  /* NB: It must be true that RID_ALTIVEC_BOOL <= 31.  */
-  RID_ALTIVEC_VECTOR, RID_ALTIVEC_PIXEL, RID_ALTIVEC_BOOL,
-
   /* C */
   RID_INT,     RID_CHAR,   RID_FLOAT,    RID_DOUBLE, RID_VOID,
   RID_ENUM,    RID_STRUCT, RID_UNION,    RID_IF,     RID_ELSE,
   RID_WHILE,   RID_DO,     RID_FOR,      RID_SWITCH, RID_CASE,
   RID_DEFAULT, RID_BREAK,  RID_CONTINUE, RID_RETURN, RID_GOTO,
   RID_SIZEOF,
-
-  /* APPLE LOCAL AltiVec */
-  RID_ALTIVEC_VEC_STEP,
 
   /* C extensions */
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
@@ -119,8 +111,7 @@ enum rid
   RID_MAX,
 
   RID_FIRST_MODIFIER = RID_STATIC,
-  /* APPLE LOCAL AltiVec */
-  RID_LAST_MODIFIER = RID_ALTIVEC_BOOL,
+  RID_LAST_MODIFIER = RID_ONEWAY,
 
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
@@ -135,23 +126,6 @@ enum rid
 #define OBJC_IS_PQ_KEYWORD(rid) \
   ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
    (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
-
-/* APPLE LOCAL begin AltiVec */
-/* NB: The following macro _excludes_ the 'vec_step' AltiVec keyword,
-   which is valid in all contexts (as long as -faltivec is specified).  */
-#define ALTIVEC_IS_CONTEXT_KEYWORD(rid) \
-  (rid == RID_ALTIVEC_VECTOR || rid == RID_ALTIVEC_PIXEL \
-   || rid == RID_BOOL || rid == RID_ALTIVEC_BOOL)
-/* In AltiVec parlance, 'bool' is a qualifier akin to 'signed' or
-   'unsigned'.  */   
-#define ALTIVEC_IS_QUALIFIER(rid) \
-  (rid == RID_SIGNED || rid == RID_UNSIGNED || rid == RID_BOOL \
-   || rid == RID_ALTIVEC_BOOL)
-  
-extern tree altivec_vec_step			PARAMS ((tree));
-extern tree altivec_vec_step_expr		PARAMS ((tree));
-extern tree altivec_vector_constant		PARAMS ((tree, tree));
-/* APPLE LOCAL end AltiVec */
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -520,12 +494,6 @@ extern int warn_long_long;
 
 extern int warn_long_double;
 /* APPLE LOCAL end -Wlong-double */
-
-/* APPLE LOCAL begin AltiVec */
-/* Nonzero means warn about deprecated use of 'long' vector types.  */
-
-extern int warn_altivec_long_deprecated;  /* radar 2841709 */
-/* APPLE LOCAL end AltiVec */
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -1349,11 +1317,6 @@ struct c_fileinfo *get_fileinfo (const char *);
 extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
-
-/* APPLE LOCAL begin AltiVec */
-extern int altivec_treat_as_keyword 		(tree);
-extern int altivec_context;
-/* APPLE LOCAL end AltiVec */
 
 /* APPLE LOCAL begin Objective-C++  */
 /* The following have been moved here from c-tree.h, since they're needed

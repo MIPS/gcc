@@ -53,13 +53,6 @@
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       builtin_define ("__MACH__");              \
       builtin_define ("__APPLE__");             \
-      /* APPLE LOCAL begin AltiVec */				\
-      if (flag_altivec)						\
-        {							\
-	  builtin_define ("__ALTIVEC__");			\
-	  builtin_define_with_value ("__VEC__", "10106", 0);	\
-	}							\
-      /* APPLE LOCAL end AltiVec */				\
     }                                           \
   while (0)
 
@@ -159,22 +152,14 @@ do {									\
 
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
-  /* APPLE LOCAL AltiVec */ \
-  (RS6000_ALIGN (current_function_outgoing_args_size			\
+  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
    + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA, 16))
+   + RS6000_SAVE_AREA)
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  /* APPLE LOCAL AltiVec */ \
-  (RS6000_ALIGN (current_function_outgoing_args_size			\
-   + (STACK_POINTER_OFFSET), 16))
-
-/* APPLE LOCAL improve performance */
-/* Define cutoff for using external functions to save floating point.
-   For Darwin, use the function for more than a few registers.  */
-
-#define FP_SAVE_INLINE(FIRST_REG) (((FIRST_REG) > 60 && (FIRST_REG) < 64) || TARGET_LONG_BRANCH)
+  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+   + (STACK_POINTER_OFFSET))
 
 /* These are used by -fbranch-probabilities */
 #define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
@@ -185,19 +170,22 @@ do {									\
 #define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n"
 /* APPLE LOCAL end hot/cold partitioning  */
 
-/* APPLE LOCAL begin AltiVec */
+/* APPLE LOCAL begin long branch */
+/* Define cutoff for using external functions to save floating point.
+   For Darwin, use the function for more than a few registers.  */
+
+#undef FP_SAVE_INLINE
+#define FP_SAVE_INLINE(FIRST_REG) \
+  (((FIRST_REG) > 60 && (FIRST_REG) < 64) \
+   || TARGET_LONG_BRANCH)
+
 /* Define cutoff for using external functions to save vector registers.  */
 
+#undef VECTOR_SAVE_INLINE
 #define VECTOR_SAVE_INLINE(FIRST_REG) \
-  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) || TARGET_LONG_BRANCH)
-
-/* vector pixel and vector bool are aliases of other vector types.  */
-
-#define VECTOR_PIXEL_AND_BOOL_NOT_DISTINCT
-/* APPLE LOCAL end AltiVec */
-
-#undef	FP_SAVE_INLINE
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
+  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) \
+   || TARGET_LONG_BRANCH)
+/* APPLE LOCAL end long branch */
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */
@@ -360,10 +348,6 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
   round_type_align(STRUCT, COMPUTED, SPECIFIED)
 /* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
-
-/* APPLE LOCAL AltiVec */
-#undef DWARF_FRAME_REGISTERS
-#define DWARF_FRAME_REGISTERS 110
 
 /* APPLE LOCAL begin alignment */
 /* Make sure local alignments come from the type node, not the mode;

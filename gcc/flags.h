@@ -267,12 +267,6 @@ extern int flag_pascal_strings;
 
 extern int flag_short_enums;
 
-/* APPLE LOCAL AltiVec */
-/* Nonzero means enable the AltiVec Programming Model.  */
-
-extern int flag_altivec;
-/* APPLE LOCAL end AltiVec */
-
 /* APPLE LOCAL begin constant cfstrings */
 /* Nonzero means that: (1) the __CONSTANT_CFSTRINGS__ manifest constant
    is defined, possibly allowing for conditional use of the

@@ -350,12 +350,6 @@ int warn_format_nonliteral;
 
 int warn_format_security;
 
-/* APPLE LOCAL begin AltiVec */
-/* Nonzero means warn about deprecated use of 'long' vector types.  */
-
-int warn_altivec_long_deprecated = 1; /* radar 2841709 */
-/* APPLE LOCAL end AltiVec */
-
 /* Zero means that faster, ...NonNil variants of objc_msgSend...
    calls will be used in ObjC; passing nil receivers to such calls
    will most likely result in crashes.  */
@@ -1159,99 +1153,6 @@ finish_fname_decls (void)
     }
   saved_function_name_decls = stack;
 }
-
-/* APPLE LOCAL begin AltiVec */
-
-/* Implement the vec_step keyword: Return the number of components in the
-   given vector type.
-   Note that the type of vec_step () is SIGNED, not unsigned.  */
-tree
-altivec_vec_step (tree type)
-{
-  enum tree_code code = TREE_CODE (type);
-
-  if (code != VECTOR_TYPE)
-    {
-      error ("operand of `vec_step' must be a vector type");
-      return ssize_int (0);
-    }
-
-  return size_binop (CEIL_DIV_EXPR, ssize_int (16),
-		     convert (ssizetype, c_sizeof (TREE_TYPE (type))));
-}
-
-/* Implement the vec_step keyword: Return the number of components in
-   the given vector type.  */
-
-tree
-altivec_vec_step_expr (tree expr)
-{
-  return altivec_vec_step (TREE_TYPE (expr));
-}
-/* Digest a vector constant.  */
-
-tree
-altivec_vector_constant (tree type, tree values)
-{
-  tree vtype, t1, t2, t3, t4;
-  tree valarray[16], valtail;
-  int valnum, elements;
-
-  /* Get the vector element type and number of elements.  */
-  vtype = TREE_TYPE (type);
-  elements = (TREE_INT_CST_LOW (TYPE_SIZE (type))
-	      / TREE_INT_CST_LOW (TYPE_SIZE (vtype)));
-
-  /* Walk the values list placing the converted constants into
-     valarray and counting the number of constants.  */
-  for (valtail = values, valnum = 0;
-       valtail;
-       valtail = TREE_CHAIN (valtail), valnum++)
-    {
-      register tree val = TREE_VALUE (valtail);
-      STRIP_NOPS (val);
-      if (TREE_CODE (val) != INTEGER_CST && TREE_CODE (val) != REAL_CST)
-	{
-	  error("expected a constant expression");
-	  return error_mark_node;
-	}
-      valarray[valnum] = convert_and_check (vtype, val);
-    }
-
-  /* Check for the correct number of elements.  */
-  if (valnum != 1 && valnum != elements)
-    {
-      error (valnum < elements
-	     ? "too few initializers" : "too many initializers");
-      return error_mark_node;
-    }
-
-  /* A single constant value is shorthand for a duplicated value.
-     Duplicate it now.  */
-  while (valnum < elements)
-    valarray[valnum++] = valarray[0];
-
-  /* Combine the constant [integer] values until there are exactly four.  */
-  while (elements > 4)
-    {
-      int i, j;
-      for (i = 2, j = 0; i <= elements; i += 2, j++)
-	{
-	  unsigned HOST_WIDE_INT a = TREE_INT_CST_LOW (valarray[i-2]);
-	  unsigned HOST_WIDE_INT b = TREE_INT_CST_LOW (valarray[i-1]);
-	  int bits = 128 / elements;
-	  valarray[j] = build_int_2 ((a << bits) | (b & ((1 << bits) - 1)),
-				     0);
-	}
-      elements /= 2;
-    }
-  t4 = tree_cons (0, valarray[3], 0);
-  t3 = tree_cons (0, valarray[2], t4);
-  t2 = tree_cons (0, valarray[1], t3);
-  t1 = tree_cons (0, valarray[0], t2);
-  return build_vector (type, t1);
-}
-/* APPLE LOCAL end AltiVec */
 
 /* Return the text name of the current function, suitably prettified
    by PRETTY_P.  */
@@ -2058,38 +1959,12 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
     return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
 
-  switch (mode)
+  if (VECTOR_MODE_P (mode))
     {
-    case V16QImode:
-      return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
-    case V8HImode:
-      return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
-    case V4SImode:
-      return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
-    case V2DImode:
-      return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
-    case V2SImode:
-      return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
-    case V2HImode:
-      return unsignedp ? unsigned_V2HI_type_node : V2HI_type_node;
-    case V4HImode:
-      return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
-    case V8QImode:
-      return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
-    case V1DImode:
-      return unsignedp ? unsigned_V1DI_type_node : V1DI_type_node;
-    case V16SFmode:
-      return V16SF_type_node;
-    case V4SFmode:
-      return V4SF_type_node;
-    case V2SFmode:
-      return V2SF_type_node;
-    case V2DFmode:
-      return V2DF_type_node;
-    case V4DFmode:
-      return V4DF_type_node;
-    default:
-      break;
+      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      tree inner_type = c_common_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL_TREE)
+	return build_vector_type_for_mode (inner_type, mode);
     }
 
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
@@ -2439,7 +2314,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 					       TREE_TYPE (primop0));
 
       /* In C, if TYPE is an enumeration, then we need to get its
-	 min/max values from it's underlying integral type, not the
+	 min/max values from its underlying integral type, not the
 	 enumerated type itself.  In C++, TYPE_MAX_VALUE and
 	 TYPE_MIN_VALUE have already been set correctly on the
 	 enumeration type.  */
@@ -5538,19 +5413,24 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 {
   unsigned HOST_WIDE_INT vecsize, nunits;
   enum machine_mode mode, orig_mode, new_mode;
-  tree type = *node, new_type = NULL_TREE;
-  tree type_list_node;
+  tree type = *node, new_type, size;
 
   *no_add_attrs = true;
 
-  if (! host_integerp (TREE_VALUE (args), 1))
+  /* Stripping NON_LVALUE_EXPR allows declarations such as
+     typedef short v4si __attribute__((vector_size (4 * sizeof(short)))).  */
+  size = TREE_VALUE (args);
+  if (TREE_CODE (size) == NON_LVALUE_EXPR)
+    size = TREE_OPERAND (size, 0);
+
+  if (! host_integerp (size, 1))
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       return NULL_TREE;
     }
 
   /* Get the vector size (in bytes).  */
-  vecsize = tree_low_cst (TREE_VALUE (args), 1);
+  vecsize = tree_low_cst (size, 1);
 
   /* We need to provide for vector pointers, vector arrays, and
      functions returning vectors.  For example:
@@ -5596,73 +5476,13 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 	break;
       }
 
-    if (new_mode == VOIDmode)
+  if (new_mode == VOIDmode)
     {
       error ("no vector mode with the size and type specified could be found");
       return NULL_TREE;
     }
 
-  for (type_list_node = vector_type_node_list; type_list_node;
-       type_list_node = TREE_CHAIN (type_list_node))
-    {
-      tree other_type = TREE_VALUE (type_list_node);
-      tree record = TYPE_DEBUG_REPRESENTATION_TYPE (other_type);
-      tree fields = TYPE_FIELDS (record);
-      tree field_type = TREE_TYPE (fields);
-      tree array_type = TREE_TYPE (field_type);
-      if (TREE_CODE (fields) != FIELD_DECL
-	  || TREE_CODE (field_type) != ARRAY_TYPE)
-	abort ();
-
-      if (TYPE_MODE (other_type) == mode && type == array_type)
-	{
-	  new_type = other_type;
-	  break;
-	}
-    }
-
-  if (new_type == NULL_TREE)
-    {
-      tree index, array, rt, list_node;
-
-      new_type = (*lang_hooks.types.type_for_mode) (new_mode,
-						    TREE_UNSIGNED (type));
-
-      if (!new_type)
-	{
-	  error ("no vector mode with the size and type specified could be found");
-	  return NULL_TREE;
-	}
-
-      new_type = build_type_copy (new_type);
-
-      /* If this is a vector, make sure we either have hardware
-	 support, or we can emulate it.  */
-      if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
-	   || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
-	  && !vector_mode_valid_p (mode))
-	{
-	  error ("unable to emulate '%s'", GET_MODE_NAME (mode));
-	  return NULL_TREE;
-	}
-
-      /* Set the debug information here, because this is the only
-	 place where we know the underlying type for a vector made
-	 with vector_size.  For debugging purposes we pretend a vector
-	 is an array within a structure.  */
-      index = build_int_2 (TYPE_VECTOR_SUBPARTS (new_type) - 1, 0);
-      array = build_array_type (type, build_index_type (index));
-      rt = make_node (RECORD_TYPE);
-
-      TYPE_FIELDS (rt) = build_decl (FIELD_DECL, get_identifier ("f"), array);
-      DECL_CONTEXT (TYPE_FIELDS (rt)) = rt;
-      layout_type (rt);
-      TYPE_DEBUG_REPRESENTATION_TYPE (new_type) = rt;
-
-      list_node = build_tree_list (NULL, new_type);
-      TREE_CHAIN (list_node) = vector_type_node_list;
-      vector_type_node_list = list_node;
-    }
+  new_type = build_vector_type_for_mode (type, new_mode);
 
   /* Build back pointers if needed.  */
   *node = reconstruct_complex_type (*node, new_type);

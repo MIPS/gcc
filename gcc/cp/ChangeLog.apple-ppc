@@ -1,0 +1,5 @@
+2004-04-02  Ziemowit Laski  <zlaski@apple.com>
+        
+        Remove APPLE LOCAL AltiVec code whenever possible; merge in
+        AltiVec/VECTOR_TYPE-handling code from mainline.
+

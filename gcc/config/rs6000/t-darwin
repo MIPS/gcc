@@ -1,24 +1,11 @@
-# APPLE LOCAL AltiVec
-# On Darwin, we need FP, vector, and world save/restore routines.
-# Library code must include trampoline support
+# APPLE LOCAL begin AltiVec
+# Add trampoline and long double support to libgcc.
 LIB2FUNCS_EXTRA = $(srcdir)/config/rs6000/darwin-tramp.asm \
-	$(srcdir)/config/rs6000/darwin-ldouble.c \
-	$(srcdir)/config/rs6000/darwin-fpsave.asm \
-	$(srcdir)/config/rs6000/darwin-vecsave.asm \
-	$(srcdir)/config/rs6000/darwin-worldsave.asm \
-		  
+        $(srcdir)/config/rs6000/darwin-fpsave.asm \
+        $(srcdir)/config/rs6000/darwin-ldouble.c
+
+# Enable AltiVec instructions when assembling the aforementioned .asm files.
 # For libgcc, we always want 128-bit long double, since a libgcc built with
 # that will work without it.
-# Enable AltiVec instructions when assembling the aforementioned .asm files.
-TARGET_LIBGCC2_CFLAGS = -force_cpusubtype_ALL -mlong-double-128
-
-# APPLE LOCAL AltiVec
-# The following adds adds a dependency of vec.h to rs6000.o and ensures
-# that vec.h is built before building rs6000.o
-# This is currently disabled since it gnerates a source file in the
-# source directory.
-#rs6000.o : $(srcdir)/config/rs6000/vec.h
-#
-#$(srcdir)/config/rs6000/vec.h: $(srcdir)/config/rs6000/vec.ops \
-#	                       $(srcdir)/config/rs6000/builtin.ops
-#	(cd $(srcdir)/config/rs6000; ops-to-gp -gcc vec.ops builtin.ops)
+TARGET_LIBGCC2_CFLAGS = -mlong-double-128 -Wa,-force_cpusubtype_ALL
+# APPLE LOCAL end AltiVec

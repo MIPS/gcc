@@ -3254,9 +3254,7 @@ builtin_function_1 (const char* name,
 
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
-  /* APPLE LOCAL AltiVec */
-  /* AltiVec builtins are always "declared".  */
-  if (class != BUILT_IN_MD && (name[0] != '_' || name[1] != '_'))
+  if (name[0] != '_' || name[1] != '_')
     DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
@@ -3294,13 +3292,10 @@ builtin_function (const char* name,
 {
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
-  /* APPLE LOCAL begin AltiVec */
-  /* Don't use `std' namespace for MD builtins.  */
   /* APPLE LOCAL begin alloca not in std */
   /* Don't use `std' namespace for alloca.  */
-  if (name[0] != '_' && class != BUILT_IN_MD && strcmp (name, "alloca"))
+  if (name[0] != '_' && strcmp (name, "alloca"))
     /* APPLE LOCAL end alloca not in std */
-    /* APPLE LOCAL end AltiVec */
     {
       push_namespace (std_identifier);
       builtin_function_1 (name, type, std_node, code, class, libname, attrs);
@@ -3414,14 +3409,6 @@ push_throw_library_fn (tree name, tree type)
   return fn;
 }
 
-/* APPLE LOCAL begin AltiVec */
-tree lang_build_type_variant PARAMS ((tree, int, int));
-tree
-lang_build_type_variant (tree type, int constp, int volatilep)
-{
-  return build_type_variant (type, constp, volatilep);
-}
-/* APPLE LOCAL end AltiVec */
 
 /* When we call finish_struct for an anonymous union, we create
    default copy constructors and such.  But, an anonymous union
@@ -6488,8 +6475,6 @@ grokdeclarator (tree declarator,
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
-  /* APPLE LOCAL AltiVec */
-  int explicit_bool = 0;
   int defaulted_int = 0;
   int extern_langp = 0;
   tree dependant_name = NULL_TREE;
@@ -6648,8 +6633,6 @@ grokdeclarator (tree declarator,
 
 	    if (C_IS_RESERVED_WORD (dname))
 	      {
-		/* APPLE LOCAL AltiVec */
-		if (!ALTIVEC_IS_CONTEXT_KEYWORD (C_RID_CODE (dname)))
 		error ("declarator-id missing; using reserved word `%D'",
 			  dname);
 		name = IDENTIFIER_POINTER (dname);
@@ -6907,23 +6890,12 @@ grokdeclarator (tree declarator,
 
       if (TREE_CODE (id) == IDENTIFIER_NODE)
 	{
-	  /* APPLE LOCAL begin AltiVec */
-	  if (id != ridpointers[(int) RID_BOOL] 
-	      && ALTIVEC_IS_CONTEXT_KEYWORD (C_RID_CODE (id)))
-	    {
-	      RIDBIT_SET ((int) C_RID_CODE (id), specbits);
-	      goto found;
-	    }
-	  /* APPLE LOCAL end AltiVec */
-
 	  if (id == ridpointers[(int) RID_INT]
 	      || id == ridpointers[(int) RID_CHAR]
 	      || id == ridpointers[(int) RID_BOOL]
 	      || id == ridpointers[(int) RID_WCHAR])
 	    {
-	      /* APPLE LOCAL AltiVec */
-	      /* If vector is used, bool is a type modifier.  */
-	      if (type && RIDBIT_NOTSETP (RID_ALTIVEC_VECTOR, specbits))
+	      if (type)
 		{
 		  if (id == ridpointers[(int) RID_BOOL])
 		    error ("`bool' is now a keyword");
@@ -6936,13 +6908,6 @@ grokdeclarator (tree declarator,
 		    explicit_int = 1;
 		  else if (id == ridpointers[(int) RID_CHAR])
 		    explicit_char = 1;
-		  /* APPLE LOCAL begin AltiVec */
-		  else if (id == ridpointers[(int) RID_BOOL])
-		    explicit_bool = 1;
-		  /* Don't record a bool type if vector is used.  */
-		  if (RIDBIT_NOTSETP (RID_ALTIVEC_VECTOR, specbits)
-		      || id != ridpointers[(int) RID_BOOL])
-		  /* APPLE LOCAL end AltiVec */
 		  type = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (id));
 		}
 	      goto found;
@@ -7026,15 +6991,6 @@ grokdeclarator (tree declarator,
     found: ;
     }
 
-  /* APPLE LOCAL begin AltiVec */
-  /* If there is no type, but we have vector pixel, make the type an int to
-     get past the error checks that follow.  Also deal with vector bool.  */
-  if (type == NULL_TREE
-      && RIDBIT_SETP (RID_ALTIVEC_VECTOR, specbits)
-      && (RIDBIT_SETP (RID_ALTIVEC_PIXEL, specbits) || explicit_bool))
-    type = integer_type_node;
-  /* APPLE LOCAL end AltiVec */
-  
 #if 0
   /* See the code below that used this.  */
   if (typedef_decl)
@@ -7130,13 +7086,6 @@ grokdeclarator (tree declarator,
       else if (RIDBIT_SETP (RID_SIGNED, specbits)
 	       && RIDBIT_SETP (RID_UNSIGNED, specbits))
 	error ("signed and unsigned given together for `%s'", name);
-      /* APPLE LOCAL begin AltiVec */	
-      /* Ignore the remaining checks for vector types.  */
-      else if (RIDBIT_SETP (RID_ALTIVEC_VECTOR, specbits))
-	ok = 1;
-      else if (TREE_CODE (type) != INTEGER_TYPE)
-	error ("long, short, signed or unsigned invalid for `%s'", name);
-      /* APPLE LOCAL end AltiVec */	
       else
 	{
 	  ok = 1;

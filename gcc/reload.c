@@ -3265,13 +3265,6 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  win = 1;
 		break;
 
-/* APPLE LOCAL: AltiVec */
-#ifdef EXTRA_CONSTANT_CONSTRAINTS
-	      case 'A':
-	      case 'B':
-	      case 'C':
-	      case 'D':
-#endif
 	      case 'I':
 	      case 'J':
 	      case 'K':
