@@ -1,5 +1,19 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AbstractDocument.java
+	(AbstracElement): Made public, implements java.io.Serializable.
+	(AttributeContext): Made public.
+	(BranchElement): Likewise.
+	(Content): Likewise.
+	(DefaultDocumentEvent): Made public, extends
+	javax.swing.undo.CompoundEdit.
+	(ElementEdit): Made public, extends
+	javax.swing.undo.AbstractUndoableEdit.
+	(LeafElement): Made public.
+	(LeafElement.LeafElement): Made public.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/JTextComponent.java: Totally reworked. Removed many
 	methods (that were obviously never be intended to get included hi this
 	class. Added some methods too.

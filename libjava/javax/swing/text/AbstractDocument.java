@@ -49,15 +49,16 @@ import javax.swing.event.EventListenerList;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
 import javax.swing.tree.TreeNode;
+import javax.swing.undo.AbstractUndoableEdit;
+import javax.swing.undo.CompoundEdit;
 import javax.swing.undo.UndoableEdit;
 
 
 public abstract class AbstractDocument
   implements Document, Serializable
 {
-  // some inner classes sun says I should have:
-  abstract class AbstractElement
-    implements Element, TreeNode
+  public abstract class AbstractElement
+    implements Element, TreeNode, Serializable
   {
     private static final long serialVersionUID = 1265312733007397733L;
     
@@ -142,11 +143,11 @@ public abstract class AbstractDocument
     public abstract int getStartOffset();
   }
 
-  interface AttributeContext
+  public interface AttributeContext
   {
   }
 
-  class BranchElement extends AbstractElement
+  public class BranchElement extends AbstractElement
   {
     private static final long serialVersionUID = -8595176318868717313L;
     
@@ -181,7 +182,7 @@ public abstract class AbstractDocument
     }
   }
 
-  interface Content
+  public interface Content
   {
     Position createPosition(int offset) throws BadLocationException;
 
@@ -197,7 +198,7 @@ public abstract class AbstractDocument
     void getChars(int where, int len, Segment txt) throws BadLocationException;
   }
 
-  class DefaultDocumentEvent
+  public class DefaultDocumentEvent extends CompoundEdit
     implements DocumentEvent
   {
     private static final long serialVersionUID = -7406103236022413522L;
@@ -231,16 +232,16 @@ public abstract class AbstractDocument
     }
   }
 
-  static class ElementEdit
+  public static class ElementEdit extends AbstractUndoableEdit
   {
     private static final long serialVersionUID = -1216620962142928304L;
   }
 
-  class LeafElement extends AbstractElement
+  public class LeafElement extends AbstractElement
   {
     private static final long serialVersionUID = 5115368706941283802L;
     
-    LeafElement(Element e, AttributeSet a, int s, int end)
+    public LeafElement(Element e, AttributeSet a, int s, int end)
     {
       super(e, a);
     }
