@@ -156,6 +156,11 @@ public:
   {
     return itable_map;
   }
+
+  model_class *get () const
+  {
+    return klass;
+  }
 };
 
 #endif // GCJX_AOT_AOTCLASS_HH

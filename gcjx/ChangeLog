@@ -1,5 +1,7 @@
 2005-01-29  Tom Tromey  <tromey@redhat.com>
 
+	* aot/aotclass.hh (aot_class::get): New method.
+
 	* aot/mangle.cc: New file.
 	* aot/mangle.hh: New file.
 	* aot/aotfactory.cc: New file.
