@@ -1,3 +1,9 @@
+2003-08-21  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_gimplify_expr): Use simplify_aggr_init_expr.
+	(cp_gimplify_init_expr): Don't call it here.
+	(gimplify_aggr_init_expr): Remove.
+
 2003-08-19  Jason Merrill  <jason@redhat.com>
 
 	* typeck.c (build_array_ref): Also build ARRAY_REFs from
