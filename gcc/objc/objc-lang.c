@@ -45,7 +45,10 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME objc_printable_name
-
+/* APPLE LOCAL begin Radar 3926484 FSF candidate */
+#undef LANG_HOOKS_GET_CALLEE_FNDECL
+#define LANG_HOOKS_GET_CALLEE_FNDECL	objc_get_callee_fndecl
+/* APPLE LOCAL end Radar 3926484 FSF candidate */
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

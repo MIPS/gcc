@@ -1,3 +1,9 @@
+2004-12-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3926484
+	* objc.dg/no-extra-load.m:  New.
+	* obj-c++.dg/no-extra-load.mm:  New.
+
 2004-12-20  Matt Austern  <austern@apple.com>
 
         Radar 3845716

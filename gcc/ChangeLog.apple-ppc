@@ -1,3 +1,11 @@
+2004-12-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3926484
+	* objc/objc-act.c (objc_get_callee_fndecl):  New.
+	* objc/objc-act.h:  Declare it.
+	* objc/objc-lang.c:  Use it.
+	* objcp/objcp-lang.c:  Ditto.
+
 2004-12-20  Matt Austern  <austern@apple.com>
 
         Radar 3845716

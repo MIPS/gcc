@@ -8729,4 +8729,27 @@ objc_lookup_ivar (tree other, tree id)
   return build_ivar_reference (id);
 }
 
+/* APPLE LOCAL begin Radar 3926484 FSF candidate */
+/* Given a CALL expression, find the function being called.  The ObjC
+   version looks for the OBJ_TYPE_REF_EXPR which is used for objc_msgSend.  */
+
+tree
+objc_get_callee_fndecl (tree call_expr)
+{
+  tree addr = TREE_OPERAND (call_expr, 0);
+  if (TREE_CODE (addr) != OBJ_TYPE_REF)
+    return 0;
+
+  addr = OBJ_TYPE_REF_EXPR (addr);
+
+  /* If the address is just `&f' for some function `f', then we know
+     that `f' is being called.  */
+  if (TREE_CODE (addr) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (addr, 0)) == FUNCTION_DECL)
+    return TREE_OPERAND (addr, 0);
+
+  return 0;
+}
+/* APPLE LOCAL begin Radar 3926484 FSF candidate */
+
 #include "gt-objc-objc-act.h"

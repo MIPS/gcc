@@ -26,6 +26,8 @@ Boston, MA 02111-1307, USA.  */
 
 bool objc_init (void);
 const char *objc_printable_name (tree, int);
+/* APPLE LOCAL Radar 3926484 FSF candidate */
+tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
 
