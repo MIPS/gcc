@@ -1,3 +1,24 @@
+2002-07-25  Geoffrey Keating  <geoffk@redhat.com>
+
+	* config/rs6000/t-rs6000: Move contents to t-fprules,
+	add new rules for dependencies of rs6000.o.
+	* config/rs6000/t-fprules: New file from t-rs6000.
+	* config/rs6000/t-beos: Remove soft-fp rules.
+	* config/rs6000/t-ppccomm: Likewise.
+	* config/rs6000/t-newas: Likewise.
+	* config/rs6000/t-darwin: Likewise.
+	* config.gcc: Use t-fprules for rs6000/ ports when appropriate.  Use 
+	t-rs6000 for all rs6000/ ports.
+	* config/rs6000/rs6000.c: Include gt-rs6000.h.
+	(rs6000_add_gc_roots): Delete.
+	(toc_hash_mark_entry): Delete.
+	(toc_hash_mark_table): Delete.
+	(rs6000_override_options): Don't call rs6000_add_gc_roots.
+	(struct toc_hash_struct): Use gengtype to mark.
+	(toc_hash_table): Use gengtype to mark.
+	(output_toc): Don't add LABEL_REFs in toc_hash_table, create 
+	toc_hash_table here.
+
 2002-07-17  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gengtype.h (NUM_PARAM): New definition.
