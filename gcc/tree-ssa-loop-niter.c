@@ -190,7 +190,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	  if (mmax)
 	    assumption = fold (build (EQ_EXPR, boolean_type_node, base0, mmax));
 	  else
-	    assumption = boolean_true_node;
+	    assumption = boolean_false_node;
 	  if (integer_nonzerop (assumption))
 	    goto zero_iter;
 	  base0 = fold (build (PLUS_EXPR, type, base0,
@@ -201,7 +201,7 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 	  if (mmin)
 	    assumption = fold (build (EQ_EXPR, boolean_type_node, base1, mmin));
 	  else
-	    assumption = boolean_true_node;
+	    assumption = boolean_false_node;
 	  if (integer_nonzerop (assumption))
 	    goto zero_iter;
 	  base1 = fold (build (MINUS_EXPR, type, base1,
