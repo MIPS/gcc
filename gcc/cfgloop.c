@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "toplev.h"
+#include "cfgloop.h"
 
 /* Ratio of frequencies of edges so that one of more latch edges is
    considered to belong to inner loop with same header.  */
@@ -1070,11 +1071,50 @@ find_common_loop (loop_s, loop_d)
   return loop_s;
 }
 
+/* Cancels the LOOP; it must be innermost one.  */
+void
+cancel_loop (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
+{
+  basic_block *bbs;
+  int i;
+
+  if (loop->inner)
+    abort ();
+
+  /* Move blocks up one level (they should be removed as soon as possible).  */
+  bbs = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    bbs[i]->loop_father = loop->outer;
+
+  /* Remove the loop from structure.  */
+  flow_loop_tree_node_remove (loop);
+
+  /* Remove loop from loops array.  */
+  loops->parray[loop->num] = NULL;
+
+  /* Free loop data.  */
+  flow_loop_free (loop);
+}
+
+/* Cancels LOOP and all its subloops.  */
+void
+cancel_loop_tree (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
+{
+  while (loop->inner)
+    cancel_loop_tree (loops, loop->inner);
+  cancel_loop (loops, loop);
+}
+
 /* Checks that LOOPS are allright:
      -- sizes of loops are allright
      -- results of get_loop_body really belong to the loop
      -- loop header have just single entry edge and single latch edge
      -- loop latches have only single successor that is header of their loop
+     -- irreducible loops are correctly marked
   */
 void
 verify_loop_structure (loops, flags)
@@ -1082,6 +1122,7 @@ verify_loop_structure (loops, flags)
      int flags;
 {
   int *sizes, i, j;
+  sbitmap irreds;
   basic_block *bbs, bb;
   struct loop *loop;
   int err = 0;
@@ -1165,6 +1206,39 @@ verify_loop_structure (loops, flags)
 	  error ("Loop %d's header does not belong directly to it.", i);
 	  err = 1;
 	}
+    }
+
+  /* Check irreducible loops.  */
+  if (flags & VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS)
+    {
+      /* Record old info.  */
+      irreds = sbitmap_alloc (last_basic_block);
+      FOR_EACH_BB (bb)
+	if (bb->flags & BB_IRREDUCIBLE_LOOP)
+	  SET_BIT (irreds, bb->index);
+	else
+	  RESET_BIT (irreds, bb->index);
+
+      /* Recount it.  */
+      mark_irreducible_loops (loops);
+
+      /* Compare.  */
+      FOR_EACH_BB (bb)
+	{
+	  if ((bb->flags & BB_IRREDUCIBLE_LOOP)
+	      && !TEST_BIT (irreds, bb->index))
+	    {
+	      error ("Basic block %d should be marked irreducible.", bb->index);
+	      err = 1;
+	    }
+	  else if (!(bb->flags & BB_IRREDUCIBLE_LOOP)
+	      && TEST_BIT (irreds, bb->index))
+	    {
+	      error ("Basic block %d should not be marked irreducible.", bb->index);
+	      err = 1;
+	    }
+	}
+      free (irreds);
     }
 
   if (err)

@@ -1,3 +1,90 @@
+2002-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (cfgloopanal.o): New.
+	(doloop.o, predict.o, toplev.o, loop.o, unroll.o, cfgloop.o): Include
+	cfgloop.h
+	* basic-block.h (loop, loops): Forward declare.
+	(flow_loops_find, flow_loops_update, flow_loops_free, flow_loops_dump,
+	flow_loop_dump, flow_loop_scan, flow_loop_tree_node_add,
+	flow_loop_tree_node_remove, LOOP_*, flow_loop_outside_edge_p,
+	flow_loop_nested_p, flow_bb_inside_loop_p, get_loop_body,
+	dfs_enumerate_from, loop_preheader_edge, loop_latch_edge,
+	add_bb_to_loop, remove_bb_from_loops, find_common_loop,
+	verify_loop_structure, VLS_*): Move to ...
+	(BB_IRREDUCIBLE): New flag.
+	* cfgloop.h: ... here; new file;
+	(struct loop_desc, simple_loop_p, count_iterations): Declare.
+	* cfgloop.c: Include cfgloop.h
+	* doloop.c: Likewise.
+	* predict.c: Likewise.
+	(estimate_probability): Predict number of iterations.
+	* loop.c: Likewise.
+	(strength_reduce): kill PRED_LOOP_ITERATIONS prediction
+	* toplev.c: Include cfgloop.h
+	* unroll.c: Likewise.
+	* cfgloopanal.c: New file.
+
+	* Makefile.in (cfgloopmanip.o): New.
+	* cfglayout.c (cfg_layout_redirect_edge): Return exit status.
+	(cfg_layout_duplicate_bb): Set copy field.
+	* cfglayout.h (cfg_layout_redirect_edge): Declaration changed.
+	(struct reorder_block_def): Added new fields.
+	* cfgloop.c (cancel_loop, cancel_loop_tree): New functions.
+	* cfgloop.h: Reformated.
+	(struct loop): Added new field.
+	(cancel_loop, cancel_loop_tree, can_duplicate_loop_p,
+	duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+	Declare.
+	* cfgloopmanip.c: New.
+
+	* Makefile.in (loop-unswitch.o, loop-init.o): New.
+	(cfglayout.o): Add dependency on cfgloop.h.
+	(cfgloopmanip.o): Add dependency on output.h.
+	* basic-block.h (BB_SUPERBLOCK): New flag.
+	* cfglayout.h (cfg_layout_initialize): Declaration changed.
+	* cfglayout.c (cfgloop.h): Include.
+	(cleanup_unconditional_jumps, cfg_layout_initialize): Update loop data.
+	(break_superblocks): New.
+	(cfg_layout_finalize): Call it.
+	* bb_reorder.c (reorder_basic_blocks): Add parameter to
+	cfg_layout_initialize call.
+	* cfgloop.c (verify_loop_structure): Add irreducible loop info
+	verification.
+	* cfgloop.h (VLS_EXPECR_PREHEADERS, VLS_EXPECT_SIMPLE_LATCHES):
+	Merged to enum together with...
+	(VLS_EXPECT_MARKED_IRREDUCIBLE_LOOPS, VLS_FOR_LOOP): New flags.
+	(CP_SIMPLE_PREHEADERS, CP_INSIDE_CFGLAYOUT): New flags.
+	(num_loop_insns, loop_split_edge_with, fix_loop_placement,
+	create_preheaders, force_single_succ_latches, expected_loop_iterations,
+	loop_optimizer_init, loop_optimizer_finalize, unswitch_loops): Declare.
+	* cfgloopanal.c (num_loop_insns, expected_loop_iterations):
+	New functions.
+	* cfgloopmanip.c (output.h): Include.
+	(fix_loop_placement): Declaration moved to cfgloop.h.
+	(create_preheader, create_preheaders, force_sinle_succ_latches,
+	loop_split_edge_with): New functions.
+	* loop-init.c: New.
+	* loop-unswitch: New.
+	* params.def (PARAM_MAX_UNSWITCH_INSNS, PARAM_MAX_UNSWITCH_LEVEL): New.
+	* toplev.c (DFI_loop2): New.
+	(flag_unswitch_loops): New.
+	(rest_of_compilation): Add loop unswitching pass.
+	(parse_options_and_default_flags): Enable it at -O3.
+
+	* Makefile.in (loop-unroll.o): New.
+	* cfgloop.h (UAP_PEEL, UAP_UNROLL, UAP_UNROLL_ALL): New flags.
+	(unroll_and_peel_loops): Declare.
+	* loop-unroll.c: New.
+	* params.def (PARAM_MAX_UNROLL_TIMES, PARAM_MAX_PEELED_INSNS,
+	PARAM_MAX_PEEL_TIMES): New.
+	* toplev.c (flag_old_unroll_loops, flag_old_unroll_all_loops): Used
+	instead of ...
+	(flag_unroll_loops, flag_unroll_all_loops): Used for new loop optimizer.
+	(flag_peel_loops): New.
+	(parse_options_and_default_flags): Turn them on with -O3.
+	(process_options): Modified.
+	(rest_of_compilation): Add unrolling/peeling pass.
+
 2002-10-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse.c: Solved conflicts from merge.

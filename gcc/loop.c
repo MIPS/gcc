@@ -54,6 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "insn-flags.h"
 #include "optabs.h"
+#include "cfgloop.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -5330,18 +5331,6 @@ strength_reduce (loop, flags)
   if (HAVE_doloop_end && (flags & LOOP_BCT) && flag_branch_on_count_reg)
     doloop_optimize (loop);
 #endif  /* HAVE_doloop_end  */
-
-  /* In case number of iterations is known, drop branch prediction note
-     in the branch.  Do that only in second loop pass, as loop unrolling
-     may change the number of iterations performed.  */
-  if (flags & LOOP_BCT)
-    {
-      unsigned HOST_WIDE_INT n
-	= loop_info->n_iterations / loop_info->unroll_number;
-      if (n > 1)
-	predict_insn (prev_nonnote_insn (loop->end), PRED_LOOP_ITERATIONS,
-		      REG_BR_PROB_BASE - REG_BR_PROB_BASE / n);
-    }
 
   if (loop_dump_stream)
     fprintf (loop_dump_stream, "\n");
