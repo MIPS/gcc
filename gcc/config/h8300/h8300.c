@@ -376,7 +376,7 @@ h8300_emit_stack_adjustment (int sign, unsigned int size)
   if (TARGET_H8300
       && size > 4
       && !h8300_current_function_interrupt_function_p ()
-      && !(current_function_needs_context && sign < 0))
+      && !(cfun->static_chain_decl != NULL && sign < 0))
     {
       rtx new_sp;
       rtx r3 = gen_rtx_REG (Pmode, 3);
