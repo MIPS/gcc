@@ -1,5 +1,19 @@
 2001-07-29  Daniel Berlin  <dan@cgsoftware.com>
 
+	Add support for simple rematerialization (not lattice based right
+	now, very trivial, but already has a large positive impact).
+
+	* ra.c (rematerializable): New function. Determine if a value is
+	rematerializable. 
+	(parts_to_webs): If it's rematerializable, modify the spill cost
+	to be the cost of rematerializing the RTL in question.
+	(rewrite_program): If we can rematerialize, do it.
+	(toplevel): New variable, emitted_remat.
+	(dump_ra): Print out number of rematerializations.
+	(reg_alloc): Init emitted_remat to 0.
+
+2001-07-29  Daniel Berlin  <dan@cgsoftware.com>
+
 	* df.c (df_rd_global_compute): Add successors to worklist, not
 	current item.
 	(df_ru_global_compute): Ditto.

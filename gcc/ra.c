@@ -41,6 +41,11 @@
 */
 
 /* TODO
+ 
+   * Lattice based rematerialization
+   * Fix spill costs for rematerialization (if any part of a web is
+   rematerializable, the spill cost becomes very small, even if the
+   rest of the web isn't)
    * do lots of commenting
    * look through all XXX's and do something about them
    * handle REG_NO_CONFLICTS blocks correctly (the current ad hoc approach
@@ -354,6 +359,7 @@ static int one_pass PARAMS ((struct df *));
 static void dump_constraints PARAMS ((void));
 static void dump_ra PARAMS ((struct df *));
 static void init_ra PARAMS ((void));
+static int rematerializable PARAMS ((struct ref *));
 void reg_alloc PARAMS ((void));
 
 /* XXX use Daniels compressed bitmaps here.  */
@@ -597,7 +603,8 @@ undef_to_bitmap (wp, undefined)
 {
   if (*undefined < 15)
     {
-      struct undef_table_s u = undef_table[*undefined];
+      struct undef_table_s u;
+      u = undef_table[*undefined];
       *undefined = u.new_undef;
       return get_sub_conflicts (wp, u.size, u.word);
     }
@@ -1314,7 +1321,9 @@ handle_asm_insn (df, insn)
 	}
       else
 	{
+#if 0
 	  int c;
+#endif
 	  COPY_HARD_REG_SET (conflict, usable_regs
 			     [reg_preferred_class (web->regno)]);
 	  IOR_HARD_REG_SET (conflict, usable_regs
@@ -1766,7 +1775,7 @@ parts_to_webs (df, part2web)
      struct df *df;
      struct web **part2web;
 {
-  unsigned int i;
+  unsigned int i,j;
   unsigned int webnum;
   struct ref **ref_use, **ref_def;
   struct web_part *wp_first_use = &web_parts[df->def_id];
@@ -1927,6 +1936,13 @@ parts_to_webs (df, part2web)
       web->defs -= web->num_defs;
       web->uses -= web->num_uses;
       web->weight *= (1 + web->add_hardregs);
+      for (j = 0; j < web->num_defs; j++)
+	{
+	  if (rematerializable (web->defs[j]))
+	    {
+	      web->spill_cost = rtx_cost (DF_REF_INSN (web->defs[j]), 0);
+	    }
+	}
     }
 }
 
@@ -3172,7 +3188,10 @@ hardregset_to_string (s)
   int i = HARD_REG_SET_LONGS - 1;
   c += sprintf (c, "{ ");
   for (;i >= 0; i--)
-    c += sprintf (c, HOST_WIDE_INT_PRINT_HEX "%s", s[i], i ? ", " : "");
+    {
+      c += sprintf (c, HOST_WIDE_INT_PRINT_HEX, s[i]);
+      c += sprintf (c, "%s", i ? ", " : "");
+    }
   c += sprintf (c, " }");
 #endif
   return string;
@@ -3587,6 +3606,7 @@ allocate_spill_web (web)
 
 static unsigned int emitted_spill_loads;
 static unsigned int emitted_spill_stores;
+static unsigned int emitted_remat;
 
 /* Rewrite the program to include the spill code.  */
 static void
@@ -3611,32 +3631,39 @@ rewrite_program (void)
 	  rtx insn = DF_REF_INSN (web->defs[j]);
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
-	  /* Happens when spill_coalescing() deletes move insns.  */
-	  if (!INSN_P (insn))
-	    continue;
-	  if (bitmap_bit_p (b, INSN_UID (insn)))
-	    continue;
-	  bitmap_set_bit (b, INSN_UID (insn));
-	  start_sequence ();
-	  source = DF_REF_REG (web->defs[j]);
-	  dest = slot;
-	  if (GET_CODE (source) == SUBREG)
+	  if (!rematerializable (web->defs[j]))
 	    {
-	      dest = gen_rtx_MEM (GET_MODE (source),
-				  plus_constant (XEXP (dest, 0),
-						 SUBREG_BYTE (source)));
+	      /* Happens when spill_coalescing() deletes move insns.  */
+	      if (!INSN_P (insn))
+		continue;
+	      if (bitmap_bit_p (b, INSN_UID (insn)))
+		continue;
+	      bitmap_set_bit (b, INSN_UID (insn));
+	      start_sequence ();
+	      source = DF_REF_REG (web->defs[j]);
+	      dest = slot;
+	      if (GET_CODE (source) == SUBREG)
+		{
+		  dest = gen_rtx_MEM (GET_MODE (source),
+				      plus_constant (XEXP (dest, 0),
+						     SUBREG_BYTE (source)));
+		}
+	      emit_insn (gen_move_insn (dest, source));
+	      insns = get_insns ();
+	      end_sequence ();
+	      emit_insns_after (insns, insn);
+	      if (bb->end == insn)
+		bb->end = PREV_INSN (following);
+	      for (; insn != following; insn = NEXT_INSN (insn))
+		set_block_for_insn (insn, bb);
+	      emitted_spill_stores++;
 	    }
-	  emit_insn (gen_move_insn (dest, source));
-	  insns = get_insns ();
-	  end_sequence ();
-	  emit_insns_after (insns, insn);
-	  if (bb->end == insn)
-	    bb->end = PREV_INSN (following);
-	  for (; insn != following; insn = NEXT_INSN (insn))
-	    set_block_for_insn (insn, bb);
-	  emitted_spill_stores++;
+	  else
+	    {
+	      if (rtl_dump_file)
+		  fprintf (rtl_dump_file, "We *should* rematerialize uses of def ID %d for web %d\n", DF_REF_ID (web->defs[j]), web->id);
+	    }
 	}
-
       bitmap_clear (b);
       for (j = 0; j < web->num_uses; j++)
 	{
@@ -3644,31 +3671,57 @@ rewrite_program (void)
 	  rtx insn = DF_REF_INSN (web->uses[j]);
 	  rtx prev = PREV_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
-	  /* Happens when spill_coalescing() deletes move insns.  */
-	  if (!INSN_P (insn))
-	    continue;
-	  if (bitmap_bit_p (b, INSN_UID (insn)))
-	    continue;
-	  bitmap_set_bit (b, INSN_UID (insn));
-	  start_sequence ();
-	  target = DF_REF_REG (web->uses[j]);
-	  source = slot;
-	  if (GET_CODE (target) == SUBREG)
+	  if (DF_REF_CHAIN (web->uses[j]) && rematerializable (DF_REF_CHAIN (web->uses[j])->ref))
 	    {
-	      source = gen_rtx_MEM (GET_MODE (target),
-				  plus_constant (XEXP (source, 0),
-						 SUBREG_BYTE (target)));
+	      if (!INSN_P (insn))
+		continue;
+	      if (bitmap_bit_p (b, INSN_UID (insn)))
+		continue;
+	      bitmap_set_bit (b, INSN_UID (insn));
+	      start_sequence ();
+	      emit_insn (PATTERN (DF_REF_INSN (DF_REF_CHAIN (web->uses[j])->ref)));
+	      insns = get_insns ();
+	      end_sequence ();
+	      emit_insns_before (insns, insn);
+	      if (bb->head == insn)
+		bb->head = NEXT_INSN (prev);
+	      for (; insn != prev; insn = PREV_INSN (insn))
+		set_block_for_insn (insn, bb);
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file, "Poof! We rematerialized use %d for web %d, associated with def %d\n", 
+			 j, web->id, DF_REF_ID (DF_REF_CHAIN (web->uses[j])->ref));
+	      emitted_remat++;
 	    }
-	  emit_insn (gen_move_insn (target, source));
-	  insns = get_insns ();
-	  end_sequence ();
-	  emit_insns_before (insns, insn);
-	  if (bb->head == insn)
-	    bb->head = NEXT_INSN (prev);
-	  for (; insn != prev; insn = PREV_INSN (insn))
-	    set_block_for_insn (insn, bb);
-	  emitted_spill_loads++;
+	  else	   
+	    {
+	      
+	      /* Happens when spill_coalescing() deletes move insns.  */
+	      if (!INSN_P (insn))
+		continue;
+	      if (bitmap_bit_p (b, INSN_UID (insn)))
+		continue;
+	      bitmap_set_bit (b, INSN_UID (insn));
+	      start_sequence ();
+	      target = DF_REF_REG (web->uses[j]);
+	      source = slot;
+	      if (GET_CODE (target) == SUBREG)
+		{
+		  source = gen_rtx_MEM (GET_MODE (target),
+					plus_constant (XEXP (source, 0),
+						       SUBREG_BYTE (target)));
+		}
+	      emit_insn (gen_move_insn (target, source));
+	      insns = get_insns ();
+	      end_sequence ();
+	      emit_insns_before (insns, insn);
+	      if (bb->head == insn)
+		bb->head = NEXT_INSN (prev);
+	      for (; insn != prev; insn = PREV_INSN (insn))
+		set_block_for_insn (insn, bb);
+	      emitted_spill_loads++;
+	    }
 	}
+
     }
 
   BITMAP_XFREE (b);
@@ -3712,7 +3765,6 @@ emit_colors (df)
 	continue;
       if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
-      //web->reg_rtx = gen_rtx_REG (PSEUDO_REGNO_MODE (web->regno), web->color);
       web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
     }
   max_regno = max_reg_num ();
@@ -3980,8 +4032,8 @@ dump_ra (df)
       debug_msg (0, "  %4d\n", web->id);
     }
   debug_msg (0, "\n");
-  debug_msg (0, "Added spill insns (overall): %d loads, %d stores\n",
-	     emitted_spill_loads, emitted_spill_stores);
+  debug_msg (0, "Added spill insns (overall): %d loads, %d stores, %d remats\n",
+	     emitted_spill_loads, emitted_spill_stores, emitted_remat);
   if (deleted_move_insns)
     debug_msg (0, "Deleted %d move insns.\n", deleted_move_insns);
   debug_msg (0, "\n");
@@ -4027,7 +4079,18 @@ init_ra (void)
   orig_max_uid = get_max_uid ();
   compute_bb_for_insn (get_max_uid ());
 }
-
+static
+int rematerializable (ref)
+     struct ref *ref;
+{
+  rtx set;
+  set = single_set (DF_REF_INSN (ref));
+  if (!set)
+    return 0;
+  if (CONSTANT_P (SET_SRC (set)))
+    return 1;
+  return 0;
+}
 /* Main register allocator entry point.  */
 void
 reg_alloc (void)
@@ -4042,6 +4105,7 @@ reg_alloc (void)
   count_or_remove_death_notes (NULL, 1);
   emitted_spill_loads = 0;
   emitted_spill_stores = 0;
+  emitted_remat = 0;
   deleted_move_insns = 0;
   do
     {
@@ -4049,7 +4113,7 @@ reg_alloc (void)
       if (pass++ > 40)
 	internal_error ("Didn't find a coloring.\n");
       df = df_init ();
-      df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN);
+      df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN | DF_DU_CHAIN | DF_UD_CHAIN );
       if (rtl_dump_file)
 	{
 	  rtx insn;
@@ -4089,11 +4153,11 @@ reg_alloc (void)
     print_rtl_with_bb (rtl_dump_file, get_insns ()); */
   no_new_pseudos = 1;
   compute_bb_for_insn (get_max_uid ());
-  allocate_reg_info (max_reg_num (), 0, 1);
   no_new_pseudos = 0;
   store_motion();
   allocate_reg_info (max_reg_num (), 0, 1);
   no_new_pseudos = 1;
+  cleanup_cfg (CLEANUP_EXPENSIVE);
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
   recompute_reg_usage (get_insns (), TRUE);
