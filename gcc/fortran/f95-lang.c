@@ -200,10 +200,16 @@ tree *ridpointers = NULL;
 void
 expand_function_body (tree fndecl, int nested)
 {
+  if (nested)
+    push_function_context ();
+
   if (!flag_disable_gimple)
     gimplify_function_tree (fndecl);
 
   tree_rest_of_compilation (fndecl, nested);
+
+  if (nested)
+    pop_function_context ();
 }
 
 

@@ -1935,18 +1935,23 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* Output the SIMPLE tree.  */
   dump_function (TDI_original, fndecl);
 
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
-
-  /* RTL generation.  */
-  if (!old_context)
-    expand_function_body (fndecl, 0);
 
   if (old_context)
     {
       pop_function_context ();
       saved_function_decls = saved_parent_function_decls;
+    }
+  else
+    {
+      /* Pass the function to the backend.  */
+      expand_function_body (fndecl, 0);
     }
 
   current_function_decl = old_context;

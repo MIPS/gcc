@@ -1,3 +1,9 @@
+2003-10-05  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (expand_function_body): Call (push|pop)_function_context.
+	* trans-decl.c (gfc_generate_function_code): Set
+	cfun->function_end_locus.
+
 2003-09-24  Jason Merrill  <jason@redhat.com>
 
 	* f95-lang.c, trans-decl.c: Use DECL_SOURCE_LOCATION instead of
