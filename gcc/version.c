@@ -5,7 +5,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.5-tree-ssa 20031101 (merged 20031026)";
+const char version_string[] = "3.5-tree-ssa 20031102 (merged 20031026)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
