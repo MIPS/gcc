@@ -155,7 +155,7 @@ find_basic_block (rtx insn, int search_limit)
        insn = next_nonnote_insn (insn))
     {
       FOR_EACH_BB (bb)
-	if (insn == bb->head)
+	if (insn == BB_HEAD (bb))
 	  return bb->index;
     }
 
@@ -616,7 +616,7 @@ find_dead_or_set_registers (rtx target, struct resources *res,
 /* Given X, a part of an insn, and a pointer to a `struct resource',
    RES, indicate which resources are modified by the insn. If
    MARK_TYPE is MARK_SRC_DEST_CALL, also mark resources potentially
-   set by the called routine.  If MARK_TYPE is MARK_DEST, only mark SET_DESTs
+   set by the called routine.
 
    If IN_DEST is nonzero, it means we are inside a SET.  Otherwise,
    objects are being referenced instead of set.
@@ -716,8 +716,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 			   || GET_CODE (SET_SRC (x)) != CALL),
 			  mark_type);
 
-      if (mark_type != MARK_DEST)
-	mark_set_resources (SET_SRC (x), res, 0, MARK_SRC_DEST);
+      mark_set_resources (SET_SRC (x), res, 0, MARK_SRC_DEST);
       return;
 
     case CLOBBER:
@@ -747,12 +746,9 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 
     case SIGN_EXTRACT:
     case ZERO_EXTRACT:
-      if (! (mark_type == MARK_DEST && in_dest))
-	{
-	  mark_set_resources (XEXP (x, 0), res, in_dest, MARK_SRC_DEST);
-	  mark_set_resources (XEXP (x, 1), res, 0, MARK_SRC_DEST);
-	  mark_set_resources (XEXP (x, 2), res, 0, MARK_SRC_DEST);
-	}
+      mark_set_resources (XEXP (x, 0), res, in_dest, MARK_SRC_DEST);
+      mark_set_resources (XEXP (x, 1), res, 0, MARK_SRC_DEST);
+      mark_set_resources (XEXP (x, 2), res, 0, MARK_SRC_DEST);
       return;
 
     case MEM:
@@ -798,13 +794,6 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	    SET_HARD_REG_BIT (res->regs, r);
 	}
       return;
-
-    case STRICT_LOW_PART:
-      if (! (mark_type == MARK_DEST && in_dest))
-	{
-	  mark_set_resources (XEXP (x, 0), res, 0, MARK_SRC_DEST);
-	  return;
-	}
 
     case UNSPEC_VOLATILE:
     case ASM_INPUT:
@@ -924,7 +913,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 	 information, we can get it from there unless the insn at the
 	 start of the basic block has been deleted.  */
       if (tinfo && tinfo->block != -1
-	  && ! INSN_DELETED_P (BLOCK_HEAD (tinfo->block)))
+	  && ! INSN_DELETED_P (BB_HEAD (BASIC_BLOCK (tinfo->block))))
 	b = tinfo->block;
     }
 
@@ -990,7 +979,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */
-      start_insn = (b == 0 ? insns : BLOCK_HEAD (b));
+      start_insn = (b == 0 ? insns : BB_HEAD (BASIC_BLOCK (b)));
       stop_insn = target;
 
       if (GET_CODE (start_insn) == INSN
@@ -1178,10 +1167,8 @@ init_resource_info (rtx epilogue_insn)
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
       SET_HARD_REG_BIT (end_of_function_needs.regs, HARD_FRAME_POINTER_REGNUM);
 #endif
-#ifdef EXIT_IGNORE_STACK
       if (! EXIT_IGNORE_STACK
 	  || current_function_sp_is_unchanging)
-#endif
 	SET_HARD_REG_BIT (end_of_function_needs.regs, STACK_POINTER_REGNUM);
     }
   else

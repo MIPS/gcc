@@ -33,6 +33,9 @@ Boston, MA 02111-1307, USA.  */
 /* stdout file number.  */
 #define STDOUT_FILE_NO 1
 
+/* stderr file number.  */
+#define STDERR_FILE_NO 2
+
 /* value of `pipe': port index for reading.  */
 #define READ_PORT 0
 

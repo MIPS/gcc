@@ -1,5 +1,6 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,7 +61,7 @@ extern void error (const char *, ...);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
 extern void pedwarn (const char *, ...);
-extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void sorry (const char *, ...);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, const char *, int, int);
@@ -118,9 +119,6 @@ extern int flag_unroll_loops;
 extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
-extern int flag_ssa;
-extern int flag_ssa_ccp;
-extern int flag_ssa_dce;
 extern int time_report;
 extern int flag_new_regalloc;
 

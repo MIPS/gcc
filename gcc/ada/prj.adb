@@ -77,6 +77,7 @@ package body Prj is
      (First_Referred_By              => No_Project,
       Name                           => No_Name,
       Path_Name                      => No_Name,
+      Virtual                        => False,
       Display_Path_Name              => No_Name,
       Location                       => No_Location,
       Mains                          => Nil_String,
@@ -95,6 +96,7 @@ package body Prj is
       Standalone_Library             => False,
       Lib_Interface_ALIs             => Nil_String,
       Lib_Auto_Init                  => False,
+      Symbol_Data                    => No_Symbols,
       Sources_Present                => True,
       Sources                        => Nil_String,
       Source_Dirs                    => Nil_String,
@@ -121,7 +123,8 @@ package body Prj is
       Seen                           => False,
       Flag1                          => False,
       Flag2                          => False,
-      Depth                          => 0);
+      Depth                          => 0,
+      Unkept_Comments                => False);
 
    -------------------
    -- Add_To_Buffer --
@@ -305,7 +308,8 @@ package body Prj is
          Element :=
            (Index => Lang,
             Index_Case_Sensitive => False,
-            Value => (Kind     => Single,
+            Value => (Project  => No_Project,
+                      Kind     => Single,
                       Location => No_Location,
                       Default  => False,
                       Value    => Default_Spec_Suffix),
@@ -340,7 +344,8 @@ package body Prj is
          Element :=
            (Index => Lang,
             Index_Case_Sensitive => False,
-            Value => (Kind     => Single,
+            Value => (Project  => No_Project,
+                      Kind     => Single,
                       Location => No_Location,
                       Default  => False,
                       Value    => Default_Body_Suffix),
@@ -382,15 +387,6 @@ package body Prj is
         and then Left.Current_Body_Suffix = Right.Current_Body_Suffix
         and then Left.Separate_Suffix = Right.Separate_Suffix;
    end Same_Naming_Scheme;
-
-   ----------
-   -- Scan --
-   ----------
-
-   procedure Scan is
-   begin
-      Scanner.Scan;
-   end Scan;
 
    --------------------------
    -- Standard_Naming_Data --

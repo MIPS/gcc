@@ -6,7 +6,7 @@
 --                                                                          --
 --                                   B o d y                                --
 --                                                                          --
---           Copyright (C) 2003 Free Software Foundation, Inc.              --
+--          Copyright (C) 2003-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,26 +31,70 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the VxWorks version of this package
-
-with System.OS_Interface;
---  used for various Constants, Signal and types
+--  This is the Level A cert version of this package for AE653
 
 with Interfaces.C;
---  used for int and other types
+--  Used for int and other types
 
 with Ada.Exceptions;
---  used for Raise_Exception
+--  Used for Raise_Exception
 
 package body System.Init is
 
-   --  This unit contains initialization circuits that are system dependent.
-
    use Ada.Exceptions;
-   use System.OS_Interface;
-   use type Interfaces.C.int;
+   use Interfaces.C;
 
-   --  Copies of global values computed by the binder
+   --------------------------
+   --  Signal Definitions  --
+   --------------------------
+
+   NSIG : constant := 32;
+   --  Number of signals on the target OS
+
+   type Signal is new int range 0 .. Interfaces.C."-" (NSIG, 1);
+
+   SIGILL  : constant :=  4; --  illegal instruction (not reset)
+   SIGFPE  : constant :=  8; --  floating point exception
+   SIGBUS  : constant := 10; --  bus error
+   SIGSEGV : constant := 11; --  segmentation violation
+
+   type sigset_t is new long;
+
+   SIG_SETMASK : constant := 3;
+   SA_ONSTACK   : constant := 16#0004#;
+
+   type struct_sigaction is record
+      sa_handler : System.Address;
+      sa_mask    : sigset_t;
+      sa_flags   : int;
+   end record;
+   pragma Convention (C, struct_sigaction);
+   type struct_sigaction_ptr is access all struct_sigaction;
+
+   function sigdelset (set : access sigset_t; sig : Signal) return int;
+   pragma Import (C, sigdelset, "sigdelset");
+
+   function sigemptyset (set : access sigset_t) return int;
+   pragma Import (C, sigemptyset, "sigemptyset");
+
+   function sigaction
+     (sig  : Signal;
+      act  : struct_sigaction_ptr;
+      oact : struct_sigaction_ptr) return int;
+   pragma Import (C, sigaction, "sigaction");
+
+   type sigset_t_ptr is access all sigset_t;
+
+   function pthread_sigmask
+     (how  : int;
+      set  : sigset_t_ptr;
+      oset : sigset_t_ptr) return int;
+   pragma Import (C, pthread_sigmask, "sigprocmask");
+
+   -------------------------------
+   --  Binder Generated Values  --
+   -------------------------------
+
    Gl_Main_Priority : Integer := -1;
    pragma Export (C, Gl_Main_Priority, "__gl_main_priority");
 
@@ -92,9 +136,9 @@ package body System.Init is
    Already_Called : Boolean := False;
 
    Handler_Installed : Integer := 0;
+   pragma Export (C, Handler_Installed, "__gnat_handler_installed");
    --  Indication of whether synchronous signal handlers have already been
    --  installed by a previous call to Install_Handler.
-   pragma Export (C, Handler_Installed, "__gnat_handler_installed");
 
    ------------------------
    --  Local procedures  --
@@ -104,18 +148,15 @@ package body System.Init is
    --  Common procedure that is executed when a SIGFPE, SIGILL,
    --  SIGSEGV, or SIGBUS is captured.
 
-   procedure Install_Handler;
-   pragma Export (C, Install_Handler, "__gnat_install_handler");
-   --  Install handler for the synchronous signals. The C profile
-   --  here is what is expected by the binder-generated main.
-
    ------------------------
    -- GNAT_Error_Handler --
    ------------------------
 
    procedure GNAT_Error_Handler (Sig : Signal) is
-      Mask   : aliased sigset_t;
+      Mask : aliased sigset_t;
+
       Result : int;
+      pragma Unreferenced (Result);
 
    begin
       --  VxWorks will always mask out the signal during the signal
@@ -170,23 +211,24 @@ package body System.Init is
       Num_Interrupt_States     : Integer;
       Unreserve_All_Interrupts : Integer;
       Exception_Tracebacks     : Integer;
-      Zero_Cost_Exceptions     : Integer) is
+      Zero_Cost_Exceptions     : Integer)
+   is
    begin
       --  If this procedure has been already called once, check that the
       --  arguments in this call are consistent with the ones in the
       --  previous calls. Otherwise, raise a Program_Error exception.
-      --
+
       --  We do not check for consistency of the wide character encoding
       --  method. This default affects only Wide_Text_IO where no
       --  explicit coding method is given, and there is no particular
       --  reason to let this default be affected by the source
       --  representation of a library in any case.
-      --
+
       --  We do not check either for the consistency of exception tracebacks,
       --  because exception tracebacks are not normally set in Stand-Alone
       --  libraries. If a library or the main program set the exception
       --  tracebacks, then they are never reset afterwards (see below).
-      --
+
       --  The value of main_priority is meaningful only when we are
       --  invoked from the main program elaboration routine of an Ada
       --  application. Checking the consistency of this parameter should
@@ -198,16 +240,16 @@ package body System.Init is
       --  that the case where the main program is not written in Ada is
       --  also properly handled, since the default value will then be
       --  used for this parameter.
-      --
+
       --  For identical reasons, the consistency of time_slice_val should
       --  not be checked.
 
       if Already_Called then
-         if (Gl_Locking_Policy           /= Locking_Policy) or
-            (Gl_Queuing_Policy           /= Queuing_Policy) or
-            (Gl_Task_Dispatching_Policy  /= Task_Dispatching_Policy) or
-            (Gl_Unreserve_All_Interrupts /= Unreserve_All_Interrupts) or
-            (Gl_Exception_Tracebacks     /= Exception_Tracebacks) or
+         if (Gl_Locking_Policy           /= Locking_Policy)           or else
+            (Gl_Queuing_Policy           /= Queuing_Policy)           or else
+            (Gl_Task_Dispatching_Policy  /= Task_Dispatching_Policy)  or else
+            (Gl_Unreserve_All_Interrupts /= Unreserve_All_Interrupts) or else
+            (Gl_Exception_Tracebacks     /= Exception_Tracebacks)     or else
             (Gl_Zero_Cost_Exceptions     /= Zero_Cost_Exceptions)
          then
             raise Program_Error;
@@ -238,16 +280,6 @@ package body System.Init is
       end if;
    end Set_Globals;
 
-   -----------------------------
-   -- Install_Signal_Handlers --
-   -----------------------------
-
-   function Install_Signal_Handlers return Interfaces.C.int is
-   begin
-      Install_Handler;
-      return 0;
-   end Install_Signal_Handlers;
-
    ---------------------
    -- Install_Handler --
    ---------------------
@@ -255,7 +287,9 @@ package body System.Init is
    procedure Install_Handler is
       Mask          : aliased sigset_t;
       Signal_Action : aliased struct_sigaction;
-      Result        : Interfaces.C.int;
+
+      Result : Interfaces.C.int;
+      pragma Unreferenced (Result);
 
    begin
       --  Set up signal handler to map synchronous signals to appropriate

@@ -78,10 +78,21 @@ private boolean resizable = true;
   */
 private String title;
 
-  /**
-   * This field indicates whether the dialog is undecorated or not.
-   */
-  private boolean undecorated = false;
+/**
+  * This field indicates whether the dialog is undecorated or not.
+  */
+private boolean undecorated = false;
+
+/**
+  * Indicates that we are blocked for modality in show
+  */
+private boolean blocked = false;
+
+/**
+  * Secondary EventQueue to handle AWT events while
+  * we are blocked for modality in show
+  */
+private EventQueue eq2 = null;
 
 /*************************************************************************/
 
@@ -187,7 +198,8 @@ Dialog (Frame parent, String title, boolean modal, GraphicsConfiguration gc)
 {
   super (parent, gc);
 
-  this.title = title;
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
   this.modal = modal;
   visible = false;
 
@@ -254,8 +266,9 @@ public
 Dialog (Dialog parent, String title, boolean modal, GraphicsConfiguration gc)
 {
   super (parent, parent.getGraphicsConfiguration ());
-  
-  this.title = title;
+
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
   this.modal = modal;
   visible = false;
 
@@ -289,7 +302,9 @@ getTitle()
 public synchronized void
 setTitle(String title)
 {
-  this.title = title;
+  // A null title is equivalent to an empty title  
+  this.title = (title != null) ? title : "";
+
   if (peer != null)
     {
       DialogPeer d = (DialogPeer) peer;
@@ -376,11 +391,85 @@ addNotify()
 
 /**
   * Makes this dialog visible and brings it to the front.
+  * If the dialog is modal and is not already visible, this call will not
+  *  return until the dialog is hidden by someone calling hide or dispose.
+  * If this is the event dispatching thread we must ensure that another event
+  *  thread runs while the one which invoked this method is blocked. 
   */
-public void
+public synchronized void
 show()
 {
   super.show();
+  
+  if (isModal())
+    {
+      // If already shown (and blocked) just return
+      if (blocked)
+	return;
+
+      /* If show is called in the dispatch thread for a modal dialog it will
+         block so we must run another thread so the events keep being
+	 dispatched.*/
+      if (EventQueue.isDispatchThread ())
+        {
+	  EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+          eq2 = new EventQueue ();
+	  eq.push (eq2);
+	}
+      
+      try 
+        {
+	  blocked = true;
+	  wait ();
+	  blocked = false;
+        } 
+      catch (InterruptedException e)
+        {
+	  blocked = false;
+        }
+	
+      if (eq2 != null)
+        {
+	  eq2.pop ();
+	  eq2 = null;
+	}
+    }  
+}
+
+/*************************************************************************/
+
+/**
+  * Hides the Dialog and then
+  * causes show() to return if it is currently blocked.
+  */
+
+public synchronized void 
+hide ()
+{
+  if (blocked)
+    {
+      notifyAll ();
+    }
+
+  super.hide();
+}
+
+/*************************************************************************/
+
+/**
+  * Disposes the Dialog and then causes show() to return
+  * if it is currently blocked.
+  */
+
+public synchronized void 
+dispose ()
+{
+  if (blocked)
+    {
+      notifyAll ();
+    }
+
+  super.dispose();
 }
 
 /*************************************************************************/

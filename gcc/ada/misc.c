@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -39,6 +39,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "real.h"
 #include "rtl.h"
 #include "errors.h"
 #include "diagnostic.h"
@@ -95,7 +96,8 @@ static const char *gnat_printable_name	(tree, int);
 static tree gnat_eh_runtime_type	(tree);
 static int gnat_eh_type_covers		(tree, tree);
 static void gnat_parse_file		(int);
-static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int);
+static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int,
+					 rtx *);
 static void internal_error_function	(const char *, va_list *);
 static void gnat_adjust_rli		(record_layout_info);
 
@@ -146,7 +148,7 @@ static void gnat_adjust_rli		(record_layout_info);
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
-/* Tables describing GCC tree codes used only by GNAT.  
+/* Tables describing GCC tree codes used only by GNAT.
 
    Table indexed by tree code giving a string containing a character
    classifying the tree code.  Possibilities are
@@ -258,11 +260,16 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
     case OPT_Wmissing_prototypes:
     case OPT_Wstrict_prototypes:
     case OPT_Wwrite_strings:
-    case OPT_Wno_long_long:
+    case OPT_Wlong_long:
       break;
 
       /* This is handled by the front-end.  */
     case OPT_nostdinc:
+      break;
+
+    case OPT_nostdlib:
+      gnat_argv[gnat_argc] = xstrdup ("-nostdlib");
+      gnat_argc++;
       break;
 
     case OPT_fRTS:
@@ -272,7 +279,7 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 
     case OPT_gant:
       warning ("`-gnat' misspelled as `-gant'");
- 
+
       /* ... fall through ... */
 
     case OPT_gnat:
@@ -283,7 +290,7 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
 
       if (arg[0] == 'O')
-	for (i = 1; i < save_argc - 1; i++) 
+	for (i = 1; i < save_argc - 1; i++)
 	  if (!strncmp (save_argv[i], "-gnatO", 6))
 	    if (save_argv[++i][0] != '-')
 	      {
@@ -304,8 +311,8 @@ static unsigned int
 gnat_init_options (unsigned int argc, const char **argv)
 {
   /* Initialize gnat_argv with save_argv size.  */
-  gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0])); 
-  gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */ 
+  gnat_argv = (char **) xmalloc ((argc + 1) * sizeof (argv[0]));
+  gnat_argv[0] = xstrdup (argv[0]);     /* name of the command */
   gnat_argc = 1;
 
   save_argc = argc;
@@ -359,7 +366,7 @@ gnat_tree_size (enum tree_code code)
 /* Perform all the initialization steps that are language-specific.  */
 
 static bool
-gnat_init ()
+gnat_init (void)
 {
   /* Performs whatever initialization steps needed by the language-dependent
      lexical analyzer.  */
@@ -396,7 +403,7 @@ gnat_finish_incomplete_decl (tree dont_care ATTRIBUTE_UNUSED)
    objects.  */
 
 void
-gnat_compute_largest_alignment ()
+gnat_compute_largest_alignment (void)
 {
   enum machine_mode mode;
 
@@ -413,7 +420,7 @@ gnat_compute_largest_alignment ()
    various language dependent hooks.  */
 
 void
-gnat_init_gcc_eh ()
+gnat_init_gcc_eh (void)
 {
   /* We shouldn't do anything if the No_Exceptions_Handler pragma is set,
      though. This could for instance lead to the emission of tables with
@@ -429,6 +436,7 @@ gnat_init_gcc_eh ()
   using_eh_for_cleanups ();
 
   eh_personality_libfunc = init_one_libfunc ("__gnat_eh_personality");
+  default_init_unwind_resume_libfunc ();
   lang_eh_type_covers = gnat_eh_type_covers;
   lang_eh_runtime_type = gnat_eh_runtime_type;
 
@@ -524,12 +532,18 @@ gnat_print_type (FILE *file, tree node, int indent)
 }
 
 static const char *
-gnat_printable_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
+gnat_printable_name (tree decl, int verbosity)
 {
   const char *coded_name = IDENTIFIER_POINTER (DECL_NAME (decl));
   char *ada_name = (char *) ggc_alloc (strlen (coded_name) * 2 + 60);
 
   __gnat_decode (coded_name, ada_name, 0);
+
+  if (verbosity == 2)
+    {
+      Set_Identifier_Casing (ada_name, (char *) DECL_SOURCE_FILE (decl));
+      ada_name = Name_Buffer;
+    }
 
   return (const char *) ada_name;
 }
@@ -538,11 +552,19 @@ gnat_printable_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
    here are TRANSFORM_EXPR, ALLOCATE_EXPR, USE_EXPR and NULL_EXPR.  */
 
 static rtx
-gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
+gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
+		  int modifier, rtx *alt_rtl)
 {
   tree type = TREE_TYPE (exp);
   tree new;
   rtx result;
+
+  /* If this is a statement, call the expansion routine for statements.  */
+  if (IS_STMT (exp))
+    {
+      gnat_expand_stmt (exp);
+      return const0_rtx;
+    }
 
   /* Update EXP to be the new expression to expand.  */
   switch (TREE_CODE (exp))
@@ -587,8 +609,8 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
       return target;
 
     case GNAT_NOP_EXPR:
-      return expand_expr (build1 (NOP_EXPR, type, TREE_OPERAND (exp, 0)),
-			  target, tmode, modifier);
+      return expand_expr_real (build1 (NOP_EXPR, type, TREE_OPERAND (exp, 0)),
+			       target, tmode, modifier, alt_rtl);
 
     case UNCONSTRAINED_ARRAY_REF:
       /* If we are evaluating just for side-effects, just evaluate our
@@ -604,7 +626,7 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
       gigi_abort (201);
     }
 
-  return expand_expr (new, target, tmode, modifier);
+  return expand_expr_real (new, target, tmode, modifier, alt_rtl);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been
@@ -699,7 +721,7 @@ static int
 gnat_eh_type_covers (tree a, tree b)
 {
   /* a catches b if they represent the same exception id or if a
-     is an "others". 
+     is an "others".
 
      ??? integer_zero_node for "others" is hardwired in too many places
      currently.  */
@@ -843,7 +865,7 @@ default_pass_by_ref (tree gnu_type)
 {
   CUMULATIVE_ARGS cum;
 
-  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0, 2);
 
   /* We pass aggregates by reference if they are sufficiently large.  The
      choice of constant here is somewhat arbitrary.  We also pass by
@@ -879,3 +901,108 @@ must_pass_by_ref (tree gnu_type)
 	  || (TYPE_SIZE (gnu_type) != 0
 	      && TREE_CODE (TYPE_SIZE (gnu_type)) != INTEGER_CST));
 }
+
+/* This function is called by the front end to enumerate all the supported
+   modes for the machine.  We pass a function which is called back with
+   the following integer parameters:
+
+   FLOAT_P	nonzero if this represents a floating-point mode
+   COMPLEX_P	nonzero is this represents a complex mode
+   COUNT	count of number of items, nonzero for vector mode
+   PRECISION	number of bits in data representation
+   MANTISSA	number of bits in mantissa, if FP and known, else zero.
+   SIZE		number of bits used to store data
+   ALIGN	number of bits to which mode is aligned.  */
+
+void
+enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
+{
+  enum machine_mode i;
+
+  for (i = 0; i < NUM_MACHINE_MODES; i++)
+    {
+      enum machine_mode j;
+      bool float_p = 0;
+      bool complex_p = 0;
+      bool vector_p = 0;
+      bool skip_p = 0;
+      int mantissa = 0;
+      enum machine_mode inner_mode = i;
+
+      switch (GET_MODE_CLASS (i))
+	{
+	case MODE_INT:
+	  break;
+	case MODE_FLOAT:
+	  float_p = 1;
+	  break;
+	case MODE_COMPLEX_INT:
+	  complex_p = 1;
+	  inner_mode = GET_MODE_INNER (i);
+	  break;
+	case MODE_COMPLEX_FLOAT:
+	  float_p = 1;
+	  complex_p = 1;
+	  inner_mode = GET_MODE_INNER (i);
+	  break;
+	case MODE_VECTOR_INT:
+	  vector_p = 1;
+	  inner_mode = GET_MODE_INNER (i);
+	  break;
+	case MODE_VECTOR_FLOAT:
+	  float_p = 1;
+	  vector_p = 1;
+	  inner_mode = GET_MODE_INNER (i);
+	  break;
+	default:
+	  skip_p = 1;
+	}
+
+      /* Skip this mode if it's one the front end doesn't need to know about
+	 (e.g., the CC modes) or if there is no add insn for that mode (or
+	 any wider mode), meaning it is not supported by the hardware.  If
+	 this a complex or vector mode, we care about the inner mode.  */
+      for (j = inner_mode; j != VOIDmode; j = GET_MODE_WIDER_MODE (j))
+	if (add_optab->handlers[j].insn_code != CODE_FOR_nothing)
+	  break;
+
+      if (float_p)
+	{
+	  const struct real_format *fmt = REAL_MODE_FORMAT (inner_mode);
+
+	  mantissa = fmt->p * fmt->log2_b;
+	}
+
+      if (!skip_p && j != VOIDmode)
+	(*f) (float_p, complex_p, vector_p ? GET_MODE_NUNITS (i) : 0,
+	      GET_MODE_BITSIZE (i), mantissa,
+	      GET_MODE_SIZE (i) * BITS_PER_UNIT, GET_MODE_ALIGNMENT (i));
+    }
+}
+
+int
+fp_prec_to_size (int prec)
+{
+  enum machine_mode mode;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_PRECISION (mode) == prec)
+      return GET_MODE_BITSIZE (mode);
+
+  abort ();
+}
+
+int
+fp_size_to_prec (int size)
+{
+  enum machine_mode mode;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_BITSIZE (mode) == size)
+      return GET_MODE_PRECISION (mode);
+
+  abort ();
+}
+

@@ -57,6 +57,30 @@ extern enum debug_info_level debug_info_level;
    debugging information.  */
 extern bool use_gnu_debug_info_extensions;
 
+/* Enumerate visibility settings.  */
+#ifndef SYMBOL_VISIBILITY_DEFINED
+#define SYMBOL_VISIBILITY_DEFINED
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
+#endif
+
+/* The default visibility for all symbols (unless overridden).  */
+extern enum symbol_visibility default_visibility;
+
+struct visibility_flags
+{
+  unsigned inpragma : 1;	/* True when in #pragma GCC visibility.  */
+  unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
+};
+
+/* Global visibility options.  */
+extern struct visibility_flags visibility_options;
+
 /* Nonzero means emit debugging information only for symbols which are used.  */
 extern int flag_debug_only_used_symbols;
 
@@ -239,7 +263,8 @@ extern int flag_print_asm_name;
 
 extern int flag_signed_char;
 
-/* Nonzero means give an enum type only as many bytes as it needs.  */
+/* Nonzero means give an enum type only as many bytes as it needs.  A value
+   of 2 means it has not yet been initialized.  */
 
 extern int flag_short_enums;
 
@@ -549,10 +574,6 @@ extern int flag_dump_rtl_in_asm;
    in generated assembly code.  */
 extern int flag_leading_underscore;
 
-/* -fgnu-linker specifies use of the GNU linker for initializations.
-   -fno-gnu-linker says that collect will be used.  */
-extern int flag_gnu_linker;
-
 /* Tag all structures with __attribute__(packed) */
 extern int flag_pack_struct;
 
@@ -727,6 +748,27 @@ extern int flag_remove_unreachable_functions;
    to make it really random.  */
 
 extern const char *flag_random_seed;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the 
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+extern int flag_abi_version;
+
+/* Returns TRUE if generated code should match ABI version N or
+   greater is in use.  */
+
+#define abi_version_at_least(N) \
+  (flag_abi_version == 0 || flag_abi_version >= (N))
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

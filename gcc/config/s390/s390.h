@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -114,9 +115,9 @@ extern int target_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x33
+#define TARGET_DEFAULT             0x31
 #else
-#define TARGET_DEFAULT             0x3
+#define TARGET_DEFAULT             0x1
 #endif
 
 #define TARGET_SWITCHES                                                  \
@@ -209,9 +210,8 @@ extern int target_flags;
 /* Function arguments and return values are promoted to word size.  */
 #define PROMOTE_FUNCTION_ARGS
 #define PROMOTE_FUNCTION_RETURN
-#define PROMOTE_FOR_CALL_ONLY
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)		\
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)		\
 if (INTEGRAL_MODE_P (MODE) &&	        	    	\
     GET_MODE_SIZE (MODE) < UNITS_PER_WORD) { 		\
   (MODE) = Pmode;					\
@@ -313,7 +313,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
    GPRs 6-15 are always call-saved.
    GPR 12 is fixed if used as GOT pointer.
    GPR 13 is always fixed (as literal pool pointer).
-   GPR 14 is always fixed (as return address).
+   GPR 14 is always fixed on S/390 machines (as return address).
    GPR 15 is always fixed (as stack pointer).
    The 'fake' hard registers are call-clobbered and fixed.
 
@@ -364,6 +364,11 @@ do								\
 	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       }								\
+    if (TARGET_CPU_ZARCH)					\
+      {								\
+	fixed_regs[RETURN_REGNUM] = 0;				\
+	call_used_regs[RETURN_REGNUM] = 0;			\
+      }								\
     if (TARGET_64BIT)						\
       {								\
         for (i = 24; i < 32; i++)				\
@@ -378,7 +383,7 @@ do								\
 
 /* Preferred register allocation order.  */
 #define REG_ALLOC_ORDER                                         \
-{  1, 2, 3, 4, 5, 0, 14, 13, 12, 11, 10, 9, 8, 7, 6,            \
+{  1, 2, 3, 4, 5, 0, 13, 12, 11, 10, 9, 8, 7, 6, 14,            \
    16, 17, 18, 19, 20, 21, 22, 23,                              \
    24, 25, 26, 27, 28, 29, 30, 31,                              \
    15, 32, 33, 34 }
@@ -531,21 +536,20 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
    (C) == 'd' ? GENERAL_REGS :                                          \
    (C) == 'f' ? FP_REGS : NO_REGS)
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C)                                 \
-  ((C) == 'I' ? (unsigned long) (VALUE) < 256 :                         \
-   (C) == 'J' ? (unsigned long) (VALUE) < 4096 :                        \
-   (C) == 'K' ? (VALUE) >= -32768 && (VALUE) < 32768 :                  \
-   (C) == 'L' ? (unsigned long) (VALUE) < 65536 : 0)
+#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)                          \
+  s390_const_ok_for_constraint_p ((VALUE), (C), (STR))
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  1
+#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)  1
 
-#define EXTRA_CONSTRAINT(OP, C)                               	\
-  s390_extra_constraint ((OP), (C))
+#define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
+  s390_extra_constraint_str ((OP), (C), (STR))
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
   ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
 #define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
   ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
+#define CONSTRAINT_LEN(C, STR)                                   \
+  ((C) == 'N' ? 5 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 
@@ -680,7 +684,7 @@ typedef struct s390_arg_structure
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN, N_NAMED_ARGS) \
   ((CUM).gprs=0, (CUM).fprs=0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)                    \
@@ -702,33 +706,14 @@ CUMULATIVE_ARGS;
 
 /* Scalar return values.  */
 
-/* We return scalars in general purpose register 2 for integral values,
-   and floating point register 0 for fp values.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)				\
-  gen_rtx_REG ((INTEGRAL_TYPE_P (VALTYPE)			\
-		&& TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-	       || POINTER_TYPE_P (VALTYPE)			\
-	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_HARD_FLOAT ? 16 : 2)
+#define FUNCTION_VALUE(VALTYPE, FUNC) \
+  s390_function_value ((VALTYPE), VOIDmode)
 
-/* Define how to find the value returned by a library function assuming
-   the value has mode MODE.  */
-#define RET_REG(MODE) ((GET_MODE_CLASS (MODE) == MODE_INT       \
-                       || TARGET_SOFT_FLOAT ) ? 2 : 16)
-#define LIBCALL_VALUE(MODE)  gen_rtx (REG, MODE, RET_REG (MODE))
+#define LIBCALL_VALUE(MODE) \
+  s390_function_value (NULL, (MODE))
 
 /* Only gpr 2 and fpr 0 are ever used as return registers.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 2 || (N) == 16)
-
-
-/* Aggregate return values.  */
-
-/* The definition of this macro implies that there are cases where
-   a scalar value cannot be returned in registers.  */
-#define RETURN_IN_MEMORY(type)       				\
-  (TYPE_MODE (type) == BLKmode || 				\
-   GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_INT  ||	\
-   GET_MODE_CLASS (TYPE_MODE (type)) == MODE_COMPLEX_FLOAT)
 
 /* Structure value address is passed as invisible first argument (gpr 2).  */
 #define STRUCT_VALUE 0
@@ -749,9 +734,6 @@ CUMULATIVE_ARGS;
 
 
 /* Implementing the varargs macros.  */
-
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = s390_build_va_list ()
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   s390_va_start (valist, nextarg)

@@ -17,10 +17,11 @@
 # Test the functionality of programs compiled with profile-directed block
 # ordering using -fprofile-arcs followed by -fbranch-probabilities.
 
+load_lib target-supports.exp
+
 # Some targets don't have any implementation of __bb_init_func or are
 # missing other needed machinery.
-if { [istarget mmix-*-*]
-     || [istarget cris-*-*] } {
+if { ![check_profiling_available "-fprofile-arcs"] } {
     return
 }
 

@@ -480,7 +480,10 @@ DEF_RTL_EXPR(DEFINE_AUTOMATON, "define_automaton", "s", 'x')
    o "w" which means generation of warning instead of error for
      non-critical errors.
 
-   o "ndfa" which makes nondeterministic finite state automata.  */
+   o "ndfa" which makes nondeterministic finite state automata.
+
+   o "progress" which means output of a progress bar showing how many
+     states were generated so far for automaton being processed.  */
 DEF_RTL_EXPR(AUTOMATA_OPTION, "automata_option", "s", 'x')
 
 /* (define_reservation string string) names reservation (the first
@@ -582,6 +585,10 @@ DEF_RTL_EXPR(SET_ATTR_ALTERNATIVE, "set_attr_alternative", "sE", 'x')
    attribute name and the second is the comparison value.  */
 DEF_RTL_EXPR(EQ_ATTR, "eq_attr", "ss", 'x')
 
+/* A special case of the above representing a set of alternatives.  The first
+   operand is bitmap of the set, the second one is the default value.  */
+DEF_RTL_EXPR(EQ_ATTR_ALT, "eq_attr_alt", "ii", 'x')
+
 /* A conditional expression which is true if the specified flag is
    true for the insn being scheduled in reorg.
 
@@ -621,17 +628,17 @@ DEF_RTL_EXPR(BARRIER, "barrier", "iuu000000", 'x')
 
 /* Holds a label that is followed by instructions.
    Operand:
-   5: is used in jump.c for the use-count of the label.
-   6: is used in flow.c to point to the chain of label_ref's to this label.
-   7: is a number that is unique in the entire compilation.
-   8: is the user-given name of the label, if any.  */
+   4: is used in jump.c for the use-count of the label.
+   5: is used in flow.c to point to the chain of label_ref's to this label.
+   6: is a number that is unique in the entire compilation.
+   7: is the user-given name of the label, if any.  */
 DEF_RTL_EXPR(CODE_LABEL, "code_label", "iuuB00is", 'x')
 
 /* Say where in the code a source line starts, for symbol table's sake.
    Operand:
-   5: filename, if line number > 0, note-specific data otherwise.
-   6: line number if > 0, enum note_insn otherwise.
-   7: unique number if line number == note_insn_deleted_label.  */
+   4: filename, if line number > 0, note-specific data otherwise.
+   5: line number if > 0, enum note_insn otherwise.
+   6: unique number if line number == note_insn_deleted_label.  */
 DEF_RTL_EXPR(NOTE, "note", "iuuB0ni", 'x')
 
 /* ----------------------------------------------------------------------
@@ -1207,20 +1214,6 @@ DEF_RTL_EXPR(SS_TRUNCATE, "ss_truncate", "e", '1')
 
 /* Unsigned saturating truncate.  */
 DEF_RTL_EXPR(US_TRUNCATE, "us_truncate", "e", '1')
-
-/* The SSA phi operator. 
-
-   The argument is a vector of 2N rtxes.  Element 2N+1 is a CONST_INT
-   containing the block number of the predecessor through which control
-   has passed when the register at element 2N is used.
-
-   Note that PHI may only appear at the beginning of a basic block.
-
-   ??? There may be multiple PHI insns, but they are all evaluated
-   in parallel.  This probably ought to be changed to use a real
-   PARALLEL, as that would be less confusing and more in the spirit
-   of canonical RTL.  It is, however, easier to manipulate this way.  */
-DEF_RTL_EXPR(PHI, "phi", "E", 'x')
 
 
 /*

@@ -1,3 +1,4 @@
+// { dg-do compile }
 // 2001-06-21  Benjamin Kosnik  <bkoz@redhat.com>
 
 // Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
@@ -48,9 +49,3 @@ void test01()
 
 // Make sure iterator can be instantiated.
 template class std::reverse_iterator<int*>;
-
-int main() 
-{ 
-  test01();
-  return 0;
-}

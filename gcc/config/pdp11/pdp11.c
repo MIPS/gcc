@@ -1,5 +1,5 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2004
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -148,7 +148,8 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
     int via_ac = -1;
 
     fprintf (stream,
-	     "\n\t;	/* function prologue %s*/\n", current_function_name);
+	     "\n\t;	/* function prologue %s*/\n",
+	     current_function_name ());
 
     /* if we are outputting code for main, 
        the switch FPU to right mode if TARGET_FPU */

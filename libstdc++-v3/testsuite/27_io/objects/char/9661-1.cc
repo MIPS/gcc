@@ -18,9 +18,6 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// XXX cygwin does not support mkfifo
-// { dg-do run { xfail *-*-cygwin* } }
-
 #include <testsuite_hooks.h>
 #include <cstdio>
 #include <iostream>
@@ -30,12 +27,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // Check that cin.rdbuf()->sputbackc() puts characters back to stdin.
 // If cin.rdbuf() is a filebuf, this succeeds when stdin is a regular
 // file, but fails otherwise, hence the named fifo.
 void test01()
 {
   using namespace std;
+  using namespace __gnu_test;
 
   bool test __attribute__((unused)) = true;
 
@@ -44,7 +47,7 @@ void test01()
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  mkfifo(name, S_IRWXU);
+  try_mkfifo(name, S_IRWXU);
   
   int child = fork();
   VERIFY( child != -1 );
@@ -52,7 +55,8 @@ void test01()
   if (child == 0)
     {
       sleep(1);
-      FILE* file = fopen(name, "w");
+      FILE* file = fopen(name, "r+");
+      VERIFY (file != NULL);
       fputs("Whatever\n", file);
       fflush(file);
       sleep(2);
@@ -86,3 +90,5 @@ int main()
   test01();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

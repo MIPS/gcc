@@ -23,9 +23,6 @@
 // various tests for filebuf::open() and filebuf::close() including
 // the non-portable functionality in the libstdc++-v3 IO library
 
-// XXX cygwin does not support mkfifo
-// { dg-do run { xfail *-*-cygwin* } }
-
 #include <fstream>
 #include <unistd.h>
 #include <signal.h>
@@ -34,10 +31,16 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // libstdc++/9964
 void test_07()
 {
   using namespace std;
+  using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
 
   const char* name = "tmp_fifo3";
@@ -45,7 +48,7 @@ void test_07()
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);  
-  mkfifo(name, S_IRWXU);
+  try_mkfifo(name, S_IRWXU);
   
   int child = fork();
   VERIFY( child != -1 );
@@ -61,7 +64,7 @@ void test_07()
   
   filebuf fb;
   sleep(1);
-  filebuf* ret = fb.open(name, ios_base::out | ios_base::trunc);
+  filebuf* ret = fb.open(name, ios_base::in | ios_base::out);
   VERIFY( ret != NULL );
   VERIFY( fb.is_open() );
 
@@ -69,7 +72,7 @@ void test_07()
   fb.sputc('a');
 
   ret = fb.close();
-  VERIFY( ret == NULL );
+  VERIFY( ret != NULL );
   VERIFY( !fb.is_open() );
 }
 
@@ -79,3 +82,5 @@ main()
   test_07();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

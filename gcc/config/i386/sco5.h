@@ -60,7 +60,6 @@ Boston, MA 02111-1307, USA.  */
 #define DBX_REGISTER_NUMBER(n)	svr4_dbx_register_map[n]
 
 #define DWARF2_DEBUGGING_INFO		1
-#define DWARF_DEBUGGING_INFO		1
 #define DBX_DEBUGGING_INFO		1
 
 #undef PREFERRED_DEBUGGING_TYPE
@@ -146,7 +145,7 @@ Boston, MA 02111-1307, USA.  */
    assume that /usr/gnu is the prefix for the GNU tools, because thats
    where the SCO provided ones go. This is especially important for
    include and library search path ordering. We want to look in /usr/gnu
-   first, becuase frequently people are linking against -lintl, and they
+   first because frequently people are linking against -lintl, and they
    MEAN to link with gettext. What they get is the SCO intl library. Its
    a REAL pity that GNU gettext chose that name; perhaps in a future
    version they can be persuaded to change it to -lgnuintl and have a

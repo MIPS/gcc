@@ -66,7 +66,7 @@ diagnostic_context *global_dc = &global_diagnostic_context;
 #define bug_report_request \
 "Please submit a full bug report,\n\
 with preprocessed source if appropriate.\n\
-See %s for instructions.\n"
+Send email to %s for instructions.\n"
 
 
 /* Return a malloc'd string containing MSG formatted a la printf.  The

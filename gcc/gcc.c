@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -73,6 +73,7 @@ compilation is specified by a string called a "spec".  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "multilib.h" /* before tm.h */
 #include "tm.h"
 #include <signal.h>
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
@@ -339,7 +340,7 @@ static void display_help (void);
 static void add_preprocessor_option (const char *, int);
 static void add_assembler_option (const char *, int);
 static void add_linker_option (const char *, int);
-static void process_command (int, const char *const *);
+static void process_command (int, const char **);
 static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
@@ -676,7 +677,7 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs:-lgcov}\
+    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
@@ -765,7 +766,7 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- -auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}\
+ %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
@@ -791,7 +792,6 @@ static const char *multilib_select;
 static const char *multilib_matches;
 static const char *multilib_defaults;
 static const char *multilib_exclusions;
-#include "multilib.h"
 
 /* Check whether a particular argument is a default argument.  */
 
@@ -1531,6 +1531,12 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
+#ifdef HAVE_LD_AS_NEEDED
+		"%{!shared-libgcc:", static_name,
+		" --as-needed ", shared_name, " --no-as-needed}"
+		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
+		"}",
+#else
 		"%{!shared:%{!shared-libgcc:", static_name, " ",
 		eh_name, "}%{shared-libgcc:", shared_name, " ",
 		static_name, "}}%{shared:",
@@ -1539,6 +1545,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		"}%{!shared-libgcc:", static_name, "}",
 #else
 		shared_name,
+#endif
 #endif
 		"}}}", NULL);
 
@@ -1633,12 +1640,14 @@ init_spec (void)
 #else
 			    "-lgcc_s%M"
 #endif
+			    ,
+			    "-lgcc",
+			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
 			    " -lunwind"
 #endif
-			    ,
-			    "-lgcc",
-			    "-lgcc_eh");
+			    );
+
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1654,7 +1663,11 @@ init_spec (void)
 #endif
 			    ,
 			    "libgcc.a%s",
-			    "libgcc_eh.a%s");
+			    "libgcc_eh.a%s"
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
+			    );
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -2678,7 +2691,14 @@ execute (void)
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
-	return 0;
+        {
+	  /* verbose_only_flag should act as if the spec was
+	     executed, so increment execution_count before
+	     returning.  This prevents spurious warnings about
+	     unused linker input files, etc.  */
+	  execution_count++;
+	  return 0;
+        }
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -2809,7 +2829,7 @@ execute (void)
 		    fatal ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
-See %s for instructions.",
+Send email to %s for instructions.",
 			   strsignal (WTERMSIG (status)), commands[j].prog,
 			   bug_report_url);
 		  signal_count++;
@@ -3061,7 +3081,7 @@ add_linker_option (const char *option, int len)
    Store its length in `n_switches'.  */
 
 static void
-process_command (int argc, const char *const *argv)
+process_command (int argc, const char **argv)
 {
   int i;
   const char *temp;
@@ -3299,10 +3319,10 @@ process_command (int argc, const char *const *argv)
     }
 
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, &argv);
+  translate_options (&argc, (const char *const **) &argv);
 
   /* Do language-specific adjustment/addition of flags.  */
-  lang_specific_driver (&argc, &argv, &added_libraries);
+  lang_specific_driver (&argc, (const char *const **) &argv, &added_libraries);
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
@@ -3334,8 +3354,8 @@ process_command (int argc, const char *const *argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"),
-		 stdout);
+	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 		 stdout);
@@ -4082,29 +4102,41 @@ set_collect_gcc_options (void)
       if (switches[i].live_cond == SWITCH_IGNORE)
 	continue;
 
-      obstack_grow (&collect_obstack, "'-", 2);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define QUOTE_STR "\""
+#define QUOTE_CHAR '"'
+#define QUOTED_QUOTE_STR "\"\\\"\""
+#else
+#define QUOTE_STR "\'"
+#define QUOTE_CHAR '\''
+#define QUOTED_QUOTE_STR "'\\''"
+#endif
+
+      obstack_grow (&collect_obstack, QUOTE_STR "-", 2);
       q = switches[i].part1;
-      while ((p = strchr (q, '\'')))
+      while ((p = strchr (q, QUOTE_CHAR)))
 	{
 	  obstack_grow (&collect_obstack, q, p - q);
-	  obstack_grow (&collect_obstack, "'\\''", 4);
+	  obstack_grow (&collect_obstack, QUOTED_QUOTE_STR, 
+			strlen (QUOTED_QUOTE_STR));
 	  q = ++p;
 	}
       obstack_grow (&collect_obstack, q, strlen (q));
-      obstack_grow (&collect_obstack, "'", 1);
+      obstack_grow (&collect_obstack, QUOTE_STR, 1);
 
       for (args = switches[i].args; args && *args; args++)
 	{
-	  obstack_grow (&collect_obstack, " '", 2);
+	  obstack_grow (&collect_obstack, " " QUOTE_STR, 2);
 	  q = *args;
-	  while ((p = strchr (q, '\'')))
+	  while ((p = strchr (q, QUOTE_CHAR)))
 	    {
 	      obstack_grow (&collect_obstack, q, p - q);
-	      obstack_grow (&collect_obstack, "'\\''", 4);
+	      obstack_grow (&collect_obstack, QUOTED_QUOTE_STR,
+			    strlen (QUOTED_QUOTE_STR));
 	      q = ++p;
 	    }
 	  obstack_grow (&collect_obstack, q, strlen (q));
-	  obstack_grow (&collect_obstack, "'", 1);
+	  obstack_grow (&collect_obstack, QUOTE_STR, 1);
 	}
     }
   obstack_grow (&collect_obstack, "\0", 1);
@@ -5889,10 +5921,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char *const *);
+extern int main (int, const char **);
 
 int
-main (int argc, const char *const *argv)
+main (int argc, const char **argv)
 {
   size_t i;
   int value;

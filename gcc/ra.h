@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -569,8 +569,8 @@ extern int flag_ra_spill_every_use;
 /* Nonzero to output all notes in the debug dumps.  */
 extern int flag_ra_dump_notes;
 
-extern inline void * ra_alloc (size_t);
-extern inline void * ra_calloc (size_t);
+extern void * ra_alloc (size_t);
+extern void * ra_calloc (size_t);
 extern int hard_regs_count (HARD_REG_SET);
 extern rtx ra_emit_move_insn (rtx, rtx);
 extern void ra_debug_msg (unsigned int, const char *, ...) ATTRIBUTE_PRINTF_2;

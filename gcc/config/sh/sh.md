@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
-;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
-;;  Free Software Foundation, Inc.
+;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+;;  2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -622,12 +622,16 @@
 ;; Say that we have annulled true branches, since this gives smaller and
 ;; faster code when branches are predicted as not taken.
 
+;; ??? The non-annulled condition should really be "in_delay_slot",
+;; but insns that can be filled in non-annulled get priority over insns
+;; that can only be filled in anulled.
+
 (define_delay
   (and (eq_attr "type" "cbranch")
        (ne (symbol_ref "TARGET_SH2") (const_int 0)))
   ;; SH2e has a hardware bug that pretty much prohibits the use of
   ;; annuled delay slots.
-  [(eq_attr "in_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
+  [(eq_attr "cond_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
 					(not (eq_attr "cpu" "sh2e"))) (nil)])
 
 ;; -------------------------------------------------------------------------
@@ -705,11 +709,14 @@
 
 (define_expand "cmpsi"
   [(set (reg:SI T_REG)
-	(compare (match_operand:SI 0 "arith_operand" "")
+	(compare (match_operand:SI 0 "cmpsi_operand" "")
 		 (match_operand:SI 1 "arith_operand" "")))]
   "TARGET_SH1"
   "
 {
+  if (GET_CODE (operands[0]) == REG && REGNO (operands[0]) == T_REG
+      && GET_CODE (operands[1]) != CONST_INT)
+    operands[0] = copy_to_mode_reg (SImode, operands[0]);
   sh_compare_op0 = operands[0];
   sh_compare_op1 = operands[1];
   DONE;
@@ -1167,7 +1174,9 @@
 			    (match_operand:SI 2 "arith_reg_operand" "r"))
 		  (reg:SI T_REG)))
    (set (reg:SI T_REG)
-	(gtu:SI (minus:SI (match_dup 1) (match_dup 2)) (match_dup 1)))]
+	(gtu:SI (minus:SI (minus:SI (match_dup 1) (match_dup 2))
+			  (reg:SI T_REG))
+		(match_dup 1)))]
   "TARGET_SH1"
   "subc	%2,%0"
   [(set_attr "type" "arith")])
@@ -1240,7 +1249,7 @@
 (define_insn "use_sfunc_addr"
   [(set (reg:SI PR_REG)
 	(unspec:SI [(match_operand:SI 0 "register_operand" "r")] UNSPEC_SFUNC))]
-  "TARGET_SH1"
+  "TARGET_SH1 && check_use_sfunc_addr (insn, operands[0])"
   ""
   [(set_attr "length" "0")])
 
@@ -2189,7 +2198,7 @@
 	parts[0] = gen_reg_rtx (SImode);
 	parts[1] = gen_reg_rtx (SImode);
 	emit_insn (gen_rotlsi3_16 (parts[2-choice], operands[1]));
-	parts[choice-1] = operands[1];
+	emit_move_insn (parts[choice-1], operands[1]);
 	emit_insn (gen_ashlsi3 (parts[0], parts[0], GEN_INT (8)));
 	emit_insn (gen_lshrsi3 (parts[1], parts[1], GEN_INT (8)));
 	emit_insn (gen_iorsi3 (operands[0], parts[0], parts[1]));
@@ -3163,7 +3172,7 @@
 
 (define_expand "extendhisi2"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-       (sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
+	(sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
   ""
   "")
 
@@ -3173,7 +3182,7 @@
   "TARGET_SH1"
   "@
 	exts.w	%1,%0
-   	mov.w	%1,%0"
+	mov.w	%1,%0"
   [(set_attr "type" "arith,load")])
 
 (define_insn "*extendhisi2_media"
@@ -3277,7 +3286,7 @@
 	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
   "TARGET_SHMEDIA"
   "@
-	and	%1, 255, %0
+	andi	%1, 255, %0
 	st%M0.b	%m0, %1"
   [(set_attr "type"   "arith_media,store")])
 
@@ -4395,7 +4404,7 @@
   [(set (match_operand:SF 0 "register_operand" "")
 	(match_operand:SF 1 "register_operand" ""))
    (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "X"))]
+   (clobber (match_scratch:SI 3 ""))]
   "TARGET_SH2E && reload_completed
    && true_regnum (operands[0]) == true_regnum (operands[1])"
   [(set (match_dup 0) (match_dup 0))]
@@ -4406,7 +4415,7 @@
   [(set (match_operand:DF 0 "register_operand" "")
 	(match_operand:DF 1 "register_operand" ""))
    (use (match_operand:PSI 2 "fpscr_operand" ""))
-   (clobber (match_scratch:SI 3 "X"))]
+   (clobber (match_scratch:SI 3 ""))]
   "TARGET_SH4 && ! TARGET_FMOVD && reload_completed
    && FP_OR_XD_REGISTER_P (true_regnum (operands[0]))
    && FP_OR_XD_REGISTER_P (true_regnum (operands[1]))"
@@ -4801,7 +4810,7 @@
 					i * GET_MODE_SIZE (V2SFmode)));
       else
 	{
-	  x = gen_rtx_SUBREG (V2SFmode, operands[0], i * 2);
+	  x = gen_rtx_SUBREG (V2SFmode, operands[0], i * 8);
 	  alter_subreg (&x);
 	}
 
@@ -4811,7 +4820,7 @@
 					i * GET_MODE_SIZE (V2SFmode)));
       else
 	{
-	  y = gen_rtx_SUBREG (V2SFmode, operands[1], i * 2);
+	  y = gen_rtx_SUBREG (V2SFmode, operands[1], i * 8);
 	  alter_subreg (&y);
 	}
 
@@ -6462,7 +6471,7 @@
   ""
   "
 {
-  sh_expand_epilogue ();
+  sh_expand_epilogue (1);
   if (TARGET_SHCOMPACT)
     {
       rtx insn, set;
@@ -6858,8 +6867,9 @@
 
 (define_insn "tls_global_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(unspec:SI [(match_operand:SI 1 "" "")]
-		    UNSPEC_TLSGD))
+	(call (unspec:SI [(match_operand:SI 1 "" "")]
+			  UNSPEC_TLSGD)
+	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
@@ -6886,8 +6896,9 @@ mov.l\\t1f,r4\\n\\
 
 (define_insn "tls_local_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(unspec:SI [(match_operand:SI 1 "" "")]
-		    UNSPEC_TLSLDM))
+	(call (unspec:SI [(match_operand:SI 1 "" "")]
+			  UNSPEC_TLSLDM)
+	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
@@ -7103,7 +7114,7 @@ mov.l\\t1f,r0\\n\\
 	      (clobber (match_dup 3))])]
   "if (GET_CODE (operands[2]) == CODE_LABEL) LABEL_NUSES (operands[2])++;")
 
-(define_insn "*casesi_worker"
+(define_insn "casesi_worker_1"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(unspec:SI [(reg:SI R0_REG)
 		    (match_operand:SI 1 "register_operand" "0,r")
@@ -7132,6 +7143,44 @@ mov.l\\t1f,r0\\n\\
     }
 }"
   [(set_attr "length" "4")])
+
+(define_insn "casesi_worker_2"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(unspec:SI [(reg:SI R0_REG)
+		    (match_operand:SI 1 "register_operand" "0,r")
+		    (label_ref (match_operand 2 "" ""))
+		    (label_ref (match_operand 3 "" ""))] UNSPEC_CASESI))
+   (clobber (match_operand:SI 4 "" "=X,1"))]
+  "TARGET_SH2 && reload_completed && flag_pic"
+  "*
+{
+  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  char *load;
+
+  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
+    abort ();
+
+  switch (GET_MODE (diff_vec))
+    {
+    case SImode:
+      output_asm_insn (\"shll2    %1\", operands);
+      load = \"mov.l	@(r0,%1),%0\"; break;
+    case HImode:
+      output_asm_insn (\"add	%1,%1\", operands);
+      load = \"mov.w	@(r0,%1),%0\"; break;
+    case QImode:
+      if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
+	load = \"mov.b	@(r0,%1),%0\;extu.b	%0,%0\";
+      else
+	load = \"mov.b	@(r0,%1),%0\";
+      break;
+    default:
+      abort ();
+    }
+  output_asm_insn (\"add\tr0,%1\;mova\t%O3,r0\\n\", operands);
+  return load;
+}"
+  [(set_attr "length" "8")])
 
 (define_insn "casesi_shift_media"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -7341,7 +7390,7 @@ mov.l\\t1f,r0\\n\\
   ""
   "
 {
-  sh_expand_epilogue ();
+  sh_expand_epilogue (0);
   emit_jump_insn (gen_return ());
   DONE;
 }")
@@ -7446,6 +7495,10 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (sh_expand_t_scc (EQ, operands[0]))
+    DONE;
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (EQ);
 }")
 
@@ -7492,6 +7545,8 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LT);
 }")
 
@@ -7594,6 +7649,8 @@ mov.l\\t1f,r0\\n\\
 	}
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GT);
 }")
 
@@ -7646,6 +7703,8 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   if (GET_MODE_CLASS (GET_MODE (sh_compare_op0)) == MODE_FLOAT)
     {
       if (TARGET_IEEE)
@@ -7685,6 +7744,8 @@ mov.l\\t1f,r0\\n\\
 				     sh_compare_op0, sh_compare_op1));
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GTU);
 }")
 
@@ -7709,6 +7770,8 @@ mov.l\\t1f,r0\\n\\
 				     sh_compare_op1, sh_compare_op0));
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LTU);
 }")
 
@@ -7738,6 +7801,8 @@ mov.l\\t1f,r0\\n\\
 
       DONE;
     }
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (LEU);
 }")
 
@@ -7768,6 +7833,8 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
+  if (! rtx_equal_function_value_matters)
+    FAIL;
   operands[1] = prepare_scc_operands (GEU);
 }")
 
@@ -7815,8 +7882,12 @@ mov.l\\t1f,r0\\n\\
       DONE;
     }
 
-   operands[1] = prepare_scc_operands (EQ);
-   operands[2] = gen_reg_rtx (SImode);
+  if (sh_expand_t_scc (NE, operands[0]))
+    DONE;
+  if (! rtx_equal_function_value_matters)
+    FAIL;
+  operands[1] = prepare_scc_operands (EQ);
+  operands[2] = gen_reg_rtx (SImode);
 }")
 
 (define_expand "sunordered"
@@ -9450,9 +9521,10 @@ mov.l\\t1f,r0\\n\\
   if (unit_size < 2)
     {
       if (GET_CODE (operands[1]) == CONST_INT && GET_CODE (elt1) == CONST_INT)
-	operands[1] = GEN_INT (TARGET_LITTLE_ENDIAN
-			       ? INTVAL (operands[1]) + (INTVAL (elt1) << 8)
-			       : (INTVAL (operands[1]) << 8) + INTVAL (elt1));
+	operands[1]
+	  = GEN_INT (TARGET_LITTLE_ENDIAN
+		     ? (INTVAL (operands[1]) & 0xff) + (INTVAL (elt1) << 8)
+		     : (INTVAL (operands[1]) << 8) + (INTVAL (elt1) & 0xff));
       else
 	{
 	  operands[0] = gen_rtx_REG (V2QImode, true_regnum (operands[0]));
@@ -10560,7 +10632,7 @@ mov.l\\t1f,r0\\n\\
 			  (vec_select:SF (mult:V4SF (match_dup 1) (match_dup 2))
 					 (parallel [(const_int 3)])))))]
   "TARGET_SHMEDIA"
-  "fipr	%1, %2, %0"
+  "fipr.s	%1, %2, %0"
   [(set_attr "type" "fparith_media")])
 
 (define_insn "fsrra_s"
@@ -10586,7 +10658,7 @@ mov.l\\t1f,r0\\n\\
 				       (const_int 14) (const_int 3)]))
 	   (vec_select:V4SF (match_dup 2)
 			    (parallel [(const_int 1) (const_int 2)
-				      (const_int 3) (const_int 0)]))))
+				       (const_int 3) (const_int 0)]))))
 	 (plus:V4SF
 	  (mult:V4SF
 	   (vec_select:V4SF (match_dup 1)
@@ -10603,7 +10675,7 @@ mov.l\\t1f,r0\\n\\
 			    (parallel [(const_int 3) (const_int 0)
 				       (const_int 1) (const_int 2)]))))))]
   "TARGET_SHMEDIA"
-  "ftrv %1, %2, %0"
+  "ftrv.s %1, %2, %0"
   [(set_attr "type" "fparith_media")])
 
 (define_insn "nsb"
@@ -10688,6 +10760,19 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA"
   "byterev	%1, %0"
   [(set_attr "type" "arith_media")])
+
+(define_insn "prefetch"
+  [(prefetch (match_operand:QI 0 "address_operand" "p")
+             (match_operand:SI 1 "const_int_operand" "n")
+             (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_SHMEDIA"
+  "*
+{
+  operands[0] = gen_rtx_MEM (QImode, operands[0]);
+  output_asm_insn (\"ld%M0.b    %m0,r63\", operands);
+  return \"\";
+}"
+  [(set_attr "type" "other")])
 
 ;; The following description  models the
 ;; SH4 pipeline using the DFA based scheduler.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -115,15 +115,7 @@ _mm_set_pd1 (double __F)
 static __inline __m128d
 _mm_set_pd (double __Z, double __Y)
 {
-  union {
-    double __a[2];
-    __m128d __v;
-  } __u;
-
-  __u.__a[0] = __Y;
-  __u.__a[1] = __Z;
-
-  return __u.__v;
+  return (__v2df) {__Y, __Z};
 }
 
 /* Create the vector [Y Z].  */

@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -223,18 +223,33 @@ extern varray_type varray_grow (varray_type, size_t);
 
 extern void varray_clear (varray_type);
 
+extern void dump_varray_statistics (void);
+
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
 extern void varray_check_failed (varray_type, size_t, const char *, int,
 				 const char *) ATTRIBUTE_NORETURN;
+extern void varray_underflow (varray_type, const char *, int, const char *)
+     ATTRIBUTE_NORETURN;
 #define VARRAY_CHECK(VA, N, T) __extension__			\
 (*({ varray_type const _va = (VA);				\
      const size_t _n = (N);					\
      if (_n >= _va->num_elements)				\
        varray_check_failed (_va, _n, __FILE__, __LINE__, __FUNCTION__);	\
      &_va->data.T[_n]; }))
+
+#define VARRAY_POP(VA) do {					\
+  varray_type const _va = (VA);					\
+  if (_va->elements_used == 0)					\
+    varray_underflow (_va, __FILE__, __LINE__, __FUNCTION__);	\
+  else								\
+    _va->elements_used--;					\
+} while (0)
+
 #else
 #define VARRAY_CHECK(VA, N, T) ((VA)->data.T[N])
+/* Pop the top element of VA.  */
+#define VARRAY_POP(VA) do { ((VA)->elements_used--); } while (0)
 #endif
 
 /* Push X onto VA.  T is the name of the field in varray_data
@@ -247,14 +262,6 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
       (VA)->data.T[(VA)->elements_used++] = (X);	\
     }							\
   while (0)
-
-/* Pop the top element of VA.  */
-#define VARRAY_POP(VA) \
-  ((VA)->elements_used--)
-
-/* Return the top element of VA.  */
-#define VARRAY_TOP(VA, T) \
-  ((VA)->data.T[(VA)->elements_used - 1])
 
 #define VARRAY_CHAR(VA, N)		VARRAY_CHECK (VA, N, c)
 #define VARRAY_UCHAR(VA, N)		VARRAY_CHECK (VA, N, uc)
@@ -299,6 +306,8 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
 
 /* Return the last element of VA.  */
+#define VARRAY_TOP(VA, T) VARRAY_CHECK(VA, (VA)->elements_used - 1, T)
+
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
 #define VARRAY_TOP_UCHAR(VA)	        VARRAY_TOP (VA, uc)
 #define VARRAY_TOP_SHORT(VA)	        VARRAY_TOP (VA, s)

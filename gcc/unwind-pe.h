@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -30,6 +30,9 @@
 /* @@@ Really this should be out of line, but this also causes link
    compatibility problems with the base ABI.  This is slightly better
    than duplicating code, however.  */
+
+#ifndef GCC_UNWIND_PE_H
+#define GCC_UNWIND_PE_H
 
 /* If using C++, references to abort have to be qualified with std::.  */
 #if __cplusplus
@@ -137,7 +140,7 @@ read_uleb128 (const unsigned char *p, _Unwind_Word *val)
   do
     {
       byte = *p++;
-      result |= (byte & 0x7f) << shift;
+      result |= ((_Unwind_Word)byte & 0x7f) << shift;
       shift += 7;
     }
   while (byte & 0x80);
@@ -159,14 +162,14 @@ read_sleb128 (const unsigned char *p, _Unwind_Sword *val)
   do
     {
       byte = *p++;
-      result |= (byte & 0x7f) << shift;
+      result |= ((_Unwind_Word)byte & 0x7f) << shift;
       shift += 7;
     }
   while (byte & 0x80);
 
   /* Sign-extend a negative value.  */
   if (shift < 8 * sizeof(result) && (byte & 0x40) != 0)
-    result |= -(1L << shift);
+    result |= -(((_Unwind_Word)1L) << shift);
 
   *val = (_Unwind_Sword) result;
   return p;
@@ -199,7 +202,7 @@ read_encoded_value_with_base (unsigned char encoding, _Unwind_Ptr base,
       _Unwind_Internal_Ptr a = (_Unwind_Internal_Ptr) p;
       a = (a + sizeof (void *) - 1) & - sizeof(void *);
       result = *(_Unwind_Internal_Ptr *) a;
-      p = (const unsigned char *) (a + sizeof (void *));
+      p = (const unsigned char *) (_Unwind_Internal_Ptr) (a + sizeof (void *));
     }
   else
     {
@@ -284,3 +287,5 @@ read_encoded_value (struct _Unwind_Context *context, unsigned char encoding,
 }
 
 #endif
+
+#endif /* unwind-pe.h */

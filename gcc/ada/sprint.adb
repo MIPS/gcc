@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,7 @@ package body Sprint is
 
    Dump_Generated_Only : Boolean;
    --  Set True if the -gnatG (dump generated tree) debug flag is set
-   --  or for Print_Generated_Code (-gnatG) or Dump_Gnerated_Code (-gnatD).
+   --  or for Print_Generated_Code (-gnatG) or Dump_Generated_Code (-gnatD).
 
    Dump_Freeze_Null : Boolean;
    --  Set True if freeze nodes and non-source null statements output
@@ -90,7 +90,7 @@ package body Sprint is
    --  with a lower precedence than the operator (or equal precedence if
    --  appearing as the right operand), then parentheses are required.
 
-   Op_Prec : array (N_Subexpr) of Short_Short_Integer :=
+   Op_Prec : constant array (N_Subexpr) of Short_Short_Integer :=
                (N_Op_And          => 1,
                 N_Op_Or           => 1,
                 N_Op_Xor          => 1,
@@ -928,7 +928,14 @@ package body Sprint is
             Set_Debug_Sloc;
             Sprint_Bar_List (Choices (Node));
             Write_Str (" => ");
-            Sprint_Node (Expression (Node));
+
+            --  Ada0Y (AI-287): Print the mbox if present
+
+            if Box_Present (Node) then
+               Write_Str_With_Col_Check ("<>");
+            else
+               Sprint_Node (Expression (Node));
+            end if;
 
          when N_Component_Clause =>
             Write_Indent;
@@ -942,15 +949,19 @@ package body Sprint is
             Sprint_Node (Last_Bit (Node));
             Write_Char (';');
 
+         when N_Component_Definition =>
+            Set_Debug_Sloc;
+
+            if Aliased_Present (Node) then
+               Write_Str_With_Col_Check ("aliased ");
+            end if;
+
+            Sprint_Node (Subtype_Indication (Node));
+
          when N_Component_Declaration =>
             if Write_Indent_Identifiers_Sloc (Node) then
                Write_Str (" : ");
-
-               if Aliased_Present (Node) then
-                  Write_Str_With_Col_Check ("aliased ");
-               end if;
-
-               Sprint_Node (Subtype_Indication (Node));
+               Sprint_Node (Component_Definition (Node));
 
                if Present (Expression (Node)) then
                   Write_Str (" := ");
@@ -1003,11 +1014,7 @@ package body Sprint is
             Sprint_Paren_Comma_List (Discrete_Subtype_Definitions (Node));
             Write_Str (" of ");
 
-            if Aliased_Present (Node) then
-               Write_Str_With_Col_Check ("aliased ");
-            end if;
-
-            Sprint_Node (Subtype_Indication (Node));
+            Sprint_Node (Component_Definition (Node));
 
          when N_Decimal_Fixed_Point_Definition =>
             Write_Str_With_Col_Check_Sloc (" delta ");
@@ -2432,12 +2439,7 @@ package body Sprint is
             end;
 
             Write_Str (") of ");
-
-            if Aliased_Present (Node) then
-               Write_Str_With_Col_Check ("aliased ");
-            end if;
-
-            Sprint_Node (Subtype_Indication (Node));
+            Sprint_Node (Component_Definition (Node));
 
          when N_Unused_At_Start | N_Unused_At_End =>
             Write_Indent_Str ("***** Error, unused node encountered *****");
@@ -2490,7 +2492,15 @@ package body Sprint is
 
             else
                if First_Name (Node) or else not Dump_Original_Only then
-                  Write_Indent_Str ("with ");
+
+                  --  Ada0Y (AI-50217): Print limited with_clauses
+
+                  if Limited_Present (Node) then
+                     Write_Indent_Str ("limited with ");
+                  else
+                     Write_Indent_Str ("with ");
+                  end if;
+
                else
                   Write_Str (", ");
                end if;
@@ -2503,7 +2513,6 @@ package body Sprint is
             end if;
 
          when N_With_Type_Clause =>
-
             Write_Indent_Str ("with type ");
             Sprint_Node_Sloc (Name (Node));
 
@@ -2777,10 +2786,11 @@ package body Sprint is
       then
          Write_Id (Entity (Parent (N)));
 
-      --  For any other kind of node with an associated entity, output it.
+      --  For any other node with an associated entity, output it
 
       elsif Nkind (N) in N_Has_Entity
-        and then Present (Entity (N))
+        and then Present (Entity_Or_Associated_Node (N))
+        and then Nkind (Entity_Or_Associated_Node (N)) in N_Entity
       then
          Write_Id (Entity (N));
 

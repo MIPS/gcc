@@ -34,6 +34,7 @@
 with Ada.Finalization;            use Ada.Finalization;
 with Ada.IO_Exceptions;           use Ada.IO_Exceptions;
 with Interfaces.C_Streams;        use Interfaces.C_Streams;
+with System.CRTL;
 with System.Soft_Links;
 with Unchecked_Deallocation;
 
@@ -42,6 +43,8 @@ package body System.File_IO is
    use System.File_Control_Block;
 
    package SSL renames System.Soft_Links;
+
+   use type System.CRTL.size_t;
 
    ----------------------
    -- Global Variables --
@@ -812,6 +815,10 @@ package body System.File_IO is
          --  Normal case of non-null name given
 
          else
+            if Name'Length > Namelen then
+               raise Name_Error;
+            end if;
+
             Namestr (1 .. Name'Length) := Name;
             Namestr (Name'Length + 1)  := ASCII.NUL;
          end if;

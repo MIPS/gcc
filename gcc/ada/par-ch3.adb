@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -164,7 +164,7 @@ package body Ch3 is
 
    --  Error recovery: can raise Error_Resync
 
-   function P_Defining_Identifier return Node_Id is
+   function P_Defining_Identifier (C : Id_Check := None) return Node_Id is
       Ident_Node : Node_Id;
 
    begin
@@ -179,7 +179,7 @@ package body Ch3 is
       --  If we have a reserved identifier, manufacture an identifier with
       --  a corresponding name after posting an appropriate error message
 
-      elsif Is_Reserved_Identifier then
+      elsif Is_Reserved_Identifier (C) then
          Scan_Reserved_Identifier (Force_Msg => True);
 
       --  Otherwise we have junk that cannot be interpreted as an identifier
@@ -262,7 +262,7 @@ package body Ch3 is
       Type_Loc := Token_Ptr;
       Type_Start_Col := Start_Column;
       T_Type;
-      Ident_Node := P_Defining_Identifier;
+      Ident_Node := P_Defining_Identifier (C_Is);
       Discr_Sloc := Token_Ptr;
 
       if P_Unknown_Discriminant_Part_Opt then
@@ -732,7 +732,7 @@ package body Ch3 is
    begin
       Decl_Node := New_Node (N_Subtype_Declaration, Token_Ptr);
       Scan; -- past SUBTYPE
-      Set_Defining_Identifier (Decl_Node, P_Defining_Identifier);
+      Set_Defining_Identifier (Decl_Node, P_Defining_Identifier (C_Is));
       TF_Is;
 
       if Token = Tok_New then
@@ -1090,7 +1090,7 @@ package body Ch3 is
    begin
       Ident_Sloc := Token_Ptr;
       Save_Scan_State (Scan_State); -- at first identifier
-      Idents (1) := P_Defining_Identifier;
+      Idents (1) := P_Defining_Identifier (C_Comma_Colon);
 
       --  If we have a colon after the identifier, then we can assume that
       --  this is in fact a valid identifier declaration and can steam ahead.
@@ -1104,7 +1104,7 @@ package body Ch3 is
 
          while Comma_Present loop
             Num_Idents := Num_Idents + 1;
-            Idents (Num_Idents) := P_Defining_Identifier;
+            Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
          end loop;
 
          Save_Scan_State (Scan_State); -- at colon
@@ -1685,7 +1685,7 @@ package body Ch3 is
       if Token = Tok_Char_Literal then
          return P_Defining_Character_Literal;
       else
-         return P_Defining_Identifier;
+         return P_Defining_Identifier (C_Comma_Right_Paren);
       end if;
    end P_Enumeration_Literal_Specification;
 
@@ -2018,10 +2018,11 @@ package body Ch3 is
    --  Error recovery: can raise Error_Resync
 
    function P_Array_Type_Definition return Node_Id is
-      Array_Loc  : Source_Ptr;
-      Def_Node   : Node_Id;
-      Subs_List  : List_Id;
-      Scan_State : Saved_Scan_State;
+      Array_Loc    : Source_Ptr;
+      CompDef_Node : Node_Id;
+      Def_Node     : Node_Id;
+      Subs_List    : List_Id;
+      Scan_State   : Saved_Scan_State;
 
    begin
       Array_Loc := Token_Ptr;
@@ -2079,12 +2080,16 @@ package body Ch3 is
       T_Right_Paren;
       T_Of;
 
+      CompDef_Node := New_Node (N_Component_Definition, Token_Ptr);
+
       if Token = Tok_Aliased then
-         Set_Aliased_Present (Def_Node, True);
+         Set_Aliased_Present (CompDef_Node, True);
          Scan; -- past ALIASED
       end if;
 
-      Set_Subtype_Indication (Def_Node, P_Subtype_Indication);
+      Set_Subtype_Indication (CompDef_Node, P_Subtype_Indication);
+      Set_Component_Definition (Def_Node, CompDef_Node);
+
       return Def_Node;
    end P_Array_Type_Definition;
 
@@ -2278,12 +2283,12 @@ package body Ch3 is
          Specification_Loop : loop
 
             Ident_Sloc := Token_Ptr;
-            Idents (1) := P_Defining_Identifier;
+            Idents (1) := P_Defining_Identifier (C_Comma_Colon);
             Num_Idents := 1;
 
             while Comma_Present loop
                Num_Idents := Num_Idents + 1;
-               Idents (Num_Idents) := P_Defining_Identifier;
+               Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
             end loop;
 
             T_Colon;
@@ -2518,7 +2523,7 @@ package body Ch3 is
       Names_List := New_List;
 
       loop
-         Append (P_Identifier, Names_List);
+         Append (P_Identifier (C_Vertical_Bar_Arrow), Names_List);
          exit when Token /= Tok_Vertical_Bar;
          Scan; -- past |
       end loop;
@@ -2728,11 +2733,12 @@ package body Ch3 is
    --  items, do we need to add this capability sometime in the future ???
 
    procedure P_Component_Items (Decls : List_Id) is
-      Decl_Node  : Node_Id;
-      Scan_State : Saved_Scan_State;
-      Num_Idents : Nat;
-      Ident      : Nat;
-      Ident_Sloc : Source_Ptr;
+      CompDef_Node : Node_Id;
+      Decl_Node    : Node_Id;
+      Scan_State   : Saved_Scan_State;
+      Num_Idents   : Nat;
+      Ident        : Nat;
+      Ident_Sloc   : Source_Ptr;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  This array holds the list of defining identifiers. The upper bound
@@ -2747,12 +2753,12 @@ package body Ch3 is
       end if;
 
       Ident_Sloc := Token_Ptr;
-      Idents (1) := P_Defining_Identifier;
+      Idents (1) := P_Defining_Identifier (C_Comma_Colon);
       Num_Idents := 1;
 
       while Comma_Present loop
          Num_Idents := Num_Idents + 1;
-         Idents (Num_Idents) := P_Defining_Identifier;
+         Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
       end loop;
 
       T_Colon;
@@ -2783,13 +2789,15 @@ package body Ch3 is
                Scan;
             end if;
 
+            CompDef_Node := New_Node (N_Component_Definition, Token_Ptr);
+
             if Token_Name = Name_Aliased then
                Check_95_Keyword (Tok_Aliased, Tok_Identifier);
             end if;
 
             if Token = Tok_Aliased then
                Scan; -- past ALIASED
-               Set_Aliased_Present (Decl_Node, True);
+               Set_Aliased_Present (CompDef_Node, True);
             end if;
 
             if Token = Tok_Array then
@@ -2797,8 +2805,9 @@ package body Ch3 is
                raise Error_Resync;
             end if;
 
-            Set_Subtype_Indication (Decl_Node, P_Subtype_Indication);
-            Set_Expression (Decl_Node, Init_Expr_Opt);
+            Set_Subtype_Indication   (CompDef_Node, P_Subtype_Indication);
+            Set_Component_Definition (Decl_Node, CompDef_Node);
+            Set_Expression           (Decl_Node, Init_Expr_Opt);
 
             if Ident > 1 then
                Set_Prev_Ids (Decl_Node, True);

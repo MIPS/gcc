@@ -74,7 +74,7 @@ extern char **dupargv PARAMS ((char **)) ATTRIBUTE_MALLOC;
    to find the declaration so provide a fully prototyped one.  If it
    is 1, we found it so don't provide any declaration at all.  */
 #if !HAVE_DECL_BASENAME
-#if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (HAVE_DECL_BASENAME)
+#if defined (__GNU_LIBRARY__ ) || defined (__linux__) || defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__NetBSD__) || defined (__CYGWIN__) || defined (__CYGWIN32__) || defined (__sun__) || defined (HAVE_DECL_BASENAME)
 extern char *basename PARAMS ((const char *));
 #else
 extern char *basename ();
@@ -274,9 +274,64 @@ extern void hex_init PARAMS ((void));
 extern int pexecute PARAMS ((const char *, char * const *, const char *,
 			    const char *, char **, char **, int));
 
-/* Wait for pexecute to finish.  */
+/* Slightly lower level routines which are more flexible than pexecute:  */
+extern int pmkpipe PARAMS ((int[2]));
+
+extern int pexec PARAMS ((const char *, char * const *, int, int, int, int));
+
+/* Wait for a process created by pexecute or pexec to finish.  */
 
 extern int pwait PARAMS ((int, int *, int));
+
+/* Set the program name used for error messages by pexec.  */
+extern void pexec_set_program_name PARAMS ((const char *));
+
+#if !defined(_WIN32) || defined(__CYGWIN__)
+
+#ifndef WIFSIGNALED
+#define WIFSIGNALED(S) (((S) & 0xff) != 0 && ((S) & 0xff) != 0x7f)
+#endif
+#ifndef WTERMSIG
+#define WTERMSIG(S) ((S) & 0x7f)
+#endif
+#ifndef WIFEXITED
+#define WIFEXITED(S) (((S) & 0xff) == 0)
+#endif
+#ifndef WEXITSTATUS
+#define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
+#endif
+#ifndef WSTOPSIG
+#define WSTOPSIG WEXITSTATUS
+#endif
+#ifndef WCOREDUMP
+#define WCOREDUMP(S) ((S) & WCOREFLG)
+#endif
+#ifndef WCOREFLG
+#define WCOREFLG 0200
+#endif
+
+#else /* defined(_WIN32) && ! defined(__CYGWIN__) */
+
+#ifndef WIFSIGNALED
+#define WIFSIGNALED(S)  ((void)(S), 0)
+#endif
+#ifndef WTERMSIG
+#define WTERMSIG(S) ((void)(S), 0)
+#endif
+#ifndef WIFEXITED
+#define WIFEXITED(S) ((void)(S), 1)
+#endif
+#ifndef WEXITSTATUS
+#define WEXITSTATUS(S) (S)
+#endif
+#ifndef WSTOPSIG
+#define WSTOPSIG WEXITSTATUS
+#endif
+#ifndef WCOREDUMP
+#define WCOREDUMP(S) ((void)(S), 0)
+#endif
+
+#endif
 
 #if !HAVE_DECL_ASPRINTF
 /* Like sprintf but provides a pointer to malloc'd storage, which must

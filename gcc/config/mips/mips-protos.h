@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -26,15 +26,16 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
 
-extern int mips_reg_mode_ok_for_base_p (rtx, enum machine_mode, int);
+extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, int);
 extern int mips_address_insns (rtx, enum machine_mode);
 extern int mips_const_insns (rtx);
 extern int mips_fetch_insns (rtx);
-extern bool mips_global_pic_constant_p (rtx);
 extern bool mips_legitimate_address_p (enum machine_mode, rtx, int);
 extern bool mips_legitimize_address (rtx *, enum machine_mode);
+extern rtx mips_gotoff_global (rtx);
+extern rtx mips_load_got_page (rtx);
+extern rtx mips_load_got_global (rtx, rtx);
 extern bool mips_legitimize_move (enum machine_mode, rtx, rtx);
-extern rtx mips_delegitimize_address (rtx);
 
 extern int m16_uimm3_b (rtx, enum machine_mode);
 extern int m16_simm4_1 (rtx, enum machine_mode);
@@ -84,7 +85,6 @@ extern bool mips_pad_arg_upward (enum machine_mode, tree);
 extern bool mips_pad_reg_upward (enum machine_mode, tree);
 extern int mips_setup_incoming_varargs (const CUMULATIVE_ARGS *,
 					enum machine_mode, tree, int);
-extern tree mips_build_va_list (void);
 extern void mips_va_start (tree, rtx);
 extern struct rtx_def *mips_va_arg (tree, tree);
 
@@ -103,16 +103,23 @@ extern void irix_output_external_libcall (rtx);
 #endif
 extern void mips_output_filename (FILE *, const char *);
 extern void mips_output_lineno (FILE *, int);
-extern void mips_output_ascii (FILE *, const char *, size_t);
+extern void mips_output_ascii (FILE *, const char *, size_t, const char *);
 extern void mips_output_aligned_bss (FILE *, tree, const char *,
 				     unsigned HOST_WIDE_INT, int);
+extern void mips_output_aligned_decl_common (FILE *, tree, const char *,
+					     unsigned HOST_WIDE_INT,
+					     unsigned int);
+extern void mips_declare_common_object (FILE *, const char *,
+					const char *, unsigned HOST_WIDE_INT,
+					unsigned int, bool);
 extern void mips_declare_object (FILE *, const char *, const char *,
-				 const char *, int);
+				 const char *, ...);
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
 
+extern rtx mips_rewrite_small_data (rtx);
 extern HOST_WIDE_INT compute_frame_size (HOST_WIDE_INT);
-extern int mips_initial_elimination_offset (int, int);
+extern HOST_WIDE_INT mips_initial_elimination_offset (int, int);
 extern rtx mips_return_addr (int, rtx);
 extern void mips_expand_prologue (void);
 extern void mips_expand_epilogue (int);
@@ -123,6 +130,8 @@ extern int function_arg_pass_by_reference (const CUMULATIVE_ARGS *,
 
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
+extern bool mips_dangerous_for_la25_p (rtx);
+extern enum reg_class mips_preferred_reload_class (rtx, enum reg_class);
 extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, int);

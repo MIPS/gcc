@@ -169,9 +169,6 @@ add(String item)
       ChoicePeer cp = (ChoicePeer) peer;
       cp.add (item, i);
     }
-
-  if (i == 0)
-    select (0);
 }
 
 /*************************************************************************/
@@ -221,9 +218,6 @@ insert(String item, int index)
       ChoicePeer cp = (ChoicePeer) peer;
       cp.add (item, index);
     }
-
-  if (getItemCount () == 1 || selectedIndex >= index)
-    select (0);
 }
 
 /*************************************************************************/
@@ -257,6 +251,9 @@ remove(String item)
 public synchronized void
 remove(int index)
 {
+  if ((index < 0) || (index > getItemCount()))
+    throw new IllegalArgumentException("Bad index: " + index);
+
   pItems.removeElementAt(index);
 
   if (peer != null)
@@ -265,9 +262,7 @@ remove(int index)
       cp.remove (index);
     }
 
-  if (index == selectedIndex)
-    select (0);
-  else if (selectedIndex > index)
+  if (selectedIndex > index)
     --selectedIndex;
 }
 
@@ -279,13 +274,18 @@ remove(int index)
 public synchronized void
 removeAll()
 {
-  int count = getItemCount();
+  if (getItemCount() <= 0)
+    return;
+  
+  pItems.removeAllElements ();
 
-  for (int i = 0; i < count; i++)
+  if (peer != null)
     {
-      // Always remove 0.
-      remove(0);
+      ChoicePeer cp = (ChoicePeer) peer;
+      cp.removeAll ();
     }
+
+  selectedIndex = -1;
 }
 
 /*************************************************************************/

@@ -323,9 +323,7 @@ global_alloc (FILE *file)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-#endif
        || FRAME_POINTER_REQUIRED);
 
   size_t i;
@@ -343,22 +341,48 @@ global_alloc (FILE *file)
 #ifdef ELIMINABLE_REGS
   for (i = 0; i < ARRAY_SIZE (eliminables); i++)
     {
-      SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+      bool cannot_elim
+	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
+	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
 
-      if (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
-	  || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp))
-	SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+      if (!regs_asm_clobbered[eliminables[i].from])
+	{
+	  SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+
+	  if (cannot_elim)
+	    SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+	}
+      else if (cannot_elim)
+	error ("%s cannot be used in asm here",
+	       reg_names[eliminables[i].from]);
+      else
+	regs_ever_live[eliminables[i].from] = 1;
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-  SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
-  if (need_fp)
-    SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+  if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
+    {
+      SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+    }
+  else if (need_fp)
+    error ("%s cannot be used in asm here",
+	   reg_names[HARD_FRAME_POINTER_REGNUM]);
+  else
+    regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
 #endif
 
 #else
-  SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
-  if (need_fp)
-    SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+  if (!regs_asm_clobbered[FRAME_POINTER_REGNUM])
+    {
+      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+    }
+  else if (need_fp)
+    error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
+  else
+    regs_ever_live[FRAME_POINTER_REGNUM] = 1;
 #endif
 
   /* Track which registers have already been used.  Start with registers
@@ -732,7 +756,7 @@ global_conflicts (void)
 	}
       }
 
-      insn = b->head;
+      insn = BB_HEAD (b);
 
       /* Scan the code of this basic block, noting which allocnos
 	 and hard regs are born or die.  When one is born,
@@ -832,7 +856,7 @@ global_conflicts (void)
 		}
 	    }
 
-	  if (insn == b->end)
+	  if (insn == BB_END (b))
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
@@ -1781,7 +1805,7 @@ build_insn_chain (rtx first)
     {
       struct insn_chain *c;
 
-      if (first == b->head)
+      if (first == BB_HEAD (b))
 	{
 	  int i;
 
@@ -1843,7 +1867,7 @@ build_insn_chain (rtx first)
 	    }
 	}
 
-      if (first == b->end)
+      if (first == BB_END (b))
 	b = b->next_bb;
 
       /* Stop after we pass the end of the last basic block.  Verify that

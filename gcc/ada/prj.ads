@@ -47,6 +47,10 @@ package Prj is
    --  Default value of parameter Packages of procedures Parse, in Prj.Pars and
    --  Prj.Part, indicating that all packages should be checked.
 
+   Virtual_Prefix : constant String := "v$";
+   --  The prefix for virtual extending projects. Because of the '$', which is
+   --  normally forbidden for project names, there cannot be any name clash.
+
    Project_File_Extension : String := ".gpr";
    --  The standard project file name extension.
    --  It is not a constant, because Canonical_Case_File_Name is called
@@ -71,7 +75,26 @@ package Prj is
 
    type Lib_Kind is (Static, Dynamic, Relocatable);
 
+   type Policy is (Autonomous, Compliant, Controlled);
+   --  See explaination about this type in package Symbol
+
+   type Symbol_Record is record
+      Symbol_File   : Name_Id := No_Name;
+      Reference     : Name_Id := No_Name;
+      Symbol_Policy : Policy  := Autonomous;
+   end record;
+   --  Type to keep the symbol data to be used when building a shared library
+
+   No_Symbols : Symbol_Record :=
+     (Symbol_File   => No_Name,
+      Reference     => No_Name,
+      Symbol_Policy => Autonomous);
+
    function Empty_String return Name_Id;
+
+   type Project_Id is new Nat;
+   No_Project : constant Project_Id := 0;
+   --  Id of a Project File
 
    type String_List_Id is new Nat;
    Nil_String : constant String_List_Id := 0;
@@ -103,6 +126,7 @@ package Prj is
    --  while processing the project tree (unknown package name).
 
    type Variable_Value (Kind : Variable_Kind := Undefined) is record
+      Project  : Project_Id := No_Project;
       Location : Source_Ptr := No_Location;
       Default  : Boolean    := False;
       case Kind is
@@ -118,7 +142,8 @@ package Prj is
    --  Default is True if the current value is the default one for the variable
 
    Nil_Variable_Value : constant Variable_Value :=
-     (Kind     => Undefined,
+     (Project  => No_Project,
+      Kind     => Undefined,
       Location => No_Location,
       Default  => False);
    --  Value of a non existing variable or array element
@@ -299,10 +324,6 @@ package Prj is
    --  Returns True if Left and Right are the same naming scheme
    --  not considering Specs and Bodies.
 
-   type Project_Id is new Nat;
-   No_Project : constant Project_Id := 0;
-   --  Id of a Project File
-
    type Project_List is new Nat;
    Empty_Project_List : constant Project_List := 0;
    --  A list of project files.
@@ -338,6 +359,9 @@ package Prj is
       Path_Name : Name_Id := No_Name;
       --  The path name of the project file.
       --  Set by Prj.Proc.Process.
+
+      Virtual : Boolean := False;
+      --  True for virtual extending projects
 
       Display_Path_Name : Name_Id := No_Name;
 
@@ -408,6 +432,9 @@ package Prj is
       Lib_Auto_Init  : Boolean := False;
       --  For non static Standalone Library Project Files, indicate if
       --  the library initialisation should be automatic.
+
+      Symbol_Data : Symbol_Record := No_Symbols;
+      --  Symbol file name, reference symbol file name, symbol policy
 
       Sources_Present : Boolean := True;
       --  A flag that indicates if there are sources in this project file.
@@ -527,6 +554,10 @@ package Prj is
       --  The maximum depth of a project in the project graph.
       --  Depth of main project is 0.
 
+      Unkept_Comments : Boolean := False;
+      --  True if there are comments in the project sources that cannot
+      --  be kept in the project tree.
+
    end record;
 
    function Empty_Project return Project_Data;
@@ -582,10 +613,6 @@ package Prj is
    --  imports B, directly or indirectly, Action will be called for A before
    --  it is called for B. With_State may be used by Action to choose a
    --  behavior or to report some global result.
-
-   procedure Scan;
-   pragma Inline (Scan);
-   --  Scan a token. Change all operator symbols to literal strings.
 
 private
 

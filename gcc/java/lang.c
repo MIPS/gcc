@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -464,6 +464,11 @@ java_init (void)
   if (flag_inline_functions)
     flag_inline_trees = 1;
 
+  /* FIXME: Indirect dispatch isn't yet compatible with static class
+     init optimization.  */
+  if (flag_indirect_dispatch)
+    always_initialize_class_p = true;
+
   /* Force minimum function alignment if g++ uses the least significant
      bit of function pointers to store the virtual bit. This is required
      to keep vtables compatible.  */
@@ -840,21 +845,14 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
   switch (code)
     {
     case BLOCK:
-      if (BLOCK_EXPR_BODY (t))
-	{
-	  tree *prev = &BLOCK_EXPR_BODY (*tp);
-	  while (*prev)
-	    {
-	      WALK_SUBTREE (*prev);
-	      prev = &TREE_CHAIN (*prev);
-	    }	    
-	}
+      WALK_SUBTREE (BLOCK_EXPR_BODY (t));
       return NULL_TREE;
-      break;
 
     default:
       return NULL_TREE;
     }
+
+  #undef WALK_SUBTREE
 }
 
 /* Called from unsafe_for_reeval.  */
@@ -926,6 +924,24 @@ merge_init_test_initialization (void **entry, void *x)
   if (!*init_test_decl)
     *init_test_decl = (tree)n->value;
 
+  /* This fixes a weird case.  
+
+  The front end assumes that once we have called a method that
+  initializes some class, we can assume the class is initialized.  It
+  does this by setting the DECL_INITIAL of the init_test_decl for that
+  class, and no initializations are emitted for that class.
+  
+  However, what if the method that is suppoed to do the initialization
+  is itself inlined in the caller?  When expanding the called method
+  we'll assume that the class initalization has already been done,
+  because the DECL_INITIAL of the init_test_decl is set.
+  
+  To fix this we remove the DECL_INITIAL (in the caller scope) of all
+  the init_test_decls corresponding to classes initialized by the
+  inlined method.  This makes the caller no longer assume that the
+  method being inlined does any class initializations.  */
+  DECL_INITIAL (*init_test_decl) = NULL;
+
   return true;
 }
 
@@ -956,11 +972,9 @@ inline_init_test_initialization (void **entry, void *x)
     (DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl), ite->key);
   if (! h)
     return true;
-
   splay_tree_insert (decl_map,
 		     (splay_tree_key) ite->value,
 		     (splay_tree_value) h);
-
   return true;
 }
 
@@ -1091,7 +1105,7 @@ java_dump_tree (void *dump_info, tree t)
 static bool
 java_decl_ok_for_sibcall (tree decl)
 {
-  return decl != NULL && DECL_CONTEXT (decl) == current_class;
+  return decl != NULL && DECL_CONTEXT (decl) == output_class;
 }
 
 /* Used by estimate_num_insns.  Estimate number of instructions seen
@@ -1120,13 +1134,14 @@ java_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MODIFY_EXPR:
     case CONSTRUCTOR:
       {
-	int size = int_size_in_bytes (TREE_TYPE (x));
+	HOST_WIDE_INT size;
 
-	if (!size || size > MOVE_MAX_PIECES)
+	size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
 	  *count += 10;
 	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
+	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
     /* Few special cases of expensive operations.  This is usefull
@@ -1217,7 +1232,7 @@ java_start_inlining (tree fn)
 static tree
 java_get_callee_fndecl (tree call_expr)
 {
-  tree method, table, element;
+  tree method, table, element, atable_methods;
 
   HOST_WIDE_INT index;
 
@@ -1228,10 +1243,14 @@ java_get_callee_fndecl (tree call_expr)
   if (TREE_CODE (method) != ARRAY_REF)
     return NULL;
   table = TREE_OPERAND (method, 0);
-  if (table != atable_decl)
+  if (! DECL_LANG_SPECIFIC(table)
+      || !DECL_OWNER (table) 
+      || TYPE_ATABLE_DECL (DECL_OWNER (table)) != table)
     return NULL;
-  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
 
+  atable_methods = TYPE_ATABLE_METHODS (DECL_OWNER (table));
+  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
+  
   /* FIXME: Replace this for loop with a hash table lookup.  */
   for (element = atable_methods; element; element = TREE_CHAIN (element))
     {
@@ -1246,7 +1265,7 @@ java_get_callee_fndecl (tree call_expr)
 	}
       --index;
     }
-  
+
   return NULL;
 }
 

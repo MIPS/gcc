@@ -1,5 +1,5 @@
 /* GtkImage.java
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -60,6 +60,7 @@ public class GtkImage extends Image implements ImageConsumer
   Vector propertyObservers = new Vector ();
 
   ImageProducer source;
+  ImageObserver observer;
   Graphics g;
 
   /* Variables in which we stored cached data, if possible.
@@ -79,9 +80,15 @@ public class GtkImage extends Image implements ImageConsumer
     source = producer;
     this.g = g;
 
-    source.addConsumer (this);
+    if (source != null)
+      source.addConsumer (this);
   }
-  
+
+  public void setObserver (ImageObserver observer)
+  {
+    this.observer = observer;
+  }
+
   public synchronized int 
   getWidth (ImageObserver observer)
   {
@@ -135,8 +142,11 @@ public class GtkImage extends Image implements ImageConsumer
     pixelCache = null;
     model = null;
 
-    source.removeConsumer (this);
-    source.addConsumer (this);
+    if (source != null)
+      {
+	source.removeConsumer (this);
+	source.addConsumer (this);
+      }
   }
 
   public boolean
@@ -158,14 +168,22 @@ public class GtkImage extends Image implements ImageConsumer
     for (int i = 0; i < widthObservers.size (); i++)
       {
 	ImageObserver io = (ImageObserver) widthObservers.elementAt (i);
-	io.imageUpdate (this, ImageObserver.WIDTH, -1, -1, width, height);
+	if (io != null)
+	  io.imageUpdate (this, ImageObserver.WIDTH, -1, -1, width, height);
       }
 
     for (int i = 0; i < heightObservers.size (); i++)
       {
 	ImageObserver io = (ImageObserver) heightObservers.elementAt (i);
-	io.imageUpdate (this, ImageObserver.HEIGHT, -1, -1, width, height);
+	if (io != null)
+	  io.imageUpdate (this, ImageObserver.HEIGHT, -1, -1, width, height);
       }
+
+    if (observer != null)
+      observer.imageUpdate (this,
+			    (ImageObserver.WIDTH
+			     | ImageObserver.HEIGHT),
+			    -1, -1, width, height);
   }
 
   public synchronized void 
@@ -176,7 +194,8 @@ public class GtkImage extends Image implements ImageConsumer
     for (int i = 0; i < propertyObservers.size (); i++)
       {
 	ImageObserver io = (ImageObserver) propertyObservers.elementAt (i);
-	io.imageUpdate (this, ImageObserver.PROPERTIES, -1, -1, width, height);
+	if (io != null)
+	  io.imageUpdate (this, ImageObserver.PROPERTIES, -1, -1, width, height);
       }
   }
 
@@ -200,6 +219,11 @@ public class GtkImage extends Image implements ImageConsumer
   {
     setPixels (x, y, width, height, cm, convertPixels (pixels), offset,
 	       scansize);
+
+    if (observer != null)
+      observer.imageUpdate (this,
+			    ImageObserver.SOMEBITS,
+			    x, y, width, height);
   }
 
   public synchronized void 
@@ -241,7 +265,20 @@ public class GtkImage extends Image implements ImageConsumer
     if (status == ImageConsumer.SINGLEFRAMEDONE)
       isCacheable = false;
 
-    source.removeConsumer (this);
+    if (observer != null)
+      {
+	if (status == ImageConsumer.IMAGEERROR)
+	  observer.imageUpdate (null,
+				ImageObserver.ERROR,
+				-1, -1, -1, -1);
+	else
+	  observer.imageUpdate (null,
+				ImageObserver.ALLBITS,
+				-1, -1, -1, -1);
+      }
+
+    if (source != null)
+      source.removeConsumer (this);
   }
 
   public synchronized void
@@ -254,8 +291,11 @@ public class GtkImage extends Image implements ImageConsumer
       }
     else
       {
-	source.startProduction (painter);
-	source.removeConsumer (painter);
+	if (source != null)
+	  {
+	    source.startProduction (painter);
+	    source.removeConsumer (painter);
+	  }
       }
   }
 

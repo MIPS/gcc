@@ -17,6 +17,8 @@
 load_lib dg.exp
 load_lib libgloss.exp
 
+
+
 # Define libffi callbacks for dg.exp.
 
 proc libffi-dg-test-1 { target_compile prog do_what extra_tool_flags } {
@@ -127,13 +129,17 @@ proc libffi-init { args } {
     # called LD_LIBRARYN32_PATH (for the N32 ABI) and LD_LIBRARY64_PATH
     # (for the 64-bit ABI).  The right way to do this would be to modify
     # unix.exp -- but that's not an option since it's part of DejaGNU
-    # proper, so we do it here.  We really only need to do
-    # this on IRIX, but it shouldn't hurt to do it anywhere else.
+    # proper, so we do it here.
+    # The same applies to darwin (DYLD_LIBRARY_PATH), solaris 32 bit
+    # (LD_LIBRARY_PATH_32), solaris 64 bit (LD_LIBRARY_PATH_64), and HP-UX
+    # (SHLIB_PATH).
     setenv  LD_LIBRARY_PATH     $ld_library_path
     setenv  SHLIB_PATH          $ld_library_path
     setenv  LD_LIBRARYN32_PATH  $ld_library_path
     setenv  LD_LIBRARY64_PATH   $ld_library_path
+    setenv  LD_LIBRARY_PATH_32  $ld_library_path
     setenv  LD_LIBRARY_PATH_64  $ld_library_path
+    setenv  DYLD_LIBRARY_PATH   $ld_library_path
 }
 
 proc libffi_target_compile { source dest type options } {
@@ -144,6 +150,7 @@ proc libffi_target_compile { source dest type options } {
     global ld_library_path
     global libffi_link_flags
     global libffi_include
+    global target_triplet
 
 
     if { [target_info needs_status_wrapper]!="" && [info exists gluefile] } {
@@ -158,9 +165,15 @@ proc libffi_target_compile { source dest type options } {
     }
 
     # search for ffi_mips.h in srcdir, too
-    lappend options "additional_flags=-I${libffi_include} -I${srcdir}/../include"
+    lappend options "additional_flags=-I${libffi_include} -I${srcdir}/../include  -I${libffi_include}/.."
     lappend options "additional_flags=${libffi_link_flags}"
+
+    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	lappend options "libs= -lgcc_s"
+    }
+
     lappend options "libs= -lffi"
+
     verbose "options: $options"
     return [target_compile $source $dest $type $options]
 }

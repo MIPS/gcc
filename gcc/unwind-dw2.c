@@ -34,6 +34,9 @@
 #include "tm.h"
 #include "dwarf2.h"
 #include "unwind.h"
+#ifdef __USING_SJLJ_EXCEPTIONS__
+# define NO_SIZE_OF_ENCODED_VALUE
+#endif
 #include "unwind-pe.h"
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
@@ -104,7 +107,7 @@ typedef struct
 	REG_UNSAVED,
 	REG_SAVED_OFFSET,
 	REG_SAVED_REG,
-	REG_SAVED_EXP,
+	REG_SAVED_EXP
       } how;
     } reg[DWARF_FRAME_REGISTERS+1];
 
@@ -120,7 +123,7 @@ typedef struct
   enum {
     CFA_UNSET,
     CFA_REG_OFFSET,
-    CFA_EXP,
+    CFA_EXP
   } cfa_how;
 
   /* The PC described by the current frame state.  */
@@ -130,7 +133,7 @@ typedef struct
   _Unwind_Personality_Fn personality;
   _Unwind_Sword data_align;
   _Unwind_Word code_align;
-  unsigned char retaddr_column;
+  _Unwind_Word retaddr_column;
   unsigned char fde_encoding;
   unsigned char lsda_encoding;
   unsigned char saw_z;
@@ -287,7 +290,7 @@ void *
 _Unwind_FindEnclosingFunction (void *pc)
 {
   struct dwarf_eh_bases bases;
-  struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
+  const struct dwarf_fde *fde = _Unwind_Find_FDE (pc-1, &bases);
   if (fde)
     return bases.func;
   else
@@ -313,7 +316,7 @@ _Unwind_GetTextRelBase (struct _Unwind_Context *context)
    or NULL if we encountered an undecipherable augmentation.  */
 
 static const unsigned char *
-extract_cie_info (struct dwarf_cie *cie, struct _Unwind_Context *context,
+extract_cie_info (const struct dwarf_cie *cie, struct _Unwind_Context *context,
 		  _Unwind_FrameState *fs)
 {
   const unsigned char *aug = cie->augmentation;
@@ -334,7 +337,10 @@ extract_cie_info (struct dwarf_cie *cie, struct _Unwind_Context *context,
      data alignment and return address column.  */
   p = read_uleb128 (p, &fs->code_align);
   p = read_sleb128 (p, &fs->data_align);
-  fs->retaddr_column = *p++;
+  if (cie->version == 1)
+    fs->retaddr_column = *p++;
+  else
+    p = read_uleb128 (p, &fs->retaddr_column);
   fs->lsda_encoding = DW_EH_PE_omit;
 
   /* If the augmentation starts with 'z', then a uleb128 immediately
@@ -998,8 +1004,8 @@ execute_cfa_program (const unsigned char *insn_ptr,
 static _Unwind_Reason_Code
 uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
-  struct dwarf_fde *fde;
-  struct dwarf_cie *cie;
+  const struct dwarf_fde *fde;
+  const struct dwarf_cie *cie;
   const unsigned char *aug, *insn, *end;
 
   memset (fs, 0, sizeof (*fs));

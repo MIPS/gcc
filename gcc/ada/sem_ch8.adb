@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -789,8 +789,16 @@ package body Sem_Ch8 is
       end if;
 
       if Etype (Old_P) = Any_Type then
-            Error_Msg_N
-             ("expect package name in renaming", Name (N));
+         Error_Msg_N
+           ("expect package name in renaming", Name (N));
+
+      --  Ada0Y (AI-50217): Limited withed packages can not be renamed
+
+      elsif Ekind (Old_P) = E_Package
+        and then From_With_Type (Old_P)
+      then
+         Error_Msg_N
+           ("limited withed package cannot be renamed", Name (N));
 
       elsif Ekind (Old_P) /= E_Package
         and then not (Ekind (Old_P) = E_Generic_Package
@@ -810,11 +818,6 @@ package body Sem_Ch8 is
 
          Set_Ekind (New_P, E_Package);
          Set_Etype (New_P, Standard_Void_Type);
-
-      elsif Ekind (Old_P) = E_Package
-        and then From_With_Type (Old_P)
-      then
-         Error_Msg_N ("imported package cannot be renamed", Name (N));
 
       else
          --  Entities in the old package are accessible through the
@@ -1237,7 +1240,8 @@ package body Sem_Ch8 is
 
       --  There is no need for elaboration checks on the new entity, which
       --  may be called before the next freezing point where the body will
-      --  appear.
+      --  appear. Elaboration checks refer to the real entity, not the one
+      --  created by the renaming declaration.
 
       Set_Kill_Elaboration_Checks (New_S, True);
 
@@ -3388,6 +3392,8 @@ package body Sem_Ch8 is
          Set_Chars (Selector, Chars (Id));
       end if;
 
+      --  Ada0Y (AI-50217): Check usage of entities in limited withed units
+
       if Ekind (P_Name) = E_Package
         and then From_With_Type (P_Name)
       then
@@ -3397,7 +3403,8 @@ package body Sem_Ch8 is
             null;
          else
             Error_Msg_N
-              ("imported package can only be used to access imported type",
+              ("limited withed package can only be used to access "
+               & " incomplete types",
                 N);
          end if;
       end if;
@@ -4057,6 +4064,14 @@ package body Sem_Ch8 is
             elsif Nkind (P) /= N_Attribute_Reference then
                Error_Msg_N (
                 "invalid prefix in selected component&", P);
+
+               if Is_Access_Type (P_Type)
+                 and then Ekind (Designated_Type (P_Type)) = E_Incomplete_Type
+               then
+                  Error_Msg_N
+                    ("\dereference must not be of an incomplete type " &
+                       "('R'M 3.10.1)", P);
+               end if;
 
             else
                Error_Msg_N (
@@ -5072,7 +5087,7 @@ package body Sem_Ch8 is
    -- Restore_Scope_Stack --
    -------------------------
 
-   procedure Restore_Scope_Stack is
+   procedure Restore_Scope_Stack (Handle_Use : Boolean := True) is
       E         : Entity_Id;
       S         : Entity_Id;
       Comp_Unit : Node_Id;
@@ -5174,6 +5189,7 @@ package body Sem_Ch8 is
 
       if SS_Last >= Scope_Stack.First
         and then Scope_Stack.Table (SS_Last).Entity /= Standard_Standard
+        and then Handle_Use
       then
          Install_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
       end if;
@@ -5183,7 +5199,7 @@ package body Sem_Ch8 is
    -- Save_Scope_Stack --
    ----------------------
 
-   procedure Save_Scope_Stack is
+   procedure Save_Scope_Stack (Handle_Use : Boolean := True) is
       E       : Entity_Id;
       S       : Entity_Id;
       SS_Last : constant Int := Scope_Stack.Last;
@@ -5192,8 +5208,9 @@ package body Sem_Ch8 is
       if SS_Last >= Scope_Stack.First
         and then Scope_Stack.Table (SS_Last).Entity /= Standard_Standard
       then
-
-         End_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
+         if Handle_Use then
+            End_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
+         end if;
 
          --  If the call is from within a compilation unit, as when
          --  called from Rtsfind, make current entries in scope stack
@@ -5282,8 +5299,10 @@ package body Sem_Ch8 is
 
       Set_In_Use (P);
 
+      --  Ada0Y (AI-50217): Check restriction.
+
       if From_With_Type (P) then
-         Error_Msg_N ("imported package cannot appear in use clause", N);
+         Error_Msg_N ("limited withed package cannot appear in use clause", N);
       end if;
 
       --  Find enclosing instance, if any.

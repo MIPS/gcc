@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -94,7 +94,7 @@ __gnat_duration_to_timeval (long sec, long usec, struct timeval *t)
    what time_t is on the target.  */
 
 long
-gnat_time ()
+gnat_time (void)
 {
   return time (0);
 }

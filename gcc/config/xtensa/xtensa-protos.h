@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler for Xtensa.
-   Copyright 2001,2002,2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -22,7 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef __XTENSA_PROTOS_H__
 #define __XTENSA_PROTOS_H__
 
-/* Functions to test whether an immediate fits in a given field. */
+/* Functions to test whether an immediate fits in a given field.  */
 extern int xtensa_simm7 (int);
 extern int xtensa_simm8 (int);
 extern int xtensa_simm8x256 (int);
@@ -68,14 +68,14 @@ extern int xtensa_expand_scc (rtx *);
 extern int xtensa_expand_block_move (rtx *);
 extern void xtensa_split_operand_pair (rtx *, enum machine_mode);
 extern int xtensa_emit_move_sequence (rtx *, enum machine_mode);
-extern bool xtensa_copy_incoming_a7 (rtx *, enum machine_mode);
+extern rtx xtensa_copy_incoming_a7 (rtx);
 extern void xtensa_emit_block_move (rtx *, rtx *, int);
 extern void xtensa_expand_nonlocal_goto (rtx *);
 extern void xtensa_emit_loop_end (rtx, rtx *);
 extern char *xtensa_emit_call (int, rtx *);
 
 #ifdef TREE_CODE
-extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx);
+extern void init_cumulative_args (CUMULATIVE_ARGS *, int);
 extern void xtensa_va_start (tree, rtx);
 extern rtx xtensa_va_arg (tree, tree);
 #endif /* TREE_CODE */
@@ -89,14 +89,12 @@ extern enum reg_class xtensa_preferred_reload_class (rtx, enum reg_class, int);
 extern enum reg_class xtensa_secondary_reload_class (enum reg_class,
 						     enum machine_mode, rtx,
 						     int);
-extern int a7_overlap_mentioned_p (rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern struct rtx_def *function_arg (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, int);
-extern tree xtensa_build_va_list (void);
 #endif /* TREE_CODE */
 
 extern int xtensa_mask_immediate (int);

@@ -1,7 +1,7 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -125,19 +125,24 @@ make_thunk (tree function, bool this_adjusting,
      will be a BINFO.  */
   for (thunk = DECL_THUNKS (function); thunk; thunk = TREE_CHAIN (thunk))
     if (DECL_THIS_THUNK_P (thunk) == this_adjusting
- 	&& THUNK_FIXED_OFFSET (thunk) == d
- 	&& (this_adjusting
- 	    ? (!THUNK_VIRTUAL_OFFSET (thunk) == !virtual_offset
- 	       && (!virtual_offset
- 		   || tree_int_cst_equal (THUNK_VIRTUAL_OFFSET (thunk), 
- 					  virtual_offset)))
- 	    : THUNK_VIRTUAL_OFFSET (thunk) == virtual_offset))
+	&& THUNK_FIXED_OFFSET (thunk) == d
+	&& !virtual_offset == !THUNK_VIRTUAL_OFFSET (thunk)
+	&& (!virtual_offset
+	    || (this_adjusting
+		? tree_int_cst_equal (THUNK_VIRTUAL_OFFSET (thunk),
+				      virtual_offset)
+		: THUNK_VIRTUAL_OFFSET (thunk) == virtual_offset)))
       return thunk;
   
   /* All thunks must be created before FUNCTION is actually emitted;
      the ABI requires that all thunks be emitted together with the
      function to which they transfer control.  */
   my_friendly_assert (!TREE_ASM_WRITTEN (function), 20021025);
+  /* Likewise, we can only be adding thunks to a function declared in
+     the class currently being laid out.  */
+  my_friendly_assert (TYPE_SIZE (DECL_CONTEXT (function))
+		      && TYPE_BEING_DEFINED (DECL_CONTEXT (function)),
+		      20031211);
 
   thunk = build_decl (FUNCTION_DECL, NULL_TREE, TREE_TYPE (function));
   DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (function);
@@ -154,6 +159,7 @@ make_thunk (tree function, bool this_adjusting,
   THUNK_TARGET (thunk) = function;
   THUNK_FIXED_OFFSET (thunk) = d;
   THUNK_VIRTUAL_OFFSET (thunk) = virtual_offset;
+  THUNK_ALIAS (thunk) = NULL_TREE;
   
   /* The thunk itself is not a constructor or destructor, even if
      the thing it is thunking to is.  */
@@ -213,7 +219,7 @@ finish_thunk (tree thunk)
 	if (DECL_NAME (cov_probe) == name)
 	  {
 	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
-	    THUNK_ALIAS (thunk) = (THUNK_ALIAS_P (cov_probe)
+	    THUNK_ALIAS (thunk) = (THUNK_ALIAS (cov_probe)
 				   ? THUNK_ALIAS (cov_probe) : cov_probe);
 	    break;
 	  }
@@ -280,6 +286,11 @@ make_alias_for_thunk (tree function)
   tree alias;
   char buf[256];
 
+#if defined (TARGET_IS_PE_COFF)
+  if (DECL_ONE_ONLY (function))
+    return function;
+#endif
+
   ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
   thunk_labelno++;
   alias = build_decl (FUNCTION_DECL, get_identifier (buf),
@@ -335,7 +346,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   /* We should never be using an alias, always refer to the
      aliased thunk.  */
-  my_friendly_assert (!THUNK_ALIAS_P (thunk_fndecl), 20031023);
+  my_friendly_assert (!THUNK_ALIAS (thunk_fndecl), 20031023);
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
@@ -353,7 +364,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      this translation unit.  */
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  mark_referenced (DECL_ASSEMBLER_NAME (function));
   if (!emit_p)
     return;
 
@@ -383,6 +393,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   /* The linkage of the function may have changed.  FIXME in linkage
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
+  DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
+  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) = DECL_VISIBILITY_SPECIFIED (function);
 
   if (flag_syntax_only)
     {
@@ -392,7 +404,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   push_to_top_level ();
 
-#ifdef ASM_OUTPUT_DEF
+#if defined (ASM_OUTPUT_DEF) \
+  && !defined (TARGET_IS_PE_COFF)
   if (targetm.have_named_sections)
     {
       resolve_unique_section (function, 0, flag_function_sections);
@@ -480,6 +493,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	t = tree_cons (NULL_TREE, a, t);
       t = nreverse (t);
       t = build_call (alias, t);
+      CALL_FROM_THUNK_P (t) = 1;
+      t = force_target_expr (TREE_TYPE (t), t);
       if (!this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/0,
 			  fixed_offset, virtual_offset);

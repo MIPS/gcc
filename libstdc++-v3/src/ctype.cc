@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -86,12 +86,14 @@ namespace std
 
 #ifdef _GLIBCXX_USE_WCHAR_T
   ctype<wchar_t>::ctype(size_t __refs) 
-  : __ctype_abstract_base<wchar_t>(__refs)
-  { _M_c_locale_ctype = _S_get_c_locale(); }
+  : __ctype_abstract_base<wchar_t>(__refs), 
+  _M_c_locale_ctype(_S_get_c_locale()), _M_narrow_ok(false)
+  { _M_initialize_ctype(); }
 
   ctype<wchar_t>::ctype(__c_locale __cloc, size_t __refs) 
-  : __ctype_abstract_base<wchar_t>(__refs) 
-  { _M_c_locale_ctype = _S_clone_c_locale(__cloc); }
+  : __ctype_abstract_base<wchar_t>(__refs),
+  _M_c_locale_ctype(_S_clone_c_locale(__cloc)), _M_narrow_ok(false)
+  { _M_initialize_ctype(); }
 
   ctype<wchar_t>::~ctype() 
   { _S_destroy_c_locale(_M_c_locale_ctype); }
@@ -102,8 +104,9 @@ namespace std
     { 		
       if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
 	{
-	  _S_destroy_c_locale(_M_c_locale_ctype);
-	  _S_create_c_locale(_M_c_locale_ctype, __s); 
+	  this->_S_destroy_c_locale(this->_M_c_locale_ctype);
+	  this->_S_create_c_locale(this->_M_c_locale_ctype, __s);
+	  this->_M_initialize_ctype();
 	}
     }
 #endif

@@ -78,7 +78,6 @@ package body Lib.Load is
    is
       Unum         : Unit_Number_Type;
       Cunit_Entity : Entity_Id;
-      Scope_Entity : Entity_Id;
       Cunit        : Node_Id;
       Du_Name      : Node_Or_Entity_Id;
       End_Lab      : Node_Id;
@@ -98,11 +97,12 @@ package body Lib.Load is
          Du_Name := Cunit_Entity;
          End_Lab := New_Occurrence_Of (Cunit_Entity, No_Location);
 
-         Scope_Entity := Standard_Standard;
-
       --  Child package
 
-      else -- Nkind (Name (With_Node)) = N_Expanded_Name
+      else
+
+         --  Nkind (Name (With_Node)) = N_Expanded_Name
+
          Cunit_Entity :=
            Make_Defining_Identifier (No_Location,
              Chars => Chars (Selector_Name (Name (With_Node))));
@@ -113,19 +113,14 @@ package body Lib.Load is
 
          Set_Is_Child_Unit (Cunit_Entity);
 
-         if Nkind (Du_Name) = N_Defining_Program_Unit_Name then
-            Scope_Entity := Defining_Identifier (Du_Name);
-         else
-            Scope_Entity := Du_Name;
-         end if;
-
          End_Lab :=
            Make_Designator (No_Location,
              Name => New_Copy_Tree (Prefix (Name (With_Node))),
              Identifier => New_Occurrence_Of (Cunit_Entity, No_Location));
+
       end if;
 
-      Set_Scope (Cunit_Entity, Scope_Entity);
+      Set_Scope (Cunit_Entity, Standard_Standard);
 
       Cunit :=
         Make_Compilation_Unit (No_Location,
@@ -524,8 +519,8 @@ package body Lib.Load is
          --  legitimately occurs (e.g. two package bodies that contain
          --  inlined subprogram referenced by the other).
 
-         --  We also ignore limited_with clauses, because their purpose is
-         --  precisely to create legal circular structures.
+         --  Ada0Y (AI-50217): We also ignore limited_with clauses, because
+         --  their purpose is precisely to create legal circular structures.
 
          if Loading (Unum)
            and then (Is_Spec_Name (Units.Table (Unum).Unit_Name)
@@ -693,14 +688,11 @@ package body Lib.Load is
 
    procedure Make_Instance_Unit (N : Node_Id) is
       Sind : constant Source_File_Index := Source_Index (Main_Unit);
-
    begin
       Units.Increment_Last;
-
       Units.Table (Units.Last)               := Units.Table (Main_Unit);
       Units.Table (Units.Last).Cunit         := Library_Unit (N);
       Units.Table (Units.Last).Generate_Code := True;
-
       Units.Table (Main_Unit).Cunit          := N;
       Units.Table (Main_Unit).Unit_Name      :=
         Get_Body_Name (Unit_Name (Get_Cunit_Unit_Number (Library_Unit (N))));
@@ -718,7 +710,6 @@ package body Lib.Load is
    is
       Sunit : constant Node_Id := Cunit (Spec_Unit);
       Bunit : constant Node_Id := Cunit (Body_Unit);
-
    begin
       --  The spec is irrelevant if the body is a subprogram body, and the
       --  spec is other than a subprogram spec or generic subprogram spec.
@@ -730,7 +721,6 @@ package body Lib.Load is
          Nkind (Unit (Bunit)) = N_Subprogram_Body
            and then Nkind (Unit (Sunit)) /= N_Subprogram_Declaration
            and then Nkind (Unit (Sunit)) /= N_Generic_Subprogram_Declaration;
-
    end Spec_Is_Irrelevant;
 
    --------------------
@@ -740,9 +730,7 @@ package body Lib.Load is
    procedure Version_Update (U : Node_Id; From : Node_Id) is
       Unum  : constant Unit_Number_Type := Get_Cunit_Unit_Number (U);
       Fnum  : constant Unit_Number_Type := Get_Cunit_Unit_Number (From);
-
    begin
-
       if Source_Index (Fnum) /= No_Source_File then
          Units.Table (Unum).Version :=
            Units.Table (Unum).Version

@@ -91,6 +91,8 @@ package body Lib.Writ is
       System_Fname : File_Name_Type;
       --  File name for system spec if needed for dummy entry
 
+      Save_Style : constant Boolean := Style_Check;
+
    begin
       --  Nothing to do if we already compiled System
 
@@ -133,9 +135,12 @@ package body Lib.Writ is
         Error_Location  => No_Location);
 
       --  Parse system.ads so that the checksum is set right
+      --  Style checks are not applied.
 
+      Style_Check := False;
       Initialize_Scanner (Units.Last, System_Source_File_Index);
       Discard_List (Par (Configuration_Pragmas => False));
+      Style_Check := Save_Style;
    end Ensure_System_Dependency;
 
    ---------------
@@ -209,7 +214,8 @@ package body Lib.Writ is
          Item := First (Context_Items (Cunit));
          while Present (Item) loop
 
-            --  limited_with_clauses do not create dependencies.
+            --  Ada0Y (AI-50217): limited with_clauses do not create
+            --  dependencies
 
             if Nkind (Item) = N_With_Clause
                and then not (Limited_Present (Item))
@@ -680,6 +686,13 @@ package body Lib.Writ is
    --  Start of processing for Writ_ALI
 
    begin
+      --  We never write an ALI file if the original operating mode was
+      --  syntax-only (-gnats switch used in compiler invocation line)
+
+      if Original_Operating_Mode = Check_Syntax then
+         return;
+      end if;
+
       --  Build sorted source dependency table. We do this right away,
       --  because it is referenced by Up_To_Date_ALI_File_Exists.
 
@@ -716,7 +729,7 @@ package body Lib.Writ is
 
       Write_Info_Initiate ('V');
       Write_Info_Str (" """);
-      Write_Info_Str (Library_Version);
+      Write_Info_Str (Verbose_Library_Version);
       Write_Info_Char ('"');
 
       Write_Info_EOL;
@@ -866,6 +879,10 @@ package body Lib.Writ is
 
       if Normalize_Scalars then
          Write_Info_Str (" NS");
+      end if;
+
+      if Sec_Stack_Used then
+         Write_Info_Str (" SS");
       end if;
 
       if Unreserve_All_Interrupts then

@@ -71,7 +71,7 @@ java::lang::Class::forName (jstring className, jboolean initialize,
 
   jsize length = _Jv_GetStringUTFLength (className);
   char buffer[length];
-  _Jv_GetStringUTFRegion (className, 0, length, buffer);
+  _Jv_GetStringUTFRegion (className, 0, className->length(), buffer);
 
   _Jv_Utf8Const *name = _Jv_makeUtf8Const (buffer, length);
 
@@ -688,7 +688,7 @@ java::lang::Class::newInstance (void)
 
   _Jv_Method *meth = _Jv_GetMethodLocal (this, init_name, void_signature);
   if (! meth)
-    throw new java::lang::NoSuchMethodException (_Jv_NewStringUtf8Const (init_name));
+    throw new java::lang::InstantiationException (getName());
 
   jobject r = JvAllocObject (this);
   ((void (*) (jobject)) meth->ncode) (r);
@@ -1502,13 +1502,13 @@ java::lang::Class::getProtectionDomain0 ()
 JArray<jobject> *
 java::lang::Class::getSigners()
 {
-  return signers;
+  return hack_signers;
 }
 
 void
 java::lang::Class::setSigners(JArray<jobject> *s)
 {
-  signers = s;
+  hack_signers = s;
 }
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
@@ -1835,6 +1835,12 @@ _Jv_LayoutVTableMethods (jclass klass)
       if (! _Jv_isVirtualMethod (meth))
 	continue;
 
+      // FIXME: Must check that we don't override:
+      // - Package-private method where superclass is in different package.
+      // - Final or less-accessible declaration in superclass (check binary 
+      //   spec, do we allocate new vtable entry or put throw node in vtable?)
+      // - Static or private method in superclass.
+
       if (superclass != NULL)
 	{
 	  super_meth = _Jv_LookupDeclaredMethod (superclass, meth->name, 
@@ -1843,8 +1849,7 @@ _Jv_LayoutVTableMethods (jclass klass)
 
       if (super_meth)
         meth->index = super_meth->index;
-      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL)
-	       && ! (klass->accflags & java::lang::reflect::Modifier::FINAL))
+      else
 	meth->index = index++;
     }
 

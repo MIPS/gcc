@@ -125,8 +125,7 @@ package body Prj.Nmsc is
 
    function Is_Illegal_Suffix
      (Suffix                          : String;
-      Dot_Replacement_Is_A_Single_Dot : Boolean)
-      return                            Boolean;
+      Dot_Replacement_Is_A_Single_Dot : Boolean) return Boolean;
    --  Returns True if the string Suffix cannot be used as
    --  a spec suffix, a body suffix or a separate suffix.
 
@@ -154,15 +153,13 @@ package body Prj.Nmsc is
 
    function Path_Name_Of
      (File_Name : Name_Id;
-      Directory : Name_Id)
-      return      String;
+      Directory : Name_Id) return String;
    --  Returns the path name of a (non project) file.
    --  Returns an empty string if file cannot be found.
 
    function Project_Extends
      (Extending : Project_Id;
-      Extended  : Project_Id)
-      return      Boolean;
+      Extended  : Project_Id) return Boolean;
    --  Returns True if Extending is extending directly or indirectly Extended.
 
    procedure Check_Naming_Scheme
@@ -991,8 +988,8 @@ package body Prj.Nmsc is
                The_Unit_Data := Units.Table (The_Unit_Id);
 
                if Specs then
-                  if The_Unit_Data.File_Names (Specification).Project /=
-                    Project
+                  if not Check_Project
+                    (The_Unit_Data.File_Names (Specification).Project)
                   then
                      Error_Msg
                        (Project,
@@ -1001,8 +998,8 @@ package body Prj.Nmsc is
                   end if;
 
                else
-                  if The_Unit_Data.File_Names (Com.Body_Part).Project /=
-                    Project
+                  if not Check_Project
+                    (The_Unit_Data.File_Names (Com.Body_Part).Project)
                   then
                      Error_Msg
                        (Project,
@@ -1350,16 +1347,32 @@ package body Prj.Nmsc is
                               (Snames.Name_Library_Src_Dir,
                                Data.Decl.Attributes);
 
-            Auto_Init_Supported
-                           : constant Boolean :=
-                               MLib.Tgt.
-                                 Standalone_Library_Auto_Init_Is_Supported;
+            Lib_Symbol_File : constant Prj.Variable_Value :=
+                                Prj.Util.Value_Of
+                                  (Snames.Name_Library_Symbol_File,
+                                   Data.Decl.Attributes);
+
+            Lib_Symbol_Policy : constant Prj.Variable_Value :=
+                                  Prj.Util.Value_Of
+                                    (Snames.Name_Library_Symbol_Policy,
+                                     Data.Decl.Attributes);
+
+            Lib_Ref_Symbol_File : constant Prj.Variable_Value :=
+                                  Prj.Util.Value_Of
+                                    (Snames.Name_Library_Reference_Symbol_File,
+                                     Data.Decl.Attributes);
+
+            Auto_Init_Supported : constant Boolean :=
+                                    MLib.Tgt.
+                                     Standalone_Library_Auto_Init_Is_Supported;
+
+            OK : Boolean := True;
 
          begin
             pragma Assert (Lib_Interfaces.Kind = List);
 
-            --  It is a library project file if attribute Library_Interface
-            --  is defined.
+            --  It is a stand-alone library project file if attribute
+            --  Library_Interface is defined.
 
             if not Lib_Interfaces.Default then
                declare
@@ -1566,102 +1579,257 @@ package body Prj.Nmsc is
                            Lib_Auto_Init.Location);
                      end if;
                   end if;
+               end;
 
-                  if Lib_Src_Dir.Value /= Empty_String then
-                     declare
-                        Dir_Id : constant Name_Id := Lib_Src_Dir.Value;
+               --  If attribute Library_Src_Dir is defined and not the
+               --  empty string, check if the directory exist and is not
+               --  the object directory or one of the source directories.
+               --  This is the directory where copies of the interface
+               --  sources will be copied. Note that this directory may be
+               --  the library directory.
 
-                     begin
-                        Locate_Directory
-                          (Dir_Id, Data.Display_Directory,
-                           Data.Library_Src_Dir,
-                           Data.Display_Library_Src_Dir);
+               if Lib_Src_Dir.Value /= Empty_String then
+                  declare
+                     Dir_Id : constant Name_Id := Lib_Src_Dir.Value;
 
-                        --  Comment needed here ???
+                  begin
+                     Locate_Directory
+                       (Dir_Id, Data.Display_Directory,
+                        Data.Library_Src_Dir,
+                        Data.Display_Library_Src_Dir);
 
-                        if Data.Library_Src_Dir = No_Name then
+                     --  If directory does not exist, report an error
 
-                           --  Get the absolute name of the library directory
-                           --  that does not exist, to report an error.
+                     if Data.Library_Src_Dir = No_Name then
 
-                           declare
-                              Dir_Name : constant String :=
-                                           Get_Name_String (Dir_Id);
-                           begin
-                              if Is_Absolute_Path (Dir_Name) then
-                                 Err_Vars.Error_Msg_Name_1 := Dir_Id;
+                        --  Get the absolute name of the library directory
+                        --  that does not exist, to report an error.
 
-                              else
-                                 Get_Name_String (Data.Directory);
+                        declare
+                           Dir_Name : constant String :=
+                                        Get_Name_String (Dir_Id);
 
-                                 if Name_Buffer (Name_Len) /=
-                                    Directory_Separator
-                                 then
-                                    Name_Len := Name_Len + 1;
-                                    Name_Buffer (Name_Len) :=
-                                      Directory_Separator;
-                                 end if;
+                        begin
+                           if Is_Absolute_Path (Dir_Name) then
+                              Err_Vars.Error_Msg_Name_1 := Dir_Id;
 
-                                 Name_Buffer
-                                   (Name_Len + 1 ..
-                                      Name_Len + Dir_Name'Length) :=
-                                   Dir_Name;
-                                 Name_Len := Name_Len + Dir_Name'Length;
-                                 Err_Vars.Error_Msg_Name_1 := Name_Find;
+                           else
+                              Get_Name_String (Data.Directory);
+
+                              if Name_Buffer (Name_Len) /=
+                                Directory_Separator
+                              then
+                                 Name_Len := Name_Len + 1;
+                                 Name_Buffer (Name_Len) :=
+                                   Directory_Separator;
                               end if;
 
-                              --  Report the error
+                              Name_Buffer
+                                (Name_Len + 1 ..
+                                   Name_Len + Dir_Name'Length) :=
+                                  Dir_Name;
+                              Name_Len := Name_Len + Dir_Name'Length;
+                              Err_Vars.Error_Msg_Name_1 := Name_Find;
+                           end if;
 
-                              Error_Msg
-                                (Project,
-                                 "Directory { does not exist",
-                                 Lib_Src_Dir.Location);
-                           end;
+                           --  Report the error
 
-                        --  And comment needed here ???
-
-                        elsif Data.Library_Src_Dir = Data.Object_Directory then
                            Error_Msg
                              (Project,
-                              "directory to copy interfaces cannot be " &
-                              "the object directory",
+                              "Directory { does not exist",
                               Lib_Src_Dir.Location);
-                           Data.Library_Src_Dir := No_Name;
+                        end;
 
-                        --  And comment needed here ???
+                     --  Report an error if it is the same as the object
+                     --  directory.
 
-                        else
-                           declare
-                              Src_Dirs : String_List_Id := Data.Source_Dirs;
-                              Src_Dir : String_Element;
-                           begin
-                              while Src_Dirs /= Nil_String loop
-                                 Src_Dir := String_Elements.Table (Src_Dirs);
-                                 Src_Dirs := Src_Dir.Next;
+                     elsif Data.Library_Src_Dir = Data.Object_Directory then
+                        Error_Msg
+                          (Project,
+                           "directory to copy interfaces cannot be " &
+                           "the object directory",
+                           Lib_Src_Dir.Location);
+                        Data.Library_Src_Dir := No_Name;
 
-                                 if Data.Library_Src_Dir = Src_Dir.Value then
-                                    Error_Msg
-                                      (Project,
-                                       "directory to copy interfaces cannot " &
-                                       "be one of the source directories",
-                                       Lib_Src_Dir.Location);
-                                    Data.Library_Src_Dir := No_Name;
-                                    exit;
-                                 end if;
-                              end loop;
-                           end;
+                     --  Check if it is the same as one of the source
+                     --  directories.
 
-                           if Data.Library_Src_Dir /= No_Name
-                             and then Current_Verbosity = High
-                           then
-                              Write_Str ("Directory to copy interfaces =""");
-                              Write_Str (Get_Name_String (Data.Library_Dir));
-                              Write_Line ("""");
-                           end if;
+                     else
+                        declare
+                           Src_Dirs : String_List_Id := Data.Source_Dirs;
+                           Src_Dir  : String_Element;
+
+                        begin
+                           while Src_Dirs /= Nil_String loop
+                              Src_Dir := String_Elements.Table (Src_Dirs);
+                              Src_Dirs := Src_Dir.Next;
+
+                              --  Report an error if it is one of the
+                              --  source directories.
+
+                              if Data.Library_Src_Dir = Src_Dir.Value then
+                                 Error_Msg
+                                   (Project,
+                                    "directory to copy interfaces cannot " &
+                                    "be one of the source directories",
+                                    Lib_Src_Dir.Location);
+                                 Data.Library_Src_Dir := No_Name;
+                                 exit;
+                              end if;
+                           end loop;
+                        end;
+
+                        if Data.Library_Src_Dir /= No_Name
+                          and then Current_Verbosity = High
+                        then
+                           Write_Str ("Directory to copy interfaces =""");
+                           Write_Str (Get_Name_String (Data.Library_Dir));
+                           Write_Line ("""");
                         end if;
-                     end;
+                     end if;
+                  end;
+               end if;
+
+               if not Lib_Symbol_File.Default then
+                  Data.Symbol_Data.Symbol_File := Lib_Symbol_File.Value;
+
+                  Get_Name_String (Lib_Symbol_File.Value);
+
+                  if Name_Len = 0 then
+                     Error_Msg
+                       (Project,
+                        "symbol file name cannot be an empty string",
+                        Lib_Symbol_File.Location);
+
+                  else
+                     OK := not Is_Absolute_Path (Name_Buffer (1 .. Name_Len));
+
+                     if OK then
+                        for J in 1 .. Name_Len loop
+                           if Name_Buffer (J) = '/'
+                             or else Name_Buffer (J) = Directory_Separator
+                           then
+                              OK := False;
+                              exit;
+                           end if;
+                        end loop;
+                     end if;
+
+                     if not OK then
+                        Error_Msg_Name_1 := Lib_Symbol_File.Value;
+                        Error_Msg
+                          (Project,
+                           "symbol file name { is illegal. " &
+                           "Name canot include directory info.",
+                           Lib_Symbol_File.Location);
+                     end if;
                   end if;
-               end;
+               end if;
+
+               if not Lib_Symbol_Policy.Default then
+                  declare
+                     Value : constant String :=
+                               To_Lower
+                                 (Get_Name_String (Lib_Symbol_Policy.Value));
+
+                  begin
+                     if Value = "autonomous" or else Value = "default" then
+                        Data.Symbol_Data.Symbol_Policy := Autonomous;
+
+                     elsif Value = "compliant" then
+                        Data.Symbol_Data.Symbol_Policy := Compliant;
+
+                     elsif Value = "controlled" then
+                        Data.Symbol_Data.Symbol_Policy := Controlled;
+
+                     else
+                        Error_Msg
+                          (Project,
+                           "illegal value for Library_Symbol_Policy",
+                           Lib_Symbol_Policy.Location);
+                     end if;
+                  end;
+               end if;
+
+               if Lib_Ref_Symbol_File.Default then
+                  if Data.Symbol_Data.Symbol_Policy /= Autonomous then
+                     Error_Msg
+                       (Project,
+                        "a reference symbol file need to be defined",
+                        Lib_Symbol_Policy.Location);
+                  end if;
+
+               else
+                  Data.Symbol_Data.Reference := Lib_Ref_Symbol_File.Value;
+
+                  Get_Name_String (Lib_Symbol_File.Value);
+
+                  if Name_Len = 0 then
+                     Error_Msg
+                       (Project,
+                        "reference symbol file name cannot be an empty string",
+                        Lib_Symbol_File.Location);
+
+                  else
+                     OK := not Is_Absolute_Path (Name_Buffer (1 .. Name_Len));
+
+                     if OK then
+                        for J in 1 .. Name_Len loop
+                           if Name_Buffer (J) = '/'
+                             or else Name_Buffer (J) = Directory_Separator
+                           then
+                              OK := False;
+                              exit;
+                           end if;
+                        end loop;
+                     end if;
+
+                     if not OK then
+                        Error_Msg_Name_1 := Lib_Ref_Symbol_File.Value;
+                        Error_Msg
+                          (Project,
+                           "reference symbol file { name is illegal. " &
+                           "Name canot include directory info.",
+                           Lib_Ref_Symbol_File.Location);
+                     end if;
+
+                     if not Is_Regular_File
+                       (Get_Name_String (Data.Object_Directory) &
+                        Directory_Separator &
+                        Get_Name_String (Lib_Ref_Symbol_File.Value))
+                     then
+                        Error_Msg_Name_1 := Lib_Ref_Symbol_File.Value;
+                        Error_Msg
+                          (Project,
+                           "library reference symbol file { does not exist",
+                           Lib_Ref_Symbol_File.Location);
+                     end if;
+
+                     if Data.Symbol_Data.Symbol_File /= No_Name then
+                        declare
+                           Symbol : String :=
+                                      Get_Name_String
+                                        (Data.Symbol_Data.Symbol_File);
+
+                           Reference : String :=
+                                         Get_Name_String
+                                           (Data.Symbol_Data.Reference);
+
+                        begin
+                           Canonical_Case_File_Name (Symbol);
+                           Canonical_Case_File_Name (Reference);
+
+                           if Symbol = Reference then
+                              Error_Msg
+                                (Project,
+                                 "reference symbol file and symbol file " &
+                                 "cannot be the same file",
+                                 Lib_Ref_Symbol_File.Location);
+                           end if;
+                        end;
+                     end if;
+                  end if;
+               end if;
             end if;
          end Standalone_Library;
       end if;
@@ -2351,8 +2519,7 @@ package body Prj.Nmsc is
 
    function Is_Illegal_Suffix
      (Suffix                          : String;
-      Dot_Replacement_Is_A_Single_Dot : Boolean)
-      return                            Boolean
+      Dot_Replacement_Is_A_Single_Dot : Boolean) return Boolean
    is
    begin
       if Suffix'Length = 0 or else Index (Suffix, ".") = 0 then
@@ -2403,14 +2570,16 @@ package body Prj.Nmsc is
       ----------------------
 
       procedure Find_Source_Dirs (From : Name_Id; Location : Source_Ptr) is
-         Directory    : constant String := Get_Name_String (From);
+         Directory : constant String := Get_Name_String (From);
+         Element   : String_Element;
+
          Canonical_Directory_Id : Name_Id;
-         Element      : String_Element;
+         pragma Unreferenced (Canonical_Directory_Id);
+         --  Is this in fact being used for anything useful ???
 
          procedure Recursive_Find_Dirs (Path : Name_Id);
-         --  Find all the subdirectories (recursively) of Path
-         --  and add them to the list of source directories
-         --  of the project.
+         --  Find all the subdirectories (recursively) of Path and add them
+         --  to the list of source directories of the project.
 
          -------------------------
          -- Recursive_Find_Dirs --
@@ -2431,12 +2600,14 @@ package body Prj.Nmsc is
             Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
 
             declare
-               The_Path : String :=
+               The_Path : constant String :=
                             Normalize_Pathname
                               (Name => Name_Buffer (1 .. Name_Len)) &
-                            Directory_Separator;
+                               Directory_Separator;
+
                The_Path_Last : constant Natural :=
                                  Compute_Directory_Last (The_Path);
+
             begin
                Name_Len := The_Path_Last - The_Path'First + 1;
                Name_Buffer (1 .. Name_Len) :=
@@ -2567,8 +2738,13 @@ package body Prj.Nmsc is
 
          Get_Name_String (From);
          Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+
          --  Directory    := Name_Buffer (1 .. Name_Len);
+         --  Why is above line commented out ???
+
          Canonical_Directory_Id := Name_Find;
+         --  What is purpose of above assignment ???
+         --  Are we sure it is being used ???
 
          if Current_Verbosity = High then
             Write_Str (Directory);
@@ -2973,11 +3149,28 @@ package body Prj.Nmsc is
                   end if;
 
                   if Lib_Dir.Default then
-                     Error_Msg
-                       (Project,
-                        "a project extending a library project must specify " &
-                          "an attribute Library_Dir",
-                        Data.Location);
+
+                     --  If the extending project is a virtual project, we
+                     --  put the error message in the library project that
+                     --  is extended, rather than in the extending all project.
+                     --  Of course, we cannot put it in the virtual extending
+                     --  project, because it has no source.
+
+                     if Data.Virtual then
+                        Error_Msg_Name_1 := Extended_Data.Name;
+
+                        Error_Msg
+                          (Project,
+                           "library project % cannot be virtually extended",
+                           Extended_Data.Location);
+
+                     else
+                        Error_Msg
+                          (Project,
+                           "a project extending a library project must " &
+                           "specify an attribute Library_Dir",
+                           Data.Location);
+                     end if;
                   end if;
 
                   Projects.Table (Data.Extends).Library := False;
@@ -3001,6 +3194,7 @@ package body Prj.Nmsc is
                Data.Library_Dir, Data.Display_Library_Dir);
 
             if Data.Library_Dir = No_Name then
+
                --  Get the absolute name of the library directory that
                --  does not exist, to report an error.
 
@@ -3420,8 +3614,7 @@ package body Prj.Nmsc is
 
    function Path_Name_Of
      (File_Name : Name_Id;
-      Directory : Name_Id)
-      return      String
+      Directory : Name_Id) return String
    is
       Result : String_Access;
       The_Directory : constant String := Get_Name_String (Directory);
@@ -3446,8 +3639,7 @@ package body Prj.Nmsc is
 
    function Project_Extends
      (Extending : Project_Id;
-      Extended  : Project_Id)
-      return      Boolean
+      Extended  : Project_Id) return Boolean
    is
       Current : Project_Id := Extending;
    begin

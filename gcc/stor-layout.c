@@ -203,10 +203,10 @@ variable_size (tree size)
 #define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (DImode)
 #endif
 
-/* Return the machine mode to use for a nonscalar of SIZE bits.
-   The mode must be in class CLASS, and have exactly that many bits.
-   If LIMIT is nonzero, modes of wider than MAX_FIXED_MODE_SIZE will not
-   be used.  */
+/* Return the machine mode to use for a nonscalar of SIZE bits.  The
+   mode must be in class CLASS, and have exactly that many value bits;
+   it may have padding as well.  If LIMIT is nonzero, modes of wider
+   than MAX_FIXED_MODE_SIZE will not be used.  */
 
 enum machine_mode
 mode_for_size (unsigned int size, enum mode_class class, int limit)
@@ -219,7 +219,7 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
   /* Get the first mode which has this size, in the specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) == size)
+    if (GET_MODE_PRECISION (mode) == size)
       return mode;
 
   return BLKmode;
@@ -242,7 +242,7 @@ mode_for_size_tree (tree size, enum mode_class class, int limit)
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
-   contains at least the requested number of bits.  */
+   contains at least the requested number of value bits.  */
 
 enum machine_mode
 smallest_mode_for_size (unsigned int size, enum mode_class class)
@@ -253,7 +253,7 @@ smallest_mode_for_size (unsigned int size, enum mode_class class)
      specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) >= size)
+    if (GET_MODE_PRECISION (mode) >= size)
       return mode;
 
   abort ();
@@ -435,7 +435,9 @@ layout_decl (tree decl, unsigned int known_align)
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
 
-	      if (xmode != BLKmode && known_align >= GET_MODE_ALIGNMENT (xmode))
+	      if (xmode != BLKmode 
+		  && (known_align == 0
+		      || known_align >= GET_MODE_ALIGNMENT (xmode)))
 		{
 		  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
 					   DECL_ALIGN (decl));
@@ -453,7 +455,7 @@ layout_decl (tree decl, unsigned int known_align)
       else if (DECL_PACKED (decl) && DECL_USER_ALIGN (decl))
 	/* Don't touch DECL_ALIGN.  For other packed fields, go ahead and
 	   round up; we'll reduce it again below.  We want packing to
-	   supercede USER_ALIGN inherited from the type, but defer to
+	   supersede USER_ALIGN inherited from the type, but defer to
 	   alignment explicitly specified on the field decl.  */;
       else
 	do_type_align (type, decl);
@@ -731,8 +733,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   else if (is_bitfield && PCC_BITFIELD_TYPE_MATTERS)
     {
       /* Named bit-fields cause the entire structure to have the
-	 alignment implied by their type.  */
-      if (DECL_NAME (field) != 0)
+	 alignment implied by their type.  Some targets also apply the same
+	 rules to unnamed bitfields.  */
+      if (DECL_NAME (field) != 0
+	  || targetm.align_anon_bitfield ())
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
 
@@ -1085,7 +1089,6 @@ place_field (record_layout_info rli, tree field)
 		rli->prev_field = NULL;
 	    }
 
-	  rli->offset_align = tree_low_cst (TYPE_SIZE (type), 0);
 	  normalize_rli (rli);
         }
 

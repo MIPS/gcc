@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -55,17 +55,19 @@ package body Exp_Dist is
    --  The following model has been used to implement distributed objects:
    --  given a designated type D and a RACW type R, then a record of the
    --  form:
+
    --    type Stub is tagged record
    --       [...declaration similar to s-parint.ads RACW_Stub_Type...]
    --    end record;
+
    --  is built. This type has two properties:
-   --
+
    --    1) Since it has the same structure than RACW_Stub_Type, it can be
    --       converted to and from this type to make it suitable for
    --       System.Partition_Interface.Get_Unique_Remote_Pointer in order
    --       to avoid memory leaks when the same remote object arrive on the
    --       same partition by following different pathes
-   --
+
    --    2) It also has the same dispatching table as the designated type D,
    --       and thus can be used as an object designated by a value of type
    --       R on any partition other than the one on which the object has
@@ -1886,26 +1888,38 @@ package body Exp_Dist is
                     Make_Component_Declaration (Loc,
                       Defining_Identifier =>
                         Make_Defining_Identifier (Loc, Name_Origin),
-                      Subtype_Indication  =>
-                        New_Occurrence_Of (RTE (RE_Partition_ID), Loc)),
+                      Component_Definition =>
+                        Make_Component_Definition (Loc,
+                          Aliased_Present    => False,
+                          Subtype_Indication =>
+                            New_Occurrence_Of (RTE (RE_Partition_ID), Loc))),
 
                     Make_Component_Declaration (Loc,
                       Defining_Identifier =>
                         Make_Defining_Identifier (Loc, Name_Receiver),
-                      Subtype_Indication  =>
-                        New_Occurrence_Of (RTE (RE_Unsigned_64), Loc)),
+                      Component_Definition =>
+                        Make_Component_Definition (Loc,
+                          Aliased_Present    => False,
+                          Subtype_Indication =>
+                            New_Occurrence_Of (RTE (RE_Unsigned_64), Loc))),
 
                     Make_Component_Declaration (Loc,
                       Defining_Identifier =>
                         Make_Defining_Identifier (Loc, Name_Addr),
-                      Subtype_Indication  =>
-                        New_Occurrence_Of (RTE (RE_Unsigned_64), Loc)),
+                      Component_Definition =>
+                        Make_Component_Definition (Loc,
+                          Aliased_Present    => False,
+                          Subtype_Indication =>
+                            New_Occurrence_Of (RTE (RE_Unsigned_64), Loc))),
 
                     Make_Component_Declaration (Loc,
                       Defining_Identifier =>
                         Make_Defining_Identifier (Loc, Name_Asynchronous),
-                      Subtype_Indication  =>
-                        New_Occurrence_Of (Standard_Boolean, Loc))))));
+                      Component_Definition =>
+                        Make_Component_Definition (Loc,
+                          Aliased_Present    => False,
+                          Subtype_Indication =>
+                            New_Occurrence_Of (Standard_Boolean, Loc)))))));
 
       Append_To (Decls, Stub_Type_Declaration);
       Analyze (Stub_Type_Declaration);

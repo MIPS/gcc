@@ -463,13 +463,16 @@ package body Checks is
       Expr : Node_Id;
       Loc  : Source_Ptr;
 
+      Alignment_Required : constant Boolean := Maximum_Alignment > 1;
+      --  Constant to show whether target requires alignment checks
+
    begin
       --  See if check needed. Note that we never need a check if the
       --  maximum alignment is one, since the check will always succeed
 
       if No (AC)
         or else not Check_Address_Alignment (AC)
-        or else Maximum_Alignment = 1
+        or else not Alignment_Required
       then
          return;
       end if;
@@ -1182,6 +1185,26 @@ package body Checks is
 
                if No (DconS) then
                   return;
+               end if;
+
+               --  A further optimization: if T_Typ is derived from S_Typ
+               --  without imposing a constraint, no check is needed.
+
+               if Nkind (Original_Node (Parent (T_Typ))) =
+                 N_Full_Type_Declaration
+               then
+                  declare
+                     Type_Def : constant Node_Id :=
+                                 Type_Definition
+                                   (Original_Node (Parent (T_Typ)));
+                  begin
+                     if Nkind (Type_Def) = N_Derived_Type_Definition
+                       and then Is_Entity_Name (Subtype_Indication (Type_Def))
+                       and then Entity (Subtype_Indication (Type_Def)) = S_Typ
+                     then
+                        return;
+                     end if;
+                  end;
                end if;
             end if;
 
@@ -4758,13 +4781,16 @@ package body Checks is
 
                   --  At the library level, we need to ensure that the
                   --  type of the object is elaborated before the check
-                  --  itself is emitted.
+                  --  itself is emitted. This is only done if the object
+                  --  is in the current compilation unit, otherwise the
+                  --  type is frozen and elaborated in its unit.
 
                   if Is_Itype (Exptyp)
                     and then
                       Ekind (Cunit_Entity (Current_Sem_Unit)) = E_Package
                     and then
                       not In_Package_Body (Cunit_Entity (Current_Sem_Unit))
+                    and then In_Open_Scopes (Scope (Exptyp))
                   then
                      Ref_Node := Make_Itype_Reference (Sloc (Ck_Node));
                      Set_Itype (Ref_Node, Exptyp);

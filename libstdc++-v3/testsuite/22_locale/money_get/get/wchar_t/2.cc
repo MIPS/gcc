@@ -1,6 +1,6 @@
 // 2001-09-12 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,6 @@
 void test02()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
   bool test __attribute__((unused)) = true;
@@ -37,28 +35,13 @@ void test02()
   // basic construction
   locale loc_c = locale::classic();
   locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
-  VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
-
-  // cache the moneypunct facets
-  typedef moneypunct<wchar_t, true> __money_true;
-  typedef moneypunct<wchar_t, false> __money_false;
-
-  // sanity check the data is correct.
-  const wstring empty;
+  VERIFY( loc_c != loc_hk );
 
   // total EPA budget FY 2002
   const wstring digits1(L"720000000000");
 
   // est. cost, national missile "defense", expressed as a loss in USD 2001
   const wstring digits2(L"-10000000000000");  
-
-  // not valid input
-  const wstring digits3(L"-A"); 
 
   // input less than frac_digits
   const wstring digits4(L"-1");
@@ -86,7 +69,7 @@ void test02()
   ios_base::iostate err10 = ios_base::goodbit;
   mon_get.get(is_it10, end, true, iss, err10, result10);
   VERIFY( result10 == digits2 );
-  VERIFY( err10 == ios_base::goodbit );
+  VERIFY( err10 == ios_base::eofbit );
 
   iss.str(L"(HKD .01)"); 
   iterator_type is_it11(iss);
@@ -94,7 +77,7 @@ void test02()
   ios_base::iostate err11 = ios_base::goodbit;
   mon_get.get(is_it11, end, true, iss, err11, result11);
   VERIFY( result11 == digits4 );
-  VERIFY( err11 == ios_base::goodbit );
+  VERIFY( err11 == ios_base::eofbit );
 
   // for the "en_HK" locale the parsing of the very same input streams must
   // be successful without showbase too, since the symbol field appears in
@@ -116,7 +99,7 @@ void test02()
   ios_base::iostate err13 = ios_base::goodbit;
   mon_get.get(is_it13, end, true, iss, err13, result13);
   VERIFY( result13 == digits2 );
-  VERIFY( err13 == ios_base::goodbit );
+  VERIFY( err13 == ios_base::eofbit );
 
   iss.str(L"(HKD .01)"); 
   iterator_type is_it14(iss);
@@ -124,7 +107,7 @@ void test02()
   ios_base::iostate err14 = ios_base::goodbit;
   mon_get.get(is_it14, end, true, iss, err14, result14);
   VERIFY( result14 == digits4 );
-  VERIFY( err14 == ios_base::goodbit );
+  VERIFY( err14 == ios_base::eofbit );
 }
 
 int main()

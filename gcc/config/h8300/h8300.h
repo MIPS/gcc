@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 (generic)
+   Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -86,7 +86,7 @@ extern const char * const *h8_reg_names;
 
 /* Print subsidiary information on the compiler version in use.  */
 
-#define TARGET_VERSION fprintf (stderr, " (Hitachi H8/300)");
+#define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -224,9 +224,7 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 
 /* Define this if most significant word of a multiword number is lowest
-   numbered.
-   This is true on an H8/300 (actually we can make it up, but we choose to
-   be consistent).  */
+   numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
 #define MAX_BITS_PER_WORD	32
@@ -570,10 +568,12 @@ enum reg_class {
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.
 
-   We have two registers that can be eliminated on the h8300.  First, the
-   frame pointer register can often be eliminated in favor of the stack
-   pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer.  */
+   We have three registers that can be eliminated on the h8300.
+   First, the frame pointer register can often be eliminated in favor
+   of the stack pointer register.  Secondly, the argument pointer
+   register and the return address pointer register are always
+   eliminated; they are replaced with either the stack or frame
+   pointer.  */
 
 #define ELIMINABLE_REGS					\
 {{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
@@ -607,7 +607,7 @@ enum reg_class {
    On the H8 the return value is in R0/R1.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), R0_REG)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -615,12 +615,12 @@ enum reg_class {
 /* On the H8 the return value is in R0/R1.  */
 
 #define LIBCALL_VALUE(MODE) \
-  gen_rtx_REG (MODE, 0)
+  gen_rtx_REG (MODE, R0_REG)
 
 /* 1 if N is a possible register number for a function value.
    On the H8, R0 is the only register thus used.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == R0_REG)
 
 /* Define this if PCC uses the nonreentrant convention for returning
    structure and union values.  */
@@ -631,16 +631,6 @@ enum reg_class {
    On the H8, no registers are used in this way.  */
 
 #define FUNCTION_ARG_REGNO_P(N) (TARGET_QUICKCALL ? N < 3 : 0)
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-
-#define STRUCT_VALUE 0
-
-/* Return true if X should be returned in memory.  */
-#define RETURN_IN_MEMORY(X)					\
-  (TYPE_MODE (X) == BLKmode					\
-   || GET_MODE_SIZE (TYPE_MODE (X)) > (TARGET_H8300 ? 4 : 8))
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
@@ -671,7 +661,7 @@ struct cum_arg
 
    On the H8/300, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0, (CUM).libcall = LIBNAME)
 
 /* Update the data in CUM to advance over an argument
@@ -735,7 +725,7 @@ struct cum_arg
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE ((TARGET_H8300 || TARGET_NORMAL_MODE) ? 8 : 12)
+#define TRAMPOLINE_SIZE ((Pmode == HImode) ? 8 : 12)
 
 /* Emit RTL insns to build a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -1054,10 +1044,9 @@ struct cum_arg
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __ctors[];			\
-  extern pfunc __ctors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __ctors[];			\
+  extern func_ptr __ctors_end[];		\
+  func_ptr *p;					\
   for (p = __ctors_end; p > __ctors; )		\
     {						\
       (*--p)();					\
@@ -1067,10 +1056,9 @@ struct cum_arg
 #undef DO_GLOBAL_DTORS_BODY
 #define DO_GLOBAL_DTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __dtors[];			\
-  extern pfunc __dtors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __dtors[];			\
+  extern func_ptr __dtors_end[];		\
+  func_ptr *p;					\
   for (p = __dtors; p < __dtors_end; p++)	\
     {						\
       (*p)();					\

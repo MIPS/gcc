@@ -389,6 +389,7 @@ all: all.normal
 # Flags to pass down to all sub-makes.
 BASE_FLAGS_TO_PASS = [+ FOR flags_to_pass +]\
 	"[+flag+]=$([+flag+])" [+ ENDFOR flags_to_pass +]\
+	"CONFIG_SHELL=$(SHELL)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 
 
 # For any flags above that may contain shell code that varies from one
@@ -465,7 +466,8 @@ EXTRA_GCC_FLAGS = \
 	"`echo 'LIBGCC2_DEBUG_CFLAGS=$(LIBGCC2_DEBUG_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'LIBGCC2_INCLUDES=$(LIBGCC2_INCLUDES)' | sed -e s/.*=$$/XFOO=/`" \
 	"`echo 'STAGE1_CFLAGS=$(STAGE1_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
-	"`echo 'BOOT_CFLAGS=$(BOOT_CFLAGS)' | sed -e s/.*=$$/XFOO=/`"
+	"`echo 'BOOT_CFLAGS=$(BOOT_CFLAGS)' | sed -e s/.*=$$/XFOO=/`" \
+	"`echo 'BOOT_ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s/.*=$$/XFOO=/`"
 
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS)
 
@@ -776,6 +778,7 @@ configure-build-[+module+]:
 	AS="$(AS_FOR_BUILD)"; export AS; \
 	CC="$(CC_FOR_BUILD)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_BUILD)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX_FOR_BUILD)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
@@ -847,6 +850,7 @@ configure-[+module+]:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	AR="$(AR)"; export AR; \
@@ -953,6 +957,7 @@ configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
 	AS="$(AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \[+ 
 IF raw_cxx +]
 	CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
@@ -978,7 +983,7 @@ ENDIF raw_cxx +]
 	      .) topdir="../$(srcdir)" ;; \
 	      *) topdir="../../$(srcdir)" ;; \
 	    esac ;; \
-	esac; \
+	esac; \[+ IF stage +]
 	if [ "$(srcdir)" = "." ] ; then \
 	  if [ "$(TARGET_SUBDIR)" != "." ] ; then \
 	    if $(SHELL) $$s/symlink-tree $${topdir}/[+module+] "no-such-file" ; then \
@@ -999,10 +1004,10 @@ ENDIF raw_cxx +]
 	  fi; \
 	  srcdiroption="--srcdir=."; \
 	  libsrcdir="."; \
-	else \
+	else \[+ ENDIF stage +]
 	  srcdiroption="--srcdir=$${topdir}/[+module+]"; \
-	  libsrcdir="$$s/[+module+]"; \
-	fi; \
+	  libsrcdir="$$s/[+module+]"; \[+ IF stage +]
+	fi; \[+ ENDIF stage +]
 	rm -f no-such-file || : ; \
 	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
@@ -1064,6 +1069,9 @@ install-target-[+module+]: installdirs
 # build modules.  So GCC is a sort of hybrid.
 
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
+# Don't use shared host config.cache, as it will confuse later
+# directories; GCC wants slightly different values for some
+# precious variables.  *sigh*
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
 configure-gcc:
@@ -1073,6 +1081,7 @@ configure-gcc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	CC="$(CC)"; export CC; \
 	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CXX="$(CXX)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
@@ -1168,18 +1177,18 @@ profiledbootstrap: all-bootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
-	echo "Bootstrapping the compiler"; \
+	echo "Bootstrapping training compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
-	echo "Building runtime libraries and training compiler"; \
-	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
 	echo "Building feedback based compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
+	$(SET_LIB_PATH) \
+	echo "Building runtime libraries"; \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 
 .PHONY: cross
 cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
@@ -1406,7 +1415,7 @@ Makefile: $(srcdir)/Makefile.in config.status
 	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 config.status: configure $(gcc_version_trigger)
-	$(SHELL) ./config.status --recheck
+	CONFIG_SHELL="$(SHELL)" $(SHELL) ./config.status --recheck
 
 # Rebuilding configure.
 AUTOCONF = autoconf

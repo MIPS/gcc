@@ -130,7 +130,16 @@ proc gcc-dg-test { prog do_what extra_tool_flags } {
 }
 
 proc gcc-dg-prune { system text } {
+    global additional_prunes
+
     set text [prune_gcc_output $text]
+
+    foreach p $additional_prunes {
+	if { [string length $p] > 0 } {
+	    # Following regexp matches a complete line containing $p.
+	    regsub -all "(^|\n)\[^\n\]*$p\[^\n\]*" $text "" text
+	}
+    }
 
     # If we see "region xxx is full" then the testcase is too big for ram.
     # This is tricky to deal with in a large testsuite like c-torture so
@@ -237,7 +246,7 @@ proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
     # assembler output, but stabs debugging does not.
     # http://gcc.gnu.org/ml/gcc-regression/2003-04/msg00095.html
 	    if { [string match {*/debug-[12].c} "$nshort"] \
-		    && [string match "*O3*" "$flags"] \
+		    && [string match "*O*" "$flags"] \
 		    && ( [string match "*coff*" "$flags"] \
 			 || [string match "*stabs*" "$flags"] ) } {
 		set doit 0
@@ -262,6 +271,23 @@ proc dg-require-weak { args } {
 	unresolved "$name"
     }
     if { $weak_available != 1 } {
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
+# If this target does not support the "visibility" attribute, skip this
+# test.
+
+proc dg-require-visibility { args } {
+    upvar dg-do-what dg-do-what
+    upvar name name
+
+    set visibility_available [ check_visibility_available ]
+    if { $visibility_available == -1 } {
+	unresolved "$name"
+    }
+    if { $visibility_available != 1 } {
 	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
     }
@@ -295,13 +321,25 @@ proc dg-require-gc-sections { args } {
     }
 }
 
+# If this target does not support profiling, skip this test.
+
+proc dg-require-profiling { args } {
+    if { ![ check_profiling_available ${args} ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+}
+
 # If this target does not support DLL attributes skip this test.
 
 proc dg-require-dll { args } { 
     global target_triplet
-    # As a special case, the mcore-*-elf supports dllimport/dllexport.
-    if { [string match "mcore-*-elf" $target_triplet] } {
-	return
+    # As a special case, the mcore-*-elf supports these attributes.
+    # All Symbian OS targets also support these attributes.
+    if { [string match "mcore-*-elf" $target_triplet]
+         || [string match "*-*-symbianelf" $target_triplet]} {
+  	return
     }
     # PE/COFF targets support dllimport/dllexport.
     if { [gcc_target_object_format] == "pe" } {
@@ -310,6 +348,29 @@ proc dg-require-dll { args } {
 
     upvar dg-do-what dg-do-what
     set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+}
+
+# If this target does not support named sections skip this test.
+
+proc dg-require-named-sections { args } {
+   upvar name name
+
+   if { ![ check_named_sections_available ] } {
+       upvar dg-do-what dg-do-what
+       set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+   }
+}
+
+# Prune any messages matching ARGS[1] (a regexp) from test output.
+proc dg-prune-output { args } {
+    global additional_prunes
+
+    if { [llength $args] != 2 } {
+	error "[lindex $args 1]: need one argument"
+	return
+    }
+
+    lappend additional_prunes [lindex $args 1]
 }
 
 # Like check_conditional_xfail, but callable from a dg test.
@@ -324,11 +385,10 @@ proc dg-xfail-if { args } {
 }
 
 
-# We need to make sure that additional_files and additional_sources
-# are both cleared out after every test.  It is not enough to clear
-# them out *before* the next test run because gcc-target-compile gets
-# run directly from some .exp files (outside of any test).  (Those
-# uses should eventually be eliminated.) 
+# We need to make sure that additional_* are cleared out after every
+# test.  It is not enough to clear them out *before* the next test run
+# because gcc-target-compile gets run directly from some .exp files
+# (outside of any test).  (Those uses should eventually be eliminated.)
 
 # Because the DG framework doesn't provide a hook that is run at the
 # end of a test, we must replace dg-test with a wrapper.
@@ -339,15 +399,19 @@ if { [info procs saved-dg-test] == [list] } {
     proc dg-test { args } {
 	global additional_files
 	global additional_sources
+	global additional_prunes
 	global errorInfo
 
 	if { [ catch { eval saved-dg-test $args } errmsg ] } {
 	    set saved_info $errorInfo
 	    set additional_files ""
 	    set additional_sources ""
+	    set additional_prunes ""
 	    error $errmsg $saved_info
 	}
 	set additional_files ""
 	set additional_sources ""
+	set additional_prunes ""
     }
 }
+set additional_prunes ""

@@ -1,5 +1,5 @@
 /* Support for GCC on MIPS using WindISS simulator.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC. 
 
 This file is part of GCC.
@@ -89,7 +89,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s"
 
-/* We have no shared libraries.  These two shouldn't be necessary. */
+/* We have no shared libraries.  These two shouldn't be necessary.  */
 #undef LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC ""
 #undef LINK_EH_SPEC

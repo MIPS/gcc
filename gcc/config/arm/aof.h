@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for Advanced RISC Machines
    ARM compilation, AOF Assembler.
-   Copyright (C) 1995, 1996, 1997, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 2000, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@armltd.co.uk)
 
    This file is part of GCC.
@@ -34,8 +35,7 @@
 #define ENDFILE_SPEC "crtend.o%s"
 
 #ifndef ASM_SPEC
-#define ASM_SPEC "%{g -g} -arch 4 \
--apcs 3%{mapcs-32:/32bit}%{mapcs-26:/26bit}%{!mapcs-26:%{!macps-32:/26bit}}"
+#define ASM_SPEC "%{g -g} -arch 4 -apcs 3/32bit"
 #endif
 
 #ifndef LIB_SPEC
@@ -133,7 +133,7 @@
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
    give the same symbol without quotes for an alternative entry point.  You
-   must define both, or neither. */
+   must define both, or neither.  */
 #define NAME__MAIN "__gccmain"
 #define SYMBOL__MAIN __gccmain
 
@@ -246,7 +246,12 @@ do {					\
   "wr0",   "wr1",   "wr2",   "wr3",		\
   "wr4",   "wr5",   "wr6",   "wr7",		\
   "wr8",   "wr9",   "wr10",  "wr11",		\
-  "wr12",  "wr13",  "wr14",  "wr15"		\
+  "wr12",  "wr13",  "wr14",  "wr15",		\
+  "s0",  "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",  \
+  "s8",  "s9",  "s10", "s11", "s12", "s13", "s14", "s15", \
+  "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23", \
+  "s24", "s25", "s26", "s27", "s28", "s29", "s30", "s31",  \
+  "vfpcc"
 }
 
 #define ADDITIONAL_REGISTER_NAMES		\
@@ -267,6 +272,22 @@ do {					\
   {"r13", 13}, {"sp", 13}, 			\
   {"r14", 14}, {"lr", 14},			\
   {"r15", 15}, {"pc", 15}			\
+  {"d0", 63},					\
+  {"d1", 65},					\
+  {"d2", 67},					\
+  {"d3", 69},					\
+  {"d4", 71},					\
+  {"d5", 73},					\
+  {"d6", 75},					\
+  {"d7", 77},					\
+  {"d8", 79},					\
+  {"d9", 81},					\
+  {"d10", 83},					\
+  {"d11", 85},					\
+  {"d12", 87},					\
+  {"d13", 89},					\
+  {"d14", 91},					\
+  {"d15", 93},					\
 }
 
 #define REGISTER_PREFIX "__"
@@ -290,7 +311,7 @@ do {					\
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)	\
   fprintf ((STREAM), "\tDCD\t|L..%d|\n", (VALUE))
 
-/* A label marking the start of a jump table is a data label. */
+/* A label marking the start of a jump table is a data label.  */
 #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)	\
   fprintf ((STREAM), "\tALIGN\n|%s..%d|\n", (PREFIX), (NUM))
 

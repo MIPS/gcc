@@ -1,4 +1,5 @@
 dnl Process this with autoconf to create configure
+AC_PREREQ(2.13)
 AC_INIT(java/lang/System.java)
 
 # This works around the fact that libtool configuration may change LD
@@ -96,6 +97,26 @@ AC_ARG_ENABLE(libgcj-multifile,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-libgcj-multifile) ;;
 esac],[enable_libgcj_multifile=no])
 AM_CONDITIONAL(ONESTEP, test "$enable_libgcj_multifile" = yes)
+
+# What is the native OS API for MinGW?
+AC_ARG_WITH(win32-nlsapi,
+changequote(<<,>>)dnl
+<<  --with-win32-nlsapi=ansi, unicows or unicode
+                          native MinGW libgcj Win32 OS API [ansi]>>,
+changequote([,])
+[case "${withval}" in
+  ansi) with_win32_nlsapi=ansi ;;
+  unicows) with_win32_nlsapi=unicows ;;
+  unicode) with_win32_nlsapi=unicode ;;
+  *) AC_MSG_ERROR(Bad value ${withval} for --with-win32-nlsapi.) ;;
+esac],[with_win32_nlsapi=ansi])
+
+case "${with_win32_nlsapi}" in
+  unicows | unicode) 
+    AC_DEFINE(MINGW_LIBGCJ_UNICODE, 1,
+      [Define if MinGW libgcj uses the Windows UNICODE OS API.])
+    ;;
+esac
 
 dnl configure.host sets slow_pthread_self if the synchronization code should 
 dnl try to avoid pthread_self calls by caching thread IDs in a hashtable.
@@ -299,15 +320,23 @@ test -d java/net || mkdir java/net
 AC_LINK_FILES(java/net/natInetAddress${PLATFORMNET}.cc, java/net/natInetAddress.cc)
 AC_LINK_FILES(java/net/natNetworkInterface${PLATFORMNET}.cc, java/net/natNetworkInterface.cc)
 
-dnl Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.ca.c
+dnl Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
 test -d gnu/java || mkdir gnu/java
 test -d gnu/java/net || mkdir gnu/java/net
 AC_LINK_FILES(gnu/java/net/natPlainSocketImpl${PLATFORMNET}.cc, gnu/java/net/natPlainSocketImpl.cc)
 AC_LINK_FILES(gnu/java/net/natPlainDatagramSocketImpl${PLATFORMNET}.cc, gnu/java/net/natPlainDatagramSocketImpl.cc)
 
+dnl Likewise for natPipeImpl.cc and natSelectorImpl.cc.
+test -d gnu/java/nio || mkdir gnu/java/nio
+AC_LINK_FILES(gnu/java/nio/natPipeImpl${PLATFORM}.cc, gnu/java/nio/natPipeImpl.cc)
+AC_LINK_FILES(gnu/java/nio/natSelectorImpl${PLATFORM}.cc, gnu/java/nio/natSelectorImpl.cc)
+
 case "${host}" in
     *mingw*)
       SYSTEMSPEC="-lgdi32 -lwsock32 -lws2_32"
+      if test "${with_win32_nlsapi}" = "unicows"; then
+        SYSTEMSPEC="-lunicows $SYSTEMSPEC"
+      fi
     ;;
     *)
       SYSTEMSPEC=
@@ -377,6 +406,18 @@ done
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
 AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
 
+dnl determine whether to enable the cairo GTK Graphics2D backend
+AC_ARG_ENABLE(gtk-cairo, [  --enable-gtk-cairo       build the cairo Graphics2D implementation on GTK])
+AM_CONDITIONAL(GTK_CAIRO, test "x${enable_gtk_cairo}" = xyes)
+if test "x${enable_gtk_cairo}" = xyes
+then
+	PKG_CHECK_MODULES(CAIRO, cairo)
+	PKG_CHECK_MODULES(PANGOFT2, pangoft2)
+fi
+AC_SUBST(CAIRO_LIBS)
+AC_SUBST(CAIRO_CFLAGS)
+AC_SUBST(PANGOFT2_LIBS)
+AC_SUBST(PANGOFT2_CFLAGS)
 
 dnl FIXME: this should be _libs on some hosts.
 libsubdir=.libs
@@ -835,8 +876,8 @@ else
 
    # Test for Gtk stuff, if asked for.
    if test "$use_gtk_awt" = yes; then
-      AM_PATH_GTK_2_0(2.0.0,,exit 1)
-      AM_PATH_GLIB_2_0(2.0.0,,exit 1,gthread)
+      AM_PATH_GTK_2_0(2.2.0,,exit 1)
+      AM_PATH_GLIB_2_0(2.2.0,,exit 1,gthread)
       dnl XXX Fix me when libart.m4 has the compile test fixed!
       enable_libarttest=no
       AM_PATH_LIBART(2.1.0,,exit 1)
@@ -1087,6 +1128,7 @@ AC_FUNC_MMAP
 AC_CHECK_PROGS(PERL, perl, false)
 
 SYSDEP_SOURCES=
+SIGNAL_HANDLER_AUX=
 
 case "${host}" in
  i?86-*-linux*)
@@ -1102,7 +1144,7 @@ case "${host}" in
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
- powerpc-*-linux*)
+ powerpc*-*-linux*)
     SIGNAL_HANDLER=include/powerpc-signal.h
     ;;
  alpha*-*-linux*)
@@ -1113,6 +1155,7 @@ case "${host}" in
     ;;
  x86_64*-*-linux*)
     SIGNAL_HANDLER=include/x86_64-signal.h
+    SIGNAL_HANDLER_AUX=include/i386-signal.h
     ;;
  sparc*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
@@ -1134,6 +1177,7 @@ esac
 # If we're using sjlj exceptions, forget what we just learned.
 if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
+   SIGNAL_HANDLER_AUX=
 fi
 
 # Define here any compiler flags that you need in order to make backtrace() work.
@@ -1147,7 +1191,12 @@ AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 
-AC_LINK_FILES($SIGNAL_HANDLER, include/java-signal.h)
+if test -z "$SIGNAL_HANDLER_AUX"; then
+  SIGNAL_HANDLER_AUX=$SIGNAL_HANDLER
+fi
+
+AC_LINK_FILES($SIGNAL_HANDLER $SIGNAL_HANDLER_AUX,
+	      include/java-signal.h include/java-signal-aux.h)
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"

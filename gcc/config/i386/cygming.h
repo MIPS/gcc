@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -27,6 +27,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
+#define TARGET_IS_PE_COFF 1
+
 #include <stdio.h>
 
 /* Masks for subtarget switches used by other files.  */
@@ -51,14 +53,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
 
-/* Support the __declspec keyword by turning them into attributes.
-   We currently only support: dllimport and dllexport.
-   Note that the current way we do this may result in a collision with
-   predefined attributes later on.  This can be solved by using one attribute,
-   say __declspec__, and passing args to it.  The problem with that approach
-   is that args are not accumulated: each new appearance would clobber any
-   existing args.  */
-
 #define TARGET_OS_CPP_BUILTINS()					\
   do									\
     {									\
@@ -67,7 +61,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
 	builtin_define ("__fastcall=__attribute__((__fastcall__))");	\
 	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
-	builtin_define ("__declspec(x)=__attribute__((x))");		\
 	if (!flag_iso)							\
 	  {								\
 	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
@@ -81,7 +74,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Get tree.c to declare a target-specific specialization of
    merge_decl_attributes.  */
-#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -230,7 +223,7 @@ do {							\
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    returns float values in the 387 and needs stack probes.
-   We also align doubles to 64-bits for MSVC default compatibility. */
+   We also align doubles to 64-bits for MSVC default compatibility.  */
 
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
@@ -376,6 +369,9 @@ extern int i386_pe_dllimport_name_p (const char *);
 	alias = XSTR (rtlname, 0);					\
       else								\
 	abort ();							\
+      if (TREE_CODE (DECL) == FUNCTION_DECL)				\
+	i386_pe_declare_function_type (STREAM, alias,			\
+				       TREE_PUBLIC (DECL));		\
       ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
     } while (0)
 
@@ -384,4 +380,3 @@ extern int i386_pe_dllimport_name_p (const char *);
 #ifndef BUFSIZ
 # undef FILE
 #endif
-

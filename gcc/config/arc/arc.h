@@ -633,7 +633,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
@@ -1245,7 +1245,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 
 /* Generate DBX and DWARF debugging information.  */
 #define DBX_DEBUGGING_INFO 1
-#define DWARF_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef PREFERRED_DEBUGGING_TYPE

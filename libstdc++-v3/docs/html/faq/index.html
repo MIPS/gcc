@@ -10,6 +10,9 @@
    <meta name="DESCRIPTION" content="FAQ for the GNU libstdc++ effort." />
    <title>libstdc++-v3 FAQ</title>
 <link rel="StyleSheet" href="../lib3styles.css" />
+<link rel="Start" rev="Help" href="../documentation.html" type="text/html"
+ title="GNU C++ Standard Library" />
+<link rel="Copyright" href="../17_intro/license.html" type="text/html" />
 <!--
   ** Locations of "the most recent snapshot is the Nth" text are
   ** answers 1_1, .
@@ -59,6 +62,9 @@
                             mentioning?</a> </li>
          <li><a href="#2_4">How do I know if it works?</a> </li>
          <li><a href="#2_5">This library is HUGE!  And what's libsupc++?</a> </li>
+         <li><a href="#2_6">Why do I get an error saying
+                            <code>libstdc++.so.X</code> is missing when I
+                            run my program?</a> </li>
       </ol>
    </li>
 
@@ -115,6 +121,8 @@
          <li><a href="#5_6">Is libstdc++-v3 thread-safe?</a> </li>
          <li><a href="#5_7">How do I get a copy of the ISO C++ Standard?</a> </li>
          <li><a href="#5_8">What's an ABI and why is it so messy?</a> </li>
+         <li><a href="#5_9">How do I make std::vector&lt;T&gt;::capacity() 
+                            == std::vector&lt;T&gt;::size?</a> </li>
       </ol>
    </li>
 
@@ -387,16 +395,17 @@ which is no longer available, thanks deja...-->
       <p>It's not a bug, and it's not really a problem.  Nevertheless, some
          people don't like it, so here are two pseudo-solutions:
       </p>
-      <p>If the only functions from libstdc++.a which you need are language
-         support functions (those listed in
-         <a href="../18_support/howto.html">clause 18</a> of the standard,
-         e.g., <code>new</code> and <code>delete</code>), then try linking
-         against <code>libsupc++.a</code> (usually specifying
-         <code>-lsupc++</code> when calling g++ for the final link step will
-         do it).  This library contains only those support routines, one per
-         object file.  But if you are using anything from the rest of the
-         library, such as IOStreams or vectors, then you'll still need
-         pieces from <code>libstdc++.a</code>.
+      <p>If the only functions from libstdc++.a which you need are
+         language support functions (those listed in <a
+         href="../18_support/howto.html">clause 18</a> of the
+         standard, e.g., <code>new</code> and <code>delete</code>),
+         then try linking against <code>libsupc++.a</code> (Using
+         <code>gcc</code> instead of <code>g++</code> and explicitly
+         linking in <code>-lsupc++</code> for the final link step will
+         do it).  This library contains only those support routines,
+         one per object file.  But if you are using anything from the
+         rest of the library, such as IOStreams or vectors, then
+         you'll still need pieces from <code>libstdc++.a</code>.
       </p>
       <p>The second method is one we hope to incorporate into the library
          build process.  Some platforms can place each function and variable
@@ -410,6 +419,43 @@ which is no longer available, thanks deja...-->
          are mistakenly removed, leading to horrible crashes when your
          executable starts up.  For the time being, this feature is not used
          when building the library.
+      </p>
+
+<hr />
+   <h2><a name="2_6">2.6 Why do I get an error saying
+                         <code>libstdc++.so.X</code> is missing when I run
+                         my program?</a></h2>
+      <p>Depending on your platform and library version, the message might
+         be similar to one of the following:
+      </p>
+      <pre>
+    ./a.out: error while loading shared libraries: libstdc++.so.6: cannot open shared object file: No such file or directory
+
+    /usr/libexec/ld-elf.so.1: Shared object "libstdc++.so.6" not found </pre>
+
+      <p>This doesn't mean that the shared library isn't installed, only
+         that the dynamic linker can't find it. When a dynamically-linked
+         executable is run the linker finds and loads the required shared
+         libraries by searching a pre-configured list of directories. If
+         the directory where you've installed libstdc++ is not in this
+         list then the libraries won't be found. The simplest way to fix
+         this is to use the <code>LD_LIBRARY_PATH</code> environment
+         variable, which is a colon-separated list of directories in which
+         the linker will search for shared libraries:
+      </p>
+      <pre>
+    LD_LIBRARY_PATH=${prefix}/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH </pre>
+      <p>The exact environment variable to use will depend on your platform,
+         e.g. DYLD_LIBRARY_PATH for Darwin,
+         LD_LIBRARY_PATH_32/LD_LIBRARY_PATH_64 for Solaris 32-/64-bit,
+         LD_LIBRARYN32_PATH/LD_LIBRARY64_PATH for Irix N32/64-bit ABIs
+         and SHLIB_PATH for HP-UX.
+      </p>
+      <p>See the man pages for <code>ld(1)</code>, <code>ldd(1)</code> and
+         <code>ldconfig(8)</code> for more information. The dynamic linker
+         has different names on different platforms but the man page is
+         usually called something such as <code>ld.so / rtld / dld.so</code>.
       </p>
 
 <hr />
@@ -709,7 +755,7 @@ New:
          causing problems for you, look carefully before submitting a
          &quot;high&quot; priority bug report (which you probably shouldn't
          do anyhow; see the last paragraph of the page describing
-         <a href="http://gcc.gnu.org/gnatswrite.html">the GCC bug database</a>).
+         <a href="http://gcc.gnu.org/bugs.html">the GCC bug database</a>).
       </p>
       <p>If the headers are in <code>${prefix}/include/g++-3</code>, or if
          the installed library's name looks like <code>libstdc++-2.10.a</code>
@@ -1003,7 +1049,7 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
          ANSI and their website is right <a href="http://www.ansi.org">here</a>.
          (And if you've already registered with them, clicking this link will
          take you to directly to the place where you can
-<a href="http://webstore.ansi.org/ansidocstore/product.asp?sku=ISO%2FIEC+14882%2D1998">buy
+<a href="http://webstore.ansi.org/ansidocstore/product.asp?sku=ISO%2FIEC+14882%3A2003">buy
          the standard on-line</a>.
       </p>
       <p>Who is your country's member body?  Visit the
@@ -1056,6 +1102,23 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
          the decisions, must happen before you can reasonably document a
          candidate C++ ABI that encompasses the standard library.
       </p>
+
+<hr />
+   <h2><a name="5_9">5.9 How do I make std::vector&lt;T&gt;::capacity()
+                     == std::vector&lt;T&gt;::size()?</a> </h2>
+   <!-- referenced by 21_strings/howto.html#6 -->
+   <p>The standard idiom for deallocating a <code>std::vector&lt;T&gt;</code>'s
+      unused memory is to create a temporary copy of the vector and swap their
+      contents, e.g. for <code>std::vector&lt;T&gt; v</code>
+   </p>
+   <pre>
+     std::vector&lt;T&gt;(v).swap(v);
+   </pre>
+   <p>The copy will take O(n) time and the swap is constant time.
+   </p>
+   <p>See <a href='../21_strings/howto.html#6'>Shrink-to-fit strings</a> for
+      a similar solution for strings.
+   </p>
 
 <!-- ####################################################### -->
 

@@ -1,6 +1,6 @@
 /* Perform various loop optimizations, including strength reduction.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-flags.h"
 #include "optabs.h"
 #include "cfgloop.h"
+#include "ggc.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -255,6 +256,7 @@ static void count_one_set (struct loop_regs *, rtx, rtx, rtx *);
 static void note_addr_stored (rtx, rtx, void *);
 static void note_set_pseudo_multiple_uses (rtx, rtx, void *);
 static int loop_reg_used_before_p (const struct loop *, rtx, rtx);
+static rtx find_regs_nested (rtx, rtx);
 static void scan_loop (struct loop*, int);
 #if 0
 static void replace_call_address (rtx, rtx, rtx);
@@ -533,12 +535,18 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
       struct loop *loop = &loops->array[i];
 
       if (! loop->invalid && loop->end)
-	scan_loop (loop, flags);
+	{
+	  scan_loop (loop, flags);
+	  ggc_collect ();
+	}
     }
 
   end_alias_analysis ();
 
   /* Clean up.  */
+  for (i = 0; i < (int) loops->num; i++)
+    free (loops_info[i].mems);
+  
   free (uid_luid);
   free (uid_loop);
   free (loops_info);
@@ -571,6 +579,32 @@ next_insn_in_loop (const struct loop *loop, rtx insn)
     insn = NULL_RTX;
 
   return insn;
+}
+
+/* Find any register references hidden inside X and add them to
+   the dependency list DEPS.  This is used to look inside CLOBBER (MEM
+   when checking whether a PARALLEL can be pulled out of a loop.  */
+
+static rtx
+find_regs_nested (rtx deps, rtx x)
+{
+  enum rtx_code code = GET_CODE (x);
+  if (code == REG)
+    deps = gen_rtx_EXPR_LIST (VOIDmode, x, deps);
+  else
+    {
+      const char *fmt = GET_RTX_FORMAT (code);
+      int i, j;
+      for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+	{
+	  if (fmt[i] == 'e')
+	    deps = find_regs_nested (deps, XEXP (x, i));
+	  else if (fmt[i] == 'E')
+	    for (j = 0; j < XVECLEN (x, i); j++)
+	      deps = find_regs_nested (deps, XVECEXP (x, i, j));
+	}
+    }
+  return deps;
 }
 
 /* Optimize one loop described by LOOP.  */
@@ -776,7 +810,9 @@ scan_loop (struct loop *loop, int flags)
 		}
 
 	      /* For parallels, add any possible uses to the dependencies, as
-		 we can't move the insn without resolving them first.  */
+		 we can't move the insn without resolving them first.
+		 MEMs inside CLOBBERs may also reference registers; these
+		 count as implicit uses.  */
 	      if (GET_CODE (PATTERN (p)) == PARALLEL)
 		{
 		  for (i = 0; i < XVECLEN (PATTERN (p), 0); i++)
@@ -786,6 +822,10 @@ scan_loop (struct loop *loop, int flags)
 			dependencies
 			  = gen_rtx_EXPR_LIST (VOIDmode, XEXP (x, 0),
 					       dependencies);
+		      else if (GET_CODE (x) == CLOBBER 
+			       && GET_CODE (XEXP (x, 0)) == MEM)
+			dependencies = find_regs_nested (dependencies, 
+						  XEXP (XEXP (x, 0), 0));
 		    }
 		}
 
@@ -889,6 +929,7 @@ scan_loop (struct loop *loop, int flags)
 			  || (! (GET_CODE (SET_SRC (set)) == REG
 				 && (REGNO (SET_SRC (set))
 				     < FIRST_PSEUDO_REGISTER))))
+		      && regno >= FIRST_PSEUDO_REGISTER 
 		      /* This test is not redundant; SET_SRC (set) might be
 			 a call-clobbered register and the life of REGNO
 			 might span a call.  */
@@ -1429,12 +1470,18 @@ force_movables (struct loop_movables *movables)
 	  m = 0;
 
 	/* Increase the priority of the moving the first insn
-	   since it permits the second to be moved as well.  */
+	   since it permits the second to be moved as well.
+	   Likewise for insns already forced by the first insn.  */
 	if (m != 0)
 	  {
+	    struct movable *m2;
+
 	    m->forces = m1;
-	    m1->lifetime += m->lifetime;
-	    m1->savings += m->savings;
+	    for (m2 = m1; m2; m2 = m2->forces)
+	      {
+		m2->lifetime += m->lifetime;
+		m2->savings += m->savings;
+	      }
 	  }
       }
 }
@@ -2113,7 +2160,8 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 			  /* The SET_SRC might not be invariant, so we must
 			     use the REG_EQUAL note.  */
 			  start_sequence ();
-			  emit_move_insn (m->set_dest, m->set_src);
+			  emit_move_insn (m->insert_temp ? newreg : m->set_dest,
+					  m->set_src);
 			  seq = get_insns ();
 			  end_sequence ();
 
@@ -2606,7 +2654,7 @@ prescan_loop (struct loop *loop)
 		  loop_info->has_multiple_exit_targets = 1;
 		}
 	    }
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case INSN:
 	  if (volatile_refs_p (PATTERN (insn)))
@@ -3298,8 +3346,14 @@ loop_invariant_p (const struct loop *loop, rtx x)
 	return 0;
 
       /* Out-of-range regs can occur when we are called from unrolling.
-	 These have always been created by the unroller and are set in
-	 the loop, hence are never invariant.  */
+	 These registers created by the unroller are set in the loop,
+	 hence are never invariant.
+	 Other out-of-range regs can be generated by load_mems; those that
+	 are written to in the loop are not invariant, while those that are
+	 not written to are invariant.  It would be easy for load_mems
+	 to set n_times_set correctly for these registers, however, there
+	 is no easy way to distinguish them from registers created by the
+	 unroller.  */
 
       if (REGNO (x) >= (unsigned) regs->num)
 	return 0;
@@ -5647,7 +5701,7 @@ record_biv (struct loop *loop, struct induction *v, rtx insn, rtx dest_reg,
       /* Set initial value to the reg itself.  */
       bl->initial_value = dest_reg;
       bl->final_value = 0;
-      /* We haven't seen the initializing insn yet */
+      /* We haven't seen the initializing insn yet.  */
       bl->init_insn = 0;
       bl->init_set = 0;
       bl->initial_test = 0;
@@ -6095,6 +6149,10 @@ update_giv_derive (const struct loop *loop, rtx p)
       if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
 	  || biv->insn == p)
 	{
+	  /* Skip if location is the same as a previous one.  */
+	  if (biv->same)
+	    continue;
+
 	  for (giv = bl->giv; giv; giv = giv->next_iv)
 	    {
 	      /* If cant_derive is already true, there is no point in
@@ -6165,7 +6223,7 @@ update_giv_derive (const struct loop *loop, rtx p)
    *MULT_VAL to CONST0_RTX, and store the invariant into *INC_VAL.
 
    We also want to detect a BIV when it corresponds to a variable
-   whose mode was promoted via PROMOTED_MODE.  In that case, an increment
+   whose mode was promoted.  In that case, an increment
    of the variable may be a PLUS that adds a SUBREG of that variable to
    an invariant and then sign- or zero-extends the result of the PLUS
    into the variable.
@@ -6223,7 +6281,7 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
       /* convert_modes can emit new instructions, e.g. when arg is a loop
 	 invariant MEM and dest_reg has a different mode.
 	 These instructions would be emitted after the end of the function
-	 and then *inc_val would be an unitialized pseudo.
+	 and then *inc_val would be an uninitialized pseudo.
 	 Detect this and bail in this case.
 	 Other alternatives to solve this can be introducing a convert_modes
 	 variant which is allowed to fail but not allowed to emit new
@@ -7196,6 +7254,9 @@ express_from (struct induction *g1, struct induction *g2)
       && GET_CODE (g2->mult_val) == CONST_INT)
     {
       if (g1->mult_val == const0_rtx
+	  || (g1->mult_val == constm1_rtx
+	      && INTVAL (g2->mult_val)
+		 == (HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1))
 	  || INTVAL (g2->mult_val) % INTVAL (g1->mult_val) != 0)
 	return NULL_RTX;
       mult = GEN_INT (INTVAL (g2->mult_val) / INTVAL (g1->mult_val));
@@ -7955,6 +8016,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
   struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
+  enum machine_mode mode;
   rtx jump_label;
   rtx final_value;
   rtx start_value;
@@ -8017,6 +8079,22 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	break;
     }
 
+  /* Try swapping the comparison to identify a suitable biv.  */
+  if (!bl)
+    for (bl = ivs->list; bl; bl = bl->next)
+      if (bl->biv_count == 1
+	  && ! bl->biv->maybe_multiple
+	  && bl->biv->dest_reg == XEXP (comparison, 1)
+	  && ! reg_used_between_p (regno_reg_rtx[bl->regno], bl->biv->insn,
+				   first_compare))
+	{
+	  comparison = gen_rtx_fmt_ee (swap_condition (GET_CODE (comparison)),
+				       VOIDmode,
+				       XEXP (comparison, 1),
+				       XEXP (comparison, 0));
+	  break;
+	}
+
   if (! bl)
     return 0;
 
@@ -8039,7 +8117,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	  && (INTVAL (bl->initial_value)
 	      % (-INTVAL (bl->biv->add_val))) == 0)
 	{
-	  /* register always nonnegative, add REG_NOTE to branch */
+	  /* Register always nonnegative, add REG_NOTE to branch.  */
 	  if (! find_reg_note (jump, REG_NONNEG, NULL_RTX))
 	    REG_NOTES (jump)
 	      = gen_rtx_EXPR_LIST (REG_NONNEG, bl->biv->dest_reg,
@@ -8242,6 +8320,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      enum rtx_code cmp_code;
 	      int comparison_const_width;
 	      unsigned HOST_WIDE_INT comparison_sign_mask;
+	      bool keep_first_compare;
 
 	      add_val = INTVAL (bl->biv->add_val);
 	      comparison_value = XEXP (comparison, 1);
@@ -8359,6 +8438,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
+	      mode = GET_MODE (reg);
 	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
@@ -8370,12 +8450,12 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      if (initial_value == const0_rtx
 		  && GET_CODE (comparison_value) == CONST_INT)
 		{
-		  start_value = GEN_INT (comparison_val - add_adjust);
+		  start_value
+		    = gen_int_mode (comparison_val - add_adjust, mode);
 		  loop_insn_hoist (loop, gen_move_insn (reg, start_value));
 		}
 	      else if (GET_CODE (initial_value) == CONST_INT)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx offset = GEN_INT (-INTVAL (initial_value) - add_adjust);
 		  rtx add_insn = gen_add3_insn (reg, comparison_value, offset);
 
@@ -8391,7 +8471,6 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		}
 	      else if (! add_adjust)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx sub_insn = gen_sub3_insn (reg, comparison_value,
 						initial_value);
 
@@ -8434,12 +8513,25 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		 not delete the label.  */
 	      LABEL_NUSES (XEXP (jump_label, 0))++;
 
+	      /* If we have a separate comparison insn that does more
+		 than just set cc0, the result of the comparison might
+		 be used outside the loop.  */
+	      keep_first_compare = (compare_and_branch == 2
+#ifdef HAVE_CC0
+				    && sets_cc0_p (first_compare) <= 0
+#endif
+				    );
+
 	      /* Emit an insn after the end of the loop to set the biv's
 		 proper exit value if it is used anywhere outside the loop.  */
-	      if ((REGNO_LAST_UID (bl->regno) != INSN_UID (first_compare))
+	      if (keep_first_compare
+		  || (REGNO_LAST_UID (bl->regno) != INSN_UID (first_compare))
 		  || ! bl->init_insn
 		  || REGNO_FIRST_UID (bl->regno) != INSN_UID (bl->init_insn))
 		loop_insn_sink (loop, gen_load_of_final_value (reg, final_value));
+
+	      if (keep_first_compare)
+		loop_insn_sink (loop, PATTERN (first_compare));
 
 	      /* Delete compare/branch at end of loop.  */
 	      delete_related_insns (PREV_INSN (loop_end));
@@ -8449,7 +8541,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0,
+				       mode, 0,
 				       XEXP (jump_label, 0));
 	      tem = get_insns ();
 	      end_sequence ();
@@ -9495,6 +9587,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
   for (i = 0; i < loop_info->mems_idx; ++i)
     if (rtx_equal_p (m, loop_info->mems[i].mem))
       {
+	if (MEM_VOLATILE_P (m) && !MEM_VOLATILE_P (loop_info->mems[i].mem))
+	  loop_info->mems[i].mem = m;
 	if (GET_MODE (m) != GET_MODE (loop_info->mems[i].mem))
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just
@@ -10678,18 +10772,18 @@ loop_dump_aux (const struct loop *loop, FILE *file,
 
   /* Print diagnostics to compare our concept of a loop with
      what the loop notes say.  */
-  if (! PREV_INSN (loop->first->head)
-      || GET_CODE (PREV_INSN (loop->first->head)) != NOTE
-      || NOTE_LINE_NUMBER (PREV_INSN (loop->first->head))
+  if (! PREV_INSN (BB_HEAD (loop->first))
+      || GET_CODE (PREV_INSN (BB_HEAD (loop->first))) != NOTE
+      || NOTE_LINE_NUMBER (PREV_INSN (BB_HEAD (loop->first)))
       != NOTE_INSN_LOOP_BEG)
     fprintf (file, ";;  No NOTE_INSN_LOOP_BEG at %d\n",
-	     INSN_UID (PREV_INSN (loop->first->head)));
-  if (! NEXT_INSN (loop->last->end)
-      || GET_CODE (NEXT_INSN (loop->last->end)) != NOTE
-      || NOTE_LINE_NUMBER (NEXT_INSN (loop->last->end))
+	     INSN_UID (PREV_INSN (BB_HEAD (loop->first))));
+  if (! NEXT_INSN (BB_END (loop->last))
+      || GET_CODE (NEXT_INSN (BB_END (loop->last))) != NOTE
+      || NOTE_LINE_NUMBER (NEXT_INSN (BB_END (loop->last)))
       != NOTE_INSN_LOOP_END)
     fprintf (file, ";;  No NOTE_INSN_LOOP_END at %d\n",
-	     INSN_UID (NEXT_INSN (loop->last->end)));
+	     INSN_UID (NEXT_INSN (BB_END (loop->last))));
 
   if (loop->start)
     {

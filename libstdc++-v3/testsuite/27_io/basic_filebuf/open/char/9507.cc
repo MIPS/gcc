@@ -23,9 +23,6 @@
 // various tests for filebuf::open() and filebuf::close() including
 // the non-portable functionality in the libstdc++-v3 IO library
 
-// XXX cygwin does not support mkfifo
-// { dg-do run { xfail *-*-cygwin* } }
-
 #include <fstream>
 #include <unistd.h>
 #include <signal.h>
@@ -34,28 +31,39 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // libstdc++/9507
 void test_06()
 {
+  using namespace __gnu_test;
   bool test __attribute__((unused)) = true;
   const char* name = "tmp_fifo2";
 
   signal(SIGPIPE, SIG_IGN);
 
   unlink(name);
-  mkfifo(name, S_IRWXU);
+  try_mkfifo(name, S_IRWXU);
 	
   if (!fork())
     {
       std::filebuf fbuf;
       fbuf.open(name, std::ios_base::in);
       fbuf.sgetc();
+      sleep(2);
       fbuf.close();
       exit(0);
     }
 
   std::filebuf fbuf;
-  std::filebuf* r = fbuf.open(name, std::ios_base::out | std::ios_base::ate);
+  sleep(1);
+  std::filebuf* r = fbuf.open(name,
+			      std::ios_base::in 
+			      | std::ios_base::out
+			      | std::ios_base::ate);
   VERIFY( !fbuf.is_open() );
   VERIFY( r == NULL );
 }
@@ -67,4 +75,4 @@ main()
   return 0;
 }
 
-
+#endif // _NEWLIB_VERSION

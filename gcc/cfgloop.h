@@ -1,5 +1,5 @@
 /* Natural loop functions
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,6 +42,9 @@ struct loop_desc
   int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
   rtx stride;		/* Value added to VAR in each iteration.  */
   rtx var;		/* Loop control variable.  */
+  enum machine_mode inner_mode;
+			/* The mode from that it is extended.  */
+  enum rtx_code extend;	/* With this extend.  */
   rtx var_alts;		/* List of definitions of its initial value.  */
   rtx lim;		/* Expression var is compared with.  */
   rtx lim_alts;		/* List of definitions of its initial value.  */
@@ -227,9 +230,6 @@ struct loops
   /* Information derived from the CFG.  */
   struct cfg
   {
-    /* The bitmap vector of dominators or NULL if not computed.  */
-    dominance_info dom;
-
     /* The ordering of the basic blocks in a depth first search.  */
     int *dfs_order;
 
@@ -262,7 +262,7 @@ extern void flow_loops_dump (const struct loops *, FILE *,
 			     void (*)(const struct loop *, FILE *, int), int);
 extern void flow_loop_dump (const struct loop *, FILE *,
 			    void (*)(const struct loop *, FILE *, int), int);
-extern int flow_loop_scan (struct loops *, struct loop *, int);
+extern int flow_loop_scan (struct loop *, int);
 extern void flow_loop_free (struct loop *);
 void mark_irreducible_loops (struct loops *);
 
@@ -289,7 +289,7 @@ extern void remove_bb_from_loops (basic_block);
 extern void cancel_loop (struct loops *, struct loop *);
 extern void cancel_loop_tree (struct loops *, struct loop *);
 
-extern basic_block loop_split_edge_with (edge, rtx, struct loops *);
+extern basic_block loop_split_edge_with (edge, rtx);
 extern int fix_loop_placement (struct loop *);
 
 enum
@@ -303,10 +303,9 @@ extern void force_single_succ_latches (struct loops *);
 extern void verify_loop_structure (struct loops *);
 
 /* Loop analysis.  */
-extern bool simple_loop_p (struct loops *, struct loop *, struct loop_desc *);
+extern bool simple_loop_p (struct loop *, struct loop_desc *);
 extern rtx count_loop_iterations (struct loop_desc *, rtx, rtx);
-extern bool just_once_each_iteration_p (struct loops *,struct loop *,
-					basic_block);
+extern bool just_once_each_iteration_p (struct loop *, basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
 
 /* Loop manipulation.  */
@@ -321,7 +320,7 @@ extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 extern struct loop *loopify (struct loops *, edge, edge, basic_block);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
-extern edge split_loop_bb (struct loops *, basic_block, rtx);
+extern edge split_loop_bb (basic_block, rtx);
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);
@@ -338,3 +337,5 @@ enum
 };
 
 extern void unroll_and_peel_loops (struct loops *, int);
+extern bool is_bct_cond (rtx);
+extern rtx get_var_set_from_bct (rtx); 

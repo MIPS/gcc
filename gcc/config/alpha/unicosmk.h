@@ -176,7 +176,7 @@ typedef struct {
    function whose data type is FNTYPE.  For a library call, FNTYPE is 0.  */
 
 #undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   do { (CUM).num_args = 0;					\
        (CUM).num_arg_words = 0;					\
        (CUM).num_reg_words = 0;					\
@@ -290,7 +290,7 @@ SSIB_SECTION
 extern void common_section (void);
 #define COMMON_SECTION		\
 void				\
-common_section ()		\
+common_section (void)		\
 {				\
   in_section = in_common;	\
 }
@@ -298,7 +298,7 @@ common_section ()		\
 extern void ssib_section (void);
 #define SSIB_SECTION		\
 void				\
-ssib_section ()			\
+ssib_section (void)		\
 {				\
   in_section = in_ssib;		\
 }
@@ -480,7 +480,6 @@ ssib_section ()			\
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
-#undef DWARF_DEBUGGING_INFO
 #undef DWARF2_DEBUGGING_INFO
 #undef DWARF2_UNWIND_INFO
 #undef INCOMING_RETURN_ADDR_RTX
@@ -496,7 +495,6 @@ ssib_section ()			\
 #undef LIB_SPEC
 #define LIB_SPEC "-L/opt/ctl/craylibs/craylibs -lu -lm -lc -lsma"
 
-#undef BUILD_VA_LIST_TYPE
 #undef EXPAND_BUILTIN_VA_START
 #undef EXPAND_BUILTIN_VA_ARG
 

@@ -1,6 +1,6 @@
 /* Read and write coverage files, and associated functionality.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -109,7 +109,7 @@ static int htab_counts_entry_eq (const void *, const void *);
 static void htab_counts_entry_del (void *);
 static void read_counts_file (void);
 static unsigned compute_checksum (void);
-static unsigned checksum_string (unsigned, const char *);
+static unsigned coverage_checksum_string (unsigned, const char *);
 static tree build_fn_info_type (unsigned);
 static tree build_fn_info_value (const struct function_list *, tree);
 static tree build_ctr_info_type (void);
@@ -154,7 +154,7 @@ read_counts_file (void)
   counts_entry_t *summaried = NULL;
   unsigned seen_summary = 0;
   gcov_unsigned_t tag;
-  int error = 0;
+  int is_error = 0;
 
   if (!gcov_open (da_file_name, 1))
     return;
@@ -250,17 +250,26 @@ read_counts_file (void)
 	      entry->summary.num = n_counts;
 	      entry->counts = xcalloc (n_counts, sizeof (gcov_type));
 	    }
-	  else if (entry->checksum != checksum
-		   || entry->summary.num != n_counts)
+	  else if (entry->checksum != checksum)
 	    {
-	      warning ("coverage mismatch for function %u", fn_ident);
+	      error ("coverage mismatch for function %u while reading execution counters.",
+		     fn_ident);
+	      error ("checksum is %x instead of %x", entry->checksum, checksum);
+	      htab_delete (counts_hash);
+	      break;
+	    }
+	  else if (entry->summary.num != n_counts)
+	    {
+	      error ("coverage mismatch for function %u while reading execution counters.",
+		     fn_ident);
+	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
 	      htab_delete (counts_hash);
 	      break;
 	    }
 	  else if (elt.ctr >= GCOV_COUNTERS_SUMMABLE)
 	    {
-	      warning ("cannot merge separate %s counters for function %u",
-		       ctr_names[elt.ctr], fn_ident);
+	      error ("cannot merge separate %s counters for function %u",
+		     ctr_names[elt.ctr], fn_ident);
 	      goto skip_merge;
 	    }
 
@@ -278,14 +287,14 @@ read_counts_file (void)
 	skip_merge:;
 	}
       gcov_sync (offset, length);
-      if ((error = gcov_is_error ()))
+      if ((is_error = gcov_is_error ()))
 	break;
     }
 
   if (!gcov_is_eof ())
     {
-      warning (error < 0 ? "`%s' has overflowed" : "`%s' is corrupted",
-	       da_file_name);
+      error (is_error < 0 ? "`%s' has overflowed" : "`%s' is corrupted",
+	     da_file_name);
       htab_delete (counts_hash);
     }
 
@@ -299,6 +308,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
 		     const struct gcov_ctr_summary **summary)
 {
   counts_entry_t *entry, elt;
+  gcov_unsigned_t checksum = -1;
 
   /* No hash table, no counts.  */
   if (!counts_hash)
@@ -306,8 +316,8 @@ get_coverage_counts (unsigned counter, unsigned expected,
       static int warned = 0;
 
       if (!warned++)
-	warning ("file %s not found, execution counts assumed to be zero",
-		 da_file_name);
+	inform ("file %s not found, execution counts assumed to be zero",
+		da_file_name);
       return NULL;
     }
 
@@ -321,12 +331,22 @@ get_coverage_counts (unsigned counter, unsigned expected,
       return 0;
     }
 
-  if (expected != entry->summary.num
-      || compute_checksum () != entry->checksum)
+  checksum = compute_checksum ();
+  if (entry->checksum != checksum)
     {
-      warning ("coverage mismatch for `%s'", IDENTIFIER_POINTER
-	       (DECL_ASSEMBLER_NAME (current_function_decl)));
-      return NULL;
+      error ("coverage mismatch for function '%s' while reading counter '%s'.",
+	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
+	     ctr_names[counter]);
+      error ("checksum is %x instead of %x", entry->checksum, checksum);
+      return 0;
+    }
+  else if (entry->summary.num != expected)
+    {
+      error ("coverage mismatch for function '%s' while reading counter '%s'.",
+	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
+	     ctr_names[counter]);
+      error ("number of counters is %d instead of %d", entry->summary.num, expected);
+      return 0;
     }
 
   if (summary)
@@ -354,6 +374,7 @@ coverage_counter_alloc (unsigned counter, unsigned num)
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", counter + 1);
       ctr_labels[counter] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      SYMBOL_REF_FLAGS (ctr_labels[counter]) = SYMBOL_FLAG_LOCAL;
     }
   fn_b_ctrs[counter] = fn_n_ctrs[counter];
   fn_n_ctrs[counter] += num;
@@ -376,6 +397,7 @@ coverage_counter_ref (unsigned counter, unsigned no)
   ref = plus_constant (ctr_labels[counter], gcov_size / BITS_PER_UNIT * no);
   ref = gen_rtx_MEM (mode, ref);
   set_mem_alias_set (ref, new_alias_set ());
+  MEM_NOTRAP_P (ref) = 1;
 
   return ref;
 }
@@ -384,23 +406,51 @@ coverage_counter_ref (unsigned counter, unsigned no)
    checksum.  */
 
 static unsigned
-checksum_string (unsigned chksum, const char *string)
+coverage_checksum_string (unsigned chksum, const char *string)
 {
-  do
+  int i;
+  char *dup = NULL;
+
+  /* Look for everything that looks if it were produced by
+     get_file_function_name_long and zero out the second part
+     that may result from flag_random_seed.  This is not critical
+     as the checksums are used only for sanity checking.  */
+  for (i = 0; string[i]; i++)
     {
-      unsigned value = *string << 24;
-      unsigned ix;
+      if (!strncmp (string + i, "_GLOBAL__", 9))
+	for (i = i + 9; string[i]; i++)
+	  if (string[i]=='_')
+	    {
+	      int y;
+	      unsigned seed;
 
-      for (ix = 8; ix--; value <<= 1)
-	{
-	  unsigned feedback;
-
-	  feedback = (value ^ chksum) & 0x80000000 ? 0x04c11db7 : 0;
-	  chksum <<= 1;
-	  chksum ^= feedback;
-	}
+	      for (y = 1; y < 9; y++)
+		if (!(string[i + y] >= '0' && string[i + y] <= '9')
+		    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+		  break;
+	      if (y != 9 || string[i + 9] != '_')
+		continue;
+	      for (y = 10; y < 18; y++)
+		if (!(string[i + y] >= '0' && string[i + y] <= '9')
+		    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+		  break;
+	      if (y != 18)
+		continue;
+	      if (!sscanf (string + i + 10, "%X", &seed))
+		abort ();
+	      if (seed != crc32_string (0, flag_random_seed))
+		continue;
+	      string = dup = xstrdup (string);
+	      for (y = 10; y < 18; y++)
+		dup[i + y] = '0';
+	      break;
+	    }
+      break;
     }
-  while (*string++);
+
+  chksum = crc32_string (chksum, string);
+  if (dup)
+    free (dup);
 
   return chksum;
 }
@@ -412,8 +462,9 @@ compute_checksum (void)
 {
   unsigned chksum = DECL_SOURCE_LINE (current_function_decl);
 
-  chksum = checksum_string (chksum, DECL_SOURCE_FILE (current_function_decl));
-  chksum = checksum_string
+  chksum = coverage_checksum_string (chksum,
+      				     DECL_SOURCE_FILE (current_function_decl));
+  chksum = coverage_checksum_string
     (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
 
   return chksum;

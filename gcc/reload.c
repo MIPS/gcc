@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -104,6 +104,7 @@ a register with any other reload.  */
 #include "output.h"
 #include "function.h"
 #include "toplev.h"
+#include "params.h"
 
 #ifndef REGNO_MODE_OK_FOR_BASE_P
 #define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
@@ -172,6 +173,7 @@ struct decomposition
 
 static rtx secondary_memlocs[NUM_MACHINE_MODES];
 static rtx secondary_memlocs_elim[NUM_MACHINE_MODES][MAX_RECOG_OPERANDS];
+static int secondary_memlocs_elim_used = 0;
 #endif
 
 /* The instruction we are doing reloads for;
@@ -643,6 +645,8 @@ get_secondary_mem (rtx x ATTRIBUTE_UNUSED, enum machine_mode mode,
     }
 
   secondary_memlocs_elim[(int) mode][opnum] = loc;
+  if (secondary_memlocs_elim_used <= (int)mode)
+    secondary_memlocs_elim_used = (int)mode + 1;
   return loc;
 }
 
@@ -2539,7 +2543,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
   /* The eliminated forms of any secondary memory locations are per-insn, so
      clear them out here.  */
 
-  memset (secondary_memlocs_elim, 0, sizeof secondary_memlocs_elim);
+  if (secondary_memlocs_elim_used)
+    {
+      memset (secondary_memlocs_elim, 0,
+	      sizeof (secondary_memlocs_elim[0]) * secondary_memlocs_elim_used);
+      secondary_memlocs_elim_used = 0;
+    }
 #endif
 
   /* Dispose quickly of (set (reg..) (reg..)) if both have hard regs and it
@@ -2604,7 +2613,17 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      if (i == noperands - 1)
 		abort ();
 
-	      commutative = i;
+	      /* We currently only support one commutative pair of
+		 operands.  Some existing asm code currently uses more
+		 than one pair.  Previously, that would usually work,
+		 but sometimes it would crash the compiler.  We
+		 continue supporting that case as well as we can by
+		 silently ignoring all but the first pair.  In the
+		 future we may handle it correctly.  */
+	      if (commutative < 0)
+		commutative = i;
+	      else if (!this_insn_is_asm)
+		abort ();
 	    }
 	  else if (ISDIGIT (c))
 	    {
@@ -2928,7 +2947,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 			    < BIGGEST_ALIGNMENT)
 			   && (GET_MODE_SIZE (operand_mode[i])
 			       > GET_MODE_SIZE (GET_MODE (operand))))
-			  || (GET_CODE (operand) == MEM && BYTES_BIG_ENDIAN)
+			  || BYTES_BIG_ENDIAN
 #ifdef LOAD_EXTEND_OP
 			  || (GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
 			      && (GET_MODE_SIZE (GET_MODE (operand))
@@ -2978,9 +2997,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		break;
 
 	      case '%':
-		/* The last operand should not be marked commutative.  */
-		if (i != noperands - 1)
-		  commutative = i;
+		/* We only support one commutative marker, the first
+		   one.  We already set commutative above.  */
 		break;
 
 	      case '?':
@@ -3264,17 +3282,18 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		          win = 1;
 			/* If the address was already reloaded,
 			   we win as well.  */
-			if (GET_CODE (operand) == MEM && address_reloaded[i])
+			else if (GET_CODE (operand) == MEM
+				 && address_reloaded[i])
 			  win = 1;
 			/* Likewise if the address will be reloaded because
 			   reg_equiv_address is nonzero.  For reg_equiv_mem
 			   we have to check.  */
-		        if (GET_CODE (operand) == REG
-			    && REGNO (operand) >= FIRST_PSEUDO_REGISTER
-			    && reg_renumber[REGNO (operand)] < 0
-			    && ((reg_equiv_mem[REGNO (operand)] != 0
-			         && EXTRA_CONSTRAINT_STR (reg_equiv_mem[REGNO (operand)], c, p))
-			        || (reg_equiv_address[REGNO (operand)] != 0)))
+		        else if (GET_CODE (operand) == REG
+				 && REGNO (operand) >= FIRST_PSEUDO_REGISTER
+				 && reg_renumber[REGNO (operand)] < 0
+				 && ((reg_equiv_mem[REGNO (operand)] != 0
+				      && EXTRA_CONSTRAINT_STR (reg_equiv_mem[REGNO (operand)], c, p))
+				     || (reg_equiv_address[REGNO (operand)] != 0)))
 			  win = 1;
 
 			/* If we didn't already win, we can reload
@@ -3392,6 +3411,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      else if (modified[i] != RELOAD_WRITE && no_input_reloads
 		       && ! const_to_mem)
 		bad = 1;
+
+#ifdef DISPARAGE_RELOAD_CLASS
+	      reject
+		+= DISPARAGE_RELOAD_CLASS (operand,
+					   (enum reg_class) this_alternative[i]);
+#endif
 
 	      /* We prefer to reload pseudos over reloading other things,
 		 since such reloads may be able to be eliminated later.
@@ -4883,7 +4908,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 0)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 0)) < FIRST_PSEUDO_REGISTER
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
+	       || XEXP (XEXP (ad, 0), 0) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 0) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 1)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -4903,7 +4936,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 1)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 1)) < FIRST_PSEUDO_REGISTER
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
+	       || XEXP (XEXP (ad, 0), 1) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 1) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 0)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -6273,8 +6314,22 @@ reg_overlap_mentioned_for_reload_p (rtx x, rtx in)
 	   || GET_CODE (x) == CC0)
     return reg_mentioned_p (x, in);
   else if (GET_CODE (x) == PLUS)
-    return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
-	    || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
+    {
+      /* We actually want to know if X is mentioned somewhere inside IN.
+	 We must not say that (plus (sp) (const_int 124)) is in
+	 (plus (sp) (const_int 64)), since that can lead to incorrect reload
+	 allocation when spuriously changing a RELOAD_FOR_OUTPUT_ADDRESS
+	 into a RELOAD_OTHER on behalf of another RELOAD_OTHER.  */
+      while (GET_CODE (in) == MEM)
+	in = XEXP (in, 0);
+      if (GET_CODE (in) == REG)
+	return 0;
+      else if (GET_CODE (in) == PLUS)
+	return (reg_overlap_mentioned_for_reload_p (x, XEXP (in, 0))
+		|| reg_overlap_mentioned_for_reload_p (x, XEXP (in, 1)));
+      else return (reg_overlap_mentioned_for_reload_p (XEXP (x, 0), in)
+		   || reg_overlap_mentioned_for_reload_p (XEXP (x, 1), in));
+    }
   else
     abort ();
 
@@ -6352,6 +6407,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   int need_stable_sp = 0;
   int nregs;
   int valuenregs;
+  int num = 0;
 
   if (goal == 0)
     regno = goalreg;
@@ -6392,6 +6448,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   else
     return 0;
 
+  num = 0;
   /* Scan insns back from INSN, looking for one that copies
      a value into or out of GOAL.
      Stop and give up if we reach a label.  */
@@ -6399,7 +6456,9 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   while (1)
     {
       p = PREV_INSN (p);
-      if (p == 0 || GET_CODE (p) == CODE_LABEL)
+      num++;
+      if (p == 0 || GET_CODE (p) == CODE_LABEL
+	  || num > PARAM_VALUE (PARAM_MAX_RELOAD_SEARCH_INSNS))
 	return 0;
 
       if (GET_CODE (p) == INSN

@@ -40,7 +40,7 @@ details.  */
 jboolean
 java::io::File::_access (jint query)
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -54,13 +54,14 @@ java::io::File::_access (jint query)
   if ((query == EXISTS) || (query == READ))
     return (attributes == 0xffffffff) ? false : true;
   else
-    return ((attributes != 0xffffffff) && ((attributes & FILE_ATTRIBUTE_READONLY) == 0)) ? true : false;
+    return ((attributes != 0xffffffff) &&
+      ((attributes & FILE_ATTRIBUTE_READONLY) == 0)) ? true : false;
 }
 
 jboolean
 java::io::File::_stat (jint query)
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -79,7 +80,7 @@ java::io::File::_stat (jint query)
 jlong
 java::io::File::attr (jint query)
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -108,16 +109,19 @@ java::io::File::attr (jint query)
 jstring
 java::io::File::getCanonicalPath (void)
 {
-  JV_TEMP_UTF_STRING (cpath, path);
+  JV_TEMP_STRING_WIN32 (cpath, path);
+  
+  // If the filename is blank, use the current directory.
+  LPCTSTR thepath = cpath.buf();
+  if (*thepath == 0)
+    thepath = _T(".");
 
   LPTSTR unused;
-  char buf2[MAX_PATH];
-  if(!GetFullPathName(cpath, MAX_PATH, buf2, &unused))
+  TCHAR buf2[MAX_PATH];
+  if(!GetFullPathName(thepath, MAX_PATH, buf2, &unused))
     throw new IOException (JvNewStringLatin1 ("GetFullPathName failed"));
 
-  // FIXME: what encoding to assume for file names?  This affects many
-  // calls.
-  return JvNewStringUTF(buf2);
+  return _Jv_Win32NewString (buf2);
 }
 
 jboolean
@@ -156,12 +160,17 @@ java::io::File::performList (java::io::FilenameFilter *filter,
   jstring canon = getCanonicalPath();
   if (! canon)
     return NULL;
-  char *buf = (char *) __builtin_alloca (JvGetStringUTFLength (canon) + 5);
-  jsize total = JvGetStringUTFRegion (canon, 0, canon->length(), buf);
-  if (buf[total-1] == '\\')
-    strcpy (&buf[total], "*.*");
+
+  int len = canon->length();
+  TCHAR buf[len + 5];
+  
+  JV_TEMP_STRING_WIN32(canonstr, canon);
+  
+  _tcscpy(buf, canonstr);
+  if (buf[len - 1] == _T('\\'))
+    _tcscpy (&buf[len], _T("*.*"));
   else
-    strcpy (&buf[total], "\\*.*");
+    _tcscpy (&buf[len], _T("\\*.*"));
 
   WIN32_FIND_DATA data;
   HANDLE handle = FindFirstFile (buf, &data);
@@ -172,21 +181,22 @@ java::io::File::performList (java::io::FilenameFilter *filter,
 
   do
     {
-      if (strcmp (data.cFileName, ".") && strcmp (data.cFileName, ".."))
+      if (_tcscmp (data.cFileName, _T(".")) &&
+        _tcscmp (data.cFileName, _T("..")))
         {
-          jstring name = JvNewStringUTF (data.cFileName);
+          jstring name = _Jv_Win32NewString (data.cFileName);
 
           if (filter && !filter->accept(this, name))
-      continue;
+            continue;
           if (clazz == &java::io::File::class$)
-      {
+            {
               java::io::File *file = new java::io::File (this, name);
               if (fileFilter && !fileFilter->accept(file))
-    continue;
-        vec->addElement (file);
-      }
-    else
-      vec->addElement (name);
+                continue;
+              vec->addElement (file);
+            }
+          else
+            vec->addElement (name);
         }
     }
   while (FindNextFile (handle, &data));
@@ -204,22 +214,22 @@ java::io::File::performList (java::io::FilenameFilter *filter,
 jboolean
 java::io::File::performMkdir (void)
 {
-  JV_TEMP_UTF_STRING (cpath, path);
+  JV_TEMP_STRING_WIN32 (cpath, path);
   return (CreateDirectory(cpath, NULL)) ? true : false;
 }
 
 jboolean
 java::io::File::performRenameTo (File *dest)
 {
-  JV_TEMP_UTF_STRING (pathFrom, path);
-  JV_TEMP_UTF_STRING (pathTo, dest->path);
+  JV_TEMP_STRING_WIN32 (pathFrom, path);
+  JV_TEMP_STRING_WIN32 (pathTo, dest->path);
   return (MoveFile(pathFrom, pathTo)) ? true : false;
 }
 
 jboolean
 java::io::File::performDelete ()
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -235,7 +245,7 @@ java::io::File::performDelete ()
 
 jboolean java::io::File::performCreate (void) 
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -257,7 +267,7 @@ jboolean java::io::File::performCreate (void)
 
 jboolean java::io::File::performSetReadOnly ()
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
@@ -275,7 +285,7 @@ jboolean java::io::File::performSetReadOnly ()
 
 jboolean java::io::File::performSetLastModified (jlong time)
 {
-  JV_TEMP_UTF_STRING (canon, getCanonicalPath());
+  JV_TEMP_STRING_WIN32 (canon, getCanonicalPath());
   if (!canon)
     return false;
 
