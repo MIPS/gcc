@@ -1042,9 +1042,16 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    case TLS_MODEL_INITIAL_EXEC:
 	      if (! flag_pic)
 		{
+		  /* Don't schedule insns for getting GOT address when
+		     the first scheduling is enabled, to avoid spill
+		     failures for R0.  */
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
 		  emit_insn (gen_GOTaddr2picreg ());
 		  emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode,
 								 PIC_REG)));
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
 		}
 	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
@@ -7150,7 +7157,7 @@ sh_handle_interrupt_handler_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7171,21 +7178,21 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The sp_switch attribute only has meaning for interrupt functions.  */
-      warning ("`%s' attribute only applies to interrupt functions",
+      warning ("%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
     {
       /* The argument must be a constant string.  */
-      warning ("`%s' attribute argument not a string constant",
+      warning ("%qs attribute argument not a string constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7206,21 +7213,21 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (!pragma_interrupt)
     {
       /* The trap_exit attribute only has meaning for interrupt functions.  */
-      warning ("`%s' attribute only applies to interrupt functions",
+      warning ("%qs attribute only applies to interrupt functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
     {
       /* The argument must be a constant integer.  */
-      warning ("`%s' attribute argument not an integer constant",
+      warning ("%qs attribute argument not an integer constant",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -7348,7 +7355,7 @@ sh_pch_valid_p (const void *data_p, size_t len)
  make_message:
   {
     char *r;
-    asprintf (&r, _("created and used with differing settings of `-m%s'"),
+    asprintf (&r, _("created and used with differing settings of '-m%s'"),
 		  flag_that_differs);
     if (r == NULL)
       return _("out of memory");

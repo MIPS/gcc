@@ -1267,7 +1267,15 @@ associate_trees (tree t1, tree t2, enum tree_code code, tree type)
 	  else if (TREE_CODE (t2) == NEGATE_EXPR)
 	    return build2 (MINUS_EXPR, type, fold_convert (type, t1),
 			   fold_convert (type, TREE_OPERAND (t2, 0)));
+	  else if (integer_zerop (t2))
+	    return fold_convert (type, t1);
 	}
+      else if (code == MINUS_EXPR)
+	{
+	  if (integer_zerop (t2))
+	    return fold_convert (type, t1);
+	}
+
       return build2 (code, type, fold_convert (type, t1),
 		     fold_convert (type, t2));
     }
@@ -2035,7 +2043,7 @@ int pedantic_lvalues;
 /* When pedantic, return an expr equal to X but certainly not valid as a
    pedantic lvalue.  Otherwise, return X.  */
 
-tree
+static tree
 pedantic_non_lvalue (tree x)
 {
   if (pedantic_lvalues)
@@ -3416,13 +3424,10 @@ static int
 simple_operand_p (tree exp)
 {
   /* Strip any conversions that don't change the machine mode.  */
-  while ((TREE_CODE (exp) == NOP_EXPR
-	  || TREE_CODE (exp) == CONVERT_EXPR)
-	 && (TYPE_MODE (TREE_TYPE (exp))
-	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)))))
-    exp = TREE_OPERAND (exp, 0);
+  STRIP_NOPS (exp);
 
   return (CONSTANT_CLASS_P (exp)
+	  || TREE_CODE (exp) == SSA_NAME
 	  || (DECL_P (exp)
 	      && ! TREE_ADDRESSABLE (exp)
 	      && ! TREE_THIS_VOLATILE (exp)
@@ -4384,8 +4389,8 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
 
 
 
-#ifndef RANGE_TEST_NON_SHORT_CIRCUIT
-#define RANGE_TEST_NON_SHORT_CIRCUIT (BRANCH_COST >= 2)
+#ifndef LOGICAL_OP_NON_SHORT_CIRCUIT
+#define LOGICAL_OP_NON_SHORT_CIRCUIT (BRANCH_COST >= 2)
 #endif
 
 /* EXP is some logical combination of boolean tests.  See if we can
@@ -4423,7 +4428,7 @@ fold_range_test (tree exp)
   /* On machines where the branch cost is expensive, if this is a
      short-circuited branch and the underlying object on both sides
      is the same, make a non-short-circuit operation.  */
-  else if (RANGE_TEST_NON_SHORT_CIRCUIT
+  else if (LOGICAL_OP_NON_SHORT_CIRCUIT
 	   && lhs != 0 && rhs != 0
 	   && (TREE_CODE (exp) == TRUTH_ANDIF_EXPR
 	       || TREE_CODE (exp) == TRUTH_ORIF_EXPR)
@@ -4645,7 +4650,8 @@ fold_truthop (enum tree_code code, tree truth_type, tree lhs, tree rhs)
 			       ll_arg, rl_arg),
 		       fold_convert (TREE_TYPE (ll_arg), integer_zero_node));
 
-      return build2 (code, truth_type, lhs, rhs);
+      if (LOGICAL_OP_NON_SHORT_CIRCUIT)
+	return build2 (code, truth_type, lhs, rhs);
     }
 
   /* See if the comparisons can be merged.  Then get all the parameters for
@@ -5972,6 +5978,127 @@ tree_swap_operands_p (tree arg0, tree arg1, bool reorder)
   return 0;
 }
 
+/* Fold comparison ARG0 CODE ARG1 (with result in TYPE), where
+   ARG0 is extended to a wider type.  */
+
+static tree
+fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
+{
+  tree arg0_unw = get_unwidened (arg0, NULL_TREE);
+  tree arg1_unw;
+  tree shorter_type, outer_type;
+  tree min, max;
+  bool above, below;
+
+  if (arg0_unw == arg0)
+    return NULL_TREE;
+  shorter_type = TREE_TYPE (arg0_unw);
+  
+  arg1_unw = get_unwidened (arg1, shorter_type);
+  if (!arg1_unw)
+    return NULL_TREE;
+
+  /* If possible, express the comparison in the shorter mode.  */
+  if ((code == EQ_EXPR || code == NE_EXPR
+       || TYPE_UNSIGNED (TREE_TYPE (arg0)) == TYPE_UNSIGNED (shorter_type))
+      && (TREE_TYPE (arg1_unw) == shorter_type
+	  || (TREE_CODE (arg1_unw) == INTEGER_CST
+	      && int_fits_type_p (arg1_unw, shorter_type))))
+    return fold (build (code, type, arg0_unw,
+			fold_convert (shorter_type, arg1_unw)));
+
+  if (TREE_CODE (arg1_unw) != INTEGER_CST)
+    return NULL_TREE;
+
+  /* If we are comparing with the integer that does not fit into the range
+     of the shorter type, the result is known.  */
+  outer_type = TREE_TYPE (arg1_unw);
+  min = lower_bound_in_type (outer_type, shorter_type);
+  max = upper_bound_in_type (outer_type, shorter_type);
+
+  above = integer_nonzerop (fold_relational_const (LT_EXPR, type,
+						   max, arg1_unw));
+  below = integer_nonzerop (fold_relational_const (LT_EXPR, type,
+						   arg1_unw, min));
+
+  switch (code)
+    {
+    case EQ_EXPR:
+      if (above || below)
+	return constant_boolean_node (false, type);
+      break;
+
+    case NE_EXPR:
+      if (above || below)
+	return constant_boolean_node (true, type);
+      break;
+
+    case LT_EXPR:
+    case LE_EXPR:
+      if (above)
+	return constant_boolean_node (true, type);
+      else if (below)
+	return constant_boolean_node (false, type);;
+
+    case GT_EXPR:
+    case GE_EXPR:
+      if (above)
+	return constant_boolean_node (false, type);
+      else if (below)
+	return constant_boolean_node (true, type);;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+/* Fold comparison ARG0 CODE ARG1 (with result in TYPE), where for
+   ARG0 just the signedness is changed.  */
+
+static tree
+fold_sign_changed_comparison (enum tree_code code, tree type,
+			      tree arg0, tree arg1)
+{
+  tree arg0_inner, tmp;
+  tree inner_type, outer_type;
+
+  if (TREE_CODE (arg0) != NOP_EXPR)
+    return NULL_TREE;
+
+  outer_type = TREE_TYPE (arg0);
+  arg0_inner = TREE_OPERAND (arg0, 0);
+  inner_type = TREE_TYPE (arg0_inner);
+
+  if (TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
+    return NULL_TREE;
+
+  if (TREE_CODE (arg1) != INTEGER_CST
+      && !(TREE_CODE (arg1) == NOP_EXPR
+	   && TREE_TYPE (TREE_OPERAND (arg1, 0)) == inner_type))
+    return NULL_TREE;
+
+  if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+      && code != NE_EXPR
+      && code != EQ_EXPR)
+    return NULL_TREE;
+
+  if (TREE_CODE (arg1) == INTEGER_CST)
+    {
+      tmp = build_int_cst_wide (inner_type,
+				TREE_INT_CST_LOW (arg1),
+				TREE_INT_CST_HIGH (arg1));
+      arg1 = force_fit_type (tmp, 0,
+			     TREE_OVERFLOW (arg1),
+			     TREE_CONSTANT_OVERFLOW (arg1));
+    }
+  else
+    arg1 = fold_convert (inner_type, arg1);
+
+  return fold (build (code, type, arg0_inner, arg1));
+}
+
 /* Tries to replace &a[idx] CODE s * delta with &a[idx CODE delta], if s is
    step of the array.  TYPE is the type of the expression.  ADDR is the address.
    MULT is the multiplicative expression.  If the function succeeds, the new
@@ -6048,6 +6175,51 @@ try_move_mult_to_index (tree type, enum tree_code code, tree addr, tree mult)
 					delta));
 
   return build1 (ADDR_EXPR, type, ret);
+}
+
+
+/* Fold A < X && A + 1 > Y to A < X && A >= Y.  Normally A + 1 > Y
+   means A >= Y && A != MAX, but in this case we know that
+   A < X <= MAX.  INEQ is A + 1 > Y, BOUND is A < X.  */
+
+static tree
+fold_to_nonsharp_ineq_using_bound (tree ineq, tree bound)
+{
+  tree a, typea, type = TREE_TYPE (ineq), a1, diff, y;
+
+  if (TREE_CODE (bound) == LT_EXPR)
+    a = TREE_OPERAND (bound, 0);
+  else if (TREE_CODE (bound) == GT_EXPR)
+    a = TREE_OPERAND (bound, 1);
+  else
+    return NULL_TREE;
+
+  typea = TREE_TYPE (a);
+  if (!INTEGRAL_TYPE_P (typea)
+      && !POINTER_TYPE_P (typea))
+    return NULL_TREE;
+
+  if (TREE_CODE (ineq) == LT_EXPR)
+    {
+      a1 = TREE_OPERAND (ineq, 1);
+      y = TREE_OPERAND (ineq, 0);
+    }
+  else if (TREE_CODE (ineq) == GT_EXPR)
+    {
+      a1 = TREE_OPERAND (ineq, 0);
+      y = TREE_OPERAND (ineq, 1);
+    }
+  else
+    return NULL_TREE;
+
+  if (TREE_TYPE (a1) != typea)
+    return NULL_TREE;
+
+  diff = fold (build2 (MINUS_EXPR, typea, a1, a));
+  if (!integer_onep (diff))
+    return NULL_TREE;
+
+  return fold (build2 (GE_EXPR, type, a, y));
 }
 
 /* Perform constant folding and related simplification of EXPR.
@@ -7074,11 +7246,9 @@ fold (tree expr)
       {
 	HOST_WIDE_INT diff;
 
-	if (TREE_CODE (arg0) == ADDR_EXPR
-	    && TREE_CODE (arg1) == ADDR_EXPR
-	    && ptr_difference_const (TREE_OPERAND (arg0, 0),
-				     TREE_OPERAND (arg1, 0),
-				     &diff))
+	if ((TREE_CODE (arg0) == ADDR_EXPR
+	     || TREE_CODE (arg1) == ADDR_EXPR)
+	    && ptr_difference_const (arg0, arg1, &diff))
 	  return build_int_cst_type (type, diff);
       }
 	  
@@ -7895,6 +8065,22 @@ fold (tree expr)
 	  && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
 	return omit_one_operand (type, integer_zero_node, arg0);
 
+      /* A < X && A + 1 > Y ==> A < X && A >= Y.  Normally A + 1 > Y
+	 means A >= Y && A != MAX, but in this case we know that
+	 A < X <= MAX.  */
+
+      if (!TREE_SIDE_EFFECTS (arg0)
+	  && !TREE_SIDE_EFFECTS (arg1))
+	{
+	  tem = fold_to_nonsharp_ineq_using_bound (arg0, arg1);
+	  if (tem)
+	    return fold (build2 (code, type, tem, arg1));
+
+	  tem = fold_to_nonsharp_ineq_using_bound (arg1, arg0);
+	  if (tem)
+	    return fold (build2 (code, type, arg0, tem));
+	}
+
     truth_andor:
       /* We only do these simplifications if we are optimizing.  */
       if (!optimize)
@@ -8394,22 +8580,21 @@ fold (tree expr)
 	return fold (build2 (code, type,
 			     TREE_OPERAND (arg0, 0), TREE_OPERAND (arg0, 1)));
 
-      /* If we are widening one operand of an integer comparison,
-	 see if the other operand is similarly being widened.  Perhaps we
-	 can do the comparison in the narrower type.  */
       else if (TREE_CODE (TREE_TYPE (arg0)) == INTEGER_TYPE
-	       && TREE_CODE (arg0) == NOP_EXPR
-	       && (tem = get_unwidened (arg0, NULL_TREE)) != arg0
-	       && (code == EQ_EXPR || code == NE_EXPR
-		   || TYPE_UNSIGNED (TREE_TYPE (arg0))
-		      == TYPE_UNSIGNED (TREE_TYPE (tem)))
-	       && (t1 = get_unwidened (arg1, TREE_TYPE (tem))) != 0
-	       && (TREE_TYPE (t1) == TREE_TYPE (tem)
-		   || (TREE_CODE (t1) == INTEGER_CST
-		       && TREE_CODE (TREE_TYPE (tem)) == INTEGER_TYPE
-		       && int_fits_type_p (t1, TREE_TYPE (tem)))))
-	return fold (build2 (code, type, tem,
-			     fold_convert (TREE_TYPE (tem), t1)));
+	       && TREE_CODE (arg0) == NOP_EXPR)
+	{
+	  /* If we are widening one operand of an integer comparison,
+	     see if the other operand is similarly being widened.  Perhaps we
+	     can do the comparison in the narrower type.  */
+	  tem = fold_widened_comparison (code, type, arg0, arg1);
+	  if (tem)
+	    return tem;
+
+	  /* Or if we are changing signedness.  */
+	  tem = fold_sign_changed_comparison (code, type, arg0, arg1);
+	  if (tem)
+	    return tem;
+	}
 
       /* If this is comparing a constant with a MIN_EXPR or a MAX_EXPR of a
 	 constant, we can simplify it.  */
@@ -10815,23 +11000,49 @@ round_down (tree value, int divisor)
   return value;
 }
 
+/* Returns the pointer to the base of the object addressed by EXP and
+   extracts the information about the offset of the access, storing it
+   to PBITPOS and POFFSET.  */
+
+static tree
+split_address_to_core_and_offset (tree exp,
+				  HOST_WIDE_INT *pbitpos, tree *poffset)
+{
+  tree core;
+  enum machine_mode mode;
+  int unsignedp, volatilep;
+  HOST_WIDE_INT bitsize;
+
+  if (TREE_CODE (exp) == ADDR_EXPR)
+    {
+      core = get_inner_reference (TREE_OPERAND (exp, 0), &bitsize, pbitpos,
+				  poffset, &mode, &unsignedp, &volatilep);
+
+      if (TREE_CODE (core) == INDIRECT_REF)
+	core = TREE_OPERAND (core, 0);
+    }
+  else
+    {
+      core = exp;
+      *pbitpos = 0;
+      *poffset = NULL_TREE;
+    }
+
+  return core;
+}
+
 /* Returns true if addresses of E1 and E2 differ by a constant, false
-   otherwise.  If they do, &E1 - &E2 is stored in *DIFF.  */
+   otherwise.  If they do, E1 - E2 is stored in *DIFF.  */
 
 bool
 ptr_difference_const (tree e1, tree e2, HOST_WIDE_INT *diff)
 {
   tree core1, core2;
-  HOST_WIDE_INT bitsize1, bitsize2;
   HOST_WIDE_INT bitpos1, bitpos2;
   tree toffset1, toffset2, tdiff, type;
-  enum machine_mode mode1, mode2;
-  int unsignedp1, unsignedp2, volatilep1, volatilep2;
 
-  core1 = get_inner_reference (e1, &bitsize1, &bitpos1, &toffset1, &mode1,
-			       &unsignedp1, &volatilep1);
-  core2 = get_inner_reference (e2, &bitsize2, &bitpos2, &toffset2, &mode2,
-			       &unsignedp2, &volatilep2);
+  core1 = split_address_to_core_and_offset (e1, &bitpos1, &toffset1);
+  core2 = split_address_to_core_and_offset (e2, &bitpos2, &toffset2);
 
   if (bitpos1 % BITS_PER_UNIT != 0
       || bitpos2 % BITS_PER_UNIT != 0

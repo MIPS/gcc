@@ -106,7 +106,9 @@ static varray_type avail_exprs_stack;
 
    A NULL node is used to mark the last node associated with the
    current block.  */
-varray_type block_defs_stack;
+VEC(vd_pair_t) *block_defs_stack;
+
+/* FIXME: The other stacks should also be VEC(vd_pair_t).  */
 
 /* Stack of statements we need to rescan during finalization for newly
    exposed variables.
@@ -384,7 +386,7 @@ tree_ssa_dominator_optimize (void)
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq, free);
   VARRAY_TREE_INIT (avail_exprs_stack, 20, "Available expression stack");
-  VARRAY_TREE_INIT (block_defs_stack, 20, "Block DEFS stack");
+  block_defs_stack = VEC_alloc (vd_pair_t, 20);
   VARRAY_TREE_INIT (const_and_copies_stack, 20, "Block const_and_copies stack");
   VARRAY_TREE_INIT (nonzero_vars_stack, 20, "Block nonzero_vars stack");
   VARRAY_TREE_INIT (vrp_variables_stack, 20, "Block vrp_variables stack");
@@ -502,6 +504,9 @@ tree_ssa_dominator_optimize (void)
       if (value && !is_gimple_min_invariant (value))
 	SSA_NAME_VALUE (name) = NULL;
     }
+  
+  VEC_free (vd_pair_t, block_defs_stack);
+  block_defs_stack = NULL;
 }
 
 static bool
@@ -730,9 +735,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    }
 	  else
 	    {
-	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), cond_code);
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op0;
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1) = op1;
+	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), cond_code);
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op0;
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1) = op1;
 	    }
 
 	  /* If the conditional folds to an invariant, then we are done,
@@ -803,7 +808,7 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Push a marker on the stacks of local information so that we know how
      far to unwind when we finalize this block.  */
   VARRAY_PUSH_TREE (avail_exprs_stack, NULL_TREE);
-  VARRAY_PUSH_TREE (block_defs_stack, NULL_TREE);
+  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
   VARRAY_PUSH_TREE (const_and_copies_stack, NULL_TREE);
   VARRAY_PUSH_TREE (nonzero_vars_stack, NULL_TREE);
   VARRAY_PUSH_TREE (vrp_variables_stack, NULL_TREE);
@@ -925,10 +930,9 @@ static void
 restore_currdefs_to_original_value (void)
 {
   /* Restore CURRDEFS to its original state.  */
-  while (VARRAY_ACTIVE_SIZE (block_defs_stack) > 0)
+  while (VEC_length (vd_pair_t, block_defs_stack) > 0)
     {
-      vd_pair_t pair = VARRAY_TOP_GENERIC_PTR (block_defs_stack);
-      VARRAY_POP (block_defs_stack);
+      vd_pair_t pair = VEC_pop (vd_pair_t, block_defs_stack);
       if (pair == NULL)
 	break;
       var_ann (pair->var)->current_def = pair->def;
@@ -981,7 +985,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	     unwind any expressions related to the TRUE arm before processing
 	     the false arm below.  */
 	  VARRAY_PUSH_TREE (avail_exprs_stack, NULL_TREE);
-	  VARRAY_PUSH_GENERIC_PTR (block_defs_stack, NULL);
+	  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
 	  VARRAY_PUSH_TREE (const_and_copies_stack, NULL_TREE);
 
 	  edge_info = true_edge->aux;
@@ -1626,7 +1630,8 @@ unsafe_associative_fp_binop (tree exp)
 {
   enum tree_code code = TREE_CODE (exp);
   return !(!flag_unsafe_math_optimizations
-           && (code == MULT_EXPR || code == PLUS_EXPR)
+           && (code == MULT_EXPR || code == PLUS_EXPR
+	       || code == MINUS_EXPR)
            && FLOAT_TYPE_P (TREE_TYPE (exp)));
 }
 
@@ -1786,9 +1791,9 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	    }
           else
 	    {
-	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GT_EXPR);
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), GT_EXPR);
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
 		= integer_zero_node;
 	    }
 	  val = simplify_cond_and_lookup_avail_expr (dummy_cond, NULL, false);
@@ -1838,18 +1843,18 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	    }
 	  else
 	    {
-	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LE_EXPR);
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), LE_EXPR);
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
 		= build_int_cst (type, 0);
 	    }
 	  val = simplify_cond_and_lookup_avail_expr (dummy_cond, NULL, false);
 
 	  if (!val)
 	    {
-	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GE_EXPR);
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), GE_EXPR);
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
+	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
 		= build_int_cst (type, 0);
 
 	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,

@@ -154,7 +154,12 @@ namespace std
       friend streamsize
       __copy_streambufs<>(__streambuf_type* __sbin,
 			  __streambuf_type* __sbout);
-      
+
+      template<typename _CharT2, typename _Traits2, typename _Alloc>
+        friend basic_istream<_CharT2, _Traits2>&
+        getline(basic_istream<_CharT2, _Traits2>&,
+		basic_string<_CharT2, _Traits2, _Alloc>&, _CharT2);
+
     protected:
       //@{
       /**
@@ -775,6 +780,18 @@ namespace std
       __streambuf_type& 
       operator=(const __streambuf_type&) { return *this; };
     };
+
+  // Explicit specialization declarations, defined in src/streambuf.cc.
+  template<>
+    streamsize
+    __copy_streambufs(basic_streambuf<char>* __sbin,
+		      basic_streambuf<char>* __sbout);
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<>
+    streamsize
+    __copy_streambufs(basic_streambuf<wchar_t>* __sbin,
+		      basic_streambuf<wchar_t>* __sbout);
+#endif
 } // namespace std
 
 #ifndef _GLIBCXX_EXPORT_TEMPLATE

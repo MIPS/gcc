@@ -1123,7 +1123,7 @@ This target hook should return @code{true} if the promotion described by
 functions.
 
 If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_FUNCTON_MODE}.
+perform the same promotions done by @code{PROMOTE_FUNCTION_MODE}.
 @end deftypefn
 
 @defmac PARM_BOUNDARY
@@ -4624,7 +4624,7 @@ This hook controls how the @var{named} argument to @code{FUNCTION_ARG}
 is set for varargs and stdarg functions.  If this hook returns
 @code{true}, the @var{named} argument is always true for named
 arguments, and false for unnamed arguments.  If it returns @code{false},
-but @code{TARGET_PRETEND_OUTOGOING_VARARGS_NAMED} returns @code{true},
+but @code{TARGET_PRETEND_OUTGOING_VARARGS_NAMED} returns @code{true},
 then all arguments are treated as named.  Otherwise, all named arguments
 except the last are treated as named.
 
@@ -6837,15 +6837,6 @@ The C++ ABI requires this macro to be zero.  Define this macro for
 targets where full C++ ABI compliance is impossible and where linker
 restrictions require weak symbols to be left out of a static archive's
 table of contents.
-@end defmac
-
-@defmac TARGET_SUPPORTS_HIDDEN
-A C expression that evaluates to true if the target supports hidden
-visibility.  By default this expression is true if and only if
-@code{HAS_GAS_HIDDEN} is defined.  Set this macro if the
-@code{HAS_GAS_HIDDEN} macro gives the wrong answer for this
-target.  (For example, if the target's mechanism for supporting
-hidden visibility is not the same as GAS's.)
 @end defmac
 
 @defmac ASM_OUTPUT_EXTERNAL (@var{stream}, @var{decl}, @var{name})

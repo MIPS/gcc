@@ -4054,7 +4054,7 @@ associative_tree_code (enum tree_code code)
   return false;
 }
 
-/* Return true if CODE represents an commutative tree code.  Otherwise
+/* Return true if CODE represents a commutative tree code.  Otherwise
    return false.  */
 bool
 commutative_tree_code (enum tree_code code)
@@ -5402,8 +5402,9 @@ get_set_constructor_bytes (tree init, unsigned char *buffer, int wd_size)
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 /* Complain that the tree code of NODE does not match the expected 0
-   terminated list of trailing codes. FILE, LINE, and FUNCTION are of
-   the caller.  */
+   terminated list of trailing codes. The trailing code list can be
+   empty, for a more vague error message.  FILE, LINE, and FUNCTION
+   are of the caller.  */
 
 void
 tree_check_failed (const tree node, const char *file,
@@ -5418,22 +5419,27 @@ tree_check_failed (const tree node, const char *file,
   while ((code = va_arg (args, int)))
     length += 4 + strlen (tree_code_name[code]);
   va_end (args);
-  va_start (args, function);
-  buffer = alloca (length);
-  length = 0;
-  while ((code = va_arg (args, int)))
+  if (length)
     {
-      if (length)
+      va_start (args, function);
+      length += strlen ("expected ");
+      buffer = alloca (length);
+      length = 0;
+      while ((code = va_arg (args, int)))
 	{
-	  strcpy (buffer + length, " or ");
-	  length += 4;
+	  const char *prefix = length ? " or " : "expected ";
+	  
+	  strcpy (buffer + length, prefix);
+	  length += strlen (prefix);
+	  strcpy (buffer + length, tree_code_name[code]);
+	  length += strlen (tree_code_name[code]);
 	}
-      strcpy (buffer + length, tree_code_name[code]);
-      length += strlen (tree_code_name[code]);
+      va_end (args);
     }
-  va_end (args);
+  else
+    buffer = (char *)"unexpected node";
 
-  internal_error ("tree check: expected %s, have %s in %s, at %s:%d",
+  internal_error ("tree check: %s, have %s in %s, at %s:%d",
 		  buffer, tree_code_name[TREE_CODE (node)],
 		  function, trim_filename (file), line);
 }
@@ -6053,6 +6059,78 @@ tree
 signed_type_for (tree type)
 {
   return lang_hooks.types.signed_type (type);
+}
+
+/* Returns the largest value obtainable by casting something in INNER type to
+   OUTER type.  */
+
+tree
+upper_bound_in_type (tree outer, tree inner)
+{
+  unsigned HOST_WIDE_INT lo, hi;
+  unsigned bits = TYPE_PRECISION (inner);
+
+  if (TYPE_UNSIGNED (outer) || TYPE_UNSIGNED (inner))
+    {
+      /* Zero extending in these cases.  */
+      if (bits <= HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (~(unsigned HOST_WIDE_INT) 0)
+		  >> (HOST_BITS_PER_WIDE_INT - bits);
+	}
+      else
+	{
+	  hi = (~(unsigned HOST_WIDE_INT) 0)
+		  >> (2 * HOST_BITS_PER_WIDE_INT - bits);
+	  lo = ~(unsigned HOST_WIDE_INT) 0;
+	}
+    }
+  else
+    {
+      /* Sign extending in these cases.  */
+      if (bits <= HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (~(unsigned HOST_WIDE_INT) 0)
+		  >> (HOST_BITS_PER_WIDE_INT - bits) >> 1;
+	}
+      else
+	{
+	  hi = (~(unsigned HOST_WIDE_INT) 0)
+		  >> (2 * HOST_BITS_PER_WIDE_INT - bits) >> 1;
+	  lo = ~(unsigned HOST_WIDE_INT) 0;
+	}
+    }
+
+  return fold_convert (outer,
+		       build_int_cst_wide (inner, lo, hi));
+}
+
+/* Returns the smallest value obtainable by casting something in INNER type to
+   OUTER type.  */
+
+tree
+lower_bound_in_type (tree outer, tree inner)
+{
+  unsigned HOST_WIDE_INT lo, hi;
+  unsigned bits = TYPE_PRECISION (inner);
+
+  if (TYPE_UNSIGNED (outer) || TYPE_UNSIGNED (inner))
+    lo = hi = 0;
+  else if (bits <= HOST_BITS_PER_WIDE_INT)
+    {
+      hi = ~(unsigned HOST_WIDE_INT) 0;
+      lo = (~(unsigned HOST_WIDE_INT) 0) << (bits - 1);
+    }
+  else
+    {
+      hi = (~(unsigned HOST_WIDE_INT) 0) << (bits - HOST_BITS_PER_WIDE_INT - 1);
+      lo = 0;
+    }
+
+  return fold_convert (outer,
+		       build_int_cst_wide (inner, lo, hi));
 }
 
 #include "gt-tree.h"

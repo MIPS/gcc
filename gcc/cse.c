@@ -24,11 +24,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-
 #include "rtl.h"
 #include "tm_p.h"
-#include "regs.h"
 #include "hard-reg-set.h"
+#include "regs.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "real.h"
@@ -262,6 +261,14 @@ struct qty_table_elem
 
 /* The table of all qtys, indexed by qty number.  */
 static struct qty_table_elem *qty_table;
+
+/* Structure used to pass arguments via for_each_rtx to function
+   cse_change_cc_mode.  */
+struct change_cc_mode_args
+{
+  rtx insn;
+  rtx newreg;
+};
 
 #ifdef HAVE_cc0
 /* For machines that have a CC0, we do not record its value in the hash
@@ -504,11 +511,9 @@ struct table_elt
    of 0.  Next come pseudos with a cost of one and other hard registers with
    a cost of 2.  Aside from these special cases, call `rtx_cost'.  */
 
-#define CHEAP_REGNO(N) \
-  ((N) == FRAME_POINTER_REGNUM || (N) == HARD_FRAME_POINTER_REGNUM	\
-   || (N) == STACK_POINTER_REGNUM || (N) == ARG_POINTER_REGNUM		\
-   || ((N) >= FIRST_VIRTUAL_REGISTER && (N) <= LAST_VIRTUAL_REGISTER)	\
-   || ((N) < FIRST_PSEUDO_REGISTER					\
+#define CHEAP_REGNO(N)							\
+  (REGNO_PTR_FRAME_P(N)							\
+   || (HARD_REGISTER_NUM_P (N)						\
        && FIXED_REGNO_P (N) && REGNO_REG_CLASS (N) != NO_REGS))
 
 #define COST(X) (REG_P (X) ? 0 : notreg_cost (X, SET))
@@ -655,6 +660,7 @@ static bool insn_live_p (rtx, int *);
 static bool set_live_p (rtx, rtx, int *);
 static bool dead_libcall_p (rtx, int *);
 static int cse_change_cc_mode (rtx *, void *);
+static void cse_change_cc_mode_insn (rtx, rtx);
 static void cse_change_cc_mode_insns (rtx, rtx, rtx);
 static enum machine_mode cse_cc_succs (basic_block, rtx, rtx, bool);
 
@@ -5683,12 +5689,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  if (REG_P (dest) || GET_CODE (dest) == SUBREG)
 	    invalidate (dest, VOIDmode);
 	  else if (MEM_P (dest))
-	    {
-	      /* Outgoing arguments for a libcall don't
-		 affect any recorded expressions.  */
-	      if (! libcall_insn || insn == libcall_insn)
-		invalidate (dest, VOIDmode);
-	    }
+	    invalidate (dest, VOIDmode);
 	  else if (GET_CODE (dest) == STRICT_LOW_PART
 		   || GET_CODE (dest) == ZERO_EXTRACT)
 	    invalidate (XEXP (dest, 0), GET_MODE (dest));
@@ -5856,12 +5857,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	if (REG_P (dest) || GET_CODE (dest) == SUBREG)
 	  invalidate (dest, VOIDmode);
 	else if (MEM_P (dest))
-	  {
-	    /* Outgoing arguments for a libcall don't
-	       affect any recorded expressions.  */
-	    if (! libcall_insn || insn == libcall_insn)
-	      invalidate (dest, VOIDmode);
-	  }
+	  invalidate (dest, VOIDmode);
 	else if (GET_CODE (dest) == STRICT_LOW_PART
 		 || GET_CODE (dest) == ZERO_EXTRACT)
 	  invalidate (XEXP (dest, 0), GET_MODE (dest));
@@ -7315,17 +7311,44 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 static int
 cse_change_cc_mode (rtx *loc, void *data)
 {
-  rtx newreg = (rtx) data;
+  struct change_cc_mode_args* args = (struct change_cc_mode_args*)data;
 
   if (*loc
       && REG_P (*loc)
-      && REGNO (*loc) == REGNO (newreg)
-      && GET_MODE (*loc) != GET_MODE (newreg))
+      && REGNO (*loc) == REGNO (args->newreg)
+      && GET_MODE (*loc) != GET_MODE (args->newreg))
     {
-      *loc = newreg;
+      validate_change (args->insn, loc, args->newreg, 1);
+      
       return -1;
     }
   return 0;
+}
+
+/* Change the mode of any reference to the register REGNO (NEWREG) to
+   GET_MODE (NEWREG) in INSN.  */
+
+static void
+cse_change_cc_mode_insn (rtx insn, rtx newreg)
+{
+  struct change_cc_mode_args args;
+  int success;
+
+  if (!INSN_P (insn))
+    return;
+
+  args.insn = insn;
+  args.newreg = newreg;
+  
+  for_each_rtx (&PATTERN (insn), cse_change_cc_mode, &args);
+  for_each_rtx (&REG_NOTES (insn), cse_change_cc_mode, &args);
+  
+  /* If the following assertion was triggered, there is most probably
+     something wrong with the cc_modes_compatible back end function.
+     CC modes only can be considered compatible if the insn - with the mode
+     replaced by any of the compatible modes - can still be recognized.  */
+  success = apply_change_group ();
+  gcc_assert (success);
 }
 
 /* Change the mode of any reference to the register REGNO (NEWREG) to
@@ -7345,8 +7368,7 @@ cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
       if (reg_set_p (newreg, insn))
 	return;
 
-      for_each_rtx (&PATTERN (insn), cse_change_cc_mode, newreg);
-      for_each_rtx (&REG_NOTES (insn), cse_change_cc_mode, newreg);
+      cse_change_cc_mode_insn (insn, newreg);
     }
 }
 
@@ -7455,6 +7477,8 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 			{
 			  gcc_assert (can_change_mode);
 			  mode = comp_mode;
+
+			  /* The modified insn will be re-recognized later.  */
 			  PUT_MODE (cc_src, mode);
 			}
 		    }
@@ -7634,12 +7658,7 @@ cse_condition_code_reg (void)
 	    {
 	      rtx newreg = gen_rtx_REG (mode, REGNO (cc_reg));
 
-	      /* Change the mode of CC_REG in CC_SRC_INSN to
-		 GET_MODE (NEWREG).  */
-	      for_each_rtx (&PATTERN (cc_src_insn), cse_change_cc_mode,
-			    newreg);
-	      for_each_rtx (&REG_NOTES (cc_src_insn), cse_change_cc_mode,
-			    newreg);
+	      cse_change_cc_mode_insn (cc_src_insn, newreg);
 
 	      /* Do the same in the following insns that use the
 		 current value of CC_REG within BB.  */

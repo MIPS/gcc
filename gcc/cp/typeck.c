@@ -3741,26 +3741,30 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
   switch (code)
     {
+    /* CONVERT_EXPR stands for unary plus in this context.  */
     case CONVERT_EXPR:
-      /* This is used for unary plus, because a CONVERT_EXPR
-	 is enough to prevent anybody from looking inside for
-	 associativity, but won't generate any code.  */
-      if (!(arg = build_expr_type_conversion
-	    (WANT_ARITH | WANT_ENUM | WANT_POINTER, arg, true)))
-	errstring = "wrong type argument to unary plus";
-      else
-	{
-	  if (!noconvert)
-	    arg = default_conversion (arg);
-	  arg = build1 (NON_LVALUE_EXPR, TREE_TYPE (arg), arg);
-	}
-      break;
-
     case NEGATE_EXPR:
-      if (!(arg = build_expr_type_conversion (WANT_ARITH | WANT_ENUM, arg, true)))
-	errstring = "wrong type argument to unary minus";
-      else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
-	arg = perform_integral_promotions (arg);
+      {
+	int flags = WANT_ARITH | WANT_ENUM;
+	/* Unary plus (but not unary minus) is allowed on pointers.  */
+	if (code == CONVERT_EXPR)
+	  flags |= WANT_POINTER;
+	arg = build_expr_type_conversion (flags, arg, true);
+	if (!arg)
+	  errstring = (code == NEGATE_EXPR
+		       ? "wrong type argument to unary minus"
+		       : "wrong type argument to unary plus");
+	else
+	  {
+	    if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
+	      arg = perform_integral_promotions (arg);
+
+	    /* Make sure the result is not a lvalue: a unary plus or minus
+	       expression is always a rvalue.  */
+	    if (real_lvalue_p (arg))
+	      arg = build1 (NON_LVALUE_EXPR, TREE_TYPE (arg), arg);
+	  }
+      }
       break;
 
     case BIT_NOT_EXPR:
@@ -4325,7 +4329,7 @@ cxx_mark_addressable (tree exp)
       case PARM_DECL:
 	if (x == current_class_ptr)
 	  {
-            error ("cannot take the address of `this', which is an rvalue expression");
+            error ("cannot take the address of %<this%>, which is an rvalue expression");
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later.  */
 	    return true;
 	  }
@@ -4343,9 +4347,18 @@ cxx_mark_addressable (tree exp)
       case CONST_DECL:
       case RESULT_DECL:
 	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
-	    && !DECL_ARTIFICIAL (x) && extra_warnings)
-	  warning ("address requested for %qD, which is declared `register'",
-                   x);
+	    && !DECL_ARTIFICIAL (x))
+	  {
+	    if (DECL_HARD_REGISTER (x) != 0)
+	      {
+		error
+		  ("address of explicit register variable %qD requested", x);
+		return false;
+	      }
+	    else if (extra_warnings)
+	      warning
+		("address requested for %qD, which is declared %<register%>", x);
+	  }
 	TREE_ADDRESSABLE (x) = 1;
 	return true;
 
@@ -4863,7 +4876,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       if (TYPE_PTR_P (intype)
 	  && (comptypes (TREE_TYPE (intype), TREE_TYPE (type),
 			 COMPARE_BASE | COMPARE_DERIVED)))
-	warning ("casting `%T' to `%T' does not dereference pointer",
+	warning ("casting %qT to %qT does not dereference pointer",
 		 intype, type);
 
       expr = build_unary_op (ADDR_EXPR, expr, 0);
@@ -6144,7 +6157,7 @@ check_return_expr (tree retval)
      (This is a G++ extension, used to get better code for functions
      that call the `volatile' function.)  */
   if (TREE_THIS_VOLATILE (current_function_decl))
-    warning ("function declared `noreturn' has a `return' statement");
+    warning ("function declared %<noreturn%> has a %<return%> statement");
 
   /* Check for various simple errors.  */
   if (DECL_DESTRUCTOR_P (current_function_decl))
@@ -6184,7 +6197,7 @@ check_return_expr (tree retval)
      that's supposed to return a value.  */
   if (!retval && fn_returns_value_p)
     {
-      pedwarn ("return-statement with no value, in function returning '%T'",
+      pedwarn ("return-statement with no value, in function returning %qT",
 	       valtype);
       /* Clear this, so finish_function won't say that we reach the
 	 end of a non-void function (which we don't, we gave a

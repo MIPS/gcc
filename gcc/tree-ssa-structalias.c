@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
+#include "obstack.h"
 #include "bitmap.h"
 #include "tree-ssa-structalias.h"
 #include "flags.h"

@@ -254,6 +254,7 @@ INSTALL_SCRIPT = @INSTALL@
 MAKEINFO = @MAKEINFO@
 MAKEINFOFLAGS = --no-split
 TEXI2DVI = texi2dvi
+TEXI2HTML = $(MAKEINFO) --html
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
 # Some versions of `touch' (such as the version on Solaris 2.8)
@@ -487,6 +488,9 @@ man7dir = $(mandir)/man7
 # Dir for temp files.
 tmpdir = /tmp
 
+# Directory in which to put HTML
+htmldir = $(objdir)/HTML/gcc-$(version)
+
 # Whether we were configured with NLS.
 USE_NLS = @USE_NLS@
 
@@ -687,7 +691,7 @@ PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h builtins.def \
           input.h statistics.h vec.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
-          hard-reg-set.h cfghooks.h
+          hard-reg-set.h cfghooks.h $(OBSTACK_H)
 COVERAGE_H = coverage.h gcov-io.h gcov-iov.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
@@ -696,7 +700,7 @@ EMIT_RTL_H = emit-rtl.h
 FLAGS_H = flags.h options.h
 EXPR_H = expr.h insn-config.h function.h $(RTL_H) $(FLAGS_H) $(TREE_H) $(MACHMODE_H) $(EMIT_RTL_H)
 OPTABS_H = optabs.h insn-codes.h
-REGS_H = regs.h varray.h $(MACHMODE_H)
+REGS_H = regs.h varray.h $(MACHMODE_H) $(OBSTACK_H)
 RA_H = ra.h bitmap.h sbitmap.h hard-reg-set.h insn-modes.h
 RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
@@ -1717,7 +1721,7 @@ tree-ssa-loop-ivopts.o : tree-ssa-loop-ivopts.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) varray.h $(EXPR_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    tree-pass.h $(GGC_H) $(RECOG_H) insn-config.h $(HASHTAB_H) $(SCEV_H) \
-   cfgloop.h $(PARAMS_H)
+   cfgloop.h $(PARAMS_H) sbitmap.h
 tree-ssa-loop-manip.o : tree-ssa-loop-manip.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1769,7 +1773,7 @@ tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
-   $(TREE_DATA_REF_H) $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H)
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H)
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -2168,7 +2172,7 @@ lambda-trans.o: lambda-trans.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) $(TM
 lambda-code.o: lambda-code.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
    errors.h $(TM_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   $(TREE_DATA_REF_H) $(SCEV_H)
+   $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
 pointer-set.o: pointer-set.c pointer-set.h $(CONFIG_H) $(SYSTEM_H)
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
@@ -2791,11 +2795,14 @@ stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) xlimits.h
 install-gcc-tooldir:
 	$(mkinstalldirs) $(DESTDIR)$(gcc_tooldir)
 
-macro_list : $(GCC_PASSES)
+macro_list: s-macro_list; @true
+s-macro_list : $(GCC_PASSES) 
 	echo | $(GCC_FOR_TARGET) -E -dM - | \
 	  sed -n 's/^#define \([^_][a-zA-Z0-9_]*\).*/\1/p ; \
 		s/^#define \(_[^_A-Z][a-zA-Z0-9_]*\).*/\1/p' | \
-	  sort -u > $@
+	  sort -u > tmp-macro_list
+	$(SHELL) $(srcdir)/../move-if-change tmp-macro_list macro_list
+	$(STAMP) s-macro_list
 
 # Build fixed copies of system files.
 stmp-fixinc: gsyslimits.h macro_list \
@@ -2969,6 +2976,11 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
+$(htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
+$(htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
+$(htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
+$(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
+
 dvi:: doc/gcc.dvi doc/gccint.dvi doc/gccinstall.dvi doc/cpp.dvi \
       doc/cppinternals.dvi
 
@@ -2978,6 +2990,21 @@ doc/%.dvi: %.texi
 # Duplicate entry to handle renaming of gccinstall.dvi
 doc/gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 	$(TEXI2DVI) -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+html:: $(htmldir)/cpp/index.html $(htmldir)/gcc/index.html \
+       $(htmldir)/gccinstall/index.html $(htmldir)/gccint/index.html \
+       $(htmldir)/cppinternals/index.html
+
+$(htmldir)/%/index.html: %.texi
+	$(mkinstalldirs) $(@D)
+	rm -f $(@D)/*
+	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
+
+# Duplicate entry to handle renaming of gccinstall
+$(htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
+	$(mkinstalldirs) $(@D)
+	echo rm -f $(@D)/*
+	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
 
 MANFILES = doc/gcov.1 doc/cpp.1 doc/gcc.1 doc/gfdl.7 doc/gpl.7 doc/fsf-funding.7
 

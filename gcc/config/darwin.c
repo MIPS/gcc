@@ -169,6 +169,7 @@ machopic_data_defined_p (rtx sym_ref)
   switch (machopic_classify_symbol (sym_ref))
     {
     case MACHOPIC_DEFINED_DATA:
+    case MACHOPIC_DEFINED_FUNCTION:
       return 1;
     default:
       return 0;
@@ -1214,7 +1215,7 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
   else

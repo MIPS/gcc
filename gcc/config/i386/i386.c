@@ -578,7 +578,7 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPR
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
 const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K8 | m_PENT;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -927,6 +927,9 @@ static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor (rtx, int);
 #endif
+/* This function is only used on Solaris.  */
+static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
+  ATTRIBUTE_UNUSED;
 
 /* Register class used for passing given 64bit part of the argument.
    These represent classes as documented by the PS ABI, with the exception
@@ -1271,10 +1274,10 @@ override_options (void)
 	error ("bad value (%s) for -masm= switch", ix86_asm_string);
     }
   if ((TARGET_64BIT == 0) != (ix86_cmodel == CM_32))
-    error ("code model `%s' not supported in the %s bit mode",
+    error ("code model %qs not supported in the %s bit mode",
 	   ix86_cmodel_string, TARGET_64BIT ? "64" : "32");
   if (ix86_cmodel == CM_LARGE)
-    sorry ("code model `large' not supported yet");
+    sorry ("code model %<large%> not supported yet");
   if ((TARGET_64BIT != 0) != ((target_flags & MASK_64BIT) != 0))
     sorry ("%i-bit mode not compiled in",
 	   (target_flags & MASK_64BIT) ? 64 : 32);
@@ -1306,6 +1309,19 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you selected does not support x86-64 "
+		 "instruction set");
+	break;
+      }
+
+  if (i == pta_size)
+    error ("bad value (%s) for -march= switch", ix86_arch_string);
+
+  for (i = 0; i < pta_size; i++)
+    if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
+      {
+	ix86_tune = processor_alias_table[i].processor;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  {
 	    if (ix86_tune_defaulted)
 	      {
@@ -1320,19 +1336,6 @@ override_options (void)
 	      error ("CPU you selected does not support x86-64 "
 		     "instruction set");
 	  }
-	break;
-      }
-
-  if (i == pta_size)
-    error ("bad value (%s) for -march= switch", ix86_arch_string);
-
-  for (i = 0; i < pta_size; i++)
-    if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
-      {
-	ix86_tune = processor_alias_table[i].processor;
-	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you selected does not support x86-64 instruction set");
-
         /* Intel CPUs have always interpreted SSE prefetch instructions as
 	   NOPs; so, we can enable SSE prefetch instructions even when
 	   -mtune (rather than -march) points us to a processor that has them.
@@ -1682,7 +1685,7 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1710,7 +1713,7 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
 
   if (TARGET_64BIT)
     {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -1728,7 +1731,7 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1739,13 +1742,13 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       cst = TREE_VALUE (args);
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
-	  warning ("`%s' attribute requires an integer constant argument",
+	  warning ("%qs attribute requires an integer constant argument",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning ("argument to `%s' attribute larger than %d",
+	  warning ("argument to %qs attribute larger than %d",
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
@@ -2117,10 +2120,10 @@ classify_argument (enum machine_mode mode, tree type,
 	  if (TYPE_BINFO (type))
 	    {
 	      tree binfo, base_binfo;
-	      int i;
+	      int basenum;
 
-	      for (binfo = TYPE_BINFO (type), i = 0;
-		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	      for (binfo = TYPE_BINFO (type), basenum = 0;
+		   BINFO_BASE_ITERATE (binfo, basenum, base_binfo); basenum++)
 		{
 		   int num;
 		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
@@ -2204,10 +2207,10 @@ classify_argument (enum machine_mode mode, tree type,
 	  if (TYPE_BINFO (type))
 	    {
 	      tree binfo, base_binfo;
-	      int i;
+	      int basenum;
 
-	      for (binfo = TYPE_BINFO (type), i = 0;
-		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	      for (binfo = TYPE_BINFO (type), basenum = 0;
+		   BINFO_BASE_ITERATE (binfo, basenum, base_binfo); basenum++)
 		{
 		   int num;
 		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
@@ -6538,7 +6541,7 @@ print_operand (FILE *file, rtx x, int code)
 	    return;
 	  }
 	default:
-	    output_operand_lossage ("invalid operand code `%c'", code);
+	    output_operand_lossage ("invalid operand code '%c'", code);
 	}
     }
 
@@ -14507,7 +14510,7 @@ ix86_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
 		 || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -14516,7 +14519,7 @@ ix86_handle_struct_attribute (tree *node, tree name,
 	   || ((is_attribute_p ("gcc_struct", name)
 		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning ("`%s' incompatible attribute ignored",
+      warning ("%qs incompatible attribute ignored",
                IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -15268,6 +15271,26 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
   emit_insn (gen_fyl2x_xf3 (op0, tmp2, tmp));
 
   emit_label (label2);
+}
+
+/* Solaris named-section hook.  Parameters are as for
+   named_section_real.  */
+
+static void
+i386_solaris_elf_named_section (const char *name, unsigned int flags,
+				tree decl)
+{
+  /* With Binutils 2.15, the "@unwind" marker must be specified on
+     every occurrence of the ".eh_frame" section, not just the first
+     one.  */
+  if (TARGET_64BIT
+      && strcmp (name, ".eh_frame") == 0)
+    {
+      fprintf (asm_out_file, "\t.section\t%s,\"%s\",@unwind\n", name,
+	       flags & SECTION_WRITE ? "aw" : "a");
+      return;
+    }
+  default_elf_asm_named_section (name, flags, decl);
 }
 
 #include "gt-i386.h"

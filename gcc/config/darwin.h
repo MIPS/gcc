@@ -408,10 +408,6 @@ extern const char *darwin_fix_and_continue_switch;
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* We support hidden visibility */
-#undef TARGET_SUPPORTS_HIDDEN
-#define TARGET_SUPPORTS_HIDDEN 1
-
 /* The Darwin linker imposes two limitations on common symbols: they 
    can't have hidden visibility, and they can't appear in dylibs.  As
    a consequence, we should never use common symbols to represent 
@@ -1003,6 +999,7 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
+#define JUMP_TABLES_IN_TEXT_SECTION 1
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 

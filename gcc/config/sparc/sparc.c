@@ -348,6 +348,7 @@ static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (tree, tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, bool);
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
@@ -465,6 +466,9 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
+
+#undef TARGET_VECTOR_MODE_SUPPORTED_P
+#define TARGET_VECTOR_MODE_SUPPORTED_P sparc_vector_mode_supported_p
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -769,7 +773,8 @@ const1_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 fp_zero_operand (rtx op, enum machine_mode mode)
 {
-  if (GET_MODE_CLASS (GET_MODE (op)) != MODE_FLOAT)
+  enum mode_class mclass = GET_MODE_CLASS (GET_MODE (op));
+  if (mclass != MODE_FLOAT && mclass != MODE_VECTOR_INT)
     return 0;
   return op == CONST0_RTX (mode);
 }
@@ -1498,6 +1503,8 @@ clobbered_register (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 input_operand (rtx op, enum machine_mode mode)
 {
+  enum mode_class mclass;
+
   /* If both modes are non-void they must be the same.  */
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
@@ -1538,8 +1545,9 @@ input_operand (rtx op, enum machine_mode mode)
   if (register_operand (op, mode))
     return 1;
 
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_CODE (op) == CONST_DOUBLE)
+  mclass = GET_MODE_CLASS (mode);
+  if ((mclass == MODE_FLOAT && GET_CODE (op) == CONST_DOUBLE)
+      || (mclass == MODE_VECTOR_INT && GET_CODE (op) == CONST_VECTOR))
     return 1;
 
   /* If this is a SUBREG, look inside so that we handle
@@ -3293,6 +3301,7 @@ sparc_cannot_force_const_mem (rtx x)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
       /* Accept all non-symbolic constants.  */
       return false;
 
@@ -3974,6 +3983,12 @@ mem_min_alignment (rtx mem, int desired)
   if (GET_CODE (mem) != MEM)
     return 0;
 
+  /* Obviously...  */
+  if (MEM_ALIGN (mem) / BITS_PER_UNIT >= (unsigned)desired)
+    return 1;
+
+  /* ??? The rest of the function predates MEM_ALIGN so
+     there is probably a bit of redundancy.  */
   addr = XEXP (mem, 0);
   base = offset = NULL_RTX;
   if (GET_CODE (addr) == PLUS)
@@ -4180,6 +4195,12 @@ sparc_init_modes (void)
 	    sparc_mode_class[i] = 1 << (int) O_MODE;
 	  else 
 	    sparc_mode_class[i] = 0;
+	  break;
+	case MODE_VECTOR_INT:
+	  if (GET_MODE_SIZE (i) <= 4)
+	    sparc_mode_class[i] = 1 << (int)SF_MODE;
+	  else if (GET_MODE_SIZE (i) == 8)
+	    sparc_mode_class[i] = 1 << (int)DF_MODE;
 	  break;
 	case MODE_FLOAT:
 	case MODE_COMPLEX_FLOAT:
@@ -5226,7 +5247,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
-static rtx function_arg_union_value (int, enum machine_mode, int);
+static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5593,7 +5614,8 @@ function_arg_record_value (tree type, enum machine_mode mode,
    REGNO is the hard register the union will be passed in.  */
 
 static rtx
-function_arg_union_value (int size, enum machine_mode mode, int regno)
+function_arg_union_value (int size, enum machine_mode mode, int slotno,
+			  int regno)
 {
   int nwords = ROUND_ADVANCE (size), i;
   rtx regs;
@@ -5601,6 +5623,9 @@ function_arg_union_value (int size, enum machine_mode mode, int regno)
   /* See comment in previous function for empty structures.  */
   if (nwords == 0)
     return gen_rtx_REG (mode, regno);
+
+  if (slotno == SPARC_INT_ARG_MAX - 1)
+    nwords = 1;
 
   regs = gen_rtx_PARALLEL (mode, rtvec_alloc (nwords));
 
@@ -5702,7 +5727,7 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
       if (size > 16)
 	abort (); /* shouldn't get here */
 
-      return function_arg_union_value (size, mode, regno);
+      return function_arg_union_value (size, mode, slotno, regno);
     }
   else if (type && TREE_CODE (type) == VECTOR_TYPE)
     {
@@ -6092,7 +6117,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	  if (size > 32)
 	    abort (); /* shouldn't get here */
 
-	  return function_arg_union_value (size, mode, regbase);
+	  return function_arg_union_value (size, mode, 0, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -6115,7 +6140,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	     try to be unduly clever, and simply follow the ABI
 	     for unions in that case.  */
 	  if (mode == BLKmode)
-	    return function_arg_union_value (bytes, mode, regbase);
+	    return function_arg_union_value (bytes, mode, 0, regbase);
 	  else
 	    mclass = MODE_INT;
 	}
@@ -6261,6 +6286,15 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (incr, post_p);
 
   return build_va_arg_indirect_ref (addr);
+}
+
+/* Implement the TARGET_VECTOR_MODE_SUPPORTED_P target hook.
+   Specify whether the vector mode is supported by the hardware.  */
+
+static bool
+sparc_vector_mode_supported_p (enum machine_mode mode)
+{
+  return TARGET_VIS && VECTOR_MODE_P (mode) ? true : false;
 }
 
 /* Return the string to output an unconditional branch to LABEL, which is
@@ -8445,6 +8479,9 @@ sparc_extra_constraint_check (rtx op, int c, int strict)
     case 'T':
       break;
 
+    case 'Y':
+      return fp_zero_operand (op, GET_MODE (op));
+
     default:
       return 0;
     }
@@ -8656,6 +8693,18 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int *total)
       else
 	*total = sparc_costs->int_cmove;
       return false;
+
+    case IOR:
+      /* Handle the NAND vector patterns.  */
+      if (sparc_vector_mode_supported_p (GET_MODE (x))
+	  && GET_CODE (XEXP (x, 0)) == NOT
+	  && GET_CODE (XEXP (x, 1)) == NOT)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+      else
+        return false;
 
     default:
       return false;

@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
-#include "stack.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
@@ -1131,7 +1130,7 @@ lookup_field_r (tree binfo, void *data)
 	  /* Add the new value.  */
 	  lfi->ambiguous = tree_cons (NULL_TREE, nval, lfi->ambiguous);
 	  TREE_TYPE (lfi->ambiguous) = error_mark_node;
-	  lfi->errstr = "request for member `%D' is ambiguous";
+	  lfi->errstr = "request for member %qD is ambiguous";
 	}
     }
   else

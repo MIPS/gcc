@@ -620,7 +620,7 @@ struct sra_walk_fns
 };
 
 #ifdef ENABLE_CHECKING
-/* Invoked via walk_tree, if *TP contains an candidate decl, return it.  */
+/* Invoked via walk_tree, if *TP contains a candidate decl, return it.  */
 
 static tree
 sra_find_candidate_decl (tree *tp, int *walk_subtrees,
@@ -1361,12 +1361,12 @@ decide_instantiations (void)
 {
   unsigned int i;
   bool cleared_any;
-  struct bitmap_head_def done_head;
+  bitmap_head done_head;
   bitmap_iterator bi;
 
   /* We cannot clear bits from a bitmap we're iterating over,
      so save up all the bits to clear until the end.  */
-  bitmap_initialize (&done_head, 1);
+  bitmap_initialize (&done_head, &bitmap_default_obstack);
   cleared_any = false;
 
   EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
@@ -1832,6 +1832,8 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
   /* Generate initialization statements for all members extant in the RHS.  */
   if (rhs)
     {
+      /* Unshare the expression just in case this is from a decl's initial.  */
+      rhs = unshare_expr (rhs);
       push_gimplify_context ();
       result = generate_element_init (lhs_elt, rhs, &list);
       pop_gimplify_context (NULL);
@@ -1992,7 +1994,7 @@ scalarize_function (void)
 
   sra_walk_function (&fns);
   scalarize_parms ();
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
 }
 
 

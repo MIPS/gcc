@@ -537,14 +537,6 @@ that the branch is an annulling one.  See the discussion under
 @code{sequence} below.  Stored in the @code{unchanging} field and
 printed as @samp{/u}.
 
-@findex INSN_DEAD_CODE_P
-@cindex @code{insn} and @samp{/s}
-@cindex @code{in_struct}, in @code{insn}
-@item INSN_DEAD_CODE_P (@var{x})
-In an @code{insn} during the dead-code elimination pass, nonzero if the
-insn is dead.
-Stored in the @code{in_struct} field and printed as @samp{/s}.
-
 @findex INSN_DELETED_P
 @cindex @code{insn} and @samp{/v}
 @cindex @code{call_insn} and @samp{/v}
@@ -660,14 +652,6 @@ value is going to be returned.  (This happens only in a hard
 register.)  Stored in the @code{integrated} field and printed as
 @samp{/i}.
 
-@findex REG_LOOP_TEST_P
-@cindex @code{reg} and @samp{/s}
-@cindex @code{in_struct}, in @code{reg}
-@item REG_LOOP_TEST_P (@var{x})
-In @code{reg} expressions, nonzero if this register's entire life is
-contained in the exit test code for some loop.  Stored in the
-@code{in_struct} field and printed as @samp{/s}.
-
 @findex REG_POINTER
 @cindex @code{reg} and @samp{/f}
 @cindex @code{frame_related}, in @code{reg}
@@ -741,7 +725,7 @@ Stored in the @code{integrated} field and printed as @samp{/i}.
 @item MEM_READONLY_P (@var{x})
 Nonzero in a @code{mem}, if the memory is statically allocated and read-only.
 
-Read-only in this context never modified during the lifetime of the
+Read-only in this context means never modified during the lifetime of the
 program, not necessarily in ROM or in write-disabled pages.  A common
 example of the later is a shared library's global offset table.  This
 table is initialized by the runtime loader, so the memory is technically
@@ -1618,7 +1602,7 @@ It is also not valid to access a single word of a multi-word value in a
 hard register when less registers can hold the value than would be
 expected from its size.  For example, some 32-bit machines have
 floating-point registers that can hold an entire @code{DFmode} value.
-If register 10 were such a register @code{(subreg:SI (reg:DF 10) 1)}
+If register 10 were such a register @code{(subreg:SI (reg:DF 10) 4)}
 would be invalid because there is no way to convert that reference to
 a single machine register.  The reload pass prevents @code{subreg}
 expressions such as these from being formed.

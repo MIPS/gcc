@@ -299,7 +299,6 @@ extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 
-extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
@@ -838,8 +837,6 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern tree c_staticp (tree);
-
-extern int c_common_unsafe_for_reeval (tree);
 
 extern void init_c_lex (void);
 

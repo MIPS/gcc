@@ -569,10 +569,13 @@ compute_branch_probabilities (void)
 	    }
 	}
       /* Otherwise try to preserve the existing REG_BR_PROB probabilities
-         tree based profile guessing put into code.  */
+         tree based profile guessing put into code.  BB can be the
+	 ENTRY_BLOCK, and it can have multiple (fake) successors in
+	 EH cases, but it still has no code; don't crash in this case.  */
       else if (profile_status == PROFILE_ABSENT
 	       && !ir_type ()
 	       && EDGE_COUNT (bb->succs) > 1
+	       && BB_END (bb)
 	       && (note = find_reg_note (BB_END (bb), REG_BR_PROB, 0)))
 	{
 	  int prob = INTVAL (XEXP (note, 0));
@@ -1109,7 +1112,7 @@ branch_prob (void)
 
       /* Commit changes done by instrumentation.  */
       if (ir_type ())
-	bsi_commit_edge_inserts ((int *)NULL);
+	bsi_commit_edge_inserts ();
       else
 	{
           commit_edge_insertions_watch_calls ();

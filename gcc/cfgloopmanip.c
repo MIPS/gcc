@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
@@ -47,6 +48,7 @@ static void scale_loop_frequencies (struct loop *, int, int);
 static void scale_bbs_frequencies (basic_block *, int, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
+static void unloop (struct loops *, struct loop *);
 
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
@@ -582,7 +584,7 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
 /* Remove the latch edge of a LOOP and update LOOPS tree to indicate that
    the LOOP was removed.  After this function, original loop latch will
    have no successor, which caller is expected to fix somehow.  */
-void
+static void
 unloop (struct loops *loops, struct loop *loop)
 {
   basic_block *body;
@@ -822,7 +824,7 @@ can_duplicate_loop_p (struct loop *loop)
 /* The NBBS blocks in BBS will get duplicated and the copies will be placed
    to LOOP.  Update the single_exit information in superloops of LOOP.  */
 
-void
+static void
 update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
 				       struct loop *loop)
 {
@@ -1219,14 +1221,11 @@ force_single_succ_latches (struct loops *loops)
 
   for (i = 1; i < loops->num; i++)
     {
-      edge_iterator ei;
       loop = loops->parray[i];
       if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
 	continue;
 
-      FOR_EACH_EDGE (e, ei, loop->header->preds)
-	if (e->src == loop->latch)
-	  break;
+      e = find_edge (loop->latch, loop->header);
 
       loop_split_edge_with (e, NULL_RTX);
     }

@@ -350,7 +350,7 @@ in_named_entry_hash (const void *p)
    set of flags for a section to have, so 0 does not mean that the section
    has not been seen.  */
 
-unsigned int
+static unsigned int
 get_named_section_flags (const char *section)
 {
   struct in_named_entry **slot;
@@ -2026,8 +2026,9 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 			  int aligned_p ATTRIBUTE_UNUSED)
 {
   const char *op = integer_asm_op (size, aligned_p);
-  /* Avoid GAS bugs for values > word size.  */
-  if (size > UNITS_PER_WORD)
+  /* Avoid GAS bugs for large values.  Specifically negative values whose
+     absolute value fits in a bfd_vma, but not in a bfd_signed_vma.  */
+  if (size > UNITS_PER_WORD && size > POINTER_SIZE / BITS_PER_UNIT)
     return false;
   return op && (assemble_integer_with_op (op, x), true);
 }
@@ -3385,6 +3386,10 @@ output_addressed_constants (tree exp)
 	   tem = TREE_OPERAND (tem, 0))
 	;
 
+      /* If we have an initialized CONST_DECL, retrieve the initializer.  */
+      if (TREE_CODE (tem) == CONST_DECL && DECL_INITIAL (tem))
+	tem = DECL_INITIAL (tem);
+
       if (CONSTANT_CLASS_P (tem) || TREE_CODE (tem) == CONSTRUCTOR)
 	output_constant_def (tem, 0);
       break;
@@ -4476,7 +4481,7 @@ init_varasm_once (void)
   const_alias_set = new_alias_set ();
 }
 
-enum tls_model
+static enum tls_model
 decl_tls_model (tree decl)
 {
   enum tls_model kind;

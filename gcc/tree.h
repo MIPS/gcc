@@ -1229,9 +1229,9 @@ struct tree_vec GTY(())
 
 /* CASE_LABEL_EXPR accessors. These give access to the high and low values
    of a case label, respectively.  */
-#define CASE_LOW(NODE)          TREE_OPERAND ((NODE), 0)
-#define CASE_HIGH(NODE)         TREE_OPERAND ((NODE), 1)
-#define CASE_LABEL(NODE)        TREE_OPERAND ((NODE), 2)
+#define CASE_LOW(NODE)          	TREE_OPERAND ((NODE), 0)
+#define CASE_HIGH(NODE)         	TREE_OPERAND ((NODE), 1)
+#define CASE_LABEL(NODE)		TREE_OPERAND ((NODE), 2)
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -3002,10 +3002,6 @@ extern tree merge_decl_attributes (tree, tree);
 extern tree merge_type_attributes (tree, tree);
 extern void default_register_cpp_builtins (struct cpp_reader *);
 
-/* Return 1 if an attribute and its arguments are valid for a decl or type.  */
-
-extern int valid_machine_attribute (tree, tree, tree, tree);
-
 /* Given a tree node and a string, return nonzero if the tree node is
    a valid attribute name for the string.  */
 
@@ -3152,7 +3148,6 @@ extern enum machine_mode mode_for_size_tree (tree, enum mode_class, int);
 /* Return an expr equal to X but certainly not valid as an lvalue.  */
 
 extern tree non_lvalue (tree);
-extern tree pedantic_non_lvalue (tree);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (tree);
@@ -3456,12 +3451,13 @@ extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
-
+extern tree get_case_label (tree);
+extern tree upper_bound_in_type (tree, tree);
+extern tree lower_bound_in_type (tree, tree);
 
 /* In stmt.c */
 
 extern void expand_expr_stmt (tree);
-extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
 extern void expand_label (tree);
 extern void expand_goto (tree);
@@ -3585,7 +3581,6 @@ extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
-extern void expand_pending_sizes (tree);
 extern void recompute_tree_invarant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
@@ -3614,16 +3609,13 @@ extern void init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void assign_parms (tree);
 extern void setjmp_vars_warning (tree);
 extern void setjmp_args_warning (void);
 extern void init_temp_slots (void);
-extern void combine_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
 extern void push_temp_slots (void);
 extern void preserve_temp_slots (rtx);
-extern void preserve_rtl_expr_temps (tree);
 extern int aggregate_value_p (tree, tree);
 extern void push_function_context (void);
 extern void pop_function_context (void);
@@ -3720,7 +3712,6 @@ extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
-enum tls_model decl_tls_model (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
@@ -3922,10 +3913,6 @@ extern int tree_node_sizes[];
    be restricted.  False if we are not in gimple form and folding is not
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
-
-/* In tree-ssa-loop-niter.c.  */
-tree lower_bound_in_type (tree, tree);
-tree upper_bound_in_type (tree, tree);
 
 /* In tree-ssa-threadupdate.c.  */
 extern bool thread_through_all_blocks (void);

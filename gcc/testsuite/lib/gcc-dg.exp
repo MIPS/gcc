@@ -22,6 +22,10 @@ load_lib scantree.exp
 load_lib prune.exp
 load_lib libgloss.exp
 
+# We set LC_ALL and LANG to C so that we get the same error messages as expected.
+setenv LC_ALL C
+setenv LANG C
+
 if ![info exists TORTURE_OPTIONS] {
     # It is theoretically beneficial to group all of the O2/O3 options together,
     # as in many cases the compiler will generate identical executables for
@@ -320,19 +324,31 @@ proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
     }
 }
 
+# Skip a test and clear all xfail flags that might have been set for it
+# by dg-xfail-if or for the xfail list in dg-do.  A procedure that calls
+# this must specify "upvar dg-do-what dg-do-what".
+
+proc skip_test_and_clear_xfail { } {
+    global compiler_conditional_xfail_data
+    upvar dg-do-what dg-do-what
+
+    set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    if [info exists compiler_conditional_xfail_data] {
+	unset compiler_conditional_xfail_data
+    }
+}
+
 # If this target does not support weak symbols, skip this test.
 
 proc dg-require-weak { args } {
-    upvar dg-do-what dg-do-what
-    upvar name name
-
     set weak_available [ check_weak_available ]
     if { $weak_available == -1 } {
+	upvar name name
 	unresolved "$name"
     }
     if { $weak_available != 1 } {
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
     }
 }
 
@@ -340,16 +356,14 @@ proc dg-require-weak { args } {
 # test.
 
 proc dg-require-visibility { args } {
-    upvar dg-do-what dg-do-what
-    upvar name name
-
     set visibility_available [ check_visibility_available ]
     if { $visibility_available == -1 } {
+	upvar name name
 	unresolved "$name"
     }
     if { $visibility_available != 1 } {
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
     }
 }
 
@@ -357,16 +371,14 @@ proc dg-require-visibility { args } {
 # test.
 
 proc dg-require-alias { args } {
-    upvar dg-do-what dg-do-what
-    upvar name name
-
     set alias_available [ check_alias_available ]
     if { $alias_available == -1 } {
+	upvar name name
 	unresolved "$name"
     }
     if { $alias_available < 2 } {
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
     }
 }
 
@@ -376,8 +388,7 @@ proc dg-require-alias { args } {
 proc dg-require-gc-sections { args } {
     if { ![ check_gc_sections_available ] } {
 	upvar dg-do-what dg-do-what
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	skip_test_and_clear_xfail
     }
 }
 
@@ -386,8 +397,7 @@ proc dg-require-gc-sections { args } {
 proc dg-require-profiling { args } {
     if { ![ check_profiling_available ${args} ] } {
 	upvar dg-do-what dg-do-what
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	skip_test_and_clear_xfail
     }
 }
 
@@ -407,27 +417,48 @@ proc dg-require-dll { args } {
     }
 
     upvar dg-do-what dg-do-what
-    set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    skip_test_and_clear_xfail
 }
 
 proc dg-require-iconv { args } {
     if { ![ check_iconv_available ${args} ] } {
 	upvar dg-do-what dg-do-what
-	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-	return
+	skip_test_and_clear_xfail
     }
-    return
 }
 
 # If this target does not support named sections skip this test.
 
 proc dg-require-named-sections { args } {
-   upvar name name
+    if { ![ check_named_sections_available ] } {
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
+    }
+}
 
-   if { ![ check_named_sections_available ] } {
-       upvar dg-do-what dg-do-what
-       set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
-   }
+# If the target does not match the required effective target, skip this test.
+
+proc dg-require-effective-target { args } {
+    set args [lreplace $args 0 0]
+    if { ![is-effective-target [lindex $args 0]] } {
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
+    }
+}
+
+# Skip the test (report it as UNSUPPORTED) if the target list and
+# included flags are matched and the excluded flags are not matched.
+#
+# The first argument is the line number of the dg-skip-if directive
+# within the test file.   Remaining arguments are as for xfail lists:
+# message { targets } { include } { exclude }
+
+proc dg-skip-if { args } {
+    set args [lreplace $args 0 0]
+    if [check_conditional_xfail $args] {
+	upvar dg-do-what dg-do-what
+	skip_test_and_clear_xfail
+    }
 }
 
 # Prune any messages matching ARGS[1] (a regexp) from test output.
@@ -445,6 +476,12 @@ proc dg-prune-output { args } {
 # Like check_conditional_xfail, but callable from a dg test.
 
 proc dg-xfail-if { args } {
+    # Don't change anything if we're already skipping the test.
+    upvar dg-do-what dg-do-what
+    if { [lindex ${dg-do-what} 1] == "N" } {
+      return
+    }
+
     set args [lreplace $args 0 0]
     set selector "target [join [lindex $args 1]]"
     if { [dg-process-target $selector] == "S" } {
@@ -452,7 +489,6 @@ proc dg-xfail-if { args } {
 	set compiler_conditional_xfail_data $args
     }
 }
-
 
 # We need to make sure that additional_* are cleared out after every
 # test.  It is not enough to clear them out *before* the next test run

@@ -372,12 +372,12 @@ number_of_iterations_cond (tree type, tree base0, tree step0,
 
 	  if (zero_p (step0))
 	    {
-	      base0 = build2 (PLUS_EXPR, type, base0, delta);
+	      base0 = fold (build2 (PLUS_EXPR, type, base0, delta));
 	      base0 = fold (build2 (MINUS_EXPR, type, base0, step));
 	    }
 	  else
 	    {
-	      base1 = build2 (MINUS_EXPR, type, base1, delta);
+	      base1 = fold (build2 (MINUS_EXPR, type, base1, delta));
 	      base1 = fold (build2 (PLUS_EXPR, type, base1, step));
 	    }
 
@@ -555,6 +555,41 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
   return expr;
 }
 
+/* Substitute NEW for OLD in EXPR and fold the result.  */
+
+static tree
+simplify_replace_tree (tree expr, tree old, tree new)
+{
+  unsigned i, n;
+  tree ret = NULL_TREE, e, se;
+
+  if (!expr)
+    return NULL_TREE;
+
+  if (expr == old
+      || operand_equal_p (expr, old, 0))
+    return unshare_expr (new);
+
+  if (!EXPR_P (expr))
+    return expr;
+
+  n = TREE_CODE_LENGTH (TREE_CODE (expr));
+  for (i = 0; i < n; i++)
+    {
+      e = TREE_OPERAND (expr, i);
+      se = simplify_replace_tree (e, old, new);
+      if (e == se)
+	continue;
+
+      if (!ret)
+	ret = copy_node (expr);
+
+      TREE_OPERAND (ret, i) = se;
+    }
+
+  return (ret ? fold (ret) : expr);
+}
+
 /* Tries to simplify EXPR using the condition COND.  Returns the simplified
    expression (or EXPR unchanged, if no simplification was possible).*/
 
@@ -601,6 +636,51 @@ tree_simplify_using_condition (tree cond, tree expr)
 	}
 
       return expr;
+    }
+
+  /* In case COND is equality, we may be able to simplify EXPR by copy/constant
+     propagation, and vice versa.  Fold does not handle this, since it is
+     considered too expensive.  */
+  if (TREE_CODE (cond) == EQ_EXPR)
+    {
+      e0 = TREE_OPERAND (cond, 0);
+      e1 = TREE_OPERAND (cond, 1);
+
+      /* We know that e0 == e1.  Check whether we cannot simplify expr
+	 using this fact.  */
+      e = simplify_replace_tree (expr, e0, e1);
+      if (zero_p (e) || nonzero_p (e))
+	return e;
+
+      e = simplify_replace_tree (expr, e1, e0);
+      if (zero_p (e) || nonzero_p (e))
+	return e;
+    }
+  if (TREE_CODE (expr) == EQ_EXPR)
+    {
+      e0 = TREE_OPERAND (expr, 0);
+      e1 = TREE_OPERAND (expr, 1);
+
+      /* If e0 == e1 (EXPR) implies !COND, then EXPR cannot be true.  */
+      e = simplify_replace_tree (cond, e0, e1);
+      if (zero_p (e))
+	return e;
+      e = simplify_replace_tree (cond, e1, e0);
+      if (zero_p (e))
+	return e;
+    }
+  if (TREE_CODE (expr) == NE_EXPR)
+    {
+      e0 = TREE_OPERAND (expr, 0);
+      e1 = TREE_OPERAND (expr, 1);
+
+      /* If e0 == e1 (!EXPR) implies !COND, then EXPR must be true.  */
+      e = simplify_replace_tree (cond, e0, e1);
+      if (zero_p (e))
+	return boolean_true_node;
+      e = simplify_replace_tree (cond, e1, e0);
+      if (zero_p (e))
+	return boolean_true_node;
     }
 
   /* Check whether COND ==> EXPR.  */
@@ -1101,78 +1181,6 @@ compare_trees (tree a, tree b)
     return -1;
 
   return 2;
-}
-
-/* Returns the largest value obtainable by casting something in INNER type to
-   OUTER type.  */
-
-tree
-upper_bound_in_type (tree outer, tree inner)
-{
-  unsigned HOST_WIDE_INT lo, hi;
-  unsigned bits = TYPE_PRECISION (inner);
-
-  if (TYPE_UNSIGNED (outer) || TYPE_UNSIGNED (inner))
-    {
-      /* Zero extending in these cases.  */
-      if (bits <= HOST_BITS_PER_WIDE_INT)
-	{
-	  hi = 0;
-	  lo = (~(unsigned HOST_WIDE_INT) 0)
-		  >> (HOST_BITS_PER_WIDE_INT - bits);
-	}
-      else
-	{
-	  hi = (~(unsigned HOST_WIDE_INT) 0)
-		  >> (2 * HOST_BITS_PER_WIDE_INT - bits);
-	  lo = ~(unsigned HOST_WIDE_INT) 0;
-	}
-    }
-  else
-    {
-      /* Sign extending in these cases.  */
-      if (bits <= HOST_BITS_PER_WIDE_INT)
-	{
-	  hi = 0;
-	  lo = (~(unsigned HOST_WIDE_INT) 0)
-		  >> (HOST_BITS_PER_WIDE_INT - bits) >> 1;
-	}
-      else
-	{
-	  hi = (~(unsigned HOST_WIDE_INT) 0)
-		  >> (2 * HOST_BITS_PER_WIDE_INT - bits) >> 1;
-	  lo = ~(unsigned HOST_WIDE_INT) 0;
-	}
-    }
-
-  return fold_convert (outer,
-		       build_int_cst_wide (inner, lo, hi));
-}
-
-/* Returns the smallest value obtainable by casting something in INNER type to
-   OUTER type.  */
-
-tree
-lower_bound_in_type (tree outer, tree inner)
-{
-  unsigned HOST_WIDE_INT lo, hi;
-  unsigned bits = TYPE_PRECISION (inner);
-
-  if (TYPE_UNSIGNED (outer) || TYPE_UNSIGNED (inner))
-    lo = hi = 0;
-  else if (bits <= HOST_BITS_PER_WIDE_INT)
-    {
-      hi = ~(unsigned HOST_WIDE_INT) 0;
-      lo = (~(unsigned HOST_WIDE_INT) 0) << (bits - 1);
-    }
-  else
-    {
-      hi = (~(unsigned HOST_WIDE_INT) 0) << (bits - HOST_BITS_PER_WIDE_INT - 1);
-      lo = 0;
-    }
-
-  return fold_convert (outer,
-		       build_int_cst_wide (inner, lo, hi));
 }
 
 /* Returns true if statement S1 dominates statement S2.  */

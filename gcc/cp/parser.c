@@ -1821,7 +1821,7 @@ cp_parser_name_lookup_error (cp_parser* parser,
 	error ("%<%T::%D%> has not been declared", 
 	       parser->object_scope, name);
       else
-	error ("`%D' has not been declared", name);
+	error ("%qD has not been declared", name);
     }
   else if (parser->scope && parser->scope != global_namespace)
     error ("%<%D::%D%> %s", parser->scope, name, desired);
@@ -10960,6 +10960,11 @@ cp_parser_direct_declarator (cp_parser* parser,
 						 &non_constant_p);
 	      if (!non_constant_p)
 		bounds = fold_non_dependent_expr (bounds);
+	      else if (!at_function_scope_p ())
+		{
+		  error ("array bound is not an integer constant");
+		  bounds = error_mark_node;
+		}
 	    }
 	  else
 	    bounds = NULL_TREE;
@@ -15228,7 +15233,7 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
 
   /* Initialize FORMAT the first time we get here.  */
   if (!format)
-    format = "types may not be defined in `%s' expressions";
+    format = "types may not be defined in '%s' expressions";
 
   /* Types cannot be defined in a `sizeof' expression.  Save away the
      old message.  */
@@ -15266,7 +15271,7 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
       type = cp_parser_type_id (parser);
       parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
       /* Now, look for the trailing `)'.  */
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
       /* If all went well, then we're done.  */
       if (cp_parser_parse_definitely (parser))
 	{

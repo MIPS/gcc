@@ -108,7 +108,9 @@ static htab_t def_blocks;
 
      A NULL node at the top entry is used to mark the last node associated
      with the current block.  */
-static varray_type block_defs_stack;
+static VEC(vd_pair_t) *block_defs_stack;
+
+/* FIXME: The other stacks should also be VEC(vd_pair_t).  */
 
 /* Global data to attach to the main dominator walk structure.  */
 struct mark_def_sites_global_data
@@ -679,7 +681,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  VARRAY_PUSH_GENERIC_PTR (block_defs_stack, NULL);
+  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -707,7 +709,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  VARRAY_PUSH_GENERIC_PTR (block_defs_stack, NULL);
+  VEC_safe_push (vd_pair_t, block_defs_stack, NULL);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_ABNORMAL)
@@ -845,10 +847,9 @@ rewrite_finalize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			basic_block bb ATTRIBUTE_UNUSED)
 {
   /* Restore CURRDEFS to its original state.  */
-  while (VARRAY_ACTIVE_SIZE (block_defs_stack) > 0)
+  while (VEC_length (vd_pair_t, block_defs_stack) > 0)
     {
-      vd_pair_t pair = VARRAY_TOP_GENERIC_PTR (block_defs_stack);
-      VARRAY_POP (block_defs_stack);
+      vd_pair_t pair = VEC_pop (vd_pair_t, block_defs_stack);
       if (pair == NULL)
 	break;
       set_current_def (pair->var, pair->def);
@@ -1126,7 +1127,7 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
    into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree var, tree def, varray_type *block_defs_p)
+register_new_def (tree var, tree def, VEC (vd_pair_t) **block_defs_p)
 {
   tree currdef;
   vd_pair_t pair;
@@ -1156,7 +1157,7 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 
   pair->var = var;
   pair->def = currdef;
-  VARRAY_PUSH_GENERIC_PTR (*block_defs_p, pair);
+  VEC_safe_push (vd_pair_t, *block_defs_p, pair);
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_current_def (var, def);
@@ -1493,7 +1494,7 @@ rewrite_blocks (bool fix_virtual_phis)
   walk_data.global_data = NULL;
   walk_data.block_local_data_size = 0;
 
-  VARRAY_TREE_INIT (block_defs_stack, 10, "Block DEFS Stack");
+  block_defs_stack = VEC_alloc (vd_pair_t, 10);
 
   /* Initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);
@@ -1506,6 +1507,9 @@ rewrite_blocks (bool fix_virtual_phis)
   fini_walk_dominator_tree (&walk_data);
 
   htab_delete (def_blocks);
+  
+  VEC_free (vd_pair_t, block_defs_stack);
+  block_defs_stack = NULL;
 
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 }
@@ -1726,7 +1730,7 @@ rewrite_ssa_into_ssa (void)
   mark_def_sites_global_data.names_to_rename = snames_to_rename;
   walk_data.global_data = &mark_def_sites_global_data;
 
-  VARRAY_GENERIC_PTR_INIT (block_defs_stack, 10, "Block DEFS Stack");
+  block_defs_stack = VEC_alloc (vd_pair_t, 10);
 
   /* We do not have any local data.  */
   walk_data.block_local_data_size = 0;
@@ -1811,6 +1815,9 @@ rewrite_ssa_into_ssa (void)
       SSA_NAME_AUX (name) = NULL;
     }
   BITMAP_XFREE (to_rename);
+  
+  VEC_free (vd_pair_t, block_defs_stack);
+  block_defs_stack = NULL;
   timevar_pop (TV_TREE_SSA_OTHER);
 }
 

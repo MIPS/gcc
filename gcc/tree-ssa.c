@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
+#include "pointer-set.h"
 #include "tree-flow.h"
 #include "tree-gimple.h"
 #include "tree-inline.h"
@@ -287,8 +288,6 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
 /* Return true if any of the arguments for PHI node PHI at block BB is
    malformed.
 
-   IDOM contains immediate dominator information for the flowgraph.
-
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
       numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
       block in that array slot contains the definition of SSA_NAME.  */
@@ -298,8 +297,15 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
-  int i, phi_num_args = PHI_NUM_ARGS (phi);
+  unsigned i, phi_num_args = PHI_NUM_ARGS (phi);
   edge_iterator ei;
+
+  if (EDGE_COUNT (bb->preds) != phi_num_args)
+    {
+      error ("Incoming edge count does not match number of PHI arguments\n");
+      err = true;
+      goto error;
+    }
 
   /* Mark all the incoming edges.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -308,6 +314,12 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
   for (i = 0; i < phi_num_args; i++)
     {
       tree op = PHI_ARG_DEF (phi, i);
+
+      if (TREE_CODE (op) != SSA_NAME && !is_gimple_min_invariant (op))
+	{
+	  error ("PHI argument is not SSA_NAME, or invariant");
+	  err = true;
+	}
 
       e = PHI_ARG_EDGE (phi, i);
 
@@ -326,15 +338,8 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 
       if (e->aux == (void *) 0)
 	{
-	  error ("PHI argument flowing through dead edge %d->%d\n",
+	  error ("PHI argument flowing through dead or duplicated edge %d->%d\n",
 	         e->src->index, e->dest->index);
-	  err = true;
-	}
-
-      if (e->aux == (void *) 2)
-	{
-	  error ("PHI argument duplicated for edge %d->%d\n", e->src->index,
-	         e->dest->index);
 	  err = true;
 	}
 
@@ -345,18 +350,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  goto error;
 	}
 
-      e->aux = (void *) 2;
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->aux != (void *) 2)
-	{
-	  error ("No argument flowing through edge %d->%d\n", e->src->index,
-		 e->dest->index);
-	  err = true;
-	  goto error;
-	}
       e->aux = (void *) 0;
     }
 
@@ -598,65 +591,25 @@ verify_ssa (void)
 
   /* Keep track of SSA names present in the IL.  */
   for (i = 1; i < num_ssa_names; i++)
-    if (ssa_name (i))
-      TREE_VISITED (ssa_name (i)) = 0;
-
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Verify and register all the SSA_NAME definitions found in the
-     function.  */
-  FOR_EACH_BB (bb)
     {
-      tree phi;
-      block_stmt_iterator bsi;
-
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-	  if (verify_def (bb, definition_block, PHI_RESULT (phi), phi,
-			!is_gimple_reg (PHI_RESULT (phi))))
-	  goto err;
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      tree def = PHI_ARG_DEF (phi, i);
-	      if (TREE_CODE (def) != SSA_NAME && !is_gimple_min_invariant (def))
-		{
-		  error ("PHI argument is not SSA_NAME, or invariant");
-		  print_generic_stmt (stderr, phi, TDF_VOPS);
-		  goto err;
-		}
-	    }
-	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      tree name = ssa_name (i);
+      if (name)
 	{
 	  tree stmt;
+	  TREE_VISITED (name) = 0;
 
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
+	  stmt = SSA_NAME_DEF_STMT (name);
+	  if (!IS_EMPTY_STMT (stmt))
+	    {
+	      basic_block bb = bb_for_stmt (stmt);
+	      verify_def (bb, definition_block,
+			  name, stmt, !is_gimple_reg (name));
 
-	  if (stmt_ann (stmt)->makes_aliased_stores 
-	      && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
-	    {
-	      error ("Statement makes aliased stores, but has no V_MAY_DEFS");
-	      print_generic_stmt (stderr, stmt, TDF_VOPS);
-	      goto err;
-	    }
-	    
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, true))
-		goto err;
-	    }
-          
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, false))
-		goto err;
 	    }
 	}
     }
 
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
@@ -692,18 +645,20 @@ verify_ssa (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-	    {
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, true,
-			      names_defined_in_bb))
-		goto err;
-	    }
+	      get_stmt_operands (stmt);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	      if (stmt_ann (stmt)->makes_aliased_stores 
+		  && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
+		{
+		  error ("Statement makes aliased stores, but has no V_MAY_DEFS");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS);
+		  goto err;
+		}
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, false,
+			      op, stmt, false, !is_gimple_reg (op),
 			      names_defined_in_bb))
 		goto err;
 	    }
@@ -711,24 +666,6 @@ verify_ssa (void)
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
 	    {
 	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
-	    }
-	}
-
-      /* Verify the uses in arguments of PHI nodes at the exits from the
-	 block.  */
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-	    {
-	      bool virtual = !is_gimple_reg (PHI_RESULT (phi));
-	      op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      if (TREE_CODE (op) != SSA_NAME)
-		continue;
-
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, phi, false, virtual,
-			      names_defined_in_bb))
-		goto err;
 	    }
 	}
 
@@ -905,12 +842,31 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
+/* Returns true if statement STMT may read memory.  */
+
+bool
+stmt_references_memory_p (tree stmt)
+{
+  stmt_ann_t ann;
+
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
+
+  if (ann->has_volatile_ops)
+    return true;
+
+  return (NUM_VUSES (VUSE_OPS (ann)) > 0
+	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
+	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0);
+}
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
    
-   VISITED is a bitmap used to mark visited SSA_NAMEs to avoid
-      infinite loops.
+   VISITED is a pointer set used to mark visited SSA_NAMEs to avoid
+      infinite loops.  We used to have a bitmap for this to just mark
+      SSA versions we had visited.  But non-sparse bitmaps are way too
+      expensive, while sparse bitmaps may cause quadratic behavior.
 
    IS_DFS is true if the caller wants to perform a depth-first search
       when visiting PHI nodes.  A DFS will visit each PHI argument and
@@ -920,14 +876,12 @@ tree_ssa_useless_type_conversion (tree expr)
 
 static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
-		       bitmap visited, bool is_dfs)
+		       struct pointer_set_t *visited, bool is_dfs)
 {
   tree def_stmt;
 
-  if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
+  if (pointer_set_insert (visited, var))
     return false;
-
-  bitmap_set_bit (visited, SSA_NAME_VERSION (var));
 
   def_stmt = SSA_NAME_DEF_STMT (var);
 
@@ -1006,9 +960,9 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
     (*fn) (var, def_stmt, data);
   else
     {
-      bitmap visited = BITMAP_XMALLOC ();
+      struct pointer_set_t *visited = pointer_set_create ();
       walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
-      BITMAP_XFREE (visited);
+      pointer_set_destroy (visited);
     }
 }
 

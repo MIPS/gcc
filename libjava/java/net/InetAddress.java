@@ -322,8 +322,14 @@ public class InetAddress implements Serializable
       }
 
     // Try to find the FDQN now
-    // FIXME: This does not work with IPv6.
-    InetAddress address = new Inet4Address(getAddress(), null);
+    InetAddress address;
+    byte[] ipaddr = getAddress();
+
+    if (ipaddr.length == 16)
+      address = new Inet6Address(getAddress(), null);
+    else
+      address = new Inet4Address(getAddress(), null);
+
     return address.getHostName();
   }
 
@@ -488,9 +494,9 @@ public class InetAddress implements Serializable
    */
   public String toString()
   {
-    String address = getHostAddress();
-    String host = (hostName != null) ? hostName : address;
-    return host + "/" + address;
+    String addr = getHostAddress();
+    String host = (hostName != null) ? hostName : addr;
+    return host + "/" + addr;
   }
 
   /**

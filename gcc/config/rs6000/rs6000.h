@@ -1096,9 +1096,9 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define BRANCH_COST 3
 
 /* Override BRANCH_COST heuristic which empirically produces worse
-   performance for fold_range_test().  */
+   performance for removing short circuiting from the logical ops.  */
 
-#define RANGE_TEST_NON_SHORT_CIRCUIT 0
+#define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* A fixed register used at prologue and epilogue generation to fix
    addressing modes.  The SPE needs heavy addressing fixes at the last
@@ -1713,7 +1713,7 @@ typedef struct rs6000_args
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-  function_arg_advance (&CUM, MODE, TYPE, NAMED)
+  function_arg_advance (&CUM, MODE, TYPE, NAMED, 0)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,

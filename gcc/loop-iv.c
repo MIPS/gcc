@@ -53,6 +53,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -1716,7 +1717,6 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   rtx head, tail, insn;
   rtx neutral, aggr;
   regset altered;
-  regset_head altered_head;
   edge e;
 
   if (!*expr)
@@ -1778,7 +1778,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   if (e->src == ENTRY_BLOCK_PTR)
     return;
 
-  altered = INITIALIZE_REG_SET (altered_head);
+  altered = OBSTACK_ALLOC_REG_SET (&reg_obstack);
 
   while (1)
     {
@@ -2006,7 +2006,7 @@ canonicalize_iv_subregs (struct rtx_iv *iv0, struct rtx_iv *iv1,
    the result into DESC.  Very similar to determine_number_of_iterations
    (basically its rtl version), complicated by things like subregs.  */
 
-void
+static void
 iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 			 struct niter_desc *desc)
 {

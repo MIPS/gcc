@@ -111,6 +111,7 @@ static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static int lvalue_or_else (tree, enum lvalue_use);
 static void readonly_error (tree, enum lvalue_use);
+static void record_maybe_used_decl (tree);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
@@ -1126,7 +1127,7 @@ type_lists_compatible_p (tree args1, tree args2)
 
 /* Compute the size to increment a pointer by.  */
 
-tree
+static tree
 c_size_in_bytes (tree type)
 {
   enum tree_code code = TREE_CODE (type);
@@ -1593,39 +1594,58 @@ build_indirect_ref (tree ptr, const char *errorstring)
 tree
 build_array_ref (tree array, tree index)
 {
-  if (index == 0)
-    {
-      error ("subscript missing in array reference");
-      return error_mark_node;
-    }
-
+  bool swapped = false;
   if (TREE_TYPE (array) == error_mark_node
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
+  if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE
+      && TREE_CODE (TREE_TYPE (array)) != POINTER_TYPE)
+    {
+      tree temp;
+      if (TREE_CODE (TREE_TYPE (index)) != ARRAY_TYPE
+	  && TREE_CODE (TREE_TYPE (index)) != POINTER_TYPE)
+	{
+	  error ("subscripted value is neither array nor pointer");
+	  return error_mark_node;
+	}
+      temp = array;
+      array = index;
+      index = temp;
+      swapped = true;
+    }
+
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (index)))
+    {
+      error ("array subscript is not an integer");
+      return error_mark_node;
+    }
+
+  if (TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == FUNCTION_TYPE)
+    {
+      error ("subscripted value is pointer to function");
+      return error_mark_node;
+    }
+
+  /* Subscripting with type char is likely to lose on a machine where
+     chars are signed.  So warn on any machine, but optionally.  Don't
+     warn for unsigned char since that type is safe.  Don't warn for
+     signed char because anyone who uses that must have done so
+     deliberately.  ??? Existing practice has also been to warn only
+     when the char index is syntactically the index, not for
+     char[array].  */
+  if (warn_char_subscripts && !swapped
+      && TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
+    warning ("array subscript has type %<char%>");
+
+  /* Apply default promotions *after* noticing character types.  */
+  index = default_conversion (index);
+
+  gcc_assert (TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE);
+
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
     {
       tree rval, type;
-
-      /* Subscripting with type char is likely to lose
-	 on a machine where chars are signed.
-	 So warn on any machine, but optionally.
-	 Don't warn for unsigned char since that type is safe.
-	 Don't warn for signed char because anyone who uses that
-	 must have done so deliberately.  */
-      if (warn_char_subscripts
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
-	warning ("array subscript has type %<char%>");
-
-      /* Apply default promotions *after* noticing character types.  */
-      index = default_conversion (index);
-
-      /* Require integer *after* promotion, for sake of enums.  */
-      if (TREE_CODE (TREE_TYPE (index)) != INTEGER_TYPE)
-	{
-	  error ("array subscript is not an integer");
-	  return error_mark_node;
-	}
 
       /* An array that is indexed by a non-constant
 	 cannot be stored in a register; we must be able to do
@@ -1680,45 +1700,19 @@ build_array_ref (tree array, tree index)
 	    | TREE_THIS_VOLATILE (array));
       return require_complete_type (fold (rval));
     }
+  else
+    {
+      tree ar = default_conversion (array);
 
-  {
-    tree ar = default_conversion (array);
-    tree ind = default_conversion (index);
+      if (ar == error_mark_node)
+	return ar;
 
-    /* Do the same warning check as above, but only on the part that's
-       syntactically the index and only if it is also semantically
-       the index.  */
-    if (warn_char_subscripts
-	&& TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE
-	&& TYPE_MAIN_VARIANT (TREE_TYPE (index)) == char_type_node)
-      warning ("subscript has type %<char%>");
+      gcc_assert (TREE_CODE (TREE_TYPE (ar)) == POINTER_TYPE);
+      gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
 
-    /* Put the integer in IND to simplify error checking.  */
-    if (TREE_CODE (TREE_TYPE (ar)) == INTEGER_TYPE)
-      {
-	tree temp = ar;
-	ar = ind;
-	ind = temp;
-      }
-
-    if (ar == error_mark_node)
-      return ar;
-
-    if (TREE_CODE (TREE_TYPE (ar)) != POINTER_TYPE
-	|| TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) == FUNCTION_TYPE)
-      {
-	error ("subscripted value is neither array nor pointer");
-	return error_mark_node;
-      }
-    if (TREE_CODE (TREE_TYPE (ind)) != INTEGER_TYPE)
-      {
-	error ("array subscript is not an integer");
-	return error_mark_node;
-      }
-
-    return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, ind, 0),
-			       "array indexing");
-  }
+      return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
+				 "array indexing");
+    }
 }
 
 /* Build an external reference to identifier ID.  FUN indicates
@@ -1807,7 +1801,7 @@ static struct maybe_used_decl *maybe_used_decls;
    a VLA type or the operand of typeof is a variably modified
    type.  */
 
-void
+static void
 record_maybe_used_decl (tree decl)
 {
   struct maybe_used_decl *t = XOBNEW (&parser_obstack, struct maybe_used_decl);
@@ -7280,29 +7274,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       break;
 
-    case RROTATE_EXPR:
-    case LROTATE_EXPR:
-      if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
-	{
-	  if (TREE_CODE (op1) == INTEGER_CST && skip_evaluation == 0)
-	    {
-	      if (tree_int_cst_sgn (op1) < 0)
-		warning ("shift count is negative");
-	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
-		warning ("shift count >= width of type");
-	    }
-
-	  /* Use the type of the value to be shifted.  */
-	  result_type = type0;
-	  /* Convert the shift-count to an integer, regardless of size
-	     of value being shifted.  */
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-	    op1 = convert (integer_type_node, op1);
-	  /* Avoid converting op1 to result_type later.  */
-	  converted = 1;
-	}
-      break;
-
     case EQ_EXPR:
     case NE_EXPR:
       if (warn_float_equal && (code0 == REAL_TYPE || code1 == REAL_TYPE))
@@ -7364,28 +7335,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       break;
 
-    case MAX_EXPR:
-    case MIN_EXPR:
-      if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
-	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
-	shorten = 1;
-      else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	{
-	  if (comp_target_types (type0, type1, 1))
-	    {
-	      result_type = common_pointer_type (type0, type1);
-	      if (pedantic
-		  && TREE_CODE (TREE_TYPE (type0)) == FUNCTION_TYPE)
-		pedwarn ("ISO C forbids ordered comparisons of pointers to functions");
-	    }
-	  else
-	    {
-	      result_type = ptr_type_node;
-	      pedwarn ("comparison of distinct pointer types lacks a cast");
-	    }
-	}
-      break;
-
     case LE_EXPR:
     case GE_EXPR:
     case LT_EXPR:
@@ -7438,25 +7387,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       break;
 
-    case UNORDERED_EXPR:
-    case ORDERED_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-    case UNEQ_EXPR:
-    case LTGT_EXPR:
-      build_type = integer_type_node;
-      if (code0 != REAL_TYPE || code1 != REAL_TYPE)
-	{
-	  error ("unordered comparison on non-floating point argument");
-	  return error_mark_node;
-	}
-      common = 1;
-      break;
-
     default:
-      break;
+      gcc_unreachable ();
     }
 
   if (code0 == ERROR_MARK || code1 == ERROR_MARK)

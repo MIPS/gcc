@@ -571,7 +571,7 @@ set_phi_def_stmts (basic_block bb)
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
 }
 
-/* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
+/* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
    ssa.  In order to achieve this, only loops whose exits all lead to the same
    location are handled.
    
@@ -665,7 +665,7 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
   for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
        phi2 && phi1; 
-       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
       int i;
       for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
@@ -681,7 +681,7 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
 /* Adjust entry edge for lv.
    
-  e is a incoming edge. 
+  e is an incoming edge. 
 
   --- edge e ---- > [second_head]
 

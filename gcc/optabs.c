@@ -3197,7 +3197,7 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
    WIDER_MODE (UNSIGNEDP determines whether it is an unsigned conversion), and
    that it is accepted by the operand predicate.  Return the new value.  */
 
-rtx
+static rtx
 prepare_operand (int icode, rtx x, int opnum, enum machine_mode mode,
 		 enum machine_mode wider_mode, int unsignedp)
 {
@@ -5082,7 +5082,7 @@ vector_compare_rtx (tree cond, bool unsignedp, enum insn_code icode)
   tree t_op0, t_op1;
   rtx rtx_op0, rtx_op1;
 
-  if (TREE_CODE_CLASS (TREE_CODE (cond)) != '<')
+  if (!COMPARISON_CLASS_P (cond))
     {
       /* This is unlikely. While generating VEC_COND_EXPR,
 	 auto vectorizer ensures that condition is a relational

@@ -828,7 +828,7 @@ fname_decl (unsigned int rid, tree id)
       input_location = saved_location;
     }
   if (!ix && !current_function_decl)
-    pedwarn ("%J%qD is not defined outside of function scope", decl, decl);
+    pedwarn ("%qD is not defined outside of function scope", decl);
 
   return decl;
 }
@@ -1863,11 +1863,8 @@ binary_op_error (enum tree_code code)
       opname = "||"; break;
     case BIT_XOR_EXPR:
       opname = "^"; break;
-    case LROTATE_EXPR:
-    case RROTATE_EXPR:
-      opname = "rotate"; break;
     default:
-      opname = "unknown"; break;
+      gcc_unreachable ();
     }
   error ("invalid operands to binary %s", opname);
 }
@@ -2950,9 +2947,10 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
-  lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					 get_identifier ("__int128_t"),
-					 intTI_type_node));
+  if (targetm.scalar_mode_supported_p (TImode))
+    lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
+					   get_identifier ("__int128_t"),
+					   intTI_type_node));
 #endif
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 unsigned_intQI_type_node));
@@ -2963,9 +2961,10 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL, NULL_TREE,
 					 unsigned_intDI_type_node));
 #if HOST_BITS_PER_WIDE_INT >= 64
-  lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
-					 get_identifier ("__uint128_t"),
-					 unsigned_intTI_type_node));
+  if (targetm.scalar_mode_supported_p (TImode))
+    lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
+					   get_identifier ("__uint128_t"),
+					   unsigned_intTI_type_node));
 #endif
 
   /* Create the widest literal types.  */
@@ -3396,76 +3395,6 @@ strip_pointer_operator (tree t)
   while (POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
   return t;
-}
-
-/* Walk the statement tree, rooted at *tp.  Apply FUNC to all the
-   sub-trees of *TP in a pre-order traversal.  FUNC is called with the
-   DATA and the address of each sub-tree.  If FUNC returns a non-NULL
-   value, the traversal is aborted, and the value returned by FUNC is
-   returned.  If FUNC sets WALK_SUBTREES to zero, then the subtrees of
-   the node being visited are not walked.
-
-   We don't need a without_duplicates variant of this one because the
-   statement tree is a tree, not a graph.  */
-
-tree
-walk_stmt_tree (tree *tp, walk_tree_fn func, void *data)
-{
-  enum tree_code code;
-  int walk_subtrees;
-  tree result;
-  int i, len;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_stmt_tree (&(NODE), func, data);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  /* Skip empty subtrees.  */
-  if (!*tp)
-    return NULL_TREE;
-
-  /* Skip subtrees below non-statement nodes.  */
-  if (!STATEMENT_CODE_P (TREE_CODE (*tp)))
-    return NULL_TREE;
-
-  /* Call the function.  */
-  walk_subtrees = 1;
-  result = (*func) (tp, &walk_subtrees, data);
-
-  /* If we found something, return it.  */
-  if (result)
-    return result;
-
-  /* FUNC may have modified the tree, recheck that we're looking at a
-     statement node.  */
-  code = TREE_CODE (*tp);
-  if (!STATEMENT_CODE_P (code))
-    return NULL_TREE;
-
-  /* Visit the subtrees unless FUNC decided that there was nothing
-     interesting below this point in the tree.  */
-  if (walk_subtrees)
-    {
-      /* Walk over all the sub-trees of this operand.  Statement nodes
-	 never contain RTL, and we needn't worry about TARGET_EXPRs.  */
-      len = TREE_CODE_LENGTH (code);
-
-      /* Go through the subtrees.  We need to do this in forward order so
-	 that the scope of a FOR_EXPR is handled properly.  */
-      for (i = 0; i < len; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-    }
-
-  /* Finally visit the chain.  This can be tail-recursion optimized if
-     we write it this way.  */
-  return walk_stmt_tree (&TREE_CHAIN (*tp), func, data);
-
-#undef WALK_SUBTREE
 }
 
 /* Used to compare case labels.  K1 and K2 are actually tree nodes
@@ -4311,7 +4240,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
       if (mode == VOIDmode)
 	{
-	  error ("unknown machine mode %<%s%>", p);
+	  error ("unknown machine mode %qs", p);
 	  return NULL_TREE;
 	}
 
@@ -4342,7 +4271,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	}
       if (!valid_mode)
 	{
-	  error ("unable to emulate %<%s%>", p);
+	  error ("unable to emulate %qs", p);
 	  return NULL_TREE;
 	}
 
@@ -4352,7 +4281,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	  if (!targetm.valid_pointer_mode (mode))
 	    {
-	      error ("invalid pointer mode %<%s%>", p);
+	      error ("invalid pointer mode %qs", p);
 	      return NULL_TREE;
 	    }
 
@@ -4577,7 +4506,7 @@ handle_alias_attribute (tree *node, tree name, tree args,
       id = TREE_VALUE (args);
       if (TREE_CODE (id) != STRING_CST)
 	{
-	  error ("alias arg not a string");
+	  error ("alias argument not a string");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4632,7 +4561,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 
   if (TREE_CODE (id) != STRING_CST)
     {
-      error ("visibility arg not a string");
+      error ("visibility argument not a string");
       return NULL_TREE;
     }
 
@@ -4653,7 +4582,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
   else if (strcmp (TREE_STRING_POINTER (id), "protected") == 0)
     DECL_VISIBILITY (decl) = VISIBILITY_PROTECTED;
   else
-    error ("visibility arg must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
+    error ("visibility argument must be one of \"default\", \"hidden\", \"protected\" or \"internal\"");
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
 
   /* For decls only, go ahead and attach the attribute to the node as well.
@@ -4722,7 +4651,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
       id = TREE_VALUE (args);
       if (TREE_CODE (id) != STRING_CST)
 	{
-	  error ("tls_model arg not a string");
+	  error ("tls_model argument not a string");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4731,7 +4660,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
 	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
 	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
 	{
-	  error ("tls_model arg must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
+	  error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -4993,7 +4922,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
       if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
 	{
-	  error ("nonnull argument has invalid operand number (arg %lu)",
+	  error ("nonnull argument has invalid operand number (argument %lu)",
 		 (unsigned long) attr_arg_num);
 	  *no_add_attrs = true;
 	  return NULL_TREE;
@@ -5012,7 +4941,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	  if (!argument
 	      || TREE_CODE (TREE_VALUE (argument)) == VOID_TYPE)
 	    {
-	      error ("nonnull argument with out-of-range operand number (arg %lu, operand %lu)",
+	      error ("nonnull argument with out-of-range operand number (argument %lu, operand %lu)",
 		     (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -5020,7 +4949,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
 	  if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
 	    {
-	      error ("nonnull argument references non-pointer operand (arg %lu, operand %lu)",
+	      error ("nonnull argument references non-pointer operand (argument %lu, operand %lu)",
 		   (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	      *no_add_attrs = true;
 	      return NULL_TREE;
@@ -5154,7 +5083,7 @@ check_nonnull_arg (void * ARG_UNUSED (ctx), tree param,
     return;
 
   if (integer_zerop (param))
-    warning ("null argument where non-null required (arg %lu)",
+    warning ("null argument where non-null required (argument %lu)",
 	     (unsigned long) param_num);
 }
 
@@ -5225,14 +5154,14 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
   cleanup_id = TREE_VALUE (args);
   if (TREE_CODE (cleanup_id) != IDENTIFIER_NODE)
     {
-      error ("cleanup arg not an identifier");
+      error ("cleanup argument not an identifier");
       *no_add_attrs = true;
       return NULL_TREE;
     }
   cleanup_decl = lookup_name (cleanup_id);
   if (!cleanup_decl || TREE_CODE (cleanup_decl) != FUNCTION_DECL)
     {
-      error ("cleanup arg not a function");
+      error ("cleanup argument not a function");
       *no_add_attrs = true;
       return NULL_TREE;
     }

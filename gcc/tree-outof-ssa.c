@@ -1333,7 +1333,7 @@ free_value_expr (temp_expr_table_p table, value_expr_p p)
 }
 
 
-/* Find VALUE if its in LIST.  Return a pointer to the list object if found,  
+/* Find VALUE if it's in LIST.  Return a pointer to the list object if found,  
    else return NULL.  If LAST_PTR is provided, it will point to the previous 
    item upon return, or NULL if this is the first item in the list.  */
 
@@ -2094,7 +2094,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 #ifdef ENABLE_CHECKING
       gcc_assert (VARRAY_ACTIVE_SIZE (edge_leader) == 0);
       gcc_assert (VARRAY_ACTIVE_SIZE (stmt_list) == 0);
-      gcc_assert (bitmap_first_set_bit (leader_has_match) == -1);
+      gcc_assert (bitmap_empty_p (leader_has_match));
 #endif
     }
 
@@ -2233,11 +2233,7 @@ perform_edge_inserts (FILE *dump_file)
 
   /* Clear out any tables which were created.  */
   edge_leader = NULL;
-  if (leader_has_match != NULL)
-    {
-      free (leader_has_match);
-      leader_has_match = NULL;
-    }
+  BITMAP_XFREE (leader_has_match);
 
   if (changed)
     {

@@ -1795,7 +1795,7 @@ check_explicit_specialization (tree declarator,
 	error("too few template parameter lists in declaration of %qD", decl);
       else
 	error("explicit specialization of %qD must be introduced by "
-	      "`template <>'", decl);
+	      "%<template <>%>", decl);
 
       /* Fall through.  */
     case tsk_expl_spec:
@@ -4007,7 +4007,10 @@ coerce_template_parms (tree parms,
       
       gcc_assert (arg);
       if (arg == error_mark_node)
-	error ("template argument %d is invalid", i + 1);
+	{
+	  if (complain & tf_error)
+	    error ("template argument %d is invalid", i + 1);
+	}
       else 
 	arg = convert_template_argument (TREE_VALUE (parm), 
 					 arg, new_args, complain, i,
@@ -7407,7 +7410,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       }
 
     default:
-      sorry ("use of `%s' in template",
+      sorry ("use of %qs in template",
 	     tree_code_name [(int) TREE_CODE (t)]);
       return error_mark_node;
     }
@@ -8543,7 +8546,11 @@ tsubst_copy_and_build (tree t,
 	   lookup finds a non-function, in accordance with the
 	   expected resolution of DR 218.  */
 	if (koenig_p
-	    && (is_overloaded_fn (function)
+	    && ((is_overloaded_fn (function)
+		 /* If lookup found a member function, the Koenig lookup is
+		    not appropriate, even if an unqualified-name was used
+		    to denote the function.  */
+		 && !DECL_FUNCTION_MEMBER_P (get_first_fn (function)))
 		|| TREE_CODE (function) == IDENTIFIER_NODE))
 	  function = perform_koenig_lookup (function, call_args);
 
@@ -8659,9 +8666,14 @@ tsubst_copy_and_build (tree t,
 					    /*is_type_p=*/false,
 					    /*complain=*/false);
 	    if (BASELINK_P (member))
-	      BASELINK_FUNCTIONS (member) 
-		= build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
-			    args);
+	      {
+		BASELINK_FUNCTIONS (member) 
+		  = build_nt (TEMPLATE_ID_EXPR, BASELINK_FUNCTIONS (member),
+			      args);
+		member = (adjust_result_of_qualified_name_lookup 
+			  (member, BINFO_TYPE (BASELINK_BINFO (member)), 
+			   TREE_TYPE (object)));
+	      }
 	    else
 	      {
 		qualified_name_lookup_error (TREE_TYPE (object), tmpl,

@@ -1,3 +1,310 @@
+2004-11-22  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/SocketChannelImpl.java
+	(read): Made check for blocking un-ambiguous.
+	Removed wrong check for data array length.
+
+2004-11-21  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/SocketChannelImpl.java
+	(read): Only return 0 when no bytes for reading available in
+	non-blocking mode.
+	* java/nio/channels/SocketChannel.java:
+	Added some missing @return tags.
+
+2004-11-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/PropertyChangeSupport.java
+	(propertyChangeSupportSerializedDataVersion): Made static.
+	* java/beans/VetoableChangeSupport.java
+	(propertyChangeSupportSerializedDataVersion): Likewise.
+
+2004-11-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLStreamHandler.java
+	(parseURL): Fixed file path canonicalisation.
+
+2004-11-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLStreamHandler.java
+	(parseURL): Fixed file path canonicalisation.
+
+2004-11-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLClassLoader.java: Whitespace cleanup.
+
+2004-11-18  Robert Schuster <address@bogus.example.com>
+
+	Complete 1.4 support
+	* java/beans/PropertyDescriptor.java:
+	(setReadMethod): New method
+	(setWriteMethod): New method
+	(equals): Implemented (1.4)
+	(checkMethods): operates on arguments now (private)
+
+
+2004-11-18  Mattias Rehnberg  <Mattias.Rehnberg@home.se>
+
+	* java/net/Inet6Address.java (getHostAddress): Fix textual
+	representation of IPv6 address with embedded zeroes
+	to conform to RFC 2373.
+
+2004-11-18  Jeroen Frijters  <address@bogus.example.com>
+
+	* java/lang/StackTraceElement.java: Made final.
+	* java/nio/channels/Channels.java: Added private constructor.
+	* java/rmi/Naming.java: Added private constructor.
+	* java/rmi/registry/LocateRegistry.java: Added private constructor.
+	* java/rmi/server/RMIClassLoader.java: Added private constructor.
+	* java/security/KeyPairGeneratorSpi.java
+	(clone): Made protected and simplified implementation.
+	* java/text/DateFormat.java
+	(allFields): Made package accessible.
+	* java/text/DecimalFormat.java
+	(formatInternal): Made private.
+	* java/text/Format.java
+	(formatInternal): Made private.
+	* java/util/logging/Handler.java: Made constructor protected.
+	* java/util/regex/Matcher.java: Made final.
+	* java/util/regex/Pattern.java: Made final.
+	* javax/crypto/CipherInputStream.java
+	(mark): Corrected mark parameter type (from long to int).
+	* javax/crypto/ExemptionMechanism.java
+	(finalize): Added.
+	* javax/crypto/Mac.java
+	(getMacLength): Made final.
+	(clone): Made final.
+	* javax/imageio/ImageIO.java: Added private constructor.
+	* javax/imageio/stream/ImageInputStreamImpl.java
+	(checkClosed): Made final.
+	* javax/net/ssl/SSLPermission.java: Made final.
+	* javax/print/DocFlavor.java
+	(hostEncoding): Added work-around to prevent the field from being
+	a compile time constant.
+	* javax/print/attribute/AttributeSetUtilities.java: Added private
+	constructor.
+	(UnmodifiableDocAttributeSet): Made private.
+	(UnmodifiablePrintJobAttributeSet): Made private.
+	(UnmodifiablePrintRequestAttributeSet): Made private.
+	(UnmodifiablePrintServiceAttributeSet): Made private.
+	(SynchronizedAttributeSet): Made private.
+	(SynchronizedDocAttributeSet): Made private.
+	(SynchronizedPrintJobAttributeSet): Made private.
+	(SynchronizedPrintRequestAttributeSet): Made private.
+	(SynchronizedPrintServiceAttributeSet): Made private.
+	* javax/security/auth/PrivateCredentialPermission.java: Made final.
+
+2004-11-18  Craig Black  <craig.black@aonix.com>
+
+	* gnu/java/beans/BeanInfoEmbryo.java: Use TreeMap for proper sorting.
+
+2004-11-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* Makefile.am: Correct friend function declaration.
+	* Makefile.in: Regenerated.
+	* include/boehm-gc.h (JV_MARKOBJ_DECL, JV_MARKARRAY_DECL): Add
+	scope to function names.  Declare functions directly.
+	* libjava/java/lang/Class.h
+	(java::lang::Class): Correct friend class declaration.
+	(_Jv_InitClass, _Jv_GetArrayClass): Move definition to global
+	scope.
+	* libjava/java/lang/Class.h
+	(java::lang::Object): Correct friend class declaration.
+
+2004-11-17  David Daney  <ddaney@avtrex.com>
+
+	* java/io/BufferedInputStream.java (skip): Return zero on EOF.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java (getPort): Return 0 in error case.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	*  java/nio/DirectByteBufferImpl.java
+	(owner): Updated comment.
+	(allocate): New method.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java (URL): Handle case when argument is null.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java,
+	java/beans/PropertyChangeEvent.java,
+	java/beans/PropertyEditorSupport.java:
+	Fixed javadocs.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Timer.java (DEFAULT_SIZE): Made static.
+
+2004-11-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java (getCanonicalHostName):
+	Support IPv6 addresses.
+
+2004-11-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Object.java: Added javadocs all over (merged from GNU
+	classpath).
+
+2004-11-16  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/security/Security.java (Security): Silence the warning about no
+	providers found in the no debug case.
+
+2004-11-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(toString): Merged from GNU classpath.
+
+2004-11-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/geom/doc-files/Area-1.png,
+	java/awt/geom/doc-files/Ellipse-1.png,
+	java/awt/geom/doc-files/GeneralPath-1.png:
+	New files.
+
+2004-11-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Currency.java (cache): Fix modifier order.
+
+2004-11-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedReader.java,
+	java/io/FileInputStream.java,
+	java/io/FileOutputStream.java,
+	java/io/FileWriter.java,
+	java/io/OutputStreamWriter.java,
+	java/io/PipedInputStream.java,
+	java/io/PipedOutputStream.java,
+	java/io/PipedReader.java,
+	java/io/PipedWriter.java,
+	java/io/PrintStream.java,
+	java/io/PushbackInputStream.java,
+	java/io/RandomAccessFile.java,
+	java/io/Reader.java,
+	java/io/StreamTokenizer.java,
+	java/io/StringReader.java,
+	java/net/NetworkInterface.java,
+	java/net/URLClassLoader.java,
+	java/nio/ByteOrder.java,
+	java/nio/channels/Channel.java:
+	Fixed javadocs all over.
+
+2004-11-16  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Add imported files.
+	* Makefile.in: Regenerate.
+
+	2004-10-24  Casey Marshall  <csm@gnu.org>
+
+	* javax/security/auth/login/LoginContext.java: Implemented.
+	* javax/security/auth/login/Configuration.java (getConfig): New method.
+	* javax/security/auth/spi/LoginModule.java,
+	* gnu/java/security/action/GetSecurityPropertyAction.java: New files.
+
+2004-11-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	Import/Merge the X.509 certificate code from Classpath.
+
+	* Makefile.am: Add imported files.
+	* Makefile.in: Regenerate.
+
+	2004-11-07  Casey Marshall  <csm@gnu.org>
+
+	* gnu/java/security/provider/Gnu.java(<init>): Add entries in a
+	priviliged action. Add new algorithms.
+	* gnu/java/security/provider/X509CertificateFactory.java
+	(engineGenerateCertificate): Chain exceptions.
+	(engineGenerateCertificates): Likewise.
+	(engineGenerateCRL): Likewise.
+	(engineGenerateCRLs): Likewise.
+	(engineGenerateCertPath): New methods.
+	(generateCert): Throw exception if 'inStream' is null.
+	(generateCRL): Likewise.
+	* gnu/java/security/x509/X500DistinguishedName.java: Replaced with
+	version from GNU Crypto CVS.
+	* gnu/java/security/x509/X509CRL.java: Likewise.
+	* gnu/java/security/x509/X509CRLEntry.java: Likewise.
+	* gnu/java/security/x509/X509Certificate.java: Likewise.
+	* java/security/cert/TrustAnchor.java: Call 'toString' and not
+	toRFC2253.
+	* gnu/java/security/provider/CollectionCertStoreImpl.java,
+	* gnu/java/security/provider/EncodedKeyFactory.java,
+	* gnu/java/security/provider/GnuDHPublicKey.java,
+	* gnu/java/security/provider/GnuRSAPrivateKey.java,
+	* gnu/java/security/provider/GnuRSAPublicKey.java,
+	* gnu/java/security/provider/MD2withRSA.java,
+	* gnu/java/security/provider/MD4withRSA.java,
+	* gnu/java/security/provider/MD5withRSA.java,
+	* gnu/java/security/provider/PKIXCertPathValidatorImpl.java,
+	* gnu/java/security/provider/RSA.java,
+	* gnu/java/security/provider/RSAKeyFactory.java,
+	* gnu/java/security/provider/SHA1withRSA.java,
+	* gnu/java/security/x509/GnuPKIExtension.java,
+	* gnu/java/security/x509/PolicyNodeImpl.java,
+	* gnu/java/security/x509/Util.java,
+	* gnu/java/security/x509/X509CRLSelectorImpl.java,
+	* gnu/java/security/x509/X509CertPath.java,
+	* gnu/java/security/x509/X509CertSelectorImpl.java,
+	* gnu/java/security/x509/ext/AuthorityKeyIdentifier.java,
+	* gnu/java/security/x509/ext/BasicConstraints.java,
+	* gnu/java/security/x509/ext/CRLNumber.java,
+	* gnu/java/security/x509/ext/CertificatePolicies.java,
+	* gnu/java/security/x509/ext/ExtendedKeyUsage.java,
+	* gnu/java/security/x509/ext/Extension.java,
+	* gnu/java/security/x509/ext/GeneralNames.java,
+	* gnu/java/security/x509/ext/IssuerAlternativeNames.java,
+	* gnu/java/security/x509/ext/KeyUsage.java,
+	* gnu/java/security/x509/ext/PolicyConstraint.java,
+	* gnu/java/security/x509/ext/PolicyMappings.java,
+	* gnu/java/security/x509/ext/PrivateKeyUsagePeriod.java,
+	* gnu/java/security/x509/ext/ReasonCode.java,
+	* gnu/java/security/x509/ext/SubjectAlternativeNames.java,
+	* gnu/java/security/x509/ext/SubjectKeyIdentifier.java: New files.
+
+	2004-11-07  Casey Marshall  <csm@gnu.org>
+
+	* gnu/java/security/x509/X509CRL.java:
+	Missed import statements in previous checkin.
+
+	2004-11-07  Casey Marshall  <csm@gnu.org>
+
+	* gnu/java/security/x509/X509CertPath.java (parse): Fixed reference
+	to 'X509CertificateImpl' from previous checkin.
+
+2004-11-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/14264
+	* testsuite/lib/libjava.exp: Set LC_ALL and LANG to C.
+
+2004-11-11  Casey Marshall  <csm@gnu.org>
+
+	* gnu/java/nio/FileLock.java (isValid): locks are valid if the
+	channel is open.
+	* gnu/java/nio/channels/natFileChannelPosix.cc (lock): use
+	'F_RDLCK' for shared locks, 'F_WRLCK' for exclusive locks.
+
+2004-11-11  Robert Schuster <thebohemian@gmx.net>
+
+	Fixed regression:
+	* gnu/java/beans/IntrospectionIncubator.java:
+	(addMethod): Corrected classification of normal and property methods.
+	(capitalize): Added documentation.
+	(DoubleKey): [class] Added documentation.
+
+2004-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* include/jni.h: Added FIXME.
+
+2004-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/GregorianCalendar.java: Removed unused imports.
+	* java/util/Vector.java: Removed unused import.
+
 2004-11-07  Michael Koch  <konqueror@gmx.de>
 
 	* java/lang/Process.java:

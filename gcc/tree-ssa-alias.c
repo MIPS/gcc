@@ -73,7 +73,7 @@ struct alias_info
   /* SSA names visited while collecting points-to information.  If bit I
      is set, it means that SSA variable with version I has already been
      visited.  */
-  bitmap ssa_names_visited;
+  sbitmap ssa_names_visited;
 
   /* Array of SSA_NAME pointers processed by the points-to collector.  */
   varray_type processed_ptrs;
@@ -236,15 +236,14 @@ tree global_var;
 
 	    foo (int i)
 	    {
-	      int *p, *q, a, b;
+	      int *p, a, b;
 	    
 	      if (i > 10)
 	        p = &a;
 	      else
-	        q = &b;
+	        p = &b;
 	    
 	      *p = 3;
-	      *q = 5;
 	      a = b + 2;
 	      return *p;
 	    }
@@ -368,7 +367,8 @@ init_alias_info (void)
   static bool aliases_computed_p = false;
 
   ai = xcalloc (1, sizeof (struct alias_info));
-  ai->ssa_names_visited = BITMAP_XMALLOC ();
+  ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
+  sbitmap_zero (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
   ai->addresses_needed = BITMAP_XMALLOC ();
   VARRAY_UINT_INIT (ai->num_references, num_referenced_vars, "num_references");
@@ -449,7 +449,7 @@ delete_alias_info (struct alias_info *ai)
 {
   size_t i;
 
-  BITMAP_XFREE (ai->ssa_names_visited);
+  sbitmap_free (ai->ssa_names_visited);
   ai->processed_ptrs = NULL;
   BITMAP_XFREE (ai->addresses_needed);
 
@@ -484,9 +484,9 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 {
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (ptr)));
 
-  if (!bitmap_bit_p (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
+  if (!TEST_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
     {
-      bitmap_set_bit (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
+      SET_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
       walk_use_def_chains (ptr, collect_points_to_info_r, ai, true);
       VARRAY_PUSH_TREE (ai->processed_ptrs, ptr);
     }
@@ -1696,12 +1696,8 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 {
   struct ptr_info_def *dest_pi, *orig_pi;
 
-  /* FIXME: It is erroneous to call this function with identical
-     nodes, however that currently occurs during bootstrap.  This check
-     stops further breakage.  PR 18307 documents the issue.  */
-  if (dest == orig)
-    return;
-  
+  gcc_assert (dest != orig);
+
   /* Make sure we have points-to information for ORIG.  */
   collect_points_to_info_for (ai, orig);
 
@@ -1937,7 +1933,9 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 	    break;
 	    
 	  case SSA_NAME:
-	    merge_pointed_to_info (ai, lhs, var);
+	    /* Avoid unnecessary merges.  */
+	    if (lhs != var)
+	      merge_pointed_to_info (ai, lhs, var);
 	    break;
 	    
 	  default:
