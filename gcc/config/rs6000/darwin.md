@@ -146,50 +146,6 @@ Boston, MA 02111-1307, USA.  */
   "")
 
 /* APPLE LOCAL begin 64-bit */
-(define_insn ""
-  [(set (mem:V4SI (plus:DI (match_operand:DI 0 "gpc_reg_operand" "b,r")
-			 (match_operand:DI 1 "gpc_reg_operand" "r,b")))
-	(match_operand:V4SI 2 "register_operand" "v,v"))]
-  "TARGET_MACHO && TARGET_64BIT"
-  "@
-   stvx %2,%0,%1
-   stvx %2,%1,%0"
-  [(set_attr "type" "vecstore")])
-
-(define_insn ""
-  [(set (mem:V4SI (match_operand:DI 0 "gpc_reg_operand" "r"))
-	(match_operand:V4SI 1 "register_operand" "v"))]
-  "TARGET_MACHO && TARGET_64BIT"
-  "stvx %1,0,%0"
-  [(set_attr "type" "vecstore")])
-
-(define_split
-  [(set (match_operand:V4SI 0 "register_operand" "")
-	(mem:V4SI (plus:DI (match_operand:DI 1 "gpc_reg_operand" "")
-			 (match_operand:DI 2 "short_cint_operand" ""))))
-   (clobber (match_operand:DI 3 "gpc_reg_operand" ""))]
-  "TARGET_MACHO && TARGET_64BIT"
-  [(set (match_dup 3) (plus:DI (match_dup 1) (match_dup 2)))
-   (set (match_dup 0)
-	(mem:V4SI (match_dup 3)))]
-  "")
-
-(define_insn ""
-  [(set (match_operand:V4SI 0 "register_operand" "=v,v")
-	(mem:V4SI (plus:DI (match_operand:DI 1 "gpc_reg_operand" "b,r")
-			 (match_operand:DI 2 "gpc_reg_operand" "r,b"))))]
-  "TARGET_MACHO && TARGET_64BIT"
-  "@
-   lvx %0,%1,%2
-   lvx %0,%2,%1"
-  [(set_attr "type" "vecload")])
-
-(define_insn ""
-  [(set (match_operand:V4SI 0 "register_operand" "=v")
-        (mem:V4SI (match_operand:DI 1 "gpc_reg_operand" "r")))]
-  "TARGET_MACHO && TARGET_64BIT"
-  "lvx %0,0,%1"
-  [(set_attr "type" "vecload")])
 
 (define_insn "load_macho_picbase_di"
   [(set (match_operand:DI 0 "register_operand" "=l")

@@ -1,3 +1,8 @@
+2004-10-22  Fariborz Jahanian <fjahanian@apple.com>
+
+	* config/rs6000/darwin.md: Remove vecstore/vecload patterns
+	specific to 64-bit Darwin.
+
 2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
 	    Ziemowit Laski  <zlaski@apple.com>
 
