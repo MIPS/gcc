@@ -437,7 +437,7 @@ namespace std
 }
 
 
-#if _GLIBCXX_USE_C99
+#if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
 // These are possible macros imported from C99-land. For strict
 // conformance, remove possible C99-injected names from the global
@@ -514,7 +514,7 @@ namespace __gnu_cxx
 #endif /* _GLIBCXX_USE_C99_FP_MACROS_DYNAMIC */
 #endif
 
-#if _GLIBCXX_USE_C99
+#if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
 namespace __gnu_cxx
 {
