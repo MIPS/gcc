@@ -1,3 +1,9 @@
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/DefaultListSelectionModel.java
+	(fireValueChanged): Renamed from fireSelectionValueChanged,
+	made protected.
+
 2004-08-11  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/TabSet.java
