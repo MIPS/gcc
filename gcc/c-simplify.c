@@ -517,16 +517,16 @@ simplify_for_stmt (stmt, pre_p)
   /* Build the new FOR_COND.  */
   FOR_COND (stmt) = cond_s;
 
-  /* Link PRE_EXPR_S, EXPR_S, POST_EXPR_S and a copy of PRE_COND_S to emit
-     before every wrap-around point inside the loop body.  If the last tree
-     in the list is an expression tree, it is emmitted inside FOR_EXPR.  */
+  /* Link PRE_EXPR_S, EXPR_S, POST_EXPR_S and PRE_COND_S to emit before
+     every wrap-around point inside the loop body.  If the last tree in the
+     list is an expression tree, it is emmitted inside FOR_EXPR.  */
   {
     tree expr_chain;
 
     expr_chain = pre_expr_s;
     add_tree (expr_s, &expr_chain);
     add_tree (post_expr_s, &expr_chain);
-    add_tree (deep_copy_list (pre_cond_s), &expr_chain);
+    add_tree (pre_cond_s, &expr_chain);
 
     if (expr_chain)
       {
@@ -553,7 +553,7 @@ simplify_for_stmt (stmt, pre_p)
 	    FOR_EXPR (stmt) = NULL_TREE;
 	  }
 
-	stmt_chain = convert_to_stmt_chain (deep_copy_list (expr_chain), stmt);
+	stmt_chain = convert_to_stmt_chain (expr_chain, stmt);
 	insert_before_continue_end (stmt_chain, FOR_BODY (stmt),
 				    STMT_LINENO (stmt));
       }
@@ -1841,10 +1841,6 @@ add_tree (t, list_p)
 	  if (!expr_has_effect (t))
 	    return NULL_TREE;
 	}
-
-      /* Deep-copy expressions before adding them to the list.  */
-      if (!statement_code_p (TREE_CODE (t)))
-	walk_tree (&t, copy_tree_r, NULL, NULL);
 
       n = build_tree_list (NULL_TREE, t);
     }

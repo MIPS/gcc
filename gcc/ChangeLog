@@ -1,3 +1,9 @@
+2002-06-11  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (add_tree): Don't deep-copy expressions.
+	(simplify_for_stmt): Only deep-copy pre_cond_s the first time.
+	Don't deep copy expr_chain.
+
 2002-06-10  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_switch_stmt): Let simplify_expr handle
