@@ -1,3 +1,8 @@
+Wed Jan  1 18:18:15 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* regrename.c (regrename_optimize): Initialize best_reg to reg;
+	increment tick first; set tick even if replacement failed.
+
 Tue Dec 31 17:26:13 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c (try_crossjump_to_edge):  Remove bohus clobbers.
