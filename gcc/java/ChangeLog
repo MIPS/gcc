@@ -1,3 +1,13 @@
+2004-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (verify_instructions): Correctly handle wide
+	types on the stack.
+	* verify-glue.c (vfy_get_class_name): Use DECL_NAME.
+	(vfy_get_component_type): Strip pointer types.
+	(vfy_find_class): Use get_type_from_signature.  Strip pointer
+	types.
+	Include java-except.h.
+
 2004-10-20  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* verify-impl.c (type_array_elementpop_raw, vfy_pop_type_t, 

@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "verify.h"
 #include "java-tree.h"
+#include "java-except.h"
 
 void *
 vfy_alloc (size_t bytes)
@@ -224,7 +225,7 @@ vfy_make_string (const char *s, int len)
 vfy_string
 vfy_get_class_name (vfy_jclass klass)
 {
-  return TYPE_NAME (klass);
+  return DECL_NAME (TYPE_NAME (klass));
 }
 
 char
@@ -300,6 +301,8 @@ vfy_get_component_type (vfy_jclass klass)
   if (! vfy_is_array (klass))
     abort ();
   k = TYPE_ARRAY_ELEMENT (klass);
+  if (TREE_CODE (k) == POINTER_TYPE)
+    k = TREE_TYPE (k);
   return k;
 }
 
@@ -313,7 +316,11 @@ vfy_jclass
 vfy_find_class (vfy_jclass ignore ATTRIBUTE_UNUSED, vfy_string name)
 {
   vfy_jclass k;
-  k = lookup_class (name);
+
+  k = get_type_from_signature (name);
+  if (TREE_CODE (k) == POINTER_TYPE)
+    k = TREE_TYPE (k);
+
   return k;
 }
 

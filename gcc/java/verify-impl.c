@@ -3367,7 +3367,7 @@ verify_instructions (void)
   /* Now tell the rest of the compiler about the types we've found.  */
   for (i = 0; i < vfr->current_method->code_length; ++i)
     {
-      int j;
+      int j, slot;
       struct state *curr;
 
       if ((vfr->flags[i] & FLAG_INSN_SEEN) != 0)
@@ -3384,9 +3384,19 @@ verify_instructions (void)
 	vfy_note_local_type (vfr->current_method, i, j,
 			     collapse_type (&curr->locals[j]));
       /* Tell the compiler about each stack slot.  */
-      for (j = 0; j < curr->stackdepth; ++j)
-	vfy_note_stack_type (vfr->current_method, i, j,
-			     collapse_type (&curr->stack[j]));
+      for (slot = j = 0; j < curr->stacktop; ++j, ++slot)
+	{
+	  vfy_note_stack_type (vfr->current_method, i, slot,
+			       collapse_type (&curr->stack[j]));
+	  if (type_iswide (&curr->stack[j]))
+	    {
+	      ++slot;
+	      vfy_note_stack_type (vfr->current_method, i, slot,
+				   vfy_unsuitable_type ());
+	    }
+	}
+      if (slot != curr->stackdepth)
+	abort ();
     }
 }
 
