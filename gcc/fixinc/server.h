@@ -78,10 +78,13 @@ typedef char *t_pchar;
 
 #define EXIT_PANIC	99
 
+#ifndef HAVE_T_BOOL_ENUM
+#define HAVE_T_BOOL_ENUM
 typedef enum
 {
   BOOL_FALSE, BOOL_TRUE
 } t_bool;
+#endif
 
 #define _P_(p)	()
 #endif
