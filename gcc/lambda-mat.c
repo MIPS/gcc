@@ -232,7 +232,7 @@ lambda_matrix_col_exchange (lambda_matrix mat, int m, int col1, int col2)
 }
 
 /* Add a multiple of column C1 of matrix MAT with M rows to column C2:
-   C2 = C1 + CONST1 * C2.  */
+   C2 = C2 + CONST1 * C1.  */
 
 void
 lambda_matrix_col_add (lambda_matrix mat, int m, int c1, int c2, int const1)
@@ -413,7 +413,7 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
 }
 
 /* Decompose MAT to a product of a lower triangular H and a unimodular
-   U matrix.  */
+   U matrix such that MAT = H.U.  N is the size of the rows of MAT.  */
 
 void
 lambda_matrix_hermite (lambda_matrix mat, int n,

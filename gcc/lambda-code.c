@@ -1947,7 +1947,17 @@ lambda_deps_positive (lambda_vector dir, int dirsize)
       
 	
 /* Return true if TRANS is a legal transformation matrix that respects
-   the dependence vectors in DISTS and DIRS.  */
+   the dependence vectors in DISTS and DIRS.  
+
+   "Wolfe proves that a unimodular transformation represented by the
+   matrix T is legal when applied to a loop nest with a set of
+   lexicographically non-negative distance vectors RDG if and only if
+   for each vector d in RDG, (T.d >= 0) is lexicographically positive.
+   ie.: if and only if it transforms the lexicographically positive
+   distance vectors to lexicographically positive vectors.  Note that
+   a unimodular matrix must transform the zero vector (and only it) to
+   the zero vector." S.Muchnick.  */
+
 bool
 lambda_transform_legal_p (lambda_trans_matrix trans, 
 			  int nb_loops,

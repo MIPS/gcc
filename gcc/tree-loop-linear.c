@@ -55,6 +55,71 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    transform matrix for locality purposes.
    TODO: Completion of partial transforms.  */
 
+/* Returns the sum of all the data dependence distances carried by
+   loop COL.  */
+
+static int 
+sum_distances_on_loop (varray_type dists, 
+		       unsigned int loop_number)
+{
+  int res = 0;
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (dists); i++)
+    {
+      lambda_vector distance = VARRAY_GENERIC_PTR (dists, i);
+      res += distance[loop_number];
+    }
+
+  return res;
+}
+
+/* Apply to TRANS any loop interchange that minimize inner loop steps.
+   Returns the new transform matrix.  The smaller the reuse vector
+   distances in the inner loops, the fewer the cache misses.  */
+
+static lambda_trans_matrix
+try_interchange_loops (lambda_trans_matrix trans, 
+		       unsigned int depth,		       
+		       varray_type classic_dir, 
+		       varray_type classic_dist)
+{
+  unsigned int loop_i, loop_j;
+  int sum_i, sum_j;
+
+  for (loop_i = 0; loop_i < depth; loop_i++)
+    for (loop_j = 0; loop_j < depth; loop_j++)
+      {
+	if (loop_i != loop_j)
+	  {
+	    /* Try to permute rows LOOP_I and LOOP_J.  The basic
+	       profitability model is the minimization of the steps in
+	       the inner loops.  */
+	    sum_i = sum_distances_on_loop (classic_dist, loop_i);
+	    sum_j = sum_distances_on_loop (classic_dist, loop_j);
+
+	    /* When LOOP_I contains smaller steps than LOOP_J, and
+	       LOOP_I is outer than LOOP_J, then interchange
+	       loops.  */
+	    if (sum_i < sum_j 
+		&& loop_i < loop_j)
+	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	    
+	    /* Validate the resulting matrix.  When the transformation
+	       is not valid, reverse to the previous matrix.  
+	       
+	       FIXME: In this case of transformation it could be
+	       faster to verify the validity of the interchange
+	       without applying the transform to the matrix.  But for
+	       the moment do it cleanly: this is just a prototype.  */
+	    if (!lambda_transform_legal_p (trans, depth, classic_dir, classic_dist))
+	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	  }
+      }
+  
+  return trans;
+}
+
 /* Perform a set of linear transforms on LOOPS.  */
 
 void
@@ -143,6 +208,7 @@ linear_transform_loops (struct loops *loops)
       trans = lambda_trans_matrix_new (depth, depth);
 #if 1
       lambda_matrix_id (LTM_MATRIX (trans), depth);
+      trans = try_interchange_loops (trans, depth, classic_dir, classic_dist);
 #else
       /* This is a 2x2 interchange matrix.  */
       LTM_MATRIX (trans)[0][0] = 0;
