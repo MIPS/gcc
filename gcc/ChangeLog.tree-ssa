@@ -1,3 +1,8 @@
+2004-02-21  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (cprop_into_stmt): Look at the type's main variant
+	to determine if the two operands of a copy have equivalent types.
+
 2004-02-20  Jeff Law  <law@redhat.com>
 
 	* tree-flow-inline.h (may_propagate_copy): Do not perform ABNORMAL_PHI

@@ -2229,6 +2229,8 @@ cprop_into_stmt (tree stmt)
 	  val = get_value_for (*op_p, const_and_copies);
 	  if (val)
 	    {
+	      tree op_type, val_type;
+
 	      /* Do not change the base variable in the virtual operand
 		 tables.  That would make it impossible to reconstruct
 		 the renamed virtual operand if we later modify this
@@ -2239,11 +2241,15 @@ cprop_into_stmt (tree stmt)
 		      || TREE_CODE (val) != SSA_NAME))
 		continue;
 
-	      /* Make sure basic types match before propagating a constant by
-		 converting the constant to the proper type.  Note that
-		 convert may return a non-gimple expression, in which case
+	      /* Get the toplevel type of each operand.  */
+	      op_type = TREE_TYPE (*op_p);
+	      val_type = TREE_TYPE (val);
+
+	      /* Make sure underlying types match before propagating a
+		 constant by converting the constant to the proper type.  Note
+		 that convert may return a non-gimple expression, in which case
 		 we ignore this propagation opportunity.  */
-	      if (TREE_TYPE (*op_p) != TREE_TYPE (val)
+	      if (TYPE_MAIN_VARIANT (op_type) != TYPE_MAIN_VARIANT (val_type)
 		  && TREE_CODE (val) != SSA_NAME)
 		{
 		  val = convert (TREE_TYPE (*op_p), val);
