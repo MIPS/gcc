@@ -1,3 +1,8 @@
+2004-12-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (initialize_inlined_parameters): Do not throw away
+	DECLs from BIND expr.
+
 2004-12-15  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20041215)

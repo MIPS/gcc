@@ -1315,6 +1315,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
   if (gimplify_init_stmts_p)
     {
       gimplify_body (&init_stmts, fn);
+      record_vars (BIND_EXPR_VARS (init_stmts));
       /* Remove BIND_EXPR added by gimplify_body.  */
       init_stmts = BIND_EXPR_BODY (init_stmts);
     }
