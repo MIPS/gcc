@@ -1,5 +1,11 @@
 2002-05-15  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.c (write_gc_marker_routine_for_structure): Name
+	the routines 'gt_ggc_mx_*' instead of 'gt_ggc_m_*'.  
+	(write_gc_types): Arrange for the tests with NULL to be inlined.
+	(write_gc_roots): Update uses of procedure pointers.
+	* ggc-common.c (gt_ggc_mx_rtx_def): Rename from gt_ggc_m_rtx_def.
+
 	* Makefile.in (explow.o): Add dependency on gt-explow.h.
 	(sdbout.o): Add dependency on gt-sdbout.h.
 

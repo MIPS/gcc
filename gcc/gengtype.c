@@ -1232,7 +1232,7 @@ write_gc_marker_routine_for_structure (s, param)
   fputc ('\n', f);
   fputs ("void\n", f);
   if (param == NULL)
-    fprintf (f, "gt_ggc_m_%s (x_p)\n", s->u.s.tag);
+    fprintf (f, "gt_ggc_mx_%s (x_p)\n", s->u.s.tag);
   else
     fprintf (f, "gt_ggc_mm_%d%s_%s (x_p)\n", strlen (param->u.s.tag),
 	     param->u.s.tag, s->u.s.tag);
@@ -1271,6 +1271,13 @@ write_gc_types (structures, param_structs)
 	    && s->u.s.line.file == NULL)
 	  continue;
 
+	fprintf (header_file,
+		 "#define gt_ggc_m_%s(X) do { \\\n", s->u.s.tag);
+	fprintf (header_file,
+		 "  if (X != NULL) gt_ggc_mx_%s (X);\\\n", s->u.s.tag);
+	fprintf (header_file,
+		 "  } while (0)\n");
+	
 	for (opt = s->u.s.opt; opt; opt = opt->next)
 	  if (strcmp (opt->name, "ptr_alias") == 0)
 	    {
@@ -1279,7 +1286,7 @@ write_gc_types (structures, param_structs)
 		  || t->kind == TYPE_UNION
 		  || t->kind == TYPE_LANG_STRUCT)
 		fprintf (header_file,
-			 "#define gt_ggc_m_%s gt_ggc_m_%s\n",
+			 "#define gt_ggc_mx_%s gt_ggc_mx_%s\n",
 			 s->u.s.tag, t->u.s.tag);
 	      else
 		error_at_line (&s->u.s.line, 
@@ -1291,7 +1298,7 @@ write_gc_types (structures, param_structs)
 
 	/* Declare the marker procedure only once.  */
 	fprintf (header_file, 
-		 "extern void gt_ggc_m_%s PARAMS ((void *));\n",
+		 "extern void gt_ggc_mx_%s PARAMS ((void *));\n",
 		 s->u.s.tag);
   
 	if (s->u.s.line.file == NULL)
@@ -1553,7 +1560,7 @@ write_gc_root (f, v, type, name, has_length, line, if_marked)
 	if (! has_length
 	    && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
 	  {
-	    fprintf (f, "    &gt_ggc_m_%s", tp->u.s.tag);
+	    fprintf (f, "    &gt_ggc_mx_%s\n", tp->u.s.tag);
 	  }
 	else if (! has_length && tp->kind == TYPE_PARAM_STRUCT)
 	  {

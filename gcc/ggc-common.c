@@ -335,7 +335,7 @@ ggc_mark_tree_varray_ptr (elt)
 
 /* Various adaptor functions.  */
 void
-gt_ggc_m_rtx_def (x)
+gt_ggc_mx_rtx_def (x)
      void *x;
 {
   ggc_mark_rtx((rtx)x);
