@@ -1,3 +1,8 @@
+2003-11-30  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR optimization/13067
+	* g++.dg/opt/cfg4.C: New test.
+
 2003-11-30  Paul Brook  <paul@nowt.org>
 
 	PR fortran/13155
