@@ -982,11 +982,6 @@ emit_stack_save (enum save_level save_level, rtx *psave, rtx after)
 	    *psave = sa = gen_reg_rtx (mode);
 	}
     }
-  else
-    {
-      if (mode == VOIDmode || GET_MODE (sa) != mode)
-	abort ();
-    }
 
   if (after)
     {

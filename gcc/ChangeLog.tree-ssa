@@ -1,5 +1,10 @@
 2004-02-27  Richard Henderson  <rth@redhat.com>
 
+	PR middle-end/14310
+	* explow.c (emit_stack_save): Remove savearea mode check.
+
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
 	* builtins.c (simplify_builtin_strcmp): Don't export.  Remove
 	length parameters.  Remove conversion to memcmp.
 	(simplify_builtin_strncmp): Likewise.
