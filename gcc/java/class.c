@@ -678,6 +678,7 @@ add_method_1 (handle_class, access_flags, name, function_type)
 
   DECL_LANG_SPECIFIC (fndecl)
     = (struct lang_decl *) ggc_alloc_cleared (sizeof (struct lang_decl));
+  DECL_LANG_SPECIFIC (fndecl)->desc = LANG_DECL_FUNC;
 
   /* Initialize the static initializer test table.  */
   hash_table_init (&DECL_FUNCTION_INIT_TEST_TABLE (fndecl),

@@ -1,3 +1,17 @@
+2002-04-26  Geoffrey Keating  <geoffk@redhat.com>
+
+	* java-tree.h (MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC): Set
+	descriminator for DECL_LANG_SPECIFIC.
+	(struct lang_decl_func): Rename from struct lang_decl.
+	(enum lang_decl_desc): New.
+	(struct lang_decl): Make it a union.  Update all the accessor macros.
+	(struct lang_type): Use gengtype.
+	* class.c (add_method_1): Set descriminator for DECL_LANG_SPECIFIC.
+	* decl.c (java_dup_lang_specific_decl): All lang_decl structures
+	are now the same size.
+	(lang_mark_tree): Use gengtype to mark TYPE_LANG_SPECIFIC;
+	use descriminator to mark DECL_LANG_SPECIFIC.
+
 2002-04-09  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (gt-java-builtins.h): New rule.

@@ -1551,10 +1551,7 @@ java_dup_lang_specific_decl (node)
   if (!DECL_LANG_SPECIFIC (node))
     return;
 
-  if (TREE_CODE (node) == VAR_DECL)
-    lang_decl_size = sizeof (struct lang_decl_var);
-  else
-    lang_decl_size = sizeof (struct lang_decl);
+  lang_decl_size = sizeof (struct lang_decl);
   x = (struct lang_decl *) ggc_alloc (lang_decl_size);
   memcpy (x, DECL_LANG_SPECIFIC (node), lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
@@ -1851,51 +1848,29 @@ lang_mark_tree (t)
       ggc_mark_tree (li->local_value);
       ggc_mark_tree (li->utf8_ref);
     }
-  else if (TREE_CODE (t) == VAR_DECL
-	   || TREE_CODE (t) == PARM_DECL
-	   || TREE_CODE (t) == FIELD_DECL)
-    {
-      struct lang_decl_var *ldv = 
-	((struct lang_decl_var *) DECL_LANG_SPECIFIC (t));
-      if (ldv)
-	{
-	  ggc_mark (ldv);
-	  ggc_mark_tree (ldv->slot_chain);
-	  ggc_mark_tree (ldv->am);
-	  ggc_mark_tree (ldv->wfl);
-	}
-    }
-  else if (TREE_CODE (t) == FUNCTION_DECL)
-    {
-      struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
-      
-      if (ld)
-	{
-	  ggc_mark (ld);
-	  ggc_mark_tree (ld->wfl);
-	  ggc_mark_tree (ld->throws_list);
-	  ggc_mark_tree (ld->function_decl_body);
-	  ggc_mark_tree (ld->called_constructor);
-	  ggc_mark_tree (ld->inner_access);
-	  ggc_mark_tree_hash_table (&ld->init_test_table);
-	  ggc_mark_tree_hash_table (&ld->ict);
-	  ggc_mark_tree (ld->smic);
-	}
-    }
   else if (TYPE_P (t))
+    gt_ggc_m_lang_type (TYPE_LANG_SPECIFIC (t));
+  else if (DECL_P (t))
     {
-      struct lang_type *lt = TYPE_LANG_SPECIFIC (t);
-      
-      if (lt)
+      struct lang_decl * const x = DECL_LANG_SPECIFIC (t);
+      if (ggc_test_and_set_mark (x))
 	{
-	  ggc_mark (lt);
-	  ggc_mark_tree (lt->signature);
-	  ggc_mark_tree (lt->cpool_data_ref);
-	  ggc_mark_tree (lt->finit_stmt_list);
-	  ggc_mark_tree (lt->clinit_stmt_list);
-	  ggc_mark_tree (lt->ii_block);
-	  ggc_mark_tree (lt->dot_class);
-	  ggc_mark_tree (lt->package_list);
+	  unsigned int tag3 = ((*x).desc);
+	  if (tag3 == (LANG_DECL_FUNC)) {
+	    gt_ggc_m_tree_node ((*x).u.f.wfl);
+	    gt_ggc_m_tree_node ((*x).u.f.throws_list);
+	    gt_ggc_m_tree_node ((*x).u.f.function_decl_body);
+	    gt_ggc_m_tree_node ((*x).u.f.called_constructor);
+	    gt_ggc_m_tree_node ((*x).u.f.smic);
+	    gt_ggc_m_tree_node ((*x).u.f.inner_access);
+	    ggc_mark_tree_hash_table (&(*x).u.f.init_test_table);
+	    ggc_mark_tree_hash_table (&(*x).u.f.ict);
+	  }
+	  if (tag3 == (LANG_DECL_VAR)) {
+	    gt_ggc_m_tree_node ((*x).u.v.slot_chain);
+	    gt_ggc_m_tree_node ((*x).u.v.am);
+	    gt_ggc_m_tree_node ((*x).u.v.wfl);
+	  }
 	}
     }
 }

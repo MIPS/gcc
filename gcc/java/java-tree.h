@@ -727,41 +727,43 @@ struct lang_identifier
 /* For a FUNCTION_DECL, if we are compiling a .class file, then this is
    the position in the .class file of the method code.
    Specifically, this is the code itself, not the code attribute. */
-#define DECL_CODE_OFFSET(DECL) (DECL_LANG_SPECIFIC(DECL)->code_offset)
+#define DECL_CODE_OFFSET(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.code_offset)
 /* Similarly, the length of the bytecode. */
-#define DECL_CODE_LENGTH(DECL) (DECL_LANG_SPECIFIC(DECL)->code_length)
+#define DECL_CODE_LENGTH(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.code_length)
 /* Similarly, the position of the LineNumberTable attribute. */
 #define DECL_LINENUMBERS_OFFSET(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->linenumbers_offset)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.linenumbers_offset)
 /* Similarly, the position of the LocalVariableTable attribute
    (following the standard attribute header). */
 #define DECL_LOCALVARIABLES_OFFSET(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->localvariables_offset)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.localvariables_offset)
 
-#define DECL_MAX_LOCALS(DECL) (DECL_LANG_SPECIFIC(DECL)->max_locals)
-#define DECL_MAX_STACK(DECL) (DECL_LANG_SPECIFIC(DECL)->max_stack)
+#define DECL_MAX_LOCALS(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.max_locals)
+#define DECL_MAX_STACK(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.max_stack)
 /* Number of local variable slots needed for the arguments of this function. */
-#define DECL_ARG_SLOT_COUNT(DECL) (DECL_LANG_SPECIFIC(DECL)->arg_slot_count)
+#define DECL_ARG_SLOT_COUNT(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->u.f.arg_slot_count)
 /* Information on declaration location */
-#define DECL_FUNCTION_WFL(DECL)  (DECL_LANG_SPECIFIC(DECL)->wfl)
+#define DECL_FUNCTION_WFL(DECL)  (DECL_LANG_SPECIFIC(DECL)->u.f.wfl)
 /* List of checked thrown exceptions, as specified with the `throws'
    keyword */
-#define DECL_FUNCTION_THROWS(DECL) (DECL_LANG_SPECIFIC(DECL)->throws_list)
+#define DECL_FUNCTION_THROWS(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.throws_list)
 /* List of other constructors of the same class that this constructor
    calls */
 #define DECL_CONSTRUCTOR_CALLS(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->called_constructor)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.called_constructor)
 /* When the function is an access function, the DECL it was trying to
    access */
 #define DECL_FUNCTION_ACCESS_DECL(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->called_constructor)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.called_constructor)
 /* The identifier of the access method used to invoke this method from
    an inner class.  */
 #define DECL_FUNCTION_INNER_ACCESS(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->inner_access)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.inner_access)
 /* Pointer to the function's current's COMPOUND_EXPR tree (while
    completing its body) or the function's block */
-#define DECL_FUNCTION_BODY(DECL) (DECL_LANG_SPECIFIC(DECL)->function_decl_body)
+#define DECL_FUNCTION_BODY(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->u.f.function_decl_body)
 /* How specific the function is (for method selection - Java source
    code front-end */
 #define DECL_SPECIFIC_COUNT(DECL) DECL_ARG_SLOT_COUNT(DECL)
@@ -770,31 +772,33 @@ struct lang_identifier
    boolean decls.  The variables are intended to be TRUE when the
    class has been initialized in this function, and FALSE otherwise.  */
 #define DECL_FUNCTION_INIT_TEST_TABLE(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->init_test_table)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.init_test_table)
 /* If LOCAL_CLASS_INITIALIZATION_FLAG_P(decl), give class it initializes. */
 #define DECL_FUNCTION_INIT_TEST_CLASS(DECL) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(DECL))->slot_chain)
+  (DECL_LANG_SPECIFIC(DECL)->u.v.slot_chain)
 /* For each static function decl, itc contains a hash table whose
    entries are keyed on class named that are definitively initialized
    in DECL.  */
 #define DECL_FUNCTION_INITIALIZED_CLASS_TABLE(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->ict)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.ict)
 /* A list of all the static method calls in the method DECL (if optimizing).
    Actually each TREE_VALUE points to a COMPONT_EXPR that wraps the
    invoation so we can later patch it. */
 #define DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->smic)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.smic)
 /* The Number of Artificial Parameters (NAP) DECL contains. this$<n>
    is excluded, because sometimes created as a parameter before the
    function decl exists. */
-#define DECL_FUNCTION_NAP(DECL) (DECL_LANG_SPECIFIC(DECL)->nap)
+#define DECL_FUNCTION_NAP(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.nap)
 /* True if DECL is a synthetic ctor.  */
 #define DECL_FUNCTION_SYNTHETIC_CTOR(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->synthetic_ctor)
-#define DECL_FIXED_CONSTRUCTOR_P(DECL) (DECL_LANG_SPECIFIC(DECL)->fixed_ctor)
+  (DECL_LANG_SPECIFIC(DECL)->u.f.synthetic_ctor)
+#define DECL_FIXED_CONSTRUCTOR_P(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->u.f.fixed_ctor)
 
 /* A constructor that calls this. */
-#define DECL_INIT_CALLS_THIS(DECL) (DECL_LANG_SPECIFIC(DECL)->init_calls_this)
+#define DECL_INIT_CALLS_THIS(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->u.f.init_calls_this)
 
 /* True when DECL aliases an outer context local variable.  */
 #define FIELD_LOCAL_ALIAS(DECL) DECL_LANG_FLAG_6 (DECL)
@@ -857,31 +861,31 @@ struct lang_identifier
 
 /* The slot number for this local variable. */
 #define DECL_LOCAL_SLOT_NUMBER(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->slot_number)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.slot_number)
 /* The start (bytecode) pc for the valid range of this local variable. */
 #define DECL_LOCAL_START_PC(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->start_pc)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.start_pc)
 /* The end (bytecode) pc for the valid range of this local variable. */
 #define DECL_LOCAL_END_PC(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->end_pc)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.end_pc)
 /* For a VAR_DECLor PARM_DECL, used to chain decls with the same
    slot_number in decl_map. */
 #define DECL_LOCAL_SLOT_CHAIN(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->slot_chain)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.slot_chain)
 /* For a FIELD_DECL, holds the name of the access method. Used to
    read/write the content of the field from an inner class.  */
 #define FIELD_INNER_ACCESS(DECL) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(DECL))->am)
+  (DECL_LANG_SPECIFIC(DECL)->u.v.am)
 /* Safely tests whether FIELD_INNER_ACCESS exists or not. */
 #define FIELD_INNER_ACCESS_P(DECL) \
   DECL_LANG_SPECIFIC (DECL) && FIELD_INNER_ACCESS (DECL)
 /* True if a final variable was initialized upon its declaration,
    or (if a field) in an initializer.  Set after definite assignment. */
 #define DECL_FIELD_FINAL_IUD(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->final_iud)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.final_iud)
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->wfl)
+  (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
 /* True if NODE is a final field. */
@@ -892,7 +896,7 @@ struct lang_identifier
 /* True if NODE is a class initialization flag. This macro accesses
    the flag to read or set it.  */
 #define LOCAL_CLASS_INITIALIZATION_FLAG(NODE) \
-    (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->cif)
+    (DECL_LANG_SPECIFIC(NODE)->u.v.cif)
 /* True if NODE is a class initialization flag. */
 #define LOCAL_CLASS_INITIALIZATION_FLAG_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE) && LOCAL_CLASS_INITIALIZATION_FLAG(NODE))
@@ -902,7 +906,8 @@ struct lang_identifier
     {								\
       DECL_LANG_SPECIFIC ((T))					\
 	= ((struct lang_decl *)					\
-	   ggc_alloc_cleared (sizeof (struct lang_decl_var)));	\
+	   ggc_alloc_cleared (sizeof (struct lang_decl)));	\
+      DECL_LANG_SPECIFIC (T)->desc = LANG_DECL_VAR;		\
     }
 
 /* A ConstantExpression, after folding and name resolution. */
@@ -919,7 +924,7 @@ struct lang_identifier
 #define DECL_BIT_INDEX(DECL) (DECL_CHECK (DECL)->decl.pointer_alias_set)
 
 /* DECL_LANG_SPECIFIC for FUNCTION_DECLs. */
-struct lang_decl
+struct lang_decl_func
 {
   /*  tree chain; not yet used. */
   long code_offset;
@@ -927,7 +932,9 @@ struct lang_decl
   long linenumbers_offset;
   long localvariables_offset;
   int arg_slots;
-  int max_locals, max_stack, arg_slot_count;
+  int max_locals;
+  int max_stack;
+  int arg_slot_count;
   tree wfl;			/* Information on the original location */
   tree throws_list;		/* Exception specified by `throws' */
   tree function_decl_body;	/* Hold all function's statements */
@@ -969,6 +976,22 @@ struct lang_decl_var
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
 };
 
+/* This is what 'lang_decl' really points to.  */
+
+enum lang_decl_desc {
+  LANG_DECL_FUNC,
+  LANG_DECL_VAR
+};
+
+struct lang_decl
+{
+  enum lang_decl_desc desc;
+  union lang_decl_u {
+    struct lang_decl_func f;
+    struct lang_decl_var v;
+  } u;
+};
+
 /* Macro to access fields in `struct lang_type'.  */
 
 #define TYPE_SIGNATURE(T) (TYPE_LANG_SPECIFIC(T)->signature)
@@ -996,11 +1019,11 @@ struct lang_decl_var
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->poic)
 #define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC(T)->strictfp)
 
-struct lang_type
+struct lang_type GTY(())
 {
   tree signature;
-  struct JCF *jcf;
-  struct CPool *cpool;
+  struct JCF * GTY ((skip (""))) jcf;
+  struct CPool * GTY ((skip (""))) cpool;
   tree cpool_data_ref;		/* Cached */
   tree finit_stmt_list;		/* List of statements finit$ will use */
   tree clinit_stmt_list;	/* List of statements <clinit> will use  */
@@ -1254,10 +1277,10 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define METHOD_STATIC(DECL) DECL_LANG_FLAG_2 (DECL)
 #define METHOD_FINAL(DECL) DECL_FINAL (DECL)
 #define METHOD_SYNCHRONIZED(DECL) DECL_LANG_FLAG_4 (DECL)
-#define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->native)
+#define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.native)
 #define METHOD_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define METHOD_TRANSIENT(DECL) DECL_LANG_FLAG_6 (DECL)
-#define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->strictfp)
+#define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.strictfp)
 
 #define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)
