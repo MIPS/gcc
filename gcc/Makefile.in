@@ -2064,7 +2064,8 @@ fixinc.sh :
 stmp-fixinc: fixinc.sh gsyslimits.h
 	rm -rf include
 	mkdir include
-	TARGET_MACHINE=$(target) $(SHELL) \
+	TARGET_MACHINE=$(target) EGCS_SRCDIR=$(srcdir) \
+	INSTALL_ASSERT_H=$(INSTALL_ASSERT_H) $(SHELL) \
 	  ./fixinc.sh `pwd`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS)
 	rm -f include/syslimits.h
 	if [ -f include/limits.h ]; then \
