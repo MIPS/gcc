@@ -41,7 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define INSNS_PER_CALL 10
 
-static void cgraph_expand_functions (void);
+static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
@@ -183,7 +183,7 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
       while (node->callees)
-	cgraph_remove_call (node->decl, node->callees->callee->decl);
+	cgraph_remove_edge (node, node->callees->callee);
 
       /* We may need to re-queue the node for assembling in case
          we already proceeded it and ignored as not needed.  */
@@ -1211,7 +1211,7 @@ cgraph_inline_p (tree caller_decl, tree callee_decl)
    order).  */
 
 static void
-cgraph_expand_functions (void)
+cgraph_expand_all_functions (void)
 {
   struct cgraph_node *node;
   struct cgraph_node **order =
@@ -1295,7 +1295,7 @@ cgraph_optimize (void)
     fprintf (stderr, "Assembling functions:");
 
   /* Output everything.  */
-  cgraph_expand_functions ();
+  cgraph_expand_all_functions ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Final callgraph:");

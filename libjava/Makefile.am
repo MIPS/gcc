@@ -464,7 +464,9 @@ ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
 	java/lang/reflect/Proxy$$ProxyData.h \
-	java/lang/reflect/Proxy$$ProxyType.h
+	java/lang/reflect/Proxy$$ProxyType.h \
+	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
+	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 
@@ -548,6 +550,14 @@ java/io/ObjectInputStream$$GetField.h: java/io/ObjectInputStream.class
 java/io/ObjectOutputStream$$PutField.h: java/io/ObjectOutputStream.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'java/io/ObjectOutputStream$$PutField'
+
+gnu/java/net/PlainSocketImpl$$SocketInputStream.h: gnu/java/net/PlainSocketImpl.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'gnu/java/net/PlainSocketImpl$$SocketInputStream'
+
+gnu/java/net/PlainSocketImpl$$SocketOutputStream.h: gnu/java/net/PlainSocketImpl.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'gnu/java/net/PlainSocketImpl$$SocketOutputStream'
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
@@ -2174,6 +2184,7 @@ gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
+gnu/java/nio/NIOConstants.java \
 gnu/java/nio/NIODatagramSocket.java \
 gnu/java/nio/NIOSocket.java \
 gnu/java/nio/PipeImpl.java \
@@ -2296,6 +2307,7 @@ java/nio/Buffer.java \
 java/nio/BufferOverflowException.java \
 java/nio/BufferUnderflowException.java \
 java/nio/ByteBuffer.java \
+java/nio/ByteBufferHelper.java \
 java/nio/ByteBufferImpl.java \
 java/nio/ByteOrder.java \
 java/nio/CharBuffer.java \

@@ -198,5 +198,4 @@ c_initialize_diagnostics (diagnostic_context *context)
   free (base);
 }
 
-
 #include "gtype-c.h"

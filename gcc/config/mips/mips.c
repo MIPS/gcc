@@ -4277,6 +4277,7 @@ mips_va_arg (tree valist, tree type)
     {
       /* Not EABI.  */
       int align;
+      HOST_WIDE_INT min_offset;
 
       /* ??? The original va-mips.h did always align, despite the fact
 	 that alignments <= UNITS_PER_WORD are preserved by the va_arg
@@ -4295,6 +4296,24 @@ mips_va_arg (tree valist, tree type)
       t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
 		 build_int_2 (align - 1, 0));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
+
+      /* If arguments of type TYPE must be passed on the stack,
+	 set MIN_OFFSET to the offset of the first stack parameter.  */
+      if (!MUST_PASS_IN_STACK (TYPE_MODE (type), type))
+	min_offset = 0;
+      else if (TARGET_NEWABI)
+	min_offset = current_function_pretend_args_size;
+      else
+	min_offset = REG_PARM_STACK_SPACE (current_function_decl);
+
+      /* Make sure the new address is at least MIN_OFFSET bytes from
+	 the incoming argument pointer.  */
+      if (min_offset > 0)
+	t = build (MAX_EXPR, TREE_TYPE (valist), t,
+		   make_tree (TREE_TYPE (valist),
+			      plus_constant (virtual_incoming_args_rtx,
+					     min_offset)));
+
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5517,19 +5536,20 @@ mips_output_external (FILE *file ATTRIBUTE_UNUSED, tree decl, const char *name)
   return 0;
 }
 
-#ifdef ASM_OUTPUT_UNDEF_FUNCTION
-int
-mips_output_external_libcall (FILE *file ATTRIBUTE_UNUSED, const char *name)
+#if TARGET_IRIX5 || TARGET_IRIX6
+void
+mips_output_external_libcall (rtx fun)
 {
   register struct extern_list *p;
 
-  p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
-  p->next = extern_head;
-  p->name = name;
-  p->size = -1;
-  extern_head = p;
-
-  return 0;
+  if (mips_abi == ABI_32)
+    {
+      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
+      p->next = extern_head;
+      p->name = XSTR (fun, 0);
+      p->size = -1;
+      extern_head = p;
+    }
 }
 #endif
 

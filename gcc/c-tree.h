@@ -153,17 +153,6 @@ struct lang_type GTY(())
 #define KEEP_MAYBE	2
 
 
-/* in c-lang.c and objc-act.c */
-extern tree lookup_interface (tree);
-extern tree is_class_name (tree);
-extern tree objc_is_object_ptr (tree);
-extern void objc_check_decl (tree);
-extern int objc_comptypes (tree, tree, int);
-extern tree objc_message_selector (void);
-extern tree lookup_objc_ivar (tree);
-extern void c_expand_body (tree);
-
-
 /* in c-parse.in */
 extern void c_parse_init (void);
 
@@ -177,6 +166,7 @@ extern void pushlevel (int);
 extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
+extern void c_expand_body (tree);
 
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);

@@ -1,5 +1,5 @@
 /* SelectionKeyImpl.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package gnu.java.nio;
 
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -45,10 +46,10 @@ import java.nio.channels.spi.AbstractSelectionKey;
 public class SelectionKeyImpl extends AbstractSelectionKey
 {
   int fd;
-  int readyOps;
-  int interestOps;
-  SelectorImpl impl;
-  SelectableChannel ch;
+  private int readyOps;
+  private int interestOps;
+  private SelectorImpl impl;
+  private SelectableChannel ch;
 
   public SelectionKeyImpl (SelectableChannel ch, SelectorImpl impl, int fd)
   {
@@ -64,22 +65,34 @@ public class SelectionKeyImpl extends AbstractSelectionKey
 
   public int readyOps ()
   {
+    if (!isValid())
+      throw new CancelledKeyException();
+    
     return readyOps;
   }
 
   public SelectionKey readyOps (int ops)
   {
+    if (!isValid())
+      throw new CancelledKeyException();
+    
     readyOps = ops;
     return this;
   }
 
   public int interestOps ()
   {
+    if (!isValid())
+      throw new CancelledKeyException();
+    
     return interestOps;    
   }
 
   public SelectionKey interestOps (int ops)
   {
+    if (!isValid())
+      throw new CancelledKeyException();
+    
     interestOps = ops;
     return this;
   }

@@ -588,7 +588,7 @@ Treat the input file as already preprocessed
 
 freplace-objc-classes
 ObjC ObjC++
-Used in Fix and Continue mode to indicate that class implementations may be swapped in at runtime
+Used in Fix-and-Continue mode to indicate that object files may be swapped in at runtime
 
 frepo
 C++ ObjC++
@@ -680,7 +680,7 @@ Emit cross referencing information
 
 fzero-link
 ObjC ObjC++
-Generate lazy class lookup (via objc_getClass()) for use in Zero Link mode
+Generate lazy class lookup (via objc_getClass()) for use in Zero-Link mode
 
 gen-decls
 ObjC ObjC++

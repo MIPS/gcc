@@ -1,3 +1,214 @@
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/PlainDatagramSocketImpl.java
+	(finalize): Moved to directly after constructor.
+	(getNativeFD): New method.
+	* gnu/java/net/PlainSocketImpl.java
+	(getNativeFD): New method.
+
+2003-09-25  Ingo Proetel  <proetel@aicas.com>
+
+	* java/io/ObjectOutputStream.java:
+	Allow putFields be called more than once.
+
+2003-09-25  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/image/Raster.java(Raster): Interpret null origin as (0,0).
+	* java/awt/image/WritableRaster.java(WritableRaster): Likewise.
+	* java/awt/image/BufferedImage.java (toString): Implement.
+
+2003-09-25  Jeff Sturm  <jsturm@one-point.com>
+
+	* aclocal.m4: Rebuilt.
+	* configure: Rebuilt.
+
+2003-09-25  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/text/SimpleDateFormat.java (parse): Don't use class calendar
+	field.
+
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/SelectorImpl.java
+	(implSelect): Renamed from java_do_select.
+	(select): Call native implSelect() and add support for Thread
+	interruption.
+	* gnu/java/nio/natSelectorImpl.cc
+	(implSelect): Renamed from java_do_select.
+
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/SelectorImpl.java
+	(selectNow): Made final, throws IOException.
+	(select): Likewise.
+	(getFDsAsArray): Made final.
+	(selectedKeys): Likewise.
+	(wakeup): Likewise.
+	(deregisterCancelledKeys): Likewise.
+	(register): Likewise.
+	(ass): Removed.
+	(add_selected): Removed.
+	* gnu/java/nio/natSelectorImpl.cc:
+	No need to include bstring.h or gcj/cni.h.
+	(helper_put_filedescriptors): Rewritten.
+	(helper_get_filedescriptors): Rewritten.
+
+2003-09-25  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/font/FontRenderContext.java (getTransform): Return
+	copy of internal transform object. Add Javadoc.
+	* java/awt/geom/Rectangle2D.java (getPathIterator): Use the same
+	winding rule as Sun J2SE.
+	* javax/swing/border/MatteBorder.java (MatteBorder(Icon)): Docfix.
+
+2003-09-25  Ingo Proetel  <proetel@aicas.com>
+
+	* java/rmi/Naming.java:
+	Added comments, now accepts pseudo protocol "rmi".
+
+2003-09-25  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/text/DecimalFormat.java (format): Don't immediatly round
+	baseNumber to long.
+	(setMinimumIntegerDigits): Call super.
+	(setMinimumFractionDigits): Likewise.
+	(setMaximumIntegerDigits): Likewise.
+	(setMaximumFractionDigits): Likewise.
+
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(DatagramChannelImpl): Made class final.
+	(blocking): Made private.
+	(socket): Made it a NIODatagramSocket and private.
+	(DatagramChannelImpl): create NIODatagramSocket instead of
+	DatagramSocket.
+	(implConfigureBlocking): Set socket timeout.
+	(connect): Check that channel is not closed.
+	(write): Implemented.
+	(write): Rewritten.
+	(read): Implemented.
+	(read): Rewritten.
+	(receive): Implemented.
+	(send): Implemented.
+	* gnu/java/nio/SelectionKeyImpl.java
+	(readyOps): Made private.
+	(interestOps): Made private.
+	(impl): Made private.
+	(ch): Made private.
+	(readyOps): Check if selection key is valid.
+	(interestOps): Likewise.
+	* gnu/java/nio/SelectorImpl.java
+	(closed): Removed.
+	(keys): Made private.
+	(selected): Made private.
+	(finalize): New method.
+	(implCloseSelector): Rewritten.
+	(keys): Return unmodifiable Set.
+	(deregisterCancelledKeys): Fixed typo in method name.
+	* gnu/java/nio/SocketChannelImpl.java
+	(SocketChannelImpl): Made class final.
+	(socket): Made it a NIOSocket and private.
+	(blocking): Made private.
+	(connected): Made private.
+	(connectionPending): New member variable.
+	(SocketChannelImpl): New implementation.
+	(finalizer): Use isConnected().
+	(connect): Rewritten.
+	(finishConnect): Throws IOException, implemented.
+	(isConnectionPending): Return connectionPending.
+	(read): Rewritten.
+	(write): Rewritten.
+	* gnu/java/nio/NIOConstants.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	Added gnu/java/nio/NIOConstants.java.
+	* Makefile.in: Regenerated.
+
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	Reorder imports, remove implementation comment.
+	(isMulticastAddress): Merged documentation from classpath.
+	* java/net/URLConnection.java
+	(setRequestProperty): Check key for null, fix documentation.
+	(adREquestProperty): Check key for null, remove wrong implementation
+	and replace it with comment to overwrite this method in subclasses,
+	fix documentation.
+
+2003-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/Proxy.java (generate): Uncomment protection
+	domain code.
+	* java/lang/natClassLoader.cc (defineClass): Added `loader'
+	argument.
+	(linkClass0): Now in VMClassLoader.
+	(markClassErrorState0): Likewise.
+	(getSystemClassLoaderInternal): New method.
+	* java/lang/natClass.cc (initializeClass): Use
+	VMClassLoader::resolveClass.
+	* java/lang/ClassLoader.java: New version, from Classpath.
+	* java/lang/Class.java (getProtectionDomain):
+	protectionDomainPermission and unknownProtectionDomain now in
+	VMClassLoader.
+	* java/lang/Class.h: VMClassLoader now a friend class.
+	* gnu/gcj/runtime/VMClassLoader.java (instance): Now
+	package-private.
+	* gcj/javaprims.h: Regenerated class list.
+	* resolve.cc (_Jv_PrepareClass): Use VMClassLoader::resolveClass.
+	* java/lang/VMClassLoader.java: New version from Classpath;
+	modified for libgcj use.
+
+2003-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBufferHelper.java:
+	New file.
+	* java/nio/ByteBufferImpl.java,
+	java/nio/DirectByteBufferImpl.java,
+	java/nio/MappedByteBufferImpl.java
+	(getType,putType): Use new helper class ByteBufferHelper.
+	* Makefile.am (ordinary_java_source_files):
+	Added java/nio/ByteBufferHelper.java.
+	* Makefile.in: Regenerated.
+
+2003-09-25  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc: Add missing #includes.
+	PR libgcj/12388.
+
+2003-09-24  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/lang/StringBuffer.java (substring): Don't set `shared' on small
+	Strings, even if buffer is already shared.
+
+2003-09-24  Michael Koch  <konqueror@gmx.de>
+
+	* acinclude.m4 (AM_LC_LOCALES): Added check for locale.h.
+
+2003-09-24  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* gnu/java/net/PlainSocketImpl.java (read): Remove declaration.
+	(write): Likewise.
+	(SocketInputStream): Declare `read' and `write' methods native.
+	Remove implementations which called back into PlainSocketImpl.
+	Remove unneccessary overridden methods.
+	* gnu/java/net/natPlainSocketImplNoNet.cc (read): Move implementation 
+	to inner class PlainSocketImpl.SocketInputStream.
+	(write): Likewise.
+	* gnu/java/net/natPlainSocketImplPosix.cc: As above.
+	* gnu/java/net/natPlainSocketImplWin32.cc: As above.
+	* gnu/java/net/SocketInputStream.java: Remove unused file.
+	* gnu/java/net/SocketOutputStream.java: Likewise.
+	* Makefile.am: Build CNI headers for PlainSocketImpl.SocketInputStream
+	and SocketOutputStream.
+	* Makefile.in: Rebuilt.
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* java/lang/System.java: Add GCJ LOCAL note about encoding aliases.
+
+	* java/lang/Float.java, java/lang/Double.java: Add GCJ LOCAL
+	markers.
+
 2003-09-22  Anthony Green  <green@redhat.com>
 
 	* configure.in (HAVE_USLEEP_DECL): Define for newlib build.

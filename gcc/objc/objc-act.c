@@ -2529,8 +2529,8 @@ objc_declare_class (tree ident_list)
 	    {
 	      error ("`%s' redeclared as different kind of symbol",
 		     IDENTIFIER_POINTER (ident));
-	      error ("%Hprevious declaration of '%D'",
-		     &DECL_SOURCE_LOCATION (record), record);
+	      error ("%Jprevious declaration of '%D'",
+		     record, record);
 	    }
 
 	  record = xref_tag (RECORD_TYPE, ident);
@@ -3642,8 +3642,8 @@ encode_method_prototype (tree method_decl)
       /* If a type size is not known, bail out.  */
       if (sz < 0)
 	{
-	  error ("%Htype '%D' does not have a known size",
-		 &DECL_SOURCE_LOCATION (type), type);
+	  error ("%Jtype '%D' does not have a known size",
+		 type, type);
 	  /* Pretend that the encoding succeeded; the compilation will
 	     fail nevertheless.  */
 	  goto finish_encoding;
@@ -4251,7 +4251,7 @@ synth_forward_declarations (void)
 static void
 error_with_ivar (const char *message, tree decl, tree rawdecl)
 {
-  error ("%H%s `%s'", &DECL_SOURCE_LOCATION (decl),
+  error ("%J%s `%s'", decl,
          message, gen_declaration (rawdecl, errbuf));
 
 }
@@ -6750,8 +6750,8 @@ start_class (enum tree_code code, tree class_name, tree super_name,
     {
       error ("`%s' redeclared as different kind of symbol",
 	     IDENTIFIER_POINTER (class_name));
-      error ("%Hprevious declaration of '%D'",
-             &DECL_SOURCE_LOCATION (decl), decl);
+      error ("%Jprevious declaration of '%D'",
+             decl, decl);
     }
 
   if (code == CLASS_IMPLEMENTATION_TYPE)
@@ -7598,7 +7598,7 @@ static void
 warn_with_method (const char *message, int mtype, tree method)
 {
   /* Add a readable method name to the warning.  */
-  warning ("%H%s `%c%s'", &DECL_SOURCE_LOCATION (method),
+  warning ("%J%s `%c%s'", method,
            message, mtype, gen_method_decl (method, errbuf));
 }
 
@@ -8480,7 +8480,8 @@ gen_declaration_1 (tree atype_or_adecl, char *buf)
 	  strcat (buf, gen_declarator (declarator, declbuf, ""));
 	}
       if (width)
-	sprintf (buf + strlen (buf), ": %lu", TREE_INT_CST_LOW (width));
+	sprintf (buf + strlen (buf), ": " HOST_WIDE_INT_PRINT_UNSIGNED, 
+		 TREE_INT_CST_LOW (width));
     }
 
   else

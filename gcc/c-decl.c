@@ -422,8 +422,7 @@ get_current_scope (void)
    because it accesses the innards of c_scope.  */
 
 void
-objc_mark_locals_volatile (enclosing_blk)
-     void *enclosing_blk;
+objc_mark_locals_volatile (void *enclosing_blk)
 {
   struct c_scope *scope;
   

@@ -1,3 +1,519 @@
+2003-09-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* cgraph.h (cgraph_remove_edge): Declare.
+	* cgraph.c (cgraph_remove_edge): Make extern.
+	* cgraphunit.c (cgraph_finalize_function): Call cgraph_remove_edge
+	instead of cgraph_remove_call.
+
+2003-09-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* objc/objc-act.c (gen_declaration_1): Fix printf format.
+
+2003-09-25  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (all_cores): arm710t, arm720t and arm740t are all based on the
+	arm7tdmi core.
+
+2003-09-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* config/darwin-protos.h (objc_image_info_section):
+	New prototype.
+
+2003-09-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* Makefile.in (stub-objc.o): Depend on $(GGC_H).
+
+2003-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Get rid of more gratuitious 'x'es.  Actually allow
+	tsc701 as a --with-cpu, --with-tune setting for sparc.
+
+2003-09-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-parse.in (objc_try_stmt): Do not specify a %type.
+
+2003-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: New 'widely ported system' clause for rtems.
+	Set thread file there, not in individual clauses.
+
+2003-09-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_va_arg): Handle arguments that must be
+	passed on the stack.
+
+2003-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc (widely ported systems section): Mostly alphabetize
+	by system.  Comment the case where we can't.
+	* config.gcc (widely ported systems section): Reindent and clean up.
+
+	* config.gcc: Remove some unnecessary uses of 'x' in case statements.
+	Actually allow ep9312 as an arm --with-arch setting.
+
+	* config.gcc (*-hpux11): Disable fixproto.
+
+2003-09-24  Phil Edwards  <phil@codesourcery.com>
+
+	PR pch/12112
+	* gcc/cppfiles.c (pch_open_file): Return based on combined
+        result of all files.
+	(validate_pch): Return validate flag for current file.
+	
+2003-09-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR bootstrap/12358
+	* fold-const.c (tree_swap_operands_p): Only reorder operands when
+	one of the operands is constant.
+
+2003-09-24  Ziemowit Laski  <zlaski@apple.com>
+
+	MERGE OF objc-improvements-branch into MAINLINE:
+	* Makefile.in (C_OBJS): Add in stub-objc.o.
+	(c-parse.y): Change sed demarcations to begin with '@@'.
+	(stub-objc.o): New rule.
+	* c-common.c (flag_nil_receivers, flag_objc_exceptions, flag_zero_link,
+	flag_replace_objc_classes): New flags.
+	* c-common.h (RID_AT_THROW, RID_AT_TRY, RID_AT_CATCH, RID_AT_FINALLY,
+	RID_AT_SYNCHRONIZED): New keywords.
+	(flag_nil_receivers, flag_objc_exceptions, flag_zero_link,
+	flag_replace_objc_classes): New flags.
+	(lookup_interface, is_class_name, objc_is_object_ptr, objc_check_decl,
+	objc_comptypes, objc_message_selector, lookup_objc_ivar,
+	get_current_scope, objc_mark_locals_volatile): New prototypes,
+	some moved from c-tree.h.
+	* c-decl.c (get_current_scope, objc_mark_locals_volatile): New functions.
+	(finish_decl): Adjust where objc_check_decl() gets called.
+	* c-lang.c (lookup_interface, is_class_name, objc_is_id,  objc_check_decl,
+	objc_comptypes, objc_message_selector, lookup_objc_ivar): Remove stubs.
+	* c-opts.c (c_common_handle_option): Add handling for  flag_nil_receivers,
+	flag_objc_exceptions, flag_replace_objc_classes and flag_zero_link.
+	* c-parse.in: Replace 'ifc' and 'end ifc' sed markers with '@@ifc' and
+	'@@end_ifc', respectively.
+	(AT_THROW, AT_TRY, AT_CATCH, AT_FINALLY, AT_SYNCHRONIZED): New %tokens.
+	(objc_try_stmt, superclass, class_ivars, objc_try_catch-stmt,
+	objc_finally_block): New rules.
+	(component_decl_list2): Clean up semantic action for @defs construct.
+	(component_decl, c99_block_start): Remove call to add_objc_decls().
+	(poplevel): Add call to objc_clear_super_receiver().
+	(stmt): Add rules for @throw, @try..@catch..@finally and @synchronized
+	constructs.
+	(classdef, methodprotolist): Clean up/simplify.
+	(methodprotolist2): Eliminate.
+	(methodproto): Call add_method() instead of add_class_method() and
+	add_instance_method().
+	(receiver): Add TYPENAME production.
+	(reswords): Add "throw", "try", "catch", "finally" and "synchronized".
+	(rid_to_yy): Add AT_THROW, AT_TRY, AT_CATCH, AT_FINALLY and
+	AT_SYNCHRONIZED.
+	* c-tree.h (lookup_interface, is_class_name, objc_is_id, objc_check_decl,
+	objc_comptypes, objc_message_selector)
+	* c-typeck.c (comptypes): In ObjC mode, call objc_comptypes() for
+	struct and pointer types.
+	(build_c_cast): Do not discard ObjC protocol qualifiers.
+	(convert_for_assignment): Cache result of comp_target_types() instead
+	of calling it more than once.
+	* c.opt (fnext-runtime): Update description string.
+	(fnil-receivers, fobjc-exceptions, freplace-objc-classes, fzero-link):
+	New ObjC/ObjC++-specific flags.
+	* function.h (GCC_FUNCTION_H): Header guard.
+	* gengtype-lex.l: Teach lexer about new @@... sed demarcations.
+	* stub-objc.c: New file, to be used to satisfy references to ObjC
+	functions by the C and C++ front-ends.
+	* config/darwin.c (_OBJC_IMAGE_INFO): New global metadata.
+	* config/darwin.h (FUNCTION): Add in_objc_image_info.
+	(SECTION_FUNCTION): Add objc_image_info_section.
+	* doc/invoke.texi: Link to GCC web site for Objective-C information.
+	(-fconstant-string-class): Update documentation.
+	(-fno-nil-receivers, -fobjc-exceptions, -freplace-objc-classes,
+	-fzero-link): New documentation.
+	* objc/Make-lang.in (objc-parse.y): Change sed demarcations to begin
+	with '@@'.
+	* objc/lang-specs.h (@objective-c-header): Fix -E spec.
+	* objc/objc/objc-act.c: Replace TYPE_NAME with OBJC_TYPE_NAME
+	throughout; provide casts for return values from memory allocation
+	functions (xmalloc, alloca, ggc_alloc, etc.).
+	(OBJC_VOID_AT_END): New macro.
+	(rtl.h): Do not #include any more.
+	(STRING_OBJECT_GLOBAL_NAME): Replaced with STRING_OBJECT_GLOBAL_FORMAT.
+	(TAG_MSGSEND_STRET, TAG_MSGSENDSUPER_STRET, TAG_MSGSEND_NONNIL,
+	TAG_MSGSEND_NONNIL_STRET, TAG_EXCEPTIONEXTRACT, TAG_EXCEPTIONTRYENTER,
+	TAG_EXCEPTIONTRYEXIT, TAG_EXCEPTIONMATCH, TAG_EXCEPTIONTHROW,
+	TAG_SYNCENTER, TAG_SYNCEXIT): New NeXT runtime entry points.
+	(struct val_stack, catch_count_stack, exc_binding_stack,  val_stack_push,
+	val_stack_pop): New.
+	(objc_check_decl): Fix precondition for error message, along with
+	the message itself.
+	(lookup_and_install_protocols): Remove nonexistent protocols from
+	protocol list instead of returning error_mark_node.
+	(create_builtin_decl): Use DECL_ARTIFICIAL only for VAR_DECLs.
+	(setup_string_decl): Generalize to use STRING_OBJECT_GLOBAL_FORMAT.
+	(synth_module_prologue): General clean-up; construct NeXT-specific
+	runtime API prototypes if needed.
+	(build_string_class_template): Remove.
+	(check_string_class_template, string_layout_checked): New.
+	(build_objc_string_object): Generalize to work with
+	-fconstant-string-class.
+	(build_objc_symtab_template): Fix layout for the NeXT runtime.
+	(build_metadata_decl): New.
+	(forward_declare_categories): Call build_metadata_decl() instead of
+	create_builtin_decl() et al.
+	(build_module_descriptor): Use OBJC_VOID_AT_END instead of
+	void_list_node_1.
+	(build_selector_reference_decl, build_class_reference_decl,
+	build_objc_string_decl): Do not set TREE_READONLY.
+	(get_proto_encoding): Do not call hack_method_prototype().
+	(get_class_reference): Add failure mode for invalid class names;
+	support -fzero-link; defer if in an ObjC++ template declaration.
+	(objc_declare_alias, objc_declare_class): Fix up duplicate name
+	lookup; check for global scope if in ObjC++.
+	(is_class_name): Generalize to work with various tree nodes (TYPE_DECL,
+	RECORD_TYPE, IDENTIFIER_NODE, etc.)
+	(objc_is_id): Removed.
+	(objc_is_object_ptr): New function.
+	(get_class_ivars_from_name): New function, used for @defs construct.
+	(get_class_ivars): Add option to return raw ivars; create a
+	ClASS_OWN_IVARS list for each class as needed.
+	(objc_enter_block, objc_exit_block, objc_declare_variable,
+	objc_build_throw_stmt, val_stack_push, val_stack_pop,
+	objc_build_try_enter_fragment, objc_build_extract_expr,
+	objc_build_try_exit_fragment, objc_build_extract_fragment,
+	objc_build_try_prologue, objc_build_try_epilogue,
+	objc_build_catch_stmt, objc_build_catch_epilogue,
+	objc_build_finally_prologue, objc_build_finally_epilogue,
+	objc_build_try_catch_finally_stmt, objc_build_synchronized_prologue,
+	objc_build_synchronized_epilogue, build_objc_exception_stuff):
+	New functions.
+	(_JBLEN): _setjmp jmpbuf size (needs to be made a target hook in
+	the future).
+	(build_private_template): Fix up calls to get_class_ivars().
+	(offset_is_register, forwarding_offset): Remove.
+	(objc_method_parm_type, objc_encoded_type_size): New functions.
+	(encode_method_prototype): Simplify to no longer depend on
+	back-end information.
+	(build_tmp_function_decl_xxx, build_tmp_function_decl,
+	hack_method_prototype): Removed.
+	(generate_protocol_references): Remove calls to
+	build_tmp_function_decl().
+	(generate_protocols): Adjust calls to encode_method_prototype().
+	(build_class_template): Generate sel_id' and 'gc_object_type' fields
+	for the NeXT runtime.
+	(synth_forward_declarations): Call build_metadata_decl().
+	(check_ivars): Check that the number of ivars matches also.
+	(build_super_template): Modify super_type directly; disable debugging
+	output while generating decl.
+	(build_ivar_list_initializer): Skip list elements that are not
+	FIELD_DECLs.
+	(ivar_list_length): New function.
+	(generate_ivar_lists): Call ivar_list_length() instead of list_length()
+	and encode_method_prototype() instead of encode_method_def().
+	(build_shared_structure_initializer): Generate 'sel_id' field for
+	the NeXT runtime.
+	(generate_category): Do not set TREE_USED.
+	(build_keyword_selector): Ditto; transform into a function argument
+	chain.
+	(get_arg_type_list): If there are no user-specified arguments, use
+	'...'; use OBJC_VOID_AT_END.
+	(check_duplicates): Add a parameter indicating whether methods or
+	selectors are being checked.
+	(receiver_is_class_object): Add parameters indicating whether
+	receiver is 'self' or 'super'; robustify.
+	(build_message_expr): Defer call to finish_message_expr() if
+	inside an ObjC++ template.
+	(lookup_method_in_hash_lists): New function.
+	(finish_message_expr): Complete rewrite/fix.
+	(build_objc_method_call): Ditto; factor out commonalities between
+	the GNU and NeXT runtimes; acccommodate ..._stret and ...NonNil
+	messenger variants on the NeXT.
+	(lookup_instance_method_static, lookup_class_method_static):
+	Fold into a single lookup_method_static() function with an
+	additional parameter.
+	(add_class_method, add_instance_method): Fold into a single
+	add_method() function with an additional parameter.
+	(add_category): Make duplicate categories a hard error in ObjC++.
+	(add_instance_variable): Properly handle unnamed ivars, arrays of
+	zero or no size and bitfields.  In ObjC++, check for nontrivial
+	C++ class instances.
+	(is_public): Allow C functions to access non-@public ivars, with
+	a warning.
+	(start_class): Move common initializations to
+	synth_module_prologue(); check for global scope if in ObjC++.
+	(continue_class): Fix calls to finish_struct().
+	(objc_declare_protocols, start_protocol): Check for global scope
+	if in ObjC++.
+	(encode_pointer): Encode 'BOOL *' specially on the NeXT.
+	(encode_aggregate_within): Rewrite to properly distinguish
+	struct tags from typedefs in both ObjC and ObjC++.
+	(encode_bitfield, encode_complete_bitfield): Remove.
+	(encode_next_bitfield, encode_gnu_bitfield): New functions.
+	(encode_field_decl): Call encode_next_bitfield() or
+	encode_gnu_bitfield() as needed.
+	(synth_self_and_ucmd_args): New function.
+	(start_method_def): Use it.
+	(objc_types_are_equivalent): New function.
+	(comp_proto_with_proto): Use it instead of comptypes(), since
+	we need symmetry.
+	(really_start_method): Use lookup_method_static() instead of
+	lookup_class_method_static() and lookup_instance_method_static();
+	Emit 'extern "C"' if in ObjC++ mode.
+	(add_objc_decls): Removed.
+	(UOBJC_SUPER_scope): New variable.
+	(get_super_receiver): Move construction of 'super' from
+	add_objc_decls(); remove dependency on struct objc_class.
+	(encode_method_def): Removed; encode_method_prototype() is
+	used instead.
+	(objc_clear_super_receiver): New function.
+	(objc_expand_function_end): Do not do anything for ordinary
+	C functions.
+	(finish_method_def): Mark ObjC methods as un-inlinable.
+	(gen_declaration_1): Emit widths of bitfields.
+	(finish_objc): Call generate_objc_image_info() if needed;
+	use check_duplicates() when checking for selector duplicates.
+	(generate_objc_image_info): New function.
+	* objc/objc-act.h (add_instance_method, add_class_method,
+	get_class_ivars): Remove prototypes.
+	(objc_build_throw_stmt, objc_build_try_catch_finally_stmt,
+	objc_build_synchronized_prologue, objc_build_synchronized_epilogue,
+	objc_build_catch_stmt, objc_build_catch_epilogue,
+	objc_build_finally_prologue, objc_build_finally_epilogue,
+	add_method, get_class_ivars_from_name): New prototypes.
+	(CLASS_BINFO_ELTS, PROTOCOL_BINFO_ELTS): New.
+	(TYPE_PROTOCOL_LIST): Robustify to distinguish from
+	TRANSLATION_UNIT_DECLs.
+	(OBJC_TYPE_NAME): New.
+	(objc_tree_code): Ensure that either <c-tree.h> or <cp/cp-tree.h>
+	got included.
+	(IS_SUPER): Robustify.
+	(umsg_stret_decl, umsg_super_stret_decl, umsg_nonnil_decl,
+	umsg_nonnil_stret_decl, objc_storage_class, objc_exception_extract_decl,
+	objc_exception_try_enter_decl, objc_exception_try_exit_decl,
+	objc_exception_match_decl, objc_exception_throw_decl,
+	objc_sync_enter_decl, objc_sync_exit_decl, objc_exception_data_template,
+	objc_setjmp_decl, objc_stack_exception_data, objc_caught_exception,
+	objc_rethrow_exception, objc_eval_once, objc_exception_block_stack,
+	objc_catch_type): New ObjC/ObjC++ roots.
+	* objc/objc-tree.def (MESSAGE_SEND_EXPR, CLASS_REFERENCE_EXPR): New
+	ObjC/ObjC++ tree node codes.
+ 
+2003-09-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cpplib.c (do_pragma): Reintroduce cb_line_change call in the
+	code path that calls a handler.
+
+2003-09-24  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc (c4x-*, tic4x-*, d30v-*, mmix-knuth-mmixware):
+	Disable fixproto.
+
+	* config.gcc: Clean up and reindent $with_cpu=yes|no clause and
+	the section giving $with_cpu defaults by target.
+
+	* config.gcc (arm-*-coff*, armel-*-coff*, arm*-*-ecos-elf,
+	arm*-*-elf, ep9312-*-elf, arm*-wince-pe*, arm*-*-pe*, arm*-*-pe*,
+	rs6000-ibm-aix4.[3456789]*, powerpc-ibm-aix4.[3456789]*,
+	rs6000-ibm-aix5.1.*, powerpc-ibm-aix5.1.*,
+	rs6000-ibm-aix[56789].*, powerpc-ibm-aix[56789].*,
+	i[34567]86-pc-msdosdjgpp*): Disable fixproto.
+
+2003-09-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (movti_power): Collapse case 1 and 2
+	together.  Protect load string instruction with TARGET_STRING.
+	(movti_string): Collapse case 1 and 2 together.
+
+2003-09-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-common.c (c_common_type_for_mode): Check for VOIDmode.
+
+2003-09-24  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (ASM_OUTPUT_REG_PUSH, ASM_OUTPUT_REG_POP): Wrap in
+	do...while(0)
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Move use_fixproto=no from generic vxworks clause to
+	specific one.
+
+	* config.gcc (powerpc-*-gnu-gnualtivec*): Disable fixproto
+	(accidentally missed in last pass).
+
+2003-09-23  Andrew Pinski  <apinski@apple.com>
+
+	PR bootstrap/12383
+	* configure: Regenerate.
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc (x86_64-*-freebsd*): Disable fixproto (accidentally
+	missed in last pass).
+
+2003-09-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mn10300/mn10300.md (andsi3): Fix cut&pasto in 0xfffffffe
+	constant.
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Move vax-*-vms* unsupported notice up with the rest.
+
+	* config.gcc (alpha64*-dec-*vms*, alpha*-dec-*vms*,
+	powerpc-*-eabisim*, powerpc-*-eabi*, powerpcle-*-eabisim*,
+	powerpcle-*-eabi*): Disable fixproto.
+
+	* config.gcc: Move use_fixproto=no from generic FreeBSD clause to
+	specific FreeBSD clauses.
+	* config.gcc: Move use_fixproto=no from generic NetBSD clause to
+	specific NetBSD clauses.
+	* config.gcc: Move use_fixproto=no from generic OpenBSD clause
+	to specific OpenBSD clauses.
+
+2003-09-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (hppa_expand_prologue): Do pic register save in frame marker
+	without adding a frame note.
+	* pa.md (allocate_stack): Save pic register in new frame marker when
+	generating pic code.
+
+2003-09-23  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* cgraphunit.c (cgraph_expand_all_functions): Renamed from 
+	cgraph_expand_functions.
+
+2003-09-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (gnucompare*): Merge into ...
+	(slowcompare*): ... here.
+	(fastcompare*): New targets.
+	* aclocal.m4 (gcc_AC_PROG_CMP_IGNORE_INITIAL): Add checks for
+	other "fast" cmp programs.
+	* configure: Regenerate.
+
+2003-09-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* targhooks.c: Include output.h.
+	* Makefile.in (targhooks.o): Add output.h to dependency list.
+	
+2003-09-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config.host: Removed superfluous newline.
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Use ${target}, not $machine.
+	* configure.in: Don't set $machine.
+	* configure: Regenerate.
+
+2003-09-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/t-darwin (crt2.o): Add stmp-int-hdrs to dependencies.
+
+	* config/rs6000/rs6000.c (function_arg_pass_by_reference): Don't
+	pass zero-size arrays by reference.
+	(rs6000_va_arg): Likewise.
+
+2003-09-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Set use_fixproto=no in each specific *-gnu*
+	configuration, rather than the generic one.
+
+2003-09-23  Richard Henderson  <rth@redhat.com>
+
+	* tree-inline.c (remap_save_expr): Map new save_expr to identity
+	rather than to error_mark_node.
+
+2003-09-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (HAVE_GAS_SHF_MERGE): Always define to test result.
+	Update description.
+	* configure: Regenerate.
+	* config.in: Likewise.
+	* dwarf2out.c (DEBUG_STR_SECTION_FLAGS): Test for
+	HAVE_GAS_SHF_MERGE value. 
+	* varasm.c (mergeable_string_section): Likewise.
+	(mergeable_constant_section): Likewise.
+
+2003-09-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* except.h (MUST_USE_SJLJ_EXCEPTIONS): Test for DWARF2_UNWIND_INFO
+	value.
+
+2003-09-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* target.h (struct gcc_target): New member external_libcall.
+	* target-def.h (TARGET_ASM_EXTERNAL_LIBCALL): Provide default.
+	(TARGET_ASM_OUT): Use it.
+	* doc/tm.texi (TARGET_ASM_EXTERNAL_LIBCALL): Document.
+	* targhooks.c: Convert to ISO C 90.
+	(default_external_libcall): New function.
+	* targhooks.h (default_external_libcall): Declare.
+	* varasm.c (assemble_external_libcall): Use
+	targetm.asm_out.external_libcall instead of
+	ASM_OUTPUT_EXTERNAL_LIBCALL.
+	* config/mips/mips-protos.h [TARGET_IRIX5 || TARGET_IRIX 6]
+	(mips_output_external_libcall): Declare.
+	* config/mips/mips.c (mips_output_external_libcall): Change
+	definition guard.
+	Change to match TARGET_ASM_EXTERNAL_LIBCALL.
+	Only operate for O32 ABI.
+	* config/mips/iris5.h (TARGET_ASM_EXTERNAL_LIBCALL): Define
+	instead of ASM_OUTPUT_EXTERNAL_LIBCALL.
+	* config/mips/iris6.h (ASM_OUTPUT_EXTERNAL_LIBCALL): Don't undef,
+	superceded by TARGET_ASM_EXTERNAL_LIBCALL.
+
+2003-09-22  Nathnael Nerode  <neroden@gcc.gnu.org>
+
+	* config.gcc: Do per-target disabling of fixproto here in clauses,
+	not in t- fragments.
+	* configure.in: Adjust to set STMP_FIXPROTO correctly.
+	* configure: Regenerate.
+	* config/arm/t-semi, config/cris/t-cris, config/i386/t-beos,
+	config/i386/t-cygming, config/i386/t-nto, config/ia64/t-hpux,
+	t-freebsd, t-linux, t-netbsd, t-openbsd, t-rtems, t-vxworks,
+	xtensa/t-xtensa: Remove setting of STMP_FIXPROTO.
+	* config/i370/t-oe, config/i386/t-netware, config/pa/t-bsd,
+	t-interix, t-linux-aout:  Delete files consisting only of
+	setting of STMP_FIXPROTO.	
+
+	* config.host: Allow unknown hosts (not targets).  Allow
+	ns32k-*-netbsdelf* as a host (not a target).  Remove redundant
+	empty clauses.  Remove useless obsolete-configuration clause.
+	Prune unsupported configuration list.  Collapse identical 
+	clauses for closely related systems.  Rewrite comment for
+	unsupported hosts list.  Reorganize a little.
+
+2003-09-22  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_common_signed_or_unsigned_type): Examine mode, 
+	not precision.
+
+2003-09-22  David Edelsohn  <edelsohn@gnu.org>
+	    Hartmut Penner  <hpenner@de.ibm.com>
+	    Segher Boessenkool  <boessen@de.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_in_gprs_p): Rename to ...
+	(gpr_or_gpr_p): Test INT_REGNO_P and convert to boolean.  
+	(rs6000_split_altivec_in_gprs): Rename to ...
+	(rs6000_split_multireg_move): Add support for update addressing.
+	* config/rs6000/rs6000-protos.h: Same.
+	* config/rs6000/altivec.md: Same.
+	* config/rs6000/rs6000.md (movdi_internal32): Use new splitter for
+	multiple GPRs.
+	(movti): Remove TARGET_STRING || TARGET_POWERPC64 final condition.
+	(movti_power): Use new splitter for multiple GPRs.
+	(movti_string): Same.
+	(movti_ppc64): Same.
+
+2003-09-22  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa-protos.h: Convert to ISO C90.
+	* config/xtensa/xtensa.c: Convert to ISO C90.  Minor formatting fixes.
+
+2003-09-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mn10300/mn10300.md: Revert 2003-09-17's patch.
+	(andsi3): Set attr cc to set_zn when using shifts or adds.
+
 2003-09-22  Bernardo Innocenti <bernie@develer.com>
 
 	* doc/contrib.texi: Add Peter Barada, Paul Dale and myself.

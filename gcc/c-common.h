@@ -1341,6 +1341,7 @@ extern void objc_check_decl (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
 extern tree lookup_objc_ivar (tree);
+extern void *get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
 
 /* In c-ppoutput.c  */
