@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "c-common.h"
 #include "diagnostic.h"
+#include "basic-block.h"
 #include "tree-optimize.h"
 #include "tree-flow.h"
 
@@ -42,7 +43,7 @@ optimize_tree (t)
      tree t;
 {
   /* Flush out existing data.  */
-  ref_symbols_list = NULL;
+  VARRAY_TREE_INIT (referenced_symbols, 20, "function_symbols");
 
   tree_find_basic_blocks (t);
 
@@ -53,7 +54,7 @@ optimize_tree (t)
     }
 
   /* Flush out DFA and SSA data.  */
-  delete_varref_list (&ref_symbols_list);
+  referenced_symbols = NULL;
   delete_cfg ();
 }
 

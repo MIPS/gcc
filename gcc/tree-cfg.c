@@ -76,6 +76,7 @@ static void make_return_stmt_edges PARAMS ((sbitmap *, basic_block));
 /* Various helpers.  */
 static basic_block successor_block PARAMS ((basic_block));
 static int block_invalidates_loop PARAMS ((basic_block, struct loop *));
+static void create_bb_ann PARAMS ((basic_block));
 
 /* }}} */
 
@@ -107,8 +108,6 @@ tree_find_basic_blocks (t)
     {
       /* Create the edges of the flowgraph.  */
       make_edges ();
-
-      mark_critical_edges ();
 
       /* Write the flowgraph to a GraphViz file.  */
       if (dot_dump_file)
@@ -338,16 +337,15 @@ create_maximal_bb (t, control_parent, compound_stmt)
 
   while (last && last != error_mark_node)
     {
-      get_tree_ann (last)->compound_stmt = compound_stmt;
-
       if (is_exec_stmt (last))
-	{
-	  map_stmt_to_bb (last, bb);
-	  bb->end_tree = last;
-	}
+        {
+          get_tree_ann (last)->compound_stmt = compound_stmt;
+          map_stmt_to_bb (last, bb);
+          bb->end_tree = last;
+        }
 
       if (stmt_ends_bb_p (last))
-	break;
+        break;
 
       last = TREE_CHAIN (last);
     }
@@ -428,21 +426,30 @@ map_stmt_to_bb (t, bb)
    Get the annotation for the given block.  Create a new one if
    necessary.  */
 
-basic_block_ann
+bb_ann
 get_bb_ann (bb)
      basic_block bb;
 {
-  basic_block_ann ann = BB_ANN (bb);
+  if (BB_ANN (bb) == NULL)
+    create_bb_ann (bb);
 
-  if (ann == NULL)
-    {
-      ann = (basic_block_ann) ggc_alloc (sizeof (*ann));
-      memset ((void *) ann, 0, sizeof (*ann));
+  return BB_ANN (bb);
+}
 
-      bb->aux = (void *) ann;
-    }
+/* }}} */
 
-  return ann;
+/* {{{ create_bb_ann()
+
+   Create a new annotation for basic block BB.  */
+
+static void
+create_bb_ann (bb)
+     basic_block bb;
+{
+  bb_ann ann = (bb_ann) ggc_alloc (sizeof (*ann));
+  memset ((void *) ann, 0, sizeof (*ann));
+  VARRAY_GENERIC_PTR_INIT (ann->refs, 10, "bb_refs");
+  bb->aux = (void *) ann;
 }
 
 /* }}} */
@@ -1252,7 +1259,7 @@ delete_cfg ()
 
   for (i = 0; i < n_basic_blocks; i++)
     {
-      basic_block_ann ann = BB_ANN (BASIC_BLOCK (i));
+      bb_ann ann = BB_ANN (BASIC_BLOCK (i));
       ann->parent = NULL;
       ann->refs = NULL;
       BASIC_BLOCK (i)->aux = NULL;
@@ -1376,11 +1383,11 @@ first_exec_stmt (t)
 
 int
 is_exec_stmt (t)
-     tree t;
+    tree t;
 {
   return (t
-	  && statement_code_p (TREE_CODE (t))
-	  && TREE_CODE (t) != COMPOUND_STMT && TREE_CODE (t) != SCOPE_STMT);
+          && statement_code_p (TREE_CODE (t))
+          && TREE_CODE (t) != COMPOUND_STMT && TREE_CODE (t) != SCOPE_STMT);
 }
 
 /* }}} */

@@ -26,10 +26,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* {{{ Types of references.  */
 
-enum varref_type
-{ VARDEF, VARUSE, VARPHI };
+enum varref_type { VARDEF, VARUSE, VARPHI };
 
-struct varref_list_def;
 union varref_def;
 
 /* }}} */
@@ -63,7 +61,7 @@ struct vardef
   struct varref_common common;
 
   /* Immediate uses for this definition.  */
-  struct varref_list_def *imm_uses;
+  varray_type imm_uses;
 
   /* Saved definition chain.  */
   union varref_def *save_chain;
@@ -95,7 +93,7 @@ struct varphi
   struct varref_common common;
 
   /* PHI arguments.  */
-  struct varref_list_def *phi_chain;
+  varray_type phi_chain;
 };
 
 #define VARPHI_CHAIN(r) (r)->phi.phi_chain
@@ -122,35 +120,6 @@ typedef union varref_def *varref;
 
 /* }}} */
 
-/* {{{ Container types for variable references.  */
-
-struct varref_node_def
-{
-  varref elem;
-  struct varref_node_def *next;
-  struct varref_node_def *prev;
-};
-
-typedef struct varref_node_def *varref_node;
-
-#define VARREF_NODE_ELEM(n) ((n) ? (n)->elem : NULL)
-#define VARREF_NODE_NEXT(n) ((n) ? (n)->next : NULL)
-#define VARREF_NODE_PREV(n) ((n) ? (n)->prev : NULL)
-
-
-struct varref_list_def
-{
-  varref_node first;
-  varref_node last;
-};
-
-typedef struct varref_list_def *varref_list;
-
-#define VARREF_LIST_FIRST(l) ((l) ? (l)->first : NULL)
-#define VARREF_LIST_LAST(l) ((l) ? (l)->last : NULL)
-
-/* }}} */
-
 /* {{{ Tree annotations stored in tree_common.aux.  */
 
 struct tree_ann_def
@@ -159,7 +128,7 @@ struct tree_ann_def
   basic_block bb;
 
   /* For _DECL trees, list of references made to this variable.  */
-  varref_list refs;
+  varray_type refs;
 
   /* Most recent definition for this symbol.  Used when placing FUD
      chains.  */
@@ -190,19 +159,19 @@ typedef struct tree_ann_def *tree_ann;
 
 /* {{{ Block annotations stored in basic_block.aux.  */
 
-struct basic_block_ann_def
+struct bb_ann_def
 {
   /* Control flow parent.  */
   basic_block parent;
 
   /* List of references made in this block.  */
-  varref_list refs;
+  varray_type refs;
 };
 
-typedef struct basic_block_ann_def *basic_block_ann;
+typedef struct bb_ann_def *bb_ann;
 
 #define BB_ANN(BLOCK)		\
-    ((basic_block_ann)((BLOCK)->aux))
+    ((bb_ann)((BLOCK)->aux))
 
 #define BB_PARENT(BLOCK)		\
     ((BB_ANN (BLOCK)) ? BB_ANN (BLOCK)->parent : NULL)
@@ -212,11 +181,11 @@ typedef struct basic_block_ann_def *basic_block_ann;
 
 /* }}} */
 
-/* {{{ Global symbols.  */
+/* {{{ Global declarations.  */
 
-/* List of all symbols referenced in the function.  */
+/* Array of all symbols referenced in the function.  */
 
-extern tree ref_symbols_list;
+extern varray_type referenced_symbols;
 
 
 /* Nonzero to warn about code which is never reached.  */
@@ -235,7 +204,7 @@ extern int is_loop_stmt PARAMS ((tree));
 extern int stmt_ends_bb_p PARAMS ((tree));
 extern int stmt_starts_bb_p PARAMS ((tree));
 extern void delete_cfg PARAMS ((void));
-extern basic_block_ann get_bb_ann PARAMS ((basic_block));
+extern bb_ann get_bb_ann PARAMS ((basic_block));
 extern void tree_dump_bb PARAMS ((FILE *, const char *, basic_block, int));
 extern void tree_debug_bb PARAMS ((basic_block));
 extern void tree_dump_cfg PARAMS ((FILE *));
@@ -253,20 +222,13 @@ extern void validate_loops PARAMS ((struct loops *));
 /* {{{ Functions in tree-dfa.c  */
 
 extern void tree_find_varrefs PARAMS ((void));
-extern void add_ref_to_sym PARAMS ((varref, tree sym, int));
-extern void add_ref_to_bb PARAMS ((varref, basic_block));
-extern int add_ref_symbol PARAMS ((tree, tree *));
-extern void remove_ann_from_sym PARAMS ((tree));
 extern tree_ann get_tree_ann PARAMS ((tree));
 extern varref create_varref PARAMS ((tree, enum varref_type,
 				     basic_block, tree, tree));
-extern varref_list create_varref_list PARAMS ((varref));
-extern void push_ref PARAMS ((varref_list, varref));
-extern void delete_varref_list PARAMS ((tree *));
 extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
-extern void debug_varref_list PARAMS ((varref_list));
-extern void dump_varref_list PARAMS ((FILE *, const char *, varref_list, int,
+extern void debug_varref_list PARAMS ((varray_type));
+extern void dump_varref_list PARAMS ((FILE *, const char *, varray_type, int,
                                       int));
 
 /* }}} */

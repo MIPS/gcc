@@ -111,11 +111,10 @@ static void
 insert_phi_terms (dfs)
      sbitmap *dfs;
 {
-  tree m;
+  size_t i;
   varray_type added;
   varray_type in_work;
-  varray_type work_list;
-  size_t work_list_top;
+  varray_type work_stack;
 
   /* Array ADDED (indexed by basic block number) is used to determine
      whether a phi term for the current variable has already been
@@ -123,56 +122,49 @@ insert_phi_terms (dfs)
   VARRAY_TREE_INIT (added, n_basic_blocks, "added");
 
   /* Array IN_WORK (indexed by basic block number) is used to determine
-     whether block X has already been added to WORK_LIST for the current
+     whether block X has already been added to WORK_STACK for the current
      variable.  */
   VARRAY_TREE_INIT (in_work, n_basic_blocks, "in_work");
 
-  /* Array WORK_LIST is a stack of CFG blocks.  Each block that contains
-     an assignment or PHI term will be added to this work list.  */
-  VARRAY_BB_INIT (work_list, n_basic_blocks, "work_list");
-
-  work_list_top = 0;
+  /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
+     an assignment or PHI term will be pushed to this stack.  */
+  VARRAY_BB_INIT (work_stack, n_basic_blocks, "work_stack");
 
   /* Iterate over all referenced symbols in the function. For each
      symbol, add to the work list all the blocks that have a definition
      for the symbol.  PHI terms will be added to the dominance frontier
      blocks of each definition block.  */
 
-  for (m = ref_symbols_list; m; m = TREE_CHAIN (m))
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
     {
-      varref_node i;
-      tree sym = TREE_VALUE (m);
+      size_t j;
+      tree sym = VARRAY_TREE (referenced_symbols, i);
+      varray_type refs = TREE_REFS (sym);
 
-      /* Symbols in ref_symbols_list must have at least 1 reference.  */
-      if (TREE_ANN (sym) == NULL)
+      /* Symbols in referenced_symbols must have at least 1 reference.  */
+      if (refs == NULL)
 	abort ();
 
-      for (i = VARREF_LIST_FIRST (TREE_REFS (sym)); i;
-	   i = VARREF_NODE_NEXT (i))
+      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
 	{
 	  basic_block bb;
-	  varref ref = VARREF_NODE_ELEM (i);
+	  varref ref = VARRAY_GENERIC_PTR (refs, j);
 
 	  if (VARREF_TYPE (ref) != VARDEF)
 	    continue;
 
 	  bb = VARREF_BB (ref);
-
-	  /* Grow WORK_LIST by ~25%.  */
-	  if (work_list_top >= VARRAY_SIZE (work_list))
-	    VARRAY_GROW (work_list, work_list_top + (work_list_top + 3) / 4);
-	  VARRAY_BB (work_list, work_list_top) = bb;
-	  work_list_top++;
+	  VARRAY_PUSH_BB (work_stack, bb);
 	  VARRAY_TREE (in_work, bb->index) = sym;
 	}
 
-      while (work_list_top > 0)
+      while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
 	{
 	  int w;
 	  basic_block bb;
 
-	  work_list_top--;
-	  bb = VARRAY_BB (work_list, work_list_top);
+	  bb = VARRAY_TOP_BB (work_stack);
+	  VARRAY_POP (work_stack);
 
 	  EXECUTE_IF_SET_IN_SBITMAP (dfs[bb->index], 0, w,
 	    {
@@ -195,17 +187,13 @@ insert_phi_terms (dfs)
 		  if (stmt_bb == NULL)
 		    abort ();
 
-		  phi = create_varref (sym, VARPHI, bb, stmt_bb->head_tree, NULL);
+		  phi = create_varref (sym, VARPHI, bb, stmt_bb->head_tree,
+		                       NULL);
 		  VARRAY_TREE (added, w) = sym;
 
 		  if (VARRAY_TREE (in_work, w) != sym)
 		    {
-		      /* Grow WORK_LIST by ~25%.  */
-		      if (work_list_top >= VARRAY_SIZE (work_list))
-			VARRAY_GROW (work_list, 
-				     work_list_top + (work_list_top + 3) / 4);
-		      VARRAY_BB (work_list, work_list_top) = bb;
-		      work_list_top++;
+		      VARRAY_PUSH_BB (work_stack, bb);
 		      VARRAY_TREE (in_work, w) = sym;
 		    }
 		}
@@ -215,7 +203,7 @@ insert_phi_terms (dfs)
 
   VARRAY_FREE (added);
   VARRAY_FREE (in_work);
-  VARRAY_FREE (work_list);
+  VARRAY_FREE (work_stack);
 }
 
 /* }}} */
@@ -228,17 +216,17 @@ static void
 build_fud_chains (idom)
      int *idom;
 {
-  tree m;
+  size_t i;
 
   /* Initialize the current definition for all the symbols.  */
 
-  for (m = ref_symbols_list; m; m = TREE_CHAIN (m))
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
     {
-      tree sym = TREE_VALUE (m);
+      tree sym = VARRAY_TREE (referenced_symbols, i);
       tree_ann ann = TREE_ANN (sym);
 
       /* Symbols in ref_symbols_list must have at least 1 reference.  */
-      if (TREE_ANN (sym) == NULL)
+      if (ann == NULL)
 	abort ();
 
       ann->currdef = NULL;
@@ -260,28 +248,31 @@ search_fud_chains (bb, idom)
      basic_block bb;
      int *idom;
 {
-  varref_node n;
+  varray_type bb_refs;
   edge e;
   int i;
+  size_t r, nrefs;
 
-  /* for each variable use or def or phi-term R in X do
-         let M be the variable referenced at R
+  /* for each variable use or def or phi-term R in BB do
+         let SYM be the variable referenced at R
          if R is a use then
-             Chain(R) = CurrDef(M)
+             Chain(R) = CurrDef(SYM)
          else if R is a def or $\phi$-term then
-             SaveChain(R) = CurrDef(M)
-             CurrDef(M) = R
+             SaveChain(R) = CurrDef(SYM)
+             CurrDef(SYM) = R
          endif
      endfor  */
 
-  for (n = VARREF_LIST_FIRST (BB_REFS (bb)); n; n = VARREF_NODE_NEXT (n))
+  bb_refs = BB_REFS (bb);
+  nrefs = (bb_refs) ? VARRAY_ACTIVE_SIZE (bb_refs) : 0;
+  for (r = 0; r < nrefs; r++)
     {
       varref currdef;
-      varref ref = VARREF_NODE_ELEM (n);
-      tree m = VARREF_SYM (ref);
+      varref ref = VARRAY_GENERIC_PTR (bb_refs, r);
+      tree sym = VARREF_SYM (ref);
 
       /* Retrieve the current definition for the variable.  */
-      currdef = TREE_CURRDEF (m);
+      currdef = TREE_CURRDEF (sym);
 
       if (VARREF_TYPE (ref) == VARUSE)
 	{
@@ -298,43 +289,45 @@ search_fud_chains (bb, idom)
 
 	  if (currdef)
 	    {
-	      if (VARDEF_IMM_USES (currdef))
-		push_ref (VARDEF_IMM_USES (currdef), ref);
-	      else
-		VARDEF_IMM_USES (currdef) = create_varref_list (ref);
+	      if (VARDEF_IMM_USES (currdef) == NULL)
+		VARRAY_GENERIC_PTR_INIT (VARDEF_IMM_USES (currdef),
+		                         10, "imm_uses");
+	      VARRAY_PUSH_GENERIC_PTR (VARDEF_IMM_USES (currdef), ref);
 	    }
 	}
       else if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{
-	  tree_ann ann;
-
 	  VARDEF_SAVE_CHAIN (ref) = currdef;
 
-	  /* Replace the current currdef with a new one.  */
-	  ann = get_tree_ann (m);
-	  ann->currdef = ref;
+	  /* Replace the current reaching definition with a new one.  */
+	  get_tree_ann (sym)->currdef = ref;
 	}
     }
 
 
-
-  /* for Y in SUCC(X) do
-        J = WhichPred(X -> Y)
+  /* for Y in SUCC(BB) do
+        J = WhichPred(BB -> Y)
         for each phi-term R in Y do
-            let M be the variable referenced at R
-            phi-chain(R)[J] = CurrDef(M)
+            let SYM be the variable referenced at R
+            phi-chain(R)[J] = CurrDef(SYM)
         endfor
      endfor  */
 
-  for (e = bb->succ, i = 0; e; e = e->succ_next, i++)
+  for (e = bb->succ; e; e = e->succ_next)
     {
-      basic_block y = e->dest;
+      varray_type y_refs;
+      basic_block y;
 
-      for (n = VARREF_LIST_FIRST (BB_REFS (y)); n; n = VARREF_NODE_NEXT (n))
+      y = e->dest;
+      y_refs = BB_REFS (y);
+      if (y_refs == NULL)
+	break;
+
+      for (r = 0; r < VARRAY_ACTIVE_SIZE (y_refs); r++)
 	{
 	  tree sym;
 	  varref currdef;
-	  varref phi = VARREF_NODE_ELEM (n);
+	  varref phi = VARRAY_GENERIC_PTR (y_refs, r);
 
 	  if (VARREF_TYPE (phi) != VARPHI)
 	    continue;
@@ -344,18 +337,17 @@ search_fud_chains (bb, idom)
 
 	  if (currdef)
 	    {
-	      if (VARPHI_CHAIN (phi))
-		push_ref (VARPHI_CHAIN (phi), currdef);
-	      else
-		VARPHI_CHAIN (phi) = create_varref_list (currdef);
+	      if (VARPHI_CHAIN (phi) == NULL)
+		VARRAY_GENERIC_PTR_INIT (VARPHI_CHAIN (phi), 2, "phi_chain");
+
+	      VARRAY_PUSH_GENERIC_PTR (VARPHI_CHAIN (phi), currdef);
 	    }
 	}
     }
 
 
-
-  /* for Y in Child(X) do	<-- Child(X) is the set of dominator
-    	   Search(Y)                children of X in the dominator tree.
+  /* for Y in Child(BB) do	<-- Child(BB) is the set of dominator
+    	   Search(Y)                children of BB in the dominator tree.
      endfor  */
 
   for (i = 0; i < n_basic_blocks; i++)
@@ -365,16 +357,16 @@ search_fud_chains (bb, idom)
     }
 
 
-  /* for each variable use or def or phi-term R in X in reverse order do
-         let M be the variable referenced at R
+  /* for each variable use or def or phi-term R in BB in reverse order do
+         let SYM be the variable referenced at R
          if R is a def or a phi-term then
-             CurrDef(M) = SaveChain(R)
+             CurrDef(SYM) = SaveChain(R)
          endif
      endfor  */
 
-  for (n = VARREF_LIST_LAST (BB_REFS (bb)); n; n = VARREF_NODE_PREV (n))
+  for (i = nrefs - 1; i >= 0; i--)
     {
-      varref ref = VARREF_NODE_ELEM (n);
+      varref ref = VARRAY_GENERIC_PTR (bb_refs, i);
 
       if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{

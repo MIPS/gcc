@@ -40,21 +40,23 @@ Boston, MA 02111-1307, USA.  */
 static FILE *dump_file;
 static int dump_flags;
 
-
 /* Local functions.  */
 static void find_refs_in_stmt PARAMS ((tree, basic_block));
 static tree find_refs_in_stmt_expr PARAMS ((tree *, int *, void *));
 static void find_refs_in_expr PARAMS ((tree, enum varref_type, basic_block,
 				       tree, tree));
-static varref_node create_node PARAMS ((varref));
+static void create_tree_ann PARAMS ((tree));
+static void add_ref_to_sym PARAMS ((varref, tree));
+static void add_ref_to_bb PARAMS ((varref, basic_block));
+static void add_ref_symbol PARAMS ((tree));
 
 /* }}} */
 
-/* {{{ Global symbols.  */
+/* {{{ Global declarations.  */
 
-/* List of all symbols referenced in the function.  */
+/* Array of all symbols referenced in the function.  */
 
-tree ref_symbols_list;
+varray_type referenced_symbols;
 
 /* }}} */
 
@@ -97,16 +99,16 @@ tree_find_varrefs ()
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_REFS))
     {
-      tree sym_n;
+      int i;
 
-      fprintf (dump_file, ";; Function %s\n\n", 
+      fprintf (dump_file, ";; Function %s\n\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
       fprintf (dump_file, "Symbols referenced:\n");
 
-      for (sym_n = ref_symbols_list; sym_n; sym_n = TREE_CHAIN (sym_n))
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
 	{
-	  tree sym = TREE_VALUE (sym_n);
+	  tree sym = VARRAY_TREE (referenced_symbols, i);
 	  print_node_brief (dump_file, "\t", sym, 0);
 	  fputc ('\n', dump_file);
 	  dump_varref_list (dump_file, "\t", TREE_REFS (sym), 4, 1);
@@ -472,13 +474,11 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
   VARREF_BB (ref) = bb;
   VARREF_EXPR (ref) = parent_expr;
 
-  /* Add the symbol to the global list of referenced symbols.  On
-     return, IS_NEW will be 1 if this is the first time we see this
-     symbol.  */
-  is_new = add_ref_symbol (sym, &ref_symbols_list);
+  /* Add the symbol to the list of symbols referenced in this function.  */
+  add_ref_symbol (sym);
 
   /* Add this reference to the list of references for the symbol.  */
-  add_ref_to_sym (ref, sym, is_new);
+  add_ref_to_sym (ref, sym);
 
   /* Add this reference to the list of references for the basic block.  */
   add_ref_to_bb (ref, bb);
@@ -493,32 +493,12 @@ create_varref (sym, ref_type, bb, parent_stmt, parent_expr)
    Adds reference REF to the list of references made to symbol SYM.  */
 
 void
-add_ref_to_sym (ref, sym, is_new)
+add_ref_to_sym (ref, sym)
      varref ref;
      tree sym;
-     int is_new;
 {
-  tree_ann ann = TREE_ANN (sym);
-  varref_list ref_list = TREE_REFS (sym);
-
-  if (ann && ref_list)
-    {
-      /* Sanity check.  If the symbol has annotations but we think
-         it's new, then something is wrong.  */
-      if (is_new)
-	abort ();
-
-      push_ref (ref_list, ref);
-    }
-  else
-    {
-      /* Similar sanity check.  If the symbol has no annotations nor
-         references, there is something wrong.  */
-      if (!is_new && TREE_ANN (sym) == NULL)
-	abort ();
-
-      get_tree_ann (sym)->refs = create_varref_list (ref);
-    }
+  tree_ann ann = get_tree_ann (sym);
+  VARRAY_PUSH_GENERIC_PTR (ann->refs, ref);
 }
 
 /* }}} */
@@ -532,193 +512,66 @@ add_ref_to_bb (ref, bb)
      varref ref;
      basic_block bb;
 {
-  if (BB_ANN (bb) && BB_REFS (bb))
-    push_ref (BB_REFS (bb), ref);
-  else
-    get_bb_ann (bb)->refs = create_varref_list (ref);
+  bb_ann ann = get_bb_ann (bb);
+  VARRAY_PUSH_GENERIC_PTR (ann->refs, ref);
 }
 
 /* }}} */
 
 /* {{{ add_ref_symbol()
 
-   Adds a unique copy of symbol SYM to the list of symbols LISTP.  */
+   Adds a unique copy of symbol SYM to the list of referenced symbols.  */
 
-int
-add_ref_symbol (sym, listp)
-     tree sym;
-     tree *listp;
-{
-  int is_new = 0;
-  tree node = build_tree_list (NULL_TREE, sym);
-
-  if (*listp == NULL_TREE)
-    {
-      *listp = node;
-      is_new = 1;
-    }
-  else
-    {
-      tree last;
-      tree list = *listp;
-
-      if (!chain_member_value (sym, list))
-	{
-	  /* Add a new symbol to the list.  */
-	  last = tree_last (list);
-	  TREE_CHAIN (last) = node;
-	  is_new = 1;
-	}
-    }
-
-  return is_new;
-}
-
-/* }}} */
-
-/* {{{ remove_ann_from_sym()
-
-   Clear the annotations made to symbol SYM.  */
-
-void
-remove_ann_from_sym (sym)
+static void
+add_ref_symbol (sym)
      tree sym;
 {
-  tree_ann ann = TREE_ANN (sym);
+  int i;
 
-  if (ann)
-    {
-      ann->bb = NULL;
-      ann->refs = NULL;
-      ann->currdef = NULL;
-      sym->common.aux = NULL;
-    }
+  /* Look for the SYM in the array of symbols referenced in the function.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (referenced_symbols); i++)
+    if (VARRAY_TREE (referenced_symbols, i) == sym)
+      return;
+
+  /* We didn't find the symbol.  Add it to the list and create a new
+     annotation for the symbol.  */
+  VARRAY_PUSH_TREE (referenced_symbols, sym);
+  create_tree_ann (sym);
 }
 
 /* }}} */
 
 
-/* Manage annotations and lists of references.  */
+/* Manage annotations.  */
 
 /* {{{ get_tree_ann()
 
-   Get the annotation for the given tree. Create a new one if necessary.  */
+   Get the annotation for the given tree.  Create a new one if necessary.  */
 
 tree_ann
 get_tree_ann (t)
      tree t;
 {
-  tree_ann ann = TREE_ANN (t);
+  if (TREE_ANN (t) == NULL)
+    create_tree_ann (t);
 
-  if (ann == NULL)
-    {
-      ann = (tree_ann) ggc_alloc (sizeof (*ann));
-      memset ((void *) ann, 0, sizeof (*ann));
-      t->common.aux = (void *) ann;
-    }
-
-  return ann;
+  return TREE_ANN (t);
 }
 
 /* }}} */
 
-/* {{{ create_varref_list()
+/* {{{ create_tree_ann()
 
-   Create a new list of variable references.  */
+   Create a new annotation for tree T.  */
 
-varref_list
-create_varref_list (ref)
-     varref ref;
+static void
+create_tree_ann (t)
+     tree t;
 {
-  varref_list list;
-  varref_node node;
-
-  if (ref == NULL)
-    abort ();
-
-  list = (varref_list) ggc_alloc (sizeof (*list));
-  memset ((void *) list, 0, sizeof (*list));
-
-  node = create_node (ref);
-
-  list->first = node;
-  list->last = node;
-
-  return list;
-}
-
-/* }}} */
-
-/* {{{ push_ref()
-
-   Push a variable reference to the end of the list.  */
-
-void
-push_ref (list, ref)
-     varref_list list;
-     varref ref;
-{
-  varref_node node, last;
-
-  if (ref == NULL || list == NULL)
-    abort ();
-
-  node = create_node (ref);
-
-  last = VARREF_LIST_LAST (list);
-  last->next = node;
-  node->prev = last;
-  list->last = node;
-}
-
-/* }}} */
-
-/* {{{ create_node()
-
-   Create a node holder for a varref object.  */
-
-static varref_node
-create_node (ref)
-     varref ref;
-{
-  varref_node node;
-
-  if (ref == NULL)
-    abort ();
-
-  node = (varref_node) ggc_alloc (sizeof (*node));
-  memset ((void *) node, 0, sizeof (*node));
-
-  node->elem = ref;
-
-  return node;
-}
-
-/* }}} */
-
-/* {{{ delete_varref_list()
-
-   Delete all the references to the symbols in *SYMLIST_P.  */
-
-void
-delete_varref_list (symlist_p)
-     tree *symlist_p;
-{
-  tree sym_n;
-  tree symlist;
-
-  if (symlist_p == NULL)
-    abort ();
-
-  symlist = *symlist_p;
-
-  for (sym_n = symlist; sym_n; sym_n = TREE_CHAIN (sym_n))
-    {
-      tree sym = TREE_VALUE (sym_n);
-      remove_ann_from_sym (sym);
-    }
-
-  *symlist_p = NULL;
+  tree_ann ann = (tree_ann) ggc_alloc (sizeof (*ann));
+  memset ((void *) ann, 0, sizeof (*ann));
+  VARRAY_GENERIC_PTR_INIT (ann->refs, 10, "symbol_refs");
+  t->common.aux = (void *) ann;
 }
 
 /* }}} */
@@ -821,14 +674,15 @@ void
 dump_varref_list (outf, prefix, reflist, indent, details)
      FILE *outf;
      const char *prefix;
-     varref_list reflist;
+     varray_type reflist;
      int indent;
      int details;
 {
-  varref_node v;
+  int i;
 
-  for (v = VARREF_LIST_FIRST (reflist); v; v = VARREF_NODE_NEXT (v))
-    dump_varref (outf, prefix, VARREF_NODE_ELEM (v), indent, details);
+  for (i = 0; reflist && i < VARRAY_ACTIVE_SIZE (reflist); i++)
+    dump_varref (outf, prefix, VARRAY_GENERIC_PTR (reflist, i), 
+	         indent, details);
 }
 
 /* }}} */
@@ -839,7 +693,7 @@ dump_varref_list (outf, prefix, reflist, indent, details)
 
 void
 debug_varref_list (reflist)
-     varref_list reflist;
+     varray_type reflist;
 {
   dump_varref_list (stderr, "", reflist, 0, 1);
 }

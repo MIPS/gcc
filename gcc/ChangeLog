@@ -1,3 +1,80 @@
+2001-09-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (tree_find_basic_blocks): Remove call to
+	mark_critical_edges.
+	(create_maximal_bb): Do not create annotations for non-executable
+	statements.
+	(map_stmt_to_bb): Rename basic_block_ann with bb_ann.
+	(delete_cfg): Ditto.
+	(is_exec_stmt): Reformat.
+	(create_bb_ann): New function.
+	* tree-dfa.c (create_node): Remove.
+	(ref_symbols_list): Remove.
+	(create_tree_ann): Declare.
+	(referenced_symbols): Declare.
+	(tree_find_varrefs): Replace usage of linked lists with variable
+	arrays.
+	(create_varref): Remove second argument from call to
+	add_ref_symbol.
+	Update comments.
+	(add_ref_to_sym): Replace usage of linked lists with variable
+	arrays.
+	Declare static.
+	(add_ref_to_bb): Ditto.
+	(add_ref_symbol): Ditto.
+	(dump_varref_list): Ditto.
+	(debug_varref_list): Ditto.
+	(create_varref_list): Remove.
+	(push_ref): Remove.
+	(create_node): Remove.
+	(delete_varref_list): Remove.
+	(get_tree_ann): Call create_tree_ann if the tree doesn't have an
+	annotation already.
+	(create_tree_ann): New function.
+	* tree-flow.h (varref_list_def): Remove.
+	(vardef): Change type of field 'imm_uses' to 'varray_type'.
+	(varphi): Change type of field 'phi_chain' to 'varray_type'.
+	(varref_node_def): Remove.
+	(varref_node): Remove.
+	(VARREF_NODE_ELEM): Remove.
+	(VARREF_NODE_NEXT): Remove.
+	(VARREF_NODE_PREV): Remove.
+	(varref_list_def): Remove.
+	(varref_list): Remove.
+	(VARREF_LIST_FIRST): Remove.
+	(VARREF_LIST_LAST): Remove.
+	(tree_ann_def): Change type of field 'refs' to 'varray_type'.
+	(basic_block_ann_def): Rename to 'bb_ann_def'.
+	Change type of field 'refs' to 'varray_type'.
+	(basic_block_ann): Rename to 'bb_ann'.
+	(ref_symbols_list): Remove.
+	(referenced_symbols): Declare.
+	(add_ref_to_sym): Remove.
+	(add_ref_to_bb): Remove.
+	(add_ref_symbol): Remove.
+	(remove_ann_from_sym): Remove.
+	(create_varref_list): Remove.
+	(push_ref): Remove.
+	(delete_varref_list): Remove.
+	(debug_varref_list): Update argument type to be 'varray_type'.
+	(dump_varref_list): Ditto.
+	* tree-optimize.c: Include 'basic-block.h'.
+	(optimize_tree): Replace references to 'ref_symbols_list' with
+	'referenced_symbols'.
+	Remove call to delete_varref_list.
+	* tree-ssa.c (insert_phi_terms): Rename 'work_list' to
+	'work_stack'.
+	Use VARRAY_PUSH and VARRAY_TOP to access 'work_stack' instead of
+	maintaining the stack pointer in 'work_list_top'.
+	Remove code to grow 'work_stack'.
+	Remove references to 'work_list_top'.
+	Replace references to 'ref_symbols_list' with 'referenced_symbols'.
+	(build_fud_chains): Replace references to 'ref_symbols_list' with
+	'referenced_symbols'.
+	(search_fud_chains): If there are no variable references in the
+	basic block, return early.
+	Change usage of linked lists with variable arrays.
+
 2001-09-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (tree_find_basic_blocks): Document how to traverse
