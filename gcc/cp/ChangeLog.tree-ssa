@@ -43,6 +43,7 @@
 	PR c++/14452
 	* tree.c (stabilize_init): Return whether or not it worked.
 	* init.c (build_new_1): If not, use a sentry.
+	* cp-tree.h: Adjust prototype.
 
 2004-03-01  Jeff Law  <law@redhat.com>
 
