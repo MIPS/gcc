@@ -714,18 +714,11 @@ voidify_wrapper_expr (tree wrapper)
 	  break;
 	}
 
-      /* Advance.  Set up the substatements appropriately for what we
-	 will have when we're done.  */
+      /* Advance to the last statement.  Set all container types to void.  */
       if (TREE_CODE (*p) == STATEMENT_LIST)
 	{
-	  tree_stmt_iterator i;
-	  for (i = tsi_start (*p); !tsi_one_before_end_p (i); tsi_next (&i))
-	    {
-	      tree t = tsi_stmt (i);
-	      TREE_SIDE_EFFECTS (t) = 1;
-	      TREE_TYPE (t) = void_type_node;
-	    }
-	  p = tsi_stmt_ptr (i);
+	  tree_stmt_iterator i = tsi_last (*p);
+	  p = tsi_end_p (i) ? NULL : tsi_stmt_ptr (i);
 	}
       else
 	{ 
@@ -736,12 +729,12 @@ voidify_wrapper_expr (tree wrapper)
 	    }
 	}
 
-      if (TREE_CODE (*p) == INIT_EXPR)
+      if (p && TREE_CODE (*p) == INIT_EXPR)
 	{
 	  /* The C++ frontend already did this for us.  */;
 	  temp = TREE_OPERAND (*p, 0);
 	}
-      else if (TREE_CODE (*p) == INDIRECT_REF)
+      else if (p && TREE_CODE (*p) == INDIRECT_REF)
 	{
 	  /* If we're returning a dereference, move the dereference outside
 	     the wrapper.  */
@@ -756,7 +749,7 @@ voidify_wrapper_expr (tree wrapper)
       else
 	{
 	  temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
-	  if (!IS_EMPTY_STMT (*p))
+	  if (p && !IS_EMPTY_STMT (*p))
 	    {
 	      *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
 	      TREE_SIDE_EFFECTS (wrapper) = 1;

@@ -1,3 +1,8 @@
+2003-11-14  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (voidify_wrapper_expr): Don't clobber TREE_TYPE of
+	statements in a STATEMENT_LIST.  Be prepared for an empty list.
+
 2003-11-14  Steven Bosscher  <stevenb@suse.de>
 
 	* jump.c (never_reached_warning): Remove function.
