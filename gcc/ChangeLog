@@ -1,3 +1,9 @@
+2003-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload.c (find_reloads): Do not use the mode specified in the insn
+	pattern as reload mode for address operands.  Do not generate optional
+	reloads for operands where a mandatory reload was already pushed.
+
 2003-03-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/ia64.c (ia64_expand_op_and_fetch): Fix comment.
