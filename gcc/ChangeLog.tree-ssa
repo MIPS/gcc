@@ -1,3 +1,11 @@
+2002-02-18  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c (visit_assignment): For simple copies, copy the
+	lattice values.
+	(defs_to_undefined): Add missing abort.
+	(replace_uses_in): Do not do a replacement if it would create
+	non GIMPLE trees.
+
 2002-02-14  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (def_to_undefined): Improve sanity checking code

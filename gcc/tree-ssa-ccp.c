@@ -519,9 +519,21 @@ visit_assignment (stmt)
     abort ();
 #endif
 
-  /* Evaluate the statement.  */
-  val = evaluate_stmt (stmt);
-
+  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+      && TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+    {
+      /* For a simple copy operation, we copy the lattice
+         values.  */
+      value *nval = get_value (TREE_OPERAND (stmt, 1));
+       
+      val.lattice_val = nval->lattice_val;
+      val.const_val = nval->const_val;
+    }
+  else
+    {
+      /* Evaluate the statement.  */
+      val = evaluate_stmt (stmt);
+    }
   /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
@@ -842,6 +854,7 @@ def_to_undefined (var)
      except for values which are initialized to VARYING.  */
   if (value->lattice_val == VARYING
       && get_default_value (var).lattice_val != VARYING)
+    abort ();
 #endif
 
   if (value->lattice_val != UNDEFINED)
@@ -952,7 +965,7 @@ replace_uses_in (stmt)
       tree *use = VARRAY_GENERIC_PTR (uses, i);
       value *val = get_value (*use);
 
-      if (val->lattice_val == CONSTANT)
+      if (val->lattice_val == CONSTANT && is_simple_val (val->const_val))
 	{
 	  *use = val->const_val;
 	  replaced = true;
