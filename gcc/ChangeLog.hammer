@@ -1,3 +1,10 @@
+2003-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* config/i386/i386-protos.h (function_arg_pass_by_reference): Declare.
+	* config/i386/i386.h (FUNCTION_ARG_PASS_BY_REFERENCE): Use it.
+	* config/i386/i386.c (function_arg_pass_by_reference): New.
+	(ix86_va_arg): Support arguments passed by reference.
+
 Thu Jan 23 16:52:55 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (hammer-3_3-merge-20032301 tag.)
