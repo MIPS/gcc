@@ -1,5 +1,11 @@
 2004-12-01  Michael Koch  <konqueror@gmx.de>
 
+	* java/awt/geom/Area.java
+	(QuadSegment.curveArea): Remove unused variables.
+	(CubicSegment.curveArea): Likewise.
+
+2004-12-01  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTree.java
 	(ANCHOR_SELECTION_PATH_PROPERTY): Added @since tag.
 	(LEAD_SELECTION_PATH_PROPERTY): Likewise.
