@@ -41,7 +41,7 @@ gtfiles="\$(srcdir)/ada/ada-tree.h \$(srcdir)/ada/gigi.h \$(srcdir)/ada/decl.c \
 
 target_libs="target-libada"
 # NCN added gnattools...
-lang_dirs="gnatttools"
+lang_dirs="gnattools"
 
 # Ada will not work until the front end starts emitting GIMPLE trees.
 build_by_default=no
