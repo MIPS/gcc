@@ -820,6 +820,10 @@ ftree-ccp
 Common Report Var(flag_tree_ccp)
 Enable SSA-CCP optimization on trees
 
+ftree-store-ccp
+Common Report Var(flag_tree_store_ccp)
+Enable SSA-CCP optimization for stores and loads
+
 ftree-ch
 Common Report Var(flag_tree_ch)
 Enable loop header copying on trees

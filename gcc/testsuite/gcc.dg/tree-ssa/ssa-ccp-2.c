@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O1 -fdump-tree-ccp7" } */
+/* { dg-options "-O1 -fdump-tree-ccp2" } */
 
 extern void link_error (void);
 
@@ -168,4 +168,4 @@ int test99999 (void)
 
 /* There should be not link_error calls, if there is any the
    optimization has failed */
-/* { dg-final { scan-tree-dump-times "link_error" 0 "ccp7"} } */
+/* { dg-final { scan-tree-dump-times "link_error" 0 "ccp2"} } */

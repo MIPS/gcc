@@ -267,6 +267,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -320,7 +321,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--ftree-copy-prop @gol
+-ftree-copy-prop -ftree-store-ccp@gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3782,6 +3783,11 @@ appending @file{.alias} to the source file name.
 Dump each function after CCP.  The file name is made by appending
 @file{.ccp} to the source file name.
 
+@item storeccp
+@opindex fdump-tree-storeccp
+Dump each function after STORE-CCP.  The file name is made by appending
+@file{.storeccp} to the source file name.
+
 @item pre
 @opindex fdump-tree-pre
 Dump trees after partial redundancy elimination.  The file name is made
@@ -4635,8 +4641,15 @@ Perform copy propagation on trees.  This pass eliminates unnecessary
 copy operations.  This flag is enabled by default at -O and higher.
 
 @item -ftree-ccp
-Perform sparse conditional constant propagation (CCP) on trees.  This flag
-is enabled by default at @option{-O} and higher.
+Perform sparse conditional constant propagation (CCP) on trees.  This
+pass only operates on local scalar variables and is enabled by default
+at @option{-O} and higher.
+
+@item -ftree-store-ccp
+Perform sparse conditional constant propagation (CCP) on trees.  This
+pass operates on both local scalar variables and memory stores and
+loads (global variables, structures, arrays, etc).  This flag is
+enabled by default at @option{-O2} and higher.
 
 @item -ftree-dce
 Perform dead code elimination (DCE) on trees.  This flag is enabled by

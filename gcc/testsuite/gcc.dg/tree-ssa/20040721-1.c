@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ccp7-vops" } */
+/* { dg-options "-O2 -fdump-tree-ccp2-vops" } */
 
 /* Test to check whether global variables are being
    constant propagated. */
@@ -24,4 +24,4 @@ main ()
 }
 
 /* There should be no G on the RHS of an assignment. */
-/* { dg-final { scan-tree-dump-times "= G;" 0 "ccp7"} } */
+/* { dg-final { scan-tree-dump-times "= G;" 0 "ccp2"} } */

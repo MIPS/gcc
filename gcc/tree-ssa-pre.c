@@ -1077,6 +1077,10 @@ valid_in_set (value_set_t set, tree expr)
       gcc_assert (TREE_CODE (expr) == SSA_NAME);
       return true;
 
+    case tcc_declaration:
+      /* VAR_DECL and PARM_DECL are never anticipatable.  */
+      return false;
+
     default:
       /* No other cases should be encountered.  */
       gcc_unreachable (); 
@@ -1668,32 +1672,49 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
   int i;
   enum tree_code code = TREE_CODE (expr);
   tree vexpr;
+  alloc_pool pool;
 
   gcc_assert (TREE_CODE_CLASS (code) == tcc_unary
 	      || TREE_CODE_CLASS (code) == tcc_binary
 	      || TREE_CODE_CLASS (code) == tcc_reference);
 
   if (TREE_CODE_CLASS (code) == tcc_unary)
-    vexpr = pool_alloc (unary_node_pool);
+    pool = unary_node_pool;
   else if (TREE_CODE_CLASS (code) == tcc_reference)
-    vexpr = pool_alloc (reference_node_pool);
+    pool = reference_node_pool;
   else
-    vexpr = pool_alloc (binary_node_pool);
+    pool = binary_node_pool;
 
+  vexpr = pool_alloc (pool);
   memcpy (vexpr, expr, tree_size (expr));
 
   for (i = 0; i < TREE_CODE_LENGTH (code); i++)
     {
-      tree op = TREE_OPERAND (expr, i);
-      if (op != NULL)
+      tree val, op;
+      
+      op = TREE_OPERAND (expr, i);
+      if (op == NULL_TREE)
+	continue;
+
+      /* If OP is a constant that has overflowed, do not value number
+	 this expression.  */
+      if (TREE_CODE_CLASS (TREE_CODE (op)) == tcc_constant
+	  && TREE_OVERFLOW (op))
 	{
-	  tree val = vn_lookup_or_add (op, vuses);
-	  if (!is_undefined_value (op))
-	    value_insert_into_set (EXP_GEN (block), op);
-	  if (TREE_CODE (val) == VALUE_HANDLE)
-	    TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
-	  TREE_OPERAND (vexpr, i) = val;
+	  pool_free (pool, vexpr);
+	  return NULL;
 	}
+
+      /* Create a value handle for OP and add it to VEXPR.  */
+      val = vn_lookup_or_add (op, vuses);
+
+      if (!is_undefined_value (op))
+	value_insert_into_set (EXP_GEN (block), op);
+
+      if (TREE_CODE (val) == VALUE_HANDLE)
+	TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
+
+      TREE_OPERAND (vexpr, i) = val;
     }
 
   return vexpr;
@@ -1795,17 +1816,20 @@ compute_avail (basic_block block)
 		}	   
 	      else if (UNARY_CLASS_P (rhs)
 		       || BINARY_CLASS_P (rhs)
-		       || TREE_CODE (rhs) == tcc_reference)
+		       || TREE_CODE_CLASS (TREE_CODE (rhs)) == tcc_reference)
 		{
 		  /* For binary, unary, and reference expressions,
 		     create a duplicate expression with the operands
 		     replaced with the value handles of the original
 		     RHS.  */
 		  tree newt = create_value_expr_from (rhs, block, vuses);
-		  add_to_sets (lhs, newt, vuses, TMP_GEN (block),
-			       AVAIL_OUT (block));
-		  value_insert_into_set (EXP_GEN (block), newt);
-		  continue;
+		  if (newt)
+		    {
+		      add_to_sets (lhs, newt, vuses, TMP_GEN (block),
+				   AVAIL_OUT (block));
+		      value_insert_into_set (EXP_GEN (block), newt);
+		      continue;
+		    }
 		}
 	    }
 

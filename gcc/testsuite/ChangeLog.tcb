@@ -1,3 +1,19 @@
+2004-10-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030711-2.c: Update.
+	* gcc.dg/tree-ssa/20030728-1.c: Update.
+	* gcc.dg/tree-ssa/20030731-2.c: Update.
+	* gcc.dg/tree-ssa/20030917-1.c: Update.
+	* gcc.dg/tree-ssa/20030917-3.c: Update.
+	* gcc.dg/tree-ssa/20040721-1.c: Update.
+	* gcc.dg/tree-ssa/20041008-1.c: New test.
+	* gcc.dg/tree-ssa/ssa-ccp-1.c: Update.
+	* gcc.dg/tree-ssa/ssa-ccp-12.c: New test.
+	* gcc.dg/tree-ssa/ssa-ccp-2.c: Update.
+	* gcc.dg/tree-ssa/ssa-ccp-3.c: Update.
+	* gcc.dg/tree-ssa/ssa-ccp-7.c: Update.
+	* gcc.dg/tree-ssa/ssa-ccp-9.c: Update.
+
 2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR tree-opt/17671

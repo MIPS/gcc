@@ -295,7 +295,7 @@ replace_exp (use_operand_p op_p, tree val)
 
 
 /*---------------------------------------------------------------------------
-		 Copy propagation and simplification
+				Copy propagation
 ---------------------------------------------------------------------------*/
 /* During propagation, we keep chains of variables that are copies of
    one another.  If variable X_i is a copy of X_j and X_j is a copy of
@@ -306,6 +306,49 @@ replace_exp (use_operand_p op_p, tree val)
 	COPY_CHAINS[k] = X_k  */
 static tree *copy_chains;
 
+/* Final copy values for each SSA name.  After propagation,
+   SSA_NAME(I) will be known to be a copy of COPY_OF[I].VALUE.  */
+static prop_value_t *copy_of;
+
+/* True if we are doing copy propagation on loads and stores.  */
+static bool do_store_copy_prop;
+
+
+/* Return true if this statement may generate a useful copy.  */
+
+static bool
+stmt_may_generate_copy (tree stmt)
+{
+  tree lhs, rhs;
+  stmt_ann_t ann;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  lhs = TREE_OPERAND (stmt, 0);
+  rhs = TREE_OPERAND (stmt, 1);
+  ann = stmt_ann (stmt);
+
+  /* If the statement has volatile operands, it won't generate a
+     useful copy.  */
+  if (ann->has_volatile_ops)
+    return false;
+
+  /* If we are not doing store copy-prop, statements with loads and/or
+     stores will never generate a useful copy.  */
+  if (!do_store_copy_prop
+      && (ann->makes_aliased_loads
+	  || ann->makes_aliased_stores
+	  || NUM_VUSES (VUSE_OPS (ann)) > 0
+	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
+	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0))
+    return false;
+
+  /* Otherwise, the only statements that generate useful copies are
+     assignments whose RHS is just an SSA name.  */
+  return TREE_CODE (rhs) == SSA_NAME;
+}
+
 
 /* Return true if we should compute immediate uses for SSA_NAME VAR.  */
 
@@ -315,9 +358,7 @@ need_imm_uses_for (tree var)
   /* The only statements that are interesting as seeds for copy
      propagation are those assignments whose RHS is an SSA_NAME.  */
   tree def_stmt = SSA_NAME_DEF_STMT (var);
-  return ((TREE_CODE (def_stmt) == MODIFY_EXPR
-	   && TREE_CODE (TREE_OPERAND (def_stmt, 1)) == SSA_NAME)
-          || TREE_CODE (def_stmt) == PHI_NODE);
+  return stmt_may_generate_copy (def_stmt);
 }
 
 
@@ -334,7 +375,7 @@ get_first_copy_of (tree var)
 	 make it its own copy in COPY_CHAINS and set its value to
 	 NULL.  */
       copy_chains[ver] = var;
-      SSA_NAME_VALUE (var) = NULL_TREE;
+      copy_of[ver].value = NULL_TREE;
     }
 
   return copy_chains[ver];
@@ -356,20 +397,21 @@ get_last_copy_of (tree var)
 }
 
 
-/* Set ORIG to be the first variable in the copy-of chain for DEST.
-   Also set DEST's SSA_NAME_VALUE to the last variable in the copy-of
+/* Set FIRST to be the first variable in the copy-of chain for DEST.
+   Also set DEST's copy-of value to the last variable in the copy-of
    chain for DEST.  If either value has changed, return true.  */
 
 static inline bool
-set_first_copy_of (tree dest, tree orig)
+set_first_copy_of (tree dest, tree first)
 {
-  unsigned int ver = SSA_NAME_VERSION (dest);
-  tree old_first = copy_chains[ver];
-  tree old_val = SSA_NAME_VALUE (dest);
-  copy_chains[ver] = orig;
-  SSA_NAME_VALUE (dest) = get_last_copy_of (orig);
+  unsigned int dest_ver = SSA_NAME_VERSION (dest);
+  tree old_first = copy_chains[dest_ver];
+  tree old_copy_of = copy_of[dest_ver].value;
 
-  return (old_first != orig || old_val != SSA_NAME_VALUE (dest));
+  copy_chains[dest_ver] = first;
+  copy_of[dest_ver].value = get_last_copy_of (first);
+
+  return (old_first != first || old_copy_of != copy_of[dest_ver].value);
 }
 
 
@@ -379,7 +421,6 @@ static void
 dump_copy_of (FILE *dump_file, tree var)
 {
   tree val;
-  tree copy_of;
 
   print_generic_expr (dump_file, var, dump_flags);
 
@@ -388,15 +429,15 @@ dump_copy_of (FILE *dump_file, tree var)
 
   fprintf (dump_file, " copy-of chain: ");
 
-  copy_of = var;
-  print_generic_expr (dump_file, copy_of, 0);
+  val = var;
+  print_generic_expr (dump_file, val, 0);
   fprintf (dump_file, " ");
-  while (copy_chains[SSA_NAME_VERSION (copy_of)]
-         && copy_chains[SSA_NAME_VERSION (copy_of)] != copy_of)
+  while (copy_chains[SSA_NAME_VERSION (val)]
+         && copy_chains[SSA_NAME_VERSION (val)] != val)
     {
       fprintf (dump_file, "-> ");
-      copy_of = SSA_NAME_VALUE (copy_of);
-      print_generic_expr (dump_file, copy_of, 0);
+      val = copy_of[SSA_NAME_VERSION (val)].value;
+      print_generic_expr (dump_file, val, 0);
       fprintf (dump_file, " ");
     }
 
@@ -410,25 +451,27 @@ dump_copy_of (FILE *dump_file, tree var)
 }
 
 
-/* Evaluate the RHS of STMT.  If it produces a new or simpler value
-   than what its LHS currently holds, modify it and store the LHS into
-   *RESULT_P.  */
+/* Evaluate the RHS of STMT.  If it produces a valid copy, set the LHS
+   value and store the LHS into *RESULT_P.  If STMT generates more
+   than one name (i.e., STMT is an aliased store), it is enough to
+   store the first name in the V_MAY_DEF list into *RESULT_P.  After
+   all, the names generated will be VUSEd in the same statements.  */
 
 static enum ssa_prop_result
 copy_prop_visit_assignment (tree stmt, tree *result_p)
 {
-  tree rhs;
+  tree lhs, rhs;
 
-  *result_p = TREE_OPERAND (stmt, 0);
+  lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (*result_p) != SSA_NAME)
-    abort ();
-#endif
-  
-  if (TREE_CODE (rhs) == SSA_NAME)
+  gcc_assert (TREE_CODE (rhs) == SSA_NAME);
+
+  if (TREE_CODE (lhs) == SSA_NAME)
     {
+      /* Straight copy between to SSA names.  */
+      *result_p = lhs;
+
       if  (may_propagate_copy (*result_p, rhs))
 	{
 	  /* FIXME, some copy operations fail 'may_propagate_copy'
@@ -442,6 +485,19 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
 	    return SSA_PROP_NOT_INTERESTING;
 	}
     }
+  else if (stmt_makes_single_store (stmt))
+    {
+      /* Under certain conditions it may be possible to propagate
+	 copies into memory.  If this operation is a store, save the
+	 RHS into the V_MAY_DEF/V_MUST_DEF symbols on the LHS.  */
+      *result_p = first_vdef (stmt);
+
+      if (set_first_copy_of (*result_p, rhs))
+	return SSA_PROP_INTERESTING;
+      else
+	return SSA_PROP_NOT_INTERESTING;
+    }
+
 
   return SSA_PROP_VARYING;
 }
@@ -473,11 +529,12 @@ copy_prop_visit_cond_stmt (tree stmt, edge *taken_edge_p)
       /* Save the original operands.  */
       orig = xmalloc (sizeof (tree) * NUM_USES (uses));
       for (i = 0; i < NUM_USES (uses); i++)
-	orig[i] = USE_OP (uses, i);
+	{
+	  orig[i] = USE_OP (uses, i);
+	  SET_USE_OP (uses, i, get_last_copy_of (USE_OP (uses, i)));
+	}
 
       /* See if we can determine the predicate's value.  */
-      replace_uses_in (stmt, NULL);
-
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Trying to determine truth value of ");
@@ -529,11 +586,12 @@ copy_prop_visit_stmt (tree stmt, edge *taken_edge_p, tree *result_p)
   ann = stmt_ann (stmt);
 
   if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+      && TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
+      && (do_store_copy_prop
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME))
     {
-      /* If the statement is an assignment that produces a single
-	 output value, evaluate its RHS to see if the lattice value of
-	 its output has changed.  */
+      /* If the statement is a copy assignment, evaluate its RHS to
+	 see if the lattice value of its output has changed.  */
       retval = copy_prop_visit_assignment (stmt, result_p);
     }
   else if (TREE_CODE (stmt) == COND_EXPR)
@@ -669,6 +727,9 @@ init_copy_prop (void)
   copy_chains = xmalloc (num_ssa_names * sizeof (*copy_chains));
   memset (copy_chains, 0, num_ssa_names * sizeof (*copy_chains));
 
+  copy_of = xmalloc (num_ssa_names * sizeof (*copy_of));
+  memset (copy_of, 0, num_ssa_names * sizeof (*copy_of));
+
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator si;
@@ -684,13 +745,20 @@ init_copy_prop (void)
 	     lists of the propagator.  */
 	  if (stmt_ends_bb_p (stmt))
 	    DONT_SIMULATE_AGAIN (stmt) = false;
-	  else if (TREE_CODE (stmt) == MODIFY_EXPR
-	           && TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+	  else if (stmt_may_generate_copy (stmt))
 	    DONT_SIMULATE_AGAIN (stmt) = false;
 	  else
 	    {
+	      tree def;
+	      ssa_op_iter iter;
+
 	      /* No need to simulate this statement anymore.  */
 	      DONT_SIMULATE_AGAIN (stmt) = true;
+
+	      /* Mark all the outputs of this statement as not being
+		 the copy of anything.  */
+	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+		set_first_copy_of (def, def);
 	    }
 	}
 
@@ -710,19 +778,19 @@ static void
 fini_copy_prop (void)
 {
   size_t i;
-
+  
   for (i = 1; i < num_ssa_names; i++)
     {
       tree var = ssa_name (i);
       if (var && copy_chains[i] && copy_chains[i] != var)
-	SSA_NAME_VALUE (var) = get_last_copy_of (var);
+	copy_of[i].value = get_last_copy_of (var);
     }
 
-  substitute_and_fold ();
+  substitute_and_fold (copy_of);
   cleanup_tree_cfg ();
-  free_df ();
 
   free (copy_chains);
+  free (copy_of);
 }
 
 
@@ -831,6 +899,8 @@ fini_copy_prop (void)
 void
 execute_copy_prop (void)
 {
+  /* FIXME.  Add pass_store_copy_prop.  */
+  do_store_copy_prop = false;
   init_copy_prop ();
   ssa_propagate (copy_prop_visit_stmt, copy_prop_visit_phi_node);
   fini_copy_prop ();

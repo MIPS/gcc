@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fno-tree-dominator-opts -fdump-tree-ccp7" } */
+/* { dg-options "-O1 -fno-tree-dominator-opts -fdump-tree-ccp2" } */
 
 extern int printf (const char *, ...); 
 
@@ -20,6 +20,6 @@ main ()
 
 
 /* The argument to "printf" should be a constant, not a variable.  */
-/* { dg-final { scan-tree-dump-times "printf.*, 0" 1 "ccp7"} } */
+/* { dg-final { scan-tree-dump-times "printf.*, 0" 1 "ccp2"} } */
   
 

@@ -347,13 +347,13 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
-  NEXT_PASS (pass_dce);
-  NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_fre);
+  NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
@@ -362,33 +362,32 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
-  NEXT_PASS (pass_rename_ssa_copies);
-  NEXT_PASS (pass_ccp);
-  NEXT_PASS (pass_fre);
-  NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_store_ccp);
   NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_fre);
+  NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
-  NEXT_PASS (pass_ccp);
-  NEXT_PASS (pass_copy_prop);
-  NEXT_PASS (pass_dce);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
-  NEXT_PASS (pass_ccp);
-  NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_fre);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_cd_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_tail_calls);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
@@ -510,6 +509,10 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (pass->execute)
     pass->execute ();
 
+  /* Stop timevar.  */
+  if (pass->tv_id)
+    timevar_pop (pass->tv_id);
+
   if (dump_file
       && (pass->properties_provided & (PROP_cfg | PROP_rtl))
 	  == (PROP_cfg | PROP_rtl))
@@ -521,9 +524,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (todo)
     execute_todo (pass->properties_provided, todo);
 
-  /* Close down timevar and dump file.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  /* Flush and close dump file.  */
   if (dump_file_name)
     {
       free ((char *) dump_file_name);

@@ -929,6 +929,10 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 			 || is_call_clobbered (var);
 	  if (!tag_stored_p && !var_stored_p)
 	    continue;
+
+	  if ((unmodifiable_var_p (tag) && !unmodifiable_var_p (var))
+	      || (unmodifiable_var_p (var) && !unmodifiable_var_p (tag)))
+	    continue;
 	     
 	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
 	    {
@@ -1494,26 +1498,7 @@ maybe_create_global_var (struct alias_info *ai)
 	  n_clobbered++;
 	}
 
-      /* Create .GLOBAL_VAR if we have too many call-clobbered
-	 variables.  We also create .GLOBAL_VAR when there no
-	 call-clobbered variables to prevent code motion
-	 transformations from re-arranging function calls that may
-	 have side effects.  For instance,
-
-		foo ()
-		{
-		  int a = f ();
-		  g ();
-		  h (a);
-		}
-
-	 There are no call-clobbered variables in foo(), so it would
-	 be entirely possible for a pass to want to move the call to
-	 f() after the call to g().  If f() has side effects, that
-	 would be wrong.  Creating .GLOBAL_VAR in this case will
-	 insert VDEFs for it and prevent such transformations.  */
-      if (n_clobbered == 0
-	  || ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
+      if (ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
 	create_global_var ();
     }
 

@@ -682,4 +682,84 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
   ssa_prop_fini ();
 }
 
+
+/* Return the first VUSE or V_MAY_DEF operand for STMT.  */
+
+tree
+first_vuse (tree stmt)
+{
+  if (NUM_VUSES (STMT_VUSE_OPS (stmt)) > 0)
+    return VUSE_OP (STMT_VUSE_OPS (stmt), 0);
+  else if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
+    return V_MAY_DEF_OP (STMT_V_MAY_DEF_OPS (stmt), 0);
+  else
+    gcc_unreachable ();
+}
+
+
+/* Return the first V_MAY_DEF or V_MUST_DEF operand for STMT.  */
+
+tree
+first_vdef (tree stmt)
+{
+  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
+    return V_MAY_DEF_RESULT (STMT_V_MAY_DEF_OPS (stmt), 0);
+  else if (NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
+    return V_MUST_DEF_OP (STMT_V_MUST_DEF_OPS (stmt), 0);
+  else
+    gcc_unreachable ();
+}
+
+
+/* Return true if STMT is of the form 'LHS = mem_ref', where 'mem_ref'
+   is a non-volatile pointer dereference, a structure reference or a
+   reference to a single _DECL.  Ignore volatile memory references
+   because they are not interesting for the optimizers.  */
+
+bool
+stmt_makes_single_load (tree stmt)
+{
+  tree rhs;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0
+      && NUM_VUSES (STMT_VUSE_OPS (stmt)) == 0)
+    return false;
+
+  rhs = TREE_OPERAND (stmt, 1);
+  STRIP_NOPS (rhs);
+
+  return (!TREE_THIS_VOLATILE (rhs)
+	  && (DECL_P (rhs)
+	      || TREE_CODE_CLASS (TREE_CODE (rhs)) == tcc_reference));
+}
+
+
+/* Return true if STMT is of the form 'mem_ref = RHS', where 'mem_ref'
+   is a non-volatile pointer dereference, a structure reference or a
+   reference to a single _DECL.  Ignore volatile memory references
+   because they are not interesting for the optimizers.  */
+
+bool
+stmt_makes_single_store (tree stmt)
+{
+  tree lhs;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0
+      && NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) == 0)
+    return false;
+
+  lhs = TREE_OPERAND (stmt, 0);
+  STRIP_NOPS (lhs);
+
+  return (!TREE_THIS_VOLATILE (lhs)
+          && (DECL_P (lhs)
+	      || TREE_CODE_CLASS (TREE_CODE (lhs)) == tcc_reference));
+}
+
 #include "gt-tree-ssa-propagate.h"

@@ -539,6 +539,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_unit_at_a_time = 1;
+      flag_tree_store_ccp = 1;
     }
 
   if (optimize >= 3)

@@ -573,6 +573,8 @@ verify_ssa (void)
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
   bitmap names_defined_in_bb = BITMAP_XMALLOC ();
 
+  verify_stmts ();
+
   timevar_push (TV_TREE_SSA_VERIFY);
 
   /* Keep track of SSA names present in the IL.  */

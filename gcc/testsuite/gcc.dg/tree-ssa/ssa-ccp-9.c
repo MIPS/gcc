@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ccp7" } */
+/* { dg-options "-O1 -fdump-tree-ccp2" } */
 
 /* Check that cprop works for assignments to array elements and structs.  */
 
@@ -51,4 +51,4 @@ test99999 (int *arr, int j)
 
 /* There should be no link_error calls, if there is any, the
    optimization has failed */
-/* { dg-final { scan-tree-dump-times "link_error" 0 "ccp7"} } */
+/* { dg-final { scan-tree-dump-times "link_error" 0 "ccp2"} } */

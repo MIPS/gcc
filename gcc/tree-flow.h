@@ -594,12 +594,36 @@ void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
 /* In tree-ssa-ccp.c  */
-void execute_ssa_ccp (void);
+void execute_ssa_ccp (bool);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
-/* FIXME.  Move these to tree-ssa-propagate.c.  */
-bool replace_uses_in (tree, bool *);
-void substitute_and_fold (void);
+
+/* FIXME.  Move these to tree-ssa-propagate.[ch].  */
+
+struct prop_value_d {
+    /* Lattice value.  Each propagator is free to define its own
+       lattice and this field is only meaningful while propagating.
+       It will not be used by substitute_and_fold.  */
+    unsigned lattice_val;
+
+    /* Propagated value.  */
+    tree value;
+
+    /* If this value is held in an SSA name for a non-register
+       variable, this field holds the actual memory reference
+       associated with this value.  This field is taken from 
+       the LHS of the assignment that generated the associated SSA
+       name.  However, in the case of PHI nodes, this field is copied
+       from the PHI arguments (assuming that all the arguments have
+       the same memory reference).  See replace_vuses_in for a more
+       detailed description.  */
+    tree mem_ref;
+};
+
+typedef struct prop_value_d prop_value_t;
+
+bool replace_uses_in (tree, bool *, prop_value_t *);
+void substitute_and_fold (prop_value_t *);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -708,6 +732,7 @@ static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);
+static inline bool unmodifiable_var_p (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);

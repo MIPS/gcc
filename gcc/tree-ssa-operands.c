@@ -1411,7 +1411,7 @@ get_call_expr_operands (tree stmt, tree expr)
 
   if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
     {
-      /* A 'pure' or a 'const' functions never call clobber anything. 
+      /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
@@ -1469,6 +1469,17 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
       return;
     }
 
+  /* If the variable cannot be modified and this is a V_MAY_DEF or
+     V_MUST_DEF change it into a VUSE.  This happens when read-only
+     variables are marked call-clobbered and/or aliased to writeable
+     variables.  So we only check that this only happens on stores,
+     and not writes to GIMPLE registers.  */
+  if ((flags & opf_is_def) && unmodifiable_var_p (var))
+    {
+      gcc_assert (!is_real_op);
+      flags &= ~opf_is_def;
+    }
+
   if (is_real_op)
     {
       /* The variable is a GIMPLE register.  Add it to real operands.  */
@@ -1500,6 +1511,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		  /* Only regular variables may get a V_MUST_DEF
 		     operand.  */
 		  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
+
 		  /* V_MUST_DEF for non-aliased, non-GIMPLE register 
 		    variable definitions.  */
 		  append_v_must_def (var);
@@ -1528,17 +1540,34 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 
 	  if (flags & opf_is_def)
 	    {
+	      bool added_may_defs_p = false;
+
 	      /* If the variable is also an alias tag, add a virtual
 		 operand for it, otherwise we will miss representing
 		 references to the members of the variable's alias set.
 		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
-		append_v_may_def (var);
+		{
+		  added_may_defs_p = true;
+		  append_v_may_def (var);
+		}
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_v_may_def (VARRAY_TREE (aliases, i));
+		{
+		  /* While VAR may be modifiable, some of its aliases
+		     may not be.  If that's the case, we don't really
+		     need to add them a V_MAY_DEF for them.  */
+		  tree alias = VARRAY_TREE (aliases, i);
+		  if (unmodifiable_var_p (alias))
+		    append_vuse (alias);
+		  else
+		    {
+		      append_v_may_def (alias);
+		      added_may_defs_p = true;
+		    }
+		}
 
-	      if (s_ann)
+	      if (s_ann && added_may_defs_p)
 		s_ann->makes_aliased_stores = 1;
 	    }
 	  else
@@ -1645,8 +1674,7 @@ add_call_clobber_ops (tree stmt, tree callee)
 		 that the call will not affect VAR if all these
 		 conditions are met.  One would think that
 		 TREE_READONLY should be sufficient.  */
-	      else if (TREE_READONLY (var)
-		       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+	      else if (unmodifiable_var_p (var))
 		add_stmt_operand (&var, stmt, opf_none);
 	      else
 		add_stmt_operand (&var, stmt, opf_is_def);

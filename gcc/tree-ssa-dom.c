@@ -139,6 +139,8 @@ struct opt_stats_d
   long num_stmts;
   long num_exprs_considered;
   long num_re;
+  long num_const_prop;
+  long num_copy_prop;
 };
 
 static struct opt_stats_d opt_stats;
@@ -268,6 +270,32 @@ static edge single_incoming_edge_ignoring_loop_edges (basic_block);
 static void restore_nonzero_vars_to_original_value (void);
 static inline bool unsafe_associative_fp_binop (tree);
 
+static inline void
+report_dom_prop (tree stmt, tree op, tree val)
+{
+  if (getenv ("DOM_HACK") == NULL)
+    return;
+
+  fprintf (stderr, "\n### DOM tried to propagate ");
+  print_generic_expr (stderr, val, 0);
+  fprintf (stderr, " into operand ");
+  print_generic_expr (stderr, op, 0);
+  fprintf (stderr, " in\n\n");
+  print_generic_stmt (stderr, stmt, TDF_VOPS);
+  fprintf (stderr, "\n");
+
+  if (getenv ("DOM_HACK_ABORT"))
+    {
+      if (dump_file)
+	{
+	  dump_function_to_file (current_function_decl, dump_file, dump_flags);
+	  fflush (dump_file);
+	}
+      abort ();
+    }
+}
+
+
 /* Local version of fold that doesn't introduce cruft.  */
 
 static tree
@@ -387,7 +415,7 @@ tree_ssa_dominator_optimize (void)
       for (i = 0; i < num_referenced_vars; i++)
 	var_ann (referenced_var (i))->current_def = NULL;
     }
-  while (cfg_altered);
+  while (0);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -1263,6 +1291,10 @@ dump_dominator_optimization_stats (FILE *file)
   fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
 	   opt_stats.num_re, PERCENT (opt_stats.num_re,
 				      n_exprs));
+  fprintf (file, "    Constants propagated:                     %6ld\n",
+	   opt_stats.num_const_prop);
+  fprintf (file, "    Copies propagated:                        %6ld\n",
+	   opt_stats.num_copy_prop);
 
   fprintf (file, "\nHash table statistics:\n");
 
@@ -2271,10 +2303,12 @@ cprop_into_successor_phis (basic_block bb, bitmap nonzero_vars)
 	     ORIG_P with its value in our constant/copy table.  */
 	  new = SSA_NAME_VALUE (orig);
 	  if (new
+	      && new != orig
 	      && (TREE_CODE (new) == SSA_NAME
 		  || is_gimple_min_invariant (new))
 	      && may_propagate_copy (orig, new))
 	    {
+	      report_dom_prop (phi, orig, new);
 	      propagate_value (orig_p, new);
 	    }
 	}
@@ -2535,7 +2569,7 @@ cprop_operand (tree stmt, use_operand_p op_p)
      copy of some other variable, use the value or copy stored in
      CONST_AND_COPIES.  */
   val = SSA_NAME_VALUE (op);
-  if (val && TREE_CODE (val) != VALUE_HANDLE)
+  if (val && val != op && TREE_CODE (val) != VALUE_HANDLE)
     {
       tree op_type, val_type;
 
@@ -2545,8 +2579,9 @@ cprop_operand (tree stmt, use_operand_p op_p)
 	 statement.  Also only allow the new value to be an SSA_NAME
 	 for propagation into virtual operands.  */
       if (!is_gimple_reg (op)
-	  && (get_virtual_var (val) != get_virtual_var (op)
-	      || TREE_CODE (val) != SSA_NAME))
+	  && (TREE_CODE (val) != SSA_NAME
+	      || is_gimple_reg (val)
+	      || get_virtual_var (val) != get_virtual_var (op)))
 	return false;
 
       /* Do not replace hard register operands in asm statements.  */
@@ -2604,6 +2639,12 @@ cprop_operand (tree stmt, use_operand_p op_p)
 	      && is_gimple_min_invariant (val)))
 	may_have_exposed_new_symbols = true;
 
+      if (TREE_CODE (val) != SSA_NAME)
+	opt_stats.num_const_prop++;
+      else
+	opt_stats.num_copy_prop++;
+
+      report_dom_prop (stmt, op, val);
       propagate_value (op_p, val);
 
       /* And note that we modified this statement.  This is now
