@@ -859,6 +859,9 @@ compute_alignments ()
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
+      if (!maybe_hot_bb_p (bb))
+	continue;
+
       for (e = bb->pred; e; e = e->pred_next)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
