@@ -57,12 +57,14 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef HAVE_LD_PIE
 #define STARTFILE_SPEC \
-  "%{!shared:%{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}}\
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbeginS.o%s}"
+  "%{!shared:%{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #else
 #define STARTFILE_SPEC \
-  "%{!shared:%{pg|p:gcrt1.o%s;:crt1.o%s}}\
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbeginS.o%s}"
+  "%{!shared:%{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
@@ -74,7 +76,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  ENDFILE_SPEC
 
 #define ENDFILE_SPEC \
-  "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s\
+  "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} crtn.o%s\
    %{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
 
 /* The GNU C++ standard library requires that these macros be defined.  */

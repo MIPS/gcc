@@ -1125,17 +1125,19 @@ do {						\
 %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 #elif defined HAVE_LD_PIE
 #define	STARTFILE_LINUX_SPEC "\
-%{!shared: %{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
-%{mnewlib:ecrti.o%s;:crti.o%s} \
-%{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}} \
+%{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
+%{static:crtbeginT.o%s} \
+%{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #else
 #define	STARTFILE_LINUX_SPEC "\
-%{!shared: %{pg|p:gcrt1.o%s;:crt1.o%s}} \
-%{mnewlib:ecrti.o%s;:crti.o%s} \
-%{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
+%{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
+%{static:crtbeginT.o%s} \
+%{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #endif
 
-#define	ENDFILE_LINUX_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s} \
+#define	ENDFILE_LINUX_SPEC "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} \
 %{mnewlib: ecrtn.o%s} %{!mnewlib: crtn.o%s}"
 
 #define LINK_START_LINUX_SPEC ""

@@ -49,13 +49,12 @@
 	* config/sparc/vxsim.h (ASM_SPEC): Likewise.
 	* config/cris/linux.h (CRIS_ASM_SUBTARGET_SPEC): Likewise.
 	* config/linux.h (STARTFILE_SPEC, ENDFILE_SPEC): Handle -pie.
-	Simplify.
 	* config/alpha/elf.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
-	* config/i386/linux64.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
 	* config/ia64/linux.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
 	* config/rs6000/sysv4.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
 	* config/sparc/linux.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
 	* config/sparc/linux64.h (STARTFILE_SPEC, ENDFILE_SPEC): Likewise.
+	* config/i386/linux64.h (STARTFILE_SPEC, ENDFILE_SPEC): Remove.
 	* doc/invoke.texi: Document -pie, -fpie and -fPIE options.
 
 2003-06-03  Jakub Jelinek  <jakub@redhat.com>

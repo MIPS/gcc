@@ -48,12 +48,16 @@ Boston, MA 02111-1307, USA.  */
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 #elif defined HAVE_LD_PIE
 #define STARTFILE_SPEC \
-  "%{!shared: %{pg|p:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}}\
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+  "%{!shared: \
+     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #else
 #define STARTFILE_SPEC \
-  "%{!shared: %{pg|p:gcrt1.o%s;:crt1.o%s}}\
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+  "%{!shared: \
+     %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
+   %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
 #endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
@@ -65,7 +69,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
-   %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
+   %{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} crtn.o%s"
 
 /* This is for -profile to use -lc_p instead of -lc.  */
 #undef	CC1_SPEC
