@@ -868,7 +868,7 @@ C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 OBJS-common = \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-simple.o  \
- tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
+ tree-alias-type.o gimplify.o tree-pretty-print.o                          \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o	                   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
@@ -897,7 +897,7 @@ OBJS-common = \
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) hashtable.o tree-inline.o	   \
-  tree-optimize.o cgraph.o cgraphunit.o
+  cgraph.o cgraphunit.o tree-nomudflap.o
 
 OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
 
