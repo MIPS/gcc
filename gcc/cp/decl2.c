@@ -975,12 +975,7 @@ grokfield (const cp_declarator *declarator,
   if (TREE_CODE (value) == FUNCTION_DECL)
     {
       if (asmspec)
-	{
-	  /* This must override the asm specifier which was placed
-	     by grokclassfn.  Lay this out fresh.  */
-	  SET_DECL_RTL (value, NULL_RTX);
-	  change_decl_assembler_name (value, get_identifier (asmspec));
-	}
+	set_user_assembler_name (value, asmspec);
       if (!DECL_FRIEND_P (value))
 	grok_special_member_properties (value);
       
@@ -1229,7 +1224,7 @@ finish_anon_union (tree anon_union_decl)
       && at_function_scope_p ())
     add_decl_expr (anon_union_decl);
   else if (!processing_template_decl)
-    rest_of_decl_compilation (anon_union_decl, NULL,
+    rest_of_decl_compilation (anon_union_decl,
 			      toplevel_bindings_p (), at_eof);
 }
 
@@ -1601,7 +1596,7 @@ maybe_emit_vtables (tree ctype)
 
       /* Write it out.  */
       DECL_EXTERNAL (vtbl) = 0;
-      rest_of_decl_compilation (vtbl, NULL, 1, 1);
+      rest_of_decl_compilation (vtbl, 1, 1);
 
       /* Because we're only doing syntax-checking, we'll never end up
 	 actually marking the variable as written.  */
@@ -1614,6 +1609,70 @@ maybe_emit_vtables (tree ctype)
   note_debug_info_needed (ctype);
 
   return true;
+}
+
+/* Like c_determine_visibility, but with additional C++-specific
+   behavior.  */
+
+void
+determine_visibility (tree decl)
+{
+  tree class_type;
+
+  /* Cloned constructors and destructors get the same visibility as
+     the underlying function.  That should be set up in
+     maybe_clone_body.  */
+  my_friendly_assert (!DECL_CLONED_FUNCTION_P (decl), 20040804);
+
+  /* Give the common code a chance to make a determination.  */
+  if (c_determine_visibility (decl))
+    return;
+
+  /* If DECL is a member of a class, visibility specifiers on the
+     class can influence the visibility of the DECL.  */
+  if (DECL_CLASS_SCOPE_P (decl))
+    class_type = DECL_CONTEXT (decl);
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_TINFO_P (decl)
+	   && CLASS_TYPE_P (TREE_TYPE (DECL_NAME (decl))))
+    class_type = TREE_TYPE (DECL_NAME (decl));
+  else
+    {
+      /* Virtual tables have DECL_CONTEXT set to their associated class,
+	 so they are automatically handled above.  */
+      my_friendly_assert (!(TREE_CODE (decl) == VAR_DECL
+			    && DECL_VTABLE_OR_VTT_P (decl)), 20040803);
+      /* Entities not associated with any class just get the
+	 visibility specified by their attributes.  */
+      return;
+    }
+
+  /* By default, static data members and function members receive
+     the visibility of their containing class.  */
+  if (class_type)
+    {
+      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+	{
+	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  return;
+	}
+
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_DECLARED_INLINE_P (decl)
+	  && visibility_options.inlines_hidden)
+	{
+	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	}
+      else
+	{
+	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+	  DECL_VISIBILITY_SPECIFIED (decl)
+	    = CLASSTYPE_VISIBILITY_SPECIFIED (class_type);
+	}
+    }
 }
 
 /* DECL is a FUNCTION_DECL or VAR_DECL.  If the object file linkage
@@ -2495,7 +2554,7 @@ write_out_vars (tree vars)
       if (!var_finalized_p (var))
 	{
 	  import_export_decl (var);
-	  rest_of_decl_compilation (var, 0, 1, 1);
+	  rest_of_decl_compilation (var, 1, 1);
 	}
     }
 }

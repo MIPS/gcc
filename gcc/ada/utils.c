@@ -193,8 +193,7 @@ present_gnu_tree (Entity_Id gnat_entity)
 int
 global_bindings_p (void)
 {
-  return (force_global || !current_binding_level
-	  || !current_binding_level->chain ? -1 : 0);
+  return ((force_global || !current_function_decl) ? -1 : 0);
 }
 
 /* Enter a new binding level. */
@@ -365,7 +364,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
     TYPE_NAME (TREE_TYPE (decl)) = decl;
 
   if (TREE_CODE (decl) != CONST_DECL)
-    rest_of_decl_compilation (decl, NULL, global_bindings_p (), 0);
+    rest_of_decl_compilation (decl, global_bindings_p (), 0);
 }
 
 /* Do little here.  Set up the standard declarations later after the
@@ -425,7 +424,7 @@ gnat_define_builtin (const char *name, tree type,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   gnat_pushdecl (decl, Empty);
   DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -1270,7 +1269,7 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
   else if (code != ENUMERAL_TYPE && code != RECORD_TYPE
       && !((code == POINTER_TYPE || code == REFERENCE_TYPE)
 	   && TYPE_IS_DUMMY_P (TREE_TYPE (type))))
-    rest_of_decl_compilation (type_decl, NULL, global_bindings_p (), 0);
+    rest_of_decl_compilation (type_decl, global_bindings_p (), 0);
 
   if (!TYPE_IS_DUMMY_P (type))
     gnat_pushdecl (type_decl, gnat_node);
@@ -1354,7 +1353,7 @@ create_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
     TREE_ADDRESSABLE (var_decl) = 1;
 
   if (TREE_CODE (var_decl) != CONST_DECL)
-    rest_of_decl_compilation (var_decl, 0, global_bindings_p (), 0);
+    rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
 
   return var_decl;
 }
@@ -1707,7 +1706,7 @@ create_subprog_decl (tree subprog_name, tree asm_name,
   gnat_pushdecl (subprog_decl, gnat_node);
 
   /* Output the assembler code and/or RTL for the declaration.  */
-  rest_of_decl_compilation (subprog_decl, 0, global_bindings_p (), 0);
+  rest_of_decl_compilation (subprog_decl, global_bindings_p (), 0);
 
   return subprog_decl;
 }
@@ -1731,7 +1730,7 @@ begin_subprog_body (tree subprog_decl)
        param_decl = TREE_CHAIN (param_decl))
     DECL_CONTEXT (param_decl) = subprog_decl;
 
-  make_decl_rtl (subprog_decl, NULL);
+  make_decl_rtl (subprog_decl);
 
   /* We handle pending sizes via the elaboration of types, so we don't need to
      save them.  This causes them to be marked as part of the outer function
@@ -2542,7 +2541,7 @@ update_pointer_to (tree old_type, tree new_type)
 	    if (TYPE_NAME (ptr1)
 		&& TREE_CODE (TYPE_NAME (ptr1)) == TYPE_DECL
 		&& TREE_CODE (new_type) != ENUMERAL_TYPE)
-	      rest_of_decl_compilation (TYPE_NAME (ptr1), NULL,
+	      rest_of_decl_compilation (TYPE_NAME (ptr1),
 					global_bindings_p (), 0);
 	  }
 
@@ -2555,7 +2554,7 @@ update_pointer_to (tree old_type, tree new_type)
 	    if (TYPE_NAME (ref1)
 		&& TREE_CODE (TYPE_NAME (ref1)) == TYPE_DECL
 		&& TREE_CODE (new_type) != ENUMERAL_TYPE)
-	      rest_of_decl_compilation (TYPE_NAME (ref1), NULL,
+	      rest_of_decl_compilation (TYPE_NAME (ref1),
 					global_bindings_p (), 0);
 	  }
     }

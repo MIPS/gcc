@@ -94,6 +94,9 @@ alloc_pool rbi_pool;
 
 void debug_flow_info (void);
 static void free_edge (edge);
+
+/* Indicate the presence of the profile.  */
+enum profile_status profile_status;
 
 /* Called once at initialization time.  */
 
@@ -494,6 +497,58 @@ clear_bb_flags (void)
     bb->flags = 0;
 }
 
+/* Check the consistency of profile information.  We can't do that
+   in verify_flow_info, as the counts may get invalid for incompletely
+   solved graphs, later eliminating of conditionals or roundoff errors.
+   It is still practical to have them reported for debugging of simple
+   testcases.  */
+void
+check_bb_profile (basic_block bb, FILE * file)
+{
+  edge e;
+  int sum = 0;
+  gcov_type lsum;
+
+  if (profile_status == PROFILE_ABSENT)
+    return;
+
+  if (bb != EXIT_BLOCK_PTR)
+    {
+      FOR_EACH_EDGE (e, bb->succs)
+	sum += e->probability;
+      END_FOR_EACH_EDGE;
+      if (EDGE_COUNT (bb->succs) && abs (sum - REG_BR_PROB_BASE) > 100)
+	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
+		 sum * 100.0 / REG_BR_PROB_BASE);
+      lsum = 0;
+      FOR_EACH_EDGE (e, bb->succs)
+	lsum += e->count;
+      END_FOR_EACH_EDGE;
+      if (EDGE_COUNT (bb->succs)
+	  && (lsum - bb->count > 100 || lsum - bb->count < -100))
+	fprintf (file, "Invalid sum of outgoing counts %i, should be %i\n",
+		 (int) lsum, (int) bb->count);
+    }
+  if (bb != ENTRY_BLOCK_PTR)
+    {
+      sum = 0;
+      FOR_EACH_EDGE (e, bb->preds)
+	sum += EDGE_FREQUENCY (e);
+      END_FOR_EACH_EDGE;
+      if (abs (sum - bb->frequency) > 100)
+	fprintf (file,
+		 "Invalid sum of incomming frequencies %i, should be %i\n",
+		 sum, bb->frequency);
+      lsum = 0;
+      FOR_EACH_EDGE (e, bb->preds)
+	lsum += e->count;
+      END_FOR_EACH_EDGE;
+      if (lsum - bb->count > 100 || lsum - bb->count < -100)
+	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
+		 (int) lsum, (int) bb->count);
+    }
+}
+
 void
 dump_flow_info (FILE *file)
 {
@@ -553,8 +608,6 @@ dump_flow_info (FILE *file)
   FOR_EACH_BB (bb)
     {
       edge e;
-      int sum;
-      gcov_type lsum;
 
       fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
@@ -583,46 +636,23 @@ dump_flow_info (FILE *file)
 
       fprintf (file, "\nRegisters live at end:");
       dump_regset (bb->global_live_at_end, file);
-
+  
       putc ('\n', file);
 
-      /* Check the consistency of profile information.  We can't do that
-	 in verify_flow_info, as the counts may get invalid for incompletely
-	 solved graphs, later eliminating of conditionals or roundoff errors.
-	 It is still practical to have them reported for debugging of simple
-	 testcases.  */
-      sum = 0;
-      FOR_EACH_EDGE (e, bb->succs)
-	sum += e->probability;
-      END_FOR_EACH_EDGE;
-      
-      if (EDGE_COUNT (bb->succs) > 0 && abs (sum - REG_BR_PROB_BASE) > 100)
-	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
-		 sum * 100.0 / REG_BR_PROB_BASE);
-      sum = 0;
-      FOR_EACH_EDGE (e, bb->preds)
-	sum += EDGE_FREQUENCY (e);
-      END_FOR_EACH_EDGE;
-  
-      if (abs (sum - bb->frequency) > 100)
-	fprintf (file,
-		 "Invalid sum of incomming frequencies %i, should be %i\n",
-		 sum, bb->frequency);
-      lsum = 0;
-      FOR_EACH_EDGE (e, bb->preds)
-	lsum += e->count;
-      END_FOR_EACH_EDGE;
-      if (lsum - bb->count > 100 || lsum - bb->count < -100)
-	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
-		 (int)lsum, (int)bb->count);
-      lsum = 0;
-      FOR_EACH_EDGE (e, bb->succs)
-	lsum += e->count;
-      END_FOR_EACH_EDGE;
-      if (EDGE_COUNT (bb->succs) > 0
-	&& (lsum - bb->count > 100 || lsum - bb->count < -100))
-	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
-		 (int)lsum, (int)bb->count);
+      if (bb->global_live_at_start)
+	{
+	  fprintf (file, "\nRegisters live at start:");
+	  dump_regset (bb->global_live_at_start, file);
+	}
+
+      if (bb->global_live_at_end)
+	{
+	  fprintf (file, "\nRegisters live at end:");
+	  dump_regset (bb->global_live_at_end, file);
+	}
+
+      putc ('\n', file);
+      check_bb_profile (bb, file);
     }
 
   putc ('\n', file);

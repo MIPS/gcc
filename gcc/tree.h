@@ -1862,7 +1862,7 @@ struct tree_binfo GTY (())
 #define DECL_RTL(NODE)					\
   (DECL_CHECK (NODE)->decl.rtl				\
    ? (NODE)->decl.rtl					\
-   : (make_decl_rtl (NODE, NULL), (NODE)->decl.rtl))
+   : (make_decl_rtl (NODE), (NODE)->decl.rtl))
 /* Set the DECL_RTL for NODE to RTL.  */
 #define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
 /* Returns nonzero if the DECL_RTL for NODE has already been set.  */
@@ -2658,6 +2658,13 @@ extern void replace_ssa_name_symbol (tree, tree);
 extern void ssanames_print_statistics (void);
 #endif
 
+extern void mark_for_rewrite (tree);
+extern void unmark_all_for_rewrite (void);
+extern bool marked_for_rewrite_p (tree);
+extern bool any_marked_for_rewrite_p (void);
+extern struct bitmap_head_def *marked_ssa_names (void);
+
+
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
 
@@ -2887,10 +2894,13 @@ extern tree lookup_attribute (const char *, tree);
 
 extern tree merge_attributes (tree, tree);
 
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 /* Given two Windows decl attributes lists, possibly including
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes (tree, tree);
+
+/* Handle a "dllimport" or "dllexport" attribute.  */
+extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 #endif
 
 /* Check whether CAND is suitable to be returned from get_qualified_type
@@ -3318,11 +3328,6 @@ extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) tree current_function_func_begin_label;
-
-/* A DECL for the current file-scope context.  When using IMA, this heads a
-   chain of FILE_DECLs; currently only C uses it.  */
-
-extern GTY(()) tree current_file_decl;
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
@@ -3347,22 +3352,12 @@ extern void expand_decl_init (tree);
 extern void expand_label (tree);
 extern void expand_goto (tree);
 extern void expand_asm (tree, int);
-extern void expand_start_cond (tree, int);
-extern void expand_end_cond (void);
-extern void expand_start_else (void);
-extern void expand_start_elseif (tree);
 
 extern void expand_stack_alloc (tree, tree);
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
 extern int is_body_block (tree);
-
-extern struct nesting * current_nesting_level (void);
-extern void expand_start_case (tree);
-extern void expand_end_case_type (tree, tree);
-#define expand_end_case(cond) expand_end_case_type (cond, NULL)
-extern void add_case_node (tree, tree, tree);
 
 /* In tree-eh.c */
 extern void using_eh_for_cleanups (void);
@@ -3382,7 +3377,8 @@ extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
 
-extern int force_fit_type (tree, int);
+extern tree force_fit_type (tree, int, bool, bool);
+
 extern int add_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 		       unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
@@ -3601,7 +3597,7 @@ extern void internal_reference_types (void);
 extern unsigned int update_alignment_for_field (record_layout_info, tree,
                                                 unsigned int);
 /* varasm.c */
-extern void make_decl_rtl (tree, const char *);
+extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
@@ -3610,9 +3606,9 @@ extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
+extern void set_user_assembler_name (tree, const char *);
 
 /* In stmt.c */
-extern void emit_nop (void);
 extern void expand_computed_goto (tree);
 extern bool parse_output_constraint (const char **, int, int, int,
 				     bool *, bool *, bool *);
@@ -3622,8 +3618,7 @@ extern void expand_asm_operands (tree, tree, tree, tree, int, location_t);
 extern void expand_asm_expr (tree);
 extern bool asm_op_is_mem_input (tree, tree);
 extern tree resolve_asm_operand_names (tree, tree, tree);
-extern void init_stmt_for_function (void);
-extern void expand_elseif (tree);
+extern void expand_case (tree);
 extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
 
@@ -3774,5 +3769,8 @@ extern bool in_gimple_form;
 
 tree lower_bound_in_type (tree, tree);
 tree upper_bound_in_type (tree, tree);
+
+/* In tree-ssa-threadupdate.c.  */
+extern bool thread_through_all_blocks (void);
 
 #endif  /* GCC_TREE_H  */

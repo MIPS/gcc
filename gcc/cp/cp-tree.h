@@ -708,7 +708,7 @@ struct language_function GTY(())
 {
   struct c_language_function base;
 
-  tree x_dtor_label;
+  tree x_cdtor_label;
   tree x_current_class_ptr;
   tree x_current_class_ref;
   tree x_eh_spec_block;
@@ -735,10 +735,12 @@ struct language_function GTY(())
 
 #define cp_function_chain (cfun->language)
 
-/* In a destructor, the point at which all derived class destroying
-   has been done, just before any base class destroying will be done.  */
+/* In a constructor destructor, the point at which all derived class
+   destroying/contruction has been has been done. Ie. just before a
+   constuctor returns, or before any base class destroying will be done
+   in a destructor.  */
 
-#define dtor_label cp_function_chain->x_dtor_label
+#define cdtor_label cp_function_chain->x_cdtor_label
 
 /* When we're processing a member function, current_class_ptr is the
    PARM_DECL for the `this' pointer.  The current_class_ref is an
@@ -3740,7 +3742,7 @@ extern int init_type_desc			(void);
 extern tree check_tag_decl			(cp_decl_specifier_seq *);
 extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
-extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree);
+extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, bool *);
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
@@ -3825,6 +3827,7 @@ extern tree finish_table (tree, tree, tree, int);
 extern tree coerce_new_type (tree);
 extern tree coerce_delete_type (tree);
 extern void comdat_linkage (tree);
+extern void determine_visibility (tree);
 extern void import_export_decl (tree);
 extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree     (tree, tree);

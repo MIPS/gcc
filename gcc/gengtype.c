@@ -24,8 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "gengtype.h"
 #include "gtyp-gen.h"
-
-#define NO_GENRTL_H
 #include "rtl.h"
 #undef abort
 
@@ -314,7 +312,7 @@ create_option (const char *name, void *info)
 {
   options_p o = XNEW (struct options);
   o->name = name;
-  o->info = info;
+  o->info = (const char*) info;
   return o;
 }
 
@@ -449,24 +447,24 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	       number notes.  */
 	  case NOTE_INSN_MAX:
 	    note_flds->opt->name = "default";
-	    note_flds->name = "rtstr";
+	    note_flds->name = "rt_str";
 	    note_flds->type = &string_type;
 	    break;
 
 	  case NOTE_INSN_BLOCK_BEG:
 	  case NOTE_INSN_BLOCK_END:
-	    note_flds->name = "rttree";
+	    note_flds->name = "rt_tree";
 	    note_flds->type = tree_tp;
 	    break;
 
 	  case NOTE_INSN_EXPECTED_VALUE:
 	  case NOTE_INSN_VAR_LOCATION:
-	    note_flds->name = "rtx";
+	    note_flds->name = "rt_rtx";
 	    note_flds->type = rtx_tp;
 	    break;
 
 	  default:
-	    note_flds->name = "rtint";
+	    note_flds->name = "rt_int";
 	    note_flds->type = scalar_tp;
 	    break;
 	  }
@@ -497,48 +495,48 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    case 'n':
 	    case 'w':
 	      t = scalar_tp;
-	      subname = "rtint";
+	      subname = "rt_int";
 	      break;
 
 	    case '0':
 	      if (i == MEM && aindex == 1)
-		t = mem_attrs_tp, subname = "rtmem";
+		t = mem_attrs_tp, subname = "rt_mem";
 	      else if (i == JUMP_INSN && aindex == 9)
-		t = rtx_tp, subname = "rtx";
+		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == CODE_LABEL && aindex == 4)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == CODE_LABEL && aindex == 5)
-		t = rtx_tp, subname = "rtx";
+		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == LABEL_REF
 		       && (aindex == 1 || aindex == 2))
-		t = rtx_tp, subname = "rtx";
+		t = rtx_tp, subname = "rt_rtx";
 	      else if (i == NOTE && aindex == 4)
 		t = note_union_tp, subname = "";
 	      else if (i == NOTE && aindex >= 7)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == VALUE && aindex == 0)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == REG && aindex == 1)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == REG && aindex == 2)
-		t = reg_attrs_tp, subname = "rtreg";
+		t = reg_attrs_tp, subname = "rt_reg";
 	      else if (i == SCRATCH && aindex == 0)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == SYMBOL_REF && aindex == 1)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else if (i == SYMBOL_REF && aindex == 2)
-		t = tree_tp, subname = "rttree";
+		t = tree_tp, subname = "rt_tree";
 	      else if (i == BARRIER && aindex >= 3)
-		t = scalar_tp, subname = "rtint";
+		t = scalar_tp, subname = "rt_int";
 	      else
 		{
 		  error_at_line (&lexer_line,
 			"rtx type `%s' has `0' in position %lu, can't handle",
 				 rtx_name[i], (unsigned long) aindex);
 		  t = &string_type;
-		  subname = "rtint";
+		  subname = "rt_int";
 		}
 	      break;
 
@@ -546,34 +544,34 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	    case 'S':
 	    case 'T':
 	      t = &string_type;
-	      subname = "rtstr";
+	      subname = "rt_str";
 	      break;
 
 	    case 'e':
 	    case 'u':
 	      t = rtx_tp;
-	      subname = "rtx";
+	      subname = "rt_rtx";
 	      break;
 
 	    case 'E':
 	    case 'V':
 	      t = rtvec_tp;
-	      subname = "rtvec";
+	      subname = "rt_rtvec";
 	      break;
 
 	    case 't':
 	      t = tree_tp;
-	      subname = "rttree";
+	      subname = "rt_tree";
 	      break;
 
 	    case 'b':
 	      t = bitmap_tp;
-	      subname = "rtbit";
+	      subname = "rt_bit";
 	      break;
 
 	    case 'B':
 	      t = basic_block_tp;
-	      subname = "bb";
+	      subname = "rt_bb";
 	      break;
 
 	    default:
@@ -582,7 +580,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 			     rtx_name[i], rtx_format[i][aindex],
 			     (unsigned long)aindex);
 	      t = &string_type;
-	      subname = "rtint";
+	      subname = "rt_int";
 	      break;
 	    }
 
@@ -730,7 +728,7 @@ adjust_field_type (type_p t, options_p opt)
       }
     else if (strcmp (opt->name, "special") == 0)
       {
-	const char *special_name = (const char *)opt->info;
+	const char *special_name = opt->info;
 	if (strcmp (special_name, "tree_exp") == 0)
 	  t = adjust_field_tree_exp (t, opt);
 	else if (strcmp (special_name, "rtx_def") == 0)
@@ -1476,7 +1474,7 @@ walk_type (type_p t, struct walk_type_data *d)
   d->needs_cast_p = false;
   for (oo = d->opt; oo; oo = oo->next)
     if (strcmp (oo->name, "length") == 0)
-      length = (const char *)oo->info;
+      length = oo->info;
     else if (strcmp (oo->name, "maybe_undef") == 0)
       maybe_undef_p = 1;
     else if (strncmp (oo->name, "use_param", 9) == 0
@@ -1485,7 +1483,7 @@ walk_type (type_p t, struct walk_type_data *d)
     else if (strcmp (oo->name, "use_params") == 0)
       use_params_p = 1;
     else if (strcmp (oo->name, "desc") == 0)
-      desc = (const char *)oo->info;
+      desc = oo->info;
     else if (strcmp (oo->name, "nested_ptr") == 0)
       nested_ptr_d = (const struct nested_ptr_data *) oo->info;
     else if (strcmp (oo->name, "dot") == 0)
@@ -1728,7 +1726,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	/* Some things may also be defined in the structure's options.  */
 	for (o = t->u.s.opt; o; o = o->next)
 	  if (! desc && strcmp (o->name, "desc") == 0)
-	    desc = (const char *)o->info;
+	    desc = o->info;
 
 	d->prev_val[2] = oldval;
 	d->prev_val[1] = oldprevval2;
@@ -1759,15 +1757,15 @@ walk_type (type_p t, struct walk_type_data *d)
 	    d->reorder_fn = NULL;
 	    for (oo = f->opt; oo; oo = oo->next)
 	      if (strcmp (oo->name, "dot") == 0)
-		dot = (const char *)oo->info;
+		dot = oo->info;
 	      else if (strcmp (oo->name, "tag") == 0)
-		tagid = (const char *)oo->info;
+		tagid = oo->info;
 	      else if (strcmp (oo->name, "skip") == 0)
 		skip_p = 1;
 	      else if (strcmp (oo->name, "default") == 0)
 		default_p = 1;
 	      else if (strcmp (oo->name, "reorder") == 0)
-		d->reorder_fn = (const char *)oo->info;
+		d->reorder_fn = oo->info;
 	      else if (strncmp (oo->name, "use_param", 9) == 0
 		       && (oo->name[9] == '\0' || ISDIGIT (oo->name[9])))
 		use_param_p = 1;
@@ -1956,9 +1954,9 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 
   for (opt = s->u.s.opt; opt; opt = opt->next)
     if (strcmp (opt->name, "chain_next") == 0)
-      chain_next = (const char *) opt->info;
+      chain_next = opt->info;
     else if (strcmp (opt->name, "chain_prev") == 0)
-      chain_prev = (const char *) opt->info;
+      chain_prev = opt->info;
 
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
@@ -2489,7 +2487,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 	      if (strcmp (o->name, "skip") == 0)
 		skip_p = 1;
 	      else if (strcmp (o->name, "desc") == 0)
-		desc = (const char *)o->info;
+		desc = o->info;
 	      else
 		error_at_line (line,
 		       "field `%s' of global `%s' has unknown option `%s'",
@@ -2509,7 +2507,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 
 		    for (oo = ufld->opt; oo; oo = oo->next)
 		      if (strcmp (oo->name, "tag") == 0)
-			tag = (const char *)oo->info;
+			tag = oo->info;
 		    if (tag == NULL || strcmp (tag, desc) != 0)
 		      continue;
 		    if (validf != NULL)
@@ -2695,7 +2693,7 @@ write_roots (pair_p variables)
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
-	  length = (const char *)o->info;
+	  length = o->info;
 	else if (strcmp (o->name, "deletable") == 0)
 	  deletable_p = 1;
 	else if (strcmp (o->name, "param_is") == 0)
@@ -2820,7 +2818,7 @@ write_roots (pair_p variables)
 	if (strcmp (o->name, "length") == 0)
 	  length_p = 1;
 	else if (strcmp (o->name, "if_marked") == 0)
-	  if_marked = (const char *) o->info;
+	  if_marked = o->info;
 
       if (if_marked == NULL)
 	continue;

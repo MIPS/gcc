@@ -21,10 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_RTL_H
 #define GCC_RTL_H
+
 #include "statistics.h"
-
-struct function;
-
 #include "machmode.h"
 #include "input.h"
 
@@ -161,19 +159,19 @@ typedef struct reg_attrs GTY(())
 
 union rtunion_def
 {
-  int rtint;
-  unsigned int rtuint;
-  const char *rtstr;
-  rtx rtx;
-  rtvec rtvec;
-  enum machine_mode rttype;
+  int rt_int;
+  unsigned int rt_uint;
+  const char *rt_str;
+  rtx rt_rtx;
+  rtvec rt_rtvec;
+  enum machine_mode rt_type;
   addr_diff_vec_flags rt_addr_diff_vec_flags;
   struct cselib_val_struct *rt_cselib;
-  struct bitmap_head_def *rtbit;
-  tree rttree;
-  struct basic_block_def *bb;
-  mem_attrs *rtmem;
-  reg_attrs *rtreg;
+  struct bitmap_head_def *rt_bit;
+  tree rt_tree;
+  struct basic_block_def *rt_bb;
+  mem_attrs *rt_mem;
+  reg_attrs *rt_reg;
 };
 typedef union rtunion_def rtunion;
 
@@ -602,15 +600,15 @@ do {				\
   _rtx->return_val = 0;		\
 } while (0)
 
-#define XINT(RTX, N)	(RTL_CHECK2 (RTX, N, 'i', 'n').rtint)
-#define XSTR(RTX, N)	(RTL_CHECK2 (RTX, N, 's', 'S').rtstr)
-#define XEXP(RTX, N)	(RTL_CHECK2 (RTX, N, 'e', 'u').rtx)
-#define XVEC(RTX, N)	(RTL_CHECK2 (RTX, N, 'E', 'V').rtvec)
-#define XMODE(RTX, N)	(RTL_CHECK1 (RTX, N, 'M').rttype)
-#define XBITMAP(RTX, N) (RTL_CHECK1 (RTX, N, 'b').rtbit)
-#define XTREE(RTX, N)   (RTL_CHECK1 (RTX, N, 't').rttree)
-#define XBBDEF(RTX, N)	(RTL_CHECK1 (RTX, N, 'B').bb)
-#define XTMPL(RTX, N)	(RTL_CHECK1 (RTX, N, 'T').rtstr)
+#define XINT(RTX, N)	(RTL_CHECK2 (RTX, N, 'i', 'n').rt_int)
+#define XSTR(RTX, N)	(RTL_CHECK2 (RTX, N, 's', 'S').rt_str)
+#define XEXP(RTX, N)	(RTL_CHECK2 (RTX, N, 'e', 'u').rt_rtx)
+#define XVEC(RTX, N)	(RTL_CHECK2 (RTX, N, 'E', 'V').rt_rtvec)
+#define XMODE(RTX, N)	(RTL_CHECK1 (RTX, N, 'M').rt_type)
+#define XBITMAP(RTX, N) (RTL_CHECK1 (RTX, N, 'b').rt_bit)
+#define XTREE(RTX, N)   (RTL_CHECK1 (RTX, N, 't').rt_tree)
+#define XBBDEF(RTX, N)	(RTL_CHECK1 (RTX, N, 'B').rt_bb)
+#define XTMPL(RTX, N)	(RTL_CHECK1 (RTX, N, 'T').rt_str)
 
 #define XVECEXP(RTX, N, M)	RTVEC_ELT (XVEC (RTX, N), M)
 #define XVECLEN(RTX, N)		GET_NUM_ELEM (XVEC (RTX, N))
@@ -618,39 +616,39 @@ do {				\
 /* These are like XINT, etc. except that they expect a '0' field instead
    of the normal type code.  */
 
-#define X0INT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtint)
-#define X0UINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtuint)
-#define X0STR(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtstr)
-#define X0EXP(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtx)
-#define X0VEC(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtvec)
-#define X0MODE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rttype)
-#define X0BITMAP(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rtbit)
-#define X0TREE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rttree)
-#define X0BBDEF(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').bb)
+#define X0INT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_int)
+#define X0UINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_uint)
+#define X0STR(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_str)
+#define X0EXP(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_rtx)
+#define X0VEC(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_rtvec)
+#define X0MODE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_type)
+#define X0BITMAP(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rt_bit)
+#define X0TREE(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_tree)
+#define X0BBDEF(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rt_bb)
 #define X0ADVFLAGS(RTX, N) (RTL_CHECK1 (RTX, N, '0').rt_addr_diff_vec_flags)
 #define X0CSELIB(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rt_cselib)
-#define X0MEMATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, MEM).rtmem)
-#define X0REGATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, REG).rtreg)
+#define X0MEMATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, MEM).rt_mem)
+#define X0REGATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, REG).rt_reg)
 
 /* Access a '0' field with any type.  */
 #define X0ANY(RTX, N)	   RTL_CHECK1 (RTX, N, '0')
 
-#define XCINT(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtint)
-#define XCUINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rtuint)
-#define XCSTR(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtstr)
-#define XCEXP(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtx)
-#define XCVEC(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtvec)
-#define XCMODE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rttype)
-#define XCBITMAP(RTX, N, C)   (RTL_CHECKC1 (RTX, N, C).rtbit)
-#define XCTREE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rttree)
-#define XCBBDEF(RTX, N, C)    (RTL_CHECKC1 (RTX, N, C).bb)
+#define XCINT(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rt_int)
+#define XCUINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rt_uint)
+#define XCSTR(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rt_str)
+#define XCEXP(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rt_rtx)
+#define XCVEC(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rt_rtvec)
+#define XCMODE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rt_type)
+#define XCBITMAP(RTX, N, C)   (RTL_CHECKC1 (RTX, N, C).rt_bit)
+#define XCTREE(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rt_tree)
+#define XCBBDEF(RTX, N, C)    (RTL_CHECKC1 (RTX, N, C).rt_bb)
 #define XCADVFLAGS(RTX, N, C) (RTL_CHECKC1 (RTX, N, C).rt_addr_diff_vec_flags)
 #define XCCSELIB(RTX, N, C)   (RTL_CHECKC1 (RTX, N, C).rt_cselib)
 
 #define XCVECEXP(RTX, N, M, C)	RTVEC_ELT (XCVEC (RTX, N, C), M)
 #define XCVECLEN(RTX, N, C)	GET_NUM_ELEM (XCVEC (RTX, N, C))
 
-#define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2 (RTX, N, C1, C2).rtx)
+#define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2 (RTX, N, C1, C2).rt_rtx)
 
 /* ACCESS MACROS for particular fields of insns.  */
 
@@ -984,6 +982,12 @@ enum insn_note
   NOTE_INSN_LOOP_CONT,
   /* Generated at the start of a duplicated exit test.  */
   NOTE_INSN_LOOP_VTOP,
+
+  /* Mark that a block shouldn't be scheduled.  This is currently
+     used in modulo scheduling. Modulo scheduling  adds this note
+     to the blocks of the modulo-scheduled loops to disable scheduling
+     them in the later traditional scheduling passes.  */
+  NOTE_DISABLE_SCHED_OF_BLOCK,
 
   /* This kind of note is generated at the end of the function body,
      just before the return insn or return label.  In an optimizing
@@ -1634,6 +1638,8 @@ extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 extern rtx force_const_mem (enum machine_mode, rtx);
 
 /* In varasm.c  */
+
+struct function;
 extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
@@ -1983,7 +1989,7 @@ extern GTY(()) rtx return_address_pointer_rtx;
 
 /* Include the RTL generation functions.  */
 
-#ifndef NO_GENRTL_H
+#ifndef GENERATOR_FILE
 #include "genrtl.h"
 #ifndef USE_MAPPED_LOCATION
 #undef gen_rtx_ASM_OPERANDS
@@ -2109,9 +2115,7 @@ extern int rtx_to_tree_code (enum rtx_code);
 
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
-#ifdef BUFSIZ
 extern int cse_main (rtx, int, int, FILE *);
-#endif
 extern void cse_condition_code_reg (void);
 
 /* In jump.c */
@@ -2192,22 +2196,16 @@ extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
-#ifdef BUFSIZ
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
-#endif
 /* In web.c */
 extern void web_main (void);
 
 /* In sched-rgn.c.  */
-#ifdef BUFSIZ
 extern void schedule_insns (FILE *);
-#endif
 
 /* In sched-ebb.c.  */
-#ifdef BUFSIZ
 extern void schedule_ebbs (FILE *);
-#endif
 
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
@@ -2218,19 +2216,15 @@ extern void debug_rtx (rtx);
 extern void debug_rtx_list (rtx, int);
 extern void debug_rtx_range (rtx, rtx);
 extern rtx debug_rtx_find (rtx, int);
-#ifdef BUFSIZ
 extern void print_mem_expr (FILE *, tree);
 extern void print_rtl (FILE *, rtx);
 extern void print_simple_rtl (FILE *, rtx);
 extern int print_rtl_single (FILE *, rtx);
 extern void print_inline_rtx (FILE *, rtx, int);
-#endif
 
 /* In loop.c */
 extern void init_loop (void);
-#ifdef BUFSIZ
 extern void loop_optimize (rtx, FILE *, int);
-#endif
 extern void branch_target_load_optimize (bool);
 
 /* In function.c */
@@ -2242,7 +2236,6 @@ extern void mark_temp_addr_taken (rtx);
 extern void update_temp_slot_address (rtx, rtx);
 
 /* In stmt.c */
-extern void set_file_and_line_for_stmt (location_t);
 extern void expand_null_return (void);
 extern void expand_naked_return (void);
 extern void emit_jump (rtx);
@@ -2256,10 +2249,8 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 extern void recompute_reg_usage (rtx, int);
 extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
-#ifdef BUFSIZ
 extern void print_rtl_with_bb (FILE *, rtx);
 extern void dump_flow_info (FILE *);
-#endif
 
 /* In expmed.c */
 extern void init_expmed (void);
@@ -2271,18 +2262,14 @@ extern rtx expand_mult_highpart (enum machine_mode, rtx,
 /* In gcse.c */
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
-#ifdef BUFSIZ
 extern int gcse_main (rtx, FILE *);
 extern int bypass_jumps (FILE *);
 extern void gcse_after_reload_main (rtx, FILE *);
-#endif
 
 /* In global.c */
 extern void mark_elimination (int, int);
-#ifdef BUFSIZ
 extern int global_alloc (FILE *);
 extern void dump_global_regs (FILE *);
-#endif
 #ifdef HARD_CONST
 /* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
 extern void retry_global_alloc (int, HARD_REG_SET);
@@ -2311,26 +2298,18 @@ extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
 /* In regmove.c */
-#ifdef BUFSIZ
 extern void regmove_optimize (rtx, int, FILE *);
-#endif
 extern void combine_stack_adjustments (void);
 
 /* In reorg.c */
-#ifdef BUFSIZ
 extern void dbr_schedule (rtx, FILE *);
-#endif
 
 /* In local-alloc.c */
-#ifdef BUFSIZ
 extern void dump_local_alloc (FILE *);
-#endif
 extern int local_alloc (void);
 
 /* In reg-stack.c */
-#ifdef BUFSIZ
 extern bool reg_to_stack (FILE *);
-#endif
 
 /* In calls.c */
 enum libcall_type
@@ -2363,11 +2342,9 @@ extern void init_rtl (void);
 extern void traverse_md_constants (int (*) (void **, void *), void *);
 struct md_constant { char *name, *value; };
 
-#ifdef BUFSIZ
+/* In read-rtl.c */
 extern int read_skip_spaces (FILE *);
 extern rtx read_rtx (FILE *);
-#endif
-
 extern const char *read_rtx_filename;
 extern int read_rtx_lineno;
 
@@ -2442,9 +2419,7 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 extern void reg_alloc (void);
 
 /* In modulo-sched.c.  */
-#ifdef BUFSIZ
 extern void sms_schedule (FILE *);
-#endif
 
 struct rtl_hooks
 {

@@ -1,5 +1,9 @@
 2004-08-18  Ben Elliston  <bje@au.ibm.com>
 
+	* Merge with edge-vector-mergepoint-20040810.
+
+2004-08-18  Ben Elliston  <bje@au.ibm.com>
+
 	* except.c (emit_to_new_bb_before): Eliminate FOR_EACH_EDGE.
 
 2004-08-18  Ben Elliston  <bje@au.ibm.com>

@@ -54,6 +54,7 @@ static void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
 static void builtin_define_with_hex_fp_value (const char *, tree,
 					      int, const char *,
 					      const char *);
+static void builtin_define_stdint_macros (void);
 static void builtin_define_type_max (const char *, tree, int);
 static void builtin_define_type_precision (const char *, tree);
 static void builtin_define_float_constants (const char *, const char *,
@@ -293,6 +294,23 @@ define__GNUC__ (void)
     abort ();
 }
 
+/* Define macros used by <stdint.h>.  Currently only defines limits
+   for intmax_t, used by the testsuite.  */
+static void
+builtin_define_stdint_macros (void)
+{
+  int intmax_long;
+  if (intmax_type_node == long_long_integer_type_node)
+    intmax_long = 2;
+  else if (intmax_type_node == long_integer_type_node)
+    intmax_long = 1;
+  else if (intmax_type_node == integer_type_node)
+    intmax_long = 0;
+  else
+    abort ();
+  builtin_define_type_max ("__INTMAX_MAX__", intmax_type_node, intmax_long);
+}
+
 /* Hook that registers front end and target-specific built-ins.  */
 void
 c_cpp_builtins (cpp_reader *pfile)
@@ -353,6 +371,9 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_type_max ("__WCHAR_MAX__", wchar_type_node, 0);
 
   builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
+
+  /* stdint.h (eventually) and the testsuite need to know these.  */
+  builtin_define_stdint_macros ();
 
   /* float.h needs to know these.  */
 
@@ -426,6 +447,15 @@ c_cpp_builtins (cpp_reader *pfile)
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
   TARGET_OBJFMT_CPP_BUILTINS ();
+
+  /* Support the __declspec keyword by turning them into attributes.
+     Note that the current way we do this may result in a collision
+     with predefined attributes later on.  This can be solved by using
+     one attribute, say __declspec__, and passing args to it.  The
+     problem with that approach is that args are not accumulated: each
+     new appearance would clobber any existing args.  */
+  if (TARGET_DECLSPEC)
+    builtin_define ("__declspec(x)=__attribute__((x))");
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

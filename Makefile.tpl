@@ -484,6 +484,14 @@ PICFLAG_FOR_TARGET =
 # Miscellaneous targets and flag lists
 # ------------------------------------
 
+@if gcc-bootstrap
+# Let's leave this as the first rule in the file until toplevel
+# bootstrap is fleshed out completely.
+sorry:
+	@echo Toplevel bootstrap temporarily out of commission.
+	@echo Please reconfigure without --enable-bootstrap
+@endif gcc-bootstrap
+
 # The first rule in the file had better be this one.  Don't put any above it.
 # This lives here to allow makefile fragments to contain dependencies.
 @default_target@:
@@ -583,7 +591,7 @@ EXTRA_GCC_FLAGS = \
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS)
 
 .PHONY: configure-host
-configure-host: maybe-configure-gcc [+
+configure-host: [+
   FOR host_modules +] \
     maybe-configure-[+module+][+
   ENDFOR host_modules +]
@@ -595,7 +603,7 @@ configure-target: [+
 
 # The target built for a native non-bootstrap build.
 .PHONY: all
-all: all-build all-host all-target
+all: unstage all-build all-host all-target stage
 
 .PHONY: all-build
 all-build: [+
@@ -603,7 +611,7 @@ all-build: [+
     maybe-all-build-[+module+][+
   ENDFOR build_modules +]
 .PHONY: all-host
-all-host: maybe-all-gcc [+
+all-host: [+
   FOR host_modules +] \
     maybe-all-[+module+][+
   ENDFOR host_modules +]
@@ -619,10 +627,10 @@ all-target: [+
 # but it may do additional work as well).
 [+ FOR recursive_targets +]
 .PHONY: do-[+make_target+]
-do-[+make_target+]: [+make_target+]-host [+make_target+]-target
+do-[+make_target+]: unstage [+make_target+]-host [+make_target+]-target stage
 
 .PHONY: [+make_target+]-host
-[+make_target+]-host: maybe-[+make_target+]-gcc [+
+[+make_target+]-host: [+
   FOR host_modules +] \
     maybe-[+make_target+]-[+module+][+
   ENDFOR host_modules +]
@@ -694,13 +702,13 @@ clean-target-libgcc:
 check: do-check
 
 # Only include modules actually being configured and built.
-do-check: maybe-check-gcc [+
+do-check: unstage [+
   FOR host_modules +] \
     maybe-check-[+module+][+
   ENDFOR host_modules +][+
   FOR target_modules +] \
     maybe-check-target-[+module+][+
-  ENDFOR target_modules +]
+  ENDFOR target_modules +] stage
 
 # Automated reporting of test results.
 
@@ -730,12 +738,12 @@ install: installdirs install-host install-target
 
 .PHONY: install-host-nogcc
 install-host-nogcc: [+
-  FOR host_modules +] \
-    maybe-install-[+module+][+
+  FOR host_modules +][+ IF (not (= (get "module") "gcc")) +] \
+    maybe-install-[+module+][+ ENDIF +][+
   ENDFOR host_modules +]
 
 .PHONY: install-host
-install-host: maybe-install-gcc [+
+install-host: [+
   FOR host_modules +] \
     maybe-install-[+module+][+
   ENDFOR host_modules +]
@@ -909,7 +917,10 @@ all-[+module+]: configure-[+module+]
 	(cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	  IF with_x 
 	    +] $(X11_FLAGS_TO_PASS)[+ 
-	  ENDIF with_x +] [+extra_make_flags+] all)
+	  ENDIF with_x +] [+extra_make_flags+] [+
+	  IF (== (get "module") "gcc") +] \
+	    `if [ -f gcc/stage_last ]; then echo quickstrap ; else echo all; fi` [+
+	  ELSE +]all[+ ENDIF +])
 @endif [+module+]
 
 .PHONY: check-[+module+] maybe-check-[+module+]
@@ -982,7 +993,7 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) [+extra_make_flags+]; do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing [+make_target+] in [+module+]" ; \
@@ -991,7 +1002,7 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-	          [+extra_make_flags+] [+make_target+]) \
+	          [+make_target+]) \
 	  || exit 1
 [+ ENDIF +]
 @endif [+module+]
@@ -1178,79 +1189,14 @@ ENDIF raw_cxx +]
 # GCC module
 # ----------
 
-# Unfortunately, while gcc _should_ be a host module,
-# libgcc is a target module, and gen* programs are
-# build modules.  So GCC is a sort of hybrid.
-
-# gcc is the only module which uses GCC_FLAGS_TO_PASS.
-# Don't use shared host config.cache, as it will confuse later
-# directories; GCC wants slightly different values for some
-# precious variables.  *sigh*
-
-# We must skip configuring if toplevel bootstrap is going.
-.PHONY: configure-gcc maybe-configure-gcc
-maybe-configure-gcc:
-@if gcc
-maybe-configure-gcc: configure-gcc
-configure-gcc:
-@endif gcc
 @if gcc-no-bootstrap
-	@test ! -f gcc/Makefile || exit 0; \
-	[ -d gcc ] || mkdir gcc; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	echo Configuring in gcc; \
-	cd gcc || exit 1; \
-	case $(srcdir) in \
-	  \.) \
-	    srcdiroption="--srcdir=."; \
-	    libsrcdir=".";; \
-	  /* | [A-Za-z]:[\\/]*) \
-	    srcdiroption="--srcdir=$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	  *) \
-	    srcdiroption="--srcdir=../$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	esac; \
-	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} \
-	  || exit 1
-@endif gcc-no-bootstrap
+# GCC has some more recursive targets, which trigger the old
+# (but still current, until the toplevel bootstrap project
+# is finished) compiler bootstrapping rules.
 
-# Don't 'make all' in gcc if it's already been made by 'bootstrap'; that
-# causes trouble.  This wart will be fixed eventually by moving
-# the bootstrap behavior to this file.
-.PHONY: all-gcc maybe-all-gcc
-maybe-all-gcc:
-@if gcc
-maybe-all-gcc: all-gcc
-all-gcc: configure-gcc
-@endif gcc
-@if gcc-no-bootstrap
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
-	$(HOST_EXPORTS) \
-	if [ -f gcc/stage_last ] ; then \
-	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) quickstrap); \
-	else \
-	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
-	fi
-
-# Building GCC uses some tools for rebuilding "source" files
-# like texinfo, bison/byacc, etc.  So we must depend on those.
-#
-# While building GCC, it may be necessary to run various target
-# programs like the assembler, linker, etc.  So we depend on
-# those too.
-#
-# In theory, on an SMP all those dependencies can be resolved
-# in parallel.
-#
 GCC_STRAP_TARGETS = bootstrap bootstrap-lean bootstrap2 bootstrap2-lean bootstrap3 bootstrap3-lean bootstrap4 bootstrap4-lean bubblestrap quickstrap cleanstrap restrap
 .PHONY: $(GCC_STRAP_TARGETS)
-$(GCC_STRAP_TARGETS): all-bootstrap configure-gcc
+$(GCC_STRAP_TARGETS): all-prebootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
@@ -1283,7 +1229,7 @@ $(GCC_STRAP_TARGETS): all-bootstrap configure-gcc
 	echo "Building runtime libraries"; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
 
-profiledbootstrap: all-bootstrap configure-gcc
+profiledbootstrap: all-prebootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
@@ -1317,21 +1263,7 @@ cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) LANGUAGES="c c++" all
 @endif gcc-no-bootstrap
 
-.PHONY: check-gcc maybe-check-gcc
-maybe-check-gcc:
 @if gcc
-maybe-check-gcc: check-gcc
-check-gcc:
-	@if [ -f ./gcc/Makefile ] ; then \
-	  r=`${PWD_COMMAND}`; export r; \
-	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(SET_LIB_PATH) \
-	  $(HOST_EXPORTS) \
-	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
-	else \
-	  true; \
-	fi
-
 .PHONY: check-gcc-c++
 check-gcc-c++:
 	@if [ -f ./gcc/Makefile ] ; then \
@@ -1346,23 +1278,6 @@ check-gcc-c++:
 
 .PHONY: check-c++
 check-c++: check-target-libstdc++-v3 check-gcc-c++
-@endif gcc
-
-.PHONY: install-gcc maybe-install-gcc
-maybe-install-gcc:
-@if gcc
-maybe-install-gcc: install-gcc
-install-gcc:
-	@if [ -f ./gcc/Makefile ] ; then \
-	  r=`${PWD_COMMAND}`; export r; \
-	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(SET_LIB_PATH) \
-	  $(HOST_EXPORTS) \
-	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
-	else \
-	  true; \
-	fi
-@endif gcc
 
 # Install the gcc headers files, but not the fixed include files,
 # which Cygnus is not allowed to distribute.  This rule is very
@@ -1385,43 +1300,29 @@ gcc-no-fixedincludes:
 	  rm -rf gcc/include; \
 	  mv gcc/tmp-include gcc/include 2>/dev/null; \
 	else true; fi
-
-# Other targets (dvi, info, etc.)
-[+ FOR recursive_targets +]
-.PHONY: maybe-[+make_target+]-gcc [+make_target+]-gcc
-maybe-[+make_target+]-gcc:
-@if gcc
-maybe-[+make_target+]-gcc: [+make_target+]-gcc
-[+make_target+]-gcc: [+
-  FOR depend +]\
-    [+depend+]-gcc [+
-  ENDFOR depend +]
-	@[ -f ./gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
-	for flag in $(EXTRA_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	$(HOST_EXPORTS) \
-	echo "Doing [+make_target+] in gcc" ; \
-	(cd gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
-	          [+make_target+]) \
-	  || exit 1
 @endif gcc
 
-[+ ENDFOR recursive_targets +]
-
-@if gcc-bootstrap
 # ---------------------
 # GCC bootstrap support
 # ---------------------
 
-# We track the current stage (the one in 'gcc') in the stage_last file.
+# We track the current stage (the one in 'gcc') in the stage_current file.
+# stage_last instead tracks the stage that was built last.  These targets
+# are dummy when toplevel bootstrap is not active.
+
+.PHONY: unstage
+unstage:
+@if gcc-bootstrap
+	@[ -f stage_current ] || $(MAKE) `cat stage_last`-start
+@endif gcc-bootstrap
+
+.PHONY: stage
+stage:
+@if gcc-bootstrap
+	@$(MAKE) `cat stage_current`-end
+@endif gcc-bootstrap
+
+@if gcc-bootstrap
 # We name the build directories for the various stages "stage1-gcc",
 # "stage2-gcc","stage3-gcc", etc.
 
@@ -1462,7 +1363,7 @@ objext = .o
 # Real targets act phony if they depend on phony targets; this hack
 # prevents gratuitous rebuilding of stage 1.
 prebootstrap:
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all-bootstrap
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all-prebootstrap
 	$(STAMP) prebootstrap
 
 # Flags to pass to stage2 and later makes.
@@ -1486,14 +1387,15 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 .PHONY: stage[+id+]-start stage[+id+]-end
 
 stage[+id+]-start::
-	[ -f stage_last ] && $(MAKE) `cat stage_last`-end || :
+	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	echo stage[+id+] > stage_current ; \
 	echo stage[+id+] > stage_last ; \
 	[ -d stage[+id+]-gcc ] || mkdir stage[+id+]-gcc; \
 	set stage[+id+]-gcc gcc ; @CREATE_LINK_TO_DIR@ [+ IF prev +] ; \
 	set stage[+prev+]-gcc prev-gcc ; @CREATE_LINK_TO_DIR@ [+ ENDIF prev +]
 
 stage[+id+]-end::
-	rm -f stage_last ; \
+	rm -f stage_current ; \
 	set gcc stage[+id+]-gcc ; @UNDO_LINK_TO_DIR@ [+ IF prev +] ; \
 	set prev-gcc stage[+prev+]-gcc ; @UNDO_LINK_TO_DIR@ [+ ENDIF prev +]
 
@@ -1559,7 +1461,7 @@ all-stage[+id+]-gcc: configure-stage[+id+]-gcc
 
 [+ IF compare-target +]
 [+compare-target+]: all-stage[+id+]-gcc
-	[ -f stage_last ] && $(MAKE) `cat stage_last`-end || :
+	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	rm -f .bad_compare ; \
@@ -1586,8 +1488,7 @@ all-stage[+id+]-gcc: configure-stage[+id+]-gcc
 [+bootstrap-target+]:
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage[+id+]-bubble [+
 	  IF compare-target +] [+compare-target+] [+
-	  ENDIF compare-target +] \
-	  stage[+id+]-start all stage[+id+]-end 
+	  ENDIF compare-target +] all
 [+ ENDIF bootstrap-target +]
 
 .PHONY: restage[+id+] touch-stage[+id+] distclean-stage[+id+]
@@ -1595,7 +1496,7 @@ all-stage[+id+]-gcc: configure-stage[+id+]-gcc
 # Rules to wipe a stage and all the following ones, used for cleanstrap
 [+ IF prev +]distclean-stage[+prev+]:: distclean-stage[+id+] [+ ENDIF prev +]
 distclean-stage[+id+]::
-	[ -f stage_last ] && $(MAKE) `cat stage_last`-end || :
+	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
 	rm -rf configure-stage[+id+]-gcc all-stage[+id+]-gcc stage[+id+]-gcc [+
 	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
 
@@ -1633,13 +1534,13 @@ stagefeedback-start::
 	  { find . -type d | sort | sed 's,.*,$(SHELL) '"$$s"'/mkinstalldirs "../gcc/&",' | $(SHELL); } && \
 	  { find . -name '*.*da' | sed 's,.*,$(LN) -f "&" "../gcc/&",' | $(SHELL); }
 
-profiledbootstrap: all-bootstrap configure-gcc
+profiledbootstrap: all-prebootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Bootstrapping the compiler"; \
-	$(MAKE) stageprofile-bubble distclean-stagefeedback stageprofile-start
+	$(MAKE) stageprofile-bubble distclean-stagefeedback
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
 	$(SET_LIB_PATH) \
@@ -1658,127 +1559,128 @@ profiledbootstrap: all-bootstrap configure-gcc
 # Dependencies between different modules
 # --------------------------------------
 
+# Generic dependencies for target modules on host stuff, especially gcc
+[+ FOR target_modules +]
+configure-target-[+module+]: maybe-all-gcc
+[+ ENDFOR target_modules +]
+
+[+ FOR lang_env_dependencies +]
+configure-target-[+module+]: maybe-all-target-newlib maybe-all-target-libgloss
+[+ IF cxx +]configure-target-[+module+]: maybe-all-target-libstdc++-v3
+[+ ENDIF cxx +][+ ENDFOR lang_env_dependencies +]
+
 # There are two types of dependencies here: 'hard' dependencies, where one
 # module simply won't build without the other; and 'soft' dependencies, where
 # if the depended-on module is missing, the depending module will do without
 # or find a substitute somewhere (perhaps installed).  Soft dependencies
-# are specified by depending on a 'maybe-' target.  If you're not sure,
+# are made here to depend on a 'maybe-' target.  If you're not sure,
 # it's safer to use a soft dependency.
 
-# Build modules
-all-build-bison: maybe-all-build-texinfo
-all-build-flex: maybe-all-build-texinfo
-all-build-libiberty: maybe-all-build-texinfo
-all-build-m4: maybe-all-build-libiberty maybe-all-build-texinfo
+[+ ;; These Scheme functions build the bulk of the dependencies.
+   ;; dep-target builds a string like "maybe-all-MODULE_KIND-gcc",
+   ;; where "maybe-" is only included if HARD is true, and all-gcc
+   ;; is taken from VAR-NAME.
+   (define dep-target (lambda (module-kind var-name hard)
+      (string-append
+         (if hard "" "maybe-")
+         (dep-subtarget var-name)
+         module-kind
+         (dep-module var-name)
+      )))
 
-# Host modules specific to gcc.
-# GCC needs to identify certain tools.
-# GCC also needs the information exported by the intl configure script.
-configure-gcc: maybe-configure-intl maybe-configure-binutils maybe-configure-gas maybe-configure-ld maybe-configure-bison maybe-configure-flex
-all-gcc: maybe-all-libiberty maybe-all-intl maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-flex maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee maybe-all-libcpp
-configure-libcpp: maybe-configure-libiberty maybe-configure-intl
-all-libcpp: maybe-all-libiberty maybe-all-intl
-# This is a slightly kludgy method of getting dependencies on 
-# all-build-libiberty correct; it would be better to build it every time.
-all-gcc: maybe-all-build-libiberty
-all-bootstrap: [+ FOR host_modules +][+ IF bootstrap +]maybe-all-[+module+] [+ ENDIF bootstrap +][+ ENDFOR host_modules +]
+   ;; make-dep builds a dependency from the MODULE and ON AutoGen vars.
+   (define make-dep (lambda (module-kind)
+      (string-append
+         (dep-target module-kind "module" #t) ": "
+         (dep-target module-kind "on" (exist? "hard")))))
 
-# Host modules specific to gdb.
-# GDB needs to know that the simulator is being built.
-configure-gdb: maybe-configure-itcl maybe-configure-tcl maybe-configure-tk maybe-configure-sim
+   ;; dep-subtarget extracts everything up to the first dash in the given
+   ;; AutoGen variable, for example it extracts "all-" out of "all-gcc".
+   (define dep-subtarget (lambda (var-name)
+      (substring (get var-name) 0 (+ 1 (string-index (get var-name) #\-)))))
+
+   ;; dep-module extracts everything up to the first dash in the given
+   ;; AutoGen variable, for example it extracts "gcc" out of "all-gcc".
+   (define dep-module (lambda (var-name)
+      (substring (get var-name) (+ 1 (string-index (get var-name) #\-)))))
+
+   ;; dep-stage builds a string for the prefix of a bootstrap stage.
+   (define dep-stage (lambda ()
+      (string-append
+	 "stage"
+	 (get "id")
+	 "-")))
+
+   ;; dep-maybe is the same as the AutoGen expression "- hard 'maybe-'"
+   ;; but is written in Scheme.
+   (define dep-maybe (lambda ()
+      (if (exist? "hard") "" "maybe-")))
+
+   ;; dep-kind returns "normal" is the dependency is on an "install" target,
+   ;; or if the LHS module is not bootstrapped.  It returns "bootstrap" for
+   ;; configure or build dependencies between bootstrapped modules; it returns
+   ;; "prebootstrap" for configure or build dependencies of bootstrapped
+   ;; modules on a non-bootstrapped modules (e.g. gcc on bison).  All this
+   ;; is only necessary for host modules.
+   (define dep-kind (lambda ()
+      (if (or (= (dep-subtarget "on") "install-")
+	      (=* (dep-module "on") "build-")
+	      (=* (dep-module "on") "target-"))
+          "normal"
+
+          (if (hash-ref boot-modules (dep-module "module"))
+              (if (hash-ref boot-modules (dep-module "on"))
+	          "bootstrap"
+	          "prebootstrap")
+	      "normal"))))
+
+   ;; We now build the hash table that is used by dep-kind.
+   (define boot-modules (make-hash-table 113))
+   (define preboot-modules (make-hash-table 37))
++]
+
+[+ FOR host_modules +][+
+   (if (exist? "bootstrap")
+       (hash-create-handle! boot-modules (get "module") #t))
+   "" +][+ ENDFOR host_modules +]
+
+# With all the machinery above in place, it is pretty easy to generate
+# dependencies.  Host dependencies are a bit more complex because we have
+# to check for bootstrap/prebootstrap dependencies.  To resolve
+# prebootstrap dependencies, prebootstrap modules are gathered in
+# a hash table.
+[+ FOR dependencies +][+ (make-dep "") +]
+[+ CASE (dep-kind) +][+
+   == "prebootstrap"
+     +][+ (hash-create-handle! preboot-modules (dep-module "on") #t) "" +][+
+   == "bootstrap"
+     +][+ FOR bootstrap_stage +]
+[+ (make-dep (dep-stage)) +][+
+       ENDFOR bootstrap_stage +]
+[+ ESAC +][+
+ENDFOR dependencies +]
+
+# Now build the prebootstrap dependencies.
+[+ FOR host_modules +][+
+   IF (hash-ref preboot-modules (get "module")) +]
+all-prebootstrap: maybe-all-[+module+][+
+   ENDIF +][+
+ENDFOR host_modules +]
+
+# Unless toplevel bootstrap is going, bootstrapped packages are actually
+# prebootstrapped, with the exception of gcc.  Another wart that will go
+# away with toplevel bootstrap.
+@if gcc-no-bootstrap
+[+ FOR host_modules +][+
+   IF (and (not (= (get "module") "gcc"))
+	   (hash-ref boot-modules (get "module"))) +]
+all-prebootstrap: maybe-all-[+module+][+
+   ENDIF +][+
+ENDFOR host_modules +]
+@endif gcc-no-bootstrap
+
 GDB_TK = @GDB_TK@
-all-gdb: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-mmalloc maybe-all-readline maybe-all-bison maybe-all-byacc maybe-all-sim $(gdbnlmrequirements) $(GDB_TK)
-install-gdb: maybe-install-tcl maybe-install-tk maybe-install-itcl maybe-install-tix maybe-install-libgui
-configure-libgui: maybe-configure-tcl maybe-configure-tk
-all-libgui: maybe-all-tcl maybe-all-tk maybe-all-itcl
-
-# Host modules specific to binutils.
-configure-bfd: configure-libiberty
-all-bfd: maybe-all-libiberty maybe-all-intl
-all-binutils: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-flex maybe-all-bison maybe-all-byacc maybe-all-intl
-# We put install-opcodes before install-binutils because the installed
-# binutils might be on PATH, and they might need the shared opcodes
-# library.
-install-binutils: maybe-install-opcodes
-# libopcodes depends on libbfd
-install-opcodes: maybe-install-bfd
-all-gas: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-intl
-all-gprof: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-intl
-all-ld: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-bison maybe-all-byacc maybe-all-flex maybe-all-intl
-all-opcodes: maybe-all-bfd maybe-all-libiberty
-
-# Other host modules in the 'src' repository.
-all-dejagnu: maybe-all-tcl maybe-all-expect maybe-all-tk
-configure-expect: maybe-configure-tcl maybe-configure-tk
-all-expect: maybe-all-tcl maybe-all-tk
-configure-itcl: maybe-configure-tcl maybe-configure-tk
-all-itcl: maybe-all-tcl maybe-all-tk
-# We put install-tcl before install-itcl because itcl wants to run a
-# program on installation which uses the Tcl libraries.
-install-itcl: maybe-install-tcl
-all-sid: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-tcl maybe-all-tk
-install-sid: maybe-install-tcl maybe-install-tk
-all-sim: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-readline maybe-configure-gdb
-configure-tk: maybe-configure-tcl
-all-tk: maybe-all-tcl
-configure-tix: maybe-configure-tcl maybe-configure-tk
-all-tix: maybe-all-tcl maybe-all-tk
-all-texinfo: maybe-all-libiberty
-
-# Other host modules.  Warning, these are not well tested.
-all-autoconf: maybe-all-m4 maybe-all-texinfo
-all-automake: maybe-all-m4 maybe-all-texinfo
-all-bison: maybe-all-texinfo
-all-diff: maybe-all-libiberty
-all-fastjar: maybe-all-zlib maybe-all-libiberty
-all-fileutils: maybe-all-libiberty
-all-flex: maybe-all-libiberty maybe-all-bison maybe-all-byacc
-all-gzip: maybe-all-libiberty
-all-hello: maybe-all-libiberty
-all-m4: maybe-all-libiberty maybe-all-texinfo
-all-make: maybe-all-libiberty maybe-all-intl
-all-patch: maybe-all-libiberty
-all-prms: maybe-all-libiberty
-all-recode: maybe-all-libiberty
-all-sed: maybe-all-libiberty
-all-send-pr: maybe-all-prms
-all-tar: maybe-all-libiberty
-all-uudecode: maybe-all-libiberty
-
-ALL_GCC = maybe-all-gcc
-ALL_GCC_C = $(ALL_GCC) maybe-all-target-newlib maybe-all-target-libgloss
-ALL_GCC_CXX = $(ALL_GCC_C) maybe-all-target-libstdc++-v3
-
-# Target modules specific to gcc.
-configure-target-boehm-gc: $(ALL_GCC_C) maybe-configure-target-qthreads
-configure-target-fastjar: maybe-configure-target-zlib
-all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
-configure-target-libada: $(ALL_GCC_C)
-configure-target-libgfortran: $(ALL_GCC_C)
-configure-target-libffi: $(ALL_GCC_C) 
-configure-target-libjava: $(ALL_GCC_C) maybe-configure-target-zlib maybe-configure-target-boehm-gc maybe-configure-target-qthreads maybe-configure-target-libffi
-all-target-libjava: maybe-all-fastjar maybe-all-target-zlib maybe-all-target-boehm-gc maybe-all-target-qthreads maybe-all-target-libffi
-configure-target-libobjc: $(ALL_GCC_C)
-all-target-libobjc: maybe-all-target-libiberty
-configure-target-libstdc++-v3: $(ALL_GCC_C)
-all-target-libstdc++-v3: maybe-all-target-libiberty
-configure-target-zlib: $(ALL_GCC_C)
-
-# Target modules in the 'src' repository.
-configure-target-examples: $(ALL_GCC_C)
-configure-target-libgloss: $(ALL_GCC)
-all-target-libgloss: maybe-configure-target-newlib
-configure-target-libiberty: $(ALL_GCC)
-configure-target-libtermcap: $(ALL_GCC_C)
-configure-target-newlib: $(ALL_GCC)
-configure-target-rda: $(ALL_GCC_C)
-configure-target-winsup: $(ALL_GCC_C)
-all-target-winsup: maybe-all-target-libiberty maybe-all-target-libtermcap
-
-# Other target modules.  Warning, these are not well tested.
-configure-target-gperf: $(ALL_GCC_CXX)
-all-target-gperf: maybe-all-target-libiberty maybe-all-target-libstdc++-v3
-configure-target-qthreads: $(ALL_GCC_C)
+all-gdb: $(gdbnlmrequirements) $(GDB_TK)
 
 # Serialization dependencies.  Host configures don't work well in parallel to
 # each other, due to contention over config.cache.  Target configures and 

@@ -1,3 +1,67 @@
+2004-08-05  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Fix missing rename from x_nat_headers to 
+	xlib_nat_headers.
+	* Makefile.in: Regenerated.
+
+2004-08-04  Andrew Haley  <aph@redhat.com>
+
+	* java/security/BasicPermission.java: Don't check wildcards.
+
+2004-08-04  Thomas Fitzsimmons <fitzsim@redhat.com>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* acinclude.m4: Correctly quote PKG_CHECK_MODULES.
+	* configure.in: Replaced all usages of AC_LINK_FILES by
+	AC_CONFIG_LINKS.
+	* aclocal.m4,
+	configure: Regenerated.
+
+2004-08-04  Thomas Fitzsimmons  <fitzsim@redhat.com>
+	    Michael Koch  <konqueror@gmx.de>
+
+	* acconfig.h: Removed.
+	* Makefile.am: Rename variables for xlib peer to include xlib and
+	gtk_c_headers to gtk_jni_headers.
+	* Makefile.in: Regenerated.
+
+2004-08-04  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/lib/libjava.exp (bytecompile_file): Byte compile with
+	debugging.
+
+2004-08-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Eliminate uses of changequote (mostly by quoting []).
+	Replace most top level 'dnl' comments with '#' comments, conforming
+	to new autoconf style.  Use AS_HELP_STRING throughout; improve a few
+	help strings.
+	* configure: Rebuilt.
+
+2004-07-17  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* acinclude.m4: Include no-executables.m4.
+	* aclocal.m4: Rebuild.
+	* configure.in: Convert to the autoconf 2.59 version of
+	of the no-executables hack, and also of the nonstandard CXX
+	hack and the multilibbed CC and CXX hack.  Change prerequisite
+	to autoconf 2.59.
+	* configure: Rebuild with autoconf 2.59.  (Woo-hoo!)
+	* Makefile.in, gcj/Makefile.in, include/Makefile.in,
+	testsuite/Makefile.in: Regenerate.
+
+2004-08-03  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc: Reindented.
+
+2004-08-02  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/sql/Timestamp.java (valueOf): Synchronize access to dateFormat.
+
+2004-08-02  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.compile/PR16701.java: New test.
+
 2004-08-01  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* java/util/Collection.java, java/util/List.java,

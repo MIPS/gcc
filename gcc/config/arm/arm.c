@@ -168,10 +168,11 @@ static tree arm_cxx_guard_type (void);
 static bool arm_cxx_guard_mask_bit (void);
 static tree arm_get_cookie_size (tree);
 static bool arm_cookie_has_size (void);
+static bool arm_cxx_cdtor_returns_this (void);
 
 
 /* Initialize the GCC target structure.  */
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #undef  TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
@@ -281,6 +282,9 @@ static bool arm_cookie_has_size (void);
 
 #undef TARGET_CXX_COOKIE_HAS_SIZE
 #define TARGET_CXX_COOKIE_HAS_SIZE arm_cookie_has_size
+
+#undef TARGET_CXX_CDTOR_RETURNS_THIS
+#define TARGET_CXX_CDTOR_RETURNS_THIS arm_cxx_cdtor_returns_this
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2462,6 +2466,9 @@ const struct attribute_spec arm_attribute_table[] =
   { "dllimport",    0, 0, true,  false, false, NULL },
   { "dllexport",    0, 0, true,  false, false, NULL },
   { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute },
+#elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
+  { "dllimport",    0, 0, false, false, false, handle_dll_attribute },
+  { "dllexport",    0, 0, false, false, false, handle_dll_attribute },
 #endif
   { NULL,           0, 0, false, false, false, NULL }
 };
@@ -9911,7 +9918,7 @@ emit_sfm (int base_reg, int count)
   int i;
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
-  dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (count + 1));
 
   reg = gen_rtx_REG (XFmode, base_reg++);
 
@@ -9922,13 +9929,10 @@ emit_sfm (int base_reg, int count)
 		   gen_rtx_UNSPEC (BLKmode,
 				   gen_rtvec (1, reg),
 				   UNSPEC_PUSH_MULT));
-  tmp
-    = gen_rtx_SET (VOIDmode, 
-		   gen_rtx_MEM (XFmode,
-				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
-		   reg);
+  tmp = gen_rtx_SET (VOIDmode, 
+		     gen_rtx_MEM (XFmode, stack_pointer_rtx), reg);
   RTX_FRAME_RELATED_P (tmp) = 1;
-  XVECEXP (dwarf, 0, count - 1) = tmp;	  
+  XVECEXP (dwarf, 0, 1) = tmp;	  
   
   for (i = 1; i < count; i++)
     {
@@ -9937,12 +9941,20 @@ emit_sfm (int base_reg, int count)
 
       tmp = gen_rtx_SET (VOIDmode, 
 			 gen_rtx_MEM (XFmode,
-				      gen_rtx_PRE_DEC (BLKmode,
-						       stack_pointer_rtx)),
+				      plus_constant (stack_pointer_rtx,
+						     i * 12)),
 			 reg);
       RTX_FRAME_RELATED_P (tmp) = 1;
-      XVECEXP (dwarf, 0, count - i - 1) = tmp;	  
+      XVECEXP (dwarf, 0, i + 1) = tmp;	  
     }
+
+  tmp = gen_rtx_SET (VOIDmode,
+		     stack_pointer_rtx,
+		     gen_rtx_PLUS (SImode,
+				   stack_pointer_rtx,
+				   GEN_INT (-12 * count)));
+  RTX_FRAME_RELATED_P (tmp) = 1;
+  XVECEXP (dwarf, 0, 0) = tmp;
 
   par = emit_insn (par);
   REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
@@ -14570,6 +14582,16 @@ arm_get_cookie_size (tree type)
 
 static bool
 arm_cookie_has_size (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* The EABI says constructors and destructors should return a pointer to
+   the object constructed/destroyed.  */
+
+static bool
+arm_cxx_cdtor_returns_this (void)
 {
   return TARGET_AAPCS_BASED;
 }

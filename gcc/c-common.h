@@ -654,6 +654,7 @@ extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
@@ -789,7 +790,6 @@ extern int anon_aggr_type_p (tree);
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
 extern void emit_local_var (tree);
-extern void make_rtl_for_local_static (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);

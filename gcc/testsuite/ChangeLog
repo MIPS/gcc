@@ -1,3 +1,245 @@
+2004-08-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/der_io_1.f90: New test.
+
+2004-08-10  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16919
+	* gfortran.dg/der_array_1.f90: New test.
+
+2004-08-09  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/cpp/assert4.c: _AIX asserts #system(unix).
+
+2004-08-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/wchar_t-2.c: Fix typo.
+
+2004-08-09  Falk Hueffner  <falk@debian.org>
+
+	PR tree-optimization/12517
+	* gcc.c-torture/compile/pr12517.c: New test.
+
+	PR tree-optimization/12578
+	* gcc.c-torture/compile/pr12578.c: New test.
+
+	PR tree-optimization/12899
+	* gcc.c-torture/compile/pr12899.c: New test.
+
+	PR rtl-optimization/14692
+	* gcc.c-torture/compile/pr14692.c: New test.
+
+	PR tree-optimization/16461
+	* gcc.c-torture/compile/pr16461.c: New test.
+
+2004-08-06  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* gfortran.dg/getenv_1.f90: New test.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/symbian4.c: Expect a 2-byte wchar_t, not a 4-byte
+	wchar_t.
+	* gcc.dg/symbian5.c: Test -fno-short-wchar.
+
+2004-08-06  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/ret_array_1.f90: New test.
+	* gfortran.dg/ret_pointer_1.f90: New test.
+
+2004-08-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/missing-field-init-[12].c: New tests.
+	* g++.dg/warn/missing-field-init-[12].C: New tests.
+
+2004-08-06  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/enum2.c: New test.
+	* gcc.dg/symbian3.c: Likewise.
+	* gcc.dg/symbian4.c: Likewise.
+	* gcc.dg/wchar_t-2.c: Likewise.
+
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/visibility-8.C: Add constructor and
+	destructor tests.
+
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/assign1.C: Use scan-hidden and
+	dg-require-visiblity.
+	* g++.dg/ext/visibility/fvisibility-inlines-hidden.C: Likewise.
+	* g++.dg/ext/visibility/fvisibility.C: Likewise.
+	* g++.dg/ext/visibility/memfuncts.C: Likewise.
+	* g++.dg/ext/visibility/new1.C: Likewise.
+	* g++.dg/ext/visibility/pragma.C: Likewise.
+	* g++.dg/ext/visibility/staticmemfuncts.C: Likewise.
+	* g++.dg/ext/visibility/virtual.C: Likewise.
+	* g++/dg/ext/visibility/visibility-1.C: Likewise.
+	* g++/dg/ext/visibility/visibility-2.C: Likewise.
+	* g++/dg/ext/visibility/visibility-3.C: Likewise.
+	* g++/dg/ext/visibility/visibility-4.C: Likewise.
+	* g++/dg/ext/visibility/visibility-5.C: Likewise.
+	* g++/dg/ext/visibility/visibility-6.C: Likewise.
+	* g++/dg/ext/visibility/visibility-7.C: Likewise.
+	* g++/dg/ext/visibility/visibility-8.C: New test.
+	* gcc.c-torture/compile/dll.x: Remove.
+	* gcc.dg/dll-2.c: Use dg-require-dll
+	* gcc.dg/visibility-10.c: New test.
+	* lib/gcc-dg.exp (dg-require-dll): Add Symbian to list of targets
+	supporting DLLs.
+	* testsuite/lib/scanasm.exp (scan_hidden): New function.
+	(scan_not_hidden): Likewise.
+
+2004-08-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/sh4a-fprun.c: Fix dg-do typo.
+
+2004-08-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040805-1.c: New test.
+
+2004-08-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/20020118-1.c: Declare abort.
+	* gcc.dg/altivec_check.h: Likewise.
+	* gcc.dg/iftrap-2.c: Likewise.
+	* gcc.dg/pragma-darwin.c: Likewise.
+	* gcc.dg/rs6000-ldouble-1.c: Declare abort and exit.
+
+2004-08-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/ext/altivec_check.h: Declare exit as extern "C".
+
+2004-08-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/builtins/abs-2.c,
+	gcc.c-torture/execute/builtins/abs-3.c,
+	gcc.c-torture/execute/builtins/lib/abs.c, gcc.dg/format/format.h,
+	gcc.dg/torture/builtin-attr-1.c: Use predefined macros for
+	intmax_t, uintmax_t and their limits.
+	* gcc.dg/intmax_t-1.c: New test.
+
+2004-08-04  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/tc1/dr147.C: Add reference to PR.
+
+2004-08-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-[23].c: Declare abort() and exit().
+	* gcc.dg/torture/mips-hilo-[12].c: Likewise.
+
+2004-08-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/compat/struct-layout-1.exp: Fix error message typo.
+
+2004-08-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/redecl-5.c: New test.
+	* gcc.dg/format/attr-6.c: Expect warning for implicit declaration
+	of scanf.
+
+2004-08-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/16790
+	* gcc.c-torture/execute/pr16790-1.c: New test case.
+
+2004-08-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/assign1.C: New test.
+	* g++.dg/ext/visibility/new1.C: Likewise.
+
+	* gcc.dg/symbian1.c: New test.
+	* gcc.dg/symbian2.c: Likewise.
+
+2004-08-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/16570
+	* gcc.dg/i386-sse-9.c: New test.
+
+2004-08-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/array-7.c, gcc.dg/c99-tag-2.c: New tests.
+
+2004-08-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/20001023-1.c, gcc.dg/20001108-1.c, gcc.dg/20001117-1.c,
+	gcc.dg/20010202-1.c, gcc.dg/20011008-2.c, gcc.dg/20011214-1.c,
+	gcc.dg/20020201-1.c, gcc.dg/20020312-2.c, gcc.dg/20020426-2.c,
+	gcc.dg/20030331-2.c, gcc.dg/20030612-1.c, gcc.dg/20030926-1.c,
+	gcc.dg/20031216-1.c, gcc.dg/20031218-3.c, gcc.dg/20040305-2.c,
+	gcc.dg/980226-1.c, gcc.dg/Wreturn-type2.c,
+	gcc.dg/Wunreachable-6.c, gcc.dg/Wunreachable-7.c,
+	gcc.dg/align-1.c, gcc.dg/builtin-prefetch-1.c,
+	gcc.dg/builtins-17.c, gcc.dg/builtins-19.c, gcc.dg/builtins-2.c,
+	gcc.dg/builtins-20.c, gcc.dg/builtins-21.c, gcc.dg/builtins-7.c,
+	gcc.dg/builtins-8.c, gcc.dg/cpp/19930510-1.c,
+	gcc.dg/cpp/charconst-3.c, gcc.dg/cpp/charconst-4.c,
+	gcc.dg/cpp/mi6.c, gcc.dg/cpp/tr-paste.c, gcc.dg/cpp/trad/mi6.c,
+	gcc.dg/cpp/trad/paste.c, gcc.dg/cpp/trad/strify.c,
+	gcc.dg/fastmath-1.c, gcc.dg/fshort-wchar.c, gcc.dg/i386-387-7.c,
+	gcc.dg/i386-387-8.c, gcc.dg/i386-asm-1.c, gcc.dg/i386-cadd.c,
+	gcc.dg/i386-fpcvt-3.c, gcc.dg/i386-loop-3.c,
+	gcc.dg/i386-memset-1.c, gcc.dg/loop-2.c, gcc.dg/nest.c,
+	gcc.dg/noncompile/971104-1.c, gcc.dg/noncompile/990416-1.c,
+	gcc.dg/noncompile/scope.c, gcc.dg/pack-test-4.c,
+	gcc.dg/pack-test-5.c, gcc.dg/pch/inline-4.c, gcc.dg/postincr-1.c,
+	gcc.dg/pr10392-1.c, gcc.dg/pragma-align.c,
+	gcc.dg/profile-generate-1.c, gcc.dg/sibcall-1.c,
+	gcc.dg/sibcall-2.c, gcc.dg/sibcall-3.c, gcc.dg/sibcall-4.c,
+	gcc.dg/sibcall-5.c, gcc.dg/sibcall-6.c, gcc.dg/switch-warn-1.c,
+	gcc.dg/switch-warn-2.c, gcc.dg/torture/builtin-attr-1.c,
+	gcc.dg/torture/builtin-math-1.c, gcc.dg/torture/builtin-noret-2.c,
+	gcc.dg/trampoline-1.c, gcc.dg/tree-ssa/20030703-1.c,
+	gcc.dg/tree-ssa/20030703-2.c, gcc.dg/tree-ssa/20030708-1.c,
+	gcc.dg/tree-ssa/20030709-3.c, gcc.dg/tree-ssa/20030710-1.c,
+	gcc.dg/tree-ssa/20030711-1.c, gcc.dg/tree-ssa/20030729-1.c,
+	gcc.dg/tree-ssa/20030730-1.c, gcc.dg/tree-ssa/20030730-2.c,
+	gcc.dg/tree-ssa/20030731-1.c, gcc.dg/tree-ssa/20030807-11.c,
+	gcc.dg/tree-ssa/20030807-2.c, gcc.dg/tree-ssa/20030807-5.c,
+	gcc.dg/tree-ssa/20030807-7.c, gcc.dg/tree-ssa/20030808-1.c,
+	gcc.dg/tree-ssa/20030814-1.c, gcc.dg/tree-ssa/20030814-2.c,
+	gcc.dg/tree-ssa/20030814-3.c, gcc.dg/tree-ssa/20030814-4.c,
+	gcc.dg/tree-ssa/20030814-5.c, gcc.dg/tree-ssa/20030814-6.c,
+	gcc.dg/tree-ssa/20030814-7.c, gcc.dg/tree-ssa/20030815-1.c,
+	gcc.dg/tree-ssa/20030907-1.c, gcc.dg/tree-ssa/20030917-3.c,
+	gcc.dg/tree-ssa/20030922-1.c, gcc.dg/tree-ssa/20031113-1.c,
+	gcc.dg/tree-ssa/20040121-1.c, gcc.dg/tree-ssa/20040319-1.c,
+	gcc.dg/tree-ssa/20040324-1.c, gcc.dg/tree-ssa/20040326-1.c,
+	gcc.dg/tree-ssa/20040326-2.c, gcc.dg/tree-ssa/20040517-1.c,
+	gcc.dg/tree-ssa/ssa-ccp-10.c, gcc.dg/tree-ssa/ssa-pre-1.c,
+	gcc.dg/tree-ssa/tailcall-1.c, gcc.dg/tree-ssa/tailrecursion-5.c,
+	gcc.dg/ultrasp3.c, gcc.dg/winline-7.c, gcc.misc-tests/bprob-1.c,
+	gcc.misc-tests/bprob-2.c, gcc.misc-tests/gcov-3.c,
+	gcc.misc-tests/gcov-4.c, gcc.misc-tests/gcov-4b.c,
+	gcc.misc-tests/gcov-6.c, gcc.misc-tests/gcov-7.c,
+	gcc.misc-tests/i386-pf-3dnow-1.c,
+	gcc.misc-tests/i386-pf-athlon-1.c,
+	gcc.misc-tests/i386-pf-none-1.c, gcc.misc-tests/i386-pf-sse-1.c,
+	objc.dg/nested-func-1.m, objc.dg/special/unclaimed-category-1.m:
+	Declare built-in functions used.
+	* gcc.dg/torture/builtin-attr-1.c (nexttoward): Use FPTEST2ARG2.
+
+2004-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16707
+	* g++.dg/lookup/using12.C: New test.
+
+	* g++.dg/init/null1.C: Fix PR number.
+	* g++.dg/parse/namespace10.C: Likewise.
+
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16224
+	* g++.dg/template/spec17.C: New test.
+	* g++.old-deja/g++.ns/template13.C: Remove XFAIL.
+	* g++.old-deja/g++.pt/lookup10.C: Add dg-error marker.
+
+2004-08-02  David Billinghurst
+
+	PR fortran/16292
+	* gfortran.dg/g77/cabs.f: xfail on mips-sgi-irix6*
+
 2004-08-01  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.dg/ia64-got-1.c: New test case.

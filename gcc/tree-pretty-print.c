@@ -1102,10 +1102,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, '>');
       break;
 
-    case ENTRY_VALUE_EXPR:
-      NIY;
-      break;
-
     case COMPLEX_EXPR:
       pp_string (buffer, "COMPLEX_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -2147,6 +2143,8 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 	  pp_newline (buffer);
 	}
     }
+  pp_write_text_to_stream (buffer);
+  check_bb_profile (bb, buffer->buffer->stream);
 }
 
 /* Dumps end of basic block BB to buffer BUFFER indented by INDENT

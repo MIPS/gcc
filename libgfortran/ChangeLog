@@ -1,3 +1,51 @@
+2004-08-09  Richard Henderson  <rth@redhat.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* intrinsics/c99_functions.c (nextafterf): New implementation that
+	works correctly with denormalized numbers.
+
+2004-08-09  Victor Leikehman  <lei@il.ibm.com>
+
+	* m4/matmul.m4, m4/matmull.m4, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c, intrinsics/transpose_generic.c:
+	Allocate space if return value has NULL in its data field.
+	* generated/*.c: Regenerate.
+
+2004-08-06  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* intrinsics/env.c: New file.
+	* Makefile.am: Add env.c to build.
+	* Makefile.in: Regenerate.
+
+2004-08-05  Victor Leikehman  <lei@il.ibm.com>
+
+	PR libgfortran/16704
+	* io/read.c (read_radix): Understand letters f and F as hex digits.
+
+2004-08-04  Victor Leikehman  <lei@il.ibm.com>
+
+	* libgfortran.h (array_t, size0) New declarations.
+	* m4/ifunction.m4, m4/transpose.m4, intrinsics/cshift0.c: Allocate
+	space if return value descriptor has NULL in its data field,
+	and initialize bounds and stride.
+	* intrinsics/size.c (array_t, size0): Declarations moved to
+	libgfortran.h.
+	* generated/*.c: Regenerate.
+
+2004-08-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR libgfortran/16137
+	* configure.ac: Add tests for acosf, asinf, atan2f, atanf, ceilf,
+	copysignf, cosf, coshf, expf, floorf, frexpf, hypotf, logf, log10f,
+	scalbnf, sinf, sinhf, sqrtf, tanf and tanhf in libm.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+	* instrinsics/c99_functions.c (acosf, asinf, atan2f, atanf, ceilf,
+	copysignf, cosf, coshf, expf, floorf, frexpf, hypotf, logf, log10f,
+	nextafterf, scalbnf, sinf, sinhf, sqrtf, tanf, tanhf): New stub
+	implementations for targets that don't support C99 float functions.
+
 2004-08-01  Roger Sayle  <roger@eyesopen.com>
 
 	* io/write.c (write_float): Use the slightly more portable isnan
