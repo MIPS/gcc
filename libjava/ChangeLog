@@ -1,3 +1,9 @@
+2004-07-20  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTextArea.java
+	(setLineWrap): Fire property change event after new value is set.
+	(setTabSize): Likewise.
+
 2004-07-01  Mark Wielaard  <mark@klomp.org>
 
 	* java/awt/event/InvocationEvent.java (dispatch): Synchronize

@@ -227,8 +227,12 @@ public class JTextArea extends JTextComponent
    */
   public void setLineWrap(boolean flag)
   {
-    firePropertyChange("lineWrap", wrapping, flag);
+    if (wrapping == flag)
+      return;
+
+    boolean oldValue = wrapping;
     wrapping = flag;
+    firePropertyChange("lineWrap", oldValue, wrapping);
   }
 
   public int getTabSize()
@@ -238,7 +242,11 @@ public class JTextArea extends JTextComponent
 
   public void setTabSize(int newSize)
   {
-    firePropertyChange("tabSize", tabSize, newSize);
+    if (tabSize == newSize)
+      return;
+    
+    int oldValue = tabSize;
     tabSize = newSize;
+    firePropertyChange("tabSize", oldValue, tabSize);
   }
 }
