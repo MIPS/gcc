@@ -1,3 +1,20 @@
+2003-08-17  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (blocks_unreachable_p, remove_blocks): Use a bitmap
+	rather than a varray.
+	(REMOVE_ALL_STMTS, REMOVE_NO_STMTS): New defines for remove_bb.
+	(REMOVE_NON_CONTROL_STMTS, REMOVE_CONTROL_STMTS): Likewise.
+	(remove_unreachable_block): Use find_contained_blocks rather
+	than find_subblocks.  If we have a COND_EXPR or SWITCH_EXPR which
+	is unreachable, but which has reachable children clear out the
+	condition and request all non-control statements be removed
+	from the block.
+	(remove_bb): Allow better control over what (if any) statements
+	are removed.  All callers updated.
+	(find_subblocks): Remove.
+	(find_contained_blocks): Handle statements with no associated
+	basic block.
+
 2003-08-15  Andrew Pinski <pinskia@physics.uc.edu>
 
 	* objc/objc-lang.c (LANG_HOOKS_GIMPLIFY_EXPR): Define

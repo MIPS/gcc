@@ -120,13 +120,20 @@ static struct loops *tree_loop_optimizer_init (FILE *);
 static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Flowgraph optimization and cleanup.  */
+
+/* Flags to pass to remove_bb to indicate which (if any) statements
+   should be removed.  */
+#define REMOVE_ALL_STMTS -1
+#define REMOVE_NO_STMTS 0
+#define REMOVE_NON_CONTROL_STMTS 0x1
+#define REMOVE_CONTROL_STMTS 0x2
+
 static void remove_unreachable_blocks (void);
 static void remove_unreachable_block (basic_block);
 static void remove_bb (basic_block, int);
 static void remove_stmt (tree *, bool);
-static bool blocks_unreachable_p (varray_type);
-static void remove_blocks (varray_type);
-static varray_type find_subblocks (basic_block);
+static bool blocks_unreachable_p (bitmap);
+static void remove_blocks (bitmap);
 static bool is_parent (basic_block, basic_block);
 static void cleanup_control_flow (void);
 static void cleanup_cond_expr_graph (basic_block);
@@ -1078,7 +1085,8 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 
       /* Mark this statement's block as being contained.  */
       bb = bb_for_stmt (stmt);
-      bitmap_set_bit (my_blocks, bb->index);
+      if (bb)
+	bitmap_set_bit (my_blocks, bb->index);
 
       /* And recurse down into control structures.  */
       code = TREE_CODE (stmt);
@@ -1846,10 +1854,12 @@ remove_unreachable_blocks (void)
 static void
 remove_unreachable_block (basic_block bb)
 {
-  varray_type subblocks;
-
   if (bb->flags & BB_CONTROL_EXPR)
     {
+      tree *last_p = last_stmt_ptr (bb);
+      tree *dummy_p;
+      bitmap subblocks = BITMAP_XMALLOC ();
+
       /* Before removing an entry block for a compound structure,
          make sure that all its subblocks are unreachable as well.
 	 FIXME: This is lame.  We should linearize this control
@@ -1868,17 +1878,32 @@ remove_unreachable_block (basic_block bb)
 		    8	  } while (...);
 
 	 The entry block (line 2) is unreachable but its body isn't.  */
-      subblocks = find_subblocks (bb);
+      find_contained_blocks (last_p, subblocks, &dummy_p);
       if (blocks_unreachable_p (subblocks))
 	{
 	  remove_blocks (subblocks);
-	  remove_bb (bb, 1);
 	}
       else
-	remove_bb (bb, 0);
+	{
+
+	  /* If we have reachable subblocks, then we can not remove
+	     control statements.  But we also can't simply leave them
+	     as-is since they may refer to SSA variables which will
+	     not get renamed since this block has become unreachable.
+
+	     So cleanup any variable references in toplevel control
+	     structures.  This may or may not be sufficient.  */
+	  if (TREE_CODE (*last_p) == COND_EXPR)
+	    COND_EXPR_COND (*last_p) = integer_zero_node;
+	  else if (TREE_CODE (*last_p) == SWITCH_EXPR)
+	    SWITCH_COND (*last_p) = integer_zero_node;
+	  remove_bb (bb, REMOVE_NON_CONTROL_STMTS);
+	}
+
+      BITMAP_XFREE (subblocks);
     }
   else
-    remove_bb (bb, 1);
+    remove_bb (bb, REMOVE_ALL_STMTS);
 }
 
 
@@ -1920,7 +1945,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
    compound structure are also removed.  */
 
 static void
-remove_bb (basic_block bb, int remove_stmts)
+remove_bb (basic_block bb, int remove_stmt_flags)
 {
   block_stmt_iterator i;
   bsi_list_p stack;
@@ -1943,11 +1968,15 @@ remove_bb (basic_block bb, int remove_stmts)
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
-      if (remove_stmts)
+      if (remove_stmt_flags)
         {
+	  int ctrl_stmt = is_ctrl_stmt (stmt);
+
 	  loc.file = get_filename (stmt);
 	  loc.line = get_lineno (stmt);
-	  bsi_remove (&i);
+	  if ((ctrl_stmt && (remove_stmt_flags & REMOVE_CONTROL_STMTS))
+	      || (!ctrl_stmt && (remove_stmt_flags & REMOVE_NON_CONTROL_STMTS)))
+	    bsi_remove (&i);
         }
     }
 
@@ -1955,7 +1984,7 @@ remove_bb (basic_block bb, int remove_stmts)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-  if (remove_stmts && warn_notreached)
+  if (remove_stmt_flags && warn_notreached)
     warning ("%Hwill never be executed", &loc);
 
   if (bb->head_tree_p)
@@ -1976,66 +2005,40 @@ remove_bb (basic_block bb, int remove_stmts)
 }
 
 
-/* Remove all the blocks in BB_ARRAY.  */
+/* Remove all the blocks in bitmap BLOCKS.  */
 
 static void
-remove_blocks (varray_type bb_array)
+remove_blocks (bitmap blocks)
 {
   size_t i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
     {
-      basic_block bb = VARRAY_BB (bb_array, i);
-      remove_bb (bb, 1);
-    }
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (bb && bb->index != INVALID_BLOCK)     
+	remove_bb (bb, REMOVE_ALL_STMTS);
+    });
 }
 
 
-/* Return true if all the blocks in BB_ARRAY are unreachable.  */
+/* Return true if all the blocks in bitmap BLOCKS are unreachable.  */
 
 static bool
-blocks_unreachable_p (varray_type bb_array)
+blocks_unreachable_p (bitmap blocks)
 {
   size_t i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (bb_array); i++)
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
     {
-      basic_block bb = VARRAY_BB (bb_array, i);
-      if (bb->flags & BB_REACHABLE)
+      basic_block bb = BASIC_BLOCK (i);
+
+      if (bb && bb->index != INVALID_BLOCK && bb->flags & BB_REACHABLE)
 	return false;
-    }
+    });
 
   return true;
 }
-
-
-/* Find all the blocks in the graph that are included in the compound
-   structure starting at block BB.  */
-
-static varray_type
-find_subblocks (basic_block bb)
-{
-  varray_type subblocks;
-  basic_block child_bb;
-
-  VARRAY_BB_INIT (subblocks, 5, "subblocks");
-
-  if (bb->flags & BB_CONTROL_EXPR)
-    {
-      /* FIXME: This assumes that all the blocks inside a compound a control
-	 structure are consecutive in the linked list of blocks.  This is
-	 only true when the flow graph is initially built.  */
-      child_bb = bb->next_bb;
-      while (child_bb != EXIT_BLOCK_PTR && is_parent (bb, child_bb))
-	{
-	  VARRAY_PUSH_BB (subblocks, child_bb);
-	  child_bb = child_bb->next_bb;
-	}
-    }
-
-  return subblocks;
-}
-
 
 /* Return true if BB is a control parent for CHILD_BB.
 
@@ -2632,9 +2635,9 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	     the disconnected blocks.  Note this will remove any edges
 	     from BB to the disconnected blocks.  */
 	  if (then_block)
-	    remove_bb (then_block, 0);
+	    remove_bb (then_block, REMOVE_NO_STMTS);
 	  if (else_block)
-	    remove_bb (else_block, 0);
+	    remove_bb (else_block, REMOVE_NO_STMTS);
 
 	  /* And finally remove the useless statement.  */
 	  remove_stmt (entry_p, true);
@@ -2651,7 +2654,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	  if (then_block)
 	    {
 	      move_outgoing_edges (bb, then_block);
-	      remove_bb (then_block, 0);
+	      remove_bb (then_block, REMOVE_NO_STMTS);
 	    }
 	  remove_stmt (entry_p, true);
 	}
@@ -2670,7 +2673,7 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
 	  if (else_block)
 	    {
 	      move_outgoing_edges (bb, else_block);
-	      remove_bb (else_block, 0);
+	      remove_bb (else_block, REMOVE_NO_STMTS);
 	    }
 	  remove_stmt (entry_p, true);
 	}
@@ -4763,7 +4766,7 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
   bb2->end_tree_p = NULL;
   bb2->pred = NULL;
   bb2->succ = NULL;
-  remove_bb (bb2, 0);
+  remove_bb (bb2, REMOVE_NO_STMTS);
 }
 
 
