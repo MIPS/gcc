@@ -2,6 +2,7 @@
 /* { dg-do run } */
 
 #include <objc/Object.h>
+#include <stdarg.h>
 
 /* Test methods with "C-style" trailing arguments, with or without ellipsis. */
 

@@ -1,3 +1,23 @@
+2004-06-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (build_module_initializer_routine): New function,
+	broken off of build_module_descriptor().
+	(init_objc_symtab): Cast initializer element to appropriate
+	type.
+	(build_module_descriptor): Always mark module descriptor as
+	used; move GNU runtime-specific functionality to
+	build_module_initializer_routine().
+	(objc_static_init_needed_p, objc_generate_static_init_call): New
+	functions, called from within C and C++ static initializer logic.
+	(build_selector, build_typed_selector_reference): Always convert
+	result to the selector type.
+	(build_method_prototype_template, build_selector_template,
+	build_method_template): Use actual selector type for fields
+	pointing to selectors.
+	(finish_objc): For GNU runtime, call
+	build_module_initializer_routine() after build_module_descriptor().
+	* objc-act.h (OCTI_GNU_INIT_DECL, GNU_INIT_decl): New.
+
 2004-06-23  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (TYPE_ID): Rename to OBJECT_TYPEDEF_NAME.

@@ -205,6 +205,12 @@ build_cdtor (int method_type, tree cdtors)
   body = c_begin_compound_stmt ();
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 
+  /* The Objective-C metadata initializer (if any) must be run
+     _before_ all other static constructors.  */
+  if (c_dialect_objc () && (method_type == 'I')
+      && objc_static_init_needed_p ())
+    cdtors = objc_generate_static_init_call (cdtors);
+
   for (; cdtors; cdtors = TREE_CHAIN (cdtors))
     add_stmt (build_stmt (EXPR_STMT,
 			  build_function_call (TREE_VALUE (cdtors), 0)));

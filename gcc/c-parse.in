@@ -2894,6 +2894,11 @@ ivar_declarator:
                 }
 	;
 
+opt_semi:
+	  /* NULL */
+	| ';'
+	;
+
 methodtype:
 	  '+'
 	| '-'
@@ -2905,7 +2910,7 @@ methoddef:
 		  objc_set_method_type ($1);
 		  objc_pq_context = 1;
 		}
-	  methoddecl
+	  methoddecl opt_semi
 		{
 		  objc_pq_context = 0;
 		  objc_start_method_definition ($3);

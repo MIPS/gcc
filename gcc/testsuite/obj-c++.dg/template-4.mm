@@ -2,12 +2,17 @@
 /* { dg-do run } */
 
 #include <objc/Object.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
+#ifdef __NEXT_RUNTIME__
 /* The following ain't pretty, but does allow us to have just one copy
    of next_mapping.h.  */
 #include "../objc/execute/next_mapping.h"
+#else
+#include <objc/NXConstStr.h>
+#endif
 
-extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
 
 template <class ARR, class TYPE> class TestT

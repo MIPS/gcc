@@ -1,3 +1,8 @@
+2004-06-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* decl2.c (generate_ctor_or_dtor_function): If present, call
+	the Objective-C++ static initializer before all others.
+
 2004-06-23  Ziemowit Laski  <zlaski@apple.com>
 
 	* parser.c (cp_parser_objc_protocol_refs): Add missing prototype.

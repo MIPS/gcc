@@ -1281,6 +1281,8 @@ extern tree objc_build_finally_prologue (void);
 extern void objc_build_synchronized_prologue (tree);
 extern tree objc_build_synchronized_epilogue (void);
 extern tree objc_build_try_catch_finally_stmt (int, int);
+extern int objc_static_init_needed_p (void);
+extern tree objc_generate_static_init_call (tree);
 
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */

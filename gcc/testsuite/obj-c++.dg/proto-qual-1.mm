@@ -6,12 +6,12 @@
 #ifndef __NEXT_RUNTIME__
 #include <objc/objc-api.h>
 #endif
+#include <stdio.h>
 
 /* The encoded parameter sizes will be rounded up to match pointer alignment.  */
 #define ROUND(s,a) (a * ((s + a - 1) / a))
 #define aligned_sizeof(T) ROUND(sizeof(T),__alignof(void *))
 
-extern int sscanf(const char *str, const char *format, ...);
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort()
 

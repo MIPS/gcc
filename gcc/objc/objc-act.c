@@ -141,6 +141,7 @@ static void finish_objc (void);
 static void synth_module_prologue (void);
 static tree objc_build_constructor (tree, tree);
 static void build_module_descriptor (void);
+static void build_module_initializer_routine (void);
 static tree init_module_descriptor (tree);
 static tree build_objc_method_call (int, tree, tree, tree, tree);
 static void generate_strings (void);
@@ -1811,10 +1812,12 @@ init_objc_symtab (tree type)
   if (flag_next_runtime || ! sel_ref_chain)
     initlist = tree_cons (NULL_TREE, build_int_2 (0, 0), initlist);
   else
-    initlist = tree_cons (NULL_TREE,
-			  build_unary_op (ADDR_EXPR,
-					  UOBJC_SELECTOR_TABLE_decl, 1),
-			  initlist);
+    initlist
+      = tree_cons (NULL_TREE,
+		   convert (build_pointer_type (selector_type),
+			    build_unary_op (ADDR_EXPR,
+					    UOBJC_SELECTOR_TABLE_decl, 1)),
+		   initlist);
 
   /* cls_def_cnt = { ..., 5, ... } */
 
@@ -2018,47 +2021,90 @@ build_module_descriptor (void)
   /* Ensure that the variable actually gets output.  */
   mark_decl_referenced (UOBJC_MODULES_decl);
 
-  if (flag_next_runtime)
-    /* Mark the decl to avoid "defined but not used" warning.  */
-    TREE_USED (UOBJC_MODULES_decl) = 1;
-
-  else
-    {
-      /* The GNU runtime requires us to provide a static initializer function
-	 for each module:
-
-	 static void __objc_gnu_init (void) {
-	   __objc_exec_class (&L_OBJC_MODULES);
-	 }  */ 
-
-      tree body, void_list_node_1
-	= build_tree_list (NULL_TREE, void_type_node);
-
-      start_function (void_list_node_1,
-		      build_nt (CALL_EXPR, get_identifier (TAG_GNUINIT),
-				tree_cons (NULL_TREE, NULL_TREE,
-					   OBJC_VOID_AT_END),
-				NULL_TREE),
-		      NULL_TREE);
-      store_parm_decls ();
-      body = objc_begin_compound_stmt ();
-
-      c_expand_expr_stmt (build_function_call
-			  (execclass_decl,
-			   build_tree_list
-			   (NULL_TREE,
-			    build_unary_op (ADDR_EXPR,
-					    UOBJC_MODULES_decl, 0))));
-
-      objc_finish_compound_stmt (body);
-      TREE_PUBLIC (current_function_decl) = 0;
-      DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
-      finish_function ();
-    }
+  /* Mark the decl to avoid "defined but not used" warning.  */
+  TREE_USED (UOBJC_MODULES_decl) = 1;
 
 #ifdef OBJCPLUS
     pop_lang_context ();
 #endif
+}
+
+/* The GNU runtime requires us to provide a static initializer function
+   for each module:
+
+   static void __objc_gnu_init (void) {
+     __objc_exec_class (&L_OBJC_MODULES);
+   }  */ 
+
+static void
+build_module_initializer_routine (void)
+{
+  tree body, void_list_node_1 = build_tree_list (NULL_TREE, void_type_node);
+
+#ifdef OBJCPLUS
+  push_lang_context (lang_name_c); /* extern "C" */
+#endif                                     
+  
+  start_function (void_list_node_1,
+		  build_nt (CALL_EXPR, get_identifier (TAG_GNUINIT),
+			    tree_cons (NULL_TREE, NULL_TREE,
+				       OBJC_VOID_AT_END),
+			    NULL_TREE),
+		  NULL_TREE);
+  store_parm_decls ();
+  body = objc_begin_compound_stmt ();
+
+  c_expand_expr_stmt (build_function_call
+		      (execclass_decl,
+		       build_tree_list
+		       (NULL_TREE,
+			build_unary_op (ADDR_EXPR,
+					UOBJC_MODULES_decl, 0))));
+
+  objc_finish_compound_stmt (body);
+
+  TREE_PUBLIC (current_function_decl) = 0;
+  TREE_USED (current_function_decl) = 1;
+  DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
+  GNU_INIT_decl = current_function_decl;
+
+  finish_function ();
+
+#ifdef OBJCPLUS
+    pop_lang_context ();
+#endif
+}
+
+/* Return 1 if the __objc_gnu_init function has been synthesized and needs
+   to be called by the module initializer routine.  */
+
+int
+objc_static_init_needed_p (void)
+{
+  return (GNU_INIT_decl != NULL_TREE);
+}
+
+/* Generate a call to the __objc_gnu_init initializer function.  The routine
+   below gets called from within the bowels of C or C++, with a list of
+   initializer functions, from which we must remove __objc_gnu_init.  */
+
+tree
+objc_generate_static_init_call (tree ctors)
+{
+  tree *ctor_ptr = &ctors;
+
+  add_stmt (build_stmt (EXPR_STMT,
+			build_function_call (GNU_INIT_decl, NULL_TREE)));
+
+  while (*ctor_ptr)
+    {
+      if (TREE_VALUE (*ctor_ptr) == GNU_INIT_decl)
+	*ctor_ptr = TREE_CHAIN (*ctor_ptr);
+      else
+	ctor_ptr = &TREE_CHAIN (*ctor_ptr);
+    }
+
+  return ctors;
 }
 
 /* Return the DECL of the string IDENT in the SECTION.  */
@@ -2281,11 +2327,7 @@ build_selector_table_decl (void)
 static tree
 build_selector (tree ident)
 {
-  tree expr = add_objc_string (ident, meth_var_names);
-  if (flag_typed_selectors)
-    return expr;
-  else
-    return build_c_cast (selector_type, expr); /* cast! */
+  return convert (selector_type, add_objc_string (ident, meth_var_names));
 }
 
 static void
@@ -2440,7 +2482,7 @@ build_typed_selector_reference (tree ident, tree prototype)
 			 build_array_ref (UOBJC_SELECTOR_TABLE_decl,
 					  build_int_2 (index, 0)),
 			 1);
-  return build_c_cast (selector_type, expr);
+  return convert (selector_type, expr);
 }
 
 static tree
@@ -3751,13 +3793,13 @@ build_method_prototype_template (void)
   proto_record
     = start_struct (RECORD_TYPE, get_identifier (UTAG_METHOD_PROTOTYPE));
 
-  /* struct objc_selector *_cmd; */
-  decl_specs = tree_cons (NULL_TREE, xref_tag (RECORD_TYPE,
-		          get_identifier (TAG_SELECTOR)), NULL_TREE);
-  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("_cmd"));
+  /* SEL _cmd; */
+  decl_specs = build_tree_list (NULL_TREE, selector_type);
+  field_decl = get_identifier ("_cmd");
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   field_decl_chain = field_decl;
 
+  /* char *method_types; */
   decl_specs = tree_cons (NULL_TREE, ridpointers[(int) RID_CHAR], NULL_TREE);
   field_decl
     = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("method_types"));
@@ -4212,7 +4254,7 @@ build_category_template (void)
 }
 
 /* struct objc_selector {
-     void *sel_id;
+     SEL sel_id;
      char *sel_type;
    }; */
 
@@ -4225,10 +4267,10 @@ build_selector_template (void)
   objc_selector_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_SELECTOR));
 
-  /* void *sel_id; */
+  /* SEL sel_id; */
 
-  decl_specs = build_tree_list (NULL_TREE, ridpointers[(int) RID_VOID]);
-  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("sel_id"));
+  decl_specs = build_tree_list (NULL_TREE, selector_type);
+  field_decl = get_identifier ("sel_id");
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   field_decl_chain = field_decl;
 
@@ -4862,16 +4904,13 @@ build_method_template (void)
 
   _SLT_record = start_struct (RECORD_TYPE, get_identifier (UTAG_METHOD));
 
-  /* struct objc_selector *_cmd; */
-  decl_specs = tree_cons (NULL_TREE,
-			  xref_tag (RECORD_TYPE,
-				    get_identifier (TAG_SELECTOR)),
-			  NULL_TREE);
-  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("_cmd"));
-
+  /* SEL _cmd; */
+  decl_specs = build_tree_list (NULL_TREE, selector_type);
+  field_decl = get_identifier ("_cmd");
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   field_decl_chain = field_decl;
 
+  /* char *method_types; */
   decl_specs = tree_cons (NULL_TREE, ridpointers[(int) RID_CHAR], NULL_TREE);
   field_decl = build1 (INDIRECT_REF, NULL_TREE,
 		       get_identifier ("method_types"));
@@ -4879,7 +4918,6 @@ build_method_template (void)
   chainon (field_decl_chain, field_decl);
 
   /* void *_imp; */
-
   decl_specs = tree_cons (NULL_TREE, ridpointers[(int) RID_VOID], NULL_TREE);
   field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("_imp"));
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
@@ -9056,7 +9094,12 @@ finish_objc (void)
   /* Arrange for ObjC data structures to be initialized at run time.  */
   if (objc_implementation_context || class_names_chain || objc_static_instances
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
-    build_module_descriptor ();
+    {
+      build_module_descriptor ();
+
+      if (!flag_next_runtime)
+	build_module_initializer_routine ();
+    }
 
   /* Dump the class references.  This forces the appropriate classes
      to be linked into the executable image, preserving unix archive

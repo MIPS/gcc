@@ -2,6 +2,8 @@
 /* { dg-do run } */
 
 #include <objc/Object.h>
+#include <stdarg.h>
+
 extern void abort(void);
 
 /* Test methods with "C-style" trailing arguments, with or without ellipsis. */

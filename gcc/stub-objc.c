@@ -245,3 +245,13 @@ objc_get_protocol_qualified_type (tree name ATTRIBUTE_UNUSED,
   return 0;
 }
 
+int objc_static_init_needed_p (void)
+{
+  return 0;
+}
+
+tree
+objc_generate_static_init_call (tree ctors ATTRIBUTE_UNUSED)
+{
+  return 0;
+}

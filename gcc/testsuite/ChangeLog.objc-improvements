@@ -1,3 +1,13 @@
+2004-06-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* obj-c++.dg/proto-qual-1.mm: Include <stdio.h> instead of
+	prototyping sscanf().
+	* obj-c++.dg/template-4.mm: Include <stdarg.h>, <stdlib.h>
+	and (on NeXT runtime) <objc/NXConstStr.h>; do not
+	prototype abort().
+	* obj-c++.dg/va-meth-1.mm: Include <stdarg.h>.
+	* objc.dg/va-meth-1.m: Likewise.
+
 2004-06-23  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc/execute/next_mapping.h: Include stdlib.h and string.h.

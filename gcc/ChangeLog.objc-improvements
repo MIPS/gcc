@@ -1,3 +1,14 @@
+2004-06-25  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-common.h (objc_static_init_needed_p,
+	objc_generate_static_init_call): New prototypes.
+	* c-objc-common.c (build_cdtor): If present, call the Objective-C
+	static initializer before all others.
+	* c-parse.in (opt_semi): New nonterminal.
+	(methoddef): Allow for an optional semicolon in method definitions.
+	* stub-objc.c (objc_static_init_needed_p, 
+        objc_generate_static_init_call): New stubs.
+
 2004-06-23  Ziemowit Laski  <zlaski@apple.com>
 
 	* c-common.h (objc_is_id, objc_get_protocol_qualified_type): New
