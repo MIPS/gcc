@@ -1,3 +1,9 @@
+2005-02-10  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c (create):
+	Use GTK's built-in file system backend.  Use GTK_RESPONSE_ACCEPT.
+	(handle_response): Use GTK_RESPONSE_ACCEPT.
+
 2005-02-10  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am: Fix library build breakage.
