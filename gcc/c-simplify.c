@@ -277,16 +277,25 @@ simplify_stmt (stmt_p)
 	case CLEANUP_STMT:
 	  /* XXX: need to clean up CLEANUP_STMT.  Idea: turn it into
 	     an statement-expression and simplify that.  */
+	  walk_tree (&CLEANUP_EXPR (stmt), mark_not_simple_r, NULL, NULL);
 	  break;
 
 	/* Statements that need no simplification.  */
 	case LABEL_STMT:
 	case GOTO_STMT:
-	case ASM_STMT:
 	case CASE_LABEL:
 	case CONTINUE_STMT:
 	case BREAK_STMT:
 	case SCOPE_STMT:
+	  stmt_p = &TREE_CHAIN (stmt);
+	  goto cont;
+
+	/* FIXME: ASM_STMTs should probably be simplified.  But, is it
+		  safe?  */
+	case ASM_STMT:
+	  walk_tree (&ASM_INPUTS (stmt), mark_not_simple_r, NULL, NULL);
+	  walk_tree (&ASM_OUTPUTS (stmt), mark_not_simple_r, NULL, NULL);
+	  walk_tree (&ASM_CLOBBERS (stmt), mark_not_simple_r, NULL, NULL);
 	  stmt_p = &TREE_CHAIN (stmt);
 	  goto cont;
 
@@ -460,9 +469,9 @@ simplify_for_stmt (stmt, pre_p)
   expr_s = FOR_EXPR (stmt);
 
   /* Check if we need to do anything.  */
-  init_is_simple = (init_s == NULL_TREE || is_simple_exprseq (init_s));
+  init_is_simple = (init_s == NULL_TREE || is_simple_expr (init_s));
   cond_is_simple = (cond_s == NULL_TREE || is_simple_condexpr (cond_s));
-  expr_is_simple = (expr_s == NULL_TREE || is_simple_exprseq (expr_s));
+  expr_is_simple = (expr_s == NULL_TREE || is_simple_expr (expr_s));
 
   if (init_is_simple && cond_is_simple && expr_is_simple)
     {
@@ -477,10 +486,7 @@ simplify_for_stmt (stmt, pre_p)
   pre_expr_s = NULL_TREE;
   post_expr_s = NULL_TREE;
 
-  /* Simplify FOR_INIT_STMT.  Note that we always simplify it, even if it's
-     in SIMPLE form already.  This is because we need to insert PRE_COND_S
-     right after the initialization statements, and if PRE_COND_S contains
-     statement trees, we cannot add them to a COMPOUND_EXPR:
+  /* Simplify FOR_INIT_STMT. 
 
 	BEFORE				AFTER
 
@@ -488,12 +494,7 @@ simplify_for_stmt (stmt, pre_p)
 					init_s;
 					post_init_s;
 					pre_cond_s;
-	for (init; cond; ...)		for ( ; cond_s; ...)
-
-     FIXME: Since FOR_INIT_STMT can be a COMPOUND_EXPR, it should be possible
-	    to emit PRE_INIT_S, INIT_S, POST_INIT_S and PRE_COND_S into a
-	    COMPOUND_EXPR inside FOR_INIT_STMT.  However, this is not
-	    possible if any of these elements contains statement trees.  */
+	for (init; cond; ...)		for ( ; cond_s; ...)  */
   walk_tree (&init_s, mostly_copy_tree_r, NULL, NULL);
   simplify_expr (&init_s, &pre_init_s, &post_init_s, is_simple_expr,
 		 fb_rvalue);
@@ -511,7 +512,7 @@ simplify_for_stmt (stmt, pre_p)
 
   /* Simplify FOR_EXPR.  Note that if FOR_EXPR needs to be simplified,
      it's converted into a simple_expr because we need to move it out of
-     the loop header (see previous FIXME note for future enhancement).  */
+     the loop header.  */
   if (!expr_is_simple)
     {
       walk_tree (&expr_s, mostly_copy_tree_r, NULL, NULL);

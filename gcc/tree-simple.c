@@ -51,7 +51,15 @@ Boston, MA 02111-1307, USA.  */
 	      | IF '(' condexpr ')' stmt ELSE stmt
 	      | WHILE '(' condexpr ')' stmt
 	      | DO stmt WHILE '(' condexpr ')'
-	      | FOR '('exprseq ';' condexpr ';'exprseq ')' stmt
+	      | FOR '(' expr ';' condexpr ';' expr ')' stmt
+	      		|
+			+-> Original SIMPLE grammar allows exprseq here,
+			    but this makes life more difficult to some
+			    optimizers that need to learn to deal with
+			    expression sequences instead of SIMPLE
+			    assignments (e.g., CCP when examining V_DEF
+			    references)
+	      	
 	      | SWITCH '(' val ')' casestmts
 	      | ';'
 
