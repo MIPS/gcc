@@ -1,3 +1,41 @@
+2003-12-10  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_fpu_model): New variable.
+	(arm_fload_abi): New variable.
+	(target_fpe_name): Rename from target_fp_name.
+	(target_fpu_name): New variable.
+	(arm_is_cirrus): Remove.
+	(fpu_desc): New struct.
+	(all_fpus): Define.
+	(pf_model_for_fpu): Define.
+	(all_loat_abis): Define.
+	(arm_override_options): Set fp arch flags based on -mfpu=
+	and -float-abi=.
+	(FIRST_FPA_REGNUM): Rename from FIRST_ARM_FP_REGNUM.
+	(LAST_FPA_REGNUM): Rename from LAST_ARM_FP_REGNUM.
+	(*): Use new TARGET_* flags.
+	* config/arm/arm.h (TARGET_ANY_HARD_FLOAT): Remove.
+	(TARGET_HARD_FLOAT): No longer implies TARGET_FPA.
+	(TARGET_SOFT_FLOAT): Ditto.
+	(TARGET_SOFT_FLOAT_ABI): New.
+	(TARGET_MAVERICK): Rename from TARGET_CIRRUS.  No longer implies
+	TARGET_HARD_FLOAT.
+	(TARGET_VFP): No longer implies TARGET_HARD_FLOAT.
+	(TARGET_OPTIONS): Add -mfpu=.
+	(FIRST_FPA_REGNUM): Rename from FIRST_ARM_FP_REGNUM.
+	(LAST_FPA_REGNUM): Rename from LAST_ARM_FP_REGNUM.
+	(arm_pf_model): Define.
+	(arm_float_abi_type): Define.
+	(fputype): Add FPUTYPE_VFP.  Change SOFT_FPA->NONE
+	* config/arm/arm.md: Use new TARGET_* flags.
+	* config/arm/cirrus.md: Ditto.
+	* config/arm/fpa.md: Ditto.
+	* config/arm/elf.h (ASM_SPEC): Pass -mfloat-abi= and -mfpu=.
+	* config/arm/semi.h (ASM_SPEC): Ditto.
+	* config/arm/netbsd-elf.h (SUBTARGET_ASM_FLOAT_SPEC): Specify vfp.
+	(FPUTYPE_DEFAULT): Set to VFP.
+	* doc/invoke.texi: Document -mfpu= and -mfloat-abi=.
+
 2003-11-22  Phil Edwards  <phil@codesourcery.com>
 
 	PR target/12476

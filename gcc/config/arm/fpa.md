@@ -101,7 +101,7 @@
   [(set (match_operand:SF          0 "s_register_operand" "=f,f")
 	(plus:SF (match_operand:SF 1 "s_register_operand" "%f,f")
 		 (match_operand:SF 2 "fpa_add_operand"    "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?s\\t%0, %1, %2
    suf%?s\\t%0, %1, #%N2"
@@ -113,7 +113,7 @@
   [(set (match_operand:DF          0 "s_register_operand" "=f,f")
 	(plus:DF (match_operand:DF 1 "s_register_operand" "%f,f")
 		 (match_operand:DF 2 "fpa_add_operand"    "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?d\\t%0, %1, %2
    suf%?d\\t%0, %1, #%N2"
@@ -126,7 +126,7 @@
 	(plus:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand"  "f,f"))
 		 (match_operand:DF  2 "fpa_add_operand"    "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?d\\t%0, %1, %2
    suf%?d\\t%0, %1, #%N2"
@@ -139,7 +139,7 @@
 	(plus:DF (match_operand:DF  1 "s_register_operand"  "f")
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand"  "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "adf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
@@ -151,7 +151,7 @@
 		  (match_operand:SF 1 "s_register_operand" "f"))
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "adf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
@@ -161,7 +161,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f,f")
 	(minus:SF (match_operand:SF 1 "fpa_rhs_operand" "f,G")
 		  (match_operand:SF 2 "fpa_rhs_operand" "fG,f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    suf%?s\\t%0, %1, %2
    rsf%?s\\t%0, %2, %1"
@@ -172,7 +172,7 @@
   [(set (match_operand:DF           0 "s_register_operand" "=f,f")
 	(minus:DF (match_operand:DF 1 "fpa_rhs_operand"     "f,G")
 		  (match_operand:DF 2 "fpa_rhs_operand"    "fG,f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    suf%?d\\t%0, %1, %2
    rsf%?d\\t%0, %2, %1"
@@ -185,7 +185,7 @@
 	(minus:DF (float_extend:DF
 		   (match_operand:SF 1 "s_register_operand"  "f"))
 		  (match_operand:DF  2 "fpa_rhs_operand"    "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "suf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
@@ -196,7 +196,7 @@
 	(minus:DF (match_operand:DF 1 "fpa_rhs_operand" "f,G")
 		  (float_extend:DF
 		   (match_operand:SF 2 "s_register_operand" "f,f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    suf%?d\\t%0, %1, %2
    rsf%?d\\t%0, %2, %1"
@@ -210,7 +210,7 @@
 		   (match_operand:SF 1 "s_register_operand" "f"))
 		  (float_extend:DF
 		   (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "suf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
    (set_attr "predicable" "yes")]
@@ -220,7 +220,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(mult:SF (match_operand:SF 1 "s_register_operand" "f")
 		 (match_operand:SF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "fml%?s\\t%0, %1, %2"
   [(set_attr "type" "ffmul")
    (set_attr "predicable" "yes")]
@@ -230,7 +230,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mult:DF (match_operand:DF 1 "s_register_operand" "f")
 		 (match_operand:DF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
@@ -241,7 +241,7 @@
 	(mult:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand" "f"))
 		 (match_operand:DF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
@@ -252,7 +252,7 @@
 	(mult:DF (match_operand:DF 1 "s_register_operand" "f")
 		 (float_extend:DF
 		  (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
@@ -263,7 +263,7 @@
 	(mult:DF
 	 (float_extend:DF (match_operand:SF 1 "s_register_operand" "f"))
 	 (float_extend:DF (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
    (set_attr "predicable" "yes")]
@@ -275,7 +275,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f,f")
 	(div:SF (match_operand:SF 1 "fpa_rhs_operand" "f,G")
 		(match_operand:SF 2 "fpa_rhs_operand" "fG,f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    fdv%?s\\t%0, %1, %2
    frd%?s\\t%0, %2, %1"
@@ -287,7 +287,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f,f")
 	(div:DF (match_operand:DF 1 "fpa_rhs_operand" "f,G")
 		(match_operand:DF 2 "fpa_rhs_operand" "fG,f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    dvf%?d\\t%0, %1, %2
    rdf%?d\\t%0, %2, %1"
@@ -300,7 +300,7 @@
 	(div:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "dvf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -311,7 +311,7 @@
 	(div:DF (match_operand:DF 1 "fpa_rhs_operand" "fG")
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rdf%?d\\t%0, %2, %1"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -323,7 +323,7 @@
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "dvf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -333,7 +333,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(mod:SF (match_operand:SF 1 "s_register_operand" "f")
 		(match_operand:SF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?s\\t%0, %1, %2"
   [(set_attr "type" "fdivs")
    (set_attr "predicable" "yes")]
@@ -343,7 +343,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mod:DF (match_operand:DF 1 "s_register_operand" "f")
 		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -354,7 +354,7 @@
 	(mod:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -365,7 +365,7 @@
 	(mod:DF (match_operand:DF 1 "s_register_operand" "f")
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -377,7 +377,7 @@
 		 (match_operand:SF 1 "s_register_operand" "f"))
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
    (set_attr "predicable" "yes")]
@@ -386,7 +386,7 @@
 (define_insn "*negsf2_fpa"
   [(set (match_operand:SF         0 "s_register_operand" "=f")
 	(neg:SF (match_operand:SF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "mnf%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -395,7 +395,7 @@
 (define_insn "*negdf2_fpa"
   [(set (match_operand:DF         0 "s_register_operand" "=f")
 	(neg:DF (match_operand:DF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "mnf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -405,7 +405,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(neg:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "mnf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -414,7 +414,7 @@
 (define_insn "*abssf2_fpa"
   [(set (match_operand:SF          0 "s_register_operand" "=f")
 	 (abs:SF (match_operand:SF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "abs%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -423,7 +423,7 @@
 (define_insn "*absdf2_fpa"
   [(set (match_operand:DF         0 "s_register_operand" "=f")
 	(abs:DF (match_operand:DF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "abs%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -433,7 +433,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(abs:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "abs%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -442,7 +442,7 @@
 (define_insn "*sqrtsf2_fpa"
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(sqrt:SF (match_operand:SF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "sqt%?s\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
@@ -451,7 +451,7 @@
 (define_insn "*sqrtdf2_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(sqrt:DF (match_operand:DF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "sqt%?d\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
@@ -461,7 +461,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(sqrt:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "sqt%?d\\t%0, %1"
   [(set_attr "type" "float_em")
    (set_attr "predicable" "yes")]
@@ -470,7 +470,7 @@
 (define_insn "*floatsisf2_fpa"
   [(set (match_operand:SF           0 "s_register_operand" "=f")
 	(float:SF (match_operand:SI 1 "s_register_operand" "r")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "flt%?s\\t%0, %1"
   [(set_attr "type" "r_2_f")
    (set_attr "predicable" "yes")]
@@ -479,7 +479,7 @@
 (define_insn "*floatsidf2_fpa"
   [(set (match_operand:DF           0 "s_register_operand" "=f")
 	(float:DF (match_operand:SI 1 "s_register_operand" "r")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "flt%?d\\t%0, %1"
   [(set_attr "type" "r_2_f")
    (set_attr "predicable" "yes")]
@@ -488,7 +488,7 @@
 (define_insn "*fix_truncsfsi2_fpa"
   [(set (match_operand:SI         0 "s_register_operand" "=r")
 	(fix:SI (fix:SF (match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "fix%?z\\t%0, %1"
   [(set_attr "type" "f_2_r")
    (set_attr "predicable" "yes")]
@@ -497,7 +497,7 @@
 (define_insn "*fix_truncdfsi2_fpa"
   [(set (match_operand:SI         0 "s_register_operand" "=r")
 	(fix:SI (fix:DF (match_operand:DF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "fix%?z\\t%0, %1"
   [(set_attr "type" "f_2_r")
    (set_attr "predicable" "yes")]
@@ -507,7 +507,7 @@
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(float_truncate:SF
 	 (match_operand:DF 1 "s_register_operand" "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "mvf%?s\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -516,7 +516,7 @@
 (define_insn "*extendsfdf2_fpa"
   [(set (match_operand:DF                  0 "s_register_operand" "=f")
 	(float_extend:DF (match_operand:SF 1 "s_register_operand"  "f")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "mvf%?d\\t%0, %1"
   [(set_attr "type" "ffarith")
    (set_attr "predicable" "yes")]
@@ -526,7 +526,7 @@
   [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f, m,f,r,r,r, m")
 	(match_operand:SF 1 "general_operand"      "fG,H,mE,f,r,f,r,mE,r"))]
   "TARGET_ARM
-   && TARGET_HARD_FLOAT
+   && TARGET_HARD_FLOAT && TARGET_FPA
    && (GET_CODE (operands[0]) != MEM
        || register_operand (operands[1], SFmode))"
   "@
@@ -553,7 +553,7 @@
 	(match_operand:DF 1 "general_operand"
 						"Q, r,r,r,mF,fG,H,mF,f,r, f"))]
   "TARGET_ARM
-   && TARGET_HARD_FLOAT
+   && TARGET_HARD_FLOAT && TARGET_FPA
    && (GET_CODE (operands[0]) != MEM
        || register_operand (operands[1], DFmode))"
   "*
@@ -589,7 +589,7 @@
 (define_insn "*movxf_fpa"
   [(set (match_operand:XF 0 "nonimmediate_operand" "=f,f,f,m,f,r,r")
 	(match_operand:XF 1 "general_operand" "fG,H,m,f,r,f,r"))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && reload_completed"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA && reload_completed"
   "*
   switch (which_alternative)
     {
@@ -614,7 +614,7 @@
   [(set (reg:CCFP CC_REGNUM)
 	(compare:CCFP (match_operand:SF 0 "s_register_operand" "f,f")
 		      (match_operand:SF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
    cnf%?\\t%0, #%N1"
@@ -626,7 +626,7 @@
   [(set (reg:CCFP CC_REGNUM)
 	(compare:CCFP (match_operand:DF 0 "s_register_operand" "f,f")
 		      (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
    cnf%?\\t%0, #%N1"
@@ -639,7 +639,7 @@
 	(compare:CCFP (float_extend:DF
 		       (match_operand:SF 0 "s_register_operand" "f,f"))
 		      (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
    cnf%?\\t%0, #%N1"
@@ -652,7 +652,7 @@
 	(compare:CCFP (match_operand:DF 0 "s_register_operand" "f")
 		      (float_extend:DF
 		       (match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "cmf%?\\t%0, %1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
@@ -662,7 +662,7 @@
   [(set (reg:CCFPE CC_REGNUM)
 	(compare:CCFPE (match_operand:SF 0 "s_register_operand" "f,f")
 		       (match_operand:SF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
    cnf%?e\\t%0, #%N1"
@@ -674,7 +674,7 @@
   [(set (reg:CCFPE CC_REGNUM)
 	(compare:CCFPE (match_operand:DF 0 "s_register_operand" "f,f")
 		       (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
    cnf%?e\\t%0, #%N1"
@@ -687,7 +687,7 @@
 	(compare:CCFPE (float_extend:DF
 			(match_operand:SF 0 "s_register_operand" "f,f"))
 		       (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
    cnf%?e\\t%0, #%N1"
@@ -700,7 +700,7 @@
 	(compare:CCFPE (match_operand:DF 0 "s_register_operand" "f")
 		       (float_extend:DF
 			(match_operand:SF 1 "s_register_operand" "f"))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "cmf%?e\\t%0, %1"
   [(set_attr "conds" "set")
    (set_attr "type" "f_2_r")]
@@ -713,7 +713,7 @@
 	  [(match_operand 4 "cc_register" "") (const_int 0)])
 	 (match_operand:SF 1 "fpa_add_operand" "0,0,fG,H,fG,fG,H,H")
 	 (match_operand:SF 2 "fpa_add_operand" "fG,H,0,0,fG,H,fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    mvf%D3s\\t%0, %2
    mnf%D3s\\t%0, #%N2
@@ -735,7 +735,7 @@
 	  [(match_operand 4 "cc_register" "") (const_int 0)])
 	 (match_operand:DF 1 "fpa_add_operand" "0,0,fG,H,fG,fG,H,H")
 	 (match_operand:DF 2 "fpa_add_operand" "fG,H,0,0,fG,H,fG,H")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    mvf%D3d\\t%0, %2
    mnf%D3d\\t%0, #%N2

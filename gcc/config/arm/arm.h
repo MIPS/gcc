@@ -58,9 +58,7 @@
 	if (TARGET_SOFT_FLOAT)				\
 	  builtin_define ("__SOFTFP__");		\
 							\
-	/* FIXME: TARGET_HARD_FLOAT currently implies	\
-	   FPA.  */					\
-	if (TARGET_VFP && !TARGET_HARD_FLOAT)		\
+	if (TARGET_VFP)					\
 	  builtin_define ("__VFP_FP__");		\
 							\
 	/* Add a define for interworking.		\
@@ -135,8 +133,12 @@ extern int arm_ccfsm_state;
 extern GTY(()) rtx arm_target_insn;
 /* Run-time compilation parameters selecting different hardware subsets.  */
 extern int target_flags;
-/* The floating point instruction architecture, can be 2 or 3 */
-extern const char * target_fp_name;
+/* The floating point mode.  */
+extern const char *target_fpu_name;
+/* For backwards compatability.  */
+extern const char *target_fpe_name;
+/* Whether to use floating point hardware.  */
+extern const char *target_float_abi_name;
 /* Define the information needed to generate branch insns.  This is
    stored from the compare operation.  */
 extern GTY(()) rtx arm_compare_op0;
@@ -447,13 +449,14 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_APCS_REENT		(target_flags & ARM_FLAG_APCS_REENT)
 #define TARGET_ATPCS			(target_flags & ARM_FLAG_ATPCS)
 #define TARGET_MMU_TRAPS		(target_flags & ARM_FLAG_MMU_TRAPS)
-#define TARGET_SOFT_FLOAT		(target_flags & ARM_FLAG_SOFT_FLOAT)
-#define TARGET_HARD_FLOAT		(! TARGET_SOFT_FLOAT)
-#define TARGET_CIRRUS			(arm_is_cirrus)
-#define TARGET_ANY_HARD_FLOAT		(TARGET_HARD_FLOAT || TARGET_CIRRUS)
+#define TARGET_SOFT_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_SOFT)
+#define TARGET_SOFT_FLOAT_ABI		(arm_float_abi != ARM_FLOAT_ABI_HARD)
+#define TARGET_HARD_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_HARD)
+#define TARGET_FPA			(arm_fp_model == ARM_FP_MODEL_FPA)
+#define TARGET_MAVERICK			(arm_fp_model == ARM_FP_MODEL_MAVERICK)
+#define TARGET_VFP			(arm_fp_model == ARM_FP_MODEL_VFP)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
 #define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_ARM)
-#define TARGET_VFP			(target_flags & ARM_FLAG_VFP)
 #define TARGET_BIG_END			(target_flags & ARM_FLAG_BIG_END)
 #define TARGET_INTERWORK		(target_flags & ARM_FLAG_INTERWORK)
 #define TARGET_LITTLE_WORDS		(target_flags & ARM_FLAG_LITTLE_WORDS)
@@ -556,20 +559,23 @@ extern GTY(()) rtx aof_pic_label;
   {"",				TARGET_DEFAULT, "" }			   \
 }
 
-#define TARGET_OPTIONS						\
-{								\
-  {"cpu=",  & arm_select[0].string,				\
-   N_("Specify the name of the target CPU"), 0},		\
-  {"arch=", & arm_select[1].string,				\
-   N_("Specify the name of the target architecture"), 0}, 	\
-  {"tune=", & arm_select[2].string, "", 0}, 			\
-  {"fpe=",  & target_fp_name, "" , 0}, 				\
-  {"fp=",   & target_fp_name,					\
-   N_("Specify the version of the floating point emulator"), 0},\
-  {"structure-size-boundary=", & structure_size_string, 	\
-   N_("Specify the minimum bit alignment of structures"), 0}, 	\
-  {"pic-register=", & arm_pic_register_string,			\
-   N_("Specify the register to be used for PIC addressing"), 0}	\
+#define TARGET_OPTIONS							\
+{									\
+  {"cpu=",  & arm_select[0].string,					\
+   N_("Specify the name of the target CPU"), 0},			\
+  {"arch=", & arm_select[1].string,					\
+   N_("Specify the name of the target architecture"), 0},		\
+  {"tune=", & arm_select[2].string, "", 0},				\
+  {"fpe=",  & target_fpe_name, "", 0},					\
+  {"fp=",  & target_fpe_name, "", 0},					\
+  {"fpu=",  & target_fpu_name,						\
+   N_("Specify the name of the target floating point hardware/format"), 0}, \
+  {"float-abi=", & target_float_abi_name,				\
+   N_("Specify if floating point hardware should be used"), 0},		\
+  {"structure-size-boundary=", & structure_size_string,			\
+   N_("Specify the minimum bit alignment of structures"), 0},		\
+  {"pic-register=", & arm_pic_register_string,				\
+   N_("Specify the register to be used for PIC addressing"), 0}		\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -609,12 +615,26 @@ enum prog_mode_type
 
 extern enum prog_mode_type arm_prgmode;
 
-/* What sort of floating point unit do we have? Hardware or software.
-   If software, is it issue 2 or issue 3?  */
+/* Which floating point model to use.  */
+enum arm_fp_model
+{
+  ARM_FP_MODEL_UNKNOWN,
+  /* FPA model (Hardware or software).  */
+  ARM_FP_MODEL_FPA,
+  /* Cirrus Maverick floating point model.  */
+  ARM_FP_MODEL_MAVERICK,
+  /* VFP floating point model.  */
+  ARM_FP_MODEL_VFP
+};
+
+extern enum arm_fp_model arm_fp_model;
+
+/* Which floating point hardware is available.  Also update
+   fp_model_for_fpu in arm.c when adding entries to this list.  */
 enum fputype
 {
-  /* Software floating point, FPA style double fmt.  */
-  FPUTYPE_SOFT_FPA,
+  /* No FP hardware.  */
+  FPUTYPE_NONE,
   /* Full FPA support.  */
   FPUTYPE_FPA,
   /* Emulated FPA hardware, Issue 2 emulator (no LFM/SFM).  */
@@ -622,7 +642,9 @@ enum fputype
   /* Emulated FPA hardware, Issue 3 emulator.  */
   FPUTYPE_FPA_EMU3,
   /* Cirrus Maverick floating point co-processor.  */
-  FPUTYPE_MAVERICK
+  FPUTYPE_MAVERICK,
+  /* VFP.  */
+  FPUTYPE_VFP
 };
 
 /* Recast the floating point class to be the floating point attribute.  */
@@ -634,8 +656,21 @@ extern enum fputype arm_fpu_tune;
 /* What type of floating point instructions are available */
 extern enum fputype arm_fpu_arch;
 
+enum float_abi_type
+{
+  ARM_FLOAT_ABI_SOFT,
+  ARM_FLOAT_ABI_SOFTFP,
+  ARM_FLOAT_ABI_HARD
+};
+
+extern enum float_abi_type arm_float_abi;
+
 /* Default floating point architecture.  Override in sub-target if
-   necessary.  */
+   necessary.
+   FIXME: Is this still neccessary/desirable?  Do we want VFP chips to
+   default to VFP unless overridden by a subtarget?  If so it would be best
+   to remove these definitions.  It also assumes there is only one cpu model
+   with a Maverick fpu.  */
 #ifndef FPUTYPE_DEFAULT
 #define FPUTYPE_DEFAULT FPUTYPE_FPA_EMU2
 #endif
@@ -977,8 +1012,8 @@ extern const char * structure_size_string;
 								\
   if (TARGET_SOFT_FLOAT || TARGET_THUMB)			\
     {								\
-      for (regno = FIRST_ARM_FP_REGNUM;				\
-	   regno <= LAST_ARM_FP_REGNUM; ++regno)		\
+      for (regno = FIRST_FPA_REGNUM;				\
+	   regno <= LAST_FPA_REGNUM; ++regno)		\
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
     }								\
 								\
@@ -992,10 +1027,10 @@ extern const char * structure_size_string;
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
     }								\
 								\
-  if (TARGET_CIRRUS)						\
+  if (TARGET_MAVERICK && TARGET_HARD_FLOAT)			\
     {								\
-      for (regno = FIRST_ARM_FP_REGNUM;				\
-	   regno <= LAST_ARM_FP_REGNUM; ++ regno)		\
+      for (regno = FIRST_FPA_REGNUM;				\
+	   regno <= LAST_FPA_REGNUM; ++ regno)		\
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
       for (regno = FIRST_CIRRUS_FP_REGNUM;			\
 	   regno <= LAST_CIRRUS_FP_REGNUM; ++ regno)		\
@@ -1142,8 +1177,8 @@ extern const char * structure_size_string;
 #define STACK_POINTER_REGNUM	SP_REGNUM
 
 /* ARM floating pointer registers.  */
-#define FIRST_ARM_FP_REGNUM 	16
-#define LAST_ARM_FP_REGNUM  	23
+#define FIRST_FPA_REGNUM 	16
+#define LAST_FPA_REGNUM  	23
 
 #define FIRST_IWMMXT_GR_REGNUM	43
 #define LAST_IWMMXT_GR_REGNUM	46
@@ -1189,7 +1224,7 @@ extern const char * structure_size_string;
    mode.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)  	\
   ((TARGET_ARM 				\
-    && REGNO >= FIRST_ARM_FP_REGNUM	\
+    && REGNO >= FIRST_FPA_REGNUM	\
     && REGNO != FRAME_POINTER_REGNUM	\
     && REGNO != ARG_POINTER_REGNUM)	\
    ? 1 : ARM_NUM_REGS (MODE))
@@ -1445,7 +1480,7 @@ enum reg_class
 /* If we need to load shorts byte-at-a-time, then we need a scratch. */
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)		\
   /* Cannot load constants into Cirrus registers.  */		\
-  ((TARGET_CIRRUS						\
+  ((TARGET_MAVERICK && TARGET_HARD_FLOAT			\
      && (CLASS) == CIRRUS_REGS					\
      && (CONSTANT_P (X) || GET_CODE (X) == SYMBOL_REF))		\
     ? GENERAL_REGS :						\
@@ -1479,13 +1514,14 @@ enum reg_class
 	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));			   \
 	  HOST_WIDE_INT low, high;					   \
 									   \
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && MODE == DFmode))	   \
+	  if (MODE == DImode || (TARGET_SOFT_FLOAT && TARGET_FPA	   \
+		                 && MODE == DFmode))			   \
 	    low = ((val & 0xf) ^ 0x8) - 0x8;				   \
-	  else if (TARGET_CIRRUS)					   \
+	  else if (TARGET_MAVERICK && TARGET_HARD_FLOAT)		   \
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (MODE == SImode					   \
-		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
+		   || (MODE == SFmode && TARGET_SOFT_FLOAT && TARGET_FPA)  \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
 	    /* Need to be careful, -4096 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \
@@ -1493,7 +1529,7 @@ enum reg_class
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (GET_MODE_CLASS (MODE) == MODE_FLOAT			   \
-		   && TARGET_HARD_FLOAT)				   \
+		   && TARGET_HARD_FLOAT && TARGET_FPA)			   \
 	    /* Need to be careful, -1024 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0x3ff) : -((-val) & 0x3ff);		   \
 	  else								   \
@@ -1621,9 +1657,11 @@ enum reg_class
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 #define LIBCALL_VALUE(MODE)  \
-  (TARGET_ARM && TARGET_HARD_FLOAT && GET_MODE_CLASS (MODE) == MODE_FLOAT \
-   ? gen_rtx_REG (MODE, FIRST_ARM_FP_REGNUM) \
-   : TARGET_ARM && TARGET_CIRRUS && GET_MODE_CLASS (MODE) == MODE_FLOAT \
+  (TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA			\
+   && GET_MODE_CLASS (MODE) == MODE_FLOAT				\
+   ? gen_rtx_REG (MODE, FIRST_FPA_REGNUM)				\
+   : TARGET_ARM && TARGET_HARD_FLOAT && TARGET_MAVERICK			\
+     && GET_MODE_CLASS (MODE) == MODE_FLOAT				\
    ? gen_rtx_REG (MODE, FIRST_CIRRUS_FP_REGNUM) 			\
    : TARGET_REALLY_IWMMXT && VECTOR_MODE_SUPPORTED_P (MODE)		\
    ? gen_rtx_REG (MODE, FIRST_IWMMXT_REGNUM) 				\
@@ -1641,9 +1679,11 @@ enum reg_class
 /* On a Cirrus chip, mvf0 can return results.  */
 #define FUNCTION_VALUE_REGNO_P(REGNO)  \
   ((REGNO) == ARG_REGISTER (1) \
-   || (TARGET_ARM && ((REGNO) == FIRST_CIRRUS_FP_REGNUM) && TARGET_CIRRUS) \
+   || (TARGET_ARM && ((REGNO) == FIRST_CIRRUS_FP_REGNUM)		\
+       && TARGET_HARD_FLOAT && TARGET_MAVERICK)				\
    || (TARGET_ARM && ((REGNO) == FIRST_IWMMXT_REGNUM) && TARGET_IWMMXT) \
-   || (TARGET_ARM && ((REGNO) == FIRST_ARM_FP_REGNUM) && TARGET_HARD_FLOAT))
+   || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
+       && TARGET_HARD_FLOAT && TARGET_FPA))
 
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values

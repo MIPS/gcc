@@ -254,17 +254,29 @@ rtx arm_compare_op0, arm_compare_op1;
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
 
-/* What type of floating point are we tuning for?  */
+/* Which floating point model to use.  */
+enum arm_fp_model arm_fp_model;
+
+/* Which floating point hardware is available.  */
+enum fputype arm_fpu_arch;
+
+/* Which floating point hardware to schedule for.  */
 enum fputype arm_fpu_tune;
 
-/* What type of floating point instructions are available?  */
-enum fputype arm_fpu_arch;
+/* Whether to use floating point hardware.  */
+enum float_abi_type arm_float_abi;
 
 /* What program mode is the cpu running in? 26-bit mode or 32-bit mode.  */
 enum prog_mode_type arm_prgmode;
 
-/* Set by the -mfp=... option.  */
-const char * target_fp_name = NULL;
+/* Set by the -mfpu=... option.  */
+const char * target_fpu_name = NULL;
+
+/* Set by the -mfpe=... option.  */
+const char * target_fpe_name = NULL;
+
+/* Set by the -mfloat-abi=... option.  */
+const char * target_float_abi_name = NULL;
 
 /* Used to parse -mstructure_size_boundary command line option.  */
 const char * structure_size_string = NULL;
@@ -330,9 +342,6 @@ int arm_tune_xscale = 0;
 
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 int arm_is_6_or_7 = 0;
-
-/* Nonzero if this chip is a Cirrus/DSP.  */
-int arm_is_cirrus = 0;
 
 /* Nonzero if generating Thumb instructions.  */
 int thumb_code = 0;
@@ -425,6 +434,57 @@ struct arm_cpu_select arm_select[] =
   { NULL,	"-march=",	all_architectures },
   { NULL,	"-mtune=",	all_cores }
 };
+
+struct fpu_desc
+{
+  const char * name;
+  enum fputype fpu;
+};
+
+
+/* Available values for for -mfpu=.  */
+
+static const struct fpu_desc all_fpus[] =
+{
+  {"fpa",	FPUTYPE_FPA},
+  {"fpe2",	FPUTYPE_FPA_EMU2},
+  {"fpe3",	FPUTYPE_FPA_EMU2},
+  {"maverick",	FPUTYPE_MAVERICK},
+  {"vfp",	FPUTYPE_VFP}
+};
+
+
+/* Floating point models used by the different hardware.
+   See fputype in arm.h.  */
+
+static const enum fputype fp_model_for_fpu[] =
+{
+  /* No FP hardware.  */
+  ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
+  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA  */
+  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU2  */
+  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU3  */
+  ARM_FP_MODEL_MAVERICK,	/* FPUTYPE_MAVERICK  */
+  ARM_FP_MODEL_VFP		/* FPUTYPE_VFP  */
+};
+
+
+struct float_abi
+{
+  const char * name;
+  enum float_abi_type abi_type;
+};
+
+
+/* Available values for -mfloat-abi=.  */
+
+static const struct float_abi all_float_abis[] =
+{
+  {"soft",	ARM_FLOAT_ABI_SOFT},
+  {"softfp",	ARM_FLOAT_ABI_SOFTFP},
+  {"hard",	ARM_FLOAT_ABI_HARD}
+};
+
 
 /* Return the number of bits set in VALUE.  */
 static unsigned
@@ -726,54 +786,94 @@ arm_override_options (void)
   arm_is_6_or_7     = (((tune_flags & (FL_MODE26 | FL_MODE32))
 		       && !(tune_flags & FL_ARCH4))) != 0;
   arm_tune_xscale       = (tune_flags & FL_XSCALE) != 0;
-  arm_is_cirrus	    = (tune_flags & FL_CIRRUS) != 0;
   arm_arch_iwmmxt   = (insn_flags & FL_IWMMXT) != 0;
 
   if (TARGET_IWMMXT && (! TARGET_ATPCS))
     target_flags |= ARM_FLAG_ATPCS;    
 
-  if (arm_is_cirrus)
+  arm_fp_model = ARM_FP_MODEL_UNKNOWN;
+  if (target_fpu_name == NULL && target_fpe_name != NULL)
     {
-      arm_fpu_tune = FPUTYPE_MAVERICK;
-
-      /* Ignore -mhard-float if -mcpu=ep9312.  */
-      if (TARGET_HARD_FLOAT)
-	target_flags ^= ARM_FLAG_SOFT_FLOAT;
-    }
-  else
-    /* Default value for floating point code... if no co-processor
-       bus, then schedule for emulated floating point.  Otherwise,
-       assume the user has an FPA.
-       Note: this does not prevent use of floating point instructions,
-       -msoft-float does that.  */
-    arm_fpu_tune = (tune_flags & FL_CO_PROC) ? FPUTYPE_FPA : FPUTYPE_FPA_EMU3;
-  
-  if (target_fp_name)
-    {
-      if (streq (target_fp_name, "2"))
-	arm_fpu_arch = FPUTYPE_FPA_EMU2;
-      else if (streq (target_fp_name, "3"))
-	arm_fpu_arch = FPUTYPE_FPA_EMU3;
+      if (streq (target_fpe_name, "2"))
+	target_fpu_name = "fpe2";
+      else if (streq (target_fpe_name, "3"))
+	target_fpu_name = "fpe3";
       else
-	error ("invalid floating point emulation option: -mfpe-%s",
-	       target_fp_name);
+	error ("invalid floating point emulation option: -mfpe=%s",
+	       target_fpe_name);
+    }
+  if (target_fpu_name != NULL)
+    {
+      /* The user specified a FPU.  */
+      for (i = 0; i < ARRAY_SIZE (all_fpus); i++)
+	{
+	  if (streq (all_fpus[i].name, target_fpu_name))
+	    {
+	      arm_fpu_arch = all_fpus[i].fpu;
+	      arm_fpu_tune = arm_fpu_arch;
+	      arm_fp_model = fp_model_for_fpu[arm_fpu_arch];
+	      break;
+	    }
+	}
+      if (arm_fp_model == ARM_FP_MODEL_UNKNOWN)
+	error ("invalid floating point option: -mfpu=%s", target_fpu_name);
     }
   else
-    arm_fpu_arch = FPUTYPE_DEFAULT;
-  
-  if (TARGET_FPE)
     {
-      if (arm_fpu_tune == FPUTYPE_FPA_EMU3)
-	arm_fpu_tune = FPUTYPE_FPA_EMU2;
-      else if (arm_fpu_tune == FPUTYPE_MAVERICK)
-	warning ("-mfpe switch not supported by ep9312 target cpu - ignored.");
-      else if (arm_fpu_tune != FPUTYPE_FPA)
-	arm_fpu_tune = FPUTYPE_FPA_EMU2;
+#ifdef FPUTYPE_DEFAULT
+      /* Use the default is it is specified for this platform.  */
+      arm_fpu_arch = FPUTYPE_DEFAULT;
+      arm_fpu_tune = FPUTYPE_DEFAULT;
+#else
+      /* Pick one based on CPU type.  */
+      if ((insn_flags & FL_VFP) != 0)
+	arm_fpu_arch = FPUTYPE_VFP;
+      else if (insn_flags & FL_CIRRUS)
+	arm_fpu_arch = FPUTYPE_MAVERICK;
+      else
+	arm_fpu_arch = FPUTYPE_FPA_EMU2;
+#endif
+      if (tune_flags & FL_CO_PROC && arm_fpu_arch == FPUTYPE_FPA_EMU2)
+	arm_fpu_tune = FPUTYPE_FPA;
+      else
+	arm_fpu_tune = arm_fpu_arch;
+      arm_fp_model = fp_model_for_fpu[arm_fpu_arch];
+      if (arm_fp_model == ARM_FP_MODEL_UNKNOWN)
+	abort ();
     }
+
+  if (target_float_abi_name != NULL)
+    {
+      /* The user specified a FP ABI.  */
+      for (i = 0; i < ARRAY_SIZE (all_float_abis); i++)
+	{
+	  if (streq (all_float_abis[i].name, target_float_abi_name))
+	    arm_float_abi = all_float_abis[i].abi_type;
+	}
+      if (i == ARRAY_SIZE (all_float_abis))
+	error ("invalud floating point abi: -ffloat-abi=%s",
+	       target_float_abi_name);
+    }
+  else
+    {
+      /* Use soft-float target flag.  */
+      if (target_flags & ARM_FLAG_SOFT_FLOAT)
+	arm_float_abi = ARM_FLOAT_ABI_SOFT;
+      else
+	arm_float_abi = ARM_FLOAT_ABI_HARD;
+    }
+
+  if (arm_float_abi == ARM_FLOAT_ABI_SOFTFP)
+    sorry ("-mfloat-abi=softfp");
+  /* If soft-float is specified then don't use FPU.  */
+  if (TARGET_SOFT_FLOAT)
+    arm_fpu_arch = FPUTYPE_NONE;
   
   /* For arm2/3 there is no need to do any scheduling if there is only
      a floating point emulator, or we are doing software floating-point.  */
-  if ((TARGET_SOFT_FLOAT || arm_fpu_tune != FPUTYPE_FPA)
+  if ((TARGET_SOFT_FLOAT
+       || arm_fpu_tune == FPUTYPE_FPA_EMU2
+       || arm_fpu_tune == FPUTYPE_FPA_EMU3)
       && (tune_flags & FL_MODE32) == 0)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
   
@@ -1034,8 +1134,8 @@ use_return_insn (int iscond)
 
   /* Can't be done if any of the FPA regs are pushed,
      since this also requires an insn.  */
-  if (TARGET_HARD_FLOAT)
-    for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; regno++)
+  if (TARGET_HARD_FLOAT && TARGET_FPA)
+    for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
       if (regs_ever_live[regno] && !call_used_regs[regno])
 	return 0;
 
@@ -1939,15 +2039,14 @@ arm_return_in_memory (tree type)
 int
 arm_float_words_big_endian (void)
 {
-  if (TARGET_CIRRUS)
+  if (TARGET_MAVERICK)
     return 0;
 
   /* For FPA, float words are always big-endian.  For VFP, floats words
      follow the memory system mode.  */
 
-  if (TARGET_HARD_FLOAT)
+  if (TARGET_FPA)
     {
-      /* FIXME: TARGET_HARD_FLOAT currently implies FPA.  */
       return 1;
     }
 
@@ -2736,12 +2835,12 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
   HOST_WIDE_INT range;
   enum rtx_code code = GET_CODE (index);
 
-  if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (TARGET_HARD_FLOAT && TARGET_FPA && GET_MODE_CLASS (mode) == MODE_FLOAT)
     return (code == CONST_INT && INTVAL (index) < 1024
 	    && INTVAL (index) > -1024
 	    && (INTVAL (index) & 3) == 0);
 
-  if (TARGET_CIRRUS
+  if (TARGET_HARD_FLOAT && TARGET_MAVERICK
       && (GET_MODE_CLASS (mode) == MODE_FLOAT || mode == DImode))
     return (code == CONST_INT
 	    && INTVAL (index) < 255
@@ -4167,7 +4266,7 @@ nonimmediate_di_operand (rtx op, enum machine_mode mode)
   return FALSE;
 }
 
-/* Return TRUE for a valid operand of a DFmode operation when -msoft-float.
+/* Return TRUE for a valid operand of a DFmode operation when soft-float.
    Either: REG, SUBREG, CONST_DOUBLE or MEM(DImode_address).
    Note that this disallows MEM(REG+REG), but allows
    MEM(PRE/POST_INC/DEC(REG)).  */
@@ -5516,7 +5615,7 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	case LE:
 	case GT:
 	case GE:
-	  if (TARGET_CIRRUS)
+	  if (TARGET_HARD_FLOAT && TARGET_MAVERICK)
 	    return CCFPmode;
 	  return CCFPEmode;
 
@@ -8429,7 +8528,7 @@ arm_output_epilogue (int really_return)
 
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
+	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      {
 		floats_offset += 12;
@@ -8439,9 +8538,9 @@ arm_output_epilogue (int really_return)
 	}
       else
 	{
-	  int start_reg = LAST_ARM_FP_REGNUM;
+	  int start_reg = LAST_FPA_REGNUM;
 
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
+	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
 	      if (regs_ever_live[reg] && !call_used_regs[reg])
 		{
@@ -8542,16 +8641,16 @@ arm_output_epilogue (int really_return)
 
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
-	  for (reg = FIRST_ARM_FP_REGNUM; reg <= LAST_ARM_FP_REGNUM; reg++)
+	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      asm_fprintf (f, "\tldfe\t%r, [%r], #12\n",
 			   reg, SP_REGNUM);
 	}
       else
 	{
-	  int start_reg = FIRST_ARM_FP_REGNUM;
+	  int start_reg = FIRST_FPA_REGNUM;
 
-	  for (reg = FIRST_ARM_FP_REGNUM; reg <= LAST_ARM_FP_REGNUM; reg++)
+	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    {
 	      if (regs_ever_live[reg] && !call_used_regs[reg])
 		{
@@ -8962,7 +9061,7 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
       /* If the hard floating point registers are going to be
 	 used then they must be saved on the stack as well.
          Each register occupies 12 bytes of stack space.  */
-      for (reg = FIRST_ARM_FP_REGNUM; reg <= LAST_ARM_FP_REGNUM; reg++)
+      for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	if (regs_ever_live[reg] && ! call_used_regs[reg])
 	  call_saved_registers += 12;
 
@@ -9107,7 +9206,7 @@ arm_get_frame_size (void)
   /* Space for saved FPA registers.  */
   if (! IS_VOLATILE (func_type))
     {
-      for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; regno++)
+      for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
       if (regs_ever_live[regno] && ! call_used_regs[regno])
 	entry_size += 12;
     }
@@ -9308,7 +9407,7 @@ arm_expand_prologue (void)
 	 function.  */
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
+	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      {
 		insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
@@ -9320,9 +9419,9 @@ arm_expand_prologue (void)
 	}
       else
 	{
-	  int start_reg = LAST_ARM_FP_REGNUM;
+	  int start_reg = LAST_FPA_REGNUM;
 
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
+	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
 	      if (regs_ever_live[reg] && !call_used_regs[reg])
 		{
@@ -10300,8 +10399,8 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
   /* The only registers left are the FPA registers
      which we only allow to hold FP values.  */
   return GET_MODE_CLASS (mode) == MODE_FLOAT
-    && regno >= FIRST_ARM_FP_REGNUM
-    && regno <= LAST_ARM_FP_REGNUM;
+    && regno >= FIRST_FPA_REGNUM
+    && regno <= LAST_FPA_REGNUM;
 }
 
 int
