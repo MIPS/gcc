@@ -368,7 +368,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  add_stmt_operand (&TREE_OPERAND (ptr, 0), stmt, flags, prev_vops);
 	  return;
 	}
-      else if (TREE_CONSTANT (ptr) && !integer_zerop (ptr))
+      else if (TREE_CONSTANT (ptr))
 	{
 	  /* If a constant is used as a pointer, we can't generate a real
 	     operand for it but we mark the statement volatile to prevent

@@ -1,6 +1,8 @@
 2003-08-14  Jeff Law  <law@redhat.com>
 
-	 * fold-const.c (fold, case INDIRECT_REF): Revert last change.
+	* tree-dfa.c (get_expr_operands): Do not special case *0;
+
+	* fold-const.c (fold, case INDIRECT_REF): Revert last change.
 
 2003-08-14  Diego Novillo  <dnovillo@redhat.com>
 
