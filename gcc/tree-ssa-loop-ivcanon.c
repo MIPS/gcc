@@ -74,9 +74,9 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
     }
 
   cond = last_stmt (exit->src);
-  in = exit->src->succ;
+  in = EDGE_SUCC (exit->src, 0);
   if (in == exit)
-    in = in->succ_next;
+    in = EDGE_SUCC (exit->src, 1);
 
   /* Note that we do not need to worry about overflows, since
      type of niter is always unsigned and all comparisons are
@@ -175,12 +175,9 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
       COND_EXPR_COND (cond) = dont_exit;
       modify_stmt (cond);
 
-#if 0
-      /* The necessary infrastructure is not in yet.  */
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       loops, n_unroll, NULL,
 					       NULL, NULL, NULL, 0))
-#endif
 	{
 	  COND_EXPR_COND (cond) = old_cond;
 	  return false;
@@ -263,6 +260,10 @@ canonicalize_induction_variables (struct loops *loops)
 	canonicalize_loop_induction_variables (loops, loop, true, false, true);
     }
 
+  /* Clean up the information about numbers of iterations, since brute force
+     evaluation could reveal new information.  */
+  scev_reset ();
+
 #if 0
   /* The necessary infrastructure is not in yet.  */
   if (changed)
@@ -290,6 +291,10 @@ tree_unroll_loops_completely (struct loops *loops)
 							false, true,
 							!flag_tree_loop_ivcanon);
     }
+
+  /* Clean up the information about numbers of iterations, since complete
+     unrolling might have invalidated it.  */
+  scev_reset ();
 
 #if 0
   /* The necessary infrastructure is not in yet.  */

@@ -492,6 +492,7 @@ package body Checks is
          Expr := Expression (Expr);
 
       elsif Nkind (Expr) = N_Function_Call
+        and then Is_Entity_Name (Name (Expr))
         and then Is_RTE (Entity (Name (Expr)), RE_To_Address)
       then
          Expr := First (Parameter_Associations (Expr));
@@ -3723,12 +3724,16 @@ package body Checks is
       Typ : constant Entity_Id := Etype (Expr);
 
    begin
-      --  Non-scalar types are always consdered valid, since they never
+      --  Non-scalar types are always considered valid, since they never
       --  give rise to the issues of erroneous or bounded error behavior
       --  that are the concern. In formal reference manual terms the
-      --  notion of validity only applies to scalar types.
+      --  notion of validity only applies to scalar types. Note that
+      --  even when packed arrays are represented using modular types,
+      --  they are still arrays semantically, so they are also always
+      --  valid (in particular, the unused bits can be random rubbish
+      --  without affecting the validity of the array value).
 
-      if not Is_Scalar_Type (Typ) then
+      if not Is_Scalar_Type (Typ) or else Is_Packed_Array_Type (Typ) then
          return True;
 
       --  If no validity checking, then everything is considered valid

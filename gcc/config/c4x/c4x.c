@@ -195,7 +195,7 @@ static int c4x_label_ref_used_p (rtx, rtx);
 static tree c4x_handle_fntype_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec c4x_attribute_table[];
 static void c4x_insert_attributes (tree, tree *);
-static void c4x_asm_named_section (const char *, unsigned int);
+static void c4x_asm_named_section (const char *, unsigned int, tree);
 static int c4x_adjust_cost (rtx, rtx, rtx, int);
 static void c4x_globalize_label (FILE *, const char *);
 static bool c4x_rtx_costs (rtx, int, int, int *);
@@ -3342,7 +3342,7 @@ tsrc_operand (rtx op, enum machine_mode mode)
 }
 
 
-/* Check src operand of two operand non immedidate instructions.  */
+/* Check src operand of two operand non immediate instructions.  */
 
 int
 nonimmediate_src_operand (rtx op, enum machine_mode mode)
@@ -3354,7 +3354,7 @@ nonimmediate_src_operand (rtx op, enum machine_mode mode)
 }
 
 
-/* Check logical src operand of two operand non immedidate instructions.  */
+/* Check logical src operand of two operand non immediate instructions.  */
 
 int
 nonimmediate_lsrc_operand (rtx op, enum machine_mode mode)
@@ -4924,7 +4924,8 @@ c4x_init_libfuncs (void)
 }
 
 static void
-c4x_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+c4x_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED,
+		       tree decl ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file, "\t.sect\t\"%s\"\n", name);
 }

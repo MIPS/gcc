@@ -1700,6 +1700,15 @@ cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
     : NULL_RTX;
 }
 
+/* Accessor used in cris.md:return because cfun->machine isn't available
+   there.  */
+
+int
+cris_return_address_on_stack ()
+{
+  return cfun->machine->needs_return_address_on_stack;
+}
+
 /* This used to be the INITIAL_FRAME_POINTER_OFFSET worker; now only
    handles FP -> SP elimination offset.  */
 
@@ -2441,12 +2450,13 @@ cris_reg_overlap_mentioned_p (rtx x, rtx in)
    We just dispatch to the functions for ELF and a.out.  */
 
 void
-cris_target_asm_named_section (const char *name, unsigned int flags)
+cris_target_asm_named_section (const char *name, unsigned int flags,
+			       tree decl)
 {
   if (! TARGET_ELF)
-    default_no_named_section (name, flags);
+    default_no_named_section (name, flags, decl);
   else
-    default_elf_asm_named_section (name, flags);
+    default_elf_asm_named_section (name, flags, decl);
 }
 
 /* The LEGITIMATE_PIC_OPERAND_P worker.  */
@@ -3089,7 +3099,7 @@ restart:
       break;
 
     case PLUS:
-      /* Some assemblers need integer constants to appear last (eg masm).  */
+      /* Some assemblers need integer constants to appear last (e.g. masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  cris_output_addr_const (file, XEXP (x, 1));

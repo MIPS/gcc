@@ -63,6 +63,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <limits.h>
 #include <time.h>
 #include <ctype.h>
+#ifdef HAVE_DLFCN_H
+#include <dlfcn.h>
+#endif
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #endif
@@ -84,7 +87,24 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SYS_SHM_H
 #include <sys/shm.h>
 #endif
-
+#ifdef HAVE_PWD_H
+#include <pwd.h>
+#endif
+#ifdef HAVE_GRP_H
+#include <grp.h>
+#endif
+#ifdef HAVE_MNTENT_H
+#include <mntent.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
@@ -524,7 +544,6 @@ WRAPPER2(struct tm*, gmtime, const time_t *timep)
 /* The following indicate if the result of the corresponding function
  * should be explicitly un/registered by the wrapper
 */
-#define MF_REGISTER_strerror		__MF_TYPE_STATIC
 #undef  MF_REGISTER_fopen
 #define MF_RESULT_SIZE_fopen		(sizeof (FILE))
 #undef  MF_REGISTER_opendir
@@ -552,17 +571,15 @@ WRAPPER2(time_t, time, time_t *timep)
 WRAPPER2(char *, strerror, int errnum)
 {
   char *p;
-  size_t n;
+  static char * last_strerror = NULL;
+
   TRACE ("%s\n", __PRETTY_FUNCTION__);
   p = strerror (errnum);
-  if (NULL != p) {
-    n = strlen (p);
-    n = CLAMPADD(n, 1);
-#ifdef MF_REGISTER_strerror
-    __mf_register (p, n, MF_REGISTER_strerror, "strerror result");
-#endif
-    MF_VALIDATE_EXTENT (p, n, __MF_CHECK_WRITE, "strerror result");
-  }
+  if (last_strerror != NULL)
+    __mf_unregister (last_strerror, 0, __MF_TYPE_STATIC);
+  if (NULL != p)
+    __mf_register (p, strlen (p) + 1, __MF_TYPE_STATIC, "strerror result");
+  last_strerror = p;
   return p;
 }
 
@@ -1720,5 +1737,246 @@ WRAPPER2(int **, __ctype_tolower_loc, void)
                      "ctype_tolower_loc []");
     }
   return ptr;
+}
+#endif
+
+
+/* passwd/group related functions.  These register every (static) pointer value returned,
+   and rely on libmudflap's quiet toleration of duplicate static registrations.  */
+
+#ifdef HAVE_GETLOGIN
+WRAPPER2(char *, getlogin, void)
+{
+  char *buf = getlogin ();
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getlogin() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_CUSERID
+WRAPPER2(char *, cuserid, char * buf)
+{
+  if (buf != NULL)
+    {
+      MF_VALIDATE_EXTENT(buf, L_cuserid, __MF_CHECK_WRITE,
+                         "cuserid destination");
+      return cuserid (buf);
+    }
+  buf = cuserid (NULL);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getcuserid() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETPWNAM
+WRAPPER2(struct passwd *, getpwnam, const char *name)
+{
+  struct passwd *buf;
+  MF_VALIDATE_EXTENT(name, strlen(name)+1, __MF_CHECK_READ,
+                     "getpwnam name");
+  buf = getpwnam (name);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getpw*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETPWUID
+WRAPPER2(struct passwd *, getpwuid, uid_t uid)
+{
+  struct passwd *buf;
+  buf = getpwuid (uid);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getpw*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETGRNAM
+WRAPPER2(struct group *, getgrnam, const char *name)
+{
+  struct group *buf;
+  MF_VALIDATE_EXTENT(name, strlen(name)+1, __MF_CHECK_READ,
+                     "getgrnam name");
+  buf = getgrnam (name);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getgr*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETGRGID
+WRAPPER2(struct group *, getgrgid, uid_t uid)
+{
+  struct group *buf;
+  buf = getgrgid (uid);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getgr*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETSERVENT
+WRAPPER2(struct servent *, getservent, void)
+{
+  struct servent *buf;
+  buf = getservent ();
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getserv*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETSERVBYNAME
+WRAPPER2(struct servent *, getservbyname, const char *name, const char *proto)
+{
+  struct servent *buf;
+  MF_VALIDATE_EXTENT(name, strlen(name)+1, __MF_CHECK_READ,
+                     "getservbyname name");
+  MF_VALIDATE_EXTENT(proto, strlen(proto)+1, __MF_CHECK_READ,
+                     "getservbyname proto");
+  buf = getservbyname (name, proto);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getserv*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETSERVBYPORT
+WRAPPER2(struct servent *, getservbyport, int port, const char *proto)
+{
+  struct servent *buf;
+  MF_VALIDATE_EXTENT(proto, strlen(proto)+1, __MF_CHECK_READ,
+                     "getservbyport proto");
+  buf = getservbyport (port, proto);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getserv*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GAI_STRERROR
+WRAPPER2(const char *, gai_strerror, int errcode)
+{
+  const char *buf;
+  buf = gai_strerror (errcode);
+  if (buf != NULL)
+    __mf_register ((void *) buf, strlen(buf)+1, __MF_TYPE_STATIC,
+                   "gai_strerror() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETMNTENT
+WRAPPER2(struct mntent *, getmntent, FILE *filep)
+{
+  struct mntent *m;
+  static struct mntent *last = NULL;
+
+  MF_VALIDATE_EXTENT (filep, sizeof (*filep), __MF_CHECK_WRITE,
+    "getmntent stream");
+#define UR(field) __mf_unregister(last->field, strlen (last->field)+1, __MF_TYPE_STATIC)
+  if (last)
+    {
+      UR (mnt_fsname);
+      UR (mnt_dir);
+      UR (mnt_type);
+      UR (mnt_opts);
+      __mf_unregister (last, sizeof (*last), __MF_TYPE_STATIC);
+    }
+#undef UR
+
+  m = getmntent (filep);
+  last = m;
+
+#define R(field) __mf_register(last->field, strlen (last->field)+1, __MF_TYPE_STATIC, "mntent " #field)
+  if (m)
+    {
+      R (mnt_fsname);
+      R (mnt_dir);
+      R (mnt_type);
+      R (mnt_opts);
+      __mf_register (last, sizeof (*last), __MF_TYPE_STATIC, "getmntent result");
+    }
+#undef R
+
+  return m;
+}
+#endif
+
+
+#ifdef HAVE_INET_NTOA
+WRAPPER2(char *, inet_ntoa, struct in_addr in)
+{
+  static char *last_buf = NULL;
+  char *buf;
+  if (last_buf)
+    __mf_unregister (last_buf, strlen (last_buf)+1, __MF_TYPE_STATIC);
+  buf = inet_ntoa (in);
+  last_buf = buf;
+  if (buf)
+    __mf_register (last_buf, strlen (last_buf)+1, __MF_TYPE_STATIC, "inet_ntoa result");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETPROTOENT
+WRAPPER2(struct protoent *, getprotoent, void)
+{
+  struct protoent *buf;
+  buf = getprotoent ();
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC, "getproto*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETPROTOBYNAME
+WRAPPER2(struct protoent *, getprotobyname, const char *name)
+{
+  struct protoent *buf;
+  MF_VALIDATE_EXTENT(name, strlen(name)+1, __MF_CHECK_READ,
+                     "getprotobyname name");
+  buf = getprotobyname (name);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getproto*() return");
+  return buf;
+}
+#endif
+
+
+#ifdef HAVE_GETPROTOBYNUMBER
+WRAPPER2(struct protoent *, getprotobynumber, int port)
+{
+  struct protoent *buf;
+  buf = getprotobynumber (port);
+  if (buf != NULL)
+    __mf_register (buf, sizeof(*buf), __MF_TYPE_STATIC,
+                   "getproto*() return");
+  return buf;
 }
 #endif

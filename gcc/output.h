@@ -392,10 +392,6 @@ extern const char *first_global_object_name;
 /* The first weak object in the file.  */
 extern const char *weak_global_object_name;
 
-/* Label at start of unlikely section, when partitioning hot/cold basic
-   blocks.  */
-extern char *unlikely_section_label;
-
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
@@ -442,12 +438,6 @@ extern tree last_assemble_variable_decl;
 extern bool decl_readonly_section (tree, int);
 extern bool decl_readonly_section_1 (tree, int, int);
 
-/* The following global variable indicates the section name to be used
-   for the current cold section, when partitioning hot and cold basic
-   blocks into separate sections.  */
-
-extern char *unlikely_text_section_name;
-
 /* This can be used to compute RELOC for the function above, when
    given a constant expression.  */
 extern int compute_reloc_for_constant (tree);
@@ -488,15 +478,17 @@ extern void no_asm_to_stream (FILE *);
 
 extern unsigned int get_named_section_flags (const char *);
 extern bool set_named_section_flags (const char *, unsigned int);
-extern void named_section_flags (const char *, unsigned int);
+#define named_section_flags(NAME, FLAGS) \
+  named_section_real((NAME), (FLAGS), /*decl=*/NULL_TREE)
+extern void named_section_real (const char *, unsigned int, tree);
 extern bool named_section_first_declaration (const char *);
 extern unsigned int default_section_type_flags (tree, const char *, int);
 extern unsigned int default_section_type_flags_1 (tree, const char *, int, int);
 
-extern void default_no_named_section (const char *, unsigned int);
-extern void default_elf_asm_named_section (const char *, unsigned int);
-extern void default_coff_asm_named_section (const char *, unsigned int);
-extern void default_pe_asm_named_section (const char *, unsigned int);
+extern void default_no_named_section (const char *, unsigned int, tree);
+extern void default_elf_asm_named_section (const char *, unsigned int, tree);
+extern void default_coff_asm_named_section (const char *, unsigned int, tree);
+extern void default_pe_asm_named_section (const char *, unsigned int, tree);
 
 extern void default_stabs_asm_out_destructor (rtx, int);
 extern void default_named_section_asm_out_destructor (rtx, int);

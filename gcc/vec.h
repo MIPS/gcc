@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    out-of-line generic functions.  The vectors are designed to
    interoperate with the GTY machinery.
 
-   Because of the different behaviour of objects and of pointers to
+   Because of the different behavior of objects and of pointers to
    objects, there are two flavors.  One to deal with a vector of
    pointers to objects, and one to deal with a vector of objects
    themselves.  Both of these pass pointers to objects around -- in
@@ -78,19 +78,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    The 'lower_bound' function will determine where to place an item in the
    array using insert that will maintain sorted order.
 
+   Both garbage collected and explicitly managed vector types are
+   creatable.  The allocation mechanism is specified when the type is
+   defined, and is therefore part of the type.
+   
    If you need to directly manipulate a vector, then the 'address'
    accessor will return the address of the start of the vector.  Also
    the 'space' predicate will tell you whether there is spare capacity
    in the vector.  You will not normally need to use these two functions.
    
-   Vector types are defined using a DEF_VEC_{O,P}(TYPEDEF) macro, and
-   variables of vector type are declared using a VEC(TYPEDEF)
-   macro. The characters O and P indicate whether TYPEDEF is a pointer
-   (P) or object (O) type.
+   Vector types are defined using a DEF_VEC_{GC,MALLOC}_{O,P}(TYPEDEF)
+   macro, and variables of vector type are declared using a
+   VEC(TYPEDEF) macro.  The tags GC and MALLOC specify the allocation
+   method -- garbage collected or explicit malloc/free calls.  The
+   characters O and P indicate whether TYPEDEF is a pointer (P) or
+   object (O) type.
 
    An example of their use would be,
 
-   DEF_VEC_P(tree);	// define a vector of tree pointers.  This must
+   DEF_VEC_GC_P(tree);	// define a gc'd vector of tree pointers.  This must
    			// appear at file scope.
 
    struct my_struct {
@@ -158,6 +164,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_alloc(TDEF,A)	(VEC_OP(TDEF,alloc)(A MEM_STAT_INFO))
 
+/* Free a vector.
+   void VEC_T_alloc(VEC(T) *&);
+
+   Free a vector and set it to NULL.  */
+
+#define VEC_free(TDEF,V)	(VEC_OP(TDEF,free)(&V))
+
 /* Use these to determine the required size and initialization of a
    vector embedded within another structure (as the final member).
    
@@ -173,11 +186,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    
    int VEC_T_space (VEC(T) *v,int reserve)
 
-   If V has space for RESERVE additional entries, return non-zero.  If
+   If V has space for RESERVE additional entries, return nonzero.  If
    RESERVE is < 0, ensure there is at least one space slot.  You
    usually only need to use this if you are doing your own vector
    reallocation, for instance on an embedded vector.  This returns
-   non-zero in exactly the same circumstances that VEC_T_reserve
+   nonzero in exactly the same circumstances that VEC_T_reserve
    will.  */
 
 #define VEC_space(TDEF,V,R)	(VEC_OP(TDEF,space)(V,R))
@@ -187,10 +200,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Ensure that V has at least RESERVE slots available, if RESERVE is
    >= 0.  If RESERVE < 0, ensure that there is at least one spare
-   slot.  These differ in their reallocation behaviour, the first will
+   slot.  These differ in their reallocation behavior, the first will
    not create additional headroom, but the second mechanism will
    perform the usual exponential headroom increase.  Note this can
-   cause V to be reallocated.  Returns non-zero iff reallocation
+   cause V to be reallocated.  Returns nonzero iff reallocation
    actually occurred.  */
 
 #define VEC_reserve(TDEF,V,R)	(VEC_OP(TDEF,reserve)(&(V),R MEM_STAT_INFO))
@@ -317,8 +330,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #if !IN_GENGTYPE
 /* Reallocate an array of elements with prefix.  */
-extern void *vec_p_reserve (void *, int MEM_STAT_DECL);
-extern void *vec_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
+extern void *vec_gc_p_reserve (void *, int MEM_STAT_DECL);
+extern void *vec_gc_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
+extern void vec_gc_free (void *);
+extern void *vec_heap_p_reserve (void *, int MEM_STAT_DECL);
+extern void *vec_heap_o_reserve (void *, int, size_t, size_t MEM_STAT_DECL);
+extern void vec_heap_free (void *);
 
 #if ENABLE_CHECKING
 #define VEC_CHECK_INFO ,__FILE__,__LINE__,__FUNCTION__
@@ -359,10 +376,13 @@ typedef struct VEC (TDEF) GTY(())					  \
 
 /* Vector of pointer to object.  */
 #if IN_GENGTYPE
-{"DEF_VEC_P", VEC_STRINGIFY (VEC_TDEF (#)) ";", NULL},
+{"DEF_VEC_GC_P", VEC_STRINGIFY (VEC_TDEF (#)) ";", NULL},
+{"DEF_VEC_MALLOC_P", "", NULL},
 #else
+#define DEF_VEC_GC_P(TDEF) DEF_VEC_P(TDEF,gc)
+#define DEF_VEC_MALLOC_P(TDEF) DEF_VEC_P(TDEF,heap)
   
-#define DEF_VEC_P(TDEF)							  \
+#define DEF_VEC_P(TDEF,a)						  \
 VEC_TDEF (TDEF);							  \
 									  \
 static inline unsigned VEC_OP (TDEF,length)				  \
@@ -405,7 +425,14 @@ static inline int VEC_OP (TDEF,iterate)			  	     	  \
 static inline VEC (TDEF) *VEC_OP (TDEF,alloc)				  \
      (int alloc_ MEM_STAT_DECL)						  \
 {									  \
-  return (VEC (TDEF) *) vec_p_reserve (NULL, alloc_ - !alloc_ PASS_MEM_STAT);\
+  return (VEC (TDEF) *) vec_##a##_p_reserve (NULL, alloc_ - !alloc_ PASS_MEM_STAT);\
+}									  \
+									  \
+static inline void VEC_OP (TDEF,free)					  \
+     (VEC (TDEF) **vec_)						  \
+{									  \
+  vec_##a##_free (*vec_);						  \
+  *vec_ = NULL;								  \
 }									  \
 									  \
 static inline size_t VEC_OP (TDEF,embedded_size)			  \
@@ -425,16 +452,16 @@ static inline int VEC_OP (TDEF,space)	       				  \
      (VEC (TDEF) *vec_, int alloc_)					  \
 {									  \
   return vec_ ? ((vec_)->alloc - (vec_)->num				  \
-		 < (unsigned)(alloc_ < 0 ? 1 : alloc_)) : alloc_ != 0;	  \
+		 >= (unsigned)(alloc_ < 0 ? 1 : alloc_)) : !alloc_;	  \
 }									  \
 									  \
 static inline int VEC_OP (TDEF,reserve)	       				  \
      (VEC (TDEF) **vec_, int alloc_ MEM_STAT_DECL)			  \
 {									  \
-  int extend = VEC_OP (TDEF,space) (*vec_, alloc_);			  \
+  int extend = !VEC_OP (TDEF,space) (*vec_, alloc_);			  \
 		  							  \
   if (extend)	  							  \
-    *vec_ = (VEC (TDEF) *) vec_p_reserve (*vec_, alloc_ PASS_MEM_STAT);   \
+    *vec_ = (VEC (TDEF) *) vec_##a##_p_reserve (*vec_, alloc_ PASS_MEM_STAT);   \
 		  							  \
   return extend;							  \
 }									  \
@@ -577,10 +604,14 @@ struct vec_swallow_trailing_semi
 
 /* Vector of object.  */
 #if IN_GENGTYPE
-{"DEF_VEC_O", VEC_STRINGIFY (VEC_TDEF (#)) ";", NULL},
+{"DEF_VEC_GC_O", VEC_STRINGIFY (VEC_TDEF (#)) ";", NULL},
+{"DEF_VEC_MALLOC_O", "", NULL},
 #else
   
-#define DEF_VEC_O(TDEF)							  \
+#define DEF_VEC_GC_O(TDEF) DEF_VEC_O(TDEF,gc)
+#define DEF_VEC_MALLOC_O(TDEF) DEF_VEC_O(TDEF,heap)
+
+#define DEF_VEC_O(TDEF,a)						  \
 VEC_TDEF (TDEF);							  \
 									  \
 static inline unsigned VEC_OP (TDEF,length)				  \
@@ -623,9 +654,16 @@ static inline int VEC_OP (TDEF,iterate)			  	     	  \
 static inline VEC (TDEF) *VEC_OP (TDEF,alloc)      			  \
      (int alloc_ MEM_STAT_DECL)						  \
 {									  \
-  return (VEC (TDEF) *) vec_o_reserve (NULL, alloc_ - !alloc_,		  \
+  return (VEC (TDEF) *) vec_##a##_o_reserve (NULL, alloc_ - !alloc_,	  \
                                        offsetof (VEC(TDEF),vec), sizeof (TDEF)\
                                        PASS_MEM_STAT);			  \
+}									  \
+									  \
+static inline void VEC_OP (TDEF,free)					  \
+     (VEC (TDEF) **vec_)						  \
+{									  \
+  vec_##a##_free (*vec_);						  \
+  *vec_ = NULL;								  \
 }									  \
 									  \
 static inline size_t VEC_OP (TDEF,embedded_size)			  \
@@ -645,16 +683,16 @@ static inline int VEC_OP (TDEF,space)	       				  \
      (VEC (TDEF) *vec_, int alloc_)					  \
 {									  \
   return vec_ ? ((vec_)->alloc - (vec_)->num				  \
-		 < (unsigned)(alloc_ < 0 ? 1 : alloc_)) : alloc_ != 0;	  \
+		 >= (unsigned)(alloc_ < 0 ? 1 : alloc_)) : !alloc_;	  \
 }									  \
 									  \
 static inline int VEC_OP (TDEF,reserve)	   	    			  \
      (VEC (TDEF) **vec_, int alloc_ MEM_STAT_DECL)			  \
 {									  \
-  int extend = VEC_OP (TDEF,space) (*vec_, alloc_);			  \
+  int extend = !VEC_OP (TDEF,space) (*vec_, alloc_);			  \
 									  \
   if (extend)								  \
-    *vec_ = (VEC (TDEF) *) vec_o_reserve (*vec_, alloc_,		  \
+    *vec_ = (VEC (TDEF) *) vec_##a##_o_reserve (*vec_, alloc_,		  \
 			   offsetof (VEC(TDEF),vec), sizeof (TDEF)	  \
 			   PASS_MEM_STAT);				  \
 									  \

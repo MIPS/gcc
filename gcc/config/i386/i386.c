@@ -362,7 +362,7 @@ struct processor_costs athlon_cost = {
   5,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
-  2,					/* Branch cost */
+  5,					/* Branch cost */
   4,					/* cost of FADD and FSUB insns.  */
   4,					/* cost of FMUL instruction.  */
   24,					/* cost of FDIV instruction.  */
@@ -406,7 +406,7 @@ struct processor_costs k8_cost = {
   5,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
-  2,					/* Branch cost */
+  5,					/* Branch cost */
   4,					/* cost of FADD and FSUB insns.  */
   4,					/* cost of FMUL instruction.  */
   19,					/* cost of FDIV instruction.  */
@@ -578,6 +578,7 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPR
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
 const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K8 | m_PENT;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -867,6 +868,7 @@ static void ix86_expand_strlensi_unroll_1 (rtx, rtx, rtx);
 static int ix86_issue_rate (void);
 static int ix86_adjust_cost (rtx, rtx, rtx, int);
 static int ia32_multipass_dfa_lookahead (void);
+static bool ix86_misaligned_mem_ok (enum machine_mode);
 static void ix86_init_mmx_sse_builtins (void);
 static rtx x86_this_parameter (tree);
 static void x86_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
@@ -1012,6 +1014,9 @@ static void init_ext_80387_constants (void);
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
+
+#undef TARGET_VECTORIZE_MISALIGNED_MEM_OK
+#define TARGET_VECTORIZE_MISALIGNED_MEM_OK ix86_misaligned_mem_ok
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ix86_function_ok_for_sibcall
@@ -1565,6 +1570,10 @@ override_options (void)
     internal_label_prefix_len = p - internal_label_prefix;
     *p = '\0';
   }
+  /* When scheduling description is not available, disable scheduler pass so it
+     won't slow down the compilation and make x87 code slower.  */
+  if (!TARGET_SCHEDULE)
+    flag_schedule_insns_after_reload = flag_schedule_insns = 0;
 }
 
 void
@@ -3291,7 +3300,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   f_ovf = TREE_CHAIN (f_fpr);
   f_sav = TREE_CHAIN (f_ovf);
 
-  valist = build_fold_indirect_ref (valist);
+  valist = build_va_arg_indirect_ref (valist);
   gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
   ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
@@ -3440,12 +3449,12 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	      src_addr = fold_convert (addr_type, src_addr);
 	      src_addr = fold (build2 (PLUS_EXPR, addr_type, src_addr,
 				       size_int (src_offset)));
-	      src = build_fold_indirect_ref (src_addr);
+	      src = build_va_arg_indirect_ref (src_addr);
 
 	      dest_addr = fold_convert (addr_type, addr);
 	      dest_addr = fold (build2 (PLUS_EXPR, addr_type, dest_addr,
 					size_int (INTVAL (XEXP (slot, 1)))));
-	      dest = build_fold_indirect_ref (dest_addr);
+	      dest = build_va_arg_indirect_ref (dest_addr);
 
 	      t = build2 (MODIFY_EXPR, void_type_node, dest, src);
 	      gimplify_and_add (t, pre_p);
@@ -3507,8 +3516,8 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   addr = fold_convert (ptrtype, addr);
 
   if (indirect_p)
-    addr = build_fold_indirect_ref (addr);
-  return build_fold_indirect_ref (addr);
+    addr = build_va_arg_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 /* Return nonzero if OPNUM's MEM should be matched
@@ -5400,7 +5409,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 		{
 		  if (INTVAL (op1) < -16*1024*1024
 		      || INTVAL (op1) >= 16*1024*1024)
-		    new = gen_rtx_PLUS (Pmode, op0, force_reg (Pmode, op1));
+		    new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
 		}
 	    }
 	  else
@@ -7223,15 +7232,20 @@ const char *
 output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 {
   int stack_top_dies;
-  rtx cmp_op0 = operands[0];
-  rtx cmp_op1 = operands[1];
+  rtx cmp_op0, cmp_op1;
   int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]);
 
   if (eflags_p == 2)
     {
-      cmp_op0 = cmp_op1;
+      cmp_op0 = operands[1];
       cmp_op1 = operands[2];
     }
+  else
+    {
+      cmp_op0 = operands[0];
+      cmp_op1 = operands[1];
+    }
+
   if (is_sse)
     {
       if (GET_MODE (operands[0]) == SFmode)
@@ -7250,6 +7264,17 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
     abort ();
 
   stack_top_dies = find_regno_note (insn, REG_DEAD, FIRST_STACK_REG) != 0;
+
+  if (cmp_op1 == CONST0_RTX (GET_MODE (cmp_op1)))
+    {
+      if (stack_top_dies)
+	{
+	  output_asm_insn ("ftst\n\tfnstsw\t%0", operands);
+	  return TARGET_USE_FFREEP ? "ffreep\t%y1" : "fstp\t%y1";
+	}
+      else
+	return "ftst\n\tfnstsw\t%0";
+    }
 
   if (STACK_REG_P (cmp_op1)
       && stack_top_dies
@@ -7941,12 +7966,15 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   int is_sse = SSE_REG_P (op0) | SSE_REG_P (op1);
 
   /* All of the unordered compare instructions only work on registers.
-     The same is true of the XFmode compare instructions.  The same is
-     true of the fcomi compare instructions.  */
+     The same is true of the fcomi compare instructions.  The same is
+     true of the XFmode compare instructions if not comparing with
+     zero (ftst insn is used in this case).  */
 
   if (!is_sse
       && (fpcmp_mode == CCFPUmode
-	  || op_mode == XFmode
+	  || (op_mode == XFmode
+	      && ! (standard_80387_constant_p (op0) == 1
+		    || standard_80387_constant_p (op1) == 1))
 	  || ix86_use_fcomi_compare (code)))
     {
       op0 = force_reg (op_mode, op0);
@@ -7973,10 +8001,16 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
 
       if (CONSTANT_P (op1))
 	{
-	  if (standard_80387_constant_p (op1))
-	    op1 = force_reg (op_mode, op1);
-	  else
+	  int tmp = standard_80387_constant_p (op1);
+	  if (tmp == 0)
 	    op1 = validize_mem (force_const_mem (op_mode, op1));
+	  else if (tmp == 1)
+	    {
+	      if (TARGET_CMOVE)
+		op1 = force_reg (op_mode, op1);
+	    }
+	  else
+	    op1 = force_reg (op_mode, op1);
 	}
     }
 
@@ -9929,12 +9963,59 @@ ix86_split_long_move (rtx operands[])
 	  operands[6] = part[1][1];
 	}
     }
+
+  /* If optimizing for size, attempt to locally unCSE nonzero constants.  */
+  if (optimize_size)
+    {
+      if (GET_CODE (operands[5]) == CONST_INT
+	  && operands[5] != const0_rtx
+	  && REG_P (operands[2]))
+	{
+	  if (GET_CODE (operands[6]) == CONST_INT
+	      && INTVAL (operands[6]) == INTVAL (operands[5]))
+	    operands[6] = operands[2];
+
+	  if (nparts == 3
+	      && GET_CODE (operands[7]) == CONST_INT
+	      && INTVAL (operands[7]) == INTVAL (operands[5]))
+	    operands[7] = operands[2];
+	}
+
+      if (nparts == 3
+	  && GET_CODE (operands[6]) == CONST_INT
+	  && operands[6] != const0_rtx
+	  && REG_P (operands[3])
+	  && GET_CODE (operands[7]) == CONST_INT
+	  && INTVAL (operands[7]) == INTVAL (operands[6]))
+	operands[7] = operands[3];
+    }
+
   emit_move_insn (operands[2], operands[5]);
   emit_move_insn (operands[3], operands[6]);
   if (nparts == 3)
     emit_move_insn (operands[4], operands[7]);
 
   return;
+}
+
+/* Helper function of ix86_split_ashldi used to generate an SImode
+   left shift by a constant, either using a single shift or
+   a sequence of add instructions.  */
+
+static void
+ix86_expand_ashlsi3_const (rtx operand, int count)
+{
+  if (count == 1)
+    emit_insn (gen_addsi3 (operand, operand, operand));
+  else if (!optimize_size
+	   && count * ix86_cost->add <= ix86_cost->shift_const)
+    {
+      int i;
+      for (i=0; i<count; i++)
+	emit_insn (gen_addsi3 (operand, operand, operand));
+    }
+  else
+    emit_insn (gen_ashlsi3 (operand, operand, GEN_INT (count)));
 }
 
 void
@@ -9954,15 +10035,78 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	  emit_move_insn (low[0], const0_rtx);
 
 	  if (count > 32)
-	    emit_insn (gen_ashlsi3 (high[0], high[0], GEN_INT (count - 32)));
+	    ix86_expand_ashlsi3_const (high[0], count - 32);
 	}
       else
 	{
 	  if (!rtx_equal_p (operands[0], operands[1]))
 	    emit_move_insn (operands[0], operands[1]);
 	  emit_insn (gen_x86_shld_1 (high[0], low[0], GEN_INT (count)));
-	  emit_insn (gen_ashlsi3 (low[0], low[0], GEN_INT (count)));
+	  ix86_expand_ashlsi3_const (low[0], count);
 	}
+      return;
+    }
+
+  split_di (operands, 1, low, high);
+
+  if (operands[1] == const1_rtx)
+    {
+      /* Assuming we've chosen a QImode capable registers, then 1LL << N
+	 can be done with two 32-bit shifts, no branches, no cmoves.  */
+      if (ANY_QI_REG_P (low[0]) && ANY_QI_REG_P (high[0]))
+	{
+	  rtx s, d, flags = gen_rtx_REG (CCZmode, FLAGS_REG);
+
+	  ix86_expand_clear (low[0]);
+	  ix86_expand_clear (high[0]);
+	  emit_insn (gen_testqi_ccz_1 (operands[2], GEN_INT (32)));
+	  
+	  d = gen_lowpart (QImode, low[0]);
+	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
+	  s = gen_rtx_EQ (QImode, flags, const0_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, d, s));
+
+	  d = gen_lowpart (QImode, high[0]);
+	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
+	  s = gen_rtx_NE (QImode, flags, const0_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, d, s));
+	}
+
+      /* Otherwise, we can get the same results by manually performing
+	 a bit extract operation on bit 5, and then performing the two
+	 shifts.  The two methods of getting 0/1 into low/high are exactly
+	 the same size.  Avoiding the shift in the bit extract case helps
+	 pentium4 a bit; no one else seems to care much either way.  */
+      else
+	{
+	  rtx x;
+
+	  if (TARGET_PARTIAL_REG_STALL && !optimize_size)
+	    x = gen_rtx_ZERO_EXTEND (SImode, operands[2]);
+	  else
+	    x = gen_lowpart (SImode, operands[2]);
+	  emit_insn (gen_rtx_SET (VOIDmode, high[0], x));
+
+	  emit_insn (gen_lshrsi3 (high[0], high[0], GEN_INT (5)));
+	  emit_insn (gen_andsi3 (high[0], high[0], GEN_INT (1)));
+	  emit_move_insn (low[0], high[0]);
+	  emit_insn (gen_xorsi3 (low[0], low[0], GEN_INT (1)));
+	}
+
+      emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
+      emit_insn (gen_ashlsi3 (high[0], high[0], operands[2]));
+      return;
+    }
+
+  if (operands[1] == constm1_rtx)
+    {
+      /* For -1LL << N, we can avoid the shld instruction, because we
+	 know that we're shifting 0...31 ones into a -1.  */
+      emit_move_insn (low[0], constm1_rtx);
+      if (optimize_size)
+        emit_move_insn (high[0], low[0]);
+      else
+	emit_move_insn (high[0], constm1_rtx);
     }
   else
     {
@@ -9970,23 +10114,18 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	emit_move_insn (operands[0], operands[1]);
 
       split_di (operands, 1, low, high);
-
       emit_insn (gen_x86_shld_1 (high[0], low[0], operands[2]));
-      emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
-
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
-	{
-	  if (! no_new_pseudos)
-	    scratch = force_reg (SImode, const0_rtx);
-	  else
-	    emit_move_insn (scratch, const0_rtx);
-
-	  emit_insn (gen_x86_shift_adj_1 (high[0], low[0], operands[2],
-					  scratch));
-	}
-      else
-	emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
     }
+
+  emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
+
+  if (TARGET_CMOVE && scratch)
+    {
+      ix86_expand_clear (scratch);
+      emit_insn (gen_x86_shift_adj_1 (high[0], low[0], operands[2], scratch));
+    }
+  else
+    emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
 }
 
 void
@@ -10010,15 +10149,8 @@ ix86_split_ashrdi (rtx *operands, rtx scratch)
       else if (count >= 32)
 	{
 	  emit_move_insn (low[0], high[1]);
-
-	  if (! reload_completed)
-	    emit_insn (gen_ashrsi3 (high[0], low[0], GEN_INT (31)));
-	  else
-	    {
-	      emit_move_insn (high[0], low[0]);
-	      emit_insn (gen_ashrsi3 (high[0], high[0], GEN_INT (31)));
-	    }
-
+	  emit_move_insn (high[0], low[0]);
+	  emit_insn (gen_ashrsi3 (high[0], high[0], GEN_INT (31)));
 	  if (count > 32)
 	    emit_insn (gen_ashrsi3 (low[0], low[0], GEN_INT (count - 32)));
 	}
@@ -10040,10 +10172,8 @@ ix86_split_ashrdi (rtx *operands, rtx scratch)
       emit_insn (gen_x86_shrd_1 (low[0], high[0], operands[2]));
       emit_insn (gen_ashrsi3 (high[0], high[0], operands[2]));
 
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
+      if (TARGET_CMOVE && scratch)
 	{
-	  if (! no_new_pseudos)
-	    scratch = gen_reg_rtx (SImode);
 	  emit_move_insn (scratch, high[0]);
 	  emit_insn (gen_ashrsi3 (scratch, scratch, GEN_INT (31)));
 	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
@@ -10068,7 +10198,7 @@ ix86_split_lshrdi (rtx *operands, rtx scratch)
       if (count >= 32)
 	{
 	  emit_move_insn (low[0], high[1]);
-	  emit_move_insn (high[0], const0_rtx);
+	  ix86_expand_clear (high[0]);
 
 	  if (count > 32)
 	    emit_insn (gen_lshrsi3 (low[0], low[0], GEN_INT (count - 32)));
@@ -10092,13 +10222,9 @@ ix86_split_lshrdi (rtx *operands, rtx scratch)
       emit_insn (gen_lshrsi3 (high[0], high[0], operands[2]));
 
       /* Heh.  By reversing the arguments, we can reuse this pattern.  */
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
+      if (TARGET_CMOVE && scratch)
 	{
-	  if (! no_new_pseudos)
-	    scratch = force_reg (SImode, const0_rtx);
-	  else
-	    emit_move_insn (scratch, const0_rtx);
-
+	  ix86_expand_clear (scratch);
 	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
 					  scratch));
 	}
@@ -11494,6 +11620,17 @@ ia32_multipass_dfa_lookahead (void)
 }
 
 
+/* Implement the target hook targetm.vectorize.misaligned_mem_ok.  */
+
+static bool
+ix86_misaligned_mem_ok (enum machine_mode mode)
+{
+  if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
+    return true;
+  else
+    return false;
+}
+
 /* Compute the alignment given to a constant that is being placed in memory.
    EXP is the constant and ALIGN is the alignment that the object would
    ordinarily have.
@@ -14772,46 +14909,49 @@ static void
 ix86_pad_returns (void)
 {
   edge e;
+  edge_iterator ei;
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
-  {
-    basic_block bb = e->src;
-    rtx ret = BB_END (bb);
-    rtx prev;
-    bool replace = false;
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    {
+      basic_block bb = e->src;
+      rtx ret = BB_END (bb);
+      rtx prev;
+      bool replace = false;
 
-    if (GET_CODE (ret) != JUMP_INSN || GET_CODE (PATTERN (ret)) != RETURN
-	|| !maybe_hot_bb_p (bb))
-      continue;
-    for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
-      if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
-	break;
-    if (prev && GET_CODE (prev) == CODE_LABEL)
-      {
-	edge e;
-	for (e = bb->pred; e; e = e->pred_next)
-	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
-	      && !(e->flags & EDGE_FALLTHRU))
+      if (GET_CODE (ret) != JUMP_INSN || GET_CODE (PATTERN (ret)) != RETURN
+	  || !maybe_hot_bb_p (bb))
+	continue;
+      for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
+	if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
+	  break;
+      if (prev && GET_CODE (prev) == CODE_LABEL)
+	{
+	  edge e;
+	  edge_iterator ei;
+
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    if (EDGE_FREQUENCY (e) && e->src->index >= 0
+		&& !(e->flags & EDGE_FALLTHRU))
+	      replace = true;
+	}
+      if (!replace)
+	{
+	  prev = prev_active_insn (ret);
+	  if (prev
+	      && ((GET_CODE (prev) == JUMP_INSN && any_condjump_p (prev))
+		  || GET_CODE (prev) == CALL_INSN))
 	    replace = true;
-      }
-    if (!replace)
-      {
-	prev = prev_active_insn (ret);
-	if (prev
-	    && ((GET_CODE (prev) == JUMP_INSN && any_condjump_p (prev))
-		|| GET_CODE (prev) == CALL_INSN))
-	  replace = true;
-	/* Empty functions get branch mispredict even when the jump destination
-	   is not visible to us.  */
-	if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
-	  replace = true;
-      }
-    if (replace)
-      {
-        emit_insn_before (gen_return_internal_long (), ret);
-	delete_insn (ret);
-      }
-  }
+	  /* Empty functions get branch mispredict even when the jump destination
+	     is not visible to us.  */
+	  if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
+	    replace = true;
+	}
+      if (replace)
+	{
+	  emit_insn_before (gen_return_internal_long (), ret);
+	  delete_insn (ret);
+	}
+    }
 }
 
 /* Implement machine specific optimizations.  We implement padding of returns

@@ -159,6 +159,40 @@ struct tree_opt_pass pass_lim =
   0					/* letter */
 };
 
+/* Loop unswitching pass.  */
+
+static void
+tree_ssa_loop_unswitch (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_unswitch_loops (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_unswitch (void)
+{
+  return flag_unswitch_loops != 0;
+}
+
+struct tree_opt_pass pass_unswitch = 
+{
+  "unswitch",				/* name */
+  gate_tree_ssa_loop_unswitch,		/* gate */
+  tree_ssa_loop_unswitch,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_UNSWITCH,		/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
 /* Loop autovectorization.  */
 
 static void
@@ -194,6 +228,41 @@ struct tree_opt_pass pass_vectorize =
   0					/* letter */
 };
 
+
+/* Loop nest optimizations.  */
+
+static void
+tree_linear_transform (void)
+{
+  if (!current_loops)
+    return;
+
+  linear_transform_loops (current_loops);
+}
+
+static bool
+gate_tree_linear_transform (void)
+{
+  return flag_tree_loop_linear != 0;
+}
+
+struct tree_opt_pass pass_linear_transform =
+{
+  "ltrans",				/* name */
+  gate_tree_linear_transform,		/* gate */
+  tree_linear_transform,       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LINEAR_TRANSFORM,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0				        /* letter */	
+};
+
 /* Canonical induction variable creation pass.  */
 
 static void
@@ -225,6 +294,35 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Record bounds on numbers of iterations of loops.  */
+
+static void
+tree_ssa_loop_bounds (void)
+{
+  if (!current_loops)
+    return;
+
+  estimate_numbers_of_iterations (current_loops);
+  scev_reset ();
+}
+
+struct tree_opt_pass pass_record_bounds =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  tree_ssa_loop_bounds,		       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,			  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,			              	/* todo_flags_finish */
   0					/* letter */
 };
 

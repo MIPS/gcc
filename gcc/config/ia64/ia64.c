@@ -276,6 +276,7 @@ static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 
 
 /* Table of valid machine attributes.  */
@@ -415,6 +416,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_UNWIND_EMIT
 #define TARGET_UNWIND_EMIT process_for_unwind_directive
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P ia64_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2029,8 +2033,9 @@ ia64_expand_prologue (void)
   if (optimize)
     {
       edge e;
+      edge_iterator ei;
 
-      for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	if ((e->flags & EDGE_FAKE) == 0
 	    && (e->flags & EDGE_FALLTHRU) != 0)
 	  break;
@@ -3320,10 +3325,11 @@ ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->fp_regs = fp_regs;
     }
 
-  /* Integral and aggregates go in general registers.  If we have run out of
-     FR registers, then FP values must also go in general registers.  This can
-     happen when we have a SFmode HFA.  */
-  else if (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS)
+  /* Integral and aggregates go in general registers.  So do TFmode FP values.
+     If we have run out of FR registers, then other FP values must also go in
+     general registers.  This can happen when we have a SFmode HFA.  */
+  else if (mode == TFmode || mode == TCmode
+           || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
     cum->int_regs = cum->words;
 
   /* If there is a prototype, then FP values go in a FR register when
@@ -3346,6 +3352,31 @@ ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
+/* Arguments with alignment larger than 8 bytes start at the next even
+   boundary.  On ILP32 HPUX, TFmode arguments start on next even boundary
+   even though their normal alignment is 8 bytes.  See ia64_function_arg.  */
+
+int
+ia64_function_arg_boundary (enum machine_mode mode, tree type)
+{
+
+  if (mode == TFmode && TARGET_HPUX && TARGET_ILP32)
+    return PARM_BOUNDARY * 2;
+
+  if (type)
+    {
+      if (TYPE_ALIGN (type) > PARM_BOUNDARY)
+        return PARM_BOUNDARY * 2;
+      else
+        return PARM_BOUNDARY;
+    }
+
+  if (GET_MODE_BITSIZE (mode) > PARM_BOUNDARY)
+    return PARM_BOUNDARY * 2;
+  else
+    return PARM_BOUNDARY;
+}
+
 /* Variable sized types are passed by reference.  */
 /* ??? At present this is a GCC extension to the IA-64 ABI.  */
 
@@ -3363,6 +3394,12 @@ ia64_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 static bool
 ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
+  /* We can't perform a sibcall if the current function has the syscall_linkage
+     attribute.  */
+  if (lookup_attribute ("syscall_linkage",
+			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
+    return false;
+
   /* We must always return with our current GP.  This means we can
      only sibcall to functions defined in the current module.  */
   return decl && (*targetm.binds_local_p) (decl);
@@ -3379,7 +3416,7 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       tree ptrtype = build_pointer_type (type);
       tree addr = std_gimplify_va_arg_expr (valist, ptrtype, pre_p, post_p);
-      return build_fold_indirect_ref (addr);
+      return build_va_arg_indirect_ref (addr);
     }
 
   /* Aggregate arguments with alignment larger than 8 bytes start at
@@ -8476,6 +8513,31 @@ ia64_struct_value_rtx (tree fntype,
   if (fntype && ia64_struct_retval_addr_is_first_parm_p (fntype))
     return NULL_RTX;
   return gen_rtx_REG (Pmode, GR_REG (8));
+}
+
+static bool
+ia64_scalar_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+    case DImode:
+    case TImode:
+      return true;
+
+    case SFmode:
+    case DFmode:
+    case XFmode:
+      return true;
+
+    case TFmode:
+      return TARGET_HPUX;
+
+    default:
+      return false;
+    }
 }
 
 #include "gt-ia64.h"

@@ -38,7 +38,6 @@ with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Dist; use Exp_Dist;
-with Fname;    use Fname;
 with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Lib.Writ; use Lib.Writ;
@@ -922,7 +921,6 @@ package body Sem_Prag is
       begin
          if Arg_Count > N then
             Arg := Arg1;
-
             for J in 1 .. N loop
                Next (Arg);
                Error_Pragma_Arg ("too many arguments for pragma%", Arg);
@@ -1608,7 +1606,6 @@ package body Sem_Prag is
          --  Otherwise first deal with any positional parameters present
 
          Arg := First (Pragma_Argument_Associations (N));
-
          for Index in Args'Range loop
             exit when No (Arg) or else Chars (Arg) /= No_Name;
             Args (Index) := Expression (Arg);
@@ -2019,16 +2016,24 @@ package body Sem_Prag is
 
          --  Go to renamed subprogram if present, since convention applies
          --  to the actual renamed entity, not to the renaming entity.
+         --  If subprogram is inherited, go to parent subprogram.
 
          if Is_Subprogram (E)
            and then Present (Alias (E))
-           and then Nkind (Parent (Declaration_Node (E))) =
-                      N_Subprogram_Renaming_Declaration
          then
-            E := Alias (E);
+            if Nkind (Parent (Declaration_Node (E)))
+              = N_Subprogram_Renaming_Declaration
+            then
+               E := Alias (E);
+
+            elsif Nkind (Parent (E)) = N_Full_Type_Declaration
+              and then Scope (E) = Scope (Alias (E))
+            then
+               E := Alias (E);
+            end if;
          end if;
 
-         --  Check that we not applying this to a specless body
+         --  Check that we are not applying this to a specless body
 
          if Is_Subprogram (E)
            and then Nkind (Parent (Declaration_Node (E))) = N_Subprogram_Body
@@ -2720,6 +2725,7 @@ package body Sem_Prag is
                   --  Deal with positional ones first
 
                   Formal := First_Formal (Ent);
+
                   if Present (Expressions (Arg_Mechanism)) then
                      Mname := First (Expressions (Arg_Mechanism));
 
@@ -2900,8 +2906,12 @@ package body Sem_Prag is
 
             else
                Set_Imported (Def_Id);
-               Set_Is_Public (Def_Id);
                Process_Interface_Name (Def_Id, Arg3, Arg4);
+
+               --  Note that we do not set Is_Public here. That's because we
+               --  only want to set if if there is no address clause, and we
+               --  don't know that yet, so we delay that processing till
+               --  freeze time.
 
                --  pragma Import completes deferred constants
 
@@ -2929,7 +2939,6 @@ package body Sem_Prag is
             --  denoted entities in the same declarative part.
 
             Hom_Id := Def_Id;
-
             while Present (Hom_Id) loop
                Def_Id := Get_Base_Subprogram (Hom_Id);
 
@@ -2960,8 +2969,8 @@ package body Sem_Prag is
                else
                   Set_Imported (Def_Id);
 
-                  --  If Import intrinsic, set intrinsic flag
-                  --  and verify that it is known as such.
+                  --  If Import intrinsic, set intrinsic flag and verify
+                  --  that it is known as such.
 
                   if C = Convention_Intrinsic then
                      Set_Is_Intrinsic_Subprogram (Def_Id);
@@ -2969,9 +2978,9 @@ package body Sem_Prag is
                        (Def_Id, Expression (Arg2));
                   end if;
 
-                  --  All interfaced procedures need an external
-                  --  symbol created for them since they are
-                  --  always referenced from another object file.
+                  --  All interfaced procedures need an external symbol
+                  --  created for them since they are always referenced
+                  --  from another object file.
 
                   Set_Is_Public (Def_Id);
 
@@ -3272,7 +3281,7 @@ package body Sem_Prag is
             elsif not Effective
               and then Warn_On_Redundant_Constructs
             then
-               Error_Msg_NE ("pragma inline on& is redundant?",
+               Error_Msg_NE ("pragma Inline for& is redundant?",
                  N, Entity (Subp_Id));
             end if;
 
@@ -3298,6 +3307,10 @@ package body Sem_Prag is
          --  performs some minimal checks that the name is reasonable. In
          --  particular that no spaces or other obviously incorrect characters
          --  appear. This is only a warning, since any characters are allowed.
+
+         ----------------------------------
+         -- Check_Form_Of_Interface_Name --
+         ----------------------------------
 
          procedure Check_Form_Of_Interface_Name (SN : Node_Id) is
             S  : constant String_Id := Strval (Expr_Value_S (SN));
@@ -3835,12 +3848,16 @@ package body Sem_Prag is
          --  Import or Export pragma), then the external names must match
 
          if Present (Interface_Name (Internal_Ent)) then
-            declare
+            Check_Matching_Internal_Names : declare
                S1 : constant String_Id := Strval (Old_Name);
                S2 : constant String_Id := Strval (New_Name);
 
                procedure Mismatch;
                --  Called if names do not match
+
+               --------------
+               -- Mismatch --
+               --------------
 
                procedure Mismatch is
                begin
@@ -3849,6 +3866,8 @@ package body Sem_Prag is
                     ("external name does not match that given #",
                      Arg_External);
                end Mismatch;
+
+            --  Start of processing for Check_Matching_Internal_Names
 
             begin
                if String_Length (S1) /= String_Length (S2) then
@@ -3861,7 +3880,7 @@ package body Sem_Prag is
                      end if;
                   end loop;
                end if;
-            end;
+            end Check_Matching_Internal_Names;
 
          --  Otherwise set the given name
 
@@ -3925,10 +3944,18 @@ package body Sem_Prag is
          procedure Bad_Mechanism;
          --  Signal bad mechanism name
 
+         ---------------
+         -- Bad_Class --
+         ---------------
+
          procedure Bad_Class is
          begin
             Error_Pragma_Arg ("unrecognized descriptor class name", Class);
          end Bad_Class;
+
+         -------------------------
+         -- Bad_Mechanism_Value --
+         -------------------------
 
          procedure Bad_Mechanism is
          begin
@@ -4498,6 +4525,9 @@ package body Sem_Prag is
             elsif Ekind (Nm) = E_Record_Type
               and then Present (Corresponding_Remote_Type (Nm))
             then
+               --  A record type that is the Equivalent_Type for
+               --  a remote access-to-subprogram type.
+
                N := Declaration_Node (Corresponding_Remote_Type (Nm));
 
                if Nkind (N) = N_Full_Type_Declaration
@@ -4506,6 +4536,13 @@ package body Sem_Prag is
                then
                   L := Parameter_Specifications (Type_Definition (N));
                   Process_Async_Pragma;
+
+                  if Is_Asynchronous (Nm)
+                    and then Expander_Active
+                  then
+                     RACW_Type_Is_Asynchronous (
+                       Underlying_RACW_Type (Nm));
+                  end if;
 
                else
                   Error_Pragma_Arg
@@ -6199,9 +6236,7 @@ package body Sem_Prag is
          --    UPPERCASE | LOWERCASE
          --    [, AS_IS | UPPERCASE | LOWERCASE]);
 
-         when Pragma_External_Name_Casing =>
-
-         External_Name_Casing : declare
+         when Pragma_External_Name_Casing => External_Name_Casing : declare
          begin
             GNAT_Pragma;
             Check_No_Identifiers;
@@ -6808,22 +6843,7 @@ package body Sem_Prag is
 
             --  Pragma is active if inlining option is active
 
-            if Inline_Active then
-               Process_Inline (True);
-
-            --  Pragma is active in a predefined file in config run time mode
-
-            elsif Configurable_Run_Time_Mode
-              and then
-                Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
-            then
-               Process_Inline (True);
-
-            --  Otherwise inlining is not active
-
-            else
-               Process_Inline (False);
-            end if;
+            Process_Inline (Inline_Active);
 
          -------------------
          -- Inline_Always --
@@ -10575,6 +10595,10 @@ package body Sem_Prag is
       --  Stores encoded value of character code CC. The encoding we
       --  use an underscore followed by four lower case hex digits.
 
+      ------------
+      -- Encode --
+      ------------
+
       procedure Encode is
       begin
          Store_String_Char (Get_Char_Code ('_'));
@@ -10677,7 +10701,6 @@ package body Sem_Prag is
 
          Pref := Prefix (N);
          Scop := Scope (Entity (N));
-
          while Nkind (Pref) = N_Selected_Component loop
             Change_Selected_Component_To_Expanded_Name (Pref);
             Set_Entity (Selector_Name (Pref), Scop);
@@ -10689,5 +10712,4 @@ package body Sem_Prag is
          Set_Entity (Pref, Scop);
       end if;
    end Set_Unit_Name;
-
 end Sem_Prag;

@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "real.h"
 #include <gmp.h>
-#include <assert.h>
 #include <math.h>
 #include "gfortran.h"
 #include "trans.h"
@@ -70,7 +69,7 @@ gfc_build_const (tree type, tree intval)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return val;
 }
@@ -90,6 +89,14 @@ gfc_build_string_const (int length, const char *s)
   return str;
 }
 
+/* Build a Fortran character constant from a zero-terminated string.  */
+
+tree
+gfc_build_cstring_const (const char *s)
+{
+  return gfc_build_string_const (strlen (s) + 1, s);
+}
+
 /* Return a string constant with the given length.  Used for static
    initializers.  The constant will be padded or truncated to match 
    length.  */
@@ -102,10 +109,10 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
   int slen;
   tree str;
 
-  assert (expr->expr_type == EXPR_CONSTANT);
-  assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
-  assert (INTEGER_CST_P (length));
-  assert (TREE_INT_CST_HIGH (length) == 0);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+  gcc_assert (INTEGER_CST_P (length));
+  gcc_assert (TREE_INT_CST_HIGH (length) == 0);
 
   len = TREE_INT_CST_LOW (length);
   slen = expr->value.character.length;
@@ -148,17 +155,16 @@ gfc_init_constants (void)
   for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
     gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n);
 
-  gfc_strconst_bounds = gfc_build_string_const (21, "Array bound mismatch");
+  gfc_strconst_bounds = gfc_build_cstring_const ("Array bound mismatch");
 
   gfc_strconst_fault =
-    gfc_build_string_const (30, "Array reference out of bounds");
+    gfc_build_cstring_const ("Array reference out of bounds");
 
   gfc_strconst_wrong_return =
-    gfc_build_string_const (32, "Incorrect function return value");
+    gfc_build_cstring_const ("Incorrect function return value");
 
   gfc_strconst_current_filename =
-    gfc_build_string_const (strlen (gfc_option.source) + 1,
-			    gfc_option.source);
+    gfc_build_cstring_const (gfc_option.source);
 }
 
 /* Converts a GMP integer into a backend tree node.  */
@@ -191,7 +197,7 @@ gfc_conv_mpz_to_tree (mpz_t i, int kind)
       /* We assume that all numbers are in range for its type, and that
 	 we never create a type larger than 2*HWI, which is the largest
 	 that the middle-end can handle.  */
-      assert (count == 1 || count == 2);
+      gcc_assert (count == 1 || count == 2);
 
       low = words[0];
       high = words[1];
@@ -228,7 +234,7 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
       if (gfc_real_kinds[n].kind == kind)
 	break;
     }
-  assert (gfc_real_kinds[n].kind);
+  gcc_assert (gfc_real_kinds[n].kind);
 
   n = MAX (abs (gfc_real_kinds[n].min_exponent),
 	   abs (gfc_real_kinds[n].max_exponent));
@@ -292,7 +298,7 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
 tree
 gfc_conv_constant_to_tree (gfc_expr * expr)
 {
-  assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   switch (expr->ts.type)
     {
@@ -332,13 +338,13 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 void
 gfc_conv_constant (gfc_se * se, gfc_expr * expr)
 {
-  assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   if (se->ss != NULL)
     {
-      assert (se->ss != gfc_ss_terminator);
-      assert (se->ss->type == GFC_SS_SCALAR);
-      assert (se->ss->expr == expr);
+      gcc_assert (se->ss != gfc_ss_terminator);
+      gcc_assert (se->ss->type == GFC_SS_SCALAR);
+      gcc_assert (se->ss->expr == expr);
 
       se->expr = se->ss->data.scalar.expr;
       se->string_length = se->ss->string_length;

@@ -69,10 +69,14 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       break;
 
     case EXPR_WITH_FILE_LOCATION:
+#ifdef USE_MAPPED_LOCATION
+      input_location = EXPR_LOCATION (*expr_p);
+#else
       input_location.file = EXPR_WFL_FILENAME (*expr_p);
       input_location.line = EXPR_WFL_LINENO (*expr_p);
+#endif
       *expr_p = EXPR_WFL_NODE (*expr_p);
-      annotate_with_locus (*expr_p, input_location);
+      SET_EXPR_LOCATION (*expr_p, input_location);
       break;
 
     case CASE_EXPR:
@@ -108,7 +112,10 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       return GS_UNHANDLED;
 
     case SAVE_EXPR:
-      if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == VAR_DECL)
+      /* Note that we can see <save_expr NULL> if the save_expr was
+	 already handled by gimplify_save_expr.  */
+      if (TREE_OPERAND (*expr_p, 0) != NULL_TREE
+	  && TREE_CODE (TREE_OPERAND (*expr_p, 0)) == VAR_DECL)
 	TREE_OPERAND (*expr_p, 0) 
 	  = java_replace_reference (TREE_OPERAND (*expr_p, 0), 
 			       /* want_lvalue */ false);
@@ -141,7 +148,8 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 	 Parameter lists, maybe?  Or perhaps that's unnecessary because
 	 the front end already generates SAVE_EXPRs.  */
 
-      if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
+      if (TREE_CODE_CLASS (code) == tcc_binary
+	  || TREE_CODE_CLASS (code) == tcc_comparison)
 	{
 	  enum gimplify_status stat 
 	    = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,

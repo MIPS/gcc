@@ -269,7 +269,7 @@ rm -f a.out a.exe b.out
 
 # Find the native compiler
 AC_PROG_CC
-AC_PROG_CC_C_O
+AM_PROG_CC_C_O
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -289,15 +289,15 @@ AC_C_INLINE
 gcc_AC_C_LONG_LONG
 
 # sizeof(char) is 1 by definition.
-AC_COMPILE_CHECK_SIZEOF(void *)
-AC_COMPILE_CHECK_SIZEOF(short)
-AC_COMPILE_CHECK_SIZEOF(int)
-AC_COMPILE_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
 if test $ac_cv_c_long_long = yes; then
-  AC_COMPILE_CHECK_SIZEOF(long long)
+  AC_CHECK_SIZEOF(long long)
 fi
 if test $ac_cv_c___int64 = yes; then
-  AC_COMPILE_CHECK_SIZEOF(__int64)
+  AC_CHECK_SIZEOF(__int64)
 fi
 
 # ---------------------
@@ -863,7 +863,7 @@ AC_HEADER_STDC
 AC_HEADER_TIME
 ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
+AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
@@ -1865,13 +1865,14 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	in_tree_ld=yes
 	in_tree_ld_is_elf=no
 	if (grep 'EMUL = .*elf' ../ld/Makefile \
-	    || grep 'EMUL = .*linux' ../ld/Makefile) > /dev/null; then
+	    || grep 'EMUL = .*linux' ../ld/Makefile \
+	    || grep 'EMUL = .*lynx' ../ld/Makefile) > /dev/null; then
 	  in_tree_ld_is_elf=yes
 	fi
 	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
 	do
 changequote(,)dnl
-		gcc_cv_gld_version=`grep '^VERSION=[0-9]*\.[0-9]*' $f`
+		gcc_cv_gld_version=`sed -n -e 's/^[ 	]*\(VERSION=[0-9]*\.[0-9]*.*\)/\1/p' < $f`
 changequote([,])dnl
 		if test x$gcc_cv_gld_version != x; then
 			break
@@ -2217,9 +2218,28 @@ fi
 gcc_GAS_CHECK_FEATURE(section merging support, gcc_cv_as_shf_merge,
  [elf,2,12,0], [--fatal-warnings],
  [.section .rodata.str, "aMS", @progbits, 1])
+if test $gcc_cv_as_shf_merge = no; then
+  gcc_GAS_CHECK_FEATURE(section merging support, gcc_cv_as_shf_merge,
+    [elf,2,12,0], [--fatal-warnings],
+    [.section .rodata.str, "aMS", %progbits, 1])
+fi
 AC_DEFINE_UNQUOTED(HAVE_GAS_SHF_MERGE,
   [`if test $gcc_cv_as_shf_merge = yes; then echo 1; else echo 0; fi`],
 [Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.])
+
+gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group,
+ [elf,2,15,91], [--fatal-warnings],
+ [.section .text,"axG",@progbits,.foo,comdat])
+if test $gcc_cv_as_comdat_group = yes; then
+  gcc_cv_as_comdat_group_percent=no
+else
+ gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group_percent,
+   [elf,2,15,91], [--fatal-warnings],
+   [.section .text,"axG",%progbits,.foo,comdat])
+fi
+AC_DEFINE_UNQUOTED(HAVE_GAS_COMDAT_GROUP,
+  [`if test $gcc_cv_as_comdat_group = yes || test $gcc_cv_as_comdat_group_percent = yes; then echo 1; else echo 0; fi`],
+[Define 0/1 if your assembler supports COMDAT group.])
 
 # Thread-local storage - the check is heavily parametrized.
 conftest_s=
@@ -2973,28 +2993,6 @@ else
 fi
 AC_SUBST(MAINT)dnl
 
-AC_MSG_CHECKING([whether to use libbanshee for points-to alias analysis])
-AC_ARG_WITH(libbanshee,
-[  --with-libbanshee	  enable libbanshee],
-libbanshee="$with_libbanshee",
-libbanshee=no)
-
-if test x"$libbanshee" = xyes; then
-	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
-	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
-	ANDER="tree-alias-ander.o"
-	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
-else
-	BANSHEELIB=""
-	BANSHEEINC=""
-	ANDER=""
-fi
-AC_MSG_RESULT($with_libbanshee)
-
-AC_SUBST(ANDER)
-AC_SUBST(BANSHEEINC)
-AC_SUBST(BANSHEELIB)
-
 # --------------
 # Language hooks
 # --------------
@@ -3264,13 +3262,7 @@ AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)
 
-# If it doesn't already exist, create document directory
-echo "checking for the document directory." 1>&2
-if test -d doc ; then
-  true
-else
-  mkdir doc 
-fi
+TL_AC_GNU_MAKE_GCC_LIB_PATH
 
 # Echo link setup.
 if test x${build} = x${host} ; then
@@ -3307,7 +3299,7 @@ case ${CONFIG_HEADERS} in
   echo > cstamp-h ;;
 esac
 # Make sure all the subdirs exist.
-for d in $subdirs
+for d in $subdirs doc build
 do
     test -d $d || mkdir $d
 done

@@ -119,15 +119,15 @@ extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
 extern struct tree_opt_pass pass_tree_profile;
 extern struct tree_opt_pass pass_referenced_vars;
-extern struct tree_opt_pass pass_build_pta;
-extern struct tree_opt_pass pass_del_pta;
 extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
 extern struct tree_opt_pass pass_loop_init;
 extern struct tree_opt_pass pass_lim;
+extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
@@ -160,6 +160,6 @@ extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
-
+extern struct tree_opt_pass pass_linear_transform;
 
 #endif /* GCC_TREE_PASS_H */

@@ -144,34 +144,20 @@ clear_edges (void)
 {
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   FOR_EACH_BB (bb)
     {
-      edge e = bb->succ;
-
-      while (e)
-	{
-	  edge next = e->succ_next;
-
-	  free_edge (e);
-	  e = next;
-	}
-
-      bb->succ = NULL;
-      bb->pred = NULL;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	free_edge (e);
+      VEC_truncate (edge, bb->succs, 0);
+      VEC_truncate (edge, bb->preds, 0);
     }
 
-  e = ENTRY_BLOCK_PTR->succ;
-  while (e)
-    {
-      edge next = e->succ_next;
-
-      free_edge (e);
-      e = next;
-    }
-
-  EXIT_BLOCK_PTR->pred = NULL;
-  ENTRY_BLOCK_PTR->succ = NULL;
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+    free_edge (e);
+  VEC_truncate (edge, EXIT_BLOCK_PTR->preds, 0);
+  VEC_truncate (edge, ENTRY_BLOCK_PTR->succs, 0);
 
   gcc_assert (!n_edges);
 }
@@ -266,7 +252,11 @@ expunge_block (basic_block b)
   unlink_block (b);
   BASIC_BLOCK (b->index) = NULL;
   n_basic_blocks--;
-  ggc_free (b);
+  /* We should be able to ggc_free here, but we are not.
+     The dead SSA_NAMES are left pointing to dead statements that are pointing
+     to dead basic blocks making garbage collector to die.
+     We should be able to release all dead SSA_NAMES and at the same time we should
+     clear out BB pointer of dead statements consistently.  */
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -280,14 +270,12 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
-  e->succ_next = src->succ;
-  e->pred_next = dst->pred;
+  VEC_safe_insert (edge, src->succs, 0, e);
+  VEC_safe_insert (edge, dst->preds, 0, e);
+
   e->src = src;
   e->dest = dst;
   e->flags = flags;
-
-  src->succ = e;
-  dst->pred = e;
 
   return e;
 }
@@ -300,6 +288,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 {
   int use_edge_cache;
   edge e;
+  edge_iterator ei;
 
   /* Don't bother with edge cache for ENTRY or EXIT, if there aren't that
      many edges to them, or we didn't allocate memory for it.  */
@@ -320,7 +309,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 
       /* Fall through.  */
     case 0:
-      for (e = src->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, src->succs)
 	if (e->dest == dst)
 	  {
 	    e->flags |= flags;
@@ -364,30 +353,42 @@ make_single_succ_edge (basic_block src, basic_block dest, int flags)
 void
 remove_edge (edge e)
 {
-  edge last_pred = NULL;
-  edge last_succ = NULL;
   edge tmp;
   basic_block src, dest;
+  bool found = false;
+  edge_iterator ei;
 
   src = e->src;
   dest = e->dest;
-  for (tmp = src->succ; tmp && tmp != e; tmp = tmp->succ_next)
-    last_succ = tmp;
 
-  gcc_assert (tmp);
-  if (last_succ)
-    last_succ->succ_next = e->succ_next;
-  else
-    src->succ = e->succ_next;
+  for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_ordered_remove (edge, src->succs, ei.index);
+	  found = true;
+	  break;
+	}
+      else
+	ei_next (&ei);
+    }
 
-  for (tmp = dest->pred; tmp && tmp != e; tmp = tmp->pred_next)
-    last_pred = tmp;
+  gcc_assert (found);
 
-  gcc_assert (tmp);
-  if (last_pred)
-    last_pred->pred_next = e->pred_next;
-  else
-    dest->pred = e->pred_next;
+  found = false;
+  for (ei = ei_start (dest->preds); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_ordered_remove (edge, dest->preds, ei.index);
+	  found = true;
+	  break;
+	}
+      else
+	ei_next (&ei);
+    }
+
+  gcc_assert (found);
 
   free_edge (e);
 }
@@ -397,16 +398,27 @@ remove_edge (edge e)
 void
 redirect_edge_succ (edge e, basic_block new_succ)
 {
-  edge *pe;
+  edge tmp;
+  edge_iterator ei;
+  bool found = false;
 
   /* Disconnect the edge from the old successor block.  */
-  for (pe = &e->dest->pred; *pe != e; pe = &(*pe)->pred_next)
-    continue;
-  *pe = (*pe)->pred_next;
+  for (ei = ei_start (e->dest->preds); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_ordered_remove (edge, e->dest->preds, ei.index);
+	  found = true;
+	  break;
+	}
+      else
+	ei_next (&ei);
+    }
+
+  gcc_assert (found);
 
   /* Reconnect the edge to the new successor block.  */
-  e->pred_next = new_succ->pred;
-  new_succ->pred = e;
+  VEC_safe_insert (edge, new_succ->preds, 0, e);
   e->dest = new_succ;
 }
 
@@ -416,9 +428,10 @@ edge
 redirect_edge_succ_nodup (edge e, basic_block new_succ)
 {
   edge s;
+  edge_iterator ei;
 
   /* Check whether the edge is already present.  */
-  for (s = e->src->succ; s; s = s->succ_next)
+  FOR_EACH_EDGE (s, ei, e->src->succs)
     if (s->dest == new_succ && s != e)
       break;
 
@@ -443,17 +456,27 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 void
 redirect_edge_pred (edge e, basic_block new_pred)
 {
-  edge *pe;
+  edge tmp;
+  edge_iterator ei;
+  bool found = false;
 
   /* Disconnect the edge from the old predecessor block.  */
-  for (pe = &e->src->succ; *pe != e; pe = &(*pe)->succ_next)
-    continue;
+  for (ei = ei_start (e->src->succs); (tmp = ei_safe_edge (ei)); )
+    {
+      if (tmp == e)
+	{
+	  VEC_ordered_remove (edge, e->src->succs, ei.index);
+	  found = true;
+	  break;
+	}
+      else
+	ei_next (&ei);
+    }
 
-  *pe = (*pe)->succ_next;
+  gcc_assert (found);
 
   /* Reconnect the edge to the new predecessor block.  */
-  e->succ_next = new_pred->succ;
-  new_pred->succ = e;
+  VEC_safe_insert (edge, new_pred->succs, 0, e);
   e->src = new_pred;
 }
 
@@ -478,35 +501,37 @@ check_bb_profile (basic_block bb, FILE * file)
   edge e;
   int sum = 0;
   gcov_type lsum;
+  edge_iterator ei;
 
   if (profile_status == PROFILE_ABSENT)
     return;
 
   if (bb != EXIT_BLOCK_PTR)
     {
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	sum += e->probability;
-      if (bb->succ && abs (sum - REG_BR_PROB_BASE) > 100)
+      if (EDGE_COUNT (bb->succs) && abs (sum - REG_BR_PROB_BASE) > 100)
 	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
 		 sum * 100.0 / REG_BR_PROB_BASE);
       lsum = 0;
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	lsum += e->count;
-      if (bb->succ && (lsum - bb->count > 100 || lsum - bb->count < -100))
+      if (EDGE_COUNT (bb->succs)
+	  && (lsum - bb->count > 100 || lsum - bb->count < -100))
 	fprintf (file, "Invalid sum of outgoing counts %i, should be %i\n",
 		 (int) lsum, (int) bb->count);
     }
   if (bb != ENTRY_BLOCK_PTR)
     {
       sum = 0;
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	sum += EDGE_FREQUENCY (e);
       if (abs (sum - bb->frequency) > 100)
 	fprintf (file,
 		 "Invalid sum of incoming frequencies %i, should be %i\n",
 		 sum, bb->frequency);
       lsum = 0;
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	lsum += e->count;
       if (lsum - bb->count > 100 || lsum - bb->count < -100)
 	fprintf (file, "Invalid sum of incoming counts %i, should be %i\n",
@@ -573,6 +598,7 @@ dump_flow_info (FILE *file)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
       fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
@@ -587,11 +613,11 @@ dump_flow_info (FILE *file)
       fprintf (file, ".\n");
 
       fprintf (file, "Predecessors: ");
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	dump_edge_info (file, e, 0);
 
       fprintf (file, "\nSuccessors: ");
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
 
       fprintf (file, "\nRegisters live at start:");
@@ -784,8 +810,9 @@ alloc_aux_for_edges (int size)
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    alloc_aux_for_edge (e, size);
 	}
     }
@@ -801,7 +828,8 @@ clear_aux_for_edges (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      for (e = bb->succ; e; e = e->succ_next)
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	e->aux = NULL;
     }
 }
@@ -839,6 +867,7 @@ static void
 dump_cfg_bb_info (FILE *file, basic_block bb)
 {
   unsigned i;
+  edge_iterator ei;
   bool first = true;
   static const char * const bb_bitnames[] =
     {
@@ -863,11 +892,11 @@ dump_cfg_bb_info (FILE *file, basic_block bb)
   fprintf (file, "\n");
 
   fprintf (file, "Predecessors: ");
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     dump_edge_info (file, e, 0);
 
   fprintf (file, "\nSuccessors: ");
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     dump_edge_info (file, e, 1);
   fprintf (file, "\n\n");
 }
@@ -883,4 +912,68 @@ brief_dump_cfg (FILE *file)
     {
       dump_cfg_bb_info (file, bb);
     }
+}
+
+/* An edge originally destinating BB of FREQUENCY and COUNT has been proved to
+   leave the block by TAKEN_EDGE.  Update profile of BB such that edge E can be
+   redirected to destination of TAKEN_EDGE. 
+
+   This function may leave the profile inconsistent in the case TAKEN_EDGE
+   frequency or count is believed to be lower than FREQUENCY or COUNT
+   respectively.  */
+void
+update_bb_profile_for_threading (basic_block bb, int edge_frequency,
+				 gcov_type count, edge taken_edge)
+{
+  edge c;
+  int prob;
+  edge_iterator ei;
+
+  bb->count -= count;
+  if (bb->count < 0)
+    bb->count = 0;
+
+  /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
+     Watch for overflows.  */
+  if (bb->frequency)
+    prob = edge_frequency * REG_BR_PROB_BASE / bb->frequency;
+  else
+    prob = 0;
+  if (prob > taken_edge->probability)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Jump threading proved probability of edge "
+		 "%i->%i too small (it is %i, should be %i).\n",
+		 taken_edge->src->index, taken_edge->dest->index,
+		 taken_edge->probability, prob);
+      prob = taken_edge->probability;
+    }
+
+  /* Now rescale the probabilities.  */
+  taken_edge->probability -= prob;
+  prob = REG_BR_PROB_BASE - prob;
+  bb->frequency -= edge_frequency;
+  if (bb->frequency < 0)
+    bb->frequency = 0;
+  if (prob <= 0)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Edge frequencies of bb %i has been reset, "
+		 "frequency of block should end up being 0, it is %i\n",
+		 bb->index, bb->frequency);
+      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+      ei = ei_start (bb->succs);
+      ei_next (&ei);
+      for (; (c = ei_safe_edge (ei)); ei_next (&ei))
+	c->probability = 0;
+    }
+  else
+    FOR_EACH_EDGE (c, ei, bb->succs)
+      c->probability = ((c->probability * REG_BR_PROB_BASE) / (double) prob);
+
+  if (bb != taken_edge->src)
+    abort ();
+  taken_edge->count -= count;
+  if (taken_edge->count < 0)
+    taken_edge->count = 0;
 }

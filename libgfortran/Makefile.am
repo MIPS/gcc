@@ -49,12 +49,15 @@ intrinsics/erf.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/etime.c \
+intrinsics/getcwd.c \
 intrinsics/getXid.c \
 intrinsics/ishftc.c \
+intrinsics/mvbits.c \
 intrinsics/pack_generic.c \
 intrinsics/size.c \
 intrinsics/spread_generic.c \
 intrinsics/string_intrinsics.c \
+intrinsics/system.c \
 intrinsics/rand.c \
 intrinsics/random.c \
 intrinsics/reshape_generic.c \

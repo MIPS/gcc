@@ -303,8 +303,8 @@ extern char *getenv (const char *);
 extern int getopt (int, char * const *, const char *);
 #endif
 
-#if defined(HAVE_DECL_GETPAGESIZE) && !HAVE_DECL_GETPAGESIZE
-extern long getpagesize (void);
+#if defined (HAVE_DECL_GETPAGESIZE) && !HAVE_DECL_GETPAGESIZE
+extern int getpagesize (void);
 #endif
 
 #if defined (HAVE_DECL_GETWD) && !HAVE_DECL_GETWD
@@ -652,7 +652,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
 	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY			   \
 	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE			   \
-	DEFAULT_MAIN_RETURN TARGET_MEM_FUNCTIONS EXPAND_BUILTIN_VA_ARG
+	DEFAULT_MAIN_RETURN TARGET_MEM_FUNCTIONS EXPAND_BUILTIN_VA_ARG	   \
+	COLLECT_PARSE_FLAG DWARF2_GENERATE_TEXT_SECTION_LABEL
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

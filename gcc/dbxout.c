@@ -150,6 +150,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NO_DBX_FUNCTION_END 0
 #endif
 
+#ifndef NO_DBX_BNSYM_ENSYM
+#define NO_DBX_BNSYM_ENSYM 0
+#endif
+
 enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
 
 /* Structure recording information about a C data type.
@@ -343,6 +347,9 @@ static void emit_pending_bincls         (void);
 static inline void emit_pending_bincls_if_required (void);
 
 static void dbxout_init (const char *);
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
+static unsigned int get_lang_number (void);
+#endif
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
@@ -484,10 +491,36 @@ dbxout_function_end (void)
   fprintf (asmfile, "\n");
 #endif
 
-  if (!flag_debug_only_used_symbols)
+  if (!NO_DBX_BNSYM_ENSYM && !flag_debug_only_used_symbols)
     fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_ENSYM);
 }
 #endif /* DBX_DEBUGGING_INFO */
+
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
+/* Get lang description for N_SO stab.  */
+
+static unsigned int
+get_lang_number (void)
+{
+  const char *language_string = lang_hooks.name;
+
+  if (strcmp (language_string, "GNU C") == 0)
+    return N_SO_C;
+  else if (strcmp (language_string, "GNU C++") == 0)
+    return N_SO_CC;
+  else if (strcmp (language_string, "GNU F77") == 0)
+    return N_SO_FORTRAN;
+  else if (strcmp (language_string, "GNU F95") == 0)
+    return N_SO_FORTRAN90; /* CHECKME */
+  else if (strcmp (language_string, "GNU Pascal") == 0)
+    return N_SO_PASCAL;
+  else if (strcmp (language_string, "GNU Objective-C") == 0)
+    return N_SO_OBJC;
+  else
+    return 0;
+
+}
+#endif
 
 /* At the beginning of compilation, start writing the symbol table.
    Initialize `typevec' and output the standard data types of C.  */
@@ -521,7 +554,7 @@ dbxout_init (const char *input_file_name)
 #else /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
-	  fprintf (asmfile, ",%d,0,0,", N_SO);
+	  fprintf (asmfile, ",%d,0,%d,", N_SO, get_lang_number ());
 	  assemble_name (asmfile, ltext_label_name);
 	  fputc ('\n', asmfile);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
@@ -536,7 +569,7 @@ dbxout_init (const char *input_file_name)
   /* Used to put `Ltext:' before the reference, but that loses on sun 4.  */
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
-  fprintf (asmfile, ",%d,0,0,", N_SO);
+  fprintf (asmfile, ",%d,0,%d,", N_SO, get_lang_number ());
   assemble_name (asmfile, ltext_label_name);
   fputc ('\n', asmfile);
   text_section ();
@@ -765,6 +798,7 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
 {
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
+      && !NO_DBX_BNSYM_ENSYM
       && !flag_debug_only_used_symbols)
     fprintf (asmfile, "%s%d,0,0\n", ASM_STABD_OP, N_BNSYM);
 
@@ -1293,7 +1327,7 @@ dbxout_type (tree type, int full)
 	   || TREE_CODE (type) == QUAL_UNION_TYPE
 	   || TREE_CODE (type) == ENUMERAL_TYPE)
 	  && TYPE_STUB_DECL (type)
-	  && TREE_CODE_CLASS (TREE_CODE (TYPE_STUB_DECL (type))) == 'd'
+	  && DECL_P (TYPE_STUB_DECL (type))
 	  && ! DECL_IGNORED_P (TYPE_STUB_DECL (type)))
 	debug_queue_symbol (TYPE_STUB_DECL (type));
       else if (TYPE_NAME (type)
@@ -1406,7 +1440,7 @@ dbxout_type (tree type, int full)
     {
     case VOID_TYPE:
     case LANG_TYPE:
-      /* For a void type, just define it as itself; ie, "5=5".
+      /* For a void type, just define it as itself; i.e., "5=5".
 	 This makes us consider it defined
 	 without saying what it is.  The debugger will make it
 	 a void type when the reference is seen, and nothing will
@@ -1683,8 +1717,7 @@ dbxout_type (tree type, int full)
 	    /* We shouldn't be outputting a reference to a type before its
 	       definition unless the type has a tag name.
 	       A typedef name without a tag name should be impossible.  */
-	    if (TREE_CODE (TYPE_NAME (type)) != IDENTIFIER_NODE)
-	      abort ();
+	    gcc_assert (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE);
 #endif
 	    if (TYPE_NAME (type) != 0)
 	      dbxout_type_name (type);
@@ -1919,7 +1952,7 @@ dbxout_type (tree type, int full)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2040,19 +2073,19 @@ print_wide_int (HOST_WIDE_INT c)
 static void
 dbxout_type_name (tree type)
 {
-  tree t;
-  if (TYPE_NAME (type) == 0)
-    abort ();
-  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
+  tree t = TYPE_NAME (type);
+  
+  gcc_assert (t);
+  switch (TREE_CODE (t))
     {
-      t = TYPE_NAME (type);
+    case IDENTIFIER_NODE:
+      break;
+    case TYPE_DECL:
+      t = DECL_NAME (t);
+      break;
+    default:
+      gcc_unreachable ();
     }
-  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL)
-    {
-      t = DECL_NAME (TYPE_NAME (type));
-    }
-  else
-    abort ();
 
   fprintf (asmfile, "%s", IDENTIFIER_POINTER (t));
   CHARS (IDENTIFIER_LENGTH (t));
@@ -2149,25 +2182,27 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
          a different name.  In that case we also want to output
          that.  */
 
-      if ((TREE_CODE (t) == RECORD_TYPE
+      if (TREE_CODE (t) == RECORD_TYPE
            || TREE_CODE (t) == UNION_TYPE
            || TREE_CODE (t) == QUAL_UNION_TYPE
            || TREE_CODE (t) == ENUMERAL_TYPE)
-          && TYPE_STUB_DECL (t)
-          && TYPE_STUB_DECL (t) != decl
-          && TREE_CODE_CLASS (TREE_CODE (TYPE_STUB_DECL (t))) == 'd'
-          && ! DECL_IGNORED_P (TYPE_STUB_DECL (t)))
         {
-          debug_queue_symbol (TYPE_STUB_DECL (t));
-          if (TYPE_NAME (t)
-              && TYPE_NAME (t) != TYPE_STUB_DECL (t)
-              && TYPE_NAME (t) != decl
-              && TREE_CODE_CLASS (TREE_CODE (TYPE_NAME (t))) == 'd')
-            debug_queue_symbol (TYPE_NAME (t));
-        }
+	    if (TYPE_STUB_DECL (t)
+		&& TYPE_STUB_DECL (t) != decl
+		&& DECL_P (TYPE_STUB_DECL (t))
+		&& ! DECL_IGNORED_P (TYPE_STUB_DECL (t)))
+	    {
+	      debug_queue_symbol (TYPE_STUB_DECL (t));
+	      if (TYPE_NAME (t)
+		  && TYPE_NAME (t) != TYPE_STUB_DECL (t)
+		  && TYPE_NAME (t) != decl
+		  && DECL_P (TYPE_NAME (t)))
+		debug_queue_symbol (TYPE_NAME (t));
+	    }
+	}
       else if (TYPE_NAME (t)
 	       && TYPE_NAME (t) != decl
-	       && TREE_CODE_CLASS (TREE_CODE (TYPE_NAME (t))) == 'd')
+	       && DECL_P (TYPE_NAME (t)))
         debug_queue_symbol (TYPE_NAME (t));
     }
 
@@ -2386,7 +2421,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
     case PARM_DECL:
       /* Parm decls go in their own separate chains
 	 and are output by dbxout_reg_parms and dbxout_parms.  */
-      abort ();
+      gcc_unreachable ();
 
     case RESULT_DECL:
       /* Named return value, treat like a VAR_DECL.  */
@@ -3175,8 +3210,8 @@ static void
 dbxout_block (tree block, int depth, tree args)
 {
   const char *begin_label;
-  if (current_function_func_begin_label != NULL_TREE)
-    begin_label = IDENTIFIER_POINTER (current_function_func_begin_label);
+  if (current_function_func_begin_label != NULL)
+    begin_label = current_function_func_begin_label;
   else
     begin_label = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
 

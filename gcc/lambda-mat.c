@@ -70,6 +70,29 @@ lambda_matrix_id (lambda_matrix mat, int size)
       mat[i][j] = (i == j) ? 1 : 0;
 }
 
+/* Return true if MAT is the identity matrix of SIZE */
+
+bool
+lambda_matrix_id_p (lambda_matrix mat, int size)
+{
+  int i, j;
+  for (i = 0; i < size; i++)
+    for (j = 0; j < size; j++)
+      {
+	if (i == j)
+	  {
+	    if (mat[i][j] != 1)
+	      return false;
+	  }
+	else
+	  {
+	    if (mat[i][j] != 0)
+	      return false;
+	  }
+      }
+  return true;
+}
+
 /* Negate the elements of the M x N matrix MAT1 and store it in MAT2.  */
 
 void
@@ -441,7 +464,7 @@ lambda_matrix_hermite (lambda_matrix mat, int n,
 	    }
 	}
 
-      /* Stop when only the diagonal element is non-zero.  */
+      /* Stop when only the diagonal element is nonzero.  */
       while (lambda_vector_first_nz (row, n, j + 1) < n)
 	{
 	  minimum_col = lambda_vector_min_nz (row, n, j);
@@ -548,7 +571,7 @@ lambda_matrix_left_hermite (lambda_matrix A, int m, int n,
     }
 }
 
-/* When it exists, return the first non-zero row in MAT after row
+/* When it exists, return the first nonzero row in MAT after row
    STARTROW.  Otherwise return rowsize.  */
 
 int
@@ -579,9 +602,9 @@ lambda_matrix_project_to_null (lambda_matrix B, int rowsize,
   lambda_matrix M1, M2, M3, I;
   int determinant;
 
-  /* compute c(I-B^T inv(B B^T) B) e sub k   */
+  /* Compute c(I-B^T inv(B B^T) B) e sub k.  */
 
-  /* M1 is the transpose of B */
+  /* M1 is the transpose of B.  */
   M1 = lambda_matrix_new (colsize, colsize);
   lambda_matrix_transpose (B, M1, rowsize, colsize);
 

@@ -160,7 +160,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_FIX_VR4120	   0x01000000   /* Work around VR4120 errata.  */
 #define MASK_VR4130_ALIGN  0x02000000	/* Perform VR4130 alignment opts.  */
 #define MASK_FP_EXCEPTIONS 0x04000000   /* FP exceptions are enabled.  */
-
+#define MASK_DIVIDE_BREAKS 0x08000000   /* Divide by zero check uses
+                                           break instead of trap. */
 #define MASK_PAIRED_SINGLE 0x10000000   /* Support paired-single FPU.  */
 #define MASK_MIPS3D        0x20000000   /* Support MIPS-3D instructions.  */
 
@@ -222,6 +223,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_4300_MUL_FIX     ((target_flags & MASK_4300_MUL_FIX) != 0)
 
 #define TARGET_CHECK_ZERO_DIV   ((target_flags & MASK_NO_CHECK_ZERO_DIV) == 0)
+#define TARGET_DIVIDE_TRAPS     ((target_flags & MASK_DIVIDE_BREAKS) == 0)
 
 #define TARGET_BRANCHLIKELY	((target_flags & MASK_BRANCHLIKELY) != 0)
 
@@ -300,6 +302,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
+#define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
 /* Scheduling target defines.  */
@@ -632,6 +635,10 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
      N_("Don't trap on integer divide by zero")},			\
+  {"divide-traps", -MASK_DIVIDE_BREAKS,					\
+     N_("Use trap to check for integer divide by zero")},		\
+  {"divide-breaks", MASK_DIVIDE_BREAKS,					\
+     N_("Use break to check for integer divide by zero")},		\
   { "branch-likely",      MASK_BRANCHLIKELY,				\
       N_("Use Branch Likely instructions, overriding default for arch")}, \
   { "no-branch-likely",  -MASK_BRANCHLIKELY,				\
@@ -782,13 +789,19 @@ extern const struct mips_cpu_info *mips_tune_info;
    --with-tune is ignored if -mtune is specified.
    --with-abi is ignored if -mabi is specified.
    --with-float is ignored if -mhard-float or -msoft-float are
-     specified.  */
+     specified.
+   --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
+     specified. */
 #define OPTION_DEFAULT_SPECS \
   {"arch", "%{!march=*:%{mips16:-march=%(VALUE)}%{!mips*:-march=%(VALUE)}}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
-  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
+  {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
+  {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }
 
+
+#define GENERATE_DIVIDE_TRAPS (TARGET_DIVIDE_TRAPS \
+                               && ISA_HAS_COND_TRAP)
 
 #define GENERATE_BRANCHLIKELY   (TARGET_BRANCHLIKELY                    \
 				 && !TARGET_SR71K                       \
@@ -810,11 +823,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define GENERATE_MULT3_DI       ((TARGET_MIPS3900)                      \
 				 && !TARGET_MIPS16)
 
-/* Macros to decide whether certain features are available or not,
-   depending on the instruction set architecture level.  */
-
-#define HAVE_SQRT_P()		(!ISA_MIPS1)
-
 /* True if the ABI can only work with 64-bit integer registers.  We
    generally allow ad-hoc variations for TARGET_SINGLE_FLOAT, but
    otherwise floating-point registers must also be 64-bit.  */
@@ -827,12 +835,12 @@ extern const struct mips_cpu_info *mips_tune_info;
    ABI for which this is true.  */
 #define ABI_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64)
 
-/* ISA has instructions for managing 64 bit fp and gp regs (eg. mips3).  */
+/* ISA has instructions for managing 64 bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
 				 || ISA_MIPS4				\
                                  || ISA_MIPS64)
 
-/* ISA has branch likely instructions (eg. mips2).  */
+/* ISA has branch likely instructions (e.g. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
 #define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1)
@@ -1255,6 +1263,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
+#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : 0)
+
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
@@ -1282,8 +1292,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #ifndef POINTER_SIZE
 #define POINTER_SIZE ((TARGET_LONG64 && TARGET_64BIT) ? 64 : 32)
 #endif
-
-#define POINTERS_EXTEND_UNSIGNED 0
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY ((mips_abi == ABI_O64 \
@@ -1916,16 +1924,16 @@ extern enum reg_class mips_char_to_class[256];
    `I'	is used for the range of constants an arithmetic insn can
 	actually contain (16 bits signed integers).
 
-   `J'	is used for the range which is just zero (ie, $r0).
+   `J'	is used for the range which is just zero (i.e., $r0).
 
    `K'	is used for the range of constants a logical insn can actually
 	contain (16 bit zero-extended integers).
 
    `L'	is used for the range of constants that be loaded with lui
-	(ie, the bottom 16 bits are zero).
+	(i.e., the bottom 16 bits are zero).
 
    `M'	is used for the range of constants that take two words to load
-	(ie, not matched by `I', `K', and `L').
+	(i.e., not matched by `I', `K', and `L').
 
    `N'	is used for negative 16 bit constants other than -65536.
 
@@ -2174,11 +2182,11 @@ extern enum reg_class mips_char_to_class[256];
    && !fixed_regs[N])
 
 /* This structure has to cope with two different argument allocation
-   schemes.  Most MIPS ABIs view the arguments as a struct, of which the
-   first N words go in registers and the rest go on the stack.  If I < N,
-   the Ith word might go in Ith integer argument register or the
-   Ith floating-point one.  For these ABIs, we only need to remember
-   the number of words passed so far.
+   schemes.  Most MIPS ABIs view the arguments as a structure, of which
+   the first N words go in registers and the rest go on the stack.  If I
+   < N, the Ith word might go in Ith integer argument register or in a
+   floating-point register.  For these ABIs, we only need to remember
+   the offset of the current argument into the structure.
 
    The EABI instead allocates the integer and floating-point arguments
    separately.  The first N words of FP arguments go in FP registers,
@@ -2206,9 +2214,9 @@ typedef struct mips_args {
   /* The number of arguments seen so far.  */
   unsigned int arg_number;
 
-  /* For EABI, the number of integer registers used so far.  For other
-     ABIs, the number of words passed in registers (whether integer
-     or floating-point).  */
+  /* The number of integer registers used so far.  For all ABIs except
+     EABI, this is the number of words that have been added to the
+     argument structure, limited to MAX_ARGS_IN_REGISTERS.  */
   unsigned int num_gprs;
 
   /* For EABI, the number of floating-point registers used so far.  */
@@ -2289,9 +2297,6 @@ typedef struct mips_args {
 
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST)		\
   (mips_pad_reg_upward (MODE, TYPE) ? upward : downward)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
-  (mips_abi == ABI_EABI && (NAMED))
 
 /* True if using EABI and varargs can be passed in floating-point
    registers.  Under these conditions, we need a more complex form
@@ -2821,7 +2826,7 @@ while (0)
 
 #define ASM_OUTPUT_ALIGNED_DECL_COMMON mips_output_aligned_decl_common
 
-/* This says how to define a local common symbol (ie, not visible to
+/* This says how to define a local common symbol (i.e., not visible to
    linker).  */
 
 #ifndef ASM_OUTPUT_ALIGNED_LOCAL

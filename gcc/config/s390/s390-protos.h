@@ -23,8 +23,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void optimization_options (int, int);
 extern void override_options (void);
-extern HOST_WIDE_INT s390_arg_frame_offset (void);
-extern HOST_WIDE_INT s390_return_address_offset (void);
+extern bool s390_can_eliminate (int, int);
+extern HOST_WIDE_INT s390_initial_elimination_offset (int, int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
 extern void s390_function_profiler (FILE *, int);
@@ -37,7 +37,6 @@ extern int const0_operand (rtx, enum machine_mode);
 extern int consttable_operand (rtx, enum machine_mode);
 extern int larl_operand (rtx, enum machine_mode);
 extern int s_operand (rtx, enum machine_mode);
-extern int s_imm_operand (rtx, enum machine_mode);
 extern int shift_count_operand (rtx, enum machine_mode);
 extern int bras_sym_operand (rtx, enum machine_mode);
 extern int load_multiple_operation (rtx, enum machine_mode);
@@ -51,6 +50,7 @@ extern int s390_match_ccmode (rtx, enum machine_mode);
 extern enum machine_mode s390_tm_ccmode (rtx, rtx, int);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern void s390_canonicalize_comparison (enum rtx_code *, rtx *, rtx *);
+extern int s390_comparison (rtx op, enum machine_mode mode);
 extern int s390_alc_comparison (rtx op, enum machine_mode mode);
 extern int s390_slb_comparison (rtx op, enum machine_mode mode);
 extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
@@ -82,7 +82,13 @@ extern void s390_expand_clrmem (rtx, rtx);
 extern void s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern rtx s390_return_addr_rtx (int, rtx);
+extern rtx s390_back_chain_rtx (void);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
+extern void s390_expand_logical_operator (enum rtx_code,
+					  enum machine_mode, rtx *);
+extern bool s390_logical_operator_ok_p (rtx *);
+extern void s390_narrow_logical_operator (enum rtx_code, rtx *, rtx *);
+extern bool s390_pool_operand (rtx);
 
 extern bool s390_output_addr_const_extra (FILE*, rtx);
 extern void print_operand_address (FILE *, rtx);
@@ -95,6 +101,7 @@ extern rtx s390_gen_rtx_const_DI (int, int);
 extern void s390_output_dwarf_dtprel (FILE*, int, rtx);
 extern int s390_agen_dep_p (rtx, rtx);
 extern rtx s390_load_got (void);
+extern void s390_emit_tpf_eh_return (rtx);
 
 #endif /* RTX_CODE */
 

@@ -2091,48 +2091,10 @@ struct sh_args {
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
-  do {								\
-    (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
-    (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
-    (CUM).renesas_abi = sh_attr_renesas_p (FNTYPE) ? 1 : 0;	\
-    (CUM).force_mem						\
-      = ((TARGET_HITACHI || (CUM).renesas_abi) && (FNTYPE)	\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
-    (CUM).prototype_p = (FNTYPE) && TYPE_ARG_TYPES (FNTYPE);	\
-    (CUM).arg_count[(int) SH_ARG_INT]				\
-      = (TARGET_SH5 && (FNTYPE)					\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
-    (CUM).free_single_fp_reg = 0;				\
-    (CUM).outgoing = 1;						\
-    (CUM).stack_regs = 0;					\
-    (CUM).byref_regs = 0;					\
-    (CUM).byref = 0;						\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && (FNTYPE)				\
-	  && (CUM).arg_count[(int) SH_ARG_INT] == 0		\
-	  && (TYPE_MODE (TREE_TYPE (FNTYPE)) == BLKmode		\
-	      ? int_size_in_bytes (TREE_TYPE (FNTYPE))		\
-	      : GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (FNTYPE)))) > 4 \
-	  && (BASE_RETURN_VALUE_REG (TYPE_MODE (TREE_TYPE	\
- 						(FNTYPE)))	\
-	      == FIRST_RET_REG)));				\
-  } while (0)
+  sh_init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL), (N_NAMED_ARGS), VOIDmode)
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0, 0);	\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
-	  && BASE_RETURN_VALUE_REG (MODE) == FIRST_RET_REG));	\
-  } while (0)
-
-#define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0, 0);	\
-    (CUM).outgoing = 0;						\
-  } while (0)
+  sh_init_cumulative_args (& (CUM), NULL_TREE, (LIBNAME), NULL_TREE, 0, (MODE))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
 	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
@@ -2196,12 +2158,6 @@ struct sh_args {
    reference.  We need such arguments to be aligned to 8 byte
    boundaries, because they'll be loaded using quad loads.  */
 #define SH_MIN_ALIGN_FOR_CALLEE_COPY (8 * BITS_PER_UNIT)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM,MODE,TYPE,NAMED) \
-  ((CUM).outgoing							\
-   && (((MODE) == BLKmode ? TYPE_ALIGN (TYPE)				\
-	: GET_MODE_ALIGNMENT (MODE))					\
-       % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0))
 
 /* The SH5 ABI requires floating-point arguments to be passed to
    functions without a prototype in both an FP register and a regular
@@ -3527,19 +3483,19 @@ extern int rtx_equal_function_value_matters;
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, EH_RETURN_STACKADJ_REGNO)
 
 /* We have to distinguish between code and data, so that we apply
-   datalabel where and only where appropriate.  Use textrel for code.  */
+   datalabel where and only where appropriate.  Use sdataN for data.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
  ((flag_pic && (GLOBAL) ? DW_EH_PE_indirect : 0) \
-  | ((CODE) ? DW_EH_PE_textrel : flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr))
+  | (flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr) \
+  | ((CODE) ? 0 : (TARGET_SHMEDIA64 ? DW_EH_PE_sdata8 : DW_EH_PE_sdata4)))
 
 /* Handle special EH pointer encodings.  Absolute, pc-relative, and
    indirect are handled automatically.  */
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
   do { \
-    if (((ENCODING) & 0x70) == DW_EH_PE_textrel) \
+    if (((ENCODING) & 0xf) != DW_EH_PE_sdata4 \
+	&& ((ENCODING) & 0xf) != DW_EH_PE_sdata8) \
       { \
-	encoding &= ~DW_EH_PE_textrel; \
-	encoding |= flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr; \
 	if (GET_CODE (ADDR) != SYMBOL_REF) \
 	  abort (); \
 	SYMBOL_REF_FLAGS (ADDR) |= SYMBOL_FLAG_FUNCTION; \

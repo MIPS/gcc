@@ -129,7 +129,7 @@ default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 	  != default_setup_incoming_varargs);
 }
 
-enum machine_mode 
+enum machine_mode
 default_eh_return_filter_mode (void)
 {
   return word_mode;
@@ -173,7 +173,7 @@ default_cxx_get_cookie_size (tree type)
      (true_type)) bytes.  */
   tree sizetype_size;
   tree type_align;
-  
+
   sizetype_size = size_in_bytes (sizetype);
   type_align = size_int (TYPE_ALIGN_UNIT (type));
   if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
@@ -182,17 +182,6 @@ default_cxx_get_cookie_size (tree type)
     cookie_size = type_align;
 
   return cookie_size;
-}
-
-/* This version of the TARGET_PASS_BY_REFERENCE hook adds no conditions
-   beyond those mandated by generic code.  */
-
-bool
-hook_pass_by_reference_false (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
-	enum machine_mode mode ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED,
-	bool named_arg ATTRIBUTE_UNUSED)
-{
-  return false;
 }
 
 /* Return true if a parameter must be passed by reference.  This version
@@ -206,6 +195,16 @@ hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
   return targetm.calls.must_pass_in_stack (mode, type);
 }
 
+/* Return true if a parameter follows callee copies conventions.  This
+   version of the hook is true for all named arguments.  */
+
+bool
+hook_callee_copies_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+			  enum machine_mode mode ATTRIBUTE_UNUSED,
+			  tree type ATTRIBUTE_UNUSED, bool named)
+{
+  return named;
+}
 
 /* Emit any directives required to unwind this instruction.  */
 
@@ -214,7 +213,7 @@ default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
 		     rtx insn ATTRIBUTE_UNUSED)
 {
   /* Should never happen.  */
-  abort ();
+  gcc_unreachable ();
 }
 
 /* True if MODE is valid for the target.  By "valid", we mean able to
@@ -259,6 +258,30 @@ default_scalar_mode_supported_p (enum machine_mode mode)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
+}
+
+bool
+default_vect_misaligned_mem_ok (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return !STRICT_ALIGNMENT;
+}
+
+bool
+hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
+	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	enum machine_mode mode ATTRIBUTE_UNUSED,
+	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
+hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
+	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	enum machine_mode mode ATTRIBUTE_UNUSED,
+	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+{
+  return true;
 }

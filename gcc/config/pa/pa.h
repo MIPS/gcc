@@ -918,7 +918,8 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    We use a DImode register in the parallel for 5 to 7 byte structures
    so that there is only one element.  This allows the object to be
    correctly padded.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) (TARGET_64BIT ? upward : downward)
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  function_arg_padding ((MODE), (TYPE))
 
 /* Do not expect to understand this without reading it several times.  I'm
    tempted to try and simply it, but I worry about breaking something.  */
@@ -948,8 +949,6 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
        || int_size_in_bytes (TYPE) <= UNITS_PER_WORD)			\
     : GET_MODE_SIZE(MODE) <= UNITS_PER_WORD)				\
    ? PARM_BOUNDARY : MAX_PARM_BOUNDARY)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 
 extern GTY(()) rtx hppa_compare_op0;
@@ -1772,7 +1771,7 @@ forget_section (void)							\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
        && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
-   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'))
+   || CONSTANT_CLASS_P (DECL))
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 

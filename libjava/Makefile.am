@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
 
-ACLOCAL_AMFLAGS = -I .
+ACLOCAL_AMFLAGS = -I . -I ../config
 
 ## Garbage collector conditionals.
 if USING_BOEHMGC
@@ -89,11 +89,8 @@ target_noncanonical = @target_noncanonical@
 
 if XLIB_AWT
 cond_xlib_ltlibrary = lib-gnu-awt-xlib.la
-## We require libstdc++-v3 to be in the same build tree.
-xlib_includes = -I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_noncanonical) -I$(srcdir)/../libstdc++-v3/libsupc++
 else
 cond_xlib_ltlibrary =
-xlib_includes =
 endif
 
 if GTK_AWT
@@ -102,7 +99,8 @@ else
 cond_gtk_ltlibrary =
 endif
 
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la lib-org-w3c-dom.la \
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la lib-org-xml-sax.la \
+	lib-org-w3c-dom.la lib-org-ietf-jgss.la \
     $(cond_gtk_ltlibrary) $(cond_xlib_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
@@ -187,8 +185,8 @@ JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
-INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
-	$(GCINCS) $(THREADINCS) $(INCLTDL) $(xlib_includes) \
+AM_CPPFLAGS = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
+	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 ## ################################################################
@@ -356,6 +354,26 @@ lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
+lib_org_ietf_jgss_la_SOURCES = \
+org/ietf/jgss/ChannelBinding.java \
+org/ietf/jgss/GSSContext.java \
+org/ietf/jgss/GSSCredential.java \
+org/ietf/jgss/GSSException.java \
+org/ietf/jgss/GSSManager.java \
+org/ietf/jgss/GSSName.java \
+org/ietf/jgss/MessageProp.java \
+org/ietf/jgss/Oid.java
+
+lib_org_ietf_jgss_la_DEPENDENCIES= $(jgss_propertyo_files) \
+	libgcj-@gcc_version@.jar libgcj.la libgcj.spec
+## See jv_convert_LDADD.
+lib_org_ietf_jgss_la_LIBADD = -L$(here)/.libs  $(jgss_propertyo_files) \
+	libgcj.la
+
+## The mysterious backslash in the grep pattern is consumed by make.
+lib_org_ietf_jgss_la_LDFLAGS = -rpath $(toolexeclibdir) \
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
+
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
 org/w3c/dom/CharacterData.java \
@@ -428,6 +446,11 @@ lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_nat_source_files)
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
+## We require libstdc++-v3 to be in the same build tree.
+lib_gnu_awt_xlib_la_CPPFLAGS = \
+	-I../libstdc++-v3/include \
+	-I../libstdc++-v3/include/$(target_noncanonical) \
+	-I$(srcdir)/../libstdc++-v3/libsupc++
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
@@ -438,6 +461,7 @@ lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 all_java_source_files = \
     $(java_source_files) \
     $(built_java_source_files) \
+    $(lib_org_ietf_jgss_la_SOURCES) \
     $(lib_org_xml_sax_la_SOURCES) \
     $(lib_org_w3c_dom_la_SOURCES) \
     $(gtk_awt_peer_sources) \
@@ -445,12 +469,24 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
+all_property_files = $(property_files) $(jgss_property_files) \
+    java/util/logging/logging.properties
+
 ## Build property files into the library.
 property_files = \
 gnu/regexp/MessagesBundle.properties \
-gnu/regexp/MessagesBundle_fr.properties 
+gnu/regexp/MessagesBundle_fr.properties
 
 propertyo_files = $(property_files:.properties=.properties.lo) 
+
+%.properties.lo: %.properties
+	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
+
+## Build property files into the lib-org-ietf-jgss library.
+jgss_property_files = \
+org/ietf/jgss/MessagesBundle.properties
+
+jgss_propertyo_files = $(jgss_property_files:.properties=.properties.lo)
 
 %.properties.lo: %.properties
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
@@ -465,9 +501,16 @@ libgcj-@gcc_version@.jar: $(all_java_source_files)
 	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
 ## Note that we explicitly want to include directory information.
-	find java gnu javax org -type d -o -type f -name '*.class' | \
-	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-	  $(ZIP) cfM0E@ $@
+	(find java gnu javax org -type d -o -type f -name '*.class'; \
+## Ugly code to avoid "echo -C".  Must separate each entry by a newline
+## Gross but easy.
+	for file in $(all_property_files); do \
+	  echo "x-C" | sed -e 's/^.//'; \
+	  echo $(srcdir); \
+	  echo $$file; \
+	done) | \
+	  sed -e '/\/xlib/d' -e '/\/\.libs/d' -e '/\/\.deps/d' | \
+	  $(ZIP) -cfM0E@ $@
 
 # This next rule seems backward, but reflects the fact
 # that 1) all classfiles are compiled in one go when the
@@ -483,24 +526,30 @@ else # !ONESTEP
 .java.class:
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $<
 
-libgcj-@gcc_version@.jar: $(all_java_class_files)
+libgcj-@gcc_version@.jar: $(all_java_class_files) $(all_property_files)
 	-@rm -f libgcj-@gcc_version@.jar
 ## Note that we explicitly want to include directory information.
-	find java gnu javax org -type d -o -type f -name '*.class' | \
-	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-	  $(ZIP) cfM0E@ $@
+	(find java gnu javax org -type d -o -type f -name '*.class'; \
+## Ugly code to avoid "echo -C".  Must separate each entry by a newline
+## Gross but easy.
+	for file in $(all_property_files); do \
+	  echo "x-C" | sed -e 's/^.//'; \
+	  echo $(srcdir); \
+	  echo $$file; \
+	done) | \
+	  sed -e '/\/xlib/d' -e '/\/\.libs/d' -e '/\/\.deps/d' | \
+	  $(ZIP) -cfM0E@ $@
 
 endif
-
-# Note: The libtool objects are removed by mostlyclean-local
-# because of command-line-length issues.
-MOSTLYCLEANFILES = $(nat_headers) $(xlib_nat_headers)
 
 CLEANFILES = libgcj-@gcc_version@.jar
 
 mostlyclean-local:
 ## Use libtool rm to remove each libtool object
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
+## Remove headers.  We use GNU make trickery because otherwise
+## the command line is too long.
+	@: $(foreach header,$(nat_headers) $(xlib_nat_headers) $(gtk_jni_headers),$(shell rm -f '$(header)'))
 
 clean-local:
 ## Remove every .class file that was created.
@@ -518,7 +567,7 @@ SUFFIXES = .class .java .h .properties
 
 ## Note: we omit StackTrace here, since it has an explicit rule a bit
 ## later, and GNU make will warn in this case.
-$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_ietf_jgss_la_OBJECTS): %.lo: %.java
 	$(LTGCJCOMPILE) -o $@ -c $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
@@ -529,6 +578,15 @@ $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 ## number.
 gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
 	$(LTGCJCOMPILE) -fno-optimize-sibling-calls -o $@ -c $<
+
+## Pass the list of object files to libtool in a temporary file to
+## avoid tripping platform command line length limits.
+libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS),libgcj.objectlist)
+	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
+	$(libgcj_la_LIBADD) \
+	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
 lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
 	@echo Creating list of files to link...
@@ -1795,6 +1853,46 @@ javax/accessibility/AccessibleTable.java \
 javax/accessibility/AccessibleTableModelChange.java \
 javax/accessibility/AccessibleText.java \
 javax/accessibility/AccessibleValue.java \
+javax/crypto/BadPaddingException.java \
+javax/crypto/Cipher.java \
+javax/crypto/CipherInputStream.java \
+javax/crypto/CipherOutputStream.java \
+javax/crypto/CipherSpi.java \
+javax/crypto/EncryptedPrivateKeyInfo.java \
+javax/crypto/KeyGeneratorSpi.java \
+javax/crypto/ExemptionMechanism.java \
+javax/crypto/ExemptionMechanismException.java \
+javax/crypto/ExemptionMechanismSpi.java \
+javax/crypto/IllegalBlockSizeException.java \
+javax/crypto/KeyAgreement.java \
+javax/crypto/KeyAgreementSpi.java \
+javax/crypto/KeyGenerator.java \
+javax/crypto/Mac.java \
+javax/crypto/MacSpi.java \
+javax/crypto/NoSuchPaddingException.java \
+javax/crypto/NullCipher.java \
+javax/crypto/NullCipherImpl.java \
+javax/crypto/SealedObject.java \
+javax/crypto/SecretKey.java \
+javax/crypto/SecretKeyFactory.java \
+javax/crypto/SecretKeyFactorySpi.java \
+javax/crypto/ShortBufferException.java \
+javax/crypto/interfaces/DHKey.java \
+javax/crypto/interfaces/DHPrivateKey.java \
+javax/crypto/interfaces/DHPublicKey.java \
+javax/crypto/interfaces/PBEKey.java \
+javax/crypto/spec/DESKeySpec.java \
+javax/crypto/spec/DESedeKeySpec.java \
+javax/crypto/spec/DHGenParameterSpec.java \
+javax/crypto/spec/DHParameterSpec.java \
+javax/crypto/spec/DHPrivateKeySpec.java \
+javax/crypto/spec/DHPublicKeySpec.java \
+javax/crypto/spec/IvParameterSpec.java \
+javax/crypto/spec/PBEKeySpec.java \
+javax/crypto/spec/PBEParameterSpec.java \
+javax/crypto/spec/RC2ParameterSpec.java \
+javax/crypto/spec/RC5ParameterSpec.java \
+javax/crypto/spec/SecretKeySpec.java \
 javax/imageio/IIOException.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
@@ -1902,6 +2000,40 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/net/ServerSocketFactory.java \
+javax/net/SocketFactory.java \
+javax/net/ssl/HandshakeCompletedEvent.java \
+javax/net/ssl/HandshakeCompletedListener.java \
+javax/net/ssl/HostnameVerifier.java \
+javax/net/ssl/HttpsURLConnection.java \
+javax/net/ssl/KeyManager.java \
+javax/net/ssl/KeyManagerFactory.java \
+javax/net/ssl/KeyManagerFactorySpi.java \
+javax/net/ssl/ManagerFactoryParameters.java \
+javax/net/ssl/SSLProtocolException.java \
+javax/net/ssl/SSLContext.java \
+javax/net/ssl/SSLContextSpi.java \
+javax/net/ssl/SSLException.java \
+javax/net/ssl/SSLHandshakeException.java \
+javax/net/ssl/SSLKeyException.java \
+javax/net/ssl/SSLPeerUnverifiedException.java \
+javax/net/ssl/SSLPermission.java \
+javax/net/ssl/SSLServerSocket.java \
+javax/net/ssl/SSLServerSocketFactory.java \
+javax/net/ssl/SSLSession.java \
+javax/net/ssl/SSLSessionBindingEvent.java \
+javax/net/ssl/SSLSessionBindingListener.java \
+javax/net/ssl/SSLSessionContext.java \
+javax/net/ssl/SSLSocket.java \
+javax/net/ssl/SSLSocketFactory.java \
+javax/net/ssl/TrivialHostnameVerifier.java \
+javax/net/ssl/TrustManager.java \
+javax/net/ssl/TrustManagerFactory.java \
+javax/net/ssl/TrustManagerFactorySpi.java \
+javax/net/ssl/X509KeyManager.java \
+javax/net/ssl/X509TrustManager.java \
+javax/net/VanillaSocketFactory.java \
+javax/net/VanillaServerSocketFactory.java \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \
@@ -2014,7 +2146,53 @@ javax/print/event/PrintJobEvent.java \
 javax/print/event/PrintJobListener.java \
 javax/print/event/PrintServiceAttributeEvent.java \
 javax/print/event/PrintServiceAttributeListener.java \
+javax/security/auth/AuthPermission.java \
+javax/security/auth/Destroyable.java \
+javax/security/auth/DestroyFailedException.java \
+javax/security/auth/login/AccountExpiredException.java \
+javax/security/auth/login/AppConfigurationEntry.java \
+javax/security/auth/login/Configuration.java \
+javax/security/auth/login/CredentialExpiredException.java \
+javax/security/auth/login/FailedLoginException.java \
+javax/security/auth/login/LoginContext.java \
+javax/security/auth/login/LoginException.java \
+javax/security/auth/login/NullConfiguration.java \
+javax/security/auth/Policy.java \
+javax/security/auth/PrivateCredentialPermission.java \
+javax/security/auth/Refreshable.java \
+javax/security/auth/RefreshFailedException.java \
+javax/security/auth/Subject.java \
+javax/security/auth/SubjectDomainCombiner.java \
 javax/security/auth/x500/X500Principal.java \
+javax/security/auth/x500/X500PrivateCredential.java \
+javax/security/auth/callback/Callback.java \
+javax/security/auth/callback/CallbackHandler.java \
+javax/security/auth/callback/ChoiceCallback.java \
+javax/security/auth/callback/ConfirmationCallback.java \
+javax/security/auth/callback/LanguageCallback.java \
+javax/security/auth/callback/NameCallback.java \
+javax/security/auth/callback/PasswordCallback.java \
+javax/security/auth/callback/TextInputCallback.java \
+javax/security/auth/callback/TextOutputCallback.java \
+javax/security/auth/callback/UnsupportedCallbackException.java \
+javax/security/cert/Certificate.java \
+javax/security/cert/CertificateEncodingException.java \
+javax/security/cert/CertificateException.java \
+javax/security/cert/CertificateExpiredException.java \
+javax/security/cert/CertificateNotYetValidException.java \
+javax/security/cert/CertificateParsingException.java \
+javax/security/cert/X509CertBridge.java \
+javax/security/cert/X509Certificate.java \
+javax/security/sasl/AuthenticationException.java \
+javax/security/sasl/AuthorizeCallback.java \
+javax/security/sasl/RealmCallback.java \
+javax/security/sasl/RealmChoiceCallback.java \
+javax/security/sasl/Sasl.java \
+javax/security/sasl/SaslClient.java \
+javax/security/sasl/SaslClientFactory.java \
+javax/security/sasl/SaslException.java \
+javax/security/sasl/SaslServer.java \
+javax/security/sasl/SaslServerFactory.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
 javax/sql/ConnectionPoolDataSource.java \
@@ -2272,6 +2450,7 @@ java/util/TreeMap.java \
 java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
+java/util/VMTimeZone.java	\
 java/util/WeakHashMap.java \
 java/util/logging/ConsoleHandler.java \
 java/util/logging/ErrorManager.java \
@@ -2304,7 +2483,7 @@ java/util/regex/PatternSyntaxException.java
 
 ## List of all .java files to be compiled.  Please keep this list
 ## alphabetical.  Please put files from java/lang, java/io, and java/util
-## into core_java_source_files. Please put files from gnu/gcj/convert 
+## into core_java_source_files.  Please put files from gnu/gcj/convert 
 ## into convert_source_files and files from java/awt into
 ## awt_java_source_files.  If the .java file has a hand-maintained
 ## header, please list it in special_java_source_files.
@@ -2482,26 +2661,26 @@ gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/net/URLParseError.java \
 gnu/java/net/protocol/core/Connection.java \
-gnu/java/net/protocol/core/Handler.java \
 gnu/java/net/protocol/core/CoreInputStream.java \
+gnu/java/net/protocol/core/Handler.java \
 gnu/java/net/protocol/file/Connection.java \
 gnu/java/net/protocol/file/Handler.java \
+gnu/java/net/protocol/gcjlib/Connection.java \
+gnu/java/net/protocol/gcjlib/Handler.java \
 gnu/java/net/protocol/http/Connection.java \
 gnu/java/net/protocol/http/Handler.java \
 gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
-gnu/java/net/protocol/gcjlib/Connection.java \
-gnu/java/net/protocol/gcjlib/Handler.java \
+gnu/java/nio/ChannelInputStream.java \
+gnu/java/nio/ChannelOutputStream.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/DatagramChannelSelectionKey.java \
 gnu/java/nio/FileLockImpl.java \
+gnu/java/nio/InputStreamChannel.java \
 gnu/java/nio/NIOConstants.java \
 gnu/java/nio/NIODatagramSocket.java \
 gnu/java/nio/NIOServerSocket.java \
 gnu/java/nio/NIOSocket.java \
-gnu/java/nio/ChannelInputStream.java \
-gnu/java/nio/ChannelOutputStream.java \
-gnu/java/nio/InputStreamChannel.java \
 gnu/java/nio/OutputStreamChannel.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
@@ -2511,6 +2690,8 @@ gnu/java/nio/ServerSocketChannelImpl.java \
 gnu/java/nio/ServerSocketChannelSelectionKey.java \
 gnu/java/nio/SocketChannelImpl.java \
 gnu/java/nio/SocketChannelSelectionKey.java \
+gnu/java/nio/VMPipe.java \
+gnu/java/nio/VMSelector.java \
 gnu/java/nio/channels/FileChannelImpl.java \
 gnu/java/nio/charset/ISO_8859_1.java \
 gnu/java/nio/charset/Provider.java \
@@ -2521,6 +2702,50 @@ gnu/java/nio/charset/UTF_16Decoder.java \
 gnu/java/nio/charset/UTF_16Encoder.java \
 gnu/java/nio/charset/UTF_16LE.java \
 gnu/java/nio/charset/UTF_8.java \
+gnu/java/security/Engine.java \
+gnu/java/security/OID.java \
+gnu/java/security/action/GetPropertyAction.java \
+gnu/java/security/action/SetAccessibleAction.java \
+gnu/java/security/der/BitString.java \
+gnu/java/security/der/DER.java \
+gnu/java/security/der/DEREncodingException.java \
+gnu/java/security/der/DERReader.java \
+gnu/java/security/der/DERValue.java \
+gnu/java/security/der/DERWriter.java \
+gnu/java/security/provider/DSAKeyFactory.java \
+gnu/java/security/provider/DSAKeyPairGenerator.java \
+gnu/java/security/provider/DSAParameterGenerator.java \
+gnu/java/security/provider/DSAParameters.java \
+gnu/java/security/provider/DSASignature.java \
+gnu/java/security/provider/DefaultPolicy.java \
+gnu/java/security/provider/Gnu.java \
+gnu/java/security/provider/GnuDSAPrivateKey.java \
+gnu/java/security/provider/GnuDSAPublicKey.java \
+gnu/java/security/provider/MD5.java \
+gnu/java/security/provider/SHA.java \
+gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/security/provider/X509CertificateFactory.java \
+gnu/java/security/util/Prime.java \
+gnu/java/security/x509/X500DistinguishedName.java \
+gnu/java/security/x509/X509CRL.java \
+gnu/java/security/x509/X509CRLEntry.java \
+gnu/java/security/x509/X509Certificate.java \
+gnu/java/text/AttributedFormatBuffer.java \
+gnu/java/text/BaseBreakIterator.java \
+gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/FormatBuffer.java \
+gnu/java/text/FormatCharacterIterator.java \
+gnu/java/text/LineBreakIterator.java \
+gnu/java/text/SentenceBreakIterator.java \
+gnu/java/text/StringFormatBuffer.java \
+gnu/java/text/WordBreakIterator.java \
+gnu/java/util/DoubleEnumeration.java \
+gnu/java/util/EmptyEnumeration.java \
+gnu/java/util/prefs/FileBasedFactory.java \
+gnu/java/util/prefs/MemoryBasedFactory.java \
+gnu/java/util/prefs/MemoryBasedPreferences.java \
+gnu/java/util/prefs/NodeReader.java \
+gnu/java/util/prefs/NodeWriter.java \
 gnu/regexp/CharIndexed.java \
 gnu/regexp/CharIndexedCharArray.java \
 gnu/regexp/CharIndexedInputStream.java \
@@ -2538,6 +2763,7 @@ gnu/regexp/RETokenBackRef.java \
 gnu/regexp/RETokenChar.java \
 gnu/regexp/RETokenEnd.java \
 gnu/regexp/RETokenEndSub.java \
+gnu/regexp/RETokenLookAhead.java \
 gnu/regexp/RETokenOneOf.java \
 gnu/regexp/RETokenPOSIX.java \
 gnu/regexp/RETokenRange.java \
@@ -2545,50 +2771,6 @@ gnu/regexp/RETokenRepeated.java \
 gnu/regexp/RETokenStart.java \
 gnu/regexp/RETokenWordBoundary.java \
 gnu/regexp/UncheckedRE.java \
-gnu/java/security/Engine.java \
-gnu/java/security/OID.java \
-gnu/java/security/der/BitString.java \
-gnu/java/security/der/DER.java \
-gnu/java/security/der/DEREncodingException.java \
-gnu/java/security/der/DERReader.java \
-gnu/java/security/der/DERValue.java \
-gnu/java/security/der/DERWriter.java \
-gnu/java/security/action/GetPropertyAction.java \
-gnu/java/security/action/SetAccessibleAction.java \
-gnu/java/security/provider/DefaultPolicy.java \
-gnu/java/security/provider/DSAKeyFactory.java \
-gnu/java/security/provider/DSAKeyPairGenerator.java \
-gnu/java/security/provider/DSAParameterGenerator.java \
-gnu/java/security/provider/DSAParameters.java \
-gnu/java/security/provider/DSASignature.java \
-gnu/java/security/provider/Gnu.java \
-gnu/java/security/provider/GnuDSAPrivateKey.java \
-gnu/java/security/provider/GnuDSAPublicKey.java \
-gnu/java/security/provider/MD5.java \
-gnu/java/security/provider/SHA.java \
-gnu/java/security/provider/SHA1PRNG.java \
-gnu/java/security/provider/X509CertificateFactory.java \
-gnu/java/security/util/Prime.java \
-gnu/java/security/x509/X500DistinguishedName.java \
-gnu/java/security/x509/X509Certificate.java \
-gnu/java/security/x509/X509CRLEntry.java \
-gnu/java/security/x509/X509CRL.java \
-gnu/java/text/AttributedFormatBuffer.java \
-gnu/java/text/BaseBreakIterator.java \
-gnu/java/text/CharacterBreakIterator.java \
-gnu/java/text/FormatBuffer.java \
-gnu/java/text/FormatCharacterIterator.java \
-gnu/java/text/LineBreakIterator.java \
-gnu/java/text/SentenceBreakIterator.java \
-gnu/java/text/StringFormatBuffer.java \
-gnu/java/text/WordBreakIterator.java \
-gnu/java/util/DoubleEnumeration.java \
-gnu/java/util/EmptyEnumeration.java \
-gnu/java/util/prefs/MemoryBasedFactory.java \
-gnu/java/util/prefs/NodeReader.java \
-gnu/java/util/prefs/MemoryBasedPreferences.java \
-gnu/java/util/prefs/FileBasedFactory.java \
-gnu/java/util/prefs/NodeWriter.java \
 java/lang/ref/PhantomReference.java \
 java/lang/ref/Reference.java \
 java/lang/ref/ReferenceQueue.java \
@@ -2619,9 +2801,9 @@ java/net/DatagramSocketImpl.java \
 java/net/DatagramSocketImplFactory.java \
 java/net/FileNameMap.java \
 java/net/HttpURLConnection.java	\
-java/net/InetAddress.java \
 java/net/Inet4Address.java \
 java/net/Inet6Address.java \
+java/net/InetAddress.java \
 java/net/InetSocketAddress.java \
 java/net/JarURLConnection.java \
 java/net/MalformedURLException.java \
@@ -2717,13 +2899,13 @@ java/nio/channels/SocketChannel.java \
 java/nio/channels/UnresolvedAddressException.java \
 java/nio/channels/UnsupportedAddressTypeException.java \
 java/nio/channels/WritableByteChannel.java \
-java/nio/channels/spi/AbstractSelectableChannel.java \
 java/nio/channels/spi/AbstractInterruptibleChannel.java \
+java/nio/channels/spi/AbstractSelectableChannel.java \
 java/nio/channels/spi/AbstractSelectionKey.java \
 java/nio/channels/spi/AbstractSelector.java \
 java/nio/channels/spi/SelectorProvider.java \
-java/nio/charset/Charset.java \
 java/nio/charset/CharacterCodingException.java \
+java/nio/charset/Charset.java \
 java/nio/charset/CharsetDecoder.java \
 java/nio/charset/CharsetEncoder.java \
 java/nio/charset/CoderMalfunctionError.java \
@@ -2738,20 +2920,20 @@ java/security/AccessControlContext.java \
 java/security/AccessControlException.java \
 java/security/AccessController.java \
 java/security/AlgorithmParameterGenerator.java \
-java/security/AlgorithmParameters.java \
 java/security/AlgorithmParameterGeneratorSpi.java \
+java/security/AlgorithmParameters.java \
 java/security/AlgorithmParametersSpi.java \
 java/security/AllPermission.java \
 java/security/BasicPermission.java \
 java/security/Certificate.java \
 java/security/CodeSource.java \
 java/security/DigestException.java \
-java/security/DigestOutputStream.java \
-java/security/DummyKeyPairGenerator.java \
-java/security/DummySignature.java \
 java/security/DigestInputStream.java \
+java/security/DigestOutputStream.java \
 java/security/DomainCombiner.java \
+java/security/DummyKeyPairGenerator.java \
 java/security/DummyMessageDigest.java \
+java/security/DummySignature.java \
 java/security/GeneralSecurityException.java \
 java/security/Guard.java \
 java/security/GuardedObject.java \
@@ -2761,64 +2943,56 @@ java/security/InvalidAlgorithmParameterException.java \
 java/security/InvalidKeyException.java \
 java/security/InvalidParameterException.java \
 java/security/Key.java \
-java/security/KeyFactorySpi.java \
-java/security/KeyPairGenerator.java \
-java/security/KeyStoreException.java \
 java/security/KeyException.java \
-java/security/KeyManagementException.java \
-java/security/KeyPairGeneratorSpi.java \
-java/security/KeyStoreSpi.java \
 java/security/KeyFactory.java \
+java/security/KeyFactorySpi.java \
+java/security/KeyManagementException.java \
 java/security/KeyPair.java \
+java/security/KeyPairGenerator.java \
+java/security/KeyPairGeneratorSpi.java \
 java/security/KeyStore.java \
+java/security/KeyStoreException.java \
+java/security/KeyStoreSpi.java \
 java/security/MessageDigest.java \
 java/security/MessageDigestSpi.java \
 java/security/NoSuchAlgorithmException.java \
 java/security/NoSuchProviderException.java \
 java/security/Permission.java \
-java/security/Principal.java \
-java/security/PrivilegedExceptionAction.java \
-java/security/PublicKey.java \
 java/security/PermissionCollection.java \
-java/security/PrivateKey.java \
-java/security/ProtectionDomain.java \
 java/security/Permissions.java \
-java/security/PrivilegedAction.java \
-java/security/Provider.java \
 java/security/Policy.java \
+java/security/Principal.java \
+java/security/PrivateKey.java \
+java/security/PrivilegedAction.java \
 java/security/PrivilegedActionException.java \
+java/security/PrivilegedExceptionAction.java \
+java/security/ProtectionDomain.java \
+java/security/Provider.java \
 java/security/ProviderException.java \
+java/security/PublicKey.java \
 java/security/SecureClassLoader.java \
-java/security/SecureRandomSpi.java \
-java/security/SecurityPermission.java \
-java/security/SignatureException.java \
-java/security/SignedObject.java \
 java/security/SecureRandom.java \
+java/security/SecureRandomSpi.java \
 java/security/Security.java \
+java/security/SecurityPermission.java \
 java/security/Signature.java \
+java/security/SignatureException.java \
 java/security/SignatureSpi.java \
+java/security/SignedObject.java \
 java/security/Signer.java \
 java/security/UnrecoverableKeyException.java \
 java/security/UnresolvedPermission.java \
 java/security/acl/Acl.java \
-java/security/acl/AclNotFoundException.java \
-java/security/acl/LastOwnerException.java \
-java/security/acl/Owner.java \
 java/security/acl/AclEntry.java \
+java/security/acl/AclNotFoundException.java \
 java/security/acl/Group.java \
+java/security/acl/LastOwnerException.java \
 java/security/acl/NotOwnerException.java \
+java/security/acl/Owner.java \
 java/security/acl/Permission.java \
 java/security/cert/CRL.java \
 java/security/cert/CRLException.java \
 java/security/cert/CRLSelector.java \
-java/security/cert/Certificate.java \
-java/security/cert/CertificateEncodingException.java \
-java/security/cert/CertificateException.java \
-java/security/cert/CertificateExpiredException.java \
-java/security/cert/CertificateFactory.java \
-java/security/cert/CertificateFactorySpi.java \
-java/security/cert/CertificateNotYetValidException.java \
-java/security/cert/CertificateParsingException.java \
 java/security/cert/CertPath.java \
 java/security/cert/CertPathBuilder.java \
 java/security/cert/CertPathBuilderException.java \
@@ -2834,6 +3008,14 @@ java/security/cert/CertStore.java \
 java/security/cert/CertStoreException.java \
 java/security/cert/CertStoreParameters.java \
 java/security/cert/CertStoreSpi.java \
+java/security/cert/Certificate.java \
+java/security/cert/CertificateEncodingException.java \
+java/security/cert/CertificateException.java \
+java/security/cert/CertificateExpiredException.java \
+java/security/cert/CertificateFactory.java \
+java/security/cert/CertificateFactorySpi.java \
+java/security/cert/CertificateNotYetValidException.java \
+java/security/cert/CertificateParsingException.java \
 java/security/cert/CollectionCertStoreParameters.java \
 java/security/cert/LDAPCertStoreParameters.java \
 java/security/cert/PKIXBuilderParameters.java \
@@ -2846,6 +3028,8 @@ java/security/cert/PolicyQualifierInfo.java \
 java/security/cert/TrustAnchor.java \
 java/security/cert/X509CRL.java \
 java/security/cert/X509CRLEntry.java \
+java/security/cert/X509CRLSelector.java \
+java/security/cert/X509CertSelector.java \
 java/security/cert/X509Certificate.java \
 java/security/cert/X509Extension.java \
 java/security/interfaces/DSAKey.java \
@@ -2892,13 +3076,13 @@ java/sql/PreparedStatement.java	\
 java/sql/Ref.java \
 java/sql/ResultSet.java	\
 java/sql/ResultSetMetaData.java	\
-java/sql/Savepoint.java \
 java/sql/SQLData.java \
 java/sql/SQLException.java \
 java/sql/SQLInput.java \
 java/sql/SQLOutput.java \
 java/sql/SQLPermission.java \
 java/sql/SQLWarning.java \
+java/sql/Savepoint.java \
 java/sql/Statement.java	\
 java/sql/Struct.java	\
 java/sql/Time.java \
@@ -3034,7 +3218,7 @@ java/nio/channels/natChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
-java/util/natTimeZone.cc \
+java/util/natVMTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 
@@ -3139,8 +3323,6 @@ texinfo: TexinfoDoclet.class
 ##
 ## Dependency tracking madness.
 ##
-
--include deps.mk
 
 ## This is an evil hack to work around an automake limitation.  We
 ## need to ensure that all CNI headers are built, not just the ones used

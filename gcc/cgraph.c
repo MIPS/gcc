@@ -354,6 +354,7 @@ cgraph_remove_node (struct cgraph_node *node)
 	{
 	  DECL_SAVED_TREE (node->decl) = NULL;
 	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
+          DECL_INITIAL (node->decl) = error_mark_node;
 	}
     }
   cgraph_n_nodes--;
@@ -473,6 +474,12 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 
   if (node->local.local)
     fprintf (f, " local");
+  if (node->local.external)
+    fprintf (f, " external");
+  if (node->local.calls_read_all)
+    fprintf (f, " calls_read_all");
+  if (node->local.calls_write_all)
+    fprintf (f, " calls_write_all");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)
@@ -685,5 +692,18 @@ cgraph_clone_node (struct cgraph_node *n)
   n->next_clone = new;
 
   return new;
+}
+
+/* NODE is no longer nested function; update cgraph accordingly.  */
+void
+cgraph_unnest_node (struct cgraph_node *node)
+{
+  struct cgraph_node **node2 = &node->origin->nested;
+  gcc_assert (node->origin);
+
+  while (*node2 != node)
+    node2 = &(*node2)->next_nested;
+  *node2 = node->next_nested;
+  node->origin = NULL;
 }
 #include "gt-cgraph.h"

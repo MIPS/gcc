@@ -3787,7 +3787,16 @@ fold_rtx (rtx x, rtx insn)
 	new = simplify_unary_operation (code, mode,
 					const_arg0 ? const_arg0 : folded_arg0,
 					mode_arg0);
-	if (new != 0 && is_const)
+	/* NEG of PLUS could be converted into MINUS, but that causes
+	   expressions of the form
+	   (CONST (MINUS (CONST_INT) (SYMBOL_REF)))
+	   which many ports mistakenly treat as LEGITIMATE_CONSTANT_P.
+	   FIXME: those ports should be fixed.  */
+	if (new != 0 && is_const
+	    && GET_CODE (new) == PLUS
+	    && (GET_CODE (XEXP (new, 0)) == SYMBOL_REF
+		|| GET_CODE (XEXP (new, 0)) == LABEL_REF)
+	    && GET_CODE (XEXP (new, 1)) == CONST_INT)
 	  new = gen_rtx_CONST (mode, new);
       }
       break;
@@ -5386,6 +5395,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 		  || (GET_CODE (trial) == LABEL_REF
 		      && ! condjump_p (insn))))
 	    {
+	      /* Don't substitute non-local labels, this confuses CFG.  */
+	      if (GET_CODE (trial) == LABEL_REF
+		  && LABEL_REF_NONLOCAL_P (trial))
+		continue;
+
 	      SET_SRC (sets[i].rtl) = trial;
 	      cse_jumps_altered = 1;
 	      break;
@@ -5614,7 +5628,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 
       /* If this SET is now setting PC to a label, we know it used to
 	 be a conditional or computed branch.  */
-      else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF)
+      else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF
+	       && !LABEL_REF_NONLOCAL_P (src))
 	{
 	  /* Now emit a BARRIER after the unconditional jump.  */
 	  if (NEXT_INSN (insn) == 0
@@ -6691,8 +6706,6 @@ cse_main (rtx f, int nregs, FILE *file)
 	INSN_CUID (insn) = i;
     }
 
-  ggc_push_context ();
-
   /* Loop over basic blocks.
      Compute the maximum number of qty's needed for each basic block
      (which is 2 for each SET).  */
@@ -6757,8 +6770,6 @@ cse_main (rtx f, int nregs, FILE *file)
       alloca (0);
 #endif
     }
-
-  ggc_pop_context ();
 
   if (max_elements_made < n_elements_made)
     max_elements_made = n_elements_made;
@@ -7382,6 +7393,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   rtx last_insns[2];
   unsigned int i;
   rtx newreg;
+  edge_iterator ei;
 
   /* We expect to have two successors.  Look at both before picking
      the final mode for the comparison.  If we have more successors
@@ -7392,7 +7404,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   found_equiv = false;
   mode = GET_MODE (cc_src);
   insn_count = 0;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       rtx insn;
       rtx end;
@@ -7400,8 +7412,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
       if (e->flags & EDGE_COMPLEX)
 	continue;
 
-      if (! e->dest->pred
-	  || e->dest->pred->pred_next
+      if (EDGE_COUNT (e->dest->preds) != 1
 	  || e->dest == EXIT_BLOCK_PTR)
 	continue;
 

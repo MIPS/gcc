@@ -652,7 +652,7 @@ case "$THREADS" in
 	# the command line.  For now, the user must provide the -pthread
 	# switch to link code compiled with gcj.  In future, consider adding
 	# support for weak references to pthread_* functions ala gthr.h API.
-	THREADSPEC='%{!pthread: %eUnder this configuration, the user must provide -pthread when linking.}'
+	THREADSPEC='%{!pthread: %{!shared: %eUnder this configuration, the user must provide -pthread when linking.}}'
 	;;
      *-*-freebsd*)
 	# FreeBSD 5 implements a model much closer to other modern UNIX
@@ -1124,6 +1124,8 @@ CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
 AC_COMPILE_CHECK_SIZEOF(void *)
 
+AC_C_BIGENDIAN_CROSS
+
 ZLIBS=
 SYS_ZLIBS=
 ZINCS=
@@ -1382,25 +1384,6 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
-
-# Make subdirectories and `.d' files.  Look in both srcdir and
-# builddir for the .java files.
-h=`${PWDCMD-pwd}`
-: > deps.mk
-( (cd $srcdir && find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) ;
-  find . \( -name '*.java' -o -name '*.cc' -o -name '*.c' \) -print) | \
-   fgrep -v testsuite | \
-   sed -e 's/\.java/.d/'\;'s/\.cc/.d/'\;'s/\.c/.d/' | \
-   while read f; do
-      echo "include $f" >> deps.mk
-      test -f $f || {
-	 d=`echo $f | sed -e 's,/[[^/]]*$,,'`
-	 if test ! -d $d; then
-	   $libgcj_basedir/../mkinstalldirs $d
-	 fi;
-	 echo > $f
-      }
-   done
 ],
 srcdir=${srcdir}
 host=${host}

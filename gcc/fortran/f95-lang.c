@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 
-#include <assert.h>
 #include <stdio.h>
 
 /* Language-dependent contents of an identifier.  */
@@ -154,7 +153,7 @@ const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-const char tree_code_type[] = {
+const enum tree_code_class tree_code_type[] = {
 #include "tree.def"
 };
 #undef DEFTREECODE
@@ -197,7 +196,7 @@ tree *ridpointers = NULL;
 static void
 gfc_expand_function (tree fndecl)
 {
-  tree_rest_of_compilation (fndecl, 0);
+  tree_rest_of_compilation (fndecl);
 }
 
 
@@ -222,7 +221,7 @@ gfc_truthvalue_conversion (tree expr)
     case BOOLEAN_TYPE:
       if (TREE_TYPE (expr) == boolean_type_node)
 	return expr;
-      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == '<')
+      else if (COMPARISON_CLASS_P (expr))
 	{
 	  TREE_TYPE (expr) = boolean_type_node;
 	  return expr;
@@ -355,7 +354,7 @@ static GTY(()) struct binding_level *global_binding_level;
 /* Binding level structures are initialized by copying this one.  */
 static struct binding_level clear_binding_level = { NULL, NULL, NULL };
 
-/* Return non-zero if we are currently in the global binding level.  */
+/* Return nonzero if we are currently in the global binding level.  */
 
 int
 global_bindings_p (void)
@@ -404,7 +403,7 @@ pushlevel (int ignore ATTRIBUTE_UNUSED)
 tree
 poplevel (int keep, int reverse, int functionbody)
 {
-  /* Points to a BLOCK tree node. This is the BLOCK node construted for the
+  /* Points to a BLOCK tree node. This is the BLOCK node constructed for the
      binding level that we are about to exit and which is returned by this
      routine.  */
   tree block_node = NULL_TREE;
@@ -414,7 +413,7 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* Reverse the list of XXXX_DECL nodes if desired.  Note that the ..._DECL
      nodes chained through the `names' field of current_binding_level are in
-     reverse order except for PARM_DECL node, which are explicitely stored in
+     reverse order except for PARM_DECL node, which are explicitly stored in
      the right order.  */
   decl_chain = (reverse) ? nreverse (current_binding_level->names)
     : current_binding_level->names;
@@ -666,7 +665,7 @@ gfc_mark_addressable (tree exp)
 
 int ggc_p = 1;
 
-/* Builtin function initialisation.  */
+/* Builtin function initialization.  */
 
 /* Return a definition for a builtin function named NAME and whose data type
    is TYPE.  TYPE should be a function type with argument types.
@@ -753,7 +752,7 @@ build_builtin_fntypes (tree * fntype, tree type)
 }
 
 
-/* Initialisation of builtin function nodes.  */
+/* Initialization of builtin function nodes.  */
 
 static void
 gfc_init_builtin_functions (void)

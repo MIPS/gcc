@@ -677,6 +677,7 @@ compute_alignments (void)
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
+      edge_iterator ei;
 
       if (!LABEL_P (label)
 	  || probably_never_executed_bb_p (bb))
@@ -684,7 +685,7 @@ compute_alignments (void)
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    has_fallthru = 1, fallthru_frequency += EDGE_FREQUENCY (e);
@@ -788,8 +789,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       /* Range of labels grows monotonically in the function.  Abort here
          means that the initialization of array got lost.  */
-      if (n_old_labels > n_labels)
-	abort ();
+      gcc_assert (n_old_labels <= n_labels);
 
       memset (label_align + n_old_labels, 0,
 	      (n_labels - n_old_labels) * sizeof (struct label_alignment));
@@ -933,8 +933,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	    continue;
 	  pat = PATTERN (insn);
 	  len = XVECLEN (pat, 1);
-	  if (len <= 0)
-	    abort ();
+	  gcc_assert (len > 0);
 	  min_align = MAX_CODE_ALIGN;
 	  for (min = max_shuid, max = min_shuid, i = len - 1; i >= 0; i--)
 	    {
@@ -1566,10 +1565,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	{
 	  /* This can be triggered by bugs elsewhere in the compiler if
 	     new insns are created after init_insn_lengths is called.  */
-	  if (NOTE_P (insn))
-	    insn_current_address = -1;
-	  else
-	    abort ();
+	  gcc_assert (NOTE_P (insn));
+	  insn_current_address = -1;
 	}
       else
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
@@ -1589,12 +1586,11 @@ get_insn_template (int code, rtx insn)
     case INSN_OUTPUT_FORMAT_MULTI:
       return insn_data[code].output.multi[which_alternative];
     case INSN_OUTPUT_FORMAT_FUNCTION:
-      if (insn == NULL)
-	abort ();
+      gcc_assert (insn);
       return (*insn_data[code].output.function) (recog_data.operand, insn);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1625,7 +1621,7 @@ output_alternate_entry_point (FILE *file, rtx insn)
 
     case LABEL_NORMAL:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1822,8 +1818,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	      /* End of a symbol-block.  */
 	      --block_depth;
-	      if (block_depth < 0)
-		abort ();
+	      gcc_assert (block_depth >= 0);
 
 	      (*debug_hooks->end_block) (high_block_linenum, n);
 	    }
@@ -1844,8 +1839,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	default:
-	  if (NOTE_LINE_NUMBER (insn) <= 0)
-	    abort ();
+	  gcc_assert (NOTE_LINE_NUMBER (insn) > 0);
 	  break;
 	}
       break;
@@ -2039,7 +2033,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef ASM_OUTPUT_ADDR_VEC
 		ASM_OUTPUT_ADDR_VEC (PREV_INSN (insn), body);
 #else
-		abort ();
+		gcc_unreachable ();
 #endif
 	      }
 	    else
@@ -2047,7 +2041,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef ASM_OUTPUT_ADDR_DIFF_VEC
 		ASM_OUTPUT_ADDR_DIFF_VEC (PREV_INSN (insn), body);
 #else
-		abort ();
+		gcc_unreachable ();
 #endif
 	      }
 #else
@@ -2060,7 +2054,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    ASM_OUTPUT_ADDR_VEC_ELT
 		      (file, CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 0, idx), 0)));
 #else
-		    abort ();
+		    gcc_unreachable ();
 #endif
 		  }
 		else
@@ -2072,7 +2066,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		       CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 1, idx), 0)),
 		       CODE_LABEL_NUMBER (XEXP (XEXP (body, 0), 0)));
 #else
-		    abort ();
+		    gcc_unreachable ();
 #endif
 		  }
 	      }
@@ -2478,8 +2472,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  {
 	    rtx prev;
 
-	    if (prev_nonnote_insn (insn) != last_ignored_compare)
-	      abort ();
+	    gcc_assert (prev_nonnote_insn (insn) == last_ignored_compare);
 
 	    /* We have already processed the notes between the setter and
 	       the user.  Make sure we don't process them again, this is
@@ -2510,7 +2503,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    /* This instruction should have been split in shorten_branches,
 	       to ensure that we would have valid length info for the
 	       splitees.  */
-	    abort ();
+	    gcc_unreachable ();
 #endif
 
 	    return new;
@@ -2622,14 +2615,14 @@ alter_subreg (rtx *xp)
 
       if (new != 0)
 	*xp = new;
-      /* Simplify_subreg can't handle some REG cases, but we have to.  */
-      else if (REG_P (y))
+      else
 	{
+	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno = subreg_hard_regno (x, 1);
+	  
+	  gcc_assert (REG_P (y));
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
-      else
-	abort ();
     }
 
   return *xp;
@@ -2780,7 +2773,7 @@ alter_cond (rtx cond)
     switch (GET_CODE (cond))
       {
       default:
-	abort ();
+	gcc_unreachable ();
 
       case NE:
 	PUT_CODE (cond, cc_status.flags & CC_Z_IN_N ? GE : LT);
@@ -3092,61 +3085,66 @@ output_asm_insn (const char *template, rtx *operands)
 	else if (ISALPHA (*p))
 	  {
 	    int letter = *p++;
-	    c = atoi (p);
+	    unsigned long opnum;
+	    char *endptr;
+	    
+	    opnum = strtoul (p, &endptr, 10);
 
-	    if (! ISDIGIT (*p))
-	      output_operand_lossage ("operand number missing after %%-letter");
-	    else if (this_is_asm_operands
-		     && (c < 0 || (unsigned int) c >= insn_noperands))
+	    if (endptr == p)
+	      output_operand_lossage ("operand number missing "
+				      "after %%-letter");
+	    else if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
 	    else if (letter == 'l')
-	      output_asm_label (operands[c]);
+	      output_asm_label (operands[opnum]);
 	    else if (letter == 'a')
-	      output_address (operands[c]);
+	      output_address (operands[opnum]);
 	    else if (letter == 'c')
 	      {
-		if (CONSTANT_ADDRESS_P (operands[c]))
-		  output_addr_const (asm_out_file, operands[c]);
+		if (CONSTANT_ADDRESS_P (operands[opnum]))
+		  output_addr_const (asm_out_file, operands[opnum]);
 		else
-		  output_operand (operands[c], 'c');
+		  output_operand (operands[opnum], 'c');
 	      }
 	    else if (letter == 'n')
 	      {
-		if (GET_CODE (operands[c]) == CONST_INT)
+		if (GET_CODE (operands[opnum]) == CONST_INT)
 		  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC,
-			   - INTVAL (operands[c]));
+			   - INTVAL (operands[opnum]));
 		else
 		  {
 		    putc ('-', asm_out_file);
-		    output_addr_const (asm_out_file, operands[c]);
+		    output_addr_const (asm_out_file, operands[opnum]);
 		  }
 	      }
 	    else
-	      output_operand (operands[c], letter);
+	      output_operand (operands[opnum], letter);
 
-	    if (!opoutput[c])
-	      oporder[ops++] = c;
-	    opoutput[c] = 1;
+	    if (!opoutput[opnum])
+	      oporder[ops++] = opnum;
+	    opoutput[opnum] = 1;
 
-	    while (ISDIGIT (c = *p))
-	      p++;
+	    p = endptr;
+	    c = *p;
 	  }
 	/* % followed by a digit outputs an operand the default way.  */
 	else if (ISDIGIT (*p))
 	  {
-	    c = atoi (p);
-	    if (this_is_asm_operands
-		&& (c < 0 || (unsigned int) c >= insn_noperands))
+	    unsigned long opnum;
+	    char *endptr;
+	    
+	    opnum = strtoul (p, &endptr, 10);
+	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
 	    else
-	      output_operand (operands[c], 0);
+	      output_operand (operands[opnum], 0);
 
-	    if (!opoutput[c])
-	      oporder[ops++] = c;
-	    opoutput[c] = 1;
+	    if (!opoutput[opnum])
+	      oporder[ops++] = opnum;
+	    opoutput[opnum] = 1;
 
-	    while (ISDIGIT (c = *p))
-	      p++;
+	    p = endptr;
+	    c = *p;
 	  }
 	/* % followed by punctuation: output something for that
 	   punctuation character alone, with no operand.
@@ -3209,9 +3207,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 
   /* If X is a pseudo-register, abort now rather than writing trash to the
      assembler file.  */
-
-  if (x && REG_P (x) && REGNO (x) >= FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
 }
@@ -3510,7 +3506,7 @@ asm_fprintf (FILE *file, const char *p, ...)
 	  ASM_FPRINTF_EXTENSIONS (file, argptr, p)
 #endif
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 	break;
 
@@ -3711,13 +3707,12 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  if (!uid_shuid)
-    abort ();
+  
+  gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
   /* We've hit some insns that does not have id information available.  */
-  if (!insn_id || !label_id)
-    abort ();
+  gcc_assert (insn_id && label_id);
   return insn_id < label_id;
 }
 
@@ -3809,8 +3804,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	  return;
 	}
       newreg = LEAF_REG_REMAP (newreg);
-      if (newreg < 0)
-	abort ();
+      gcc_assert (newreg >= 0);
       regs_ever_live[REGNO (in_rtx)] = 0;
       regs_ever_live[newreg] = 1;
       REGNO (in_rtx) = newreg;
@@ -3853,7 +3847,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	break;
 
       default:
-	abort ();
+	gcc_unreachable ();
       }
 }
 #endif

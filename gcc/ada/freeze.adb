@@ -2191,14 +2191,35 @@ package body Freeze is
                Freeze_And_Append (Etype (E), Loc, Result);
             end if;
 
-            --  For object created by object declaration, perform required
-            --  categorization (preelaborate and pure) checks. Defer these
-            --  checks to freeze time since pragma Import inhibits default
-            --  initialization and thus pragma Import affects these checks.
+            --  Special processing for objects created by object declaration
 
             if Nkind (Declaration_Node (E)) = N_Object_Declaration then
+
+               --  For object created by object declaration, perform required
+               --  categorization (preelaborate and pure) checks. Defer these
+               --  checks to freeze time since pragma Import inhibits default
+               --  initialization and thus pragma Import affects these checks.
+
                Validate_Object_Declaration (Declaration_Node (E));
+
+               --  If there is an address clause, check it is valid
+
                Check_Address_Clause (E);
+
+               --  For imported objects, set Is_Public unless there is also
+               --  an address clause, which means that there is no external
+               --  symbol needed for the Import (Is_Public may still be set
+               --  for other unrelated reasons). Note that we delayed this
+               --  processing till freeze time so that we can be sure not
+               --  to set the flag if there is an address clause. If there
+               --  is such a clause, then the only purpose of the import
+               --  pragma is to suppress implicit initialization.
+
+               if Is_Imported (E)
+                 and then not Present (Address_Clause (E))
+               then
+                  Set_Is_Public (E);
+               end if;
             end if;
 
             --  Check that a constant which has a pragma Volatile[_Components]

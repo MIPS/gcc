@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "target.h"
 #include "convert.h"
+#include "c-common.h"
 
 static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
@@ -919,6 +920,8 @@ comp_array_types (tree t1, tree t2, bool allow_redeclaration)
 bool
 comptypes (tree t1, tree t2, int strict)
 {
+  int retval;
+
   if (t1 == t2)
     return true;
 
@@ -1014,6 +1017,12 @@ comptypes (tree t1, tree t2, int strict)
       else if ((strict & COMPARE_DERIVED) && DERIVED_FROM_P (t2, t1))
 	return true;
       
+      /* We may be dealing with Objective-C instances...  */
+      if (TREE_CODE (t1) == RECORD_TYPE
+	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+         return retval;
+      /* ...but fall through if we are not.  */
+
       return false;
 
     case OFFSET_TYPE:
@@ -1515,6 +1524,9 @@ rationalize_conditional_expr (enum tree_code code, tree t)
      are equal, so we know what conditional expression this used to be.  */
   if (TREE_CODE (t) == MIN_EXPR || TREE_CODE (t) == MAX_EXPR)
     {
+      /* The following code is incorrect if either operand side-effects.  */
+      gcc_assert (!TREE_SIDE_EFFECTS (TREE_OPERAND (t, 0))
+		  && !TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)));
       return
 	build_conditional_expr (build_x_binary_op ((TREE_CODE (t) == MIN_EXPR
 						    ? LE_EXPR : GE_EXPR),
@@ -1702,9 +1714,14 @@ build_class_member_access_expr (tree object, tree member,
 	 give the right answer.  Note that we complain whether or not they
 	 actually used the offsetof macro, since there's no way to know at this
 	 point.  So we just give a warning, instead of a pedwarn.  */
+      /* Do not produce this warning for base class field references, because
+	 we know for a fact that didn't come from offsetof.  This does occur
+	 in various testsuite cases where a null object is passed where a
+	 vtable access is required.  */
       if (null_object_p && warn_invalid_offsetof
 	  && CLASSTYPE_NON_POD_P (object_type)
-	  && ! skip_evaluation)
+	  && !DECL_FIELD_IS_BASE (member)
+	  && !skip_evaluation)
 	{
 	  warning ("invalid access to non-static data member `%D' of NULL object", 
 		   member);
@@ -1751,8 +1768,9 @@ build_class_member_access_expr (tree object, tree member,
 	  member_type = cp_build_qualified_type (member_type, type_quals);
 	}
 
-      result = fold (build3 (COMPONENT_REF, member_type, object, member,
-			     NULL_TREE));
+      result = build3 (COMPONENT_REF, member_type, object, member,
+		       NULL_TREE);
+      result = fold_if_not_in_template (result);
 
       /* Mark the expression const or volatile, as appropriate.  Even
 	 though we've dealt with the type above, we still have to mark the
@@ -2255,7 +2273,7 @@ build_array_ref (tree array, tree idx)
 	|= (CP_TYPE_VOLATILE_P (type) | TREE_SIDE_EFFECTS (array));
       TREE_THIS_VOLATILE (rval)
 	|= (CP_TYPE_VOLATILE_P (type) | TREE_THIS_VOLATILE (array));
-      return require_complete_type (fold (rval));
+      return require_complete_type (fold_if_not_in_template (rval));
     }
 
   {
@@ -2745,6 +2763,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
      convert it to this type.  */
   tree final_type = 0;
 
+  tree result;
+
   /* Nonzero if this is an operation like MIN or MAX which can
      safely be computed in short if both args are promoted shorts.
      Also implies COMMON.
@@ -2764,6 +2784,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
   /* Nonzero means set RESULT_TYPE to the common type of the args.  */
   int common = 0;
+
+  /* True if both operands have arithmetic type.  */
+  bool arithmetic_types_p;
 
   /* Apply default conversions.  */
   op0 = orig_op0;
@@ -3152,14 +3175,31 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       break;
     }
 
-  if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE)
-      &&
-      (code1 == INTEGER_TYPE || code1 == REAL_TYPE || code1 == COMPLEX_TYPE))
+  arithmetic_types_p = 
+    ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE)
+     && (code1 == INTEGER_TYPE || code1 == REAL_TYPE 
+	 || code1 == COMPLEX_TYPE));
+  /* Determine the RESULT_TYPE, if it is not already known.  */
+  if (!result_type
+      && arithmetic_types_p 
+      && (shorten || common || short_compare))
+    result_type = common_type (type0, type1);
+
+  if (!result_type)
+    {
+      error ("invalid operands of types `%T' and `%T' to binary `%O'",
+	     TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
+      return error_mark_node;
+    }
+
+  /* If we're in a template, the only thing we need to know is the
+     RESULT_TYPE.  */
+  if (processing_template_decl)
+    return build2 (resultcode, result_type, op0, op1);
+
+  if (arithmetic_types_p)
     {
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
-
-      if (shorten || common || short_compare)
-	result_type = common_type (type0, type1);
 
       /* For certain operations (which identify themselves by shorten != 0)
 	 if both args were extended from the same smaller type,
@@ -3402,18 +3442,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
     }
 
-  /* At this point, RESULT_TYPE must be nonzero to avoid an error message.
-     If CONVERTED is zero, both args will be converted to type RESULT_TYPE.
+  /* If CONVERTED is zero, both args will be converted to type RESULT_TYPE.
      Then the expression will be built.
      It will be given type FINAL_TYPE if that is nonzero;
      otherwise, it will be given type RESULT_TYPE.  */
-
-  if (!result_type)
-    {
-      error ("invalid operands of types `%T' and `%T' to binary `%O'",
-		TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
-      return error_mark_node;
-    }
 
   /* Issue warnings about peculiar, but valid, uses of NULL.  */
   if (/* It's reasonable to use pointer values as operands of &&
@@ -3448,12 +3480,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if (build_type == NULL_TREE)
     build_type = result_type;
 
-  {
-    tree result = fold (build2 (resultcode, build_type, op0, op1));
-    if (final_type != 0)
-      result = cp_convert (final_type, result);
-    return result;
-  }
+  result = build2 (resultcode, build_type, op0, op1);
+  result = fold_if_not_in_template (result);
+  if (final_type != 0)
+    result = cp_convert (final_type, result);
+  return result;
 }
 
 /* Return a tree for the sum or difference (RESULTCODE says which)
@@ -3471,7 +3502,8 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      pointer_int_sum() anyway.  */
   complete_type (TREE_TYPE (res_type));
 
-  return pointer_int_sum (resultcode, ptrop, fold (intop));
+  return pointer_int_sum (resultcode, ptrop,
+			  fold_if_not_in_template (intop));
 }
 
 /* Return a tree for the difference of pointers OP0 and OP1.
@@ -3515,7 +3547,7 @@ pointer_diff (tree op0, tree op1, tree ptrtype)
   /* Do the division.  */
 
   result = build2 (EXACT_DIV_EXPR, restype, op0, cp_convert (restype, op1));
-  return fold (result);
+  return fold_if_not_in_template (result);
 }
 
 /* Construct and perhaps optimize a tree representation
@@ -3645,7 +3677,7 @@ condition_conversion (tree expr)
   if (processing_template_decl)
     return expr;
   t = perform_implicit_conversion (boolean_type_node, expr);
-  t = fold (build1 (CLEANUP_POINT_EXPR, boolean_type_node, t));
+  t = build1 (CLEANUP_POINT_EXPR, boolean_type_node, t);
   return t;
 }
 		
@@ -3765,7 +3797,10 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       if (TREE_CODE (arg) == COMPLEX_CST)
 	return TREE_REALPART (arg);
       else if (TREE_CODE (TREE_TYPE (arg)) == COMPLEX_TYPE)
-	return fold (build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg));
+	{
+	  arg = build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
+	  return fold_if_not_in_template (arg);
+	}
       else
 	return arg;
 
@@ -3773,7 +3808,10 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       if (TREE_CODE (arg) == COMPLEX_CST)
 	return TREE_IMAGPART (arg);
       else if (TREE_CODE (TREE_TYPE (arg)) == COMPLEX_TYPE)
-	return fold (build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg));
+	{
+	  arg = build1 (IMAGPART_EXPR, TREE_TYPE (TREE_TYPE (arg)), arg);
+	  return fold_if_not_in_template (arg);
+	}
       else
 	return cp_convert (TREE_TYPE (arg), integer_zero_node);
       
@@ -4116,7 +4154,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
     {
       if (argtype == 0)
 	argtype = TREE_TYPE (arg);
-      return fold (build1 (code, argtype, arg));
+      return fold_if_not_in_template (build1 (code, argtype, arg));
     }
 
   error ("%s", errstring);
@@ -4673,6 +4711,9 @@ build_reinterpret_cast (tree type, tree expr)
 
   intype = TREE_TYPE (expr);
 
+  if (intype == error_mark_node)
+    return error_mark_node;
+
   if (TREE_CODE (type) == REFERENCE_TYPE)
     {
       if (! real_lvalue_p (expr))
@@ -4704,21 +4745,21 @@ build_reinterpret_cast (tree type, tree expr)
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     {
       expr = decl_constant_value (expr);
-      return fold (build1 (NOP_EXPR, type, expr));
+      return fold_if_not_in_template (build_nop (type, expr));
     }
   else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
       check_for_casting_away_constness (intype, type, "reinterpret_cast");
       expr = decl_constant_value (expr);
-      return fold (build1 (NOP_EXPR, type, expr));
+      return fold_if_not_in_template (build_nop (type, expr));
     }
   else if ((TYPE_PTRFN_P (type) && TYPE_PTROBV_P (intype))
 	   || (TYPE_PTRFN_P (intype) && TYPE_PTROBV_P (type)))
     {
       pedwarn ("ISO C++ forbids casting between pointer-to-function and pointer-to-object");
       expr = decl_constant_value (expr);
-      return fold (build1 (NOP_EXPR, type, expr));
+      return fold_if_not_in_template (build_nop (type, expr));
     }
   else
     {
@@ -4819,6 +4860,13 @@ build_c_cast (tree type, tree expr)
       TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
+
+  /* Casts to a (pointer to a) specific ObjC class (or 'id' or
+     'Class') should always be retained, because this information aids
+     in method lookup.  */
+  if (objc_is_object_ptr (type)
+      && objc_is_object_ptr (TREE_TYPE (expr)))
+    return build_nop (type, expr);
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs if VALUE is being used in non-lvalue context.  */
@@ -4935,7 +4983,7 @@ build_c_cast (tree type, tree expr)
 	{
 	  TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
 
-	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	  if (CONSTANT_CLASS_P (ovalue))
 	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }
@@ -5016,6 +5064,25 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       if (newrhs == error_mark_node)
 	return error_mark_node;
       return build2 (COMPOUND_EXPR, lhstype, lhs, newrhs);
+
+    case MIN_EXPR:
+    case MAX_EXPR:
+      /* MIN_EXPR and MAX_EXPR are currently only permitted as lvalues,
+	 when neither operand has side-effects.  */
+      if (!lvalue_or_else (lhs, "assignment"))
+	return error_mark_node;
+
+      gcc_assert (!TREE_SIDE_EFFECTS (TREE_OPERAND (lhs, 0))
+		  && !TREE_SIDE_EFFECTS (TREE_OPERAND (lhs, 1)));
+
+      lhs = build3 (COND_EXPR, TREE_TYPE (lhs),
+		    build2 (TREE_CODE (lhs) == MIN_EXPR ? LE_EXPR : GE_EXPR,
+			    boolean_type_node,
+			    TREE_OPERAND (lhs, 0),
+			    TREE_OPERAND (lhs, 1)),
+		    TREE_OPERAND (lhs, 0),
+		    TREE_OPERAND (lhs, 1));
+      /* Fall through.  */
 
       /* Handle (a ? b : c) used as an "lvalue".  */
     case COND_EXPR:
@@ -5339,7 +5406,8 @@ get_delta_difference (tree from, tree to, int force)
 	}
     }
 
-  return fold (convert_to_integer (ptrdiff_type_node, result));
+  return fold_if_not_in_template (convert_to_integer (ptrdiff_type_node, 
+						      result));
 }
 
 /* Return a constructor for the pointer-to-member-function TYPE using
@@ -5497,36 +5565,41 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
          fn; the call will do the opposite adjustment.  */
       tree orig_class = DECL_CONTEXT (fn);
       tree binfo = binfo_or_else (orig_class, fn_class);
-      *delta = fold (build2 (PLUS_EXPR, TREE_TYPE (*delta),
-			     *delta, BINFO_OFFSET (binfo)));
+      *delta = build2 (PLUS_EXPR, TREE_TYPE (*delta),
+		       *delta, BINFO_OFFSET (binfo));
+      *delta = fold_if_not_in_template (*delta);
 
       /* We set PFN to the vtable offset at which the function can be
 	 found, plus one (unless ptrmemfunc_vbit_in_delta, in which
 	 case delta is shifted left, and then incremented).  */
       *pfn = DECL_VINDEX (fn);
-      *pfn = fold (build2 (MULT_EXPR, integer_type_node, *pfn,
-			   TYPE_SIZE_UNIT (vtable_entry_type)));
+      *pfn = build2 (MULT_EXPR, integer_type_node, *pfn,
+		     TYPE_SIZE_UNIT (vtable_entry_type));
+      *pfn = fold_if_not_in_template (*pfn);
 
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  *pfn = fold (build2 (PLUS_EXPR, integer_type_node, *pfn,
-			       integer_one_node));
+	  *pfn = build2 (PLUS_EXPR, integer_type_node, *pfn,
+			 integer_one_node);
+	  *pfn = fold_if_not_in_template (*pfn);
 	  break;
 
 	case ptrmemfunc_vbit_in_delta:
-	  *delta = fold (build2 (LSHIFT_EXPR, TREE_TYPE (*delta),
-				 *delta, integer_one_node));
-	  *delta = fold (build2 (PLUS_EXPR, TREE_TYPE (*delta),
-				 *delta, integer_one_node));
+	  *delta = build2 (LSHIFT_EXPR, TREE_TYPE (*delta),
+			   *delta, integer_one_node);
+	  *delta = fold_if_not_in_template (*delta);
+	  *delta = build2 (PLUS_EXPR, TREE_TYPE (*delta),
+			   *delta, integer_one_node);
+	  *delta = fold_if_not_in_template (*delta);
 	  break;
 
 	default:
 	  gcc_unreachable ();
 	}
 
-      *pfn = fold (build1 (NOP_EXPR, TYPE_PTRMEMFUNC_FN_TYPE (type),
-			   *pfn));
+      *pfn = build_nop (TYPE_PTRMEMFUNC_FN_TYPE (type), *pfn);
+      *pfn = fold_if_not_in_template (*pfn);
     }
 }
 
@@ -5596,7 +5669,7 @@ dubious_conversion_warnings (tree type, tree expr,
       overflow_warning (expr);
 
       if (TREE_CONSTANT (expr))
-	expr = fold (expr);
+	expr = fold_if_not_in_template (expr);
     }
   return expr;
 }

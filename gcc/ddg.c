@@ -164,8 +164,7 @@ create_ddg_dependence (ddg_ptr g, ddg_node_ptr src_node,
   if (interloop)
      distance = 1;
 
-  if (!link)
-    abort ();
+  gcc_assert (link);
 
   /* Note: REG_DEP_ANTI applies to MEM ANTI_DEP as well!!  */
   if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
@@ -240,8 +239,7 @@ add_deps_for_def (ddg_ptr g, struct df *df, struct ref *rd)
 	  rtx use_insn = DF_REF_INSN (r_use->ref);
 	  ddg_node_ptr dest_node = get_node_of_insn (g, use_insn);
 
-	  if (!src_node || !dest_node)
-	    abort ();
+	  gcc_assert (src_node && dest_node);
 
 	  /* Any such upwards exposed use appears before the rd def.  */
 	  use_before_def = true;
@@ -296,8 +294,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct ref *use)
   use_node = get_node_of_insn (g, use->insn);
   def_node = get_node_of_insn (g, first_def->insn);
 
-  if (!use_node || !def_node)
-    abort ();
+  gcc_assert (use_node && def_node);
 
   /* Make sure there are no defs after USE.  */
   for (i = use_node->cuid + 1; i < g->num_nodes; i++)
@@ -316,28 +313,29 @@ build_inter_loop_deps (ddg_ptr g, struct df *df)
 {
   int rd_num, u_num;
   struct bb_info *bb_info;
+  bitmap_iterator bi;
 
   bb_info = DF_BB_INFO (df, g->bb);
 
   /* Find inter-loop output and true deps by connecting downward exposed defs
      to the first def of the BB and to upwards exposed uses.  */
-  EXECUTE_IF_SET_IN_BITMAP (bb_info->rd_gen, 0, rd_num,
+  EXECUTE_IF_SET_IN_BITMAP (bb_info->rd_gen, 0, rd_num, bi)
     {
       struct ref *rd = df->defs[rd_num];
 
       add_deps_for_def (g, df, rd);
-    });
+    }
 
   /* Find inter-loop anti deps.  We are interested in uses of the block that
      appear below all defs; this implies that these uses are killed.  */
-  EXECUTE_IF_SET_IN_BITMAP (bb_info->ru_kill, 0, u_num,
+  EXECUTE_IF_SET_IN_BITMAP (bb_info->ru_kill, 0, u_num, bi)
     {
       struct ref *use = df->uses[u_num];
 
       /* We are interested in uses of this BB.  */
       if (BLOCK_FOR_INSN (use->insn) == g->bb)
       	add_deps_for_use (g, df,use);
-    });
+    }
 }
 
 /* Given two nodes, analyze their RTL insns and add inter-loop mem deps
@@ -484,10 +482,8 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
 	}
       if (JUMP_P (insn))
 	{
-	  if (g->closing_branch)
-	    abort (); /* Found two branches in DDG.  */
-	  else
-	    g->closing_branch = &g->nodes[i];
+	  gcc_assert (!g->closing_branch);
+	  g->closing_branch = &g->nodes[i];
 	}
       else if (GET_CODE (PATTERN (insn)) == USE)
 	{
@@ -505,9 +501,10 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
       g->nodes[i++].insn = insn;
       first_note = NULL_RTX;
     }
-
-  if (!g->closing_branch)
-    abort ();  /* Found no branch in DDG.  */
+  
+  /* We must have found a branch in DDG.  */
+  gcc_assert (g->closing_branch);
+  
 
   /* Build the data dependency graph.  */
   build_intra_loop_deps (g);
@@ -646,8 +643,8 @@ add_edge_to_ddg (ddg_ptr g ATTRIBUTE_UNUSED, ddg_edge_ptr e)
   ddg_node_ptr src = e->src;
   ddg_node_ptr dest = e->dest;
 
-  if (!src->successors || !dest->predecessors)
-    abort (); /* Should have allocated the sbitmaps.  */
+  /* Should have allocated the sbitmaps.  */
+  gcc_assert (src->successors && dest->predecessors);
 
   SET_BIT (src->successors, dest->cuid);
   SET_BIT (dest->predecessors, src->cuid);
@@ -898,7 +895,7 @@ free_ddg_all_sccs (ddg_all_sccs_ptr all_sccs)
 
 /* Given FROM - a bitmap of source nodes - and TO - a bitmap of destination
    nodes - find all nodes that lie on paths from FROM to TO (not excluding
-   nodes from FROM and TO).  Return non zero if nodes exist.  */
+   nodes from FROM and TO).  Return nonzero if nodes exist.  */
 int
 find_nodes_on_paths (sbitmap result, ddg_ptr g, sbitmap from, sbitmap to)
 {

@@ -1,3 +1,418 @@
+2004-10-07  Phil Edwards  <phil@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp:  Update list of undefined functions.
+
+2004-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/list.tcc (operator=): Avoid iterator postincrement.
+	* include/bits/stl_tree.h (erase(iterator, iterator)): Likewise.
+
+2004-10-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1: New.
+	* include/tr1/array: New.
+	* include/Makefile.am (tr1_headers): New.
+	(stamp-tr1): New.
+	(install-headers): New.
+	(allstamped): Add stamp-tr1.
+
+	* include/ext/array_allocator.h: New.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/ext/array_allocator/1.cc: New.
+	* testsuite/ext/array_allocator/2.cc: New.
+
+2004-10-07  Richard Earnshaw  <rearnsha@arm.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_exit): New proc.
+
+2004-10-07  Roger Sayle  <roger@eyesopen.com>
+
+	PR libstdc++/17850
+	* configure.ac: Newlib does not provide strtold.
+	* configure: Regenerate.
+
+2004-10-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_THREADS): Set enable_thread.
+	(GLIBCXX_CONFIGURE_TESTSUITE): Use it.
+	* configure: Regenerated.
+	* testsuite/Makefile.am (CLEANFILES): Add TEST for
+	check-performance executables.
+	(stamp_thread): New.
+	(all-local): Use it.
+	* testsuite/Makefile.in: Regenerate.
+	* scripts/create_testsuite_files: Filter thread tests.
+
+	* testsuite/thread/pthread1.cc: Remove macro conditionals: this
+	file will only be run by thread enabled configurations.
+	* testsuite/thread/pthread7-rope.cc: Same, add rope_type typedef.
+	* testsuite/thread/pthread6.cc: Same.
+	* testsuite/thread/pthread5.cc: Same.
+	* testsuite/thread/pthread4.cc: Same.
+	* testsuite/thread/pthread3.cc: Same.
+	* testsuite/thread/pthread2.cc: Same.
+
+	* testsuite/ext/mt_allocator/instantiate.cc: Add in __GTHREADS guard.
+	* testsuite/ext/mt_allocator/deallocate_global-1.cc: Move to...
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: ...here.
+	* testsuite/ext/mt_allocator/deallocate_global-3.cc: Move to...
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: ...here. 
+	* testsuite/ext/mt_allocator/deallocate_local-1.cc: Move to...
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: ...here.
+	* testsuite/ext/mt_allocator/deallocate_local-3.cc: Move to...
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: ...here.
+
+2004-10-06  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/17780
+	* src/mt_allocator.cc (__pool<true>::_M_reserve_block): Revert
+	to old locking order.
+
+2004-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (_M_sync): When the caller is
+	setbuf, don't trust _M_string.capacity() to be the size of
+	the buffer area, use _M_string.size() in this case.
+	* testsuite/27_io/basic_stringbuf/setbuf/char/4.cc: New.
+	* testsuite/27_io/basic_stringbuf/setbuf/wchar_t/4.cc: Likewise.
+
+	* include/bits/sstream.tcc (overflow): Avoid calling string::assign
+	unnecessarily when the current _M_string is empty.
+
+2004-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (__reverse(bidirectional_iterator_tag)):
+	Avoid iterator postincrement.
+	(__rotate): Likewise.
+
+	* include/bits/stl_algo.h: Minor formatting tweaks.
+
+2004-10-06  Christopher Jefferson <caj@cs.york.ac.uk>
+
+	* include/bits/stl_algo.h (__reverse(random_access_iterator_tag)):
+	Avoid iterator postincrement; fix swapping middle element with
+	itself on odd-length inputs.
+
+2004-10-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/17780
+	* include/ext/mt_allocator.h (__pool_base::_Tune): Add default
+	options as compile-time constant enums.
+	(__pool_base::_Tune::is_default): New.
+	(__pool_base::_Block_address): New.
+	(__pool_base): Rearrange data members.
+	(__pool::_M_reserve_memory): To _M_reserve_block.
+	(__pool::_M_reclaim_memory): To _M_reclaim_block.	
+	(__pool::_Bin_record): Add _Block_address data member.
+	(__pool<false>): Add _M_thread_freelist_initial.
+	(__pool::~__pool): Declare.	
+	(__common_pool_policy): Move static data member to...
+	(__common_pool_policy::_S_get_pool): ...here, make static local.
+	(__per_type_pool_policy): Move static data member to...
+	(__per_type_pool_policy::_S_get_pool): ...here, make static local.
+	(__mt_alloc::__mt_alloc): Call __policy_type::_S_get_pool.
+	Remove static member definitions. Use define for __default_policy.
+	* src/mt_allocator.cc: Same.
+	* config/linker-map.gnu: Don't export _S_get_pool. Renames.
+	* testsuite/ext/new_allocator: New.
+	* testsuite/ext/new_allocator/instantiate.cc: New.
+	* testsuite/ext/new_allocator/check_new.cc: New.
+	* testsuite/ext/new_allocator/deallocate_global.cc: New.
+	* testsuite/ext/new_allocator/deallocate_local.cc: New.
+	* testsuite/ext/mt_allocator/instantiate.cc: Instantiate all
+	template arguments.
+	* testsuite/ext/mt_allocator/deallocate_global-1.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_global-2.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_global-3.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-1.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-3.cc: New.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: New.
+	* testsuite/ext/mt_allocator/deallocate.cc: New.
+	* testsuite/ext/malloc_allocator/deallocate.cc: New.	
+	* testsuite/ext/malloc_allocator/deallocate_global.cc: New.
+	* testsuite/ext/malloc_allocator/deallocate_local.cc: New.
+	
+2004-10-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host (abi_baseline_pair): Define for s390-*-linux* and
+	s390x-*-linux*.
+	* config/abi/s390-linux-gnu/baseline_symbols.txt: Add missing symbols.
+	* config/abi/s390x-linux-gnu/baseline_symbols.txt: New file.
+
+2004-10-05  Christopher Jefferson  <caj@cs.york.ac.uk>
+
+	* include/bits/stl_algobase.h (iter_swap): delegate to swap via
+	__iter_swap when iterator's value_types are equal.
+	(struct __iter_swap): New.
+
+2004-10-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.ac (libtool_VERSION): To 6:3:0.
+	* configure: Regnerate.
+	* testsuite/testsuite_abi.cc (check_version): Add 3.4.3.
+
+2004-10-04  Roger Sayle  <roger@eyesopen.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libstdc++/17505
+	* config/linker-map.gnu: Synchronize the current list of stub
+	functions from libmath.
+
+2004-10-03  Roger Sayle  <roger@eyesopen.com>
+
+	* config/locale/generic/c_locale.cc (__convert_to_v): Use
+	_GLIBCXX_HAVE_STRTOF instead _GLIBCXX_USE_C99 to check for strtof.
+	Likewise, use _GLIBCXX_HAVE_STRTOLD instead of _GLIBCXX_USE_C99
+	to check for presence of strtold.
+
+2004-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_list.h: Trivial formatting fixes.
+	* include/bits/stl_tree.h: Likewise.
+
+2004-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/sstream.tcc (seekpos): In case of success, just
+	return __sp.
+
+2004-10-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/sstream.tcc (pbackfail): Implement correctly
+	27.7.1.3/2, bullet 2: if mode & ios_base::out is false do not
+	write in the buffer.
+	* testsuite/27_io/basic_stringbuf/pbackfail/char/1.cc: New.
+	* testsuite/27_io/basic_stringbuf/pbackfail/char/2.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/pbackfail/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/pbackfail/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/putback/char/1.cc: Tweak consistently.
+
+2004-10-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/sstream.tcc (seekpos): Minor rearrangement of two
+	conditionals consistently with seekoff.
+	* include/std/std_sstream.h (setbuf): Avoid a string temporary.
+	(_M_sync): Simplify a bit, clean-up comment.
+
+2004-09-30  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/10975 (DR 453)
+	* include/bits/sstream.tcc (seekoff): Don't fail if __beg == 0
+	and __off == 0.
+	* docs/html/ext/howto.html: Add an entry for DR 453.
+	* testsuite/27_io/basic_stringbuf/seekoff/char/10975.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekoff/wchar_t/10975.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/char/1.cc: Tweak consistently.
+	* testsuite/27_io/basic_ostream/tellp/char/1.cc: Likewise.
+	* testsuite/27_io/basic_ostream/tellp/char/2.cc: Likewise.
+	* testsuite/27_io/basic_istream/seekg/char/2346-fstream.cc: Fix and
+	move to...
+	* testsuite/27_io/basic_istream/seekp/char/2346-fstream.cc: ... here.
+	* testsuite/27_io/basic_istream/seekg/char/2346-sstream.cc: Fix and
+	move to...
+	* testsuite/27_io/basic_istream/seekp/char/2346-sstream.cc: ... here.
+
+2004-09-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf(ios_base::openmode)):
+	Don't use _M_stringbuf_init, keep the pointers null, per 27.7.1.1.
+	(str()): Slightly tweak, protect from pptr() == 0.
+	(_M_update_egptr()): Likewise.
+	* include/bits/sstream.tcc (ssekoff, seekpos): In order to check
+	for an empty buffer use __beg instead of _M_string.capacity().
+	* testsuite/27_io/basic_stringbuf/cons/char/1.cc: New.
+	* testsuite/27_io/basic_stringbuf/cons/wchar_t/1.cc: Likewise.
+
+	* testsuite/27_io/basic_filebuf/cons/char/1.cc: New.
+	* testsuite/27_io/basic_filebuf/cons/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_streambuf/cons/char/1.cc: Update.
+	* testsuite/27_io/basic_streambuf/cons/wchar_t/1.cc: Likewise.
+
+2004-09-29  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/testsuite_io.h (class constraint_buf): New, extended
+	and templatized version of constraint_filebuf; add typedefs for
+	streambuf/stringbuf/filebuf and wchar_t counterparts.
+
+2004-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16612
+	* include/bits/basic_string.h (_M_dispose, _M_refcopy,
+	basic_string()): When _GLIBCXX_FULLY_DYNAMIC_STRING is defined,
+	don't deal with _S_empty_rep.
+	* include/bits/basic_string.tcc (_S_construct, _M_destroy,
+	_M_leak_hard, _M_mutate): Likewise.
+	* acinclude.m4 (GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING): New.
+	* acconfig.h: Add corresponding undef. 	
+	* configure.ac: Use GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING.
+	* docs/html/configopts.html: Document --enable-fully-dynamic-string.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+
+2004-09-28  Benjamin Kosnik  <bkoz@redhat.com>
+            Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/21_strings/basic_string/operations/char/1.cc: New.
+	* testsuite/21_strings/basic_string/operations/wchar_t/1.cc: New.
+	* testsuite/21_strings/basic_string/element_access/char/empty.cc: New.
+	* testsuite/21_strings/basic_string/element_access/wchar_t/empty.cc: 
+	New.
+
+2004-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* README: Remove obsolete entry about include/c_shadow.
+
+2004-09-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/17469
+	* testsuite/lib/libstdc++.exp: Don't use global ld_library_path.
+
+2004-09-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/localename.cc (locale::locale(const char*)): Minor tweaks:
+	rename a variable, move an assignment.
+	(locale::_Impl::_Impl(const char*, size_t)): Likewise, minor tweak.
+
+2004-09-24  Paul Brook  <paul@codesourcery.com>
+
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: XFAIL more arm
+	simulator targets.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Ditto.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Ditto.
+	* testsuite/27_io/basic_istream/readsome/char/6746-2.cc: Ditto.
+	* testsuite/ext/stdio_filebuf/char/10063-2.cc: Ditto.
+	* testsuite/ext/stdio_filebuf/char/10063-3.cc: Ditto.
+
+2004-09-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* testsuite/20_util/memory/auto_ptr/assign_neg.cc
+	* testsuite/23_containers/map/operators/1_neg.cc
+	* testsuite/23_containers/set/operators/1_neg.cc:
+	Update locations and/or regexps of dg-error markers.
+
+2004-09-23  P.J. Darcy  <darcypj@us.ibm.com>
+
+	* include/Makefile.am (thread_host_headers): Add gthr-tpf.h.
+	Add rule to build ${host_builddir}/gthr-tpf.h.
+	* include/Makefile.in: Regenerate.
+
+2004-09-23  Paolo Carlini  <pcarlini@suse.de>
+	    Magnus Fromreide  <magfr@lysator.liu.se>
+
+	* include/bits/boost_concept_check.h (struct _SequenceConcept):
+	Remove wrong requirement, i.e., not present in Table 67.
+
+2004-09-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12882 (cont)
+	* acinclude.m4 (GLIBCXX_CHECK_LFS): Check for fstat64 too.
+	* configure: Regenerate.
+	* config/io/basic_file_stdio.cc (__basic_file<>::showmanyc): When
+	_GLIBCXX_USE_LFS use fstat64 and lseek64, thus providing a non
+	trivial showmanyc for large files too.
+
+2004-09-17  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_algo.h (remove): Remove too restrictive
+	concept-check.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak conditional,
+	as per Nathan's original suggestion.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/mt_allocator/tune-1.cc: Use VERIFY, clean
+	up a bit.
+	* testsuite/ext/mt_allocator/tune-2.cc: Likewise.
+	* testsuite/ext/mt_allocator/tune-3.cc: Likewise.
+	* testsuite/ext/mt_allocator/tune-4.cc: Likewise.
+
+2004-09-17  Paolo Carlini  <pcarlini@suse.de>
+	    Andrea Arcangeli  <andrea@suse.de>
+
+	* config/io/basic_file_stdio.cc (__basic_file<>::close)): Don't
+	call unnecessarily sync, that is fflush: the library, since 3.4.0
+	does not use buffered fread/fwrite.
+	* include/bits/fstream.tcc (basic_filebuf<>::overflow): Likewise.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/cpu/arm/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* config/cpu/generic/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* libsupc++/cxxabi.h (__cxa_cdtor_return_type): New type.
+	(__cxa_vec_new): Use it.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	* libsupc++/vec.cc (__cxa_vec_new): Likewise.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	(__aeabi_vec_ctor_nocookie_nodtor): New function.
+	(__aeabi_vec_ctor_cookie_nodtor): Likewise.
+	(__aeabi_vec_cctor_nocookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie_noctor): Likewise.
+	(__aeabi_vec_new_nocookie): Likewise.
+	(__aeabi_vec_new_cookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie): Likewise.
+	(__aeabi_vec_dtor): Likewise.
+	(__aeabi_vec_dtor_cookie): Likewise.
+	(__aeabi_vec_delete): Likewise.
+	(__aeabi_vec_delete3): Likewise.
+	(__aeabi_vec_delete3_nodtor): Likewise.
+	(__aeabi_atexit): Likewise.
+
+2004-09-14  Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/fstream.tcc (xsgetn): Slightly tweak the recent fix
+	for 11722: copy can replace move; the common case is __avail == 0.
+
+2004-09-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/cpp_type_traits.h: Rename __is_trivially_copyable
+	to __is_scalar, more clear and consistent with "tr1" naming.
+	* include/bits/stl_algobase.h: Update consistently throughout.
+
+2004-09-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11722
+	* include/std/std_fstream.h (xsgetn): Declare only.
+	* include/bits/fstream.tcc (xsgetn): Define, optimize for the
+	always_noconv() case: when __n > __buflen, copy the available
+	buffer and issue a direct read.
+	* testsuite/performance/27_io/filebuf_sgetn_unbuf.cc: New.
+
+	* include/bits/fstream.tcc (xsputn): Minor tweak, reorder a
+	conditional.
+
+2004-09-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* testsuite/lib/libstdc++.exp: Use gcc wrapper.exp and call
+	libstdc++_maybe_build_wrapper instead of using local code.
+
+2004-09-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu (GLIBCXX_3.4.3): New, adjust symbol exports.
+
 2004-09-03  Jan Beulich  <jbeulich@novell.com>
 
 	* crossconfig.m4: Add NetWare as a target.
@@ -6,18 +421,18 @@
 2004-09-02  Mark Mitchell  <mark@codesourcery.com>
 
 	* libsupc++/typeinfo: Honor __GXX_MERGED_TYPEINFO_NAMES if already
-	defined. 
+	defined.
 
 2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
-            Simon Richter  <Simon.Richter@hogyros.de>
-	
+	    Simon Richter  <Simon.Richter@hogyros.de>
+
 	PR libstdc++/16715
 	* include/bits/istream.tcc: Add extern template for iostream
 	char and wchar_t instantiations.
 
 2004-09-02  Benjamin Kosnik  <bkoz@redhat.com>
-            Leland Wang  <llwang@infor.org>
-	
+	    Leland Wang  <llwang@infor.org>
+
 	PR libstdc++/17259
 	* include/ext/ropeimpl.h (rope::_S_compare): Use
 	_Rope_constants::_S_leaf.
@@ -52,19 +467,19 @@
 	* testsuite/ext/mt_allocator/tune-1.cc: New.
 	* testsuite/ext/mt_allocator/tune-2.cc: New.
 	* testsuite/ext/mt_allocator/tune-3.cc: New.
-	* testsuite/ext/mt_allocator/tune-4.cc: New.	
+	* testsuite/ext/mt_allocator/tune-4.cc: New.
 
 	* testsuite/testsuite_allocator.h (__gnu_test::check_new): New.
 	* testsuite/ext/allocators.cc: Use check_new, split into...
 	* testsuite/ext/mt_allocator/check_new.cc: this.
 	* testsuite/ext/pool_allocator/check_new.cc: this.
-	* testsuite/ext/malloc_allocator/check_new.cc: this.	
-	* testsuite/ext/debug_allocator/check_new.cc: this.	
+	* testsuite/ext/malloc_allocator/check_new.cc: this.
+	* testsuite/ext/debug_allocator/check_new.cc: this.
 	* testsuite/ext/mt_allocator/instantiate.cc: this.
 	* testsuite/ext/pool_allocator/instantiate.cc: this.
-	* testsuite/ext/malloc_allocator/instantiate.cc: this.	
+	* testsuite/ext/malloc_allocator/instantiate.cc: this.
 	* testsuite/ext/debug_allocator/instantiate.cc: this.
-	
+
 2004-08-30  Phil Edwards  <phil@codesourcery.com>
 
 	* docs/html/install.html:  Update locales list (from Paolo).
@@ -122,7 +537,7 @@
 	* testsuite/27_io/manipulators/basefield/wchar_t/1.cc: Likewise.
 	* testsuite/27_io/manipulators/standard/wchar_t/1.cc: Likewise.
 	* testsuite/27_io/manipulators/standard/wchar_t/2.cc: Likewise.
-	
+
 	* testsuite/27_io/manipulators/adjustfield/char/1.cc: Minor
 	formatting fixes.
 	* testsuite/27_io/manipulators/adjustfield/char/2.cc: Likewise.
@@ -225,7 +640,7 @@
 
 	* cpu/hppa/atomicity.h (__exchange_and_add, __atomic_add): Add memory
 	barrier to locking asm.
-	
+
 2004-08-20  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/c_std/cmath.tcc (__cmath_power): Revert previous commit:
@@ -279,7 +694,7 @@
 	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
 	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
 	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
- 
+
 2004-08-19  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
@@ -346,7 +761,7 @@
 	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
 
 2004-08-13  Paolo Carlini  <pcarlini@suse.de>
-	
+
 	* src/debug.cc (_Error_formatter::_M_print_string): Fix thinko,
 	memmove is not needed, memcpy suffices.
 
@@ -403,7 +818,7 @@
 	* testsuite/27_io/basic_stringbuf/sbumpc/wchar_t/1.cc: Fix typo.
 
 2004-08-11  Paolo Carlini  <pcarlini@suse.de>
-	
+
 	* testsuite/27_io/basic_stringbuf/imbue/char/1.cc: Declare test
 	variable.
 	* testsuite/27_io/basic_stringbuf/imbue/wchar_t/1.cc: Ditto.
@@ -446,7 +861,7 @@
 
 2004-08-07  Jonathan Wakely  <redi@gcc.gnu.org>
 	    Paolo Carlini  <pcarlini@suse.de>
-	
+
 	* src/debug.cc (_Error_formatter::_M_print_string): In order
 	to print individual words from __string, _M_format_word can't
 	be called since may be just sprintf, thus ignoring completely
@@ -504,7 +919,7 @@
 	* include/c_std/std/std_cstdlib.h (stdlib.h): Do not include it
 	when freestanding.  Do not bring names into std:: namespace with
 	"using" when freestanding.  Declare required functions and macros
-	when freestanding. 
+	when freestanding.
 	* libsupc++/Makefile.am (c_sources): Do not include cp-demangle.c
 	when freestanding.
 	* libsupc++/del_op.cc: Declare "free" only when freestanding.
@@ -529,11 +944,11 @@
 	* po/Makefile.in: Likewise.
 	* src/Makefile.in: Likewise.
 	* testsuite/Makefile.in: Likewise.
-	
+
 2004-08-01  Matt Austern  <austern@apple.com>
 
 	PR libstdc++/16844
-	* include/bits/stl_list.h (_M_create_node): Remove unused 
+	* include/bits/stl_list.h (_M_create_node): Remove unused
 	zero-argument version.
 	* include/ext/slist (_M_create_node): Pass two arguments to
 	allocator's construct() member function.
@@ -546,7 +961,7 @@
 	* testsuite/23_containers/multiset/explicit_instantiation.cc: New.
 	* testsuite/ext/hash_set_explicit_instantiation.cc: New.
 	* testsuite/ext/slist_explicit_instantiation.cc: New.
-	
+
 2004-07-30  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
@@ -567,7 +982,7 @@
 	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 31.
 
 2004-07-29  Paolo Carlini  <pcarlini@suse.de>
-            Petur Runolfsson  <peturr02@ru.is>
+	    Petur Runolfsson  <peturr02@ru.is>
 
 	PR libstdc++/12658 (continued)
 	* src/locale_init.cc (locale::locale, locale::global): Use
@@ -614,14 +1029,14 @@
 	* include/bits/stl_vector.h: Likewise.
 	* include/bits/vector.tcc: Likewise.
 	* include/ext/hashtable.h: Use rebind so that allocator_type
-	has correct type for a container's allocator.  Replace use of 
-	single-argument _Construct and _Destroy with use of allocator's 
+	has correct type for a container's allocator.  Replace use of
+	single-argument _Construct and _Destroy with use of allocator's
 	construct and destroy methods.
 	* include/ext/memory (__uninitialized_copy_n_a): New function.
 	Like uninitialized_copy_n except that it takes an extra parameter,
 	an allocator, and uses it for construct and destroy operations.
 	* include/ext/rope: Use new forms defined in stl_construct.h,
-	stl_uninitialized.h, and ext/memory.  Replace use of single-argument 
+	stl_uninitialized.h, and ext/memory.  Replace use of single-argument
 	_Construct and _Destroy with allocator construct and destroy methods.
 	* include/ext/ropeimpl.h: Likewise.
 	* include/ext/slist.h: Likewise.
@@ -629,11 +1044,11 @@
 	* testsuite/testsuite_allocator.cc (check_construct_destroy): New.
 	* testsuite/23_containers/deque/check_construct_destroy.cc: New.
 	* testsuite/23_containers/list/check_construct_destroy.cc: New.
-	* testsuite/23_containers/set/check_construct_destroy.cc: New.	
-	* testsuite/23_containers/vector/check_construct_destroy.cc: New. 
+	* testsuite/23_containers/set/check_construct_destroy.cc: New.
+	* testsuite/23_containers/vector/check_construct_destroy.cc: New.
 	* testsuite/ext/hash_check_construct_destroy.cc: New.
 	* testsuite/ext/slist_check_construct_destroy.cc: New.
-	
+
 2004-07-28  Alexandre Oliva  <aoliva@redhat.com>
 
 	2003-10-01  Eric Christopher  <echristo@redhat.com>
@@ -813,7 +1228,7 @@
 	* configure: Regenerated.
 
 	* testsuite/testsuite_abi.cc (check_version): Add 3.4.2.
-	
+
 2004-07-07  Aaron W. LaFramboise  <aaronraolete36@aaronwl.com>
 
 	PR libstdc++/16411
@@ -837,7 +1252,7 @@
 	PR libstdc++/15928
 	* crossconfig.m4: Add in bits for djgpp.
 	* configure: Regenerate.
-	
+
 2004-07-05  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* testsuite/23_containers/{set,multiset}/14340.cc: Fix typos in
@@ -898,14 +1313,14 @@
 	__is_trivially_copyable, __are_same and __copy::copy.
 	(__copy): Rewrite as a class template and two specializations.
 	(__copy_ni2): Simplify, just call __copy_aux.
-	
+
 	* include/bits/stl_algobase.h (__copy_backward_aux): Add __are_same
 	check.
 	* testsuite/25_algorithms/copy/1.cc, 2.cc, 3.cc, 4.cc: Test also
 	for destination value type != source value type.
 
 2004-07-01  Benjamin Kosnik  <bkoz@redhat.com>
-            Per Bothner  <per@bothner.com>
+	    Per Bothner  <per@bothner.com>
 	    Mohan Embar  <gnustuff@thisiscool.com>
 
 	PR libstdc++/16248
@@ -917,25 +1332,25 @@
 	* include/ext/pool_allocator.h (__pool_base::_M_get_mutex): Change
 	to mutex_type.
 	* src/allocator.cc: Same.
-	
+
 2004-06-30  Brad Spencer  <spencer@infointeractive.com>
 
 	* include/ext/mt_allocator.h: Handle allocations at static
 	initialization that happen before _S_options is (automatically)
 	constructed; set _S_init even if _M_force_new is true.
-	
+
 2004-06-30  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* config/linker-map.gnu: Revert new exports.
 
 2004-06-30  Benjamin Kosnik  <bkoz@redhat.com>
-            Stuart Anderson  <anderson@netsweng.com>
-	
+	    Stuart Anderson  <anderson@netsweng.com>
+
 	* config/linker-map.gnu: Add destructor exports for abstract base
 	classes to conform to LSB.
 
 2004-06-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
-            Paolo Carlini  <pcarlini@suse.de>
+	    Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/cpp_type_traits.h: Add __is_pointer and
 	__is_trivially_copyable.
@@ -972,7 +1387,7 @@
 	Revert -Weffc++ changes that defined copy ctory and or assignment
 	operator.
 	* libsupc++/tinfo.cc (__upcast_result): Same.
-	
+
 2004-06-28  Paolo Carlini  <pcarlini@suse.de>
 
 	* src/localename.cc (locale::_Impl::_Impl): Slightly improve
@@ -1017,7 +1432,7 @@
 
 2004-06-25  Benjamin Kosnik  <bkoz@redhat.com>
 
-	PR libstdc++/16182	
+	PR libstdc++/16182
 	* linkage.m4 (GLIBCXX_CHECK_BUILTIN_MATH_DEC): Revert to
 	AC_DEFINE_UNQUOTED.
 	* configure: Regenerate.
@@ -1083,10 +1498,10 @@
 
 	* src/allocator.cc: Move all instantiations...
 	* src/allocator-inst.cc: ...here.
-	
+
 2004-06-23  Andrew Pinski  <apinski@apple.com>
 
-	* linkage.m4: Remove check for libmx.	
+	* linkage.m4: Remove check for libmx.
 	* configure: Regenerate.
 
 2004-06-23  Paolo Carlini  <pcarlini@suse.de>
@@ -1173,7 +1588,7 @@
 	(__pool_alloc): Move _S_force new here.
 	* src/allocator.cc: Move out of line __pool_base definitions here.
 	* config/linker-map.gnu: Export bits from __pool_base.
-	
+
 2004-06-18  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/locale/gnu/numeric_members.cc
@@ -1202,7 +1617,7 @@
 	(rope<>::_S_dump): Likewise.
 	(rope<>::_S_fetch_ptr): Likewise.
 	(rope<>::_S_compare): Likewise.
-	(rope<>::replace_with_c_str()): Likewise.		
+	(rope<>::replace_with_c_str()): Likewise.
 
 	* testsuite/ext/rope.cc: Rename to testsuite/ext/rope/1.cc.
 	* testsuite/ext/rope/2.cc: New.
@@ -1301,11 +1716,11 @@
 
 2004-06-09  Benjamin Kosnik  <bkoz@redhat.com>
 
-	* crossconfig.m4: Remove signbit, signbitf, signbitl.	
+	* crossconfig.m4: Remove signbit, signbitf, signbitl.
 	* linkage.m4: Comment LIBMATHOBJS, tweak others.  AC_DEFINES for
 	builtin math functions instead of AC_DEFINE_UNQUOTED.
 	* configure: Regenerate.
-	
+
 2004-06-08  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* docs/doxygen/filter.sed: Rename _GLIBCXX_STD to std.
@@ -1342,11 +1757,11 @@
 	* configure.ac (libtool_VERSION): Bump to 6:1:0.
 	* configure: Regenerate.
 	* aclocal.m4: Regenerate.
-	
+
 2004-05-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* include/std/std_complex.h (complex<_Tp>): Properly indent
-	to follow C++STYLE. 
+	to follow C++STYLE.
 	(complex<>::__rep): New.
 	(__complex_abs): New.  Dispatch to built-ins.
 	(abs): Use them.
@@ -1374,8 +1789,8 @@
 	(pow): Use it.
 
 2004-05-29  Richard B. Kreckel  <Richard.Kreckel@Framatome-ANP.com>
-            Benjamin Kosnik  <bkoz@redhat.com>
-	
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
 	PR libstdc++/14600
 	* include/ext/stdio_sync_filebuf.h (stdio_sync_filebuf::file): New.
 	* include/ext/stdio_filebuf.h (stdio_filebuf::file): New.
@@ -1422,25 +1837,25 @@
 2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/12854
-	Fixups for -Weffc++.	
+	Fixups for -Weffc++.
 	* include/bits/basic_string.h (basic_string::operator=): Return
 	pointer to this instead of result of assign. Although redundant,
 	this doesn't impact resultant codegen.
-	
+
 	* include/bits/locale_facets.h (__numpunct_cache): Declare
 	assignment opxserator and copy constructor private.
 	(__timepunct_cache): Same.
 	(__moneypunct_cache): Same.
 	(collate): Use member initialization list for _M_c_locale_collate.
 	* config/locale/gnu/messages_members.h: Same.
-	* config/locale/gnu/time_members.h (__timepunct): Same.	
+	* config/locale/gnu/time_members.h (__timepunct): Same.
 	* src/codecvt.cc: Use member initialization list to initialize
-	_M_c_locale_codecvt.	
+	_M_c_locale_codecvt.
 	* src/ctype.cc: Same, with _M_c_locale_ctype and _M_narrow_ok.
 	* config/os/gnu-linux/ctype_noninline.h: Same.
 	* src/locale.cc (_Impl): Same.
 	* src/locale_init.cc: Same.
-	* src/localename.cc: Same.	
+	* src/localename.cc: Same.
 
 	* include/bits/basic_ios.h (basic_ios): Complete member
 	initialization list.
@@ -1451,7 +1866,7 @@
 	* include/std/std_streambuf.h: Same.
 	* include/std/std_sstream.h: Same, for _M_mode.
 	* src/ios.cc (ios_base): Same.
-	
+
 	* include/ext/rope: Make derived classes match exception
 
 	 specifications. Add copy constructors and assignment operators.
@@ -1468,24 +1883,24 @@
 2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/testsuite_hooks.h (func_callback): Declare copy
-	constructor and assignment operator private.	
+	constructor and assignment operator private.
 	* testsuite/23_containers/deque/cons/clear_allocator.cc: Match
 	exception specifications of base class.
 	* testsuite/23_containers/list/cons/clear_allocator.cc: Same.
 	* testsuite/23_containers/vector/cons/clear_allocator.cc: Same.
 	* testsuite/23_containers/vector/bool/clear_allocator.cc: New.
-		
+
 2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* libsupc++/cxxabi.h: Remove duplicated and useless public and
-        private keywords in class declarations. Format. Use
-        stddef.h. Expose declarations to "C" compilation.
-        * libsupc++/tinfo.cc (__upcast_result): Add copy constructor and
-        assignment operator.
-        (__dyncast_result): Same.
-        * libsupc++/vec.cc (uncatch_exception): Same, use member
-        initialization list.
-                 
+	private keywords in class declarations. Format. Use
+	stddef.h. Expose declarations to "C" compilation.
+	* libsupc++/tinfo.cc (__upcast_result): Add copy constructor and
+	assignment operator.
+	(__dyncast_result): Same.
+	* libsupc++/vec.cc (uncatch_exception): Same, use member
+	initialization list.
+
 2004-05-22  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/abi_check.cc: Add unistd.h.
@@ -1509,7 +1924,7 @@
 	* testsuite/22_locale/num_put/put/wchar_t/8.cc: Likewise.
 
 2004-05-21  Matthias Klose  <doko@debian.org>
- 
+
 	* docs/doxygen/run_doxygen:  Bump required version.
 
 2004-05-21  Benjamin Kosnik  <bkoz@redhat.com>
@@ -1549,14 +1964,14 @@
 	* docs/doxygen/guide.html: Add dot note.
 	* docs/doxygen/stdheader.cc: Edit, add files.
 	* docs/doxygen/user.cfg.in: Regenerate with Doxygen 1.3.7.
-	
+
 2004-05-18  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/ext/stdio_filebuf.h: Update comments to reflect PR 11691.
 
 2004-05-18  Jan Beulich  <jbeulich@novell.com>
- 
-        PR libstdc++/15489
+
+	PR libstdc++/15489
 	* scripts/create_testsuite_files: Also find source files through
 	symbolic links.
 
@@ -1594,9 +2009,9 @@
 
 2004-05-17  Douglas Gregor   <gregod@cs.rpi.edu>
 
-	PR libstdc++/14340 
-	* include/debug/safe_iterator.h (_Safe_iterator converting 
-	constructor): Only allow declaration to instantiate when the 
+	PR libstdc++/14340
+	* include/debug/safe_iterator.h (_Safe_iterator converting
+	constructor): Only allow declaration to instantiate when the
 	incoming _Safe_iterator has exactly the right iterator type.
 
 2004-05-17  Jonathan Wakely  <redi@gcc.gnu.org>
@@ -1636,7 +2051,7 @@
 	PR libstdc++/15046
 	* crossconfig.m4: Add C99 math bits for linux crosses.
 	* configure: Regenerate.
-	
+
 2004-05-13  Simon Marshall <simon.marshall@misys.com>
 	    Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -1652,16 +2067,16 @@
 	* config/locale/gnu/numeric_members.cc: Same.
 	* testsuite/testsuite_abi.cc: Same.
 	* testsuite/testsuite_hooks.cc: Same.
-	
+
 2004-05-13  Jonathan Wakely  <redi@gcc.gnu.org>
-	
+
 	* docs/html/abi.html: Document effect of -fabi-version on value
 	of __GXX_ABI_VERSION, and that it's defined in c-cppbuiltin.c.
 	Fix markup.
 
 2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
 
-	PR libstdc++/15074	
+	PR libstdc++/15074
 	* docs/html/faq/index.html: Update docs for libsupc++ usage.
 
 2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
@@ -1670,12 +2085,12 @@
 	* include/bits/stl_threads.h (_GLIBCXX_mutex): Move to namespace
 	__gnu_internal.
 	(_GLIBCXX_mutex_address): Same.
-	(_GLIBCXX_once): Same.	
+	(_GLIBCXX_once): Same.
 	(_GLIBCXX_mutex_init): Same.
 	(_GLIBCXX_mutex_address_init): Same.
-	
+
 2004-05-13  Benjamin Kosnik  <bkoz@redhat.com>
-	
+
 	* docs/html/abi.html: New.
 	* docs/html/abi.txt: Remove.
 	* docs/html/documentation.html: Add link.
@@ -1687,7 +2102,7 @@
 
 	* docs/html/17_intro/TODO: Update.
 	* include/bits/stl_pair.h: Format.
-	
+
 2004-05-06  Matthias Klose  <doko@debian.org>
 
 	* include/backward/iterator.h: 	Add GPL copyright info,
@@ -1696,7 +2111,7 @@
 	* include
 	* libsupc++/tinfo.h: Likewise.
 	* po/string_literals.cc: Likewise.
-	
+
 2004-05-03  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* acinclude.m4: Replace -W with more speaking -Wextra.
@@ -1775,7 +2190,7 @@
 
 2004-04-24  Paolo Carlini  <pcarlini@suse.de>
 
-	* testsuite/27_io/basic_istream/getline/char/4.cc: New.	
+	* testsuite/27_io/basic_istream/getline/char/4.cc: New.
 
 	* include/bits/istream.tcc (getline(basic_istream<>&,
 	basic_string<>&, _CharT)): Change to use sgetc()/snextc() instead
@@ -1813,17 +2228,17 @@
 
 2004-04-19  Benjamin Kosnik  <bkoz@redhat.com>
 
-	* testsuite/27_io/basic_istream/extractors_character/char/9555-ic.cc: 
+	* testsuite/27_io/basic_istream/extractors_character/char/9555-ic.cc:
 	Clarify assertion, set test variable to false before assert.
 	* testsuite/27_io/basic_istringstream/str/char/1.cc: Same.
 	* testsuite/27_io/basic_stringstream/str/char/1.cc: Same.
 	* testsuite/27_io/ios_base/storage/2.cc: Same.
-	
+
 	* testsuite/27_io/basic_filebuf/imbue/char/13171-4.cc: Fix
 	function returns.
 	* testsuite/27_io/basic_filebuf/imbue/wchar_t/13582-3.cc: Same.
 	* testsuite/27_io/fpos/14320-3.cc: Same.
-	
+
 	* testsuite/27_io/basic_filebuf/2.cc: Instantiate in namespace std.
 	* testsuite/27_io/fpos/1.cc: Same.
 	* testsuite/27_io/basic_stringstream/2.cc: Same.
@@ -1852,30 +2267,30 @@
 	* testsuite/21_strings/char_traits/requirements/wchar_t/1.cc: Same.
 	* testsuite/21_strings/char_traits/requirements/char/1.cc: Same.
 	* testsuite/21_strings/char_traits/requirements/short/1.cc: Same.
-	* testsuite/27_io/basic_istream/seekg/char/exceptions_badbit_throw.cc: 
+	* testsuite/27_io/basic_istream/seekg/char/exceptions_badbit_throw.cc:
 	Same.
 	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/exceptions_badbit_throw.cc: Same.
-	* testsuite/27_io/basic_ostream/seekp/char/exceptions_badbit_throw.cc: 
+	* testsuite/27_io/basic_ostream/seekp/char/exceptions_badbit_throw.cc:
 	Same.
 	* testsuite/27_io/basic_ostream/inserters_arithmetic/char/exceptions_failbit_throw.cc: Same.
 	* testsuite/27_io/types/2.cc: Same.
 
 	* testsuite/ext/stdio_sync_filebuf/wchar_t/12077.cc: Fix temporary
-	file name.	
+	file name.
 	* testsuite/27_io/fpos/14775.cc: Same.
-	
+
 2004-04-19  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/15002 (partial)
 	* include/bits/basic_string.h (_M_replace_aux, _M_replace_safe):
-	Special case __n2 == 1, not calling traits_type::assign/copy. 
+	Special case __n2 == 1, not calling traits_type::assign/copy.
 
 2004-04-17  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/bits/stl_bvector.h: Use _M_impl._M_start.
-	
+
 2004-04-16  Benjamin Kosnik  <bkoz@redhat.com>
-	
+
 	* include/bits/c++config (_GLIBCXX_STD): New.
 	* src/list.cc: Use it.
 	* include/std/std_bitset.h: Same.
@@ -1897,7 +2312,7 @@
 	* include/debug/map.h: Same.
 	* include/debug/list: Same.
 	* include/debug/deque: Same.
-	* include/debug/bitset: Same.	
+	* include/debug/bitset: Same.
 	* include/debug/formatter.h (__gnu_debug): Remove using directive.
 	Add using declaration for std::type_info.
 	* include/debug/safe_iterator.h: Add using declaration for
@@ -1911,7 +2326,7 @@
 	* include/bits/stl_bvector.h (_Bvector_base): Use _Bvector_impl
 	idiom that other containers use.
 	* testsuite/23_containers/vector/bool/clear_allocator.cc: New.
-			
+
 2004-04-16  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/14975

@@ -399,7 +399,7 @@ match_old_style_init (const char *name)
 }
 
 /* Match the stuff following a DATA statement. If ERROR_FLAG is set,
-   we are matching a DATA stement and are therefore issuing an error
+   we are matching a DATA statement and are therefore issuing an error
    if we encounter something unexpected, if not, we're trying to match 
    an old-style intialization expression of the form INTEGER I /2/.   */
 
@@ -704,7 +704,8 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	  return FAILURE;
 	}
 
-      /* Checking a derived type parameter has to be put off until later.  */
+      /* Check if the assignment can happen. This has to be put off
+	 until later for a derived type variable.  */
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && gfc_check_assign_symbol (sym, init) == FAILURE)
 	return FAILURE;
@@ -930,7 +931,7 @@ variable_decl (void)
      variable immediately preceding, i.e.
        integer i, j /1, 2/
      is not allowed. Therefore we have to do some work manually, that
-     could otherwise be let to the matchers for DATA statements.  */
+     could otherwise be left to the matchers for DATA statements.  */
 
   if (!colon_seen && gfc_match (" /") == MATCH_YES)
     {
@@ -2444,7 +2445,7 @@ gfc_match_subroutine (void)
 }
 
 
-/* Return nonzero if we're currenly compiling a contained procedure.  */
+/* Return nonzero if we're currently compiling a contained procedure.  */
 
 static int
 contained_procedure (void)

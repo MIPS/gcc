@@ -136,7 +136,7 @@ build_tools="build-texinfo build-byacc build-flex build-bison build-m4 build-fix
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libbanshee libcpp"
+host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -250,8 +250,8 @@ esac
 
 # If both --with-headers and --with-libs are specified, default to
 # --without-newlib.
-if test x"${with_headers}" != x && test x"${with_headers} != xno \
-   && test x"${with_libs}" != x && test x"${with_libs} != xno ; then
+if test x"${with_headers}" != x && test x"${with_headers}" != xno \
+   && test x"${with_libs}" != x && test x"${with_libs}" != xno ; then
   if test x"${with_newlib}" = x ; then
     with_newlib=no
   fi
@@ -308,17 +308,6 @@ case "${host}" in
     ;;
 esac
 
-AC_ARG_WITH(libbanshee,
-[  --without-libbanshee   Don't build with libbanshee])
-case ${with_libbanshee} in
-  no)
-    noconfigdirs="$noconfigdirs libbanshee" ;;
-  yes|"")
-    with_libbanshee=yes
-    ;;
-  *)
-    AC_MSG_ERROR([--with-libbanshee can only be empty, "yes" or "no" (empty defaults to "yes".])
-esac
 
 AC_ARG_ENABLE(libada,
 [  --enable-libada        Builds libada directory],
@@ -374,11 +363,10 @@ case "${target}" in
     ;;
   powerpc-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
-    noconfigdirs="$noconfigdirs target-libobjc"
     ;;
   *-*-darwin*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
-    noconfigdirs="$noconfigdirs target-libobjc ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   *-*-freebsd[[12]] | *-*-freebsd[[12]].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
@@ -515,7 +503,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
     ;;
   crx-*-*)
-    noconfigdirs="$noconfigdirs target-libgloss target-libstdc++-v3 target-mudflap ${libgcj}"
+    noconfigdirs="$noconfigdirs target-libstdc++-v3 target-mudflap ${libgcj}"
     ;;
   d10v-*-*)
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj}"
@@ -948,6 +936,11 @@ case "${host}" in
     ;;
   *-*-sysv4*)
     host_makefile_frag="config/mh-sysv4"
+    ;;
+  # This is placed last to prevent interfering with the cases above.
+  i[[3456789]]86-*-*)
+    # Build the stage2 and stage3 compilers with -fomit-frame-pointer.
+    host_makefile_frag="config/mh-x86omitfp"
     ;;
 esac
 fi
@@ -1524,10 +1517,6 @@ fi
 if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " target-newlib " > /dev/null 2>&1 ; then
   with_newlib=yes
   extra_host_args="$extra_host_args --with-newlib"
-fi
-
-if test x${with_libbanshee} = xyes && echo " ${configdirs} " | grep " libbanshee " >/dev/null 2>&1; then
-  extra_host_args="$extra_host_args --with-libbanshee"
 fi
 
 # Default to using --with-stabs for certain targets.
@@ -2307,5 +2296,25 @@ case ${enable_werror} in
   *) stage2_werror_flag="" ;;
 esac
 AC_SUBST(stage2_werror_flag)
+
+# If gcc is built natively with shared library enabled, set
+# $RPATH_ENVVAR to make sure the newly built gcc shared librares are
+# used.
+SET_GCC_LIB_PATH=
+if test -d ${srcdir}/gcc && test x${is_cross_compiler} = xno; then
+  case "${enable_shared}" in
+    no | "") ;;
+    *)
+      eval "d=\$$RPATH_ENVVAR"
+      if test x"$d" != x; then
+	d="$pwd/gcc:$d"
+      else
+	d="$pwd/gcc"
+    fi
+    SET_GCC_LIB_PATH="\$(RPATH_ENVVAR)=$d; export \$(RPATH_ENVVAR);"
+    ;;
+  esac
+fi
+AC_SUBST(SET_GCC_LIB_PATH)
 
 AC_OUTPUT(Makefile)

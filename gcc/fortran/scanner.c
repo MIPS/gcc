@@ -689,7 +689,7 @@ load_line (FILE * input, char **pbuf, char *filename, int linenum)
   static int buflen = 0;
   char *buffer;
 
-  /* Detemine the maximum allowed line length.  */
+  /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
     maxlen = GFC_MAX_LINE;
   else
@@ -739,7 +739,7 @@ load_line (FILE * input, char **pbuf, char *filename, int linenum)
 	}
 
       if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
-	{			/* Tab expandsion.  */
+	{			/* Tab expansion.  */
 	  while (i <= 6)
 	    {
 	      *buffer++ = ' ';
@@ -801,7 +801,7 @@ load_line (FILE * input, char **pbuf, char *filename, int linenum)
    the file stack.  */
 
 static gfc_file *
-get_file (char *name, enum lc_reason reason)
+get_file (char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
 {
   gfc_file *f;
 
@@ -834,6 +834,7 @@ preprocessor_line (char *c)
   int i, line;
   char *filename;
   gfc_file *f;
+  int escaped;
 
   c++;
   while (*c == ' ' || *c == '\t')
@@ -844,18 +845,45 @@ preprocessor_line (char *c)
 
   line = atoi (c);
 
+  /* Set new line number.  */
+  current_file->line = line;
+
   c = strchr (c, ' '); 
   if (c == NULL)
-    /* Something we don't understand has happened.  */
+    /* No file name given.  */
+    return;
+
+
+
+  /* Skip spaces.  */
+  while (*c == ' ' || *c == '\t')
+    c++;
+
+  /* Skip quote.  */
+  if (*c != '"')
     goto bad_cpp_line;
-  c += 2;     /* Skip space and quote.  */
+  ++c;
+
   filename = c;
 
-  c = strchr (c, '"'); /* Make filename end at quote.  */
-  if (c == NULL)
+  /* Make filename end at quote.  */
+  escaped = false;
+  while (*c && ! (! escaped && *c == '"'))
+    {
+      if (escaped)
+        escaped = false;
+      else
+        escaped = *c == '\\';
+      ++c;
+    }
+
+  if (! *c)
     /* Preprocessor line has no closing quote.  */
     goto bad_cpp_line;
+
   *c++ = '\0';
+
+
 
   /* Get flags.  */
   
@@ -888,8 +916,6 @@ preprocessor_line (char *c)
       current_file = current_file->up;
     }
   
-  current_file->line = line;
-  
   /* The name of the file can be a temporary file produced by
      cpp. Replace the name if it is different.  */
   
@@ -903,7 +929,7 @@ preprocessor_line (char *c)
   return;
 
  bad_cpp_line:
-  gfc_warning_now ("%s:%d: Unknown preprocessor directive", 
+  gfc_warning_now ("%s:%d: Illegal preprocessor directive", 
 		   current_file->filename, current_file->line);
   current_file->line++;
 }
@@ -1034,7 +1060,7 @@ load_file (char *filename, bool initial)
 
       /* Add line.  */
 
-      b = gfc_getmem (sizeof (gfc_linebuf) + len + 1);
+      b = gfc_getmem (gfc_linebuf_header_size + len + 1);
 
 #ifdef USE_MAPPED_LOCATION
       b->location

@@ -37,7 +37,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define INO_T_EQ(A, B) (!memcmp (&(A), &(B), sizeof (A)))
 # define INO_T_COPY(DEST, SRC) memcpy(&(DEST), &(SRC), sizeof (SRC))
 #else
-# if (defined _WIN32 && ! defined (_UWIN)) || defined __MSDOS__
+# if (defined _WIN32 && !defined (_UWIN)) || defined __MSDOS__
 #  define INO_T_EQ(A, B) 0
 # else
 #  define INO_T_EQ(A, B) ((A) == (B))
@@ -128,7 +128,7 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
   if (iprefix && (len = cpp_GCC_INCLUDE_DIR_len) != 0)
     {
       /* Look for directories that start with the standard prefix.
-	 "Translate" them, ie. replace /usr/local/lib/gcc... with
+	 "Translate" them, i.e. replace /usr/local/lib/gcc... with
 	 IPREFIX and search them first.  */
       for (p = cpp_include_defaults; p->fname; p++)
 	{
@@ -372,21 +372,34 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
      include chain.  */
   add_env_var_paths ("CPATH", BRACKET);
   add_env_var_paths (lang_env_vars[idx], SYSTEM);
+  
+  target_c_incpath.extra_pre_includes (sysroot, iprefix, stdinc);
 
   /* Finally chain on the standard directories.  */
   if (stdinc)
     add_standard_paths (sysroot, iprefix, cxx_stdinc);
 
-  target_c_incpath.extra_includes (stdinc);
+  target_c_incpath.extra_includes (sysroot, iprefix, stdinc);
 
   merge_include_chains (pfile, verbose);
 
   cpp_set_include_chains (pfile, heads[QUOTE], heads[BRACKET],
 			  quote_ignores_source_dir);
 }
+#if !(defined TARGET_EXTRA_INCLUDES) || !(defined TARGET_EXTRA_PRE_INCLUDES)
+static void hook_void_charptr_charptr_int (const char *sysroot ATTRIBUTE_UNUSED,
+					   const char *iprefix ATTRIBUTE_UNUSED,
+					   int stdinc ATTRIBUTE_UNUSED)
+{
+}
+#endif
 
 #ifndef TARGET_EXTRA_INCLUDES
-static void hook_void_int(int u ATTRIBUTE_UNUSED) { }
-
-struct target_c_incpath_s target_c_incpath = { hook_void_int };
+#define TARGET_EXTRA_INCLUDES hook_void_charptr_charptr_int
 #endif
+#ifndef TARGET_EXTRA_PRE_INCLUDES
+#define TARGET_EXTRA_PRE_INCLUDES hook_void_charptr_charptr_int
+#endif
+
+struct target_c_incpath_s target_c_incpath = { TARGET_EXTRA_PRE_INCLUDES, TARGET_EXTRA_INCLUDES };
+

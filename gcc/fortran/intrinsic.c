@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intrinsic.h"
 
 
-/* Nanespace to hold the resolved symbols for intrinsic subroutines.  */
+/* Namespace to hold the resolved symbols for intrinsic subroutines.  */
 static gfc_namespace *gfc_intrinsic_namespace;
 
 int gfc_init_expr = 0;
@@ -596,35 +596,6 @@ static void add_sym_4s (const char *name, int elemental, int actual_ok,
 	   a2, type2, kind2, optional2,
 	   a3, type3, kind3, optional3,
 	   a4, type4, kind4, optional4,
-	   (void*)0);
-}
-
-
-static void add_sym_5 (const char *name, int elemental, int actual_ok, bt type,
-		       int kind,
-		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
-		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
-		       void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
-		       const char* a1, bt type1, int kind1, int optional1,
-		       const char* a2, bt type2, int kind2, int optional2,
-		       const char* a3, bt type3, int kind3, int optional3,
-		       const char* a4, bt type4, int kind4, int optional4,
-		       const char* a5, bt type5, int kind5, int optional5
-		       ) {
-  gfc_check_f cf;
-  gfc_simplify_f sf;
-  gfc_resolve_f rf;
-
-  cf.f5 = check;
-  sf.f5 = simplify;
-  rf.f5 = resolve;
-
-  add_sym (name, elemental, actual_ok, type, kind, cf, sf, rf,
-	   a1, type1, kind1, optional1,
-	   a2, type2, kind2, optional2,
-	   a3, type3, kind3, optional3,
-	   a4, type4, kind4, optional4,
-	   a5, type5, kind5, optional5,
 	   (void*)0);
 }
 
@@ -1241,6 +1212,10 @@ add_functions (void)
   make_generic ("fraction", GFC_ISYM_FRACTION);
 
   /* Unix IDs (g77 compatibility)  */
+  add_sym_1 ("getcwd", 0, 1, BT_INTEGER, di, NULL, NULL, gfc_resolve_getcwd,
+	     c, BT_CHARACTER, dc, 0);
+  make_generic ("getcwd", GFC_ISYM_GETCWD);
+
   add_sym_0 ("getgid", 1, 0, BT_INTEGER, di, NULL, NULL, gfc_resolve_getgid);
   make_generic ("getgid", GFC_ISYM_GETGID);
 
@@ -1800,6 +1775,10 @@ add_functions (void)
 
   make_generic ("sum", GFC_ISYM_SUM);
 
+  add_sym_1 ("system", 1, 1, BT_INTEGER, di, NULL, NULL, NULL,
+	     c, BT_CHARACTER, dc, 0);
+  make_generic ("system", GFC_ISYM_SYSTEM);
+
   add_sym_1 ("tan", 1, 1, BT_REAL, dr,
 	     NULL, gfc_simplify_tan, gfc_resolve_tan, x, BT_REAL, dr, 0);
 
@@ -1914,6 +1893,11 @@ add_subroutines (void)
 	     gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
 	     vl, BT_REAL, 4, 0, tm, BT_REAL, 4, 0);
 
+  add_sym_2s ("getcwd", 0, 1, BT_UNKNOWN, 0,
+          gfc_check_getcwd_sub, NULL, gfc_resolve_getcwd_sub,
+	      c, BT_CHARACTER, dc, 0,
+	      st, BT_INTEGER, di, 1);
+
   add_sym_2s ("getenv", 0, 1, BT_UNKNOWN, 0,
 	      NULL, NULL, NULL,
 	      name, BT_CHARACTER, dc, 0,
@@ -1922,6 +1906,7 @@ add_subroutines (void)
   add_sym_2s ("getarg", 0, 1, BT_UNKNOWN, 0,
 	      NULL, NULL, gfc_resolve_getarg,
 	      c, BT_INTEGER, di, 0, vl, BT_CHARACTER, dc, 0);
+
 
   /* F2003 commandline routines.  */
 
@@ -1950,12 +1935,11 @@ add_subroutines (void)
 	     trim_name, BT_LOGICAL, dl, 1);
 
 
-  /* This needs changing to add_sym_5s if it gets a resolution function.  */
-  add_sym_5 ("mvbits", 1, 1, BT_UNKNOWN, 0,
-	     gfc_check_mvbits, gfc_simplify_mvbits, NULL,
-	     f, BT_INTEGER, di, 0, fp, BT_INTEGER, di, 0,
-	     ln, BT_INTEGER, di, 0, t, BT_INTEGER, di, 0,
-	     tp, BT_INTEGER, di, 0);
+  add_sym_5s ("mvbits", 1, 1, BT_UNKNOWN, 0,
+	      gfc_check_mvbits, gfc_simplify_mvbits, gfc_resolve_mvbits,
+	      f, BT_INTEGER, di, 0, fp, BT_INTEGER, di, 0,
+	      ln, BT_INTEGER, di, 0, t, BT_INTEGER, di, 0,
+	      tp, BT_INTEGER, di, 0);
 
   add_sym_1s ("random_number", 0, 1, BT_UNKNOWN, 0,
 	      gfc_check_random_number, NULL, gfc_resolve_random_number,
@@ -1970,6 +1954,11 @@ add_subroutines (void)
   add_sym_1s ("srand", 0, 1, BT_UNKNOWN, di,
              gfc_check_srand, NULL, gfc_resolve_srand,
              c, BT_INTEGER, 4, 0);
+
+  add_sym_2s ("system", 0, 1, BT_UNKNOWN, 0,
+	      NULL, NULL, gfc_resolve_system_sub,
+	      c, BT_CHARACTER, dc, 0,
+	      st, BT_INTEGER, di, 1);
 
   add_sym_3s ("system_clock", 0, 1, BT_UNKNOWN, 0,
 	     gfc_check_system_clock, NULL, gfc_resolve_system_clock,

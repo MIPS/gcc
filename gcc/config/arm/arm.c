@@ -145,9 +145,6 @@ static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void emit_constant_insn (rtx cond, rtx pattern);
 
-#ifdef OBJECT_FORMAT_ELF
-static void arm_elf_asm_named_section (const char *, unsigned int);
-#endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
 #endif
@@ -634,7 +631,7 @@ bit_count (unsigned long value)
   return count;
 }
 
-/* Set up library functions uqniue to ARM.  */
+/* Set up library functions unique to ARM.  */
 
 static void
 arm_init_libfuncs (void)
@@ -654,7 +651,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, DFmode, "__aeabi_dneg");
   set_optab_libfunc (sub_optab, DFmode, "__aeabi_dsub");
 
-  /* Double-precision comparisions.  Table 3.  */
+  /* Double-precision comparisons.  Table 3.  */
   set_optab_libfunc (eq_optab, DFmode, "__aeabi_dcmpeq");
   set_optab_libfunc (ne_optab, DFmode, NULL);
   set_optab_libfunc (lt_optab, DFmode, "__aeabi_dcmplt");
@@ -670,7 +667,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, SFmode, "__aeabi_fneg");
   set_optab_libfunc (sub_optab, SFmode, "__aeabi_fsub");
 
-  /* Single-precision comparisions.  Table 5.  */
+  /* Single-precision comparisons.  Table 5.  */
   set_optab_libfunc (eq_optab, SFmode, "__aeabi_fcmpeq");
   set_optab_libfunc (ne_optab, SFmode, NULL);
   set_optab_libfunc (lt_optab, SFmode, "__aeabi_fcmplt");
@@ -693,7 +690,7 @@ arm_init_libfuncs (void)
   set_conv_libfunc (trunc_optab, SFmode, DFmode, "__aeabi_d2f");
   set_conv_libfunc (sext_optab, DFmode, SFmode, "__aeabi_f2d");
 
-  /* Integer to floating-point converisons.  Table 8.  */
+  /* Integer to floating-point conversions.  Table 8.  */
   set_conv_libfunc (sfloat_optab, DFmode, SImode, "__aeabi_i2d");
   set_conv_libfunc (ufloat_optab, DFmode, SImode, "__aeabi_ui2d");
   set_conv_libfunc (sfloat_optab, DFmode, DImode, "__aeabi_l2d");
@@ -2111,7 +2108,7 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
 
        Therefore, we calculate how many insns would be required to emit
        the constant starting from `best_start', and also starting from
-       zero (ie with bit 31 first to be output).  If `best_start' doesn't
+       zero (i.e. with bit 31 first to be output).  If `best_start' doesn't
        yield a shorter sequence, we may as well use zero.  */
     if (best_start != 0
 	&& ((((unsigned HOST_WIDE_INT) 1) << best_start) < remainder)
@@ -2823,7 +2820,7 @@ arm_is_longcall_p (rtx sym_ref, int call_cookie, int call_symbol)
     {
       if (flag_function_sections
 	  || DECL_SECTION_NAME (current_function_decl))
-	/* c.3 is handled by the defintion of the
+	/* c.3 is handled by the definition of the
 	   ARM_DECLARE_FUNCTION_SIZE macro.  */
 	return 1;
     }
@@ -3021,7 +3018,7 @@ thumb_find_work_register (int live_regs_mask)
     return LAST_ARG_REGNUM;
 
   /* Look for a pushed register.  */
-  for (reg = 0; reg < LAST_LO_REGNUM; reg++)
+  for (reg = LAST_LO_REGNUM; reg >=0; reg--)
     if (live_regs_mask & (1 << reg))
       return reg;
 
@@ -3136,7 +3133,7 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, RTX_CODE outer,
     {
       rtx addend = XEXP (XEXP (x, 1), 1);
 
-      /* Don't allow ldrd post increment by register becuase it's hard
+      /* Don't allow ldrd post increment by register because it's hard
 	 to fixup invalid register choices.  */
       if (use_ldrd
 	  && GET_CODE (x) == POST_MODIFY
@@ -5054,7 +5051,7 @@ load_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
     abort ();
 
   /* Loop over the operands and check that the memory references are
-     suitable (ie immediate offsets from the same base register).  At
+     suitable (i.e. immediate offsets from the same base register).  At
      the same time, extract the target register, and the memory
      offsets.  */
   for (i = 0; i < nops; i++)
@@ -5283,7 +5280,7 @@ store_multiple_sequence (rtx *operands, int nops, int *regs, int *base,
     abort ();
 
   /* Loop over the operands and check that the memory references are
-     suitable (ie immediate offsets from the same base register).  At
+     suitable (i.e. immediate offsets from the same base register).  At
      the same time, extract the target register, and the memory
      offsets.  */
   for (i = 0; i < nops; i++)
@@ -7700,7 +7697,7 @@ output_call_mem (rtx *operands)
 	 load since the call will kill it anyway.  */
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
       if (arm_arch5)
-	output_asm_insn ("blx%?%|ip", operands);
+	output_asm_insn ("blx%?\t%|ip", operands);
       else
 	{
 	  output_asm_insn ("mov%?\t%|lr, %|pc", operands);
@@ -8736,7 +8733,7 @@ thumb_compute_save_reg_mask (void)
     }
 
   if (flag_pic && !TARGET_SINGLE_PIC_BASE)
-    mask |= PIC_OFFSET_TABLE_REGNUM;
+    mask |= (1 << PIC_OFFSET_TABLE_REGNUM);
   if (TARGET_SINGLE_PIC_BASE)
     mask &= ~(1 << arm_pic_register);
 
@@ -8847,7 +8844,7 @@ output_return_instruction (rtx operand, int really_return, int reverse)
       const char * return_reg;
 
       /* If we do not have any special requirements for function exit
-	 (eg interworking, or ISR) then we can load the return address
+	 (e.g. interworking, or ISR) then we can load the return address
 	 directly into the PC.  Otherwise we must load it into LR.  */
       if (really_return
 	  && ! TARGET_INTERWORK)
@@ -9411,7 +9408,7 @@ arm_output_epilogue (rtx sibling)
 	{
 	  if (saved_regs_mask & (1 << SP_REGNUM))
 	    /* Note - write back to the stack register is not enabled
-	       (ie "ldmfd sp!...").  We know that the stack pointer is
+	       (i.e. "ldmfd sp!...").  We know that the stack pointer is
 	       in the list of registers and if we add writeback the
 	       instruction becomes UNPREDICTABLE.  */
 	    print_multi_reg (f, "ldmfd\t%r", SP_REGNUM, saved_regs_mask);
@@ -9941,7 +9938,7 @@ arm_expand_prologue (void)
   int fp_offset = 0;
   int saved_pretend_args = 0;
   int saved_regs = 0;
-  unsigned int args_to_push;
+  unsigned HOST_WIDE_INT args_to_push;
   arm_stack_offsets *offsets;
 
   func_type = arm_current_func_type ();
@@ -10425,7 +10422,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
       return;
 
     case 'D':
-      /* CONST_TRUE_RTX means not always -- ie never.  We shouldn't ever
+      /* CONST_TRUE_RTX means not always -- i.e. never.  We shouldn't ever
 	 want to do that.  */
       if (x == const_true_rtx)
 	abort ();
@@ -11005,7 +11002,7 @@ arm_final_prescan_insn (rtx insn)
 		  else if (GET_CODE (SET_SRC (scanbody)) == IF_THEN_ELSE)
 		    fail = TRUE;
 		}
-	      /* Fail if a conditional return is undesirable (eg on a
+	      /* Fail if a conditional return is undesirable (e.g. on a
 		 StrongARM), but still allow this if optimizing for size.  */
 	      else if (GET_CODE (scanbody) == RETURN
 		       && !use_return_insn (TRUE, NULL)
@@ -11029,7 +11026,7 @@ arm_final_prescan_insn (rtx insn)
 		    }
 		}
 	      else
-		fail = TRUE;	/* Unrecognized jump (eg epilogue).  */
+		fail = TRUE;	/* Unrecognized jump (e.g. epilogue).  */
 
 	      break;
 
@@ -12653,7 +12650,7 @@ thumb_unexpanded_epilogue (void)
   size = GET_MODE_SIZE (mode);
 
   /* The prolog may have pushed some high registers to use as
-     work registers.  eg the testsuite file:
+     work registers.  e.g. the testsuite file:
      gcc/testsuite/gcc/gcc.c-torture/execute/complex-2.c
      compiles to produce:
 	push	{r4, r5, r6, r7, lr}
@@ -12900,7 +12897,7 @@ thumb_expand_prologue (void)
       return;
     }
 
-  /* Load the pic recister before setting the frame pointer, so we can use r7
+  /* Load the pic register before setting the frame pointer, so we can use r7
      as a temporary work register.  */
   if (flag_pic)
     arm_load_pic_register ();
@@ -13771,62 +13768,6 @@ aof_file_end (void)
 }
 #endif /* AOF_ASSEMBLER */
 
-#ifdef OBJECT_FORMAT_ELF
-/* Switch to an arbitrary section NAME with attributes as specified
-   by FLAGS.  ALIGN specifies any known alignment requirements for
-   the section; 0 if the default should be used.
-
-   Differs from the default elf version only in the prefix character
-   used before the section type.  */
-
-static void
-arm_elf_asm_named_section (const char *name, unsigned int flags)
-{
-  char flagchars[10], *f = flagchars;
-
-  if (! named_section_first_declaration (name))
-    {
-      fprintf (asm_out_file, "\t.section\t%s\n", name);
-      return;
-    }
-
-  if (!(flags & SECTION_DEBUG))
-    *f++ = 'a';
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_SMALL)
-    *f++ = 's';
-  if (flags & SECTION_MERGE)
-    *f++ = 'M';
-  if (flags & SECTION_STRINGS)
-    *f++ = 'S';
-  if (flags & SECTION_TLS)
-    *f++ = 'T';
-  *f = '\0';
-
-  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
-
-  if (!(flags & SECTION_NOTYPE))
-    {
-      const char *type;
-
-      if (flags & SECTION_BSS)
-	type = "nobits";
-      else
-	type = "progbits";
-
-      fprintf (asm_out_file, ",%%%s", type);
-
-      if (flags & SECTION_ENTSIZE)
-	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-    }
-
-  putc ('\n', asm_out_file);
-}
-#endif
-
 #ifndef ARM_PE
 /* Symbols in the text segment can be accessed without indirecting via the
    constant pool; it may take an extra binary operation, but this is still
@@ -13847,7 +13788,7 @@ arm_encode_section_info (tree decl, rtx rtl, int first)
   /* If we are referencing a function that is weak then encode a long call
      flag in the function name, otherwise if the function is static or
      or known to be defined in this file then encode a short call flag.  */
-  if (first && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (first && DECL_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
         arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);

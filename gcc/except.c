@@ -460,8 +460,7 @@ gen_eh_region (enum eh_region_type type, struct eh_region *outer)
   struct eh_region *new;
 
 #ifdef ENABLE_CHECKING
-  if (! doing_eh (0))
-    abort ();
+  gcc_assert (doing_eh (0));
 #endif
 
   /* Insert a new blank region as a leaf in the tree.  */
@@ -688,8 +687,7 @@ resolve_one_fixup_region (struct eh_region *fixup)
 	  && cleanup->u.cleanup.exp == fixup->u.fixup.cleanup_exp)
 	break;
     }
-  if (j > n)
-    abort ();
+  gcc_assert (j <= n);
 
   real = cleanup->outer;
   if (real && real->type == ERT_FIXUP)
@@ -811,14 +809,12 @@ remove_unreachable_regions (rtx insns)
 
       if (r->resume)
 	{
-	  if (uid_region_num[INSN_UID (r->resume)])
-	    abort ();
+	  gcc_assert (!uid_region_num[INSN_UID (r->resume)]);
 	  uid_region_num[INSN_UID (r->resume)] = i;
 	}
       if (r->label)
 	{
-	  if (uid_region_num[INSN_UID (r->label)])
-	    abort ();
+	  gcc_assert (!uid_region_num[INSN_UID (r->label)]);
 	  uid_region_num[INSN_UID (r->label)] = i;
 	}
     }
@@ -942,8 +938,7 @@ convert_from_eh_region_ranges_1 (rtx *pinsns, int *orig_sp, int cur)
 	}
     }
 
-  if (sp != orig_sp)
-    abort ();
+  gcc_assert (sp == orig_sp);
 }
 
 static void
@@ -1006,8 +1001,7 @@ add_ehl_entry (rtx label, struct eh_region *region)
      label.  After landing pad creation, the exception handlers may
      share landing pads.  This is ok, since maybe_remove_eh_handler
      only requires the 1-1 mapping before landing pad creation.  */
-  if (*slot && !cfun->eh->built_landing_pads)
-    abort ();
+  gcc_assert (!*slot || cfun->eh->built_landing_pads);
 
   *slot = entry;
 }
@@ -1104,7 +1098,7 @@ duplicate_eh_region_1 (struct eh_region *o, struct inline_remap *map)
       n->u.throw.type = o->u.throw.type;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   if (o->label)
@@ -1112,8 +1106,7 @@ duplicate_eh_region_1 (struct eh_region *o, struct inline_remap *map)
   if (o->resume)
     {
       n->resume = map->insn_map[INSN_UID (o->resume)];
-      if (n->resume == NULL)
-	abort ();
+      gcc_assert (n->resume);
     }
 
   return n;
@@ -1456,13 +1449,16 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   rtx last;
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
-  for (e = BLOCK_FOR_INSN (insn)->pred; e; e = e->pred_next)
+  for (ei = ei_start (BLOCK_FOR_INSN (insn)->preds); (e = ei_safe_edge (ei)); )
     if (e->flags & EDGE_FALLTHRU)
       force_nonfallthru (e);
+    else
+      ei_next (&ei);
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
@@ -1586,7 +1582,7 @@ build_post_landing_pads (void)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 }
@@ -1630,8 +1626,8 @@ connect_post_landing_pads (void)
 	  emit_jump (outer->post_landing_pad);
 	  src = BLOCK_FOR_INSN (region->resume);
 	  dest = BLOCK_FOR_INSN (outer->post_landing_pad);
-	  while (src->succ)
-	    remove_edge (src->succ);
+	  while (EDGE_COUNT (src->succs) > 0)
+	    remove_edge (EDGE_SUCC (src, 0));
 	  e = make_edge (src, dest, 0);
 	  e->probability = REG_BR_PROB_BASE;
 	  e->count = src->count;
@@ -1657,8 +1653,7 @@ connect_post_landing_pads (void)
       end_sequence ();
       barrier = emit_insn_before (seq, region->resume);
       /* Avoid duplicate barrier.  */
-      if (!BARRIER_P (barrier))
-	abort ();
+      gcc_assert (BARRIER_P (barrier));
       delete_insn (barrier);
       delete_insn (region->resume);
 
@@ -1999,10 +1994,10 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	    || NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK))
       break;
   if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
-    insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+    insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
   else
     {
-      rtx last = BB_END (ENTRY_BLOCK_PTR->succ->dest);
+      rtx last = BB_END (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest);
       for (; ; fn_begin = NEXT_INSN (fn_begin))
 	if ((NOTE_P (fn_begin)
 	     && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
@@ -2026,6 +2021,7 @@ sjlj_emit_function_exit (void)
 {
   rtx seq;
   edge e;
+  edge_iterator ei;
 
   start_sequence ();
 
@@ -2039,7 +2035,7 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e)
@@ -2049,20 +2045,20 @@ sjlj_emit_function_exit (void)
       /* Figure out whether the place we are supposed to insert libcall
          is inside the last basic block or after it.  In the other case
          we need to emit to edge.  */
-      if (e->src->next_bb != EXIT_BLOCK_PTR)
-	abort ();
-      for (insn = NEXT_INSN (BB_END (e->src)); insn; insn = NEXT_INSN (insn))
-	if (insn == cfun->eh->sjlj_exit_after)
-	  break;
-      if (insn)
-	insert_insn_on_edge (seq, e);
-      else
+      gcc_assert (e->src->next_bb == EXIT_BLOCK_PTR);
+      for (insn = BB_HEAD (e->src); ; insn = NEXT_INSN (insn))
 	{
-	  insn = cfun->eh->sjlj_exit_after;
-	  if (LABEL_P (insn))
-	    insn = NEXT_INSN (insn);
-	  emit_insn_after (seq, insn);
+	  if (insn == cfun->eh->sjlj_exit_after)
+	    {
+	      if (LABEL_P (insn))
+		insn = NEXT_INSN (insn);
+	      emit_insn_after (seq, insn);
+	      return;
+	    }
+	  if (insn == BB_END (e->src))
+	    break;
 	}
+      insert_insn_on_edge (seq, e);
     }
 }
 
@@ -2206,16 +2202,18 @@ finish_eh_generation (void)
     commit_edge_insertions ();
   FOR_EACH_BB (bb)
     {
-      edge e, next;
+      edge e;
+      edge_iterator ei;
       bool eh = false;
-      for (e = bb->succ; e; e = next)
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
-	  next = e->succ_next;
 	  if (e->flags & EDGE_EH)
 	    {
 	      remove_edge (e);
 	      eh = true;
 	    }
+	  else
+	    ei_next (&ei);
 	}
       if (eh)
 	rtl_make_eh_edge (NULL, bb, BB_END (bb));
@@ -2258,8 +2256,7 @@ remove_exception_handler_label (rtx label)
   tmp.label = label;
   slot = (struct ehl_map_entry **)
     htab_find_slot (cfun->eh->exception_handler_label_map, &tmp, NO_INSERT);
-  if (! slot)
-    abort ();
+  gcc_assert (slot);
 
   htab_clear_slot (cfun->eh->exception_handler_label_map, (void **) slot);
 }
@@ -2283,8 +2280,12 @@ remove_eh_handler (struct eh_region *region)
   if (region->aka)
     {
       int i;
-      EXECUTE_IF_SET_IN_BITMAP (region->aka, 0, i,
-	{ cfun->eh->region_array[i] = outer; });
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (region->aka, 0, i, bi)
+	{
+	  cfun->eh->region_array[i] = outer;
+	}
     }
 
   if (outer)
@@ -2330,8 +2331,7 @@ remove_eh_handler (struct eh_region *region)
 	   try->type == ERT_CATCH;
 	   try = try->next_peer)
 	continue;
-      if (try->type != ERT_TRY)
-	abort ();
+      gcc_assert (try->type == ERT_TRY);
 
       next = region->u.catch.next_catch;
       prev = region->u.catch.prev_catch;
@@ -2642,10 +2642,11 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
     case ERT_FIXUP:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
+      gcc_unreachable ();
       break;
+    default:
+      gcc_unreachable ();
     }
-
-  abort ();
 }
 
 /* Invoke CALLBACK on each region reachable from REGION_NUMBER.  */
@@ -2930,7 +2931,7 @@ expand_builtin_eh_return_data_regno (tree arglist)
 
   if (TREE_CODE (which) != INTEGER_CST)
     {
-      error ("argument of `__builtin_eh_return_regno' must be constant");
+      error ("argument of %<__builtin_eh_return_regno%> must be constant");
       return constm1_rtx;
     }
 
@@ -3259,7 +3260,7 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
       return collect_one_action_chain (ar_hash, region->outer);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -3486,8 +3487,6 @@ sjlj_size_of_call_site_table (void)
 static void
 dw2_output_call_site_table (void)
 {
-  const char *const function_start_lab
-    = IDENTIFIER_POINTER (current_function_func_begin_label);
   int n = cfun->eh->call_site_data_used;
   int i;
 
@@ -3510,21 +3509,25 @@ dw2_output_call_site_table (void)
       /* ??? Perhaps use attr_length to choose data1 or data2 instead of
 	 data4 if the function is small enough.  */
 #ifdef HAVE_AS_LEB128
-      dw2_asm_output_delta_uleb128 (reg_start_lab, function_start_lab,
+      dw2_asm_output_delta_uleb128 (reg_start_lab,
+				    current_function_func_begin_label,
 				    "region %d start", i);
       dw2_asm_output_delta_uleb128 (reg_end_lab, reg_start_lab,
 				    "length");
       if (cs->landing_pad)
-	dw2_asm_output_delta_uleb128 (landing_pad_lab, function_start_lab,
+	dw2_asm_output_delta_uleb128 (landing_pad_lab,
+				      current_function_func_begin_label,
 				      "landing pad");
       else
 	dw2_asm_output_data_uleb128 (0, "landing pad");
 #else
-      dw2_asm_output_delta (4, reg_start_lab, function_start_lab,
+      dw2_asm_output_delta (4, reg_start_lab,
+			    current_function_func_begin_label,
 			    "region %d start", i);
       dw2_asm_output_delta (4, reg_end_lab, reg_start_lab, "length");
       if (cs->landing_pad)
-	dw2_asm_output_delta (4, landing_pad_lab, function_start_lab,
+	dw2_asm_output_delta (4, landing_pad_lab,
+			      current_function_func_begin_label,
 			      "landing pad");
       else
 	dw2_asm_output_data (4, 0, "landing pad");
@@ -3763,8 +3766,8 @@ output_function_exception_table (void)
 		    cgraph_varpool_mark_needed_node (node);
 		}
 	    }
-	  else if (TREE_CODE (type) != INTEGER_CST)
-	    abort ();
+	  else
+	    gcc_assert (TREE_CODE (type) == INTEGER_CST);
 	}
 
       if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)

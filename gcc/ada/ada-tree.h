@@ -86,8 +86,8 @@ struct lang_type GTY(()) {tree t; };
   TYPE_LANG_FLAG_1 (FUNCTION_TYPE_CHECK (NODE))
 
 /* For RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE, nonzero if this denotes
-   a left-justified modular type (will only be true for RECORD_TYPE).  */
-#define TYPE_LEFT_JUSTIFIED_MODULAR_P(NODE) \
+   a justified modular type (will only be true for RECORD_TYPE).  */
+#define TYPE_JUSTIFIED_MODULAR_P(NODE) \
   TYPE_LANG_FLAG_1 (RECORD_OR_UNION_CHECK (NODE))
 
 /* Nonzero in an arithmetic subtype if this is a subtype not known to the
@@ -130,6 +130,11 @@ struct lang_type GTY(()) {tree t; };
 /* For FUNCTION_TYPEs, nonzero if the function returns by reference.  */
 #define TYPE_RETURNS_BY_REF_P(NODE) \
   TYPE_LANG_FLAG_4 (FUNCTION_TYPE_CHECK (NODE))
+
+/* For FUNCTION_TYPEs, nonzero if function returns by being passed a pointer
+   to a place to store its result.  */
+#define TYPE_RETURNS_BY_TARGET_PTR_P(NODE) \
+  TYPE_LANG_FLAG_5 (FUNCTION_TYPE_CHECK (NODE))
 
 /* For VOID_TYPE, ENUMERAL_TYPE, UNION_TYPE, and RECORD_TYPE, nonzero if this
    is a dummy type, made to correspond to a private or incomplete type.  */
@@ -268,7 +273,7 @@ struct lang_type GTY(()) {tree t; };
 /* Define fields and macros for statements.
 
    Start by defining which tree codes are used for statements.  */
-#define IS_STMT(NODE)		(TREE_CODE_CLASS (TREE_CODE (NODE)) == 's')
+#define IS_STMT(NODE)		(STATEMENT_CLASS_P (NODE))
 #define IS_ADA_STMT(NODE)	(IS_STMT (NODE)				\
 				 && TREE_CODE (NODE) >= STMT_STMT)
 
@@ -285,4 +290,4 @@ struct lang_type GTY(()) {tree t; };
 #define REGION_STMT_BLOCK(NODE)	TREE_OPERAND_CHECK_CODE (NODE, REGION_STMT, 2)
 #define HANDLER_STMT_ARG(NODE) TREE_OPERAND_CHECK_CODE (NODE, HANDLER_STMT, 0)
 #define HANDLER_STMT_LIST(NODE)	TREE_OPERAND_CHECK_CODE (NODE, HANDLER_STMT, 1)
-#define HANDLER_STMT_BLOCK(NODE) TREE_OPERAND_CHECK_CODE (NODE, HANDLER_STMT, 2)
+#define HANDLER_STMT_BLOCK(NODE) TREE_OPERAND_CHECK_CODE(NODE, HANDLER_STMT, 2)

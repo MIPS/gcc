@@ -1,5 +1,5 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,16 +26,19 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
+#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "cgraph.h"
 
+#include "langhooks.h"
 
-/* This file contains the code required to mnage the operands cache of the 
+/* This file contains the code required to manage the operands cache of the 
    SSA optimizer.  For every stmt, we maintain an operand cache in the stmt 
-   annotation.  This cache contains operands that will be of interets to 
+   annotation.  This cache contains operands that will be of interest to 
    optimizers and other passes wishing to manipulate the IL. 
 
    The operand type are broken up into REAL and VIRTUAL operands.  The real 
@@ -72,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
    variable, and that same variable occurs in the same operands cache, then 
    the new cache vector will also get the same SSA_NAME.
 
-  ie, if a stmt had a VUSE of 'a_5', and 'a' occurs in the new operand 
+  i.e., if a stmt had a VUSE of 'a_5', and 'a' occurs in the new operand 
   vector for VUSE, then the new vector will also be modified such that 
   it contains 'a_5' rather than 'a'.
 
@@ -132,8 +135,8 @@ static inline void append_def (tree *);
 static inline void append_use (tree *);
 static void append_v_may_def (tree);
 static void append_v_must_def (tree);
-static void add_call_clobber_ops (tree);
-static void add_call_read_ops (tree);
+static void add_call_clobber_ops (tree, tree);
+static void add_call_read_ops (tree, tree);
 static void add_stmt_operand (tree *, tree, int);
 
 /* Return a vector of contiguous memory for NUM def operands.  */
@@ -322,11 +325,8 @@ finalize_ssa_defs (def_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
   if (num == 0)
     return NULL;
 
-#ifdef ENABLE_CHECKING
   /* There should only be a single real definition per assignment.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR && num > 1)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
 
   old_ops = *old_ops_p;
 
@@ -382,8 +382,7 @@ finalize_ssa_uses (use_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
        initial call to get_stmt_operands does not pass a pointer to a 
        statement).  */
     for (x = 0; x < num; x++)
-      if (*(VARRAY_TREE_PTR (build_uses, x)) == stmt)
-	abort ();
+      gcc_assert (*(VARRAY_TREE_PTR (build_uses, x)) != stmt);
   }
 #endif
   old_ops = *old_ops_p;
@@ -639,11 +638,8 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
   if (num == 0)
     return NULL;
 
-#ifdef ENABLE_CHECKING
   /* There should only be a single V_MUST_DEF per assignment.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR && num > 1)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
 
   old_ops = *old_ops_p;
 
@@ -721,14 +717,11 @@ finalize_ssa_stmt_operands (tree stmt, stmt_operands_p old_ops,
 static inline void
 start_ssa_stmt_operands (void)
 {
-#ifdef ENABLE_CHECKING
-  if (VARRAY_ACTIVE_SIZE (build_defs) > 0 
-      || VARRAY_ACTIVE_SIZE (build_uses) > 0
-      || VARRAY_ACTIVE_SIZE (build_vuses) > 0
-      || VARRAY_ACTIVE_SIZE (build_v_may_defs) > 0
-      || VARRAY_ACTIVE_SIZE (build_v_must_defs) > 0)
-    abort ();
-#endif
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_defs) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_uses) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_vuses) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_may_defs) == 0);
+  gcc_assert (VARRAY_ACTIVE_SIZE (build_v_must_defs) == 0);
 }
 
 
@@ -804,7 +797,7 @@ append_v_must_def (tree var)
    will be destroyed.  It is appropriate to call free_stmt_operands() on 
    the value returned in old_ops.
 
-   The rationale for this: Certain optimizations wish to exmaine the difference
+   The rationale for this: Certain optimizations wish to examine the difference
    between new_ops and old_ops after processing.  If a set of operands don't
    change, new_ops will simply assume the pointer in old_ops, and the old_ops
    pointer will be set to NULL, indicating no memory needs to be cleared.  
@@ -935,12 +928,9 @@ get_stmt_operands (tree stmt)
   stmt_ann_t ann;
   stmt_operands_t old_operands;
 
-#if defined ENABLE_CHECKING
   /* The optimizers cannot handle statements that are nothing but a
      _DECL.  This indicates a bug in the gimplifier.  */
-  if (SSA_VAR_P (stmt))
-    abort ();
-#endif
+  gcc_assert (!SSA_VAR_P (stmt));
 
   /* Ignore error statements.  */
   if (TREE_CODE (stmt) == ERROR_MARK)
@@ -977,7 +967,7 @@ static void
 get_expr_operands (tree stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
-  char class;
+  enum tree_code_class class;
   tree expr = *expr_p;
 
   if (expr == NULL || expr == error_mark_node)
@@ -1014,11 +1004,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
+    case CONST_DECL:
       /* If we found a variable, add it to DEFS or USES depending
 	 on the operand flags.  */
       add_stmt_operand (expr_p, stmt, flags);
       return;
 
+    case MISALIGNED_INDIRECT_REF:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+      /* fall through */
+
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       get_indirect_ref_operands (stmt, expr, flags);
       return;
@@ -1081,7 +1077,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (expr), opf_none);
+    case VEC_COND_EXPR:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       return;
@@ -1171,6 +1168,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	return;
       }
 
+    case REALIGN_LOAD_EXPR:
+      {
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
+        return;
+      }
+
     case BLOCK:
     case FUNCTION_DECL:
     case EXC_PTR_EXPR:
@@ -1180,23 +1185,26 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     default:
-      if (class == '1')
+      if (class == tcc_unary)
 	goto do_unary;
-      if (class == '2' || class == '<')
+      if (class == tcc_binary || class == tcc_comparison)
 	goto do_binary;
-      if (class == 'c' || class == 't')
+      if (class == tcc_constant || class == tcc_type)
 	return;
     }
 
   /* If we get here, something has gone wrong.  */
+#ifdef ENABLE_CHECKING
   fprintf (stderr, "unhandled expression in get_expr_operands():\n");
   debug_tree (expr);
   fputs ("\n", stderr);
-  abort ();
+  internal_error ("internal error");
+#endif
+  gcc_unreachable ();
 }
 
 
-/* Scan operands in the ASM_EXPR stmt refered to in INFO.  */
+/* Scan operands in the ASM_EXPR stmt referred to in INFO.  */
 
 static void
 get_asm_expr_operands (tree stmt)
@@ -1217,11 +1225,8 @@ get_asm_expr_operands (tree stmt)
       parse_output_constraint (&constraint, i, 0, 0,
 	  &allows_mem, &allows_reg, &is_inout);
 
-#if defined ENABLE_CHECKING
       /* This should have been split in gimplify_asm_expr.  */
-      if (allows_reg && is_inout)
-	abort ();
-#endif
+      gcc_assert (!allows_reg || !is_inout);
 
       /* Memory operands are addressable.  Note that STMT needs the
 	 address of this operand.  */
@@ -1260,30 +1265,32 @@ get_asm_expr_operands (tree stmt)
     if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
       {
 	size_t i;
+	bitmap_iterator bi;
 
 	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
 	   decided to group them).  */
 	if (global_var)
 	  add_stmt_operand (&global_var, stmt, opf_is_def);
 	else
-	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i,
+	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	      {
 		tree var = referenced_var (i);
 		add_stmt_operand (&var, stmt, opf_is_def);
-	      });
+	      }
 
 	/* Now clobber all addressables.  */
-	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i,
+	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
 	    {
 	      tree var = referenced_var (i);
 	      add_stmt_operand (&var, stmt, opf_is_def);
-	    });
+	    }
 
 	break;
       }
 }
 
-/* A subroutine of get_expr_operands to handle INDIRECT_REF.  */
+/* A subroutine of get_expr_operands to handle INDIRECT_REF,
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.  */
 
 static void
 get_indirect_ref_operands (tree stmt, tree expr, int flags)
@@ -1379,7 +1386,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
   else
-    abort ();
+    gcc_unreachable ();
 
   /* Add a USE operand for the base pointer.  */
   get_expr_operands (stmt, pptr, opf_none);
@@ -1392,6 +1399,7 @@ get_call_expr_operands (tree stmt, tree expr)
 {
   tree op;
   int call_flags = call_expr_flags (expr);
+  tree callee = get_callee_fndecl (expr);
 
   /* Find uses in the called function.  */
   get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
@@ -1408,9 +1416,9 @@ get_call_expr_operands (tree stmt, tree expr)
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt);
+	add_call_clobber_ops (stmt, callee);
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt);
+	add_call_read_ops (stmt, callee);
     }
 }
 
@@ -1487,23 +1495,11 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 	  /* The variable is not aliased or it is an alias tag.  */
 	  if (flags & opf_is_def)
 	    {
-	      if (v_ann->is_alias_tag)
-	        {
-		  /* Alias tagged vars get V_MAY_DEF to avoid breaking
-		     def-def chains with the other variables in their
-		     alias sets.  */
-		  if (s_ann)
-		    s_ann->makes_aliased_stores = 1;
-		  append_v_may_def (var);
-		}
-	      else if (flags & opf_kill_def)
+	      if (flags & opf_kill_def)
 		{
-#if defined ENABLE_CHECKING
 		  /* Only regular variables may get a V_MUST_DEF
 		     operand.  */
-		  if (v_ann->mem_tag_kind != NOT_A_TAG)
-		    abort ();
-#endif
+		  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
 		  /* V_MUST_DEF for non-aliased, non-GIMPLE register 
 		    variable definitions.  */
 		  append_v_must_def (var);
@@ -1528,10 +1524,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 
 	  /* The variable is aliased.  Add its aliases to the virtual
 	     operands.  */
-#if defined ENABLE_CHECKING
-	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
-	    abort ();
-#endif
+	  gcc_assert (VARRAY_ACTIVE_SIZE (aliases) != 0);
 
 	  if (flags & opf_is_def)
 	    {
@@ -1589,7 +1582,7 @@ note_addressable (tree var, stmt_ann_t s_ann)
    clobbered variables in the function.  */
 
 static void
-add_call_clobber_ops (tree stmt)
+add_call_clobber_ops (tree stmt, tree callee)
 {
   /* Functions that are not const, pure or never return may clobber
      call-clobbered variables.  */
@@ -1605,18 +1598,60 @@ add_call_clobber_ops (tree stmt)
   else
     {
       size_t i;
+      bitmap not_read_b = NULL, not_written_b = NULL;
+      bitmap_iterator bi;
 
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i,
+      /* Get info for module level statics.  There is a bit set for
+	 each static if the call being processed does not read or
+	 write that variable.  */
+
+      /* ??? Turn off the optimization until it gets fixed.  */
+      if (0 && callee)
+	{
+	  not_read_b = get_global_statics_not_read (callee);
+	  not_written_b = get_global_statics_not_written (callee);
+	}
+
+      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	{
 	  tree var = referenced_var (i);
 
-	  /* If VAR is read-only, don't add a V_MAY_DEF, just a 
-	     VUSE operand.  */
-	  if (!TREE_READONLY (var))
-	    add_stmt_operand (&var, stmt, opf_is_def);
+	  bool not_read
+	    = not_read_b ? bitmap_bit_p (not_read_b, i) : false;
+	  bool not_written
+	    = not_written_b ? bitmap_bit_p (not_written_b, i) : false;
+
+	  if (not_read)
+	    {
+	      /* The var is not read during the call.  */
+	      if (!not_written)
+		add_stmt_operand (&var, stmt, opf_is_def);
+	    }
 	  else
-	    add_stmt_operand (&var, stmt, opf_none);
-	});
+	    {
+	      /* The var is read during the call.  */
+	      if (not_written) 
+		add_stmt_operand (&var, stmt, opf_none);
+
+	      /* The not_read and not_written bits are only set for module
+		 static variables.  Neither is set here, so we may be dealing
+		 with a module static or we may not.  So we still must look
+		 anywhere else we can (such as the TREE_READONLY) to get
+		 better info.  */
+
+	      /* If VAR is read-only, don't add a V_MAY_DEF, just a
+		 VUSE operand.  FIXME, this is quirky.  TREE_READONLY
+		 by itself is not enough here.  We can only decide
+		 that the call will not affect VAR if all these
+		 conditions are met.  One would think that
+		 TREE_READONLY should be sufficient.  */
+	      else if (TREE_READONLY (var)
+		       && (TREE_STATIC (var) || DECL_EXTERNAL (var)))
+		add_stmt_operand (&var, stmt, opf_none);
+	      else
+		add_stmt_operand (&var, stmt, opf_is_def);
+	    }
+	}
     }
 }
 
@@ -1625,8 +1660,10 @@ add_call_clobber_ops (tree stmt)
    function.  */
 
 static void
-add_call_read_ops (tree stmt)
+add_call_read_ops (tree stmt, tree callee)
 {
+  bitmap_iterator bi;
+
   /* Otherwise, if the function is not pure, it may reference memory.  Add
      a VUSE for .GLOBAL_VAR if it has been created.  Otherwise, add a VUSE
      for each call-clobbered variable.  See add_referenced_var for the
@@ -1636,12 +1673,17 @@ add_call_read_ops (tree stmt)
   else
     {
       size_t i;
+      bitmap not_read_b = callee 
+	? get_global_statics_not_read (callee) : NULL; 
 
-      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i,
+      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	{
 	  tree var = referenced_var (i);
+	  bool not_read = not_read_b 
+	    ? bitmap_bit_p(not_read_b, i) : false;
+	  if (!not_read)
 	  add_stmt_operand (&var, stmt, opf_none);
-	});
+	}
     }
 }
 

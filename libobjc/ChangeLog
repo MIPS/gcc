@@ -1,3 +1,22 @@
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* archive.c: Fix all the warnings about passing unsigned char*
+	to char* and the other way too.
+
+2004-09-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libobjc/16448
+	* exception.c: Include config.h
+	(objc_exception_throw): Change _GLIBCXX_SJLJ_EXCEPTIONS to
+	SJLJ_EXCEPTIONS.
+	* configure.ac: Find out what exception handling code we use.
+	* configure: Regenerate.
+	* config.h.in: New file, regenerate.
+
+2004-09-16  Andrew Pinski  <apinski@apple.com>
+
+	* encoding.c (ALTIVEC_VECTOR_MODE): Define a bogus macro.
+
 2004-08-28  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: Switch from _GCC_TOPLEV_NONCANONICAL_TARGET to

@@ -315,6 +315,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
   GFC_ISYM_GETUID,
@@ -378,6 +379,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
   GFC_ISYM_SUM,
+  GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
   GFC_ISYM_TANH,
   GFC_ISYM_TRANSFER,
@@ -468,9 +470,11 @@ typedef struct gfc_linebuf
   struct gfc_file *file;
   struct gfc_linebuf *next;
 
-  char line[];
+  char line[1];
 } gfc_linebuf;
-  
+
+#define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
+
 typedef struct 
 {
   char *nextc;
@@ -974,7 +978,7 @@ typedef union
 gfc_simplify_f;
 
 /* Again like gfc_check_f, these specify the type of the resolution
-   function associated with an intrinsic. The fX are juse like in
+   function associated with an intrinsic. The fX are just like in
    gfc_check_f. f1m is used for MIN and MAX, s1 is used for abort().
    */
 

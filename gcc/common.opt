@@ -407,11 +407,11 @@ Common Report Var(flag_gcse_lm) Init(1)
 Perform enhanced load motion during global common subexpression elimination
 
 fgcse-sm
-Common Report Var(flag_gcse_sm) Init(1)
+Common Report Var(flag_gcse_sm) Init(0)
 Perform store motion after global common subexpression elimination
 
 fgcse-las
-Common Report Var(flag_gcse_las) Init(1)
+Common Report Var(flag_gcse_las) Init(0)
 Perform redundant load after store elimination in global common subexpression
 elimination
 
@@ -523,10 +523,6 @@ fmodulo-sched
 Common Report Var(flag_modulo_sched)
 Perform SMS based modulo scheduling before the first scheduling pass
 
-fmove-all-movables
-Common Report Var(flag_move_all_movables)
-Force all loop invariant computations out of loops
-
 fmove-loop-invariants
 Common Report Var(flag_move_loop_invariants)
 Move loop invariant computations out of loops
@@ -554,14 +550,6 @@ Enable/Disable the traditional scheduling in loops that already passed modulo sc
 fnon-call-exceptions
 Common Report Var(flag_non_call_exceptions)
 Support synchronous non-call exceptions
-
-fold-unroll-loops
-Common Report Var(flag_old_unroll_loops)
-Perform loop unrolling when iteration count is known
-
-fold-unroll-all-loops
-Common Report Var(flag_old_unroll_all_loops)
-Perform loop unrolling for all loops
 
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer)
@@ -645,10 +633,6 @@ Common
 frandom-seed=
 Common Joined RejectNegative
 -frandom-seed=<string>	Make compile reproducible using <string>
-
-freduce-all-givs
-Common Report Var(flag_reduce_all_givs)
-Strength reduce all loop general induction variables
 
 freg-struct-return
 Common Report Var(flag_pcc_struct_return,0) VarExists
@@ -760,6 +744,10 @@ fspeculative-prefetching
 Common Report Var(flag_speculative_prefetching)
 Use value profiling for speculative prefetching
 
+fsplit-ivs-in-unroller
+Common Report Var(flag_split_ivs_in_unroller) Init(1)
+Split lifetimes of induction variables when loops are unrolled.
+
 ; Emit code to probe the stack, to help detect stack overflow; also
 ; may cause large objects to be allocated dynamically.
 fstack-check
@@ -864,16 +852,17 @@ ftree-loop-im
 Common Report Var(flag_tree_loop_im) Init(1)
 Enable loop invariant motion on trees
 
+ftree-loop-linear
+Common Report Var(flag_tree_loop_linear)
+Enable linear loop transforms on trees
+
 ftree-loop-ivcanon
-Common Report Var(flag_tree_loop_ivcanon)
+Common Report Var(flag_tree_loop_ivcanon) Init(1)
 Create canonical induction variables in loops
 
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1)
 Enable loop optimizations on tree level
-
-ftree-points-to=
-Common Joined RejectNegative
 
 ftree-pre
 Common Report Var(flag_tree_pre)
@@ -947,7 +936,7 @@ Common Report Var(flag_value_profile_transformations)
 Use expression value profiles in optimizations
 
 fweb
-Common Report Var(flag_web) VarExists
+Common Report Var(flag_web) Init(0)
 Construct webs and split unrelated uses of single variable
 
 fwrapv

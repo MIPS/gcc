@@ -342,13 +342,13 @@ objects_must_conflict_p (tree t1, tree t2)
 static tree
 find_base_decl (tree t)
 {
-  tree d0, d1, d2;
+  tree d0, d1;
 
   if (t == 0 || t == error_mark_node || ! POINTER_TYPE_P (TREE_TYPE (t)))
     return 0;
 
   /* If this is a declaration, return it.  */
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'd')
+  if (DECL_P (t))
     return t;
 
   /* Handle general expressions.  It would be nice to deal with
@@ -356,10 +356,10 @@ find_base_decl (tree t)
      same, then `a->f' and `b->f' are also the same.  */
   switch (TREE_CODE_CLASS (TREE_CODE (t)))
     {
-    case '1':
+    case tcc_unary:
       return find_base_decl (TREE_OPERAND (t, 0));
 
-    case '2':
+    case tcc_binary:
       /* Return 0 if found in neither or both are the same.  */
       d0 = find_base_decl (TREE_OPERAND (t, 0));
       d1 = find_base_decl (TREE_OPERAND (t, 1));
@@ -371,21 +371,6 @@ find_base_decl (tree t)
 	return d0;
       else
 	return 0;
-
-    case '3':
-      d0 = find_base_decl (TREE_OPERAND (t, 0));
-      d1 = find_base_decl (TREE_OPERAND (t, 1));
-      d2 = find_base_decl (TREE_OPERAND (t, 2));
-
-      /* Set any nonzero values from the last, then from the first.  */
-      if (d1 == 0) d1 = d2;
-      if (d0 == 0) d0 = d1;
-      if (d1 == 0) d1 = d0;
-      if (d2 == 0) d2 = d1;
-
-      /* At this point all are nonzero or all are zero.  If all three are the
-	 same, return it.  Otherwise, return zero.  */
-      return (d0 == d1 && d1 == d2) ? d0 : 0;
 
     default:
       return 0;
@@ -465,7 +450,7 @@ get_alias_set (tree t)
 	}
 
       /* Check for accesses through restrict-qualified pointers.  */
-      if (TREE_CODE (inner) == INDIRECT_REF)
+      if (INDIRECT_REF_P (inner))
 	{
 	  tree decl = find_base_decl (TREE_OPERAND (inner, 0));
 
@@ -2021,7 +2006,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
       moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
       exprx = t;
     }
-  else if (TREE_CODE (exprx) == INDIRECT_REF)
+  else if (INDIRECT_REF_P (exprx))
     {
       exprx = TREE_OPERAND (exprx, 0);
       if (flag_argument_noalias < 2
@@ -2038,7 +2023,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
       moffsety = adjust_offset_for_component_ref (expry, moffsety);
       expry = t;
     }
-  else if (TREE_CODE (expry) == INDIRECT_REF)
+  else if (INDIRECT_REF_P (expry))
     {
       expry = TREE_OPERAND (expry, 0);
       if (flag_argument_noalias < 2
@@ -2713,7 +2698,7 @@ memory_modified_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 
 
 /* Return true when INSN possibly modify memory contents of MEM
-   (ie address can be modified).  */
+   (i.e. address can be modified).  */
 bool
 memory_modified_in_insn_p (rtx mem, rtx insn)
 {
@@ -2763,11 +2748,6 @@ init_alias_analysis (void)
 
   new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
   reg_seen = xmalloc (maxreg);
-  if (! reload_completed && flag_old_unroll_loops)
-    {
-      alias_invariant = ggc_calloc (maxreg, sizeof (rtx));
-      alias_invariant_size = maxreg;
-    }
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias

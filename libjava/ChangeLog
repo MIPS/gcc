@@ -1,3 +1,690 @@
+2004-10-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.ac (*-*-freebsd[[1234]]*): Refine error message
+	emission rule.
+	* configure: Rebuilt.
+
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/MessageFormat.java (Field): Constructor now
+	protected.
+
+2004-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* javax/crypto/MacSpi.java: Fixed typo.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java: Reformatted.
+	(loopback): Initialize with Inet4Address object.
+	(static): Initialize ANY_IF with Inet4Address object.
+	(InetAddress): Removed unused package-private constructor.
+
+2004-09-30  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java,
+	java/beans/EventHandler.java,
+	java/beans/EventSetDescriptor.java,
+	java/beans/Introspector.java,
+	java/beans/PropertyEditorManager.java,
+	java/beans/beancontext/BeanContext.java,
+	java/beans/beancontext/BeanContextChild.java,
+	java/beans/beancontext/BeanContextChildSupport.java,
+	java/beans/beancontext/BeanContextMembershipEvent.java:
+	Reordered import statements and removed redundant modifiers.
+
+2004-09-29  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/17715:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj-@gcc_version@.jar): Include properties
+	files.
+	(all_property_files): New macro.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Re-sorted.
+	(libgcj.la): Moved to old location near lib-gnu-awt-xlib.la.
+
+2004-09-28  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_RegisterNatives): Formatting fixlets.
+
+	PR libgcj/17222:
+	* Makefile.am (libgcj.la): Restored.
+	* Makefile.in: Rebuilt.
+
+2004-09-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java: Reformatted.
+	* java/net/URLClassLoader.java: Reformatted.
+	(getContent): Reordered return of content.
+	(getContentHandler): Don't check for null explicitely.
+
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedInputStream.java
+	(BufferedInputStream): Added Jeroen Frijters to authors.
+	(count): Don't explicitely initialize with default value.
+	(pos): Likewise.
+	(marklimit): Likewise.
+	(read): Changed boolean expression to match GNU classpath' version.
+	(reset): Add proper message to exception.
+	(skip): Check for closed stream.
+	(refill): Likewise.
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* prims.cc (unblock_signal): Annotate signum with __unused__ to
+	avoid warnings in the non-POSIX_VERSION case.
+	Also, we only need this function if either HANDLE_SEGV or HANDLE_FPE,
+	so place it inside an #if block.
+	* include/default-signal.h (SIGNAL_HANDLER): Parameters are __unused__.
+	* include/i386-signal.h (SIGNAL_HANDLER):  Likewise
+	* include/mips-signal.h (SIGNAL_HANDLER):  Likewise
+	* include/sparc-signal.h (SIGNAL_HANDLER):  Likewise
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* prims.cc (process_gcj_properties):  Optimization.
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* java/util/Collections.java (sort):  Copy from array in forwards
+	order, rather than reverse order which may be much less efficient.
+
+2004-09-26  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/System.java (properties): Make package private.
+	* java/lang/Throwable.java (StaticData.nl): Initialize through
+	directly accessing System.properties.getProperty().
+
+	* java/lang/Throwable.java (nl): Remove static field.
+	(StaticData): New private static inner class.
+	(stackTraceStringBuffer): Use StaticData.nl.
+
+2004-09-26  Casey Marshall <csm@gnu.org>
+
+	* java/security/ProtectionDomain.java
+	(<init>(CodeSource,PermissionCollection)): set `staticBinding' to
+	`true'.
+
+	* java/security/SecureClassLoader.java
+	(defineClass): make protection domain dynamically bound.
+	(getPermissions): call `getCurrentPolicy' to avoid permission
+	check.
+
+2004-09-25  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (core_java_source_files): Add VMTimeZone.java.
+	(nat_source_files): Rename natTimeZone.cc to natVMTimeZone.cc.
+	* Makefile.in: Regenerated.
+
+	* gcj/javaprims.h: Regenerated.
+
+	* java/util/TimeZone.java (defaultZone): Use VMTimeZone.
+	(getDefaultTimeZone): Make package private. Check that GMToffset
+	contains at least one digit.
+	(getDefaultTimeZoneId, readTimeZoneFile, readtzFile): (Re)Moved to
+	VMTimeZone.
+	* util/VMTimeZone.java: New file with above methods.
+
+	* java/util/natTimeZone.cc: Removed (renamed).
+	* java/util/natVMTimeZone.cc: Added (renamed).
+
+2004-09-25  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/util/TimeZone.java
+	(getDefaultTimeZone): Fixed test to distinguish between hours and
+	minutes in specified timezone.
+
+2004-09-25  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/lang/reflect/Proxy.java (getPackage, ClassFactory): Fixed
+	handling of default package. (generate): Removed confused comments
+	and code about making Method and Field accessible.
+
+2004-09-25  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17500:
+	* testsuite/libjava.compile/pr17500.java: New file.
+
+2004-09-25  Shashank Bapat  <shashankbapat@yahoo.com>
+            Mark Wielaard  <mark@klomp.org>
+
+	* gnu/regexp/RE.java (initialize): Add RETokenLookAhead support.
+	* gnu/regexp/RETokenLookAhead.java: New file.
+
+	* Makefile.am (ordinary_java_source_files): Add RETokenLookAhead.java.
+	* Makefile.in: Regenerated.
+
+2004-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectStreamField.java:
+	Removed unused import statement.
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	PR java/15656:
+	* testsuite/libjava.compile/pr15656.xfail: New file.
+	* testsuite/libjava.compile/pr15656.java: new file.
+
+	PR java/16789:
+	* testsuite/libjava.lang/pr16789.out: New file.
+	* testsuite/libjava.lang/pr16789.java: New file.
+
+2004-09-24  Andrew Haley  <aph@redhat.com>
+
+	PR java/16927
+	* testsuite/libjava.compile/AssertBug.java: New file.
+
+2004-09-24  Casey Marshall <csm@gnu.org>
+
+	* java/util/PropertyPermissionCollection.java
+	(implies): avoid infinite loop.
+
+2004-09-24  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/security/auth/PrivateCredentialPermission.java
+	(PrivateCredentialPermission): added serialization UID
+
+
+2004-09-24  Ilya Perminov  <iperminov@logicalsoft.com>
+
+	* gnu/java/rmi/server/UnicastServer.java
+	(incomingMessageCall): Added code to handle Errors.
+	* gnu/java/rmi/server/UnicastServerRef.java
+	(incomingMessageCall): Added code to handle Errors.
+
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (loadedClasses): Declare as HashMap.
+	(definedPackages): Likewise.
+
+2004-09-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java:
+	Re-ordered imports.
+
+2004-09-24  Casey Marshall <csm@gnu.org>
+
+	* java/io/ObjectInputStream.java (callReadMethod): re-throw
+	`ClassNotFoundException'.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java (readObject): Delegate instantation
+	of Externalizable classes to ObjectStreamClass.
+	* java/io/ObjectStreamClass.java (newInstance): New method to
+	instantiate Externalizable (while ignoring the accessibility of
+	the constructor). (constructor): New field to cache the constructor.
+
+2004-09-24  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URL.java (systemClassLoader): New static field.
+	(getURLStreamHandler): Always use system/application classloader
+	for finding URLStreamhandler. Remove unecessary instanceof checks.
+
+2004-09-24  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/net/URL.java
+	(set): This method now matches the behaviour of the JDK.
+	(DEFAULT_SEARCH_PATH): Added "gnu.inet".
+
+2004-09-24  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/net/URL.java (URL): Delete whitespaces in the protocol string.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URL.java (URL(String,String,int,String,URLStreamHandler):
+	Don't set authority if host isn't specified.
+
+2004-09-24  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/PipeImpl.java: Use VMPipe for native stuff.
+	* gnu/java/nio/SelectorImpl.java: Use VMSelector for native stuff.
+	* gnu/java/nio/VMPipe.java,
+	gnu/java/nio/VMSelector.java:
+	New files.
+	* gnu/java/nio/natPipeImplEcos.cc,
+	gnu/java/nio/natPipeImplPosix.cc,
+	gnu/java/nio/natPipeImplWin32.cc:
+	Ported to VMPipe.
+	* gnu/java/nio/natSelectorImplEcos.cc,
+	gnu/java/nio/natSelectorImplPosix.cc,
+	gnu/java/nio/natSelectorImplWin32.cc:
+	Ported to VMSelector.
+	* Makefile.am: Added new files gnu/java/nio/VMPipe.java and
+	gnu/java/nio/VMSelector.java.
+	* Makefile.in: Regenerated.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/lang/StackTraceElement.java
+	(className): Renamed field to declaringClass to be compatible
+	with Sun serialization format.
+
+2004-09-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/applet/AppletContext.java,
+	java/applet/Applet.java,
+	java/applet/AppletStub.java,
+	java/applet/AudioClip.java:
+	Jalopied and checkstyle clean.
+
+2004-09-23  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Collections.java
+	(binarySearch(List, Object, Comparator)): Explicitly
+	reverse direction in list iterator.
+	(rotate): Just return when list is empty.
+
+2004-09-23  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17329:
+	* testsuite/libjava.compile/pr17329.java: New file.
+
+	PR java/17380:
+	* testsuite/libjava.jacks/jacks.xfail: Added 9.2-implicit-6 and
+	9.2-implicit-7.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Run aclocal with -I ../config
+	* acinclude.m4: Delete macros picked up from ../config and tidy.
+	(AM_ICONV,AM_LC_MESSAGES, PKG_CHECK_MODULES): Delete.
+	* aclocal.m4, configure, Makefile.in, gcj/Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Regenerate with aclocal 1.9.2.
+	* configure: Regenerate.
+	* Makefile.in, gcj/Makefile.in: Regenerate with automake 1.9.2.
+	* include/Makefile.in, testsuite/Makefile.in: Likewise.
+
+2004-09-22  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/17623
+	* java/net/URL.java (URL): Copy userInfo from context.
+	(getUserInfo): Return cached userInfo if present.
+
+2004-09-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/6182:
+	* mauve-libgcj: Enable java.lang.Character tests.
+
+2004-09-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (lib_org_ietf_jgss_la_DEPENDENCIES): Add missing
+	dependencies.
+	(lib_org_ietf_jgss_la_LIBADD): Likewise.
+	* Makefile.in: Regenerated.
+
+2004-09-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac: Introduce AC_C_BIGENDIAN_CROSS for WORDS_BIGENDIAN.
+	* configure: Regenerate.
+	* include/config.h.in: Likewise.
+	* jni/gtk-peer/gtkpeer.h (SWAPU32): Introduce macro to swap pixels.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c: Moved SWAPU32
+	macro to gtkpeer.h.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics2D_getImagePixels): Convert
+	pixels from  0xBBGGRRAA to 0xAARRGGBB only on Little Endian
+	architectures.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c (area_updated):
+	Likewise.
+
+2004-09-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/14446:
+	* java/util/zip/GZIPInputStream.java (read): Avoid sign extension
+	when comparing CRCs.
+	* java/util/zip/InflaterInputStream.java (onebytebuffer): New
+	field.
+	(read()): New overload.
+
+2004-09-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA):
+	Indentation fix.
+
+2004-09-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(getLocalAddress): Return InetAddress.ANY_IF if not bound yet.
+
+2004-09-21  Casey Marshall  <csm@gnu.org>
+
+	* javax/crypto/MacSpi.java (clone): Provide meaningful
+	implementation.
+
+2004-09-21  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/16869:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (MOSTLYCLEANFILES): Removed.
+	(mostlyclean-local): Remove header files.
+
+2004-09-21  Casey Marshall  <csm@gnu.org>
+
+	* java/security/cert/X509CRLSelector.java:
+	(match): remove unreachable try-catch clauses.
+	Reported by: Dalibor Topic <robilad@kaffe.org>
+
+2004-09-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/TreeMap.java (root): Don't initialize.
+	(TreeMap(Comparator)): Call fabricateTree(0).
+	(fabricateTree): Initialize root and size when count is 0.
+
+2004-09-21  Sven de Marothy <sven@physto.se>
+
+	* java/nio/ByteBuffer.java (hashCode): Implemented.
+	* java/nio/CharBuffer.java: Likewise.
+	* java/nio/DoubleBuffer.java: Likewise.
+	* java/nio/FloatBuffer.java: Likewise.
+	* java/nio/LongBuffer.java: Likewise.
+	* java/nio/IntBuffer.java: Likewise.
+	* java/nio/ShortBuffer.java: Likewise.
+
+2004-09-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* javax/security/auth/x500/X500Principal.java: Fix some merge glitches.
+
+2004-09-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/net/ssl/SSLServerSocket.java:
+	Removed comment about "Do not edit this file, it's generated.".
+
+2004-09-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	Import the big Crypto/Jessie/Security merge from Classpath.
+
+	* Makefile.am: Add imported files.
+	* Makefile.in: Regenerate.
+
+	2004-08-14  Casey Marshall <csm@gnu.org>
+
+	The Big Crypto Merge of 2004.
+
+	* javax/security/auth/x500/X500Principal.java: Replaced with GNU
+	Crypto's version.
+
+	Files imported from GNU Crypto.
+	* javax/crypto/BadPaddingException.java
+	* javax/crypto/Cipher.java
+	* javax/crypto/CipherInputStream.java
+	* javax/crypto/CipherOutputStream.java
+	* javax/crypto/CipherSpi.java
+	* javax/crypto/EncryptedPrivateKeyInfo.java
+	* javax/crypto/ExemptionMechanism.java
+	* javax/crypto/ExemptionMechanismException.java
+	* javax/crypto/ExemptionMechanismSpi.java
+	* javax/crypto/IllegalBlockSizeException.java
+	* javax/crypto/KeyAgreement.java
+	* javax/crypto/KeyAgreementSpi.java
+	* javax/crypto/KeyGenerator.java
+	* javax/crypto/KeyGeneratorSpi.java
+	* javax/crypto/Mac.java
+	* javax/crypto/MacSpi.java
+	* javax/crypto/Makefile.am
+	* javax/crypto/NoSuchPaddingException.java
+	* javax/crypto/NullCipher.java
+	* javax/crypto/NullCipherImpl.java
+	* javax/crypto/SealedObject.java
+	* javax/crypto/SecretKey.java
+	* javax/crypto/SecretKeyFactory.java
+	* javax/crypto/SecretKeyFactorySpi.java
+	* javax/crypto/ShortBufferException.java
+	* javax/crypto/interfaces/DHKey.java
+	* javax/crypto/interfaces/DHPrivateKey.java
+	* javax/crypto/interfaces/DHPublicKey.java
+	* javax/crypto/interfaces/PBEKey.java
+	* javax/crypto/spec/DESKeySpec.java
+	* javax/crypto/spec/DESedeKeySpec.java
+	* javax/crypto/spec/DHGenParameterSpec.java
+	* javax/crypto/spec/DHParameterSpec.java
+	* javax/crypto/spec/DHPrivateKeySpec.java
+	* javax/crypto/spec/DHPublicKeySpec.java
+	* javax/crypto/spec/IvParameterSpec.java
+	* javax/crypto/spec/PBEKeySpec.java
+	* javax/crypto/spec/PBEParameterSpec.java
+	* javax/crypto/spec/RC2ParameterSpec.java
+	* javax/crypto/spec/RC5ParameterSpec.java
+	* javax/crypto/spec/SecretKeySpec.java
+	* javax/security/auth/AuthPermission.java
+	* javax/security/auth/DestroyFailedException.java
+	* javax/security/auth/Destroyable.java
+	* javax/security/auth/Policy.java
+	* javax/security/auth/PrivateCredentialPermission.java
+	* javax/security/auth/RefreshFailedException.java
+	* javax/security/auth/Refreshable.java
+	* javax/security/auth/Subject.java
+	* javax/security/auth/SubjectDomainCombiner.java
+	* javax/security/auth/callback/Callback.java
+	* javax/security/auth/callback/CallbackHandler.java
+	* javax/security/auth/callback/ChoiceCallback.java
+	* javax/security/auth/callback/ConfirmationCallback.java
+	* javax/security/auth/callback/LanguageCallback.java
+	* javax/security/auth/callback/NameCallback.java
+	* javax/security/auth/callback/PasswordCallback.java
+	* javax/security/auth/callback/TextInputCallback.java
+	* javax/security/auth/callback/TextOutputCallback.java
+	* javax/security/auth/callback/UnsupportedCallbackException.java
+	* javax/security/auth/login/AccountExpiredException.java
+	* javax/security/auth/login/AppConfigurationEntry.java
+	* javax/security/auth/login/Configuration.java
+	* javax/security/auth/login/CredentialExpiredException.java
+	* javax/security/auth/login/FailedLoginException.java
+	* javax/security/auth/login/LoginContext.java
+	* javax/security/auth/login/LoginException.java
+	* javax/security/auth/login/NullConfiguration.java
+	* javax/security/auth/x500/X500PrivateCredential.java
+	* javax/security/sasl/AuthenticationException.java
+	* javax/security/sasl/AuthorizeCallback.java
+	* javax/security/sasl/RealmCallback.java
+	* javax/security/sasl/RealmChoiceCallback.java
+	* javax/security/sasl/Sasl.java
+	* javax/security/sasl/SaslClient.java
+	* javax/security/sasl/SaslClientFactory.java
+	* javax/security/sasl/SaslException.java
+	* javax/security/sasl/SaslServer.java
+	* javax/security/sasl/SaslServerFactory.java
+	* org/ietf/jgss/ChannelBinding.java
+	* org/ietf/jgss/GSSContext.java
+	* org/ietf/jgss/GSSCredential.java
+	* org/ietf/jgss/GSSException.java
+	* org/ietf/jgss/GSSManager.java
+	* org/ietf/jgss/GSSName.java
+	* org/ietf/jgss/MessageProp.java
+	* org/ietf/jgss/Oid.java
+	* org/ietf/jgss/MessagesBundle.properties
+
+	Files imported from Jessie <http://www.nongnu.org/jessie/>
+	* javax/net/ServerSocketFactory.java
+	* javax/net/SocketFactory.java
+	* javax/net/VanillaServerSocketFactory.java
+	* javax/net/VanillaSocketFactory.java
+	* javax/net/ssl/HandshakeCompletedEvent.java
+	* javax/net/ssl/HandshakeCompletedListener.java
+	* javax/net/ssl/HostnameVerifier.java
+	* javax/net/ssl/HttpsURLConnection.java
+	* javax/net/ssl/KeyManager.java
+	* javax/net/ssl/KeyManagerFactory.java
+	* javax/net/ssl/KeyManagerFactorySpi.java
+	* javax/net/ssl/ManagerFactoryParameters.java
+	* javax/net/ssl/SSLContext.java
+	* javax/net/ssl/SSLContextSpi.java
+	* javax/net/ssl/SSLException.java
+	* javax/net/ssl/SSLHandshakeException.java
+	* javax/net/ssl/SSLKeyException.java
+	* javax/net/ssl/SSLPeerUnverifiedException.java
+	* javax/net/ssl/SSLPermission.java
+	* javax/net/ssl/SSLProtocolException.java
+	* javax/net/ssl/SSLServerSocket.java
+	* javax/net/ssl/SSLServerSocketFactory.java
+	* javax/net/ssl/SSLSession.java
+	* javax/net/ssl/SSLSessionBindingEvent.java
+	* javax/net/ssl/SSLSessionBindingListener.java
+	* javax/net/ssl/SSLSessionContext.java
+	* javax/net/ssl/SSLSocket.java
+	* javax/net/ssl/SSLSocketFactory.java
+	* javax/net/ssl/TrivialHostnameVerifier.java
+	* javax/net/ssl/TrustManager.java
+	* javax/net/ssl/TrustManagerFactory.java
+	* javax/net/ssl/TrustManagerFactorySpi.java
+	* javax/net/ssl/X509KeyManager.java
+	* javax/net/ssl/X509TrustManager.java
+	* javax/security/cert/Certificate.java
+	* javax/security/cert/CertificateEncodingException.java
+	* javax/security/cert/CertificateException.java
+	* javax/security/cert/CertificateExpiredException.java
+	* javax/security/cert/CertificateNotYetValidException.java
+	* javax/security/cert/CertificateParsingException.java
+	* javax/security/cert/X509CertBridge.java
+	* javax/security/cert/X509Certificate.java
+
+	2004-08-20  Casey Marshall  <csm@gnu.org>
+
+	* java/security/cert/X509CRLSelector.java: New file.
+	* java/security/cert/X509CertSelector.java: New file.
+
+2004-09-15  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Handler.java
+	(openConnection): Don't throw exception if host part for file: URI is
+	present. setURL() keeps file: protocol if ftp: protocol is not
+	available.
+
+2004-09-14  Richard Henderson  <rth@redhat.com>
+
+	* java/lang/natPosixProcess.cc (waitForSignal): Ignore return
+	value of sigsuspend.
+
+2004-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/CompoundName.java (CompoundName): Don't check for
+	separator in "flat" case.
+
+2004-09-12  Michael Koch  <konqueror@gmx.de>
+
+	* libltdl/configure.ac: Fixed AM_INIT_AUTOMAKE usage and replaces
+	AM_CONFIG_HEADER by AC_CONFIG_FILES.
+	* libltdl/Makefile.in, libltdl/aclocal.m4, libltdl/configure:
+	Regenerate.
+
+2004-09-11  Mohan Embar  <gnustuff@thisiscool.com>
+
+	PR libgcj/14751
+	* win32-threads.cc (_Jv_ThreadInitData): Zero out thread
+	handle in newly-allocated _Jv_Thread_t.
+	(_Jv_ThreadDestroyData): Close thread handle.
+	(_Jv_ThreadStart): Remove obsolete comment.
+	Store handle of newly-created thread in _Jv_Thread_t.
+	* include/win32-threads.h: #define WIN32_LEAN_AND_MEAN
+	before including <windows.h>
+	#define _Jv_HaveCondDestroy
+
+2004-09-11  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/natThread.cc (finalize_native): Destroy
+	join conditional variable and mutex if these destroy
+	operations are supported.
+
+2004-09-10  Dalibor Topic <robilad@kaffe.org>
+
+	* gnu/java/net/protocol/file/Connection.java (permission): New field.
+	(DEFAULT_PERMISSION): New constant.
+	(Connection): Create a FilePermission with permission to read file.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(getLastModified): Moved around.
+	(getPermission): Return stored permission.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.in: Regenerate.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Reverted accidently commited stuff.
+	* configure: Regenerated.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(lineSeparator): Made non-final.
+	(static): Removed.
+	(connect): Initialize lineSeparator lazily. Use ByteArrayInputStream
+	instead of StringBufferInputStream.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(connect): Handle file is a directory case.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(xlib_includes): Removed.
+	(AM_CPPFLAGS): Renamed from INCLUDES.
+	(lib_gnu_awt_xlib_la_CPPFLAGS): New automake variable.
+	* Makefile.in: Regenerate.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/ProtectionDomain.java,
+	* java/util/PropertyPermissionCollection.java:
+	Fixed javadocs all over.
+
+2004-09-09  Sven de Marothy  <sven@physto.se>
+
+	Patch from David Gilbert <david.gilbert@object-refinery.com>
+	* java/lang/Comparable.java: Fixed documentation errors.
+	* java/util/Arrays.java: Likewise.
+
+2004-09-09  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* java/net/Inet4Address.java
+	(Inet4Address): Added comment to serialization UID.
+	* java/text/Format.java
+	(Format): Added comment to serialization UID.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/System.java
+	(err): Fixed javadoci to point to setErr() and not setOut().
+
+2004-09-09  Jeroen Frijters  <jeroen@frijters.net>
+
+	(normalizePath): Added special case for windows systems.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java
+	(dupSeparator): Made private.
+	(File(URI)): New constructor.
+	(getParentFile): Fixed javadoc.
+	(createTempFile): Reformated.
+	(setReadOnly): Added comment.
+	(deleteOnExit): Merged javadoc with classpath version.
+
+2004-09-09  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Don't try to include deps.mk.
+	* Makefile.in: Regenerated.
+
+2004-09-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac (AC_CONFIG_COMMANDS): Don't create subdirectories and
+	.d files.
+	* configure: Rebuilt.
+
 2004-09-04  Mohan Embar  <gnustuff@thisiscool.com>
 
 	* java/net/natNetworkInterfaceWin32.cc (getRealNetworkInterfaces):

@@ -959,6 +959,18 @@ options and for @option{-mhard-float} or @option{-msoft-float}.  As with
 @option{--with-cpu}, which switches will be accepted and acceptable values
 of the arguments depend on the target.
 
+@item --with-divide=@var{type}
+Specify how the compiler should generate code for checking for
+division by zero.  This option is only supported on the MIPS target.
+The possibilities for @var{type} are:
+@table @code
+@item traps
+Division by zero checks use conditional traps (this is the default on
+systems that support conditional traps).
+@item breaks
+Division by zero checks use the break instruction.
+@end table
+
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
 option will adjust the ABI for AltiVec enhancements, as well as generate
@@ -1343,7 +1355,7 @@ Specifies the AWT peer library or libraries to build alongside
 @samp{libgcj}. If this option is unspecified or disabled, AWT
 will be non-functional. Current valid values are @option{gtk} and
 @option{xlib}. Multiple libraries should be separated by a
-comma (i.e. @option{--enable-java-awt=gtk,xlib}).
+comma (i.e.@: @option{--enable-java-awt=gtk,xlib}).
 
 @item --enable-gtk-cairo
 Build the cairo Graphics2D implementation on GTK.
@@ -1489,7 +1501,7 @@ bootstrap4} to increase the number of stages of bootstrap.
 Note that using non-standard @code{CFLAGS} can cause bootstrap to fail in
 @file{libiberty}, if these trigger a warning with the new compiler.  For
 example using @samp{-O2 -g -mcpu=i686} on @code{i686-pc-linux-gnu} will
-cause bootstrap failure as @code{-mcpu=} is deprecated in 3.4.0 and above.
+cause bootstrap failure as @option{-mcpu=} is deprecated in 3.4.0 and above.
 
 
 If you used the flag @option{--enable-languages=@dots{}} to restrict
@@ -3201,6 +3213,16 @@ configure for @samp{mipsel-elf} as a workaround.  The
 @samp{mips*-*-linux*} target continues to use the MIPS II routines.  More
 work on this is expected in future releases.
 
+MIPS systems check for division by zero (unless
+@option{-mno-check-zero-division} is passed to the compiler) by
+generating either a conditional trap or a break instruction.  Using
+trap results in smaller code, but is only supported on MIPS II and
+later.  Also, some versions of the Linux kernel have a bug that
+prevents trap from generating the proper signal (SIGFPE).  To enable
+the use of break, use the @option{--with-divide=breaks}
+@command{configure} option when configuring GCC.  The default is to
+use traps on systems that support them.
+
 Cross-compilers for the Mips as target using the Mips assembler
 currently do not work, because the auxiliary programs
 @file{mips-tdump.c} and @file{mips-tfile.c} can't be compiled on
@@ -3456,8 +3478,19 @@ have @file{/usr/xpg4/bin} in your @env{PATH}, we recommend that you place
 @file{/usr/bin} before @file{/usr/xpg4/bin} for the duration of the build.
 
 All releases of GNU binutils prior to 2.11.2 have known bugs on this
-platform.  We recommend the use of GNU binutils 2.11.2 or the vendor
-tools (Sun @command{as}, Sun @command{ld}).
+platform.  We recommend the use of GNU binutils 2.11.2 or later, or the
+vendor tools (Sun @command{as}, Sun @command{ld}).  Note that your mileage
+may vary if you use a combination of the GNU tools and the Sun tools: while
+the combination GNU @command{as} + Sun @command{ld} should reasonably work,
+the reverse combination Sun @command{as} + GNU @command{ld} is known to
+cause memory corruption at runtime in some cases for C++ programs.
+
+The stock GNU binutils 2.15 release is broken on this platform because of a
+single bug.  It has been fixed on the 2.15 branch in the CVS repository.
+You can obtain a working version by checking out the binutils-2_15-branch
+from the CVS repository or applying the patch
+@uref{http://sources.redhat.com/ml/binutils-cvs/2004-09/msg00036.html} to the
+release.
 
 Sun bug 4296832 turns up when compiling X11 headers with GCC 2.95 or
 newer: @command{g++} will complain that types are missing.  These headers assume
@@ -3512,7 +3545,7 @@ GCC 3.3 and GCC 3.4 trigger code generation bugs in earlier versions of
 the GNU compiler (especially GCC 3.0.x versions), which lead to the
 miscompilation of the stage1 compiler and the subsequent failure of the
 bootstrap process.  A workaround is to use GCC 3.2.3 as an intermediary
-stage, i.e. to bootstrap that compiler with the base compiler and then
+stage, i.e.@: to bootstrap that compiler with the base compiler and then
 use it to bootstrap the final compiler.
 
 GCC 3.4 triggers a code generation bug in versions 5.4 (Sun ONE Studio 7)
@@ -3525,11 +3558,16 @@ GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
 assembler, this change apparently runs afoul of Sun bug 4910101, for
 which (as of 2004-05-23) there is no fix.  A symptom of the problem is
 that you cannot compile C++ programs like @command{groff} 1.19.1
-without getting messages like @samp{ld: warning: relocation error:
-R_SPARC_UA32 @dots{} external symbolic relocation against
-non-allocatable section .debug_info; cannot be processed at runtime:
-relocation ignored}.  To work around this problem, compile with
-@option{-gstabs+} instead of plain @option{-g}.
+without getting messages similar to the following:
+
+@smallexample
+ld: warning: relocation error: R_SPARC_UA32: @dots{}
+  external symbolic relocation against non-allocatable section
+  .debug_info cannot be processed at runtime: relocation ignored.
+@end smallexample
+
+To work around this problem, compile with @option{-gstabs+} instead of
+plain @option{-g}.
 
 @html
 <hr />

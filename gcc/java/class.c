@@ -428,10 +428,12 @@ push_class (tree class_type, tree class_name)
 {
   tree decl, signature;
   location_t saved_loc = input_location;
+#ifndef USE_MAPPED_LOCATION
   tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
-  CLASS_P (class_type) = 1;
   input_filename = IDENTIFIER_POINTER (source_name);
   input_line = 0;
+#endif
+  CLASS_P (class_type) = 1;
   decl = build_decl (TYPE_DECL, class_name, class_type);
 
   /* dbxout needs a DECL_SIZE if in gstabs mode */
@@ -1037,6 +1039,7 @@ build_class_ref (tree type)
 	      TREE_STATIC (decl) = 1;
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_EXTERNAL (decl) = 1;
+	      DECL_ARTIFICIAL (decl) = 1;
 	      make_decl_rtl (decl);
 	      pushdecl_top_level (decl);
 	    }
@@ -1996,9 +1999,14 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	  if (this_class)
 	    {
 	      tree this_decl = TYPE_NAME (this_class);
+#ifdef USE_MAPPED_LOCATION
+	      this_wrap = build_expr_wfl (this_class,
+					  DECL_SOURCE_LOCATION (this_decl));
+#else
 	      this_wrap = build_expr_wfl (this_class,
 					  DECL_SOURCE_FILE (this_decl),
 					  DECL_SOURCE_LINE (this_decl), 0);
+#endif
 	    }
 	  super_class = do_resolve_class (NULL_TREE, /* FIXME? */
 					  super_class, NULL_TREE, this_wrap);
@@ -2124,6 +2132,8 @@ add_miranda_methods (tree base_class, tree search_class)
       tree elt = BINFO_TYPE (base_binfo);
 
       /* Ensure that interface methods are seen in declared order.  */
+      if (!CLASS_LOADED_P (elt))
+	load_class (elt, 1);
       layout_class_methods (elt);
 
       /* All base classes will have been laid out at this point, so the order 
@@ -2254,7 +2264,7 @@ layout_class_method (tree this_class, tree super_class,
       DECL_CONSTRUCTOR_P (method_decl) = 1;
       build_java_argument_signature (TREE_TYPE (method_decl));
     }
-  else if (! METHOD_STATIC (method_decl) && !DECL_ARTIFICIAL (method_decl))
+  else if (! METHOD_STATIC (method_decl))
     {
       tree method_sig =
 	build_java_argument_signature (TREE_TYPE (method_decl));

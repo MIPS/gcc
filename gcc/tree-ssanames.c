@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
                                                                                 
 This file is part of GCC.
                                                                                 
@@ -181,34 +181,24 @@ make_ssa_name (tree var, tree stmt)
 {
   tree t;
 
-#if defined ENABLE_CHECKING
-  if ((!DECL_P (var)
-       && TREE_CODE (var) != INDIRECT_REF)
-      || (stmt
-	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != PHI_NODE))
-    abort ();
-#endif
+  gcc_assert (DECL_P (var)
+	      || TREE_CODE (var) == INDIRECT_REF);
 
-  /* If our free list has an element, then use it.  Also reuse the
-     SSA version number of the element on the free list which helps
-     keep sbitmaps and arrays sized HIGHEST_SSA_VERSION smaller.  */
+  gcc_assert (!stmt || EXPR_P (stmt) || TREE_CODE (stmt) == PHI_NODE);
+
+  /* If our free list has an element, then use it.  */
   if (free_ssanames)
     {
-      unsigned int save_version;
-
       t = free_ssanames;
       free_ssanames = TREE_CHAIN (free_ssanames);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
 
-      /* Clear the node so that it looks just like one we would have
-	 received from make_node.  */
-      save_version = SSA_NAME_VERSION (t);
-      memset (t, 0, tree_size (t));
-      TREE_SET_CODE (t, SSA_NAME);
-      SSA_NAME_VERSION (t) = save_version;
+      /* The node was cleared out when we put it on the free list, so
+	 there is no need to do so again here.  */
+      gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
+      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (t)) = t;
     }
   else
     {
@@ -264,7 +254,27 @@ release_ssa_name (tree var)
      defining statement.  */
   if (! SSA_NAME_IN_FREE_LIST (var))
     {
+      tree saved_ssa_name_var = SSA_NAME_VAR (var);
+      int saved_ssa_name_version = SSA_NAME_VERSION (var);
+
+      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (var)) = NULL;
+      memset (var, 0, tree_size (var));
+
+      /* First put back the right tree node so that the tree checking
+	 macros do not complain.  */
+      TREE_SET_CODE (var, SSA_NAME);
+
+      /* Restore the version number.  */
+      SSA_NAME_VERSION (var) = saved_ssa_name_version;
+
+      /* Hopefully this can go away once we have the new incremental
+         SSA updating code installed.  */
+      SSA_NAME_VAR (var) = saved_ssa_name_var;
+
+      /* Note this SSA_NAME is now in the first list.  */
       SSA_NAME_IN_FREE_LIST (var) = 1;
+
+      /* And finally link it into the free list.  */
       TREE_CHAIN (var) = free_ssanames;
       free_ssanames = var;
     }

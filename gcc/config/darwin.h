@@ -116,6 +116,10 @@ Boston, MA 02111-1307, USA.  */
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-segaddr", "-Zsegaddr" }, \
+  { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
+  { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
+  { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -174,10 +178,13 @@ extern const char *darwin_fix_and_continue_switch;
    !strcmp (STR, "read_only_relocs") ? 1 :      \
    !strcmp (STR, "sectcreate") ? 3 :            \
    !strcmp (STR, "sectorder") ? 3 :             \
+   !strcmp (STR, "Zsegaddr") ? 2 :              \
+   !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
+   !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
+   !strcmp (STR, "Zseg_addr_table") ? 1 :       \
    !strcmp (STR, "Zseg_addr_table_filename") ?1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
-   !strcmp (STR, "seg_addr_table") ? 1 :        \
    !strcmp (STR, "sub_library") ? 1 :           \
    !strcmp (STR, "sub_umbrella") ? 1 :          \
    !strcmp (STR, "umbrella") ? 1 :              \
@@ -231,6 +238,7 @@ extern const char *darwin_fix_and_continue_switch;
    their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
+   %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
    %{!Zdynamiclib: \
      %{Zbundle:-bundle} \
      %{Zbundle_loader*:-bundle_loader %*} \
@@ -275,7 +283,11 @@ extern const char *darwin_fix_and_continue_switch;
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
-   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} %{seg_addr_table*} \
+   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
+   %{Zsegaddr*:-segaddr %*} \
+   %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
+   %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
+   %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
@@ -951,7 +963,9 @@ enum machopic_addr_class {
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
 
-void darwin_register_frameworks (int);
+void darwin_register_frameworks (const char *, const char *, int);
+void darwin_register_objc_includes (const char *, const char *, int);
+#define TARGET_EXTRA_PRE_INCLUDES darwin_register_objc_includes
 #define TARGET_EXTRA_INCLUDES darwin_register_frameworks
 
 void add_framework_path (char *);

@@ -240,11 +240,14 @@ do {									\
    symbol.  */
 /* ? */
 #undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".comm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
-		(SIZE)); } while (0)
+#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)			\
+  do {									\
+    unsigned HOST_WIDE_INT _new_size = SIZE;				\
+    fputs (".comm ", (FILE));						\
+    RS6000_OUTPUT_BASENAME ((FILE), (NAME));				\
+    if (_new_size == 0) _new_size = 1;					\
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", _new_size);	\
+  } while (0)
 
 /* Override the standard rs6000 definition.  */
 
@@ -371,14 +374,7 @@ extern const char *darwin_one_byte_bool;
 #include <stdbool.h>
 #endif
 
-#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
-  {									\
-    extern bool _Unwind_fallback_frame_state_for			\
-      (struct _Unwind_Context *context, _Unwind_FrameState *fs);	\
-									\
-    if (_Unwind_fallback_frame_state_for (CONTEXT, FS))			\
-      goto SUCCESS;							\
-  }
+#define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
 

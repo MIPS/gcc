@@ -111,6 +111,7 @@ int   __gl_num_interrupt_states     = 0;
 int   __gl_unreserve_all_interrupts = 0;
 int   __gl_exception_tracebacks     = 0;
 int   __gl_zero_cost_exceptions     = 0;
+int   __gl_detect_blocking          = 0;
 
 /* Indication of whether synchronous signal handler has already been
    installed by a previous call to adainit */
@@ -173,7 +174,8 @@ __gnat_set_globals (int main_priority,
                     int num_interrupt_states,
                     int unreserve_all_interrupts,
                     int exception_tracebacks,
-                    int zero_cost_exceptions)
+                    int zero_cost_exceptions,
+                    int detect_blocking)
 {
   static int already_called = 0;
 
@@ -236,6 +238,7 @@ __gnat_set_globals (int main_priority,
   __gl_task_dispatching_policy  = task_dispatching_policy;
   __gl_unreserve_all_interrupts = unreserve_all_interrupts;
   __gl_exception_tracebacks     = exception_tracebacks;
+  __gl_detect_blocking          = detect_blocking;
 
   /* ??? __gl_zero_cost_exceptions is new in 3.15 and is referenced from
      a-except.adb, which is also part of the compiler sources. Since the
@@ -1847,11 +1850,19 @@ __gnat_initialize (void)
 
 #if DWARF2_UNWIND_INFO && defined (_ARCH_PPC)
  {
-   extern const int __module_has_ctors;
-   extern void __do_global_ctors ();
+   /* The scheme described above is only useful for the actual ZCX case, and
+      we don't want any reference to the crt provided symbols otherwise.  We
+      may not link with any of the crt objects in the non-ZCX case, e.g. from
+      documented procedures instructing the use of -nostdlib, and references
+      to the ctors symbols here would just remain unsatisfied.
 
-   if (! __module_has_ctors)
-     __do_global_ctors ();
+      We have no way to avoid those references in the right conditions in this
+      C module, because we have nothing like a IN_ZCX_RTS macro.  This aspect
+      is then deferred to an Ada routine, which can do that based on a test
+      against a constant System flag value.  */
+
+   extern void __gnat_vxw_setup_for_eh (void);
+   __gnat_vxw_setup_for_eh ();
  }
 #endif
 }

@@ -389,7 +389,8 @@ static int max_uid;
 
 /* Get the cuid of an insn.  */
 #ifdef ENABLE_CHECKING
-#define INSN_CUID(INSN) (INSN_UID (INSN) > max_uid ? (abort (), 0) : uid_cuid[INSN_UID (INSN)])
+#define INSN_CUID(INSN) \
+  (gcc_assert (INSN_UID (INSN) <= max_uid), uid_cuid[INSN_UID (INSN)])
 #else
 #define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
 #endif
@@ -452,7 +453,7 @@ static int reg_set_table_size;
 /* This is a list of expressions which are MEMs and will be used by load
    or store motion.
    Load motion tracks MEMs which aren't killed by
-   anything except itself. (ie, loads and stores to a single location).
+   anything except itself. (i.e., loads and stores to a single location).
    We can then allow movement of these MEM refs with a little special
    allowance. (all stores copy the same value to the reaching reg used
    for the loads).  This means all values used to store into memory must have
@@ -1644,9 +1645,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
   struct expr *cur_expr, *last_expr = NULL;
   struct occr *cur_occr, *last_occr = NULL;
 
-  if (GET_CODE (x) != SET
-      || ! REG_P (SET_DEST (x)))
-    abort ();
+  gcc_assert (GET_CODE (x) == SET && REG_P (SET_DEST (x)));
 
   hash = hash_set (REGNO (SET_DEST (x)), table->size);
 
@@ -2273,14 +2272,18 @@ static void
 clear_modify_mem_tables (void)
 {
   int i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP
-    (modify_mem_list_set, 0, i, free_INSN_LIST_list (modify_mem_list + i));
+  EXECUTE_IF_SET_IN_BITMAP (modify_mem_list_set, 0, i, bi)
+    {
+      free_INSN_LIST_list (modify_mem_list + i);
+    }
   bitmap_clear (modify_mem_list_set);
 
-  EXECUTE_IF_SET_IN_BITMAP
-    (canon_modify_mem_list_set, 0, i,
-     free_insn_expr_list_list (canon_modify_mem_list + i));
+  EXECUTE_IF_SET_IN_BITMAP (canon_modify_mem_list_set, 0, i, bi)
+    {
+      free_insn_expr_list_list (canon_modify_mem_list + i);
+    }
   bitmap_clear (canon_modify_mem_list_set);
 }
 
@@ -2769,7 +2772,7 @@ find_avail_set (int regno, rtx insn)
   struct expr *set1 = 0;
 
   /* Loops are not possible here.  To get a loop we would need two sets
-     available at the start of the block containing INSN.  ie we would
+     available at the start of the block containing INSN.  i.e. we would
      need two sets like this available at the start of the block:
 
        (set (reg X) (reg Y))
@@ -2796,8 +2799,7 @@ find_avail_set (int regno, rtx insn)
       if (set == 0)
 	break;
 
-      if (GET_CODE (set->expr) != SET)
-	abort ();
+      gcc_assert (GET_CODE (set->expr) == SET);
 
       src = SET_SRC (set->expr);
 
@@ -2816,7 +2818,7 @@ find_avail_set (int regno, rtx insn)
       if (! REG_P (src))
 	break;
 
-      /* Follow the copy chain, ie start another iteration of the loop
+      /* Follow the copy chain, i.e. start another iteration of the loop
 	 and see if we have an available copy into SRC.  */
       regno = REGNO (src);
     }
@@ -3013,8 +3015,7 @@ cprop_insn (rtx insn, int alter_jumps)
 
       pat = set->expr;
       /* ??? We might be able to handle PARALLELs.  Later.  */
-      if (GET_CODE (pat) != SET)
-	abort ();
+      gcc_assert (GET_CODE (pat) == SET);
 
       src = SET_SRC (pat);
 
@@ -3155,8 +3156,11 @@ do_local_cprop (rtx x, rtx insn, int alter_jumps, rtx *libcall_sp)
 	     or fix delete_trivially_dead_insns to preserve the setting insn,
 	     or make it delete the REG_EUAQL note, and fix up all passes that
 	     require the REG_EQUAL note there.  */
-	  if (!adjust_libcall_notes (x, newcnst, insn, libcall_sp))
-	    abort ();
+	  bool adjusted;
+
+	  adjusted = adjust_libcall_notes (x, newcnst, insn, libcall_sp);
+	  gcc_assert (adjusted);
+	  
 	  if (gcse_file != NULL)
 	    {
 	      fprintf (gcse_file, "LOCAL CONST-PROP: Replacing reg %d in ",
@@ -3245,8 +3249,7 @@ local_cprop_pass (int alter_jumps)
 
 	  if (note)
 	    {
-	      if (libcall_sp == libcall_stack)
-		abort ();
+	      gcc_assert (libcall_sp != libcall_stack);
 	      *--libcall_sp = XEXP (note, 0);
 	    }
 	  note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
@@ -3397,7 +3400,7 @@ find_implicit_sets (void)
   count = 0;
   FOR_EACH_BB (bb)
     /* Check for more than one successor.  */
-    if (bb->succ && bb->succ->succ_next)
+    if (EDGE_COUNT (bb->succs) > 1)
       {
 	cond = fis_get_condition (BB_END (bb));
 
@@ -3410,7 +3413,7 @@ find_implicit_sets (void)
 	    dest = GET_CODE (cond) == EQ ? BRANCH_EDGE (bb)->dest
 					 : FALLTHRU_EDGE (bb)->dest;
 
-	    if (dest && ! dest->pred->pred_next
+	    if (dest && EDGE_COUNT (dest->preds) == 1
 		&& dest != EXIT_BLOCK_PTR)
 	      {
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
@@ -3520,8 +3523,7 @@ find_bypass_set (int regno, int bb)
       if (set == 0)
 	break;
 
-      if (GET_CODE (set->expr) != SET)
-	abort ();
+      gcc_assert (GET_CODE (set->expr) == SET);
 
       src = SET_SRC (set->expr);
       if (gcse_constant_p (src))
@@ -3568,9 +3570,11 @@ static int
 bypass_block (basic_block bb, rtx setcc, rtx jump)
 {
   rtx insn, note;
-  edge e, enext, edest;
+  edge e, edest;
   int i, change;
   int may_be_loop_header;
+  unsigned removed_p;
+  edge_iterator ei;
 
   insn = (setcc != NULL) ? setcc : jump;
 
@@ -3582,7 +3586,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
     find_used_regs (&XEXP (note, 0), NULL);
 
   may_be_loop_header = false;
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_DFS_BACK)
       {
 	may_be_loop_header = true;
@@ -3590,22 +3594,32 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
       }
 
   change = 0;
-  for (e = bb->pred; e; e = enext)
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
-      enext = e->pred_next;
+      removed_p = 0;
+	  
       if (e->flags & EDGE_COMPLEX)
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       /* We can't redirect edges from new basic blocks.  */
       if (e->src->index >= bypass_last_basic_block)
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       /* The irreducible loops created by redirecting of edges entering the
 	 loop from outside would decrease effectiveness of some of the following
 	 optimizations, so prevent this.  */
       if (may_be_loop_header
 	  && !(e->flags & EDGE_DFS_BACK))
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       for (i = 0; i < reg_use_count; i++)
 	{
@@ -3649,9 +3663,11 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else if (GET_CODE (new) == LABEL_REF)
 	    {
+	      edge_iterator ei2;
+
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      for (edest = bb->succ; edest; edest = edest->succ_next)
+	      FOR_EACH_EDGE (edest, ei2, bb->succs)
 		if (edest->dest == dest && edest->insns.r)
 		  {
 		    dest = NULL;
@@ -3668,7 +3684,9 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
 	    {
 	      edge e2;
-	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+	      edge_iterator ei2;
+
+	      FOR_EACH_EDGE (e2, ei2, e->src->succs)
 		if (e2->dest == dest)
 		  {
 		    dest = NULL;
@@ -3702,9 +3720,12 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 			   e->src->index, old_dest->index, dest->index);
 		}
 	      change = 1;
+	      removed_p = 1;
 	      break;
 	    }
 	}
+      if (!removed_p)
+	ei_next (&ei);
     }
   return change;
 }
@@ -3737,7 +3758,7 @@ bypass_conditional_jumps (void)
 		  EXIT_BLOCK_PTR, next_bb)
     {
       /* Check for more than one predecessor.  */
-      if (bb->pred && bb->pred->pred_next)
+      if (EDGE_COUNT (bb->preds) > 1)
 	{
 	  setcc = NULL_RTX;
 	  for (insn = BB_HEAD (bb);
@@ -3884,12 +3905,13 @@ compute_pre_data (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
       /* If the current block is the destination of an abnormal edge, we
 	 kill all trapping expressions because we won't be able to properly
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
-      for (e = bb->pred; e ; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
@@ -3929,8 +3951,9 @@ static int
 pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_block bb, char *visited)
 {
   edge pred;
-
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  edge_iterator ei;
+  
+  FOR_EACH_EDGE (pred, ei, bb->preds)
     {
       basic_block pred_bb = pred->src;
 
@@ -4004,8 +4027,14 @@ process_insert_insn (struct expr *expr)
   /* Otherwise, make a new insn to compute this expression and make sure the
      insn will be recognized (this also adds any needed CLOBBERs).  Copy the
      expression to make sure we don't have any sharing issues.  */
-  else if (insn_invalid_p (emit_insn (gen_rtx_SET (VOIDmode, reg, exp))))
-    abort ();
+  else
+    {
+      rtx insn = emit_insn (gen_rtx_SET (VOIDmode, reg, exp));
+
+      if (insn_invalid_p (insn))
+	gcc_unreachable ();
+    }
+  
 
   pat = get_insns ();
   end_sequence ();
@@ -4031,8 +4060,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
   rtx pat, pat_end;
 
   pat = process_insert_insn (expr);
-  if (pat == NULL_RTX || ! INSN_P (pat))
-    abort ();
+  gcc_assert (pat && INSN_P (pat));
 
   pat_end = pat;
   while (NEXT_INSN (pat_end) != NULL_RTX)
@@ -4044,7 +4072,8 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   if (JUMP_P (insn)
       || (NONJUMP_INSN_P (insn)
-	  && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL))))
+	  && (EDGE_COUNT (bb->succs) > 1
+	      || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
       rtx note;
@@ -4052,10 +4081,9 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
       /* It should always be the case that we can put these instructions
 	 anywhere in the basic block with performing PRE optimizations.
 	 Check this.  */
-      if (NONJUMP_INSN_P (insn) && pre
-	  && !TEST_BIT (antloc[bb->index], expr->bitmap_index)
-	  && !TEST_BIT (transp[bb->index], expr->bitmap_index))
-	abort ();
+      gcc_assert (!NONJUMP_INSN_P (insn) || !pre
+		  || TEST_BIT (antloc[bb->index], expr->bitmap_index)
+		  || TEST_BIT (transp[bb->index], expr->bitmap_index));
 
       /* If this is a jump table, then we can't insert stuff here.  Since
 	 we know the previous real insn must be the tablejump, we insert
@@ -4080,13 +4108,13 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	}
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
      of exception handling.  */
   else if (CALL_P (insn)
-	   && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL)))
+	   && (EDGE_COUNT (bb->succs) > 1 || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
     {
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
@@ -4097,10 +4125,9 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	 anywhere in the basic block with performing PRE optimizations.
 	 Check this.  */
 
-      if (pre
-	  && !TEST_BIT (antloc[bb->index], expr->bitmap_index)
-	  && !TEST_BIT (transp[bb->index], expr->bitmap_index))
-	abort ();
+      gcc_assert (!pre
+		  || TEST_BIT (antloc[bb->index], expr->bitmap_index)
+		  || TEST_BIT (transp[bb->index], expr->bitmap_index));
 
       /* Since different machines initialize their parameter registers
 	 in different orders, assume nothing.  Collect the set of all
@@ -4119,10 +4146,10 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
   else
-    new_insn = emit_insn_after (pat, insn);
+    new_insn = emit_insn_after_noloc (pat, insn);
 
   while (1)
     {
@@ -4257,10 +4284,13 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
   int i;
 
   /* This block matches the logic in hash_scan_insn.  */
-  if (GET_CODE (pat) == SET)
-    set = pat;
-  else if (GET_CODE (pat) == PARALLEL)
+  switch (GET_CODE (pat))
     {
+    case SET:
+      set = pat;
+      break;
+
+    case PARALLEL:
       /* Search through the parallel looking for the set whose
 	 source was the expression that we're interested in.  */
       set = NULL_RTX;
@@ -4274,9 +4304,11 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
 	      break;
 	    }
 	}
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  else
-    abort ();
 
   if (REG_P (SET_DEST (set)))
     {
@@ -4800,6 +4832,7 @@ static int
 hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, char *visited)
 {
   edge pred;
+  edge_iterator ei;
   int visited_allocated_locally = 0;
 
 
@@ -4809,7 +4842,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
       visited = xcalloc (last_basic_block, 1);
     }
 
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, ei, bb->preds)
     {
       basic_block pred_bb = pred->src;
 
@@ -4970,15 +5003,10 @@ hoist_code (void)
 		      while (BLOCK_FOR_INSN (occr->insn) != dominated && occr)
 			occr = occr->next;
 
-		      /* Should never happen.  */
-		      if (!occr)
-			abort ();
-
+		      gcc_assert (occr);
 		      insn = occr->insn;
-
 		      set = single_set (insn);
-		      if (! set)
-			abort ();
+		      gcc_assert (set);
 
 		      /* Create a pseudo-reg to store the result of reaching
 			 expressions into.  Get the mode for the new pseudo
@@ -5556,7 +5584,7 @@ extract_mentioned_regs_helper (rtx x, rtx accum)
     case POST_DEC:
     case POST_INC:
       /* We do not run this function with arguments having side effects.  */
-      abort ();
+      gcc_unreachable ();
 
     case PC:
     case CC0: /*FIXME*/
@@ -5830,8 +5858,7 @@ compute_store_table (void)
 #ifdef ENABLE_CHECKING
       /* last_set_in should now be all-zero.  */
       for (regno = 0; regno < max_gcse_regno; regno++)
-	if (last_set_in[regno] != 0)
-	  abort ();
+	gcc_assert (!last_set_in[regno]);
 #endif
 
       /* Clear temporary marks.  */
@@ -6163,7 +6190,7 @@ insert_insn_start_bb (rtx insn, basic_block bb)
       before = NEXT_INSN (before);
     }
 
-  insn = emit_insn_after (insn, prev);
+  insn = emit_insn_after_noloc (insn, prev);
 
   if (gcse_file)
     {
@@ -6184,6 +6211,7 @@ insert_store (struct ls_expr * expr, edge e)
   rtx reg, insn;
   basic_block bb;
   edge tmp;
+  edge_iterator ei;
 
   /* We did all the deleted before this insert, so if we didn't delete a
      store, then we haven't set the reaching reg yet either.  */
@@ -6200,12 +6228,12 @@ insert_store (struct ls_expr * expr, edge e)
      insert it at the start of the BB, and reset the insert bits on the other
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
-  for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
+  FOR_EACH_EDGE (tmp, ei, e->dest->preds)
     if (!(tmp->flags & EDGE_FAKE))
       {
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-	if (index == EDGE_INDEX_NO_EDGE)
-	  abort ();
+	
+	gcc_assert (index != EDGE_INDEX_NO_EDGE);
 	if (! TEST_BIT (pre_insert_map[index], expr->index))
 	  break;
       }
@@ -6214,7 +6242,7 @@ insert_store (struct ls_expr * expr, edge e)
      insertion vector for these edges, and insert at the start of the BB.  */
   if (!tmp && bb != EXIT_BLOCK_PTR)
     {
-      for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
+      FOR_EACH_EDGE (tmp, ei, e->dest->preds)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
@@ -6252,33 +6280,40 @@ insert_store (struct ls_expr * expr, edge e)
 static void
 remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 {
-  edge *stack = xmalloc (sizeof (edge) * n_basic_blocks), act;
+  edge_iterator *stack, ei;
+  int sp;
+  edge act;
   sbitmap visited = sbitmap_alloc (last_basic_block);
-  int stack_top = 0;
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
 
-  sbitmap_zero (visited);
-  act = bb->succ;
+  stack = xmalloc (sizeof (edge_iterator) * n_basic_blocks);
+  sp = 0;
+  ei = ei_start (bb->succs);
 
+  sbitmap_zero (visited);
+
+  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
   while (1)
     {
       if (!act)
 	{
-	  if (!stack_top)
+	  if (!sp)
 	    {
 	      free (stack);
 	      sbitmap_free (visited);
 	      return;
 	    }
-	  act = stack[--stack_top];
+	  act = ei_edge (stack[--sp]);
 	}
       bb = act->dest;
 
       if (bb == EXIT_BLOCK_PTR
 	  || TEST_BIT (visited, bb->index))
 	{
-	  act = act->succ_next;
+	  if (!ei_end_p (ei))
+	      ei_next (&ei);
+	  act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6306,12 +6341,17 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 		       INSN_UID (insn));
 	    remove_note (insn, note);
 	  }
-      act = act->succ_next;
-      if (bb->succ)
+
+      if (!ei_end_p (ei))
+	ei_next (&ei);
+      act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
+
+      if (EDGE_COUNT (bb->succs) > 0)
 	{
 	  if (act)
-	    stack[stack_top++] = act;
-	  act = bb->succ;
+	    stack[sp++] = ei;
+	  ei = ei_start (bb->succs);
+	  act = (EDGE_COUNT (ei.container) > 0 ? EDGE_I (ei.container, 0) : NULL);
 	}
     }
 }

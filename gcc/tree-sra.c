@@ -132,7 +132,7 @@ struct sra_elt
 };
 
 /* Random access to the child of a parent is performed by hashing.
-   This prevents quadratic behaviour, and allows SRA to function
+   This prevents quadratic behavior, and allows SRA to function
    reasonably on larger records.  */
 static htab_t sra_map;
 
@@ -182,7 +182,7 @@ type_can_be_decomposed_p (tree type)
   if (bitmap_bit_p (sra_type_decomp_cache, cache+1))
     return false;
 
-  /* The type must have a definite non-zero size.  */
+  /* The type must have a definite nonzero size.  */
   if (TYPE_SIZE (type) == NULL || integer_zerop (TYPE_SIZE (type)))
     goto fail;
 
@@ -329,7 +329,7 @@ type_can_instantiate_all_elements (tree type)
       return true;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -379,7 +379,7 @@ sra_hash_tree (tree t)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return h;
@@ -446,7 +446,7 @@ sra_elt_eq (const void *x, const void *y)
       return fields_compatible_p (ae, be);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -744,8 +744,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
       default:
 #ifdef ENABLE_CHECKING
 	/* Validate that we're not missing any references.  */
-	if (walk_tree (&inner, sra_find_candidate_decl, NULL, NULL))
-	  abort ();
+	gcc_assert (!walk_tree (&inner, sra_find_candidate_decl, NULL, NULL));
 #endif
 	return;
       }
@@ -1012,6 +1011,7 @@ scan_function (void)
   static const struct sra_walk_fns fns = {
     scan_use, scan_copy, scan_init, scan_ldst, true
   };
+  bitmap_iterator bi;
 
   sra_walk_function (&fns);
 
@@ -1020,13 +1020,13 @@ scan_function (void)
       size_t i;
 
       fputs ("\nScan results:\n", dump_file);
-      EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i,
+      EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
 	{
 	  tree var = referenced_var (i);
 	  struct sra_elt *elt = lookup_element (NULL, var, NULL, NO_INSERT);
 	  if (elt)
 	    scan_dump (elt);
-	});
+	}
       fputc ('\n', dump_file);
     }
 }
@@ -1246,7 +1246,7 @@ instantiate_missing_elements (struct sra_elt *elt)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1352,13 +1352,14 @@ decide_instantiations (void)
   unsigned int i;
   bool cleared_any;
   struct bitmap_head_def done_head;
+  bitmap_iterator bi;
 
   /* We cannot clear bits from a bitmap we're iterating over,
      so save up all the bits to clear until the end.  */
   bitmap_initialize (&done_head, 1);
   cleared_any = false;
 
-  EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (sra_candidates, 0, i, bi)
     {
       tree var = referenced_var (i);
       struct sra_elt *elt = lookup_element (NULL, var, NULL, NO_INSERT);
@@ -1373,7 +1374,7 @@ decide_instantiations (void)
 	  bitmap_set_bit (&done_head, i);
 	  cleared_any = true;
 	}
-    });
+    }
 
   if (cleared_any)
     {
@@ -1438,7 +1439,7 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
 	return build (IMAGPART_EXPR, elt->type, base);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1495,8 +1496,7 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
   for (dc = dst->children; dc ; dc = dc->sibling)
     {
       sc = lookup_element (src, dc->element, NULL, NO_INSERT);
-      if (sc == NULL)
-	abort ();
+      gcc_assert (sc);
       generate_element_copy (dc, sc, list_p);
     }
 
@@ -1504,8 +1504,7 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
     {
       tree t;
 
-      if (src->replacement == NULL)
-	abort ();
+      gcc_assert (src->replacement);
 
       t = build (MODIFY_EXPR, void_type_node, dst->replacement,
 		 src->replacement);
@@ -1536,39 +1535,12 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
     {
       tree t;
 
-      if (elt->is_scalar)
-	t = build_int_cst (elt->type, 0);
-      else
-	/* We generated a replacement for a non-scalar?  */
-	abort ();
+      gcc_assert (elt->is_scalar);
+      t = fold_convert (elt->type, integer_zero_node);
 
       t = build (MODIFY_EXPR, void_type_node, elt->replacement, t);
       append_to_statement_list (t, list_p);
     }
-}
-
-/* Find all variables within the gimplified statement that were not previously
-   visible to the function and add them to the referenced variables list.  */
-
-static tree
-find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
-			    void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-
-  if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
-    add_referenced_tmp_var (t);
-
-  if (DECL_P (t) || TYPE_P (t))
-    *walk_subtrees = 0;
-
-  return NULL;
-}
-
-static inline void
-find_new_referenced_vars (tree *stmt_p)
-{
-  walk_tree (stmt_p, find_new_referenced_vars_1, NULL, NULL);
 }
 
 /* Generate an assignment VAR = INIT, where INIT may need gimplification.
@@ -1667,10 +1639,11 @@ void
 insert_edge_copies (tree stmt, basic_block bb)
 {
   edge e;
+  edge_iterator ei;
   bool first_copy;
 
   first_copy = true;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       /* We don't need to insert copies on abnormal edges.  The
 	 value of the scalar replacement is not guaranteed to
@@ -1788,12 +1761,9 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
       /* If we have two scalar operands, modify the existing statement.  */
       stmt = bsi_stmt (*bsi);
 
-#ifdef ENABLE_CHECKING
       /* See the commentary in sra_walk_function concerning
 	 RETURN_EXPR, and why we should never see one here.  */
-      if (TREE_CODE (stmt) != MODIFY_EXPR)
-	abort ();
-#endif
+      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
       TREE_OPERAND (stmt, 0) = lhs_elt->replacement;
       TREE_OPERAND (stmt, 1) = rhs_elt->replacement;
@@ -1835,8 +1805,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 
       list = NULL;
       generate_element_copy (lhs_elt, rhs_elt, &list);
-      if (list == NULL)
-	abort ();
+      gcc_assert (list);
       sra_replace (bsi, list);
     }
 }
@@ -1894,8 +1863,7 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
     {
       /* The LHS is fully instantiated.  The list of initializations
 	 replaces the original structure assignment.  */
-      if (!list)
-	abort ();
+      gcc_assert (list);
       mark_all_v_defs (bsi_stmt (*bsi));
       sra_replace (bsi, list);
     }
@@ -1914,7 +1882,7 @@ mark_notrap (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       TREE_THIS_NOTRAP (t) = 1;
       *walk_subtrees = 0;
     }
-  else if (DECL_P (t) || TYPE_P (t))
+  else if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL;
@@ -1929,8 +1897,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
 		block_stmt_iterator *bsi, bool is_output)
 {
   /* Shouldn't have gotten called for a scalar.  */
-  if (elt->replacement)
-    abort ();
+  gcc_assert (!elt->replacement);
 
   if (elt->use_block_copy)
     {
@@ -1948,8 +1915,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
 
       mark_all_v_defs (stmt);
       generate_copy_inout (elt, is_output, other, &list);
-      if (list == NULL)
-	abort ();
+      gcc_assert (list);
 
       /* Preserve EH semantics.  */
       if (stmt_ends_bb_p (stmt))
@@ -1994,13 +1960,14 @@ scalarize_parms (void)
 {
   tree list = NULL;
   size_t i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP (needs_copy_in, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (needs_copy_in, 0, i, bi)
     {
       tree var = referenced_var (i);
       struct sra_elt *elt = lookup_element (NULL, var, NULL, NO_INSERT);
       generate_copy_inout (elt, true, var, &list);
-    });
+    }
 
   if (list)
     insert_edge_copies (list, ENTRY_BLOCK_PTR);

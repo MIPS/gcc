@@ -96,12 +96,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "lambda.h"
 
-
 /* This is the simplest data dependence test: determines whether the
-   data references A and B access the same array/region. If can't determine -
-   return false; Otherwise, return true, and DIFFER_P will record
-   the result. This utility will not be necessary when alias_sets_conflict_p
-   will be less conservative.  */
+   data references A and B access the same array/region.  Returns
+   false when the property is not computable at compile time.
+   Otherwise return true, and DIFFER_P will record the result. This
+   utility will not be necessary when alias_sets_conflict_p will be
+   less conservative.  */
 
 bool
 array_base_name_differ_p (struct data_reference *a,
@@ -113,17 +113,16 @@ array_base_name_differ_p (struct data_reference *a,
   tree ta = TREE_TYPE (base_a);
   tree tb = TREE_TYPE (base_b);
 
-
-  /** Determine if same base  **/
-
-  /* array accesses: a[i],b[i] or pointer accesses: *a,*b. bases are a,b.  */
+  /* Determine if same base.  Example: for the array accesses
+     a[i], b[i] or pointer accesses *a, *b, bases are a, b.  */
   if (base_a == base_b)
     {
       *differ_p = false;
       return true;
     }
 
-  /* pointer based accesses - (*p)[i],(*q)[j]. bases are (*p),(*q)  */
+  /* For pointer based accesses, (*p)[i], (*q)[j], the bases are (*p)
+     and (*q)  */
   if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF
       && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0))
     {
@@ -140,21 +139,21 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
+  /* Determine if different bases.  */
 
-  /** Determine if different bases  **/
-
-  /* at this point we know that base_a != base_b. However, pointer accesses
-     of the form x=(*p) and y=(*q), which bases are p and q, may still by pointing
-     to the same base. In SSAed GIMPLE p and q will be SSA_NAMES in this case.
-     Therefore, here we check if it's really two diferent declarations.  */
+  /* At this point we know that base_a != base_b.  However, pointer
+     accesses of the form x=(*p) and y=(*q), whose bases are p and q,
+     may still be pointing to the same base. In SSAed GIMPLE p and q will
+     be SSA_NAMES in this case.  Therefore, here we check if they are
+     really two different declarations.  */
   if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL)
     {
       *differ_p = true;
       return true;
     }
 
-  /* compare two record/union bases s.a and t.b: 
-     s != t or (a != b and s and t are not unions)  */
+  /* Compare two record/union bases s.a and t.b: s != t or (a != b and
+     s and t are not unions).  */
   if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
       && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
            && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
@@ -167,7 +166,7 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
-  /* compare a record/union access and an array access.  */ 
+  /* Compare a record/union access and an array access.  */ 
   if ((TREE_CODE (base_a) == VAR_DECL
        && (TREE_CODE (base_b) == COMPONENT_REF
            && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL))
@@ -185,10 +184,9 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
-  /* An insn writing through a restricted pointer is "independent" of any
-     insn reading or writing through a different pointer, in the same
-     block/scope.
-   */
+  /* An instruction writing through a restricted pointer is
+     "independent" of any instruction reading or writing through a
+     different pointer, in the same block/scope.  */
   if ((TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta)
        && !DR_IS_READ(a))
       || (TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)
@@ -198,7 +196,6 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
-  *differ_p = false; /* Don't know, but be conservative.  */
   return false;
 }
 
@@ -270,21 +267,19 @@ tree_fold_bezout (tree a1,
       zs2 = fold (build (MULT_EXPR, integer_type_node, z, s2));
       
       /* row1 -= z * row2.  */
+      gcc_assert (sign != 0);
       if (sign < 0)
 	{
 	  *u11 = fold (build (PLUS_EXPR, integer_type_node, *u11, zu21));
 	  *u12 = fold (build (PLUS_EXPR, integer_type_node, *u12, zu22));
 	  s1 = fold (build (PLUS_EXPR, integer_type_node, s1, zs2));
 	}
-      else if (sign > 0)
+      else
 	{
 	  *u11 = fold (build (MINUS_EXPR, integer_type_node, *u11, zu21));
 	  *u12 = fold (build (MINUS_EXPR, integer_type_node, *u12, zu22));
 	  s1 = fold (build (MINUS_EXPR, integer_type_node, s1, zs2));
 	}
-      else
-	/* Should not happen.  */
-	abort ();
       
       /* Interchange row1 and row2.  */
       {
@@ -494,13 +489,13 @@ dump_data_dependence_direction (FILE *file,
 
 /* Given an ARRAY_REF node REF, records its access functions.
    Example: given A[i][3], record in ACCESS_FNS the opnd1 function,
-   ie. the constant "3", then recursively call the function on opnd0,
-   ie. the ARRAY_REF "A[i]".  The function returns the base name:
+   i.e. the constant "3", then recursively call the function on opnd0,
+   i.e. the ARRAY_REF "A[i]".  The function returns the base name:
    "A".  */
 
 static tree
 analyze_array_indexes (struct loop *loop,
-		       varray_type access_fns, 
+		       varray_type *access_fns, 
 		       tree ref)
 {
   tree opnd0, opnd1;
@@ -516,7 +511,7 @@ analyze_array_indexes (struct loop *loop,
   access_fn = instantiate_parameters 
     (loop, analyze_scalar_evolution (loop, opnd1));
   
-  VARRAY_PUSH_TREE (access_fns, access_fn);
+  VARRAY_PUSH_TREE (*access_fns, access_fn);
   
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
@@ -527,7 +522,7 @@ analyze_array_indexes (struct loop *loop,
     return opnd0;
 }
 
-/* For a data reference REF contained in the statemet STMT, initialize
+/* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  IS_READ flag has to be
    set to true when REF is in the right hand side of an
    assignment.  */
@@ -551,7 +546,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_REF (res) = ref;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
-    (loop_containing_stmt (stmt), DR_ACCESS_FNS (res), ref);
+    (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref);
   DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -560,7 +555,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   return res;
 }
 
-/* For a data reference REF contained in the statemet STMT, initialize
+/* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  */
 
 struct data_reference *
@@ -960,7 +955,7 @@ analyze_subscript_affine_affine (tree chrec_a,
      For answering to the question: "Is there a dependence?" we have
      to prove that there exists a solution to the Diophantine
      equation, and that the solution is in the iteration domain,
-     ie. the solution is positive or zero, and that the solution
+     i.e. the solution is positive or zero, and that the solution
      happens before the upper bound loop.nb_iterations.  Otherwise
      there is no dependence.  This function outputs a description of
      the iterations that hold the intersections.  */
@@ -1051,7 +1046,7 @@ analyze_subscript_affine_affine (tree chrec_a,
       if (!tree_fold_divides_p (integer_type_node, gcd_alpha_beta, gamma))
 	{
 	  /* The "gcd-test" has determined that there is no integer
-	     solution, ie. there is no dependence.  */
+	     solution, i.e. there is no dependence.  */
 	  *overlaps_a = chrec_known;
 	  *overlaps_b = chrec_known;
 	}
@@ -1466,8 +1461,8 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	  /* If the loop number is still greater than the number of
 	     loops we've been asked to analyze, or negative,
 	     something is borked.  */
-	  if (loop_nb < 0 || loop_nb >= nb_loops)
-	    abort ();
+	  gcc_assert (loop_nb >= 0);
+	  gcc_assert (loop_nb < nb_loops);
 	  dist = int_cst_value (SUB_DISTANCE (subscript));
 
 	  /* This is the subscript coupling test.  
@@ -1508,8 +1503,8 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
     
     lca_nb = lca->num;
     lca_nb -= first_loop;
-    if (lca_nb < 0 || lca_nb >= nb_loops)
-      abort ();
+    gcc_assert (lca_nb >= 0);
+    gcc_assert (lca_nb < nb_loops);
     /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
@@ -1524,8 +1519,8 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
-	    if (lca_nb < 0 || lca_nb >= nb_loops)
-	      abort ();
+	    gcc_assert (lca_nb >= 0);
+	    gcc_assert (lca_nb < nb_loops);
 	    if (init_v[lca_nb] == 0)
 	      dist_v[lca_nb] = 1;
 	    lca = lca->outer;
@@ -1575,13 +1570,9 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	  /* If the loop number is still greater than the number of
 	     loops we've been asked to analyze, or negative,
 	     something is borked.  */
-	  if (loop_nb < 0 || loop_nb >= nb_loops)
-	    abort ();	  
-	  if (chrec_contains_undetermined (SUB_DISTANCE (subscript)))
-	    {
-	      
-	    }
-	  else
+	  gcc_assert (loop_nb >= 0);
+	  gcc_assert (loop_nb < nb_loops);
+	  if (!chrec_contains_undetermined (SUB_DISTANCE (subscript)))
 	    {
 	      int dist = int_cst_value (SUB_DISTANCE (subscript));
 	      
@@ -1632,8 +1623,8 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
     lca = find_common_loop (loop_a, loop_b); 
     lca_nb = lca->num - first_loop;
 
-    if (lca_nb < 0 || lca_nb >= nb_loops)
-      abort ();
+    gcc_assert (lca_nb >= 0);
+    gcc_assert (lca_nb < nb_loops);
     /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     if (lca != loop_a
@@ -1647,8 +1638,8 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	lca_nb = lca->num - first_loop;
 	while (lca->depth != 0)
 	  {
-	    if (lca_nb < 0 || lca_nb >= nb_loops)
-	      abort ();
+	    gcc_assert (lca_nb >= 0);
+	    gcc_assert (lca_nb < nb_loops);
 	    if (init_v[lca_nb] == 0)
 	      dir_v[lca_nb] = dir_positive;
 	    lca = lca->outer;
@@ -1723,7 +1714,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 
 /* Compute a subset of the data dependence relation graph.  Don't
    compute read-read relations, and avoid the computation of the
-   opposite relation, ie. when AB has been computed, don't compute BA.
+   opposite relation, i.e. when AB has been computed, don't compute BA.
    DATAREFS contains a list of data references, and the result is set
    in DEPENDENCE_RELATIONS.  */
 

@@ -113,16 +113,16 @@ enum rid
 };
 
 #define OBJC_IS_AT_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_AT && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_AT)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_AT && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_AT)
 
 #define OBJC_IS_PQ_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PQ && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_PQ)
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
-extern GTY ((length ("(int)RID_MAX"))) tree *ridpointers;
+extern GTY ((length ("(int) RID_MAX"))) tree *ridpointers;
 
 /* Standard named or nameless data types of the C compiler.  */
 
@@ -820,10 +820,6 @@ extern tree decl_constant_value (tree);
 /* Handle increment and decrement of boolean types.  */
 extern tree boolean_increment (enum tree_code, tree);
 
-/* Hook currently used only by the C++ front end to reset internal state
-   after entering or leaving a header file.  */
-extern void extract_interface_info (void);
-
 extern int case_compare (splay_tree_key, splay_tree_key);
 
 extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
@@ -859,7 +855,14 @@ extern GTY(()) int pending_lang_change;
 struct c_fileinfo
 {
   int time;	/* Time spent in the file.  */
-  short interface_only;		/* Flags - used only by C++ */
+
+  /* Flags used only by C++.
+     INTERFACE_ONLY nonzero means that we are in an "interface" section
+     of the compiler.  INTERFACE_UNKNOWN nonzero means we cannot trust
+     the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN is zero and
+     INTERFACE_ONLY is zero, it means that we are responsible for
+     exporting definitions that others might need.  */
+  short interface_only;
   short interface_unknown;
 };
 

@@ -272,6 +272,8 @@ static int nb_soft_regs;
 #define TARGET_STRUCT_VALUE_RTX m68hc11_struct_value_rtx
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY m68hc11_return_in_memory
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_callee_copies_named
 
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING m68hc11_strip_name_encoding
@@ -848,7 +850,7 @@ m68hc11_reload_operands (rtx operands[])
       /* If the offset is out of range, we have to compute the address
          with a separate add instruction.  We try to do with with an 8-bit
          add on the A register.  This is possible only if the lowest part
-         of the offset (ie, big_offset % 256) is a valid constant offset
+         of the offset (i.e., big_offset % 256) is a valid constant offset
          with respect to the mode.  If it's not, we have to generate a
          16-bit add on the D register.  From:
        

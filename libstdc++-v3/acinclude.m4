@@ -573,12 +573,15 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
     AC_TRY_LINK(
       [#include <unistd.h>
        #include <stdio.h>
+       #include <sys/stat.h>
       ],
       [FILE* fp;
        fopen64("t", "w");
        fseeko64(fp, 0, SEEK_CUR);
        ftello64(fp);
-       lseek64(1, 0, SEEK_CUR);],	
+       lseek64(1, 0, SEEK_CUR);
+       struct stat64 buf;
+       fstat64(1, &buf);],
       [glibcxx_cv_LFS=yes],
       [glibcxx_cv_LFS=no])
   ])
@@ -591,6 +594,25 @@ AC_DEFUN([GLIBCXX_CHECK_LFS], [
 
 
 dnl
+dnl Check for whether a fully dynamic basic_string implementation should
+dnl be turned on, that does not put empty objects in per-process static
+dnl memory (mostly useful together with shared memory allocators, see PR
+dnl libstdc++/16612 for details).
+dnl
+dnl --enable-fully-dynamic-string defines _GLIBCXX_FULLY_DYNAMIC_STRING
+dnl --disable-fully-dynamic-string leaves _GLIBCXX_FULLY_DYNAMIC_STRING undefined
+dnl  +  Usage:  GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING], [
+  GLIBCXX_ENABLE(fully-dynamic-string,$1,,[do not put empty strings in per-process static memory])
+  if test $enable_fully_dynamic_string = yes; then
+    AC_DEFINE(_GLIBCXX_FULLY_DYNAMIC_STRING)
+  fi
+])
+
+
+dnl
 dnl Does any necessary configuration of the testsuite directory.  Generates
 dnl the testsuite_hooks.h header.
 dnl
@@ -598,6 +620,8 @@ dnl GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE must be done before this.
 dnl
 dnl Sets:
 dnl  enable_abi_check / GLIBCXX_TEST_ABI
+dnl  GLIBCXX_TEST_WCHAR_T
+dnl  GLIBCXX_TEST_THREAD
 dnl Substs:
 dnl  baseline_dir
 dnl
@@ -630,6 +654,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   AC_SUBST(baseline_dir)
 
   GLIBCXX_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_THREAD, test $enable_thread = yes)
   GLIBCXX_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
 ])
 
@@ -1686,8 +1711,10 @@ AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
   target_thread_file=`$CXX -v 2>&1 | sed -n 's/^Thread model: //p'`
   AC_MSG_RESULT([$target_thread_file])
 
+  enable_thread=no
   if test $target_thread_file != single; then
     AC_DEFINE(HAVE_GTHR_DEFAULT)
+    enable_thread=yes
   fi
 
   glibcxx_thread_h=gthr-$target_thread_file.h

@@ -1,0 +1,4 @@
+2004-10-08  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	Merge from mainline (gomp-merge-2004-10-08).
+	* ChangeLog.gomp: New file.

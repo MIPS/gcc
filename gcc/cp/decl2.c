@@ -198,7 +198,7 @@ maybe_retrofit_in_chrg (tree fn)
   /* We don't need an in-charge parameter for constructors that don't
      have virtual bases.  */
   if (DECL_CONSTRUCTOR_P (fn)
-      && !TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+      && !CLASSTYPE_VBASECLASSES (DECL_CONTEXT (fn)))
     return;
 
   arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
@@ -209,7 +209,7 @@ maybe_retrofit_in_chrg (tree fn)
 
   /* If this is a subobject constructor or destructor, our caller will
      pass us a pointer to our VTT.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+  if (CLASSTYPE_VBASECLASSES (DECL_CONTEXT (fn)))
     {
       parm = build_artificial_parm (vtt_parm_identifier, vtt_parm_type);
 
@@ -378,8 +378,8 @@ grok_array_decl (tree array_expr, tree index_exp)
 	array_expr = p2, index_exp = i1;
       else
 	{
-	  error ("invalid types `%T[%T]' for array subscript",
-		    type, TREE_TYPE (index_exp));
+	  error ("invalid types %<%T[%T]%> for array subscript",
+                 type, TREE_TYPE (index_exp));
 	  return error_mark_node;
 	}
 
@@ -423,14 +423,14 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (exp) == VAR_DECL
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-    warning ("deleting array `%#D'", exp);
+    warning ("deleting array %q#D", exp);
 
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
     {
-      error ("type `%#T' argument given to `delete', expected pointer",
-		TREE_TYPE (exp));
+      error ("type %q#T argument given to %<delete%>, expected pointer",
+             TREE_TYPE (exp));
       return error_mark_node;
     }
 
@@ -441,14 +441,15 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
   /* You can't delete functions.  */
   if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {
-      error ("cannot delete a function.  Only pointer-to-objects are valid arguments to `delete'");
+      error ("cannot delete a function.  Only pointer-to-objects are "
+             "valid arguments to %<delete%>");
       return error_mark_node;
     }
 
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
   if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
     {
-      warning ("deleting `%T' is undefined", type);
+      warning ("deleting %qT is undefined", type);
       doing_vec = 0;
     }
 
@@ -484,8 +485,8 @@ check_member_template (tree tmpl)
 	/* 14.5.2.2 [temp.mem]
 	   
 	   A local class shall not have member templates.  */
-	error ("invalid declaration of member template `%#D' in local class",
-		  decl);
+	error ("invalid declaration of member template %q#D in local class",
+               decl);
       
       if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
 	{
@@ -493,7 +494,7 @@ check_member_template (tree tmpl)
 
 	     A member function template shall not be virtual.  */
 	  error 
-	    ("invalid use of `virtual' in template declaration of `%#D'",
+	    ("invalid use of %<virtual%> in template declaration of %q#D",
 	     decl);
 	  DECL_VIRTUAL_P (decl) = 0;
 	}
@@ -503,7 +504,7 @@ check_member_template (tree tmpl)
       DECL_IGNORED_P (tmpl) = 1;
     } 
   else
-    error ("template declaration of `%#D'", decl);
+    error ("template declaration of %q#D", decl);
 }
 
 /* Return true iff TYPE is a valid Java parameter or return type.  */
@@ -552,8 +553,8 @@ check_java_method (tree method)
 
   if (!acceptable_java_type (ret_type))
     {
-      error ("Java method '%D' has non-Java return type `%T'",
-		method, ret_type);
+      error ("Java method %qD has non-Java return type %qT",
+             method, ret_type);
       jerr = true;
     }
 
@@ -568,8 +569,8 @@ check_java_method (tree method)
       tree type = TREE_VALUE (arg_types);
       if (!acceptable_java_type (type))
 	{
-	  error ("Java method '%D' has non-Java parameter type `%T'",
-		    method, type);
+          error ("Java method %qD has non-Java parameter type %qT",
+                 method, type);
 	  jerr = true;
 	}
     }
@@ -578,7 +579,7 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   TEMPLATE_PARMS is used to specify the template parameters of a member
    template passed as FUNCTION_DECL. If the member template is passed as a 
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
@@ -595,7 +596,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
 	   && DECL_TEMPLATE_SPECIALIZATION (function))
-      && is_member_template (DECL_TI_TEMPLATE (function)))
+      && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (function)))
     /* Since this is a specialization of a member template,
        we're not going to find the declaration in the class.
        For example, in:
@@ -621,11 +622,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   /* OK, is this a definition of a member template?  */
   is_template = (template_parms != NULL_TREE);
 
-  ix = lookup_fnfields_1 (complete_type (ctype),
-			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
-			  DECL_DESTRUCTOR_P (function) ? dtor_identifier :
-			  DECL_NAME (function));
-
+  ix = class_method_index_for_fn (complete_type (ctype), function);
   if (ix >= 0)
     {
       VEC(tree) *methods = CLASSTYPE_METHOD_VEC (ctype);
@@ -715,7 +712,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   else if (!COMPLETE_TYPE_P (ctype))
     cxx_incomplete_type_error (function, ctype);
   else
-    error ("no `%#D' member function declared in class `%T'",
+    error ("no %q#D member function declared in class %qT",
 	   function, ctype);
 
   /* If we did not find the method in the class, add it to avoid
@@ -778,7 +775,7 @@ finish_static_data_member_decl (tree decl, tree init, tree asmspec_tree,
     note_vague_linkage_var (decl);
 
   if (LOCAL_CLASS_P (current_class_type))
-    pedwarn ("local class `%#T' shall not have static data member `%#D'",
+    pedwarn ("local class %q#T shall not have static data member %q#D",
 	     current_class_type, decl);
 
   /* Static consts need not be initialized in the class definition.  */
@@ -853,7 +850,7 @@ grokfield (const cp_declarator *declarator,
 
   if (TREE_CODE (value) == TYPE_DECL && init)
     {
-      error ("typedef `%D' is initialized (use __typeof__ instead)", value);
+      error ("typedef %qD is initialized (use __typeof__ instead)", value);
       init = NULL_TREE;
     }
 
@@ -870,8 +867,8 @@ grokfield (const cp_declarator *declarator,
   if (DECL_NAME (value) != NULL_TREE
       && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
       && ! strcmp (IDENTIFIER_POINTER (DECL_NAME (value)), "_vptr"))
-    error ("member `%D' conflicts with virtual function table field name",
-	      value);
+    error ("member %qD conflicts with virtual function table field name",
+           value);
 
   /* Stash away type declarations.  */
   if (TREE_CODE (value) == TYPE_DECL)
@@ -887,8 +884,7 @@ grokfield (const cp_declarator *declarator,
 
   if (DECL_IN_AGGR_P (value))
     {
-      error ("`%D' is already defined in `%T'", value,
-		DECL_CONTEXT (value));
+      error ("%qD is already defined in %qT", value, DECL_CONTEXT (value));
       return void_type_node;
     }
 
@@ -1008,7 +1004,7 @@ grokbitfield (const cp_declarator *declarator,
 
   if (TREE_CODE (value) == TYPE_DECL)
     {
-      error ("cannot declare `%D' to be a bit-field type", value);
+      error ("cannot declare %qD to be a bit-field type", value);
       return NULL_TREE;
     }
 
@@ -1018,21 +1014,21 @@ grokbitfield (const cp_declarator *declarator,
      check here.  */
   if (TREE_CODE (value) == FUNCTION_DECL)
     {
-      error ("cannot declare bit-field `%D' with function type",
+      error ("cannot declare bit-field %qD with function type",
 	     DECL_NAME (value));
       return NULL_TREE;
     }
 
   if (DECL_IN_AGGR_P (value))
     {
-      error ("`%D' is already defined in the class %T", value,
-		  DECL_CONTEXT (value));
+      error ("%qD is already defined in the class %qT", value,
+             DECL_CONTEXT (value));
       return void_type_node;
     }
 
   if (TREE_STATIC (value))
     {
-      error ("static member `%D' cannot be a bit-field", value);
+      error ("static member %qD cannot be a bit-field", value);
       return NULL_TREE;
     }
   cp_finish_decl (value, NULL_TREE, NULL_TREE, 0);
@@ -1091,11 +1087,11 @@ grok_function_init (tree decl, tree init)
   tree type = TREE_TYPE (decl);
 
   if (TREE_CODE (type) == FUNCTION_TYPE)
-    error ("initializer specified for non-member function `%D'", decl);
+    error ("initializer specified for non-member function %qD", decl);
   else if (integer_zerop (init))
     DECL_PURE_VIRTUAL_P (decl) = 1;
   else
-    error ("invalid initializer for virtual method `%D'", decl);
+    error ("invalid initializer for virtual method %qD", decl);
 }
 
 void
@@ -1140,16 +1136,16 @@ build_anon_union_vars (tree object)
 	continue;
       if (TREE_CODE (field) != FIELD_DECL)
 	{
-	  cp_pedwarn_at ("\
-`%#D' invalid; an anonymous union can only have non-static data members",
+	  cp_pedwarn_at ("%q#D invalid; an anonymous union can only "
+                         "have non-static data members",
 			 field);
 	  continue;
 	}
 
       if (TREE_PRIVATE (field))
-	cp_pedwarn_at ("private member `%#D' in anonymous union", field);
+	cp_pedwarn_at ("private member %q#D in anonymous union", field);
       else if (TREE_PROTECTED (field))
-	cp_pedwarn_at ("protected member `%#D' in anonymous union", field);
+	cp_pedwarn_at ("protected member %q#D in anonymous union", field);
 
       if (processing_template_decl)
 	ref = build_min_nt (COMPONENT_REF, object,
@@ -1239,7 +1235,10 @@ coerce_new_type (tree type)
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
   
   if (!same_type_p (TREE_TYPE (type), ptr_type_node))
-    e = 1, error ("`operator new' must return type `%T'", ptr_type_node);
+    {
+      e = 1;
+      error ("%<operator new%> must return type %qT", ptr_type_node);
+    }
 
   if (!args || args == void_list_node
       || !same_type_p (TREE_VALUE (args), size_type_node))
@@ -1247,7 +1246,8 @@ coerce_new_type (tree type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      pedwarn ("`operator new' takes type `size_t' (`%T') as first parameter", size_type_node);
+      pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
+               "as first parameter", size_type_node);
     }
   switch (e)
   {
@@ -1273,7 +1273,10 @@ coerce_delete_type (tree type)
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
 
   if (!same_type_p (TREE_TYPE (type), void_type_node))
-    e = 1, error ("`operator delete' must return type `%T'", void_type_node);
+    {
+      e = 1;
+      error ("%<operator delete%> must return type %qT", void_type_node);
+    }
 
   if (!args || args == void_list_node
       || !same_type_p (TREE_VALUE (args), ptr_type_node))
@@ -1281,7 +1284,8 @@ coerce_delete_type (tree type)
       e = 2;
       if (args && args != void_list_node)
         args = TREE_CHAIN (args);
-      error ("`operator delete' takes type `%T' as first parameter", ptr_type_node);
+      error ("%<operator delete%> takes type %qT as first parameter",
+             ptr_type_node);
     }
   switch (e)
   {
@@ -1438,7 +1442,7 @@ import_export_class (tree ctype)
   if (CLASSTYPE_INTERFACE_KNOWN (ctype))
     return;
 
-  /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma interface,
+  /* If MULTIPLE_SYMBOL_SPACES is set and we saw a #pragma interface,
      we will have CLASSTYPE_INTERFACE_ONLY set but not
      CLASSTYPE_INTERFACE_KNOWN.  In that case, we don't want to use this
      heuristic because someone will supply a #pragma implementation
@@ -1472,10 +1476,10 @@ import_export_class (tree ctype)
 	import_export = (DECL_REALLY_EXTERN (method) ? -1 : 1);
     }
 
-#ifdef MULTIPLE_SYMBOL_SPACES
-  if (import_export == -1)
+  /* When MULTIPLE_SYMBOL_SPACES is set, we cannot count on seeing
+     a definition anywhere else.  */
+  if (MULTIPLE_SYMBOL_SPACES && import_export == -1)
     import_export = 0;
-#endif
 
   /* Allow backends the chance to overrule the decision.  */
   if (targetm.cxx.import_export_class)
@@ -1655,18 +1659,8 @@ determine_visibility (tree decl)
      the visibility of their containing class.  */
   if (class_type)
     {
-      if (TREE_CODE (decl) == VAR_DECL
-	  && targetm.cxx.export_class_data ()
-	  && (DECL_TINFO_P (decl)
-	      || (DECL_VTABLE_OR_VTT_P (decl)
-		  /* Construction virtual tables are not emitted
-		     because they cannot be referred to from other
-		     object files; their name is not standardized by
-		     the ABI.  */
-		  && !DECL_CONSTRUCTION_VTABLE_P (decl))))
-	DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
-      else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	       && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
 	{
 	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
@@ -1678,11 +1672,28 @@ determine_visibility (tree decl)
 	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
 	}
+      else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
+	{
+	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	}
+      /* If no explicit visibility information has been provided for
+	 this class, some targets require that class data be
+	 exported.  */
+      else if (TREE_CODE (decl) == VAR_DECL
+	       && targetm.cxx.export_class_data ()
+	       && (DECL_TINFO_P (decl)
+		   || (DECL_VTABLE_OR_VTT_P (decl)
+		       /* Construction virtual tables are not emitted
+			  because they cannot be referred to from other
+			  object files; their name is not standardized by
+			  the ABI.  */
+		       && !DECL_CONSTRUCTION_VTABLE_P (decl))))
+	DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
       else
 	{
 	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
-	  DECL_VISIBILITY_SPECIFIED (decl)
-	    = CLASSTYPE_VISIBILITY_SPECIFIED (class_type);
+	  DECL_VISIBILITY_SPECIFIED (decl) = 0;
 	}
     }
 }
@@ -2750,9 +2761,6 @@ cp_finish_file (void)
   input_line -= 1;
 #endif
 
-  interface_unknown = 1;
-  interface_only = 0;
-
   /* We now have to write out all the stuff we put off writing out.
      These include:
 
@@ -2776,7 +2784,6 @@ cp_finish_file (void)
   do 
     {
       tree t;
-      size_t n_old, n_new;
 
       reconsider = false;
 
@@ -2819,32 +2826,16 @@ cp_finish_file (void)
 
       /* Write out needed type info variables.  We have to be careful
  	 looping through unemitted decls, because emit_tinfo_decl may
- 	 cause other variables to be needed.  We stick new elements
- 	 (and old elements that we may need to reconsider) at the end
- 	 of the array, then shift them back to the beginning once we're
- 	 done.  */
-
-      n_old = VARRAY_ACTIVE_SIZE (unemitted_tinfo_decls);
-      for (i = 0; i < n_old; ++i)
-  	{
-  	  tree tinfo_decl = VARRAY_TREE (unemitted_tinfo_decls, i);
-  	  if (emit_tinfo_decl (tinfo_decl))
- 	    reconsider = true;
-  	  else
-  	    VARRAY_PUSH_TREE (unemitted_tinfo_decls, tinfo_decl);
-  	}
-  
-      /* The only elements we want to keep are the new ones.  Copy
-  	 them to the beginning of the array, then get rid of the
-  	 leftovers.  */
-      n_new = VARRAY_ACTIVE_SIZE (unemitted_tinfo_decls) - n_old;
-      if (n_new)
-	memmove (&VARRAY_TREE (unemitted_tinfo_decls, 0),
-		 &VARRAY_TREE (unemitted_tinfo_decls, n_old),
-		 n_new * sizeof (tree));
-      memset (&VARRAY_TREE (unemitted_tinfo_decls, n_new),
-  	      0, n_old * sizeof (tree));
-      VARRAY_ACTIVE_SIZE (unemitted_tinfo_decls) = n_new;
+ 	 cause other variables to be needed. New elements will be
+ 	 appended, and we remove from the vector those that actually
+ 	 get emitted.  */
+      for (i = VEC_length (tree, unemitted_tinfo_decls);
+	   VEC_iterate (tree, unemitted_tinfo_decls, --i, t);)
+	if (emit_tinfo_decl (t))
+	  {
+	    reconsider = true;
+	    VEC_unordered_remove (tree, unemitted_tinfo_decls, i);
+	  }
 
       /* The list of objects with static storage duration is built up
 	 in reverse order.  We clear STATIC_AGGREGATES so that any new
@@ -2998,7 +2989,7 @@ cp_finish_file (void)
 	reconsider = true;
 
       /* Ask the back end to emit functions and variables that are
-	 enqued.  These emissions may result in marking more entities
+	 enqueued.  These emissions may result in marking more entities
 	 as needed.  */
       if (cgraph_assemble_pending_functions ())
 	reconsider = true;
@@ -3180,7 +3171,7 @@ check_default_args (tree x)
 	saw_def = true;
       else if (saw_def)
 	{
-	  cp_error_at ("default argument missing for parameter %P of `%+#D'",
+	  cp_error_at ("default argument missing for parameter %P of %q+#D",
 		       i, x);
 	  break;
 	}
