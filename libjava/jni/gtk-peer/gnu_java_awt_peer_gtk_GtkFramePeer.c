@@ -113,35 +113,6 @@ Java_gnu_java_awt_peer_gtk_GtkFramePeer_getMenuBarHeight
 }
 
 JNIEXPORT void JNICALL
-Java_gnu_java_awt_peer_gtk_GtkFramePeer_gtkFixedMove
-  (JNIEnv *env, jobject obj, jint offset)
-{
-  void *ptr;
-  void *fixed;
-  GtkWidget *widget;
-  GList *children;
-
-  ptr = NSA_GET_PTR (env, obj);
-
-  gdk_threads_enter ();
-
-  fixed = gtk_container_get_children (GTK_CONTAINER (ptr))->data;
-  children = gtk_container_get_children (GTK_CONTAINER (fixed));
-
-  while (children != NULL)
-  {
-    widget = GTK_WIDGET (children->data);
-    if (! GTK_IS_MENU_SHELL (widget))
-      gtk_fixed_move (GTK_FIXED (fixed), widget,
-                      widget->allocation.x,
-                      widget->allocation.y + offset);
-    children = children->next;
-  }
-
-  gdk_threads_leave ();
-}
-
-JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkFramePeer_gtkFixedSetVisible
   (JNIEnv *env, jobject obj, jboolean visible)
 {
