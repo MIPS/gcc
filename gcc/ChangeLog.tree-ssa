@@ -1,5 +1,19 @@
 2003-04-16  Jeff Law  <law@redhat.com>
 
+	* Makefile.in (tree-ssa.o): Depend on langhooks.h.
+	(tree-dfa.o, tree-cfg.o): Likewise.
+	* tree-cfg.c: Include langhooks.h
+	(dump_tree_cfg): Revamp how we get the current function's name
+	to not rely on current_function_name (and implicitly cfun).
+	(dump_cfg_stats, tree_cfg2dot): Likewise.
+	* tree-dfa.c: Include langhooks.h
+	(dump_immediate_uses): Revamp how we get the current function's name
+	to not rely on current_function_name (and implicitly cfun).
+	(dump_dfa_stats, dump_alias_info): Likewise.
+	* tree-ssa.c: Include langhooks.h
+	(dump_tree_ssa): Revamp how we get the current function's name
+	to not rely on current_function_name (and implicitly cfun).
+
 	* tree-cfg.c (make_loop_expr_blocks): When determining the value for
 	NEXT_BLOCK_LINK, correctly handle empty statement nodes at the
 	end of the tree.

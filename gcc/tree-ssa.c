@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tm_p.h"
 #include "ggc.h"
+#include "langhooks.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
@@ -1406,8 +1407,10 @@ dump_tree_ssa (file)
      FILE *file;
 {
   basic_block bb;
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
-  fprintf (file, "SSA information for %s\n\n", current_function_name);
+  fprintf (file, "SSA information for %s\n\n", funcname);
 
   FOR_EACH_BB (bb)
     {

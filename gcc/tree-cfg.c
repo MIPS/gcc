@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "expr.h"
 #include "ggc.h"
+#include "langhooks.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "timevar.h"
@@ -1839,9 +1840,11 @@ dump_tree_cfg (file, flags)
 
   if (flags & TDF_DETAILS)
     {
+      const char *funcname
+	= (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+
       fputc ('\n', file);
-      if (cfun)
-        fprintf (file, ";; Function %s\n\n", current_function_name);
+      fprintf (file, ";; Function %s\n\n", funcname);
       fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n",
 	       n_basic_blocks, n_edges, last_basic_block);
 
@@ -1874,8 +1877,11 @@ dump_cfg_stats (file)
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
-  fprintf (file, "\nCFG Statistics for %s\n\n", current_function_name);
+
+  fprintf (file, "\nCFG Statistics for %s\n\n", funcname);
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str, "", "  Number of  ", "Memory");
@@ -1947,10 +1953,11 @@ tree_cfg2dot (file)
 {
   edge e;
   basic_block bb;
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
   /* Write the file header.  */
-  if (cfun)
-    fprintf (file, "digraph %s\n{\n", current_function_name);
+  fprintf (file, "digraph %s\n{\n", funcname);
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)

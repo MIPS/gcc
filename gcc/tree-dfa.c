@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "expr.h"
 #include "ggc.h"
+#include "langhooks.h"
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -1342,9 +1343,10 @@ dump_immediate_uses (file)
 {
   basic_block bb;
   block_stmt_iterator si;
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
-  if (cfun)
-    fprintf (file, "\nDef-use edges for function %s\n", current_function_name);
+  fprintf (file, "\nDef-use edges for function %s\n", funcname);
 
   FOR_EACH_BB (bb)
     {
@@ -1421,10 +1423,12 @@ dump_dfa_stats (file)
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
   const char * const fmt_str_3 = "%-43s%11lu%c\n";
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
   collect_dfa_stats (&dfa_stats);
 
-  fprintf (file, "\nDFA Statistics for %s\n\n", current_function_name);
+  fprintf (file, "\nDFA Statistics for %s\n\n", funcname);
 
   fprintf (file, "---------------------------------------------------------\n");
   fprintf (file, fmt_str, "", "  Number of  ", "Memory");
@@ -2091,12 +2095,14 @@ dump_alias_info (file)
      FILE *file;
 {
   size_t i, j, k;
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
   if (alias_sets == NULL)
     return;
 
   fprintf (file, "\nAlias information for %s: %ld sets\n\n",
-	   current_function_name, (long) VARRAY_ACTIVE_SIZE (alias_sets));
+	   funcname, (long) VARRAY_ACTIVE_SIZE (alias_sets));
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {
