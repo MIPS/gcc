@@ -403,6 +403,7 @@ do {					\
 
 #ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
+#endif
 
 /* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 #undef LIBGCC_SPEC
@@ -413,7 +414,6 @@ do {					\
 	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
 			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
 /* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
-#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
