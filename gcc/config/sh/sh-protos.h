@@ -109,7 +109,7 @@ extern int sh_handle_pragma (int (*)(void), void (*)(int), const char *);
 extern struct rtx_def *get_fpscr_rtx (void);
 extern int sh_media_register_for_return (void);
 extern void sh_expand_prologue (void);
-extern void sh_expand_epilogue (void);
+extern void sh_expand_epilogue (bool);
 extern int sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
@@ -141,5 +141,6 @@ extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
+extern bool sh_promote_prototypes (tree);
 
 #endif /* ! GCC_SH_PROTOS_H */

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -542,10 +542,11 @@ do {								\
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 29
 
-/* Register which holds offset table for position-independent
+/* Register used to address the offset table for position-independent
    data references.  */
+#define PIC_OFFSET_TABLE_REGNUM \
+  (flag_pic ? (TARGET_64BIT ? 27 : 19) : INVALID_REGNUM)
 
-#define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
 /* Function to return the rtx used to save the pic offset table register
@@ -646,7 +647,6 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
    to IN.  If it can be done directly NO_REGS is returned. 
 
   Avoid doing any work for the common case calls.  */
-
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
   ((CLASS == BASE_REG_CLASS && GET_CODE (IN) == REG		\
     && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
@@ -798,7 +798,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   (CUM).words = 0, 							\
   (CUM).incoming = 0,							\
   (CUM).indirect = (FNTYPE) && !(FNDECL),				\
@@ -1109,7 +1109,6 @@ extern int may_call_alloca;
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
 				  gen_reg_rtx (Pmode),			\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\
   else									\
@@ -1141,7 +1140,6 @@ extern int may_call_alloca;
       emit_move_insn (line_length, GEN_INT (MIN_CACHELINE_SIZE));	\
       emit_insn (gen_dcacheflush (start_addr, end_addr, line_length));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, line_length,	\
-				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode),			\
 				  gen_reg_rtx (Pmode)));		\
     }									\
@@ -1223,16 +1221,36 @@ extern int may_call_alloca;
    || GET_CODE (X) == HIGH) 						\
    && (reload_in_progress || reload_completed || ! symbolic_expression_p (X)))
 
-/* Include all constant integers and constant doubles, but not
-   floating-point, except for floating-point zero.
+/* A C expression that is nonzero if we are using the new HP assembler.  */
 
-   Reject LABEL_REFs if we're not using gas or the new HP assembler. 
-
-   ?!? For now also reject CONST_DOUBLES in 64bit mode.  This will need
-   further work.  */
 #ifndef NEW_HP_ASSEMBLER
 #define NEW_HP_ASSEMBLER 0
 #endif
+
+/* The macros below define the immediate range for CONST_INTS on
+   the 64-bit port.  Constants in this range can be loaded in three
+   instructions using a ldil/ldo/depdi sequence.  Constants outside
+   this range are forced to the constant pool prior to reload.  */
+
+#define MAX_LEGIT_64BIT_CONST_INT ((HOST_WIDE_INT) 32 << 31)
+#define MIN_LEGIT_64BIT_CONST_INT ((HOST_WIDE_INT) -32 << 31)
+#define LEGITIMATE_64BIT_CONST_INT_P(X) \
+  ((X) >= MIN_LEGIT_64BIT_CONST_INT && (X) < MAX_LEGIT_64BIT_CONST_INT)
+
+/* A C expression that is nonzero if X is a legitimate constant for an
+   immediate operand.
+
+   We include all constant integers and constant doubles, but not
+   floating-point, except for floating-point zero.  We reject LABEL_REFs
+   if we're not using gas or the new HP assembler. 
+
+   In 64-bit mode, we reject CONST_DOUBLES.  We also reject CONST_INTS
+   that need more than three instructions to load prior to reload.  This
+   limit is somewhat arbitrary.  It takes three instructions to load a
+   CONST_INT from memory but two are memory accesses.  It may be better
+   to increase the allowed range for CONST_INTS.  We may also be able
+   to handle CONST_DOUBLES.  */
+
 #define LEGITIMATE_CONSTANT_P(X)				\
   ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT			\
     || (X) == CONST0_RTX (GET_MODE (X)))			\
@@ -1240,8 +1258,8 @@ extern int may_call_alloca;
    && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE)		\
    && !(TARGET_64BIT && GET_CODE (X) == CONST_INT		\
 	&& !(HOST_BITS_PER_WIDE_INT <= 32			\
-	     || (INTVAL (X) >= (HOST_WIDE_INT) -32 << 31	\
-		 && INTVAL (X) < (HOST_WIDE_INT) 32 << 31)	\
+	     || (reload_in_progress || reload_completed)	\
+	     || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))	\
 	     || cint_ok_for_move (INTVAL (X))))			\
    && !function_label_operand (X, VOIDmode))
 
@@ -1286,7 +1304,7 @@ extern int may_call_alloca;
 
    `S' is the constant 31.
 
-   `T' is for fp loads and stores.
+   `T' is for floating-point loads and stores.
 
    `U' is the constant 63.  */
 
@@ -1309,17 +1327,20 @@ extern int may_call_alloca;
       (GET_CODE (OP) == MEM						\
        && !IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0))				\
        && !IS_INDEX_ADDR_P (XEXP (OP, 0))				\
-       /* Using DFmode forces only short displacements			\
-	  to be recognized as valid in reg+d addresses. 		\
-	  However, this is not necessary for PA2.0 since		\
-	  it has long FP loads/stores.					\
+       /* Floating-point loads and stores are used to load		\
+	  integer values as well as floating-point values.		\
+	  They don't have the same set of REG+D address modes		\
+	  as integer loads and stores.  PA 1.x supports only		\
+	  short displacements.  PA 2.0 supports long displacements	\
+	  but the base register needs to be aligned.			\
 									\
-	  FIXME: the ELF32 linker clobbers the LSB of			\
-	  the FP register number in {fldw,fstw} insns.			\
-	  Thus, we only allow long FP loads/stores on			\
-	  TARGET_64BIT.  */						\
-       && memory_address_p ((TARGET_PA_20 && !TARGET_ELF32		\
-			     ? GET_MODE (OP)				\
+	  The checks in GO_IF_LEGITIMATE_ADDRESS for SFmode and		\
+	  DFmode test the validity of an address for use in a		\
+	  floating point load or store.  So, we use SFmode/DFmode	\
+	  to see if the address is valid for a floating-point		\
+	  load/store operation.  */					\
+       && memory_address_p ((GET_MODE_SIZE (GET_MODE (OP)) == 4		\
+			     ? SFmode					\
 			     : DFmode),					\
 			    XEXP (OP, 0)))				\
    : ((C) == 'S' ?							\
@@ -1425,6 +1446,15 @@ extern int may_call_alloca;
 #define VAL_14_BITS_P(X) ((unsigned HOST_WIDE_INT)(X) + 0x2000 < 0x4000)
 #define INT_14_BITS(X) VAL_14_BITS_P (INTVAL (X))
 
+#if HOST_BITS_PER_WIDE_INT > 32
+#define VAL_32_BITS_P(X) \
+  ((unsigned HOST_WIDE_INT)(X) + ((unsigned HOST_WIDE_INT) 1 << 31)    \
+   < (unsigned HOST_WIDE_INT) 2 << 31)
+#else
+#define VAL_32_BITS_P(X) 1
+#endif
+#define INT_32_BITS(X) VAL_32_BITS_P (INTVAL (X))
+
 /* These are the modes that we allow for scaled indexing.  */
 #define MODE_OK_FOR_SCALED_INDEXING_P(MODE) \
   ((TARGET_64BIT && (MODE) == DImode)					\
@@ -1460,13 +1490,32 @@ extern int may_call_alloca;
       if (base								\
 	  && GET_CODE (index) == CONST_INT				\
 	  && ((INT_14_BITS (index)					\
-	       && (TARGET_SOFT_FLOAT					\
-		   || (TARGET_PA_20					\
-		       && ((MODE == SFmode				\
-			    && (INTVAL (index) % 4) == 0)		\
-			   || (MODE == DFmode				\
-			       && (INTVAL (index) % 8) == 0)))		\
-		   || ((MODE) != SFmode && (MODE) != DFmode)))		\
+	       && (((MODE) != DImode					\
+		    && (MODE) != SFmode					\
+		    && (MODE) != DFmode)				\
+		   /* The base register for DImode loads and stores	\
+		      with long displacements must be aligned because	\
+		      the lower three bits in the displacement are	\
+		      assumed to be zero.  */				\
+		   || ((MODE) == DImode					\
+		       && (!TARGET_64BIT				\
+			   || (INTVAL (index) % 8) == 0))		\
+		   /* Similarly, the base register for SFmode/DFmode	\
+		      loads and stores with long displacements must	\
+		      be aligned.					\
+									\
+		      FIXME: the ELF32 linker clobbers the LSB of	\
+		      the FP register number in PA 2.0 floating-point	\
+		      insns with long displacements.  This is because	\
+		      R_PARISC_DPREL14WR and other relocations like	\
+		      it are not supported.  For now, we reject long	\
+		      displacements on this target.  */			\
+		   || (((MODE) == SFmode || (MODE) == DFmode)		\
+		       && (TARGET_SOFT_FLOAT				\
+			   || (TARGET_PA_20				\
+			       && !TARGET_ELF32				\
+			       && (INTVAL (index)			\
+				   % GET_MODE_SIZE (MODE)) == 0)))))	\
 	       || INT_5_BITS (index)))					\
 	goto ADDR;							\
       if (!TARGET_DISABLE_INDEXING					\
@@ -1557,14 +1606,13 @@ extern int may_call_alloca;
    There may be more opportunities to improve code with this hook.  */
 #define LEGITIMIZE_RELOAD_ADDRESS(AD, MODE, OPNUM, TYPE, IND, WIN) 	\
 do { 									\
-  int offset, newoffset, mask;						\
+  long offset, newoffset, mask;						\
   rtx new, temp = NULL_RTX;						\
 									\
   mask = (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
 	  ? (TARGET_PA_20 && !TARGET_ELF32 ? 0x3fff : 0x1f) : 0x3fff);	\
 									\
-  if (optimize								\
-      && GET_CODE (AD) == PLUS)						\
+  if (optimize && GET_CODE (AD) == PLUS)				\
     temp = simplify_binary_operation (PLUS, Pmode,			\
 				      XEXP (AD, 0), XEXP (AD, 1));	\
 									\
@@ -1583,16 +1631,19 @@ do { 									\
       else								\
 	newoffset = offset & ~mask;					\
 									\
-      if (newoffset != 0						\
-	  && VAL_14_BITS_P (newoffset))					\
-	{								\
+      /* Ensure that long displacements are aligned.  */		\
+      if (!VAL_5_BITS_P (newoffset)					\
+	  && GET_MODE_CLASS (MODE) == MODE_FLOAT)			\
+	newoffset &= ~(GET_MODE_SIZE (MODE) -1);			\
 									\
+      if (newoffset != 0 && VAL_14_BITS_P (newoffset))			\
+	{								\
 	  temp = gen_rtx_PLUS (Pmode, XEXP (new, 0),			\
 			       GEN_INT (newoffset));			\
 	  AD = gen_rtx_PLUS (Pmode, temp, GEN_INT (offset - newoffset));\
 	  push_reload (XEXP (AD, 0), 0, &XEXP (AD, 0), 0,		\
-			     BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,	\
-			     (OPNUM), (TYPE));				\
+		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,		\
+		       (OPNUM), (TYPE));				\
 	  goto WIN;							\
 	}								\
     }									\

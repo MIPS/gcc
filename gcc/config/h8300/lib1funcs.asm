@@ -816,7 +816,7 @@ L_skip2:
    behavior is undefined anyways.  */
 	.global	___fixunssfsi
 ___fixunssfsi:
-	cmp.b #0x47,r0h
+	cmp.b #0x4f,r0h
 	bge Large_num
 	jmp     @___fixsfsi
 Large_num:

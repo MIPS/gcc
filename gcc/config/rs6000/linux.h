@@ -91,6 +91,8 @@
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#define TARGET_HAS_F_SETLKW
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
@@ -163,6 +165,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
 	}								\
 									\
+    (FS)->regs.reg[CR2_REGNO].how = REG_SAVED_OFFSET;			\
+    (FS)->regs.reg[CR2_REGNO].loc.offset				\
+      = (long)&(sc_->regs->ccr) - new_cfa_;				\
+									\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
@@ -174,3 +180,4 @@ enum { SIGNAL_FRAMESIZE = 64 };
     goto SUCCESS;							\
   } while (0)
 
+#define OS_MISSING_POWERPC64 1

@@ -286,6 +286,11 @@ make_alias_for_thunk (tree function)
   tree alias;
   char buf[256];
 
+#if defined (TARGET_IS_PE_COFF)
+  if (DECL_ONE_ONLY (function))
+    return function;
+#endif
+
   ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
   thunk_labelno++;
   alias = build_decl (FUNCTION_DECL, get_identifier (buf),
@@ -359,7 +364,6 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      this translation unit.  */
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  mark_referenced (DECL_ASSEMBLER_NAME (function));
   if (!emit_p)
     return;
 
@@ -399,7 +403,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
   push_to_top_level ();
 
-#ifdef ASM_OUTPUT_DEF
+#if defined (ASM_OUTPUT_DEF) \
+  && !defined (TARGET_IS_PE_COFF)
   if (targetm.have_named_sections)
     {
       resolve_unique_section (function, 0, flag_function_sections);
@@ -487,6 +492,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	t = tree_cons (NULL_TREE, a, t);
       t = nreverse (t);
       t = build_call (alias, t);
+      CALL_FROM_THUNK_P (t) = 1;
       t = force_target_expr (TREE_TYPE (t), t);
       if (!this_adjusting)
 	t = thunk_adjust (t, /*this_adjusting=*/0,

@@ -1,6 +1,6 @@
 // <bitset> -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -59,12 +59,11 @@
 #include <ostream>     // For ostream (operator<<)
 #include <istream>     // For istream (operator>>)
 
-
 #define _GLIBCXX_BITSET_BITS_PER_WORD  numeric_limits<unsigned long>::digits
 #define _GLIBCXX_BITSET_WORDS(__n) \
  ((__n) < 1 ? 0 : ((__n) + _GLIBCXX_BITSET_BITS_PER_WORD - 1)/_GLIBCXX_BITSET_BITS_PER_WORD)
 
-namespace __gnu_norm
+namespace _GLIBCXX_STD
 {
   /**
    *  @if maint
@@ -291,7 +290,7 @@ namespace __gnu_norm
       ++__prev;
 
       // check out of bounds
-      if ( __prev >= _Nw * _GLIBCXX_BITSET_BITS_PER_WORD )
+      if (__prev >= _Nw * _GLIBCXX_BITSET_BITS_PER_WORD)
 	return __not_found;
 
       // search first word
@@ -299,7 +298,7 @@ namespace __gnu_norm
       _WordT __thisword = _M_w[__i];
 
       // mask off bits below bound
-      __thisword >>= __prev + 1;
+      __thisword &= (~static_cast<_WordT>(0)) << _S_whichbit(__prev);
 
       if (__thisword != static_cast<_WordT>(0))
 	return __i * _GLIBCXX_BITSET_BITS_PER_WORD
@@ -709,7 +708,8 @@ namespace __gnu_norm
 		      size_t __position = 0) : _Base()
       {
 	if (__position > __s.size())
-	  __throw_out_of_range("bitset::bitset initial position not valid");
+	  __throw_out_of_range(__N("bitset::bitset initial position "
+				   "not valid"));
 	_M_copy_from_string(__s, __position,
 			    basic_string<_CharT, _Traits, _Alloc>::npos);
       }
@@ -728,7 +728,8 @@ namespace __gnu_norm
 	     size_t __position, size_t __n) : _Base()
       {
 	if (__position > __s.size())
-	  __throw_out_of_range("bitset::bitset initial position not valid");
+	 __throw_out_of_range(__N("bitset::bitset initial position "
+				  "not valid"));
 	_M_copy_from_string(__s, __position, __n);
       }
 
@@ -1070,7 +1071,8 @@ namespace __gnu_norm
   template<size_t _Nb>
     template<class _CharT, class _Traits, class _Alloc>
     void
-    bitset<_Nb>::_M_copy_from_string(const basic_string<_CharT,_Traits,_Alloc>& __s, size_t __pos, size_t __n)
+    bitset<_Nb>::_M_copy_from_string(const basic_string<_CharT, _Traits,
+				     _Alloc>& __s, size_t __pos, size_t __n)
     {
       reset();
       const size_t __nbits = std::min(_Nb, std::min(__n, __s.size() - __pos));
@@ -1084,7 +1086,7 @@ namespace __gnu_norm
 	      set(__i);
 	      break;
 	    default:
-	      __throw_invalid_argument("bitset::_M_copy_from_string");
+	      __throw_invalid_argument(__N("bitset::_M_copy_from_string"));
 	    }
 	}
     }
@@ -1092,7 +1094,8 @@ namespace __gnu_norm
   template<size_t _Nb>
     template<class _CharT, class _Traits, class _Alloc>
     void
-    bitset<_Nb>::_M_copy_to_string(basic_string<_CharT, _Traits, _Alloc>& __s) const
+    bitset<_Nb>::_M_copy_to_string(basic_string<_CharT, _Traits,
+				   _Alloc>& __s) const
     {
       __s.assign(_Nb, '0');
       for (size_t __i = 0; __i < _Nb; ++__i)
@@ -1214,7 +1217,7 @@ namespace __gnu_norm
       return __os << __tmp;
     }
   //@}
-} // namespace __gnu_norm
+} // namespace std
 
 #undef _GLIBCXX_BITSET_WORDS
 #undef _GLIBCXX_BITSET_BITS_PER_WORD

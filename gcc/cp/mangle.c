@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Alex Samuel <sameul@codesourcery.com>
 
    This file is part of GCC.
@@ -58,6 +58,8 @@
 #include "obstack.h"
 #include "toplev.h"
 #include "varray.h"
+#include "flags.h"
+#include "target.h"
 
 /* Debugging support.  */
 
@@ -688,18 +690,25 @@ write_encoding (const tree decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       tree fn_type;
+      tree d;
 
       if (decl_is_template_id (decl, NULL))
-	fn_type = get_mostly_instantiated_function_type (decl);
+	{
+	  fn_type = get_mostly_instantiated_function_type (decl);
+	  d = NULL_TREE;
+	}
       else
-	fn_type = TREE_TYPE (decl);
+	{
+	  fn_type = TREE_TYPE (decl);
+	  d = decl;
+	}
 
       write_bare_function_type (fn_type, 
 				(!DECL_CONSTRUCTOR_P (decl)
 				 && !DECL_DESTRUCTOR_P (decl)
 				 && !DECL_CONV_FN_P (decl)
 				 && decl_is_template_id (decl, NULL)),
-				decl);
+				d);
     }
 }
 
@@ -1489,12 +1498,24 @@ write_type (tree type)
 	case BOOLEAN_TYPE:
 	case INTEGER_TYPE:  /* Includes wchar_t.  */
 	case REAL_TYPE:
+	{
+	  /* Handle any target-specific fundamental types.  */
+	  const char *target_mangling
+	    = targetm.mangle_fundamental_type (type);
+
+	  if (target_mangling)
+	    {
+	      write_string (target_mangling);
+	      return;
+	    }
+
 	  /* If this is a typedef, TYPE may not be one of
 	     the standard builtin type nodes, but an alias of one.  Use
 	     TYPE_MAIN_VARIANT to get to the underlying builtin type.  */
 	  write_builtin_type (TYPE_MAIN_VARIANT (type));
 	  ++is_builtin_type;
 	  break;
+	}
 
 	case COMPLEX_TYPE:
 	  write_char ('C');
@@ -2109,9 +2130,9 @@ write_template_arg_literal (const tree value)
     {
       if (same_type_p (type, boolean_type_node))
 	{
-	  if (value == boolean_false_node || integer_zerop (value))
+	  if (integer_zerop (value))
 	    write_unsigned_number (0);
-	  else if (value == boolean_true_node)
+	  else if (integer_onep (value))
 	    write_unsigned_number (1);
 	  else 
 	    abort ();

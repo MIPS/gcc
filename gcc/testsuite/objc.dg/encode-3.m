@@ -28,7 +28,7 @@ union __XXAngle { unsigned int alpha, beta; };
 typedef struct { float x, y; union __XXAngle a; } XXPoint;
 typedef struct { double width, height; } XXSize;
 typedef struct _XXRect { XXPoint origin; XXSize size; struct _XXRect *next; } XXRect;
-- (void) char:(char)c float:(float)f double:(double)d unsigned:(unsigned)u short:(short)s long:(long)l;
+- (void) char:(signed char)c float:(float)f double:(double)d unsigned:(unsigned)u short:(short)s long:(long)l;
 - (void *)setRect:(XXRect)r withBool:(ProtoBool)b withInt:(int)i;
 + (Enum *)getEnum:(XXPoint *)pt enum:(enum Enum)e bool:(ObjCBool)b;
 + (ProtoBool **)getBool:(ObjCBool **)b;
@@ -46,8 +46,14 @@ static void scan_initial(const char *pattern) {
 }
 
 int main(void) {
+  const char *string;
+
   meth = [proto descriptionForInstanceMethod: @selector(char:float:double:unsigned:short:long:)];
-  scan_initial("v%u@%u:%uc%uf%ud%uI%us%ul%u");
+  if (sizeof (long) == 8)
+    string = "v%u@%u:%uc%uf%ud%uI%us%uq%u";
+  else
+    string = "v%u@%u:%uc%uf%ud%uI%us%ul%u";
+  scan_initial(string);
   CHECK_IF(offs3 == offs2 + sizeof(int) && offs4 == offs3 + sizeof(float));
   CHECK_IF(offs5 == offs4 + sizeof(double) && offs6 == offs5 + sizeof(unsigned));
   CHECK_IF(offs7 == offs6 + sizeof(int) && totsize == offs7 + sizeof(long));

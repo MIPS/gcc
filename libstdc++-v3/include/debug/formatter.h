@@ -1,6 +1,6 @@
 // Debug-mode error formatting implementation -*- C++ -*-
 
-// Copyright (C) 2003
+// Copyright (C) 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -36,7 +36,7 @@
 
 namespace __gnu_debug
 {
-  using namespace std;
+  using std::type_info;
 
   /** Determine if the two types are the same. */
   template<typename _Type1, typename _Type2>
@@ -189,15 +189,17 @@ namespace __gnu_debug
 	} _M_string;
       } _M_variant;
 
-      _Parameter() : _M_kind(__unused_param) { }
+      _Parameter() : _M_kind(__unused_param), _M_variant() { }
 
-      _Parameter(long __value, const char* __name) : _M_kind(__integer)
+      _Parameter(long __value, const char* __name) 
+      : _M_kind(__integer), _M_variant()
       {
 	_M_variant._M_integer._M_name = __name;
 	_M_variant._M_integer._M_value = __value;
       }
 
-      _Parameter(const char* __value, const char* __name) : _M_kind(__string)
+      _Parameter(const char* __value, const char* __name) 
+      : _M_kind(__string), _M_variant()
       {
 	_M_variant._M_string._M_name = __name;
 	_M_variant._M_string._M_value = __value;
@@ -206,7 +208,7 @@ namespace __gnu_debug
       template<typename _Iterator, typename _Sequence>
         _Parameter(const _Safe_iterator<_Iterator, _Sequence>& __it,
 		   const char* __name, _Is_iterator)
-	: _M_kind(__iterator)
+	: _M_kind(__iterator),  _M_variant()
         {
 	  _M_variant._M_iterator._M_name = __name;
 	  _M_variant._M_iterator._M_address = &__it;
@@ -235,7 +237,7 @@ namespace __gnu_debug
 
       template<typename _Type>
         _Parameter(const _Type*& __it, const char* __name, _Is_iterator)
-	: _M_kind(__iterator)
+        : _M_kind(__iterator), _M_variant()
         {
 	  _M_variant._M_iterator._M_name = __name;
 	  _M_variant._M_iterator._M_address = &__it;
@@ -248,7 +250,7 @@ namespace __gnu_debug
 
       template<typename _Type>
         _Parameter(_Type*& __it, const char* __name, _Is_iterator)
-        : _M_kind(__iterator)
+        : _M_kind(__iterator), _M_variant()
         {
 	  _M_variant._M_iterator._M_name = __name;
 	  _M_variant._M_iterator._M_address = &__it;
@@ -261,7 +263,7 @@ namespace __gnu_debug
 
       template<typename _Iterator>
         _Parameter(const _Iterator& __it, const char* __name, _Is_iterator)
-	: _M_kind(__iterator)
+        : _M_kind(__iterator), _M_variant()
         {
 	  _M_variant._M_iterator._M_name = __name;
 	  _M_variant._M_iterator._M_address = &__it;
@@ -276,7 +278,7 @@ namespace __gnu_debug
       template<typename _Sequence>
         _Parameter(const _Safe_sequence<_Sequence>& __seq,
 		   const char* __name, _Is_sequence)
-	: _M_kind(__sequence)
+        : _M_kind(__sequence), _M_variant()
         {
 	  _M_variant._M_sequence._M_name = __name;
 	  _M_variant._M_sequence._M_address =
@@ -286,7 +288,7 @@ namespace __gnu_debug
 
       template<typename _Sequence>
         _Parameter(const _Sequence& __seq, const char* __name, _Is_sequence)
-	: _M_kind(__sequence)
+        : _M_kind(__sequence), _M_variant()
         {
 	  _M_variant._M_sequence._M_name = __name;
 	  _M_variant._M_sequence._M_address = &__seq;

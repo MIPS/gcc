@@ -77,12 +77,14 @@ public class Socket
   /**
    * The implementation object to which calls are redirected
    */
-  private SocketImpl impl;
+  // package-private because ServerSocket.implAccept() needs to access it.
+  SocketImpl impl;
 
   /**
    * True if socket implementation was created by calling their create() method.
    */
-  private boolean implCreated;
+  // package-private because ServerSocket.implAccept() needs to access it.
+  boolean implCreated;
 
   /**
    * True if the socket is bound.
@@ -420,8 +422,13 @@ public class Socket
     if (! (endpoint instanceof InetSocketAddress))
       throw new IllegalArgumentException("unsupported address type");
 
+    // The Sun spec says that if we have an associated channel and
+    // it is in non-blocking mode, we throw an IllegalBlockingModeException.
+    // However, in our implementation if the channel itself initiated this
+    // operation, then we must honor it regardless of its blocking mode.
     if (getChannel() != null
-        && !getChannel().isBlocking ())
+        && !getChannel().isBlocking ()
+        && !((PlainSocketImpl) getImpl()).isInChannelOperation())
       throw new IllegalBlockingModeException ();
   
     if (!isBound ())

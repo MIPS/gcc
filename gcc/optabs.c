@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3649,6 +3649,16 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       *py = const0_rtx;
       *pmode = result_mode;
       return;
+    }
+
+  /* Don't allow operands to the compare to trap, as that can put the
+     compare and branch in different basic blocks.  */
+  if (flag_non_call_exceptions)
+    {
+      if (may_trap_p (x))
+	x = force_reg (mode, x);
+      if (may_trap_p (y))
+	y = force_reg (mode, y);
     }
 
   *px = x;

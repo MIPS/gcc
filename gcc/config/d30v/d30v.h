@@ -1,5 +1,5 @@
 /* Definitions of target machine for Mitsubishi D30V.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -1216,7 +1216,7 @@ typedef struct d30v_stack {
    being processed.  Thus, each time this macro is called, either LIBNAME or
    FNTYPE is nonzero, but never both of them at once.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   d30v_init_cumulative_args (&CUM, FNTYPE, LIBNAME, FNDECL, FALSE)
 
 /* Like `INIT_CUMULATIVE_ARGS' but overrides it for the purposes of finding the

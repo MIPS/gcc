@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -117,6 +117,19 @@ reload_cse_simplify (rtx insn, rtx testreg)
       int i;
       int count = 0;
       rtx value = NULL_RTX;
+
+      /* Registers mentioned in the clobber list for an asm cannot be reused
+	 within the body of the asm.  Invalidate those registers now so that
+	 we don't try to substitute values for them.  */
+      if (asm_noperands (body) >= 0)
+	{
+	  for (i = XVECLEN (body, 0) - 1; i >= 0; --i)
+	    {
+	      rtx part = XVECEXP (body, 0, i);
+	      if (GET_CODE (part) == CLOBBER && REG_P (XEXP (part, 0)))
+		cselib_invalidate_rtx (XEXP (part, 0));
+	    }
+	}
 
       /* If every action in a PARALLEL is a noop, we can delete
 	 the entire PARALLEL.  */
@@ -423,6 +436,15 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
 		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
 	    ; /* Continue ordinary processing.  */
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	  /* If the register cannot change mode to word_mode, it follows that
+	     it cannot have been used in word_mode.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+						word_mode,
+						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
+	    ; /* Continue ordinary processing.  */
+#endif
 	  /* If this is a straight load, make the extension explicit.  */
 	  else if (GET_CODE (SET_DEST (set)) == REG
 		   && recog_data.n_operands == 2

@@ -1,5 +1,5 @@
 // Methods for type_info for -*- C++ -*- Run Time Type Identification.
-// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation
 //
 // This file is part of GCC.
@@ -200,7 +200,6 @@ struct __class_type_info::__upcast_result
                               // if in vbase the __class_type_info of vbase
                               // if a non-virtual base then 1
                               // else NULL
-  public:
   __upcast_result (int d)
     :dst_ptr (NULL), part2dst (__unknown), src_details (d), base_type (NULL)
     {}
@@ -216,12 +215,17 @@ struct __class_type_info::__dyncast_result
   __sub_kind dst2src;         // path from target to sub object
   int whole_details;          // details of the whole class hierarchy
   
-  public:
   __dyncast_result (int details_ = __vmi_class_type_info::__flags_unknown_mask)
     :dst_ptr (NULL), whole2dst (__unknown),
      whole2src (__unknown), dst2src (__unknown),
      whole_details (details_)
     {}
+
+protected:
+  __dyncast_result(const __dyncast_result&);
+  
+  __dyncast_result&
+  operator=(const __dyncast_result&);
 };
 
 bool __class_type_info::

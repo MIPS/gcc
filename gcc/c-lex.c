@@ -1,6 +1,6 @@
 /* Mainly the interface between cpplib and the C front ends.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,7 +69,6 @@ static tree lex_charconst (const cpp_token *);
 static void update_header_times (const char *);
 static int dump_one_header (splay_tree_node, void *);
 static void cb_line_change (cpp_reader *, const cpp_token *, int);
-static void cb_dir_change (cpp_reader *, const char *);
 static void cb_ident (cpp_reader *, unsigned int, const cpp_string *);
 static void cb_def_pragma (cpp_reader *, unsigned int);
 static void cb_define (cpp_reader *, unsigned int, cpp_hashnode *);
@@ -96,7 +95,6 @@ init_c_lex (void)
   cb = cpp_get_callbacks (parse_in);
 
   cb->line_change = cb_line_change;
-  cb->dir_change = cb_dir_change;
   cb->ident = cb_ident;
   cb->def_pragma = cb_def_pragma;
   cb->valid_pch = c_common_valid_pch;
@@ -202,13 +200,6 @@ cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
   input_line = SOURCE_LINE (map, token->line);
 }
 
-static void
-cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
-{
-  if (! set_src_pwd (dir))
-    warning ("too late for # directive to set debug directory");
-}
-
 void
 fe_file_change (const struct line_map *new_map)
 {
@@ -222,9 +213,7 @@ fe_file_change (const struct line_map *new_map)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (map == NULL)
-	main_input_filename = new_map->to_file;
-      else
+      if (map != NULL)
 	{
           int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
 
@@ -324,7 +313,7 @@ get_nonpadding_token (void)
 }  
 
 int
-c_lex (tree *value)
+c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 {
   const cpp_token *tok;
   location_t atloc;
@@ -436,7 +425,15 @@ c_lex (tree *value)
       c_common_no_more_pch ();
     }
 
+  if (cpp_flags)
+    *cpp_flags = tok->flags;
   return tok->type;
+}
+
+int
+c_lex (tree *value)
+{
+  return c_lex_with_flags (value, NULL);
 }
 
 /* Returns the narrowest C-visible unsigned type, starting with the
