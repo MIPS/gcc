@@ -1,3 +1,22 @@
+2005-02-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3971053
+	* cp/parser.c (cp_parser_unary_expression): Defer 'sizeof' in asm
+	block to cp_parser_cw_asm_postfix_expression.
+	(cp_parser_cw_asm_postfix_expression): Process sizeof here.
+
+	Radar 3971060
+	c-common.c (cw_asm_expr_val): New routine.
+	(print_cw_asm_operand): Call cw_asm_expr_val to evaluate complex
+	numeric expressions used in asm block.
+
+	Radar 3971070
+	gcc/c-parse.in (cw_asm_unary_expr): Error on undeclared type used
+	in sizeof.
+	c-typeck.c (parser_build_binary_op): Check for use of undefined
+	in asm block.
+	cp/typeck.c (build_x_binary_op): Ditto
+
 2005-02-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013 (Part 2)

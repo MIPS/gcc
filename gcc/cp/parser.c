@@ -4786,8 +4786,13 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p)
 
       switch (keyword)
 	{
-	case RID_ALIGNOF:
 	case RID_SIZEOF:
+  	  /* APPLE LOCAL begin CW asm blocks */
+  	  if (cw_asm_block)
+	    break;
+  	  /* APPLE LOCAL end CW asm blocks */
+
+	case RID_ALIGNOF:
 	  {
 	    tree operand;
 	    enum tree_code op;
@@ -5616,6 +5621,15 @@ cp_parser_binary_expression (cp_parser* parser)
           lhs = sp->lhs;
         }
 
+      /* APPLE LOCAL begin CW asm blocks */
+      if (cw_asm_block && TREE_CODE (rhs) == COMPOUND_EXPR)
+	{
+	  gcc_assert (TREE_CODE (TREE_OPERAND (rhs, 1)) == IDENTIFIER_NODE);
+	  lhs = build_x_binary_op (tree_type, lhs, TREE_OPERAND (rhs, 0), &overloaded_p);
+	  lhs = cw_asm_build_register_offset (lhs, TREE_OPERAND (rhs, 1));
+	  return lhs;
+	}
+      /* APPLE LOCAL end CW asm blocks */
       overloaded_p = false;
       lhs = build_x_binary_op (tree_type, lhs, rhs, &overloaded_p);
 
@@ -16574,6 +16588,18 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
   keyword = token->keyword;
   switch (keyword)
     {
+    /* APPLE LOCAL begin CW asm blocks */
+    case RID_SIZEOF:
+      {
+	tree operand;
+	/* Consume the token.  */
+	cp_lexer_consume_token (parser->lexer);
+	/* Parse the operand.  */
+	operand = cp_parser_sizeof_operand (parser, keyword);
+	postfix_expression = cxx_sizeof_or_alignof_type (operand, SIZEOF_EXPR, true);
+	break;
+      }
+    /* APPLE LOCAL end CW asm blocks */
 
     default:
       {

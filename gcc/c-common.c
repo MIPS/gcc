@@ -609,6 +609,7 @@ static GTY(()) varray_type cw_asm_operands_arg;
 static GTY(()) varray_type cw_asm_labels;
 static GTY(()) varray_type cw_asm_labels_uniq;
 
+static int cw_asm_expr_val (tree arg);
 static void print_cw_asm_operand (char *, tree, unsigned, bool, bool);
 static int cw_asm_get_register_var (tree, unsigned, bool);
 /* APPLE LOCAL end CW asm blocks */
@@ -6221,6 +6222,32 @@ cw_asm_field_offset (tree arg)
 	  + tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / BITS_PER_UNIT);
 }
 
+/* Compute the int value for the expression. */
+
+static int
+cw_asm_expr_val (tree arg)
+{
+  if (TREE_CODE (arg) == FIELD_DECL)
+    return cw_asm_field_offset (arg);
+
+  if (TREE_CODE (arg) == INTEGER_CST)
+    return tree_low_cst (arg, 0);
+
+  if (TREE_CODE (arg) == PLUS_EXPR)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+	   + cw_asm_expr_val (TREE_OPERAND (arg, 1));
+
+  if (TREE_CODE (arg) == MINUS_EXPR)
+    return cw_asm_expr_val (TREE_OPERAND (arg, 0)) 
+	   - cw_asm_expr_val (TREE_OPERAND (arg, 1));
+
+  if (TREE_CODE (arg) == NEGATE_EXPR)
+    return - cw_asm_expr_val (TREE_OPERAND (arg, 0));
+
+  error ("invalid operand for arithmetic in assembly block");
+  return 0;
+}
+
 /* Print an operand according to its tree type.  MUST_BE_REG is true,
    iff we know the operand must be a register.  MUST_NOT_BE_REG is true,
    iff we know the operand must not be a register.  */
@@ -6234,8 +6261,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
   tree offset;
   enum machine_mode mode;
   int unsignedp, volatilep;
-  tree op0, op1;
-  int off0 = 0, off1 = 0;
+  tree op0;
 
   STRIP_NOPS (arg);
 
@@ -6306,21 +6332,8 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case PLUS_EXPR:
-      op0 = TREE_OPERAND (arg, 0);
-      if (TREE_CODE (op0) == FIELD_DECL)
-	off0 = cw_asm_field_offset (op0);
-      else if (TREE_CODE (op0) == INTEGER_CST)
-	off0 = tree_low_cst (op0, 0);
-      else
-	error ("invalid operand for arithmetic in assembly block");
-      op1 = TREE_OPERAND (arg, 1);
-      if (TREE_CODE (op1) == FIELD_DECL)
-	off1 = cw_asm_field_offset (op1);
-      else if (TREE_CODE (op1) == INTEGER_CST)
-	off1 = tree_low_cst (op1, 0);
-      else
-	error ("invalid operand for arithmetic in assembly block");
-      sprintf (buf + strlen (buf), "%d", off0 + off1);
+    case MINUS_EXPR:
+      sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
       break;
 
     case FIELD_DECL:

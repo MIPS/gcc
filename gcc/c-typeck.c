@@ -2332,6 +2332,17 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   enum tree_code code1 = arg1.original_code;
   enum tree_code code2 = arg2.original_code;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cw_asm_block 
+      && (TREE_CODE (arg1.value) == IDENTIFIER_NODE
+          || TREE_CODE (arg2.value) == IDENTIFIER_NODE))
+    {
+      result.value = error_mark_node;
+      result.original_code = code;
+      return result;
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   result.value = build_binary_op (code, arg1.value, arg2.value, 1);
   result.original_code = code;
 
