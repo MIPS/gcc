@@ -1547,23 +1547,7 @@ input_operand (rtx op, enum machine_mode mode)
 
   /* Check for valid MEM forms.  */
   if (GET_CODE (op) == MEM)
-    {
-      rtx inside = XEXP (op, 0);
-
-      if (GET_CODE (inside) == LO_SUM)
-	{
-	  /* We can't allow these because all of the splits
-	     (eventually as they trickle down into DFmode
-	     splits) require offsettable memory references.  */
-	  if (! TARGET_V9
-	      && GET_MODE (op) == TFmode)
-	    return 0;
-
-	  return (register_operand (XEXP (inside, 0), Pmode)
-		  && CONSTANT_P (XEXP (inside, 1)));
-	}
-      return memory_address_p (mode, inside);
-    }
+    return memory_address_p (mode, XEXP (op, 0));
 
   return 0;
 }
@@ -3516,15 +3500,14 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       else if ((REG_P (rs1) || GET_CODE (rs1) == SUBREG)
 	       && (REG_P (rs2) || GET_CODE (rs2) == SUBREG))
 	{
-	  /* We prohibit REG + REG for TFmode when there are no instructions
-	     which accept REG+REG instructions.  We do this because REG+REG
-	     is not an offsetable address.  If we get the situation in reload
+	  /* We prohibit REG + REG for TFmode when there are no quad move insns
+	     and we consequently need to split.  We do this because REG+REG
+	     is not an offsettable address.  If we get the situation in reload
 	     where source and destination of a movtf pattern are both MEMs with
 	     REG+REG address, then only one of them gets converted to an
-	     offsetable address.  */
+	     offsettable address.  */
 	  if (mode == TFmode
-	      && !(TARGET_FPU && TARGET_ARCH64 && TARGET_V9
-		   && TARGET_HARD_QUAD))
+	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
 	    return 0;
 
 	  /* We prohibit REG + REG on ARCH32 if not optimizing for
@@ -3557,10 +3540,25 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
 	return 0;
 
-      /* We can't allow TFmode, because an offset greater than or equal to the
-         alignment (8) may cause the LO_SUM to overflow if !v9.  */
-      if (mode == TFmode && !TARGET_V9)
-	return 0;
+      if (USE_AS_OFFSETABLE_LO10)
+	{
+	  /* We can't allow TFmode, because an offset greater than or equal to
+	     the alignment (8) may cause the LO_SUM to overflow if !v9.  */
+	  if (mode == TFmode && ! TARGET_V9)
+	    return 0;
+	}
+      else
+        {
+	  /* We prohibit LO_SUM for TFmode when there are no quad move insns
+	     and we consequently need to split.  We do this because LO_SUM
+	     is not an offsettable address.  If we get the situation in reload
+	     where source and destination of a movtf pattern are both MEMs with
+	     LO_SUM address, then only one of them gets converted to an
+	     offsettable address.  */
+	  if (mode == TFmode
+	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
+	    return 0;
+	}
     }
   else if (GET_CODE (addr) == CONST_INT && SMALL_INT (addr))
     return 1;
@@ -6024,7 +6022,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   bool indirect;
   tree ptrtype = build_pointer_type (type);
 
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, 0))
+  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
       indirect = true;
       size = rsize = UNITS_PER_WORD;
@@ -6044,7 +6042,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	    align = 2 * UNITS_PER_WORD;
 
 	  /* SPARC-V9 ABI states that structures up to 16 bytes in size
-	     are given whole slots as needed.  */
+	     are left-justified in their slots.  */
 	  if (AGGREGATE_TYPE_P (type))
 	    {
 	      if (size == 0)
@@ -6074,7 +6072,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if (indirect)
     {
       addr = fold_convert (build_pointer_type (ptrtype), addr);
-      addr = build_fold_indirect_ref (addr);
+      addr = build_va_arg_indirect_ref (addr);
     }
   /* If the address isn't aligned properly for the type,
      we may need to copy to a temporary.  
@@ -6103,7 +6101,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = build2 (MODIFY_EXPR, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
-  return build_fold_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 /* Return the string to output an unconditional branch to LABEL, which is
@@ -8543,7 +8541,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit a regular sibcall below, so we need to instruct
 	 output_sibcall that we are in a leaf function.  */
-      sparc_leaf_function_p = 1;
+      sparc_leaf_function_p = current_function_uses_only_leaf_regs = 1;
 
       /* This will cause final.c to invoke leaf_renumber_regs so we
 	 must behave as if we were in a not-yet-leafified function.  */
@@ -8553,7 +8551,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit the sibcall manually below, so we will need to
 	 manually spill non-leaf registers.  */
-      sparc_leaf_function_p = 0;
+      sparc_leaf_function_p = current_function_uses_only_leaf_regs = 0;
 
       /* We really are in a leaf function.  */
       int_arg_first = SPARC_OUTGOING_INT_ARG_FIRST;

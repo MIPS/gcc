@@ -195,9 +195,9 @@ enum processor_flags s390_arch_flags;
 const char *s390_tune_string;		/* for -mtune=<xxx> */
 const char *s390_arch_string;		/* for -march=<xxx> */
 
-/* String to specify backchain mode.  */
-const char *s390_backchain_string = ""; /* "" no-backchain ,"1" backchain,
-					   "2" kernel-backchain */
+/* String to specify backchain mode: 
+   "" no-backchain, "1" backchain, "2" kernel-backchain.  */
+const char *s390_backchain_string = TARGET_DEFAULT_BACKCHAIN;
 
 const char *s390_warn_framesize_string;
 const char *s390_warn_dynamicstack_string;
@@ -279,7 +279,6 @@ static int s390_match_ccmode_set (rtx, enum machine_mode);
 static int s390_branch_condition_mask (rtx);
 static const char *s390_branch_condition_mnemonic (rtx, int);
 static int check_mode (rtx, enum machine_mode *);
-static int general_s_operand (rtx, enum machine_mode, int);
 static int s390_short_displacement (rtx);
 static int s390_decompose_address (rtx, struct s390_address *);
 static rtx get_thread_pointer (void);
@@ -1167,6 +1166,27 @@ s390_logical_operator_ok_p (rtx *operands)
   return true;
 }
 
+/* Narrow logical operation CODE of memory operand MEMOP with immediate
+   operand IMMOP to switch from SS to SI type instructions.  */
+
+void
+s390_narrow_logical_operator (enum rtx_code code, rtx *memop, rtx *immop)
+{
+  int def = code == AND ? -1 : 0;
+  HOST_WIDE_INT mask;
+  int part;
+
+  gcc_assert (GET_CODE (*memop) == MEM);
+  gcc_assert (!MEM_VOLATILE_P (*memop));
+
+  mask = s390_extract_part (*immop, QImode, def);
+  part = s390_single_part (*immop, GET_MODE (*memop), QImode, def);
+  gcc_assert (part >= 0);
+
+  *memop = adjust_address (*memop, QImode, part);
+  *immop = gen_int_mode (mask, QImode);
+}
+
 
 /* Change optimizations to be performed, depending on the
    optimization level.
@@ -1423,15 +1443,12 @@ larl_operand (register rtx op, enum machine_mode mode)
   return 0;
 }
 
-/* Helper routine to implement s_operand and s_imm_operand.
+/* Return true if OP is a valid S-type operand.
    OP is the current operation.
-   MODE is the current operation mode.
-   ALLOW_IMMEDIATE specifies whether immediate operands should
-   be accepted or not.  */
+   MODE is the current operation mode.  */
 
-static int
-general_s_operand (register rtx op, enum machine_mode mode,
-		   int allow_immediate)
+int
+s_operand (rtx op, enum machine_mode mode)
 {
   struct s390_address addr;
 
@@ -1447,58 +1464,49 @@ general_s_operand (register rtx op, enum machine_mode mode,
       && GET_CODE (SUBREG_REG (op)) == MEM)
     op = SUBREG_REG (op);
 
+  if (GET_CODE (op) != MEM)
+    return 0;
+  if (!s390_decompose_address (XEXP (op, 0), &addr))
+    return 0;
+  if (addr.indx)
+    return 0;
+
+  return 1;
+}
+
+/* Return true if OP is a memory operand pointing to the
+   literal pool, or an immediate operand.  */
+
+bool
+s390_pool_operand (rtx op)
+{
+  struct s390_address addr;
+
+  /* Just like memory_operand, allow (subreg (mem ...))
+     after reload.  */
+  if (reload_completed
+      && GET_CODE (op) == SUBREG
+      && GET_CODE (SUBREG_REG (op)) == MEM)
+    op = SUBREG_REG (op);
+
   switch (GET_CODE (op))
     {
-      /* Constants are OK as s-operand if ALLOW_IMMEDIATE
-	 is true and we are still before reload.  */
-      case CONST_INT:
-      case CONST_DOUBLE:
-	if (!allow_immediate || reload_completed)
-	  return 0;
-	return 1;
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return true;
 
-      /* Memory operands are OK unless they already use an
-	 index register.  */
-      case MEM:
-	if (!s390_decompose_address (XEXP (op, 0), &addr))
-	  return 0;
-	if (addr.indx)
-	  return 0;
-	/* Do not allow literal pool references unless ALLOW_IMMEDIATE
-	   is true.  This prevents compares between two literal pool
-	   entries from being accepted.  */
-	if (!allow_immediate
-	    && addr.base && REGNO (addr.base) == BASE_REGNUM)
-	  return 0;
-	return 1;
+    case MEM:
+      if (!s390_decompose_address (XEXP (op, 0), &addr))
+	return false;
+      if (addr.base && REG_P (addr.base) && REGNO (addr.base) == BASE_REGNUM)
+	return true;
+      if (addr.indx && REG_P (addr.indx) && REGNO (addr.indx) == BASE_REGNUM)
+	return true;
+      return false;
 
-      default:
-	break;
+    default:
+      return false;
     }
-
-  return 0;
-}
-
-/* Return true if OP is a valid S-type operand.
-   OP is the current operation.
-   MODE is the current operation mode.  */
-
-int
-s_operand (register rtx op, enum machine_mode mode)
-{
-  return general_s_operand (op, mode, 0);
-}
-
-/* Return true if OP is a valid S-type operand or an immediate
-   operand that can be addressed as S-type operand by forcing
-   it into the literal pool.
-   OP is the current operation.
-   MODE is the current operation mode.  */
-
-int
-s_imm_operand (register rtx op, enum machine_mode mode)
-{
-  return general_s_operand (op, mode, 1);
 }
 
 /* Return true if OP a valid shift count operand.
@@ -1576,6 +1584,21 @@ s390_extra_constraint_str (rtx op, int c, const char * str)
 
   if (c != str[0])
     abort ();
+
+  /* Check for offsettable variants of memory constraints.  */
+  if (c == 'A')
+    {
+      /* Only accept non-volatile MEMs.  */
+      if (!MEM_P (op) || MEM_VOLATILE_P (op))
+	return 0;
+
+      if ((reload_completed || reload_in_progress)
+	  ? !offsettable_memref_p (op)
+	  : !offsettable_nonstrict_memref_p (op))
+	return 0;
+
+      c = str[1];
+    }
 
   switch (c)
     {
@@ -1671,7 +1694,7 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
 {
   enum machine_mode mode, part_mode;
   int def;
-  unsigned char part;
+  int part, part_goal;
 
   if (c != str[0])
     abort ();
@@ -1695,7 +1718,10 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
       return value == 2147483647;
 
     case 'N':
-      part = str[1] - '0';
+      if (str[1] == 'x')
+	part_goal = -1;
+      else
+	part_goal = str[1] - '0';
 
       switch (str[2])
 	{
@@ -1722,7 +1748,10 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
       if (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (part_mode))
 	return 0;
 
-      if (s390_single_part (GEN_INT (value), mode, part_mode, def) != part)
+      part = s390_single_part (GEN_INT (value), mode, part_mode, def);
+      if (part < 0)
+	return 0;
+      if (part_goal != -1 && part_goal != part)
 	return 0;
 
       break;
@@ -6190,8 +6219,9 @@ s390_register_info (int live_regs[])
         cfun_frame_layout.last_save_gpr = 6;
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
-      for (i = 0; i < (TARGET_64BIT ? 4 : 2); i++)
-	cfun_set_fpr_bit (i);
+      if (TARGET_HARD_FLOAT)
+	for (i = 0; i < (TARGET_64BIT ? 4 : 2); i++)
+	  cfun_set_fpr_bit (i);
     }
 
   if (!TARGET_64BIT)
@@ -8373,6 +8403,12 @@ s390_conditional_register_usage (void)
     {
       for (i = 18; i < 20; i++)
 	call_used_regs[i] = call_really_used_regs[i] = 0;
+    }
+
+  if (TARGET_SOFT_FLOAT)
+    {
+      for (i = 16; i < 32; i++)
+	call_used_regs[i] = fixed_regs[i] = 1;
     }
 }
 

@@ -1,3 +1,104 @@
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/16999
+	* gcc.dg/cpp/ident-1.c: New test.
+
+2004-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.c-torture/compile/acc1.c: New.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/darwin-longdouble.c: Include stdlib.h and string.h.
+	* gcc.dg/darwin-abi-2.c: Include stdlib.h.
+
+2004-10-08  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.dg/ultrasp11.c: New test.
+
+2004-10-08  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/doloop-2.c: New test.
+
+2004-10-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/assign-warn-1.c, gcc.dg/assign-warn-2.c: New tests.
+	* gcc.dg/warn-1.c, gcc.dg/noncompile/20020213-1.c,
+	objc.dg/method-9.m: Update expected diagnostics.
+
+2004-10-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/ppc-fsel-3.c: New file.
+	* gcc.dg/ppc-fsel-1.c: Add -fno-trapping-math, update comment.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/intrinsic_verify_1.f90: New test.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/empty_format_1.f90: Remove stray commas.
+
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/intrinsic_mvbits.f90, 
+	gfortran.dg/ishft.f90: Add more tests. Add dg-warning in followup
+	commit.
+
+2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/ext/asm6.C: Remove extraneous semicolon.
+
+2004-10-07  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17115
+	* g++.dg/warn/Winline-4.C: New test.
+
+2004-10-07  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.c-torture/compile/20041007-1.c: New test.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17678
+	* gfortran.dg/use_allocated_1.f90: New test.
+
+2004-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17849
+	* gfortran.fortran-torture/compile/nested.f90: New test
+
+2004-10-06  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/Wconversion-2.c, gcc.dg/func-args-1.c: New tests.
+
+2004-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17368
+	* g++.dg/ext/asm6.C: New test.
+
+2004-10-06  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc.dg/20011119-1.c : Added memory attribute to asm sequence.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	PR libfortran/17709
+	* gfortran.dg/empty_format_1.f90: New test.
+
+2004-10-06  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17568
+	* gfortran.dg/ishft.f90: New test.
+
+	PR fortran/17283
+	* gfortran.fortran-torture/execute/intrinsic_pack.f90: Enable new
+	tests.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/do_1.f90: New test.
+
 2004-10-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.c-torture/execute/builtins/lib/strcpy.c: Don't abort when
@@ -22237,7 +22338,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/compile/labels-2.c: New test.
 
-1999-12-27  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
+1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991227-1.c: New test.
 
@@ -22245,7 +22346,7 @@ Thu Apr 27 15:58:18 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* g++.old-deja/g++.pt/instantiate6.C: Remove excess errors XFAIL.
 
-1999-12-21  Martin von LÃ¶wis  <loewis@informatik.hu-berlin.de>
+1999-12-21  Martin von Löwis  <loewis@informatik.hu-berlin.de>
 
 	* gcc.c-torture/execute/991221-1.c: New test.
 

@@ -55,6 +55,15 @@ enum lvalue_use {
   lv_asm
 };
 
+/* Possible cases of implicit bad conversions.  Used to select
+   diagnostic messages in convert_for_assignment.  */
+enum impl_conv {
+  ic_argpass,
+  ic_assign,
+  ic_init,
+  ic_return
+};
+
 /* The level of nesting inside "__alignof__".  */
 int in_alignof;
 
@@ -81,9 +90,8 @@ static tree default_function_array_conversion (tree);
 static tree lookup_field (tree, tree);
 static tree convert_arguments (tree, tree, tree, tree);
 static tree pointer_diff (tree, tree);
-static tree convert_for_assignment (tree, tree, const char *, tree, tree,
+static tree convert_for_assignment (tree, tree, enum impl_conv, tree, tree,
 				    int);
-static void warn_for_assignment (const char *, const char *, tree, int);
 static tree valid_compound_expr_initializer (tree, tree);
 static void push_string (const char *);
 static void push_member_name (tree);
@@ -1976,7 +1984,7 @@ build_function_call (tree function, tree params)
      function prototype, or apply default promotions.  */
 
   coerced_params
-    = convert_arguments (TYPE_ARG_TYPES (fntype), params, name, fundecl);
+    = convert_arguments (TYPE_ARG_TYPES (fntype), params, function, fundecl);
 
   /* Check that the arguments to the function are valid.  */
 
@@ -2014,7 +2022,8 @@ build_function_call (tree function, tree params)
    It may be 0, if that info is not available.
    It is used only for generating error messages.
 
-   NAME is an IDENTIFIER_NODE or 0.  It is used only for error messages.
+   FUNCTION is a tree for the called function.  It is used only for
+   error messages, where it is formatted with %qE.
 
    This is also where warnings about wrong number of args are generated.
 
@@ -2022,11 +2031,21 @@ build_function_call (tree function, tree params)
    with the elements of the list in the TREE_VALUE slots of those nodes.  */
 
 static tree
-convert_arguments (tree typelist, tree values, tree name, tree fundecl)
+convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 {
   tree typetail, valtail;
   tree result = NULL;
   int parmnum;
+  tree selector;
+
+  /* Change pointer to function to the function itself for
+     diagnostics.  */
+  if (TREE_CODE (function) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL)
+    function = TREE_OPERAND (function, 0);
+
+  /* Handle an ObjC selector specially for diagnostics.  */
+  selector = objc_message_selector ();
 
   /* Scan the given expressions and types, producing individual
      converted arguments and pushing them on RESULT in reverse order.  */
@@ -2037,15 +2056,19 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
     {
       tree type = typetail ? TREE_VALUE (typetail) : 0;
       tree val = TREE_VALUE (valtail);
+      tree rname = function;
+      int argnum = parmnum + 1;
 
       if (type == void_type_node)
 	{
-	  if (name)
-	    error ("too many arguments to function %qs",
-		   IDENTIFIER_POINTER (name));
-	  else
-	    error ("too many arguments to function");
+	  error ("too many arguments to function %qE", function);
 	  break;
+	}
+
+      if (selector && argnum > 2)
+	{
+	  rname = selector;
+	  argnum -= 2;
 	}
 
       /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
@@ -2078,22 +2101,34 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 
 		  if (INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
-		    warn_for_assignment ("%s as integer rather than floating due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as integer "
+			     "rather than floating due to prototype",
+			     argnum, rname);
 		  if (INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
-		    warn_for_assignment ("%s as integer rather than complex due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as integer "
+			     "rather than complex due to prototype",
+			     argnum, rname);
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
-		    warn_for_assignment ("%s as complex rather than floating due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as complex "
+			     "rather than floating due to prototype",
+			     argnum, rname);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
-		    warn_for_assignment ("%s as floating rather than integer due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as floating "
+			     "rather than integer due to prototype",
+			     argnum, rname);
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
-		    warn_for_assignment ("%s as complex rather than integer due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as complex "
+			     "rather than integer due to prototype",
+			     argnum, rname);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
-		    warn_for_assignment ("%s as floating rather than complex due to prototype", (char *) 0, name, parmnum + 1);
+		    warning ("passing argument %d of %qE as floating "
+			     "rather than complex due to prototype",
+			     argnum, rname);
 		  /* ??? At some point, messages should be written about
 		     conversions between complex types, but that's too messy
 		     to do now.  */
@@ -2103,9 +2138,9 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 		      /* Warn if any argument is passed as `float',
 			 since without a prototype it would be `double'.  */
 		      if (formal_prec == TYPE_PRECISION (float_type_node))
-			warn_for_assignment ("%s as %<float%> rather than "
-					     "%<double%> due to prototype",
-					     (char *) 0, name, parmnum + 1);
+			warning ("passing argument %d of %qE as %<float%> "
+				 "rather than %<double%> due to prototype",
+				 argnum, rname);
 		    }
 		  /* Detect integer changing in width or signedness.
 		     These warnings are only activated with
@@ -2123,7 +2158,8 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 			   and the actual arg is that enum type.  */
 			;
 		      else if (formal_prec != TYPE_PRECISION (type1))
-			warn_for_assignment ("%s with different width due to prototype", (char *) 0, name, parmnum + 1);
+			warning ("passing argument %d of %qE with different "
+				 "width due to prototype", argnum, rname);
 		      else if (TYPE_UNSIGNED (type) == TYPE_UNSIGNED (type1))
 			;
 		      /* Don't complain if the formal parameter type
@@ -2149,15 +2185,17 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 			       && TYPE_UNSIGNED (TREE_TYPE (val)))
 			;
 		      else if (TYPE_UNSIGNED (type))
-			warn_for_assignment ("%s as unsigned due to prototype", (char *) 0, name, parmnum + 1);
+			warning ("passing argument %d of %qE as unsigned "
+				 "due to prototype", argnum, rname);
 		      else
-			warn_for_assignment ("%s as signed due to prototype", (char *) 0, name, parmnum + 1);
+			warning ("passing argument %d of %qE as signed "
+				 "due to prototype", argnum, rname);
 		    }
 		}
 
-	      parmval = convert_for_assignment (type, val,
-					        (char *) 0, /* arg passing  */
-						fundecl, name, parmnum + 1);
+	      parmval = convert_for_assignment (type, val, ic_argpass,
+						fundecl, function,
+						parmnum + 1);
 
 	      if (targetm.calls.promote_prototypes (fundecl ? TREE_TYPE (fundecl) : 0)
 		  && INTEGRAL_TYPE_P (type)
@@ -2180,13 +2218,7 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
     }
 
   if (typetail != 0 && TREE_VALUE (typetail) != void_type_node)
-    {
-      if (name)
-	error ("too few arguments to function %qs",
-	       IDENTIFIER_POINTER (name));
-      else
-	error ("too few arguments to function");
-    }
+    error ("too few arguments to function %qE", function);
 
   return nreverse (result);
 }
@@ -3362,7 +3394,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   /* Convert new value to destination type.  */
 
-  newrhs = convert_for_assignment (lhstype, newrhs, _("assignment"),
+  newrhs = convert_for_assignment (lhstype, newrhs, ic_assign,
 				   NULL_TREE, NULL_TREE, 0);
   if (TREE_CODE (newrhs) == ERROR_MARK)
     return error_mark_node;
@@ -3379,7 +3411,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   if (olhstype == TREE_TYPE (result))
     return result;
-  return convert_for_assignment (olhstype, result, _("assignment"),
+  return convert_for_assignment (olhstype, result, ic_assign,
 				 NULL_TREE, NULL_TREE, 0);
 }
 
@@ -3388,21 +3420,63 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
    The real work of conversion is done by `convert'.
    The purpose of this function is to generate error messages
    for assignments that are not allowed in C.
-   ERRTYPE is a string to use in error messages:
-   "assignment", "return", etc.  If it is null, this is parameter passing
-   for a function call (and different error messages are output).
+   ERRTYPE says whether it is argument passing, assignment,
+   initialization or return.
 
-   FUNNAME is the name of the function being called,
-   as an IDENTIFIER_NODE, or null.
+   FUNCTION is a tree for the function being called.
    PARMNUM is the number of the argument, for printing in error messages.  */
 
 static tree
-convert_for_assignment (tree type, tree rhs, const char *errtype,
-			tree fundecl, tree funname, int parmnum)
+convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
+			tree fundecl, tree function, int parmnum)
 {
   enum tree_code codel = TREE_CODE (type);
   tree rhstype;
   enum tree_code coder;
+  tree rname = NULL_TREE;
+
+  if (errtype == ic_argpass)
+    {
+      tree selector;
+      /* Change pointer to function to the function itself for
+	 diagnostics.  */
+      if (TREE_CODE (function) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL)
+	function = TREE_OPERAND (function, 0);
+
+      /* Handle an ObjC selector specially for diagnostics.  */
+      selector = objc_message_selector ();
+      rname = function;
+      if (selector && parmnum > 2)
+	{
+	  rname = selector;
+	  parmnum -= 2;
+	}
+    }
+
+  /* This macro is used to emit diagnostics to ensure that all format
+     strings are complete sentences, visible to gettext and checked at
+     compile time.  */
+#define WARN_FOR_ASSIGNMENT(AR, AS, IN, RE)	\
+  do {						\
+    switch (errtype)				\
+      {						\
+      case ic_argpass:				\
+	pedwarn (AR, parmnum, rname);		\
+	break;					\
+      case ic_assign:				\
+	pedwarn (AS);				\
+	break;					\
+      case ic_init:				\
+	pedwarn (IN);				\
+	break;					\
+      case ic_return:				\
+	pedwarn (RE);				\
+	break;					\
+      default:					\
+	gcc_unreachable ();			\
+      }						\
+  } while (0)
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   /* Do not use STRIP_NOPS here.  We do not want an enumerator
@@ -3479,7 +3553,8 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 
   /* Conversion to a transparent union from its member types.
      This applies only to function arguments.  */
-  else if (codel == UNION_TYPE && TYPE_TRANSPARENT_UNION (type) && !errtype)
+  else if (codel == UNION_TYPE && TYPE_TRANSPARENT_UNION (type)
+	   && errtype == ic_argpass)
     {
       tree memb_types;
       tree marginal_memb_type = 0;
@@ -3554,13 +3629,27 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		     function where an ordinary one is wanted, but not
 		     vice-versa.  */
 		  if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		    warn_for_assignment ("%s makes qualified function pointer from unqualified",
-					 errtype, funname, parmnum);
+		    WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE "
+					    "makes qualified function "
+					    "pointer from unqualified"),
+					 N_("assignment makes qualified "
+					    "function pointer from "
+					    "unqualified"),
+					 N_("initialization makes qualified "
+					    "function pointer from "
+					    "unqualified"),
+					 N_("return makes qualified function "
+					    "pointer from unqualified"));
 		}
 	      else if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
-		warn_for_assignment ("%s discards qualifiers from pointer target type",
-				     errtype, funname,
-				     parmnum);
+		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
+					"qualifiers from pointer target type"),
+				     N_("assignment discards qualifiers "
+					"from pointer target type"),
+				     N_("initialization discards qualifiers "
+					"from pointer target type"),
+				     N_("return discards qualifiers from "
+					"pointer target type"));
 	    }
 
 	  if (pedantic && !DECL_IN_SYSTEM_HEADER (fundecl))
@@ -3602,17 +3691,29 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		      which are not ANSI null ptr constants.  */
 		   && (!integer_zerop (rhs) || TREE_CODE (rhs) == NOP_EXPR)
 		   && TREE_CODE (ttl) == FUNCTION_TYPE)))
-	    warn_for_assignment ("ISO C forbids %s between function "
-				 "pointer and %<void *%>",
-				 errtype, funname, parmnum);
+	    WARN_FOR_ASSIGNMENT (N_("ISO C forbids passing argument %d of "
+				    "%qE between function pointer "
+				    "and %<void *%>"),
+				 N_("ISO C forbids assignment between "
+				    "function pointer and %<void *%>"),
+				 N_("ISO C forbids initialization between "
+				    "function pointer and %<void *%>"),
+				 N_("ISO C forbids return between function "
+				    "pointer and %<void *%>"));
 	  /* Const and volatile mean something different for function types,
 	     so the usual warnings are not appropriate.  */
 	  else if (TREE_CODE (ttr) != FUNCTION_TYPE
 		   && TREE_CODE (ttl) != FUNCTION_TYPE)
 	    {
 	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
-		warn_for_assignment ("%s discards qualifiers from pointer target type",
-				     errtype, funname, parmnum);
+		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE discards "
+					"qualifiers from pointer target type"),
+				     N_("assignment discards qualifiers "
+					"from pointer target type"),
+				     N_("initialization discards qualifiers "
+					"from pointer target type"),
+				     N_("return discards qualifiers from "
+					"pointer target type"));
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
@@ -3620,8 +3721,14 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else
-		warn_for_assignment ("pointer targets in %s differ in signedness",
-				     errtype, funname, parmnum);
+		WARN_FOR_ASSIGNMENT (N_("pointer targets in passing argument "
+					"%d of %qE differ in signedness"),
+				     N_("pointer targets in assignment "
+					"differ in signedness"),
+				     N_("pointer targets in initialization "
+					"differ in signedness"),
+				     N_("pointer targets in return differ "
+					"in signedness"));
 	    }
 	  else if (TREE_CODE (ttl) == FUNCTION_TYPE
 		   && TREE_CODE (ttr) == FUNCTION_TYPE)
@@ -3631,13 +3738,24 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 		 it is okay to use a const or volatile function
 		 where an ordinary one is wanted, but not vice-versa.  */
 	      if (TYPE_QUALS (ttl) & ~TYPE_QUALS (ttr))
-		warn_for_assignment ("%s makes qualified function pointer from unqualified",
-				     errtype, funname, parmnum);
+		WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes "
+					"qualified function pointer "
+					"from unqualified"),
+				     N_("assignment makes qualified function "
+					"pointer from unqualified"),
+				     N_("initialization makes qualified "
+					"function pointer from unqualified"),
+				     N_("return makes qualified function "
+					"pointer from unqualified"));
 	    }
 	}
       else
-	warn_for_assignment ("%s from incompatible pointer type",
-			     errtype, funname, parmnum);
+	WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE from "
+				"incompatible pointer type"),
+			     N_("assignment from incompatible pointer type"),
+			     N_("initialization from incompatible "
+				"pointer type"),
+			     N_("return from incompatible pointer type"));
       return convert (type, rhs);
     }
   else if (codel == POINTER_TYPE && coder == ARRAY_TYPE)
@@ -3656,39 +3774,49 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	    && TREE_CODE (TREE_TYPE (rhs)) == INTEGER_TYPE
 	    && TREE_CODE (TREE_OPERAND (rhs, 0)) == INTEGER_CST
 	    && integer_zerop (TREE_OPERAND (rhs, 0))))
-	  warn_for_assignment ("%s makes pointer from integer without a cast",
-			       errtype, funname, parmnum);
+	WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes "
+				"pointer from integer without a cast"),
+			     N_("assignment makes pointer from integer "
+				"without a cast"),
+			     N_("initialization makes pointer from "
+				"integer without a cast"),
+			     N_("return makes pointer from integer "
+				"without a cast"));
 
       return convert (type, rhs);
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
-      warn_for_assignment ("%s makes integer from pointer without a cast",
-			   errtype, funname, parmnum);
+      WARN_FOR_ASSIGNMENT (N_("passing argument %d of %qE makes integer "
+			      "from pointer without a cast"),
+			   N_("assignment makes integer from pointer "
+			      "without a cast"),
+			   N_("initialization makes integer from pointer "
+			      "without a cast"),
+			   N_("return makes integer from pointer "
+			      "without a cast"));
       return convert (type, rhs);
     }
   else if (codel == BOOLEAN_TYPE && coder == POINTER_TYPE)
     return convert (type, rhs);
 
-  if (!errtype)
+  switch (errtype)
     {
-      if (funname)
-	{
-	  tree selector = objc_message_selector ();
-
-	  if (selector && parmnum > 2)
-	    error ("incompatible type for argument %d of %qs",
-		   parmnum - 2, IDENTIFIER_POINTER (selector));
-	  else
-	    error ("incompatible type for argument %d of %qs",
-		   parmnum, IDENTIFIER_POINTER (funname));
-	}
-      else
-	error ("incompatible type for argument %d of indirect function call",
-	       parmnum);
+    case ic_argpass:
+      error ("incompatible type for argument %d of %qE", parmnum, rname);
+      break;
+    case ic_assign:
+      error ("incompatible types in assignment");
+      break;
+    case ic_init:
+      error ("incompatible types in initialization");
+      break;
+    case ic_return:
+      error ("incompatible types in return");
+      break;
+    default:
+      gcc_unreachable ();
     }
-  else
-    error ("incompatible types in %s", errtype);
 
   return error_mark_node;
 }
@@ -3709,55 +3837,13 @@ c_convert_parm_for_inlining (tree parm, tree value, tree fn, int argnum)
 
   type = TREE_TYPE (parm);
   ret = convert_for_assignment (type, value,
-				(char *) 0 /* arg passing  */, fn,
-				DECL_NAME (fn), argnum);
+				ic_argpass, fn,
+				fn, argnum);
   if (targetm.calls.promote_prototypes (TREE_TYPE (fn))
       && INTEGRAL_TYPE_P (type)
       && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
     ret = default_conversion (ret);
   return ret;
-}
-
-/* Print a warning using MSGID.
-   It gets OPNAME as its one parameter.
-   If OPNAME is null, it is replaced by "passing arg ARGNUM of 'FUNCTION'".
-   FUNCTION and ARGNUM are handled specially if we are building an
-   Objective-C selector.  */
-
-static void
-warn_for_assignment (const char *msgid, const char *opname, tree function,
-		     int argnum)
-{
-  if (opname == 0)
-    {
-      tree selector = objc_message_selector ();
-      char * new_opname;
-
-      if (selector && argnum > 2)
-	{
-	  function = selector;
-	  argnum -= 2;
-	}
-      gcc_assert (argnum > 0);
-      if (function)
-	{
-	  /* Function name is known; supply it.  */
-	  const char *const argstring = _("passing arg %d of '%s'");
-	  new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
-			       + strlen (argstring) + 1 + 25 /*%d*/ + 1);
-	  sprintf (new_opname, argstring, argnum,
-		   IDENTIFIER_POINTER (function));
-	}
-      else
-	{
-	  /* Function name unknown (call through ptr); just give arg number.  */
-	  const char *const argnofun = _("passing arg %d of pointer to function");
-	  new_opname = (char *) alloca (strlen (argnofun) + 1 + 25 /*%d*/ + 1);
-	  sprintf (new_opname, argnofun, argnum);
-	}
-      opname = new_opname;
-    }
-  pedwarn (msgid, opname);
 }
 
 /* If VALUE is a compound expr all of whose expressions are constant, then
@@ -4226,7 +4312,7 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	 for arrays and functions.  We must not call it in the
 	 case where inside_init is a null pointer constant.  */
       inside_init
-	= convert_for_assignment (type, init, _("initialization"),
+	= convert_for_assignment (type, init, ic_init,
 				  NULL_TREE, NULL_TREE, 0);
 
       /* Check to see if we have already given an error message.  */
@@ -6366,7 +6452,7 @@ c_finish_return (tree retval)
     }
   else
     {
-      tree t = convert_for_assignment (valtype, retval, _("return"),
+      tree t = convert_for_assignment (valtype, retval, ic_return,
 				       NULL_TREE, NULL_TREE, 0);
       tree res = DECL_RESULT (current_function_decl);
       tree inner;

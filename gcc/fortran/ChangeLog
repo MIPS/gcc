@@ -1,3 +1,37 @@
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17676
+	* resolve.c (resolve_operator): Use correct operator name in message.
+
+2004-10-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* primary.c (match_boz_constant): Allow kind parameter suffixes.
+	Move standard warning further to the front.
+
+2004-10-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* trans-stmt.c: Fix a comment typo.
+
+2004-10-07  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/17678
+	* trans-array.c (gfc_trans_deferred_array): Leave use associated
+	variables alone.
+
+2004-10-06  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17568
+	* simplify.c (twos_complement): New function.
+	(gfc_simplify_ishft, gfc_simplify_ishftc): Revise.
+
+	* simplify.c (gfc_simplify_abs): Use mpfr_hypot for CABS.
+
+2004-10-06  Paul Brook  <paul@codesourcery.com>
+
+	* trans-stmt.c (gfc_trans_simple_do): New function.
+	(gfc_trans_do): Use it.  Evaluate iteration bounds before entering
+	loop.  Update comments.
+
 2004-10-04  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/17283

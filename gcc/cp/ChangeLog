@@ -1,3 +1,100 @@
+2004-10-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* pt.c, search.c: Fix comment typos.
+
+2004-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (dfs_walk, dfs_walk_real, dfs_unmark, markedp,
+	unmarkedp): Remove.
+	(dfs_skip_bases, dfs_walk_all, dfs_walk_once): New.
+	* class.c (struct find_final_overrider_data): Remove most_derived,
+	vpath_list and vpath fields.  Add path field.
+	(dfs_find_final_ocerrider_1): Add DEPTH parameter. Adjust.
+	(dfs_find_final_overrider): Rename to ...
+	(dfs_find_final_overrider_pre): ... here. Adjust.
+	(dfs_find_final_overrider_post): Adjust.
+	(dfs_find_final_overrider_q): Fold into
+	dfs_find_final_overrider_pre.
+	(find_final_overrider): Adjust dfs searching.
+	(dfs_modify_vtables): Don't mark binfo here.
+	(modify_all_vtables): Use dfs_walk_once.
+	(build_vtt_inits): Likwise. Use dfs_walk_all.
+	(dfs_build_secondary_vptr_vtt_inits): Don't mark binfo here.
+	Return dfs_skip_bases as appropriate.
+	(dfs_fixup_binfo_vtbls): Return dfs_skip_bases as appropriate.
+	* init.c (dfs_initialized_vtbl_ptrs): Return dfs_skip_bases as
+	appropriate. Don't mark binfo here.
+	(initialize_vtbl_ptrs): Use dfs_walk_once.
+	* search.c (struct vbase_info): Remove unused struct.
+	(access_in_type): Use dfs_walk_once.
+	(dfs_access_in_type): Don't mark binfo here.
+	(dfs_accessible_queue_p, dfs_accessible_p) Remove.
+	Fold into ...
+	(accessible_r): ... here. New. Specialize dfs_walk_once.
+	(accessible_p): Use accessible_r.
+	(lookup_field_queue_p): Remove. Fold into ...
+	(lookup_field_r): ... here. Adjust.
+	(lookup_member): Use dfs_walk_all.
+	(dfs_walk_real, dfs_walk): Replace with ...
+	(dfs_walk_all, dfs_walk_once): ... these.
+	(dfs_walk_once_r, dfs_unmark_r): Workers for dfs_walk_once.
+	(dfs_unmark, unmarkedp, markedp): Remove.
+	(dfs_get_pure_virtuals): Don't mark binfo here.
+	(get_pure_virtuals): Use dfs_walk_once.
+	(dfs_debug_unmarked_p): Remove. Fold into ...
+	(dfs_debug_mark): ... here.
+	(note_debug_info_needed): Use dfs_walk_all.
+
+2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* pt.c (tsubst_expr) <case ASM_EXPR>: Look passed the
+	CLEANUP_POINT_EXPR to get the asm expression.
+
+2004-10-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (ICS_USER_FLAG): Remove comment about obsolete flag.
+	(DECL_MEMBER_TEMPLATE_P): New macro.
+	(is_member_template): Remove.
+	(class_method_index_for_fn): New function.
+	* pt.c (build_over_call): Use DECL_MEMBER_TEMPLATE_P.
+	* class.c (finish_struct_methods): Remove out-of-date comment.
+	* decl.c (copy_fn_p): Use DECL_MBMER_TEMPLATE_P.
+	* decl2.c (check_classfn): Use DECL_MEMBER_TEMPLATE_P and
+	class_method_index_for_fn.
+	* pt.c (is_member_template): Remove.
+	(is_member_template_class): Likewise.
+	(optimize_specialization_lookup_p): New function.
+	(retrieve_specialization): Optimize lookups for members that are
+	not member templates.
+	(register_specialization): Adjust accordingly.
+	(build_template_decl): Add member_template_p parameter.  Set
+	DECL_MEMBER_TEMPLATE_P.
+	(process_partial_specialization): Adjust call to
+	retrieve_specialization.
+	(push_template_decl_real): Determine whether the template is a
+	member template.
+	(lookup_template_class): Use retrieve_specialization.
+	(tsubst_decl): Adjust call to retrieve_specialization.
+	(tsubst_exception_specification): New function.
+	(tsubst): Use it.
+	(tsubst_copy): Use DECL_MEMBER_TEMPLATE_P.
+	(instantiate_template): Adjust call to retrieve_specialization.
+	(regenerate_decl_from_template): Do not actually generate a new
+	DECL.
+	(instantiate_decl): Adjust call to retrieve_specialization.
+	(class_method_index_for_fn): New method.
+
+2004-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parser.c (cp_parser_asm_definition): Look passed the
+	CLEANUP_POINT_EXPR to get the asm expression.
+
+2004-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17368
+	* semantics.c (finish_asm_stmt): Asm expressions need cleanup
+	also.
+
 2004-10-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 6/n
