@@ -286,77 +286,35 @@ static int dump_flags;
 
 /* Loop related functions.  */
 
-static bool loop_is_included_in_rec (unsigned, struct loop *);
 static inline bool stmt_is_in_loop (tree, unsigned);
 
 /* Determines whether STMT is in loop LOOP_NB.  */
 
 static inline bool
-stmt_is_in_loop (tree stmt, 
-		 unsigned loop_nb)
+stmt_is_in_loop (tree stmt, unsigned loop_nb)
 {
-  if (loop_is_included_in (loop_num (loop_of_stmt (stmt)), loop_nb))
-    return true;
-  
-  else
-    return false;
+  return flow_bb_inside_loop_p (loop_from_num (monev_loops, loop_nb),
+				bb_for_stmt (stmt));
 }
 
 /* Determines whether STMT is not contained by the loop LOOP_NB.  */
 
 static inline bool
-stmt_is_not_in_loop (tree stmt, 
-		     unsigned loop_nb)
+stmt_is_not_in_loop (tree stmt, unsigned loop_nb)
 {
   return !stmt_is_in_loop (stmt, loop_nb);
 }
 
-/* Determines whether loop A is contained in loop B.  
-   
-   FIXME: Maybe it would be better to record this information as a bit
-   matrix in the loops structure.  */
+/* Determines whether loop A is contained in loop B.  */
 
-bool
-loop_is_included_in (unsigned a, 
-		     unsigned b)
+static bool
+loop_is_included_in (unsigned a, unsigned b)
 {
-  struct loop *loop_b;
-  
   if (a == b)
     return true;
   
-  /* That's a property of the loops->parray (see the comment in the
-     loops structure).  */
-  if (a < b)
-    return false;
-  
-  loop_b = loop_from_num (monev_loops, b);
-  
-  if (inner_loop (loop_b)
-      && loop_is_included_in_rec (a, inner_loop (loop_b)))
-    return true;
-  
-  return false;
-}
-
-/* Recursively determine whether A is contained in LOOP_B.  */
-
-static bool
-loop_is_included_in_rec (unsigned a, 
-			 struct loop *loop_b)
-{
-  if (loop_num (loop_b) == a)
-    return true;
-  
-  if (inner_loop (loop_b)
-      && loop_is_included_in_rec (a, inner_loop (loop_b)))
-    return true;
-  
-  if (next_loop (loop_b)
-      && loop_is_included_in_rec (a, next_loop (loop_b)))
-    return true;
-  
-  return false;
+  return flow_loop_nested_p (loop_from_num (monev_loops, b),
+			     loop_from_num (monev_loops, a));
 }
 
 

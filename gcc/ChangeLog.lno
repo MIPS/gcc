@@ -1,3 +1,10 @@
+2004-01-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (loop_is_included_in): Declaration removed.
+	* tree-scalar-evolution.c (stmt_is_in_loop, stmt_is_not_in_loop,
+	loop_is_included_in): Use existing functions to implement
+	them.
+
 2004-01-06  Sebastian Pop  <s.pop@laposte.net>
 
 	* cfgloop.h (loop_is_included_in, outer_loop, inner_loop,

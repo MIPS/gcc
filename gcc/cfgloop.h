@@ -345,7 +345,6 @@ enum
 
 extern void unroll_and_peel_loops (struct loops *, int);
 
-extern bool loop_is_included_in (unsigned, unsigned);
 static inline struct loop *loop_from_num (struct loops *, unsigned);
 static inline struct loop *outer_loop (struct loop *);
 static inline struct loop *inner_loop (struct loop *);
