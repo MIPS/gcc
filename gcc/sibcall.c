@@ -580,6 +580,7 @@ optimize_sibling_and_tail_recursive_calls ()
 
   insns = get_insns ();
 
+  delete_trivially_dead_insns (get_insns(), max_reg_num ());
   cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 
   /* If there are no basic blocks, then there is nothing to do.  */

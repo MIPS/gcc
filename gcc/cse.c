@@ -7540,6 +7540,17 @@ count_reg_usage (x, counts, dest, incr)
 		       incr);
       return;
 
+    case CALL_PLACEHOLDER:
+      for (i = 0; i < 3; i++)
+	if (XEXP (x, i) != NULL_RTX)
+	  {
+	    rtx insn;
+
+	    for (insn = XEXP (x, i); insn; insn = NEXT_INSN (insn))
+	      if (INSN_P (insn))
+		count_reg_usage (insn, counts, NULL_RTX, incr);
+	  }
+      return;
     case CALL_INSN:
       count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, NULL_RTX, incr);
       /* Fall through.  */
@@ -7617,6 +7628,8 @@ insn_live_p (insn, counts)
      int *counts;
 {
   int i;
+  if (GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
+    return true;
   if (flag_non_call_exceptions && may_trap_p (PATTERN (insn)))
     return true;
   else if (GET_CODE (PATTERN (insn)) == SET)

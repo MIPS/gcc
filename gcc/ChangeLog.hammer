@@ -1,3 +1,10 @@
+Fri Jun  6 12:08:36 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (cleanup_cfg):  Remove dead code even before sibcall.
+	* cse.c (count_reg_usage): Look into call placeholders.
+	(insn_live_p): Call placeholders are always live.
+	(optimize_sibling_and_tail_recursive_call): Delete trivially dead insns.
+
 Thu Jun  5 22:16:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* profile.c (build_function_info_value):  Fix.

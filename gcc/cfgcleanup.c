@@ -1782,8 +1782,7 @@ cleanup_cfg (mode)
       changed = true;
       /* We've possibly created trivially dead code.  Cleanup it right
 	 now to introduce more oppurtunities for try_optimize_cfg.  */
-      if (!(mode & (CLEANUP_NO_INSN_DEL
-		    | CLEANUP_UPDATE_LIFE | CLEANUP_PRE_SIBCALL))
+      if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_UPDATE_LIFE))
 	  && !reload_completed)
 	delete_trivially_dead_insns (get_insns(), max_reg_num ());
     }
