@@ -13,7 +13,7 @@ free(bar);
 memcpy(foo, bar, 10);
 return 0;
 }
-/* { dg-output "mudflap violation 1.*" } */
+/* { dg-output "mudflap violation 1.*memcpy source.*" } */
 /* { dg-output "Nearby object.*" } */
 /* { dg-output "mudflap object.*malloc region.*alloc time.*dealloc time.*" } */
 /* { dg-do run { xfail *-*-* } } */

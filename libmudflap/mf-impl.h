@@ -10,12 +10,19 @@
    and Graydon Hoare <graydon@redhat.com>
    
    This file is part of GCC.
-
+   XXX: libgcc license?
 */
 
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
 #endif
+
+
+/* Private definitions related to mf-runtime.h  */
+
+#define __MF_TYPE_MAX_CEM  3  /* the largest type stored in the cemetary */
+#define __MF_TYPE_MAX __MF_TYPE_GUESS
+
 
 
 /* Address calculation macros.  */
@@ -45,7 +52,6 @@
 extern void __mf_violation (void *ptr, size_t sz, 
 			    uintptr_t pc, const char *location, 
 			    int type);
-
 extern size_t __mf_backtrace (char ***, void *, unsigned);
 extern void __mf_resolve_dynamics ();
 extern int __mf_heuristic_check (uintptr_t, uintptr_t);
@@ -158,40 +164,13 @@ struct __mf_options
 
 struct __mf_dynamic 
 {
-  void * dyn_bcmp;
-  void * dyn_bcopy;
-  void * dyn_bzero;
   void * dyn_calloc;
   void * dyn_dlopen;
   void * dyn_free;
-  void * dyn_index;
   void * dyn_malloc;
-  void * dyn_memchr;
-  void * dyn_memcmp;
-  void * dyn_memcpy;
-  void * dyn_memmem;
-  void * dyn_memmove;
-  void * dyn_memrchr;
-  void * dyn_memset;
   void * dyn_mmap;
   void * dyn_munmap;
   void * dyn_realloc;
-  void * dyn_rindex;
-  void * dyn_strcasecmp;
-  void * dyn_strcat;
-  void * dyn_strchr;
-  void * dyn_strcmp;
-  void * dyn_strcpy;
-  void * dyn_strdup;
-  void * dyn_strlen;
-  void * dyn_strncasecmp;
-  void * dyn_strncat;
-  void * dyn_strncmp;
-  void * dyn_strncpy;
-  void * dyn_strndup;
-  void * dyn_strnlen;
-  void * dyn_strrchr;
-  void * dyn_strstr;
 };
 
 #endif /* PIC */
@@ -216,10 +195,21 @@ extern struct __mf_dynamic __mf_dynamic;
 #define STRINGIFY(e) STRINGIFY2(e)
 #define VERBOSE_TRACE(...)                         \
   if (UNLIKELY (__mf_opts.verbose_trace)) \
-      fprintf (stderr, __VA_ARGS__);
+    { \
+      enum __mf_state _ts = __mf_state; \
+      __mf_state = reentrant; \
+      fprintf (stderr, __VA_ARGS__); \
+      __mf_state = _ts; \
+    }
 #define TRACE(...)                         \
   if (UNLIKELY (__mf_opts.trace_mf_calls)) \
-      fprintf (stderr, __VA_ARGS__);
+    { \
+      enum __mf_state _ts = __mf_state; \
+      __mf_state = reentrant; \
+      fprintf (stderr, __VA_ARGS__); \
+      __mf_state = _ts; \
+    }
+
 
 #define __MF_PERSIST_MAX 256
 #define __MF_FREEQ_MAX 256
@@ -285,41 +275,9 @@ ret __wrap_ ## fname (__VA_ARGS__)
 
 #endif /* PIC */
 
-
-/* previous incarnation of PIC strategy */
-
-/* 
-#define WRAPPER(fname) fname
-
-#define DECLARE(ty, fname, ...)                  \
- typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__);  \
- static __mf_fn_ ## fname __dynamic_ ## fname = NULL;
-
-#define CALL_REAL(fname, ...)               \
-({                                          \
- if (__dynamic_ ## fname == NULL)           \
- {                                          \
-  enum __mf_state prev_state;               \
-  prev_state = __mf_state;                  \
-  __mf_state = active;                      \
-  char *err = NULL;                         \
-  __dynamic_ ## fname = (__mf_fn_ ## fname) dlsym (RTLD_NEXT, #fname);   \
-  err = dlerror ();                         \
-  if (err != NULL)                          \
-  {                                         \
-    fprintf (stderr, "mf: error dlsym(" STRINGIFY(fname) ") failed: %s\n", err); \
-    abort ();                               \
-  }                                         \
-    else if (__dynamic_ ## fname == NULL)            \
-  {                                         \
-    fprintf (stderr, "mf: error dlsym(" STRINGIFY(fname) ") returned null\n"); \
-    abort ();                               \
-  }                                         \
-  __mf_state = prev_state;                  \
- }                                          \
- (*__dynamic_ ## fname) (__VA_ARGS__);      \
-})
- */
+/* WRAPPER2 is for functions intercepted via macros at compile time. */
+#define WRAPPER2(ret, fname, ...)                     \
+ret __mfwrap_ ## fname (__VA_ARGS__)
 
 
 #endif /* __MF_IMPL_H */

@@ -1,6 +1,6 @@
 
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -53,8 +53,9 @@ __init_misc (int argc, char **argv, char **envp)
 
 
 
-/* Run some quick validation of the given region.  If successful, return non-zero.
-   If the result is cacheworthy, return something positive. */
+/* Run some quick validation of the given region.  
+   Return -1 / 0 / 1 if the access known-invalid, possibly-valid, or known-valid.
+*/
 int 
 __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 {
@@ -74,7 +75,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 	  ptr >= stack_top_guess &&
 	  ptr_high >= ptr)
 	{
-	  return 1; /* uncacheable */
+	  return 1;
 	}            
     }
 
@@ -175,7 +176,6 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
       static unsigned done;
       if (! done)
 	{
-	  DECLARE(size_t, strlen, const char *s);
 	  done = 1;
 
 	  /* Register the environment string sequence.  */
@@ -194,7 +194,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 		  char * env = system_envp[i];
 		  if (env)
 		    {
-		      unsigned len = CALL_REAL (strlen, env);
+		      unsigned len = strlen (env);
 		      __mf_register ((uintptr_t) env,
 				     (uintptr_t) len+1,
 				     __MF_TYPE_GUESS,
@@ -218,7 +218,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 		  char * arg = system_argv[i];
 		  if (arg)
 		    {
-		      unsigned len = CALL_REAL (strlen, arg);
+		      unsigned len = strlen (arg);
 		      __mf_register ((uintptr_t) arg,
 				     (uintptr_t) (len + 1),
 				     __MF_TYPE_GUESS,
@@ -232,5 +232,5 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
     }
 #endif
 
-  return -1; /* hard failure */
+  return 0; /* unknown */
 }

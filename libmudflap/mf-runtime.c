@@ -4,9 +4,10 @@
    and Graydon Hoare <graydon@redhat.com>
 
 This file is part of GCC.
-
 XXX: libgcc license?
 */
+
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +26,6 @@ XXX: libgcc license?
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
-
 
 
 #ifndef max
@@ -115,7 +115,7 @@ __mf_set_default_options ()
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
-  __mf_opts.heur_proc_map = 1;
+  __mf_opts.heur_proc_map = 0;
   __mf_opts.heur_stack_bound = 0;
   __mf_opts.heur_start_end = 0;
   __mf_opts.heur_argv_environ = 1;
@@ -289,9 +289,6 @@ __mf_set_options (const char *optstr)
   long tmp = 0;
   int rc = 0;
   const char *saved_optstr = optstr;
-  DECLARE (size_t, strlen, const char *s);
-  DECLARE (int, strncmp, const char *s1, const char *s2, size_t n);
-  DECLARE (void *, memset, void *s, int c, size_t n);
 
   /* XXX: bounds-check for optstr! */
 
@@ -311,14 +308,14 @@ __mf_set_options (const char *optstr)
 	    optstr++;
 
 	    if (*optstr == '?' || 
-		CALL_REAL (strncmp, optstr, "help", 4) == 0)
+		strncmp (optstr, "help", 4) == 0)
 	      {
 		/* Caller will print help and exit.  */
 		rc = -1;
 		break;
 	      }
 	    
-	    if (CALL_REAL (strncmp, optstr, "no-", 3) == 0)
+	    if (strncmp (optstr, "no-", 3) == 0)
 	      {
 		negate = 1;
 		optstr = & optstr[3];
@@ -326,10 +323,9 @@ __mf_set_options (const char *optstr)
 	    
 	    for (opts = options; opts->name; opts++)
 	      {
-		if (CALL_REAL (strncmp , optstr, opts->name, 
-			       CALL_REAL (strlen, opts->name)) == 0)
+		if (strncmp (optstr, opts->name, strlen (opts->name)) == 0)
 		  {
-		    optstr += CALL_REAL (strlen, opts->name);
+		    optstr += strlen (opts->name);
 		    assert (opts->target);
 		    switch (opts->type) 
 		      {
@@ -363,7 +359,7 @@ __mf_set_options (const char *optstr)
 	fprintf (stderr, 
 		 "warning: unrecognized string '%s' in mudflap options\n",
 		 optstr);
-	optstr += CALL_REAL (strlen, optstr);
+	optstr += strlen (optstr);
 	rc = -1;
 	break;
       }
@@ -374,7 +370,7 @@ __mf_set_options (const char *optstr)
   __mf_opts.free_queue_length &= (__MF_FREEQ_MAX - 1);
 
   /* Clear the lookup cache, in case the parameters got changed.  */
-  CALL_REAL (memset, __mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+  memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
   /* void slot 0 */
   __mf_lookup_cache[0].low = MAXPTR;
 
@@ -414,40 +410,13 @@ __mf_resolve_dynamics ()
 {
 #define RESOLVE(fname) \
 resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
-  RESOLVE(bcmp);
-  RESOLVE(bcopy);
-  RESOLVE(bzero);
   RESOLVE(calloc);
   RESOLVE(dlopen);
   RESOLVE(free);
-  RESOLVE(index);
   RESOLVE(malloc);
-  RESOLVE(memchr);
-  RESOLVE(memcmp);
-  RESOLVE(memcpy);
-  RESOLVE(memmem);
-  RESOLVE(memmove);
-  RESOLVE(memrchr);
-  RESOLVE(memset);
   RESOLVE(mmap);
   RESOLVE(munmap);
   RESOLVE(realloc);
-  RESOLVE(rindex);
-  RESOLVE(strcasecmp);
-  RESOLVE(strcat);
-  RESOLVE(strchr);
-  RESOLVE(strcmp);
-  RESOLVE(strcpy);
-  RESOLVE(strdup);
-  RESOLVE(strlen);
-  RESOLVE(strncasecmp);
-  RESOLVE(strncat);
-  RESOLVE(strncmp);
-  RESOLVE(strncpy);
-  RESOLVE(strndup);
-  RESOLVE(strnlen);
-  RESOLVE(strrchr);
-  RESOLVE(strstr);
 #undef RESOLVE
 }
 
@@ -505,8 +474,8 @@ typedef struct __mf_object_tree
 /* Live objects: binary tree on __mf_object_t.low */
 __mf_object_tree_t *__mf_object_root;
 /* Dead objects: circular arrays; _MIN_CEM .. _MAX_CEM only */
-unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM][__MF_PERSIST_MAX];
+unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM+1]; /* next empty spot */
+__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM+1][__MF_PERSIST_MAX];
 
 static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
 				   __mf_object_tree_t **objs, unsigned max_objs);
@@ -602,7 +571,7 @@ void __mf_check (void *ptr, size_t sz, int type, const char *location)
   struct __mf_cache old_entry = *entry;
 
   BEGIN_RECURSION_PROTECT;
-  TRACE ("mf: check p=%08lx s=%lu %s location=`%s'\n",
+  TRACE ("mf: check ptr=%08lx size=%lu %s location=`%s'\n",
 	 ptr, sz, (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
@@ -887,7 +856,7 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 {
   /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
-  TRACE ("mf: register p=%08lx s=%lu t=%d n='%s'\n", ptr, sz, 
+  TRACE ("mf: register ptr=%08lx size=%lu type=%d name='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
   if (__mf_opts.collect_stats)
@@ -1076,7 +1045,7 @@ __mf_unregister (void *ptr, size_t sz)
   DECLARE (void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
-  TRACE ("mf: unregister p=%08lx s=%lu\n", ptr, sz);
+  TRACE ("mf: unregister ptr=%08lx size=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -1292,6 +1261,7 @@ struct tree_stats
   double total_weight;
   double weighted_size;
 };
+
 
 static void
 __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
@@ -1925,6 +1895,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
 	      (type == __MF_VIOL_WRITE) ? "check/write" :
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
+	      (type == __MF_VIOL_WATCH) ? "watch" :
 	      "unknown"),
 	     now.tv_sec, now.tv_usec, 
 	     ptr, sz, pc,
@@ -2064,7 +2035,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   uintptr_t ptr_low = (uintptr_t) ptr;
   unsigned count = 0;
 
-  TRACE ("mf: %s p=%08lx s=%lu",
+  TRACE ("mf: %s ptr=%08lx size=%lu",
 	 (flag ? "watch" : "unwatch"), ptr, sz);
   
   switch (__mf_opts.mudflap_mode)

@@ -289,12 +289,11 @@ proc dg-test { args } {
 		}
 		set texttmp [lindex ${dg-output-text} 1]
 		if { ![regexp $texttmp ${output}] } {
-		    fail "$name output pattern test, is ${output}, should match $texttmp"
-		    verbose "Failed test for output pattern $texttmp" 3
+		    fail "$name output pattern test"
 		} else {
-		    pass "$name output pattern test, $texttmp"
-		    verbose "Passed test for output pattern $texttmp" 3
+		    pass "$name output pattern test"
 		}
+		verbose -log "Output pattern $texttmp"
 		unset texttmp
 	    }
 	}

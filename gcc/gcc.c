@@ -615,13 +615,6 @@ proper position among the other output files.  */
 /* XXX: should exactly match hooks provided by libmudflap.a */
 #define MFWRAP_SPEC " %{fmudflap: %{static:\
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
- --wrap=memcpy --wrap=memmove\
- --wrap=memset --wrap=memcmp --wrap=memchr --wrap=memrchr\
- --wrap=strcpy --wrap=strncpy --wrap=strcat --wrap=strncat\
- --wrap=strcmp --wrap=strcasecmp --wrap=strncmp --wrap=strncasecmp\
- --wrap=strdup --wrap=strndup --wrap=strchr --wrap=strrchr\
- --wrap=strstr --wrap=memmem --wrap=strlen --wrap=strnlen\
- --wrap=bzero --wrap=bcopy --wrap=bcmp --wrap=index --wrap=rindex\
  --wrap=dlopen --wrap=mmap --wrap=munmap --wrap=alloca\
 }}"
 #endif

@@ -22,6 +22,14 @@ XXX: libgcc license?
 #error "Do not compile this file with -fmudflap!"
 #endif
 
+
+
+
+/* ------------------------------------------------------------------------ */
+/* These hook functions are intercepted via linker wrapping or shared
+   library ordering.  */
+
+
 #define MF_VALIDATE_EXTENT(value,size,acc,context)            \
  {                                                            \
   if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
@@ -34,7 +42,6 @@ XXX: libgcc license?
  }
 
 
-
 #define BEGIN_PROTECT(ty, fname, ...)       \
   ty result;                                \
   enum __mf_state old_state;                \
@@ -44,16 +51,15 @@ XXX: libgcc license?
   }                                         \
   else                                      \
   {                                         \
-     TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
      old_state = __mf_state;                \
      __mf_state = reentrant;                \
+     TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
   }
 
 #define END_PROTECT(ty, fname, ...)              \
   result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
   __mf_state = old_state;                        \
   return result;
-
 
 
 /* malloc/free etc. */
@@ -102,7 +108,7 @@ WRAPPER(void *, calloc, size_t c, size_t n)
   result = (char *) CALL_REAL(malloc, size_with_crumple_zones);
   
   if (LIKELY(result))
-    CALL_REAL(memset, result, 0, size_with_crumple_zones);
+    memset (result, 0, size_with_crumple_zones);
   
   __mf_state = old_state;
   
@@ -171,7 +177,6 @@ WRAPPER(void, free, void *buf)
   static int freeq_initialized = 0;
   enum __mf_state old_state;
   DECLARE(void * , free, void *);  
-  DECLARE(void *, memset, void *s, int c, size_t n);
 
   if (UNLIKELY (__mf_state != active))
     {
@@ -181,7 +186,7 @@ WRAPPER(void, free, void *buf)
 
   if (UNLIKELY(!freeq_initialized))
     {
-      CALL_REAL(memset, free_queue, 0, 
+      memset (free_queue, 0, 
 		     __MF_FREEQ_MAX * sizeof (void *));
       freeq_initialized = 1;
     }
@@ -396,138 +401,116 @@ WRAPPER(void *, alloca, size_t c)
 
 
 
+/* ------------------------------------------------------------------------ */
+/* These hook functions are intercepted via compile-time macros only.  */
+
+
+#undef MF_VALIDATE_EXTENT
+#define MF_VALIDATE_EXTENT(value,size,acc,context)            \
+ do {                                                         \
+  if (UNLIKELY (size > 0 && __MF_CACHE_MISS_P (value, size))) \
+    {                                                         \
+    __mf_check ((void *) (value), (size), acc, "(" context ")");  \
+    }                                                         \
+ } while (0)
+
+
+
 /* str*,mem*,b* */
 
 #ifdef WRAP_memcpy
-#undef memcpy
-WRAPPER(void *, memcpy, void *dest, const void *src, size_t n)
+WRAPPER2(void *, memcpy, void *dest, const void *src, size_t n)
 {
-  DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
-  BEGIN_PROTECT(void *, memcpy, dest, src, n);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memcpy source");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memcpy dest");
-  END_PROTECT (void *, memcpy, dest, src, n);
+  return memcpy (dest, src, n);
 }
 #endif
 
 
 #ifdef WRAP_memmove
-#undef memmove
-WRAPPER(void *, memmove, void *dest, const void *src, size_t n)
+WRAPPER2(void *, memmove, void *dest, const void *src, size_t n)
 {
-  DECLARE(void *, memmove, void *dest, const void *src, size_t n);
-  BEGIN_PROTECT(void *, memmove, dest, src, n);
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "memmove src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "memmove dest");
-  END_PROTECT(void *, memmove, dest, src, n);
+  return memmove (dest, src, n);
 }
 #endif
 
 #ifdef WRAP_memset
-#undef memset
-WRAPPER(void *, memset, void *s, int c, size_t n)
+WRAPPER2(void *, memset, void *s, int c, size_t n)
 {
-  DECLARE(void *, memset, void *s, int c, size_t n);
-  BEGIN_PROTECT(void *, memset, s, c, n);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "memset dest");
-  END_PROTECT(void *, memset, s, c, n);
+  return memset (s, c, n);
 }
 #endif
 
 #ifdef WRAP_memcmp
-#undef memcmp
-WRAPPER(int, memcmp, const void *s1, const void *s2, size_t n)
+WRAPPER2(int, memcmp, const void *s1, const void *s2, size_t n)
 {
-  DECLARE(int , memcmp, const void *s1, const void *s2, size_t n);
-  BEGIN_PROTECT(int, memcmp, s1, s2, n);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "memcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "memcmp 2nd arg");
-  END_PROTECT(int, memcmp, s1, s2, n);
+  return memcmp (s1, s2, n);
 }
 #endif
 
 #ifdef WRAP_memchr
-#undef memchr
-WRAPPER(void *, memchr, const void *s, int c, size_t n)
+WRAPPER2(void *, memchr, const void *s, int c, size_t n)
 {
-  DECLARE(void *, memchr, const void *s, int c, size_t n);
-  BEGIN_PROTECT(void *, memchr, s, c, n);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memchr region");
-  END_PROTECT(void *, memchr, s, c, n);
+  return memchr (s, c, n);
 }
 #endif
 
 #ifdef WRAP_memrchr
-#undef memrchr
-WRAPPER(void *, memrchr, const void *s, int c, size_t n)
+WRAPPER2(void *, memrchr, const void *s, int c, size_t n)
 {
-  DECLARE(void *, memrchr, const void *s, int c, size_t n);
-  BEGIN_PROTECT(void *, memrchr, s, c, n);
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_READ, "memrchr region");
-  END_PROTECT(void *, memrchr, s, c, n);
+  return memrchr (s, c, n);
 }
 #endif
 
 #ifdef WRAP_strcpy
-#undef strcpy
-WRAPPER(char *, strcpy, char *dest, const char *src)
+WRAPPER2(char *, strcpy, char *dest, const char *src)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strcpy, char *dest, const char *src);
-  size_t n;
-
   /* nb: just because strlen(src) == n doesn't mean (src + n) or (src + n +
      1) are valid pointers. the allocated object might have size < n.
      check anyways. */
 
-  BEGIN_PROTECT(char *, strcpy, dest, src); 
-  TRACE("mf: strcpy %08lx -> %08lx\n", (uintptr_t) src, (uintptr_t) dest);
-  n = CALL_REAL(strlen, src);
+  size_t n = strlen (src);
   MF_VALIDATE_EXTENT(src, CLAMPADD(n, 1), __MF_CHECK_READ, "strcpy src"); 
   MF_VALIDATE_EXTENT(dest, CLAMPADD(n, 1), __MF_CHECK_WRITE, "strcpy dest");
-  END_PROTECT(char *, strcpy, dest, src);
+  return strcpy (dest, src);
 }
 #endif
 
 #ifdef WRAP_strncpy
-#undef strncpy
-WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
+WRAPPER2(char *, strncpy, char *dest, const char *src, size_t n)
 {
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-  DECLARE(char *, strncpy, char *dest, const char *src, size_t n);
-  size_t len;
-
-  BEGIN_PROTECT(char *, strncpy, dest, src, n);
-  TRACE("mf: strncpy %08lx -> %08lx\n", (uintptr_t) src, (uintptr_t) dest);
-  len = CALL_REAL(strnlen, src, n);
+  size_t len = strnlen (src, n);
   MF_VALIDATE_EXTENT(src, len, __MF_CHECK_READ, "strncpy src");
   MF_VALIDATE_EXTENT(dest, len, __MF_CHECK_WRITE, "strncpy dest"); /* nb: strNcpy */
-  END_PROTECT(char *, strncpy, dest, src, n);
+  return strncpy (dest, src, n);
 }
 #endif
 
 #ifdef WRAP_strcat
-#undef strcat
-WRAPPER(char *, strcat, char *dest, const char *src)
+WRAPPER2(char *, strcat, char *dest, const char *src)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strcat, char *dest, const char *src);
   size_t dest_sz;
   size_t src_sz;
 
-  BEGIN_PROTECT(char *, strcat, dest, src);
-  dest_sz = CALL_REAL(strlen, dest);
-  src_sz = CALL_REAL(strlen, src);  
+  dest_sz = strlen (dest);
+  src_sz = strlen (src);  
   MF_VALIDATE_EXTENT(src, CLAMPADD(src_sz, 1), __MF_CHECK_READ, "strcat src");
   MF_VALIDATE_EXTENT(dest, CLAMPADD(dest_sz, CLAMPADD(src_sz, 1)),
 		     __MF_CHECK_WRITE, "strcat dest");
-  END_PROTECT(char *, strcat, dest, src);
+  return strcat (dest, src);
 }
 #endif
 
 #ifdef WRAP_strncat
-#undef strncat
-WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
+WRAPPER2(char *, strncat, char *dest, const char *src, size_t n)
 {
 
   /* nb: validating the extents (s,n) might be a mistake for two reasons.
@@ -550,143 +533,106 @@ WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
   this same logic applies to further uses of strnlen later down in this
   file. */
 
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-  DECLARE(char *, strncat, char *dest, const char *src, size_t n);
   size_t src_sz;
   size_t dest_sz;
 
-  BEGIN_PROTECT(char *, strncat, dest, src, n);
-  src_sz = CALL_REAL(strnlen, src, n);
-  dest_sz = CALL_REAL(strnlen, dest, n);
+  src_sz = strnlen (src, n);
+  dest_sz = strnlen (dest, n);
   MF_VALIDATE_EXTENT(src, src_sz, __MF_CHECK_READ, "strncat src");
   MF_VALIDATE_EXTENT(dest, (CLAMPADD(dest_sz, CLAMPADD(src_sz, 1))),
 		     __MF_CHECK_WRITE, "strncat dest");
-  END_PROTECT(char *, strncat, dest, src, n);
+  return strncat (dest, src, n);
 }
 #endif
 
 #ifdef WRAP_strcmp
-#undef strcmp
-WRAPPER(int, strcmp, const char *s1, const char *s2)
+WRAPPER2(int, strcmp, const char *s1, const char *s2)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(int, strcmp, const char *s1, const char *s2);
   size_t s1_sz;
   size_t s2_sz;
 
-  BEGIN_PROTECT(int, strcmp, s1, s2);
-  s1_sz = CALL_REAL(strlen, s1);
-  s2_sz = CALL_REAL(strlen, s2);  
+  s1_sz = strlen (s1);
+  s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, CLAMPADD(s2_sz, 1), __MF_CHECK_WRITE, "strcmp 2nd arg");
-  END_PROTECT(int, strcmp, s1, s2);
+  return strcmp (s1, s2);
 }
 #endif
 
 #ifdef WRAP_strcasecmp
-#undef strcasecmp
-WRAPPER(int, strcasecmp, const char *s1, const char *s2)
+WRAPPER2(int, strcasecmp, const char *s1, const char *s2)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(int, strcasecmp, const char *s1, const char *s2);
   size_t s1_sz;
   size_t s2_sz;
 
-  BEGIN_PROTECT(int, strcasecmp, s1, s2);
-  s1_sz = CALL_REAL(strlen, s1);
-  s2_sz = CALL_REAL(strlen, s2);  
+  s1_sz = strlen (s1);
+  s2_sz = strlen (s2);  
   MF_VALIDATE_EXTENT(s1, CLAMPADD(s1_sz, 1), __MF_CHECK_READ, "strcasecmp 1st arg");
   MF_VALIDATE_EXTENT(s2, CLAMPADD(s2_sz, 1), __MF_CHECK_READ, "strcasecmp 2nd arg");
-  END_PROTECT(int, strcasecmp, s1, s2);
+  return strcasecmp (s1, s2);
 }
 #endif
 
 #ifdef WRAP_strncmp
-#undef strncmp
-WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
+WRAPPER2(int, strncmp, const char *s1, const char *s2, size_t n)
 {
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-  DECLARE(int, strncmp, const char *s1, const char *s2, size_t n);
   size_t s1_sz;
   size_t s2_sz;
 
-  BEGIN_PROTECT(int, strncmp, s1, s2, n);
-  s1_sz = CALL_REAL(strnlen, s1, n);
-  s2_sz = CALL_REAL(strnlen, s2, n);
+  s1_sz = strnlen (s1, n);
+  s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncmp 1st arg");
   MF_VALIDATE_EXTENT(s2, s2_sz, __MF_CHECK_READ, "strncmp 2nd arg");
-  END_PROTECT(int, strncmp, s1, s2, n);
+  return strncmp (s1, s2, n);
 }
 #endif
 
 #ifdef WRAP_strncasecmp
-#undef strncasecmp
-WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
+WRAPPER2(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-  DECLARE(int, strncasecmp, const char *s1, const char *s2, size_t n);
   size_t s1_sz;
   size_t s2_sz;
 
-  BEGIN_PROTECT(int, strncasecmp, s1, s2, n);
-  s1_sz = CALL_REAL(strnlen, s1, n);
-  s2_sz = CALL_REAL(strnlen, s2, n);
+  s1_sz = strnlen (s1, n);
+  s2_sz = strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz, __MF_CHECK_READ, "strncasecmp 1st arg");
   MF_VALIDATE_EXTENT(s2, s2_sz, __MF_CHECK_READ, "strncasecmp 2nd arg");
-  END_PROTECT(int, strncasecmp, s1, s2, n);
+  return strncasecmp (s1, s2, n);
 }
 #endif
 
 #ifdef WRAP_strdup
-#undef strdup
-WRAPPER(char *, strdup, const char *s)
+WRAPPER2(char *, strdup, const char *s)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strdup, const char *s);
   DECLARE(void *, malloc, size_t sz);
-  DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
-  size_t n;
+  char *result;
+  size_t n = strlen (s);
 
-  BEGIN_PROTECT(char *, strdup, s);
-  n = CALL_REAL(strlen, s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strdup region");
-
   result = (char *)CALL_REAL(malloc, 
 			     CLAMPADD(CLAMPADD(n,1),
 				      CLAMPADD(__mf_opts.crumple_zone,
 					       __mf_opts.crumple_zone)));
 
-  if (UNLIKELY(!result))
-    {
-      __mf_state = old_state;
-      return result;
-    }
+  if (UNLIKELY(! result)) return result;
 
   result += __mf_opts.crumple_zone;
-  CALL_REAL(memcpy, result, s, n);
+  memcpy (result, s, n);
   result[n] = '\0';
-
-  __mf_state = old_state;
 
   __mf_register (result, CLAMPADD(n,1), 
 		 __MF_TYPE_HEAP, "strdup region");
-  __mf_state = old_state;
   return result;
 }
 #endif
 
 #ifdef WRAP_strndup
-#undef strndup
-WRAPPER(char *, strndup, const char *s, size_t n)
+WRAPPER2(char *, strndup, const char *s, size_t n)
 {
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-  DECLARE(char *, strndup, const char *s, size_t n);
   DECLARE(void *, malloc, size_t sz);
-  DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
-  size_t sz;
+  char *result;
+  size_t sz = strnlen (s, n);
 
-  BEGIN_PROTECT(char *, strndup, s, n);
-  sz = CALL_REAL(strnlen, s, n);
   MF_VALIDATE_EXTENT(s, sz, __MF_CHECK_READ, "strndup region"); /* nb: strNdup */
 
   /* note: strndup still adds a \0, even with the N limit! */
@@ -695,199 +641,125 @@ WRAPPER(char *, strndup, const char *s, size_t n)
 				      CLAMPADD(__mf_opts.crumple_zone,
 					       __mf_opts.crumple_zone)));
   
-  if (UNLIKELY(!result))
-    {
-      __mf_state = old_state;
-      return result;
-    }
+  if (UNLIKELY(! result)) return result;
 
   result += __mf_opts.crumple_zone;
-  CALL_REAL(memcpy, result, s, n);
+  memcpy (result, s, n);
   result[n] = '\0';
 
-  __mf_state = old_state;
-
   __mf_register (result, CLAMPADD(n,1), __MF_TYPE_HEAP, "strndup region");
-  __mf_state = old_state;
   return result;
 }
 #endif
 
 #ifdef WRAP_strchr
-#undef strchr
-WRAPPER(char *, strchr, const char *s, int c)
+WRAPPER2(char *, strchr, const char *s, int c)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strchr, const char *s, int c);
   size_t n;
 
-  BEGIN_PROTECT(char *, strchr, s, c);
-  n = CALL_REAL(strlen, s);
+  n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strchr region");
-  END_PROTECT(char *, strchr, s, c);
+  return strchr (s, c);
 }
 #endif
 
 #ifdef WRAP_strrchr
-#undef strrchr
-WRAPPER(char *, strrchr, const char *s, int c)
+WRAPPER2(char *, strrchr, const char *s, int c)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strrchr, const char *s, int c);
   size_t n;
 
-  BEGIN_PROTECT(char *, strrchr, s, c);
-  n = CALL_REAL(strlen, s);
+  n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n,1), __MF_CHECK_READ, "strrchr region");
-  END_PROTECT(char *, strrchr, s, c);
+  return strrchr (s, c);
 }
 #endif
 
 #ifdef WRAP_strstr
-#undef strstr
-WRAPPER(char *, strstr, const char *haystack, const char *needle)
+WRAPPER2(char *, strstr, const char *haystack, const char *needle)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, strstr, const char *haystack, const char *needle);
   size_t haystack_sz;
   size_t needle_sz;
 
-  BEGIN_PROTECT(char *, strstr, haystack, needle);
-  haystack_sz = CALL_REAL(strlen, haystack);
-  needle_sz = CALL_REAL(strlen, needle);
+  haystack_sz = strlen (haystack);
+  needle_sz = strlen (needle);
   MF_VALIDATE_EXTENT(haystack, CLAMPADD(haystack_sz, 1), __MF_CHECK_READ, "strstr haystack");
   MF_VALIDATE_EXTENT(needle, CLAMPADD(needle_sz, 1), __MF_CHECK_READ, "strstr needle");
-  END_PROTECT(char *, strstr, haystack, needle);
+  return strstr (haystack, needle);
 }
 #endif
 
 #ifdef WRAP_memmem
-#undef memmem
-WRAPPER(void *, memmem, 
+WRAPPER2(void *, memmem, 
 	const void *haystack, size_t haystacklen,
 	const void *needle, size_t needlelen)
 {
-  DECLARE(void *, memmem, const void *haystack, size_t haystacklen,
-			      const void *needle, size_t needlelen);
-
-  BEGIN_PROTECT(void *, memmem, haystack, haystacklen, needle, needlelen);
   MF_VALIDATE_EXTENT(haystack, haystacklen, __MF_CHECK_READ, "memmem haystack");
   MF_VALIDATE_EXTENT(needle, needlelen, __MF_CHECK_READ, "memmem needle");
-  END_PROTECT(char *, memmem, haystack, haystacklen, needle, needlelen);
+  return memmem (haystack, haystacklen, needle, needlelen);
 }
 #endif
 
 #ifdef WRAP_strlen
-#undef strlen
-WRAPPER(size_t, strlen, const char *s)
+WRAPPER2(size_t, strlen, const char *s)
 {
-  DECLARE(size_t, strlen, const char *s);
-
-  BEGIN_PROTECT(size_t, strlen, s);
-  result = CALL_REAL(strlen, s);
+  size_t result = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(result, 1), __MF_CHECK_READ, "strlen region");
-  __mf_state = old_state;
   return result;
 }
 #endif
 
 #ifdef WRAP_strnlen
-#undef strnlen
-WRAPPER(size_t, strnlen, const char *s, size_t n)
+WRAPPER2(size_t, strnlen, const char *s, size_t n)
 {
-  DECLARE(size_t, strnlen, const char *s, size_t n);
-
-  BEGIN_PROTECT(size_t, strnlen, s, n);
-  result = CALL_REAL(strnlen, s, n);
+  size_t result = strnlen (s, n);
   MF_VALIDATE_EXTENT(s, result, __MF_CHECK_READ, "strnlen region");
-  __mf_state = old_state;
   return result;
 }
 #endif
 
 #ifdef WRAP_bzero
-#undef bzero
-WRAPPER(void, bzero, void *s, size_t n)
+WRAPPER2(void, bzero, void *s, size_t n)
 {
-  DECLARE(void , bzero, void *s, size_t n);
-  enum __mf_state old_state;
-
-  if (UNLIKELY (__mf_state != active))
-    {
-      CALL_REAL(bzero, s, n);
-      return;
-    }
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
-  old_state = __mf_state;
-  __mf_state = reentrant;
   MF_VALIDATE_EXTENT(s, n, __MF_CHECK_WRITE, "bzero region");
-  CALL_REAL(bzero, s, n);
-  __mf_state = old_state;
+  bzero (s, n);
 }
 #endif
 
 #ifdef WRAP_bcopy
 #undef bcopy
-WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
+WRAPPER2(void, bcopy, const void *src, void *dest, size_t n)
 {
-  DECLARE(void , bcopy, const void *src, void *dest, size_t n);
-  enum __mf_state old_state;
-
-  if (UNLIKELY (__mf_state != active))
-    {
-      CALL_REAL(bcopy, src, dest, n);
-      return;
-    }
-  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
-  old_state = __mf_state;
-  __mf_state = reentrant;
   MF_VALIDATE_EXTENT(src, n, __MF_CHECK_READ, "bcopy src");
   MF_VALIDATE_EXTENT(dest, n, __MF_CHECK_WRITE, "bcopy dest");
-  CALL_REAL(bcopy, src, dest, n);
-  __mf_state = old_state;
+  bcopy (src, dest, n);
 }
 #endif
 
 #ifdef WRAP_bcmp
 #undef bcmp
-WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
+WRAPPER2(int, bcmp, const void *s1, const void *s2, size_t n)
 {
-  DECLARE(int , bcmp, const void *s1, const void *s2, size_t n);
-
-  BEGIN_PROTECT(int, bcmp, s1, s2, n);
   MF_VALIDATE_EXTENT(s1, n, __MF_CHECK_READ, "bcmp 1st arg");
   MF_VALIDATE_EXTENT(s2, n, __MF_CHECK_READ, "bcmp 2nd arg");
-  END_PROTECT(int, bcmp, s1, s2, n);
+  return bcmp (s1, s2, n);
 }
 #endif
 
 #ifdef WRAP_index
-#undef index
-WRAPPER(char *, index, const char *s, int c)
+WRAPPER2(char *, index, const char *s, int c)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, index, const char *s, int c);
-  size_t n;
-
-  BEGIN_PROTECT(char *, index, s, c);
-  n = CALL_REAL(strlen, s);
+  size_t n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "index region");
-  END_PROTECT(char *, index, s, c);
+  return index (s, c);
 }
 #endif
 
 #ifdef WRAP_rindex
-#undef rindex
-WRAPPER(char *, rindex, const char *s, int c)
+WRAPPER2(char *, rindex, const char *s, int c)
 {
-  DECLARE(size_t, strlen, const char *s);
-  DECLARE(char *, rindex, const char *s, int c);
-  size_t n;
-
-  BEGIN_PROTECT(char *, rindex, s, c);
-  n = CALL_REAL(strlen, s);
+  size_t n = strlen (s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(n, 1), __MF_CHECK_READ, "rindex region");
-  END_PROTECT(char *, rindex, s, c);
+  return rindex (s, c);
 }
 #endif
 

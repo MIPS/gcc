@@ -1,5 +1,6 @@
 /* ------------------------------------------------------------------------ */
-/* Public libmudflap declarations */
+/* Public libmudflap declarations  -*- C -*- */
+
 
 
 /* XXX: need a better way of conditionally defining this type.  */
@@ -16,7 +17,7 @@ typedef unsigned long uintptr_t;
 #include <sys/types.h>
 
 
-/* Global variables. */
+/* Global declarations used by instrumentation. */
 
 struct __mf_cache { uintptr_t low; uintptr_t high; };
 extern struct __mf_cache __mf_lookup_cache [];
@@ -24,22 +25,19 @@ extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
 
 
-/* Codes to describe the type of access to check. */
+/* Codes to describe the type of access to check: __mf_check arg 3 */
 
 #define __MF_CHECK_READ 0
 #define __MF_CHECK_WRITE 1
 
 
-/* Codes to describe a region of memory being registered. */
-  
+/* Codes to describe a region of memory being registered: __mf_*register arg 3 */
+
 #define __MF_TYPE_NOACCESS 0
 #define __MF_TYPE_HEAP 1
 #define __MF_TYPE_STACK 2
 #define __MF_TYPE_STATIC 3
-#define __MF_TYPE_MAX_CEM 3 /* the largest type stored in the cemetary */
-
 #define __MF_TYPE_GUESS 4
-#define __MF_TYPE_MAX __MF_TYPE_GUESS
 
 
 /* The public mudflap API */
@@ -55,6 +53,46 @@ extern unsigned __mf_watch (void *ptr, size_t sz);
 extern unsigned __mf_unwatch (void *ptr, size_t sz);
 extern void __mf_report ();
 extern int __mf_set_options (const char *opts);
+
+
+/* Redirect some standard library functions to libmudflap.  These are
+   done by simple #define rather than linker wrapping, since only
+   instrumented modules are meant to be affected.  */
+
+#ifdef _MUDFLAP  
+#define memcpy __mfwrap_memcpy 
+#define memmove __mfwrap_memmove
+#define memset __mfwrap_memset 
+#define memcmp __mfwrap_memcmp 
+#define memchr __mfwrap_memchr 
+#define memrchr __mfwrap_memrchr
+#define strcpy __mfwrap_strcpy 
+#define strncpy __mfwrap_strncpy 
+#define strcat __mfwrap_strcat 
+#define strncat __mfwrap_strncat
+#define strcmp __mfwrap_strcmp 
+#define strcasecmp __mfwrap_strcasecmp 
+#define strncmp __mfwrap_strncmp 
+#define strncasecmp __mfwrap_strncasecmp
+#define strdup __mfwrap_strdup 
+#define strndup __mfwrap_strndup 
+#define strchr __mfwrap_strchr 
+#define strrchr __mfwrap_strrchr
+#define strstr __mfwrap_strstr 
+#define memmem __mfwrap_memmem 
+#define strlen __mfwrap_strlen 
+#define strnlen __mfwrap_strnlen
+#define bzero __mfwrap_bzero 
+#define bcopy __mfwrap_bcopy 
+#define bcmp __mfwrap_bcmp 
+#define index __mfwrap_index 
+#define rindex __mfwrap_rindex
+
+/* Disable glibc macros.  */
+#define __NO_STRING_INLINES
+
+#endif /* _MUDFLAP */
+
 
 #ifdef __cplusplus
 }

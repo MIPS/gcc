@@ -1,3 +1,28 @@
+2003-03-05  Frank Ch. Eigler  <fche@redhat.com>
+
+	Switch to macro-style hooks for str*/mem*/b* functions.
+	* mf-runtime.h.in (__MF_TYPE_*): Moved some internal values out.
+	(mem*, str*, b*): Added macro-style hooks for _MUDFLAP case.
+	* mf-runtime.c: #include config.h to enable glibc backtraces again.
+	(__mf_set_default_options): Turn off heur_proc_map.
+	(*): Adapt to to macro-style hook functions.
+	(__mf_object_dead_head, __mf_object_cemetary): Correct bounds.
+	(__mf_check, __mf_register, __mf_unregister): Tweak tracing message.
+	(__mf_violation): Handle __MF_VIOL_WATCH.
+	* mf-impl.h (__MF_TYPE_*): Moved these internal values here.
+	(__mf_dynamic): Removed mem*/str*/b* functions.
+	(TRACE, VERBOSE_TRACE): Add reentrancy locking.
+	(WRAPPER2): New macro for macro-style hooks.
+	* mf-hooks.c: Convert mem*/str*/b* functions to simpler
+	macro-style hooks.
+	(BEGIN_PROTECT): Tweak tracing vs reentrancy-lock ordering.
+	* mf-heuristics.c: Adapt to macro-style hook functions.
+	Correct some comments.
+	* testsuite/lib/mfdg.exp (dg-test): Simplify result string for
+	output pattern tests.
+	* testsuite/libmudflap.c/fail[89]-frag.c: Elaborate output test.
+	* testsuite/libmudflap.c++/c++frags.exp: Enable non-static tests.
+
 2003-02-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* testsuite/libmudflap.c/fail23-frag.c, pass30-frag.c: New tests
