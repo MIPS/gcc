@@ -1,3 +1,11 @@
+2002-05-07  Michael Matz  <matz@suse.de>
+
+	* reload1.c (fixup_abnormal_edges): Don't insert on NULL edge.
+	* ra.c (undef_to_size_word): New rtx argument.  Changed callers.
+	Use it in 0x0fff case.
+	(reg_alloc): Insert use of return value at each predecessor of
+	EXIT_BLOCK.  Call fixup_abnormal_edges().
+
 2002-05-03  Michael Matz  <matz@suse.de>
 
 	* pre-reload.c : Include optabs.h.

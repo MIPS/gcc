@@ -319,7 +319,7 @@ static void create_insn_info PARAMS ((struct df *));
 static void free_insn_info PARAMS ((void));
 static bitmap find_sub_conflicts PARAMS ((struct web_part *, unsigned int));
 static bitmap get_sub_conflicts PARAMS ((struct web_part *, unsigned int));
-static unsigned int undef_to_size_word PARAMS ((unsigned HOST_WIDE_INT *));
+static unsigned int undef_to_size_word PARAMS ((rtx, unsigned HOST_WIDE_INT *));
 static bitmap undef_to_bitmap PARAMS ((struct web_part *,
 				       unsigned HOST_WIDE_INT *));
 static struct web_part * find_web_part_1 PARAMS ((struct web_part *));
@@ -1422,7 +1422,8 @@ struct undef_table_s {
   { 0, BL_TO_WORD (0, 4)}};
 
 static unsigned int
-undef_to_size_word (undefined)
+undef_to_size_word (reg, undefined)
+     rtx reg;
      unsigned HOST_WIDE_INT *undefined;
 {
   if (*undefined <= 15)
@@ -1438,8 +1439,11 @@ undef_to_size_word (undefined)
       case 0x00ff : *undefined = 0; return BL_TO_WORD (0, 8);
       case 0x0f00 : *undefined = 0; return BL_TO_WORD (8, 4);
       case 0x0ff0 : *undefined = 0xf0; return BL_TO_WORD (8, 4);
-      case 0x0fff : *undefined = 0; return BL_TO_WORD (0, 12); /* XFmode */
-      /* case 0x0fff : *undefined = 0xff; return BL_TO_WORD (8, 4); */
+      case 0x0fff :
+	if (INTEGRAL_MODE_P (GET_MODE (reg)))
+	  { *undefined = 0xff; return BL_TO_WORD (8, 4); }
+	else
+	  { *undefined = 0; return BL_TO_WORD (0, 12); /* XFmode */ }
       case 0xf000 : *undefined = 0; return BL_TO_WORD (12, 4);
       case 0xff00 : *undefined = 0; return BL_TO_WORD (8, 8);
       case 0xfff0 : *undefined = 0xf0; return BL_TO_WORD (8, 8);
@@ -1472,7 +1476,8 @@ undef_to_bitmap (wp, undefined)
      struct web_part *wp;
      unsigned HOST_WIDE_INT *undefined;
 {
-  unsigned int size_word = undef_to_size_word (undefined);
+  unsigned int size_word = undef_to_size_word (DF_REF_REAL_REG (wp->ref),
+					       undefined);
   return get_sub_conflicts (wp, size_word);
 }
 
@@ -2872,7 +2877,7 @@ build_inverse_webs (web)
 	bits = undef & ~ rtx_to_undefined (sweb->orig_x);
 	while (bits)
 	  {
-	    unsigned int size_word = undef_to_size_word (&bits);
+	    unsigned int size_word = undef_to_size_word (web->orig_x, &bits);
 	    if (!find_subweb_2 (web, size_word))
 	      {
 		(void) add_subweb_2 (web, size_word);
@@ -9707,19 +9712,28 @@ reg_alloc (void)
 {
   int changed;
   FILE *ra_dump_file = rtl_dump_file;
+  rtx last = get_last_insn ();
 
-  if (!INSN_P (get_last_insn ())
-      || GET_CODE (PATTERN (get_last_insn ())) != USE)
+  if (! INSN_P (last))
+    last = prev_real_insn (last);
+  /* If this is an empty function we shouldn't do all the following,
+     but instead just setup what's necessary, and return.  */
+  if (last)
     {
-      rtx insn, last = get_last_insn ();
-      basic_block bb = BLOCK_FOR_INSN (last);
-      if (bb)
+      edge e;
+      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
 	{
-	  use_return_register ();
-	  for (insn = get_last_insn (); insn != last; insn = PREV_INSN (insn))
-	    set_block_for_insn (insn, bb);
-	  if (last == bb->end)
-	    bb->end = get_last_insn ();
+	  basic_block bb = e->src;
+	  last = bb->end;
+	  if (!INSN_P (last) || GET_CODE (PATTERN (last)) != USE)
+	    {
+	      rtx insns;
+	      start_sequence ();
+	      use_return_register ();
+	      insns = get_insns ();
+	      end_sequence ();
+	      emit_insns_after (insns, last);
+	    }
 	}
     }
 
@@ -9930,6 +9944,7 @@ reg_alloc (void)
   no_new_pseudos = 1;
   rtl_dump_file = ra_dump_file;
 
+  fixup_abnormal_edges ();
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     rtl_dump_file = NULL;
   /*free_bb_for_insn ();
