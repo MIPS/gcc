@@ -92,12 +92,6 @@ CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
 
 # Use strict warnings for this front end.
 cp-warn = $(STRICT_WARN) $(WERROR)
-# These files need -Wno-error because the gimplifier triggers hard to fix
-# warnings when converting to GIMPLE form.  The warnings are triggered when
-# the gimplifier re-writes va_start with a temporary instead of using the
-# last named argument of the function.
-cp/tree.o-warn = -Wno-error
-cp/typeck.o-warn = -Wno-error
 
 cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
 		  libcpp.a $(LIBDEPS)
