@@ -42,7 +42,7 @@ AC_OUTPUT(Makefile, [
 (
  echo '#ifndef __MF_RUNTIME_H'
  echo '#define __MF_RUNTIME_H'
- cat config.h | egrep 'HAVE_(STDINT|UINTPTR)'
+ egrep 'HAVE_(STDINT|UINTPTR)' < config.h
  cat $srcdir/mf-runtime.h.in
  echo '#endif'
 ) > mf-runtime.h
