@@ -1328,9 +1328,6 @@ simplify_compound_lval (expr_p, pre_p, post_p)
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 
-  /* Unshare the reference.  */
-  walk_tree (expr_p, mostly_copy_tree_r, NULL, NULL);
-
   /* Create a stack with all the array dimensions so that they can be
      simplified from left to right (to match user expectations).  */
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");
@@ -1394,6 +1391,9 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
   /* Extract the operands to the arithmetic operation, including an rvalue
      version of our LHS.  */
   lhs = lvalue;
+  /* Unshare it.  */
+  walk_tree (&lhs, mostly_copy_tree_r, NULL, NULL);
+  /* And reduce it to an ID.  */
   simplify_expr (&lhs, pre_p, post_p, is_simple_id, fb_rvalue);
   rhs = TREE_OPERAND (*expr_p, 1);
   simplify_expr (&rhs, pre_p, post_p, is_simple_val, fb_rvalue);

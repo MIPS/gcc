@@ -1,5 +1,9 @@
 2002-08-11  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (simplify_self_mod_expr): Unshare the lhs before
+	using it again.
+	(simplify_compound_lval): Don't unshare.
+
 	* c-simplify.c (c_simplify_expr): Check statement_code_p.
 
 	* c-simplify.c (maybe_fixup_loop_cond): Move to cp/cp-simplify.c.
