@@ -1,3 +1,21 @@
+2002-12-13  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (CALL_EXPR_HAS_RETURN_SLOT_ADDR): New macro.
+	* calls.c (expand_call): Handle it.
+	* tree-inline.c (struct inline_data): Remove target_exprs field.
+	(optimize_inline_calls): Don't initialize it.
+	(expand_call_inline): Don't modify it.  Handle
+	CALL_EXPR_HAS_RETURN_SLOT_ADDR.
+	(declare_return_variable): Take return slot addr.
+	* langhooks.h (copy_res_decl_for_inlining): Change target_exprs parm 
+	to return_slot_addr.
+	* langhooks-def.h, langhooks.c: Adjust.
+	* explow.c (maybe_set_unchanging): Don't set RTX_UNCHANGING_P for
+	a decl with no DECL_INITIAL.
+
+	* expr.c (expand_expr): Don't discard the target of a call which
+	returns in memory.
+
 2002-12-13  Neil Booth  <neil@daikokuya.co.uk>
 
 	* cppinit.c (path_include): Take an environment variable name.
