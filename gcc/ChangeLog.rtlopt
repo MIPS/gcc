@@ -1,3 +1,8 @@
+2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (attrs_list_delete): Code cleanup.
+	(attrs_list_delete_alias): Likewise.
+
 2003-01-14  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (VARIABLE_P): New macro.

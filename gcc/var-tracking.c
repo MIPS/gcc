@@ -301,17 +301,17 @@ attrs_list_delete (listp, decl, offset)
      tree decl;
      HOST_WIDE_INT offset;
 {
-  attrs_list list, next_list, prev_list;
+  attrs_list list, next_list, prev_list = NULL;
 
   for (list = *listp; list; list = next_list)
     {
       next_list = list->next;
       if (list->decl == decl && list->offset == offset)
 	{
-	  if (list == *listp)
-	    *listp = next_list;
-	  else
+	  if (prev_list)
 	    prev_list->next = next_list;
+	  else
+	    *listp = next_list;
 	  free (list);
 	}
       else
@@ -328,17 +328,17 @@ attrs_list_delete_alias (listp, alias, offset)
      HOST_WIDE_INT alias;
      HOST_WIDE_INT offset;
 {
-  attrs_list list, next_list, prev_list;
+  attrs_list list, next_list, prev_list = NULL;
 
   for (list = *listp; list; list = next_list)
     {
       next_list = list->next;
       if (MEM_ALIAS_SET (list->loc) == alias && list->offset == offset)
 	{
-	  if (list == *listp)
-	    *listp = next_list;
-	  else
+	  if (prev_list)
 	    prev_list->next = next_list;
+	  else
+	    *listp = next_list;
 	  free (list);
 	}
       else
