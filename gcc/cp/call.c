@@ -1347,7 +1347,8 @@ add_function_candidate (struct z_candidate **candidates,
 	break;
 
       is_this = (i == 0 && DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-		 && ! DECL_CONSTRUCTOR_P (fn));
+		 && ! DECL_CONSTRUCTOR_P (fn)
+		 && ! DECL_DESTRUCTOR_P (fn));
 
       if (parmnode)
 	{
@@ -5005,6 +5006,8 @@ build_new_method_call (tree instance, tree fns, tree args,
       tree type = build_pointer_type (basetype);
       if (!same_type_p (type, TREE_TYPE (instance_ptr)))
 	instance_ptr = build_nop (type, instance_ptr);
+      /* Prepend the dummy in-charge argument.  */
+      args = tree_cons (NULL_TREE, integer_zero_node, args);
     }
 
   class_type = (conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE);

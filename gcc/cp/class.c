@@ -3787,13 +3787,23 @@ check_methods (tree t)
 
 /* FN is a constructor or destructor.  Clone the declaration to create
    a specialized in-charge or not-in-charge version, as indicated by
-   NAME.  */
+   NAME.
+   
+   On HPUX there is a vestigial incharge parameter on all destructors.
+   We add it here to every clone.  A better fix, which would fit with
+   the mainline more cleanly, might well be to add in-charge parms to
+   all abstract ctors and dtors, and then remove them (or not) in the
+   clones. All call sites would prepend a dummty in-charge arg, that
+   gets dropped if the selected cdtor doesn't need it.  Also, we could
+   add the VTT parm to the abstract ctor/dtor too, and do the same
+   with that.  Then MAYBE_IN_CHARGE_X can go away.  */
 
 static tree
 build_clone (tree fn, tree name)
 {
   tree parms;
   tree clone;
+  bool needs_dummy_inchg = DECL_DESTRUCTOR_P (fn);
 
   /* Copy the function.  */
   clone = copy_decl (fn);
@@ -3819,25 +3829,29 @@ build_clone (tree fn, tree name)
 
   /* If there was an in-charge parameter, drop it from the function
      type.  */
-  if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+  if (needs_dummy_inchg || DECL_HAS_IN_CHARGE_PARM_P (clone))
     {
       tree basetype;
       tree parmtypes;
       tree exceptions;
-
+      
       exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
       parmtypes = TYPE_ARG_TYPES (TREE_TYPE (clone));
       /* Skip the `this' parameter.  */
       parmtypes = TREE_CHAIN (parmtypes);
       /* Skip the in-charge parameter.  */
-      parmtypes = TREE_CHAIN (parmtypes);
+      if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+	parmtypes = TREE_CHAIN (parmtypes);
       /* And the VTT parm, in a complete [cd]tor.  */
       if (DECL_HAS_VTT_PARM_P (fn)
 	  && ! DECL_NEEDS_VTT_PARM_P (clone))
 	parmtypes = TREE_CHAIN (parmtypes);
-       /* If this is subobject constructor or destructor, add the vtt
-	 parameter.  */
+
+      if (needs_dummy_inchg)
+	/* Put in the dummy incharge parm */
+	parmtypes = tree_cons (NULL_TREE, integer_type_node, parmtypes);
+      
       TREE_TYPE (clone) 
 	= build_method_type_directly (basetype,
 				      TREE_TYPE (TREE_TYPE (clone)),
@@ -3851,14 +3865,28 @@ build_clone (tree fn, tree name)
      aren't function parameters; those are the template parameters.  */
   if (TREE_CODE (clone) != TEMPLATE_DECL)
     {
-      DECL_ARGUMENTS (clone) = copy_list (DECL_ARGUMENTS (clone));
+      tree args = copy_list (DECL_ARGUMENTS (clone));
+      
+      DECL_ARGUMENTS (clone) = args;
+      
       /* Remove the in-charge parameter.  */
       if (DECL_HAS_IN_CHARGE_PARM_P (clone))
 	{
-	  TREE_CHAIN (DECL_ARGUMENTS (clone))
-	    = TREE_CHAIN (TREE_CHAIN (DECL_ARGUMENTS (clone)));
+	  TREE_CHAIN (args) = TREE_CHAIN (TREE_CHAIN (args));
 	  DECL_HAS_IN_CHARGE_PARM_P (clone) = 0;
 	}
+
+      /* Add a vestigial in-charge parameter.  */
+      if (needs_dummy_inchg)
+	{
+	  tree in_chg = build_artificial_parm (NULL_TREE, integer_type_node);
+	  
+	  TREE_CHAIN (in_chg) = TREE_CHAIN (args);
+	  TREE_CHAIN (args) = in_chg;
+	  args = in_chg;
+	  DECL_HAS_IN_CHARGE_PARM_P (clone) = 1;
+	}
+      
       /* And the VTT parm, in a complete [cd]tor.  */
       if (DECL_HAS_VTT_PARM_P (fn))
 	{
@@ -3866,8 +3894,7 @@ build_clone (tree fn, tree name)
 	    DECL_HAS_VTT_PARM_P (clone) = 1;
 	  else
 	    {
-	      TREE_CHAIN (DECL_ARGUMENTS (clone))
-		= TREE_CHAIN (TREE_CHAIN (DECL_ARGUMENTS (clone)));
+	      TREE_CHAIN (args) = TREE_CHAIN (TREE_CHAIN (args));
 	      DECL_HAS_VTT_PARM_P (clone) = 0;
 	    }
 	}
@@ -3991,8 +4018,11 @@ adjust_clone_args (tree decl)
 	orig_decl_parms = TREE_CHAIN (orig_decl_parms);
       
       clone_parms = orig_clone_parms;
+      if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+	clone_parms = TREE_CHAIN (clone_parms);
       if (DECL_HAS_VTT_PARM_P (clone))
 	clone_parms = TREE_CHAIN (clone_parms);
+      
       
       for (decl_parms = orig_decl_parms; decl_parms;
 	   decl_parms = TREE_CHAIN (decl_parms),

@@ -1,3 +1,13 @@
+2003-11-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Add vestigial dtor parameter
+	* call.c (add_function_candidate): No this pointer on destructors.
+	(build_new_method_call): Add in-charge argument.
+	* class.c (build_clone): Create in-charge parameter on the clones.
+	(adjust_clone_args): Skip a clone's in-charge parameter.
+	* optimize.c (maybe_clone_body): Skip a clone's in-charge
+	parameter.
+
 2003-11-16  Jason Merrill  <jason@redhat.com>
 
 	* Make-lang.in (c++.tags): Create TAGS.sub files in each directory

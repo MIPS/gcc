@@ -171,6 +171,8 @@ maybe_clone_body (tree fn)
 	parm = TREE_CHAIN (parm);
       if (DECL_HAS_VTT_PARM_P (fn))
 	parm = TREE_CHAIN (parm);
+      if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+	clone_parm = TREE_CHAIN (clone_parm);
       if (DECL_HAS_VTT_PARM_P (clone))
 	clone_parm = TREE_CHAIN (clone_parm);
       for (; parm;
@@ -191,6 +193,9 @@ maybe_clone_body (tree fn)
 	   ++parmno,
 	     parm = TREE_CHAIN (parm))
 	{
+	  if (DECL_HAS_IN_CHARGE_PARM_P (clone) && parmno == 1)
+	    clone_parm = TREE_CHAIN (clone_parm);
+	  
 	  /* Map the in-charge parameter to an appropriate constant.  */
 	  if (DECL_HAS_IN_CHARGE_PARM_P (fn) && parmno == 1)
 	    {
