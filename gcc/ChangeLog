@@ -1,3 +1,14 @@
+2000-03-30  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/semi.h (ASM_SPEC): Restore definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Define if not already defined.
+
+	* config/arm/elf.h (ASM_SPEC): Restore definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Define if not already defined.
+
+	* config/arm/arm.h (ASM_SPEC): Remove definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Remove definition.
+
 2000-03-26  Bernd Schmidt <bernds@cygnus.co.uk>
 
 	* config/arm/arm.c: Disable -fschedule-insns for Thumb.

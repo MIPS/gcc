@@ -35,6 +35,22 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
 #endif
 
+#ifndef SUBTARGET_EXTRA_ASM_SPEC
+#define SUBTARGET_EXTRA_ASM_SPEC
+#endif
+
+#ifndef ASM_SPEC
+#define ASM_SPEC "\
+%{mbig-endian:-EB} \
+%{mcpu=*:-m%*} \
+%{march=*:-m%*} \
+%{mapcs-*:-mapcs-%*} \
+%{mapcs-float:-mfloat} \
+%{msoft-float:-mno-fpu} \
+%{mthumb-interwork:-mthumb-interwork} \
+" SUBTARGET_EXTRA_ASM_SPEC
+#endif
+
 #include "arm/aout.h"
 
 #undef  CPP_APCS_PC_DEFAULT_SPEC
