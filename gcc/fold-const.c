@@ -7487,7 +7487,7 @@ fold (tree expr)
 	return t1;
       else if (code != TREE_CODE (t)
 	       || TREE_OPERAND (t, 0) != arg0 || TREE_OPERAND (t, 1) != arg1)
-	t = build (code, type, arg0, arg1);
+	t = build (code, type, arg0, convert (TREE_TYPE (arg0), arg1));
 
       /* If this is an EQ or NE comparison of a constant with a PLUS_EXPR or
 	 a MINUS_EXPR of a constant, we can convert it into a comparison with

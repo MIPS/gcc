@@ -1,3 +1,9 @@
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold): When rebuilding the expression after a
+	call to fold_relational_hi_lo, make sure to convert the type of
+	the second argument to the type of the first.
+ 
 2004-03-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* cgraphunit.c (cgraph_optimize): Do not do memory release
