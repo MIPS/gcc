@@ -1,5 +1,7 @@
 2003-05-13  Jason Merrill  <jason@redhat.com>
 
+	* gdbinit.in (pgs, pge): New macros.
+
 	Implement expression temporary optimization.
 	* gimplify.c (gimplify_ctx): Add temp_htab field.
 	(push_gimplify_context): Initialize it.
