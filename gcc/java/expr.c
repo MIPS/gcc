@@ -2207,7 +2207,7 @@ build_invokeinterface (tree dtable, tree method)
 	= build4 (ARRAY_REF, 
 		 TREE_TYPE (TREE_TYPE (TYPE_ITABLE_DECL (output_class))),
 		 TYPE_ITABLE_DECL (output_class), 
-		  build_int_cst (NULL_TREE, itable_index-1),
+		  build_int_cst (NULL_TREE, itable_index),
 		  NULL_TREE, NULL_TREE);
       interface = convert (class_ptr_type, interface);
       idx = convert (integer_type_node, idx);

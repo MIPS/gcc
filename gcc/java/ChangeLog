@@ -1,3 +1,8 @@
+2004-10-25  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_invokeinterface): Compute correct offset for
+	index into interface methods.
+
 2004-10-20  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.h (verify_jvm_instructions_new): Declare.
