@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
-
+#include "treepch.h"
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
@@ -6958,6 +6958,50 @@ copy_lang_decl (decl)
   memcpy ((char *) ld, (char *) DECL_LANG_SPECIFIC (decl),
 	  sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (decl) = ld;
+}
+void
+lang_pickle_tree (t, oldt)
+	tree t;
+	tree oldt;
+{
+  if (TREE_CODE (t) == IDENTIFIER_NODE)
+    {
+      struct lang_identifier *i = (struct lang_identifier *) t;
+      i->global_value = (tree)write_tree (&i->global_value);
+      i->local_value = (tree) write_tree (&i->local_value);
+      i->label_value = (tree) write_tree (&i->label_value);
+      i->implicit_decl = (tree) write_tree (&i->implicit_decl);
+      i->error_locus = (tree) write_tree (&i->error_locus);
+      i->limbo_value = (tree) write_tree (&i->limbo_value);
+    }
+  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
+    {
+     struct lang_type *lt;
+     int id;
+     if (ggc_set_mark (TYPE_LANG_SPECIFIC (t)))
+       {
+	 lt = (struct lang_type *) xmalloc (sizeof (struct lang_type));
+	 memcpy (lt, TYPE_LANG_SPECIFIC (t), sizeof (struct lang_type));
+	 id = current_id++;
+	 store_to_db (&id, sizeof (int), lt, sizeof (struct lang_type));
+	 free (lt);
+	 TYPE_LANG_SPECIFIC (t) = (struct lang_type *)id;
+       }
+
+    }
+  else if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
+    {
+      struct lang_decl *ld;
+      int id;
+      ld = (struct lang_decl *) xmalloc (sizeof (struct lang_decl));
+      memcpy (ld, DECL_LANG_SPECIFIC (t), sizeof (struct lang_decl));
+      id = current_id++;
+      ld->base.saved_tree = (tree) write_tree (&ld->base.saved_tree); 
+      ld->pending_sizes = (tree) write_tree (&ld->pending_sizes);
+      store_to_db (&id, sizeof (int), ld, sizeof (struct lang_decl));
+      free (ld);
+      DECL_LANG_SPECIFIC (t) = (struct lang_decl *)id;
+    }
 }
 
 /* Mark the language specific bits in T for GC.  */

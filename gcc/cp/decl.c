@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
-
+#include "treepch.h"
 extern int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree));
 
 #ifndef BOOL_TYPE_SIZE
@@ -1946,6 +1946,262 @@ mark_binding_level (arg)
       ggc_mark_tree (lvl->incomplete);
       ggc_mark_tree (lvl->dead_vars_from_for);
     }
+}
+static int pickle_binding_level PARAMS ((void *));
+static struct binding_level *unpickle_binding_level PARAMS ((int));
+static int pickle_decl_lang_specific PARAMS ((tree, struct lang_decl *));
+static int pickle_lang_function PARAMS ((tree, struct cp_language_function *));
+static int
+pickle_lang_function (t, p)
+     tree t;
+     struct cp_language_function *p;
+{
+  int id;
+  struct cp_language_function *new;
+  splay_tree_node result;
+  if (!p)
+    return 0;
+  if (ggc_set_mark (p))
+    {
+      result = splay_tree_lookup (written_trees, (splay_tree_key)p);
+      if (result)
+	return result->value;
+    }
+  id = current_id++;
+  new = (struct cp_language_function *)xmalloc (sizeof (struct cp_language_function));
+  memcpy (new, p, sizeof (struct cp_language_function));
+  splay_tree_insert (written_trees, (splay_tree_key) p, id);
+  pickle_c_language_function (&new->base);
+  new->x_ctor_label = (tree) write_tree (&new->x_ctor_label);
+  new->x_dtor_label = (tree) write_tree (&new->x_dtor_label);
+  new->x_current_class_ptr = (tree) write_tree (&new->x_current_class_ptr);
+  new->x_current_class_ref = (tree) write_tree (&new->x_current_class_ref);
+  new->x_eh_spec_block = (tree) write_tree (&new->x_eh_spec_block);
+  new->x_local_names = (varray_type) write_tree_varray (new->x_local_names);  
+  /* FIXME: What to do about named label lists? */
+  new->bindings = (struct binding_level *)pickle_binding_level (&new->bindings);
+  store_to_db (&id, sizeof(int), new, sizeof (struct cp_language_function));
+  free (new);
+  return id;
+}
+static int
+pickle_decl_lang_specific (t, ld)
+	tree t;
+	struct lang_decl *ld;
+{
+  int id;
+  struct lang_decl *new;
+  splay_tree_node result;
+  if (ggc_set_mark (ld))
+    {
+      result = splay_tree_lookup (written_trees, (splay_tree_key)ld);
+      if (result)
+	return result->value;
+    }
+  id = current_id++;
+  new = (struct lang_decl *)xmalloc (sizeof (struct lang_decl));
+  memcpy (new, ld, sizeof (struct lang_decl));
+  splay_tree_insert (written_trees, (splay_tree_key)ld, id);
+  new->decl_flags.base.saved_tree = (tree) write_tree (&new->decl_flags.base.saved_tree);
+  if (!DECL_GLOBAL_CTOR_P (t)
+      && !DECL_GLOBAL_DTOR_P (t)
+      && !DECL_THUNK_P (t)
+      && !DECL_DISCRIMINATOR_P (t))
+    new->decl_flags.u2.access = (tree) write_tree (&new->decl_flags.u2.access);
+  else if (DECL_THUNK_P (t))
+    new->decl_flags.u2.vcall_offset = (tree) write_tree (&new->decl_flags.u2.vcall_offset);
+  if (TREE_CODE (t) != NAMESPACE_DECL)
+    new->decl_flags.u.template_info = (tree) write_tree (&new->decl_flags.u.template_info);
+  else
+    new->decl_flags.u.level = 
+(struct binding_level *)pickle_binding_level (&new->decl_flags.u.level);
+  if (CAN_HAVE_FULL_LANG_DECL_P (t))
+    {
+      new->befriending_classes = (tree) write_tree (&new->befriending_classes);
+      new->context = (tree) write_tree (&new->context);
+      new->cloned_function = (tree) write_tree (&new->cloned_function);
+      new->inlined_fns = (tree) write_tree (&new->inlined_fns);
+      if (TREE_CODE (t) == TYPE_DECL)
+	new->u.sorted_fields = (tree) write_tree (&new->u.sorted_fields);
+    }
+  store_to_db (&id, sizeof (int), new, sizeof (struct lang_decl));
+  free (new);
+  return id;
+}
+static struct binding_level *
+unpickle_binding_level (id)
+	int id;
+{
+  struct binding_level *lvl;
+  splay_tree_node result;
+  datum key, data;
+  if (id == 0)
+    return NULL;
+  result = splay_tree_lookup (read_trees, id);
+  if (result)
+    return (struct binding_level *) result->value;
+  key.dptr = (char *) &id;
+  key.dsize = sizeof (int);
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  lvl = make_binding_level ();
+  splay_tree_insert (read_trees, (splay_tree_key) id, (splay_tree_value) lvl);
+  memcpy (lvl, data.dptr, sizeof (struct binding_level));
+  free (data.dptr);
+  lvl->names = read_tree (lvl->names);
+  lvl->tags = read_tree (lvl->tags);
+  lvl->usings = read_tree (lvl->usings);
+  lvl->using_directives = read_tree (lvl->using_directives);
+  lvl->class_shadowed = read_tree (lvl->class_shadowed);
+  lvl->type_shadowed = read_tree (lvl->type_shadowed);
+  lvl->shadowed_labels = read_tree (lvl->shadowed_labels);
+  lvl->blocks = read_tree (lvl->blocks);
+  lvl->this_class = read_tree (lvl->this_class);
+  lvl->incomplete = read_tree (lvl->incomplete);
+  lvl->dead_vars_from_for = read_tree (lvl->dead_vars_from_for);
+  if (lvl->level_chain)
+    lvl->level_chain = unpickle_binding_level ((int)lvl->level_chain);
+  return lvl;
+}
+static int
+pickle_binding_level (arg)
+     void *arg;
+{
+  struct binding_level *lvl = *(struct binding_level **)arg;
+  int id;
+  struct binding_level *new;
+  splay_tree_node result;
+  if (!lvl)
+    return 0;
+//  if (ggc_set_mark (lvl))
+ //   {
+      result = splay_tree_lookup (written_trees, (splay_tree_key)lvl);
+      if (result)
+	return result->value;
+  //  }
+  id = current_id++;
+  new = xmalloc (sizeof (struct binding_level));
+  memcpy (new, lvl, sizeof (struct binding_level));
+  splay_tree_insert (written_trees, (splay_tree_key)lvl, id);
+  new->names = (tree) write_tree (&new->names);
+  new->tags = (tree) write_tree (&new->tags);
+  new->usings = (tree) write_tree (&new->usings);
+  new->using_directives = (tree) write_tree (&new->using_directives);
+  new->class_shadowed = (tree) write_tree (&new->class_shadowed);
+  new->type_shadowed = (tree) write_tree (&new->type_shadowed);
+  new->shadowed_labels = (tree) write_tree (&new->shadowed_labels);
+  new->blocks = (tree) write_tree (&new->blocks);
+  new->this_class = (tree) write_tree (&new->this_class);
+  new->incomplete = (tree) write_tree (&new->incomplete);
+  new->dead_vars_from_for = (tree) write_tree (&new->dead_vars_from_for);
+  if (new->level_chain)
+    new->level_chain = (struct binding_level *) 
+      pickle_binding_level (&new->level_chain);
+  store_to_db (&id, sizeof (int), new, sizeof (struct binding_level));
+
+  free (new);
+  return id;
+}
+
+void
+lang_pickle_tree  (t, oldt)
+     tree t;
+     tree oldt;
+{
+  enum tree_code code = TREE_CODE (oldt);
+  if (code == IDENTIFIER_NODE)
+    {
+      struct lang_identifier *li = (struct lang_identifier *) t;
+      struct lang_id2 *li2 = li->x;
+      li->namespace_bindings = (tree) write_tree (&li->namespace_bindings);
+      li->bindings = (tree) write_tree (&li->bindings);
+      li->class_value = (tree) write_tree (&li->class_value);
+      li->class_template_info = (tree) write_tree (&li->class_template_info);
+      if (li2)
+	{
+	  struct lang_id2 *li2new = xmalloc (sizeof (struct lang_id2));
+	  int li2id;
+	  li2id = current_id++;
+	  memcpy (li2new, li2, sizeof (struct lang_id2));
+	  li->x = li2new;
+	  li2new->label_value = (tree) write_tree (&li2new->label_value);
+	  li2new->implicit_decl = (tree) write_tree  (&li2new->implicit_decl);
+	  li2new->error_locus = (tree) write_tree (&li2new->error_locus);
+	  store_to_db (&li2id, sizeof (int), li2new, sizeof (struct lang_id2));
+	  free (li2new);
+	  li->x = (struct lang_id2 *)li2id;
+	}
+    }
+  else if (code == CPLUS_BINDING)
+    {
+      if (BINDING_HAS_LEVEL_P (oldt))
+	BINDING_LEVEL (t) = (struct binding_level *) 
+	  pickle_binding_level (&BINDING_LEVEL (t));
+      else
+	BINDING_SCOPE (t) = (tree) write_tree (&BINDING_SCOPE (t));
+      BINDING_VALUE (t) = (tree) write_tree (&BINDING_VALUE (t));
+    }
+  else if (code == OVERLOAD)
+    OVL_FUNCTION (t) = (tree) write_tree (&OVL_FUNCTION (t));
+  else if (code == TEMPLATE_PARM_INDEX)
+    TEMPLATE_PARM_DECL (t) = (tree) write_tree (&TEMPLATE_PARM_DECL (t));
+  else if (TREE_CODE_CLASS (code) == 'd')
+    {
+#if 0
+      struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
+      if (ld)
+	{
+	  if (CAN_HAVE_FULL_LANG_DECL_P (oldt))
+	    if (TREE_CODE (t) == FUNCTION_DECL
+		&& !DECL_PENDING_INLINE_P (oldt))
+	      { 
+//		DECL_SAVED_FUNCTION_DATA (t) = (struct cp_language_function *)pickle_lang_function (t, (struct cp_language_function *)DECL_SAVED_FUNCTION_DATA (t));
+	      }
+	  DECL_LANG_SPECIFIC (t) = 
+	    (struct lang_decl *)pickle_decl_lang_specific (oldt, DECL_LANG_SPECIFIC (t));
+	}
+#endif
+    }
+    else if (TREE_CODE_CLASS (code) == 't')
+      {
+	struct lang_type *lt = TYPE_LANG_SPECIFIC (t);
+	if (lt && !(TREE_CODE (t) == POINTER_TYPE 
+		    && TREE_CODE (TREE_TYPE (oldt)) == METHOD_TYPE))
+	  {
+	    struct lang_type *new;
+	    int id;
+	    splay_tree_node result;
+	    if (ggc_set_mark (lt))
+	      {
+		result = splay_tree_lookup (written_trees, (splay_tree_key) lt);
+		if (result)
+		  TYPE_LANG_SPECIFIC (t) = (struct lang_type *)result->value;
+		return;
+	      }
+	    id = current_id++;
+	    new = xmalloc (sizeof (struct lang_type));
+	    memcpy (new, lt, sizeof (struct lang_type));
+	    splay_tree_insert (written_trees, (splay_tree_key)lt, id);
+	    new->primary_base = (tree) write_tree (&new->primary_base);
+	    new->vfields = (tree) write_tree (&new->vfields);
+	    new->vbases = (tree) write_tree (&new->vbases);
+	    new->tags = (tree) write_tree (&new->tags);
+	    new->size = (tree) write_tree (&new->size);
+	    new->pure_virtuals = (tree) write_tree (&new->pure_virtuals);
+	    new->friend_classes = (tree) write_tree (&new->friend_classes);
+	    new->rtti = (tree) write_tree (&new->rtti);
+	    new->methods = (tree) write_tree (&new->methods);
+	    new->template_info = (tree) write_tree (&new->template_info);
+	    new->befriending_classes = (tree) write_tree (&new->befriending_classes);
+	    store_to_db (&id, sizeof (int), new, sizeof (struct lang_type));
+	    free (new);
+	    TYPE_LANG_SPECIFIC (t) = (struct lang_type *)id;
+	  }
+	else if (lt)
+	  TYPE_LANG_SPECIFIC (t) = (struct lang_type *)write_tree ((tree *)&TYPE_LANG_SPECIFIC (t));
+      }
+
 }
 
 static void
@@ -8133,6 +8389,8 @@ finish_decl (decl, init, asmspec_tree)
      tree decl, init;
      tree asmspec_tree;
 {
+  int id;
+  tree fred;
   cp_finish_decl (decl, init, asmspec_tree, 0);
 }
 
@@ -13888,7 +14146,7 @@ tree
 finish_function (flags)
      int flags;
 {
-  register tree fndecl = current_function_decl;
+  tree fndecl = current_function_decl;
   tree fntype, ctype = NULL_TREE;
   int call_poplevel = (flags & 1) != 0;
   int inclass_inline = (flags & 2) != 0;
@@ -13983,6 +14241,12 @@ finish_function (flags)
   /* Set the BLOCK_SUPERCONTEXT of the outermost function scope to point
      to the FUNCTION_DECL node itself.  */
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
+    {
+      tree temp;
+      temp = read_tree ((tree)write_tree (&fndecl));
+      temp = temp+1;
+      temp = temp-1;
+    }
 
   /* Save away current state, if appropriate.  */
   if (!processing_template_decl)
@@ -13999,7 +14263,7 @@ finish_function (flags)
      function.)  */
   if (!processing_template_decl && calls_setjmp_p (fndecl))
     DECL_UNINLINABLE (fndecl) = 1;
-
+  
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear

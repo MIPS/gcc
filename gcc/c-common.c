@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "cpplib.h"
 #include "target.h"
+#include "treepch.h"
 cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 
 #undef WCHAR_TYPE_SIZE
@@ -3904,7 +3905,14 @@ finish_label_address_expr (label)
 /* Mark P (a stmt_tree) for GC.  The use of a `void *' for the
    parameter allows this function to be used as a GC-marking
    function.  */
-
+void
+pickle_stmt_tree (p)
+     void *p;
+{
+  stmt_tree st = (stmt_tree) p;
+  st->x_last_stmt = (tree) write_tree (&st->x_last_stmt);
+  st->x_last_expr_type = (tree) write_tree (&st->x_last_expr_type);
+}
 void
 mark_stmt_tree (p)
      void *p;
@@ -3924,6 +3932,16 @@ c_mark_lang_decl (c)
   ggc_mark_tree (c->saved_tree);
 }
 
+void
+pickle_c_language_function (f)
+     struct language_function *f;
+{
+  if (!f)
+    return;
+  pickle_stmt_tree (&f->x_stmt_tree);
+  f->x_scope_stmt_stack = (tree) write_tree (&f->x_scope_stmt_stack);
+}
+  
 /* Mark F for GC.  */
 
 void

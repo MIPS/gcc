@@ -811,7 +811,7 @@ extern tree boolean_increment			PARAMS ((enum tree_code,
 extern void extract_interface_info		PARAMS ((void));
 
 extern void mark_c_language_function            PARAMS ((struct language_function *));
-
+extern void pickle_c_language_function          PARAMS ((struct language_function *));
 extern int case_compare                         PARAMS ((splay_tree_key,
 							 splay_tree_key));
 

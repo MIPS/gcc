@@ -25,6 +25,8 @@
 
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef ssize_t
+/* Define if we have a DBM compatible database */
+#undef HAVE_DBM
 
 @BOTTOM@
 

@@ -45,7 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "output.h"
 #include "target.h"
-
+#include "treepch.h"
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 /* obstack.[ch] explicitly declined to prototype this.  */
@@ -4979,4 +4979,422 @@ build_common_tree_nodes_2 (short_double)
   TREE_TYPE (V8QI_type_node) = intQI_type_node;
   TYPE_MODE (V8QI_type_node) = V8QImode;
   finish_vector_type (V8QI_type_node);
+}
+DBM * datafile = NULL;
+const char *datafilename = "testtree";
+size_t current_id = 1;
+splay_tree read_trees = NULL;
+splay_tree written_trees = NULL;
+static int pickle_string PARAMS ((const char *));
+static char * pickle_tree PARAMS ((tree));
+static tree unpickle_tree PARAMS ((tree));
+static const char * unpickle_string  PARAMS ((int));
+#define VARRAY_BYTES(x) ((sizeof (struct varray_head_tag) - sizeof (varray_data)) + (x->num_elements * x->element_size))
+static int 
+pickle_string (s)
+     const char *s;
+{
+  int id;
+  splay_tree_node result;
+  result = splay_tree_lookup (written_trees, (splay_tree_key)s);
+  if (result)
+    return result->value;
+  id = current_id++;	
+  splay_tree_insert (written_trees, (splay_tree_key)s, id);
+  store_to_db (&id, sizeof (int), (void *)s, strlen (s) + 1);
+  return id;
+} 
+static const char *
+unpickle_string (id)
+	int id;
+{
+  datum key, data;
+  splay_tree_node result;
+  const char *ret;
+  if (id == 0)
+    return NULL;
+  result = splay_tree_lookup (read_trees, id);
+  if (result)
+    return (const char *)result->value;
+  key.dptr = (char *)&id;
+  key.dsize = sizeof (int);
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort ();
+  ret = ggc_alloc_string (data.dptr, -1);
+  return ret;
+}
+static varray_type unpickle_tree_varray PARAMS ((varray_type));
+varray_type
+read_tree_varray (id)
+     varray_type id;
+{
+  splay_tree_node result;
+  varray_type ret;
+  if (id == 0)
+    return 0;
+  result = splay_tree_lookup (read_trees, (splay_tree_key) id);
+  if (result)
+    return (varray_type) result->value;
+  ret = unpickle_tree_varray (id);
+  return ret;
+}
+tree
+read_tree (id)
+     tree id;
+{
+  splay_tree_node result;
+  tree ret;
+  if (id == 0)
+    return NULL_TREE;
+  if (read_trees == NULL)
+    read_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  result = splay_tree_lookup (read_trees, (splay_tree_key) id);
+  if (result)
+    return (tree) result->value;
+  ret = unpickle_tree (id);
+  return ret;
+}
+extern void lang_pickle_tree PARAMS ((tree, tree));
+extern void lang_unpickle_tree PARAMS ((tree));
+static
+varray_type
+unpickle_tree_varray (id)
+     varray_type id;
+{
+  int i;
+  datum key, data;
+  varray_type buffer;
+  if (id == 0)
+    return 0;
+  key.dptr = (char *)&id;
+  key.dsize = sizeof(int);
+  data = dbm_fetch (datafile,key);
+  if (!data.dptr)
+    abort ();
+  buffer = xmalloc (VARRAY_BYTES (((varray_type)data.dptr)));
+  memcpy (buffer, data.dptr, VARRAY_BYTES (((varray_type)data.dptr)));
+  buffer->name = unpickle_string ((int)buffer->name);
+  for (i = buffer->num_elements - 1; i >= 0; --i)
+    VARRAY_TREE (buffer, i) = (tree) read_tree (VARRAY_TREE (buffer, i));
+  return buffer;
+}
+ 
+static tree 
+unpickle_tree (id)
+	tree id;
+{
+  datum key, data;
+  tree buffer;
+  if (id == 0)
+    return NULL_TREE;
+  key.dptr = (char *) &id;
+  key.dsize = sizeof (int);
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  if (TREE_CODE ((tree) data.dptr) == TREE_VEC)
+    buffer = make_tree_vec (TREE_VEC_LENGTH ((tree) data.dptr));
+  else
+    buffer = make_node (TREE_CODE ((tree) data.dptr));
+  splay_tree_insert (read_trees, (splay_tree_key) id, 
+		     (splay_tree_value) buffer);
+  memcpy (buffer, data.dptr, data.dsize);
+  TREE_CHAIN (buffer) = read_tree (TREE_CHAIN (buffer));
+  TREE_TYPE (buffer) = read_tree (TREE_TYPE (buffer));
+  if (TREE_CODE (buffer) == IDENTIFIER_NODE)
+    {
+      return buffer;
+    }
+
+  switch (TREE_CODE_CLASS (TREE_CODE (buffer)))
+    {
+    case 'c':
+      if (TREE_CODE (buffer) == STRING_CST)
+	TREE_STRING_POINTER (buffer) = 
+	  unpickle_string ((int)TREE_STRING_POINTER (buffer));
+      else if (TREE_CODE (buffer) == COMPLEX_CST)
+	{
+	  TREE_REALPART (buffer) = read_tree (TREE_REALPART (buffer));
+	  TREE_IMAGPART (buffer) = read_tree (TREE_IMAGPART (buffer));
+	}
+
+      break;
+    case 'x':
+      if (TREE_CODE (buffer) == IDENTIFIER_NODE)
+	IDENTIFIER_POINTER (buffer) = (const char *)
+	  unpickle_string ((int)IDENTIFIER_POINTER (buffer));
+      else if (TREE_CODE (buffer) == TREE_LIST)
+	{
+	  TREE_PURPOSE (buffer) = read_tree (TREE_PURPOSE (buffer));
+	  TREE_VALUE (buffer) = read_tree (TREE_VALUE (buffer));
+	}
+      else if (TREE_CODE (buffer) == TREE_VEC)
+	{
+	  int i;
+	  for (i = 0; i < TREE_VEC_LENGTH (buffer); i++)
+	    TREE_VEC_ELT (buffer, i) = read_tree (TREE_VEC_ELT (buffer, i));
+	}
+      break;
+    case 'd':
+      DECL_SOURCE_FILE (buffer) = 
+	unpickle_string ((int)DECL_SOURCE_FILE (buffer));
+      DECL_SIZE (buffer) = read_tree(DECL_SIZE (buffer));
+      DECL_SIZE_UNIT (buffer) = read_tree(DECL_SIZE_UNIT (buffer));
+      DECL_NAME (buffer) = read_tree (DECL_NAME (buffer));
+      DECL_CONTEXT (buffer) = read_tree (DECL_CONTEXT (buffer));
+      DECL_ARGUMENTS (buffer) = read_tree (DECL_ARGUMENTS (buffer));
+      DECL_RESULT_FLD (buffer) = read_tree (DECL_RESULT_FLD (buffer));
+      DECL_INITIAL (buffer) = read_tree (DECL_INITIAL (buffer));
+      DECL_ABSTRACT_ORIGIN (buffer) = read_tree (DECL_ABSTRACT_ORIGIN (buffer));
+      DECL_SECTION_NAME (buffer) = read_tree (DECL_SECTION_NAME (buffer));
+      DECL_MACHINE_ATTRIBUTES (buffer) = 
+	read_tree (DECL_MACHINE_ATTRIBUTES (buffer));
+      DECL_VINDEX (buffer) = read_tree (DECL_VINDEX (buffer));
+      if (TREE_CODE (buffer) == FIELD_DECL)
+	buffer->decl.u2.t = read_tree (buffer->decl.u2.t);
+      /*FIXME: if it's PARM_DECL, u2 is  an RTL */
+      /*FIXME: Handle lang specific */
+      break;
+    case 't':
+      TYPE_VALUES (buffer) = read_tree (TYPE_VALUES (buffer));
+      TYPE_SIZE (buffer) = read_tree (TYPE_SIZE (buffer));
+      TYPE_SIZE_UNIT (buffer) = read_tree (TYPE_SIZE_UNIT (buffer));
+      TYPE_ATTRIBUTES (buffer) = read_tree (TYPE_ATTRIBUTES (buffer));
+      TYPE_POINTER_TO (buffer) = read_tree (TYPE_POINTER_TO (buffer));
+      TYPE_REFERENCE_TO (buffer) = read_tree (TYPE_REFERENCE_TO (buffer));
+      TYPE_NAME (buffer) = read_tree (TYPE_NAME (buffer));
+      TYPE_MIN_VALUE (buffer) = read_tree (TYPE_MIN_VALUE (buffer));
+      TYPE_MAX_VALUE (buffer) = read_tree (TYPE_MAX_VALUE (buffer));
+      TYPE_NEXT_VARIANT (buffer) = read_tree (TYPE_NEXT_VARIANT (buffer));
+      TYPE_MAIN_VARIANT (buffer) = read_tree (TYPE_MAIN_VARIANT (buffer));
+      TYPE_BINFO (buffer) = read_tree (TYPE_BINFO (buffer));
+      TYPE_NONCOPIED_PARTS (buffer) = 
+	read_tree (TYPE_NONCOPIED_PARTS (buffer));
+      TYPE_CONTEXT (buffer) = read_tree (TYPE_CONTEXT (buffer));
+      /* FIXME: Handle lang_specific */
+      break;
+    case 'b':
+	{
+	  BLOCK_VARS (buffer) = read_tree (BLOCK_VARS (buffer));
+	  BLOCK_SUBBLOCKS (buffer) = read_tree (BLOCK_SUBBLOCKS (buffer));
+	  BLOCK_SUPERCONTEXT (buffer) = 
+	    read_tree (BLOCK_SUPERCONTEXT (buffer));
+	  BLOCK_ABSTRACT_ORIGIN (buffer) = 
+	    read_tree (BLOCK_ABSTRACT_ORIGIN (buffer));
+	  BLOCK_FRAGMENT_ORIGIN (buffer) = 
+	    read_tree (BLOCK_FRAGMENT_ORIGIN (buffer));
+	  BLOCK_FRAGMENT_CHAIN (buffer) = 
+	    read_tree (BLOCK_FRAGMENT_CHAIN (buffer));
+	}
+      break;
+    case 'r':
+    case 's':
+    case '<':
+    case '1':
+    case '2':
+    case 'e':
+	{
+	  int i;
+	  for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (buffer)); i++)
+	    TREE_OPERAND (buffer, i) = read_tree (TREE_OPERAND (buffer, i));
+	}
+      break;
+    default:
+      break;
+    }
+  return buffer;
+}
+
+static char *
+pickle_tree_varray (v)
+     varray_type v;
+{
+  int i;
+  varray_type buffer = xmalloc (VARRAY_BYTES (v));
+  memcpy (buffer, v, VARRAY_BYTES (v));
+  buffer->name = (const char *) pickle_string (buffer->name);
+  for (i = buffer->num_elements - 1; i >= 0; --i)
+    VARRAY_TREE (buffer, i) = (tree) write_tree (&VARRAY_TREE (buffer, i));
+  return (char *) buffer;
+}
+static char * 
+pickle_tree (t)
+	tree t;
+{
+  tree buffer = xmalloc (tree_size (t));
+  memcpy (buffer, t, tree_size (t));
+  TREE_CHAIN (buffer) = (tree)write_tree (&TREE_CHAIN (buffer));
+  TREE_TYPE (buffer) = (tree)write_tree (&TREE_TYPE (buffer));
+  if (TREE_CODE (buffer) == IDENTIFIER_NODE)
+    {
+      IDENTIFIER_POINTER (buffer) = (const char *)pickle_string (IDENTIFIER_POINTER (buffer));
+      return (char *)buffer;
+    }
+  else if (TREE_CODE (buffer) == TREE_LIST)
+    {
+      TREE_PURPOSE (buffer) = (tree) write_tree (&TREE_PURPOSE (buffer));
+      TREE_VALUE (buffer) = (tree) write_tree (&TREE_VALUE (buffer));
+      return (char *)buffer;
+    }
+  else if (TREE_CODE (buffer) == TREE_VEC)
+    {
+      int i;
+      for (i = 0; i < TREE_VEC_LENGTH (buffer); i++)
+	TREE_VEC_ELT (buffer, i) = 
+	  (tree) write_tree (&TREE_VEC_ELT (buffer, i));
+      return (char *) buffer;
+    }
+  switch (TREE_CODE_CLASS (TREE_CODE (buffer)))
+    {
+    case 'c':
+      if (TREE_CODE (buffer) == STRING_CST)
+	TREE_STRING_POINTER (buffer) = (const char *)
+	  pickle_string (TREE_STRING_POINTER (buffer));
+      else if (TREE_CODE (buffer) == COMPLEX_CST)
+	{
+	  TREE_REALPART (buffer) = (tree) write_tree (&TREE_REALPART (buffer));
+	  TREE_IMAGPART (buffer) = (tree) write_tree (&TREE_IMAGPART (buffer));
+	}
+      break;
+    case 'x':
+      lang_pickle_tree (buffer, t);
+      break;
+    case 'd':
+      DECL_SOURCE_FILE (buffer) = 
+	(const char *)pickle_string (DECL_SOURCE_FILE (buffer));
+      DECL_SIZE (buffer) = (tree)write_tree(&DECL_SIZE (buffer));
+      DECL_SIZE_UNIT (buffer) = (tree) write_tree(&DECL_SIZE_UNIT (buffer));
+      DECL_NAME (buffer) = (tree) write_tree (&DECL_NAME (buffer));
+      DECL_CONTEXT (buffer) = (tree) write_tree (&DECL_CONTEXT (buffer));
+      DECL_ARGUMENTS (buffer) = (tree) write_tree (&DECL_ARGUMENTS (buffer));
+      DECL_RESULT_FLD (buffer) = (tree) write_tree (&DECL_RESULT_FLD (buffer));
+      DECL_INITIAL (buffer) = (tree) write_tree (&DECL_INITIAL (buffer));
+      DECL_ABSTRACT_ORIGIN (buffer) = 
+	(tree) write_tree (&DECL_ABSTRACT_ORIGIN (buffer));
+      DECL_SECTION_NAME (buffer) = 
+	(tree) write_tree (&DECL_SECTION_NAME (buffer));
+      DECL_MACHINE_ATTRIBUTES (buffer) = 
+	(tree) write_tree (&DECL_MACHINE_ATTRIBUTES (buffer));
+      DECL_VINDEX (buffer) = (tree) write_tree (&DECL_VINDEX (buffer));
+      if (DECL_ASSEMBLER_NAME_SET_P (t))
+	DECL_ASSEMBLER_NAME (buffer) = (tree) write_tree (&DECL_ASSEMBLER_NAME (buffer));
+      if (TREE_CODE (buffer) == FIELD_DECL)
+	buffer->decl.u2.t = (tree) write_tree (&buffer->decl.u2.t);
+      lang_pickle_tree (buffer, t);
+      break;
+    case 't':
+      TYPE_VALUES (buffer) = (tree) write_tree (&TYPE_VALUES (buffer));
+      TYPE_SIZE (buffer) = (tree) write_tree (&TYPE_SIZE (buffer));
+      TYPE_SIZE_UNIT (buffer) = (tree) write_tree (&TYPE_SIZE_UNIT (buffer));
+      TYPE_ATTRIBUTES (buffer) = (tree) write_tree (&TYPE_ATTRIBUTES (buffer));
+      TYPE_POINTER_TO (buffer) = (tree) write_tree (&TYPE_POINTER_TO (buffer));
+      TYPE_REFERENCE_TO (buffer) = 
+	(tree) write_tree (&TYPE_REFERENCE_TO (buffer));
+      TYPE_NAME (buffer) = (tree) write_tree (&TYPE_NAME (buffer));
+      TYPE_MIN_VALUE (buffer) = (tree) write_tree (&TYPE_MIN_VALUE (buffer));
+      TYPE_MAX_VALUE (buffer) = (tree) write_tree (&TYPE_MAX_VALUE (buffer));
+      TYPE_NEXT_VARIANT (buffer) = 
+	(tree) write_tree (&TYPE_NEXT_VARIANT (buffer));
+      TYPE_MAIN_VARIANT (buffer) = 
+	(tree) write_tree (&TYPE_MAIN_VARIANT (buffer));
+      TYPE_BINFO (buffer) = (tree) write_tree (&TYPE_BINFO (buffer));
+      TYPE_NONCOPIED_PARTS (buffer) = 
+	(tree) write_tree (&TYPE_NONCOPIED_PARTS (buffer));
+      TYPE_CONTEXT (buffer) = (tree) write_tree (&TYPE_CONTEXT (buffer));
+      lang_pickle_tree (buffer, t);
+      break;
+    case 'b':
+      BLOCK_VARS (buffer) = (tree) write_tree (&BLOCK_VARS (buffer));
+      BLOCK_SUBBLOCKS (buffer) = 
+	(tree) write_tree (&BLOCK_SUBBLOCKS (buffer));
+      BLOCK_SUPERCONTEXT (buffer) = 
+	(tree) write_tree (&BLOCK_SUPERCONTEXT (buffer));
+      BLOCK_ABSTRACT_ORIGIN (buffer) =
+	(tree) write_tree (&BLOCK_ABSTRACT_ORIGIN (buffer));
+      break;
+    case 'r':
+    case 's':
+    case '<':
+    case '1':
+    case '2':
+    case 'e':
+      {
+	int i;
+	for (i = 0; i < first_rtl_op (TREE_CODE (buffer)); i++)
+	  TREE_OPERAND (buffer, i) = (tree) 
+	    write_tree (&TREE_OPERAND (buffer, i));
+      }
+      break;
+    default:
+      break;
+    }
+  return (char *)buffer;
+}
+void
+store_to_db (key1, keylen, data1, datalen)
+	void *key1;
+	size_t keylen;
+	void *data1;
+	size_t datalen;
+{
+  datum key, data;
+  key.dptr = (char *)key1;
+  key.dsize = keylen;
+  data.dptr = (char *)data1;
+  data.dsize = datalen;
+  dbm_store (datafile, key, data, DBM_REPLACE);
+}
+
+int
+write_tree_varray (v)
+     varray_type v;
+{
+  int id;
+  splay_tree_node result;
+  char *buffer;
+  if (!v)
+    return 0;
+  if (ggc_set_mark (v))
+    {
+      result = splay_tree_lookup (written_trees, (splay_tree_key) v);
+      if (result)
+	return result->value;
+    }
+  id = current_id++;
+  splay_tree_insert (written_trees, (splay_tree_key)v, id);
+  buffer = pickle_tree_varray (v);
+  store_to_db (&id, sizeof (int), buffer, VARRAY_BYTES (v));
+  free (buffer);
+  return id;
+}
+  
+int
+write_tree (tp)
+     tree *tp;
+{
+  int id;
+  splay_tree_node result;
+  char *buffer;
+  if (written_trees == NULL)
+    written_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  if (datafile == NULL)
+    datafile = dbm_open ((char *)datafilename, O_RDWR | O_CREAT, 0666);
+  if (datafile == NULL)
+    abort();
+  /* Skip empty subtrees.  */
+  if (!*tp)
+    return 0;
+  if (ggc_set_mark (*tp))
+    {
+      result = splay_tree_lookup (written_trees, (splay_tree_key)*tp);
+      if (result)
+	return result->value;
+    }
+  id = current_id++;	
+  splay_tree_insert (written_trees, (splay_tree_key)*tp, id);
+  buffer = pickle_tree (*tp);
+  store_to_db (&id, sizeof (int), buffer, tree_size (*tp));
+  free (buffer);
+  return id;
 }

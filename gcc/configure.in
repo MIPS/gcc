@@ -675,6 +675,10 @@ CFLAGS="$saved_CFLAGS"
 
 # mkdir takes a single argument on some systems. 
 gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG
+AC_CHECKING(for database support)
+
+AC_CHECK_HEADERS(sdbm.h gdbm.h, [break])
+AC_SEARCH_LIBS(dbm_open, sdbm gdbm, [AC_DEFINE(HAVE_DBM)])
 
 # File extensions
 manext='.1'

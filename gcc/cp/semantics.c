@@ -38,7 +38,7 @@
 #include "output.h"
 #include "timevar.h"
 #include "debug.h"
-
+#include "treepch.h"
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
    during template instantiation, which may be regarded as a
@@ -1676,7 +1676,7 @@ finish_declarator (declarator, declspecs, attributes,
 }
 
 /* Finish a translation unit.  */
-
+extern DBM * datafile;
 void 
 finish_translation_unit ()
 {
@@ -1690,6 +1690,8 @@ finish_translation_unit ()
   finish_fname_decls ();
   
   finish_file ();
+  if (datafile)
+    dbm_close (datafile);
 }
 
 /* Finish a template type parameter, specified as AGGR IDENTIFIER.

@@ -1,4 +1,4 @@
-/* config.in.  Generated automatically from configure.in by autoheader.  */
+/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define to empty if the keyword does not work.  */
 #undef const
@@ -79,6 +79,8 @@
 
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef ssize_t
+/* Define if we have a DBM compatible database */
+#undef HAVE_DBM
 
 /* Define if you have the __argz_count function.  */
 #undef HAVE___ARGZ_COUNT
@@ -197,6 +199,9 @@
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
 
+/* Define if you have the <gdbm.h> header file.  */
+#undef HAVE_GDBM_H
+
 /* Define if you have the <langinfo.h> header file.  */
 #undef HAVE_LANGINFO_H
 
@@ -211,6 +216,9 @@
 
 /* Define if you have the <nl_types.h> header file.  */
 #undef HAVE_NL_TYPES_H
+
+/* Define if you have the <sdbm.h> header file.  */
+#undef HAVE_SDBM_H
 
 /* Define if you have the <stddef.h> header file.  */
 #undef HAVE_STDDEF_H
