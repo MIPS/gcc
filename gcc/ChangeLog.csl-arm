@@ -1,5 +1,10 @@
 2004-09-02  Paul Brook  <paul@codesourcery.com>
 
+	* decl2.c (determine_visibility): Only check data visibility
+	for VAR_DECLS.
+
+2004-09-02  Paul Brook  <paul@codesourcery.com>
+
 	* config.gcc (arm*-*-eabi* | arm*-*-symbianelf*): Set
 	default_use_cxa_atexit=yes.
 
@@ -27,7 +32,7 @@
 	(TARGET_CXX_KEY_METHOD_MAY_BE_INLINE): New macro.
 	* config/arm/bpabi.h: Use __THUMB_INTERWORK__ instead of
 	__THUMB_INTERWORK.
- 	* cp/class.c (key_method): Rename to ...
+	* cp/class.c (key_method): Rename to ...
 	(determine_key_method): ... this.
 	(finish_struct_1): Adjust accordingly.
 	* cp/cp-tree.h (key_method): Declare.
