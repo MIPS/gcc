@@ -1,3 +1,8 @@
+2004-03-30  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/uninit-1.c, gcc.dg/uninit-3.c, gcc.dg/uninit-8.c, 
+	gcc.dg/uninit-9.c: Remove XFAIL.
+
 2004-03-26  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040326-1.c: New test.
