@@ -126,7 +126,7 @@ static void do_compile (void);
 static void process_options (void);
 static void backend_init (void);
 static void init_compile_once (void);
-static int lang_dependent_init (const char *);
+static int lang_dependent_init (void);
 static void init_asm_output (const char *);
 static void finalize (void);
 
@@ -4282,7 +4282,7 @@ backend_init (void)
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
 static int
-lang_dependent_init (const char *name)
+lang_dependent_init (void)
 {
   /* Set aux_base_name if not already set.  */
   if (aux_base_name)
@@ -4297,17 +4297,14 @@ lang_dependent_init (const char *name)
   else
     aux_base_name = "gccaux";
 
-  if (dump_base_name == 0)
-    dump_base_name = name ? name : "gccdump";
-
-  /* Other front-end initialization.  */
-  if ((*lang_hooks.init_eachsrc) () == 0)
-    return 0;
+  if (dump_base_name == NULL)
+    dump_base_name = in_fnames[0];
+  main_input_filename = input_filename = dump_base_name;
 
   /* Set up the back-end if requested.  */
   backend_init ();
 
-  init_asm_output (name);
+  init_asm_output (main_input_filename);
 
   /* These create various _DECL nodes, so need to be called after the
      front end is initialized.  */
@@ -4331,7 +4328,7 @@ lang_dependent_init (const char *name)
 
   /* Now we have the correct original filename, we can initialize
      debug output.  */
-  (*debug_hooks->init) (name);
+  (*debug_hooks->init) (main_input_filename);
 
   timevar_pop (TV_SYMOUT);
 
@@ -4441,7 +4438,7 @@ do_compile (void)
     timevar_init ();
   timevar_start (TV_TOTAL);
 
-  lang_dependent_init (in_fnames[0]);
+  lang_dependent_init ();
   for (i = 0;  i < num_in_fnames;  i++)
     {
       const char *filename = in_fnames[i];
@@ -4458,8 +4455,7 @@ do_compile (void)
 
       if (! no_backend)
 	{
-	  if (i > 0)
-	    (*lang_hooks.init_eachsrc) ();
+	  (*lang_hooks.init_eachsrc) ();
 	  compile_file_parse ();
 	}
       if (flag_unit_at_a_time)

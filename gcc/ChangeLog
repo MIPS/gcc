@@ -1,5 +1,14 @@
 2003-08-21  Per Bothner  <pbothner@apple.com>
 
+	* toplev.c (lang_dependent_init):  Remove parameter.
+	Don't call lang_hooks.init_eachsrc here.
+	Default dump_base_name to in_fnames[0].
+	Set main_input_filename and input_filename from dump_base_name.
+	Use maininput_filename for init_asm_output and debug_hooks->init.
+	(do_compile):  Call init_eachsrc even for first iterations.
+
+2003-08-21  Per Bothner  <pbothner@apple.com>
+
 	* cpplex.c (_cpp_clean_line):  Add extra '\n' into buffer,
 	in case it is re-used.
 
