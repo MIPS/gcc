@@ -1,3 +1,7 @@
+2003-09-05  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (expand_function_body): Gimplify the function.
+
 2003-09-04  Jeff Law  <law@redhat.com>
 
 	* f95-lang.c (DEFINE_MATH_BUILTIN): C arrays start at

@@ -200,6 +200,9 @@ tree *ridpointers = NULL;
 void
 expand_function_body (tree fndecl, int nested ATTRIBUTE_UNUSED)
 {
+  if (!flag_disable_gimple)
+    gimplify_function_tree (fndecl);
+
   tree_rest_of_compilation (fndecl);
 }
 
