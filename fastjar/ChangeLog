@@ -1,3 +1,8 @@
+2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* jargrep.c (chk_wrd): Remove unused variable(s).
+	* jartool.c (main, create_central_header, list_jar): Likewise.
+
 2002-09-04  Tom Tromey  <tromey@redhat.com>
 
 	From greenrd@hotmail.com:
@@ -120,7 +125,7 @@
 
 2001-05-15  Per Bothner  <per@bothner.com>
 
-        * Makefile.am (bin_PROGRAMS):  Renamed from "fastjar" to "jar".
+	* Makefile.am (bin_PROGRAMS):  Renamed from "fastjar" to "jar".
 
 2001-05-03  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
@@ -138,7 +143,7 @@
 	* jartool.c (MAXPATHLEN): Provide if not defined.
 
 2000-12-15  Tom Tromey  <tromey@redhat.com>
-            Kelley Cook <kelleycook@home.com>
+	    Kelley Cook <kelleycook@home.com>
 
 	* jargrep.c: Include getopt.h if it exists.
 	(optind): Declare.

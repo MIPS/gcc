@@ -161,9 +161,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
      should be passed to a single jc1 invocation. */
   int combine_inputs = 0;
 
-  /* Index of last .java or .class argument. */
-  int last_input_index;
-
   /* Number of .java and .class source file arguments seen. */
   int java_files_count = 0;
   int class_files_count = 0;
@@ -384,7 +381,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  if (saw_resource)
 	    {
 	      args[i] |= RESOURCE_FILE_ARG;
-	      last_input_index = i;
 	      added += 2;  /* for -xjava and -xnone */
 	    }
 
@@ -400,13 +396,11 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= JAVA_FILE_ARG;
 	      java_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 6 && strcmp (argv[i] + len - 6, ".class") == 0)
 	    {
 	      args[i] |= CLASS_FILE_ARG;
 	      class_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 4
 	      && (strcmp (argv[i] + len - 4, ".zip") == 0
@@ -414,7 +408,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= ZIP_FILE_ARG;
 	      zip_files_count++;
-	      last_input_index = i;
 	    }
 	}
     }

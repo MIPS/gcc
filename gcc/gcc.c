@@ -2330,7 +2330,7 @@ make_relative_prefix (progname, bin_prefix, prefix)
      const char *prefix;
 {
   char **prog_dirs, **bin_dirs, **prefix_dirs;
-  int prog_num, bin_num, prefix_num, std_loc_p;
+  int prog_num, bin_num, prefix_num;
   int i, n, common;
 
   prog_dirs = split_directories (progname, &prog_num);
@@ -2403,7 +2403,6 @@ make_relative_prefix (progname, bin_prefix, prefix)
   /* Determine if the compiler is installed in the standard location, and if
      so, we don't need to specify relative directories.  Also, if argv[0]
      doesn't contain any directory specifiers, there is not much we can do.  */
-  std_loc_p = 0;
   if (prog_num == bin_num)
     {
       for (i = 0; i < bin_num; i++)
@@ -2414,7 +2413,6 @@ make_relative_prefix (progname, bin_prefix, prefix)
 
       if (prog_num <= 0 || i == bin_num)
 	{
-	  std_loc_p = 1;
 	  free_split_directories (prog_dirs);
 	  free_split_directories (bin_dirs);
 	  prog_dirs = bin_dirs = (char **) 0;

@@ -1,3 +1,7 @@
+2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* jvspec.c (lang_specific_driver): Remove unused variable.
+
 2002-09-01  Mark Wielaard <mark@klomp.org>
 
 	* gcj.texi: Add chapter about system properties.

@@ -266,11 +266,11 @@ static struct qty_table_elem *qty_table;
 
 static rtx prev_insn_cc0;
 static enum machine_mode prev_insn_cc0_mode;
-#endif
 
 /* Previous actual insn.  0 if at first insn of basic block.  */
 
 static rtx prev_insn;
+#endif
 
 /* Insn being scanned.  */
 
@@ -1022,9 +1022,8 @@ new_basic_block ()
 	}
     }
 
-  prev_insn = 0;
-
 #ifdef HAVE_cc0
+  prev_insn = 0;
   prev_insn_cc0 = 0;
 #endif
 }
@@ -6364,9 +6363,8 @@ cse_insn (insn, libcall_insn)
 
   prev_insn_cc0 = this_insn_cc0;
   prev_insn_cc0_mode = this_insn_cc0_mode;
-#endif
-
   prev_insn = insn;
+#endif
 }
 
 /* Remove from the hash table all expressions that reference memory.  */
@@ -7266,8 +7264,8 @@ cse_basic_block (from, to, next_branch, around_loop)
 		 Then follow this branch.  */
 #ifdef HAVE_cc0
 	      prev_insn_cc0 = 0;
-#endif
 	      prev_insn = insn;
+#endif
 	      insn = JUMP_LABEL (insn);
 	      continue;
 	    }

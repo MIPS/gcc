@@ -5927,7 +5927,6 @@ check_final_value (loop, v)
      const struct loop *loop;
      struct induction *v;
 {
-  struct loop_ivs *ivs = LOOP_IVS (loop);
   rtx final_value = 0;
 
   /* DEST_ADDR givs will never reach here, because they are always marked

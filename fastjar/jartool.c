@@ -321,7 +321,6 @@ int main(int argc, char **argv){
   int manifest = TRUE;
   int opt;
   
-  int j;
   int jarfd = -1;
   
   /* These are used to collect file names and `-C' options for the
@@ -338,8 +337,6 @@ int main(int argc, char **argv){
   
   if(argc < 2)
     usage(argv[0]);
-  
-  j = strlen(argv[1]);
   
   new_argc = 0;
   new_argv = (char **) malloc (argc * sizeof (char *));
@@ -1115,12 +1112,9 @@ int create_central_header(int fd){
   ub1 end_header[22];
   int start_offset;
   int dir_size;
-  int *iheader;
   int total_in = 0, total_out = 22;
 
   zipentry *ze;
-
-  iheader = (int*)header;
 
   /* magic number */
   header[0] = 'P';
@@ -1544,7 +1538,6 @@ int extract_jar(int fd, char **files, int file_num){
 }
 
 int list_jar(int fd, char **files, int file_num){
-  int rdamt;
   ub4 signature;
   ub4 csize;
   ub4 usize;
@@ -1706,7 +1699,7 @@ int list_jar(int fd, char **files, int file_num){
     init_inflation();
 
     for(;;){
-      if((rdamt = pb_read(&pbf, scratch, 4)) != 4){
+      if(pb_read(&pbf, scratch, 4) != 4){
         perror("read");
         break;
       }
@@ -1735,7 +1728,7 @@ int list_jar(int fd, char **files, int file_num){
         break;
       }
       
-      if((rdamt = pb_read(&pbf, (file_header + 4), 26)) != 26){
+      if(pb_read(&pbf, (file_header + 4), 26) != 26){
         perror("read");
         break;
       }

@@ -1,3 +1,11 @@
+2002-09-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* config/mips/mips.c (save_restore_insns): Remove unused variable.
+	* gcc.c (make_relative_prefix): Likewise.
+	* loop.c (check_final_value): Likewise.
+	* jump.c (init_label_info): Remove return value.
+	* cse.c (prev_insn): Move variable between #ifdef HAVE_cc0 ... #endif.
+
 2002-09-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* dsp16xx.h (ASM_FORMAT_PRIVATE_NAME): Delete.
