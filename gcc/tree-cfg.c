@@ -959,6 +959,10 @@ make_edges (void)
 
   try_finallys = NULL;
 
+  /* We do not care about fake edges, so remove any that the CFG
+     builder inserted for completeness.  */
+  remove_fake_edges ();
+
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
 }
@@ -1188,12 +1192,16 @@ make_exit_edges (basic_block bb)
 	    make_edge (bb, bb_for_stmt (TREE_VALUE (t)), EDGE_ABNORMAL);
 	}
 
-      /* Some calls are known not to return.  For such calls we need to
-	 add an edge to the exit block.  No fall thru edge is needed
-	 as these calls can not return in the normal sense.  */
+      /* Some calls are known not to return.  For such calls we create
+	 a fake edge.
+
+	 We really need to revamp how we build edges so that it's not
+	 such a bloody pain to avoid creating edges for this case since
+	 all we do is remove these edges when we're done building the
+	 CFG.  */
       if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
 	{
-	  make_edge (bb, EXIT_BLOCK_PTR, 0);
+	  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	  return;
 	}
 

@@ -1,5 +1,9 @@
 2003-06-23  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (make_edges): Remove fake edges.
+	(make_exit_edges): Mark edges from nonreturning functions to the
+	exit block as being fake edges.
+ 
 	* gimplify.c (gimplify_modify_expr): Don't create a new MODIFY_EXPR,
 	reuse the existing one.
 
