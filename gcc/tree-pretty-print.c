@@ -1335,6 +1335,9 @@ dump_generic_node (buffer, node, spc, flags)
 	for (i = 0; i < PHI_NUM_ARGS (node); i++)
 	  {
 	    dump_generic_node (buffer, PHI_ARG_DEF (node, i), spc, flags);
+	    output_add_string (buffer, "(");
+	    output_decimal (buffer, PHI_ARG_EDGE (node, i)->src->index);
+	    output_add_string (buffer, ")");
 	    if (i < PHI_NUM_ARGS (node) - 1)
 	      output_add_string (buffer, ", ");
 	  }

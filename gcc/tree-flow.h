@@ -406,6 +406,9 @@ extern var_ann_t create_var_ann 	PARAMS ((tree));
 extern stmt_ann_t create_stmt_ann 	PARAMS ((tree));
 extern tree create_phi_node		PARAMS ((tree, basic_block));
 extern void add_phi_arg			PARAMS ((tree, tree, edge));
+extern void remove_phi_arg		PARAMS ((tree, basic_block));
+extern void remove_phi_arg_num		PARAMS ((tree, int));
+extern void remove_phi_node		PARAMS ((tree, tree, basic_block));
 extern void dump_dfa_stats		PARAMS ((FILE *));
 extern void debug_dfa_stats		PARAMS ((void));
 extern void debug_referenced_vars	PARAMS ((void));
@@ -436,8 +439,6 @@ extern void add_vuse			PARAMS ((tree, tree, voperands_t));
 /* In tree-ssa.c  */
 extern void rewrite_into_ssa		PARAMS ((tree));
 extern void rewrite_out_of_ssa		PARAMS ((tree));
-extern void remove_phi_arg		PARAMS ((tree, basic_block));
-extern void remove_phi_node		PARAMS ((tree, tree, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));
 extern void debug_reaching_defs		PARAMS ((void));
 extern void dump_tree_ssa		PARAMS ((FILE *));
@@ -445,6 +446,8 @@ extern void debug_tree_ssa		PARAMS ((void));
 extern void debug_def_blocks		PARAMS ((void));
 extern void dump_tree_ssa_stats		PARAMS ((FILE *));
 extern void debug_tree_ssa_stats	PARAMS ((void));
+extern edge ssa_make_edge		(basic_block, basic_block, int, tree);
+extern void ssa_remove_edge		(edge);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre		PARAMS ((tree));

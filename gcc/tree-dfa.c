@@ -894,7 +894,8 @@ create_phi_node (var, bb)
 
 
 /* Add a new argument to PHI node PHI.  DEF is the incoming reaching
-    definition and E is the edge through which DEF reaches PHI.  */
+   definition and E is the edge through which DEF reaches PHI.  The new
+   argument is added at the end of the argument list.  */
 
 void
 add_phi_arg (phi, def, e)
@@ -911,6 +912,89 @@ add_phi_arg (phi, def, e)
   PHI_ARG_DEF (phi, i) = def;
   PHI_ARG_EDGE (phi, i) = e;
   PHI_NUM_ARGS (phi)++;
+}
+
+
+/* Remove a PHI argument from PHI.  BLOCK is the predecessor block where
+   the PHI argument is coming from.  */
+
+void
+remove_phi_arg (phi, block)
+     tree phi;
+     basic_block block;
+{
+  int i, num_elem = PHI_NUM_ARGS (phi);
+
+  for (i = 0; i < num_elem; i++)
+    {
+      basic_block src_bb;
+
+      src_bb = PHI_ARG_EDGE (phi, i)->src;
+
+      if (src_bb == block)
+	{
+	  remove_phi_arg_num (phi, i);
+	  return;
+	}
+    }
+}
+
+
+/* Remove the Ith argument from PHI's argument list.  This routine assumes
+   ordering of alternatives in the vector is not important and implements
+   removal by swapping the last alternative with the alternative we want to
+   delete, then shrinking the vector.  */
+
+void
+remove_phi_arg_num (tree phi, int i)
+{
+  int num_elem = PHI_NUM_ARGS (phi);
+
+  /* If we are not at the last element, switch the last element
+     with the element we want to delete.  */
+  if (i != num_elem - 1)
+    {
+      PHI_ARG_DEF (phi, i) = PHI_ARG_DEF (phi, num_elem - 1);
+      PHI_ARG_EDGE (phi, i) = PHI_ARG_EDGE (phi, num_elem - 1);
+    }
+
+  /* Shrink the vector and return.  */
+  PHI_ARG_DEF (phi, num_elem - 1) = NULL_TREE;
+  PHI_ARG_EDGE (phi, num_elem - 1) = NULL;
+  PHI_NUM_ARGS (phi)--;
+}
+
+
+/* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
+   used as the node immediately before PHI in the linked list.  */
+
+void
+remove_phi_node (phi, prev, bb)
+    tree phi;
+    tree prev;
+    basic_block bb;
+{
+  if (prev)
+    {
+      /* Rewire the list if we are given a PREV pointer.  */
+      TREE_CHAIN (prev) = TREE_CHAIN (phi);
+    }
+  else if (phi == phi_nodes (bb))
+    {
+      /* Update the list head if removing the first element.  */
+      bb_ann_t ann = bb_ann (bb);
+      ann->phi_nodes = TREE_CHAIN (phi);
+    }
+  else
+    {
+      /* Traverse the list looking for the node to remove.  */
+      tree prev, t;
+      prev = NULL_TREE;
+      for (t = phi_nodes (bb); t && t != phi; t = TREE_CHAIN (t))
+	prev = t;
+      if (t)
+	remove_phi_node (t, prev, bb);
+    }
 }
 
 

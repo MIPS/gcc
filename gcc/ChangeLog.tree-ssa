@@ -1,3 +1,30 @@
+2003-04-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_bb): Call ssa_remove_edge.
+	(cleanup_cond_expr_graph): Likewise.
+	(cleanup_switch_expr_graph): Likewise.
+	(disconnect_unreachable_case_labels): Likewise.
+	(merge_tree_blocks): Likewise.
+	Update PHI nodes at BB2's successor.
+	(dump_tree_bb): Show PHI nodes in the block.
+	* tree-dfa.c (add_phi_arg): Update comment.
+	(remove_phi_arg_num): New function.
+	(remove_phi_arg): Call it.
+	Move from tree-ssa.c.
+	(remove_phi_node): Move from tree-ssa.c.
+	* tree-flow.h (ssa_make_edge): Declare.
+	(ssa_remove_edge): Declare.
+	* tree-pretty-print.c (dump_generic_node): Show block where PHI
+	arguments are coming from.
+	* tree-ssa-dce.c (pdom_info): New local variable.
+	(remove_dead_stmts): Initialize it and free it at the end.
+	(remove_conditional): New function.
+	(remove_dead_stmt): Call it.
+	* tree-ssa.c (eliminate_phi): If the edge index is -1, abort
+	compilation.
+	(ssa_remove_edge): New function.
+	(ssa_make_edge): New function.
+
 2003-04-06  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (push_bsi): New. Push a block_stmt_iterator onto a stack.

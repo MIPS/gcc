@@ -1073,11 +1073,10 @@ eliminate_phi (e, i, g)
   int x, limit;
   basic_block B = e->dest;
 
-  /* TODO. Sometimes edges are removed and the PHI nodes are not updated.
-     This results in an out of date PHI entry, and we should'd process these
-     yet. This should never happen.... eventually.  */
+#if defined ENABLE_CHECKING
   if (i == -1)
-    return;
+    abort ();
+#endif
 
   for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
     {
@@ -1341,73 +1340,59 @@ rewrite_out_of_ssa (fndecl)
 }
 
 
-/* Remove a PHI argument from PHI.  BLOCK is the predecessor block where
-   the PHI argument is coming from.
-
-   This routine assumes ordering of alternatives in the vector is not
-   important and implements removal by swapping the last alternative with
-   the alternative we want to delete, then shrinking the vector.  */
+/* Remove edge E and remove the corresponding arguments from the PHI nodes
+   in E's destination block.  Return a TREE_LIST node with all the removed
+   PHI arguments.  */
 
 void
-remove_phi_arg (phi, block)
-     tree phi;
-     basic_block block;
+ssa_remove_edge (edge e)
 {
-  size_t i, num_elem = PHI_NUM_ARGS (phi);
+  tree phi;
 
-  for (i = 0; i < num_elem; i++)
-    {
-      basic_block src_bb;
+  /* Remove the appropriate PHI arguments in E's destination block.  */
+  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+    remove_phi_arg (phi, e->src);
 
-      src_bb = PHI_ARG_EDGE (phi, i)->src;
-
-      if (src_bb == block)
-	{
-	  /* If we are not at the last element, switch the last element
-	     with the element we want to delete.  */
-	  if (i != num_elem - 1)
-	    {
-	      PHI_ARG_DEF (phi, i) = PHI_ARG_DEF(phi, num_elem - 1);
-	      PHI_ARG_EDGE (phi, i) = PHI_ARG_EDGE(phi, num_elem - 1);
-	    }
-
-	  /* Shrink the vector.  */
-	  PHI_NUM_ARGS (phi)--;
-	}
-    }
+  remove_edge (e);
 }
 
 
-/* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
-   used as the node immediately before PHI in the linked list.  */
+/* Make a new edge between BB1 and BB2.  All the PHI nodes at BB2 will
+   receive a new argument that should be provided in PHI_ARG_LIST.  */
 
-void
-remove_phi_node (phi, prev, bb)
-    tree phi;
-    tree prev;
-    basic_block bb;
+edge
+ssa_make_edge (basic_block bb1, basic_block bb2, int flags, tree phi_arg_list)
 {
-  if (prev)
-    {
-      /* Rewire the list if we are given a PREV pointer.  */
-      TREE_CHAIN (prev) = TREE_CHAIN (phi);
-    }
-  else if (phi == phi_nodes (bb))
-    {
-      /* Update the list head if removing the first element.  */
-      bb_ann_t ann = bb_ann (bb);
-      ann->phi_nodes = TREE_CHAIN (phi);
-    }
-  else
-    {
-      /* Traverse the list looking for the node to remove.  */
-      tree prev, t;
-      prev = NULL_TREE;
-      for (t = phi_nodes (bb); t && t != phi; t = TREE_CHAIN (t))
-	prev = t;
-      if (t)
-	remove_phi_node (t, prev, bb);
-    }
+  tree phi;
+  edge e;
+  
+  e = make_edge (bb1, bb2, flags);
+
+  /* Add a new argument to every PHI node in BB2.  FIXME: Hmm, double
+     linear scan.  This may slow things down.  */
+  if (phi_arg_list)
+    for (phi = phi_nodes (bb2); phi; phi = TREE_CHAIN (phi))
+      {
+	/* Look for the new argument to add in PHI_ARG_LIST.  */
+	tree node;
+
+	for (node = phi_arg_list; node; node = TREE_CHAIN (node))
+	  {
+	    tree arg = TREE_VALUE (node);
+	    if (SSA_NAME_VAR (arg) == SSA_NAME_VAR (PHI_RESULT (phi)))
+	      {
+		add_phi_arg (phi, arg, e);
+		break;
+	      }
+	  }
+
+	/* If we didn't find an argument for the PHI node, then PHI_ARG_LIST
+	  is wrong.  */
+	if (node == NULL_TREE)
+	  abort ();
+      }
+
+  return e;
 }
 
 

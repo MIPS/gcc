@@ -1103,17 +1103,9 @@ remove_bb (bb, remove_stmts)
       remove_edge (bb->pred);
     }
 
+  /* Remove edges to BB's successors.  */
   while (bb->succ != NULL)
-    {
-      tree phi;
-
-      /* PHI nodes in successors of this block now have one less
-         alternative.  */
-      for (phi = phi_nodes (bb->succ->dest); phi; phi = TREE_CHAIN (phi))
-	remove_phi_arg (phi, bb);
-
-      remove_edge (bb->succ);
-    }
+    ssa_remove_edge (bb->succ);
 
   bb->pred = NULL;
   bb->succ = NULL;
@@ -1384,15 +1376,7 @@ cleanup_cond_expr_graph (bb)
 	{
 	  next = e->succ_next;
 	  if (e != taken_edge)
-	    {
-	      tree phi;
-
-	      /* Remove the appropriate PHI alternative in the
-	         target block for each non executable edge.  */
-	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-		remove_phi_arg (phi, e->dest);
-	      remove_edge (e);
-	    }
+	    ssa_remove_edge (e);
 	}
     }
 }
@@ -1431,15 +1415,7 @@ cleanup_switch_expr_graph (switch_bb)
 	  basic_block chain_bb = successor_block (switch_bb);
 	  edge e = find_edge (switch_bb, chain_bb);
 	  if (e)
-	    {
-	      tree phi;
-
-	      /* Remove the appropriate PHI alternative in the
-	         target block for each unexecutable edge.  */
-	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-		remove_phi_arg (phi, e->src);
-	      remove_edge (e);
-	    }
+	    ssa_remove_edge (e);
 	  break;
 	}
     }
@@ -1474,15 +1450,7 @@ disconnect_unreachable_case_labels (bb)
 	{
 	  next = e->succ_next;
 	  if (e != taken_edge)
-	    {
-	      tree phi;
-
-	      /* Remove the appropriate PHI alternative in the
-	         target block for each non executable edge.  */
-	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-		remove_phi_arg (phi, e->src);
-	      remove_edge (e);
-	    }
+	    ssa_remove_edge (e);
 	}
     }
 }
@@ -1749,6 +1717,7 @@ dump_tree_bb (outf, prefix, bb, indent)
   char *s_indent;
   basic_block loop_bb;
   block_stmt_iterator si;
+  tree phi;
 
   s_indent = (char *) alloca ((size_t) indent + 1);
   memset ((void *) s_indent, ' ', (size_t) indent);
@@ -1791,6 +1760,13 @@ dump_tree_bb (outf, prefix, bb, indent)
     fprintf (outf, "%d\n", bb->prev_bb->index);
   else
     fprintf (outf, "nil\n");
+
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    {
+      fprintf (outf, "%s%s# ", s_indent, prefix);
+      print_generic_stmt (outf, phi, 0);
+      fprintf (outf, "\n");
+    }
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
@@ -3270,13 +3246,29 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
 
     /* BB2's successors are now BB1's.  */
     while (bb1->succ)
-      remove_edge (bb1->succ);
+      ssa_remove_edge (bb1->succ);
 
     while (bb2->succ)
       {
-	edge e = bb2->succ;
-	make_edge (bb1, e->dest, e->flags);
-	remove_edge (e);
+	tree phi;
+	edge new_edge, old_edge;
+	
+	old_edge = bb2->succ;
+	new_edge = make_edge (bb1, old_edge->dest, old_edge->flags);
+
+	/* Update PHI nodes at BB2's successor.  The arguments that used to
+	   come from BB2 now come from BB1.  */
+	for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
+	  {
+	    int i;
+	    for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	      if (PHI_ARG_EDGE (phi, i) == old_edge)
+		PHI_ARG_EDGE (phi, i) = new_edge;
+	  }
+
+	/* Note that we shouldn't call ssa_remove_edge here because we've
+	   already dealt with PHI nodes.  */
+	remove_edge (old_edge);
       }
 
     /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
