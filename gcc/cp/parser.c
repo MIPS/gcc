@@ -36,31 +36,6 @@
 #include "toplev.h"
 #include "output.h"
 
-/* Functions to remove when switching to the new parser:
-   
-   enter_scope_of
-
-   Change build_offset_ref to take a declaration, not a name.
-   Similarly, do not allow type to be a namespace.  There should not
-   be name lookup going on inside build_offset_ref.
-
-   In the abstract, we shouldn't need build_offset_ref; we can know
-   whether we're about to create a pointer-to-member or not.
-
-   Everything that has to do with the named return value extension.
-
-   Move processing_template_decl checks to the parser; they are not
-   needed when doing template instantiation.
-
-   Bogus extra attributes; search below for "Mark Mitchell".
-
-   have_extern_spec
-*/
-
-/* This to deprecate in mainline:
-
-   1. Bogus extra attributes.  */
-
 
 /* The lexer.  */
 
@@ -117,7 +92,7 @@ typedef struct cp_token GTY (())
    complete.)  
 
    This somewhat ungainly data structure (as opposed to, say, a
-   variable-length array, is used due to contraints imposed by the
+   variable-length array), is used due to contraints imposed by the
    current garbage-collection methodology.  If it is made more
    flexible, we could perhaps simplify the data structures involved.  */
 
@@ -1812,8 +1787,6 @@ static void cp_parser_perform_deferred_access_checks
   PARAMS ((tree));
 static tree cp_parser_scope_through_which_access_occurs
   (tree, tree, tree);
-static void cp_parser_unimplemented
-  PARAMS ((void));
 
 /* Returns non-zero if TOKEN is a string literal.  */
 
@@ -2231,15 +2204,6 @@ cp_parser_scope_through_which_access_occurs (decl,
     qualifying_type = currently_open_derived_class (scope);
 
   return qualifying_type;
-}
-
-/* This function is called when some feature of the parser has not
-   been implemented.  */
-
-static void
-cp_parser_unimplemented ()
-{
-  abort ();
 }
 
 /* Issue the indicated error MESSAGE.  */
@@ -6477,9 +6441,21 @@ cp_parser_declaration_seq_opt (parser)
       cp_token *token;
 
       token = cp_lexer_peek_token (parser->lexer);
+
       if (token->type == CPP_CLOSE_BRACE
 	  || token->type == CPP_EOF)
 	break;
+
+      if (token->type == CPP_SEMICOLON) 
+	{
+	  /* A declaration consisting of a single semicolon is
+	     invalid.  Allow it unless we're being pedantic.  */
+	  if (pedantic)
+	    pedwarn ("extra `;'");
+	  cp_lexer_consume_token (parser->lexer);
+	  continue;
+	}
+
       cp_parser_declaration (parser);
     }
 }
