@@ -1,4 +1,11 @@
 2004-01-03  Jan Hubicka  <jh@suse.cz>
+	backport from mainline:
+	2003-09-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR target/11674
+	* config/i386/i386.c (x86_emit_floatuns): Also handle SImode operand.
+
+2004-01-03  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (walk_tree): Sanity check that CALL_EXPR is not shared.
 	* cp/calls.c (build_op_delete_call): Unshare expr.
