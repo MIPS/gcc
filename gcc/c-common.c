@@ -6493,7 +6493,7 @@ print_cw_asm_operand (char *buf, tree arg)
   enum machine_mode mode;
   int unsignedp, volatilep;
   tree op0, op1;
-  int off0, off1;
+  int off0 = 0, off1 = 0;
 
   STRIP_NOPS (arg);
 
