@@ -37,10 +37,15 @@
    successors and successors that have been added to this trace.
    The other successors (that has not been "sent" to the next round) will be
    other seeds for this round and the secondary traces will start in them.
-   If the successor has been visited in this trace the algorithm rotates
-   the loop if it is profitable, and terminates the construction of the trace;
-   otherwise it is added to the trace (however, there is some heuristic for
-   simple branches).
+   If the successor has not been visited in this trace it is added to the trace
+   (however, there is some heuristic for simple branches).
+   If the successor has been visited in this trace the loop has been found.
+   If the loop has many iterations the loop is rotated so that the
+   source block of the most probable edge going out from the loop
+   is the last block of the trace.
+   If the loop has few iterations and there is no edge from the last block of
+   the loop going out from loop the loop header is duplicated.
+   Finally, the construction of the trace is terminated.
 
    When connecting traces it first checks whether there is an edge from the
    last block of one trace to the first block of another trace.
@@ -55,7 +60,7 @@
    References:
 
    "Software Trace Cache"
-   Ramirez, Larriba-Pey, Navarro, Torrellas and Valero; 1999
+   A. Ramirez, J. Larriba-Pey, C. Navarro, J. Torrellas and M. Valero; 1999
    http://citeseer.nj.nec.com/15361.html
 
 */
@@ -78,13 +83,13 @@
 /* The number of rounds.  */
 #define N_ROUNDS 4
 
-/* Branch thresholds in thousandths (per milles) of the REG_BR_PROB_BASE.  */
+/* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0};
 
-/* Exec thresholds in thousandths (per milles) of the frequency of bb 0.  */
+/* Exec thresholds in thousandths (per mille) of the frequency of bb 0.  */
 static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 
-/* If edge frequency is lower than DUPLICATION_THRESHOLD per milles of entry
+/* If edge frequency is lower than DUPLICATION_THRESHOLD per mille of entry
    block the edge destination is not duplicated while connecting traces.  */
 #define DUPLICATION_THRESHOLD 100
 
@@ -110,6 +115,7 @@ static fibnode_t *bb_node;
 #define FREE(P) \
   do { if (P) { free (P); P = 0; } else { abort (); } } while (0)
 
+/* Structure for holding information about a trace.  */
 struct trace
 {
   /* First and last basic block of the trace.  */
@@ -196,6 +202,7 @@ find_traces (n_traces, traces)
 	count_threshold = max_entry_count * exec_threshold[i] / 1000;
       else
 	count_threshold = max_entry_count / 1000 * exec_threshold[i];
+
       find_traces_1_round (REG_BR_PROB_BASE * branch_threshold[i] / 1000,
 			   max_entry_frequency * exec_threshold[i] / 1000,
 			   count_threshold, traces, n_traces, i, &heap);
@@ -219,8 +226,8 @@ find_traces (n_traces, traces)
     }
 }
 
-/* Rotate loop in the tail of trace (with sequential number TRACE) beginning in
-   basic block BB.  */
+/* Rotate loop whose back edge is BACK_EDGE in the tail of trace TRACE
+   (with sequential number TRACE_N).  */
 
 static basic_block
 rotate_loop (back_edge, trace, trace_n)
@@ -345,7 +352,7 @@ mark_bb_visited (bb, trace)
    COUNT_TH).  It stores the new traces into TRACES and modifies the number of
    traces *N_TRACES. Sets the round (which the trace belongs to) to ROUND. It
    expects that starting basic blocks are in *HEAP and at the end it deletes
-   *HEAP and stores starting points for the next round into *HEAP.  */
+   *HEAP and stores starting points for the next round into new *HEAP.  */
 
 static void
 find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
@@ -376,8 +383,6 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Getting bb %d\n", bb->index);
-      if (RBI (bb)->visited)
-	abort ();	/* For debugging purposes.  */
 
       /* If the BB's frequency is too low send BB to the next round.  */
       if (bb->frequency < exec_th || bb->count < count_th
@@ -421,6 +426,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	    {
 	      if (e->flags & EDGE_FAKE)
 		abort ();
+
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
 
@@ -445,7 +451,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 		}
 	    }
 
-	  /* Add all nonselected successors to the heaps.  */
+	  /* Add all non-selected successors to the heaps.  */
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
 	      if (e == best_edge
@@ -478,7 +484,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 		  prob = e->probability;
 		  freq = EDGE_FREQUENCY (e);
 
-		  if (!(e->flags & EDGE_CAN_FALLTHRU) || (e->flags & EDGE_COMPLEX)
+		  if (!(e->flags & EDGE_CAN_FALLTHRU)
+		      || (e->flags & EDGE_COMPLEX)
 		      || prob < branch_th || freq < exec_th
 		      || e->count < count_th)
 		    {
@@ -500,7 +507,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 		}
 	    }
 
-	  if (best_edge) /* Found suitable successor.  */
+	  if (best_edge) /* Suitable successor was found.  */
 	    {
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
@@ -518,7 +525,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			    {
 			      if (rtl_dump_file)
 				{
-				  fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
+				  fprintf (rtl_dump_file, 
+					   "Rotating loop %d - %d\n",
 					   best_edge->dest->index, bb->index);
 				}
 			      RBI (bb)->next = best_edge->dest;
@@ -602,8 +610,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       end_of_trace[trace->last->index] = *n_traces - 1;
 
       /* The trace is terminated so we have to recount the keys in heap
-	 (some block can have a lower key because now one of its predecessors is
-	 an end of trace.  */
+	 (some block can have a lower key because now one of its predecessors
+	 is an end of the trace).  */
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR
@@ -636,7 +644,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 }
 
 /* Create a duplicate of the basic block OLD_BB and redirect edge E to it, add
-   it to trace after BB, mark OLD_BB visited and update pass' datastructures
+   it to trace after BB, mark OLD_BB visited and update pass' data structures
    (TRACE is a number of trace which OLD_BB is duplicated to).  */
 
 static basic_block
@@ -708,9 +716,11 @@ bb_to_key (bb)
 
   int priority = 2;
 
+  /* Do not start in probably never executed blocks.  */
   if (probably_never_executed_bb_p (bb))
     return BB_FREQ_MAX;
 
+  /* Decrease the priority if there is an unvisited predecessor.  */
   for (e = bb->pred; e; e = e->pred_next)
     if (!(e->flags & EDGE_DFS_BACK) && !RBI (e->src)->visited)
       {
@@ -718,6 +728,8 @@ bb_to_key (bb)
 	break;
       }
 
+  /* Increase the priority if there is a predecessor which is an end of some
+     trace.  */
   for (e = bb->pred; e; e = e->pred_next)
     {
       int index = e->src->index;
@@ -728,8 +740,6 @@ bb_to_key (bb)
 	}
     }
 
-  /* All edges from predecessors of BB are DFS back edges or the predecessors
-     of BB are visited.  I want such basic blocks first.  */
   return -100 * BB_FREQ_MAX * priority - bb->frequency;
 }
 
@@ -920,7 +930,7 @@ connect_traces (n_traces, traces)
 					|| (e2->probability
 					    == best2->probability
 					    && traces[end_of_trace[di]].length 
-					    > best2_len))))
+					       > best2_len))))
 			      {
 				best = e;
 				best2 = e2;
@@ -1036,7 +1046,7 @@ copy_bb_p (bb)
   return false;
 }
 
-/* Return the maximum length of unconditional jump.  */
+/* Return the maximum length of unconditional jump instruction.  */
 
 static int
 get_uncond_jump_length ()
