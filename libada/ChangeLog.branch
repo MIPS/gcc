@@ -1,8 +1,12 @@
-This is ChangeLog for libada-branch, for elements outside of the libada
+This is the ChangeLog for libada-branch, for elements outside of the libada
 directory.  These will get merged into the appropriate ChangeLogs
 when the branch is merged.
 
 2003-10-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	(gcc/ada)
+	* config-lang.in: Build libada only when ada is built.
+
 	(top level)
 	* configure.in, Makefile.tpl, Makefile.def: Add target-libada,
 	with appropriate dependencies.
