@@ -1,3 +1,12 @@
+2004-08-15  Ira Rosen <irar@il.ibm.com>
+
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-62.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-63.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-64.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-65.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-66.c: New test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-67.c: New test.
+
 2004-07-22  Dorit Naishlos <dorit@il.ibm.com>
 
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-37.c: New test.

@@ -1,3 +1,27 @@
+2004-08-15  Ira Rosen <irar@il.ibm.com>
+
+	* tree-vectorizer.h (stmt_vec_info): Add vect_dr_base field.
+	(STMT_VINFO_VECT_DR_BASE): Declare.
+	(VECT_SMODULO): Declare.
+	* tree-vectorizer.c (vect_compute_array_alignment): New function.
+	(vect_compute_data_ref_alignment): Call vect_compute_array_alignment.
+	(vect_analyze_data_ref_access): Check array indices. Remove one 
+	dimensional arrays restriction.  
+	(vect_analyze_data_refs): Store vect_dr_base.
+	(vect_create_data_ref): Create multidimensional array reference.
+	(vect_create_index_for_array_ref): Return init value. Remove check for
+	one dimensional arrays.  Change init value calculation.
+	(new_stmt_vec_info): Initialize vect_dr_base field.
+	(vect_update_initial_conditions_of_duplic): Remove call to 
+	instantiate_parameters.
+	(vect_is_simple_iv_evolution): Call initial_condition_in_loop_num.
+	* tree-chrec.h (initial_condition_in_loop_num): Declare.
+	* tree-chrec.c (initial_condition_in_loop_num): New function.
+	(chrec_component_in_loop_num): New function.
+	(evolution_part_in_loop_num): Call chrec_component_in_loop_num.
+	* tree-data-ref.c (analyze_array_indexes): Change parameter access_fns
+	to be pointer to varray_type.
+
 2004-08-15  Olga Golovanevsky <olga@il.ibm.com>
 
 	* tree-vectorizer.c (vect_tree_split_edge): Removed.
