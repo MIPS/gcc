@@ -1,3 +1,7 @@
+2004-12-14  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/cfgcleanup-1.c: Expect output at DCE2.
+
 2004-10-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/execute/20041019-1.c: New test.

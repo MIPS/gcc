@@ -3264,6 +3264,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
+    case ASSERT_EXPR:
+      x = fold (TREE_OPERAND (t, 1));
+      if (x == boolean_false_node)
+	{
+	  error ("ASSERT_EXPR with an always false condition");
+	  return *tp;
+	}
+      break;
+
     case MODIFY_EXPR:
       x = TREE_OPERAND (t, 0);
       if (TREE_CODE (x) == BIT_FIELD_REF

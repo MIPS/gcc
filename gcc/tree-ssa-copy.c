@@ -175,6 +175,7 @@ merge_alias_info (tree orig, tree new)
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (orig)));
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (new)));
+
 #if defined ENABLE_CHECKING
   gcc_assert (lang_hooks.types_compatible_p (TREE_TYPE (orig),
 					     TREE_TYPE (new)));
@@ -366,9 +367,7 @@ stmt_may_generate_copy (tree stmt)
   /* If we are not doing store copy-prop, statements with loads and/or
      stores will never generate a useful copy.  */
   if (!do_store_copy_prop
-      && (ann->makes_aliased_loads
-	  || ann->makes_aliased_stores
-	  || NUM_VUSES (VUSE_OPS (ann)) > 0
+      && (NUM_VUSES (VUSE_OPS (ann)) > 0
 	  || NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0
 	  || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0))
     return false;
@@ -531,7 +530,6 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
 	return SSA_PROP_VARYING;
 
       *result_p = lhs;
-
       if (set_copy_of_val (*result_p, rhs, NULL_TREE))
 	return SSA_PROP_INTERESTING;
       else

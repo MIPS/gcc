@@ -473,6 +473,11 @@ likely_value (tree stmt)
       && TREE_CODE (stmt) != SWITCH_EXPR)
     return VARYING;
 
+  /* FIXME, ASSERT_EXPRs can convey useful constants.  */
+  if (TREE_CODE (stmt) == MODIFY_EXPR
+      && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
+    return VARYING;
+
   get_stmt_operands (stmt);
 
   found_constant = false;
@@ -1604,7 +1609,7 @@ struct tree_opt_pass pass_ccp =
 {
   "ccp",				/* name */
   gate_ccp,				/* gate */
-  do_ssa_ccp,			/* execute */
+  do_ssa_ccp,				/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1652,6 +1657,7 @@ struct tree_opt_pass pass_store_ccp =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
+    | TODO_cleanup_cfg
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
 };

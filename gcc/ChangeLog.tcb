@@ -1,3 +1,31 @@
+2004-12-14  Diego Novillo  <dnovillo@redhat.com>
+
+	Add expression assertions to GIMPLE.
+
+	* tree-vrp.c: New file.
+	* tree.def (ASSERT_EXPR): Define.
+	* Makefile.in (collect2.o): Compile with -Wno-error.
+	(tree-vrp.o): New rule.
+	(OBJS-common): Add tree-vrp.o.
+	* timevar.def (TV_TREE_INSERT_ASSERT): Define.
+	* fold-const.c (fold): Handle ASSERT_EXPR.
+	* tree-cfg.c (verify_expr): Likewise.
+	* tree-gimple.c (is_gimple_formal_tmp_rhs): Likewise.
+	* tree-inline.c (estimate_num_insns_): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Likewise.
+	(interpret_rhs_modify_expr): Likewise.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* tree-ssa-ccp.c (likely_value): Likewise.
+	(pass_ccp): Add TODO_cleanup_cfg to todo_flags_finish.
+	* tree-optimize.c (init_tree_optimization_passes): Schedule
+	pass_insert_range_assertions and pass_remove_range_assertions.
+	* tree-pass.h (pass_insert_range_assertions): Declare.
+	(pass_remove_range_assertions): Declare.
+	* tree-ssa-copy.c (stmt_may_generate_copy): Remove unnecessary
+	checks for aliased loads and aliased stores.
+
 2004-12-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-flow-inline.h (clear_call_clobbered): New function.

@@ -1202,6 +1202,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case TRUTH_XOR_EXPR:
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
     do_binary:
       {
 	tree op0 = TREE_OPERAND (expr, 0);
