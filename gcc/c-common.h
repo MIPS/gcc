@@ -178,6 +178,68 @@ struct c_common_identifier GTY(())
   struct cpp_hashnode node;
 };
 
+/* Get the fragment that contains the definition of DECL. */
+#define DECL_FRAGMENT(DECL) \
+  ((struct c_include_fragment *) DECL_CHECK (DECL)->decl.defining_fragment)
+
+/* Set the fragment that contains the definition of DECL. */
+#define SET_DECL_FRAGMENT(DECL, FRAGMENT) \
+  (DECL_CHECK (DECL)->decl.defining_fragment = (tree) (FRAGMENT))
+
+/* Get the c_include_fragment corresponding to a cpp_fragment. */
+#define C_FRAGMENT(FRAG) \
+  (* (struct c_include_fragment **) &(FRAG)->start_marker)
+
+/* This contaisn language-specific information correspodniong to
+   a given cpp_fragment. */
+
+struct c_include_fragment GTY(())
+{
+  struct tree_common common;
+  const char *name;
+  /* Value of c_timestamp when this fragment was last read (parsed). */
+  int read_timestamp;
+  /* Value of c_timestamp when this fragment was last logically included. */
+  int include_timestamp;
+  /* True if a declaration in this fragmemt was used in current_c_fragment. */
+  unsigned used_in_current : 1;
+  unsigned valid : 1;
+  /* A TREE_VEC whose members are other c_include_fragments.  An element is in
+    uses_fragments iff the current fragments uses (references) a declartion
+    in that element. */
+  tree uses_fragments;
+  tree bindings;
+};
+
+extern int main_timestamp;
+extern int c_timestamp;
+extern GTY(()) struct c_include_fragment *current_c_fragment;
+extern GTY(()) struct c_include_fragment *builtins_c_fragment;
+extern struct cpp_fragment *builtins_fragment;
+extern int currently_nested;
+
+extern void register_decl_dependency (tree);
+extern struct c_include_fragment * alloc_include_fragment (void);
+extern void reset_hashnode (cpp_hashnode*);
+extern void reset_cpp_hashnodes (void);
+extern int lang_clear_identifier (cpp_reader*, cpp_hashnode*, void*);
+extern void create_builtins_fragment (void);
+extern void remember_fragment_start (struct c_include_fragment *);
+extern void remember_fragment_end (struct c_include_fragment *);
+extern void restore_fragment_bindings (tree);
+extern void note_tag (tree);
+extern void note_fragment_binding_1 (tree);
+extern void note_fragment_binding_2 (tree, tree);
+extern void note_fragment_binding_3 (tree, tree, tree);
+extern void setup_globals (void);
+extern void push_tree_field_undo (tree, int, tree);
+extern void process_undo_buffer (void);
+
+
+extern tree save_fragment_bindings (void);
+extern bool cb_enter_fragment (cpp_reader*, cpp_fragment*, const char*, int);
+extern void cb_exit_fragment (cpp_reader*, cpp_fragment*);
+
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
@@ -938,7 +1000,8 @@ extern tree build_va_arg (tree, tree);
 
 extern unsigned int c_common_init_options (unsigned int, const char **);
 extern bool c_common_post_options (const char **);
-extern bool c_common_init (void);
+extern void init_c_common_once (void);
+extern bool init_c_common_eachsrc (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (int);
 extern HOST_WIDE_INT c_common_get_alias_set (tree);

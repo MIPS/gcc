@@ -1,5 +1,21 @@
 2003-08-14  Per Bothner  <per@bothner.com>
 
+	* c-common.c (current_fragment_deps_stack, current_fragment_deps_end,
+	current_c_fragment, builtins_fragment, builtins_c_fragment,
+	undo_buffer, undo_buffer_trees, fragment_bindings_stack,
+	fragment_bindings_end, main_timestamp, c_timestamp, currently_nested)
+	New global variables.
+	(create_builtins_fragment, register_decl_dependency, push_undo_raw,
+	push_undo_tree_raw, push_tree_field_undo, process_undo_buffer,
+	alloc_include_fragment, reset_hashnode, reset_cpp_hashnodes,
+	cb_enter_fragment, save_fragment_bindings, cb_exit_fragment.
+	note_tag, register_fragment_dependency. note_fragment_binding_1,
+	note_fragment_binding_2, note_fragment_binding_3):  New functions.
+	* c-common.h (struct c_include_fragment):  New type.
+	(DECL_FRAGMENT, SET_DECL_FRAGMENT, C_FRAGMENT): New macros.
+
+2003-08-14  Per Bothner  <per@bothner.com>
+
 	* cpphash.h (struct cpp_fragment):  New type.
 	(struct cpp_buffer) <saved_current_fragment>:  New field.
 	(struct cpp_reader) <current_fragment, do_note_macros, macro_notes,

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "obstack.h"
 #include "cpplib.h"
+#include "cpphash.h" /* FIXME */
 #include "target.h"
 #include "langhooks.h"
 #include "tree-inline.h"
@@ -2971,6 +2972,10 @@ static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
 
 static void c_init_attributes (void);
 
+static void reserve_fragment_binding (int);
+static void push_undo_raw (int);
+static void push_undo_tree_raw (tree);
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -4147,6 +4152,425 @@ boolean_increment (enum tree_code code, tree arg)
   return val;
 }
 
+/* A stack of include fragments that are used by current_c_fragment
+   or other not-yet popped headers.  The ones in current_c_fragment
+   are whose at index from 0    to current_fragment_deps_end (exclusive). */
+static GTY (()) tree current_fragment_deps_stack;
+/* The number of elements in current_include_deps_stack that are in use. */
+static int current_fragment_deps_end;
+
+/* The c_include_fragmet for the fragment we're currently parsing. */
+struct c_include_fragment *current_c_fragment;
+
+/* Special pseudo-fragment providing the <built-in> declarations. */
+struct cpp_fragment *builtins_fragment;
+
+/* The c_include_frgment corresponding to builtins_fragment. */
+struct c_include_fragment *builtins_c_fragment;
+
+extern void register_fragment_dependency PARAMS ((struct c_include_fragment*));
+
+/* Create the special fragment used for the <built-in> declarations. */
+
+void
+create_builtins_fragment (void)
+{
+  struct c_include_fragment* st;
+  cpp_fragment *fragment;
+  fragment = xcalloc (1, sizeof(cpp_fragment));
+  fragment->name = "<built-in>";
+  parse_in->current_fragment = fragment;
+  st = alloc_include_fragment ();
+  C_FRAGMENT (fragment) = st;
+  st->valid = 1;
+  current_c_fragment = st;
+  builtins_fragment = fragment;
+  builtins_c_fragment = st;
+  parse_in->do_note_macros = 1;
+}
+
+/* Note that the current fragment depends on USED. */
+
+void
+register_decl_dependency (used)
+     tree used;
+{
+  struct c_include_fragment *fragment;
+  const char *file = DECL_SOURCE_FILE (used);
+  if (file == NULL)
+    return;
+#if 0
+  if (strcmp (file, "<built-in>") == 0)
+    return;
+#endif
+  fragment = DECL_FRAGMENT (used);
+  if (fragment == NULL)
+    return;
+  register_fragment_dependency (fragment);
+}
+
+static GTY(()) varray_type undo_buffer;
+static GTY(()) varray_type undo_buffer_trees;
+
+enum undo_kind
+  {
+    UNDO_TREE_FIELD
+  };
+
+static void
+push_undo_tree_raw (tree t)
+{
+  if (undo_buffer_trees == NULL)
+    VARRAY_TREE_INIT (undo_buffer_trees, 100, "undo_buffer_trees");
+  VARRAY_PUSH_TREE (undo_buffer_trees, t);
+}
+
+static void
+push_undo_raw (int i)
+{
+  if (undo_buffer == NULL)
+    VARRAY_INT_INIT (undo_buffer, 100, "undo_buffer");
+  VARRAY_PUSH_INT (undo_buffer, i);
+}
+
+/* Note information so we can undo an assignment of a tree-valued
+   field of T at offset OFFSET (foram start of T) with a given OLD_VALUE. */
+
+void
+push_tree_field_undo (tree t, int offset, tree old_value)
+{
+  push_undo_raw ((offset << 8) | UNDO_TREE_FIELD);
+  push_undo_tree_raw (t);
+  push_undo_tree_raw (old_value);
+}
+
+/* Go through the undo buffer and undo the actions there. */
+
+void
+process_undo_buffer (void)
+{
+  if (undo_buffer == NULL)
+    return;
+  for (;;)
+    {
+      int code = VARRAY_INT (undo_buffer, --undo_buffer->elements_used);
+      switch (code & 0xFF)
+	{
+	case UNDO_TREE_FIELD:
+	  {
+	    int offset = code >> 8;
+	    tree old_value = VARRAY_TREE (undo_buffer_trees,
+					  --undo_buffer_trees->elements_used);
+	    tree t = VARRAY_TREE (undo_buffer_trees,
+				  --undo_buffer_trees->elements_used);
+	    *(tree *) ((char *) t + offset) = old_value;
+	    break;
+	  default:
+	    abort ();
+	  }
+	}
+    }
+}
+
+/* A buffer to remember bindings (declarations and macros) for the
+   current fragment.  At the end of the fragment, the data gets
+   copied into the fragment.  (It would be cleaner to store this information
+   in the fragment directly, but that is less efficient because we don't
+   know the buffer size needed until teh end of the fragment.)  */
+static GTY(()) tree fragment_bindings_stack;
+
+/* The active size of fragment_bindings_stack. */
+int fragment_bindings_end;
+
+/* Reserve space in fragment_bindings_stack. */
+
+static void
+reserve_fragment_binding (space_needed)
+     int space_needed;
+{
+  if (fragment_bindings_stack == NULL_TREE)
+    fragment_bindings_stack = make_tree_vec (50);
+  else if (TREE_VEC_LENGTH (fragment_bindings_stack)
+	   < fragment_bindings_end + space_needed)
+    {
+      /* Re-size fragment_bindings_stack. */
+      int i = fragment_bindings_end;
+      tree new_vec = make_tree_vec (2 * i);
+      while (--i >= 0)
+	TREE_VEC_ELT (new_vec, i)
+	  = TREE_VEC_ELT (fragment_bindings_stack, i);
+      fragment_bindings_stack = new_vec;
+    }
+  fragment_bindings_end += space_needed;
+}
+
+/* Note a tag (struct, union, enum) binding. */
+
+void
+note_tag (tree tagtype)
+{
+  if (server_mode >= 0 && server_mode != 1)
+    {
+      note_fragment_binding_3 (tagtype, NULL_TREE, NULL_TREE);
+    }
+}
+
+void
+note_fragment_binding_1 (tree1)
+     tree tree1;
+{
+  reserve_fragment_binding (1);
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree1;
+}
+
+void
+note_fragment_binding_2 (tree1, tree2)
+     tree tree1, tree2;
+{
+  reserve_fragment_binding (2);
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 2) = tree1;
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree2;
+}
+
+void
+note_fragment_binding_3 (tree1, tree2, tree3)
+     tree tree1, tree2, tree3;
+{
+  reserve_fragment_binding (3);
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 3) = tree1;
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 2) = tree2;
+  TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree3;
+}
+
+/* Note that the current fragment depends on (some binding from) USED. */
+
+void
+register_fragment_dependency (used)
+     struct c_include_fragment* used;
+{
+  if (! used->used_in_current && used != current_c_fragment
+      && current_c_fragment != NULL)
+    {
+      if (current_fragment_deps_stack == NULL_TREE)
+	current_fragment_deps_stack = make_tree_vec (50);
+      else if (TREE_VEC_LENGTH (current_fragment_deps_stack)
+	== current_fragment_deps_end)
+	{
+	  /* Re-size current_fragment_deps_stack. */
+	  int i = current_fragment_deps_end;
+	  tree new_vec = make_tree_vec (2 * i);
+	  while (--i >= 0)
+	    TREE_VEC_ELT (new_vec, i)
+	      = TREE_VEC_ELT (current_fragment_deps_stack, i);
+	  current_fragment_deps_stack = new_vec;
+	}
+      TREE_VEC_ELT (current_fragment_deps_stack, current_fragment_deps_end)
+	= (tree) used;
+      current_fragment_deps_end++;
+      used->used_in_current = 1;
+    }
+}
+
+int main_timestamp;
+int c_timestamp;
+/* Inside an incomplete enum, for example. */
+int currently_nested;
+
+struct c_include_fragment *
+alloc_include_fragment ()
+{
+  int length = sizeof (struct c_include_fragment);
+  tree t = ggc_alloc_tree (length);
+  memset ((PTR) t, 0, length);
+  TREE_SET_CODE (t, INCLUDE_FRAGMENT);
+  return (struct c_include_fragment *) t;
+}
+
+void
+reset_hashnode (node)
+     cpp_hashnode *node;
+{
+  node->flags &= ~ NODE_POISONED; /* ??? also clear NODE_DIAGNOSTIC? */
+  if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
+    {
+      cpp_macro *macro = node->value.macro;
+      macro->used = 0;
+
+      _cpp_free_definition (node);
+    }
+}
+
+void
+reset_cpp_hashnodes ()
+{
+#if 0
+  /* Reset cpplib's macros and start a new file.  */
+  cpp_undef_all (parse_in);
+#endif
+  cpp_forall_identifiers (parse_in, lang_clear_identifier, NULL);
+  _cpp_restore_macros (parse_in,
+		       builtins_fragment->macro_notes, builtins_fragment->macro_notes_count);
+  /*  parse_in->buffer = NULL;*/
+}
+
+/* Called from cpp at the start of a new fragment.
+   Check if the fragment has been seen before and we can re-use the
+   previously-seen bindings.  If so restore them and return true
+   (so cpp can skip to teh end of the fragment).  Otherwise, sets things
+   up so we can remember new bindings as we see them. */
+
+bool
+cb_enter_fragment (reader, fragment, name, line)
+     cpp_reader* reader ATTRIBUTE_UNUSED;
+     cpp_fragment *fragment;
+     const char* name;
+     int line;
+{
+  struct c_include_fragment* st = C_FRAGMENT (fragment);
+  bool valid = 0;
+  if (st != NULL)
+    {
+      int i;
+      valid = st->valid && st->include_timestamp < main_timestamp && ! currently_nested;
+
+      if (valid)
+	{
+	  /* Check dependencies. */
+	  tree d = st->uses_fragments;
+	  for (i = d == NULL_TREE ? 0 : TREE_VEC_LENGTH (d);  --i >= 0; )
+	    {
+	      struct c_include_fragment *uses
+		= (struct c_include_fragment *) TREE_VEC_ELT (d, i);
+	      if (uses->include_timestamp < main_timestamp
+		  || uses->read_timestamp == 0
+		  || uses->read_timestamp > st->read_timestamp)
+		{
+		  valid = 0;
+		  break;
+		}
+	    }
+	}
+
+      if (! valid)
+	{
+	  st->valid = 0;
+	  if (! quiet_flag)
+	    fprintf (stderr, "(invalidating cached fragment %s:%d)\n", name, line);
+	}
+      else
+	{
+	  if (! quiet_flag)
+	    fprintf (stderr, "(reusing cached fragment %s:%d)\n", name, line);
+	  restore_fragment_bindings (st->bindings);
+	  _cpp_restore_macros (parse_in,
+			       fragment->macro_notes, fragment->macro_notes_count);
+	}
+    }
+  else
+    {
+      st = alloc_include_fragment ();
+      st->name = name;
+      st->valid = 0;
+    }
+  st->include_timestamp = ++c_timestamp;
+  if (! valid)
+    {
+      st->read_timestamp = 0;
+      st->uses_fragments = NULL_TREE;
+      st->bindings = NULL_TREE;
+      /*st->used_in_current = 0;*/
+
+      fragment->start_marker = st;
+      current_fragment_deps_end = 0;
+      fragment_bindings_end = 0;
+      st->read_timestamp = st->include_timestamp;
+      reader->do_note_macros = 1;
+    }
+  current_c_fragment = st;
+  /* Note fragment->was_resued is redundant - it's same as
+     st->include_timestamp > st->read_timestamp */
+  fragment->was_reused = valid;
+  return valid;
+}
+
+/* Return a copy of the remebered bindings from fragment_bindings_stack,
+   and clear the latter. */
+
+tree
+save_fragment_bindings ()
+{
+  int i;
+  tree bindings = (fragment_bindings_end == 0 ? NULL_TREE
+		   : make_tree_vec (fragment_bindings_end));
+  for (i = 0;  i < fragment_bindings_end;  i++)
+    {
+      TREE_VEC_ELT (bindings, i)
+	= TREE_VEC_ELT (fragment_bindings_stack, i);
+      /* Clean up for the sake of garbage collection. ??? */
+      TREE_VEC_ELT (fragment_bindings_stack, i) = NULL;
+    }
+  fragment_bindings_end = 0;
+  return bindings;
+}
+
+/* Called by cpplib at the end of a fragment (though not if cb_enter_fragment
+   returned true).  Save remembered bindings with the fragment for
+   future re-use. */
+
+void
+cb_exit_fragment (reader, fragment)
+     cpp_reader *reader ATTRIBUTE_UNUSED;
+     cpp_fragment *fragment;
+{
+  struct c_include_fragment* st = C_FRAGMENT (fragment);
+  reader->do_note_macros = 0;
+  if (st != NULL)
+    {
+      int i;
+
+      int uses_fragments_count = current_fragment_deps_end;
+      tree uses_fragments = (uses_fragments_count == 0 ? NULL_TREE
+			     : make_tree_vec (uses_fragments_count));
+
+      st->bindings = save_fragment_bindings ();
+
+      for (i = 0;  i < current_fragment_deps_end;  i++)
+	{
+	  tree uses = TREE_VEC_ELT (current_fragment_deps_stack, i);
+	  TREE_VEC_ELT (uses_fragments, i) = uses;
+	  ((struct c_include_fragment*) uses)->used_in_current = 0;
+	  /* Clean up for the sake of garbage collection. ??? */
+	  TREE_VEC_ELT (current_fragment_deps_stack, i) = NULL;
+	}
+      st->uses_fragments = uses_fragments;
+      current_fragment_deps_end = 0;
+      for (i = 0;  i < current_fragment_deps_end;  i++)
+	{
+	 ((struct c_include_fragment*)  TREE_VEC_ELT (current_fragment_deps_stack, i))->used_in_current = 1;
+	}
+
+      fragment->macro_notes_count = reader->macro_notes_count;
+      if (reader->macro_notes_count == 0)
+	fragment->macro_notes = NULL;
+      else
+	{
+	  int blen = reader->macro_notes_count * sizeof (struct cpp_macro_note);
+	  struct cpp_macro_note *macro_notes = xmalloc (blen);
+	  fragment->macro_notes = macro_notes;
+	  memcpy (macro_notes, reader->macro_notes, blen);
+	  reader->macro_notes_count = 0;
+	}
+
+      current_c_fragment = NULL;
+      st->valid = ! currently_nested;
+    }
+#if 0
+  fprintf(stderr, "(pop deps start:%d end:%d for %s ret:%s)\n",
+	  current_fragment_deps_start, current_fragment_deps_end, st->name,
+	  (st ? "non-null":"null"));
+#endif
+}
+
 /* Built-in macros for stddef.h, that require macros defined in this
    file.  */
 void
