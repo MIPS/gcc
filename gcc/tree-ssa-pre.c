@@ -2200,7 +2200,12 @@ follow_copies_till_vuse (tree start)
   if (NUM_VUSES (VUSE_OPS (stmt_ann (start))) != 0)
     return start;
   if (is_copy_stmt (start))
-    return follow_copies_till_vuse (SSA_NAME_DEF_STMT (TREE_OPERAND (start, 1)));
+    {
+      tree rhs, defstmt;
+      rhs = TREE_OPERAND (start, 1);
+      defstmt = SSA_NAME_DEF_STMT (rhs);
+      return follow_copies_till_vuse (defstmt);
+    }
   return NULL;
 }
 
@@ -2256,7 +2261,8 @@ do_eustores (void)
 	      stmt_ann_t foundann = stmt_ann (found);
 	      if (NUM_VUSES (VUSE_OPS (foundann)) != 1
 		  || VUSE_OP (VUSE_OPS (foundann), 0) != kill
-		  || !operand_equal_p (TREE_OPERAND (found, 1), TREE_OPERAND (stmt, 0), 0))
+		  || !operand_equal_p (TREE_OPERAND (found, 1), 
+				       TREE_OPERAND (stmt, 0), 0))
 		{
 		  bsi_next (&bsi);
 		  continue;
@@ -2302,6 +2308,7 @@ struct tree_opt_pass pass_eliminate_useless_stores =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_rename_vars | TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  TODO_rename_vars | TODO_dump_func 
+  | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
 };
