@@ -51,7 +51,7 @@ typedef u_int32_t            uint32_t;   /* u_int32_t is defined in <machine/typ
 typedef u_int64_t            uint64_t;   /* u_int64_t is defined in <machine/types.h> */
 #endif /* _UINT64_T_DECLARED */
 
-/* 7.18.1.2 Minumun-width integer types */
+/* 7.18.1.2 Minimum-width integer types */
 typedef int8_t           int_least8_t;
 typedef int16_t         int_least16_t;
 typedef int32_t         int_least32_t;
@@ -73,7 +73,7 @@ typedef uint32_t        uint_fast32_t;
 typedef uint64_t        uint_fast64_t;
 
 
-/* 7.18.1.4 Integer types capable of hgolding object pointers */
+/* 7.18.1.4 Integer types capable of holding object pointers */
                                         /* intptr_t is defined in <machine/types.h> */
                                         /* uintptr_t is defined in <machine/types.h> */
 

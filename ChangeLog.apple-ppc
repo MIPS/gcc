@@ -1,3 +1,7 @@
+2004-08-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* more-hdrs/stdint.h: Correct some typos in comments.
+
 2004-08-18  Matthew Sachs  <msachs@apple.com>
 
 	* Merge apple-ppc-branch 2004-08-17\ 03:07:00Z
