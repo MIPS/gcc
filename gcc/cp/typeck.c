@@ -4821,13 +4821,6 @@ build_static_cast (tree type, tree expr)
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
-  /* APPLE LOCAL begin AltiVec */
-  /* If we are casting to a vector type, treat the expression as a vector
-     initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
-    return vector_constructor_from_expr (expr, type);
-  /* APPLE LOCAL end AltiVec */
-
   if (processing_template_decl)
     {
       expr = build_min (STATIC_CAST_EXPR, type, expr);
@@ -4835,6 +4828,13 @@ build_static_cast (tree type, tree expr)
       TREE_SIDE_EFFECTS (expr) = 1;
       return convert_from_reference (expr);
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs if VALUE is being used in non-lvalue context.  */
@@ -5058,13 +5058,6 @@ build_reinterpret_cast (tree type, tree expr)
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
-  /* APPLE LOCAL begin AltiVec */
-  /* If we are casting to a vector type, treat the expression as a vector
-     initializer if this target supports it.  */
-  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
-    return vector_constructor_from_expr (expr, type);
-  /* APPLE LOCAL end AltiVec */
-
   if (processing_template_decl)
     {
       tree t = build_min (REINTERPRET_CAST_EXPR, type, expr);
@@ -5075,6 +5068,13 @@ build_reinterpret_cast (tree type, tree expr)
 	TREE_SIDE_EFFECTS (t) = 1;
       return convert_from_reference (t);
     }
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   return build_reinterpret_cast_1 (type, expr, /*c_cast_p=*/false,
 				   /*valid_p=*/NULL);
