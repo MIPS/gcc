@@ -87,7 +87,7 @@ srctrigger=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.46.6.3 $"
+version="$Revision: 1.46.6.4 $"
 x11=default
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
@@ -1276,72 +1276,33 @@ if [ -f ${srcdir}/${Makefile_in} ] ; then
   esac
   # real copy now in ./Makefile.tem
 
-  # prepend warning about editing, and a bunch of variables.
-  rm -f ${Makefile}
-  cat > ${Makefile} <<EOF
-# ${NO_EDIT}
-VPATH = ${srcdir}
-links = ${configlinks}
-host_alias = ${host_alias}
-host_cpu = ${host_cpu}
-host_vendor = ${host_vendor}
-host_os = ${host_os}
-host_canonical = ${host_cpu}-${host_vendor}-${host_os}
-target_alias = ${target_alias}
-target_cpu = ${target_cpu}
-target_vendor = ${target_vendor}
-target_os = ${target_os}
-target_canonical = ${target_cpu}-${target_vendor}-${target_os}
-EOF
-  case "${build}" in
-    "") ;;
-    *)  cat >> ${Makefile} << EOF
-build_alias = ${build_alias}
-build_cpu = ${build_cpu}
-build_vendor = ${build_vendor}
-build_os = ${build_os}
-build_canonical = ${build_cpu}-${build_vendor}-${build_os}
-EOF
-  esac
-
-  case "${package_makefile_frag}" in
-    "") ;;
-    /* | [A-Za-z]:[\\/]* ) echo package_makefile_frag = ${package_makefile_frag} >>${Makefile} ;;
-    *)  echo package_makefile_frag = ${package_makefile_frag} >>${Makefile} ;;
-  esac
-
-  case "${target_makefile_frag}" in
-    "") ;;
-    /* | [A-Za-z]:[\\/]* ) echo target_makefile_frag = ${target_makefile_frag} >>${Makefile} ;;
-    *)  echo target_makefile_frag = ${target_makefile_frag} >>${Makefile} ;;
-  esac
-
-  case "${host_makefile_frag}" in
-    "") ;;
-    /* | [A-Za-z]:[\\/]* ) echo host_makefile_frag = ${host_makefile_frag} >>${Makefile} ;;
-    *)  echo host_makefile_frag = ${host_makefile_frag} >>${Makefile} ;;
-  esac
-
-  if [ "${site_makefile_frag}" != "" ] ; then
-    echo site_makefile_frag = ${site_makefile_frag} >>${Makefile}
-  fi 
-
-
-  # record if we want to rumtime library stuff installed in libsubdir.
+  # record if we want runtime library stuff installed in libsubdir.
   # Blank means no.
   if test -z "${enable_version_specific_runtime_libs}"; then
     enable_version_specific_runtime_libs=no
   fi
 
-  # Real copy now in Makefile.tem
-  # Prologue in Makefile.
-
-  sed -e "s|@enable_shared@|${enable_shared}|" \
+  sed -e "s|@configlinks@|${configlinks}|" \
+      -e "s|@build_alias@|${build_alias}|" \
+      -e "s|@build_cpu@|${build_cpu}|" \
+      -e "s|@build_vendor@|${build_vendor}|" \
+      -e "s|@build_os@|${build_os}|" \
+      -e "s|@host_alias@|${host_alias}|" \
+      -e "s|@host_cpu@|${host_cpu}|" \
+      -e "s|@host_vendor@|${host_vendor}|" \
+      -e "s|@host_os@|${host_os}|" \
+      -e "s|@target_alias@|${target_alias}|" \
+      -e "s|@target_cpu@|${target_cpu}|" \
+      -e "s|@target_vendor@|${target_vendor}|" \
+      -e "s|@target_os@|${target_os}|" \
+      -e "s|@target_makefile_frag@|${target_makefile_frag}|" \
+      -e "s|@host_makefile_frag@|${host_makefile_frag}|" \
+      -e "s|@enable_shared@|${enable_shared}|" \
       -e "s|@enable_threads@|${enable_threads}|" \
       -e "s|@enable_version_specific_runtime_libs@|${enable_version_specific_runtime_libs}|" \
       -e "s|@gcc_version_trigger@|${gcc_version_trigger}|" \
       -e "s|@gcc_version@|${gcc_version}|" \
-      ./Makefile.tem >> ${Makefile}
+      ./Makefile.tem > ${Makefile}
   mv -f ${Makefile} ./Makefile.tem
   # Real copy now in Makefile.tem; no prologue.
 
