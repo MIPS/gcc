@@ -984,14 +984,12 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		  && t->u.p->u.s.line.file == NULL)
 		fprintf (of, "%*sif (%s.%s) abort();\n", indent, "",
 			 val, f->name);
-	      else if (t->u.p->kind == TYPE_STRUCT
-		       || t->u.p->kind == TYPE_UNION
-		       || t->u.p->kind == TYPE_LANG_STRUCT)
+	      else if (UNION_OR_STRUCT_P (t->u.p))
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
 			 t->u.p->u.s.tag, val, f->name);
 	      else if (t->u.p->kind == TYPE_PARAM_STRUCT)
 		fprintf (of, "%*sgt_ggc_mm_%d%s_%s (%s.%s);\n", indent, "",
-			 strlen (t->u.p->u.param_struct.param->u.s.tag),
+			 (int) strlen (t->u.p->u.param_struct.param->u.s.tag),
 			 t->u.p->u.param_struct.param->u.s.tag,
 			 t->u.p->u.param_struct.stru->u.s.tag,
 			 val, f->name);
@@ -1035,9 +1033,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		    break;
 		  }
 		case TYPE_POINTER:
-		  if (t->u.p->u.p->kind == TYPE_STRUCT
-		      || t->u.p->u.p->kind == TYPE_UNION
-		      || t->u.p->u.p->kind == TYPE_LANG_STRUCT)
+		  if (UNION_OR_STRUCT_P (t->u.p->u.p))
 		    fprintf (of, "%*sgt_ggc_m_%s (%s.%s[i%d]);\n", indent, "", 
 			     t->u.p->u.p->u.s.tag, val, f->name,
 			     loopcounter);
@@ -1215,7 +1211,7 @@ write_gc_marker_routine_for_structure (s, param)
   if (param == NULL)
     fprintf (f, "gt_ggc_mx_%s (x_p)\n", s->u.s.tag);
   else
-    fprintf (f, "gt_ggc_mm_%d%s_%s (x_p)\n", strlen (param->u.s.tag),
+    fprintf (f, "gt_ggc_mm_%d%s_%s (x_p)\n", (int) strlen (param->u.s.tag),
 	     param->u.s.tag, s->u.s.tag);
   fputs ("      void *x_p;\n", f);
   fputs ("{\n", f);
@@ -1316,7 +1312,7 @@ write_gc_types (structures, param_structs)
 	/* Declare the marker procedure.  */
 	fprintf (header_file, 
 		 "extern void gt_ggc_mm_%d%s_%s PARAMS ((void *));\n",
-		 strlen (param->u.s.tag), param->u.s.tag,
+		 (int) strlen (param->u.s.tag), param->u.s.tag,
 		 stru->u.s.tag);
   
 	if (stru->u.s.line.file == NULL)
@@ -1538,15 +1534,14 @@ write_gc_root (f, v, type, name, has_length, line, if_marked)
 	
 	tp = type->u.p;
 	
-	if (! has_length
-	    && (tp->kind == TYPE_UNION || tp->kind == TYPE_STRUCT))
+	if (! has_length && UNION_OR_STRUCT_P (tp))
 	  {
 	    fprintf (f, "    &gt_ggc_mx_%s\n", tp->u.s.tag);
 	  }
 	else if (! has_length && tp->kind == TYPE_PARAM_STRUCT)
 	  {
 	    fprintf (f, "    &gt_ggc_mm_%d%s_%s",
-		     strlen (tp->u.param_struct.param->u.s.tag),
+		     (int) strlen (tp->u.param_struct.param->u.s.tag),
 		     tp->u.param_struct.param->u.s.tag,
 		     tp->u.param_struct.stru->u.s.tag);
 	  }

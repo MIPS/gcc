@@ -1,5 +1,16 @@
 2002-05-30  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.h (UNION_OR_STRUCT_P): New macro.
+	* gengtype.c (write_gc_structure_fields): Use it.
+	(write_gc_root): Use it here too.
+
+	* gengtype.c (write_gc_structure_fields): Assume that lengths
+	of typenames fit into an 'int'; don't pass a size_t to "%d" in
+	printf.
+	(write_gc_marker_routine_for_structure): Likewise.
+	(write_gc_types): Likewise.
+	(write_gc_root): Likewise.
+
 	* varray.h (VARRAY_CLEAR): New.
 	(varray_clear): Prototype.
 	* varray.c (varray_clear): New.

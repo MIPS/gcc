@@ -95,6 +95,10 @@ struct type {
  ((x)->kind == TYPE_UNION || 				\
   ((x)->kind == TYPE_LANG_STRUCT 			\
    && (x)->u.s.lang_struct->kind == TYPE_UNION))
+#define UNION_OR_STRUCT_P(x)			\
+ ((x)->kind == TYPE_UNION 			\
+  || (x)->kind == TYPE_STRUCT 			\
+  || (x)->kind == TYPE_LANG_STRUCT)
 
 /* The one and only TYPE_STRING.  */
 extern struct type string_type;
