@@ -908,7 +908,10 @@ int flag_tree_points_to = 0;
 /* Enable SSA-CCP on trees.  */
 int flag_tree_ssa_ccp = 0;
 
-/* Enable SSA-CCP on trees.  */
+/* Enable SSA-DCE on trees.  */
+int flag_tree_ssa_dce = 0;
+
+/* Enable all SSA-related dumps.  */
 int flag_dump_tree_all_ssa = 0;
 
 /* Nonzero if we perform superblock formation.  */
@@ -1231,6 +1234,8 @@ static const lang_independent_options f_options[] =
    N_("Enable Steensgaard's points-to analysis on trees") },
   { "tree-ssa-ccp", &flag_tree_ssa_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
+  { "tree-ssa-dce", &flag_tree_ssa_dce, 1,
+   N_("Enable SSA dead code elimination optimization on trees") },
   { "dump-tree-all-ssa", &flag_dump_tree_all_ssa, 1,
    N_("Enable all SSA-related tree dumps") },
 };

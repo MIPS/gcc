@@ -682,6 +682,9 @@ extern int flag_tree_points_to;
 /* Enable SSA-CCP on trees.  */
 extern int flag_tree_ssa_ccp;
 
+/* Enable SSA-DCE on trees.  */
+extern int flag_tree_ssa_dce;
+
 /* Enable all SSA-related tree dumps.  */
 extern int flag_dump_tree_all_ssa;
 

@@ -82,6 +82,9 @@ optimize_function_tree (fndecl)
 
       if (flag_tree_ssa_ccp)
 	tree_ssa_ccp (fndecl);
+
+      if (flag_tree_ssa_dce)
+	tree_ssa_eliminate_dead_code (fndecl);
     }
 
   /* Wipe out the back-pointes in the statement chain.  */

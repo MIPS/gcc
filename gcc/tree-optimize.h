@@ -33,4 +33,7 @@ extern void tree_perform_ssapre PARAMS ((void));
 /* Functions in tree-ssa-ccp.c  */
 void tree_ssa_ccp PARAMS ((tree));
 
+/* Functions in tree-ssa-dce.c  */
+void tree_ssa_eliminate_dead_code PARAMS ((tree));
+
 #endif /* _TREE_OPTIMIZE_H */

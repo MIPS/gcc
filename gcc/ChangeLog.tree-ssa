@@ -1,5 +1,26 @@
 2002-09-17  Diego Novillo  <dnovillo@redhat.com>
 
+	* doc/invoke.texi: Document -ftree-ssa-dce and -fdump-tree-dce.
+	* cp/Make-lang.in (CXX_C_OBJS): Add tree-ssa-dce.o.
+
+2002-09-17  Ben Elliston  <bje@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-ssa-dce.o.
+	tree-ssa-dce.o): New target.
+	* tree-ssa-dce.c: New file.
+	* flags.h (flag_tree_ssa_dce): Declare flag.
+	* tree.h (tree_dump_index): Add TDI_dce.
+	* toplev.c (flag_tree_ssa_dce): New flag.
+ 	(f_options): Add "dump-tree-all-ssa" option.
+	* tree-flow.h (enum tree_flags): Add TF_NECESSARY.
+	* tree-dump.c (dump_files): Add dump-tree-dce option.
+	(dump_enable_all_ssa): Enable it when dumping all.
+	* tree-optimize.h (tree_ssa_eliminate_dead_code): Declare.
+	* tree-optimize.c (optimize_function_tree): Invoke the
+	optimisation pass if flag_tree_ssa_dce is set.
+
+2002-09-17  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (tree-ssa.o): Add dependency on c-tree.h
 	* c-simplify.c (mark_not_simple_r): Don't mark IDENTIFIER_NODEs.
 	* tree-dfa.c (function_may_recurse_p): Fix comment.

@@ -731,7 +731,7 @@ C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   simple-goto-elim.o tree-dchain.o tree-ssa-pre.o tree-alias-type.o \
   tree-mudflap.o \
   tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o \
-  disjoint-set.o tree-ssa-ccp.o
+  disjoint-set.o tree-ssa-ccp.o tree-ssa-dce.o
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
@@ -1548,6 +1548,9 @@ ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) varray.h $(EXPR_H) \
    $(BASIC_BLOCK_H) output.h ssa.h
 ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h
+tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
+    $(RTL_H) $(TM_P_H) hard-reg-set.h $(BASIC_BLOCK_H) \
+    tree-flow.h tree-optimize.h $(C_COMMON_H) $(C_TREE_H)
 ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h

@@ -440,7 +440,10 @@ enum tree_flags
   TF_NOT_SIMPLE	= 1 << 1,
 
   /* This _DECL node has already been referenced in this function.  */
-  TF_REFERENCED	= 1 << 2
+  TF_REFERENCED	= 1 << 2,
+
+  /* This expression is necessary (not dead code).  */
+  TF_NECESSARY	= 1 << 3
 };
 
 struct tree_ann_d

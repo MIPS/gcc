@@ -290,7 +290,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -ftrapv -funroll-all-loops  -funroll-loops  @gol
 -ftree-ssa  -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
--ftree-ssa-pre -ftree-ssa-ccp  @gol
+-ftree-ssa-pre -ftree-ssa-ccp  -ftree-ssa-dce @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3199,6 +3199,11 @@ by appending @file{.pre} to the source file name.
 @opindex fdump-tree-simple
 Dump each function before and after the simplification pass to a file.  The
 file name is made by appending @file{.simple} to the source file name.
+
+@item dce
+@opindex fdump-tree-dce
+Dump each function before and after DCE.  The file name is made by appending
+@file{.dce} to the source file name.
 @end table
 
 @item -fdump-tree-all-ssa @r{(C and C++ only)}
@@ -3814,6 +3819,9 @@ Perform Partial Redundancy Elimination (PRE) on trees.
 
 @item -ftree-ssa-ccp
 Perform sparse conditional constant propagation (CCP) on trees.
+
+@item -ftree-ssa-dce
+Perform dead code elimination (DCE) on trees.
 
 @item -ftracer
 @opindex ftracer

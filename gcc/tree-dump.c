@@ -665,6 +665,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dot", "dump-tree-dot", 0, 0},
   {".ssa", "dump-tree-ssa", 0, 0},
   {".ccp", "dump-tree-ccp", 0, 0},
+  {".dce", "dump-tree-dce", 0, 0},
   {".ssapre", "dump-tree-ssapre", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
   {".xml", "dump-call-graph", 0, 0},
@@ -764,6 +765,7 @@ dump_enable_all_ssa ()
   dump_files[TDI_dot].state = -1;
   dump_files[TDI_ssa_pre].state = -1;
   dump_files[TDI_ccp].state = -1;
+  dump_files[TDI_dce].state = -1;
   dump_files[TDI_ssa].state = -1;
   dump_files[TDI_simple].state = -1;
 }
