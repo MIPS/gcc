@@ -5079,23 +5079,6 @@ darwin64_function_arg_advance (CUMULATIVE_ARGS *cum, tree type,
 	  }
       break;
 
-    case UNION_TYPE:
-      tot = rs6000_arg_size (mode, type);
-      if (tot <= 0)
-	return NULL_RTX;
-      bytepos = 0;
-
-      for (j = 0; j < tot; ++j)
-	{
-	  sub = gen_rtx_REG ((TARGET_64BIT ? DImode : SImode), GP_ARG_MIN_REG + cum->words++);
-	  roffset = gen_rtx_CONST_INT (SImode, bytepos);
-	  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
-	  if (cum->words >= GP_ARG_NUM_REG)
-	    break;
-	  bytepos += (TARGET_64BIT ? 8 : 4);
-	}
-      break;
-
     case ARRAY_TYPE:
       tot = int_size_in_bytes (type);
       if (tot <= 0)
@@ -5468,6 +5451,23 @@ rs6000_darwin64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	       temporary copy of the cumulative arg data.  */
 	    function_arg_advance (cum, submode, ftype, named, 1);
 	  }
+      break;
+
+    case UNION_TYPE:
+      tot = rs6000_arg_size (mode, type);
+      if (tot <= 0)
+	return NULL_RTX;
+      bytepos = 0;
+
+      for (j = 0; j < tot; ++j)
+	{
+	  sub = gen_rtx_REG ((TARGET_64BIT ? DImode : SImode), GP_ARG_MIN_REG + cum->words++);
+	  roffset = gen_rtx_CONST_INT (SImode, bytepos);
+	  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, sub, roffset);
+	  if (cum->words >= GP_ARG_NUM_REG)
+	    break;
+	  bytepos += (TARGET_64BIT ? 8 : 4);
+	}
       break;
 
     case ARRAY_TYPE:
