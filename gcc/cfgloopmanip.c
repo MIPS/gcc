@@ -1191,7 +1191,10 @@ create_preheader (loop, dom, flags)
       /* Split_block would not split block after its end.  */
       emit_note_after (NOTE_INSN_DELETED, insn);
     }
-  fallthru = split_block (loop->header, insn);
+  if (flags & CP_INSIDE_CFGLAYOUT)
+    fallthru = cfg_layout_split_block (loop->header, insn);
+  else
+    fallthru = split_block (loop->header, insn);
   dummy = fallthru->src;
   loop->header = fallthru->dest;
 
@@ -1201,8 +1204,6 @@ create_preheader (loop, dom, flags)
     if (ploop->latch == dummy)
       ploop->latch = fallthru->dest;
 
-  if (flags & CP_INSIDE_CFGLAYOUT)
-    alloc_aux_for_block (fallthru->dest, sizeof (struct reorder_block_def));
   add_to_dominance_info (dom, fallthru->dest);
   
   /* Redirect edges. */

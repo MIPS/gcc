@@ -42,3 +42,4 @@ extern basic_block cfg_layout_duplicate_bb PARAMS ((basic_block, edge));
 extern void scope_to_insns_initialize	PARAMS ((void));
 extern void scope_to_insns_finalize	PARAMS ((void));
 extern bool cfg_layout_redirect_edge	PARAMS ((edge, basic_block));
+extern edge cfg_layout_split_block	PARAMS ((basic_block, rtx));

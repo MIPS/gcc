@@ -889,6 +889,20 @@ cfg_layout_redirect_edge (e, dest)
   return ret;
 }
 
+/* Same as split_block but update cfg_layout structures.  */
+edge
+cfg_layout_split_block (bb, insn)
+     basic_block bb;
+     rtx insn;
+{
+  edge fallthru = split_block (bb, insn);
+
+  alloc_aux_for_block (fallthru->dest, sizeof (struct reorder_block_def));
+  RBI (fallthru->dest)->footer = RBI (fallthru->src)->footer;
+  RBI (fallthru->src)->footer = NULL;
+  return fallthru;
+}
+
 /* Create an duplicate of the basic block BB and redirect edge E into it.  */
 
 basic_block

@@ -1,3 +1,11 @@
+Sat Dec  7 15:27:30 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (cfg_layout_split_block): New function.
+	* cfglayout.h (cfg_layout_split_block): Declare.
+	* cfgloopmanip.c (create_preheader): Use it.
+
+	* calls.c (expand_call): Rename __bb_fork_func to __gcov_flush.
+
 2002-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from rtlopt branch:
