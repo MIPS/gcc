@@ -158,6 +158,10 @@ cp_simplify_expr (expr_p, pre_p, post_p)
       *expr_p = integer_zero_node;
       return 1;
 
+    case BASELINK:
+      *expr_p = BASELINK_FUNCTIONS (*expr_p);
+      return 1;
+
     default:
       break;
     }

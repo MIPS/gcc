@@ -1,5 +1,7 @@
 2003-02-07  Jason Merrill  <jason@redhat.com>
 
+	* cp-simplify.c (cp_simplify_expr): Handle BASELINK.
+
 	* parser.c (cp_parser_primary_expression): Unshare a COMPONENT_REF
 	from an ALIAS_DECL.
 
