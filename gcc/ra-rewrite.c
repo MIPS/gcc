@@ -1087,13 +1087,30 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
       aweb = alias (supweb);
       aweb->changed = 1;
       start_sequence ();
-      allocate_spill_web (aweb);
-      slot = aweb->stack_slot;
+#ifdef MICHAEL
+      if (supweb->pattern)
+	{
+	  /* XXX If we later allow non-constant sources for rematerialization
+	     we must also disallow coalescing _to_ rematerialized webs
+	     (at least then disallow spilling them, which we already ensure
+	     when flag_ra_break_aliases), or not take the pattern but a
+	     stackslot.  */
+	  if (aweb != supweb)
+	    abort ();
+	  slot = copy_rtx (supweb->pattern);
+	  innermode = GET_MODE (supweb->orig_x);
+	}
+      else
+#endif
+	{
+	  allocate_spill_web (aweb);
+	  slot = aweb->stack_slot;
+	  innermode = GET_MODE (slot);
+	}
 #ifdef SPILLING_STATISTICS
       if (REG_P (slot))
 	bitmap_set_bit (rewrite_spill_slots, REGNO (slot));
 #endif
-      innermode = GET_MODE (slot);
       /* If we don't copy the RTL there might be some SUBREG
 	 rtx shared in the next iteration although being in
 	 different webs, which leads to wrong code.  */

@@ -1,4 +1,8 @@
-2003-10-06  Michael Matz  <matz@suse.de>
+2003-11-10  Michael Matz  <matz@suse.de>
+
+	* ra-rewrite.c (emit_loads): Do loads from rematerializable webs.
+
+2003-11-06  Michael Matz  <matz@suse.de>
 
 	* df.c (df_ref_search_cached): Don't check but set DF_REF_LOC.
 	Fix formatting.
