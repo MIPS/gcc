@@ -1,3 +1,7 @@
+2004-08-06  Dale Johannesen  <dalej@apple.com>
+
+	* c-typeck.c (tagged_types_tu_compatible_p): Fix from mainline.
+
 2004-08-06  Andrew Pinski  <apinski@apple.com>
 
 	* config/darwin.h: Fix misplaced #endif which came in via the merge.
