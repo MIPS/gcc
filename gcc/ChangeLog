@@ -1,3 +1,8 @@
+2003-11-18  Richard Henderson  <rth@redhat.com>
+
+        * expr.c (expand_expr): Don't look through constant arrays if
+        they don't bind locally.
+
 2003-11-14  Jason Merrill  <jason@redhat.com>
 
 	PR middle-end/12526
