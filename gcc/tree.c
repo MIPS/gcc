@@ -164,7 +164,6 @@ static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
 static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
-static void type_hash_mark PARAMS ((const void *));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
 
 /* If non-null, these are language-specific helper functions for

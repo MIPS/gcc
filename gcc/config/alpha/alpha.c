@@ -163,10 +163,8 @@ static int alpha_variable_issue
   PARAMS ((FILE *, int, rtx, int));
 
 #if TARGET_ABI_UNICOSMK
-static void alpha_init_machine_status
-  PARAMS ((struct function *p));
-static void alpha_mark_machine_status
-  PARAMS ((struct function *p));
+static struct machine_function * alpha_init_machine_status
+  PARAMS ((void));
 #endif
 
 static void unicosmk_output_deferred_case_vectors PARAMS ((FILE *));
@@ -498,7 +496,7 @@ override_options ()
 #if TARGET_ABI_UNICOSMK
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
-  mark_machine_status = alpha_mark_machine_status;
+  mark_machine_status = gt_ggc_m_machine_function;
 #endif
 }
 
@@ -4931,23 +4929,8 @@ static void
 alpha_init_machine_status (p)
      struct function *p;
 {
-  p->machine = ((struct machine_function *) 
+  return ((struct machine_function *) 
 		ggc_alloc_cleared (sizeof (struct machine_function)));
-
-  p->machine->first_ciw = NULL_RTX;
-  p->machine->last_ciw = NULL_RTX;
-  p->machine->ciw_count = 0;
-  p->machine->addr_list = NULL_RTX;
-}
-
-static void
-alpha_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  ggc_mark_rtx (machine->first_ciw);
-  ggc_mark_rtx (machine->addr_list);
 }
 #endif /* TARGET_ABI_UNICOSMK */
 

@@ -255,7 +255,7 @@ get_output_file (input_file)
 {
   filemap_p fm, fmo;
   size_t len;
-  char *basename;
+  const char *basename;
 
   /* Do we already know the file?  */
   for (fm = files; fm; fm = fm->next)
@@ -738,6 +738,7 @@ write_gc_types PARAMS ((type_p structures))
       }
 }
 
+extern int main PARAMS ((int argc, char **argv));
 int 
 main(argc, argv)
      int argc;

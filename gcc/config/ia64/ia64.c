@@ -120,8 +120,7 @@ static rtx gen_fr_restore_x PARAMS ((rtx, rtx, rtx));
 static enum machine_mode hfa_element_mode PARAMS ((tree, int));
 static void fix_range PARAMS ((const char *));
 static void ia64_add_gc_roots PARAMS ((void));
-static void ia64_init_machine_status PARAMS ((struct function *));
-static void ia64_mark_machine_status PARAMS ((struct function *));
+static struct machine_function * ia64_init_machine_status PARAMS ((void));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_predicate_relation_info PARAMS ((void));
@@ -3892,23 +3891,10 @@ ia64_add_gc_roots ()
   ggc_add_rtx_root (&ia64_compare_op1, 1);
 }
 
-static void
-ia64_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+ia64_init_machine_status ()
 {
-  p->machine = ((struct machine_function *) 
-		ggc_alloc_cleared (sizeof (struct machine_function)));
-}
-
-static void
-ia64_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  ggc_mark_rtx (machine->ia64_eh_epilogue_sp);
-  ggc_mark_rtx (machine->ia64_eh_epilogue_bsp);
-  ggc_mark_rtx (machine->ia64_gp_save);
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Handle TARGET_OPTIONS switches.  */
@@ -3934,7 +3920,7 @@ ia64_override_options ()
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
-  mark_machine_status = ia64_mark_machine_status;
+  mark_machine_status = gt_ggc_m_machine_function;
 
   ia64_add_gc_roots ();
 }

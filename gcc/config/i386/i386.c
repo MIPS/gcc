@@ -540,7 +540,7 @@ rtx ix86_compare_op1 = NULL_RTX;
 #define X86_64_VARARGS_SIZE (REGPARM_MAX * UNITS_PER_WORD + SSE_REGPARM_MAX * 16)
 
 /* Define the structure for the machine field in struct function.  */
-struct machine_function
+struct machine_function GTY(())
 {
   rtx stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
   int save_varrargs_registers;
@@ -663,8 +663,7 @@ static void ix86_dump_ppro_packet PARAMS ((FILE *));
 static void ix86_reorder_insn PARAMS ((rtx *, rtx *));
 static rtx * ix86_pent_find_pair PARAMS ((rtx *, rtx *, enum attr_pent_pair,
 					 rtx));
-static void ix86_init_machine_status PARAMS ((struct function *));
-static void ix86_mark_machine_status PARAMS ((struct function *));
+static struct machine_function * ix86_init_machine_status PARAMS ((void));
 static int ix86_split_to_parts PARAMS ((rtx, rtx *, enum machine_mode));
 static int ix86_safe_length_prefix PARAMS ((rtx));
 static int ix86_nsaved_regs PARAMS ((void));
@@ -1005,8 +1004,8 @@ override_options ()
 
   /* Arrange to set up i386_stack_locals for all functions.  */
   init_machine_status = ix86_init_machine_status;
-  mark_machine_status = ix86_mark_machine_status;
-
+  mark_machine_status = gt_ggc_m_machine_function;
+  
   /* Validate -mregparm= value.  */
   if (ix86_regparm_string)
     {
@@ -9617,27 +9616,10 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
    This is called from INIT_EXPANDERS once before RTL is emitted for each
    function.  */
 
-static void
-ix86_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+ix86_init_machine_status ()
 {
-  p->machine = (struct machine_function *)
-    ggc_alloc_cleared (sizeof (struct machine_function));
-}
-
-/* Mark machine specific bits of P for GC.  */
-static void
-ix86_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-  enum machine_mode mode;
-  int n;
-
-  for (mode = VOIDmode; (int) mode < (int) MAX_MACHINE_MODE;
-       mode = (enum machine_mode) ((int) mode + 1))
-    for (n = 0; n < MAX_386_STACK_LOCALS; n++)
-      ggc_mark_rtx (machine->stack_locals[(int) mode][n]);
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Return a MEM corresponding to a stack slot with mode MODE.
@@ -12343,3 +12325,5 @@ x86_order_regs_for_local_alloc ()
    while (pos < FIRST_PSEUDO_REGISTER)
      reg_alloc_order [pos++] = 0;
 }
+
+#include "gt-i386.h"

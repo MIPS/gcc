@@ -134,7 +134,7 @@ static int toc_hash_eq PARAMS ((const void *, const void *));
 static int toc_hash_mark_entry PARAMS ((void **, void *));
 static void toc_hash_mark_table PARAMS ((void *));
 static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
-static void rs6000_init_machine_status PARAMS ((struct function *));
+static struct machine_function * rs6000_init_machine_status PARAMS ((void));
 static bool rs6000_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int rs6000_ra_ever_killed PARAMS ((void));
 static tree rs6000_handle_longcall_attribute PARAMS ((tree *, tree, tree, int, bool *));
@@ -6059,12 +6059,10 @@ rs6000_got_register (value)
    These will be called, via pointer variables,
    from push_function_context and pop_function_context.  */
 
-static void
-rs6000_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+rs6000_init_machine_status ()
 {
-  p->machine = ((machine_function *) 
-		ggc_alloc_cleared (sizeof (machine_function)));
+  return ggc_alloc_cleared (sizeof (machine_function));
 }
 
 /* Print an operand.  Recognize special options, documented below.  */

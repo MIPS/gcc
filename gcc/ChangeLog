@@ -1,5 +1,67 @@
 2002-03-11  Geoffrey Keating  <geoffk@redhat.com>
 
+	* Makefile.in (GTFILES): Run gengtype on all the config files
+	and on the target .c file.
+	* except.c (mark_eh_region): Delete.
+	(init_eh_for_function): Use GGC on struct eh_status.
+	(mark_eh_status): Delete.
+	(free_eh_status): Use GGC.
+	(expand_eh_region_start): Use GGC to
+	(collect_eh_region_array): Allocate last_region_number using GGC.
+	(duplicate_eh_region_1): Use GGC to allocate struct eh_region.
+	(remove_eh_handler): Let GGC free struct eh_region.
+	(add_call_site): Use GGC to reallocate call_site_record array.
+	* function.c (init_machine_status): Update calling sequence.
+	(mark_machine_status): Likewise.
+	(mark_lang_status): Likewise.
+	(prepare_function_start): Update init_machine_status call.
+	(mark_function_status): Delete.
+	(maybe_mark_struct_function): Delete.
+	(ggc_mark_struct_function): Delete.
+	(gt_ggc_mp_function): New.
+	(gt_ggc_mr_machine_function): New.
+	(gt_ggc_mr_language_function): New.
+	(init_function_once): Use canonical names.
+	* function.h (struct function): Use gengtype.
+	(init_machine_status): Return the structure.
+	(mark_machine_status): Take a 'void *'.
+	(mark_lang_status): Likewise.
+	* ggc-common.c (ggc_mark_trees): Use canonical name for
+	ggc_mark_struct_function.
+	* tree.h (ggc_mark_struct_function): Delete prototype.
+	* config/alpha/alpha.c (alpha_mark_machine_status): Delete.
+	(alpha_init_machine_status): Likewise.
+	(override_options): Use canonical name for alpha_mark_machine_status.
+	* config/alpha/unicosmk.h (struct machine_function): Use gengtype.
+	* config/arm/arm.h (struct machine_function): Use gengtype.
+	* config/arm/arm.c (arm_mark_machine_status): Delete.
+	(arm_init_machine_status): Update calling sequence.
+	(arm_init_expanders): Use canonical name for arm_mark_machine_status.
+	* config/cris/cris.c (cris_init_machine_status): Update 
+	calling sequence.
+	* config/d30v/d30v.h (struct machine_function): Use gengtype.
+	* config/d30v/d30v.c (d30v_init_machine_status): Update 
+	calling sequence.
+	(d30v_mark_machine_status): Delete.
+	* config/i386/i386.c: Include gt-i386.h.
+	(struct machine_function): Use gengtype.
+	(ix86_init_machine_status): Update calling sequence.
+	(ix86_mark_machine_status): Delete.
+	(override_options): Use canonical namke for ix86_mark_machine_status.
+	* config/ia64/ia64.h (struct machine_function): Use gengtype.
+	* config/ia64/ia64.c (ia64_init_machine_status): Update calling 
+	sequence.
+	(ia64_mark_machine_status): Delete.
+	(ia64_override_options): Use canonical name for 
+	ia64_mark_machine_status.
+	* config/mmix/mmix.c (mmix_init_machine_status): Update calling 
+	sequence.
+	* config/rs6000/rs6000.c (rs6000_init_machine_status): Likewise.
+	* config/xtensa/xtensa.c (xtensa_init_machine_status): Likewise.
+	* gengtype.c (get_output_file): Fix warning.
+	(main): Add prototype to suppress warning.
+	* tree.c: Remove tree_hash_mark prototype.
+
 	* tree.h (init_stmt): Delete prototype.
 	* toplev.c (lang_independent_init): Don't call init_stmt.
 	* stmt.c (ALLOC_NESTING): Use GGC for 'struct nesting'.

@@ -493,7 +493,7 @@ ggc_mark_trees ()
 	      ggc_mark_tree (DECL_SAVED_TREE (t));
 	      ggc_mark_tree (DECL_INLINED_FNS (t));
 	      if (DECL_SAVED_INSNS (t))
-		ggc_mark_struct_function (DECL_SAVED_INSNS (t));
+		gt_ggc_m_function (DECL_SAVED_INSNS (t));
 	    }
 	  lang_mark_tree (t);
 	  break;

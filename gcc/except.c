@@ -249,8 +249,6 @@ struct eh_status GTY(())
 };
 
 
-static void mark_eh_region			PARAMS ((struct eh_region *));
-
 static int t2r_eq				PARAMS ((const PTR,
 							 const PTR));
 static hashval_t t2r_hash			PARAMS ((const PTR));
@@ -469,115 +467,8 @@ init_eh ()
 void
 init_eh_for_function ()
 {
-  cfun->eh = (struct eh_status *) xcalloc (1, sizeof (struct eh_status));
-}
-
-/* Mark EH for GC.  */
-
-static void
-mark_eh_region (region)
-     struct eh_region *region;
-{
-  if (! region)
-    return;
-
-  switch (region->type)
-    {
-    case ERT_UNKNOWN:
-      /* This can happen if a nested function is inside the body of a region
-	 and we do a GC as part of processing it.  */
-      break;
-    case ERT_CLEANUP:
-      ggc_mark_tree (region->u.cleanup.exp);
-      break;
-    case ERT_TRY:
-      ggc_mark_rtx (region->u.try.continue_label);
-      break;
-    case ERT_CATCH:
-      ggc_mark_tree (region->u.catch.type_list);
-      ggc_mark_tree (region->u.catch.filter_list);
-      break;
-    case ERT_ALLOWED_EXCEPTIONS:
-      ggc_mark_tree (region->u.allowed.type_list);
-      break;
-    case ERT_MUST_NOT_THROW:
-      break;
-    case ERT_THROW:
-      ggc_mark_tree (region->u.throw.type);
-      break;
-    case ERT_FIXUP:
-      ggc_mark_tree (region->u.fixup.cleanup_exp);
-      break;
-    default:
-      abort ();
-    }
-
-  ggc_mark_rtx (region->label);
-  ggc_mark_rtx (region->resume);
-  ggc_mark_rtx (region->landing_pad);
-  ggc_mark_rtx (region->post_landing_pad);
-}
-
-void
-mark_eh_status (eh)
-     struct eh_status *eh;
-{
-  int i;
-
-  if (eh == 0)
-    return;
-
-  /* If we've called collect_eh_region_array, use it.  Otherwise walk
-     the tree non-recursively.  */
-  if (eh->region_array)
-    {
-      for (i = eh->last_region_number; i > 0; --i)
-	{
-	  struct eh_region *r = eh->region_array[i];
-	  if (r && r->region_number == i)
-	    mark_eh_region (r);
-	}
-    }
-  else if (eh->region_tree)
-    {
-      struct eh_region *r = eh->region_tree;
-      while (1)
-	{
-	  mark_eh_region (r);
-	  if (r->inner)
-	    r = r->inner;
-	  else if (r->next_peer)
-	    r = r->next_peer;
-	  else
-	    {
-	      do {
-		r = r->outer;
-		if (r == NULL)
-		  goto tree_done;
-	      } while (r->next_peer == NULL);
-	      r = r->next_peer;
-	    }
-	}
-    tree_done:;
-    }
-
-  ggc_mark_tree (eh->protect_list);
-  ggc_mark_rtx (eh->filter);
-  ggc_mark_rtx (eh->exc_ptr);
-  ggc_mark_tree_varray (eh->ttype_data);
-
-  if (eh->call_site_data)
-    {
-      for (i = eh->call_site_data_used - 1; i >= 0; --i)
-	ggc_mark_rtx (eh->call_site_data[i].landing_pad);
-    }
-
-  ggc_mark_rtx (eh->ehr_stackadj);
-  ggc_mark_rtx (eh->ehr_handler);
-  ggc_mark_rtx (eh->ehr_label);
-
-  ggc_mark_rtx (eh->sjlj_fc);
-  ggc_mark_rtx (eh->sjlj_exit_after);
+  cfun->eh = (struct eh_status *) 
+    ggc_alloc_cleared (sizeof (struct eh_status));
 }
 
 void
@@ -586,55 +477,10 @@ free_eh_status (f)
 {
   struct eh_status *eh = f->eh;
 
-  if (eh->region_array)
-    {
-      int i;
-      for (i = eh->last_region_number; i > 0; --i)
-	{
-	  struct eh_region *r = eh->region_array[i];
-	  /* Mind we don't free a region struct more than once.  */
-	  if (r && r->region_number == i)
-	    free (r);
-	}
-      free (eh->region_array);
-    }
-  else if (eh->region_tree)
-    {
-      struct eh_region *next, *r = eh->region_tree;
-      while (1)
-	{
-	  if (r->inner)
-	    r = r->inner;
-	  else if (r->next_peer)
-	    {
-	      next = r->next_peer;
-	      free (r);
-	      r = next;
-	    }
-	  else
-	    {
-	      do {
-	        next = r->outer;
-	        free (r);
-	        r = next;
-		if (r == NULL)
-		  goto tree_done;
-	      } while (r->next_peer == NULL);
-	      next = r->next_peer;
-	      free (r);
-	      r = next;
-	    }
-	}
-    tree_done:;
-    }
-
   VARRAY_FREE (eh->ttype_data);
   VARRAY_FREE (eh->ehspec_data);
   VARRAY_FREE (eh->action_record_data);
-  if (eh->call_site_data)
-    free (eh->call_site_data);
 
-  free (eh);
   f->eh = NULL;
   exception_handler_labels = NULL;
 }
@@ -655,7 +501,7 @@ expand_eh_region_start ()
     return;
 
   /* Insert a new blank region as a leaf in the tree.  */
-  new_region = (struct eh_region *) xcalloc (1, sizeof (*new_region));
+  new_region = (struct eh_region *) ggc_alloc_cleared (sizeof (*new_region));
   cur_region = cfun->eh->cur_region;
   new_region->outer = cur_region;
   if (cur_region)
@@ -1077,7 +923,8 @@ collect_eh_region_array ()
   if (! i)
     return;
 
-  array = xcalloc (cfun->eh->last_region_number + 1, sizeof (*array));
+  array = ggc_alloc_cleared ((cfun->eh->last_region_number + 1)
+			     * sizeof (*array));
   cfun->eh->region_array = array;
 
   while (1)
@@ -1411,7 +1258,7 @@ duplicate_eh_region_1 (o, map)
      struct inline_remap *map;
 {
   struct eh_region *n
-    = (struct eh_region *) xcalloc (1, sizeof (struct eh_region));
+    = (struct eh_region *) ggc_alloc_cleared (sizeof (struct eh_region));
 
   n->region_number = o->region_number + cfun->eh->last_region_number;
   n->type = o->type;
@@ -2565,8 +2412,6 @@ remove_eh_handler (region)
 	    remove_eh_handler (try);
 	}
     }
-
-  free (region);
 }
 
 /* LABEL heads a basic block that is about to be deleted.  If this
@@ -3391,7 +3236,7 @@ add_call_site (landing_pad, action)
     {
       size = (size ? size * 2 : 64);
       data = (struct call_site_record *)
-	xrealloc (data, sizeof (*data) * size);
+	ggc_realloc (data, sizeof (*data) * size);
       cfun->eh->call_site_data = data;
       cfun->eh->call_site_data_size = size;
     }

@@ -557,10 +557,6 @@ typedef char _Bool;
 #define TRUE true
 #define FALSE false
 
-/* GT is used to pass information to gengtype about data structures.
-   For C, it is unused.  */
-#define GTY(x)
-
 /* As the last action in this file, we poison the identifiers that
    shouldn't be used.  Note, luckily gcc-3.0's token-based integrated
    preprocessor won't trip on poisoned identifiers that arrive from

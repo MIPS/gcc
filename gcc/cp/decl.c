@@ -128,7 +128,7 @@ static void push_cp_function_context PARAMS ((struct function *));
 static void pop_cp_function_context PARAMS ((struct function *));
 static void mark_binding_level PARAMS ((void *));
 static void mark_named_label_lists PARAMS ((void *, void *));
-static void mark_cp_function_context PARAMS ((struct function *));
+static void mark_cp_function_context PARAMS ((void *));
 static void mark_saved_scope PARAMS ((void *));
 static void mark_lang_function PARAMS ((struct cp_language_function *));
 static void save_function_data PARAMS ((tree));
@@ -14616,10 +14616,10 @@ mark_lang_function (p)
 /* Mark the language-specific data in F for GC.  */
 
 static void
-mark_cp_function_context (f)
-     struct function *f;
+mark_cp_function_context (language)
+     void *language;
 {
-  mark_lang_function ((struct cp_language_function *) f->language);
+  mark_lang_function ((struct cp_language_function *) language);
 }
 
 void

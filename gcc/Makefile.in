@@ -1591,8 +1591,6 @@ dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(C_COMMON_H) flags.h varray.h $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H)
-gtype-desc.o : gtype-desc.c $(CONFIG_H) $(SYSTEM_H) $(GGC_H) varray.h \
-   $(RTL_H) $(TREE_H)
 
 $(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -1773,11 +1771,12 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
-GTFILES = config.h \
+GTFILES = $(GCONFIG_H) \
   $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
   $(srcdir)/stmt.c $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/c-decl.c $(srcdir)/c-pragma.c
+  $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
+  $(out_file)
 
 gtype-desc.h gtype-desc.c gtype-c.h gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h : s-gtype; @true

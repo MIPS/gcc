@@ -202,10 +202,6 @@ extern void lang_mark_tree		PARAMS ((union tree_node *));
    will be done.  */
 extern void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 
-/* Mark functions for various structs scattered about.  */
-
-void mark_eh_status			PARAMS ((struct eh_status *));
-
 /* Statistics.  */
 
 /* This structure contains the statistics common to all collectors.

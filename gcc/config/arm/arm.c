@@ -82,8 +82,7 @@ static Ccstar    output_multi_immediate		PARAMS ((rtx *, Ccstar, Ccstar, int, Hi
 static void      print_multi_reg		PARAMS ((FILE *, Ccstar, int, int));
 static Mmode     select_dominance_cc_mode	PARAMS ((rtx, rtx, Hint));
 static Ccstar    shift_op			PARAMS ((rtx, Hint *));
-static void      arm_init_machine_status	PARAMS ((struct function *));
-static void      arm_mark_machine_status        PARAMS ((struct function *));
+static struct machine_function * arm_init_machine_status PARAMS ((void));
 static int       number_of_first_bit_set        PARAMS ((int));
 static void      replace_symbols_in_block       PARAMS ((tree, rtx, rtx));
 static void      thumb_exit                     PARAMS ((FILE *, int, rtx));
@@ -10044,25 +10043,16 @@ thumb_unexpanded_epilogue ()
 
 /* Functions to save and restore machine-specific function data.  */
 
-static void
-arm_mark_machine_status (p)
-     struct function * p;
+static struct machine_function *
+arm_init_machine_status ()
 {
-  machine_function *machine = p->machine;
+  struct machine_function *machine;
+  machine = (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
 
-  ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
-}
-
-static void
-arm_init_machine_status (p)
-     struct function * p;
-{
-  p->machine =
-    (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
-
-#if ARM_FT_UNKNOWWN != 0  
-  ((machine_function *) p->machine)->func_type = ARM_FT_UNKNOWN;
+#if ARM_FT_UNKNOWN != 0  
+  machine->func_type = ARM_FT_UNKNOWN;
 #endif
+  return machine;
 }
 
 /* Return an RTX indicating where the return address to the
@@ -10093,7 +10083,7 @@ arm_init_expanders ()
 {
   /* Arrange to initialize and mark the machine per-function status.  */
   init_machine_status = arm_init_machine_status;
-  mark_machine_status = arm_mark_machine_status;
+  mark_machine_status = gt_ggc_m_machine_function;
 }
 
 /* Generate the rest of a function's prologue.  */

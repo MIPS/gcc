@@ -85,7 +85,7 @@ static void cris_print_base PARAMS ((rtx, FILE *));
 
 static void cris_print_index PARAMS ((rtx, FILE *));
 
-static void cris_init_machine_status PARAMS ((struct function *));
+static struct machine_function * cris_init_machine_status PARAMS ((void));
 
 static int cris_initial_frame_pointer_offset PARAMS ((void));
 
@@ -2653,11 +2653,10 @@ cris_init_expanders ()
 
 /* Zero initialization is OK for all current fields.  */
 
-static void
-cris_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+cris_init_machine_status ()
 {
-  p->machine = xcalloc (1, sizeof (struct machine_function));
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.

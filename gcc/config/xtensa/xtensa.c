@@ -219,7 +219,7 @@ static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
 static rtx gen_conditional_move PARAMS ((rtx));
 static rtx fixup_subreg_mem PARAMS ((rtx x));
 static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
-static void xtensa_init_machine_status PARAMS ((struct function *p));
+static struct machine_status * xtensa_init_machine_status PARAMS ((void));
 static void printx PARAMS ((FILE *, signed int));
 static rtx frame_size_const;
 static int current_function_arg_words;
@@ -1519,12 +1519,10 @@ xtensa_expand_nonlocal_goto (operands)
 }
 
 
-static void
-xtensa_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+xtensa_init_machine_status ()
 {
-  p->machine = (struct machine_function *)
-    ggc_alloc_cleared (1, sizeof (struct machine_function));
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 

@@ -88,7 +88,7 @@ static void mmix_output_condition PARAMS ((FILE *, rtx, int));
 static HOST_WIDEST_INT mmix_intval PARAMS ((rtx));
 static void mmix_output_octa PARAMS ((FILE *, HOST_WIDEST_INT, int));
 static bool mmix_assemble_integer PARAMS ((rtx, unsigned int, int));
-static void mmix_init_machine_status PARAMS ((struct function *));
+static struct machine_function * mmix_init_machine_status PARAMS ((void));
 
 extern void mmix_target_asm_function_prologue
   PARAMS ((FILE *, HOST_WIDE_INT));
@@ -155,11 +155,10 @@ mmix_init_expanders ()
 
 /* Set the per-function data.  */
 
-static void
-mmix_init_machine_status (f)
-     struct function *f;
+static struct machine_function *
+mmix_init_machine_status ()
 {
-  f->machine = xcalloc (1, sizeof (struct machine_function));
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* DATA_ALIGNMENT.

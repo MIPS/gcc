@@ -290,15 +290,15 @@ do {								\
 
 /* Machine-specific function data.  */
 
-struct machine_function
+struct machine_function GTY(())
 {
   /* List of call information words for calls from this function.  */
-  struct rtx_def *first_ciw;
-  struct rtx_def *last_ciw;
+  rtx first_ciw;
+  rtx last_ciw;
   int ciw_count;
 
   /* List of deferred case vectors.  */
-  struct rtx_def *addr_list;
+  rtx addr_list;
 };
 
 /* Would have worked, only the stack doesn't seem to be executable

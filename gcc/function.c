@@ -125,17 +125,17 @@ int virtuals_instantiated;
 
 /* These variables hold pointers to functions to create
    target specific, per-function data structures.  */
-void (*init_machine_status) PARAMS ((struct function *));
+struct machine_function * (*init_machine_status) PARAMS ((void));
 /* This variable holds a pointer to a function to register any
    data items in the target specific, per-function data structure
    that will need garbage collection.  */
-void (*mark_machine_status) PARAMS ((struct function *));
+void (*mark_machine_status) PARAMS ((void *));
 
 /* Likewise, but for language-specific data.  */
 void (*init_lang_status) PARAMS ((struct function *));
 void (*save_lang_status) PARAMS ((struct function *));
 void (*restore_lang_status) PARAMS ((struct function *));
-void (*mark_lang_status) PARAMS ((struct function *));
+void (*mark_lang_status) PARAMS ((void *));
 /* This is obsolete; do not set it.  */
 void (*free_lang_status) PARAMS ((struct function *));
 
@@ -300,11 +300,10 @@ static unsigned long insns_for_mem_hash PARAMS ((hash_table_key));
 static bool insns_for_mem_comp PARAMS ((hash_table_key, hash_table_key));
 static int insns_for_mem_walk   PARAMS ((rtx *, void *));
 static void compute_insns_for_mem PARAMS ((rtx, rtx, struct hash_table *));
-static void mark_function_status PARAMS ((struct function *));
-static void maybe_mark_struct_function PARAMS ((void *));
 static void prepare_function_start PARAMS ((void));
 static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
+static void gt_ggc_mp_function PARAMS ((void *));
 
 /* Pointer to chain of `struct function' for containing functions.  */
 static struct function *outer_function_chain;
@@ -6200,7 +6199,7 @@ prepare_function_start ()
   if (init_lang_status)
     (*init_lang_status) (cfun);
   if (init_machine_status)
-    (*init_machine_status) (cfun);
+    cfun->machine = (*init_machine_status) ();
 }
 
 /* Initialize the rtl expansion mechanism so that we can do simple things
@@ -7832,115 +7831,35 @@ reposition_prologue_and_epilogue_notes (f)
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
 
-/* Mark P for GC.  */
-
-static void
-mark_function_status (p)
-     struct function *p;
-{
-  struct var_refs_queue *q;
-  struct temp_slot *t;
-  int i;
-  rtx *r;
-
-  if (p == 0)
-    return;
-
-  ggc_mark_rtx (p->arg_offset_rtx);
-
-  ggc_mark (p->x_parm_reg_stack_loc);
-  if (p->x_parm_reg_stack_loc)
-    for (i = p->x_max_parm_reg, r = p->x_parm_reg_stack_loc;
-	 i > 0; --i, ++r)
-      ggc_mark_rtx (*r);
-
-  ggc_mark_rtx (p->return_rtx);
-  ggc_mark_rtx (p->x_cleanup_label);
-  ggc_mark_rtx (p->x_return_label);
-  ggc_mark_rtx (p->x_save_expr_regs);
-  ggc_mark_rtx (p->x_stack_slot_list);
-  ggc_mark_rtx (p->x_parm_birth_insn);
-  ggc_mark_rtx (p->x_tail_recursion_label);
-  ggc_mark_rtx (p->x_tail_recursion_reentry);
-  ggc_mark_rtx (p->internal_arg_pointer);
-  ggc_mark_rtx (p->x_arg_pointer_save_area);
-  ggc_mark_tree (p->x_rtl_expr_chain);
-  ggc_mark_rtx (p->x_last_parm_insn);
-  ggc_mark_tree (p->x_context_display);
-  ggc_mark_tree (p->x_trampoline_list);
-  ggc_mark_rtx (p->epilogue_delay_list);
-  ggc_mark_rtx (p->x_clobber_return_insn);
-
-  for (t = p->x_temp_slots; t != 0; t = t->next)
-    {
-      ggc_mark (t);
-      ggc_mark_rtx (t->slot);
-      ggc_mark_rtx (t->address);
-      ggc_mark_tree (t->rtl_expr);
-      ggc_mark_tree (t->type);
-    }
-
-  for (q = p->fixup_var_refs_queue; q != 0; q = q->next)
-    {
-      ggc_mark (q);
-      ggc_mark_rtx (q->modified);
-      }
-
-  ggc_mark_rtx (p->x_nonlocal_goto_handler_slots);
-  ggc_mark_rtx (p->x_nonlocal_goto_handler_labels);
-  ggc_mark_rtx (p->x_nonlocal_goto_stack_level);
-  ggc_mark_tree (p->x_nonlocal_labels);
-
-  gt_ggc_m_initial_value_struct (p->hard_reg_initial_vals);
-}
-
 /* Mark the struct function pointed to by *ARG for GC, if it is not
    NULL.  This is used to mark the current function and the outer
    function chain.  */
 
 static void
-maybe_mark_struct_function (arg)
+gt_ggc_mp_function (arg)
      void *arg;
 {
-  struct function *f = *(struct function **) arg;
-
-  if (f == 0)
-    return;
-
-  ggc_mark_struct_function (f);
+  gt_ggc_m_function (*(struct function **) arg);
 }
 
-/* Mark a struct function * for GC.  This is called from ggc-common.c.  */
+/* Some adaptor functions to mark parts of the function structure.  */
 
 void
-ggc_mark_struct_function (f)
-     struct function *f;
+gt_ggc_mr_machine_function (x)
+     void *x;
 {
-  ggc_mark (f);
-  ggc_mark_tree (f->decl);
+  if (mark_machine_status)
+    (*mark_machine_status) (x);
+  else if (x)
+    ggc_set_mark (x);
+}
 
-  mark_function_status (f);
-  mark_eh_status (f->eh);
-  gt_ggc_m_stmt_status (f->stmt);
-  gt_ggc_m_expr_status (f->expr);
-  gt_ggc_m_emit_status (f->emit);
-  gt_ggc_m_varasm_status (f->varasm);
-
-  if (f->machine)
-    {
-      ggc_mark (f->machine);
-      if (mark_machine_status)
-	(*mark_machine_status) (f);
-    }
+void
+gt_ggc_mr_language_function (x)
+     void *x;
+{
   if (mark_lang_status)
-    (*mark_lang_status) (f);
-
-  if (f->original_arg_vector)
-    ggc_mark_rtvec (f->original_arg_vector);
-  if (f->original_decl_initial)
-    ggc_mark_tree (f->original_decl_initial);
-  if (f->outer)
-    ggc_mark_struct_function (f->outer);
+    (*mark_lang_status) ((struct lang_function *)x);
 }
 
 /* Called once, at initialization, to initialize function.c.  */
@@ -7948,9 +7867,9 @@ ggc_mark_struct_function (f)
 void
 init_function_once ()
 {
-  ggc_add_root (&cfun, 1, sizeof cfun, maybe_mark_struct_function);
+  ggc_add_root (&cfun, 1, sizeof cfun, gt_ggc_mp_function);
   ggc_add_root (&outer_function_chain, 1, sizeof outer_function_chain,
-		maybe_mark_struct_function);
+		gt_ggc_mp_function);
 
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");

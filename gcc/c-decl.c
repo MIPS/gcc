@@ -7278,11 +7278,11 @@ pop_c_function_context (f)
 /* Mark the language specific parts of F for GC.  */
 
 void
-mark_c_function_context (f)
-     struct function *f;
+mark_c_function_context (language)
+     void *language;
 {
   struct c_language_function *p
-    = (struct c_language_function *) f->language;
+    = (struct c_language_function *) language;
 
   if (p == 0)
     return;

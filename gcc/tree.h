@@ -2963,7 +2963,6 @@ extern void push_function_context	PARAMS ((void));
 extern void pop_function_context	PARAMS ((void));
 extern void push_function_context_to	PARAMS ((tree));
 extern void pop_function_context_from	PARAMS ((tree));
-extern void ggc_mark_struct_function	PARAMS ((struct function *));
 
 /* In print-rtl.c */
 #ifdef BUFSIZ

@@ -53,6 +53,8 @@ case $output in
         echo "union tree_node;"
         echo "typedef union tree_node *tree;"
         echo "#endif"
+# Also define GTY, for the same reason.
+	echo "#define GTY(x)"
         ;;
 esac
 
