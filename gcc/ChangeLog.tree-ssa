@@ -1,3 +1,8 @@
+2003-07-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (remove_stmt): Update bb->end_tree_p properly when
+	stmt_p is the end of the bb.
+
 2003-07-15  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Consider two types equivalent if
