@@ -1,3 +1,12 @@
+2004-08-08  Dale Johannesen  <dalej@apple.com>
+
+	* c-common.c (c_common_get_alias_set): Fixes from mainline.
+	* toplev.c: Ditto.
+	* tree.h: Ditto.
+	* coverage.c (tree_coverage_counter_ref): Ditto.
+	* tree-cfg.c (tree_block_ends_will_call_p): Ditto.
+	(tree_block_ends_with_condjump_p): Ditto.
+
 2004-08-08  Andrew Pinski  <apinski@apple.com>
 
 	* c-objc-common.c (c_objc_common_init): Remove APPLE LOCAL for setting -gused
