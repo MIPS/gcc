@@ -1,5 +1,7 @@
 2004-08-23  Ben Elliston  <bje@au.ibm.com>
 
+	* predict.c (propagate_freq): Reformat comment to minimise diffs.
+
 	* tree-browser.c: Revert trivial patch to minimise diffs.
 	* ifcvt.c (block_fallthru): Correct logic inversion bug.
 

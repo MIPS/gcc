@@ -1209,9 +1209,10 @@ propagate_freq (struct loop *loop)
 		{
 		  sreal tmp;
 		  
-		  /*  frequency += (e->probability * 
-		      BLOCK_INFO (e->src)->frequency / REG_BR_PROB_BASE);  */
-		  
+		/*  frequency += (e->probability
+				  * BLOCK_INFO (e->src)->frequency /
+				  REG_BR_PROB_BASE);  */
+
 		  sreal_init (&tmp, e->probability, 0);
 		  sreal_mul (&tmp, &tmp, &BLOCK_INFO (e->src)->frequency);
 		  sreal_mul (&tmp, &tmp, &real_inv_br_prob_base);
