@@ -1893,6 +1893,32 @@ delete_unreachable_blocks (void)
     tidy_fallthru_edges ();
   return changed;
 }
+
+/* Merges sequential blocks if possible.  */
+
+bool
+merge_seq_blocks (void)
+{
+  basic_block bb;
+  bool changed = false;
+
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
+    {
+      if (bb->succ
+	  && !bb->succ->succ_next
+	  && can_merge_blocks_p (bb, bb->succ->dest))
+	{
+	  /* Merge the blocks and retry.  */
+	  merge_blocks (bb, bb->succ->dest);
+	  changed = true;
+	  continue;
+	}
+
+      bb = bb->next_bb;
+    }
+
+  return changed;
+}
 
 /* Tidy the CFG by deleting unreachable code and whatnot.  */
 

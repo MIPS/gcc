@@ -1,5 +1,16 @@
 2004-01-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* basic-block.h (find_basic_blocks, cleanup_cfg,
+	delete_unreachable_blocks, merge_seq_blocks): Declare.
+	* cfgcleanup.c (merge_seq_blocks): New.
+	* output.h (find_basic_blocks, cleanup_cfg, delete_unreachable_blocks):
+	Declarations moved to basic-block.h.
+	* tree-cfg.c (tree_merge_blocks, tree_can_merge_blocks_p): New.
+	(cleanup_tree_cfg): Call merge_seq_blocks.
+	(tree_cfg_hooks): Add tree_can_merge_blocks_p and tree_merge_blocks.
+
+2004-01-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-cfg.c (tree_make_forwarder_block): Fix.
 
 2004-01-14  Richard Henderson  <rth@redhat.com>

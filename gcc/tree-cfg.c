@@ -93,6 +93,7 @@ static void make_cond_expr_edges (basic_block);
 static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
+static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -104,6 +105,8 @@ static void bsi_commit_edge_inserts_1 (edge e);
 
 /* Flowgraph optimization and cleanup.  */
 
+static void tree_merge_blocks (basic_block, basic_block);
+static bool tree_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
 static bool cleanup_control_flow (void);
 static edge find_taken_edge_cond_expr (basic_block, tree);
@@ -710,14 +713,18 @@ cleanup_tree_cfg (void)
 
   timevar_push (TV_TREE_CLEANUP_CFG);
 
-  /* These three transformations can cascade, so we iterate on them until nothing
-     changes.  */
+  /* These three transformations can cascade, so we iterate on them until
+     nothing changes.  */
   while (something_changed)
     {
       something_changed = cleanup_control_flow ();
       something_changed |= thread_jumps ();
       something_changed |= delete_unreachable_blocks ();
     }
+
+  /* Merging the blocks creates no new opportunities for the other
+     optimizations, so do it here.  */
+  merge_seq_blocks ();
 
   compact_blocks ();
 
@@ -726,6 +733,97 @@ cleanup_tree_cfg (void)
 #endif
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
+
+/* Checks whether we can merge block B into block A.  */
+
+static bool
+tree_can_merge_blocks_p (basic_block a, basic_block b)
+{
+  tree last;
+  block_stmt_iterator bsi;
+
+  if (!a->succ
+      || a->succ->succ_next)
+    return false;
+
+  if (a->succ->flags & EDGE_ABNORMAL)
+    return false;
+
+  if (a->succ->dest != b)
+    return false;
+
+  if (b == EXIT_BLOCK_PTR)
+    return false;
+  
+  if (b->pred->pred_next)
+    return false;
+
+  /* If A ends by a statement causing exceptions or something similar, we
+     cannot merge the blocks.  */
+  last = last_stmt (a);
+  if (last
+      && stmt_ends_bb_p (last))
+    return false;
+
+  /* There may be no phi nodes at the start of b.  Most of these degenerate
+     phi nodes should be cleaned up by kill_redundant_phi_nodes.  */
+
+  if (phi_nodes (b))
+    return false;
+
+  /* Do not remove user labels.  */
+  for (bsi = bsi_start (b); !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      last = bsi_stmt (bsi);
+      if (TREE_CODE (last) != LABEL_EXPR)
+	break;
+
+      if (!DECL_ARTIFICIAL (LABEL_EXPR_LABEL (last)))
+	return false;
+    }
+
+  return true;
+}
+
+/* Merges block B into block A.  */
+
+static void
+tree_merge_blocks (basic_block a, basic_block b)
+{
+  block_stmt_iterator bsi;
+  tree_stmt_iterator last;
+
+  if (tree_dump_file)
+    fprintf (tree_dump_file, "Merging blocks %d and %d\n", a->index, b->index);
+
+  /* Ensure that b follows a.  */
+  move_block_after (b, a);
+
+  if (!(a->succ->flags & EDGE_FALLTHRU))
+    abort ();
+
+  if (last_stmt (a)
+      && stmt_ends_bb_p (last_stmt (a)))
+    abort ();
+
+  /* Remove labels from B and set bb_for_stmt to A for other statements.  */
+  for (bsi = bsi_start (b); !bsi_end_p (bsi);)
+    {
+      if (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
+	bsi_remove (&bsi);
+      else
+	{
+	  set_bb_for_stmt (bsi_stmt (bsi), a);
+	  bsi_next (&bsi);
+	}
+    }
+
+  /* Merge the chains.  */
+  last = tsi_last (a->stmt_list);
+  tsi_link_after (&last, b->stmt_list, TSI_NEW_STMT);
+  b->stmt_list = NULL;
+}
+
 
 /* Walk the function tree removing unnecessary statements.
 
@@ -3800,8 +3898,8 @@ struct cfg_hooks tree_cfg_hooks = {
   remove_bb,			/* delete_basic_block  */
   tree_split_block,		/* split_block  */
   tree_move_block_after,	/* move_block_after  */
-  NULL,				/* can_merge_blocks_p  */
-  NULL,				/* merge_blocks  */
+  tree_can_merge_blocks_p,	/* can_merge_blocks_p  */
+  tree_merge_blocks,		/* merge_blocks  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
   NULL				/* tidy_fallthru_edge  */
