@@ -2520,7 +2520,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  input = build_string (strlen (buf), buf);
 	  input = build_tree_list (build_tree_list (NULL_TREE, input),
 				   unshare_expr (TREE_VALUE (link)));
-	  ASM_INPUTS (expr) = chainon (input, ASM_INPUTS (expr));
+	  ASM_INPUTS (expr) = chainon (ASM_INPUTS (expr), input);
 	}
     }
 

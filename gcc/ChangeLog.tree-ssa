@@ -1,3 +1,7 @@
+2004-01-09  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_asm_expr): Fix ordering of ASM_INPUTS.
+
 2004-01-09  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.h (cgraph_clone_inlined_nodes): Declare.
