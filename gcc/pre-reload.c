@@ -2238,8 +2238,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	 match_operator and friends.  */
       if (GET_RTX_CLASS (GET_CODE (operand)) == '1' && *p != 0)
 	{
-	  operand = XEXP (operand, 0);
 	  operand_loc = &XEXP (operand, 0);
+	  operand = XEXP (operand, 0);
 	}
 
       /* If the operand is a SUBREG, extract
@@ -2261,8 +2261,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 				     SUBREG_BYTE (operand),
 				     GET_MODE (operand));
 	    }
-	  operand = SUBREG_REG (operand);
 	  operand_loc = &SUBREG_REG (operand);
+	  operand = SUBREG_REG (operand);
 	  /* Force reload if this is a constant or PLUS or if there may
 	     be a problem accessing OPERAND in the outer mode.  */
 	  if (CONSTANT_P (operand)
