@@ -1,3 +1,7 @@
+2003-08-12  Paul Brook  <paul@nowt.org>
+
+	* gfortran.fortran-torture/execute/forall_4.f90: Fix illegal code.
+
 2003-08-12  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/*.c: Add missing close braces to various tests.
