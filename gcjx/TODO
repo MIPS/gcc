@@ -1,5 +1,9 @@
-we currently reject a meta-annotation applied to itself,
-like @Documented.  However, this is perfectly valid
+in a few places in the bytecode back end we
+add_utf(...->get_descriptor()).  this fails if the class is a member
+instead we need a new method on the constant pool
+
+when reading an annotation from a class file we should
+check its interfaces then and avoid a from_class check in the model
 
 we still get bogus error messages when reading a malformed .class file
 extra newline, no file name, bogus "while reading:" leader

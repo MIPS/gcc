@@ -1,6 +1,6 @@
 // Represent an annotation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -72,6 +72,13 @@ public:
   {
   }
 
+  /// Resolve the "envelope" of this annotation.  This simply means
+  /// that the type of the annotation is determined.
+  void resolve_classes (resolution_scope *);
+
+  /// Fully resolve the annotation.  resolve_classes must have been
+  /// called first.  This will resolve all the arguments and then do
+  /// error checking.
   void resolve (resolution_scope *);
 
   void visit (visitor *);

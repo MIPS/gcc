@@ -160,8 +160,7 @@ class_reader::parse_annotation_value ()
 	ref_forwarding_type base = parse_field_descriptor (index);
 	uint16 fn_index = read_u2 ();
 	field_name = pool->get_utf8 (fn_index);
-	// FIXME.
-// 	val = new model_enum_field_ref (where, base, field_name);
+ 	val = new model_memberref_enum (where, base, field_name);
       }
       break;
 
@@ -239,9 +238,9 @@ class_reader::parse_parameter_annotations ()
     {
       std::list<ref_annotation> annotations;
       uint16 length = read_u2 ();
-      for (uint16 i = 0; i < length; ++i)
+      for (uint16 j = 0; j < length; ++j)
 	annotations.push_back (parse_annotation ());
-      // FIXME: do something with result
+      (*i)->set_annotations (annotations);
     }
 }
 
@@ -930,7 +929,12 @@ class_reader::parse_self ()
 	  result->set_superclass (super);
 	}
 
-      must_set |= ACC_SUPER;
+      // ACC_SUPER doesn't make sense for enums, but is required for
+      // ordinary classes.
+      if ((access_flags & ACC_ENUM) == 0)
+	must_set |= ACC_SUPER;
+      else
+	must_not_set |= ACC_SUPER;
       must_not_set |= ACC_ANNOTATION;
 
       if ((access_flags & ACC_ABSTRACT) != 0

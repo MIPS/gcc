@@ -1,6 +1,6 @@
 // Represent an annotatable object.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -32,6 +32,12 @@ IAnnotatable::find_annotation (model_type *type)
 	return (*i).get ();
     }
   return NULL;
+}
+
+void
+IAnnotatable::resolve_annotation_classes (resolution_scope *scope)
+{
+  ::resolve_classes (scope, annotations);
 }
 
 void

@@ -1,3 +1,37 @@
+2005-01-21  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/classwriter.cc (write): Don't set ACC_SUPER for enum
+	classes.
+	* model/annotype.cc (element_compatible_p): Resolve members
+	before using annotation.
+	* bytecode/attribute.cc (emit_annotation_value): Write enum
+	constants.
+	* model/memberref.cc (resolve): New method.
+	(visit): New method.
+	* bytecode/classreader.cc (parse_parameter_annotations): Set
+	annotations on each parameter.
+	(parse_annotation_value): Create a model_memberref_enum.
+	(parse_self): Correctly handle ACC_SUPER when ACC_ENUM is set.
+	* model/memberref.hh (class model_memberref_base): New class.
+	(class model_memberref_forward): Derive from
+	model_memberref_base.
+	* model/variable.cc (resolve_classes): Use
+	resolve_annotation_classes.
+	(resolve): Call resolve_annotations.
+	* model/method.cc (resolve_classes): Use
+	resolve_annotation_classes.
+	(resolve): Call resolve_annotations.
+	* model/class.cc (do_resolve_classes): Use
+	resolve_annotation_classes.
+	(resolve_members): Call resolve_annotations.
+	* model/iannotatable.cc (resolve_annotation_classes): New method.
+	* model/iannotatable.hh (IAnnotatable::resolve_annotation_classes):
+	Declare.	
+	* model/annotation.cc (resolve_classes): New method.
+	(resolve): Don't resolve 'name'.
+	* model/annotation.hh (model_annotation::resolve): Documented.
+	(model_annotation::resolve_classes): Declare.
+
 2005-01-20  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.cc (generate): Add LocalVariableTypeTable if

@@ -1059,7 +1059,7 @@ model_class::do_resolve_classes (resolution_scope *scope)
 
   resolve_hook (scope);
 
-  resolve_annotations (scope);
+  resolve_annotation_classes (scope);
 
   // Put the type parameters in scope.  Note that we don't resolve
   // them here, as that can lead to false circularity reports.
@@ -1306,6 +1306,8 @@ model_class::resolve_members (resolution_scope *scope)
   // needed for interfaces.
   if (! superclass && ! interface)
     compute_object_interface_methods ();
+
+  resolve_annotations (scope);
 
   // Let the subclass modify behavior a little.  This must come after
   // compute_object_interface_methods().

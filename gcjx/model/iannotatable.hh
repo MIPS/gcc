@@ -1,6 +1,6 @@
 // Represent an annotatable object.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -44,6 +44,9 @@ protected:
   model_annotation *find_annotation (model_type *);
 
   virtual annotation_kind get_annotation_kind () const = 0;
+
+  /// Resolve the envelope of the annotations.
+  void resolve_annotation_classes (resolution_scope *);
 
   /// Subclasses should call this when they are resolved in order to
   /// resolve their annotations as well.

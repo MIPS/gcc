@@ -1,6 +1,6 @@
 // Represent a variable.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -25,12 +25,13 @@ void
 model_variable_decl::resolve_classes (resolution_scope *scope)
 {
   decltype->resolve (scope);
-  resolve_annotations (scope);
+  resolve_annotation_classes (scope);
 }
 
 void
 model_variable_decl::resolve (resolution_scope *scope)
 {
+  resolve_annotations (scope);
   decltype->resolve (scope);  // fixme redundant for fields...
   if (initializer)
     {

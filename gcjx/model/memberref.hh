@@ -1,6 +1,6 @@
 // Member references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,18 +22,38 @@
 #ifndef GCJX_MODEL_MEMBERREF_HH
 #define GCJX_MODEL_MEMBERREF_HH
 
-// When parsing something like "a.b.c.d" or "a.b.c.d()", we won't know
-// until the analysis phase what we're looking at.  For instance, "a"
-// might be a variable or a type, and likewise for the other elements.
-// This class represents an undetermined expression like the above.
-// It can also represent a simple variable reference.
-class model_memberref_forward : public model_expression
+/// The base class for all kinds of deferred member references.
+class model_memberref_base : public model_expression
 {
-  // The unresolved identifier sequence.
-  std::list<std::string> ids;
+protected:
 
   // The member reference to which we forward requests.
   ref_expression real;
+
+  model_memberref_base (const location &w)
+    : model_expression (w)
+  {
+  }
+
+public:
+
+  // This is sort of ugly, see unary.cc to see its use.
+  // FIXME.
+  model_expression *get_real ()
+  {
+    return real.get ();
+  }
+};
+
+/// When parsing something like "a.b.c.d" or "a.b.c.d()", we won't know
+/// until the analysis phase what we're looking at.  For instance, "a"
+/// might be a variable or a type, and likewise for the other elements.
+/// This class represents an undetermined expression like the above.
+/// It can also represent a simple variable reference.
+class model_memberref_forward : public model_memberref_base
+{
+  // The unresolved identifier sequence.
+  std::list<std::string> ids;
 
   // True if a method call.
   bool is_call;
@@ -55,7 +75,7 @@ protected:
 
   // This constructor is used by the generic template subclass.
   model_memberref_forward (const location &w)
-    : model_expression (w),
+    : model_memberref_base (w),
       is_call (false),
       is_lhs (false),
       is_compound (false)
@@ -65,7 +85,7 @@ protected:
 public:
 
   model_memberref_forward (const location &w, const std::list<std::string> &l)
-    : model_expression (w),
+    : model_memberref_base (w),
       ids (l),
       is_call (false),
       is_lhs (false),
@@ -101,13 +121,6 @@ public:
     return real->string_value ();
   }
 
-  // This is sort of ugly, see unary.cc to see its use.
-  // FIXME.
-  model_expression *get_real ()
-  {
-    return real.get ();
-  }
-
   /// Return true if this is a reference to a method call.
   bool call_p () const
   {
@@ -119,6 +132,37 @@ public:
     is_lhs = true;
     is_compound = compound;
   }
+};
+
+/// This form of a deferred member reference is used only when reading
+/// an enum constant reference from a class file.
+class model_memberref_enum : public model_memberref_base
+{
+  // The enum class.
+  ref_forwarding_type base_type;
+
+  // The name of the enum constant.
+  std::string field_name;
+
+  bool compute_constant_p ()
+  {
+    return false;
+  }
+
+public:
+
+  model_memberref_enum (const location &w,
+			const ref_forwarding_type &base,
+			const std::string &fn)
+    : model_memberref_base (w),
+      base_type (base),
+      field_name (fn)
+  {
+  }
+
+  void resolve (resolution_scope *);
+
+  void visit (visitor *);
 };
 
 #endif // GCJX_MODEL_MEMBERREF_HH

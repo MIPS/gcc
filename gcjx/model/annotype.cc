@@ -136,6 +136,10 @@ model_annotation_type::element_compatible_p (annotation_kind kind)
 	}
       else
 	{
+	  // Make sure the (meta-)annotation expressions are all
+	  // resolved at this point.
+	  resolve_members ();
+
 	  model_annotation_value *val = targ->find_annotation ("value");
 	  assert (val);
 	  model_expression *expr = val->get_value ();
@@ -153,8 +157,8 @@ model_annotation_type::element_compatible_p (annotation_kind kind)
 	       ++i)
 	    {
 	      model_expression *e = (*i).get ();
-	      model_memberref_forward *b
-		= assert_cast<model_memberref_forward *> (e);
+	      model_memberref_base *b
+		= assert_cast<model_memberref_base *> (e);
 	      e = b->get_real ();
 	      model_field_ref *fr = assert_cast<model_field_ref *> (e);
 

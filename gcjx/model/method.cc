@@ -1,6 +1,6 @@
 // Methods.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -536,6 +536,8 @@ model_method::note_throw_type (model_type *exc_type)
 void
 model_method::resolve (resolution_scope *scope)
 {
+  resolve_annotations (scope);
+
   resolution_scope::push_warnings warn_holder (scope, this);
 
   // Push the type parameters.
@@ -618,7 +620,7 @@ model_method::resolve_classes (resolution_scope *scope)
 {
   // Resolve annotations here since they seem like part of the
   // envelope.
-  resolve_annotations (scope);
+  resolve_annotation_classes (scope);
 
   resolution_scope::push_warnings warn_holder (scope, this);
 

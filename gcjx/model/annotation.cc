@@ -1,6 +1,6 @@
 // Represent an annotation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,10 +22,20 @@
 #include "typedefs.hh"
 
 void
+model_annotation::resolve_classes (resolution_scope *scope)
+{
+  // FIXME: Resolution methods seem backwards on
+  // model_forwarding_type.
+  name->resolve (scope);
+  // The reason we call set_type() here is that we need to know the
+  // annotation's type when handling SuppressWarnings.  This is
+  // moderately ugly.
+  set_type (name->type ());
+}
+
+void
 model_annotation::resolve (resolution_scope *scope)
 {
-  name->resolve (scope);
-
   if (! name->type ()->annotation_p ())
     throw name->error ("type %1 isn't an annotation type")
       % name;
@@ -35,8 +45,6 @@ model_annotation::resolve (resolution_scope *scope)
   ::resolve (scope, args);
 
   anno_type->check_completeness (args, this);
-
-  set_type (anno_type);
 }
 
 void

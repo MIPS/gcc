@@ -1,6 +1,6 @@
 // Member references.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -49,4 +49,36 @@ model_memberref_forward::resolve (resolution_scope *scope)
   assert (real);
   real->resolve (scope);
   set_type (real->type ());
+}
+
+void
+model_memberref_enum::resolve (resolution_scope *scope)
+{
+  base_type->resolve (scope);
+  if (! base_type->type ()->enum_p ())
+    throw error ("type %1 not an %<enum%>") % base_type->type ();
+
+  model_class *klass = assert_cast<model_class *> (base_type->type ());
+  std::set<model_field *> result;
+  klass->find_members (field_name, result, scope->get_current_class (), NULL);
+  if (result.empty ())
+    throw error ("no %<enum%> constant named %1 in %2")
+      % field_name % klass;
+  else if (result.size () > 1)
+    throw error ("ambiguous reference to %<enum%> constant named %1 in %2")
+      % field_name % klass;
+
+  ref_field_ref rf = new model_field_ref (get_location ());
+  rf->set_field (field_name);
+  rf->set_field (*(result.begin ()));
+
+  real = rf;
+  set_type (klass);
+}
+
+void
+model_memberref_enum::visit (visitor *)
+{
+  // Not needed.
+  abort ();
 }

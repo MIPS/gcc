@@ -292,9 +292,25 @@ emit_annotation_value (bytecode_stream *writer, output_constant_pool *pool,
     }
   else
     {
-      // The only remaining case is an enum constant.
-      // FIXME: unwrap the member ref and write it.
-      abort ();
+      model_memberref_forward *b
+	= assert_cast<model_memberref_forward *> (expr);
+      expr = b->get_real ();
+      model_field_ref *fr = assert_cast<model_field_ref *> (expr);
+      model_field *fld = fr->get_field ();
+
+      // FIXME: what about inner classes here?
+      int type_index
+	= pool->add_utf (fld->get_declaring_class ()->get_descriptor ());
+      int name_index = pool->add_utf (fld->get_name ());
+
+      if (writer)
+	{
+	  writer->put ('e');
+	  writer->put2 (type_index);
+	  writer->put2 (name_index);
+	}
+
+      result += 5;
     }
 
   return result;

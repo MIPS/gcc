@@ -319,7 +319,7 @@ class_writer::write (directory_cache &dircache)
   // only valid values are public and package-private.
   if ((mods & ACC_ACCESS) != 0 && (mods & ACC_ACCESS) != ACC_PUBLIC)
     mods &= ~ACC_ACCESS;
-  if (! the_class->interface_p ())
+  if (! the_class->interface_p () && ! the_class->enum_p ())
     {
       // This should be set by all modern compilers.
       mods |= ACC_SUPER;
