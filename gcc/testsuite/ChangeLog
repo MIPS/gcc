@@ -1,3 +1,8 @@
+2002-06-27  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.c-torture/execute/string-opt-8.c (strncmp): Fix typo in
+        return type.
+
 2002-06-23  Andreas Jaeger  <aj@suse.de>
 
 	* gcc.c-torture/execute/complex-6.c: New.
