@@ -1,3 +1,10 @@
+2004-05-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (first_iteration_non_satisfying_noev_ev,
+	first_iteration_non_satisfying_ev_noev,
+	first_iteration_non_satisfying_ev_ev): Check the assumptions returned
+	by number_of_iterations_cond.
+
 2004-05-13  Devang Patel  <dpatel@apple.com>
 
 	* cfgloop.c (get_loop_body_in_bfs_order): New.

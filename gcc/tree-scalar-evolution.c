@@ -1146,7 +1146,9 @@ first_iteration_non_satisfying_noev_ev (enum tree_code code,
   niter_desc.niter = NULL_TREE;
   number_of_iterations_cond (type1, init0, NULL_TREE, code, init1, step1, 
 			     &niter_desc);
-  if (niter_desc.niter != NULL_TREE)
+  if (niter_desc.niter != NULL_TREE
+      && integer_onep (niter_desc.assumptions)
+      && integer_zerop (niter_desc.may_be_zero))
     return niter_desc.niter;
   return chrec_top;
 }
@@ -1186,7 +1188,9 @@ first_iteration_non_satisfying_ev_noev (enum tree_code code,
   niter_desc.niter = NULL_TREE;
   number_of_iterations_cond (type0, init0, step0, code, init1, NULL_TREE, 
 			     &niter_desc);
-  if (niter_desc.niter != NULL_TREE)
+  if (niter_desc.niter != NULL_TREE
+      && integer_onep (niter_desc.assumptions)
+      && integer_zerop (niter_desc.may_be_zero))
     return niter_desc.niter;
   return chrec_top;
 }
@@ -1231,7 +1235,9 @@ first_iteration_non_satisfying_ev_ev (enum tree_code code,
   niter_desc.niter = NULL_TREE;
   number_of_iterations_cond (type0, init0, step0, code, init1, step1, 
 			     &niter_desc);
-  if (niter_desc.niter != NULL_TREE)
+  if (niter_desc.niter != NULL_TREE
+      && integer_onep (niter_desc.assumptions)
+      && integer_zerop (niter_desc.may_be_zero))
     return niter_desc.niter;
   return chrec_top;
 }
