@@ -99,9 +99,8 @@ static void set_replacement PARAMS ((struct expr_info *, varref, varref));
 static bool requires_edge_placement PARAMS ((varref));
 
 static int *pre_preorder;
-static int *pre_idom;
+static dominance_info pre_idom;
 static sbitmap *pre_dfs;
-static sbitmap *pre_doms;
 static FILE *dump_file;
 static int dump_flags;
 static int class_count;
@@ -144,7 +143,7 @@ a_dom_b (a, b)
     return false;
   if (b->index == -2)
     return true;
-  return TEST_BIT (pre_doms[b->index], a->index);
+  return dominated_by_p (pre_idom, b, a);
 }
 
 
@@ -1764,11 +1763,7 @@ tree_perform_ssapre ()
     }
   
   /* Compute immediate dominators.  */
-  pre_idom = (int *) xmalloc ((size_t) n_basic_blocks * sizeof (int));
-  memset ((void *) pre_idom, -1, (size_t) n_basic_blocks * sizeof (int));
-  pre_doms = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_zero (pre_doms, n_basic_blocks);
-  calculate_dominance_info (pre_idom, pre_doms, CDI_DOMINATORS);
+  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
   domchildren = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   sbitmap_vector_zero (domchildren, n_basic_blocks);
   compute_domchildren (pre_idom, domchildren);
@@ -1875,9 +1870,7 @@ tree_perform_ssapre ()
     free_expr_info (VARRAY_GENERIC_PTR (bexprs, j));
   VARRAY_FREE (bexprs);
   htab_delete (seen);
-  free (pre_idom);
   free (pre_preorder);
-  sbitmap_vector_free (pre_doms);
   sbitmap_vector_free (pre_dfs);
   sbitmap_vector_free (domchildren);
 }

@@ -305,6 +305,9 @@ prepare_directive_trad (pfile)
 			   pfile->out.cur - pfile->out.base);
     }
 
+  /* Report diagnostics on the line of the directive.  */
+  pfile->line = pfile->directive_line;
+
   /* Stop ISO C from expanding anything.  */
   pfile->state.prevent_expansion++;
 }

@@ -1,3 +1,102 @@
+2002-06-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa.c (build_fud_chains): Use dominance_info instead of int *.
+	(search_fud_chains): Ditto.
+	Call get_immediate_dominator.
+	* tree-ssa-pre.c (a_dom_b): Call dominated_by_p.
+	(pre_idom): Change type to dominance_info.  Update all uses.
+	(pre_doms): Remove.  Update all uses.
+
+2002-06-23  Jan Hubicka  <jh@suse.cz>
+
+	* reg-stack.c (convert_regs_exit): Push the registers to stack in
+	proper order.
+
+2002-06-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/6963
+	* function.c (assign_stack_temp_for_type): Do not return
+	the same MEM rtx for multiple uses of a stack slot.
+
+2002-06-22  David S. Miller  <davem@redhat.com>
+
+	PR target/6841 target/6770 target/6719
+	* config/sparc/sparc.h (PREFERRED_RELOAD_CLASS): Return
+	NO_REGS	for constant X when CLASS is GENERAL_OR_FP_REGS or
+	GENERAL_OR_EXTRA_FP_REGS.
+
+2002-06-22  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpptrad.c (struct fun_macro): Add line number.
+	(scan_out_logical_line): Set it, and use it to report unterminated
+	macro invocations.
+
+2002-06-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* genautomata.c (copy_node, VLA_PTR_CREATE, VLA_PTR_EXPAND,
+	VLA_PTR_ADD, VLA_HWINT_CREATE, VLA_HWINT_EXPAND, VLA_HWINT_ADD,
+	DECL_UNIT, DECL_BYPASS, DECL_AUTOMATON, DECL_EXCL, DECL_PRESENCE,
+	DECL_ABSENCE, DECL_RESERV, DECL_INSN_RESERV, REGEXP_UNIT,
+	REGEXP_RESERV, REGEXP_SEQUENCE, REGEXP_REPEAT, REGEXP_ALLOF,
+	REGEXP_ONEOF, check_name): Const-ify.
+
+2002-06-21  Matt Thomas  <matt@3am-software.com>
+
+	* config/vax/vax.c (vax_output_function_prologue): Use
+	REGISTER_PREFIX.  Fix some indentation.
+	* config/vax/vax.h (FUNCTION_PROFILER): Use reg_names[].
+	(VAX_ISTREAM_SYNC): Define.
+	(INITIALIZE_TRAMPOLINE): Use VAX_ISTREAM_SYNC.  Move the
+	i-stream sync to the end.
+	(REGISTER_PREFIX): Define as "".
+	(ASM_OUTPUT_MI_THUNK): Use REGISTER_PREFIX.
+
+2002-06-21  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.gcc (ns32k-*-netbsd*): Remove from list of obsolete
+	configurations.
+
+2002-06-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree.c (tree_node_kind, tree_node_counts, tree_node_sizes,
+	tree_node_kind_names): Wrap in GATHER_STATISTICS macro.
+
+2002-06-21  Matt Thomas  <matt@3am-software.com>
+
+	* config/vax/netbsd.h: Adjust a comment.
+	(TARGET_DEFAULT): Redefine as 0.
+
+2002-06-21  Richard Henderson  <rth@redhat.com>
+
+	* bb-reorder.c (make_reorder_chain_1): Search harder for the
+	vax casesi fallthru edge.
+	* cfglayout.c (cleanup_unconditional_jumps): Use
+	redirect_edge_succ_nodup.  Do not delete ADDR_VEC insns as dead.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Place redirection
+	block after ADDR_VEC.
+
+2002-06-21  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/sparc/t-linux64 (EXTRA_MULTILIB_PARTS): Add crtfastmath.o.
+
+2002-06-21  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpperror.c (cpp_error): For traditional CPP, default to
+	diagnostics on pfile->line.
+	* cpplib.c (prepare_directive_trad): Set line number for
+	diagnostics for #define too.
+	* cpptrad.c (skip_whitespace): Skip comments properly.
+	(_cpp_expansions_different_trad): Initialize quote2.
+
+2002-06-21  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.md: Change GNU CC to GCC in file header comment.
+	* config/mmix/mmix.h: Ditto.
+	* config/mmix/mmix-protos.h: Ditto.
+	* config/mmix/mmix.c: Ditto.  Fix typo in comment.
+	* config/mmix/mmix-modes.def: Change GNU CC to GCC in file header
+	comment.  Comment extra CC modes.
+
 2002-06-20  Jason Merrill  <jason@redhat.com>
 
 	Simplify DECL_STMT, CONSTRUCTOR and COMPOUND_LITERAL_EXPR.
@@ -35,6 +134,249 @@
 	instead of NULL_TREE.
 	(expr_has_effect): No need to deal with NULL exprs now.
 	(simplify_expr_wfl): Likewise.
+
+2002-06-20 Jan Hubicka  <jh@suse.cz>
+
+	* cfglayout.c (scope_to_insns_initialize): Call set_block_levels.
+	(scope_to_insns_finalize): Do not call set_block_levels; handle
+	sequences.
+	(choose_inner_scope): New.
+	* rtl.h (choose_inner_scope): Declare.
+
+2002-06-20  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa-protos.h (pa_asm_output_mi_thunk): Change third argument to
+	HOST_WIDE_INT.
+	* pa.c (pa_asm_output_mi_thunk): Likewise.
+	(n_deferred_plabels): Change type to size_t.
+	(output_deferred_plabels, output_call): Use size_t instead of int.
+
+2002-06-20  Richard Henderson  <rth@redhat.com>
+
+	PR target/4041
+	* config/m68k/m68k.md (zero_extendsidi2): Create expander; duplicate
+	pattern and adjust constraints for coldfire.
+
+2002-06-20  Richard Henderson  <rth@redhat.com>
+
+	* explow.c (probe_stack_range): Use gen_rtx_fmt_ee.
+
+2002-06-20  Chris Demetriou  <cgd@broadcom.com>
+
+	* config.gcc (mipsisa64-*-elf*, mipsisa64el-*-elf*): New targets.
+
+2002-06-20  Chris Demetriou  <cgd@broadcom.com>
+
+	* config/mips/mips.h (ISA_HAS_FP4): Fix comment to reflect use.
+
+2002-06-20  Stan Shebs  <shebs@apple.com>
+
+	* dominance.c: Include errors.h instead of error.h.
+
+2002-06-20  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppexp.c (cpp_interpret_integer): Don't force traditional
+	numbers to be unsigned.
+	* cpplib.c (prepare_directive_trad): Set line number for
+	diagnostics.
+	* cpptrad.c (scan_out_logical_line): Continue scanning out
+	at start of buffer.
+	* gcc.c (trad_capable_cpp): Use cc1 always.
+
+2002-06-20  Jeffrey Law  <law@redhat.com>
+
+	* i386.h (TARGET_DEFAULT): Do not turn on frame pointer
+	elimination in leaf functions by default yet.
+
+2002-06-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* combine.c (make_extraction): Reapply to the argument of an ASHIFT.
+
+2002-06-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/sparc/t-crtfm (crtfastmath.o): Prefix with $(T) for
+	multilibs.
+	* config/sparc/t-sol2-64 (EXTRA_MULTILIB_PARTS): Add crtfastmath.o.
+	Fixes PR other/6836.
+
+Thu Jun 20 19:42:21 CEST 2002  Jan Hubicka  <jh@suse.cz>
+			       Pavel Nejedly  <bim@atrey.karlin.mff.cuni.cz>
+
+	Mon Jun 10 20:42:34 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h: Do not include et-forest.h
+	(dominance_info): Declare as struct dominance-info.
+	* cfglayout.c (cleanup_unconditional_jumps): Remove the edge before
+	deleting block.
+	* dominance.c (struct dominance_info): Define.
+	(BB_NODE, SET_BB_NODE): New macros.
+	(bb_hash_func, bb_eq_func): Kill.
+	(calculate_dominace_info, free_dominacne_info, set_immediate_dominator,
+	nearest_common_dominator, dominated_by_p, recount_dominator,
+	add_to_dominance_info, delete_from_dominance_info): update for new
+	representation.
+	(get_dominated_by, redirect_immediate_dominators): Rewrite using
+	enumerate_sons.
+	* ifcvt.c (process_double_test_block, merge_if_block, find_cond_trap,
+	find_if_case_1, find_if_case_2): Remove killed blocks from dominance
+	structure.
+
+	* et-forest.h: Update copyright; revamp all function to operate on
+	nodes
+	(et_forest_value): Kill.
+	(et_forest_enumerate_sons, et_forest_node_value): New.
+	* et-forest.c: Update copyright.
+	* et-forest.h: Update copyright; revamp all function to operate on
+	nodes
+	(et_forest_value): Kill.
+	(et_forest_enumerate_sons, et_forest_node_value): New.
+
+	Thu Jun  6 22:43:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h: Inlude et-forest.h
+	(basic_block_def): Kill dominator.
+	(dominance_info): New type.
+	(loops): Use dominace_info.
+	(dominace handling functions): Take dominace_info as argument
+	instead of bitmaps.
+	(create_preheader): Likewise.
+	* cfg.c (entry_exit_blocks): Kill dominator.
+	(dump_flow_info): Do not dump dominators.
+	* cfglayout.c (cleanup_unconditonal_jumps): Delete deleted block from
+	dominators.
+	* cfgloop.c (flow_pre_header_find): Use dominacne_info.
+	(flow_loops_pre_header_scan, make_forwarder_block,
+	canonicale_loop_headers, flow_loops_find): Likewise.
+	* dominance.c: Include error.h
+	(idoms_to_doms): Kill.
+	(bb_hash_func, bb_eq_func): New static functions.
+	(debug_dominace_info): New global function.
+	(calculate_dominance_info): Use new et forest structure.
+	(free_dominace_info, get_immediate_dominator, set_immediate_dominator,
+	get_dominated_by, redirect_immediate_dominators,
+	nearest_common_dominator, dominated_by_p, verify_dominators,
+	recount_dominator, iterate_fix_dominators, add_to_dominace_info,
+	delete_from_dominance_info): New global functions.
+	* gcse.c (domnators): CHange to dominance_info.
+	(alloc_hoist_mem): Do not alloc dominators
+	(free_code_hoist_mem): Use free_dominance_info.
+	(compute_code_hoist_data): Use dominance_info.
+	(hoist_code): Likewise.
+	* ifcvt.c (post_dominators): Likewise.
+	(find_if_case_2, if_convert): Likewise.
+	* predict.c (process_note_predictions, process_note_prediction,
+	estimate-probability): Likewise.
+	* sched-rgn.c (find_rgns, init_regions): Likewise.
+	* ssa-dce.c (find_all_control_dependences, fint_control_depemndence,
+	find_pdom, delete_insn_bb, ssa_eliminate_dead_code): Likewise.
+	* ssa.c (compute_dominance_frontiers_1, rename_block, rename_registers,
+	find_evaluations, convert_to_ssa): Likewise.
+	* ssa.h (compute_dominance_frontiers): Likewise.
+
+	Thu Jun  6 22:57:34 CEST 2002  Pavel Nejedly <bim@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (et-forest.c): Add.
+	* et-forest.c: New file.
+	* at-forest.h: New file.
+
+2002-06-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-decl.c (c_decode_option): Use ARRAY_SIZE in lieu of explicit
+	array size calculation.
+	* gengtype.c (NUM_BASE_FILES, create_file, write_gc_root):
+	Likewise.
+
+	* diagnostic.c (diagnostic_kind_text): Const-ify.
+	* gengtype.c (lang_names): Likewise.
+
+Thu Jun 20 17:25:29 CEST 2002  JAn HUbicka  <jh@suse.cz>
+
+	* combine.c (subst): Be prepared for simplify_subreg to return VOIDmode.
+
+2002-06-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/sol2.h: New file.
+	* config.gcc (i?86-*-solaris2*): Include it before i386/sol2.h.
+	(sparc64-wrs-vxworks*): Include it before sparc/sol2.h.
+	(sparc-*-chorusos*): Likewise.
+	(sparc-*-elf*): Likewise.
+	(sparc-*-rtems*, sparc-*-rtemself*): Likewise.
+	(sparc64-*-solaris2*, sparcv9-*-solaris2*): Likewise.
+	(sparc-hal-solaris2*): Likewise.
+	(sparc-*-solaris2*): Likewise.
+	(sparclite-*-elf*): Likewise.
+	(sparc86x-*-elf*): Likewise.
+	(sparc64-*-elf*): Likewise.
+
+	* config/i386/sol2.h (PREFERRED_DEBUGGING_TYPE): Moved to
+	config/sol2.h.
+	(ASM_SPEC): Override config/sol2.h version for now.
+	Removed obsolete GAS_REJECTS_MINUS_S variant.
+	(WINT_TYPE, WINT_TYPE_SIZE): Moved to config/sol2.h.
+	(HANDLE_PRAGMA_REDEFINE_EXTNAME): Likewise.
+	(TARGET_OS_CPP_BUILTINS): Likewise.
+	Assert system=unix.
+	(CPP_SPEC): Simplified using new CPP_SUBTARGET_SPEC.
+	(LIB_SPEC, ENDFILE_SPEC, STARTFILE_SPEC, LINK_SPEC): Moved to
+	config/sol2.h.
+	(SWITCH_TAKES_ARG, STDC_0_IN_SYSTEM_HEADERS): Likewise.
+	(ASM_CPU_SPEC): Define.
+	(SUBTARGET_EXTRA_SPECS): Define.
+
+	* config/sparc/sol2-bi.h (LONG_DOUBLE_TYPE_SIZE): Removed, already
+	in config/sparc/sol2.h.
+	(ASM_SPEC): Moved to config/sol2.h.
+	(CPP_CPU_SPEC): Simplified.
+	(STARTFILE_SPEC32): Likewise, renamed to STARTFILE_ARCH32_SPEC for
+	consistency.
+	(STARTFILE_SPEC64): Renamed to STARTFILE_ARCH64_SPEC.
+	(STARTFILE_ARCH_SPEC): Use new names STARTFILE_ARCH32_SPEC,
+	STARTFILE_ARCH64_SPEC.
+	(STARTFILE_SPEC): Moved to config/sol2.h
+	(SUBTARGET_EXTRA_SPECS): Add startfile_arch.
+	(LINK_ARCH32_SPEC): Moved to config/sol2.h.
+	(LINK_ARCH64_SPEC): Simplified.
+	(LINK_ARCH_SPEC): Redefined config/sol2.h version for 64-bit support.
+	(LINK_SPEC): Moved to config/sol2.h
+
+	* config/sparc/sol2.h (WCHAR_TYPE, WCHAR_TYPE_SIZE): Moved to
+	config/sol2.h.
+	Use BITS_PER_WORD for size.
+	(WINT_TYPE, WINT_TYPE_SIZE): Likewise.
+	(HANDLE_PRAGMA_REDEFINE_EXTNAME): Likewise.
+	(CPP_PREDEFINES): Removed OS-specific part handled by
+	TARGET_OS_CPP_BUILTINS.
+	(CPP_SUBTARGET_SPEC): Moved to config/sol2.h.
+	(CPLUSPLUS_CPP_SPEC): Removed, handled by TARGET_OS_CPP_BUILTINS.
+	(ASM_SPEC): Moved to config/sol2.h.
+	(PREFERRED_DEBUGGING_TYPE): Likewise.
+	(STARTFILE_SPEC, LIB_SPEC, LINK_SPEC): Likewise.
+	(SWITCH_TAKES_ARG, STDC_0_IN_SYSTEM_HEADERS): Likewise.
+	(TARGET_DEFAULT): Reordered to match config/sparc/sol2-bi.h version.
+	(TRANSFER_FROM_TRAMPOLINE): Moved to config/sol2.h
+
+	* config.gcc (i?86-*-solaris2*): Removed obsolete gas support.
+	* config/i386/sol2gas.h: Removed.
+
+Thu Jun 20 12:14:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (xorqi_1_slp, xorqi_2_slp): New patterns.
+
+2002-05-20  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_common_get_alias_set): Correctly handle characters.
+	Rearrange order of expressions; don't handle vectors here.
+	* alias.c (get_alias_set): Let vectors match their components.
+
+2002-06-19  Chris Demetriou  <cgd@broadcom.com>
+
+        * config/mips/mips.c (mips_emit_prefetch): Use hints which
+	match desired locality.
+
+2002-06-19  Dhananjay R. Deshpande  <dhananjayd@kpit.com>
+
+	* config/h8300/h8300.c (TARGET_INSERT_ATTRIBUTES): Define.
+	(h8300_insert_attributes): New.
 
 2002-06-19  Akim Demaille  <akim@epita.fr>
 
@@ -316,7 +658,7 @@ Tue Jun 18 20:53:32 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* doc/extend.texi (Function Attributes): Remove `,...' from @var.
 
-2002-06-17  Jeff Law <law@redha.com>
+2002-06-17  Jeff Law <law@redhat.com>
 
 	* libgcc2.c: Do not include symcat.h or machmode.h.
 

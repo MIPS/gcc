@@ -8,5 +8,3 @@
 
 /* Directives with their #s indented are not recognized.  */
  #if 0	/* { dg-bogus "unterminated" } */
-
-#wrong	/* { dg-error "invalid" } */

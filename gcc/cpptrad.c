@@ -38,7 +38,7 @@ struct block
 };
 
 #define BLOCK_HEADER_LEN offsetof (struct block, text)
-#define BLOCK_LEN(TEXT_LEN) CPP_ALIGN (BLOCK_HEADER_LEN + TEXT_LEN)
+#define BLOCK_LEN(TEXT_LEN) CPP_ALIGN (BLOCK_HEADER_LEN + (TEXT_LEN))
 
 /* Structure holding information about a function-like macro
    invocation.  */
@@ -58,6 +58,9 @@ struct fun_macro
 
   /* The offset of the macro name in the output buffer.  */
   size_t offset;
+
+  /* The line the macro name appeared on.  */
+  unsigned int line;
 
   /* Zero-based index of argument being currently lexed.  */
   unsigned int argc;
@@ -266,7 +269,7 @@ skip_whitespace (pfile, cur, skip_comments)
       if (!c && cur - 1 != RLIMIT (pfile->context))
 	continue;
 
-      if (*cur == '/' && skip_comments)
+      if (c == '/' && skip_comments)
 	{
 	  const uchar *tmp = skip_escaped_newlines (pfile, cur);
 	  if (*tmp == '*')
@@ -586,6 +589,7 @@ scan_out_logical_line (pfile, macro)
 		    {
 		      maybe_start_funlike (pfile, node, out_start, &fmacro);
 		      lex_state = ls_fun_open;
+		      fmacro.line = pfile->line;
 		      continue;
 		    }
 		  else
@@ -602,8 +606,9 @@ scan_out_logical_line (pfile, macro)
 		{
 		  /* Found a parameter in the replacement text of a
 		     #define.  Remove its name from the output.  */
-		  out = pfile->out.cur = out_start;
+		  pfile->out.cur = out_start;
 		  save_replacement_text (pfile, macro, node->arg_index);
+		  out = pfile->out.base;
 		}
 	      else if (lex_state == ls_hash)
 		{
@@ -720,9 +725,9 @@ scan_out_logical_line (pfile, macro)
     _cpp_release_buff (pfile, fmacro.buff);
 
   if (lex_state == ls_fun_close)
-    cpp_error (pfile, DL_ERROR,
-	       "unterminated argument list invoking macro \"%s\"",
-	       NODE_NAME (fmacro.node));
+    cpp_error_with_line (pfile, DL_ERROR, fmacro.line, 0,
+			 "unterminated argument list invoking macro \"%s\"",
+			 NODE_NAME (fmacro.node));
 }
 
 /* Push a context holding the replacement text of the macro NODE on
@@ -1117,7 +1122,7 @@ _cpp_expansions_different_trad (macro1, macro2)
 {
   uchar *p1 = xmalloc (macro1->count + macro2->count);
   uchar *p2 = p1 + macro1->count;
-  uchar quote1 = 0, quote2;
+  uchar quote1 = 0, quote2 = 0;
   bool mismatch;
   size_t len1, len2;
 

@@ -56,8 +56,8 @@ static int dump_flags;
 /* Local functions.  */
 
 static void insert_phi_terms PARAMS ((sbitmap *));
-static void build_fud_chains PARAMS ((int *));
-static void search_fud_chains PARAMS ((basic_block, int *));
+static void build_fud_chains PARAMS ((dominance_info));
+static void search_fud_chains PARAMS ((basic_block, dominance_info));
 static void follow_chain PARAMS ((varref, varref));
 static void delete_refs PARAMS ((varray_type));
 
@@ -72,13 +72,11 @@ void
 tree_build_ssa ()
 {
   sbitmap *dfs;
-  int *idom;
+  dominance_info idom;
   size_t i;
   
   /* Compute immediate dominators.  */
-  idom = (int *) xmalloc ((size_t) last_basic_block * sizeof (int));
-  memset ((void *) idom, -1, (size_t) last_basic_block * sizeof (int));
-  calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
+  idom = calculate_dominance_info (CDI_DOMINATORS);
 
   /* Compute dominance frontiers.  */
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
@@ -228,7 +226,7 @@ insert_phi_terms (dfs)
 
 static void
 build_fud_chains (idom)
-     int *idom;
+     dominance_info idom;
 {
   size_t i;
 
@@ -247,7 +245,7 @@ build_fud_chains (idom)
 static void
 search_fud_chains (bb, idom)
      basic_block bb;
-     int *idom;
+     dominance_info idom;
 {
   varray_type bb_refs;
   edge e;
@@ -341,7 +339,7 @@ search_fud_chains (bb, idom)
      endfor  */
   FOR_EACH_BB (child_bb)
     {
-      if (idom[child_bb->index] == bb->index)
+      if (get_immediate_dominator (idom, child_bb)->index == bb->index)
 	search_fud_chains (child_bb, idom);
     }
 

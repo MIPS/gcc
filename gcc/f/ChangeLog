@@ -1,7 +1,20 @@
+Thu Jun 20 21:56:34 2002  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-specs.h: Use cc1 for traditional preprocessing.
+
+2002-06-20  Andreas Jaeger  <aj@suse.de>
+
+	* com.c (ffecom_prepare_expr_,ffecom_expr_power_integer_):
+	Remove #ifdefed HAHA sections.
+
+2002-06-20  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* com.c: Remove #ifdef HOHO sections.
+
 2002-06-17  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* bit.c: Don't include glimits.h.
-	* target.c: Likewise.   
+	* target.c: Likewise.
 	* where.h: Likewise.
 
 2002-06-12  Gabriel Dos Reis  <gdr@codesourcery.com>
