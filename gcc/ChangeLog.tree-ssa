@@ -1,5 +1,10 @@
 2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
 
+	* builtins.c (fold_builtin_isascii): Do not return non-gimple
+	code when we are in gimple form.
+	(fold_builtin_isdigit): Do not return non-gimple
+	code when we are in gimple form.
+
 	* c-simplify.c (gimplify_decl_stmt): Handle TYPE_DECL.
 
 2004-04-14  Paul Brook  <paul@codesourcery.com>

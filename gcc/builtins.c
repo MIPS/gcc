@@ -6995,11 +6995,16 @@ fold_builtin_isascii (tree arglist)
       /* Transform isascii(c) -> ((c & ~0x7f) == 0).  */
       tree arg = TREE_VALUE (arglist);
       
-      return fold (build (EQ_EXPR, integer_type_node,
-			  build (BIT_AND_EXPR, integer_type_node, arg,
-				 build_int_2 (~ (unsigned HOST_WIDE_INT) 0x7f,
-					      ~ (HOST_WIDE_INT) 0)),
-			  integer_zero_node));
+      arg = fold (build (EQ_EXPR, integer_type_node,
+			 build (BIT_AND_EXPR, integer_type_node, arg,
+				build_int_2 (~ (unsigned HOST_WIDE_INT) 0x7f,
+					     ~ (HOST_WIDE_INT) 0)),
+			 integer_zero_node));
+      
+      if (in_gimple_form && !TREE_CONSTANT (arg))
+        return NULL_TREE;
+      else
+        return arg;
     }
 }
 
@@ -7039,7 +7044,11 @@ fold_builtin_isdigit (tree arglist)
       arg = build (LE_EXPR, integer_type_node, arg,
 		   fold (build1 (NOP_EXPR, unsigned_type_node,
 				 build_int_2 (9, 0))));
-      return fold (arg);
+      arg = fold (arg);
+      if (in_gimple_form && !TREE_CONSTANT (arg))
+        return NULL_TREE;
+      else
+        return arg;
     }
 }
 
