@@ -117,7 +117,6 @@ __wrap_free (void *buf)
     __mf_check ((unsigned)value, size);                       \
  }
 
-
 void *
 __wrap_memcpy (void *dest, const void *src, size_t n)
 {
@@ -247,8 +246,8 @@ __wrap_strcmp (const char *s1, const char *s2)
   extern int __real_strcmp (const char *s1, const char *s2);
   int s1_sz = __real_strlen (s1);
   int s2_sz = __real_strlen (s2);  
-  MF_VALIDATE_EXTENT(s1, s1_sz);
-  MF_VALIDATE_EXTENT(s2, s2_sz);
+  MF_VALIDATE_EXTENT(s1, s1_sz+1);
+  MF_VALIDATE_EXTENT(s2, s2_sz+1);
   return __real_strcmp (s1, s2);
 }
 
@@ -258,8 +257,8 @@ __wrap_strcasecmp (const char *s1, const char *s2)
   extern int __real_strcasecmp (const char *s1, const char *s2);
   int s1_sz = __real_strlen (s1);
   int s2_sz = __real_strlen (s2);  
-  MF_VALIDATE_EXTENT(s1, s1_sz);
-  MF_VALIDATE_EXTENT(s2, s2_sz);
+  MF_VALIDATE_EXTENT(s1, s1_sz+1);
+  MF_VALIDATE_EXTENT(s2, s2_sz+1);
   return __real_strcasecmp (s1, s2);
 }
 
@@ -291,7 +290,7 @@ __wrap_strdup (const char *s)
   extern char *__real_strdup (const char *s);
   int n = __real_strlen (s);
   char *result;
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   result = __real_strdup (s);
   __mf_register ((uintptr_t) result, n, __MF_TYPE_HEAP, "strdup region");
   return result;
@@ -315,7 +314,7 @@ __wrap_strchr (const char *s, int c)
 {
   extern char *__real_strchr (const char *s, int c);
   int n = __real_strlen (s);
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   return __real_strchr (s, c);
 }
 
@@ -324,7 +323,7 @@ __wrap_strrchr (const char *s, int c)
 {
   extern char *__real_strrchr (const char *s, int c);
   int n = __real_strlen (s);
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   return __real_strrchr (s, c);
 }
 
@@ -335,8 +334,8 @@ __wrap_strstr (const char *haystack, const char *needle)
   extern char *__real_strstr (const char *haystack, const char *needle);
   int haystack_sz = __real_strlen (haystack);
   int needle_sz = __real_strlen (needle);
-  MF_VALIDATE_EXTENT(haystack, haystack_sz);
-  MF_VALIDATE_EXTENT(needle, needle_sz);
+  MF_VALIDATE_EXTENT(haystack, haystack_sz+1);
+  MF_VALIDATE_EXTENT(needle, needle_sz+1);
   return __real_strstr (haystack, needle);
 }
 
@@ -357,7 +356,7 @@ __wrap_strlen (const char *s)
 {
   extern int __real_strlen (const char *s);
   int n = __real_strlen (s);
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   return n;
 }
 
@@ -401,7 +400,7 @@ __wrap_index (const char *s, int c)
 {
   extern char *__real_index (const char *s, int c);
   int n = __real_strlen (s);
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   return __real_index (s, c);
 }
 
@@ -410,7 +409,7 @@ __wrap_rindex (const char *s, int c)
 {
   extern char *__real_rindex (const char *s, int c);
   int n = __real_strlen (s);
-  MF_VALIDATE_EXTENT(s, n);
+  MF_VALIDATE_EXTENT(s, n+1);
   return __real_rindex (s, c);
 }
 
@@ -435,6 +434,5 @@ __wrap_ ()
 
 
 /* }}} */
-
 
 /* ------------------------------------------------------------------------ */

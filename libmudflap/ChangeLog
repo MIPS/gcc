@@ -1,3 +1,8 @@
+2002-08-14  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-hooks.c: Change __real_strlen() to __real_strlen()+1 when
+	verifying non-size-limited string extents.
+
 2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks.c: Make __wrap string* functions use __real_str[n]len
