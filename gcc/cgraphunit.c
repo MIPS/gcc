@@ -897,11 +897,15 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
   ncalls_inlined++;
 }
 
-/* Mark all calls of WHAT inlined into TO.  */
+/* Mark all calls of EDGE->CALLEE inlined into EDGE->CALLER.
+   Return following unredirected edge in the list of callers
+   of EDGE->CALLEE  */
 
-static void
-cgraph_mark_inline (struct cgraph_node *to, struct cgraph_node *what)
+static struct cgraph_edge *
+cgraph_mark_inline (struct cgraph_edge *edge)
 {
+  struct cgraph_node *to = edge->caller;
+  struct cgraph_node *what = edge->callee;
   struct cgraph_edge *e, *next;
   int times = 0;
 
@@ -913,11 +917,14 @@ cgraph_mark_inline (struct cgraph_node *to, struct cgraph_node *what)
       if (e->caller == to && !e->inline_call)
 	{
           cgraph_mark_inline_edge (e);
+	  if (e == edge)
+	    edge = next;
 	  times ++;
 	}
     }
   if (!times)
     abort ();
+  return edge;
 }
 
 /* Return false when inlining WHAT into TO is not good idea
@@ -967,31 +974,18 @@ cgraph_default_inline_p (struct cgraph_node *n)
     return n->global.insns < MAX_INLINE_INSNS_AUTO;
 }
 
-/* Return true when inlining WHAT would create recursive inlining.
-   We call recursive inlining all cases where same function appears more than
-   once in the single recusion nest path in the inline graph.  */
+/* Return true when inlining WHAT to TO would be recursive inlining
+   (i.e. inlining function to itself).  We don't do recursive inlinnig
+   in the default heuristics as we do have special heuristics for it.  */
 
 static bool
 cgraph_recursive_inlining_p (struct cgraph_node *to,
 			     struct cgraph_node *what)
 {
-  struct cgraph_node *node;
-
-  /* Walk TO and all functions TO is inlined in.  */
-  while (1)
-    {
-      /* We create recursive inlining either by inlining WHAT into something
-	 already inlined in possibly different clone of WHAT.  */
-      if (what->decl == to->decl)
-	return true;
-      /* Or by inlining WHAT into something that is already inlined in WHAT.  */
-      for (node = cgraph_node (to->decl); node; node = node->next_clone)
-	if (node->global.inlined_to == what)
-	  return true;
-      if (!to->callers || !to->callers->inline_call)
-	return false;
-      to = to->callers->caller;
-    }
+  if (to->global.inlined_to)
+    return what->decl == to->global.inlined_to->decl;
+  else
+    return what->decl == to->decl;
 }
 
 /* Recompute heap nodes for each of callees.  */
@@ -1185,7 +1179,7 @@ cgraph_decide_inlining_of_small_functions (void)
 			     cgraph_node_name (e->caller));
 		  continue;
 		}
-	      cgraph_mark_inline (e->caller, e->callee);
+	      next = cgraph_mark_inline (e);
 	      where = e->caller;
 	      if (where->global.inlined_to)
 		where = where->global.inlined_to;
@@ -1199,7 +1193,6 @@ cgraph_decide_inlining_of_small_functions (void)
 			 " Inlined into %s which now has %i insns.\n",
 			 cgraph_node_name (e->caller),
 			 e->caller->global.insns);
-	      next = node->callers;
 	    }
 	}
 
@@ -1274,7 +1267,7 @@ cgraph_decide_inlining (void)
 	    continue;
 	  if (cgraph_recursive_inlining_p (order[i], e->callee))
 	    continue;
-	  cgraph_mark_inline (order[i], e->callee);
+	  cgraph_mark_inline (e);
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, 
 		     " Inlined into %s which now has %i insns.\n",
@@ -1325,7 +1318,7 @@ cgraph_decide_inlining (void)
 
 	      if (cgraph_check_inline_limits (node->callers->caller, node))
 		{
-		  cgraph_mark_inline (node->callers->caller, node);
+		  cgraph_mark_inline (node->callers);
 		  if (cgraph_dump_file)
 		    fprintf (cgraph_dump_file,
 			     " Inlined into %s which now has %i insns"
@@ -1374,7 +1367,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 	/* ??? It is possible that renaming variable removed the function body
 	   in duplicate_decls. See gcc.c-torture/compile/20011119-2.c  */
 	&& DECL_SAVED_TREE (e->callee->decl))
-      cgraph_mark_inline (node, e->callee);
+      cgraph_mark_inline (e);
 
   /* Now do the automatic inlining.  */
   for (e = node->callees; e; e = e->next_callee)
@@ -1384,7 +1377,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
         && cgraph_default_inline_p (e->callee)
 	&& cgraph_check_inline_limits (node, e->callee)
 	&& DECL_SAVED_TREE (e->callee->decl))
-      cgraph_mark_inline (node, e->callee);
+      cgraph_mark_inline (e);
 }
 
 

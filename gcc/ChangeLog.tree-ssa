@@ -1,3 +1,10 @@
+2003-12-23  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_mark_inline): Accept argument edge; return
+	next edge not redirected.
+	(cgraph_recursive_inlining_p): Simplify.
+	(cgraph_decide_inlining*): Update calls of cgraph_mark_inline.
+
 2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* tree-alias-common.c (find_func_aliases): Do not call intra_function_call
