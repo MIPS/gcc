@@ -82,7 +82,6 @@ static unsigned long free_phinode_count;
 #ifdef GATHER_STATISTICS
 unsigned int phi_nodes_reused;
 unsigned int phi_nodes_created;
-unsigned int shit, crap;
 #endif
 
 /* Initialize management of PHIs.  */
