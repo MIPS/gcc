@@ -486,6 +486,9 @@ ddg_direction_between_stmts (tree stmt1, tree stmt2, int loop_num)
   if (!ddr)
     return dir_independent;
 
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_top)
+    return dir_star;
+
   /* Get subscript info.  */
   sub = DDR_SUBSCRIPT (ddr, loop_num);  
   if (!sub)
@@ -561,13 +564,16 @@ dump_dg (FILE *file, int flags ATTRIBUTE_UNUSED)
 	  if (DDR_ARE_DEPENDENT (e->ddr) == chrec_top)
 	    fprintf (file, "don't know\n");
 
-	  for (j = 0; j < DDR_NUM_SUBSCRIPTS (e->ddr); j++)
+	  if (DDR_ARE_DEPENDENT (e->ddr) != chrec_top)
 	    {
-	      struct subscript *sub = DDR_SUBSCRIPT (e->ddr, j);
+	      for (j = 0; j < DDR_NUM_SUBSCRIPTS (e->ddr); j++)
+	        {
+	          struct subscript *sub = DDR_SUBSCRIPT (e->ddr, j);
 	      
-	      dump_data_dependence_direction (file, SUB_DIRECTION (sub));
-	      fprintf (file, " ");
-	    }
+	          dump_data_dependence_direction (file, SUB_DIRECTION (sub));
+	          fprintf (file, " ");
+	        }
+	    } 
 	  fprintf (file,"\n");
 	}
 

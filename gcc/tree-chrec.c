@@ -1515,8 +1515,9 @@ evolution_function_is_affine_multivariate_p (tree chrec)
 	    return true;
 	  else
 	    {
-	      if (CHREC_VARIABLE (CHREC_RIGHT (chrec)) 
-		  != CHREC_VARIABLE (chrec)
+	      if (TREE_CODE (CHREC_RIGHT (chrec)) == POLYNOMIAL_CHREC
+		  && CHREC_VARIABLE (CHREC_RIGHT (chrec)) 
+		     != CHREC_VARIABLE (chrec)
 		  && evolution_function_is_affine_multivariate_p 
 		  (CHREC_RIGHT (chrec)))
 		return true;

@@ -357,7 +357,7 @@ struct tree_opt_pass pass_vectorize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
+  TODO_dump_func | TODO_write_loop_closed  /* todo_flags_finish */
 };
 
 /* Complete unrolling of loops.  */

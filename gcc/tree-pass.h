@@ -68,8 +68,8 @@ struct tree_opt_pass
 
 /* Pass properties.  */
 #define PROP_gimple_any		(1 << 0)	/* entire gimple grammar */
-#define PROP_gimple_lcf		(1 << 1)	/* lowered control flow */
-#define PROP_gimple_leh		(1 << 2)	/* lowered eh */
+#define PROP_gimple_lcf		(1 << 1)	 /* lowered control flow */
+#define PROP_gimple_leh		(1 << 2)	           /* lowered eh */
 #define PROP_cfg		(1 << 3)
 #define PROP_referenced_vars	(1 << 4)
 #define PROP_pta		(1 << 5)
@@ -78,11 +78,12 @@ struct tree_opt_pass
 #define PROP_scev               (1 << 8)
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
-#define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
-#define TODO_ggc_collect	(1 << 2)	/* run the collector */
-#define TODO_verify_ssa		(1 << 3)
-#define TODO_verify_flow	(1 << 4)
-#define TODO_verify_stmts	(1 << 5)
+#define TODO_rename_vars	(1 << 1)	 /* rewrite new vars to ssa */
+#define TODO_write_loop_closed	(1 << 2)	/* rewrite into loop-closed-ssa */
+#define TODO_ggc_collect	(1 << 3)	/* run the collector */
+#define TODO_verify_ssa		(1 << 4)
+#define TODO_verify_flow	(1 << 5)
+#define TODO_verify_stmts	(1 << 6)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)

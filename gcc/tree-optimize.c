@@ -361,6 +361,13 @@ execute_todo (unsigned int flags)
       bitmap_clear (vars_to_rename);
     }
 
+  if (flags & TODO_write_loop_closed)
+    {
+      rewrite_into_ssa (false);
+      rewrite_into_loop_closed_ssa ();
+      bitmap_clear (vars_to_rename);
+    }
+
   if ((flags & TODO_dump_func) && dump_file)
     dump_function_to_file (current_function_decl,
 			   dump_file, dump_flags);

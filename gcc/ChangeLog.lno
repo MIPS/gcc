@@ -1,3 +1,20 @@
+2004-06-13  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree-chrec.c (evolution_function_is_affine_multivariat): Add check
+	for POLYNOMIAL_CHREC.
+	* tree-dg.c (ddg_direction_between_stmts): Add check for chrec_top.
+
+	* tree-pass.h (TODO_write_loop_closed): New to-do flag.
+	* tree-optimize.c (execute_todo): Handle new to-do flag 
+	TODO_write_loop_closed.
+	* tree-ssa-loop.c (struct tree_opt_pass pass_vectorize): Set
+	TODO_write_loop_closed.
+
+	* tree-vectorizer.c (vect_transform_loop): Add calls to 
+	add_bb_to_loop.
+	(vect_analyze_data_ref_dependence): Fix last argment in call to 
+	ddg_direction_between_stmts.
+
 2004-06-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR target/15944

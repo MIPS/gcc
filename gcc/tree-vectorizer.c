@@ -1401,7 +1401,6 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
 	}
       abort ();
     }
-
  
   header_of_loop = new_bb->succ->dest;
 
@@ -1806,6 +1805,8 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       tree cond;
       int vf;
       edge e, exit_ep, phead_epilog, ee;
+      struct loop *outer_loop = 
+	LOOP_VINFO_LOOP (loop_vinfo)->pre_header->loop_father;
 
       /* Remember exit bb before duplication.  */
       exit_bb = loop->exit_edges[0]->dest;
@@ -1840,6 +1841,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	 
 	 if ( ni_name == ratio_mult_vf_name ) skip epilog loop.  */
       inter_bb = vect_gen_if_guard (loop->exit_edges[0], cond, exit_bb, exit_ep);
+      add_bb_to_loop (inter_bb, outer_loop);
 
       loop->exit_edges[0] = inter_bb->pred;
 
@@ -1859,6 +1861,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 				     new_loop_header, phead_epilog);
 
       loop->pre_header = prolog_bb;
+      add_bb_to_loop (prolog_bb, outer_loop);
       
       /* Find loop preheader edge of original loop.  */
       loop->pre_header_edges[0] = find_edge (prolog_bb, loop->header);
@@ -2697,6 +2700,11 @@ static bool
 vect_analyze_data_ref_dependence (struct data_reference *dra,
 				  struct data_reference *drb)
 {
+  tree stmt = DR_STMT (dra);
+  int level = (loop_of_stmt (stmt))->level;
+  int loopnum = loop_num (loop_of_stmt (stmt));
+  int loop_nest = level - 1;
+
   /* FORNOW: use most trivial and conservative test.  */
 
   /* CHECKME: this test holds only if the array base is not a pointer.
@@ -2706,8 +2714,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   if (!array_base_name_differ_p (dra, drb))
     {
       enum data_dependence_direction ddd =
-	ddg_direction_between_stmts (DR_STMT (dra), DR_STMT (drb), 
-				      loop_num (loop_of_stmt (DR_STMT (dra))));
+	ddg_direction_between_stmts (DR_STMT (dra), DR_STMT (drb), loop_nest);
 
       if (ddd == dir_independent)
 	return true;
