@@ -7519,7 +7519,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:5446: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7522: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -12763,16 +12763,10 @@ then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	STMP_FIXINC=
-	STMP_FIXPROTO=
+	if  "x$STMP_FIXPROTO" != x  ; then
+	  STMP_FIXPROTO=stmp-install-fixproto
+	fi
     fi
-fi
-
-# When bootstrapping from the toplevel, only run fixincludes during stage1
-if test -d ../prev-gcc
-then
-    STMP_FIXINC=
-    cp -R ../prev-gcc/include include
 fi
 
 # Expand extra_headers to include complete path.
@@ -15063,7 +15057,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile gccbug mklibgcc mkheaders libada-mk'
+all_outputs='Makefile gccbug mklibgcc libada-mk'
 # List of language makefile fragments.
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.

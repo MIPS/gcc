@@ -3,7 +3,7 @@
    files which are fixed to work correctly with ANSI C and placed in a
    directory that GCC will search.
 
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -38,6 +38,26 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #ifndef STDOUT_FILENO
 # define STDOUT_FILENO  1
+#endif
+
+#if ! defined( SIGCHLD ) && defined( SIGCLD )
+#  define SIGCHLD SIGCLD
+#endif
+
+#ifndef SIGQUIT
+#define SIGQUIT SIGTERM
+#endif
+#ifndef SIGIOT
+#define SIGIOT SIGTERM
+#endif
+#ifndef SIGPIPE
+#define SIGPIPE SIGTERM
+#endif
+#ifndef SIGALRM
+#define SIGALRM SIGTERM
+#endif
+#ifndef SIGKILL
+#define SIGKILL SIGTERM
 #endif
 
 typedef int t_success;
@@ -224,4 +244,6 @@ char*  make_raw_shell_str ( char* pz_d, tCC* pz_s, size_t smax );
 #endif
 
 t_bool mn_get_regexps ( regex_t** label_re, regex_t** name_re, tCC *who );
+
+void   initialize_opts ( void );
 #endif /* ! GCC_FIXLIB_H */
