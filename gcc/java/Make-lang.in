@@ -266,7 +266,7 @@ java/parse.o: java/parse.c java/jcf-reader.c $(CONFIG_H) $(SYSTEM_H) \
 java/jcf-dump.o: $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) java/jcf-dump.c \
   java/jcf-reader.c java/jcf.h java/javaop.h java/javaop.def version.h $(GGC_H)
 java/gjavah.o: $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) java/gjavah.c \
-  java/jcf-reader.c java/jcf.h java/javaop.h version.h
+  java/jcf-reader.c java/jcf.h java/javaop.h version.h $(GGC_H)
 java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(JAVA_TREE_H) \
   java/parse.h toplev.h
 java/buffer.o: java/buffer.c $(CONFIG_H) java/buffer.h $(SYSTEM_H) toplev.h
