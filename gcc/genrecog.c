@@ -110,10 +110,13 @@ struct decision
 
 static int next_subroutine_number;
 
-/* We can write two types of subroutines: One for insn recognition and
-   one to split insns.  This defines which type is being written.  */
+/* We can write three types of subroutines: One for insn recognition,
+   one to split insns, and one for peephole-type optimizations.  This
+   defines which type is being written.  */
 
-enum routine_type {RECOG, SPLIT};
+enum routine_type {RECOG, SPLIT, PEEPHOLE2};
+
+#define IS_SPLIT(X) ((X) == SPLIT || (X)==PEEPHOLE2)
 
 /* Next available node number for tree nodes.  */
 
@@ -172,7 +175,8 @@ static struct pred_table
 
 static struct decision_head make_insn_sequence PROTO((rtx, enum routine_type));
 static struct decision *add_to_sequence PROTO((rtx, struct decision_head *,
-					       const char *));
+					       const char *, 
+					       enum routine_type, int));
 static int not_both_true	PROTO((struct decision *, struct decision *,
 				       int));
 static int position_merit	PROTO((struct decision *, enum machine_mode,
@@ -192,7 +196,11 @@ static void clear_modes		PROTO((struct decision *));
 static void write_tree		PROTO((struct decision *, const char *,
 				       struct decision *, int,
 				       enum routine_type));
-static void change_state	PROTO((const char *, const char *, int));
+static void change_state	PROTO((const char *, const char *, int,
+				       struct decision *));
+static char *copystr		PROTO((const char *));
+static void mybzero		PROTO((char *, unsigned));
+static void mybcopy		PROTO((char *, char *, unsigned));
 void fatal		PVPROTO((const char *, ...))
   ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 void fancy_abort		PROTO((void)) ATTRIBUTE_NORETURN;
@@ -221,9 +229,8 @@ make_insn_sequence (insn, type)
       {
 	int new_size;
 	new_size = (insn_name_ptr_size ? insn_name_ptr_size * 2 : 512);
-	insn_name_ptr =
-	  (char **) xrealloc (insn_name_ptr, sizeof(char *) * new_size);
-	bzero ((PTR)(insn_name_ptr + insn_name_ptr_size),
+	insn_name_ptr = xrealloc (insn_name_ptr, sizeof(char *) * new_size);
+	bzero (insn_name_ptr + insn_name_ptr_size,
 	       sizeof(char *) * (new_size - insn_name_ptr_size));
 	insn_name_ptr_size = new_size;
       }
@@ -244,7 +251,9 @@ make_insn_sequence (insn, type)
     insn_name_ptr[next_insn_code] = name;
   }  
 
-  if (XVECLEN (insn, type == RECOG) == 1)
+  /* peephole2 always gets an outer parallel even if it's only one
+     entry. */
+  if (type != PEEPHOLE2 && XVECLEN (insn, type == RECOG) == 1)
     x = XVECEXP (insn, type == RECOG, 0);
   else
     {
@@ -253,7 +262,7 @@ make_insn_sequence (insn, type)
       PUT_MODE (x, VOIDmode);
     }
 
-  last = add_to_sequence (x, &head, "");
+  last = add_to_sequence (x, &head, "", type, 1);
 
   if (c_test[0])
     last->c_test = c_test;
@@ -291,7 +300,7 @@ make_insn_sequence (insn, type)
 		XVECEXP (new, 0, j) = XVECEXP (x, 0, j);
 	    }
 
-	  last = add_to_sequence (new, &clobber_head, "");
+	  last = add_to_sequence (new, &clobber_head, "", type, 1);
 
 	  if (c_test[0])
 	    last->c_test = c_test;
@@ -308,6 +317,10 @@ make_insn_sequence (insn, type)
     /* Define the subroutine we will call below and emit in genemit.  */
     printf ("extern rtx gen_split_%d ();\n", last->insn_code_number);
 
+  if (type == PEEPHOLE2)
+    /* Define the subroutine we will call below and emit in genemit.  */
+    printf ("extern rtx gen_peephole2_%d ();\n", last->insn_code_number);
+
   return head;
 }
 
@@ -319,13 +332,17 @@ make_insn_sequence (insn, type)
 
    POSITION is the string representing the current position in the insn.
 
+   INSN_TYPE is the type of insn for which we are emitting code.
+
    A pointer to the final node in the chain is returned.  */
 
 static struct decision *
-add_to_sequence (pattern, last, position)
+add_to_sequence (pattern, last, position, insn_type, top)
      rtx pattern;
      struct decision_head *last;
      const char *position;
+     enum routine_type insn_type;
+     int top;
 {
   register RTX_CODE code;
   register struct decision *new
@@ -341,7 +358,7 @@ add_to_sequence (pattern, last, position)
     max_depth = depth;
 
   new->number = next_number++;
-  new->position = xstrdup (position);
+  new->position = copystr (position);
   new->ignore_code = 0;
   new->ignore_mode = 0;
   new->enforce_mode = 1;
@@ -382,6 +399,31 @@ add_to_sequence (pattern, last, position)
 
   switch (code)
     {
+    case PARALLEL:
+      /* Toplevel peephole pattern. */
+      if (insn_type == PEEPHOLE2 && top)
+	{
+	  struct decision_head *place = last;
+
+	  for (i = 0; i < XVECLEN (pattern, 0); i++)
+	    {
+	      /* Which insn we're looking at is represented by A-Z. We don't
+	         ever use 'A', however; it is always implied. */
+	      if (i > 0)
+		{
+		  newpos[depth] = 'A' + i;
+		}
+	      else
+		{
+		  newpos[depth] = 0;
+		}
+	      new = add_to_sequence (XVECEXP (pattern, 0, i),
+				     place, newpos, insn_type, 0);
+	      place = &new->success;
+	    }
+	  return new;
+	}
+      break;
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
     case MATCH_OPERATOR:
@@ -453,7 +495,7 @@ add_to_sequence (pattern, last, position)
 	    {
 	      newpos[depth] = i + (code == MATCH_OPERATOR ? '0': 'a');
 	      new = add_to_sequence (XVECEXP (pattern, 2, i),
-				     &new->success, newpos);
+				     &new->success, newpos, insn_type, 0);
 	    }
 	}
 
@@ -468,7 +510,7 @@ add_to_sequence (pattern, last, position)
 	{
 	  newpos[depth] = i + '0';
 	  new = add_to_sequence (XVECEXP (pattern, 1, i),
-				 &new->success, newpos);
+				 &new->success, newpos, insn_type, 0);
 	}
       return new;
 
@@ -498,10 +540,12 @@ add_to_sequence (pattern, last, position)
 	  fatal ("mode mismatch in SET");
 	}
       newpos[depth] = '0';
-      new = add_to_sequence (SET_DEST (pattern), &new->success, newpos);
+      new = add_to_sequence (SET_DEST (pattern), &new->success, newpos, 
+			     insn_type, 0);
       this->success.first->enforce_mode = 1;
       newpos[depth] = '1';
-      new = add_to_sequence (SET_SRC (pattern), &new->success, newpos);
+      new = add_to_sequence (SET_SRC (pattern), &new->success, newpos,
+			     insn_type, 0);
 
       /* If set are setting CC0 from anything other than a COMPARE, we
 	 must enforce the mode so that we do not produce ambiguous insns.  */
@@ -514,7 +558,8 @@ add_to_sequence (pattern, last, position)
     case ZERO_EXTEND:
     case STRICT_LOW_PART:
       newpos[depth] = '0';
-      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos, 
+			     insn_type, 0);
       this->success.first->enforce_mode = 1;
       return new;
 
@@ -522,19 +567,23 @@ add_to_sequence (pattern, last, position)
       this->test_elt_one_int = 1;
       this->elt_one_int = XINT (pattern, 1);
       newpos[depth] = '0';
-      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos,
+			     insn_type, 0);
       this->success.first->enforce_mode = 1;
       return new;
 
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
       newpos[depth] = '0';
-      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos,
+			     insn_type, 0);
       this->success.first->enforce_mode = 1;
       newpos[depth] = '1';
-      new = add_to_sequence (XEXP (pattern, 1), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 1), &new->success, newpos,
+			     insn_type, 0);
       newpos[depth] = '2';
-      new = add_to_sequence (XEXP (pattern, 2), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 2), &new->success, newpos,
+			     insn_type, 0);
       return new;
 
     case EQ:   case NE:   case LE:   case LT:   case GE:  case GT:
@@ -549,10 +598,12 @@ add_to_sequence (pattern, last, position)
     case COMPARE:
       /* Enforce the mode on the first operand to avoid ambiguous insns.  */
       newpos[depth] = '0';
-      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 0), &new->success, newpos,
+			     insn_type, 0);
       this->success.first->enforce_mode = 1;
       newpos[depth] = '1';
-      new = add_to_sequence (XEXP (pattern, 1), &new->success, newpos);
+      new = add_to_sequence (XEXP (pattern, 1), &new->success, newpos,
+			     insn_type, 0);
       return new;
       
     default:
@@ -565,7 +616,8 @@ add_to_sequence (pattern, last, position)
     {
       newpos[depth] = '0' + i;
       if (fmt[i] == 'e' || fmt[i] == 'u')
-	new = add_to_sequence (XEXP (pattern, i), &new->success, newpos);
+	new = add_to_sequence (XEXP (pattern, i), &new->success, newpos,
+			       insn_type, 0);
       else if (fmt[i] == 'i' && i == 0)
 	{
 	  this->test_elt_zero_int = 1;
@@ -597,7 +649,7 @@ add_to_sequence (pattern, last, position)
 	    {
 	      newpos[depth] = 'a' + j;
 	      new = add_to_sequence (XVECEXP (pattern, i, j),
-				     &new->success, newpos);
+				     &new->success, newpos, insn_type, 0);
 	    }
 	}
       else if (fmt[i] != '0')
@@ -864,7 +916,8 @@ merge_trees (oldh, addh)
 		      struct decision *split
 			= (struct decision *) xmalloc (sizeof (struct decision));
 
-		      memcpy (split, old, sizeof (struct decision));
+		      mybcopy ((char *) old, (char *) split,
+			       sizeof (struct decision));
 
 		      old->success.first = old->success.last = split;
 		      old->c_test = 0;
@@ -890,7 +943,8 @@ merge_trees (oldh, addh)
 		      struct decision *split
 			= (struct decision *) xmalloc (sizeof (struct decision));
 
-		      memcpy (split, add, sizeof (struct decision));
+		      mybcopy ((char *) add, (char *) split,
+			       sizeof (struct decision));
 
 		      add->success.first = add->success.last = split;
 		      add->c_test = 0;
@@ -1031,24 +1085,32 @@ write_subroutine (tree, type)
 {
   int i;
 
-  if (type == SPLIT)
+  if (type == PEEPHOLE2)
+    printf ("rtx\npeephole2");
+  else if (type == SPLIT)
     printf ("rtx\nsplit");
   else
     printf ("int\nrecog");
 
   if (tree != 0 && tree->subroutine_number > 0)
     printf ("_%d", tree->subroutine_number);
-  else if (type == SPLIT)
+  else if (IS_SPLIT (type))
     printf ("_insns");
 
   printf (" (x0, insn");
   if (type == RECOG)
     printf (", pnum_clobbers");
+  if (type == PEEPHOLE2)
+    printf (", _last_insn");
 
   printf (")\n");
+  /* The peephole2 pass uses the insn argument to determine which
+     hard registers are available at that point. */
   printf ("     register rtx x0;\n     rtx insn ATTRIBUTE_UNUSED;\n");
   if (type == RECOG)
     printf ("     int *pnum_clobbers ATTRIBUTE_UNUSED;\n");
+  if (type == PEEPHOLE2)
+    printf ("     rtx *_last_insn ATTRIBUTE_UNUSED;\n");
 
   printf ("{\n");
   printf ("  register rtx *ro = &recog_operand[0];\n");
@@ -1058,9 +1120,9 @@ write_subroutine (tree, type)
     printf ("x%d ATTRIBUTE_UNUSED, ", i);
 
   printf ("x%d ATTRIBUTE_UNUSED;\n", max_depth);
-  printf ("  %s tem ATTRIBUTE_UNUSED;\n", type == SPLIT ? "rtx" : "int");
+  printf ("  %s tem ATTRIBUTE_UNUSED;\n", IS_SPLIT (type) ? "rtx" : "int");
   write_tree (tree, "", NULL_PTR, 1, type);
-  printf (" ret0: return %d;\n}\n\n", type == SPLIT ? 0 : -1);
+  printf (" ret0: return %d;\n}\n\n", IS_SPLIT (type) ? 0 : -1);
 }
 
 /* This table is used to indent the recog_* functions when we are inside
@@ -1145,7 +1207,7 @@ write_tree_1 (tree, prevpos, afterward, type)
 
   if (tree)
     {
-      change_state (prevpos, tree->position, 2);
+      change_state (prevpos, tree->position, 2, afterward);
       prevpos = tree->position;
     }
 
@@ -1296,7 +1358,8 @@ write_tree_1 (tree, prevpos, afterward, type)
 	      if (afterward)
 		{
 		  printf ("    {\n");
-		  change_state (p->position, afterward->position, 6);
+		  change_state (p->position, afterward->position, 6,
+				afterward);
 		  printf ("      goto L%d;\n    }\n", afterward->number);
 		}
 	      else
@@ -1316,7 +1379,8 @@ write_tree_1 (tree, prevpos, afterward, type)
 	      if (afterward)
 		{
 		  printf ("    {\n");
-		  change_state (p->position, afterward->position, indent + 4);
+		  change_state (p->position, afterward->position, indent + 4,
+				afterward);
 		  printf ("    goto L%d;\n    }\n", afterward->number);
 		}
 	      else
@@ -1333,7 +1397,7 @@ write_tree_1 (tree, prevpos, afterward, type)
       if (switch_mode == VOIDmode && mode != VOIDmode && p->next != 0
 	  && p->next->enforce_mode && p->next->mode != VOIDmode)
 	{
-	  memset (modemap, 0, sizeof modemap);
+	  mybzero (modemap, sizeof modemap);
 	  printf ("%sswitch (GET_MODE (x%d))\n", indents[indent], depth);
 	  printf ("%s{\n", indents[indent + 2]);
 	  indent += 4;
@@ -1350,7 +1414,7 @@ write_tree_1 (tree, prevpos, afterward, type)
       if (switch_code == UNKNOWN && p->code != UNKNOWN && ! p->ignore_code
 	  && p->next != 0 && p->next->code != UNKNOWN)
 	{
-	  memset (codemap, 0, sizeof codemap);
+	  mybzero (codemap, sizeof codemap);
 	  printf ("%sswitch (GET_CODE (x%d))\n", indents[indent], depth);
 	  printf ("%s{\n", indents[indent + 2]);
 	  indent += 4;
@@ -1454,9 +1518,29 @@ write_tree_1 (tree, prevpos, afterward, type)
       if (p->insn_code_number >= 0)
 	{
 	  if (type == SPLIT)
-	    printf ("%sreturn gen_split_%d (operands);\n",
-		    indents[inner_indent], p->insn_code_number);
-	  else
+	    {
+	      printf ("%sreturn gen_split_%d (operands);\n",
+		      indents[inner_indent], p->insn_code_number);
+	    }
+	  else if (type == PEEPHOLE2)
+	    {
+	      /* We want to set *_last_insn to point to the last
+		 insn matched. */
+	      printf ("%s{\n", indents[inner_indent]);
+	      inner_indent += 2;
+	      for (i = depth - 1; i >= 0; i--)
+		{
+		  if (tree->position[i] >= 'A' && tree->position[i] <= 'Z')
+		    break;
+		}
+	      if (i == -1)
+		printf ("%s*_last_insn = insn;\n", indents[inner_indent]);
+	      printf ("%sreturn gen_peephole2_%d (insn, operands);\n",
+		      indents[inner_indent], p->insn_code_number);
+	      inner_indent -= 2;
+	      printf ("%s}\n", indents[inner_indent]);
+	    }
+	  else	    
 	    {
 	      if (p->num_clobbers_to_add)
 		{
@@ -1516,7 +1600,7 @@ write_tree_1 (tree, prevpos, afterward, type)
 
   if (afterward)
     {
-      change_state (prevpos, afterward->position, 2);
+      change_state (prevpos, afterward->position, 2, afterward);
       printf ("  goto L%d;\n", afterward->number);
     }
   else
@@ -1594,9 +1678,24 @@ write_tree (tree, prevpos, afterward, initial, type)
      enum routine_type type;
 {
   register struct decision *p;
-  const char *name_prefix = (type == SPLIT ? "split" : "recog");
-  const char *call_suffix = (type == SPLIT ? "" : ", pnum_clobbers");
+  const char *name_prefix;
+  const char *call_suffix;
 
+  switch (type)
+    {
+    case SPLIT:
+      name_prefix = "split";
+      call_suffix = "";
+      break;
+    case PEEPHOLE2:
+      name_prefix = "peephole2";
+      call_suffix = ", _last_insn";
+      break;
+    case RECOG:
+      name_prefix = "recog";
+      call_suffix = ", pnum_clobbers";
+      break;
+    }
   if (! initial && tree->subroutine_number > 0)
     {
       OUTPUT_LABEL (" ", tree->number);
@@ -1605,11 +1704,11 @@ write_tree (tree, prevpos, afterward, initial, type)
 	{
 	  printf ("  tem = %s_%d (x0, insn%s);\n",
 		  name_prefix, tree->subroutine_number, call_suffix);
-	  if (type == SPLIT)
+	  if (IS_SPLIT (type))
 	    printf ("  if (tem != 0) return tem;\n");
 	  else
 	    printf ("  if (tem >= 0) return tem;\n");
-	  change_state (tree->position, afterward->position, 2);
+	  change_state (tree->position, afterward->position, 2, afterward);
 	  printf ("  goto L%d;\n", afterward->number);
 	}
       else
@@ -1628,15 +1727,21 @@ write_tree (tree, prevpos, afterward, initial, type)
 
 
 /* Assuming that the state of argument is denoted by OLDPOS, take whatever
-   actions are necessary to move to NEWPOS.
+   actions are necessary to move to NEWPOS. If we fail to move to the
+   new state, branch to node AFTERWARD if non-zero, otherwise return.
 
-   INDENT says how many blanks to place at the front of lines.  */
+   INDENT says how many blanks to place at the front of lines.  
+
+   Failure to move to the new state can only occur if we are trying to
+   match multiple insns and we try to step past the end of the
+   stream. */
 
 static void
-change_state (oldpos, newpos, indent)
+change_state (oldpos, newpos, indent, afterward)
      const char *oldpos;
      const char *newpos;
      int indent;
+     struct decision *afterward;
 {
   int odepth = strlen (oldpos);
   int depth = odepth;
@@ -1651,7 +1756,24 @@ change_state (oldpos, newpos, indent)
 
   while (depth < ndepth)
     {
-      if (newpos[depth] >= 'a' && newpos[depth] <= 'z')
+      /* It's a different insn from the first one. */
+      if (newpos[depth] >= 'A' && newpos[depth] <= 'Z')
+	{
+	  printf ("%sx%d = recog_next_insn (insn, %d, _last_insn);\n", 
+		  indents[indent],
+		  depth + 1,
+		  newpos[depth] - 'A');
+
+	  printf ("%sif (x%d == NULL_RTX)\n",
+		  indents[indent],
+		  depth + 1);
+
+	  if (afterward)
+	    printf ("%sgoto L%d;\n", indents[indent + 2], afterward->number);
+	  else
+	    printf ("%sgoto ret0;\n", indents[indent + 2]);
+	}
+      else if (newpos[depth] >= 'a' && newpos[depth] <= 'z')
 	printf ("%sx%d = XVECEXP (x%d, 0, %d);\n",
 		indents[indent], depth + 1, depth, newpos[depth] - 'a');
       else
@@ -1661,14 +1783,37 @@ change_state (oldpos, newpos, indent)
     }
 }
 
-char *
-xstrdup (input)
-  const char *input;
+static char *
+copystr (s1)
+  const char *s1;
 {
-  register size_t len = strlen (input) + 1;
-  register char *output = xmalloc (len);
-  memcpy (output, input, len);
-  return output;
+  register char *tem;
+
+  if (s1 == 0)
+    return 0;
+
+  tem = (char *) xmalloc (strlen (s1) + 1);
+  strcpy (tem, s1);
+
+  return tem;
+}
+
+static void
+mybzero (b, length)
+     register char *b;
+     register unsigned length;
+{
+  while (length-- > 0)
+    *b++ = 0;
+}
+
+static void
+mybcopy (in, out, length)
+     register char *in, *out;
+     register unsigned length;
+{
+  while (length-- > 0)
+    *out++ = *in++;
 }
 
 PTR
@@ -1736,11 +1881,13 @@ main (argc, argv)
   rtx desc;
   struct decision_head recog_tree;
   struct decision_head split_tree;
+  struct decision_head peephole2_tree;
   FILE *infile;
   register int c;
 
   obstack_init (rtl_obstack);
   recog_tree.first = recog_tree.last = split_tree.first = split_tree.last = 0;
+  peephole2_tree.first = peephole2_tree.last = 0;
 
   if (argc <= 1)
     fatal ("No input file name.");
@@ -1785,6 +1932,10 @@ from the machine description file `md'.  */\n\n");
       else if (GET_CODE (desc) == DEFINE_SPLIT)
 	split_tree = merge_trees (split_tree,
 				  make_insn_sequence (desc, SPLIT));
+      else if (GET_CODE (desc) == DEFINE_PEEPHOLE2)
+	peephole2_tree = merge_trees (peephole2_tree,
+				      make_insn_sequence (desc, PEEPHOLE2));
+	
       if (GET_CODE (desc) == DEFINE_PEEPHOLE
 	  || GET_CODE (desc) == DEFINE_EXPAND)
 	next_insn_code++;
@@ -1815,6 +1966,11 @@ from the machine description file `md'.  */\n\n");
     printf ("\n\n   The function split_insns returns 0 if the rtl could not\n\
    be split or the split rtl in a SEQUENCE if it can be.");
 
+  if (peephole2_tree.first)
+    printf ("\n\n   The function peephole2_insns returns 0 if the rtl could not\n\
+   be matched. If there was a match, the new rtl is returned in a SEQUENCE,\n\
+   and LAST_INSN will point to the last recognized insn in the old sequence.");
+
   printf ("*/\n\n");
 
   printf ("#define operands recog_operand\n\n");
@@ -1826,6 +1982,10 @@ from the machine description file `md'.  */\n\n");
   next_subroutine_number = 0;
   break_out_subroutines (split_tree, SPLIT, 1);
   write_subroutine (split_tree.first, SPLIT);
+
+  next_subroutine_number = 0;
+  break_out_subroutines (peephole2_tree, PEEPHOLE2, 1);
+  write_subroutine (peephole2_tree.first, PEEPHOLE2);
 
   fflush (stdout);
   exit (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

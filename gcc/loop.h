@@ -106,6 +106,8 @@ struct induction
 				   subtracted from add_val when this giv
 				   derives another.  This occurs when the
 				   giv spans a biv update by incrementation. */
+  rtx ext_dependant;		/* If nonzero, is a sign or zero extension
+				   if a biv on which this giv is dependant.  */
   struct induction *next_iv;	/* For givs, links together all givs that are
 				   based on the same biv.  For bivs, links
 				   together all biv entries that refer to the
@@ -143,6 +145,8 @@ struct iv_class {
   int total_benefit;		/* Sum of BENEFITs of all those givs */
   rtx initial_value;		/* Value of reg at loop start */
   rtx initial_test;		/* Test performed on BIV before loop */
+  rtx initial_test_insn;	/* Test insn performed on BIV before loop */
+  rtx initial_test_jump;	/* Jump of initial test */
   struct iv_class *next;	/* Links all class structures together */
   rtx init_insn;		/* insn which initializes biv, 0 if none. */
   rtx init_set;			/* SET of INIT_INSN, if any. */

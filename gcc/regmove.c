@@ -1736,6 +1736,13 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
       if ((dst_note = find_regno_note (p, REG_DEAD, REGNO (dst)))
 	  && (GET_MODE (XEXP (dst_note, 0)) == GET_MODE (dst)))
 	{
+	  /* If an optimization is done, the flags for P may be changed. 
+	     Check that P is not in or ending the shadow of a live flags
+	     register.  Note that the `ending' part (p is a flags user)
+	     means that we have to check the _previous_ insn.  */
+	  if (GET_MODE (PREV_INSN (p)) != VOIDmode)
+	    break;
+
 	  if (! src_note)
 	    {
 	      rtx q;

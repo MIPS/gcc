@@ -2686,3 +2686,68 @@ split_block_insns (b, do_split)
 	break;
     }
 }
+
+/* Return the pattern for the Nth non-note insn after INSN (and set
+   NEWINSN to point to the actual insn), or return NULL_RTX if it does
+   not exist.  Used by the recognizer to find the next insn to match
+   in a multi-insn pattern.  */
+rtx
+recog_next_insn (insn, n, newinsn)
+     rtx insn;
+     int n;
+     rtx *newinsn;
+{
+  while (insn != NULL_RTX && n > 0)
+    {
+      insn = next_nonnote_insn (insn);
+      n--;
+    }
+  if (insn == NULL_RTX)
+    return insn;
+
+  if (GET_CODE (insn) != INSN && GET_CODE (insn) != JUMP_INSN)
+    return NULL_RTX;
+
+  *newinsn = insn;
+  return PATTERN (insn);
+}
+
+/* Perform the peephole2 optimization pass. */
+void
+peephole2_optimize (dump_file)
+     FILE *dump_file;
+{
+  rtx insn;
+  rtx epilogue_insn = 0;
+
+  for (insn = get_last_insn (); insn != NULL_RTX; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) == NOTE
+	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_EPILOGUE_BEG)
+	{
+	  epilogue_insn = insn;
+	  break;
+	}
+    }
+
+  init_resource_info (epilogue_insn);
+
+  for (insn = get_insns (); insn != NULL;
+       insn = next_nonnote_insn (insn))
+    {
+      if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
+	{
+	  rtx last_insn;
+	  rtx before = PREV_INSN (insn);
+
+	  rtx try = peephole2_insns (PATTERN (insn), insn, &last_insn);
+	  if (try != NULL)
+	    {
+	      replace_insns (insn, last_insn, try, NULL_RTX);
+	      insn = NEXT_INSN (before);
+	    }
+	}
+    }
+
+  free_resource_info ();
+}

@@ -347,6 +347,8 @@ from the machine description file `md'.  */\n\n");
 	gen_expand (desc);
       if (GET_CODE (desc) == DEFINE_SPLIT)
 	gen_split (desc);
+      if (GET_CODE (desc) == DEFINE_PEEPHOLE2)
+	gen_split (desc);
       if (GET_CODE (desc) == DEFINE_PEEPHOLE)
 	gen_peephole (desc);
     }

@@ -49,6 +49,8 @@ Boston, MA 02111-1307, USA.  */
 #include "loop.h"
 #include "except.h"
 #include "toplev.h"
+#include "output.h"
+#include "basic-block.h"
 
 /* Vector mapping INSN_UIDs to luids.
    The luids are like uids but increase monotonically always.
@@ -316,22 +318,32 @@ static void strength_reduce PROTO((rtx, rtx, rtx, int, rtx, rtx, rtx, int, int))
 static void find_single_use_in_loop PROTO((rtx, rtx, varray_type));
 static int valid_initial_value_p PROTO((rtx, rtx, int, rtx));
 static void find_mem_givs PROTO((rtx, rtx, int, rtx, rtx));
-static void record_biv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx *, int, int));
+static void record_biv PROTO((struct induction *, rtx, rtx, rtx, rtx,
+			      rtx *, int, int));
 static void check_final_value PROTO((struct induction *, rtx, rtx, 
 				     unsigned HOST_WIDE_INT));
-static void record_giv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx, int, enum g_types, int, rtx *, rtx, rtx));
+static void record_giv PROTO((struct induction *, rtx, rtx, rtx, rtx, rtx, rtx,
+			      int, enum g_types, int, rtx *, rtx, rtx));
 static void update_giv_derive PROTO((rtx));
-static int basic_induction_var PROTO((rtx, enum machine_mode, rtx, rtx, rtx *, rtx *, rtx **));
-static rtx simplify_giv_expr PROTO((rtx, int *));
-static int general_induction_var PROTO((rtx, rtx *, rtx *, rtx *, int, int *));
-static int consec_sets_giv PROTO((int, rtx, rtx, rtx, rtx *, rtx *, rtx *));
+static int basic_induction_var PROTO((rtx, enum machine_mode, rtx, rtx,
+				      rtx *, rtx *, rtx **));
+static rtx simplify_giv_expr PROTO((rtx, rtx *, int *));
+static int general_induction_var PROTO((rtx, rtx *, rtx *, rtx *,
+					rtx *, int, int *));
+static int consec_sets_giv PROTO((int, rtx, rtx, rtx, rtx *, rtx *,
+				  rtx *, rtx *));
 static int check_dbra_loop PROTO((rtx, int, rtx, struct loop_info *));
+static int fixup_decr_loop_info PROTO((struct loop_info *, struct iv_class *,
+				       rtx, rtx, rtx));
+static int check_decr_loop PROTO((rtx, int, rtx, struct loop_info *));
 static rtx express_from_1 PROTO((rtx, rtx, rtx));
 static rtx combine_givs_p PROTO((struct induction *, struct induction *));
 static void combine_givs PROTO((struct iv_class *));
 struct recombine_givs_stats;
 static int find_life_end PROTO((rtx, struct recombine_givs_stats *, rtx, rtx));
 static void recombine_givs PROTO((struct iv_class *, rtx, rtx, int));
+static void check_ext_dependant_givs PROTO((struct iv_class *, rtx, rtx,
+					    struct loop_info *));
 static int product_cheap_p PROTO((rtx, rtx));
 static int maybe_eliminate_biv PROTO((struct iv_class *, rtx, rtx, int, int, int));
 static int maybe_eliminate_biv_1 PROTO((rtx, rtx, struct iv_class *, int, rtx));
@@ -3919,45 +3931,65 @@ strength_reduce (scan_start, end, loop_top, insn_count,
       return;
     }
 
-  /* Find initial value for each biv by searching backwards from loop_start,
+  {
+    /* Sometimes the insn immediately after the end of the loop is an
+       unconditional jump. */
+
+    rtx loop_dest = next_real_insn (loop_end);
+    rtx loop_dest_2 = loop_dest;
+    if (loop_dest_2
+	&& GET_CODE (loop_dest_2) == JUMP_INSN
+	&& simplejump_p (loop_dest_2)
+	&& JUMP_LABEL (loop_dest_2))
+      {
+	loop_dest_2 = next_real_insn (JUMP_LABEL (loop_dest_2));
+      }
+
+    /* Find initial value for each biv by searching backwards from loop_start,
      halting at first label.  Also record any test condition.  */
 
-  call_seen = 0;
-  for (p = loop_start; p && GET_CODE (p) != CODE_LABEL; p = PREV_INSN (p))
-    {
-      note_insn = p;
+    call_seen = 0;
+    for (p = loop_start; p && GET_CODE (p) != CODE_LABEL; p = PREV_INSN (p))
+      {
+	note_insn = p;
 
-      if (GET_CODE (p) == CALL_INSN)
-	call_seen = 1;
+	if (GET_CODE (p) == CALL_INSN)
+	  call_seen = 1;
 
-      if (GET_CODE (p) == INSN || GET_CODE (p) == JUMP_INSN
-	  || GET_CODE (p) == CALL_INSN)
-	note_stores (PATTERN (p), record_initial);
+	if (GET_CODE (p) == INSN || GET_CODE (p) == JUMP_INSN
+	    || GET_CODE (p) == CALL_INSN)
+	  note_stores (PATTERN (p), record_initial);
 
-      /* Record any test of a biv that branches around the loop if no store
-	 between it and the start of loop.  We only care about tests with
-	 constants and registers and only certain of those.  */
-      if (GET_CODE (p) == JUMP_INSN
-	  && JUMP_LABEL (p) != 0
-	  && next_real_insn (JUMP_LABEL (p)) == next_real_insn (loop_end)
-	  && (test = get_condition_for_loop (p)) != 0
-	  && GET_CODE (XEXP (test, 0)) == REG
-	  && REGNO (XEXP (test, 0)) < max_reg_before_loop
-	  && (bl = reg_biv_class[REGNO (XEXP (test, 0))]) != 0
-	  && valid_initial_value_p (XEXP (test, 1), p, call_seen, loop_start)
-	  && bl->init_insn == 0)
-	{
-	  /* If an NE test, we have an initial value!  */
-	  if (GET_CODE (test) == NE)
-	    {
-	      bl->init_insn = p;
-	      bl->init_set = gen_rtx_SET (VOIDmode,
-					  XEXP (test, 0), XEXP (test, 1));
-	    }
-	  else
-	    bl->initial_test = test;
-	}
-    }
+	/* Record any test of a biv that branches around the loop if no store
+	   between it and the start of loop.  We only care about tests with
+	   constants and registers and only certain of those.  */
+	if (GET_CODE (p) == JUMP_INSN
+	    && JUMP_LABEL (p) != 0
+	    && (next_real_insn (JUMP_LABEL (p)) == loop_dest
+		|| next_real_insn (JUMP_LABEL (p)) == loop_dest_2)
+	    && (test = get_condition_for_loop (p)) != 0
+	    && GET_CODE (XEXP (test, 0)) == REG
+	    && REGNO (XEXP (test, 0)) < max_reg_before_loop
+	    && (bl = reg_biv_class[REGNO (XEXP (test, 0))]) != 0
+	    && valid_initial_value_p (XEXP (test, 1), p, call_seen, loop_start)
+	    && bl->init_insn == 0)
+	  {
+	    /* If an NE test, we have an initial value!  */
+	    if (GET_CODE (test) == NE)
+	      {
+		bl->init_insn = p;
+		bl->init_set = gen_rtx_SET (VOIDmode,
+					    XEXP (test, 0), XEXP (test, 1));
+	      }
+	    else
+	      {
+		get_condition (p, &bl->initial_test_insn);
+		bl->initial_test = test;
+		bl->initial_test_jump = p;
+	      }
+	  }
+      }
+  }
 
   /* Look at the each biv and see if we can say anything better about its
      initial value from any initializing insns set up above.  (This is done
@@ -4020,6 +4052,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	      && uid_luid[REGNO_LAST_UID (bl->regno)] < INSN_LUID (loop_end)
 	      && GET_CODE (src) == PLUS
 	      && GET_CODE (XEXP (src, 0)) == REG
+	      && REGNO (XEXP (src, 0)) != bl->regno
 	      && CONSTANT_P (XEXP (src, 1))
 	      && ((increment = biv_total_increment (bl, loop_start, loop_end))
 		  != NULL_RTX))
@@ -4397,6 +4430,7 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	  rtx src_reg;
 	  rtx add_val;
 	  rtx mult_val;
+	  rtx ext_val;
 	  int benefit;
 	  rtx regnote = 0;
 	  rtx last_consec_insn;
@@ -4407,12 +4441,12 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 
 	  if (/* SET_SRC is a giv.  */
 	      (general_induction_var (SET_SRC (set), &src_reg, &add_val,
-				      &mult_val, 0, &benefit)
+				      &mult_val, &ext_val, 0, &benefit)
 	       /* Equivalent expression is a giv.  */
 	       || ((regnote = find_reg_note (p, REG_EQUAL, NULL_RTX))
 		   && general_induction_var (XEXP (regnote, 0), &src_reg,
-					     &add_val, &mult_val, 0,
-					     &benefit)))
+					     &add_val, &mult_val, &ext_val,
+					     0, &benefit)))
 	      /* Don't try to handle any regs made by loop optimization.
 		 We have nothing on them in regno_first_uid, etc.  */
 	      && REGNO (dest_reg) < max_reg_before_loop
@@ -4421,9 +4455,9 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	      /* This must be the only place where the register is set.  */
 	      && (VARRAY_INT (n_times_set, REGNO (dest_reg)) == 1
 		  /* or all sets must be consecutive and make a giv.  */
-		  || (benefit = consec_sets_giv (benefit, p,
-						 src_reg, dest_reg,
-						 &add_val, &mult_val,
+		  || (benefit = consec_sets_giv (benefit, p, src_reg,
+						 dest_reg, &add_val,
+						 &mult_val, &ext_val,
 						 &last_consec_insn))))
 	    {
 	      struct induction *v
@@ -4437,9 +4471,9 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 	      if (VARRAY_INT (n_times_set, REGNO (dest_reg)) != 1)
 		p = last_consec_insn;
 
-	      record_giv (v, p, src_reg, dest_reg, mult_val, add_val, benefit,
-			  DEST_REG, not_every_iteration, NULL_PTR, loop_start,
-			  loop_end);
+	      record_giv (v, p, src_reg, dest_reg, mult_val, add_val, ext_val,
+			  benefit, DEST_REG, not_every_iteration, NULL_PTR,
+			  loop_start, loop_end);
 
 	    }
 	}
@@ -4547,6 +4581,11 @@ strength_reduce (scan_start, end, loop_top, insn_count,
      so that "decrement and branch until zero" insn can be used.  */
   check_dbra_loop (loop_end, insn_count, loop_start, loop_info);
 
+  /* Look for loops of the form
+     while (a--) { ... }
+     where a is not used inside the loop, and optimize them. */
+  check_decr_loop (loop_end, insn_count, loop_start, loop_info);
+
   /* Create reg_map to hold substitutions for replaceable giv regs.
      Some givs might have been made from biv increments, so look at
      reg_iv_type for a suitable size.  */
@@ -4610,6 +4649,11 @@ strength_reduce (scan_start, end, loop_top, insn_count,
 		       REGNO_LAST_UID (bl->regno));
 	    }
 	}
+
+      /* Check each extension dependant giv in this class to see if its
+	 root biv is safe from wrapping in the interior mode, which would
+	 make the giv illegal.  */
+      check_ext_dependant_givs (bl, loop_start, loop_end, loop_info);
 
       /* Combine all giv's for this iv_class.  */
       combine_givs (bl);
@@ -5226,6 +5270,7 @@ find_mem_givs (x, insn, not_every_iteration, loop_start, loop_end)
 	rtx src_reg;
 	rtx add_val;
 	rtx mult_val;
+	rtx ext_val;
 	int benefit;
 
 	/* This code used to disable creating GIVs with mult_val == 1 and
@@ -5234,15 +5279,16 @@ find_mem_givs (x, insn, not_every_iteration, loop_start, loop_end)
 	   this one would not be seen.   */
 
 	if (general_induction_var (XEXP (x, 0), &src_reg, &add_val,
-				   &mult_val, 1, &benefit))
+				   &mult_val, &ext_val, 1, &benefit))
 	  {
 	    /* Found one; record it.  */
 	    struct induction *v
 	      = (struct induction *) oballoc (sizeof (struct induction));
 
 	    record_giv (v, insn, src_reg, addr_placeholder, mult_val,
-			add_val, benefit, DEST_ADDR, not_every_iteration,
-			&XEXP (x, 0), loop_start, loop_end);
+			add_val, ext_val, benefit, DEST_ADDR,
+			not_every_iteration, &XEXP (x, 0), loop_start,
+			loop_end);
 
 	    v->mem_mode = GET_MODE (x);
 	  }
@@ -5301,6 +5347,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
   v->dest_reg = dest_reg;
   v->mult_val = mult_val;
   v->add_val = inc_val;
+  v->ext_dependant = NULL_RTX;
   v->location = location;
   v->mode = GET_MODE (dest_reg);
   v->always_computable = ! not_every_iteration;
@@ -5329,6 +5376,8 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
       bl->init_insn = 0;
       bl->init_set = 0;
       bl->initial_test = 0;
+      bl->initial_test_insn = 0;
+      bl->initial_test_jump = 0;
       bl->incremented = 0;
       bl->eliminable = 0;
       bl->nonneg = 0;
@@ -5384,13 +5433,13 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
    LOCATION points to the place where this giv's value appears in INSN.  */
 
 static void
-record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
+record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, ext_val, benefit,
 	    type, not_every_iteration, location, loop_start, loop_end)
      struct induction *v;
      rtx insn;
      rtx src_reg;
      rtx dest_reg;
-     rtx mult_val, add_val;
+     rtx mult_val, add_val, ext_val;
      int benefit;
      enum g_types type;
      int not_every_iteration;
@@ -5407,6 +5456,7 @@ record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
   v->dest_reg = dest_reg;
   v->mult_val = mult_val;
   v->add_val = add_val;
+  v->ext_dependant = ext_val;
   v->benefit = benefit;
   v->location = location;
   v->cant_derive = 0;
@@ -5593,6 +5643,27 @@ record_giv (v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
 
       if (v->no_const_addval)
 	fprintf (loop_dump_stream, " ncav");
+
+      if (v->ext_dependant)
+	{
+	  switch (GET_CODE (v->ext_dependant))
+	    {
+	    case SIGN_EXTEND:
+	      fprintf (loop_dump_stream, " ext se");
+	      break;
+	    case ZERO_EXTEND:
+	      fprintf (loop_dump_stream, " ext ze");
+	      break;
+	    case SUBREG:
+	      fprintf (loop_dump_stream, " ext sr");
+	      break;
+	    case TRUNCATE:
+	      fprintf (loop_dump_stream, " ext tr");
+	      break;
+	    default:
+	      abort ();
+	    }
+	}
 
       if (GET_CODE (mult_val) == CONST_INT)
 	{
@@ -5837,17 +5908,20 @@ update_giv_derive (p)
 		 be able to compute a compensation.  */
 	      else if (biv->insn == p)
 		{
+		  rtx ext_val_dummy;
 		  tem = 0;
 
 		  if (biv->mult_val == const1_rtx)
 		    tem = simplify_giv_expr (gen_rtx_MULT (giv->mode,
 							   biv->add_val,
 							   giv->mult_val),
+					     &ext_val_dummy,
 					     &dummy);
 
 		  if (tem && giv->derive_adjustment)
 		    tem = simplify_giv_expr (gen_rtx_PLUS (giv->mode, tem,
 							   giv->derive_adjustment),
+					     &ext_val_dummy,
 					     &dummy);
 		  if (tem)
 		    giv->derive_adjustment = tem;
@@ -6054,11 +6128,13 @@ basic_induction_var (x, mode, dest_reg, p, inc_val, mult_val, location)
      such that the value of X is biv * mult + add;  */
 
 static int
-general_induction_var (x, src_reg, add_val, mult_val, is_addr, pbenefit)
+general_induction_var (x, src_reg, add_val, mult_val, ext_val,
+		       is_addr, pbenefit)
      rtx x;
      rtx *src_reg;
      rtx *add_val;
      rtx *mult_val;
+     rtx *ext_val;
      int is_addr;
      int *pbenefit;
 {
@@ -6073,7 +6149,8 @@ general_induction_var (x, src_reg, add_val, mult_val, is_addr, pbenefit)
      Mark our place on the obstack in case we don't find a giv.  */
   storage = (char *) oballoc (0);
   *pbenefit = 0;
-  x = simplify_giv_expr (x, pbenefit);
+  *ext_val = NULL_RTX;
+  x = simplify_giv_expr (x, ext_val, pbenefit);
   if (x == 0)
     {
       obfree (storage);
@@ -6174,8 +6251,9 @@ static rtx sge_plus PROTO ((enum machine_mode, rtx, rtx));
 static rtx sge_plus_constant PROTO ((rtx, rtx));
 
 static rtx
-simplify_giv_expr (x, benefit)
+simplify_giv_expr (x, ext_val, benefit)
      rtx x;
+     rtx *ext_val;
      int *benefit;
 {
   enum machine_mode mode = GET_MODE (x);
@@ -6192,8 +6270,8 @@ simplify_giv_expr (x, benefit)
   switch (GET_CODE (x))
     {
     case PLUS:
-      arg0 = simplify_giv_expr (XEXP (x, 0), benefit);
-      arg1 = simplify_giv_expr (XEXP (x, 1), benefit);
+      arg0 = simplify_giv_expr (XEXP (x, 0), ext_val, benefit);
+      arg1 = simplify_giv_expr (XEXP (x, 1), ext_val, benefit);
       if (arg0 == 0 || arg1 == 0)
 	return NULL_RTX;
 
@@ -6241,6 +6319,7 @@ simplify_giv_expr (x, benefit)
 	    return simplify_giv_expr (
 		gen_rtx_PLUS (mode, XEXP (arg0, 0),
 			      gen_rtx_PLUS (mode, XEXP (arg0, 1), arg1)),
+		ext_val, 
 		benefit);
 
 	  default:
@@ -6265,6 +6344,7 @@ simplify_giv_expr (x, benefit)
 						  gen_rtx_PLUS (mode, arg0,
 								XEXP (arg1, 0)),
 						  XEXP (arg1, 1)),
+				    ext_val,
 				    benefit);
 
       /* Now must have MULT + MULT.  Distribute if same biv, else not giv.  */
@@ -6279,6 +6359,7 @@ simplify_giv_expr (x, benefit)
 					      gen_rtx_PLUS (mode,
 							    XEXP (arg0, 1),
 							    XEXP (arg1, 1))),
+				ext_val,
 				benefit);
 
     case MINUS:
@@ -6287,11 +6368,12 @@ simplify_giv_expr (x, benefit)
 					      XEXP (x, 0),
 					      gen_rtx_MULT (mode, XEXP (x, 1),
 							    constm1_rtx)),
+				ext_val, 
 				benefit);
 
     case MULT:
-      arg0 = simplify_giv_expr (XEXP (x, 0), benefit);
-      arg1 = simplify_giv_expr (XEXP (x, 1), benefit);
+      arg0 = simplify_giv_expr (XEXP (x, 0), ext_val, benefit);
+      arg1 = simplify_giv_expr (XEXP (x, 1), ext_val, benefit);
       if (arg0 == 0 || arg1 == 0)
 	return NULL_RTX;
 
@@ -6348,6 +6430,7 @@ simplify_giv_expr (x, benefit)
 						  gen_rtx_MULT (mode,
 								XEXP (arg0, 1),
 								arg1)),
+				    ext_val,
 				    benefit);
 
 	case PLUS:
@@ -6359,6 +6442,7 @@ simplify_giv_expr (x, benefit)
 						  gen_rtx_MULT (mode,
 								XEXP (arg0, 1),
 								arg1)),
+				    ext_val,
 				    benefit);
 
 	default:
@@ -6368,40 +6452,60 @@ simplify_giv_expr (x, benefit)
     case ASHIFT:
       /* Shift by constant is multiply by power of two.  */
       if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-	return 0;
+	return NULL_RTX;
 
       return simplify_giv_expr (gen_rtx_MULT (mode,
 					      XEXP (x, 0),
 					      GEN_INT ((HOST_WIDE_INT) 1
 						       << INTVAL (XEXP (x, 1)))),
+				ext_val,
 				benefit);
 
     case NEG:
       /* "-a" is "a * (-1)" */
       return simplify_giv_expr (gen_rtx_MULT (mode, XEXP (x, 0), constm1_rtx),
-				benefit);
+				ext_val, benefit);
 
     case NOT:
       /* "~a" is "-a - 1". Silly, but easy.  */
       return simplify_giv_expr (gen_rtx_MINUS (mode,
 					       gen_rtx_NEG (mode, XEXP (x, 0)),
 					       const1_rtx),
-				benefit);
+				ext_val, benefit);
 
     case USE:
       /* Already in proper form for invariant.  */
       return x;
 
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+    case SUBREG:
+    case TRUNCATE:
+      /* Conditionally recognize extensions of simple IVs.  After we've
+	 computed loop traversal counts and verified the range of the 
+	 source IV, we'll reevaluate this as a GIV.  */
+      if (*ext_val == NULL_RTX)
+	{
+	  arg0 = simplify_giv_expr (XEXP (x, 0), ext_val, benefit);
+	  if (arg0 && *ext_val == NULL_RTX && GET_CODE (arg0) == REG)
+	    {
+	      *ext_val = gen_rtx_fmt_e (GET_CODE (x), mode, arg0);
+	      return arg0;
+	    }
+	}
+      goto do_default;
+
     case REG:
       /* If this is a new register, we can't deal with it.  */
       if (REGNO (x) >= max_reg_before_loop)
-	return 0;
+	return NULL_RTX;
 
       /* Check for biv or giv.  */
       switch (REG_IV_TYPE (REGNO (x)))
 	{
 	case BASIC_INDUCT:
 	  return x;
+
 	case GENERAL_INDUCT:
 	  {
 	    struct induction *v = REG_IV_INFO (REGNO (x));
@@ -6410,14 +6514,26 @@ simplify_giv_expr (x, benefit)
 	       can derive another and subtract any needed adjustment if so.  */
 	    *benefit += v->benefit;
 	    if (v->cant_derive)
-	      return 0;
+	      return NULL_RTX;
 
 	    tem = gen_rtx_PLUS (mode, gen_rtx_MULT (mode, v->src_reg,
 						    v->mult_val),
 			   v->add_val);
 	    if (v->derive_adjustment)
 	      tem = gen_rtx_MINUS (mode, tem, v->derive_adjustment);
-	    return simplify_giv_expr (tem, benefit);
+
+	    arg0 = simplify_giv_expr (tem, ext_val, benefit);
+	    if (*ext_val)
+	      {
+		if (!v->ext_dependant)
+		  return arg0;
+	      }
+	    else
+	      {
+		*ext_val = v->ext_dependant;
+		return arg0;
+	      }
+	    return NULL_RTX;
 	  }
 
 	default:
@@ -6436,7 +6552,8 @@ simplify_giv_expr (x, benefit)
 		    /* If we match another movable, we must use that, as 
 		       this one is going away.  */
 		    if (m->match)
-		      return simplify_giv_expr (m->match->set_dest, benefit);
+		      return simplify_giv_expr (m->match->set_dest,
+						ext_val, benefit);
 
 		    /* If consec is non-zero, this is a member of a group of
 		       instructions that were moved together.  We handle this
@@ -6470,7 +6587,7 @@ simplify_giv_expr (x, benefit)
 			    || GET_CODE (tem) == CONST_INT
 			    || GET_CODE (tem) == SYMBOL_REF)
 			  {
-			    tem = simplify_giv_expr (tem, benefit);
+			    tem = simplify_giv_expr (tem, ext_val, benefit);
 			    if (tem)
 			      return tem;
 			  }
@@ -6479,7 +6596,8 @@ simplify_giv_expr (x, benefit)
 			    && GET_CODE (XEXP (XEXP (tem, 0), 0)) == SYMBOL_REF
 			    && GET_CODE (XEXP (XEXP (tem, 0), 1)) == CONST_INT)
 			  {
-			    tem = simplify_giv_expr (XEXP (tem, 0), benefit);
+			    tem = simplify_giv_expr (XEXP (tem, 0),
+						     ext_val, benefit);
 			    if (tem)
 			      return tem;
 			  }
@@ -6489,9 +6607,11 @@ simplify_giv_expr (x, benefit)
 	    }
 	  break;
 	}
-
       /* Fall through to general case.  */
+      goto do_default;
+
     default:
+    do_default:
       /* If invariant, return as USE (unless CONST_INT).
 	 Otherwise, not giv.  */
       if (GET_CODE (x) == USE)
@@ -6509,7 +6629,7 @@ simplify_giv_expr (x, benefit)
 	  return gen_rtx_USE (mode, x);
 	}
       else
-	return 0;
+	return NULL_RTX;
     }
 }
 
@@ -6584,13 +6704,14 @@ sge_plus (mode, x, y)
 
 static int
 consec_sets_giv (first_benefit, p, src_reg, dest_reg,
-		 add_val, mult_val, last_consec_insn)
+		 add_val, mult_val, ext_val, last_consec_insn)
      int first_benefit;
      rtx p;
      rtx src_reg;
      rtx dest_reg;
      rtx *add_val;
      rtx *mult_val;
+     rtx *ext_val;
      rtx *last_consec_insn;
 {
   int count;
@@ -6614,6 +6735,7 @@ consec_sets_giv (first_benefit, p, src_reg, dest_reg,
   v->benefit = first_benefit;
   v->cant_derive = 0;
   v->derive_adjustment = 0;
+  v->ext_dependant = NULL_RTX;
 
   REG_IV_TYPE (REGNO (dest_reg)) = GENERAL_INDUCT;
   REG_IV_INFO (REGNO (dest_reg)) = v;
@@ -6634,11 +6756,12 @@ consec_sets_giv (first_benefit, p, src_reg, dest_reg,
 	  && GET_CODE (SET_DEST (set)) == REG
 	  && SET_DEST (set) == dest_reg
 	  && (general_induction_var (SET_SRC (set), &src_reg,
-				     add_val, mult_val, 0, &benefit)
+				     add_val, mult_val, ext_val, 0, &benefit)
 	      /* Giv created by equivalent expression.  */
 	      || ((temp = find_reg_note (p, REG_EQUAL, NULL_RTX))
 		  && general_induction_var (XEXP (temp, 0), &src_reg,
-					    add_val, mult_val, 0, &benefit)))
+					    add_val, mult_val, ext_val,
+					    0, &benefit)))
 	  && src_reg == v->src_reg)
 	{
 	  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
@@ -6805,6 +6928,30 @@ express_from (g1, g2)
 
   add = express_from_1 (g1->add_val, g2->add_val, mult);
   if (add == NULL_RTX)
+    {
+      /* Failed.  If we've got a multiplication factor between G1 and G2,
+	 scale G1's addend and try again.  */
+      if (INTVAL (mult) > 1)
+	{
+	  rtx g1_add_val = g1->add_val;
+	  if (GET_CODE (g1_add_val) == MULT
+	      && GET_CODE (XEXP (g1_add_val, 1)) == CONST_INT)
+	    {
+	      HOST_WIDE_INT m;
+	      m = INTVAL (mult) * INTVAL (XEXP (g1_add_val, 1));
+	      g1_add_val = gen_rtx_MULT (GET_MODE (g1_add_val),
+					 XEXP (g1_add_val, 0), GEN_INT (m));
+	    }
+	  else
+	    {
+	      g1_add_val = gen_rtx_MULT (GET_MODE (g1_add_val), g1_add_val,
+					 mult);
+	    }
+
+	  add = express_from_1 (g1_add_val, g2->add_val, const1_rtx);
+	}
+    }
+  if (add == NULL_RTX)
     return NULL_RTX;
 
   /* Form simplified final result.  */
@@ -6841,38 +6988,36 @@ static rtx
 combine_givs_p (g1, g2)
      struct induction *g1, *g2;
 {
-  rtx tem = express_from (g1, g2);
+  rtx comb, ret;
+
+  /* With the introduction of ext dependant givs, we must care for modes.
+     G2 must not use a wider mode than G1.  */
+  if (GET_MODE_SIZE (g1->mode) < GET_MODE_SIZE (g2->mode))
+    return NULL_RTX;
+
+  ret = comb = express_from (g1, g2);
+  if (g1->mode != g2->mode)
+    ret = gen_lowpart (g2->mode, comb);
 
   /* If these givs are identical, they can be combined.  We use the results
      of express_from because the addends are not in a canonical form, so
      rtx_equal_p is a weaker test.  */
   /* But don't combine a DEST_REG giv with a DEST_ADDR giv; we want the
      combination to be the other way round.  */
-  if (tem == g1->dest_reg
+  if (comb == g1->dest_reg
       && (g1->giv_type == DEST_REG || g2->giv_type == DEST_ADDR))
     {
-      return g1->dest_reg;
+      return ret;
     }
 
   /* If G2 can be expressed as a function of G1 and that function is valid
      as an address and no more expensive than using a register for G2,
      the expression of G2 in terms of G1 can be used.  */
-  if (tem != NULL_RTX
+  if (ret != NULL_RTX
       && g2->giv_type == DEST_ADDR
-      && memory_address_p (g2->mem_mode, tem)
-      /* ??? Looses, especially with -fforce-addr, where *g2->location
-	 will always be a register, and so anything more complicated
-	 gets discarded.  */
-#if 0
-#ifdef ADDRESS_COST
-      && ADDRESS_COST (tem) <= ADDRESS_COST (*g2->location)
-#else
-      && rtx_cost (tem, MEM) <= rtx_cost (*g2->location, MEM)
-#endif
-#endif
-      )
+      && memory_address_p (g2->mem_mode, ret))
     {
-      return tem;
+      return ret;
     }
 
   return NULL_RTX;
@@ -7484,6 +7629,158 @@ recombine_givs (bl, loop_start, loop_end, unroll_p)
 	    rescan = i;
 	}
     }
+}
+
+/* Check each extension dependant giv in this class to see if its
+   root biv is safe from wrapping in the interior mode, which would
+   make the giv illegal.  */
+
+static void
+check_ext_dependant_givs (bl, loop_start, loop_end, loop_info)
+     struct iv_class *bl;
+     rtx loop_start, loop_end;
+     struct loop_info *loop_info;
+{
+  int ze_ok = 0, se_ok = 0, info_ok = 0;
+  enum machine_mode biv_mode = GET_MODE (bl->biv->src_reg);
+  HOST_WIDE_INT start_val;
+  unsigned HOST_WIDE_INT u_end_val;
+  rtx incr;
+  struct induction *v;
+
+  /* Make sure the iteration data is available.  We must have
+     constants in order to be certain of no overflow.  */
+  /* ??? An unknown iteration count with an increment of +-1
+     combined with friendly exit tests of against an invariant
+     value is also ameanable to optimization.  Not implemented.  */
+  if (loop_info->n_iterations > 0
+      && bl->initial_value
+      && GET_CODE (bl->initial_value) == CONST_INT
+      && (incr = biv_total_increment (bl, loop_start, loop_end))
+      && GET_CODE (incr) == CONST_INT
+      /* Make sure the host can represent the arithmetic.  */
+      && HOST_BITS_PER_WIDE_INT >= GET_MODE_BITSIZE (biv_mode))
+    {
+      unsigned HOST_WIDE_INT abs_incr, total_incr;
+      HOST_WIDE_INT s_end_val;
+      int neg_incr;
+
+      info_ok = 1;
+      start_val = INTVAL (bl->initial_value);
+	   
+      neg_incr = 0, abs_incr = INTVAL (incr);
+      if (INTVAL (incr) < 0)
+	neg_incr = 1, abs_incr = -abs_incr;
+      total_incr = abs_incr * loop_info->n_iterations;
+
+      /* Check for host arithmatic overflow.  */
+      if (total_incr / loop_info->n_iterations == abs_incr)
+	{
+	  unsigned HOST_WIDE_INT u_max;
+	  HOST_WIDE_INT s_max;
+
+	  u_end_val = start_val + (neg_incr ? -total_incr : total_incr);
+	  s_end_val = u_end_val;
+	  u_max = GET_MODE_MASK (biv_mode);
+	  s_max = u_max >> 1;
+		  
+	  /* Check zero extension of biv ok.  */
+	  if (start_val >= 0
+	      /* Check for host arithmatic overflow.  */
+	      && (neg_incr
+		  ? u_end_val < start_val
+		  : u_end_val > start_val)
+	      /* Check for target arithmetic overflow.  */
+	      && (neg_incr
+		  ? 1 /* taken care of with host overflow */
+		  : u_end_val <= u_max))
+	    {
+	      ze_ok = 1;
+	    }
+		  
+	  /* Check sign extension of biv ok.  */
+	  /* ??? While it is true that overflow with signed and pointer
+	     arithmetic is undefined, I fear too many programmers don't
+	     keep this fact in mind -- myself included on occasion.
+	     So leave alone with the signed overflow optimizations.  */
+	  if (start_val >= -s_max - 1
+	      /* Check for host arithmatic overflow.  */
+	      && (neg_incr
+		  ? s_end_val < start_val
+		  : s_end_val > start_val)
+	      /* Check for target arithmetic overflow.  */
+	      && (neg_incr
+		  ? s_end_val >= -s_max - 1
+		  : s_end_val <= s_max))
+	    {
+	      se_ok = 1;
+	    }
+	}
+    }
+
+  /* Invalidate givs that fail the tests.  */
+  for (v = bl->giv; v; v = v->next_iv)
+    if (v->ext_dependant)
+      {
+	enum rtx_code code = GET_CODE (v->ext_dependant);
+	int ok = 0;
+
+	switch (code)
+	  {
+	  case SIGN_EXTEND:
+	    ok = se_ok;
+	    break;
+	  case ZERO_EXTEND:
+	    ok = ze_ok;
+	    break;
+
+	  case SUBREG:
+	  case TRUNCATE:
+	    /* We don't know whether this value is being used as either
+	       signed or unsigned, so to safely truncate we must satisfy
+	       both.  The initial check here verifies the BIV itself; 
+	       once that is successful we may check its range wrt the
+	       derived GIV.  */
+	    if (se_ok && ze_ok)
+	      {
+		enum machine_mode outer_mode = GET_MODE (v->ext_dependant);
+		unsigned HOST_WIDE_INT max = GET_MODE_MASK (outer_mode) >> 1;
+
+		/* We know from the above that both endpoints are nonnegative,
+		   and that there is no wrapping.  Verify that both endpoints
+		   are within the (signed) range of the outer mode.  */
+		if (start_val <= max && u_end_val <= max)
+		  ok = 1;
+	      }
+	    break;
+
+	  default:
+	    abort ();
+	  }
+
+	if (ok)
+	  {
+	    if (loop_dump_stream)
+	      {
+		fprintf(loop_dump_stream,
+			"Verified ext dependant giv at %d of reg %d\n",
+			INSN_UID (v->insn), bl->regno);
+	      }
+	  }
+	else
+	  {
+	    if (loop_dump_stream)
+	      {
+		fprintf(loop_dump_stream,
+			"Failed ext dependant giv at %d, %s\n",
+			INSN_UID (v->insn),
+			(info_ok
+			 ? "biv iteration values overflowed"
+			 : "biv iteration info incomplete"));
+	      }
+	    v->ignore = 1;
+	  }
+      }
 }
 
 /* EMIT code before INSERT_BEFORE to set REG = B * M + A.  */
@@ -8136,6 +8433,557 @@ check_dbra_loop (loop_end, insn_count, loop_start, loop_info)
     }
 
   return 0;
+}
+
+/* 
+   Try to fix up loops of the form
+
+   tmp = a;
+   a--;
+   if (! tmp)
+   	goto done;
+   loop:
+   ...
+   tmp = a;
+   a--;
+   if (tmp)
+   	goto loop;
+   done:
+
+   This would be converted into
+   if (! a)
+   	goto done;
+   loop:
+   ...
+   a--;
+   if (a)
+   	goto loop;
+
+   There are a few common variations on this theme. Sometimes the
+   temporary is not set directly to a, but to a constant value;
+   sometimes the outer decrement is not actually performed as a
+   decrement, but as a second assignment. Sometimes we do the outer
+   comparison against the biv directly instead of a temporary.
+
+   INNER_SET is the insn containing the inner set of the temp register
+   used to compare against. */
+
+static int
+fixup_decr_loop_info (loop_info, bl, loop_start, loop_end, inner_set)
+     struct loop_info *loop_info;
+     struct iv_class *bl;
+     rtx loop_start, loop_end;
+     rtx inner_set;
+{
+  rtx p;
+  rtx biv_set = single_set (bl->biv->insn);
+
+  /* The jump insn outside the loop. */
+  rtx outer_jump_insn;
+  /* And its compare. */
+  rtx outer_compare_insn;
+  /* And the comparison. */
+  rtx outer_comparison;
+
+  /* The jump insn inside the loop. */
+  rtx inner_jump_insn = PREV_INSN (loop_end);
+  /* And its compare. */
+  rtx inner_compare_insn;
+  /* And its comparison. */
+  rtx inner_comparison;
+  /* The register used in the compare. */
+  rtx inner_compare_reg;
+
+  /* The insn we end up at after exiting the loop. */
+  rtx final_dest = NULL_RTX;
+
+  /* The label for the end of the loop. */
+  rtx jump_label;
+
+  /* If there is a decrement before the loop, this is its insn. */
+  rtx outer_decr_insn = NULL_RTX;
+
+  rtx real_init = NULL_RTX;
+  rtx outer_set = NULL_RTX;
+
+  get_condition (inner_jump_insn, &inner_compare_insn);
+  inner_compare_reg = SET_DEST (PATTERN (inner_set));
+  inner_comparison = get_condition_for_loop (inner_jump_insn);
+
+  {
+    /* Sometimes the loop is immediately followed by an unconditional
+       jump. */
+    rtx p = next_real_insn (loop_end);
+
+    if (p != NULL_RTX
+	&& GET_CODE (p) == JUMP_INSN
+	&& simplejump_p (p)
+	&& JUMP_LABEL (p))
+      {
+	final_dest = next_real_insn (JUMP_LABEL (p));
+      }
+  }
+
+  if (biv_set == NULL_RTX)
+    return 0;
+
+  /* We're decrementing the register outside the loop. bl->init_insn is
+     pointing to it. (It may not actually be a decrement. It could be
+     a constant set.) */
+  if (! rtx_equal_p (biv_set, bl->init_set))
+    {
+      if (GET_CODE (SET_SRC (biv_set)) != CONST_INT)
+	return 0;
+    }
+
+  outer_decr_insn = bl->init_insn;
+
+  /* Look for the outer jump. It may have been deleted, however. */
+  for (p = NEXT_INSN (bl->init_insn); p != loop_start && p; p = NEXT_INSN (p))
+    {
+      if (GET_CODE (p) == JUMP_INSN)
+	{
+	  break;
+	}
+    }
+
+  if (p && p != loop_start)
+    {
+      /* Wrong dest? */
+      if (JUMP_LABEL (p) == 0
+	  || (next_real_insn (JUMP_LABEL (p)) != next_real_insn (loop_end)
+	      && next_real_insn (JUMP_LABEL (p)) != final_dest))
+	{
+	  return 0;
+	}
+      outer_jump_insn = p;
+    }
+  else
+    {
+      outer_jump_insn = NULL_RTX;
+    }
+
+  if (outer_jump_insn != NULL_RTX)
+    {
+      /* Get the condition info for the outer jump. */
+      get_condition (outer_jump_insn, &outer_compare_insn);
+      outer_comparison = get_condition_for_loop (outer_jump_insn);
+
+  /* For the outer jump, we're comparing against the outer temporary
+     rather than the biv directly. Find the set for the outer
+     temporary as a sanity check. */
+
+      if (XEXP (outer_comparison, 0) != bl->biv->dest_reg)
+	{
+	  rtx set;
+
+	  for (outer_set = PREV_INSN (bl->init_insn);
+	       outer_set != NULL_RTX && GET_CODE (outer_set) != CODE_LABEL;
+	       outer_set = PREV_INSN (outer_set))
+	    {
+	      set = single_set (outer_set);
+	      if (set && SET_DEST (set) == XEXP (outer_comparison, 0))
+		break;
+	    }
+	  if (outer_set == NULL_RTX || GET_CODE (outer_set) == CODE_LABEL)
+	    return 0;
+
+	  if (SET_SRC (set) != bl->biv->dest_reg)
+	    {
+	      /* FIXME We must check the SET_SRC of the temporary to
+		 make sure it really is the temporary we're looking
+		 for. Don't believe in what the Force tells you. */
+	      if (GET_CODE (SET_SRC (set)) != CONST_INT)
+		return 0;
+	    }
+	}
+    }
+
+  /* Look for the actual initialization of the biv. */
+  for (p = PREV_INSN (outer_decr_insn); p && GET_CODE (p) != CODE_LABEL;
+       p = PREV_INSN (p))
+    {
+      rtx s2 = single_set (p);
+      if (s2 && SET_DEST (s2) == bl->biv->dest_reg)
+	{
+	  break;
+	}
+    }
+
+  if (p && GET_CODE (p) != CODE_LABEL)
+    {
+      real_init = p;
+    }
+  else
+    {
+      /* Didn't find it. Give up. */
+      return 0;
+    }
+
+  if (outer_jump_insn == NULL_RTX)
+    {
+      rtx set = single_set (real_init);
+      if (! CONSTANT_P (SET_SRC (set)))
+	{
+	  /* Be paranoid. The jump should only have been deleted if
+	     the initial value is a constant. */
+	  return 0;
+	}
+    }
+
+  /* Make sure the inner temporary reg used to compare against isn't
+     used anywhere else. */
+  for (p = NEXT_INSN (inner_set); p; p = NEXT_INSN (p))
+    {
+      if (p == inner_compare_insn)
+	continue;
+      if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
+	{
+	  if (reg_mentioned_p (inner_compare_reg, PATTERN (p)))
+	    return 0;
+	}
+    }
+
+  /* Find the jump label of dest of the inner jump. */
+  jump_label = XEXP (SET_SRC (PATTERN (inner_jump_insn)), 1);
+  if (jump_label == pc_rtx)
+    jump_label = XEXP (SET_SRC (PATTERN (inner_jump_insn)), 2);
+
+  LABEL_NUSES (XEXP (jump_label, 0))++;
+
+  /* Make a new comparison against the biv register directly, and
+     replace the old compare-n-jump with it. */
+
+  start_sequence ();
+  emit_cmp_and_jump_insns (bl->biv->dest_reg, XEXP (inner_comparison, 1),
+			   GET_CODE (inner_comparison), NULL_RTX,
+			   GET_MODE (bl->biv->dest_reg), 0, 0,
+			   XEXP (jump_label, 0));
+  p = gen_sequence ();
+  end_sequence ();
+
+  delete_insn (inner_jump_insn);
+
+  if (inner_jump_insn != inner_compare_insn)
+    delete_insn (inner_compare_insn);
+
+  /* Don't need to set the inner temporary anymore (We could let it be
+     deleted as a dead reg). */
+  delete_insn (inner_set);
+
+  emit_jump_insn_before (p, loop_end);
+
+  delete_insn (outer_decr_insn);
+
+  if (outer_jump_insn != NULL_RTX)
+    {
+      if (XEXP (outer_comparison, 0) != bl->biv->dest_reg)
+	{
+	  /* Emit a new comparison directly against the biv register. */
+	  LABEL_NUSES (JUMP_LABEL (outer_jump_insn))++;
+
+	  start_sequence ();
+	  emit_cmp_and_jump_insns (bl->biv->dest_reg,
+				   XEXP (outer_comparison, 1),
+				   GET_CODE (outer_comparison), NULL_RTX,
+				   GET_MODE (bl->biv->dest_reg), 0, 0,
+				   JUMP_LABEL (outer_jump_insn));
+	  p = gen_sequence ();
+	  end_sequence ();
+	  emit_jump_insn_after (p, outer_jump_insn);
+	  delete_insn (outer_compare_insn);
+	  if (outer_compare_insn != outer_jump_insn)
+	    delete_insn (outer_jump_insn);
+	}
+    }
+
+  bl->init_insn = real_init;
+  return 1;
+}
+
+static int
+check_decr_loop (loop_end, insn_count, loop_start, loop_info)
+     rtx loop_end;
+     int insn_count;
+     rtx loop_start;
+     struct loop_info *loop_info;
+{
+  rtx jump;
+  rtx comparison;
+  rtx first_compare;
+  struct iv_class *bl;
+  rtx insn;
+  rtx jump_label;
+  int loop_compare_and_branch;
+  int compare_with_prev = 0;
+  rtx inner_set;
+  rtx initial_jump_label = NULL_RTX;
+  rtx original_initial_value;
+
+  /* If there is more than one exit from the loop, we can't optimize
+     it. */
+  if (loop_number_exit_count[uid_loop_num[INSN_UID (loop_start)]])
+    return 0;
+
+  /* We're looking for
+     while (a-- != VALUE) {
+     	...
+     }
+     where a is not used except as a counter. */
+  jump = PREV_INSN (loop_end);
+  comparison = get_condition_for_loop (jump);
+  if (comparison == 0)
+    return 0;
+
+  /* Try to compute whether the compare/branch at the loop end is one or
+     two instructions.  */
+  get_condition (jump, &first_compare);
+  if (first_compare == jump)
+    loop_compare_and_branch = 1;
+  else if (first_compare == prev_nonnote_insn (jump))
+    loop_compare_and_branch = 2;
+  else
+    return 0;
+
+  /* Check all of the bivs to see if the compare uses one of them.
+     Skip bivs set more than once or that have more than one giv. Also
+     skip if the biv is used between its update and the test insn.  */
+
+  for (bl = loop_iv_list; bl; bl = bl->next)
+    {
+      if (bl->biv_count == 1
+	  && bl->incremented
+	  && bl->giv_count == 0
+	  && bl->init_insn != NULL_RTX
+	  && bl->biv->dest_reg == XEXP (comparison, 0)
+	  && ! reg_used_between_p (regno_reg_rtx[bl->regno], bl->biv->insn,
+				   first_compare))
+	break;
+    }
+
+  if (! bl)
+    {
+      rtx p;
+      /* The loop test may be of the form
+	 tmp = a;
+	 a--;
+	 if (tmp)... */
+
+      /* We only allow comparisons against 0 here.  (Probably being
+	 too paranoid.)  */
+      if (XEXP (comparison, 1) != const0_rtx)
+	{
+	  return 0;
+	}
+      for (bl = loop_iv_list; bl; bl = bl->next)
+	{
+	  /* We're assuming that the set of the temporary appears
+	     immediately before the decrement, and that it's a simple
+	     SET. */
+	  rtx set = single_set (PREV_INSN (bl->biv->insn));
+	  if (bl->biv_count == 1
+	      && bl->giv_count == 1
+	      && bl->incremented
+	      && set != NULL_RTX
+	      && SET_DEST (set) == XEXP (comparison, 0)
+	      && SET_SRC (set) == bl->biv->dest_reg)
+	    {
+	      break;
+	    }
+	}
+      if (bl == NULL)
+	return 0;
+      compare_with_prev = 1;
+    }
+
+  /* We can only optimize for a decrement of 1. */
+  if (bl->biv->mult_val != const1_rtx
+      || GET_CODE (bl->biv->add_val) != CONST_INT
+      || INTVAL (bl->biv->add_val) != -1)
+    return 0;
+
+  /* The biv has a test before the loop. Make sure it is what we expect. */
+  if (bl->initial_test)
+    {
+      if (! rtx_equal_p (XEXP (bl->initial_test, 0), XEXP (comparison, 0)))
+	return 0;
+
+      if (! rtx_equal_p (XEXP (bl->initial_test, 1), XEXP (comparison, 1)))
+	return 0;
+
+      if (GET_CODE (bl->initial_test) == GET_CODE (comparison))
+	{
+	  if (! compare_with_prev)
+	    return 0;
+	}
+      else
+	{
+	  if (compare_with_prev)
+	    return 0;
+	}
+    }
+
+  if (! compare_with_prev)
+    {
+      /* Check if we don't have a final value, or if it's already
+	 zero. */
+      if (loop_info->final_value == NULL_RTX
+	  || GET_CODE (loop_info->final_value) != CONST_INT
+	  || INTVAL (loop_info->final_value) == 0)
+	return 0;
+    }
+  else
+    {
+      if (loop_info->final_value != const0_rtx)
+	{
+	  /* The loop seems to have a final value. */
+	  if (loop_info->final_value != NULL_RTX)
+	    return 0;
+
+	  loop_info->final_value = const0_rtx;
+	}
+    }
+
+  {
+    rtx bivreg = regno_reg_rtx[bl->regno];
+    rtx p;
+    rtx compare_reg = NULL_RTX;
+
+    /* Make sure there are no uses except to count.  */
+    for (p = bl->init_insn ? bl->init_insn : loop_start;
+	 p != loop_end; p = NEXT_INSN (p))
+      {
+
+	if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
+	  {
+	    rtx set = single_set (p);
+	  
+	    if (p == prev_nonnote_insn (prev_nonnote_insn (loop_end))
+		|| p == prev_nonnote_insn (loop_end)
+		|| p == bl->biv->insn
+		|| p == bl->init_insn
+		|| p == bl->initial_test_insn
+		|| p == bl->initial_test_jump)
+	      /* Don't bother about the end test or the decrement. */
+	      ;
+	    else if (set && GET_CODE (SET_DEST (set)) == REG
+		     && REGNO (SET_DEST (set)) == bl->regno)
+	      /* An insn that sets the biv is not okay.  */
+	      return 0;
+	    else if (reg_mentioned_p (bivreg, PATTERN (p)))
+	      {
+		if (compare_with_prev
+		    && set && REGNO (SET_SRC (set)) == bl->regno
+		    && SET_DEST (set) == XEXP (comparison, 0))
+		  {
+		    /* This is the inner insn that sets the temporary
+		       used in the loop test. */
+		    inner_set = p;
+		    compare_reg = XEXP (comparison, 0);
+		  }
+		else
+		  {
+		    return 0;
+		  }
+	      }
+	    else if (compare_reg && reg_mentioned_p (compare_reg, PATTERN (p)))
+	      {
+		/* The compare reg is used somewhere else, we can't
+		   optimize.  */
+		return 0;
+	      }
+	  }
+      }
+  }
+
+  if (compare_with_prev)
+    {
+      return fixup_decr_loop_info (loop_info, bl, loop_start, loop_end,
+				   inner_set);
+    }
+
+  /* Determine the new initial value. */
+  if (GET_CODE (bl->initial_value) == CONST_INT)
+    {
+      bl->initial_value = 
+	GEN_INT (INTVAL (bl->initial_value) - INTVAL (loop_info->final_value));
+    }
+  else
+    {
+      bl->initial_value =
+	gen_rtx_MINUS (GET_MODE (bl->biv->dest_reg),
+		       bl->initial_value,
+		       loop_info->final_value);
+    }
+
+  insn = gen_move_insn (bl->biv->dest_reg, bl->initial_value);
+  bl->init_insn = emit_insn_after (insn, bl->init_insn);
+  
+  jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 1);
+  if (jump_label == pc_rtx)
+    jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 2);
+  
+  LABEL_NUSES (XEXP (jump_label, 0))++;
+
+  delete_insn (PREV_INSN (loop_end));
+  if (loop_compare_and_branch == 2)
+    delete_insn (first_compare);
+
+  start_sequence ();
+  emit_cmp_and_jump_insns (bl->biv->dest_reg, const0_rtx,
+			   GET_CODE (comparison), NULL_RTX,
+			   GET_MODE (bl->biv->dest_reg), 0, 0,
+			   XEXP (jump_label, 0));   
+  insn = gen_sequence ();
+  end_sequence ();
+  emit_jump_insn_before (insn, loop_end);
+
+  if (bl->initial_test_jump)
+    {
+      rtx initial_compare;
+      rtx initial_comparison = get_condition_for_loop (bl->initial_test_jump);
+
+      initial_jump_label = JUMP_LABEL (bl->initial_test_jump);
+      LABEL_NUSES (initial_jump_label)++;
+      get_condition (bl->initial_test_jump, &initial_compare);
+      start_sequence ();
+      emit_cmp_and_jump_insns (bl->biv->dest_reg, const0_rtx,
+			       GET_CODE (initial_comparison), NULL_RTX,
+			       GET_MODE (bl->biv->dest_reg), 0, 0,
+			       initial_jump_label);
+      insn = gen_sequence ();
+      end_sequence ();
+      insn = emit_jump_insn_before (insn, initial_compare);
+      delete_insn (bl->initial_test_jump);
+      if (bl->initial_test_jump != initial_compare)
+	delete_insn (initial_compare);
+      if (GET_CODE (insn) != JUMP_INSN)
+	insn = NEXT_INSN (insn);
+      bl->initial_test_jump = insn;
+      bl->initial_test = get_condition_for_loop (bl->initial_test_jump);
+    }
+
+  /* Set the correct final value at the end of the loop.  This will be
+     deleted if it is not used. */
+  if (GET_CODE (comparison) != NE)
+    {
+      insn = gen_move_insn (bl->biv->dest_reg, 
+			    gen_rtx_PLUS (GET_MODE (bl->biv->dest_reg),
+					  bl->biv->dest_reg,
+					  loop_info->final_value));
+    }
+  else
+    {
+      insn = gen_move_insn (bl->biv->dest_reg, loop_info->final_value);
+    }
+
+  emit_insn_after (insn, initial_jump_label ? initial_jump_label : loop_end);
+
+  /* The loop now always terminates on zero. */
+  loop_info->final_value = const0_rtx;
+  loop_info->final_equiv_value = const0_rtx;
+
+  return 1;
 }
 
 /* Verify whether the biv BL appears to be eliminable,

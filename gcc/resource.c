@@ -1287,3 +1287,24 @@ find_free_register (current_insn, class_str, mode, reg_set)
     }
   return NULL_RTX;
 }
+
+/* Return true if REG is dead at CURRENT_INSN.  */
+
+int
+reg_dead_p (current_insn, reg)
+     rtx current_insn, reg;
+{
+  struct resources used;
+  int regno, j;
+
+  mark_target_live_regs (get_insns (), current_insn, &used);
+  
+  regno = REGNO (reg);
+  for (j = HARD_REGNO_NREGS (regno, GET_MODE (reg)) - 1; j >= 0; j--)
+    {
+      if (TEST_HARD_REG_BIT (used.regs, regno + j))
+	return 0;
+    }
+
+  return 1;
+}

@@ -1,0 +1,872 @@
+1999-06-21  Richard Henderson  <rth@cygnus.com>
+
+	* Pass 0 merge checked into egcs.
+
+1999-06-11  Richard Henderson  <rth@cygnus.com>
+
+	* regmove.c (fixup_match_1): Don't optimize if `p' is within
+	or ending the shadow of a live flags register.
+
+1999-06-11  Richard Henderson  <rth@cygnus.com>
+
+	* loop.c (combine_givs_p): Reject if G1 narrower than G2.  Add
+	a lowpart wrapper if G2 narrower than G1.
+
+1999-06-09  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (enum reg_class): Add NON_Q_REGS.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS, PREDICATE_CODES): Update.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Define.
+	* i386.c (regclass_map): Update.
+	(q_regs_operand): Accept subregs.
+	(non_q_regs_operand): New.
+	* i386.md (reload_outqi): New.
+
+Wed Jun  9 13:36:53 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (ashlqi): Widen for non-qi registers.
+
+1999-06-04  Andreas Schwab  <schwab@issan.cs.uni-dortmund.de>
+
+	* loop.c (check_dbra_loop): Fix change of Jan 19.
+
+Fri Jun  4 13:34:28 1999  Andrew Haley  <aph@cygnus.com>
+
+	* flow.c (insn_dead_p): Revert the change below which checked
+	against frame_pointer_rtx not FRAME_POINTER_REGNUM.
+	(mark_set_1): Ditto.
+	(mark_used_regs): Ditto.
+
+Fri Jun  4 13:15:37 1999  Andrew Haley  <aph@cygnus.com>
+
+	* flow.c (mark_set_1): Ensure that regno is always set if the
+	`reg' rtx is a register.
+
+Wed May 26 07:45:23 1999  Stan Cox  <scox@cygnus.com>
+
+	* sibcall.c (gcse_main): Update find_basic_blocks call.
+	* range.c (range_update_basic_block): Update find_basic_blocks call.
+	Update life data calls.
+	* toplev.c (rest_of_compilation): Turn on live range splitting.
+	
+	Added the following flow.c changes:
+	
+	Wed May 26 06:03:23 1999  Nick Clifton	<nickc@cygnus.com>
+	* flow.c (insn_dead_p): Check against frame_pointer_rtx not
+	FRAME_POINTER_REGNUM. 
+	(mark_set_1): Ditto.
+	(mark_used_regs): Ditto.
+	
+	Tue May 25 14:06:06 1999  Jeffrey A Law  (law@cygnus.com)
+        * flow.c (mark_set_1): Do not record BLKmode stores as dead
+        store elimination candidates.
+
+	Tue Apr 27 19:50:25 EDT 1999  Andrew MacLeod  <amacleod@cygnus.com>
+	* flow.c (count_basic_blocks, find_basic_blocks_1): Ignore libcall
+	blocks, look for REG_EH_REGION note exclusively.
+	(make_edges): Check for REG_EH_REGION > 0 for specified handlers.
+
+	Wed Apr 14 21:29:18 1999  Andrew Haley  <aph@cygnus.com>
+	* flow.c: (make_edges): Always make edges from a basic block
+	to its exception handlers, even if the block ends with a jump.
+	
+	Mon Apr 12 03:11:30 1999  Jeffrey A Law  (law@cygnus.com)
+	* flow.c (flow_delete_insn): If we delete a CODE_LABEL, also remove
+	it from the nonlocal_goto_handler_labels list.
+	* rtl.h (remove_node_from_expr_list): Declare.
+	* rtlanal.c (remove_node_from_expr_list): New function.
+	
+	Sat Apr 10 22:51:53 1999  Jan Hubicka  <hubicka@limax.paru.cas.cz>
+	* flow.c (life_analysis): New parameter remove_dead_code.
+	(life_analysis_1): Likewise.
+	(propagate_block): Likewise; use it.
+	
+	Fri Apr  9 11:29:17 1999  Richard Henderson  <rth@cygnus.com>
+	* flow.c (merge_blocks_nomove): Rewrite to properly handle two
+	blocks that vanish entirely during merging.
+	
+	Thu Apr  8 19:20:18 1999  Jeffrey A Law  (law@cygnus.com)
+	* flow.c (delete_unreachable_blocks): Do not require EDGE_FALLTHRU
+	for an edge when tidying an edge which connects consecutive basic
+	blocks.
+	* flow.c (can_delete_label_p): Do not convert a label into a
+	deleted label here.
+	
+	Tue Apr  6 22:05:21 1999  Jan Hubicka  <hubicka@paru.cas.cz>
+			 	  Richard Henderson  <rth@cygnus.com>
+	* flow.c (verify_flow_info): New function.
+	(find_basic_blocks): Call it if ENABLE_CHECKING.
+	(merge_blocks): Don't merge if there are non-deletable labels.
+
+	Tue Apr  6 16:18:58 1999  Jan Hubicka  <hubicka@paru.cas.cz>
+	* flow.c (split_edge) update correctly flow graph, disable
+	EDGE_CRITICAL flag on the split edge, update NUSES for new label.
+	
+	Tue Apr  6 15:45:28 1999  Richard Henderson  <rth@cygnus.com>
+	* flow.c (create_basic_block): Make sure the bb note is in the block.
+	(can_delete_note_p): Rename from delete_note_p.
+	(delete_insn_chain): Preserve undeleteable labels too.
+	(tidy_fallthru_edge): Use next_real_insn instead of confusing
+	inline code.
+	
+	Wed Mar 31 12:32:43 1999  Richard Henderson  <rth@cygnus.com>
+	* flow.c (find_basic_blocks): New argument `do_cleanup'.
+	Conditionally call delete_unreachable_blocks.
+	(free_basic_block_vars): Zero ENTRY/EXIT data.
+	(allocate_for_life_analysis): Kill.  Split into...
+	(allocate_bb_life_data, allocate_reg_life_data): ... new functions.
+	(life_analysis_1): Update.
+	* gcse.c (gcse_main): Update find_basic_blocks call.
+	* toplev.c (rest_of_compilation): Likewise.
+	* stupid.c (stupid_life_analysis): Update life data calls.
+	* rtl.h, output.h: Update prototypes.
+
+	Sat Mar 27 16:13:50 1999  Jeffrey A Law  (law@cygnus.com)
+	* flow.c (mark_used_regs): Improve handling of ASMs.
+	
+	Sun Mar 21 12:13:01 1999  Nick Clifton  <nickc@cygnus.com>
+	* flow.c (can_delete_label_p): Do not allow user specified
+	labels to be deleted.
+
+	Sat Mar 20 21:46:06 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* flow.c (print_rtl_with_bb): Cast the return value of alloca.
+	
+	Wed Mar 17 14:51:19 1999  Richard Henderson  <rth@cygnus.com>
+	* flow.c (compute_immediate_dominators): New function.
+	* basic-block.h (compute_immediate_dominators): Declare it.
+
+Thu May 20 22:55:22 1999  Anthony Green  <green@cygnus.com>
+
+	* fixinc.x86-linux-gnu (FD_ZERO): Remove `0' operand to
+	asm.
+
+Wed May 19 10:02:10 Stan Cox  <scox@cygnus.com>
+	
+	1999-05-14  Ulrich Drepper  <drepper@cygnus.com>
+
+	* fixinc/fixinc.x86-linux-gnu (FD_ZERO): Fix operand numbers in
+	asm input operands.
+
+Wed May 19 10:02:10 Stan Cox  <scox@cygnus.com>
+	
+	Thu Feb 11 00:08:17 1999  John Wehle  (john@feith.com)
+
+        * function.c (assign_stack_temp_for_type): Clear best_p
+        when an exact match is found.
+
+        * i386.h (LOCAL_ALIGNMENT): Define.
+        * function.c (assign_stack_local, assign_outer_stack_local): Use it.
+        (assign_stack_temp_for_type): New function based on assign_stack_temp.
+        (assign_stack_temp): Call it.
+        (assign_temp): Use assign_stack_temp_for_type, not assign_stack_temp.
+        * stmt.c: Use assign_temp, not assign_stack_temp.
+        * tm.texi: Document LOCAL_ALIGNMENT.
+
+Tue May 18 12:32:10 Jim Blandy  <jimb@cygnus.com>
+
+	* i386.h (FUNCTION_BOUNDARY): Return the absolute value.
+
+Sat May  1 14:39:25 1999  Richard Henderson  <rth@cygnus.com>
+
+	* unroll.c (iteration_info): Fix initialized variable.
+
+Thu Apr 29 11:44:10 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (epilogue_deallocate_stack): New pattern.
+	* i386.c (ix86_expand_epilogue): Use it.
+
+Fri Apr 24 17:21:46 1999  Stan Cox  <scox@cygnus.com>
+
+	* Makefile.in (fixinc.sh): Remove.
+	* configure.in (ix86-*-linux*): Use fixinc.x86-linux-gnu for
+	fixincludes instead of fixinc.sh.
+	* configure: Rebuild.
+
+Fri Apr 16 18:44:10 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (call_value_pop+1): Fixup op1, not op0.
+
+Thu Apr 15 09:16:26 1999  Richard Henderson  <rth@cygnus.com>
+	
+	* unroll.c (iteration_info): Extend the biv's initial value in
+	the same way that the giv is derived from the biv.
+	(find_splittable_givs): Likewise.
+	
+Wed Mar 31 17:46:48 1999  Richard Henderson  <rth@cygnus.com>
+
+	* except.c (start_dynamic_handler): Force arg address to an
+	operand.
+
+Tue Mar 30 22:31:09 1999  Bob Manson  <manson@charmed.cygnus.com>
+
+	* config/i386/winnt.c (i386_pe_valid_decl_attribute_p): Function
+	names changed from i386 to ix86.
+	(i386_pe_valid_type_attribute_p): Ditto.
+
+	* config/i386/win32.h (SUBTARGET_PROLOGUE): Remove unneeded
+	reference to do_rtl; we always emit rtl now.
+
+Fri Mar 26 20:41:46 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* Makefile.in (stmp-fixinc): Use tooldir instead of gcc_tooldir.
+
+Thu Mar 18 14:46:20 1999  Richard Henderson  <rth@cygnus.com>
+
+	* loop.c (fixup_decr_loop_info, check_decr_loop): Prototype.
+	(check_decr_loop): Look through the emitted insns for the jump,
+	not the sequence.
+
+Thu Mar 18 12:42:45 1999  Richard Henderson  <rth@cygnus.com>
+
+	* fold-const.c (fold): Amend last change -- don't reassociate
+	if there are already multiplications in the right form.
+
+Thu Mar 18 03:32:02 1999  Bob Manson  <manson@charmed.cygnus.com>
+
+	* loop.h (struct iv_class): Add initial_test_insn, initial_test_jump.
+	* loop.c (strength_reduce): Cope with an unconditional jump at loop
+	end when looking for initial values for BIVs.  Fail initial BIV 
+	value from self-assignment.  Call check_decr_loop.
+	(record_biv): Init initial_test_insn, initial_test_jump.
+	(fixup_decr_loop_info, check_decr_loop): New functions.
+
+Thu Mar 18 03:17:54 1999  Richard Henderson  <rth@cygnus.com>
+
+	* jump.c (jump_optimize_1): Try cmove for any single_set; don't
+	implicitly copy the SET_SRC to a register.
+
+	* i386.c (ix86_expand_int_movcc): Reorg to allow FP comparisons
+	to generate integer cmoves.
+
+	* i386.c (conditional_move_p): Remove.
+	* i386.md: Revert last change.
+
+Thu Mar 18 03:12:11 1999  Richard Henderson  <rth@cygnus.com>
+
+	* fold-const.c (fold): Reassociate and factor multiplications 
+	seen in multi-dimensional array accesses.
+	* loop.c (express_from): Scale g1 addend when initial match fails.
+
+Thu Mar 18 02:53:09 1999  Richard Henderson  <rth@cygnus.com>
+
+	* loop.h (struct induction): New member ext_dependant.
+	* loop.c (general_induction_var): Accept a new ext_val parameter; 
+	change all callers.
+	(consec_sets_giv): Likewise.
+	(record_giv): Likewise.  Stuff it in ext_dependant.
+	(simplify_giv_expr): Likewise.  Fill it with an extend/trunc rtx.
+	(record_biv): Zero ext_dependant.
+	(check_ext_dependant_givs): New function.
+	(strength_reduce): Call it.
+
+Wed Mar 17 21:17:41 1999  Bob Manson  <manson@charmed.cygnus.com>
+ 
+	* config/i386/i386.md: Add patterns to optimize common branches
+	around moves with conditional moves.
+ 
+	* config/i386/i386.c (conditional_move_p): New function.
+
+	* flow.c (new_insn_dead_notes): Only process insns.
+	(update_life_info): Ditto.
+	(insn_within, unlink_insn_chain): New functions.
+	(replace_insns): Use them. Handle cases where the replacement
+	completely replaces a basic block. Correctly update the
+	first and last basic block insns.
+
+Wed Mar 17 15:00:36 1999  Richard Henderson  <rth@cygnus.com>
+
+	* configure.in: Enable Haifa for x86.
+	* configure: Rebuild.
+
+	* gcse.c (hash_scan_set): Hack off libcall movement.
+
+Wed Mar 17 11:23:20 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (one_cmplqi2): Don't split alternative 1.
+
+Tue Mar 16 18:55:58 1999  Richard Henderson  <rth@cygnus.com>
+
+	* reg-stack.c (swap_rtx_condition): Match flags modeless.
+	(compare_for_stack_reg): Kill antiquated have_cmove code.
+	* i386.c (ix86_expand_fp_compare): Emit fcomi without unspecs.
+	Make sure flags mode and branch mode match.
+	(ix86_expand_fp_movcc): Kill cc0-era workaround.
+	* i386.md (cmpfp_i, cmpfp_iu): Kill unspecs.
+	(setcc*, jcc*, cmov*): Match any MODE_CC if no_comparison_operator
+	or fcmov_comparison_operator.
+
+	* i386.md (swapsi, swaphi, swapqi): New patterns.
+	(swapsf, swapdf, swapxf): Implement as insns not expanders.
+	(swapfp): Kill.
+
+Tue Mar 16 11:33:13 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (x86_movx): Disable.
+	* i386.md (movhi, movqi): Don't force extra zero extensions.
+	(all hi and qi patterns): Don't auto-promote HImode to SImode if 
+	TARGET_PARTIAL_REG_STALL; never promote QImode.
+	(movstrict*): Disable if TARGET_PARTIAL_REG_STALL.
+	
+Sat Mar 13 17:33:14 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (print_reg): Abort on flags or fpsr.
+	(ix86_expand_int_movcc): Fix thinko in geu/ltu change.
+	* i386.md (x86_movsicc_0_m1): Likewise.
+	* i386.h (HARD_REGNO_MODE_OK): Only flags can hold CCmode values.
+	(HARD_REGNO_CALLER_SAVE_MODE): Don't caller-save flags.
+	(MD_ASM_CLOBBERS): New.
+	(DEBUG_PRINT_REG): Handle flags and fpsr explicitly.
+
+Fri Mar 12 14:27:46 1999  Richard Henderson  <rth@cygnus.com>
+
+	* reg-stack.c (sets_flags_p): Kill.
+	(emit_swap_insn): Don't care about flags when emitting fxch.
+
+Thu Mar 11 17:22:43 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (x86_movsicc_0_m1): New pattern.
+	* i386.c (ix86_expand_int_movcc): Use it in sbbl alternative which
+	works on unsigned only; try ltu also.  If ! TARGET_CMOVE, try masking
+	if one of the alternatives is -1 or 0.
+	
+Thu Mar 11 13:58:37 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (testqi_1+2): Select the proper mode for memories.
+
+Thu Mar 11 00:32:14 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (float_trunc patterns): Test op1 for death not op0.
+
+Wed Mar 10 00:44:55 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (fix_truncdi_1): Early clobber the scratch.
+	(fix_truncsi_1): Likewise.
+	(x86_fldcw_1): Memory is in HImode.
+
+Wed Mar 10 00:29:28 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (ashldi3 patterns): Arrange for CMOVE code to have a scratch.
+	Move splitting code out of line.
+	(ashrdi3, lshrdi3 patterns): Likewise.
+	* i386.c (ix86_split_ashldi): New.
+	(ix86_split_ashrdi, ix86_split_lshrdi): New.
+
+Tue Mar  9 18:36:18 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (addsi_2): Disallow pic_symbolic operands.
+	(addsi_3): Likewise.
+
+Tue Mar  9 18:02:14 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (print_operand): Print as decimal not hex for 64-bit hosts.
+
+	* i386.c (symbolic_operand): Recognize lone unspec properly.
+	(pic_symbolic_operand): New function.
+	* i386.h (PREDICATE_CODES): Add it.
+	* i386.md (addsi_1): Re-enable lea.  Force lea for @got, @gotoff.
+
+Tue Mar  9 17:20:18 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (prologue_allocate_stack): New pattern.
+	* i386.c (ix86_expand_prologue): Use it.
+
+Tue Mar  9 16:34:24 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (x86_shift_adj_[23]): Set JUMP_LABEL and LABEL_NREFS.
+
+Tue Mar  9 11:35:20 1999  Richard Henderson  <rth@cygnus.com>
+
+	* reg-stack.c (stack_reg_life_analysis): Use returnjump_p
+	instead of an explicit test for RETURN.
+
+Mon Mar  8 23:10:53 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (TARGET_USE_FIOP, ix86_use_fiop): New.
+	* i386.c (ix86_use_fiop): New.
+	(ix86_adjust_cost) [PPRO]: fp_int_src insns have 5 cycles extra delay.
+	* i386.md (trunc*f*f2): New patterns targeting memory without clobber.
+	Revise splits to use it.
+	(fp_int_src fop patterns): Enable only for TARGET_USE_FIOP.
+
+Sun Mar  7 19:08:34 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (struct processor_costs): Add large_insn.
+	* i386.c (enum reg_mem): Kill.
+	(processor costs): Add large_insn member.
+	(ix86_attr_length_default): Update for new types.
+	(ix86_flags_dependant): New.
+	(ix86_agi_dependant): New.
+	(ix86_adjust_cost): Add Pentium and PPro data.
+	(ix86_sched_data): New.
+	(ix86_safe_pent_pair, ix86_safe_ppro_uops): New.
+	(ix86_dump_ppro_packet): New.
+	(ix86_sched_init): Zero ix86_sched_data.
+	(ix86_reorder_insn): New.
+	(ix86_sched_reorder): Add Pentium and PPro data.
+	(ix86_variable_issue): Add PPro data.
+	* i386.md (attr type): Add imul, idiv, fmov, fcmp, fxch.  Rename 
+	fop, fop1, fmul, fdiv.  Update all patterns.
+	(attr fp_int_src): New.
+	(attr pent_pair): New.
+	(pentium function units): New.
+	(ppro function units): Reorg for port scheduling.
+	(strict_low_part zero_extend split): Fix typo.
+	(ashrsi3_31): Don't exclude pentium.
+	(push memory peeps): Conditionalize on TARGET_PUSH_MEMORY.
+	(mov imm mem peeps): Conditionalize on large_insn.
+	(alu reg mem peeps): Enable for !PPro.
+
+Mon Mar  1 11:34:24 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (ix86_expand_fp_movcc): Fix typo in if_then_else expr.
+	(memory_address_length): Handle ashift too.
+	* i386.md: Handle operation widening through splits instead of
+	code in output patterns.
+	(testqi+1): New pattern and split for compare zero_extract to 0.
+	(ashlsi3): Reenable lea.
+	(ashiftrt, lshiftrt, rotate, rotatert compare patterns): New.
+	(HImode and QImode peephole2 splits): Delete.
+
+Sat Feb 27 15:17:28 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (put_condition_code): Refine last change for fp only.
+	(print_operand): Distinguish integer/fp for put_condition_code.
+	(fcmov_comparison_operator): New function.
+	* i386.h (PREDICATE_OPERANDS): Document it.
+	* i386.md (divmodsi4, udivmodsi4): Early clobber op 3.
+	(fcmov patterns): Use fcmov_comparison_operator.
+
+Thu Feb 25 23:12:07 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (put_condition_code): Use nb and nbe instaed of ae and a.
+	(print_operand): Recognize 'F' and 'f'.
+	* i386.md (cmpfp_i, cmpfp_iu): Type is fpop1.
+	(divmodsi4): Fix typo last change.
+	(fcmov patterns): Use 'F' instaed of 'C' for conditional.
+
+Thu Feb 25 22:18:36 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (HARD_REGNO_MODE_OK): Don't allow DImode in odd regs.
+	* i386.md (divmodsi4): Revert last change.  Use a post-reload splitter.
+	(udivmodsi4): Likewise.
+
+	* i386.c (ix86_expand_int_movcc): Use SELECT_CC_MODE.
+
+Wed Feb 24 20:26:00 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (x86_use_loop): Disable.
+	(call_insn_operand): Break up and simplify the conditional.
+	(expander_call_insn_operand): Likewise.
+	(constant_call_address_operand): New function.
+	(arith_or_logical_operator): New function.
+	(print_operand): Call output_pic_addr_const directly when appropriate.
+	(ix86_expand_move): Emit clobbers for zero if no peep2.
+	(ix86_attr_length_default): Handle more insn types.
+	* i386.h (PREDICATE_OPERANDS): Update.
+	* i386.md (attr type): Streamline alu; add calls, fpspc, fcmov.
+	Update all insns.
+	(attr length, length_prefix): Update for new codes.
+	(attr length_opcode, memory, ppro_uops): Likewise.
+	(cmp*): Call out zero as a match_operand.  Update all callers.
+	(ashrsi3_31): Likewise for thirty-one.
+	(addhi_2): Don't query attributes after modifying operands.
+	(divmodsi4): Change to an expander; make gcc to sign extension.
+	(udivmodsi4, udivmodhi4): Likewise.
+	(peephole2 patterns): New.
+
+Sun Feb 21 21:23:45 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (ix86_attr_length_default): Update for attr type changes.
+	(is_fp_insn, is_fp_dest, is_fp_store): Kill.
+	(reg_mentioned_in_mem, agi_dependent): Kill.
+	(x86_adjust_cost): Kill.
+	(ix86_issue_rate, ix86_adjust_cost): New.
+	(ix86_sched_init, ix86_sched_reorder, ix86_variable_issue): New.
+	* i386.h (ADJUST_COST): Call ix86_adjust_cost.
+	(ADJUST_BLOCKAGE): Kill.
+	(ISSUE_RATE): Call ix86_issue_rate.
+	(MD_SCHED_INIT, MD_SCHED_REORDER): New.
+	(MD_SCHED_VARIABLE_ISSUE): New.
+	* i386.md (attr type): Add ilog1, iadd1, ibr, setcc, push, pop.
+	(attr length): Define for real.  Set lengths of some insns.
+	(attr length_prefix): New.
+	(attr length_opcode): New.
+	(attr memory): New.
+	(ppro scheduling): New.
+	(cmpfp_2): Split into mode-specific patterns.
+	(addXI): Emit sub for interesting constants.
+	(fcmov): Don't conditionalize on reload_completed.
+
+Sun Feb 21 13:59:20 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (MAX_CODE_ALIGN): Move from here ...
+	* i386.c (override_options): ... to here.
+
+Sun Feb 21 13:37:53 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (override_options): Default cpu to arch.  Always 
+	initialize ix86_cost.  Set alignment per cpu defaults.
+	Turn off IEEE comparisons if fast-math.  Turn on bct opts
+	if we should use `loop'.
+	(memory_address_length, ix86_attr_length_default): New functions.
+	* i386.h (enum processor_type): Add PROCESSOR_max.
+	(LOOP_ALIGN): Return the absolute value.
+	(LABEL_ALIGN_AFTER_BARRIER): Likewise.
+	(LOOP_ALIGN_MAX_SKIP): Treat a negative align power as max_skip*2.
+	(LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP): Likewise.
+
+Sun Feb 14 23:12:10 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (legitimate_address_p): Verify modes of base and index.
+
+Sat Feb 13 02:04:19 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (override_options): Set ix86_cost for default cpu.
+	(ix86_expand_move): Never emit move clobbers.
+	(ix86_expand_int_movcc): Count operations correctly.
+	* i386.h (TOPLEVEL_COSTS_N_INSNS): Wrap in do/while.
+	(RTX_COSTS): Use TOPLEVEL_COSTS_N_INSNS everywhere sensible.
+	Fix lea pattern matching.
+	* i386.md (addsi_1): Don't offer lea.
+
+Wed Feb 10 16:18:56 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386/i386elf.h (TARGET_DEFAULT): Define symbolically.
+
+	* i386.md (udivmodhi4): Match register mode to opcode.
+
+	* i386.c (ix86_expand_move): Only emit cc0 clobber for zero.
+
+Thu Feb  4 14:19:50 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (pushdi splitter): Detect and compensate when pushing
+	from stack addresses.
+	(pushdf splitter): Likewise.
+	(pushxf splitter): Likewise.
+
+Thu Feb  4 14:03:09 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h (ix86_flags_rtx): Kill declaration.
+	* i386.c (ix86_flags_rtx): Kill definition.
+	(ix86_expand_move): Generate flags reg rtx explicitly.
+	(ix86_expand_binary_operator): Likewise.
+	(ix86_expand_int_compare, ix86_expand_fp_compare): Likewise.
+	(ix86_expand_setcc, ix86_expand_int_movcc): Likewise.
+	(ix86_expand_fp_movcc): Likewise.
+	(clear_386_stack_locals): Don't initialize ix86_flags_rtx.
+	* i386.md (ffssi2): Generate flags reg rtx explicitly.
+	(ashlsi3 !size optimizer): Disable.
+
+	* reg-stack.c (ix86_flags_rtx): New variable.
+	(reg_to_stack): Initialize it.
+
+Tue Feb  2 19:43:59 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* i386.md (ashlsi3): Turn into a define_expand an anonymous pattern.
+	Make the anonymous pattern match when ! optimize_size.
+	(ashlsi3 size optimizer): New pattern.
+
+Wed Feb  3 13:28:11 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (gen_pop): Kill.
+	(load_pic_register): Use gen_popsi1 instead.
+	(ix86_expand_epilogue, ix86_split_movdi): Likewise.
+	(ix86_expand_binary_operator): If dst is memory, force to match
+	an appropriate source.  Emit full rtl here and always succeed.
+	(ix86_binary_operator_ok): Fail if dst is memory and does not
+	match an appropriate source.
+	(ix86_expand_int_movcc) [TARGET_CMOVE]: Force all constants to regs.
+	* i386.h (ix86_expand_binary_operator): Update declaration.
+	* i386.md (pop patterns): Use a parallel instead of post_inc.
+	(arith/logical patterns): Update uses of ix86_expand_binary_operator.
+	(ffssi2): Fix typo in movcc.
+
+Wed Jan 27 14:51:08 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (call patterns): Use copy_to_mode_reg instead of
+	force_reg.
+
+Thu Jan 21 21:59:21 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (cmpdi): Force one of two constants into a register.
+	(cmpsi, cmphi, cmpqi): Likewise.
+	(movsi-clobber splits): Disable until Bob's proper lifetime
+	code is ready.
+
+Tue Jan  5 09:33:20 1999  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (cccp.o): Use a temporary shell variable to avoid
+	strange sh parse errors.
+
+	* genrecog.c (preds): Add pop_operand.
+
+	* combine.c (subst): Ignore MODES_TIEABLE_P when not speaking
+	about registers or memory.
+	(simplify_rtx): Canonicalize compound operations.
+	(make_compound_operation): Add missing break.
+
+	* i386.c (x86_use_loop): New.
+	(override_options): Add "ppro" and "p2" processor aliases.
+	Streamline processor selection.
+	(ix86_sext16_if_const): Kill.
+	(ix86_logical_operator): Kill.
+	(incdec_operand): Recogize unsigned -1 in the mode.
+	(extract_operator): New.
+	(binary_fp_operator): Renamed from binary_387_op.
+	(mult_operator): Renamed from is_mul.
+	(div_operator): Renamed from is_div.
+	(shift_op): Kill.
+	(ix86_expand_fp_compare): Rely on less special patterns.
+	(ix86_expand_strlensi_unroll_1): Reimplement output_strlen_unroll
+	generating rtl.
+	(str_immediate_operand): Kill.
+	* i386.h (TARGET_USE_LOOP): New.
+	(PROCESSOR_*_STRING): Kill.
+	(PROCESSOR_DEFAULT): Kill.
+	(IX86_EXPAND_BINARY_OPERATOR): Kill.
+	(IX86_EXPAND_UNARY_OPERATOR): Kill.
+	(PREDICATE_CODES): New.
+	* i386.md (attr length): New.
+	(asm_attributes): Set length > 127.
+	(cmpqih_*): Kill.
+	(cmpqi_ext_*): New patterns that actually match combine output.
+	(movqi_hilo_*): Kill.
+	(mov?i_extv_*, mov?i_extzv_*, mov?i_insv_*): New.
+	(decqih_1): Kill.
+	(addqi_low_1, addqi_ext_1, addqi_ext_2): New.
+	(testqih_1, andqih_1, xorcqih_1): Kill.
+	(x86_shift_adj_*): Reimplement as rtl expanders.
+	(extv, extzv, insv): New.
+	(decrement_and_branch_on_count): New patterns.
+	(*): Misc tidying, mostly of whitespace.
+
+Mon Jan  4 16:54:38 1999  Richard Henderson  <rth@cygnus.com>
+
+	* final.c (output_asm_name): Emit tabs for spacing with -dp.
+
+	* flow.c (insn_dead_p): Always look for inc/dec rtl.
+	(insn_dead_p_1): New helper.
+	* gcse.c (delete_null_pointer_checks): Disable the optimization
+	if the tables would be too big.
+	* jump.c (delete_computation): Delete CYGNUS LOCAL code 
+	obviated by flow2.
+	* reload1.c (emit_reload_insns): Always use reload_in if we havn't
+	found a valid substitution.  Check set not null before using it.
+
+	* rtlanal.c (reg_clobbered_p, dead_p): New functions.
+
+	* reg-stack.c (sets_flags_p, next_flags_user): New functions.
+	(emit_swap_insn, swap_rtx_condition): Use them.
+	(compare_for_stack_reg): Look for x86 flags reg, not cc0.
+
+	* i386.c, i386.h, i386.md (*): s/i386_/ix86_/g to avoid confusion
+	on whether something is actually 80386 specific.
+	Separate opcode from operands with a tab.
+	* i386/unix.h: Likewise.
+
+	* i386.c (x86_unroll_strlen): Remove ppro.
+	(x86_partial_reg_stall): New.
+	(i386_cc_probably_useless_p, singlemove_string):
+	Call me Torquemada -- purge the sins of the damned.
+	(find_addr_reg, asm_add, output_move_double): Likewise.
+	(output_move_pushmem, output_move_memory): Likewise.
+	(output_move_const_single, notice_update_cc): Likewise.
+	(last_to_set_cc, doesnt_set_condition_code): Likewise.
+	(sets_condition_code, output_int_conditional_move): Likewise.
+	(arithmetic_comparison_operator, emit_pic_move): Remove.
+	(symbolic_operand): Recognize pic constructs.
+	(const1_operand, q_regs_operand, no_comparison_operator): New.
+	(cmp_fp_expander_operand): New.
+	(put_condition_code): Use the cc mode flavor to select exactly
+	which set of condition codes to check.
+	(print_operand): Use HOST_WIDE_INT_PRINT_HEX to output CONST_INT.
+	(ix86_expand_move): New.
+	(ix86_expand_int_compare): Update for death of cc0.
+	(ix86_expand_fp_compare, ix86_expand_setcc): Likewise.
+	(ix86_expand_int_movcc, ix86_expand_fp_movcc): Likewise.
+	(ix86_split_movdi): New.
+	(output_fp_compare): CC_REVERSED is no longer available.
+	(ix86_output_function_block_profiler): New, from old
+	FUNCTION_BLOCK_PROFILER
+	(ix86_output_block_profiler): New, from old BLOCK_PROFILER.
+	(clear_386_stack_locals): Initialize ix86_flags_rtx.
+	(reg_mentioned_in_mem): Remove cc0 case.
+	(x86_adjust_cost): Update for death of cc0.
+	* i386.h (TARGET_MOVX, TARGET_PARTIAL_REG_STALL): New.
+	(FIXED_REGISTERS): Unfix flags and fpsr.
+	(enum reg_class) [FLAGSREG, FPSRREG]: Remove.
+	(FUNCTION_BLOCK_PROFILER): Move code to a function.
+	(BLOCK_PROFILER): Likewise.
+	(MACHINE_STATE_SAVE, MACHINE_STATE_RESTORE): Make proper use
+	of inline assembly.
+	(EXTRA_CC_MODES, EXTRA_CC_NAMES): Add CCNOmode.
+	(SELECT_CC_MODE): Use it.
+	(CC_Z_IN_NOT_C, NOTICE_UPDATE_CC, OUTPUT_JUMP): Kill.
+	* i386.md (*): Update for death of cc0.
+	(function_unit null): New, for testing.
+
+1998-12-30  Felix Lee  <flee@cygnus.com>
+
+        * Makefile.in (cccp.o, cpplib.o): fix for include paths
+
+Thu Dec 17 17:33:19 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (i386_expand_fp_compare): Tweek last change to 
+	retain ordered comparition insns while still not trusting
+	them wrt NaN.
+
+Thu Dec 17 17:16:30 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (output_fp_compare): Rename from output_float_compare.
+	* i386.h, i386.md: Update.
+
+	* i386.c (i386_expand_fp_compare): Disable ordered comparisons
+	when in IEEE mode.
+
+Thu Dec 17 16:17:18 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (cmpsi_1, cmphi_1, cmpqi_1): Don't match memory for test.
+
+Thu Dec 17 16:08:12 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (movqi_hilo_1, movqi_hilo_2): New patterns.
+
+Thu Dec 17 15:40:51 1998  Richard Henderson  <rth@cygnus.com>
+
+	* expr.c (do_jump_for_compare): Improve and correct handling for
+	embedded jumps to if_false_label.
+	* i386.c (unsigned_comparison): Add already unsigned cases.
+	(i386_expand_branch): Need three branches worst case.
+
+	* i386.md (cmpsi_1, cmphi_1, cmpqi_1): Set attributes to notice
+	comparison with zero.
+
+Thu Dec 17 12:37:39 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (output_387_binary_op): Fix Intel typo for fadd/fmul.
+	(print_operand): DTRT with DImode suffix and GAS_MNEMONICS.
+
+Wed Dec 16 15:53:05 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (print_operand): Don't special case constant addresses.
+	(print_operand_address): Handle constant addresses properly for Intel.
+
+Tue Dec 15 15:00:43 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (pushhi, pushqi): Mark sizes of immediate constants
+	do designate pushw for intel syntax.
+
+	* i386/gas.h (ASM_FILE_START): New.
+	* i386/linux.h (ASM_FILE_START): New.
+	* i386/i386elf.h (ASM_FILE_START): Output .intel_syntax if needed.
+
+	* i386.c (print_operand): Don't let most of the modifiers
+	suppress intel memory size specs.
+
+	* i386.c (output_387_binary_op): Most of fsub and fdiv are 
+	not reversed from intel syntax.
+
+Thu Dec 10 17:02:17 1998  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (andsi3) [IMOVX]: Adjust operand 1 so that the proper
+	memory length is present in intel mode.
+	(*): Simplify mov?x output within {|}.
+
+Mon Dec  7 14:00:12 1998  Richard Henderson  <rth@cygnus.com>
+
+	Commit past month's work to new branch:
+	
+	* expr.c (do_jump_for_compare): Cope with multiple jump_insns
+	produced by the bcc expander.
+	* jump.c (condjump_label): New function.
+	* rtl.h (condjump_label): Declare it.
+
+	* genoutput.c (name_for_index): New function.
+	(scan_operands): Use it when printing error messages.
+	(validate_insn_alternatives): Likewise.
+	* genrecog.c (make_insn_sequence): Record an insn name even
+	for unnamed patterns.
+	(merge_trees): Print the insn names for conflicts.
+	
+	* loop.c (strength_reduce): Discard potential BIVs set with CLOBBERs.
+
+	* recog.c (STACK_POP_CODE): New definition.
+	(pop_operand): New function.
+	* recog.h (pop_operand): Declare it.
+
+	* reg-stack.c (emit_swap_insn): Use swapxf instead of swapdf.
+	(swap_rtx_condition_1): From corpse of old swap_rtx_condition.
+	(swap_rtx_condition): Recognize the multi-insn sequences now
+	produced for FP comparisions.  Return false if non-identifiable.
+	(compare_for_stack_reg): Be prepared for swap_rtx_condition failure.
+	(subst_stack_regs_pat): Recognize new UNSPEC 9 & 10 patterns.
+	
+	* i386.c, i386.h, i386.md (*): Kill ASN insn string macros and
+	replace with {|} asm alternates.  Fix up for Intel syntax.
+	
+	* i386.c (pentiumpro_cost): Shift costs 1, Mult costs 1.
+	(function_arg_partial_nregs): Kill.
+	(output_op_from_reg): Kill.
+	(output_to_reg): Kill.
+	(const248_operand): New function.
+	(const0_operand): New function.
+	(incdec_operand): New function.
+	(reg_no_sp_operand): New function.
+	(function_prologue, ix86_prologue): Kill.
+	(function_epilogue, ix86_epilogue): Kill
+	(load_pic_register): Kill all !do_rtl code.
+	(gen_push, gen_pop): New functions.
+	(ix86_expand_prologue): From corpse of ix86_prologue.  Kill !do_rtl.
+	(ix86_expand_epilogue): Likewise from ix86_epilogue.
+	(legitimate_pic_address_disp_p): Non-static.
+	(output_pic_addr_const): Care for asm dialiect.
+	(put_jump_code): Streamline.
+	(put_condition_code): Kill.
+	(print_reg): New function.
+	(print_operand): Care for asm dialect.  Kill J, D, d, F, f prefixes.
+	(print_operand_address): Care for asm dialect.
+	(notice_update_cc): Kill CC_IN_80387 and CC_FCOMI.
+	(split_di): Take care of constants first.
+	(VOIDmode_compare_op): Kill.
+	(output_387_binary_op): Kill NON_STACK_REG_P code.
+	(output_fload_trunc): Streamline.
+	(unsigned_comparison): New function.
+	(i386_expand_int_compare): New function.
+	(i386_expand_fp_compare): New function.
+	(i386_expand_compare): New function.
+	(i386_expand_branch): New function.
+	(i386_expand_setcc): New function.
+	(i386_expand_int_movcc): New function.
+	(i386_expand_fp_movcc): New function.
+	(output_float_compare): Streamline.
+	(copy_all_rtx): Kill.
+	(rewrite_address): Kill.
+	(output_fp_conditional_move): Kill.
+	* i386.h (TARGET_NO_WIDE_MULTIPLY, TARGET_WIDE_MULTIPLY): Kill.
+	(TARGET_SCHEDULE_PROLOGUE): Kill.
+	(TARGET_MOVE, TARGET_PSEUDO): Kill.
+	(TARGET_USE_SAHF): New.
+	(ASSEMBLER_DIALECT): New.
+	(FIRST_PSEUDO_REGISTER): Allow for flags and fpsr.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Update.
+	(REG_ALLOC_ORDER, enum reg_class): Update.
+	(REG_CLASS_CONTENTS, REGISTER_NAMES): Update.
+	(FLAGS_REG, FPCR_REG, CC_REG_P): New.
+	(CONST_OK_FOR_LETTER_P): Redo K for signed imm8, L for ze and.
+	(FUNCTION_ARG_PARTIAL_NREGS): Return 0.
+	(FUNCTION_PROLOGUE): Kill.
+	(FUNCTION_BEGIN_EPILOGUE, FUNCTION_EPILOGUE): Kill.
+	(LEGITIMATE_PIC_OPERAND_P): Use legitimate_pic_address_disp_p.
+	(EXTRA_CC_MODES): CCFPmode, CCFPUmode.
+	(i386_compare_gen, i386_compare_gen_eq): Kill.
+	(CC_TEST_AX, CC_IN_80387, CC_FCOMI): Kill.
+	(PRINT_REG): Move code to print_reg.	
+	(PRINT_IMMED_PREFIX, PRINT_OFFSET_PREFIX): Kill.
+	* i386.md: Rework almost completely.
+
+	* i386/i386elf.h: Use symbolic TARGET_DEFAULT.
+	* i386/isc.h, i386/isccoff.h, i386/next.h: Likewise.
+	* i386/sco.h, i386/sco5.h, i386/scodbx.h: Likewise.
+	* i386/sequent.h, i386/unix.h: Likewise.
+
+	* i386/unix.h: Kill ASN and friends.

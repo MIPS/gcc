@@ -159,6 +159,7 @@ from the machine description file `md'.  */\n\n");
 	  insn_code_number++;
 	}
       if (GET_CODE (desc) == DEFINE_PEEPHOLE
+	  || GET_CODE (desc) == DEFINE_PEEPHOLE2
 	  || GET_CODE (desc) == DEFINE_SPLIT)
 	{
 	  insn_code_number++;

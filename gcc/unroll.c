@@ -2435,6 +2435,7 @@ iteration_info (iteration_var, initial_value, increment, loop_start, loop_end)
     {
       HOST_WIDE_INT offset = 0;
       struct induction *v = REG_IV_INFO (REGNO (iteration_var));
+      rtx bl_initial_value;
 
       if (REGNO (v->src_reg) >= max_reg_before_loop)
 	abort ();
@@ -2467,11 +2468,41 @@ iteration_info (iteration_var, initial_value, increment, loop_start, loop_end)
 	fprintf (loop_dump_stream,
 		 "Loop unrolling: Giv iterator, initial value bias %ld.\n",
 		 (long) offset);
+
+      /* For an extention dependant giv, we need to coerce the biv's
+	 initial value into the proper mode.  */
+      bl_initial_value = bl->initial_value;
+      if (v->ext_dependant)
+	{
+	  rtx biv_reg = bl->biv->src_reg;
+	  if (bl_initial_value == biv_reg)
+	    {
+	      /* If we don't know the initial value, the v->ext_dependant
+		 rtx already has the correct extensions to the biv.  */
+	      bl_initial_value = v->ext_dependant;
+	    }
+	  else if (GET_CODE (bl_initial_value) != CONST_INT)
+	    {
+	      /* If we've a non-trivial initial value, we must apply the
+		 extensions to the initial value.  */
+	      rtx p, new;
+	      p = new = copy_rtx (v->ext_dependant);
+
+	      /* Find the base of a series of extensions and/or truncations. */
+	      while (XEXP (p, 0) != biv_reg)
+		p = XEXP (p, 0);
+
+	      XEXP (p, 0) = bl_initial_value;
+	      bl_initial_value = new;
+	    }
+	}
+	
       /* Initial value is mult_val times the biv's initial value plus
 	 add_val.  Only useful if it is a constant.  */
+
       *initial_value
 	= fold_rtx_mult_add (v->mult_val,
-			     plus_constant (bl->initial_value, offset),
+			     plus_constant (bl_initial_value, offset),
 			     v->add_val, v->mode);
     }
   else
@@ -2839,6 +2870,28 @@ find_splittable_givs (bl, unroll_type, loop_start, loop_end, increment,
 				loop_start);
 	      biv_initial_value = tem;
 	    }
+
+	  /* For an extention dependant giv, we need to coerce the biv's
+	     initial value into the proper mode.  */
+	  if (v->ext_dependant)
+	    {
+	      rtx biv_reg = bl->biv->src_reg;
+	      if (GET_CODE (biv_initial_value) != CONST_INT)
+		{
+		  /* If we've a non-trivial initial value, we must apply the
+		     extensions to the initial value.  */
+		  rtx p, new = copy_rtx (v->ext_dependant);
+
+		  /* Find the base of a series of extensions and/or
+		     truncations. */
+		  while (XEXP (p, 0) != biv_reg)
+		    p = XEXP (p, 0);
+
+		  XEXP (p, 0) = biv_initial_value;
+		  biv_initial_value = new;
+		}
+	    }
+	
 	  value = fold_rtx_mult_add (v->mult_val, biv_initial_value,
 				     v->add_val, v->mode);
 	}

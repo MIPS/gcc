@@ -39,6 +39,7 @@ char **insn_name_ptr = 0;
 
 static int max_opno;
 static int max_dup_opno;
+static int max_scratch_opno;
 static int register_constraints;
 static int insn_code_number;
 static int insn_index_number;
@@ -66,12 +67,14 @@ struct clobber_ent
 static void max_operand_1		PROTO((rtx));
 static int max_operand_vec		PROTO((rtx, int));
 static void print_code			PROTO((RTX_CODE));
-static void gen_exp			PROTO((rtx));
+static void gen_exp			PROTO((rtx, enum rtx_code));
 static void gen_insn			PROTO((rtx));
 static void gen_expand			PROTO((rtx));
 static void gen_split			PROTO((rtx));
 static void output_add_clobbers		PROTO((void));
 static void output_init_mov_optab	PROTO((void));
+static void gen_rtx_scratch		PROTO((rtx, enum rtx_code));
+static void output_peephole2_scratch	PROTO((rtx));
 
 
 static void
@@ -97,6 +100,8 @@ max_operand_1 (x)
     max_opno = MAX (max_opno, XINT (x, 0));
   if (code == MATCH_DUP || code == MATCH_OP_DUP || code == MATCH_PAR_DUP)
     max_dup_opno = MAX (max_dup_opno, XINT (x, 0));
+  if (code == MATCH_SCRATCH)
+    max_scratch_opno = MAX (max_scratch_opno, XINT (x, 0));
 
   fmt = GET_RTX_FORMAT (code);
   len = GET_RTX_LENGTH (code);
@@ -123,6 +128,7 @@ max_operand_vec (insn, arg)
 
   max_opno = -1;
   max_dup_opno = -1;
+  max_scratch_opno = -1;
 
   for (i = 0; i < len; i++)
     max_operand_1 (XVECEXP (insn, arg, i));
@@ -144,12 +150,28 @@ print_code (code)
     }
 }
 
+static void
+gen_rtx_scratch (x, subroutine_type)
+     rtx x;
+     enum rtx_code subroutine_type;
+{
+  if (subroutine_type == DEFINE_PEEPHOLE2)
+    {
+      printf ("operand%d", XINT (x, 0));
+    }
+  else
+    {
+      printf ("gen_rtx_SCRATCH (%smode)", GET_MODE_NAME (GET_MODE (x)));
+    }
+}
+
 /* Print a C expression to construct an RTX just like X,
    substituting any operand references appearing within.  */
 
 static void
-gen_exp (x)
+gen_exp (x, subroutine_type)
      rtx x;
+     enum rtx_code subroutine_type;
 {
   register RTX_CODE code;
   register int i;
@@ -180,7 +202,7 @@ gen_exp (x)
       for (i = 0; i < XVECLEN (x, 1); i++)
 	{
 	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (x, 1, i));
+	  gen_exp (XVECEXP (x, 1, i), subroutine_type);
 	}
       printf (")");
       return;
@@ -191,7 +213,7 @@ gen_exp (x)
       for (i = 0; i < XVECLEN (x, 2); i++)
 	{
 	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (x, 2, i));
+	  gen_exp (XVECEXP (x, 2, i), subroutine_type);
 	}
       printf (")");
       return;
@@ -202,7 +224,7 @@ gen_exp (x)
       return;
 
     case MATCH_SCRATCH:
-      printf ("gen_rtx_SCRATCH (%smode)", GET_MODE_NAME (GET_MODE (x)));
+      gen_rtx_scratch (x, subroutine_type);
       return;
 
     case ADDRESS:
@@ -254,7 +276,7 @@ gen_exp (x)
 	break;
       printf (",\n\t");
       if (fmt[i] == 'e' || fmt[i] == 'u')
-	gen_exp (XEXP (x, i));
+	gen_exp (XEXP (x, i), subroutine_type);
       else if (fmt[i] == 'i')
 	printf ("%u", XINT (x, i));
       else if (fmt[i] == 's')
@@ -266,7 +288,7 @@ gen_exp (x)
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    {
 	      printf (",\n\t\t");
-	      gen_exp (XVECEXP (x, i, j));
+	      gen_exp (XVECEXP (x, i, j), subroutine_type);
 	    }
 	  printf (")");
 	}
@@ -378,7 +400,7 @@ gen_insn (insn)
   if (XVECLEN (insn, 1) == 1)
     {
       printf ("  return ");
-      gen_exp (XVECEXP (insn, 1, 0));
+      gen_exp (XVECEXP (insn, 1, 0), DEFINE_INSN);
       printf (";\n}\n\n");
     }
   else
@@ -387,7 +409,7 @@ gen_insn (insn)
       for (i = 0; i < XVECLEN (insn, 1); i++)
 	{
 	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (insn, 1, i));
+	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN);
 	}
       printf ("));\n}\n\n");
     }
@@ -430,7 +452,7 @@ gen_expand (expand)
       && XVECLEN (expand, 1) == 1)
     {
       printf ("  return ");
-      gen_exp (XVECEXP (expand, 1, 0));
+      gen_exp (XVECEXP (expand, 1, 0), DEFINE_EXPAND);
       printf (";\n}\n\n");
       return;
     }
@@ -439,8 +461,11 @@ gen_expand (expand)
      make a local variable.  */
   for (i = operands; i <= max_dup_opno; i++)
     printf ("  rtx operand%d;\n", i);
-  if (operands > 0 || max_dup_opno >= 0)
-    printf ("  rtx operands[%d];\n", MAX (operands, max_dup_opno + 1));
+  for (; i <= max_scratch_opno; i++)
+    printf ("  rtx operand%d;\n", i);
+  if (operands > 0 || max_dup_opno >= 0 || max_scratch_opno >= 0)
+    printf ("  rtx operands[%d];\n",
+	    MAX (operands, MAX (max_scratch_opno, max_dup_opno) + 1));
   printf ("  rtx _val = 0;\n");
   printf ("  start_sequence ();\n");
 
@@ -467,6 +492,8 @@ gen_expand (expand)
 	  for (i = 0; i < operands; i++)
 	    printf ("  operand%d = operands[%d];\n", i, i);
 	  for (; i <= max_dup_opno; i++)
+	    printf ("  operand%d = operands[%d];\n", i, i);
+	  for (; i <= max_scratch_opno; i++)
 	    printf ("  operand%d = operands[%d];\n", i, i);
 	}
     }
@@ -503,7 +530,7 @@ gen_expand (expand)
 	printf ("  emit (");
       else
 	printf ("  emit_insn (");
-      gen_exp (next);
+      gen_exp (next, DEFINE_EXPAND);
       printf (");\n");
       if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
 	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
@@ -526,27 +553,54 @@ gen_split (split)
 {
   register int i;
   int operands;
+  char *name = "split";
+
+  if (GET_CODE (split) == DEFINE_PEEPHOLE2)
+    name = "peephole2";
 
   if (XVEC (split, 0) == 0)
-    fatal ("define_split (definition %d) lacks a pattern", insn_index_number);
+    fatal ("define_%s (definition %d) lacks a pattern", name,
+	   insn_index_number);
   else if (XVEC (split, 2) == 0)
-    fatal ("define_split (definition %d) lacks a replacement pattern",
+    fatal ("define_%s (definition %d) lacks a replacement pattern", name,
 	   insn_index_number);
 
   /* Find out how many operands this function has.  */
 
   max_operand_vec (split, 2);
-  operands = MAX (max_opno, max_dup_opno) + 1;
+  operands = MAX (max_opno, MAX (max_dup_opno, max_scratch_opno)) + 1;
 
   /* Output the function name and argument declarations.  */
-  printf ("rtx\ngen_split_%d (operands)\n     rtx *operands;\n",
-	  insn_code_number);
+  if (GET_CODE (split) == DEFINE_PEEPHOLE2)
+    {
+      printf ("rtx\ngen_%s_%d (curr_insn, operands)\n     rtx curr_insn;\n\
+    rtx *operands;\n", 
+	      name,
+	      insn_code_number);
+    }
+  else
+    {
+      printf ("rtx\ngen_%s_%d (operands)\n     rtx *operands;\n", name,
+	      insn_code_number);
+    }
   printf ("{\n");
 
   /* Declare all local variables.  */
   for (i = 0; i < operands; i++)
     printf ("  rtx operand%d;\n", i);
   printf ("  rtx _val = 0;\n");
+
+  if (GET_CODE (split) == DEFINE_PEEPHOLE2)
+    {
+      printf ("  HARD_REG_SET _regs_allocated;\n");
+      printf ("  CLEAR_HARD_REG_SET (_regs_allocated);\n");
+
+      for (i = 0; i < XVECLEN (split, 2); i++)
+	{
+	  output_peephole2_scratch (XVECEXP (split, 2, i));
+	}
+    }
+
   printf ("  start_sequence ();\n");
 
   /* The fourth operand of DEFINE_SPLIT is some code to be executed
@@ -591,7 +645,7 @@ gen_split (split)
 	printf ("  emit (");
       else
 	printf ("  emit_insn (");
-      gen_exp (next);
+      gen_exp (next, GET_CODE (split));
       printf (");\n");
       if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
 	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
@@ -631,7 +685,8 @@ output_add_clobbers ()
       for (i = clobber->first_clobber; i < XVECLEN (clobber->pattern, 1); i++)
 	{
 	  printf ("      XVECEXP (pattern, 0, %d) = ", i);
-	  gen_exp (XVECEXP (clobber->pattern, 1, i));
+	  gen_exp (XVECEXP (clobber->pattern, 1, i),
+		   GET_CODE (clobber->pattern));
 	  printf (";\n");
 	}
 
@@ -642,6 +697,42 @@ output_add_clobbers ()
   printf ("      abort ();\n");
   printf ("    }\n");
   printf ("}\n");
+}
+
+/* Generate code to invoke find_free_register () as needed for the
+   scratch registers used by the peephole2 pattern in INSN. */
+
+static void
+output_peephole2_scratch (rtx insn)
+{
+  RTX_CODE code = GET_CODE (insn);
+
+  if (code == MATCH_SCRATCH)
+    {
+      printf ("  if ((operands[%d] = find_free_register (curr_insn, \"%s\", %smode, &_regs_allocated)) == NULL_RTX)\n\
+    return NULL;\n", 
+	      XINT (insn, 0),
+	      XSTR (insn, 1),
+	      GET_MODE_NAME (GET_MODE (insn)));
+    }
+  else
+    {
+      int i;
+      char *fmt = GET_RTX_FORMAT (code);
+      int len = GET_RTX_LENGTH (code);
+
+      for (i = 0; i < len; i++)
+	{
+	  if (fmt[i] == 'e' || fmt[i] == 'u')
+	    output_peephole2_scratch (XEXP (insn, i));
+	  else if (fmt[i] == 'E')
+	    {
+	      int j;
+	      for (j = 0; j < XVECLEN (insn, i); j++)
+		output_peephole2_scratch (XVECEXP (insn, i, j));
+	    }
+	}
+    }
 }
 
 /* Write a function, init_mov_optab, that is called to set up entries
@@ -778,6 +869,8 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"insn-flags.h\"\n");
   printf ("#include \"insn-codes.h\"\n");
   printf ("#include \"recog.h\"\n");
+  printf ("#include \"hard-reg-set.h\"\n");
+  printf ("#include \"resource.h\"\n");
   printf ("#include \"reload.h\"\n\n");
   printf ("extern rtx recog_operand[];\n");
   printf ("#define operands emit_operand\n\n");
@@ -794,6 +887,7 @@ from the machine description file `md'.  */\n\n");
       ungetc (c, infile);
 
       desc = read_rtx (infile);
+
       if (GET_CODE (desc) == DEFINE_INSN)
 	{
 	  gen_insn (desc);
@@ -805,6 +899,11 @@ from the machine description file `md'.  */\n\n");
 	  ++insn_code_number;
 	}
       if (GET_CODE (desc) == DEFINE_SPLIT)
+	{
+	  gen_split (desc);
+	  ++insn_code_number;
+	}
+      if (GET_CODE (desc) == DEFINE_PEEPHOLE2)
 	{
 	  gen_split (desc);
 	  ++insn_code_number;
