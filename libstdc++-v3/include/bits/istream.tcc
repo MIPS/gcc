@@ -1038,7 +1038,10 @@ namespace std
 	{
 	  try
 	    {
+	      // Avoid reallocation for common case.
 	      __str.erase();
+	      _CharT __buf[128];
+	      __size_type __len = 0;
 	      streamsize __w = __in.width();
 	      __size_type __n;
 	      __n = __w > 0 ? static_cast<__size_type>(__w) : __str.max_size();
@@ -1052,10 +1055,17 @@ namespace std
 		     && !_Traits::eq_int_type(__c, __eof)
 		     && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 		{
-		  __str += _Traits::to_char_type(__c);
+		  if (__len == sizeof(__buf) / sizeof(_CharT))
+		    {
+		      __str.append(__buf, sizeof(__buf) / sizeof(_CharT));
+		      __len = 0;
+		    }
+		  __buf[__len++] = _Traits::to_char_type(__c);
 		  ++__extracted;
 		  __c = __sb->snextc();
 		}
+	      __str.append(__buf, __len);
+
 	      if (_Traits::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
 	      __in.width(0);
