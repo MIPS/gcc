@@ -58,7 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Local declarations.  */
 
-static void simplify_stmt            PARAMS ((tree));
+static void simplify_stmt            PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
@@ -169,7 +169,7 @@ c_simplify_function_tree (fndecl)
 
   /* Simplify the function's body.  */
   stmt_expr_level = 0;
-  simplify_stmt (fnbody);
+  simplify_stmt (&fnbody);
 
   /* Declare the new temporary variables.  */
   declare_tmp_vars (getdecls(), fnbody);
@@ -199,11 +199,9 @@ c_simplify_function_tree (fndecl)
     STMT and convert it to a SIMPLE tree.  */
 
 static void 
-simplify_stmt (stmt)
-     tree stmt;
+simplify_stmt (stmt_p)
+     tree *stmt_p;
 {
-  tree prev;
-
   /* PRE and POST are tree chains that contain the side-effects of the
      simplified tree.  For instance, given the expression tree:
 
@@ -216,15 +214,14 @@ simplify_stmt (stmt)
      		c = t1 + b;
      		b = b + 1;	<-- POST  */
 
-  prev = stmt;
-  while (stmt && stmt != error_mark_node)
+  while (*stmt_p && *stmt_p != error_mark_node)
     {
       tree next, pre, post;
       int keep_stmt_p;
+      tree stmt = *stmt_p;
 
       pre = NULL;
       post = NULL;
-      next = TREE_CHAIN (stmt);
       
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -236,9 +233,8 @@ simplify_stmt (stmt)
       switch (TREE_CODE (stmt))
 	{
 	case COMPOUND_STMT:
-	  simplify_stmt (COMPOUND_BODY (stmt));
-	  prev = stmt;
-	  stmt = next;
+	  simplify_stmt (&COMPOUND_BODY (stmt));
+	  stmt_p = &TREE_CHAIN (stmt);
 	  continue;
 	  
 	case FOR_STMT:
@@ -288,8 +284,7 @@ simplify_stmt (stmt)
 	case CONTINUE_STMT:
 	case BREAK_STMT:
 	case SCOPE_STMT:
-	  prev = stmt;
-	  stmt = next;
+	  stmt_p = &TREE_CHAIN (stmt);
 	  continue;
 
 	default:
@@ -321,7 +316,7 @@ simplify_stmt (stmt)
 	 the semantics of the original program.  */
       keep_stmt_p = stmt_has_effect (stmt);
       
-      TREE_CHAIN (prev) = NULL_TREE;
+      next = TREE_CHAIN (stmt);
       TREE_CHAIN (stmt) = NULL_TREE;
 
       /* Dump the side-effects and the simplified statement.  */
@@ -340,21 +335,19 @@ simplify_stmt (stmt)
 	  fprintf (dump_file, "\n");
 	}
 
-      chainon (prev, pre);
-
       if (keep_stmt_p)
-	{
-	  chainon (prev, stmt);
-	  chainon (stmt, post);
-	}
-      else
-	chainon (prev, post);
+	pre = chainon (pre, stmt);
+      pre = chainon (pre, post);
+      *stmt_p = pre;
 
       /* Next iteration.  Re-set PREV to the last statement of the chain
 	 PREV -> PRE -> STMT -> POST.  */
-      prev = tree_last (prev);
-      stmt = next;
-      TREE_CHAIN (prev) = next;
+      if (*stmt_p)
+	{
+	  stmt = tree_last (*stmt_p);
+	  stmt_p = &TREE_CHAIN (stmt);
+	}
+      *stmt_p = next;
     }
 }
 
@@ -473,7 +466,7 @@ simplify_for_stmt (stmt, pre_p)
   if (init_is_simple && cond_is_simple && expr_is_simple)
     {
       /* Nothing to do, simplify the body and return.  */
-      simplify_stmt (FOR_BODY (stmt));
+      simplify_stmt (&FOR_BODY (stmt));
       return;
     }
 
@@ -514,7 +507,7 @@ simplify_for_stmt (stmt, pre_p)
 		   stmt, fb_rvalue);
 
   /* Simplify the body of the loop.  */
-  simplify_stmt (FOR_BODY (stmt));
+  simplify_stmt (&FOR_BODY (stmt));
 
   /* Simplify FOR_EXPR.  Note that if FOR_EXPR needs to be simplified,
      it's converted into a simple_expr because we need to move it out of
@@ -676,7 +669,7 @@ simplify_while_stmt (stmt, pre_p)
   if (is_simple_condexpr (WHILE_COND (stmt)))
     {
       /* Nothing to do.  Simplify the body and return.  */
-      simplify_stmt (WHILE_BODY (stmt)); 
+      simplify_stmt (&WHILE_BODY (stmt)); 
       return;
     }
     
@@ -687,7 +680,7 @@ simplify_while_stmt (stmt, pre_p)
   WHILE_COND (stmt) = cond_s;
 
   /* Simplify the body of the loop.  */
-  simplify_stmt (WHILE_BODY (stmt)); 
+  simplify_stmt (&WHILE_BODY (stmt)); 
 
   /* Insert all the side-effects for the conditional before every
      wrap-around point in the loop body (i.e., before every first-level
@@ -738,7 +731,7 @@ simplify_do_stmt (stmt)
   tree_build_scope (&DO_BODY (stmt));
 
   /* Simplify the loop's body.  */
-  simplify_stmt (DO_BODY (stmt));
+  simplify_stmt (&DO_BODY (stmt));
 
   /* Check wether the loop condition is already simplified.  */
   if (is_simple_condexpr (DO_COND (stmt)))
@@ -818,10 +811,10 @@ simplify_if_stmt (stmt, pre_p)
 
   /* Simplify each of the clauses.  */
   if (THEN_CLAUSE (stmt))
-    simplify_stmt (THEN_CLAUSE (stmt));
+    simplify_stmt (&THEN_CLAUSE (stmt));
 
   if (ELSE_CLAUSE (stmt))
-    simplify_stmt (ELSE_CLAUSE (stmt));
+    simplify_stmt (&ELSE_CLAUSE (stmt));
 }
 
 
@@ -865,7 +858,7 @@ simplify_switch_stmt (stmt, pre_p)
 		     stmt, fb_rvalue);
     }
 
-  simplify_stmt (SWITCH_BODY (stmt));
+  simplify_stmt (&SWITCH_BODY (stmt));
 }
 
 
@@ -1064,7 +1057,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
        SIMPLE grammar.  */
     case STMT_EXPR:
       stmt_expr_level++;
-      simplify_stmt (STMT_EXPR_STMT (*expr_p));
+      simplify_stmt (&STMT_EXPR_STMT (*expr_p));
       stmt_expr_level--;
       break;
 
@@ -1133,7 +1126,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
   /* Otherwise, we need to create a new temporary for the simplified
      expression.  */
 
-  /* We can't return an lvalue if we have an internal postqueue.  */
+  /* We can't return an lvalue if we have an internal postqueue.  The
+     object the lvalue refers to would (probably) be modified by the
+     postqueue; we need to copy the value out first, which means an
+     rvalue.  */
   if ((fallback & fb_lvalue) && !internal_post && is_simple_varname (*expr_p))
     {
       /* An lvalue will do.  Take the address of the expression, store it
