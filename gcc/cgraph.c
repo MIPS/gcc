@@ -556,7 +556,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
     {
       slot = 
 	htab_find_slot_with_hash (cgraph_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 1);
+				  IDENTIFIER_HASH_VALUE (name), 0);
       if (slot)
 	cgraph_remove_node (cgraph_node (decl));
       else
@@ -576,7 +576,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
     {
       slot = 
 	htab_find_slot_with_hash (cgraph_varpool_hash, name,
-				  IDENTIFIER_HASH_VALUE (name), 1);
+				  IDENTIFIER_HASH_VALUE (name), 0);
       if (slot)
 	cgraph_varpool_remove_node (cgraph_varpool_node (decl));
       else
