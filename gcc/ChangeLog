@@ -1,3 +1,9 @@
+2001-10-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* haifa-sched.c (max_issue): Remove last_p argument.  Only return
+	non-zero if the highest-priority instruction could be scheduled.
+	(choose_ready): Remove last argument from max_issue call.
+
 2001-09-28  David S. Miller  <davem@redhat.com>
 
 	* config/sparc/sparc.c (sparc_use_sched_lookahead): Use 4 for

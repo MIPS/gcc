@@ -370,7 +370,7 @@ static rtx move_insn PARAMS ((rtx, rtx));
    on the first cycle.  It is used only for DFA based scheduler.  */
 static rtx ready_element PARAMS ((struct ready_list *, int));
 static rtx ready_remove PARAMS ((struct ready_list *, int));
-static int max_issue PARAMS ((struct ready_list *, state_t, int *, int *));
+static int max_issue PARAMS ((struct ready_list *, state_t, int *));
 
 static rtx choose_ready PARAMS ((struct ready_list *));
 
@@ -1791,17 +1791,14 @@ move_insn (insn, last)
    is current queue `ready'.  Global array READY_TRY reflects what
    insns are already issued in this try.  STATE is current processor
    state.  If the function returns nonzero, INDEX will contain index
-   of the best insn in READY.  *LAST_P is nonzero if the insn with the
-   highest rank is in the current sample.  The following function is
-   used only for first cycle multipass scheduling.  */
+   of the best insn in READY.  The following function is used only for
+   first cycle multipass scheduling.  */
 
 static int
-max_issue (ready, state, index, last_p)
+max_issue (ready, state, index)
      struct ready_list *ready;
      state_t state;
      int *index;
-     int *last_p;
-     
 {
   int i, best, n, temp_index, delay;
   state_t temp_state;
@@ -1810,7 +1807,7 @@ max_issue (ready, state, index, last_p)
 
   if (state_dead_lock_p (state))
     return 0;
-  
+
   temp_state = alloca (dfa_state_size);
   best = 0;
   
@@ -1855,15 +1852,15 @@ max_issue (ready, state, index, last_p)
 	  break;
 	
 	ready_try [i] = 1;
-	*last_p = 0;
-	
-	n = max_issue (ready, temp_state, &temp_index, last_p) + 1;
-	
-	if (best < n && (ready_try [0] || *last_p))
+
+	n = max_issue (ready, temp_state, &temp_index);
+	if (n > 0 || ready_try[0])
+	  n += 1;
+
+	if (best < n)
 	  {
 	    best = n;
 	    *index = i;
-	    *last_p = 1;
 	  }
 	ready_try [i] = 0;
       }
@@ -1886,9 +1883,8 @@ choose_ready (ready)
     {
       /* Try to choose the better insn.  */
       int index;
-      int last_p = 0;
-      
-      if (max_issue (ready, curr_state, &index, &last_p) == 0)
+
+      if (max_issue (ready, curr_state, &index) == 0)
 	return ready_remove_first (ready);
       else
 	return ready_remove (ready, index);
