@@ -78,11 +78,25 @@ public:
 				  tree obj, tree args, model_method *meth,
 				  bool is_super) = 0;
 
+  virtual tree build_method_call (tree_builtins *builtins,
+				  aot_class *current,
+				  tree obj, tree args,
+				  const std::string &class_name,
+				  const std::string &method_name,
+				  const std::string &descriptor) = 0;
+
   /// Note that we explicitly do not handle a non-static reference to
   /// a static field.  That must be handled by the caller.
   virtual tree build_field_reference (tree_builtins *builtins,
 				      aot_class *current,
 				      tree obj, model_field *field) = 0;
+
+  virtual tree build_field_reference (tree_builtins *builtins,
+				      aot_class *current,
+				      tree obj,
+				      const std::string &classname,
+				      const std::string &fieldname,
+				      const std::string &descriptor) = 0;
 
   /// Return a tree representing a reference to some other class.
   virtual tree build_class_reference (tree_builtins *builtins,
@@ -140,8 +154,22 @@ public:
   tree build_method_call (tree_builtins *, aot_class *,
 			  tree, tree, model_method *, bool);
 
+  tree build_method_call (tree_builtins *builtins,
+			  aot_class *current,
+			  tree obj, tree args,
+			  const std::string &class_name,
+			  const std::string &method_name,
+			  const std::string &descriptor);
+
   tree build_field_reference (tree_builtins *, aot_class *,
 			      tree, model_field *);
+
+  tree build_field_reference (tree_builtins *builtins,
+			      aot_class *current,
+			      tree obj,
+			      const std::string &classname,
+			      const std::string &fieldname,
+			      const std::string &descriptor);
 
   tree build_class_reference (tree_builtins *, aot_class *,
 			      const std::string &);
@@ -188,8 +216,22 @@ public:
   tree build_method_call (tree_builtins *, aot_class *,
 			  tree, tree, model_method *, bool);
 
+  tree build_method_call (tree_builtins *builtins,
+			  aot_class *current,
+			  tree obj, tree args,
+			  const std::string &class_name,
+			  const std::string &method_name,
+			  const std::string &descriptor);
+
   tree build_field_reference (tree_builtins *, aot_class *,
 			      tree, model_field *);
+
+  tree build_field_reference (tree_builtins *builtins,
+			      aot_class *current,
+			      tree obj,
+			      const std::string &classname,
+			      const std::string &fieldname,
+			      const std::string &descriptor);
 
   tree build_class_reference (tree_builtins *, aot_class *,
 			      const std::string &);

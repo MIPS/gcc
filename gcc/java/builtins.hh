@@ -99,6 +99,9 @@ public:
 		      const std::string &);
 
   tree map_method_call (aot_class *, tree, tree, model_method *, bool);
+  tree map_method_call (aot_class *, tree, tree, const std::string &,
+			const std::string &, const std::string &);
+
   tree map_new (aot_class *, model_class *, model_method *, tree);
   tree map_class_object (model_class *);
 

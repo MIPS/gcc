@@ -136,10 +136,6 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  insn = build_empty_stmt ();
 	  break;
 
-	case op_invokevirtual:
-	  abort ();
-	  break;
-
 	case op_aconst_null:
 	  insn = push (null_pointer_node);
 	  break;
@@ -695,13 +691,15 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jfloat);
 	    tree val1 = pop (type_jfloat);
-	    insn = push (build3 (CALL_EXPR,
-				 type_jfloat,
-				 build_address_of (built_in_decls[BUILT_IN_FMODF]),
-				 tree_cons (NULL_TREE, val1,
-					    build_tree_list (NULL_TREE,
-							     val2)),
-				 NULL_TREE));
+	    tree call = build3 (CALL_EXPR,
+				type_jfloat,
+				build_address_of (built_in_decls[BUILT_IN_FMODF]),
+				tree_cons (NULL_TREE, val1,
+					   build_tree_list (NULL_TREE,
+							    val2)),
+				NULL_TREE);
+	    TREE_SIDE_EFFECTS (call) = 1;
+	    insn = push (call);
 	  }
 	  break;
 
@@ -709,13 +707,15 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  {
 	    tree val2 = pop (type_jdouble);
 	    tree val1 = pop (type_jdouble);
-	    insn = push (build3 (CALL_EXPR,
-				 type_jdouble,
-				 build_address_of (built_in_decls[BUILT_IN_FMOD]),
-				 tree_cons (NULL_TREE, val1,
-					    build_tree_list (NULL_TREE,
-							     val2)),
-				 NULL_TREE));
+	    tree call = build3 (CALL_EXPR,
+				type_jdouble,
+				build_address_of (built_in_decls[BUILT_IN_FMOD]),
+				tree_cons (NULL_TREE, val1,
+					   build_tree_list (NULL_TREE,
+							    val2)),
+				NULL_TREE);
+	    TREE_SIDE_EFFECTS (call) = 1;
+	    insn = push (call);
 	  }
 	  break;
 
@@ -1253,16 +1253,62 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	  }
 	  break;
 
-	case op_invokespecial:
-	  abort ();
-	  break;
-
-	case op_invokestatic:
-	  abort ();
-	  break;
-
 	case op_invokeinterface:
-	  abort ();
+	case op_invokespecial:
+	case op_invokestatic:
+	case op_invokevirtual:
+	  {
+	    jint meth_index = get2u (bytes, pc);
+	    std::string classname, methname, descriptor;
+	    cpool->get_methodref (meth_index, classname, methname, descriptor);
+	    if (op == op_invokeinterface)
+	      {
+		// Skip dummy bytes.
+		get2u (bytes, pc);
+	      }
+
+	    // FIXME: this method signature parsing code appears in at
+	    // least 3 places.
+	    tree arg_types = NULL_TREE;
+	    for (int i = 0; i < descriptor.length (); ++i)
+	      {
+		int start = i;
+		while (descriptor[i] == '[')
+		  ++i;
+		if (descriptor[i] == 'L')
+		  {
+		    while (descriptor[i] != ';')
+		      ++i;
+		  }
+		// Skip the ';' or, for a primitive type, the sole
+		// character.
+		++i;
+		std::string tname (&descriptor[start], i - start);
+		// FIXME: BC?
+		tree type = find_class (tname);
+		arg_types = tree_cons (NULL_TREE, type, arg_types);
+	      }
+
+	    // We want to pop the arguments in reverse order, so we
+	    // leave the list of types as we constructed it.  After
+	    // this loop, we'll have built up the actual arguments in
+	    // the correct order.
+	    tree arguments = NULL_TREE;
+	    for (; arg_types != NULL_TREE; arg_types = TREE_CHAIN (arg_types))
+	      {
+		tree one_type = TREE_VALUE (arg_types);
+		tree one_arg = pop (one_type);
+		arguments = tree_cons (NULL_TREE, one_arg, arguments);
+	      }
+
+	    tree obj = NULL_TREE;
+	    if (op != op_invokestatic)
+	      obj = pop (type_object_ptr);
+
+	    insn = gcc_builtins->map_method_call (class_wrapper, obj,
+						  arguments, classname,
+						  methname, descriptor);
+	  }
 	  break;
 
 	case op_new:
@@ -1277,12 +1323,11 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    // FIXME: should be ABI call here, as we might want a
 	    // finalizer-free allocator or the like.
 	    tree basetype = TREE_TYPE (TREE_TYPE (builtin_Jv_AllocObject));
-	    insn = push (convert (type_object_ptr,
-				  build3 (CALL_EXPR, basetype,
-					  builtin_Jv_AllocObject,
-					  build_tree_list (NULL_TREE,
-							   klass_ref),
-					  NULL_TREE)));
+	    tree call = build3 (CALL_EXPR, basetype, builtin_Jv_AllocObject,
+				build_tree_list (NULL_TREE, klass_ref),
+				NULL_TREE);
+	    TREE_SIDE_EFFECTS (call) = 1;
+	    insn = push (convert (type_object_ptr, call));
 	  }
 	  break;
 
@@ -1332,6 +1377,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 			   builtin_Jv_Throw,
 			   build_tree_list (NULL_TREE, value),
 			   NULL_TREE);
+	    TREE_SIDE_EFFECTS (insn) = 1;
 	  }
 	  break;
 
@@ -1345,6 +1391,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 			   builtin_Jv_CheckCast,
 			   build_tree_list (NULL_TREE, value),
 			   NULL_TREE);
+	    TREE_SIDE_EFFECTS (insn) = 1;
 	  }
 	  break;
 
@@ -1364,6 +1411,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 			   builtin_Jv_MonitorEnter,
 			   build_tree_list (NULL_TREE, value),
 			   NULL_TREE);
+	    TREE_SIDE_EFFECTS (insn) = 1;
 	  }
 	  break;
 
@@ -1374,6 +1422,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 			   builtin_Jv_MonitorExit,
 			   build_tree_list (NULL_TREE, value),
 			   NULL_TREE);
+	    TREE_SIDE_EFFECTS (insn) = 1;
 	  }
 	  break;
 
@@ -1410,10 +1459,10 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree klassref = build_class_ref (cpool->get_class (kind_index));
 	    args = tree_cons (NULL_TREE, klassref, args);
 
-	    insn = push (build3 (CALL_EXPR, type_object_ptr,
-				 builtin_Jv_NewMultiArray,
-				 args,
-				 NULL_TREE));
+	    tree call = build3 (CALL_EXPR, type_object_ptr,
+				builtin_Jv_NewMultiArray, args, NULL_TREE);
+	    TREE_SIDE_EFFECTS (call) = 1;
+	    insn = push (call);
 	  }
 	  break;
 

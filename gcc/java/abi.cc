@@ -156,6 +156,17 @@ cxx_abi::build_method_call (tree_builtins *builtins,
 }
 
 tree
+cxx_abi::build_method_call (tree_builtins *builtins,
+			    aot_class *current,
+			    tree obj, tree args,
+			    const std::string &class_name,
+			    const std::string &method_name,
+			    const std::string &descriptor)
+{
+  abort ();			// FIXME
+}
+
+tree
 cxx_abi::build_field_reference (tree_builtins *builtins,
 				aot_class *,
 				tree obj, model_field *field)
@@ -182,6 +193,17 @@ cxx_abi::build_field_reference (tree_builtins *builtins,
 		       NULL_TREE);
     }
   return result;
+}
+
+tree
+cxx_abi::build_field_reference (tree_builtins *builtins,
+				aot_class *current,
+				tree obj,
+				const std::string &classname,
+				const std::string &fieldname,
+				const std::string &descriptor)
+{
+  abort ();			// FIXME
 }
 
 tree
@@ -411,6 +433,17 @@ bc_abi::build_method_call (tree_builtins *builtins, aot_class *current,
 }
 
 tree
+bc_abi::build_method_call (tree_builtins *builtins,
+			   aot_class *current,
+			   tree obj, tree args,
+			   const std::string &class_name,
+			   const std::string &method_name,
+			   const std::string &descriptor)
+{
+  abort ();			// FIXME
+}
+
+tree
 bc_abi::build_field_reference (tree_builtins *builtins, aot_class *current,
 			       tree obj, model_field *field)
 {
@@ -452,6 +485,17 @@ bc_abi::build_field_reference (tree_builtins *builtins, aot_class *current,
 					otable_ref)));
     }
   return result;
+}
+
+tree
+bc_abi::build_field_reference (tree_builtins *builtins,
+			       aot_class *current,
+			       tree obj,
+			       const std::string &classname,
+			       const std::string &fieldname,
+			       const std::string &descriptor)
+{
+  abort ();			// FIXME
 }
 
 tree

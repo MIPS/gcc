@@ -1,3 +1,20 @@
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* abi.cc (build_method_call): New stubs.
+	(build_field_reference): Likewise.
+	* abi.hh (gcj_abi::build_method_call): Declare new overload.
+	(gcj_abi::build_field_reference): Likewise.
+	(cxx_abi::build_method_call): Declare.
+	(cxx_abi::build_field_reference): Likewise.
+	(bc_abi::build_method_call): Declare.
+	(bc_abi::build_field_reference): Likewise.
+	* builtins.cc (map_method_call): New method.
+	(map_field_ref): Wrote.
+	* builtins.hh (tree_builtins::map_method_call): Declare new
+	overload.
+	* lower.cc (visit_bytecode_block): Handle invoke_* opcodes.  Set
+	TREE_SIDE_EFFECTS in more places.
+
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
 	* lower.cc (visit_bytecode_block): Use add_temporary.

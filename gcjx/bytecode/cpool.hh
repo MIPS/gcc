@@ -1,6 +1,6 @@
 // Constant pool.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -95,6 +95,7 @@ public:
   std::string get_class (uint16);
 
   void get_fieldref (uint16, std::string &, std::string &, std::string &);
+  void get_methodref (uint16, std::string &, std::string &, std::string &);
 };
 
 #endif // GCJX_BYTECODE_CPOOL_HH

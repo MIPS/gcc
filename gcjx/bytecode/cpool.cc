@@ -1,6 +1,6 @@
 // Constant pool.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -67,8 +67,22 @@ constant_pool::get_fieldref (uint16 index, std::string &class_name,
 			     std::string &descriptor)
 {
   if (! valid_p (index) || tag (index) != CONSTANT_Fieldref)
-    throw class_file_error (where, "expected CONSTANT_Fieldref tag at index %1")
+    throw class_file_error (where, "expected CONSTANT_Fieldref tag "
+			    "at index %1")
       % int (index);
   class_name = get_class (value (index) & 0xffff);
   get_name_and_type ((value (index) >> 16) & 0xffff, field_name, descriptor);
+}
+
+void
+constant_pool::get_methodref (uint16 index, std::string &class_name,
+			      std::string &method_name,
+			      std::string &descriptor)
+{
+  if (! valid_p (index) || tag (index) != CONSTANT_Methodref)
+    throw class_file_error (where, "expected CONSTANT_Methodref tag "
+			    "at index %1")
+      % int (index);
+  class_name = get_class (value (index) & 0xffff);
+  get_name_and_type ((value (index) >> 16) & 0xffff, method_name, descriptor);
 }

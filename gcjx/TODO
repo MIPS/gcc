@@ -307,6 +307,7 @@ things to document about trees:
 - TRY_CATCH_EXPR cannot have an empty catch block
 - having a NULL type for a SWITCH_EXPR causes a crash,
   despite what tree.def says
+- CALL_EXPR requires the address of the function
 
 we should use explicit temporaries instead of save_expr
 
@@ -320,9 +321,6 @@ in this situation should put a type assertion in the class
 we should factor out things like object layout, etc, so that
 we can reuse the bulk of this code with LLVM
   [ done ]
-
-build_address_of() the functions we call
-document this in tree.def:call_expr ?
 
 we must generate an array store check for something like:
   Object[] x;  x[0] = something;

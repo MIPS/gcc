@@ -1,5 +1,10 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/cpool.cc (get_methodref): New method.
+	* bytecode/cpool.hh (constant_pool::get_methodref): Declare.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* model/bytecode.cc (verify): Don't call allocate_flags.
 	* model/bytecode.hh (model_bytecode_block::allocate_flags):
 	Removed.

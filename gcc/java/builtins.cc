@@ -348,12 +348,14 @@ tree_builtins::map_field_ref (aot_class *wrapper, tree obj, model_field *field)
 }
 
 tree
-tree_builtins::map_field_ref (aot_class *,
-			      tree, const std::string &, const std::string &,
-			      const std::string &)
+tree_builtins::map_field_ref (aot_class *wrapper, tree obj,
+			      const std::string &classname,
+			      const std::string &fieldname,
+			      const std::string &descriptor)
 {
-  // FIXME
-  abort ();
+  gcj_abi *abi = find_abi ();
+  return abi->build_field_reference (this, wrapper, obj, classname,
+				     fieldname, descriptor);
 }
 
 tree
@@ -392,6 +394,17 @@ tree_builtins::map_method_call (aot_class *wrapper,
     }
 
   return result;
+}
+
+tree
+tree_builtins::map_method_call (aot_class *wrapper, tree obj, tree args,
+				const std::string &classname,
+				const std::string &meth_name,
+				const std::string &meth_descriptor)
+{
+  gcj_abi *abi = find_abi ();
+  return abi->build_method_call (this, wrapper, obj, args,
+				 classname, meth_name, meth_descriptor);
 }
 
 tree
