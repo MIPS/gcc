@@ -1,3 +1,10 @@
+2004-11-04  Devang Patel  <dpatel@apple.com>
+
+	Back out 3837840 fix.
+	* c-opts.c (c_common_handle_option): Update APPLE LOCAL marker.
+	* flags.h (flag_inline_trees): Remove extern decl.
+	* toplev.c (process_optiosn): Do not disable inlining with -faltivec.
+
 2004-11-03  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3863563 (fix from mainline)
