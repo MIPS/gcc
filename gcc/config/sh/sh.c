@@ -201,8 +201,10 @@ static int sh_use_dfa_interface PARAMS ((void));
 static int sh_issue_rate PARAMS ((void));
 
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
-
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
+
+static void sh_encode_section_info PARAMS ((tree, int));
+static const char *sh_strip_name_encoding PARAMS ((const char *));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -240,6 +242,11 @@ static bool sh_ms_bitfield_layout_p PARAMS ((tree));
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P sh_ms_bitfield_layout_p
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO sh_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING sh_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -6786,4 +6793,42 @@ sh_ms_bitfield_layout_p (record_type)
      tree record_type ATTRIBUTE_UNUSED;
 {
   return TARGET_SH5;
+}
+
+/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
+   may access it using GOTOFF instead of GOT.  */
+
+static void
+sh_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  rtx rtl, symbol;
+
+  if (DECL_P (decl))
+    rtl = DECL_RTL (decl);
+  else
+    rtl = TREE_CST_RTL (decl);
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  if (flag_pic)
+    SYMBOL_REF_FLAG (symbol) = (*targetm.binds_local_p) (decl);
+
+  if (TARGET_SH5 && first && TREE_CODE (decl) != FUNCTION_DECL)
+    XEXP (rtl, 0) = gen_datalabel_ref (symbol);
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+sh_strip_name_encoding (str)
+     const char *str;
+{
+  STRIP_DATALABEL_ENCODING (str, str);
+  str += *str == '*';
+  return str;
 }

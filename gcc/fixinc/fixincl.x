@@ -5,7 +5,7 @@
  * files which are fixed to work correctly with ANSI C and placed in a
  * directory that GNU C will search.
  *
- * This file contains 145 fixup descriptions.
+ * This file contains 146 fixup descriptions.
  *
  * See README for more information.
  *
@@ -4568,6 +4568,41 @@ static const char* apzSysz_Stdlib_For_SunPatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Thread_Keyword fix
+ */
+tSCC zThread_KeywordName[] =
+     "thread_keyword";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zThread_KeywordList[] =
+  "|pthread.h|bits/sigthread.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+#define apzThread_KeywordMachs (const char**)NULL
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zThread_KeywordSelect0[] =
+       "pthread_t __thread([^a-z0-9_])";
+
+#define    THREAD_KEYWORD_TEST_CT  1
+static tTestDesc aThread_KeywordTests[] = {
+  { TT_EGREP,    zThread_KeywordSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Thread_Keyword
+ */
+static const char* apzThread_KeywordPatch[] = {
+    "format",
+    "pthread_t __thr%1",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Tinfo_Cplusplus fix
  */
 tSCC zTinfo_CplusplusName[] =
@@ -5672,9 +5707,9 @@ static const char* apzX11_SprintfPatch[] = {
  *
  *  List of all fixes
  */
-#define REGEX_COUNT          152
+#define REGEX_COUNT          153
 #define MACH_LIST_SIZE_LIMIT 279
-#define FIX_COUNT            145
+#define FIX_COUNT            146
 
 /*
  *  Enumerate the fixes
@@ -5796,6 +5831,7 @@ typedef enum {
     SVR4_PROFIL_FIXIDX,
     SYSV68_STRING_FIXIDX,
     SYSZ_STDLIB_FOR_SUN_FIXIDX,
+    THREAD_KEYWORD_FIXIDX,
     TINFO_CPLUSPLUS_FIXIDX,
     ULTRIX_ATEXIT_PARAM_FIXIDX,
     ULTRIX_ATOF_PARAM_FIXIDX,
@@ -6407,6 +6443,11 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      apzSysz_Stdlib_For_SunMachs,
      SYSZ_STDLIB_FOR_SUN_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aSysz_Stdlib_For_SunTests,   apzSysz_Stdlib_For_SunPatch, 0 },
+
+  {  zThread_KeywordName,    zThread_KeywordList,
+     apzThread_KeywordMachs,
+     THREAD_KEYWORD_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aThread_KeywordTests,   apzThread_KeywordPatch, 0 },
 
   {  zTinfo_CplusplusName,    zTinfo_CplusplusList,
      apzTinfo_CplusplusMachs,

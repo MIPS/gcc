@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
   do							\
     {							\
-	if (TARGET_THUMB)				\
+	if (TARGET_ARM)					\
 	  builtin_define ("__arm__");			\
 	else						\
 	  builtin_define ("__thumb__");			\
@@ -1848,58 +1848,11 @@ typedef struct
   case '*':  return 1;				\
   SUBTARGET_NAME_ENCODING_LENGTHS		
 
-/* This has to be handled by a function because more than part of the
-   ARM backend uses function name prefixes to encode attributes.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)	\
-  (VAR) = arm_strip_name_encoding (SYMBOL_NAME)
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)		\
   asm_fprintf (FILE, "%U%s", arm_strip_name_encoding (NAME))
-
-/* If we are referencing a function that is weak then encode a long call
-   flag in the function name, otherwise if the function is static or
-   or known to be defined in this file then encode a short call flag.
-   This macro is used inside the ENCODE_SECTION macro.  */
-#define ARM_ENCODE_CALL_TYPE(decl)					\
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')			\
-    {									\
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))	\
-        arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);		\
-      else if (! TREE_PUBLIC (decl))        				\
-        arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);		\
-    }
-
-/* Symbols in the text segment can be accessed without indirecting via the
-   constant pool; it may take an extra binary operation, but this is still
-   faster than indirecting via memory.  Don't do this when not optimizing,
-   since we won't be calculating al of the offsets necessary to do this
-   simplification.  */
-/* This doesn't work with AOF syntax, since the string table may be in
-   a different AREA.  */
-#ifndef AOF_ASSEMBLER
-#define ENCODE_SECTION_INFO(decl, first)				\
-{									\
-  if (optimize > 0 && TREE_CONSTANT (decl)				\
-      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))	\
-    {									\
-      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'		\
-                 ? TREE_CST_RTL (decl) : DECL_RTL (decl));		\
-      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;				\
-    }									\
-  if (first)								\
-    ARM_ENCODE_CALL_TYPE (decl)						\
-}
-#else
-#define ENCODE_SECTION_INFO(decl, first)				\
-{									\
-  if (first)								\
-    ARM_ENCODE_CALL_TYPE (decl)						\
-}
-#endif
 
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
@@ -2134,7 +2087,8 @@ typedef struct
     goto WIN;								\
   /* This is PC relative data before MACHINE_DEPENDENT_REORG runs.  */	\
   else if (GET_MODE_SIZE (MODE) >= 4 && CONSTANT_P (X)			\
-	   && CONSTANT_POOL_ADDRESS_P (X) && ! flag_pic)		\
+	   && GET_CODE (X) == SYMBOL_REF 				\
+           && CONSTANT_POOL_ADDRESS_P (X) && ! flag_pic)		\
     goto WIN;								\
   /* This is PC relative data after MACHINE_DEPENDENT_REORG runs.  */	\
   else if (GET_MODE_SIZE (MODE) >= 4 && reload_completed		\

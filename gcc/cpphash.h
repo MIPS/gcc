@@ -29,6 +29,9 @@ struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
 
+typedef unsigned char uchar;
+#define U (const uchar *)  /* Intended use: U"string" */
+
 #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
 
 /* Test if a sign is valid within a preprocessing number.  */
@@ -46,6 +49,24 @@ struct op;
 /* Maximum nesting of cpp_buffers.  We use a static limit, partly for
    efficiency, and partly to limit runaway recursion.  */
 #define CPP_STACK_MAX 200
+
+/* Each macro definition is recorded in a cpp_macro structure.
+   Variadic macros cannot occur with traditional cpp.  */
+struct cpp_macro
+{
+  cpp_hashnode **params;	/* Parameters, if any.  */
+  union
+  {
+    cpp_token *tokens;	        /* Tokens of replacement list (ISO).  */
+    const uchar *text;		/* Expansion text (traditional).  */
+  } exp;
+  unsigned int line;		/* Starting line number.  */
+  unsigned int count;		/* Number of tokens / bytes in expansion.  */
+  unsigned short paramc;	/* Number of parameters.  */
+  unsigned int fun_like : 1;	/* If a function-like macro.  */
+  unsigned int variadic : 1;	/* If a variadic macro.  */
+  unsigned int syshdr   : 1;	/* If macro defined in system header.  */
+};
 
 /* A generic memory buffer, and operations on it.  */
 typedef struct _cpp_buff _cpp_buff;
@@ -167,7 +188,6 @@ struct spec_nodes
   cpp_hashnode *n_defined;		/* defined operator */
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
-  cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
@@ -224,6 +244,9 @@ struct cpp_buffer
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
   struct search_path dir;
+
+  /* Used for buffer overlays by cpptrad.c.  */
+  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -334,6 +357,11 @@ struct cpp_reader
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
+
+  /* Traditional preprocessing output buffer.  */
+  uchar *trad_out_base, *trad_out_limit;
+  uchar *trad_out_cur;
+  unsigned int trad_line;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -426,6 +454,11 @@ extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum lc_reason,
 					 unsigned int, unsigned int));
 extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
+/* In cpptrad.c.  */
+extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
+extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
+					 size_t));
+
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1
 #define xnew(T)		(T *) xmalloc (sizeof(T))
@@ -436,9 +469,6 @@ extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
 /* These are inline functions instead of macros so we can get type
    checking.  */
-typedef unsigned char uchar;
-#define U (const uchar *)  /* Intended use: U"string" */
-
 static inline int ustrcmp	PARAMS ((const uchar *, const uchar *));
 static inline int ustrncmp	PARAMS ((const uchar *, const uchar *,
 					 size_t));

@@ -213,8 +213,6 @@ static tree
 build_default_init (type)
      tree type;
 {
-  tree init = NULL_TREE;
-
   if (TYPE_NEEDS_CONSTRUCTING (type))
     /* Other code will handle running the default constructor.  We can't do
        anything with a CONSTRUCTOR for arrays here, as that would imply
@@ -2776,7 +2774,10 @@ build_vec_init (base, init, from_array)
   if (init && TREE_CODE (init) == CONSTRUCTOR && TREE_TYPE (init) == NULL_TREE)
     init = digest_init (atype, init, 0);
       
-  if (init && !TYPE_NEEDS_CONSTRUCTING (type)
+  if (init
+      && (from_array == 2
+	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
@@ -3112,11 +3113,18 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
-      if (!VOID_TYPE_P (type) && !complete_type_or_else (type, addr))
-	return error_mark_node;
       if (TREE_CODE (type) == ARRAY_TYPE)
 	goto handle_array;
-      if (! IS_AGGR_TYPE (type))
+
+      if (VOID_TYPE_P (type)
+	  /* We don't want to warn about delete of void*, only other
+	     incomplete types.  Deleting other incomplete types
+	     invokes undefined behavior, but it is not ill-formed, so
+	     compile to something that would even do The Right Thing
+	     (TM) should the type have a trivial dtor and no delete
+	     operator.  */
+	  || !complete_type_or_diagnostic (type, addr, 1)
+	  || !IS_AGGR_TYPE (type))
 	{
 	  /* Call the builtin operator delete.  */
 	  return build_builtin_delete_call (addr);

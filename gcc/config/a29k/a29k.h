@@ -1333,34 +1333,6 @@ extern const char *a29k_function_name;
 
 #define DATA_SECTION_ASM_OP "\t.data"
 
-/* Define an extra section for read-only data, a routine to enter it, and
-   indicate that it is for read-only data.  */
-
-#define EXTRA_SECTIONS	readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS					\
-void								\
-literal_section ()						\
-{								\
-  if (in_section != readonly_data)				\
-    {								\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_SECTION_ASM_OP); \
-      in_section = readonly_data;				\
-    }								\
-}								\
-
-#define READONLY_DATA_SECTION	literal_section
-
-/* If we are referencing a function that is static or is known to be
-   in this file, make the SYMBOL_REF special.  We can use this to indicate
-   that we can branch to this function without emitting a no-op after the
-   call.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)  \
-  if (TREE_CODE (DECL) == FUNCTION_DECL			\
-      && (TREE_ASM_WRITTEN (DECL) || ! TREE_PUBLIC (DECL))) \
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;
-
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 

@@ -1516,25 +1516,6 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL or other node is created.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).
-
-   On the C4x we use this to indicate if a symbol is in text or
-   data space.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) c4x_encode_section_info (DECL, FIRST);
-
 /* Descripting Relative Cost of Operations.  */
 
 /* Provide the costs of a rtl expression.  This is in the body of a
@@ -1673,9 +1654,7 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 
 #define DATA_SECTION_ASM_OP "\t.data"
 
-#define USE_CONST_SECTION 1
-
-#define CONST_SECTION_ASM_OP "\t.sect\t\".const\""
+#define READONLY_DATA_SECTION_ASM_OP "\t.sect\t\".const\""
 
 /* Do not use .init section so __main will be called on startup. This will
    call __do_global_ctors and prepare for __do_global_dtors on exit.  */
@@ -1687,11 +1666,10 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 #define FINI_SECTION_ASM_OP  "\t.sect\t\".fini\""
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini
+#define EXTRA_SECTIONS in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-  CONST_SECTION_FUNCTION					\
   INIT_SECTION_FUNCTION						\
   FINI_SECTION_FUNCTION
 
@@ -1718,54 +1696,10 @@ fini_section ()							\
     }								\
 }
 
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (! USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
-
 #define ASM_STABS_OP "\t.stabs\t"
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
-
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
-
-#define SELECT_SECTION(DECL, RELOC, ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if ((0 && RELOC)	/* Should be (flag_pic && RELOC).  */		\
-	  || ! TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
-	  || ! DECL_INITIAL (DECL)					\
-	  || (DECL_INITIAL (DECL) != error_mark_node			\
-	      && ! TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();						\
-      else								\
-	const_section ();						\
-    }									\
-  else									\
-    const_section ();							\
-}
 
 /* The TI assembler wants to have hex numbers this way.  */
 
@@ -1781,15 +1715,6 @@ const_section ()							\
 #  endif
 # endif
 #endif /* ! HOST_WIDE_INT_PRINT_HEX */
-
-/* A C statement or statements to switch to the appropriate
-   section for output of RTX in mode MODE.  RTX is some kind
-   of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
-
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section()
-
 
 /* Overall Framework of an Assembler File.  */
 /* We need to have a data section we can identify so that we can set

@@ -2906,6 +2906,12 @@ powerpc-wrs-vxworks*)
         tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 	thread_file='vxworks'
         ;;
+powerpc-wrs-windiss*)
+        xm_defines=POSIX
+	tm_file="${tm_file} elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/windiss.h"
+        tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+        thread_file=""
+        ;;
 powerpcle-wrs-vxworks*)
 	xm_defines=POSIX
         tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/sysv4le.h rs6000/vxppc.h"
@@ -3650,9 +3656,15 @@ powerpc*-*-* | rs6000-*-*)
 			fi
 			;;
 	esac
-	c_target_objs="rs6000-c.o"
-	cxx_target_objs="rs6000-c.o"
-	tmake_file="${tmake_file} rs6000/t-rs6000-c-rule"
+	case $machine in
+	  *-*-darwin*)
+	    ;;
+	  *)
+	    c_target_objs="rs6000-c.o"
+	    cxx_target_objs="rs6000-c.o"
+	    tmake_file="${tmake_file} rs6000/t-rs6000-c-rule"
+	    ;;
+	esac
 	;;
 sparc*-*-*)
 	case ".$with_cpu" in

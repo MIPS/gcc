@@ -482,14 +482,6 @@ extern rtx this_is_asm_operands;
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
 
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  On most machines,
-   we discard the * if any and that's all.  */
-#ifndef STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME) \
-  (VAR) = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'))
-#endif
-
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -515,7 +507,8 @@ extern void no_asm_to_stream PARAMS ((FILE *));
 #define SECTION_STRINGS  0x10000	/* contains zero terminated strings without
 					   embedded zeros */
 #define SECTION_OVERRIDE 0x20000	/* allow override of default flags */
-#define SECTION_MACH_DEP 0x40000	/* subsequent bits reserved for target */
+#define SECTION_TLS	 0x40000	/* contains thread-local storage */
+#define SECTION_MACH_DEP 0x80000	/* subsequent bits reserved for target */
 
 extern unsigned int get_named_section_flags PARAMS ((const char *));
 extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));
@@ -542,6 +535,18 @@ extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							       int));
 extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							      int));
+
+extern void default_select_section PARAMS ((tree, int,
+					    unsigned HOST_WIDE_INT));
+extern void default_elf_select_section PARAMS ((tree, int,
+						unsigned HOST_WIDE_INT));
+extern void default_unique_section PARAMS ((tree, int));
+extern void default_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						unsigned HOST_WIDE_INT));
+extern void default_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						    unsigned HOST_WIDE_INT));
+extern const char *default_strip_name_encoding PARAMS ((const char *));
+extern bool default_binds_local_p PARAMS ((tree));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

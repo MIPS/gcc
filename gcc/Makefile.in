@@ -112,6 +112,11 @@ AR_FLAGS = rc
 DLLTOOL = dlltool
 RANLIB = @RANLIB@
 SHELL = /bin/sh
+# pwd command to use.  Allow user to override default by setting PWDCMD in
+# the environment to account for automounters.  The make variable must not
+# be called PWDCMD, otherwise the value set here is passed to make
+# subprocesses and overrides the setting from the user's environment.
+PWD = $${PWDCMD-pwd}
 # on sysV, define this as cp.
 INSTALL = @INSTALL@
 # Some systems may be missing symbolic links, regular links, or both.
@@ -542,6 +547,7 @@ CONFIG_H = $(GCONFIG_H) insn-constants.h insn-flags.h
 TCONFIG_H = tconfig.h $(xm_file_list)
 TARGET_H = target.h
 HOOKS_H = hooks.h
+LANGHOOKS_DEF_H = langhooks.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 TM_P_H = tm_p.h $(tm_p_file_list) tm-preds.h
 
@@ -1158,7 +1164,7 @@ c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-    langhooks.h langhooks-def.h c-common.h
+    langhooks.h $(LANGHOOKS_DEF_H) c-common.h
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
     debug.h $(C_TREE_H) c-common.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
@@ -1333,7 +1339,7 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h convert.h \
 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h integrate.h langhooks.h \
-   langhooks-def.h flags.h
+   $(LANGHOOKS_DEF_H) flags.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h function.h toplev.h \
    $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
@@ -1352,7 +1358,7 @@ fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H) langhooks.h
 diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_P_H) flags.h $(GGC_H) \
-   input.h toplev.h intl.h langhooks.h langhooks-def.h
+   input.h toplev.h intl.h langhooks.h $(LANGHOOKS_DEF_H)
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
@@ -1436,7 +1442,7 @@ dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    output.h vmsdbg.h debug.h langhooks.h
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
-   flags.h toplev.h output.h dbxout.h $(GGC_H)
+   flags.h toplev.h output.h dbxout.h $(GGC_H) $(TARGET_H)
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
    $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h \
@@ -2010,7 +2016,7 @@ PREPROCESSOR_DEFINES = \
   -DCROSS_INCLUDE_DIR=\"$(gcc_tooldir)/sys-include\" \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\"
 
-LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o \
+LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
 		cpphash.o cpperror.o cppinit.o cppdefault.o cppmain.o \
 		hashtable.o line-map.o mkdeps.o prefix.o version.o mbchar.o
 
@@ -2032,6 +2038,7 @@ cpplex.o:   cpplex.c   $(CONFIG_H) $(LIBCPP_DEPS) mbchar.h
 cppmacro.o: cppmacro.c $(CONFIG_H) $(LIBCPP_DEPS)
 cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS)
+cpptrad.o:  cpptrad.c  $(CONFIG_H) $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
 cppinit.o:  cppinit.c  $(CONFIG_H) $(LIBCPP_DEPS) cppdefault.h \
 		mkdeps.h prefix.h version.h
@@ -2185,7 +2192,7 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	$(FIXINCSRCDIR)/procopen.c $(FIXINCSRCDIR)/gnu-regex.c \
 	$(FIXINCSRCDIR)/server.c $(FIXINCSRCDIR)/gnu-regex.h \
 	$(FIXINCSRCDIR)/server.h $(FIXINCSRCDIR)/inclhack.def specs.ready
-	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && pwd` ; \
+	(MAKE="$(MAKE)"; srcdir=`cd $(srcdir)/fixinc && ${PWD}` ; \
 	CC="$(HOST_CC)"; CFLAGS="$(HOST_CFLAGS)"; LDFLAGS="$(HOST_LDFLAGS)"; \
 	WARN_CFLAGS="$(WARN_CFLAGS)"; \
 	export MAKE srcdir CC CFLAGS LDFLAGS WARN_CFLAGS; cd ./fixinc && \
@@ -2195,10 +2202,10 @@ fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 stmp-fixinc: fixinc.sh gsyslimits.h
 	rm -rf include; mkdir include
 	-chmod a+rx include
-	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); pwd`; \
+	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD}`; \
 	SHELL='$(SHELL)' ;\
 	export TARGET_MACHINE srcdir SHELL ; \
-	$(SHELL) ./fixinc.sh `pwd`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
+	$(SHELL) ./fixinc.sh `${PWD}`/include $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS); \
 	rm -f include/syslimits.h; \
 	if [ -f include/limits.h ]; then \
 	  mv include/limits.h include/syslimits.h; \
@@ -2521,6 +2528,7 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f float.h
 	-rm -f site.exp site.bak testsuite/site.exp testsuite/site.bak
 	-rm -f testsuite/{gcc,g++}.{log,sum}
+	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
 	-rm -f mklibgcc gccbug .gdbinit configargs.h
@@ -2809,7 +2817,7 @@ install-headers: $(INSTALL_HEADERS_DIR)
 # Don't need to use LN_S here since we really do need ln -s and no substitutes.
 	-files=`cd $(libsubdir)/include; find . -type l -print 2>/dev/null`; \
 	if [ $$? -eq 0 ]; then \
-	  dir=`cd include; pwd`; \
+	  dir=`cd include; ${PWD}`; \
 	  for i in $$files; do \
 	    dest=`ls -ld $(libsubdir)/include/$$i | sed -n 's/.*-> //p'`; \
 	    if expr "$$dest" : "$$dir.*" > /dev/null; then \
@@ -2831,7 +2839,7 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # Unless a full pathname is provided, some shells would print the new CWD,
 # found in CDPATH, corrupting the output.  We could just redirect the
 # output of `cd', but some shells lose on redirection within `()'s
-	(cd `pwd`/include ; \
+	(cd `${PWD}`/include ; \
 	 tar -cf - .; exit 0) | (cd $(libsubdir)/include; tar xpf - )
 # /bin/sh on some systems returns the status of the first tar,
 # and that can lose with GNU tar which always writes a full block.
@@ -2840,7 +2848,7 @@ install-headers-tar: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # Install the include directory using cpio.
 install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # See discussion about the use of `pwd` above
-	cd `pwd`/include ; \
+	cd `${PWD}`/include ; \
 	find . -print | cpio -pdum $(libsubdir)/include
 
 # Install the include directory using cp.
@@ -2885,8 +2893,8 @@ site.exp: ./config.status Makefile
 	@echo "## these variables are automatically generated by make ##" > ./tmp0
 	@echo "# Do not edit here. If you wish to override these values" >> ./tmp0
 	@echo "# add them to the last section" >> ./tmp0
-	@echo "set rootme \"`pwd`\"" >> ./tmp0
-	@echo "set srcdir \"`cd ${srcdir}; pwd`\"" >> ./tmp0
+	@echo "set rootme \"`${PWD}`\"" >> ./tmp0
+	@echo "set srcdir \"`cd ${srcdir}; ${PWD}`\"" >> ./tmp0
 	@echo "set host_triplet $(host_canonical)" >> ./tmp0
 	@echo "set build_triplet $(build_canonical)" >> ./tmp0
 	@echo "set target_triplet $(target)" >> ./tmp0
@@ -2954,54 +2962,122 @@ $(TESTSUITEDIR)/site.exp: site.exp
 	sed '/set tmpdir/ s|testsuite|$(TESTSUITEDIR)|' < site.exp > $@
 
 check-g++: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool g++ $(RUNTESTFLAGS))
 
 check-gcc: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool gcc $(RUNTESTFLAGS))
 
 check-g77: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool g77 $(RUNTESTFLAGS))
 
 check-objc: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool objc $(RUNTESTFLAGS))
 
 check-consistency: testsuite/site.exp
-	-rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	   export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool consistency $(RUNTESTFLAGS)
+
+# QMTest targets
+
+# The path to qmtest.
+QMTEST_PATH=qmtest
+
+# The flags to pass to qmtest.
+QMTESTFLAGS=
+
+# The flags to pass to "qmtest run".
+QMTESTRUNFLAGS=
+
+# The command to use to invoke qmtest.
+QMTEST=${QMTEST_PATH} ${QMTESTFLAGS}
+
+# The tests (or suites) to run.
+QMTEST_GPP_TESTS=gpp
+
+# The subdirectory of the OBJDIR that will be used to store the QMTest
+# test database configuration and that will be used for temporary
+# scratch space during QMTest's execution.
+QMTEST_DIR=${objdir}/qmtestsuite
+
+# Create the QMTest database configuration.
+${QMTEST_DIR} stamp-qmtest:
+	debug_options=""; \
+	    ${STAMP} empty.C; \
+	    for option in \
+	        -gdwarf-2 -gstabs -gstabs+ -gxcoff -gxcoff+ -gcoff; do \
+		(./cc1plus -q $${option} empty.C 2>&1 | \
+		     grep "unknown or unsupported -g option" > /dev/null) || \
+		debug_options="$${debug_options}$${option} "; done; \
+	    ${QMTEST} -D ${QMTEST_DIR} create-tdb \
+	        -c gcc_database.GCCDatabase \
+	        -a GCCDatabase.testsuite_root=`cd ${srcdir}/testsuite && pwd` \
+	        -a GCCDatabase.debug_options="$${debug_options}"
+	rm -f empty.C empty.s
+	$(STAMP) stamp-qmtest
+
+# Create the QMTest context file.
+${QMTEST_DIR}/context: stamp-qmtest
+	echo "GCCTest.flags=-B${objdir}" >> $@
+	echo "GCCTest.objdir=${objdir}/.." >> $@
+	echo "GCCTest.host=${host_canonical}" >> $@
+	echo "GCCTest.target=${target}" >> $@
+	echo "GCCTest.gcov=${objdir}/gcov" >> $@
+	echo "GPPTest.gpp=${objdir}/g++" >> $@
+	echo "DGTest.demangler=${objdir}/c++filt" >> $@
+
+# Run the G++ testsuite using QMTest.
+qmtest-g++: ${QMTEST_DIR}/context ${QMTEST_DIR}/gpp-expected.qmr
+	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
+	   -o gpp.qmr -O ${QMTEST_DIR}/gpp-expected.qmr \
+	   ${QMTEST_GPP_TESTS}
+
+# Use the QMTest GUI.
+qmtest-gui: ${QMTEST_DIR}/context
+	cd ${QMTEST_DIR} && ${QMTEST} gui -C context
+
+# Build the set of expected G++ failures.
+${QMTEST_DIR}/gpp-expected.qmr: ${QMTEST_DIR}/context
+	echo "Determining expected results..."
+	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
+           -c "GCCTest.generate_xfails=1" -o gpp-expected.qmr \
+	   ${QMTEST_GPP_TESTS} \
+	   > /dev/null
+
+.PHONY: qmtest-g++
 
 # These exist for maintenance purposes.
 

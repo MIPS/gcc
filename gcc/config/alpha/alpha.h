@@ -67,21 +67,25 @@ Boston, MA 02111-1307, USA.  */
 	  builtin_define ("__IEEE_FP");			\
 	if (TARGET_IEEE_WITH_INEXACT)			\
 	  builtin_define ("__IEEE_FP_INEXACT");		\
+							\
+	/* Macros dependent on the C dialect.  */	\
+	if (preprocessing_asm_p ())			\
+	  builtin_define_std ("LANGUAGE_ASSEMBLY");	\
+        else if (c_language == clk_c)			\
+	  builtin_define_std ("LANGUAGE_C");		\
+	else if (c_language == clk_cplusplus)		\
+	  {						\
+	    builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
+	    builtin_define ("__LANGUAGE_C_PLUS_PLUS__");\
+	  }						\
+	else if (c_language == clk_objective_c)		\
+	  {						\
+	    builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
+	    builtin_define ("__LANGUAGE_OBJECTIVE_C__");\
+	  }						\
 } while (0)
 
-/* For C++ we need to ensure that __LANGUAGE_C_PLUS_PLUS is defined independent
-   of the source file extension.  */
-#define CPLUSPLUS_CPP_SPEC "-D__LANGUAGE_C_PLUS_PLUS__\
- -D__LANGUAGE_C_PLUS_PLUS %(cpp)"
-
-/* Write out the correct language type definition for the header files.  
-   Unless we have assembler language, write out the symbols for C.  */
-#define CPP_SPEC "\
-%{!undef:\
-%{.S:-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY }}\
-%{.m:-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C }\
-%{!.S:%{!.cc:%{!.cxx:%{!.cpp:%{!.cp:%{!.c++:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}}}}}\
-%(cpp_subtarget)"
+#define CPP_SPEC "%(cpp_subtarget)"
 
 #ifndef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC ""
@@ -1182,42 +1186,6 @@ extern struct alpha_compare alpha_compare;
 
 #define FUNCTION_PROFILER(FILE, LABELNO)
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.
-   This assumes that __bb_init_func doesn't garble a1-a5.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)			\
-    do {							\
-	ASM_OUTPUT_REG_PUSH (FILE, 16);				\
-	fputs ("\tlda $16,$PBX32\n", (FILE));			\
-	fputs ("\tldq $26,0($16)\n", (FILE));			\
-	fputs ("\tbne $26,1f\n", (FILE));			\
-	fputs ("\tlda $27,__bb_init_func\n", (FILE));		\
-	fputs ("\tjsr $26,($27),__bb_init_func\n", (FILE));	\
-	fputs ("\tldgp $29,0($26)\n", (FILE));			\
-	fputs ("1:\n", (FILE));					\
-	ASM_OUTPUT_REG_POP (FILE, 16);				\
-    } while (0);
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO)				\
-    do {							\
-	int blockn = (BLOCKNO);					\
-	fputs ("\tsubq $30,16,$30\n", (FILE));			\
-	fputs ("\tstq $26,0($30)\n", (FILE));			\
-	fputs ("\tstq $27,8($30)\n", (FILE));			\
-	fputs ("\tlda $26,$PBX34\n", (FILE));			\
-	fprintf ((FILE), "\tldq $27,%d($26)\n", 8*blockn);	\
-	fputs ("\taddq $27,1,$27\n", (FILE));			\
-	fprintf ((FILE), "\tstq $27,%d($26)\n", 8*blockn);	\
-	fputs ("\tldq $26,0($30)\n", (FILE));			\
-	fputs ("\tldq $27,8($30)\n", (FILE));			\
-	fputs ("\taddq $30,16,$30\n", (FILE));			\
-    } while (0)
-
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1723,52 +1691,6 @@ do {									     \
 /* Output before writable data.  */
 
 #define DATA_SECTION_ASM_OP "\t.data"
-
-/* Define an extra section for read-only data, a routine to enter it, and
-   indicate that it is for read-only data.
-
-   The first time we enter the readonly data section for a file, we write
-   eight bytes of zero.  This works around a bug in DEC's assembler in
-   some versions of OSF/1 V3.x.  */
-
-#define EXTRA_SECTIONS	readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS					\
-void								\
-literal_section ()						\
-{								\
-  if (in_section != readonly_data)				\
-    {								\
-      static int firsttime = 1;				        \
-								\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_SECTION_ASM_OP); \
-      if (firsttime)						\
-	{							\
-	  firsttime = 0;				        \
-	  assemble_aligned_integer (8, const0_rtx);		\
-	}							\
-								\
-      in_section = readonly_data;				\
-    }								\
-}								\
-
-#define READONLY_DATA_SECTION	literal_section
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the symbol
-   (such as what section it is in).  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)  \
-  alpha_encode_section_info (DECL, FIRST)
-
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)	\
-do {						\
-  (VAR) = (SYMBOL_NAME);			\
-  if ((VAR)[0] == '@')				\
-    (VAR) += 2;					\
-  if ((VAR)[0] == '*')				\
-    (VAR)++;					\
-} while (0)
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */

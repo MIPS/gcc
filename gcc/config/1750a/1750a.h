@@ -542,16 +542,6 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   fprintf (FILE, "; got into FUNCTION_PROFILER with label # %d\n", (LABELNO))
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  fprintf (FILE, "; got into FUNCTION_BLOCK_PROFILER with label # %d\n",LABELNO)
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO)	\
-  fprintf (FILE, "; got into BLOCK_PROFILER with block # %d\n",BLOCKNO)
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -889,16 +879,7 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 
 #define ASM_APP_OFF "; ASM_APP_OFF\n"
 
-
-#define EXTRA_SECTIONS  in_readonly_data
-
 #define EXTRA_SECTION_FUNCTIONS		\
-    extern void const_section PARAMS ((void));			\
-    void const_section()					\
-    {								\
-	fprintf(asm_out_file,"\tkonst\n");			\
-	current_section = Konst;				\
-    }								\
     void check_section(sect)					\
 	 enum section sect;					\
     {								\
@@ -920,9 +901,7 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 	}							\
     }
 
-		
-/* Function that switches to the read-only data section (optional) */
-#define READONLY_DATA_SECTION	const_section
+#define READONLY_DATA_SECTION_ASM_OP "\tkonst"
 
 /* Output before program init section */
 #define INIT_SECTION_ASM_OP "\n\tinit     ; init_section\n"

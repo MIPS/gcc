@@ -114,6 +114,10 @@ static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int pa_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int pa_adjust_priority PARAMS ((rtx, int));
 static int pa_issue_rate PARAMS ((void));
+static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void pa_encode_section_info PARAMS ((tree, int));
+static const char *pa_strip_name_encoding PARAMS ((const char *));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -182,6 +186,11 @@ int n_deferred_plabels = 0;
 #define TARGET_SCHED_ADJUST_PRIORITY pa_adjust_priority
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE pa_issue_rate
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO pa_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING pa_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1826,8 +1835,9 @@ reloc_needed (exp)
   return reloc;
 }
 
-/* Does operand (which is a symbolic_operand) live in text space? If
-   so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.  */
+/* Does operand (which is a symbolic_operand) live in text space?
+   If so, SYMBOL_REF_FLAG, which is set by pa_encode_section_info,
+   will be true.  */
 
 int
 read_only_operand (operand, mode)
@@ -6278,7 +6288,7 @@ output_call (insn, call_dest, sibcall)
 
 	      /* Gross.  We have just implicitly taken the address of this
 		 function, mark it as such.  */
-	      STRIP_NAME_ENCODING (real_name, name);
+	      real_name = (*targetm.strip_name_encoding) (name);
 	      TREE_SYMBOL_REFERENCED (get_identifier (real_name)) = 1;
 	    }
 
@@ -6432,6 +6442,34 @@ hppa_encode_label (sym)
   strcpy (p, str);
 
   XSTR (sym, 0) = ggc_alloc_string (newstr, len);
+}
+
+static void
+pa_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (first && TEXT_SPACE_P (decl))
+    {
+      rtx rtl;
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == VAR_DECL)
+	rtl = DECL_RTL (decl);
+      else
+	rtl = TREE_CST_RTL (decl);
+      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	hppa_encode_label (XEXP (DECL_RTL (decl), 0));
+    }
+}
+
+/* This is sort of inverse to pa_encode_section_info.  */
+
+static const char *
+pa_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*' || *str == '@');
 }
 
 int
@@ -7565,4 +7603,31 @@ pa_add_gc_roots ()
   ggc_add_rtx_root (&hppa_compare_op1, 1);
   ggc_add_root (&deferred_plabels, 1, sizeof (&deferred_plabels),
 		&mark_deferred_plabels);
+}
+
+/* On hpux10, the linker will give an error if we have a reference
+   in the read-only data section to a symbol defined in a shared
+   library.  Therefore, expressions that might require a reloc can
+   not be placed in the read-only data section.  */
+
+static void
+pa_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_READONLY (exp)
+      && !TREE_THIS_VOLATILE (exp)
+      && DECL_INITIAL (exp)
+      && (DECL_INITIAL (exp) == error_mark_node
+          || TREE_CONSTANT (DECL_INITIAL (exp)))
+      && !reloc)
+    readonly_data_section ();
+  else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
+	   && !(TREE_CODE (exp) == STRING_CST && flag_writable_strings)
+	   && !reloc)
+    readonly_data_section ();
+  else
+    data_section ();
 }

@@ -98,6 +98,8 @@ static HOST_WIDEST_INT mmix_intval PARAMS ((rtx));
 static void mmix_output_octa PARAMS ((FILE *, HOST_WIDEST_INT, int));
 static bool mmix_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void mmix_init_machine_status PARAMS ((struct function *));
+static void mmix_encode_section_info PARAMS ((tree, int));
+static const char *mmix_strip_name_encoding PARAMS ((const char *));
 
 extern void mmix_target_asm_function_prologue
   PARAMS ((FILE *, HOST_WIDE_INT));
@@ -126,6 +128,11 @@ extern void mmix_target_asm_function_epilogue
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE mmix_target_asm_function_epilogue
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO  mmix_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING  mmix_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1713,49 +1720,7 @@ mmix_data_section_asm_op ()
   return "\t.data ! mmixal:= 8H LOC 9B";
 }
 
-/* SELECT_SECTION.
-   The meat is from elfos.h, which we will eventually consider using.  */
-
-void
-mmix_select_section (decl, reloc, align)
-     tree decl;
-     int reloc;
-     int align ATTRIBUTE_UNUSED;
-{
-  if (TREE_CODE (decl) == STRING_CST)
-    {
-      if (! flag_writable_strings)
-	const_section ();
-      else
-	data_section ();
-    }
-  else if (TREE_CODE (decl) == VAR_DECL)
-    {
-      if ((flag_pic && reloc)
-	  || !TREE_READONLY (decl) || TREE_SIDE_EFFECTS (decl)
-	  || !DECL_INITIAL (decl)
-	  || (DECL_INITIAL (decl) != error_mark_node
-	      && !TREE_CONSTANT (DECL_INITIAL (decl))))
-	data_section ();
-      else
-	const_section ();
-    }
-  else if (TREE_CODE (decl) == CONSTRUCTOR)
-    {
-      if ((flag_pic && reloc)
-	  || !TREE_READONLY (decl) || TREE_SIDE_EFFECTS (decl)
-	  || ! TREE_CONSTANT (decl))
-	data_section ();
-      else
-	const_section ();
-    }
-  else
-    const_section ();
-}
-
-/* ENCODE_SECTION_INFO.  */
-
-void
+static void
 mmix_encode_section_info (decl, first)
      tree decl;
      int first;
@@ -1806,9 +1771,7 @@ mmix_encode_section_info (decl, first)
     }
 }
 
-/* STRIP_NAME_ENCODING.  */
-
-const char *
+static const char *
 mmix_strip_name_encoding (name)
      const char *name;
 {
@@ -1816,49 +1779,6 @@ mmix_strip_name_encoding (name)
     ;
 
   return name;
-}
-
-/* UNIQUE_SECTION.
-   The meat is from elfos.h, which we should consider using.  */
-
-void
-mmix_unique_section (decl, reloc)
-     tree decl;
-     int reloc;
-{
-  int len;
-  int sec;
-  const char *name;
-  char *string;
-  const char *prefix;
-  static const char *const prefixes[4][2] =
-  {
-    { ".text.",   ".gnu.linkonce.t." },
-    { ".rodata.", ".gnu.linkonce.r." },
-    { ".data.",   ".gnu.linkonce.d." },
-    { ".bss.",    ".gnu.linkonce.b." }
-  };
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    sec = 0;
-  else if (DECL_INITIAL (decl) == 0
-	   || DECL_INITIAL (decl) == error_mark_node)
-    sec =  3;
-  else if (DECL_READONLY_SECTION (decl, reloc))
-    sec = 1;
-  else
-    sec = 2;
-
-  name   = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
-  prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
-  len    = strlen (name) + strlen (prefix);
-  string = alloca (len + 1);
-
-  sprintf (string, "%s%s", prefix, name);
-
-  DECL_SECTION_NAME (decl) = build_string (len, string);
 }
 
 /* ASM_FILE_START.  */

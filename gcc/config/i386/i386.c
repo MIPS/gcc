@@ -691,6 +691,8 @@ struct ix86_address
 
 static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
 
+static void i386_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
+
 struct builtin_description;
 static rtx ix86_expand_sse_comi PARAMS ((const struct builtin_description *,
 					 tree, rtx));
@@ -2948,7 +2950,7 @@ local_symbolic_operand (op, mode)
      the compiler that assumes it can just stick the results of 
      ASM_GENERATE_INTERNAL_LABEL in a symbol_ref and have done.  */
   /* ??? This is a hack.  Should update the body of the compiler to
-     always create a DECL an invoke ENCODE_SECTION_INFO.  */
+     always create a DECL an invoke targetm.encode_section_info.  */
   if (strncmp (XSTR (op, 0), internal_label_prefix,
 	       internal_label_prefix_len) == 0)
     return 1;
@@ -3825,7 +3827,7 @@ ix86_asm_file_end (file)
 			      get_identifier ("i686.get_pc_thunk"),
 			      error_mark_node);
       DECL_ONE_ONLY (decl) = 1;
-      UNIQUE_SECTION (decl, 0);
+      (*targetm.asm_out.unique_section) (decl, 0);
       named_section (decl, NULL);
     }
   else
@@ -5086,6 +5088,23 @@ legitimize_pic_address (orig, reg)
 	}
     }
   return new;
+}
+
+/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
+   may access it directly in the GOT.  */
+
+static void
+i386_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    {
+      rtx rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
+
+      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+	SYMBOL_REF_FLAG (XEXP (rtl, 0)) = (*targetm.binds_local_p) (decl);
+    }
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -10390,7 +10409,7 @@ ix86_sched_reorder_ppro (ready, e_ready)
   for (i = 1; i < 3; ++i)
     if (decode[i] == NULL)
       {
-	if (ready >= e_ready)
+	if (ready > e_ready)
 	  goto ppro_done;
 
 	insnp = e_ready;
@@ -10434,8 +10453,14 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_readyp, clock_var)
   int n_ready = *n_readyp;
   rtx *e_ready = ready + n_ready - 1;
 
+  /* Make sure to go ahead and initialize key items in 
+     ix86_sched_data if we are not going to bother trying to
+     reorder the ready queue.  */
   if (n_ready < 2)
-    goto out;
+    {
+      ix86_sched_data.ppro.issued_this_cycle = 1;
+      goto out;
+    }
 
   switch (ix86_cpu)
     {

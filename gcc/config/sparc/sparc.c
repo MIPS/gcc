@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -157,6 +157,12 @@ static void sparc_nonflat_function_prologue PARAMS ((FILE *, HOST_WIDE_INT,
 #ifdef OBJECT_FORMAT_ELF
 static void sparc_elf_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
+static void sparc_aout_select_section PARAMS ((tree, int,
+					       unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void sparc_aout_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 static int sparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sparc_issue_rate PARAMS ((void));
@@ -169,6 +175,8 @@ static void emit_soft_tfmode_binop PARAMS ((enum rtx_code, rtx *));
 static void emit_soft_tfmode_unop PARAMS ((enum rtx_code, rtx *));
 static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
+
+static void sparc_encode_section_info PARAMS ((tree, int));
 
 /* Option handling.  */
 
@@ -228,6 +236,9 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE sparc_use_dfa_pipeline_interface
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -8040,6 +8051,36 @@ sparc_elf_asm_named_section (name, flags)
 }
 #endif /* OBJECT_FORMAT_ELF */
 
+/* ??? Similar to the standard section selection, but force reloc-y-ness
+   if SUNOS4_SHARED_LIBRARIES.  Unclear why this helps (as opposed to
+   pretending PIC always on), but that's what the old code did.  */
+
+static void
+sparc_aout_select_section (t, reloc, align)
+     tree t;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  default_select_section (t, reloc | SUNOS4_SHARED_LIBRARIES, align);
+}
+
+/* Use text section for a constant unless we need more alignment than
+   that offers.  */
+
+static void
+sparc_aout_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (align <= MAX_TEXT_ALIGN
+      && ! (flag_pic && (symbolic_operand (x, mode)
+			 || SUNOS4_SHARED_LIBRARIES)))
+    readonly_data_section ();
+  else
+    data_section ();
+}
+
 int
 sparc_extra_constraint_check (op, c, strict)
      rtx op;
@@ -8419,4 +8460,17 @@ sparc_rtx_costs (x, code, outer_code)
     default:
       abort();
     };
+}
+
+/* If we are referencing a function make the SYMBOL_REF special.  In
+   the Embedded Medium/Anywhere code model, %g4 points to the data
+   segment so we must not add it to function addresses.  */
+
+static void
+sparc_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TARGET_CM_EMBMEDANY && TREE_CODE (decl) == FUNCTION_DECL)
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }

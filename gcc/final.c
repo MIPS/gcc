@@ -99,6 +99,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 #endif
 
+#if defined(READONLY_DATA_SECTION) || defined(READONLY_DATA_SECTION_ASM_OP)
+#define HAVE_READONLY_DATA_SECTION 1
+#else
+#define HAVE_READONLY_DATA_SECTION 0
+#endif
+
 /* Last insn processed by final_scan_insn.  */
 static rtx debug_insn;
 rtx current_output_insn;
@@ -502,7 +508,7 @@ end_final (filename)
       ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 0);
       DECL_NAME (structure_value) = get_identifier (name);
 
-      /* Size of this structure. */
+      /* Size of this structure.  */
       TREE_VALUE (sizeof_field_value)
 	= convert (long_integer_type_node,
 		   build_int_2 (int_size_in_bytes (structure_decl), 0));
@@ -668,7 +674,7 @@ get_attr_length (insn)
 
       case JUMP_INSN:
 	body = PATTERN (insn);
-        if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
+	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
 	  {
 	    /* Alignment is machine-dependent and should be handled by
 	       ADDR_VEC_ALIGN.  */
@@ -979,8 +985,8 @@ compute_alignments ()
       if (!has_fallthru
 	  && !probably_never_executed_bb_p (bb)
 	  && (branch_frequency > BB_FREQ_MAX / 10
-	      || (bb->frequency > BASIC_BLOCK (i - 1)->frequency * 10
-		  && (BASIC_BLOCK (i - 1)->frequency
+	      || (bb->frequency > bb->prev_bb->frequency * 10
+		  && (bb->prev_bb->frequency
 		      <= ENTRY_BLOCK_PTR->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
@@ -1118,11 +1124,7 @@ shorten_branches (first)
 	  next = NEXT_INSN (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-	      || 1
-#endif
-	      )
+	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 	    if (next && GET_CODE (next) == JUMP_INSN)
 	      {
 		rtx nextbody = PATTERN (next);
@@ -1285,11 +1287,7 @@ shorten_branches (first)
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-	      || 1
-#endif
-	      )
+	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 	    insn_lengths[uid] = (XVECLEN (body,
 					  GET_CODE (body) == ADDR_DIFF_VEC)
 				 * GET_MODE_SIZE (GET_MODE (body)));
@@ -1490,11 +1488,7 @@ shorten_branches (first)
 	      PUT_MODE (body, CASE_VECTOR_SHORTEN_MODE (min_addr - rel_addr,
 							max_addr - rel_addr,
 							body));
-	      if (JUMP_TABLES_IN_TEXT_SECTION
-#if !defined(READONLY_DATA_SECTION)
-		  || 1
-#endif
-		  )
+	      if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
 		{
 		  insn_lengths[uid]
 		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
@@ -1524,7 +1518,7 @@ shorten_branches (first)
 
 		      insn_current_address += insn_lengths[inner_uid];
 		    }
-                }
+		}
 	      else
 		insn_current_address += insn_lengths[uid];
 
@@ -1940,7 +1934,7 @@ final (first, file, optimize, prescan)
       new_item->cfg_checksum = profile_info.current_function_cfg_checksum;
       new_item->count_edges = profile_info.count_edges_instrumented_now;
     }
-  
+
   free (line_note_exists);
   line_note_exists = NULL;
 }
@@ -2702,13 +2696,13 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	insn_code_number = recog_memoized (insn);
 	cleanup_subreg_operands (insn);
 
-       /* Dump the insn in the assembly for debugging.  */
-       if (flag_dump_rtl_in_asm)
-         {
-           print_rtx_head = ASM_COMMENT_START;
-           print_rtl_single (asm_out_file, insn);
-           print_rtx_head = "";
-         }
+	/* Dump the insn in the assembly for debugging.  */
+	if (flag_dump_rtl_in_asm)
+	  {
+	    print_rtx_head = ASM_COMMENT_START;
+	    print_rtl_single (asm_out_file, insn);
+	    print_rtx_head = "";
+	  }
 
 	if (! constrain_operands_cached (1))
 	  fatal_insn_not_found (insn);
@@ -3133,7 +3127,7 @@ output_operand_lossage VPARAMS ((const char *msgid, ...))
   pfx_str = this_is_asm_operands ? _("invalid `asm': ") : "output_operand: ";
   asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
   vasprintf (&new_message, fmt_string, ap);
-  
+
   if (this_is_asm_operands)
     error_for_asm (this_is_asm_operands, "%s", new_message);
   else

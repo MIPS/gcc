@@ -4610,8 +4610,8 @@ assign_parms (fndecl)
 	 to indicate there is no preallocated stack slot for the parm.  */
 
       if (entry_parm == stack_parm
-          || (GET_CODE (entry_parm) == PARALLEL
-              && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
+	  || (GET_CODE (entry_parm) == PARALLEL
+	      && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
 #if defined (REG_PARM_STACK_SPACE) && ! defined (MAYBE_REG_PARM_STACK_SPACE)
 	  /* On some machines, even if a parm value arrives in a register
 	     there is still an (uninitialized) stack slot allocated for it.
@@ -5402,8 +5402,8 @@ pad_to_arg_alignment (offset_ptr, boundary, alignment_pad)
 	      (ARGS_SIZE_TREE (*offset_ptr),
 	       boundary / BITS_PER_UNIT);
 	  offset_ptr->constant = 0; /*?*/
-          if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
-            alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
+	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	    alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
 					     save_var);
 	}
       else
@@ -5463,7 +5463,7 @@ uninitialized_vars_warning (block)
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
       if (warn_uninitialized
-          && TREE_CODE (decl) == VAR_DECL
+	  && TREE_CODE (decl) == VAR_DECL
 	  /* These warnings are unreliable for and aggregates
 	     because assigning the fields one by one can fail to convince
 	     flow.c that the entire aggregate was initialized.
@@ -7832,7 +7832,7 @@ epilogue_done:
 	}
 
       /* Find the last line number note in the first block.  */
-      for (insn = BASIC_BLOCK (0)->end;
+      for (insn = ENTRY_BLOCK_PTR->next_bb->end;
 	   insn != prologue_end && insn;
 	   insn = PREV_INSN (insn))
 	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)

@@ -1,3 +1,70 @@
+2002-05-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tls/tls.exp, gcc.dg/tls/trivial.c, gcc.dg/tls/diag-1.c,
+	gcc.dg/tls/diag-2.c, gcc.dg/tls/init-1.c: New directory and files.
+
+Tue May 21 14:25:32 2002  Brian R. Gaeke  <brg@dgate.ORG>
+
+	* g++.dg/other/copy2.C: New test.
+
+Mon May 20 10:51:35 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/memcpy-2.c (SEQUENCE_LENGTH): Define.
+	(MAX_COPY): Bump up to 10 times sizeof (long long).
+	(main): Use a pattern of SEQUENCE_LENGTH different characters to copy.
+
+	* gcc.c-torture/execute/memset-1.c (MAX_COPY): Bump up to 10 times
+	sizeof (long long).
+
+	* gcc.c-torture/execute/strcpy-1.c: New test.
+
+2002-05-19  Jason Merrill  <jason2redhat.com>
+
+	* g++.dg/ext/oper1.C: New test.
+
+2002-05-20  David Billinghurst <David.Billinghurst@riotinto.com>
+2002-05-19  Mark Mitchell  <mitchell@doubledemon.codesourcery.com>
+
+	* README.QMTEST: New file.
+
+	* g++.dg/warn/Wshadow-1.C: Remove unncessary dg-error line.
+
+2002-05-19  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-2c.x: Remove, the test should pass
+	now.
+	* gcc.c-torture/execute/loop-2d.x: Likewise.
+
+2002-05-19  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/weak-2.c:  xfail warnings for platforms that don't
+	support weak symbols.
+	* gcc.dg/weak-4.c: Likewise
+	* gcc.dg/weak-6.c: Likewise
+
+2002-05-16  David.Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/weak-3.c: Add dg-excess-error comment for
+	cygwin, coff and h8300-*-hms targets
+	* gcc.dg/weak-5.c: Likewise
+	* gcc.dg/weak-7.c: Likewise
+
+2002-05-16  Jason Merrill  <jason@redhat.com>
+
+	* lib/scanasm.exp (scan-assembler): Use upvar, not uplevel.
+	(scan-assembler-not, scan-assembler-dem): Likewise.
+	(scan-assembler-dem-not): Likewise.
+
+2002-05-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/weak-5.c (vfoo1c, vfoo1g): Warn here.
+
+2002-05-15  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/weak-5.c (vfoo1c): No warning here.
+	(vfoo1f): Warning here.
+	(vfoo1l): Don't redefine the alias.
+
 2002-05-14  Jason Merrill  <jason@redhat.com>, Alexandre Oliva  <aoliva@redhat.com>
 
 	* g++.dg/init/pm1.C: New test.
@@ -67,7 +134,7 @@
 2002-05-05  Tim Josling  <tej@melbpc.org.au>
 
 	* treelang: Added directory for new sample language treelang. Also
-	lib/treelang.exp: New file to signal treelang should be tested. 
+	lib/treelang.exp: New file to signal treelang should be tested.
 
 2002-05-03  Jakub Jelinek  <jakub@redhat.com>
 
@@ -146,7 +213,7 @@
 
 	PR c++/6497
 	* g++.dg/inherit/access2.C: New test.
-	
+
 2002-04-26  Mark Mitchell  <mark@codesourcery.com>
 
 	PR bootstrap/6445

@@ -614,7 +614,8 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
-	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat)
+	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
+        scandir alphasort)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -1008,9 +1009,9 @@ fi
 esac
 
 # Get an absolute path to the GCC top-level source directory
-holddir=`pwd`
+holddir=`${PWDCMD-pwd}`
 cd $srcdir
-topdir=`pwd`
+topdir=`${PWDCMD-pwd}`
 cd $holddir
 
 # Conditionalize the makefile for this host machine.
@@ -2383,7 +2384,7 @@ fi)
 AC_SUBST(slibdir)
 
 # Nothing to do for FLOAT_H, float_format already handled.
-objdir=`pwd`
+objdir=`${PWDCMD-pwd}`
 AC_SUBST(objdir)
 
 # Process the language and host/target makefile fragments.
@@ -2504,7 +2505,7 @@ esac
 if test "$symbolic_link" = "ln -s"; then
  for d in .. ${subdirs} fixinc ; do
    if test $d != ..; then
-	STARTDIR=`pwd`
+	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
 	for t in stage1 stage2 stage3 stage4 include
 	do

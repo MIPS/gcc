@@ -47,6 +47,7 @@
 static int    avr_naked_function_p PARAMS ((tree));
 static int    interrupt_function_p PARAMS ((tree));
 static int    signal_function_p    PARAMS ((tree));
+static int    avr_regs_to_save     PARAMS ((HARD_REG_SET *));
 static int    sequent_regs_live    PARAMS ((void));
 static const char * ptrreg_to_str  PARAMS ((int));
 static const char * cond_string    PARAMS ((enum rtx_code));
@@ -63,6 +64,8 @@ const struct attribute_spec avr_attribute_table[];
 static bool   avr_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void   avr_unique_section PARAMS ((tree, int));
+static void   avr_encode_section_info PARAMS ((tree, int));
 
 /* Allocate registers from r25 to r8 for parameters for function calls */
 #define FIRST_CUM_REG 26
@@ -196,6 +199,10 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
+#undef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION avr_unique_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO avr_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -360,6 +367,42 @@ signal_function_p (func)
   return a != NULL_TREE;
 }
 
+/* Return the number of hard registers to push/pop in the prologue/epilogue
+   of the current function, and optionally store these registers in SET.  */
+
+static int
+avr_regs_to_save (set)
+     HARD_REG_SET *set;
+{
+  int reg, count;
+  int int_or_sig_p = (interrupt_function_p (current_function_decl)
+		      || signal_function_p (current_function_decl));
+  int leaf_func_p = leaf_function_p ();
+
+  if (set)
+    CLEAR_HARD_REG_SET (*set);
+  count = 0;
+  for (reg = 0; reg < 32; reg++)
+    {
+      /* Do not push/pop __tmp_reg__, __zero_reg__, as well as
+	 any global register variables.  */
+      if (fixed_regs[reg])
+	continue;
+
+      if ((int_or_sig_p && !leaf_func_p && call_used_regs[reg])
+	  || (regs_ever_live[reg]
+	      && (int_or_sig_p || !call_used_regs[reg])
+	      && !(frame_pointer_needed
+		   && (reg == REG_Y || reg == (REG_Y+1)))))
+	{
+	  if (set)
+	    SET_HARD_REG_BIT (*set, reg);
+	  count++;
+	}
+    }
+  return count;
+}
+
 /* Compute offset between arg_pointer and frame_pointer */
 
 int
@@ -367,31 +410,15 @@ initial_elimination_offset (from, to)
      int from;
      int to;
 {
-  int reg;
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return 0;
   else
     {
-      int interrupt_func_p = interrupt_function_p (current_function_decl);
-      int signal_func_p = signal_function_p (current_function_decl);
-      int leaf_func_p = leaf_function_p ();
-      int offset= frame_pointer_needed ? 2 : 0;
+      int offset = frame_pointer_needed ? 2 : 0;
 
-      for (reg = 0; reg < 32; ++reg)
-	{
-	  if ((!leaf_func_p && (call_used_regs[reg]
-				&& (interrupt_func_p || signal_func_p)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg] || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
-	    {
-	      ++offset;
-	    }
-	}
+      offset += avr_regs_to_save (NULL);
       return get_frame_size () + 2 + 1 + offset;
     }
-  return 0;
 }
 
 /* This function checks sequence of live registers */
@@ -566,7 +593,6 @@ avr_output_function_prologue (file, size)
   int reg;
   int interrupt_func_p;
   int signal_func_p;
-  int leaf_func_p;
   int main_p;
   int live_seq;
   int minimize;
@@ -579,7 +605,6 @@ avr_output_function_prologue (file, size)
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
-  leaf_func_p = leaf_function_p ();
   main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
@@ -595,7 +620,7 @@ avr_output_function_prologue (file, size)
       fprintf (file,"\tsei\n");
       ++prologue_size;
     }
-  if (interrupt_func_p | signal_func_p)
+  if (interrupt_func_p || signal_func_p)
     {
       fprintf (file, "\t"
                AS1 (push,__zero_reg__)   CR_TAB
@@ -644,20 +669,14 @@ avr_output_function_prologue (file, size)
     }
   else
     {
+      HARD_REG_SET set;
+
+      prologue_size += avr_regs_to_save (&set);
       for (reg = 0; reg < 32; ++reg)
 	{
-	  if ((!leaf_func_p
-	       && (call_used_regs[reg]
-		   && (interrupt_func_p || signal_func_p)
-		   && !(reg == TMP_REGNO || reg == ZERO_REGNO)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg]
-		      || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
+	  if (TEST_HARD_REG_BIT (set, reg))
 	    {
 	      fprintf (file, "\t" AS1 (push,%s) "\n", avr_regnames[reg]);
-	      ++prologue_size;
 	    }
 	}
       if (frame_pointer_needed)
@@ -703,7 +722,6 @@ avr_output_function_epilogue (file, size)
   int reg;
   int interrupt_func_p;
   int signal_func_p;
-  int leaf_func_p;
   int main_p;
   int function_size;
   int live_seq;
@@ -717,7 +735,6 @@ avr_output_function_epilogue (file, size)
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
-  leaf_func_p = leaf_function_p ();
   main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   function_size = (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
 		   - INSN_ADDRESSES (INSN_UID (get_insns ())));
@@ -763,6 +780,8 @@ avr_output_function_epilogue (file, size)
     }
   else
     {
+      HARD_REG_SET set;
+
       if (frame_pointer_needed)
 	{
 	  if (size)
@@ -770,7 +789,7 @@ avr_output_function_epilogue (file, size)
 	      fputs ("\t", file);
 	      epilogue_size += out_adj_frame_ptr (file, -size);
 
-	      if (interrupt_func_p | signal_func_p)
+	      if (interrupt_func_p || signal_func_p)
 		{
 		  epilogue_size += out_set_stack_ptr (file, -1, 0);
 		}
@@ -785,24 +804,16 @@ avr_output_function_epilogue (file, size)
 	  epilogue_size += 2;
 	}
 
+      epilogue_size += avr_regs_to_save (&set);
       for (reg = 31; reg >= 0; --reg)
 	{
-	  if ((!leaf_func_p
-	       && (call_used_regs[reg]
-		   && (interrupt_func_p || signal_func_p)
-		   && !(reg == TMP_REGNO || reg == ZERO_REGNO)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg]
-		      || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
+	  if (TEST_HARD_REG_BIT (set, reg))
 	    {
 	      fprintf (file, "\t" AS1 (pop,%s) "\n", avr_regnames[reg]);
-	      ++epilogue_size;
 	    }
 	}
-      
-      if (interrupt_func_p | signal_func_p)
+
+      if (interrupt_func_p || signal_func_p)
 	{
 	  fprintf (file, "\t"
 		   AS1 (pop,__tmp_reg__)      CR_TAB
@@ -4498,17 +4509,17 @@ avr_assemble_integer (x, size, aligned_p)
 
 /* Sets section name for declaration DECL */
   
-void
-unique_section (decl, reloc)
+static void
+avr_unique_section (decl, reloc)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
 {
   int len;
   const char *name, *prefix;
   char *string;
+
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -4741,10 +4752,10 @@ avr_progmem_p (decl)
   return 0;
 }
 
-/* Encode section information about tree DECL */
+/* Encode section information about tree DECL.  */
   
-void
-encode_section_info (decl, first)
+static void
+avr_encode_section_info (decl, first)
      tree decl;
      int first;
 {
@@ -4759,7 +4770,7 @@ encode_section_info (decl, first)
       DECL_SECTION_NAME (decl) = build_string (strlen (dsec), dsec);
       TREE_READONLY (decl) = 1;
     }
-}   
+}
 
 /* Outputs to the stdio stream FILE some
    appropriate text to go at the start of an assembler file.  */
@@ -5056,11 +5067,11 @@ machine_dependent_reorg (first_insn)
 		  rtx pat = PATTERN (next);
 		  rtx src = SET_SRC (pat);
 		  rtx t = XEXP (src,0);
+		  enum machine_mode mode = GET_MODE (XEXP (pattern, 0));
 
-		  if (avr_simplify_comparision_p (GET_MODE (XEXP (pattern,0)),
-						  GET_CODE (t), x))
+		  if (avr_simplify_comparision_p (mode, GET_CODE (t), x))
 		    {
-		      XEXP (pattern,1) = GEN_INT (INTVAL (x)+1);
+		      XEXP (pattern, 1) = gen_int_mode (INTVAL (x) + 1, mode);
 		      PUT_CODE (t, avr_normalize_condition (GET_CODE (t)));
 		      INSN_CODE (next) = -1;
 		      INSN_CODE (insn) = -1;

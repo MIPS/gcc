@@ -4099,23 +4099,21 @@ forget_old_reloads_1 (x, ignored, data)
 {
   unsigned int regno;
   unsigned int nr;
-  int offset = 0;
 
   /* note_stores does give us subregs of hard regs,
      subreg_regno_offset will abort if it is not a hard reg.  */
   while (GET_CODE (x) == SUBREG)
     {
-      offset += subreg_regno_offset (REGNO (SUBREG_REG (x)),
-				     GET_MODE (SUBREG_REG (x)),
-				     SUBREG_BYTE (x),
-				     GET_MODE (x));
+      /* We ignore the subreg offset when calculating the regno,
+	 because we are using the entire underlying hard register
+	 below.  */
       x = SUBREG_REG (x);
     }
 
   if (GET_CODE (x) != REG)
     return;
 
-  regno = REGNO (x) + offset;
+  regno = REGNO (x);
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     nr = 1;
@@ -6912,6 +6910,7 @@ do_output_reload (chain, rl, j)
   rtx pseudo = rl->out_reg;
 
   if (pseudo
+      && optimize
       && GET_CODE (pseudo) == REG
       && ! rtx_equal_p (rl->in_reg, pseudo)
       && REGNO (pseudo) >= FIRST_PSEUDO_REGISTER
@@ -8080,8 +8079,8 @@ reload_cse_simplify (insn)
       if (!count && reload_cse_noop_set_p (body))
 	{
 	  rtx value = SET_DEST (body);
-	  if (GET_CODE (body) == REG
-	      && ! REG_FUNCTION_VALUE_P (SET_DEST (body)))
+	  if (REG_P (value)
+	      && ! REG_FUNCTION_VALUE_P (value))
 	    value = 0;
 	  reload_cse_delete_noop_set (insn, value);
 	  return;

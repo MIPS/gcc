@@ -83,6 +83,14 @@ cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 			: "long long unsigned int"))
 #endif
 
+#ifndef STDC_0_IN_SYSTEM_HEADERS
+#define STDC_0_IN_SYSTEM_HEADERS 0
+#endif
+
+#ifndef REGISTER_PREFIX
+#define REGISTER_PREFIX ""
+#endif
+
 /* The variant of the C language being processed.  */
 
 enum c_language_kind c_language;
@@ -4268,8 +4276,10 @@ c_common_init_options (lang)
      enum c_language_kind lang;
 {
   c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89:
-				lang == clk_cplusplus ? CLK_GNUCXX: CLK_OBJC);
+  parse_in = cpp_create_reader (lang == clk_c || lang == clk_objective_c
+				? CLK_GNUC89 : CLK_GNUCXX);
+  if (lang == clk_objective_c)
+    cpp_get_options (parse_in)->objc = 1;
 
   /* Mark as "unspecified" (see c_common_post_options).  */
   flag_bounds_check = -1;
@@ -4306,12 +4316,18 @@ c_common_post_options ()
     warning ("-Wformat-y2k ignored without -Wformat");
   if (warn_format_extra_args && !warn_format)
     warning ("-Wformat-extra-args ignored without -Wformat");
+  if (warn_format_zero_length && !warn_format)
+    warning ("-Wformat-zero-length ignored without -Wformat");
   if (warn_format_nonliteral && !warn_format)
     warning ("-Wformat-nonliteral ignored without -Wformat");
   if (warn_format_security && !warn_format)
     warning ("-Wformat-security ignored without -Wformat");
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
+
+  /* If an error has occurred in cpplib, note it so we fail
+     immediately.  */
+  errorcount += cpp_errors (parse_in);
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
@@ -4336,13 +4352,44 @@ cb_register_builtins (pfile)
     cpp_define (pfile, "__USING_SJLJ_EXCEPTIONS__");
 
   /* stddef.h needs to know these.  */
-  builtin_define_with_value ("__SIZE_TYPE__", SIZE_TYPE);
-  builtin_define_with_value ("__PTRDIFF_TYPE__", PTRDIFF_TYPE);
-  builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE);
-  builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE);
+  builtin_define_with_value ("__SIZE_TYPE__", SIZE_TYPE, 0);
+  builtin_define_with_value ("__PTRDIFF_TYPE__", PTRDIFF_TYPE, 0);
+  builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE, 0);
+  builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE, 0);
+
+  /* For use in assembly language.  */
+  builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
+  builtin_define_with_value ("__USER_LABEL_PREFIX__", user_label_prefix, 0);
+
+  /* Misc.  */
+  builtin_define_with_value ("__VERSION__", version_string, 1);
+
+  /* Other target-independent built-ins determined by command-line
+     options.  */
+  if (optimize_size)
+    cpp_define (pfile, "__OPTIMIZE_SIZE__");
+  if (optimize)
+    cpp_define (pfile, "__OPTIMIZE__");
+
+  if (flag_hosted)
+    cpp_define (pfile, "__STDC_HOSTED__=1");
+  else
+    cpp_define (pfile, "__STDC_HOSTED__=0");
+
+  if (fast_math_flags_set_p ())
+    cpp_define (pfile, "__FAST_MATH__");
+  if (flag_no_inline)
+    cpp_define (pfile, "__NO_INLINE__");
+
+  if (flag_iso)
+    cpp_define (pfile, "__STRICT_ANSI__");
+
+  if (!flag_signed_char)
+    cpp_define (pfile, "__CHAR_UNSIGNED__");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
+  #define preprocessing_asm_p() (cpp_get_options (pfile)->lang == CLK_ASM)
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
 }
@@ -4376,10 +4423,6 @@ builtin_define_std (macro)
   /* If it was in user's namespace...  */
   if (p != buff + 2)
     {
-      /* Define the original macro if permitted.  */
-      if (!flag_iso)
-	cpp_define (parse_in, macro);
-
       /* Define the macro with leading and following __.  */
       if (q[-1] != '_')
 	*q++ = '_';
@@ -4387,26 +4430,35 @@ builtin_define_std (macro)
 	*q++ = '_';
       *q = '\0';
       cpp_define (parse_in, p);
+
+      /* Finally, define the original macro if permitted.  */
+      if (!flag_iso)
+	cpp_define (parse_in, macro);
     }
 }
 
-/* Pass an object-like macro and a value to define it to.  */
+/* Pass an object-like macro and a value to define it to.  The third
+   parameter says whether or not to turn the value into a string
+   constant.  */
 void
-builtin_define_with_value (macro, expansion)
+builtin_define_with_value (macro, expansion, is_str)
      const char *macro;
      const char *expansion;
+     int is_str;
 {
-  char *buf, *q;
+  char *buf;
   size_t mlen = strlen (macro);
   size_t elen = strlen (expansion);
+  size_t extra = 2;  /* space for an = and a NUL */
 
-  q = buf = alloca (mlen + elen + 2);
-  memcpy (q, macro, mlen);
-  q += mlen;
-  *q++ = '=';
-  memcpy (q, expansion, elen);
-  q += elen;
-  *q = '\0';
+  if (is_str)
+    extra += 2;  /* space for two quote marks */
+
+  buf = alloca (mlen + elen + extra);
+  if (is_str)
+    sprintf (buf, "%s=\"%s\"", macro, expansion);
+  else
+    sprintf (buf, "%s=%s", macro, expansion);
 
   cpp_define (parse_in, buf);
 }
@@ -4424,16 +4476,9 @@ c_common_init (filename)
   options->int_precision = TYPE_PRECISION (integer_type_node);
   options->wchar_precision = TYPE_PRECISION (wchar_type_node);
   options->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-  /* This can be uncommented when 1) This all happens before
-     cpp_post_options() (needed for __CHAR_UNSIGNED__ builtin), which
-     in turn requires wchat_type_node to be set up properly by then,
-     and 2) tradcpp is integrated, so that the preprocessors don't
-     need to handle the command-line options and the specs in gcc.c
-     can be updated.
-
-     options->unsigned_char = !flag_signed_char; */
-
+  options->unsigned_char = !flag_signed_char;
   options->warn_multichar = warn_multichar;
+  options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
 
   /* Register preprocessor built-ins before calls to
      cpp_main_file.  */

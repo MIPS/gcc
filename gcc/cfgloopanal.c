@@ -606,7 +606,7 @@ loop_split_edge_with (e, insns, loops)
 
   /* Create basic block for it.  */
 
-  new_bb = create_basic_block (n_basic_blocks, NULL, NULL);
+  new_bb = create_basic_block (NULL_RTX, NULL_RTX, EXIT_BLOCK_PTR->prev_bb);
   add_bb_to_loop (new_bb, loop_c);
   new_bb->flags = BB_SUPERBLOCK;
 

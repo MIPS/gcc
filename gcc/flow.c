@@ -493,12 +493,12 @@ life_analysis (f, file, flags)
     for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
       {
 	rtx inote = find_reg_note (insn, REG_LABEL, NULL_RTX);
-
-	if (inote && GET_CODE (inote) == NOTE_INSN_DELETED_LABEL)
+	if (inote && GET_CODE (XEXP (inote, 0)) != CODE_LABEL)
 	  abort ();
       }
   }
 #endif
+
   /* Removing dead insns should've made jumptables really dead.  */
   delete_dead_jumptables ();
 }
@@ -592,7 +592,7 @@ verify_local_live_at_start (new_live_at_start, bb)
 
       EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i,
 	{
-          /* No registers should die.  */
+	  /* No registers should die.  */
 	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
 	    {
 	      if (rtl_dump_file)
@@ -604,7 +604,7 @@ verify_local_live_at_start (new_live_at_start, bb)
 	      abort ();
 	    }
 
-          /* Verify that the now-live register is wider than word_mode.  */
+	  /* Verify that the now-live register is wider than word_mode.  */
 	  verify_wide_reg (i, bb);
 	});
     }
@@ -989,7 +989,7 @@ mark_regs_live_at_end (set)
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
       /* If they are different, also mark the hard frame pointer as live.  */
       if (! LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-        SET_REGNO_REG_SET (set, HARD_FRAME_POINTER_REGNUM);
+	SET_REGNO_REG_SET (set, HARD_FRAME_POINTER_REGNUM);
 #endif
     }
 
@@ -1749,7 +1749,7 @@ propagate_one_insn (pbi, insn)
 	      free_EXPR_LIST_list (&pbi->mem_set_list);
 	      pbi->mem_set_list_len = 0;
 	    }
-          else
+	  else
 	    invalidate_mems_from_set (pbi, stack_pointer_rtx);
 
 	  /* There may be extra registers to be clobbered.  */
@@ -2349,7 +2349,7 @@ regno_uninitialized (regno)
 	      || FUNCTION_ARG_REGNO_P (regno))))
     return 0;
 
-  return REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno);
+  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno);
 }
 
 /* 1 if register REGNO was alive at a place where `setjmp' was called
@@ -2364,7 +2364,7 @@ regno_clobbered_at_setjmp (regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start, regno))
+	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno))
 	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
 }
 
@@ -2660,7 +2660,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
       if (GET_CODE (reg) == MEM && ! side_effects_p (reg)
 	  /* ??? With more effort we could track conditional memory life.  */
 	  && ! cond)
-        add_to_mem_set_list (pbi, canon_rtx (reg));
+	add_to_mem_set_list (pbi, canon_rtx (reg));
     }
 
   if (GET_CODE (reg) == REG
@@ -3791,7 +3791,7 @@ mark_used_regs (pbi, x, cond, insn)
 
 #ifdef AUTO_INC_DEC
       if (flags & PROP_AUTOINC)
-        find_auto_inc (pbi, x, insn);
+	find_auto_inc (pbi, x, insn);
 #endif
       break;
 

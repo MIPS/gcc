@@ -1526,14 +1526,14 @@ do {									\
 #define SDATA_SECTION_ASM_OP	"\t.section .sdata"
 #define SBSS_SECTION_ASM_OP	"\t.section .sbss"
 /* This one is for svr4.h.  */
-#undef  CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP	"\t.section .rodata"
+#undef  READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section .rodata"
 
 /* A list of names for sections other than the standard two, which are
    `in_text' and `in_data'.  You need not define this macro
    on a system with no other sections (that GCC needs to use).  */
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_const
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
 /* One or more functions to be defined in "varasm.c".  These
    functions should do jobs analogous to those of `text_section' and
@@ -1541,7 +1541,6 @@ do {									\
    macro if you do not define `EXTRA_SECTIONS'.  */
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS	\
-  CONST_SECTION_FUNCTION	\
   SDATA_SECTION_FUNCTION	\
   SBSS_SECTION_FUNCTION
 
@@ -1567,25 +1566,8 @@ sbss_section ()								\
     }									\
 }									\
 
-/* A C statement or statements to switch to the appropriate section for
-   output of EXP.  You can assume that EXP is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether the initial value
-   of EXP requires link-time relocations.  */
-#undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC, ALIGN) \
-  m32r_select_section ((EXP), (RELOC))
-
-/* A C statement or statements to switch to the appropriate section for
-   output of RTX in mode MODE.  You can assume that RTX
-   is some kind of constant in RTL.  The argument MODE is redundant
-   except in the case of a `const_int' rtx.  Select the section by
-   calling `text_section' or one of the alternatives for other
-   sections.
-
-   Do not define this macro if you put all constants in the read-only
-   data section.  */
-
-#undef SELECT_RTX_SECTION
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  m32r_select_section
 
 /* Define this macro if jump tables (for tablejump insns) should be
    output in the text section, along with the assembler instructions.
@@ -1629,18 +1611,6 @@ sbss_section ()								\
  /*|| SMALL_NAME_P (SYMBOL_NAME)*/ \
  || MEDIUM_NAME_P (SYMBOL_NAME) \
  || LARGE_NAME_P (SYMBOL_NAME))
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) m32r_encode_section_info (DECL, FIRST)
-
-/* Decode SYM_NAME and store the real name part in VAR, sans
-   the characters that encode section info.  Define this macro if
-   ENCODE_SECTION_INFO alters the symbol's name string.  */
-/* Note that we have to handle symbols like "%*start".  */
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME) \
-do {							\
-  (VAR) = (SYMBOL_NAME) + ENCODED_NAME_P (SYMBOL_NAME);	\
-  (VAR) += *(VAR) == '*';				\
-} while (0)
 
 /* PIC */
 
@@ -1728,14 +1698,8 @@ do {							\
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 #undef  ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME) 	\
-  do						\
-    {						\
-      const char * real_name;			\
-      STRIP_NAME_ENCODING (real_name, (NAME));	\
-      asm_fprintf (FILE, "%U%s", real_name);	\
-    }						\
-  while (0)           
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  asm_fprintf (FILE, "%U%s", (*targetm.strip_name_encoding) (NAME))
 
 /* If -Os, don't force line number labels to begin at the beginning of
    the word; we still want the assembler to try to put things in parallel,
@@ -1818,12 +1782,7 @@ extern char m32r_punct_chars[256];
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) \
   m32r_print_operand_address (FILE, ADDR)
 

@@ -58,7 +58,7 @@ enum rid
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
   /* C extensions */
-  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX,
+  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX, RID_THREAD,
 
   /* C++ */
   RID_FRIEND, RID_VIRTUAL, RID_EXPLICIT, RID_EXPORT, RID_MUTABLE,
@@ -413,6 +413,10 @@ extern int warn_format_y2k;
 /* Warn about excess arguments to formats.  */
 
 extern int warn_format_extra_args;
+
+/* Warn about zero-length formats.  */
+
+extern int warn_format_zero_length;
 
 /* Warn about non-literal format arguments.  */
 

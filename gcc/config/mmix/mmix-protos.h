@@ -33,7 +33,6 @@ extern int mmix_register_move_cost
   PARAMS ((enum machine_mode, enum reg_class, enum reg_class));
 extern const char *mmix_text_section_asm_op PARAMS ((void));
 extern const char *mmix_data_section_asm_op PARAMS ((void));
-extern const char *mmix_strip_name_encoding PARAMS ((const char *));
 extern void mmix_asm_file_start PARAMS ((FILE *));
 extern void mmix_asm_file_end PARAMS ((FILE *));
 extern void mmix_asm_output_source_filename PARAMS ((FILE *, const char *));
@@ -74,9 +73,6 @@ extern int mmix_constant_alignment PARAMS ((tree, int));
 extern int mmix_local_alignment PARAMS ((tree, int));
 extern void mmix_setup_incoming_varargs
   PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int));
-extern void mmix_select_section PARAMS ((tree, int, int));
-extern void mmix_encode_section_info PARAMS ((tree, int));
-extern void mmix_unique_section PARAMS ((tree, int));
 extern void mmix_asm_output_pool_prologue
   PARAMS ((FILE *, const char *, tree, int));
 extern void mmix_asm_output_aligned_common

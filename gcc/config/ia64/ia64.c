@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "expr.h"
 #include "optabs.h"
-#include "obstack.h"
 #include "except.h"
 #include "function.h"
 #include "ggc.h"
@@ -126,6 +125,9 @@ static void ia64_free_machine_status PARAMS ((struct function *));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
 static void emit_predicate_relation_info PARAMS ((void));
+static bool ia64_in_small_data_p PARAMS ((tree));
+static void ia64_encode_section_info PARAMS ((tree, int));
+static const char *ia64_strip_name_encoding PARAMS ((const char *));
 static void process_epilogue PARAMS ((void));
 static int process_set PARAMS ((FILE *, rtx));
 
@@ -153,6 +155,16 @@ static int ia64_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_sched_reorder2 PARAMS ((FILE *, int, rtx *, int *, int));
 static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
 
+static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					     unsigned HOST_WIDE_INT));
+static void ia64_aix_select_section PARAMS ((tree, int,
+					     unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_aix_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -195,6 +207,13 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_ASM_FUNCTION_END_PROLOGUE ia64_output_function_end_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ia64_output_function_epilogue
+
+#undef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING ia64_strip_name_encoding
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
@@ -6714,15 +6733,16 @@ void
 ia64_reorg (insns)
      rtx insns;
 {
-  /* If optimizing, we'll have split before scheduling.  */
-  if (optimize == 0)
-    split_all_insns_noflow ();
-
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn (get_max_uid ());
-  /* update_life_info_in_dirty_blocks should be enought here.  */
-  life_analysis (insns, NULL, PROP_DEATH_NOTES);
+
+  /* If optimizing, we'll have split before scheduling.  */
+  if (optimize == 0)
+    split_all_insns (0);
+
+  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+				    PROP_DEATH_NOTES);
 
   if (ia64_flag_schedule_insns2)
     {
@@ -6858,18 +6878,41 @@ ia64_eh_uses (regno)
    code faster because there is one less load.  This also includes incomplete
    types which can't go in sdata/sbss.  */
 
-/* ??? See select_section.  We must put short own readonly variables in
-   sdata/sbss instead of the more natural rodata, because we can't perform
-   the DECL_READONLY_SECTION test here.  */
+static bool
+ia64_in_small_data_p (exp)
+     tree exp;
+{
+  if (TARGET_NO_SDATA)
+    return false;
 
-extern struct obstack * saveable_obstack;
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".sdata") == 0
+	  || strcmp (section, ".sbss") == 0)
+	return true;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
-void
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in sdata because it might be too big when completed.  */
+      if (size > 0 && size <= ia64_section_threshold)
+	return true;
+    }
+
+  return false;
+}
+
+static void
 ia64_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
+  bool is_local, is_small;
+  rtx symbol;
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -6882,76 +6925,49 @@ ia64_encode_section_info (decl, first)
       || GET_CODE (DECL_RTL (decl)) != MEM
       || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
     return;
-    
-  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
 
-  /* We assume that -fpic is used only to create a shared library (dso).
-     With -fpic, no global data can ever be sdata.
-     Without -fpic, global common uninitialized data can never be sdata, since
-     it can unify with a real definition in a dso.  */
-  /* ??? Actually, we can put globals in sdata, as long as we don't use gprel
-     to access them.  The linker may then be able to do linker relaxation to
-     optimize references to them.  Currently sdata implies use of gprel.  */
-  /* We need the DECL_EXTERNAL check for C++.  static class data members get
-     both TREE_STATIC and DECL_EXTERNAL set, to indicate that they are
-     statically allocated, but the space is allocated somewhere else.  Such
-     decls can not be own data.  */
-  if (! TARGET_NO_SDATA
-      && ((TREE_STATIC (decl) && ! DECL_EXTERNAL (decl)
-	   && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-	   && ! (TREE_PUBLIC (decl)
-		 && (flag_pic
-		     || (DECL_COMMON (decl)
-			 && (DECL_INITIAL (decl) == 0
-			     || DECL_INITIAL (decl) == error_mark_node)))))
-	  || MODULE_LOCAL_P (decl))
-      /* Either the variable must be declared without a section attribute,
-	 or the section must be sdata or sbss.  */
-      && (DECL_SECTION_NAME (decl) == 0
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sdata")
-	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-		       ".sbss")))
+  symbol = XEXP (DECL_RTL (decl), 0);
+  symbol_str = XSTR (symbol, 0);
+
+  is_local = (*targetm.binds_local_p) (decl);
+
+  /* Determine if DECL will wind up in .sdata/.sbss.  */
+  is_small = ia64_in_small_data_p (decl);
+
+  /* Finally, encode this into the symbol string.  */
+  if (is_local && is_small)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
+      char *newstr;
+      size_t len;
 
-      /* If the variable has already been defined in the output file, then it
-	 is too late to put it in sdata if it wasn't put there in the first
-	 place.  The test is here rather than above, because if it is already
-	 in sdata, then it can stay there.  */
+      if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
+	return;
 
-      if (TREE_ASM_WRITTEN (decl))
-	;
+      len = strlen (symbol_str) + 1;
+      newstr = alloca (len + 1);
+      newstr[0] = SDATA_NAME_FLAG_CHAR;
+      memcpy (newstr + 1, symbol_str, len);
 
-      /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.
-	 Objects bigger than threshold should have SDATA_NAME_FLAG_CHAR
-	 added if they are in .sdata or .sbss explicitely.  */
-      else if (((size > 0
-		 && size <= (HOST_WIDE_INT) ia64_section_threshold)
-		|| DECL_SECTION_NAME (decl))
-	       && symbol_str[0] != SDATA_NAME_FLAG_CHAR)
-	{
-	  size_t len = strlen (symbol_str);
-	  char *newstr = alloca (len + 1);
-	  const char *string;
-
-	  *newstr = SDATA_NAME_FLAG_CHAR;
-	  memcpy (newstr + 1, symbol_str, len + 1);
-	  
-	  string = ggc_alloc_string (newstr, len + 1);
-	  XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
-	}
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len);
     }
+
   /* This decl is marked as being in small data/bss but it shouldn't
      be; one likely explanation for this is that the decl has been
      moved into a different section from the one it was in when
-     ENCODE_SECTION_INFO was first called.  Remove the '@'.  */
+     targetm.encode_section_info was first called.  Remove the '@'.  */
   else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
-    {
-      XSTR (XEXP (DECL_RTL (decl), 0), 0)
-	= ggc_strdup (symbol_str + 1);
-    }
+    XSTR (symbol, 0) = ggc_strdup (symbol_str + 1);
+}
+
+static const char *
+ia64_strip_name_encoding (str)
+     const char *str;
+{
+  if (str[0] == SDATA_NAME_FLAG_CHAR)
+    str++;
+  if (str[0] == '*')
+    str++;
+  return str;
 }
 
 /* Output assembly directives for prologue regions.  */
@@ -7821,4 +7837,58 @@ ia64_hpux_function_arg_padding (mode, type)
           && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
        : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
       ? downward : upward);
+}
+
+/* Switch to the section to which we should output X.  The only thing
+   special we do here is to honor small data.  */
+
+static void
+ia64_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (GET_MODE_SIZE (mode) > 0
+      && GET_MODE_SIZE (mode) <= ia64_section_threshold)
+    sdata_section ();
+  else
+    default_elf_select_rtx_section (mode, x, align);
+}
+
+/* It is illegal to have relocations in shared segments on AIX.
+   Pretend flag_pic is always set.  */
+
+static void
+ia64_aix_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  default_elf_select_section (exp, reloc, align);
+  flag_pic = save_pic;
+}
+
+static void
+ia64_aix_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  default_unique_section (decl, reloc);
+  flag_pic = save_pic;
+}
+
+static void
+ia64_aix_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  int save_pic = flag_pic;
+  flag_pic = 1;
+  ia64_select_rtx_section (mode, x, align);
+  flag_pic = save_pic;
 }

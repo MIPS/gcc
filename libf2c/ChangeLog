@@ -1,3 +1,20 @@
+Mon May 20 13:03:54 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libF77/Makefile.in (SHELL): Set to @SHELL@.
+	* libI77/Makefile.in (SHELL): Likewise.
+	* libU77/Makefile.in (SHELL): Likewise.
+
+2002-05-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* Makefile.in: Use @SHELL@, not /bin/sh for SHELL
+	definition.
+
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.in: Allow for PWDCMD to override hardcoded pwd.
+	* aclocal.m4: Likewise.
+	* configure: Regenerate.
+
 2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
 
 	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
