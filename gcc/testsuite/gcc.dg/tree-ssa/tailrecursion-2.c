@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-tail-details" } */
+/* { dg-options "-O1 -fdump-tree-tail1-details" } */
 int
 t(char *a)
 {
@@ -9,4 +9,4 @@ t(char *a)
 	else
 		return 0;
 }
-/* { dg-final { scan-tree-dump-times "Eliminated tail recursion" 1 "tail"} } */
+/* { dg-final { scan-tree-dump-times "Eliminated tail recursion" 1 "tail1"} } */

@@ -1,3 +1,24 @@
+2003-11-18  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (sibcall.o): Kill.
+	(tree-tailcall.o): Add except.h dependency
+	* sibcall.c: Kill.
+	(purge_reg_equiv_notes, purge_mem_unchanging_flag): Move to ...
+	* calls.c (purge_reg_equiv_notes, purge_mem_unchanging_flag) ... here.
+	(expand_call): Do not produce placeholders; do not deal with tail
+	recursion; update equivalencies after sibcall production.
+	* toplev.c (rest_of_handle_sibling_calls): Kill.
+	(rest_of_compialtion): Do not use rest_of_handle_sibling_calls.
+	* tree-dump.c (dump_files): Add tail2
+	* tree-flow.h (tree_optimize_tail_calls): Update prototype.
+	* tree-optimize.c (optimize_function_tree): Do tail optimization twice.
+	* tree-tailcall.c: Inlucde except.h
+	(suitable_for_tail_call_opt_p): New.
+	(optimize_tail_call): Add opt_tailcalls argument; optimize tailcalls.
+	(tree_optimize_tail_calls): Add opt_tailcalls/pass arguments.
+	* tree.h (CALL_EXPR_TAILCALL): New.
+	(tree_dump_index): Add tail2
+
 2003-11-18  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (thread_across_edge): Lose block_avail_exprs argument.

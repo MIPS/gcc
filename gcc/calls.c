@@ -2033,6 +2033,69 @@ fix_unsafe_tree (tree t)
   return t;
 }
 
+/* Remove all REG_EQUIV notes found in the insn chain.  */
+
+static void
+purge_reg_equiv_notes (void)
+{
+  rtx insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      while (1)
+	{
+	  rtx note = find_reg_note (insn, REG_EQUIV, 0);
+	  if (note)
+	    {
+	      /* Remove the note and keep looking at the notes for
+		 this insn.  */
+	      remove_note (insn, note);
+	      continue;
+	    }
+	  break;
+	}
+    }
+}
+
+/* Clear RTX_UNCHANGING_P flag of incoming argument MEMs.  */
+
+static void
+purge_mem_unchanging_flag (rtx x)
+{
+  RTX_CODE code;
+  int i, j;
+  const char *fmt;
+
+  if (x == NULL_RTX)
+    return;
+
+  code = GET_CODE (x);
+
+  if (code == MEM)
+    {
+      if (RTX_UNCHANGING_P (x)
+	  && (XEXP (x, 0) == current_function_internal_arg_pointer
+	      || (GET_CODE (XEXP (x, 0)) == PLUS
+		  && XEXP (XEXP (x, 0), 0) ==
+		     current_function_internal_arg_pointer
+		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)))
+	RTX_UNCHANGING_P (x) = 0;
+      return;
+    }
+
+  /* Scan all subexpressions.  */
+  fmt = GET_RTX_FORMAT (code);
+  for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
+    {
+      if (*fmt == 'e')
+	purge_mem_unchanging_flag (XEXP (x, i));
+      else if (*fmt == 'E')
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  purge_mem_unchanging_flag (XVECEXP (x, i, j));
+    }
+}
+
+
 /* Generate all the code for a function call
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -2049,11 +2112,9 @@ expand_call (tree exp, rtx target, int ignore)
   tree actparms = TREE_OPERAND (exp, 1);
   /* RTX for the function to be called.  */
   rtx funexp;
-  /* Sequence of insns to perform a tail recursive "call".  */
-  rtx tail_recursion_insns = NULL_RTX;
   /* Sequence of insns to perform a normal "call".  */
   rtx normal_call_insns = NULL_RTX;
-  /* Sequence of insns to perform a tail recursive "call".  */
+  /* Sequence of insns to perform a tail "call".  */
   rtx tail_call_insns = NULL_RTX;
   /* Data type of the function.  */
   tree funtype;
@@ -2061,9 +2122,7 @@ expand_call (tree exp, rtx target, int ignore)
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
   tree fndecl = 0;
-  rtx insn;
-  int try_tail_call = 1;
-  int try_tail_recursion = 1;
+  int try_tail_call = CALL_EXPR_TAILCALL (exp);
   int pass;
 
   /* Register in which non-BLKmode value will be returned,
@@ -2456,13 +2515,7 @@ expand_call (tree exp, rtx target, int ignore)
       || any_pending_cleanups ()
       || args_size.var
       || lookup_stmt_eh_region (exp) >= 0)
-    try_tail_call = try_tail_recursion = 0;
-
-  /* Tail recursion fails, when we are not dealing with recursive calls.  */
-  if (!try_tail_recursion
-      || TREE_CODE (addr) != ADDR_EXPR
-      || TREE_OPERAND (addr, 0) != current_function_decl)
-    try_tail_recursion = 0;
+    try_tail_call = 0;
 
   /*  Rest of purposes for tail call optimizations to fail.  */
   if (
@@ -2500,7 +2553,7 @@ expand_call (tree exp, rtx target, int ignore)
       || !(*lang_hooks.decls.ok_for_sibcall) (fndecl))
     try_tail_call = 0;
 
-  if (try_tail_call || try_tail_recursion)
+  if (try_tail_call)
     {
       int end, inc;
       actparms = NULL_TREE;
@@ -2535,11 +2588,6 @@ expand_call (tree exp, rtx target, int ignore)
       for (; i != end; i += inc)
 	{
           args[i].tree_value = fix_unsafe_tree (args[i].tree_value);
-	  /* We need to build actparms for optimize_tail_recursion.  We can
-	     safely trash away TREE_PURPOSE, since it is unused by this
-	     function.  */
-	  if (try_tail_recursion)
-	    actparms = tree_cons (NULL_TREE, args[i].tree_value, actparms);
 	}
       /* Do the same for the function address if it is an expression.  */
       if (!fndecl)
@@ -2547,50 +2595,9 @@ expand_call (tree exp, rtx target, int ignore)
       /* Expanding one of those dangerous arguments could have added
 	 cleanups, but otherwise give it a whirl.  */
       if (any_pending_cleanups ())
-	try_tail_call = try_tail_recursion = 0;
+	try_tail_call = 0;
     }
 
-  /* Generate a tail recursion sequence when calling ourselves.  */
-
-  if (try_tail_recursion)
-    {
-      /* We want to emit any pending stack adjustments before the tail
-	 recursion "call".  That way we know any adjustment after the tail
-	 recursion call can be ignored if we indeed use the tail recursion
-	 call expansion.  */
-      int save_pending_stack_adjust = pending_stack_adjust;
-      int save_stack_pointer_delta = stack_pointer_delta;
-
-      /* Emit any queued insns now; otherwise they would end up in
-	 only one of the alternates.  */
-      emit_queue ();
-
-      /* Use a new sequence to hold any RTL we generate.  We do not even
-	 know if we will use this RTL yet.  The final decision can not be
-	 made until after RTL generation for the entire function is
-	 complete.  */
-      start_sequence ();
-      /* If expanding any of the arguments creates cleanups, we can't
-	 do a tailcall.  So, we'll need to pop the pending cleanups
-	 list.  If, however, all goes well, and there are no cleanups
-	 then the call to expand_start_target_temps will have no
-	 effect.  */
-      expand_start_target_temps ();
-      if (optimize_tail_recursion (actparms, get_last_insn ()))
-	{
-	  if (any_pending_cleanups ())
-	    try_tail_call = try_tail_recursion = 0;
-	  else
-	    tail_recursion_insns = get_insns ();
-	}
-      expand_end_target_temps ();
-      end_sequence ();
-
-      /* Restore the original pending stack adjustment for the sibling and
-	 normal call cases below.  */
-      pending_stack_adjust = save_pending_stack_adjust;
-      stack_pointer_delta = save_stack_pointer_delta;
-    }
 
   if (profile_arc_flag && (flags & ECF_FORK_OR_EXEC))
     {
@@ -2625,7 +2632,7 @@ expand_call (tree exp, rtx target, int ignore)
       int sibcall_failure = 0;
       /* We want to emit any pending stack adjustments before the tail
 	 recursion "call".  That way we know any adjustment after the tail
-	 recursion call can be ignored if we indeed use the tail recursion
+	 recursion call can be ignored if we indeed use the tail 
 	 call expansion.  */
       int save_pending_stack_adjust = 0;
       int save_stack_pointer_delta = 0;
@@ -3428,48 +3435,51 @@ expand_call (tree exp, rtx target, int ignore)
 	 zero out the sequence.  */
       if (sibcall_failure)
 	tail_call_insns = NULL_RTX;
+      else
+	break;
     }
 
-  /* The function optimize_sibling_and_tail_recursive_calls doesn't
-     handle CALL_PLACEHOLDERs inside other CALL_PLACEHOLDERs.  This
-     can happen if the arguments to this function call an inline
-     function who's expansion contains another CALL_PLACEHOLDER.
-
-     If there are any C_Ps in any of these sequences, replace them
-     with their normal call.  */
-
-  for (insn = normal_call_insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CALL_INSN
-	&& GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-      replace_call_placeholder (insn, sibcall_use_normal);
-
-  for (insn = tail_call_insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CALL_INSN
-	&& GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-      replace_call_placeholder (insn, sibcall_use_normal);
-
-  for (insn = tail_recursion_insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CALL_INSN
-	&& GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-      replace_call_placeholder (insn, sibcall_use_normal);
-
-  /* If this was a potential tail recursion site, then emit a
-     CALL_PLACEHOLDER with the normal and the tail recursion streams.
-     One of them will be selected later.  */
-  if (tail_recursion_insns || tail_call_insns)
+  /* If tail call production suceeded, we need to remove REG_EQUIV notes on
+     arguments too, as argument area is now clobbered by the call.  */
+  if (tail_call_insns)
     {
-      /* The tail recursion label must be kept around.  We could expose
-	 its use in the CALL_PLACEHOLDER, but that creates unwanted edges
-	 and makes determining true tail recursion sites difficult.
+      rtx insn;
+      tree arg;
 
-	 So we set LABEL_PRESERVE_P here, then clear it when we select
-	 one of the call sequences after rtl generation is complete.  */
-      if (tail_recursion_insns)
-	LABEL_PRESERVE_P (tail_recursion_label) = 1;
-      emit_call_insn (gen_rtx_CALL_PLACEHOLDER (VOIDmode, normal_call_insns,
-						tail_call_insns,
-						tail_recursion_insns,
-						tail_recursion_label));
+      emit_insn (tail_call_insns);
+      /* A sibling call sequence invalidates any REG_EQUIV notes made for
+	 this function's incoming arguments.
+
+	 At the start of RTL generation we know the only REG_EQUIV notes
+	 in the rtl chain are those for incoming arguments, so we can safely
+	 flush any REG_EQUIV note.
+
+	 This is (slight) overkill.  We could keep track of the highest
+	 argument we clobber and be more selective in removing notes, but it
+	 does not seem to be worth the effort.  */
+      purge_reg_equiv_notes ();
+
+      /* A sibling call sequence also may invalidate RTX_UNCHANGING_P
+	 flag of some incoming arguments MEM RTLs, because it can write into
+	 those slots.  We clear all those bits now.
+
+	 This is (slight) overkill, we could keep track of which arguments
+	 we actually write into.  */
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	{
+	  if (INSN_P (insn))
+	    purge_mem_unchanging_flag (PATTERN (insn));
+	}
+
+      /* Similarly, invalidate RTX_UNCHANGING_P for any incoming
+	 arguments passed in registers.  */
+      for (arg = DECL_ARGUMENTS (current_function_decl);
+	   arg;
+	   arg = TREE_CHAIN (arg))
+	{
+	  if (REG_P (DECL_RTL (arg)))
+	    RTX_UNCHANGING_P (DECL_RTL (arg)) = false;
+	}
     }
   else
     emit_insn (normal_call_insns);

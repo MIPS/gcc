@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "diagnostic.h"
+#include "except.h"
 
 /* Dump files and flags.  */
 static FILE *dump_file;		/* CFG dump file. */
@@ -57,7 +58,7 @@ struct tailcall
 };
 
 static bool suitable_for_tail_opt_p (void);
-static bool optimize_tail_call (struct tailcall *, bool *);
+static bool optimize_tail_call (struct tailcall *, bool *, bool);
 static void eliminate_tail_call (struct tailcall *);
 static void find_tail_calls (basic_block, struct tailcall *, struct tailcall **);
 
@@ -84,6 +85,33 @@ suitable_for_tail_opt_p (void)
 	  && TREE_ADDRESSABLE (var))
 	return false;
     }
+
+  return true;
+}
+/* Returns false when the function is not suitable for tail call optimization
+   from some reason (e.g. if it takes variable number of arguments).
+   This test must pass in addition to suitable_for_tail_opt_p in order to make
+   tail call discovery happen.  */
+
+static bool
+suitable_for_tail_call_opt_p (void)
+{
+  /* alloca (until we have stack slot life analysis) inhibits
+     sibling call optimizations, but not tail recursion.  */
+  if (current_function_calls_alloca)
+    return false;
+
+  /* If we are using sjlj exceptions, we may need to add a call to
+     _Unwind_SjLj_Unregister at exit of the function.  Which means
+     that we cannot do any sibcall transformations.  */
+  if (USING_SJLJ_EXCEPTIONS && current_function_has_exception_handlers ())
+    return false;
+
+  /* Any function that calls setjmp might have longjmp called from
+     any called function.  ??? We really should represent this
+     properly in the CFG so that this needn't be special cased.  */
+  if (current_function_calls_setjmp)
+    return false;
 
   return true;
 }
@@ -273,7 +301,8 @@ eliminate_tail_call (struct tailcall *t)
    by PHIS_CONSTRUCTED.  */
 
 static bool
-optimize_tail_call (struct tailcall *t, bool *phis_constructed)
+optimize_tail_call (struct tailcall *t, bool *phis_constructed,
+		    bool opt_tailcalls)
 {
   if (t->tail_recursion)
     {
@@ -310,6 +339,22 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed)
       eliminate_tail_call (t);
       return true;
     }
+  else if (opt_tailcalls)
+    {
+      tree stmt = bsi_stmt (t->call_bsi);
+
+      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	stmt = TREE_OPERAND (stmt, 1);
+      if (TREE_CODE (stmt) != CALL_EXPR)
+	abort ();
+      CALL_EXPR_TAILCALL (stmt) = 1;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+	  fprintf (dump_file, "Found tail call ");
+	  print_generic_expr (dump_file, stmt, 0);
+	  fprintf (dump_file, " in bb %i", t->call_block->index);
+	}
+    }
   return false;
 }
 
@@ -317,7 +362,7 @@ optimize_tail_call (struct tailcall *t, bool *phis_constructed)
    into iteration.  */
 
 void
-tree_optimize_tail_calls (void)
+tree_optimize_tail_calls (bool opt_tailcalls, enum tree_dump_index pass)
 {
   edge e;
   bool phis_constructed = false;
@@ -326,8 +371,9 @@ tree_optimize_tail_calls (void)
 
   if (!suitable_for_tail_opt_p ())
     return;
-
-  dump_file = dump_begin (TDI_tail, &dump_flags);
+  if (opt_tailcalls)
+    opt_tailcalls = suitable_for_tail_call_opt_p ();
+  dump_file = dump_begin (pass, &dump_flags);
 
   common.return_block = NULL;
   common.ret_variable = NULL_TREE;
@@ -343,7 +389,8 @@ tree_optimize_tail_calls (void)
   for (; tailcalls; tailcalls = next)
     {
       next = tailcalls->next;
-      changed |= optimize_tail_call (tailcalls, &phis_constructed);
+      changed |= optimize_tail_call (tailcalls, &phis_constructed, 
+		      		     opt_tailcalls);
       free (tailcalls);
     }
 
@@ -353,6 +400,6 @@ tree_optimize_tail_calls (void)
   if (dump_file)
     {
       dump_function_to_file (current_function_decl, dump_file, dump_flags);
-      dump_end (TDI_tail, dump_file);
+      dump_end (pass, dump_file);
     }
 }
