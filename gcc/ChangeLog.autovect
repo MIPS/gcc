@@ -1,5 +1,23 @@
 2005-01-31  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-data-ref.c (datadep_stats): Add the following fields:
+	num_dependence_tests, num_dependence_dependent, 
+	num_dependence_independent, num_dependence_undetermined,
+	num_subscript_tests, num_subscript_undetermined, 
+	num_same_subscript_function.
+	Removed num_tested and num_unimplemented.
+	(can_use_analyze_subscript_affine_affine): Print some text 
+	when executed.
+	(analyze_siv_subscript, analyze_miv_subscript):
+	Increment dependence_stats counters apropriately in missing cases.
+	(chrec_steps_divide_constant_p): Deal with undetermined symbols.
+	(analyze_miv_subscript): Adapt for chrec_steps_divide_constant_p.
+	(analyze_overlapping_iterations, subscript_dependence_tester, 
+	compute_affine_dependence, compute_data_dependences_for_loop): 
+	Use the new counters.
+
+2005-01-31  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-scalar-evolution.c (unify_peeled_chrec): Use
 	standard_iv_increment_position for computing the iv update 
 	location.

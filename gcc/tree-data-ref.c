@@ -97,20 +97,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static struct datadep_stats
 {
+  int num_dependence_tests;
+  int num_dependence_dependent;
+  int num_dependence_independent;
+  int num_dependence_undetermined;
+
+  int num_subscript_tests;
+  int num_subscript_undetermined;
+  int num_same_subscript_function;
+
   int num_ziv;
   int num_ziv_independent;
   int num_ziv_dependent;
   int num_ziv_unimplemented;
+
   int num_siv;
   int num_siv_independent;
   int num_siv_dependent;
   int num_siv_unimplemented;
+
   int num_miv;
   int num_miv_independent;
   int num_miv_dependent;
   int num_miv_unimplemented;
-  int num_tested;
-  int num_unimplemented;
 } dependence_stats;
 
   
@@ -1656,6 +1665,9 @@ can_use_analyze_subscript_affine_affine (tree *chrec_a, tree *chrec_b)
   if (!evolution_function_is_constant_p (diff))
     return false;
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "can_use_subscript_aff_aff_for_symbolic \n");
+
   *chrec_a = build_polynomial_chrec (CHREC_VARIABLE (*chrec_a), 
 				     diff, CHREC_RIGHT (*chrec_a));
   *chrec_b = build_polynomial_chrec (CHREC_VARIABLE (*chrec_b),
@@ -1698,9 +1710,20 @@ analyze_siv_subscript (tree chrec_a,
     {
       if (!chrec_contains_symbols (chrec_a)
 	  && !chrec_contains_symbols (chrec_b))
-	analyze_subscript_affine_affine (chrec_a, chrec_b, 
-					 overlaps_a, overlaps_b, 
-					 last_conflicts);
+	{
+	  analyze_subscript_affine_affine (chrec_a, chrec_b, 
+					   overlaps_a, overlaps_b, 
+					   last_conflicts);
+
+	  if (*overlaps_a == chrec_dont_know
+	      || *overlaps_b == chrec_dont_know)
+	    dependence_stats.num_siv_unimplemented++;
+	  else if (*overlaps_a == chrec_known
+		   || *overlaps_b == chrec_known)
+	    dependence_stats.num_siv_independent++;
+	  else
+	    dependence_stats.num_siv_dependent++;
+	}
       else if (can_use_analyze_subscript_affine_affine (&chrec_a, 
 							&chrec_b))
 	{
@@ -1710,6 +1733,15 @@ analyze_siv_subscript (tree chrec_a,
 	  /* FIXME: The number of iterations is a symbolic expression.
 	     Compute it properly.  */
 	  *last_conflicts = chrec_dont_know;
+
+	  if (*overlaps_a == chrec_dont_know
+	      || *overlaps_b == chrec_dont_know)
+	    dependence_stats.num_siv_unimplemented++;
+	  else if (*overlaps_a == chrec_known
+		   || *overlaps_b == chrec_known)
+	    dependence_stats.num_siv_independent++;
+	  else
+	    dependence_stats.num_siv_dependent++;
 	}
       else
 	goto siv_subscript_dontknow;
@@ -1730,19 +1762,32 @@ analyze_siv_subscript (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
-/* Return true when the evolution steps of an affine CHREC divide the
-   constant CST.  */
+/* Return true when the property can be computed.  RES should contain
+   true when calling the first time this function, then it is set to
+   false when one of the evolution steps of an affine CHREC does not
+   divide the constant CST.  */
 
 static bool
 chrec_steps_divide_constant_p (tree chrec, 
-			       tree cst)
+			       tree cst, 
+			       bool *res)
 {
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
-      return (tree_fold_divides_p (integer_type_node, CHREC_RIGHT (chrec), cst)
-	      && chrec_steps_divide_constant_p (CHREC_LEFT (chrec), cst));
-      
+      if (evolution_function_is_constant_p (CHREC_RIGHT (chrec)))
+	{
+	  if (tree_fold_divides_p (integer_type_node, CHREC_RIGHT (chrec), cst))
+	    /* Keep RES to true, and iterate on other dimensions.  */
+	    return chrec_steps_divide_constant_p (CHREC_LEFT (chrec), cst, res);
+	  
+	  *res = false;
+	  return true;
+	}
+      else
+	/* When the step is a parameter the result is undetermined.  */
+	return false;
+
     default:
       /* On the initial condition, return true.  */
       return true;
@@ -1771,6 +1816,7 @@ analyze_miv_subscript (tree chrec_a,
      variables.  In the MIV case we have to solve a Diophantine
      equation with 2*n variables (if the subscript uses n IVs).
   */
+  bool divide_p = true;
   tree difference;
   dependence_stats.num_miv++;
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1791,11 +1837,12 @@ analyze_miv_subscript (tree chrec_a,
   else if (evolution_function_is_constant_p (difference)
 	   /* For the moment, the following is verified:
 	      evolution_function_is_affine_multivariate_p (chrec_a) */
-	   && !chrec_steps_divide_constant_p (chrec_a, difference))
+	   && chrec_steps_divide_constant_p (chrec_a, difference, &divide_p)
+	   && !divide_p)
     {
       /* testsuite/.../ssa-chrec-33.c
 	 {{21, +, 2}_1, +, -2}_2  vs.  {{20, +, 2}_1, +, -2}_2 
-        
+	 
 	 The difference is 1, and the evolution steps are equal to 2,
 	 consequently there are no overlapping elements.  */
       *overlaps_a = chrec_known;
@@ -1825,6 +1872,15 @@ analyze_miv_subscript (tree chrec_a,
       */
       analyze_subscript_affine_affine (chrec_a, chrec_b, 
 				       overlaps_a, overlaps_b, last_conflicts);
+
+      if (*overlaps_a == chrec_dont_know
+	  || *overlaps_b == chrec_dont_know)
+	dependence_stats.num_miv_unimplemented++;
+      else if (*overlaps_a == chrec_known
+	       || *overlaps_b == chrec_known)
+	dependence_stats.num_miv_independent++;
+      else
+	dependence_stats.num_miv_dependent++;
     }
   
   else
@@ -1859,7 +1915,7 @@ analyze_overlapping_iterations (tree chrec_a,
 				tree *overlap_iterations_b, 
 				tree *last_conflicts)
 {
-  dependence_stats.num_tested++;
+  dependence_stats.num_subscript_tests++;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1876,7 +1932,7 @@ analyze_overlapping_iterations (tree chrec_a,
       || chrec_contains_undetermined (chrec_a)
       || chrec_contains_undetermined (chrec_b))
     {
-      dependence_stats.num_unimplemented++;
+      dependence_stats.num_subscript_undetermined++;
       
       *overlap_iterations_a = chrec_dont_know;
       *overlap_iterations_b = chrec_dont_know;
@@ -1887,6 +1943,7 @@ analyze_overlapping_iterations (tree chrec_a,
   else if (eq_evolutions_p (chrec_a, chrec_b)
 	   && evolution_function_is_affine_multivariate_p (chrec_a))
     {
+      dependence_stats.num_same_subscript_function++;
       *overlap_iterations_a = integer_zero_node;
       *overlap_iterations_b = integer_zero_node;
       *last_conflicts = chrec_dont_know;
@@ -1898,7 +1955,7 @@ analyze_overlapping_iterations (tree chrec_a,
 	   && (!evolution_function_is_affine_multivariate_p (chrec_a)
 	       || !evolution_function_is_affine_multivariate_p (chrec_b)))
     {
-      dependence_stats.num_unimplemented++;
+      dependence_stats.num_subscript_undetermined++;
       *overlap_iterations_a = chrec_dont_know;
       *overlap_iterations_b = chrec_dont_know;
     }
@@ -1958,6 +2015,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	  || chrec_contains_undetermined (overlaps_b))
  	{
  	  finalize_ddr_dependent (ddr, chrec_dont_know);
+	  dependence_stats.num_dependence_undetermined++;
 	  break;
  	}
       
@@ -1965,6 +2023,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	       || overlaps_b == chrec_known)
  	{
  	  finalize_ddr_dependent (ddr, chrec_known);
+	  dependence_stats.num_dependence_independent++;
  	  break;
  	}
       
@@ -1973,6 +2032,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
  	  SUB_CONFLICTS_IN_A (subscript) = overlaps_a;
  	  SUB_CONFLICTS_IN_B (subscript) = overlaps_b;
 	  SUB_LAST_CONFLICT (subscript) = last_conflicts;
+	  dependence_stats.num_dependence_dependent++;
  	}
     }
   
@@ -2379,10 +2439,12 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
       print_generic_expr (dump_file, DR_STMT (drb), 0);
       fprintf (dump_file, ")\n");
     }
-  dependence_stats.num_tested++;
+
   /* Analyze only when the dependence relation is not yet known.  */
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
     {
+      dependence_stats.num_dependence_tests++;
+
       if (access_functions_are_affine_or_constant_p (dra)
 	  && access_functions_are_affine_or_constant_p (drb))
 	subscript_dependence_tester (ddr);
@@ -2392,7 +2454,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 	 "don't know".  */
       else
 	{
-	  dependence_stats.num_unimplemented++;
+	  dependence_stats.num_dependence_undetermined++;
 	  
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2578,10 +2640,22 @@ compute_data_dependences_for_loop (unsigned nb_loops,
   if (dump_file && (dump_flags & TDF_STATS))
     {
       fprintf (dump_file, "Dependence tester statistics:\n");
-      fprintf (dump_file, "Number of tests: %d\n", 
-	       dependence_stats.num_tested);
-      fprintf (dump_file, "Number of completely unimplemented tests: %d\n", 
-	       dependence_stats.num_unimplemented);
+
+      fprintf (dump_file, "Number of dependence tests: %d\n", 
+	       dependence_stats.num_dependence_tests);
+      fprintf (dump_file, "Number of dependence tests classified dependent: %d\n", 
+	       dependence_stats.num_dependence_dependent);
+      fprintf (dump_file, "Number of dependence tests classified independent: %d\n", 
+	       dependence_stats.num_dependence_independent);
+      fprintf (dump_file, "Number of undetermined dependence tests: %d\n", 
+	       dependence_stats.num_dependence_undetermined);
+
+      fprintf (dump_file, "Number of subscript tests: %d\n", 
+	       dependence_stats.num_subscript_tests);
+      fprintf (dump_file, "Number of undetermined subscript tests: %d\n", 
+	       dependence_stats.num_subscript_undetermined);
+      fprintf (dump_file, "Number of same subscript function: %d\n", 
+	       dependence_stats.num_same_subscript_function);
 
       fprintf (dump_file, "Number of ziv tests: %d\n",
 	       dependence_stats.num_ziv);
@@ -2591,6 +2665,7 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 	       dependence_stats.num_ziv_independent);
       fprintf (dump_file, "Number of ziv tests unimplemented: %d\n",
 	       dependence_stats.num_ziv_unimplemented);      
+
       fprintf (dump_file, "Number of siv tests: %d\n", 
 	       dependence_stats.num_siv);
       fprintf (dump_file, "Number of siv tests returning dependent: %d\n",
@@ -2599,6 +2674,7 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 	       dependence_stats.num_siv_independent);
       fprintf (dump_file, "Number of siv tests unimplemented: %d\n",
 	       dependence_stats.num_siv_unimplemented);
+
       fprintf (dump_file, "Number of miv tests: %d\n", 
 	       dependence_stats.num_miv);
       fprintf (dump_file, "Number of miv tests returning dependent: %d\n",
