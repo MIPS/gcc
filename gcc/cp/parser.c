@@ -17516,6 +17516,9 @@ cp_parser_objc_class_ivars (cp_parser* parser)
     }
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '}'.  */
+  /* For historical reasons, we accept an optional semicolon.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+    cp_lexer_consume_token (parser->lexer);
 }
 
 static void

@@ -1,3 +1,8 @@
+2004-11-14  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3877761
+	* obj-c++.dg/ivar-list-semi.mm: New test.
+
 2004-11-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3761423

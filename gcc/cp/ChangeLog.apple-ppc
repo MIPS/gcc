@@ -1,3 +1,9 @@
+2004-11-14  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3877761
+	* parser.c (cp_parser_objc_class_ivars): Allow an optional
+	trailing semicolon, per existing usage.
+
 2004-11-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3761423
