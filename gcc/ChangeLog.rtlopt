@@ -1,5 +1,13 @@
 2003-01-14  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (VARIABLE_P): New macro.
+	(scan_for_locations): Check whether the MEM_EXPR's TREE_CODE
+	is VAR_DECL or PARM_DECL.
+	(compute_bb_dataflow): Likewise.
+	(process_bb): Likewise.
+
+2003-01-14  Josef Zlomek  <zlomekj@suse.cz>
+
 	(Variable tracking was updated from cfg-branch:)
 	* Makefile.in (var-tracking.o): New.
 	* flags.h (flag_var_tracking): New flag.

@@ -37,6 +37,9 @@
 #define DEBUG_REG_LOC 1
 #define DEBUG_MEM_LOC 1
 
+#define VARIABLE_P(DECL) (TREE_CODE (DECL) == VAR_DECL		\
+			  || TREE_CODE (DECL) == PARM_DECL)
+
 /* The purpose that the location (REG or MEM) has in RTL.  */
 enum location_type
 {
@@ -439,7 +442,7 @@ scan_for_locations (x, data)
 	      return 0;
 
 	    case MEM:
-	      if (MEM_EXPR (*x))
+	      if (MEM_EXPR (*x) && VARIABLE_P (MEM_EXPR (*x)))
 		VTI (bb)->n_locs++;
 	      /* Continue traversing.  */
 	      return 0;
@@ -480,7 +483,7 @@ scan_for_locations (x, data)
 	      return -1;
 
 	    case MEM:
-	      if (MEM_EXPR (*x))
+	      if (MEM_EXPR (*x) && VARIABLE_P (MEM_EXPR (*x)))
 		{
 		  l = VTI (bb)->locs + VTI (bb)->n_locs++;
 		  l->loc = *x;
@@ -558,7 +561,9 @@ compute_bb_dataflow (bb)
 		}
 	    }
 	}
-      else if (GET_CODE (loc) == MEM && MEM_EXPR (loc))
+      else if (GET_CODE (loc) == MEM
+	       && MEM_EXPR (loc)
+	       && VARIABLE_P (MEM_EXPR (loc)))
 	{
 	  int j;
 	  tree decl = MEM_EXPR (loc);
@@ -1052,7 +1057,9 @@ process_bb (bb)
 		break;
 	    }
 	}
-      else if (GET_CODE (loc) == MEM && MEM_EXPR (loc))
+      else if (GET_CODE (loc) == MEM
+	       && MEM_EXPR (loc)
+	       && VARIABLE_P (MEM_EXPR (loc)))
 	{
 	  attrs_list l;
 	  tree decl = MEM_EXPR (loc);
