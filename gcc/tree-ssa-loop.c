@@ -58,6 +58,10 @@ tree_ssa_loop_opt (void)
       test_unrolling_and_peeling (loops);
 #endif
 
+#if 0
+      test_loop_versioning (loops);
+#endif
+
       /* Move the expensive loop invariants.  */
       tree_ssa_lim (loops);
 

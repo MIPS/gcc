@@ -35,6 +35,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-pass.h"
 
+static basic_block lv_adjust_loop_entry_edge (basic_block, basic_block, edge, 
+					      tree); 
+static void lv_update_pending_stmts (edge e);
+static void lv_adjust_loop_header_phi (basic_block, basic_block, basic_block, 
+				       edge);
+
 /* Checks whether E is an exit edge of the MFB_REE_LOOP.  Callback for
    make_forwarder_block.  */
 
@@ -485,4 +491,264 @@ test_unrolling_and_peeling (struct loops *loops)
       verify_loop_structure (loops);
       verify_ssa ();
     }
+}
+
+/*---------------------------------------------------------------------------
+  Loop versioning
+  ---------------------------------------------------------------------------*/
+ 
+/* Adjust entry edge for lv.
+   
+  e is a incoming edge. 
+
+  --- edge e ---- > [second_head]
+
+  Split it and insert new conditional expression and adjust edges.
+   
+   --- edge e ---> [cond expr] ---> [first_head]
+                        |
+                        +---------> [second_head]
+
+*/
+   
+static basic_block
+lv_adjust_loop_entry_edge (basic_block first_head,
+			   basic_block second_head,
+			   edge e,
+			   tree cond_expr)
+{ 
+  block_stmt_iterator bsi;
+  basic_block orig_head = e->src;
+  basic_block new_head = NULL;
+  tree goto1 = NULL_TREE;
+  tree goto2 = NULL_TREE;
+  tree new_cond_expr = NULL_TREE;
+  edge e0, e1;
+
+  /* Split edge 'e'. This will create a new basic block, where we can
+     insert conditioanl expr.  */
+  new_head = split_edge (e);
+  set_immediate_dominator (CDI_DOMINATORS, new_head, orig_head);
+
+  /* Build new conditional expr */
+  goto1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (first_head));
+  goto2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (second_head));
+  new_cond_expr = build (COND_EXPR, void_type_node, cond_expr, goto1, goto2);
+
+  /* Add new cond. in new head.  */ 
+  bsi = bsi_start (new_head); 
+  bsi_insert_after (&bsi, new_cond_expr, BSI_NEW_STMT);
+
+  /* Adjust edges appropriately to connect new head with first head
+     as well as second head.  */
+  e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, first_head, new_head);
+  make_edge (new_head, second_head, EDGE_FALSE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, second_head, new_head);
+
+  /* Adjust loop header phi nodes.  */
+  lv_adjust_loop_header_phi (first_head, second_head, new_head, e1);
+
+  /* When edge 'e' was split, it created a fall through edge
+      from new head to second head. Above created FALSE edge
+      from new head to second head and now we do not need the
+      fall through edge.  */
+  for (e0 = new_head->succ; e0; e0 = e0->succ_next)
+    if (e0->dest == second_head)
+      e0->flags &= ~EDGE_FALLTHRU;
+
+  return new_head;
+}
+
+/* Add phi args using PENDINT_STMT list.  */
+
+static void
+lv_update_pending_stmts (edge e)
+{
+  basic_block dest;
+  tree pending, phi, arg, def;
+
+  if (!PENDING_STMT (e))
+    return;
+
+  dest = e->dest;
+
+  pending = nreverse (PENDING_STMT (e));
+  PENDING_STMT (e) = NULL;
+
+  for (phi = phi_nodes (dest), arg = pending;
+       phi;
+       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
+    {
+      def = TREE_VALUE (arg);
+      add_phi_arg (&phi, def, e);
+    }
+
+}
+
+/* Adjust phi nodes for 'first' basic block.  'second' basic block is a copy
+   of 'first'. Both of them are dominated by 'new_head' basic block. When
+   'new_head' was created by 'second's incoming edge it received phi arguments
+   on the edge by split_edge(). Later, additional edge 'e' was created to
+   connect 'new_head' and 'first'. Now this routnine adds phi args on this 
+   additional edge 'e' that new_head to second edge received as part of edge 
+   splitting.
+*/
+
+static void
+lv_adjust_loop_header_phi (basic_block first, basic_block second,
+			   basic_block new_head, edge e)
+{
+  tree phi1, phi2;
+
+  /* Browse all 'second' basic block phi nodes and find phi args that
+     are part of and edge from 'new_head' basic block.  */
+
+  for (phi2 = phi_nodes (second); phi2; phi2 = TREE_CHAIN (phi2))
+    {
+      int i;
+      for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
+	{
+	  if (PHI_ARG_EDGE (phi2, i)->src == new_head)
+	    {
+	      tree def = PHI_ARG_DEF (phi2, i);
+	      tree var2 = SSA_NAME_VAR (PHI_RESULT (phi2)); 
+		  
+	      /* This phi node is on the edge whose  soure  is 'new_head'.
+		 Find corrosponding phi node for 'first' basic block.  */ 
+	      
+	      for (phi1 = phi_nodes (first); phi1; phi1 = TREE_CHAIN (phi1))
+		{
+		  tree var1 = SSA_NAME_VAR (PHI_RESULT (phi1));
+		  if (var1 == var2)
+		    {
+		      /* Add phi arg to edge 'e'.  */
+		      add_phi_arg (&phi1, def, e);
+		      
+		      /* There can not be second phi node for the same variable.
+			 Get out of the for loop that walks phi nodes of 'first'.
+		      */
+		      break;
+		    }
+		}
+
+	      /* In a phi node, there is only one edge from 'new_head'.
+		 Get out of the for loop that walks phi nodes for 'second'.  */
+	      break;
+	    }
+	}
+    }
+}
+
+
+/* Main entry point for Loop Versioning transformation.
+   
+This transformation given a condition and a loop, creates
+-if (condition) { loop_copy1 } else { loop_copy2 },
+where loop_copy1 is the loop transformed in one way, and loop_copy2
+is the loop transformed in another way (or unchanged). 'condition'
+may be a run time test for things that were not resolved by static
+analysis (overlapping ranges (anti-aliasing), alignment, etc.).  */
+
+bool
+tree_ssa_loop_version (struct loops *loops,
+		       struct loop * loop,
+		       tree cond_expr)
+{
+  edge entry, latch_edge;
+  basic_block first_head, second_head, condition_bb;
+  int irred_flag;
+  struct loop *nloop;
+  sbitmap zero_bitmap;
+
+  /* CHECKME: Loop versioning does not handle nested loop at this point.  */
+  if (loop->inner)
+    return false;
+
+  /* Record entry and latch edges for the loop */
+  entry = loop_preheader_edge (loop);
+
+  /* CHECKME: We split entry edge later in loop versioning. tree_split_edge() does not
+     set bb flags appropriately if entry edge is marked as EDGE_IRREDUCILE_LOOP. Skip
+     such looos for now.  */
+  if (entry->flags & EDGE_IRREDUCIBLE_LOOP)
+    return false;
+
+  /* Note down head of loop as first_head.  */
+  first_head = entry->dest;
+
+  zero_bitmap = sbitmap_alloc (2);
+  sbitmap_zero (zero_bitmap);
+
+  /* Duplicate loop.  */
+  irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
+  entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  if (!tree_duplicate_loop_to_header_edge (loop, entry, loops, 1,
+					   zero_bitmap, NULL, NULL, NULL, 0))
+    return false;
+
+  entry->flags |= irred_flag;
+
+
+  /* After duplication entry edge now points to new loop head blcok.
+     Note down new head as second_head.  */
+  second_head = entry->dest;
+
+  /* Split loop entry edge and insert new block with cond expr.  */
+  condition_bb = lv_adjust_loop_entry_edge (first_head, second_head, entry, 
+					    cond_expr); 
+
+  latch_edge = loop->latch->rbi->copy->succ;
+  nloop = loopify (loops, 
+		   latch_edge,
+		   loop->header->rbi->copy->pred,
+		   condition_bb,
+		   false /* Do not redirect all edges.  */);
+
+  /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
+  lv_update_pending_stmts (latch_edge);
+
+  /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
+  lv_update_pending_stmts (condition_bb->succ);
+
+  /* At this point condition_bb is loop predheader with two successors, 
+     first_head and second_head.   Make sure that loop predheader has only 
+     one successor. */
+  loop_split_edge_with (find_edge (condition_bb, first_head), NULL);
+  loop_split_edge_with (find_edge (condition_bb, second_head), NULL);
+
+  /* Ensure that the latch has just a single successor.  */
+  loop_split_edge_with (loop_latch_edge (loop), NULL);
+  loop_split_edge_with (loop_latch_edge (nloop), NULL);
+
+  free (zero_bitmap);
+
+  return true;
+}
+
+
+void
+test_loop_versioning (struct loops *loops)
+{
+  struct loop *loop;
+  unsigned i;
+  tree cond_expr;
+  
+  for (i = 1; i < loops->num; i = i+ 2)
+    {
+      loop = loops->parray[i];
+      
+      if (!loop)
+	continue;
+      
+      cond_expr = build (EQ_EXPR, boolean_type_node,
+			 integer_one_node,
+			 integer_zero_node);
+      
+      tree_ssa_loop_version (loops, loop, cond_expr);
+      
+      verify_loop_structure (loops);
+      verify_ssa ();
+    }
+
 }

@@ -485,7 +485,8 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    Returns newly created loop.  */
 
 struct loop *
-loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block switch_bb)
+loopify (struct loops *loops, edge latch_edge, edge header_edge, 
+	 basic_block switch_bb, bool redirect_all_edges)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
@@ -510,13 +511,20 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block swi
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
-  loop_redirect_edge (header_edge, switch_bb);
-  loop_redirect_edge (BRANCH_EDGE (switch_bb), loop->header);
   loop_redirect_edge (FALLTHRU_EDGE (switch_bb), succ_bb);
 
-  /* Update dominators.  */
-  set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
-  set_immediate_dominator (CDI_DOMINATORS, loop->header, switch_bb);
+  /* During loop versioning, one of the switch_bb edge is already properly
+     set. Do not redirect it again unless redirect_all_edges is true.  */
+  if (redirect_all_edges)
+    {
+      loop_redirect_edge (header_edge, switch_bb);
+      loop_redirect_edge (BRANCH_EDGE (switch_bb), loop->header); 
+     
+      /* Update dominators.  */
+      set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
+      set_immediate_dominator (CDI_DOMINATORS, loop->header, switch_bb);
+    }
+
   set_immediate_dominator (CDI_DOMINATORS, succ_bb, switch_bb);
 
   /* Compute new loop.  */

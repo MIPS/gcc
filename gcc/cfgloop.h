@@ -327,7 +327,7 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned, sbitmap, edge, edge *,
 					  unsigned *, int);
-extern struct loop *loopify (struct loops *, edge, edge, basic_block);
+extern struct loop *loopify (struct loops *, edge, edge, basic_block, bool);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, rtx);

@@ -431,7 +431,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
-		   loop->header->rbi->copy->pred, switch_bb);
+		   loop->header->rbi->copy->pred, switch_bb, true);
 
   /* Remove branches that are now unreachable in new loops.  We rely on the
      fact that cfg_layout_duplicate_bb reverses list of edges.  */

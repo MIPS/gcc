@@ -1,3 +1,16 @@
+2004-01-29  Devang Patel  <dpatel@apple.com>
+
+	* cfglayout.h (loopify): Add new bool parameter.
+	* cfgloopmanip.c (loopify): Support new bool argument.
+	* loop-unswitch.c (unswitch_loop): Supply additional argument 'true'
+	to loopify.
+	* tree-cfg.c (tree_block_label): Make externally visible.
+	* tree-flow.h (tree_block_label, test_loop_versioning, tree_ssa_loop_version): New
+	extern decls.
+	* tree-ssa-loop-manip.c (lv_adjust_loop_entry_edge, lv_udate_pending_stmts,
+	lv_adjust_loop_header_phi, tree_ssa_loop_version): New functions.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Test loop versioning.
+	
 2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-scalar-evolution.c (scev_analyze_inner_loop_phi): Add ;.

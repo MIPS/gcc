@@ -454,6 +454,7 @@ extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
+extern tree tree_block_label (basic_block);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -551,6 +552,8 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,
 					 unsigned int *, int);
+void test_loop_versioning (struct loops *loops);
+bool tree_ssa_loop_version (struct loops *, struct loop *, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
