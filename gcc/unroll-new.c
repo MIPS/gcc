@@ -1142,6 +1142,16 @@ unroll_or_peel_loop (loops, loop, flags)
 	  flags &= ~(UAP_UNROLL | UAP_UNROLL_ALL);
 	}
     }
+  else
+    {
+      /* For now we have no good heuristics to decide whether loop peeling
+         will be effective, so disable it.  */
+      if ((flags & UAP_PEEL) && rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 ";; Not peeling loop, no evidence it will be profitable\n",
+		 niter, npeel);
+      flags &= ~UAP_PEEL;
+    }
 
   /* We might have lost simpleness when counting loop iterations.  */
   if (!simple && !(flags & UAP_UNROLL_ALL))
