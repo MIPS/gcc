@@ -1,5 +1,11 @@
 2004-01-28  Richard Henderson  <rth@redhat.com>
 
+	PR middle-end/13898
+	* gimplify.c (gimplify_init_constructor): Invoke
+	lhd_set_decl_assembler_name on the now-static variable.
+
+2004-01-28  Richard Henderson  <rth@redhat.com>
+
 	PR opt/13798
 	* expr.c (is_zeros_p): Remove.  Change all callers to use
 	initializer_zerop.

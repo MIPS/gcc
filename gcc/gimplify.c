@@ -1172,6 +1172,16 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    TREE_STATIC (object) = 1;
 	    if (!DECL_NAME (object))
 	      DECL_NAME (object) = create_tmp_var_name ("C");
+
+	    /* ??? C++ doesn't automatically append a .<number> to the
+	       assembler name, and even when it does, it looks a FE private
+	       data structures to figure out what that number should be,
+	       which are not set for this variable.  I suppose this is
+	       important for local statics for inline functions, which aren't
+	       "local" in the object file sense.  So in order to get a unique
+	       TU-local symbol, we must invoke the lhd version now.  */
+	    lhd_set_decl_assembler_name (object);
+
 	    *expr_p = build_empty_stmt ();
 	    break;
 	  }
