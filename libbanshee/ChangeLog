@@ -1,3 +1,14 @@
+2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* acinclude.m4: New, copy the bool tests from gcc.
+
+	* configure.in: Use the new bool tests.
+
+	* Regenerate configure.
+
+	* engine/bool.h: Rewrite to use the part of gcc's system.h that does
+	bool type handling.
+
 2002-12-26  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* Makefile.am: Use the same flag passing hack all other subdirs use.

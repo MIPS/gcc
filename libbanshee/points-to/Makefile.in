@@ -88,7 +88,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gnutar
+TAR = gtar
 GZIP_ENV = --best
 DEP_FILES =  .deps/andersen_terms.P
 SOURCES = $(libandersen_a_SOURCES)

@@ -10,6 +10,34 @@ dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
+sinclude(../config/accross.m4)
+
+dnl See if stdbool.h properly defines bool and true/false.
+AC_DEFUN(gcc_AC_HEADER_STDBOOL,
+[AC_CACHE_CHECK([for working stdbool.h],
+  ac_cv_header_stdbool_h,
+[AC_TRY_COMPILE([#include <stdbool.h>],
+[bool foo = false;],
+ac_cv_header_stdbool_h=yes, ac_cv_header_stdbool_h=no)])
+if test $ac_cv_header_stdbool_h = yes; then
+  AC_DEFINE(HAVE_STDBOOL_H, 1,
+  [Define if you have a working <stdbool.h> header file.])
+fi
+])
+
+dnl Check whether _Bool is built-in.
+AC_DEFUN(gcc_AC_C__BOOL,
+[AC_CACHE_CHECK(for built-in _Bool, gcc_cv_c__bool,
+[AC_TRY_COMPILE(,
+[_Bool foo;],
+gcc_cv_c__bool=yes, gcc_cv_c__bool=no)
+])
+if test $gcc_cv_c__bool = yes; then
+  AC_DEFINE(HAVE__BOOL, 1, [Define if the \`_Bool' type is built-in.])
+fi
+])
+
+
 # Do all the work for Automake.  This macro actually does too much --
 # some checks are only needed if your package does certain things.
 # But this isn't really a big deal.
@@ -37,9 +65,9 @@ AC_REQUIRE([AM_SANITY_CHECK])
 AC_REQUIRE([AC_ARG_PROGRAM])
 dnl FIXME This is truly gross.
 missing_dir=`cd $ac_aux_dir && pwd`
-AM_MISSING_PROG(ACLOCAL, aclocal, $missing_dir)
+AM_MISSING_PROG(ACLOCAL, aclocal-${am__api_version}, $missing_dir)
 AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
-AM_MISSING_PROG(AUTOMAKE, automake, $missing_dir)
+AM_MISSING_PROG(AUTOMAKE, automake-${am__api_version}, $missing_dir)
 AM_MISSING_PROG(AUTOHEADER, autoheader, $missing_dir)
 AM_MISSING_PROG(MAKEINFO, makeinfo, $missing_dir)
 AC_REQUIRE([AC_PROG_MAKE_SET])])

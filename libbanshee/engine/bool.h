@@ -30,14 +30,27 @@
 
 #ifndef BOOL_H
 #define BOOL_H
-#ifndef TRUE
-#ifndef FALSE
-#ifndef __cplusplus
-typedef unsigned char bool;
+#include <config.h>
+/* Provide some sort of boolean type.  We use stdbool.h if it's
+  available.  This must be after all inclusion of system headers,
+  as some of them will mess us up.  */
+#undef bool
+#undef true
+#undef false
+#undef TRUE
+#undef FALSE
+
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# if !HAVE__BOOL
+typedef char _Bool;
+# endif
+# define bool _Bool
+# define true 1
+# define false 0
 #endif
 
-#define TRUE 1
-#define FALSE 0
-#endif
-#endif
+#define TRUE true
+#define FALSE false
 #endif

@@ -88,7 +88,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gnutar
+TAR = gtar
 GZIP_ENV = --best
 DEP_FILES =  .deps/radix-tree.P .deps/regions.P
 SOURCES = $(libbansheecompat_a_SOURCES)
