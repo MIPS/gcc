@@ -13834,9 +13834,7 @@ finish_function (int flags)
 	  && (outer = BLOCK_SUBBLOCKS (BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl))),
 	      chain_member (r, BLOCK_VARS (outer))))
 	{
-	  
-	  if (!flag_disable_gimple)
-	    set_has_hidden_use (r);
+	  set_has_hidden_use (r);
 	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
 	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 					nullify_returns_r, r);

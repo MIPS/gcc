@@ -691,9 +691,6 @@ extern int flag_non_call_exceptions;
    >1 means also to include multithreading locks.  */
 extern int flag_mudflap;
 
-/* Disable tree gimplification.  */
-extern int flag_disable_gimple;
-
 /* Disable SSA optimizations on trees.  */
 extern int flag_disable_tree_ssa;
 

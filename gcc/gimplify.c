@@ -188,10 +188,6 @@ keep_function_tree_in_gimple_form (tree fndecl)
 {
   tree fnbody;
 
-  /* If we were asked explicitly not to use gimple form, then return zero.  */
-  if (flag_disable_gimple)
-    return 0;
-
   /* If the program has had errors, then keeping gimple form is not
      necessary.  */
   if (errorcount || sorrycount)

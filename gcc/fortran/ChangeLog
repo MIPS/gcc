@@ -1,3 +1,7 @@
+2003-10-16  Richard Henderson  <rth@redhat.com>
+
+	* f95-lang.c (expand_function_body): Don't check flag_disable_gimple.
+
 2003-10-16  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* lang.c: Remove -M option for now, it's in the way for C.

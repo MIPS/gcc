@@ -893,14 +893,10 @@ expand_stmt (tree t)
 void
 expand_stmt_toplev (tree t)
 {
+  /* Gimplification didn't happen, for some reason.  */
   if (STATEMENT_CODE_P (TREE_CODE (t)))
-    {
-      if (!flag_disable_gimple)
-	abort ();
-      expand_stmt (t);
-    }
-  else
-    expand_expr_stmt_value (t, 0, 0);
+    abort ();
+  expand_expr_stmt_value (t, 0, 0);
 }
 
 /* Determine whether expression EXP contains a potentially

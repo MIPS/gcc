@@ -949,9 +949,6 @@ int flag_renumber_insns = 1;
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 0;
 
-/* Disable tree gimplification.  */
-int flag_disable_gimple = 0;
-
 /* Disable SSA on trees optimizations.  */
 int flag_disable_tree_ssa = 0;
 
@@ -1166,7 +1163,6 @@ static const lang_independent_options f_options[] =
   { "new-ra", &flag_new_regalloc, 1 },
   { "mudflap", &flag_mudflap, 1 },
   { "mudflapth", &flag_mudflap, 2 },
-  { "disable-gimple", &flag_disable_gimple, 1 },
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
@@ -4370,16 +4366,9 @@ process_options (void)
     warning ("-ffunction-sections may affect debugging on some targets");
 #endif
 
-    /* The presence of IEEE signaling NaNs, implies all math can trap.  */
-    if (flag_signaling_nans)
-      flag_trapping_math = 1;
-
-  /* -fdisable-gimple also disables the tree optimizers.  */
-  if (optimize >= 1 && flag_disable_gimple)
-    warning ("-fdisable-gimple also disables optimizations on trees");
-
-  if (flag_disable_gimple && flag_mudflap)
-    warning ("-fdisable-gimple also disables mudflap instrumentation");
+  /* The presence of IEEE signaling NaNs, implies all math can trap.  */
+  if (flag_signaling_nans)
+    flag_trapping_math = 1;
 }
 
 /* Initialize the compiler back end.  */

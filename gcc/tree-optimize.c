@@ -275,9 +275,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Gimplify the function.  Don't try to optimize the function if
      gimplification failed.  */
-  if (!flag_disable_gimple
-      && (keep_function_tree_in_gimple_form (fndecl)
-          || gimplify_function_tree (fndecl)))
+  if (keep_function_tree_in_gimple_form (fndecl)
+      || gimplify_function_tree (fndecl))
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fndecl);

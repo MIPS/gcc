@@ -1,3 +1,7 @@
+2003-10-16  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_function): Don't check flag_disable_gimple.
+
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
 	* decl.c (finish_function): Always gimplify; call c_warn_unused_result.

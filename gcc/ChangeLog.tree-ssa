@@ -1,3 +1,16 @@
+2003-10-16  Richard Henderson  <rth@redhat.com>
+
+	* common.opt (fdisable-gimple): Remove.
+	* flags.h (flag_disable_gimple): Remove.
+	* toplev.c (flag_disable_gimple): Remove.
+	(process_options): Don't check it.
+	(lang_independent_options): Don't set it.
+	* opts.c (common_handle_option): Likewise.
+	* gimplify.c (keep_function_tree_in_gimple_form): Don't check it.
+	* c-semantics.c (expand_stmt_toplev): Likewise.
+	* tree-optimize.c (tree_rest_of_compilation): Likewise.
+	* doc/invoke.texi: Don't document it.
+
 2003-10-16  Roger Sayle  <roger@eyesopen.com>
 
 	* fold-const.c: Merge from mainline.

@@ -300,7 +300,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
--fdisable-gimple  -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
+-ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
 -fdisable-tree-ssa -ftree-dominator-opts -ftree-must-alias @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -4267,11 +4267,6 @@ This option is always enabled by default on certain machines, usually
 those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
-
-@item -fdisable-gimple
-Do not re-write trees into GIMPLE form.  This switch also disables
-tree-based optimizations.  @emph{Note:} This option is only useful when
-debugging the tree gimplification pass in GCC.
 
 @item -fdisable-tree-ssa
 Do not apply SSA optimizations to the tree representation.  @emph{Note:}
