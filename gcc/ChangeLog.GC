@@ -1,3 +1,12 @@
+Thu Oct  8 19:19:15 1998  Richard Henderson  <rth@cygnus.com>
+
+	* dwarf2out.c (dwarf2out_init): Fix merge losage.
+	* ggc-simple.c (GGC_STRING_MAGIC): Force unsigned.
+	(ggc_alloc_string): Accept and ignore null contents and length.
+	(ggc_free_rtx): Kill unused variables.
+	(ggc_mark_tree): Mark TYPE_SIZE_UNIT.
+	(ggc_mark_string): Make magic unsigned.
+
 Thu Oct  8 16:18:15 1998  Richard Henderson  <rth@cygnus.com>
 
 	* Merge from EGCS mainline, tag gc_merge_981008.

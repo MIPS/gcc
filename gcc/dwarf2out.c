@@ -9770,7 +9770,7 @@ dwarf2out_init (asm_out_file, main_input_filename)
   /* Allocate the initial hunk of the abbrev_die_table.  */
   abbrev_die_table
     = (dw_die_ref *) xcalloc (ABBREV_DIE_TABLE_INCREMENT,
-			      * sizeof (dw_die_ref));
+			      sizeof (dw_die_ref));
   abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
   /* Zero-th entry is allocated, but unused */
   abbrev_die_table_in_use = 1;

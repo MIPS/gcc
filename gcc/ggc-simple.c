@@ -73,7 +73,7 @@ struct ggc_string
   char string[1];
 };
 
-#define GGC_STRING_MAGIC	0xa1b2c3d4
+#define GGC_STRING_MAGIC	((unsigned int)0xa1b2c3d4)
 
 static struct ggc_string *strings;
 
@@ -175,7 +175,7 @@ ggc_alloc_string (contents, length)
   if (length < 0)
     {
       if (contents == NULL)
-	abort();
+	return NULL;
       length = strlen (contents);
     }
 
@@ -192,7 +192,7 @@ ggc_alloc_string (contents, length)
   fprintf(dump, "alloc string %p\n", &n->tree);
 #endif
 
-  bytes_allocated_since_gc += size;
+  bytes_alloced_since_gc += size;
 
   return s->string;
 }
@@ -205,9 +205,6 @@ static void
 ggc_free_rtx (r)
      struct ggc_rtx *r;
 {
-  const char *fmt;
-  int i, need_lang_cleanup = 0;
-
   switch (GET_CODE (&r->rtx))
     {
     case INLINE_HEADER: 
@@ -218,6 +215,9 @@ ggc_free_rtx (r)
       free (INLINE_REGNO_POINTER_ALIGN (&r->rtx));
       free (PARMREG_STACK_LOC (&r->rtx));
 #endif
+      break;
+
+    default:
       break;
     }
 
@@ -276,7 +276,7 @@ ggc_free_tree (t)
 /* Freeing a string is as simple as calling free.  */
 
 static void
-ggc_free_string (v)
+ggc_free_string (s)
      struct ggc_string *s;
 {
 #ifdef GGC_DUMP
@@ -297,7 +297,7 @@ ggc_mark_rtx (r)
      rtx r;
 {
   const char *fmt;
-  int i, j;
+  int i;
 
   if (r == NULL_RTX || r->gc_mark)
     return;
@@ -340,6 +340,9 @@ ggc_mark_rtx (r)
 
 	break;
       }
+
+    default:
+      break;
     }
 
   for (fmt = GET_RTX_FORMAT (GET_CODE (r)), i = 0; *fmt ; ++fmt, ++i)
@@ -424,7 +427,7 @@ ggc_mark_tree (t)
       break;
 
     case STRING_CST:
-      ggc_mark_string (TREE_STRING_POINTER (&t->tree));
+      ggc_mark_string (TREE_STRING_POINTER (t));
       break;
 
     case PARM_DECL:
@@ -438,6 +441,9 @@ ggc_mark_tree (t)
     case IDENTIFIER_NODE:
       lang_mark_tree (t);
       return;
+
+    default:
+      break;
     }
   
   /* But in general we can handle them by class.  */
@@ -461,6 +467,7 @@ ggc_mark_tree (t)
 
     case 't': /* A type node.  */
       ggc_mark_tree (TYPE_SIZE (t));
+      ggc_mark_tree (TYPE_SIZE_UNIT (t));
       ggc_mark_tree (TYPE_ATTRIBUTES (t));
       ggc_mark_tree (TYPE_VALUES (t));
       ggc_mark_tree (TYPE_POINTER_TO (t));
@@ -504,12 +511,12 @@ void
 ggc_mark_string (s)
      char *s;
 {
-  int *magic = (int *)s - 1;
+  unsigned int *magic = (unsigned int *)s - 1;
 
   if (s == NULL)
     return;
 
-  if ((*magic & ~1) != GGC_STRING_MAGIC)
+  if ((*magic & ~(unsigned)1) != GGC_STRING_MAGIC)
     return;   /* abort? */
   *magic = GGC_STRING_MAGIC | 1;
 }
