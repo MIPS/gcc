@@ -425,6 +425,8 @@ static int comp_webs_maxcost PARAMS ((const void *, const void *));
 static void recolor_spills PARAMS ((void));
 static void restore_conflicts_from_coalesce PARAMS ((struct web *));
 static void unalias_web PARAMS ((struct web *));
+static void break_aliases_to_web PARAMS ((struct web *));
+static void break_precolored_alias PARAMS ((struct web *));
 static void spill_coalescing PARAMS ((sbitmap, sbitmap));
 static unsigned HOST_WIDE_INT spill_prop_savings PARAMS ((struct web *,
 							  sbitmap));
@@ -439,7 +441,7 @@ static void delete_overlapping_slots PARAMS ((struct rtx_list **, rtx));
 static int slot_member_p PARAMS ((struct rtx_list *, rtx));
 static void insert_stores PARAMS ((bitmap));
 static int spill_same_color_p PARAMS ((struct web *, struct web *)); 
-static unsigned int is_partly_live_1 PARAMS ((sbitmap, struct web *));
+static int is_partly_live_1 PARAMS ((sbitmap, struct web *));
 static void update_spill_colors PARAMS ((HARD_REG_SET *, struct web *, int));
 static int spill_is_free PARAMS ((HARD_REG_SET *, struct web *));
 static void emit_loads PARAMS ((struct rewrite_info *, int, rtx));
@@ -530,7 +532,9 @@ static short *ra_reg_renumber;
 static struct df *df;
 static bitmap *live_at_end;
 static int ra_pass;
-
+static int max_normal_pseudo;
+static int an_unusable_color;
+ 
 /* The different lists on which a web can be (based on the type).  */
 static struct dlist *web_lists[(int) LAST_NODE_TYPE];
 #define WEBS(type) (web_lists[(int)(type)])
@@ -580,6 +584,7 @@ void web_class PARAMS ((void));
 #define DUMP_LAST_RTL	0x4000
 #define DUMP_REBUILD	0x8000
 #define DUMP_IGRAPH_M	0x10000
+#define DUMP_VALIDIFY	0x20000
 
 #define DUMP_EVER		((unsigned int)-1)
 #define DUMP_NEARLY_EVER	(DUMP_EVER - DUMP_COSTS - DUMP_IGRAPH_M)
@@ -1287,6 +1292,7 @@ copy_insn_p (insn, source, target)
      rtx *target;
 {
   rtx d, s;
+  int d_regno, s_regno;
   int uid = INSN_UID (insn);
 
   if (!INSN_P (insn))
@@ -1327,11 +1333,14 @@ copy_insn_p (insn, source, target)
       && (GET_CODE (s) != SUBREG || GET_CODE (SUBREG_REG (s)) != REG))
     return 0;
 
+  s_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
+  d_regno = REGNO (GET_CODE (d) == SUBREG ? SUBREG_REG (d) : d);
+
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
-  if (REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s) 
-       < FIRST_PSEUDO_REGISTER
-      && REGNO (GET_CODE (d) == SUBREG ? SUBREG_REG (d) : d) 
-         < FIRST_PSEUDO_REGISTER)
+  if ((s_regno < FIRST_PSEUDO_REGISTER
+       && d_regno < FIRST_PSEUDO_REGISTER)
+      || s_regno >= max_normal_pseudo
+      || d_regno >= max_normal_pseudo)
     return 0;
 
   if (source)
@@ -1989,7 +1998,7 @@ dump_number_seen (void)
 static void
 update_regnos_mentioned (void)
 {
-  int last_uid = last_max_uid;
+  unsigned int last_uid = last_max_uid;
   rtx insn;
   basic_block bb;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -2376,6 +2385,7 @@ init_one_web_common (web, reg)
   /*web->regclass = reg_preferred_class (web->regno);*/
   web->regclass = reg_class_subunion
     [reg_preferred_class (web->regno)] [reg_alternate_class (web->regno)];
+  web->regclass = reg_preferred_class (web->regno);
   if (web->regno < FIRST_PSEUDO_REGISTER)
     {
       web->color = web->regno;
@@ -2397,7 +2407,7 @@ init_one_web_common (web, reg)
 	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       web->add_hardregs =
 	CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
-      web->num_conflicts = web->add_hardregs;
+      web->num_conflicts = 0 * web->add_hardregs;
       COPY_HARD_REG_SET (web->usable_regs,
 			reg_class_contents[reg_preferred_class (web->regno)]);
       COPY_HARD_REG_SET (alternate,
@@ -2526,7 +2536,7 @@ add_subweb (web, reg)
   *w = *web;
   w->orig_x = reg;
   w->add_hardregs = CLASS_MAX_NREGS (web->regclass, GET_MODE (reg)) - 1;
-  w->num_conflicts = w->add_hardregs;
+  w->num_conflicts = 0 * w->add_hardregs;
   w->num_defs = 0;
   w->num_uses = 0;
   w->dlink = NULL;
@@ -2834,7 +2844,7 @@ record_conflict (web1, web2)
       struct web *p1 = find_web_for_subweb (web1);
       struct web *p2 = find_web_for_subweb (web2);
       /* We expect these to be rare enough to justify bitmaps.  And because
-         we have only a special use for it, we not only the superwebs.  */
+         we have only a special use for it, we note only the superwebs.  */
       bitmap_set_bit (p1->useless_conflicts, p2->id);
       bitmap_set_bit (p2->useless_conflicts, p1->id);
       return;
@@ -2929,7 +2939,7 @@ compare_and_free_webs (link)
 
 static void
 init_webs_defs_uses (df)
-     struct df *df ATTRIBUTE_UNUSED;
+     struct df *df;
 {
   struct dlist *d;
   /* Setup and fill uses[] and defs[] arrays of the webs.  */
@@ -3304,7 +3314,7 @@ check_conflict_numbers (void)
   for (i = 0; i < num_webs; i++)
     {
       struct web *web = ID2WEB (i);
-      int new_conf = web->add_hardregs;
+      unsigned int new_conf = 0 * web->add_hardregs;
       struct conflict_link *cl;
       for (cl = web->conflict_list; cl; cl = cl->next)
 	if (cl->t->type != SELECT && cl->t->type != COALESCED)
@@ -3476,13 +3486,13 @@ remember_web_was_spilled (web)
 	}
     }
 
-  adjust = web->add_hardregs;
+  adjust = 0 * web->add_hardregs;
   web->add_hardregs =
     CLASS_MAX_NREGS (web->regclass, PSEUDO_REGNO_MODE (web->regno)) - 1;
   web->num_freedom -= web->add_hardregs;
   if (!web->num_freedom)
     abort();
-  adjust -= web->add_hardregs;
+  adjust -= 0 * web->add_hardregs;
   web->num_conflicts -= adjust;
 }
 
@@ -4036,6 +4046,8 @@ dump_igraph (df)
 	debug_msg (DUMP_WEBS, " dead");
       if (web->crosses_call)
 	debug_msg (DUMP_WEBS, " xcall");
+      if (web->regno >= max_normal_pseudo)
+	debug_msg (DUMP_WEBS, " stack");
       debug_msg (DUMP_WEBS, "\n");
     }
 }
@@ -4538,6 +4550,36 @@ build_worklists (df)
 {
   struct dlist *d, *d_next;
   struct move_list *ml;
+  if (ra_pass > 1)
+    {
+      unsigned int i, num, max_num;
+      struct web **order2web;
+      max_num = num_webs - num_subwebs;
+      order2web = (struct web **) xmalloc (max_num * sizeof (order2web[0]));
+      for (i = 0, num = 0; i < max_num; i++)
+	if (id2web[i]->regno >= max_normal_pseudo)
+	  order2web[num++] = id2web[i];
+      if (num)
+	{
+	  qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
+	  for (i = num - 1;; i--)
+	    {
+	      struct web *web = order2web[i];
+	      struct conflict_link *wl;
+	      remove_list (web->dlink, &WEBS(INITIAL));
+	      put_web (web, SELECT);
+	      for (wl = web->conflict_list; wl; wl = wl->next)
+		{
+		  struct web *pweb = wl->t;
+		  pweb->num_conflicts -= 1 + web->add_hardregs;
+		}
+	      if (i == 0)
+		break;
+	    }
+	}
+      free (order2web);
+    }
+
   for (d = WEBS(INITIAL); d; d = d_next)
     {
       struct web *web = DLIST_WEB (d);
@@ -4823,7 +4865,7 @@ conservative (target, source)
   /* k counts the resulting conflict weight, if target and source
      would be merged, and all low-degree neighbors would be
      removed.  */
-  k = MAX (target->add_hardregs, source->add_hardregs);
+  k = 0 * MAX (target->add_hardregs, source->add_hardregs);
   seen = BITMAP_XMALLOC ();
   for (loop = 0; loop < 2; loop++)
     for (wl = ((loop == 0) ? target : source)->conflict_list;
@@ -4871,6 +4913,8 @@ combine (u, v)
   int i;
   struct conflict_link *wl;
   if (u == v || v->type == COALESCED)
+    abort ();
+  if ((u->regno >= max_normal_pseudo) != (v->regno >= max_normal_pseudo))
     abort ();
   remove_web_from_list (v);
   put_web (v, COALESCED);
@@ -5381,6 +5425,9 @@ colorize_one_web (web, hard)
   HARD_REG_SET fat_colors;
   HARD_REG_SET bias;
   
+  if (web->regno >= max_normal_pseudo)
+    hard = 0;
+
   calculate_dont_begin (web, &dont_begin);
   CLEAR_HARD_REG_SET (bias);
   neighbor_needs = web->add_hardregs + 1;
@@ -5420,6 +5467,7 @@ colorize_one_web (web, hard)
 
   while (1)
     {
+      int i;
       HARD_REG_SET call_clobbered;
 	
       /* Here we choose a hard-reg for the current web.  For non spill
@@ -5600,6 +5648,24 @@ colorize_one_web (web, hard)
 	    {
 	      struct web *w = wl->t;
 	      struct web *aw = alias (w);
+	      /* If we are a spill-temp, we also look at webs coalesced
+		 to precolored ones.  Otherwise we only look at webs which
+		 themself were colored, or coalesced to one.  */
+	      if (aw->type == PRECOLORED && w != aw && web->spill_temp
+		  && flag_ra_optimistic_coalescing)
+		{
+		  if (!w->spill_temp)
+		    set_cand (4, w);
+		  else if (web->spill_temp == 2
+			   && w->spill_temp == 2
+			   && w->spill_cost < web->spill_cost)
+		    set_cand (5, w);
+		  else if (web->spill_temp != 2
+			   && (w->spill_temp == 2
+			       || w->spill_cost < web->spill_cost))
+		    set_cand (6, w);
+		  continue;
+		}
 	      if (aw->type != COLORED)
 		continue;
 	      if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
@@ -5649,33 +5715,45 @@ colorize_one_web (web, hard)
 	  if (try)
 	    {
 	      int old_c = try->color;
-	      remove_list (try->dlink, &WEBS(COLORED));
-	      put_web (try, SPILLED);
-	      /* Now try to colorize us again.  Can recursively make other
-		 webs also spill, until there are no more unspilled
-		 neighbors.  */
-	      debug_msg (DUMP_COLORIZE, "  trying to spill %d\n", try->id);
-	      colorize_one_web (web, hard);
-	      if (web->type != COLORED)
+	      if (try->type == COALESCED)
 		{
-		  /* We tried recursively to spill all already colored
-		     neighbors, but we are still uncolorable.  So it made
-		     no sense to spill those neighbors.  Recolor them.  */
-		  remove_list (try->dlink, &WEBS(SPILLED));
-		  put_web (try, COLORED);
-		  try->color = old_c;
-		  debug_msg (DUMP_COLORIZE, "  spilling %d was useless\n",
-			     try->id);
+		  if (alias (try)->type != PRECOLORED)
+		    abort ();
+		  debug_msg (DUMP_COLORIZE, "  breaking alias %d -> %d\n",
+			     try->id, alias (try)->id);
+		  break_precolored_alias (try);
+		  colorize_one_web (web, hard);
 		}
 	      else
 		{
-		  debug_msg (DUMP_COLORIZE, "  to spill %d was a good idea\n",
-			     try->id);
-		  remove_list (try->dlink, &WEBS(SPILLED));
-		  if (try->was_spilled)
-		    colorize_one_web (try, 0);
+		  remove_list (try->dlink, &WEBS(COLORED));
+		  put_web (try, SPILLED);
+		  /* Now try to colorize us again.  Can recursively make other
+		     webs also spill, until there are no more unspilled
+		     neighbors.  */
+		  debug_msg (DUMP_COLORIZE, "  trying to spill %d\n", try->id);
+		  colorize_one_web (web, hard);
+		  if (web->type != COLORED)
+		    {
+		      /* We tried recursively to spill all already colored
+			 neighbors, but we are still uncolorable.  So it made
+			 no sense to spill those neighbors.  Recolor them.  */
+		      remove_list (try->dlink, &WEBS(SPILLED));
+		      put_web (try, COLORED);
+		      try->color = old_c;
+		      debug_msg (DUMP_COLORIZE, "  spilling %d was useless\n",
+				 try->id);
+		    }
 		  else
-		    colorize_one_web (try, hard - 1);
+		    {
+		      debug_msg (DUMP_COLORIZE, "  to spill %d was a good idea\n",
+				 try->id);
+		      remove_list (try->dlink, &WEBS(SPILLED));
+		      if (try->was_spilled)
+			colorize_one_web (try, 0);
+		      else
+			colorize_one_web (try, hard - 1);
+		    }
 		}
 	    }
 	  else
@@ -5702,12 +5780,18 @@ colorize_one_web (web, hard)
 	    }
 	}
     }
+  if (web->regno >= max_normal_pseudo && web->type == SPILLED)
+    {
+      web->color = an_unusable_color;
+      remove_list (web->dlink, &WEBS(SPILLED));
+      put_web (web, COLORED);
+    }
   if (web->type == SPILLED && flag_ra_optimistic_coalescing
       && web->is_coalesced)
     {
       debug_msg (DUMP_COLORIZE, "breaking aliases to web %d:", web->id);
       restore_conflicts_from_coalesce (web);
-      unalias_web (web);
+      break_aliases_to_web (web);
       insert_coalesced_conflicts ();
       debug_msg (DUMP_COLORIZE, "\n");
       remove_list (web->dlink, &WEBS(SPILLED));
@@ -5720,10 +5804,13 @@ colorize_one_web (web, hard)
 static void
 assign_colors (void)
 {
-  struct dlist *d;
+  struct dlist *d, *d_next;
+
   while (WEBS(SELECT))
     {
+      struct web *web;
       d = pop_list (&WEBS(SELECT));
+      web = DLIST_WEB (d);
       colorize_one_web (DLIST_WEB (d), 1);
     }
 
@@ -5885,7 +5972,7 @@ try_recolor_web (web)
          case there might actually be some webs spilled although thought to
          be colorable.  */
       if (cost > cost_neighbors[newcol]
-	  && !TEST_HARD_REG_BIT (wide_seen, newcol))
+	  && nregs == 1 && !TEST_HARD_REG_BIT (wide_seen, newcol))
 	abort ();
       /* But if the new spill-cost is higher than our own, then really loose.
 	 Respill us and recolor neighbors as before.  */
@@ -5909,6 +5996,16 @@ try_recolor_web (web)
 		    }
 		  else if (web2->type == COLORED)
 		    web2->color = old_colors[web2->id] - 1;
+		  else if (web2->type == SELECT)
+		    /* This means, that WEB2 once was a part of a coalesced
+		       web, which got spilled in the above colorize_one_web()
+		       call, and whose parts then got splitted and put back
+		       onto the SELECT stack.  As the cause for that splitting
+		       (the coloring of WEB) was worthless, we should again
+		       coalesce the parts, as they were before.  For now we
+		       simply leave them SELECTed, for our caller to take
+		       care.  */
+		    ;
 		  else
 		    abort ();
 		}
@@ -6033,7 +6130,7 @@ check_colors (void)
       struct web *aweb = alias (web);
       struct conflict_link *wl;
       int nregs, c;
-      if (aweb->type == SPILLED)
+      if (aweb->type == SPILLED || web->regno >= max_normal_pseudo)
 	continue;
       else if (aweb->type == COLORED)
 	nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web->orig_x));
@@ -6053,7 +6150,9 @@ check_colors (void)
       wl = (web->have_orig_conflicts ? web->orig_conflict_list
 	    : web->conflict_list);
       for (; wl; wl = wl->next)
-	if (!wl->sub)
+	if (wl->t->regno >= max_normal_pseudo)
+	  continue;
+	else if (!wl->sub)
 	  {
 	    struct web *web2 = alias (wl->t);
 	    int nregs2;
@@ -6100,6 +6199,29 @@ static void
 unalias_web (web)
      struct web *web;
 {
+  web->alias = NULL;
+  web->is_coalesced = 0;
+  web->color = -1;
+  /* Well, initially everything was spilled, so it isn't incorrect,
+     that also the individual parts can be spilled.
+     XXX this isn't entirely correct, as we also relaxed the
+     spill_temp flag in combine(), which might have made components
+     spill, although they were a short or spilltemp web.  */
+  web->was_spilled = 1;
+  remove_list (web->dlink, &WEBS(COALESCED));
+  /* Spilltemps must be colored right now (i.e. as early as possible),
+     other webs can be deferred to the end (the code building the
+     stack assumed that in this stage only one web was colored).  */
+  if (web->spill_temp && web->spill_temp != 2)
+    put_web (web, SELECT);
+  else
+    put_web_at_end (web, SELECT);
+}
+
+static void
+break_aliases_to_web (web)
+     struct web *web;
+{
   struct dlist *d, *d_next;
   if (web->type != SPILLED)
     abort ();
@@ -6112,23 +6234,7 @@ unalias_web (web)
 	 aliased to WEB, not also those aliased through other webs.  */
       if (other->alias == web)
 	{
-	  other->alias = NULL;
-	  other->is_coalesced = 0;
-	  other->color = -1;
-	  /* Well, initially everything was spilled, so it isn't incorrect,
-	     that also the individual parts can be spilled.
-	     XXX this isn't entirely correct, as we also relaxed the
-	     spill_temp flag in combine(), which might have made components
-	     spill, although they were a short or spilltemp web.  */
-	  other->was_spilled = 1;
-	  remove_list (d, &WEBS(COALESCED));
-	  /* Spilltemps must be colored right now (i.e. as early as possible),
-	     other webs can be deferred to the end (the code building the
-	     stack assumed that in this stage only one web was colored).  */
-	  if (other->spill_temp && other->spill_temp != 2)
-	    put_web (other, SELECT);
-	  else
-	    put_web_at_end (other, SELECT);
+	  unalias_web (other);
 	  debug_msg (DUMP_COLORIZE, " %d", other->id);
 	}
     }
@@ -6149,6 +6255,74 @@ unalias_web (web)
      It was cleared above if it was coalesced to WEB.  */
   for (d = WEBS(COALESCED); d; d = d->next)
     DLIST_WEB (d)->alias->is_coalesced = 1;
+}
+
+/* WEB is a web coalesced into a precolored one.  Break that alias,
+   making WEB SELECTed again.  Also restores the conflicts which resulted
+   from initially coalescing both.  */
+static void
+break_precolored_alias (web)
+     struct web *web;
+{
+  struct web *pre = web->alias;
+  struct conflict_link *wl;
+  unsigned int c = pre->color;
+  unsigned int nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+  if (pre->type != PRECOLORED)
+    abort ();
+  unalias_web (web);
+  /* Now we need to look at each conflict X of WEB, if it conflicts
+     with [PRE, PRE+nregs), and remove such conflicts, of X has not other
+     conflicts, which are coalesced into those precolored webs.  */
+  for (wl = web->conflict_list; wl; wl = wl->next)
+    {
+      struct web *x = wl->t;
+      struct web *y;
+      unsigned int i;
+      struct conflict_link *wl2;
+      struct conflict_link **pcl;
+      HARD_REG_SET regs;
+      if (!x->have_orig_conflicts)
+	continue;
+      /* First look at which colors can not go away, due to other coalesces
+	 still existing.  */
+      CLEAR_HARD_REG_SET (regs);
+      for (i = 0; i < nregs; i++)
+	SET_HARD_REG_BIT (regs, c + i);
+      for (wl2 = x->conflict_list; wl2; wl2 = wl2->next)
+	if (wl2->t->type == COALESCED && alias (wl2->t)->type == PRECOLORED)
+	  CLEAR_HARD_REG_BIT (regs, alias (wl2->t)->color);
+      /* Now also remove the colors of those conflicts which already
+	 were there before coalescing at all.  */
+      for (wl2 = x->orig_conflict_list; wl2; wl2 = wl2->next)
+	if (wl2->t->type == PRECOLORED)
+	  CLEAR_HARD_REG_BIT (regs, wl2->t->color);
+      /* The colors now still set are those for which WEB was the last
+	 cause, i.e. those which can be removed.  */
+      y = NULL;
+      for (i = 0; i < nregs; i++)
+	if (TEST_HARD_REG_BIT (regs, c + i))
+	  {
+	    struct web *sub;
+	    y = hardreg2web[c + i];
+	    RESET_BIT (sup_igraph, x->id * num_webs + y->id);
+	    RESET_BIT (sup_igraph, y->id * num_webs + x->id);
+	    RESET_BIT (igraph, igraph_index (x->id, y->id));
+	    for (sub = x->subreg_next; sub; sub = sub->subreg_next)
+	      RESET_BIT (igraph, igraph_index (sub->id, y->id));
+	  }
+      if (!y)
+	continue;
+      pcl = &(x->conflict_list);
+      while (*pcl)
+	{
+	  struct web *y = (*pcl)->t;
+	  if (y->type != PRECOLORED || !TEST_HARD_REG_BIT (regs, y->color))
+	    pcl = &((*pcl)->next);
+	  else
+	    *pcl = (*pcl)->next;
+	}
+    }
 }
 
 /* WEB is a spilled web which was target for coalescing.
@@ -6274,7 +6448,7 @@ break_coalesced_spills (void)
       web = DLIST_WEB (d);
       debug_msg (DUMP_COLORIZE, "breaking aliases to web %d:", web->id);
       restore_conflicts_from_coalesce (web);
-      unalias_web (web);
+      break_aliases_to_web (web);
       /* WEB was a spilled web and isn't anymore.  Everything coalesced
 	 to WEB is now SELECTed and might potentially get a color.
 	 If those other webs were itself targets of coalescing it might be
@@ -6513,10 +6687,11 @@ allocate_spill_web (web)
   unsigned int total_size = MAX (inherent_size, 0);
   if (web->stack_slot)
     return;
-  slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
+  /*slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
 			     inherent_size == total_size ? 0 : -1);
   RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
-  MEM_ALIAS_SET (slot) = new_alias_set ();
+  set_mem_alias_set (slot, new_alias_set ());*/
+  slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
   web->stack_slot = slot;
 }
 
@@ -6620,8 +6795,11 @@ rewrite_program (new_deaths)
 	        source = slot;
 		start_sequence ();
 	        if (GET_CODE (target) == SUBREG)
-		  source = adjust_address (source, GET_MODE (target),
-					   SUBREG_BYTE (target));
+		  /*source = adjust_address (source, GET_MODE (target),
+					   SUBREG_BYTE (target));*/
+		  source = simplify_gen_subreg (GET_MODE (target), source,
+						GET_MODE (source),
+						SUBREG_BYTE (target));
 		emit_move_insn (target, source);
 		insns = get_insns ();
 		end_sequence ();
@@ -6665,8 +6843,11 @@ rewrite_program (new_deaths)
 	      dest = slot;
 	      if (GET_CODE (source) == SUBREG)
 		{
-		  dest = adjust_address (dest, GET_MODE (source),
-					 SUBREG_BYTE (source));
+		  /*dest = adjust_address (dest, GET_MODE (source),
+					 SUBREG_BYTE (source));*/
+		  dest = simplify_gen_subreg (GET_MODE (source), dest,
+					      GET_MODE (dest),
+					      SUBREG_BYTE (source));
 		  emit_move_insn (dest, source);
 		}
 	      else
@@ -6740,9 +6921,28 @@ slots_overlap_p (s1, s2)
      rtx s1, s2;
 {
   rtx base1, base2;
-  HOST_WIDE_INT ofs1, ofs2;
+  HOST_WIDE_INT ofs1 = 0, ofs2 = 0;
   int size1 = GET_MODE_SIZE (GET_MODE (s1));
   int size2 = GET_MODE_SIZE (GET_MODE (s2));
+  if (GET_CODE (s1) == SUBREG)
+    ofs1 = SUBREG_BYTE (s1), s1 = SUBREG_REG (s1);
+  if (GET_CODE (s2) == SUBREG)
+    ofs2 = SUBREG_BYTE (s2), s2 = SUBREG_REG (s2);
+
+  if (s1 == s2)
+    return 1;
+
+  if (GET_CODE (s1) != GET_CODE (s2))
+    return 0;
+
+  if (GET_CODE (s1) == REG && GET_CODE (s2) == REG)
+    {
+      if (REGNO (s1) != REGNO (s2))
+	return 0;
+      if (ofs1 >= ofs2 + size2 || ofs2 >= ofs1 + size1)
+	return 0;
+      return 1;
+    }
   if (GET_CODE (s1) != MEM || GET_CODE (s2) != MEM)
     abort ();
   s1 = XEXP (s1, 0);
@@ -6757,8 +6957,8 @@ slots_overlap_p (s1, s2)
   base2 = XEXP (s2, 0);
   if (!rtx_equal_p (base1, base2))
     return 1;
-  ofs1 = INTVAL (XEXP (s1, 1));
-  ofs2 = INTVAL (XEXP (s2, 1));
+  ofs1 += INTVAL (XEXP (s1, 1));
+  ofs2 += INTVAL (XEXP (s2, 1));
   if (ofs1 >= ofs2 + size2 || ofs2 >= ofs1 + size1)
     return 0;
   return 1;
@@ -6826,8 +7026,11 @@ insert_stores (new_deaths)
 	      /* adjust_address() might generate code.  */
 	      start_sequence ();
 	      if (GET_CODE (source) == SUBREG)
-		slot = adjust_address (slot, GET_MODE (source),
-				       SUBREG_BYTE (source));
+		/*slot = adjust_address (slot, GET_MODE (source),
+				       SUBREG_BYTE (source));*/
+		slot = simplify_gen_subreg (GET_MODE (source), slot,
+					    GET_MODE (slot),
+					    SUBREG_BYTE (source));
 	      if ((!last_slot || !rtx_equal_p (slot, last_slot))
 		  && ! slot_member_p (slots, slot))
 		{
@@ -6856,6 +7059,7 @@ insert_stores (new_deaths)
 		}
 	      else
 		{
+		  rtx insns = get_insns ();
 		  end_sequence ();
 		  /* Ignore insns from adjust_address() above.  */
 		}
@@ -6874,7 +7078,7 @@ insert_stores (new_deaths)
 	    slots = NULL;
 	  else
 	    {
-	      if (GET_CODE (SET_SRC (set)) == MEM)
+	      if (1 || GET_CODE (SET_SRC (set)) == MEM)
 	        delete_overlapping_slots (&slots, SET_SRC (set));
 	    }
 	}
@@ -6888,9 +7092,9 @@ spill_same_color_p (web1, web2)
      struct web *web1, *web2;
 {
   int c1, size1, c2, size2;
-  if ((c1 = alias (web1)->color) < 0)
+  if ((c1 = alias (web1)->color) < 0 || c1 == an_unusable_color)
     return 0;
-  if ((c2 = alias (web2)->color) < 0)
+  if ((c2 = alias (web2)->color) < 0 || c2 == an_unusable_color)
     return 0;
 
   size1 = web1->type == PRECOLORED
@@ -6902,7 +7106,7 @@ spill_same_color_p (web1, web2)
   return 1;
 }
 
-static unsigned int
+static int
 is_partly_live_1 (live, web)
      sbitmap live;
      struct web *web;
@@ -6925,7 +7129,8 @@ update_spill_colors (in_use, web, add)
      int add;
 {
   int c, size;
-  if ((c = alias (find_web_for_subweb (web))->color) < 0)
+  if ((c = alias (find_web_for_subweb (web))->color) < 0
+      || c == an_unusable_color)
     return;
   size = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
   if (SUBWEB_P (web))
@@ -6952,6 +7157,8 @@ spill_is_free (in_use, web)
   int c, size;
   if ((c = alias (web)->color) < 0)
     return -1;
+  if (c == an_unusable_color)
+    return 1;
   size = web->type == PRECOLORED
          ? 1 : HARD_REGNO_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
   for (; size--;)
@@ -6994,6 +7201,8 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       if (!web)
 	continue;
       supweb = find_web_for_subweb (web);
+      if (supweb->regno >= max_normal_pseudo)
+	abort ();
       /* Check for web being a spilltemp, if we only want to
 	 load spilltemps.  Also remember, that we emitted that
 	 load, which we don't need to do when we have a death,
@@ -7038,7 +7247,10 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	     different webs, which leads to wrong code.  */
 	  reg = copy_rtx (web->orig_x);
 	  if (GET_CODE (reg) == SUBREG)
-	    slot = adjust_address (slot, GET_MODE (reg), SUBREG_BYTE (reg));
+	    /*slot = adjust_address (slot, GET_MODE (reg), SUBREG_BYTE
+	       (reg));*/
+	    slot = simplify_gen_subreg (GET_MODE (reg), slot, GET_MODE (slot),
+					SUBREG_BYTE (reg));
 	}
       emit_move_insn (reg, slot);
       ni = get_insns ();
@@ -7882,17 +8094,39 @@ emit_colors (df)
       if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
 
-      /* Special case for i386 'fix_truncdi_nomemory' insn.
-	 We must choose mode from insns not from PSEUDO_REGNO_MODE.
-	 Actual only for clobbered register.  */
-      if (web->num_uses == 0 && web->num_defs == 1)
-	web->reg_rtx = gen_reg_rtx (GET_MODE (DF_REF_REG (web->defs[0])));
+      if (web->regno >= max_normal_pseudo)
+	{
+	  rtx place;
+	  if (web->color == an_unusable_color)
+	    {
+	      unsigned int inherent_size = PSEUDO_REGNO_BYTES (web->regno);
+	      unsigned int total_size = MAX (inherent_size, 0);
+	      place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
+					  total_size,
+					  inherent_size == total_size ? 0 : -1);
+	      RTX_UNCHANGING_P (place) =
+		  RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
+	      set_mem_alias_set (place, new_alias_set ());
+	    }
+	  else
+	    {
+	      place = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+	    }
+	  web->reg_rtx = place;
+	}
       else
-	web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
-      
-      /* Remember the different parts directly coalesced to a hardreg.  */
-      if (web->type == COALESCED)
-	bitmap_set_bit (regnos_coalesced_to_hardregs, REGNO (web->reg_rtx));
+	{
+	  /* Special case for i386 'fix_truncdi_nomemory' insn.
+	     We must choose mode from insns not from PSEUDO_REGNO_MODE.
+	     Actual only for clobbered register.  */
+	  if (web->num_uses == 0 && web->num_defs == 1)
+	    web->reg_rtx = gen_reg_rtx (GET_MODE (DF_REF_REAL_REG (web->defs[0])));
+	  else
+	    web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+	  /* Remember the different parts directly coalesced to a hardreg.  */
+	  if (web->type == COALESCED)
+	    bitmap_set_bit (regnos_coalesced_to_hardregs, REGNO (web->reg_rtx));
+	}
     }
   ra_max_regno = max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
@@ -7927,7 +8161,7 @@ emit_colors (df)
 	if (!regrtx)
 	  regrtx = web->reg_rtx;
 	*DF_REF_REAL_LOC (df->uses[i]) = regrtx;
-	if (REGNO_REG_SET_P (rs, web->regno))
+	if (REGNO_REG_SET_P (rs, web->regno) && REG_P (regrtx))
 	  {
 	    /*CLEAR_REGNO_REG_SET (rs, web->regno);*/
 	    SET_REGNO_REG_SET (rs, REGNO (regrtx));
@@ -7950,7 +8184,7 @@ emit_colors (df)
       if (!regrtx)
 	regrtx = web->reg_rtx;
       *DF_REF_REAL_LOC (df->defs[i]) = regrtx;
-      if (REGNO_REG_SET_P (rs, web->regno))
+      if (REGNO_REG_SET_P (rs, web->regno) && REG_P (regrtx))
 	{
 	  /* Don't simply clear the current regno, as it might be
 	     replaced by two webs.  */
@@ -7964,7 +8198,7 @@ emit_colors (df)
   for (i = 0; i < num_webs - num_subwebs; i++)
     {
       web = ID2WEB (i);
-      if (web->reg_rtx)
+      if (web->reg_rtx && REG_P (web->reg_rtx))
 	{
 	  int r = REGNO (web->reg_rtx);
           ra_reg_renumber[r] = web->color;
@@ -8348,7 +8582,7 @@ extended_coalesce_2 (void)
 	{
 	  struct web *dest = def2web[DF_REF_ID (info.defs[n])];
 	  dest = alias (find_web_for_subweb (dest));
-	  if (dest->type != PRECOLORED)
+	  if (dest->type != PRECOLORED && dest->regno < max_normal_pseudo)
 	    {
 	      unsigned int n2;
 	      for (n2 = 0; n2 < info.num_uses; n2++)
@@ -8357,6 +8591,7 @@ extended_coalesce_2 (void)
 		  source = alias (find_web_for_subweb (source));
 		  if (source->type != PRECOLORED
 		      && source != dest
+		      && source->regno < max_normal_pseudo
 		      /* Coalesced webs end up using the same REG rtx in
 			 emit_colors().  So we can only coalesce something
 			 of equal modes.  */
@@ -8690,6 +8925,13 @@ init_ra (void)
       COPY_HARD_REG_SET (hardregs_for_mode[i], rs);
     }
   
+  for (an_unusable_color = 0; an_unusable_color < FIRST_PSEUDO_REGISTER;
+       an_unusable_color++)
+    if (TEST_HARD_REG_BIT (never_use_colors, an_unusable_color))
+      break;
+  if (an_unusable_color == FIRST_PSEUDO_REGISTER)
+    abort ();
+
   orig_max_uid = get_max_uid ();
   compute_bb_for_insn (get_max_uid ());
   ra_reg_renumber = NULL;
@@ -9300,6 +9542,162 @@ remove_suspicious_death_notes (void)
   regnos_coalesced_to_hardregs = NULL;
 }
 
+static void
+validify_one_insn (insn)
+     rtx insn;
+{
+  int alt, valid, n_ops;
+  int i;
+  int commutative = -1;
+  extract_insn (insn);
+  valid = constrain_operands (0);
+  preprocess_constraints ();
+  alt = which_alternative;
+  n_ops = recog_data.n_operands;
+  for (i = 0; i < n_ops; i++)
+    if (strchr (recog_data.constraints[i], '%') != NULL)
+      commutative = i;
+  ra_print_rtx_top (rtl_dump_file, insn, 0);
+  if (recog_data.n_alternatives == 0 || n_ops == 0)
+    {
+      if (!valid)
+	abort ();
+      fprintf (rtl_dump_file,
+	       "   --> has no constrained operands, i.e. is valid\n");
+    }
+  else if (valid)
+    {
+      if (alt < 0)
+	abort ();
+      fprintf (rtl_dump_file, "   --> matched alternative %d\n", alt);
+      for (i = 0; i < n_ops; i++)
+	{
+	  char *constraint = xstrdup (recog_op_alt[i][alt].constraint);
+	  char *comma = strchr (constraint, ',');
+	  int len;
+	  if (comma)
+	    *comma = 0;
+	  len = strlen (constraint);
+	  fprintf (rtl_dump_file, "\top%d: %s\t", i, constraint);
+	  if (len <= 2)
+	    fprintf (rtl_dump_file, "\t");
+	  if (comma)
+	    *comma = ',';
+	  ra_print_rtx (rtl_dump_file, recog_data.operand[i], 0);
+	  fprintf (rtl_dump_file, "\n");
+	  free (constraint);
+	}
+    }
+  else
+    {
+      fprintf (rtl_dump_file, "  --> invalid insn");
+      if (commutative >= 0)
+	fprintf (rtl_dump_file, ", but commutative in op %d", commutative);
+      fprintf (rtl_dump_file, "\n");
+    }
+}
+
+static void
+make_insns_structurally_valid (void)
+{
+  rtx insn;
+  int old_rip = reload_in_progress;
+  if (!rtl_dump_file || (debug_new_regalloc & DUMP_VALIDIFY) == 0)
+    return;
+  reload_in_progress = 0;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	validify_one_insn (insn);
+      }
+  reload_in_progress = old_rip;
+}
+
+void
+dump_static_insn_cost (file, message, prefix)
+     FILE *file;
+     const char *message;
+     const char *prefix;
+{
+  int i;
+  struct cost
+    {
+      unsigned HOST_WIDE_INT cost;
+      unsigned int count;
+    };
+  struct cost load = {0, 0};
+  struct cost store = {0, 0};
+  struct cost regcopy = {0, 0};
+  struct cost selfcopy = {0, 0};
+  struct cost overall = {0, 0};
+
+  if (!file)
+    return;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      unsigned HOST_WIDE_INT block_cost = bb->frequency;
+      rtx insn, set;
+      for (insn = bb->head; insn; insn = NEXT_INSN (insn))
+	{
+	  /* Yes, yes.  We don't calculate the costs precisely.
+	     Only for "simple enough" insns.  Those containing single
+	     sets only.  */
+	  if (INSN_P (insn) && ((set = single_set (insn)) != NULL))
+	    {
+	      rtx src = SET_SRC (set); 
+	      rtx dest = SET_DEST (set);
+	      struct cost *pcost = NULL;
+	      overall.cost += block_cost;
+	      overall.count++;
+	      if (rtx_equal_p (src, dest))
+		pcost = &selfcopy;
+	      else if (GET_CODE (src) == GET_CODE (dest)
+		       && ((GET_CODE (src) == REG)
+			   || (GET_CODE (src) == SUBREG
+			       && GET_CODE (SUBREG_REG (src)) == REG
+			       && GET_CODE (SUBREG_REG (dest)) == REG)))
+		pcost = &regcopy;
+	      else
+		{
+		  if (GET_CODE (src) == SUBREG)
+		    src = SUBREG_REG (src);
+		  if (GET_CODE (dest) == SUBREG)
+		    dest = SUBREG_REG (dest);
+		  if (GET_CODE (src) == MEM && GET_CODE (dest) != MEM
+		      && memref_is_stack_slot (src))
+		    pcost = &load;
+		  else if (GET_CODE (src) != MEM && GET_CODE (dest) == MEM
+			   && memref_is_stack_slot (dest))
+		    pcost = &store;
+		}
+	      if (pcost)
+		{
+		  pcost->cost += block_cost;
+		  pcost->count++;
+		}
+	    }
+	  if (insn == bb->end)
+	    break;
+	}
+    }
+
+  if (!prefix)
+    prefix = "";
+  fprintf (file, "static insn cost %s\n", message ? message : "");
+  fprintf (file, "  %soverall:\tnum=%6d\tcost=%8d\n", prefix, overall.count,
+	   overall.cost);
+  fprintf (file, "  %sloads:\tnum=%6d\tcost=%8d\n", prefix, load.count,
+	   load.cost);
+  fprintf (file, "  %sstores:\tnum=%6d\tcost=%8d\n", prefix,
+	   store.count, store.cost);
+  fprintf (file, "  %sregcopy:\tnum=%6d\tcost=%8d\n", prefix, regcopy.count,
+	   regcopy.cost);
+  fprintf (file, "  %sselfcpy:\tnum=%6d\tcost=%8d\n", prefix, selfcopy.count,
+	   selfcopy.cost);
+}
+
 /* XXX see recog.c  */
 extern int while_newra;
 
@@ -9309,6 +9707,23 @@ reg_alloc (void)
 {
   int changed;
   FILE *ra_dump_file = rtl_dump_file;
+
+  if (!INSN_P (get_last_insn ())
+      || GET_CODE (PATTERN (get_last_insn ())) != USE)
+    {
+      rtx insn, last = get_last_insn ();
+      basic_block bb = BLOCK_FOR_INSN (last);
+      if (bb)
+	{
+	  use_return_register ();
+	  for (insn = get_last_insn (); insn != last; insn = PREV_INSN (insn))
+	    set_block_for_insn (insn, bb);
+	  if (last == bb->end)
+	    bb->end = get_last_insn ();
+	}
+    }
+
+  /*verify_flow_info ();*/
 
   switch (0)
     {
@@ -9321,6 +9736,7 @@ reg_alloc (void)
       case 5: debug_new_regalloc = DUMP_FINAL_RTL + DUMP_COSTS +
 	      DUMP_CONSTRAINTS;
 	      break;
+      case 6: debug_new_regalloc = DUMP_VALIDIFY; break;
     }
   if (!rtl_dump_file)
     debug_new_regalloc = 0;
@@ -9335,7 +9751,7 @@ reg_alloc (void)
   {
     allocate_reg_info (max_reg_num (), FALSE, FALSE);
     compute_bb_for_insn (get_max_uid ());
-    delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
+    delete_trivially_dead_insns (get_insns (), max_reg_num ());
     reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 		     max_regno);
     max_regno = max_reg_num ();
@@ -9353,6 +9769,7 @@ reg_alloc (void)
   /*  find_nesting_depths (); */
   ra_pass = 0;
   no_new_pseudos = 0;
+  max_normal_pseudo = max_reg_num ();
   /* We don't use those NOTEs, and as we anyway change all registers,
      they only make problems later.  */
   count_or_remove_death_notes (NULL, 1);
@@ -9385,6 +9802,8 @@ reg_alloc (void)
   if (flag_ra_optimistic_coalescing)
     flag_ra_break_aliases = 1;
   flag_ra_dump_notes = 0;
+  make_insns_structurally_valid ();
+  /*verify_flow_info ();*/
   df = df_init ();
   do
     {
@@ -9401,7 +9820,7 @@ reg_alloc (void)
       {
 	allocate_reg_info (max_reg_num (), FALSE, FALSE);
 	compute_bb_for_insn (get_max_uid ());
-	delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
+	delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 			 max_regno);
 	max_regno = max_reg_num ();
@@ -9435,8 +9854,15 @@ reg_alloc (void)
 	}
       check_df (df);
       alloc_mem (df);
+      /*debug_msg (DUMP_EVER, "before one_pass()\n");
+      if (rtl_dump_file)
+	print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+      verify_flow_info ();*/
       changed = one_pass (df, ra_pass > 1);
-
+      /*debug_msg (DUMP_EVER, "after one_pass()\n");
+      if (rtl_dump_file)
+        print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+      verify_flow_info ();*/
       /* FIXME denisc@overta.ru
 	 Example of usage ra_info ... routines */
 #if 0
@@ -9464,7 +9890,7 @@ reg_alloc (void)
 	    rtl_dump_file = NULL;
 	  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 	  compute_bb_for_insn (get_max_uid ());
-	  delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
+	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 			   max_regno);
 	  max_regno = max_reg_num ();
@@ -9498,17 +9924,18 @@ reg_alloc (void)
     rtl_dump_file = NULL;
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
-  compute_bb_for_insn (get_max_uid ());
+  /*compute_bb_for_insn (get_max_uid ());*/
   while_newra = 1;
-  store_motion ();
+  /*store_motion ();*/
   no_new_pseudos = 1;
   rtl_dump_file = ra_dump_file;
 
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     rtl_dump_file = NULL;
-  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
-  compute_bb_for_insn (get_max_uid ());
-  clear_log_links (get_insns ());
+  /*free_bb_for_insn ();
+  find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);*/
+  /*compute_bb_for_insn (get_max_uid ());*/
+  /*clear_log_links (get_insns ());*/
   life_analysis (get_insns (), rtl_dump_file, 
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
 /*  recompute_reg_usage (get_insns (), TRUE);
@@ -9516,7 +9943,7 @@ reg_alloc (void)
 		 PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE); */
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
-/*  delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);*/
+/*  delete_trivially_dead_insns (get_insns (), max_reg_num ());*/
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
 	  
@@ -9543,6 +9970,14 @@ reg_alloc (void)
   remove_suspicious_death_notes ();
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
     ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+  dump_static_insn_cost (rtl_dump_file,
+			 "after allocation/spilling, before reload", NULL);
+
+  /* Allocate the reg_equiv_memory_loc array for reload.  */
+  reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
+  /* And possibly initialize it.  */
+  allocate_initial_values (reg_equiv_memory_loc);
+  regclass (get_insns (), max_reg_num (), rtl_dump_file);
 }
 
 static int web_conflicts_p PARAMS ((struct web *, struct web *));
@@ -9730,12 +10165,12 @@ web_class ()
 	      }
 	    else if (!reg_class_subset_p (best, i))
 	      best = NO_REGS;
-/*    	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]);  */
+/*  	    fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]); */
 	  }
-/*        fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
+/*    fprintf (stderr, " BEST: %s\n", reg_class_names[best]); */
       if (best == NO_REGS)
 	{
-    	  fprintf (stderr, "Web: %d (%d) NO_REGS\n", web->id, web->regno);
+	  fprintf (stderr, "Web: %d (%d) NO_REGS\n", web->id, web->regno);
 	  best = GENERAL_REGS;
 	}
       reg_class_of_web[n] = best;

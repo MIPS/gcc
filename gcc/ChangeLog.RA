@@ -1,5 +1,37 @@
 2002-05-03  Michael Matz  <matz@suse.de>
 
+	* pre-reload.c : Include optabs.h.
+	* ra.c (break_precolored_alias, validify_one_insn,
+	make_insns_structurally_valid, dump_static_insn_cost): New.
+	(max_normal_pseudo, an_unusable_color): New.
+	(DUMP_VALIDIFY): New.
+	(copy_insn_p): Moves involving spill-pseudos are not coalescable.
+	(init_one_web_common): Initialize num_conflicts to 0.
+	(add_subweb, check_conflict_numbers, conservative): Dito.
+	(remember_web_was_spilled): Adjust num_conflicts by 0.
+	(dump_igraph, check_colors, spill_same_color_p, update_spill_colors,
+	spill_is_free, emit_loads): Handle spillpseudos.
+	(build_worklists): Push spillpseudos onto the stack first.
+	(combine): Don't allow to combine a spillpseudo and a normal one.
+	(colorize_one_web): Don't try hard to color a spillpseudo.
+	Webs aliased to precolored ones are candidates too.
+	Fake-colorize spilled spillpseudos.
+	(try_recolor_web): Don't choke on wide webs, or on SELECTed ones.
+	(unalias_web): Factor out non-common code into ...
+	(break_aliases_to_web): ... here.  New.
+	(allocate_spill_web): Create pseudos.
+	(rewrite_program, insert_stores, emit_loads):
+	Use simplify_gen_subreg().
+	(slots_overlap_p, insert_stores): Handle REGs.
+	(emit_colors): Allocate stack slots here.
+	(extended_coalesce_2): Don't coalesce spillpseudos.
+	(init_ra): Initialize an_unusable_color.
+	(reg_alloc): Add use of return register.  Initialize
+	max_normal_pseudo.  Don't call store_motion().  Initialize
+	reg_equiv_memory_loc.  Call allocate_initial_values() and regclass().
+
+2002-05-03  Michael Matz  <matz@suse.de>
+
 	merged with HEAD (tag ra-merge-initial)
 
 Wed Apr 24 00:37:50 2002  Denis Chertykov  <denisc@overta.ru>
