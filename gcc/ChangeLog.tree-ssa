@@ -1,3 +1,8 @@
+2003-10-30  Richard Henderson  <rth@redhat.com>
+
+	* domwalk.c (walk_dominator_tree): Pass any final is_ctrl_stmt 
+	down the recursive walk.
+
 2003-10-30  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (thread_jumps): Now returns a bool.  Move some tests into
