@@ -599,7 +599,12 @@ remember_move (insn)
 	 Those would be difficult to coalesce (we would need to implement
 	 handling of all the subwebs in the allocator, including that such
 	 subwebs could be source and target of coalesing).  */
-      if (GET_CODE (s) == REG && GET_CODE (d) == REG)
+      if (GET_CODE (s) == GET_CODE (d)
+	  && (GET_CODE (s) == REG
+	      || (GET_CODE (s) == SUBREG
+		  && SUBREG_BYTE (s) == SUBREG_BYTE (d)
+		  && GET_MODE_SIZE (GET_MODE (SUBREG_REG (s)))
+		     == GET_MODE_SIZE (GET_MODE (SUBREG_REG (d))))))
 	{
 	  struct move *m = (struct move *) ra_calloc (sizeof (struct move));
 	  struct move_list *ml;
@@ -2957,28 +2962,36 @@ moves_to_webs (df)
       struct move *m = ml->move;
       struct web *web;
       struct move_list *newml;
+      rtx source, dest;
+      unsigned int regno;
       if (!m)
 	continue;
       m->type = WORKLIST;
       m->dlink = NULL;
+      copy_insn_p (m->insn, &source, &dest);
       /* Multiple defs/uses can happen in moves involving hard-regs in
 	 a wider mode.  For those df.* creates use/def references for each
 	 real hard-reg involved.  For coalescing we are interested in
 	 the smallest numbered hard-reg.  */
+      regno = REGNO (GET_CODE (dest) == SUBREG ? SUBREG_REG (dest) : dest);
       for (link = DF_INSN_DEFS (df, m->insn); link; link = link->next)
         if (link->ref)
 	  {
 	    web = def2web[DF_REF_ID (link->ref)];
 	    web = find_web_for_subweb (web);
-	    if (!m->target_web || web->regno < m->target_web->regno)
+	    if (web->regno == regno
+		&& (!m->target_web || web->regno < m->target_web->regno))
 	      m->target_web = web;
 	  }
+      regno = REGNO (GET_CODE (source) == SUBREG
+		     ? SUBREG_REG (source) : source);
       for (link = DF_INSN_USES (df, m->insn); link; link = link->next)
         if (link->ref)
 	  {
 	    web = use2web[DF_REF_ID (link->ref)];
 	    web = find_web_for_subweb (web);
-	    if (!m->source_web || web->regno < m->source_web->regno)
+	    if (web->regno == regno
+		&& (!m->source_web || web->regno < m->source_web->regno))
 	      m->source_web = web;
 	  }
       if (m->source_web && m->target_web

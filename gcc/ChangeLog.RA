@@ -1,4 +1,8 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-build.c (remember_move): Handle subreg moves.
+	(moves_to_webs): Ensure that we get the correct refs.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-rewrite.c (coalesce_spill_slots): Don't use uninitialized
 	values.
 
