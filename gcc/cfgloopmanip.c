@@ -1237,7 +1237,7 @@ recount_frequencies (struct loops *loops)
      We assume that such edges do not form cycles (they could if we redirected
      them, but why would we do it?) and that they do not form long chains.
      We missuse duplicated field to mark already computed blocks.  */
-  FOR_BB_BETWEEN (bb, EXIT_BLOCK_PTR, NULL, prev_bb)
+  FOR_BB_BETWEEN (bb, EXIT_BLOCK_PTR, ENTRY_BLOCK_PTR, prev_bb)
     {
       post[n_post++] = bb;
       bb->count = 0;
