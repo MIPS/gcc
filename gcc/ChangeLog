@@ -1,3 +1,14 @@
+2002-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genattr.c (main): Add output of prototype of new interface
+	function `dfa_clean_insn_cache'.
+
+	* genautomata.c (output_dfa_clean_insn_cache_func): New function.
+	(DFA_CLEAN_INSN_CACHE_FUNC_NAME): New macro.
+	(output_dfa_start_func): Use function `dfa_clean_insn_cache' in
+	the generated code.
+	(write_automata): Call the new function.
+	
 2002-09-12  Jason Merrill  <jason@redhat.com>
 
 	* calls.c (store_one_arg): Use size_in_bytes to determine the

@@ -481,6 +481,7 @@ static int units_cmp			        PARAMS ((const void *,
 							 const void *));
 static void output_get_cpu_unit_code_func       PARAMS ((void));
 static void output_cpu_unit_reservation_p       PARAMS ((void));
+static void output_dfa_clean_insn_cache_func    PARAMS ((void));
 static void output_dfa_start_func	        PARAMS ((void));
 static void output_dfa_finish_func	        PARAMS ((void));
 
@@ -7165,6 +7166,8 @@ output_reserved_units_table_name (f, automaton)
 
 #define CPU_UNIT_RESERVATION_P_FUNC_NAME "cpu_unit_reservation_p"
 
+#define DFA_CLEAN_INSN_CACHE_FUNC_NAME  "dfa_clean_insn_cache"
+
 #define DFA_START_FUNC_NAME  "dfa_start"
 
 #define DFA_FINISH_FUNC_NAME "dfa_finish"
@@ -8744,21 +8747,30 @@ output_cpu_unit_reservation_p ()
   fprintf (output_file, "  return 0;\n}\n\n");
 }
 
-/* The function outputs PHR interface function `dfa_start'.  */
+/* The function outputs PHR interface function `dfa_clean_insn_cache'.  */
 static void
-output_dfa_start_func ()
+output_dfa_clean_insn_cache_func ()
 {
   fprintf (output_file,
-	   "void\n%s ()\n{\n  int %s;\n\n  %s = get_max_uid ();\n",
-	   DFA_START_FUNC_NAME, I_VARIABLE_NAME,
-	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
-  fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
-	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+	   "void\n%s ()\n{\n  int %s;\n\n",
+	   DFA_CLEAN_INSN_CACHE_FUNC_NAME, I_VARIABLE_NAME);
   fprintf (output_file,
 	   "  for (%s = 0; %s < %s; %s++)\n    %s [%s] = -1;\n}\n\n",
 	   I_VARIABLE_NAME, I_VARIABLE_NAME,
 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, I_VARIABLE_NAME,
 	   DFA_INSN_CODES_VARIABLE_NAME, I_VARIABLE_NAME);
+}
+
+/* The function outputs PHR interface function `dfa_start'.  */
+static void
+output_dfa_start_func ()
+{
+  fprintf (output_file,
+	   "void\n%s ()\n{\n  %s = get_max_uid ();\n",
+	   DFA_START_FUNC_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
+	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  fprintf (output_file, "  %s ();\n}\n\n", DFA_CLEAN_INSN_CACHE_FUNC_NAME);
 }
 
 /* The function outputs PHR interface function `dfa_finish'.  */
@@ -9689,6 +9701,7 @@ write_automata ()
       fprintf (output_file, "\n#endif /* #if %s */\n\n",
 	       CPU_UNITS_QUERY_MACRO_NAME);
     }
+  output_dfa_clean_insn_cache_func ();
   output_dfa_start_func ();
   output_dfa_finish_func ();
   fprintf (stderr, "done\n");
