@@ -133,12 +133,14 @@ extern void gt_pch_p_S			PARAMS ((void *, void *,
 extern void gt_pch_n_S			PARAMS ((const void *));
 extern void gt_ggc_m_S			PARAMS ((void *));
 
+/* Initialise the string pool.  */
+extern void init_stringpool	PARAMS ((void));
 
-/* A GC implementation must provide these functions.  */
+/* A GC implementation must provide these functions.  They are internal
+   to the GC system.  */
 
 /* Initialize the garbage collector.  */
 extern void init_ggc		PARAMS ((void));
-extern void init_stringpool	PARAMS ((void));
 
 /* Start a new GGC context.  Memory allocated in previous contexts
    will not be collected while the new context is active.  */
@@ -150,23 +152,44 @@ extern void ggc_pop_context 	PARAMS ((void));
 
 struct ggc_pch_data;
 
+/* Return a new ggc_pch_data structure.  */
 extern struct ggc_pch_data *init_ggc_pch PARAMS ((void));
+
+/* The second parameter and third parameters give the address and size
+   of an object.  Update the ggc_pch_data structure with as much of
+   that information as is necessary.  */
 extern void ggc_pch_count_object	PARAMS ((struct ggc_pch_data *,
 						 void *, size_t));
+
+/* Return the total size of the data to be written to hold all 
+   the objects previously passed to ggc_pch_count_object.  */
 extern size_t ggc_pch_total_size	PARAMS ((struct ggc_pch_data *));
+
+/* The objects, when read, will most likely be at the address
+   in the second parameter.  */
 extern void ggc_pch_this_base		PARAMS ((struct ggc_pch_data *,
 						 void *));
+
+/* Assuming that the objects really do end up at the address
+   passed to ggc_pch_this_base, return the address of this object.  */
 extern char *ggc_pch_alloc_object	PARAMS ((struct ggc_pch_data *,
 						 void *, size_t));
+
+/* Write out any initial information required.  */
 extern void ggc_pch_prepare_write	PARAMS ((struct ggc_pch_data *,
 						 FILE *));
+/* Write out this object, including any padding.  */
 extern void ggc_pch_write_object	PARAMS ((struct ggc_pch_data *,
 						 FILE *, void *, void *,
 						 size_t));
+/* All objects have been written, write out any final information
+   required.  */
 extern void ggc_pch_finish		PARAMS ((struct ggc_pch_data *,
 						 FILE *));
 
-extern void ggc_pch_read		PARAMS ((FILE *, void *));
+/* A PCH file has just been read in at the address specified second
+   parameter.  Set up the GC implementation for the new objects.  */
+extern void ggc_pch_read PARAMS ((FILE *, void *));
 
 
 /* Allocation.  */

@@ -1,3 +1,7 @@
+2002-12-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* ggc.h: Document PCH calls into memory managers.
+
 2002-12-18  Geoffrey Keating  <geoffk@apple.com>
 
 	* doc/invoke.texi (Precompiled Headers): Document the
