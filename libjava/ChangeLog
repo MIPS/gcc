@@ -1,4 +1,9 @@
 2004-06-14  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/MenuSelectionManager.java: 
+	Ran through jalopy to fix formatting style.
+
+2004-06-14  Olga Rodimina  <rodimina@redhat.com>
 	
 	* javax/swing/JLayeredPane.java: 
 	(remove): Revalidate and repaint layered pane after
