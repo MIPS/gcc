@@ -1,3 +1,18 @@
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (bitmap.o-warn, caller-save.o-warn, combine.o-warn,
+	cgraphunit.o-warn, c-semantics.o-warn, emit-rtl.o-warn, expr.o-warn,
+	fold-const.o-warn, genattrtab.o-warn, regmove.o-warn, tree.o-warn,
+	varasm.o-warn, f/expr.o-warn, profile.o-warn): Remove.
+	* bitmap.c (bitmap_first_set_bit): Abort if no non-zero word found.
+	(bitmap_last_set_bit): Likewise.
+	* combine.c (get_pos_from_mask): Always set *plen.
+
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* tree-dfa.c (get_expr_operands): Remove handling of PLUS_EXPR
+	inside INDIRECT_REF.
+
 2003-11-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-nomudflap.c (nogo): Fix prototype.

@@ -187,32 +187,16 @@ gengtype-yacc.o-warn = -Wno-error
 c-parse.o-warn = -Wno-error
 # flex output may yield harmless "no previous prototype" warnings
 gengtype-lex.o-warn = -Wno-error
+# SYSCALLS.c misses prototypes
+SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # These files need -Wno-error because the gimplifier triggers hard to fix
 # warnings when converting to GIMPLE form.  The warnings are triggered because
 # moving the condition into the loop prevents the loop optimizer from
 # recognizing that the loop will always be executed at least once.  We need
 # a new loop optimizer.
-bitmap.o-warn = -Wno-error
-caller-save.o-warn = -Wno-error
-combine.o-warn = -Wno-error
-cgraphunit.o-warn = -Wno-error
-c-semantics.o-warn = -Wno-error
-emit-rtl.o-warn = -Wno-error
-expr.o-warn = -Wno-error
-fold-const.o-warn = -Wno-error
-genattrtab.o-warn = -Wno-error
-regmove.o-warn = -Wno-error
 reload1.o-warn = -Wno-error
-tree.o-warn = -Wno-error
-varasm.o-warn = -Wno-error
-f/expr.o-warn = -Wno-error
-# The warning for 'prev_file_name' in profile.c is odd.  The variable *is*
-# initialized before being used.
-profile.o-warn = -Wno-error
 # These warnings are due to libbanshee.
 tree-alias-ander.o-warn = -Wno-error
-# SYSCALLS.c misses prototypes
-SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
