@@ -1,5 +1,11 @@
 2003-11-30  Jan Hubicka  <jh@suse.cz>
 
+	* tree-optimize.c (tree_rest_of_compilation): Move ggc_collect call to
+	the end of function; keep clearing of DECL_SAVED_TREE to the cgraph
+	code.
+
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (cgraph_inline_context): New structure.
 	(cgrpah_mark_inline, cgraph_check_inline_limits): Use context
 	instead of passing all arguments by hand.

@@ -408,7 +408,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     }
   cfun = 0;
   DECL_SAVED_INSNS (fndecl) = 0;
-  ggc_collect ();
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
@@ -433,18 +432,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
                      fndecl, fndecl, larger_than_size);
 	}
     }
-
-  /* ??? Looks like some of this could be combined.  */
-
-
-  /* If possible, obliterate the body of the function so that it can
-     be garbage collected.  */
-  else if (dump_enabled_p (TDI_all))
-    /* Keep the body; we're going to dump it.  */
-    ;
-  else
-    /* We don't need the body; blow it away.  */
-    DECL_SAVED_TREE (fndecl) = NULL;
 
   /* Since we don't need the RTL for this function anymore, stop pointing to
      it.  That's especially important for LABEL_DECLs, since you can reach all
@@ -472,5 +459,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   input_location = saved_loc;
 
+  if (!nested_p)
+    ggc_collect ();
   timevar_pop (TV_EXPAND);
 }
