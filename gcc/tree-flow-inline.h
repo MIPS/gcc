@@ -198,11 +198,11 @@ stmt_modified_p (tree t)
   return ann ? ann->modified : true;
 }
 
-static inline tree *
-def_op (tree stmt)
+static inline varray_type
+def_ops (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (ann->ops ? ann->ops->def_op : NULL) : NULL;
+  return ann ? (ann->ops ? ann->ops->def_ops : NULL) : NULL;
 }
 
 static inline varray_type

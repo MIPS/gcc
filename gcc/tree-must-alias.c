@@ -108,8 +108,10 @@ tree_compute_must_alias (tree fndecl)
 
   /* Debugging dumps.  */
   if (dump_file)
-    dump_end (TDI_mustalias, dump_file);
-  dump_function (TDI_mustalias, fndecl);
+    {
+      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_end (TDI_mustalias, dump_file);
+    }
 
   timevar_pop (TV_TREE_MUST_ALIAS);
 }

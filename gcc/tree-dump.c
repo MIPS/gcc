@@ -831,12 +831,6 @@ dump_function (phase, fn)
   stream = dump_begin (phase, &flags);
   if (stream)
     {
-      fprintf (stream, "\n;; Function %s",
-	       (*lang_hooks.decl_printable_name) (fn, 2));
-      fprintf (stream, " (%s)\n",
-	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
-      fprintf (stream, "\n");
-
       dump_function_to_file (fn, stream, flags);
       dump_end (phase, stream);
     }
@@ -852,6 +846,12 @@ dump_function_to_file (fn, stream, flags)
      int flags;
 {
   tree arg;
+
+  fprintf (stream, "\n;; Function %s",
+	    (*lang_hooks.decl_printable_name) (fn, 2));
+  fprintf (stream, " (%s)\n",
+	    IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
+  fprintf (stream, "\n");
 
   fprintf (stream, "%s (", (*lang_hooks.decl_printable_name) (fn, 2));
 

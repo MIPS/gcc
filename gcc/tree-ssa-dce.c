@@ -157,7 +157,6 @@ mark_necessary (tree t)
 static void
 print_stats (void)
 {
-  dump_file = dump_begin (TDI_dce, &dump_flags);
   if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
     {
       float percg;
@@ -173,8 +172,6 @@ print_stats (void)
 
       fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
 			  stats.removed_phis, stats.total_phis, (int) percg);
-
-      dump_end (TDI_dce, dump_file);
     }
 }
 
@@ -293,8 +290,10 @@ stmt_useful_p (tree stmt)
   /* Examine all the stores in this statement.  */
   get_stmt_operands (stmt);
 
-  if (def_op (stmt) && need_to_preserve_store (*(def_op (stmt))))
-    return true;
+  ops = def_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    if (need_to_preserve_store (*((tree *) VARRAY_GENERIC_PTR (ops, i))))
+      return true;
 
   ops = vdef_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
@@ -583,16 +582,17 @@ tree_ssa_dce (tree fndecl)
   remove_dead_stmts ();
   cleanup_tree_cfg ();
 
+  /* Debugging dumps.  */
   if (dump_file)
-    dump_end (TDI_dce, dump_file);
+    {
+      dump_function_to_file (fndecl, dump_file, dump_flags);
+      print_stats ();
+      dump_end (TDI_dce, dump_file);
+    }
 
   htab_delete (needed_stmts);
 
   timevar_pop (TV_TREE_DCE);
-
-  /* Dump the function tree after DCE.  */
-  dump_function (TDI_dce, fndecl);
-  print_stats ();
 }
 
 

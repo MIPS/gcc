@@ -126,7 +126,7 @@ static tree clobber_vars_r (tree *, int *, void *);
 static void compute_alias_sets (void);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
-static void set_def (tree *, tree);
+static void add_def (tree *, tree);
 static void add_use (tree *, tree);
 static void add_vdef (tree, tree, voperands_t);
 static void add_stmt_operand (tree *, tree, int, voperands_t);
@@ -215,11 +215,9 @@ get_stmt_operands (tree stmt)
 	 optimizations don't try to transform them.  In execute/20020107-1.c
 	 CCP tries to propagate constants into some __asm__ operands,
 	 causing an ICE during RTL expansion.  */
-      get_expr_operands (stmt, &ASM_INPUTS (stmt), opf_force_vop, prev_vops);
-      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def|opf_force_vop,
-			 prev_vops);
-      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def|opf_force_vop,
-			 prev_vops);
+      get_expr_operands (stmt, &ASM_INPUTS (stmt), 0, prev_vops);
+      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def, prev_vops);
+      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def, prev_vops);
       break;
 
     case RETURN_EXPR:
@@ -613,10 +611,8 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 	 opf_force_vop is set).  */
       if (flags & opf_is_def)
 	{
-	  if (is_scalar
-	      && !(flags & opf_force_vop)
-	      && TREE_CODE (stmt) == MODIFY_EXPR)
-	    set_def (var_p, stmt);
+	  if (is_scalar && !(flags & opf_force_vop))
+	    add_def (var_p, stmt);
 	  else
 	    add_vdef (var, stmt, prev_vops);
 
@@ -668,17 +664,19 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 }
 
 
-/* Set DEF_P to be the pointer to the operand defined by STMT.  */
+/* Add DEF_P to the list of pointers to operands defined by STMT.  */
 
 static void
-set_def (tree *def_p, tree stmt)
+add_def (tree *def_p, tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
 
 #if defined ENABLE_CHECKING
-  /* There should only be a single real definition per
-     assignment.  */
-  if (ann->ops && ann->ops->def_op)
+  /* There should only be a single real definition per assignment.  */
+  if (TREE_CODE (stmt) == MODIFY_EXPR
+      && ann->ops
+      && ann->ops->def_ops
+      && VARRAY_ACTIVE_SIZE (ann->ops->def_ops) >= 1)
     abort ();
 #endif
 
@@ -688,7 +686,10 @@ set_def (tree *def_p, tree stmt)
       memset ((void *) ann->ops, 0, sizeof (*(ann->ops)));
     }
 
-  ann->ops->def_op = def_p;
+  if (ann->ops->def_ops == NULL)
+    VARRAY_GENERIC_PTR_INIT (ann->ops->def_ops, 1, "def_ops");
+
+  VARRAY_PUSH_GENERIC_PTR (ann->ops->def_ops, def_p);
 }
 
 
@@ -1579,8 +1580,8 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	    dfa_stats_p->num_stmt_anns++;
 	    if (ann->ops)
 	      {
-		if (ann->ops->def_op)
-		  dfa_stats_p->num_defs++;
+		if (ann->ops->def_ops)
+		  dfa_stats_p->num_defs += VARRAY_ACTIVE_SIZE (ann->ops->def_ops);
 		if (ann->ops->use_ops)
 		  dfa_stats_p->num_uses += VARRAY_ACTIVE_SIZE (ann->ops->use_ops);
 	      }

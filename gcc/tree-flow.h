@@ -120,10 +120,10 @@ struct var_ann_d GTY(())
 struct operands_d GTY(())
 {
   /* LHS of assignment statements.  */
-  tree  * GTY ((length ("1"))) def_op;
+  varray_type GTY ((skip (""))) def_ops;
 
   /* Array of pointers to each operand in the statement.  */
-  varray_type  GTY ((skip (""))) use_ops;
+  varray_type GTY ((skip (""))) use_ops;
 };
 
 typedef struct operands_d *operands_t;
@@ -262,7 +262,7 @@ static inline bool is_label_stmt (tree);
 static inline varray_type vdef_ops (tree);
 static inline varray_type vuse_ops (tree);
 static inline varray_type use_ops (tree);
-static inline tree *def_op (tree);
+static inline varray_type def_ops (tree);
 static inline varray_type addresses_taken (tree);
 static inline varray_type immediate_uses (tree);
 static inline varray_type reaching_defs (tree);

@@ -76,8 +76,8 @@ tree_ssa_copyprop (tree fndecl)
 
   if (dump_file)
     {
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_copyprop, dump_file);
-      dump_function (TDI_copyprop, fndecl);
     }
 
   timevar_pop (TV_TREE_COPYPROP);

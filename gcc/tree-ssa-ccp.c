@@ -196,10 +196,9 @@ tree_ssa_ccp (tree fndecl)
 	  fprintf (dump_file, "\n");
 	}
 
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_ccp, dump_file);
     }
-
-  dump_function (TDI_ccp, fndecl);
 }
 
 
@@ -476,6 +475,9 @@ cp_lattice_meet (value val1, value val2)
 static void
 visit_stmt (tree stmt)
 {
+  size_t i;
+  varray_type ops;
+
   /* If the statement has already been deemed to be VARYING, don't simulate
      it again.  */
   if (DONT_SIMULATE_AGAIN (stmt))
@@ -495,11 +497,25 @@ visit_stmt (tree stmt)
   if (stmt_ann (stmt)->in_ccp_worklist)
     stmt_ann (stmt)->in_ccp_worklist = 0;
 
-  /* Now examine the statement.  If the statement produces an output
-     value, evaluate it to see if the lattice value of its output has
-     changed.  */
-  if (def_op (stmt))
+  /* Now examine the statement.  If the statement is an assignment that
+     produces a single output value, evaluate its RHS to see if the lattice
+     value of its output has changed.  */
+  if (TREE_CODE (stmt) == MODIFY_EXPR
+      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
     visit_assignment (stmt);
+
+  /* Definitions made by statements other than assignments to SSA_NAMEs
+     represent unknown modifications to their outputs.  Mark them VARYING.  */
+  else if (def_ops (stmt))
+    {
+      DONT_SIMULATE_AGAIN (stmt) = 1;
+      ops = def_ops (stmt);
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
+	{
+	  tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	  def_to_varying (*def_p);
+	}
+    }
 
   /* If STMT is a conditional branch, see if we can determine which branch
      will be taken.  */
@@ -519,16 +535,13 @@ visit_stmt (tree stmt)
     }
 
   /* Mark all VDEF operands VARYING.  */
-  {
-    size_t i;
-    varray_type ops = vdef_ops (stmt);
-    if (ops)
-      {
-	DONT_SIMULATE_AGAIN (stmt) = 1;
-	for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
-	  def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
-      }
-  }
+  ops = vdef_ops (stmt);
+  if (ops)
+    {
+      DONT_SIMULATE_AGAIN (stmt) = 1;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
+	def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
+    }
 }
 
 
@@ -585,7 +598,7 @@ visit_assignment (tree stmt)
   }
 
   /* Set the lattice value of the statement's output.  */
-  set_lattice_value (*(def_op (stmt)), val);
+  set_lattice_value (lhs, val);
   if (val.lattice_val == VARYING)
     DONT_SIMULATE_AGAIN (stmt) = 1;
 }

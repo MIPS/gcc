@@ -175,10 +175,10 @@ tree_ssa_dominator_optimize (tree fndecl)
     {
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_dom, dump_file);
     }
 
-  dump_function (TDI_dom, fndecl);
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 
   return addr_expr_propagated_p;
@@ -433,8 +433,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 {
   size_t i;
   stmt_ann_t ann;
-  tree stmt, *def_p;
-  varray_type uses, vuses, vdefs;
+  tree stmt;
+  varray_type defs, uses, vuses, vdefs;
   bool may_optimize_p;
 
   stmt = bsi_stmt (si);
@@ -451,16 +451,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
       fprintf (dump_file, "\n");
     }
 
-  def_p = def_op (stmt);
+  defs = def_ops (stmt);
   uses = use_ops (stmt);
   vuses = vuse_ops (stmt);
   vdefs = vdef_ops (stmt);
-
-#if defined ENABLE_CHECKING
-  /* Only assignments may make a new definition.  */
-  if (def_p && TREE_CODE (stmt) != MODIFY_EXPR)
-    abort ();
-#endif
 
   /* Const/copy propagate into USES.  */
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
@@ -522,13 +516,13 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   may_optimize_p = (!ann->makes_aliased_stores
 		    && !ann->has_volatile_ops
 		    && vdefs == NULL
-		    && ((def_p
+		    && ((TREE_CODE (stmt) == MODIFY_EXPR
 			 && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
 			|| TREE_CODE (stmt) == COND_EXPR));
 
   if (may_optimize_p)
     {
-      tree *expr_p;
+      tree *expr_p, def = NULL_TREE;
 
       /* Check if the RHS of the assignment has been computed before.  If
 	 so, use the LHS of the previously computed statement as the
@@ -536,12 +530,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
       tree cached_lhs = lookup_avail_expr (stmt,
 					   block_avail_exprs_p,
 					   const_and_copies);
+
+      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	def = TREE_OPERAND (stmt, 0);
+
       opt_stats.num_exprs_considered++;
       if (cached_lhs
 	  && (TREE_CODE (stmt) == COND_EXPR
-	      || TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p)
+	      || TREE_TYPE (cached_lhs) == TREE_TYPE (def)
 	      || (TYPE_MAIN_VARIANT (TREE_TYPE (cached_lhs))
-		  == TYPE_MAIN_VARIANT (TREE_TYPE (*def_p)))))
+		  == TYPE_MAIN_VARIANT (TREE_TYPE (def)))))
 	{
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    expr_p = &TREE_OPERAND (stmt, 0);
@@ -565,7 +563,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 
   /* If the RHS of an assignment is a constant or another variable that
      may be propagated, register it in the CONST_AND_COPIES table.  */
-  if (def_p)
+  if (TREE_CODE (stmt) == MODIFY_EXPR
+      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
     {
       tree rhs;
 
@@ -575,7 +574,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	  if (TREE_CODE (rhs) == SSA_NAME
 	      || is_unchanging_value (rhs)
 	      || is_optimizable_addr_expr (rhs))
-	    set_value_for (*def_p, rhs, const_and_copies);
+	    set_value_for (TREE_OPERAND (stmt, 0), rhs, const_and_copies);
 	}
     }
 

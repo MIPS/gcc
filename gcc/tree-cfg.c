@@ -2029,7 +2029,7 @@ remove_stmt (tree *stmt_p)
 {
   varray_type vdefs;
   size_t i;
-  tree *def_p;
+  varray_type defs;
   tree stmt = *stmt_p;
   basic_block bb = bb_for_stmt (stmt);
   tree parent = parent_stmt (stmt);
@@ -2057,9 +2057,13 @@ remove_stmt (tree *stmt_p)
 	    this statement to update each use of the definitions made here, but
 	    that is expensive and can easily be checked by every pass by
 	    checking if SSA_NAME_DEF_STMT is a nop.  */
-  def_p = def_op (stmt);
-  if (def_p && TREE_CODE (*def_p) == SSA_NAME)
-    SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
+  defs = def_ops (stmt);
+  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+    {
+      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+      if (TREE_CODE (*def_p) == SSA_NAME)
+	SSA_NAME_DEF_STMT (*def_p) = build_empty_stmt ();
+    }
 
   vdefs = vdef_ops (stmt);
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)

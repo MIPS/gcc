@@ -310,9 +310,10 @@ create_ssa_var_map (void)
 	      set_is_used (*use);
 	    }
 
-	  dest = def_op (stmt);
-	  if (dest)
+	  ops = def_ops (stmt);
+	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    {
+	      dest = VARRAY_GENERIC_PTR (ops, x);
 	      register_ssa_partition (map, *dest);
 	      set_is_used (*dest);
 	    }
@@ -544,9 +545,11 @@ calculate_live_on_entry (var_map map)
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
-	  vec = def_op (stmt);
-	  if (vec)
+	  ops = def_ops (stmt);
+	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (i = 0; i < num; i++)
 	    {
+	      vec = VARRAY_GENERIC_PTR (ops, i);
 	      set_if_valid (map, saw_def, *vec);
 	    }
 

@@ -1741,6 +1741,8 @@ can_insert (tree op)
 static tree
 get_default_def (tree var, htab_t seen)
 {
+  varray_type defs;
+  size_t i;
   tree defstmt = SSA_NAME_DEF_STMT (var);
 
   if (IS_EMPTY_STMT (defstmt))
@@ -1758,11 +1760,21 @@ get_default_def (tree var, htab_t seen)
 	  }
     }
 
-  
-  if (htab_find (seen, *(def_op (defstmt))) != NULL)
-    return NULL;
-  return get_default_def (*(def_op (defstmt)), seen);
 
+  defs = def_ops (defstmt);
+  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+    {
+      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+      if (SSA_NAME_VAR (*def_p) == SSA_NAME_VAR (var))
+	{
+	  if (htab_find (seen, *def_p) != NULL)
+	    return NULL;
+	  return get_default_def (*def_p, seen);
+	}
+    }
+
+  /* We should never get here.  */
+  abort ();
 }
 /* Hunt down the right reaching def for VAR, starting with BB. */
 static tree
@@ -1790,15 +1802,23 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree *def;
+      varray_type defs;
+      size_t i;
 
       if (bsi_stmt (bsi) == currstmt)
 	break;
       
       get_stmt_operands (bsi_stmt (bsi));      
-      def = def_op (bsi_stmt (bsi));
-      if (def && *def != ignore && names_match_p (var, *def))
-	curruse = *def;
-      
+      defs = def_ops (bsi_stmt (bsi));
+      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+	{
+	  def = VARRAY_GENERIC_PTR (defs, i);
+	  if (def && *def != ignore && names_match_p (var, *def))
+	    {
+	      curruse = *def;
+	      break;
+	    }
+	}
     }
   if (curruse != NULL_TREE)
     return curruse;
@@ -3396,9 +3416,9 @@ tree_perform_ssapre (tree fndecl)
 	  fprintf (dump_file, "Repairs:%d\n", pre_stats.repairs);
 	  fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
 	}
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_pre, dump_file);
     }  
-  dump_function (TDI_pre, fndecl);
   splay_tree_delete (old_new_map);
   memset (&pre_stats, 0, sizeof (struct pre_stats_d));
   VARRAY_CLEAR (bexprs);  

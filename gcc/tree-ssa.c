@@ -352,6 +352,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       rewrite_block (ENTRY_BLOCK_PTR);
       timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
+      /* Debugging dumps after renaming the function into SSA.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	dump_function_to_file (fndecl, dump_file, dump_flags);
+
       /* Now optimize all the basic blocks in the program.  */
       if (flag_tree_dom)
 	addr_expr_propagated_p = tree_ssa_dominator_optimize (fndecl);
@@ -406,11 +410,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	  dump_tree_ssa_stats (dump_file);
 	}
 
+      dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (TDI_ssa, dump_file);
-      dump_file = NULL;
     }
 
-  dump_function (TDI_ssa, fndecl);
   timevar_pop (TV_TREE_SSA_OTHER);
 }
 
@@ -534,7 +537,6 @@ mark_def_sites (sbitmap globals)
 	  varray_type ops;
 	  size_t i;
 	  tree stmt;
-	  tree *dest;
 
 	  stmt = bsi_stmt (si);
 	  get_stmt_operands (stmt);
@@ -608,11 +610,15 @@ mark_def_sites (sbitmap globals)
 
 	  /* Now process the definition made by this statement.  If the
 	     definition has been renamed already, do nothing.  */
-	  dest = def_op (stmt);
-	  if (dest && TREE_CODE (*dest) != SSA_NAME)
+	  ops = def_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      set_def_block (*dest, bb);
-	      SET_BIT (kills, var_ann (*dest)->uid);
+	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	      if (TREE_CODE (*def_p) != SSA_NAME)
+		{
+		  set_def_block (*def_p, bb);
+		  SET_BIT (kills, var_ann (*def_p)->uid);
+		}
 	    }
 	}
     }
@@ -1209,9 +1215,11 @@ coalesce_ssa_name (var_map map)
         {
 	  get_stmt_operands (stmt);
 
-	  var_p = def_op (stmt);
-	  if (var_p)
+	  ops = def_ops (stmt);
+	  num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  for (x = 0; x < num; x++)
 	    {
+	      var_p = VARRAY_GENERIC_PTR (ops, x);
 	      add_conflicts_if_valid (rv, graph, map, live, *var_p);
 	    }
 
@@ -1605,7 +1613,7 @@ rewrite_out_of_ssa (tree fndecl)
     {
       for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
-	  size_t i, num_ops;
+	  size_t i, num_uses, num_defs;
 	  varray_type ops;
 	  tree stmt = bsi_stmt (si);
 	  tree *use_p = NULL;
@@ -1618,22 +1626,25 @@ rewrite_out_of_ssa (tree fndecl)
 	    is_copy = 1;
 
 	  ops = use_ops (stmt);
-	  num_ops = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  num_uses = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
 
-	  for (i = 0; i < num_ops; i++)
+	  for (i = 0; i < num_uses; i++)
 	    {
 	      use_p = VARRAY_GENERIC_PTR (ops, i);
 	      replace_variable (map, use_p);
 	    }
 
-	  if (def_op (stmt))
+	  ops = def_ops (stmt);
+	  num_defs = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+
+	  for (i = 0; i < num_defs; i++)
 	    {
-	      tree *def_p = def_op (stmt);
+	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
 	      *def_p = var_to_partition_to_var (map, *def_p);
 	      replace_variable (map, def_p);
 
 	      if (is_copy
-		  && num_ops == 1
+		  && num_uses == 1
 		  && use_p
 		  && def_p
 		  && (*def_p == *use_p))
@@ -1932,15 +1943,18 @@ check_for_new_variables (void)
 	{
 	  varray_type ops;
 	  size_t i;
-	  tree *def_p;
 
 	  tree stmt = bsi_stmt (si);
 
 	  get_stmt_operands (stmt);
 
-	  def_p = def_op (stmt);
-	  if (def_p && DECL_P (*def_p))
-	    SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
+	  ops = def_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+	      if (DECL_P (*def_p))
+		SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
+	    }
 
 	  ops = use_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
@@ -1982,8 +1996,8 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 {
   size_t i;
   stmt_ann_t ann;
-  tree stmt, *def_p;
-  varray_type uses, vuses, vdefs;
+  tree stmt;
+  varray_type defs, uses, vuses, vdefs;
 
   stmt = bsi_stmt (si);
   if (IS_EMPTY_STMT (stmt))
@@ -2009,21 +2023,15 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   /* FIXME: Must change the interface to statement annotations.  Helpers
 	    should receive the annotation, not the statement.  Otherwise,
 	    we call stmt_ann() more than necessary.  */
-  def_p = def_op (stmt);
+  defs = def_ops (stmt);
   uses = use_ops (stmt);
   vuses = vuse_ops (stmt);
   vdefs = vdef_ops (stmt);
 
-#if defined ENABLE_CHECKING
-  /* Only assignments may make a new definition.  */
-  if (def_p && TREE_CODE (stmt) != MODIFY_EXPR)
-    abort ();
-#endif
-
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+      tree *op_p = VARRAY_GENERIC_PTR (uses, i);
       if (TREE_CODE (*op_p) != SSA_NAME)
 	rewrite_operand (op_p, true);
     }
@@ -2034,10 +2042,14 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
-  if (def_p && TREE_CODE (*def_p) != SSA_NAME)
+  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
     {
-      *def_p = make_ssa_name (*def_p, stmt);
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
+      tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+      if (TREE_CODE (*def_p) != SSA_NAME)
+	{
+	  *def_p = make_ssa_name (*def_p, stmt);
+	  register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
+	}
     }
 
   /* Register new virtual definitions made by the statement.  */

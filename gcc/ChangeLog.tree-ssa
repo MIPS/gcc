@@ -1,3 +1,37 @@
+2003-07-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_def): Renamed from set_def.  Update all users.
+	(get_stmt_operands): Don't force ASM_EXPR operands to be virtual.
+	(add_stmt_operand): Allow non-assignments to create new defs.
+	* tree-dump.c (dump_function): Move header dump...
+	(dump_function_to_file): ... here.
+	* tree-flow-inline.h (def_ops): Renamed from def_op.  Return a
+	varray with all the definitions made by the statement.
+	Update all users.
+	* tree-flow.h (struct operands_d): Rename field 'def_op' to
+	'def_ops'.  Convert it into a varray.
+	* tree-must-alias.c (tree_compute_must_alias): Call
+	dump_function_to_file instead of dump_function.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Likewise.
+	(visit_stmt): Only visit statements that make new definitions using
+	MODIFY_EXPR.
+	Definitions coming from other statements are considered VARYING.
+	* tree-ssa-copyprop.c (tree_ssa_copyprop): Call
+	dump_function_to_file instead of dump_function.
+	* tree-ssa-dce.c (tree_ssa_dce): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
+	(optimize_stmt): Don't abort if a statement makes more than one
+	definition.
+	Check for MODIFY_EXPR statements directly, instead of relying on
+	the the presence of a single definition.
+	* tree-ssa-pre.c (tree_perform_ssapre): Call dump_function_to_file
+	instead of dump_function.
+	* tree-ssa.c (rewrite_into_ssa): Likewise.
+	Dump the function before dominator optimizations if TDF_DETAILS is
+	set.
+	(rewrite_stmt): Don't abort if the statement makes more than one
+	definition.
+
 2003-07-21  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): If we made any
