@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "toplev.h"
 #include "intl.h"
-#include "loop.h"
 #include "params.h"
 #include "ggc.h"
 #include "target.h"
@@ -376,7 +375,10 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
 	 address has been taken; it's for internal bookkeeping in
 	 expand_goto_internal.  */
       if (TREE_CODE (copy) == LABEL_DECL)
-	TREE_ADDRESSABLE (copy) = 0;
+	{
+	  TREE_ADDRESSABLE (copy) = 0;
+	  DECL_TOO_LATE (copy) = 0;
+	}
     }
 
   /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what

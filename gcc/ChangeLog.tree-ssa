@@ -1,5 +1,9 @@
 2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* integrate.c (copy_decl_for_inlining): Reset DECL_TOO_LATE.
+
+2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-dom.c (optimize_block): Handle empty source block.
 
 	* tree-ssa-dom.c (optimize_block):  Handle case when dominance
