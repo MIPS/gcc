@@ -7,7 +7,7 @@
 
 2004-07-30  Andrew Pinski  <apinski@apple.com>
 
-	* cfgclean.c (try_forward_edges): Go back to the first edge after
+	* cfgcleanup.c (try_forward_edges): Go back to the first edge after
 	jump threading.
 	* tree-cfg.c (disband_implicit_edges): Remove unused ix.
 	(thread_jumps): Decrement the iterator if an edge is removed
