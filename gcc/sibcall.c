@@ -759,4 +759,9 @@ optimize_sibling_and_tail_recursive_calls ()
 
   /* This information will be invalid after inline expansion.  Kill it now.  */
   free_basic_block_vars (0);
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (GET_CODE (insn) == NOTE
+	&& (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN
+	    || NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION))
+      delete_insn (insn);
 }
