@@ -1,5 +1,7 @@
 2003-11-07  Jan Hubicka  <jh@suse.cz>
 
+	* fold-const.c (tree_expr_nonzero_p): Fix typo.
+
 	* fold-const.c (tree_expr_nonzero_p): New function.
 	(fold_relational_const): Use it.
 	(nondestructive_fold_binary_to_constant): Allow casts in address

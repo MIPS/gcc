@@ -8621,7 +8621,7 @@ tree_expr_nonzero_p (tree t)
   tree type = TREE_TYPE (t);
 
   /* Doing something usefull for floating point would need more work.  */
-  if (!INTEGRAL_TYPE_P (t))
+  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
     return false;
 
   switch (TREE_CODE (t))
