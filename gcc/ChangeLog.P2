@@ -1,3 +1,7 @@
+1999-06-26  Andrew Haley  <aph@cygnus.com>
+
+	* i386.md (ashlqi3): Correct error in the patch of Jun 9.
+
 1999-06-26  Richard Henderson  <rth@cygnus.com>
 
 	* loop.c (loop_emit_jump_insn_before): New function.
