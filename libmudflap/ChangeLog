@@ -1,5 +1,11 @@
+2003-07-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	PR other/11673
+	* mf-hooks2.c [WRAP_semctl]: Fix check for HAVE_UNION_SEMUN.
+
 2003-07-29  Frank Ch. Eigler  <fche@redhat.com>
 
+	PR other/11673
 	* configure.in: Add checks for 64-bit LFS functions, struct semun
 	definition, for BSD compatibility.
 	* mf-hooks1.c: Respect BSD checks.  Conditionalize POSIX_SOURCE.

@@ -1622,7 +1622,7 @@ WRAPPER2(int, semop, int semid, struct sembuf *sops, unsigned nsops)
 #ifdef WRAP_semctl
 #include <sys/ipc.h>
 #include <sys/sem.h>
-#if ! HAVE_UNION_SEMUN
+#ifndef HAVE_UNION_SEMUN
 union semun {
 	int val;			/* value for SETVAL */
 	struct semid_ds *buf;		/* buffer for IPC_STAT, IPC_SET */
