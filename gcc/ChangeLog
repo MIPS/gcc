@@ -1,3 +1,10 @@
+2003-04-23  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/10339
+	* builtins.c (expand_builtin_strcmp): Try to emit cmpstrsi insn
+	directly instead of unsafely transforming call into a memcmp.
+	(expand_builtin_strncmp): Likewise.
+
 2003-06-18  Richard Henderson  <rth@redhat.com>
 
 	* config/ia64/unwind-ia64.c (_Unwind_GetCFA): New.
