@@ -1289,9 +1289,11 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
    Radar 2863107.  */
 #define ASM_OUTPUT_ZEROFILL(FILE, NAME, SIZE, ALIGNMENT)		    \
   do {									    \
+    unsigned HOST_WIDE_INT _new_size = SIZE;		    		    \
+    if (_new_size == 0) _new_size = 1;					    \
     fputs (".zerofill __DATA, __common, ", (FILE));			    \
     assemble_name ((FILE), (NAME));					    \
-    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (SIZE)); \
+    fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC, _new_size); 		    \
     fprintf ((FILE), ", " HOST_WIDE_INT_PRINT_DEC "\n",			    \
 	     (HOST_WIDE_INT) (ALIGNMENT));				    \
     in_section = no_section;						    \
