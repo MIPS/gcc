@@ -1218,7 +1218,9 @@ enum reg_class
 	  else								   \
 	    break;							   \
 									   \
-	  high = ((((val - low) & 0xffffffffUL) ^ 0x80000000UL) - 0x80000000UL); \
+	  high = ((((val - low) & (unsigned long)0xffffffff)		   \
+		   ^ (unsigned long)0x80000000)				   \
+		  - (unsigned long)0x80000000);				   \
 	  /* Check for overflow or zero */				   \
 	  if (low == 0 || high == 0 || (high + low != val))		   \
 	    break;							   \
@@ -2633,10 +2635,10 @@ extern int making_const_table;
 
 #define ARM_SIGN_EXTEND(x)  ((HOST_WIDE_INT)		\
   (HOST_BITS_PER_WIDE_INT <= 32 ? (x)			\
-   : (((x) & (unsigned HOST_WIDE_INT) 0xffffffffUL) |	\
-      (((x) & (unsigned HOST_WIDE_INT) 0x80000000UL)	\
+   : (((x) & (unsigned HOST_WIDE_INT) 0xffffffff) |	\
+      (((x) & (unsigned HOST_WIDE_INT) 0x80000000)	\
        ? ((~ (HOST_WIDE_INT) 0)				\
-	  & ~ (unsigned HOST_WIDE_INT) 0xffffffffUL)	\
+	  & ~ (unsigned HOST_WIDE_INT) 0xffffffff)	\
        : 0))))
 
 /* Output the address of an operand.  */
@@ -2826,7 +2828,8 @@ extern int making_const_table;
      in 26 bit mode, the condition codes must be masked out of the	\
      return address.  This does not apply to ARM6 and later processors	\
      when running in 32 bit mode.  */					\
-  ((!TARGET_APCS_32) ? (GEN_INT (RETURN_ADDR_MASK26)) : (GEN_INT (0xffffffffUL)))
+  ((!TARGET_APCS_32) ? (GEN_INT (RETURN_ADDR_MASK26))			\
+   : (GEN_INT ((unsigned long)0xffffffff)))
 
 
 /* Define the codes that are matched by predicates in arm.c */

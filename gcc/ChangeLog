@@ -4,6 +4,13 @@
 	define_expand.
 	(*arm_nop, *thumb_nop): Delete.
 
+	* arm.c (const_ok_for_arm): Don't use ANSI extensions for defining
+	constants.  Use casts instead.
+	(arm_gen_constant, arm_rtx_costs, arm_reload_in_hi, arm_reload_out_hi,
+	output_multi_immediate, arm_poke_function_name): Likewise.
+	* arm.h (ARM_LEGITIIMIZE_RELOAD_ADDRESS, ARM_SIGN_EXTEND,
+	MASK_RETURN_ADDDR): Likewise.
+
 2000-04-03  Richard Earnshaw (rearnsha@arm.com)
 
 	Merge Change from trunk:
