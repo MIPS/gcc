@@ -28,7 +28,11 @@ typedef struct reorder_block_def
   rtx eff_end;
   scope scope;
   basic_block next;
+  basic_block original;
+
+  /* These fields are used by bb-reorder/tracer passes.  */
   int visited;
+  int duplicated;
 } *reorder_block_def;
 
 #define RBI(BB)	((reorder_block_def) (BB)->aux)
