@@ -65,7 +65,6 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
   else
     {
       klass = new java::lang::Class ();
-      klass->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
 
       // Synchronize on the class, so that it is not attempted initialized
       // until we're done loading.

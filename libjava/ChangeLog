@@ -1,5 +1,20 @@
 2004-10-18  Tom Tromey  <tromey@redhat.com>
 
+	* interpret.cc (do_post_miranda_hook): New method.
+	* include/execution.h (_Jv_ExecutionEngine::post_miranda_hook):
+	New field.
+	(_Jv_CompiledEngine::do_post_miranda_hook): New method.
+	(_Jv_CompiledEngine): Initialize new field.
+	(_Jv_InterpreterEngine::do_post_miranda_hook): Declare.
+	(_Jv_InterpreterEngine): Initialize new field.
+	* link.cc (resolve_pool_entry): Put Miranda methods in target
+	class.
+	(ensure_method_table_complete): Call post_miranda_hook.
+	* java/lang/natVMClassLoader.cc (defineClass): Don't set class'
+	aux_info.
+	* defineclass.cc (read_one_method_attribute): Use _Jv_AllocBytes.
+	(parse): Set class' aux_info here.
+
 	* boehm.cc (_Jv_MarkObj): Mark `throws'.
 
 	* boehm.cc: Re-merged with trunk.

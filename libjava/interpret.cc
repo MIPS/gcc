@@ -3688,6 +3688,7 @@ throw_class_format_error (char *msg)
   throw_class_format_error (JvNewStringLatin1 (msg));
 }
 
+
 
 void
 _Jv_InterpreterEngine::do_verify (jclass klass)
@@ -3792,6 +3793,25 @@ _Jv_InterpreterEngine::do_resolve_method (_Jv_Method *method, jclass klass,
   result->klass               = klass;
 
   return result;
+}
+
+void
+_Jv_InterpreterEngine::do_post_miranda_hook (jclass klass)
+{
+  _Jv_InterpClass *iclass = (_Jv_InterpClass *) klass->aux_info;
+  for (int i = 0; i < klass->method_count; i++)
+    {
+      // Just skip abstract methods.  This is particularly important
+      // because we don't resize the interpreted_methods array when
+      // miranda methods are added to it.
+      if ((klass->methods[i].accflags
+	   & java::lang::reflect::Modifier::ABSTRACT)
+	  != 0)
+	continue;
+      // Miranda method additions mean that the `methods' array moves.
+      // We cache a pointer into this array, so we have to update.
+      iclass->interpreted_methods[i]->self = &klass->methods[i];
+    }
 }
 
 #endif // INTERPRETER

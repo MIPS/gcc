@@ -27,6 +27,7 @@ struct _Jv_ExecutionEngine
   void (*create_ncode) (jclass);
   _Jv_ResolvedMethod *(*resolve_method) (_Jv_Method *, jclass,
 					 jboolean, jint);
+  void (*post_miranda_hook) (jclass);
 };
 
 // This handles all gcj-compiled code, including BC ABI.
@@ -68,6 +69,11 @@ struct _Jv_CompiledEngine : public _Jv_ExecutionEngine
     // Not needed.
   }
 
+  static void do_post_miranda_hook (jclass)
+  {
+    // Not needed.
+  }
+
   _Jv_CompiledEngine ()
   {
     unregister = do_unregister;
@@ -76,6 +82,7 @@ struct _Jv_CompiledEngine : public _Jv_ExecutionEngine
     allocate_static_fields = do_allocate_static_fields;
     create_ncode = do_create_ncode;
     resolve_method = do_resolve_method;
+    post_miranda_hook = do_post_miranda_hook;
   }
 
   // These operators make it so we don't have to link in libstdc++.
@@ -111,6 +118,8 @@ class _Jv_InterpreterEngine : public _Jv_ExecutionEngine
     _Jv_UnregisterClass(klass);
   }
 
+  static void do_post_miranda_hook (jclass);
+
   _Jv_InterpreterEngine ()
   {
     unregister = do_unregister;
@@ -119,6 +128,7 @@ class _Jv_InterpreterEngine : public _Jv_ExecutionEngine
     allocate_static_fields = do_allocate_static_fields;
     create_ncode = do_create_ncode;
     resolve_method = do_resolve_method;
+    post_miranda_hook = do_post_miranda_hook;
   }
 
   // These operators make it so we don't have to link in libstdc++.

@@ -230,7 +230,6 @@ struct _Jv_ClassReader {
     def->size_in_bytes = -1;
     def->vtable_method_count = -1;
     def->engine = &_Jv_soleInterpreterEngine;
-    def_interp = (_Jv_InterpClass *) def->aux_info;
   }
 
   /** and here goes the parser members defined out-of-line */
@@ -315,8 +314,13 @@ _Jv_ClassReader::parse ()
 
   handleClassBegin (access_flags, this_class, super_class);
 
+  // Allocate our aux_info here, after the name is set, to fulfill our
+  // contract with the collector interface.
+  def->aux_info = (void *) _Jv_AllocBytes (sizeof (_Jv_InterpClass));
+  def_interp = (_Jv_InterpClass *) def->aux_info;
+
   int interfaces_count = read2u (); 
-	
+
   handleInterfacesBegin (interfaces_count);
 
   for (int i = 0; i < interfaces_count; i++)
@@ -520,30 +524,20 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
 	throw_class_format_error ("only one Exceptions attribute allowed per method");
 
       int num_exceptions = read2u ();
-      // We use malloc here because the GC won't scan the method
-      // objects.  FIXME this means a memory leak if we GC a class.
-      // (Currently we never do.)
       _Jv_Utf8Const **exceptions =
-	(_Jv_Utf8Const **) _Jv_Malloc ((num_exceptions + 1) * sizeof (_Jv_Utf8Const *));
+	(_Jv_Utf8Const **) _Jv_AllocBytes ((num_exceptions + 1)
+					   * sizeof (_Jv_Utf8Const *));
 
       int out = 0;
       _Jv_word *pool_data = def->constants.data;
       for (int i = 0; i < num_exceptions; ++i)
 	{
-	  try
+	  int ndx = read2u ();
+	  // JLS 2nd Ed. 4.7.5 requires that the tag not be 0.
+	  if (ndx != 0)
 	    {
-	      int ndx = read2u ();
-	      // JLS 2nd Ed. 4.7.5 requires that the tag not be 0.
-	      if (ndx != 0)
-		{
-		  check_tag (ndx, JV_CONSTANT_Class);
-		  exceptions[out++] = pool_data[ndx].utf8; 
-		}
-	    }
-	  catch (java::lang::Throwable *exc)
-	    {
-	      _Jv_Free (exceptions);
-	      throw exc;
+	      check_tag (ndx, JV_CONSTANT_Class);
+	      exceptions[out++] = pool_data[ndx].utf8; 
 	    }
 	}
       exceptions[out] = NULL;
@@ -1235,7 +1229,7 @@ void _Jv_ClassReader::handleMethod
   // ignore unknown flags
   method->accflags = accflags & Modifier::ALL_FLAGS;
 
-  // intialize...
+  // Initialize...
   method->ncode = 0;
   method->throws = NULL;
   

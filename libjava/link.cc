@@ -258,6 +258,12 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	_Jv_Method *the_method = 0;
 	jclass found_class = 0;
 
+	// We're going to cache a pointer to the _Jv_Method object
+	// when we find it.  So, to ensure this doesn't get moved from
+	// beneath us, we first put all the needed Miranda methods
+	// into the target class.
+	wait_for_state (klass, JV_STATE_LOADED);
+
 	// First search the class itself.
 	the_method = _Jv_SearchMethodInClass (owner, klass, 
 					      method_name, method_signature);
@@ -1575,7 +1581,12 @@ _Jv_Linker::ensure_method_table_complete (jclass klass)
   // unconditionally, and not just for abstract classes, to correctly
   // account for cases where a class is modified to be concrete and
   // still incorrectly inherits an abstract method.
+  int pre_count = klass->method_count;
   add_miranda_methods (klass, klass);
+
+  // Let the execution engine know that we've added methods.
+  if (klass->method_count != pre_count)
+    klass->engine->post_miranda_hook(klass);
 }
 
 // Verify a class.  Must be called with class lock held.
