@@ -67,14 +67,6 @@ static bool maybe_warn_unused_parameter;
    debugging information.  */
 enum debug_info_type write_symbols = NO_DEBUG;
 
-/* APPLE LOCAL begin Symbol Separation */
-/* Original value of write_symbols.  */
-enum debug_info_type orig_write_symbols = NO_DEBUG;
-
-/* Nonzero means, try to look for separate symbol repositories.  */
-int flag_grepository = 0;
-/* APPLE LOCAL end Symbol Separation */
-
 /* Level of debugging information we are producing.  See flags.h for
    the definitions of the different possible levels.  */
 enum debug_info_level debug_info_level = DINFO_LEVEL_NONE;
@@ -1675,22 +1667,8 @@ static void
 set_debug_level (enum debug_info_type type, int extended, const char *arg)
 {
   static bool type_explicit;
-/* APPLE LOCAL Symbol Separation */
-  int g_all_len = 0;
 
   use_gnu_debug_info_extensions = extended;
-
-/* APPLE LOCAL begin Symbol Separation */
-  if (strncmp (arg, "repository", 10) == 0 || strncmp (arg, "-repository", 11) == 0)
-    {
-      char *p = (char *)arg + (*(char *)arg == '-') + 10;
-      flag_grepository = 1;
-      if (*p == '-')
-	++p;
-      g_all_len = p - arg;
-      arg += g_all_len;
-    }
-/* APPLE LOCAL end Symbol Separation */
 
   if (type == NO_DEBUG)
     {
@@ -1742,9 +1720,6 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
 	error ("debug output level %s is too high", arg);
     }
 
-  /* APPLE LOCAL Symbol Separation */
-  /* Save original value */
-  orig_write_symbols = write_symbols;
 }
 
 /* Output --help text.  */

@@ -1,3 +1,42 @@
+2004-08-10  Devang Patel  <dpatel@apple.com>
+
+        Remove Symbol Separation.
+	Radar 3555440. Reviewed by Mike Stump.
+        * c-common.c (cb_restore_write_symbols, cb_clear_write_symbols,
+        cb_start_symbol_repository, cb_end_symbol_repository, 
+        cb_is_builtin_identifier). Remove.
+        (debug.h): Do not include.
+        * c-common.h  (dbg_dir): Remove.
+        (dbg_ss_init, c_common_write_context, cb_clear_write_sybols,
+        cb_restor_write_symbols, cb_start_symbol_repository, c_valid_cinfo,
+        cb_end_symbol_repository, cb_is_builtin_identifier): Remove extern
+        decls.
+        * c-lex.c (init_c_lex): Do not set up symbol separation call backs.
+        (c_common_write_context): Remove.
+        * c-objc-common.c (c_objc_common_finish_file): Do not write context.
+        * c-opts.c (dbg_dir): Remove.
+        (c_common_handle_option): Remove symbol separation option handling.
+        (c_common_parse_file): Do not initialize symbol repository.
+        * c.opt (Winvalid-sr, fsave-repository=): Remove.
+	* dbxout.c (dbxout_restore_write_symbols, dbxout_clear_write_symbols,
+        dbxout_start_symbol_repository, dbxout_end_symbol_repository) Remove.
+        (dbx_debug_h): Remove symbol separation hoooks.
+        (xcoff_debug): Same.
+        * debug.c (do_nothing_): Remove symbol separation hooks.
+        * debug.h (gcc_debug_hooks): Same.
+        * dwarf2out.c (dwarf2_debug): Same.
+        * flags.h (orig_write_symbols, flag_grepository): Same.
+        * gcc.c (pch): Remove fsave-repository support.
+        (cc1_options): Same.
+        (asm_options): Same.
+        (default_compilers): Same.
+        (option_map): Same.
+        (dbg_ss): Remove.
+        (static_specs): Remove dbg_ss.
+        * opts.c (orig_write_symbols, flag_grepository): Remove.
+        (set_debug_level): Remove symbol separation support.
+	* doc/invoke.texi: Remove symbol separation documentation.
+
 2004-08-09  Geoffrey Keating  <geoffk@apple.com>
 
 	* ginclude/stdarg.h: Remove APPLE LOCAL change.

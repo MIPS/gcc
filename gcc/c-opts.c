@@ -82,10 +82,6 @@ static const char *sysroot = TARGET_SYSTEM_ROOT;
 /* Zero disables all standard directories for headers.  */
 static bool std_inc = true;
 
-/* APPLE LOCAL begin Symbol Separation */
-const char *dbg_dir;
-/* APPLE LOCAL end Symbol Separation */
-
 /* Zero disables the C++-specific standard directories for headers.  */
 static bool std_cxx_inc = true;
 
@@ -275,17 +271,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT__output_pch_:
-      /* APPLE LOCAL Symbol Separation */
-      cpp_opts->making_pch = value;
       pch_file = arg;
       break;
-
-    /* APPLE LOCAL begin Symbol Separation */
-    case OPT_fsave_repository_:
-      dbg_dir = arg;
-      cpp_opts->making_ss = value;
-      break;
-    /* APPLE LOCAL end Symbol Separation */
 
     case OPT_A:
       defer_opt (code, arg);
@@ -492,11 +479,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Silently ignore for now.  */
       break;
 
-      /* APPLE LOCAL begin Symbol Separation */
-    case OPT_Winvalid_sr:
-      cpp_opts->warn_invalid_sr = value;
+    case OPT_Winvalid_offsetof:
+      warn_invalid_offsetof = value;
       break;
-      /* APPLE LOCAL end Symbol Separation */
 
     case OPT_Winvalid_pch:
       cpp_opts->warn_invalid_pch = value;

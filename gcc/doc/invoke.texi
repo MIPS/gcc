@@ -330,9 +330,7 @@ in the following sections.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
-@c APPLE LOCAL Symbol Separation
-@c APPLE LOCAL -fsave-repository and -grepository
--save-temps  -time -fsave-repository=@var{location} -grepository}
+-save-temps  -time }
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
@@ -3279,12 +3277,6 @@ of the C++ standard.
 @opindex Winvalid-pch
 Warn if a precompiled header (@pxref{Precompiled Headers}) is found in
 the search path but can't be used.
-@c APPLE LOCAL Begin Symbol Separation
-@item -Winvalid-sr
-@opindex Winvalid-sr
-Warn if a symbol repository is found in the search path but can't be
-used.
-@c APPLE LOCAL End Symbol Separation
 
 @item -Wlong-long
 @opindex Wlong-long
@@ -3973,19 +3965,6 @@ The first number on each line is the ``user time,'' that is time spent
 executing the program itself.  The second number is ``system time,''
 time spent executing operating system routines on behalf of the program.
 Both numbers are in seconds.
-
-@c APPLE LOCAL begin Symbol Separation
-@item -fsave-repository=@var{location}
-@opindex fsave-repository
-Creates separate symbol repository at @var{location} for given input
-header file.  Separate repository contains only debugging symbols in
-stabs format.
-
-@item -grepository
-@opindex grepository
-Instructs compiler to use separate symbol repository with debugging
-symbols. Compiler searches for such repositories in include paths.
-@c APPLE LOCAL end Symbol Separation
 
 @item -fvar-tracking
 @opindex fvar-tracking

@@ -797,13 +797,8 @@ static const char *trad_capable_cpp =
 "cc1 -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}";
 
 /* When making PCH file use this.  */
-/* APPLE LOCAL Symbol Separation */
-/* Add fsave-repository constructs for Symbol Separation */
 static const char *pch = 
-"%{!fsave-repository*:-o %g.s %{!o*:--output-pch=%i.pch} %W{o*:--output-pch=%*}%V}";
-
-/* APPLE LOCAL Symbol Separation  */
-static const char *dbg_ss= "%{fsave-repository*: -gfull %(invoke_as)}";
+"-o %g.s %{!o*:--output-pch=%i.pch} %W{o*:--output-pch=%*}%V";
 
 /* We don't wrap .d files in %W{} since a missing .d file, and
    therefore no dependency entry, confuses make into thinking a .o
@@ -839,8 +834,6 @@ static const char *cpp_debug_options = "%{d*}";
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
 /* APPLE LOCAL constant cfstrings */
-/* APPLE LOCAL Symbol Separation */
-/* Add fsave-repository construct for Symbol Separation */
 "%yC"
 /* APPLE LOCAL begin -fast */
 "%{fast:-O3}\
@@ -849,7 +842,6 @@ static const char *cc1_options =
 /* APPLE LOCAL end -fast */
 /* APPLE LOCAL Symbol Separation */
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
- %{fsave-repository*:-gfull}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
@@ -862,14 +854,12 @@ static const char *cc1_options =
 
 static const char *asm_options =
 /* APPLE LOCAL -fast */
-/* APPLE LOCAL Symbol Separation */
-/* Add fsave-repository constructs for Symbol Separation */
 "%a %Y \
  %{fast:-force_cpusubtype_ALL}\
  %{fastf:-force_cpusubtype_ALL}\
  %{fastcp:-force_cpusubtype_ALL}\
- %{c:%W{o*}%{!o*:%{!fsave-repository*:-o %w%b%O} %{fsave-repository*:-o %w%i%O}}}\
-    %{!c:%{!fsave-repository*:-o %d%w%u%O} %{fsave-repository*:%W{o*}%{!o*:-o %w%i%O}}}";
+ %{c:%W{o*}%{!o*:-o %w%b%O}}\
+    %{!c:-o %d%w%u%O}";
 
 static const char *invoke_as =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
@@ -1036,12 +1026,10 @@ static const struct compiler default_compilers[] =
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %<fpredictive-compilation* %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)\
-  "/* APPLE LOCAL symbol separation */"\
-                        %(dbg_ss) %(pch)}\
+                        %(pch)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
-  "/* APPLE LOCAL symbol separation */"\
-                    %(dbg_ss) %(pch)}}}}}}", 0, 0, 0},
+                    %(pch)}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %<fpredictive-compilation* %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
@@ -1188,8 +1176,6 @@ static const struct option_map option_map[] =
    {"--quiet", "-q", 0},
    {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
-   /* APPLE LOCAL Symbol Separation */
-   {"--save-repository", "-fsave-repository=", "aj"}, 
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
    {"--specs", "-specs=", "aj"},
@@ -1607,10 +1593,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cpp_debug_options",	&cpp_debug_options),
   INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
-  /* APPLE LOCAL begin Symbol Separation */
-  INIT_STATIC_SPEC ("pch",                &pch),
-  INIT_STATIC_SPEC ("dbg_ss",	                &dbg_ss),
-  /* APPLE LOCAL end Symbol Separation */
+  INIT_STATIC_SPEC ("pch",	                &pch),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
@@ -3789,16 +3772,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  i++;
 	}
       /* APPLE LOCAL end -weak_* (radar 3235250) */
-      /* APPLE LOCAL begin Symbol Separation */
-      else if (strcmp (argv[i], "-save-repository") == 0)
-	{
-	  if (i + 1 == argc)
-	    fatal ("argument to `-save-repository' is missing");
-
-	  n_infiles++;
-	  i++;
-	}
-      /* APPLE LOCAL end Symbol Separation */
       else if (strcmp (argv[i], "-combine") == 0)
 	{
 	  combine_flag = 1;

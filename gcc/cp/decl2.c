@@ -2594,11 +2594,6 @@ finish_file (void)
   if (pch_file)
     c_common_write_pch ();
 
-  /* APPLE LOCAL Symbol Separation */
-  /* Write context information.  */
-  if (dbg_dir)
-    c_common_write_context ();
-
 #ifdef USE_MAPPED_LOCATION
   /* FIXME - huh? */
 #else

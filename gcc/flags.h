@@ -41,13 +41,6 @@ enum debug_info_type
 /* Specify which kind of debugging info to generate.  */
 extern enum debug_info_type write_symbols;
 
-/* APPLE LOCAL begin Symbol Separation */
-extern enum debug_info_type orig_write_symbols;
-
-/* Nonzero means, try to look for separate symbol repositories.  */
-extern int flag_grepository;
-/* APPLE LOCAL end Symbol Separation */
-
 /* Names of debug_info_type, for error messages.  */
 extern const char *const debug_type_names[];
 

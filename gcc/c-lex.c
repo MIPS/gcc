@@ -124,24 +124,6 @@ init_c_lex (void)
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
-
-  /* APPLE LOCAL begin Symbol Separation */
-  /* Set up call back routines. These routines are used when separate symbol
-     repositories are used.  */
-  if (write_symbols != NO_DEBUG)
-    {
-      cb->restore_write_symbols = cb_restore_write_symbols;
-      cb->clear_write_symbols = cb_clear_write_symbols;
-      cb->is_builtin_identifier = cb_is_builtin_identifier;
-      cb->start_symbol_repository = cb_start_symbol_repository;
-      cb->end_symbol_repository = cb_end_symbol_repository;
-      if (flag_grepository)
-	{
-	  cpp_options *options = cpp_get_options (parse_in);
-	  options->use_ss = 1;
-	}
-    }
-  /* APPLE LOCAL end Symbol Separation */
 }
 
 struct c_fileinfo *
@@ -958,16 +940,3 @@ lex_charconst (const cpp_token *token)
   return value;
 }
 
-/* APPLE LOCAL begin Symbol Separation */
-
-/* Write context information in .cinfo file.
-   Use PCH routines directly. But set and restore cinfo_state before using them.  */
-void
-c_common_write_context (void)
-{
-  /* MERGE FIXME: This used to say 'lineno', not '0', but now we don't
-     have a 'lineno' variable (and it was probably always wrong).  */
-  (*debug_hooks->end_symbol_repository) (0);
-  cpp_write_symbol_deps (parse_in);
-}
-/* APPLE LOCAL end Symbol Separation */

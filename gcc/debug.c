@@ -47,9 +47,6 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   debug_nothing_int,		         /* handle_pch */
-  /* APPLE LOCAL begin Symbol Separation */
-  NULL, NULL, NULL, NULL,
-  /* APPLE LOCAL end Symbol Separation */
   debug_nothing_rtx		         /* var_location */
 };
 

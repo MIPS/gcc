@@ -340,13 +340,6 @@ static void emit_pending_bincls         (void);
 #endif
 static inline void emit_pending_bincls_if_required (void);
 
-/* APPLE LOCAL begin Symbol Separation */
-static void dbxout_restore_write_symbols (void);
-static void dbxout_clear_write_symbols (const char *, unsigned long);
-static void dbxout_start_symbol_repository (unsigned int, const char *, unsigned long);
-static void dbxout_end_symbol_repository (unsigned int);
-/* APPLE LOCAL end Symbol Separation */
-
 static void dbxout_init (const char *);
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
@@ -418,12 +411,6 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		/* handle_pch */
-  /* APPLE LOCAL begin Symbol Separation */
-  dbxout_restore_write_symbols,
-  dbxout_clear_write_symbols,
-  dbxout_start_symbol_repository,
-  dbxout_end_symbol_repository,
-  /* APPLE LOCAL end Symbol Separation */
   debug_nothing_rtx		         /* var_location */
 };
 #endif /* DBX_DEBUGGING_INFO  */
@@ -454,12 +441,6 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  /* APPLE LOCAL begin Symbol Separation */
-  debug_nothing_void,           /* restore write_symbols */
-  debug_nothing_void,           /* clear write_symbols */
-  debug_nothing_void,           /* start repository */
-  debug_nothing_void,           /* end repository */
-  /* APPLE LOCAL end Symbol Separation */
   debug_nothing_rtx		         /* var_location */
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
@@ -619,59 +600,6 @@ dbxout_typedefs (tree syms)
     }
 }
 
-/* APPLE LOCAL begin Symbol Separation */
-/* Restore write_symbols */
-static void
-dbxout_restore_write_symbols (void)
-{
-  if (flag_grepository)
-    write_symbols = orig_write_symbols;
-}
-
-/* Clear write_symbols and emit EXCL stab.  */
-static void
-dbxout_clear_write_symbols (const char *filename, unsigned long checksum)
-{
-  if (flag_grepository)
-    {
-      write_symbols = NO_DEBUG;
-      fprintf (asmfile, "%s", ASM_STABS_OP);
-      output_quoted_string (asmfile, filename);
-      fprintf (asmfile, ",%d,0,0,%ld\n", N_EXCL, checksum);
-    }
-}
-
-/* Start symbol repository */
-/* Add checksum with BINCL.  */
-static void
-dbxout_start_symbol_repository (unsigned int lineno ATTRIBUTE_UNUSED,
-				const char *filename ATTRIBUTE_UNUSED,
-				unsigned long checksum ATTRIBUTE_UNUSED)
-{
-#ifdef DBX_USE_BINCL
-  struct dbx_file *n = (struct dbx_file *) xmalloc (sizeof *n);
-
-  n->next = current_file;
-  n->file_number = next_file_number++;
-  n->next_type_number = 1;
-  current_file = n;
-  fprintf (asmfile, "%s", ASM_STABS_OP);
-  output_quoted_string (asmfile, filename);
-  fprintf (asmfile, ",%d,0,0,%ld\n", N_BINCL, checksum);
-#endif
-}
-
-/* End symbol repository */
-static void
-dbxout_end_symbol_repository (unsigned int lineno ATTRIBUTE_UNUSED)
-{
-#ifdef DBX_USE_BINCL
-  fprintf (asmfile, "%s%d,0,0,0\n", ASM_STABN_OP, N_EINCL);
-  current_file = current_file->next;
-#endif
-}
-/* APPLE LOCAL end Symbol Separation */
-
 #ifdef DBX_USE_BINCL
 /* Emit BINCL stab using given name.  */
 static void
@@ -739,14 +667,6 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 #ifdef DBX_USE_BINCL
   struct dbx_file *n = xmalloc (sizeof *n);
 
-  /* APPLE LOCAL begin Symbol Separation */
-  if (write_symbols == NO_DEBUG)
-    {
-      n = NULL;
-      return;
-    }
-  /* APPLE LOCAL end Symbol Separation */
-
   n->next = current_file;
   n->next_type_number = 1;
   /* Do not assign file number now. 
@@ -767,11 +687,6 @@ static void
 dbxout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  /* APPLE LOCAL begin Symbol Separation */
-  if (write_symbols == NO_DEBUG)
-    return;
-  /* APPLE LOCAL end Symbol Separation */
-
   /* Emit EINCL stab only if BINCL is not pending.  */
   if (current_file->bincl_status == BINCL_PROCESSED)
     fprintf (asmfile, "%s%d,0,0,0\n", ASM_STABN_OP, N_EINCL);

@@ -293,11 +293,6 @@ Winvalid-pch
 C ObjC C++ ObjC++
 Warn about PCH files that are found but not used
 
-; APPLE LOCAL Symbol Separation
-Winvalid-sr
-C ObjC C++ ObjC++
-Warn about symbol files that are found but not used
-
 ; APPLE LOCAL -Wlong-double
 Wlong-double
 C ObjC C++ ObjC++
@@ -704,11 +699,6 @@ Enable automatic template instantiation
 frtti
 C++ ObjC++
 Generate run time type descriptor information
-
-; APPLE LOCAL Symbol Separation
-fsave-repository=
-C ObjC C++ ObjC++ Joined Separate
-Creates separate symbol repository
 
 fshort-double
 C ObjC C++ ObjC++

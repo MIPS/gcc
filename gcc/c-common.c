@@ -38,8 +38,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "cpplib.h"
 #include "target.h"
-/* APPLE LOCAL Symbol Separation */
-#include "debug.h"
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "c-tree.h"
@@ -5347,56 +5345,6 @@ check_function_arguments_recurse (void (*callback)
 
   (*callback) (ctx, param, param_num);
 }
-
-/* APPLE LOCAL begin Symbol Separation */
-/* Call debugger hooks to restore state of debugging symbol generation.
-   This is called at the end of header processing whose symbol repository was
-   available and valid.  */
-void
-cb_restore_write_symbols (void)
-{
-  (*debug_hooks->restore_write_symbols) ();
-}
-
-/* Call debugger hooks to clear state of debugging symbol generation.
-   This is called to stop generation of debugging info. for a header whose
-   valid context information is available.  */
-void
-cb_clear_write_symbols (const char *filename, unsigned long checksum)
-{
-  (*debug_hooks->clear_write_symbols) (filename, checksum);
-}
-
-/* Call debugger hooks to mark start of symbol repository.
-   Similar to start_source_file. Only difference is that checksum is added 
-   with BINCL stabs.  */
-void
-cb_start_symbol_repository (unsigned int lineno, const char *filename,
-			    unsigned long checksum)
-{
-  (*debug_hooks->start_symbol_repository) (lineno, filename, checksum);
-}
-
-/* Call debugger hoooks to makr end of symbol repository.
-   Identical to end_source_file.  */
-void
-cb_end_symbol_repository (unsigned int lineno)
-{
-  (*debug_hooks->end_symbol_repository) (lineno);
-}
-
-/* Decide if hashnode points to a tree used for builtin identifier.
-   This is used during context info writing to avoid collecting information
-   about builtins in cinfo files.  */
-int
-cb_is_builtin_identifier (cpp_hashnode *p)
-{
-  if (DECL_BUILT_IN_CLASS (HT_IDENT_TO_GCC_IDENT (HT_NODE (p))))
-    return 1;
-  else
-    return 0;
-}
-/* APPLE LOCAL end Symbol Separation */
 
 /* Function to help qsort sort FIELD_DECLs by name order.  */
 

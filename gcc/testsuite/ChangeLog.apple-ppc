@@ -1,3 +1,13 @@
+2004-08-10  Devang Patel  <dpatel@apple.com>
+
+	Remove Symbol Separation.
+	Radar 3555440. Reviewed by Mike Stump.
+        * gcc.dg/ss/README: Remove.
+        * gcc.dg/ss/ss.exp: Remove.
+        * gcc.dg/ss/one.c: Remove.
+        * gcc.dg/ss/one.ssh: Remove.
+        * gcc.dg/ss/ss-cmd1.c: Remove.
+
 2004-08-03  Stan Shebs  <shebs@apple.com>
 
 	Support for CodeWarrior-style assembly language blocks and

@@ -1,3 +1,9 @@
+2004-08-10  Devang Patel  <dpatel@apple.com>
+
+	Remove Symbol Separation.
+	Radar 3555440. Reviewed by Mike Stump.
+        * decl2.c (finish_file): Do not write context.
+
 2004-08-08  Andrew Pinski  <apinski@apple.com>
 
 	* cp/lex.c (cxx_init): Remove APPLE LOCAL for setting -gused

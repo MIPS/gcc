@@ -362,13 +362,6 @@ extern int flag_replace_objc_classes;
 
 /* Nonzero means don't output line number information.  */
 
-/* APPLE LOCAL begin Symbol Separation */
-/* The directory name where separate debug repository and context
-   available. NULL if Symbol Separation is not used.  */
-extern const char *dbg_dir;
-
-/* APPLE LOCAL end Symbol Separation */
-
 extern char flag_no_line_commands;
 
 /* Nonzero causes -E output not to be done, but directives such as
@@ -966,21 +959,7 @@ extern int recognize_objc_keyword		(void);
 extern tree lookup_objc_ivar			(tree);
 /* APPLE LOCAL end Objective-C++  */
 
-/* APPLE LOCAL begin Symbol Separation */
-extern void dbg_ss_init                         (void);
-extern void c_common_write_context              (void);
-extern void cb_clear_write_symbols              (const char *, unsigned long);
-extern void cb_restore_write_symbols            (void);
-extern void cb_start_symbol_repository          (unsigned int,
-						 const char *,
-						 unsigned long);
-extern void cb_end_symbol_repository            (unsigned int);
-extern int c_valid_cinfo                        (cpp_reader *, 
-						 const char *);
-extern int cb_is_builtin_identifier             (cpp_hashnode *);
-/* APPLE LOCAL end Symbol Separation */
 extern void c_warn_unused_result (tree *);
-
 extern void verify_sequence_points (tree);
 
 /* In c-gimplify.c  */
