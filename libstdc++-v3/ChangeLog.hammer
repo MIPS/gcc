@@ -1,4 +1,15 @@
 2004-07-30  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/14078
+	* include/std/std_istream.h (operator>>(__istream_type& (*)
+	(__istream_type&)), operator>>(__ios_type& (*)(__ios_type&)),
+	operator>>(ios_base& (*)(ios_base&))): Declare inline.
+	* include/std/std_ostream.h (operator<<(__ostream_type& (*)
+	(__ostream_type&)), operator<<(__ios_type& (*)(__ios_type&)),
+	operator<<(ios_base& (*) (ios_base&))): Likewise.
+
+2004-07-30  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/15565
 	* include/bits/locale_facets.tcc (__int_to_char(unsigned long),
