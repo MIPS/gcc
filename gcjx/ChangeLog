@@ -1,3 +1,11 @@
+2005-03-21  Tom Tromey  <tromey@redhat.com>
+
+	* model/method.cc (create_abstract_instance): Create a
+	model_abstract_method.
+	* aot/aotclass.cc (find_in_vtable): Strip abstract methods.
+	* model/invoke.cc (find_method): Create a model_abstract_method.
+	* model/method.hh (class model_abstract_method): New class.
+
 2005-03-12  Tom Tromey  <tromey@redhat.com>
 
 	* model/constructor.cc (model_constructor): New constructor.

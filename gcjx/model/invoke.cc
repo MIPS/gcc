@@ -245,8 +245,7 @@ model_invocation_base::find_method (resolution_scope *scope)
 			      ? non_interface
 			      : *(maximal.begin ()));
 
-      phony = new model_method (chosen->get_location (),
-				chosen->get_declaring_class ());
+      phony = new model_abstract_method (chosen);
       phony->set_name (chosen->get_name ());
       phony->set_modifiers (chosen->get_modifiers ());
       // FIXME

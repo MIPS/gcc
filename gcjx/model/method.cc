@@ -77,8 +77,7 @@ model_method::create_abstract_instance ()
   assert (! static_p ());
   assert (type_parameters.empty ());
 
-  ref_method result = new model_method (get_location (),
-					get_declaring_class ());
+  ref_method result = new model_abstract_method (this);
   result->set_modifiers ((get_modifiers () | ACC_ABSTRACT) & ~ACC_FINAL);
   result->set_name (name);
   result->set_parameters (parameters);

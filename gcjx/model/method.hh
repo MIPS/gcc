@@ -350,6 +350,27 @@ public:
   }
 };
 
+/// This represents a method that is the result of merging multiple
+/// abstract methods together.  
+class model_abstract_method : public model_method
+{
+  /// The original method which served as our template.
+  model_method *original;
+
+public:
+
+  model_abstract_method (model_method *m)
+    : model_method (m->get_location (), m->get_declaring_class ()),
+      original (m)
+  {
+  }
+
+  model_method *get_original () const
+  {
+    return original;
+  }
+};
+
 const format &operator% (const format &, model_method *);
 
 #endif // GCJX_MODEL_METHOD_HH

@@ -212,6 +212,15 @@ aot_class::find_in_vtable (model_method *method)
 {
   lay_out_vtable ();
 
+  // An abstract method can itself be derived from an abstract method.
+  // We strip them all off to get the method as actually declared.
+  while (dynamic_cast<model_abstract_method *> (method))
+    {
+      model_abstract_method *mam
+	= assert_cast<model_abstract_method *> (method);
+      method = mam->get_original ();
+    }
+
   int index = 0;
   for (std::vector<model_method *>::const_iterator i = vtable.begin ();
        i != vtable.end ();
