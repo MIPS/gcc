@@ -704,6 +704,7 @@ void verify_loop_structure PARAMS ((struct loops *, int));
 #define VLS_EXPECT_PREHEADERS 1
 #define VLS_EXPECT_SIMPLE_LATCHES 2
 #define VLS_FOR_LOOP_NEW (VLS_EXPECT_PREHEADERS | VLS_EXPECT_SIMPLE_LATCHES)
+int expected_loop_iterations PARAMS ((const struct loop *));
 
 typedef struct conflict_graph_def *conflict_graph;
 

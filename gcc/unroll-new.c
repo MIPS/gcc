@@ -411,7 +411,6 @@ count_loop_iterations (desc, niter, rniter)
 {
   int delta;
   HOST_WIDE_INT abs_diff = 0;
-  rtx final_greater = NULL;
 
   if (desc->grow)
     {
@@ -486,10 +485,10 @@ count_loop_iterations (desc, niter, rniter)
     }
 
   if (rniter && delta)
-    expand_simple_binop (GET_MODE (desc->var), PLUS,
-	  *rniter,
-	  GEN_INT (delta),
-	  *rniter, 0, OPTAB_LIB_WIDEN);
+    *rniter = expand_simple_binop (GET_MODE (desc->var), PLUS,
+		*rniter,
+		GEN_INT (delta),
+		NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
   return 1;
 }
@@ -600,15 +599,15 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
     }
 
   /* Count modulo by ANDing it with max_unroll.  */
-  expand_simple_binop (GET_MODE (desc->var), AND,
-	niter,
-	GEN_INT (max_unroll),
-	niter, 0, OPTAB_LIB_WIDEN);
+  niter = expand_simple_binop (GET_MODE (desc->var), AND,
+		niter,
+		GEN_INT (max_unroll),
+		NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
-  expand_simple_binop (GET_MODE (desc->var), PLUS,
-	niter,
-	const1_rtx,
-	niter, 0, OPTAB_LIB_WIDEN);
+  niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
+		niter,
+		const1_rtx,
+		NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
   init_code = gen_sequence ();
   end_sequence ();
@@ -624,10 +623,10 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   for (i = 0; i < max_unroll; i++)
     {
       start_sequence ();
-      expand_simple_binop (GET_MODE (desc->var), MINUS,
-			   niter, const1_rtx,
-			   niter, 0, OPTAB_LIB_WIDEN);
-      do_compare_rtx_and_jump (niter, const0_rtx, EQ, 0, GET_MODE (desc->var),
+      niter = expand_simple_binop (GET_MODE (desc->var), MINUS,
+			niter, const1_rtx,
+			NULL_RTX, 0, OPTAB_LIB_WIDEN);
+      do_compare_rtx_and_jump (copy_rtx (niter), const0_rtx, EQ, 0, GET_MODE (desc->var),
 			       NULL_RTX, NULL_RTX, loop_beg_label);
       JUMP_LABEL (get_last_insn ()) = loop_beg_label;
       LABEL_NUSES (loop_beg_label)++;
@@ -756,6 +755,7 @@ peel_loop (loops, loop, will_unroll)
   int niter;
   struct loop_desc desc;
   sbitmap wont_exit;
+  edge e;
 
   if (!can_duplicate_loop_p (loop))
     {
@@ -788,7 +788,7 @@ peel_loop (loops, loop, will_unroll)
 
   /* Do not peel loops that roll too much.  */
   niter = expected_loop_iterations (loop);
-  if (niter> npeel - 1)
+  if (niter > npeel - 1)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings - 1])\n", niter, npeel - 1);
@@ -797,35 +797,39 @@ peel_loop (loops, loop, will_unroll)
   npeel = niter;
   
   /* Neither big loops.  */
-  if (npeel > 0)
+  if (npeel <= 0)
     {
-      edge e;
-
-      /* Do not peel simple loops if also unrolling will be done, not to
-	 interfere with it.  */
-      if (will_unroll && simple_loop_p (loops, loop, &desc))
-	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ";; Not peeling loop, loop will be unrolled\n");
-	  return 1;
-	}
-
-      wont_exit = sbitmap_alloc (npeel + 1);
-      sbitmap_zero (wont_exit);
-      
-      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      if (!duplicate_loop_to_header_edge (loop, e, loops, npeel, wont_exit,
-	     DLTHE_FLAG_ALL))
-	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
-	  return 0;
-	}
-
-      free (wont_exit);
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, is too big\n");
+      return 1;
     }
-  if (rtl_dump_file && npeel > 0)
+
+  /* Do not peel simple loops if also unrolling will be done, not to
+     interfere with it.  */
+  if (will_unroll && simple_loop_p (loops, loop, &desc))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, loop will be unrolled\n");
+      return 1;
+    }
+
+  wont_exit = sbitmap_alloc (npeel + 1);
+  sbitmap_zero (wont_exit);
+
+  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
+  if (!duplicate_loop_to_header_edge (loop, e, loops, npeel, wont_exit,
+	     DLTHE_FLAG_ALL))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
+      return 0;
+    }
+
+  free (wont_exit);
+
+  if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeling loop %d times\n", npeel);
+
   return 1;
 }
 
@@ -839,6 +843,7 @@ unroll_loop_new (loops, loop, unroll_all)
   int ninsns = 0, nunroll, niter;
   struct loop_desc desc;
   sbitmap wont_exit;
+  edge e;
 
   /* Do not unroll cold areas.  */
   if (!maybe_hot_bb_p (loop->header))
@@ -855,45 +860,48 @@ unroll_loop_new (loops, loop, unroll_all)
     nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
   /* Neither big loops.  */
-  if (nunroll > 0)
+  if (nunroll <= 0)
     {
-      edge e;
-      if (simple_loop_p (loops, loop, &desc))
-	{
-	  /* Simple for loop.  */
-	  if (unroll_simple_loop (loops, loop, nunroll, &desc))
-	    return 1;
-	}
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, is too big\n");
+      return 1;
+    }
+
+  if (simple_loop_p (loops, loop, &desc))
+    {
+      /* Simple for loop.  */
+      if (unroll_simple_loop (loops, loop, nunroll, &desc))
+	return 1;
+    }
   
-      if (unroll_all)
-	{
-	  /* Do not unroll loops that do not roll.  */
-	  niter = expected_loop_iterations (loop);
-	  if (niter < 2 * nunroll && flag_branch_probabilities)
-	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");
-	      return 1;
-	    }
+  if (!unroll_all)
+    return 1;
+  
+  /* Do not unroll loops that do not roll.  */
+  niter = expected_loop_iterations (loop);
+  if (niter < 2 * nunroll && flag_branch_probabilities)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, doesn't roll\n");
+      return 1;
+    }
 
-	  /* Some hard case; try stupid unrolling anyway.  */
-	  wont_exit = sbitmap_alloc (nunroll + 1);
-	  sbitmap_zero (wont_exit);
-	  
-	  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
-	  if (!duplicate_loop_to_header_edge (loop, e, loops, nunroll, wont_exit,
-		   DLTHE_FLAG_ALL))
-	    {
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, ";;  Not unrolling loop, can't duplicate\n");
-	      return 0;
-	    }
+  /* Some hard case; try stupid unrolling anyway.  */
+  wont_exit = sbitmap_alloc (nunroll + 1);
+  sbitmap_zero (wont_exit);
 
-	  free (wont_exit);
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", nunroll);
+  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
+  if (!duplicate_loop_to_header_edge (loop, e, loops, nunroll, wont_exit,
+	   DLTHE_FLAG_ALL))
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";;  Not unrolling loop, can't duplicate\n");
+      return 0;
+    }
+
+  free (wont_exit);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Unrolled loop %d times\n", nunroll);
 	  
-	}
-    }  
   return 1;
 }

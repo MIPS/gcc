@@ -444,7 +444,6 @@ struct loop_desc
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
 };
 
-int expected_loop_iterations PARAMS ((struct loop *));
 bool can_duplicate_loop_p PARAMS ((struct loop *loop));
 #define DLTHE_FLAG_UPDATE_DOMINATORS	1
 #define DLTHE_FLAG_UPDATE_FREQ		2

@@ -1176,3 +1176,26 @@ void verify_loop_structure (loops, flags)
   if (err)
     abort ();
 }
+
+/* Returns expected number of LOOP iterations.  */
+int
+expected_loop_iterations (loop)
+     const struct loop *loop;
+{
+  int freq_in, freq_latch;
+  edge e;
+
+  freq_in = 0;
+
+  for (e = loop->header->pred; e; e = e->pred_next)
+    if (e->src == loop->latch)
+      freq_latch = EDGE_FREQUENCY (e);
+    else
+      freq_in += EDGE_FREQUENCY (e);
+
+  if (freq_in == 0)
+    return 0;
+
+  return freq_latch / freq_in;
+}
+

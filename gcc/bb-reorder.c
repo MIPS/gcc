@@ -108,6 +108,8 @@ static void find_traces			PARAMS ((void));
 static void find_traces_1_round		PARAMS ((int, int, struct trace *,
 						 int *, int, fibheap_t *,
 						 bool));
+static basic_block duplicate_basic_block	PARAMS ((basic_block, edge,
+						 basic_block, int));
 static int bb_to_key			PARAMS ((basic_block));
 static bool copy_bb_p			PARAMS ((basic_block, int, bool));
 static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
@@ -371,42 +373,52 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		{
 		  if (best_edge->dest != bb && best_edge->dest->index != 0)
 		    {
-		      edge e;
-
-		      /* Check whether the loop has not been rotated yet.  */
-		      for (e = best_edge->dest->succ; e; e = e->succ_next)
-			if (e->dest == RBI (best_edge->dest)->next)
-			  break;
-		      if (e && (EDGE_FREQUENCY (best_edge)
-				> 2 * best_edge->dest->frequency / 3))
-			/* The loop has not been rotated yet
-			   && has at least 2 iterations.  */
+		      if (EDGE_FREQUENCY (best_edge) 
+			  > 4 * best_edge->dest->frequency / 5)
 			{
-			  /* Rotate the loop.  */
+			   /* The loop has at least 4 iterations.  */
+			  edge e;
 
-			  if (rtl_dump_file)
-			    fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
-				     best_edge->dest->index, bb->index);
-
-			  if (best_edge->dest == trace->first)
+			  /* Check whether the loop has not been rotated yet.  */
+			  for (e = best_edge->dest->succ; e; e = e->succ_next)
+			    if (e->dest == RBI (best_edge->dest)->next)
+			      break;
+			  if (e)
+			    /* The loop has not been rotated yet.  */
 			    {
-			      RBI (bb)->next = trace->first;
-			      trace->first = RBI (trace->first)->next;
-			      RBI (best_edge->dest)->next = NULL;
-			      bb = best_edge->dest;
-			    }
-			  else
-			    {
-			      basic_block temp;
+			      /* Rotate the loop.  */
 
-			      for (temp = trace->first;
-				   RBI (temp)->next != best_edge->dest;
-				   temp = RBI (temp)->next);
-			      RBI (temp)->next = RBI (best_edge->dest)->next;
-			      RBI (bb)->next = best_edge->dest;
-			      RBI (best_edge->dest)->next = NULL;
-			      bb = best_edge->dest;
+			      if (rtl_dump_file)
+				fprintf (rtl_dump_file,
+					 "Rotating loop %d - %d\n",
+					 best_edge->dest->index, bb->index);
+
+			      if (best_edge->dest == trace->first)
+				{
+				  RBI (bb)->next = trace->first;
+				  trace->first = RBI (trace->first)->next;
+				  RBI (best_edge->dest)->next = NULL;
+				  bb = best_edge->dest;
+				}
+			      else
+				{
+				  basic_block temp;
+
+				  for (temp = trace->first;
+				       RBI (temp)->next != best_edge->dest;
+				       temp = RBI (temp)->next);
+				  RBI (temp)->next
+				    = RBI (best_edge->dest)->next;
+				  RBI (bb)->next = best_edge->dest;
+				  RBI (best_edge->dest)->next = NULL;
+				  bb = best_edge->dest;
+				}
 			    }
+			}
+		      else
+			{
+			  bb = duplicate_basic_block (best_edge->dest, best_edge, bb,
+						*n_traces);
 			}
 		    }
 
@@ -416,33 +428,8 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		}
 	      else if (RBI (best_edge->dest)->visited)
 		{
-		  basic_block new_bb, old_bb;
-
-		  old_bb = best_edge->dest;
-		  new_bb = cfg_layout_duplicate_bb (best_edge->dest, best_edge);
-		  if (best_edge->dest != new_bb)
-		    abort ();
-		  if (RBI (best_edge->dest)->visited)
-		    abort ();
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "Duplicated bb %d (created bb %d)\n",
-			     old_bb->index, new_bb->index);
-		  RBI (old_bb)->duplicated = *n_traces;
-		  RBI (bb)->next = new_bb;
-		  RBI (bb)->visited = *n_traces;
-		  bb = new_bb;
-
-		  if (n_basic_blocks > copy_bb_p_visited_size)
-		    {
-		      /* Realloc the COPY_BB_P_VISITED array, copying of data
-		         is not necessary.  */
-		      free (copy_bb_p_visited);
-  		      copy_bb_p_visited_size = 4 * n_basic_blocks / 3;
-		      copy_bb_p_visited = xcalloc (copy_bb_p_visited_size,
-			  			   sizeof (unsigned int));
-		      if (!copy_bb_p_visited)
-			abort ();
-		    }
+		  bb = duplicate_basic_block (best_edge->dest, best_edge, bb,
+					*n_traces);
 		}
 	      else
 		{
@@ -500,6 +487,47 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 
   /* "Return" the new heap.  */
   *heap = new_heap;
+}
+
+/* Create a duplicate of the basic block OLD_BB and redirect edge E to it, add
+   it to trace after BB, mark OLD_BB visited and update pass' datastructures
+   (N_TRACES is used for updating datastructures).  */
+
+static basic_block
+duplicate_basic_block (old_bb, e, bb, n_traces)
+     basic_block old_bb;
+     edge e;
+     basic_block bb;
+     int n_traces;
+{
+  basic_block new_bb;
+
+  new_bb = cfg_layout_duplicate_bb (old_bb, e);
+  if (e->dest != new_bb)
+    abort ();
+  if (RBI (e->dest)->visited)
+    abort ();
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file,
+	     "Duplicated bb %d (created bb %d)\n",
+	     old_bb->index, new_bb->index);
+  RBI (old_bb)->duplicated = n_traces;
+  RBI (new_bb)->visited = n_traces;
+  RBI (bb)->next = new_bb;
+
+  if (n_basic_blocks > copy_bb_p_visited_size)
+    {
+      /* Realloc the COPY_BB_P_VISITED array, copying of data
+	 is not necessary.  */
+      free (copy_bb_p_visited);
+      copy_bb_p_visited_size = 4 * n_basic_blocks / 3;
+      copy_bb_p_visited = xcalloc (copy_bb_p_visited_size,
+				   sizeof (unsigned int));
+      if (!copy_bb_p_visited)
+	abort ();
+    }
+
+  return new_bb;
 }
 
 /* Compute and return the key (for the heap) of the basic block BB.  */

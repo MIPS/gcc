@@ -1130,7 +1130,7 @@ var_tracking_emit_notes ()
         }
       /* Emit the notes and delete the marked location parts.  */
       emit_note_data.insn = bb->head;
-      emit_note_data.where = EMIT_NOTE_AFTER_INSN;
+      emit_note_data.where = EMIT_NOTE_BEFORE_INSN;
       htab_traverse (variable_htab, process_location_parts, &emit_note_data);
 
       /* Emit the notes for the changes in the basic block itself.  */

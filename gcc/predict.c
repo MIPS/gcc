@@ -774,10 +774,8 @@ process_note_predictions (bb, heads, dominators, post_dominators)
   edge e;
 
   /* Additionaly, we check here for blocks with no successors.  */
-  int contained_return = 0;
   int contained_noreturn_call = 0;
   int was_bb_head = 0;
-  int noreturn_block = 1;
 
   for (insn = bb->end; insn;
        was_bb_head |= (insn == bb->head), insn = PREV_INSN (insn))
@@ -808,15 +806,9 @@ process_note_predictions (bb, heads, dominators, post_dominators)
 	  delete_insn (insn);
 	}
       if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN)
-	{
-	  /* Record that block is noreturn due to return.  */
-	  contained_return = 1;
-	  delete_insn (insn);
-	}
+	delete_insn (insn);
     }
-  for (e = bb->succ; e; e = e->succ_next)
-    if (!(e->flags & EDGE_FAKE))
-      noreturn_block = 0;
+
   if (contained_noreturn_call)
     {
       /* This block ended from other reasons than because of return.

@@ -597,28 +597,6 @@ unswitch_single_loop (loops, loop, cond_checked, num)
     free_EXPR_LIST_node (rconds);
 }
 
-/* Returns expected number of LOOP iterations.  */
-int
-expected_loop_iterations (loop)
-     struct loop *loop;
-{
-  int freq_in, freq_latch;
-  edge e;
-
-  freq_in = 0;
-
-  for (e = loop->header->pred; e; e = e->pred_next)
-    if (e->src == loop->latch)
-      freq_latch = EDGE_FREQUENCY (e);
-    else
-      freq_in += EDGE_FREQUENCY (e);
-
-  if (freq_in == 0)
-    return 0;
-
-  return freq_latch / freq_in;
-}
-
 /* Checks whether BB is inside RPE_LOOP and is dominated by RPE_DOM.  */
 struct rpe_data
  {
