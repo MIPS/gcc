@@ -44,12 +44,16 @@ public class JToolTip extends JComponent implements Accessible
 {
   private static final long serialVersionUID = -1138929898906751643L;
   
-    String text;
+  String text;
 
-    JToolTip(String text)
-    {
-	this.text = text;
-    }
+  public JToolTip()
+  {
+  }
+
+  public void setTipText(String newText)
+  {
+    this.text = newText;
+  }
 }
 
 

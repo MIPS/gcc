@@ -1,5 +1,11 @@
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JToolTip.java
+	(JToolTip): No arguments in API.
+	(setTipText): New method.
+
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/SwingUtilities.java
 	(isLeftMouseButton): New method.
 	(isMiddleMouseButton): New method.
