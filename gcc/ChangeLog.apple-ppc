@@ -1,3 +1,9 @@
+2005-03-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3995882
+	* c-decl.c (objc_mark_locals_volatile): Mark local variables and
+	parameters 'volatile' in ways expected by the C front-end.
+
 2005-03-10  Devang Patel  <dpatel@apple.com>
 
 	Radar 4040918

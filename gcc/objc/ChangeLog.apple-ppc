@@ -1,3 +1,9 @@
+2005-03-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3995882
+	* objc-act.c (objc_begin_try_stmt): When doing _setjmp()/
+	_longjmp() EH, call objc_mark_locals_volatile().
+
 2005-02-17  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4006978
