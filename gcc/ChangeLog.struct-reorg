@@ -1,3 +1,14 @@
+2004-10-11  Caroline Tice  <ctice@apple.com>
+
+	Fix small bootstrap problems.
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Change condition
+	flag from flag_unit_at_a_time to flag_whole_program.
+	* struct-reorg-cpg.c (cache_aware_data_reorganization):  Mark
+	parameter with ATTRIBUTE_UNUSED.
+	* struct-reorg.c(get_stmt_accessed_fields_1):  Initialize 
+	struct_type.
+	(build_data_structure_list):  Remove unused variable.
+
 2004-10-07  Caroline Tice  <ctice@apple.com>
 
 	* cgraphunit.c (comment): Fix function name in comment.

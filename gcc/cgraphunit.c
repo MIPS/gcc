@@ -768,7 +768,7 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  if (!flag_unit_at_a_time)
+  if (!flag_whole_program)
     cgraph_varpool_assemble_pending_decls ();
   if (!quiet_flag)
     fprintf (stderr, "\nAnalyzing compilation unit\n");
@@ -811,7 +811,7 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
-      if (!flag_unit_at_a_time)
+      if (!flag_whole_program)
 	cgraph_varpool_assemble_pending_decls ();
     }
 
@@ -2033,6 +2033,7 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
+
   if (flag_whole_program)
     cgraph_mark_nonexportable ();
 

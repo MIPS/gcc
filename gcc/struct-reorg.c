@@ -135,7 +135,8 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 {
   HOST_WIDE_INT bitsize = 0;
   HOST_WIDE_INT bitpos; 
-  tree offsetr, struct_var, struct_type;
+  tree offsetr, struct_var;
+  tree struct_type = NULL_TREE;
   enum machine_mode mode; 
   int unsignedp, volatilep;
 
@@ -482,7 +483,6 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
 static struct struct_list *
 build_data_structure_list (void)
 {
-  char *cptr;
   tree var_decl;
   tree var_list;
   struct struct_list *tmp; 

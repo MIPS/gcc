@@ -250,7 +250,7 @@ free_cpg (cpg_t *cpg)
    CURRENT STATUS: we just build the cpg and print it to the dump file.
 */
 bool
-cache_aware_data_reorganization (struct data_structure *ds,
+cache_aware_data_reorganization (ATTRIBUTE_UNUSED struct data_structure *ds,
 				 ATTRIBUTE_UNUSED bool reordering_only)
 {
   return true;
