@@ -6138,8 +6138,8 @@ pop_init_level (implicit)
   /* If the final field of an initialized struct is a variable-length
      array, increment the decl's size according to the number of
      excess array elements.  */
-  if (constructor_fields && constructor_depth == 2
-      && FINAL_FIELD_P (constructor_fields)
+  if (constructor_decl && constructor_depth == 2
+      && constructor_fields && FINAL_FIELD_P (constructor_fields)
       && constructor_index && variable_extent_p (constructor_type))
     {
       tree eltype = TREE_TYPE (constructor_type);

@@ -1,3 +1,8 @@
+2000-05-31  Greg McGary  <greg@mcgary.org>
+
+	* c-typeck.c (pop_init_level): Check constructor_fields
+	before dereferencing.
+
 2000-05-30  Greg McGary  <greg@mcgary.org>
 
 	* c-common.c (decl_attributes): Test `target' before dereference.
