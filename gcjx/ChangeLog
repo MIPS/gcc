@@ -1,5 +1,7 @@
 2005-01-30  Tom Tromey  <tromey@redhat.com>
 
+	* aot/mangle.cc (mangler): Special case array types.
+
 	* aot/aotclass.cc (lay_out_vtable): Skip constructors and private
 	methods.
 

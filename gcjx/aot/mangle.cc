@@ -210,8 +210,15 @@ mangler::mangler (model_type *t)
 mangler::mangler (model_method *m)
   : result ("_Z")
 {
-  // Emit the declaring class.
-  update (m->get_declaring_class (), false);
+  // Emit the declaring class.  Note that we might be called for a
+  // method that is declared for an array type.  In this case we
+  // substitute the Object variant.  This is a bit strange in that
+  // really we will never emit references to these names.  FIXME: fix
+  // in the caller?
+  model_class *decl = m->get_declaring_class ();
+  if (decl->array_p ())
+    decl = global->get_compiler ()->java_lang_Object ();
+  update (decl, false);
 
   // Emit the name, or the special name we use for a constructor.
   if (m->constructor_p ())
