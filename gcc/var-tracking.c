@@ -106,9 +106,10 @@
 enum micro_operation_type
 {
   MO_USE,	/* Use location (REG or MEM).  */
+  MO_USE_NO_VAR,/* Use location which is not associated with a variable
+		   or the variable is not trackable.  */
   MO_SET,	/* Set location.  */
-  MO_CLOBBER,	/* Clobber location or
-		   use register with no variable or untrackable variable.  */
+  MO_CLOBBER,	/* Clobber location.  */
   MO_CALL,	/* Call insn.  */
   MO_ADJUST	/* Adjust stack pointer. */
 };
@@ -1496,7 +1497,7 @@ add_uses (loc, insn)
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
       mo->type = ((REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
-		  ? MO_USE : MO_CLOBBER);
+		  ? MO_USE : MO_USE_NO_VAR);
       mo->u.loc = loc;
       mo->insn = (rtx) insn;
     }
@@ -1576,24 +1577,25 @@ compute_bb_dataflow (bb)
 
 	  case MO_USE:
 	  case MO_SET:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+
+	      if (GET_CODE (loc) == REG)
+		var_reg_delete_and_set (out, loc);
+	      else if (GET_CODE (loc) == MEM)
+		var_mem_delete_and_set (out, loc);
+	    }
+	    break;
+
+	  case MO_USE_NO_VAR:
 	  case MO_CLOBBER:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 
 	      if (GET_CODE (loc) == REG)
-		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
-		    var_reg_delete_and_set (out, loc);
-		  else
-		    var_reg_delete (out, loc);
-		}
+		var_reg_delete (out, loc);
 	      else if (GET_CODE (loc) == MEM)
-		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
-		    var_mem_delete_and_set (out, loc);
-		  else
-		    var_mem_delete (out, loc);
-		}
+		var_mem_delete (out, loc);
 	    }
 	    break;
 
@@ -2287,26 +2289,32 @@ emit_notes_in_bb (bb)
 
 	  case MO_USE:
 	  case MO_SET:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+
+	      if (GET_CODE (loc) == REG)
+		var_reg_delete_and_set (&set, loc);
+	      else
+		var_mem_delete_and_set (&set, loc);
+
+	      if (VTI (bb)->mos[i].type == MO_USE)
+		emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
+	      else
+		emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	    }
+	    break;
+
+	  case MO_USE_NO_VAR:
 	  case MO_CLOBBER:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 
 	      if (GET_CODE (loc) == REG)
-		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
-		    var_reg_delete_and_set (&set, loc);
-		  else
-		    var_reg_delete (&set, loc);
-		}
-	      else if (GET_CODE (loc) == MEM)
-		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
-		    var_mem_delete_and_set (&set, loc);
-		  else
-		    var_mem_delete (&set, loc);
-		}
+		var_reg_delete (&set, loc);
+	      else
+		var_mem_delete (&set, loc);
 
-	      if (VTI (bb)->mos[i].type == MO_USE)
+	      if (VTI (bb)->mos[i].type == MO_USE_NO_VAR)
 		emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
 	      else
 		emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
@@ -2528,12 +2536,12 @@ vt_initialize ()
 	      note_all_uses (PATTERN (insn), add_uses, insn);
 	      n2 = VTI (bb)->n_mos - 1;
 
-	      /* Order the MO_USEs to be before MO_CLOBBERs.  */
+	      /* Order the MO_USEs to be before MO_USE_NO_VARs.  */
 	      while (n1 < n2)
 		{
 		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_USE)
 		    n1++;
-		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_CLOBBER)
+		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_USE_NO_VAR)
 		    n2--;
 		  if (n1 < n2)
 		    {

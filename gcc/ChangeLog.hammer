@@ -1,3 +1,11 @@
+2004-01-08  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (enum micro_operation_type): Added MO_USE_NO_VAR.
+	(add_uses): Set type to MO_USE_NO_VAR instead of MO_CLOBBER.
+	(compute_bb_dataflow): Process MO_USE_NO_VAR; cleanup.
+	(emit_notes_in_bb): Likewise.
+	(vt_initialize): Use MO_USE_NO_VAR instead of MO_CLOBBER for uses.
+
 2004-01-08  Andreas Schwab  <schwab@suse.de>
 
 	Merge from mainline:
