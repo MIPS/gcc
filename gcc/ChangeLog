@@ -1,3 +1,10 @@
+2002-09-19 Dale Johannesen <dalej@apple.com>
+
+	* rtl.h: Add NOTE_PRECONDITIONED.
+	* unroll.c: Set it.
+	* loop.c: Set loop_info->preconditioned from it.
+	* doloop.c: Permit doloop treatment when loop_info->preconditioned.
+
 2002-07-10  Roger Sayle  <roger@eyesopen.com>
 
 	PR c/2454

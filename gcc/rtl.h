@@ -635,6 +635,7 @@ extern const char * const reg_note_name[];
 #define NOTE_LIVE_INFO(INSN)   	XCEXP (INSN, 3, NOTE)
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 3, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 3, NOTE)
+#define NOTE_PRECONDITIONED(INSN) XCINT (INSN, 3, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
