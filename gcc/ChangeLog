@@ -1,5 +1,7 @@
 2002-12-24  Geoffrey Keating  <geoffk@apple.com>
 
+	* dbxout.c (lastfile): Don't mark for PCH.
+
 	* ggc.h: Document PCH calls into memory managers.
 
 2002-12-18  Geoffrey Keating  <geoffk@apple.com>

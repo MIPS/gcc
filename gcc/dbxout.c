@@ -139,7 +139,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Last source file name mentioned in a NOTE insn.  */
 
-static GTY(()) const char *lastfile;
+static const char *lastfile;
 
 /* Current working directory.  */
 
