@@ -1058,8 +1058,7 @@ update_stmt_operands (tree stmt)
 
   ann = get_stmt_ann (stmt);
 
-  if (!ann->modified)
-    return;
+  gcc_assert (ann->modified);
 
   timevar_push (TV_TREE_OPS);
 
@@ -1923,151 +1922,90 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
 }
 
 
-#ifdef ENABLE_CHECKING
-static void
-test_imm_print (FILE *file, use_operand_p var, tree stmt)
-{
-  if (TREE_CODE (USE_FROM_PTR (var)) == SSA_NAME)
-    {
-      if (stmt_modified_p (stmt) && TREE_CODE (stmt) != PHI_NODE)
-        {
-	  fprintf (file, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
-	  print_generic_stmt (file, stmt, TDF_SLIM);
-	}
-      if (var->prev == NULL)
-	{
-	  fprintf (file, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
-	  print_generic_expr (file, USE_FROM_PTR (var), TDF_SLIM);
-	  fprintf (file, " is not in a list\n");
-	  fprintf (file, "<0x%x> ", (unsigned int)stmt);
-	  print_generic_stmt (file, stmt, TDF_VOPS);
-	}
-    }
 
-}
-#endif
-
-void
-test_imm_links(FILE *file ATTRIBUTE_UNUSED)
-{
-#ifdef  ENABLE_CHECKING
-  unsigned int x;
-  basic_block bb;
-  use_operand_p var;
-
-  if (file == NULL)
-    file = stderr;
-
-  for (x = 1; x < num_ssa_names; x++)
-    if (ssa_name(x))
-      verify_imm_links (&(SSA_NAME_IMM_USE_NODE (ssa_name(x))));
-
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator i;
-      tree phi;
-      int x;
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
-	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
-	    {
-	      var = &(PHI_ARG_IMM_USE_NODE(phi, x));
-	      test_imm_print (file, var, phi);
-	    }
-	}
-
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-        {
-	  tree stmt = bsi_stmt (i);
-	  ssa_op_iter iter;
-	  get_stmt_operands (stmt);
-	  FOR_EACH_SSA_USE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
-	    {
-	      test_imm_print (file, var, stmt);
-	    }
-	    
-	}
-    }
-
-#endif
-}
-
-#ifdef ENABLE_CHECKING
+/* Issue immediate use error for VAR to debug file F.  */
 static void 
-verify_abort(ssa_imm_use_t *var)
+verify_abort(FILE *f, ssa_imm_use_t *var)
 {
   tree stmt;
   if ((stmt = var->stmt))
     {
       if (stmt_modified_p(stmt))
 	{
-	  fprintf (stderr, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
-	  print_generic_stmt (stderr, stmt, TDF_SLIM);
+	  fprintf (f, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  print_generic_stmt (f, stmt, TDF_SLIM);
 	}
     }
-  fprintf (stderr, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
-  print_generic_expr (stderr, USE_FROM_PTR (var), TDF_SLIM);
+  fprintf (f, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, 
+	   (unsigned int)var->use);
+  print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
+  fprintf(f, "\n");
   abort ();
 }
-#endif
 
+
+/* Scan the immediate_use list for VAR making sure its linked properly.  Verify
+   that IN_LIST is present in the list, ifit is spcified.  */
 void
-verify_imm_links (ssa_imm_use_t *list ATTRIBUTE_UNUSED)
+verify_imm_links (FILE *f, tree var, ssa_imm_use_t *in_list)
 {
-#ifdef ENABLE_CHECKING
-  ssa_imm_use_t *ptr, *prev, *root = NULL;
+  ssa_imm_use_t *ptr, *prev;
+  ssa_imm_use_t *list;
   int count;
 
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+  list = &(SSA_NAME_IMM_USE_NODE (var));
+  gcc_assert (list->use == NULL);
+
   if (list->prev == NULL)
-    return;
+    {
+      gcc_assert (list->next == NULL);
+      gcc_assert (in_list == NULL);
+      return;
+    }
 
   prev = list;
-  if (list->use == NULL)
-    root = list;
   count = 0;
   for (ptr = list->next; ptr != list; )
     {
+      /* IF we've found the one we're searching for, simply return.  */
+      if (ptr == in_list)
+        return;
+
       if (prev != ptr->prev)
-	verify_abort (ptr);
+	verify_abort (f, ptr);
 
       if (ptr->use == NULL)
-        {
-	  if (root)
-	    verify_abort(ptr);  	/* 2 roots.  */
-	  else
-	    {
-	      root = ptr;
-	      if (*(prev->use) != root->stmt)
-		verify_abort(ptr);
-	    }
-	}
+	verify_abort (f, ptr);  	/* 2 roots, or SAFE guard node.  */
       else
-	if (root)
-	  {
-	    if (*(ptr->use) != root->stmt)
-	      verify_abort (ptr);
-	  }
-	else
-	  if (*(prev->use) != *(ptr->use))
-	    verify_abort(ptr);
+	if (*(ptr->use) != var)
+	  verify_abort (f, ptr);
+
       prev = ptr;
       ptr = ptr->next;
+      /* Avoid infinite loops.  */
       if (count++ > 30000)
-        verify_abort (ptr);
+        verify_abort (f, ptr);
     }
 
+  /* Verify list in the other direction.  */
   prev = list;
-  count = 0;
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-        verify_abort (ptr);
+        verify_abort (f, ptr);
       prev = ptr;
       ptr = ptr->prev;
-      if (count++ > 30000)
-        verify_abort (ptr);
+      if (count-- < 0)
+        verify_abort (f, ptr);
     }
-#endif
+
+  gcc_assert (count == 0);
+
+  /* if in_list is set and we got this far, then its not in the list.  */
+  if (in_list)
+    verify_abort (f, in_list);
 }
 
 

@@ -265,14 +265,10 @@ release_ssa_name (tree var)
       ssa_imm_use_t *imm = &(SSA_NAME_IMM_USE_NODE (var));
 
 #ifdef ENABLE_CHECKING
-      verify_imm_links (imm);
+      verify_imm_links (stderr, var, NULL);
 #endif
       while (imm->next != imm)
         {
-#ifdef ENABLE_CHECKING
-	  if (*(imm->next->use) != var)
-	    abort ();
-#endif
 	  delink_imm_use (imm->next);
 	}
 #ifdef ENABLE_CHECKING

@@ -155,6 +155,13 @@ update_stmt (tree t)
   update_stmt_operands (t);
 }
 
+static inline void
+update_stmt_if_modified (tree t)
+{
+  if (stmt_modified_p (t))
+    update_stmt_operands (t);
+}
+
 static inline void 
 get_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
 {
@@ -206,19 +213,6 @@ delink_imm_use (ssa_imm_use_t *linknode)
 static inline void
 link_imm_use_to_list (ssa_imm_use_t *linknode, ssa_imm_use_t *list)
 {
-#ifdef ENABLE_CHECKING
-  /* list must be a structure in the correct SSA_NAME.  */
-  if ((TREE_CODE (list->stmt) != SSA_NAME) ||
-      (&(SSA_NAME_IMM_USE_NODE (list->stmt)) != list))
-    abort ();
-  /* In order to link linknode in, it must have a use.  */
-  if (!linknode->use || (*linknode->use) == NULL_TREE)
-    abort ();
-  /* Assert that this is the correct list for linknode.  */
-  if (*(linknode->use) != list->stmt)
-    abort ();
-#endif
-
   /* Link the new node at the head of the list.  If we are in the process of 
      traversing the list, we wont visit any new nodes added to it.  */
   linknode->prev = list;
@@ -238,6 +232,10 @@ link_imm_use (ssa_imm_use_t *linknode, tree def)
   else
     {
       root = &(SSA_NAME_IMM_USE_NODE (def));
+#ifdef ENABLE_CHECKING
+      if (linknode->use)
+        gcc_assert (*(linknode->use) == def);
+#endif
       link_imm_use_to_list (linknode, root);
     }
 }
@@ -336,8 +334,7 @@ static inline use_operand_p
 first_safe_imm_use (imm_use_iterator *imm, tree var)
 {
   /* Set up and link the iterator node into the linked list for VAR.  */
-  imm->var = var;
-  imm->iter_node.use = &(imm->var);
+  imm->iter_node.use = NULL;
   imm->iter_node.stmt = NULL_TREE;
   imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
   /* Check if there are 0 elements.  */
@@ -379,10 +376,11 @@ next_safe_imm_use (imm_use_iterator *imm)
       else
 	return old;
     }
-    /* If the 'next' value after the iterator isn't the same as it was, then
-       a node has been deleted, so we sinply proceed to the node following where the iterator is in the list.  */
   else
     {
+      /* If the 'next' value after the iterator isn't the same as it was, then
+	 a node has been deleted, so we sinply proceed to the node following 
+	 where the iterator is in the list.  */
       imm->imm_use = imm->iter_node.next;
       if (end_safe_imm_use_p (imm))
         {
@@ -698,10 +696,13 @@ phi_arg_index_from_use (use_operand_p use)
   root = &(PHI_ARG_ELT (phi, 0));
   index = element - root;
 
+#ifdef ENABLE_CHECKING
   /* Make sure the calculation doesn't have any leftover bytes.  If it does, 
      then imm_use is liekly not the first element in phi_arg_d.  */
   gcc_assert (
 	  (((char *)element - (char *)root) % sizeof (struct phi_arg_d)) == 0);
+  gcc_assert (index >= 0 && index < PHI_ARG_CAPACITY (phi));
+#endif
  
  return index;
 }

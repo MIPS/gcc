@@ -474,7 +474,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     default:
       gcc_unreachable ();
     }
-  update_stmt_operands (stmt);
+  update_stmt_if_modified (stmt);
 }
 
 /* Build a constant of type TYPE, made of VALUE's bits replicated

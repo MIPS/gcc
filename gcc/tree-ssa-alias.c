@@ -347,7 +347,7 @@ compute_may_aliases (void)
       {
         for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
           {
-            update_stmt_operands (bsi_stmt (bsi));
+            update_stmt_if_modified (bsi_stmt (bsi));
           }
       }
   }

@@ -2652,7 +2652,7 @@ stmt_for_bsi (tree stmt)
 
 /* Mark statement T as modified, and update it.  */
 static inline void
-update_new_stmt (tree t)
+update_modified_stmts (tree t)
 {
   if (TREE_CODE (t) == STATEMENT_LIST)
     {
@@ -2661,13 +2661,11 @@ update_new_stmt (tree t)
       for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
         {
 	  stmt = tsi_stmt (i);
-	  if (stmt_modified_p (stmt))
-	    update_stmt_operands (stmt);
+	  update_stmt_if_modified (stmt);
 	}
     }
   else
-    if (stmt_modified_p (t))
-      update_stmt_operands (t);
+    update_stmt_if_modified (t);
 }
 
 /* Insert statement (or statement list) T before the statement
@@ -2678,7 +2676,7 @@ void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
+  update_modified_stmts (t);
   tsi_link_before (&i->tsi, t, m);
 }
 
@@ -2691,7 +2689,7 @@ void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
-  update_new_stmt (t);
+  update_modified_stmts (t);
   tsi_link_after (&i->tsi, t, m);
 }
 
@@ -2770,7 +2768,7 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
     }
 
   *bsi_stmt_ptr (*bsi) = stmt;
-  update_new_stmt (stmt);
+  update_modified_stmts (stmt);
 }
 
 

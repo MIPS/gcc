@@ -122,7 +122,7 @@ copy_phis_to_block (basic_block new_bb, basic_block bb, edge e)
 
       /* Extract the argument corresponding to E from the current PHI
          node in BB.  */
-      arg = PHI_ARG_DEF_TREE (phi, phi_arg_from_edge (phi, e));
+      arg = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
 
       /* Now add that same argument to the new PHI node in block NEW_BB.  */
       add_phi_arg (&new_phi, arg, e);
@@ -317,7 +317,7 @@ thread_block (basic_block bb)
       for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  int indx = phi_arg_from_edge (phi, rd->outgoing_edge);
-	  add_phi_arg (&phi, PHI_ARG_DEF_TREE (phi, indx), e);
+	  add_phi_arg (&phi, PHI_ARG_DEF (phi, indx), e);
 	}
     }
 

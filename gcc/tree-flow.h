@@ -210,7 +210,6 @@ struct var_ann_d GTY(())
 
 typedef struct immediate_use_iterator_d
 {
-  tree var;
   ssa_imm_use_t *imm_use;
   ssa_imm_use_t *end_p;
   ssa_imm_use_t iter_node;
@@ -293,7 +292,6 @@ static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
-static inline void modify_stmt (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
 static inline varray_type may_aliases (tree);

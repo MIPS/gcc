@@ -109,6 +109,10 @@ ssa_redirect_edge (edge e, basic_block dest)
 static bool
 verify_ssa_name (tree ssa_name, bool is_virtual)
 {
+
+  if (!TREE_VISITED (ssa_name))
+    verify_imm_links (stderr, ssa_name, NULL);
+
   TREE_VISITED (ssa_name) = 1;
 
   if (TREE_CODE (ssa_name) != SSA_NAME)
@@ -213,11 +217,12 @@ err:
      that are defined before STMT in basic block BB.  */
 
 static bool
-verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
+verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
 	    tree stmt, bool check_abnormal, bool is_virtual,
 	    bitmap names_defined_in_bb)
 {
   bool err = false;
+  tree ssa_name = USE_FROM_PTR (use_p);
 
   err = verify_ssa_name (ssa_name, is_virtual);
 
@@ -250,6 +255,8 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
       error ("SSA_NAME_OCCURS_IN_ABNORMAL_PHI should be set");
       err = true;
     }
+
+  verify_imm_links (stderr, ssa_name, use_p);
 
   if (err)
     {
@@ -286,12 +293,13 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 
   for (i = 0; i < phi_num_args; i++)
     {
-      tree op = PHI_ARG_DEF (phi, i);
+      use_operand_p op_p = PHI_ARG_DEF_PTR (phi, i);
+      tree op = USE_FROM_PTR (op_p);
 
       e = PHI_ARG_EDGE (phi, i);
 
       if (TREE_CODE (op) == SSA_NAME)
-	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
+	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op_p,
 			  phi, e->flags & EDGE_ABNORMAL,
 			  !is_gimple_reg (PHI_RESULT (phi)),
 			  NULL);
@@ -514,7 +522,7 @@ verify_alias_info (void)
    TODO: verify the variable annotations.  */
 
 void
-verify_ssa (bool check_modified)
+verify_ssa (bool check_modified_stmt)
 {
   size_t i;
   basic_block bb;
@@ -563,9 +571,10 @@ verify_ssa (bool check_modified)
 	  tree stmt;
 
 	  stmt = bsi_stmt (bsi);
-	  if (check_modified && stmt_modified_p (stmt))
+	  if (check_modified_stmt && stmt_modified_p (stmt))
 	    {
-	      error ("Stmt (0x%x) is marked modified at end of optimization pass: ", (unsigned long)stmt);
+	      error ("Stmt (0x%x) marked modified after optimization pass : ",
+		     (unsigned long)stmt);
 	      print_generic_stmt (stderr, stmt, TDF_VOPS);
 	      goto err;
 	    }
@@ -626,19 +635,21 @@ verify_ssa (bool check_modified)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
-
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
+	  use_operand_p use_p;
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
 	    {
+	      op = USE_FROM_PTR (use_p);
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, true,
+			      use_p, stmt, false, true,
 			      names_defined_in_bb))
 		goto err;
 	    }
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
+	      op = USE_FROM_PTR (use_p);
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, false,
+			      use_p, stmt, false, false,
 			      names_defined_in_bb))
 		goto err;
 	    }
@@ -656,12 +667,13 @@ verify_ssa (bool check_modified)
 	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	    {
 	      bool virtual = !is_gimple_reg (PHI_RESULT (phi));
-	      op = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	      use_operand_p use_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
+	      op = USE_FROM_PTR (use_p);
 	      if (TREE_CODE (op) != SSA_NAME)
 		continue;
 
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, phi, false, virtual,
+			      use_p, phi, false, virtual,
 			      names_defined_in_bb))
 		goto err;
 	    }
@@ -738,7 +750,10 @@ delete_tree_ssa (void)
 
   fini_ssanames ();
   fini_phinodes ();
-  fini_ssa_operands ();
+  /* ssa operands are freed by the out of ssa pass if optimizing.  */
+  if (optimize < 1)
+    fini_ssa_operands ();
+
 
   global_var = NULL_TREE;
   BITMAP_XFREE (call_clobbered_vars);

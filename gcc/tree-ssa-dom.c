@@ -368,7 +368,7 @@ tree_ssa_dominator_optimize (void)
       {
 	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	  {
-	    update_stmt_operands (bsi_stmt (bsi));
+	    update_stmt_if_modified (bsi_stmt (bsi));
 	  }
       }
   }
@@ -2672,7 +2672,7 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 
   stmt = bsi_stmt (si);
 
-  update_stmt_operands (stmt);
+  update_stmt_if_modified (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
