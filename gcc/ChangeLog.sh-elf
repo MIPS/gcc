@@ -19,6 +19,7 @@
 	(MULTILIB_RAW_DIRNAMES): Define.
 	(MULTILIB_DIRNAMES): Use it.
 	* config/sh/t-netbsd-sh5, config/sh/t-le, config/sh/t-le: Delete.
+	* config/sh/t-monolib: Likewise.
 
 2004-06-16  Kaz Kojima  <kkojima@gcc.gnu.org>
 
