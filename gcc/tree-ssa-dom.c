@@ -259,6 +259,7 @@ static void restore_vars_to_original_value (varray_type locals,
 					    varray_type table);
 static void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 static void register_definitions_for_stmt (tree, varray_type *);
+static void redirect_edges_and_update_ssa_graph (varray_type);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -323,6 +324,222 @@ set_value_for (tree var, tree value, varray_type table)
   VARRAY_TREE (table, indx) = value;
 }
 
+/* REDIRECTION_EDGES contains edge pairs where we want to revector the
+   destination of the first edge to the destination of the second edge.
+
+   These redirections may significantly change the SSA graph since we
+   allow redirection through blocks with PHI nodes and blocks with
+   real instructions in some cases.
+
+   This routine will perform the requested redirections and incrementally
+   update the SSA graph. 
+
+   Note in some cases requested redirections may be ignored as they can
+   not be safely implemented.  */
+
+static void
+redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
+{
+  basic_block tgt;
+  unsigned int i;
+  size_t old_num_referenced_vars = num_referenced_vars;
+
+  /* First note any variables which we are going to have to take
+     out of SSA form.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
+    {
+      block_stmt_iterator bsi;
+      edge e;
+      basic_block tgt;
+      tree phi;
+
+      e = VARRAY_EDGE (redirection_edges, i);
+      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
+
+      /* All variables referenced in PHI nodes we bypass must be
+	 renamed.  */
+      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	{
+	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+	  int j;
+
+	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+
+	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, j);
+
+	      if (TREE_CODE (arg) != SSA_NAME)
+		continue;
+
+	      arg = SSA_NAME_VAR (arg);
+	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
+	    }
+        }
+
+      /* Any variables set by statements at the start of the block we
+	 are bypassing must also be taken our of SSA form.  */
+      for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  unsigned int j;
+	  def_optype defs;
+	  vdef_optype vdefs;
+	  tree stmt = bsi_stmt (bsi);
+
+	  if (TREE_CODE (stmt) == COND_EXPR)
+	    break;
+
+	  get_stmt_operands (stmt);
+
+	  defs = STMT_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_DEFS (defs); j++)
+	    {
+	      tree op = SSA_NAME_VAR (DEF_OP (defs, j));
+	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	    }
+
+	  vdefs = STMT_VDEF_OPS (stmt);
+	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	    {
+	      tree op = VDEF_RESULT (vdefs, j);
+	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	    }
+	}
+
+      /* Finally, any variables in PHI nodes at our final destination
+         must also be taken our of SSA form.  */
+      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
+	{
+	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+	  int j;
+
+	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+
+	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, j);
+
+	      if (TREE_CODE (arg) != SSA_NAME)
+		continue;
+
+	      arg = SSA_NAME_VAR (arg);
+	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
+	    }
+        }
+    }
+
+  /* Take those selected variables out of SSA form.  This must be
+     done before we start redirecting edges.  */
+  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+    rewrite_vars_out_of_ssa (vars_to_rename);
+
+  /* The out of SSA translation above may split the edge from
+     E->src to E->dest.  This could potentially cause us to lose
+     an assignment leading to invalid warnings about uninitialized
+     variables or incorrect code.
+
+     Luckily, we can detect this by looking at the last statement
+     in E->dest.  If it is not a COND_EXPR or SWITCH_EXPR, then
+     the edge was split and instead of E, we want E->dest->succ.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
+    {
+      edge e = VARRAY_EDGE (redirection_edges, i);
+      tree last = last_stmt (e->dest);
+
+      if (last
+	  && TREE_CODE (last) != COND_EXPR
+	  && TREE_CODE (last) != SWITCH_EXPR)
+	{
+	  e = e->dest->succ;
+
+#ifdef ENABLE_CHECKING
+	  /* There should only be a single successor if the
+	     original edge was split.  */
+	  if (e->succ_next)
+	    abort ();
+#endif
+	  /* Replace the edge in REDIRECTION_EDGES for the
+	     loop below.  */
+	  VARRAY_EDGE (redirection_edges, i) = e;
+	}
+    }
+
+  /* If we created any new variables as part of the out-of-ssa
+     translation, then any jump threads must be invalidated if they
+     bypass a block in which we skipped instructions.
+
+     This is necessary as instructions which appeared to be NOPS
+     may be necessary after the out-of-ssa translation.  */
+  if (num_referenced_vars != old_num_referenced_vars)
+    {
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
+	{
+	  block_stmt_iterator bsi;
+	  edge e;
+
+	  e = VARRAY_EDGE (redirection_edges, i);
+	  for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
+	    {
+	      tree stmt = bsi_stmt (bsi);
+
+	      if (IS_EMPTY_STMT (stmt)
+		  || TREE_CODE (stmt) == LABEL_EXPR)
+		continue;
+
+	      if (TREE_CODE (stmt) == COND_EXPR)
+		break;
+
+	      /* Invalidate the jump thread.  */
+	      VARRAY_EDGE (redirection_edges, i) = NULL;
+	      VARRAY_EDGE (redirection_edges, i + 1) = NULL;
+	      break;
+	    }
+	}
+    }
+
+  /* Now redirect the edges.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
+    {
+      basic_block src;
+      edge e;
+
+      e = VARRAY_EDGE (redirection_edges, i);
+      if (!e)
+	continue;
+
+      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
+
+
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
+		 e->src->index, e->dest->index, tgt->index);
+
+      src = e->src;
+
+      e = redirect_edge_and_branch (e, tgt);
+      PENDING_STMT (e) = NULL_TREE;
+
+      /* Updating the dominance information would be nontrivial.  */
+      free_dominance_info (CDI_DOMINATORS);
+      
+      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  && e->src != src)
+	fprintf (tree_dump_file, "    basic block %d created\n",
+		 e->src->index);
+
+      cfg_altered = true;
+    }
+
+  VARRAY_CLEAR (redirection_edges);
+
+  for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
+    {
+      bitmap_set_bit (vars_to_rename, i);
+      var_ann (referenced_var (i))->out_of_ssa_tag = 0;
+    }
+
+}
+
 /* Jump threading, redundancy elimination and const/copy propagation. 
 
    Optimize function FNDECL based on a walk through the dominator tree.
@@ -338,9 +555,7 @@ static void
 tree_ssa_dominator_optimize (void)
 {
   basic_block bb;
-  edge e;
   struct dom_walk_data walk_data;
-  tree phi;
 
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transforming natural loop into irreducible
@@ -391,9 +606,6 @@ tree_ssa_dominator_optimize (void)
      blocks.  */
   do
     {
-      size_t old_num_referenced_vars = num_referenced_vars;
-      size_t i;
-
       /* Optimize the dominator tree.  */
       cfg_altered = false;
 
@@ -408,156 +620,8 @@ tree_ssa_dominator_optimize (void)
       VARRAY_CLEAR (const_and_copies);
       VARRAY_CLEAR (nonzero_vars);
 
-      /* If some edges were threaded in this iteration, then perform
-	 the required redirections and recompute the dominators.  */
       if (VARRAY_ACTIVE_SIZE (redirection_edges) > 0)
-	{
-	  basic_block tgt;
-	  unsigned int i;
-
-	  /* First note any variables which we are going to have to take
-	     out of SSA form.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
-	    {
-	      block_stmt_iterator bsi;
-
-	      e = VARRAY_EDGE (redirection_edges, i);
-	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
-
-	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-		{
-		  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-		  int j;
-
-                  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-		  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-		    {
-		      tree arg = PHI_ARG_DEF (phi, j);
-
-		      if (TREE_CODE (arg) != SSA_NAME)
-			continue;
-
-		      arg = SSA_NAME_VAR (arg);
-		      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-		    }
-	        }
-
-	      /* Similarly for any real statements at the start of the
-		 block we threaded through.  */
-	      for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
-		{
-		  unsigned int j;
-		  def_optype defs;
-		  vdef_optype vdefs;
-		  tree stmt = bsi_stmt (bsi);
-
-		  if (TREE_CODE (stmt) == COND_EXPR)
-		    break;
-
-		  get_stmt_operands (stmt);
-
-		  defs = STMT_DEF_OPS (stmt);
-		  for (j = 0; j < NUM_DEFS (defs); j++)
-		    {
-		      tree op = SSA_NAME_VAR (DEF_OP (defs, j));
-		      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
-		    }
-
-		  vdefs = STMT_VDEF_OPS (stmt);
-		  for (j = 0; j < NUM_VDEFS (vdefs); j++)
-		    {
-		      tree op = VDEF_RESULT (vdefs, j);
-		      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
-		    }
-		}
-
-	      /* Similarly for our destination.  */
-	      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
-		{
-		  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-		  int j;
-
-                  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-		  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-		    {
-		      tree arg = PHI_ARG_DEF (phi, j);
-
-		      if (TREE_CODE (arg) != SSA_NAME)
-			continue;
-
-		      arg = SSA_NAME_VAR (arg);
-		      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-		    }
-	        }
-	    }
-
-	  /* Take those selected variables out of SSA form.  This must be
-	     done before we start redirecting edges.  */
-	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
-	    rewrite_vars_out_of_ssa (vars_to_rename);
-
-	  /* The out of SSA translation above may split the edge from
-	     E->src to E->dest.  This could potentially cause us to lose
-	     an assignment leading to invalid warnings about uninitialized
-	     variables or incorrect code.
-
-	     Luckily, we can detect this by looking at the last statement
-	     in E->dest.  If it is not a COND_EXPR or SWITCH_EXPR, then
-	     the edge was split and instead of E, we want E->dest->succ.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
-	    {
-	      edge e = VARRAY_EDGE (redirection_edges, i);
-	      tree last = last_stmt (e->dest);
-
-	      if (last
-		  && TREE_CODE (last) != COND_EXPR
-		  && TREE_CODE (last) != SWITCH_EXPR)
-		{
-		  e = e->dest->succ;
-
-#ifdef ENABLE_CHECKING
-		  /* There should only be a single successor if the
-		     original edge was split.  */
-		  if (e->succ_next)
-		    abort ();
-#endif
-		  /* Replace the edge in REDIRECTION_EDGES for the
-		     loop below.  */
-		  VARRAY_EDGE (redirection_edges, i) = e;
-		}
-	    }
-
-	  /* Now redirect the edges.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
-	    {
-	      basic_block src;
-
-	      e = VARRAY_EDGE (redirection_edges, i);
-	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
-
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-		fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
-			 e->src->index, e->dest->index, tgt->index);
-
-	      src = e->src;
-
-	      e = redirect_edge_and_branch (e, tgt);
-	      PENDING_STMT (e) = NULL_TREE;
-
-	      /* Updating the dominance information would be nontrivial.  */
-	      free_dominance_info (CDI_DOMINATORS);
-	      
-	      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    		  && e->src != src)
-		fprintf (tree_dump_file, "    basic block %d created\n",
-			 e->src->index);
-	    }
-
-	  VARRAY_CLEAR (redirection_edges);
-	  cfg_altered = true;
-	}
+	redirect_edges_and_update_ssa_graph (redirection_edges);
 
       /* We may have made some basic blocks unreachable, remove them.  */
       cfg_altered |= delete_unreachable_blocks ();
@@ -570,12 +634,6 @@ tree_ssa_dominator_optimize (void)
 	{
 	  cleanup_tree_cfg ();
 	  calculate_dominance_info (CDI_DOMINATORS);
-	}
-
-      for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
-	{
-	  bitmap_set_bit (vars_to_rename, i);
-	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
 	}
 
       /* If we are going to iterate (CFG_ALTERED is true), then we must

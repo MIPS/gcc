@@ -1,3 +1,9 @@
+2004-02-09  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Break out
+	of tree_ssa_dominator_optimize.  If the out-of-ssa pass creates
+	new variables, then invalidate some requested jump threads.
+                                                                                
 2004-02-08  Richard Henderson  <rth@redhat.com>
 
 	* flow.c (regno_uninitialized): Remove.
