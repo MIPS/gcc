@@ -3575,4 +3575,230 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
+/* Replaces immediate uses of VAR by REPL.  */
+
+static void
+replace_immediate_uses (tree var, tree repl)
+{
+  use_optype uses;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  int i, j, n;
+  dataflow_t df;
+  tree stmt;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  n = num_immediate_uses (df);
+
+  for (i = 0; i < n; i++)
+    {
+      stmt = immediate_use (df, i);
+
+      if (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
+	    if (PHI_ARG_DEF (stmt, j) == var)
+	      {
+		PHI_ARG_DEF (stmt, j) = repl;
+		if (TREE_CODE (repl) == SSA_NAME
+		    && PHI_ARG_EDGE (stmt, j)->flags & EDGE_ABNORMAL)
+		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
+	      }
+
+	  continue;
+	}
+
+      get_stmt_operands (stmt);
+      if (is_gimple_reg (SSA_NAME_VAR (var)))
+	{
+	  uses = STMT_USE_OPS (stmt);
+	  for (j = 0; j < (int) NUM_USES (uses); j++)
+	    if (USE_OP (uses, j) == var)
+	      *USE_OP_PTR (uses, j) = repl;
+	}
+      else
+	{
+	  vuses = STMT_VUSE_OPS (stmt);
+	  for (j = 0; j < (int) NUM_VUSES (vuses); j++)
+	    if (VUSE_OP (vuses, j) == var)
+	      *VUSE_OP_PTR (vuses, j) = repl;
+
+	  vdefs = STMT_VDEF_OPS (stmt);
+	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
+	    if (VDEF_OP (vdefs, j) == var)
+	      *VDEF_OP_PTR (vdefs, j) = repl;
+	}
+      modify_stmt (stmt);
+    }
+}
+
+/* Raises value of phi node PHI by joining it with VAL.  Processes immediate
+   uses of the phi recursively.  */
+
+static void
+raise_value (tree phi, tree val, tree *eq_to)
+{
+  int i, n;
+  tree var = PHI_RESULT (phi), stmt;
+  int ver = SSA_NAME_VERSION (var);
+  dataflow_t df;
+
+  if (eq_to[ver] == var)
+    return;
+
+  switch (TREE_CODE (val))
+    {
+    case SSA_NAME:
+    case REAL_CST:
+    case COMPLEX_CST:
+      break;
+    case INTEGER_CST:
+      if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE)
+	break;
+
+    default:
+      /* Do not propagate pointer constants.  This might require folding
+	 things like *&foo and rewriting the ssa, which is not worth the
+	 trouble.  */
+      val = var;
+    }
+
+  if (eq_to[ver])
+    {
+      if (operand_equal_p (eq_to[ver], val, 0))
+	return;
+
+      eq_to[ver] = var;
+    }
+  else
+    eq_to[ver] = val;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  n = num_immediate_uses (df);
+
+  for (i = 0; i < n; i++)
+    {
+      stmt = immediate_use (df, i);
+
+      if (TREE_CODE (stmt) != PHI_NODE)
+	continue;
+
+      raise_value (stmt, eq_to[ver], eq_to);
+    }
+}
+
+/* Removes redundant phi nodes.
+
+   A redundant PHI node is a PHI node where all of its PHI arguments
+   are the same value, excluding any PHI arguments which are the same
+   as the PHI result.
+
+   A redundant PHI node is effectively a copy, so we forward copy propagate
+   which removes all uses of the destination of the PHI node then
+   finally we delete the redundant PHI node.
+
+   Note that if we can not copy propagate the PHI node, then the PHI
+   will not be removed.  Thus we do not have to worry about dependencies
+   between PHIs and the problems serializing PHIs into copies creates. 
+   
+   The most important effect of this pass is to remove degenerate PHI
+   nodes created by removing unreachable code.  */
+
+void
+kill_redundant_phi_nodes (void)
+{
+  tree *eq_to, *ssa_names;
+  unsigned i, ver, aver;
+  basic_block bb;
+  tree phi, t, stmt, var;
+
+  /* The EQ_TO array holds the current value of the ssa name in the
+     lattice:
+
+          top
+         / | \
+     const   variables
+         \ | /
+        bottom
+
+     Bottom is represented by NULL and top by the variable itself.
+
+     Once the dataflow stabilizes, we know that the phi nodes we need to keep
+     are exactly those with top as their result. 
+
+     The remaining phi nodes have their uses replaced with their value
+     in the lattice and the phi node itself is removed.  */
+  eq_to = xcalloc (highest_ssa_version, sizeof (tree));
+
+  /* The SSA_NAMES array holds each SSA_NAME node we encounter
+     in a PHI node (indexed by ssa version number).
+
+     One could argue that the SSA_NAME manager ought to provide a
+     generic interface to get at the SSA_NAME node for a given
+     ssa version number.  */
+  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
+
+  /* We have had cases where computing immediate uses takes a
+     significant amount of compile time.  If we run into such
+     problems here, we may want to only compute immediate uses for
+     a subset of all the SSA_NAMEs instead of computing it for
+     all of the SSA_NAMEs.  */
+  compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+
+  FOR_EACH_BB (bb)
+    {
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  var = PHI_RESULT (phi);
+	  ver = SSA_NAME_VERSION (var);
+	  ssa_names[ver] = var;
+
+	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+	    {
+	      t = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (t) != SSA_NAME)
+		{
+		  raise_value (phi, t, eq_to);
+		  continue;
+		}
+
+	      stmt = SSA_NAME_DEF_STMT (t);
+	      aver = SSA_NAME_VERSION (t);
+	      ssa_names[aver] = t;
+
+	      /* If the defining statement for this argument is not a
+		 phi node or the argument is associated with an abnormal
+		 edge, then we need to recursively start the forward
+		 dataflow starting with PHI.  */
+	      if (TREE_CODE (stmt) != PHI_NODE
+		  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
+		{
+		  eq_to[aver] = t;
+		  raise_value (phi, t, eq_to);
+		}
+	    }
+	}
+    }
+
+  /* Now propagate the values.  */
+  for (i = 0; i < highest_ssa_version; i++)
+    if (eq_to[i]
+	&& eq_to[i] != ssa_names[i])
+      replace_immediate_uses (ssa_names[i], eq_to[i]);
+
+  /* And remove the dead phis.  */
+  for (i = 0; i < highest_ssa_version; i++)
+    if (eq_to[i]
+	&& eq_to[i] != ssa_names[i])
+      {
+	stmt = SSA_NAME_DEF_STMT (ssa_names[i]);
+	remove_phi_node (stmt, 0, bb_for_stmt (stmt));
+      }
+
+  free_df ();
+  free (eq_to);
+  free (ssa_names);
+}
+
 #include "gt-tree-ssa.h"

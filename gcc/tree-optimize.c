@@ -120,6 +120,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
 
+	  kill_redundant_phi_nodes ();
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();
 #endif
@@ -196,6 +197,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_5);
           ggc_collect ();
 
+	  kill_redundant_phi_nodes ();
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();
 #endif
@@ -222,6 +224,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
 	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_6);
 
+	  kill_redundant_phi_nodes ();
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();
 #endif

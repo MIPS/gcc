@@ -1171,6 +1171,7 @@ finalize (void)
   free (value_vector);
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);
+  free_df ();
 }
 
 /* Is the block worklist empty.  */

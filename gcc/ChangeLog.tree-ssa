@@ -1,3 +1,14 @@
+2004-01-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-dfa.c (free_df_for_stmt, free_df): New functions.
+	(compute_immediate_uses_for_stmt): Record uses in VDEFs.
+	* tree-flow.h (free_df, kill_redundant_phi_nodes): Declare.
+	* tree-optimize.c (optimize_function_tree): Call
+	kill_redundant_phi_nodes.
+	* tree-ssa-ccp.c (finalize): Call free_df.
+	* tree-ssa.c (replace_immediate_uses, raise_value,
+	kill_redundant_phi_nodes): New functions.
+
 2004-01-06  Jeff Law  <law@redhat.com>
 
 	* tree.h (FUNCTION_RECEIVES_NONLOCAL_GOTO): Kill.

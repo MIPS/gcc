@@ -286,6 +286,40 @@ compute_immediate_uses (int flags, bool (*calc_for)(tree))
     }
 }
 
+/* Invalidates dataflow information for a statement STMT.  */
+
+static void
+free_df_for_stmt (tree stmt)
+{
+  stmt_ann_t ann = stmt_ann (stmt);
+
+  if (ann)
+    ann->df = NULL;
+}
+
+/* Invalidates dataflow information.  */
+
+void
+free_df (void)
+{
+  basic_block bb;
+  block_stmt_iterator si;
+
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	free_df_for_stmt (phi);
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+        {
+	  tree stmt = bsi_stmt (si);
+	  free_df_for_stmt (stmt);
+	}
+    }
+}
+
 /* Helper for compute_immediate_uses.  Check all the USE and/or VUSE
    operands in phi node PHI and add a def-use edge between their
    defining statement and PHI.
@@ -326,6 +360,7 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
   size_t i;
   use_optype uses;
   vuse_optype vuses;
+  vdef_optype vdefs;
   stmt_ann_t ann;
 
   /* PHI nodes are handled elsewhere.  */
@@ -354,6 +389,15 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
       for (i = 0; i < NUM_VUSES (vuses); i++)
 	{
 	  tree vuse = VUSE_OP (vuses, i);
+	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (vuse)))
+	    add_immediate_use (imm_rdef_stmt, stmt);
+	}
+
+      vdefs = VDEF_OPS (ann);
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	{
+	  tree vuse = VDEF_OP (vdefs, i);
 	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (vuse);
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (vuse)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
