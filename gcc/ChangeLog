@@ -1,3 +1,8 @@
+2003-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (finish_decl): Change _libfunc SYMBOL_REFs created in
+	optabs.c when redirecting a builtin.
+
 2003-06-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.c (expand_builtin_strcpy): Don't evaluate side-effects in
