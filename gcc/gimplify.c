@@ -1454,7 +1454,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
      Gimplify the base, and then process each of the outer nodes from left
      to right.  */
   gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
-		 code == COMPONENT_REF ? fb_either : fb_lvalue);
+		 code != ARRAY_REF ? fb_either : fb_lvalue);
 
   for (; VARRAY_ACTIVE_SIZE (stack) > 0; VARRAY_POP (stack))
     {

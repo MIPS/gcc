@@ -1,3 +1,8 @@
+2003-09-10  Paul Brook  <paul@nowt.org>
+
+	* gcc.c-torture/execute/20030910-1.c: New test.
+	* gcc.g-torture/compile/20030910-1.c: New test.
+
 2003-09-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcc.c-torture/execute/20030909-1.c: New test.

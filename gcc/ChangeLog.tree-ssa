@@ -1,3 +1,10 @@
+2003-09-10  Paul Brook  <paul@nowt.org>
+
+	* gimplify.c (gimplify_compound_lval): Treat REALPART_EXPR and
+	IMAGPART_EXPR the same as COMPONENT_REF.
+	* tree-simple.c (is_gimple_addr_expr_arg): Ditto.
+	(is_gimple_lvalue): Remove REALPART_EXPR and IMAGPART_EXPR.
+
 2003-09-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c (decl_name_str): New local function.

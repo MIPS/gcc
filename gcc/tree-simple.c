@@ -234,9 +234,7 @@ is_gimple_lvalue (tree t)
 	  || TREE_CODE (t) == INDIRECT_REF
 	  /* These are complex lvalues, but don't have addresses, so they
 	     go here.  */
-	  || TREE_CODE (t) == BIT_FIELD_REF
-	  || TREE_CODE (t) == REALPART_EXPR
-	  || TREE_CODE (t) == IMAGPART_EXPR);
+	  || TREE_CODE (t) == BIT_FIELD_REF);
 }
 
 
@@ -266,7 +264,9 @@ is_gimple_addr_expr_arg (tree t)
 {
   return (is_gimple_id (t)
 	  || TREE_CODE (t) == ARRAY_REF
-	  || TREE_CODE (t) == COMPONENT_REF);
+	  || TREE_CODE (t) == COMPONENT_REF
+	  || TREE_CODE (t) == REALPART_EXPR
+	  || TREE_CODE (t) == IMAGPART_EXPR);
 }
 
 /*  Return nonzero if T is a constant.  This is one of the few predicates
