@@ -1,3 +1,176 @@
+2002-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/generic/messages_members.cc: Add specialization for
+	messages<wchar_t>.
+	* config/locale/ieee_1003.1-20021/messages_members.cc: Likewise.
+
+2002-09-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/localefwd.h: Tweak formatting.
+	* docs/html/abi.txt: Add.
+
+2002-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.target: Use cpu_include_dir="config/cpu/sparc" for all
+	sparc targets.
+	* config/cpu/sparc/atomicity.h: New file.
+	* config/cpu/sparc/sparc32/atomicity.h: Removed.
+	* config/cpu/sparc/sparc64/atomicity.h: Removed.
+
+2002-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/os/gnu-linux/ctype_noninline.h
+	[_GLIBCPP_USE_SHADOW_HEADERS]: Remove using _C_legacy::__ctype_*.
+	(ctype<char>::classic_table): If _GLIBCPP_C_LOCALE_GNU, return
+	_S_c_locale->__ctype_b, otherwise temporarily switch to "C" locale
+	and return __ctype_b.
+	(ctype<char>::ctype(__c_locale, const mask*, bool, size_t)): If not
+	_GLIBCPP_C_LOCALE_GNU, temporarily switch to "C" locale and
+	initialize using __ctype_{b,tolower,toupper}.
+	(ctype<char>::ctype(const mask*, bool, size_t)): If
+	_GLIBCPP_C_LOCALE_GNU, initialize using
+	_S_c_locale->__ctype_{b,tolower,toupper}, otherwise temporarily
+	switch to "C" locale and initialize using __ctype_{b,tolower,toupper}.
+
+2002-09-05  Paolo Carlini  <pcarlini@unitus.it>
+            Roland McGrath  <roland@redhat.com>
+
+	PR libstdc++/7811
+	* src/locale.cc (locale::locale(__s)): Use getenv instead
+	of setenv for the environment locale.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test03): New.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/ia64-unknown-linux-gnu: Add.
+	* config/abi/ia64-unknown-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/alphaev67-unknown-linux-gnu: Add.
+	* config/abi/alphaev67-unknown-linux-gnu/baseline_symbols.txt: New file.
+
+2002-09-05  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/Makefile:  Use more portable shell wildcard.
+	* docs/html/makedoc.awk:  Nest elements correctly for XHTML conversion.
+	* docs/html/configopts.html, docs/html/documentation.html,
+	docs/html/explanations.html, docs/html/install.html,
+	docs/html/17_intro/contribute.html, docs/html/17_intro/howto.html,
+	docs/html/17_intro/license.html, docs/html/18_support/howto.html,
+	docs/html/19_diagnostics/howto.html, docs/html/20_util/howto.html,
+	docs/html/21_strings/howto.html, docs/html/22_locale/codecvt.html,
+	docs/html/22_locale/ctype.html, docs/html/22_locale/howto.html,
+	docs/html/22_locale/locale.html, docs/html/22_locale/messages.html,
+	docs/html/23_containers/howto.html, docs/html/24_iterators/howto.html,
+	docs/html/25_algorithms/howto.html, docs/html/26_numerics/howto.html,
+	docs/html/27_io/howto.html, docs/html/ext/howto.html,
+	docs/html/ext/sgiexts.html, docs/html/faq/index.html:  Convert
+	to XHTML.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/ctype_members.cc (ctype<wchar_t>::do_widen(char)):
+	Switch to _M_c_locale_ctype around btowc call.
+	(ctype<wchar_t>::do_widen(const char*, const char *, wchar_t*)):
+	Switch to _M_c_locale_ctype around mbsrtowcs call.
+	(ctype<wchar_t>::do_narrow(char)): Switch to _M_c_locale_ctype around
+	wctob call.
+	(ctype<wchar_t>::do_narrow(const char*, const char *, wchar_t*)):
+	Switch to _M_c_locale_ctype around wcsrtombs call.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t, true>::_M_initialize_moneypunct,
+	moneypunct<wchar_t, false>::_M_initialize_moneypunct): Use
+	__uselocale instead of setlocale for glibc 2.3.
+
+2002-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/generic/c++locale_internal.h: New header.
+	* config/locale/gnu/c++locale_internal.h: New header.
+	* config/locale/gnu/c_locale.cc: Include it.
+	* config/locale/gnu/collate_members.cc: Include it.
+	* config/locale/gnu/ctype_members.cc: Include it.
+	* config/locale/gnu/messages_members.cc: Include it.
+	* config/locale/gnu/monetary_members.cc: Include it.
+	* config/locale/gnu/numeric_members.cc: Include it.
+	* config/locale/gnu/time_members.cc: Include it.
+	(_M_put): Reorder __strftime_l and __wcsftime_l arguments to match
+	glibc.
+	(_M_initialize_timepunct): Initialize _M_c_locale_timepunct for
+	C locale.
+	* acinclude.m4: Include string.h when testing strcoll_l.
+	For glibc 2.3 provide __-prefixed prototypes.
+	(CLOCALE_INTERNAL_H): Set, add AC_LINK_FILES line.
+	* aclocal.m4, configure: Rebuilt.
+
+2002-09-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h: Add declaration of specialization
+	here.
+	* config/locale/gnu/messages_members.cc: Add specialization for
+	messages<wchar_t>.
+	* config/locale/gnu/messages_members.h: Remove generic definition
+	of do_get.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_f32_infinity_bytes,
+	__glibcpp_f32_has_infinity, __glibcpp_f64_infinity_bytes,
+	__glibcpp_f64_has_infinity, __glibcpp_f80_infinity_bytes,
+	__glibcpp_f80_has_infinity, __glibcpp_f96_infinity_bytes,
+	__glibcpp_f96_has_infinity, __glibcpp_f128_infinity_bytes,
+	__glibcpp_f128_has_infinity, __glibcpp_float_infinity_bytes,
+	__glibcpp_float_has_infinity, __glibcpp_double_infinity_bytes,
+	__glibcpp_double_has_infinity, __glibcpp_long_double_infinity_bytes,
+	__glibcpp_long_double_has_infinity): Remove.
+	(std::numeric_limits<float>, std::numeric_limits<double>,
+	std::numeric_limits<long double>): Use __builtin_huge_val
+	to implement has_infinity and infinity().
+	* src/limits.cc (__glibcpp_float_infinity, __glibcpp_double_infinity,
+	__glibcpp_long_double_infinity): Remove.
+
+2002-09-03  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_f32_min, __glibcpp_f32_max,
+	__glibcpp_f32_digits, __glibcpp_f32_digits10, __glibcpp_f32_radix,
+	__glibcpp_f32_epsilon, __glibcpp_f32_min_exponent,
+	__glibcpp_f32_min_exponent10, __glibcpp_f32_max_exponent,
+	__glibcpp_f32_max_exponent10, __glibcpp_f64_min, __glibcpp_f64_max,
+	__glibcpp_f64_digits, __glibcpp_f64_digits10, __glibcpp_f64_radix,
+	__glibcpp_f64_min_exponent, __glibcpp_f64_min_exponent10,
+	__glibcpp_f64_max_exponent, __glibcpp_f64_max_exponent10,
+	__glibcpp_f80_min, __glibcpp_f80_max, __glibcpp_f80_digits,
+	__glibcpp_f80_digits10, __glibcpp_f80_radix, __glibcpp_f80_epsilon,
+	__glibcpp_f80_min_exponent, __glibcpp_f80_min_exponent10,
+	__glibcpp_f80_max_exponent, __glibcpp_f80_max_exponent10,
+	__glibcpp_f96_min, __glibcpp_f96_max, __glibcpp_f96_digits,
+	__glibcpp_f96_digits10, __glibcpp_f96_radix, __glibcpp_f96_epsilon,
+	__glibcpp_f96_min_exponent, __glibcpp_f96_min_exponent10,
+	__glibcpp_f96_max_exponent, __glibcpp_f96_max_exponent10,
+	__glibcpp_f128_min, __glibcpp_f128_max, __glibcpp_f128_digits,
+	__glibcpp_f128_digits10, __glibcpp_f128_radix, __glibcpp_f128_epsilon,
+	__glibcpp_f128_min_exponent, __glibcpp_f128_min_exponent10,
+	__glibcpp_f128_max_exponent, __glibcpp_f128_max_exponent10,
+	__glibcpp_float_min, __glibcpp_float_max, __glibcpp_float_digits,
+	__glibcpp_float_digits10, __glibcpp_float_radix,
+	__glibcpp_float_epsilon, __glibcpp_float_min_exponent,
+	__glibcpp_float_min_exponent10, __glibcpp_float_max_exponent,
+	__glibcpp_float_max_exponent10, __glibcpp_double_min,
+	__glibcpp_double_max, __glibcpp_double_digits,
+	__glibcpp_double_digits10, __glibcpp_double_radix,
+	__glibcpp_double_epsilon, __glibcpp_double_min_exponent,
+	__glibcpp_double_min_exponent10, __glibcpp_double_max_exponent,
+	__glibcpp_double_max_exponent10, __glibcpp_long_double_min,
+	__glibcpp_long_double_max, __glibcpp_long_double_digits,
+	__glibcpp_long_double_digits10, __glibcpp_long_double_radix,
+	__glibcpp_long_double_epsilon, __glibcpp_long_double_min_exponent,
+	__glibcpp_long_double_min_exponent10,
+	__glibcpp_long_double_max_exponent,
+	__glibcpp_long_double_max_exponent10): Remove macros.
+	(std::numeric_limits<float>, std::numeric_limits<double>,
+	std::numeric_limits<long double>): Use protected float.h macros.
+
 2002-09-01  Phil Edwards  <pme@gcc.gnu.org>
 
 	* testsuite/Makefile.am:  Use LD_RUN_PATH when linking abi_check.

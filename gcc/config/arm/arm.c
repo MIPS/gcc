@@ -1756,9 +1756,20 @@ int
 arm_return_in_memory (type)
      tree type;
 {
+  HOST_WIDE_INT size;
+
   if (!AGGREGATE_TYPE_P (type))
     /* All simple types are returned in registers.  */
     return 0;
+
+  size = int_size_in_bytes (type);
+
+  if (TARGET_ATPCS)
+    {
+      /* ATPCS returns aggregate types in memory only if they are
+	 larger than a word (or are variable size).  */
+      return (size < 0 || size > UNITS_PER_WORD);
+    }
   
   /* For the arm-wince targets we choose to be compitable with Microsoft's
      ARM and Thumb compilers, which always return aggregates in memory.  */
@@ -1767,7 +1778,7 @@ arm_return_in_memory (type)
      Also catch the case where int_size_in_bytes returns -1.  In this case
      the aggregate is either huge or of varaible size, and in either case
      we will want to return it via memory and not in a register.  */
-  if (((unsigned int) int_size_in_bytes (type)) > UNITS_PER_WORD)
+  if (size < 0 || size > UNITS_PER_WORD)
     return 1;
   
   if (TREE_CODE (type) == RECORD_TYPE)
@@ -1842,6 +1853,27 @@ arm_return_in_memory (type)
 #endif /* not ARM_WINCE */  
   
   /* Return all other types in memory.  */
+  return 1;
+}
+
+/* Indicate whether or not words of a double are in big-endian order. */
+
+int
+arm_float_words_big_endian ()
+{
+
+  /* For FPA, float words are always big-endian.  For VFP, floats words
+     follow the memory system mode.  */
+
+  if (TARGET_HARD_FLOAT)
+    {
+      /* FIXME: TARGET_HARD_FLOAT currently implies FPA.  */
+      return 1;
+    }
+
+  if (TARGET_VFP)
+    return (TARGET_BIG_END ? 1 : 0);
+
   return 1;
 }
 
@@ -4880,6 +4912,19 @@ arm_gen_compare_reg (code, x, y)
 			  gen_rtx_COMPARE (mode, x, y)));
 
   return cc_reg;
+}
+
+/* Generate a sequence of insns that will generate the correct return
+   address mask depending on the physical architecture that the program
+   is running on.  */
+
+rtx
+arm_gen_return_addr_mask ()
+{
+  rtx reg = gen_reg_rtx (Pmode);
+
+  emit_insn (gen_return_addr_mask (reg));
+  return reg;
 }
 
 void

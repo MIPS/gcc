@@ -1,9 +1,565 @@
+2002-09-07  Scott Snyder  <snyder@fnal.gov>
+
+	PR target/7374
+	* config/alpha/alpha.md (abstf2): Fix typo: 'neg' for 'abs'.
+
+2002-09-07  Roger Sayle  <roger@eyesopen.com>
+
+	* basic-block.h (struct loop): Remove unused cont_dominator field.
+
+2002-09-07  Igor Shevlyakov <igor@microunity.com>
+
+        * varasm.c (decode_rtx_const): Don't check undefined field for
+	CONST_VECTOR.
+
+2002-09-07  Glen Nakamura  <glen@imodulo.com>
+
+	PR opt/7814
+	* sched-deps.c (sched_analyze_insn): Make sure to add insn
+	to reg_last->sets after flushing the dependency lists to guarantee
+	that subsequent clobbers will be dependent on it.
+
+2002-09-07  Igor Shevlyakov <igor@microunity.com>
+  
+	* combine.c (simplify_shift_const): Calculate rotate count
+	correctly for vector operands.
+
+2002-09-07  Ansgar Esztermann  <ansgar@thphy.uni-duesseldorf.de>
+
+	* c-typeck.c (c_tree_expr_nonnegative_p): New function.
+	(build_binary_op): Call c_tree_expr_nonnegative_p rather than
+	tree_expr_nonnegative_p.  
+	(build_conditional_expr): Likewise.
+	* c-tree.h (c_tree_expr_nonnegative_p): Declare.
+
+2002-09-07  Richard Henderson  <rth@redhat.com>
+
+	* builtins.def (inf, inff, infl): Mark const.
+	(huge_val, huge_valf, huge_vall): Likewise.
+	(BUILT_IN_GETEXP, BUILT_IN_GETMAN): Remove.
+
+	* real.c (ereal_inf): Clear E before use.
+
+2002-09-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (udivmodqi4): Split the pattern into
+	an expander and an anonymous pattern.  Zero out the upper half
+	of the dividend in the expander.
+	(udivmodqi4): Likewise.
+
+2002-09-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c: Fix formatting.
+	* config/h8300/h8300.h: Likewise.
+	* config/h8300/h8300.md: Likewise.
+
+2002-09-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgcleanup.c (try_crossjump_to_edge): Fix updating of liveness
+	information.
+
+2002-09-07  Graham Stott  <graham.stott@btinternet.con>
+
+       * rtlanal.c (dead_or_set_regno_p): Fix typo.
+
+2002-09-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (ASM_PREFERRED_EH_DATA_FORMAT): Define.
+
+	* doc/tm.texi (TARGET_ASM_ASSEMBLE_VISIBILITY): Describe.
+	* target-def.h (TARGET_ASM_ASSEMBLE_VISIBILITY): Define.
+	(TARGET_ASM_OUT): Add the above here.
+	* target.h (struct gcc_target): Add "visibility" field.
+	* varasm.c (maybe_assemble_visibility): Call targetm visibility func.
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): New function.
+	(TARGET_ASM_ASSEMBLE_VISIBILITY): Define.
+	(rs6000_legitimize_reload_address, first_reg_to_save): Formatting.
+
+2002-09-06  Ziemowit Laski <zlaski@apple.com>
+
+	* c-lang.c (objc_is_id): New stub.
+	* c-tree.h (objc_is_id): New forward declaration.
+	* c-typeck.c (build_c_cast): Do not strip protocol
+	qualifiers from 'id' type.
+	* objc/objc-act.c (objc_comptypes): Correct handling
+	of protocol qualifiers.
+	(objc_is_id): New.
+
+Fri Sep  6 13:10:08 2002  Jeffrey A Law  (law@redhat.com)
+
+	* pentium.md (pentium-firstvboth): Fix typo.
+
+2002-09-06	Dhananjay Deshpande <dhananjayd@kpit.com>
+
+	* h8300.c (enum shift_alg): Move to earlier in h8300.c.
+	(enum shift_type, enum h8_cpu): Likewise.
+	(INL, ROT, LOP, SPC macros): Likewise.
+	(shift_alg_qi, shift_alg_hi, shift_alg_si): Likewise.  Lose
+	const designator.
+	(h8300_init_once): Update shift_alg_{qi,hi,si} to use more
+	space efficient algorithms when optimize for codesize.
+
+Fri Sep  6 16:35:32 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	Fix PR/1727 and long-standing failing testcase
+	objc/formal-protocol-6.m.
+	* objc-act.c (build_protocol_expr): If compiling for the GNU
+	runtime, create a list of Protocol statically allocated instances
+	if it doesn't exist, then add the Protocol object to this same
+	list.
+	(get_objc_string_decl): Fixed typo/bug - TREE_VALUE had been used
+	instead of TREE_CHAIN.
+
+Fri Sep  6 16:17:33 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/objc-act.c (dump_interface): Enlarged the char * buffer to
+	10k.  Fixed category dumping - print out category names with the
+	proper syntax.  Print '@end\n' and not '\n@end' at the end of the
+	interface.
+	(finish_objc): Fixed the -gen-decls option.  It was printing out
+	only the last class.  Dump an interface declaration of all classes
+	being compiled instead.
+
+2002-09-06  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/arm/arm-protos.h (arm_gen_return_addr_mask): New 
+	prototype. 
+	* config/arm/arm.c (arm_gen_return_addr_mask): New function.
+	* config/arm/arm.h (MASK_RETURN_ADDR): Use arm_gen_return_addr_mask
+	if not APCS26 and not Thumb or ARMv4-or-higher.  Use gen_int_mode
+	rather than GEN_INT.
+	* config/arm/arm.md (UNSPEC_CHECK_ARCH): Define.
+	(return_addr_mask, *check_arch2): New.
+
+2002-09-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*adddi3_cc", "*adddi3_cconly", 
+	"*adddi3_cconly2", "*adddi3_64", "*adddi3_31", "adddi3",
+	"*addsi3_carry1_cc", "*addsi3_carry1_cconly",	
+	"*addsi3_carry2_cc", "*addsi3_carry2_cconly",
+	"*addsi3_cc", "*addsi3_cconly", "*addsi3_cconly2", "addsi3",
+	"adddf3", "*adddf3", "*adddf3_ibm", 
+	"addsf3", "*addsf3", "*addsf3_ibm",
+	"muldi3", "mulsi3", "mulsidi3",
+	"muldf3", "*muldf3", "*muldf3_ibm",
+	"mulsf3", "*mulsf3", "*mulsf3_ibm",
+	"*anddi3_cc", "*anddi3_cconly", "anddi3",
+	"*andsi3_cc", "*andsi3_cconly", "andsi3",
+	"*iordi3_cc", "*iordi3_cconly", "iordi3",
+	"*iorsi3_cc", "*iorsi3_cconly", "iorsi3",
+	"*xordi3_cc", "*xordi3_cconly", "xordi3",
+	"*xorsi3_cc", "*xorsi3_cconly", "xorsi3"): Use "nonimmediate_operand"
+	instead of "register_operand" as predicate for "%0" operand.
+
+2002-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.in (HAVE_AS_OFFSETABLE_LO10): Use -xarch=v9
+	unconditionally when gcc_cv_as_flags64 checks are gone.
+	* configure: Rebuilt.
+
+2002-09-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (extzvsi_internal2): Revert most of
+	2002-07-26 change.  Comment.
+
+2002-09-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* frv.c (frv_unique_section, frv_select_section,
+	frv_select_rtx_section): Delete.
+	(frv_in_small_data_p): New.
+	(TARGET_ASM_UNIQUE_SECTION, TARGET_ASM_SELECT_SECTION,
+	TARGET_ASM_SELECT_RTX_SECTION): Delete.
+	(TARGET_IN_SMALL_DATA_P): Define.
+
+2002-09-05  Dale Johannesen  <dalej@apple.com>
+
+	* reload1.c (reload):  Retain only those memory clobbers
+	added for variable-array handling.
+
+2002-09-05  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/arm/arm.c (arm_return_in_memory): Implement ATPCS
+	return-in-memory rules. 
+	* config/arm/arm.h (ARM_FLAG_ATPCS, TARGET_ATPCS): Define.
+
+2002-09-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/xcoff.h (HOT_TEXT_SECTION_NAME): Delete.
+	(UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Delete.
+
+2002-09-05  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* real.c: Avoid parse error if FLOAT_WORDS_BIG_ENDIAN is
+	not a compile-time constant for the non-IBM case.
+	* config/arm/arm-protos.h (arm_float_words_big_endian): New
+	prototype. 
+	* config/arm/arm.c (arm_float_words_big_endian): New function.
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Define __VFP_FP__
+	if TARGET_VFP  and not TARGET_HARD_FLOAT. 
+	(ARM_FLAG_VFP, TARGET_VFP): Define. 
+	(FLOAT_WORDS_BIG_ENDIAN): Use arm_float_words_big_endian.
+
+2002-09-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi: Correct text of s390-*-linux* and s390x-*-linux*
+	URLs.  Fix AIX wording.
+
+2002-09-05  Stan Shebs  <shebs@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Make -fpic and
+	-fPIC equivalent on Darwin.
+
+Thu Sep  5 16:27:47 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_expand_builtin): Return early if encountering an
+	error_mark for a type.
+
+2002-09-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_plus_operand): Do not require
+	double-word scratch register.
+	config/s390/s390.md ("reload_indi", "reload_insi"): Adapt.
+
+	("*tmqi_ext", "*tmdi_mem", "*tmsi_mem", "*tmhi_mem", "*tmqi_mem", 
+	"*cli"): Replace s_operand by memory_operand.
+	("cmpstrdi", "cmpstrsi"): Replace s_operand by general_operand.
+
+2002-09-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (asm_file_start): Add a missing
+	semicolon.
+
+2002-09-04  Krister Walfridsson  <cato@df.lth.se>
+
+	* config/i386/i386.h (GOT_SYMBOL_NAME): Define.
+	* config/i386/i386.c (output_set_got): Use GOT_SYMBOL_NAME.
+	(ix86_output_addr_diff_elt) Likewise.
+	(x86_output_mi_thunk) Likewise.
+	* config/i386/netbsd.h (GOT_SYMBOL_NAME): Redefine.
+
+2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* frv.c (frv_encode_section_info): Fix error in last change.
+
+2002-09-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_flag_pic): New variable.
+	(rs6000_elf_encode_section_info): ATTRIBUTE_UNUSED.
+	(TARGET_BINDS_LOCAL_P): Define.
+	(rs6000_override_options): Save original flag_pic value.
+	(rs6000_elf_select_section): Call default_elf_select_section_1.
+	(rs6000_elf_unique_section): Call default_unique_section_1.
+	(rs6000_elf_in_small_data_p): New function.
+	(rs6000_xcoff_asm_named_section): Determine storage mapping class.
+	(rs6000_xcoff_select_section): Update based on defaults.
+	(rs6000_xcoff_unique_section): Set to basic name if not common.
+	(rs6000_binds_local_p): New function.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Set
+	targetm.have_srodata_section if SDATA_EABI.
+	(TARGET_IN_SMALL_DATA_P): Define.
+
+2002-09-04  Dale Johannesen  <dalej@apple.com>
+
+	* varasm.c (struct rtx_const, decode_rtx_const):
+	Make veclo and vechi fields not share storage.
+
+Thu Sep  5 00:34:33 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* loop.c (scan_loop): Don't mark separate insns out of a libcall
+	for moving.
+	(move_movables): Abort if we see the first insn of a libcall.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* builtin-types.def (BT_FN_FLOAT): New.
+	(BT_FN_DOUBLE, BT_FN_LONG_DOUBLE): New.
+	* builtins.def (BUILT_IN_INF, BUILT_IN_INFF, BUILT_IN_INFL,
+	BUILT_IN_HUGE_VAL, BUILT_IN_HUGE_VALF, BUILT_IN_HUGE_VALL): New.
+	* builtins.c (fold_builtin_inf): New.
+	(fold_builtin): Call it.
+	* real.c (ereal_inf): New.
+	* real.h: Declare it.
+	* doc/extend.texi: Document new builtins.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* cse.c (cse_insn): Avoid subreg games if the equivalence
+	is already in the proper mode.
+
+2002-09-04  Eric Botcazou  <ebotcazou@multimania.com>
+
+	PR c/7102
+	* optabs.c (expand_binop): Convert CONST_INTs in all cases.
+
+2002-09-04  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.md (setccfp0, setccfp1): New patterns.
+
+2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* frv-protos.h (frv_init_builtins, frv_expand_builtin,
+	frv_select_section, frv_select_rtx_section,
+	frv_encode_section_info, frv_unique_section): Delete.
+	* frv.c: Update for target hooks.
+	* frv.h (STRIP_NAME_ENCODING, SLOW_ZERO_EXTEND, SELECT_SECTION,
+	SELECT_RTX_SECTION, ENCODE_SECTION_INFO, UNIQUE_SECTION,
+	EASY_DIV_EXPR, MD_INIT_BUILTINS, MD_EXPAND_BUILTIN): Delete.
+
+2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ip2k-protos.h (function_prologue, function_epilogue,
+	encode_section_info): Update to match target hook specification.
+	* ip2k.c: Wrap `MDR' code in IP2K_MD_REORG_PASS.
+	(function_prologue, function_epilogue, encode_section_info):
+	Update to match target hook specification.
+	* ip2k.h (SELECT_SECTION, SELECT_RTX_SECTION, ASM_OPEN_PAREN,
+	ASM_CLOSE_PAREN, EASY_DIV_EXPR): Delete.
+	(NOTICE_UPDATE_CC): Cast to void.
+	* ip2k.md: Add defaults in switch statements.
+
+2002-09-04  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/trouble.texi (Interoperation): Update information about C++ ABI
+	issues.
+
+2002-09-04  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/sparc/t-netbsd64: Disable multilib for now.
+
+2002-09-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* target-def.h (TARGET_HAVE_SRODATA_SECTION): New macro.
+	* target.h (gcc_target): Add have_srodata_section member.
+	* varasm.c (section_category): Add SECCAT_SRODATA.
+	(categorize_decl_for_section): Return SECCAT_SRODATA for sdata if
+	READONLY_SDATA_SECTION defined.
+	(decl_readonly_section_1): True for SECCAT_SRODATA also.
+	(default_elf_select_section_1): Map SECCAT_SRODATA to .sdata2.
+	(default_unique_section_1): Likewise.
+
+2002-09-04  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* expr.c (emit_group_load): Revise to allow splitting TCmode source
+	into DImode pieces.
+
+	* pa-64.h (LONG_DOUBLE_TYPE_SIZE): Define to 128.
+	* pa64-regs.h (CLASS_CANNOT_CHANGE_MODE_P): Inhibit changes from SImode
+	for floating-point register class.
+	* pa.c (function_arg): Fix handling of modes wider than one word for
+	TARGET_64BIT.
+
+Wed Sep  4 18:48:10 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* combine.c (make_compound_operation): Don't generate zero / sign
+	extensions in floating point modes.
+
+2002-09-04  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/c-tree.texi: Fix overfull hboxes.
+	* doc/cppopts.texi: Ditto.
+	* doc/extend.texi: Ditto.
+	* doc/gty.texi: Ditto.
+	* doc/invoke.texi: Ditto.
+	* doc/makefile.texi: Ditto.
+	* doc/rtl.texi: Ditto.
+	* doc/standards.texi: Ditto.
+	* doc/tm.texi: Ditto.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (builtin_define_with_hex_fp_value): New.
+	(builtin_define_float_constants): Use it.  Fix H_FLOAT mant_dig.
+
+2002-09-04  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (-fshort-wchar): Move to Code Generation Options.
+	(-fpcc-struct-return, -freg-struct-return, -fshort-enums,
+	-fshort-double, -fshort-wchar, -fpack-struct, -fleading-underscore):
+	Warn that these options can break ABI compatibility.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* real.c (ereal_to_decimal): Add digits parameter.
+	* real.h (REAL_VALUE_TO_DECIMAL): Remove format; add digits parameter.
+	* c-pretty-print.c (pp_c_real_literal): Update call.
+	* print-rtl.c (print_rtx): Likewise.
+	* print-tree.c (print_node_brief, print_node): Likewise.
+	* sched-vis.c (print_value): Likewise.
+	* config/arc/arc.c (arc_print_operand): Likewise.
+	* config/c4x/c4x.c (c4x_print_operand): Likewise.
+	* config/i370/i370.h (PRINT_OPERAND): Likewise.
+	* config/i386/i386.c (print_operand): Likewise.
+	* config/i960/i960.c (i960_print_operand): Likewise.
+	* config/ip2k/ip2k.c (asm_output_float): Likewise.
+	* config/m32r/m32r.c (m32r_print_operand): Likewise.
+	* config/m68hc11/m68hc11.c (print_operand): Likewise.
+	* config/m68k/hp320.h (PRINT_OPERAND, ASM_OUTPUT_FLOAT_OPERAND,
+	ASM_OUTPUT_DOUBLE_OPERAND, ASM_OUTPUT_LONG_DOUBLE_OPERAND): Likewise.
+	* config/m68k/m68k.h (ASM_OUTPUT_FLOAT_OPERAND, 
+	ASM_OUTPUT_DOUBLE_OPERAND, ASM_OUTPUT_LONG_DOUBLE_OPERAND): Likewise.
+	* config/m68k/sun2o4.h (ASM_OUTPUT_FLOAT_OPERAND,
+	ASM_OUTPUT_DOUBLE_OPERAND): Likewise.
+	* config/m68k/sun3.h (ASM_OUTPUT_FLOAT_OPERAND,
+	ASM_OUTPUT_DOUBLE_OPERAND): Likewise.
+	* config/mips/mips.c (print_operand): Likewise.
+	* config/ns32k/ns32k.c (print_operand): Likewise.
+	* config/pdp11/pdp11.h (PRINT_OPERAND): Likewise.
+	* config/vax/vax.h (PRINT_OPERAND): Likewise.
+	* doc/tm.texi (REAL_VALUE_TO_DECIMAL): Update docs.
+
+2002-09-04  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/elf.h (TARGET_SECTION_TYPE_FLAGS): Define to
+	xtensa_multibss_section_type_flags.
+	* config/xtensa/xtensa.c (xtensa_multibss_section_type_flags): Define.
+
+2002-09-04  Richard Henderson  <rth@redhat.com>
+
+	* doc/install-old.texi: Don't mention enquire.
+	* doc/sourcebuild.texi: Update float.h description.
+
+Wed Sep  4 11:22:14 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.md (mperm_w_little, mperm_w_big): Supply mode for zero_extract.
+
+2002-09-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* varasm.c (default_section_type_flags): Append _1 to name with
+	shlib parameter.  Use original name to call new function with
+	implicit flag_pic.
+	(decl_readonly_section): Likewise.
+	(default_elf_select_section): Likewise.
+	(default_unique_section): Likewise.
+	(default_bind_local_p): Likewise.
+	(categorize_decl_for_section): Add shlib parameter to use in place
+	of implicit flag_pic.
+	* output.h: Declare new functions with _1 and shlib argument.
+
+2002-09-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi: Fix typos, formatting problems, and obvious
+	overfull/underfull boxes.
+
+	* Makefile.in (TEXI_GCC_FILES): Add compat.texi.
+	* doc/gcc.texi (Top): Add new chapter, Binary Compatibility, and
+	include its file, compat.texi.
+	* doc/compat.texi: New file with new chapter, Binary Compatibility.
+
+2002-09-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	Debian BTS Bug #157416
+	* cpphash.h (FIRST, LAST, CUR, RLIMIT): Fix definitions.
+	* cpplib.c (destringize_and_run): Kludge around getting
+	tokens from in-progress macros.
+	(_cpp_do__Pragma): Simplify.
+
+2002-09-03  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.h (EXTRA_SPECS): Remove cpp_cpu.
+	(CPP_CPU_SPEC): Remove.
+	(TARGET_CPU_CPP_BUILTINS): New.
+	* config/ia64/hpux.h (CPP_PREDEFINES): Remove.
+	(CPP_SPEC): Remove.
+	(TARGET_OS_CPP_BUILTINS): New.
+	* config/ia64/linux.h (CPP_PREDEFINES): Remove.
+	(TARGET_OS_CPP_BUILTINS): New.
+	* config/ia64/aix.h (CPP_SPEC): Move some stuff to
+	TARGET_OS_CPP_BUILTINS.
+	(CPP_PREDEFINES): Remove.
+	(CPLUSPLUS_CPP_SPEC): Remove.
+	(TARGET_OS_CPP_BUILTINS): New.
+
+2002-09-03  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (USER_H): Add ginclude/float.h.
+	(FLOAT_H): Remove.
+	(stmp-int-hdrs, install-mkheaders): Don't handle FLOAT_H.
+	(mostlyclean): Don't remove float.h intermediate files.
+	(distclean): Don't remove float.h.
+	* config.gcc: Remove all float_format references.
+	* configure.in (float_format, float_h_file): Remove.
+
+	* c-common.c: Include tree-inline.h.
+	(builtin_define_with_int_value): New.
+	(builtin_define_type_precision): Use it.
+	(builtin_define_float_constants): New.
+	(cb_register_builtins): Use it.  Define __FLT_RADIX__ and
+	__FLT_EVAL_METHOD__.
+	* defaults.h (TARGET_FLT_EVAL_METHOD): New.
+	* config/i386/i386.h (TARGET_FLT_EVAL_METHOD): New.
+	* config/m68k/m68k.h (TARGET_FLT_EVAL_METHOD): New.
+	* doc/tm.texi (INTEL_EXTENDED_IEEE_FORMAT): Mention moto 96-bit format.
+	(TARGET_FLT_EVAL_METHOD): New.
+
+	* config/float-c4x.h, config/float-i128.h, config/float-i32.h,
+	config/float-i386.h, config/float-i64.h, config/float-m68k.h,
+	config/float-sh.h, config/float-sparc.h, config/float-vax.h: Remove.
+	* ginclude/float.h: New.
+
+2002-09-03  Stan Shebs  <shebs@apple.com>
+
+	* config/darwin.h (WARN_FOUR_CHAR_CONSTANTS): Remove, never used.
+	(DWARF2_DEBUGGING_INFO): Remove until assembler accepts Dwarf-2.
+	(PREFERRED_DEBUGGING_TYPE): Ditto.
+	(ASM_OUTPUT_IDENT): Remove empty definition.
+
+2002-09-03  Steve Ellcey  <sje@cup.hp.com>
+
+	* config.gcc (ia64*-*-hpux*): Add ia64-c.o to c_target and
+	cxx_target.
+	* config/ia64/hpux.h (REGISTER_TARGET_PRAGMAS): Register pragma
+	handling routine for builtin pragma.
+	* config/ia64/ia64-protos.h (ia64_hpux_handle_builtin_pragma):
+	Registered pragma handling routine.
+	* ia64-c.c (ia64_hpux_handle_builtin_pragma): Ditto.
+	(ia64_hpux_add_pragma_builtin) New subroutine used by above.
+	If builtin pragma seen for math routine and C89 conformance is
+	requested use different math function in order to set errno.
+	* t-ia64 (ia64-c.o): Add new rule for new file.
+
+2002-09-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("movti"): Add Q->Q alternative.
+	("*movdi_64", "*movdi_31", "*movsi", "movhi", "movqi_64",
+	"movqi", "*movdf_64", "*movdf_31", "*movsf"): Likewise.
+	
+	("*movti_ss", "*movdi_ss", "*movsi_ss", "*movdf_ss", 
+	"*movsf_ss"): Remove.
+
+2002-09-03  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa32-regs.h (CLASS_CANNOT_CHANGE_MODE, CLASS_CANNOT_CHANGE_MODE_P):
+	Delete macros.
+
+2002-09-03   Arati Dikey  <aratid@kpit.com>
+
+	* h8300.c (asm_file_start): Corrected optimization comment.
+
+2002-09-03  Stan Shebs  <shebs@apple.com>
+
+	* c-lang.c (recognize_objc_keyword): Remove, no longer used.
+	* c-tree.h (recognize_objc_keyword): Remove decl.
+	* c-typeck.c (comp_target_types): Update a comment.
+
+2002-09-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_decompose_address): Remove STRICT parameter
+	and register validity checks.
+	(general_s_operand): Adapt to s390_decompose_address interface change.
+	(q_constraint): Likewise.
+	(s390_expand_plus_operand): Likewise.
+	(legitimiate_address_p): Likewise.
+	(legitimate_la_operand_p): Likewise.
+	(legitimize_la_operand): Likewise.
+	(print_operand_address): Likewise.
+	(print_operand): Likewise.
+
 Tue Sep  3 11:32:14 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	PR objc/5956:
 	* objc/objc-act.c (build_typed_selector_reference): Fix typo which
 	was causing the new selector never to match the existing ones 
-        (Patch by Alexander Malmberg <alexander@malmberg.org>). 
+	(Patch by Alexander Malmberg <alexander@malmberg.org>). 
 
 2002-09-03  Graham Stott  <graham.stott@btinternet.com>
 
@@ -312,17 +868,17 @@ Tue Aug 27 23:03:52 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	already been defined, and emit a warning if not.
 
 2002-08-27  Nick Clifton  <nickc@redhat.com>
-            Catherine Moore  <clm@redhat.com>
-            Jim Wilson  <wilson@cygnus.com>
+	    Catherine Moore  <clm@redhat.com>
+	    Jim Wilson  <wilson@cygnus.com>
 
-        * config.gcc: Add v850e-*-* target.
-        Add --with-cpu= support for v850.
-        * config/v850/lib1funcs.asm: Add v850e callt functions.
-        * config/v850/v850.h: Add support for v850e target.
-        * config/v850/v850.c: Add functions to support v850e target.
-        * config/v850/v850-protos.h: Add prototypes for new functions in v850.c.
-        * config/v850/v850.md: Add patterns for v850e instructions.
-        * doc/invoke.texi: Document new v850e command line switches.
+	* config.gcc: Add v850e-*-* target.
+	Add --with-cpu= support for v850.
+	* config/v850/lib1funcs.asm: Add v850e callt functions.
+	* config/v850/v850.h: Add support for v850e target.
+	* config/v850/v850.c: Add functions to support v850e target.
+	* config/v850/v850-protos.h: Add prototypes for new functions in v850.c.
+	* config/v850/v850.md: Add patterns for v850e instructions.
+	* doc/invoke.texi: Document new v850e command line switches.
 
 Tue Aug 27 18:30:47 2002  J"orn Rennecke <joern.rennecke@superh.com>
 			  Aldy Hernandez <aldyh at redhat dot com>

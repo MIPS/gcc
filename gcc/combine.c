@@ -6629,7 +6629,11 @@ make_compound_operation (x, in_code)
 	  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (tem))
 	      || (GET_MODE_SIZE (mode) >
 		  GET_MODE_SIZE (GET_MODE (XEXP (tem, 0)))))
-	    tem = gen_rtx_fmt_e (GET_CODE (tem), mode, XEXP (tem, 0));
+	    {
+	      if (! INTEGRAL_MODE_P (mode))
+		break;
+	      tem = gen_rtx_fmt_e (GET_CODE (tem), mode, XEXP (tem, 0));
+	    }
 	  else
 	    tem = gen_lowpart_for_combine (mode, XEXP (tem, 0));
 	  return tem;
@@ -9042,7 +9046,14 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
 
       /* Convert ROTATERT to ROTATE.  */
       if (code == ROTATERT)
-	code = ROTATE, count = GET_MODE_BITSIZE (result_mode) - count;
+	{
+	  unsigned int bitsize = GET_MODE_BITSIZE (result_mode);;
+	  code = ROTATE;
+	  if (VECTOR_MODE_P (result_mode))
+	    count = bitsize / GET_MODE_NUNITS (result_mode) - count;
+	  else
+	    count = bitsize - count;
+	}
 
       /* We need to determine what mode we will do the shift in.  If the
 	 shift is a right shift or a ROTATE, we must always do it in the mode

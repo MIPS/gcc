@@ -648,13 +648,16 @@ objc_comptypes (lhs, rhs, reflexive)
 		      tree cat;
 
 		      rproto_list = CLASS_PROTOCOL_LIST (rinter);
-		      /* If the underlying ObjC class does not have
-			 protocols attached to it, perhaps there are
-			 "one-off" protocols attached to the rhs?
-			 E.g., 'id<MyProt> foo;'.  */
-		      if (!rproto_list)
-			rproto_list = TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
 		      rproto = lookup_protocol_in_reflist (rproto_list, p);
+		      /* If the underlying ObjC class does not have
+			 the protocol we're looking for, check for "one-off"
+			 protocols (e.g., `NSObject<MyProt> foo;') attached
+			 to the rhs.  */
+		      if (!rproto)
+			{
+			  rproto_list = TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
+			  rproto = lookup_protocol_in_reflist (rproto_list, p);
+			}
 
 		      /* Check for protocols adopted by categories.  */
 		      cat = CLASS_CATEGORY_LIST (rinter);
@@ -1679,7 +1682,7 @@ get_objc_string_decl (ident, section)
   else
     abort ();
 
-  for (; chain != 0; chain = TREE_VALUE (chain))
+  for (; chain != 0; chain = TREE_CHAIN (chain))
     if (TREE_VALUE (chain) == ident)
       return (TREE_PURPOSE (chain));
 
@@ -2259,6 +2262,17 @@ is_class_name (ident)
     }
 
   return 0;
+}
+
+tree
+objc_is_id (ident)
+     tree ident;
+{
+  /* NB: This function may be called before the ObjC front-end
+     has been initialized, in which case ID_TYPE will be NULL. */
+  return (id_type && ident && TYPE_P (ident) && IS_ID (ident)) 
+	  ? id_type 
+	  : NULL_TREE;
 }
 
 tree
@@ -2867,6 +2881,43 @@ generate_protocol_references (plist)
     }
 }
 
+/* For each protocol which was referenced either from a @protocol()
+   expression, or because a class/category implements it (then a
+   pointer to the protocol is stored in the struct describing the
+   class/category), we create a statically allocated instance of the
+   Protocol class.  The code is written in such a way as to generate
+   as few Protocol objects as possible; we generate a unique Protocol
+   instance for each protocol, and we don't generate a Protocol
+   instance if the protocol is never referenced (either from a
+   @protocol() or from a class/category implementation).  These
+   statically allocated objects can be referred to via the static
+   (that is, private to this module) symbols _OBJC_PROTOCOL_n.
+   
+   The statically allocated Protocol objects that we generate here
+   need to be fixed up at runtime in order to be used: the 'isa'
+  pointer of the objects need to be set up to point to the 'Protocol'
+   class, as known at runtime.
+
+   The NeXT runtime fixes up all protocols at program startup time,
+   before main() is entered.  It uses a low-level trick to look up all
+   those symbols, then loops on them and fixes them up.
+
+   The GNU runtime as well fixes up all protocols before user code
+   from the module is executed; it requires pointers to those symbols
+   to be put in the objc_symtab (which is then passed as argument to
+   the function __objc_exec_class() which the compiler sets up to be
+   executed automatically when the module is loaded); setup of those
+   Protocol objects happen in two ways in the GNU runtime: all
+   Protocol objects referred to by a class or category implementation
+   are fixed up when the class/category is loaded; all Protocol
+   objects referred to by a @protocol() expression are added by the
+   compiler to the list of statically allocated instances to fixup
+   (the same list holding the statically allocated constant string
+   objects).  Because, as explained above, the compiler generates as
+   few Protocol objects as possible, some Protocol object might end up
+   being referenced multiple times when compiled with the GNU runtime,
+   and end up being fixed up multiple times at runtime inizialization.
+   But that doesn't hurt, it's just a little inefficient.  */
 static void
 generate_protocols ()
 {
@@ -5081,6 +5132,8 @@ build_protocol_reference (p)
   PROTOCOL_FORWARD_DECL (p) = decl;
 }
 
+/* This function is called by the parser when (and only when) a
+   @protocol() expression is found, in order to compile it.  */
 tree
 build_protocol_expr (protoname)
      tree protoname;
@@ -5101,6 +5154,50 @@ build_protocol_expr (protoname)
   expr = build_unary_op (ADDR_EXPR, PROTOCOL_FORWARD_DECL (p), 0);
 
   TREE_TYPE (expr) = protocol_type;
+
+  /* The @protocol() expression is being compiled into a pointer to a
+     statically allocated instance of the Protocol class.  To become
+     usable at runtime, the 'isa' pointer of the instance need to be
+     fixed up at runtime by the runtime library, to point to the
+     actual 'Protocol' class.  */
+
+  /* For the GNU runtime, put the static Protocol instance in the list
+     of statically allocated instances, so that we make sure that its
+     'isa' pointer is fixed up at runtime by the GNU runtime library
+     to point to the Protocol class (at runtime, when loading the
+     module, the GNU runtime library loops on the statically allocated
+     instances (as found in the defs field in objc_symtab) and fixups
+     all the 'isa' pointers of those objects).  */
+  if (! flag_next_runtime)
+    {
+      /* This type is a struct containing the fields of a Protocol
+        object.  (Cfr. protocol_type instead is the type of a pointer
+        to such a struct).  */
+      tree protocol_struct_type = xref_tag 
+       (RECORD_TYPE, get_identifier (PROTOCOL_OBJECT_CLASS_NAME));
+      tree *chain;
+      
+      /* Look for the list of Protocol statically allocated instances
+        to fixup at runtime.  Create a new list to hold Protocol
+        statically allocated instances, if the list is not found.  At
+        present there is only another list, holding NSConstantString
+        static instances to be fixed up at runtime.  */
+      for (chain = &objc_static_instances;
+	   *chain && TREE_VALUE (*chain) != protocol_struct_type;
+	   chain = &TREE_CHAIN (*chain));
+      if (!*chain)
+	{
+         *chain = tree_cons (NULL_TREE, protocol_struct_type, NULL_TREE);
+         add_objc_string (TYPE_NAME (protocol_struct_type),
+                          class_names);
+       }
+      
+      /* Add this statically allocated instance to the Protocol list.  */
+      TREE_PURPOSE (*chain) = tree_cons (NULL_TREE, 
+					 PROTOCOL_FORWARD_DECL (p),
+					 TREE_PURPOSE (*chain));
+    }
+  
 
   return expr;
 }
@@ -7836,12 +7933,21 @@ gen_method_decl (method, buf)
 
 /* Debug info.  */
 
+
+/* Dump an @interface declaration of the supplied class CHAIN to the
+   supplied file FP.  Used to implement the -gen-decls option (which
+   prints out an @interface declaration of all classes compiled in
+   this run); potentially useful for debugging the compiler too.  */
 static void
 dump_interface (fp, chain)
      FILE *fp;
      tree chain;
 {
-  char *buf = (char *) xmalloc (256);
+  /* FIXME: A heap overflow here whenever a method (or ivar)
+     declaration is so long that it doesn't fit in the buffer.  The
+     code and all the related functions should be rewritten to avoid
+     using fixed size buffers.  */
+  char *buf = (char *) xmalloc (1024 * 10);
   const char *my_name = IDENTIFIER_POINTER (CLASS_NAME (chain));
   tree ivar_decls = CLASS_RAW_IVARS (chain);
   tree nst_methods = CLASS_NST_METHODS (chain);
@@ -7849,14 +7955,26 @@ dump_interface (fp, chain)
 
   fprintf (fp, "\n@interface %s", my_name);
 
+  /* CLASS_SUPER_NAME is used to store the superclass name for 
+     classes, and the category name for categories.  */
   if (CLASS_SUPER_NAME (chain))
     {
-      const char *super_name = IDENTIFIER_POINTER (CLASS_SUPER_NAME (chain));
-      fprintf (fp, " : %s\n", super_name);
+      const char *name = IDENTIFIER_POINTER (CLASS_SUPER_NAME (chain));
+      
+      if (TREE_CODE (chain) == CATEGORY_IMPLEMENTATION_TYPE 
+	  || TREE_CODE (chain) == CATEGORY_INTERFACE_TYPE)
+	{
+	  fprintf (fp, " (%s)\n", name);
+	}
+      else
+	{
+	  fprintf (fp, " : %s\n", name);
+	}
     }
   else
     fprintf (fp, "\n");
 
+  /* FIXME - the following doesn't seem to work at the moment.  */
   if (ivar_decls)
     {
       fprintf (fp, "{\n");
@@ -7880,7 +7998,8 @@ dump_interface (fp, chain)
       fprintf (fp, "+ %s;\n", gen_method_decl (cls_methods, buf));
       cls_methods = TREE_CHAIN (cls_methods);
     }
-  fprintf (fp, "\n@end");
+
+  fprintf (fp, "@end\n");
 }
 
 /* Demangle function for Objective-C */
@@ -8000,7 +8119,16 @@ finish_objc ()
 
       UOBJC_CLASS_decl = impent->class_decl;
       UOBJC_METACLASS_decl = impent->meta_decl;
-
+      
+      /* Dump the @interface of each class as we compile it, if the
+	 -gen-decls option is in use.  TODO: Dump the classes in the
+         order they were found, rather than in reverse order as we
+         are doing now.  */
+      if (flag_gen_declaration)
+	{
+	  dump_interface (gen_declaration_file, objc_implementation_context);
+	}
+      
       if (TREE_CODE (objc_implementation_context) == CLASS_IMPLEMENTATION_TYPE)
 	{
 	  /* all of the following reference the string pool...  */
@@ -8050,12 +8178,6 @@ finish_objc ()
   /* Dump the string table last.  */
 
   generate_strings ();
-
-  if (flag_gen_declaration)
-    {
-      add_class (objc_implementation_context);
-      dump_interface (gen_declaration_file, objc_implementation_context);
-    }
 
   if (warn_selector)
     {

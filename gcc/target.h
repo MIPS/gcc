@@ -72,6 +72,10 @@ struct gcc_target
     /* Output code that will globalize a label.  */
     void (* globalize_label) PARAMS ((FILE *, const char *));
 
+    /* Emit an assembler directive to set visibility for the symbol
+       associated with the tree decl.  */
+    void (* visibility) PARAMS ((tree, const char *));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -262,6 +266,9 @@ struct gcc_target
 
   /* True if thread-local storage is supported.  */
   bool have_tls;
+
+  /* True if a small readonly data section is supported.  */
+  bool have_srodata_section;
 };
 
 extern struct gcc_target targetm;
