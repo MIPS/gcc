@@ -1,5 +1,5 @@
 /* Check that indirect sibcalls understand regparm.  */
-/* { dg-do run { i?86-*-* } } */
+/* { dg-do run { target i?86-*-* } } */
 /* { dg-options "-O2" } */
 
 int (*f)(int, int) __attribute__((regparm(2)));

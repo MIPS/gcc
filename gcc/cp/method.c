@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "target.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -408,8 +409,8 @@ use_thunk (thunk_fndecl, emit_p)
   BLOCK_VARS (DECL_INITIAL (thunk_fndecl)) 
     = DECL_ARGUMENTS (thunk_fndecl);
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (!vcall_offset)
+  if (targetm.asm_out.output_mi_vcall_thunk
+      || (targetm.asm_out.output_mi_thunk && !vcall_offset))
     {
       const char *fnname;
       current_function_decl = thunk_fndecl;
@@ -419,18 +420,32 @@ use_thunk (thunk_fndecl, emit_p)
       init_function_start (thunk_fndecl, input_filename, lineno);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
-      ASM_OUTPUT_MI_THUNK (asm_out_file, thunk_fndecl, delta, function);
+      if (targetm.asm_out.output_mi_vcall_thunk)
+	{
+	  HOST_WIDE_INT vcall_value;
+
+	  if (vcall_offset)
+	    vcall_value = tree_low_cst (vcall_offset, /*pos=*/0);
+	  else
+	    vcall_value = 0;
+	  targetm.asm_out.output_mi_vcall_thunk (asm_out_file, 
+						 thunk_fndecl, delta, 
+						 vcall_value,
+						 function);
+	}
+      else
+	targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl, 
+					 delta, function);
       assemble_end_function (thunk_fndecl, fnname);
       current_function_decl = 0;
       cfun = 0;
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
     }
   else
-#endif /* ASM_OUTPUT_MI_THUNK */
     {
-      /* If we don't have the necessary macro for efficient thunks, generate
-	 a thunk function that just makes a call to the real function.
-	 Unfortunately, this doesn't work for varargs.  */
+      /* If we don't have the necessary code for efficient thunks,
+	 generate a thunk function that just makes a call to the real
+	 function.  Unfortunately, this doesn't work for varargs.  */
 
       tree a, t;
 
@@ -705,7 +720,7 @@ do_build_assign_ref (fndecl)
 
 	  comp = build (COMPONENT_REF, TREE_TYPE (field), comp, field);
 	  init = build (COMPONENT_REF,
-	                build_qualified_type (TREE_TYPE (field), cvquals),
+	                cp_build_qualified_type (TREE_TYPE (field), cvquals),
 	                init, field);
 
 	  if (DECL_NAME (field))

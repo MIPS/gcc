@@ -197,6 +197,11 @@ static int target_help_flag;
 
 static int report_times;
 
+/* Nonzero means place this string before uses of /, so that include
+   and library files can be found in an alternate location.  */
+
+static const char *target_system_root = TARGET_SYSTEM_ROOT;
+
 /* Nonzero means write "temp" files in source directory
    and use the source file's name in them, and don't delete them.  */
 
@@ -289,6 +294,8 @@ static char *find_a_file	PARAMS ((struct path_prefix *, const char *,
 					 int, int));
 static void add_prefix		PARAMS ((struct path_prefix *, const char *,
 					 const char *, int, int, int *, int));
+static void add_sysrooted_prefix PARAMS ((struct path_prefix *, const char *,
+					  const char *, int, int, int *, int));
 static void translate_options	PARAMS ((int *, const char *const **));
 static char *skip_whitespace	PARAMS ((char *));
 static void delete_if_ordinary	PARAMS ((const char *));
@@ -310,6 +317,7 @@ static char *save_string	PARAMS ((const char *, int));
 static void set_collect_gcc_options PARAMS ((void));
 static int do_spec_1		PARAMS ((const char *, int, const char *));
 static int do_spec_2		PARAMS ((const char *));
+static void do_self_spec	PARAMS ((const char *));
 static const char *find_file	PARAMS ((const char *));
 static int is_directory		PARAMS ((const char *, const char *, int));
 static const char *validate_switches	PARAMS ((const char *));
@@ -774,6 +782,12 @@ static const char *multilib_exclusions;
 #endif
 
 static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
+
+#ifndef DRIVER_SELF_SPECS
+#define DRIVER_SELF_SPECS ""
+#endif
+
+static const char *const driver_self_specs[] = { DRIVER_SELF_SPECS };
 
 struct user_specs
 {
@@ -2771,6 +2785,33 @@ add_prefix (pprefix, prefix, component, priority, require_machine_suffix,
   pl->next = (*prev);
   (*prev) = pl;
 }
+
+/* Same as add_prefix, but prepending target_system_root to prefix.  */
+static void
+add_sysrooted_prefix (pprefix, prefix, component, priority,
+		      require_machine_suffix, warn, os_multilib)
+     struct path_prefix *pprefix;
+     const char *prefix;
+     const char *component;
+     /* enum prefix_priority */ int priority;
+     int require_machine_suffix;
+     int *warn;
+     int os_multilib;
+{
+  if (!IS_ABSOLUTE_PATHNAME (prefix))
+    abort ();
+
+  if (target_system_root)
+    {
+      prefix = concat (target_system_root, prefix, NULL);
+      /* We have to override this because GCC's notion of sysroot
+	 moves along with GCC.  */
+      component = "GCC";
+    }
+
+  add_prefix (pprefix, prefix, component, priority,
+	      require_machine_suffix, warn, os_multilib);
+}
 
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
@@ -3935,6 +3976,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      concat (tooldir_prefix, "lib", dir_separator_str, NULL),
 	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
 
+  if (target_system_root && gcc_exec_prefix)
+    {
+      char *tmp_prefix = make_relative_prefix (argv[0],
+					       standard_bindir_prefix,
+					       target_system_root);
+      if (tmp_prefix && access_check (tmp_prefix, F_OK) == 0)
+	target_system_root = tmp_prefix;
+    }
+
   /* More prefixes are enabled in main, after we read the specs file
      and determine whether this is cross-compilation or not.  */
 
@@ -4323,6 +4373,45 @@ do_spec_2 (spec)
   suffix_subst = NULL;
 
   return do_spec_1 (spec, 0, NULL);
+}
+
+
+/* Process the given spec string and add any new options to the end
+   of the switches/n_switches array.  */
+
+static void
+do_self_spec (spec)
+     const char *spec;
+{
+  do_spec_2 (spec);
+  do_spec_1 (" ", 0, NULL);
+
+  if (argbuf_index > 0)
+    {
+      int i, first;
+
+      first = n_switches;
+      n_switches += argbuf_index;
+      switches = xrealloc (switches,
+			   sizeof (struct switchstr) * (n_switches + 1));
+
+      switches[n_switches] = switches[first];
+      for (i = 0; i < argbuf_index; i++)
+	{
+	  struct switchstr *sw;
+
+	  /* Each switch should start with '-'.  */
+	  if (argbuf[i][0] != '-')
+	    abort ();
+
+	  sw = &switches[i + first];
+	  sw->part1 = &argbuf[i][1];
+	  sw->args = 0;
+	  sw->live_cond = SWITCH_OK;
+	  sw->validated = 0;
+	  sw->ordering = 0;
+	}
+    }
 }
 
 /* Process the sub-spec SPEC as a portion of a larger spec.
@@ -5138,6 +5227,14 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      if (value != 0)
 		return value;
 	    }
+	    break;
+
+	  case 'R':
+	    /* We assume there is a directory
+	       separator at the end of this string.  */
+	    if (target_system_root)
+	      obstack_grow (&obstack, target_system_root, 
+			    strlen (target_system_root));
 	    break;
 
 	  case 'S':
@@ -6045,6 +6142,12 @@ main (argc, argv)
 
   process_command (argc, argv);
 
+  /* Process DRIVER_SELF_SPECS, adding any new options to the end
+     of the command line.  */
+
+  for (i = 0; i < ARRAY_SIZE (driver_self_specs); i++)
+    do_self_spec (driver_self_specs[i]);
+
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */
 
@@ -6078,34 +6181,51 @@ main (argc, argv)
   if (access (specs_file, R_OK) == 0)
     read_specs (specs_file, TRUE);
 
-  /* If not cross-compiling, look for startfiles in the standard places.
-     Similarly, don't add the standard prefixes if startfile handling
-     will be under control of startfile_prefix_spec.  */
-  if (*cross_compile == '0' && *startfile_prefix_spec == 0)
+  /* If not cross-compiling, look for executables in the standard
+     places.  */
+  if (*cross_compile == '0')
     {
       if (*md_exec_prefix)
 	{
 	  add_prefix (&exec_prefixes, md_exec_prefix, "GCC",
 		      PREFIX_PRIORITY_LAST, 0, NULL, 0);
-	  add_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
-		      PREFIX_PRIORITY_LAST, 0, NULL, 0);
 	}
+    }
+
+  /* Look for startfiles in the standard places.  */
+  if (*startfile_prefix_spec != 0
+      && do_spec_2 (startfile_prefix_spec) == 0
+      && do_spec_1 (" ", 0, NULL) == 0)
+    {
+      int ndx;
+      for (ndx = 0; ndx < argbuf_index; ndx++)
+	add_sysrooted_prefix (&startfile_prefixes, argbuf[ndx], "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+    }
+  /* We should eventually get rid of all these and stick to
+     startfile_prefix_spec exclusively.  */
+  else if (*cross_compile == '0' || target_system_root)
+    {
+      if (*md_exec_prefix)
+	add_sysrooted_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
 
       if (*md_startfile_prefix)
-	add_prefix (&startfile_prefixes, md_startfile_prefix, "GCC",
-		    PREFIX_PRIORITY_LAST, 0, NULL, 1);
+	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix,
+			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
 
       if (*md_startfile_prefix_1)
-	add_prefix (&startfile_prefixes, md_startfile_prefix_1, "GCC",
-		    PREFIX_PRIORITY_LAST, 0, NULL, 1);
+	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix_1,
+			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
 
       /* If standard_startfile_prefix is relative, base it on
 	 standard_exec_prefix.  This lets us move the installed tree
 	 as a unit.  If GCC_EXEC_PREFIX is defined, base
 	 standard_startfile_prefix on that as well.  */
       if (IS_ABSOLUTE_PATHNAME (standard_startfile_prefix))
-	add_prefix (&startfile_prefixes, standard_startfile_prefix, "BINUTILS",
-		    PREFIX_PRIORITY_LAST, 0, NULL, 1);
+	add_sysrooted_prefix (&startfile_prefixes,
+			      standard_startfile_prefix, "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
       else
 	{
 	  if (gcc_exec_prefix)
@@ -6120,33 +6240,14 @@ main (argc, argv)
 		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
 	}
 
-      add_prefix (&startfile_prefixes, standard_startfile_prefix_1,
-		  "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
-      add_prefix (&startfile_prefixes, standard_startfile_prefix_2,
-		  "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_1,
+			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_2,
+			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
 #if 0 /* Can cause surprises, and one can use -B./ instead.  */
       add_prefix (&startfile_prefixes, "./", NULL,
 		  PREFIX_PRIORITY_LAST, 1, NULL, 0);
 #endif
-    }
-  else
-    {
-      if (!IS_ABSOLUTE_PATHNAME (standard_startfile_prefix)
-	  && gcc_exec_prefix)
-	add_prefix (&startfile_prefixes,
-		    concat (gcc_exec_prefix, machine_suffix,
-			    standard_startfile_prefix, NULL),
-		    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
-    }
-
-  if (*startfile_prefix_spec != 0
-      && do_spec_2 (startfile_prefix_spec) == 0
-      && do_spec_1 (" ", 0, NULL) == 0)
-    {
-      int ndx;
-      for (ndx = 0; ndx < argbuf_index; ndx++)
-	add_prefix (&startfile_prefixes, argbuf[ndx], "BINUTILS",
-		    PREFIX_PRIORITY_LAST, 0, NULL, 1);
     }
 
   /* Process any user specified specs in the order given on the command

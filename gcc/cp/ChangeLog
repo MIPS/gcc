@@ -1,3 +1,131 @@
+2002-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* method.c (use_thunk): Compute the vcall index as a HOST_WIDE_INT.
+	* optimize.c (optimize_function): Replace ASM_OUTPUT_MI_THUNK with
+	TARGET_ASM_OUTPUT_MI_THUNK in comments.
+
+2002-10-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (start_decl): Point users of the old initialized-
+	typedef extension at __typeof__.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (method.o): Depend on TARGET_H.
+	* method.c (target.h): Include it.
+	(use_thunk): Use target hooks.  Use vcall thunks, if available.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (base_derived_from): Make sure return value is a bool.
+
+2002-10-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (find_final_overrider_data_s): Remove overriding_fn and
+	overriding_base.
+	(dfs_base_derived_from): New function.
+	(base_derived_from): Likewise.
+	(dfs_find_final_overrider): Use base_derived_from.
+	(find_final_overrider): Adjust.
+
+2002-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8080
+	* semantics.c (finish_for_cond, finish_while_cond): Don't mess
+	with condition decls in a template.
+
+2002-10-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (add_method): Compare template parms too.
+
+2002-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7584
+	* class.c (handle_using_decl): Allow the declaration used to be
+	from an ambiguous base.
+
+	* pt.c (convert_template_argument): Revert this change:
+		2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+		* pt.c (convert_template_argument): Do not fold non-type
+		template rguments when inside a template.
+
+	* init.c (expand_default_init): Handle brace-enclosed initializers
+	correctly.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (write_expression): Correct handling of enumeration
+	constants.
+	(write_template_arg): Likewise.
+	* pt.c (convert_template_argument): Do not fold non-type template
+	arguments when inside a template.
+
+	PR c++/7478
+	* cvt.c (convert_to_reference): Allow references as the incoming
+	type.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7524
+	* method.c (do_build_assign_ref): Use cp_build_qualified_type, not
+	build_qualified_type.
+
+2002-10-15  Richard Henderson  <rth@redhat.com>
+
+	* error.c (dump_expr): Use real_to_decimal directly, and with
+	the new arguments.
+
+2002-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (reshape_init): Fix typo.
+
+	* cp-tree.h (operator_name_info_t): Add arity.
+	* lex.c (init_operators): Initialize it.
+	* mangle.c (write_conversion_operator_name): New function.
+	(write_unqualified_name): Use it.
+	(write_template_args): Accept template arguments as a TREE_LIST.
+	(write_expression): Adjust handling of qualified names to match
+	specification.
+
+2002-10-15  Jason Merrill  <jason@redhat.com>
+
+	* call.c (call_builtin_trap): New fn.
+	(convert_arg_to_ellipsis): Use it.  Downgrade error to warning.
+	(build_call): Don't set current_function_returns_abnormally outside
+	a function.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (check_field_decls): Remove empty_p parameter.  Instead,
+	clear CLASSTYPE_EMPTY_P.
+	(build_base_field): Likewise.
+	(build_base_fields): Likewise.
+	(check_bases_and_members): Likewise.
+	(create_vtbl_ptr): Likewise.
+	(layout_class_type): Likewise.  Ensure that empty classes have
+	size zero when used as base classes in the 3.2 ABI.
+	(finish_struct_1): Initialize CLASSTYPE_EMPTY_P and
+	CLASSTYPE_NEARLY_EMPTY_P.  Adjust calls to avoid passing empty_p
+	parameter.
+	(is_empty_class): Correct definition when using post-3.2 ABI.
+	* cp-tree.h (lang_type_class): Add empty_p.
+	(CLASSTYPE_EMPTY_P): New macro.
+
+2002-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* init.c (build_delete): Do not apply save_expr for arrays.
+	(build_vec_delete): Likewise.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (layout_var_decl): Call layout_decl even for variables
+	whose type is an array with unspecified bounds.
+
+	PR c++/7176
+	* lex.c (do_identifier): Add another option for the parsing
+	parameter.
+	* parse.y (do_id): Use it.
+
 2002-10-11  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PRs C++/6803, C++/7721 and C++/7803
@@ -2627,7 +2755,7 @@
 	* pt.c (convert_template_argument): Adjust make_typename_type
 	return value.
 	(tsubst): Adjust cp_build_qualified_type_real calls.
-	(check_cv_quals_for_unify): Cope with alowing bad qualifications
+	(check_cv_quals_for_unify): Cope with allowing bad qualifications
 	on template type parms.
 	(instantiate_decl): Recheck substitutions to give warnings on bad
 	qualifications.

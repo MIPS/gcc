@@ -1145,14 +1145,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 	addl2	$DELTA, 4(ap)	#adjust first argument
 	jmp	FUNCTION+2	#jump beyond FUNCTION's entry mask
  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  fprintf (FILE, "\t.word 0x0ffc\n");					\
-  asm_fprintf (FILE, "\taddl2 $%d,4(%Rap)\n", DELTA);			\
-  fprintf (FILE, "\tjmp ");						\
-  assemble_name (FILE,  XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-  fprintf (FILE, "+2\n");						\
-} while (0)
+#define ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;
@@ -1211,14 +1204,14 @@ VAX operand formatting codes:
   else if (GET_CODE (X) == MEM)						\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == SFmode)	\
-    { REAL_VALUE_TYPE r; char dstr[30];					\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, dstr, -1);				\
+    { char dstr[30];							\
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (X),		\
+		       sizeof (dstr), 0, 1);				\
       fprintf (FILE, "$0f%s", dstr); }					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == DFmode)	\
-    { REAL_VALUE_TYPE r; char dstr[30];					\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, dstr, -1);				\
+    { char dstr[30];							\
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (X),		\
+		       sizeof (dstr), 0, 1);				\
       fprintf (FILE, "$0%c%s", ASM_DOUBLE_CHAR, dstr); }		\
   else { putc ('$', FILE); output_addr_const (FILE, X); }}
 

@@ -704,3 +704,19 @@ reg_was_0_p (insn, op)
 	  /* Make sure the reg hasn't been clobbered.  */
 	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
 }
+
+void
+vax_output_mi_thunk (file, thunk, delta, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  fprintf (file, "\t.word 0x0ffc\n");					
+  fprintf (file, "\taddl2 $");
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+  asm_fprintf (file, ",4(%Rap)\n");
+  fprintf (file, "\tjmp ");						
+  assemble_name (file,  XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "+2\n");						
+}

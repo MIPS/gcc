@@ -7292,7 +7292,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     switch (TREE_CODE (decl))
       {
       case TYPE_DECL:
-	error ("typedef `%D' is initialized", decl);
+	error ("typedef `%D' is initialized (use __typeof__ instead)", decl);
 	initialized = 0;
 	break;
 
@@ -7617,7 +7617,11 @@ layout_var_decl (decl)
      `extern X x' for some incomplete type `X'.)  */
   if (!DECL_EXTERNAL (decl))
     complete_type (type);
-  if (!DECL_SIZE (decl) && COMPLETE_TYPE_P (type))
+  if (!DECL_SIZE (decl) 
+      && (COMPLETE_TYPE_P (type)
+	  || (TREE_CODE (type) == ARRAY_TYPE 
+	      && !TYPE_DOMAIN (type)
+	      && COMPLETE_TYPE_P (TREE_TYPE (type)))))
     layout_decl (decl, 0);
 
   if (!DECL_EXTERNAL (decl) && DECL_SIZE (decl) == NULL_TREE)
@@ -7832,7 +7836,7 @@ reshape_init (tree type, tree *initp)
       return old_init;
     }
 
-  if (TREE_CODE (old_init) == STRING_CST
+  if (TREE_CODE (old_init_value) == STRING_CST
       && TREE_CODE (type) == ARRAY_TYPE
       && char_type_p (TREE_TYPE (type)))
     {
