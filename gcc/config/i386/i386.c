@@ -504,6 +504,9 @@ const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
    parts insetad of whole registers, so we may maintain just lower part of
    scalar values in proper format leaving the upper part undefined.  */
 const int x86_sse_partial_regs = m_ATHLON_K8;
+/* Athlon optimizes partial-register FPS special case, thus avoiding the
+   need for extra instructions beforehand  */
+const int x86_sse_partial_regs_for_cvtsd2ss = 0;
 const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 const int x86_use_ffreep = m_ATHLON_K8;
@@ -511,7 +514,7 @@ const int x86_use_ffreep = m_ATHLON_K8;
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
    epilogue code.  */
-#define FAST_PROLOGUE_INSN_COUNT 30
+#define FAST_PROLOGUE_INSN_COUNT 20
 
 /* Set by prologue expander and used by epilogue expander to determine
    the style used.  */
@@ -817,6 +820,7 @@ static void x86_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, tree));
 static bool x86_can_output_mi_thunk PARAMS ((tree, HOST_WIDE_INT,
 					     HOST_WIDE_INT, tree));
+bool ix86_expand_carry_flag_compare PARAMS ((enum rtx_code, rtx, rtx, rtx*));
 
 struct ix86_address
 {
@@ -860,6 +864,7 @@ const struct attribute_spec ix86_attribute_table[];
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
+static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -1162,7 +1167,7 @@ override_options ()
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you sellected does not support x86-64 instruction set");
+	  error ("CPU you selected does not support x86-64 instruction set");
 	break;
       }
 
@@ -1173,6 +1178,8 @@ override_options ()
     if (! strcmp (ix86_cpu_string, processor_alias_table[i].name))
       {
 	ix86_cpu = processor_alias_table[i].processor;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you selected does not support x86-64 instruction set");
 	break;
       }
   if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
@@ -9064,6 +9071,84 @@ ix86_expand_setcc (code, dest)
   return 1; /* DONE */
 }
 
+/* Expand comparison setting or clearing carry flag.  Return true when sucesfull
+   and set pop for the operation.  */
+bool
+ix86_expand_carry_flag_compare (code, op0, op1, pop)
+     rtx op0, op1, *pop;
+     enum rtx_code code;
+{
+  enum machine_mode mode =
+    GET_MODE (op0) != VOIDmode ? GET_MODE (op0) : GET_MODE (op1);
+
+  /* Do not handle DImode compares that go trought special path.  Also we can't
+     deal with FP compares yet.  This is possible to add.   */
+  if ((mode == DImode && !TARGET_64BIT) || !INTEGRAL_MODE_P (mode))
+    return false;
+  switch (code)
+    {
+    case LTU:
+    case GEU:
+      break;
+
+    /* Convert a==0 into (unsigned)a<1.  */
+    case EQ:
+    case NE:
+      if (op1 != const0_rtx)
+	return false;
+      op1 = const1_rtx;
+      code = (code == EQ ? LTU : GEU);
+      break;
+
+    /* Convert a>b into b<a or a>=b-1.  */
+    case GTU:
+    case LEU:
+      if (GET_CODE (op1) == CONST_INT)
+	{
+	  op1 = gen_int_mode (INTVAL (op1) + 1, GET_MODE (op0));
+	  /* Bail out on overflow.  We still can swap operands but that
+	     would force loading of the constant into register. */
+	  if (op1 == const0_rtx
+	      || !x86_64_immediate_operand (op1, GET_MODE (op1)))
+	    return false;
+	  code = (code == GTU ? GEU : LTU);
+	}
+      else
+	{
+	  rtx tmp = op1;
+	  op1 = op0;
+	  op0 = tmp;
+	  code = (code == GTU ? LTU : GEU);
+	}
+      break;
+
+    /* Convert a>0 into (unsigned)a<0x7fffffff.  */
+    case LT:
+    case GE:
+      if (mode == DImode || op1 != const0_rtx)
+	return false;
+      op1 = gen_int_mode (~(1 << (GET_MODE_BITSIZE (mode) - 1)), mode);
+      code = (code == LT ? GEU : LTU);
+      break;
+    case LE:
+    case GT:
+      if (mode == DImode || op1 != constm1_rtx)
+	return false;
+      op1 = gen_int_mode (~(1 << (GET_MODE_BITSIZE (mode) - 1)), mode);
+      code = (code == LE ? GEU : LTU);
+      break;
+
+    default:
+      return false;
+    }
+  ix86_compare_op0 = op0;
+  ix86_compare_op1 = op1;
+  *pop = ix86_expand_compare (code, NULL, NULL);
+  if (GET_CODE (*pop) != LTU && GET_CODE (*pop) != GEU)
+    abort ();
+  return true;
+}
+
 int
 ix86_expand_int_movcc (operands)
      rtx operands[];
@@ -9072,30 +9157,7 @@ ix86_expand_int_movcc (operands)
   rtx compare_seq, compare_op;
   rtx second_test, bypass_test;
   enum machine_mode mode = GET_MODE (operands[0]);
-
-  /* When the compare code is not LTU or GEU, we can not use sbbl case.
-     In case comparsion is done with immediate, we can convert it to LTU or
-     GEU by altering the integer.  */
-
-  if ((code == LEU || code == GTU)
-      && GET_CODE (ix86_compare_op1) == CONST_INT
-      && mode != HImode
-      && INTVAL (ix86_compare_op1) != -1
-      /* For x86-64, the immediate field in the instruction is 32-bit
-	 signed, so we can't increment a DImode value above 0x7fffffff.  */
-      && (!TARGET_64BIT
-	  || GET_MODE (ix86_compare_op0) != DImode
-	  || INTVAL (ix86_compare_op1) != 0x7fffffff)
-      && GET_CODE (operands[2]) == CONST_INT
-      && GET_CODE (operands[3]) == CONST_INT)
-    {
-      if (code == LEU)
-	code = LTU;
-      else
-	code = GEU;
-      ix86_compare_op1 = gen_int_mode (INTVAL (ix86_compare_op1) + 1,
-				       GET_MODE (ix86_compare_op0));
-    }
+  bool sign_bit_compare_p = false;;
 
   start_sequence ();
   compare_op = ix86_expand_compare (code, &second_test, &bypass_test);
@@ -9104,10 +9166,14 @@ ix86_expand_int_movcc (operands)
 
   compare_code = GET_CODE (compare_op);
 
+  if ((ix86_compare_op1 == const0_rtx && (code == GE || code == LT))
+      || (ix86_compare_op1 == constm1_rtx && (code == GT || code == LE)))
+    sign_bit_compare_p = true;
+
   /* Don't attempt mode expansion here -- if we had to expand 5 or 6
      HImode insns, we'd be swallowed in word prefix ops.  */
 
-  if (mode != HImode
+  if ((mode != HImode || TARGET_FAST_PREFIX)
       && (mode != DImode || TARGET_64BIT)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
@@ -9117,32 +9183,53 @@ ix86_expand_int_movcc (operands)
       HOST_WIDE_INT cf = INTVAL (operands[3]);
       HOST_WIDE_INT diff;
 
-      if ((compare_code == LTU || compare_code == GEU)
-	  && !second_test && !bypass_test)
+      diff = ct - cf;
+      /*  Sign bit compares are better done using shifts than we do by using
+ 	  sbb.  */
+      if (sign_bit_compare_p
+	  || ix86_expand_carry_flag_compare (code, ix86_compare_op0,
+					     ix86_compare_op1, &compare_op))
 	{
 	  /* Detect overlap between destination and compare sources.  */
 	  rtx tmp = out;
 
-	  /* To simplify rest of code, restrict to the GEU case.  */
-	  if (compare_code == LTU)
+          if (!sign_bit_compare_p)
 	    {
-	      int tmp = ct;
-	      ct = cf;
-	      cf = tmp;
-	      compare_code = reverse_condition (compare_code);
-	      code = reverse_condition (code);
+	      compare_code = GET_CODE (compare_op);
+
+	      /* To simplify rest of code, restrict to the GEU case.  */
+	      if (compare_code == LTU)
+		{
+		  int tmp = ct;
+		  ct = cf;
+		  cf = tmp;
+		  compare_code = reverse_condition (compare_code);
+		  code = reverse_condition (code);
+		}
+	      diff = ct - cf;
+
+	      if (reg_overlap_mentioned_p (out, ix86_compare_op0)
+		  || reg_overlap_mentioned_p (out, ix86_compare_op1))
+		tmp = gen_reg_rtx (mode);
+
+	      if (mode == DImode)
+		emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp));
+	      else
+		emit_insn (gen_x86_movsicc_0_m1 (gen_lowpart (SImode, tmp)));
 	    }
-	  diff = ct - cf;
-
-	  if (reg_overlap_mentioned_p (out, ix86_compare_op0)
-	      || reg_overlap_mentioned_p (out, ix86_compare_op1))
-	    tmp = gen_reg_rtx (mode);
-
-	  emit_insn (compare_seq);
-	  if (mode == DImode)
-	    emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp));
 	  else
-	    emit_insn (gen_x86_movsicc_0_m1 (tmp));
+	    {
+	      if (code == GT || code == GE)
+		code = reverse_condition (code);
+	      else
+		{
+		  int tmp = ct;
+		  ct = cf;
+		  cf = tmp;
+		}
+	      tmp = emit_store_flag (tmp, code, ix86_compare_op0,
+				     ix86_compare_op1, VOIDmode, 0, -1);
+	    }
 
 	  if (diff == 1)
 	    {
@@ -9156,7 +9243,7 @@ ix86_expand_int_movcc (operands)
 	      if (ct)
 	       	tmp = expand_simple_binop (mode, PLUS,
 					   tmp, GEN_INT (ct),
-					   tmp, 1, OPTAB_DIRECT);
+					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
 	  else if (cf == -1)
 	    {
@@ -9169,7 +9256,7 @@ ix86_expand_int_movcc (operands)
 	       */
 	      tmp = expand_simple_binop (mode, IOR,
 					 tmp, GEN_INT (ct),
-					 tmp, 1, OPTAB_DIRECT);
+					 copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
 	  else if (diff == -1 && ct)
 	    {
@@ -9181,11 +9268,11 @@ ix86_expand_int_movcc (operands)
 	       *
 	       * Size 8 - 11.
 	       */
-	      tmp = expand_simple_unop (mode, NOT, tmp, tmp, 1);
+	      tmp = expand_simple_unop (mode, NOT, tmp, copy_rtx (tmp), 1);
 	      if (cf)
 	       	tmp = expand_simple_binop (mode, PLUS,
-					   tmp, GEN_INT (cf),
-					   tmp, 1, OPTAB_DIRECT);
+					   copy_rtx (tmp), GEN_INT (cf),
+					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
 	  else
 	    {
@@ -9203,26 +9290,25 @@ ix86_expand_int_movcc (operands)
 		{
 		  cf = ct;
 		  ct = 0;
-		  tmp = expand_simple_unop (mode, NOT, tmp, tmp, 1);
+		  tmp = expand_simple_unop (mode, NOT, tmp, copy_rtx (tmp), 1);
 		}
 
 	      tmp = expand_simple_binop (mode, AND,
-					 tmp,
+					 copy_rtx (tmp),
 					 gen_int_mode (cf - ct, mode),
-					 tmp, 1, OPTAB_DIRECT);
+					 copy_rtx (tmp), 1, OPTAB_DIRECT);
 	      if (ct)
 	       	tmp = expand_simple_binop (mode, PLUS,
-					   tmp, GEN_INT (ct),
-					   tmp, 1, OPTAB_DIRECT);
+					   copy_rtx (tmp), GEN_INT (ct),
+					   copy_rtx (tmp), 1, OPTAB_DIRECT);
 	    }
 
-	  if (tmp != out)
-	    emit_move_insn (out, tmp);
+	  if (!rtx_equal_p (tmp, out))
+	    emit_move_insn (copy_rtx (out), copy_rtx (tmp));
 
 	  return 1; /* DONE */
 	}
 
-      diff = ct - cf;
       if (diff < 0)
 	{
 	  HOST_WIDE_INT tmp;
@@ -9298,8 +9384,10 @@ ix86_expand_int_movcc (operands)
 	    }
 	}
 
+
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
+	  && ((mode != QImode && mode != HImode) || !TARGET_PARTIAL_REG_STALL)
 	  && (mode != DImode || x86_64_sign_extended_value (GEN_INT (cf))))
 	{
 	  /*
@@ -9341,8 +9429,7 @@ ix86_expand_int_movcc (operands)
 	      tmp = gen_rtx_PLUS (mode, tmp, GEN_INT (cf));
 	      nops++;
 	    }
-	  if (tmp != out
-	      && (GET_CODE (tmp) != SUBREG || SUBREG_REG (tmp) != out))
+	  if (!rtx_equal_p (tmp, out))
 	    {
 	      if (nops == 1)
 		{
@@ -9356,9 +9443,9 @@ ix86_expand_int_movcc (operands)
 		  emit_insn (tmp);
 		}
 	      else
-		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
+		emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (out), copy_rtx (tmp)));
 	    }
-	  if (out != operands[0])
+	  if (!rtx_equal_p (out, operands[0]))
 	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
@@ -9380,7 +9467,8 @@ ix86_expand_int_movcc (operands)
        * for space.
        */
 
-      if (!TARGET_CMOVE && BRANCH_COST >= 2)
+      if ((!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
+	  && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -9434,24 +9522,24 @@ ix86_expand_int_movcc (operands)
 	      out = emit_store_flag (out, code, ix86_compare_op0,
 				     ix86_compare_op1, VOIDmode, 0, 1);
 
-	      out = expand_simple_binop (mode, PLUS, out, constm1_rtx,
-					 out, 1, OPTAB_DIRECT);
+	      out = expand_simple_binop (mode, PLUS, copy_rtx (out), constm1_rtx,
+					 copy_rtx (out), 1, OPTAB_DIRECT);
 	    }
 
-	  out = expand_simple_binop (mode, AND, out,
+	  out = expand_simple_binop (mode, AND, copy_rtx (out),
 				     gen_int_mode (cf - ct, mode),
-				     out, 1, OPTAB_DIRECT);
+				     copy_rtx (out), 1, OPTAB_DIRECT);
 	  if (ct)
-	    out = expand_simple_binop (mode, PLUS, out, GEN_INT (ct),
-				       out, 1, OPTAB_DIRECT);
-	  if (out != operands[0])
-	    emit_move_insn (operands[0], out);
+	    out = expand_simple_binop (mode, PLUS, copy_rtx (out), GEN_INT (ct),
+				       copy_rtx (out), 1, OPTAB_DIRECT);
+	  if (!rtx_equal_p (out, operands[0]))
+	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
 	}
     }
 
-  if (!TARGET_CMOVE)
+  if (!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
     {
       /* Try a few things more with specific constants and a variable.  */
 
@@ -9498,8 +9586,8 @@ ix86_expand_int_movcc (operands)
       /* Mask in the interesting variable.  */
       out = expand_binop (mode, op, var, tmp, orig_out, 0,
 			  OPTAB_WIDEN);
-      if (out != orig_out)
-	emit_move_insn (orig_out, out);
+      if (!rtx_equal_p (out, orig_out))
+	emit_move_insn (copy_rtx (orig_out), copy_rtx (out));
 
       return 1; /* DONE */
     }
@@ -9542,17 +9630,17 @@ ix86_expand_int_movcc (operands)
 						compare_op, operands[2],
 						operands[3])));
   if (bypass_test)
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+    emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (operands[0]),
 			    gen_rtx_IF_THEN_ELSE (mode,
 				  bypass_test,
-				  operands[3],
-				  operands[0])));
+				  copy_rtx (operands[3]),
+				  copy_rtx (operands[0]))));
   if (second_test)
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+    emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (operands[0]),
 			    gen_rtx_IF_THEN_ELSE (mode,
 				  second_test,
-				  operands[2],
-				  operands[0])));
+				  copy_rtx (operands[2]),
+				  copy_rtx (operands[0]))));
 
   return 1; /* DONE */
 }
@@ -14471,6 +14559,44 @@ x86_machine_dependent_reorg (first)
     if (insert)
       emit_insn_before (gen_nop (), ret);
   }
+}
+
+/* Return nonzero when QImode register that must be represented via REX prefix
+   is used.  */
+bool
+x86_extended_QIreg_mentioned_p (insn)
+     rtx insn;
+{
+  int i;
+  extract_insn_cached (insn);
+  for (i = 0; i < recog_data.n_operands; i++)
+    if (REG_P (recog_data.operand[i])
+	&& REGNO (recog_data.operand[i]) >= 4)
+       return true;
+  return false;
+}
+
+/* Return nonzero when P points to register encoded via REX prefix.
+   Called via for_each_rtx.  */
+static int
+extended_reg_mentioned_1 (p, data)
+	rtx *p;
+	void *data ATTRIBUTE_UNUSED;
+{
+   unsigned int regno;
+   if (!REG_P (*p))
+     return 0;
+   regno = REGNO (*p);
+   return REX_INT_REGNO_P (regno) || REX_SSE_REGNO_P (regno);
+}
+
+/* Return true when INSN mentions register that must be encoded using REX
+   prefix.  */
+bool
+x86_extended_reg_mentioned_p (insn)
+     rtx insn;
+{
+  return for_each_rtx (&PATTERN (insn), extended_reg_mentioned_1, NULL);
 }
 
 #include "gt-i386.h"

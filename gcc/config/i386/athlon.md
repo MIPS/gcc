@@ -47,15 +47,32 @@
 (define_cpu_unit "athlon-decode0" "athlon")
 (define_cpu_unit "athlon-decode1" "athlon")
 (define_cpu_unit "athlon-decode2" "athlon")
-(define_reservation "athlon-vector" "(athlon-decode0 + athlon-decode1
-				     + athlon-decode2)")
-(define_reservation "athlon-direct" "(athlon-decode0 | athlon-decode1
+(define_cpu_unit "athlon-decodev" "athlon")
+;; Model the fact that double decoded instruction may take 2 cycles
+;; to decode when decoder2 and decoder0 in next cycle
+;; is used (this is needed to allow troughput of 1.5 double decoded
+;; instructions per cycle).
+;;
+;; In order to avoid dependnece between reservation of decoder
+;; and other units, we model decoder as two stage fully pipelined unit
+;; and only double decoded instruction may occupy unit in the first cycle.
+;; With this scheme however two double instructions can be issued cycle0.
+;;
+;; Avoid this by using presence set requiring decoder0 to be allocated
+;; too. Vector decoded instructions then can't be issued when
+;; modeled as consuming decoder0+decoder1+decoder2.
+;; We solve that by specialized vector decoder unit and exclusion set.
+(presence_set "athlon-decode2" "athlon-decode0")
+(exclusion_set "athlon-decodev" "athlon-decode0,athlon-decode1,athlon-decode2")
+(define_reservation "athlon-vector" "nothing,athlon-decodev")
+(define_reservation "athlon-direct0" "nothing,athlon-decode0")
+(define_reservation "athlon-direct" "nothing,
+				     (athlon-decode0 | athlon-decode1
 				     | athlon-decode2)")
-;; Double instructions behaves like two direct instructions
-;; We can't model the case (decoder3,decoder0) since this would make
-;; other reservations dependent on the decoder ones.
-(define_reservation "athlon-double" "((athlon-decode0 + athlon-decode1)
-				     | (athlon-decode1 + athlon-decode2))")
+;; Double instructions behaves like two direct instructions.
+(define_reservation "athlon-double" "((athlon-decode2, athlon-decode0)
+				     | (nothing,(athlon-decode0 + athlon-decode1))
+				     | (nothing,(athlon-decode1 + athlon-decode2)))")
 
 ;; Agu and ieu unit results in extremly large automatons and
 ;; in our approximation they are hardly filled in.  Only ieu
@@ -141,12 +158,12 @@
 			      (and (eq_attr "type" "imul")
 				   (and (eq_attr "mode" "DI")
 					(eq_attr "memory" "none,unknown"))))
-			 "athlon-decode0,athlon-ieu0,athlon-mult,nothing,athlon-ieu0")
+			 "athlon-direct0,athlon-ieu0,athlon-mult,nothing,athlon-ieu0")
 (define_insn_reservation "athlon_imul_k8" 3
 			 (and (eq_attr "cpu" "k8")
 			      (and (eq_attr "type" "imul")
 				   (eq_attr "memory" "none,unknown")))
-			 "athlon-decode0,athlon-ieu0,athlon-mult,athlon-ieu0")
+			 "athlon-direct0,athlon-ieu0,athlon-mult,athlon-ieu0")
 (define_insn_reservation "athlon_imul_mem" 8
 			 (and (eq_attr "cpu" "athlon")
 			      (and (eq_attr "type" "imul")
@@ -397,6 +414,11 @@
 			      (eq_attr "type" "fxch"))
 			 "athlon-direct,athlon-fany")
 ;; Athlon handle MMX operations in the FPU unit with shorter latencies
+(define_insn_reservation "athlon_movlpd_load" 4
+			 (and (eq_attr "cpu" "athlon,k8")
+			      (and (eq_attr "type" "ssemov")
+				   (match_operand:DF 1 "memory_operand" "")))
+			 "athlon-direct,athlon-load")
 (define_insn_reservation "athlon_movaps_load" 4
 			 (and (eq_attr "cpu" "athlon,k8")
 			      (and (eq_attr "type" "ssemov")

@@ -228,7 +228,7 @@ extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
 extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
-extern const int x86_use_ffreep;
+extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
@@ -268,6 +268,8 @@ extern int x86_prefetch_sse;
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & CPUMASK)
 #define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & CPUMASK)
+#define TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS \
+				(x86_sse_partial_regs_for_cvtsd2ss & CPUMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & CPUMASK)
 #define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & CPUMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & CPUMASK)
@@ -1348,6 +1350,9 @@ enum reg_class
 #define SSE_REGNO_P(N) \
   (((N) >= FIRST_SSE_REG && (N) <= LAST_SSE_REG) \
    || ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG))
+
+#define REX_SSE_REGNO_P(N) \
+   ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG)
 
 #define SSE_REGNO(N) \
   ((N) < 8 ? FIRST_SSE_REG + (N) : FIRST_REX_SSE_REG + (N) - 8)
