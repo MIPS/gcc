@@ -873,6 +873,7 @@ pre_position (void)
 static void
 data_transfer_init (int read_flag)
 {
+  unit_flags u_flags;  /* used for creating a unit if needed */
 
   g.mode = read_flag ? READING : WRITING;
 
@@ -880,6 +881,20 @@ data_transfer_init (int read_flag)
     *ioparm.size = 0;		/* Initialize the count */
 
   current_unit = get_unit (read_flag);
+  if (current_unit == NULL)
+  {  /* open the unit with some default flags */
+     memset (&u_flags, '\0', sizeof (u_flags));
+     u_flags.access = ACCESS_SEQUENTIAL;
+     u_flags.action = ACTION_READWRITE;
+     u_flags.form = FORM_UNSPECIFIED;
+     u_flags.delim = DELIM_UNSPECIFIED;
+     u_flags.blank = BLANK_UNSPECIFIED;
+     u_flags.pad = PAD_UNSPECIFIED;
+     u_flags.status = STATUS_UNKNOWN;
+     new_unit(&u_flags);
+     current_unit = get_unit (read_flag);
+  }
+
   if (current_unit == NULL)
     return;
 
@@ -929,14 +944,14 @@ data_transfer_init (int read_flag)
 
   /* Check the record number */
 
-  if (current_unit->flags.access == ACCESS_DIRECT && ioparm.rec == NULL)
+  if (current_unit->flags.access == ACCESS_DIRECT && ioparm.rec == 0)
     {
       generate_error (ERROR_MISSING_OPTION,
 		      "Direct access data transfer requires record number");
       return;
     }
 
-  if (current_unit->flags.access == ACCESS_SEQUENTIAL && ioparm.rec != NULL)
+  if (current_unit->flags.access == ACCESS_SEQUENTIAL && ioparm.rec != 0)
     {
       generate_error (ERROR_OPTION_CONFLICT,
 		      "Record number not allowed for sequential access data transfer");
@@ -998,7 +1013,7 @@ data_transfer_init (int read_flag)
 
   /* Sanity checks on the record number */
 
-  if (ioparm.rec != NULL)
+  if (ioparm.rec)
     {
       if (ioparm.rec <= 0)
 	{

@@ -478,6 +478,9 @@ unit_t *get_unit (int);
 #define test_endfile prefix(test_endfile)
 void test_endfile (unit_t *);
 
+#define new_unit prefix(new_unit)
+void new_unit (unit_flags *);
+
 /* format.c */
 
 #define parse_format prefix(parse_format)
