@@ -1004,6 +1004,10 @@ set_decl_incoming_rtl (t, x)
   else if (GET_CODE (x) == SUBREG)
     REG_ATTRS (SUBREG_REG (x))
       = get_reg_attrs (t, -SUBREG_BYTE (x));
+  /* For memory, we maintain the reverse information too.  */
+  else if (GET_CODE (x) == MEM)
+    MEM_ATTRS (x) = get_mem_attrs (MEM_ALIAS_SET (x), t, MEM_OFFSET (x),
+				   MEM_SIZE (x), MEM_ALIGN (x), GET_MODE (x));
   if (GET_CODE (x) == CONCAT)
     {
       if (REG_P (XEXP (x, 0)))

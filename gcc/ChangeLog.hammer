@@ -1,3 +1,8 @@
+2004-02-24  Josef Zlomek  <zlomekj@suse.cz>
+
+	* emit-rtl.c (set_decl_incoming_rtl): Maintain reverse information
+	for MEM too.
+
 2004-02-23  Josef Zlomek  <zlomekj@suse.cz>
 
 	Backport from mainline
