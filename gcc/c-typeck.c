@@ -2841,7 +2841,8 @@ lvalue_or_else (tree *ref, enum lvalue_use use)
     {
       /* (1) Assignment to casts of lvalues, as long as both the lvalue and
 	     the cast are POD types with identical size and alignment.  */
-      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR)
+      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
+	   || TREE_CODE (r) == NON_LVALUE_EXPR)
 	  && (use == lv_assign || use == lv_increment || use == lv_decrement)
 	  && lvalue_or_else (&TREE_OPERAND (r, 0), use))
 	{

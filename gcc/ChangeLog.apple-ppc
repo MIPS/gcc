@@ -1,3 +1,9 @@
+2005-01-24  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3961973 (Part 2)
+	* c-typeck.c (lvalue_or_else): Acccept NON_LVALUE_EXPRs
+	as cast expressions.
+
 2005-01-23  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3961973
