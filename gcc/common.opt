@@ -739,10 +739,6 @@ ftree-dominator-opts
 Common
 Enable dominator optimizations
 
-ftree-loop-linear
-Common
-Enable linear loop transforms on trees
-
 ftree-dse
 Common
 Enable dead store elimination
@@ -750,6 +746,10 @@ Enable dead store elimination
 ftree-elim-checks
 Common
 Eliminate checks based on scalar evolution informations
+
+ftree-loop-linear
+Common
+Enable linear loop transforms on trees
 
 ftree-loop-optimize
 Common
