@@ -2703,7 +2703,7 @@ case "$THREADS" in
     THREADS=posix
     THREADLIBS=-lpthread
     case "$host" in
-     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux*)
+     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* )
 	cat >> confdefs.h <<\EOF
 #define GC_LINUX_THREADS 1
 EOF
@@ -3000,7 +3000,7 @@ EOF
 EOF
 
       ;;
-      x86-*-linux* | i586-*-linux* | i686-*-linux* )
+      x86-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* )
 	cat >> confdefs.h <<\EOF
 #define MAKE_BACK_GRAPH 1
 EOF
