@@ -127,7 +127,7 @@ struct diagnostic_context;
 
      The BV_DELTA of each node gives the amount by which to adjust the
      `this' pointer when calling the function.  If the method is an
-     overriden version of a base class method, then it is assumed
+     overridden version of a base class method, then it is assumed
      that, prior to adjustment, the this pointer points to an object
      of the base class.
 
@@ -149,7 +149,7 @@ struct diagnostic_context;
      function, it is eventually set to an INTEGER_CST indicating the
      index in the vtable at which this function can be found.  When
      a virtual function is declared, but before it is known what
-     function is overriden, this field is the error_mark_node.
+     function is overridden, this field is the error_mark_node.
 
      Temporarily, it may be set to a TREE_LIST whose TREE_VALUE is
      the virtual function this one overrides, and whose TREE_CHAIN is
@@ -399,13 +399,15 @@ struct tree_wrapper GTY(())
   struct z_candidate *z_c;
 };
 
-#define SRCLOC_FILE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->filename)
-#define SRCLOC_LINE(NODE) (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->linenum)
+#define SOURCE_LOCUS(NODE) \
+   (((struct tree_srcloc*)SRCLOC_CHECK (NODE))->locus)
+#define SRCLOC_FILE(NODE) SOURCE_LOCUS (NODE).file
+#define SRCLOC_LINE(NODE) SOURCE_LOCUS (NODE).line
+
 struct tree_srcloc GTY(())
 {
   struct tree_common common;
-  const char *filename;
-  int linenum;
+  location_t locus;
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
@@ -3533,39 +3535,41 @@ extern operator_name_info_t operator_name_info[];
 extern operator_name_info_t assignment_operator_name_info[];
 
 /* in call.c */
-extern int check_dtor_name			PARAMS ((tree, tree));
+extern bool check_dtor_name (tree, tree);
 extern int get_arglist_len_in_bytes		PARAMS ((tree));
 
 extern tree build_vfield_ref			PARAMS ((tree, tree));
-extern tree build_scoped_method_call		PARAMS ((tree, tree, tree, tree));
+extern tree build_scoped_method_call (tree, tree, tree, tree);
 extern tree build_conditional_expr		PARAMS ((tree, tree, tree));
-extern tree build_addr_func			PARAMS ((tree));
-extern tree build_call				PARAMS ((tree, tree));
-extern tree build_method_call			PARAMS ((tree, tree, tree, tree, int));
-extern int null_ptr_cst_p			PARAMS ((tree));
-extern int sufficient_parms_p                   PARAMS ((tree));
-extern tree type_decays_to			PARAMS ((tree));
-extern tree build_user_type_conversion		PARAMS ((tree, tree, int));
-extern tree build_new_function_call		PARAMS ((tree, tree));
-extern tree build_new_method_call               (tree, tree, tree, tree, int);
-extern tree build_special_member_call           (tree, tree, tree, tree, int);
-extern tree build_new_op			PARAMS ((enum tree_code, int, tree, tree, tree));
-extern tree build_op_delete_call		PARAMS ((enum tree_code, tree, tree, int, tree));
-extern int can_convert				PARAMS ((tree, tree));
-extern int can_convert_arg			PARAMS ((tree, tree, tree));
-extern int can_convert_arg_bad			PARAMS ((tree, tree, tree));
-extern int enforce_access                       PARAMS ((tree, tree));
-extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int));
-extern tree convert_arg_to_ellipsis             PARAMS ((tree));
-extern tree build_x_va_arg                      PARAMS ((tree, tree));
-extern tree cxx_type_promotes_to		PARAMS ((tree));
-extern tree type_passed_as                      PARAMS ((tree));
-extern tree convert_for_arg_passing             PARAMS ((tree, tree));
+extern tree build_addr_func (tree);
+extern tree build_call (tree, tree);
+extern tree build_method_call (tree, tree, tree, tree, int);
+extern bool null_ptr_cst_p (tree);
+extern bool sufficient_parms_p (tree);
+extern tree type_decays_to (tree);
+extern tree resolve_scoped_fn_name (tree, tree);
+extern tree build_user_type_conversion (tree, tree, int);
+extern tree build_new_function_call (tree, tree);
+extern tree build_new_method_call (tree, tree, tree, tree, int);
+extern tree build_special_member_call (tree, tree, tree, tree, int);
+extern tree build_new_op (enum tree_code, int, tree, tree, tree);
+extern tree build_op_delete_call (enum tree_code, tree, tree, int, tree);
+extern bool can_convert (tree, tree);
+extern bool can_convert_arg (tree, tree, tree);
+extern bool can_convert_arg_bad (tree, tree, tree);
+extern bool enforce_access (tree, tree);
+extern tree convert_default_arg (tree, tree, tree, int);
+extern tree convert_arg_to_ellipsis (tree);
+extern tree build_x_va_arg (tree, tree);
+extern tree cxx_type_promotes_to (tree);
+extern tree type_passed_as (tree);
+extern tree convert_for_arg_passing (tree, tree);
 extern tree cp_convert_parm_for_inlining        PARAMS ((tree, tree, tree));
-extern int is_properly_derived_from             PARAMS ((tree, tree));
-extern tree initialize_reference                PARAMS ((tree, tree));
-extern tree strip_top_quals                     PARAMS ((tree));
-extern tree perform_implicit_conversion         PARAMS ((tree, tree));
+extern bool is_properly_derived_from (tree, tree);
+extern tree initialize_reference (tree, tree);
+extern tree strip_top_quals (tree);
+extern tree perform_implicit_conversion (tree, tree);
+extern tree in_charge_arg_for_name (tree);
 
 /* in class.c */
 extern tree build_base_path			PARAMS ((enum tree_code, tree, tree, int));
@@ -3609,7 +3613,6 @@ extern void invalidate_class_lookup_cache       PARAMS ((void));
 extern void maybe_note_name_used_in_class       PARAMS ((tree, tree));
 extern void note_name_declared_in_class         PARAMS ((tree, tree));
 extern tree get_vtbl_decl_for_binfo             PARAMS ((tree));
-extern tree in_charge_arg_for_name              PARAMS ((tree));
 extern tree get_vtt_name                        PARAMS ((tree));
 extern tree get_primary_binfo                   PARAMS ((tree));
 
@@ -3697,7 +3700,7 @@ extern void set_namespace_binding               PARAMS ((tree, tree, tree));
 extern tree lookup_namespace_name		PARAMS ((tree, tree));
 extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
 extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
-extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
+extern tree make_unbound_class_template		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
 extern tree lookup_name				PARAMS ((tree, int));
@@ -3804,7 +3807,7 @@ extern void check_member_template               PARAMS ((tree));
 extern tree grokfield				PARAMS ((tree, tree, tree, tree, tree));
 extern tree grokbitfield			PARAMS ((tree, tree, tree));
 extern tree groktypefield			PARAMS ((tree, tree));
-extern tree grokoptypename			PARAMS ((tree, tree));
+extern tree grokoptypename			PARAMS ((tree, tree, tree));
 extern void cplus_decl_attributes		PARAMS ((tree *, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));

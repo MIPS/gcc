@@ -1,5 +1,5 @@
 // -*- C++ -*- std::terminate, std::unexpected and friends.
-// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 
+// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
 // Free Software Foundation
 //
 // This file is part of GNU CC.
@@ -35,10 +35,6 @@
 #include "exception_defines.h"
 
 using namespace __cxxabiv1;
-
-/* The current installed user handlers.  */
-std::terminate_handler __cxxabiv1::__terminate_handler = std::abort;
-std::unexpected_handler __cxxabiv1::__unexpected_handler = std::terminate;
 
 void
 __cxxabiv1::__terminate (std::terminate_handler handler)

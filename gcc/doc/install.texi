@@ -559,12 +559,8 @@ whether you use the GNU assembler.  On any other system,
 @item @samp{hppa1.0-@var{any}-@var{any}}
 @item @samp{hppa1.1-@var{any}-@var{any}}
 @item @samp{i386-@var{any}-sysv}
-@item @samp{i386-@var{any}-isc}
-@item @samp{i860-@var{any}-bsd}
 @item @samp{m68k-bull-sysv}
 @item @samp{m68k-hp-hpux}
-@item @samp{m68k-sony-bsd}
-@item @samp{m68k-altos-sysv}
 @item @samp{m68000-hp-hpux}
 @item @samp{m68000-att-sysv}
 @item @samp{@var{any}-lynx-lynxos}
@@ -822,8 +818,8 @@ option.  This option has no effect on the other hosts.
 
 @item --nfp
 Specify that the machine does not have a floating point unit.  This
-option only applies to @samp{m68k-sun-sunos@var{n}} and
-@samp{m68k-isi-bsd}.  On any other system, @option{--nfp} has no effect.
+option only applies to @samp{m68k-sun-sunos@var{n}}.  On any other
+system, @option{--nfp} has no effect.
 
 @item --enable-checking
 @itemx --enable-checking=@var{list}
@@ -2063,7 +2059,7 @@ and tested on @samp{i386-*-freebsd4.5} and @samp{alpha-*-freebsd5.0}.
 The static
 library may be incorrectly built (symbols are missing at link time).
 There is a rare timing-based startup hang (probably involves an
-assupmtion about the thread library).  Multi-threaded boehm-gc (required for
+assumption about the thread library).  Multi-threaded boehm-gc (required for
 libjava) exposes severe threaded signal-handling bugs on FreeBSD before
 4.5-RELEASE.  The alpha port may not fully bootstrap without some manual
 intervention: @command{gcjh} will crash with a floating-point exception while

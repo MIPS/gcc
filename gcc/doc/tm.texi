@@ -1181,17 +1181,19 @@ go slower in that case, define this macro as 0.
 Define this if you wish to imitate the way many other C compilers handle
 alignment of bit-fields and the structures that contain them.
 
-The behavior is that the type written for a bit-field (@code{int},
-@code{short}, or other integer type) imposes an alignment for the
-entire structure, as if the structure really did contain an ordinary
-field of that type.  In addition, the bit-field is placed within the
-structure so that it would fit within such a field, not crossing a
-boundary for it.
+The behavior is that the type written for a named bit-field (@code{int},
+@code{short}, or other integer type) imposes an alignment for the entire
+structure, as if the structure really did contain an ordinary field of
+that type.  In addition, the bit-field is placed within the structure so
+that it would fit within such a field, not crossing a boundary for it.
 
-Thus, on most machines, a bit-field whose type is written as @code{int}
-would not cross a four-byte boundary, and would force four-byte
-alignment for the whole structure.  (The alignment used may not be four
-bytes; it is controlled by the other alignment parameters.)
+Thus, on most machines, a named bit-field whose type is written as
+@code{int} would not cross a four-byte boundary, and would force
+four-byte alignment for the whole structure.  (The alignment used may
+not be four bytes; it is controlled by the other alignment parameters.)
+
+An unnamed bit-field will not affect the alignment of the containing
+structure.
 
 If the macro is defined, its definition should be a C expression;
 a nonzero value for the expression enables this behavior.
@@ -2317,7 +2319,7 @@ which is the register value plus a displacement.
 @findex MODE_BASE_REG_CLASS
 @item MODE_BASE_REG_CLASS (@var{mode})
 This is a variation of the @code{BASE_REG_CLASS} macro which allows
-the selection of a base register in a mode depenedent manner.  If
+the selection of a base register in a mode dependent manner.  If
 @var{mode} is VOIDmode then it should return the same value as
 @code{BASE_REG_CLASS}.
 
@@ -4192,7 +4194,7 @@ not support varargs.
 @findex TARGET_ASM_OUTPUT_MI_VCALL_THUNK
 @deftypefn {Target Hook} void TARGET_ASM_OUTPUT_MI_VCALL_THUNK (FILE *@var{file}, tree @var{thunk_fndecl}, HOST_WIDE_INT @var{delta}, int @var{vcall_offset}, tree @var{function})
 A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
-@var{vcall_offset} is non-zero, an additional adjustment should be made
+@var{vcall_offset} is nonzero, an additional adjustment should be made
 after adding @code{delta}.  In particular, if @var{p} is the
 adjusted pointer, the following adjustment should be made:
 
@@ -9068,7 +9070,7 @@ structure, which are defined by the @code{IFCVT_EXTRA_FIELDS} macro.
 @findex IFCVT_EXTRA_FIELDS
 @item IFCVT_EXTRA_FIELDS
 If defined, it should expand to a set of field declarations that will be
-added to the @code{struct ce_if_block} structure.  These should be intialized
+added to the @code{struct ce_if_block} structure.  These should be initialized
 by the @code{IFCVT_INIT_EXTRA_FIELDS} macro.
 
 @end table

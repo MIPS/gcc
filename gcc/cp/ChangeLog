@@ -1,3 +1,68 @@
+2002-12-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/7964
+	* cp-tree.h (resolve_scoped_fn_name): Prototype.
+	* call.c (resolve_scoped_fn_name): New function. Deal with
+	more template expansion. Broken out of ...
+	* parse.y (parse_finish_call_expr): ... here. Call it.
+	* decl2.c (build_expr_from_tree, CALL_EXPR): Use
+	resolve_scoped_fn_name and build_call_from_tree.
+
+	PR c++/9053
+	* decl.c (duplicate_decls): Templates may be disambiguated by
+	return type.
+	
+	PR c++/8702
+	* decl2.c (check_classfn): Use lookup_fnfield_1. List all
+	conversion operators on failure.
+
+2002-12-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (tourney, build_field_call, equal_functions, joust) 
+	(compare_ics, build_over_call, build_java_interface_fn_ref) 
+	(convert_like_real, op_error, build_object_call, resolve_args) 
+	(build_vfield_ref, check_dtor_name, build_scoped_method_call) 
+	(build_addr_func, build_call, build_method_call, null_ptr_cst_p) 
+	(sufficient_parms_p, build_conv, non_reference, strip_top_quals) 
+	(standard_conversion, reference_related_p) 
+	(reference_compatible_p, convert_class_to_reference) 
+	(direct_reference_binding, reference_binding) 
+	(implicit_conversion, is_complete, promoted_arithmetic_type_p) 
+	(add_template_conv_candidate, any_viable, any_strictly_viable) 
+	(build_this, splice_viable, print_z_candidates) 
+	(build_user_type_conversion, build_new_function_call) 
+	(conditional_conversion, build_conditional_expr, build_new_op) 
+	(build_op_delete_call, enforce_access, call_builtin_trap) 
+	(convert_arg_to_ellipsis, build_x_va_arg, cxx_type_promotes_to) 
+	(convert_default_arg, type_passed_as, convert_for_arg_passing) 
+	(in_charge_arg_for_name, is_properly_derived_from) 
+	(maybe_handle_implicit_object, maybe_handle_ref_bind) 
+	(source_type, add_warning, can_convert, can_convert_arg) 
+	(perform_implicit_conversion, can_convert_arg_bad) 
+	(initialize_reference, add_conv_candidate) 
+	(add_template_candidate_real, add_template_candidate): Ansify.
+
+2002-12-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/8572
+	* cp-tree.h (grokoptypename): Add SCOPE parameter.
+	* decl2.c (grokoptypename): Add SCOPE parameter. tsubst the type
+	if in a template scope.
+	* parse.y (unoperator): Return the scope.
+	(operator_name): Adjust grokoptypename call.
+
+2002-12-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (make_unbound_class_template): Use tsubst_flags_t.
+	* decl.c (make_unbound_class_template): Adjust.  Check for tf_error.
+	* pt.c (tsubst) [OFFSET_TYPE]: Check for tf_error.
+
+2002-12-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Fix a typo.
+	* class.c: Fix comment typos.
+	* cp-tree.h: Likewise.
+
 2002-12-18  Jason Merrill  <jason@redhat.com>
 
 	Handle anonymous unions at the tree level.
@@ -17,7 +82,42 @@
 	* typeck.c (build_class_member_access_expr): Don't recurse if
 	we already have the type we want.
 
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8099
+	* friend.c (make_friend_class): Allow partial specialization
+	when declaration is not a template friend.
+
+2002-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3663
+	* pt.c (lookup_template_class): Copy TREE_PRIVATE and
+	TREE_PROTECTED to created decl nodes.
+
+2002-12-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_base_field): Do not set DECL_PACKED on the
+	FIELD_DECL.
+
+2002-12-18  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (struct tree_srcloc): Use location_t.
+	(SOURCE_LOCUS): New.
+	(SRCLOC_FILE, SRCLOC_LINE): Adjust.
+
+2002-12-17  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (finish_function): Also complain about no return in
+	templates.
+	* semantics.c (finish_return_stmt): Also call check_return_expr in 
+	templates.
+	* typeck.c (check_return_expr): In a template, just remember that we
+	saw a return.
+
 2002-12-16  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (simplify_aggr_init_exprs_r): Don't change the type
+	of the CALL_EXPR.
 
 	* semantics.c (do_pushlevel): Call pushlevel after adding the
 	SCOPE_STMT.
@@ -4774,7 +4874,7 @@ Tue Oct 23 14:00:20 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* parse.y (asm_operand): Allow named operands.
 	* semantics.c (finish_asm_stmt): Tweek for changed location
-	of the operand constrant.
+	of the operand constraint.
 
 2001-10-09  Jason Merrill  <jason_merrill@redhat.com>
 

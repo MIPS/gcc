@@ -964,7 +964,7 @@ expand_call_inline (tp, walk_subtrees, data)
   inlined_body = &BIND_EXPR_BODY (expr);
 
   /* After the body of the function comes the RET_LABEL.  This must come
-     before we evaluate the returned value below, because that evalulation
+     before we evaluate the returned value below, because that evaluation
      may cause RTL to be generated.  */
   if (TREE_USED (id->ret_label))
     {

@@ -2370,6 +2370,14 @@ pass arguments, unless it takes a variable number of arguments.
 The PowerPC compiler for Windows NT currently ignores the @code{stdcall}
 attribute.
 
+@item fastcall
+@cindex functions that pop the argument stack on the 386
+On the Intel 386, the @code{fastcall} attribute causes the compiler to
+pass the first two arguments in the registers ECX and EDX. Subsequent
+arguments are passed on the stack. The called function will pop the 
+arguments off the stack. If the number of arguments is variable all
+arguments are pushed on the stack.
+
 @item cdecl
 @cindex functions that do pop the argument stack on the 386
 @opindex mrtd
@@ -4904,7 +4912,7 @@ type is @code{long double}.
 This is an implementation of the ISO C99 function @code{nan}.
 
 Since ISO C99 defines this function in terms of @code{strtod}, which we
-do not implement, a desription of the parsing is in order.  The string
+do not implement, a description of the parsing is in order.  The string
 is parsed as by @code{strtol}; that is, the base is recognized by
 leading @samp{0} or @samp{0x} prefixes.  The number parsed is placed
 in the significand such that the least significant bit of the number
@@ -6698,7 +6706,7 @@ Add after paragraph 4
 
 @quotation
 The storage for an object of thread storage duration shall be
-staticly initialized before the first statement of the thread startup
+statically initialized before the first statement of the thread startup
 function.  An object of thread storage duration shall not require
 dynamic initialization.
 @end quotation

@@ -389,7 +389,7 @@ check_class_key (key, aggr)
 %type <ttype> init initlist maybeasm maybe_init defarg defarg1
 %type <ttype> asm_operands nonnull_asm_operands asm_operand asm_clobbers
 %type <ttype> maybe_attribute attributes attribute attribute_list attrib
-%type <ttype> any_word
+%type <ttype> any_word unoperator
 
 %type <itype> save_lineno
 %type <ttype> simple_stmt simple_if
@@ -3915,6 +3915,7 @@ unoperator:
           got_object = TREE_VALUE (saved_scopes);
 	  looking_for_typename = TREE_LANG_FLAG_0 (saved_scopes);
           saved_scopes = TREE_CHAIN (saved_scopes);
+	  $$ = got_scope;
 	}
         ;
 
@@ -3986,7 +3987,7 @@ operator_name:
 	| operator DELETE '[' ']' unoperator
 		{ $$ = frob_opname (ansi_opname (VEC_DELETE_EXPR)); }
 	| operator type_specifier_seq conversion_declarator unoperator
-		{ $$ = frob_opname (grokoptypename ($2.t, $3)); }
+		{ $$ = frob_opname (grokoptypename ($2.t, $3, $4)); }
 	| operator error unoperator
 		{ $$ = frob_opname (ansi_opname (ERROR_MARK)); }
 	;
@@ -4115,72 +4116,19 @@ static tree
 parse_finish_call_expr (tree fn, tree args, int koenig)
 {
   bool disallow_virtual;
-  tree template_args;
-  tree template_id;
-  tree f;
 
   if (TREE_CODE (fn) == OFFSET_REF)
     return build_offset_ref_call_from_tree (fn, args);
 
   if (TREE_CODE (fn) == SCOPE_REF)
     {
-      tree scope;
-      tree name;
-
-      scope = TREE_OPERAND (fn, 0);
-      name = TREE_OPERAND (fn, 1);
+      tree scope = TREE_OPERAND (fn, 0);
+      tree name = TREE_OPERAND (fn, 1);
 
       if (scope == error_mark_node || name == error_mark_node)
 	return error_mark_node;
       if (!processing_template_decl)
-	{
-	  if (TREE_CODE (scope) == NAMESPACE_DECL)
-	    fn = lookup_namespace_name (scope, name);
-	  else
-	    {
-	      if (!COMPLETE_TYPE_P (scope) && !TYPE_BEING_DEFINED (scope))
-		{
-		  error ("incomplete type '%T' cannot be used to name a scope",
-			 scope);
-		  return error_mark_node;
-		}
-	      else if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-		{
-		  template_id = name;
-		  template_args = TREE_OPERAND (name, 1);
-		  name = TREE_OPERAND (name, 0);
-		}
-	      else 
-	        {
-		  template_id = NULL_TREE;
-		  template_args = NULL_TREE;
-		}
-
-	      if (BASELINK_P (name))
-		fn = name;
-	      else 
-		{
-		  if (TREE_CODE (name) == OVERLOAD)
-		    name = DECL_NAME (get_first_fn (name));
-		  fn = lookup_member (scope, name, /*protect=*/1, 
-				      /*prefer_type=*/0);
-		  if (!fn)
-		    {
-		      error ("'%D' has no member named '%E'", scope, name);
-		      return error_mark_node;
-		    }
-		  
-		  if (BASELINK_P (fn) && template_id)
-		    BASELINK_FUNCTIONS (fn) 
-		      = build_nt (TEMPLATE_ID_EXPR,
-				  BASELINK_FUNCTIONS (fn),
-				  template_args);
-		}
-	      if (current_class_type)
-		fn = (adjust_result_of_qualified_name_lookup 
-		      (fn, scope, current_class_type));
-	    }
-	}
+	fn = resolve_scoped_fn_name (scope, name);
       disallow_virtual = true;
     }
   else
@@ -4188,6 +4136,8 @@ parse_finish_call_expr (tree fn, tree args, int koenig)
 
   if (koenig && TREE_CODE (fn) == IDENTIFIER_NODE)
     {
+      tree f;
+      
       /* Do the Koenig lookup.  */
       fn = do_identifier (fn, 2, args);
       /* If name lookup didn't find any matching declarations, we've
