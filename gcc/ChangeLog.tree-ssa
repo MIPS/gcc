@@ -1,3 +1,8 @@
+2003-04-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (visit_cond_stmt): Don't short circuit evaluation
+	of UNDEFINED conditional expressions.
+
 2003-04-04  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in : Add tree-ssa-live.c and tree-ssa-live.h files.

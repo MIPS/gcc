@@ -599,10 +599,6 @@ visit_cond_stmt (stmt)
   block = bb_for_stmt (stmt);
   val = evaluate_stmt (stmt);
 
-  /* If the predicate is undefined, do nothing.  */
-  if (val.lattice_val == UNDEFINED)
-    return;
-
   /* Find which edge out of the conditional block will be taken and add it
      to the worklist.  If no single edge can be determined statically, add
      all outgoing edges from BLOCK.  */
