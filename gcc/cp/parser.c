@@ -9759,8 +9759,14 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	  && (objc_is_id (type) || objc_is_class_name (type)))
 	{
 	  tree protos = cp_parser_objc_protocol_refs_opt (parser);
+	  tree qual_type = objc_get_protocol_qualified_type (type, protos);
 
-	  return objc_get_protocol_qualified_type (type, protos);
+	  /* Clobber the "unqualified" type previously entered into
+	     DECL_SPECS with the new, improved protocol-qualifed version.  */
+	  if (decl_specs)
+	    decl_specs->type = qual_type;
+
+	  return qual_type;
 	}
 
       cp_parser_check_for_invalid_template_id (parser, TREE_TYPE (type));

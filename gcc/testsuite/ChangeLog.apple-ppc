@@ -1,5 +1,11 @@
 2005-01-24  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3968938
+	* obj-c++.dg/lookup-2.mm: New.
+	* objc.dg/lookup-1.m: New.
+
+2005-01-24  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3961973 (Part 2)
 	* obj-c++.dg/lvalue-cast-1.mm: New.
 	* objc.dg/lvalue-cast-1.m: New.

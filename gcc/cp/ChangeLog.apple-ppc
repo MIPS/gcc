@@ -1,3 +1,10 @@
+2005-01-24  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3968938
+	* parser.c (cp_parser_simple_type_specifier): After
+	constructing a protocol-qualified ObjC type, record
+	it in the DECL_SPECS structure.
+
 2005-01-23  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3961973
