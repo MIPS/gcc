@@ -6977,8 +6977,7 @@ check_tag_decl (declspecs)
 	    }
 
 	  if (TYPE_P (value)
-	      && ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
-		  || TREE_CODE (value) == ENUMERAL_TYPE))
+	      && (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE))
 	    {
 	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
 	      t = value;
@@ -11123,7 +11122,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
        When parsing the decl-specifier-seq for the definition of `f',
        we construct a TYPENAME_TYPE for `S<T>::X'.  By substituting
        here, we resolve it to the correct type.  */
-  if (scope && TYPE_P (scope) 
+  if (scope && CLASS_TYPE_P (scope)
       && current_template_parms
       && uses_template_parms (scope))
     {

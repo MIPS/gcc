@@ -2612,9 +2612,7 @@ push_template_decl_real (decl, is_friend)
 
   if (!ctx 
       || TREE_CODE (ctx) == FUNCTION_DECL
-      || (TREE_CODE (ctx) != TEMPLATE_TYPE_PARM
-	  && TREE_CODE (ctx) != BOUND_TEMPLATE_TEMPLATE_PARM
-	  && TYPE_BEING_DEFINED (ctx))
+      || (CLASS_TYPE_P (ctx) && TYPE_BEING_DEFINED (ctx))
       || (is_friend && !DECL_TEMPLATE_INFO (decl)))
     {
       if (DECL_LANG_SPECIFIC (decl)
@@ -4421,8 +4419,11 @@ for_each_template_parm_r (tp, walk_subtrees, d)
 	return error_mark_node;
       /* Fall through.  */
 
-    case CONST_DECL:
     case PARM_DECL:
+    case CONST_DECL:
+      if (TREE_CODE (t) == CONST_DECL && DECL_TEMPLATE_PARM_P (t)
+	  && for_each_template_parm (DECL_INITIAL (t), fn, data))
+	return error_mark_node;
       if (DECL_CONTEXT (t) 
 	  && for_each_template_parm (DECL_CONTEXT (t), fn, data))
 	return error_mark_node;
@@ -7025,6 +7026,8 @@ tsubst_copy (t, args, complain, in_decl)
 	tree enum_type;
 	tree v;
 
+	if (DECL_TEMPLATE_PARM_P (t))
+	  return tsubst_copy (DECL_INITIAL (t), args, complain, in_decl);
 	if (!DECL_CONTEXT (t))
 	  /* This is a global enumeration constant.  */
 	  return t;
@@ -9122,6 +9125,8 @@ unify (tparms, targs, parm, arg, strict)
 		    strict);
 
     case CONST_DECL:
+      if (DECL_TEMPLATE_PARM_P (parm))
+	return unify (tparms, targs, DECL_INITIAL (parm), arg, strict);
       if (arg != decl_constant_value (parm)) 
 	return 1;
       return 0;

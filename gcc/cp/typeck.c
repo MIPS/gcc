@@ -2074,15 +2074,16 @@ build_class_member_access_expr (tree object, tree member,
   return result;
 }
 
-/* Return the destructor denoted by OBJECT.SCOPE::~DTOR_TYPE, or, if
-   SCOPE is NULL, by OBJECT.~DTOR_TYPE.  */
+/* Return the destructor denoted by OBJECT.SCOPE::~DTOR_NAME, or, if
+   SCOPE is NULL, by OBJECT.~DTOR_NAME.  */
 
 static tree
-lookup_destructor (tree object, tree scope, tree dtor_type)
+lookup_destructor (tree object, tree scope, tree dtor_name)
 {
   tree object_type = TREE_TYPE (object);
+  tree dtor_type = TREE_OPERAND (dtor_name, 0);
 
-  if (scope && !check_dtor_name (scope, dtor_type))
+  if (scope && !check_dtor_name (scope, dtor_name))
     {
       error ("qualified type `%T' does not match destructor name `~%T'",
 	     scope, dtor_type);
@@ -2197,9 +2198,7 @@ finish_class_member_access_expr (tree object, tree name)
 	    return error_mark_node;
 
 	  if (TREE_CODE (name) == BIT_NOT_EXPR)
-	    member = lookup_destructor (object, 
-					scope, 
-					TREE_OPERAND (name, 0));
+	    member = lookup_destructor (object, scope, name);
 	  else
 	    {
 	      /* Look up the member.  */
@@ -2215,9 +2214,7 @@ finish_class_member_access_expr (tree object, tree name)
 	    }
 	}
       else if (TREE_CODE (name) == BIT_NOT_EXPR)
-	member = lookup_destructor (object, 
-				    /*scope=*/NULL_TREE, 
-				    TREE_OPERAND (name, 0));
+	member = lookup_destructor (object, /*scope=*/NULL_TREE, name);
       else if (TREE_CODE (name) == IDENTIFIER_NODE)
 	{
 	  /* An unqualified name.  */

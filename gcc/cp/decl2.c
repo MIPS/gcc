@@ -3979,7 +3979,7 @@ push_scope (t)
 {
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
-  else
+  else if CLASS_TYPE_P (t)
     push_nested_class (t, 2);
 }
 
@@ -3991,7 +3991,7 @@ pop_scope (t)
 {
   if (TREE_CODE (t) == NAMESPACE_DECL)
     pop_decl_namespace ();
-  else
+  else if CLASS_TYPE_P (t)
     pop_nested_class ();
 }
 
@@ -4403,16 +4403,22 @@ validate_nonmember_using_decl (decl, scope, name)
 
   my_friendly_assert (DECL_P (decl), 20020908);
 
+  if (TREE_CODE (decl) == CONST_DECL)
+    /* Enumeration constants to not have DECL_CONTEXT set.  */
+    *scope = TYPE_CONTEXT (TREE_TYPE (decl));
+  else
+    *scope = DECL_CONTEXT (decl);
+  if (!*scope)
+    *scope = global_namespace;
+
   /* [namespace.udecl]
        A using-declaration for a class member shall be a
        member-declaration.  */
-  if (TYPE_P (CP_DECL_CONTEXT (decl)))
+  if (TYPE_P (*scope))
     {
-      error ("`%T' is not a namespace", CP_DECL_CONTEXT (decl));
+      error ("`%T' is not a namespace", *scope);
       return NULL_TREE;
     }
-  else
-    *scope = CP_DECL_CONTEXT (decl);
   *name = DECL_NAME (decl);
   /* Make a USING_DECL. */
   return push_using_decl (*scope, *name);
