@@ -1518,7 +1518,7 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
    gcov-io.h gcov-iov.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-   $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h
+   $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h $(HASHTAB_H)
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \

@@ -1,3 +1,13 @@
+2002-11-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (profile.o): Add hashtab.h dependency.
+	* gcov-io.h (GCOV_SUMMARY_LENGTH): New.
+	* profile.c: Include hashtab.h.
+	(htab_counts_index_hash, htab_counts_index_eq, htab_counts_index_del,
+	cleanup_counts_index, index_counts_file, struct section_reference,
+	struct da_index_entry, counts_file_name, counts_file_index): New.
+	(get_exec_counts, init_branch_prob): Modified.
+
 2002-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config.gcc (sh*-*-linux*): Add t-slibgcc-elf-ver and t-linux
