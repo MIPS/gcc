@@ -180,7 +180,7 @@ get_arch_name (const char *name)
     a_info = NXGetArchInfoFromName (name);
 
   if (!a_info)
-    abort ();
+    fatal ("Invalid arch name : %s", name);
 
   cputype = a_info->cputype;
 
@@ -188,7 +188,7 @@ get_arch_name (const char *name)
   all_info = NXGetAllArchInfos ();
 
   if (!all_info)
-    abort ();
+    fatal ("Unable to collect arch info for %s", name);
 
   /* Find first arch. that matches cputype.  */
   while (all_info->name)
@@ -227,7 +227,7 @@ get_driver_name (const char *arch_name)
     }
 
   if (!config_name)
-    abort ();
+    fatal ("Unable to guess config name for arch %s", arch_name);
 
   len = strlen (config_name) + strlen (PDN) + prefix_len + 1;
   driver_name = (char *) malloc (sizeof (char) * len);
