@@ -1,3 +1,13 @@
+2004-08-12  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/config/cpu/arm/cxxabi_tweaks.h: Define
+	__cxa_vec_ctor_return and _GLIBCXX_CXA_VEC_CTOR_RETURN.
+	* libstdc++/config/cpu/generic/cxxabi_tweaks.h: Ditto.
+	* libstdc++/libsupc++/cxxabi.h (__cxa_vec_ctor, __cxa_vec_cctor): Use
+	__cxa_vec_ctor_return.
+	* libstdc++/libsupc++/vec.cc (__cxa_vec_ctor, __cxa_vec_cctor): Ditto.
+	Use _GLIBCXX_CXA_VEC_CTOR_RETURN.
+
 2004-08-03  Richard Earnshaw <rearnsha@arm.com>
 
 	* contrib/gcc_update: gcc/config/arm/arm-tune.md -> arm-cores.def

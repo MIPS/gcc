@@ -1,5 +1,9 @@
 2004-08-12  Paul Brook  <paul@codesourcery.com>
 
+	* testsuite/g++.dg/abi/arm_cxa_vec_1.C: New test.
+
+2004-08-12  Paul Brook  <paul@codesourcery.com>
+
 	* dwarf2out.h (dwarf2out_frame_finish): Conditionalize outputting eh
 	frame info.
 	* doc/tm.texi: Document interaction between TARGET_UNWIND_INFO and
