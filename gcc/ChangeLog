@@ -1,5 +1,10 @@
 2002-10-23  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/i386/i386.c (local_symbolic_operand): Move LABEL_REF test
+	after CONST test.
+
+2002-10-23  Jakub Jelinek  <jakub@redhat.com>
+
 	* config/i386/i386.md (subdi3_1): Add call to ix86_binary_operator_ok.
 
 2002-10-15  Jim Wilson  <wilson@redhat.com>
