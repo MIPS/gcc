@@ -1,3 +1,8 @@
+2005-01-16  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/classwriter.cc (write): Check number of words required
+	by arguments.
+
 2005-01-15  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/locals.cc (emit): Updated.

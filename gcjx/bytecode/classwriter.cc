@@ -1,6 +1,6 @@
 // Write a class file.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -26,6 +26,7 @@
 #include "bytecode/block.hh"
 #include "bytecode/attribute.hh"
 #include "bytecode/generate.hh"
+#include "bytecode/byteutil.hh"
 
 #include <fcntl.h>
 
@@ -228,6 +229,18 @@ class_writer::write (directory_cache &dircache)
        ++i)
     {
       bytecode_attribute_list *attrs = new bytecode_attribute_list ();
+
+      // One last check on the method.
+      std::list<ref_variable_decl> params = (*i)->get_parameters ();
+      int len = 0;
+      if (! (*i)->static_p ())
+	++len;
+      for (std::list<ref_variable_decl>::const_iterator j = params.begin ();
+	   j != params.end ();
+	   ++j)
+	len += wide_p ((*j)->type ()) ? 2 : 1;
+      if (len > 255)
+	throw (*i)->error ("method requires more than 255 words of arguments");
 
       pool->add_utf ((*i)->get_name ());
       pool->add_utf ((*i)->get_descriptor ());
