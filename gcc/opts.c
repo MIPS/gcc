@@ -577,6 +577,10 @@ decode_options (unsigned int argc, const char **argv)
 
       /* We want to crossjump as much as possible.  */
       set_param_value ("min-crossjump-insns", 1);
+      
+      flag_sequence_abstraction = 1;
+      flag_rtl_lfact = 1;
+      flag_tree_lfact = 1;
     }
 
   /* Initialize whether `char' is signed.  */

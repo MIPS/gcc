@@ -666,6 +666,10 @@ frerun-loop-opt
 Common Report Var(flag_rerun_loop_opt)
 Run the loop optimizer twice
 
+frtl-lfact
+Common Report Var(flag_rtl_lfact)
+Perform local factoring on rtl
+
 frounding-math
 Common Report Var(flag_rounding_math)
 Disable optimizations that assume default FP rounding behavior
@@ -727,6 +731,10 @@ Set dependence distance checking in premature scheduling of queued insns
 fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>   Set dependence distance checking in premature scheduling of queued insns
+
+fsequence-abstraction
+Common Report Var(flag_sequence_abstraction)
+Perform sequence abstraction optimization
 
 fshared-data
 Common Report Var(flag_shared_data)
@@ -851,6 +859,10 @@ Enable dead store elimination
 ftree-fre
 Common Report Var(flag_tree_fre)
 Enable Full Redundancy Elimination (FRE) on trees
+
+ftree-lfact
+Common Report Var(flag_tree_lfact)
+Perform local factoring on tree
 
 ftree-loop-im
 Common Report Var(flag_tree_loop_im) Init(1)

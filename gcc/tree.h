@@ -3845,6 +3845,7 @@ enum tree_dump_index
   DFI_lreg,
   DFI_greg,
   DFI_postreload,
+  DFI_seqabstr,
   DFI_gcse2,
   DFI_flow2,
   DFI_peephole2,

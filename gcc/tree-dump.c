@@ -705,18 +705,19 @@ static struct dump_file_info dump_files[TDI_end] =
   { ".lreg", "rtl-lreg",		TDF_RTL, 0, 22, 'l'},
   { ".greg", "rtl-greg",		TDF_RTL, 0, 23, 'g'},
   { ".postreload", "rtl-postreload",	TDF_RTL, 0, 24, 'o'},
-  { ".gcse2", "rtl-gcse2",		TDF_RTL, 0, 25, 'J'},
-  { ".flow2", "rtl-flow2",		TDF_RTL, 0, 26, 'w'},
-  { ".peephole2", "rtl-peephole2",	TDF_RTL, 0, 27, 'z'},
-  { ".ce3", "rtl-ce3",			TDF_RTL, 0, 28, 'E'},
-  { ".rnreg", "rtl-rnreg",		TDF_RTL, 0, 29, 'n'},
-  { ".bbro", "rtl-bbro",		TDF_RTL, 0, 30, 'B'},
-  { ".btl", "rtl-btl",			TDF_RTL, 0, 31, 'd'},
-  { ".sched2", "rtl-sched2",		TDF_RTL, 0, 32, 'R'},
-  { ".stack", "rtl-stack",		TDF_RTL, 0, 33, 'k'},
-  { ".vartrack", "rtl-vartrack",	TDF_RTL, 0, 34, 'V'},
-  { ".mach", "rtl-mach",		TDF_RTL, 0, 35, 'M'},
-  { ".dbr", "rtl-dbr",			TDF_RTL, 0, 36, 'd'}
+  { ".seqabstr", "rtl-seqabstr",        TDF_RTL, 0, 25, 'Q'},   
+  { ".gcse2", "rtl-gcse2",		TDF_RTL, 0, 26, 'J'},
+  { ".flow2", "rtl-flow2",		TDF_RTL, 0, 27, 'w'},
+  { ".peephole2", "rtl-peephole2",	TDF_RTL, 0, 28, 'z'},
+  { ".ce3", "rtl-ce3",			TDF_RTL, 0, 29, 'E'},
+  { ".rnreg", "rtl-rnreg",		TDF_RTL, 0, 30, 'n'},
+  { ".bbro", "rtl-bbro",		TDF_RTL, 0, 31, 'B'},
+  { ".btl", "rtl-btl",			TDF_RTL, 0, 32, 'd'},
+  { ".sched2", "rtl-sched2",		TDF_RTL, 0, 33, 'R'},
+  { ".stack", "rtl-stack",		TDF_RTL, 0, 34, 'k'},
+  { ".vartrack", "rtl-vartrack",	TDF_RTL, 0, 35, 'V'},
+  { ".mach", "rtl-mach",		TDF_RTL, 0, 36, 'M'},
+  { ".dbr", "rtl-dbr",			TDF_RTL, 0, 37, 'd'}
 };
 
 /* Dynamically registered tree dump files and switches.  */

@@ -362,6 +362,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_sra);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_tree_lfact);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);

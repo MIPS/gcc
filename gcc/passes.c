@@ -81,6 +81,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "fact-common.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -335,6 +336,18 @@ rest_of_handle_final (void)
 
   ggc_collect ();
   timevar_pop (TV_FINAL);
+}
+
+/* Run the local factoring optimization.  */
+static void
+rest_of_factoring (void)
+{
+  timevar_push (TV_FACTORING);
+  rtl_lfact (0, LFD_HOISTING);
+  rtl_lfact (0, LFD_SINKING);
+  cleanup_cfg (CLEANUP_EXPENSIVE);
+  timevar_pop (TV_FACTORING);
+  ggc_collect ();
 }
 
 #ifdef DELAY_SLOTS
@@ -1461,6 +1474,23 @@ rest_of_handle_postreload (void)
 }
 
 static void
+rest_of_handle_seqabstr (void)
+{
+  timevar_push (TV_SEQABSTR);
+  open_dump_file (DFI_seqabstr, current_function_decl);
+  life_analysis (dump_file, PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+
+  /* Abstract out common insn sequences. */
+  seqabstr_optimize (dump_file);
+  
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+  close_dump_file (DFI_seqabstr, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_SEQABSTR);
+  ggc_collect ();
+}
+
+static void
 rest_of_handle_shorten_branches (void)
 {
   /* Shorten branches.  */
@@ -1739,6 +1769,9 @@ rest_of_compilation (void)
   if (optimize > 0)
     rest_of_handle_postreload ();
 
+  if (flag_sequence_abstraction)
+    rest_of_handle_seqabstr (); 
+
   if (optimize > 0 && flag_gcse_after_reload)
     rest_of_handle_gcse2 ();
 
@@ -1779,6 +1812,9 @@ rest_of_compilation (void)
 #ifdef STACK_REGS
   rest_of_handle_stack_regs ();
 #endif
+
+  if (flag_rtl_lfact)
+    rest_of_factoring ();
 
   compute_alignments ();
 

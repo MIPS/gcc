@@ -1486,8 +1486,29 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
       return false;
   }
 
-  /* We don't need to match the rest of edges as above checks should be enough
-     to ensure that they are equivalent.  */
+  /* The same checks as in try_crossjump_to_edge.  */
+  FOR_EACH_EDGE (e1, ei, bb2->succs)
+    {
+      edge e2;
+      edge_iterator ei;
+      basic_block d1 = e1->dest;
+
+      if (FORWARDER_BLOCK_P (d1))
+	d1 = EDGE_SUCC (d1, 0)->dest;
+
+      FOR_EACH_EDGE (e2, ei, bb1->succs)
+	{
+	  basic_block d2 = e2->dest;
+	  if (FORWARDER_BLOCK_P (d2))
+	    d2 = EDGE_SUCC (d2, 0)->dest;
+	  if (d1 == d2)
+	    break;
+        }
+        
+      if (!e2)
+        return false;
+    }
+  
   return true;
 }
 

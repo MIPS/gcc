@@ -1,3 +1,20 @@
+2004-11-15  Gabor Loki  <loki@gcc.gnu.org>
+
+	Open cfo-branch
+	* Makefile.in: Added fact-common.o, rtl-fact.o, tree-ssa-lfact.o,
+	seqabstr.o
+	* fact-common.c, fact-common.h: New files. Common interface.
+	* rtl-lfact.c, tree-ssa-lfact.c : New files. Local factoring.
+	* seqabstr.c: New file. Sequence abstraction.
+	* cfgcleanup.c (outgoing_edges_match): Extra checks.
+	* passes.c (rest_of_handle_seqabstr, rest_of_factoring): New functions.
+	(rest_of_compilation): New passes.
+	* common.opt, tree.h: New options.
+	* timevar.def: Same.
+	* tree-dump.c: Same.
+	* tree-optimize.c, tree-pass.h: New passes.
+	* opts.c (decode_options): Set factoring flags as default for -Os
+
 2004-11-14  Richard Henderson  <rth@redhat.com>
 
 	PR 18480

@@ -914,15 +914,15 @@ OBJS-common = \
  haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
- loop.o modulo-sched.o optabs.o options.o opts.o			   \
- params.o postreload.o postreload-gcse.o predict.o			   \
+ loop.o modulo-sched.o optabs.o options.o opts.o fact-common.o		   \
+ rtl-lfact.o params.o postreload.o postreload-gcse.o predict.o		   \
  insn-preds.o pointer-set.o postreload.o				   \
- print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
+ print-rtl.o print-tree.o value-prof.o var-tracking.o tree-ssa-lfact.o	   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
- simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o		   \
+ seqabstr.o simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o	   \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o		   \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
@@ -1671,6 +1671,10 @@ tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) gt-tree-cfg.h tree-pass.h \
    $(CFGLAYOUT_H)
+fact-common.o : fact-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) coretypes.h \
+   $(TM_H) $(BASIC_BLOCK_H)   
+tree-ssa-lfact.o : tree-ssa-lfact.c fact-common.h $(CONFIG_H) $(SYSTEM_H) \
+   $(RTL_H) coretypes.h $(TM_H) $(BASIC_BLOCK_H)  
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) function.h $(TM_H) coretypes.h \
    $(TREE_DUMP_H) diagnostic.h except.h tree-pass.h $(FLAGS_H) langhooks.h
@@ -1937,6 +1941,8 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    except.h $(TARGET_H) $(PARAMS_H) rtlhooks-def.h
 web.o : web.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) function.h output.h toplev.h $(DF_H)
+rtl-lfact.o : rtl-lfact.c fact-common.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+   coretypes.h $(TM_H) $(BASIC_BLOCK_H) 
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) real.h insn-config.h $(GGC_H) $(RECOG_H) $(EXPR_H) \
    $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) \
@@ -2175,6 +2181,8 @@ pointer-set.o: pointer-set.c pointer-set.h $(CONFIG_H) $(SYSTEM_H)
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
+seqabstr.o: seqabstr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
+   $(BASIC_BLOCK_H) $(GGC_H) $(REGS_H) fact-common.h
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) $(GGC_H) \
