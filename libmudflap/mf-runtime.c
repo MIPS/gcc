@@ -84,7 +84,8 @@ __mf_set_default_options ()
   __mf_opts.verbose_trace = 0;
   __mf_opts.collect_stats = 0;
   __mf_opts.internal_checking = 0;
-  __mf_opts.tree_aging = 1000000;
+  __mf_opts.tree_aging =    13037;
+  __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
   __mf_opts.verbose_violations = 0;
   __mf_opts.multi_threaded = 0;
@@ -192,6 +193,9 @@ options [] =
     {"lc-shift", 
      "set lookup cache pointer shift",
      read_integer_option, 0, (int *)(&__mf_lc_shift)},
+    {"lc-adapt", 
+     "adapt mask/shift parameters after N cache misses",
+     read_integer_option, 1, &__mf_opts.adapt_cache},
     {"backtrace", 
      "keep an N-level stack trace of each call context",
      read_integer_option, 0, &__mf_opts.backtrace},
@@ -510,6 +514,7 @@ static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high,
 					__mf_object_tree_t **objs, unsigned max_objs);
 static void __mf_link_object (__mf_object_tree_t *obj);
 static void __mf_age_tree (__mf_object_tree_t *obj);
+static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
 
@@ -554,18 +559,28 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 	    
 	    if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
 	      {
-		/* Handle tree liveness aging.  */
-		static unsigned cache_miss_count;
-		cache_miss_count ++;
-		if (UNLIKELY (__mf_opts.tree_aging > 0 &&
-			      cache_miss_count > __mf_opts.tree_aging))
-		  {
-		    cache_miss_count = 0;
-		    __mf_age_tree (__mf_object_root);
-		  }
-		obj->liveness ++;
-
 		obj->check_count ++;  /* XXX: what about overflow?  */
+
+		/* Handle tree liveness aging and cache adaptation.  */
+		{
+		  static unsigned aging_count;
+		  static unsigned adapt_count;
+		  aging_count ++;
+		  adapt_count ++;
+		  if (UNLIKELY (__mf_opts.tree_aging > 0 &&
+				aging_count > __mf_opts.tree_aging))
+		    {
+		      aging_count = 0;
+		      __mf_age_tree (__mf_object_root);
+		    }
+		  obj->liveness ++;
+		  if (UNLIKELY (__mf_opts.adapt_cache > 0 &&
+				adapt_count > __mf_opts.adapt_cache))
+		    {
+		      adapt_count = 0;
+		      __mf_adapt_cache ();
+		    }
+		}
 
 		if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
 		  {
@@ -1061,6 +1076,105 @@ __mf_age_tree (__mf_object_tree_t *obj)
   if (obj->right)
     __mf_age_tree (obj->right);
 }
+
+
+
+struct tree_stats
+{
+  unsigned obj_count;
+  uintptr_t total_size;
+  unsigned live_obj_count;
+  double total_weight;
+  double weighted_size;
+};
+
+static void
+__mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
+{
+  assert (obj != NULL);
+
+  if (obj->data.check_count) /* Exclude never-accessed objects.  */
+    {
+      s->obj_count ++;
+      s->total_size += (obj->data.high - obj->data.low + 1);
+
+      if (obj->data.liveness)
+	{
+	  s->live_obj_count ++;
+	  s->total_weight += (double) obj->data.liveness;
+	  s->weighted_size +=
+	    (double) (obj->data.high - obj->data.low + 1) *
+	    (double) obj->data.liveness;
+	}
+    }
+
+  if (obj->left)
+    __mf_tree_analyze (obj->left, s);
+  if (obj->right)
+    __mf_tree_analyze (obj->right, s);
+}
+
+
+static void
+__mf_adapt_cache ()
+{
+  struct tree_stats s;
+  double avg_weight;
+  uintptr_t avg_size;
+  uintptr_t weighted_avg_size;
+  uintptr_t new_mask;
+  uintptr_t shifted;
+  unsigned char new_shift;
+  unsigned num_buckets;
+
+  memset (&s, 0, sizeof (s));
+  __mf_tree_analyze (__mf_object_root, & s);
+  assert (s.obj_count > 0);
+  assert (s.live_obj_count > 0);
+  assert (s.total_weight > 0.0);
+  avg_weight = s.total_weight / s.live_obj_count;
+  weighted_avg_size = (uintptr_t) (s.weighted_size / s.total_weight);
+  avg_size = (uintptr_t) (s.total_size / s.obj_count);
+  if (avg_size == 0) avg_size = 1;
+
+  /* Find a good new cache size. */
+  num_buckets = 1.5 * s.obj_count * (weighted_avg_size / avg_size);
+  for (new_mask=0xff;
+       new_mask < LOOKUP_CACHE_SIZE_MAX;
+       new_mask = new_mask * 2 + 1)
+    if (num_buckets < new_mask+1)
+      break;
+  new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
+
+  /* Find a good new shift amount.  Make it big enough that the
+     popular objects take up 1-2 "cache lines".  The 24 in the
+     next line imposes a practical 16MB upper limit on the cache line
+     size.  */
+  for (new_shift=0, shifted=2; /* shifted == 2**(new_shift+1) */
+       new_shift < 24;
+       new_shift++, shifted<<=1)
+    if (shifted > weighted_avg_size)
+      break;
+    
+  VERBOSE_TRACE ("mf: adapt cache %u/%u/%u/%.0f/%.0f => "
+		 "%.0f/%lu/%lu => "
+		 "%08lx/%u\n",
+		 s.obj_count, s.live_obj_count, s.total_size,
+		 s.total_weight, s.weighted_size,
+		 avg_weight, weighted_avg_size, avg_size,
+		 new_mask, new_shift);
+
+  /* We should reinitialize cache if its parameters have changed.  */
+  if (new_mask != __mf_lc_mask ||
+      new_shift != __mf_lc_shift)
+    {
+      __mf_lc_mask = new_mask;
+      __mf_lc_shift = new_shift;
+      memset (__mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+    }
+}
+
+
 
 
 

@@ -61,6 +61,9 @@ struct __mf_options
   /* Age object liveness periodically. */
   unsigned tree_aging;
 
+  /* Adapt the lookup cache to working set. */
+  unsigned adapt_cache;
+
   /* Print list of leaked heap objects on shutdown. */
   unsigned print_leaks;       
 

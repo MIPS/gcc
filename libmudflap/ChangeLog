@@ -1,3 +1,12 @@
+2002-09-26  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-impl.h (adapt_cache): New option.
+	* mf-runtime.c (__mf_set_default_options): Set its default value.
+	Tweak the tree_aging parameter down.
+	(__mf_check): Maintain separate counter for cache-adaptation.
+	(__mf_tree_analyze): New function to collect object tree stats.
+	(__mf_adapt_cache): New function to automate cache parameters.
+
 2002-09-24  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-heuristics.c (__init_misc, __mf_heuristic_check): Add
