@@ -1,3 +1,9 @@
+2004-01-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-tailcall.c (eliminate_tail_call): Add phi nodes for the call
+	vdefs.
+	(find_tail_calls): Ignore returns with virtual operands.
+
 2004-01-12  Richard Henderson  <rth@redhat.com>
 
 	* tree-pass.h: New file.

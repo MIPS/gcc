@@ -147,6 +147,10 @@ find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
 	  if (act->return_block)
 	    abort ();
 
+	  if (STMT_VDEF_OPS (stmt)
+	      || STMT_VUSE_OPS (stmt))
+	    return;
+
 	  act->ret_variable = TREE_OPERAND (stmt, 0);
 	  if (act->ret_variable
 	      && TREE_CODE (act->ret_variable) == MODIFY_EXPR)
@@ -248,11 +252,16 @@ static void
 eliminate_tail_call (struct tailcall *t)
 {
   tree param, stmt, args;
-  basic_block bb;
+  basic_block bb, first;
   edge e;
   tree phi;
+  stmt_ann_t ann;
+  vdef_optype vdefs;
+  unsigned i;
 
   stmt = bsi_stmt (t->call_bsi);
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
   bb = t->call_block;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -274,25 +283,62 @@ eliminate_tail_call (struct tailcall *t)
     }
   bsi_remove (&t->call_bsi);
 
-  e = redirect_edge_and_branch (t->call_block->succ,
-				ENTRY_BLOCK_PTR->succ->dest);
+  first = ENTRY_BLOCK_PTR->succ->dest;
+  e = redirect_edge_and_branch (t->call_block->succ, first);
   if (!e)
     abort ();
-  /* We expect that each PHI node on first basic block represent an argument.
-     Add proper entries.  */
-  for (phi = phi_nodes (ENTRY_BLOCK_PTR->succ->dest); phi;
-       phi = TREE_CHAIN (phi))
+
+  /* Add phi node entries for arguments.  Not every PHI node corresponds to
+     a function argument (there may be PHI nodes for virtual definitions of the
+     eliminated calls), so we search for a PHI corresponding to each argument
+     rather than searching for which argument a PHI node corresponds to.  */
+  
+  for (param = DECL_ARGUMENTS (current_function_decl),
+       args = TREE_OPERAND (stmt, 1);
+       param;
+       param = TREE_CHAIN (param),
+       args = TREE_CHAIN (args))
     {
-      for (param = DECL_ARGUMENTS (current_function_decl),
-	   args = TREE_OPERAND (stmt, 1);
-	   param;
-	   param = TREE_CHAIN (param),
-	   args = TREE_CHAIN (args))
+      
+      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
-      if (!param)
-	abort ();
+
+      /* The phi node indeed does not have to be there, in case the operand is
+	 invariant in the function.  */
+      if (!phi)
+	continue;
+
       add_phi_arg (&phi, TREE_VALUE (args), e);
+    }
+
+  /* Add phi nodes for the call clobbered variables.  */
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      param = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
+      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
+	  break;
+
+      if (!phi)
+	{
+	  tree name = var_ann (param)->default_def;
+	  tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
+
+	  var_ann (param)->default_def = new_name;
+	  phi = create_phi_node (name, first);
+	  SSA_NAME_DEF_STMT (name) = phi;
+	  add_phi_arg (&phi, new_name, ENTRY_BLOCK_PTR->succ);
+
+	  /* For all calls the same set of variables should be clobbered.  This
+	     means that there always should be the appropriate phi node except
+	     for the first time we eliminate the call.  */
+	  if (first->pred->pred_next->pred_next)
+	    abort ();
+	}
+
+      add_phi_arg (&phi, VDEF_OP (vdefs, i), e);
     }
 }
 
