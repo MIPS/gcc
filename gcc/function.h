@@ -373,6 +373,7 @@ struct function
   struct eh_status *eh;
   struct emit_status *emit;
   struct expr_status *expr;
+  struct varasm_status *varasm;
 
   /* For tree.c.  */
   int all_types_permanent;
@@ -394,13 +395,6 @@ struct function
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function *language;
-
-  /* For varasm.  */
-  struct constant_descriptor **const_rtx_hash_table;
-  struct pool_sym **const_rtx_sym_hash_table;
-  struct pool_constant *first_pool, *last_pool;
-  int pool_offset;
-  rtx const_double_chain;
 
   /* For inlinable functions.  */
   int inlinable;
@@ -508,14 +502,16 @@ extern void (*mark_lang_status)		PROTO((struct function *));
 /* Save and restore status information for a nested function.  */
 extern void save_tree_status		PROTO((struct function *, tree));
 extern void restore_tree_status		PROTO((struct function *, tree));
-extern void save_varasm_status		PROTO((struct function *, tree));
-extern void restore_varasm_status	PROTO((struct function *));
+extern void init_varasm_status		PROTO((struct function *));
 extern void restore_emit_status		PROTO((struct function *));
 extern void free_varasm_status		PROTO((struct function *));
 extern void free_emit_status		PROTO((struct function *));
 extern void free_after_compilation	PROTO((struct function *));
 
 extern rtx get_first_block_beg		PROTO((void));
+
+/* Initialize constant pool hashing for a function.  */
+extern void init_const_rtx_hash_table	PROTO((struct function *));
 
 #ifdef rtx
 #undef rtx

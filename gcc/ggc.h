@@ -68,5 +68,5 @@ void mark_function_chain PROTO ((void *));
 void mark_eh_state PROTO ((void *));
 void mark_stmt_state PROTO ((void *));
 void mark_emit_state PROTO ((void *));
-void mark_pool_constant PROTO ((void *));
+void mark_varasm_state PROTO ((void *));
 void mark_optab PROTO ((void *));

@@ -1675,7 +1675,7 @@ output_func_start_profiler ()
 
   /* Synthesize a constructor function to invoke __bb_init_func with a
      pointer to this object file's profile block. */
-  start_sequence ();
+  /*  start_sequence ();*/
 
   /* Actually generate the code to call __bb_init_func. */
   name = xmalloc (20);

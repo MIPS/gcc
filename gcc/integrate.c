@@ -2553,7 +2553,7 @@ output_inline_function (fndecl)
   current_function_decl = fndecl;
 
   /* Find last insn and rebuild the constant pool.  */
-  init_const_rtx_hash_table ();
+  init_const_rtx_hash_table (f);
   for (last = get_insns (); NEXT_INSN (last); last = NEXT_INSN (last))
     {
       if (GET_RTX_CLASS (GET_CODE (last)) == 'i')

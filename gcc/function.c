@@ -271,7 +271,6 @@ push_function_context_to (context)
   outer_function_chain = f;
 
   save_tree_status (f, context);
-  save_varasm_status (f, context);
   if (save_lang_status)
     (*save_lang_status) (f);
 }
@@ -298,7 +297,6 @@ pop_function_context_from (context)
 
   restore_tree_status (f, context);
   restore_emit_status (f);
-  restore_varasm_status (f);
 
   if (restore_machine_status)
     (*restore_machine_status) (f);
@@ -5082,7 +5080,7 @@ prepare_function_start ()
   /* We haven't done register allocation yet.  */
   reg_renumber = 0;
 
-  init_const_rtx_hash_table ();
+  init_varasm_status (current_function);
 
   /* Clear out data used for inlining.  */
   current_function->inlinable = 0;
@@ -6182,6 +6180,7 @@ mark_function_chain (arg)
       mark_stmt_state (&f->stmt);
       mark_eh_state (&f->eh);
       mark_emit_state (&f->emit);
+      mark_varasm_state (&f->varasm);
 
       ggc_mark_rtx (f->expr->x_saveregs_value);
       ggc_mark_rtx (f->expr->x_apply_args_value);
@@ -6191,9 +6190,6 @@ mark_function_chain (arg)
 	(*mark_machine_status) (f);
       if (mark_lang_status)
 	(*mark_lang_status) (f);
-
-      mark_pool_constant (&f->first_pool);
-      ggc_mark_rtx (f->const_double_chain);
 
       if (f->original_arg_vector)
 	ggc_mark_rtvec ((rtvec) f->original_arg_vector);
