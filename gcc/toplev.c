@@ -3507,7 +3507,7 @@ rest_of_compilation (decl)
   timevar_push (TV_REG_STACK);
   open_dump_file (DFI_stack, decl);
 
-  reg_to_stack (get_insns () rtl_dump_file);
+  reg_to_stack (get_insns (), rtl_dump_file);
 
   close_dump_file (DFI_stack, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_REG_STACK);
