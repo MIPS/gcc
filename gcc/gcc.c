@@ -3209,8 +3209,8 @@ process_command (int argc, const char *const *argv)
   char *temp1;
   const char *spec_lang = 0;
   int last_language_n_infiles;
-  int have_c;
-  int have_o;
+  int have_c = 0;
+  int have_o = 0;
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
