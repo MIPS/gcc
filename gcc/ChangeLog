@@ -1,3 +1,8 @@
+2004-08-02  Paul Brook  <paul@codesourcery.com>
+
+	PR rtl-optimization/15068
+	* flow.c (init_propagate_block_info): Check condition is reversible.
+
 2004-07-21  Paul brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (thumb_expand_prologue): Remove bogus GEN_INT.
