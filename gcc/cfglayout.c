@@ -683,6 +683,8 @@ cfg_layout_duplicate_bb (bb, e)
   basic_block new_bb;
   gcov_type new_count = e->count;
 
+  if (bb->count < new_count)
+    new_count = bb->count;
   if (!bb->pred || !bb->pred->pred_next)
     abort ();
 #ifdef ENABLE_CHECKING
