@@ -1,9 +1,47 @@
+2004-06-10  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JMenu.java: Added javadoc.
+	(JMenu): Added MenuChangeListener to listen to 
+	ChangeEvents occuring in menu's model. 
+	(insert): Throw IllegalArgumentException if 
+	index is less than 0
+	(setSelected): Reimplement.
+	(setPopupMenuVisible): Call menu's model isEnabled()
+	(setDelay): Throw IllegalArgumentException if 
+	given amount of delay is less than 0.
+	(createActionComponent): Implemented.
+	(createActionChangeListener): Implemented.
+	(addSeparator): Implemented.
+	(getItem): Throw IllegalArgumentException if index is 
+	less than 0.
+	(getItemCount): Implemented.
+	(fireMenuSelected): Changed to use menuEvent.
+	(fireMenuDeselected): Likewise.
+	(fireMenuCanceled): Likewise.
+	(setAccelerator): Changed to throw an error if this 
+	method is used. 
+	(doClick): Implemented.
+	(JMenu.ActionChangedListener): New inner class to handle
+	PropertyChangeEvents occuring in the actions associated with menu.
+	* javax/swing/plaf/basic/BasicMenuUI.java: Added javadoc.
+	(BasicMenuUI): Added PropertyChangeListener to the menu.
+	(createChangeListener): Implemented.
+	(createMenuDragMouseListener): Likewise.
+	(createMenuKeyListener): Likewise.
+	(createPropertyChangeListener): Likewise.
+	(uninstallListeners): Likewise.
+	(BasicMenuUI.MouseInputHandler): Reimplemented.
+	(BasicMenuUI.PropertyChangeHandler): New class. Not implemented yet.
+	(BasicMenuUI.ChangeHandler): Likewise.
+	(BasicMenuUI.MenuDragMouseHandler): Likewise.
+	(BasicMenuUI.MenuKeyHandler): Likewise.
+
 2004-06-10  David Jee  <djee@redhat.com>
 
 	* java/awt/MediaTracker.java
 	(imageUpdate): Only do notifyAll() if the image is complete.
 
-2004-06-10  Olga Rodimina <rodimina@redhat.com>
+2004-06-10  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/JApplet.java:
 	(getJMenuBar): Made public.
