@@ -3374,8 +3374,6 @@ duplicate_decls (newdecl, olddecl)
 	 definition.  */
       if (DECL_VINDEX (olddecl))
 	DECL_VINDEX (newdecl) = DECL_VINDEX (olddecl);
-      if (DECL_VIRTUAL_CONTEXT (olddecl))
-	DECL_VIRTUAL_CONTEXT (newdecl) = DECL_VIRTUAL_CONTEXT (olddecl);
       if (DECL_CONTEXT (olddecl))
 	DECL_CONTEXT (newdecl) = DECL_CONTEXT (olddecl);
       DECL_STATIC_CONSTRUCTOR (newdecl) |= DECL_STATIC_CONSTRUCTOR (olddecl);
@@ -3412,12 +3410,9 @@ duplicate_decls (newdecl, olddecl)
 
       if (newtype != error_mark_node && oldtype != error_mark_node
 	  && TYPE_LANG_SPECIFIC (newtype) && TYPE_LANG_SPECIFIC (oldtype))
-	{
-	  CLASSTYPE_VSIZE (newtype) = CLASSTYPE_VSIZE (oldtype);
-	  CLASSTYPE_FRIEND_CLASSES (newtype)
-	    = CLASSTYPE_FRIEND_CLASSES (oldtype);
-	}
-
+	CLASSTYPE_FRIEND_CLASSES (newtype)
+	  = CLASSTYPE_FRIEND_CLASSES (oldtype);
+\
       DECL_ORIGINAL_TYPE (newdecl) = DECL_ORIGINAL_TYPE (olddecl);
     }
 
@@ -3594,9 +3589,12 @@ duplicate_decls (newdecl, olddecl)
       /* Only functions have DECL_BEFRIENDING_CLASSES.  */
       if (TREE_CODE (newdecl) == FUNCTION_DECL
 	  || DECL_FUNCTION_TEMPLATE_P (newdecl))
-	DECL_BEFRIENDING_CLASSES (newdecl)
-	  = chainon (DECL_BEFRIENDING_CLASSES (newdecl),
-		     DECL_BEFRIENDING_CLASSES (olddecl));
+	{
+	  DECL_BEFRIENDING_CLASSES (newdecl)
+	    = chainon (DECL_BEFRIENDING_CLASSES (newdecl),
+		       DECL_BEFRIENDING_CLASSES (olddecl));
+	  DECL_THUNKS (newdecl) = DECL_THUNKS (olddecl);
+	}
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -7839,7 +7837,7 @@ reshape_init (tree type, tree *initp)
 
   if (TREE_CODE (old_init_value) == STRING_CST
       && TREE_CODE (type) == ARRAY_TYPE
-      && char_type_p (TREE_TYPE (type)))
+      && char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type))))
     {
       /* [dcl.init.string]
 
@@ -8175,6 +8173,12 @@ maybe_inject_for_scope_var (decl)
      tree decl;
 {
   if (!DECL_NAME (decl))
+    return;
+  
+  /* Declarations of __FUNCTION__ and its ilk appear magically when
+     the variable is first used.  If that happens to be inside a
+     for-loop, we don't want to do anything special.  */
+  if (DECL_PRETTY_FUNCTION_P (decl))
     return;
 
   if (current_binding_level->is_for_scope)
@@ -11237,8 +11241,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      pop_decl_namespace ();
 	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
 	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
+	    else if (!TREE_OPERAND (declarator, 0)
+		     || !IS_AGGR_TYPE_CODE
+		          (TREE_CODE (TREE_OPERAND (declarator, 0))))
 	      ;
 	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
 	      {

@@ -41,6 +41,8 @@ Boston, MA 02111-1307, USA.  */
 
 static int follows_p PARAMS ((rtx, rtx));
 static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void vax_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					 HOST_WIDE_INT, tree));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -48,6 +50,11 @@ static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE vax_output_function_prologue
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -705,11 +712,12 @@ reg_was_0_p (insn, op)
 	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
 }
 
-void
-vax_output_mi_thunk (file, thunk, delta, function)
+static void
+vax_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      FILE *file;
      tree thunk ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   fprintf (file, "\t.word 0x0ffc\n");					

@@ -195,6 +195,8 @@ const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes PARAMS ((tree));
 static void rs6000_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void rs6000_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void rs6000_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					    HOST_WIDE_INT, tree));
 static rtx rs6000_emit_set_long_const PARAMS ((rtx,
   HOST_WIDE_INT, HOST_WIDE_INT));
 #if TARGET_ELF
@@ -312,6 +314,9 @@ static const char alt_reg_names[][8] =
 #ifndef MASK_STRICT_ALIGN
 #define MASK_STRICT_ALIGN 0
 #endif
+
+/* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
+#define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -374,8 +379,15 @@ static const char alt_reg_names[][8] =
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
 
-/* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
-#define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK rs6000_output_mi_thunk
+
+/* ??? Should work everywhere, but ask dje@watson.ibm.com before
+   enabling for AIX.  */
+#if TARGET_OBJECT_FORMAT != OBJECT_XCOFF
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+#endif
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
@@ -8132,7 +8144,7 @@ rs6000_reverse_condition (mode, code)
 {
   /* Reversal of FP compares takes care -- an ordered compare
      becomes an unordered compare and vice versa.  */
-  if (mode == CCFPmode)
+  if (mode == CCFPmode && !flag_unsafe_math_optimizations)
     return reverse_condition_maybe_unordered (code);
   else
     return reverse_condition (code);
@@ -8404,7 +8416,14 @@ output_cbranch (op, label, reversed, insn)
      reverse_condition_maybe_unordered here always but this
      makes the resulting assembler clearer.  */
   if (really_reversed)
-    code = rs6000_reverse_condition (mode, code);
+    {
+      /* Reversal of FP compares takes care -- an ordered compare
+	 becomes an unordered compare and vice versa.  */
+      if (mode == CCFPmode)
+	code = reverse_condition_maybe_unordered (code);
+      else
+	code = reverse_condition (code);
+    }
 
   if ((TARGET_SPE && TARGET_HARD_FLOAT) && mode == CCFPmode)
     {
@@ -9464,7 +9483,11 @@ rs6000_ra_ever_killed ()
   rtx reg;
   rtx insn;
 
-  if (targetm.asm_out.output_mi_thunk && current_function_is_thunk)
+  /* Irritatingly, there are two kinds of thunks -- those created with
+     TARGET_ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go
+     through the regular part of the compiler.  This is a very hacky
+     way to tell them apart.  */
+  if (current_function_is_thunk && !no_new_pseudos)
     return 0;
 
   /* regs_ever_live has LR marked as used if any sibcalls are present,
@@ -11239,11 +11262,12 @@ rs6000_output_function_epilogue (file, size)
    calls FUNCTION instead of jumping to it.  The generic approach does
    not support varargs.  */
 
-void
-output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+rs6000_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   const char *this_reg =
@@ -11304,6 +11328,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 
     case ABI_V4:
     case ABI_AIX_NODESC:
+    case ABI_DARWIN:
       prefix = "";
       break;
     }
@@ -11349,10 +11374,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	    }
 	  assemble_name (file, fname);
 	  putc ('\n', file);
-	  if (TARGET_ELF)
-	    function_section (current_function_decl);
-	  else
-	    text_section ();
+	  function_section (current_function_decl);
 	  if (TARGET_MINIMAL_TOC)
 	    asm_fprintf (file, (TARGET_32BIT)
 			 ? "\t{l|lwz} %s,%s(%s)\n" : "\tld %s,%s(%s)\n", r12,
@@ -11399,7 +11421,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	}
     }
 }
-
 
 /* A quick summary of the various types of 'constant-pool tables'
    under PowerPC:
@@ -13223,3 +13244,61 @@ rs6000_binds_local_p (decl)
 {
   return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
 }
+
+/* A C expression returning the cost of moving data from a register of class
+   CLASS1 to one of CLASS2.  */
+
+int
+rs6000_register_move_cost (mode, from, to)
+     enum machine_mode mode;
+     enum reg_class from, to;
+{
+  /*  Moves from/to GENERAL_REGS.  */
+  if (reg_classes_intersect_p (to, GENERAL_REGS)
+      || reg_classes_intersect_p (from, GENERAL_REGS))
+    {
+      if (! reg_classes_intersect_p (to, GENERAL_REGS))
+	from = to;
+
+      if (from == FLOAT_REGS || from == ALTIVEC_REGS)
+	return (rs6000_memory_move_cost (mode, from, 0)
+		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
+
+/* It's more expensive to move CR_REGS than CR0_REGS because of the shift...*/
+      else if (from == CR_REGS)
+	return 4;
+
+      else
+/* A move will cost one instruction per GPR moved.  */
+	return 2 * HARD_REGNO_NREGS (0, mode);
+    }
+
+/* Moving between two similar registers is just one instruction.  */
+  else if (reg_classes_intersect_p (to, from))
+    return mode == TFmode ? 4 : 2;
+
+/* Everything else has to go through GENERAL_REGS.  */
+  else
+    return (rs6000_register_move_cost (mode, GENERAL_REGS, to) 
+	    + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+}
+
+/* A C expressions returning the cost of moving data of MODE from a register to
+   or from memory.  */
+
+int
+rs6000_memory_move_cost (mode, class, in)
+  enum machine_mode mode;
+  enum reg_class class;
+  int in ATTRIBUTE_UNUSED;
+{
+  if (reg_classes_intersect_p (class, GENERAL_REGS))
+    return 4 * HARD_REGNO_NREGS (0, mode);
+  else if (reg_classes_intersect_p (class, FLOAT_REGS))
+    return 4 * HARD_REGNO_NREGS (32, mode);
+  else if (reg_classes_intersect_p (class, ALTIVEC_REGS))
+    return 4 * HARD_REGNO_NREGS (FIRST_ALTIVEC_REGNO, mode);
+  else
+    return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
+}
+

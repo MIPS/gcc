@@ -379,7 +379,7 @@ enum reg_class {
   NO_REGS, GENERAL_REGS, MAC_REGS, ALL_REGS, LIM_REG_CLASSES
 };
 
-#define N_REG_CLASSES (int) LIM_REG_CLASSES
+#define N_REG_CLASSES ((int) LIM_REG_CLASSES)
 
 /* Give names of register classes as strings for dump file.  */
 
@@ -561,8 +561,8 @@ enum reg_class {
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
-  OFFSET = initial_offset (FROM, TO)
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)		\
+  ((OFFSET) = h8300_initial_elimination_offset ((FROM), (TO)))
 
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
@@ -827,12 +827,11 @@ struct cum_arg
 
 #define EIGHTBIT_CONSTANT_ADDRESS_P(X)					\
   ((GET_CODE (X) == CONST_INT)						\
-   && ((TARGET_H8300H && 0xffff00 <= INTVAL (X)				\
-	&& INTVAL (X) <= 0xffffff)					\
-       || (TARGET_H8300S && 0xffffff00 <= INTVAL (X)			\
-	   && INTVAL (X) <= 0xffffffff)					\
-       || (TARGET_H8300 && 0xff00 <= (INTVAL (X) & 0x0000FFFF)		\
-	   && (INTVAL (X) & 0x0000FFFF) <= 0xffff)))
+   && ((TARGET_H8300 && IN_RANGE (INTVAL (X) & 0xffff, 0xff00, 0xffff))	\
+       || (TARGET_H8300H && IN_RANGE (INTVAL (X) & 0xffffffff,		\
+				      0xffff00, 0xffffff))		\
+       || (TARGET_H8300S && IN_RANGE (INTVAL (X) & 0xffffffff,		\
+				      0xffffff00, 0xffffffff))))
 
 /* Nonzero if X is a constant address suitable as an 16-bit absolute
    on H8/300H and H8S.  */
@@ -840,12 +839,13 @@ struct cum_arg
 #define TINY_CONSTANT_ADDRESS_P(X)					\
   ((GET_CODE (X) == CONST_INT)						\
    && ((TARGET_H8300H							\
-	&& ((0xff8000 <= INTVAL (X) && INTVAL (X) <= 0xffffff)		\
-	    || (0x000000 <= INTVAL (X) && INTVAL (X) <= 0x007fff)))	\
+	&& (IN_RANGE (INTVAL (X) & 0xffffffff, 0x000000, 0x007fff)	\
+	    || IN_RANGE (INTVAL (X) & 0xffffffff, 0xff8000, 0xffffff)))	\
        || (TARGET_H8300S						\
-	   && ((0xffff8000 <= INTVAL (X) && INTVAL (X) <= 0xffffffff)	\
-	       || (0x00000000 <= INTVAL (X)				\
-		   && INTVAL (X) <= 0x00007fff)))))
+	   && (IN_RANGE (INTVAL (X) & 0xffffffff,			\
+			 0x00000000, 0x00007fff)			\
+	       || IN_RANGE (INTVAL (X) & 0xffffffff,			\
+			    0xffff8000, 0xffffffff)))))
 
 /* 'U' if valid for a bset destination;
    i.e. a register, register indirect, or the eightbit memory region

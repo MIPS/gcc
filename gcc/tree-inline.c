@@ -1195,6 +1195,12 @@ walk_tree (tp, func, data, htab_)
     {
       WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
     }
+  else if (TREE_CODE_CLASS (code) == 't')
+    {
+      WALK_SUBTREE (TYPE_SIZE (*tp));
+      WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
+      /* Also examine various special fields, below.  */
+    }
 
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
@@ -1292,6 +1298,7 @@ walk_tree (tp, func, data, htab_)
   return NULL_TREE;
 
 #undef WALK_SUBTREE
+#undef WALK_SUBTREE_TAIL
 }
 
 /* Like walk_tree, but does not walk duplicate nodes more than
@@ -1349,8 +1356,8 @@ copy_tree_r (tp, walk_subtrees, data)
       if (TREE_CODE (*tp) == BIND_EXPR)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
-  else if (TREE_CODE_CLASS (code) == 't')
-    /* There's no need to copy types, or anything beneath them.  */
+  else if (TREE_CODE_CLASS (code) == 't' && !variably_modified_type_p (*tp))
+    /* Types only need to be copied if they are variably modified.  */
     *walk_subtrees = 0;
 
   return NULL_TREE;

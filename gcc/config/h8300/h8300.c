@@ -431,7 +431,8 @@ static int
 round_frame_size (size)
      int size;
 {
-  return (size + STACK_BOUNDARY / 8 - 1) & -STACK_BOUNDARY / 8;
+  return ((size + STACK_BOUNDARY / BITS_PER_UNIT - 1)
+	  & -STACK_BOUNDARY / BITS_PER_UNIT);
 }
 
 /* Compute which registers to push/pop.
@@ -1609,7 +1610,7 @@ do_movsi (operands)
    the other its replacement, at the start of a routine.  */
 
 int
-initial_offset (from, to)
+h8300_initial_elimination_offset (from, to)
      int from, to;
 {
   int offset = 0;
@@ -1629,8 +1630,7 @@ initial_offset (from, to)
       /* See the comments for get_frame_size.  We need to round it up to
 	 STACK_BOUNDARY.  */
 
-      offset += ((get_frame_size () + STACK_BOUNDARY / BITS_PER_UNIT - 1)
-		 & ~(STACK_BOUNDARY / BITS_PER_UNIT - 1));
+      offset += round_frame_size (get_frame_size ());
 
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */

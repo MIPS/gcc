@@ -1,3 +1,23 @@
+2002-10-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.tpl (bootstrap):  Add bubblestrap, quickstrap, cleanstrap,
+	and restrap targets to this rule.
+	* Makefile.in:  Regenerate.
+
+2002-10-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add Wolfgang Bangerth and Volker Reichelt under
+	GNATS only accounts.
+
+2002-10-24  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (i[3456]86-*-linux*): Add check to disable
+	${libgcj} for glibc1.
+
+2002-10-24  Denis Chertykov  <denisc@overta.ru>
+
+	* MAINTAINERS: Add myself as ip2k port maintainer.
+
 2002-10-07  Svein E. Seldal  <Svein.Seldal@solidas.com>
 
 	* configure.in: Add tic4x target.

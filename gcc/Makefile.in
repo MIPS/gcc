@@ -182,7 +182,7 @@ USER_H = $(srcdir)/ginclude/float.h \
 # The GCC to use for compiling libgcc.a and crt*.o.
 # Usually the one we just built.
 # Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
-GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) ./xgcc -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include
+GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) ./xgcc -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include -L$(objdir)/../ld
 
 # This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
 # It omits XCFLAGS, and specifies -B./.
@@ -1516,7 +1516,7 @@ dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
    debug.h flags.h insn-config.h reload.h output.h diagnostic.h real.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
-   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h gt-dwarf2out.h
+   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) gt-dwarf2out.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
    output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
@@ -3382,6 +3382,7 @@ VOL_FILES=`echo $(BACKEND) $(OBJS) $(C_OBJS) $(LIBCPP_OBJS) *.c *.h gen*`
 # the context of the stage_x rule.
 STAGE2_FLAGS_TO_PASS = \
 	ADAC="\$$(CC)" \
+	GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
 	WARN_CFLAGS="\$$(GCC_WARN_CFLAGS)" \
@@ -3399,6 +3400,7 @@ STAGE2_FLAGS_TO_PASS = \
 stage1_build:
 	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" \
 		CFLAGS="$(STAGE1_CFLAGS)" MAKEINFO="$(MAKEINFO)" \
+		GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 		MAKEINFOFLAGS="$(MAKEINFOFLAGS)" COVERAGE_FLAGS=
 	$(STAMP) stage1_build
 	echo stage1_build > stage_last
