@@ -1,3 +1,22 @@
+2005-01-19 Mostafa Hagog <mustafa@il.ibm.com>
+
+	* cfg.c (clear_bb_flags): Don't clear BB_DISABLE_SCHEDULE.
+	* cfgloop.h (doloop_valid_p): Make external.
+	(rtl_loop_copy_header): New.
+	* common.opt (frtl-loop-hc): New.
+	* ddg.c (create_ddg_dependence): Ignore register ANTI_DEP.
+	* loop-doloop.c (doloop_valid_p): Make external.
+	* loop-unroll.c (SIMPLE_LOOP_P, rtl_loop_single_full_bb_p,
+	rtl_loop_ch_appropriate_p, cfg_duplicate_sese_region,
+	rtl_loop_copy_header) : New.
+	* modulo-sched.c: Many changes to use loop info and work in
+	cfg-layout mode and updates to the scheduling algorithm.
+	* params.def (PARAM_LOOP_CH_MAX_SIZE): New.
+	* params.h (LOOP_CH_MAX_SIZE): New.
+        * passes.c (rest_of_handle_sms): Call cfg_layout_initialize and
+	cfg_layout_finalize.
+	(rest_of_handle_loop2): Call rtl_loop_copy_header.
+
 2005-01-14  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (analyze_subscript_affine_affine): Implement a 

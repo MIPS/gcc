@@ -614,24 +614,32 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  basic_block bb;
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
+  /* Collect loop information to be used in SMS.  */
+  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
   sms_schedule (dump_file);
   close_dump_file (DFI_sms, print_rtl, get_insns ());
-
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
   update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES
+  				    (PROP_DEATH_NOTES
 				     | PROP_KILL_DEAD_CODE
 				     | PROP_SCAN_DEAD_CODE));
-  no_new_pseudos = 1;
+   no_new_pseudos = 1;
 
+  /* Finalize layout changes.  */
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->rbi->next = bb->next_bb;
+  cfg_layout_finalize ();
+  free_dominance_info (CDI_DOMINATORS);
   ggc_collect ();
   timevar_pop (TV_SMS);
 }
@@ -1193,6 +1201,15 @@ rest_of_handle_loop2 (void)
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (0);
 
+  if (flag_rtl_loop_hc)
+    {
+      loops = loop_optimizer_init (dump_file);
+      if (loops)
+	{
+	  rtl_loop_copy_header (loops);
+	  loop_optimizer_finalize (loops, dump_file);
+	}
+    }
   loops = loop_optimizer_init (dump_file);
 
   if (loops)

@@ -479,10 +479,12 @@ enum
   UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
 };
 
+extern bool doloop_valid_p (struct loop *, struct niter_desc *);
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
 extern void record_estimate (struct loop *, tree, tree, tree);
+extern void rtl_loop_copy_header (struct loops *);
 
 /* Old loop optimizer interface.  */
 

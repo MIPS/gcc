@@ -138,7 +138,7 @@ doloop_condition_get (rtx pattern)
    the use of special low-overhead looping instructions.  DESC
    describes the number of iterations of the loop.  */
 
-static bool
+bool
 doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 {
   basic_block *body = get_loop_body (loop), bb;

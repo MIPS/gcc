@@ -408,6 +408,10 @@ DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
 	  "The upper bound for sharing integer constants",
 	  256, 2, 2)
 
+DEFPARAM (PARAM_LOOP_CH_MAX_SIZE,
+	  "loop-ch-max-size",
+	  "The maximum number of instructions in a loop to perfrom loop-ch on it",
+	  100, 0, 0)
 /*
 Local variables:
 mode:c
