@@ -778,14 +778,19 @@ static void
 gimplify_switch_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
-  tree break_block;
+  tree break_block, body;
   location_t stmt_locus = input_location;
 
   break_block = begin_bc_block (bc_break);
 
   gimplify_condition (&SWITCH_COND (stmt));
+
+  body = SWITCH_BODY (stmt);
+  if (!body)
+    body = build_empty_stmt ();
+
   *stmt_p = build (SWITCH_EXPR, SWITCH_TYPE (stmt), SWITCH_COND (stmt),
-		   SWITCH_BODY (stmt), NULL_TREE);
+		   body, NULL_TREE);
   annotate_with_locus (*stmt_p, stmt_locus);
   gimplify_stmt (stmt_p);
 
