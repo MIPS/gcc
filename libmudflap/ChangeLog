@@ -1,5 +1,11 @@
 2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
 
+	* mf-hooks.c: Make __wrap string* functions use __real_str[n]len
+	instead of plain str[n]len for internal checks.
+	* mf-runtime.c (__mf_violation): Print optional stack traceback.
+
+2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
+
 	* mf-hooks.c: Remove #if-0 around hooks that are now ld-wrapped.
 
 2002-08-13  Graydon Hoare  <graydon@redhat.com>

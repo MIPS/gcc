@@ -1,7 +1,7 @@
 /* {{{ Copyright */
 
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -36,6 +36,7 @@ XXX: libgcc license?
 
 /* ------------------------------------------------------------------------ */
 /* {{{ Utility macros */
+
 #define UNLIKELY(e) (__builtin_expect (!!(e), 0))
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
 
@@ -150,7 +151,7 @@ __mf_usage ()
 
   fprintf (stderr, 
 	   "This is a GCC \"mudflap\" memory-checked binary.\n"
-	   "Mudflap is Copyright (C) 2001, 2002 Free Software Foundation, Inc.\n"
+	   "Mudflap is Copyright (C) 2002 Free Software Foundation, Inc.\n"
 	   "\n"
 	   "The mudflap code can be controlled by an environment variable:\n"
 	   "\n"
@@ -349,7 +350,6 @@ static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
 /* }}} */
 /* ------------------------------------------------------------------------ */
 /* {{{ MODE_CHECK-related globals.  */
-
 
 typedef struct __mf_object
 {
@@ -1208,6 +1208,26 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
 	      "unknown"));
   }
+
+  if (__mf_opts.backtrace > 0)
+    {
+      void *array [__mf_opts.backtrace];
+      size_t bt_size;
+      char ** symbols;
+      int i;
+
+      bt_size = backtrace (array, __mf_opts.backtrace);
+      /* Note: backtrace_symbols calls malloc().  But since we're in
+	 __mf_violation and presumably __mf_check, it'll detect
+	 recursion, and not put the new string into the database.  */
+      symbols = backtrace_symbols (array, bt_size);
+
+      for (i=0; i<bt_size; i++)
+	fprintf (stderr, "      %s\n", symbols[i]);
+
+      /* Calling free() here would trigger a violation.  */
+      __real_free (symbols);
+    }
 
   if (__mf_opts.verbose_violations)
   {

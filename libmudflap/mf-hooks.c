@@ -177,7 +177,7 @@ char *
 __wrap_strcpy (char *dest, const char *src)
 {
   extern char *__real_strcpy (char *dest, const char *src);
-  int n = strlen (src);
+  int n = __real_strlen (src);
 
   /* nb: just because strlen(src) == n doesn't mean (src + n) or (src + n +
      1) are valid pointers. the allocated object might have size < n.
@@ -192,7 +192,7 @@ char *
 __wrap_strncpy (char *dest, const char *src, size_t n)
 {
   extern char *__real_strncpy (char *dest, const char *src, size_t n);
-  int len = strnlen (src, n);
+  int len = __real_strnlen (src, n);
   MF_VALIDATE_EXTENT(src, len);
   MF_VALIDATE_EXTENT(dest, (len + 1));
   return __real_strncpy (dest, src, n);
@@ -202,8 +202,8 @@ char *
 __wrap_strcat (char *dest, const char *src)
 {
   extern char *__real_strcat (char *dest, const char *src);
-  int dest_sz = strlen (dest);
-  int src_sz = strlen (src);  
+  int dest_sz = __real_strlen (dest);
+  int src_sz = __real_strlen (src);  
   MF_VALIDATE_EXTENT(src, (src_sz + 1));
   MF_VALIDATE_EXTENT(dest, (dest_sz + src_sz + 1));
   return __real_strcat (dest, src);
@@ -234,8 +234,8 @@ __wrap_strncat (char *dest, const char *src, size_t n)
   this same logic applies to further uses of strnlen later down in this
   file. */
 
-  int src_sz = strnlen (src, n);
-  int dest_sz = strnlen (dest, n);
+  int src_sz = __real_strnlen (src, n);
+  int dest_sz = __real_strnlen (dest, n);
   MF_VALIDATE_EXTENT(src, src_sz);
   MF_VALIDATE_EXTENT(dest, (dest_sz + src_sz + 1));
   return __real_strncat (dest, src, n);
@@ -245,8 +245,8 @@ int
 __wrap_strcmp (const char *s1, const char *s2)
 {
   extern int __real_strcmp (const char *s1, const char *s2);
-  int s1_sz = strlen (s1);
-  int s2_sz = strlen (s2);  
+  int s1_sz = __real_strlen (s1);
+  int s2_sz = __real_strlen (s2);  
   MF_VALIDATE_EXTENT(s1, s1_sz);
   MF_VALIDATE_EXTENT(s2, s2_sz);
   return __real_strcmp (s1, s2);
@@ -256,8 +256,8 @@ int
 __wrap_strcasecmp (const char *s1, const char *s2)
 {
   extern int __real_strcasecmp (const char *s1, const char *s2);
-  int s1_sz = strlen (s1);
-  int s2_sz = strlen (s2);  
+  int s1_sz = __real_strlen (s1);
+  int s2_sz = __real_strlen (s2);  
   MF_VALIDATE_EXTENT(s1, s1_sz);
   MF_VALIDATE_EXTENT(s2, s2_sz);
   return __real_strcasecmp (s1, s2);
@@ -267,8 +267,8 @@ int
 __wrap_strncmp (const char *s1, const char *s2, size_t n)
 {
   extern int __real_strncmp (const char *s1, const char *s2, size_t n);
-  int s1_sz = strnlen (s1, n);
-  int s2_sz = strnlen (s2, n);
+  int s1_sz = __real_strnlen (s1, n);
+  int s2_sz = __real_strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz);
   MF_VALIDATE_EXTENT(s2, s2_sz);
   return __real_strncmp (s1, s2, n);
@@ -278,8 +278,8 @@ int
 __wrap_strncasecmp (const char *s1, const char *s2, size_t n)
 {
   extern int __real_strncasecmp (const char *s1, const char *s2, size_t n);
-  int s1_sz = strnlen (s1, n);
-  int s2_sz = strnlen (s2, n);
+  int s1_sz = __real_strnlen (s1, n);
+  int s2_sz = __real_strnlen (s2, n);
   MF_VALIDATE_EXTENT(s1, s1_sz);
   MF_VALIDATE_EXTENT(s2, s2_sz);
   return __real_strncasecmp (s1, s2, n);
@@ -289,7 +289,7 @@ char *
 __wrap_strdup (const char *s)
 {
   extern char *__real_strdup (const char *s);
-  int n = strlen (s);
+  int n = __real_strlen (s);
   char *result;
   MF_VALIDATE_EXTENT(s, n);
   result = __real_strdup (s);
@@ -302,7 +302,7 @@ __wrap_strndup (const char *s, size_t n)
 {
   extern char *__real_strndup (const char *s, size_t n);
   char *result;
-  int sz = strnlen (s, n);
+  int sz = __real_strnlen (s, n);
   MF_VALIDATE_EXTENT(s, sz);
   result = __real_strndup (s, n);
   __mf_register ((uintptr_t) result, sz, __MF_TYPE_HEAP, "strndup region");
@@ -314,7 +314,7 @@ char *
 __wrap_strchr (const char *s, int c)
 {
   extern char *__real_strchr (const char *s, int c);
-  int n = strlen (s);
+  int n = __real_strlen (s);
   MF_VALIDATE_EXTENT(s, n);
   return __real_strchr (s, c);
 }
@@ -323,7 +323,7 @@ char *
 __wrap_strrchr (const char *s, int c)
 {
   extern char *__real_strrchr (const char *s, int c);
-  int n = strlen (s);
+  int n = __real_strlen (s);
   MF_VALIDATE_EXTENT(s, n);
   return __real_strrchr (s, c);
 }
@@ -333,8 +333,8 @@ char *
 __wrap_strstr (const char *haystack, const char *needle)
 {
   extern char *__real_strstr (const char *haystack, const char *needle);
-  int haystack_sz = strlen (haystack);
-  int needle_sz = strlen (needle);
+  int haystack_sz = __real_strlen (haystack);
+  int needle_sz = __real_strlen (needle);
   MF_VALIDATE_EXTENT(haystack, haystack_sz);
   MF_VALIDATE_EXTENT(needle, needle_sz);
   return __real_strstr (haystack, needle);
@@ -400,7 +400,7 @@ char *
 __wrap_index (const char *s, int c)
 {
   extern char *__real_index (const char *s, int c);
-  int n = strlen (s);
+  int n = __real_strlen (s);
   MF_VALIDATE_EXTENT(s, n);
   return __real_index (s, c);
 }
@@ -409,7 +409,7 @@ char *
 __wrap_rindex (const char *s, int c)
 {
   extern char *__real_rindex (const char *s, int c);
-  int n = strlen (s);
+  int n = __real_strlen (s);
   MF_VALIDATE_EXTENT(s, n);
   return __real_rindex (s, c);
 }
