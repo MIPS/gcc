@@ -1,3 +1,8 @@
+2004-01-19  Michael Matz  <matz@suse.de>
+
+	* alpha/alpha.h (SETUP_INCOMING_VARARGS): Really adjust calls
+	to move_block_from_reg() .
+
 2004-01-18  Jan Hubicka  <jh@suse.cz>
 
 	* c-common.c (c_estimate_num_insns_1): Merge with mainline

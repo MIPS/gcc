@@ -1151,7 +1151,7 @@ extern int alpha_memory_latency;
 	  set_mem_alias_set (tmp, set);					\
 	  move_block_from_reg						\
 	    (16 + CUM, tmp,						\
-	     6 - (CUM), (6 - (CUM)) * UNITS_PER_WORD);			\
+	     6 - (CUM));						\
 									\
 	  tmp = gen_rtx_MEM (BLKmode,					\
 		             plus_constant (virtual_incoming_args_rtx,	\
@@ -1159,7 +1159,7 @@ extern int alpha_memory_latency;
 	  set_mem_alias_set (tmp, set);					\
 	  move_block_from_reg						\
 	    (16 + (TARGET_FPREGS ? 32 : 0) + CUM, tmp,			\
-	     6 - (CUM), (6 - (CUM)) * UNITS_PER_WORD);			\
+	     6 - (CUM));						\
 	 }								\
       PRETEND_SIZE = 12 * UNITS_PER_WORD;				\
     }									\
