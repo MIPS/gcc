@@ -1,5 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
-   Copyright (C) 1987, 88, 92-98, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -350,73 +351,74 @@ static struct undobuf undobuf;
 
 static int n_occurrences;
 
-static void do_SUBST			PROTO((rtx *, rtx));
-static void do_SUBST_INT		PROTO((int *, int));
-static void init_reg_last_arrays	PROTO((void));
-static void setup_incoming_promotions   PROTO((void));
-static void set_nonzero_bits_and_sign_copies  PROTO((rtx, rtx, void *));
-static int can_combine_p	PROTO((rtx, rtx, rtx, rtx, rtx *, rtx *));
-static int sets_function_arg_p	PROTO((rtx));
-static int combinable_i3pat	PROTO((rtx, rtx *, rtx, rtx, int, rtx *));
-static int contains_muldiv	PROTO((rtx));
-static rtx try_combine		PROTO((rtx, rtx, rtx));
-static void undo_all		PROTO((void));
-static void undo_commit		PROTO((void));
-static rtx *find_split_point	PROTO((rtx *, rtx));
-static rtx subst		PROTO((rtx, rtx, rtx, int, int));
-static rtx combine_simplify_rtx	PROTO((rtx, enum machine_mode, int, int));
-static rtx simplify_if_then_else  PROTO((rtx));
-static rtx simplify_set		PROTO((rtx));
-static rtx simplify_logical	PROTO((rtx, int));
-static rtx expand_compound_operation  PROTO((rtx));
-static rtx expand_field_assignment  PROTO((rtx));
-static rtx make_extraction	PROTO((enum machine_mode, rtx, int, rtx, int,
-				       int, int, int));
-static rtx extract_left_shift	PROTO((rtx, int));
-static rtx make_compound_operation  PROTO((rtx, enum rtx_code));
-static int get_pos_from_mask	PROTO((unsigned HOST_WIDE_INT, int *));
-static rtx force_to_mode	PROTO((rtx, enum machine_mode,
-				       unsigned HOST_WIDE_INT, rtx, int));
-static rtx if_then_else_cond	PROTO((rtx, rtx *, rtx *));
-static rtx known_cond		PROTO((rtx, enum rtx_code, rtx, rtx));
-static int rtx_equal_for_field_assignment_p PROTO((rtx, rtx));
-static rtx make_field_assignment  PROTO((rtx));
-static rtx apply_distributive_law  PROTO((rtx));
-static rtx simplify_and_const_int  PROTO((rtx, enum machine_mode, rtx,
-					  unsigned HOST_WIDE_INT));
-static unsigned HOST_WIDE_INT nonzero_bits  PROTO((rtx, enum machine_mode));
-static int num_sign_bit_copies  PROTO((rtx, enum machine_mode));
-static int merge_outer_ops	PROTO((enum rtx_code *, HOST_WIDE_INT *,
-				       enum rtx_code, HOST_WIDE_INT,
-				       enum machine_mode, int *));
-static rtx simplify_shift_const	PROTO((rtx, enum rtx_code, enum machine_mode,
-				       rtx, int));
-static int recog_for_combine	PROTO((rtx *, rtx, rtx *));
-static rtx gen_lowpart_for_combine  PROTO((enum machine_mode, rtx));
-static rtx gen_rtx_combine PVPROTO((enum rtx_code code, enum machine_mode mode,
-				  ...));
-static rtx gen_binary		PROTO((enum rtx_code, enum machine_mode,
-				       rtx, rtx));
-static rtx gen_unary		PROTO((enum rtx_code, enum machine_mode,
-				       enum machine_mode, rtx));
-static enum rtx_code simplify_comparison  PROTO((enum rtx_code, rtx *, rtx *));
-static int reversible_comparison_p  PROTO((rtx));
-static void update_table_tick	PROTO((rtx));
-static void record_value_for_reg  PROTO((rtx, rtx, rtx));
-static void check_promoted_subreg PROTO((rtx, rtx));
-static void record_dead_and_set_regs_1  PROTO((rtx, rtx, void *));
-static void record_dead_and_set_regs  PROTO((rtx));
-static int get_last_value_validate  PROTO((rtx *, rtx, int, int));
-static rtx get_last_value	PROTO((rtx));
-static int use_crosses_set_p	PROTO((rtx, int));
-static void reg_dead_at_p_1	PROTO((rtx, rtx, void *));
-static int reg_dead_at_p	PROTO((rtx, rtx));
-static void move_deaths		PROTO((rtx, rtx, int, rtx, rtx *));
-static int reg_bitfield_target_p  PROTO((rtx, rtx));
-static void distribute_notes	PROTO((rtx, rtx, rtx, rtx, rtx, rtx));
-static void distribute_links	PROTO((rtx));
-static void mark_used_regs_combine PROTO((rtx));
-static int insn_cuid		PROTO((rtx));
+static void do_SUBST			PARAMS ((rtx *, rtx));
+static void do_SUBST_INT		PARAMS ((int *, int));
+static void init_reg_last_arrays	PARAMS ((void));
+static void setup_incoming_promotions   PARAMS ((void));
+static void set_nonzero_bits_and_sign_copies  PARAMS ((rtx, rtx, void *));
+static int can_combine_p	PARAMS ((rtx, rtx, rtx, rtx, rtx *, rtx *));
+static int sets_function_arg_p	PARAMS ((rtx));
+static int combinable_i3pat	PARAMS ((rtx, rtx *, rtx, rtx, int, rtx *));
+static int contains_muldiv	PARAMS ((rtx));
+static rtx try_combine		PARAMS ((rtx, rtx, rtx, int *));
+static void undo_all		PARAMS ((void));
+static void undo_commit		PARAMS ((void));
+static rtx *find_split_point	PARAMS ((rtx *, rtx));
+static rtx subst		PARAMS ((rtx, rtx, rtx, int, int));
+static rtx combine_simplify_rtx	PARAMS ((rtx, enum machine_mode, int, int));
+static rtx simplify_if_then_else  PARAMS ((rtx));
+static rtx simplify_set		PARAMS ((rtx));
+static rtx simplify_logical	PARAMS ((rtx, int));
+static rtx expand_compound_operation  PARAMS ((rtx));
+static rtx expand_field_assignment  PARAMS ((rtx));
+static rtx make_extraction	PARAMS ((enum machine_mode, rtx, int, rtx, int,
+					 int, int, int));
+static rtx extract_left_shift	PARAMS ((rtx, int));
+static rtx make_compound_operation  PARAMS ((rtx, enum rtx_code));
+static int get_pos_from_mask	PARAMS ((unsigned HOST_WIDE_INT, int *));
+static rtx force_to_mode	PARAMS ((rtx, enum machine_mode,
+					 unsigned HOST_WIDE_INT, rtx, int));
+static rtx if_then_else_cond	PARAMS ((rtx, rtx *, rtx *));
+static rtx known_cond		PARAMS ((rtx, enum rtx_code, rtx, rtx));
+static int rtx_equal_for_field_assignment_p PARAMS ((rtx, rtx));
+static rtx make_field_assignment  PARAMS ((rtx));
+static rtx apply_distributive_law  PARAMS ((rtx));
+static rtx simplify_and_const_int  PARAMS ((rtx, enum machine_mode, rtx,
+					    unsigned HOST_WIDE_INT));
+static unsigned HOST_WIDE_INT nonzero_bits  PARAMS ((rtx, enum machine_mode));
+static int num_sign_bit_copies  PARAMS ((rtx, enum machine_mode));
+static int merge_outer_ops	PARAMS ((enum rtx_code *, HOST_WIDE_INT *,
+					 enum rtx_code, HOST_WIDE_INT,
+					 enum machine_mode, int *));
+static rtx simplify_shift_const	PARAMS ((rtx, enum rtx_code, enum machine_mode,
+					 rtx, int));
+static int recog_for_combine	PARAMS ((rtx *, rtx, rtx *));
+static rtx gen_lowpart_for_combine  PARAMS ((enum machine_mode, rtx));
+static rtx gen_rtx_combine PARAMS ((enum rtx_code code, enum machine_mode mode,
+				    ...));
+static rtx gen_binary		PARAMS ((enum rtx_code, enum machine_mode,
+					 rtx, rtx));
+static rtx gen_unary		PARAMS ((enum rtx_code, enum machine_mode,
+					 enum machine_mode, rtx));
+static enum rtx_code simplify_comparison  PARAMS ((enum rtx_code, rtx *, rtx *));
+static int reversible_comparison_p  PARAMS ((rtx));
+static void update_table_tick	PARAMS ((rtx));
+static void record_value_for_reg  PARAMS ((rtx, rtx, rtx));
+static void check_promoted_subreg PARAMS ((rtx, rtx));
+static void record_dead_and_set_regs_1  PARAMS ((rtx, rtx, void *));
+static void record_dead_and_set_regs  PARAMS ((rtx));
+static int get_last_value_validate  PARAMS ((rtx *, rtx, int, int));
+static rtx get_last_value	PARAMS ((rtx));
+static int use_crosses_set_p	PARAMS ((rtx, int));
+static void reg_dead_at_p_1	PARAMS ((rtx, rtx, void *));
+static int reg_dead_at_p	PARAMS ((rtx, rtx));
+static void move_deaths		PARAMS ((rtx, rtx, int, rtx, rtx *));
+static int reg_bitfield_target_p  PARAMS ((rtx, rtx));
+static void distribute_notes	PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
+static void distribute_links	PARAMS ((rtx));
+static void mark_used_regs_combine PARAMS ((rtx));
+static int insn_cuid		PARAMS ((rtx));
+static void record_promoted_value PARAMS ((rtx, rtx));
 
 /* Substitute NEWVAL, an rtx expression, into INTO, a place in some
    insn.  The substitution can be undone by undo_all.  If INTO is already
@@ -479,9 +481,11 @@ do_SUBST_INT(into, newval)
 #define SUBST_INT(INTO, NEWVAL)  do_SUBST_INT(&(INTO), (NEWVAL))
 
 /* Main entry point for combiner.  F is the first insn of the function.
-   NREGS is the first unused pseudo-reg number.  */
+   NREGS is the first unused pseudo-reg number. 
 
-void
+   Return non-zero if the combiner has turned an indirect jump
+   instruction into a direct jump.  */
+int
 combine_instructions (f, nregs)
      rtx f;
      int nregs;
@@ -492,6 +496,8 @@ combine_instructions (f, nregs)
 #endif
   register int i;
   register rtx links, nextlinks;
+
+  int new_direct_jump_p = 0;
 
   combine_attempts = 0;
   combine_merges = 0;
@@ -616,7 +622,8 @@ combine_instructions (f, nregs)
 	  /* Try this insn with each insn it links back to.  */
 
 	  for (links = LOG_LINKS (insn); links; links = XEXP (links, 1))
-	    if ((next = try_combine (insn, XEXP (links, 0), NULL_RTX)) != 0)
+	    if ((next = try_combine (insn, XEXP (links, 0), 
+				     NULL_RTX, &new_direct_jump_p)) != 0)
 	      goto retry;
 
 	  /* Try each sequence of three linked insns ending with this one.  */
@@ -625,7 +632,8 @@ combine_instructions (f, nregs)
 	    for (nextlinks = LOG_LINKS (XEXP (links, 0)); nextlinks;
 		 nextlinks = XEXP (nextlinks, 1))
 	      if ((next = try_combine (insn, XEXP (links, 0),
-				       XEXP (nextlinks, 0))) != 0)
+				       XEXP (nextlinks, 0),
+				       &new_direct_jump_p)) != 0)
 		goto retry;
 
 #ifdef HAVE_cc0
@@ -641,13 +649,15 @@ combine_instructions (f, nregs)
 	      && GET_CODE (prev) == INSN
 	      && sets_cc0_p (PATTERN (prev)))
 	    {
-	      if ((next = try_combine (insn, prev, NULL_RTX)) != 0)
+	      if ((next = try_combine (insn, prev, 
+				       NULL_RTX, &new_direct_jump_p)) != 0)
 		goto retry;
 
 	      for (nextlinks = LOG_LINKS (prev); nextlinks;
 		   nextlinks = XEXP (nextlinks, 1))
 		if ((next = try_combine (insn, prev,
-					 XEXP (nextlinks, 0))) != 0)
+					 XEXP (nextlinks, 0),
+					 &new_direct_jump_p)) != 0)
 		  goto retry;
 	    }
 
@@ -659,13 +669,15 @@ combine_instructions (f, nregs)
 	      && GET_CODE (PATTERN (insn)) == SET
 	      && reg_mentioned_p (cc0_rtx, SET_SRC (PATTERN (insn))))
 	    {
-	      if ((next = try_combine (insn, prev, NULL_RTX)) != 0)
+	      if ((next = try_combine (insn, prev, 
+				       NULL_RTX, &new_direct_jump_p)) != 0)
 		goto retry;
 
 	      for (nextlinks = LOG_LINKS (prev); nextlinks;
 		   nextlinks = XEXP (nextlinks, 1))
 		if ((next = try_combine (insn, prev,
-					 XEXP (nextlinks, 0))) != 0)
+					 XEXP (nextlinks, 0),
+					 &new_direct_jump_p)) != 0)
 		  goto retry;
 	    }
 
@@ -679,7 +691,8 @@ combine_instructions (f, nregs)
 		&& (prev = prev_nonnote_insn (XEXP (links, 0))) != 0
 		&& GET_CODE (prev) == INSN
 		&& sets_cc0_p (PATTERN (prev))
-		&& (next = try_combine (insn, XEXP (links, 0), prev)) != 0)
+		&& (next = try_combine (insn, XEXP (links, 0), 
+					prev, &new_direct_jump_p)) != 0)
 	      goto retry;
 #endif
 
@@ -689,7 +702,8 @@ combine_instructions (f, nregs)
 	    for (nextlinks = XEXP (links, 1); nextlinks;
 		 nextlinks = XEXP (nextlinks, 1))
 	      if ((next = try_combine (insn, XEXP (links, 0),
-				       XEXP (nextlinks, 0))) != 0)
+				       XEXP (nextlinks, 0),
+				       &new_direct_jump_p)) != 0)
 		goto retry;
 
 	  if (GET_CODE (insn) != NOTE)
@@ -741,6 +755,8 @@ combine_instructions (f, nregs)
 
   /* Make recognizer allow volatile MEMs again.  */
   init_recog ();
+
+  return new_direct_jump_p;
 }
 
 /* Wipe the reg_last_xxx arrays in preparation for another pass.  */
@@ -1425,11 +1441,15 @@ contains_muldiv (x)
 
    Return 0 if the combination does not work.  Then nothing is changed. 
    If we did the combination, return the insn at which combine should
-   resume scanning.  */
+   resume scanning.  
+   
+   Set NEW_DIRECT_JUMP_P to a non-zero value if try_combine creates a
+   new direct jump instruction.  */
 
 static rtx
-try_combine (i3, i2, i1)
+try_combine (i3, i2, i1, new_direct_jump_p)
      register rtx i3, i2, i1;
+     register int *new_direct_jump_p;
 {
   /* New patterns for I3 and I3, respectively.  */
   rtx newpat, newi2pat = 0;
@@ -2391,6 +2411,18 @@ try_combine (i3, i2, i1)
       distribute_notes (new_other_notes, undobuf.other_insn,
 			undobuf.other_insn, NULL_RTX, NULL_RTX, NULL_RTX);
     }
+#ifdef HAVE_cc0
+  /* If I2 is the setter CC0 and I3 is the user CC0 then check whether 
+     they are adjacent to each other or not. */
+  {
+    rtx p = prev_nonnote_insn (i3);
+    if (p && p != i2 && GET_CODE (p) == INSN && newi2pat && sets_cc0_p (newi2pat))
+      {
+        undo_all ();
+        return 0;
+      }
+    }
+#endif 
 
   /* We now know that we can do this combination.  Merge the insns and 
      update the status of registers and LOG_LINKS.  */
@@ -2671,14 +2703,21 @@ try_combine (i3, i2, i1)
     if (newi2pat)
       note_stores (newi2pat, set_nonzero_bits_and_sign_copies, NULL);
 
-    /* If I3 is now an unconditional jump, ensure that it has a 
+    /* Set new_direct_jump_p if a new return or simple jump instruction
+       has been created.
+
+       If I3 is now an unconditional jump, ensure that it has a 
        BARRIER following it since it may have initially been a
        conditional jump.  It may also be the last nonnote insn.  */
+    
+    if (GET_CODE (newpat) == RETURN || simplejump_p (i3))
+      {
+	*new_direct_jump_p = 1;
 
-    if ((GET_CODE (newpat) == RETURN || simplejump_p (i3))
-	&& ((temp = next_nonnote_insn (i3)) == NULL_RTX
-	    || GET_CODE (temp) != BARRIER))
-      emit_barrier_after (i3);
+	if ((temp = next_nonnote_insn (i3)) == NULL_RTX
+	    || GET_CODE (temp) != BARRIER)
+	  emit_barrier_after (i3);
+      }
   }
 
   combine_successes++;
@@ -3555,9 +3594,13 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       temp = simplify_relational_operation (code, op0_mode,
 					    XEXP (x, 0), XEXP (x, 1));
 #ifdef FLOAT_STORE_FLAG_VALUE
-      if (temp != 0 && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-	temp = ((temp == const0_rtx) ? CONST0_RTX (GET_MODE (x))
-		: immed_real_const_1 (FLOAT_STORE_FLAG_VALUE, GET_MODE (x)));
+      if (temp != 0 && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (temp == const0_rtx)
+	    temp = CONST0_RTX (mode);
+	  else
+	    temp = immed_real_const_1 (FLOAT_STORE_FLAG_VALUE (mode), mode);
+	}
 #endif
       break;
     case 'c':
@@ -5874,7 +5917,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	new = force_to_mode (inner, tmode,
 			     len >= HOST_BITS_PER_WIDE_INT
 			     ? GET_MODE_MASK (tmode)
-			     : ((HOST_WIDE_INT) 1 << len) - 1,
+			     : ((unsigned HOST_WIDE_INT) 1 << len) - 1,
 			     NULL_RTX, 0);
 
       /* If this extraction is going into the destination of a SET, 
@@ -6095,7 +6138,8 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 			     pos_rtx
 			     || len + orig_pos >= HOST_BITS_PER_WIDE_INT
 			     ? GET_MODE_MASK (wanted_inner_mode)
-			     : (((HOST_WIDE_INT) 1 << len) - 1) << orig_pos,
+			     : ((((unsigned HOST_WIDE_INT) 1 << len) - 1)
+				<< orig_pos),
 			     NULL_RTX, 0);
     }
 
@@ -6566,7 +6610,8 @@ force_to_mode (x, mode, mask, reg, just_select)
   if (op_mode)
     fuller_mask = (GET_MODE_BITSIZE (op_mode) >= HOST_BITS_PER_WIDE_INT
 		   ? GET_MODE_MASK (op_mode)
-		   : ((HOST_WIDE_INT) 1 << (floor_log2 (mask) + 1)) - 1);
+		   : (((unsigned HOST_WIDE_INT) 1 << (floor_log2 (mask) + 1))
+		      - 1));
   else
     fuller_mask = ~ (HOST_WIDE_INT) 0;
 
@@ -7309,11 +7354,17 @@ known_cond (x, cond, reg, val)
       if (rtx_equal_p (XEXP (x, 0), reg) && rtx_equal_p (XEXP (x, 1), val))
 	{
 	  if (GET_RTX_CLASS (code) == '<')
-	    return (comparison_dominates_p (cond, code) ? const_true_rtx
-		    : (comparison_dominates_p (cond,
-					       reverse_condition (code))
-		       ? const0_rtx : x));
+	    {
+	      if (comparison_dominates_p (cond, code))
+		return const_true_rtx;
 
+	      code = reverse_condition (code);
+	      if (code != UNKNOWN
+		  && comparison_dominates_p (cond, code))
+		return const0_rtx;
+	      else
+		return x;
+	    }
 	  else if (code == SMAX || code == SMIN
 		   || code == UMIN || code == UMAX)
 	    {
@@ -7502,7 +7553,7 @@ make_field_assignment (x)
 		       mode,
 		       GET_MODE_BITSIZE (mode) >= HOST_BITS_PER_WIDE_INT
 		       ? GET_MODE_MASK (mode)
-		       : ((HOST_WIDE_INT) 1 << len) - 1,
+		       : ((unsigned HOST_WIDE_INT) 1 << len) - 1,
 		       dest, 0);
 
   return gen_rtx_combine (SET, VOIDmode, assign, src);
@@ -8087,8 +8138,10 @@ nonzero_bits (x, mode)
 	  /* If this is a typical RISC machine, we only have to worry
 	     about the way loads are extended.  */
 	  if (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
-	      ? (nonzero
-		 & (1L << (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1)))
+	      ? (((nonzero
+		   & (((unsigned HOST_WIDE_INT) 1
+		       << (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1))))
+		  != 0))
 	      : LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) != ZERO_EXTEND)
 #endif
 	    {
@@ -9595,7 +9648,7 @@ gen_lowpart_for_combine (mode, x)
 
 /*VARARGS2*/
 static rtx
-gen_rtx_combine VPROTO((enum rtx_code code, enum machine_mode mode, ...))
+gen_rtx_combine VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 {
 #ifndef ANSI_PROTOTYPES
   enum rtx_code code;
@@ -10111,7 +10164,7 @@ simplify_comparison (code, pop0, pop1)
       equality_comparison_p = (code == EQ || code == NE);
       sign_bit_comparison_p = ((code == LT || code == GE) && const_op == 0);
       unsigned_comparison_p = (code == LTU || code == LEU || code == GTU
-			       || code == LEU);
+			       || code == GEU);
 
       /* If this is a sign bit comparison and we can do arithmetic in
 	 MODE, say that we will only be needing the sign bit of OP0.  */
@@ -10848,7 +10901,8 @@ reversible_comparison_p (x)
 {
   if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
       || flag_fast_math
-      || GET_CODE (x) == NE || GET_CODE (x) == EQ)
+      || GET_CODE (x) == NE || GET_CODE (x) == EQ
+      || GET_CODE (x) == UNORDERED || GET_CODE (x) == ORDERED)
     return 1;
 
   switch (GET_MODE_CLASS (GET_MODE (XEXP (x, 0))))

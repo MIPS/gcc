@@ -1,7 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-
-   Copyright (C) 1996, 97-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -29,17 +28,28 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+#include "toplev.h"
+#include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
 #include "toplev.h"
 #include "function.h"
 #include "except.h"
 #include "defaults.h"
+#include "java-except.h"
 
-static tree push_jvm_slot PROTO ((int, tree));
-static tree lookup_name_current_level PROTO ((tree));
-static tree push_promoted_type PROTO ((const char *, tree));
-static struct binding_level *make_binding_level PROTO ((void));
+#if defined (DEBUG_JAVA_BINDING_LEVELS)
+extern void indent PROTO((void));
+#endif
+
+static tree push_jvm_slot PARAMS ((int, tree));
+static tree lookup_name_current_level PARAMS ((tree));
+static tree push_promoted_type PARAMS ((const char *, tree));
+static struct binding_level *make_binding_level PARAMS ((void));
+
+/* Set to non-zero value in order to emit class initilization code
+   before static field references.  */
+extern int always_initialize_class_p;
 
 #ifndef INT_TYPE_SIZE
 #define INT_TYPE_SIZE BITS_PER_WORD
@@ -62,6 +72,21 @@ tree pending_local_decls = NULL_TREE;
 
 /* Push a local variable or stack slot into the decl_map,
    and assign it an rtl. */
+
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+int binding_depth = 0;
+int is_class_level = 0;
+int current_pc;
+
+void
+indent ()
+{
+  register unsigned i;
+
+  for (i = 0; i < binding_depth*2; i++)
+    putc (' ', stderr);
+}
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
 
 static tree
 push_jvm_slot (index, decl)
@@ -111,9 +136,7 @@ push_jvm_slot (index, decl)
 
 /* Find a VAR_DECL (or PARM_DECL) at local index INDEX that has type TYPE,
    that is valid at PC (or -1 if any pc).
-   If there is no existing matching decl, allocate one.
-   If we find a decl with matching modes but different types,
-   we re-use the rtl, but create a new decl. */
+   If there is no existing matching decl, allocate one.  */
 
 tree
 find_local_variable (index, type, pc)
@@ -123,6 +146,7 @@ find_local_variable (index, type, pc)
 {
   tree decl = TREE_VEC_ELT (decl_map, index);
   tree best = NULL_TREE;
+
   while (decl != NULL_TREE)
     {
       int in_range;
@@ -131,6 +155,10 @@ find_local_variable (index, type, pc)
 	    && pc < DECL_LOCAL_END_PC (decl));
 
       if ((TREE_TYPE (decl) == type
+	   || (TREE_CODE (TREE_TYPE (decl)) == TREE_CODE (type)
+	       && TYPE_PRECISION (TREE_TYPE (decl)) <= 32
+	       && TYPE_PRECISION (type) <= 32
+	       && TREE_CODE (type) != POINTER_TYPE)
 	   || (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
 	       && type == ptr_type_node))
 	   && in_range)
@@ -199,6 +227,13 @@ struct binding_level
 
     /* The bytecode PC that marks the end of this level. */
     int end_pc;
+    /* The bytecode PC that marks the start of this level. */
+    int start_pc;
+
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+    /* Binding depth at which this level began.  */
+    unsigned binding_depth;
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
   };
 
 #define NULL_BINDING_LEVEL (struct binding_level *) NULL
@@ -217,11 +252,15 @@ static struct binding_level *free_binding_level;
 
 static struct binding_level *global_binding_level;
 
+/* A PC value bigger than any PC value we may ever may encounter. */
+
+#define LARGEST_PC (( (unsigned int)1 << (HOST_BITS_PER_INT - 1)) - 1)
+
 /* Binding level structures are initialized by copying this one.  */
 
 static struct binding_level clear_binding_level
   = {NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE,
-       NULL_BINDING_LEVEL, 0, 0, 0, 0, 1000000000};
+       NULL_BINDING_LEVEL, 0, 0, 0, 0, LARGEST_PC, 0};
 
 #if 0
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
@@ -246,10 +285,6 @@ static int keep_next_level_flag;
 
 static int keep_next_if_subblocks;
   
-/* The FUNCTION_DECL for the function currently being compiled,
-   or 0 if between functions.  */
-tree current_function_decl;
-
 tree object_type_node;
 tree unqualified_object_id_node;
 tree object_ptr_type_node;
@@ -314,7 +349,8 @@ tree double_zero_node;
 tree empty_stmt_node;
 
 /* Nodes for boolean constants TRUE and FALSE. */
-tree boolean_true_node, boolean_false_node;
+tree boolean_true_node;
+tree boolean_false_node;
 
 tree TYPE_identifier_node;
 tree init_identifier_node;
@@ -325,7 +361,7 @@ tree length_identifier_node;
 tree this_identifier_node;
 tree super_identifier_node;
 tree continue_identifier_node;
-
+tree access0_identifier_node;	/* 1.1 */
 tree end_params_node;
 
 /* References to internal libjava functions we use. */
@@ -365,11 +401,9 @@ push_promoted_type (name, actual_type)
   tree in_min = TYPE_MIN_VALUE (actual_type);
   tree in_max = TYPE_MAX_VALUE (actual_type);
 #endif
-  TYPE_MIN_VALUE (type) = build_int_2 (TREE_INT_CST_LOW (in_min),
-				       TREE_INT_CST_HIGH (in_min));
+  TYPE_MIN_VALUE (type) = copy_node (in_min);
   TREE_TYPE (TYPE_MIN_VALUE (type)) = type;
-  TYPE_MAX_VALUE (type) = build_int_2 (TREE_INT_CST_LOW (in_max),
-				       TREE_INT_CST_HIGH (in_max));
+  TYPE_MAX_VALUE (type) = copy_node (in_max);
   TREE_TYPE (TYPE_MAX_VALUE (type)) = type;
   TYPE_PRECISION (type) = TYPE_PRECISION (int_type_node);
   layout_type (type);
@@ -378,7 +412,8 @@ push_promoted_type (name, actual_type)
 }
 
 /* Nodes for integer constants.  */
-tree integer_two_node, integer_four_node;
+tree integer_two_node;
+tree integer_four_node;
 tree integer_negative_one_node;
 
 /* Return a definition for a builtin function named NAME and whose data type
@@ -425,8 +460,10 @@ init_decl_processing ()
   error_mark_node = make_node (ERROR_MARK);
   TREE_TYPE (error_mark_node) = error_mark_node;
 
+  initialize_sizetypes ();
   /* Create sizetype first - needed for other types. */
-  sizetype = make_unsigned_type (POINTER_SIZE);
+  initialize_sizetypes ();
+  set_sizetype (make_unsigned_type (POINTER_SIZE));
   size_zero_node = build_int_2 (0, 0);
   TREE_TYPE (size_zero_node) = sizetype;
   size_one_node = build_int_2 (1, 0);
@@ -565,6 +602,7 @@ init_decl_processing ()
   this_identifier_node = get_identifier ("this");
   super_identifier_node = get_identifier ("super");
   continue_identifier_node = get_identifier ("continue");
+  access0_identifier_node = get_identifier ("access$0");
 
   /* for lack of a better place to put this stub call */
   init_expr_processing();
@@ -588,7 +626,12 @@ init_decl_processing ()
   dtable_ptr_type = build_pointer_type (dtable_type);
 
   PUSH_FIELD (object_type_node, field, "vtable", dtable_ptr_type);
-  PUSH_FIELD (object_type_node, field, "sync_info", ptr_type_node);
+  /* This isn't exactly true, but it is what we have in the source.
+     There is an unresolved issue here, which is whether the vtable
+     should be marked by the GC.  */
+  if (! flag_hash_synchronization)
+    PUSH_FIELD (object_type_node, field, "sync_info",
+		build_pointer_type (object_type_node));
   for (t = TYPE_FIELDS (object_type_node); t != NULL_TREE; t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   FINISH_RECORD (object_type_node);
@@ -627,6 +670,9 @@ init_decl_processing ()
   PUSH_FIELD (class_type_node, field, "interface_count", short_type_node);
   PUSH_FIELD (class_type_node, field, "state", byte_type_node);
   PUSH_FIELD (class_type_node, field, "thread", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "depth", short_type_node);
+  PUSH_FIELD (class_type_node, field, "ancestors", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
@@ -771,7 +817,7 @@ init_decl_processing ()
 		 tree_cons (NULL_TREE, class_ptr_type, endlink));
   soft_instanceof_node
     = builtin_function ("_Jv_IsInstanceOf",
-			build_function_type (promoted_boolean_type_node, t),
+			build_function_type (boolean_type_node, t),
 			0, NOT_BUILT_IN, NULL_PTR);
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
@@ -781,9 +827,9 @@ init_decl_processing ()
 			0, NOT_BUILT_IN, NULL_PTR);
   t = tree_cons (NULL_TREE, ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
-			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
+			    tree_cons (NULL_TREE, int_type_node, endlink)));
   soft_lookupinterfacemethod_node 
-    = builtin_function ("_Jv_LookupInterfaceMethod",
+    = builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			build_function_type (ptr_type_node, t),
 			0, NOT_BUILT_IN, NULL_PTR);
   t = tree_cons (NULL_TREE, double_type_node,
@@ -926,8 +972,9 @@ pushdecl (x)
   register tree t;
   register tree name = DECL_NAME (x);
   register struct binding_level *b = current_binding_level;
-
-  DECL_CONTEXT (x) = current_function_decl;
+  
+  if (TREE_CODE (x) != TYPE_DECL)
+    DECL_CONTEXT (x) = current_function_decl;
   if (name)
     {
       const char *file;
@@ -1036,6 +1083,7 @@ pushdecl (x)
 
   return x;
 }
+
 void
 pushdecl_force_head (x)
      tree x;
@@ -1079,8 +1127,7 @@ getdecls ()
 
 /* Create a new `struct binding_level'.  */
 
-static
-struct binding_level *
+static struct binding_level *
 make_binding_level ()
 {
   /* NOSTRICT */
@@ -1123,6 +1170,14 @@ pushlevel (unused)
   keep_next_level_flag = 0;
   newlevel->keep_if_subblocks = keep_next_if_subblocks;
   keep_next_if_subblocks = 0;
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+  newlevel->binding_depth = binding_depth;
+  indent ();
+  fprintf (stderr, "push %s level 0x%08x pc %d\n",
+	   (is_class_level) ? "class" : "block", newlevel, current_pc);
+  is_class_level = 0;
+  binding_depth++;
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
 }
 
 /* Exit a binding level.
@@ -1154,6 +1209,26 @@ poplevel (keep, reverse, functionbody)
   tree block = 0;
   tree decl;
   int block_previously_created;
+
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+  binding_depth--;
+  indent ();
+  if (current_binding_level->end_pc != LARGEST_PC)
+    fprintf (stderr, "pop  %s level 0x%08x pc %d (end pc %d)\n",
+	     (is_class_level) ? "class" : "block", current_binding_level, current_pc,
+	     current_binding_level->end_pc);
+  else
+    fprintf (stderr, "pop  %s level 0x%08x pc %d\n",
+	     (is_class_level) ? "class" : "block", current_binding_level, current_pc);
+#if 0
+  if (is_class_level != (current_binding_level == class_binding_level))
+    {
+      indent ();
+      fprintf (stderr, "XXX is_class_level != (current_binding_level == class_binding_level)\n");
+    }
+  is_class_level = 0;
+#endif
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
 
   keep |= current_binding_level->keep;
 
@@ -1334,6 +1409,10 @@ void
 maybe_pushlevels (pc)
      int pc;
 {
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+  current_pc = pc;
+#endif
+
   while (pending_local_decls != NULL_TREE &&
 	 DECL_LOCAL_START_PC (pending_local_decls) <= pc)
     {
@@ -1352,24 +1431,55 @@ maybe_pushlevels (pc)
       if (end_pc > current_binding_level->end_pc)
 	end_pc = current_binding_level->end_pc;
 
+      maybe_start_try (pc, end_pc);
+      
       pushlevel (1);
       expand_start_bindings (0);
+
       current_binding_level->end_pc = end_pc;
-      
+      current_binding_level->start_pc = pc;      
       current_binding_level->names = decl;
       for ( ; decl != NULL_TREE;  decl = TREE_CHAIN (decl))
 	{
 	  push_jvm_slot (DECL_LOCAL_SLOT_NUMBER (decl), decl);
 	}
-    }
+    }      
+
+  maybe_start_try (pc, 0);
 }
 
 void
 maybe_poplevels (pc)
      int pc;
 {
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+  current_pc = pc;
+#endif
+
   while (current_binding_level->end_pc <= pc)
     {
+      expand_end_bindings (getdecls (), 1, 0);
+      maybe_end_try (current_binding_level->start_pc, pc);
+      poplevel (1, 0, 0);
+    }
+  maybe_end_try (0, pc);
+}
+
+/* Terminate any binding which began during the range beginning at
+   start_pc.  This tidies up improperly nested local variable ranges
+   and exception handlers; a variable declared within an exception
+   range is forcibly terminated when that exception ends. */
+
+void
+force_poplevels (start_pc)
+     int start_pc;
+{
+  while (current_binding_level->start_pc > start_pc)
+    {
+      if (pedantic && current_binding_level->start_pc > start_pc)
+	warning_with_decl (current_function_decl, 
+			   "In %s: overlapped variable and exception ranges at %d",
+			   current_binding_level->start_pc);
       expand_end_bindings (getdecls (), 1, 0);
       poplevel (1, 0, 0);
     }
@@ -1468,6 +1578,14 @@ give_name_to_locals (jcf)
 	    = (struct lang_decl *) permalloc (sizeof (struct lang_decl_var));
 	  DECL_LOCAL_SLOT_NUMBER (decl) = slot;
 	  DECL_LOCAL_START_PC (decl) = start_pc;
+#if 0
+	  /* FIXME: The range used internally for exceptions and local
+	     variable ranges, is a half-open interval: 
+	     start_pc <= pc < end_pc.  However, the range used in the
+	     Java VM spec is inclusive at both ends: 
+	     start_pc <= pc <= end_pc. */
+	  end_pc++;
+#endif
 	  DECL_LOCAL_END_PC (decl) = end_pc;
 
 	  /* Now insert the new decl in the proper place in
@@ -1519,6 +1637,23 @@ build_result_decl (fndecl)
   return (DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, restype));
 }
 
+/* Called for every element in DECL_FUNCTION_INIT_TEST_TABLE in order
+   to emit initialization code for each test flag.  */
+   
+static boolean
+emit_init_test_initialization (entry, key)
+  struct hash_entry *entry;
+  hash_table_key key ATTRIBUTE_UNUSED;
+{
+  struct init_test_hash_entry *ite = (struct init_test_hash_entry *) entry;
+  expand_decl (ite->init_test_decl);
+
+  expand_expr_stmt (build (MODIFY_EXPR, boolean_type_node, 
+			   ite->init_test_decl, boolean_false_node));
+
+  return true;
+}
+
 void
 complete_start_java_method (fndecl)
   tree fndecl;
@@ -1530,6 +1665,11 @@ complete_start_java_method (fndecl)
 
       /* Set up parameters and prepare for return, for the function.  */
       expand_function_start (fndecl, 0);
+
+      /* Emit initialization code for test flags.  */
+      if (! always_initialize_class_p)
+	hash_traverse (&DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
+		       emit_init_test_initialization, 0);
     }
 
   /* Allocate further tree nodes temporarily during compilation
@@ -1612,6 +1752,10 @@ start_java_method (fndecl)
   decl_map = make_tree_vec (i);
   type_map = (tree *) oballoc (i * sizeof (tree));
 
+#if defined(DEBUG_JAVA_BINDING_LEVELS)
+  fprintf (stderr, "%s:\n", (*decl_printable_name) (fndecl, 2));
+  current_pc = 0;
+#endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
   pushlevel (1);  /* Push parameters. */
 
   ptr = &DECL_ARGUMENTS (fndecl);

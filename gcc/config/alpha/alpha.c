@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc. 
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -44,7 +45,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 
 /* External data.  */
-extern char *version_string;
 extern int rtx_equal_function_value_matters;
 
 /* Specify which cpu to schedule for. */
@@ -99,24 +99,33 @@ static int alpha_sr_alias_set;
 
 /* Declarations of static functions.  */
 static void alpha_set_memflags_1
-  PROTO((rtx, int, int, int));
+  PARAMS ((rtx, int, int, int));
 static rtx alpha_emit_set_const_1
-  PROTO((rtx, enum machine_mode, HOST_WIDE_INT, int));
+  PARAMS ((rtx, enum machine_mode, HOST_WIDE_INT, int));
 static void alpha_expand_unaligned_load_words
-  PROTO((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
+  PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
 static void alpha_expand_unaligned_store_words
-  PROTO((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
+  PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
 static void alpha_sa_mask
-  PROTO((unsigned long *imaskP, unsigned long *fmaskP));
+  PARAMS ((unsigned long *imaskP, unsigned long *fmaskP));
 static int alpha_does_function_need_gp
-  PROTO((void));
+  PARAMS ((void));
 static void alpha_init_machine_status
-  PROTO((struct function *p));
+  PARAMS ((struct function *p));
 static void alpha_mark_machine_status
-  PROTO((struct function *p));
-static int alpha_ra_ever_killed PROTO((void));
-static rtx set_frame_related_p PROTO((void));
-
+  PARAMS ((struct function *p));
+static int alpha_ra_ever_killed
+  PARAMS ((void));
+static rtx set_frame_related_p
+  PARAMS ((void));
+static const char *alpha_lookup_xfloating_lib_func
+  PARAMS ((enum rtx_code));
+static int alpha_compute_xfloating_mode_arg
+  PARAMS ((enum rtx_code, enum alpha_fp_rounding_mode));
+static void alpha_emit_xfloating_libcall
+  PARAMS ((const char *, rtx, rtx[], int, rtx));
+static rtx alpha_emit_xfloating_compare
+  PARAMS ((enum rtx_code, rtx, rtx));
 
 /* Get the number of args of a function in one of two ways.  */
 #ifdef OPEN_VMS
@@ -697,7 +706,7 @@ alpha_comparison_operator (op, mode)
 {
   enum rtx_code code = GET_CODE (op);
 
-  if (mode != GET_MODE (op) || GET_RTX_CLASS (code) != '<')
+  if (mode != GET_MODE (op) && mode != VOIDmode)
     return 0;
 
   return (code == EQ || code == LE || code == LT
@@ -713,7 +722,8 @@ alpha_swapped_comparison_operator (op, mode)
 {
   enum rtx_code code = GET_CODE (op);
 
-  if (mode != GET_MODE (op) || GET_RTX_CLASS (code) != '<')
+  if ((mode != GET_MODE (op) && mode != VOIDmode)
+      || GET_RTX_CLASS (code) != '<')
     return 0;
 
   code = swap_condition (code);
@@ -728,16 +738,30 @@ signed_comparison_operator (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  switch (GET_CODE (op))
-    {
-    case EQ:  case NE:  case LE:  case LT:  case GE:   case GT:
-      return 1;
+  enum rtx_code code = GET_CODE (op);
 
-    default:
-      break;
-    }
+  if (mode != GET_MODE (op) && mode != VOIDmode)
+    return 0;
 
-  return 0;
+  return (code == EQ || code == NE
+	  || code == LE || code == LT
+	  || code == GE || code == GT);
+}
+
+/* Return 1 if OP is a valid Alpha floating point comparison operator.
+   Here we know which comparisons are valid in which insn.  */
+
+int
+alpha_fp_comparison_operator (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  enum rtx_code code = GET_CODE (op);
+
+  if (mode != GET_MODE (op) && mode != VOIDmode)
+    return 0;
+
+  return (code == EQ || code == LE || code == LT || code == UNORDERED);
 }
 
 /* Return 1 if this is a divide or modulus operator.  */
@@ -1071,16 +1095,14 @@ secondary_reload_class (class, mode, x, in)
      rtx x;
      int in;
 {
-  if (GET_CODE (x) == MEM
-      || (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
-      || (GET_CODE (x) == SUBREG
-	  && (GET_CODE (SUBREG_REG (x)) == MEM
-	      || (GET_CODE (SUBREG_REG (x)) == REG
-		  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER))))
+  if ((mode == QImode || mode == HImode) && ! TARGET_BWX)
     {
-      if (class == FLOAT_REGS && mode != DImode)
-	return GENERAL_REGS;
-      if ((mode == QImode || mode == HImode) && ! TARGET_BWX)
+      if (GET_CODE (x) == MEM
+	  || (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
+	  || (GET_CODE (x) == SUBREG
+	      && (GET_CODE (SUBREG_REG (x)) == MEM
+		  || (GET_CODE (SUBREG_REG (x)) == REG
+		      && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER))))
 	{
 	  if (!in || !aligned_memory_operand(x, mode))
 	    return GENERAL_REGS;
@@ -1214,7 +1236,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
      HOST_WIDE_INT c;
      int n;
 {
-  HOST_WIDE_INT new = c;
+  HOST_WIDE_INT new;
   int i, bits;
   /* Use a pseudo if highly optimizing and still generating RTL.  */
   rtx subtarget
@@ -1228,7 +1250,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
      cross-compiling on a narrow machine.  */
 
   if (mode == SImode)
-    c = (c & 0xffffffff) - 2 * (c & 0x80000000);
+    c = ((c & 0xffffffff) ^ 0x80000000) - 0x80000000;
 #endif
 
   /* If this is a sign-extended 32-bit constant, we can do this in at most
@@ -1238,10 +1260,9 @@ alpha_emit_set_const_1 (target, mode, c, n)
   if (HOST_BITS_PER_WIDE_INT != 64
       || c >> 31 == -1 || c >> 31 == 0)
     {
-      HOST_WIDE_INT low = (c & 0xffff) - 2 * (c & 0x8000);
+      HOST_WIDE_INT low = ((c & 0xffff) ^ 0x8000) - 0x8000;
       HOST_WIDE_INT tmp1 = c - low;
-      HOST_WIDE_INT high
-	= ((tmp1 >> 16) & 0xffff) - 2 * ((tmp1 >> 16) & 0x8000);
+      HOST_WIDE_INT high = (((tmp1 >> 16) & 0xffff) ^ 0x8000) - 0x8000;
       HOST_WIDE_INT extra = 0;
 
       /* If HIGH will be interpreted as negative but the constant is
@@ -1269,13 +1290,13 @@ alpha_emit_set_const_1 (target, mode, c, n)
 	}
       else if (n >= 2 + (extra != 0))
 	{
-	  temp = copy_to_suggested_reg (GEN_INT (low), subtarget, mode);
+	  temp = copy_to_suggested_reg (GEN_INT (high << 16), subtarget, mode);
 
 	  if (extra != 0)
 	    temp = expand_binop (mode, add_optab, temp, GEN_INT (extra << 16),
 				 subtarget, 0, OPTAB_WIDEN);
 
-	  return expand_binop (mode, add_optab, temp, GEN_INT (high << 16),
+	  return expand_binop (mode, add_optab, temp, GEN_INT (low),
 			       target, 0, OPTAB_WIDEN);
 	}
     }
@@ -1289,34 +1310,22 @@ alpha_emit_set_const_1 (target, mode, c, n)
       || (mode == SImode && ! rtx_equal_function_value_matters))
     return 0;
 
-#if HOST_BITS_PER_WIDE_INT == 64
-  /* First, see if can load a value into the target that is the same as the
-     constant except that all bytes that are 0 are changed to be 0xff.  If we
-     can, then we can do a ZAPNOT to obtain the desired constant.  */
-
-  for (i = 0; i < 64; i += 8)
-    if ((new & ((HOST_WIDE_INT) 0xff << i)) == 0)
-      new |= (HOST_WIDE_INT) 0xff << i;
-
-  /* We are only called for SImode and DImode.  If this is SImode, ensure that
-     we are sign extended to a full word.  */
-
-  if (mode == SImode)
-    new = (new & 0xffffffff) - 2 * (new & 0x80000000);
-
-  if (new != c
-      && (temp = alpha_emit_set_const (subtarget, mode, new, n - 1)) != 0)
-    return expand_binop (mode, and_optab, temp, GEN_INT (c | ~ new),
-			 target, 0, OPTAB_WIDEN);
-#endif
-
   /* Next, see if we can load a related constant and then shift and possibly
      negate it to get the constant we want.  Try this once each increasing
      numbers of insns.  */
 
   for (i = 1; i < n; i++)
     {
-      /* First try complementing.  */
+      /* First, see if minus some low bits, we've an easy load of
+	 high bits.  */
+
+      new = ((c & 0xffff) ^ 0x8000) - 0x8000;
+      if (new != 0
+          && (temp = alpha_emit_set_const (subtarget, mode, c - new, i)) != 0)
+	return expand_binop (mode, add_optab, temp, GEN_INT (new),
+			     target, 0, OPTAB_WIDEN);
+
+      /* Next try complementing.  */
       if ((temp = alpha_emit_set_const (subtarget, mode, ~ c, i)) != 0)
 	return expand_unop (mode, one_cmpl_optab, temp, target, 0);
 
@@ -1332,8 +1341,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
       if ((bits = exact_log2 (c & - c)) > 0)
 	for (; bits > 0; bits--)
 	  if ((temp = (alpha_emit_set_const
-		       (subtarget, mode,
-			(unsigned HOST_WIDE_INT) (c >> bits), i))) != 0
+		       (subtarget, mode, c >> bits, i))) != 0
 	      || ((temp = (alpha_emit_set_const
 			  (subtarget, mode,
 			   ((unsigned HOST_WIDE_INT) c) >> bits, i)))
@@ -1377,6 +1385,28 @@ alpha_emit_set_const_1 (target, mode, c, n)
 	    return expand_binop (mode, ashr_optab, temp, GEN_INT (bits),
 				 target, 0, OPTAB_WIDEN);
     }
+
+#if HOST_BITS_PER_WIDE_INT == 64
+  /* Finally, see if can load a value into the target that is the same as the
+     constant except that all bytes that are 0 are changed to be 0xff.  If we
+     can, then we can do a ZAPNOT to obtain the desired constant.  */
+
+  new = c;
+  for (i = 0; i < 64; i += 8)
+    if ((new & ((HOST_WIDE_INT) 0xff << i)) == 0)
+      new |= (HOST_WIDE_INT) 0xff << i;
+
+  /* We are only called for SImode and DImode.  If this is SImode, ensure that
+     we are sign extended to a full word.  */
+
+  if (mode == SImode)
+    new = ((new & 0xffffffff) ^ 0x80000000) - 0x80000000;
+
+  if (new != c && new != -1
+      && (temp = alpha_emit_set_const (subtarget, mode, new, n - 1)) != 0)
+    return expand_binop (mode, and_optab, temp, GEN_INT (c | ~ new),
+			 target, 0, OPTAB_WIDEN);
+#endif
 
   return 0;
 }
@@ -1442,6 +1472,88 @@ alpha_emit_set_long_const (target, c1, c2)
   return target;
 }
 
+/* Generate an unsigned DImode to FP conversion.  This is the same code
+   optabs would emit if we didn't have TFmode patterns.
+
+   For SFmode, this is the only construction I've found that can pass
+   gcc.c-torture/execute/ieee/rbug.c.  No scenario that uses DFmode
+   intermediates will work, because you'll get intermediate rounding
+   that ruins the end result.  Some of this could be fixed by turning
+   on round-to-positive-infinity, but that requires diddling the fpsr,
+   which kills performance.  I tried turning this around and converting
+   to a negative number, so that I could turn on /m, but either I did
+   it wrong or there's something else cause I wound up with the exact
+   same single-bit error.  There is a branch-less form of this same code:
+
+	srl     $16,1,$1
+	and     $16,1,$2
+	cmplt   $16,0,$3
+	or      $1,$2,$2
+	cmovge  $16,$16,$2
+	itoft	$3,$f10
+	itoft	$2,$f11
+	cvtqs   $f11,$f11
+	adds    $f11,$f11,$f0
+	fcmoveq $f10,$f11,$f0
+
+   I'm not using it because it's the same number of instructions as
+   this branch-full form, and it has more serialized long latency
+   instructions on the critical path.
+
+   For DFmode, we can avoid rounding errors by breaking up the word
+   into two pieces, converting them separately, and adding them back:
+
+   LC0: .long 0,0x5f800000
+
+	itoft	$16,$f11
+	lda	$2,LC0
+	cpyse	$f11,$f31,$f10
+	cpyse	$f31,$f11,$f11
+	s4addq	$1,$2,$1
+	lds	$f12,0($1)
+	cvtqt	$f10,$f10
+	cvtqt	$f11,$f11
+	addt	$f12,$f10,$f0
+	addt	$f0,$f11,$f0
+
+   This doesn't seem to be a clear-cut win over the optabs form.
+   It probably all depends on the distribution of numbers being
+   converted -- in the optabs form, all but high-bit-set has a
+   much lower minimum execution time.  */
+
+void
+alpha_emit_floatuns (operands)
+     rtx operands[2];
+{
+  rtx neglab, donelab, i0, i1, f0, in, out;
+  enum machine_mode mode;
+
+  out = operands[0];
+  in = operands[1];
+  mode = GET_MODE (out);
+  neglab = gen_label_rtx ();
+  donelab = gen_label_rtx ();
+  i0 = gen_reg_rtx (DImode);
+  i1 = gen_reg_rtx (DImode);
+  f0 = gen_reg_rtx (mode);
+
+  emit_cmp_and_jump_insns (in, const0_rtx, LT, const0_rtx, DImode, 0,
+			   8, neglab);
+
+  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_FLOAT (mode, in)));
+  emit_jump_insn (gen_jump (donelab));
+
+  emit_label (neglab);
+
+  emit_insn (gen_lshrdi3 (i0, in, const1_rtx));
+  emit_insn (gen_anddi3 (i1, in, const1_rtx));
+  emit_insn (gen_iordi3 (i0, i0, i1));
+  emit_insn (gen_rtx_SET (VOIDmode, f0, gen_rtx_FLOAT (mode, i0)));
+  emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
+
+  emit_label (donelab);
+}
+
 /* Generate the comparison for a conditional branch.  */
 
 rtx
@@ -1453,18 +1565,37 @@ alpha_emit_conditional_branch (code)
   rtx op0 = alpha_compare.op0, op1 = alpha_compare.op1;
   rtx tem;
 
+  if (alpha_compare.fp_p && GET_MODE (op0) == TFmode)
+    {
+      if (! TARGET_HAS_XFLOATING_LIBS)
+	abort ();
+
+      /* X_floating library comparison functions return
+	   -1  unordered
+	    0  false
+	    1  true
+	 Convert the compare against the raw return value.  */
+
+      op0 = alpha_emit_xfloating_compare (code, op0, op1);
+      op1 = const0_rtx;
+      alpha_compare.fp_p = 0;
+      code = GT;
+    }
+
   /* The general case: fold the comparison code to the types of compares
      that we have, choosing the branch as necessary.  */
   switch (code)
     {
     case EQ:  case LE:  case LT:  case LEU:  case LTU:
+    case UNORDERED:
       /* We have these compares: */
       cmp_code = code, branch_code = NE;
       break;
 
     case NE:
-      /* This must be reversed. */
-      cmp_code = EQ, branch_code = EQ;
+    case ORDERED:
+      /* These must be reversed. */
+      cmp_code = reverse_condition (code), branch_code = EQ;
       break;
 
     case GE:  case GT: case GEU:  case GTU:
@@ -1635,7 +1766,7 @@ alpha_emit_conditional_move (cmp, mode)
 
   /* We may be able to use a conditional move directly.
      This avoids emitting spurious compares. */
-  if (signed_comparison_operator (cmp, cmp_op_mode)
+  if (signed_comparison_operator (cmp, VOIDmode)
       && (!fp_p || local_fast_math)
       && (op0 == CONST0_RTX (cmp_mode) || op1 == CONST0_RTX (cmp_mode)))
     return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
@@ -1678,6 +1809,329 @@ alpha_emit_conditional_move (cmp, mode)
   tem = gen_reg_rtx (cmp_op_mode);
   emit_move_insn (tem, gen_rtx_fmt_ee (code, cmp_op_mode, op0, op1));
   return gen_rtx_fmt_ee (cmov_code, cmov_mode, tem, CONST0_RTX (cmp_op_mode));
+}
+
+/* Look up the function X_floating library function name for the
+   given operation.  */
+
+static const char *
+alpha_lookup_xfloating_lib_func (code)
+     enum rtx_code code;
+{
+  struct xfloating_op
+    {
+      enum rtx_code code;
+      const char *func;
+    };
+
+  static const struct xfloating_op vms_xfloating_ops[] = 
+    {
+      { PLUS,		"OTS$ADD_X" },
+      { MINUS,		"OTS$SUB_X" },
+      { MULT,		"OTS$MUL_X" },
+      { DIV,		"OTS$DIV_X" },
+      { EQ,		"OTS$EQL_X" },
+      { NE,		"OTS$NEQ_X" },
+      { LT,		"OTS$LSS_X" },
+      { LE,		"OTS$LEQ_X" },
+      { GT,		"OTS$GTR_X" },
+      { GE,		"OTS$GEQ_X" },
+      { FIX,		"OTS$CVTXQ" },
+      { FLOAT,		"OTS$CVTQX" },
+      { UNSIGNED_FLOAT,	"OTS$CVTQUX" },
+      { FLOAT_EXTEND,	"OTS$CVT_FLOAT_T_X" },
+      { FLOAT_TRUNCATE,	"OTS$CVT_FLOAT_X_T" },
+    };
+
+  static const struct xfloating_op osf_xfloating_ops[] = 
+    {
+      { PLUS,		"_OtsAddX" },
+      { MINUS,		"_OtsSubX" },
+      { MULT,		"_OtsMulX" },
+      { DIV,		"_OtsDivX" },
+      { EQ,		"_OtsEqlX" },
+      { NE,		"_OtsNeqX" },
+      { LT,		"_OtsLssX" },
+      { LE,		"_OtsLeqX" },
+      { GT,		"_OtsGtrX" },
+      { GE,		"_OtsGeqX" },
+      { FIX,		"_OtsCvtXQ" },
+      { FLOAT,		"_OtsCvtQX" },
+      { UNSIGNED_FLOAT,	"_OtsCvtQUX" },
+      { FLOAT_EXTEND,	"_OtsConvertFloatTX" },
+      { FLOAT_TRUNCATE,	"_OtsConvertFloatXT" },
+    };
+
+  const struct xfloating_op *ops;
+  const long n = sizeof(osf_xfloating_ops) / sizeof(osf_xfloating_ops[0]);
+  long i;
+
+  /* How irritating.  Nothing to key off for the table.  Hardcode
+     knowledge of the G_floating routines.  */
+  if (TARGET_FLOAT_VAX)
+    {
+      if (TARGET_OPEN_VMS)
+	{
+	  if (code == FLOAT_EXTEND)
+	    return "OTS$CVT_FLOAT_G_X";
+	  if (code == FLOAT_TRUNCATE)
+	    return "OTS$CVT_FLOAT_X_G";
+	}
+      else
+	{
+	  if (code == FLOAT_EXTEND)
+	    return "_OtsConvertFloatGX";
+	  if (code == FLOAT_TRUNCATE)
+	    return "_OtsConvertFloatXG";
+	}
+    }
+
+  if (TARGET_OPEN_VMS)
+    ops = vms_xfloating_ops;
+  else
+    ops = osf_xfloating_ops;
+
+  for (i = 0; i < n; ++i)
+    if (ops[i].code == code)
+      return ops[i].func;
+
+  abort();
+}
+
+/* Most X_floating operations take the rounding mode as an argument.
+   Compute that here.  */
+
+static int
+alpha_compute_xfloating_mode_arg (code, round)
+     enum rtx_code code;
+     enum alpha_fp_rounding_mode round;
+{
+  int mode;
+
+  switch (round)
+    {
+    case ALPHA_FPRM_NORM:
+      mode = 2;
+      break;
+    case ALPHA_FPRM_MINF:
+      mode = 1;
+      break;
+    case ALPHA_FPRM_CHOP:
+      mode = 0;
+      break;
+    case ALPHA_FPRM_DYN:
+      mode = 4;
+      break;
+    default:
+      abort ();
+
+    /* XXX For reference, round to +inf is mode = 3.  */
+    }
+
+  if (code == FLOAT_TRUNCATE && alpha_fptm == ALPHA_FPTM_N)
+    mode |= 0x10000;
+
+  return mode;
+}
+
+/* Emit an X_floating library function call.
+
+   Note that these functions do not follow normal calling conventions:
+   TFmode arguments are passed in two integer registers (as opposed to
+   indirect); TFmode return values appear in R16+R17. 
+
+   FUNC is the function name to call.
+   TARGET is where the output belongs.
+   OPERANDS are the inputs.
+   NOPERANDS is the count of inputs.
+   EQUIV is the expression equivalent for the function.
+*/
+
+static void
+alpha_emit_xfloating_libcall (func, target, operands, noperands, equiv)
+     const char *func;
+     rtx target;
+     rtx operands[];
+     int noperands;
+     rtx equiv;
+{
+  rtx usage = NULL_RTX, tmp, reg;
+  int regno = 16, i;
+
+  start_sequence ();
+
+  for (i = 0; i < noperands; ++i)
+    {
+      switch (GET_MODE (operands[i]))
+	{
+	case TFmode:
+	  reg = gen_rtx_REG (TFmode, regno);
+	  regno += 2;
+	  break;
+
+	case DFmode:
+	  reg = gen_rtx_REG (DFmode, regno + 32);
+	  regno += 1;
+	  break;
+
+	case VOIDmode:
+	  if (GET_CODE (operands[i]) != CONST_INT)
+	    abort ();
+	  /* FALLTHRU */
+	case DImode:
+	  reg = gen_rtx_REG (DImode, regno);
+	  regno += 1;
+	  break;
+
+	default:
+	  abort ();
+	}
+
+      emit_move_insn (reg, operands[i]);
+      usage = alloc_EXPR_LIST (0, gen_rtx_USE (VOIDmode, reg), usage);
+    }
+
+  switch (GET_MODE (target))
+    {
+    case TFmode:
+      reg = gen_rtx_REG (TFmode, 16);
+      break;
+    case DFmode:
+      reg = gen_rtx_REG (DFmode, 32);
+      break;
+    case DImode:
+      reg = gen_rtx_REG (DImode, 0);
+      break;
+    default:
+      abort ();
+    }
+
+  tmp = gen_rtx_MEM (QImode, gen_rtx_SYMBOL_REF (Pmode, (char *) func));
+  tmp = emit_call_insn (gen_call_value (reg, tmp, const0_rtx,
+					const0_rtx, const0_rtx));
+  CALL_INSN_FUNCTION_USAGE (tmp) = usage;
+
+  tmp = get_insns ();
+  end_sequence ();
+
+  emit_libcall_block (tmp, target, reg, equiv);
+}
+
+/* Emit an X_floating library function call for arithmetic (+,-,*,/).  */
+
+void
+alpha_emit_xfloating_arith (code, operands)
+     enum rtx_code code;
+     rtx operands[];
+{
+  const char *func;
+  int mode;
+  rtx out_operands[3];
+
+  func = alpha_lookup_xfloating_lib_func (code);
+  mode = alpha_compute_xfloating_mode_arg (code, alpha_fprm);
+
+  out_operands[0] = operands[1];
+  out_operands[1] = operands[2];
+  out_operands[2] = GEN_INT (mode);
+  alpha_emit_xfloating_libcall (func, operands[0], out_operands, 3,  
+				gen_rtx_fmt_ee (code, TFmode, operands[1],
+						operands[2]));
+}
+
+/* Emit an X_floating library function call for a comparison.  */
+
+static rtx
+alpha_emit_xfloating_compare (code, op0, op1)
+     enum rtx_code code;
+     rtx op0, op1;
+{
+  const char *func;
+  rtx out, operands[2];
+
+  func = alpha_lookup_xfloating_lib_func (code);
+
+  operands[0] = op0;
+  operands[1] = op1;
+  out = gen_reg_rtx (DImode);
+
+  /* ??? Strange equiv cause what's actually returned is -1,0,1, not a
+     proper boolean value.  */
+  alpha_emit_xfloating_libcall (func, out, operands, 2, 
+				gen_rtx_COMPARE (TFmode, op0, op1));
+
+  return out;
+}
+
+/* Emit an X_floating library function call for a conversion.  */
+
+void
+alpha_emit_xfloating_cvt (code, operands)
+     enum rtx_code code;
+     rtx operands[];
+{
+  int noperands = 1, mode;
+  rtx out_operands[2];
+  const char *func;
+
+  func = alpha_lookup_xfloating_lib_func (code);
+
+  out_operands[0] = operands[1];
+
+  switch (code)
+    {
+    case FIX:
+      mode = alpha_compute_xfloating_mode_arg (code, ALPHA_FPRM_CHOP);
+      out_operands[1] = GEN_INT (mode);
+      noperands = 2;
+      break;
+    case FLOAT_TRUNCATE:
+      mode = alpha_compute_xfloating_mode_arg (code, alpha_fprm);
+      out_operands[1] = GEN_INT (mode);
+      noperands = 2;
+      break;
+    default:
+      break;
+    }
+
+  alpha_emit_xfloating_libcall (func, operands[0], out_operands, noperands,
+				gen_rtx_fmt_e (code, GET_MODE (operands[0]),
+					       operands[1]));
+}
+
+void
+alpha_split_tfmode_pair (operands)
+     rtx operands[4];
+{
+  if (GET_CODE (operands[1]) == REG)
+    {
+      operands[3] = gen_rtx_REG (DImode, REGNO (operands[1]) + 1);
+      operands[2] = gen_rtx_REG (DImode, REGNO (operands[1]));
+    }
+  else if (GET_CODE (operands[1]) == MEM)
+    {
+      operands[3] = change_address (operands[1], DImode,
+				    plus_constant (XEXP (operands[1], 0), 8));
+      operands[2] = change_address (operands[1], DImode, NULL_RTX);
+    }
+  else if (operands[1] == CONST0_RTX (TFmode))
+    operands[2] = operands[3] = const0_rtx;
+  else
+    abort ();
+
+  if (GET_CODE (operands[0]) == REG)
+    {
+      operands[1] = gen_rtx_REG (DImode, REGNO (operands[0]) + 1);
+      operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+    }
+  else if (GET_CODE (operands[0]) == MEM)
+    {
+      operands[1] = change_address (operands[0], DImode,
+				    plus_constant (XEXP (operands[0], 0), 8));
+      operands[0] = change_address (operands[0], DImode, NULL_RTX);
+    }
+  else
+    abort ();
 }
 
 /* Use ext[wlq][lh] as the Architecture Handbook describes for extracting
@@ -1754,7 +2208,7 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
     {
       emit_move_insn (addr, plus_constant (XEXP (mem, 0), ofs));
       emit_insn (gen_extxl (extl, meml, GEN_INT (size*8), addr));
-      switch (size)
+      switch ((int) size)
 	{
 	case 2:
 	  emit_insn (gen_extwh (exth, memh, addr));
@@ -1770,6 +2224,7 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
 	  emit_insn (gen_extqh (exth, memh, addr));
 	  mode = DImode;
 	  break;
+
 	default:
 	  abort();
 	}
@@ -1816,7 +2271,7 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
       emit_insn (gen_insxh (insh, gen_lowpart (DImode, src),
 			    GEN_INT (size*8), addr));
 
-      switch (size)
+      switch ((int) size)
 	{
 	case 2:
 	  emit_insn (gen_inswl (insl, gen_lowpart (HImode, src), addr));
@@ -1832,7 +2287,7 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 
   emit_insn (gen_mskxh (dsth, dsth, GEN_INT (size*8), addr));
 
-  switch (size)
+  switch ((int) size)
     {
     case 2:
       emit_insn (gen_mskxl (dstl, dstl, GEN_INT (0xffff), addr));
@@ -2806,6 +3261,8 @@ print_operand (file, x, code)
 	case ALPHA_FPRM_DYN:
 	  fputc ('d', file);
 	  break;
+	default:
+	  abort ();
 	}
       break;
 
@@ -3072,6 +3529,8 @@ print_operand (file, x, code)
 	  fprintf (file, "ule");
         else if (c == LTU)
 	  fprintf (file, "ult");
+	else if (c == UNORDERED)
+	  fprintf (file, "un");
         else
 	  fprintf (file, "%s", GET_RTX_NAME (c));
       }
@@ -3213,6 +3672,51 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
     emit_insn (gen_imb ());
 }
 
+/* Determine where to put an argument to a function.
+   Value is zero to push the argument on the stack,
+   or a hard register in which to store the argument.
+
+   MODE is the argument's machine mode.
+   TYPE is the data type of the argument (as a tree).
+    This is null for libcalls where that information may
+    not be available.
+   CUM is a variable of type CUMULATIVE_ARGS which gives info about
+    the preceding args and about the function being called.
+   NAMED is nonzero if this argument is a named parameter
+    (otherwise it is an extra parameter matching an ellipsis).
+
+   On Alpha the first 6 words of args are normally in registers
+   and the rest are pushed.  */
+
+rtx
+function_arg(cum, mode, type, named)
+     CUMULATIVE_ARGS cum;
+     enum machine_mode mode;
+     tree type;
+     int named ATTRIBUTE_UNUSED;
+{
+  int basereg;
+
+  if (cum >= 6)
+    return NULL_RTX;
+
+  /* VOID is passed as a special flag for "last argument".  */
+  if (type == void_type_node)
+    basereg = 16;
+  else if (MUST_PASS_IN_STACK (mode, type))
+    return NULL_RTX;
+  else if (FUNCTION_ARG_PASS_BY_REFERENCE (cum, mode, type, named))
+    basereg = 16;
+  else if (TARGET_FPREGS
+	   && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+	       || GET_MODE_CLASS (mode) == MODE_FLOAT))
+    basereg = 32 + 16;
+  else
+    basereg = 16;
+
+  return gen_rtx_REG (mode, cum + basereg);
+}
+
 tree
 alpha_build_va_list ()
 {
@@ -4089,6 +4593,8 @@ alpha_expand_epilogue ()
 
   fp_is_frame_pointer = ((TARGET_OPEN_VMS && vms_is_stack_procedure)
 			 || (!TARGET_OPEN_VMS && frame_pointer_needed));
+  fp_offset = 0;
+  sa_reg = stack_pointer_rtx;
 
   eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
   if (sa_size)
@@ -4102,7 +4608,6 @@ alpha_expand_epilogue ()
 	}
 
       /* Cope with very large offsets to the register save area.  */
-      sa_reg = stack_pointer_rtx;
       if (reg_offset + sa_size > 0x8000)
 	{
 	  int low = ((reg_offset & 0xffff) ^ 0x8000) - 0x8000;
@@ -4230,9 +4735,6 @@ alpha_expand_epilogue ()
 			       gen_rtx_REG (DImode, vms_save_fp_regno)));
         }
     }
-
-  /* Return.  */
-  emit_jump_insn (gen_return_internal ());
 }
 
 /* Output the rest of the textual info surrounding the epilogue.  */
@@ -4365,8 +4867,8 @@ struct shadow_summary
   } used, defd;
 };
 
-static void summarize_insn PROTO((rtx, struct shadow_summary *, int));
-static void alpha_handle_trap_shadows PROTO((rtx));
+static void summarize_insn PARAMS ((rtx, struct shadow_summary *, int));
+static void alpha_handle_trap_shadows PARAMS ((rtx));
 
 /* Summary the effects of expression X on the machine.  Update SUM, a pointer
    to the summary structure.  SET is nonzero if the insn is setting the
@@ -4684,15 +5186,15 @@ enum alphaev5_pipe {
   EV5_FM = 64
 };
 
-static enum alphaev4_pipe alphaev4_insn_pipe PROTO((rtx));
-static enum alphaev5_pipe alphaev5_insn_pipe PROTO((rtx));
-static rtx alphaev4_next_group PROTO((rtx, int*, int*));
-static rtx alphaev5_next_group PROTO((rtx, int*, int*));
-static rtx alphaev4_next_nop PROTO((int*));
-static rtx alphaev5_next_nop PROTO((int*));
+static enum alphaev4_pipe alphaev4_insn_pipe PARAMS ((rtx));
+static enum alphaev5_pipe alphaev5_insn_pipe PARAMS ((rtx));
+static rtx alphaev4_next_group PARAMS ((rtx, int*, int*));
+static rtx alphaev5_next_group PARAMS ((rtx, int*, int*));
+static rtx alphaev4_next_nop PARAMS ((int*));
+static rtx alphaev5_next_nop PARAMS ((int*));
 
 static void alpha_align_insns
-  PROTO((rtx, int, rtx (*)(rtx, int*, int*), rtx (*)(int*), int));
+  PARAMS ((rtx, int, rtx (*)(rtx, int*, int*), rtx (*)(int*), int));
 
 static enum alphaev4_pipe
 alphaev4_insn_pipe (insn)
@@ -5082,8 +5584,8 @@ static void
 alpha_align_insns (insns, max_align, next_group, next_nop, gp_in_use)
      rtx insns;
      int max_align;
-     rtx (*next_group) PROTO((rtx, int*, int*));
-     rtx (*next_nop) PROTO((int*));
+     rtx (*next_group) PARAMS ((rtx, int*, int*));
+     rtx (*next_nop) PARAMS ((int*));
      int gp_in_use;
 {
   /* ALIGN is the known alignment for the insn group.  */

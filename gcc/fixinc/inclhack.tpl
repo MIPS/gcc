@@ -10,13 +10,15 @@ sh
 # Install modified versions of certain ANSI-incompatible system header
 # files which are fixed to work correctly with ANSI C and placed in a
 # directory that GNU C will search.
-#
+#[=
+_IF PROGRAM _env ! =]
 # This script contains [=_eval fix _count =] fixup scripts.
-#
+#[=
+_ENDIF =]
 # See README-fixinc for more information.
 #
-#  fixincludes copyright (c) [=_eval "date +%Y" _shell
-                                =] The Free Software Foundation, Inc.
+#  fixincludes copyright (c) 1998, 1999, 2000
+#  The Free Software Foundation, Inc.
 #
 [=_eval fixincludes "## " _gpl=]
 #
@@ -135,7 +137,14 @@ for INPUT in ${INPUTLIST} ; do
 
 cd ${ORIGDIR}
 
-cd ${INPUT} || continue
+#  Make sure a directory exists before changing into it,
+#  otherwise Solaris2 will fail-exit the script.
+#
+if [ ! -d ${INPUT} ]; then
+  continue
+fi
+cd ${INPUT}
+
 INPUT=`${PWDCMD}`
 
 #
@@ -436,8 +445,26 @@ then echo 'Cleaning up unneeded directories:' ; fi
 cd $LIB
 all_dirs=`find . -type d \! -name '.' -print | sort -r`
 for file in $all_dirs; do
-  rmdir $LIB/$file > /dev/null 2>&1
-done
+  if rmdir $LIB/$file > /dev/null
+  then
+    test $VERBOSE -gt 3 && echo "  removed $file"
+  fi
+done 2> /dev/null
+
+test $VERBOSE -gt 2 && echo "Removing unused symlinks"
+
+all_dirs=`find . -type l -print`
+for file in $all_dirs
+do
+  if ls -lLd $file > /dev/null
+  then :
+  else rm -f $file
+       test $VERBOSE -gt 3 && echo "  removed $file"
+       rmdir `dirname $file` > /dev/null && \
+         test $VERBOSE -gt 3 && \
+         echo "  removed `dirname $file`"
+  fi
+done 2> /dev/null
 
 if test $VERBOSE -gt 0
 then echo fixincludes is done ; fi

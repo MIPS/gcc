@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GNU CC.
@@ -71,19 +71,19 @@ typedef struct dump_info
   splay_tree nodes;
 } *dump_info_p;
 
-static unsigned int queue PROTO ((dump_info_p, tree, int));
-static void dump_index PROTO ((dump_info_p, unsigned int));
-static void queue_and_dump_index PROTO ((dump_info_p, const char *, tree, int));
-static void queue_and_dump_type PROTO ((dump_info_p, tree));
-static void dequeue_and_dump PROTO ((dump_info_p));
-static void dump_new_line PROTO ((dump_info_p));
-static void dump_maybe_newline PROTO ((dump_info_p));
-static void dump_int PROTO ((dump_info_p, const char *, int));
-static void dump_string PROTO ((dump_info_p, const char *));
-static void dump_string_field PROTO ((dump_info_p, const char *, const char *));
-static void dump_node PROTO ((tree, FILE *));
-static void dump_stmt PROTO ((dump_info_p, tree));
-static void dump_next_stmt PROTO ((dump_info_p, tree));
+static unsigned int queue PARAMS ((dump_info_p, tree, int));
+static void dump_index PARAMS ((dump_info_p, unsigned int));
+static void queue_and_dump_index PARAMS ((dump_info_p, const char *, tree, int));
+static void queue_and_dump_type PARAMS ((dump_info_p, tree));
+static void dequeue_and_dump PARAMS ((dump_info_p));
+static void dump_new_line PARAMS ((dump_info_p));
+static void dump_maybe_newline PARAMS ((dump_info_p));
+static void dump_int PARAMS ((dump_info_p, const char *, int));
+static void dump_string PARAMS ((dump_info_p, const char *));
+static void dump_string_field PARAMS ((dump_info_p, const char *, const char *));
+static void dump_node PARAMS ((tree, FILE *));
+static void dump_stmt PARAMS ((dump_info_p, tree));
+static void dump_next_stmt PARAMS ((dump_info_p, tree));
 
 /* Add T to the end of the queue of nodes to dump.  Returns the index
    assigned to T.  */
@@ -556,7 +556,7 @@ dequeue_and_dump (di)
 
     case FUNCTION_DECL:
     case THUNK_DECL:
-      dump_child ("scpe", DECL_REAL_CONTEXT (t));
+      dump_child ("scpe", CP_DECL_CONTEXT (t));
       dump_child ("mngl", DECL_ASSEMBLER_NAME (t));
       dump_child ("args", DECL_ARGUMENTS (t));
       if (DECL_EXTERNAL (t))
@@ -585,6 +585,8 @@ dequeue_and_dump (di)
 		dump_string (di, "global fini");
 	      dump_int (di, "prio", GLOBAL_INIT_PRIORITY (t));
 	    }
+	  if (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t))
+	    dump_string (di, "pseudo tmpl");
 
 	  dump_child ("body", DECL_SAVED_TREE (t));
 	}
@@ -607,6 +609,7 @@ dequeue_and_dump (di)
       break;
 
     case TEMPLATE_DECL:
+      dump_child ("inst", DECL_TEMPLATE_INSTANTIATIONS (t));
       dump_child ("spcs", DECL_TEMPLATE_SPECIALIZATIONS (t));
       break;
 
@@ -765,6 +768,8 @@ dequeue_and_dump (di)
 	dump_string (di, "end");
       if (SCOPE_NULLIFIED_P (t))
 	dump_string (di, "null");
+      if (!SCOPE_NO_CLEANUPS_P (t))
+	dump_string (di, "clnp");
       dump_next_stmt (di, t);
       break;
 
@@ -801,6 +806,10 @@ dequeue_and_dump (di)
     case COMPONENT_REF:
     case COMPOUND_EXPR:
     case ARRAY_REF:
+    case PREDECREMENT_EXPR:
+    case PREINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
       /* These nodes are binary, but do not have code class `2'.  */
       dump_child ("op 0", TREE_OPERAND (t, 0));
       dump_child ("op 1", TREE_OPERAND (t, 1));
@@ -854,6 +863,10 @@ dequeue_and_dump (di)
       dump_child ("fn", TREE_OPERAND (t, 0));
       dump_child ("args", TREE_OPERAND (t, 1));
       dump_child ("decl", TREE_OPERAND (t, 2));
+      break;
+      
+    case EXPR_WITH_FILE_LOCATION:
+      dump_child ("expr", EXPR_WFL_NODE (t));
       break;
 
     default:

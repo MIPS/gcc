@@ -1,5 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -149,45 +150,46 @@ int size_directive_output;
 
 tree last_assemble_variable_decl;
 
-static const char *strip_reg_name	PROTO((const char *));
-static int contains_pointers_p		PROTO((tree));
-static void decode_addr_const		PROTO((tree, struct addr_const *));
-static int const_hash			PROTO((tree));
-static int compare_constant		PROTO((tree,
+static const char *strip_reg_name	PARAMS ((const char *));
+static int contains_pointers_p		PARAMS ((tree));
+static void decode_addr_const		PARAMS ((tree, struct addr_const *));
+static int const_hash			PARAMS ((tree));
+static int compare_constant		PARAMS ((tree,
 					       struct constant_descriptor *));
-static char *compare_constant_1		PROTO((tree, char *));
-static struct constant_descriptor *record_constant PROTO((tree));
-static void record_constant_1		PROTO((tree));
-static tree copy_constant		PROTO((tree));
-static void output_constant_def_contents  PROTO((tree, int, int));
-static void decode_rtx_const		PROTO((enum machine_mode, rtx,
+static char *compare_constant_1		PARAMS ((tree, char *));
+static struct constant_descriptor *record_constant PARAMS ((tree));
+static void record_constant_1		PARAMS ((tree));
+static tree copy_constant		PARAMS ((tree));
+static void output_constant_def_contents  PARAMS ((tree, int, int));
+static void decode_rtx_const		PARAMS ((enum machine_mode, rtx,
 					       struct rtx_const *));
-static int const_hash_rtx		PROTO((enum machine_mode, rtx));
-static int compare_constant_rtx		PROTO((enum machine_mode, rtx,
+static int const_hash_rtx		PARAMS ((enum machine_mode, rtx));
+static int compare_constant_rtx		PARAMS ((enum machine_mode, rtx,
 					       struct constant_descriptor *));
-static struct constant_descriptor *record_constant_rtx PROTO((enum machine_mode,
+static struct constant_descriptor *record_constant_rtx PARAMS ((enum machine_mode,
 							      rtx));
-static struct pool_constant *find_pool_constant PROTO((struct function *, rtx));
-static void mark_constant_pool		PROTO((void));
-static void mark_constants		PROTO((rtx));
-static int output_addressed_constants	PROTO((tree));
-static void output_after_function_constants PROTO((void));
-static void output_constructor		PROTO((tree, int));
+static struct pool_constant *find_pool_constant PARAMS ((struct function *, rtx));
+static void mark_constant_pool		PARAMS ((void));
+static void mark_constants		PARAMS ((rtx));
+static int output_addressed_constants	PARAMS ((tree));
+static void output_after_function_constants PARAMS ((void));
+static void output_constructor		PARAMS ((tree, int));
 #ifdef ASM_WEAKEN_LABEL
-static void remove_from_pending_weak_list	PROTO ((char *));
+static void remove_from_pending_weak_list	PARAMS ((char *));
 #endif
 #ifdef ASM_OUTPUT_BSS
-static void asm_output_bss		PROTO((FILE *, tree, char *, int, int));
+static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
 #endif
 #ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
-static void asm_output_aligned_bss	PROTO((FILE *, tree, char *, int, int));
+static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
+						 int, int));
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static void mark_pool_constant          PROTO((struct pool_constant *));
-static void mark_pool_sym_hash_table	PROTO((struct pool_sym **));
-static void mark_const_hash_entry	PROTO((void *));
-static void asm_emit_uninitialised	PROTO((tree, char *, int, int));
+static void mark_pool_constant          PARAMS ((struct pool_constant *));
+static void mark_pool_sym_hash_table	PARAMS ((struct pool_sym **));
+static void mark_const_hash_entry	PARAMS ((void *));
+static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
 
 static enum in_section { no_section, in_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
@@ -299,8 +301,7 @@ named_section (decl, name, reloc)
      const char *name;
      int reloc ATTRIBUTE_UNUSED;
 {
-  if (decl != NULL_TREE
-      && TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
+  if (decl != NULL_TREE && !DECL_P (decl))
     abort ();
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
@@ -375,9 +376,9 @@ bss_section ()
 static void
 asm_output_bss (file, decl, name, size, rounded)
      FILE *file;
-     tree decl;
-     char *name;
-     int size, rounded;
+     tree decl ATTRIBUTE_UNUSED;
+     const char *name;
+     int size ATTRIBUTE_UNUSED, rounded;
 {
   ASM_GLOBALIZE_LABEL (file, name);
   bss_section ();
@@ -404,7 +405,7 @@ static void
 asm_output_aligned_bss (file, decl, name, size, align)
      FILE *file;
      tree decl;
-     char *name;
+     const char *name;
      int size, align;
 {
   ASM_GLOBALIZE_LABEL (file, name);
@@ -521,8 +522,10 @@ make_function_rtl (decl)
   char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   char *new_name = name;
 
-  /* Rename a nested function to avoid conflicts.  */
+  /* Rename a nested function to avoid conflicts, unless it's a member of
+     a local class, in which case the class name is already unique.  */
   if (decl_function_context (decl) != 0
+      && ! TYPE_P (DECL_CONTEXT (decl))
       && DECL_INITIAL (decl) != 0
       && DECL_RTL (decl) == 0)
     {
@@ -552,6 +555,7 @@ make_function_rtl (decl)
 
   if (DECL_RTL (decl) == 0)
     {
+      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
       DECL_RTL (decl)
 	= gen_rtx_MEM (DECL_MODE (decl),
 		       gen_rtx_SYMBOL_REF (Pmode, name));
@@ -763,9 +767,12 @@ make_decl_rtl (decl, asmspec, top_level)
       if (DECL_RTL (decl) == 0)
 	{
 	  /* Can't use just the variable's own name for a variable
-	     whose scope is less than the whole file.
+	     whose scope is less than the whole file, unless it's a member
+	     of a local class (which will already be unambiguous).
 	     Concatenate a distinguishing number.  */
-	  if (!top_level && !TREE_PUBLIC (decl) && asmspec == 0)
+	  if (!top_level && !TREE_PUBLIC (decl)
+	      && ! (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
+	      && asmspec == 0)
 	    {
 	      char *label;
 
@@ -791,6 +798,8 @@ make_decl_rtl (decl, asmspec, top_level)
 	      name = new_name;
 	    }
 
+	  DECL_ASSEMBLER_NAME (decl)
+	    = get_identifier (name[0] == '*' ? name + 1 : name);
 	  DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl),
 					 gen_rtx_SYMBOL_REF (Pmode, name));
 	  MEM_ALIAS_SET (DECL_RTL (decl)) = get_alias_set (decl);
@@ -989,7 +998,7 @@ assemble_gc_entry (name)
 void
 assemble_start_function (decl, fnname)
      tree decl;
-     char *fnname;
+     const char *fnname;
 {
   int align;
 
@@ -1231,8 +1240,8 @@ assemble_string (p, size)
 static void
 asm_emit_uninitialised (decl, name, size, rounded)
      tree decl;
-     char * name;
-     int size;
+     const char * name;
+     int size ATTRIBUTE_UNUSED;
      int rounded ATTRIBUTE_UNUSED;
 {
   enum
@@ -1320,7 +1329,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
      int at_end ATTRIBUTE_UNUSED;
      int dont_output_data;
 {
-  register char *name;
+  register const char *name;
   unsigned int align;
   tree size_tree = NULL_TREE;
   int reloc = 0;
@@ -1416,18 +1425,15 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   if (! dont_output_data)
     {
-      int size;
+      unsigned int size;
 
-      if (TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+      if (TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST)
 	goto finish;
 
-      /* This is better than explicit arithmetic, since it avoids overflow.  */
-      size_tree = size_binop (CEIL_DIV_EXPR,
-			      DECL_SIZE (decl), size_int (BITS_PER_UNIT));
-
+      size_tree = DECL_SIZE_UNIT (decl);
       size = TREE_INT_CST_LOW (size_tree);
-      if (TREE_INT_CST_HIGH (size_tree) != 0
-	  || size != TREE_INT_CST_LOW (size_tree))
+
+      if (compare_tree_int (size_tree, size) != 0)
 	{
 	  error_with_decl (decl, "size of variable `%s' is too large");
 	  goto finish;
@@ -1435,7 +1441,6 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     }
 
   name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-
   if (TREE_PUBLIC (decl) && DECL_NAME (decl)
       && ! first_global_object_name
       && ! (DECL_COMMON (decl) && (DECL_INITIAL (decl) == 0
@@ -1511,7 +1516,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
       
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
-      if ( (DECL_ALIGN (decl) / BITS_PER_UNIT) > rounded)
+      if ((DECL_ALIGN (decl) / BITS_PER_UNIT) > (unsigned int) rounded)
          warning_with_decl 
            (decl, "requested alignment for %s is greater than implemented alignment of %d.",rounded);
 #endif
@@ -1721,8 +1726,7 @@ assemble_external (decl)
      tree decl ATTRIBUTE_UNUSED;
 {
 #ifdef ASM_OUTPUT_EXTERNAL
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd'
-      && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
+  if (DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
     {
       rtx rtl = DECL_RTL (decl);
 
@@ -2275,10 +2279,12 @@ decode_addr_const (exp, value)
   while (1)
     {
       if (TREE_CODE (target) == COMPONENT_REF
-	  && (TREE_CODE (DECL_FIELD_BITPOS (TREE_OPERAND (target, 1)))
-	      == INTEGER_CST))
+	  && host_integerp (bit_position (TREE_OPERAND (target, 1)), 0))
+
 	{
-	  offset += TREE_INT_CST_LOW (DECL_FIELD_BITPOS (TREE_OPERAND (target, 1))) / BITS_PER_UNIT;
+	  offset
+	    += int_bit_position (TREE_OPERAND (target, 1)) / BITS_PER_UNIT;
+
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == ARRAY_REF)
@@ -2371,7 +2377,7 @@ static int
 const_hash (exp)
      tree exp;
 {
-  register char *p;
+  register const char *p;
   register int len, hi, i;
   register enum tree_code code = TREE_CODE (exp);
 
@@ -2402,9 +2408,12 @@ const_hash (exp)
     case CONSTRUCTOR:
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
 	{
+	  char *tmp;
+
 	  len = int_size_in_bytes (TREE_TYPE (exp));
-	  p = (char *) alloca (len);
-	  get_set_constructor_bytes (exp, (unsigned char *) p, len);
+	  tmp = (char *) alloca (len);
+	  get_set_constructor_bytes (exp, (unsigned char *) tmp, len);
+	  p = tmp;
 	  break;
 	}
       else
@@ -2505,7 +2514,7 @@ compare_constant_1 (exp, p)
      tree exp;
      char *p;
 {
-  register char *strp;
+  register const char *strp;
   register int len;
   register enum tree_code code = TREE_CODE (exp);
 
@@ -2539,7 +2548,7 @@ compare_constant_1 (exp, p)
       if (flag_writable_strings)
 	return 0;
 
-      if (*p++ != TYPE_MODE (TREE_TYPE (exp)))
+      if ((enum machine_mode) *p++ != TYPE_MODE (TREE_TYPE (exp)))
 	return 0;
 
       strp = TREE_STRING_POINTER (exp);
@@ -2562,9 +2571,10 @@ compare_constant_1 (exp, p)
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
 	{
 	  int xlen = len = int_size_in_bytes (TREE_TYPE (exp));
+	  unsigned char *tmp = (unsigned char *) alloca (len);
 
-	  strp = (char *) alloca (len);
-	  get_set_constructor_bytes (exp, (unsigned char *) strp, len);
+	  get_set_constructor_bytes (exp, (unsigned char *) tmp, len);
+	  strp = tmp;
 	  if (bcmp ((char *) &xlen, p, sizeof xlen))
 	    return 0;
 
@@ -3679,7 +3689,7 @@ find_pool_constant (f, addr)
      rtx addr;
 {
   struct pool_sym *sym;
-  char *label = XSTR (addr, 0);
+  const char *label = XSTR (addr, 0);
 
   for (sym = f->varasm->x_const_rtx_sym_hash_table[SYMHASH (label)]; sym; sym = sym->next)
     if (sym->label == label)
@@ -3869,7 +3879,7 @@ mark_constant_pool ()
   for (pool = first_pool; pool; pool = pool->next)
     {
       struct pool_sym *sym;
-      char *label;
+      const char *label;
 
       /* skip unmarked entries; no insn refers to them. */
       if (!pool->mark)
@@ -4027,6 +4037,11 @@ initializer_constant_valid_p (value, endtype)
      tree value;
      tree endtype;
 {
+  /* Give the front-end a chance to convert VALUE to something that
+     looks more like a constant to the back-end.  */
+  if (lang_expand_constant)
+    value = (*lang_expand_constant) (value);
+
   switch (TREE_CODE (value))
     {
     case CONSTRUCTOR:
@@ -4204,12 +4219,18 @@ output_constant (exp, size)
 
   /* Eliminate the NON_LVALUE_EXPR_EXPR that makes a cast not be an lvalue.
      That way we get the constant (we hope) inside it.  Also, strip off any
-     NOP_EXPR that converts between two record, union, array, or set types.  */
+     NOP_EXPR that converts between two record, union, array, or set types
+     or a CONVERT_EXPR that converts to a union TYPE.  */
   while ((TREE_CODE (exp) == NOP_EXPR 
 	  && (TREE_TYPE (exp) == TREE_TYPE (TREE_OPERAND (exp, 0))
 	      || AGGREGATE_TYPE_P (TREE_TYPE (exp))))
+	 || (TREE_CODE (exp) == CONVERT_EXPR
+	     && code == UNION_TYPE)
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR)
-    exp = TREE_OPERAND (exp, 0);
+    {
+      exp = TREE_OPERAND (exp, 0);
+      code = TREE_CODE (TREE_TYPE (exp));
+    }
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
@@ -4427,21 +4448,10 @@ output_constructor (exp, size)
 	  /* Determine size this element should occupy.  */
 	  if (field)
 	    {
-	      if (TREE_CODE (DECL_SIZE (field)) != INTEGER_CST)
+	      if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST)
 		abort ();
-	      if (TREE_INT_CST_LOW (DECL_SIZE (field)) > 100000)
-		{
-		  /* This avoids overflow trouble.  */
-		  tree size_tree = size_binop (CEIL_DIV_EXPR,
-					       DECL_SIZE (field),
-					       size_int (BITS_PER_UNIT));
-		  fieldsize = TREE_INT_CST_LOW (size_tree);
-		}
-	      else
-		{
-		  fieldsize = TREE_INT_CST_LOW (DECL_SIZE (field));
-		  fieldsize = (fieldsize + BITS_PER_UNIT - 1) / BITS_PER_UNIT;
-		}
+
+	      fieldsize = TREE_INT_CST_LOW (DECL_SIZE_UNIT (field));
 	    }
 	  else
 	    fieldsize = int_size_in_bytes (TREE_TYPE (TREE_TYPE (exp)));
@@ -4698,7 +4708,7 @@ void
 assemble_alias (decl, target)
      tree decl, target ATTRIBUTE_UNUSED;
 {
-  char *name;
+  const char *name;
 
   make_decl_rtl (decl, (char *) 0, 1);
   name = XSTR (XEXP (DECL_RTL (decl), 0), 0);

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for NEC V850 series
-   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -45,15 +45,15 @@ Boston, MA 02111-1307, USA.  */
 
 /* Function prototypes for stupid compilers:  */
 static void const_double_split
-  PROTO ((rtx, HOST_WIDE_INT *, HOST_WIDE_INT *));
-static int  const_costs_int        PROTO ((HOST_WIDE_INT, int));
-static void substitute_ep_register PROTO ((rtx, rtx, int, int, rtx *, rtx *));
-static int  push_data_area         PROTO ((v850_data_area));
-static int  pop_data_area          PROTO ((v850_data_area));
-static int  parse_ghs_pragma_token PROTO ((char *));
-static int  ep_memory_offset       PROTO ((enum machine_mode, int));
-static int  mark_current_function_as_interrupt PROTO ((void));
-static void v850_set_data_area     PROTO ((tree, v850_data_area));
+  PARAMS ((rtx, HOST_WIDE_INT *, HOST_WIDE_INT *));
+static int  const_costs_int        PARAMS ((HOST_WIDE_INT, int));
+static void substitute_ep_register PARAMS ((rtx, rtx, int, int, rtx *, rtx *));
+static int  push_data_area         PARAMS ((v850_data_area));
+static int  pop_data_area          PARAMS ((v850_data_area));
+static int  parse_ghs_pragma_token PARAMS ((char *));
+static int  ep_memory_offset       PARAMS ((enum machine_mode, int));
+static int  mark_current_function_as_interrupt PARAMS ((void));
+static void v850_set_data_area     PARAMS ((tree, v850_data_area));
 
 /* True if the current function has anonymous arguments.  */
 int current_function_anonymous_args;
@@ -88,7 +88,7 @@ void
 override_options ()
 {
   int i;
-  extern int atoi PROTO ((const char *));
+  extern int atoi PARAMS ((const char *));
 
   /* Parse -m{s,t,z}da=nnn switches */
   for (i = 0; i < (int)SMALL_MEMORY_max; i++)
@@ -411,7 +411,7 @@ print_operand (file, x, code)
     case 'O':
       if (special_symbolref_operand (x, VOIDmode))
         {
-          char* name;
+          const char *name;
 
 	  if (GET_CODE (x) == SYMBOL_REF)
 	    name = XSTR (x, 0);
@@ -596,9 +596,9 @@ print_operand_address (file, addr)
     case SYMBOL_REF:
       if (ENCODED_NAME_P (XSTR (addr, 0)))
         {
-          char* name = XSTR (addr, 0);
-          char* off_name;
-          char* reg_name;
+          const char *name = XSTR (addr, 0);
+          const char *off_name;
+          const char *reg_name;
 
           if (ZDA_NAME_P (name))
             {
@@ -628,9 +628,9 @@ print_operand_address (file, addr)
     case CONST:
       if (special_symbolref_operand (addr, VOIDmode))
         {
-          char* name = XSTR (XEXP (XEXP (addr, 0), 0), 0);
-          char* off_name;
-          char* reg_name;
+          const char *name = XSTR (XEXP (XEXP (addr, 0), 0), 0);
+          const char *off_name;
+          const char *reg_name;
 
           if (ZDA_NAME_P (name))
             {
@@ -2090,7 +2090,7 @@ void
 v850_encode_data_area (decl)
      tree decl;
 {
-  char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  const char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
   int    len = strlen (str);
   char * newstr;
 
@@ -2099,7 +2099,7 @@ v850_encode_data_area (decl)
     {
       if (DECL_SECTION_NAME (decl))
 	{
-	  char * name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+	  const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 	  
 	  if (streq (name, ".zdata") || streq (name, ".zbss"))
 	    v850_set_data_area (decl, DATA_AREA_ZDA);
@@ -2926,8 +2926,8 @@ parse_ghs_pragma_token (string)
 /* Handle the parsing of an entire GHS pragma.  */
 int
 v850_handle_pragma (p_getc, p_ungetc, name)
-     int (*  p_getc) PROTO ((void));
-     void (* p_ungetc) PROTO ((int));
+     int (*  p_getc) PARAMS ((void));
+     void (* p_ungetc) PARAMS ((int));
      char *  name;
 {
   /* Parse characters in the input stream until:

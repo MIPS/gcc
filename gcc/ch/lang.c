@@ -1,5 +1,5 @@
 /* Language-specific hook definitions for CHILL front end.
-   Copyright (C) 1992, 93, 1994, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 98, 99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -50,10 +50,8 @@ int special_UC = 0;
 char* chill_real_input_filename;
 extern FILE* finput;
 
-extern int maximum_field_alignment;
-
-static int deep_const_expr			PROTO ((tree));
-static void chill_print_error_function		PROTO ((const char *));
+static int deep_const_expr			PARAMS ((tree));
+static void chill_print_error_function		PARAMS ((const char *));
 
 /* return 1 if the expression tree given has all
    constant nodes as its leaves; return 0 otherwise. */

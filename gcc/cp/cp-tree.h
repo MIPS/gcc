@@ -1,6 +1,7 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987, 92-97, 1998, 1999, 2000 Free Software Foundation, Inc.
-   Hacked by Michael Tiemann (tiemann@cygnus.com)
+   Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
+   Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
 
@@ -80,7 +81,7 @@ Boston, MA 02111-1307, USA.  */
    1: TYPE_HAS_CONSTRUCTOR.
    2: TYPE_HAS_DESTRUCTOR.
    3: TYPE_FOR_JAVA.
-   4: TYPE_NEEDS_DESTRUCTOR.
+   4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
    5: IS_AGGR_TYPE.
    6: TYPE_BUILT_IN.
 
@@ -111,22 +112,37 @@ Boston, MA 02111-1307, USA.  */
      For a TEMPLATE_TEMPLATE_PARM, this is
      TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO.
 
-   DECL_SAVED_INSNS/DECL_FIELD_SIZE
-     For a static VAR_DECL, this is DECL_INIT_PRIORITY.
-
-   BINFO_VIRTUALS
-     For a binfo, this is a TREE_LIST.  The TREE_PURPOSE of each node
+  BINFO_VIRTUALS
+     For a binfo, this is a TREE_LIST.  The BV_DELTA of each node
      gives the amount by which to adjust the `this' pointer when
      calling the function.  If the method is an overriden version of a
      base class method, then it is assumed that, prior to adjustment,
      the this pointer points to an object of the base class.
 
-     The TREE_VALUE is the declaration for the virtual function
-     itself.  When CLASSTYPE_COM_INTERFACE_P does not hold, the first
-     entry does not have a TREE_VALUE; it is just an offset.
+     The BV_VCALL_INDEX of each node, if non-NULL, gives the vtable
+     index of the vcall offset for this entry.
+
+     The BV_FN is the declaration for the virtual function itself.
+     When CLASSTYPE_COM_INTERFACE_P does not hold, the first entry
+     does not have a BV_FN; it is just an offset.
+
+     The BV_OVERRIDING_BASE is the binfo for the final overrider for
+     this function.  (This binfo's BINFO_TYPE will always be the same
+     as the DECL_CLASS_CONTEXT for the function.)
 
    DECL_ARGUMENTS
-     For a VAR_DECL this is DECL_ANON_UNION_ELEMS.  */
+     For a VAR_DECL this is DECL_ANON_UNION_ELEMS.  
+
+   DECL_VINDEX
+     This field is NULL for a non-virtual function.  For a virtual
+     function, it is eventually set to an INTEGER_CST indicating the
+     index in the vtable at which this function can be found.  When
+     a virtual function is declared, but before it is known what
+     function is overriden, this field is the error_mark_node.
+
+     Temporarily, it may be set to a TREE_LIST whose TREE_VALUE is 
+     the virtual function this one overrides, and whose TREE_CHAIN is
+     the old DECL_VINDEX.  */
 
 /* Language-specific tree checkers. */
 
@@ -177,7 +193,66 @@ Boston, MA 02111-1307, USA.  */
 #define RECORD_OR_UNION_TYPE_CHECK(NODE)	NODE
 
 #endif
+
+/* ABI control.  */
 
+/* Nonzero to enable experimental ABI changes.  */
+
+extern int flag_new_abi;
+
+/* Nonzero to use __cxa_atexit, rather than atexit, to register
+   destructors for local statics and global objects.  */
+
+extern int flag_use_cxa_atexit;
+
+/* Nonzero to not ignore namespace std. */
+
+extern int flag_honor_std;
+
+/* Nonzero means generate 'rtti' that give run-time type information.  */
+
+extern int flag_rtti;
+
+/* Nonzero if virtual base class offsets are stored in the virtual
+   function table.  Zero if, instead, a pointer to the virtual base is
+   stored in the object itself.  */
+#define vbase_offsets_in_vtable_p() (flag_new_abi)
+
+/* Nonzero if displacements to the `this' pointer to use when calling
+   virtual functions in a virtual base class are present in the
+   vtable.  */
+#define vcall_offsets_in_vtable_p() (flag_new_abi)
+
+/* Nonzero if a derived class that needs a vptr should always get one,
+   even if a non-primary base class already has one.  For example,
+   given:
+
+     struct S { int i; virtual void f(); };
+     struct T : virtual public S {};
+
+   one could either reuse the vptr in `S' for `T', or create a new
+   vptr for `T'.  If this flag is nonzero we choose the latter
+   alternative; otherwise, we choose the former.  */
+#define vptrs_present_everywhere_p() (flag_new_abi)
+
+/* Nonzero if the vtable for a derived class should contain the
+   virtual functions from the primary base and all virtual functions
+   present in the class itself.  Zero if, instead, it should contain
+   only those virtual functions from the primary base together with
+   the functions declared in the derived class (but not in any base
+   class).  */
+#define all_overridden_vfuns_in_vtables_p() (flag_new_abi)
+
+/* Nonzero if we use access type_info objects directly, and use the
+   cross-vendor layout for them. Zero if we use an accessor function
+   to get the type_info object address.  */
+#define new_abi_rtti_p() (flag_new_abi)
+
+/* Nonzero if primary and secondary vtables are combined into a single
+   vtable.  */
+#define merge_primary_and_secondary_vtables_p() (flag_new_abi)
+
+
 /* Language-dependent contents of an identifier.  */
 
 struct lang_identifier
@@ -203,6 +278,7 @@ typedef struct
 {
   tree t;
   int new_type_flag;
+  tree lookups;
 } flagged_type_tree;
 
 typedef struct 
@@ -405,7 +481,7 @@ struct tree_srcloc
               OPERATOR_TYPENAME_FORMAT,			\
 	      strlen (OPERATOR_TYPENAME_FORMAT)))
 
-/* Nonzero means reject anything that ANSI standard C forbids.  */
+/* Nonzero means reject anything that ISO standard C++ forbids.  */
 extern int pedantic;
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
@@ -438,20 +514,21 @@ enum cp_tree_index
     CPTI_WCHAR_DECL,
     CPTI_VTABLE_ENTRY_TYPE,
     CPTI_DELTA_TYPE,
+    CPTI_VTABLE_INDEX_TYPE,
     CPTI_CLEANUP_TYPE,
 
-    CPTI_TP_DESC_TYPE,
-    CPTI_ACCESS_MODE_TYPE,
+    CPTI_TI_DESC_TYPE,
     CPTI_BLTN_DESC_TYPE,
-    CPTI_USER_DESC_TYPE,
-    CPTI_CLASS_DESC_TYPE,
     CPTI_PTR_DESC_TYPE,
-    CPTI_ATTR_DESC_TYPE,
+    CPTI_ARY_DESC_TYPE,
     CPTI_FUNC_DESC_TYPE,
-    CPTI_PTMF_DESC_TYPE,
+    CPTI_ENUM_DESC_TYPE,
+    CPTI_CLASS_DESC_TYPE,
+    CPTI_SI_CLASS_DESC_TYPE,
+    CPTI_VMI_CLASS_DESC_TYPE,
     CPTI_PTMD_DESC_TYPE,
+    CPTI_BASE_DESC_TYPE,
     
-    CPTI_CLASS_STAR_TYPE,
     CPTI_CLASS_TYPE,
     CPTI_RECORD_TYPE,
     CPTI_UNION_TYPE,
@@ -460,9 +537,11 @@ enum cp_tree_index
     CPTI_VTBL_TYPE,
     CPTI_VTBL_PTR_TYPE,
     CPTI_STD,
+    CPTI_ABI,
     CPTI_TYPE_INFO_TYPE,
-    CPTI_TINFO_FN_ID,
-    CPTI_TINFO_FN_TYPE,
+    CPTI_TINFO_DECL_ID,
+    CPTI_TINFO_DECL_TYPE,
+    CPTI_TINFO_VAR_ID,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
 
@@ -498,6 +577,7 @@ enum cp_tree_index
     CPTI_TERMINATE,
     CPTI_ATEXIT,
     CPTI_DSO_HANDLE,
+    CPTI_DCAST,
 
     CPTI_MAX
 };
@@ -516,18 +596,25 @@ extern tree cp_global_trees[CPTI_MAX];
 #define void_zero_node			cp_global_trees[CPTI_VOID_ZERO]
 #define wchar_decl_node			cp_global_trees[CPTI_WCHAR_DECL]
 #define vtable_entry_type		cp_global_trees[CPTI_VTABLE_ENTRY_TYPE]
+/* The type used to represent an offset by which to adjust the `this'
+   pointer in pointer-to-member types and, when not using vtable
+   thunks, in vtables.  */
 #define delta_type_node			cp_global_trees[CPTI_DELTA_TYPE]
-#define __tp_desc_type_node		cp_global_trees[CPTI_TP_DESC_TYPE]
-#define __access_mode_type_node		cp_global_trees[CPTI_ACCESS_MODE_TYPE]
-#define __bltn_desc_type_node		cp_global_trees[CPTI_BLTN_DESC_TYPE]
-#define __user_desc_type_node		cp_global_trees[CPTI_USER_DESC_TYPE]
-#define __class_desc_type_node		cp_global_trees[CPTI_CLASS_DESC_TYPE]
-#define __ptr_desc_type_node		cp_global_trees[CPTI_PTR_DESC_TYPE]
-#define __attr_desc_type_node		cp_global_trees[CPTI_ATTR_DESC_TYPE]
-#define __func_desc_type_node		cp_global_trees[CPTI_FUNC_DESC_TYPE]
-#define __ptmf_desc_type_node		cp_global_trees[CPTI_PTMF_DESC_TYPE]
-#define __ptmd_desc_type_node		cp_global_trees[CPTI_PTMD_DESC_TYPE]
-#define class_star_type_node		cp_global_trees[CPTI_CLASS_STAR_TYPE]
+/* The type used to represent an index into the vtable.  */
+#define vtable_index_type               cp_global_trees[CPTI_VTABLE_INDEX_TYPE]
+
+#define ti_desc_type_node		cp_global_trees[CPTI_TI_DESC_TYPE]
+#define bltn_desc_type_node		cp_global_trees[CPTI_BLTN_DESC_TYPE]
+#define ptr_desc_type_node		cp_global_trees[CPTI_PTR_DESC_TYPE]
+#define ary_desc_type_node		cp_global_trees[CPTI_ARY_DESC_TYPE]
+#define func_desc_type_node		cp_global_trees[CPTI_FUNC_DESC_TYPE]
+#define enum_desc_type_node		cp_global_trees[CPTI_ENUM_DESC_TYPE]
+#define class_desc_type_node		cp_global_trees[CPTI_CLASS_DESC_TYPE]
+#define si_class_desc_type_node		cp_global_trees[CPTI_SI_CLASS_DESC_TYPE]
+#define vmi_class_desc_type_node	cp_global_trees[CPTI_VMI_CLASS_DESC_TYPE]
+#define ptmd_desc_type_node		cp_global_trees[CPTI_PTMD_DESC_TYPE]
+#define base_desc_type_node		cp_global_trees[CPTI_BASE_DESC_TYPE]
+
 #define class_type_node			cp_global_trees[CPTI_CLASS_TYPE]
 #define record_type_node		cp_global_trees[CPTI_RECORD_TYPE]
 #define union_type_node			cp_global_trees[CPTI_UNION_TYPE]
@@ -536,9 +623,11 @@ extern tree cp_global_trees[CPTI_MAX];
 #define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
 #define std_node			cp_global_trees[CPTI_STD]
+#define abi_node                        cp_global_trees[CPTI_ABI]
 #define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
-#define tinfo_fn_id			cp_global_trees[CPTI_TINFO_FN_ID]
-#define tinfo_fn_type			cp_global_trees[CPTI_TINFO_FN_TYPE]
+#define tinfo_decl_id			cp_global_trees[CPTI_TINFO_DECL_ID]
+#define tinfo_decl_type			cp_global_trees[CPTI_TINFO_DECL_TYPE]
+#define tinfo_var_id                    cp_global_trees[CPTI_TINFO_VAR_ID]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 
@@ -595,6 +684,9 @@ extern tree cp_global_trees[CPTI_MAX];
 /* A pointer to `__dso_handle'.  */
 #define dso_handle_node                 cp_global_trees[CPTI_DSO_HANDLE]
 
+/* The declaration of the dynamic_cast runtime.  */
+#define dynamic_cast_node               cp_global_trees[CPTI_DCAST]
+
 /* The type of a destructor.  */
 #define cleanup_type                    cp_global_trees[CPTI_CLEANUP_TYPE]
 
@@ -621,6 +713,8 @@ struct saved_scope {
   tree x_previous_class_type;
   tree x_previous_class_values;
   tree x_saved_tree;
+  tree incomplete;
+  tree lookups;
 
   HOST_WIDE_INT x_processing_template_decl;
   int x_processing_specialization;
@@ -680,6 +774,14 @@ struct saved_scope {
    cache miss).  */
 
 #define previous_class_values scope_chain->x_previous_class_values
+
+/* A list of the declarations with incomplete type at namespace scope.  */
+
+#define namespace_scope_incomplete scope_chain->incomplete
+
+/* A list of private types mentioned, for deferred access checking.  */
+
+#define type_lookups scope_chain->lookups
 
 extern struct saved_scope *scope_chain;
 
@@ -1001,8 +1103,9 @@ extern int interface_only, interface_unknown;
 
 extern int flag_elide_constructors;
 
-/* Nonzero means enable obscure ANSI features and disable GNU extensions
-   that might cause ANSI-compliant code to be miscompiled.  */
+/* Nonzero means enable obscure standard features and disable GNU
+   extensions that might cause standard-compliant code to be
+   miscompiled.  */
 
 extern int flag_ansi;
 
@@ -1046,6 +1149,12 @@ extern int flag_vtable_gc;
    The value of this flag is ignored if -pedantic is specified.  */
 extern int flag_permissive;
 
+/* Nonzero means to implement standard semantics for exception
+   specifications, calling unexpected if an exception is thrown that
+   doesn't match the specification.  Zero means to treat them as
+   assertions and optimize accordingly, but not check them.  */
+extern int flag_enforce_eh_specs;
+
 /* Nonzero if we want to obey access control semantics.  */
 
 extern int flag_access_control;
@@ -1054,7 +1163,7 @@ extern int flag_access_control;
    after the file has been completely parsed.  The argument will be
    the GLOBAL_NAMESPACE.  */
 
-extern void (*back_end_hook) PROTO((tree));
+extern void (*back_end_hook) PARAMS ((tree));
 
 
 /* C++ language-specific tree codes.  */
@@ -1199,7 +1308,8 @@ struct lang_type
   unsigned has_nonpublic_assign_ref : 2;
   unsigned vtable_needs_writing : 1;
   unsigned has_assign_ref : 1;
-  unsigned gets_new : 2;
+  unsigned has_new : 1;
+  unsigned has_array_new : 1;
 
   unsigned gets_delete : 2;
   unsigned has_call_overloaded : 1;
@@ -1254,6 +1364,7 @@ struct lang_type
   union tree_node *search_slot;
 
   union tree_node *size;
+  union tree_node *size_unit;
 
   union tree_node *pure_virtuals;
   union tree_node *friend_classes;
@@ -1279,9 +1390,7 @@ struct lang_type
 /* List of friends which were defined inline in this class definition.  */
 #define CLASSTYPE_INLINE_FRIENDS(NODE) (TYPE_NONCOPIED_PARTS (NODE))
 
-/* Nonzero for _CLASSTYPE means that operator new and delete are defined,
-   respectively.  */
-#define TYPE_GETS_NEW(NODE) (TYPE_LANG_SPECIFIC(NODE)->gets_new)
+/* Nonzero for _CLASSTYPE means that operator delete is defined.  */
 #define TYPE_GETS_DELETE(NODE) (TYPE_LANG_SPECIFIC(NODE)->gets_delete)
 #define TYPE_GETS_REG_DELETE(NODE) (TYPE_GETS_DELETE (NODE) & 1)
 
@@ -1289,9 +1398,15 @@ struct lang_type
    takes the optional size_t argument.  */
 #define TYPE_VEC_DELETE_TAKES_SIZE(NODE) \
   (TYPE_LANG_SPECIFIC(NODE)->vec_delete_takes_size)
-#define TYPE_VEC_NEW_USES_COOKIE(NODE) \
-  (TYPE_NEEDS_DESTRUCTOR (NODE) \
-   || (TYPE_LANG_SPECIFIC (NODE) && TYPE_VEC_DELETE_TAKES_SIZE (NODE)))
+
+/* Nonzero if `new NODE[x]' should cause the allocation of extra
+   storage to indicate how many array elements are in use.  The old
+   ABI had a bug in that we always allocate the extra storage if NODE
+   has a two-argument array operator delete.  */
+#define TYPE_VEC_NEW_USES_COOKIE(NODE)		\
+  (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (NODE)	\
+   || (TYPE_LANG_SPECIFIC (NODE) 		\
+       && TYPE_VEC_DELETE_TAKES_SIZE (NODE)))
 
 /* Nonzero means that this _CLASSTYPE node defines ways of converting
    itself to other types.  */
@@ -1304,6 +1419,15 @@ struct lang_type
 /* Nonzero means that this _CLASSTYPE node has an X(X&) constructor.  */
 #define TYPE_HAS_INIT_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_init_ref)
 #define TYPE_HAS_CONST_INIT_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_const_init_ref)
+
+/* Nonzero if this class defines an overloaded operator new.  (An
+   operator new [] doesn't count.)  */
+#define TYPE_HAS_NEW_OPERATOR(NODE) \
+  (TYPE_LANG_SPECIFIC (NODE)->has_new)
+
+/* Nonzero if this class defines an overloaded operator new[].  */
+#define TYPE_HAS_ARRAY_NEW_OPERATOR(NODE) \
+  (TYPE_LANG_SPECIFIC (NODE)->has_array_new)
 
 /* Nonzero means that this type is being defined.  I.e., the left brace
    starting the definition of this type has been seen.  */
@@ -1353,21 +1477,21 @@ struct lang_type
 /* Mark bits for depth-first and breath-first searches.  */
 
 /* Get the value of the Nth mark bit.  */
-#define CLASSTYPE_MARKED_N(NODE, N)					\
+#define CLASSTYPE_MARKED_N(NODE, N)				\
   (((CLASS_TYPE_P (NODE) ? TYPE_LANG_SPECIFIC (NODE)->marks	\
-     : TYPE_ALIAS_SET (NODE)) & (1 << N)) != 0)
+     : ((unsigned) TYPE_ALIAS_SET (NODE))) & (1 << N)) != 0)
 
 /* Set the Nth mark bit.  */
-#define SET_CLASSTYPE_MARKED_N(NODE, N)					\
-  (CLASS_TYPE_P (NODE)							\
-   ? (TYPE_LANG_SPECIFIC (NODE)->marks |= (1 << (N)))	\
-   : (TYPE_ALIAS_SET (NODE) |= (1 << (N))))
+#define SET_CLASSTYPE_MARKED_N(NODE, N)				\
+  (CLASS_TYPE_P (NODE)						\
+   ? (void) (TYPE_LANG_SPECIFIC (NODE)->marks |= (1 << (N)))	\
+   : (void) (TYPE_ALIAS_SET (NODE) |= (1 << (N))))
 
 /* Clear the Nth mark bit.  */
-#define CLEAR_CLASSTYPE_MARKED_N(NODE, N)				\
-  (CLASS_TYPE_P (NODE)							\
-   ? (TYPE_LANG_SPECIFIC (NODE)->marks &= ~(1 << (N)))	\
-   : (TYPE_ALIAS_SET (NODE) &= ~(1 << (N))))
+#define CLEAR_CLASSTYPE_MARKED_N(NODE, N)			\
+  (CLASS_TYPE_P (NODE)						\
+   ? (void) (TYPE_LANG_SPECIFIC (NODE)->marks &= ~(1 << (N)))	\
+   : (void) (TYPE_ALIAS_SET (NODE) &= ~(1 << (N))))
 
 /* Get the value of the mark bits.  */
 #define CLASSTYPE_MARKED(NODE) CLASSTYPE_MARKED_N(NODE, 0)
@@ -1411,10 +1535,14 @@ struct lang_type
 /* If non-NULL, this is the binfo for the primary base class, i.e.,
    the base class which contains the virtual function table pointer
    for this class.  */
-#define CLASSTYPE_PRIMARY_BINFO(NODE) 			\
-  (CLASSTYPE_HAS_PRIMARY_BASE_P (NODE)			\
-   ? TREE_VEC_ELT (TYPE_BINFO_BASETYPES (NODE),		\
-		   CLASSTYPE_VFIELD_PARENT (NODE))	\
+#define CLASSTYPE_PRIMARY_BINFO(NODE) \
+  (BINFO_PRIMARY_BINFO (TYPE_BINFO (NODE)))
+
+/* If non-NULL, this is the binfo for the primary base of BINFO.  */
+#define BINFO_PRIMARY_BINFO(NODE)					\
+  (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (NODE))			\
+   ? BINFO_BASETYPE (NODE, 						\
+		     CLASSTYPE_VFIELD_PARENT (BINFO_TYPE (NODE)))	\
    : NULL_TREE)
 
 /* The number of virtual functions defined for this
@@ -1434,13 +1562,22 @@ struct lang_type
 
    there will be two copies of `A' and `B' in the TYPE_BINFO hierarchy
    for `E'.  On the CLASSTYPE_VBASECLASSES list, there will be just
-   one copy of `A' (distinct from the other two) with its own copy of `B'
+   one copy of `B' (distinct from the other two) with its own copy of `A'
    (also distinct from the copies in the TYPE_BINFO hierarchy.)  */
 #define CLASSTYPE_VBASECLASSES(NODE) (TYPE_LANG_SPECIFIC(NODE)->vbases)
 
-/* The BINFO (if any) for the virtual baseclass T of the class C.  */
+/* The BINFO (if any) for the virtual baseclass T of the class C from
+   the CLASSTYPE_VBASECLASSES list.  */
 #define BINFO_FOR_VBASE(T, C) \
   (binfo_member (T, CLASSTYPE_VBASECLASSES (C)))
+
+/* For a non-virtual BINFO, the BINFO itself; for a virtual BINFO, the
+   BINFO_FOR_VBASE.  C is the most derived class for the hierarchy
+   containing BINFO.  */
+#define CANONICAL_BINFO(BINFO, C)		\
+  (TREE_VIA_VIRTUAL (BINFO) 			\
+   ? BINFO_FOR_VBASE (BINFO_TYPE (BINFO), C) 	\
+   : BINFO)
 
 /* Number of direct baseclasses of NODE.  */
 #define CLASSTYPE_N_BASECLASSES(NODE) \
@@ -1450,9 +1587,10 @@ struct lang_type
    which uses this must define what exactly this slot is used for.  */
 #define CLASSTYPE_SEARCH_SLOT(NODE) (TYPE_LANG_SPECIFIC(NODE)->search_slot)
 
-/* These are the size, mode and alignment of the type without its
-   virtual base classes, for when we use this type as a base itself.  */
+/* These are the size and alignment of the type without its virtual
+   base classes, for when we use this type as a base itself.  */
 #define CLASSTYPE_SIZE(NODE) (TYPE_LANG_SPECIFIC(NODE)->size)
+#define CLASSTYPE_SIZE_UNIT(NODE) (TYPE_LANG_SPECIFIC(NODE)->size_unit)
 #define CLASSTYPE_ALIGN(NODE) (TYPE_LANG_SPECIFIC(NODE)->align)
 
 /* A cons list of virtual functions which cannot be inherited by
@@ -1575,11 +1713,14 @@ struct lang_type
 #define SET_BINFO_VTABLE_PATH_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?SET_CLASSTYPE_MARKED3(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_3(NODE)=1))
 #define CLEAR_BINFO_VTABLE_PATH_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?CLEAR_CLASSTYPE_MARKED3(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_3(NODE)=0))
 
-/* Nonzero means that this class has a new vtable.  */
-#define BINFO_NEW_VTABLE_MARKED(NODE) \
-  (TREE_VIA_VIRTUAL(NODE)?CLASSTYPE_MARKED4(BINFO_TYPE(NODE)):TREE_LANG_FLAG_4(NODE))
-#define SET_BINFO_NEW_VTABLE_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?SET_CLASSTYPE_MARKED4(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_4(NODE)=1))
-#define CLEAR_BINFO_NEW_VTABLE_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?CLEAR_CLASSTYPE_MARKED4(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_4(NODE)=0))
+/* Nonzero means B (a BINFO) needs a new vtable.  B is part of the
+   hierarchy dominated by C.  */
+#define BINFO_NEW_VTABLE_MARKED(B, C) \
+  (TREE_LANG_FLAG_4 (CANONICAL_BINFO (B, C)))
+#define SET_BINFO_NEW_VTABLE_MARKED(B, C) \
+  (BINFO_NEW_VTABLE_MARKED (B, C) = 1)
+#define CLEAR_BINFO_NEW_VTABLE_MARKED(B, C) \
+  (BINFO_NEW_VTABLE_MARKED (B, C) = 0)
 
 /* Nonzero means this class has done dfs_pushdecls.  */
 #define BINFO_PUSHDECLS_MARKED(NODE) BINFO_VTABLE_PATH_MARKED (NODE)
@@ -1634,6 +1775,20 @@ struct lang_type
 
 /* Get the value of the top-most type dominating the non-`normal' vfields.  */
 #define VF_DERIVED_VALUE(NODE) (VF_BINFO_VALUE (NODE) ? BINFO_TYPE (VF_BINFO_VALUE (NODE)) : NULL_TREE)
+
+/* The number of bytes by which to adjust the `this' pointer when
+   calling this virtual function.  */
+#define BV_DELTA(NODE) (TREE_PURPOSE (NODE))
+
+/* If non-NULL, the vtable index at which to find the vcall offset
+   when calling this virtual function.  */
+#define BV_VCALL_INDEX(NODE) (TREE_TYPE (NODE))
+
+/* The function to call.  */
+#define BV_FN(NODE) (TREE_VALUE (NODE))
+
+/* The most derived class.  */
+
 
 /* Nonzero for TREE_LIST node means that this list of things
    is a list of parameters, as opposed to a list of expressions.  */
@@ -1774,7 +1929,8 @@ struct lang_decl
    for an object with virtual baseclasses.  */
 #define DECL_CONSTRUCTOR_FOR_VBASE_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.constructor_for_vbase_attr)
 
-/* Non-zero for a FUNCTION_DECL that declares a type-info function.  */
+/* Non-zero for a FUNCTION_DECL that declares a type-info function.
+   This only happens in the old abi.  */
 #define DECL_TINFO_FN_P(NODE) 					\
   (TREE_CODE (NODE) == FUNCTION_DECL				\
    && DECL_ARTIFICIAL (NODE)					\
@@ -1783,6 +1939,10 @@ struct lang_decl
 /* Mark NODE as a type-info function.  */
 #define SET_DECL_TINFO_FN_P(NODE) \
   (DECL_LANG_SPECIFIC((NODE))->decl_flags.mutable_flag = 1)
+
+/* Nonzero if NODE is an overloaded `operator delete[]' function.  */
+#define DECL_ARRAY_DELETE_OPERATOR_P(NODE) \
+  (DECL_NAME (NODE) == ansi_opname[(int) VEC_DELETE_EXPR])
 
 /* Nonzero for _DECL means that this decl appears in (or will appear
    in) as a member in a RECORD_TYPE or UNION_TYPE node.  It is also for
@@ -1861,12 +2021,24 @@ struct lang_decl
   (DECL_LANG_SPECIFIC(NODE)->decl_flags.pretty_function_p)
 
 /* The _TYPE context in which this _DECL appears.  This field holds the
-   class where a virtual function instance is actually defined, and the
-   lexical scope of a friend function defined in a class body. */
-#define DECL_CLASS_CONTEXT(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.context)
-#define DECL_REAL_CONTEXT(NODE) \
-  ((TREE_CODE (NODE) == FUNCTION_DECL && DECL_FUNCTION_MEMBER_P (NODE)) \
-   ? DECL_CLASS_CONTEXT (NODE) : CP_DECL_CONTEXT (NODE))
+   class where a virtual function instance is actually defined. */
+#define DECL_CLASS_CONTEXT(NODE) \
+  (DECL_CLASS_SCOPE_P (NODE) ? DECL_CONTEXT (NODE) : NULL_TREE)
+
+/* For a non-member friend function, the class (if any) in which this
+   friend was defined.  For example, given:
+   
+     struct S { friend void f (); };
+
+   the DECL_FRIEND_CONTEXT for `f' will be `S'.  */
+#define DECL_FRIEND_CONTEXT(NODE)				\
+  ((DECL_FRIEND_P (NODE) && !DECL_FUNCTION_MEMBER_P (NODE))	\
+   ? DECL_LANG_SPECIFIC (NODE)->decl_flags.context              \
+   : NULL_TREE)
+
+/* Set the DECL_FRIEND_CONTEXT for NODE to CONTEXT.  */
+#define SET_DECL_FRIEND_CONTEXT(NODE, CONTEXT) \
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.context = (CONTEXT))
 
 /* NULL_TREE in DECL_CONTEXT represents the global namespace. */
 #define CP_DECL_CONTEXT(NODE) \
@@ -1875,7 +2047,8 @@ struct lang_decl
 
 /* For a virtual function, the base where we find its vtable entry.
    For a non-virtual function, the base where it is defined.  */
-#define DECL_VIRTUAL_CONTEXT(NODE) DECL_CONTEXT (NODE)
+#define DECL_VIRTUAL_CONTEXT(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.context)
 
 /* 1 iff NODE has namespace scope, including the global namespace.  */
 #define DECL_NAMESPACE_SCOPE_P(NODE)				\
@@ -1884,8 +2057,7 @@ struct lang_decl
 
 /* 1 iff NODE is a class member.  */
 #define DECL_CLASS_SCOPE_P(NODE) \
-  (DECL_CONTEXT (NODE) \
-   && TREE_CODE_CLASS (TREE_CODE (DECL_CONTEXT (NODE))) == 't')
+  (DECL_CONTEXT (NODE) && TYPE_P (DECL_CONTEXT (NODE)))
 
 /* 1 iff NODE is function-local.  */
 #define DECL_FUNCTION_SCOPE_P(NODE) \
@@ -1911,9 +2083,9 @@ struct lang_decl
 /* In a non-local VAR_DECL with static storage duration, this is the
    initialization priority.  If this value is zero, the NODE will be
    initialized at the DEFAULT_INIT_PRIORITY.  */
-#define DECL_INIT_PRIORITY(NODE) (DECL_FIELD_SIZE (VAR_DECL_CHECK (NODE)))
+#define DECL_INIT_PRIORITY(NODE) (VAR_DECL_CHECK (NODE)->decl.u2.i)
 
-/* In a TREE_LIST concatenating using directives, indicate indirekt
+/* In a TREE_LIST concatenating using directives, indicate indirect
    directives  */
 #define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->common.lang_flag_0)
 
@@ -1979,7 +2151,6 @@ struct lang_decl
 
 #define TI_TEMPLATE(NODE) (TREE_PURPOSE (NODE))
 #define TI_ARGS(NODE) (TREE_VALUE (NODE))
-#define TI_SPEC_INFO(NODE) (TREE_CHAIN (NODE))
 #define TI_PENDING_TEMPLATE_FLAG(NODE) TREE_LANG_FLAG_1 (NODE)
 
 /* We use TREE_VECs to hold template arguments.  If there is only one
@@ -2070,7 +2241,6 @@ struct lang_decl
 #define DECL_TI_ARGS(NODE)          TI_ARGS (DECL_TEMPLATE_INFO (NODE))
 #define CLASSTYPE_TI_TEMPLATE(NODE) TI_TEMPLATE (CLASSTYPE_TEMPLATE_INFO (NODE))
 #define CLASSTYPE_TI_ARGS(NODE)     TI_ARGS (CLASSTYPE_TEMPLATE_INFO (NODE))
-#define CLASSTYPE_TI_SPEC_INFO(NODE) TI_SPEC_INFO (CLASSTYPE_TEMPLATE_INFO (NODE))
 #define ENUM_TI_TEMPLATE(NODE) 			\
   TI_TEMPLATE (ENUM_TEMPLATE_INFO (NODE))
 #define ENUM_TI_ARGS(NODE)			\
@@ -2156,6 +2326,12 @@ struct lang_decl
    polymorphic class.  */
 #define TYPE_POLYMORPHIC_P(NODE) (TREE_LANG_FLAG_2 (NODE))
 
+/* Nonzero if this class has a virtual function table pointer.  */
+#define TYPE_CONTAINS_VPTR_P(NODE) 		\
+  (TYPE_POLYMORPHIC_P (NODE) 			\
+   || (vbase_offsets_in_vtable_p () 		\
+       && TYPE_USES_VIRTUAL_BASECLASSES (NODE)))
+
 extern int flag_new_for_scope;
 
 /* This flag is true of a local VAR_DECL if it was declared in a for
@@ -2183,6 +2359,8 @@ extern int flag_new_for_scope;
    && DECL_LANG_SPECIFIC (NODE)->decl_flags.bitfield)
 #define SET_DECL_C_BIT_FIELD(NODE) \
   (DECL_LANG_SPECIFIC (FIELD_DECL_CHECK (NODE))->decl_flags.bitfield = 1)
+#define CLEAR_DECL_C_BIT_FIELD(NODE) \
+  (DECL_LANG_SPECIFIC (FIELD_DECL_CHECK (NODE))->decl_flags.bitfield = 0)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) \
@@ -2260,10 +2438,26 @@ extern int flag_new_for_scope;
 #define TYPE_HAS_ABSTRACT_ASSIGN_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_abstract_assign_ref)
 #define TYPE_HAS_COMPLEX_INIT_REF(NODE) (TYPE_LANG_SPECIFIC(NODE)->has_complex_init_ref)
 
-/* Nonzero for _TYPE node means that destroying an object of this type
-   will involve a call to a destructor.  This can apply to objects
-   of ARRAY_TYPE is the type of the elements needs a destructor.  */
-#define TYPE_NEEDS_DESTRUCTOR(NODE) (TYPE_LANG_FLAG_4(NODE))
+/* Nonzero if TYPE has a trivial destructor.  From [class.dtor]:
+   
+     A destructor is trivial if it is an implicitly declared
+     destructor and if:
+
+       - all of the direct base classes of its class have trivial
+         destructors, 
+
+       - for all of the non-static data members of its class that are
+         of class type (or array thereof), each such class has a 
+	 trivial destructor.  */
+#define TYPE_HAS_TRIVIAL_DESTRUCTOR(NODE) \
+  (!TYPE_HAS_NONTRIVIAL_DESTRUCTOR (NODE))
+
+/* Nonzero for _TYPE node means that this type does not have a trivial
+   destructor.  Therefore, destroying an object of this type will
+   involve a call to a destructor.  This can apply to objects of
+   ARRAY_TYPE is the type of the elements needs a destructor.  */
+#define TYPE_HAS_NONTRIVIAL_DESTRUCTOR(NODE) \
+  (TYPE_LANG_FLAG_4(NODE))
 
 /* Nonzero for class type means that initialization of this type can use
    a bitwise copy.  */
@@ -2350,12 +2544,27 @@ extern int flag_new_for_scope;
    function.
 
    (Of course, the exact values may differ depending on the mangling
-   scheme, sizes of types, and such.).  */
+   scheme, sizes of types, and such.).  
+
+   Under the new ABI, we do:
+
+     struct {
+       __P __pfn;
+       ptrdiff_t __delta;
+     };
+
+   (We don't need DELTA2, because the vtable is always the first thing
+   in the object.)  If the function is virtual, then PFN is one plus
+   twice the index into the vtable; otherwise, it is just a pointer to
+   the function.  */
      
 /* Get the POINTER_TYPE to the METHOD_TYPE associated with this
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
    before using this macro.  */
-#define TYPE_PTRMEMFUNC_FN_TYPE(NODE) (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (TREE_CHAIN (TREE_CHAIN (TYPE_FIELDS (NODE)))))))
+#define TYPE_PTRMEMFUNC_FN_TYPE(NODE) \
+  (flag_new_abi                       \
+   ? (TREE_TYPE (TYPE_FIELDS (NODE))) \
+   : (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (TREE_CHAIN (TREE_CHAIN (TYPE_FIELDS (NODE))))))))
 
 /* Returns `A' for a type like `int (A::*)(double)' */
 #define TYPE_PTRMEMFUNC_OBJECT_TYPE(NODE) \
@@ -2696,15 +2905,25 @@ extern int flag_new_for_scope;
 #define DECL_REALLY_EXTERN(NODE) \
   (DECL_EXTERNAL (NODE) && ! DECL_NOT_REALLY_EXTERN (NODE))
 
-#define THUNK_DELTA(DECL) ((DECL)->decl.frame_size.i)
+/* An integer indicating how many bytes should be subtracted from the
+   `this' pointer when this function is called.  */
+#define THUNK_DELTA(DECL) (DECL_CHECK (DECL)->decl.u1.i)
+
+/* An integer indicating how many bytes should be subtracted from the
+   vtable for the `this' pointer to find the vcall offset.  (The vptr
+   is always located at offset zero from the f `this' pointer.)  If
+   zero, then there is no vcall offset.  */
+#define THUNK_VCALL_OFFSET(DECL) (DECL_CHECK (DECL)->decl.u2.i)
 
 /* DECL_NEEDED_P holds of a declaration when we need to emit its
    definition.  This is true when the back-end tells us that
    the symbol has been referenced in the generated code.  If, however,
    we are not generating code, then it is also true when a symbol has
-   just been used somewhere, even if it's not really needed.  */
+   just been used somewhere, even if it's not really needed.  We need
+   anything that isn't comdat, but we don't know for sure whether or
+   not something is comdat until end-of-file.  */
 #define DECL_NEEDED_P(DECL)					\
-  (! DECL_COMDAT (DECL)						\
+  ((at_eof && !DECL_COMDAT (DECL))				\
    || (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME ((DECL))))	\
    || (flag_syntax_only && TREE_USED ((DECL))))
 
@@ -2836,6 +3055,32 @@ typedef enum cp_lvalue_kind {
   clk_bitfield = 4, /* An lvalue for a bit-field.  */
 } cp_lvalue_kind;
 
+/* The kinds of scopes we recognize.  */
+typedef enum scope_kind {
+  sk_template_parms, /* A scope for template parameters.  */
+  sk_template_spec   /* A scope corresponding to a template
+			specialization.  There is never anything in
+			this scope.  */
+} scope_kind;
+
+/* Various kinds of template specialization, instantiation, etc.  */
+typedef enum tmpl_spec_kind {
+  tsk_none,                /* Not a template at all.  */
+  tsk_invalid_member_spec, /* An explicit member template
+			      specialization, but the enclosing
+			      classes have not all been explicitly
+			      specialized.  */
+  tsk_invalid_expl_inst,   /* An explicit instantiation containing
+			      template parameter lists.  */
+  tsk_excessive_parms,     /* A template declaration with too many
+			      template parameter lists.  */
+  tsk_insufficient_parms,  /* A template declaration with too few
+			      parameter lists.  */
+  tsk_template,            /* A template declaration.  */
+  tsk_expl_spec,           /* An explicit specialization.  */
+  tsk_expl_inst            /* An explicit instantiation.  */
+} tmpl_spec_kind;
+
 /* Zero means prototype weakly, as in ANSI C (no args means nothing).
    Each language context defines how this variable should be set.  */
 extern int strict_prototype;
@@ -2866,44 +3111,45 @@ extern int warn_multichar;
 extern int warn_nontemplate_friend;
 
 /* in c-common.c */
-extern void declare_function_name               PROTO((void));
-extern void decl_attributes                     PROTO((tree, tree, tree));
-extern void init_function_format_info		PROTO((void));
-extern void record_function_format		PROTO((tree, tree, int, int, int));
-extern void check_function_format		PROTO((tree, tree, tree));
+extern void declare_function_name               PARAMS ((void));
+extern void decl_attributes                     PARAMS ((tree, tree, tree));
+extern void init_function_format_info		PARAMS ((void));
+extern void record_function_format		PARAMS ((tree, tree, int, int, int));
+extern void check_function_format		PARAMS ((tree, tree, tree));
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
-extern void binary_op_error                     PROTO((enum tree_code));
-extern tree canonical_type_variant              PROTO((tree));
-extern void c_expand_expr_stmt                  PROTO((tree));
+extern void binary_op_error                     PARAMS ((enum tree_code));
+extern tree canonical_type_variant              PARAMS ((tree));
+extern void c_expand_expr_stmt                  PARAMS ((tree));
 /* Validate the expression after `case' and apply default promotions.  */
-extern tree check_case_value                    PROTO((tree));
+extern tree check_case_value                    PARAMS ((tree));
 /* Concatenate a list of STRING_CST nodes into one STRING_CST.  */
-extern tree combine_strings                     PROTO((tree));
-extern void constant_expression_warning         PROTO((tree));
-extern tree convert_and_check			PROTO((tree, tree));
-extern void overflow_warning			PROTO((tree));
-extern void unsigned_conversion_warning		PROTO((tree, tree));
-extern void c_apply_type_quals_to_decl          PROTO((int, tree));
+extern tree combine_strings                     PARAMS ((tree));
+extern void constant_expression_warning         PARAMS ((tree));
+extern tree convert_and_check			PARAMS ((tree, tree));
+extern void overflow_warning			PARAMS ((tree));
+extern void unsigned_conversion_warning		PARAMS ((tree, tree));
+extern void c_apply_type_quals_to_decl          PARAMS ((int, tree));
+extern unsigned int min_precision		PARAMS ((tree, int));
 
 /* Read the rest of the current #-directive line.  */
 #if USE_CPPLIB
-extern char *get_directive_line                 PROTO((void));
+extern char *get_directive_line                 PARAMS ((void));
 #define GET_DIRECTIVE_LINE() get_directive_line ()
 #else
-extern char *get_directive_line                 PROTO((FILE *));
+extern char *get_directive_line                 PARAMS ((FILE *));
 #define GET_DIRECTIVE_LINE() get_directive_line (finput)
 #endif
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
    and, if so, perhaps change them both back to their original type.  */
-extern tree shorten_compare                     PROTO((tree *, tree *, tree *, enum tree_code *));
+extern tree shorten_compare                     PARAMS ((tree *, tree *, tree *, enum tree_code *));
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
    or validate its data type for an `if' or `while' statement or ?..: exp.  */
-extern tree truthvalue_conversion               PROTO((tree));
-extern tree type_for_mode                       PROTO((enum machine_mode, int));
-extern tree type_for_size                       PROTO((unsigned, int));
-extern int c_get_alias_set                      PROTO((tree));
+extern tree truthvalue_conversion               PARAMS ((tree));
+extern tree type_for_mode                       PARAMS ((enum machine_mode, int));
+extern tree type_for_size                       PARAMS ((unsigned, int));
+extern int c_get_alias_set                      PARAMS ((tree));
 
 /* in decl{2}.c */
 /* A node that is a list (length 1) of error_mark_nodes.  */
@@ -2945,7 +3191,7 @@ struct tinst_level
   struct tinst_level *next;
 };
 
-extern void maybe_print_template_context	PROTO ((void));
+extern void maybe_print_template_context	PARAMS ((void));
 
 /* in class.c */
 
@@ -3160,10 +3406,6 @@ extern struct pending_inline *pending_inlines;
 
 extern int flag_this_is_variable;
 
-/* Nonzero means generate 'rtti' that give run-time type information.  */
-
-extern int flag_rtti;
-
 /* Nonzero means do emit exported implementations of functions even if
    they can be inlined.  */
 
@@ -3186,19 +3428,6 @@ extern int flag_implicit_templates;
    Otherwise, emit them as local symbols.  */
 
 extern int flag_weak;
-
-/* Nonzero to enable experimental ABI changes.  */
-
-extern int flag_new_abi;
-
-/* Nonzero to use __cxa_atexit, rather than atexit, to register
-   destructors for local statics and global objects.  */
-
-extern int flag_use_cxa_atexit;
-
-/* Nonzero to not ignore namespace std. */
-
-extern int flag_honor_std;
 
 /* Nonzero if we should expand functions calls inline at the tree
    level, rather than at the RTL level.  */
@@ -3406,862 +3635,878 @@ enum tree_string_flags
 extern const char **opname_tab, **assignop_tab;
 
 /* in call.c */
-extern int check_dtor_name			PROTO((tree, tree));
-extern int get_arglist_len_in_bytes		PROTO((tree));
+extern int check_dtor_name			PARAMS ((tree, tree));
+extern int get_arglist_len_in_bytes		PARAMS ((tree));
 
-extern tree build_vfield_ref			PROTO((tree, tree));
-extern tree resolve_scope_to_name		PROTO((tree, tree));
-extern tree build_scoped_method_call		PROTO((tree, tree, tree, tree));
-extern tree build_addr_func			PROTO((tree));
-extern tree build_call				PROTO((tree, tree, tree));
-extern tree build_method_call			PROTO((tree, tree, tree, tree, int));
-extern int null_ptr_cst_p			PROTO((tree));
-extern tree type_decays_to			PROTO((tree));
-extern tree build_user_type_conversion		PROTO((tree, tree, int));
-extern tree build_new_function_call		PROTO((tree, tree));
-extern tree build_new_op			PROTO((enum tree_code, int, tree, tree, tree));
-extern tree build_op_new_call			PROTO((enum tree_code, tree, tree, int));
-extern tree build_op_delete_call		PROTO((enum tree_code, tree, tree, int, tree));
-extern int can_convert				PROTO((tree, tree));
-extern int can_convert_arg			PROTO((tree, tree, tree));
-extern int enforce_access                       PROTO((tree, tree));
-extern tree convert_default_arg                 PROTO((tree, tree, tree));
-extern tree convert_arg_to_ellipsis             PROTO((tree));
-extern tree build_x_va_arg                      PROTO((tree, tree));
-extern tree convert_type_from_ellipsis          PROTO((tree));
-extern int is_properly_derived_from             PROTO((tree, tree));
-extern tree initialize_reference                PROTO((tree, tree));
-extern tree strip_top_quals                     PROTO((tree));
-extern tree perform_implicit_conversion         PROTO((tree, tree));
+extern tree build_vfield_ref			PARAMS ((tree, tree));
+extern tree resolve_scope_to_name		PARAMS ((tree, tree));
+extern tree build_scoped_method_call		PARAMS ((tree, tree, tree, tree));
+extern tree build_addr_func			PARAMS ((tree));
+extern tree build_call				PARAMS ((tree, tree));
+extern tree build_method_call			PARAMS ((tree, tree, tree, tree, int));
+extern int null_ptr_cst_p			PARAMS ((tree));
+extern tree type_decays_to			PARAMS ((tree));
+extern tree build_user_type_conversion		PARAMS ((tree, tree, int));
+extern tree build_new_function_call		PARAMS ((tree, tree));
+extern tree build_new_op			PARAMS ((enum tree_code, int, tree, tree, tree));
+extern tree build_op_delete_call		PARAMS ((enum tree_code, tree, tree, int, tree));
+extern int can_convert				PARAMS ((tree, tree));
+extern int can_convert_arg			PARAMS ((tree, tree, tree));
+extern int enforce_access                       PARAMS ((tree, tree));
+extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int));
+extern tree convert_arg_to_ellipsis             PARAMS ((tree));
+extern tree build_x_va_arg                      PARAMS ((tree, tree));
+extern tree convert_type_from_ellipsis          PARAMS ((tree));
+extern int is_properly_derived_from             PARAMS ((tree, tree));
+extern tree initialize_reference                PARAMS ((tree, tree));
+extern tree strip_top_quals                     PARAMS ((tree));
+extern tree perform_implicit_conversion         PARAMS ((tree, tree));
 
 /* in class.c */
-extern tree build_vbase_path			PROTO((enum tree_code, tree, tree, tree, int));
-extern tree build_vtbl_ref			PROTO((tree, tree));
-extern tree build_vfn_ref			PROTO((tree *, tree, tree));
-extern void add_method				PROTO((tree, tree *, tree));
-extern int currently_open_class			PROTO((tree));
-extern tree get_vfield_offset			PROTO((tree));
-extern void duplicate_tag_error			PROTO((tree));
-extern tree finish_struct			PROTO((tree, tree));
-extern void finish_struct_1			PROTO((tree));
-extern int resolves_to_fixed_type_p		PROTO((tree, int *));
-extern void init_class_processing		PROTO((void));
-extern int is_empty_class			PROTO((tree));
-extern void pushclass				PROTO((tree, int));
-extern void popclass				PROTO((void));
-extern void push_nested_class			PROTO((tree, int));
-extern void pop_nested_class			PROTO((void));
-extern void push_lang_context			PROTO((tree));
-extern void pop_lang_context			PROTO((void));
-extern tree instantiate_type			PROTO((tree, tree, int));
-extern void print_class_statistics		PROTO((void));
-extern tree skip_rtti_stuff	                PROTO((tree, tree, unsigned HOST_WIDE_INT *));
-extern void build_self_reference		PROTO((void));
-extern void warn_hidden				PROTO((tree));
-extern tree get_enclosing_class			PROTO((tree));
-int is_base_of_enclosing_class			PROTO((tree, tree));
-extern void unreverse_member_declarations       PROTO((tree));
-extern void invalidate_class_lookup_cache       PROTO((void));
-extern void maybe_note_name_used_in_class       PROTO((tree, tree));
-extern void note_name_declared_in_class         PROTO((tree, tree));
+extern tree build_vbase_path			PARAMS ((enum tree_code, tree, tree, tree, int));
+extern tree build_vtbl_ref			PARAMS ((tree, tree));
+extern tree build_vfn_ref			PARAMS ((tree *, tree, tree));
+extern tree get_vtable_decl                     PARAMS ((tree, int));
+extern void add_method				PARAMS ((tree, tree *, tree));
+extern int currently_open_class			PARAMS ((tree));
+extern tree currently_open_derived_class	PARAMS ((tree));
+extern tree get_vfield_offset			PARAMS ((tree));
+extern void duplicate_tag_error			PARAMS ((tree));
+extern tree finish_struct			PARAMS ((tree, tree));
+extern void finish_struct_1			PARAMS ((tree));
+extern int resolves_to_fixed_type_p		PARAMS ((tree, int *));
+extern void init_class_processing		PARAMS ((void));
+extern int is_empty_class			PARAMS ((tree));
+extern void pushclass				PARAMS ((tree, int));
+extern void popclass				PARAMS ((void));
+extern void push_nested_class			PARAMS ((tree, int));
+extern void pop_nested_class			PARAMS ((void));
+extern void push_lang_context			PARAMS ((tree));
+extern void pop_lang_context			PARAMS ((void));
+extern tree instantiate_type			PARAMS ((tree, tree, int));
+extern void print_class_statistics		PARAMS ((void));
+extern tree skip_rtti_stuff	                PARAMS ((tree, tree,
+							 HOST_WIDE_INT *));
+extern void build_self_reference		PARAMS ((void));
+extern void warn_hidden				PARAMS ((tree));
+extern tree get_enclosing_class			PARAMS ((tree));
+int is_base_of_enclosing_class			PARAMS ((tree, tree));
+extern void unreverse_member_declarations       PARAMS ((tree));
+extern void invalidate_class_lookup_cache       PARAMS ((void));
+extern void maybe_note_name_used_in_class       PARAMS ((tree, tree));
+extern void note_name_declared_in_class         PARAMS ((tree, tree));
+extern tree num_extra_vtbl_entries              PARAMS ((tree));
+extern tree size_extra_vtbl_entries             PARAMS ((tree));
 
 /* in cvt.c */
-extern tree convert_to_reference		PROTO((tree, tree, int, int, tree));
-extern tree convert_from_reference		PROTO((tree));
-extern tree convert_pointer_to_real		PROTO((tree, tree));
-extern tree convert_pointer_to			PROTO((tree, tree));
-extern tree ocp_convert				PROTO((tree, tree, int, int));
-extern tree cp_convert				PROTO((tree, tree));
-extern tree convert_to_void			PROTO((tree, const char */*implicit context*/));
-extern tree convert				PROTO((tree, tree));
-extern tree convert_force			PROTO((tree, tree, int));
-extern tree build_type_conversion		PROTO((tree, tree, int));
-extern tree build_expr_type_conversion		PROTO((int, tree, int));
-extern tree type_promotes_to			PROTO((tree));
-extern tree perform_qualification_conversions   PROTO((tree, tree));
+extern tree convert_to_reference		PARAMS ((tree, tree, int, int, tree));
+extern tree convert_from_reference		PARAMS ((tree));
+extern tree convert_pointer_to_real		PARAMS ((tree, tree));
+extern tree convert_pointer_to			PARAMS ((tree, tree));
+extern tree ocp_convert				PARAMS ((tree, tree, int, int));
+extern tree cp_convert				PARAMS ((tree, tree));
+extern tree convert_to_void			PARAMS ((tree, const char */*implicit context*/));
+extern tree convert				PARAMS ((tree, tree));
+extern tree convert_force			PARAMS ((tree, tree, int));
+extern tree build_type_conversion		PARAMS ((tree, tree, int));
+extern tree build_expr_type_conversion		PARAMS ((int, tree, int));
+extern tree type_promotes_to			PARAMS ((tree));
+extern tree perform_qualification_conversions   PARAMS ((tree, tree));
 
 /* decl.c */
 /* resume_binding_level */
-extern void set_identifier_local_value		PROTO((tree, tree));
-extern int global_bindings_p			PROTO((void));
-extern int toplevel_bindings_p			PROTO((void));
-extern int namespace_bindings_p			PROTO((void));
-extern void keep_next_level			PROTO((int));
-extern int kept_level_p				PROTO((void));
-extern void declare_pseudo_global_level		PROTO((void));
-extern int pseudo_global_level_p		PROTO((void));
-extern void set_class_shadows			PROTO((tree));
-extern void pushlevel				PROTO((int));
-extern void note_level_for_for			PROTO((void));
-extern void resume_level			PROTO((struct binding_level *));
-extern void delete_block			PROTO((tree));
-extern void insert_block			PROTO((tree));
-extern void add_block_current_level		PROTO((tree));
-extern void set_block				PROTO((tree));
-extern void pushlevel_class			PROTO((void));
-extern void poplevel_class                      PROTO((void));
-extern void print_binding_stack			PROTO((void));
-extern void print_binding_level			PROTO((struct binding_level *));
-extern void push_namespace			PROTO((tree));
-extern void pop_namespace			PROTO((void));
-extern void push_nested_namespace		PROTO((tree));
-extern void pop_nested_namespace		PROTO((tree));
-extern void maybe_push_to_top_level		PROTO((int));
-extern void push_to_top_level			PROTO((void));
-extern void pop_from_top_level			PROTO((void));
-extern tree identifier_type_value		PROTO((tree));
-extern void set_identifier_type_value		PROTO((tree, tree));
-extern void pop_everything			PROTO((void));
-extern void pushtag				PROTO((tree, tree, int));
-extern tree make_anon_name			PROTO((void));
-extern void clear_anon_tags			PROTO((void));
-extern int decls_match				PROTO((tree, tree));
-extern int duplicate_decls			PROTO((tree, tree));
-extern tree pushdecl				PROTO((tree));
-extern tree pushdecl_top_level			PROTO((tree));
-extern void pushdecl_class_level		PROTO((tree));
+extern void set_identifier_local_value		PARAMS ((tree, tree));
+extern int global_bindings_p			PARAMS ((void));
+extern int toplevel_bindings_p			PARAMS ((void));
+extern int namespace_bindings_p			PARAMS ((void));
+extern void keep_next_level			PARAMS ((int));
+extern int kept_level_p				PARAMS ((void));
+extern int template_parm_scope_p		PARAMS ((void));
+extern void set_class_shadows			PARAMS ((tree));
+extern void begin_scope                         PARAMS ((scope_kind));
+extern void finish_scope                        PARAMS ((void));
+extern void note_level_for_for			PARAMS ((void));
+extern void resume_level			PARAMS ((struct binding_level *));
+extern void delete_block			PARAMS ((tree));
+extern void insert_block			PARAMS ((tree));
+extern void add_block_current_level		PARAMS ((tree));
+extern void set_block				PARAMS ((tree));
+extern void pushlevel_class			PARAMS ((void));
+extern void poplevel_class                      PARAMS ((void));
+extern void print_binding_stack			PARAMS ((void));
+extern void print_binding_level			PARAMS ((struct binding_level *));
+extern void push_namespace			PARAMS ((tree));
+extern void pop_namespace			PARAMS ((void));
+extern void push_nested_namespace		PARAMS ((tree));
+extern void pop_nested_namespace		PARAMS ((tree));
+extern void maybe_push_to_top_level		PARAMS ((int));
+extern void push_to_top_level			PARAMS ((void));
+extern void pop_from_top_level			PARAMS ((void));
+extern tree identifier_type_value		PARAMS ((tree));
+extern void set_identifier_type_value		PARAMS ((tree, tree));
+extern void pop_everything			PARAMS ((void));
+extern void pushtag				PARAMS ((tree, tree, int));
+extern tree make_anon_name			PARAMS ((void));
+extern void clear_anon_tags			PARAMS ((void));
+extern int decls_match				PARAMS ((tree, tree));
+extern int duplicate_decls			PARAMS ((tree, tree));
+extern tree pushdecl				PARAMS ((tree));
+extern tree pushdecl_top_level			PARAMS ((tree));
+extern void pushdecl_class_level		PARAMS ((tree));
 #if 0
-extern void pushdecl_nonclass_level		PROTO((tree));
+extern void pushdecl_nonclass_level		PARAMS ((tree));
 #endif
-extern tree pushdecl_namespace_level            PROTO((tree));
-extern tree push_using_decl                     PROTO((tree, tree));
-extern tree push_using_directive                PROTO((tree));
-extern void push_class_level_binding		PROTO((tree, tree));
-extern tree implicitly_declare			PROTO((tree));
-extern tree lookup_label			PROTO((tree));
-extern tree declare_local_label                 PROTO((tree));
-extern tree define_label			PROTO((char *, int, tree));
-extern void push_switch				PROTO((void));
-extern void pop_switch				PROTO((void));
-extern void define_case_label			PROTO((void));
-extern tree getdecls				PROTO((void));
-extern tree gettags				PROTO((void));
+extern tree pushdecl_namespace_level            PARAMS ((tree));
+extern tree push_using_decl                     PARAMS ((tree, tree));
+extern tree push_using_directive                PARAMS ((tree));
+extern void push_class_level_binding		PARAMS ((tree, tree));
+extern tree implicitly_declare			PARAMS ((tree));
+extern tree lookup_label			PARAMS ((tree));
+extern tree declare_local_label                 PARAMS ((tree));
+extern tree define_label			PARAMS ((char *, int, tree));
+extern void push_switch				PARAMS ((void));
+extern void pop_switch				PARAMS ((void));
+extern void define_case_label			PARAMS ((void));
+extern tree getdecls				PARAMS ((void));
+extern tree gettags				PARAMS ((void));
 #if 0
-extern void set_current_level_tags_transparency	PROTO((int));
+extern void set_current_level_tags_transparency	PARAMS ((int));
 #endif
-extern tree binding_for_name                    PROTO((tree, tree));
-extern tree namespace_binding                   PROTO((tree, tree));
-extern void set_namespace_binding               PROTO((tree, tree, tree));
-extern tree lookup_namespace_name		PROTO((tree, tree));
-extern tree build_typename_type                 PROTO((tree, tree, tree, tree));
-extern tree make_typename_type			PROTO((tree, tree, int));
-extern tree lookup_name_nonclass		PROTO((tree));
-extern tree lookup_function_nonclass            PROTO((tree, tree));
-extern tree lookup_name				PROTO((tree, int));
-extern tree lookup_name_current_level		PROTO((tree));
-extern tree lookup_type_current_level		PROTO((tree));
-extern tree lookup_name_namespace_only          PROTO((tree));
-extern void begin_only_namespace_names          PROTO((void));
-extern void end_only_namespace_names            PROTO((void));
-extern tree namespace_ancestor			PROTO((tree, tree));
-extern tree unqualified_namespace_lookup	PROTO((tree, int, tree *));
-extern int  lookup_using_namespace              PROTO((tree, tree, tree, tree, int, tree *));
-extern int  qualified_lookup_using_namespace    PROTO((tree, tree, tree, int));
-extern tree auto_function			PROTO((tree, tree));
-extern void init_decl_processing		PROTO((void));
-extern int init_type_desc			PROTO((void));
-extern tree define_function			PROTO((const char *, tree,
-						       void (*) (tree),
-						       const char *));
-extern tree check_tag_decl			PROTO((tree));
-extern void shadow_tag				PROTO((tree));
-extern tree groktypename			PROTO((tree));
-extern tree start_decl				PROTO((tree, tree, int, tree, tree));
-extern void start_decl_1			PROTO((tree));
-extern void cp_finish_decl			PROTO((tree, tree, tree, int));
-extern void finish_decl				PROTO((tree, tree, tree));
-extern void maybe_inject_for_scope_var          PROTO((tree));
-extern void initialize_local_var                PROTO((tree, tree, int));
-extern void expand_static_init			PROTO((tree, tree));
-extern tree start_handler_parms                 PROTO((tree, tree));
-extern int complete_array_type			PROTO((tree, tree, int));
-extern tree build_ptrmemfunc_type		PROTO((tree));
+extern tree binding_for_name                    PARAMS ((tree, tree));
+extern tree namespace_binding                   PARAMS ((tree, tree));
+extern void set_namespace_binding               PARAMS ((tree, tree, tree));
+extern tree lookup_namespace_name		PARAMS ((tree, tree));
+extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
+extern tree make_typename_type			PARAMS ((tree, tree, int));
+extern tree lookup_name_nonclass		PARAMS ((tree));
+extern tree lookup_function_nonclass            PARAMS ((tree, tree));
+extern tree lookup_name				PARAMS ((tree, int));
+extern tree lookup_name_current_level		PARAMS ((tree));
+extern tree lookup_type_current_level		PARAMS ((tree));
+extern tree lookup_name_namespace_only          PARAMS ((tree));
+extern void begin_only_namespace_names          PARAMS ((void));
+extern void end_only_namespace_names            PARAMS ((void));
+extern tree namespace_ancestor			PARAMS ((tree, tree));
+extern tree unqualified_namespace_lookup	PARAMS ((tree, int, tree *));
+extern int  lookup_using_namespace              PARAMS ((tree, tree, tree, tree, int, tree *));
+extern int  qualified_lookup_using_namespace    PARAMS ((tree, tree, tree, int));
+extern tree build_library_fn			PARAMS ((tree, tree));
+extern tree build_cp_library_fn			PARAMS ((tree, tree));
+extern tree build_library_fn_ptr		PARAMS ((const char *, tree));
+extern tree build_cp_library_fn_ptr		PARAMS ((const char *, tree));
+extern tree push_library_fn			PARAMS ((tree, tree));
+extern tree push_cp_library_fn			PARAMS ((tree, tree));
+extern tree push_void_library_fn		PARAMS ((tree, tree));
+extern tree push_throw_library_fn		PARAMS ((tree, tree));
+extern void init_decl_processing		PARAMS ((void));
+extern int init_type_desc			PARAMS ((void));
+extern tree check_tag_decl			PARAMS ((tree));
+extern void shadow_tag				PARAMS ((tree));
+extern tree groktypename			PARAMS ((tree));
+extern tree start_decl				PARAMS ((tree, tree, int, tree, tree));
+extern void start_decl_1			PARAMS ((tree));
+extern void cp_finish_decl			PARAMS ((tree, tree, tree, int));
+extern void finish_decl				PARAMS ((tree, tree, tree));
+extern void maybe_inject_for_scope_var          PARAMS ((tree));
+extern void initialize_local_var                PARAMS ((tree, tree, int));
+extern void expand_static_init			PARAMS ((tree, tree));
+extern tree start_handler_parms                 PARAMS ((tree, tree));
+extern int complete_array_type			PARAMS ((tree, tree, int));
+extern tree build_ptrmemfunc_type		PARAMS ((tree));
 /* the grokdeclarator prototype is in decl.h */
-extern int parmlist_is_exprlist			PROTO((tree));
-extern int copy_args_p				PROTO((tree));
-extern int grok_ctor_properties			PROTO((tree, tree));
-extern void grok_op_properties			PROTO((tree, int, int));
-extern tree xref_tag				PROTO((tree, tree, int));
-extern tree xref_tag_from_type			PROTO((tree, tree, int));
-extern void xref_basetypes			PROTO((tree, tree, tree, tree));
-extern tree start_enum				PROTO((tree));
-extern tree finish_enum				PROTO((tree));
-extern void build_enumerator			PROTO((tree, tree, tree));
-extern int start_function			PROTO((tree, tree, tree, int));
-extern void expand_start_early_try_stmts	PROTO((void));
-extern void store_parm_decls			PROTO((void));
-extern void store_return_init			PROTO((tree));
-extern tree finish_function			PROTO((int, int));
-extern tree start_method			PROTO((tree, tree, tree));
-extern tree finish_method			PROTO((tree));
-extern void hack_incomplete_structures		PROTO((tree));
-extern tree maybe_build_cleanup_and_delete	PROTO((tree));
-extern tree maybe_build_cleanup			PROTO((tree));
-extern void cplus_expand_expr_stmt		PROTO((tree));
-extern void finish_stmt				PROTO((void));
-extern int in_function_p			PROTO((void));
-extern void replace_defarg			PROTO((tree, tree));
-extern void print_other_binding_stack		PROTO((struct binding_level *));
-extern void revert_static_member_fn             PROTO((tree*, tree*, tree*));
-extern void fixup_anonymous_aggr                PROTO((tree));
-extern int check_static_variable_definition     PROTO((tree, tree));
-extern tree compute_array_index_type		PROTO((tree, tree));
-extern void push_local_binding                  PROTO((tree, tree, int));
-extern int push_class_binding                   PROTO((tree, tree));
-extern tree check_default_argument              PROTO((tree, tree));
-extern tree push_overloaded_decl		PROTO((tree, int));
-extern void clear_identifier_class_values       PROTO((void));
-extern void storetags                           PROTO((tree));
-extern int vtable_decl_p                        PROTO((tree, void *));
-extern int vtype_decl_p                         PROTO((tree, void *));
-extern int sigtable_decl_p                      PROTO((tree, void *));
-typedef int (*walk_globals_pred)                PROTO((tree, void *));
-typedef int (*walk_globals_fn)                  PROTO((tree *, void *));
-extern int walk_globals                         PROTO((walk_globals_pred,
+extern int parmlist_is_exprlist			PARAMS ((tree));
+extern int copy_args_p				PARAMS ((tree));
+extern int grok_ctor_properties			PARAMS ((tree, tree));
+extern void grok_op_properties			PARAMS ((tree, int, int));
+extern tree xref_tag				PARAMS ((tree, tree, int));
+extern tree xref_tag_from_type			PARAMS ((tree, tree, int));
+extern void xref_basetypes			PARAMS ((tree, tree, tree, tree));
+extern tree start_enum				PARAMS ((tree));
+extern tree finish_enum				PARAMS ((tree));
+extern void build_enumerator			PARAMS ((tree, tree, tree));
+extern int start_function			PARAMS ((tree, tree, tree, int));
+extern void expand_start_early_try_stmts	PARAMS ((void));
+extern void store_parm_decls			PARAMS ((void));
+extern void store_return_init			PARAMS ((tree));
+extern tree finish_function			PARAMS ((int, int));
+extern tree start_method			PARAMS ((tree, tree, tree));
+extern tree finish_method			PARAMS ((tree));
+extern void hack_incomplete_structures		PARAMS ((tree));
+extern tree maybe_build_cleanup_and_delete	PARAMS ((tree));
+extern tree maybe_build_cleanup			PARAMS ((tree));
+extern void cplus_expand_expr_stmt		PARAMS ((tree));
+extern void finish_stmt				PARAMS ((void));
+extern int in_function_p			PARAMS ((void));
+extern void replace_defarg			PARAMS ((tree, tree));
+extern void print_other_binding_stack		PARAMS ((struct binding_level *));
+extern void revert_static_member_fn             PARAMS ((tree));
+extern void fixup_anonymous_aggr                PARAMS ((tree));
+extern int check_static_variable_definition     PARAMS ((tree, tree));
+extern tree compute_array_index_type		PARAMS ((tree, tree));
+extern void push_local_binding                  PARAMS ((tree, tree, int));
+extern int push_class_binding                   PARAMS ((tree, tree));
+extern tree check_default_argument              PARAMS ((tree, tree));
+extern tree push_overloaded_decl		PARAMS ((tree, int));
+extern void clear_identifier_class_values       PARAMS ((void));
+extern void storetags                           PARAMS ((tree));
+extern int vtable_decl_p                        PARAMS ((tree, void *));
+extern int vtype_decl_p                         PARAMS ((tree, void *));
+extern int sigtable_decl_p                      PARAMS ((tree, void *));
+typedef int (*walk_globals_pred)                PARAMS ((tree, void *));
+typedef int (*walk_globals_fn)                  PARAMS ((tree *, void *));
+extern int walk_globals                         PARAMS ((walk_globals_pred,
 						       walk_globals_fn,
 						       void *));
-typedef int (*walk_namespaces_fn)               PROTO((tree, void *));
-extern int walk_namespaces                      PROTO((walk_namespaces_fn,
+typedef int (*walk_namespaces_fn)               PARAMS ((tree, void *));
+extern int walk_namespaces                      PARAMS ((walk_namespaces_fn,
 						       void *));
-extern int wrapup_globals_for_namespace         PROTO((tree, void *));
-extern tree cp_namespace_decls                  PROTO((tree));
-extern tree create_implicit_typedef             PROTO((tree, tree));
-extern tree maybe_push_decl                     PROTO((tree));
-extern void emit_local_var                      PROTO((tree));
-extern tree build_target_expr_with_type         PROTO((tree, tree));
-extern void make_rtl_for_local_static           PROTO((tree));
-extern int local_variable_p                     PROTO((tree));
-extern int nonstatic_local_decl_p               PROTO((tree));
-extern tree declare_global_var                  PROTO((tree, tree));
+extern int wrapup_globals_for_namespace         PARAMS ((tree, void *));
+extern tree cp_namespace_decls                  PARAMS ((tree));
+extern tree create_implicit_typedef             PARAMS ((tree, tree));
+extern tree maybe_push_decl                     PARAMS ((tree));
+extern void emit_local_var                      PARAMS ((tree));
+extern tree build_target_expr_with_type         PARAMS ((tree, tree));
+extern void make_rtl_for_local_static           PARAMS ((tree));
+extern int local_variable_p                     PARAMS ((tree));
+extern int nonstatic_local_decl_p               PARAMS ((tree));
+extern tree declare_global_var                  PARAMS ((tree, tree));
+extern void register_dtor_fn                    PARAMS ((tree));
+extern tmpl_spec_kind current_tmpl_spec_kind    PARAMS ((int));
 
 /* in decl2.c */
-extern void init_decl2				PROTO((void));
-extern int check_java_method			PROTO((tree));
-extern int lang_decode_option			PROTO((int, char **));
-extern int grok_method_quals			PROTO((tree, tree, tree));
-extern void warn_if_unknown_interface		PROTO((tree));
-extern void grok_x_components			PROTO((tree));
-extern void maybe_retrofit_in_chrg		PROTO((tree));
-extern void maybe_make_one_only			PROTO((tree));
-extern void grokclassfn				PROTO((tree, tree, enum overload_flags, tree));
-extern tree grok_alignof			PROTO((tree));
-extern tree grok_array_decl			PROTO((tree, tree));
-extern tree delete_sanity			PROTO((tree, tree, int, int));
-extern tree check_classfn			PROTO((tree, tree));
-extern void check_member_template               PROTO((tree));
-extern tree grokfield				PROTO((tree, tree, tree, tree, tree));
-extern tree grokbitfield			PROTO((tree, tree, tree));
-extern tree groktypefield			PROTO((tree, tree));
-extern tree grokoptypename			PROTO((tree, tree));
-extern int copy_assignment_arg_p		PROTO((tree, int));
-extern void cplus_decl_attributes		PROTO((tree, tree, tree)); 
-extern tree constructor_name_full		PROTO((tree));
-extern tree constructor_name			PROTO((tree));
-extern void setup_vtbl_ptr			PROTO((void));
-extern void mark_inline_for_output		PROTO((tree));
-extern tree get_temp_name			PROTO((tree, int));
-extern void finish_anon_union			PROTO((tree));
-extern tree finish_table			PROTO((tree, tree, tree, int));
-extern void finish_builtin_type			PROTO((tree, const char *,
+extern void init_decl2				PARAMS ((void));
+extern int check_java_method			PARAMS ((tree));
+extern int lang_decode_option			PARAMS ((int, char **));
+extern int grok_method_quals			PARAMS ((tree, tree, tree));
+extern void warn_if_unknown_interface		PARAMS ((tree));
+extern void grok_x_components			PARAMS ((tree));
+extern void maybe_retrofit_in_chrg		PARAMS ((tree));
+extern void maybe_make_one_only			PARAMS ((tree));
+extern void grokclassfn				PARAMS ((tree, tree, enum overload_flags, tree));
+extern tree grok_alignof			PARAMS ((tree));
+extern tree grok_array_decl			PARAMS ((tree, tree));
+extern tree delete_sanity			PARAMS ((tree, tree, int, int));
+extern tree check_classfn			PARAMS ((tree, tree));
+extern void check_member_template               PARAMS ((tree));
+extern tree grokfield				PARAMS ((tree, tree, tree, tree, tree));
+extern tree grokbitfield			PARAMS ((tree, tree, tree));
+extern tree groktypefield			PARAMS ((tree, tree));
+extern tree grokoptypename			PARAMS ((tree, tree));
+extern int copy_assignment_arg_p		PARAMS ((tree, int));
+extern void cplus_decl_attributes		PARAMS ((tree, tree, tree)); 
+extern tree constructor_name_full		PARAMS ((tree));
+extern tree constructor_name			PARAMS ((tree));
+extern void setup_vtbl_ptr			PARAMS ((void));
+extern void mark_inline_for_output		PARAMS ((tree));
+extern tree get_temp_name			PARAMS ((tree, int));
+extern void finish_anon_union			PARAMS ((tree));
+extern tree finish_table			PARAMS ((tree, tree, tree, int));
+extern void finish_builtin_type			PARAMS ((tree, const char *,
 						       tree *, int, tree));
-extern tree coerce_new_type			PROTO((tree));
-extern tree coerce_delete_type			PROTO((tree));
-extern void comdat_linkage			PROTO((tree));
-extern void import_export_class			PROTO((tree));
-extern void import_export_vtable		PROTO((tree, tree, int));
-extern void import_export_decl			PROTO((tree));
-extern tree build_cleanup			PROTO((tree));
-extern void finish_file				PROTO((void));
-extern tree reparse_absdcl_as_expr		PROTO((tree, tree));
-extern tree reparse_absdcl_as_casts		PROTO((tree, tree));
-extern tree build_expr_from_tree		PROTO((tree));
-extern tree reparse_decl_as_expr		PROTO((tree, tree));
-extern tree finish_decl_parsing			PROTO((tree));
-extern tree check_cp_case_value			PROTO((tree));
-extern void set_decl_namespace                  PROTO((tree, tree, int));
-extern tree current_decl_namespace              PROTO((void));
-extern void push_decl_namespace                 PROTO((tree));
-extern void pop_decl_namespace                  PROTO((void));
-extern void push_scope				PROTO((tree));
-extern void pop_scope				PROTO((tree));
-extern void do_namespace_alias			PROTO((tree, tree));
-extern void do_toplevel_using_decl		PROTO((tree));
-extern void do_local_using_decl                 PROTO((tree));
-extern tree do_class_using_decl			PROTO((tree));
-extern void do_using_directive			PROTO((tree));
-extern void check_default_args			PROTO((tree));
-extern void mark_used				PROTO((tree));
-extern tree handle_class_head			PROTO((tree, tree, tree));
-extern tree lookup_arg_dependent                PROTO((tree, tree, tree));
-extern void finish_static_data_member_decl      PROTO((tree, tree, tree, int));
+extern tree coerce_new_type			PARAMS ((tree));
+extern tree coerce_delete_type			PARAMS ((tree));
+extern void comdat_linkage			PARAMS ((tree));
+extern void import_export_vtable		PARAMS ((tree, tree, int));
+extern void import_export_decl			PARAMS ((tree));
+extern tree build_cleanup			PARAMS ((tree));
+extern void finish_file				PARAMS ((void));
+extern tree reparse_absdcl_as_expr		PARAMS ((tree, tree));
+extern tree reparse_absdcl_as_casts		PARAMS ((tree, tree));
+extern tree build_expr_from_tree		PARAMS ((tree));
+extern tree reparse_decl_as_expr		PARAMS ((tree, tree));
+extern tree finish_decl_parsing			PARAMS ((tree));
+extern tree check_cp_case_value			PARAMS ((tree));
+extern void set_decl_namespace                  PARAMS ((tree, tree, int));
+extern tree current_decl_namespace              PARAMS ((void));
+extern void push_decl_namespace                 PARAMS ((tree));
+extern void pop_decl_namespace                  PARAMS ((void));
+extern void push_scope				PARAMS ((tree));
+extern void pop_scope				PARAMS ((tree));
+extern void do_namespace_alias			PARAMS ((tree, tree));
+extern void do_toplevel_using_decl		PARAMS ((tree));
+extern void do_local_using_decl                 PARAMS ((tree));
+extern tree do_class_using_decl			PARAMS ((tree));
+extern void do_using_directive			PARAMS ((tree));
+extern void check_default_args			PARAMS ((tree));
+extern void mark_used				PARAMS ((tree));
+extern tree handle_class_head			PARAMS ((tree, tree, tree));
+extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
+extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
 
 /* in parse.y */
-extern void cp_parse_init			PROTO((void));
+extern void cp_parse_init			PARAMS ((void));
 
 /* in errfn.c */
 /* The cp_* functions aren't suitable for ATTRIBUTE_PRINTF. */
-extern void cp_error				PVPROTO((const char *, ...));
-extern void cp_error_at				PVPROTO((const char *, ...));
-extern void cp_warning				PVPROTO((const char *, ...));
-extern void cp_warning_at			PVPROTO((const char *, ...));
-extern void cp_pedwarn				PVPROTO((const char *, ...));
-extern void cp_pedwarn_at			PVPROTO((const char *, ...));
-extern void cp_compiler_error			PVPROTO((const char *, ...));
-extern void cp_sprintf				PVPROTO((const char *, ...));
-extern void cp_deprecated                       PROTO((const char*));
+extern void cp_error				PARAMS ((const char *, ...));
+extern void cp_error_at				PARAMS ((const char *, ...));
+extern void cp_warning				PARAMS ((const char *, ...));
+extern void cp_warning_at			PARAMS ((const char *, ...));
+extern void cp_pedwarn				PARAMS ((const char *, ...));
+extern void cp_pedwarn_at			PARAMS ((const char *, ...));
+extern void cp_compiler_error			PARAMS ((const char *, ...));
+extern void cp_sprintf				PARAMS ((const char *, ...));
+extern void cp_deprecated                       PARAMS ((const char*));
 
 /* in error.c */
-extern void init_error				PROTO((void));
-extern const char *type_as_string		PROTO((tree, enum tree_string_flags));
-extern const char *decl_as_string		PROTO((tree, enum tree_string_flags));
-extern const char *expr_as_string		PROTO((tree, enum tree_string_flags));
-extern const char *context_as_string            PROTO((tree, enum tree_string_flags));
-extern const char *lang_decl_name		PROTO((tree, int));
-extern const char *cp_file_of			PROTO((tree));
-extern int cp_line_of				PROTO((tree));
+extern void init_error				PARAMS ((void));
+extern const char *type_as_string		PARAMS ((tree, enum tree_string_flags));
+extern const char *decl_as_string		PARAMS ((tree, enum tree_string_flags));
+extern const char *expr_as_string		PARAMS ((tree, enum tree_string_flags));
+extern const char *context_as_string            PARAMS ((tree, enum tree_string_flags));
+extern const char *lang_decl_name		PARAMS ((tree, int));
+extern const char *cp_file_of			PARAMS ((tree));
+extern int cp_line_of				PARAMS ((tree));
 
 /* in except.c */
-extern void init_exception_processing		PROTO((void));
-extern tree expand_start_catch_block		PROTO((tree));
-extern void expand_end_catch_block		PROTO((tree));
-extern void expand_builtin_throw		PROTO((void));
-extern tree expand_start_eh_spec		PROTO((void));
-extern void expand_end_eh_spec		        PROTO((tree, tree));
-extern void expand_exception_blocks		PROTO((void));
-extern tree build_throw				PROTO((tree));
-extern void mark_all_runtime_matches            PROTO((void));
+extern void init_exception_processing		PARAMS ((void));
+extern tree expand_start_catch_block		PARAMS ((tree));
+extern void expand_end_catch_block		PARAMS ((tree));
+extern void expand_builtin_throw		PARAMS ((void));
+extern tree expand_start_eh_spec		PARAMS ((void));
+extern void expand_end_eh_spec		        PARAMS ((tree, tree));
+extern void expand_exception_blocks		PARAMS ((void));
+extern tree build_throw				PARAMS ((tree));
+extern void mark_all_runtime_matches            PARAMS ((void));
+extern int nothrow_libfn_p			PARAMS ((tree));
 
 /* in expr.c */
-extern void init_cplus_expand			PROTO((void));
-extern void fixup_result_decl			PROTO((tree, struct rtx_def *));
-extern int extract_init				PROTO((tree, tree));
-extern void do_case				PROTO((tree, tree));
-extern tree cplus_expand_constant               PROTO((tree));
+extern void init_cplus_expand			PARAMS ((void));
+extern void fixup_result_decl			PARAMS ((tree, struct rtx_def *));
+extern int extract_init				PARAMS ((tree, tree));
+extern void do_case				PARAMS ((tree, tree));
+extern tree cplus_expand_constant               PARAMS ((tree));
 
 /* friend.c */
-extern int is_friend				PROTO((tree, tree));
-extern void make_friend_class			PROTO((tree, tree));
-extern void add_friend                          PROTO((tree, tree));
-extern void add_friends                         PROTO((tree, tree, tree));
-extern tree do_friend				PROTO((tree, tree, tree, tree, tree, enum overload_flags, tree, int));
+extern int is_friend				PARAMS ((tree, tree));
+extern void make_friend_class			PARAMS ((tree, tree));
+extern void add_friend                          PARAMS ((tree, tree));
+extern tree do_friend				PARAMS ((tree, tree, tree, tree, tree, enum overload_flags, tree, int));
 
 /* in init.c */
-extern void init_init_processing		PROTO((void));
-extern tree emit_base_init			PROTO((tree));
-extern void check_base_init			PROTO((tree));
-extern void expand_member_init			PROTO((tree, tree, tree));
-extern tree build_aggr_init			PROTO((tree, tree, int));
-extern int is_aggr_typedef			PROTO((tree, int));
-extern int is_aggr_type				PROTO((tree, int));
-extern tree get_aggr_from_typedef		PROTO((tree, int));
-extern tree get_type_value			PROTO((tree));
-extern tree build_member_call			PROTO((tree, tree, tree));
-extern tree build_offset_ref			PROTO((tree, tree));
-extern tree resolve_offset_ref			PROTO((tree));
-extern tree decl_constant_value			PROTO((tree));
-extern tree build_new				PROTO((tree, tree, tree, int));
-extern tree build_new_1				PROTO((tree));
-extern tree build_vec_init			PROTO((tree, tree, tree, tree, int));
-extern tree build_x_delete			PROTO((tree, int, tree));
-extern tree build_delete			PROTO((tree, tree, tree, int, int));
-extern tree build_vbase_delete			PROTO((tree, tree));
-extern tree build_vec_delete			PROTO((tree, tree, tree, int));
-extern tree create_temporary_var                PROTO((tree));
-extern void begin_init_stmts                    PROTO((tree *, tree *));
-extern tree finish_init_stmts                   PROTO((tree, tree));
-extern void initialize_vtbl_ptrs                PROTO((tree, tree));
+extern void init_init_processing		PARAMS ((void));
+extern tree emit_base_init			PARAMS ((tree));
+extern void check_base_init			PARAMS ((tree));
+extern void expand_member_init			PARAMS ((tree, tree, tree));
+extern tree build_aggr_init			PARAMS ((tree, tree, int));
+extern int is_aggr_typedef			PARAMS ((tree, int));
+extern int is_aggr_type				PARAMS ((tree, int));
+extern tree get_aggr_from_typedef		PARAMS ((tree, int));
+extern tree get_type_value			PARAMS ((tree));
+extern tree build_member_call			PARAMS ((tree, tree, tree));
+extern tree build_offset_ref			PARAMS ((tree, tree));
+extern tree resolve_offset_ref			PARAMS ((tree));
+extern tree decl_constant_value			PARAMS ((tree));
+extern tree build_new				PARAMS ((tree, tree, tree, int));
+extern tree build_vec_init			PARAMS ((tree, tree, tree, tree, int));
+extern tree build_x_delete			PARAMS ((tree, int, tree));
+extern tree build_delete			PARAMS ((tree, tree, tree, int, int));
+extern tree build_vbase_delete			PARAMS ((tree, tree));
+extern tree build_vec_delete			PARAMS ((tree, tree, tree, int));
+extern tree create_temporary_var                PARAMS ((tree));
+extern void begin_init_stmts                    PARAMS ((tree *, tree *));
+extern tree finish_init_stmts                   PARAMS ((tree, tree));
+extern void initialize_vtbl_ptrs                PARAMS ((tree, tree));
+extern tree build_java_class_ref                PARAMS ((tree));
 
 /* in input.c */
 
 /* in lex.c */
-extern char *file_name_nondirectory		PROTO((const char *));
-extern tree make_pointer_declarator		PROTO((tree, tree));
-extern tree make_reference_declarator		PROTO((tree, tree));
-extern tree make_call_declarator		PROTO((tree, tree, tree, tree));
-extern void set_quals_and_spec			PROTO((tree, tree, tree));
-extern const char *operator_name_string		PROTO((tree));
-extern void lang_init				PROTO((void));
-extern void lang_finish				PROTO((void));
+extern char *file_name_nondirectory		PARAMS ((const char *));
+extern tree make_pointer_declarator		PARAMS ((tree, tree));
+extern tree make_reference_declarator		PARAMS ((tree, tree));
+extern tree make_call_declarator		PARAMS ((tree, tree, tree, tree));
+extern void set_quals_and_spec			PARAMS ((tree, tree, tree));
+extern const char *operator_name_string		PARAMS ((tree));
+extern void lang_init				PARAMS ((void));
+extern void lang_finish				PARAMS ((void));
 #if 0
-extern void reinit_lang_specific		PROTO((void));
+extern void reinit_lang_specific		PARAMS ((void));
 #endif
-extern void reinit_parse_for_function		PROTO((void));
-extern void print_parse_statistics		PROTO((void));
-extern void extract_interface_info		PROTO((void));
-extern void do_pending_inlines			PROTO((void));
-extern void process_next_inline			PROTO((struct pending_inline *));
-extern struct pending_input *save_pending_input PROTO((void));
-extern void restore_pending_input		PROTO((struct pending_input *));
-extern void yyungetc				PROTO((int, int));
-extern void reinit_parse_for_method		PROTO((int, tree));
-extern void reinit_parse_for_block		PROTO((int, struct obstack *));
-extern tree cons_up_default_function		PROTO((tree, tree, int));
-extern void check_for_missing_semicolon		PROTO((tree));
-extern void note_got_semicolon			PROTO((tree));
-extern void note_list_got_semicolon		PROTO((tree));
-extern void do_pending_lang_change		PROTO((void));
-extern int identifier_type			PROTO((tree));
-extern void see_typename			PROTO((void));
-extern tree do_identifier			PROTO((tree, int, tree));
-extern tree do_scoped_id			PROTO((tree, int));
-extern tree identifier_typedecl_value		PROTO((tree));
-extern int real_yylex				PROTO((void));
-extern int is_rid				PROTO((tree));
-extern tree build_lang_decl			PROTO((enum tree_code, tree, tree));
-extern void retrofit_lang_decl			PROTO((tree));
-extern void copy_lang_decl			PROTO((tree));
-extern tree cp_make_lang_type			PROTO((enum tree_code));
-extern tree make_aggr_type			PROTO((enum tree_code));
-extern void dump_time_statistics		PROTO((void));
-extern void compiler_error			PVPROTO((const char *, ...))
+extern void reinit_parse_for_function		PARAMS ((void));
+extern void print_parse_statistics		PARAMS ((void));
+extern void extract_interface_info		PARAMS ((void));
+extern void do_pending_inlines			PARAMS ((void));
+extern void process_next_inline			PARAMS ((struct pending_inline *));
+extern struct pending_input *save_pending_input PARAMS ((void));
+extern void restore_pending_input		PARAMS ((struct pending_input *));
+extern void yyungetc				PARAMS ((int, int));
+extern void reinit_parse_for_method		PARAMS ((int, tree));
+extern void reinit_parse_for_block		PARAMS ((int, struct obstack *));
+extern tree cons_up_default_function		PARAMS ((tree, tree, int));
+extern void check_for_missing_semicolon		PARAMS ((tree));
+extern void note_got_semicolon			PARAMS ((tree));
+extern void note_list_got_semicolon		PARAMS ((tree));
+extern void do_pending_lang_change		PARAMS ((void));
+extern int identifier_type			PARAMS ((tree));
+extern void see_typename			PARAMS ((void));
+extern tree do_identifier			PARAMS ((tree, int, tree));
+extern tree do_scoped_id			PARAMS ((tree, int));
+extern tree identifier_typedecl_value		PARAMS ((tree));
+extern int real_yylex				PARAMS ((void));
+extern int is_rid				PARAMS ((tree));
+extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
+extern void retrofit_lang_decl			PARAMS ((tree));
+extern void copy_lang_decl			PARAMS ((tree));
+extern tree cp_make_lang_type			PARAMS ((enum tree_code));
+extern tree make_aggr_type			PARAMS ((enum tree_code));
+extern void dump_time_statistics		PARAMS ((void));
+extern void compiler_error			PARAMS ((const char *, ...))
   ATTRIBUTE_PRINTF_1;
-extern void yyerror				PROTO((const char *));
-extern void clear_inline_text_obstack		PROTO((void));
-extern void maybe_snarf_defarg			PROTO((void));
-extern tree snarf_defarg			PROTO((void));
-extern void add_defarg_fn			PROTO((tree));
-extern void do_pending_defargs			PROTO((void));
-extern int identifier_type			PROTO((tree));
-extern void yyhook				PROTO((int));
-extern int cp_type_qual_from_rid                PROTO((tree));
+extern void yyerror				PARAMS ((const char *));
+extern void clear_inline_text_obstack		PARAMS ((void));
+extern void maybe_snarf_defarg			PARAMS ((void));
+extern tree snarf_defarg			PARAMS ((void));
+extern void add_defarg_fn			PARAMS ((tree));
+extern void do_pending_defargs			PARAMS ((void));
+extern int identifier_type			PARAMS ((tree));
+extern void yyhook				PARAMS ((int));
+extern int cp_type_qual_from_rid                PARAMS ((tree));
 
 /* in method.c */
-extern void init_method				PROTO((void));
-extern char *build_overload_name		PROTO((tree, int, int));
-extern tree build_static_name			PROTO((tree, tree));
-extern tree build_decl_overload			PROTO((tree, tree, int));
-extern tree build_decl_overload_real            PROTO((tree, tree, tree, tree,
+extern void init_method				PARAMS ((void));
+extern char *build_overload_name		PARAMS ((tree, int, int));
+extern tree build_static_name			PARAMS ((tree, tree));
+extern tree build_decl_overload			PARAMS ((tree, tree, int));
+extern tree build_decl_overload_real            PARAMS ((tree, tree, tree, tree,
 						       tree, int)); 
-extern void set_mangled_name_for_decl           PROTO((tree));
-extern tree build_typename_overload		PROTO((tree));
-extern tree build_overload_with_type		PROTO((tree, tree));
-extern tree build_destructor_name		PROTO((tree));
-extern tree build_opfncall			PROTO((enum tree_code, int, tree, tree, tree));
-extern tree hack_identifier			PROTO((tree, tree));
-extern tree make_thunk				PROTO((tree, int));
-extern void emit_thunk				PROTO((tree));
-extern void synthesize_method			PROTO((tree));
-extern tree get_id_2				PROTO((const char *, tree));
+extern void set_mangled_name_for_decl           PARAMS ((tree));
+extern tree build_typename_overload		PARAMS ((tree));
+extern tree build_overload_with_type		PARAMS ((tree, tree));
+extern tree build_destructor_name		PARAMS ((tree));
+extern tree build_opfncall			PARAMS ((enum tree_code, int, tree, tree, tree));
+extern tree hack_identifier			PARAMS ((tree, tree));
+extern tree make_thunk				PARAMS ((tree, int, int));
+extern void emit_thunk				PARAMS ((tree));
+extern void synthesize_method			PARAMS ((tree));
+extern tree get_id_2				PARAMS ((const char *, tree));
 
 /* In optimize.c */
-extern void optimize_function                   PROTO((tree));
-extern int calls_setjmp_p                       PROTO((tree));
+extern void optimize_function                   PARAMS ((tree));
+extern int calls_setjmp_p                       PARAMS ((tree));
 
 /* in pt.c */
-extern void init_pt                             PROTO ((void));
-extern void check_template_shadow		PROTO ((tree));
-extern tree innermost_args			PROTO ((tree));
-extern tree tsubst				PROTO ((tree, tree, int, tree));
-extern tree tsubst_expr				PROTO ((tree, tree, int, tree));
-extern tree tsubst_copy				PROTO ((tree, tree, int, tree));
-extern void maybe_begin_member_template_processing PROTO((tree));
-extern void maybe_end_member_template_processing PROTO((void));
-extern tree finish_member_template_decl         PROTO((tree));
-extern void begin_template_parm_list		PROTO((void));
-extern void begin_specialization                PROTO((void));
-extern void reset_specialization                PROTO((void));
-extern void end_specialization                  PROTO((void));
-extern void begin_explicit_instantiation        PROTO((void));
-extern void end_explicit_instantiation          PROTO((void));
-extern tree check_explicit_specialization       PROTO((tree, tree, int, int));
-extern tree process_template_parm		PROTO((tree, tree));
-extern tree end_template_parm_list		PROTO((tree));
-extern void end_template_decl			PROTO((void));
-extern tree current_template_args		PROTO((void));
-extern tree push_template_decl			PROTO((tree));
-extern tree push_template_decl_real             PROTO((tree, int));
-extern void redeclare_class_template            PROTO((tree, tree));
-extern tree lookup_template_class		PROTO((tree, tree, tree, tree, int));
-extern tree lookup_template_function            PROTO((tree, tree));
-extern int uses_template_parms			PROTO((tree));
-extern tree instantiate_class_template		PROTO((tree));
-extern tree instantiate_template		PROTO((tree, tree));
-extern void overload_template_name		PROTO((tree));
-extern int fn_type_unification                  PROTO((tree, tree, tree, tree, tree, unification_kind_t));
-struct tinst_level *tinst_for_decl		PROTO((void));
-extern void mark_decl_instantiated		PROTO((tree, int));
-extern int more_specialized			PROTO((tree, tree, tree));
-extern void mark_class_instantiated		PROTO((tree, int));
-extern void do_decl_instantiation		PROTO((tree, tree, tree));
-extern void do_type_instantiation		PROTO((tree, tree));
-extern tree instantiate_decl			PROTO((tree));
-extern tree get_bindings			PROTO((tree, tree, tree));
-extern void add_tree				PROTO((tree));
-extern void add_maybe_template			PROTO((tree, tree));
-extern void pop_tinst_level			PROTO((void));
-extern int more_specialized_class		PROTO((tree, tree));
-extern int is_member_template                   PROTO((tree));
-extern int template_parms_equal                 PROTO((tree, tree));
-extern int comp_template_parms                  PROTO((tree, tree));
-extern int template_class_depth                 PROTO((tree));
-extern int is_specialization_of                 PROTO((tree, tree));
-extern int comp_template_args                   PROTO((tree, tree));
-extern void maybe_process_partial_specialization PROTO((tree));
-extern void maybe_check_template_type           PROTO((tree));
-extern tree most_specialized_instantiation      PROTO((tree, tree));
-extern void print_candidates                    PROTO((tree));
-extern int instantiate_pending_templates        PROTO((void));
-extern tree tsubst_default_argument             PROTO((tree, tree, tree));
-extern tree most_general_template		PROTO((tree));
+extern void init_pt                             PARAMS ((void));
+extern void check_template_shadow		PARAMS ((tree));
+extern tree innermost_args			PARAMS ((tree));
+extern tree tsubst				PARAMS ((tree, tree, int, tree));
+extern tree tsubst_expr				PARAMS ((tree, tree, int, tree));
+extern tree tsubst_copy				PARAMS ((tree, tree, int, tree));
+extern void maybe_begin_member_template_processing PARAMS ((tree));
+extern void maybe_end_member_template_processing PARAMS ((void));
+extern tree finish_member_template_decl         PARAMS ((tree));
+extern void begin_template_parm_list		PARAMS ((void));
+extern void begin_specialization                PARAMS ((void));
+extern void reset_specialization                PARAMS ((void));
+extern void end_specialization                  PARAMS ((void));
+extern void begin_explicit_instantiation        PARAMS ((void));
+extern void end_explicit_instantiation          PARAMS ((void));
+extern tree check_explicit_specialization       PARAMS ((tree, tree, int, int));
+extern tree process_template_parm		PARAMS ((tree, tree));
+extern tree end_template_parm_list		PARAMS ((tree));
+extern void end_template_decl			PARAMS ((void));
+extern tree current_template_args		PARAMS ((void));
+extern tree push_template_decl			PARAMS ((tree));
+extern tree push_template_decl_real             PARAMS ((tree, int));
+extern void redeclare_class_template            PARAMS ((tree, tree));
+extern tree lookup_template_class		PARAMS ((tree, tree, tree, tree, int));
+extern tree lookup_template_function            PARAMS ((tree, tree));
+extern int uses_template_parms			PARAMS ((tree));
+extern tree instantiate_class_template		PARAMS ((tree));
+extern tree instantiate_template		PARAMS ((tree, tree));
+extern void overload_template_name		PARAMS ((tree));
+extern int fn_type_unification                  PARAMS ((tree, tree, tree, tree, tree, unification_kind_t));
+struct tinst_level *tinst_for_decl		PARAMS ((void));
+extern void mark_decl_instantiated		PARAMS ((tree, int));
+extern int more_specialized			PARAMS ((tree, tree, tree));
+extern void mark_class_instantiated		PARAMS ((tree, int));
+extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
+extern void do_type_instantiation		PARAMS ((tree, tree));
+extern tree instantiate_decl			PARAMS ((tree));
+extern tree get_bindings			PARAMS ((tree, tree, tree));
+extern void add_tree				PARAMS ((tree));
+extern void add_maybe_template			PARAMS ((tree, tree));
+extern void pop_tinst_level			PARAMS ((void));
+extern int more_specialized_class		PARAMS ((tree, tree));
+extern int is_member_template                   PARAMS ((tree));
+extern int template_parms_equal                 PARAMS ((tree, tree));
+extern int comp_template_parms                  PARAMS ((tree, tree));
+extern int template_class_depth                 PARAMS ((tree));
+extern int is_specialization_of                 PARAMS ((tree, tree));
+extern int comp_template_args                   PARAMS ((tree, tree));
+extern void maybe_process_partial_specialization PARAMS ((tree));
+extern void maybe_check_template_type           PARAMS ((tree));
+extern tree most_specialized_instantiation      PARAMS ((tree, tree));
+extern void print_candidates                    PARAMS ((tree));
+extern int instantiate_pending_templates        PARAMS ((void));
+extern tree tsubst_default_argument             PARAMS ((tree, tree, tree));
+extern tree most_general_template		PARAMS ((tree));
 
 extern int processing_template_parmlist;
 
 /* in repo.c */
-extern void repo_template_used			PROTO((tree));
-extern void repo_template_instantiated		PROTO((tree, int));
-extern void init_repo				PROTO((const char *));
-extern void finish_repo				PROTO((void));
+extern void repo_template_used			PARAMS ((tree));
+extern void repo_template_instantiated		PARAMS ((tree, int));
+extern void init_repo				PARAMS ((const char *));
+extern void finish_repo				PARAMS ((void));
 
 /* in rtti.c */
-extern void init_rtti_processing		PROTO((void));
-extern tree get_tinfo_fn_dynamic		PROTO((tree));
-extern tree build_typeid			PROTO((tree));
-extern tree build_x_typeid			PROTO((tree));
-extern tree get_tinfo_fn			PROTO((tree));
-extern tree get_tinfo_fn_unused			PROTO((tree));
-extern tree get_typeid				PROTO((tree));
-extern tree get_typeid_1			PROTO((tree));
-extern tree build_dynamic_cast			PROTO((tree, tree));
-extern void synthesize_tinfo_fn			PROTO((tree));
+extern void init_rtti_processing		PARAMS((void));
+extern tree build_typeid			PARAMS((tree));
+extern tree get_tinfo_decl                      PARAMS((tree));
+extern tree get_typeid				PARAMS((tree));
+extern tree get_typeid_1			PARAMS((tree));
+extern tree build_dynamic_cast			PARAMS((tree, tree));
+extern void synthesize_tinfo_fn			PARAMS((tree));
+extern void emit_support_tinfos                 PARAMS((void));
+extern int tinfo_decl_p                         PARAMS((tree, void *));
+extern int emit_tinfo_decl                      PARAMS((tree *, void *));
 
 /* in search.c */
-extern int types_overlap_p			PROTO((tree, tree));
-extern tree get_vbase				PROTO((tree, tree));
-extern tree get_binfo				PROTO((tree, tree, int));
-extern int get_base_distance			PROTO((tree, tree, int, tree *));
-extern tree get_dynamic_cast_base_type          PROTO((tree, tree));
-extern int accessible_p                         PROTO((tree, tree));
-extern tree lookup_field			PROTO((tree, tree, int, int));
-extern int lookup_fnfields_1                    PROTO((tree, tree));
-extern tree lookup_fnfields			PROTO((tree, tree, int));
-extern tree lookup_member			PROTO((tree, tree, int, int));
-extern tree lookup_nested_tag			PROTO((tree, tree));
-extern tree get_matching_virtual		PROTO((tree, tree, int));
-extern void get_pure_virtuals		        PROTO((tree));
-extern tree init_vbase_pointers			PROTO((tree, tree));
-extern void expand_indirect_vtbls_init		PROTO((tree, tree));
-extern void clear_search_slots			PROTO((tree));
-extern void get_vbase_types			PROTO((tree));
-extern void maybe_suppress_debug_info		PROTO((tree));
-extern void note_debug_info_needed		PROTO((tree));
-extern void push_class_decls			PROTO((tree));
-extern void pop_class_decls			PROTO((void));
-extern void unuse_fields			PROTO((tree));
-extern void print_search_statistics		PROTO((void));
-extern void init_search_processing		PROTO((void));
-extern void reinit_search_statistics		PROTO((void));
-extern tree current_scope			PROTO((void));
-extern int at_function_scope_p                  PROTO((void));
-extern tree lookup_conversions			PROTO((tree));
-extern tree binfo_for_vtable			PROTO((tree));
-extern int  binfo_from_vbase			PROTO((tree));
-extern tree dfs_walk                            PROTO((tree, 
+extern int types_overlap_p			PARAMS ((tree, tree));
+extern tree get_vbase				PARAMS ((tree, tree));
+extern tree get_binfo				PARAMS ((tree, tree, int));
+extern int get_base_distance			PARAMS ((tree, tree, int, tree *));
+extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
+extern void type_access_control			PARAMS ((tree, tree));
+extern int accessible_p                         PARAMS ((tree, tree));
+extern tree lookup_field			PARAMS ((tree, tree, int, int));
+extern int lookup_fnfields_1                    PARAMS ((tree, tree));
+extern tree lookup_fnfields			PARAMS ((tree, tree, int));
+extern tree lookup_member			PARAMS ((tree, tree, int, int));
+extern tree lookup_nested_tag			PARAMS ((tree, tree));
+extern tree get_matching_virtual		PARAMS ((tree, tree, int));
+extern void get_pure_virtuals		        PARAMS ((tree));
+extern tree init_vbase_pointers			PARAMS ((tree, tree));
+extern void expand_indirect_vtbls_init		PARAMS ((tree, tree));
+extern void clear_search_slots			PARAMS ((tree));
+extern void get_vbase_types			PARAMS ((tree));
+extern void maybe_suppress_debug_info		PARAMS ((tree));
+extern void note_debug_info_needed		PARAMS ((tree));
+extern void push_class_decls			PARAMS ((tree));
+extern void pop_class_decls			PARAMS ((void));
+extern void unuse_fields			PARAMS ((tree));
+extern void print_search_statistics		PARAMS ((void));
+extern void init_search_processing		PARAMS ((void));
+extern void reinit_search_statistics		PARAMS ((void));
+extern tree current_scope			PARAMS ((void));
+extern int at_function_scope_p                  PARAMS ((void));
+extern tree lookup_conversions			PARAMS ((tree));
+extern tree binfo_for_vtable			PARAMS ((tree));
+extern int  binfo_from_vbase			PARAMS ((tree));
+extern tree dfs_walk                            PARAMS ((tree, 
 						       tree (*)(tree, void *),
 						       tree (*) (tree, void *),
 						       void *));
-extern tree dfs_unmark                          PROTO((tree, void *));
-extern tree dfs_vbase_unmark                    PROTO((tree, void *));
-extern tree markedp                             PROTO((tree, void *));
-extern tree unmarkedp                           PROTO((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_unmarkedp PROTO((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_markedp  PROTO((tree, void *));
-extern tree dfs_unmarked_real_bases_queue_p     PROTO((tree, void *));
-extern tree dfs_marked_real_bases_queue_p       PROTO((tree, void *));
-extern tree dfs_skip_vbases                     PROTO((tree, void *));
-extern void mark_primary_bases                  PROTO((tree));
-extern tree convert_pointer_to_vbase            PROTO((tree, tree));
-extern tree find_vbase_instance                 PROTO((tree, tree));
+extern tree dfs_walk_real                      PARAMS ((tree, 
+						       tree (*) (tree, void *),
+						       tree (*) (tree, void *),
+						       tree (*) (tree, void *),
+						       void *));
+extern tree dfs_unmark                          PARAMS ((tree, void *));
+extern tree dfs_vbase_unmark                    PARAMS ((tree, void *));
+extern tree dfs_vtable_path_unmark              PARAMS ((tree, void *));
+extern tree markedp                             PARAMS ((tree, void *));
+extern tree unmarkedp                           PARAMS ((tree, void *));
+extern tree dfs_skip_nonprimary_vbases_unmarkedp PARAMS ((tree, void *));
+extern tree dfs_skip_nonprimary_vbases_markedp  PARAMS ((tree, void *));
+extern tree dfs_unmarked_real_bases_queue_p     PARAMS ((tree, void *));
+extern tree dfs_marked_real_bases_queue_p       PARAMS ((tree, void *));
+extern tree dfs_vtable_path_unmarked_real_bases_queue_p
+                                                PARAMS ((tree, void *));
+extern tree dfs_vtable_path_marked_real_bases_queue_p
+                                                PARAMS ((tree, void *));
+extern tree dfs_skip_vbases                     PARAMS ((tree, void *));
+extern void mark_primary_bases                  PARAMS ((tree));
+extern tree convert_pointer_to_vbase            PARAMS ((tree, tree));
+extern tree find_vbase_instance                 PARAMS ((tree, tree));
 
 /* in semantics.c */
-extern void finish_expr_stmt                    PROTO((tree));
-extern tree begin_if_stmt                       PROTO((void));
-extern void finish_if_stmt_cond                 PROTO((tree, tree));
-extern tree finish_then_clause                  PROTO((tree));
-extern void begin_else_clause                   PROTO((void));
-extern void finish_else_clause                  PROTO((tree));
-extern void finish_if_stmt                      PROTO((void));
-extern tree begin_while_stmt                    PROTO((void));
-extern void finish_while_stmt_cond              PROTO((tree, tree));
-extern void finish_while_stmt                   PROTO((tree));
-extern tree begin_do_stmt                       PROTO((void));
-extern void finish_do_body                      PROTO((tree));
-extern void finish_do_stmt                      PROTO((tree, tree));
-extern void finish_return_stmt                  PROTO((tree));
-extern tree begin_for_stmt                      PROTO((void));
-extern void finish_for_init_stmt                PROTO((tree));
-extern void finish_for_cond                     PROTO((tree, tree));
-extern void finish_for_expr                     PROTO((tree, tree));
-extern void finish_for_stmt                     PROTO((tree, tree));
-extern void finish_break_stmt                   PROTO((void));
-extern void finish_continue_stmt                PROTO((void));
-extern tree begin_switch_stmt                   PROTO((void));
-extern void finish_switch_cond                  PROTO((tree, tree));
-extern void finish_switch_stmt                  PROTO((tree, tree));
-extern void finish_case_label                   PROTO((tree, tree));
-extern void finish_goto_stmt                    PROTO((tree));
-extern tree begin_try_block                     PROTO((void));
-extern void finish_try_block                    PROTO((tree));
-extern void finish_handler_sequence             PROTO((tree));
-extern tree begin_function_try_block            PROTO((void));
-extern void finish_function_try_block           PROTO((tree));
-extern void finish_function_handler_sequence    PROTO((tree));
-extern void finish_cleanup_try_block            PROTO((tree));
-extern tree begin_handler                       PROTO((void));
-extern tree finish_handler_parms                PROTO((tree, tree));
-extern void begin_catch_block                   PROTO((tree));
-extern void finish_handler                      PROTO((tree, tree));
-extern void finish_cleanup                      PROTO((tree, tree));
-extern tree begin_compound_stmt                 PROTO((int));
-extern tree finish_compound_stmt                PROTO((int, tree));
-extern void finish_asm_stmt                     PROTO((tree, tree, tree, tree, tree));
-extern void finish_label_stmt                   PROTO((tree));
-extern void finish_label_decl                   PROTO((tree));
-extern void finish_subobject                    PROTO((tree));
-extern tree finish_parenthesized_expr           PROTO((tree));
-extern tree begin_stmt_expr                     PROTO((void));
-extern tree finish_stmt_expr                    PROTO((tree));
-extern tree finish_call_expr                    PROTO((tree, tree, int));
-extern tree finish_increment_expr               PROTO((tree, enum tree_code));
-extern tree finish_this_expr                    PROTO((void));
-extern tree finish_object_call_expr             PROTO((tree, tree, tree));
-extern tree finish_qualified_object_call_expr   PROTO((tree, tree, tree));
-extern tree finish_pseudo_destructor_call_expr  PROTO((tree, tree, tree));
-extern tree finish_qualified_call_expr          PROTO ((tree, tree));
-extern tree finish_label_address_expr           PROTO((tree));
-extern tree finish_unary_op_expr                PROTO((enum tree_code, tree));
-extern tree finish_id_expr                      PROTO((tree));
-extern int begin_function_definition            PROTO((tree, tree));
-extern tree begin_constructor_declarator        PROTO((tree, tree));
-extern tree finish_declarator                   PROTO((tree, tree, tree, tree, int));
-extern void finish_translation_unit             PROTO((void));
-extern tree finish_template_type_parm           PROTO((tree, tree));
-extern tree finish_template_template_parm       PROTO((tree, tree));
-extern tree finish_parmlist                     PROTO((tree, int));
-extern tree begin_class_definition              PROTO((tree));
-extern tree finish_class_definition             PROTO((tree, tree, int, int));
-extern void finish_default_args                 PROTO((void));
-extern void begin_inline_definitions            PROTO((void));
-extern void finish_inline_definitions           PROTO((void));
-extern tree finish_member_class_template        PROTO((tree));
-extern void finish_template_decl                PROTO((tree));
-extern tree finish_template_type                PROTO((tree, tree, int));
-extern void enter_scope_of                      PROTO((tree));
-extern tree finish_base_specifier               PROTO((tree, tree));
-extern void finish_member_declaration           PROTO((tree));
-extern void check_multiple_declarators          PROTO((void));
-extern tree finish_typeof			PROTO((tree));
-extern void add_decl_stmt                       PROTO((tree));
-extern void finish_decl_cleanup                 PROTO((tree, tree));
-extern void finish_named_return_value           PROTO((tree, tree));
-extern tree expand_stmt                         PROTO((tree));
-extern void expand_body                         PROTO((tree));
-extern void begin_stmt_tree                     PROTO((tree *));
-extern void finish_stmt_tree                    PROTO((tree *));
-extern void prep_stmt                           PROTO((tree));
-extern tree add_scope_stmt                      PROTO((int, int));
-extern void do_pushlevel                        PROTO((void));
-extern tree do_poplevel                         PROTO((void));
+extern void finish_expr_stmt                    PARAMS ((tree));
+extern tree begin_if_stmt                       PARAMS ((void));
+extern void finish_if_stmt_cond                 PARAMS ((tree, tree));
+extern tree finish_then_clause                  PARAMS ((tree));
+extern void begin_else_clause                   PARAMS ((void));
+extern void finish_else_clause                  PARAMS ((tree));
+extern void finish_if_stmt                      PARAMS ((void));
+extern tree begin_while_stmt                    PARAMS ((void));
+extern void finish_while_stmt_cond              PARAMS ((tree, tree));
+extern void finish_while_stmt                   PARAMS ((tree));
+extern tree begin_do_stmt                       PARAMS ((void));
+extern void finish_do_body                      PARAMS ((tree));
+extern void finish_do_stmt                      PARAMS ((tree, tree));
+extern void finish_return_stmt                  PARAMS ((tree));
+extern tree begin_for_stmt                      PARAMS ((void));
+extern void finish_for_init_stmt                PARAMS ((tree));
+extern void finish_for_cond                     PARAMS ((tree, tree));
+extern void finish_for_expr                     PARAMS ((tree, tree));
+extern void finish_for_stmt                     PARAMS ((tree, tree));
+extern void finish_break_stmt                   PARAMS ((void));
+extern void finish_continue_stmt                PARAMS ((void));
+extern tree begin_switch_stmt                   PARAMS ((void));
+extern void finish_switch_cond                  PARAMS ((tree, tree));
+extern void finish_switch_stmt                  PARAMS ((tree, tree));
+extern void finish_case_label                   PARAMS ((tree, tree));
+extern void finish_goto_stmt                    PARAMS ((tree));
+extern tree begin_try_block                     PARAMS ((void));
+extern void finish_try_block                    PARAMS ((tree));
+extern void finish_handler_sequence             PARAMS ((tree));
+extern tree begin_function_try_block            PARAMS ((void));
+extern void finish_function_try_block           PARAMS ((tree));
+extern void finish_function_handler_sequence    PARAMS ((tree));
+extern void finish_cleanup_try_block            PARAMS ((tree));
+extern tree begin_handler                       PARAMS ((void));
+extern tree finish_handler_parms                PARAMS ((tree, tree));
+extern void begin_catch_block                   PARAMS ((tree));
+extern void finish_handler                      PARAMS ((tree, tree));
+extern void finish_cleanup                      PARAMS ((tree, tree));
+extern tree begin_compound_stmt                 PARAMS ((int));
+extern tree finish_compound_stmt                PARAMS ((int, tree));
+extern void finish_asm_stmt                     PARAMS ((tree, tree, tree, tree, tree));
+extern void finish_label_stmt                   PARAMS ((tree));
+extern void finish_label_decl                   PARAMS ((tree));
+extern void finish_subobject                    PARAMS ((tree));
+extern tree finish_parenthesized_expr           PARAMS ((tree));
+extern tree begin_stmt_expr                     PARAMS ((void));
+extern tree finish_stmt_expr                    PARAMS ((tree));
+extern tree finish_call_expr                    PARAMS ((tree, tree, int));
+extern tree finish_increment_expr               PARAMS ((tree, enum tree_code));
+extern tree finish_this_expr                    PARAMS ((void));
+extern tree finish_object_call_expr             PARAMS ((tree, tree, tree));
+extern tree finish_qualified_object_call_expr   PARAMS ((tree, tree, tree));
+extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
+extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
+extern tree finish_label_address_expr           PARAMS ((tree));
+extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
+extern tree finish_id_expr                      PARAMS ((tree));
+extern void save_type_access_control		PARAMS ((tree));
+extern void decl_type_access_control		PARAMS ((tree));
+extern int begin_function_definition            PARAMS ((tree, tree));
+extern tree begin_constructor_declarator        PARAMS ((tree, tree));
+extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
+extern void finish_translation_unit             PARAMS ((void));
+extern tree finish_template_type_parm           PARAMS ((tree, tree));
+extern tree finish_template_template_parm       PARAMS ((tree, tree));
+extern tree finish_parmlist                     PARAMS ((tree, int));
+extern tree begin_class_definition              PARAMS ((tree));
+extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
+extern void finish_default_args                 PARAMS ((void));
+extern void begin_inline_definitions            PARAMS ((void));
+extern void finish_inline_definitions           PARAMS ((void));
+extern tree finish_member_class_template        PARAMS ((tree));
+extern void finish_template_decl                PARAMS ((tree));
+extern tree finish_template_type                PARAMS ((tree, tree, int));
+extern void enter_scope_of                      PARAMS ((tree));
+extern tree finish_base_specifier               PARAMS ((tree, tree));
+extern void finish_member_declaration           PARAMS ((tree));
+extern void check_multiple_declarators          PARAMS ((void));
+extern tree finish_typeof			PARAMS ((tree));
+extern void add_decl_stmt                       PARAMS ((tree));
+extern void finish_decl_cleanup                 PARAMS ((tree, tree));
+extern void finish_named_return_value           PARAMS ((tree, tree));
+extern tree expand_stmt                         PARAMS ((tree));
+extern void expand_body                         PARAMS ((tree));
+extern void begin_stmt_tree                     PARAMS ((tree *));
+extern void finish_stmt_tree                    PARAMS ((tree *));
+extern void prep_stmt                           PARAMS ((tree));
+extern tree add_scope_stmt                      PARAMS ((int, int));
+extern void do_pushlevel                        PARAMS ((void));
+extern tree do_poplevel                         PARAMS ((void));
 /* Non-zero if we are presently building a statement tree, rather
    than expanding each statement as we encounter it.  */
 #define building_stmt_tree() (last_tree != NULL_TREE)
 
 /* in spew.c */
-extern void init_spew				PROTO((void));
-extern int peekyylex				PROTO((void));
-extern int yylex				PROTO((void));
-extern tree arbitrate_lookup			PROTO((tree, tree, tree));
+extern void init_spew				PARAMS ((void));
+extern int peekyylex				PARAMS ((void));
+extern int yylex				PARAMS ((void));
+extern tree arbitrate_lookup			PARAMS ((tree, tree, tree));
 
 /* in tree.c */
-extern void init_tree			        PROTO((void));
-extern int pod_type_p				PROTO((tree));
-extern void unshare_base_binfos			PROTO((tree));
-extern int member_p				PROTO((tree));
-extern cp_lvalue_kind real_lvalue_p		PROTO((tree));
-extern tree build_min				PVPROTO((enum tree_code, tree, ...));
-extern tree build_min_nt			PVPROTO((enum tree_code, ...));
-extern int lvalue_p				PROTO((tree));
-extern int lvalue_or_else			PROTO((tree, const char *));
-extern tree build_cplus_new			PROTO((tree, tree));
-extern tree get_target_expr			PROTO((tree));
-extern tree break_out_cleanups			PROTO((tree));
-extern tree break_out_calls			PROTO((tree));
-extern tree build_cplus_method_type		PROTO((tree, tree, tree));
-extern tree build_cplus_staticfn_type		PROTO((tree, tree, tree));
-extern tree build_cplus_array_type		PROTO((tree, tree));
-extern tree hash_tree_cons			PROTO((tree, tree, tree));
-extern tree hash_tree_chain			PROTO((tree, tree));
-extern tree hash_chainon			PROTO((tree, tree));
-extern tree make_binfo				PROTO((tree, tree, tree, tree));
-extern tree binfo_value				PROTO((tree, tree));
-extern tree reverse_path			PROTO((tree));
-extern int count_functions			PROTO((tree));
-extern int is_overloaded_fn			PROTO((tree));
-extern tree get_first_fn			PROTO((tree));
-extern int bound_pmf_p				PROTO((tree));
-extern tree ovl_cons                            PROTO((tree, tree));
-extern int ovl_member                           PROTO((tree, tree));
-extern tree build_overload                      PROTO((tree, tree));
-extern tree fnaddr_from_vtable_entry		PROTO((tree));
-extern tree function_arg_chain			PROTO((tree));
-extern int promotes_to_aggr_type		PROTO((tree, enum tree_code));
-extern int is_aggr_type_2			PROTO((tree, tree));
-extern const char *lang_printable_name		PROTO((tree, int));
-extern tree build_exception_variant		PROTO((tree, tree));
-extern tree copy_template_template_parm		PROTO((tree));
-extern void print_lang_statistics		PROTO((void));
-extern void __eprintf
-	PROTO((const char *, const char *, unsigned, const char *));
-extern tree array_type_nelts_total		PROTO((tree));
-extern tree array_type_nelts_top		PROTO((tree));
-extern tree break_out_target_exprs		PROTO((tree));
-extern tree get_type_decl			PROTO((tree));
-extern tree vec_binfo_member			PROTO((tree, tree));
-extern tree hack_decl_function_context 		PROTO((tree));
-extern tree decl_namespace_context 		PROTO((tree));
-extern tree lvalue_type				PROTO((tree));
-extern tree error_type				PROTO((tree));
-extern tree build_ptr_wrapper			PROTO((void *));
-extern tree build_expr_ptr_wrapper		PROTO((void *));
-extern tree build_int_wrapper			PROTO((int));
-extern tree build_srcloc_here			PROTO((void));
-extern int varargs_function_p			PROTO((tree));
-extern int really_overloaded_fn			PROTO((tree));
-extern int cp_tree_equal			PROTO((tree, tree));
-extern int can_free				PROTO((struct obstack *, tree));
-extern tree no_linkage_check			PROTO((tree));
-extern void debug_binfo				PROTO((tree));
-extern tree build_dummy_object			PROTO((tree));
-extern tree maybe_dummy_object			PROTO((tree, tree *));
-extern int is_dummy_object			PROTO((tree));
-typedef tree (*walk_tree_fn)                    PROTO((tree *, int *, void *));
-extern tree walk_tree                           PROTO((tree *, walk_tree_fn, void *));
-extern tree copy_tree_r                         PROTO((tree *, int *, void *));
-extern int cp_valid_lang_attribute		PROTO((tree, tree, tree, tree));
-extern tree make_ptrmem_cst                     PROTO((tree, tree));
-extern tree cp_build_qualified_type_real        PROTO((tree, int, int));
-extern void remap_save_expr                     PROTO((tree *, splay_tree, tree, int *));
+extern void init_tree			        PARAMS ((void));
+extern int pod_type_p				PARAMS ((tree));
+extern void unshare_base_binfos			PARAMS ((tree));
+extern int member_p				PARAMS ((tree));
+extern cp_lvalue_kind real_lvalue_p		PARAMS ((tree));
+extern tree build_min				PARAMS ((enum tree_code, tree, ...));
+extern tree build_min_nt			PARAMS ((enum tree_code, ...));
+extern int lvalue_p				PARAMS ((tree));
+extern int lvalue_or_else			PARAMS ((tree, const char *));
+extern tree build_cplus_new			PARAMS ((tree, tree));
+extern tree get_target_expr			PARAMS ((tree));
+extern tree break_out_cleanups			PARAMS ((tree));
+extern tree break_out_calls			PARAMS ((tree));
+extern tree build_cplus_method_type		PARAMS ((tree, tree, tree));
+extern tree build_cplus_staticfn_type		PARAMS ((tree, tree, tree));
+extern tree build_cplus_array_type		PARAMS ((tree, tree));
+extern tree hash_tree_cons			PARAMS ((tree, tree, tree));
+extern tree hash_tree_chain			PARAMS ((tree, tree));
+extern tree hash_chainon			PARAMS ((tree, tree));
+extern tree make_binfo				PARAMS ((tree, tree, tree, tree));
+extern tree binfo_value				PARAMS ((tree, tree));
+extern tree reverse_path			PARAMS ((tree));
+extern int count_functions			PARAMS ((tree));
+extern int is_overloaded_fn			PARAMS ((tree));
+extern tree get_first_fn			PARAMS ((tree));
+extern int bound_pmf_p				PARAMS ((tree));
+extern tree ovl_cons                            PARAMS ((tree, tree));
+extern int ovl_member                           PARAMS ((tree, tree));
+extern tree build_overload                      PARAMS ((tree, tree));
+extern tree fnaddr_from_vtable_entry		PARAMS ((tree));
+extern tree function_arg_chain			PARAMS ((tree));
+extern int promotes_to_aggr_type		PARAMS ((tree, enum tree_code));
+extern int is_aggr_type_2			PARAMS ((tree, tree));
+extern const char *lang_printable_name		PARAMS ((tree, int));
+extern tree build_exception_variant		PARAMS ((tree, tree));
+extern tree copy_template_template_parm		PARAMS ((tree));
+extern void print_lang_statistics		PARAMS ((void));
+extern tree array_type_nelts_total		PARAMS ((tree));
+extern tree array_type_nelts_top		PARAMS ((tree));
+extern tree break_out_target_exprs		PARAMS ((tree));
+extern tree get_type_decl			PARAMS ((tree));
+extern tree vec_binfo_member			PARAMS ((tree, tree));
+extern tree decl_namespace_context 		PARAMS ((tree));
+extern tree lvalue_type				PARAMS ((tree));
+extern tree error_type				PARAMS ((tree));
+extern tree build_ptr_wrapper			PARAMS ((void *));
+extern tree build_expr_ptr_wrapper		PARAMS ((void *));
+extern tree build_int_wrapper			PARAMS ((int));
+extern tree build_srcloc_here			PARAMS ((void));
+extern int varargs_function_p			PARAMS ((tree));
+extern int really_overloaded_fn			PARAMS ((tree));
+extern int cp_tree_equal			PARAMS ((tree, tree));
+extern int can_free				PARAMS ((struct obstack *, tree));
+extern tree no_linkage_check			PARAMS ((tree));
+extern void debug_binfo				PARAMS ((tree));
+extern tree build_dummy_object			PARAMS ((tree));
+extern tree maybe_dummy_object			PARAMS ((tree, tree *));
+extern int is_dummy_object			PARAMS ((tree));
+typedef tree (*walk_tree_fn)                    PARAMS ((tree *, int *, void *));
+extern tree walk_tree                           PARAMS ((tree *, walk_tree_fn, void *));
+extern tree copy_tree_r                         PARAMS ((tree *, int *, void *));
+extern int cp_valid_lang_attribute		PARAMS ((tree, tree, tree, tree));
+extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
+extern tree cp_build_qualified_type_real        PARAMS ((tree, int, int));
+extern void remap_save_expr                     PARAMS ((tree *, splay_tree, tree, int *));
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), /*complain=*/1)
-
-#define scratchalloc expralloc
-#define build_scratch_list build_expr_list
+extern tree build_shared_int_cst                PARAMS ((int));
 
 /* in typeck.c */
-extern int string_conv_p			PROTO((tree, tree, int));
-extern tree condition_conversion		PROTO((tree));
-extern tree target_type				PROTO((tree));
-extern tree require_complete_type		PROTO((tree));
-extern tree complete_type			PROTO((tree));
-extern tree complete_type_or_else               PROTO((tree, tree));
-extern int type_unknown_p			PROTO((tree));
-extern int fntype_p				PROTO((tree));
-extern tree commonparms				PROTO((tree, tree));
-extern tree original_type			PROTO((tree));
-extern tree common_type				PROTO((tree, tree));
-extern int comp_except_specs			PROTO((tree, tree, int));
-extern int comptypes				PROTO((tree, tree, int));
-extern int comp_target_types			PROTO((tree, tree, int));
-extern int compparms				PROTO((tree, tree));
-extern int comp_target_types			PROTO((tree, tree, int));
-extern int comp_cv_qualification                PROTO((tree, tree));
-extern int comp_cv_qual_signature               PROTO((tree, tree));
-extern tree unsigned_type			PROTO((tree));
-extern tree signed_type				PROTO((tree));
-extern tree signed_or_unsigned_type		PROTO((int, tree));
-extern tree expr_sizeof				PROTO((tree));
-extern tree c_sizeof				PROTO((tree));
-extern tree c_sizeof_nowarn			PROTO((tree));
-extern tree c_alignof				PROTO((tree));
-extern tree inline_conversion			PROTO((tree));
-extern tree decay_conversion			PROTO((tree));
-extern tree default_conversion			PROTO((tree));
-extern tree build_object_ref			PROTO((tree, tree, tree));
-extern tree build_component_ref_1		PROTO((tree, tree, int));
-extern tree build_component_ref			PROTO((tree, tree, tree, int));
-extern tree build_x_component_ref		PROTO((tree, tree, tree, int));
-extern tree build_x_indirect_ref		PROTO((tree, const char *));
-extern tree build_indirect_ref			PROTO((tree, const char *));
-extern tree build_array_ref			PROTO((tree, tree));
-extern tree build_x_function_call		PROTO((tree, tree, tree));
-extern tree get_member_function_from_ptrfunc	PROTO((tree *, tree));
-extern tree build_function_call_real		PROTO((tree, tree, int, int));
-extern tree build_function_call			PROTO((tree, tree));
-extern tree build_function_call_maybe		PROTO((tree, tree));
-extern tree convert_arguments			PROTO((tree, tree, tree, int));
-extern tree build_x_binary_op			PROTO((enum tree_code, tree, tree));
-extern tree build_binary_op			PROTO((enum tree_code, tree, tree));
-extern tree build_binary_op_nodefault		PROTO((enum tree_code, tree, tree, enum tree_code));
-extern tree build_x_unary_op			PROTO((enum tree_code, tree));
-extern tree build_unary_op			PROTO((enum tree_code, tree, int));
-extern tree unary_complex_lvalue		PROTO((enum tree_code, tree));
-extern int mark_addressable			PROTO((tree));
-extern tree build_x_conditional_expr		PROTO((tree, tree, tree));
-extern tree build_conditional_expr		PROTO((tree, tree, tree));
-extern tree build_x_compound_expr		PROTO((tree));
-extern tree build_compound_expr			PROTO((tree));
-extern tree build_static_cast			PROTO((tree, tree));
-extern tree build_reinterpret_cast		PROTO((tree, tree));
-extern tree build_const_cast			PROTO((tree, tree));
-extern tree build_c_cast			PROTO((tree, tree));
-extern tree build_x_modify_expr			PROTO((tree, enum tree_code, tree));
-extern tree build_modify_expr			PROTO((tree, enum tree_code, tree));
-extern tree convert_for_initialization		PROTO((tree, tree, tree, int, const char *, tree, int));
-extern void c_expand_asm_operands		PROTO((tree, tree, tree, tree, int, char *, int));
-extern void c_expand_return			PROTO((tree));
-extern tree c_expand_start_case			PROTO((tree));
-extern int comp_ptr_ttypes			PROTO((tree, tree));
-extern int ptr_reasonably_similar		PROTO((tree, tree));
-extern tree build_ptrmemfunc			PROTO((tree, tree, int));
-extern tree strip_array_types                   PROTO((tree));
-extern int cp_type_quals                        PROTO((tree));
-extern int cp_has_mutable_p                     PROTO((tree));
-extern int at_least_as_qualified_p              PROTO((tree, tree));
-extern int more_qualified_p                     PROTO((tree, tree));
-extern tree build_ptrmemfunc1                   PROTO((tree, tree, tree, tree, tree));
-extern void expand_ptrmemfunc_cst               PROTO((tree, tree *, tree *, tree *, tree *));
-extern tree delta2_from_ptrmemfunc              PROTO((tree));
-extern tree pfn_from_ptrmemfunc                 PROTO((tree));
-extern tree type_after_usual_arithmetic_conversions PROTO((tree, tree));
-extern tree composite_pointer_type              PROTO((tree, tree, tree, tree,
+extern int string_conv_p			PARAMS ((tree, tree, int));
+extern tree condition_conversion		PARAMS ((tree));
+extern tree target_type				PARAMS ((tree));
+extern tree require_complete_type		PARAMS ((tree));
+extern tree complete_type			PARAMS ((tree));
+extern tree complete_type_or_else               PARAMS ((tree, tree));
+extern int type_unknown_p			PARAMS ((tree));
+extern tree commonparms				PARAMS ((tree, tree));
+extern tree original_type			PARAMS ((tree));
+extern tree common_type				PARAMS ((tree, tree));
+extern int comp_except_specs			PARAMS ((tree, tree, int));
+extern int comptypes				PARAMS ((tree, tree, int));
+extern int comp_target_types			PARAMS ((tree, tree, int));
+extern int compparms				PARAMS ((tree, tree));
+extern int comp_target_types			PARAMS ((tree, tree, int));
+extern int comp_cv_qualification                PARAMS ((tree, tree));
+extern int comp_cv_qual_signature               PARAMS ((tree, tree));
+extern tree unsigned_type			PARAMS ((tree));
+extern tree signed_type				PARAMS ((tree));
+extern tree signed_or_unsigned_type		PARAMS ((int, tree));
+extern tree expr_sizeof				PARAMS ((tree));
+extern tree c_sizeof				PARAMS ((tree));
+extern tree c_sizeof_nowarn			PARAMS ((tree));
+extern tree c_alignof				PARAMS ((tree));
+extern tree inline_conversion			PARAMS ((tree));
+extern tree decay_conversion			PARAMS ((tree));
+extern tree default_conversion			PARAMS ((tree));
+extern tree build_object_ref			PARAMS ((tree, tree, tree));
+extern tree build_component_ref_1		PARAMS ((tree, tree, int));
+extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
+extern tree build_x_component_ref		PARAMS ((tree, tree, tree, int));
+extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
+extern tree build_indirect_ref			PARAMS ((tree, const char *));
+extern tree build_array_ref			PARAMS ((tree, tree));
+extern tree build_x_function_call		PARAMS ((tree, tree, tree));
+extern tree get_member_function_from_ptrfunc	PARAMS ((tree *, tree));
+extern tree build_function_call_real		PARAMS ((tree, tree, int, int));
+extern tree build_function_call			PARAMS ((tree, tree));
+extern tree build_function_call_maybe		PARAMS ((tree, tree));
+extern tree convert_arguments			PARAMS ((tree, tree, tree, int));
+extern tree build_x_binary_op			PARAMS ((enum tree_code, tree, tree));
+extern tree build_binary_op			PARAMS ((enum tree_code, tree, tree));
+extern tree build_x_unary_op			PARAMS ((enum tree_code, tree));
+extern tree build_unary_op			PARAMS ((enum tree_code, tree, int));
+extern tree unary_complex_lvalue		PARAMS ((enum tree_code, tree));
+extern int mark_addressable			PARAMS ((tree));
+extern tree build_x_conditional_expr		PARAMS ((tree, tree, tree));
+extern tree build_conditional_expr		PARAMS ((tree, tree, tree));
+extern tree build_x_compound_expr		PARAMS ((tree));
+extern tree build_compound_expr			PARAMS ((tree));
+extern tree build_static_cast			PARAMS ((tree, tree));
+extern tree build_reinterpret_cast		PARAMS ((tree, tree));
+extern tree build_const_cast			PARAMS ((tree, tree));
+extern tree build_c_cast			PARAMS ((tree, tree));
+extern tree build_x_modify_expr			PARAMS ((tree, enum tree_code, tree));
+extern tree build_modify_expr			PARAMS ((tree, enum tree_code, tree));
+extern tree dubious_conversion_warnings         PARAMS ((tree, tree, const char *, tree, int));
+extern tree convert_for_initialization		PARAMS ((tree, tree, tree, int, const char *, tree, int));
+extern void c_expand_asm_operands		PARAMS ((tree, tree, tree, tree, int, char *, int));
+extern void c_expand_return			PARAMS ((tree));
+extern tree c_expand_start_case			PARAMS ((tree));
+extern int comp_ptr_ttypes			PARAMS ((tree, tree));
+extern int ptr_reasonably_similar		PARAMS ((tree, tree));
+extern tree build_ptrmemfunc			PARAMS ((tree, tree, int));
+extern tree strip_array_types                   PARAMS ((tree));
+extern int cp_type_quals                        PARAMS ((tree));
+extern int cp_has_mutable_p                     PARAMS ((tree));
+extern int at_least_as_qualified_p              PARAMS ((tree, tree));
+extern int more_qualified_p                     PARAMS ((tree, tree));
+extern tree build_ptrmemfunc1                   PARAMS ((tree, tree, tree, tree, tree));
+extern void expand_ptrmemfunc_cst               PARAMS ((tree, tree *, tree *, tree *, tree *));
+extern tree delta2_from_ptrmemfunc              PARAMS ((tree));
+extern tree pfn_from_ptrmemfunc                 PARAMS ((tree));
+extern tree type_after_usual_arithmetic_conversions PARAMS ((tree, tree));
+extern tree composite_pointer_type              PARAMS ((tree, tree, tree, tree,
 						       const char*));
-extern tree check_return_expr                   PROTO((tree));
+extern tree check_return_expr                   PARAMS ((tree));
 
 /* in typeck2.c */
-extern tree error_not_base_type			PROTO((tree, tree));
-extern tree binfo_or_else			PROTO((tree, tree));
-extern void readonly_error			PROTO((tree, const char *, int));
-extern int abstract_virtuals_error		PROTO((tree, tree));
-extern void incomplete_type_error		PROTO((tree, tree));
-extern void my_friendly_abort			PROTO((int))
+extern tree error_not_base_type			PARAMS ((tree, tree));
+extern tree binfo_or_else			PARAMS ((tree, tree));
+extern void readonly_error			PARAMS ((tree, const char *, int));
+extern int abstract_virtuals_error		PARAMS ((tree, tree));
+extern void incomplete_type_error		PARAMS ((tree, tree));
+extern void my_friendly_abort			PARAMS ((int))
   ATTRIBUTE_NORETURN;
-extern void my_friendly_assert			PROTO((int, int));
-extern tree store_init_value			PROTO((tree, tree));
-extern tree digest_init				PROTO((tree, tree, tree *));
-extern tree build_scoped_ref			PROTO((tree, tree));
-extern tree build_x_arrow			PROTO((tree));
-extern tree build_m_component_ref		PROTO((tree, tree));
-extern tree build_functional_cast		PROTO((tree, tree));
-extern char *enum_name_string			PROTO((tree, tree));
-extern void report_case_error			PROTO((int, tree, tree, tree));
-extern void check_for_new_type			PROTO((const char *, flagged_type_tree));
-extern tree add_exception_specifier             PROTO((tree, tree, int));
+extern void my_friendly_assert			PARAMS ((int, int));
+extern tree store_init_value			PARAMS ((tree, tree));
+extern tree digest_init				PARAMS ((tree, tree, tree *));
+extern tree build_scoped_ref			PARAMS ((tree, tree));
+extern tree build_x_arrow			PARAMS ((tree));
+extern tree build_m_component_ref		PARAMS ((tree, tree));
+extern tree build_functional_cast		PARAMS ((tree, tree));
+extern char *enum_name_string			PARAMS ((tree, tree));
+extern void report_case_error			PARAMS ((int, tree, tree, tree));
+extern void check_for_new_type			PARAMS ((const char *, flagged_type_tree));
+extern tree add_exception_specifier             PARAMS ((tree, tree, int));
 
 /* in xref.c */
-extern void GNU_xref_begin			PROTO((const char *));
-extern void GNU_xref_end			PROTO((int));
-extern void GNU_xref_file			PROTO((const char *));
-extern void GNU_xref_start_scope		PROTO((HOST_WIDE_INT));
-extern void GNU_xref_end_scope			PROTO((HOST_WIDE_INT, HOST_WIDE_INT, int, int));
-extern void GNU_xref_ref			PROTO((tree, const char *));
-extern void GNU_xref_decl			PROTO((tree, tree));
-extern void GNU_xref_call			PROTO((tree, const char *));
-extern void GNU_xref_function			PROTO((tree, tree));
-extern void GNU_xref_assign			PROTO((tree));
-extern void GNU_xref_hier			PROTO((tree, tree, int, int, int));
-extern void GNU_xref_member			PROTO((tree, tree));
+extern void GNU_xref_begin			PARAMS ((const char *));
+extern void GNU_xref_end			PARAMS ((int));
+extern void GNU_xref_file			PARAMS ((const char *));
+extern void GNU_xref_start_scope		PARAMS ((HOST_WIDE_INT));
+extern void GNU_xref_end_scope			PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT, int, int));
+extern void GNU_xref_ref			PARAMS ((tree, const char *));
+extern void GNU_xref_decl			PARAMS ((tree, tree));
+extern void GNU_xref_call			PARAMS ((tree, const char *));
+extern void GNU_xref_function			PARAMS ((tree, tree));
+extern void GNU_xref_assign			PARAMS ((tree));
+extern void GNU_xref_hier			PARAMS ((tree, tree, int, int, int));
+extern void GNU_xref_member			PARAMS ((tree, tree));
 
 /* in dump.c */
-extern void dump_node_to_file                   PROTO ((tree, const char *));
+extern void dump_node_to_file                   PARAMS ((tree, const char *));
 
 /* -- end of C++ */
 

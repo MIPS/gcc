@@ -98,8 +98,8 @@ do {									\
 /* Allocate a register set with oballoc.  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
 
-/* Allocate a register set with alloca.  */
-#define ALLOCA_REG_SET() BITMAP_ALLOCA ()
+/* Initialize a register set.  Returns the new register set.  */
+#define INITIALIZE_REG_SET(HEAD) bitmap_initialize (&HEAD)
 
 /* Do any cleanup needed on a regset when it is no longer used.  */
 #define FREE_REG_SET(REGSET) BITMAP_FREE(REGSET)
@@ -222,7 +222,12 @@ extern void insert_insn_on_edge		PARAMS ((rtx, edge));
 extern void commit_edge_insertions	PARAMS ((void));
 extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
+extern rtx flow_delete_insn		PARAMS ((rtx));
 extern void flow_delete_insn_chain	PARAMS ((rtx, rtx));
+extern void make_edge			PARAMS ((sbitmap *, basic_block,
+						 basic_block, int));
+extern void remove_edge			PARAMS ((edge));
+extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
 
 
 /* Structure to hold information for each natural loop.  */
@@ -238,6 +243,14 @@ struct loop
 
   /* Basic block of loop pre-header or NULL if it does not exist.  */
   basic_block pre_header;
+
+  /* The first block in the loop.  This is not necessarily the same as
+     the loop header.  */
+  basic_block first;
+
+  /* The last block in the loop.  This is not necessarily the same as
+     the loop latch.  */
+  basic_block last;
 
   /* Bitmap of blocks contained within the loop.  */
   sbitmap nodes;
@@ -274,7 +287,48 @@ struct loop
   int invalid;
 
   /* Auxiliary info specific to a pass.  */
-  void *info;
+  void *aux;
+
+  /* The following are currently used by loop.c but they are likely to
+     disappear as loop.c is converted to use the CFG.  */
+
+  /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
+  rtx vtop;
+
+  /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
+     A continue statement will generate a branch to NEXT_INSN (cont).  */
+  rtx cont;
+
+  /* The dominator of cont.  */
+  rtx cont_dominator;
+
+  /* The NOTE_INSN_LOOP_BEG.  */
+  rtx start;
+
+  /* The NOTE_INSN_LOOP_END.  */
+  rtx end;
+
+  /* For a rotated loop that is entered near the bottom,
+     this is the label at the top.  Otherwise it is zero.  */
+  rtx top;
+
+  /* Place in the loop where control enters.  */
+  rtx scan_start;
+
+  /* List of all LABEL_REFs which refer to code labels outside the
+     loop.  Used by routines that need to know all loop exits, such as
+     final_biv_value and final_giv_value.
+     
+     This does not include loop exits due to return instructions.
+     This is because all bivs and givs are pseudos, and hence must be
+     dead after a return, so the presense of a return does not affect
+     any of the optimizations that use this info.  It is simpler to
+     just not include return instructions on this list.  */
+  rtx exit_labels;
+
+  /* The number of LABEL_REFs on exit_labels for this loop and all
+     loops nested inside it.  */
+  int exit_count;
 };
 
 
@@ -283,6 +337,9 @@ struct loops
 {
   /* Number of natural loops in the function.  */
   int num;
+
+  /* Maxium nested loop level in the function.  */
+  int levels;
 
   /* Array of natural loop descriptors (scanning this array in reverse order
      will find the inner loops before their enclosing outer loops).  */
@@ -379,9 +436,22 @@ extern struct edge_list *pre_edge_rev_lcm PARAMS ((FILE *, int, sbitmap *,
 						   sbitmap **));
 extern void compute_available		PARAMS ((sbitmap *, sbitmap *,
 						 sbitmap *, sbitmap *));
+extern void optimize_mode_switching	PARAMS ((FILE *));
 
 /* In emit-rtl.c.  */
 extern rtx emit_block_insn_after	PARAMS ((rtx, rtx, basic_block));
 extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
+
+/* In predict.c */
+extern void estimate_probability        PARAMS ((struct loops *));
+
+/* In flow.c */
+extern void reorder_basic_blocks	PARAMS ((void));
+extern void dump_bb			PARAMS ((basic_block, FILE *));
+extern void debug_bb			PARAMS ((basic_block));
+extern void debug_bb_n			PARAMS ((int));
+extern void dump_regset			PARAMS ((regset, FILE *));
+extern void debug_regset		PARAMS ((regset));
+
 
 #endif /* _BASIC_BLOCK_H */

@@ -1,5 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
-   Copyright (C) 1987, 1988, 91-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -54,10 +55,10 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
-static void validate_replace_rtx_1	PROTO((rtx *, rtx, rtx, rtx));
-static rtx *find_single_use_1		PROTO((rtx, rtx *));
-static rtx *find_constant_term_loc	PROTO((rtx *));
-static int insn_invalid_p		PROTO((rtx));
+static void validate_replace_rtx_1	PARAMS ((rtx *, rtx, rtx, rtx));
+static rtx *find_single_use_1		PARAMS ((rtx, rtx *));
+static rtx *find_constant_term_loc	PARAMS ((rtx *));
+static int insn_invalid_p		PARAMS ((rtx));
 
 /* Nonzero means allow operands to be volatile.
    This should be 0 if you are generating rtl, such as if you are calling
@@ -1404,7 +1405,7 @@ asm_noperands (body)
    If MODES, OPERAND_LOCS, CONSTRAINTS or OPERANDS is 0,
    we don't store that info.  */
 
-char *
+const char *
 decode_asm_operands (body, operands, operand_locs, constraints, modes)
      rtx body;
      rtx *operands;
@@ -1414,7 +1415,7 @@ decode_asm_operands (body, operands, operand_locs, constraints, modes)
 {
   register int i;
   int noperands;
-  char *template = 0;
+  const char *template = 0;
 
   if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
     {
@@ -1846,7 +1847,7 @@ offsettable_address_p (strictp, mode, y)
   register rtx z;
   rtx y1 = y;
   rtx *y2;
-  int (*addressp) PROTO ((enum machine_mode, rtx)) =
+  int (*addressp) PARAMS ((enum machine_mode, rtx)) =
     (strictp ? strict_memory_address_p : memory_address_p);
 
   if (CONSTANT_ADDRESS_P (y))
@@ -2130,7 +2131,7 @@ preprocess_constraints ()
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
 		  op_alt[j].matches = c - '0';
-		  op_alt[op_alt[j].matches].matched = i;
+		  recog_op_alt[op_alt[j].matches][j].matched = i;
 		  break;
 
 		case 'm':

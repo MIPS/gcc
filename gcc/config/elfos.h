@@ -84,15 +84,6 @@ Boston, MA 02111-1307, USA.  */
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 #endif
 
-/* This is how to output a reference to a user-level label named NAME.
-   `assemble_name' uses this.
-
-   For most ELF systems the convention is *not* to prepend a leading
-   underscore onto user-level symbol names.  */
-
-#undef  ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE,NAME) fprintf (FILE, "%s", NAME)
-     
 /* All SVR4 targets use the ELF object file format.  */
 #define OBJECT_FORMAT_ELF
 
@@ -359,23 +350,22 @@ dtors_section ()						\
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *prefixes[4][2] =			\
+      static const char *prefixes[/*4*/3][2] =			\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
-	{ ".data.",   ".gnu.linkonce.d." },			\
+	{ ".data.",   ".gnu.linkonce.d." }			\
 	/* Do not generate unique sections for uninitialised 	\
 	   data since we do not have support for this in the    \
 	   linker scripts yet...				\
-        { ".bss.",    ".gnu.linkonce.b." }  */			\
-	{ "", "" }						\
+        ,{ ".bss.",    ".gnu.linkonce.b." }  */			\
       };							\
       								\
       if (TREE_CODE (DECL) == FUNCTION_DECL)			\
 	sec = 0;						\
-      else if (DECL_INITIAL (DECL) == 0				\
+  /*  else if (DECL_INITIAL (DECL) == 0				\
 	       || DECL_INITIAL (DECL) == error_mark_node)	\
-	sec = 3;						\
+        sec =  3; */						\
       else if (DECL_READONLY_SECTION (DECL, RELOC))		\
 	sec = 1;						\
       else							\

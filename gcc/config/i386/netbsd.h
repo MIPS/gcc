@@ -15,7 +15,8 @@
   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_NO_FANCY_MATH_387)
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dunix -Di386 -D__NetBSD__ -Asystem(unix) -Asystem(NetBSD) -Acpu(i386) -Amachine(i386)"
+#define CPP_PREDEFINES "-Dunix -D__NetBSD__ \
+ -Asystem(unix) -Asystem(bsd) -Asystem(NetBSD)"
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -85,3 +86,7 @@
    and initialization stuff better.  */
 #define DWARF2_UNWIND_INFO 0
 
+/* This is the pseudo-op used to generate a 32-bit word of data with a
+   specific value in some section.  */
+
+#define INT_ASM_OP ".long"

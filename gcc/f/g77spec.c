@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the Fortran front-end.
-   Copyright (C) 1997, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -95,8 +95,6 @@ static void append_arg PARAMS ((const char *));
 static int g77_newargc;
 static char **real_g77_newargv;
 static const char **g77_newargv;
-
-extern char *version_string;
 
 /* --- This comes from gcc.c (2.8.1) verbatim: */
 
@@ -433,7 +431,7 @@ For more information on g77 and gcc, type the commands `info -f g77'\n\
 and `info -f gcc' to read the Info documentation.\n\
 \n\
 For bug reporting instructions, please see:\n\
-<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>.\n");
+%s.\n", GCCBUGURL);
 	  exit (0);
 	  break;
 #endif

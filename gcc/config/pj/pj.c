@@ -107,8 +107,8 @@ rtx pj_cmp_op0;
 rtx pj_cmp_op1;
 enum machine_mode pj_cmp_mode;
 
-static void pj_output_rval PROTO ((rtx, enum machine_mode, rtx));
-static void pj_output_store_into_lval PROTO ((enum machine_mode mode, rtx op));
+static void pj_output_rval PARAMS ((rtx, enum machine_mode, rtx));
+static void pj_output_store_into_lval PARAMS ((enum machine_mode mode, rtx op));
 
 /* These vectors turn a register number into an offset from the vars
    pointer register.  */
@@ -132,8 +132,8 @@ int pj_stuff_on_line;
  %X              - address constant.
  %<alpha><digit> - operand <digit> passed to pj_print_operand with code <alpha>.  */
 
-static void pj_printf
-VPROTO ((const char *template, ...))
+static void
+pj_printf VPARAMS ((const char *template, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *template;
@@ -900,18 +900,18 @@ pj_expand_prologue ()
 {
   int i;
   int off = 0;
-  int arg_words = current_function->args_info.named_words;
+  int arg_words = current_function_args_info.named_words;
 
   memset (pj_si_vars_offset_vec, -1, sizeof (pj_si_vars_offset_vec));
   memset (pj_di_vars_offset_vec, -1, sizeof (pj_di_vars_offset_vec));
 
   /* Work out the register numbers of the named arguments.  */
-  for (i = 0; i < current_function->args_info.named_words; i++)
+  for (i = 0; i < current_function_args_info.named_words; i++)
     {
       pj_debugreg_renumber_vec[I0_REG + i]
-	= off + R0_REG + current_function->args_info.arg_adjust[i];
+	= off + R0_REG + current_function_args_info.arg_adjust[i];
       pj_si_vars_offset_vec[I0_REG + i]
-	= off + current_function->args_info.arg_adjust[i];
+	= off + current_function_args_info.arg_adjust[i];
       pj_di_vars_offset_vec[I0_REG + i] = off;
       off++;
     }
@@ -1009,7 +1009,7 @@ pj_expand_epilogue ()
 
   if (current_function_varargs || current_function_stdarg)
     emit_insn (gen_varargs_finish
-	       (GEN_INT (current_function->args_info.named_words + 1)));
+	       (GEN_INT (current_function_args_info.named_words + 1)));
 
   emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, OPTOP_REG)));
 }

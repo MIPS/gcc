@@ -1,5 +1,6 @@
 ;;- Machine description for ROMP chip for GNU C compiler
-;;   Copyright (C) 1988, 91, 93, 94, 95, 98, 1999 Free Software Foundation, Inc.
+;;   Copyright (C) 1988, 1991, 1993, 1994, 1995, 1998, 1999, 2000
+;;   Free Software Foundation, Inc.
 ;;   Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 ;; This file is part of GNU CC.
@@ -438,6 +439,8 @@
       return \"get %O0,$%1\;ls %0,0(%O0)\;ls %O0,4(%O0)\";
     case 3:
       return \"st%M0 %1,%0\;st%M0 %O1,%O0\";
+    default:
+      abort();
     }
 }"
   [(set_attr "type" "multi")
@@ -1541,7 +1544,7 @@
       if (top != 0 && bottom != 0)
 	{
 	  emit_insn (gen_iorsi3 (operands[0], operands[1],
-				 GEN_INT (top << 16))));
+				 GEN_INT (top << 16)));
 	  operands[1] = operands[0];
 	  operands[2] = GEN_INT (bottom);
 	}

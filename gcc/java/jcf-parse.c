@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -57,6 +57,10 @@ extern struct obstack *saveable_obstack;
 extern struct obstack temporary_obstack;
 extern struct obstack permanent_obstack;
 
+/* Set to non-zero value in order to emit class initilization code
+   before static field references.  */
+extern int always_initialize_class_p;
+
 /* The class we are currently processing. */
 tree current_class = NULL_TREE;
 
@@ -76,16 +80,16 @@ static tree current_method = NULL_TREE;
 static struct JCF main_jcf[1];
 
 /* Declarations of some functions used here.  */
-static tree give_name_to_class PROTO ((JCF *jcf, int index));
-static void parse_zip_file_entries PROTO ((void));
-static void process_zip_dir PROTO ((void));
-static void parse_source_file PROTO ((tree));
-static void jcf_parse_source PROTO ((void));
-static int jcf_figure_file_type PROTO ((JCF *));
-static int find_in_current_zip PROTO ((const char *, struct JCF **));
-static void parse_class_file PROTO ((void));
-static void set_source_filename PROTO ((JCF *, int));
-static int predefined_filename_p PROTO ((tree));
+static tree give_name_to_class PARAMS ((JCF *jcf, int index));
+static void parse_zip_file_entries PARAMS ((void));
+static void process_zip_dir PARAMS ((void));
+static void parse_source_file PARAMS ((tree));
+static void jcf_parse_source PARAMS ((void));
+static int jcf_figure_file_type PARAMS ((JCF *));
+static int find_in_current_zip PARAMS ((const char *, struct JCF **));
+static void parse_class_file PARAMS ((void));
+static void set_source_filename PARAMS ((JCF *, int));
+static int predefined_filename_p PARAMS ((tree));
 
 /* Handle "SourceFile" attribute. */
 
@@ -179,6 +183,32 @@ set_source_filename (jcf, index)
       list = tree_cons (NULL_TREE, thrown_class, list); \
     } \
   DECL_FUNCTION_THROWS (current_method) = nreverse (list); \
+}
+
+/* Link seen inner classes to their outer context and register the
+   inner class to its outer context. They will be later loaded.  */
+#define HANDLE_INNERCLASSES_ATTRIBUTE(COUNT)				  \
+{									  \
+  int c = (count);							  \
+  while (c--)								  \
+    {									  \
+      tree class = get_class_constant (jcf, JCF_readu2 (jcf));	    	  \
+      if (!CLASS_COMPLETE_P (class))					  \
+	{								  \
+	  tree outer = TYPE_NAME (get_class_constant (jcf, 		  \
+						      JCF_readu2 (jcf))); \
+	  tree alias = get_name_constant (jcf, JCF_readu2 (jcf));	  \
+	  tree decl = TYPE_NAME (class);				  \
+	  JCF_SKIP (jcf, 2);					     	  \
+	  IDENTIFIER_GLOBAL_VALUE (alias) = decl;	     		  \
+	  DECL_CONTEXT (decl) = outer;					  \
+	  DECL_INNER_CLASS_LIST (outer) = 				  \
+	    tree_cons (decl, alias, DECL_INNER_CLASS_LIST (outer));	  \
+	  CLASS_COMPLETE_P (class) = 1;					  \
+	}								  \
+      else								  \
+	JCF_SKIP (jcf, 6);						  \
+    }									  \
 }
 
 #include "jcf-reader.c"
@@ -526,18 +556,7 @@ load_class (class_or_name, verbose)
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
   if (read_class (name) == 0 && verbose)
-    {
-      error ("Cannot find file for class %s.",
-	     IDENTIFIER_POINTER (name));
-      if (TREE_CODE (class_or_name) == RECORD_TYPE)
-	TYPE_SIZE (class_or_name) = error_mark_node;
-#if 0
-      /* FIXME: what to do here?  */
-      if (!strcmp (classpath, DEFAULT_CLASS_PATH))
-	fatal ("giving up");
-#endif
-      return;
-    }
+    fatal ("Cannot find file for class %s.", IDENTIFIER_POINTER (name));
 }
 
 /* Parse a source file when JCF refers to a source file.  */
@@ -572,6 +591,7 @@ jcf_parse (jcf)
      JCF* jcf;
 {
   int i, code;
+  tree current;
 
   if (jcf_parse_preamble (jcf) != 0)
     fatal ("Not a valid Java .class file.\n");
@@ -624,23 +644,21 @@ jcf_parse (jcf)
   else
     all_class_list = tree_cons (NULL_TREE, 
 				TYPE_NAME (current_class), all_class_list );
+
+  /* And if we came accross inner classes, load them now. */
+  for (current = DECL_INNER_CLASS_LIST (TYPE_NAME (current_class)); current;
+       current = TREE_CHAIN (current))
+    load_class (DECL_NAME (TREE_PURPOSE (current)), 1);
+
   pop_obstacks ();
 }
 
 void
 init_outgoing_cpool ()
 {
-  current_constant_pool_data_ref = NULL_TREE; 
-  if (outgoing_cpool == NULL)
-    {
-      static CPool outgoing_cpool_buffer;
-      outgoing_cpool = &outgoing_cpool_buffer;
-      CPOOL_INIT(outgoing_cpool);
-    }
-  else
-    {
-      CPOOL_REINIT(outgoing_cpool);
-    }
+  current_constant_pool_data_ref = NULL_TREE;
+  outgoing_cpool = (struct CPool *)xmalloc (sizeof (struct CPool));
+  bzero (outgoing_cpool, sizeof (struct CPool));
 }
 
 static void
@@ -656,6 +674,10 @@ parse_class_file ()
   lineno = 0;
   debug_start_source_file (input_filename);
   init_outgoing_cpool ();
+
+  /* Currently we always have to emit calls to _Jv_InitClass when
+     compiling from class files.  */
+  always_initialize_class_p = 1;
 
   for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
 	method != NULL_TREE; method = TREE_CHAIN (method))
@@ -740,6 +762,7 @@ parse_source_file (file)
   java_parse_abort_on_error ();
   java_fix_constructors ();	    /* Fix the constructors */
   java_parse_abort_on_error ();
+  java_reorder_fields ();	    /* Reorder the fields */
 }
 
 static int
@@ -896,7 +919,7 @@ parse_zip_file_entries (void)
 	continue;
 
       class = lookup_class (get_identifier (ZIPDIR_FILENAME (zdir)));
-      current_jcf = TYPE_LANG_SPECIFIC (class)->jcf;
+      current_jcf = TYPE_JCF (class);
       current_class = class;
 
       if ( !CLASS_LOADED_P (class))
@@ -973,9 +996,7 @@ static void process_zip_dir()
       jcf->classname   = class_name;
       jcf->filename    = file_name;
 
-      TYPE_LANG_SPECIFIC (class) = 
-        (struct lang_type *) perm_calloc (1, sizeof (struct lang_type));
-      TYPE_LANG_SPECIFIC (class)->jcf = jcf;
+      TYPE_JCF (class) = jcf;
     }
 }
 
@@ -997,10 +1018,10 @@ DEFUN(find_in_current_zip, (name, length, jcf),
   class = TREE_TYPE (icv);
 
   /* Doesn't have jcf specific info ? It's not ours */
-  if (!TYPE_LANG_SPECIFIC (class) || !TYPE_LANG_SPECIFIC (class)->jcf)
+  if (!TYPE_JCF (class))
     return 0;
 
-  *jcf = local_jcf = TYPE_LANG_SPECIFIC (class)->jcf;
+  *jcf = local_jcf = TYPE_JCF (class);
   fseek (local_jcf->read_state, local_jcf->zip_offset, SEEK_SET);
   return 1;
 }

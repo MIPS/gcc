@@ -1,5 +1,5 @@
 /* Utility to update paths from internal to external forms.
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -73,12 +73,12 @@ Boston, MA 02111-1307, USA.  */
 
 static const char *std_prefix = PREFIX;
 
-static const char *get_key_value	PROTO((char *));
-static const char *translate_name	PROTO((const char *));
-static char *save_string		PROTO((const char *, int));
+static const char *get_key_value	PARAMS ((char *));
+static const char *translate_name	PARAMS ((const char *));
+static char *save_string		PARAMS ((const char *, int));
 
 #if defined(_WIN32) && defined(ENABLE_WIN32_REGISTRY)
-static char *lookup_key		PROTO((char *));
+static char *lookup_key		PARAMS ((char *));
 static HKEY reg_key = (HKEY) INVALID_HANDLE_VALUE;
 #endif
 
@@ -112,7 +112,7 @@ get_key_value (key)
    This function is based on the one in libiberty.  */
 
 char *
-concat VPROTO((const char *first, ...))
+concat VPARAMS ((const char *first, ...))
 {
   register int length;
   register char *newstr;
@@ -139,7 +139,7 @@ concat VPROTO((const char *first, ...))
       arg = va_arg (args, const char *);
     }
 
-  newstr = (char *) malloc (length + 1);
+  newstr = (char *) xmalloc (length + 1);
   va_end (args);
 
   /* Now copy the individual pieces to the result string.  */
@@ -211,12 +211,12 @@ lookup_key (key)
     }
 
   size = 32;
-  dst = (char *) malloc (size);
+  dst = (char *) xmalloc (size);
 
   res = RegQueryValueExA (reg_key, key, 0, &type, dst, &size);
   if (res == ERROR_MORE_DATA && type == REG_SZ)
     {
-      dst = (char *) realloc (dst, size);
+      dst = (char *) xrealloc (dst, size);
       res = RegQueryValueExA (reg_key, key, 0, &type, dst, &size);
     }
 

@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
-   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -180,6 +181,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #endif
 #ifndef TARGET_CAN_FAULT_IN_PROLOGUE
 #define TARGET_CAN_FAULT_IN_PROLOGUE 0
+#endif
+#ifndef TARGET_HAS_XFLOATING_LIBS
+#define TARGET_HAS_XFLOATING_LIBS 0
 #endif
 
 /* Macro to define tables used to set the flags.
@@ -511,7 +515,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
   (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
 
 /* No data type wants to be aligned rounder than this.  */
-#define BIGGEST_ALIGNMENT 64
+#define BIGGEST_ALIGNMENT 128
 
 /* For atomic access to objects, must have at least 32-bit alignment
    unless the machine has byte operations.  */
@@ -962,6 +966,8 @@ extern int alpha_memory_latency;
 		+ (ALPHA_ROUND (get_frame_size ()			\
 			       + current_function_pretend_args_size)	\
 		   - current_function_pretend_args_size));		\
+  else									\
+    abort ();								\
 }
 
 /* Define this if stack space is still allocated for a parameter passed
@@ -1013,6 +1019,8 @@ extern int alpha_memory_latency;
 
 #define RETURN_IN_MEMORY(TYPE) \
   (TYPE_MODE (TYPE) == BLKmode \
+   || TYPE_MODE (TYPE) == TFmode \
+   || TYPE_MODE (TYPE) == TCmode \
    || (TREE_CODE (TYPE) == INTEGER_TYPE && TYPE_PRECISION (TYPE) > 64))
 
 /* 1 if N is a possible register number for a function value
@@ -1049,9 +1057,9 @@ extern int alpha_memory_latency;
    for the Alpha.  */
 
 #define ALPHA_ARG_SIZE(MODE, TYPE, NAMED)				\
-((MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD 	\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+  ((MODE) == TFmode || (MODE) == TCmode ? 1				\
+   : (((MODE) == BLKmode ? int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE)) \
+      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -1080,14 +1088,16 @@ extern int alpha_memory_latency;
    and the rest are pushed.  */
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
-((CUM) < 6 && ! MUST_PASS_IN_STACK (MODE, TYPE)	\
- ? gen_rtx_REG ((MODE),				\
-		(CUM) + 16			\
-		+ ((TARGET_FPREGS		\
-		    && (GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT  \
-			|| GET_MODE_CLASS (MODE) == MODE_FLOAT)) \
-		   * 32))			\
- : 0)
+  function_arg((CUM), (MODE), (TYPE), (NAMED))
+
+/* A C expression that indicates when an argument must be passed by
+   reference.  If nonzero for an argument, a copy of that argument is
+   made in memory and a pointer to the argument is passed instead of
+   the argument itself.  The pointer is passed in whatever way is
+   appropriate for passing a pointer to that type. */
+
+#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
+  ((MODE) == TFmode || (MODE) == TCmode)
 
 /* Specify the padding direction of arguments.
 
@@ -1132,7 +1142,6 @@ extern int alpha_memory_latency;
    class, but it isn't worth doing anything more efficient in this rare
    case.  */
    
-
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 { if ((CUM) < 6)							\
     {									\
@@ -1158,6 +1167,16 @@ extern int alpha_memory_latency;
       PRETEND_SIZE = 12 * UNITS_PER_WORD;				\
     }									\
 }
+
+/* We do not allow indirect calls to be optimized into sibling calls, nor
+   can we allow a call to a function in a different compilation unit to
+   be optimized into a sibcall.  Except if the function is known not to
+   return, in which case our caller doesn't care what the gp is.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL)			\
+  (DECL							\
+   && ((TREE_ASM_WRITTEN (DECL) && !flag_pic)		\
+       || ! TREE_PUBLIC (DECL)				\
+       || (0 && TREE_THIS_VOLATILE (DECL))))
 
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
@@ -1261,6 +1280,10 @@ struct machine_function
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
+
+/* Define registers used by the epilogue and return instruction.  */
+
+#define EPILOGUE_USES(REGNO)	((REGNO) == 26)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.
@@ -1305,6 +1328,7 @@ do {						\
 
 /* Before the prologue, RA lives in $26. */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
+#define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (26)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1674,7 +1698,8 @@ do {									\
 
 /* Define the value returned by a floating-point comparison instruction.  */
 
-#define FLOAT_STORE_FLAG_VALUE (TARGET_FLOAT_VAX ? 0.5 : 2.0)
+#define FLOAT_STORE_FLAG_VALUE(MODE) \
+  REAL_VALUE_ATOF ((TARGET_FLOAT_VAX ? "0.5" : "2.0"), (MODE))
 
 /* Canonicalize a comparison from one we don't have to one we do have.  */
 
@@ -2014,26 +2039,27 @@ literal_section ()						\
 #define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \
   ((OVERFLOW) = check_float_value (MODE, &D, OVERFLOW))
 
+/* This is how to output an assembler line defining a `long double'
+   constant.  */
+
+#define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE)				\
+  do {									\
+    long t[4];								\
+    REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), t);			\
+    fprintf (FILE, "\t.quad 0x%lx%08lx,0x%lx%08lx\n",			\
+	     t[1] & 0xffffffff, t[0] & 0xffffffff,			\
+	     t[3] & 0xffffffff, t[2] & 0xffffffff);			\
+  } while (0)
+
 /* This is how to output an assembler line defining a `double' constant.  */
 
 #define ASM_OUTPUT_DOUBLE(FILE,VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t[2];							\
-	REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-	fprintf (FILE, "\t.quad 0x%lx%08lx\n",				\
-		t[1] & 0xffffffff, t[0] & 0xffffffff);			\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL (VALUE, "%.20e", str);			\
-	fprintf (FILE, "\t.%c_floating %s\n", (TARGET_FLOAT_VAX)?'g':'t', str);			\
-      }									\
-  }
+  do {									\
+    long t[2];								\
+    REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);				\
+    fprintf (FILE, "\t.quad 0x%lx%08lx\n",				\
+	     t[1] & 0xffffffff, t[0] & 0xffffffff);			\
+  } while (0)
 
 /* This is how to output an assembler line defining a `float' constant.  */
 
@@ -2042,7 +2068,7 @@ literal_section ()						\
     long t;							\
     REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
     fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);		\
-} while (0)
+  } while (0)
   
 /* This is how to output an assembler line defining an `int' constant.  */
 
@@ -2207,6 +2233,7 @@ do {									\
   output_end_prologue (FILE);						\
 									\
   /* Rely on the assembler to macro expand a large delta.  */		\
+  fprintf (FILE, "\t.set at\n");					\
   reg = aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION))) ? 17 : 16;	\
   fprintf (FILE, "\tlda $%d,%ld($%d)\n", reg, (long)(DELTA), reg);	\
 									\
@@ -2223,6 +2250,7 @@ do {									\
       assemble_name (FILE, fn_name);					\
       fputc ('\n', FILE);						\
     }									\
+  fprintf (FILE, "\t.set noat\n");					\
 } while (0)
 
 
@@ -2303,6 +2331,7 @@ do {									\
   {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}},		\
   {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}},	\
   {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}},		\
+  {"alpha_fp_comparison_operator", {EQ, LE, LT, UNORDERED}},		\
   {"divmod_operator", {DIV, MOD, UDIV, UMOD}},				\
   {"fp0_operand", {CONST_DOUBLE}},					\
   {"current_file_function_operand", {SYMBOL_REF}},			\

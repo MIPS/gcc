@@ -1,5 +1,6 @@
 /* Utility routines for data type conversion for GNU C.
-   Copyright (C) 1987, 88, 91-95, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997,
+   1998 Free Software Foundation, Inc.
 
 This file is part of GNU C.
 
@@ -124,7 +125,7 @@ convert_to_integer (type, expr)
 
   /* An INTEGER_TYPE cannot be incomplete, but an ENUMERAL_TYPE can
      be.  Consider `enum E = { a, b = (enum E) 3 };'.  */
-  if (!TYPE_SIZE (type))
+  if (!COMPLETE_TYPE_P (type))
     {
       error ("conversion to incomplete type");
       return error_mark_node;

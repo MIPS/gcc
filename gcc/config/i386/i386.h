@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler for IA-32.
-   Copyright (C) 1988, 92, 94-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,10 +34,6 @@ Boston, MA 02111-1307, USA. */
    ADDR_BEG, ADDR_END, PRINT_IREG, PRINT_SCALE, PRINT_B_I_S, and many
    that start with ASM_ or end in ASM_OP.  */
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define I386 1
-
 /* Stubs for half-pic support if not OSF/1 reference platform.  */
 
 #ifndef HALF_PIC_P
@@ -62,6 +59,8 @@ struct processor_costs {
   int mult_bit;			/* cost of multiply per each bit set */
   int divide;			/* cost of a divide/mod */
   int large_insn;		/* insns larger than this cost more */
+  int move_ratio;		/* The threshold of number of scalar memory-to-memory
+				   move insns.  */
   int movzbl_load;		/* cost of loading using movzbl */
   int int_load[3];		/* cost of loading integer registers
 				   in QImode, HImode and SImode relative
@@ -99,6 +98,8 @@ extern int target_flags;
 #define MASK_NO_FANCY_MATH_387	0x00000040	/* Disable sin, cos, sqrt */
 #define MASK_OMIT_LEAF_FRAME_POINTER 0x080      /* omit leaf frame pointers */
 #define MASK_STACK_PROBE	0x00000100	/* Enable stack probing */
+#define MASK_NO_ALIGN_STROPS	0x00001000	/* Enable aligning of string ops. */
+#define MASK_INLINE_ALL_STROPS	0x00002000	/* Inline stringops in all cases */
 
 /* Temporary codegen switches */
 #define MASK_INTEL_SYNTAX	0x00000200
@@ -162,6 +163,8 @@ extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
 extern const int x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop;
+extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
+extern const int x86_promote_hi_regs;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
@@ -185,8 +188,15 @@ extern const int x86_promote_QImode, x86_single_stringop;
 #define TARGET_READ_MODIFY (x86_read_modify & CPUMASK)
 #define TARGET_PROMOTE_QImode (x86_promote_QImode & CPUMASK)
 #define TARGET_SINGLE_STRINGOP (x86_single_stringop & CPUMASK)
+#define TARGET_QIMODE_MATH (x86_qimode_math & CPUMASK)
+#define TARGET_HIMODE_MATH (x86_himode_math & CPUMASK)
+#define TARGET_PROMOTE_QI_REGS (x86_promote_qi_regs & CPUMASK)
+#define TARGET_PROMOTE_HI_REGS (x86_promote_hi_regs & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
+
+#define TARGET_ALIGN_STRINGOPS (!(target_flags & MASK_NO_ALIGN_STROPS))
+#define TARGET_INLINE_ALL_STRINGOPS (target_flags & MASK_INLINE_ALL_STROPS)
 
 #define ASSEMBLER_DIALECT ((target_flags & MASK_INTEL_SYNTAX) != 0)
 
@@ -236,6 +246,14 @@ extern const int x86_promote_QImode, x86_single_stringop;
   { "intel-syntax",		MASK_INTEL_SYNTAX,			      \
     "Emit Intel syntax assembler opcodes" },				      \
   { "no-intel-syntax",		-MASK_INTEL_SYNTAX, "" },		      \
+  { "align-stringops",		-MASK_NO_ALIGN_STROPS,			      \
+    "Align destination of the string operations" },			      \
+  { "no-align-stringops",	 MASK_NO_ALIGN_STROPS,			      \
+    "Do not align destination of the string operations" },		      \
+  { "inline-all-stringops",	 MASK_INLINE_ALL_STROPS,		      \
+    "Inline all known string operations" },				      \
+  { "no-inline-all-stringops",	-MASK_INLINE_ALL_STROPS,		      \
+    "Do not inline all known string operations" },			      \
   SUBTARGET_SWITCHES							      \
   { "", TARGET_DEFAULT, 0 }}
 
@@ -446,12 +464,23 @@ extern int ix86_arch;
 /* Minimum size in bits of the largest boundary to which any
    and all fundamental data types supported by the hardware
    might need to be aligned. No data type wants to be aligned
-   rounder than this.  The i386 supports 64-bit floating point
-   quantities, but these can be aligned on any 32-bit boundary.
-   The published ABIs say that doubles should be aligned on word
-   boundaries, but the Pentium gets better performance with them
-   aligned on 64 bit boundaries. */
-#define BIGGEST_ALIGNMENT (TARGET_ALIGN_DOUBLE ? 64 : 32)
+   rounder than this.
+   
+   Pentium+ preferrs DFmode values to be alignmed to 64 bit boundary
+   and Pentium Pro XFmode values at 128 bit boundaries.  */
+
+#define BIGGEST_ALIGNMENT 128
+
+/* The published ABIs say that doubles should be aligned on word
+   boundaries, so lower the aligment for structure fields unless
+   -malign-double is set.  */
+/* BIGGEST_FIELD_ALIGNMENT is also used in libobjc, where it must be
+   constant.  Use the smaller value in that context.  */
+#ifndef IN_TARGET_LIBS
+#define BIGGEST_FIELD_ALIGNMENT (TARGET_ALIGN_DOUBLE ? 64 : 32)
+#else
+#define BIGGEST_FIELD_ALIGNMENT 32
+#endif
 
 /* If defined, a C expression to compute the alignment given to a
    constant that is being placed in memory.  CONSTANT is the constant
@@ -611,7 +640,7 @@ extern int ix86_arch;
    eliminated during reloading in favor of either the stack or frame
    pointer. */
 
-#define FIRST_PSEUDO_REGISTER 20
+#define FIRST_PSEUDO_REGISTER 21
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER.  */
@@ -623,7 +652,9 @@ extern int ix86_arch;
    On the 80386, the stack pointer is such, as is the arg pointer. */
 #define FIXED_REGISTERS \
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr, dir*/ \
-{  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,  1,    0,   0,   0 }
+{  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,  1,    0,   0,   0,  \
+/*frame									    */ \
+   1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -634,7 +665,9 @@ extern int ix86_arch;
 
 #define CALL_USED_REGISTERS \
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,flags,fpsr, dir*/ \
-{  1, 1, 1, 0, 0, 0, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,  1,    1,   1,   1 }
+{  1, 1, 1, 0, 0, 0, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,  1,    1,   1,   1,  \
+/*frame									    */ \
+   1}
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -657,7 +690,9 @@ extern int ix86_arch;
 
 #define REG_ALLOC_ORDER \
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7,arg,cc,fpsr, dir*/ \
-{  0, 1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16,17,  18,  19 }
+{  0, 1, 2, 3, 4, 5, 6, 7, 8,  9, 10, 11, 12, 13, 14, 15, 16,17,  18,  19,  \
+/*frame									 */ \
+  20}
 
 /* A C statement (sans semicolon) to choose the order in which to
    allocate hard registers for pseudo-registers local to a basic
@@ -754,7 +789,10 @@ extern int ix86_arch;
 #define STACK_POINTER_REGNUM 7
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 6
+#define HARD_FRAME_POINTER_REGNUM 6
+
+/* Base register for access to local variables of the function.  */
+#define FRAME_POINTER_REGNUM 20
 
 /* First floating point reg */
 #define FIRST_FLOAT_REG 8
@@ -845,7 +883,7 @@ enum reg_class
   AREG, DREG, CREG, BREG, SIREG, DIREG,
   AD_REGS,			/* %eax/%edx for DImode */
   Q_REGS,			/* %eax %ebx %ecx %edx */
-  NON_Q_REGS,			/* %esi %edi %ebp %esi */
+  NON_Q_REGS,			/* %esi %edi %ebp %esp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
   FP_TOP_REG, FP_SECOND_REG,	/* %st(0) %st(1) */
@@ -885,13 +923,13 @@ enum reg_class
     {0x10},   {0x20},		/* SIREG, DIREG */		\
      {0x3},			/* AD_REGS */			\
      {0xf},			/* Q_REGS */			\
-    {0xf0},			/* NON_Q_REGS */		\
+{0x1100f0},			/* NON_Q_REGS */		\
     {0x7f},			/* INDEX_REGS */		\
- {0x100ff},			/* GENERAL_REGS */		\
+{0x1100ff},			/* GENERAL_REGS */		\
   {0x0100}, {0x0200},		/* FP_TOP_REG, FP_SECOND_REG */	\
   {0xff00},			/* FLOAT_REGS */		\
-  {0x1ffff},			/* FLOAT_INT_REGS */		\
- {0x7ffff}							\
+{0x11ffff},			/* FLOAT_INT_REGS */		\
+{0x17ffff}							\
 }
 
 /* The same information, inverted:
@@ -1192,6 +1230,11 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
+/* If PIC, we cannot optimize sibling calls to global functions
+   because the PLT requires %ebx live.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) \
+  (DECL && (! flag_pic || ! TREE_PUBLIC (DECL)))
+
 /* This macro is invoked just before the start of a function.
    It is used here to output code for -fpic that will load the
    return address into %ebx.  */
@@ -1271,11 +1314,11 @@ typedef struct ix86_args {
 	Note that function `__bb_trace_ret' must not change the
 	machine state, especially the flag register. To grant
 	this, you must output code to save and restore registers
-	either in this macro or in the macros MACHINE_STATE_SAVE_RET
-	and MACHINE_STATE_RESTORE_RET. The last two macros will be
+	either in this macro or in the macros MACHINE_STATE_SAVE
+	and MACHINE_STATE_RESTORE. The last two macros will be
 	used in the function `__bb_trace_ret', so you must make
 	sure that the function prologue does not change any 
-	register prior to saving it with MACHINE_STATE_SAVE_RET.
+	register prior to saving it with MACHINE_STATE_SAVE.
 
    else if profiling_block_flag != 0:
 
@@ -1307,20 +1350,21 @@ emit_call_insn (gen_call (gen_rtx_MEM (Pmode,		\
    On the i386 the initialization code at the begin of
    function `__bb_trace_func' contains a `sub' instruction
    therefore we handle save and restore of the flag register 
-   in the BLOCK_PROFILER macro. */
+   in the BLOCK_PROFILER macro.
+
+   Note that ebx, esi, and edi are callee-save, so we don't have to
+   preserve them explicitly.  */
 
 #define MACHINE_STATE_SAVE(ID)					\
 do {								\
   register int eax_ __asm__("eax");				\
   register int ecx_ __asm__("ecx");				\
   register int edx_ __asm__("edx");				\
-  register int esi_ __asm__("esi");				\
-  __asm__ __volatile__ (					\
-	"push{l} %0\n\t"					\
-	"push{l} %1\n\t"					\
-	"push{l} %2\n\t"					\
-	"push{l} %3"						\
-	: : "r"(eax_), "r"(ecx_), "r"(edx_), "r"(esi_));	\
+  __asm__ __volatile__ ("\
+push{l} %0\n\t\
+push{l} %1\n\t\
+push{l} %2"							\
+	: : "r"(eax_), "r"(ecx_), "r"(edx_));			\
 } while (0);
 
 #define MACHINE_STATE_RESTORE(ID)				\
@@ -1328,13 +1372,11 @@ do {								\
   register int eax_ __asm__("eax");				\
   register int ecx_ __asm__("ecx");				\
   register int edx_ __asm__("edx");				\
-  register int esi_ __asm__("esi");				\
-  __asm__ __volatile__ (					\
-	"pop{l} %3\n\t"						\
-	"pop{l} %2\n\t"						\
-	"pop{l} %1\n\t"						\
-	"pop{l} %0"						\
-	: "=r"(eax_), "=r"(ecx_), "=r"(edx_), "=r"(esi_));	\
+  __asm__ __volatile__ ("\
+pop{l} %2\n\t\
+pop{l} %1\n\t\
+pop{l} %0"							\
+	: "=r"(eax_), "=r"(ecx_), "=r"(edx_));			\
 } while (0);
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
@@ -1384,57 +1426,30 @@ do {								\
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.
 
-   We have two registers that can be eliminated on the i386.  First, the
-   frame pointer register can often be eliminated in favor of the stack
-   pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer. */
+   We have three registers that can be eliminated on the i386.  First, the
+   hard frame pointer register can often be eliminated in favor of the stack
+   pointer register.  Secondly, the argument and frame pointer register can
+   always be eliminated; They are replaced with either the stack or frame pointer. */
 
-#define ELIMINABLE_REGS				\
-{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},   \
- { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
+#define ELIMINABLE_REGS					\
+{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}	\
 
-/* Given FROM and TO register numbers, say whether this elimination is allowed.
-   Frame pointer elimination is automatically handled.
-
-   For the i386, if frame pointer elimination is being done, we would like to
-   convert ap into sp, not fp.
+/* Given FROM and TO register numbers, say whether this elimination is
+   allowed.  Frame pointer elimination is automatically handled.
 
    All other eliminations are valid.  */
 
-#define CAN_ELIMINATE(FROM, TO)					\
- ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM	\
-  ? ! frame_pointer_needed					\
-  : 1)
+#define CAN_ELIMINATE(FROM, TO) \
+  ((TO) == STACK_POINTER_REGNUM ? ! frame_pointer_needed : 1)
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
-{									\
-  if ((FROM) == ARG_POINTER_REGNUM && (TO) == FRAME_POINTER_REGNUM)	\
-    (OFFSET) = 8;	/* Skip saved PC and previous frame pointer */	\
-  else									\
-    {									\
-      int nregs;							\
-      int offset;							\
-      int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT; \
-      HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (),	\
-						     &nregs);		\
-									\
-      (OFFSET) = (tsize + nregs * UNITS_PER_WORD);			\
-									\
-      offset = 4;							\
-      if (frame_pointer_needed)						\
-	offset += UNITS_PER_WORD;					\
-									\
-      if ((FROM) == ARG_POINTER_REGNUM)					\
-	(OFFSET) += offset;						\
-      else								\
-	(OFFSET) -= ((offset + preferred_alignment - 1)			\
-		     & -preferred_alignment) - offset;			\
-    }									\
-}
+  (OFFSET) = ix86_initial_elimination_offset (FROM, TO)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1459,6 +1474,7 @@ do {								\
 #define REGNO_OK_FOR_BASE_P(REGNO) \
   ((REGNO) <= STACK_POINTER_REGNUM \
    || (REGNO) == ARG_POINTER_REGNUM \
+   || (REGNO) == FRAME_POINTER_REGNUM \
    || (unsigned) reg_renumber[REGNO] <= STACK_POINTER_REGNUM)
 
 #define REGNO_OK_FOR_SIREG_P(REGNO) ((REGNO) == 4 || reg_renumber[REGNO] == 4)
@@ -1486,6 +1502,7 @@ do {								\
 #define REG_OK_FOR_BASE_NONSTRICT_P(X)					\
   (REGNO (X) <= STACK_POINTER_REGNUM					\
    || REGNO (X) == ARG_POINTER_REGNUM					\
+   || REGNO (X) == FRAME_POINTER_REGNUM \
    || REGNO (X) >= FIRST_PSEUDO_REGISTER)
 
 #define REG_OK_FOR_STRREG_NONSTRICT_P(X)				\
@@ -1709,13 +1726,9 @@ while (0)
    Increasing the value will always make code faster, but eventually
    incurs high cost in increased code size.
 
-   If you don't define this, a reasonable default is used.
+   If you don't define this, a reasonable default is used.  */
 
-   Make this large on i386, since the block move is very inefficient with small
-   blocks, and the hard register needs of the block move require much reload
-   work. */
-
-#define MOVE_RATIO 5
+#define MOVE_RATIO (optimize_size ? 3 : ix86_cost->move_ratio)
 
 /* Define if shifts truncate the shift count
    which implies one can omit a sign-extension or zero-extension
@@ -1737,6 +1750,19 @@ while (0)
    (The 386 can't easily push less than an int.)  */
 
 #define PROMOTE_PROTOTYPES 1
+
+/* A macro to update M and UNSIGNEDP when an object whose type is
+   TYPE and which has the specified mode and signedness is to be
+   stored in a register.  This macro is only called when TYPE is a
+   scalar type.
+
+   On i386 it is sometimes usefull to promote HImode and QImode
+   quantities to SImode.  The choice depends on target type.  */
+
+#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE) 		\
+  if (((MODE) == HImode && TARGET_PROMOTE_HI_REGS)	\
+      || ((MODE) == QImode && TARGET_PROMOTE_QI_REGS))	\
+    (MODE) = SImode;
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -2172,7 +2198,7 @@ while (0)
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)","",	\
- "flags","fpsr", "dirflag" }
+ "flags","fpsr", "dirflag", "frame" }
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
@@ -2204,17 +2230,10 @@ number as al, and ax.
 
 /* How to renumber registers for dbx and gdb.  */
 
-/* {0,2,1,3,6,7,4,5,12,13,14,15,16,17}  */
-#define DBX_REGISTER_NUMBER(n) \
-((n) == 0 ? 0 : \
- (n) == 1 ? 2 : \
- (n) == 2 ? 1 : \
- (n) == 3 ? 3 : \
- (n) == 4 ? 6 : \
- (n) == 5 ? 7 : \
- (n) == 6 ? 4 : \
- (n) == 7 ? 5 : \
- (n) + 4)
+#define DBX_REGISTER_NUMBER(n)  dbx_register_map[n]
+
+extern int const dbx_register_map[FIRST_PSEUDO_REGISTER];
+extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
@@ -2322,6 +2341,17 @@ do { long l;						\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   fprintf (FILE, "\t%s\t%s%d-%s%d\n",ASM_LONG, LPREFIX, VALUE, LPREFIX, REL)
 
+/* A C statement that outputs an address constant appropriate to 
+   for DWARF debugging.  */
+
+#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE,X) \
+  i386_dwarf_output_addr_const((FILE),(X))
+
+/* Either simplify a location expression, or return the original.  */
+
+#define ASM_SIMPLIFY_DWARF_ADDR(X) \
+  i386_simplify_dwarf_addr(X)
+
 /* Define the parentheses used to group arithmetic operations
    in assembler code.  */
 
@@ -2391,6 +2421,8 @@ do { long l;						\
 	 { fputs ("fpsr", FILE); break; }		\
        if (REGNO (X) == ARG_POINTER_REGNUM)		\
 	 { fputs ("argp", FILE); break; }		\
+       if (REGNO (X) == FRAME_POINTER_REGNUM)		\
+	 { fputs ("frame", FILE); break; }		\
        if (STACK_TOP_P (X))				\
 	 { fputs ("st(0)", FILE); break; }		\
        if (FP_REG_P (X))				\
@@ -2426,15 +2458,19 @@ do { long l;						\
 
 #define PREDICATE_CODES							\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+		       LABEL_REF, SUBREG, REG, MEM}},			\
   {"pic_symbolic_operand", {CONST}},					\
   {"call_insn_operand", {MEM}},						\
-  {"expander_call_insn_operand", {MEM}},				\
   {"constant_call_address_operand", {MEM}},				\
   {"const0_operand", {CONST_INT, CONST_DOUBLE}},			\
   {"const1_operand", {CONST_INT}},					\
   {"const248_operand", {CONST_INT}},					\
   {"incdec_operand", {CONST_INT}},					\
   {"reg_no_sp_operand", {SUBREG, REG}},					\
+  {"general_no_elim_operand", {CONST_INT, CONST_DOUBLE, CONST,		\
+			SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM}},	\
+  {"nonmemory_no_elim_operand", {CONST_INT, REG, SUBREG}},		\
   {"q_regs_operand", {SUBREG, REG}},					\
   {"non_q_regs_operand", {SUBREG, REG}},				\
   {"no_comparison_operator", {EQ, NE, LT, GE, LTU, GTU, LEU, GEU}},	\

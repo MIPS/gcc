@@ -1,5 +1,5 @@
 // Functions for Exception Support for -*- C++ -*-
-// Copyright (C) 1994, 95-97, 1998, 1999 Free Software Foundation
+// Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation
 
 // This file is part of GNU CC.
 
@@ -184,7 +184,11 @@ __cplus_type_matcher (__eh_info *info_, void *match_info,
 
   /* we don't worry about version info yet, there is only one version! */
   
-  void *match_type = ((void *(*)())match_info) ();
+  void *match_type = match_info;
+  
+#if !defined (__GXX_ABI_VERSION) || __GXX_ABI_VERSION < 100
+  match_type  = ((void *(*)())match_type) ();
+#endif
 
   if (__throw_type_match_rtti_2 (match_type, info->type,
 				 info->original_value, &info->value))
@@ -248,10 +252,10 @@ __cp_pop_exception (cp_eh_info *p)
 
   if (p->cleanup)
     /* 2 is a magic value for destructors; see build_delete().  */
-    p->cleanup (p->value, 2);
+    p->cleanup (p->original_value, 2);  // value may have been adjusted.
 
   if (! __is_pointer (p->type))
-    __eh_free (p->original_value);  // value may have been co-erced.
+    __eh_free (p->original_value);  // value may have been adjusted.
 
   __eh_free (p);
 }
@@ -317,16 +321,29 @@ __check_eh_spec (int n, const void **spec)
     }
 }
 
-extern "C" void
-__throw_bad_cast (void)
-{
-  throw std::bad_cast ();
-}
+/* Special case of the above for throw() specs.  */
 
 extern "C" void
-__throw_bad_typeid (void)
+__check_null_eh_spec (void)
+{
+  __check_eh_spec (0, 0);
+}
+
+// Helpers for rtti. Although these don't return, we give them return types so
+// that the type system is not broken.
+
+extern "C" void *
+__throw_bad_cast ()
+{
+  throw std::bad_cast ();
+  return 0;
+}
+
+extern "C" std::type_info const &
+__throw_bad_typeid ()
 {
   throw std::bad_typeid ();
+  return typeid (void);
 }
 
 /* Has the current exception been caught?  */

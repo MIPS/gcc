@@ -2,7 +2,8 @@
    hosting on Windows NT 3.x, using a Unix style C library and tools,
    as distinct from winnt.h, which is used to build GCC for use with a
    windows style library and tool set and uses the Microsoft tools.
-   Copyright (C) 1995-2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -63,16 +64,13 @@ Boston, MA 02111-1307, USA. */
    is that args are not accumulated: each new appearance would clobber any
    existing args.  */
 
-#ifdef CPP_PREDEFINES
 #undef CPP_PREDEFINES
-#endif
-
-#define CPP_PREDEFINES "-Di386 -D_WIN32 \
+#define CPP_PREDEFINES "-D_WIN32 \
   -DWINNT  -D_X86_=1 -D__STDC__=1\
   -D__stdcall=__attribute__((__stdcall__)) \
   -D__cdecl=__attribute__((__cdecl__)) \
   -D__declspec(x)=__attribute__((x)) \
-  -Asystem(winnt) -Acpu(i386) -Amachine(i386)"
+  -Asystem(winnt)"
 
 /* Normally, -lgcc is not needed since everything in it is in the DLL, but we
    want to allow things to be added to it when installing new versions of
@@ -392,7 +390,7 @@ do {									\
       enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
     } *sections;							\
   struct section_info *s;						\
-  char *mode;								\
+  const char *mode;							\
   enum sect_enum type;							\
 									\
   for (s = sections; s; s = s->next)					\
@@ -496,24 +494,24 @@ do {									\
 
 /* External function declarations.  */
 
-#ifndef PROTO
+#ifndef PARAMS
 #if defined (USE_PROTOTYPES) ? USE_PROTOTYPES : defined (__STDC__)
-#define PROTO(ARGS) ARGS
+#define PARAMS(ARGS) ARGS
 #else
-#define PROTO(ARGS) ()
+#define PARAMS(ARGS) ()
 #endif
 #endif
 
 #ifdef BUFSIZ		/* stdio.h has been included, ok to use FILE * */
-#define STDIO_PROTO(ARGS) PROTO(ARGS)
+#define STDIO_PARAMS(ARGS) PARAMS(ARGS)
 #else
-#define STDIO_PROTO(ARGS) ()
+#define STDIO_PARAMS(ARGS) ()
 #endif
 
-extern void i386_pe_record_external_function PROTO((char *));
-extern void i386_pe_declare_function_type STDIO_PROTO((FILE *, char *, int));
-extern void i386_pe_record_exported_symbol PROTO((char *, int));
-extern void i386_pe_asm_file_end STDIO_PROTO((FILE *));
+extern void i386_pe_record_external_function PARAMS ((char *));
+extern void i386_pe_declare_function_type STDIO_PARAMS ((FILE *, char *, int));
+extern void i386_pe_record_exported_symbol PARAMS ((char *, int));
+extern void i386_pe_asm_file_end STDIO_PARAMS ((FILE *));
 
 /* For Win32 ABI compatibility */
 #undef DEFAULT_PCC_STRUCT_RETURN

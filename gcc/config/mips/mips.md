@@ -1,5 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
-;;  Copyright (C) 1989, 90-98, 1999 Free Software Foundation, Inc.
+;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+;;  1999, 2000 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -1930,7 +1931,7 @@
   rtx dummy = gen_rtx (SIGN_EXTEND, DImode, const0_rtx);
   rtx dummy2 = gen_rtx_LSHIFTRT (DImode, const0_rtx, const0_rtx);
 #ifndef NO_MD_PROTOTYPES
-  rtx (*genfn) PROTO((rtx, rtx, rtx, rtx, rtx, rtx));
+  rtx (*genfn) PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
 #else
   rtx (*genfn) ();
 #endif
@@ -1952,7 +1953,7 @@
   rtx dummy = gen_rtx (ZERO_EXTEND, DImode, const0_rtx);
   rtx dummy2 = gen_rtx_LSHIFTRT (DImode, const0_rtx, const0_rtx);
 #ifndef NO_MD_PROTOTYPES
-  rtx (*genfn) PROTO((rtx, rtx, rtx, rtx, rtx, rtx));
+  rtx (*genfn) PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
 #else
   rtx (*genfn) ();
 #endif
@@ -3614,7 +3615,7 @@ move\\t%0,%z4\\n\\
   "TARGET_64BIT"
   "
 {
-  if (optimize && GET_CODE (operands[1]) == MEM)
+  if ((optimize || TARGET_MIPS16) && GET_CODE (operands[1]) == MEM)
     operands[1] = force_not_mem (operands[1]);
 
   if (GET_CODE (operands[1]) != MEM)
@@ -3632,7 +3633,7 @@ move\\t%0,%z4\\n\\
 (define_insn "zero_extendsidi2_internal"
   [(set (match_operand:DI 0 "register_operand" "=d,d")
 	(zero_extend:DI (match_operand:SI 1 "memory_operand" "R,m")))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && !TARGET_MIPS16"
   "* return mips_move_1word (operands, insn, TRUE);"
   [(set_attr "type"	"load")
    (set_attr "mode"	"DI")
@@ -4774,7 +4775,7 @@ move\\t%0,%z4\\n\\
       && GET_CODE (operands[1]) == SYMBOL_REF
       && SYMBOL_REF_FLAG (operands[1]))
     {
-      char *name = XSTR (operands[1], 0);
+      const char *name = XSTR (operands[1], 0);
 
       if (name[0] != '*'
 	  || strncmp (name + 1, LOCAL_LABEL_PREFIX,
@@ -5196,7 +5197,7 @@ move\\t%0,%z4\\n\\
       && GET_CODE (operands[1]) == SYMBOL_REF
       && SYMBOL_REF_FLAG (operands[1]))
     {
-      char *name = XSTR (operands[1], 0);
+      const char *name = XSTR (operands[1], 0);
 
       if (name[0] != '*'
 	  || strncmp (name + 1, LOCAL_LABEL_PREFIX,
@@ -6053,8 +6054,8 @@ move\\t%0,%z4\\n\\
    (set_attr "length"	"4,8,16,8,16,16,8,8,8,8,16,8,16")])
 
 (define_insn "movdf_internal1a"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,R,R,To,To,f,*d,*d,*d,*To,*R,*d")
- 	(match_operand:DF 1 "general_operand"      " f,To,f,G,f,G,F,*F,*To,*R,*d,*d,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,R,R,To,To,*d,*d,*d,*To,*R,*d")
+ 	(match_operand:DF 1 "general_operand"      " f,To,f,G,f,G,*F,*To,*R,*d,*d,*d"))]
   "TARGET_HARD_FLOAT && (TARGET_FLOAT64 && !TARGET_64BIT)
    && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
@@ -6064,9 +6065,9 @@ move\\t%0,%z4\\n\\
 		&& INTVAL (operands[1]) == 0)
 	       || operands[1] == CONST0_RTX (DFmode))))"
   "* return mips_move_2words (operands, insn); "
-  [(set_attr "type"	"move,load,store,store,store,store,load,load,load,load,store,store,move")
+  [(set_attr "type"	"move,load,store,store,store,store,load,load,load,store,store,move")
    (set_attr "mode"	"DF")
-   (set_attr "length"	"4,8,4,4,8,8,8,8,8,4,8,4,4")])
+   (set_attr "length"	"4,8,4,4,8,8,8,8,4,8,4,4")])
 
 (define_insn "movdf_internal2"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=d,d,d,R,To")
@@ -9962,7 +9963,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:SI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:SI 3 "reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -9977,7 +9978,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:SI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:SI 3 "reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -10008,7 +10009,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:DI 2 "se_reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "se_reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -10023,7 +10024,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:DI 2 "se_reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "se_reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -10146,7 +10147,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 	(if_then_else:SI (match_dup 5)
 			 (match_operand:SI 2 "reg_or_0_operand" "")
 			 (match_operand:SI 3 "reg_or_0_operand" "")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
   "
 {
   gen_conditional_move (operands);
@@ -10159,7 +10160,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 	(if_then_else:DI (match_dup 5)
 			 (match_operand:DI 2 "se_reg_or_0_operand" "")
 			 (match_operand:DI 3 "se_reg_or_0_operand" "")))]
-  "ISA_HAS_CONDMOVE" 
+  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE" 
   "
 {
   gen_conditional_move (operands);

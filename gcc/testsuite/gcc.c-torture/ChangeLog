@@ -1,3 +1,49 @@
+2000-03-24  Geoff Keating  <geoffk@cygnus.com>
+
+	* execute/va-arg-14.c: New test for va_start where the first
+	parameter is a function argument.
+
+2000-03-22  Geoff Keating  <geoffk@cygnus.com>
+
+	* execute/ieee/20000320-1.c: New test for denormals.
+
+Fri Mar 10 01:15:19 2000  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* execute/divconst-2.c: Rewrite to check for standards-compliant
+	result rather than specific constants.  Put test-values in array.
+
+Sun Mar  5 23:25:12 2000  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* execute/20000224-1.c (main): Expected return-value is	1, not
+	zero.
+
+2000-02-25  Geoff Keating  <geoffk@cygnus.com>
+
+	* compile/20000224-1.c: New test.
+
+2000-02-25  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* compile/cpp-2.c: New test.
+
+	* compile/cpp-1.c: New test.
+
+2000-02-23  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* execute/va-arg-13.c: New test.
+
+Wed Feb 23 14:16:06 2000  Donald Lindsay  <dlindsay@cygnus.com>
+
+	* execute/va-arg-12.c: New test.
+
+2000-02-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* execute/20000223-1.c: New test.
+
+2000-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* compile/20000127-1.c: New test.
+	* execute/991228-1.c: New test.
+
 1999-12-27  Martin von Löwis  <loewis@informatik.hu-berlin.de>
 
 	* execute/991227-1.c: New test.

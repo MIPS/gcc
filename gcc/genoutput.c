@@ -1,5 +1,5 @@
 /* Generate code from to output assembler insns as recognized from rtl.
-   Copyright (C) 1987, 88, 92, 94-95, 97-98, 1999
+   Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -103,7 +103,8 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-static int n_occurrences PROTO((int, char *));
+static int n_occurrences		PARAMS ((int, const char *));
+static const char *strip_whitespace	PARAMS ((const char *));
 
 /* insns in the machine description are assigned sequential code numbers
    that are used by insn-recog.c (produced by genrecog) to communicate
@@ -175,22 +176,21 @@ struct data
 
 static struct data *idata, **idata_end = &idata;
 
-static void output_prologue PROTO((void));
-static void output_predicate_decls PROTO((void));
-static void output_operand_data PROTO((void));
-static void output_insn_data PROTO((void));
-static void output_get_insn_name PROTO((void));
-static void scan_operands PROTO((struct data *, rtx, int, int));
-static int compare_operands PROTO((struct operand_data *,
+static void output_prologue PARAMS ((void));
+static void output_predicate_decls PARAMS ((void));
+static void output_operand_data PARAMS ((void));
+static void output_insn_data PARAMS ((void));
+static void output_get_insn_name PARAMS ((void));
+static void scan_operands PARAMS ((struct data *, rtx, int, int));
+static int compare_operands PARAMS ((struct operand_data *,
 				   struct operand_data *));
-static void place_operands PROTO((struct data *));
-static void process_template PROTO((struct data *, char *));
-static void validate_insn_alternatives PROTO((struct data *));
-static void gen_insn PROTO((rtx));
-static void gen_peephole PROTO((rtx));
-static void gen_expand PROTO((rtx));
-static void gen_split PROTO((rtx));
-static int n_occurrences PROTO((int, char *));
+static void place_operands PARAMS ((struct data *));
+static void process_template PARAMS ((struct data *, const char *));
+static void validate_insn_alternatives PARAMS ((struct data *));
+static void gen_insn PARAMS ((rtx));
+static void gen_peephole PARAMS ((rtx));
+static void gen_expand PARAMS ((rtx));
+static void gen_split PARAMS ((rtx));
 
 const char *
 get_insn_name (index)
@@ -221,10 +221,10 @@ output_prologue ()
   printf ("/* Generated automatically by the program `genoutput'\n\
 from the machine description file `md'.  */\n\n");
 
-  printf ("#define NO_MD_PROTOTYPES\n");
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
   printf ("#include \"flags.h\"\n");
+  printf ("#include \"ggc.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
@@ -262,7 +262,7 @@ output_predicate_decls ()
 
 	if (p == 0)
 	  {
-	    printf ("extern int %s PROTO ((rtx, enum machine_mode));\n",
+	    printf ("extern int %s PARAMS ((rtx, enum machine_mode));\n",
 		    d->predicate);
 	    p = (struct predicate *) alloca (sizeof (struct predicate));
 	    p->name = d->predicate;
@@ -368,7 +368,7 @@ output_insn_data ()
 	}
 
       if (d->name && d->name[0] != '*')
-	printf ("    gen_%s,\n", d->name);
+	printf ("    (insn_gen_fn) gen_%s,\n", d->name);
       else
 	printf ("    0,\n");
 
@@ -438,10 +438,9 @@ scan_operands (d, part, this_address_p, this_strict_low)
       d->operand[opno].mode = GET_MODE (part);
       d->operand[opno].strict_low = this_strict_low;
       d->operand[opno].predicate = XSTR (part, 1);
-      d->operand[opno].constraint = XSTR (part, 2);
-      if (XSTR (part, 2) != 0 && *XSTR (part, 2) != 0)
-	d->operand[opno].n_alternatives
-	  = n_occurrences (',', XSTR (part, 2)) + 1;
+      d->operand[opno].constraint = strip_whitespace (XSTR (part, 2));
+      d->operand[opno].n_alternatives
+	= n_occurrences (',', d->operand[opno].constraint) + 1;
       d->operand[opno].address_p = this_address_p;
       d->operand[opno].eliminable = 1;
       return;
@@ -463,10 +462,9 @@ scan_operands (d, part, this_address_p, this_strict_low)
       d->operand[opno].mode = GET_MODE (part);
       d->operand[opno].strict_low = 0;
       d->operand[opno].predicate = "scratch_operand";
-      d->operand[opno].constraint = XSTR (part, 1);
-      if (XSTR (part, 1) != 0 && *XSTR (part, 1) != 0)
-	d->operand[opno].n_alternatives
-	  = n_occurrences (',', XSTR (part, 1)) + 1;
+      d->operand[opno].constraint = strip_whitespace (XSTR (part, 1));
+      d->operand[opno].n_alternatives
+	= n_occurrences (',', d->operand[opno].constraint) + 1;
       d->operand[opno].address_p = 0;
       d->operand[opno].eliminable = 0;
       return;
@@ -630,9 +628,9 @@ place_operands (d)
 static void
 process_template (d, template)
     struct data *d;
-    char *template;
+    const char *template;
 {
-  register char *cp;
+  register const char *cp;
   register int i;
 
   /* Templates starting with * contain straight code to be run.  */
@@ -641,7 +639,7 @@ process_template (d, template)
       d->template = 0;
       d->output_format = INSN_OUTPUT_FORMAT_FUNCTION;
 
-      printf ("\nstatic const char *output_%d PROTO ((rtx *, rtx));\n",
+      printf ("\nstatic const char *output_%d PARAMS ((rtx *, rtx));\n",
 	      d->code_number);
       puts ("\nstatic const char *");
       printf ("output_%d (operands, insn)\n", d->code_number);
@@ -897,7 +895,7 @@ xrealloc (old, size)
   return ptr;
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)
@@ -959,13 +957,43 @@ main (argc, argv)
 	? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
 }
 
+/* Return the number of occurrences of character C in string S or
+   -1 if S is the null string.  */
+
 static int
 n_occurrences (c, s)
      int c;
-     char *s;
+     const char *s;
 {
   int n = 0;
+
+  if (s == 0 || *s == '\0')
+    return -1;
+
   while (*s)
     n += (*s++ == c);
+
   return n;
+}
+
+/* Remove whitespace in `s' by moving up characters until the end.
+   Return a new string.  */
+
+static const char *
+strip_whitespace (s)
+     const char *s;
+{
+  char *p, *q;
+  char ch;
+
+  if (s == 0)
+    return 0;
+
+  p = q = xmalloc (strlen (s) + 1);
+  while ((ch = *s++) != '\0')
+    if (! ISSPACE (ch))
+      *p++ = ch;
+
+  *p = '\0';
+  return q;
 }

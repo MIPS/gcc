@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GNU CC.
@@ -74,7 +74,7 @@ varray_grow (va, n)
 
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
 
-extern void error PVPROTO ((const char *, ...))	ATTRIBUTE_PRINTF_1;
+extern void error PARAMS ((const char *, ...))	ATTRIBUTE_PRINTF_1;
 
 void
 varray_check_failed (va, n, file, line, function)

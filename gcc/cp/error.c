@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993, 94-97, 1998, 1999 Free Software Foundation, Inc.
-
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    This file is part of GNU CC.
 
 GNU CC is free software; you can redistribute it and/or modify
@@ -57,44 +57,44 @@ static char *scratch_firstobj;
 
 enum pad { none, before, after };
 
-static const char *args_to_string		PROTO((tree, int));
-static const char *assop_to_string		PROTO((enum tree_code, int));
-static const char *code_to_string		PROTO((enum tree_code, int));
-static const char *cv_to_string			PROTO((tree, int));
-static const char *decl_to_string		PROTO((tree, int));
-static const char *expr_to_string		PROTO((tree, int));
-static const char *fndecl_to_string		PROTO((tree, int));
-static const char *language_to_string		PROTO((enum languages, int));
-static const char *op_to_string			PROTO((enum tree_code, int));
-static const char *parm_to_string		PROTO((int, int));
-static const char *type_to_string		PROTO((tree, int));
+static const char *args_to_string		PARAMS ((tree, int));
+static const char *assop_to_string		PARAMS ((enum tree_code, int));
+static const char *code_to_string		PARAMS ((enum tree_code, int));
+static const char *cv_to_string			PARAMS ((tree, int));
+static const char *decl_to_string		PARAMS ((tree, int));
+static const char *expr_to_string		PARAMS ((tree, int));
+static const char *fndecl_to_string		PARAMS ((tree, int));
+static const char *language_to_string		PARAMS ((enum languages, int));
+static const char *op_to_string			PARAMS ((enum tree_code, int));
+static const char *parm_to_string		PARAMS ((int, int));
+static const char *type_to_string		PARAMS ((tree, int));
 
-static void dump_type PROTO((tree, enum tree_string_flags));
-static void dump_simple_decl PROTO((tree, tree, enum tree_string_flags));
-static void dump_decl PROTO((tree, enum tree_string_flags));
-static void dump_template_decl PROTO((tree, enum tree_string_flags));
-static void dump_function_decl PROTO((tree, enum tree_string_flags));
-static void dump_expr PROTO((tree, enum tree_string_flags));
-static void dump_unary_op PROTO((const char *, tree, enum tree_string_flags));
-static void dump_binary_op PROTO((const char *, tree, enum tree_string_flags));
-static void dump_aggr_type PROTO((tree, enum tree_string_flags));
-static enum pad dump_type_prefix PROTO((tree, enum tree_string_flags));
-static void dump_type_suffix PROTO((tree, enum tree_string_flags));
-static void dump_function_name PROTO((tree, enum tree_string_flags));
-static void dump_expr_list PROTO((tree, enum tree_string_flags));
-static void dump_global_iord PROTO((tree));
-static enum pad dump_qualifiers PROTO((tree, enum pad));
-static void dump_char PROTO((int));
-static void dump_parameters PROTO((tree, enum tree_string_flags));
-static void dump_exception_spec PROTO((tree, enum tree_string_flags));
-static const char *aggr_variety PROTO((tree));
-static tree ident_fndecl PROTO((tree));
-static void dump_template_argument PROTO((tree, enum tree_string_flags));
-static void dump_template_argument_list PROTO((tree, enum tree_string_flags));
-static void dump_template_parameter PROTO((tree, enum tree_string_flags));
-static void dump_template_bindings PROTO((tree, tree));
-static void dump_scope PROTO((tree, enum tree_string_flags));
-static void dump_template_parms PROTO((tree, int, enum tree_string_flags));
+static void dump_type PARAMS ((tree, enum tree_string_flags));
+static void dump_simple_decl PARAMS ((tree, tree, enum tree_string_flags));
+static void dump_decl PARAMS ((tree, enum tree_string_flags));
+static void dump_template_decl PARAMS ((tree, enum tree_string_flags));
+static void dump_function_decl PARAMS ((tree, enum tree_string_flags));
+static void dump_expr PARAMS ((tree, enum tree_string_flags));
+static void dump_unary_op PARAMS ((const char *, tree, enum tree_string_flags));
+static void dump_binary_op PARAMS ((const char *, tree, enum tree_string_flags));
+static void dump_aggr_type PARAMS ((tree, enum tree_string_flags));
+static enum pad dump_type_prefix PARAMS ((tree, enum tree_string_flags));
+static void dump_type_suffix PARAMS ((tree, enum tree_string_flags));
+static void dump_function_name PARAMS ((tree, enum tree_string_flags));
+static void dump_expr_list PARAMS ((tree, enum tree_string_flags));
+static void dump_global_iord PARAMS ((tree));
+static enum pad dump_qualifiers PARAMS ((tree, enum pad));
+static void dump_char PARAMS ((int));
+static void dump_parameters PARAMS ((tree, enum tree_string_flags));
+static void dump_exception_spec PARAMS ((tree, enum tree_string_flags));
+static const char *aggr_variety PARAMS ((tree));
+static tree ident_fndecl PARAMS ((tree));
+static void dump_template_argument PARAMS ((tree, enum tree_string_flags));
+static void dump_template_argument_list PARAMS ((tree, enum tree_string_flags));
+static void dump_template_parameter PARAMS ((tree, enum tree_string_flags));
+static void dump_template_bindings PARAMS ((tree, tree));
+static void dump_scope PARAMS ((tree, enum tree_string_flags));
+static void dump_template_parms PARAMS ((tree, int, enum tree_string_flags));
 
 #define A args_to_string
 #define C code_to_string
@@ -221,8 +221,7 @@ dump_template_argument (arg, flags)
      tree arg;
      enum tree_string_flags flags;
 {
-  if (TREE_CODE_CLASS (TREE_CODE (arg)) == 't'
-      || TREE_CODE (arg) == TEMPLATE_DECL)
+  if (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL)
     dump_type (arg, flags & ~TS_AGGR_TAGS);
   else
     dump_expr (arg, (flags | TS_EXPR_PARENS) & ~TS_AGGR_TAGS);
@@ -721,8 +720,8 @@ dump_type_suffix (t, flags)
       OB_PUTC ('[');
       if (TYPE_DOMAIN (t))
 	{
-	  if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (t))) == INTEGER_CST)
-	    OB_PUTI (TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (t))) + 1);
+	  if (host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0))
+	    OB_PUTI (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0) + 1);
 	  else if (TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (t))) == MINUS_EXPR)
 	    dump_expr (TREE_OPERAND (TYPE_MAX_VALUE (TYPE_DOMAIN (t)), 0),
 	               flags & ~TS_EXPR_PARENS);
@@ -1130,9 +1129,8 @@ dump_function_decl (t, flags)
   fntype = TREE_TYPE (t);
   parmtypes = TYPE_ARG_TYPES (fntype);
 
-  /* Friends have DECL_CLASS_CONTEXT set, but not DECL_CONTEXT.  */
   if (DECL_CLASS_SCOPE_P (t))
-    cname = DECL_CLASS_CONTEXT (t);
+    cname = DECL_CONTEXT (t);
   /* this is for partially instantiated template methods */
   else if (TREE_CODE (fntype) == METHOD_TYPE)
     cname = TREE_TYPE (TREE_VALUE (parmtypes));
@@ -1478,9 +1476,7 @@ dump_expr (t, flags)
 	  }
 	else if (type == boolean_type_node)
 	  {
-	    if (t == boolean_false_node
-		|| (TREE_INT_CST_LOW (t) == 0
-		    && TREE_INT_CST_HIGH (t) == 0))
+	    if (t == boolean_false_node || integer_zerop (t))
 	      OB_PUTS ("false");
 	    else if (t == boolean_true_node)
 	      OB_PUTS ("true");
@@ -1488,14 +1484,15 @@ dump_expr (t, flags)
 	else if (type == char_type_node)
 	  {
 	    OB_PUTC ('\'');
-	    dump_char (TREE_INT_CST_LOW (t));
+	    dump_char (tree_low_cst (t, 0));
 	    OB_PUTC ('\'');
 	  }
-	else if (TREE_INT_CST_HIGH (t)
+	else if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (t)
 		 != (TREE_INT_CST_LOW (t) >> (HOST_BITS_PER_WIDE_INT - 1)))
 	  {
 	    tree val = t;
-	    if (TREE_INT_CST_HIGH (val) < 0)
+
+	    if (tree_int_cst_sgn (val) < 0)
 	      {
 		OB_PUTC ('-');
 		val = build_int_2 (~TREE_INT_CST_LOW (val),
@@ -1651,8 +1648,9 @@ dump_expr (t, flags)
 	if (TREE_CODE (type) == ARRAY_REF)
 	  type = build_cplus_array_type
 	    (TREE_OPERAND (type, 0),
-	     build_index_type (size_binop (MINUS_EXPR, TREE_OPERAND (type, 1),
-					   integer_one_node)));
+	     build_index_type (fold (build (MINUS_EXPR, integer_type_node,
+					    TREE_OPERAND (type, 1),
+					    integer_one_node))));
 	dump_type (type, flags);
 	if (TREE_OPERAND (t, 2))
 	  {
@@ -1850,8 +1848,7 @@ dump_expr (t, flags)
 	      OB_PUTS (") 0)");
 	      break;
 	    }
-	  else if (TREE_CODE (idx) == INTEGER_CST
-		   && TREE_INT_CST_HIGH (idx) == 0)
+	  else if (host_integerp (idx, 0))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -1860,7 +1857,7 @@ dump_expr (t, flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = TYPE_BINFO_VIRTUALS (TYPE_MAIN_VARIANT (t));
 	      
-	      n = TREE_INT_CST_LOW (idx);
+	      n = tree_low_cst (idx, 0);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */
@@ -1967,7 +1964,7 @@ dump_expr (t, flags)
 	  my_friendly_assert (TREE_CODE (t) == ALIGNOF_EXPR, 0);
 	  OB_PUTS ("__alignof__ (");
 	}
-      if (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 0))) == 't')
+      if (TYPE_P (TREE_OPERAND (t, 0)))
 	dump_type (TREE_OPERAND (t, 0), flags);
       else
 	dump_unary_op ("*", t, flags | TS_EXPR_PARENS);
@@ -2147,12 +2144,7 @@ lang_decl_name (decl, v)
 
   if (v == 1 && DECL_CLASS_SCOPE_P (decl))
     {
-      tree cname;
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	cname = DECL_CLASS_CONTEXT (decl);
-      else
-	cname = DECL_CONTEXT (decl);
-      dump_type (cname, TS_PLAIN);
+      dump_type (CP_DECL_CONTEXT (decl), TS_PLAIN);
       OB_PUTS ("::");
     }
 
@@ -2172,7 +2164,7 @@ cp_file_of (t)
 {
   if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
     return DECL_SOURCE_FILE (DECL_CONTEXT (t));
-  else if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  else if (TYPE_P (t))
     return DECL_SOURCE_FILE (TYPE_MAIN_DECL (t));
   else if (TREE_CODE (t) == OVERLOAD)
     return DECL_SOURCE_FILE (OVL_FUNCTION (t));
@@ -2191,7 +2183,7 @@ cp_line_of (t)
       && TYPE_MAIN_DECL (TREE_TYPE (t)))
     t = TREE_TYPE (t);
 
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  if (TYPE_P (t))
     line = DECL_SOURCE_LINE (TYPE_MAIN_DECL (t));
   else if (TREE_CODE (t) == OVERLOAD)
     line = DECL_SOURCE_LINE (OVL_FUNCTION (t));
@@ -2372,7 +2364,7 @@ args_to_string (p, verbose)
   if (p == NULL_TREE)
     return "";
 
-  if (TREE_CODE_CLASS (TREE_CODE (TREE_VALUE (p))) == 't')
+  if (TYPE_P (TREE_VALUE (p)))
     return type_as_string (p, flags);
 
   OB_INIT ();

@@ -1,5 +1,5 @@
 /* Implement tasking-related actions for CHILL.
-   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 98, 99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -45,18 +45,18 @@ tree chill_taskingcode_type_node;
 
 /* forward declarations */
 #if 0
-static void validate_process_parameters		PROTO((tree));
-static tree get_struct_variable_name		PROTO((tree));
-static tree decl_tasking_code_variable		PROTO((tree, tree *, int));
+static void validate_process_parameters		PARAMS ((tree));
+static tree get_struct_variable_name		PARAMS ((tree));
+static tree decl_tasking_code_variable		PARAMS ((tree, tree *, int));
 #endif
-static tree get_struct_debug_type_name		PROTO((tree));
-static tree get_process_wrapper_name		PROTO((tree));
-static tree build_tasking_enum			PROTO((void));
-static void build_tasking_message_type		PROTO((void));
-static tree build_receive_signal_case_label	PROTO((tree, tree));
-static tree build_receive_buffer_case_label	PROTO((tree, tree));
-static void build_receive_buffer_case_end	PROTO((tree, tree));
-static void build_receive_signal_case_end	PROTO((tree, tree));
+static tree get_struct_debug_type_name		PARAMS ((tree));
+static tree get_process_wrapper_name		PARAMS ((tree));
+static tree build_tasking_enum			PARAMS ((void));
+static void build_tasking_message_type		PARAMS ((void));
+static tree build_receive_signal_case_label	PARAMS ((tree, tree));
+static tree build_receive_buffer_case_label	PARAMS ((tree, tree));
+static void build_receive_buffer_case_end	PARAMS ((tree, tree));
+static void build_receive_signal_case_end	PARAMS ((tree, tree));
 
 /* list of this module's process, buffer, etc. decls.
  This is a list of TREE_VECs, chain by their TREE_CHAINs. */
@@ -763,8 +763,7 @@ build_tasking_struct ()
   /* We temporarily reset the maximum_field_alignment to zero so the
      compiler's init data structures can be compatible with the
      run-time system, even when we're compiling with -fpack. */
-  extern int maximum_field_alignment;
-  int save_maximum_field_alignment = maximum_field_alignment;
+  unsigned int save_maximum_field_alignment = maximum_field_alignment;
   maximum_field_alignment = 0;
 
   decl1 = build_decl (FIELD_DECL, get_identifier ("TaskName"),
@@ -1239,8 +1238,7 @@ build_tasking_message_type ()
   tree temp;
   /* We temporarily reset maximum_field_alignment to deal with
      the runtime system. */
-  extern int maximum_field_alignment;
-  int save_maximum_field_alignment = maximum_field_alignment;
+  unsigned int save_maximum_field_alignment = maximum_field_alignment;
   tree field1, field2, field3;
 
   maximum_field_alignment = 0;

@@ -1,21 +1,22 @@
 /* Process declarations and variables for GNU CHILL compiler.
-   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc. 
+   Copyright (C) 1992, 1993, 1994, 1998, 1999, 2000
+   Free Software Foundation, Inc. 
    
-   This file is part of GNU CC.
+This file is part of GNU CC.
+
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
    
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
    
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
@@ -205,12 +206,12 @@ extern struct obstack *saveable_obstack;
 extern tree signal_code;
 extern int special_UC;
 
-static tree get_next_decl             PROTO((void));
-static tree lookup_name_for_seizing   PROTO((tree));
+static tree get_next_decl             PARAMS ((void));
+static tree lookup_name_for_seizing   PARAMS ((tree));
 #if 0
-static tree lookup_name_current_level PROTO((tree));
+static tree lookup_name_current_level PARAMS ((tree));
 #endif
-static void save_decl                 PROTO((tree));
+static void save_decl                 PARAMS ((tree));
 
 extern struct obstack permanent_obstack;
 extern int in_pseudo_module;
@@ -240,21 +241,21 @@ tree chill_result_decl;
 int result_never_set;
 
 /* forward declarations */
-static void pushdecllist                     PROTO((tree, int));
-static int  init_nonvalue_struct             PROTO((tree));
-static int  init_nonvalue_array              PROTO((tree));
-static void set_nesting_level                PROTO((tree, int));
-static tree make_chill_variants              PROTO((tree, tree, tree));
-static tree fix_identifier                   PROTO((tree));
-static void proclaim_decl                    PROTO((tree, int));
-static tree maybe_acons                      PROTO((tree, tree));
-static void push_scope_decls                 PROTO((int));
-static void pop_scope_decls                  PROTO((tree, tree));
-static tree build_implied_names              PROTO((tree));
-static void bind_sub_modules                 PROTO((int));
-static void layout_array_type                PROTO((tree));
-static void do_based_decl                    PROTO((tree, tree, tree));
-static void handle_one_level                 PROTO((tree, tree));
+static void pushdecllist                     PARAMS ((tree, int));
+static int  init_nonvalue_struct             PARAMS ((tree));
+static int  init_nonvalue_array              PARAMS ((tree));
+static void set_nesting_level                PARAMS ((tree, int));
+static tree make_chill_variants              PARAMS ((tree, tree, tree));
+static tree fix_identifier                   PARAMS ((tree));
+static void proclaim_decl                    PARAMS ((tree, int));
+static tree maybe_acons                      PARAMS ((tree, tree));
+static void push_scope_decls                 PARAMS ((int));
+static void pop_scope_decls                  PARAMS ((tree, tree));
+static tree build_implied_names              PARAMS ((tree));
+static void bind_sub_modules                 PARAMS ((int));
+static void layout_array_type                PARAMS ((tree));
+static void do_based_decl                    PARAMS ((tree, tree, tree));
+static void handle_one_level                 PARAMS ((tree, tree));
 
 int current_nesting_level = BUILTIN_NESTING_LEVEL;
 int current_module_nesting_level = 0;
@@ -373,10 +374,6 @@ static tree current_function_parms;
    Value not meaningful after store_parm_decls.  */
 
 static int c_function_varargs;
-
-/* The FUNCTION_DECL for the function currently being compiled,
-   or 0 if between functions.  */
-tree current_function_decl;
 
 /* These are irrelevant for Chill, but are referenced from from c-typeck.c. */
 int warn_format;
@@ -1545,7 +1542,7 @@ struct tree_pair
   tree decl;
 };
 
-static int  label_value_cmp                  PROTO((struct tree_pair *,
+static int  label_value_cmp                  PARAMS ((struct tree_pair *,
 						    struct tree_pair *));
 
 /* Function to help qsort sort variant labels by value order.  */
@@ -1739,7 +1736,7 @@ layout_chill_variants (utype)
       int limit;
       qsort (label_value_array,
 	     label_index, sizeof (struct tree_pair),
-	     (int (*) PROTO ((const void *, const void *))) label_value_cmp);
+	     (int (*) PARAMS ((const void *, const void *))) label_value_cmp);
       limit = label_index - 1;
       for (label_index = 0; label_index < limit; label_index++)
 	{
@@ -2493,7 +2490,7 @@ struct path
   tree node;
 };
 
-static tree find_implied_types            PROTO((tree, struct path *, tree));
+static tree find_implied_types            PARAMS ((tree, struct path *, tree));
 
 /* Look for implied types (enumeral types) implied by TYPE (a decl or type).
    Add these to list.
@@ -3399,8 +3396,6 @@ init_decl_processing ()
   tree void_ftype_ptr_luns_luns_cptr_luns_luns_luns;
   tree ptr_ftype_luns_ptr_int;
   tree double_ftype_double;
-
-  extern int set_alignment;
 
   /* allow 0-255 enums to occupy only a byte */
   flag_short_enums = 1;
@@ -4338,18 +4333,9 @@ finish_struct (t, fieldlist)
 {
   register tree x;
 
-  /* Install struct as DECL_CONTEXT of each field decl.
-     Also process specified field sizes.
-     Set DECL_FIELD_SIZE to the specified size, or 0 if none specified.
-     The specified size is found in the DECL_INITIAL.
-     Store 0 there, except for ": 0" fields (so we can find them
-     and delete them, below).  */
-
+  /* Install struct as DECL_CONTEXT of each field decl.  */
   for (x = fieldlist; x; x = TREE_CHAIN (x))
-    {
-      DECL_CONTEXT (x) = t;
-      DECL_FIELD_SIZE (x) = 0;
-    }
+    DECL_CONTEXT (x) = t;
 
   TYPE_FIELDS (t) = fieldlist;
 
@@ -4608,7 +4594,9 @@ layout_enum (enumtype)
   for (pair = values; pair; pair = TREE_CHAIN (pair))
     {
       tree decl = TREE_VALUE (pair);
+
       DECL_SIZE (decl) = TYPE_SIZE (enumtype);
+      DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (enumtype);
       DECL_ALIGN (decl) = TYPE_ALIGN (enumtype);
 
       /* Set the TREE_VALUE to the name, rather than the decl,

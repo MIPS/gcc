@@ -1,5 +1,6 @@
 ;; Machine description for GNU compiler, Vax Version
-;; Copyright (C) 1987, 88, 91, 94-96, 1998, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1987, 1988, 1991, 1994, 1995, 1996, 1998, 1999, 2000
+;; Free Software Foundation, Inc.
 
 ;; This file is part of GNU CC.
 
@@ -662,7 +663,7 @@
   "*
 {
   rtx low[3];
-  char *pattern;
+  const char *pattern;
   int carry = 1;
 
   split_quadword_operands (operands, low, 3);
@@ -688,7 +689,7 @@
     output_asm_insn (pattern, low);
   if (!carry)
     /* If CARRY is 0, we don't have any carry value to worry about.  */
-    return OUT_FCN (CODE_FOR_addsi3) (operands, insn);
+    return get_insn_template (CODE_FOR_addsi3, insn);
   /* %0 = C + %1 + %2 */
   if (!rtx_equal_p (operands[0], operands[1]))
     output_asm_insn ((operands[1] == const0_rtx
@@ -753,7 +754,7 @@
   "*
 {
   rtx low[3];
-  char *pattern;
+  const char *pattern;
   int carry = 1;
 
   split_quadword_operands (operands, low, 3);
@@ -772,7 +773,7 @@
       if (low[2] == constm1_rtx)
 	pattern = \"decl %0\";
       else if (low[2] == const0_rtx)
-	pattern = OUT_FCN (CODE_FOR_movsi) (low, insn), carry = 0;
+	pattern = get_insn_template (CODE_FOR_movsi, insn), carry = 0;
       else
 	pattern = \"subl3 %2,%1,%0\";
     }
@@ -785,7 +786,7 @@
       return \"sbwc %2,%0\";
       /* %0 = %2 - %1 - C */
     }
-  return OUT_FCN (CODE_FOR_subsi3) (operands, insn);
+  return get_insn_template (CODE_FOR_subsi3, insn);
 }")
 
 ;;- Multiply instructions.

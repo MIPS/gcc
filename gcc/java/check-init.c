@@ -1,6 +1,6 @@
 /* Code to test for "definitive assignment".
 
-   Copyright (C) 1999  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000  Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -38,11 +38,6 @@ typedef unsigned int word;
 
 /* Pointer to a bitstring. */
 typedef word *words;
-
-/* For a local VAR_DECL, holds the index into a words bitstring that
-   specifies if this decl is definitively assigned.
-   A DECL_BIT_INDEX of -1 means we no longer care. */
-#define DECL_BIT_INDEX(DECL) DECL_FIELD_SIZE(DECL)
 
 /* Number of locals variables currently active. */
 int num_current_locals = 0;
@@ -97,12 +92,12 @@ static tree wfl;
 
 #define WORD_SIZE  ((unsigned int)(sizeof(word) * 8))
 
-static void check_bool_init PROTO ((tree, words, words, words));
-static void check_init PROTO ((tree, words));
-static void check_cond_init PROTO ((tree, tree, tree, words, words, words));
-static void check_bool2_init PROTO ((enum tree_code, tree, tree, words, words, words));
+static void check_bool_init PARAMS ((tree, words, words, words));
+static void check_init PARAMS ((tree, words));
+static void check_cond_init PARAMS ((tree, tree, tree, words, words, words));
+static void check_bool2_init PARAMS ((enum tree_code, tree, tree, words, words, words));
 struct alternatives;
-static void done_alternative PROTO ((words, struct alternatives *));
+static void done_alternative PARAMS ((words, struct alternatives *));
 
 #if 0
 #define ALLOC_WORDS(NUM) ((word*) xmalloc ((NUM) * sizeof (word)))
@@ -379,13 +374,9 @@ check_init (exp, before)
 	  int index = DECL_BIT_INDEX (exp);
 	  if (index >= 0 && ! SET_P (before, index))
 	    {
-#if 1
-	      parse_error_context (wfl,
-				   "Variable `%s' may not have been initialized"
-				   , IDENTIFIER_POINTER (DECL_NAME (exp)));
-#else
-	      error_with_decl (exp, "variable may be used uninitialized");
-#endif
+	      parse_error_context 
+		(wfl, "Variable `%s' may not have been initialized",
+		 IDENTIFIER_POINTER (DECL_NAME (exp)));
 	      /* Suppress further errors. */
 	      DECL_BIT_INDEX (exp) = -1;
 	    }
@@ -393,11 +384,20 @@ check_init (exp, before)
       break;
     case MODIFY_EXPR:
       tmp = TREE_OPERAND (exp, 0);
-      if (TREE_CODE (tmp) == VAR_DECL && ! FIELD_STATIC (tmp))
+      /* We're interested in variable declaration and parameter
+         declaration when they're declared with the `final' modifier. */
+      if ((TREE_CODE (tmp) == VAR_DECL && ! FIELD_STATIC (tmp))
+	  || (TREE_CODE (tmp) == PARM_DECL && LOCAL_FINAL (tmp)))
 	{
 	  int index;
 	  check_init (TREE_OPERAND (exp, 1), before);
 	  index = DECL_BIT_INDEX (tmp);
+	  /* A final local already assigned or a final parameter
+             assigned must be reported as errors */
+	  if (LOCAL_FINAL (tmp) 
+	      && (index == -1 || TREE_CODE (tmp) == PARM_DECL))
+	    parse_error_context (wfl, "Can't assign here a value to the `final' variable `%s'", IDENTIFIER_POINTER (DECL_NAME (tmp)));
+
 	  if (index >= 0)
 	    SET_BIT (before, index);
 	  /* Minor optimization.  See comment for start_current_locals. */
@@ -616,14 +616,26 @@ check_init (exp, before)
     case FIX_TRUNC_EXPR:
     case INDIRECT_REF:
     case ADDR_EXPR:
-    case SAVE_EXPR:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
     case NON_LVALUE_EXPR:
     case INSTANCEOF_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+    case EXPON_EXPR:
+    case ABS_EXPR:
+    case FFS_EXPR:
       /* Avoid needless recursion. */
+      exp = TREE_OPERAND (exp, 0);
+      goto again;
+
+    case SAVE_EXPR:
+      if (IS_INIT_CHECKED (exp))
+	return;
+      IS_INIT_CHECKED (exp) = 1;
       exp = TREE_OPERAND (exp, 0);
       goto again;
 
@@ -649,6 +661,15 @@ check_init (exp, before)
     case MAX_EXPR:
     case MIN_EXPR:
     case ARRAY_REF:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case EXACT_DIV_EXPR:
     binop:
       check_init (TREE_OPERAND (exp, 0), before);
       /* Avoid needless recursion, especially for COMPOUND_EXPR. */

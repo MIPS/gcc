@@ -1,5 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
-   Copyright (C) 1989, 92, 94, 95, 97-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
+#include "tm_p.h"
 
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
@@ -92,6 +94,7 @@ static int insert_restore		PARAMS ((struct insn_chain *, int, int,
 						 int));
 static struct insn_chain *insert_one_insn PARAMS ((struct insn_chain *, int,
 						   enum insn_code, rtx));
+static void add_stored_regs		PARAMS ((rtx, rtx, void *));
 
 /* Initialize for caller-save.
 

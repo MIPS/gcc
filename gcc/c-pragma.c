@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992, 97-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,15 +31,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef HANDLE_GENERIC_PRAGMAS
 
-#ifdef HANDLE_PRAGMA_PACK
-/* When structure field packing is in effect, this variable is the
-   number of bits to use as the maximum alignment.  When packing is not
-   in effect, this is zero.  */
-
-extern int maximum_field_alignment;
-#endif
-
-
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 typedef struct align_stack
 {
@@ -60,6 +51,9 @@ static int  default_alignment;
 
 static int  push_alignment PARAMS ((int, tree));
 static int  pop_alignment  PARAMS ((tree));
+#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
+static void mark_align_stack PARAMS ((void *));
+#endif
 
 /* Push an alignment value onto the stack.  */
 static int
@@ -169,25 +163,25 @@ pop_alignment (id)
    it needs to be preserved.
 
    If STRING is non-NULL, then the return value will be ignored, and there
-   will be futher calls to handle_pragma_token() in order to handle the rest of
+   will be futher calls to handle_pragma_token in order to handle the rest of
    the line containing the #pragma directive.  If STRING is NULL, the entire
-   line has now been presented to handle_pragma_token() and the return value
+   line has now been presented to handle_pragma_token and the return value
    should be zero if the pragma flawed in some way, or if the pragma was not
    recognised, and non-zero if it was successfully handled.  */
 
 int
 handle_pragma_token (string, token)
-     const char * string;
+     const char *string;
      tree token;
 {
   static enum pragma_state state = ps_start;
   static enum pragma_state type;
 #ifdef HANDLE_PRAGMA_WEAK
-  static char * name;
-  static char * value;
+  static char *name;
+  static char *value;
 #endif
 #if defined(HANDLE_PRAGMA_PACK) || defined(HANDLE_PRAGMA_PACK_PUSH_POP)
-  static int align;
+  static unsigned int align;
 #endif
   static tree id;
 
@@ -303,17 +297,8 @@ handle_pragma_token (string, token)
 
 #ifdef HANDLE_PRAGMA_WEAK
     case ps_weak:
-      name = permalloc (strlen (string) + 1);
-      if (name == NULL)
-	{
-	  warning ("Out of memory parsing #pragma weak");
-	  state = ps_bad;
-	}
-      else
-	{
-	  strcpy (name, string);
-	  state = ps_name;
-	}
+      name = xstrdup (string);
+      state = ps_name;
       break;
       
     case ps_name:
@@ -321,17 +306,8 @@ handle_pragma_token (string, token)
       break;
 
     case ps_equals:
-      value = permalloc (strlen (string) + 1);
-      if (value == NULL)
-	{
-	  warning ("Out of memory parsing #pragma weak");
-	  state = ps_bad;
-	}
-      else
-	{
-	  strcpy (value, string);
-	  state = ps_value;
-	}
+      value = xstrdup (string);
+      state = ps_value;
       break;
 
     case ps_value:
@@ -377,15 +353,15 @@ handle_pragma_token (string, token)
       break;
 
     handle_align:
-      align = TREE_INT_CST_LOW (token);
-      switch (align)
+      switch (tree_log2 (token))
 	{
+	case 0:
 	case 1:
 	case 2:
+	case 3:
 	case 4:
-	case 8:
-	case 16:
 	  state = ps_align;
+	  align = 1 << tree_log2 (token);
 	  break;
 
 	default:

@@ -1,5 +1,6 @@
 /* Output sdb-format symbol table information from GNU compiler.
-   Copyright (C) 1988, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -105,22 +106,22 @@ extern tree current_function_decl;
 
 #include "sdbout.h"
 
-static char *gen_fake_label		PROTO((void));
-static int plain_type			PROTO((tree));
-static int template_name_p		PROTO((tree));
-static void sdbout_record_type_name	PROTO((tree));
-static int plain_type_1			PROTO((tree, int));
-static void sdbout_block		PROTO((tree));
-static void sdbout_syms			PROTO((tree));
+static char *gen_fake_label		PARAMS ((void));
+static int plain_type			PARAMS ((tree));
+static int template_name_p		PARAMS ((tree));
+static void sdbout_record_type_name	PARAMS ((tree));
+static int plain_type_1			PARAMS ((tree, int));
+static void sdbout_block		PARAMS ((tree));
+static void sdbout_syms			PARAMS ((tree));
 #ifdef SDB_ALLOW_FORWARD_REFERENCES
-static void sdbout_queue_anonymous_type	PROTO((tree));
-static void sdbout_dequeue_anonymous_types PROTO((void));
+static void sdbout_queue_anonymous_type	PARAMS ((tree));
+static void sdbout_dequeue_anonymous_types PARAMS ((void));
 #endif
-static void sdbout_type			PROTO((tree));
-static void sdbout_field_types		PROTO((tree));
-static void sdbout_one_type		PROTO((tree));
-static void sdbout_parms		PROTO((tree));
-static void sdbout_reg_parms		PROTO((tree));
+static void sdbout_type			PARAMS ((tree));
+static void sdbout_field_types		PARAMS ((tree));
+static void sdbout_one_type		PARAMS ((tree));
+static void sdbout_parms		PARAMS ((tree));
+static void sdbout_reg_parms		PARAMS ((tree));
 
 /* Define the default sizes for various types.  */
 
@@ -606,12 +607,14 @@ plain_type_1 (type, level)
 	if (sdb_n_dims < SDB_MAX_DIM)
 	  sdb_dims[sdb_n_dims++]
 	    = (TYPE_DOMAIN (type)
-	       && TYPE_MAX_VALUE (TYPE_DOMAIN (type))
-	       && TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) == INTEGER_CST
-	       && TREE_CODE (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) == INTEGER_CST
-	       ? (TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (type)))
-		  - TREE_INT_CST_LOW (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) + 1)
+	       && TYPE_MIN_VALUE (TYPE_DOMAIN (type)) != 0
+	       && TYPE_MAX_VALUE (TYPE_DOMAIN (type)) != 0
+	       && host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
+	       && host_integerp (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0)
+	       ? (tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0)
+		  - tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0) + 1)
 	       : 0);
+
 	return PUSH_DERIVED_LEVEL (DT_ARY, m);
       }
 
@@ -678,14 +681,11 @@ plain_type_1 (type, level)
 }
 
 /* Output the symbols defined in block number DO_BLOCK.
-   Set NEXT_BLOCK_NUMBER to 0 before calling.
 
    This function works by walking the tree structure of blocks,
    counting blocks until it finds the desired block.  */
 
 static int do_block = 0;
-
-static int next_block_number;
 
 static void
 sdbout_block (block)
@@ -697,16 +697,12 @@ sdbout_block (block)
       if (TREE_USED (block))
 	{
 	  /* When we reach the specified block, output its symbols.  */
-	  if (next_block_number == do_block)
-	    {
-	      sdbout_syms (BLOCK_VARS (block));
-	    }
+	  if (BLOCK_NUMBER (block) == do_block)
+	    sdbout_syms (BLOCK_VARS (block));
 
 	  /* If we are past the specified block, stop the scan.  */
-	  if (next_block_number > do_block)
+	  if (BLOCK_NUMBER (block) > do_block)
 	    return;
-
-	  next_block_number++;
 
 	  /* Scan the blocks within this block.  */
 	  sdbout_block (BLOCK_SUBBLOCKS (block));
@@ -864,7 +860,7 @@ sdbout_symbol (decl, local)
 	  || TREE_CODE (type) == UNION_TYPE
 	  || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
-	  if (TYPE_SIZE (type) != 0		/* not a forward reference */
+	  if (COMPLETE_TYPE_P (type)		/* not a forward reference */
 	      && KNOWN_TYPE_TAG (type) == 0)	/* not yet declared */
 	    sdbout_one_type (type);
 	}
@@ -1095,8 +1091,8 @@ sdbout_field_types (type)
        below.  */
     if (TREE_CODE (tail) == FIELD_DECL
 	&& DECL_NAME (tail) != 0
-	&& TREE_CODE (DECL_SIZE (tail)) == INTEGER_CST
-	&& TREE_CODE (DECL_FIELD_BITPOS (tail)) == INTEGER_CST)
+	&& ! host_integerp (DECL_SIZE (tail), 1)
+	&& ! host_integerp (bit_position (tail), 0))
       {
 	if (POINTER_TYPE_P (TREE_TYPE (tail)))
 	  sdbout_one_type (TREE_TYPE (TREE_TYPE (tail)));
@@ -1135,7 +1131,7 @@ sdbout_one_type (type)
 	return;
 
       /* Output nothing if type is not yet defined.  */
-      if (TYPE_SIZE (type) == 0)
+      if (!COMPLETE_TYPE_P (type))
 	return;
 
       TREE_ASM_WRITTEN (type) = 1;
@@ -1245,7 +1241,7 @@ sdbout_one_type (type)
 
 		CONTIN;
 		PUT_SDB_DEF (IDENTIFIER_POINTER (child_type_name));
-		PUT_SDB_INT_VAL (TREE_INT_CST_LOW (BINFO_OFFSET (child)));
+		PUT_SDB_INT_VAL (tree_low_cst (BINFO_OFFSET (child), 0));
 		PUT_SDB_SCL (member_scl);
 		sdbout_type (BINFO_TYPE (child));
 		PUT_SDB_ENDEF;
@@ -1255,15 +1251,17 @@ sdbout_one_type (type)
 	/* output the individual fields */
 
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
-	  for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
-	    {
-	      PUT_SDB_DEF (IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
-	      PUT_SDB_INT_VAL (TREE_INT_CST_LOW (TREE_VALUE (tem)));
-	      PUT_SDB_SCL (C_MOE);
-	      PUT_SDB_TYPE (T_MOE);
-	      PUT_SDB_ENDEF;
-	    }
-
+	  {
+	    for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+	      if (host_integerp (TREE_VALUE (tem), 0))
+		{
+		  PUT_SDB_DEF (IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
+		  PUT_SDB_INT_VAL (tree_low_cst (TREE_VALUE (tem), 0));
+		  PUT_SDB_SCL (C_MOE);
+		  PUT_SDB_TYPE (T_MOE);
+		  PUT_SDB_ENDEF;
+		}
+	  }
 	else			/* record or union type */
 	  for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
 	    /* Output the name, type, position (in bits), size (in bits)
@@ -1274,8 +1272,8 @@ sdbout_one_type (type)
 	       Also omit non FIELD_DECL nodes that GNU C++ may put here.  */
 	    if (TREE_CODE (tem) == FIELD_DECL
 		&& DECL_NAME (tem) != 0
-		&& TREE_CODE (DECL_SIZE (tem)) == INTEGER_CST
-		&& TREE_CODE (DECL_FIELD_BITPOS (tem)) == INTEGER_CST)
+		&& host_integerp (DECL_SIZE (tem), 1)
+		&& host_integerp (bit_position (tem), 0))
 	      {
 		char *name;
 
@@ -1284,15 +1282,14 @@ sdbout_one_type (type)
 		PUT_SDB_DEF (name);
 		if (DECL_BIT_FIELD_TYPE (tem))
 		  {
-		    PUT_SDB_INT_VAL (TREE_INT_CST_LOW (DECL_FIELD_BITPOS (tem)));
+		    PUT_SDB_INT_VAL (int_bit_position (tem));
 		    PUT_SDB_SCL (C_FIELD);
 		    sdbout_type (DECL_BIT_FIELD_TYPE (tem));
-		    PUT_SDB_SIZE (TREE_INT_CST_LOW (DECL_SIZE (tem)));
+		    PUT_SDB_SIZE (tree_low_cst (DECL_SIZE (tem), 1));
 		  }
 		else
 		  {
-		    PUT_SDB_INT_VAL (TREE_INT_CST_LOW (DECL_FIELD_BITPOS (tem))
-				     / BITS_PER_UNIT);
+		    PUT_SDB_INT_VAL (int_bit_position (tem) / BITS_PER_UNIT);
 		    PUT_SDB_SCL (member_scl);
 		    sdbout_type (TREE_TYPE (tem));
 		  }
@@ -1545,15 +1542,13 @@ sdbout_begin_block (file, line, n)
   if (n == 1)
     {
       /* Include the outermost BLOCK's variables in block 1.  */
-      next_block_number = 0;
-      do_block = 0;
+      do_block = BLOCK_NUMBER (DECL_INITIAL (decl));
       sdbout_block (DECL_INITIAL (decl));
     }
   /* If -g1, suppress all the internal symbols of functions
      except for arguments.  */
   if (debug_info_level != DINFO_LEVEL_TERSE)
     {
-      next_block_number = 0;
       do_block = n;
       sdbout_block (DECL_INITIAL (decl));
     }

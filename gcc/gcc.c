@@ -1,5 +1,6 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987, 89, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -48,7 +49,7 @@ compilation is specified by a string called a "spec".  */
 #include <sys/resource.h>
 #endif
 #ifdef NEED_DECLARATION_GETRUSAGE
-extern int getrusage PROTO ((int, struct rusage *));
+extern int getrusage PARAMS ((int, struct rusage *));
 #endif
 
 /* By default there is no special suffix for executables.  */
@@ -189,63 +190,61 @@ static struct obstack collect_obstack;
 static struct rusage rus, prus;
 #endif
 
-extern char *version_string;
-
 /* Forward declaration for prototypes.  */
 struct path_prefix;
 
-static void init_spec		PROTO((void));
+static void init_spec		PARAMS ((void));
 #ifndef VMS
-static char **split_directories	PROTO((const char *, int *));
-static void free_split_directories PROTO((char **));
-static char *make_relative_prefix PROTO((const char *, const char *, const char *));
+static char **split_directories	PARAMS ((const char *, int *));
+static void free_split_directories PARAMS ((char **));
+static char *make_relative_prefix PARAMS ((const char *, const char *, const char *));
 #endif /* VMS */
-static void read_specs		PROTO((const char *, int));
-static void set_spec		PROTO((const char *, const char *));
-static struct compiler *lookup_compiler PROTO((const char *, size_t, const char *));
-static char *build_search_list	PROTO((struct path_prefix *, const char *, int));
-static void putenv_from_prefixes PROTO((struct path_prefix *, const char *));
-static int access_check		PROTO((const char *, int));
-static char *find_a_file	PROTO((struct path_prefix *, const char *, int));
-static void add_prefix		PROTO((struct path_prefix *, const char *,
-				       const char *, int, int, int *));
-static char *skip_whitespace	PROTO((char *));
-static void record_temp_file	PROTO((const char *, int, int));
-static void delete_if_ordinary	PROTO((const char *));
-static void delete_temp_files	PROTO((void));
-static void delete_failure_queue PROTO((void));
-static void clear_failure_queue PROTO((void));
-static int check_live_switch	PROTO((int, int));
-static const char *handle_braces PROTO((const char *));
-static char *save_string	PROTO((const char *, int));
-static int do_spec_1		PROTO((const char *, int, const char *));
-static const char *find_file	PROTO((const char *));
-static int is_directory		PROTO((const char *, const char *, int));
-static void validate_switches	PROTO((const char *));
-static void validate_all_switches PROTO((void));
-static void give_switch		PROTO((int, int, int));
-static int used_arg		PROTO((const char *, int));
-static int default_arg		PROTO((const char *, int));
-static void set_multilib_dir	PROTO((void));
-static void print_multilib_info	PROTO((void));
-static void pfatal_with_name	PROTO((const char *)) ATTRIBUTE_NORETURN;
-static void perror_with_name	PROTO((const char *));
-static void pfatal_pexecute	PROTO((const char *, const char *))
+static void read_specs		PARAMS ((const char *, int));
+static void set_spec		PARAMS ((const char *, const char *));
+static struct compiler *lookup_compiler PARAMS ((const char *, size_t, const char *));
+static char *build_search_list	PARAMS ((struct path_prefix *, const char *, int));
+static void putenv_from_prefixes PARAMS ((struct path_prefix *, const char *));
+static int access_check		PARAMS ((const char *, int));
+static char *find_a_file	PARAMS ((struct path_prefix *, const char *, int));
+static void add_prefix		PARAMS ((struct path_prefix *, const char *,
+					 const char *, int, int, int *));
+static char *skip_whitespace	PARAMS ((char *));
+static void record_temp_file	PARAMS ((const char *, int, int));
+static void delete_if_ordinary	PARAMS ((const char *));
+static void delete_temp_files	PARAMS ((void));
+static void delete_failure_queue PARAMS ((void));
+static void clear_failure_queue PARAMS ((void));
+static int check_live_switch	PARAMS ((int, int));
+static const char *handle_braces PARAMS ((const char *));
+static char *save_string	PARAMS ((const char *, int));
+static int do_spec_1		PARAMS ((const char *, int, const char *));
+static const char *find_file	PARAMS ((const char *));
+static int is_directory		PARAMS ((const char *, const char *, int));
+static void validate_switches	PARAMS ((const char *));
+static void validate_all_switches PARAMS ((void));
+static void give_switch		PARAMS ((int, int, int));
+static int used_arg		PARAMS ((const char *, int));
+static int default_arg		PARAMS ((const char *, int));
+static void set_multilib_dir	PARAMS ((void));
+static void print_multilib_info	PARAMS ((void));
+static void pfatal_with_name	PARAMS ((const char *)) ATTRIBUTE_NORETURN;
+static void perror_with_name	PARAMS ((const char *));
+static void pfatal_pexecute	PARAMS ((const char *, const char *))
   ATTRIBUTE_NORETURN;
-static void error		PVPROTO((const char *, ...))
+static void error		PARAMS ((const char *, ...))
   ATTRIBUTE_PRINTF_1;
-static void notice		PVPROTO((const char *, ...))
+static void notice		PARAMS ((const char *, ...))
   ATTRIBUTE_PRINTF_1;
-static void display_help 	PROTO((void));
-static void add_preprocessor_option	PROTO ((const char *, int));
-static void add_assembler_option	PROTO ((const char *, int));
-static void add_linker_option		PROTO ((const char *, int));
-static void process_command		PROTO ((int, char **));
-static int execute			PROTO ((void));
-static void unused_prefix_warnings	PROTO ((struct path_prefix *));
-static void clear_args			PROTO ((void));
-static void fatal_error			PROTO ((int));
-static void set_input			PROTO ((const char *));
+static void display_help 	PARAMS ((void));
+static void add_preprocessor_option	PARAMS ((const char *, int));
+static void add_assembler_option	PARAMS ((const char *, int));
+static void add_linker_option		PARAMS ((const char *, int));
+static void process_command		PARAMS ((int, char **));
+static int execute			PARAMS ((void));
+static void unused_prefix_warnings	PARAMS ((struct path_prefix *));
+static void clear_args			PARAMS ((void));
+static void fatal_error			PARAMS ((int));
+static void set_input			PARAMS ((const char *));
 
 /* Specs are strings containing lines, each of which (if not blank)
 is made up of a program name, and arguments separated by spaces.
@@ -329,9 +328,11 @@ or with constant text in a single argument.
  %Y	Output the accumulated assembler options specified by compilations.
  %Z	Output the accumulated preprocessor options specified by compilations.
  %v1	Substitute the major version number of GCC.
-	(For version 2.5.n, this is 2.)
+	(For version 2.5.3, this is 2.)
  %v2	Substitute the minor version number of GCC.
-	(For version 2.5.n, this is 5.)
+	(For version 2.5.3, this is 5.)
+ %v3	Substitute the patch level number of GCC.
+	(For version 2.5.3, this is 3.)
  %a     process ASM_SPEC as a spec.
         This allows config.h to specify part of the spec for running as.
  %A	process ASM_FINAL_SPEC as a spec.  A capital A is actually
@@ -510,6 +511,7 @@ static struct obstack multilib_obstack;
 static char *multilib_select;
 static char *multilib_matches;
 static char *multilib_defaults;
+static char *multilib_exclusions;
 #include "multilib.h"
 
 /* Check whether a particular argument is a default argument.  */
@@ -520,7 +522,8 @@ static char *multilib_defaults;
 
 static const  char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 
-struct user_specs {
+struct user_specs
+{
   struct user_specs *next;
   const char *filename;
 };
@@ -616,7 +619,7 @@ static struct compiler default_compilers[] =
 	%{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -630,7 +633,7 @@ static struct compiler default_compilers[] =
                   %{std*} %{nostdinc*} %{A*} %{I*} %I\
                   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
                   %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-                  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+                  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 		  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
                   %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 		  %{ffast-math:-D__FAST_MATH__}\
@@ -653,7 +656,7 @@ static struct compiler default_compilers[] =
 	%{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -681,7 +684,7 @@ static struct compiler default_compilers[] =
 	%{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 	%{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -698,7 +701,7 @@ static struct compiler default_compilers[] =
     cpp %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+        %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 	%{!undef:%{!std=*:%p}%{std=gnu*:%p} %P} %{trigraphs}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
 	%{ffast-math:-D__FAST_MATH__}\
@@ -1121,8 +1124,9 @@ struct spec_list
 #define INIT_STATIC_SPEC(NAME,PTR) \
 { NAME, NULL_PTR, PTR, (struct spec_list *)0, sizeof (NAME)-1, 0 }
 
-/* List of statically defined specs */
-static struct spec_list static_specs[] = {
+/* List of statically defined specs.  */
+static struct spec_list static_specs[] =
+{
   INIT_STATIC_SPEC ("asm",			&asm_spec),
   INIT_STATIC_SPEC ("asm_final",		&asm_final_spec),
   INIT_STATIC_SPEC ("cpp",			&cpp_spec),
@@ -1142,12 +1146,13 @@ static struct spec_list static_specs[] = {
   INIT_STATIC_SPEC ("multilib_defaults",	&multilib_defaults),
   INIT_STATIC_SPEC ("multilib_extra",		&multilib_extra),
   INIT_STATIC_SPEC ("multilib_matches",		&multilib_matches),
+  INIT_STATIC_SPEC ("multilib_exclusions",	&multilib_exclusions),
   INIT_STATIC_SPEC ("linker",			&linker_name_spec),
 };
 
 #ifdef EXTRA_SPECS		/* additional specs needed */
 /* Structure to keep track of just the first two args of a spec_list.
-   That is all that the EXTRA_SPECS macro gives us. */
+   That is all that the EXTRA_SPECS macro gives us.  */
 struct spec_list_1
 {
   char *name;
@@ -1173,7 +1178,7 @@ init_spec ()
   int i;
 
   if (specs)
-    return;			/* already initialized */
+    return;			/* Already initialized.  */
 
   if (verbose_flag)
     notice ("Using builtin specs.\n");
@@ -1220,7 +1225,7 @@ set_spec (name, spec)
   int name_len = strlen (name);
   int i;
 
-  /* If this is the first call, initialize the statically allocated specs */
+  /* If this is the first call, initialize the statically allocated specs.  */
   if (!specs)
     {
       struct spec_list *next = (struct spec_list *)0;
@@ -1234,14 +1239,14 @@ set_spec (name, spec)
       specs = sl;
     }
 
-  /* See if the spec already exists */
+  /* See if the spec already exists.  */
   for (sl = specs; sl; sl = sl->next)
     if (name_len == sl->name_len && !strcmp (sl->name, name))
       break;
 
   if (!sl)
     {
-      /* Not found - make it */
+      /* Not found - make it.  */
       sl = (struct spec_list *) xmalloc (sizeof (struct spec_list));
       sl->name = xstrdup (name);
       sl->name_len = name_len;
@@ -1262,7 +1267,7 @@ set_spec (name, spec)
     notice ("Setting spec %s to '%s'\n\n", name, *(sl->ptr_spec));
 #endif
 
-  /* Free the old spec */
+  /* Free the old spec.  */
   if (old_spec && sl->alloc_p)
     free (old_spec);
 
@@ -2150,7 +2155,7 @@ make_relative_prefix (progname, bin_prefix, prefix)
 
   prefix_dirs = split_directories (prefix, &prefix_num);
 
-  /* Find how many directories are in common between bin_prefix & prefix */
+  /* Find how many directories are in common between bin_prefix & prefix.  */
   n = (prefix_num < bin_num) ? prefix_num : bin_num;
   for (common = 0; common < n; common++)
     {
@@ -2451,7 +2456,7 @@ execute ()
   struct command
     {
       const char *prog;		/* program name.  */
-      char **argv;	/* vector of args.  */
+      char **argv;		/* vector of args.  */
       int pid;			/* pid of process for this command.  */
     };
 
@@ -3841,7 +3846,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		     and use them to search for dynamic linking.  */
 		  /* Relative directories always come from -B,
 		     and it is better not to use them for searching
-		     at run time.  In particular, stage1 loses  */
+		     at run time.  In particular, stage1 loses.  */
 		  if (!IS_DIR_SEPARATOR (pl->prefix[0]))
 		    continue;
 #endif
@@ -4263,7 +4268,13 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      char *y;
 
 	      /* Copy all of CPP_PREDEFINES into BUF,
-		 but put __ after every -D and at the end of each arg.  */
+		 but force them all into the reserved name space if they
+		 aren't already there.  The reserved name space is all
+		 identifiers beginning with two underscores or with one
+		 underscore and a capital letter.  We do the forcing by
+		 adding up to two underscores to the beginning and end
+		 of each symbol. e.g. mips, _mips, mips_, and _mips_ all
+		 become __mips__.  */
 	      y = cpp_predefines;
 	      while (*y != 0)
 		{
@@ -4279,7 +4290,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 			      && ! ISUPPER ((unsigned char)*(y+1))))
 		        {
 			  /* Stick __ at front of macro name.  */
-			  *x++ = '_';
+			  if (*y != '_')
+			    *x++ = '_';
 			  *x++ = '_';
 			  /* Arrange to stick __ at the end as well.  */
 			  flag = 1;
@@ -4291,8 +4303,12 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 		      if (flag)
 		        {
-			  *x++ = '_';
-			  *x++ = '_';
+			  if (x[-1] != '_')
+			    {
+			      if (x[-2] != '_')
+				*x++ = '_';
+			      *x++ = '_';
+			    }
 			}
 
 		      /* Copy the value given, if any.  */
@@ -4324,7 +4340,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 			  /* Stick -D__ at front of macro name.  */
 			  *x++ = '-';
 			  *x++ = 'D';
-			  *x++ = '_';
+			  if (*y != '_')
+			    *x++ = '_';
 			  *x++ = '_';
 
 			  /* Copy the macro name.  */
@@ -4345,7 +4362,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		  else if (*y == ' ' || *y == '\t')
 		    /* Copy whitespace to the result.  */
 		    *x++ = *y++;
-		  /* Don't copy -A options  */
+		  /* Don't copy -A options.  */
 		  else
 		    y++;
 		}
@@ -4394,8 +4411,16 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    break;
 
 	  case '*':
-	    do_spec_1 (soft_matched_part, 1, NULL_PTR);
-	    do_spec_1 (" ", 0, NULL_PTR);
+	    if (soft_matched_part)
+	      {
+		do_spec_1 (soft_matched_part, 1, NULL_PTR);
+		do_spec_1 (" ", 0, NULL_PTR);
+	      }
+	    else
+	      /* Catch the case where a spec string contains something like
+		 '%{foo:%*}'.  ie there is no * in the pattern on the left
+		 hand side of the :.  */
+	      error ("Spec failure: '%%*' has not been initialised by pattern match");
 	    break;
 
 	    /* Process a string found as the value of a spec given by name.
@@ -4416,7 +4441,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      while (*p && *p != ')' && *p != ']')
 		p++;
 
-	      /* See if it's in the list */
+	      /* See if it's in the list.  */
 	      for (len = p - name, sl = specs; sl; sl = sl->next)
 		if (sl->name_len == len && !strncmp (sl->name, name, len))
 		  {
@@ -4444,7 +4469,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      int flag = 0;
 
 		      /* Copy all of NAME into BUF, but put __ after
-			 every -D and at the end of each arg,  */
+			 every -D and at the end of each arg.  */
 		      while (1)
 			{
 			  if (! strncmp (y, "-D", 2))
@@ -4488,6 +4513,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      int c1 = *p++;  /* Select first or second version number.  */
 	      char *v = compiler_version;
 	      char *q;
+	      static const char zeroc = '0';
 
 	      /* The format of the version string is
 		 ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
@@ -4499,7 +4525,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		abort ();
 
 	      /* If desired, advance to second version number.  */
-	      if (c1 == '2')
+	      if (c1 >= '2')
 		{
 		  /* Set V after the first period.  */
 		  while (ISDIGIT (*v))
@@ -4509,6 +4535,19 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		  v++;
 		}
 
+	      /* If desired, advance to third version number.
+                 But don't complain if it's not present */
+	      if (c1 == '3')
+		{
+		  /* Set V after the second period.  */
+		  while (ISDIGIT (*v))
+		    v++;
+		  if ((*v != 0) && (*v != ' ') && (*v != '.') && (*v != '-'))
+		    abort ();
+                  if (*v != 0)
+                      v++;
+		}
+
 	      /* Set Q at the next period or at the end.  */
 	      q = v;
 	      while (ISDIGIT (*q))
@@ -4516,8 +4555,12 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      if (*q != 0 && *q != ' ' && *q != '.' && *q != '-')
 		abort ();
 
-	      /* Put that part into the command.  */
-	      obstack_grow (&obstack, v, q - v);
+              if (q > v)
+	        /* Put that part into the command.  */
+	        obstack_grow (&obstack, v, q - v);
+              else
+                /* Default to "0" */
+                obstack_grow (&obstack, &zeroc, 1);
 	      arg_going = 1;
 	    }
 	    break;
@@ -4528,7 +4571,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    break;
 
 	  default:
-	    abort ();
+	    error ("Spec failure: Unrecognised spec option '%c'", c);
+	    break;
 	  }
 	break;
 
@@ -4988,7 +5032,7 @@ fatal_error (signum)
   kill (getpid (), signum);
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)
@@ -5053,6 +5097,13 @@ main (argc, argv)
     obstack_1grow (&multilib_obstack, 0);
     multilib_matches = obstack_finish (&multilib_obstack);
 
+    q = multilib_exclusions_raw;
+    while ((p = *q++) != (char *) 0)
+	obstack_grow (&multilib_obstack, p, strlen (p));
+
+    obstack_1grow (&multilib_obstack, 0);
+    multilib_exclusions = obstack_finish (&multilib_obstack);
+    
     need_space = FALSE;
     for (i = 0;
 	 i < sizeof (multilib_defaults_raw) / sizeof (multilib_defaults_raw[0]);
@@ -5164,7 +5215,7 @@ main (argc, argv)
     init_spec ();
 
   /* We need to check standard_exec_prefix/just_machine_suffix/specs
-     for any override of as, ld and libraries. */
+     for any override of as, ld and libraries.  */
   specs_file = (char *) alloca (strlen (standard_exec_prefix)
 				+ strlen (just_machine_suffix)
 				+ sizeof ("specs"));
@@ -5320,7 +5371,7 @@ main (argc, argv)
       if (! verbose_flag)
 	{
 	  printf ("\nFor bug reporting instructions, please see:\n");
-	  printf ("<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>.\n");
+	  printf ("%s.\n", GCCBUGURL);
 	  
 	  return (0);
 	}
@@ -5497,7 +5548,7 @@ main (argc, argv)
   if (print_help_list)
     {
       printf ("\nFor bug reporting instructions, please see:\n");
-      printf ("<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>\n");
+      printf ("%s\n", GCCBUGURL);
     }
   
   return (signal_count != 0 ? 2
@@ -5517,7 +5568,7 @@ lookup_compiler (name, length, language)
 {
   struct compiler *cp;
 
-  /* If this was specified by the user to be a linker input, indicate that. */
+  /* If this was specified by the user to be a linker input, indicate that.  */
   if (language != 0 && language[0] == '*')
     return 0;
 
@@ -5635,7 +5686,7 @@ fancy_abort ()
 /* Output an error message and exit */
 
 void
-fatal VPROTO((const char *msgid, ...))
+fatal VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -5657,7 +5708,7 @@ fatal VPROTO((const char *msgid, ...))
 }
 
 static void
-error VPROTO((const char *msgid, ...))
+error VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -5678,7 +5729,7 @@ error VPROTO((const char *msgid, ...))
 }
 
 static void
-notice VPROTO((const char *msgid, ...))
+notice VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -5717,7 +5768,7 @@ validate_all_switches ()
 	}
     }
 
-  /* look through the linked list of specs read from the specs file */
+  /* Look through the linked list of specs read from the specs file.  */
   for (spec = specs; spec ; spec = spec->next)
     {
       p = *(spec->ptr_spec);
@@ -5788,7 +5839,8 @@ used_arg (p, len)
      const char *p;
      int len;
 {
-  struct mswitchstr {
+  struct mswitchstr
+  {
     char *str;
     char *replace;
     int len;
@@ -5806,7 +5858,7 @@ used_arg (p, len)
       int cnt = 0;
 
       /* Break multilib_matches into the component strings of string and replacement
-         string */
+         string.  */
       for (q = multilib_matches; *q != '\0'; q++)
 	if (*q == ';')
 	  cnt++;
@@ -5899,23 +5951,80 @@ default_arg (p, len)
   return 0;
 }
 
-/* Work out the subdirectory to use based on the
-   options.  The format of multilib_select is a list of elements.
-   Each element is a subdirectory name followed by a list of options
-   followed by a semicolon.  gcc will consider each line in turn.  If
-   none of the options beginning with an exclamation point are
-   present, and all of the other options are present, that
-   subdirectory will be used.  */
+/* Work out the subdirectory to use based on the options. The format of
+   multilib_select is a list of elements. Each element is a subdirectory
+   name followed by a list of options followed by a semicolon. The format
+   of multilib_exclusions is the same, but without the preceding
+   directory. First gcc will check the exclusions, if none of the options
+   beginning with an exclamation point are present, and all of the other
+   options are present, then we will ignore this completely. Passing
+   that, gcc will consider each multilib_select in turn using the same
+   rules for matching the options. If a match is found, that subdirectory
+   will be used.  */
 
 static void
 set_multilib_dir ()
 {
-  char *p = multilib_select;
-  int this_path_len;
+  char *p;
+  unsigned int this_path_len;
   char *this_path, *this_arg;
   int not_arg;
   int ok;
 
+  p = multilib_exclusions;
+  while (*p != '\0')
+    {
+      /* Ignore newlines.  */
+      if (*p == '\n')
+        {
+          ++p;
+          continue;
+        }
+
+      /* Check the arguments.  */
+      ok = 1;
+      while (*p != ';')
+        {
+          if (*p == '\0')
+            abort ();
+
+          if (! ok)
+            {
+              ++p;
+              continue;
+            }
+
+          this_arg = p;
+          while (*p != ' ' && *p != ';')
+            {
+              if (*p == '\0')
+                abort ();
+              ++p;
+            }
+
+          if (*this_arg != '!')
+            not_arg = 0;
+          else
+            {
+              not_arg = 1;
+              ++this_arg;
+            }
+  
+	  ok = used_arg (this_arg, p - this_arg);
+	  if (not_arg)
+	    ok = ! ok;
+
+          if (*p == ' ')
+            ++p;
+        }
+
+      if (ok)
+	return;
+
+      ++p;
+    }
+
+  p = multilib_select;
   while (*p != '\0')
     {
       /* Ignore newlines.  */
@@ -6007,7 +6116,8 @@ set_multilib_dir ()
    matches.  The options are print without a leading dash.  There are
    no spaces to make it easy to use the information in the shell.
    Each subdirectory is printed only once.  This assumes the ordering
-   generated by the genmultilib script.  */
+   generated by the genmultilib script. Also, we leave out ones that match
+   the exclusions.  */
 
 static void
 print_multilib_info ()
@@ -6015,10 +6125,11 @@ print_multilib_info ()
   char *p = multilib_select;
   char *last_path = 0, *this_path;
   int skip;
-  int last_path_len = 0;
+  unsigned int last_path_len = 0;
 
   while (*p != '\0')
     {
+      skip = 0;
       /* Ignore newlines.  */
       if (*p == '\n')
 	{
@@ -6035,12 +6146,103 @@ print_multilib_info ()
 	  ++p;
 	}
 
-      /* If this is a duplicate, skip it.  */
-      skip = (last_path != 0 && p - this_path == last_path_len
-	      && ! strncmp (last_path, this_path, last_path_len));
+      /* Check for matches with the multilib_exclusions. We don't bother
+         with the '!' in either list. If any of the exclusion rules match
+         all of its options with the select rule, we skip it.  */
+        {
+          char *e = multilib_exclusions;
+	  char *this_arg;
 
-      last_path = this_path;
-      last_path_len = p - this_path;
+	  while (*e != '\0')
+	    {
+	      int m = 1;	
+	      /* Ignore newlines.  */
+	      if (*e == '\n')
+	        {
+	          ++e;
+	          continue;
+	        }
+	      
+	      /* Check the arguments.  */
+	      while (*e != ';')
+	        {
+		  char *q;
+		  int mp = 0;
+
+	          if (*e == '\0')
+	            abort ();
+
+		  if (! m)
+		    {
+		      ++e;
+		      continue;
+		    }
+
+	          this_arg = e;
+
+	          while (*e != ' ' && *e != ';')
+	            {
+	              if (*e == '\0')
+	                abort ();
+	              ++e;
+	            }
+		  
+  		  q = p + 1;
+		  while (*q != ';')
+		    {
+		      char *arg;
+		      int len = e - this_arg;
+
+		      if (*q == '\0')
+			abort ();
+	
+		      arg = q;
+
+		      while (*q != ' ' && *q != ';')
+			{
+			  if (*q == '\0')
+			    abort ();
+			    ++q;
+			}
+
+		      if (! strncmp (arg, this_arg, (len < q - arg) ? q - arg : len) ||
+			  default_arg (this_arg, e - this_arg))
+		        {
+			  mp = 1;
+			  break;
+			}
+
+		      if (*q == ' ')
+			++q;
+	    	    }
+
+		  if (! mp)
+		    m = 0;
+
+	          if (*e == ' ')
+	            ++e;
+	        }
+	      
+	      if (m)
+	        {
+		  skip = 1;
+		  break;
+		}
+
+	      if (*e != '\0')
+		++e;
+	    }
+	}
+
+      if (! skip)
+        {
+          /* If this is a duplicate, skip it.  */
+          skip = (last_path != 0 && (unsigned int)(p - this_path) == last_path_len
+                  && ! strncmp (last_path, this_path, last_path_len));
+
+          last_path = this_path;
+          last_path_len = p - this_path;
+	}
 
       /* If this directory requires any default arguments, we can skip
 	 it.  We will already have printed a directory identical to
@@ -6124,7 +6326,7 @@ print_multilib_info ()
 
       if (! skip)
 	{
-	  /* If there are extra options, print them now */
+	  /* If there are extra options, print them now.  */
 	  if (multilib_extra && *multilib_extra)
 	    {
 	      int print_at = TRUE;
@@ -6143,6 +6345,7 @@ print_multilib_info ()
 		    }
 		}
 	    }
+	  
 	  putchar ('\n');
 	}
 

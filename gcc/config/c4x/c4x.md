@@ -1,5 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GNU C compiler
-;; Copyright (C) 1994-99, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
+;; 1999, 2000 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -453,6 +454,7 @@
 ; 10 RSQRF
 ; 11 loadqf_int
 ; 12 storeqf_int
+; 13 Conditional load on overflow
 ; 22 rptb_init
 
 ;
@@ -1109,7 +1111,7 @@
 (define_insn "set_high"
   [(set (match_operand:QI 0 "std_reg_operand" "=c")
         (high:QI (match_operand:QI 1 "symbolic_address_operand" "")))]
-  "! TARGET_C3X "
+  "! TARGET_C3X && ! TARGET_TI"
   "ldhi\\t^%H1,%0"
   [(set_attr "type" "unary")])
 
@@ -1117,14 +1119,14 @@
   [(set (match_operand:QI 0 "std_reg_operand" "=c")
         (lo_sum:QI (match_dup 0)
                    (match_operand:QI 1 "symbolic_address_operand" "")))]
-  ""
+  "! TARGET_TI"
   "or\\t#%H1,%0"
   [(set_attr "type" "unary")])
 
 (define_split
   [(set (match_operand:QI 0 "std_reg_operand" "")
         (match_operand:QI 1 "symbolic_address_operand" ""))]
-  "! TARGET_C3X"
+  "! TARGET_C3X && ! TARGET_TI"
   [(set (match_dup 0) (high:QI (match_dup 1)))
    (set (match_dup 0) (lo_sum:QI (match_dup 0) (match_dup 1)))]
   "")
@@ -1243,16 +1245,39 @@
    operands[5] = c4x_operand_subword (operands[1], 1, 1, HImode);
 }")
 
+
+; We need to clobber the DP reg to be safe in case we
+; need to load this address from memory
+(define_insn "load_immed_address"
+  [(set (match_operand:QI 0 "reg_operand" "=a?x?c*r")
+        (match_operand:QI 1 "symbolic_address_operand" ""))
+   (clobber (reg:QI 16))]
+  "TARGET_LOAD_ADDRESS"
+  "#"
+  [(set_attr "type" "multi")])
+
+
+(define_split
+  [(set (match_operand:QI 0 "std_reg_operand" "")
+        (match_operand:QI 1 "symbolic_address_operand" ""))
+   (clobber (reg:QI 16))]
+  "! TARGET_C3X && ! TARGET_TI"
+  [(set (match_dup 0) (high:QI (match_dup 1)))
+   (set (match_dup 0) (lo_sum:QI (match_dup 0) (match_dup 1)))]
+  "")
+
 ; CC has been selected to load a symbolic address.  We force the address
 ; into memory and then generate LDP and LDIU insns.
 ; This is also required for the C30 if we pretend that we can 
 ; easily load symbolic addresses into a register.
 (define_split
   [(set (match_operand:QI 0 "reg_operand" "")
-        (match_operand:QI 1 "symbolic_address_operand" ""))]
+        (match_operand:QI 1 "symbolic_address_operand" ""))
+   (clobber (reg:QI 16))]
   "! TARGET_SMALL 
-   && (TARGET_C3X || (reload_completed
-                      && ! std_reg_operand (operands[0], QImode)))"
+   && (TARGET_C3X || TARGET_TI
+       || (reload_completed
+           && ! std_reg_operand (operands[0], QImode)))"
   [(set (match_dup 2) (high:QI (match_dup 3)))
    (set (match_dup 0) (match_dup 4))
    (use (match_dup 1))]
@@ -1271,10 +1296,12 @@
 ; for the small memory model.
 (define_split
   [(set (match_operand:QI 0 "reg_operand" "")
-        (match_operand:QI 1 "symbolic_address_operand" ""))]
+        (match_operand:QI 1 "symbolic_address_operand" ""))
+   (clobber (reg:QI 16))]
   "TARGET_SMALL
-   && (TARGET_C3X || (reload_completed
-                      && ! std_reg_operand (operands[0], QImode)))"
+   && (TARGET_C3X || TARGET_TI
+       || (reload_completed
+           && ! std_reg_operand (operands[0], QImode)))"
   [(set (match_dup 0) (match_dup 2))
    (use (match_dup 1))]
   "
@@ -1285,13 +1312,6 @@
 			         gen_rtx_LO_SUM (Pmode, dp_reg,
                                                  XEXP (operands[2], 0)));
 }")
-
-(define_insn "load_immed_address"
-  [(set (match_operand:QI 0 "reg_operand" "=a?x?c*r")
-        (match_operand:QI 1 "symbolic_address_operand" ""))]
-  "TARGET_LOAD_ADDRESS"
-  "#"
-  [(set_attr "type" "multi")])
 
 (define_insn "loadhi_big_constant"
   [(set (match_operand:HI 0 "reg_operand" "=c*d")
@@ -1755,7 +1775,7 @@
 ; so we must emit the pattern that doesn't clobber CC.
 ;
 (define_expand "addqi3"
-  [(parallel [(set (match_operand:QI 0 "reg_operand" "")
+  [(parallel [(set (match_operand:QI 0 "std_or_reg_operand" "")
                    (plus:QI (match_operand:QI 1 "src_operand" "")
                             (match_operand:QI 2 "src_operand" "")))
               (clobber (reg:CC_NOOV 21))])]
@@ -1881,31 +1901,16 @@
 ; (set (mem (reg ar0)) (plus (reg ar3) (const_int 8))).
 ; This is an invalid C4x insn but if we don't provide a pattern
 ; for it, it will be considered to be a move insn for reloading.
-; The nasty bit is that a GENERAL_REGS class register, say r0,
-; may be allocated to reload the PLUS and thus gen_reload will
-; emit an add insn that may clobber CC.
 (define_insn "*addqi3_noclobber_reload"
-  [(set (match_operand:QI 0 "reg_operand" "=a*c,a*c,a*c,!*d,!*d,!*d")
-        (plus:QI (match_operand:QI 1 "src_operand" "%0,rR,rS<>,%0,rR,rS<>")
-                 (match_operand:QI 2 "src_operand" "rIm,JR,rS<>,rIm,JR,rS<>")))]
+  [(set (match_operand:QI 0 "std_reg_operand" "=c,c,c")
+        (plus:QI (match_operand:QI 1 "src_operand" "%0,rR,rS<>")
+                 (match_operand:QI 2 "src_operand" "rIm,JR,rS<>")))]
   "reload_in_progress"
-  "*
-   if (IS_STD_REG (operands[0]))
-     {
-       if (which_alternative == 0 || which_alternative == 3)
-	 return \"addi\\t%2,%0\";
-       else
-	 return \"addi3\\t%2,%1,%0\";
-     }
-   else
-     {
-       if (which_alternative == 0 || which_alternative == 3)
-	 return \"push\\tst\\n\\taddi\\t%2,%0\\n\\tpop\\tst\";
-       else
-	 return \"push\\tst\\n\\taddi3\\t%2,%1,%0\\n\\tpop\\tst\";
-     }
-   "
-  [(set_attr "type" "binary,binary,binary,multi,multi,multi")])
+  "@
+   addi\\t%2,%0
+   addi3\\t%2,%1,%0
+   addi3\\t%2,%1,%0"
+  [(set_attr "type" "binary,binary,binary")])
 ; Default to int16 data attr.
 
 
@@ -2097,7 +2102,8 @@
                                           operands[2]));
             DONE;
          }
-       c4x_emit_libcall3 (MULQI3_LIBCALL, MULT, QImode, operands);
+       c4x_emit_libcall3 (smul_optab->handlers[(int) QImode].libfunc,
+			  MULT, QImode, operands);
        DONE;
      }
   ")
@@ -2308,7 +2314,7 @@
  "legitimize_operands (MULT, operands, QImode);
   if (TARGET_C3X)
     {
-       c4x_emit_libcall_mulhi (SMULHI3_LIBCALL, SIGN_EXTEND, QImode, operands);
+       c4x_emit_libcall_mulhi (smulhi3_libfunc, SIGN_EXTEND, QImode, operands);
        DONE;
     }
  ")
@@ -2365,7 +2371,7 @@
  "legitimize_operands (MULT, operands, QImode);
   if (TARGET_C3X) 
     {
-      c4x_emit_libcall_mulhi (UMULHI3_LIBCALL, ZERO_EXTEND, QImode, operands);
+      c4x_emit_libcall_mulhi (umulhi3_libfunc, ZERO_EXTEND, QImode, operands);
       DONE;
     }
  ")
@@ -3760,30 +3766,38 @@
                    (fix:HI (match_operand:QF 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FIX_TRUNCQFHI2_LIBCALL, FIX, HImode, QFmode, 2, operands);
+  "c4x_emit_libcall (fix_truncqfhi2_libfunc, FIX, HImode, QFmode, 2, operands);
    DONE;")
 
-; Is this allowed to be implementation dependent?  If so, we can
-; omit the conditional load.  Otherwise we should emit a split.
 (define_expand "fixuns_truncqfqi2"
- [(parallel [(set (reg:CC 21)
-                  (compare:CC (fix:QI (match_operand:QF 1 "src_operand" "fHm"))
-                              (const_int 0)))
-             (set (match_dup 2)
-                  (fix:QI (match_dup 1)))])
-  (set (match_operand:QI 0 "reg_operand" "=r")
-       (if_then_else:QI (lt (reg:CC 21) (const_int 0))
-                        (const_int 0)
-                        (match_dup 2)))]
+ [(parallel [(set (match_dup 2)
+		  (fix:QI (match_operand:QF 1 "src_operand" "fHm")))
+	     (clobber (reg:CC 21))])
+  (parallel [(set (match_dup 3)
+	          (minus:QF (match_dup 1) (match_dup 5)))
+	     (clobber (reg:CC_NOOV 21))])
+  (parallel [(set (reg:CC 21)
+		  (compare:CC (fix:QI (match_dup 3))
+		              (const_int 0)))
+	     (set (match_dup 4)
+		  (fix:QI (match_dup 3)))])
+  (parallel [(set (match_dup 4) (unspec:QI [(match_dup 2)] 13))
+             (use (reg:CC 21))])
+  (set (match_operand:QI 0 "reg_operand" "=r") (match_dup 4))]
  ""
- "operands[2] = gen_reg_rtx (QImode);")
+ "operands[2] = gen_reg_rtx (QImode);
+  operands[3] = gen_reg_rtx (QFmode);
+  operands[4] = gen_reg_rtx (QImode);
+  operands[5] = gen_reg_rtx (QFmode);
+  emit_move_insn (operands[5],
+   immed_real_const_1 (REAL_VALUE_ATOF (\"4294967296.0\", QFmode), QFmode));")
 
 (define_expand "fixuns_truncqfhi2"
   [(parallel [(set (match_operand:HI 0 "reg_operand" "")
                    (unsigned_fix:HI (match_operand:QF 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FIXUNS_TRUNCQFHI2_LIBCALL, UNSIGNED_FIX, 
+  "c4x_emit_libcall (fixuns_truncqfhi2_libfunc, UNSIGNED_FIX, 
                      HImode, QFmode, 2, operands);
    DONE;")
 
@@ -4139,6 +4153,15 @@
   ldi%1\\t%2,%0
   ldi%I1\\t%3,%0"
  [(set_attr "type" "binary")])
+
+(define_insn "*ldi_on_overflow"
+  [(set (match_operand:QI 0 "reg_operand" "=r")
+	(unspec:QI [(match_operand:QI 1 "src_operand" "rIm")] 13))
+   (use (reg:CC 21))]
+  ""
+  "@
+   ldiv\\t%1,%0"
+  [(set_attr "type" "binary")])
 
 ; Move operand 2 to operand 0 if condition (operand 1) is true
 ; else move operand 3 to operand 0.
@@ -5918,7 +5941,7 @@
                    (fix:HI (match_operand:HF 1 "reg_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FIX_TRUNCHFHI2_LIBCALL, FIX, HImode, HFmode, 2, operands);
+  "c4x_emit_libcall (fix_trunchfhi2_libfunc, FIX, HImode, HFmode, 2, operands);
    DONE;")
 
 (define_expand "fixuns_trunchfhi2"
@@ -5926,7 +5949,7 @@
                    (unsigned_fix:HI (match_operand:HF 1 "reg_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FIXUNS_TRUNCHFHI2_LIBCALL, UNSIGNED_FIX, 
+  "c4x_emit_libcall (fixuns_trunchfhi2_libfunc, UNSIGNED_FIX, 
                      HImode, HFmode, 2, operands);
    DONE;")
 
@@ -6267,7 +6290,7 @@
                    (float:QF (match_operand:HI 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FLOATHIQF2_LIBCALL, FLOAT, QFmode, HImode, 2, operands);
+  "c4x_emit_libcall (floathiqf2_libfunc, FLOAT, QFmode, HImode, 2, operands);
    DONE;")
 
 (define_expand "floatunshiqf2"
@@ -6275,7 +6298,7 @@
                    (unsigned_float:QF (match_operand:HI 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FLOATUNSHIQF2_LIBCALL, UNSIGNED_FLOAT,
+  "c4x_emit_libcall (floatunshiqf2_libfunc, UNSIGNED_FLOAT,
                      QFmode, HImode, 2, operands);
    DONE;")
 
@@ -6284,7 +6307,7 @@
                    (float:HF (match_operand:HI 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FLOATHIHF2_LIBCALL, FLOAT, HFmode, HImode, 2, operands);
+  "c4x_emit_libcall (floathihf2_libfunc, FLOAT, HFmode, HImode, 2, operands);
    DONE;")
 
 (define_expand "floatunshihf2"
@@ -6292,7 +6315,7 @@
                    (unsigned_float:HF (match_operand:HI 1 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall (FLOATUNSHIHF2_LIBCALL, UNSIGNED_FLOAT,
+  "c4x_emit_libcall (floatunshihf2_libfunc, UNSIGNED_FLOAT,
                      HFmode, HImode, 2, operands);
    DONE;")
 
@@ -6859,7 +6882,8 @@
                             (match_operand:HI 2 "src_operand" "")))
               (clobber (reg:CC 21))])]
   ""
-  "c4x_emit_libcall3 (MULHI3_LIBCALL, MULT, HImode, operands);
+  "c4x_emit_libcall3 (smul_optab->handlers[(int) HImode].libfunc,
+		      MULT, HImode, operands);
    DONE;")
 
 

@@ -2,7 +2,7 @@
    hosting on Windows NT 3.x, using a Unix style C library and tools,
    as distinct from winnt.h, which is used to build GCC for use with a
    windows style library and tool set and uses the Microsoft tools.
-   Copyright (C) 1995-1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -57,8 +57,7 @@ Boston, MA 02111-1307, USA. */
 
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D_WIN32 \
-  -DWINNT  -D_X86_=1 -D__STDC__=1\
+#define CPP_PREDEFINES "-D_WIN32 -DWINNT -D_X86_=1 \
   -D__stdcall=__attribute__((__stdcall__)) \
   -D__cdecl=__attribute__((__cdecl__)) \
   -Asystem(winnt)"

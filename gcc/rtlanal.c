@@ -1,5 +1,6 @@
 /* Analyze RTL for C-Compiler
-   Copyright (C) 1987, 88, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -23,13 +24,13 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 
-static int rtx_addr_can_trap_p	PROTO((rtx));
-static void reg_set_p_1		PROTO((rtx, rtx, void *));
-static void reg_set_last_1	PROTO((rtx, rtx, void *));
+static int rtx_addr_can_trap_p	PARAMS ((rtx));
+static void reg_set_p_1		PARAMS ((rtx, rtx, void *));
+static void reg_set_last_1	PARAMS ((rtx, rtx, void *));
 
 
 /* Forward declarations */
-static int jmp_uses_reg_or_mem		PROTO((rtx));
+static int jmp_uses_reg_or_mem		PARAMS ((rtx));
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -422,6 +423,12 @@ reg_referenced_p (x, body)
 	  return 1;
       return 0;
       
+    case CLOBBER:
+      if (GET_CODE (XEXP (body, 0)) == MEM)
+	if (reg_overlap_mentioned_p (x, XEXP (XEXP (body, 0), 0)))
+	  return 1;
+      return 0;
+
     default:
       return 0;
     }
@@ -696,16 +703,30 @@ single_set (insn)
   else if (GET_CODE (PATTERN (insn)) == PARALLEL)
     {
       for (i = 0, set = 0; i < XVECLEN (PATTERN (insn), 0); i++)
-	if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == SET
-	    && (! find_reg_note (insn, REG_UNUSED,
-				 SET_DEST (XVECEXP (PATTERN (insn), 0, i)))
-		|| side_effects_p (XVECEXP (PATTERN (insn), 0, i))))
-	  {
-	    if (set)
+	{
+	  rtx sub = XVECEXP (PATTERN (insn), 0, i);
+
+	  switch (GET_CODE (sub))
+	    {
+	    case USE:
+	    case CLOBBER:
+	      break;
+
+	    case SET:
+	      if (! find_reg_note (insn, REG_UNUSED, SET_DEST (sub))
+		  || side_effects_p (sub))
+		{
+		  if (set)
+		    return 0;
+		  else
+		    set = sub;
+		}
+	      break;
+
+	    default:
 	      return 0;
-	    else
-	      set = XVECEXP (PATTERN (insn), 0, i);
-	  }
+	    }
+	}
       return set;
     }
   
@@ -744,11 +765,12 @@ multiple_sets (insn)
   return 0;
 }
 
-/* Return the last thing that X was assigned from before *PINSN.  Verify that
-   the object is not modified up to VALID_TO.  If it was, if we hit
-   a partial assignment to X, or hit a CODE_LABEL first, return X.  If we
-   found an assignment, update *PINSN to point to it.  
-   ALLOW_HWREG is set to 1 if hardware registers are allowed to be the src.  */
+/* Return the last thing that X was assigned from before *PINSN.  If VALID_TO
+   is not NULL_RTX then verify that the object is not modified up to VALID_TO.
+   If the object was modified, if we hit a partial assignment to X, or hit a
+   CODE_LABEL first, return X.  If we found an assignment, update *PINSN to
+   point to it.  ALLOW_HWREG is set to 1 if hardware registers are allowed to
+   be the src.  */
 
 rtx
 find_last_value (x, pinsn, valid_to, allow_hwreg)
@@ -773,7 +795,8 @@ find_last_value (x, pinsn, valid_to, allow_hwreg)
 	    if (note && GET_CODE (XEXP (note, 0)) != EXPR_LIST)
 	      src = XEXP (note, 0);
 
-	    if (! modified_between_p (src, PREV_INSN (p), valid_to)
+	    if ((valid_to == NULL_RTX
+		 || ! modified_between_p (src, PREV_INSN (p), valid_to))
 		/* Reject hard registers because we don't usually want
 		   to use them; we'd rather use a pseudo.  */
 		&& (! (GET_CODE (src) == REG
@@ -1081,7 +1104,7 @@ reg_set_last (x, insn)
 void
 note_stores (x, fun, data)
      register rtx x;
-     void (*fun) PROTO ((rtx, rtx, void *));
+     void (*fun) PARAMS ((rtx, rtx, void *));
      void *data;
 {
   if ((GET_CODE (x) == SET || GET_CODE (x) == CLOBBER))

@@ -1,4 +1,5 @@
-@c Copyright (C) 1988,89,92-99,2000 Free Software Foundation, Inc.
+@c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000
+@c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -37,6 +38,7 @@ includes @file{tm.h} and most compiler source files include
 * Assembler Format::    Defining how to write insns and pseudo-ops to output.
 * Debugging Info::      Defining the format of debugging output.
 * Cross-compilation::   Handling floating point for cross-compilers.
+* Mode Switching::      Insertion of mode-switching instructions.
 * Misc::                Everything else.
 @end menu
 
@@ -123,6 +125,16 @@ If this macro is defined, the preprocessor will not define the builtin macro
 defined by @code{CPP_SPEC} instead.
 
 This should be defined if @code{PTRDIFF_TYPE} depends on target dependent flags
+which are not accessible to the preprocessor.  Otherwise, it should not
+be defined.
+
+@findex NO_BUILTIN_WCHAR_TYPE
+@item NO_BUILTIN_WCHAR_TYPE
+If this macro is defined, the preprocessor will not define the builtin macro
+@code{__WCHAR_TYPE__}.  The macro @code{__WCHAR_TYPE__} must then be
+defined by @code{CPP_SPEC} instead.
+
+This should be defined if @code{WCHAR_TYPE} depends on target dependent flags
 which are not accessible to the preprocessor.  Otherwise, it should not
 be defined.
 
@@ -403,25 +415,16 @@ and specify private search areas for GCC.  The directory
 
 The definition should be an initializer for an array of structures.
 Each array element should have four elements: the directory name (a
-string constant), the component name, and flag for C++-only directories,
+string constant), the component name (also a string constant), a flag
+for C++-only directories,
 and a flag showing that the includes in the directory don't need to be
 wrapped in @code{extern @samp{C}} when compiling C++.  Mark the end of
 the array with a null element.
 
 The component name denotes what GNU package the include file is part of,
 if any, in all upper-case letters.  For example, it might be @samp{GCC}
-or @samp{BINUTILS}.  If the package is part of the a vendor-supplied
+or @samp{BINUTILS}.  If the package is part of a vendor-supplied
 operating system, code the component name as @samp{0}.
-
-@findex STRUCT_FORCE_BLK
-@item STRUCT_FORCE_BLK (@var{field})
-Return 1 if a structure containing @var{field} should be accessed using
-@code{BLKMODE}.
-
-Normally, this is not needed.  See the file @file{c4x.h} for an example
-of how to use this macro to prevent a structure having a floating point
-field from being accessed in an integer mode.
-
 
 For example, here is the definition used for VAX/VMS:
 
@@ -542,10 +545,15 @@ by means of a macro @code{TARGET_68020} that tests a bit in
 @code{target_flags}.
 
 Define a macro @code{TARGET_@var{featurename}} for each such option.
-Its definition should test a bit in @code{target_flags}; for example:
+Its definition should test a bit in @code{target_flags}.  It is
+recommended that a helper macro @code{TARGET_MASK_@var{featurename}}
+is defined for each bit-value to test, and used in
+@code{TARGET_@var{featurename}} and @code{TARGET_SWITCHES}.  For
+example:
 
 @smallexample
-#define TARGET_68020 (target_flags & 1)
+#define TARGET_MASK_68020 1
+#define TARGET_68020 (target_flags & TARGET_MASK_68020)
 @end smallexample
 
 One place where these macros are used is in the condition-expressions
@@ -578,9 +586,9 @@ with opposite meanings, and picks the latter as the default:
 
 @smallexample
 #define TARGET_SWITCHES \
-  @{ @{ "68020", 1, "" @},      \
-    @{ "68000", -1, "Compile for the 68000" @}, \
-    @{ "", 1, "" @}@}
+  @{ @{ "68020", TARGET_MASK_68020, "" @},      \
+    @{ "68000", -TARGET_MASK_68020, "Compile for the 68000" @}, \
+    @{ "", TARGET_MASK_68020, "" @}@}
 @end smallexample
 
 @findex TARGET_OPTIONS
@@ -992,6 +1000,15 @@ get from @code{PCC_BITFIELD_TYPE_MATTERS}.
 Like PCC_BITFIELD_TYPE_MATTERS except that its effect is limited to
 aligning a bitfield within the structure.
 
+@findex STRUCT_FORCE_BLK
+@item STRUCT_FORCE_BLK (@var{field})
+Return 1 if a structure containing @var{field} should be accessed using
+@code{BLKMODE}.
+
+Normally, this is not needed.  See the file @file{c4x.h} for an example
+of how to use this macro to prevent a structure having a floating point
+field from being accessed in an integer mode.
+
 @findex ROUND_TYPE_SIZE
 @item ROUND_TYPE_SIZE (@var{type}, @var{computed}, @var{specified})
 Define this macro as an expression for the overall size of a type
@@ -999,6 +1016,13 @@ Define this macro as an expression for the overall size of a type
 usual way is @var{computed} and the alignment is @var{specified}.
 
 The default is to round @var{computed} up to a multiple of @var{specified}.
+
+@findex ROUND_TYPE_SIZE_UNIT
+@item ROUND_TYPE_SIZE_UNIT (@var{type}, @var{computed}, @var{specified})
+Similar to @code{ROUND_TYPE_SIZE}, but sizes and alignments are
+specified in units (bytes).  If you define @code{ROUND_TYPE_SIZE},
+you must also define this macro and they must be defined consistently
+with each other.
 
 @findex ROUND_TYPE_ALIGN
 @item ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
@@ -1097,7 +1121,7 @@ implementation by default.  The ``thunk'' implementation is more efficient
 (especially if you have provided an implementation of
 @code{ASM_OUTPUT_MI_THUNK}, see @ref{Function Entry}), but is not binary
 compatible with code compiled using the traditional implementation.  
-If you are writing a new ports, define @code{DEFAULT_VTABLE_THUNKS} to 1.
+If you are writing a new port, define @code{DEFAULT_VTABLE_THUNKS} to 1.
 
 If you do not define this macro, the default for @samp{-fvtable-thunk} is 0.
 @end table
@@ -1153,9 +1177,8 @@ macro must be at least 64.
 @findex CHAR_TYPE_SIZE
 @item CHAR_TYPE_SIZE
 A C expression for the size in bits of the type @code{char} on the
-target machine.  If you don't define this, the default is one quarter
-of a word.  (If this would be less than one storage unit, it is rounded up
-to one unit.)
+target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT}.
 
 @findex MAX_CHAR_TYPE_SIZE
 @item MAX_CHAR_TYPE_SIZE
@@ -1505,7 +1528,7 @@ definition of this macro is
 @smallexample
 #define HARD_REGNO_NREGS(REGNO, MODE)            \
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)  \
-    / UNITS_PER_WORD))
+    / UNITS_PER_WORD)
 @end smallexample
 
 @findex ALTER_HARD_SUBREG
@@ -1599,7 +1622,7 @@ allocation.
 @findex AVOID_CCMODE_COPIES
 @item AVOID_CCMODE_COPIES
 Define this macro if the compiler should avoid copies to/from @code{CCmode}
-registers.  You should only define this macro if support fo copying to/from
+registers.  You should only define this macro if support for copying to/from
 @code{CCmode} is incomplete.
 @end table
 
@@ -1629,7 +1652,7 @@ accomplish this.
 @table @code
 @findex LEAF_REGISTERS
 @item LEAF_REGISTERS
-A C initializer for a vector, indexed by hard register number, which
+Name of a char vector, indexed by hard register number, which
 contains 1 for a register that is allowable in a candidate for leaf
 function treatment.
 
@@ -2269,6 +2292,9 @@ the stack.
 You only need to define this macro if you want to support call frame
 debugging information like that provided by DWARF 2.
 
+If this RTL is a @code{REG}, you should also define
+DWARF_FRAME_RETURN_COLUMN to @code{DWARF_FRAME_REGNUM (REGNO)}.
+
 @findex INCOMING_FRAME_SP_OFFSET
 @item INCOMING_FRAME_SP_OFFSET
 A C expression whose value is an integer giving the offset, in bytes,
@@ -2281,15 +2307,20 @@ You only need to define this macro if you want to support call frame
 debugging information like that provided by DWARF 2.
 
 @findex ARG_POINTER_CFA_OFFSET
-@item ARG_POINTER_CFA_OFFSET
+@item ARG_POINTER_CFA_OFFSET (@var{fundecl})
 A C expression whose value is an integer giving the offset, in bytes,
 from the argument pointer to the canonical frame address (cfa).  The
 final value should coincide with that calculated by 
 @code{INCOMING_FRAME_SP_OFFSET}.  Which is unfortunately not usable
 during virtual register instantiation.
 
-You only need to define this macro if you want to support call frame
-debugging information like that provided by DWARF 2.
+The default value for this macro is @code{FIRST_PARM_OFFSET (fundecl)},
+which is correct for most machines; in general, the arguments are found
+immediately before the stack frame.  See @file{function.c} for details.
+
+You only need to define this macro if this default is incorrect, and you
+want to support call frame debugging information like that provided by
+DWARF 2.
 
 @findex SMALL_STACK
 @item SMALL_STACK
@@ -2943,6 +2974,14 @@ For little-endian machines, the default is to pad upward.  For
 big-endian machines, the default is to pad downward for an argument of
 constant size shorter than an @code{int}, and upward otherwise.
 
+@findex PAD_VARARGS_DOWN
+@item PAD_VARARGS_DOWN
+If defined, a C expression which determines whether the default 
+implementation of va_arg will attempt to pad down before reading the 
+next argument, if that argument is smaller than its aligned space as
+controlled by @code{PARM_BOUNDARY}.  If this macro is not defined, all such
+arguments are padded down if @code{BYTES_BIG_ENDIAN} is true.
+
 @findex FUNCTION_ARG_BOUNDARY
 @item FUNCTION_ARG_BOUNDARY (@var{mode}, @var{type})
 If defined, a C expression that gives the alignment boundary, in bits,
@@ -3304,7 +3343,7 @@ compiler knows this regardless of @code{EXIT_IGNORE_STACK}.
 
 @findex EPILOGUE_USES
 @item EPILOGUE_USES (@var{regno})
-Define this macro as a C expression that is nonzero for registers are
+Define this macro as a C expression that is nonzero for registers that are
 used by the epilogue or the @samp{return} pattern.  The stack and frame
 pointer registers are already be assumed to be used as needed.
 
@@ -3593,7 +3632,7 @@ A C statement or compound statement to save all registers, which may
 be clobbered by a function call, including condition codes.  The
 @code{asm} statement will be mostly likely needed to handle this
 task.  Local labels in the assembler code can be concatenated with the
-string @var{id}, to obtain a unique lable name.
+string @var{id}, to obtain a unique label name.
 
 Registers or condition codes clobbered by @code{FUNCTION_PROLOGUE} or
 @code{FUNCTION_EPILOGUE} must be saved in the macros
@@ -3735,7 +3774,7 @@ done, you can use the standard implementation of varargs that works for
 machines that pass all their arguments on the stack.
 
 The argument @var{args_so_far} is the @code{CUMULATIVE_ARGS} data
-structure, containing the values that obtain after processing of the
+structure, containing the values that are obtained after processing the
 named arguments.  The arguments @var{mode} and @var{type} describe the
 last named argument---its machine mode and its data type as a tree node.
 
@@ -4518,7 +4557,7 @@ You need not define this macro if @code{EXTRA_CC_MODES} is not defined.
 
 @findex CANONICALIZE_COMPARISON
 @item CANONICALIZE_COMPARISON (@var{code}, @var{op0}, @var{op1})
-One some machines not all possible comparisons are defined, but you can
+On some machines not all possible comparisons are defined, but you can
 convert an invalid comparison into a valid one.  For example, the Alpha
 does not have a @code{GT} comparison, but you can use an @code{LT}
 comparison instead and swap the order of the operands.
@@ -5183,7 +5222,7 @@ This macro need not be defined if the standard form of output
 for the file format in use is appropriate.
 
 @findex OUTPUT_QUOTED_STRING
-@item OUTPUT_QUOTED_STRING (@var{stream}, @var{name})
+@item OUTPUT_QUOTED_STRING (@var{stream}, @var{string})
 A C statement to output the string @var{string} to the stdio stream
 @var{stream}.  If you do not call the function @code{output_quoted_string}
 in your config files, GCC will only call it to output filenames to
@@ -5304,7 +5343,7 @@ not define this macro, the usual case, GCC will output the constant
 pool before the function.
 
 @findex ASM_OUTPUT_POOL_PROLOGUE
-@item ASM_OUTPUT_POOL_PROLOGUE (@var{file} @var{funname} @var{fundecl} @var{size})
+@item ASM_OUTPUT_POOL_PROLOGUE (@var{file}, @var{funname}, @var{fundecl}, @var{size})
 A C statement to output assembler commands to define the start of the
 constant pool for a function.  @var{funname} is a string giving
 the name of the function.  Should the return type of the function
@@ -5450,7 +5489,7 @@ as the number of bits.
 @item ASM_OUTPUT_ALIGNED_DECL_COMMON (@var{stream}, @var{decl}, @var{name}, @var{size}, @var{alignment})
 Like @code{ASM_OUTPUT_ALIGNED_COMMON} except that @var{decl} of the
 variable to be output, if there is one, or @code{NULL_TREE} if there
-is not corresponding variable.  If you define this macro, GCC wil use it
+is no corresponding variable.  If you define this macro, GCC will use it
 in place of both @code{ASM_OUTPUT_COMMON} and
 @code{ASM_OUTPUT_ALIGNED_COMMON}.  Define this macro when you need to see
 the variable's decl in order to chose what to output.
@@ -5525,7 +5564,7 @@ as the number of bits.
 @item ASM_OUTPUT_ALIGNED_DECL_LOCAL (@var{stream}, @var{decl}, @var{name}, @var{size}, @var{alignment})
 Like @code{ASM_OUTPUT_ALIGNED_DECL} except that @var{decl} of the
 variable to be output, if there is one, or @code{NULL_TREE} if there
-is not corresponding variable.  If you define this macro, GCC wil use it
+is no corresponding variable.  If you define this macro, GCC will use it
 in place of both @code{ASM_OUTPUT_DECL} and
 @code{ASM_OUTPUT_ALIGNED_DECL}.  Define this macro when you need to see
 the variable's decl in order to chose what to output.
@@ -5774,7 +5813,7 @@ If SET_ASM_OP is defined, a default definition is provided which is
 correct for most systems.
 
 @findex ASM_OUTPUT_DEF_FROM_DECLS
-@item ASM_OUTPUT_DEF (@var{stream}, @var{decl_of_name}, @var{decl_of_value})
+@item ASM_OUTPUT_DEF_FROM_DECLS (@var{stream}, @var{decl_of_name}, @var{decl_of_value})
 A C statement to output to the stdio stream @var{stream} assembler code
 which defines (equates) the symbol whoes tree node is @var{decl_of_name}
 to have the value of the tree node @var{decl_of_value}.  This macro will
@@ -7187,6 +7226,85 @@ The value is in the target machine's representation for mode @var{mode}
 and has the type @code{REAL_VALUE_TYPE}.
 @end table
 
+@node Mode Switching
+@section Mode Switching Instructions
+@cindex mode switching
+The following macros control mode switching optimizations:
+
+@table @code
+@findex OPTIMIZE_MODE_SWITCHING
+@item OPTIMIZE_MODE_SWITCHING (@var{entity})
+Define this macro if the port needs extra instructions inserted for mode
+switching in an optimizing compilation.
+
+For an example, the SH4 can perform both single and double precision
+floating point operations, but to perform a single precision operation,
+the FPSCR PR bit has to be cleared, while for a double precision
+operation, this bit has to be set.  Changing the PR bit requires a general
+purpose register as a scratch register, hence these FPSCR sets have to
+be inserted before reload, i.e. you can't put this into instruction emitting
+or MACHINE_DEPENDENT_REORG.
+
+You can have multiple entities that are mode-switched, and select at run time
+which entities actually need it.  @code{OPTIMIZE_MODE_SWITCHING} should
+return non-zero for any @var{entity} that that needs mode-switching.
+If you define this macro, you also have to define
+@code{NUM_MODES_FOR_MODE_SWITCHING}, @code{MODE_NEEDED},
+@code{MODE_PRIORITY_TO_MODE} and @code{EMIT_MODE_SET}.
+@code{MODE_AT_ENTRY} and @code{MODE_USES_IN_EXIT_BLOCK} are optional.
+
+@findex NUM_MODES_FOR_MODE_SWITCHING
+@item NUM_MODES_FOR_MODE_SWITCHING
+If you define @code{OPTIMIZE_MODE_SWITCHING}, you have to define this as
+initializer for an array of integers.  Each initializer element
+N refers to an entity that needs mode switching, and specifies the number
+of different modes that might need to be set for this entity.
+The position of the initializer in the initializer - starting counting at
+zero - determines the integer that is used to refer to the mode-switched
+entity in question.
+In macros that take mode arguments / yield a mode result, modes are
+represented as numbers 0 .. N - 1.  N is used to specify that no mode
+switch is needed / supplied.
+
+@findex MODE_USES_IN_EXIT_BLOCK
+@item MODE_USES_IN_EXIT_BLOCK
+If this macro is defined, it is called for each exit block when mode switching
+optimization is performed.  Its return value should be the pattern of an insn,
+or a sequence of insns.  It is emitted before the return insn / use insns at
+the end of the exit block.
+
+This is done before insns are examined for their need of any mode switching.
+
+@findex MODE_NEEDED
+@item MODE_NEEDED (@var{entity}, @var{insn})
+@var{entity} is an integer specifying a mode-switched entity.  If
+@code{OPTIMIZE_MODE_SWITCHING} is defined, you must define this macro to
+return an integer value not larger than the corresponding element in
+NUM_MODES_FOR_MODE_SWITCHING, to denote the mode that @var{entity} must
+be switched into prior to the execution of INSN.
+
+@findex MODE_AT_ENTRY
+@item MODE_AT_ENTRY (@var{entity})
+If this macro is defined, it is evaluated for every @var{entity} that needs
+mode switching.  It should evaluate to an integer, which is a mode that
+@var{entity} is assumed to be switched to at function entry.
+
+@findex MODE_PRIORITY_TO_MODE
+@item MODE_PRIORITY_TO_MODE (@var{entity}, @var{n})
+This macro specifies the order in which modes for ENTITY are processed.
+0 is the highest priority, NUM_MODES_FOR_MODE_SWITCHING[ENTITY] - 1 the
+lowest.  The value of the macro should be an integer designating a mode
+for ENTITY.  For any fixed @var{entity}, @code{mode_priority_to_mode}
+(@var{entity}, @var{n}) shall be a bijection in 0 ..
+@code{num_modes_for_mode_switching}[@var{entity}] - 1 .
+
+@findex EMIT_MODE_SET
+@item EMIT_MODE_SET (@var{entity}, @var{mode}, @var{hard_regs_live})
+Generate one or more insns to set @var{entity} to @var{mode}.
+@var{hard_reg_live} is the set of hard registers live at the point where
+the insn(s) are to be inserted.
+@end table
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous
@@ -7477,8 +7595,8 @@ You need not define @code{STORE_FLAG_VALUE} if the machine has no store-flag
 instructions.
 
 @findex FLOAT_STORE_FLAG_VALUE
-@item FLOAT_STORE_FLAG_VALUE
-A C expression that gives a non-zero floating point value that is
+@item FLOAT_STORE_FLAG_VALUE (@var{mode})
+A C expression that gives a non-zero @code{REAL_VALUE_TYPE} value that is
 returned when comparison operators with floating-point results are true.
 Define this macro on machine that have comparison operations that return
 floating-point values.  If there are no such operations, do not define
@@ -7744,21 +7862,19 @@ any hard regs the port wishes to automatically clobber for all asms.
 @findex ISSUE_RATE
 @item ISSUE_RATE
 A C expression that returns how many instructions can be issued at the
-same time if the machine is a superscalar machine.  This is only used by
-the @samp{Haifa} scheduler, and not the traditional scheduler.
+same time if the machine is a superscalar machine.
 
 @findex MD_SCHED_INIT
 @item MD_SCHED_INIT (@var{file}, @var{verbose})
-A C statement which is executed by the @samp{Haifa} scheduler at the
+A C statement which is executed by the scheduler at the
 beginning of each block of instructions that are to be scheduled.
 @var{file} is either a null pointer, or a stdio stream to write any
 debug output to.  @var{verbose} is the verbose level provided by
 @samp{-fsched-verbose-}@var{n}.
 
 @findex MD_SCHED_REORDER
-@item MD_SCHED_REORDER (@var{file}, @var{verbose}, @var{ready}, @var{n_ready},
-			@var{clock}, @var{can_issue_more})
-A C statement which is executed by the @samp{Haifa} scheduler after it
+@item MD_SCHED_REORDER (@var{file}, @var{verbose}, @var{ready}, @var{n_ready}, @var{clock}, @var{can_issue_more})
+A C statement which is executed by the scheduler after it
 has scheduled the ready list to allow the machine description to reorder
 it (for example to combine two small instructions together on
 @samp{VLIW} machines).  @var{file} is either a null pointer, or a stdio
@@ -7774,7 +7890,7 @@ normally this is just @code{issue_rate}.
 
 @findex MD_SCHED_VARIABLE_ISSUE
 @item MD_SCHED_VARIABLE_ISSUE (@var{file}, @var{verbose}, @var{insn}, @var{more})
-A C statement which is executed by the @samp{Haifa} scheduler after it
+A C statement which is executed by the scheduler after it
 has scheduled an insn from the ready list.  @var{file} is either a null
 pointer, or a stdio stream to write any debug output to.  @var{verbose}
 is the verbose level provided by @samp{-fsched-verbose-}@var{n}.
@@ -7807,4 +7923,12 @@ specifies where the linker should look for libraries.
 
 You need only define this macro if the default of @samp{"LIBRARY_PATH"}
 is wrong.
+
+@findex TARGET_HAS_F_SETLKW
+@item TARGET_HAS_F_SETLKW
+Define this macro iff the target supports file locking with fcntl / F_SETLKW.
+Note that this functionality is part of POSIX.
+Defining @code{TARGET_HAS_F_SETLKW} will enable the test coverage code
+to use file locking when exiting a program, which avoids race conditions
+if the program has forked.
 @end table

@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for MIPS
-   Copyright (C) 1989, 90, 91, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -86,30 +87,30 @@ enum internal_test {
 
 
 struct constant;
-static enum internal_test map_test_to_internal_test	PROTO ((enum rtx_code));
-static int mips16_simple_memory_operand		PROTO ((rtx, rtx,
+static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
+static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
-static int m16_check_op				PROTO ((rtx, int, int, int));
-static void block_move_loop			PROTO ((rtx, rtx, int, int,
+static int m16_check_op				PARAMS ((rtx, int, int, int));
+static void block_move_loop			PARAMS ((rtx, rtx, int, int,
 							rtx, rtx));
-static void block_move_call			PROTO ((rtx, rtx, rtx));
-static FILE *mips_make_temp_file		PROTO ((void));
-static void save_restore_insns			PROTO ((int, rtx,
+static void block_move_call			PARAMS ((rtx, rtx, rtx));
+static FILE *mips_make_temp_file		PARAMS ((void));
+static void save_restore_insns			PARAMS ((int, rtx,
 							long, FILE *));
-static void mips16_output_gp_offset		PROTO ((FILE *, rtx));
-static void mips16_fp_args			PROTO ((FILE *, int, int));
-static void build_mips16_function_stub		PROTO ((FILE *));
-static void mips16_optimize_gp			PROTO ((rtx));
-static rtx add_constant				PROTO ((struct constant **,
+static void mips16_output_gp_offset		PARAMS ((FILE *, rtx));
+static void mips16_fp_args			PARAMS ((FILE *, int, int));
+static void build_mips16_function_stub		PARAMS ((FILE *));
+static void mips16_optimize_gp			PARAMS ((rtx));
+static rtx add_constant				PARAMS ((struct constant **,
 							rtx,
 							enum machine_mode));
-static void dump_constants			PROTO ((struct constant *,
+static void dump_constants			PARAMS ((struct constant *,
 							rtx));
-static rtx mips_find_symbol			PROTO ((rtx));
-static void abort_with_insn			PROTO ((rtx, const char *))
+static rtx mips_find_symbol			PARAMS ((rtx));
+static void abort_with_insn			PARAMS ((rtx, const char *))
   ATTRIBUTE_NORETURN;
-static int symbolic_expression_p                PROTO ((rtx));
-static void mips_add_gc_roots                   PROTO ((void));
+static int symbolic_expression_p                PARAMS ((rtx));
+static void mips_add_gc_roots                   PARAMS ((void));
 
 /* Global variables for machine-dependent things.  */
 
@@ -4045,11 +4046,10 @@ mips_va_start (stdarg_p, valist, nextarg)
      tree valist;
      rtx nextarg;
 {
-  int arg_words, fp_arg_words;
+  int arg_words;
   tree t;
 
   arg_words = current_function_args_info.arg_words;
-  fp_arg_words = current_function_args_info.fp_arg_words;
 
   if (mips_abi == ABI_EABI)
     {
@@ -4058,6 +4058,11 @@ mips_va_start (stdarg_p, valist, nextarg)
 	  tree f_fpr, f_rem, f_gpr, fpr, rem, gpr;
 	  tree gprv, fprv;
 	  int gpro, fpro;
+
+  	  fpro = (8 - current_function_args_info.fp_arg_words);
+
+	  if (!TARGET_64BIT)
+		fpro /= 2;
 
 	  f_fpr = TYPE_FIELDS (va_list_type_node);
 	  f_rem = TREE_CHAIN (f_fpr);
@@ -4084,16 +4089,15 @@ mips_va_start (stdarg_p, valist, nextarg)
 	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
 	  t = build (MODIFY_EXPR, integer_type_node, rem,
-		     build_int_2 (8 - fp_arg_words, 0));
+		     build_int_2 (fpro, 0));
 	  TREE_SIDE_EFFECTS (t) = 1;
 	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-	  fpro = (8 - fp_arg_words) * 8;
 	  if (fpro == 0)
 	    fprv = gprv;
 	  else
 	    fprv = fold (build (PLUS_EXPR, ptr_type_node, gprv,
-				build_int_2 (-fpro, -1)));
+				build_int_2 (-(fpro*8), -1)));
 
 	  if (! TARGET_64BIT)
 	    fprv = fold (build (BIT_AND_EXPR, ptr_type_node, fprv,
@@ -4198,6 +4202,9 @@ mips_va_arg (valist, type)
 	      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
 	      if (r != addr_rtx)
 		emit_move_insn (addr_rtx, r);
+
+	      /* Ensure that the POSTINCREMENT is emitted before lab_over */
+	      emit_queue();
 
 	      emit_jump (lab_over);
 	      emit_barrier ();
@@ -4771,7 +4778,7 @@ override_options ()
   gpr_mode = TARGET_64BIT ? DImode : SImode;
 
   /* Provide default values for align_* for 64-bit targets.  */
-  if (TARGET_64BIT)
+  if (TARGET_64BIT && !TARGET_MIPS16)
     {
       if (align_loops == 0) 
 	align_loops = 8;
@@ -6606,7 +6613,7 @@ mips_expand_prologue ()
   int regno;
   HOST_WIDE_INT tsize;
   rtx tmp_rtx = 0;
-  const char *arg_name = 0;
+  int last_arg_is_vararg_marker = 0;
   tree fndecl = current_function_decl;
   tree fntype = TREE_TYPE (fndecl);
   tree fnargs = DECL_ARGUMENTS (fndecl);
@@ -6630,7 +6637,11 @@ mips_expand_prologue ()
       fnargs = function_result_decl;
     }
 
-  /* Determine the last argument, and get its name.  */
+  /* For arguments passed in registers, find the register number
+     of the first argument in the variable part of the argument list,
+     otherwise GP_ARG_LAST+1.  Note also if the last argument is 
+     the varargs special argument, and treat it as part of the
+     variable arguments. */
 
   INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0);
   regno = GP_ARG_FIRST;
@@ -6649,32 +6660,37 @@ mips_expand_prologue ()
 
       entry_parm = FUNCTION_ARG (args_so_far, passed_mode, passed_type, 1);
 
+      FUNCTION_ARG_ADVANCE (args_so_far, passed_mode, passed_type, 1);
+      next_arg = TREE_CHAIN (cur_arg);
+
       if (entry_parm)
 	{
-	  int words;
-
-	  /* passed in a register, so will get homed automatically */
-	  if (GET_MODE (entry_parm) == BLKmode)
-	    words = (int_size_in_bytes (passed_type) + 3) / 4;
+	  if (next_arg == 0
+	      && DECL_NAME (cur_arg)
+	      && ((0 == strcmp (IDENTIFIER_POINTER (DECL_NAME (cur_arg)),
+				"__builtin_va_alist"))
+		  || (0 == strcmp (IDENTIFIER_POINTER (DECL_NAME (cur_arg)),
+				   "va_alist"))))
+	    {
+	      last_arg_is_vararg_marker = 1;
+	      break;
+	    }
 	  else
-	    words = (GET_MODE_SIZE (GET_MODE (entry_parm)) + 3) / 4;
+	    {
+	      int words;
+	  
+	      /* passed in a register, so will get homed automatically */
+	      if (GET_MODE (entry_parm) == BLKmode)
+		words = (int_size_in_bytes (passed_type) + 3) / 4;
+	      else
+		words = (GET_MODE_SIZE (GET_MODE (entry_parm)) + 3) / 4;
 
-	  regno = REGNO (entry_parm) + words - 1;
+	      regno = REGNO (entry_parm) + words - 1;
+	    }
 	}
       else
 	{
 	  regno = GP_ARG_LAST+1;
-	  break;
-	}
-
-      FUNCTION_ARG_ADVANCE (args_so_far, passed_mode, passed_type, 1);
-
-      next_arg = TREE_CHAIN (cur_arg);
-      if (next_arg == 0)
-	{
-	  if (DECL_NAME (cur_arg))
-	    arg_name = IDENTIFIER_POINTER (DECL_NAME (cur_arg));
-
 	  break;
 	}
     }
@@ -6712,11 +6728,7 @@ mips_expand_prologue ()
       && ((TYPE_ARG_TYPES (fntype) != 0
 	   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	       != void_type_node))
-	  || (arg_name != 0
-	      && ((arg_name[0] == '_'
-		   && strcmp (arg_name, "__builtin_va_alist") == 0)
-		  || (arg_name[0] == 'v'
-		      && strcmp (arg_name, "va_alist") == 0)))))
+	  || last_arg_is_vararg_marker))
     {
       int offset = (regno - GP_ARG_FIRST) * UNITS_PER_WORD;
       rtx ptr = stack_pointer_rtx;

@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GNU CC.
@@ -42,20 +43,20 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "tm_p.h"
 
-static void restore_unscaled_index_insn_codes		PROTO((rtx));
-static void record_unscaled_index_insn_codes		PROTO((rtx));
-static void pa_combine_instructions			PROTO((rtx));
-static int pa_can_combine_p	PROTO((rtx, rtx, rtx, int, rtx, rtx, rtx));
-static int forward_branch_p				PROTO((rtx));
-static int shadd_constant_p				PROTO((int));
-static void pa_add_gc_roots                             PROTO((void));
-static void mark_deferred_plabels                       PROTO((void *));
-static void compute_zdepwi_operands			PROTO((unsigned HOST_WIDE_INT, unsigned *));
-static int compute_movstrsi_length			PROTO((rtx));
-static void remove_useless_addtr_insns			PROTO((rtx, int));
-static void store_reg					PROTO((int, int, int));
-static void load_reg					PROTO((int, int, int));
-static void set_reg_plus_d				PROTO((int, int, int));
+static void restore_unscaled_index_insn_codes		PARAMS ((rtx));
+static void record_unscaled_index_insn_codes		PARAMS ((rtx));
+static void pa_combine_instructions			PARAMS ((rtx));
+static int pa_can_combine_p	PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
+static int forward_branch_p				PARAMS ((rtx));
+static int shadd_constant_p				PARAMS ((int));
+static void pa_add_gc_roots                             PARAMS ((void));
+static void mark_deferred_plabels                       PARAMS ((void *));
+static void compute_zdepwi_operands			PARAMS ((unsigned HOST_WIDE_INT, unsigned *));
+static int compute_movstrsi_length			PARAMS ((rtx));
+static void remove_useless_addtr_insns			PARAMS ((rtx, int));
+static void store_reg					PARAMS ((int, int, int));
+static void load_reg					PARAMS ((int, int, int));
+static void set_reg_plus_d				PARAMS ((int, int, int));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -206,7 +207,7 @@ reg_or_0_operand (op, mode)
 /* Return non-zero if OP is suitable for use in a call to a named
    function.
 
-   (???) For 2.5 try to eliminate either call_operand_address or
+   For 2.5 try to eliminate either call_operand_address or
    function_label_operand, they perform very similar functions.  */
 int
 call_operand_address (op, mode)
@@ -1278,7 +1279,7 @@ emit_move_sequence (operands, mode, scratch_reg)
 
      use scratch_reg to hold the address of the memory location.
 
-     ??? The proper fix is to change PREFERRED_RELOAD_CLASS to return
+     The proper fix is to change PREFERRED_RELOAD_CLASS to return
      NO_REGS when presented with a const_int and an register class
      containing only FP registers.  Doing so unfortunately creates
      more problems than it solves.   Fix this for 2.5.  */
@@ -2674,7 +2675,7 @@ compute_frame_size (size, fregs_live)
   fsize = (fsize + 7) & ~7;
 
   /* Account for space used by the callee floating point register saves.  */
-  for (i = 66; i >= 48; i -= 2)
+  for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
     if (regs_ever_live[i] || regs_ever_live[i + 1])
       {
 	if (fregs_live)
@@ -2979,7 +2980,7 @@ hppa_expand_prologue()
 	set_reg_plus_d (1, STACK_POINTER_REGNUM, offset);
 
       /* Now actually save the FP registers.  */
-      for (i = 66; i >= 48; i -= 2)
+      for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
 	{
 	  if (regs_ever_live[i] || regs_ever_live[i + 1])
 	    {
@@ -3117,7 +3118,7 @@ hppa_expand_epilogue ()
 	set_reg_plus_d (1, STACK_POINTER_REGNUM, offset);
 
       /* Actually do the restores now.  */
-      for (i = 66; i >= 48; i -= 2)
+      for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
 	{
 	  if (regs_ever_live[i] || regs_ever_live[i + 1])
 	    {
@@ -4049,7 +4050,7 @@ output_deferred_plabels (file)
    Keep track of which ones we have used.  */
 
 enum millicodes { remI, remU, divI, divU, mulI, mulU, end1000 };
-static void import_milli			PROTO((enum millicodes));
+static void import_milli			PARAMS ((enum millicodes));
 static char imported[(int)end1000];
 static const char * const milli_names[] = {"remI", "remU", "divI", "divU", "mulI", "mulU"};
 static char import_string[] = ".IMPORT $$....,MILLICODE";
@@ -4489,7 +4490,7 @@ hppa_va_arg (valist, type)
       t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
 		 build_int_2 (-size, -1));
 
-      /* ??? Copied from va-pa.h, but we probably don't need to align
+      /* Copied from va-pa.h, but we probably don't need to align
 	 to word size, since we generate and preserve that invariant.  */
       t = build (BIT_AND_EXPR, TREE_TYPE (valist), t,
 		 build_int_2 ((size > 4 ? -8 : -4), -1));
@@ -5697,12 +5698,12 @@ fmpyaddoperands (operands)
 
   /* SFmode limits the registers to the upper 32 of the 32bit FP regs.  */
   if (mode == SFmode
-      && (REGNO (operands[0]) < 57
-	  || REGNO (operands[1]) < 57
-	  || REGNO (operands[2]) < 57
-	  || REGNO (operands[3]) < 57
-	  || REGNO (operands[4]) < 57
-	  || REGNO (operands[5]) < 57))
+      && (REGNO_REG_CLASS (REGNO (operands[0])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[1])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[2])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[3])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[4])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[5])) != FPUPPER_REGS))
     return 0;
 
   /* Passed.  Operands are suitable for fmpyadd.  */
@@ -5754,12 +5755,12 @@ fmpysuboperands (operands)
 
   /* SFmode limits the registers to the upper 32 of the 32bit FP regs.  */
   if (mode == SFmode
-      && (REGNO (operands[0]) < 57
-	  || REGNO (operands[1]) < 57
-	  || REGNO (operands[2]) < 57
-	  || REGNO (operands[3]) < 57
-	  || REGNO (operands[4]) < 57
-	  || REGNO (operands[5]) < 57))
+      && (REGNO_REG_CLASS (REGNO (operands[0])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[1])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[2])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[3])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[4])) != FPUPPER_REGS
+	  || REGNO_REG_CLASS (REGNO (operands[5])) != FPUPPER_REGS))
     return 0;
 
   /* Passed.  Operands are suitable for fmpysub.  */

@@ -1,7 +1,8 @@
 /* Generate information regarding function declarations and definitions based
    on information stored in GCC's tree structure.  This code implements the
    -aux-info option.
-   Copyright (C) 1989, 91, 94, 95, 97-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1991, 1994, 1995, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@segfault.us.com).
 
 This file is part of GNU CC.
@@ -333,7 +334,7 @@ gen_type (ret_val, t, style)
           return ret_val;
 
         case ARRAY_TYPE:
-	  if (TYPE_SIZE (t) == 0 || TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
+	  if (!COMPLETE_TYPE_P (t) || TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
 	    ret_val = gen_type (concat (ret_val, "[]", NULL_PTR),
 				TREE_TYPE (t), style);
 	  else if (int_size_in_bytes (t) == 0)

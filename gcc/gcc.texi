@@ -100,7 +100,7 @@ Published by the Free Software Foundation
 59 Temple Place - Suite 330
 Boston, MA 02111-1307 USA
 
-Copyright (C) 1988, 1989, 1992-1999, 2000 Free Software Foundation, Inc.
+Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -2238,7 +2238,7 @@ convention, in which bug reports for tool ``foo'' are sent
 to @samp{bug-foo@@gnu.org}, the address @samp{bug-gcc@@gnu.org}
 may also be used; it will forward to the address given above.
 
-Please read @samp{<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>} for
+Please read @samp{<URL:http://www.gnu.org/software/gcc/bugs.html>} for
 bug reporting instructions before you post a bug report.
 
 Often people think of posting bug reports to the newsgroup instead of
@@ -2262,7 +2262,7 @@ Boston, MA 02111-1307, USA
 @cindex compiler bugs, reporting
 
 You may find additional and/or more up-to-date instructions at
-@samp{<URL:http://www.gnu.org/software/gcc/faq.html#bugreport>}.
+@samp{<URL:http://www.gnu.org/software/gcc/bugs.html>}.
 
 The fundamental principle of reporting bugs usefully is this:
 @strong{report all the facts}.  If you are not sure whether to state a
@@ -3434,7 +3434,7 @@ to the input file name.
 @item
 Register movement (@file{regmove.c}). This pass looks for cases where
 matching constraints would force an instruction to need a reload, and
-this reload would be a register to register move.  It them attempts
+this reload would be a register to register move.  It then attempts
 to change the registers used by the instruction to avoid the move
 instruction.
 
@@ -3782,24 +3782,14 @@ GCC.  If @samp{USE_PROTOTYPES} is not defined, it will be
 determined automatically whether your compiler supports
 prototypes by checking if @samp{__STDC__} is defined.
 
-@findex NO_MD_PROTOTYPES
-@item NO_MD_PROTOTYPES
-Define this if you wish suppression of prototypes generated from
-the machine description file, but to use other prototypes within
-GCC.  If @samp{USE_PROTOTYPES} is defined to be 0, or the
-host compiler does not support prototypes, this macro has no
-effect.
-
 @findex MD_CALL_PROTOTYPES
 @item MD_CALL_PROTOTYPES
-Define this if you wish to generate prototypes for the
-@code{gen_call} or @code{gen_call_value} functions generated from
-the machine description file.  If @samp{USE_PROTOTYPES} is
-defined to be 0, or the host compiler does not support
-prototypes, or @samp{NO_MD_PROTOTYPES} is defined, this macro has
-no effect.  As soon as all of the machine descriptions are
-modified to have the appropriate number of arguments, this macro
-will be removed.
+Define this if you wish to generate prototypes for the @code{gen_call}
+or @code{gen_call_value} functions generated from the machine
+description file.  If @samp{USE_PROTOTYPES} is defined to be 0, or the
+host compiler does not support prototypes, this macro has no effect.  As
+soon as all of the machine descriptions are modified to have the
+appropriate number of arguments, this macro will be removed.
 
 @findex PATH_SEPARATOR
 @item PATH_SEPARATOR

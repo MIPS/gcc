@@ -1,5 +1,6 @@
 /* Expands front end tree to back end RTL for GNU C-Compiler
-   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -372,7 +373,7 @@ struct stmt_status
 
   /* Filename and line number of last line-number note,
      whether we actually emitted it or not.  */
-  char *x_emit_filename;
+  const char *x_emit_filename;
   int x_emit_lineno;
 
   struct goto_fixup *x_goto_fixup_chain;
@@ -400,36 +401,36 @@ static int using_eh_for_cleanups_p = 0;
 static char *digit_strings[10];
 
 
-static int n_occurrences		PROTO((int, const char *));
-static void expand_goto_internal	PROTO((tree, rtx, rtx));
-static int expand_fixup			PROTO((tree, rtx, rtx));
-static rtx expand_nl_handler_label	PROTO((rtx, rtx));
-static void expand_nl_goto_receiver	PROTO((void));
-static void expand_nl_goto_receivers	PROTO((struct nesting *));
-static void fixup_gotos			PROTO((struct nesting *, rtx, tree,
+static int n_occurrences		PARAMS ((int, const char *));
+static void expand_goto_internal	PARAMS ((tree, rtx, rtx));
+static int expand_fixup			PARAMS ((tree, rtx, rtx));
+static rtx expand_nl_handler_label	PARAMS ((rtx, rtx));
+static void expand_nl_goto_receiver	PARAMS ((void));
+static void expand_nl_goto_receivers	PARAMS ((struct nesting *));
+static void fixup_gotos			PARAMS ((struct nesting *, rtx, tree,
 					       rtx, int));
-static void expand_null_return_1	PROTO((rtx, int));
-static void expand_value_return		PROTO((rtx));
-static int tail_recursion_args		PROTO((tree, tree));
-static void expand_cleanups		PROTO((tree, tree, int, int));
-static void check_seenlabel		PROTO((void));
-static void do_jump_if_equal		PROTO((rtx, rtx, rtx, int));
-static int estimate_case_costs		PROTO((case_node_ptr));
-static void group_case_nodes		PROTO((case_node_ptr));
-static void balance_case_nodes		PROTO((case_node_ptr *,
+static void expand_null_return_1	PARAMS ((rtx, int));
+static void expand_value_return		PARAMS ((rtx));
+static int tail_recursion_args		PARAMS ((tree, tree));
+static void expand_cleanups		PARAMS ((tree, tree, int, int));
+static void check_seenlabel		PARAMS ((void));
+static void do_jump_if_equal		PARAMS ((rtx, rtx, rtx, int));
+static int estimate_case_costs		PARAMS ((case_node_ptr));
+static void group_case_nodes		PARAMS ((case_node_ptr));
+static void balance_case_nodes		PARAMS ((case_node_ptr *,
 					       case_node_ptr));
-static int node_has_low_bound		PROTO((case_node_ptr, tree));
-static int node_has_high_bound		PROTO((case_node_ptr, tree));
-static int node_is_bounded		PROTO((case_node_ptr, tree));
-static void emit_jump_if_reachable	PROTO((rtx));
-static void emit_case_nodes		PROTO((rtx, case_node_ptr, rtx, tree));
-static int add_case_node		PROTO((tree, tree, tree, tree *));
-static struct case_node *case_tree2list	PROTO((case_node *, case_node *));
-static void mark_cond_nesting           PROTO((struct nesting *));
-static void mark_loop_nesting           PROTO((struct nesting *));
-static void mark_block_nesting          PROTO((struct nesting *));
-static void mark_case_nesting           PROTO((struct nesting *));
-static void mark_goto_fixup             PROTO((struct goto_fixup *));
+static int node_has_low_bound		PARAMS ((case_node_ptr, tree));
+static int node_has_high_bound		PARAMS ((case_node_ptr, tree));
+static int node_is_bounded		PARAMS ((case_node_ptr, tree));
+static void emit_jump_if_reachable	PARAMS ((rtx));
+static void emit_case_nodes		PARAMS ((rtx, case_node_ptr, rtx, tree));
+static int add_case_node		PARAMS ((tree, tree, tree, tree *));
+static struct case_node *case_tree2list	PARAMS ((case_node *, case_node *));
+static void mark_cond_nesting           PARAMS ((struct nesting *));
+static void mark_loop_nesting           PARAMS ((struct nesting *));
+static void mark_block_nesting          PARAMS ((struct nesting *));
+static void mark_case_nesting           PARAMS ((struct nesting *));
+static void mark_goto_fixup             PARAMS ((struct goto_fixup *));
 
 
 void
@@ -638,11 +639,17 @@ in_control_zone_p ()
 /* Record the current file and line.  Called from emit_line_note.  */
 void
 set_file_and_line_for_stmt (file, line)
-     char *file;
+     const char *file;
      int line;
 {
-  emit_filename = file;
-  emit_lineno = line;
+  /* If we're outputting an inline function, and we add a line note,
+     there may be no CFUN->STMT information.  So, there's no need to
+     update it.  */
+  if (cfun->stmt)
+    {
+      emit_filename = file;
+      emit_lineno = line;
+    }
 }
 
 /* Emit a no-op instruction.  */
@@ -1344,7 +1351,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   nclobbers = 0;
   for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
-      char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+      const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 
       i = decode_reg_name (regname);
       if (i >= 0 || i == -4)
@@ -1372,7 +1379,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       tmp = outputs;
       while (tmp)
 	{
-	  char *constraint = TREE_STRING_POINTER (TREE_PURPOSE (tmp));
+	  const char *constraint = TREE_STRING_POINTER (TREE_PURPOSE (tmp));
 
 	  if (n_occurrences (',', constraint) != nalternatives)
 	    {
@@ -1507,7 +1514,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       real_output_rtx[i] = NULL_RTX;
       if ((TREE_CODE (val) == INDIRECT_REF
 	   && allows_mem)
-	  || (TREE_CODE_CLASS (TREE_CODE (val)) == 'd'
+	  || (DECL_P (val)
 	      && (allows_mem || GET_CODE (DECL_RTL (val)) == REG)
 	      && ! (GET_CODE (DECL_RTL (val)) == REG
 		    && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type)))
@@ -1533,7 +1540,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	}
       else
 	{
-	  output_rtx[i] = assign_temp (type, 0, 0, 0);
+	  output_rtx[i] = assign_temp (type, 0, 0, 1);
 	  TREE_VALUE (tail) = make_tree (type, output_rtx[i]);
 	}
 
@@ -1790,7 +1797,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
 	{
-	  char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+	  const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 	  int j = decode_reg_name (regname);
 
 	  if (j < 0)
@@ -1983,7 +1990,7 @@ warn_if_unused_value (exp)
       
     default:
       /* Referencing a volatile value is a side effect, so don't warn.  */
-      if ((TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+      if ((DECL_P (exp)
 	   || TREE_CODE_CLASS (TREE_CODE (exp)) == 'r')
 	  && TREE_THIS_VOLATILE (exp))
 	return 0;
@@ -2676,11 +2683,9 @@ expand_null_return ()
   /* If this function was declared to return a value, but we 
      didn't, clobber the return registers so that they are not
      propogated live to the rest of the function.  */
-
-  diddle_return_value (CLOBBER);
+  clobber_return_register ();
 
   /* Does any pending block have cleanups?  */
-
   while (block && block->data.block.cleanups == 0)
     block = block->next;
 
@@ -2721,8 +2726,6 @@ expand_value_return (val)
       else
 	emit_move_insn (return_reg, val);
     }
-
-  diddle_return_value (USE);
 
   /* Does any pending block have cleanups?  */
 
@@ -3307,6 +3310,36 @@ expand_end_target_temps ()
   pop_temp_slots ();
 }
 
+/* Given a pointer to a BLOCK node return non-zero if (and only if) the node
+   in question represents the outermost pair of curly braces (i.e. the "body
+   block") of a function or method.
+
+   For any BLOCK node representing a "body block" of a function or method, the
+   BLOCK_SUPERCONTEXT of the node will point to another BLOCK node which
+   represents the outermost (function) scope for the function or method (i.e.
+   the one which includes the formal parameters).  The BLOCK_SUPERCONTEXT of
+   *that* node in turn will point to the relevant FUNCTION_DECL node. */
+
+int
+is_body_block (stmt)
+     register tree stmt;
+{
+  if (TREE_CODE (stmt) == BLOCK)
+    {
+      tree parent = BLOCK_SUPERCONTEXT (stmt);
+
+      if (parent && TREE_CODE (parent) == BLOCK)
+	{
+	  tree grandparent = BLOCK_SUPERCONTEXT (parent);
+
+	  if (grandparent && TREE_CODE (grandparent) == FUNCTION_DECL)
+	    return 1;
+	}
+    }
+
+  return 0;
+}
+
 /* Mark top block of block_stack as an implicit binding for an
    exception region.  This is used to prevent infinite recursion when
    ending a binding with expand_end_bindings.  It is only ever called
@@ -3565,7 +3598,6 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
      int dont_jump_in;
 {
   register struct nesting *thisblock;
-  register tree decl;
 
   while (block_stack->data.block.exception_region)
     {
@@ -3689,14 +3721,6 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
     /* Get rid of the beginning-mark if we don't make an end-mark.  */
     NOTE_LINE_NUMBER (thisblock->data.block.first_insn) = NOTE_INSN_DELETED;
 
-  /* If doing stupid register allocation, make sure lives of all
-     register variables declared here extend thru end of scope.  */
-
-  if (obey_regdecls)
-    for (decl = vars; decl; decl = TREE_CHAIN (decl))
-      if (TREE_CODE (decl) == VAR_DECL && DECL_RTL (decl))
-	use_variable (DECL_RTL (decl));
-
   /* Restore the temporary level of TARGET_EXPRs.  */
   target_temp_slot_level = thisblock->data.block.block_target_temp_slot_level;
 
@@ -3757,7 +3781,7 @@ expand_decl (decl)
 		&& TREE_CODE (type) == REAL_TYPE)
 	   && ! TREE_THIS_VOLATILE (decl)
 	   && ! TREE_ADDRESSABLE (decl)
-	   && (DECL_REGISTER (decl) || ! obey_regdecls)
+	   && (DECL_REGISTER (decl) || optimize)
 	   /* if -fcheck-memory-usage, check all variables.  */
 	   && ! current_function_check_memory_usage)
     {
@@ -3775,11 +3799,10 @@ expand_decl (decl)
 			   / BITS_PER_UNIT));
     }
 
-  else if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST
+  else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
 	   && ! (flag_stack_check && ! STACK_CHECK_BUILTIN
-		 && (TREE_INT_CST_HIGH (DECL_SIZE (decl)) != 0
-		     || (TREE_INT_CST_LOW (DECL_SIZE (decl))
-			 > STACK_CHECK_MAX_VAR_SIZE * BITS_PER_UNIT))))
+		 && 0 < compare_tree_int (DECL_SIZE_UNIT (decl),
+					  STACK_CHECK_MAX_VAR_SIZE)))
     {
       /* Variable of fixed size that goes on the stack.  */
       rtx oldaddr = 0;
@@ -3849,10 +3872,7 @@ expand_decl (decl)
 		     const0_rtx, VOIDmode, 0);
 
       /* Compute the variable's size, in bytes.  */
-      size = expand_expr (size_binop (CEIL_DIV_EXPR,
-				      DECL_SIZE (decl),
-				      size_int (BITS_PER_UNIT)),
-			  NULL_RTX, VOIDmode, 0);
+      size = expand_expr (DECL_SIZE_UNIT (decl), NULL_RTX, VOIDmode, 0);
       free_temp_slots ();
 
       /* Allocate space on the stack for the variable.  Note that
@@ -3880,24 +3900,10 @@ expand_decl (decl)
 
   if (TREE_THIS_VOLATILE (decl))
     MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
-#if 0 /* A variable is not necessarily unchanging
-	 just because it is const.  RTX_UNCHANGING_P
-	 means no change in the function,
-	 not merely no change in the variable's scope.
-	 It is correct to set RTX_UNCHANGING_P if the variable's scope
-	 is the whole function.  There's no convenient way to test that.  */
+
   if (TREE_READONLY (decl))
     RTX_UNCHANGING_P (DECL_RTL (decl)) = 1;
-#endif
-
-  /* If doing stupid register allocation, make sure life of any
-     register variable starts here, at the start of its scope.  */
-
-  if (obey_regdecls)
-    use_variable (DECL_RTL (decl));
 }
-
-
 
 /* Emit code to perform the initialization of a declaration DECL.  */
 
@@ -4205,8 +4211,7 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
          change the element's mode to the appropriate one for its size.  */
       if (mode == BLKmode && DECL_MODE (decl) != BLKmode)
 	DECL_MODE (decl_elt) = mode
-	  = mode_for_size (TREE_INT_CST_LOW (DECL_SIZE (decl_elt)),
-			   MODE_INT, 1);
+	  = mode_for_size_tree (DECL_SIZE (decl_elt), MODE_INT, 1);
 
       /* (SUBREG (MEM ...)) at RTL generation time is invalid, so we
          instead create a new MEM rtx with the proper mode.  */
@@ -4547,7 +4552,7 @@ check_seenlabel ()
 int
 pushcase (value, converter, label, duplicate)
      register tree value;
-     tree (*converter) PROTO((tree, tree));
+     tree (*converter) PARAMS ((tree, tree));
      register tree label;
      tree *duplicate;
 {
@@ -4611,7 +4616,7 @@ pushcase (value, converter, label, duplicate)
 int
 pushcase_range (value1, value2, converter, label, duplicate)
      register tree value1, value2;
-     tree (*converter) PROTO((tree, tree));
+     tree (*converter) PARAMS ((tree, tree));
      register tree label;
      tree *duplicate;
 {
@@ -4955,8 +4960,8 @@ all_cases_count (type, spareness)
 	{
 	  if (TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
 	      || TREE_CODE (TREE_VALUE (t)) != INTEGER_CST
-	      || TREE_INT_CST_LOW (TYPE_MIN_VALUE (type)) + count
-	      != TREE_INT_CST_LOW (TREE_VALUE (t)))
+	      || (TREE_INT_CST_LOW (TYPE_MIN_VALUE (type)) + count
+		  != TREE_INT_CST_LOW (TREE_VALUE (t))))
 	    *spareness = 1;
 	  count++;
 	}
@@ -5395,10 +5400,11 @@ expand_end_case (orig_index)
 #endif /* HAVE_casesi */
 #endif /* CASE_VALUES_THRESHOLD */
 
-      else if (TREE_INT_CST_HIGH (range) != 0
-	       || count < (unsigned int) CASE_VALUES_THRESHOLD
-	       || ((unsigned HOST_WIDE_INT) (TREE_INT_CST_LOW (range))
-		   > 10 * count)
+      else if (count < CASE_VALUES_THRESHOLD
+	       || compare_tree_int (range, 10 * count) > 0
+	       /* RANGE may be signed, and really large ranges will show up
+		  as negative numbers.  */
+	       || compare_tree_int (range, 0) < 0
 #ifndef ASM_OUTPUT_ADDR_DIFF_ELT
 	       || flag_pic
 #endif
@@ -5761,7 +5767,8 @@ estimate_case_costs (node)
       if ((INT_CST_LT (n->low, min_ascii)) || INT_CST_LT (max_ascii, n->high))
 	return 0;
 
-      for (i = TREE_INT_CST_LOW (n->low); i <= TREE_INT_CST_LOW (n->high); i++)
+      for (i = (HOST_WIDE_INT) TREE_INT_CST_LOW (n->low);
+	   i <= (HOST_WIDE_INT) TREE_INT_CST_LOW (n->high); i++)
 	if (cost_table[i] < 0)
 	  return 0;
     }
@@ -6365,19 +6372,3 @@ emit_case_nodes (index, node, default_label, index_type)
     }
 }
 
-/* These routines are used by the loop unrolling code.  They copy BLOCK trees
-   so that the debugging info will be correct for the unrolled loop.  */
-
-void
-find_loop_tree_blocks ()
-{
-  identify_blocks (DECL_INITIAL (current_function_decl), get_insns ());
-}
-
-void
-unroll_block_trees ()
-{
-  tree block = DECL_INITIAL (current_function_decl);
-
-  reorder_blocks (block, get_insns ());
-}

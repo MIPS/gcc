@@ -1,5 +1,6 @@
 /* Generate code from machine description to extract operands from insn as rtl.
-   Copyright (C) 1987, 91-93, 97-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1992, 1993, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -97,10 +98,10 @@ static int dupnums[MAX_DUP_OPERANDS];
 
 static struct code_ptr *peepholes;
 
-static void gen_insn PROTO ((rtx));
-static void walk_rtx PROTO ((rtx, const char *));
-static void print_path PROTO ((const char *));
-static void record_insn_name PROTO((int, const char *));
+static void gen_insn PARAMS ((rtx));
+static void walk_rtx PARAMS ((rtx, const char *));
+static void print_path PARAMS ((const char *));
+static void record_insn_name PARAMS ((int, const char *));
 
 static void
 gen_insn (insn)
@@ -380,7 +381,7 @@ xstrdup (input)
   return output;
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

@@ -1,5 +1,6 @@
 /* Part of CPP library.  (Macro handling.)
-   Copyright (C) 1986, 87, 89, 92-96, 98, 99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -26,25 +27,30 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "system.h"
 #include "cpplib.h"
 #include "cpphash.h"
+#include "hashtab.h"
 #undef abort
+
+static unsigned int hash_HASHNODE PARAMS ((const void *));
+static int eq_HASHNODE		  PARAMS ((const void *, const void *));
+static void del_HASHNODE	  PARAMS ((void *));
+static int dump_hash_helper	  PARAMS ((void **, void *));
 
 static int comp_def_part	 PARAMS ((int, U_CHAR *, int, U_CHAR *,
 					  int, int));
-static int change_newlines	 PARAMS ((U_CHAR *, int));
 static void push_macro_expansion PARAMS ((cpp_reader *,
 					  U_CHAR *, int, HASHNODE *));
-static int unsafe_chars		 PARAMS ((int, int));
+static int unsafe_chars		 PARAMS ((cpp_reader *, int, int));
 static int macro_cleanup	 PARAMS ((cpp_buffer *, cpp_reader *));
 static enum cpp_token macarg	 PARAMS ((cpp_reader *, int));
 static struct tm *timestamp	 PARAMS ((cpp_reader *));
 static void special_symbol	 PARAMS ((HASHNODE *, cpp_reader *));
 
-
-#define SKIP_WHITE_SPACE(p) do { while (is_hspace(*p)) p++; } while (0)
 #define CPP_IS_MACRO_BUFFER(PBUF) ((PBUF)->data != NULL)
 #define FORWARD(N) CPP_FORWARD (CPP_BUFFER (pfile), (N))
+#define PEEKC() CPP_BUF_PEEK (CPP_BUFFER (pfile))
 
-extern char *version_string;
+/* Initial hash table size.  (It can grow if necessary - see hashtab.c.)  */
+#define HASHSIZE 500
 
 /* The arglist structure is built by create_definition to tell
    collect_expansion where the argument names begin.  That
@@ -57,27 +63,30 @@ extern char *version_string;
    the current #define has been processed and entered into the
    hash table.  */
 
-struct arglist
+struct arg
 {
-  struct arglist *next;
   U_CHAR *name;
-  int length;
-  int argno;
-  char rest_args;
+  int len;
+  char rest_arg;
 };
 
-static DEFINITION *collect_expansion PARAMS ((cpp_reader *, U_CHAR *, U_CHAR *,
-					      int, struct arglist *));
+struct arglist
+{
+  U_CHAR *namebuf;
+  struct arg *argv;
+  int argc;
+};
+
+
+static DEFINITION *collect_expansion PARAMS ((cpp_reader *, struct arglist *));
+static struct arglist *collect_formal_parameters PARAMS ((cpp_reader *));
 
 /* This structure represents one parsed argument in a macro call.
    `raw' points to the argument text as written (`raw_length' is its length).
    `expanded' points to the argument's macro-expansion
    (its length is `expand_length').
    `stringified_length' is the length the argument would have
-   if stringified.
-   `use_count' is the number of times this macro arg is substituted
-   into the macro.  If the actual use count exceeds 10, 
-   the value stored is 10.  */
+   if stringified.  */
 
 /* raw and expanded are relative to ARG_BASE */
 #define ARG_BASE ((pfile)->token_buffer)
@@ -88,46 +97,92 @@ struct argdata
   long raw, expanded, stringified;
   int raw_length, expand_length;
   int stringified_length;
-  char newlines;
-  char use_count;
 };
 
-
-/* Return hash function on name.  must be compatible with the one
-   computed a step at a time, elsewhere  */
-
-int
-hashf (name, len, hashsize)
-     register const U_CHAR *name;
-     register int len;
-     int hashsize;
+/* Calculate hash of a HASHNODE structure.  */
+static unsigned int
+hash_HASHNODE (x)
+     const void *x;
 {
-  register int r = 0;
+  HASHNODE *h = (HASHNODE *)x;
+  const U_CHAR *s = h->name;
+  unsigned int len = h->length;
+  unsigned int n = len, r = 0;
 
-  while (len--)
-    r = HASHSTEP (r, *name++);
-
-  return MAKE_POS (r) % hashsize;
+  if (h->hash != (unsigned long)-1)
+    return h->hash;
+  
+  do
+    r = r * 67 + (*s++ - 113);
+  while (--n);
+  h->hash = r + len;
+  return r + len;
 }
 
-/* Find the most recent hash node for name "name" (ending with first
-   non-identifier char) installed by cpp_install
+/* Compare two HASHNODE structures.  */
+static int
+eq_HASHNODE (x, y)
+     const void *x;
+     const void *y;
+{
+  const HASHNODE *a = (const HASHNODE *)x;
+  const HASHNODE *b = (const HASHNODE *)y;
 
-   If LEN is >= 0, it is the length of the name.
-   Otherwise, compute the length by scanning the entire name.
+  return (a->length == b->length
+	  && !strncmp (a->name, b->name, a->length));
+}
 
-   If HASH is >= 0, it is the precomputed hash code.
-   Otherwise, compute the hash code.  */
+/* Destroy a HASHNODE.  */
+static void
+del_HASHNODE (x)
+     void *x;
+{
+  HASHNODE *h = (HASHNODE *)x;
+  
+  if (h->type == T_MACRO)
+    _cpp_free_definition (h->value.defn);
+  free ((void *) h->name);
+  free (h);
+}
+
+/* Allocate and initialize a HASHNODE structure.
+   Caller must fill in the value field.  */
 
 HASHNODE *
-cpp_lookup (pfile, name, len, hash)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+_cpp_make_hashnode (name, len, type, hash)
+     const U_CHAR *name;
+     size_t len;
+     enum node_type type;
+     unsigned long hash;
+{
+  HASHNODE *hp = (HASHNODE *) xmalloc (sizeof (HASHNODE));
+  U_CHAR *p = xmalloc (len + 1);
+
+  hp->type = type;
+  hp->length = len;
+  hp->name = p;
+  hp->hash = hash;
+
+  memcpy (p, name, len);
+  p[len] = 0;
+
+  return hp;
+}
+
+/* Find the hash node for name "name", which ends at the first
+   non-identifier char.
+
+   If LEN is >= 0, it is the length of the name.
+   Otherwise, compute the length now.  */
+
+HASHNODE *
+_cpp_lookup (pfile, name, len)
+     cpp_reader *pfile;
      const U_CHAR *name;
      int len;
-     int hash;
 {
-  register const U_CHAR *bp;
-  register HASHNODE *bucket;
+  const U_CHAR *bp;
+  HASHNODE dummy;
 
   if (len < 0)
     {
@@ -135,119 +190,68 @@ cpp_lookup (pfile, name, len, hash)
       len = bp - name;
     }
 
-  if (hash < 0)
-    hash = hashf (name, len, HASHSIZE);
+  dummy.name = name;
+  dummy.length = len;
+  dummy.hash = -1;
 
-  bucket = pfile->hashtab[hash];
-  while (bucket)
-    {
-      if (bucket->length == len && strncmp (bucket->name, name, len) == 0)
-	return bucket;
-      bucket = bucket->next;
-    }
-  return (HASHNODE *) 0;
+  return (HASHNODE *) htab_find (pfile->hashtab, (void *)&dummy);
 }
 
-/*
- * Delete a hash node.  Some weirdness to free junk from macros.
- * More such weirdness will have to be added if you define more hash
- * types that need it.
- */
-
-/* Note that the DEFINITION of a macro is removed from the hash table
-   but its storage is not freed.  This would be a storage leak
-   except that it is not reasonable to keep undefining and redefining
-   large numbers of macros many times.
-   In any case, this is necessary, because a macro can be #undef'd
-   in the middle of reading the arguments to a call to it.
-   If #undef freed the DEFINITION, that would crash.  */
-
-void
-delete_macro (hp)
-     HASHNODE *hp;
-{
-
-  if (hp->prev != NULL)
-    hp->prev->next = hp->next;
-  if (hp->next != NULL)
-    hp->next->prev = hp->prev;
-
-  /* make sure that the bucket chain header that
-     the deleted guy was on points to the right thing afterwards.  */
-  if (hp == *hp->bucket_hdr)
-    *hp->bucket_hdr = hp->next;
-
-  if (hp->type == T_MACRO)
-    {
-      DEFINITION *d = hp->value.defn;
-      struct reflist *ap, *nextap;
-
-      for (ap = d->pattern; ap != NULL; ap = nextap)
-	{
-	  nextap = ap->next;
-	  free (ap);
-	}
-      if (d->nargs >= 0)
-	free (d->args.argnames);
-      free (d);
-    }
-
-  free (hp);
-}
-
-/* Install a name in the main hash table, even if it is already there.
-   Name stops with first non alphanumeric, except leading '#'.
-   Caller must check against redefinition if that is desired.
-   delete_macro () removes things installed by cpp_install () in fifo order.
-   this is important because of the `defined' special symbol used
-   in #if, and also if pushdef/popdef directives are ever implemented.
-
-   If LEN is >= 0, it is the length of the name.
-   Otherwise, compute the length by scanning the entire name.
-
-   If HASH is >= 0, it is the precomputed hash code.
-   Otherwise, compute the hash code.  */
-
-HASHNODE *
-cpp_install (pfile, name, len, type, value, hash)
+/* Find the hashtable slot for name "name".  Used to insert or delete.  */
+HASHNODE **
+_cpp_lookup_slot (pfile, name, len, insert, hash)
      cpp_reader *pfile;
      const U_CHAR *name;
      int len;
-     enum node_type type;
-     const char *value;
-     int hash;
+     int insert;
+     unsigned long *hash;
 {
-  register HASHNODE *hp;
-  register int i, bucket;
-  register const U_CHAR *p;
+  const U_CHAR *bp;
+  HASHNODE dummy;
+  HASHNODE **slot;
 
   if (len < 0)
     {
-      p = name;
-      while (is_idchar(*p))
-	p++;
-      len = p - name;
+      for (bp = name; is_idchar (*bp); bp++);
+      len = bp - name;
     }
 
-  if (hash < 0)
-    hash = hashf (name, len, HASHSIZE);
+  dummy.name = name;
+  dummy.length = len;
+  dummy.hash = -1;
 
-  i = sizeof (HASHNODE) + len + 1;
-  hp = (HASHNODE *) xmalloc (i);
-  bucket = hash;
-  hp->bucket_hdr = &pfile->hashtab[bucket];
-  hp->next = pfile->hashtab[bucket];
-  pfile->hashtab[bucket] = hp;
-  hp->prev = NULL;
-  if (hp->next != NULL)
-    hp->next->prev = hp;
-  hp->type = type;
-  hp->length = len;
-  hp->value.cpval = value;
-  hp->name = ((U_CHAR *) hp) + sizeof (HASHNODE);
-  bcopy (name, hp->name, len);
-  hp->name[len] = 0;
-  return hp;
+  slot = (HASHNODE **) htab_find_slot (pfile->hashtab, (void *)&dummy, insert);
+  if (insert)
+    *hash = dummy.hash;
+  return slot;
+}
+
+/* Init the hash table.  In here so it can see the hash and eq functions.  */
+void
+_cpp_init_macro_hash (pfile)
+     cpp_reader *pfile;
+{
+  pfile->hashtab = htab_create (HASHSIZE, hash_HASHNODE,
+				eq_HASHNODE, del_HASHNODE);
+}
+
+/* Free a DEFINITION structure.  Used by delete_macro, and by
+   do_define when redefining macros.  */
+
+void
+_cpp_free_definition (d)
+     DEFINITION *d;
+{
+  struct reflist *ap, *nextap;
+
+  for (ap = d->pattern; ap != NULL; ap = nextap)
+    {
+      nextap = ap->next;
+      free (ap);
+    }
+  if (d->nargs >= 0)
+    free (d->argnames);
+  free (d);
 }
 
 static int
@@ -259,515 +263,497 @@ macro_cleanup (pbuf, pfile)
   if (macro->type == T_DISABLED)
     macro->type = T_MACRO;
   if (macro->type != T_MACRO || pbuf->buf != macro->value.defn->expansion)
-    free (pbuf->buf);
+    free ((PTR) pbuf->buf);
   return 0;
 }
 
+/* Read a replacement list for a macro, and build the DEFINITION
+   structure.  ARGLIST specifies the formal parameters to look for in
+   the text of the definition.  If ARGLIST is null, this is an
+   object-like macro; if it points to an empty arglist, this is a
+   function-like macro with no arguments.
 
-/* Read a replacement list for a macro with parameters.
-   Build the DEFINITION structure.
-   Reads characters of text starting at BUF until END.
-   ARGLIST specifies the formal parameters to look for
-   in the text of the definition; NARGS is the number of args
-   in that list, or -1 for a macro name that wants no argument list.
-   MACRONAME is the macro name itself (so we can avoid recursive expansion)
-   and NAMELEN is its length in characters.
-   
-   Note that comments, backslash-newlines, and leading white space
-   have already been deleted from the argument.  */
+   A good half of this is devoted to supporting -traditional.
+   Kill me now.  */
 
 static DEFINITION *
-collect_expansion (pfile, buf, limit, nargs, arglist)
+collect_expansion (pfile, arglist)
      cpp_reader *pfile;
-     U_CHAR *buf, *limit;
-     int nargs;
      struct arglist *arglist;
 {
   DEFINITION *defn;
-  register U_CHAR *p, *lastp, *exp_p;
-  struct reflist *endpat = NULL;
-  /* Pointer to first nonspace after last ## seen.  */
-  U_CHAR *concat = 0;
-  /* Pointer to first nonspace after last single-# seen.  */
-  U_CHAR *stringify = 0;
-  int maxsize;
-  int expected_delimiter = '\0';
+  struct reflist *pat = 0, *endpat = 0;
+  enum cpp_token token;
+  long start, here, last;
+  int i;
+  int argc;
+  size_t len;
+  struct arg *argv;
+  U_CHAR *tok, *exp;
+  enum { START = 0, NORM, ARG, STRIZE, PASTE } last_token = START;
 
-  /* Scan thru the replacement list, ignoring comments and quoted
-     strings, picking up on the macro calls.  It does a linear search
-     thru the arg list on every potential symbol.  Profiling might say
-     that something smarter should happen.  */
-
-  if (limit < buf)
+  if (arglist)
     {
-      cpp_fatal (pfile, "internal error: limit < buf in collect_expansion");
-      limit = buf; /* treat it like a null defn */
-    }
-
-  /* Find the beginning of the trailing whitespace.  */
-  p = buf;
-  while (p < limit && is_space(limit[-1]))
-    limit--;
-
-  /* Allocate space for the text in the macro definition.
-     Leading and trailing whitespace chars need 2 bytes each.
-     Each other input char may or may not need 1 byte,
-     so this is an upper bound.  The extra 5 are for invented
-     leading and trailing newline-marker and final null.  */
-  maxsize = (sizeof (DEFINITION)
-	     + (limit - p) + 5);
-  defn = (DEFINITION *) xcalloc (1, maxsize);
-
-  defn->nargs = nargs;
-  exp_p = defn->expansion = (U_CHAR *) defn + sizeof (DEFINITION);
-  lastp = exp_p;
-
-  p = buf;
-
-  /* Add one initial space escape-marker to prevent accidental
-     token-pasting (often removed by macroexpand).  */
-  *exp_p++ = '\r';
-  *exp_p++ = ' ';
-
-  if (limit - p >= 2 && p[0] == '#' && p[1] == '#')
-    {
-      cpp_error (pfile, "`##' at start of macro definition");
-      p += 2;
-    }
-
-  /* Process the main body of the definition.  */
-  while (p < limit)
-    {
-      int skipped_arg = 0;
-      register U_CHAR c = *p++;
-
-      *exp_p++ = c;
-
-      if (!CPP_TRADITIONAL (pfile))
-	{
-	  switch (c)
-	    {
-	    case '\'':
-	    case '\"':
-	      if (expected_delimiter != '\0')
-		{
-		  if (c == expected_delimiter)
-		    expected_delimiter = '\0';
-		}
-	      else
-		expected_delimiter = c;
-	      break;
-
-	    case '\\':
-	      if (p < limit && expected_delimiter)
-		{
-		  /* In a string, backslash goes through
-		     and makes next char ordinary.  */
-		  *exp_p++ = *p++;
-		}
-	      break;
-
-	    case '#':
-	      /* # is ordinary inside a string.  */
-	      if (expected_delimiter)
-		break;
-	      if (p < limit && *p == '#')
-		{
-		  /* ##: concatenate preceding and following tokens.  */
-		  /* Take out the first #, discard preceding whitespace.  */
-		  exp_p--;
-		  while (exp_p > lastp && is_hspace(exp_p[-1]))
-		    --exp_p;
-		  /* Skip the second #.  */
-		  p++;
-		  /* Discard following whitespace.  */
-		  SKIP_WHITE_SPACE (p);
-		  concat = p;
-		  if (p == limit)
-		    cpp_error (pfile, "`##' at end of macro definition");
-		}
-	      else if (nargs >= 0)
-		{
-		  /* Single #: stringify following argument ref.
-		     Don't leave the # in the expansion.  */
-		  exp_p--;
-		  SKIP_WHITE_SPACE (p);
-		  if (p == limit || !is_idstart(*p)
-		      || (*p == 'L' && p + 1 < limit && (p[1] == '\'' ||
-							 p[1] == '"')))
-		    cpp_error (pfile,
-		"`#' operator is not followed by a macro argument name");
-		  else
-		    stringify = p;
-		}
-	      break;
-	    }
-	}
-      else
-	{
-	  /* In -traditional mode, recognize arguments inside strings and
-	     character constants, and ignore special properties of #.
-	     Arguments inside strings are considered "stringified", but no
-	     extra quote marks are supplied.  */
-	  switch (c)
-	    {
-	    case '\'':
-	    case '\"':
-	      if (expected_delimiter != '\0')
-		{
-		  if (c == expected_delimiter)
-		    expected_delimiter = '\0';
-		}
-	      else
-		expected_delimiter = c;
-	      break;
-
-	    case '\\':
-	      /* Backslash quotes delimiters and itself,
-		 but not macro args.  */
-	      if (expected_delimiter != 0 && p < limit
-		  && (*p == expected_delimiter || *p == '\\'))
-		{
-		  *exp_p++ = *p++;
-		  continue;
-		}
-	      break;
-
-	    case '/':
-	      if (expected_delimiter != '\0')
-		/* No comments inside strings.  */
-		break;
-	      if (*p == '*')
-		{
-		  /* If we find a comment that wasn't removed by
-		     handle_directive, this must be -traditional.
-		     So replace the comment with nothing at all.  */
-		  exp_p--;
-		  p += 1;
-		  while (p < limit && !(p[-2] == '*' && p[-1] == '/'))
-		    p++;
-#if 0
-		  /* Mark this as a concatenation-point,
-		     as if it had been ##.  */
-		  concat = p;
-#endif
-		}
-	      break;
-	    }
-	}
-
-      /* Handle the start of a symbol.  */
-      if (is_idchar(c) && nargs > 0)
-	{
-	  U_CHAR *id_beg = p - 1;
-	  int id_len;
-
-	  --exp_p;
-	  while (p != limit && is_idchar(*p))
-	    p++;
-	  id_len = p - id_beg;
-
-	  if (is_idstart(c)
-	      && !(id_len == 1 && c == 'L' && (*p == '\'' || *p == '"')))
-	    {
-	      register struct arglist *arg;
-
-	      for (arg = arglist; arg != NULL; arg = arg->next)
-		{
-		  struct reflist *tpat;
-
-		  if (arg->name[0] == c
-		      && arg->length == id_len
-		      && strncmp (arg->name, id_beg, id_len) == 0)
-		    {
-		      if (expected_delimiter && CPP_OPTIONS
-			(pfile)->warn_stringify)
-			{
-			  if (CPP_TRADITIONAL (pfile))
-			    {
-			      cpp_warning (pfile,
-				       "macro argument `%.*s' is stringified.",
-					   id_len, arg->name);
-			    }
-			  else
-			    {
-			      cpp_warning (pfile,
-		    "macro arg `%.*s' would be stringified with -traditional.",
-					   id_len, arg->name);
-			    }
-			}
-		      /* If ANSI, don't actually substitute
-			 inside a string.  */
-		      if (!CPP_TRADITIONAL (pfile) && expected_delimiter)
-			break;
-		      /* make a pat node for this arg and append it
-			 to the end of the pat list */
-		      tpat = (struct reflist *)
-			xmalloc (sizeof (struct reflist));
-		      tpat->next = NULL;
-		      tpat->raw_before = concat == id_beg;
-		      tpat->raw_after = 0;
-		      tpat->rest_args = arg->rest_args;
-		      tpat->stringify = (CPP_TRADITIONAL (pfile)
-					 ? expected_delimiter != '\0'
-					 : stringify == id_beg);
-
-		      if (endpat == NULL)
-			defn->pattern = tpat;
-		      else
-			endpat->next = tpat;
-		      endpat = tpat;
-
-		      tpat->argno = arg->argno;
-		      tpat->nchars = exp_p - lastp;
-		      {
-			register U_CHAR *p1 = p;
-			SKIP_WHITE_SPACE (p1);
-			if (p1 + 2 <= limit && p1[0] == '#' && p1[1] == '#')
-			  tpat->raw_after = 1;
-		      }
-		      lastp = exp_p;
-		      skipped_arg = 1;
-		      break;
-		    }
-		}
-	    }
-
-	  /* If this was not a macro arg, copy it into the expansion.  */
-	  if (!skipped_arg)
-	    {
-	      register U_CHAR *lim1 = p;
-	      p = id_beg;
-	      while (p != lim1)
-		*exp_p++ = *p++;
-	      if (stringify == id_beg)
-		cpp_error (pfile,
-		"`#' operator should be followed by a macro argument name");
-	    }
-	}
-    }
-
-  if (!CPP_TRADITIONAL (pfile) && expected_delimiter == 0)
-    {
-      /* If ANSI, put in a "\r " marker to prevent token pasting.
-         But not if "inside a string" (which in ANSI mode
-         happens only for -D option).  */
-      *exp_p++ = '\r';
-      *exp_p++ = ' ';
-    }
-
-  *exp_p = '\0';
-
-  defn->length = exp_p - defn->expansion;
-
-  /* Crash now if we overrun the allocated size.  */
-  if (defn->length + 1 > maxsize)
-    abort ();
-
-#if 0
-/* This isn't worth the time it takes.  */
-  /* give back excess storage */
-  defn->expansion = (U_CHAR *) xrealloc (defn->expansion, defn->length + 1);
-#endif
-
-  return defn;
-}
-
-/*
- * special extension string that can be added to the last macro argument to 
- * allow it to absorb the "rest" of the arguments when expanded.  Ex:
- * 		#define wow(a, b...)		process (b, a, b)
- *		{ wow (1, 2, 3); }	->	{ process (2, 3, 1, 2, 3); }
- *		{ wow (one, two); }	->	{ process (two, one, two); }
- * if this "rest_arg" is used with the concat token '##' and if it is not
- * supplied then the token attached to with ## will not be outputted.  Ex:
- * 		#define wow (a, b...)		process (b ## , a, ## b)
- *		{ wow (1, 2); }		->	{ process (2, 1, 2); }
- *		{ wow (one); }		->	{ process (one); {
- */
-static char rest_extension[] = "...";
-#define REST_EXTENSION_LENGTH	(sizeof (rest_extension) - 1)
-
-/* Create a DEFINITION node from a #define directive.  Arguments are 
-   as for do_define.  */
-
-MACRODEF
-create_definition (buf, limit, pfile, predefinition)
-     U_CHAR *buf, *limit;
-     cpp_reader *pfile;
-     int predefinition;
-{
-  U_CHAR *bp;			/* temp ptr into input buffer */
-  U_CHAR *symname;		/* remember where symbol name starts */
-  int sym_length;		/* and how long it is */
-  int rest_args = 0;
-  long line, col;
-  const char *file =
-    CPP_BUFFER (pfile) ? CPP_BUFFER (pfile)->nominal_fname : "";
-  DEFINITION *defn;
-  int arglengths = 0;		/* Accumulate lengths of arg names
-				   plus number of args.  */
-  MACRODEF mdef;
-  cpp_buf_line_and_col (CPP_BUFFER (pfile), &line, &col);
-
-  bp = buf;
-
-  while (is_hspace(*bp))
-    bp++;
-
-  symname = bp;			/* remember where it starts */
-
-  sym_length = check_macro_name (pfile, bp);
-  bp += sym_length;
-
-  /* Lossage will occur if identifiers or control keywords are broken
-     across lines using backslash.  This is not the right place to take
-     care of that.  */
-
-  if (*bp == '(')
-    {
-      struct arglist *arg_ptrs = NULL;
-      int argno = 0;
-
-      bp++;			/* skip '(' */
-      SKIP_WHITE_SPACE (bp);
-
-      /* Loop over macro argument names.  */
-      while (*bp != ')')
-	{
-	  struct arglist *temp;
-
-	  temp = (struct arglist *) alloca (sizeof (struct arglist));
-	  temp->name = bp;
-	  temp->next = arg_ptrs;
-	  temp->argno = argno++;
-	  temp->rest_args = 0;
-	  arg_ptrs = temp;
-
-	  if (rest_args)
-	    cpp_pedwarn (pfile, "another parameter follows `%s'",
-			 rest_extension);
-
-	  if (!is_idstart(*bp))
-	    cpp_pedwarn (pfile, "invalid character in macro parameter name");
-
-	  /* Find the end of the arg name.  */
-	  while (is_idchar(*bp))
-	    {
-	      bp++;
-	      /* do we have a "special" rest-args extension here? */
-	      if ((size_t) (limit - bp) > REST_EXTENSION_LENGTH
-		  && !strncmp (rest_extension, bp, REST_EXTENSION_LENGTH))
-		{
-		  rest_args = 1;
-		  temp->rest_args = 1;
-		  break;
-		}
-	    }
-	  temp->length = bp - temp->name;
-	  if (rest_args == 1)
-	    bp += REST_EXTENSION_LENGTH;
-	  arglengths += temp->length + 2;
-	  SKIP_WHITE_SPACE (bp);
-	  if (temp->length == 0 || (*bp != ',' && *bp != ')'))
-	    {
-	      cpp_error (pfile,
-			 "badly punctuated parameter list in `#define'");
-	      goto nope;
-	    }
-	  if (*bp == ',')
-	    {
-	      bp++;
-	      SKIP_WHITE_SPACE (bp);
-	    }
-	  if (bp >= limit)
-	    {
-	      cpp_error (pfile, "unterminated parameter list in `#define'");
-	      goto nope;
-	    }
-	  {
-	    struct arglist *otemp;
-
-	    for (otemp = temp->next; otemp != NULL; otemp = otemp->next)
-	      if (temp->length == otemp->length
-		  && strncmp (temp->name, otemp->name, temp->length) == 0)
-		{
-		  U_CHAR *name;
-
-		  name = (U_CHAR *) alloca (temp->length + 1);
-		  (void) strncpy (name, temp->name, temp->length);
-		  name[temp->length] = '\0';
-		  cpp_error (pfile,
-			     "duplicate argument name `%s' in `#define'",
-			     name);
-		  goto nope;
-		}
-	  }
-	}
-
-      ++bp;			/* skip paren */
-      SKIP_WHITE_SPACE (bp);
-      /* now everything from bp before limit is the definition.  */
-      defn = collect_expansion (pfile, bp, limit, argno, arg_ptrs);
-      defn->rest_args = rest_args;
-
-      /* Now set defn->args.argnames to the result of concatenating
-         the argument names in reverse order
-         with comma-space between them.  */
-      defn->args.argnames = (U_CHAR *) xmalloc (arglengths + 1);
-      {
-	struct arglist *temp;
-	int i = 0;
-	for (temp = arg_ptrs; temp; temp = temp->next)
-	  {
-	    bcopy (temp->name, &defn->args.argnames[i], temp->length);
-	    i += temp->length;
-	    if (temp->next != 0)
-	      {
-		defn->args.argnames[i++] = ',';
-		defn->args.argnames[i++] = ' ';
-	      }
-	  }
-	defn->args.argnames[i] = 0;
-      }
+      argv = arglist->argv;
+      argc = arglist->argc;
     }
   else
     {
-      /* Simple expansion or empty definition.  */
-
-      if (bp < limit)
-	{
-	  if (is_hspace(*bp))
-	    {
-	      bp++;
-	      SKIP_WHITE_SPACE (bp);
-	    }
-	  else
-	    /* Per C9x, missing white space after the name in a #define
-	       of an object-like macro is always a constraint violation. */
-	    cpp_pedwarn (pfile,
-			 "missing white space after `#define %.*s'",
-			 sym_length, symname);
-	}
-      /* now everything from bp before limit is the definition.  */
-      defn = collect_expansion (pfile, bp, limit, -1, NULL_PTR);
-      defn->args.argnames = (U_CHAR *) "";
+      argv = 0;
+      argc = 0;
     }
+
+  last = start = CPP_WRITTEN (pfile);
+  last -= 2;  /* two extra chars for the leading escape */
+  for (;;)
+    {
+      /* We use cpp_get_token because _cpp_get_directive_token would
+	 discard whitespace and we can't cope with that yet.  Macro
+	 expansion is off, so we are guaranteed not to see POP or EOF.  */
+
+      while (PEEKC () == '\r')
+	{
+	  FORWARD (1);
+	  CPP_BUMP_LINE (pfile);
+	}
+      if (PEEKC () == '\n')
+	goto done;
+      here = CPP_WRITTEN (pfile);
+      token = cpp_get_token (pfile);
+      tok = pfile->token_buffer + here;
+      switch (token)
+	{
+	case CPP_POP:
+	case CPP_EOF:
+	case CPP_VSPACE:
+	  cpp_ice (pfile, "EOF or VSPACE in collect_expansion");
+	  goto done;
+
+	case CPP_HSPACE:
+	  if (last_token == STRIZE || last_token == PASTE
+	      || last_token == START)
+	    CPP_SET_WRITTEN (pfile, here);
+	  break;
+
+	case CPP_STRINGIZE:
+	  if (last_token == PASTE)
+	    /* Not really a stringifier.  */
+	    goto norm;
+	  last_token = STRIZE;
+	  CPP_SET_WRITTEN (pfile, here);  /* delete from replacement text */
+	  break;
+
+	case CPP_TOKPASTE:
+	  /* If the last token was an argument, discard this token and
+	     any hspace between it and the argument's position.  Then
+	     mark the arg raw_after.  */
+	  if (last_token == ARG)
+	    {
+	      endpat->raw_after = 1;
+	      last_token = PASTE;
+	      CPP_SET_WRITTEN (pfile, last);
+	      break;
+	    }
+	  else if (last_token == PASTE)
+	    /* ## ## - the second ## is ordinary.  */
+	    goto norm;
+	  else if (last_token == START)
+	    cpp_error (pfile, "`##' at start of macro definition");
+	  
+	  /* Discard the token and any hspace before it.  */
+	  while (is_hspace (pfile->token_buffer[here-1]))
+	    here--;
+	  CPP_SET_WRITTEN (pfile, here);
+
+	  if (last_token == STRIZE)
+	    /* Oops - that wasn't a stringify operator.  */
+	    CPP_PUTC (pfile, '#');
+	  last_token = PASTE;
+	  break;
+
+	case CPP_COMMENT:
+	  /* We must be in -traditional mode.  Pretend this was a
+	     token paste, but only if there was no leading or
+	     trailing space.  */
+	  CPP_SET_WRITTEN (pfile, here);
+	  if (is_hspace (pfile->token_buffer[here-1]))
+	    break;
+	  if (is_hspace (PEEKC ()))
+	    break;
+	  if (last_token == ARG)
+	    endpat->raw_after = 1;
+	  last_token = PASTE;
+	  break;
+
+	case CPP_STRING:
+	case CPP_CHAR:
+	  if (last_token == STRIZE)
+	    cpp_error (pfile, "`#' is not followed by a macro argument name");
+
+	  if (CPP_TRADITIONAL (pfile) || CPP_OPTIONS (pfile)->warn_stringify)
+	    goto maybe_trad_stringify;
+	  else
+	    goto norm;
+	  
+	case CPP_NAME:
+	  for (i = 0; i < argc; i++)
+	    if (!strncmp (tok, argv[i].name, argv[i].len)
+		&& ! is_idchar (tok[argv[i].len]))
+	      goto addref;
+
+	  /* fall through */
+	default:
+	norm:
+	  if (last_token == STRIZE)
+	    cpp_error (pfile, "`#' is not followed by a macro argument name");
+	  last_token = NORM;
+	  break;
+	}
+      continue;
+
+    addref:
+      {
+	struct reflist *tpat;
+	
+	/* Make a pat node for this arg and add it to the pat list */
+	tpat = (struct reflist *) xmalloc (sizeof (struct reflist));
+	tpat->next = NULL;
+	tpat->raw_before = (last_token == PASTE);
+	tpat->raw_after = 0;
+	tpat->stringify = (last_token == STRIZE);
+	tpat->rest_args = argv[i].rest_arg;
+	tpat->argno = i;
+	tpat->nchars = here - last;
+
+	if (endpat == NULL)
+	  pat = tpat;
+	else
+	  endpat->next = tpat;
+	endpat = tpat;
+	last = here;
+      }
+      CPP_SET_WRITTEN (pfile, here);  /* discard arg name */
+      last_token = ARG;
+      continue;
+
+    maybe_trad_stringify:
+      last_token = NORM;
+      {
+	U_CHAR *base, *p, *limit;
+	struct reflist *tpat;
+
+	base = p = pfile->token_buffer + here;
+	limit = CPP_PWRITTEN (pfile);
+
+	while (++p < limit)
+	  {
+	    if (is_idstart (*p))
+	      continue;
+	    for (i = 0; i < argc; i++)
+	      if (!strncmp (tok, argv[i].name, argv[i].len)
+		  && ! is_idchar (tok[argv[i].len]))
+		goto mts_addref;
+	    continue;
+
+	  mts_addref:
+	    if (!CPP_TRADITIONAL (pfile))
+	      {
+		/* Must have got here because of -Wtraditional.  */
+		cpp_warning (pfile,
+	     "macro argument `%.*s' would be stringified with -traditional",
+			     (int) argv[i].len, argv[i].name);
+		continue;
+	      }
+	    if (CPP_OPTIONS (pfile)->warn_stringify)
+	      cpp_warning (pfile, "macro argument `%.*s' is stringified",
+			     (int) argv[i].len, argv[i].name);
+
+	    /* Remove the argument from the string.  */
+	    memmove (p, p + argv[i].len, limit - (p + argv[i].len));
+	    limit -= argv[i].len;
+	
+	    /* Make a pat node for this arg and add it to the pat list */
+	    tpat = (struct reflist *) xmalloc (sizeof (struct reflist));
+	    tpat->next = NULL;
+
+	    /* Don't attempt to paste this with anything.  */
+	    tpat->raw_before = 0;
+	    tpat->raw_after = 0;
+	    tpat->stringify = 1;
+	    tpat->rest_args = argv[i].rest_arg;
+	    tpat->argno = i;
+	    tpat->nchars = (p - base) + here - last;
+
+	    if (endpat == NULL)
+	      pat = tpat;
+	    else
+	      endpat->next = tpat;
+	    endpat = tpat;
+	    last = (p - base) + here;
+	  }
+	CPP_ADJUST_WRITTEN (pfile, CPP_PWRITTEN (pfile) - limit);
+      }
+    }
+ done:
+
+  if (last_token == STRIZE)
+    cpp_error (pfile, "`#' is not followed by a macro argument name");
+  else if (last_token == PASTE)
+    cpp_error (pfile, "`##' at end of macro definition");
+
+  if (last_token == START)
+    {
+      /* Empty macro definition.  */
+      exp = (U_CHAR *) xstrdup ("\r \r ");
+      len = 1;
+    }
+  else
+    {
+      /* Trim trailing white space from definition.  */
+      here = CPP_WRITTEN (pfile);
+      while (here > last && is_hspace (pfile->token_buffer [here-1]))
+	here--;
+      CPP_SET_WRITTEN (pfile, here);
+      CPP_NUL_TERMINATE (pfile);
+      len = CPP_WRITTEN (pfile) - start + 1;
+      /* space for no-concat markers at either end */
+      exp = (U_CHAR *) xmalloc (len + 4);
+      exp[0] = '\r';
+      exp[1] = ' ';
+      exp[len + 1] = '\r';
+      exp[len + 2] = ' ';
+      exp[len + 3] = '\0';
+      memcpy (&exp[2], pfile->token_buffer + start, len - 1);
+    }
+
+  CPP_SET_WRITTEN (pfile, start);
+
+  defn = (DEFINITION *) xmalloc (sizeof (DEFINITION));
+  defn->length = len + 3;
+  defn->expansion = exp;
+  defn->pattern = pat;
+  defn->rest_args = 0;
+  if (arglist)
+    {
+      defn->nargs = argc;
+      defn->argnames = arglist->namebuf;
+      if (argv)
+	{
+	  defn->rest_args = argv[argc - 1].rest_arg;
+	  free (argv);
+	}
+      free (arglist);
+    }
+  else
+    {
+      defn->nargs = -1;
+      defn->argnames = 0;
+      defn->rest_args = 0;
+    }
+  return defn;
+}
+
+static struct arglist *
+collect_formal_parameters (pfile)
+     cpp_reader *pfile;
+{
+  struct arglist *result = 0;
+  struct arg *argv = 0;
+  U_CHAR *namebuf = (U_CHAR *) xstrdup ("");
+
+  U_CHAR *name, *tok;
+  size_t argslen = 1;
+  int len;
+  int argc = 0;
+  int i;
+  enum cpp_token token;
+  long old_written;
+
+  old_written = CPP_WRITTEN (pfile);
+  token = _cpp_get_directive_token (pfile);
+  if (token != CPP_LPAREN)
+    {
+      cpp_ice (pfile, "first token = %d not %d in collect_formal_parameters",
+	       token, CPP_LPAREN);
+      goto invalid;
+    }
+
+  argv = (struct arg *) xmalloc (sizeof (struct arg));
+  argv[argc].len = 0;
+  argv[argc].rest_arg = 0;
+  for (;;)
+    {
+      CPP_SET_WRITTEN (pfile, old_written);
+      token = _cpp_get_directive_token (pfile);
+      switch (token)
+	{
+	case CPP_NAME:
+	  tok = pfile->token_buffer + old_written;
+	  len = CPP_PWRITTEN (pfile) - tok;
+	  if (namebuf
+	      && (name = (U_CHAR *) strstr (namebuf, tok))
+	      && name[len] == ','
+	      && (name == namebuf || name[-1] == ','))
+	    {
+	      cpp_error (pfile, "duplicate macro argument name `%s'", tok);
+	      continue;
+	    }
+	  if (CPP_PEDANTIC (pfile) && CPP_OPTIONS (pfile)->c99
+	      && len == sizeof "__VA_ARGS__" - 1
+	      && !strncmp (tok, "__VA_ARGS__", len))
+	    cpp_pedwarn (pfile,
+	"C99 does not permit use of `__VA_ARGS__' as a macro argument name");
+	  namebuf = (U_CHAR *) xrealloc (namebuf, argslen + len + 1);
+	  name = &namebuf[argslen - 1];
+	  argslen += len + 1;
+
+	  memcpy (name, tok, len);
+	  name[len] = ',';
+	  name[len+1] = '\0';
+	  argv[argc].len = len;
+	  argv[argc].rest_arg = 0;
+	  break;
+
+	case CPP_COMMA:
+	  argc++;
+	  argv = (struct arg *) xrealloc (argv, (argc + 1)*sizeof(struct arg));
+	  argv[argc].len = 0;
+	  break;
+
+	case CPP_RPAREN:
+	  goto done;
+
+	case CPP_3DOTS:
+	  goto rest_arg;
+
+	case CPP_VSPACE:
+	  cpp_error (pfile, "missing right paren in macro argument list");
+	  goto invalid;
+
+	default:
+	  cpp_error (pfile, "syntax error in #define");
+	  goto invalid;
+	}
+    }
+
+ rest_arg:
+  /* There are two possible styles for a vararg macro:
+     the C99 way:  #define foo(a, ...) a, __VA_ARGS__
+     the gnu way:  #define foo(a, b...) a, b
+     The C99 way can be considered a special case of the gnu way.
+     There are also some constraints to worry about, but we'll handle
+     those elsewhere.  */
+  if (argv[argc].len == 0)
+    {
+      if (CPP_PEDANTIC (pfile) && ! CPP_OPTIONS (pfile)->c99)
+	cpp_pedwarn (pfile, "C89 does not permit varargs macros");
+
+      len = sizeof "__VA_ARGS__" - 1;
+      namebuf = (U_CHAR *) xrealloc (namebuf, argslen + len + 1);
+      name = &namebuf[argslen - 1];
+      argslen += len;
+      memcpy (name, "__VA_ARGS__", len);
+      argv[argc].len = len;
+    }
+  else
+    if (CPP_PEDANTIC (pfile))
+      cpp_pedwarn (pfile, "ISO C does not permit named varargs macros");
+
+  argv[argc].rest_arg = 1;
+  
+  token = _cpp_get_directive_token (pfile);
+  if (token != CPP_RPAREN)
+    {
+      cpp_error (pfile, "another parameter follows `...'");
+      goto invalid;
+    }
+
+ done:
+  /* Go through argv and fix up the pointers.  */
+  len = 0;
+  for (i = 0; i <= argc; i++)
+    {
+      argv[i].name = namebuf + len;
+      len += argv[i].len + 1;
+      namebuf[len - 1] = '\0';
+    }
+
+  CPP_SET_WRITTEN (pfile, old_written);
+
+  result = (struct arglist *) xmalloc (sizeof (struct arglist));
+  if (namebuf[0] != '\0')
+    {
+      result->namebuf = namebuf;
+      result->argc = argc + 1;
+      result->argv = argv;
+    }
+  else
+    {
+      free (namebuf);
+      result->namebuf = 0;
+      result->argc = 0;
+      result->argv = 0;
+    }
+
+  return result;
+
+ invalid:
+  if (argv)
+    free (argv);
+  if (namebuf)
+    free (namebuf);
+  return 0;
+}
+
+/* Create a DEFINITION node for a macro.  The reader's point is just
+   after the macro name.  If FUNLIKE is true, this is a function-like
+   macro.  */
+
+DEFINITION *
+_cpp_create_definition (pfile, funlike)
+     cpp_reader *pfile;
+     int funlike;
+{
+  struct arglist *args = 0;
+  long line, col;
+  const char *file;
+  DEFINITION *defn;
+
+  cpp_buf_line_and_col (CPP_BUFFER (pfile), &line, &col);
+  file = CPP_BUFFER (pfile)->nominal_fname;
+
+  pfile->no_macro_expand++;
+  pfile->parsing_define_directive++;
+  CPP_OPTIONS (pfile)->discard_comments++;
+  CPP_OPTIONS (pfile)->no_line_commands++;
+  
+  if (funlike)
+    {
+      args = collect_formal_parameters (pfile);
+      if (args == 0)
+	goto err;
+    }
+
+  defn = collect_expansion (pfile, args);
+  if (defn == 0)
+    goto err;
 
   defn->line = line;
   defn->file = file;
+  defn->col  = col;
 
-  /* OP is null if this is a predefinition */
-  defn->predefined = predefinition;
-  mdef.defn = defn;
-  mdef.symnam = symname;
-  mdef.symlen = sym_length;
+  pfile->no_macro_expand--;
+  pfile->parsing_define_directive--;
+  CPP_OPTIONS (pfile)->discard_comments--;
+  CPP_OPTIONS (pfile)->no_line_commands--;
+  return defn;
 
-  return mdef;
-
-nope:
-  mdef.defn = 0;
-  return mdef;
+ err:
+  pfile->no_macro_expand--;
+  pfile->parsing_define_directive--;
+  CPP_OPTIONS (pfile)->discard_comments--;
+  CPP_OPTIONS (pfile)->no_line_commands--;
+  return 0;
 }
 
 /*
@@ -783,26 +769,22 @@ macarg (pfile, rest_args)
 {
   int paren = 0;
   enum cpp_token token;
-  char save_put_out_comments = CPP_OPTIONS (pfile)->put_out_comments;
-  CPP_OPTIONS (pfile)->put_out_comments = 0;
 
   /* Try to parse as much of the argument as exists at this
      input stack level.  */
-  pfile->no_macro_expand++;
-  CPP_OPTIONS (pfile)->no_line_commands++;
   for (;;)
     {
       token = cpp_get_token (pfile);
       switch (token)
 	{
 	case CPP_EOF:
-	  goto done;
+	  return token;
 	case CPP_POP:
 	  /* If we've hit end of file, it's an error (reported by caller).
 	     Ditto if it's the end of cpp_expand_to_buffer text.
 	     If we've hit end of macro, just continue.  */
 	  if (!CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
-	    goto done;
+	    return token;
 	  break;
 	case CPP_LPAREN:
 	  paren++;
@@ -820,63 +802,10 @@ macarg (pfile, rest_args)
 	found:
 	  /* Remove ',' or ')' from argument buffer.  */
 	  CPP_ADJUST_WRITTEN (pfile, -1);
-	  goto done;
+	  return token;
 	default:;
 	}
     }
-
-done:
-  CPP_OPTIONS (pfile)->put_out_comments = save_put_out_comments;
-  CPP_OPTIONS (pfile)->no_line_commands--;
-  pfile->no_macro_expand--;
-
-  return token;
-}
-
-/* Turn newlines to spaces in the string of length LENGTH at START,
-   except inside of string constants.
-   The string is copied into itself with its beginning staying fixed.  */
-
-static int
-change_newlines (start, length)
-     U_CHAR *start;
-     int length;
-{
-  register U_CHAR *ibp;
-  register U_CHAR *obp;
-  register U_CHAR *limit;
-  register int c;
-
-  ibp = start;
-  limit = start + length;
-  obp = start;
-
-  while (ibp < limit)
-    {
-      *obp++ = c = *ibp++;
-      switch (c)
-	{
-
-	case '\'':
-	case '\"':
-	  /* Notice and skip strings, so that we don't
-	     delete newlines in them.  */
-	  {
-	    int quotec = c;
-	    while (ibp < limit)
-	      {
-		*obp++ = c = *ibp++;
-		if (c == quotec)
-		  break;
-		if (c == '\n' && quotec == '\'')
-		  break;
-	      }
-	  }
-	  break;
-	}
-    }
-
-  return obp - start;
 }
 
 
@@ -898,6 +827,43 @@ static const char * const monthnames[] =
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 };
 
+/* Place into PFILE a quoted string representing the string SRC.
+   Caller must reserve enough space in pfile->token_buffer.  */
+
+void
+_cpp_quote_string (pfile, src)
+     cpp_reader *pfile;
+     const char *src;
+{
+  U_CHAR c;
+
+  CPP_PUTC_Q (pfile, '\"');
+  for (;;)
+    switch ((c = *src++))
+      {
+      default:
+        if (ISPRINT (c))
+	  CPP_PUTC_Q (pfile, c);
+	else
+	  {
+	    sprintf ((char *)CPP_PWRITTEN (pfile), "\\%03o", c);
+	    CPP_ADJUST_WRITTEN (pfile, 4);
+	  }
+	break;
+
+      case '\"':
+      case '\\':
+	CPP_PUTC_Q (pfile, '\\');
+	CPP_PUTC_Q (pfile, c);
+	break;
+      
+      case '\0':
+	CPP_PUTC_Q (pfile, '\"');
+	CPP_NUL_TERMINATE_Q (pfile);
+	return;
+      }
+}
+
 /*
  * expand things like __FILE__.  Place the expansion into the output
  * buffer *without* rescanning.
@@ -917,16 +883,10 @@ special_symbol (hp, pfile)
     case T_FILE:
     case T_BASE_FILE:
       {
-	ip = CPP_BUFFER (pfile);
+	ip = cpp_file_buffer (pfile);
 	if (hp->type == T_BASE_FILE)
 	  {
-	    while (CPP_PREV_BUFFER (ip) != CPP_NULL_BUFFER (pfile))
-	      ip = CPP_PREV_BUFFER (ip);
-	  }
-	else
-	  {
-	    ip = CPP_BUFFER (pfile);
-	    while (!ip->nominal_fname && ip != CPP_NULL_BUFFER (pfile))
+	    while (CPP_PREV_BUFFER (ip) != NULL)
 	      ip = CPP_PREV_BUFFER (ip);
 	  }
 
@@ -935,17 +895,16 @@ special_symbol (hp, pfile)
 	if (!buf)
 	  buf = "";
 	CPP_RESERVE (pfile, 3 + 4 * strlen (buf));
-	quote_string (pfile, buf);
+	_cpp_quote_string (pfile, buf);
 	return;
       }
 
     case T_INCLUDE_LEVEL:
       {
-	int true_indepth = 0;
-	ip = CPP_BUFFER (pfile);
-	for (; ip != CPP_NULL_BUFFER (pfile); ip = CPP_PREV_BUFFER (ip))
-	  if (ip->fname != NULL)
-	    true_indepth++;
+	int true_indepth = 1;
+	ip = cpp_file_buffer (pfile);
+	while ((ip = CPP_PREV_BUFFER (ip)) != NULL)
+	  true_indepth++;
 
 	CPP_RESERVE (pfile, 10);
 	sprintf (CPP_PWRITTEN (pfile), "%d", true_indepth);
@@ -954,10 +913,10 @@ special_symbol (hp, pfile)
       }
 
     case T_VERSION:
-      len = strlen (version_string);
+      len = strlen (hp->value.cpval);
       CPP_RESERVE (pfile, 3 + len);
       CPP_PUTC_Q (pfile, '"');
-      CPP_PUTS_Q (pfile, version_string, len);
+      CPP_PUTS_Q (pfile, hp->value.cpval, len);
       CPP_PUTC_Q (pfile, '"');
       CPP_NUL_TERMINATE_Q (pfile);
       return;
@@ -978,11 +937,9 @@ special_symbol (hp, pfile)
     case T_STDC:
       CPP_RESERVE (pfile, 2);
 #ifdef STDC_0_IN_SYSTEM_HEADERS
-      ip = CPP_BUFFER (pfile);
-      while (!ip->nominal_fname && ip != CPP_NULL_BUFFER (pfile))
-	ip = CPP_PREV_BUFFER (ip);
+      ip = cpp_file_buffer (pfile);
       if (ip->system_header_p
-	  && !cpp_lookup (pfile, (U_CHAR *) "__STRICT_ANSI__", 15, -1))
+	  && !cpp_defined (pfile, (const U_CHAR *) "__STRICT_ANSI__", 15))
 	CPP_PUTC_Q (pfile, '0');
       else
 #endif
@@ -1028,7 +985,7 @@ special_symbol (hp, pfile)
       break;
 
     default:
-      cpp_fatal (pfile, "cpplib internal error: invalid special hash type");
+      cpp_ice (pfile, "invalid special hash type");
       return;
     }
 }
@@ -1042,7 +999,7 @@ special_symbol (hp, pfile)
    an argument list follows; arguments come from the input stack.  */
 
 void
-macroexpand (pfile, hp)
+_cpp_macroexpand (pfile, hp)
      cpp_reader *pfile;
      HASHNODE *hp;
 {
@@ -1053,18 +1010,8 @@ macroexpand (pfile, hp)
   int xbuf_len;
   struct argdata *args = 0;
   long old_written = CPP_WRITTEN (pfile);
-#if 0
-  int start_line = instack[indepth].lineno;
-#endif
   int rest_args, rest_zero = 0;
   register int i;
-
-#if 0
-  /* This macro is being used inside a #if, which means it must be */
-  /* recorded as a precondition.  */
-  if (pcp_inside_if && pcp_outfile && defn->predefined)
-    dump_single_macro (hp, pcp_outfile);
-#endif
 
   cpp_buf_line_and_col (cpp_file_buffer (pfile), &start_line, &start_column);
 
@@ -1075,7 +1022,7 @@ macroexpand (pfile, hp)
       xbuf_len = CPP_WRITTEN (pfile) - old_written;
       xbuf = (U_CHAR *) xmalloc (xbuf_len + 1);
       CPP_SET_WRITTEN (pfile, old_written);
-      bcopy (CPP_PWRITTEN (pfile), xbuf, xbuf_len + 1);
+      memcpy (xbuf, CPP_PWRITTEN (pfile), xbuf_len + 1);
       push_macro_expansion (pfile, xbuf, xbuf_len, hp);
       CPP_BUFFER (pfile)->has_escapes = 1;
       return;
@@ -1087,7 +1034,7 @@ macroexpand (pfile, hp)
 
   if (nargs >= 0)
     {
-      enum cpp_token token = CPP_EOF;
+      enum cpp_token token;
 
       args = (struct argdata *) alloca ((nargs + 1) * sizeof (struct argdata));
 
@@ -1096,7 +1043,6 @@ macroexpand (pfile, hp)
 	  args[i].raw = args[i].expanded = 0;
 	  args[i].raw_length = 0;
 	  args[i].expand_length = args[i].stringified_length = -1;
-	  args[i].use_count = 0;
 	}
 
       /* Parse all the macro args that are supplied.  I counts them.
@@ -1105,8 +1051,20 @@ macroexpand (pfile, hp)
          macarg absorbed the rest of the args.  */
       i = 0;
       rest_args = 0;
-      rest_args = 0;
-      FORWARD (1);	/* Discard open-parenthesis before first arg.  */
+
+      /* Skip over the opening parenthesis.  */
+      CPP_OPTIONS (pfile)->discard_comments++;
+      CPP_OPTIONS (pfile)->no_line_commands++;
+      pfile->no_macro_expand++;
+      pfile->no_directives++;
+
+      token = cpp_get_non_space_token (pfile);
+      if (token != CPP_LPAREN)
+	cpp_ice (pfile, "macroexpand: unexpected token %d (wanted LPAREN)",
+		 token);
+      CPP_ADJUST_WRITTEN (pfile, -1);
+
+      token = CPP_EOF;
       do
 	{
 	  if (rest_args)
@@ -1119,19 +1077,21 @@ macroexpand (pfile, hp)
 	      args[i].raw = CPP_WRITTEN (pfile);
 	      token = macarg (pfile, rest_args);
 	      args[i].raw_length = CPP_WRITTEN (pfile) - args[i].raw;
-	      args[i].newlines = 0;	/* FIXME */
 	    }
 	  else
 	    token = macarg (pfile, 0);
 	  if (token == CPP_EOF || token == CPP_POP)
-	    {
-	      cpp_error_with_line (pfile, start_line, start_column,
-				   "unterminated macro call");
-	      return;
-	    }
+	    cpp_error_with_line (pfile, start_line, start_column,
+				 "unterminated macro call");
 	  i++;
 	}
       while (token == CPP_COMMA);
+      CPP_OPTIONS (pfile)->discard_comments--;
+      CPP_OPTIONS (pfile)->no_line_commands--;
+      pfile->no_macro_expand--;
+      pfile->no_directives--;
+      if (token != CPP_RPAREN)
+	return;
 
       /* If we got one arg but it was just whitespace, call that 0 args.  */
       if (i == 1)
@@ -1224,18 +1184,17 @@ macroexpand (pfile, hp)
 
 		      if (!in_string)
 			{
+			  /* Delete "\r " and "\r-" escapes.  */
+			  if (c == '\r')
+			    {
+			      i++;
+			      continue;
+			    }
 			  /* Internal sequences of whitespace are
 			     replaced by one space except within
 			     a string or char token. */
-			  if (is_space(c))
+			  else if (is_space(c))
 			    {
-			      if (CPP_WRITTEN (pfile) > (unsigned) arg->stringified
-				  && (CPP_PWRITTEN (pfile))[-1] == '\r')
-				{
-				  /* "\r " escape markers are removed */
-				  CPP_ADJUST_WRITTEN (pfile, -1);
-				  continue;
-				}
 			      if (need_space == 0)
 				need_space = 1;
 			      continue;
@@ -1281,7 +1240,7 @@ macroexpand (pfile, hp)
 	      xbuf_len += args[ap->argno].stringified_length;
 	    }
 	  else if (ap->raw_before || ap->raw_after || CPP_TRADITIONAL (pfile))
-	    /* Add 4 for two newline-space markers to prevent
+	    /* Add 4 for two \r-space markers to prevent
 	       token concatenation.  */
 	    xbuf_len += args[ap->argno].raw_length + 4;
 	  else
@@ -1299,12 +1258,10 @@ macroexpand (pfile, hp)
 		    = CPP_WRITTEN (pfile) - args[ap->argno].expanded;
 		}
 
-	      /* Add 4 for two newline-space markers to prevent
+	      /* Add 4 for two \r-space markers to prevent
 	         token concatenation.  */
 	      xbuf_len += args[ap->argno].expand_length + 4;
 	    }
-	  if (args[ap->argno].use_count < 10)
-	    args[ap->argno].use_count++;
 	}
 
       xbuf = (U_CHAR *) xmalloc (xbuf_len + 1);
@@ -1322,8 +1279,10 @@ macroexpand (pfile, hp)
 	  int count_before = totlen;
 
 	  /* Add chars to XBUF.  */
-	  for (i = 0; i < ap->nchars; i++, offset++)
-	    xbuf[totlen++] = exp[offset];
+	  i = ap->nchars;
+	  memcpy (&xbuf[totlen], &exp[offset], i);
+	  totlen += i;
+	  offset += i;
 
 	  /* If followed by an empty rest arg with concatenation,
 	     delete the last run of nonwhite chars.  */
@@ -1343,8 +1302,8 @@ macroexpand (pfile, hp)
 
 	  if (ap->stringify != 0)
 	    {
-	      bcopy (ARG_BASE + arg->stringified,
-		     xbuf + totlen, arg->stringified_length);
+	      memcpy (xbuf + totlen, ARG_BASE + arg->stringified,
+		      arg->stringified_length);
 	      totlen += arg->stringified_length;
 	    }
 	  else if (ap->raw_before || ap->raw_after || CPP_TRADITIONAL (pfile))
@@ -1392,7 +1351,7 @@ macroexpand (pfile, hp)
 	      if (p1[0] == '\r' && p1[1] == '-')
 		p1 += 2;
 
-	      bcopy (p1, xbuf + totlen, l1 - p1);
+	      memcpy (xbuf + totlen, p1, l1 - p1);
 	      totlen += l1 - p1;
 	    }
 	  else
@@ -1400,40 +1359,27 @@ macroexpand (pfile, hp)
 	      U_CHAR *expanded = ARG_BASE + arg->expanded;
 	      if (!ap->raw_before && totlen > 0 && arg->expand_length
 		  && !CPP_TRADITIONAL (pfile)
-		  && unsafe_chars (xbuf[totlen - 1], expanded[0]))
+		  && unsafe_chars (pfile, xbuf[totlen - 1], expanded[0]))
 		{
 		  xbuf[totlen++] = '\r';
 		  xbuf[totlen++] = ' ';
 		}
 
-	      bcopy (expanded, xbuf + totlen, arg->expand_length);
+	      memcpy (xbuf + totlen, expanded, arg->expand_length);
 	      totlen += arg->expand_length;
 
 	      if (!ap->raw_after && totlen > 0 && offset < defn->length
 		  && !CPP_TRADITIONAL (pfile)
-		  && unsafe_chars (xbuf[totlen - 1], exp[offset]))
+		  && unsafe_chars (pfile, xbuf[totlen - 1], exp[offset]))
 		{
 		  xbuf[totlen++] = '\r';
 		  xbuf[totlen++] = ' ';
-		}
-
-	      /* If a macro argument with newlines is used multiple times,
-	         then only expand the newlines once.  This avoids creating
-	         output lines which don't correspond to any input line,
-	         which confuses gdb and gcov.  */
-	      if (arg->use_count > 1 && arg->newlines > 0)
-		{
-		  /* Don't bother doing change_newlines for subsequent
-		     uses of arg.  */
-		  arg->use_count = 1;
-		  arg->expand_length
-		    = change_newlines (expanded, arg->expand_length);
 		}
 	    }
 
 	  if (totlen > xbuf_len)
 	    {
-	      cpp_fatal (pfile, "internal_error: buffer overrun in macroexpand");
+	      cpp_ice (pfile, "buffer overrun in macroexpand");
 	      return;
 	    }
 	}
@@ -1478,7 +1424,8 @@ macroexpand (pfile, hp)
    could cause mis-tokenization.  */
 
 static int
-unsafe_chars (c1, c2)
+unsafe_chars (pfile, c1, c2)
+     cpp_reader *pfile;
      int c1, c2;
 {
   switch (c1)
@@ -1492,6 +1439,11 @@ unsafe_chars (c1, c2)
       if (c2 == '-' || c2 == '+')
 	return 1;		/* could extend a pre-processing number */
       goto letter;
+
+    case '$':
+      if (CPP_OPTIONS (pfile)->dollars_in_ident)
+	goto letter;
+      return 0;
 
     case 'L':
       if (c2 == '\'' || c2 == '\"')
@@ -1564,7 +1516,7 @@ push_macro_expansion (pfile, xbuf, xbuf_len, hp)
     {
       int c1 = mbuf->rlimit[-3];
       int c2 = CPP_BUF_PEEK (CPP_PREV_BUFFER (CPP_BUFFER (pfile)));
-      if (c2 == EOF || !unsafe_chars (c1, c2))
+      if (c2 == EOF || !unsafe_chars (pfile, c1, c2))
 	mbuf->rlimit -= 2;
     }
 }
@@ -1572,20 +1524,33 @@ push_macro_expansion (pfile, xbuf, xbuf_len, hp)
 /* Return zero if two DEFINITIONs are isomorphic.  */
 
 int
-compare_defs (pfile, d1, d2)
+_cpp_compare_defs (pfile, d1, d2)
      cpp_reader *pfile;
      DEFINITION *d1, *d2;
 {
-  register struct reflist *a1, *a2;
-  register U_CHAR *p1 = d1->expansion;
-  register U_CHAR *p2 = d2->expansion;
+  struct reflist *a1, *a2;
+  U_CHAR *p1 = d1->expansion;
+  U_CHAR *p2 = d2->expansion;
   int first = 1;
 
   if (d1->nargs != d2->nargs)
     return 1;
   if (CPP_PEDANTIC (pfile)
-      && strcmp ((char *) d1->args.argnames, (char *) d2->args.argnames))
-    return 1;
+      && d1->argnames && d2->argnames)
+    {
+      U_CHAR *arg1 = d1->argnames;
+      U_CHAR *arg2 = d2->argnames;
+      size_t len;
+      int i = d1->nargs;
+      while (i--)
+	{
+	  len = strlen (arg1) + 1;
+	  if (strcmp (arg1, arg2))
+	    return 1;
+	  arg1 += len;
+	  arg2 += len;
+	}
+    }
   for (a1 = d1->pattern, a2 = d2->pattern; a1 && a2;
        a1 = a1->next, a2 = a2->next)
     {
@@ -1663,15 +1628,18 @@ comp_def_part (first, beg1, len1, beg2, len2, last)
    to be read back in again. */
 
 void
-dump_definition (pfile, macro)
+_cpp_dump_definition (pfile, sym, len, defn)
      cpp_reader *pfile;
-     MACRODEF macro;
+     const U_CHAR *sym;
+     long len;
+     DEFINITION *defn;
 {
-  DEFINITION *defn = macro.defn;
+  if (pfile->lineno == 0)
+    _cpp_output_line_command (pfile, same_file);
 
-  CPP_RESERVE (pfile, macro.symlen + sizeof "#define ");
+  CPP_RESERVE (pfile, len + sizeof "#define ");
   CPP_PUTS_Q (pfile, "#define ", sizeof "#define " -1);
-  CPP_PUTS_Q (pfile, macro.symnam, macro.symlen);
+  CPP_PUTS_Q (pfile, sym, len);
 
   if (defn->nargs == -1)
     {
@@ -1682,12 +1650,10 @@ dump_definition (pfile, macro)
 	 So we need length-4 chars of space, plus one for the NUL.  */
       CPP_RESERVE (pfile, defn->length - 4 + 1);
       CPP_PUTS_Q (pfile, defn->expansion + 2, defn->length - 4);
-      CPP_NUL_TERMINATE_Q (pfile);
     }
   else
     {
       struct reflist *r;
-      unsigned char *argnames = (unsigned char *) xstrdup (defn->args.argnames);
       unsigned char **argv = (unsigned char **) alloca (defn->nargs *
 							sizeof(char *));
       int *argl = (int *) alloca (defn->nargs * sizeof(int));
@@ -1695,18 +1661,12 @@ dump_definition (pfile, macro)
       int i;
 
       /* First extract the argument list. */
-      x = argnames;
-      i = defn->nargs;
-      while (i--)
+      x = defn->argnames;
+      for (i = 0; i < defn->nargs; i++)
 	{
 	  argv[i] = x;
-	  while (*x != ',' && *x != '\0') x++;
-	  argl[i] = x - argv[i];
-	  if (*x == ',')
-	    {
-	      *x = '\0';
-	      x += 2;  /* skip the space after the comma */
-	    }
+	  argl[i] = strlen (x);
+	  x += argl[i] + 1;
 	}
       
       /* Now print out the argument list. */
@@ -1714,15 +1674,15 @@ dump_definition (pfile, macro)
       for (i = 0; i < defn->nargs; i++)
 	{
 	  CPP_RESERVE (pfile, argl[i] + 2);
-	  CPP_PUTS_Q (pfile, argv[i], argl[i]);
+	  if (!(i == defn->nargs-1 && defn->rest_args
+		&& !strcmp (argv[i], "__VA_ARGS__")))
+	    CPP_PUTS_Q (pfile, argv[i], argl[i]);
 	  if (i < defn->nargs-1)
 	    CPP_PUTS_Q (pfile, ", ", 2);
 	}
-
       if (defn->rest_args)
-	CPP_PUTS (pfile, "...) ", 5);
-      else
-	CPP_PUTS (pfile, ") ", 2);
+	CPP_PUTS (pfile, "...", 3);
+      CPP_PUTS (pfile, ") ", 2);
 
       /* Now the definition. */
       x = defn->expansion;
@@ -1753,6 +1713,32 @@ dump_definition (pfile, macro)
       i = defn->length - (x - defn->expansion) - 2;
       if (*x == '\r') x += 2, i -= 2;
       if (i > 0) CPP_PUTS (pfile, x, i);
-      CPP_NUL_TERMINATE (pfile);
     }
+  if (pfile->lineno == 0)
+    CPP_PUTC (pfile, '\n');
+  CPP_NUL_TERMINATE (pfile);
+}
+
+/* Dump out the hash table.  */
+static int
+dump_hash_helper (h, p)
+     void **h;
+     void *p;
+{
+  HASHNODE *hp = (HASHNODE *)*h;
+  cpp_reader *pfile = (cpp_reader *)p;
+
+  if (hp->type == T_MACRO)
+    {
+      _cpp_dump_definition (pfile, hp->name, hp->length, hp->value.defn);
+      CPP_PUTC (pfile, '\n');
+    }
+  return 1;
+}
+
+void
+_cpp_dump_macro_hash (pfile)
+     cpp_reader *pfile;
+{
+  htab_traverse (pfile->hashtab, dump_hash_helper, pfile);
 }

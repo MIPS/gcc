@@ -1,6 +1,7 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU CHILL compiler.
-   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -52,42 +53,42 @@ extern int  special_UC;
 #define DAYS_MAX                                            49
 
 /* forward declarations */
-static rtx chill_expand_expr		PROTO ((tree, rtx, enum machine_mode, 
+static rtx chill_expand_expr		PARAMS ((tree, rtx, enum machine_mode, 
 						enum expand_modifier));
-static tree chill_expand_case_expr	PROTO ((tree));
-static int check_arglist_length		PROTO ((tree, int, int, tree));
-static tree internal_build_compound_expr PROTO ((tree, int));
-static int is_really_instance		PROTO ((tree));
-static int invalid_operand		PROTO ((enum chill_tree_code,
+static tree chill_expand_case_expr	PARAMS ((tree));
+static int check_arglist_length		PARAMS ((tree, int, int, tree));
+static tree internal_build_compound_expr PARAMS ((tree, int));
+static int is_really_instance		PARAMS ((tree));
+static int invalid_operand		PARAMS ((enum chill_tree_code,
 						tree, int));
-static int invalid_right_operand	PROTO ((enum chill_tree_code, tree));
-static tree build_chill_abstime		PROTO ((tree));
-static tree build_allocate_memory_call	PROTO ((tree, tree));
-static tree build_allocate_global_memory_call PROTO ((tree, tree));
-static tree build_return_memory		PROTO ((tree));
-static tree build_chill_duration	PROTO ((tree, unsigned long,
+static int invalid_right_operand	PARAMS ((enum chill_tree_code, tree));
+static tree build_chill_abstime		PARAMS ((tree));
+static tree build_allocate_memory_call	PARAMS ((tree, tree));
+static tree build_allocate_global_memory_call PARAMS ((tree, tree));
+static tree build_return_memory		PARAMS ((tree));
+static tree build_chill_duration	PARAMS ((tree, unsigned long,
 						tree, unsigned long));
-static tree build_chill_floatcall	PROTO ((tree, const char *,
+static tree build_chill_floatcall	PARAMS ((tree, const char *,
 						const char *));
-static tree build_allocate_getstack	PROTO ((tree, tree, const char *,
+static tree build_allocate_getstack	PARAMS ((tree, tree, const char *,
 						const char *, tree, tree));
-static tree build_chill_allocate	PROTO ((tree, tree));
-static tree build_chill_getstack	PROTO ((tree, tree));
-static tree build_chill_terminate	PROTO ((tree));
-static tree build_chill_inttime		PROTO ((tree, tree));
-static tree build_chill_lower_or_upper	PROTO ((tree, int));
-static tree build_max_min		PROTO ((tree, int));
-static tree build_chill_pred_or_succ	PROTO ((tree, enum tree_code));
-static tree expand_packed_set		PROTO ((const char *, int, tree));
-static tree fold_set_expr		PROTO ((enum chill_tree_code,
+static tree build_chill_allocate	PARAMS ((tree, tree));
+static tree build_chill_getstack	PARAMS ((tree, tree));
+static tree build_chill_terminate	PARAMS ((tree));
+static tree build_chill_inttime		PARAMS ((tree, tree));
+static tree build_chill_lower_or_upper	PARAMS ((tree, int));
+static tree build_max_min		PARAMS ((tree, int));
+static tree build_chill_pred_or_succ	PARAMS ((tree, enum tree_code));
+static tree expand_packed_set		PARAMS ((const char *, int, tree));
+static tree fold_set_expr		PARAMS ((enum chill_tree_code,
 						tree, tree));
-static tree build_compare_set_expr	PROTO ((enum tree_code, tree, tree));
-static tree scalar_to_string		PROTO ((tree));
-static tree build_concat_expr		PROTO ((tree, tree));
-static tree build_compare_string_expr	PROTO ((enum tree_code, tree, tree));
-static tree compare_records		PROTO ((tree, tree));
-static tree string_char_rep		PROTO ((int, tree));
-static tree build_boring_bitstring	PROTO ((long, int));
+static tree build_compare_set_expr	PARAMS ((enum tree_code, tree, tree));
+static tree scalar_to_string		PARAMS ((tree));
+static tree build_concat_expr		PARAMS ((tree, tree));
+static tree build_compare_string_expr	PARAMS ((enum tree_code, tree, tree));
+static tree compare_records		PARAMS ((tree, tree));
+static tree string_char_rep		PARAMS ((int, tree));
+static tree build_boring_bitstring	PARAMS ((long, int));
 
 /* variable to hold the type the DESCR built-in returns */
 static tree descr_type = NULL_TREE;
@@ -2264,8 +2265,9 @@ build_chill_sizeof (type)
 	  return error_mark_node;
 	}
       
-      temp = size_binop (CEIL_DIV_EXPR, TYPE_SIZE (type),
-			 size_int (TYPE_PRECISION (char_type_node)));
+      temp = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
+			 size_int (TYPE_PRECISION (char_type_node)
+				   / BITS_PER_UNIT));
       if (signame != NULL_TREE)
         {
           /* we have a signal definition. This signal may have no
@@ -3344,9 +3346,9 @@ build_concat_expr (op0, op1)
 
       if (TREE_CODE (type0) == SET_TYPE)
 	{
-	  result_size = size_binop (PLUS_EXPR,
-				    discrete_count (TYPE_DOMAIN (type0)),
-				    discrete_count (TYPE_DOMAIN (type1)));
+	  result_size = fold (build (PLUS_EXPR, integer_type_node,
+				     discrete_count (TYPE_DOMAIN (type0)),
+				     discrete_count (TYPE_DOMAIN (type1))));
 	  result_class.mode = build_bitstring_type (result_size);
 	}
       else
@@ -3469,7 +3471,6 @@ compare_records (exp0, exp1)
   int have_variants = 0;
 
   tree result = boolean_true_node;
-  extern int maximum_field_alignment;
 
   if (TREE_CODE (type) != RECORD_TYPE)
     abort ();
@@ -4251,15 +4252,16 @@ build_chill_repetition_op (count_op, string)
 	    for (temp = vallist; temp; temp = TREE_CHAIN (temp))
 	      {
 		tree new_value
-		  = fold (size_binop (PLUS_EXPR, origin, TREE_VALUE (temp)));
+		  = fold (build (PLUS_EXPR, TREE_TYPE (origin),
+				 TREE_VALUE (temp)));
 		tree new_purpose = NULL_TREE;
+
 		if (! TREE_CONSTANT (TREE_VALUE (temp)))
 		  tree_const = 0;
 		if (TREE_PURPOSE (temp))
 		  {
-		    new_purpose = fold (size_binop (PLUS_EXPR,
-						    origin,
-						    TREE_PURPOSE (temp)));
+		    new_purpose = fold (build (PLUS_EXPR, TREE_TYPE (origin),
+					       origin, TREE_PURPOSE (temp)));
 		    if (! TREE_CONSTANT (TREE_PURPOSE (temp)))
 		      tree_const = 0;
 		  }

@@ -1,5 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1992, 93, 1994, 1998  Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -34,7 +35,7 @@ extern struct obstack permanent_obstack;
    to layout_chill_range_type for the index range of a string. */
 tree string_index_type_dummy;
 
-static tree make_powerset_type				PROTO ((tree));
+static tree make_powerset_type				PARAMS ((tree));
 
 /* Build a chill string type.
    For a character string, ELT_TYPE==char_type_node; 
@@ -65,9 +66,9 @@ build_string_type (elt_type, length)
   /* Subtract 1 from length to get max index value.
      Note we cannot use size_binop for pass 1 expressions. */
   if (TREE_CODE (length) == INTEGER_CST || pass != 1)
-    length = size_binop (MINUS_EXPR, length, integer_one_node);
+    length = size_binop (MINUS_EXPR, length, size_one_node);
   else
-    length = build (MINUS_EXPR, sizetype, length, integer_one_node);
+    length = build (MINUS_EXPR, sizetype, length, size_one_node);
 
   t = make_node (elt_type == boolean_type_node ? SET_TYPE : ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
@@ -289,7 +290,9 @@ discrete_count (t)
      tree t;
 {
   tree hi = convert (sizetype, TYPE_MAX_VALUE (t));
+
   if (TYPE_MIN_VALUE (t))
     hi = size_binop (MINUS_EXPR, hi, convert (sizetype, TYPE_MIN_VALUE (t)));
+
   return size_binop (PLUS_EXPR, hi, integer_one_node);
 }

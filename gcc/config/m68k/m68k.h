@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 1987, 88, 93-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -923,9 +924,6 @@ extern enum reg_class regno_reg_class[];
 
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 8
-
-/* Offset of the CFA from the argument pointer register value.  */
-#define ARG_POINTER_CFA_OFFSET 8
 
 /* Value is the number of byte of arguments automatically
    popped when returning from a subroutine call.

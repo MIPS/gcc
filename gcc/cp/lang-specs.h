@@ -1,5 +1,6 @@
 /* Definitions for specs for C++.
-   Copyright (C) 1995, 96-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,8 +34,8 @@ Boston, MA 02111-1307, USA.  */
      "%{E|M|MM:cpp -lang-c++ %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C++ does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-	%{!no-gcc:-D__GNUC__=%v1 -D__GNUG__=%v1 -D__GNUC_MINOR__=%v2}\
-	-D__cplusplus\
+	%{!no-gcc:-D__GNUC__=%v1 -D__GNUG__=%v1 -D__GNUC_MINOR__=%v2\
+	-D__GNUC_PATCHLEVEL__=%v3} -D__cplusplus\
 	%{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
 	%{!fno-exceptions:-D__EXCEPTIONS}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}} %{trigraphs}\
@@ -46,7 +47,8 @@ Boston, MA 02111-1307, USA.  */
                             -lang-c++ %{nostdinc*} %{C} %{A*} %{I*} %{P} %{$} %I\
                             %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
                             %{!no-gcc:-D__GNUC__=%v1 -D__GNUG__=%v1\
-                            -D__GNUC_MINOR__=%v2} -D__cplusplus\
+                            -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
+                            -D__cplusplus\
                             %{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
                             %{!fno-exceptions:-D__EXCEPTIONS}\
 			    %{fnew-abi:-D__GXX_ABI_VERSION=100}\
@@ -61,15 +63,15 @@ Boston, MA 02111-1307, USA.  */
 			    %{f*} %{+e*} %{aux-info*} %{Qn:-fno-ident}\
 			    %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			    %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}}|\n\
-              %{!S:as %a %Y\
+              %{!S:%{!fsyntax-only:as %a %Y\
 		      %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}\
-                      %{!pipe:%g.s} %A\n }}}}"}},
+                      %{!pipe:%g.s} %A\n }}}}}"}},
 #else /* ! USE_CPPLIB */
    {"cpp -lang-c++ %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C++ does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-	%{!no-gcc:-D__GNUC__=%v1 -D__GNUG__=%v1 -D__GNUC_MINOR__=%v2}\
-	-D__cplusplus\
+	%{!no-gcc:-D__GNUC__=%v1 -D__GNUG__=%v1 -D__GNUC_MINOR__=%v2\
+	-D__GNUC_PATCHLEVEL__=%v3} -D__cplusplus\
 	%{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
 	%{!fno-exceptions:-D__EXCEPTIONS}\
 	%{fnew-abi:-D__GXX_ABI_VERSION=100}\
@@ -85,9 +87,9 @@ Boston, MA 02111-1307, USA.  */
 			    %{f*} %{+e*} %{aux-info*} %{Qn:-fno-ident}\
 			    %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			    %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}}|\n\
-              %{!S:as %a %Y\
+              %{!S:%{!fsyntax-only:as %a %Y\
 		      %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}\
-                      %{!pipe:%g.s} %A\n }}}}"}},
+                      %{!pipe:%g.s} %A\n }}}}}"}},
 #endif /* ! USE_CPPLIB */
   {".ii", {"@c++-cpp-output"}},
   {"@c++-cpp-output",

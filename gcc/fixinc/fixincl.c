@@ -3,7 +3,7 @@
    files which are fixed to work correctly with ANSI C and placed in a
    directory that GNU C will search.
 
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 
 #include "server.h"
+
+#define NO_BOGOSITY
 
 /*  Quality Assurance Marker  :-)
 
@@ -181,7 +183,7 @@ main (argc, argv)
       if (freopen (argv[1], "r", stdin) == (FILE*)NULL)
         {
           fprintf (stderr, "Error %d (%s) reopening %s as stdin\n",
-                   errno, strerror (errno), argv[1] );
+                   errno, xstrerror (errno), argv[1] );
           exit (EXIT_FAILURE);
         }
       break;
@@ -262,7 +264,7 @@ main (argc, argv)
         if (child == NOPROCESS)
           {
             fprintf (stderr, "Error %d (%s) forking in main\n",
-                     errno, strerror (errno));
+                     errno, xstrerror (errno));
             exit (EXIT_FAILURE);
           }
 
@@ -462,7 +464,7 @@ wait_for_pid(child)
         default:
           if (NOT_SILENT)
             fprintf (stderr, "Error %d (%s) waiting for %d to finish\n",
-                     errno, strerror( errno ), child );
+                     errno, xstrerror( errno ), child );
           /* FALLTHROUGH */
 
         case ECHILD: /* no children to wait for?? */
@@ -490,7 +492,7 @@ load_file ( fname )
     {
       if (NOT_SILENT)
         fprintf (stderr, "error %d (%s) stat-ing %s\n",
-                 errno, strerror (errno), fname );
+                 errno, xstrerror (errno), fname );
       return (char *) NULL;
     }
   if (stbf.st_size == 0)
@@ -504,7 +506,7 @@ load_file ( fname )
     {
       if (NOT_SILENT)
         fprintf (stderr, "error %d (%s) opening %s for read\n",
-                 errno, strerror (errno), fname);
+                 errno, xstrerror (errno), fname);
       return (char*)NULL;
     }
 
@@ -533,8 +535,6 @@ load_file ( fname )
 void
 run_compiles ()
 {
-  tSCC z_bad_comp[] = "fixincl ERROR:  cannot compile %s regex for %s\n\
-\texpr = `%s'\n\terror %s\n";
   tFixDesc *p_fixd = fixDescList;
   int fix_ct = FIX_COUNT;
   tTestDesc *p_test;
@@ -550,26 +550,13 @@ run_compiles ()
       exit (EXIT_FAILURE);
     }
 
-  /*  Make sure re_compile_pattern does not stumble across invalid
-      data */
+  /*  Make sure compile_re does not stumble across invalid data */
 
   memset ( (void*)p_re, '\0', REGEX_COUNT * sizeof (regex_t) );
   memset ( (void*)&incl_quote_re, '\0', sizeof (regex_t) );
 
-  /*  The patterns we search for are all egrep patterns.
-      In the shell version of this program, we invoke egrep
-      with the supplied pattern.  Here, we will run
-      re_compile_pattern, but it must be using the same rules.  */
-
-  re_set_syntax (RE_SYNTAX_EGREP);
-  pz_err = re_compile_pattern (incl_quote_pat, sizeof (incl_quote_pat)-1,
-                              &incl_quote_re);
-  if (pz_err != (char *) NULL)
-    {
-      fprintf (stderr, z_bad_comp, "quoted include", "run_compiles",
-               incl_quote_pat, pz_err);
-      exit (EXIT_FAILURE);
-    }
+  compile_re (incl_quote_pat, &incl_quote_re, 1,
+	      "quoted include", "run_compiles");
 
   /* FOR every fixup, ...  */
   do
@@ -669,16 +656,9 @@ run_compiles ()
                 }
 
               p_test->p_test_regex = p_re++;
-              pz_err = re_compile_pattern (p_test->pz_test_text,
-                                          strlen (p_test->pz_test_text),
-                                          p_test->p_test_regex);
-              if (pz_err != (char *) NULL)
-                {
-                  fprintf (stderr, z_bad_comp, "select test", p_fixd->fix_name,
-                           p_test->pz_test_text, pz_err);
-                  exit (EXIT_FAILURE);
-                }
-            }
+	      compile_re (p_test->pz_test_text, p_test->p_test_regex, 0,
+			  "select test", p_fixd->fix_name);
+	    }
           p_test++;
         }
     }
@@ -744,7 +724,7 @@ create_file ()
   if (fd < 0)
     {
       fprintf (stderr, "Error %d (%s) creating %s\n",
-               errno, strerror (errno), fname);
+               errno, xstrerror (errno), fname);
       exit (EXIT_FAILURE);
     }
   if (NOT_SILENT)
@@ -815,14 +795,12 @@ egrep_test (pz_data, p_test)
      char *pz_data;
      tTestDesc *p_test;
 {
-  regmatch_t match;
-
 #ifdef DEBUG
   if (p_test->p_test_regex == 0)
     fprintf (stderr, "fixincl ERROR RE not compiled:  `%s'\n",
              p_test->pz_test_text);
 #endif
-  if (regexec (p_test->p_test_regex, pz_data, 1, &match, 0) == 0)
+  if (regexec (p_test->p_test_regex, pz_data, 0, 0, 0) == 0)
     return APPLY_FIX;
   return SKIP_FIX;
 }
@@ -990,7 +968,7 @@ internal_fix (read_fd, p_fixd)
       /*
        *  Parent in error
        */
-      fprintf (stderr, z_fork_err, errno, strerror (errno),
+      fprintf (stderr, z_fork_err, errno, xstrerror (errno),
                p_fixd->fix_name);
       {
         static int failCt = 0;
@@ -1080,7 +1058,7 @@ start_fixer (read_fd, p_fixd, pz_fix_file)
           break;
         }
 
-      fprintf (stderr, z_fork_err, errno, strerror (errno),
+      fprintf (stderr, z_fork_err, errno, xstrerror (errno),
                p_fixd->fix_name);
 
       if ((errno != EAGAIN) || (++failCt > 10))
@@ -1113,6 +1091,8 @@ fix_applies (p_fixd)
 #ifdef DEBUG
   static const char z_failed[] = "not applying %s to %s - test %d failed\n";
 #endif
+  const char *pz_fname = pz_curr_file;
+  const char *pz_scan = p_fixd->file_list;
   int test_ct;
   tTestDesc *p_test;
 
@@ -1122,10 +1102,8 @@ fix_applies (p_fixd)
   /*  IF there is a file name restriction,
       THEN ensure the current file name matches one in the pattern  */
 
-  if (p_fixd->file_list != (char *) NULL)
+  if (pz_scan != (char *) NULL)
     {
-      const char *pz_fname = pz_curr_file;
-      const char *pz_scan = p_fixd->file_list;
       size_t name_len;
 
       while ((pz_fname[0] == '.') && (pz_fname[1] == '/'))
@@ -1329,7 +1307,7 @@ process ()
       int erno = errno;
       fprintf (stderr, "Cannot access %s from %s\n\terror %d (%s)\n",
                pz_curr_file, getcwd ((char *) NULL, MAXPATHLEN),
-               erno, strerror (erno));
+               erno, xstrerror (erno));
       return;
     }
 
@@ -1374,7 +1352,7 @@ process ()
           if (read_fd < 0)
             {
               fprintf (stderr, "Error %d (%s) opening %s\n", errno,
-                       strerror (errno), pz_curr_file);
+                       xstrerror (errno), pz_curr_file);
               exit (EXIT_FAILURE);
             }
 

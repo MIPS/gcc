@@ -1,3 +1,61 @@
+Sun Mar 12 17:30:30 2000  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* MAINTAINERS: Add self in write-after-approval section.
+
+Sun Mar 12 00:23:32 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* MAINTAINERS: Add self as ia64 port maintainer.
+
+2000-03-08  Neil Booth  <NeilB@earthling.net>
+
+	* MAINTAINERS: Add self in write-after-approval section.
+
+2000-01-27  Christopher Faylor <cgf@redhat.com>
+
+	* Makefile.in (CC_FOR_TARGET): Add new winsup directory
+	structure stuff to -L library search.
+	(CXX_FOR_TARGET): Ditto.
+	(CROSS_CHECK_MODULES): Fix spelling mistake.
+
+2000-02-24  Nick Clifton  <nickc@cygnus.com>
+
+	* config.sub: Support an OS of "wince".
+
+2000-02-22  Nick Clifton  <nickc@cygnus.com>
+
+	* configure.in: Add mips-pe, sh-pe and arm-wince-pe targets.
+
+2000-02-16  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config.guess: Synchronize with master repository.
+	* config.sub: Likewise.
+
+2000-02-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure (gcc_version): When setting, narrow search to
+	lines containing `version_string'.
+
+2000-02-15  Denis Chertykov  <denisc@overta.ru>
+
+	* config.sub: Add support for avr target.
+
+2000-02-14  Nick Clifton  <nickc@cygnus.com>
+
+	* MAINTAINERS: Add maintainers for MCore port.
+
+Tue Feb  1 00:07:46 2000  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config.sub: Add mmix-knuth-mmixware.
+
+2000-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* MAINTAINERS: Pair cccp with cpplib maintainership.
+
+2000-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (CXX_FOR_TARGET): Use g++, not xgcc, to invoke
+	the C++ compiler.
+
 Wed Jan 12 18:00:26 2000  Mark P. Mitchell  <mark@codesourcery.com>
 
 	* configure.in: Fix typo in last change.

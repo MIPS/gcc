@@ -1,7 +1,8 @@
 /* Generate from machine description:
    - some macros CODE_FOR_... giving the insn_code_number value
    for each of the defined standard insn names.
-   Copyright (C) 1987, 1991, 1995, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1995, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -35,7 +36,7 @@ struct obstack *rtl_obstack = &obstack;
 
 static int insn_code_number;
 
-static void gen_insn PROTO((rtx));
+static void gen_insn PARAMS ((rtx));
 
 static void
 gen_insn (insn)
@@ -75,7 +76,7 @@ xrealloc (old, size)
   return ptr;
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

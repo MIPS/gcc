@@ -1,5 +1,5 @@
 /* lang-specs.h file for Fortran
-   Copyright (C) 1995-1997, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1999 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -38,7 +38,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    {"cpp -lang-fortran %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %{$} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
 	%{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
-	%{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2}\
+	%{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
 	%{ansi:-trigraphs -$ -D__STRICT_ANSI__}\
 	%{!undef:%P} -D_LANGUAGE_FORTRAN %{trigraphs} \
 	%c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}} -traditional\
@@ -88,7 +88,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    {"cpp -lang-fortran %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %{$} %I \
       %{C:%{!E:%eGNU C does not support -C without using -E}} \
       %{M} %{MM} %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG} \
-      %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2} \
+      %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3} \
       %{ansi:-trigraphs -$ -D__STRICT_ANSI__} \
       %{!undef:%P} -D_LANGUAGE_FORTRAN %{trigraphs} \
       %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}} -traditional \

@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 96-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2000 Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
 This file is part of GNU CC.
@@ -34,12 +34,12 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 
-static tree repo_get_id PROTO((tree));
-static char *extract_string PROTO((char **));
-static char *get_base_filename PROTO((const char *));
-static void open_repo_file PROTO((const char *));
-static char *afgets PROTO((FILE *));
-static void reopen_repo_file_for_write PROTO((void));
+static tree repo_get_id PARAMS ((tree));
+static char *extract_string PARAMS ((char **));
+static char *get_base_filename PARAMS ((const char *));
+static void open_repo_file PARAMS ((const char *));
+static char *afgets PARAMS ((FILE *));
+static void reopen_repo_file_for_write PARAMS ((void));
 
 static tree pending_repo;
 static tree original_repo;
@@ -95,12 +95,12 @@ static tree
 repo_get_id (t)
      tree t;
 {
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  if (TYPE_P (t))
     {
       /* If we're not done setting up the class, we may not have set up
 	 the vtable, so going ahead would give the wrong answer.
          See g++.pt/instantiate4.C.  */
-      if (TYPE_SIZE (t) == NULL_TREE || TYPE_BEING_DEFINED (t))
+      if (!COMPLETE_TYPE_P (t) || TYPE_BEING_DEFINED (t))
 	my_friendly_abort (981113);
 
       t = TYPE_BINFO_VTABLE (t);
@@ -126,12 +126,12 @@ repo_template_used (t)
   if (id == NULL_TREE)
     return;
   
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  if (TYPE_P (t))
     {
       if (IDENTIFIER_REPO_CHOSEN (id))
 	mark_class_instantiated (t, 0);
     }
-  else if (TREE_CODE_CLASS (TREE_CODE (t)) == 'd')
+  else if (DECL_P (t))
     {
       if (IDENTIFIER_REPO_CHOSEN (id))
 	mark_decl_instantiated (t, 0);
@@ -171,9 +171,9 @@ repo_inline_used (fn)
 
   /* Member functions of polymorphic classes go with their vtables.  */
   if (DECL_FUNCTION_MEMBER_P (fn) 
-      && TYPE_POLYMORPHIC_P (DECL_CLASS_CONTEXT (fn)))
+      && TYPE_POLYMORPHIC_P (DECL_CONTEXT (fn)))
     {
-      repo_vtable_used (DECL_CLASS_CONTEXT (fn));
+      repo_vtable_used (DECL_CONTEXT (fn));
       return;
     }
 

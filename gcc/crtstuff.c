@@ -1,6 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
-   Copyright (C) 1991, 1994-1999 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GNU CC.
@@ -52,23 +53,9 @@ Boston, MA 02111-1307, USA.  */
    do not apply.  */
 
 #include "tm.h"
-
-/* We disable this when inhibit_libc, so that gcc can still be built without
-   needing header files first.  */
-/* ??? This is not a good solution, since prototypes may be required in
-   some cases for correct code.  See also libgcc2.c/frame.c.  */
-#ifndef inhibit_libc
-/* fixproto guarantees these system headers exist. */
-#include <stdlib.h>
-#include <unistd.h>
-#else
-# ifndef atexit
-extern int atexit(void (*)(void));
-# endif
-#endif
+#include "tsystem.h"
 
 #include "defaults.h"
-#include <stddef.h>
 #include "frame.h"
 
 /* We do not want to add the weak attribute to the declarations of these
@@ -253,7 +240,7 @@ init_dummy (void)
    INVOKE__main is defined.  This has the additional effect of forcing cc1
    to switch to the .text section.  */
 
-static void __do_global_ctors_aux ();
+static void __do_global_ctors_aux (void);
 void
 __do_global_ctors (void)
 {
@@ -546,7 +533,7 @@ extern const struct section *
 
 #ifdef CRT_BEGIN
 
-static void __reg_frame_ctor () __attribute__ ((constructor));
+static void __reg_frame_ctor (void) __attribute__ ((constructor));
 
 static void
 __reg_frame_ctor (void)
@@ -563,10 +550,9 @@ __reg_frame_ctor (void)
 
 #ifdef CRT_END
 
-static void __dereg_frame_dtor () __attribute__ ((destructor));
+static void __dereg_frame_dtor (void) __attribute__ ((destructor));
 
-static
-void
+static void
 __dereg_frame_dtor (void)
 {
   const struct section *eh_frame;

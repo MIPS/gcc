@@ -1,4 +1,4 @@
-/* Threads compatibily routines for libgcc2 for VxWorks.  */
+/* Threads compatibility routines for libgcc2 for VxWorks.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1997 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@wrs.com>.
@@ -48,7 +48,7 @@ typedef SEM_ID __gthread_mutex_t;
 
 #ifndef REG_SAVED_REG
 static inline int
-__gthread_once (__gthread_once_t *once, void (*func) ())
+__gthread_once (__gthread_once_t *once, void (*func) (void))
 {
   (*func)();
   return 0;

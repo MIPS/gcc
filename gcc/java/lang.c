@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 97-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -36,10 +36,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "flags.h"
 #include "xref.h"
 
-static void put_decl_string PROTO ((const char *, int));
-static void put_decl_node PROTO ((tree));
-static void java_dummy_print PROTO ((const char *));
-static void lang_print_error PROTO ((const char *));
+static void put_decl_string PARAMS ((const char *, int));
+static void put_decl_node PARAMS ((tree));
+static void java_dummy_print PARAMS ((const char *));
+static void lang_print_error PARAMS ((const char *));
 
 #ifndef OBJECT_SUFFIX
 # define OBJECT_SUFFIX ".o"
@@ -110,6 +110,13 @@ int flag_static_local_jdk1_1 = 0;
 /* When non zero, call a library routine to do integer divisions. */
 int flag_use_divide_subroutine = 1;
 
+/* When non zero, generate code for the Boehm GC.  */
+int flag_use_boehm_gc = 0;
+
+/* When non zero, assume the runtime uses a hash table to map an
+   object to its synchronization structure.  */
+int flag_hash_synchronization;
+
 /* From gcc/flags.h, and indicates if exceptions are turned on or not.  */
 
 extern int flag_new_exceptions;
@@ -127,6 +134,8 @@ lang_f_options[] =
   {"emit-class-file", &flag_emit_class_files, 1},
   {"emit-class-files", &flag_emit_class_files, 1},
   {"use-divide-subroutine", &flag_use_divide_subroutine, 1},
+  {"use-boehm-gc", &flag_use_boehm_gc, 1},
+  {"hash-synchronization", &flag_hash_synchronization, 1}
 };
 
 JCF *current_jcf;
@@ -242,6 +251,9 @@ lang_decode_option (argc, argv)
     {
       flag_wall = 1;
       flag_redundant = 1;
+      /* When -Wall given, enable -Wunused.  We do this because the C
+	 compiler does it, and people expect it.  */
+      warn_unused = 1;
       return 1;
     }
 
@@ -409,7 +421,7 @@ put_decl_node (node)
 	}
 #endif
       if (TREE_CODE (node) == FUNCTION_DECL
-	  && DECL_NAME (node) == init_identifier_node
+	  && DECL_INIT_P (node)
 	  && !DECL_ARTIFICIAL (node) && current_class)
 	put_decl_node (TYPE_NAME (current_class));
       else

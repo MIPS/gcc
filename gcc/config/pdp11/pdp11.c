@@ -1,5 +1,6 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994, 95-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999
+   Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
 This file is part of GNU CC.
@@ -33,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
+#include "tm_p.h"
 
 /*
 #define FPU_REG_P(X)	((X)>=8 && (X)<14)
@@ -46,7 +48,8 @@ int current_first_parm_offset;
 /* This is where the condition code register lives.  */
 /* rtx cc0_reg_rtx; - no longer needed? */
 
-static rtx find_addr_reg (); 
+static rtx find_addr_reg PARAMS ((rtx)); 
+static const char *singlemove_string PARAMS ((rtx *)); 
 
 /* Nonzero if OP is a valid second operand for an arithmetic insn.  */
 
@@ -61,7 +64,7 @@ arith_operand (op, mode)
 int
 const_immediate_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT);
 }
@@ -69,7 +72,7 @@ const_immediate_operand (op, mode)
 int 
 immediate15_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
     return (GET_CODE (op) == CONST_INT && ((INTVAL (op) & 0x8000) == 0x0000));
 }
@@ -77,7 +80,7 @@ immediate15_operand (op, mode)
 int
 expand_shift_operand (op, mode)
   rtx op;
-  enum machine_mode mode;
+  enum machine_mode mode ATTRIBUTE_UNUSED;
 {
     return (GET_CODE (op) == CONST_INT 
 	    && abs (INTVAL(op)) > 1 
@@ -294,7 +297,7 @@ output_function_epilogue(stream, size)
 	
 /* Return the best assembler insn template
    for moving operands[1] into operands[0] as a fullword.  */
-static char *
+static const char *
 singlemove_string (operands)
      rtx *operands;
 {
@@ -308,7 +311,7 @@ singlemove_string (operands)
 /* Output assembler code to perform a doubleword move insn
    with operands OPERANDS.  */
 
-char *
+const char *
 output_move_double (operands)
      rtx *operands;
 {
@@ -486,7 +489,7 @@ output_move_double (operands)
 /* Output assembler code to perform a quadword move insn
    with operands OPERANDS.  */
 
-char *
+const char *
 output_move_quad (operands)
      rtx *operands;
 {
@@ -736,7 +739,7 @@ find_addr_reg (addr)
 void
 output_ascii (file, p, size)
      FILE *file;
-     char *p;
+     const char *p;
      int size;
 {
   int i;
@@ -915,10 +918,10 @@ register_move_cost(c1, c2)
     return move_costs[(int)c1][(int)c2];
 }
 
-char *
+const char *
 output_jump(pos, neg, length)
+  const char *pos, *neg;
   int length;
-  char *pos, *neg;
 {
     static int x = 0;
     
@@ -961,7 +964,7 @@ output_jump(pos, neg, length)
 void
 notice_update_cc_on_set(exp, insn)
   rtx exp;
-  rtx insn;
+  rtx insn ATTRIBUTE_UNUSED;
 {
     if (GET_CODE (SET_DEST (exp)) == CC0)
     { 
@@ -1030,9 +1033,10 @@ notice_update_cc_on_set(exp, insn)
 }
 
 
-int simple_memory_operand(op, mode)
-  rtx op;
-  enum machine_mode mode;
+int
+simple_memory_operand(op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
     rtx addr;
 
@@ -1104,7 +1108,7 @@ int simple_memory_operand(op, mode)
  */
 
  
-char *
+const char *
 output_block_move(operands)
   rtx *operands;
 {
@@ -1389,7 +1393,7 @@ comparison_operator_index(op)
 int
 comp_operator (op, mode)
   rtx op;
-  enum machine_mode mode;
+  enum machine_mode mode ATTRIBUTE_UNUSED;
 {
     return comparison_operator_index(op) >= 0;
 }

@@ -1,6 +1,6 @@
 /* Exception support for GNU CHILL.
    WARNING:  Only works for native (needs setjmp.h)!  FIXME!
-   Copyright (C) 1992, 93, 1994, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 98, 99, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -60,10 +60,10 @@ static tree link_handler_decl;
 static tree handler_link_pointer_type;
 static tree unlink_handler_decl;
 static int exceptions_initialized = 0;
-static void emit_setup_handler PROTO((void));
-static void initialize_exceptions PROTO((void));
-static tree start_handler_array PROTO((void));
-static void finish_handler_array PROTO((void));
+static void emit_setup_handler PARAMS ((void));
+static void initialize_exceptions PARAMS ((void));
+static tree start_handler_array PARAMS ((void));
+static void finish_handler_array PARAMS ((void));
 static tree char_pointer_type_for_handler;
 
 /* If this is 1, operations to push and pop on the __exceptionStack
@@ -396,8 +396,7 @@ emit_setup_handler ()
       /* We temporarily reset the maximum_field_alignment to zero so the
 	 compiler's exception data structures can be compatible with the
 	 run-time system, even when we're compiling with -fpack. */
-      extern int maximum_field_alignment;
-      int save_maximum_field_alignment = maximum_field_alignment;
+      unsigned int save_maximum_field_alignment = maximum_field_alignment;
       maximum_field_alignment = 0;
       push_obstacks_nochange ();
       end_temporary_allocation ();
@@ -501,7 +500,7 @@ void
 chill_handle_on_labels (labels)
      tree labels;
 {
-  int alternative = ++current_handler->prev_on_alternative;
+  unsigned int alternative = ++current_handler->prev_on_alternative;
   if (pass == 1)
     {
       tree handler_number = build_int_2 (alternative, 0);
@@ -511,9 +510,13 @@ chill_handle_on_labels (labels)
   else
     {
       /* Find handler_number saved in pass 1. */
-      tree tmp = current_handler->on_alt_list;
-      while (TREE_INT_CST_LOW (TREE_PURPOSE (tmp)) != alternative)
-	tmp = TREE_CHAIN (tmp);
+      tree tmp;
+
+      for (tmp = current_handler->on_alt_list;
+	   compare_tree_int (TREE_PURPOSE (tmp), alternative) != 0;
+	   tmp = TREE_CHAIN (tmp))
+	;
+
       if (expand_exit_needed)
 	expand_exit_something (), expand_exit_needed = 0;
       chill_handle_case_label (TREE_PURPOSE (tmp),
@@ -619,7 +622,7 @@ expand_goto_except_cleanup (label_level)
   tree last = NULL_TREE;
   for ( ; list != NULL_TREE; list = TREE_CHAIN (list))
     {
-      if (TREE_INT_CST_LOW (TREE_PURPOSE (list)) > label_level)
+      if (compare_tree_int (TREE_PURPOSE (list), label_level) > 0)
 	last = list;
       else
 	break;

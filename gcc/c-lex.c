@@ -1,5 +1,6 @@
 /* Lexical analyzer for C and Objective C.
-   Copyright (C) 1987, 88, 89, 92, 94-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -84,7 +85,7 @@ extern int yy_get_token ();
 #define UNGETC(c) put_back (c)
 
 struct putback_buffer {
-  char *buffer;
+  unsigned char *buffer;
   int   buffer_size;
   int   index;
 };
@@ -304,6 +305,8 @@ init_lex ()
   ridpointers[(int) RID_CONST] = get_identifier ("const");
   ridpointers[(int) RID_RESTRICT] = get_identifier ("restrict");
   ridpointers[(int) RID_VOLATILE] = get_identifier ("volatile");
+  ridpointers[(int) RID_BOUNDED] = get_identifier ("__bounded");
+  ridpointers[(int) RID_UNBOUNDED] = get_identifier ("__unbounded");
   ridpointers[(int) RID_AUTO] = get_identifier ("auto");
   ridpointers[(int) RID_STATIC] = get_identifier ("static");
   ridpointers[(int) RID_EXTERN] = get_identifier ("extern");
@@ -340,7 +343,7 @@ init_lex ()
       UNSET_RESERVED_WORD ("iterator");
       UNSET_RESERVED_WORD ("complex");
     }
-  else if (!flag_isoc9x)
+  else if (!flag_isoc99)
     UNSET_RESERVED_WORD ("restrict");
 
   if (flag_no_asm)
@@ -405,6 +408,7 @@ yyprint (file, yychar, yylval)
 
 /* Iff C is a carriage return, warn about it - if appropriate -
    and return nonzero.  */
+
 static int
 whitespace_cr (c)
      int c;
@@ -759,14 +763,7 @@ linenum:
       goto skipline;
     }
 
-  if (! ggc_p && !TREE_PERMANENT (yylval.ttype))
-    {
-      input_filename
-	= (char *) permalloc (TREE_STRING_LENGTH (yylval.ttype) + 1);
-      strcpy (input_filename, TREE_STRING_POINTER (yylval.ttype));
-    }
-  else
-    input_filename = TREE_STRING_POINTER (yylval.ttype);
+  input_filename = TREE_STRING_POINTER (yylval.ttype);
 
   if (main_input_filename == 0)
     main_input_filename = input_filename;
@@ -949,7 +946,10 @@ readescape (ignore_ptr)
 	  nonnull = 1;
 	}
       if (! nonnull)
-	error ("\\x used with no following hex digits");
+	{
+	  warning ("\\x used with no following hex digits");
+	  return 'x';
+	}
       else if (count == 0)
 	/* Digits are all 0's.  Ok.  */
 	;

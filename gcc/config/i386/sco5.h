@@ -1,5 +1,6 @@
 /* Definitions for Intel 386 running SCO Unix System V 3.2 Version 5.
-   Copyright (C) 1992, 95-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999 
+   Free Software Foundation, Inc.
    Contributed by Kean Johnston (hug@netcom.com)
 
 This file is part of GNU CC.
@@ -221,7 +222,7 @@ do {									\
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
   if (TARGET_ELF) {							\
-     char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);			 \
+     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
@@ -312,7 +313,8 @@ asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 #define ASM_OUTPUT_LIMITED_STRING(FILE, STR)				\
   do									\
     {									\
-      register unsigned char *_limited_str = (unsigned char *) (STR);	\
+      register const unsigned char *_limited_str =			\
+        (const unsigned char *) (STR);					\
       register unsigned ch;						\
       fprintf ((FILE), "%s\t\"", STRING_ASM_OP);			\
       for (; (ch = *_limited_str); _limited_str++)			\
@@ -340,12 +342,13 @@ asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(FILE, STR, LENGTH)				\
 do {									\
-      register unsigned char *_ascii_bytes = (unsigned char *) (STR);	\
-      register unsigned char *limit = _ascii_bytes + (LENGTH);		\
+      register const unsigned char *_ascii_bytes =			\
+        (const unsigned char *) (STR);					\
+      register const unsigned char *limit = _ascii_bytes + (LENGTH);	\
       register unsigned bytes_in_chunk = 0;				\
       for (; _ascii_bytes < limit; _ascii_bytes++)			\
         {								\
-	  register unsigned char *p;					\
+	  register unsigned const char *p;				\
 	  if (bytes_in_chunk >= 64)					\
 	    {								\
 	      fputc ('\n', (FILE));					\
@@ -467,9 +470,9 @@ do {									\
       enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;                \
     } *sections;                                                        \
   struct section_info *s;                                               \
-  char *mode;                                                           \
+  const char *mode;                                                     \
   enum sect_enum type;                                                  \
-  char *sname = NAME ;							\
+  const char *sname = NAME ;						\
   if (strcmp(NAME, ".gcc_except_table") == 0) sname = ".gccexc" ;	\
                                                                         \
   for (s = sections; s; s = s->next)                                    \
@@ -541,28 +544,8 @@ do {									\
 #define DBX_FUNCTION_FIRST 1
 
 #undef DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(n)						\
-((TARGET_ELF) ?								\
- ((n) == 0 ? 0 								\
-  : (n) == 1 ? 2 							\
-  : (n) == 2 ? 1 							\
-  : (n) == 3 ? 3 							\
-  : (n) == 4 ? 6 							\
-  : (n) == 5 ? 7 							\
-  : (n) == 6 ? 5 							\
-  : (n) == 7 ? 4 							\
-  : ((n) >= FIRST_STACK_REG && (n) <= LAST_STACK_REG) ? (n)+3 		\
-  : (-1))								\
- :									\
- ((n) == 0 ? 0 : 							\
-  (n) == 1 ? 2 : 							\
-  (n) == 2 ? 1 : 							\
-  (n) == 3 ? 3 : 							\
-  (n) == 4 ? 6 : 							\
-  (n) == 5 ? 7 : 							\
-  (n) == 6 ? 4 : 							\
-  (n) == 7 ? 5 : 							\
-  (n) + 4))
+#define DBX_REGISTER_NUMBER(n) \
+  ((TARGET_ELF) ? svr4_dbx_register_map[n] : dbx_register_map[n])
 
 #undef DWARF_DEBUGGING_INFO
 #undef SDB_DEBUGGING_INFO
@@ -730,8 +713,9 @@ dtors_section ()							\
 #undef HANDLE_SYSV_PRAGMA
 #define HANDLE_SYSV_PRAGMA 1
 
-/* Though OpenServer support .weak in COFF, g++ doesn't play nice with it
- * so we'll punt on it for now
+/* Though OpenServer supports .weak in COFF, we don't use it.
+ * G++ will frequently emit a symol as .weak and then (in the same .s 
+ * file) declare it global.   The COFF assembler finds this unamusing.
  */
 #define SUPPORTS_WEAK (TARGET_ELF)
 #define ASM_WEAKEN_LABEL(FILE,NAME) \

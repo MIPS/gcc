@@ -1,5 +1,6 @@
 /* Prints out trees in human readable form.
-   Copyright (C) 1992, 93-96, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
+   1999 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -112,7 +113,7 @@ print_lang_type (file, node, indent)
 
   if (TYPE_NEEDS_CONSTRUCTING (node))
     fputs ( "needs-constructor", file);
-  if (TYPE_NEEDS_DESTRUCTOR (node))
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (node))
     fputs (" needs-destructor", file);
   if (TYPE_HAS_DESTRUCTOR (node))
     fputs (" ~X()", file);
@@ -127,9 +128,9 @@ print_lang_type (file, node, indent)
       else
 	fputs (" X(X&)", file);
     }
-  if (TYPE_GETS_NEW (node) & 1)
+  if (TYPE_HAS_NEW_OPERATOR (node))
     fputs (" new", file);
-  if (TYPE_GETS_NEW (node) & 2)
+  if (TYPE_HAS_ARRAY_NEW_OPERATOR (node))
     fputs (" new[]", file);
   if (TYPE_GETS_DELETE (node) & 1)
     fputs (" delete", file);

@@ -1,5 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -40,9 +40,9 @@ Boston, MA 02111-1307, USA.  */
    slots in a CONST_DOUBLE, so we provide them even if one would suffice.  */
 
 #ifdef REAL_ARITHMETIC
-#if LONG_DOUBLE_TYPE_SIZE == 96
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
 #define REAL_WIDTH	(11*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#elif LONG_DOUBLE_TYPE_SIZE == 128
+#elif MAX_LONG_DOUBLE_TYPE_SIZE == 128
 #define REAL_WIDTH	(19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
 #elif HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
 #define REAL_WIDTH	(7*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
@@ -50,11 +50,11 @@ Boston, MA 02111-1307, USA.  */
 #endif /* REAL_ARITHMETIC */
 
 #ifndef REAL_WIDTH
-#if HOST_BITS_PER_WIDE_INT*2 >= LONG_DOUBLE_TYPE_SIZE
+#if HOST_BITS_PER_WIDE_INT*2 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	2
-#elif HOST_BITS_PER_WIDE_INT*3 >= LONG_DOUBLE_TYPE_SIZE
+#elif HOST_BITS_PER_WIDE_INT*3 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	3
-#elif HOST_BITS_PER_WIDE_INT*4 >= LONG_DOUBLE_TYPE_SIZE
+#elif HOST_BITS_PER_WIDE_INT*4 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	4
 #endif
 #endif /* REAL_WIDTH */
@@ -88,17 +88,17 @@ struct rtx_definition defs[] =
 
 const char *formats[NUM_RTX_CODE];
 
-static const char *type_from_format	PROTO((int));
-static const char *accessor_from_format	PROTO((int));
-static int special_format		PROTO((const char *));
-static int special_rtx			PROTO((int));
-static void find_formats		PROTO((void));
-static void gendecl			PROTO((const char *));
-static void genmacro			PROTO((int));
-static void gendef			PROTO((const char *));
-static void genlegend			PROTO((void));
-static void genheader			PROTO((void));
-static void gencode			PROTO((void));
+static const char *type_from_format	PARAMS ((int));
+static const char *accessor_from_format	PARAMS ((int));
+static int special_format		PARAMS ((const char *));
+static int special_rtx			PARAMS ((int));
+static void find_formats		PARAMS ((void));
+static void gendecl			PARAMS ((const char *));
+static void genmacro			PARAMS ((int));
+static void gendef			PARAMS ((const char *));
+static void genlegend			PARAMS ((void));
+static void genheader			PARAMS ((void));
+static void gencode			PARAMS ((void));
 
 /* Decode a format letter into a C type string.  */
 
@@ -115,7 +115,7 @@ type_from_format (c)
       return "HOST_WIDE_INT ";
 
     case 's':
-      return "char *";
+      return "const char *";
 
     case 'e':  case 'u':
       return "rtx ";
@@ -224,7 +224,7 @@ gendecl (format)
   const char *p;
   int i, pos;
   
-  printf ("extern rtx gen_rtx_fmt_%s\tPROTO((RTX_CODE, ", format);
+  printf ("extern rtx gen_rtx_fmt_%s\tPARAMS ((RTX_CODE, ", format);
   printf ("enum machine_mode mode");
 
   /* Write each parameter that is needed and start a new line when the line
@@ -359,7 +359,7 @@ gencode ()
   puts ("#include \"rtl.h\"\n");
   puts ("#include \"ggc.h\"\n\n");
   puts ("extern struct obstack *rtl_obstack;\n\n");
-  puts ("static rtx obstack_alloc_rtx PROTO((int length));\n");
+  puts ("static rtx obstack_alloc_rtx PARAMS ((int length));\n");
   puts ("static rtx obstack_alloc_rtx (length)\n");
   puts ("     register int length;\n{\n");
   puts ("  rtx rt = (rtx) obstack_alloc (rtl_obstack, length);\n\n");
@@ -391,7 +391,7 @@ xmalloc (nbytes)
 /* This is the main program.  We accept only one argument, "-h", which
    says we are writing the genrtl.h file.  Otherwise we are writing the
    genrtl.c file.  */
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

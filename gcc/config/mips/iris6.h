@@ -219,8 +219,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
+/* If no mips[3,4] option given, give the appropriate default for mabi=X */
 #undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32}"
+#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32} %{!mips*: %{!mabi*:-mips3} %{mabi=n32:-mips3} %{mabi=64:-mips4}}"
 
 /* Must pass -g0 to the assembler, otherwise it may overwrite our
    debug info with its own debug info. */
@@ -457,7 +458,7 @@ while (0)
 
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
-     char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);			 \
+     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \

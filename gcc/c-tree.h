@@ -1,5 +1,6 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987, 93-95, 97-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -169,6 +170,9 @@ extern void c_parse_init			PARAMS ((void));
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
 
+/* In c-common.c */
+extern unsigned int min_precision		PARAMS ((tree, int));
+
 /* in c-convert.c */
 extern tree convert                             PARAMS ((tree, tree));
 
@@ -235,7 +239,7 @@ extern void shadow_tag                          PARAMS ((tree));
 extern void shadow_tag_warned                   PARAMS ((tree, int));
 extern tree start_enum                          PARAMS ((tree));
 extern int  start_function                      PARAMS ((tree, tree, tree,
-							 tree, int));
+							 tree));
 extern tree start_decl                          PARAMS ((tree, tree, int,
 							 tree, tree));
 extern tree start_struct                        PARAMS ((enum tree_code, tree));
@@ -403,9 +407,9 @@ extern int warn_main;
 
 extern int flag_traditional;
 
-/* Nonzero means use the ISO C9x dialect of C.  */
+/* Nonzero means use the ISO C99 dialect of C.  */
 
-extern int flag_isoc9x;
+extern int flag_isoc99;
 
 /* Nonzero means to allow single precision math even if we're generally
    being traditional. */

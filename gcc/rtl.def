@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
-   Copyright (C) 1987, 88, 92, 94, 95, 97, 98, 1999
+   Copyright (C) 1987, 88, 92, 94, 95, 97, 98, 1999, 2000
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -530,6 +530,9 @@ DEF_RTL_EXPR(CONST, "const", "e", 'o')
    by a SET whose first operand is (PC).  */
 DEF_RTL_EXPR(PC, "pc", "", 'o')
 
+/* Used in the cselib routines to describe a value.  */
+DEF_RTL_EXPR(VALUE, "value", "0", 'o')
+
 /* A register.  The "operand" is the register number, accessed with
    the REGNO macro.  If this number is less than FIRST_PSEUDO_REGISTER
    than a hardware register is being referred to.  The second operand
@@ -737,6 +740,20 @@ DEF_RTL_EXPR(GTU, "gtu", "ee", '<')
 DEF_RTL_EXPR(LEU, "leu", "ee", '<')
 DEF_RTL_EXPR(LTU, "ltu", "ee", '<')
 
+/* Additional floating point unordered comparision flavors.  */
+DEF_RTL_EXPR(UNORDERED, "unordered", "ee", '<')
+DEF_RTL_EXPR(ORDERED, "ordered", "ee", '<')
+
+/* These are equivalent to unordered or ... */
+DEF_RTL_EXPR(UNEQ, "uneq", "ee", '<')
+DEF_RTL_EXPR(UNGE, "unge", "ee", '<')
+DEF_RTL_EXPR(UNGT, "ungt", "ee", '<')
+DEF_RTL_EXPR(UNLE, "unle", "ee", '<')
+DEF_RTL_EXPR(UNLT, "unlt", "ee", '<')
+
+/* This is an ordered NE, ie !UNEQ, ie false for NaN.  */
+DEF_RTL_EXPR(LTGT, "ltgt", "ee", '<')
+
 /* Represents the result of sign-extending the sole operand.
    The machine modes of the operand and of the SIGN_EXTEND expression
    determine how much sign-extension is going on.  */
@@ -863,8 +880,26 @@ DEF_RTL_EXPR(CONSTANT_P_RTX, "constant_p_rtx", "e", 'x')
    potential tail recursive calls were found.
 
    The tail recursion label is needed so that we can clear LABEL_PRESERVE_P
-   after we select a call method.  */
+   after we select a call method.
+
+   This method of tail-call elimination is intended to be replaced by
+   tree-based optimizations once front-end conversions are complete.  */
 DEF_RTL_EXPR(CALL_PLACEHOLDER, "call_placeholder", "uuuu", 'x')
+
+/* The SSA phi operator. 
+
+   The argument is a vector of 2N rtxes.  Element 2N+1 is a CONST_INT
+   containing the block number of the predecessor through which control
+   has passed when the register at element 2N is used.
+
+   Note that PHI may only appear at the beginning of a basic block.
+
+   ??? There may be multiple PHI insns, but they are all evaluated
+   in parallel.  This probably ought to be changed to use a real
+   PARALLEL, as that would be less confusing and more in the spirit
+   of canonical RTL.  It is, however, easier to manipulate this way.  */
+DEF_RTL_EXPR(PHI, "phi", "E", 'x')
+
 
 /*
 Local variables:

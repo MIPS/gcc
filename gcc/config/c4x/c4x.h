@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -21,6 +22,8 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "hwint.h"
+
 /* RUN-TIME TARGET SPECIFICATION.  */
 
 #define C4x   1
@@ -36,16 +39,18 @@
 /* Define assembler options.  */
 
 #define ASM_SPEC "\
-%{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=40:%{!mcpu=44:\
-%{!m30:%{!m40:-m40}}}}}}} \
+%{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=33:%{!mcpu=40:%{!mcpu=44:\
+%{!m30:%{!m40:-m40}}}}}}}} \
 %{mcpu=30:-m30} \
 %{mcpu=31:-m31} \
 %{mcpu=32:-m32} \
+%{mcpu=33:-m33} \
 %{mcpu=40:-m40} \
 %{mcpu=44:-m44} \
 %{m30:-m30} \
 %{m31:-m31} \
 %{m32:-m32} \
+%{m33:-m33} \
 %{m40:-m40} \
 %{m44:-m44} \
 %{mmemparm:-p} %{mregparm:-r} \
@@ -59,21 +64,26 @@
 %{m30:--architecture c3x} \
 %{m31:--architecture c3x} \
 %{m32:--architecture c3x} \
+%{m33:--architecture c3x} \
 %{mcpu=30:--architecture c3x} \
 %{mcpu=31:--architecture c3x} \
-%{mcpu=32:--architecture c3x}"
+%{mcpu=32:--architecture c3x} \
+%{mcpu=33:--architecture c3x}"
 
 /* Define C preprocessor options.  */
 
 #define CPP_SPEC "\
-%{!m30:%{!m31:%{!m32:%{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=40:%{!mcpu=44:\
-  %{!m40:%{!m44:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40 }}}}}}}}}} \
+%{!m30:%{!m31:%{!m32:%{!m33:%{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=33:\
+%{!mcpu=40:%{!mcpu=44:%{\
+!m40:%{!m44:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40}}}}}}}}}}}} \
 %{mcpu=30:-D_TMS320C3x -D_C3x -D_TMS320C30 -D_C30 } \
 %{m30:-D_TMS320C3x -D_C3x -D_TMS320C30 -D_C30 } \
 %{mcpu=31:-D_TMS320C3x -D_C3x -D_TMS320C31 -D_C31 } \
 %{m31:-D_TMS320C3x -D_C3x -D_TMS320C31 -D_C31 } \
 %{mcpu=32:-D_TMS320C3x -D_C3x -D_TMS320C32 -D_C32 } \
 %{m32:-D_TMS320C3x -D_C3x -D_TMS320C32 -D_C32 } \
+%{mcpu=33:-D_TMS320C3x -D_C3x -D_TMS320C33 -D_C33 } \
+%{m33:-D_TMS320C3x -D_C3x -D_TMS320C33 -D_C33 } \
 %{mcpu=40:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40 } \
 %{m40:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40 } \
 %{mcpu=44:-D_TMS320C4x -D_C4x -D_TMS320C44 -D_C44 } \
@@ -107,13 +117,14 @@
 #define LOOP_UNSIGNED_FLAG  0x0004000 /* Allow unsigned loop counters.  */
 #define FORCE_FLAG          0x0008000 /* Force op0 and op1 to be same.  */
 #define PRESERVE_FLOAT_FLAG 0x0010000 /* Save all 40 bits for floats.  */
-#define PARALLEL_PACK_FLAG  0x0020000 /* Allow parallel insn packing.  */
+#define PARALLEL_INSN_FLAG  0x0020000 /* Allow parallel insns.  */
 #define PARALLEL_MPY_FLAG   0x0040000 /* Allow MPY||ADD, MPY||SUB insns.  */
 #define ALIASES_FLAG	    0x0080000 /* Assume mem refs possibly aliased.  */
 
 #define C30_FLAG            0x0100000 /* Emit C30 code.  */
 #define C31_FLAG            0x0200000 /* Emit C31 code.  */
 #define C32_FLAG            0x0400000 /* Emit C32 code.  */
+#define C33_FLAG            0x0400000 /* Emit C33 code.  */
 #define C40_FLAG            0x1000000 /* Emit C40 code.  */
 #define C44_FLAG            0x2000000 /* Emit C44 code.  */
 
@@ -152,6 +163,8 @@
     "Generate code for C31 CPU"}, \
   { "32", C32_FLAG, \
     "Generate code for C32 CPU"}, \
+  { "33", C33_FLAG, \
+    "Generate code for C33 CPU"}, \
   { "40", C40_FLAG, \
     "Generate code for C40 CPU"}, \
   { "44", C44_FLAG, \
@@ -204,13 +217,13 @@
     "Preserve all 40 bits of FP reg across call" }, \
   { "no-preserve-float", -PRESERVE_FLOAT_FLAG, \
     "Only preserve 32 bits of FP reg across call" }, \
-  { "parallel-insns", PARALLEL_PACK_FLAG, \
+  { "parallel-insns", PARALLEL_INSN_FLAG, \
     "Enable parallel instructions" }, \
-  { "no-parallel-mpy", -PARALLEL_MPY_FLAG, \
+  { "no-parallel-insns", -PARALLEL_INSN_FLAG, \
     "Disable parallel instructions" }, \
   { "parallel-mpy", PARALLEL_MPY_FLAG, \
     "Enable MPY||ADD and MPY||SUB instructions" }, \
-  { "no-parallel-insns", -PARALLEL_PACK_FLAG, \
+  { "no-parallel-mpy", -PARALLEL_MPY_FLAG, \
     "Disable MPY||ADD and MPY||SUB instructions" }, \
   { "aliases", ALIASES_FLAG, \
     "Assume that pointers may be aliased" }, \
@@ -221,7 +234,7 @@
 /* Default target switches.  */
 
 /* Play safe, not the fastest code.  */
-#define TARGET_DEFAULT		ALIASES_FLAG | PARALLEL_PACK_FLAG \
+#define TARGET_DEFAULT		ALIASES_FLAG | PARALLEL_INSN_FLAG \
 				| PARALLEL_MPY_FLAG | RPTB_FLAG
 
 /* Caveats:
@@ -233,7 +246,6 @@
 extern int target_flags;
 
 #define TARGET_INLINE		(! optimize_size) /* Inline MPYI.  */
-#define TARGET_PARALLEL	        1 /* Enable parallel insns in MD.  */
 #define TARGET_SMALL_REG_CLASS	0
 
 #define TARGET_SMALL		(target_flags & SMALL_MEMORY_FLAG)
@@ -253,10 +265,9 @@ extern int target_flags;
 #define TARGET_LOOP_UNSIGNED	(target_flags & LOOP_UNSIGNED_FLAG)
 #define TARGET_FORCE		(target_flags & FORCE_FLAG)
 #define	TARGET_PRESERVE_FLOAT	(target_flags & PRESERVE_FLOAT_FLAG)
-#define TARGET_PARALLEL_PACK	(TARGET_RPTB \
-				 && (target_flags & PARALLEL_PACK_FLAG) \
+#define TARGET_PARALLEL		((target_flags & PARALLEL_INSN_FLAG) \
 				 && optimize >= 2)
-#define TARGET_PARALLEL_MPY	(TARGET_PARALLEL_PACK \
+#define TARGET_PARALLEL_MPY	(TARGET_PARALLEL \
 				 && (target_flags & PARALLEL_MPY_FLAG))
 #define	TARGET_ALIASES		(target_flags & ALIASES_FLAG)
 
@@ -264,6 +275,7 @@ extern int target_flags;
 #define TARGET_C30		(target_flags & C30_FLAG)
 #define TARGET_C31		(target_flags & C31_FLAG)
 #define TARGET_C32		(target_flags & C32_FLAG)
+#define TARGET_C33		(target_flags & C33_FLAG)
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
@@ -815,7 +827,17 @@ enum reg_class
 #define REGNO_OK_FOR_INDEX_P(REGNO) \
      (IS_INDEX_REGNO(REGNO) || IS_INDEX_REGNO((unsigned)reg_renumber[REGNO]))
 
-#define PREFERRED_RELOAD_CLASS(X, CLASS) (CLASS)
+/* If we have to generate framepointer + constant prefer an ADDR_REGS
+   register.  This avoids using EXT_REGS in addqi3_noclobber_reload.  */
+
+#define PREFERRED_RELOAD_CLASS(X, CLASS)			\
+     (GET_CODE (X) == PLUS					\
+      && GET_MODE (X) == Pmode					\
+      && GET_CODE (XEXP ((X), 0)) == REG			\
+      && GET_MODE (XEXP ((X), 0)) == Pmode			\
+      && REGNO (XEXP ((X), 0)) == FRAME_POINTER_REGNUM		\
+      && GET_CODE (XEXP ((X), 1)) == CONST_INT			\
+	? ADDR_REGS : (CLASS))
 
 #define LIMIT_RELOAD_CLASS(X, CLASS) (CLASS)
 
@@ -1450,7 +1472,6 @@ CUMULATIVE_ARGS;
 
 #define FFS_LIBCALL	    "__ffs"
 
-
 #define INIT_TARGET_OPTABS \
   do { \
     smul_optab->handlers[(int) QImode].libfunc		\
@@ -1481,6 +1502,26 @@ CUMULATIVE_ARGS;
       = init_one_libfunc (UMODHI3_LIBCALL);		\
     ffs_optab->handlers[(int) QImode].libfunc		\
       = init_one_libfunc (FFS_LIBCALL);			\
+    smulhi3_libfunc					\
+      = init_one_libfunc(SMULHI3_LIBCALL);		\
+    umulhi3_libfunc					\
+      = init_one_libfunc(UMULHI3_LIBCALL);		\
+    fix_truncqfhi2_libfunc				\
+      = init_one_libfunc(FIX_TRUNCQFHI2_LIBCALL);	\
+    fixuns_truncqfhi2_libfunc				\
+      = init_one_libfunc(FIXUNS_TRUNCQFHI2_LIBCALL);	\
+    fix_trunchfhi2_libfunc				\
+      = init_one_libfunc(FIX_TRUNCHFHI2_LIBCALL);	\
+    fixuns_trunchfhi2_libfunc				\
+      = init_one_libfunc(FIXUNS_TRUNCHFHI2_LIBCALL);	\
+    floathiqf2_libfunc					\
+      = init_one_libfunc(FLOATHIQF2_LIBCALL);		\
+    floatunshiqf2_libfunc				\
+      = init_one_libfunc(FLOATUNSHIQF2_LIBCALL);	\
+    floathihf2_libfunc					\
+      = init_one_libfunc(FLOATHIHF2_LIBCALL);		\
+    floatunshihf2_libfunc				\
+      = init_one_libfunc(FLOATUNSHIHF2_LIBCALL);	\
   } while (0)
 
 #define TARGET_MEM_FUNCTIONS
@@ -2046,6 +2087,21 @@ dtors_section ()							\
     const_section ();							\
 }
 
+/* The TI assembler wants to have hex numbers this way.  */
+
+#undef HOST_WIDE_INT_PRINT_HEX
+#ifndef HOST_WIDE_INT_PRINT_HEX
+# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
+#  define HOST_WIDE_INT_PRINT_HEX "0%xh"
+# else
+#  if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+#   define HOST_WIDE_INT_PRINT_HEX "0%lxh"
+#  else
+#   define HOST_WIDE_INT_PRINT_HEX "0%llxh"
+#  endif
+# endif
+#endif /* ! HOST_WIDE_INT_PRINT_HEX */
+
 /* A C statement or statements to switch to the appropriate
    section for output of RTX in mode MODE.  RTX is some kind
    of constant in RTL.  The argument MODE is redundant except
@@ -2080,8 +2136,6 @@ dtors_section ()							\
       output_quoted_string (FILE, main_input_filename);		\
     fprintf (FILE, "\n");					\
 }
-
-#define ASM_FILE_END(FILE) fprintf (FILE, "\t.end\n")
 
 /* We need to have a data section we can identify so that we can set
    the DP register back to a data pointer in the small memory model.
@@ -2165,25 +2219,21 @@ do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0);
     fprintf (FILE, "\t.global\t");	\
     assemble_name (FILE, NAME);		\
     fputs ("\n", FILE); 	        \
+    c4x_global_label (NAME);		\
   } while (0);
 
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-  do {                                         	\
-    fprintf (FILE, "\t.ref\t");			\
-    assemble_name (FILE, NAME);	             	\
-    fputc ('\n', FILE);  	               	\
-  } while (0);
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
+c4x_external_ref (NAME)
 
 /* A C statement to output on FILE an assembler pseudo-op to
    declare a library function named external.
    (Only needed to keep asm30 happy for ___divqf3 etc.)  */
 
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)  \
-  do {						\
-    fprintf (FILE, "\t.ref\t");			\
-    assemble_name (FILE, XSTR (FUN, 0));	\
-    fprintf (FILE, "\n");			\
-  } while (0);
+#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
+c4x_external_ref (XSTR (FUN, 0))
+
+#define	ASM_FILE_END(FILE) \
+c4x_file_end (FILE)
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -2275,6 +2325,14 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
    assemble_name (FILE, (NAME)),	\
    fprintf (FILE, ",%u\n", (ROUNDED)))
 
+#undef ASM_OUTPUT_BSS
+#define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ALIGN)   \
+(  fputs ("\t.globl\t", FILE),	\
+   assemble_name (FILE, (NAME)),	\
+   fputs ("\n\t.bss\t", FILE),	\
+   assemble_name (FILE, (NAME)),	\
+   fprintf (FILE, ",%u\n", (SIZE)))
+
 /* Macros Controlling Initialization Routines.  */
 
 #define OBJECT_FORMAT_COFF
@@ -2349,6 +2407,9 @@ asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 #define SDB_DELIM "\n"
 #define SDB_DEBUGGING_INFO
 
+/* Don't use octal since this can confuse gas for the c4x.  */
+#define PUT_SDB_TYPE(a) fprintf(asm_out_file, "\t.type\t0x%x%s", a, SDB_DELIM)
+
 #define PUT_SDB_DEF(A)				\
 do { fprintf (asm_out_file, "\t.sdef\t");	\
      ASM_OUTPUT_LABELREF (asm_out_file, A); 	\
@@ -2372,10 +2433,14 @@ do { fprintf (asm_out_file, "\t.sdef\t");	\
 	   "\t.sdef\t.bf%s\t.val\t.%s\t.scl\t101%s\t.line\t%d%s\t.endef\n", \
 	   SDB_DELIM, SDB_DELIM, SDB_DELIM, (LINE), SDB_DELIM)
 
+/* Note we output relative line numbers for .ef which gas converts
+   to absolute line numbers.  The TI compiler outputs absolute line numbers
+   in the .sym directive which gas does not support.  */
 #define PUT_SDB_FUNCTION_END(LINE)		\
   fprintf (asm_out_file,			\
 	   "\t.sdef\t.ef%s\t.val\t.%s\t.scl\t101%s\t.line\t%d%s\t.endef\n", \
-	   SDB_DELIM, SDB_DELIM, SDB_DELIM, (LINE), SDB_DELIM)
+	   SDB_DELIM, SDB_DELIM, SDB_DELIM, \
+           (LINE), SDB_DELIM)
 
 #define PUT_SDB_EPILOGUE_END(NAME)			\
 do { fprintf (asm_out_file, "\t.sdef\t");		\
@@ -2600,6 +2665,7 @@ if (final_sequence != NULL_RTX)		\
   {"ext_low_reg_operand", {REG, SUBREG}},			\
   {"ext_reg_operand", {REG, SUBREG}},				\
   {"std_reg_operand", {REG, SUBREG}},				\
+  {"std_or_reg_operand", {REG, SUBREG}},			\
   {"addr_reg_operand", {REG, SUBREG}},				\
   {"index_reg_operand", {REG, SUBREG}},				\
   {"dp_reg_operand", {REG}},					\
@@ -2617,16 +2683,3 @@ if (final_sequence != NULL_RTX)		\
   {"parallel_operand", {SUBREG, REG, MEM}},			\
   {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},	\
   {"mem_operand", {MEM}},					
-
-
-/* Variables in c4x.c */
-
-/* Smallest class containing REGNO.  */
-extern enum reg_class c4x_regclass_map[];
-extern enum machine_mode c4x_caller_save_map[];
-
-extern struct rtx_def *c4x_compare_op0;	/* Operand 0 for comparisons.  */
-extern struct rtx_def *c4x_compare_op1;	/* Operand 1 for comparisons.  */
-
-extern int c4x_rpts_cycles;	        /* Max cycles for RPTS.  */
-extern int c4x_cpu_version;		/* Cpu version C30/31/32/40/44.  */

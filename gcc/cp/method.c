@@ -1,6 +1,7 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
-   Copyright (C) 1987, 89, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -65,39 +66,39 @@ struct pending_inline *pending_inlines;
 static struct obstack scratch_obstack;
 static char *scratch_firstobj;
 
-static void icat PROTO((HOST_WIDE_INT));
-static void dicat PROTO((HOST_WIDE_INT, HOST_WIDE_INT));
-static int old_backref_index PROTO((tree));
-static int flush_repeats PROTO((int, tree));
-static void build_overload_identifier PROTO((tree));
-static void build_overload_nested_name PROTO((tree));
-static void mangle_expression PROTO((tree));
-static void build_overload_int PROTO((tree, mangling_flags));
-static void build_overload_identifier PROTO((tree));
-static void build_qualified_name PROTO((tree));
-static void build_overload_value PROTO((tree, tree, mangling_flags));
-static void issue_nrepeats PROTO((int, tree));
-static char *build_mangled_name PROTO((tree,int,int));
-static void process_modifiers PROTO((tree));
-static void process_overload_item PROTO((tree,int));
-static void do_build_assign_ref PROTO((tree));
-static void do_build_copy_constructor PROTO((tree));
-static void build_template_template_parm_names PROTO((tree));
-static void build_template_parm_names PROTO((tree, tree));
-static void build_underscore_int PROTO((int));
-static void start_squangling PROTO((void));
-static void end_squangling PROTO((void));
-static int check_ktype PROTO((tree, int));
-static int issue_ktype PROTO((tree));
-static void build_overload_scope_ref PROTO((tree));
-static void build_mangled_template_parm_index PROTO((const char *, tree));
+static void icat PARAMS ((HOST_WIDE_INT));
+static void dicat PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT));
+static int old_backref_index PARAMS ((tree));
+static int flush_repeats PARAMS ((int, tree));
+static void build_overload_identifier PARAMS ((tree));
+static void build_overload_nested_name PARAMS ((tree));
+static void mangle_expression PARAMS ((tree));
+static void build_overload_int PARAMS ((tree, mangling_flags));
+static void build_overload_identifier PARAMS ((tree));
+static void build_qualified_name PARAMS ((tree));
+static void build_overload_value PARAMS ((tree, tree, mangling_flags));
+static void issue_nrepeats PARAMS ((int, tree));
+static char *build_mangled_name PARAMS ((tree,int,int));
+static void process_modifiers PARAMS ((tree));
+static void process_overload_item PARAMS ((tree,int));
+static void do_build_assign_ref PARAMS ((tree));
+static void do_build_copy_constructor PARAMS ((tree));
+static void build_template_template_parm_names PARAMS ((tree));
+static void build_template_parm_names PARAMS ((tree, tree));
+static void build_underscore_int PARAMS ((int));
+static void start_squangling PARAMS ((void));
+static void end_squangling PARAMS ((void));
+static int check_ktype PARAMS ((tree, int));
+static int issue_ktype PARAMS ((tree));
+static void build_overload_scope_ref PARAMS ((tree));
+static void build_mangled_template_parm_index PARAMS ((const char *, tree));
 #if HOST_BITS_PER_WIDE_INT >= 64
-static void build_mangled_C9x_name PROTO((int));
+static void build_mangled_C9x_name PARAMS ((int));
 #endif
-static int is_back_referenceable_type PROTO((tree));
-static int check_btype PROTO((tree));
-static void build_mangled_name_for_type PROTO((tree));
-static void build_mangled_name_for_type_with_Gcode PROTO((tree, int));
+static int is_back_referenceable_type PARAMS ((tree));
+static int check_btype PARAMS ((tree));
+static void build_mangled_name_for_type PARAMS ((tree));
+static void build_mangled_name_for_type_with_Gcode PARAMS ((tree, int));
 
 # define OB_INIT() (scratch_firstobj ? (obstack_free (&scratch_obstack, scratch_firstobj), 0) : 0)
 # define OB_PUTC(C) (obstack_1grow (&scratch_obstack, (C)))
@@ -445,7 +446,7 @@ build_overload_nested_name (decl)
       build_mangled_name_for_type (context);
     else
     {
-      if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
+      if (TYPE_P (context))
         context = TYPE_NAME (context);
       build_overload_nested_name (context);
     }
@@ -596,19 +597,17 @@ build_overload_int (value, flags)
      should always be represented by constants.  */
   my_friendly_assert (TREE_CODE (value) == INTEGER_CST, 243);
 
-  /* If the high-order word is not merely a sign-extension of the
-     low-order word, we must use a special output routine that can
-     deal with this.  */
-  if (TREE_INT_CST_HIGH (value)
-      != (TREE_INT_CST_LOW (value) >> (HOST_BITS_PER_WIDE_INT - 1)))
+  /* If value doesn't fit in a single HOST_WIDE_INT, we must use a
+     special output routine that can deal with this.  */
+  if (! host_integerp (value, 0))
     {
       multiple_words_p = 1;
       /* And there is certainly going to be more than one digit.  */
       multiple_digits_p = 1;
     }
   else 
-    multiple_digits_p = (TREE_INT_CST_LOW (value) > 9
-			 || TREE_INT_CST_LOW (value) < -9);
+    multiple_digits_p = ((HOST_WIDE_INT) TREE_INT_CST_LOW (value) > 9
+			 || (HOST_WIDE_INT) TREE_INT_CST_LOW (value) < -9);
 
   /* If necessary, add a leading underscore.  */
   if (multiple_digits_p && (flags & mf_use_underscores_around_value))
@@ -693,7 +692,7 @@ build_overload_value (type, value, flags)
      tree type, value;
      mangling_flags flags;
 {
-  my_friendly_assert (TREE_CODE_CLASS (TREE_CODE (type)) == 't', 0);
+  my_friendly_assert (TYPE_P (type), 0);
 
   while (TREE_CODE (value) == NON_LVALUE_EXPR
 	 || TREE_CODE (value) == NOP_EXPR)
@@ -851,6 +850,7 @@ build_overload_value (type, value, flags)
 	tree idx;
 	tree pfn;
 	tree delta2;
+	tree fn;
 
 	my_friendly_assert (TYPE_PTRMEMFUNC_P (type), 0);
 
@@ -872,17 +872,26 @@ build_overload_value (type, value, flags)
 	my_friendly_assert (TREE_CODE (value) == PTRMEM_CST, 0);
 
 	expand_ptrmemfunc_cst (value, &delta, &idx, &pfn, &delta2);
+	fn = PTRMEM_CST_MEMBER (value);
 	build_overload_int (delta, flags);
 	OB_PUTC ('_');
-	build_overload_int (idx, flags);
-	OB_PUTC ('_');
-	if (pfn)
+	if (!flag_new_abi)
+	  {
+	    build_overload_int (idx, flags);
+	    OB_PUTC ('_');
+	  }
+	else if (DECL_VIRTUAL_P (fn))
+	  {
+	    build_overload_int (DECL_VINDEX (fn), flags);
+	    OB_PUTC ('_');
+	  }
+
+	if (!DECL_VIRTUAL_P (fn))
 	  {
 	    numeric_output_need_bar = 0;
-	    build_overload_identifier (DECL_ASSEMBLER_NAME
-				       (PTRMEM_CST_MEMBER (value)));
+	    build_overload_identifier (DECL_ASSEMBLER_NAME (fn));
 	  }
-	else
+	else if (!flag_new_abi)
 	  {
 	    OB_PUTC ('i');
 	    build_overload_int (delta2, flags);
@@ -1035,7 +1044,7 @@ build_qualified_name (decl)
   tree context;
   int i = 1;
 
-  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 't')
+  if (TYPE_P (decl))
     decl = TYPE_NAME (decl);
 
   /* If DECL_ASSEMBLER_NAME has been set properly, use it.  */
@@ -1063,7 +1072,7 @@ build_qualified_name (decl)
 	  if (check_ktype (context, FALSE) != -1)
 	    /* Found one!  */
 	    break;
-	  if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
+	  if (TYPE_P (context))
 	    context = TYPE_NAME (context);
 	}
     }
@@ -1579,7 +1588,8 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
   const char *name = IDENTIFIER_POINTER (dname);
 
   /* member operators new and delete look like methods at this point.  */
-  if (! for_method && parms != NULL_TREE && TREE_CODE (parms) == TREE_LIST
+  if (! for_method && current_namespace == global_namespace
+      && parms != NULL_TREE && TREE_CODE (parms) == TREE_LIST
       && TREE_CHAIN (parms) == void_list_node)
     {
       if (dname == ansi_opname[(int) DELETE_EXPR])
@@ -1725,7 +1735,7 @@ set_mangled_name_for_decl (decl)
 
   if (DECL_STATIC_FUNCTION_P (decl))
     parm_types = 
-      hash_tree_chain (build_pointer_type (DECL_CLASS_CONTEXT (decl)),
+      hash_tree_chain (build_pointer_type (DECL_CONTEXT (decl)),
 					   parm_types);
   else
     /* The only member functions whose type is a FUNCTION_TYPE, rather
@@ -1929,7 +1939,7 @@ hack_identifier (value, name)
       if (TREE_CODE (value) == OVERLOAD)
 	value = OVL_CURRENT (value);
 
-      decl = maybe_dummy_object (DECL_CLASS_CONTEXT (value), 0);
+      decl = maybe_dummy_object (DECL_CONTEXT (value), 0);
       value = build_component_ref (decl, name, NULL_TREE, 1);
     }
   else if (really_overloaded_fn (value))
@@ -1975,20 +1985,14 @@ hack_identifier (value, name)
 	}
     }
 
-  if (TREE_CODE_CLASS (TREE_CODE (value)) == 'd' && DECL_NONLOCAL (value))
+  if (DECL_P (value) && DECL_NONLOCAL (value))
     {
-      if (DECL_LANG_SPECIFIC (value)
-	  && DECL_CLASS_CONTEXT (value) != current_class_type)
+      if (DECL_CLASS_SCOPE_P (value)
+	  && DECL_CONTEXT (value) != current_class_type)
 	{
 	  tree path;
-	  register tree context
-	    = (TREE_CODE (value) == FUNCTION_DECL && DECL_VIRTUAL_P (value))
-	      ? DECL_CLASS_CONTEXT (value)
-	      : DECL_CONTEXT (value);
-
-	  get_base_distance (context, current_class_type, 0, &path);
-	  if (path && !enforce_access (current_class_type, value))
-	    return error_mark_node;
+	  path = currently_open_derived_class (DECL_CONTEXT (value));
+	  enforce_access (path, value);
 	}
     }
   else if (TREE_CODE (value) == TREE_LIST 
@@ -2007,9 +2011,10 @@ hack_identifier (value, name)
 
 
 tree
-make_thunk (function, delta)
+make_thunk (function, delta, vcall_index)
      tree function;
      int delta;
+     int vcall_index;
 {
   tree thunk_id;
   tree thunk;
@@ -2032,6 +2037,11 @@ make_thunk (function, delta)
     icat (-delta);
   OB_PUTC ('_');
   OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
+  if (vcall_index)
+    {
+      OB_PUTC ('_');
+      icat (vcall_index);
+    }
   OB_FINISH ();
   thunk_id = get_identifier (obstack_base (&scratch_obstack));
 
@@ -2051,6 +2061,8 @@ make_thunk (function, delta)
       TREE_SET_CODE (thunk, THUNK_DECL);
       DECL_INITIAL (thunk) = function;
       THUNK_DELTA (thunk) = delta;
+      THUNK_VCALL_OFFSET (thunk) 
+	= vcall_index * TREE_INT_CST_LOW (TYPE_SIZE (vtable_entry_type));
       DECL_EXTERNAL (thunk) = 1;
       DECL_ARTIFICIAL (thunk) = 1;
       /* So that finish_file can write out any thunks that need to be: */
@@ -2084,7 +2096,7 @@ emit_thunk (thunk_fndecl)
 #ifdef ASM_OUTPUT_MI_THUNK
   if (!flag_syntax_only)
     {
-      char *fnname;
+      const char *fnname;
       current_function_decl = thunk_fndecl;
       /* Make sure we build up its RTL before we go onto the
 	 temporary obstack.  */
@@ -2142,7 +2154,7 @@ emit_thunk (thunk_fndecl)
     for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
       t = tree_cons (NULL_TREE, a, t);
     t = nreverse (t);
-    t = build_call (function, TREE_TYPE (TREE_TYPE (function)), t);
+    t = build_call (function, t);
     finish_return_stmt (t);
 
     expand_body (finish_function (lineno, 0));
@@ -2276,7 +2288,7 @@ do_build_assign_ref (fndecl)
 	     CONV_IMPLICIT|CONV_CONST, LOOKUP_COMPLAIN, NULL_TREE);
 	  p = convert_from_reference (p);
 	  p = build_member_call (basetype, ansi_opname [MODIFY_EXPR],
-				 build_expr_list (NULL_TREE, p));
+				 build_tree_list (NULL_TREE, p));
 	  finish_expr_stmt (p);
 	}
       for (; fields; fields = TREE_CHAIN (fields))
@@ -2341,7 +2353,7 @@ synthesize_method (fndecl)
      tree fndecl;
 {
   int nested = (current_function_decl != NULL_TREE);
-  tree context = hack_decl_function_context (fndecl);
+  tree context = decl_function_context (fndecl);
   int need_body = 1;
 
   if (at_eof)

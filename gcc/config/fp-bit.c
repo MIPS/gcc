@@ -1,7 +1,8 @@
 /* This is a software floating point library which can be used instead of
    the floating point routines in libgcc1.c for targets without hardware
    floating point. 
- Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998,
+   2000 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -78,6 +79,8 @@ Boston, MA 02111-1307, USA.  */
 #define L_lt_df
 #define L_le_sf
 #define L_le_df
+#define L_unord_sf
+#define L_unord_df
 #define L_si_to_sf
 #define L_si_to_df
 #define L_sf_to_si
@@ -110,7 +113,8 @@ Boston, MA 02111-1307, USA.  */
      US Software goFast library.  If this is not defined, the entry points use
      the same names as libgcc1.c.
    _DEBUG_BITFLOAT: This makes debugging the code a little easier, by adding
-     two integers to the FLO_union_type.  
+     two integers to the FLO_union_type.
+   NO_DENORMALS: Disable handling of denormals.
    NO_NANS: Disable nan and infinity handling
    SMALL_MACHINE: Useful when operations on QIs and HIs are faster
      than on an SI */
@@ -268,6 +272,7 @@ typedef unsigned int UDItype __attribute__ ((mode (DI)));
 #		define _ge_f2 		__gesf2
 #		define _lt_f2 		__ltsf2
 #		define _le_f2 		__lesf2
+#		define _unord_f2	__unordsf2
 #		define si_to_float 	__floatsisf
 #		define float_to_si 	__fixsfsi
 #		define float_to_usi 	__fixunssfsi
@@ -285,6 +290,7 @@ typedef unsigned int UDItype __attribute__ ((mode (DI)));
 #		define _ge_f2 		__gedf2
 #		define _lt_f2 		__ltdf2
 #		define _le_f2 		__ledf2
+#		define _unord_f2	__unorddf2
 #		define si_to_float 	__floatsidf
 #		define float_to_si 	__fixdfsi
 #		define float_to_usi 	__fixunsdfsi
@@ -498,8 +504,24 @@ pack_d ( fp_number_type *  src)
 	    }
 	  else
 	    {
-	      /* Shift by the value */
-	      fraction >>= shift;
+	      int lowbit = (fraction & ((1 << shift) - 1)) ? 1 : 0;
+	      fraction = (fraction >> shift) | lowbit;
+	    }
+	  if ((fraction & GARDMASK) == GARDMSB)
+	    {
+	      if ((fraction & (1 << NGARDS)))
+		fraction += GARDROUND + 1;
+	    }
+	  else
+	    {
+	      /* Add to the guards to round up.  */
+	      fraction += GARDROUND;
+	    }
+	  /* Perhaps the rounding means we now need to change the
+             exponent, because the fraction is no longer denormal.  */
+	  if (fraction >= IMPLICIT_1)
+	    {
+	      exp += 1;
 	    }
 	  fraction >>= NGARDS;
 	}
@@ -593,7 +615,11 @@ unpack_d (FLO_union_type * src, fp_number_type * dst)
   if (exp == 0)
     {
       /* Hmm.  Looks like 0 */
-      if (fraction == 0)
+      if (fraction == 0
+#ifdef NO_DENORMALS
+	  || 1
+#endif
+	  )
 	{
 	  /* tastes like zero */
 	  dst->class = CLASS_ZERO;
@@ -1367,6 +1393,24 @@ _le_f2 (FLO_type arg_a, FLO_type arg_b)
     return 1;			/* false, truth <= 0 */
 
   return __fpcmp_parts (&a, &b) ;
+}
+#endif
+
+#if defined(L_unord_sf) || defined(L_unord_df)
+CMPtype
+_unord_f2 (FLO_type arg_a, FLO_type arg_b)
+{
+  fp_number_type a;
+  fp_number_type b;
+  FLO_union_type au, bu;
+
+  au.value = arg_a;
+  bu.value = arg_b;
+
+  unpack_d (&au, &a);
+  unpack_d (&bu, &b);
+
+  return (isnan (&a) || isnan (&b));
 }
 #endif
 

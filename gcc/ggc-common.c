@@ -1,5 +1,5 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -35,6 +35,7 @@ static ggc_statistics *ggc_stats;
 
 static void ggc_mark_rtx_ptr PARAMS ((void *));
 static void ggc_mark_tree_ptr PARAMS ((void *));
+static void ggc_mark_rtx_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_varray_ptr PARAMS ((void *));
 static void ggc_mark_tree_hash_table_ptr PARAMS ((void *));
 static void ggc_mark_string_ptr PARAMS ((void *));
@@ -51,61 +52,10 @@ struct ggc_root
   void *base;
   int nelt;
   int size;
-  void (*cb) PROTO ((void *));
+  void (*cb) PARAMS ((void *));
 };
 
 static struct ggc_root *roots;
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   *ELT (which is an rtx) to ggc_mark_tree_varray.  */
-
-static void
-ggc_mark_rtx_ptr (elt)
-     void *elt;
-{
-  ggc_mark_rtx (*(rtx *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   *ELT (which is a tree) to ggc_mark_tree.  */
-
-static void
-ggc_mark_tree_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree (*(tree *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a varray_type *) to ggc_mark_tree_varray.  */
-
-static void
-ggc_mark_tree_varray_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree_varray (*(varray_type *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a struct hash_table **) to
-   ggc_mark_tree_hash_table.  */
-
-static void
-ggc_mark_tree_hash_table_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree_hash_table (*(struct hash_table **) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a char **) to ggc_mark_string.  */
-
-static void
-ggc_mark_string_ptr (elt)
-     void *elt;
-{
-  ggc_mark_string (*(char **) elt);
-}
 
 /* Add BASE as a new garbage collection root.  It is an array of
    length NELT with each element SIZE bytes long.  CB is a 
@@ -117,7 +67,7 @@ void
 ggc_add_root (base, nelt, size, cb)
      void *base;
      int nelt, size;
-     void (*cb) PROTO ((void *));
+     void (*cb) PARAMS ((void *));
 {
   struct ggc_root *x = (struct ggc_root *) xmalloc (sizeof (*x));
 
@@ -148,6 +98,17 @@ ggc_add_tree_root (base, nelt)
      int nelt;
 {
   ggc_add_root (base, nelt, sizeof(tree), ggc_mark_tree_ptr);
+}
+
+/* Register a varray of rtxs as a GC root.  */
+
+void
+ggc_add_rtx_varray_root (base, nelt)
+     varray_type *base;
+     int nelt;
+{
+  ggc_add_root (base, nelt, sizeof (varray_type), 
+		ggc_mark_rtx_varray_ptr);
 }
 
 /* Register a varray of trees as a GC root.  */
@@ -217,7 +178,7 @@ ggc_mark_roots ()
     {
       char *elt = x->base;
       int s = x->size, n = x->nelt;
-      void (*cb) PROTO ((void *)) = x->cb;
+      void (*cb) PARAMS ((void *)) = x->cb;
       int i;
 
       for (i = 0; i < n; ++i, elt += s)
@@ -417,6 +378,7 @@ ggc_mark_tree_children (t)
     case 'd': /* A decl node.  */
       ggc_mark_string (DECL_SOURCE_FILE (t));
       ggc_mark_tree (DECL_SIZE (t));
+      ggc_mark_tree (DECL_SIZE_UNIT (t));
       ggc_mark_tree (DECL_NAME (t));
       ggc_mark_tree (DECL_CONTEXT (t));
       ggc_mark_tree (DECL_ARGUMENTS (t));
@@ -476,6 +438,19 @@ ggc_mark_tree_children (t)
     }
 }
 
+/* Mark all the elements of the varray V, which contains rtxs.  */
+
+void
+ggc_mark_rtx_varray (v)
+     varray_type v;
+{
+  int i;
+
+  if (v)
+    for (i = v->num_elements - 1; i >= 0; --i) 
+      ggc_mark_rtx (VARRAY_RTX (v, i));
+}
+
 /* Mark all the elements of the varray V, which contains trees.  */
 
 void
@@ -507,6 +482,67 @@ ggc_mark_tree_hash_table (ht)
      struct hash_table *ht;
 {
   hash_traverse (ht, ggc_mark_tree_hash_table_entry, /*info=*/0);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   *ELT (which is an rtx) to ggc_mark_rtx.  */
+
+static void
+ggc_mark_rtx_ptr (elt)
+     void *elt;
+{
+  ggc_mark_rtx (*(rtx *) elt);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   *ELT (which is a tree) to ggc_mark_tree.  */
+
+static void
+ggc_mark_tree_ptr (elt)
+     void *elt;
+{
+  ggc_mark_tree (*(tree *) elt);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   ELT (which is really a varray_type *) to ggc_mark_rtx_varray.  */
+
+static void
+ggc_mark_rtx_varray_ptr (elt)
+     void *elt;
+{
+  ggc_mark_rtx_varray (*(varray_type *) elt);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   ELT (which is really a varray_type *) to ggc_mark_tree_varray.  */
+
+static void
+ggc_mark_tree_varray_ptr (elt)
+     void *elt;
+{
+  ggc_mark_tree_varray (*(varray_type *) elt);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   ELT (which is really a struct hash_table **) to
+   ggc_mark_tree_hash_table.  */
+
+static void
+ggc_mark_tree_hash_table_ptr (elt)
+     void *elt;
+{
+  ggc_mark_tree_hash_table (*(struct hash_table **) elt);
+}
+
+/* Type-correct function to pass to ggc_add_root.  It just forwards
+   ELT (which is really a char **) to ggc_mark_string.  */
+
+static void
+ggc_mark_string_ptr (elt)
+     void *elt;
+{
+  ggc_mark_string (*(char **) elt);
 }
 
 /* Allocate a gc-able string.  If CONTENTS is null, then the memory will

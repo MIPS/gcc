@@ -1,5 +1,5 @@
 /* Print RTL for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -52,7 +52,7 @@ static int sawclose = 0;
 
 static int indent;
 
-static void print_rtx		PROTO ((rtx));
+static void print_rtx		PARAMS ((rtx));
 
 /* Nonzero means suppress output of instruction numbers and line number
    notes in debugging dumps.
@@ -164,15 +164,21 @@ print_rtx (in_rtx)
 	    if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
 		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END)
 	      {
-		fprintf (outfile, " %d", NOTE_EH_HANDLER (in_rtx));
+		if (flag_dump_unnumbered)
+		  fprintf (outfile, " #");
+		else
+		  fprintf (outfile, " %d", NOTE_EH_HANDLER (in_rtx));
 		sawclose = 1;
 	      }
 	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
 		     || NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END)
 	      {
 		fprintf (outfile, " ");
-		fprintf (outfile, HOST_PTR_PRINTF, 
-			 (char *) NOTE_BLOCK (in_rtx));
+		if (flag_dump_unnumbered)
+		  fprintf (outfile, "#");
+		else
+		  fprintf (outfile, HOST_PTR_PRINTF, 
+			   (char *) NOTE_BLOCK (in_rtx));
 		sawclose = 1;
 	      }
 	    else if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_START
@@ -351,7 +357,7 @@ print_rtx (in_rtx)
   if (GET_CODE (in_rtx) == MEM)
     fprintf (outfile, " %d", MEM_ALIAS_SET (in_rtx));
 
-#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT && LONG_DOUBLE_TYPE_SIZE == 64
+#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT && MAX_LONG_DOUBLE_TYPE_SIZE == 64
   if (GET_CODE (in_rtx) == CONST_DOUBLE && FLOAT_MODE_P (GET_MODE (in_rtx)))
     {
       double val;

@@ -1,5 +1,6 @@
 /* Type Analyzer for GNU C++.
-   Copyright (C) 1987, 89, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Hacked... nay, bludgeoned... by Mark Eichin (eichin@cygnus.com)
 
 This file is part of GNU CC.
@@ -46,15 +47,15 @@ struct token  {
   YYSTYPE	yylval;
 };
 
-static int do_aggr PROTO((void));
-static void scan_tokens PROTO((unsigned int));
+static int do_aggr PARAMS ((void));
+static void scan_tokens PARAMS ((unsigned int));
 
 #ifdef SPEW_DEBUG
-static int num_tokens PROTO((void));
-static struct token *nth_token PROTO((int));
-static void add_token PROTO((struct token *));
-static void consume_token PROTO((void));
-static int debug_yychar PROTO((int));
+static int num_tokens PARAMS ((void));
+static struct token *nth_token PARAMS ((int));
+static void add_token PARAMS ((struct token *));
+static void consume_token PARAMS ((void));
+static int debug_yychar PARAMS ((int));
 #endif
 
 /* From lex.c: */
@@ -301,8 +302,8 @@ yylex ()
 	    case PTYPENAME:
 	      lastiddecl = trrr;
 
-	      /* If this got special lookup, remember it.  In these cases,
-	         we don't have to worry about being a declarator-id. */
+	      /* If this got special lookup, remember it.  In these
+	         cases, we know it can't be a declarator-id. */
 	      if (got_scope || got_object)
 		tmp_token.yylval.ttype = trrr;
 	      break;

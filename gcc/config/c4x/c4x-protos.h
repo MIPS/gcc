@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999
+   Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -37,6 +38,12 @@ extern int c4x_handle_pragma PARAMS ((int (* p_getc) (void),
 				      void (* p_ungetc) (int),
 				      char *));
 
+extern void c4x_global_label (const char *);
+
+extern void c4x_external_ref (const char *);
+
+extern void c4x_file_end (FILE *);
+
 #ifdef TREE_CODE
 extern void c4x_set_default_attributes PARAMS ((tree, tree *));
 
@@ -64,6 +71,8 @@ extern struct rtx_def *c4x_va_arg PARAMS ((tree, tree));
 extern struct rtx_def *c4x_gen_compare_reg PARAMS ((enum rtx_code, rtx, rtx));
 
 extern int c4x_check_legit_addr PARAMS ((enum machine_mode, rtx, int));
+
+extern int c4x_hard_regno_mode_ok PARAMS ((int, enum machine_mode));
 
 extern struct rtx_def *c4x_legitimize_address PARAMS ((rtx,
 						       enum machine_mode));
@@ -125,6 +134,8 @@ extern int ext_low_reg_operand PARAMS ((rtx, enum machine_mode));
 extern int ext_reg_operand PARAMS ((rtx, enum machine_mode));
 
 extern int std_reg_operand PARAMS ((rtx, enum machine_mode));
+
+extern int std_or_reg_operand PARAMS ((rtx, enum machine_mode));
 
 extern int dst_operand PARAMS ((rtx, enum machine_mode));
 
@@ -224,14 +235,14 @@ extern int c4x_T_constraint PARAMS ((rtx));
 
 extern int c4x_U_constraint PARAMS ((rtx));
 
-extern void c4x_emit_libcall PARAMS ((const char *, enum rtx_code,
+extern void c4x_emit_libcall PARAMS ((rtx, enum rtx_code,
 				      enum machine_mode,
 				      enum machine_mode, int, rtx *));
 
-extern void c4x_emit_libcall3 PARAMS ((const char *, enum rtx_code, 
+extern void c4x_emit_libcall3 PARAMS ((rtx, enum rtx_code, 
 				       enum machine_mode, rtx *));
 
-extern void c4x_emit_libcall_mulhi PARAMS ((char *, enum rtx_code,
+extern void c4x_emit_libcall_mulhi PARAMS ((rtx, enum rtx_code,
 					    enum machine_mode, rtx *));
 
 extern int c4x_emit_move_sequence PARAMS ((rtx *, enum machine_mode));
@@ -249,5 +260,25 @@ extern int valid_parallel_operands_5 PARAMS ((rtx *, enum machine_mode));
 
 extern int valid_parallel_operands_6 PARAMS ((rtx *, enum machine_mode));
 
+extern rtx smulhi3_libfunc;
+extern rtx umulhi3_libfunc;
+extern rtx fix_truncqfhi2_libfunc;
+extern rtx fixuns_truncqfhi2_libfunc;
+extern rtx fix_trunchfhi2_libfunc;
+extern rtx fixuns_trunchfhi2_libfunc;
+extern rtx floathiqf2_libfunc;
+extern rtx floatunshiqf2_libfunc;
+extern rtx floathihf2_libfunc;
+extern rtx floatunshihf2_libfunc;
+
+extern struct rtx_def *c4x_compare_op0;	/* Operand 0 for comparisons.  */
+extern struct rtx_def *c4x_compare_op1;	/* Operand 1 for comparisons.  */
+
 #endif /* RTX_CODE */
 
+/* Smallest class containing REGNO.  */
+extern enum reg_class c4x_regclass_map[];
+extern enum machine_mode c4x_caller_save_map[];
+
+extern int c4x_rpts_cycles;	        /* Max cycles for RPTS.  */
+extern int c4x_cpu_version;		/* Cpu version C30/31/32/40/44.  */

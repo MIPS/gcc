@@ -1,5 +1,6 @@
 /* Definitions for switches for C++.
-   Copyright (C) 1995, 96-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -44,6 +45,8 @@ DEFINE_LANG_NAME ("C++")
   { "-fno-rtti", "Do not generate run time type descriptor information" },
   { "-felide-constructors", "" },
   { "-fno-elide-constructors", "" },
+  { "-fenforce-eh-specs", "" },
+  { "-fno-enforce-eh-specs", "Do not generate code to check exception specifications" },
   { "-fenum-int-equiv", "" },
   { "-fno-enum-int-equiv", "" },
   { "-fexternal-templates", "" },
@@ -71,6 +74,7 @@ DEFINE_LANG_NAME ("C++")
   { "-flabels-ok", "Labels can be used as first class objects" },
   { "-fno-labels-ok", "" },
   { "-fmemoize-lookups", "" },
+  { "-fmessage-length=", "" },
   { "-fno-memoize-lookups", "" },
   { "-fms-extensions", "Don't pedwarn about uses of Microsoft extensions" },
   { "-fno-ms-extensions", "" },

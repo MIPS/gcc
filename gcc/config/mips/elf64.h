@@ -142,7 +142,7 @@ do {								\
 #undef ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
-     char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);			 \
+     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
@@ -193,12 +193,11 @@ do {									 \
 do {									   \
   int len, size, sec;							   \
   char *name, *string, *prefix;						   \
-  static char *prefixes[5][2] = {					   \
+  static char *prefixes[4][2] = {					   \
     { ".text.", ".gnu.linkonce.t." },					   \
     { ".rodata.", ".gnu.linkonce.r." },					   \
     { ".data.", ".gnu.linkonce.d." },					   \
-    { ".sdata.", ".gnu.linkonce.s." },					   \
-    { "", "" }								   \
+    { ".sdata.", ".gnu.linkonce.s." }					   \
   };									   \
 									   \
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		   \
@@ -210,7 +209,7 @@ do {									   \
     sec = 0;								   \
   else if (DECL_INITIAL (DECL) == 0					   \
            || DECL_INITIAL (DECL) == error_mark_node)			   \
-    sec = 4;								   \
+    sec = 2;								   \
   else if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)			   \
       && TREE_CODE (decl) == STRING_CST					   \
       && !flag_writable_strings)					   \

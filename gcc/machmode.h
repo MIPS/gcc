@@ -1,5 +1,6 @@
 /* Machine mode definitions for GNU C-Compiler; included by rtl.h and tree.h.
-   Copyright (C) 1991, 1993, 1994, 1996, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1994, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -105,28 +106,29 @@ extern const unsigned char mode_wider_mode[];
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
    The value is BLKmode if no other mode is found.  */
 
-extern enum machine_mode mode_for_size PROTO((unsigned int, enum mode_class, int));
+extern enum machine_mode mode_for_size PARAMS ((int, enum mode_class, int));
 
 /* Similar, but find the smallest mode for a given width.  */
 
-extern enum machine_mode smallest_mode_for_size  PROTO((unsigned int,
-                                                        enum mode_class));
+extern enum machine_mode smallest_mode_for_size 
+				PARAMS ((int, enum mode_class));
 
 
 /* Return an integer mode of the exact same size as the input mode,
    or BLKmode on failure.  */
 
-extern enum machine_mode int_mode_for_mode PROTO((enum machine_mode));
+extern enum machine_mode int_mode_for_mode PARAMS ((enum machine_mode));
 
 /* Find the best mode to use to access a bit field.  */
 
-extern enum machine_mode get_best_mode PROTO((int, int, int, enum machine_mode, int));
+extern enum machine_mode get_best_mode PARAMS ((int, int, unsigned int,
+						enum machine_mode, int));
 
 /* Determine alignment, 1<=result<=BIGGEST_ALIGNMENT.  */
 
-#define GET_MODE_ALIGNMENT(MODE)   \
-  MIN (BIGGEST_ALIGNMENT, 	   \
-       MAX (1, (GET_MODE_UNIT_SIZE (MODE) * BITS_PER_UNIT)))
+extern unsigned get_mode_alignment PARAMS ((enum machine_mode));
+
+#define GET_MODE_ALIGNMENT(MODE) get_mode_alignment (MODE)
 
 /* For each class, get the narrowest mode in that class.  */
 

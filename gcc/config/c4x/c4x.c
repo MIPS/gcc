@@ -1,5 +1,6 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
-   Copyright (C) 1994-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -45,6 +46,17 @@
 #include "c-tree.h"
 #include "ggc.h"
 #include "c4x-protos.h"
+
+rtx smulhi3_libfunc;
+rtx umulhi3_libfunc;
+rtx fix_truncqfhi2_libfunc;
+rtx fixuns_truncqfhi2_libfunc;
+rtx fix_trunchfhi2_libfunc;
+rtx fixuns_trunchfhi2_libfunc;
+rtx floathiqf2_libfunc;
+rtx floatunshiqf2_libfunc;
+rtx floathihf2_libfunc;
+rtx floatunshihf2_libfunc;
 
 static int c4x_leaf_function;
 
@@ -139,7 +151,7 @@ struct rtx_def *c4x_compare_op1 = NULL_RTX;
 const char *c4x_rpts_cycles_string;
 int c4x_rpts_cycles = 0;	/* Max. cycles for RPTS.  */
 const char *c4x_cpu_version_string;
-int c4x_cpu_version = 40;	/* CPU version C30/31/32/40/44.  */
+int c4x_cpu_version = 40;	/* CPU version C30/31/32/33/40/44.  */
 
 /* Pragma definitions.  */
 
@@ -163,6 +175,16 @@ c4x_add_gc_roots ()
   ggc_add_tree_root (&pure_tree, 1);
   ggc_add_tree_root (&noreturn_tree, 1);
   ggc_add_tree_root (&interrupt_tree, 1);
+  ggc_add_rtx_root (&smulhi3_libfunc, 1);
+  ggc_add_rtx_root (&umulhi3_libfunc, 1);
+  ggc_add_rtx_root (&fix_truncqfhi2_libfunc, 1);
+  ggc_add_rtx_root (&fixuns_truncqfhi2_libfunc, 1);
+  ggc_add_rtx_root (&fix_trunchfhi2_libfunc, 1);
+  ggc_add_rtx_root (&fixuns_trunchfhi2_libfunc, 1);
+  ggc_add_rtx_root (&floathiqf2_libfunc, 1);
+  ggc_add_rtx_root (&floatunshiqf2_libfunc, 1);
+  ggc_add_rtx_root (&floathihf2_libfunc, 1);
+  ggc_add_rtx_root (&floatunshihf2_libfunc, 1);
 }
 
 
@@ -185,6 +207,8 @@ c4x_override_options ()
     c4x_cpu_version = 31;
   else if (TARGET_C32)
     c4x_cpu_version = 32;
+  else if (TARGET_C33)
+    c4x_cpu_version = 33;
   else if (TARGET_C40)
     c4x_cpu_version = 40;
   else if (TARGET_C44)
@@ -203,13 +227,15 @@ c4x_override_options ()
       c4x_cpu_version = atoi (p);
     }
 
-  target_flags &= ~(C30_FLAG | C31_FLAG | C32_FLAG | C40_FLAG | C44_FLAG);
+  target_flags &= ~(C30_FLAG | C31_FLAG | C32_FLAG | C33_FLAG |
+		    C40_FLAG | C44_FLAG);
 
   switch (c4x_cpu_version)
     {
     case 30: target_flags |= C30_FLAG; break;
     case 31: target_flags |= C31_FLAG; break;
     case 32: target_flags |= C32_FLAG; break;
+    case 33: target_flags |= C33_FLAG; break;
     case 40: target_flags |= C40_FLAG; break;
     case 44: target_flags |= C44_FLAG; break;
     default:
@@ -218,7 +244,7 @@ c4x_override_options ()
       target_flags |= C40_FLAG;
     }
 
-  if (TARGET_C30 || TARGET_C31 || TARGET_C32)
+  if (TARGET_C30 || TARGET_C31 || TARGET_C32 || TARGET_C33)
     target_flags |= C3X_FLAG;
   else
     target_flags &= ~C3X_FLAG;
@@ -266,7 +292,7 @@ c4x_output_ascii (stream, ptr, len)
      int len;
 {
   char sbuf[C4X_ASCII_LIMIT + 1];
-  int s, first, onlys;
+  int s, l, special, first, onlys;
 
   if (len)
     {
@@ -274,17 +300,18 @@ c4x_output_ascii (stream, ptr, len)
       first = 1;
     }
 
-  for (s = 0; len > 0; --len, ++ptr)
+  for (s = l = 0; len > 0; --len, ++ptr)
     {
       onlys = 0;
 
       /* Escape " and \ with a \".  */
-      if (*ptr == '\"' || *ptr == '\\')
-	sbuf[s++] = '\\';
+      special = *ptr == '\"' || *ptr == '\\';
 
       /* If printable - add to buff.  */
-      if (*ptr >= 0x20 && *ptr < 0x7f)
+      if ((! TARGET_TI || ! special) && *ptr >= 0x20 && *ptr < 0x7f)
 	{
+	  if (special)
+	    sbuf[s++] = '\\';
 	  sbuf[s++] = *ptr;
 	  if (s < C4X_ASCII_LIMIT - 1)
 	    continue;
@@ -295,10 +322,21 @@ c4x_output_ascii (stream, ptr, len)
 	  if (first)
 	    first = 0;
 	  else
-	    fputc (',', stream);
+	    {
+	      fputc (',', stream);
+	      l++;
+	    }
 
 	  sbuf[s] = 0;
 	  fprintf (stream, "\"%s\"", sbuf);
+	  l += s + 2;
+	  if (TARGET_TI && l >= 80 && len > 1)
+	    {
+	      fprintf (stream, "\n\t.byte\t");
+	      first = 1;
+	      l = 0;
+	    }
+	
 	  s = 0;
 	}
       if (onlys)
@@ -307,9 +345,19 @@ c4x_output_ascii (stream, ptr, len)
       if (first)
 	first = 0;
       else
-	fputc (',', stream);
+	{
+	  fputc (',', stream);
+	  l++;
+	}
 
       fprintf (stream, "%d", *ptr);
+      l += 3;
+      if (TARGET_TI && l >= 80 && len > 1)
+	{
+	  fprintf (stream, "\n\t.byte\t");
+	  first = 1;
+	  l = 0;
+	}
     }
   if (s)
     {
@@ -761,7 +809,9 @@ c4x_function_prologue (file, size)
 	    {
 	      fprintf (file, "\tpush\t%s\n", reg_names[regno]);
 	      if (IS_EXT_REGNO (regno))	/* Save 32MSB of R0--R11.  */
-		fprintf (file, "\tpushf\t%s\n", float_reg_names[regno]);
+		fprintf (file, "\tpushf\t%s\n",
+			 TARGET_TI ? reg_names[regno]
+				   : float_reg_names[regno]);
 	    }
 	}
       /* We need to clear the repeat mode flag if the ISR is
@@ -840,7 +890,9 @@ c4x_function_prologue (file, size)
 		  /* R6 and R7 are saved as floating point.  */
 		  if (TARGET_PRESERVE_FLOAT)
 		    fprintf (file, "\tpush\t%s\n", reg_names[regno]);
-		  fprintf (file, "\tpushf\t%s\n", float_reg_names[regno]);
+		  fprintf (file, "\tpushf\t%s\n",
+			   TARGET_TI ? reg_names[regno]
+				     : float_reg_names[regno]);
 		}
 	      else if ((! dont_push_ar3) || (regno != AR3_REGNO))
 		{
@@ -894,7 +946,9 @@ c4x_function_epilogue (file, size)
 	  if (! c4x_isr_reg_used_p (regno))
 	    continue;
 	  if (IS_EXT_REGNO (regno))
-	    fprintf (file, "\tpopf\t%s\n", float_reg_names[regno]);
+	    fprintf (file, "\tpopf\t%s\n",
+		     TARGET_TI ? reg_names[regno]
+			       : float_reg_names[regno]);
 	  fprintf (file, "\tpop\t%s\n", reg_names[regno]);
 	}
       if (size)
@@ -991,7 +1045,9 @@ c4x_function_epilogue (file, size)
 	      /* R6 and R7 are saved as floating point.  */
 	      if ((regno == R6_REGNO) || (regno == R7_REGNO))
 		{
-		  fprintf (file, "\tpopf\t%s\n", float_reg_names[regno]);
+		  fprintf (file, "\tpopf\t%s\n",
+		           TARGET_TI ? reg_names[regno]
+			             : float_reg_names[regno]);
 		  if (TARGET_PRESERVE_FLOAT)
 		    {
 	              restore_count--;
@@ -1207,8 +1263,8 @@ c4x_emit_move_sequence (operands, mode)
 
 
 void
-c4x_emit_libcall (name, code, dmode, smode, noperands, operands)
-     const char *name;
+c4x_emit_libcall (libcall, code, dmode, smode, noperands, operands)
+     rtx libcall;
      enum rtx_code code;
      enum machine_mode dmode;
      enum machine_mode smode;
@@ -1217,13 +1273,9 @@ c4x_emit_libcall (name, code, dmode, smode, noperands, operands)
 {
   rtx ret;
   rtx insns;
-  rtx libcall;
   rtx equiv;
 
   start_sequence ();
-  if (ggc_p)
-    name = ggc_alloc_string (name, -1);
-  libcall = gen_rtx_SYMBOL_REF (Pmode, name);
   switch (noperands)
     {
     case 2:
@@ -1249,30 +1301,28 @@ c4x_emit_libcall (name, code, dmode, smode, noperands, operands)
 
 
 void
-c4x_emit_libcall3 (name, code, mode, operands)
-     const char *name;
+c4x_emit_libcall3 (libcall, code, mode, operands)
+     rtx libcall;
      enum rtx_code code;
      enum machine_mode mode;
      rtx *operands;
 {
-  return c4x_emit_libcall (name, code, mode, mode, 3, operands);
+  return c4x_emit_libcall (libcall, code, mode, mode, 3, operands);
 }
 
 
 void
-c4x_emit_libcall_mulhi (name, code, mode, operands)
-     char *name;
+c4x_emit_libcall_mulhi (libcall, code, mode, operands)
+     rtx libcall;
      enum rtx_code code;
      enum machine_mode mode;
      rtx *operands;
 {
   rtx ret;
   rtx insns;
-  rtx libcall;
   rtx equiv;
 
   start_sequence ();
-  libcall = gen_rtx_SYMBOL_REF (Pmode, name);
   ret = emit_library_call_value (libcall, NULL_RTX, 1, mode, 2,
                                  operands[1], mode, operands[2], mode);
   equiv = gen_rtx_TRUNCATE (mode,
@@ -1745,7 +1795,7 @@ c4x_print_operand (file, op, letter)
   switch (letter)
     {
     case 'A':			/* Direct address.  */
-      if (code == CONST_INT || code == SYMBOL_REF)
+      if (code == CONST_INT || code == SYMBOL_REF || code == CONST)
 	asm_fprintf (file, "@");
       break;
 
@@ -1779,7 +1829,7 @@ c4x_print_operand (file, op, letter)
 	  op1 = XEXP (XEXP (op, 0), 1);
           if (GET_CODE(op1) == CONST_INT || GET_CODE(op1) == SYMBOL_REF)
 	    {
-	      asm_fprintf (file, "\t%s\t", TARGET_C3X ? "ldp" : "ldpk");
+	      asm_fprintf (file, "\t%s\t@", TARGET_C3X ? "ldp" : "ldpk");
 	      output_address (XEXP (adj_offsettable_operand (op, 1), 0));
 	      asm_fprintf (file, "\n");
 	    }
@@ -1792,7 +1842,7 @@ c4x_print_operand (file, op, letter)
 	  && (GET_CODE (XEXP (op, 0)) == CONST
 	      || GET_CODE (XEXP (op, 0)) == SYMBOL_REF))
 	{
-	  asm_fprintf (file, "%s\t", TARGET_C3X ? "ldp" : "ldpk");
+	  asm_fprintf (file, "%s\t@", TARGET_C3X ? "ldp" : "ldpk");
           output_address (XEXP (op, 0));
 	  asm_fprintf (file, "\n\t");
 	}
@@ -1824,7 +1874,8 @@ c4x_print_operand (file, op, letter)
   switch (code)
     {
     case REG:
-      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+	  && ! TARGET_TI)
 	fprintf (file, "%s", float_reg_names[REGNO (op)]);
       else
 	fprintf (file, "%s", reg_names[REGNO (op)]);
@@ -2204,6 +2255,7 @@ c4x_process_after_reload (first)
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 	{
 	  int insn_code_number;
+	  rtx old;
 
 	  insn_code_number = recog_memoized (insn);
 
@@ -2215,26 +2267,22 @@ c4x_process_after_reload (first)
 	  if (insn_code_number == CODE_FOR_rptb_end)
 	    c4x_rptb_insert(insn);
 
-	  /* When the optimization level less than 2 we need to split
-	     the insn here.  Otherwise the calls to force_const_mem
-	     will not work.  */
-	  if (optimize < 2)
+	  /* We need to split the insn here. Otherwise the calls to
+	     force_const_mem will not work for load_immed_address.  */
+	  old = insn;
+
+	  /* Don't split the insn if it has been deleted.  */
+	  if (! INSN_DELETED_P (old))
+	    insn = try_split (PATTERN(old), old, 1);
+
+	  /* When not optimizing, the old insn will be still left around
+	     with only the 'deleted' bit set.  Transform it into a note
+	     to avoid confusion of subsequent processing.  */
+	  if (INSN_DELETED_P (old))
 	    {
-	      rtx old = insn;
-
-	      /* Don't split the insn if it has been deleted.  */
-	      if (! INSN_DELETED_P (old))
-	        insn = try_split (PATTERN(old), old, 1);
-
-	      /* When not optimizing, the old insn will be still left around
-		 with only the 'deleted' bit set.  Transform it into a note
-		 to avoid confusion of subsequent processing.  */
-	      if (INSN_DELETED_P (old))
-		{
-		  PUT_CODE (old, NOTE);
-		  NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (old) = 0;
-		}
+	      PUT_CODE (old, NOTE);
+	      NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
+	      NOTE_SOURCE_FILE (old) = 0;
 	    }
 	}
     }
@@ -2298,8 +2346,8 @@ c4x_shiftable_constant (op)
 	break;
     }
   mask = ((0xffff >> i) << 16) | 0xffff;
-  if (IS_INT16_CONST (val & 0x80000000 ? (val >> i) | ~mask
-				       : (val >> i) & mask))
+  if (IS_INT16_CONST (val & (1 << 31) ? (val >> i) | ~mask
+				      : (val >> i) & mask))
     return i;
   return -1;
 } 
@@ -2733,6 +2781,8 @@ fp_zero_operand (op, mode)
 {
   REAL_VALUE_TYPE r;
 
+  if (GET_CODE (op) != CONST_DOUBLE)
+    return 0;
   REAL_VALUE_FROM_CONST_DOUBLE (r, op);
   return REAL_VALUES_EQUAL (r, dconst0);
 }
@@ -2969,6 +3019,17 @@ std_reg_operand (op, mode)
   return REG_P (op) && IS_STD_OR_PSEUDO_REG (op);
 }
 
+/* Standard precision or normal register.  */
+
+int
+std_or_reg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (reload_in_progress)
+    return std_reg_operand (op, mode);
+  return reg_operand (op, mode);
+}
 
 /* Address register.  */
 
@@ -4223,8 +4284,8 @@ c4x_operand_subword (op, i, validate_address, mode)
 
 int
 c4x_handle_pragma (p_getc, p_ungetc, pname)
-     int (* p_getc) PROTO ((void));
-     void (* p_ungetc) PROTO ((int)) ATTRIBUTE_UNUSED;
+     int (* p_getc) PARAMS ((void));
+     void (* p_ungetc) PARAMS ((int)) ATTRIBUTE_UNUSED;
      char *pname;
 {
   int i;
@@ -4339,19 +4400,122 @@ c4x_handle_pragma (p_getc, p_ungetc, pname)
 }
 
 
+struct name_list
+{
+  struct name_list *next;
+  const char *name;
+};
+
+static struct name_list *global_head;
+static struct name_list *extern_head;
+
+
+/* Add NAME to list of global symbols and remove from external list if
+   present on external list.  */
+
+void
+c4x_global_label (name)
+     const char *name;
+{
+  struct name_list *p, *last;
+
+  /* Do not insert duplicate names, so linearly search through list of
+     existing names.  */
+  p = global_head;
+  while (p)
+    {
+      if (strcmp (p->name, name) == 0)
+	return;
+      p = p->next;
+    }
+  p = (struct name_list *) permalloc (sizeof *p);
+  p->next = global_head;
+  p->name = name;
+  global_head = p;
+
+  /* Remove this name from ref list if present.  */
+  last = NULL;
+  p = extern_head;
+  while (p)
+    {
+      if (strcmp (p->name, name) == 0)
+	{
+	  if (last)
+	    last->next = p->next;
+	  else
+	    extern_head = p->next;
+	  break;
+	}
+      last = p;
+      p = p->next;
+    }
+}
+
+
+/* Add NAME to list of external symbols.  */
+
+void
+c4x_external_ref (name)
+     const char *name;
+{
+  struct name_list *p;
+
+  /* Do not insert duplicate names.  */
+  p = extern_head;
+  while (p)
+    {
+      if (strcmp (p->name, name) == 0)
+	return;
+      p = p->next;
+    }
+  
+  /* Do not insert ref if global found.  */
+  p = global_head;
+  while (p)
+    {
+      if (strcmp (p->name, name) == 0)
+	return;
+      p = p->next;
+    }
+  p = (struct name_list *) permalloc (sizeof *p);
+  p->next = extern_head;
+  p->name = name;
+  extern_head = p;
+}
+
+
+void
+c4x_file_end (fp)
+     FILE *fp;
+{
+  struct name_list *p;
+  
+  /* Output all external names that are not global.  */
+  p = extern_head;
+  while (p)
+    {
+      fprintf (fp, "\t.ref\t");
+      assemble_name (fp, p->name);
+      fprintf (fp, "\n");
+      p = p->next;
+    }
+  fprintf (fp, "\t.end\n");
+}
+
+
 static void
-c4x_check_attribute(attrib, list, decl, attributes)
+c4x_check_attribute (attrib, list, decl, attributes)
      char *attrib;
      tree list, decl, *attributes;
 {
   while (list != NULL_TREE
          && IDENTIFIER_POINTER (TREE_PURPOSE (list))
 	 != IDENTIFIER_POINTER (DECL_NAME (decl)))
-    list = TREE_CHAIN(list);
+    list = TREE_CHAIN (list);
   if (list)
     *attributes = chainon (*attributes,
 			   build_tree_list (get_identifier (attrib),
-					    TREE_VALUE(list)));
+					    TREE_VALUE (list)));
 }
 
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -85,7 +85,7 @@ proc g++_init { args } {
 	    if [is_remote host] {
 		set GXX_UNDER_TEST [transform c++]
 	    } else {
-		set GXX_UNDER_TEST [findfile $base_dir/../xgcc "$base_dir/../xgcc -B$base_dir/../" [findfile $base_dir/xgcc "$base_dir/xgcc -B$base_dir/" [transform c++]]]
+		set GXX_UNDER_TEST [findfile $base_dir/../g++ "$base_dir/../g++ -B$base_dir/../" [findfile $base_dir/g++ "$base_dir/g++ -B$base_dir/" [transform c++]]]
 	    }
 	}
     }
@@ -97,7 +97,7 @@ proc g++_init { args } {
 
     if ![is_remote host] {
 	if { [which $GXX_UNDER_TEST] == 0 } then {
-	    perror "GXX_UNDER_TEST does not exist"
+	    perror "GXX_UNDER_TEST ($GXX_UNDER_TEST) does not exist"
 	    exit 1
 	}
     }
@@ -131,6 +131,10 @@ proc g++_init { args } {
 	lappend ALWAYS_CXXFLAGS "additional_flags=$TOOL_OPTIONS";
     }
 
+    # Make sure that lines are not wrapped.  That can confuse the
+    # error-message parsing machinery.
+    lappend ALWAYS_CXXFLAGS "additional_flags=-fmessage-length=0"
+
     verbose -log "ALWAYS_CXXFLAGS set to $ALWAYS_CXXFLAGS"
 
     verbose "g++ is initialized" 3
@@ -152,9 +156,9 @@ proc g++_target_compile { source dest type options } {
     lappend options "additional_flags=[libio_include_flags]"
     lappend options "compiler=$GXX_UNDER_TEST";
 
-    set options [concat $options $gpp_compile_options]
+    set options [concat $gpp_compile_options $options]
 
-    set options [concat $options "$ALWAYS_CXXFLAGS"];
+    set options [concat "$ALWAYS_CXXFLAGS" $options];
 
     if { [regexp "(^| )-frepo( |$)" $options] && \
 	 [regexp "\.o(|bj)$" $dest] } then {
@@ -221,7 +225,7 @@ proc ${tool}_option_help { } {
 }
 
 proc ${tool}_option_proc { option } {
-    if[regexp "^--additional_options," $option] {
+    if [regexp "^--additional_options," $option] {
 	global gpp_compile_options
 	regsub "--additional_options," $option "" option
 	foreach x [split $option ","] {

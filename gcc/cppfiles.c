@@ -1,5 +1,6 @@
 /* Part of CPP library.  (include file handling)
-   Copyright (C) 1986, 87, 89, 92 - 95, 98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -26,215 +27,77 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "config.h"
 #include "system.h"
 #include "cpplib.h"
+#include "cpphash.h"
+#include "hashtab.h"
+#include "intl.h"
+#include "mkdeps.h"
 
-/* The entry points to this file are: find_include_file, finclude,
-   include_hash, append_include_chain, deps_output, and file_cleanup.
-   file_cleanup is only called through CPP_BUFFER(pfile)->cleanup,
-   so it's static anyway. */
-
-static struct include_hash *redundant_include_p
-					PROTO ((cpp_reader *,
-						struct include_hash *,
-						struct file_name_list *));
-static struct file_name_map *read_name_map	PROTO ((cpp_reader *,
-							const char *));
-static char *read_filename_string	PROTO ((int, FILE *));
-static char *remap_filename 		PROTO ((cpp_reader *, char *,
-						struct file_name_list *));
-static long read_and_prescan		PROTO ((cpp_reader *, cpp_buffer *,
-						int, size_t));
-static struct file_name_list *actual_directory PROTO ((cpp_reader *,
-						       const char *));
-static void initialize_input_buffer	PROTO ((cpp_reader *, int,
-						struct stat *));
-static int file_cleanup			PROTO ((cpp_buffer *, cpp_reader *));
-static void find_position		PROTO ((U_CHAR *, U_CHAR *,
-						unsigned long *,
-						unsigned long *));
+static IHASH *redundant_include_p PARAMS ((cpp_reader *, IHASH *,
+					   struct file_name_list *));
+static struct file_name_map *read_name_map
+				PARAMS ((cpp_reader *, const char *));
+static char *read_filename_string PARAMS ((int, FILE *));
+static char *remap_filename 	PARAMS ((cpp_reader *, char *,
+					 struct file_name_list *));
+static struct file_name_list *actual_directory
+				PARAMS ((cpp_reader *, const char *));
+static unsigned int hash_IHASH	PARAMS ((const void *));
+static int eq_IHASH		PARAMS ((const void *, const void *));
+static int file_cleanup		PARAMS ((cpp_buffer *, cpp_reader *));
+static int find_include_file	PARAMS ((cpp_reader *, const char *,
+					struct file_name_list *,
+					IHASH **, int *));
+static int read_include_file	PARAMS ((cpp_reader *, int, IHASH *));
+static inline int open_include_file PARAMS ((cpp_reader *, const char *));
 
 #if 0
-static void hack_vms_include_specification PROTO ((char *));
+static void hack_vms_include_specification PARAMS ((char *));
 #endif
 
-/* Windows does not natively support inodes, and neither does MSDOS.
-   Cygwin's emulation can generate non-unique inodes, so don't use it.
-   VMS has non-numeric inodes. */
-#ifdef VMS
-#define INO_T_EQ(a, b) (!bcmp((char *) &(a), (char *) &(b), sizeof (a)))
-#elif (defined _WIN32 && ! defined (_UWIN)) \
-       || defined __MSDOS__
-#define INO_T_EQ(a, b) 0
-#else
-#define INO_T_EQ(a, b) ((a) == (b))
+/* Initial size of include hash table.  */
+#define IHASHSIZE 50
+
+#ifndef INCLUDE_LEN_FUDGE
+#define INCLUDE_LEN_FUDGE 0
 #endif
 
-/* Merge the four include chains together in the order quote, bracket,
-   system, after.  Remove duplicate dirs (as determined by
-   INO_T_EQ()).  The system_include and after_include chains are never
-   referred to again after this function; all access is through the
-   bracket_include path.
-
-   For the future: Check if the directory is empty (but
-   how?) and possibly preload the include hash. */
-
-void
-merge_include_chains (opts)
-     struct cpp_options *opts;
+/* Calculate hash of an IHASH entry.  */
+static unsigned int
+hash_IHASH (x)
+     const void *x;
 {
-  struct file_name_list *prev, *cur, *other;
-  struct file_name_list *quote, *brack, *systm, *after;
-  struct file_name_list *qtail, *btail, *stail, *atail;
+  IHASH *i = (IHASH *)x;
+  unsigned int r = 0, len = 0;
+  const U_CHAR *s = i->nshort;
 
-  qtail = opts->pending->quote_tail;
-  btail = opts->pending->brack_tail;
-  stail = opts->pending->systm_tail;
-  atail = opts->pending->after_tail;
+  if (i->hash != (unsigned long)-1)
+    return i->hash;
 
-  quote = opts->pending->quote_head;
-  brack = opts->pending->brack_head;
-  systm = opts->pending->systm_head;
-  after = opts->pending->after_head;
-
-  /* Paste together bracket, system, and after include chains. */
-  if (stail)
-    stail->next = after;
-  else
-    systm = after;
-  if (btail)
-    btail->next = systm;
-  else
-    brack = systm;
-
-  /* This is a bit tricky.
-     First we drop dupes from the quote-include list.
-     Then we drop dupes from the bracket-include list.
-     Finally, if qtail and brack are the same directory,
-     we cut out qtail.
-
-     We can't just merge the lists and then uniquify them because
-     then we may lose directories from the <> search path that should
-     be there; consider -Ifoo -Ibar -I- -Ifoo -Iquux. It is however
-     safe to treat -Ibar -Ifoo -I- -Ifoo -Iquux as if written
-     -Ibar -I- -Ifoo -Iquux.
-
-     Note that this algorithm is quadratic in the number of -I switches,
-     which is acceptable since there aren't usually that many of them.  */
-
-  for (cur = quote, prev = NULL; cur; cur = cur->next)
-    {
-      for (other = quote; other != cur; other = other->next)
-        if (INO_T_EQ (cur->ino, other->ino)
-	    && cur->dev == other->dev)
-          {
-	    if (opts->verbose)
-	      cpp_notice ("ignoring duplicate directory `%s'\n", cur->name);
-
-	    prev->next = cur->next;
-	    free (cur->name);
-	    free (cur);
-	    cur = prev;
-	    break;
-	  }
-      prev = cur;
-    }
-  qtail = prev;
-
-  for (cur = brack; cur; cur = cur->next)
-    {
-      for (other = brack; other != cur; other = other->next)
-        if (INO_T_EQ (cur->ino, other->ino)
-	    && cur->dev == other->dev)
-          {
-	    if (opts->verbose)
-	      cpp_notice ("ignoring duplicate directory `%s'\n", cur->name);
-
-	    prev->next = cur->next;
-	    free (cur->name);
-	    free (cur);
-	    cur = prev;
-	    break;
-	  }
-      prev = cur;
-    }
-
-  if (quote)
-    {
-      if (INO_T_EQ (qtail->ino, brack->ino) && qtail->dev == brack->dev)
-        {
-	  if (quote == qtail)
-	    {
-	      if (opts->verbose)
-		cpp_notice ("ignoring duplicate directory `%s'\n",
-			    quote->name);
-
-	      free (quote->name);
-	      free (quote);
-	      quote = brack;
-	    }
-	  else
-	    {
-	      cur = quote;
-	      while (cur->next != qtail)
-		  cur = cur->next;
-	      cur->next = brack;
-	      if (opts->verbose)
-		cpp_notice ("ignoring duplicate directory `%s'\n",
-			    qtail->name);
-
-	      free (qtail->name);
-	      free (qtail);
-	    }
-	}
-      else
-	  qtail->next = brack;
-    }
-  else
-      quote = brack;
-
-  opts->quote_include = quote;
-  opts->bracket_include = brack;
+  do
+    len++, r = r * 67 + (*s++ - 113);
+  while (*s && *s != '.');
+  i->hash = r + len;
+  return r + len;
 }
 
-/* Look up or add an entry to the table of all includes.  This table
- is indexed by the name as it appears in the #include line.  The
- ->next_this_file chain stores all different files with the same
- #include name (there are at least three ways this can happen).  The
- hash function could probably be improved a bit. */
-
-struct include_hash *
-include_hash (pfile, fname, add)
-     cpp_reader *pfile;
-     const char *fname;
-     int add;
+/* Compare an existing IHASH structure with a potential one.  */
+static int
+eq_IHASH (x, y)
+     const void *x;
+     const void *y;
 {
-  unsigned int hash = 0;
-  struct include_hash *l, *m;
-  const char *f = fname;
+  const U_CHAR *a = ((const IHASH *)x)->nshort;
+  const U_CHAR *b = ((const IHASH *)y)->nshort;
+  return !strcmp (a, b);
+}
 
-  while (*f)
-    hash += *f++;
-
-  l = pfile->all_include_files[hash % ALL_INCLUDE_HASHSIZE];
-  m = 0;
-  for (; l; m = l, l = l->next)
-    if (!strcmp (l->nshort, fname))
-      return l;
-
-  if (!add)
-    return 0;
-  
-  l = (struct include_hash *) xmalloc (sizeof (struct include_hash));
-  l->next = NULL;
-  l->next_this_file = NULL;
-  l->foundhere = NULL;
-  l->buf = NULL;
-  l->limit = NULL;
-  if (m)
-    m->next = l;
-  else
-    pfile->all_include_files[hash % ALL_INCLUDE_HASHSIZE] = l;
-  
-  return l;
+/* Init the hash table.  In here so it can see the hash and eq functions.  */
+void
+_cpp_init_include_hash (pfile)
+     cpp_reader *pfile;
+{
+  pfile->all_include_files
+    = htab_create (IHASHSIZE, hash_IHASH, eq_IHASH, free);
 }
 
 /* Return 0 if the file pointed to by IHASH has never been included before,
@@ -259,14 +122,14 @@ include_hash (pfile, fname, add)
    so the test below (i->foundhere == l) may be false even when
    the directories are in fact the same.  */
 
-static struct include_hash *
+static IHASH *
 redundant_include_p (pfile, ihash, ilist)
      cpp_reader *pfile;
-     struct include_hash *ihash;
+     IHASH *ihash;
      struct file_name_list *ilist;
 {
   struct file_name_list *l;
-  struct include_hash *i;
+  IHASH *i;
 
   if (! ihash->foundhere)
     return 0;
@@ -280,10 +143,24 @@ redundant_include_p (pfile, ihash, ilist)
 	    included again if the string is the name of a defined macro. */
 	 return (i->control_macro
 		 && (i->control_macro[0] == '\0'
-		     || cpp_lookup (pfile, i->control_macro, -1, -1)))
-	     ? (struct include_hash *)-1 : i;
+		     || cpp_defined (pfile, i->control_macro, -1)))
+	     ? (IHASH *)-1 : i;
 
   return 0;
+}
+
+/* Return 1 if the file named by FNAME has been included before in
+   any context, 0 otherwise.  */
+int
+cpp_included (pfile, fname)
+     cpp_reader *pfile;
+     const char *fname;
+{
+  IHASH dummy, *ptr;
+  dummy.nshort = fname;
+  dummy.hash = -1;
+  ptr = htab_find (pfile->all_include_files, (const void *)&dummy);
+  return (ptr != NULL);
 }
 
 static int
@@ -292,13 +169,33 @@ file_cleanup (pbuf, pfile)
      cpp_reader *pfile;
 {
   if (pbuf->buf)
-    {
-      free (pbuf->buf);
-      pbuf->buf = 0;
-    }
+    free ((PTR) pbuf->buf);
   if (pfile->system_include_depth)
     pfile->system_include_depth--;
   return 0;
+}
+
+/* Centralize calls to open(2) here.  This provides a hook for future
+   changes which might, e.g. look for and open a precompiled version
+   of the header.  It also means all the magic currently associated
+   with calling open is in one place, and if we ever need more, it'll
+   be in one place too.
+
+   Open files in nonblocking mode, so we don't get stuck if someone
+   clever has asked cpp to process /dev/rmt0.  read_include_file
+   will check that we have a real file to work with.  Also take care
+   not to acquire a controlling terminal by mistake (this can't happen
+   on sane systems, but paranoia is a virtue).
+
+   Use the three-argument form of open even though we aren't
+   specifying O_CREAT, to defend against broken system headers.  */
+
+static inline int
+open_include_file (pfile, filename)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const char *filename;
+{
+  return open (filename, O_RDONLY|O_NONBLOCK|O_NOCTTY, 0666);
 }
 
 /* Search for include file FNAME in the include chain starting at
@@ -306,106 +203,99 @@ file_cleanup (pbuf, pfile)
    (because it was included already and it's marked idempotent),
    -1 if an error occurred, or a file descriptor open on the file.
    *IHASH is set to point to the include hash entry for this file, and
-   *BEFORE is 1 if the file was included before (but needs to be read
+   *BEFORE is set to 1 if the file was included before (but needs to be read
    again). */
-int
+static int
 find_include_file (pfile, fname, search_start, ihash, before)
      cpp_reader *pfile;
      const char *fname;
      struct file_name_list *search_start;
-     struct include_hash **ihash;
+     IHASH **ihash;
      int *before;
 {
-  struct file_name_list *l;
-  struct include_hash *ih, *jh;
-  int f, len;
+  struct file_name_list *path;
+  IHASH *ih, **slot;
+  IHASH dummy;
+  int f;
   char *name;
-  
-  ih = include_hash (pfile, fname, 1);
-  jh = redundant_include_p (pfile, ih,
-			    fname[0] == '/' ? ABSOLUTE_PATH : search_start);
 
-  if (jh != 0)
+  dummy.hash = -1;
+  dummy.nshort = fname;
+  path = (fname[0] == '/') ? ABSOLUTE_PATH : search_start;
+  slot = (IHASH **) htab_find_slot (pfile->all_include_files,
+				    (const void *)&dummy, 1);
+
+  if (*slot && (ih = redundant_include_p (pfile, *slot, path)))
     {
-      *before = 1;
-      *ihash = jh;
-
-      if (jh == (struct include_hash *)-1)
+      if (ih == (IHASH *)-1)
 	return -2;
-      else
-	return open (jh->name, O_RDONLY, 0666);
+
+      *before = 1;
+      *ihash = ih;
+      return open_include_file (pfile, ih->name);
     }
 
-  if (ih->foundhere)
-    /* A file is already known by this name, but it's not the same file.
-       Allocate another include_hash block and add it to the next_this_file
-       chain. */
+  if (path == ABSOLUTE_PATH)
     {
-      jh = (struct include_hash *)xmalloc (sizeof (struct include_hash));
-      while (ih->next_this_file) ih = ih->next_this_file;
-
-      ih->next_this_file = jh;
-      jh = ih;
-      ih = ih->next_this_file;
-
-      ih->next = NULL;
-      ih->next_this_file = NULL;
-      ih->buf = NULL;
-      ih->limit = NULL;
+      name = (char *) fname;
+      f = open_include_file (pfile, name);
     }
+  else
+    {
+      /* Search directory path, trying to open the file.  */
+      name = alloca (strlen (fname) + pfile->max_include_len
+		     + 2 + INCLUDE_LEN_FUDGE);
+      do
+	{
+	  memcpy (name, path->name, path->nlen);
+	  name[path->nlen] = '/';
+	  strcpy (&name[path->nlen+1], fname);
+	  _cpp_simplify_pathname (name);
+	  if (CPP_OPTIONS (pfile)->remap)
+	    name = remap_filename (pfile, name, path);
+
+	  f = open_include_file (pfile, name);
+#ifdef EACCES
+	  if (f == -1 && errno == EACCES)
+	    {
+	      cpp_error (pfile,
+			 "included file `%s' exists but is not readable",
+			 name);
+	      return -1;
+	    }
+#endif
+	  if (f >= 0)
+	    break;
+	  path = path->next;
+	}
+      while (path);
+    }
+  if (f == -1)
+    return -1;
+
+  if (path == ABSOLUTE_PATH)
+    {
+      ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (name));
+      ih->nshort = ih->name;
+    }
+  else
+    {
+      ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (name)
+			      + strlen (fname) + 1);
+      ih->nshort = ih->name + strlen (fname) + 1;
+      strcpy ((char *)ih->nshort, fname);
+    }
+  strcpy ((char *)ih->name, name);
+  ih->foundhere = path;
+  ih->control_macro = NULL;
+  ih->hash = dummy.hash;
+
+  ih->next_this_file = *slot;
+  *slot = ih;
+
   *before = 0;
   *ihash = ih;
-  ih->nshort = xstrdup (fname);
-  ih->control_macro = NULL;
-  
-  /* If the pathname is absolute, just open it. */ 
-  if (fname[0] == '/')
-    {
-      ih->foundhere = ABSOLUTE_PATH;
-      ih->name = ih->nshort;
-      return open (ih->name, O_RDONLY, 0666);
-    }
-
-  /* Search directory path, trying to open the file. */
-
-  len = strlen (fname);
-  name = xmalloc (len + pfile->max_include_len + 2 + INCLUDE_LEN_FUDGE);
-
-  for (l = search_start; l; l = l->next)
-    {
-      bcopy (l->name, name, l->nlen);
-      name[l->nlen] = '/';
-      strcpy (&name[l->nlen+1], fname);
-      simplify_pathname (name);
-      if (CPP_OPTIONS (pfile)->remap)
-	name = remap_filename (pfile, name, l);
-
-      f = open (name, O_RDONLY|O_NONBLOCK|O_NOCTTY, 0666);
-#ifdef EACCES
-      if (f == -1 && errno == EACCES)
-	{
-	  cpp_error(pfile, "included file `%s' exists but is not readable",
-		    name);
-	  return -1;
-	}
-#endif
-
-      if (f >= 0)
-        {
-	  ih->foundhere = l;
-	  ih->name = xrealloc (name, strlen (name)+1);
-	  return f;
-        }
-    }
-  
-    if (jh)
-      {
-	jh->next_this_file = NULL;
-	free (ih);
-      }
-    free (name);
-    *ihash = (struct include_hash *)-1;
-    return -1;
+  return f;
 }
 
 /* The file_name_map structure holds a mapping of file names for a
@@ -572,7 +462,7 @@ remap_filename (pfile, name, loc)
      looking in.  Thus #include <sys/types.h> will look up sys/types.h
      in /usr/include/header.gcc and look up types.h in
      /usr/include/sys/header.gcc.  */
-  p = rindex (name, '/');
+  p = strrchr (name, '/');
   if (!p)
     p = name;
   if (loc && loc->name
@@ -589,7 +479,7 @@ remap_filename (pfile, name, loc)
   else
     {
       char * newdir = (char *) alloca (p - name + 1);
-      bcopy (name, newdir, p - name);
+      memcpy (newdir, name, p - name);
       newdir[p - name] = '\0';
       dir = newdir;
       from = p + 1;
@@ -602,29 +492,190 @@ remap_filename (pfile, name, loc)
   return name;
 }
 
+
+void
+_cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
+     cpp_reader *pfile;
+     char *fname;
+     unsigned int len;
+     int no_reinclude;
+     struct file_name_list *search_start;
+{
+  IHASH *ihash;
+  int fd;
+  int angle_brackets = fname[0] == '<';
+  int before;
+
+  if (!search_start)
+    {
+      if (angle_brackets)
+	search_start = CPP_OPTIONS (pfile)->bracket_include;
+      else if (CPP_OPTIONS (pfile)->ignore_srcdir)
+	search_start = CPP_OPTIONS (pfile)->quote_include;
+      else
+	search_start = CPP_BUFFER (pfile)->actual_dir;
+    }
+
+  if (!search_start)
+    {
+      cpp_error (pfile, "No include path in which to find %s", fname);
+      return;
+    }
+
+  /* Remove quote marks.  */
+  fname++;
+  len -= 2;
+  fname[len] = '\0';
+
+  fd = find_include_file (pfile, fname, search_start, &ihash, &before);
+
+  if (fd == -2)
+    return;
+  
+  if (fd == -1)
+    {
+      if (CPP_OPTIONS (pfile)->print_deps_missing_files
+	  && CPP_PRINT_DEPS (pfile) > (angle_brackets ||
+				       (pfile->system_include_depth > 0)))
+        {
+	  if (!angle_brackets)
+	    deps_add_dep (pfile->deps, fname);
+	  else
+	    {
+	      char *p;
+	      struct file_name_list *ptr;
+	      /* If requested as a system header, assume it belongs in
+		 the first system header directory. */
+	      if (CPP_OPTIONS (pfile)->bracket_include)
+	        ptr = CPP_OPTIONS (pfile)->bracket_include;
+	      else
+	        ptr = CPP_OPTIONS (pfile)->quote_include;
+
+	      p = (char *) alloca (strlen (ptr->name)
+				   + strlen (fname) + 2);
+	      if (*ptr->name != '\0')
+	        {
+		  strcpy (p, ptr->name);
+		  strcat (p, "/");
+	        }
+	      strcat (p, fname);
+	      deps_add_dep (pfile->deps, p);
+	    }
+	}
+      /* If -M was specified, and this header file won't be added to
+	 the dependency list, then don't count this as an error,
+	 because we can still produce correct output.  Otherwise, we
+	 can't produce correct output, because there may be
+	 dependencies we need inside the missing file, and we don't
+	 know what directory this missing file exists in. */
+      else if (CPP_PRINT_DEPS (pfile)
+	       && (CPP_PRINT_DEPS (pfile)
+		   <= (angle_brackets || (pfile->system_include_depth > 0))))
+	cpp_warning (pfile, "No include path in which to find %s", fname);
+      else
+	cpp_error_from_errno (pfile, fname);
+
+      return;
+    }
+
+  /* For -M, add the file to the dependencies on its first inclusion. */
+  if (!before && (CPP_PRINT_DEPS (pfile)
+		  > (angle_brackets || (pfile->system_include_depth > 0))))
+    deps_add_dep (pfile->deps, ihash->name);
+
+  /* Handle -H option.  */
+  if (CPP_OPTIONS(pfile)->print_include_names)
+    {
+      cpp_buffer *fp = CPP_BUFFER (pfile);
+      while ((fp = CPP_PREV_BUFFER (fp)) != NULL)
+	putc ('.', stderr);
+      fprintf (stderr, " %s\n", ihash->name);
+    }
+
+  /* Actually process the file */
+
+  if (no_reinclude)
+    ihash->control_macro = (const U_CHAR *) "";
+  
+  if (read_include_file (pfile, fd, ihash))
+    {
+      _cpp_output_line_command (pfile, enter_file);
+      if (angle_brackets)
+	pfile->system_include_depth++;   /* Decremented in file_cleanup. */
+    }
+}
+
+
+/* Push an input buffer and load it up with the contents of FNAME.
+   If FNAME is "" or NULL, read standard input.  */
+int
+cpp_read_file (pfile, fname)
+     cpp_reader *pfile;
+     const char *fname;
+{
+  IHASH *ih, **slot;
+  IHASH dummy;
+  int f;
+
+  if (fname == NULL)
+    fname = "";
+
+  dummy.hash = -1;
+  dummy.nshort = fname;
+  slot = (IHASH **) htab_find_slot (pfile->all_include_files,
+				    (const void *) &dummy, 1);
+  if (*slot && (ih = redundant_include_p (pfile, *slot, ABSOLUTE_PATH)))
+    {
+      if (ih == (IHASH *)-1)
+	return 1;  /* Already included.  */
+    }
+  else
+    {
+      ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (fname));
+      ih->control_macro = 0;
+      ih->foundhere = ABSOLUTE_PATH;  /* well sort of ... */
+      ih->hash = dummy.hash;
+      strcpy ((char *)ih->name, fname);
+      ih->nshort = ih->name;
+
+      ih->next_this_file = *slot;
+      *slot = ih;
+    }
+
+  if (*fname == '\0')
+    f = 0;
+  else
+    f = open_include_file (pfile, fname);
+
+  return read_include_file (pfile, f, ih);
+}
+
 /* Read the contents of FD into the buffer on the top of PFILE's stack.
    IHASH points to the include hash entry for the file associated with
    FD.
 
    The caller is responsible for the cpp_push_buffer.  */
 
-int
-finclude (pfile, fd, ihash)
+static int
+read_include_file (pfile, fd, ihash)
      cpp_reader *pfile;
      int fd;
-     struct include_hash *ihash;
+     IHASH *ihash;
 {
   struct stat st;
   size_t st_size;
   long length;
   cpp_buffer *fp;
 
+  fp = cpp_push_buffer (pfile, NULL, 0);
+
+  if (fp == 0)
+    goto push_fail;
+
   if (fstat (fd, &st) < 0)
     goto perror_fail;
   if (fcntl (fd, F_SETFL, 0) == -1)  /* turn off nonblocking mode */
     goto perror_fail;
-
-  fp = CPP_BUFFER (pfile);
 
   /* If fd points to a plain file, we know how big it is, so we can
      allocate the buffer all at once.  If fd is a pipe or terminal, we
@@ -673,18 +724,15 @@ finclude (pfile, fd, ihash)
       goto fail;
     }
 
-  if (pfile->input_buffer == NULL)
-    initialize_input_buffer (pfile, fd, &st);
-
   /* Read the file, converting end-of-line characters and trigraphs
      (if enabled). */
   fp->ihash = ihash;
-  fp->nominal_fname = fp->fname = ihash->name;
-  length = read_and_prescan (pfile, fp, fd, st_size);
+  fp->nominal_fname = ihash->name;
+  length = _cpp_read_and_prescan (pfile, fp, fd, st_size);
   if (length < 0)
     goto fail;
   if (length == 0)
-    ihash->control_macro = "";  /* never re-include */
+    ihash->control_macro = (const U_CHAR *) "";  /* never re-include */
 
   close (fd);
   fp->rlimit = fp->alimit = fp->buf + length;
@@ -699,15 +747,17 @@ finclude (pfile, fd, ihash)
   /* The ->actual_dir field is only used when ignore_srcdir is not in effect;
      see do_include */
   if (!CPP_OPTIONS (pfile)->ignore_srcdir)
-    fp->actual_dir = actual_directory (pfile, fp->fname);
+    fp->actual_dir = actual_directory (pfile, ihash->name);
 
   pfile->input_stack_listing_current = 0;
+  pfile->only_seen_white = 2;
   return 1;
 
  perror_fail:
   cpp_error_from_errno (pfile, ihash->name);
  fail:
   cpp_pop_buffer (pfile);
+ push_fail:
   close (fd);
   return 0;
 }
@@ -727,7 +777,7 @@ actual_directory (pfile, fname)
   struct file_name_list *x;
   
   dir = xstrdup (fname);
-  last_slash = rindex (dir, '/');
+  last_slash = strrchr (dir, '/');
   if (last_slash)
     {
       if (last_slash == dir)
@@ -771,450 +821,6 @@ actual_directory (pfile, fname)
   return x;
 }
 
-/* Determine the current line and column.  Used only by read_and_prescan. */
-static void
-find_position (start, limit, linep, colp)
-     U_CHAR *start;
-     U_CHAR *limit;
-     unsigned long *linep;
-     unsigned long *colp;
-{
-  unsigned long line = *linep, col = 0;
-  while (start < limit)
-    {
-      U_CHAR ch = *start++;
-      if (ch == '\n' || ch == '\r')
-	line++, col = 1;
-      else
-	col++;
-    }
-  *linep = line, *colp = col;
-}
-
-/* Read the entire contents of file DESC into buffer BUF.  LEN is how
-   much memory to allocate initially; more will be allocated if
-   necessary.  Convert end-of-line markers (\n, \r, \r\n, \n\r) to
-   canonical form (\n).  If enabled, convert and/or warn about
-   trigraphs.  Convert backslash-newline to a one-character escape
-   (\r) and remove it from "embarrassing" places (i.e. the middle of a
-   token).  If there is no newline at the end of the file, add one and
-   warn.  Returns -1 on failure, or the actual length of the data to
-   be scanned.
-
-   This function does a lot of work, and can be a serious performance
-   bottleneck.  It has been tuned heavily; make sure you understand it
-   before hacking.  The common case - no trigraphs, Unix style line
-   breaks, backslash-newline set off by whitespace, newline at EOF -
-   has been optimized at the expense of the others.  The performance
-   penalty for DOS style line breaks (\r\n) is about 15%.
-   
-   Warnings lose particularly heavily since we have to determine the
-   line number, which involves scanning from the beginning of the file
-   or from the last warning.  The penalty for the absence of a newline
-   at the end of reload1.c is about 60%.  (reload1.c is 329k.)
-
-   If your file has more than one kind of end-of-line marker, you
-   will get messed-up line numbering.  */
-
-/* Table of characters that can't be handled in the inner loop.
-   Keep these contiguous to optimize the performance of the code generated
-   for the switch that uses them.  */
-#define SPECCASE_EMPTY     0
-#define SPECCASE_NUL       1
-#define SPECCASE_CR        2
-#define SPECCASE_BACKSLASH 3
-#define SPECCASE_QUESTION  4
-
-static long
-read_and_prescan (pfile, fp, desc, len)
-     cpp_reader *pfile;
-     cpp_buffer *fp;
-     int desc;
-     size_t len;
-{
-  U_CHAR *buf = (U_CHAR *) xmalloc (len);
-  U_CHAR *ip, *op, *line_base;
-  U_CHAR *ibase;
-  U_CHAR *speccase = pfile->input_speccase;
-  unsigned long line;
-  unsigned int deferred_newlines;
-  int count;
-  size_t offset;
-
-  offset = 0;
-  op = buf;
-  line_base = buf;
-  line = 1;
-  ibase = pfile->input_buffer + 2;
-  deferred_newlines = 0;
-
-  for (;;)
-    {
-    read_next:
-
-      count = read (desc, pfile->input_buffer + 2, pfile->input_buffer_len);
-      if (count < 0)
-	goto error;
-      else if (count == 0)
-	break;
-
-      offset += count;
-      ip = ibase;
-      ibase = pfile->input_buffer + 2;
-      ibase[count] = ibase[count+1] = '\0';
-
-      if (offset > len)
-	{
-	  size_t delta_op;
-	  size_t delta_line_base;
-	  len *= 2;
-	  if (offset > len)
-	    /* len overflowed.
-	       This could happen if the file is larger than half the
-	       maximum address space of the machine. */
-	    goto too_big;
-
-	  delta_op = op - buf;
-	  delta_line_base = line_base - buf;
-	  buf = (U_CHAR *) xrealloc (buf, len);
-	  op = buf + delta_op;
-	  line_base = buf + delta_line_base;
-	}
-
-      for (;;)
-	{
-	  unsigned int span = 0;
-
-	  /* Deal with \-newline in the middle of a token. */
-	  if (deferred_newlines)
-	    {
-	      while (speccase[ip[span]] == SPECCASE_EMPTY
-		     && ip[span] != '\n'
-		     && ip[span] != '\t'
-		     && ip[span] != ' ')
-		span++;
-	      memcpy (op, ip, span);
-	      op += span;
-	      ip += span;
-	      if (*ip == '\n' || *ip == '\t'
-		  || *ip == ' ' || *ip == ' ')
-		while (deferred_newlines)
-		  deferred_newlines--, *op++ = '\r';
-	      span = 0;
-	    }
-
-	  /* Copy as much as we can without special treatment. */
-	  while (speccase[ip[span]] == SPECCASE_EMPTY) span++;
-	  memcpy (op, ip, span);
-	  op += span;
-	  ip += span;
-
-	  switch (speccase[*ip++])
-	    {
-	    case SPECCASE_NUL:  /* \0 */
-	      ibase[-1] = op[-1];
-	      goto read_next;
-
-	    case SPECCASE_CR:  /* \r */
-	      if (*ip == '\n')
-		ip++;
-	      else if (*ip == '\0')
-		{
-		  *--ibase = '\r';
-		  goto read_next;
-		}
-	      else if (ip[-2] == '\n')
-		continue;
-	      *op++ = '\n';
-	      break;
-
-	    case SPECCASE_BACKSLASH:  /* \ */
-	    backslash:
-	    {
-	      /* If we're at the end of the intermediate buffer,
-		 we have to shift the backslash down to the start
-		 and come back next pass. */
-	      if (*ip == '\0')
-		{
-		  *--ibase = '\\';
-		  goto read_next;
-		}
-	      else if (*ip == '\n')
-		{
-		  ip++;
-		  if (*ip == '\r') ip++;
-		  if (*ip == '\n' || *ip == '\t' || *ip == ' ')
-		    *op++ = '\r';
-		  else if (op[-1] == '\t' || op[-1] == ' '
-			   || op[-1] == '\r' || op[-1] == '\n')
-		    *op++ = '\r';
-		  else
-		    deferred_newlines++;
-		  line++;
-		  line_base = op;
-		}
-	      else if (*ip == '\r')
-		{
-		  ip++;
-		  if (*ip == '\n') ip++;
-		  else if (*ip == '\0')
-		    {
-		      *--ibase = '\r';
-		      *--ibase = '\\';
-		      goto read_next;
-		    }
-		  else if (*ip == '\r' || *ip == '\t' || *ip == ' ')
-		    *op++ = '\r';
-		  else
-		    deferred_newlines++;
-		  line++;
-		  line_base = op;
-		}
-	      else
-		*op++ = '\\';
-	    }
-	    break;
-
-	    case SPECCASE_QUESTION: /* ? */
-	      {
-		unsigned int d, t;
-		/* If we're at the end of the intermediate buffer,
-		   we have to shift the ?'s down to the start and
-		   come back next pass. */
-		d = ip[0];
-		if (d == '\0')
-		  {
-		    *--ibase = '?';
-		    goto read_next;
-		  }
-		if (d != '?')
-		  {
-		    *op++ = '?';
-		    break;
-		  }
-		d = ip[1];
-		if (d == '\0')
-		  {
-		    *--ibase = '?';
-		    *--ibase = '?';
-		    goto read_next;
-		  }
-
-		/* Trigraph map:
-		 *	from	to	from	to	from	to
-		 *	?? =	#	?? )	]	?? !	|
-		 *	?? (	[	?? '	^	?? >	}
-		 *	?? /	\	?? <	{	?? -	~
-		 */
-		if (d == '=') t = '#';
-		else if (d == ')') t = ']';
-		else if (d == '!') t = '|';
-		else if (d == '(') t = '[';
-		else if (d == '\'') t = '^';
-		else if (d == '>') t = '}';
-		else if (d == '/') t = '\\';
-		else if (d == '<') t = '{';
-		else if (d == '-') t = '~';
-		else
-		  {
-		    *op++ = '?';
-		    break;
-		  }
-		if (CPP_OPTIONS (pfile)->warn_trigraphs)
-		  {
-		    unsigned long col;
-		    find_position (line_base, op, &line, &col);
-		    line_base = op - col;
-		    cpp_warning_with_line (pfile, line, col,
-					   "trigraph ??%c encountered", d);
-		  }
-		if (CPP_OPTIONS (pfile)->trigraphs)
-		  {
-		    if (t == '\\')
-		      goto backslash;
-		    else
-		      *op++ = t;
-		  }
-		else
-		  {
-		    *op++ = '?';
-		    *op++ = '?';
-		    *op++ = d;
-		  }
-		ip += 2;
-	      }
-	    }
-	}
-    }
-
-  if (offset == 0)
-    return 0;
-
-  /* Deal with pushed-back chars at true EOF.
-     This may be any of:  ?? ? \ \r \n \\r \\n.
-     \r must become \n, \\r or \\n must become \r.
-     We know we have space already. */
-  if (ibase == pfile->input_buffer)
-    {
-      if (*ibase == '?')
-	{
-	  *op++ = '?';
-	  *op++ = '?';
-	}
-      else
-	*op++ = '\r';
-    }
-  else if (ibase == pfile->input_buffer + 1)
-    {
-      if (*ibase == '\r')
-	*op++ = '\n';
-      else
-	*op++ = *ibase;
-    }
-
-  if (op[-1] != '\n')
-    {
-      unsigned long col;
-      find_position (line_base, op, &line, &col);
-      cpp_warning_with_line (pfile, line, col, "no newline at end of file\n");
-      if (offset + 1 > len)
-	{
-	  len += 1;
-	  if (offset + 1 > len)
-	    goto too_big;
-	  buf = (U_CHAR *) xrealloc (buf, len);
-	  op = buf + offset;
-	}
-      *op++ = '\n';
-    }
-
-  fp->buf = ((len - offset < 20) ? buf : (U_CHAR *)xrealloc (buf, op - buf));
-  return op - buf;
-
- too_big:
-  cpp_error (pfile, "file is too large (>%lu bytes)\n", (unsigned long)offset);
-  free (buf);
-  return -1;
-
- error:
-  cpp_error_from_errno (pfile, fp->fname);
-  free (buf);
-  return -1;
-}
-
-/* Initialize the `input_buffer' and `input_speccase' tables.
-   These are only used by read_and_prescan, but they're large and
-   somewhat expensive to set up, so we want them allocated once for
-   the duration of the cpp run.  */
-
-static void
-initialize_input_buffer (pfile, fd, st)
-     cpp_reader *pfile;
-     int fd;
-     struct stat *st;
-{
-  long pipe_buf;
-  U_CHAR *tmp;
-
-  /* Table of characters that cannot be handled by the
-     read_and_prescan inner loop.  The number of non-EMPTY entries
-     should be as small as humanly possible.  */
-
-  tmp = (U_CHAR *) xmalloc (1 << CHAR_BIT);
-  memset (tmp, SPECCASE_EMPTY, 1 << CHAR_BIT);
-  tmp['\0'] = SPECCASE_NUL;
-  tmp['\r'] = SPECCASE_CR;
-  tmp['\\'] = SPECCASE_BACKSLASH;
-  if (CPP_OPTIONS (pfile)->trigraphs || CPP_OPTIONS (pfile)->warn_trigraphs)
-    tmp['?'] = SPECCASE_QUESTION;
-
-  pfile->input_speccase = tmp;
-
-  /* Determine the appropriate size for the input buffer.  Normal C
-     source files are smaller than eight K.  If we are reading a pipe,
-     we want to make sure the input buffer is bigger than the kernel's
-     pipe buffer.  */
-  pipe_buf = -1;
-
-  if (! S_ISREG (st->st_mode))
-    {
-#ifdef _PC_PIPE_BUF
-      pipe_buf = fpathconf (fd, _PC_PIPE_BUF);
-#endif
-      if (pipe_buf == -1)
-	{
-#ifdef PIPE_BUF
-	  pipe_buf = PIPE_BUF;
-#else
-	  pipe_buf = 8192;
-#endif
-	}
-    }
-
-  if (pipe_buf < 8192)
-    pipe_buf = 8192;
-  /* PIPE_BUF bytes of buffer proper, 2 to detect running off the end
-     without address arithmetic all the time, and 2 for pushback in
-     the case there's a potential trigraph or end-of-line digraph at
-     the end of a block. */
-
-  tmp = (U_CHAR *) xmalloc (pipe_buf + 2 + 2);
-  pfile->input_buffer = tmp;
-  pfile->input_buffer_len = pipe_buf;
-}
-
-/* Add output to `deps_buffer' for the -M switch.
-   STRING points to the text to be output.
-   SPACER is ':' for targets, ' ' for dependencies, zero for text
-   to be inserted literally.  */
-
-void
-deps_output (pfile, string, spacer)
-     cpp_reader *pfile;
-     const char *string;
-     int spacer;
-{
-  int size;
-  int cr = 0;
-
-  if (!*string)
-    return;
-
-  size = strlen (string);
-
-#ifndef MAX_OUTPUT_COLUMNS
-#define MAX_OUTPUT_COLUMNS 72
-#endif
-  if (pfile->deps_column > 0
-      && (pfile->deps_column + size) > MAX_OUTPUT_COLUMNS)
-    {
-      cr = 5;
-      pfile->deps_column = 0;
-    }
-
-  if (pfile->deps_size + size + cr + 8 > pfile->deps_allocated_size)
-    {
-      pfile->deps_allocated_size = (pfile->deps_size + size + 50) * 2;
-      pfile->deps_buffer = (char *) xrealloc (pfile->deps_buffer,
-					      pfile->deps_allocated_size);
-    }
-
-  if (cr)
-    {
-      bcopy (" \\\n  ", &pfile->deps_buffer[pfile->deps_size], 5);
-      pfile->deps_size += 5;
-    }
-  
-  if (spacer == ' ' && pfile->deps_column > 0)
-    pfile->deps_buffer[pfile->deps_size++] = ' ';
-  bcopy (string, &pfile->deps_buffer[pfile->deps_size], size);
-  pfile->deps_size += size;
-  pfile->deps_column += size;
-  if (spacer == ':')
-    pfile->deps_buffer[pfile->deps_size++] = ':';
-  pfile->deps_buffer[pfile->deps_size] = 0;
-}
-
 /* Simplify a path name in place, deleting redundant components.  This
    reduces OS overhead and guarantees that equivalent paths compare
    the same (modulo symlinks).
@@ -1230,7 +836,7 @@ deps_output (pfile, string, spacer)
    of the string.
  */
 void
-simplify_pathname (path)
+_cpp_simplify_pathname (path)
     char *path;
 {
     char *from, *to;
@@ -1384,20 +990,20 @@ hack_vms_include_specification (fullname)
   check_filename_before_returning = 0;
   must_revert = 0;
   /* See if we can find a 1st slash. If not, there's no path information.  */
-  first_slash = index (fullname, '/');
+  first_slash = strchr (fullname, '/');
   if (first_slash == 0)
     return 0;				/* Nothing to do!!! */
 
   /* construct device spec if none given.  */
 
-  if (index (fullname, ':') == 0)
+  if (strchr (fullname, ':') == 0)
     {
 
       /* If fullname has a slash, take it as device spec.  */
 
       if (first_slash == fullname)
 	{
-	  first_slash = index (fullname+1, '/');	/* 2nd slash ? */
+	  first_slash = strchr (fullname + 1, '/');	/* 2nd slash ? */
 	  if (first_slash)
 	    *first_slash = ':';				/* make device spec  */
 	  for (basename = fullname; *basename != 0; basename++)
@@ -1517,7 +1123,7 @@ hack_vms_include_specification (fullname)
      in the "root" directory.  Otherwise, we need to add
      directory specifications.  */
 
-  if (index (unixname, '/') == 0)
+  if (strchr (unixname, '/') == 0)
     {
       /* if no directories specified yet and none are following.  */
       if (local_ptr[-1] == '[')
@@ -1532,7 +1138,7 @@ hack_vms_include_specification (fullname)
     {
 
       /* As long as there are still subdirectories to add, do them.  */
-      while (index (unixname, '/') != 0)
+      while (strchr (unixname, '/') != 0)
 	{
 	  /* If this token is "." we can ignore it
 	       if it's not at the beginning of a path.  */
@@ -1603,7 +1209,7 @@ hack_vms_include_specification (fullname)
 
   if (check_filename_before_returning)
     {
-      f = open (fullname, O_RDONLY, 0666);
+      f = open (fullname, O_RDONLY|O_NONBLOCK);
       if (f >= 0)
 	{
 	  /* The file name is OK as it is, so return it as is.  */
@@ -1614,8 +1220,8 @@ hack_vms_include_specification (fullname)
       /* The filename did not work.  Try to remove the [000000] from the name,
 	 and return it.  */
 
-      basename = index (fullname, '[');
-      local_ptr = index (fullname, ']') + 1;
+      basename = strchr (fullname, '[');
+      local_ptr = strchr (fullname, ']') + 1;
       strcpy (basename, local_ptr);		/* this gets rid of it */
 
     }

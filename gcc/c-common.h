@@ -1,5 +1,6 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987, 93-95, 97-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -72,6 +73,13 @@ extern tree c_global_trees[CTI_MAX];
 #define void_ftype_ptr			c_global_trees[CTI_VOID_FTYPE_PTR]
 #define int_ftype_int			c_global_trees[CTI_INT_FTYPE_INT]
 #define ptr_ftype_sizetype		c_global_trees[CTI_PTR_FTYPE_SIZETYPE]
+
+/* Pointer to function to generate the VAR_DECL for __FUNCTION__ etc.
+   ID is the identifier to use, NAME is the string.
+   TYPE_DEP indicates whether it depends on type of the function or not
+   (i.e. __PRETTY_FUNCTION__).  */
+
+extern tree (*make_fname_decl)                  PARAMS ((tree, const char *, int));
 
 extern void declare_function_name		PARAMS ((void));
 extern void decl_attributes			PARAMS ((tree, tree, tree));

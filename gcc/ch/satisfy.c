@@ -1,5 +1,5 @@
 /* Name-satisfaction for GNU Chill compiler.
-   Copyright (C) 1993, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -36,11 +36,11 @@ struct decl_chain
 };
 
 /* forward declarations */
-static tree satisfy		PROTO ((tree, struct decl_chain *));
-static void cycle_error_print	PROTO ((struct decl_chain *, tree));
-static tree safe_satisfy_decl	PROTO ((tree, struct decl_chain *));
-static void satisfy_list	PROTO ((tree, struct decl_chain *));
-static void satisfy_list_values	PROTO ((tree, struct decl_chain *));
+static tree satisfy		PARAMS ((tree, struct decl_chain *));
+static void cycle_error_print	PARAMS ((struct decl_chain *, tree));
+static tree safe_satisfy_decl	PARAMS ((tree, struct decl_chain *));
+static void satisfy_list	PARAMS ((tree, struct decl_chain *));
+static void satisfy_list_values	PARAMS ((tree, struct decl_chain *));
 
 static struct decl_chain dummy_chain;
 #define LOOKUP_ONLY (chain==&dummy_chain)
@@ -186,6 +186,8 @@ safe_satisfy_decl (decl, prev_chain)
 		}
 	      /* DECL_SIZE is set to prevent re-doing this stuff. */
 	      DECL_SIZE (decl) = TYPE_SIZE (TREE_TYPE (decl));
+	      DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl));
+
 	      if (! TREE_CONSTANT (DECL_INITIAL (decl))
 		  && TREE_CODE (DECL_INITIAL (decl)) != ERROR_MARK)
 		{
@@ -533,8 +535,7 @@ satisfy (exp, chain)
 	    /* if we have an ACCESS or TEXT mode we have to set
 	       maximum_field_alignment to 0 to fit with runtime
 	       system, even when we compile with -fpack. */
-	    extern int maximum_field_alignment;
-	    int save_maximum_field_alignment = maximum_field_alignment;
+	    unsigned int save_maximum_field_alignment = maximum_field_alignment;
 
 	    if (CH_IS_ACCESS_MODE (exp) || CH_IS_TEXT_MODE (exp))
 	      maximum_field_alignment = 0;

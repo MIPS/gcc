@@ -77,6 +77,7 @@ extern void sparc_flat_save_restore PARAMS ((FILE *, const char *,
 					     const char *, unsigned long));
 
 #ifdef RTX_CODE
+extern enum machine_mode select_cc_mode PARAMS ((enum rtx_code, rtx, rtx));
 /* Define the function that build the compare insn for scc and bcc.  */
 extern rtx gen_compare_reg PARAMS ((enum rtx_code code, rtx, rtx));
 extern void sparc_emit_float_lib_cmp PARAMS ((rtx, rtx, enum rtx_code));
@@ -95,6 +96,7 @@ extern int sparc_splitdi_legitimate PARAMS ((rtx, rtx));
 extern int sparc_absnegfloat_split_legitimate PARAMS ((rtx, rtx));
 extern char *output_cbranch PARAMS ((rtx, int, int, int, int, rtx));
 extern const char *output_return PARAMS ((rtx *));
+extern const char *output_sibcall PARAMS ((rtx, rtx));
 extern char *output_v9branch PARAMS ((rtx, int, int, int, int, int, rtx));
 extern void emit_v9_brxx_insn PARAMS ((enum rtx_code, rtx, rtx));
 extern void output_double_int PARAMS ((FILE *, rtx));
@@ -120,10 +122,11 @@ extern int cc_arithopn PARAMS ((rtx, enum machine_mode));
 extern int data_segment_operand PARAMS ((rtx, enum machine_mode));
 extern int eligible_for_epilogue_delay PARAMS ((rtx, int));
 extern int eligible_for_return_delay PARAMS ((rtx));
+extern int eligible_for_sibcall_delay PARAMS ((rtx));
 extern int emit_move_sequence PARAMS ((rtx, enum machine_mode));
 extern int extend_op PARAMS ((rtx, enum machine_mode));
 extern int fcc_reg_operand PARAMS ((rtx, enum machine_mode));
-extern int fp_zero_operand PARAMS ((rtx));
+extern int fp_zero_operand PARAMS ((rtx, enum machine_mode));
 extern int fp_sethi_p PARAMS ((rtx));
 extern int fp_mov_p PARAMS ((rtx));
 extern int fp_high_losum_p PARAMS ((rtx));

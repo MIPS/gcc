@@ -1,6 +1,6 @@
 /* Handle verification of bytecoded methods for the GNU compiler for 
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,11 +33,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "toplev.h"
 
-static void push_pending_label PROTO ((tree));
-static tree merge_types PROTO ((tree, tree));
-static const char *check_pending_block PROTO ((tree));
-static void type_stack_dup PROTO ((int, int));
-static int start_pc_cmp PROTO ((const PTR, const PTR));
+static void push_pending_label PARAMS ((tree));
+static tree merge_types PARAMS ((tree, tree));
+static const char *check_pending_block PARAMS ((tree));
+static void type_stack_dup PARAMS ((int, int));
+static int start_pc_cmp PARAMS ((const PTR, const PTR));
 
 extern int stack_pointer;
 
@@ -940,11 +940,10 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	    pop_argument_types (TYPE_ARG_TYPES (method_type));
 
 	    /* Can't invoke <clinit> */
-	    if (method_name == clinit_identifier_node)
+	    if (ID_CLINIT_P (method_name))
 	      VERIFICATION_ERROR ("invoke opcode can't invoke <clinit>");
 	    /* Apart invokespecial, can't invoke <init> */
-	    if (op_code != OPCODE_invokespecial
-		&& method_name == init_identifier_node)
+	    if (op_code != OPCODE_invokespecial && ID_INIT_P (method_name))
 	      VERIFICATION_ERROR ("invoke opcode can't invoke <init>");
 
 	    if (op_code != OPCODE_invokestatic)

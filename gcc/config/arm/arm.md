@@ -3804,11 +3804,11 @@
       && (CONSTANT_P (operands[1])
 	 || symbol_mentioned_p (operands[1])
 	 || label_mentioned_p (operands[1])))
-    operands[1] = legitimize_pic_address
-      (operands[1], SImode, ((reload_in_progress || reload_completed)
-			     ? operands[0] : 0));
-  "
-)
+    operands[1] = legitimize_pic_address (operands[1], SImode,
+					  ((reload_in_progress
+					    || reload_completed)
+					   ? operands[0] : 0));
+")
 
 (define_insn "*arm_movsi_insn"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,m")
@@ -5960,10 +5960,10 @@
     if (operands[3] == 0)
       operands[3] = const0_rtx;
       
-     /* See the comment in define_expand \"call\" */
-     if (GET_CODE (callee) != REG
-         && arm_is_longcall_p (operands[1], INTVAL (operands[3]), 0))
-       XEXP (operands[1], 0) = force_reg (Pmode, callee);
+    /* See the comment in define_expand \"call\".  */
+    if (GET_CODE (callee) != REG
+	&& arm_is_longcall_p (operands[1], INTVAL (operands[3]), 0))
+      XEXP (operands[1], 0) = force_reg (Pmode, callee);
   }"
 )
 
@@ -7980,6 +7980,22 @@
   [(set_attr "length" "44")
    (set_attr "type" "block")]
 )
+
+(define_expand "eh_epilogue"
+  [(use (match_operand:SI 0 "register_operand" "r"))
+   (use (match_operand:SI 1 "register_operand" "r"))
+   (use (match_operand:SI 2 "register_operand" "r"))]
+  "TARGET_EITHER"
+  "
+{
+  cfun->machine->eh_epilogue_sp_ofs = operands[1];
+  if (GET_CODE (operands[2]) != REG || REGNO (operands[2]) != 2)
+    {
+      rtx ra = gen_rtx_REG (Pmode, 2);
+      emit_move_insn (ra, operands[2]);
+      operands[2] = ra;
+    }
+}")
 
 ;; This split is only used during output to reduce the number of patterns
 ;; that need assembler instructions adding to them.  We allowed the setting

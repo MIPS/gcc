@@ -1,5 +1,6 @@
 /* Emit RTL for the GNU C-Compiler expander.
-   Copyright (C) 1987, 88, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -166,10 +167,11 @@ static rtx free_insn;
 /* This is where the pointer to the obstack being used for RTL is stored.  */
 extern struct obstack *rtl_obstack;
 
-static rtx make_jump_insn_raw		PROTO((rtx));
-static rtx make_call_insn_raw		PROTO((rtx));
-static rtx find_line_note		PROTO((rtx));
-static void mark_sequence_stack         PROTO((struct sequence_stack *));
+static rtx make_jump_insn_raw		PARAMS ((rtx));
+static rtx make_call_insn_raw		PARAMS ((rtx));
+static rtx find_line_note		PARAMS ((rtx));
+static void mark_sequence_stack         PARAMS ((struct sequence_stack *));
+static void unshare_all_rtl_1		PARAMS ((rtx));
 
 /* There are some RTL codes that require special attention; the generation
    functions do the raw handling.  If you add to this list, modify
@@ -298,7 +300,7 @@ gen_rtx_MEM (mode, addr)
 
 /*VARARGS2*/
 rtx
-gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
+gen_rtx VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 {
 #ifndef ANSI_PROTOTYPES
   enum rtx_code code;
@@ -399,7 +401,7 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 
 /*VARARGS1*/
 rtvec
-gen_rtvec VPROTO((int n, ...))
+gen_rtvec VPARAMS ((int n, ...))
 {
 #ifndef ANSI_PROTOTYPES
   int n;
@@ -1218,9 +1220,9 @@ operand_subword (op, i, validate_address, mode)
      are defined as returning one or two 32 bit values, respectively,
      and not values of BITS_PER_WORD bits.  */
 #ifdef REAL_ARITHMETIC
-/*  The output is some bits, the width of the target machine's word.
-    A wider-word host can surely hold them in a CONST_INT. A narrower-word
-    host can't.  */
+  /* The output is some bits, the width of the target machine's word.
+     A wider-word host can surely hold them in a CONST_INT. A narrower-word
+     host can't.  */
   if (HOST_BITS_PER_WIDE_INT >= BITS_PER_WORD
       && GET_MODE_CLASS (mode) == MODE_FLOAT
       && GET_MODE_BITSIZE (mode) == 64
@@ -1271,22 +1273,31 @@ operand_subword (op, i, validate_address, mode)
 	   && GET_MODE_CLASS (mode) == MODE_FLOAT
 	   && GET_MODE_BITSIZE (mode) > 64
 	   && GET_CODE (op) == CONST_DOUBLE)
-  {
-    long k[4];
-    REAL_VALUE_TYPE rv;
+    {
+      long k[4];
+      REAL_VALUE_TYPE rv;
 
-    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-    REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
+      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
 
-    if (BITS_PER_WORD == 32)
-      {
-	val = k[i];
-	val = ((val & 0xffffffff) ^ 0x80000000) - 0x80000000;
-	return GEN_INT (val);
-      }
-    else
-      abort ();
-  }
+      if (BITS_PER_WORD == 32)
+	{
+	  val = k[i];
+	  val = ((val & 0xffffffff) ^ 0x80000000) - 0x80000000;
+	  return GEN_INT (val);
+	}
+#if HOST_BITS_PER_WIDE_INT >= 64
+      else if (BITS_PER_WORD >= 64 && i <= 1)
+	{
+	  val = k[i*2 + ! WORDS_BIG_ENDIAN];
+	  val = (((val & 0xffffffff) ^ 0x80000000) - 0x80000000) << 32;
+	  val |= (HOST_WIDE_INT) k[i*2 + WORDS_BIG_ENDIAN] & 0xffffffff;
+	  return GEN_INT (val);
+	}
+#endif
+      else
+	abort ();
+    }
 #else /* no REAL_ARITHMETIC */
   if (((HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT
 	&& HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
@@ -1601,23 +1612,25 @@ free_emit_status (f)
   f->emit = NULL;
 }
 
-/* Go through all the RTL insn bodies and copy any invalid shared structure.
-   It does not work to do this twice, because the mark bits set here
-   are not cleared afterwards.  */
+/* Go through all the RTL insn bodies and copy any invalid shared 
+   structure.  This routine should only be called once.  */
 
 void
-unshare_all_rtl (insn)
-     register rtx insn;
+unshare_all_rtl (fndecl, insn)
+     tree fndecl;
+     rtx insn;
 {
-  for (; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
-	|| GET_CODE (insn) == CALL_INSN)
-      {
-	PATTERN (insn) = copy_rtx_if_shared (PATTERN (insn));
-	REG_NOTES (insn) = copy_rtx_if_shared (REG_NOTES (insn));
-	LOG_LINKS (insn) = copy_rtx_if_shared (LOG_LINKS (insn));
-      }
+  tree decl;
 
+  /* Make sure that virtual parameters are not shared.  */
+  for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
+    {
+      copy_rtx_if_shared (DECL_RTL (decl));
+    }
+
+  /* Unshare just about everything else.  */
+  unshare_all_rtl_1 (insn);
+  
   /* Make sure the addresses of stack slots found outside the insn chain
      (such as, in DECL_RTL of a variable) are not shared
      with the insn chain.
@@ -1625,8 +1638,42 @@ unshare_all_rtl (insn)
      This special care is necessary when the stack slot MEM does not
      actually appear in the insn chain.  If it does appear, its address
      is unshared from all else at that point.  */
-
   copy_rtx_if_shared (stack_slot_list);
+}
+
+/* Go through all the RTL insn bodies and copy any invalid shared 
+   structure, again.  This is a fairly expensive thing to do so it
+   should be done sparingly.  */
+
+void
+unshare_all_rtl_again (insn)
+     rtx insn;
+{
+  rtx p;
+  for (p = insn; p; p = NEXT_INSN (p))
+    if (GET_RTX_CLASS (GET_CODE (p)) == 'i')
+      {
+	reset_used_flags (PATTERN (p));
+	reset_used_flags (REG_NOTES (p));
+	reset_used_flags (LOG_LINKS (p));
+      }
+  unshare_all_rtl_1 (insn);
+}
+
+/* Go through all the RTL insn bodies and copy any invalid shared structure.
+   Assumes the mark bits are cleared at entry.  */
+
+static void
+unshare_all_rtl_1 (insn)
+     rtx insn;
+{
+  for (; insn; insn = NEXT_INSN (insn))
+    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      {
+	PATTERN (insn) = copy_rtx_if_shared (PATTERN (insn));
+	REG_NOTES (insn) = copy_rtx_if_shared (REG_NOTES (insn));
+	LOG_LINKS (insn) = copy_rtx_if_shared (LOG_LINKS (insn));
+      }
 }
 
 /* Mark ORIG as in use, and return a copy of it if it was already in use.
@@ -2038,6 +2085,17 @@ prev_real_insn (insn)
    does not look inside SEQUENCEs.  Until reload has completed, this is the
    same as next_real_insn.  */
 
+int
+active_insn_p (insn)
+     rtx insn;
+{
+  return (GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN
+	  || (GET_CODE (insn) == INSN
+	      && (! reload_completed
+		  || (GET_CODE (PATTERN (insn)) != USE
+		      && GET_CODE (PATTERN (insn)) != CLOBBER))));
+}
+
 rtx
 next_active_insn (insn)
      rtx insn;
@@ -2045,12 +2103,7 @@ next_active_insn (insn)
   while (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn == 0
-	  || GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN
-	  || (GET_CODE (insn) == INSN
-	      && (! reload_completed
-		  || (GET_CODE (PATTERN (insn)) != USE
-		      && GET_CODE (PATTERN (insn)) != CLOBBER))))
+      if (insn == 0 || active_insn_p (insn))
 	break;
     }
 
@@ -2068,12 +2121,7 @@ prev_active_insn (insn)
   while (insn)
     {
       insn = PREV_INSN (insn);
-      if (insn == 0
-	  || GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN
-	  || (GET_CODE (insn) == INSN
-	      && (! reload_completed
-		  || (GET_CODE (PATTERN (insn)) != USE
-		      && GET_CODE (PATTERN (insn)) != CLOBBER))))
+      if (insn == 0 || active_insn_p (insn))
 	break;
     }
 
@@ -2258,7 +2306,9 @@ try_split (pat, trial, last)
 
       /* Return either the first or the last insn, depending on which was
 	 requested.  */
-      return last ? prev_active_insn (after) : next_active_insn (before);
+      return last 
+		? (after ? prev_active_insn (after) : last_insn) 
+		: next_active_insn (before);
     }
 
   return trial;
@@ -2289,6 +2339,18 @@ make_insn_raw (pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
 
+#ifdef ENABLE_RTL_CHECKING
+  if (insn
+      && GET_RTX_CLASS (GET_CODE (insn)) == 'i'
+      && (returnjump_p (insn)
+	  || (GET_CODE (insn) == SET
+	      && SET_DEST (insn) == pc_rtx)))
+    {
+      warning ("ICE: emit_insn used where emit_jump_insn needed:\n");
+      debug_rtx (insn);
+    }
+#endif
+  
   return insn;
 }
 
@@ -2605,9 +2667,8 @@ remove_unncessary_notes ()
   rtx insn;
   rtx next;
 
-  /* Remove NOTE_INSN_DELETED notes.  We must not remove the first
-     instruction in the function because the compiler depends on the
-     first instruction being a note.  */
+  /* We must not remove the first instruction in the function because
+     the compiler depends on the first instruction being a note.  */
   for (insn = NEXT_INSN (get_insns ()); insn; insn = next)
     {
       /* Remember what's next.  */
@@ -2617,8 +2678,66 @@ remove_unncessary_notes ()
       if (GET_CODE (insn) != NOTE)
 	continue;
 
+      /* By now, all notes indicating lexical blocks should have
+	 NOTE_BLOCK filled in.  */
+      if ((NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
+	   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
+	  && NOTE_BLOCK (insn) == NULL_TREE)
+	abort ();
+
+      /* Remove NOTE_INSN_DELETED notes.  */
       if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED)
 	remove_insn (insn);
+      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
+	{
+	  /* Scan back to see if there are any non-note instructions
+	     between INSN and the beginning of this block.  If not,
+	     then there is no PC range in the generated code that will
+	     actually be in this block, so there's no point in
+	     remembering the existence of the block.  */
+	  rtx prev;
+
+	  for (prev = PREV_INSN (insn); prev; prev = PREV_INSN (prev))
+	    {
+	      /* This block contains a real instruction.  Note that we
+		 don't include labels; if the only thing in the block
+		 is a label, then there are still no PC values that
+		 lie within the block.  */
+	      if (GET_RTX_CLASS (GET_CODE (prev)) == 'i')
+		break;
+
+	      /* We're only interested in NOTEs.  */
+	      if (GET_CODE (prev) != NOTE)
+		continue;
+
+	      if (NOTE_LINE_NUMBER (prev) == NOTE_INSN_BLOCK_BEG)
+		{
+		  /* If the BLOCKs referred to by these notes don't
+		     match, then something is wrong with our BLOCK
+		     nesting structure.  */
+		  if (NOTE_BLOCK (prev) != NOTE_BLOCK (insn))
+		    abort ();
+
+		  /* Never delete the BLOCK for the outermost scope
+		     of the function; we can refer to names from
+		     that scope even if the block notes are messed up.  */
+		  if (! is_body_block (NOTE_BLOCK (insn)))
+		    {
+		      debug_ignore_block (NOTE_BLOCK (insn));
+
+		      remove_insn (prev);
+		      remove_insn (insn);
+		    }
+		  break;
+		}
+	      else if (NOTE_LINE_NUMBER (prev) == NOTE_INSN_BLOCK_END)
+		/* There's a nested block.  We need to leave the
+		   current block in place since otherwise the debugger
+		   wouldn't be able to show symbols from our block in
+		   the nested block.  */
+		break;
+	    }
+	}
     }
 }
 
@@ -2897,7 +3016,7 @@ emit_note_after (subtype, after)
 
 rtx
 emit_line_note_after (file, line, after)
-     char *file;
+     const char *file;
      int line;
      rtx after;
 {
@@ -3096,7 +3215,7 @@ emit_barrier ()
 
 rtx
 emit_line_note (file, line)
-     char *file;
+     const char *file;
      int line;
 {
   set_file_and_line_for_stmt (file, line);
@@ -3116,7 +3235,7 @@ emit_line_note (file, line)
 
 rtx
 emit_note (file, line)
-     char *file;
+     const char *file;
      int line;
 {
   register rtx note;
@@ -3148,7 +3267,7 @@ emit_note (file, line)
 
 rtx
 emit_line_note_force (file, line)
-     char *file;
+     const char *file;
      int line;
 {
   last_linenum = -1;
@@ -3303,6 +3422,20 @@ push_to_sequence (first)
   last_insn = last;
 }
 
+/* Set up the insn chain from a chain stort in FIRST to LAST.  */
+
+void
+push_to_full_sequence (first, last)
+     rtx first, last;
+{
+  start_sequence ();
+  first_insn = first;
+  last_insn = last;
+  /* We really should have the end of the insn chain here.  */
+  if (last && NEXT_INSN (last))
+    abort ();
+}
+
 /* Set up the outer-level insn chain
    as the current sequence, saving the previously current one.  */
 
@@ -3363,6 +3496,18 @@ end_sequence ()
   seq_stack = tem->next;
 
   free (tem);
+}
+
+/* This works like end_sequence, but records the old sequence in FIRST
+   and LAST.  */
+
+void
+end_full_sequence (first, last)
+     rtx *first, *last;
+{
+  *first = first_insn;
+  *last = last_insn;
+  end_sequence();
 }
 
 /* Return 1 if currently emitting into a sequence.  */

@@ -1,6 +1,6 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
 This file is part of GNU CC.
@@ -32,31 +32,12 @@ Boston, MA 02111-1307, USA.  */
    do not apply.  */
 
 #include "tconfig.h"
-
-/* We disable this when inhibit_libc, so that gcc can still be built without
-   needing header files first.  */
-/* ??? This is not a good solution, since prototypes may be required in
-   some cases for correct code.  See also libgcc2.c/crtstuff.c.  */
-#ifndef inhibit_libc
-/* fixproto guarantees these system headers exist. */
-#include <stdlib.h>
-#include <unistd.h>
-
-#else
-#include <stddef.h>
-#ifndef malloc
-extern void *malloc (size_t);
-#endif
-#ifndef free
-extern void free (void *);
-#endif
-#endif
+#include "tsystem.h"
 
 #include "defaults.h"
 
 #ifdef DWARF2_UNWIND_INFO
 #include "dwarf2.h"
-#include <stddef.h>
 #include "frame.h"
 #include "gthr.h"
 
@@ -629,12 +610,14 @@ find_fde (void *pc)
 	{
 	  fde **p = ob->fde_array;
 	  
-	  for (; *p; ++p)
+	  do
 	    {
 	      f = search_fdes (*p, pc);
 	      if (f)
 		break;
+	      p++;
 	    }
+	  while (*p);
 	}
       else
 	f = search_fdes (ob->fde_begin, pc);
@@ -711,9 +694,16 @@ execute_cfa_insn (void *p, struct frame_state_internal *state,
     {
       reg = (insn & 0x3f);
       p = decode_uleb128 (p, &offset);
-      offset *= info->data_align;
-      state->s.saved[reg] = REG_SAVED_OFFSET;
-      state->s.reg_or_offset[reg] = offset;
+      if (reg == state->s.cfa_reg)
+	/* Don't record anything about this register; it's only used to
+	   reload SP in the epilogue.  We don't want to copy in SP
+	   values for outer frames; we handle restoring SP specially.  */;
+      else
+	{
+	  offset *= info->data_align;
+	  state->s.saved[reg] = REG_SAVED_OFFSET;
+	  state->s.reg_or_offset[reg] = offset;
+	}
     }
   else if (insn & DW_CFA_restore)
     {
@@ -742,9 +732,14 @@ execute_cfa_insn (void *p, struct frame_state_internal *state,
     case DW_CFA_offset_extended:
       p = decode_uleb128 (p, &reg);
       p = decode_uleb128 (p, &offset);
-      offset *= info->data_align;
-      state->s.saved[reg] = REG_SAVED_OFFSET;
-      state->s.reg_or_offset[reg] = offset;
+      if (reg == state->s.cfa_reg)
+	/* Don't record anything; see above.  */;
+      else
+	{
+	  offset *= info->data_align;
+	  state->s.saved[reg] = REG_SAVED_OFFSET;
+	  state->s.reg_or_offset[reg] = offset;
+	}
       break;
     case DW_CFA_restore_extended:
       p = decode_uleb128 (p, &reg);
@@ -810,6 +805,14 @@ execute_cfa_insn (void *p, struct frame_state_internal *state,
     case DW_CFA_GNU_args_size:
       p = decode_uleb128 (p, &offset);
       state->s.args_size = offset;
+      break;
+
+    case DW_CFA_GNU_negative_offset_extended:
+      p = decode_uleb128 (p, &reg);
+      p = decode_uleb128 (p, &offset);
+      offset *= info->data_align;
+      state->s.saved[reg] = REG_SAVED_OFFSET;
+      state->s.reg_or_offset[reg] = -offset;
       break;
 
     default:

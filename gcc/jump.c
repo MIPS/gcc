@@ -1,5 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
-   Copyright (C) 1987, 88, 89, 91-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -107,30 +108,30 @@ int can_reach_end;
 
 static int cross_jump_death_matters = 0;
 
-static int init_label_info		PROTO((rtx));
-static void delete_barrier_successors	PROTO((rtx));
-static void mark_all_labels		PROTO((rtx, int));
-static rtx delete_unreferenced_labels	PROTO((rtx));
-static void delete_noop_moves		PROTO((rtx));
-static int calculate_can_reach_end	PROTO((rtx, int, int));
-static int duplicate_loop_exit_test	PROTO((rtx));
-static void find_cross_jump		PROTO((rtx, rtx, int, rtx *, rtx *));
-static void do_cross_jump		PROTO((rtx, rtx, rtx));
-static int jump_back_p			PROTO((rtx, rtx));
-static int tension_vector_labels	PROTO((rtx, int));
-static void mark_jump_label		PROTO((rtx, rtx, int));
-static void delete_computation		PROTO((rtx));
-static void delete_from_jump_chain	PROTO((rtx));
-static int delete_labelref_insn		PROTO((rtx, rtx, int));
-static void mark_modified_reg		PROTO((rtx, rtx, void *));
-static void redirect_tablejump		PROTO((rtx, rtx));
-static void jump_optimize_1		PROTO ((rtx, int, int, int, int));
+static int init_label_info		PARAMS ((rtx));
+static void delete_barrier_successors	PARAMS ((rtx));
+static void mark_all_labels		PARAMS ((rtx, int));
+static rtx delete_unreferenced_labels	PARAMS ((rtx));
+static void delete_noop_moves		PARAMS ((rtx));
+static int calculate_can_reach_end	PARAMS ((rtx, int));
+static int duplicate_loop_exit_test	PARAMS ((rtx));
+static void find_cross_jump		PARAMS ((rtx, rtx, int, rtx *, rtx *));
+static void do_cross_jump		PARAMS ((rtx, rtx, rtx));
+static int jump_back_p			PARAMS ((rtx, rtx));
+static int tension_vector_labels	PARAMS ((rtx, int));
+static void mark_jump_label		PARAMS ((rtx, rtx, int, int));
+static void delete_computation		PARAMS ((rtx));
+static void delete_from_jump_chain	PARAMS ((rtx));
+static int delete_labelref_insn		PARAMS ((rtx, rtx, int));
+static void mark_modified_reg		PARAMS ((rtx, rtx, void *));
+static void redirect_tablejump		PARAMS ((rtx, rtx));
+static void jump_optimize_1		PARAMS ((rtx, int, int, int, int, int));
 #if ! defined(HAVE_cc0) && ! defined(HAVE_conditional_arithmetic)
-static rtx find_insert_position         PROTO((rtx, rtx));
+static rtx find_insert_position         PARAMS ((rtx, rtx));
 #endif
-static int returnjump_p_1	        PROTO((rtx *, void *));
-static void delete_prior_computation    PROTO((rtx, rtx));
-
+static int returnjump_p_1	        PARAMS ((rtx *, void *));
+static void delete_prior_computation    PARAMS ((rtx, rtx));
+
 /* Main external entry point into the jump optimizer.  See comments before
    jump_optimize_1 for descriptions of the arguments.  */
 void
@@ -140,7 +141,7 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
      int noop_moves;
      int after_regscan;
 {
-  jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, 0);
+  jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, 0, 0);
 }
 
 /* Alternate entry into the jump optimizer.  This entry point only rebuilds
@@ -150,9 +151,16 @@ void
 rebuild_jump_labels (f)
      rtx f;
 {
-  jump_optimize_1 (f, 0, 0, 0, 1);
+  jump_optimize_1 (f, 0, 0, 0, 1, 0);
 }
 
+/* Alternate entry into the jump optimizer.  Do only trivial optimizations.  */
+void
+jump_optimize_minimal (f)
+     rtx f;
+{
+  jump_optimize_1 (f, 0, 0, 0, 0, 1);
+}
 
 /* Delete no-op jumps and optimize jumps to jumps
    and jumps around jumps.
@@ -174,15 +182,29 @@ rebuild_jump_labels (f)
    just determine whether control drops off the end of the function.
    This case occurs when we have -W and not -O.
    It works because `delete_insn' checks the value of `optimize'
-   and refrains from actually deleting when that is 0.  */
+   and refrains from actually deleting when that is 0.
+
+   If MINIMAL is nonzero, then we only perform trivial optimizations:
+
+     * Removal of unreachable code after BARRIERs.
+     * Removal of unreferenced CODE_LABELs.
+     * Removal of a jump to the next instruction.
+     * Removal of a conditional jump followed by an unconditional jump
+       to the same target as the conditional jump.
+     * Simplify a conditional jump around an unconditional jump.
+     * Simplify a jump to a jump.
+     * Delete extraneous line number notes.
+  */
 
 static void
-jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
+jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
+		 mark_labels_only, minimal)
      rtx f;
      int cross_jump;
      int noop_moves;
      int after_regscan;
      int mark_labels_only;
+     int minimal;
 {
   register rtx insn, next;
   int changed;
@@ -200,7 +222,8 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
   if (flag_exceptions && cross_jump)
     init_insn_eh_region (f, max_uid);
 
-  delete_barrier_successors (f);
+  if (! mark_labels_only)
+    delete_barrier_successors (f);
 
   /* Leave some extra room for labels and duplicate exit test insns
      we make.  */
@@ -228,44 +251,10 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
   if (mark_labels_only)
     goto end;
 
-  exception_optimize ();
+  if (! minimal)
+    exception_optimize ();
 
   last_insn = delete_unreferenced_labels (f);
-
-  if (optimize == 0)
-    {
-      /* CAN_REACH_END is persistent for each function.  Once set it should
-	 not be cleared.  This is especially true for the case where we
-	 delete the NOTE_FUNCTION_END note.  CAN_REACH_END is cleared by
-	 the front-end before compiling each function.  */
-      if (calculate_can_reach_end (last_insn, 1, 0))
-	can_reach_end = 1;
-
-      /* Zero the "deleted" flag of all the "deleted" insns.  */
-      for (insn = f; insn; insn = NEXT_INSN (insn))
-	INSN_DELETED_P (insn) = 0;
-      
-      goto end;
-    }
-
-#ifdef HAVE_return
-  if (HAVE_return)
-    {
-      /* If we fall through to the epilogue, see if we can insert a RETURN insn
-	 in front of it.  If the machine allows it at this point (we might be
-	 after reload for a leaf routine), it will improve optimization for it
-	 to be there.  */
-      insn = get_last_insn ();
-      while (insn && GET_CODE (insn) == NOTE)
-	insn = PREV_INSN (insn);
-
-      if (insn && GET_CODE (insn) != BARRIER)
-	{
-	  emit_jump_insn (gen_return ());
-	  emit_barrier ();
-	}
-    }
-#endif
 
   if (noop_moves)
     delete_noop_moves (f);
@@ -275,7 +264,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
      This helps some of the optimizations below by having less insns
      being jumped around.  */
 
-  if (! reload_completed && after_regscan)
+  if (optimize && ! reload_completed && after_regscan)
     for (insn = f; insn; insn = next)
       {
 	rtx set = single_set (insn);
@@ -352,6 +341,9 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 	  nlabel = follow_jumps (JUMP_LABEL (insn));
 	  if (nlabel != JUMP_LABEL (insn))
 	    changed |= redirect_jump (insn, nlabel);
+
+	  if (! optimize || ! minimal)
+	    continue;
 
 	  /* If a dispatch table always goes to the same place,
 	     get rid of it and replace the insn that uses it.  */
@@ -986,7 +978,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 	     CALL_INSN, which some machines, such as the ARC, can do, but
 	     this is a very minor optimization.  */
 	  if (this_is_condjump && ! this_is_simplejump
-	      && cse_not_expected && optimize > 0 && ! reload_completed
+	      && cse_not_expected && ! reload_completed
 	      && BRANCH_COST > 2
 	      && can_reverse_comparison_p (XEXP (SET_SRC (PATTERN (insn)), 0),
 					   insn))
@@ -1337,10 +1329,16 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 		   insn?  After all, we're going to delete it.  We'd have
 		   to modify emit_conditional_move to take a comparison rtx
 		   instead or write a new function.  */
-		cond0 = gen_reg_rtx (GET_MODE (XEXP (temp4, 0)));
+
 		/* We want the target to be able to simplify comparisons with
 		   zero (and maybe other constants as well), so don't create
 		   pseudos for them.  There's no need to either.  */
+		if (GET_CODE (XEXP (temp4, 0)) == CONST_INT
+		    || GET_CODE (XEXP (temp4, 0)) == CONST_DOUBLE)
+		  cond0 = XEXP (temp4, 0);
+		else
+		  cond0 = gen_reg_rtx (GET_MODE (XEXP (temp4, 0)));
+
 		if (GET_CODE (XEXP (temp4, 1)) == CONST_INT
 		    || GET_CODE (XEXP (temp4, 1)) == CONST_DOUBLE)
 		  cond1 = XEXP (temp4, 1);
@@ -2008,127 +2006,6 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 #endif
 	  else
 	    {
-	      /* Detect a jump to a jump.  */
-
-	      /* Look for   if (foo) bar; else break;  */
-	      /* The insns look like this:
-		 insn = condjump label1;
-		 ...range1 (some insns)...
-		 jump label2;
-		 label1:
-		 ...range2 (some insns)...
-		 jump somewhere unconditionally
-		 label2:  */
-	      {
-		rtx label1 = next_label (insn);
-		rtx range1end = label1 ? prev_active_insn (label1) : 0;
-		/* Don't do this optimization on the first round, so that
-		   jump-around-a-jump gets simplified before we ask here
-		   whether a jump is unconditional.
-
-		   Also don't do it when we are called after reload since
-		   it will confuse reorg.  */
-		if (! first
-		    && (reload_completed ? ! flag_delayed_branch : 1)
-		    /* Make sure INSN is something we can invert.  */
-		    && condjump_p (insn)
-		    && label1 != 0
-		    && JUMP_LABEL (insn) == label1
-		    && LABEL_NUSES (label1) == 1
-		    && GET_CODE (range1end) == JUMP_INSN
-		    && simplejump_p (range1end))
-		  {
-		    rtx label2 = next_label (label1);
-		    rtx range2end = label2 ? prev_active_insn (label2) : 0;
-		    if (range1end != range2end
-			&& JUMP_LABEL (range1end) == label2
-			&& GET_CODE (range2end) == JUMP_INSN
-			&& GET_CODE (NEXT_INSN (range2end)) == BARRIER
-			/* Invert the jump condition, so we
-			   still execute the same insns in each case.  */
-			&& invert_jump (insn, label1))
-		      {
-			rtx range1beg = next_active_insn (insn);
-			rtx range2beg = next_active_insn (label1);
-			rtx range1after, range2after;
-			rtx range1before, range2before;
-			rtx rangenext;
-
-			/* Include in each range any notes before it, to be
-			   sure that we get the line number note if any, even
-			   if there are other notes here.  */
-			while (PREV_INSN (range1beg)
-			       && GET_CODE (PREV_INSN (range1beg)) == NOTE)
-			  range1beg = PREV_INSN (range1beg);
-
-			while (PREV_INSN (range2beg)
-			       && GET_CODE (PREV_INSN (range2beg)) == NOTE)
-			  range2beg = PREV_INSN (range2beg);
-
-			/* Don't move NOTEs for blocks or loops; shift them
-			   outside the ranges, where they'll stay put.  */
-			range1beg = squeeze_notes (range1beg, range1end);
-			range2beg = squeeze_notes (range2beg, range2end);
-
-			/* Get current surrounds of the 2 ranges.  */
-			range1before = PREV_INSN (range1beg);
-			range2before = PREV_INSN (range2beg);
-			range1after = NEXT_INSN (range1end);
-			range2after = NEXT_INSN (range2end);
-
-			/* Splice range2 where range1 was.  */
-			NEXT_INSN (range1before) = range2beg;
-			PREV_INSN (range2beg) = range1before;
-			NEXT_INSN (range2end) = range1after;
-			PREV_INSN (range1after) = range2end;
-			/* Splice range1 where range2 was.  */
-			NEXT_INSN (range2before) = range1beg;
-			PREV_INSN (range1beg) = range2before;
-			NEXT_INSN (range1end) = range2after;
-			PREV_INSN (range2after) = range1end;
-
-			/* Check for loop notes between the end of
-			   range2, and the next code label.  If there is one,
-			   then what we have really seen is
-			   if (foo) break; end_of_loop;
-			   and moved the break sequence outside the loop.
-			   We must move LOOP_END, LOOP_VTOP and LOOP_CONT
-			   notes (in order) to where the loop really ends now,
-			   or we will confuse loop optimization.  Stop if we
-			   find a LOOP_BEG note first, since we don't want to
-			   move the notes in that case.  */
-			for (;range2after != label2; range2after = rangenext)
-			  {
-			    rangenext = NEXT_INSN (range2after);
-			    if (GET_CODE (range2after) == NOTE)
-			      {
-				int kind = NOTE_LINE_NUMBER (range2after);
-				if (kind == NOTE_INSN_LOOP_END
-				    || kind == NOTE_INSN_LOOP_VTOP
-				    || kind == NOTE_INSN_LOOP_CONT)
-				  {
-				    NEXT_INSN (PREV_INSN (range2after))
-				      = rangenext;
-				    PREV_INSN (rangenext)
-				      = PREV_INSN (range2after);
-				    PREV_INSN (range2after) 
-				      = PREV_INSN (range1beg);
-				    NEXT_INSN (range2after) = range1beg;
-				    NEXT_INSN (PREV_INSN (range1beg))
-				      = range2after;
-				    PREV_INSN (range1beg) = range2after;
-				  }
-				else if (NOTE_LINE_NUMBER (range2after)
-					 == NOTE_INSN_LOOP_BEG)
-				  break;
-			      }
-			  }
-			changed = 1;
-			continue;
-		      }
-		  }
-	      }
-
 	      /* Now that the jump has been tensioned,
 		 try cross jumping: check for identical code
 		 before the jump and before its target label.  */
@@ -2276,31 +2153,11 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan, mark_labels_only)
 	}
   }
 
-#ifdef HAVE_return
-  if (HAVE_return)
-    {
-      /* If we fall through to the epilogue, see if we can insert a RETURN insn
-	 in front of it.  If the machine allows it at this point (we might be
-	 after reload for a leaf routine), it will improve optimization for it
-	 to be there.  We do this both here and at the start of this pass since
-	 the RETURN might have been deleted by some of our optimizations.  */
-      insn = get_last_insn ();
-      while (insn && GET_CODE (insn) == NOTE)
-	insn = PREV_INSN (insn);
-
-      if (insn && GET_CODE (insn) != BARRIER)
-	{
-	  emit_jump_insn (gen_return ());
-	  emit_barrier ();
-	}
-    }
-#endif
-
   /* CAN_REACH_END is persistent for each function.  Once set it should
      not be cleared.  This is especially true for the case where we
      delete the NOTE_FUNCTION_END note.  CAN_REACH_END is cleared by
      the front-end before compiling each function.  */
-  if (calculate_can_reach_end (last_insn, 0, 1))
+  if (! minimal && calculate_can_reach_end (last_insn, optimize != 0))
     can_reach_end = 1;
 
 end:
@@ -2347,6 +2204,7 @@ init_label_info (f)
 /* Delete insns following barriers, up to next label. 
 
    Also delete no-op jumps created by gcse.  */
+
 static void
 delete_barrier_successors (f)
      rtx f;
@@ -2371,6 +2229,7 @@ delete_barrier_successors (f)
 	    }
 	  /* INSN is now the code_label.  */
 	}
+
       /* Also remove (set (pc) (pc)) insns which can be created by
 	 gcse.  We eliminate such insns now to avoid having them
 	 cause problems later.  */
@@ -2406,7 +2265,7 @@ mark_all_labels (f, cross_jump)
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
       {
-	mark_jump_label (PATTERN (insn), insn, cross_jump);
+	mark_jump_label (PATTERN (insn), insn, cross_jump, 0);
 	if (! INSN_DELETED_P (insn) && GET_CODE (insn) == JUMP_INSN)
 	  {
 	    if (JUMP_LABEL (insn) != 0 && simplejump_p (insn))
@@ -2466,104 +2325,6 @@ delete_noop_moves (f)
       if (GET_CODE (insn) == INSN)
 	{
 	  register rtx body = PATTERN (insn);
-
-/* Combine stack_adjusts with following push_insns.  */
-#ifdef PUSH_ROUNDING
-	  if (GET_CODE (body) == SET
-	      && SET_DEST (body) == stack_pointer_rtx
-	      && GET_CODE (SET_SRC (body)) == PLUS
-	      && XEXP (SET_SRC (body), 0) == stack_pointer_rtx
-	      && GET_CODE (XEXP (SET_SRC (body), 1)) == CONST_INT
-	      && INTVAL (XEXP (SET_SRC (body), 1)) > 0)
-	    {
-	      rtx p;
-	      rtx stack_adjust_insn = insn;
-	      int stack_adjust_amount = INTVAL (XEXP (SET_SRC (body), 1));
-	      int total_pushed = 0;
-	      int pushes = 0;
-
-	      /* Find all successive push insns.  */
-	      p = insn;
-	      /* Don't convert more than three pushes;
-		 that starts adding too many displaced addresses
-		 and the whole thing starts becoming a losing
-		 proposition.  */
-	      while (pushes < 3)
-		{
-		  rtx pbody, dest;
-		  p = next_nonnote_insn (p);
-		  if (p == 0 || GET_CODE (p) != INSN)
-		    break;
-		  pbody = PATTERN (p);
-		  if (GET_CODE (pbody) != SET)
-		    break;
-		  dest = SET_DEST (pbody);
-		  /* Allow a no-op move between the adjust and the push.  */
-		  if (GET_CODE (dest) == REG
-		      && GET_CODE (SET_SRC (pbody)) == REG
-		      && REGNO (dest) == REGNO (SET_SRC (pbody)))
-		    continue;
-		  if (! (GET_CODE (dest) == MEM
-			 && GET_CODE (XEXP (dest, 0)) == POST_INC
-			 && XEXP (XEXP (dest, 0), 0) == stack_pointer_rtx))
-		    break;
-		  pushes++;
-		  if (total_pushed + GET_MODE_SIZE (GET_MODE (SET_DEST (pbody)))
-		      > stack_adjust_amount)
-		    break;
-		  total_pushed += GET_MODE_SIZE (GET_MODE (SET_DEST (pbody)));
-		}
-
-	      /* Discard the amount pushed from the stack adjust;
-		 maybe eliminate it entirely.  */
-	      if (total_pushed >= stack_adjust_amount)
-		{
-		  delete_computation (stack_adjust_insn);
-		  total_pushed = stack_adjust_amount;
-		}
-	      else
-		XEXP (SET_SRC (PATTERN (stack_adjust_insn)), 1)
-		  = GEN_INT (stack_adjust_amount - total_pushed);
-
-	      /* Change the appropriate push insns to ordinary stores.  */
-	      p = insn;
-	      while (total_pushed > 0)
-		{
-		  rtx pbody, dest;
-		  p = next_nonnote_insn (p);
-		  if (GET_CODE (p) != INSN)
-		    break;
-		  pbody = PATTERN (p);
-		  if (GET_CODE (pbody) != SET)
-		    break;
-		  dest = SET_DEST (pbody);
-		  /* Allow a no-op move between the adjust and the push.  */
-		  if (GET_CODE (dest) == REG
-		      && GET_CODE (SET_SRC (pbody)) == REG
-		      && REGNO (dest) == REGNO (SET_SRC (pbody)))
-		    continue;
-		  if (! (GET_CODE (dest) == MEM
-			 && GET_CODE (XEXP (dest, 0)) == POST_INC
-			 && XEXP (XEXP (dest, 0), 0) == stack_pointer_rtx))
-		    break;
-		  total_pushed -= GET_MODE_SIZE (GET_MODE (SET_DEST (pbody)));
-		  /* If this push doesn't fully fit in the space
-		     of the stack adjust that we deleted,
-		     make another stack adjust here for what we
-		     didn't use up.  There should be peepholes
-		     to recognize the resulting sequence of insns.  */
-		  if (total_pushed < 0)
-		    {
-		      emit_insn_before (gen_add2_insn (stack_pointer_rtx,
-						       GEN_INT (- total_pushed)),
-					p);
-		      break;
-		    }
-		  XEXP (dest, 0)
-		    = plus_constant (stack_pointer_rtx, total_pushed);
-		}
-	    }
-#endif
 
 	  /* Detect and delete no-op move instructions
 	     resulting from not allocating a parameter in a register.  */
@@ -2711,9 +2472,8 @@ delete_noop_moves (f)
    if we find it.  */
 
 static int
-calculate_can_reach_end (last, check_deleted, delete_final_note)
+calculate_can_reach_end (last, delete_final_note)
      rtx last;
-     int check_deleted;
      int delete_final_note;
 {
   rtx insn = last;
@@ -2751,9 +2511,7 @@ calculate_can_reach_end (last, check_deleted, delete_final_note)
   /* See if we backed up to the appropriate type of note.  */
   if (insn != NULL_RTX
       && GET_CODE (insn) == NOTE
-      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END
-      && (check_deleted == 0
-	  || ! INSN_DELETED_P (insn)))
+      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END)
     {
       if (delete_final_note)
 	delete_insn (insn);
@@ -2908,7 +2666,7 @@ duplicate_loop_exit_test (loop_start)
 	  if (reg_map)
 	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
 	  
-	  mark_jump_label (PATTERN (copy), copy, 0);
+	  mark_jump_label (PATTERN (copy), copy, 0, 0);
 	  
 	  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
 	     make them.  */
@@ -2926,7 +2684,7 @@ duplicate_loop_exit_test (loop_start)
 	  copy = emit_jump_insn_before (copy_insn (PATTERN (insn)), loop_start);
 	  if (reg_map)
 	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
-	  mark_jump_label (PATTERN (copy), copy, 0);
+	  mark_jump_label (PATTERN (copy), copy, 0, 0);
 	  if (REG_NOTES (insn))
 	    {
 	      REG_NOTES (copy) = copy_insn_1 (REG_NOTES (insn));
@@ -2969,7 +2727,7 @@ duplicate_loop_exit_test (loop_start)
       if (! first_copy)
 	first_copy = copy;
 
-      mark_jump_label (PATTERN (copy), copy, 0);
+      mark_jump_label (PATTERN (copy), copy, 0, 0);
       if (INSN_UID (copy) < max_jump_chain
 	  && INSN_UID (JUMP_LABEL (copy)) < max_jump_chain)
 	{
@@ -3447,11 +3205,12 @@ can_reverse_comparison_p (comparison, insn)
 	      && GET_MODE_CLASS (GET_MODE (arg0)) != MODE_FLOAT));
 }
 
-/* Given an rtx-code for a comparison, return the code
-   for the negated comparison.
-   WATCH OUT!  reverse_condition is not safe to use on a jump
-   that might be acting on the results of an IEEE floating point comparison,
-   because of the special treatment of non-signaling nans in comparisons.  
+/* Given an rtx-code for a comparison, return the code for the negated
+   comparison.  If no such code exists, return UNKNOWN.
+
+   WATCH OUT!  reverse_condition is not safe to use on a jump that might
+   be acting on the results of an IEEE floating point comparison, because
+   of the special treatment of non-signaling nans in comparisons.  
    Use can_reverse_comparison_p to be sure.  */
 
 enum rtx_code
@@ -3462,37 +3221,95 @@ reverse_condition (code)
     {
     case EQ:
       return NE;
-
     case NE:
       return EQ;
-
     case GT:
       return LE;
-
     case GE:
       return LT;
-
     case LT:
       return GE;
-
     case LE:
       return GT;
-
     case GTU:
       return LEU;
-
     case GEU:
       return LTU;
-
     case LTU:
       return GEU;
-
     case LEU:
       return GTU;
+    case UNORDERED:
+      return ORDERED;
+    case ORDERED:
+      return UNORDERED;
+
+    case UNLT:
+    case UNLE:
+    case UNGT:
+    case UNGE:
+    case UNEQ:
+    case LTGT:
+      return UNKNOWN;
 
     default:
       abort ();
-      return UNKNOWN;
+    }
+}
+
+/* Similar, but we're allowed to generate unordered comparisons, which
+   makes it safe for IEEE floating-point.  Of course, we have to recognize
+   that the target will support them too...  */
+
+enum rtx_code
+reverse_condition_maybe_unordered (code)
+     enum rtx_code code;
+{
+  /* Non-IEEE formats don't have unordered conditions.  */
+  if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
+    return reverse_condition (code);
+
+  switch (code)
+    {
+    case EQ:
+      return NE;
+    case NE:
+      return EQ;
+    case GT:
+      return UNLE;
+    case GE:
+      return UNLT;
+    case LT:
+      return UNGE;
+    case LE:
+      return UNGT;
+    case LTGT:
+      return UNEQ;
+    case GTU:
+      return LEU;
+    case GEU:
+      return LTU;
+    case LTU:
+      return GEU;
+    case LEU:
+      return GTU;
+    case UNORDERED:
+      return ORDERED;
+    case ORDERED:
+      return UNORDERED;
+    case UNLT:
+      return GE;
+    case UNLE:
+      return GT;
+    case UNGT:
+      return LE;
+    case UNGE:
+      return LT;
+    case UNEQ:
+      return LTGT;
+
+    default:
+      abort ();
     }
 }
 
@@ -3507,35 +3324,39 @@ swap_condition (code)
     {
     case EQ:
     case NE:
+    case UNORDERED:
+    case ORDERED:
+    case UNEQ:
+    case LTGT:
       return code;
 
     case GT:
       return LT;
-
     case GE:
       return LE;
-
     case LT:
       return GT;
-
     case LE:
       return GE;
-
     case GTU:
       return LTU;
-
     case GEU:
       return LEU;
-
     case LTU:
       return GTU;
-
     case LEU:
       return GEU;
+    case UNLT:
+      return UNGT;
+    case UNLE:
+      return UNGE;
+    case UNGT:
+      return UNLT;
+    case UNGE:
+      return UNLE;
 
     default:
       abort ();
-      return UNKNOWN;
     }
 }
 
@@ -3559,13 +3380,10 @@ unsigned_condition (code)
 
     case GT:
       return GTU;
-
     case GE:
       return GEU;
-
     case LT:
       return LTU;
-
     case LE:
       return LEU;
 
@@ -3592,13 +3410,10 @@ signed_condition (code)
 
     case GTU:
       return GT;
-
     case GEU:
       return GE;
-
     case LTU:
       return LT;
-
     case LEU:
       return LE;
 
@@ -3620,17 +3435,29 @@ comparison_dominates_p (code1, code2)
   switch (code1)
     {
     case EQ:
-      if (code2 == LE || code2 == LEU || code2 == GE || code2 == GEU)
+      if (code2 == LE || code2 == LEU || code2 == GE || code2 == GEU
+	  || code2 == ORDERED)
 	return 1;
       break;
 
     case LT:
-      if (code2 == LE || code2 == NE)
+      if (code2 == LE || code2 == NE || code2 == ORDERED)
 	return 1;
       break;
 
     case GT:
-      if (code2 == GE || code2 == NE)
+      if (code2 == GE || code2 == NE || code2 == ORDERED)
+	return 1;
+      break;
+
+    case GE:
+    case LE:
+      if (code2 == ORDERED)
+	return 1;
+      break;
+
+    case LTGT:
+      if (code2 == NE || code2 == ORDERED)
 	return 1;
       break;
 
@@ -3641,6 +3468,11 @@ comparison_dominates_p (code1, code2)
 
     case GTU:
       if (code2 == GEU || code2 == NE)
+	return 1;
+      break;
+
+    case UNORDERED:
+      if (code2 == NE)
 	return 1;
       break;
       
@@ -3757,7 +3589,7 @@ returnjump_p_1 (loc, data)
      void *data ATTRIBUTE_UNUSED;
 {
   rtx x = *loc;
-  return GET_CODE (x) == RETURN;
+  return x && GET_CODE (x) == RETURN;
 }
 
 int
@@ -3925,10 +3757,11 @@ tension_vector_labels (x, idx)
    two labels distinct if they are separated by only USE or CLOBBER insns.  */
 
 static void
-mark_jump_label (x, insn, cross_jump)
+mark_jump_label (x, insn, cross_jump, in_mem)
      register rtx x;
      rtx insn;
      int cross_jump;
+     int in_mem;
 {
   register RTX_CODE code = GET_CODE (x);
   register int i;
@@ -3941,17 +3774,22 @@ mark_jump_label (x, insn, cross_jump)
     case REG:
     case SUBREG:
     case CONST_INT:
-    case SYMBOL_REF:
     case CONST_DOUBLE:
     case CLOBBER:
     case CALL:
       return;
 
     case MEM:
+      in_mem = 1;
+      break;
+
+    case SYMBOL_REF:
+      if (!in_mem)
+        return;
+
       /* If this is a constant-pool reference, see if it is a label.  */
-      if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)))
-	mark_jump_label (get_pool_constant (XEXP (x, 0)), insn, cross_jump);
+      if (CONSTANT_POOL_ADDRESS_P (x))
+        mark_jump_label (get_pool_constant (x), insn, cross_jump, in_mem);
       break;
 
     case LABEL_REF:
@@ -4037,7 +3875,8 @@ mark_jump_label (x, insn, cross_jump)
 	  int eltnum = code == ADDR_DIFF_VEC ? 1 : 0;
 
 	  for (i = 0; i < XVECLEN (x, eltnum); i++)
-	    mark_jump_label (XVECEXP (x, eltnum, i), NULL_RTX, cross_jump);
+	    mark_jump_label (XVECEXP (x, eltnum, i), NULL_RTX, 
+                    cross_jump, in_mem);
 	}
       return;
       
@@ -4049,12 +3888,12 @@ mark_jump_label (x, insn, cross_jump)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	mark_jump_label (XEXP (x, i), insn, cross_jump);
+	mark_jump_label (XEXP (x, i), insn, cross_jump, in_mem);
       else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    mark_jump_label (XVECEXP (x, i, j), insn, cross_jump);
+	    mark_jump_label (XVECEXP (x, i, j), insn, cross_jump, in_mem);
 	}
     }
 }
@@ -4318,15 +4157,19 @@ delete_insn (insn)
   if (was_code_label)
     remove_node_from_expr_list (insn, &nonlocal_goto_handler_labels);
 
-  /* Don't delete user-declared labels.  Convert them to special NOTEs
-     instead.  */
-  if (was_code_label && LABEL_NAME (insn) != 0
-      && optimize && ! dont_really_delete)
+  /* Don't delete user-declared labels.  When optimizing, convert them
+     to special NOTEs instead.  When not optimizing, leave them alone.  */
+  if (was_code_label && LABEL_NAME (insn) != 0)
     {
-      PUT_CODE (insn, NOTE);
-      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED_LABEL;
-      NOTE_SOURCE_FILE (insn) = 0;
-      dont_really_delete = 1;
+      if (! optimize)
+	dont_really_delete = 1;
+      else if (! dont_really_delete)
+	{
+	  PUT_CODE (insn, NOTE);
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED_LABEL;
+	  NOTE_SOURCE_FILE (insn) = 0;
+	  dont_really_delete = 1;
+	}
     }
   else
     /* Mark this insn as deleted.  */
@@ -4347,7 +4190,7 @@ delete_insn (insn)
 
   /* Patch out INSN (and the barrier if any) */
 
-  if (optimize && ! dont_really_delete)
+  if (! dont_really_delete)
     {
       if (prev)
 	{
@@ -4702,6 +4545,13 @@ redirect_jump (jump, nlabel)
   JUMP_LABEL (jump) = nlabel;
   if (nlabel)
     ++LABEL_NUSES (nlabel);
+
+  /* If we're eliding the jump over exception cleanups at the end of a
+     function, move the function end note so that -Wreturn-type works.  */
+  if (olabel && NEXT_INSN (olabel)
+      && GET_CODE (NEXT_INSN (olabel)) == NOTE
+      && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END)
+    emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
   if (olabel && --LABEL_NUSES (olabel) == 0)
     delete_insn (olabel);
@@ -5291,10 +5141,11 @@ thread_jumps (f, max_reg, flag_before_loop)
 	  if (rtx_equal_for_thread_p (b1op0, b2op0, b2)
 	      && rtx_equal_for_thread_p (b1op1, b2op1, b2)
 	      && (comparison_dominates_p (code1, code2)
-		  || (comparison_dominates_p (code1, reverse_condition (code2))
-		      && can_reverse_comparison_p (XEXP (SET_SRC (PATTERN (b1)),
-							 0),
-						   b1))))
+		  || (can_reverse_comparison_p (XEXP (SET_SRC (PATTERN (b1)),
+						      0),
+						b1)
+		      && comparison_dominates_p (code1, reverse_condition (code2)))))
+
 	    {
 	      t1 = prev_nonnote_insn (b1);
 	      t2 = prev_nonnote_insn (b2);

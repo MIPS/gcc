@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "ggc.h"
 #include "except.h"
+#include "tm_p.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -60,8 +61,8 @@ static int       arm_naked_function_p		PARAMS ((tree));
 static Ulong     bit_count 			PARAMS ((signed int));
 static int       const_ok_for_op 		PARAMS ((Hint, enum rtx_code));
 static int       eliminate_lr2ip		PARAMS ((rtx *));
-static void      emit_multi_reg_push		PARAMS ((int));
-static void      emit_sfm			PARAMS ((int, int));
+static rtx	 emit_multi_reg_push		PARAMS ((int));
+static rtx	 emit_sfm			PARAMS ((int, int));
 static char *    fp_const_from_val		PARAMS ((REAL_VALUE_TYPE *));
 static int       function_really_clobbers_lr	PARAMS ((rtx));
 static arm_cc    get_arm_condition_code		PARAMS ((rtx));
@@ -77,7 +78,7 @@ static void      arm_init_machine_status	PARAMS ((struct function *));
 static void      arm_mark_machine_status        PARAMS ((struct function *));
 static int       number_of_first_bit_set        PARAMS ((int));
 static void      replace_symbols_in_block       PARAMS ((tree, rtx, rtx));
-static void      thumb_exit                     PARAMS ((FILE *, int));
+static void      thumb_exit                     PARAMS ((FILE *, int, rtx));
 static void      thumb_pushpop                  PARAMS ((FILE *, int, int));
 static char *    thumb_condition_code           PARAMS ((rtx, int));
 static rtx	 is_jump_table		        PARAMS ((rtx));
@@ -208,14 +209,6 @@ char * arm_condition_codes[] =
 {
   "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
-};
-
-/* Per function data.  */
-struct machine_function
-{
-  rtx ra_rtx;		/* Records return address.  */
-  int far_jump_used;	/* Records if LR has to be saved for far jumps.  */
-  int arg_pointer_live;	/* Records if ARG_POINTER was ever live.  */
 };
 
 #define streq(string1, string2) (strcmp (string1, string2) == 0)
@@ -685,6 +678,8 @@ use_return_insn (iscond)
       /* Or if the function is variadic.  */
       || current_function_pretend_args_size
       || current_function_anonymous_args
+      /* Of if the function calls __builtin_eh_return () */
+      || cfun->machine->eh_epilogue_sp_ofs != NULL
       /* Or if there is no frame pointer and there is a stack adjustment.  */
       || ((get_frame_size () + current_function_outgoing_args_size != 0)
 	  && ! frame_pointer_needed))
@@ -1207,7 +1202,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
       /* See if two shifts will do 2 or more insn's worth of work.  */
       if (clear_sign_bit_copies >= 16 && clear_sign_bit_copies < 24)
 	{
-	  HOST_WIDE_INT shift_mask = ((0xffffffffUL 
+	  HOST_WIDE_INT shift_mask = ((0xffffffffUL
 				       << (32 - clear_sign_bit_copies))
 				      & 0xffffffffUL);
 
@@ -1714,7 +1709,7 @@ arm_encode_call_attribute (decl, flag)
   tree decl;
   char flag;
 {
-  char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  const char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
   int    len = strlen (str);
   char * newstr;
 
@@ -3752,11 +3747,11 @@ multi_register_push (op, mode)
   return 1;
 }
 
-/* Routines for use with attributes */
+/* Routines for use with attributes.  */
 
 /* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.
+   ATTRIBUTES are any existing attributes and ARGS are
+   the arguments supplied with ATTR.
 
    Supported attributes:
 
@@ -6403,7 +6398,7 @@ int_log2 (power)
 void
 output_ascii_pseudo_op (stream, p, len)
      FILE * stream;
-     unsigned char * p;
+     const unsigned char * p;
      int len;
 {
   int i;
@@ -6938,9 +6933,11 @@ arm_output_epilogue ()
   int floats_offset = 12;
   rtx operands[3];
   int frame_size = get_frame_size ();
+  rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
   FILE * f = asm_out_file;
   int volatile_func = (optimize > 0
 		       && TREE_THIS_VOLATILE (current_function_decl));
+  int return_regnum;
 
   if (use_return_insn (FALSE) && return_used_this_function)
     return "";
@@ -6948,6 +6945,10 @@ arm_output_epilogue ()
   /* Naked functions don't have epilogues.  */
   if (arm_naked_function_p (current_function_decl))
     return "";
+
+  /* If we are throwing an exception, the address we want to jump to is in
+     R1; otherwise, it's in LR.  */
+  return_regnum = eh_ofs ? 2 : LR_REGNUM;
 
   /* A volatile function should never return.  Call abort.  */
   if (TARGET_ABORT_NORETURN && volatile_func)
@@ -7036,7 +7037,20 @@ arm_output_epilogue ()
 	{
 	  live_regs_mask |= 0x6800;
 	  print_multi_reg (f, "ldmea\t%r", FP_REGNUM, live_regs_mask, FALSE);
-	  asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
+	  if (eh_ofs)
+	    asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
+			 REGNO (eh_ofs));
+	  asm_fprintf (f, "\tbx\t%r\n", return_regnum);
+	}
+      else if (eh_ofs)
+	{
+	  live_regs_mask |= 0x6800;
+	  print_multi_reg (f, "ldmea\t%r", FP_REGNUM, live_regs_mask, FALSE);
+	  asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
+		       REGNO (eh_ofs));
+	  /* Even in 26-bit mode we do a mov (rather than a movs) because
+	     we don't have the PSR bits set in the address.  */
+	  asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, return_regnum);
 	}
       else
 	{
@@ -7104,19 +7118,43 @@ arm_output_epilogue ()
 
 	      /* Handle LR on its own.  */
 	      if (live_regs_mask == (1 << LR_REGNUM))
-		asm_fprintf (f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
+		{
+		  if (eh_ofs)
+		    asm_fprintf (f, "\tadd\t%r, %r, #4\n", SP_REGNUM,
+				 SP_REGNUM);
+		  else
+		    asm_fprintf (f, "\tldr\t%r, [%r], #4\n", LR_REGNUM,
+				 SP_REGNUM);
+		}
 	      else if (live_regs_mask != 0)
 		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask,
 				 FALSE);
-	      
-	      asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
+
+	      if (eh_ofs)
+		asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
+			     REGNO (eh_ofs));
+
+	      asm_fprintf (f, "\tbx\t%r\n", return_regnum);
 	    }
 	  else if (lr_save_eliminated)
 	    asm_fprintf (f,
 			 TARGET_APCS_32 ? "\tmov\t%r, %r\n" : "\tmovs\t%r, %r\n",
 			 PC_REGNUM, LR_REGNUM);
+	  else if (eh_ofs)
+	    {
+	      if (live_regs_mask == 0)
+		asm_fprintf (f, "\tadd\t%r, %r, #4\n", SP_REGNUM, SP_REGNUM);
+	      else
+		print_multi_reg (f, "\tldmfd\t%r!", SP_REGNUM,
+				 live_regs_mask | (1 << LR_REGNUM), FALSE);
+		
+	      asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
+			   REGNO (eh_ofs));
+	      /* Jump to the target; even in 26-bit mode.  */
+	      asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, return_regnum);
+	    }
 	  else if (TARGET_APCS_32 && live_regs_mask == 0)
-	    asm_fprintf (f, "ldr\t%r, [%r], #4\n", PC_REGNUM, SP_REGNUM);
+	    asm_fprintf (f, "\tldr\t%r, [%r], #4\n", PC_REGNUM, SP_REGNUM);
 	  else
 	    print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM,
 			     live_regs_mask | (1 << PC_REGNUM),
@@ -7131,7 +7169,14 @@ arm_output_epilogue ()
 		live_regs_mask |= 1 << LR_REGNUM;
 
 	      if (live_regs_mask == (1 << LR_REGNUM))
-		asm_fprintf (f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
+		{
+		  if (eh_ofs)
+		    asm_fprintf (f, "\tadd\t%r, %r, #4\n", SP_REGNUM,
+				 SP_REGNUM);
+		  else
+		    asm_fprintf (f, "\tldr\t%r, [%r], #4\n", LR_REGNUM,
+				 SP_REGNUM);
+		}
 	      else if (live_regs_mask != 0)
 		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask,
 				 FALSE);
@@ -7144,14 +7189,18 @@ arm_output_epilogue ()
 	      operands[2] = GEN_INT (current_function_pretend_args_size);
 	      output_add_immediate (operands);
 	    }
+
+	  if (eh_ofs)
+	    asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
+			 REGNO (eh_ofs));
 	  
 	  /* And finally, go home */
 	  if (TARGET_INTERWORK)
-	    asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
-	  else if (TARGET_APCS_32)
-	    asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
+	    asm_fprintf (f, "\tbx\t%r\n", return_regnum);
+	  else if (TARGET_APCS_32 || eh_ofs)
+	    asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, return_regnum);
 	  else
-	    asm_fprintf (f, "\tmovs\t%r, %r\n", PC_REGNUM, LR_REGNUM);
+	    asm_fprintf (f, "\tmovs\t%r, %r\n", PC_REGNUM, return_regnum);
 	}
     }
 
@@ -7183,13 +7232,20 @@ output_func_epilogue (frame_size)
     }
 }
 
-static void
+/* Generate and emit an insn that we will recognize as a push_multi.
+   Unfortunately, since this insn does not reflect very well the actual
+   semantics of the operation, we need to annotate the insn for the benefit
+   of DWARF2 frame unwind information.  */
+
+static rtx
 emit_multi_reg_push (mask)
      int mask;
 {
   int num_regs = 0;
   int i, j;
   rtx par;
+  rtx dwarf;
+  rtx tmp, reg;
 
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     if (mask & (1 << i))
@@ -7199,20 +7255,32 @@ emit_multi_reg_push (mask)
     abort ();
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs));
+  dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num_regs));
+  RTX_FRAME_RELATED_P (dwarf) = 1;
 
   for (i = 0; i <= LAST_ARM_REGNUM; i++)
     {
       if (mask & (1 << i))
 	{
+	  reg = gen_rtx_REG (SImode, i);
+
 	  XVECEXP (par, 0, 0)
 	    = gen_rtx_SET (VOIDmode,
 			   gen_rtx_MEM (BLKmode,
 					gen_rtx_PRE_DEC (BLKmode,
 							 stack_pointer_rtx)),
 			   gen_rtx_UNSPEC (BLKmode,
-					   gen_rtvec (1,
-						      gen_rtx_REG (SImode, i)),
+					   gen_rtvec (1, reg),
 					   2));
+
+	  tmp = gen_rtx_SET (VOIDmode,
+			     gen_rtx_MEM (SImode,
+					  gen_rtx_PRE_DEC (BLKmode,
+							   stack_pointer_rtx)),
+			     reg);
+	  RTX_FRAME_RELATED_P (tmp) = 1;
+	  XVECEXP (dwarf, 0, num_regs - 1) = tmp;	  
+
 	  break;
 	}
     }
@@ -7221,38 +7289,77 @@ emit_multi_reg_push (mask)
     {
       if (mask & (1 << i))
 	{
-	  XVECEXP (par, 0, j)
-	    = gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, i));
+	  reg = gen_rtx_REG (SImode, i);
+
+	  XVECEXP (par, 0, j) = gen_rtx_USE (VOIDmode, reg);
+
+	  tmp = gen_rtx_SET (VOIDmode,
+			     gen_rtx_MEM (SImode,
+					  gen_rtx_PRE_DEC (BLKmode,
+							   stack_pointer_rtx)),
+			     reg);
+	  RTX_FRAME_RELATED_P (tmp) = 1;
+	  XVECEXP (dwarf, 0, num_regs - j - 1) = tmp;
+			   
 	  j++;
 	}
     }
 
-  emit_insn (par);
+  par = emit_insn (par);
+  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+				       REG_NOTES (par));
+  return par;
 }
 
-static void
+static rtx
 emit_sfm (base_reg, count)
      int base_reg;
      int count;
 {
   rtx par;
+  rtx dwarf;
+  rtx tmp, reg;
   int i;
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  RTX_FRAME_RELATED_P (dwarf) = 1;
+
+  reg = gen_rtx_REG (XFmode, base_reg++);
 
   XVECEXP (par, 0, 0)
     = gen_rtx_SET (VOIDmode, 
 		   gen_rtx_MEM (BLKmode,
 				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
 		   gen_rtx_UNSPEC (BLKmode,
-				   gen_rtvec (1, gen_rtx_REG (XFmode, 
-							      base_reg++)),
+				   gen_rtvec (1, reg),
 				   2));
+  tmp
+    = gen_rtx_SET (VOIDmode, 
+		   gen_rtx_MEM (XFmode,
+				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
+		   reg);
+  RTX_FRAME_RELATED_P (tmp) = 1;
+  XVECEXP (dwarf, 0, count - 1) = tmp;	  
+  
   for (i = 1; i < count; i++)
-    XVECEXP (par, 0, i) = gen_rtx_USE (VOIDmode, 
-				       gen_rtx_REG (XFmode, base_reg++));
+    {
+      reg = gen_rtx_REG (XFmode, base_reg++);
+      XVECEXP (par, 0, i) = gen_rtx_USE (VOIDmode, reg);
 
-  emit_insn (par);
+      tmp = gen_rtx_SET (VOIDmode, 
+			 gen_rtx_MEM (XFmode,
+				      gen_rtx_PRE_DEC (BLKmode,
+						       stack_pointer_rtx)),
+			 reg);
+      RTX_FRAME_RELATED_P (tmp) = 1;
+      XVECEXP (dwarf, 0, count - i - 1) = tmp;	  
+    }
+
+  par = emit_insn (par);
+  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+				       REG_NOTES (par));
+  return par;
 }
 
 void
@@ -7267,6 +7374,7 @@ arm_expand_prologue ()
      the call-saved regs.  */
   int volatile_func = (optimize > 0
 		       && TREE_THIS_VOLATILE (current_function_decl));
+  rtx insn;
 
   /* Naked functions don't have prologues.  */
   if (arm_naked_function_p (current_function_decl))
@@ -7297,18 +7405,21 @@ arm_expand_prologue ()
   if (frame_pointer_needed)
     {
       live_regs_mask |= 0xD800;
-      emit_insn (gen_movsi (gen_rtx_REG (SImode, IP_REGNUM),
-			    stack_pointer_rtx));
+      insn = emit_insn (gen_movsi (gen_rtx_REG (SImode, IP_REGNUM),
+				   stack_pointer_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
 
   if (current_function_pretend_args_size)
     {
       if (store_arg_regs)
-	emit_multi_reg_push ((0xf0 >> (current_function_pretend_args_size / 4))
-			     & 0xf);
+	insn = emit_multi_reg_push
+	  ((0xf0 >> (current_function_pretend_args_size / 4)) & 0xf);
       else
-	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, 
-			       GEN_INT (-current_function_pretend_args_size)));
+	insn = emit_insn
+	  (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, 
+		       GEN_INT (-current_function_pretend_args_size)));
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
 
   if (live_regs_mask)
@@ -7316,7 +7427,8 @@ arm_expand_prologue ()
       /* If we have to push any regs, then we must push lr as well, or
 	 we won't get a proper return.  */
       live_regs_mask |= 1 << LR_REGNUM;
-      emit_multi_reg_push (live_regs_mask);
+      insn = emit_multi_reg_push (live_regs_mask);
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
       
   /* For now the integer regs are still pushed in output_arm_epilogue ().  */
@@ -7327,12 +7439,13 @@ arm_expand_prologue ()
 	{
 	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg --)
 	    if (regs_ever_live[reg] && ! call_used_regs[reg])
-	      emit_insn (gen_rtx_SET
-			 (VOIDmode, 
-			  gen_rtx_MEM (XFmode, 
-				       gen_rtx_PRE_DEC (XFmode,
-							stack_pointer_rtx)),
-			  gen_rtx_REG (XFmode, reg)));
+	      {
+		insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
+		insn = gen_rtx_MEM (XFmode, insn);
+		insn = emit_insn (gen_rtx_SET (VOIDmode, insn,
+					       gen_rtx_REG (XFmode, reg)));
+		RTX_FRAME_RELATED_P (insn) = 1;
+	      }
 	}
       else
 	{
@@ -7344,31 +7457,44 @@ arm_expand_prologue ()
 		{
 		  if (start_reg - reg == 3)
 		    {
-		      emit_sfm (reg, 4);
+		      insn = emit_sfm (reg, 4);
+		      RTX_FRAME_RELATED_P (insn) = 1;
 		      start_reg = reg - 1;
 		    }
 		}
 	      else
 		{
 		  if (start_reg != reg)
-		    emit_sfm (reg + 1, start_reg - reg);
+		    {
+		      insn = emit_sfm (reg + 1, start_reg - reg);
+		      RTX_FRAME_RELATED_P (insn) = 1;
+		    }
 		  start_reg = reg - 1;
 		}
 	    }
 
 	  if (start_reg != reg)
-	    emit_sfm (reg + 1, start_reg - reg);
+	    {
+	      insn = emit_sfm (reg + 1, start_reg - reg);
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	    }
 	}
     }
 
   if (frame_pointer_needed)
-    emit_insn (gen_addsi3 (hard_frame_pointer_rtx, gen_rtx_REG (SImode, IP_REGNUM),
-			   (GEN_INT
-			    (-(4 + current_function_pretend_args_size)))));
+    {
+      insn = GEN_INT (-(4 + current_function_pretend_args_size));
+      insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+				    gen_rtx_REG (SImode, IP_REGNUM),
+				    insn));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
 
   if (amount != const0_rtx)
     {
-      emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, amount));
+      insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
+				    amount));
+      RTX_FRAME_RELATED_P (insn) = 1;
       emit_insn (gen_rtx_CLOBBER (VOIDmode, 
 				  gen_rtx_MEM (BLKmode, stack_pointer_rtx)));
     }
@@ -7909,7 +8035,7 @@ arm_final_prescan_insn (insn)
 
 	    case CALL_INSN:
 	      /* If using 32-bit addresses the cc is not preserved over
-		 calls */
+		 calls.  */
 	      if (TARGET_APCS_32)
 		{
 		  /* Succeed if the following insn is the target label,
@@ -7940,7 +8066,7 @@ arm_final_prescan_insn (insn)
       	      /* If this is an unconditional branch to the same label, succeed.
 		 If it is to another label, do nothing.  If it is conditional,
 		 fail.  */
-	      /* XXX Probably, the tests for SET and the PC are unnecessary. */
+	      /* XXX Probably, the tests for SET and the PC are unnecessary.  */
 
 	      scanbody = PATTERN (this_insn);
 	      if (GET_CODE (scanbody) == SET
@@ -8222,15 +8348,16 @@ number_of_first_bit_set (mask)
    If 'reg_containing_return_addr' is -1, then the return address is
    actually on the stack, at the stack pointer.  */
 static void
-thumb_exit (f, reg_containing_return_addr)
+thumb_exit (f, reg_containing_return_addr, eh_ofs)
      FILE * f;
      int    reg_containing_return_addr;
+     rtx    eh_ofs;
 {
-  int regs_available_for_popping;
-  int regs_to_pop;
+  unsigned regs_available_for_popping;
+  unsigned regs_to_pop;
   int pops_needed;
-  int available;
-  int required;
+  unsigned available;
+  unsigned required;
   int mode;
   int size;
   int restore_a4 = FALSE;
@@ -8238,9 +8365,16 @@ thumb_exit (f, reg_containing_return_addr)
   /* Compute the registers we need to pop.  */
   regs_to_pop = 0;
   pops_needed = 0;
-  
-  if (reg_containing_return_addr == -1)
+
+  /* There is an assumption here, that if eh_ofs is not NULL, the
+     normal return address will have been pushed.  */
+  if (reg_containing_return_addr == -1 || eh_ofs)
     {
+      /* When we are generating a return for __builtin_eh_return, 
+	 reg_containing_return_addr must specify the return regno.  */
+      if (eh_ofs && reg_containing_return_addr == -1)
+	abort ();
+
       regs_to_pop |= 1 << LR_REGNUM;
       ++ pops_needed;
     }
@@ -8256,8 +8390,10 @@ thumb_exit (f, reg_containing_return_addr)
      return.  */
   if (pops_needed == 0)
     {
-      asm_fprintf (f, "\tbx\t%r\n", reg_containing_return_addr);
+      if (eh_ofs)
+	asm_fprintf (f, "\tadd\t%r, %r\n", SP_REGNUM, REGNO (eh_ofs));
 
+      asm_fprintf (f, "\tbx\t%r\n", reg_containing_return_addr);
       return;
     }
   /* Otherwise if we are not supporting interworking and we have not created
@@ -8267,51 +8403,66 @@ thumb_exit (f, reg_containing_return_addr)
 	   && ! TARGET_BACKTRACE
 	   && ! is_called_in_ARM_mode (current_function_decl))
     {
-      asm_fprintf (f, "\tpop\t{%r}\n", PC_REGNUM);
+      if (eh_ofs)
+	{
+	  asm_fprintf (f, "\tadd\t%r, #4\n", SP_REGNUM);
+	  asm_fprintf (f, "\tadd\t%r, %r\n", SP_REGNUM, REGNO (eh_ofs));
+	  asm_fprintf (f, "\tbx\t%r\n", reg_containing_return_addr);
+	}
+      else
+	asm_fprintf (f, "\tpop\t{%r}\n", PC_REGNUM);
 
       return;
     }
 
   /* Find out how many of the (return) argument registers we can corrupt.  */
   regs_available_for_popping = 0;
-  
-#ifdef RTX_CODE
-  /* If we can deduce the registers used from the function's return value.
-     This is more reliable that examining regs_ever_live[] because that
-     will be set if the register is ever used in the function, not just if
-     the register is used to hold a return value.  */
 
-  if (current_function_return_rtx != 0)
-      mode = GET_MODE (current_function_return_rtx);
+  /* If returning via __builtin_eh_return, the bottom three registers
+     all contain information needed for the return.  */
+  if (eh_ofs)
+    size = 12;
   else
-#endif
-      mode = DECL_MODE (DECL_RESULT (current_function_decl));
-
-  size = GET_MODE_SIZE (mode);
-
-  if (size == 0)
     {
-      /* In a void function we can use any argument register.
-	 In a function that returns a structure on the stack
-	 we can use the second and third argument registers.  */
-      if (mode == VOIDmode)
-	regs_available_for_popping =
-	    (1 << ARG_REGISTER (1))
-	  | (1 << ARG_REGISTER (2))
-	  | (1 << ARG_REGISTER (3));
+#ifdef RTX_CODE
+      /* If we can deduce the registers used from the function's
+	 return value.  This is more reliable that examining
+	 regs_ever_live[] because that will be set if the register is
+	 ever used in the function, not just if the register is used
+	 to hold a return value.  */
+
+      if (current_function_return_rtx != 0)
+	mode = GET_MODE (current_function_return_rtx);
       else
+#endif
+	mode = DECL_MODE (DECL_RESULT (current_function_decl));
+
+      size = GET_MODE_SIZE (mode);
+
+      if (size == 0)
+	{
+	  /* In a void function we can use any argument register.
+	     In a function that returns a structure on the stack
+	     we can use the second and third argument registers.  */
+	  if (mode == VOIDmode)
+	    regs_available_for_popping =
+	      (1 << ARG_REGISTER (1))
+	      | (1 << ARG_REGISTER (2))
+	      | (1 << ARG_REGISTER (3));
+	  else
+	    regs_available_for_popping =
+	      (1 << ARG_REGISTER (2))
+	      | (1 << ARG_REGISTER (3));
+	}
+      else if (size <= 4)
 	regs_available_for_popping =
-	    (1 << ARG_REGISTER (2))
+	  (1 << ARG_REGISTER (2))
 	  | (1 << ARG_REGISTER (3));
+      else if (size <= 8)
+	regs_available_for_popping =
+	  (1 << ARG_REGISTER (3));
     }
-  else if (size <= 4)
-    regs_available_for_popping =
-        (1 << ARG_REGISTER (2))
-      | (1 << ARG_REGISTER (3));
-  else if (size <= 8)
-    regs_available_for_popping =
-      (1 << ARG_REGISTER (3));
-  
+
   /* Match registers to be popped with registers into which we pop them.  */
   for (available = regs_available_for_popping,
        required  = regs_to_pop;
@@ -8478,7 +8629,10 @@ thumb_exit (f, reg_containing_return_addr)
     
       asm_fprintf (f, "\tmov\t%r, %r\n", LAST_ARG_REGNUM, IP_REGNUM);
     }
-  
+
+  if (eh_ofs)
+    asm_fprintf (f, "\tadd\t%r, %r\n", SP_REGNUM, REGNO (eh_ofs));
+
   /* Return to caller.  */
   asm_fprintf (f, "\tbx\t%r\n", reg_containing_return_addr);
 }
@@ -8497,7 +8651,7 @@ thumb_pushpop (f, mask, push)
     {
       /* Special case.  Do not generate a POP PC statement here, do it in
 	 thumb_exit() */
-      thumb_exit (f, -1);
+      thumb_exit (f, -1, NULL_RTX);
       return;
     }
       
@@ -8532,7 +8686,7 @@ thumb_pushpop (f, mask, push)
 	     it is popped into r3 and then BX is used.  */
 	  fprintf (f, "}\n");
 
-	  thumb_exit (f, -1);
+	  thumb_exit (f, -1, NULL_RTX);
 
 	  return;
 	}
@@ -8671,6 +8825,7 @@ thumb_unexpanded_epilogue ()
   int high_regs_pushed = 0;
   int leaf_function = leaf_function_p ();
   int had_to_push_lr;
+  rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
 
   if (return_used_this_function)
     return "";
@@ -8785,7 +8940,8 @@ thumb_unexpanded_epilogue ()
   if (current_function_pretend_args_size == 0 || TARGET_BACKTRACE)
     {
       if (had_to_push_lr
-	  && ! is_called_in_ARM_mode (current_function_decl))
+	  && ! is_called_in_ARM_mode (current_function_decl)
+	  && ! eh_ofs)
 	live_regs_mask |= 1 << PC_REGNUM;
 
       /* Either no argument registers were pushed or a backtrace
@@ -8794,15 +8950,17 @@ thumb_unexpanded_epilogue ()
       if (live_regs_mask)
 	thumb_pushpop (asm_out_file, live_regs_mask, FALSE);
       
+      if (eh_ofs)
+	thumb_exit (asm_out_file, 2, eh_ofs);
       /* We have either just popped the return address into the
 	 PC or it is was kept in LR for the entire function or
 	 it is still on the stack because we do not want to
 	 return by doing a pop {pc}.  */
-      if ((live_regs_mask & (1 << PC_REGNUM)) == 0)
+      else if ((live_regs_mask & (1 << PC_REGNUM)) == 0)
 	thumb_exit (asm_out_file,
 		    (had_to_push_lr
 		     && is_called_in_ARM_mode (current_function_decl)) ?
-		    -1 : LR_REGNUM);
+		    -1 : LR_REGNUM, NULL_RTX);
     }
   else
     {
@@ -8821,7 +8979,11 @@ thumb_unexpanded_epilogue ()
 		   SP_REGNUM, SP_REGNUM,
 		   current_function_pretend_args_size);
       
-      thumb_exit (asm_out_file, had_to_push_lr ? LAST_ARG_REGNUM : LR_REGNUM);
+      if (eh_ofs)
+	thumb_exit (asm_out_file, 2, eh_ofs);
+      else
+	thumb_exit (asm_out_file,
+		    had_to_push_lr ? LAST_ARG_REGNUM : LR_REGNUM, NULL_RTX);
     }
 
   return "";
@@ -8836,6 +8998,7 @@ arm_mark_machine_status (p)
   struct machine_function *machine = p->machine;
 
   ggc_mark_rtx (machine->ra_rtx);
+  ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
 }
 
 static void
@@ -9033,7 +9196,7 @@ output_thumb_prologue (f)
 
   if (is_called_in_ARM_mode (current_function_decl))
     {
-      char * name;
+      const char * name;
 
       if (GET_CODE (DECL_RTL (current_function_decl)) != MEM)
 	abort ();

@@ -1,5 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987, 91, 94-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -38,8 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
 #endif
 
-static rtx break_out_memory_refs	PROTO((rtx));
-static void emit_stack_probe		PROTO((rtx));
+static rtx break_out_memory_refs	PARAMS ((rtx));
+static void emit_stack_probe		PARAMS ((rtx));
 
 
 /* Truncate and perhaps sign-extend C as appropriate for MODE.  */
@@ -938,7 +939,7 @@ emit_stack_save (save_level, psave, after)
 {
   rtx sa = *psave;
   /* The default is that we use a move insn and save in a Pmode object.  */
-  rtx (*fcn) PROTO ((rtx, rtx)) = gen_move_insn;
+  rtx (*fcn) PARAMS ((rtx, rtx)) = gen_move_insn;
   enum machine_mode mode = STACK_SAVEAREA_MODE (save_level);
 
   /* See if this machine has anything special to do for this kind of save.  */
@@ -1020,7 +1021,7 @@ emit_stack_restore (save_level, sa, after)
      rtx sa;
 {
   /* The default is that we use a move insn.  */
-  rtx (*fcn) PROTO ((rtx, rtx)) = gen_move_insn;
+  rtx (*fcn) PARAMS ((rtx, rtx)) = gen_move_insn;
 
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
@@ -1177,6 +1178,13 @@ allocate_dynamic_stack_space (size, target, known_align)
   /* Ensure the size is in the proper mode.  */
   if (GET_MODE (size) != VOIDmode && GET_MODE (size) != Pmode)
     size = convert_to_mode (Pmode, size, 1);
+
+  /* We can't attempt to minimize alignment necessary, because we don't
+     know the final value of preferred_stack_boundary yet while executing
+     this code.  */
+#ifdef PREFERRED_STACK_BOUNDARY
+  cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+#endif
 
   /* We will need to ensure that the address we return is aligned to
      BIGGEST_ALIGNMENT.  If STACK_DYNAMIC_OFFSET is defined, we don't
@@ -1555,10 +1563,6 @@ probe_stack_range (first, size)
       emit_jump (end_lab);
       emit_note (NULL_PTR, NOTE_INSN_LOOP_END);
       emit_label (end_lab);
-
-      /* If will be doing stupid optimization, show test_addr is still live. */
-      if (obey_regdecls)
-	emit_insn (gen_rtx_USE (VOIDmode, test_addr));
 
       emit_stack_probe (last_addr);
     }

@@ -1,5 +1,5 @@
 /* Allocate and read RTL for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -52,9 +52,9 @@ extern struct obstack *rtl_obstack;
    slots in a CONST_DOUBLE, so we provide them even if one would suffice.  */
 
 #ifdef REAL_ARITHMETIC
-#if LONG_DOUBLE_TYPE_SIZE == 96
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
 #define REAL_WIDTH	(11*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#elif LONG_DOUBLE_TYPE_SIZE == 128
+#elif MAX_LONG_DOUBLE_TYPE_SIZE == 128
 #define REAL_WIDTH	(19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
 #elif HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
 #define REAL_WIDTH	(7*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
@@ -62,11 +62,11 @@ extern struct obstack *rtl_obstack;
 #endif /* REAL_ARITHMETIC */
 
 #ifndef REAL_WIDTH
-#if HOST_BITS_PER_WIDE_INT*2 >= LONG_DOUBLE_TYPE_SIZE
+#if HOST_BITS_PER_WIDE_INT*2 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	2
-#elif HOST_BITS_PER_WIDE_INT*3 >= LONG_DOUBLE_TYPE_SIZE
+#elif HOST_BITS_PER_WIDE_INT*3 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	3
-#elif HOST_BITS_PER_WIDE_INT*4 >= LONG_DOUBLE_TYPE_SIZE
+#elif HOST_BITS_PER_WIDE_INT*4 >= MAX_LONG_DOUBLE_TYPE_SIZE
 #define REAL_WIDTH	4
 #endif
 #endif /* REAL_WIDTH */
@@ -257,11 +257,11 @@ const char * const reg_note_name[] = { "", "REG_DEAD", "REG_INC", "REG_EQUIV", "
 			  "REG_FRAME_RELATED_EXPR", "REG_EH_REGION",
 			  "REG_EH_RETHROW", "REG_SAVE_NOTE" };
 
-static void fatal_with_file_and_line PVPROTO((FILE *, const char *, ...))
-  ATTRIBUTE_NORETURN;
-static void fatal_expected_char PROTO((FILE *, int, int)) ATTRIBUTE_NORETURN;
-static void read_name		PROTO((char *, FILE *));
-static const char *trim_filename PROTO((const char *));
+static void fatal_with_file_and_line PARAMS ((FILE *, const char *, ...))
+  ATTRIBUTE_PRINTF_2 ATTRIBUTE_NORETURN;
+static void fatal_expected_char PARAMS ((FILE *, int, int)) ATTRIBUTE_NORETURN;
+static void read_name		PARAMS ((char *, FILE *));
+static const char *trim_filename PARAMS ((const char *));
 
 /* Allocate an rtx vector of N elements.
    Store the length, and initialize all elements to zero.  */
@@ -406,14 +406,12 @@ copy_rtx (orig)
      walks over the RTL.  */
   copy->used = 0;
 
-  /* We do not copy JUMP, CALL, or FRAME_RELATED for INSNs.  */
+  /* We do not copy FRAME_RELATED for INSNs.  */
   if (GET_RTX_CLASS (code) == 'i')
-    {
-      copy->jump = 0;
-      copy->call = 0;
-      copy->frame_related = 0;
-    }
-  
+    copy->frame_related = 0;
+  copy->jump = orig->jump;
+  copy->call = orig->call;
+
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
@@ -697,7 +695,7 @@ int read_rtx_lineno = 1;
 const char *read_rtx_filename = "<unknown>";
 
 static void
-fatal_with_file_and_line VPROTO((FILE *infile, const char *msg, ...))
+fatal_with_file_and_line VPARAMS ((FILE *infile, const char *msg, ...))
 {
 #ifndef ANSI_PROTOTYPES
   FILE *infile;
@@ -1251,7 +1249,6 @@ fancy_abort (file, line, function)
   fatal (
 "Internal compiler error in `%s', at %s:%d\n\
 Please submit a full bug report.\n\
-See <URL:http://www.gnu.org/software/gcc/faq.html#bugreport> \
-for instructions.",
-	 function, trim_filename (file), line);
+See %s for instructions.",
+	 function, trim_filename (file), line, GCCBUGURL);
 }

@@ -1,7 +1,7 @@
 /* Definitions of various defaults for how to do assembler output
    (most of which are designed to be appropriate for GAS or for
    some BSD assembler).
-   Copyright (C) 1992, 1996-1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
 This file is part of GNU CC.
@@ -66,11 +66,11 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
   do {									      \
     FILE *_hide_asm_out_file = (MYFILE);				      \
-    unsigned char *_hide_p = (unsigned char *) (MYSTRING);		      \
+    const unsigned char *_hide_p = (const unsigned char *) (MYSTRING);	      \
     int _hide_thissize = (MYLENGTH);					      \
     {									      \
       FILE *asm_out_file = _hide_asm_out_file;				      \
-      unsigned char *p = _hide_p;					      \
+      const unsigned char *p = _hide_p;					      \
       int thissize = _hide_thissize;					      \
       int i;								      \
       fprintf (asm_out_file, "\t.ascii \"");				      \
@@ -90,8 +90,7 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 		 The Vax assembler fails to stop reading the escape	      \
 		 after three digits, so this is the only way we		      \
 		 can get it to parse the data properly.  */		      \
-	      if (i < thissize - 1					      \
-		  && p[i + 1] >= '0' && p[i + 1] <= '9')		      \
+	      if (i < thissize - 1 && ISDIGIT(p[i + 1]))		      \
 		fprintf (asm_out_file, "\"\n\t.ascii \"");		      \
 	  }								      \
 	}								      \

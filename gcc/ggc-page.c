@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
 
@@ -27,7 +27,7 @@
 #include "flags.h"
 #include "ggc.h"
 
-#ifdef HAVE_MMAP
+#ifdef HAVE_MMAP_ANYWHERE
 #include <sys/mman.h>
 #endif
 
@@ -157,10 +157,7 @@ typedef struct page_entry
   unsigned long *save_in_use_p;
 
   /* Context depth of this page.  */
-  unsigned char context_depth;
-
-  /* The lg of size of objects allocated from this page.  */
-  unsigned char order;
+  unsigned short context_depth;
 
   /* The number of free objects remaining on this page.  */
   unsigned short num_free_objects;
@@ -168,6 +165,9 @@ typedef struct page_entry
   /* A likely candidate for the bit position of a free object for the
      next allocation from this page.  */
   unsigned short next_bit_hint;
+
+  /* The lg of size of objects allocated from this page.  */
+  unsigned char order;
 
   /* A bit vector indicating whether or not objects are in use.  The
      Nth bit is one if the Nth object on this page is allocated.  This
@@ -226,10 +226,10 @@ static struct globals
   size_t bytes_mapped;
 
   /* The current depth in the context stack.  */
-  unsigned char context_depth;
+  unsigned short context_depth;
 
   /* A file descriptor open to /dev/zero for reading.  */
-#if defined (HAVE_MMAP) && !defined(MAP_ANONYMOUS)
+#if defined (HAVE_MMAP_ANYWHERE) && !defined(MAP_ANONYMOUS)
   int dev_zero_fd;
 #endif
 
@@ -266,22 +266,22 @@ static struct globals
 #define GGC_MIN_LAST_ALLOCATED (4 * 1024 * 1024)
 
 
-static int ggc_allocated_p PROTO ((const void *));
-static page_entry *lookup_page_table_entry PROTO ((const void *));
-static void set_page_table_entry PROTO ((void *, page_entry *));
-static char *alloc_anon PROTO ((char *, size_t));
-static struct page_entry * alloc_page PROTO ((unsigned));
-static void free_page PROTO ((struct page_entry *));
-static void release_pages PROTO ((void));
-static void clear_marks PROTO ((void));
-static void sweep_pages PROTO ((void));
-static void ggc_recalculate_in_use_p PROTO ((page_entry *));
+static int ggc_allocated_p PARAMS ((const void *));
+static page_entry *lookup_page_table_entry PARAMS ((const void *));
+static void set_page_table_entry PARAMS ((void *, page_entry *));
+static char *alloc_anon PARAMS ((char *, size_t));
+static struct page_entry * alloc_page PARAMS ((unsigned));
+static void free_page PARAMS ((struct page_entry *));
+static void release_pages PARAMS ((void));
+static void clear_marks PARAMS ((void));
+static void sweep_pages PARAMS ((void));
+static void ggc_recalculate_in_use_p PARAMS ((page_entry *));
 
 #ifdef GGC_POISON
-static void poison_pages PROTO ((void));
+static void poison_pages PARAMS ((void));
 #endif
 
-void debug_print_page_list PROTO ((int));
+void debug_print_page_list PARAMS ((int));
 
 /* Returns non-zero if P was allocated in GC'able memory.  */
 
@@ -408,7 +408,7 @@ alloc_anon (pref, size)
 {
   char *page;
 
-#ifdef HAVE_MMAP
+#ifdef HAVE_MMAP_ANYWHERE
 #ifdef MAP_ANONYMOUS
   page = (char *) mmap (pref, size, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -430,7 +430,7 @@ alloc_anon (pref, size)
       exit(1);
     }
 #endif /* HAVE_VALLOC */
-#endif /* HAVE_MMAP */
+#endif /* HAVE_MMAP_ANYWHERE */
 
   /* Remember that we allocated this memory.  */
   G.bytes_mapped += size;
@@ -533,7 +533,7 @@ free_page (entry)
 static void
 release_pages ()
 {
-#ifdef HAVE_MMAP
+#ifdef HAVE_MMAP_ANYWHERE
   page_entry *p, *next;
   char *start;
   size_t len;
@@ -579,7 +579,7 @@ release_pages ()
       free (p);
     }
 #endif /* HAVE_VALLOC */
-#endif /* HAVE_MMAP */
+#endif /* HAVE_MMAP_ANYWHERE */
 
   G.free_pages = NULL;
 }
@@ -730,7 +730,7 @@ ggc_alloc_obj (size, zero)
 
 int
 ggc_set_mark (p)
-     void *p;
+     const void *p;
 {
   page_entry *entry;
   unsigned bit, word;
@@ -746,7 +746,7 @@ ggc_set_mark (p)
 
   /* Calculate the index of the object on the page; this is its bit
      position in the in_use_p bitmap.  */
-  bit = (((char *) p) - entry->page) >> entry->order;
+  bit = (((const char *) p) - entry->page) >> entry->order;
   word = bit / HOST_BITS_PER_LONG;
   mask = (unsigned long) 1 << (bit % HOST_BITS_PER_LONG);
   
@@ -770,7 +770,7 @@ ggc_set_mark (p)
 
 void
 ggc_mark_if_gcable (p)
-     void *p;
+     const void *p;
 {
   if (p && ggc_allocated_p (p))
     ggc_set_mark (p);
@@ -780,7 +780,7 @@ ggc_mark_if_gcable (p)
 
 size_t
 ggc_get_size (p)
-     void *p;
+     const void *p;
 {
   page_entry *pe = lookup_page_table_entry (p);
   return 1 << pe->order;
@@ -794,7 +794,7 @@ init_ggc ()
   G.pagesize = getpagesize();
   G.lg_pagesize = exact_log2 (G.pagesize);
 
-#if defined (HAVE_MMAP) && !defined(MAP_ANONYMOUS)
+#if defined (HAVE_MMAP_ANYWHERE) && !defined(MAP_ANONYMOUS)
   G.dev_zero_fd = open ("/dev/zero", O_RDONLY);
   if (G.dev_zero_fd == -1)
     abort ();
@@ -808,7 +808,7 @@ init_ggc ()
 
   G.allocated_last_gc = GGC_MIN_LAST_ALLOCATED;
 
-#ifdef HAVE_MMAP
+#ifdef HAVE_MMAP_ANYWHERE
   /* StunOS has an amazing off-by-one error for the first mmap allocation
      after fiddling with RLIMIT_STACK.  The result, as hard as it is to
      believe, is an unaligned page allocation, which would cause us to
@@ -1157,7 +1157,7 @@ ggc_page_print_statistics ()
   unsigned int i;
 
   /* Clear the statistics.  */
-  bzero (&stats, sizeof (stats));
+  memset (&stats, 0, sizeof (stats));
   
   /* Make sure collection will really occur.  */
   G.allocated_last_gc = 0;

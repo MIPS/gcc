@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for SPARC64, ELF.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998  Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000
+   Free Software Foundation, Inc.
    Contributed by Doug Evans, dje@cygnus.com.
 
 This file is part of GNU CC.
@@ -34,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
 (MASK_V9 + MASK_PTR64 + MASK_64BIT + MASK_HARD_QUAD \
- + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU + MASK_STACK_BIAS)
+ + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU + MASK_STACK_BIAS + MASK_LONG_DOUBLE_128)
 
 #undef SPARC_DEFAULT_CMODEL
 #define SPARC_DEFAULT_CMODEL CM_EMBMEDANY
@@ -145,9 +146,6 @@ do {								\
   output_addr_const ((FILE), (RTX));				\
   fputc ('\n', (FILE));						\
 } while (0)
-
-#define ASM_OUTPUT_DWARF2_ADDR_CONST(FILE, ADDR) \
-  fprintf ((FILE), "\t%s\t%s", UNALIGNED_LONGLONG_ASM_OP, (ADDR))
 
 /* ??? Not sure if this should be 4 or 8 bytes.  4 works for now.  */
 #define ASM_OUTPUT_DWARF_REF(FILE, LABEL) \

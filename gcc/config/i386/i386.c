@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988, 92, 94-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -64,6 +65,7 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   1,					/* cost of multiply per each bit set */
   23,					/* cost of a divide/mod */
   15,					/* "large" insn */
+  3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {2, 4, 2},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -84,6 +86,7 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   1,					/* cost of multiply per each bit set */
   40,					/* cost of a divide/mod */
   15,					/* "large" insn */
+  3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {2, 4, 2},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -104,6 +107,7 @@ struct processor_costs pentium_cost = {
   0,					/* cost of multiply per each bit set */
   25,					/* cost of a divide/mod */
   8,					/* "large" insn */
+  6,					/* MOVE_RATIO */
   6,					/* cost for loading QImode using movzbl */
   {2, 4, 2},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -120,10 +124,11 @@ struct processor_costs pentiumpro_cost = {
   1,					/* cost of a lea instruction */
   1,					/* variable shift costs */
   1,					/* constant shift costs */
-  1,					/* cost of starting a multiply */
+  4,					/* cost of starting a multiply */
   0,					/* cost of multiply per each bit set */
   17,					/* cost of a divide/mod */
   8,					/* "large" insn */
+  6,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -144,6 +149,7 @@ struct processor_costs k6_cost = {
   0,					/* cost of multiply per each bit set */
   18,					/* cost of a divide/mod */
   8,					/* "large" insn */
+  4,					/* MOVE_RATIO */
   3,					/* cost for loading QImode using movzbl */
   {4, 5, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -164,6 +170,7 @@ struct processor_costs athlon_cost = {
   0,					/* cost of multiply per each bit set */
   19,					/* cost of a divide/mod */
   8,					/* "large" insn */
+  9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
   {4, 5, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -188,10 +195,10 @@ struct processor_costs *ix86_cost = &pentium_cost;
 const int x86_use_leave = m_386 | m_K6 | m_ATHLON;
 const int x86_push_memory = m_386 | m_K6 | m_ATHLON;
 const int x86_zero_extend_with_and = m_486 | m_PENT;
-const int x86_movx = m_ATHLON /* m_386 | m_PPRO | m_K6 */;
+const int x86_movx = m_ATHLON | m_PPRO /* m_386 | m_K6 */;
 const int x86_double_with_add = ~m_386;
 const int x86_use_bit_test = m_386;
-const int x86_unroll_strlen = m_486 | m_PENT;
+const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON | m_K6;
 const int x86_use_q_reg = m_PENT | m_PPRO | m_K6;
 const int x86_use_any_reg = m_486;
 const int x86_cmove = m_PPRO | m_ATHLON;
@@ -207,8 +214,12 @@ const int x86_read_modify = ~(m_PENT | m_PPRO);
 const int x86_split_long_moves = m_PPRO;
 const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486;
 const int x86_single_stringop = m_386;
+const int x86_qimode_math = ~(0);
+const int x86_promote_qi_regs = 0;
+const int x86_himode_math = ~(m_PPRO);
+const int x86_promote_hi_regs = m_PPRO;
 
-#define AT_BP(mode) (gen_rtx_MEM ((mode), frame_pointer_rtx))
+#define AT_BP(mode) (gen_rtx_MEM ((mode), hard_frame_pointer_rtx))
 
 const char * const hi_reg_name[] = HI_REGISTER_NAMES;
 const char * const qi_reg_name[] = QI_REGISTER_NAMES;
@@ -227,10 +238,82 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   FP_TOP_REG, FP_SECOND_REG, FLOAT_REGS, FLOAT_REGS,
   FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,
   /* arg pointer */
-  INDEX_REGS,
-  /* flags, fpsr */
-  NO_REGS, NO_REGS
+  NON_Q_REGS,
+  /* flags, fpsr, dirflag, frame */
+  NO_REGS, NO_REGS, NO_REGS, NON_Q_REGS
 };
+
+/* The "default" register map.  */
+
+int const dbx_register_map[FIRST_PSEUDO_REGISTER] = 
+{
+  0, 2, 1, 3, 6, 7, 4, 5,		/* general regs */
+  12, 13, 14, 15, 16, 17, 18, 19,	/* fp regs */
+  -1, -1, -1, -1,			/* arg, flags, fpsr, dir */
+};
+
+/* Define the register numbers to be used in Dwarf debugging information.
+   The SVR4 reference port C compiler uses the following register numbers
+   in its Dwarf output code:
+	0 for %eax (gcc regno = 0)
+	1 for %ecx (gcc regno = 2)
+	2 for %edx (gcc regno = 1)
+	3 for %ebx (gcc regno = 3)
+	4 for %esp (gcc regno = 7)
+	5 for %ebp (gcc regno = 6)
+	6 for %esi (gcc regno = 4)
+	7 for %edi (gcc regno = 5)
+   The following three DWARF register numbers are never generated by
+   the SVR4 C compiler or by the GNU compilers, but SDB on x86/svr4
+   believes these numbers have these meanings.
+	8  for %eip    (no gcc equivalent)
+	9  for %eflags (gcc regno = 17)
+	10 for %trapno (no gcc equivalent)
+   It is not at all clear how we should number the FP stack registers
+   for the x86 architecture.  If the version of SDB on x86/svr4 were
+   a bit less brain dead with respect to floating-point then we would
+   have a precedent to follow with respect to DWARF register numbers
+   for x86 FP registers, but the SDB on x86/svr4 is so completely
+   broken with respect to FP registers that it is hardly worth thinking
+   of it as something to strive for compatibility with.
+   The version of x86/svr4 SDB I have at the moment does (partially)
+   seem to believe that DWARF register number 11 is associated with
+   the x86 register %st(0), but that's about all.  Higher DWARF
+   register numbers don't seem to be associated with anything in
+   particular, and even for DWARF regno 11, SDB only seems to under-
+   stand that it should say that a variable lives in %st(0) (when
+   asked via an `=' command) if we said it was in DWARF regno 11,
+   but SDB still prints garbage when asked for the value of the
+   variable in question (via a `/' command).
+   (Also note that the labels SDB prints for various FP stack regs
+   when doing an `x' command are all wrong.)
+   Note that these problems generally don't affect the native SVR4
+   C compiler because it doesn't allow the use of -O with -g and
+   because when it is *not* optimizing, it allocates a memory
+   location for each floating-point variable, and the memory
+   location is what gets described in the DWARF AT_location
+   attribute for the variable in question.
+   Regardless of the severe mental illness of the x86/svr4 SDB, we
+   do something sensible here and we use the following DWARF
+   register numbers.  Note that these are all stack-top-relative
+   numbers.
+	11 for %st(0) (gcc regno = 8)
+	12 for %st(1) (gcc regno = 9)
+	13 for %st(2) (gcc regno = 10)
+	14 for %st(3) (gcc regno = 11)
+	15 for %st(4) (gcc regno = 12)
+	16 for %st(5) (gcc regno = 13)
+	17 for %st(6) (gcc regno = 14)
+	18 for %st(7) (gcc regno = 15)
+*/
+int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] = 
+{
+  0, 2, 1, 3, 6, 7, 5, 4,		/* general regs */
+  11, 12, 13, 14, 15, 16, 17, 18,	/* fp regs */
+  -1, 9, -1, -1,			/* arg, flags, fpsr, dir */
+};
+
+
 
 /* Test and compare insns in i386.md store the information needed to
    generate branch and scc insns here.  */
@@ -296,29 +379,37 @@ int ix86_align_loops;
 /* Power of two alignment for non-loop jumps. */
 int ix86_align_jumps;
 
-static void output_pic_addr_const PROTO ((FILE *, rtx, int));
-static void put_condition_code PROTO ((enum rtx_code, enum machine_mode,
+static void output_pic_addr_const PARAMS ((FILE *, rtx, int));
+static void put_condition_code PARAMS ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
-static enum rtx_code unsigned_comparison PROTO ((enum rtx_code code));
-static rtx ix86_expand_int_compare PROTO ((enum rtx_code, rtx, rtx));
-static rtx ix86_expand_fp_compare PROTO ((enum rtx_code, rtx, rtx, int));
-static rtx ix86_expand_compare PROTO ((enum rtx_code, int));
-static rtx gen_push PROTO ((rtx));
-static int memory_address_length PROTO ((rtx addr));
-static int ix86_flags_dependant PROTO ((rtx, rtx, enum attr_type));
-static int ix86_agi_dependant PROTO ((rtx, rtx, enum attr_type));
-static int ix86_safe_length PROTO ((rtx));
-static enum attr_memory ix86_safe_memory PROTO ((rtx));
-static enum attr_pent_pair ix86_safe_pent_pair PROTO ((rtx));
-static enum attr_ppro_uops ix86_safe_ppro_uops PROTO ((rtx));
-static void ix86_dump_ppro_packet PROTO ((FILE *));
-static void ix86_reorder_insn PROTO ((rtx *, rtx *));
-static rtx * ix86_pent_find_pair PROTO ((rtx *, rtx *, enum attr_pent_pair,
+static enum rtx_code unsigned_comparison PARAMS ((enum rtx_code code));
+static rtx ix86_expand_int_compare PARAMS ((enum rtx_code, rtx, rtx));
+static rtx ix86_expand_fp_compare PARAMS ((enum rtx_code, rtx, rtx, int));
+static rtx ix86_expand_compare PARAMS ((enum rtx_code, int));
+static rtx gen_push PARAMS ((rtx));
+static int memory_address_length PARAMS ((rtx addr));
+static int ix86_flags_dependant PARAMS ((rtx, rtx, enum attr_type));
+static int ix86_agi_dependant PARAMS ((rtx, rtx, enum attr_type));
+static int ix86_safe_length PARAMS ((rtx));
+static enum attr_memory ix86_safe_memory PARAMS ((rtx));
+static enum attr_pent_pair ix86_safe_pent_pair PARAMS ((rtx));
+static enum attr_ppro_uops ix86_safe_ppro_uops PARAMS ((rtx));
+static void ix86_dump_ppro_packet PARAMS ((FILE *));
+static void ix86_reorder_insn PARAMS ((rtx *, rtx *));
+static rtx * ix86_pent_find_pair PARAMS ((rtx *, rtx *, enum attr_pent_pair,
 					 rtx));
-static void ix86_init_machine_status PROTO ((struct function *));
-static void ix86_mark_machine_status PROTO ((struct function *));
-static void ix86_split_to_parts PROTO ((rtx, rtx *, enum machine_mode));
-static int ix86_safe_length_prefix PROTO ((rtx));
+static void ix86_init_machine_status PARAMS ((struct function *));
+static void ix86_mark_machine_status PARAMS ((struct function *));
+static void ix86_split_to_parts PARAMS ((rtx, rtx *, enum machine_mode));
+static int ix86_safe_length_prefix PARAMS ((rtx));
+static HOST_WIDE_INT ix86_compute_frame_size PARAMS((HOST_WIDE_INT,
+						     int *, int *, int *));
+static int ix86_nsaved_regs PARAMS((void));
+static void ix86_emit_save_regs PARAMS((void));
+static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, int));
+static void ix86_emit_epilogue_esp_adjustment PARAMS((int));
+static void ix86_sched_reorder_pentium PARAMS((rtx *, rtx *));
+static void ix86_sched_reorder_ppro PARAMS((rtx *, rtx *));
 
 struct ix86_address
 {
@@ -595,57 +686,6 @@ optimization_options (level, size)
 #endif
 }
 
-/* Return nonzero if the rtx is known aligned.  */
-/* ??? Unused.  */
-
-int
-ix86_aligned_p (op)
-     rtx op;
-{
-  struct ix86_address parts;
-
-  /* Registers and immediate operands are always "aligned". */
-  if (GET_CODE (op) != MEM)
-    return 1;
-
-  /* Don't even try to do any aligned optimizations with volatiles. */
-  if (MEM_VOLATILE_P (op))
-    return 0;
-
-  op = XEXP (op, 0);
-
-  /* Pushes and pops are only valid on the stack pointer.  */
-  if (GET_CODE (op) == PRE_DEC
-      || GET_CODE (op) == POST_INC)
-    return 1;
-
-  /* Decode the address.  */
-  if (! ix86_decompose_address (op, &parts))
-    abort ();
-
-  /* Look for some component that isn't known to be aligned.  */
-  if (parts.index)
-    {
-      if (parts.scale < 4
-	  && REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
-	return 0;
-    }
-  if (parts.base)
-    {
-      if (REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
-	return 0;
-    }
-  if (parts.disp)
-    {
-      if (GET_CODE (parts.disp) != CONST_INT
-	  || (INTVAL (parts.disp) & 3) != 0)
-	return 0;
-    }
-
-  /* Didn't find one -- this must be an aligned address.  */
-  return 1;
-}
-
 /* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine specific
    attribute for DECL.  The attributes in ATTRIBUTES have previously been
    assigned to DECL.  */
@@ -701,9 +741,7 @@ ix86_valid_type_attribute_p (type, attributes, identifier, args)
       if (TREE_CODE (cst) != INTEGER_CST)
 	return 0;
 
-      if (TREE_INT_CST_HIGH (cst) != 0
-	  || TREE_INT_CST_LOW (cst) < 0
-	  || TREE_INT_CST_LOW (cst) > REGPARM_MAX)
+      if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	return 0;
 
       return 1;
@@ -1019,6 +1057,7 @@ call_insn_operand (op, mode)
      compiler aborts when trying to eliminate them.  */
   if (GET_CODE (op) == REG
       && (op == arg_pointer_rtx
+	  || op == frame_pointer_rtx
 	  || (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      && REGNO (op) <= LAST_VIRTUAL_REGISTER)))
     return 0;
@@ -1028,22 +1067,17 @@ call_insn_operand (op, mode)
   if (GET_CODE (op) == CONST_INT)
     return 0;
 
-  /* Otherwise we can allow any general_operand in the address.  */
-  return general_operand (op, Pmode);
-}
-
-/* Like call_insn_operand but allow (mem (symbol_ref ...)) even if pic.  */
-
-int
-expander_call_insn_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (GET_CODE (op) == MEM
-      && GET_CODE (XEXP (op, 0)) == SYMBOL_REF)
+  /* Explicitly allow SYMBOL_REF even if pic.  */
+  if (GET_CODE (op) == SYMBOL_REF)
     return 1;
 
-  return call_insn_operand (op, mode);
+  /* Half-pic doesn't allow anything but registers and constants.
+     We've just taken care of the later.  */
+  if (HALF_PIC_P ())
+    return register_operand (op, Pmode);
+
+  /* Otherwise we can allow any general_operand in the address.  */
+  return general_operand (op, Pmode);
 }
 
 int
@@ -1051,7 +1085,9 @@ constant_call_address_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return GET_CODE (op) == MEM && CONSTANT_ADDRESS_P (XEXP (op, 0));
+  return (GET_CODE (op) == MEM
+	  && CONSTANT_ADDRESS_P (XEXP (op, 0))
+	  && GET_CODE (XEXP (op, 0)) !=  CONST_INT);
 }
 
 /* Match exactly zero and one.  */
@@ -1118,10 +1154,48 @@ reg_no_sp_operand (op, mode)
   rtx t = op;
   if (GET_CODE (t) == SUBREG)
     t = SUBREG_REG (t);
-  if (t == stack_pointer_rtx || t == arg_pointer_rtx)
+  if (t == stack_pointer_rtx || t == arg_pointer_rtx || t == frame_pointer_rtx)
     return 0;
 
   return register_operand (op, mode);
+}
+
+/* Return false if this is any eliminable register.  Otherwise
+   general_operand.  */
+
+int
+general_no_elim_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  rtx t = op;
+  if (GET_CODE (t) == SUBREG)
+    t = SUBREG_REG (t);
+  if (t == arg_pointer_rtx || t == frame_pointer_rtx
+      || t == virtual_incoming_args_rtx || t == virtual_stack_vars_rtx
+      || t == virtual_stack_dynamic_rtx)
+    return 0;
+
+  return general_operand (op, mode);
+}
+
+/* Return false if this is any eliminable register.  Otherwise
+   register_operand or const_int.  */
+
+int
+nonmemory_no_elim_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  rtx t = op;
+  if (GET_CODE (t) == SUBREG)
+    t = SUBREG_REG (t);
+  if (t == arg_pointer_rtx || t == frame_pointer_rtx
+      || t == virtual_incoming_args_rtx || t == virtual_stack_vars_rtx
+      || t == virtual_stack_dynamic_rtx)
+    return 0;
+
+  return GET_CODE (op) == CONST_INT || register_operand (op, mode);
 }
 
 /* Return true if op is a Q_REGS class register.  */
@@ -1339,6 +1413,60 @@ long_memory_operand (op, mode)
 
   return memory_address_length (op) != 0;
 }
+
+/* Return nonzero if the rtx is known aligned.  */
+
+int
+aligned_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  struct ix86_address parts;
+
+  if (!general_operand (op, mode))
+    return 0;
+
+  /* Registers and immediate operands are always "aligned". */
+  if (GET_CODE (op) != MEM)
+    return 1;
+
+  /* Don't even try to do any aligned optimizations with volatiles. */
+  if (MEM_VOLATILE_P (op))
+    return 0;
+
+  op = XEXP (op, 0);
+
+  /* Pushes and pops are only valid on the stack pointer.  */
+  if (GET_CODE (op) == PRE_DEC
+      || GET_CODE (op) == POST_INC)
+    return 1;
+
+  /* Decode the address.  */
+  if (! ix86_decompose_address (op, &parts))
+    abort ();
+
+  /* Look for some component that isn't known to be aligned.  */
+  if (parts.index)
+    {
+      if (parts.scale < 4
+	  && REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
+	return 0;
+    }
+  if (parts.base)
+    {
+      if (REGNO_POINTER_ALIGN (REGNO (parts.base)) < 4)
+	return 0;
+    }
+  if (parts.disp)
+    {
+      if (GET_CODE (parts.disp) != CONST_INT
+	  || (INTVAL (parts.disp) & 3) != 0)
+	return 0;
+    }
+
+  /* Didn't find one -- this must be an aligned address.  */
+  return 1;
+}
 
 /* Return true if the constant is something that can be loaded with
    a special instruction.  Only handle 0.0 and 1.0; others are less
@@ -1428,27 +1556,29 @@ symbolic_reference_mentioned_p (op)
 int
 ix86_can_use_return_insn_p ()
 {
-  int regno;
-  int nregs = 0;
-  int reglimit = (frame_pointer_needed
-		  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
-  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
-				  || current_function_uses_const_pool);
+  HOST_WIDE_INT tsize;
+  int nregs;
 
 #ifdef NON_SAVING_SETJMP
   if (NON_SAVING_SETJMP && current_function_calls_setjmp)
     return 0;
 #endif
+#ifdef FUNCTION_BLOCK_PROFILER_EXIT
+  if (profile_block_flag == 2)
+    return 0;
+#endif
 
-  if (! reload_completed)
+  if (! reload_completed || frame_pointer_needed)
     return 0;
 
-  for (regno = reglimit - 1; regno >= 0; regno--)
-    if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      nregs++;
+  /* Don't allow more than 32 pop, since that's all we can do
+     with one instruction.  */
+  if (current_function_pops_args
+      && current_function_args_size >= 32768)
+    return 0;
 
-  return nregs == 0 || ! frame_pointer_needed;
+  tsize = ix86_compute_frame_size (get_frame_size (), &nregs, NULL, NULL);
+  return tsize == 0 && nregs == 0;
 }
 
 static char *pic_label_name;
@@ -1461,7 +1591,7 @@ static char *global_offset_table_name;
 void
 asm_output_function_prefix (file, name)
      FILE *file;
-     char *name ATTRIBUTE_UNUSED;
+     const char *name ATTRIBUTE_UNUSED;
 {
   rtx xops[2];
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
@@ -1541,65 +1671,173 @@ gen_push (arg)
 		      arg);
 }
 
-/* Compute the size of local storage taking into consideration the
-   desired stack alignment which is to be maintained.  Also determine
-   the number of registers saved below the local storage.  */
+/* Return number of registers to be saved on the stack.  */
 
-HOST_WIDE_INT
-ix86_compute_frame_size (size, nregs_on_stack)
-     HOST_WIDE_INT size;
-     int *nregs_on_stack;
+static int
+ix86_nsaved_regs ()
 {
-  int limit;
-  int nregs;
-  int regno;
-  int padding;
+  int nregs = 0;
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
-  HOST_WIDE_INT total_size;
-
-  limit = frame_pointer_needed
-	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
-
-  nregs = 0;
+  int limit = (frame_pointer_needed
+	       ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
+  int regno;
 
   for (regno = limit - 1; regno >= 0; regno--)
     if ((regs_ever_live[regno] && ! call_used_regs[regno])
 	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      nregs++;
+      {
+	nregs ++;
+      }
+  return nregs;
+}
 
-  padding = 0;
-  total_size = size + (nregs * UNITS_PER_WORD);
+/* Return the offset between two registers, one to be eliminated, and the other
+   its replacement, at the start of a routine.  */
 
-#ifdef PREFERRED_STACK_BOUNDARY
-  {
-    int offset;
-    int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+HOST_WIDE_INT
+ix86_initial_elimination_offset (from, to)
+     int from;
+     int to;
+{
+  int padding1;
+  int nregs;
 
-    offset = 4;
-    if (frame_pointer_needed)
-      offset += UNITS_PER_WORD;
-
-    total_size += offset;
+  /* Stack grows downward:
     
-    padding = ((total_size + preferred_alignment - 1)
-	       & -preferred_alignment) - total_size;
+     [arguments]
+						<- ARG_POINTER
+     saved pc
 
-    if (padding < (((offset + preferred_alignment - 1)
-		    & -preferred_alignment) - offset))
-      padding += preferred_alignment;
+     saved frame pointer if frame_pointer_needed
+						<- HARD_FRAME_POINTER
+     [saved regs]
 
-    /* Don't bother aligning the stack of a leaf function
-       which doesn't allocate any stack slots.  */
-    if (size == 0 && current_function_is_leaf)
-      padding = 0;
-  }
-#endif
+     [padding1]   \
+		   |				<- FRAME_POINTER
+     [frame]	   > tsize
+		   |
+     [padding2]   /
+    */
+
+  if (from == ARG_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
+    /* Skip saved PC and previous frame pointer.
+       Executed only when frame_pointer_needed.  */
+    return 8;
+  else if (from == FRAME_POINTER_REGNUM
+	   && to == HARD_FRAME_POINTER_REGNUM)
+    {
+      ix86_compute_frame_size (get_frame_size (), &nregs, &padding1, (int *)0);
+      padding1 += nregs * UNITS_PER_WORD;
+      return -padding1;
+    }
+  else
+    {
+      /* ARG_POINTER or FRAME_POINTER to STACK_POINTER elimination.  */
+      int frame_size = frame_pointer_needed ? 8 : 4;
+      HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (),
+						     &nregs, &padding1, (int *)0);
+
+
+      if (to != STACK_POINTER_REGNUM)
+	abort ();
+      else if (from == ARG_POINTER_REGNUM)
+	return tsize + nregs * UNITS_PER_WORD + frame_size;
+      else if (from != FRAME_POINTER_REGNUM)
+	abort ();
+      else
+	return tsize - padding1;
+    }
+}
+
+/* Compute the size of local storage taking into consideration the
+   desired stack alignment which is to be maintained.  Also determine
+   the number of registers saved below the local storage.  
+ 
+   PADDING1 returns padding before stack frame and PADDING2 returns
+   padding after stack frame;
+ */
+
+static HOST_WIDE_INT
+ix86_compute_frame_size (size, nregs_on_stack, rpadding1, rpadding2)
+     HOST_WIDE_INT size;
+     int *nregs_on_stack;
+     int *rpadding1;
+     int *rpadding2;
+{
+  int nregs;
+  int padding1 = 0;
+  int padding2 = 0;
+  HOST_WIDE_INT total_size;
+  int stack_alignment_needed = cfun->stack_alignment_needed / BITS_PER_UNIT;
+  int offset;
+  int preferred_alignment = cfun->preferred_stack_boundary / BITS_PER_UNIT;
+
+  nregs = ix86_nsaved_regs ();
+  total_size = size;
+
+  offset = frame_pointer_needed ? 8 : 4;
+
+  /* Do some sanity checking of stack_alignment_needed and preferred_alignment,
+     since i386 port is the only using those features that may break easilly.  */
+
+  if (size && !stack_alignment_needed)
+    abort ();
+  if (!size && stack_alignment_needed != STACK_BOUNDARY / BITS_PER_UNIT)
+    abort ();
+  if (preferred_alignment < STACK_BOUNDARY / BITS_PER_UNIT)
+    abort ();
+  if (preferred_alignment > PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
+    abort ();
+  if (stack_alignment_needed > PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
+    abort ();
+
+  if (stack_alignment_needed < 4)
+    stack_alignment_needed = 4;
+
+  offset += nregs * UNITS_PER_WORD;
+
+  total_size += offset;
+
+  /* Align start of frame for local function.  */
+  padding1 = ((offset + stack_alignment_needed - 1)
+	      & -stack_alignment_needed) - offset;
+  total_size += padding1;
+
+  /* Align stack boundary. */
+  padding2 = ((total_size + preferred_alignment - 1)
+	      & -preferred_alignment) - total_size;
 
   if (nregs_on_stack)
     *nregs_on_stack = nregs;
+  if (rpadding1)
+    *rpadding1 = padding1;
+  if (rpadding2)
+    *rpadding2 = padding2;
 
-  return size + padding;
+  return size + padding1 + padding2;
+}
+
+/* Emit code to save registers in the prologue.  */
+
+static void
+ix86_emit_save_regs ()
+{
+  register int regno;
+  int limit;
+  rtx insn;
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+				  || current_function_uses_const_pool);
+  limit = (frame_pointer_needed
+	   ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
+
+  for (regno = limit - 1; regno >= 0; regno--)
+    if ((regs_ever_live[regno] && !call_used_regs[regno])
+	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+      {
+	insn = emit_insn (gen_push (gen_rtx_REG (SImode, regno)));
+	RTX_FRAME_RELATED_P (insn) = 1;
+      }
 }
 
 /* Expand the prologue into a bunch of separate insns. */
@@ -1607,34 +1845,34 @@ ix86_compute_frame_size (size, nregs_on_stack)
 void
 ix86_expand_prologue ()
 {
-  register int regno;
-  int limit;
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), (int *)0, (int *)0,
+						 (int *)0);
+  rtx insn;
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
-  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), (int *)0);
-  rtx insn;
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
 
   if (frame_pointer_needed)
     {
-      insn = emit_insn (gen_push (frame_pointer_rtx));
+      insn = emit_insn (gen_push (hard_frame_pointer_rtx));
       RTX_FRAME_RELATED_P (insn) = 1;
 
-      insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
+      insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
     }
+
+  ix86_emit_save_regs ();
 
   if (tsize == 0)
     ;
   else if (! TARGET_STACK_PROBE || tsize < CHECK_STACK_LIMIT)
     {
       if (frame_pointer_needed)
-	insn = emit_insn (gen_prologue_allocate_stack (stack_pointer_rtx,
-						       stack_pointer_rtx,
-						       GEN_INT (-tsize),
-						       frame_pointer_rtx));
+	insn = emit_insn (gen_pro_epilogue_adjust_stack
+			  (stack_pointer_rtx, stack_pointer_rtx,
+		           GEN_INT (-tsize), hard_frame_pointer_rtx));
       else
         insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 				      GEN_INT (-tsize)));
@@ -1658,15 +1896,6 @@ ix86_expand_prologue ()
 			     CALL_INSN_FUNCTION_USAGE (insn));
     }
 
-  limit = (frame_pointer_needed ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
-  for (regno = limit - 1; regno >= 0; regno--)
-    if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      {
-	insn = emit_insn (gen_push (gen_rtx_REG (SImode, regno)));
-	RTX_FRAME_RELATED_P (insn) = 1;
-      }
-
 #ifdef SUBTARGET_PROLOGUE
   SUBTARGET_PROLOGUE;
 #endif  
@@ -1681,115 +1910,104 @@ ix86_expand_prologue ()
     emit_insn (gen_blockage ());
 }
 
+/* Emit code to add TSIZE to esp value.  Use POP instruction when
+   profitable.  */
+
+static void
+ix86_emit_epilogue_esp_adjustment (tsize)
+     int tsize;
+{
+  /* Intel's docs say that for 4 or 8 bytes of stack frame one should
+     use `pop' and not `add'.  */
+  int use_pop = tsize == 4;
+  rtx edx = 0, ecx;
+
+  /* Use two pops only for the Pentium processors.  */
+  if (tsize == 8 && !TARGET_386 && !TARGET_486)
+    {
+      rtx retval = current_function_return_rtx;
+
+      edx = gen_rtx_REG (SImode, 1);
+
+      /* This case is a bit more complex.  Since we cannot pop into
+         %ecx twice we need a second register.  But this is only
+         available if the return value is not of DImode in which
+         case the %edx register is not available.  */
+      use_pop = (retval == NULL
+		 || !reg_overlap_mentioned_p (edx, retval));
+    }
+
+  if (use_pop)
+    {
+      ecx = gen_rtx_REG (SImode, 2);
+
+      /* We have to prevent the two pops here from being scheduled.
+         GCC otherwise would try in some situation to put other
+         instructions in between them which has a bad effect.  */
+      emit_insn (gen_blockage ());
+      emit_insn (gen_popsi1 (ecx));
+      if (tsize == 8)
+	emit_insn (gen_popsi1 (edx));
+    }
+  else
+    {
+      /* If a frame pointer is present, we must be sure to tie the sp
+	 to the fp so that we don't mis-schedule.  */
+      if (frame_pointer_needed)
+        emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+						  stack_pointer_rtx,
+						  GEN_INT (tsize),
+						  hard_frame_pointer_rtx));
+      else
+        emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			       GEN_INT (tsize)));
+    }
+}
+
+/* Emit code to restore saved registers using MOV insns.  First register
+   is restored from POINTER + OFFSET.  */
+static void
+ix86_emit_restore_regs_using_mov (pointer, offset)
+	rtx pointer;
+	int offset;
+{
+  int regno;
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+				  || current_function_uses_const_pool);
+  int limit = (frame_pointer_needed
+	       ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
+
+  for (regno = 0; regno < limit; regno++)
+    if ((regs_ever_live[regno] && !call_used_regs[regno])
+	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+      {
+	emit_move_insn (gen_rtx_REG (SImode, regno),
+			adj_offsettable_operand (gen_rtx_MEM (SImode,
+							      pointer),
+						 offset));
+	offset += 4;
+      }
+}
+
 /* Restore function stack, frame, and registers. */
 
 void
-ix86_expand_epilogue ()
+ix86_expand_epilogue (emit_return)
+     int emit_return;
 {
-  register int regno;
-  register int limit;
   int nregs;
+  int regno;
+
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
   int sp_valid = !frame_pointer_needed || current_function_sp_is_unchanging;
   HOST_WIDE_INT offset;
-  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), &nregs);
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), &nregs,
+						 (int *)0, (int *)0);
 
-  /* SP is often unreliable so we may have to go off the frame pointer. */
 
-  offset = -(tsize + nregs * UNITS_PER_WORD);
-
-  /* If we're only restoring one register and sp is not valid then
-     using a move instruction to restore the register since it's
-     less work than reloading sp and popping the register.  Otherwise,
-     restore sp (if necessary) and pop the registers. */
-
-  limit = (frame_pointer_needed
-	   ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
-
-  if (nregs > 1 || sp_valid)
-    {
-      if ( !sp_valid )
-	{
-	  rtx addr_offset;
-	  addr_offset = adj_offsettable_operand (AT_BP (QImode), offset);
-	  addr_offset = XEXP (addr_offset, 0);
-
-	  emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx, addr_offset));
-	}
-
-      for (regno = 0; regno < limit; regno++)
-	if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	    || (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-	  {
-	    emit_insn (gen_popsi1 (gen_rtx_REG (SImode, regno)));
-	  }
-    }
-  else
-    {
-      for (regno = 0; regno < limit; regno++)
-	if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	    || (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-	  {
-	    emit_move_insn (gen_rtx_REG (SImode, regno),
-			    adj_offsettable_operand (AT_BP (Pmode), offset));
-	    offset += 4;
-	  }
-    }
-
-  if (frame_pointer_needed)
-    {
-      /* If not an i386, mov & pop is faster than "leave". */
-      if (TARGET_USE_LEAVE)
-	emit_insn (gen_leave());
-      else
-	{
-	  emit_insn (gen_epilogue_deallocate_stack (stack_pointer_rtx,
-						    frame_pointer_rtx));
-	  emit_insn (gen_popsi1 (frame_pointer_rtx));
-	}
-    }
-  else if (tsize)
-    {
-      /* Intel's docs say that for 4 or 8 bytes of stack frame one should
-	 use `pop' and not `add'.  */
-      int use_pop = tsize == 4;
-      rtx edx = 0, ecx;
-
-      /* Use two pops only for the Pentium processors.  */
-      if (tsize == 8 && !TARGET_386 && !TARGET_486)
-	{
-	  rtx retval = current_function_return_rtx;
-
-	  edx = gen_rtx_REG (SImode, 1);
-
-	  /* This case is a bit more complex.  Since we cannot pop into
-	     %ecx twice we need a second register.  But this is only
-	     available if the return value is not of DImode in which
-	     case the %edx register is not available.  */
-	  use_pop = (retval == NULL
-		     || ! reg_overlap_mentioned_p (edx, retval));
-	}
-
-      if (use_pop)
-	{
-	  ecx = gen_rtx_REG (SImode, 2);
-
-	  /* We have to prevent the two pops here from being scheduled.
-	     GCC otherwise would try in some situation to put other
-	     instructions in between them which has a bad effect.  */
-	  emit_insn (gen_blockage ());
-	  emit_insn (gen_popsi1 (ecx));
-	  if (tsize == 8)
-	    emit_insn (gen_popsi1 (edx));
-	}
-      else
-	{
-	  /* If there is no frame pointer, we must still release the frame. */
-	  emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-				 GEN_INT (tsize)));
-	}
-    }
+  /* Calculate start of saved registers relative to ebp.  */
+  offset = -nregs * UNITS_PER_WORD;
 
 #ifdef FUNCTION_BLOCK_PROFILER_EXIT
   if (profile_block_flag == 2)
@@ -1797,6 +2015,72 @@ ix86_expand_epilogue ()
       FUNCTION_BLOCK_PROFILER_EXIT;
     }
 #endif
+
+  /* If we're only restoring one register and sp is not valid then
+     using a move instruction to restore the register since it's
+     less work than reloading sp and popping the register.  
+
+     The default code result in stack adjustment using add/lea instruction,
+     while this code results in LEAVE instruction (or discrete equivalent),
+     so it is profitable in some other cases as well.  Especially when there
+     are no registers to restore.  We also use this code when TARGET_USE_LEAVE
+     and there is exactly one register to pop. This heruistic may need some
+     tuning in future.  */
+  if ((!sp_valid && nregs <= 1)
+      || (frame_pointer_needed && !nregs && tsize)
+      || (frame_pointer_needed && TARGET_USE_LEAVE && !optimize_size
+	  && nregs == 1))
+    {
+      /* Restore registers.  We can use ebp or esp to address the memory
+	 locations.  If both are available, default to ebp, since offsets
+	 are known to be small.  Only exception is esp pointing directly to the
+	 end of block of saved registers, where we may simplify addressing
+	 mode.  */
+
+      if (!frame_pointer_needed || (sp_valid && !tsize))
+	ix86_emit_restore_regs_using_mov (stack_pointer_rtx, tsize);
+      else
+	ix86_emit_restore_regs_using_mov (hard_frame_pointer_rtx, offset);
+
+      if (!frame_pointer_needed)
+	ix86_emit_epilogue_esp_adjustment (tsize + nregs * UNITS_PER_WORD);
+      /* If not an i386, mov & pop is faster than "leave". */
+      else if (TARGET_USE_LEAVE || optimize_size)
+	emit_insn (gen_leave ());
+      else
+	{
+	  emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+						    hard_frame_pointer_rtx,
+						    const0_rtx,
+						    hard_frame_pointer_rtx));
+	  emit_insn (gen_popsi1 (hard_frame_pointer_rtx));
+	}
+    }
+  else
+    {
+      /* First step is to deallocate the stack frame so that we can
+	 pop the registers.  */
+      if (!sp_valid)
+	{
+	  if (!frame_pointer_needed)
+	    abort ();
+          emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+						    hard_frame_pointer_rtx,
+						    GEN_INT (offset),
+						    hard_frame_pointer_rtx));
+	}
+      else if (tsize)
+	ix86_emit_epilogue_esp_adjustment (tsize);
+
+      for (regno = 0; regno < STACK_POINTER_REGNUM; regno++)
+	if ((regs_ever_live[regno] && !call_used_regs[regno])
+	    || (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+	  emit_insn (gen_popsi1 (gen_rtx_REG (SImode, regno)));
+    }
+
+  /* Sibcall epilogues don't want a return instruction.  */
+  if (! emit_return)
+    return;
 
   if (current_function_pops_args && current_function_args_size)
     {
@@ -1909,7 +2193,8 @@ ix86_decompose_address (addr, out)
 
   /* Allow arg pointer and stack pointer as index if there is not scaling */
   if (base && index && scale == 1
-      && (index == arg_pointer_rtx || index == stack_pointer_rtx))
+      && (index == arg_pointer_rtx || index == frame_pointer_rtx
+          || index == stack_pointer_rtx))
     {
       rtx tmp = base;
       base = index;
@@ -1917,7 +2202,9 @@ ix86_decompose_address (addr, out)
     }
 
   /* Special case: %ebp cannot be encoded as a base without a displacement.  */
-  if (base == frame_pointer_rtx && !disp)
+  if ((base == hard_frame_pointer_rtx
+       || base == frame_pointer_rtx
+       || base == arg_pointer_rtx) && !disp)
     disp = const0_rtx;
 
   /* Special case: on K6, [%esi] makes the instruction vector decoded.
@@ -2226,7 +2513,7 @@ legitimize_pic_address (orig, reg)
 	      /* Check that the unspec is one of the ones we generate?  */
 	    }
 	  else if (GET_CODE (addr) != PLUS)
-	    abort();
+	    abort ();
 	}
       if (GET_CODE (addr) == PLUS)
 	{
@@ -2574,6 +2861,51 @@ output_pic_addr_const (file, x, code)
       output_operand_lossage ("invalid expression as operand");
     }
 }
+
+/* This is called from dwarfout.c via ASM_OUTPUT_DWARF_ADDR_CONST.  
+   We need to handle our special PIC relocations.  */
+
+void 
+i386_dwarf_output_addr_const (file, x)
+     FILE *file;
+     rtx x;
+{
+  fprintf (file, "\t%s\t", INT_ASM_OP);
+  if (flag_pic)
+    output_pic_addr_const (file, x, '\0');
+  else
+    output_addr_const (file, x);
+  fputc ('\n', file);
+}
+
+/* In the name of slightly smaller debug output, and to cater to
+   general assembler losage, recognize PIC+GOTOFF and turn it back
+   into a direct symbol reference.  */
+
+rtx
+i386_simplify_dwarf_addr (orig_x)
+     rtx orig_x;
+{
+  rtx x = orig_x;
+
+  if (GET_CODE (x) != PLUS
+      || GET_CODE (XEXP (x, 0)) != REG
+      || GET_CODE (XEXP (x, 1)) != CONST)
+    return orig_x;
+
+  x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == UNSPEC
+      && XINT (x, 1) == 7)
+    return XVECEXP (x, 0, 0);
+
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 0)) == UNSPEC
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && XINT (XEXP (x, 0), 1) == 7)
+    return gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
+
+  return orig_x;
+}
 
 static void
 put_condition_code (code, mode, reverse, fp, file)
@@ -2645,6 +2977,7 @@ print_reg (x, code, file)
      FILE *file;
 {
   if (REGNO (x) == ARG_POINTER_REGNUM
+      || REGNO (x) == FRAME_POINTER_REGNUM
       || REGNO (x) == FLAGS_REG
       || REGNO (x) == FPSR_REG)
     abort ();
@@ -2867,7 +3200,7 @@ print_operand (file, x, code)
 	    case 8: size = "QWORD"; break;
 	    case 12: size = "XWORD"; break;
 	    default:
-	      abort();
+	      abort ();
 	    }
 	  fputs (size, file);
 	  fputs (" PTR ", file);
@@ -3089,7 +3422,7 @@ split_di (operands, num, lo_half, hi_half)
 	  hi_half[num] = change_address (op, SImode, hi_addr);
 	}
       else
-	abort();
+	abort ();
     }
 }
 
@@ -3696,6 +4029,10 @@ ix86_expand_move (mode, operands)
 	      || !push_operand (operands[0], mode))
 	  && GET_CODE (operands[1]) == MEM)
 	operands[1] = force_reg (mode, operands[1]);
+
+      if (push_operand (operands[0], mode)
+	  && ! general_no_elim_operand (operands[1], mode))
+	operands[1] = copy_to_mode_reg (mode, operands[1]);
 
       if (FLOAT_MODE_P (mode))
 	{
@@ -4627,7 +4964,7 @@ ix86_expand_int_movcc (operands)
     {
       /* Try a few things more with specific constants and a variable.  */
 
-      optab op = NULL;
+      optab op;
       rtx var, orig_out, out, tmp;
 
       if (optimize_size)
@@ -4643,6 +4980,8 @@ ix86_expand_int_movcc (operands)
 	    operands[3] = constm1_rtx, op = and_optab;
 	  else if (INTVAL (operands[2]) == -1)
 	    operands[3] = const0_rtx, op = ior_optab;
+	  else
+	    return 0; /* FAIL */
 	}
       else if (GET_CODE (operands[3]) == CONST_INT)
 	{
@@ -4651,9 +4990,10 @@ ix86_expand_int_movcc (operands)
 	    operands[2] = constm1_rtx, op = and_optab;
 	  else if (INTVAL (operands[3]) == -1)
 	    operands[2] = const0_rtx, op = ior_optab;
+	  else
+	    return 0; /* FAIL */
 	}
-
-      if (op == NULL)
+      else
         return 0; /* FAIL */
 
       orig_out = operands[0];
@@ -5149,10 +5489,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
   rtx align_3_label = NULL_RTX;
   rtx align_4_label = gen_label_rtx ();
   rtx end_0_label = gen_label_rtx ();
-  rtx end_2_label = gen_label_rtx ();
-  rtx end_3_label = gen_label_rtx ();
   rtx mem;
   rtx flags = gen_rtx_REG (CCNOmode, FLAGS_REG);
+  rtx tmpreg = gen_reg_rtx (SImode);
 
   align = 0;
   if (GET_CODE (align_rtx) == CONST_INT)
@@ -5269,48 +5608,69 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
 
   mem = gen_rtx_MEM (SImode, out);
   emit_move_insn (scratch, mem);
-
-  /* Check first byte. */
-  emit_insn (gen_cmpqi_0 (gen_lowpart (QImode, scratch), const0_rtx));
-  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
-  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
-			      gen_rtx_LABEL_REF (VOIDmode, end_0_label),
-			      pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
-
-  /* Check second byte. */
-  emit_insn (gen_cmpqi_ext_3 (scratch, const0_rtx));
-  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
-  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
-			      gen_rtx_LABEL_REF (VOIDmode, end_3_label),
-			      pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
-
-  /* Check third byte. */
-  emit_insn (gen_testsi_1 (scratch, GEN_INT (0x00ff0000)));
-  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
-  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
-			      gen_rtx_LABEL_REF (VOIDmode, end_2_label),
-			      pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
-
-  /* Check fourth byte and increment address. */
   emit_insn (gen_addsi3 (out, out, GEN_INT (4)));
-  emit_insn (gen_testsi_1 (scratch, GEN_INT (0xff000000)));
-  tmp = gen_rtx_NE (VOIDmode, flags, const0_rtx);
-  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
-			      gen_rtx_LABEL_REF (VOIDmode, align_4_label),
-			      pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
 
-  /* Now generate fixups when the compare stops within a 4-byte word. */
-  emit_insn (gen_subsi3 (out, out, GEN_INT (3)));
-  
-  emit_label (end_2_label);
-  emit_insn (gen_addsi3 (out, out, const1_rtx));
+  /* This formula yields a nonzero result iff one of the bytes is zero.
+     This saves three branches inside loop and many cycles.  */
 
-  emit_label (end_3_label);
-  emit_insn (gen_addsi3 (out, out, const1_rtx));
+  emit_insn (gen_addsi3 (tmpreg, scratch, GEN_INT (-0x01010101)));
+  emit_insn (gen_one_cmplsi2 (scratch, scratch));
+  emit_insn (gen_andsi3 (tmpreg, tmpreg, scratch));
+  emit_insn (gen_andsi3 (tmpreg, tmpreg, GEN_INT (0x80808080)));
+  emit_cmp_and_jump_insns (tmpreg, const0_rtx, EQ, 0, SImode, 1, 0, align_4_label);
+
+  if (TARGET_CMOVE)
+    {
+       rtx reg = gen_reg_rtx (SImode);
+       emit_move_insn (reg, tmpreg);
+       emit_insn (gen_lshrsi3 (reg, reg, GEN_INT (16)));
+
+       /* If zero is not in the first two bytes, move two bytes forward. */
+       emit_insn (gen_testsi_1 (tmpreg, GEN_INT (0x8080)));
+       tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
+       tmp = gen_rtx_EQ (VOIDmode, tmp, const0_rtx);
+       emit_insn (gen_rtx_SET (VOIDmode, tmpreg,
+			       gen_rtx_IF_THEN_ELSE (SImode, tmp,
+				       		     reg, 
+				       		     tmpreg)));
+       /* Emit lea manually to avoid clobbering of flags.  */
+       emit_insn (gen_rtx_SET (SImode, reg,
+			       gen_rtx_PLUS (SImode, out, GEN_INT (2))));
+
+       tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
+       tmp = gen_rtx_EQ (VOIDmode, tmp, const0_rtx);
+       emit_insn (gen_rtx_SET (VOIDmode, out,
+			       gen_rtx_IF_THEN_ELSE (SImode, tmp,
+				       		     reg,
+				       		     out)));
+
+    }
+  else
+    {
+       rtx end_2_label = gen_label_rtx ();
+       /* Is zero in the first two bytes? */
+
+       emit_insn (gen_testsi_1 (tmpreg, GEN_INT (0x8080)));
+       tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
+       tmp = gen_rtx_NE (VOIDmode, tmp, const0_rtx);
+       tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
+                            gen_rtx_LABEL_REF (VOIDmode, end_2_label),
+                            pc_rtx);
+       tmp = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
+       JUMP_LABEL (tmp) = end_2_label;
+
+       /* Not in the first two.  Move two bytes forward. */
+       emit_insn (gen_lshrsi3 (tmpreg, tmpreg, GEN_INT (16)));
+       emit_insn (gen_addsi3 (out, out, GEN_INT (2)));
+
+       emit_label (end_2_label);
+
+    }
+
+  /* Avoid branch in fixing the byte. */
+  tmpreg = gen_lowpart (QImode, tmpreg);
+  emit_insn (gen_addqi3_cc (tmpreg, tmpreg, tmpreg));
+  emit_insn (gen_subsi3_carry (out, out, GEN_INT (3)));
 
   emit_label (end_0_label);
 }
@@ -5398,7 +5758,8 @@ memory_address_length (addr)
       /* Special cases: ebp and esp need the two-byte modrm form.  */
       if (addr == stack_pointer_rtx
 	  || addr == arg_pointer_rtx
-	  || addr == frame_pointer_rtx)
+	  || addr == frame_pointer_rtx
+	  || addr == hard_frame_pointer_rtx)
 	len = 1;
     }
 
@@ -5497,14 +5858,14 @@ ix86_attr_length_default (insn)
       {
         /* Irritatingly, single_set doesn't work with REG_UNUSED present,
 	   as we'll get from running life_analysis during reg-stack when
-	   not optimizing.  */
+	   not optimizing.  Not that it matters anyway, now that
+	   pro_epilogue_adjust_stack uses lea, and is by design not
+	   single_set. */
         rtx set = PATTERN (insn);
         if (GET_CODE (set) == SET)
 	  ;
 	else if (GET_CODE (set) == PARALLEL
-		 && XVECLEN (set, 0) == 2
-		 && GET_CODE (XVECEXP (set, 0, 0)) == SET
-		 && GET_CODE (XVECEXP (set, 0, 1)) == CLOBBER)
+		 && GET_CODE (XVECEXP (set, 0, 0)) == SET)
 	  set = XVECEXP (set, 0, 0);
 	else
 	  abort ();
@@ -5590,17 +5951,21 @@ ix86_flags_dependant (insn, dep_insn, insn_type)
       set = SET_DEST (XVECEXP (PATTERN (dep_insn), 0, 0));
       set2 = SET_DEST (XVECEXP (PATTERN (dep_insn), 0, 0));
     }
+  else
+    return 0;
 
-  if (set && GET_CODE (set) == REG && REGNO (set) == FLAGS_REG)
-    {
-      /* This test is true if the dependant insn reads the flags but
-	 not any other potentially set register.  */
-      if (reg_overlap_mentioned_p (set, PATTERN (insn))
-	  && (!set2 || !reg_overlap_mentioned_p (set2, PATTERN (insn))))
-	return 1;
-    }
+  if (GET_CODE (set) != REG || REGNO (set) != FLAGS_REG)
+    return 0;
 
-  return 0;
+  /* This test is true if the dependant insn reads the flags but
+     not any other potentially set register.  */
+  if (!reg_overlap_mentioned_p (set, PATTERN (insn)))
+    return 0;
+
+  if (set2 && reg_overlap_mentioned_p (set2, PATTERN (insn)))
+    return 0;
+
+  return 1;
 }
 
 /* A subroutine of ix86_adjust_cost -- return true iff INSN has a memory
@@ -5614,7 +5979,17 @@ ix86_agi_dependant (insn, dep_insn, insn_type)
   rtx addr;
 
   if (insn_type == TYPE_LEA)
-    addr = SET_SRC (single_set (insn));
+    {
+      addr = PATTERN (insn);
+      if (GET_CODE (addr) == SET)
+	;
+      else if (GET_CODE (addr) == PARALLEL
+	       && GET_CODE (XVECEXP (addr, 0, 0)) == SET)
+	addr = XVECEXP (addr, 0, 0);
+      else
+	abort ();
+      addr = SET_SRC (addr);
+    }
   else
     {
       int i;
@@ -5651,17 +6026,16 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
   if (dep_insn_code_number < 0 || recog_memoized (insn) < 0)
     return cost;
 
-  /* Prologue and epilogue allocators have false dependency on ebp.
-     This results in one cycle extra stall on Pentium prologue scheduling, so
-     handle this important case manually. */
-
-  if ((dep_insn_code_number == CODE_FOR_prologue_allocate_stack
-       || dep_insn_code_number == CODE_FOR_epilogue_deallocate_stack)
-      && !reg_mentioned_p (stack_pointer_rtx, insn))
-    return 0;
-
   insn_type = get_attr_type (insn);
   dep_insn_type = get_attr_type (dep_insn);
+
+  /* Prologue and epilogue allocators can have a false dependency on ebp.
+     This results in one cycle extra stall on Pentium prologue scheduling,
+     so handle this important case manually.  */
+  if (dep_insn_code_number == CODE_FOR_pro_epilogue_adjust_stack
+      && dep_insn_type == TYPE_ALU
+      && !reg_mentioned_p (stack_pointer_rtx, insn))
+    return 0;
 
   switch (ix86_cpu)
     {
@@ -5897,19 +6271,170 @@ ix86_pent_find_pair (e_ready, ready, type, first)
   return bestinsnp;
 }
 
+/* Subroutines of ix86_sched_reorder.  */
+
+static void
+ix86_sched_reorder_pentium (ready, e_ready)
+     rtx *ready;
+     rtx *e_ready;
+{
+  enum attr_pent_pair pair1, pair2;
+  rtx *insnp;
+
+  /* This wouldn't be necessary if Haifa knew that static insn ordering
+     is important to which pipe an insn is issued to.  So we have to make
+     some minor rearrangements.  */
+
+  pair1 = ix86_safe_pent_pair (*e_ready);
+
+  /* If the first insn is non-pairable, let it be.  */
+  if (pair1 == PENT_PAIR_NP)
+    return;
+
+  pair2 = PENT_PAIR_NP;
+  insnp = 0;
+
+  /* If the first insn is UV or PV pairable, search for a PU
+     insn to go with.  */
+  if (pair1 == PENT_PAIR_UV || pair1 == PENT_PAIR_PV)
+    {
+      insnp = ix86_pent_find_pair (e_ready-1, ready,
+				   PENT_PAIR_PU, *e_ready);
+      if (insnp)
+	pair2 = PENT_PAIR_PU;
+    }
+
+  /* If the first insn is PU or UV pairable, search for a PV
+     insn to go with.  */
+  if (pair2 == PENT_PAIR_NP
+      && (pair1 == PENT_PAIR_PU || pair1 == PENT_PAIR_UV))
+    {
+      insnp = ix86_pent_find_pair (e_ready-1, ready,
+				   PENT_PAIR_PV, *e_ready);
+      if (insnp)
+	pair2 = PENT_PAIR_PV;
+    }
+
+  /* If the first insn is pairable, search for a UV
+     insn to go with.  */
+  if (pair2 == PENT_PAIR_NP)
+    {
+      insnp = ix86_pent_find_pair (e_ready-1, ready,
+				   PENT_PAIR_UV, *e_ready);
+      if (insnp)
+	pair2 = PENT_PAIR_UV;
+    }
+
+  if (pair2 == PENT_PAIR_NP)
+    return;
+
+  /* Found something!  Decide if we need to swap the order.  */
+  if (pair1 == PENT_PAIR_PV || pair2 == PENT_PAIR_PU
+      || (pair1 == PENT_PAIR_UV && pair2 == PENT_PAIR_UV
+	  && ix86_safe_memory (*e_ready) == MEMORY_BOTH
+	  && ix86_safe_memory (*insnp) == MEMORY_LOAD))
+    ix86_reorder_insn (insnp, e_ready);
+  else
+    ix86_reorder_insn (insnp, e_ready - 1);
+}
+
+static void
+ix86_sched_reorder_ppro (ready, e_ready)
+     rtx *ready;
+     rtx *e_ready;
+{
+  rtx decode[3];
+  enum attr_ppro_uops cur_uops;
+  int issued_this_cycle;
+  rtx *insnp;
+  int i;
+
+  /* At this point .ppro.decode contains the state of the three 
+     decoders from last "cycle".  That is, those insns that were
+     actually independent.  But here we're scheduling for the 
+     decoder, and we may find things that are decodable in the
+     same cycle.  */
+
+  memcpy (decode, ix86_sched_data.ppro.decode, sizeof(decode));
+  issued_this_cycle = 0;
+
+  insnp = e_ready;
+  cur_uops = ix86_safe_ppro_uops (*insnp);
+
+  /* If the decoders are empty, and we've a complex insn at the
+     head of the priority queue, let it issue without complaint.  */
+  if (decode[0] == NULL)
+    {
+      if (cur_uops == PPRO_UOPS_MANY)
+	{
+	  decode[0] = *insnp;
+	  goto ppro_done;
+	}
+
+      /* Otherwise, search for a 2-4 uop unsn to issue.  */
+      while (cur_uops != PPRO_UOPS_FEW)
+	{
+	  if (insnp == ready)
+	    break;
+	  cur_uops = ix86_safe_ppro_uops (*--insnp);
+	}
+
+      /* If so, move it to the head of the line.  */
+      if (cur_uops == PPRO_UOPS_FEW)
+	ix86_reorder_insn (insnp, e_ready);
+
+      /* Issue the head of the queue.  */
+      issued_this_cycle = 1;
+      decode[0] = *e_ready--;
+    }
+
+  /* Look for simple insns to fill in the other two slots.  */
+  for (i = 1; i < 3; ++i)
+    if (decode[i] == NULL)
+      {
+	if (ready >= e_ready)
+	  goto ppro_done;
+
+	insnp = e_ready;
+	cur_uops = ix86_safe_ppro_uops (*insnp);
+	while (cur_uops != PPRO_UOPS_ONE)
+	  {
+	    if (insnp == ready)
+	      break;
+	    cur_uops = ix86_safe_ppro_uops (*--insnp);
+	  }
+
+	/* Found one.  Move it to the head of the queue and issue it.  */
+	if (cur_uops == PPRO_UOPS_ONE)
+	  {
+	    ix86_reorder_insn (insnp, e_ready);
+	    decode[i] = *e_ready--;
+	    issued_this_cycle++;
+	    continue;
+	  }
+
+	/* ??? Didn't find one.  Ideally, here we would do a lazy split
+	   of 2-uop insns, issue one and queue the other.  */
+      }
+
+ ppro_done:
+  if (issued_this_cycle == 0)
+    issued_this_cycle = 1;
+  ix86_sched_data.ppro.issued_this_cycle = issued_this_cycle;
+}
+
+  
 /* We are about to being issuing insns for this clock cycle.  
    Override the default sort algorithm to better slot instructions.  */
-
 int
 ix86_sched_reorder (dump, sched_verbose, ready, n_ready, clock_var)
      FILE *dump ATTRIBUTE_UNUSED;
      int sched_verbose ATTRIBUTE_UNUSED;
      rtx *ready;
-     int n_ready, clock_var ATTRIBUTE_UNUSED;
+     int n_ready;
+     int clock_var ATTRIBUTE_UNUSED;
 {
   rtx *e_ready = ready + n_ready - 1;
-  rtx *insnp;
-  int i;
 
   if (n_ready < 2)
     goto out;
@@ -5917,146 +6442,14 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_ready, clock_var)
   switch (ix86_cpu)
     {
     default:
-      goto out;
+      break;
 
     case PROCESSOR_PENTIUM:
-      /* This wouldn't be necessary if Haifa knew that static insn ordering
-	 is important to which pipe an insn is issued to.  So we have to make
-	 some minor rearrangements.  */
-      {
-	enum attr_pent_pair pair1, pair2;
-
-	pair1 = ix86_safe_pent_pair (*e_ready);
-
-	/* If the first insn is non-pairable, let it be.  */
-	if (pair1 == PENT_PAIR_NP)
-	  goto out;
-	pair2 = PENT_PAIR_NP;
-
-	/* If the first insn is UV or PV pairable, search for a PU
-	   insn to go with.  */
-	if (pair1 == PENT_PAIR_UV || pair1 == PENT_PAIR_PV)
-	  {
-	    insnp = ix86_pent_find_pair (e_ready-1, ready,
-					 PENT_PAIR_PU, *e_ready);
-	    if (insnp)
-	      pair2 = PENT_PAIR_PU;
-	  }
-
-	/* If the first insn is PU or UV pairable, search for a PV
-	   insn to go with.  */
-	if (pair2 == PENT_PAIR_NP
-	    && (pair1 == PENT_PAIR_PU || pair1 == PENT_PAIR_UV))
-	  {
-	    insnp = ix86_pent_find_pair (e_ready-1, ready,
-					 PENT_PAIR_PV, *e_ready);
-	    if (insnp)
-	      pair2 = PENT_PAIR_PV;
-	  }
-
-	/* If the first insn is pairable, search for a UV
-	   insn to go with.  */
-	if (pair2 == PENT_PAIR_NP)
-	  {
-	    insnp = ix86_pent_find_pair (e_ready-1, ready,
-					 PENT_PAIR_UV, *e_ready);
-	    if (insnp)
-	      pair2 = PENT_PAIR_UV;
-	  }
-
-	if (pair2 == PENT_PAIR_NP)
-	  goto out;
-
-	/* Found something!  Decide if we need to swap the order.  */
-	if (pair1 == PENT_PAIR_PV || pair2 == PENT_PAIR_PU
-	    || (pair1 == PENT_PAIR_UV && pair2 == PENT_PAIR_UV
-		&& ix86_safe_memory (*e_ready) == MEMORY_BOTH
-		&& ix86_safe_memory (*insnp) == MEMORY_LOAD))
-	  ix86_reorder_insn (insnp, e_ready);
-	else
-	  ix86_reorder_insn (insnp, e_ready - 1);
-      }
+      ix86_sched_reorder_pentium (ready, e_ready);
       break;
 
     case PROCESSOR_PENTIUMPRO:
-      {
-	rtx decode[3];
-	enum attr_ppro_uops cur_uops;
-	int issued_this_cycle;
-
-	/* At this point .ppro.decode contains the state of the three 
-	   decoders from last "cycle".  That is, those insns that were
-	   actually independant.  But here we're scheduling for the 
-	   decoder, and we may find things that are decodable in the
-	   same cycle.  */
-
-	memcpy (decode, ix86_sched_data.ppro.decode, sizeof(decode));
-	issued_this_cycle = 0;
-
-	insnp = e_ready;
-	cur_uops = ix86_safe_ppro_uops (*insnp);
-
-	/* If the decoders are empty, and we've a complex insn at the
-	   head of the priority queue, let it issue without complaint.  */
-	if (decode[0] == NULL)
-	  {
-	    if (cur_uops == PPRO_UOPS_MANY)
-	      {
-		decode[0] = *insnp;
-		goto ppro_done;
-	      }
-
-	    /* Otherwise, search for a 2-4 uop unsn to issue.  */
-	    while (cur_uops != PPRO_UOPS_FEW)
-	      {
-		if (insnp == ready)
-		  break;
-		cur_uops = ix86_safe_ppro_uops (*--insnp);
-	      }
-
-	    /* If so, move it to the head of the line.  */
-	    if (cur_uops == PPRO_UOPS_FEW)
-	      ix86_reorder_insn (insnp, e_ready);
-
-	    /* Issue the head of the queue.  */
-	    issued_this_cycle = 1;
-	    decode[0] = *e_ready--;
-	  }
-
-	/* Look for simple insns to fill in the other two slots.  */
-	for (i = 1; i < 3; ++i)
-	  if (decode[i] == NULL)
-	    {
-	      if (ready >= e_ready)
-		goto ppro_done;
-
-	      insnp = e_ready;
-	      cur_uops = ix86_safe_ppro_uops (*insnp);
-	      while (cur_uops != PPRO_UOPS_ONE)
-		{
-		  if (insnp == ready)
-		    break;
-		  cur_uops = ix86_safe_ppro_uops (*--insnp);
-		}
-
-	      /* Found one.  Move it to the head of the queue and issue it.  */
-	      if (cur_uops == PPRO_UOPS_ONE)
-		{
-		  ix86_reorder_insn (insnp, e_ready);
-		  decode[i] = *e_ready--;
-		  issued_this_cycle++;
-		  continue;
-		}
-
-	      /* ??? Didn't find one.  Ideally, here we would do a lazy split
-		 of 2-uop insns, issue one and queue the other.  */
-	    }
-
-      ppro_done:
-	if (issued_this_cycle == 0)
-	  issued_this_cycle = 1;
-	ix86_sched_data.ppro.issued_this_cycle = issued_this_cycle;
-      }
+      ix86_sched_reorder_ppro (ready, e_ready);
       break;
     }
 

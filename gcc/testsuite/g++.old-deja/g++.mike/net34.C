@@ -1,3 +1,5 @@
+// Special g++ Options:
+
 #include <iostream.h>
 
 class foo {

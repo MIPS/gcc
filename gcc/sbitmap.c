@@ -497,12 +497,51 @@ sbitmap_union_of_preds (dst, src, bb)
     }
 }
 
+/* Return number of first bit set in the bitmap, -1 if none.  */
+
+int
+sbitmap_first_set_bit (bmap)
+     sbitmap bmap;
+{
+  int n;
+  EXECUTE_IF_SET_IN_SBITMAP (bmap, 0, n, { return n; });
+  return -1;
+}
+
+/* Return number of last bit set in the bitmap, -1 if none.  */
+
+int
+sbitmap_last_set_bit (bmap)
+     sbitmap bmap;
+{
+  int i;
+  SBITMAP_ELT_TYPE *ptr = bmap->elms;
+  for (i = bmap->size - 1; i >= 0; i--)
+    {
+      SBITMAP_ELT_TYPE word = ptr[i];
+      if (word)
+      {
+        int index = (i + 1) * SBITMAP_ELT_BITS - 1;
+        SBITMAP_ELT_TYPE mask = (SBITMAP_ELT_TYPE) 1 << (SBITMAP_ELT_BITS - 1);
+        while (1)
+          {
+            if (word & mask)
+              return index;
+            mask >>= 1;
+            index--;
+          }
+      }
+    }
+  return -1;
+}
+
 void
 dump_sbitmap (file, bmap)
      FILE *file;
      sbitmap bmap;
 {
-  int i,j,n;
+  int i, n;
+  unsigned int j;
   int set_size = bmap->size;
   int total_bits = bmap->n_bits;
 
@@ -513,7 +552,8 @@ dump_sbitmap (file, bmap)
 	{
 	  if (n != 0 && n % 10 == 0)
 	    fprintf (file, " ");
-	  fprintf (file, "%d", (bmap->elms[i] & (1L << j)) != 0);
+	  fprintf (file, "%d",
+		   (bmap->elms[i] & ((SBITMAP_ELT_TYPE) 1 << j)) != 0);
 	}
     }
   fprintf (file, "\n");

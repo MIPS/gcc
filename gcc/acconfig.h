@@ -4,6 +4,9 @@
 /* Define if printf supports "%p".  */
 #undef HAVE_PRINTF_PTR
 
+/* Define if you want to always select the new-abi for g++.  */
+#undef ENABLE_NEW_GXX_ABI
+
 /* Define if you want more run-time sanity checks.  This one gets a grab
    bag of miscellaneous but relatively cheap checks.  */
 #undef ENABLE_CHECKING
@@ -66,6 +69,9 @@
    emitting at the beginning of your section */
 #undef HAVE_GAS_SUBSECTION_ORDERING
 
+/* Define if your assembler supports .weak.  */
+#undef HAVE_GAS_WEAK
+
 /* Define if your assembler uses the old HImode fild and fist notation.  */
 #undef HAVE_GAS_FILDS_FISTS
 
@@ -119,9 +125,6 @@
 
 /* Whether abort must be declared even if <stdlib.h> is included.  */
 #undef NEED_DECLARATION_ABORT
-
-/* Whether strerror must be declared even if <string.h> is included.  */
-#undef NEED_DECLARATION_STRERROR
 
 /* Whether strsignal must be declared even if <string.h> is included.  */
 #undef NEED_DECLARATION_STRSIGNAL

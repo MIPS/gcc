@@ -42,19 +42,13 @@ is_friend (type, supplicant)
   if (supplicant == NULL_TREE || type == NULL_TREE)
     return 0;
 
-  declp = (TREE_CODE_CLASS (TREE_CODE (supplicant)) == 'd');
+  declp = DECL_P (supplicant);
 
   if (declp)
     /* It's a function decl.  */
     {
       tree list = DECL_FRIENDLIST (TYPE_MAIN_DECL (type));
       tree name = DECL_NAME (supplicant);
-      tree ctype;
-
-      if (DECL_FUNCTION_MEMBER_P (supplicant))
-	ctype = DECL_CLASS_CONTEXT (supplicant);
-      else
-	ctype = NULL_TREE;
 
       for (; list ; list = TREE_CHAIN (list))
 	{
@@ -63,9 +57,6 @@ is_friend (type, supplicant)
 	      tree friends = FRIEND_DECLS (list);
 	      for (; friends ; friends = TREE_CHAIN (friends))
 		{
-		  if (same_type_p (ctype, TREE_PURPOSE (friends)))
-		    return 1;
-
 		  if (TREE_VALUE (friends) == NULL_TREE)
 		    continue;
 
@@ -101,8 +92,13 @@ is_friend (type, supplicant)
   else
     /* It's a type.  */
     {
-      if (type == supplicant)
-	return 1;
+      /* Nested classes are implicitly friends of their enclosing types, as
+	 per core issue 45 (this is a change from the standard).  */
+      for (context = supplicant;
+	   context && TYPE_P (context);
+	   context = TYPE_CONTEXT (context))
+	if (type == context)
+	  return 1;
       
       list = CLASSTYPE_FRIEND_CLASSES (TREE_TYPE (TYPE_MAIN_DECL (type)));
       for (; list ; list = TREE_CHAIN (list))
@@ -117,10 +113,10 @@ is_friend (type, supplicant)
     }      
 
   if (declp && DECL_FUNCTION_MEMBER_P (supplicant))
-    context = DECL_CLASS_CONTEXT (supplicant);
+    context = DECL_CONTEXT (supplicant);
   else if (! declp)
     /* Local classes have the same access as the enclosing function.  */
-    context = hack_decl_function_context (TYPE_MAIN_DECL (supplicant));
+    context = decl_function_context (TYPE_MAIN_DECL (supplicant));
   else
     context = NULL_TREE;
 
@@ -183,47 +179,6 @@ add_friend (type, decl)
     DECL_BEFRIENDING_CLASSES (decl) 
       = tree_cons (NULL_TREE, type,
 		   DECL_BEFRIENDING_CLASSES (decl));
-}
-
-/* Declare that every member function NAME in FRIEND_TYPE
-   (which may be NULL_TREE) is a friend of type TYPE.  */
-
-void
-add_friends (type, name, friend_type)
-     tree type, name, friend_type;
-{
-  tree typedecl = TYPE_MAIN_DECL (type);
-  tree list = DECL_FRIENDLIST (typedecl);
-
-  while (list)
-    {
-      if (name == FRIEND_NAME (list))
-	{
-	  tree friends = FRIEND_DECLS (list);
-	  while (friends && TREE_PURPOSE (friends) != friend_type)
-	    friends = TREE_CHAIN (friends);
-	  if (friends)
-	    {
-	      if (friend_type)
-		warning ("method `%s::%s' is already a friend of class",
-			 TYPE_NAME_STRING (friend_type),
-			 IDENTIFIER_POINTER (name));
-	      else
-		warning ("function `%s' is already a friend of class `%s'",
-			 IDENTIFIER_POINTER (name),
-			 IDENTIFIER_POINTER (DECL_NAME (typedecl)));
-	    }
-	  else
-	    TREE_VALUE (list) = tree_cons (friend_type, NULL_TREE,
-					   TREE_VALUE (list));
-	  return;
-	}
-      list = TREE_CHAIN (list);
-    }
-  DECL_FRIENDLIST (typedecl)
-    = tree_cons (name,
-		 build_tree_list (friend_type, NULL_TREE),
-		 DECL_FRIENDLIST (typedecl));
 }
 
 /* Make FRIEND_TYPE a friend class to TYPE.  If FRIEND_TYPE has already
@@ -407,7 +362,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
       /* A nested class may declare a member of an enclosing class
 	 to be a friend, so we do lookup here even if CTYPE is in
 	 the process of being defined.  */
-      else if (TYPE_SIZE (ctype) != 0 || TYPE_BEING_DEFINED (ctype))
+      else if (COMPLETE_TYPE_P (ctype) || TYPE_BEING_DEFINED (ctype))
 	{
 	  decl = check_classfn (ctype, decl);
 
@@ -429,7 +384,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	 in their scope, their friend wind up in top-level scope as well.  */
       DECL_ARGUMENTS (decl) = parmdecls;
       if (funcdef_flag)
-	DECL_CLASS_CONTEXT (decl) = current_class_type;
+	SET_DECL_FRIEND_CONTEXT (decl, current_class_type);
 
       if (! DECL_USE_TEMPLATE (decl))
 	{
@@ -455,10 +410,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	      warning ("  declares a non-template function");
 	      if (! explained)
 		{
-		  warning ("  (if this is not what you intended, make sure");
-		  warning ("  the function template has already been declared,");
-		  warning ("  and add <> after the function name here)");
- 		  warning ("  -Wno-non-template-friend disables this warning.");
+		  warning ("  (if this is not what you intended, make sure the function template has already been declared and add <> after the function name here) -Wno-non-template-friend disables this warning.");
 		  explained = 1;
 		}
 	    }

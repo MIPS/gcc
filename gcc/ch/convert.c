@@ -1,5 +1,6 @@
 /* Language-level data type conversion for GNU CHILL.
-   Copyright (C) 1992, 93, 1994, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -38,18 +39,18 @@ extern tree bit_one_node, bit_zero_node;
 extern tree string_one_type_node;
 extern tree bitstring_one_type_node;
 
-static tree convert_to_reference	PROTO ((tree, tree));
-static tree convert_to_boolean		PROTO ((tree, tree));
-static tree convert_to_char		PROTO ((tree, tree));
+static tree convert_to_reference	PARAMS ((tree, tree));
+static tree convert_to_boolean		PARAMS ((tree, tree));
+static tree convert_to_char		PARAMS ((tree, tree));
 #if 0
-static tree base_type_size_in_bytes	PROTO ((tree));
+static tree base_type_size_in_bytes	PARAMS ((tree));
 #endif
-static tree remove_tree_element		PROTO ((tree, tree *));
-static tree check_ps_range		PROTO ((tree, tree, tree));
-static tree digest_powerset_tuple	PROTO ((tree, tree));
-static tree digest_structure_tuple	PROTO ((tree, tree));
-static tree digest_array_tuple		PROTO ((tree, tree, int));
-static tree convert1			PROTO ((tree, tree));
+static tree remove_tree_element		PARAMS ((tree, tree *));
+static tree check_ps_range		PARAMS ((tree, tree, tree));
+static tree digest_powerset_tuple	PARAMS ((tree, tree));
+static tree digest_structure_tuple	PARAMS ((tree, tree));
+static tree digest_array_tuple		PARAMS ((tree, tree, int));
+static tree convert1			PARAMS ((tree, tree));
 
 static tree
 convert_to_reference (reftype, expr)
@@ -858,14 +859,12 @@ digest_array_tuple (type, init, allow_missing_elements)
 	    }
 	  /* Calculate the last element of the gap. */
 	  if (*ptr)
-	    {
-	      /* Actually end up with correct type. */
-	      last = size_binop (MINUS_EXPR,
-				 CONSTRUCTOR_ELT_LO (*ptr),
-				 integer_one_node);
-	    }
+	    last = fold (build (MINUS_EXPR, integer_type_node,
+				CONSTRUCTOR_ELT_LO (*ptr),
+				integer_one_node));
 	  else
 	    last = domain_max;
+
 	  if (TREE_CODE (last) == INTEGER_CST && tree_int_cst_lt (last, first))
 	    ; /* Empty "gap" - no missing elements. */
 	  else if (default_value)
@@ -1058,16 +1057,17 @@ convert (type, expr)
 	{
 	  /* Note that array_type_nelts returns 1 less than the size. */
 	  nentries = array_type_nelts (TREE_TYPE (e));
-	  needed_padding = size_binop (MINUS_EXPR,
-				       array_type_nelts (target_array_type),
-				       nentries);
+	  needed_padding = fold (build (MINUS_EXPR, integer_type_node,
+					array_type_nelts (target_array_type),
+					nentries));
 	  if (TREE_CODE (needed_padding) != INTEGER_CST)
 	    {
 	      padding_max_size = size_in_bytes (TREE_TYPE (e));
 	      if (TREE_CODE (padding_max_size) != INTEGER_CST)
 		padding_max_size = TYPE_ARRAY_MAX_SIZE (TREE_TYPE (e));
 	    }
-	  nentries = size_binop (PLUS_EXPR, nentries, integer_one_node);
+	  nentries = fold (build (PLUS_EXPR, integer_type_node,
+				  nentries, integer_one_node));
 	}
       else if (TREE_CODE (e) == CONSTRUCTOR)
 	{

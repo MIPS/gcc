@@ -1,5 +1,5 @@
 /* Language parser definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -36,8 +36,8 @@ extern int quiet_flag;
 
 #ifndef JC1_LITE
 /* Function extern to java/ */
-extern int int_fits_type_p PROTO ((tree, tree));
-extern tree stabilize_reference PROTO ((tree));
+extern int int_fits_type_p PARAMS ((tree, tree));
+extern tree stabilize_reference PARAMS ((tree));
 #endif
 
 /* Macros for verbose debug info  */
@@ -66,8 +66,8 @@ extern tree stabilize_reference PROTO ((tree));
 #define DRECOVERED(s)
 #endif
 
-#define DRECOVER(s) {yyerrok; DRECOVERED(s)}
-#define RECOVER     {yyerrok; RECOVERED}
+#define DRECOVER(s) {yyerrok; DRECOVERED(s);}
+#define RECOVER     {yyerrok; RECOVERED;}
 
 #define YYERROR_NOW ctxp->java_error_flag = 1
 #define YYNOT_TWICE if (ctxp->prevent_ese != lineno)
@@ -138,12 +138,19 @@ extern tree stabilize_reference PROTO ((tree));
 
 /* Pedantic warning on obsolete modifiers. Note: when cl is NULL,
    flags was set artificially, such as for a interface method */
-#define OBSOLETE_MODIFIER_WARNING(cl, flags, __modifier, format, arg)        \
+#define OBSOLETE_MODIFIER_WARNING(cl, flags, __modifier, arg)                \
   {                                                                          \
     if (flag_redundant && (cl) && ((flags) & (__modifier)))		     \
       parse_warning_context (cl,                                             \
-     "Discouraged redundant use of `%s' modifier in declaration of " format, \
+     "Discouraged redundant use of `%s' modifier in declaration of %s",      \
 			     java_accstring_lookup (__modifier), arg);       \
+  }
+#define OBSOLETE_MODIFIER_WARNING2(cl, flags, __modifier, arg1, arg2)        \
+  {                                                                          \
+    if (flag_redundant && (cl) && ((flags) & (__modifier)))		     \
+      parse_warning_context (cl,                                             \
+     "Discouraged redundant use of `%s' modifier in declaration of %s `%s'", \
+			     java_accstring_lookup (__modifier), arg1, arg2);\
   }
 
 /* Quickly build a temporary pointer on hypothetical type NAME. */
@@ -198,7 +205,7 @@ extern tree stabilize_reference PROTO ((tree));
 #define JNULLP_TYPE_P(TYPE) ((TYPE) && (TREE_CODE (TYPE) == POINTER_TYPE) \
 			     && (TYPE) == TREE_TYPE (null_pointer_node))
 
-/* Other predicate */
+/* Other predicates */
 #define JDECL_P(NODE) (NODE && (TREE_CODE (NODE) == PARM_DECL		\
 				|| TREE_CODE (NODE) == VAR_DECL		\
 				|| TREE_CODE (NODE) == FIELD_DECL))
@@ -208,6 +215,109 @@ extern tree stabilize_reference PROTO ((tree));
 
 #define TYPE_CLASS_P(TYPE) (CLASS_P (TYPE) 				\
 			    && !CLASS_INTERFACE (TYPE_NAME (TYPE)))
+
+/* Identifier business related to 1.1 language extensions.  */
+
+#define IDENTIFIER_INNER_CLASS_OUTER_FIELD_ACCESS(NODE)	\
+  (TREE_CODE (NODE) == IDENTIFIER_NODE &&		\
+   IDENTIFIER_LENGTH (NODE) >= 8 &&			\
+   IDENTIFIER_POINTER (NODE)[7] != '0')
+
+/* Build the string val$<O> and store it into N. The is used to
+   construct the name of inner class hidden fields used to alias outer
+   scope local variables.  */
+#define MANGLE_OUTER_LOCAL_VARIABLE_NAME(N, O)				\
+  {									\
+    obstack_grow (&temporary_obstack, "val$", 4);			\
+    obstack_grow (&temporary_obstack, 					\
+		  IDENTIFIER_POINTER ((O)), IDENTIFIER_LENGTH ((O)));	\
+    obstack_1grow (&temporary_obstack, '\0');				\
+    (N) = obstack_finish (&temporary_obstack);  			\
+  }
+
+/* Build the string parm$<O> and store in into the identifier N. This
+   is used to contruct the name of hidden parameters used to
+   initialize outer scope aliases.  */
+#define MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_ID(N, O)		\
+  {									\
+    obstack_grow (&temporary_obstack, "parm$", 5);			\
+    obstack_grow (&temporary_obstack, 					\
+		  IDENTIFIER_POINTER ((O)), IDENTIFIER_LENGTH ((O)));	\
+    obstack_1grow (&temporary_obstack, '\0');				\
+    (N) = obstack_finish (&temporary_obstack);  			\
+  }
+
+#define MANGLE_ALIAS_INITIALIZER_PARAMETER_NAME_STR(N, S)	\
+  {								\
+    obstack_grow (&temporary_obstack, "parm$", 5);		\
+    obstack_grow (&temporary_obstack, (S), strlen ((S)));	\
+    obstack_1grow (&temporary_obstack, '\0');			\
+    (N) = obstack_finish (&temporary_obstack);			\
+  }
+
+/* Skip THIS and artificial parameters found in function decl M and
+   assign the result to C. We don't do that for $finit$, since it's
+   knowingly called with artificial parms.  */
+#define SKIP_THIS_AND_ARTIFICIAL_PARMS(C,M)			\
+  {								\
+    int i;							\
+    (C) = TYPE_ARG_TYPES (TREE_TYPE ((M)));			\
+    if (!METHOD_STATIC ((M)))					\
+      (C) = TREE_CHAIN (C);					\
+    if (DECL_CONSTRUCTOR_P ((M))				\
+        && PURE_INNER_CLASS_TYPE_P (DECL_CONTEXT ((M))))	\
+      (C) = TREE_CHAIN (C);					\
+    if (!DECL_FINIT_P ((M)))					\
+      for (i = DECL_FUNCTION_NAP ((M)); i; i--)			\
+       (C) = TREE_CHAIN (C);					\
+  }
+
+/* Mark final parameters in method M, by comparison of the argument
+   list L. This macro is used to set the flag once the method has been
+   build.  */
+#define MARK_FINAL_PARMS(M, L)						\
+  {									\
+    tree current = TYPE_ARG_TYPES (TREE_TYPE ((M)));			\
+    tree list = (L);							\
+    if (!METHOD_STATIC ((M)))						\
+      current = TREE_CHAIN (current);					\
+    for (; current !=  end_params_node;					\
+	 current = TREE_CHAIN (current), list = TREE_CHAIN (list))	\
+      ARG_FINAL_P (current) = ARG_FINAL_P (list);			\
+    if (current != list)						\
+      fatal ("MARK_FINAL_PARMS");					\
+  }
+
+/* Reset the ARG_FINAL_P that might have been set in method M args.  */
+#define UNMARK_FINAL_PARMS(M)						\
+  {									\
+    tree current;							\
+    for (current = TYPE_ARG_TYPES (TREE_TYPE ((M))); 			\
+	 current != end_params_node; current = TREE_CHAIN (current))	\
+      ARG_FINAL_P (current) = 0;					\
+  }
+
+/* Reverse a crafted parameter list as required.  */
+#define CRAFTED_PARAM_LIST_FIXUP(P)		\
+  {						\
+    if ((P))					\
+      {						\
+	tree last = (P);			\
+	(P) = nreverse (P);			\
+	TREE_CHAIN (last) = end_params_node;	\
+      }						\
+    else					\
+      (P) = end_params_node;			\
+  }
+
+/* Modes governing the creation of a alias initializer parameter
+   lists. AIPL stands for Alias Initializer Parameter List.  */
+enum {
+  AIPL_FUNCTION_CREATION,	  /* Suitable for artificial method creation */
+  AIPL_FUNCTION_DECLARATION,	  /* Suitable for declared methods */
+  AIPL_FUNCTION_CTOR_INVOCATION,  /* Invocation of constructors */
+  AIPL_FUNCTION_FINIT_INVOCATION  /* Invocation of $finit$ */
+};
 
 /* Standard error messages */
 #define ERROR_CANT_CONVERT_TO_BOOLEAN(OPERATOR, NODE, TYPE)		\
@@ -296,6 +406,11 @@ do {									\
 /* Check that we have exceptions in E.  */
 #define EXCEPTIONS_P(E) ((E) ? TREE_VALUE (E) : NULL_TREE)
 
+/* Anonymous array access */
+#define ANONYMOUS_ARRAY_BASE_TYPE(N)   TREE_OPERAND ((N), 0)
+#define ANONYMOUS_ARRAY_DIMS_SIG(N)    TREE_OPERAND ((N), 1)
+#define ANONYMOUS_ARRAY_INITIALIZER(N) TREE_OPERAND ((N), 2)
+
 /* Invocation modes, as returned by invocation_mode (). */
 enum {
   INVOKE_STATIC,
@@ -351,7 +466,10 @@ enum jdep_code {
   JDEP_TYPE,			/* Patch a random tree node type,
                                    without the need for any specific
                                    actions */
-  JDEP_EXCEPTION		/* Patch exceptions specified by `throws' */
+  JDEP_EXCEPTION,		/* Patch exceptions specified by `throws' */
+  JDEP_ANONYMOUS		/* Patch anonymous classes
+				   (implementation or extension.) */
+
 };
 
 typedef struct _jdep {
@@ -366,6 +484,7 @@ typedef struct _jdep {
   tree solv;			/* What to solve */
   tree wfl;			/* Where thing to resolve where found */
   tree misc;			/* Miscellaneous info (optional). */
+  tree enclosing;		/* The enclosing (current) class */
   tree *patch;			/* Address of a location to patch */
   struct _jdep *next;		/* Linked list */
 } jdep;
@@ -377,6 +496,7 @@ typedef struct _jdep {
 #define JDEP_SOLV(J)          ((J)->solv)
 #define JDEP_WFL(J)           ((J)->wfl)
 #define JDEP_MISC(J)          ((J)->misc)
+#define JDEP_ENCLOSING(J)     ((J)->enclosing)
 #define JDEP_CLASS(J)         ((J)->class)
 #define JDEP_APPLY_PATCH(J,P) (*(J)->patch = (P))
 #define JDEP_GET_PATCH(J)     ((J)->patch)
@@ -530,12 +650,13 @@ typedef struct _jdeplist {
     TREE_SIDE_EFFECTS (WHERE) = 1;			\
   }
 
-#define BUILD_THROW(WHERE, WHAT)					\
-  {									\
-    (WHERE) = build (CALL_EXPR, void_type_node,				\
-		  build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]), \
-		  build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
-    TREE_SIDE_EFFECTS ((WHERE)) = 1;					\
+#define BUILD_THROW(WHERE, WHAT)					    \
+  {									    \
+    (WHERE) = 								    \
+      build (CALL_EXPR, void_type_node,					    \
+	     build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]), \
+	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);		    \
+    TREE_SIDE_EFFECTS ((WHERE)) = 1;					    \
   }
 
 /* Set wfl_operator for the most accurate error location */
@@ -577,16 +698,12 @@ typedef struct _jdeplist {
   ctxp->import_list = node;				\
 }
 
-/* Safe check that DECL is <clinit> */
-#define IS_CLINIT(DECL)				\
-  (DECL != NULL_TREE && DECL_NAME (DECL) == clinit_identifier_node)
-
 /* Macro to access the osb (opening square bracket) count */
 #define CURRENT_OSB(C) (C)->osb_number [(C)->osb_depth]
 
 /* Macro for the xreferencer */
 #define DECL_END_SOURCE_LINE(DECL)       DECL_FRAME_SIZE (DECL)
-#define DECL_INHERITED_SOURCE_LINE(DECL) DECL_FIELD_SIZE (DECL)
+#define DECL_INHERITED_SOURCE_LINE(DECL) (DECL_CHECK (DECL)->decl.u2.i)
      
 /* Parser context data structure. */
 struct parser_ctxt {
@@ -595,6 +712,7 @@ struct parser_ctxt {
   FILE *finput;			    /* Current file input stream */
   struct parser_ctxt *next;
 
+  char marker_begining;		     /* Marker. Should be a sub-struct */
   struct java_line *p_line, *c_line; /* Previous and current line */
   java_lc elc;			     /* Error's line column info */
   unicode_t unget_utf8_value;        /* An unget utf8 value */
@@ -606,6 +724,7 @@ struct parser_ctxt {
   int osb_limit;		     /* Limit of this depth */
   int *osb_number;		     /* Keep track of ['s */
   int lineno;			     /* Current lineno */
+  char marker_end;		     /* End marker. Should be a sub-struct */
 
   /* The flags section */
 
@@ -639,7 +758,7 @@ struct parser_ctxt {
 
   tree package;			    /* Defined package ID */
 
-  /* Those tow list are saved accross file traversal */
+  /* Those two list are saved accross file traversal */
   tree  incomplete_class;	    /* List of non-complete classes */
   tree  gclass_list;		    /* All classes seen from source code */
 
@@ -652,6 +771,7 @@ struct parser_ctxt {
 
   tree non_static_initialized;	    /* List of non static initialized fields */
   tree static_initialized;	    /* List of static non final initialized */
+  tree instance_initializers;	    /* List of instancei initializers stmts */
 
   tree import_list;		    /* List of import */
   tree import_demand_list;	    /* List of import on demand */
@@ -670,29 +790,126 @@ struct parser_ctxt {
 #endif /* JC1_LITE */
 };
 
+/* A set of macros to push/pop/access the currently parsed class.  */
+#define GET_CPC_LIST()     ctxp->current_parsed_class
+
+/* Currently class being parsed is an inner class if an enclosing
+   class has been already pushed. This truth value is only valid prior
+   an inner class is pushed. After, use FIXME. */
+#define CPC_INNER_P() GET_CPC_LIST ()
+
+/* Get the currently parsed class DECL_TYPE node.  */
+#define GET_CPC() TREE_VALUE (GET_CPC_LIST ())
+
+/* Get the currently parsed class unqualified IDENTIFIER_NODE.  */
+#define GET_CPC_UN() TREE_PURPOSE (GET_CPC_LIST ())
+
+/* Get a parsed class unqualified IDENTIFIER_NODE from its CPC node.  */
+#define GET_CPC_UN_NODE(N) TREE_PURPOSE (N)
+
+/* Get the currently parsed class DECL_TYPE from its CPC node.  */
+#define GET_CPC_DECL_NODE(N) TREE_VALUE (N)
+
+/* The currently parsed enclosing currently parsed TREE_LIST node.  */
+#define GET_ENCLOSING_CPC() TREE_CHAIN (GET_CPC_LIST ())
+
+/* Get the next enclosing context.  */
+#define GET_NEXT_ENCLOSING_CPC(C) TREE_CHAIN (C)
+
+/* The DECL_TYPE node of the enclosing currently parsed
+   class. NULL_TREE if the currently parsed class isn't an inner
+   class.  */
+#define GET_ENCLOSING_CPC_CONTEXT() (GET_ENCLOSING_CPC () ?		      \
+                                     TREE_VALUE (GET_ENCLOSING_CPC ()) :      \
+				     NULL_TREE)
+
+/* Make sure that innerclass T sits in an appropriate enclosing
+   context.  */
+#define INNER_ENCLOSING_SCOPE_CHECK(T)					\
+  (INNER_CLASS_TYPE_P ((T)) && !ANONYMOUS_CLASS_P ((T))			\
+   /* We have a this and it's not the right one */			\
+   && ((current_this							\
+	&& (DECL_CONTEXT (TYPE_NAME ((T)))				\
+	    != TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this)))))	\
+       /* We don't have a this. */					\
+       || !current_this))
+
+/* Push macro. First argument to PUSH_CPC is a DECL_TYPE, second
+   argument is the unqualified currently parsed class name.  */
+#define PUSH_CPC(C,R) { 					\
+                        ctxp->current_parsed_class =		\
+		        tree_cons ((R), (C), GET_CPC_LIST ()); 	\
+		      }
+
+/* In case of an error, push an error.  */
+#define PUSH_ERROR() PUSH_CPC (error_mark_node, error_mark_node)
+
+/* Pop macro. Before we pop, we link the current inner class decl (if any)
+   to its enclosing class.  */
+#define POP_CPC() {					\
+		    link_nested_class_to_enclosing ();	\
+		    ctxp->current_parsed_class =	\
+		      TREE_CHAIN (GET_CPC_LIST ());	\
+		  }
+
+#define DEBUG_CPC()						\
+  do								\
+    {								\
+      tree tmp =  ctxp->current_parsed_class;			\
+      while (tmp)						\
+	{							\
+	  fprintf (stderr, "%s ",				\
+		   IDENTIFIER_POINTER (TREE_PURPOSE (tmp)));	\
+	  tmp = TREE_CHAIN (tmp);				\
+	}							\
+    } 								\
+  while (0);
+
+/* Access to the various initializer statement lists */
+#define CPC_INITIALIZER_LIST(C)          ((C)->non_static_initialized)
+#define CPC_STATIC_INITIALIZER_LIST(C)   ((C)->static_initialized)
+#define CPC_INSTANCE_INITIALIZER_LIST(C) ((C)->instance_initializers)
+
+/* Access to the various initializer statements */
+#define CPC_INITIALIZER_STMT(C) (TREE_PURPOSE (CPC_INITIALIZER_LIST (C)))
+#define CPC_STATIC_INITIALIZER_STMT(C) \
+  (TREE_PURPOSE (CPC_STATIC_INITIALIZER_LIST (C)))
+#define CPC_INSTANCE_INITIALIZER_STMT(C) \
+  (TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)))
+
+/* Set various initializer statements */
+#define SET_CPC_INITIALIZER_STMT(C,S)			\
+  if (CPC_INITIALIZER_LIST (C))				\
+    TREE_PURPOSE (CPC_INITIALIZER_LIST (C)) = (S);
+#define SET_CPC_STATIC_INITIALIZER_STMT(C,S)			\
+  if (CPC_STATIC_INITIALIZER_LIST (C))				\
+    TREE_PURPOSE (CPC_STATIC_INITIALIZER_LIST (C)) = (S);
+#define SET_CPC_INSTANCE_INITIALIZER_STMT(C,S)			\
+  if (CPC_INSTANCE_INITIALIZER_LIST(C))				\
+    TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)) = (S);
+
 #ifndef JC1_LITE
-void safe_layout_class PROTO ((tree));
-void java_complete_class PROTO ((void));
-void java_check_circular_reference PROTO ((void));
-void java_fix_constructors PROTO ((void));
-void java_check_final PROTO ((void));
-void java_layout_classes PROTO ((void));
-tree java_method_add_stmt PROTO ((tree, tree));
-void java_expand_switch PROTO ((tree));
-int java_report_errors PROTO ((void));
-extern tree do_resolve_class PROTO ((tree, tree, tree));
+void java_complete_class PARAMS ((void));
+void java_check_circular_reference PARAMS ((void));
+void java_fix_constructors PARAMS ((void));
+void java_layout_classes PARAMS ((void));
+void java_reorder_fields PARAMS ((void));
+tree java_method_add_stmt PARAMS ((tree, tree));
+void java_expand_switch PARAMS ((tree));
+int java_report_errors PARAMS ((void));
+extern tree do_resolve_class PARAMS ((tree, tree, tree, tree));
 #endif
-char *java_get_line_col PROTO ((char *, int, int));
-extern void reset_report PROTO ((void));
+char *java_get_line_col PARAMS ((char *, int, int));
+extern void reset_report PARAMS ((void));
 
 /* Always in use, no matter what you compile */
-void java_push_parser_context PROTO ((void));
-void java_pop_parser_context PROTO ((int));
-void java_init_lex PROTO ((void));
-extern void java_parser_context_save_global PROTO ((void));
-extern void java_parser_context_restore_global PROTO ((void));
-int yyparse PROTO ((void));
-extern int java_parse PROTO ((void));
-void yyerror PROTO ((const char *));
-extern void java_expand_classes PROTO ((void));
+void java_push_parser_context PARAMS ((void));
+void java_pop_parser_context PARAMS ((int));
+void java_init_lex PARAMS ((void));
+extern void java_parser_context_save_global PARAMS ((void));
+extern void java_parser_context_restore_global PARAMS ((void));
+int yyparse PARAMS ((void));
+extern int java_parse PARAMS ((void));
+void yyerror PARAMS ((const char *));
+extern void java_expand_classes PARAMS ((void));
 #endif

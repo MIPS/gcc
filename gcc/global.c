@@ -1,5 +1,6 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
-   Copyright (C) 1987, 88, 91, 94, 96-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1994, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -287,25 +288,24 @@ static int n_regs_set;
 
 static HARD_REG_SET eliminable_regset;
 
-static int allocno_compare	PROTO((const PTR, const PTR));
-static void global_conflicts	PROTO((void));
-static void mirror_conflicts	PROTO((void));
-static void expand_preferences	PROTO((void));
-static void prune_preferences	PROTO((void));
-static void find_reg		PROTO((int, HARD_REG_SET, int, int, int));
-static void record_one_conflict PROTO((int));
-static void record_conflicts	PROTO((int *, int));
-static void mark_reg_store	PROTO((rtx, rtx, void *));
-static void mark_reg_clobber	PROTO((rtx, rtx, void *));
-static void mark_reg_conflicts	PROTO((rtx));
-static void mark_reg_death	PROTO((rtx));
-static void mark_reg_live_nc	PROTO((int, enum machine_mode));
-static void set_preference	PROTO((rtx, rtx));
-static void dump_conflicts	PROTO((FILE *));
-static void reg_becomes_live	PROTO((rtx, rtx, void *));
-static void reg_dies		PROTO((int, enum machine_mode,
+static int allocno_compare	PARAMS ((const PTR, const PTR));
+static void global_conflicts	PARAMS ((void));
+static void mirror_conflicts	PARAMS ((void));
+static void expand_preferences	PARAMS ((void));
+static void prune_preferences	PARAMS ((void));
+static void find_reg		PARAMS ((int, HARD_REG_SET, int, int, int));
+static void record_one_conflict PARAMS ((int));
+static void record_conflicts	PARAMS ((int *, int));
+static void mark_reg_store	PARAMS ((rtx, rtx, void *));
+static void mark_reg_clobber	PARAMS ((rtx, rtx, void *));
+static void mark_reg_conflicts	PARAMS ((rtx));
+static void mark_reg_death	PARAMS ((rtx));
+static void mark_reg_live_nc	PARAMS ((int, enum machine_mode));
+static void set_preference	PARAMS ((rtx, rtx));
+static void dump_conflicts	PARAMS ((FILE *));
+static void reg_becomes_live	PARAMS ((rtx, rtx, void *));
+static void reg_dies		PARAMS ((int, enum machine_mode,
 				       struct insn_chain *));
-static void build_insn_chain	PROTO((rtx));
 
 /* Perform allocation of pseudo-registers not allocated by local_alloc.
    FILE is a file to output debugging information on,
@@ -374,7 +374,7 @@ global_alloc (file)
      a leaf function.  */
   {
     char *cheap_regs;
-    static char leaf_regs[] = LEAF_REGISTERS;
+    char *leaf_regs = LEAF_REGISTERS;
 
     if (only_leaf_regs_used () && leaf_function_p ())
       cheap_regs = leaf_regs;
@@ -1757,15 +1757,16 @@ reg_dies (regno, mode, chain)
 
 /* Walk the insns of the current function and build reload_insn_chain,
    and record register life information.  */
-static void
+void
 build_insn_chain (first)
      rtx first;
 {
   struct insn_chain **p = &reload_insn_chain;
   struct insn_chain *prev = 0;
   int b = 0;
+  regset_head live_relevant_regs_head;
 
-  live_relevant_regs = ALLOCA_REG_SET ();
+  live_relevant_regs = INITIALIZE_REG_SET (live_relevant_regs_head);
 
   for (; first; first = NEXT_INSN (first))
     {

@@ -1,5 +1,5 @@
 /* CPP main program, using CPP Library.
-   Copyright (C) 1995, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -20,15 +20,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  You are forbidden to forbid anyone else to use, share and improve
  what you give them.   Help stamp out software-hoarding!  */
 
-#ifndef EMACS
 #include "config.h"
 #include "system.h"
-#else
-#include <stdio.h>
-
-extern char *getenv ();
-#endif /* not EMACS */
-
 #include "cpplib.h"
 #include "intl.h"
 
@@ -52,6 +45,8 @@ main (argc, argv)
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && p[-1] != '/') --p;
   progname = p;
+
+  xmalloc_set_program_name (progname);
 
 #ifdef HAVE_LC_MESSAGES
   setlocale (LC_MESSAGES, "");
@@ -80,7 +75,10 @@ main (argc, argv)
   if (!opts->out_fname || !strcmp (opts->out_fname, ""))
     opts->out_fname = "stdout";
   else if (! freopen (opts->out_fname, "w", stdout))
-    cpp_pfatal_with_name (&parse_in, opts->out_fname);
+    {
+      cpp_notice_from_errno (&parse_in, opts->out_fname);
+      return (FATAL_EXIT_CODE);
+    }
 
   if (! opts->no_output)
     {
@@ -94,7 +92,7 @@ main (argc, argv)
 	      rem = fwrite (parse_in.token_buffer, 1, count, stdout);
 	      if (rem < count)
 		/* Write error. */
-		cpp_pfatal_with_name (&parse_in, opts->out_fname);
+		cpp_notice_from_errno (&parse_in, opts->out_fname);
 
 	      CPP_SET_WRITTEN (&parse_in, 0);
 	    }
@@ -115,7 +113,7 @@ main (argc, argv)
   cpp_finish (&parse_in);
   if (fwrite (parse_in.token_buffer, 1, CPP_WRITTEN (&parse_in), stdout)
       < CPP_WRITTEN (&parse_in))
-    cpp_pfatal_with_name (&parse_in, opts->out_fname);
+    cpp_notice_from_errno (&parse_in, opts->out_fname);
 
   cpp_cleanup (&parse_in);
 

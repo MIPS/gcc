@@ -104,7 +104,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Turn on -pic-extern by default for OSF/rose, -fpic for ELF.  */
 #undef  CC1_SPEC
-#define CC1_SPEC "\
+#define CC1_SPEC "%(cc1_cpu) \
 %{gline:%{!g:%{!g0:%{!g1:%{!g2: -g1}}}}} \
 %{!melf: %{!mrose: -mrose }} \
 %{melf: %{!munderscores: %{!mno-underscores: -mno-underscores }} \
@@ -666,7 +666,7 @@ while (0)
 
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
-     char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);			 \
+     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
      if (TARGET_ELF							 \
 	 && !flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
@@ -877,34 +877,10 @@ while (0)
    we want to retain compatibility with older gcc versions.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* Map i386 registers to the numbers dwarf expects.  Of course this is different
-   from what stabs expects.  */
-
-#define DWARF_DBX_REGISTER_NUMBER(n) \
-((n) == 0 ? 0 \
- : (n) == 1 ? 2 \
- : (n) == 2 ? 1 \
- : (n) == 3 ? 3 \
- : (n) == 4 ? 6 \
- : (n) == 5 ? 7 \
- : (n) == 6 ? 5 \
- : (n) == 7 ? 4 \
- : ((n) >= FIRST_STACK_REG && (n) <= LAST_STACK_REG) ? (n)+3 \
- : (-1))
-
-/* Now what stabs expects in the register.  */
-#define STABS_DBX_REGISTER_NUMBER(n) \
-((n) == 0 ? 0 : \
- (n) == 1 ? 2 : \
- (n) == 2 ? 1 : \
- (n) == 3 ? 3 : \
- (n) == 4 ? 6 : \
- (n) == 5 ? 7 : \
- (n) == 6 ? 4 : \
- (n) == 7 ? 5 : \
- (n) + 4)
+/* Map i386 registers to the numbers dwarf expects.  Of course this is
+   different from what stabs expects.  */
 
 #undef	DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(n) ((write_symbols == DWARF_DEBUG)		\
-				? DWARF_DBX_REGISTER_NUMBER(n)		\
-				: STABS_DBX_REGISTER_NUMBER(n))
+#define DBX_REGISTER_NUMBER(n)  ((write_symbols == DWARF_DEBUG)	\
+				 ? svr4_dbx_register_map[n]	\
+				 : dbx_register_map[n])

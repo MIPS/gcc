@@ -1,5 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -146,7 +147,7 @@ static int high_block_linenum;
 static int high_function_linenum;
 
 /* Filename of last NOTE.  */
-static char *last_filename;
+static const char *last_filename;
 
 /* Number of basic blocks seen so far;
    used if profile_block_flag is set.  */
@@ -172,22 +173,6 @@ static rtx last_ignored_compare = 0;
 /* Flag indicating this insn is the start of a new basic block.  */
 
 static int new_block = 1;
-
-/* All the symbol-blocks (levels of scoping) in the compilation
-   are assigned sequence numbers in order of appearance of the
-   beginnings of the symbol-blocks.  Both final and dbxout do this,
-   and assume that they will both give the same number to each block.
-   Final uses these sequence numbers to generate assembler label names
-   LBBnnn and LBEnnn for the beginning and end of the symbol-block.
-   Dbxout uses the sequence numbers to generate references to the same labels
-   from the dbx debugging information.
-
-   Sdb records this level at the beginning of each function,
-   in order to find the current level when recursing down declarations.
-   It outputs the block beginning and endings
-   at the point in the asm file where the blocks would begin and end.  */
-
-int next_block_index;
 
 /* Assign a unique number to each insn that is output.
    This can be used to generate unique local labels.  */
@@ -228,18 +213,7 @@ int frame_pointer_needed;
 
 int profile_label_no;
 
-/* Length so far allocated in PENDING_BLOCKS.  */
-
-static int max_block_depth;
-
-/* Stack of sequence numbers of symbol-blocks of which we have seen the
-   beginning but not yet the end.  Sequence numbers are assigned at
-   the beginning; this stack allows us to find the sequence number
-   of a block that is ending.  */
-
-static int *pending_blocks;
-
-/* Number of elements currently in use in PENDING_BLOCKS.  */
+/* Number of unmatched NOTE_INSN_BLOCK_BEG notes we have seen.  */
 
 static int block_depth;
 
@@ -290,27 +264,27 @@ static struct bb_str **sbb_tail	= &sbb_head;	/* Ptr to store next bb str */
 static int sbb_label_num	= 0;		/* Last label used */
 
 #ifdef HAVE_ATTR_length
-static int asm_insn_count	PROTO((rtx));
+static int asm_insn_count	PARAMS ((rtx));
 #endif
-static void profile_function	PROTO((FILE *));
-static void profile_after_prologue PROTO((FILE *));
-static void add_bb		PROTO((FILE *));
-static int add_bb_string	PROTO((const char *, int));
-static void output_source_line	PROTO((FILE *, rtx));
-static rtx walk_alter_subreg	PROTO((rtx));
-static void output_asm_name	PROTO((void));
-static void output_operand	PROTO((rtx, int));
+static void profile_function	PARAMS ((FILE *));
+static void profile_after_prologue PARAMS ((FILE *));
+static void add_bb		PARAMS ((FILE *));
+static int add_bb_string	PARAMS ((const char *, int));
+static void output_source_line	PARAMS ((FILE *, rtx));
+static rtx walk_alter_subreg	PARAMS ((rtx));
+static void output_asm_name	PARAMS ((void));
+static void output_operand	PARAMS ((rtx, int));
 #ifdef LEAF_REGISTERS
-static void leaf_renumber_regs	PROTO((rtx));
+static void leaf_renumber_regs	PARAMS ((rtx));
 #endif
 #ifdef HAVE_cc0
-static int alter_cond		PROTO((rtx));
+static int alter_cond		PARAMS ((rtx));
 #endif
 #ifndef ADDR_VEC_ALIGN
-static int final_addr_vec_align PROTO ((rtx));
+static int final_addr_vec_align PARAMS ((rtx));
 #endif
 #ifdef HAVE_ATTR_length
-static int align_fuzz		PROTO ((rtx, rtx, int, unsigned));
+static int align_fuzz		PARAMS ((rtx, rtx, int, unsigned));
 #endif
 
 /* Initialize data in final at the beginning of a compilation.  */
@@ -319,10 +293,7 @@ void
 init_final (filename)
      const char *filename ATTRIBUTE_UNUSED;
 {
-  next_block_index = 2;
   app_on = 0;
-  max_block_depth = 20;
-  pending_blocks = (int *) xmalloc (20 * sizeof *pending_blocks);
   final_sequence = 0;
 
 #ifdef ASSEMBLER_DIALECT
@@ -1134,7 +1105,7 @@ shorten_branches (first)
 		break;
 	      else if (GET_CODE (label) == CODE_LABEL)
 		{
-		  log = LOOP_ALIGN (insn);
+		  log = LOOP_ALIGN (label);
 		  if (max_log < log)
 		    {
 		      max_log = log;
@@ -1566,7 +1537,7 @@ static int
 asm_insn_count (body)
      rtx body;
 {
-  char *template;
+  const char *template;
   int count = 1;
 
   if (GET_CODE (body) == ASM_INPUT)
@@ -1628,6 +1599,8 @@ final_start_function (first, file, optimize)
   /* Output DWARF definition of the function.  */
   if (dwarf2out_do_frame ())
     dwarf2out_begin_prologue ();
+  else
+    current_function_func_begin_label = 0;
 #endif
 
   /* For SDB and XCOFF, the function beginning must be marked between
@@ -1666,14 +1639,21 @@ final_start_function (first, file, optimize)
     dwarf2out_frame_debug (NULL_RTX);
 #endif
 
+  /* If debugging, assign block numbers to all of the blocks in this
+     function.  */
+  if (write_symbols)
+    {
+      number_blocks (current_function_decl);
+      remove_unncessary_notes ();
+      /* We never actually put out begin/end notes for the top-level
+	 block in the function.  But, conceptually, that block is
+	 always needed.  */
+      TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
+    }
+
 #ifdef FUNCTION_PROLOGUE
   /* First output the function prologue: code to set up the stack frame.  */
   FUNCTION_PROLOGUE (file, get_frame_size ());
-#endif
-
-#if defined (SDB_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-  if (write_symbols == SDB_DEBUG || write_symbols == XCOFF_DEBUG)
-    next_block_index = 1;
 #endif
 
   /* If the machine represents the prologue as RTL, the profiling code must
@@ -2173,45 +2153,35 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      || write_symbols == DWARF_DEBUG
 	      || write_symbols == DWARF2_DEBUG))
 	{
-	  /* Beginning of a symbol-block.  Assign it a sequence number
-	     and push the number onto the stack PENDING_BLOCKS.  */
+	  int n = BLOCK_NUMBER (NOTE_BLOCK (insn));
 
-	  if (block_depth == max_block_depth)
-	    {
-	      /* PENDING_BLOCKS is full; make it longer.  */
-	      max_block_depth *= 2;
-	      pending_blocks
-		= (int *) xrealloc (pending_blocks,
-				    max_block_depth * sizeof (int));
-	    }
-	  pending_blocks[block_depth++] = next_block_index;
-
+	  ++block_depth;
 	  high_block_linenum = last_linenum;
 
 	  /* Output debugging info about the symbol-block beginning.  */
-
 #ifdef SDB_DEBUGGING_INFO
 	  if (write_symbols == SDB_DEBUG)
-	    sdbout_begin_block (file, last_linenum, next_block_index);
+	    sdbout_begin_block (file, last_linenum, n);
 #endif
 #ifdef XCOFF_DEBUGGING_INFO
 	  if (write_symbols == XCOFF_DEBUG)
-	    xcoffout_begin_block (file, last_linenum, next_block_index);
+	    xcoffout_begin_block (file, last_linenum, n);
 #endif
 #ifdef DBX_DEBUGGING_INFO
 	  if (write_symbols == DBX_DEBUG)
-	    ASM_OUTPUT_INTERNAL_LABEL (file, "LBB", next_block_index);
+	    ASM_OUTPUT_INTERNAL_LABEL (file, "LBB", n);
 #endif
 #ifdef DWARF_DEBUGGING_INFO
 	  if (write_symbols == DWARF_DEBUG)
-	    dwarfout_begin_block (next_block_index);
+	    dwarfout_begin_block (n);
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
 	  if (write_symbols == DWARF2_DEBUG)
-	    dwarf2out_begin_block (next_block_index);
+	    dwarf2out_begin_block (n);
 #endif
 
-	  next_block_index++;
+	  /* Mark this block as output.  */
+	  TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
 	}
       else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
 	       && (debug_info_level == DINFO_LEVEL_NORMAL
@@ -2219,8 +2189,9 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	           || write_symbols == DWARF_DEBUG
 	           || write_symbols == DWARF2_DEBUG))
 	{
-	  /* End of a symbol-block.  Pop its sequence number off
-	     PENDING_BLOCKS and output debugging info based on that.  */
+	  int n = BLOCK_NUMBER (NOTE_BLOCK (insn));
+
+	  /* End of a symbol-block.  */
 
 	  --block_depth;
 	  if (block_depth < 0)
@@ -2228,26 +2199,23 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 #ifdef XCOFF_DEBUGGING_INFO
 	  if (write_symbols == XCOFF_DEBUG)
-	    xcoffout_end_block (file, high_block_linenum,
-				pending_blocks[block_depth]);
+	    xcoffout_end_block (file, high_block_linenum, n);
 #endif
 #ifdef DBX_DEBUGGING_INFO
 	  if (write_symbols == DBX_DEBUG)
-	    ASM_OUTPUT_INTERNAL_LABEL (file, "LBE",
-				       pending_blocks[block_depth]);
+	    ASM_OUTPUT_INTERNAL_LABEL (file, "LBE", n);
 #endif
 #ifdef SDB_DEBUGGING_INFO
 	  if (write_symbols == SDB_DEBUG)
-	    sdbout_end_block (file, high_block_linenum,
-			      pending_blocks[block_depth]);
+	    sdbout_end_block (file, high_block_linenum, n);
 #endif
 #ifdef DWARF_DEBUGGING_INFO
 	  if (write_symbols == DWARF_DEBUG)
-	    dwarfout_end_block (pending_blocks[block_depth]);
+	    dwarfout_end_block (n);
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
 	  if (write_symbols == DWARF2_DEBUG)
-	    dwarf2out_end_block (pending_blocks[block_depth]);
+	    dwarf2out_end_block (n);
 #endif
 	}
       else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL
@@ -2564,7 +2532,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  {
 	    unsigned int noperands = asm_noperands (body);
 	    rtx *ops = (rtx *) alloca (noperands * sizeof (rtx));
-	    char *string;
+	    const char *string;
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
@@ -3004,7 +2972,7 @@ output_source_line (file, insn)
      FILE *file ATTRIBUTE_UNUSED;
      rtx insn;
 {
-  register char *filename = NOTE_SOURCE_FILE (insn);
+  register const char *filename = NOTE_SOURCE_FILE (insn);
 
   /* Remember filename for basic block profiling.
      Filenames are allocated on the permanent obstack
@@ -3578,7 +3546,7 @@ output_asm_label (x)
 static void
 output_operand (x, code)
      rtx x;
-     int code;
+     int code ATTRIBUTE_UNUSED;
 {
   if (x && GET_CODE (x) == SUBREG)
     x = alter_subreg (x);
@@ -3726,7 +3694,7 @@ output_addr_const (file, x)
    We handle alternate assembler dialects here, just like output_asm_insn.  */
 
 void
-asm_fprintf VPROTO((FILE *file, const char *p, ...))
+asm_fprintf VPARAMS ((FILE *file, const char *p, ...))
 {
 #ifndef ANSI_PROTOTYPES
   FILE *file;
@@ -4047,20 +4015,24 @@ leaf_function_p ()
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == CALL_INSN)
+      if (GET_CODE (insn) == CALL_INSN
+	  && ! SIBLING_CALL_P (insn))
 	return 0;
       if (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE
-	  && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == CALL_INSN)
+	  && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == CALL_INSN
+	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
   for (insn = current_function_epilogue_delay_list; insn; insn = XEXP (insn, 1))
     {
-      if (GET_CODE (XEXP (insn, 0)) == CALL_INSN)
+      if (GET_CODE (XEXP (insn, 0)) == CALL_INSN
+	  && ! SIBLING_CALL_P (insn))
 	return 0;
       if (GET_CODE (XEXP (insn, 0)) == INSN
 	  && GET_CODE (PATTERN (XEXP (insn, 0))) == SEQUENCE
-	  && GET_CODE (XVECEXP (PATTERN (XEXP (insn, 0)), 0, 0)) == CALL_INSN)
+	  && GET_CODE (XVECEXP (PATTERN (XEXP (insn, 0)), 0, 0)) == CALL_INSN
+	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (XEXP (insn, 0)), 0, 0)))
 	return 0;
     }
 
@@ -4078,8 +4050,6 @@ leaf_function_p ()
 
 #ifdef LEAF_REGISTERS
 
-static char permitted_reg_in_leaf_functions[] = LEAF_REGISTERS;
-
 /* Return 1 if this function uses only the registers that can be
    safely renumbered.  */
 
@@ -4087,6 +4057,7 @@ int
 only_leaf_regs_used ()
 {
   int i;
+  char *permitted_reg_in_leaf_functions = LEAF_REGISTERS;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if ((regs_ever_live[i] || global_regs[i])

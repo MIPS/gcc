@@ -1,5 +1,6 @@
 /* Register to Stack convert for GNU compiler.
-   Copyright (C) 1992, 93-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
 
@@ -229,36 +230,38 @@ static rtx nan;
 
 /* Forward declarations */
 
-static int stack_regs_mentioned_p	PROTO((rtx pat));
-static void straighten_stack		PROTO((rtx, stack));
-static void pop_stack			PROTO((stack, int));
-static rtx *get_true_reg		PROTO((rtx *));
+static int stack_regs_mentioned_p	PARAMS ((rtx pat));
+static void straighten_stack		PARAMS ((rtx, stack));
+static void pop_stack			PARAMS ((stack, int));
+static rtx *get_true_reg		PARAMS ((rtx *));
 
-static int check_asm_stack_operands	PROTO((rtx));
-static int get_asm_operand_n_inputs	PROTO((rtx));
-static rtx stack_result			PROTO((tree));
-static void replace_reg			PROTO((rtx *, int));
-static void remove_regno_note		PROTO((rtx, enum reg_note, int));
-static int get_hard_regnum		PROTO((stack, rtx));
-static void delete_insn_for_stacker	PROTO((rtx));
-static rtx emit_pop_insn		PROTO((rtx, stack, rtx,
+static int check_asm_stack_operands	PARAMS ((rtx));
+static int get_asm_operand_n_inputs	PARAMS ((rtx));
+static rtx stack_result			PARAMS ((tree));
+static void replace_reg			PARAMS ((rtx *, int));
+static void remove_regno_note		PARAMS ((rtx, enum reg_note, int));
+static int get_hard_regnum		PARAMS ((stack, rtx));
+static void delete_insn_for_stacker	PARAMS ((rtx));
+static rtx emit_pop_insn		PARAMS ((rtx, stack, rtx,
 					       enum emit_where));
-static void emit_swap_insn		PROTO((rtx, stack, rtx));
-static void move_for_stack_reg		PROTO((rtx, stack, rtx));
-static int swap_rtx_condition_1		PROTO((rtx));
-static int swap_rtx_condition		PROTO((rtx));
-static void compare_for_stack_reg	PROTO((rtx, stack, rtx));
-static void subst_stack_regs_pat	PROTO((rtx, stack, rtx));
-static void subst_asm_stack_regs	PROTO((rtx, stack));
-static void subst_stack_regs		PROTO((rtx, stack));
-static void change_stack		PROTO((rtx, stack, stack,
+static void emit_swap_insn		PARAMS ((rtx, stack, rtx));
+static void move_for_stack_reg		PARAMS ((rtx, stack, rtx));
+static int swap_rtx_condition_1		PARAMS ((rtx));
+static int swap_rtx_condition		PARAMS ((rtx));
+static void compare_for_stack_reg	PARAMS ((rtx, stack, rtx));
+static void subst_stack_regs_pat	PARAMS ((rtx, stack, rtx));
+static void subst_asm_stack_regs	PARAMS ((rtx, stack));
+static void subst_stack_regs		PARAMS ((rtx, stack));
+static void change_stack		PARAMS ((rtx, stack, stack,
 					       enum emit_where));
-static int convert_regs_entry		PROTO((void));
-static void convert_regs_exit		PROTO((void));
-static int convert_regs_1		PROTO((FILE *, basic_block));
-static int convert_regs_2		PROTO((FILE *, basic_block));
-static int convert_regs			PROTO((FILE *));
-static void print_stack 		PROTO((FILE *, stack));
+static int convert_regs_entry		PARAMS ((void));
+static void convert_regs_exit		PARAMS ((void));
+static int convert_regs_1		PARAMS ((FILE *, basic_block));
+static int convert_regs_2		PARAMS ((FILE *, basic_block));
+static int convert_regs			PARAMS ((FILE *));
+static void print_stack 		PARAMS ((FILE *, stack));
+static rtx next_flags_user 		PARAMS ((rtx));
+static void record_label_references	PARAMS ((rtx, rtx));
 
 /* Return non-zero if any stack register is mentioned somewhere within PAT.  */
 
@@ -430,7 +433,7 @@ reg_to_stack (first, file)
 
   /* Ok, floating point instructions exist.  If not optimizing, 
      build the CFG and run life analysis.  */
-  find_basic_blocks (first, max_reg_num (), file, 0);
+  find_basic_blocks (first, max_reg_num (), file);
   count_or_remove_death_notes (NULL, 1);
   life_analysis (first, max_reg_num (), file, 0);
 
@@ -971,7 +974,8 @@ emit_swap_insn (insn, regstack, reg)
   if (current_block && insn != current_block->head)
     {
       rtx tmp = PREV_INSN (insn);
-      while (tmp != current_block->head)
+      rtx limit = PREV_INSN (current_block->head);
+      while (tmp != limit)
 	{
 	  if (GET_CODE (tmp) == CODE_LABEL
 	      || (GET_CODE (tmp) == NOTE
@@ -1015,10 +1019,7 @@ emit_swap_insn (insn, regstack, reg)
   if (i1)
     emit_block_insn_after (swap_rtx, i1, current_block);
   else if (current_block)
-    {
-      i1 = emit_insn_before (swap_rtx, current_block->head);
-      current_block->head = i1;
-    }
+    emit_block_insn_before (swap_rtx, current_block->head, current_block);
   else
     emit_insn_before (swap_rtx, insn);
 }
@@ -1383,24 +1384,12 @@ subst_stack_regs_pat (insn, regstack, pat)
       if (STACK_REG_P (*src) 
           && find_regno_note (insn, REG_DEAD, REGNO (*src)))
         {
-	   /* In stupid allocation the USE might be used to extend lifetime
-	      of variable to given scope.  This may end up as USE of dead
-	      register.  */
-	   if (optimize || get_hard_regnum (regstack, *src) != -1)
-	     emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
+	   emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
 	   return;
         }
+      /* ??? Uninitialized USE should not happen.  */
       else if (get_hard_regnum (regstack, *src) == -1)
-	{
-	   if (optimize)
-	     abort();
-	   if (GET_CODE (PATTERN (insn)) != USE)
-	     abort();
-	   PATTERN (insn) = gen_rtx_SET (GET_MODE (*src), *src,
-					 CONST0_RTX (GET_MODE (*src)));
-	   subst_stack_regs_pat (insn, regstack, PATTERN (insn));
-	   return;
-	}
+	abort();
       break;
 
     case CLOBBER:

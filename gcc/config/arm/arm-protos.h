@@ -1,8 +1,6 @@
-/* Prototypes for exported functions defined in arm.c.
-   Copyright (C) 1991, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
-   Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
-   and Martin Simmons (@harleqn.co.uk).
-   More major hacks by Richard Earnshaw (rearnsha@arm.com)
+/* Prototypes for exported functions defined in arm.c and pe.c
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
 This file is part of GNU CC.
@@ -122,7 +120,7 @@ extern char * output_move_double	PARAMS ((rtx *));
 extern char * output_mov_immediate	PARAMS ((rtx *));
 extern char * output_add_immediate	PARAMS ((rtx *));
 extern char * arithmetic_instr		PARAMS ((rtx, int));
-extern void   output_ascii_pseudo_op	PARAMS ((FILE *, unsigned char *, int));
+extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *, int));
 extern char * output_return_instruction	PARAMS ((rtx, int, int));
 extern void   arm_poke_function_name	PARAMS ((FILE *, char *));
 extern void   output_arm_prologue	PARAMS ((FILE *, int));

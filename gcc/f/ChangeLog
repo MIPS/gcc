@@ -1,3 +1,79 @@
+Mon Mar 20 15:49:40 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* f/target.h (FFETARGET_32bit_longs): New.  Define for alpha, sparc64,
+	and ia64.
+	(ffetargetInteger1, ffetargetLogical1, ffetargetReal1, ffetargetReal2,
+	ffetarget_integerdefault_is_magical): Use FFETARGET_32bit_longs.
+
+Fri Mar 10 00:43:55 2000  Jason Merrill  <jason@casey.cygnus.com>
+
+	* com.c (ffecom_stabilize_aggregate_): Don't refer to TREE_RAISES.
+
+Mon Mar  6 18:05:19 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* com.c (ffecom_f2c_set_lio_code_): Use compare_tree_int.
+	(ffecom_sym_transform_, ffecom_transform_common_): Likewise.
+	(ffecom_transform_equiv_): Likewise.
+
+Mon Mar  6 13:01:19 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ansify.c (die_unless): Don't use ANSI string concatenation.
+	(die): Mark with ATTRIBUTE_NORETURN.
+
+Wed Mar  1 00:31:44 2000  Martin von Loewis  <loewis@informatik.hu-berlin.de>
+
+	* com.c (current_function_decl): Move to toplev.c.
+
+Sun Feb 27 16:40:33 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* com.c (ffecom_arrayref_): Convert args to size_binop to proper type.
+	(ffecom_tree_canonize_ptr_): Don't use size_binop for non-sizes.
+	(ffecom_tree_canonize_ref_): Likewise.
+	(type_for_mode): Handle TImode.
+	* ste.c (ffeste_io_dofio_, ffeste_io_douio_): Use TYPE_SIZE_UNIT.
+	(ffeste_io_ciclist_): Likewise.
+
+2000-02-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* com.c (ffecom_type_permanent_copy_): Delete unused function.
+        (finish_decl): Don't change TREE_PERMANENT (DECL_INITIAL (decl)).
+
+Sat Feb 19 18:43:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* com.c (ffecom_sym_transform): Use DECL_SIZE_UNIT.
+	(ffecom_transform_common_, ffecom_transform_equiv_): Likewise.
+	(duplicate_decls): Likewise.
+	(ffecom_tree_canonize_ptr_): Delete extra arg to bitsize_int.
+	(finish_decl): Delete -Wlarger-than processing.
+
+Fri Feb 18 13:19:34 2000  Martin von Loewis  <loewis@informatik.hu-berlin.de>
+
+	* g77spec.c (lang_specific_driver): Use GCCBUGURL.
+
+2000-02-17  Andy Vaught  <andy@maxwell.la.asu.edu>
+
+	* com.c (ffecom_member_phase2_): Re-enable COMMON debug code.
+	(ffecom_finish_symbol_transform_): Likewise.
+	(ffecom_transform_common_): Call ffestorag_set_hook.
+
+Wed Feb 16 11:09:38 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (g77spec.o): Depend on $(GCC_H), not gcc.h.
+
+2000-02-15  Jonathan Larmour  <jlarmour@redhat.co.uk>
+
+	* lang-specs.h: Add new __GNUC_PATCHLEVEL__ define to default spec.
+
+Tue Feb 15 11:14:17 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g77spec.c: Don't declare `version_string'.
+
+Sat Feb  5 23:27:25 2000  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (mark_tracker_head, mark_binding_level): Protoize.
+
+	* where.c (mark_ffewhere_head): Likewise.
+
 Wed Jan 12 09:32:59 2000  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* lang-specs.h: Pass -lang-fortran to preprocessor.

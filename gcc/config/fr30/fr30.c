@@ -1,7 +1,7 @@
 /*{{{  Introduction */ 
 
 /* FR30 specific functions.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of GNU CC.
@@ -385,7 +385,7 @@ fr30_expand_epilogue ()
   /* Reset state info for each function.  */
   current_frame_info = zero_frame_info;
 
-  emit_insn (gen_return_from_func ());
+  emit_jump_insn (gen_return_from_func ());
 }
 
 /* Do any needed setup for a variadic function.  We must create a register
@@ -847,11 +847,11 @@ low_register_operand (operand, mode)
 int
 call_operand (operand, mode)
      rtx operand;
-     Mmode mode;
+     Mmode mode ATTRIBUTE_UNUSED;
 {
-  return nonimmediate_operand (operand, mode)
-    || (GET_CODE (operand) == MEM
-	&& GET_CODE (XEXP (operand, 0)) == SYMBOL_REF);
+  return (GET_CODE (operand) == MEM
+	  && (GET_CODE (XEXP (operand, 0)) == SYMBOL_REF
+	      || GET_CODE (XEXP (operand, 0)) == REG));
 }
 
 /* Returns true iff all the registers in the operands array

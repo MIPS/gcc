@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Motorola 88000.
-   Copyright (C) 1988, 92-99, 2000 Free Software
-   Foundation, Inc. 
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc. 
    Contributed by Michael Tiemann (tiemann@mcc.com)
    Currently maintained by (gcc@dg-rtp.dg.com)
 
@@ -41,7 +41,6 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "tm_p.h"
 
-extern char *version_string;
 extern int flag_traditional;
 extern FILE *asm_out_file;
 

@@ -1,5 +1,5 @@
 /* Output routines for graphical representation.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Ulrich Drepper <drepper@cygnus.com>, 1998.
 
    This file is part of GNU CC.
@@ -37,12 +37,12 @@ static const char *graph_ext[] =
   /* vcg */      ".vcg",
 };
 
-static void start_fct PROTO ((FILE *));
-static void start_bb PROTO ((FILE *, int));
-static void node_data PROTO ((FILE *, rtx));
-static void draw_edge PROTO ((FILE *, int, int, int, int));
-static void end_fct PROTO ((FILE *));
-static void end_bb PROTO ((FILE *));
+static void start_fct PARAMS ((FILE *));
+static void start_bb PARAMS ((FILE *, int));
+static void node_data PARAMS ((FILE *, rtx));
+static void draw_edge PARAMS ((FILE *, int, int, int, int));
+static void end_fct PARAMS ((FILE *));
+static void end_bb PARAMS ((FILE *));
 
 /* Output text for new basic block.  */
 static void

@@ -1,5 +1,5 @@
 /* Routines for GCC for ARM/pe.
-   Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2000 Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
 
 This file is part of GNU CC.
@@ -19,9 +19,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include <stdio.h>
-#include <string.h>
 #include "config.h"
+#include "system.h"
 #include "rtl.h"
 #include "output.h"
 #include "flags.h"
@@ -166,7 +165,7 @@ arm_dllimport_p (decl)
 
 int
 arm_dllexport_name_p (symbol)
-     char * symbol;
+     const char * symbol;
 {
   return symbol[0] == ARM_PE_FLAG_CHAR && symbol[1] == 'e' && symbol[2] == '.';
 }
@@ -175,7 +174,7 @@ arm_dllexport_name_p (symbol)
 
 int
 arm_dllimport_name_p (symbol)
-     char * symbol;
+     const char * symbol;
 {
   return symbol[0] == ARM_PE_FLAG_CHAR && symbol[1] == 'i' && symbol[2] == '.';
 }
@@ -187,7 +186,7 @@ void
 arm_mark_dllexport (decl)
      tree decl;
 {
-  char * oldname;
+  const char * oldname;
   char * newname;
   rtx rtlname;
   tree idp;
@@ -206,7 +205,7 @@ arm_mark_dllexport (decl)
     return; /* already done */
 
   newname = alloca (strlen (oldname) + 4);
-  sprintf (newname, "%xe.%s", ARM_PE_FLAG_CHAR, oldname);
+  sprintf (newname, "%ce.%s", ARM_PE_FLAG_CHAR, oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref
@@ -225,7 +224,7 @@ void
 arm_mark_dllimport (decl)
      tree decl;
 {
-  char * oldname;
+  const char * oldname;
   char * newname;
   tree idp;
   rtx rtlname, newrtl;
@@ -324,7 +323,7 @@ arm_pe_encode_section_info (decl)
 	   && GET_CODE (XEXP (XEXP (DECL_RTL (decl), 0), 0)) == SYMBOL_REF
 	   && arm_dllimport_name_p (XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0)))
     {
-      char *oldname = XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0);
+      const char *oldname = XSTR (XEXP (XEXP (DECL_RTL (decl), 0), 0), 0);
       tree idp = get_identifier (oldname + 9);
       rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
 

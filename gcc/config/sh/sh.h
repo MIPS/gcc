@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler for Hitachi Super-H.
-   Copyright (C) 1993-1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -204,8 +205,6 @@ extern int target_flags;
 do {									\
   if (LEVEL)								\
     flag_omit_frame_pointer = -1;					\
-  if (LEVEL)								\
-    sh_flag_remove_dead_before_cse = 1;					\
   if (SIZE)								\
     target_flags |= SPACE_BIT;						\
 } while (0)
@@ -253,7 +252,6 @@ do {									\
      break global alloc, and generates slower code anyway due		\
      to the pressure on R0.  */						\
   flag_schedule_insns = 0;						\
-  sh_addr_diff_vec_mode = TARGET_BIGTABLE ? SImode : HImode;		\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -354,7 +352,8 @@ do {									\
   barrier_align (LABEL_AFTER_BARRIER)
 
 #define LOOP_ALIGN(A_LABEL) \
-  ((! optimize || TARGET_HARVARD || TARGET_SMALLCODE) ? 0 : 2)
+  ((! optimize || TARGET_HARVARD || TARGET_SMALLCODE) \
+   ? 0 : sh_loop_align (A_LABEL))
 
 #define LABEL_ALIGN(A_LABEL) \
 (									\
@@ -756,9 +755,9 @@ extern enum reg_class reg_class_from_letter[];
 /* Similar, but for floating constants, and defining letters G and H.
    Here VALUE is the CONST_DOUBLE rtx itself.  */
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-((C) == 'G' ? fp_zero_operand (VALUE)		\
- : (C) == 'H' ? fp_one_operand (VALUE)		\
+#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)		\
+((C) == 'G' ? (fp_zero_operand (VALUE) && fldi_ok ())	\
+ : (C) == 'H' ? (fp_one_operand (VALUE) && fldi_ok ())	\
  : (C) == 'F')
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -791,7 +790,8 @@ extern enum reg_class reg_class_from_letter[];
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,X)  \
   ((((CLASS) == FP_REGS || (CLASS) == FP0_REGS || (CLASS) == DF_REGS)	\
     && immediate_operand ((X), (MODE))					\
-    && ! ((fp_zero_operand (X) || fp_one_operand (X)) && (MODE) == SFmode))\
+    && ! ((fp_zero_operand (X) || fp_one_operand (X))			\
+	  && (MODE) == SFmode && fldi_ok ()))				\
    ? R0_REGS								\
    : CLASS == FPUL_REGS && immediate_operand ((X), (MODE))		\
    ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I (INTVAL (X))		\
@@ -799,7 +799,7 @@ extern enum reg_class reg_class_from_letter[];
       : R0_REGS)							\
    : (CLASS == FPSCR_REGS						\
       && ((GET_CODE (X) == REG && REGNO (X) >= FIRST_PSEUDO_REGISTER)	\
-	  || GET_CODE (X) == MEM && GET_CODE (XEXP ((X), 0)) == PLUS))	\
+	  || (GET_CODE (X) == MEM && GET_CODE (XEXP ((X), 0)) == PLUS)))\
    ? GENERAL_REGS							\
    : SECONDARY_OUTPUT_RELOAD_CLASS((CLASS),(MODE),(X)))
 
@@ -1011,8 +1011,8 @@ struct sh_args {
 
 #define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (((TYPE) == 0 \
-    || (! TREE_ADDRESSABLE ((tree)(TYPE))) \
-	&& (! TARGET_HITACHI || ! AGGREGATE_TYPE_P (TYPE))) \
+    || (! TREE_ADDRESSABLE ((tree)(TYPE)) \
+	&& (! TARGET_HITACHI || ! AGGREGATE_TYPE_P (TYPE)))) \
    && (TARGET_SH3E \
        ? ((MODE) == BLKmode \
 	  ? (((CUM).arg_count[(int) SH_ARG_INT] * UNITS_PER_WORD \
@@ -1135,7 +1135,7 @@ extern int current_function_anonymous_args;
 
 /* Alignment required for a trampoline in bits .  */
 #define TRAMPOLINE_ALIGNMENT \
-  ((CACHE_LOG < 3 || TARGET_SMALLCODE && ! TARGET_HARVARD) ? 32 : 64)
+  ((CACHE_LOG < 3 || (TARGET_SMALLCODE && ! TARGET_HARVARD)) ? 32 : 64)
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -1166,7 +1166,6 @@ extern int current_function_anonymous_args;
    : (rtx) 0)
 
 /* Generate necessary RTL for __builtin_saveregs().  */
-extern struct rtx_def *sh_builtin_saveregs ();
 #define EXPAND_BUILTIN_SAVEREGS() sh_builtin_saveregs ()
 
 /* Addressing modes, and classification of registers for them.  */
@@ -1271,9 +1270,7 @@ extern struct rtx_def *sh_builtin_saveregs ();
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
+   that wants to use this address.  */
 
 #define MODE_DISP_OK_4(X,MODE) \
 (GET_MODE_SIZE (MODE) == 4 && (unsigned) INTVAL (X) < 64	\
@@ -1344,7 +1341,7 @@ extern struct rtx_def *sh_builtin_saveregs ();
       if (GET_MODE_SIZE (MODE) <= 8 && BASE_REGISTER_RTX_P (xop0))	\
 	GO_IF_LEGITIMATE_INDEX ((MODE), xop1, LABEL);			\
       if (GET_MODE_SIZE (MODE) <= 4					\
-	  || TARGET_SH4 && TARGET_FMOVD && MODE == DFmode)	\
+	  || (TARGET_SH4 && TARGET_FMOVD && MODE == DFmode))		\
 	{								\
 	  if (BASE_REGISTER_RTX_P (xop1) && INDEX_REGISTER_RTX_P (xop0))\
 	    goto LABEL;							\
@@ -1843,10 +1840,10 @@ dtors_section()							\
 }
 
 #define ASM_OUTPUT_REG_PUSH(file, v) \
-  fprintf ((file), "\tmov.l\tr%s,-@r15\n", (v));
+  fprintf ((file), "\tmov.l\tr%d,-@r15\n", (v));
 
 #define ASM_OUTPUT_REG_POP(file, v) \
-  fprintf ((file), "\tmov.l\t@r15+,r%s\n", (v));
+  fprintf ((file), "\tmov.l\t@r15+,r%d\n", (v));
 
 /* The assembler's names for the registers.  RFP need not always be used as
    the Real framepointer; it can also be used as a normal general register.
@@ -1918,7 +1915,7 @@ extern char fp_reg_names[][5];
 
 /* Make an internal label into a string.  */
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM) \
-  sprintf ((STRING), "*%s%s%d", LOCAL_LABEL_PREFIX, (PREFIX), (NUM))
+  sprintf ((STRING), "*%s%s%ld", LOCAL_LABEL_PREFIX, (PREFIX), (long)(NUM))
 
 /* Output an internal label definition.  */
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM) \
@@ -1944,6 +1941,8 @@ extern char fp_reg_names[][5];
       break;								\
     case QImode:							\
       asm_fprintf ((STREAM), "\t.byte\t%LL%d-%LL%d\n", (VALUE),(REL));	\
+      break;								\
+    default:								\
       break;								\
     }
 
@@ -2062,7 +2061,6 @@ do { char dstr[30];					\
 
 extern struct rtx_def *sh_compare_op0;
 extern struct rtx_def *sh_compare_op1;
-extern struct rtx_def *prepare_scc_operands();
 
 /* Which processor to schedule for.  The elements of the enumeration must
    match exactly the cpu attribute in the sh.md file.  */
@@ -2078,20 +2076,7 @@ enum processor_type {
 #define sh_cpu_attr ((enum attr_cpu)sh_cpu)
 extern enum processor_type sh_cpu;
 
-extern enum machine_mode sh_addr_diff_vec_mode;
-
 extern int optimize; /* needed for gen_casesi.  */
-
-/* Declare functions defined in sh.c and used in templates.  */
-
-extern char *output_branch();
-extern char *output_ieee_ccmpeq();
-extern char *output_branchy_insn();
-extern char *output_shift();
-extern char *output_movedouble();
-extern char *output_movepcrel();
-extern char *output_jump_label_table();
-extern char *output_far_jump();
 
 enum mdep_reorg_phase_e
 {
@@ -2105,10 +2090,6 @@ enum mdep_reorg_phase_e
 
 extern enum mdep_reorg_phase_e mdep_reorg_phase;
 
-void machine_dependent_reorg ();
-struct rtx_def *sfunc_uses_reg ();
-int barrier_align ();
-
 #define MACHINE_DEPENDENT_REORG(X) machine_dependent_reorg(X)
 
 /* Generate calls to memcpy, memcmp and memset.  */
@@ -2119,7 +2100,6 @@ int barrier_align ();
    is a C expression whose value is 1 if the pragma was handled by the
    macro, zero otherwise.  */
 #define HANDLE_PRAGMA(GETC, UNGETC, NODE) sh_handle_pragma (GETC, UNGETC, NODE)
-extern int sh_handle_pragma ();
 
 /* Set when processing a function with pragma interrupt turned on.  */
 
@@ -2132,18 +2112,14 @@ extern struct rtx_def *sp_switch;
 /* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
    is a valid machine specific attribute for DECL.
    The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-extern int sh_valid_machine_decl_attribute ();
 #define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
 sh_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
 
-extern void sh_pragma_insert_attributes ();
 #define PRAGMA_INSERT_ATTRIBUTES(node, pattr, prefix_attr) \
   sh_pragma_insert_attributes (node, pattr, prefix_attr)
 
-extern int sh_flag_remove_dead_before_cse;
 extern int rtx_equal_function_value_matters;
 extern struct rtx_def *fpscr_rtx;
-extern struct rtx_def *get_fpscr_rtx ();
 
 
 /* Instructions with unfilled delay slots take up an extra two bytes for
@@ -2258,3 +2234,29 @@ do {									\
 
 #define SH_DYNAMIC_SHIFT_COST \
   (TARGET_HARD_SH4 ? 1 : TARGET_SH3 ? (TARGET_SMALLCODE ? 1 : 2) : 20)
+
+
+#define NUM_MODES_FOR_MODE_SWITCHING { FP_MODE_NONE }
+
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) TARGET_SH4
+
+#define MODE_USES_IN_EXIT_BLOCK gen_rtx_USE (VOIDmode, get_fpscr_rtx ())
+
+#define MODE_NEEDED(ENTITY, INSN)					\
+  (recog_memoized (INSN) >= 0						\
+   ? get_attr_fp_mode (INSN)						\
+   : (GET_CODE (PATTERN (INSN)) == USE				\
+      && rtx_equal_p (XEXP (PATTERN (INSN), 0), get_fpscr_rtx ()))	\
+   ? (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)		\
+   : FP_MODE_NONE)
+
+#define MODE_AT_ENTRY(ENTITY) \
+  (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
+
+#define MODE_PRIORITY_TO_MODE(ENTITY, N) \
+  ((TARGET_FPU_SINGLE != 0) ^ (N) ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
+
+#define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) \
+  fpscr_set_from_mem ((MODE), (HARD_REGS_LIVE))
+
+#define DWARF_LINE_MIN_INSTR_LENGTH 2

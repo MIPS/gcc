@@ -1,5 +1,6 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987-1988, 1992-2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -34,9 +35,9 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "decl.h"
 
-static tree cp_convert_to_pointer PROTO((tree, tree));
-static tree convert_to_pointer_force PROTO((tree, tree));
-static tree build_up_reference PROTO((tree, tree, int));
+static tree cp_convert_to_pointer PARAMS ((tree, tree));
+static tree convert_to_pointer_force PARAMS ((tree, tree));
+static tree build_up_reference PARAMS ((tree, tree, int));
 
 /* Change of width--truncation and extension of integers or reals--
    is represented with NOP_EXPR.  Proper functioning of many things
@@ -78,7 +79,7 @@ cp_convert_to_pointer (type, expr)
   if (IS_AGGR_TYPE (intype))
     {
       intype = complete_type (intype);
-      if (TYPE_SIZE (intype) == NULL_TREE)
+      if (!COMPLETE_TYPE_P (intype))
 	{
 	  cp_error ("can't convert from incomplete type `%T' to `%T'",
 		    intype, type);
@@ -210,7 +211,8 @@ cp_convert_to_pointer (type, expr)
 	    expr = cplus_expand_constant (expr);
 
 	  if (binfo && ! TREE_VIA_VIRTUAL (binfo))
-	    expr = size_binop (code, expr, BINFO_OFFSET (binfo));
+	    expr = size_binop (code, convert (sizetype,expr),
+			       BINFO_OFFSET (binfo));
 	}
       else if (TYPE_PTRMEMFUNC_P (type))
 	{
@@ -238,7 +240,13 @@ cp_convert_to_pointer (type, expr)
     {
       if (TYPE_PTRMEMFUNC_P (type))
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
-      expr = build_int_2 (0, 0);
+
+      if (flag_new_abi && TYPE_PTRMEM_P (type))
+	/* Under the new ABI, a NULL pointer-to-member is represented
+	   by -1, not by zero.  */
+	expr = build_int_2 (-1, -1);
+      else
+	expr = build_int_2 (0, 0);
       TREE_TYPE (expr) = type;
       return expr;
     }
@@ -634,15 +642,7 @@ tree
 convert_pointer_to (binfo, expr)
      tree binfo, expr;
 {
-  tree type;
-
-  if (TREE_CODE (binfo) == TREE_VEC)
-    type = BINFO_TYPE (binfo);
-  else if (IS_AGGR_TYPE (binfo))
-    type = binfo;
-  else
-    type = binfo;
-  return convert_pointer_to_real (type, expr);
+  return convert_pointer_to_real (binfo, expr);
 }
 
 /* C++ conversions, preference to static cast conversions.  */
@@ -807,7 +807,7 @@ ocp_convert (type, expr, convtype, flags)
 	ctor = build_user_type_conversion (type, ctor, flags);
       if (ctor)
 	ctor = build_method_call (NULL_TREE, ctor_identifier,
-				  build_expr_list (NULL_TREE, ctor),
+				  build_tree_list (NULL_TREE, ctor),
 				  TYPE_BINFO (type), flags);
       if (ctor)
 	return build_cplus_new (type, ctor);
@@ -901,7 +901,7 @@ convert_to_void (expr, implicit)
         int is_reference = TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
                            == REFERENCE_TYPE;
         int is_volatile = TYPE_VOLATILE (type);
-        int is_complete = TYPE_SIZE (complete_type (type)) != NULL_TREE;
+        int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (is_volatile && !is_complete)
           cp_warning ("object of incomplete type `%T' will not be accessed in %s",
@@ -920,7 +920,7 @@ convert_to_void (expr, implicit)
       {
         /* External variables might be incomplete.  */
         tree type = TREE_TYPE (expr);
-        int is_complete = TYPE_SIZE (complete_type (type)) != NULL_TREE;
+        int is_complete = COMPLETE_TYPE_P (complete_type (type));
         
         if (TYPE_VOLATILE (type) && !is_complete)
           cp_warning ("object `%E' of incomplete type `%T' will not be accessed in %s",

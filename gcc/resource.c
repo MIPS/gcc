@@ -74,10 +74,10 @@ static HARD_REG_SET current_live_regs;
 
 static HARD_REG_SET pending_dead_regs;
 
-static void update_live_status		PROTO ((rtx, rtx, void *));
-static int find_basic_block		PROTO ((rtx));
-static rtx next_insn_no_annul		PROTO ((rtx));
-static rtx find_dead_or_set_registers	PROTO ((rtx, struct resources*,
+static void update_live_status		PARAMS ((rtx, rtx, void *));
+static int find_basic_block		PARAMS ((rtx));
+static rtx next_insn_no_annul		PARAMS ((rtx));
+static rtx find_dead_or_set_registers	PARAMS ((rtx, struct resources*,
 						rtx*, int, struct resources,
 						struct resources));
 
@@ -350,11 +350,11 @@ mark_referenced_resources (x, res, include_delayed_effects)
 		      rtx slot_pat = PATTERN (XVECEXP (sequence, 0, i));
 		      if (GET_CODE (slot_pat) == SET
 			  && rtx_equal_p (SET_DEST (slot_pat),
-					  SET_DEST (XEXP (link, 0))))
+					  XEXP (XEXP (link, 0), 0)))
 			break;
 		    }
 		  if (i >= seq_size)
-		    mark_referenced_resources (SET_DEST (XEXP (link, 0)),
+		    mark_referenced_resources (XEXP (XEXP (link, 0), 0),
 					       res, 0);
 		}
 	  }

@@ -1,5 +1,6 @@
 /* Build expressions with type checking for CHILL compiler.
-   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -40,16 +41,17 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 
 /* forward declarations */
-static int chill_l_equivalent PROTO((tree, tree, struct mode_chain*));
-static tree extract_constant_from_buffer PROTO((tree, const unsigned char *, int));
-static int expand_constant_to_buffer PROTO((tree, unsigned char *, int));
-static tree build_empty_string PROTO((tree));
-static tree make_chill_pointer_type PROTO((tree, enum tree_code));
-static tree make_chill_range_type PROTO((tree, tree, tree));
-static void apply_chill_array_layout PROTO((tree));
-static int field_decl_cmp PROTO((tree *, tree*));
-static tree make_chill_struct_type PROTO((tree));
-static int apply_chill_field_layout PROTO((tree, int *));
+static int chill_l_equivalent PARAMS ((tree, tree, struct mode_chain*));
+static tree extract_constant_from_buffer PARAMS ((tree, const unsigned char *, int));
+static int expand_constant_to_buffer PARAMS ((tree, unsigned char *, int));
+static tree build_empty_string PARAMS ((tree));
+static tree make_chill_pointer_type PARAMS ((tree, enum tree_code));
+static unsigned int min_precision PARAMS ((tree, int));
+static tree make_chill_range_type PARAMS ((tree, tree, tree));
+static void apply_chill_array_layout PARAMS ((tree));
+static int field_decl_cmp PARAMS ((tree *, tree*));
+static tree make_chill_struct_type PARAMS ((tree));
+static int apply_chill_field_layout PARAMS ((tree, int *));
 
 /*
  * This function checks an array access.
@@ -215,17 +217,17 @@ build_chill_slice (array, min_value, length)
      
      The static allocation info is passed by using the parent array's
      limits to compute a temp_size, which is passed in the lang_specific
-     field of the slice_type.
-   */
+     field of the slice_type. */
      
   if (TREE_CODE (array_type) == ARRAY_TYPE)
     {
       tree domain_type = TYPE_DOMAIN (array_type);
       tree domain_min = TYPE_MIN_VALUE (domain_type);
-      tree domain_max = fold (build (PLUS_EXPR, domain_type,
-				     domain_min,
-				     size_binop (MINUS_EXPR,
-						 length, integer_one_node)));
+      tree domain_max
+	= fold (build (PLUS_EXPR, domain_type,
+		       domain_min,
+		       fold (build (MINUS_EXPR, integer_type_node,
+				    length, integer_one_node))));
       tree index_type = build_chill_range_type (TYPE_DOMAIN (array_type),
 						domain_min,
 						domain_max);
@@ -242,13 +244,15 @@ build_chill_slice (array, min_value, length)
 
       SET_CH_NOVELTY (slice_type, CH_NOVELTY (array_type));
 
-      if (TREE_CONSTANT (array) && TREE_CODE (min_value) == INTEGER_CST
-	  && TREE_CODE (length) == INTEGER_CST)
+      if (TREE_CONSTANT (array) && host_integerp (min_value, 0)
+	  && host_integerp (length, 0))
 	{
-	  int type_size = int_size_in_bytes (array_type);
-	  unsigned char *buffer = (unsigned char*) alloca (type_size);
-	  int delta = int_size_in_bytes (element_type)
-	    * (TREE_INT_CST_LOW (min_value) - TREE_INT_CST_LOW (domain_min));
+	  unsigned HOST_WIDE_INT type_size = int_size_in_bytes (array_type);
+	  unsigned char *buffer = (unsigned char *) alloca (type_size);
+	  int delta = (int_size_in_bytes (element_type)
+		       * (tree_low_cst (min_value, 0)
+			  - tree_low_cst (domain_min, 0)));
+
 	  bzero (buffer, type_size);
 	  if (expand_constant_to_buffer (array, buffer, type_size))
 	    {
@@ -408,12 +412,14 @@ build_chill_slice_with_range (array, min_value, max_value)
       && tree_int_cst_lt (max_value, min_value))
     return build_empty_string (TREE_TYPE (TREE_TYPE (array)));
 
-  return build_chill_slice (array, min_value,
-	     save_expr (size_binop (PLUS_EXPR,
-	       size_binop (MINUS_EXPR, max_value, min_value),
-				    integer_one_node)));
+  return
+    build_chill_slice
+      (array, min_value,
+       save_expr (fold (build (PLUS_EXPR, integer_type_node,
+			       fold (build (MINUS_EXPR, integer_type_node,
+					    max_value, min_value)),
+			       integer_one_node))));
 }
-
 
 tree
 build_chill_slice_with_length (array, min_value, length)
@@ -450,9 +456,10 @@ build_chill_slice_with_length (array, min_value, length)
       length = integer_one_node;
     }
 
-  max_index = size_binop (MINUS_EXPR, 
-	        size_binop (PLUS_EXPR, length, min_value),
-			  integer_one_node);
+  max_index = fold (build (MINUS_EXPR, integer_type_node,
+			   fold (build (PLUS_EXPR, integer_type_node,
+					length, min_value)),
+			   integer_one_node));
   max_index = convert_to_class (chill_expr_class (min_value), max_index);
 
   min_value = valid_array_index_p (array, min_value,
@@ -622,13 +629,14 @@ build_chill_array_ref_1 (array, idx)
       else if (TREE_CODE (array) == STRING_CST
 	       && CH_CHARS_TYPE_P (TREE_TYPE (array)))
 	{
-	  HOST_WIDE_INT i = TREE_INT_CST_LOW (idx);
+	  HOST_WIDE_INT i = tree_low_cst (idx, 0);
+
 	  if (i >= 0 && i < TREE_STRING_LENGTH (array))
-	    {
-	      char ch = TREE_STRING_POINTER (array) [i];
-	      return convert_to_class (class,
-				       build_int_2 ((unsigned char)ch, 0));
-	    }
+	    return
+	      convert_to_class
+		(class,
+		 build_int_2
+		 ((unsigned char) TREE_STRING_POINTER (array) [i], 0));
 	}
     }
 
@@ -727,16 +735,18 @@ expand_constant_to_buffer (value, buffer, buf_size)
     {
     case INTEGER_CST:
       {
-	HOST_WIDE_INT lo = TREE_INT_CST_LOW (value);
+	unsigned HOST_WIDE_INT lo = TREE_INT_CST_LOW (value);
 	HOST_WIDE_INT hi = TREE_INT_CST_HIGH (value);
 	for (i = 0; i < size; i++)
 	  {
 	    /* Doesn't work if host and target BITS_PER_UNIT differ. */
 	    unsigned char byte = lo & ((1 << BITS_PER_UNIT) - 1);
+
 	    if (BYTES_BIG_ENDIAN)
 	      buffer[size - i - 1] = byte;
 	    else
 	      buffer[i] = byte;
+
 	    rshift_double (lo, hi, BITS_PER_UNIT, BITS_PER_UNIT * size,
 			   &lo, &hi, 0);
 	  }
@@ -766,10 +776,10 @@ expand_constant_to_buffer (value, buffer, buf_size)
 	      tree min_val = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
 	      if (min_val)
 		{
-		  if (TREE_CODE (min_val) != INTEGER_CST)
+		  if (! host_integerp (min_val, 0))
 		    return 0;
 		  else
-		    min_index = TREE_INT_CST_LOW (min_val);
+		    min_index = tree_low_cst (min_val, 0);
 		}
 	    }
 
@@ -780,14 +790,15 @@ expand_constant_to_buffer (value, buffer, buf_size)
 	      HOST_WIDE_INT offset;
 	      HOST_WIDE_INT last_index;
 	      tree purpose = TREE_PURPOSE (list);
+
 	      if (purpose)
 		{
-		  if (TREE_CODE (purpose) == INTEGER_CST)
-		    last_index = next_index = TREE_INT_CST_LOW (purpose);
+		  if (host_integerp (purpose, 0))
+		    last_index = next_index = tree_low_cst (purpose, 0);
 		  else if (TREE_CODE (purpose) == RANGE_EXPR)
 		    {
-		      next_index = TREE_INT_CST_LOW (TREE_OPERAND(purpose, 0));
-		      last_index = TREE_INT_CST_LOW (TREE_OPERAND(purpose, 1));
+		      next_index = tree_low_cst (TREE_OPERAND (purpose, 0), 0);
+		      last_index = tree_low_cst (TREE_OPERAND (purpose, 1), 0);
 		    }
 		  else
 		    return 0;
@@ -812,12 +823,14 @@ expand_constant_to_buffer (value, buffer, buf_size)
 	    {
 	      tree field = TREE_PURPOSE (list);
 	      HOST_WIDE_INT offset;
+
 	      if (field == NULL_TREE || TREE_CODE (field) != FIELD_DECL)
 		return 0;
+
 	      if (DECL_BIT_FIELD (field))
 		return 0;
-	      offset = TREE_INT_CST_LOW (DECL_FIELD_BITPOS (field))
-		/ BITS_PER_UNIT;
+
+	      offset = int_bit_position (field) / BITS_PER_UNIT;
 	      if (!expand_constant_to_buffer (TREE_VALUE (list),
 					      buffer + offset,
 					      buf_size - offset))
@@ -850,10 +863,12 @@ extract_constant_from_buffer (type, buffer, buf_size)
      int buf_size;
 {
   tree value;
-  int size = int_size_in_bytes (type);
-  int i;
+  HOST_WIDE_INT size = int_size_in_bytes (type);
+  HOST_WIDE_INT i;
+
   if (size < 0 || size > buf_size)
     return 0;
+
   switch (TREE_CODE (type))
     {
     case INTEGER_TYPE:
@@ -898,16 +913,18 @@ extract_constant_from_buffer (type, buffer, buf_size)
 	value = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
 	if (value)
 	  {
-	    if (TREE_CODE (value) != INTEGER_CST)
+	    if (! host_integerp (value, 0))
 	      return 0;
 	    else
-	      min_index = TREE_INT_CST_LOW (value);
+	      min_index = tree_low_cst (value, 0);
 	  }
+
 	value = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-	if (value == NULL_TREE || TREE_CODE (value) != INTEGER_CST)
+	if (value == NULL_TREE || ! host_integerp (value, 0))
 	  return 0;
 	else
-	  max_index = TREE_INT_CST_LOW (value);
+	  max_index = tree_low_cst (value, 0);
+
 	for (cur_index = max_index; cur_index >= min_index; cur_index--)
 	  {
 	    HOST_WIDE_INT offset = (cur_index - min_index) * element_size;
@@ -929,8 +946,8 @@ extract_constant_from_buffer (type, buffer, buf_size)
 	tree field = TYPE_FIELDS (type);
 	for (; field != NULL_TREE; field = TREE_CHAIN (field))
 	  {
-	    HOST_WIDE_INT offset
-	      = TREE_INT_CST_LOW (DECL_FIELD_BITPOS (field)) / BITS_PER_UNIT;
+	    HOST_WIDE_INT offset = int_bit_position (field) / BITS_PER_UNIT;
+
 	    if (DECL_BIT_FIELD (field))
 	      return 0;
 	    value = extract_constant_from_buffer (TREE_TYPE (field),
@@ -949,7 +966,7 @@ extract_constant_from_buffer (type, buffer, buf_size)
     case UNION_TYPE:
       {
 	tree longest_variant = NULL_TREE;
-	int longest_size = 0;
+	unsigned HOST_WIDE_INT longest_size = 0;
 	tree field = TYPE_FIELDS (type);
 	
 	/* This is a kludge.  We assume that converting the data to te
@@ -962,7 +979,8 @@ extract_constant_from_buffer (type, buffer, buf_size)
 
 	for (; field != NULL_TREE; field = TREE_CHAIN (field))
 	  {
-	    int size = TREE_INT_CST_LOW (size_in_bytes (TREE_TYPE (field)));
+	    unsigned HOST_WIDE_INT size
+	      = int_size_in_bytes (TREE_TYPE (field));
 	    
 	    if (size > longest_size)
 	      {
@@ -970,9 +988,13 @@ extract_constant_from_buffer (type, buffer, buf_size)
 		longest_variant = field;
 	      }
 	  }
+
 	if (longest_variant == NULL_TREE)
 	  return NULL_TREE;
-	return extract_constant_from_buffer (TREE_TYPE (longest_variant), buffer, buf_size);
+
+	return
+	  extract_constant_from_buffer (TREE_TYPE (longest_variant),
+					buffer, buf_size);
       }
 
     case SET_TYPE:
@@ -980,26 +1002,32 @@ extract_constant_from_buffer (type, buffer, buf_size)
 	tree list = NULL_TREE;
 	int i;
 	HOST_WIDE_INT min_index, max_index;
+
 	if (TYPE_DOMAIN (type) == 0)
 	  return 0;
+
 	value = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
 	if (value == NULL_TREE)
 	  min_index = 0;
-	else if (TREE_CODE (value) != INTEGER_CST)
+
+	else if (! host_integerp (value, 0))
 	  return 0;
 	else
-	  min_index = TREE_INT_CST_LOW (value);
+	  min_index = tree_low_cst (value, 0);
+
 	value = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	if (value == NULL_TREE)
 	  max_index = 0;
-	else if (TREE_CODE (value) != INTEGER_CST)
+	else if (! host_integerp (value, 0))
 	  return 0;
 	else
-	  max_index = TREE_INT_CST_LOW (value);
+	  max_index = tree_low_cst (value, 0);
+
 	for (i = max_index + 1 - min_index; --i >= 0; )
 	  {
-	    unsigned char byte = (unsigned char)buffer[i / BITS_PER_UNIT];
-	    unsigned bit_pos = (unsigned)i % (unsigned)BITS_PER_UNIT;
+	    unsigned char byte = (unsigned char) buffer[i / BITS_PER_UNIT];
+	    unsigned bit_pos = (unsigned) i % (unsigned) BITS_PER_UNIT;
+
 	    if (BYTES_BIG_ENDIAN
 		? (byte & (1 << (BITS_PER_UNIT - 1 - bit_pos)))
 		: (byte & (1 << bit_pos)))
@@ -1208,22 +1236,22 @@ build_chill_cast (type, expr)
   return expr;
 }
 
-/*
- * given a set_type, build an integer array from it that C will grok.
- */
+/* Given a set_type, build an integer array from it that C will grok. */
+
 tree
 build_array_from_set (type)
      tree type;
 {
   tree bytespint, bit_array_size, int_array_count;
  
-  if (type == NULL_TREE || type == error_mark_node || TREE_CODE (type) != SET_TYPE)
+  if (type == NULL_TREE || type == error_mark_node
+      || TREE_CODE (type) != SET_TYPE)
     return error_mark_node;
 
-  bytespint = build_int_2 (HOST_BITS_PER_INT / HOST_BITS_PER_CHAR, 0);
+  /* ??? Should this really be *HOST*??  */
+  bytespint = size_int (HOST_BITS_PER_INT / HOST_BITS_PER_CHAR);
   bit_array_size = size_in_bytes (type);
-  int_array_count = fold (size_binop (TRUNC_DIV_EXPR, bit_array_size,
-						 bytespint));
+  int_array_count = size_binop (TRUNC_DIV_EXPR, bit_array_size, bytespint);
   if (integer_zerop (int_array_count))
     int_array_count = size_one_node;
   type = build_array_type (integer_type_node, 
@@ -1237,14 +1265,16 @@ build_chill_bin_type (size)
      tree size;
 {
 #if 0
-  int isize;
+  HOST_WIDE_INT isize;
 
-  if (TREE_CODE (size) != INTEGER_CST
-      || (isize = TREE_INT_CST_LOW (size), isize <= 0))
+  if (! host_integerp (size, 1))
     {
       error ("operand to bin must be a non-negative integer literal");
       return error_mark_node;
     }
+
+  isize = tree_low_cst (size, 1);
+
   if (isize <= TYPE_PRECISION (unsigned_char_type_node))
     return unsigned_char_type_node;
   if (isize <= TYPE_PRECISION (short_unsigned_type_node))
@@ -2168,8 +2198,7 @@ build_init_struct ()
   /* We temporarily reset the maximum_field_alignment to zero so the
      compiler's init data structures can be compatible with the
      run-time system, even when we're compiling with -fpack. */
-  extern int maximum_field_alignment;
-  int save_maximum_field_alignment = maximum_field_alignment;
+  unsigned int save_maximum_field_alignment = maximum_field_alignment;
   maximum_field_alignment = 0;
 
   decl1 = build_decl (FIELD_DECL, get_identifier ("__INIT_ENTRY"),
@@ -2497,6 +2526,36 @@ make_chill_range_type (type, lowval, highval)
   return itype;
 }
 
+
+/* Return the minimum number of bits needed to represent VALUE in a
+   signed or unsigned type, UNSIGNEDP says which.  */
+
+static unsigned int
+min_precision (value, unsignedp)
+     tree value;
+     int unsignedp;
+{
+  int log;
+
+  /* If the value is negative, compute its negative minus 1.  The latter
+     adjustment is because the absolute value of the largest negative value
+     is one larger than the largest positive value.  This is equivalent to
+     a bit-wise negation, so use that operation instead.  */
+
+  if (tree_int_cst_sgn (value) < 0)
+    value = fold (build1 (BIT_NOT_EXPR, TREE_TYPE (value), value));
+
+  /* Return the number of bits needed, taking into account the fact
+     that we need one more bit for a signed than unsigned type.  */
+
+  if (integer_zerop (value))
+    log = 0;
+  else
+    log = tree_floor_log2 (value);
+
+  return log + 1 + ! unsignedp;
+}
+
 tree
 layout_chill_range_type (rangetype, must_be_const)
      tree rangetype;
@@ -2515,30 +2574,31 @@ layout_chill_range_type (rangetype, must_be_const)
     {
       int binsize;
       
-      /* make a range out of it */
+      /* Make a range out of it */
       if (TREE_CODE (highval) != INTEGER_CST)
 	{
 	  error ("non-constant expression for BIN");
 	  return error_mark_node;
 	}
-      binsize = TREE_INT_CST_LOW (highval);
-      if (binsize < 0)
+      else if (tree_int_cst_sgn (highval) < 0)
 	{
 	  error ("expression for BIN must not be negative");
 	  return error_mark_node;
 	}
-      if (binsize > 32)
+      else if (compare_tree_int (highval, 32) > 0)
 	{
 	  error ("cannot process BIN (>32)");
 	  return error_mark_node;
 	}
+
+      binsize = tree_low_cst (highval, 1);
       type = ridpointers [(int) RID_RANGE];
       lowval = integer_zero_node;
       highval = build_int_2 ((1 << binsize) - 1, 0);
     }
  
-  if (TREE_CODE (lowval) == ERROR_MARK ||
-      TREE_CODE (highval) == ERROR_MARK)
+  if (TREE_CODE (lowval) == ERROR_MARK
+      || TREE_CODE (highval) == ERROR_MARK)
     return error_mark_node;
 
   if (!CH_COMPATIBLE_CLASSES (lowval, highval))
@@ -2575,37 +2635,14 @@ layout_chill_range_type (rangetype, must_be_const)
 	  && TREE_CODE (lowval) == INTEGER_CST
 	  && TREE_CODE (highval) == INTEGER_CST)
 	{
-	  /* The logic of this code has been copied from finish_enum
-	     in c-decl.c.  FIXME duplication! */
-	  int precision = 0;
-	  HOST_WIDE_INT maxvalue = TREE_INT_CST_LOW (highval);
-	  HOST_WIDE_INT minvalue = TREE_INT_CST_LOW (lowval);
-	  if (TREE_INT_CST_HIGH (lowval) >= 0
-	      ? tree_int_cst_lt (TYPE_MAX_VALUE (unsigned_type_node), highval)
-	      : (tree_int_cst_lt (lowval, TYPE_MIN_VALUE (integer_type_node))
-		 || tree_int_cst_lt (TYPE_MAX_VALUE (integer_type_node), highval)))
-	    precision = TYPE_PRECISION (long_long_integer_type_node);
-	  else
-	    {
-	      if (maxvalue > 0)
-		precision = floor_log2 (maxvalue) + 1;
-	      if (minvalue < 0)
-		{
-		  /* Compute number of bits to represent magnitude of a
-		     negative value.  Add one to MINVALUE since range of
-		     negative numbers includes the power of two.  */
-		  int negprecision = floor_log2 (-minvalue - 1) + 1;
-		  if (negprecision > precision)
-		    precision = negprecision;
-		  precision += 1;	/* room for sign bit */
-		}
+	  int unsignedp = tree_int_cst_sgn (lowval) >= 0;
+	  unsigned int precision = MAX (min_precision (highval, unsignedp),
+					min_precision (lowval, unsignedp));
 
-	      if (!precision)
-		precision = 1;
-	    }
-	  type = type_for_size (precision, minvalue >= 0);
+	  type = type_for_size (precision, unsignedp);
 
 	}
+
       TREE_TYPE (rangetype) = type;
     }
   else
@@ -2733,7 +2770,9 @@ apply_chill_array_layout (array_type)
      tree array_type;
 {
   tree layout, temp, what, element_type;
-  int stepsize=0, word, start_bit=0, length, natural_length;
+  HOST_WIDE_INT stepsize = 0;
+  HOST_WIDE_INT word, start_bit = 0, length;
+  HOST_WIDE_INT natural_length;
   int stepsize_specified;
   int start_bit_error = 0;
   int length_error = 0;
@@ -2754,8 +2793,10 @@ apply_chill_array_layout (array_type)
       && get_type_precision (TYPE_MIN_VALUE (element_type),
 			     TYPE_MAX_VALUE (element_type)) == 1)
     natural_length = 1;
+  else if (host_integerp (TYPE_SIZE (element_type), 1))
+    natural_length = tree_low_cst (TYPE_SIZE (element_type), 1);
   else
-    natural_length = TREE_INT_CST_LOW (TYPE_SIZE (element_type));
+    natural_length = -1;
 
   if (layout == integer_one_node) /* PACK */
     {
@@ -2771,31 +2812,32 @@ apply_chill_array_layout (array_type)
   temp = TREE_VALUE (layout);
   if (TREE_VALUE (temp) != NULL_TREE)
     {
-      if (TREE_CODE (TREE_VALUE (temp)) != INTEGER_CST)
+      if (! host_integerp (TREE_VALUE (temp), 0))
 	error ("Stepsize in STEP must be an integer constant");
       else
 	{
-	  stepsize = TREE_INT_CST_LOW (TREE_VALUE (temp));
-	  if (stepsize <= 0)
+	  if (tree_int_cst_sgn (TREE_VALUE (temp)) <= 0)
 	    error ("Stepsize in STEP must be > 0");
 	  else
 	    stepsize_specified = 1;
 
+	  stepsize = tree_low_cst (TREE_VALUE (temp), 1);
 	  if (stepsize != natural_length)
 	    sorry ("Stepsize in STEP must be the natural width of the array element mode");
 	}
     }
 
   temp = TREE_PURPOSE (temp);
-  if (TREE_CODE (TREE_PURPOSE (temp)) != INTEGER_CST)
+  if (! host_integerp (TREE_PURPOSE (temp), 0))
     error ("Starting word in POS must be an integer constant");
   else
     {
-      word = TREE_INT_CST_LOW (TREE_PURPOSE (temp));
-      if (word < 0)
+      if (tree_int_cst_sgn (TREE_PURPOSE (temp)) < 0)
 	error ("Starting word in POS must be >= 0");
-      if (word != 0)
+      if (! integer_zerop (TREE_PURPOSE (temp)))
 	sorry ("Starting word in POS within STEP must be 0");
+
+      word = tree_low_cst (TREE_PURPOSE (temp), 0);
     }
 
   length = natural_length;
@@ -2803,23 +2845,25 @@ apply_chill_array_layout (array_type)
   if (temp != NULL_TREE)
     {
       int wordsize = TYPE_PRECISION (chill_integer_type_node);
-      if (TREE_CODE (TREE_PURPOSE (temp)) != INTEGER_CST)
+      if (! host_integerp (TREE_PURPOSE (temp), 0))
 	{
 	  error ("Starting bit in POS must be an integer constant");
 	  start_bit_error = 1;
 	}
       else
 	{
-	  start_bit = TREE_INT_CST_LOW (TREE_PURPOSE (temp));
-	  if (start_bit != 0)
+	  if (! integer_zerop (TREE_PURPOSE (temp)))
 	    sorry ("Starting bit in POS within STEP must be 0");
-	  if (start_bit < 0)
+
+	  if (tree_int_cst_sgn (TREE_PURPOSE (temp)) < 0)
 	    {
 	      error ("Starting bit in POS must be >= 0");
 	      start_bit = 0;
 	      start_bit_error = 1;
 	    }
-	  else if (start_bit >= wordsize)
+	  
+	  start_bit = tree_low_cst (TREE_PURPOSE (temp), 0);
+	  if (start_bit >= wordsize)
 	    {
 	      error ("Starting bit in POS must be < the width of a word");
 	      start_bit = 0;
@@ -2833,28 +2877,29 @@ apply_chill_array_layout (array_type)
 	  what = TREE_PURPOSE (temp);
 	  if (what == integer_zero_node)
 	    {
-	      if (TREE_CODE (TREE_VALUE (temp)) != INTEGER_CST)
+	      if (! host_integerp (TREE_VALUE (temp), 0))
 		{
 		  error ("Length in POS must be an integer constant");
 		  length_error = 1;
 		}
 	      else
 		{
-		  length = TREE_INT_CST_LOW (TREE_VALUE (temp));
+		  length = tree_low_cst (TREE_VALUE (temp), 0);
 		  if (length <= 0)
 		    error ("Length in POS must be > 0");
 		}
 	    }
 	  else
 	    {
-	      if (TREE_CODE (TREE_VALUE (temp)) != INTEGER_CST)
+	      if (! host_integerp (TREE_VALUE (temp), 0))
 		{
 		  error ("End bit in POS must be an integer constant");
 		  length_error = 1;
 		}
 	      else
 		{
-		  int end_bit = TREE_INT_CST_LOW (TREE_VALUE (temp));
+		  HOST_WIDE_INT end_bit = tree_low_cst (TREE_VALUE (temp), 0);
+
 		  if (end_bit < start_bit)
 		    {
 		      error ("End bit in POS must be >= the start bit");
@@ -2873,10 +2918,9 @@ apply_chill_array_layout (array_type)
 		    length = end_bit - start_bit + 1;
 		}
 	    }
+
 	  if (! length_error && length != natural_length)
-	    {
-	      sorry ("The length specified on POS within STEP must be the natural length of the array element type");
-	    }
+	    sorry ("The length specified on POS within STEP must be the natural length of the array element type");
 	}
     }
 
@@ -2989,16 +3033,12 @@ make_chill_struct_type (fieldlist)
      tree fieldlist;
 {
   tree t, x;
-  if (TREE_UNION_ELEM (fieldlist))
-    t = make_node (UNION_TYPE);
-  else
-    t = make_node (RECORD_TYPE);
+
+  t = make_node (TREE_UNION_ELEM (fieldlist) ? UNION_TYPE : RECORD_TYPE);
+
   /* Install struct as DECL_CONTEXT of each field decl. */
   for (x = fieldlist; x; x = TREE_CHAIN (x))
-    {
-      DECL_CONTEXT (x) = t;
-      DECL_FIELD_SIZE (x) = 0;
-    }
+    DECL_CONTEXT (x) = t;
 
   /* Delete all duplicate fields from the fieldlist */
   for (x = fieldlist; x && TREE_CHAIN (x);)
@@ -3030,31 +3070,37 @@ make_chill_struct_type (fieldlist)
   return t;
 }
 
-/* decl is a FIELD_DECL.
-   DECL_INIT (decl) is (NULL_TREE, integer_one_node, integer_zero_node, tree_list),
-   meaning (default, pack, nopack, POS (...) ).
+/* DECL is a FIELD_DECL.
+   DECL_INIT (decl) is
+       (NULL_TREE, integer_one_node, integer_zero_node, tree_list)
+    meaning
+        (default, pack, nopack, POS (...) ).
+
    The return value is a boolean: 1 if POS specified, 0 if not */
+
 static int
 apply_chill_field_layout (decl, next_struct_offset)
      tree decl;
-     int* next_struct_offset;
+     int *next_struct_offset;
 {
-  tree layout, type, temp, what;
-  int word = 0, wordsize, start_bit, offset, length, natural_length;
+  tree layout = DECL_INITIAL (decl);
+  tree type = TREE_TYPE (decl);
+  tree temp, what;
+  HOST_WIDE_INT word = 0;
+  HOST_WIDE_INT wordsize, start_bit, offset, length, natural_length;
   int pos_error = 0;
-  int is_discrete;
+  int is_discrete = discrete_type_p (type);
 
-  type = TREE_TYPE (decl);
-  is_discrete = discrete_type_p (type);
   if (is_discrete)
-    natural_length = get_type_precision (TYPE_MIN_VALUE (type), TYPE_MAX_VALUE (type));
+    natural_length
+      = get_type_precision (TYPE_MIN_VALUE (type), TYPE_MAX_VALUE (type));
+  else if (host_integerp (TYPE_SIZE (type), 1))
+    natural_length = tree_low_cst (TYPE_SIZE (type), 1);
   else
-    natural_length = TREE_INT_CST_LOW (TYPE_SIZE (type));
+    natural_length = -1;
 
-  layout = DECL_INITIAL (decl);
   if (layout == integer_zero_node) /* NOPACK */
     {
-      DECL_PACKED (decl) = 0;
       *next_struct_offset += natural_length;
       return 0; /* not POS */
     }
@@ -3062,14 +3108,14 @@ apply_chill_field_layout (decl, next_struct_offset)
   if (layout == integer_one_node) /* PACK */
     {
       if (is_discrete)
-	DECL_BIT_FIELD (decl) = 1;
-      else
 	{
-	  DECL_BIT_FIELD (decl) = 0;
-	  DECL_ALIGN (decl) = BITS_PER_UNIT;
+	  DECL_BIT_FIELD (decl) = 1;
+	  DECL_SIZE (decl) = bitsize_int (natural_length);
 	}
+      else
+	DECL_ALIGN (decl) = BITS_PER_UNIT;
+
       DECL_PACKED (decl) = 1;
-      DECL_FIELD_SIZE (decl) = natural_length;
       *next_struct_offset += natural_length;
       return 0; /* not POS */
     }
@@ -3079,20 +3125,21 @@ apply_chill_field_layout (decl, next_struct_offset)
      natural width of the underlying type. */
   temp = TREE_PURPOSE (layout);
 
-  if (TREE_CODE (TREE_PURPOSE (temp)) != INTEGER_CST)
+  if (! host_integerp (TREE_PURPOSE (temp), 0))
     {
       error ("Starting word in POS must be an integer constant");
       pos_error = 1;
     }
   else
     {
-      word = TREE_INT_CST_LOW (TREE_PURPOSE (temp));
-      if (word < 0)
+      if (tree_int_cst_sgn (TREE_PURPOSE (temp)) < 0)
 	{
 	  error ("Starting word in POS must be >= 0");
 	  word = 0;
 	  pos_error = 1;
 	}
+      else
+	word = tree_low_cst (TREE_PURPOSE (temp), 0);
     }
 
   wordsize = TYPE_PRECISION (chill_integer_type_node);
@@ -3102,7 +3149,7 @@ apply_chill_field_layout (decl, next_struct_offset)
   temp = TREE_VALUE (temp);
   if (temp != NULL_TREE)
     {
-      if (TREE_CODE (TREE_PURPOSE (temp)) != INTEGER_CST)
+      if (! host_integerp (TREE_PURPOSE (temp), 0))
 	{
 	  error ("Starting bit in POS must be an integer constant");
 	  start_bit = *next_struct_offset - offset;
@@ -3110,14 +3157,15 @@ apply_chill_field_layout (decl, next_struct_offset)
 	}
       else
 	{
-	  start_bit = TREE_INT_CST_LOW (TREE_PURPOSE (temp));
-	  if (start_bit < 0)
+	  if (tree_int_cst_sgn (TREE_PURPOSE (temp)) < 0)
 	    {
 	      error ("Starting bit in POS must be >= 0");
 	      start_bit = *next_struct_offset - offset;
 	      pos_error = 1;
 	    }
-	  else if (start_bit >= wordsize)
+
+	  start_bit = tree_low_cst (TREE_PURPOSE (temp), 0);
+	  if (start_bit >= wordsize)
 	    {
 	      error ("Starting bit in POS must be < the width of a word");
 	      start_bit = *next_struct_offset - offset;
@@ -3131,32 +3179,35 @@ apply_chill_field_layout (decl, next_struct_offset)
 	  what = TREE_PURPOSE (temp);
 	  if (what == integer_zero_node)
 	    {
-	      if (TREE_CODE (TREE_VALUE (temp)) != INTEGER_CST)
+	      if (! host_integerp (TREE_VALUE (temp), 0))
 		{
 		  error ("Length in POS must be an integer constant");
 		  pos_error = 1;
 		}
 	      else
 		{
-		  length = TREE_INT_CST_LOW (TREE_VALUE (temp));
-		  if (length <= 0)
+		  if (tree_int_cst_sgn (TREE_VALUE (temp)) < 0)
 		    {
 		      error ("Length in POS must be > 0");
 		      length = natural_length;
 		      pos_error = 1;
 		    }
+		  else
+		    length = tree_low_cst (TREE_VALUE (temp), 0);
+
 		}
 	    }
 	  else
 	    {
-	      if (TREE_CODE (TREE_VALUE (temp)) != INTEGER_CST)
+	      if (! host_integerp (TREE_VALUE (temp), 0))
 		{
 		  error ("End bit in POS must be an integer constant");
 		  pos_error = 1;
 		}
 	      else
 		{
-		  int end_bit = TREE_INT_CST_LOW (TREE_VALUE (temp));
+		  HOST_WIDE_INT end_bit = tree_low_cst (TREE_VALUE (temp), 0);
+
 		  if (end_bit < start_bit)
 		    {
 		      error ("End bit in POS must be >= the start bit");
@@ -3171,6 +3222,7 @@ apply_chill_field_layout (decl, next_struct_offset)
 		    length = end_bit - start_bit + 1;
 		}
 	    }
+
 	  if (length != natural_length && ! pos_error)
 	    {
 	      sorry ("The length specified on POS must be the natural length of the field type");
@@ -3186,7 +3238,10 @@ apply_chill_field_layout (decl, next_struct_offset)
 
   DECL_PACKED (decl) = 1;
   DECL_BIT_FIELD (decl) = is_discrete;
-  DECL_FIELD_SIZE (decl) = length;
+
+  if (is_discrete)
+    DECL_SIZE (decl) = bitsize_int (length);
+
   *next_struct_offset += natural_length;
 
   return 1; /* was POS */
@@ -3206,12 +3261,7 @@ layout_chill_struct_type (t)
 
   old_momentary = suspend_momentary ();
 
-  /* Process specified field sizes.
-     Set DECL_FIELD_SIZE to the specified size, or 0 if none specified.
-     The specified size is found in the DECL_INITIAL.
-     Store 0 there, except for ": 0" fields (so we can find them
-     and delete them, below).  */
-
+  /* Process specified field sizes.  */
   next_struct_offset = 0;
   for (x = fieldlist; x; x = TREE_CHAIN (x))
     {
@@ -3292,7 +3342,7 @@ layout_chill_struct_type (t)
 	  field_array[len++] = x;
 
 	qsort (field_array, len, sizeof (tree),
-	       (int (*) PROTO ((const void *, const void *))) field_decl_cmp);
+	       (int (*) PARAMS ((const void *, const void *))) field_decl_cmp);
       }
   }
 
@@ -3372,9 +3422,9 @@ smash_dummy_type (type)
 	    {
 	      tree oldindex = TYPE_DOMAIN (origin);
 	      new_max = check_range (new_max, new_max, NULL_TREE,
-				     size_binop (PLUS_EXPR,
-						 TYPE_MAX_VALUE (oldindex),
-						 integer_one_node));
+				     fold (build (PLUS_EXPR, integer_type_node,
+						  TYPE_MAX_VALUE (oldindex),
+						  integer_one_node)));
 	      origin = build_string_type (TREE_TYPE (origin), new_max);
 	    }
 	  else if (TREE_CODE (origin) == ARRAY_TYPE)

@@ -1,5 +1,5 @@
 /* Handle the constant pool of the Java(TM) Virtual Machine.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -30,11 +30,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 extern struct obstack permanent_obstack;
 
-static void set_constant_entry PROTO ((CPool *, int, int, jword));
-static int find_class_or_string_constant PROTO ((CPool *, int, tree));
-static int find_name_and_type_constant PROTO ((CPool *, tree, tree));
-static tree get_tag_node PROTO ((int));
-static tree build_constant_data_ref PROTO ((void));
+static void set_constant_entry PARAMS ((CPool *, int, int, jword));
+static int find_class_or_string_constant PARAMS ((CPool *, int, tree));
+static int find_name_and_type_constant PARAMS ((CPool *, tree, tree));
+static tree get_tag_node PARAMS ((int));
+static tree build_constant_data_ref PARAMS ((void));
 
 /* Set the INDEX'th constant in CPOOL to have the given TAG and VALUE. */
 
@@ -390,7 +390,10 @@ alloc_class_constant (clas)
 static tree
 build_constant_data_ref ()
 {
-  if (current_constant_pool_data_ref == NULL_TREE)
+  if (TYPE_CPOOL_DATA_REF (current_class))
+    current_constant_pool_data_ref = TYPE_CPOOL_DATA_REF (current_class);
+
+  else if (current_constant_pool_data_ref == NULL_TREE)
     {
       tree decl;
       tree decl_name = mangled_classname ("_CD_", current_class);
@@ -401,7 +404,7 @@ build_constant_data_ref ()
       TREE_STATIC (decl) = 1;
       make_decl_rtl (decl, NULL, 1);
       pop_obstacks ();
-      current_constant_pool_data_ref
+      TYPE_CPOOL_DATA_REF (current_class) = current_constant_pool_data_ref
 	= build1 (ADDR_EXPR, ptr_type_node, decl);
     }
   return current_constant_pool_data_ref;
@@ -457,7 +460,8 @@ build_constants_constructor ()
       DECL_INITIAL (data_decl) = build (CONSTRUCTOR, TREE_TYPE (data_decl),
 					NULL_TREE, data_list);
       DECL_SIZE (data_decl) = TYPE_SIZE (TREE_TYPE (data_decl));
-      rest_of_decl_compilation (data_decl, (char*) 0, 1, 0);
+      DECL_SIZE_UNIT (data_decl) = TYPE_SIZE_UNIT (TREE_TYPE (data_decl));
+      rest_of_decl_compilation (data_decl, (char *) 0, 1, 0);
       data_value = build_address_of (data_decl);
 
       tags_type = build_array_type (unsigned_byte_type_node, index_type);

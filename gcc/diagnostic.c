@@ -1,5 +1,5 @@
 /* Top level of GNU C compiler
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -45,55 +45,58 @@ Boston, MA 02111-1307, USA.  */
 struct output_buffer
 {
   struct obstack obstack;       /* where we build the text to output */
-  const char *prefix;           /* prefix of every new line  */
+  char *prefix;                 /* prefix of every new line  */
   int line_length;              /* current line length (in characters) */
   int max_length;               /* maximum characters per line */
 };
 
 /* Prototypes. */
-static int doing_line_wrapping PROTO((void));
-static void init_output_buffer PROTO((struct output_buffer*,
-                                      const char *, int));
-static const char *get_output_prefix PROTO((const struct output_buffer *));
-static int output_space_left PROTO((const struct output_buffer *));
-static void emit_output_prefix PROTO((struct output_buffer *));
-static void output_newline PROTO((struct output_buffer *));
-static void output_append PROTO((struct output_buffer *, const char *,
-                                 const char *));
-static void output_puts PROTO((struct output_buffer *, const char *));
-static void dump_output PROTO((struct output_buffer *, FILE *));
-static const char *vbuild_message_string PROTO((const char *, va_list));
-static const char *build_message_string PVPROTO((const char *, ...));
-static const char *build_location_prefix PROTO((const char *, int, int));
-static void voutput_notice PROTO((struct output_buffer *, const char *,
-                                  va_list));
-static void output_printf PVPROTO((struct output_buffer *, const char *, ...));
-static void line_wrapper_printf PVPROTO((FILE *, const char *, ...));
-static void vline_wrapper_message_with_location PROTO((const char *, int, int,
-                                                       const char *, va_list));
-static void notice PVPROTO((const char *s, ...)) ATTRIBUTE_PRINTF_1;
-static void v_message_with_file_and_line PROTO((const char *, int, int,
+static int doing_line_wrapping PARAMS ((void));
+static void init_output_buffer PARAMS ((struct output_buffer*, char *, int));
+static char *get_output_prefix PARAMS ((const struct output_buffer *));
+static int output_space_left PARAMS ((const struct output_buffer *));
+static void emit_output_prefix PARAMS ((struct output_buffer *));
+static void output_newline PARAMS ((struct output_buffer *));
+static void output_append PARAMS ((struct output_buffer *, const char *,
+				   const char *));
+static void output_puts PARAMS ((struct output_buffer *, const char *));
+static void dump_output PARAMS ((struct output_buffer *, FILE *));
+static char *vbuild_message_string PARAMS ((const char *, va_list));
+static char *build_message_string PARAMS ((const char *, ...))
+     ATTRIBUTE_PRINTF_1;
+static char *build_location_prefix PARAMS ((const char *, int, int));
+static void voutput_notice PARAMS ((struct output_buffer *, const char *,
+				    va_list));
+static void output_printf PARAMS ((struct output_buffer *, const char *, ...))
+     ATTRIBUTE_PRINTF_2;
+static void line_wrapper_printf PARAMS ((FILE *, const char *, ...))
+     ATTRIBUTE_PRINTF_2;
+static void vline_wrapper_message_with_location PARAMS ((const char *, int,
+							 int, const char *,
+							 va_list));
+static void notice PARAMS ((const char *s, ...)) ATTRIBUTE_PRINTF_1;
+static void v_message_with_file_and_line PARAMS ((const char *, int, int,
+						  const char *, va_list));
+static void v_message_with_decl PARAMS ((tree, int, const char *, va_list));
+static void file_and_line_for_asm PARAMS ((rtx, const char **, int *));
+static void v_error_with_file_and_line PARAMS ((const char *, int,
 						const char *, va_list));
-static void v_message_with_decl PROTO((tree, int, const char *, va_list));
-static void file_and_line_for_asm PROTO((rtx, char **, int *));
-static void v_error_with_file_and_line PROTO((const char *, int,
-					      const char *, va_list));
-static void v_error_with_decl PROTO((tree, const char *, va_list));
-static void v_error_for_asm PROTO((rtx, const char *, va_list));
-static void verror PROTO((const char *, va_list));
-static void vfatal PROTO((const char *, va_list)) ATTRIBUTE_NORETURN;
-static void v_warning_with_file_and_line PROTO ((const char *, int,
-						 const char *, va_list));
-static void v_warning_with_decl PROTO((tree, const char *, va_list));
-static void v_warning_for_asm PROTO((rtx, const char *, va_list));
-static void vwarning PROTO((const char *, va_list));
-static void vpedwarn PROTO((const char *, va_list));
-static void v_pedwarn_with_decl PROTO((tree, const char *, va_list));
-static void v_pedwarn_with_file_and_line PROTO((const char *, int,
-						const char *, va_list));
-static void vsorry PROTO((const char *, va_list));
-static void report_file_and_line PROTO ((const char *, int, int));
-static void vnotice PROTO ((FILE *, const char *, va_list));
+static void v_error_with_decl PARAMS ((tree, const char *, va_list));
+static void v_error_for_asm PARAMS ((rtx, const char *, va_list));
+static void verror PARAMS ((const char *, va_list));
+static void vfatal PARAMS ((const char *, va_list)) ATTRIBUTE_NORETURN;
+static void v_warning_with_file_and_line PARAMS ((const char *, int,
+						  const char *, va_list));
+static void v_warning_with_decl PARAMS ((tree, const char *, va_list));
+static void v_warning_for_asm PARAMS ((rtx, const char *, va_list));
+static void vwarning PARAMS ((const char *, va_list));
+static void vpedwarn PARAMS ((const char *, va_list));
+static void v_pedwarn_with_decl PARAMS ((tree, const char *, va_list));
+static void v_pedwarn_with_file_and_line PARAMS ((const char *, int,
+						  const char *, va_list));
+static void vsorry PARAMS ((const char *, va_list));
+static void report_file_and_line PARAMS ((const char *, int, int));
+static void vnotice PARAMS ((FILE *, const char *, va_list));
 
 
 extern int rtl_dump_and_exit;
@@ -115,11 +118,11 @@ static int last_error_tick;
 /* Called by report_error_function to print out function name.
  * Default may be overridden by language front-ends.  */
 
-void (*print_error_function) PROTO((const char *)) =
+void (*print_error_function) PARAMS ((const char *)) =
   default_print_error_function;
 
 /* Maximum characters per line in automatic line wrapping mode.
-   Non Zero means don't wrap lines. */
+   Zero means don't wrap lines. */
 
 static int output_maximum_width = 0;
 
@@ -146,18 +149,25 @@ set_message_length (n)
 static void
 init_output_buffer (buffer, prefix, max_length)
      struct output_buffer *buffer;
-     const char *prefix;
+     char *prefix;
      int max_length;
 {
+  int prefix_length = prefix == 0 ? 0 : strlen (prefix);
+
   obstack_init (&buffer->obstack);
   buffer->prefix = prefix;
   buffer->line_length = 0;
-  buffer->max_length = max_length;
+  /* If the prefix is ridiculously too long, output at least
+     32 characters.  */
+  if (max_length - prefix_length < 32)
+    buffer->max_length = max_length + 32;
+  else
+    buffer->max_length = max_length;
 }
 
 /* Return BUFFER's prefix.  */
 
-static const char *
+static char *
 get_output_prefix (buffer)
      const struct output_buffer *buffer;
 {
@@ -259,16 +269,16 @@ dump_output (buffer, file)
      struct output_buffer *buffer;
      FILE *file;
 {
-  const char *text;
+  char *text;
   
   obstack_1grow (&buffer->obstack, '\0');
   text = obstack_finish (&buffer->obstack);
   fputs (text, file);
-  obstack_free (&buffer->obstack, (char *)text);
+  obstack_free (&buffer->obstack, text);
   buffer->line_length = 0;
 }
 
-static const char *
+static char *
 vbuild_message_string (msgid, ap)
      const char *msgid;
      va_list ap;
@@ -282,14 +292,14 @@ vbuild_message_string (msgid, ap)
 /*  Return a malloc'd string containing MSGID formatted a la
     printf.  The caller is reponsible for freeing the memory.  */
 
-static const char *
-build_message_string VPROTO((const char *msgid, ...))
+static char *
+build_message_string VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
 #endif
   va_list ap;
-  const char *str;
+  char *str;
 
   VA_START (ap, msgid);
 
@@ -308,19 +318,26 @@ build_message_string VPROTO((const char *msgid, ...))
 /* Return a malloc'd string describing a location.  The caller is
    responsible for freeing the memory.  */
 
-static const char *
+static char *
 build_location_prefix (file, line, warn)
      const char *file;
      int line;
      int warn;
 {
-  const char *fmt = file
-    ? (warn ? "%s:%d: warning: " : "%s:%d: ")
-    : (warn ? "%s: warning: " : "%s: ");
-
-  return file
-    ? build_message_string (fmt, file, line)
-    : build_message_string (fmt, progname);
+  if (file)
+    {
+      if (warn)
+	return build_message_string ("%s:%d: warning: ", file, line);
+      else
+	return build_message_string ("%s:%d: ", file, line);
+    }
+  else
+    {
+      if (warn)
+	return build_message_string ("%s: warning: ", progname);
+      else
+	return build_message_string ("%s: ", progname);
+    }
 }
 
 /* Format a MESSAGE into BUFFER.  Automatically wrap lines.  */
@@ -331,17 +348,17 @@ voutput_notice (buffer, msgid, ap)
      const char *msgid;
      va_list ap;
 {
-  const char *message = vbuild_message_string (msgid, ap);
+  char *message = vbuild_message_string (msgid, ap);
 
   output_puts (buffer, message);
-  free ((char *)message);
+  free (message);
 }
 
 
 /* Format a message into BUFFER a la printf.  */
 
 static void
-output_printf VPROTO((struct output_buffer *buffer, const char *msgid, ...))
+output_printf VPARAMS ((struct output_buffer *buffer, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   struct output_buffer *buffer;
@@ -365,7 +382,7 @@ output_printf VPROTO((struct output_buffer *buffer, const char *msgid, ...))
    with PREFIX.  */
 
 static void
-line_wrapper_printf VPROTO((FILE *file, const char *msgid, ...))
+line_wrapper_printf VPARAMS ((FILE *file, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   FILE *file;
@@ -381,7 +398,7 @@ line_wrapper_printf VPROTO((FILE *file, const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif  
 
-  init_output_buffer (&buffer, (const char *)NULL, output_maximum_width);
+  init_output_buffer (&buffer, NULL, output_maximum_width);
   voutput_notice (&buffer, msgid, ap);
   dump_output (&buffer, file);
 
@@ -422,7 +439,7 @@ vnotice (file, msgid, ap)
 /* Print MSGID on stderr.  */
 
 static void
-notice VPROTO((const char *msgid, ...))
+notice VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   char *msgid;
@@ -557,7 +574,7 @@ v_message_with_decl (decl, warn, msgid, ap)
 static void
 file_and_line_for_asm (insn, pfile, pline)
      rtx insn;
-     char **pfile;
+     const char **pfile;
      int *pline;
 {
   rtx body = PATTERN (insn);
@@ -632,7 +649,7 @@ v_error_for_asm (insn, msgid, ap)
      const char *msgid;
      va_list ap;
 {
-  char *file;
+  const char *file;
   int line;
 
   count_error (0);
@@ -656,7 +673,7 @@ verror (msgid, ap)
 /* Report a fatal error at the current line number.  Allow a front end to
    intercept the message.  */
 
-static void (*fatal_function) PROTO ((const char *, va_list));
+static void (*fatal_function) PARAMS ((const char *, va_list));
 
 static void
 vfatal (msgid, ap)
@@ -720,7 +737,7 @@ v_warning_for_asm (insn, msgid, ap)
 {
   if (count_error (1))
     {
-      char *file;
+      const char *file;
       int line;
 
       file_and_line_for_asm (insn, &file, &line);
@@ -838,7 +855,7 @@ count_error (warningp)
 
 /* Print a diagnistic MSGID on FILE.  */
 void
-fnotice VPROTO((FILE *file, const char *msgid, ...))
+fnotice VPARAMS ((FILE *file, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   FILE *file;
@@ -880,7 +897,7 @@ fatal_io_error (name)
 
 /* Issue a pedantic warning MSGID.  */
 void
-pedwarn VPROTO((const char *msgid, ...))
+pedwarn VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -899,7 +916,7 @@ pedwarn VPROTO((const char *msgid, ...))
 
 /* Issue a pedantic waring about DECL.  */
 void
-pedwarn_with_decl VPROTO((tree decl, const char *msgid, ...))
+pedwarn_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   tree decl;
@@ -920,8 +937,8 @@ pedwarn_with_decl VPROTO((tree decl, const char *msgid, ...))
 
 /* Same as above but within the context FILE and LINE. */
 void
-pedwarn_with_file_and_line VPROTO((const char *file, int line,
-				   const char *msgid, ...))
+pedwarn_with_file_and_line VPARAMS ((const char *file, int line,
+				     const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *file;
@@ -944,7 +961,7 @@ pedwarn_with_file_and_line VPROTO((const char *file, int line,
 
 /* Just apologize with MSGID.  */
 void
-sorry VPROTO((const char *msgid, ...))
+sorry VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -995,7 +1012,7 @@ default_print_error_function (file)
 {
   if (last_error_function != current_function_decl)
     {
-      const char *prefix = NULL;
+      char *prefix = NULL;
       struct output_buffer buffer;
       
       if (file)
@@ -1045,7 +1062,7 @@ default_print_error_function (file)
       if (doing_line_wrapping ())
         dump_output (&buffer, stderr);
       
-      free ((char *)prefix);
+      free (prefix);
     }
 }
 
@@ -1081,8 +1098,8 @@ report_error_function (file)
 }
 
 void
-error_with_file_and_line VPROTO((const char *file, int line,
-				 const char *msgid, ...))
+error_with_file_and_line VPARAMS ((const char *file, int line,
+				   const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *file;
@@ -1104,7 +1121,7 @@ error_with_file_and_line VPROTO((const char *file, int line,
 }
 
 void
-error_with_decl VPROTO((tree decl, const char *msgid, ...))
+error_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   tree decl;
@@ -1124,7 +1141,7 @@ error_with_decl VPROTO((tree decl, const char *msgid, ...))
 }
 
 void
-error_for_asm VPROTO((rtx insn, const char *msgid, ...))
+error_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   rtx insn;
@@ -1144,7 +1161,7 @@ error_for_asm VPROTO((rtx insn, const char *msgid, ...))
 }
 
 void
-error VPROTO((const char *msgid, ...))
+error VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -1165,13 +1182,13 @@ error VPROTO((const char *msgid, ...))
 
 void
 set_fatal_function (f)
-     void (*f) PROTO ((const char *, va_list));
+     void (*f) PARAMS ((const char *, va_list));
 {
   fatal_function = f;
 }
 
 void
-fatal VPROTO((const char *msgid, ...))
+fatal VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
@@ -1216,8 +1233,8 @@ _fatal_insn_not_found (insn, file, line, function)
 }
 
 void
-warning_with_file_and_line VPROTO((const char *file, int line,
-				   const char *msgid, ...))
+warning_with_file_and_line VPARAMS ((const char *file, int line,
+				     const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *file;
@@ -1239,7 +1256,7 @@ warning_with_file_and_line VPROTO((const char *file, int line,
 }
 
 void
-warning_with_decl VPROTO((tree decl, const char *msgid, ...))
+warning_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   tree decl;
@@ -1259,7 +1276,7 @@ warning_with_decl VPROTO((tree decl, const char *msgid, ...))
 }
 
 void
-warning_for_asm VPROTO((rtx insn, const char *msgid, ...))
+warning_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   rtx insn;
@@ -1279,7 +1296,7 @@ warning_for_asm VPROTO((rtx insn, const char *msgid, ...))
 }
 
 void
-warning VPROTO((const char *msgid, ...))
+warning VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;

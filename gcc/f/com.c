@@ -1,5 +1,6 @@
 /* com.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995-1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -216,12 +217,6 @@ typedef struct { unsigned :16, :16, :16; } vms_ino_t;
 
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
 
-/* tree.h declares a bunch of stuff that it expects the front end to
-   define.  Here are the definitions, which in the C front end are
-   found in the file c-decl.c.  */
-
-tree current_function_decl;
-
 /* ~~gcc/tree.h *should* declare this, because toplev.c and dwarfout.c
    reference it.  */
 
@@ -421,9 +416,7 @@ static void ffecom_let_char_ (tree dest_tree,
 			      ffebld source);
 static void ffecom_make_gfrt_ (ffecomGfrt ix);
 static void ffecom_member_phase1_ (ffestorag mst, ffestorag st);
-#ifdef SOMEONE_GETS_DEBUG_SUPPORT_WORKING
 static void ffecom_member_phase2_ (ffestorag mst, ffestorag st);
-#endif
 static void ffecom_prepare_let_char_ (ffetargetCharacterSize dest_size,
 				      ffebld source);
 static void ffecom_push_dummy_decls_ (ffebld dumlist,
@@ -445,9 +438,6 @@ static tree ffecom_type_localvar_ (ffesymbol s,
 				   ffeinfoBasictype bt,
 				   ffeinfoKindtype kt);
 static tree ffecom_type_namelist_ (void);
-#if 0
-static tree ffecom_type_permanent_copy_ (tree t);
-#endif
 static tree ffecom_type_vardesc_ (void);
 static tree ffecom_vardesc_ (ffebld expr);
 static tree ffecom_vardesc_array_ (ffesymbol s);
@@ -973,10 +963,10 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 			   item,
 			   size_binop (MULT_EXPR,
 				       size_in_bytes (TREE_TYPE (array)),
-				       fold (build (MINUS_EXPR,
-						    tree_type_x,
-						    element,
-						    min))));
+				       convert (sizetype,
+						fold (build (MINUS_EXPR,
+							     tree_type_x,
+							     element, min)))));
 	}
       if (! want_ptr)
 	{
@@ -1105,7 +1095,6 @@ ffecom_stabilize_aggregate_ (tree ref)
   TREE_READONLY (result) = TREE_READONLY (ref);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (ref);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (ref);
-  TREE_RAISES (result) = TREE_RAISES (ref);
 
   return result;
 }
@@ -6053,8 +6042,8 @@ ffecom_f2c_set_lio_code_ (ffeinfoBasictype bt, int size,
   tree t;
 
   for (j = 0; ((size_t) j) < ARRAY_SIZE (ffecom_tree_type[0]); ++j)
-    if (((t = ffecom_tree_type[bt][j]) != NULL_TREE)
-	&& (TREE_INT_CST_LOW (TYPE_SIZE (t)) == size))
+    if ((t = ffecom_tree_type[bt][j]) != NULL_TREE
+	&& compare_tree_int (TYPE_SIZE (t), size) == 0)
       {
 	assert (code != -1);
 	ffecom_f2c_typecode_[bt][j] = code;
@@ -6146,7 +6135,6 @@ ffecom_finish_symbol_transform_ (ffesymbol s)
   if ((ffesymbol_where (s) == FFEINFO_whereCOMMON)
       && (ffesymbol_hook (s).decl_tree != error_mark_node))
     {
-#ifdef SOMEONE_GETS_DEBUG_SUPPORT_WORKING
       int yes = suspend_momentary ();
 
       /* This isn't working, at least for dbxout.  The .s file looks
@@ -6159,7 +6147,6 @@ ffecom_finish_symbol_transform_ (ffesymbol s)
 			     ffesymbol_storage (s));
 
       resume_momentary (yes);
-#endif
     }
 
   return s;
@@ -6439,8 +6426,7 @@ static struct tree_ggc_tracker
 } *tracker_head = NULL;
 
 static void 
-mark_tracker_head (arg)
-     void *arg;
+mark_tracker_head (void *arg)
 {
   struct tree_ggc_tracker *head;
   int i;
@@ -7108,7 +7094,6 @@ ffecom_member_phase1_ (ffestorag mst UNUSED, ffestorag st)
    referencing the member.  */
 
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
-#ifdef SOMEONE_GETS_DEBUG_SUPPORT_WORKING
 static void
 ffecom_member_phase2_ (ffestorag mst, ffestorag st)
 {
@@ -7152,7 +7137,6 @@ ffecom_member_phase2_ (ffestorag mst, ffestorag st)
   finish_decl (t, NULL_TREE, FALSE);
 }
 
-#endif
 #endif
 /* Prepare source expression for assignment into a destination perhaps known
    to be of a specific size.  */
@@ -7769,15 +7753,11 @@ ffecom_sym_transform_ (ffesymbol s)
 
 		finish_decl (t, initexpr, FALSE);
 
-		if ((st != NULL) && (DECL_SIZE (t) != error_mark_node))
+		if (st != NULL && DECL_SIZE (t) != error_mark_node)
 		  {
-		    tree size_tree;
-
-		    size_tree = size_binop (CEIL_DIV_EXPR,
-					    DECL_SIZE (t),
-					    size_int (BITS_PER_UNIT));
-		    assert (TREE_INT_CST_HIGH (size_tree) == 0);
-		    assert (TREE_INT_CST_LOW (size_tree) == ffestorag_size (st));
+		    assert (TREE_CODE (DECL_SIZE_UNIT (t)) == INTEGER_CST);
+		    assert (0 == compare_tree_int (DECL_SIZE_UNIT (t),
+						   ffestorag_size (st)));
 		  }
 
 		resume_momentary (yes);
@@ -8730,7 +8710,10 @@ ffecom_transform_common_ (ffesymbol s)
   if ((cbt != NULL_TREE)
       && (!is_init
 	  || !DECL_EXTERNAL (cbt)))
-    return;
+    {
+      if (st->hook == NULL) ffestorag_set_hook (st, cbt);
+      return;
+    }
 
   /* Process inits.  */
 
@@ -8830,16 +8813,11 @@ ffecom_transform_common_ (ffesymbol s)
 
   if (init)
     {
-      tree size_tree;
-
-      assert (DECL_SIZE (cbt) != NULL_TREE);
-      assert (TREE_CODE (DECL_SIZE (cbt)) == INTEGER_CST);
-      size_tree = size_binop (CEIL_DIV_EXPR,
-			      DECL_SIZE (cbt),
-			      size_int (BITS_PER_UNIT));
-      assert (TREE_INT_CST_HIGH (size_tree) == 0);
-      assert (TREE_INT_CST_LOW (size_tree)
-	      == ffeglobal_common_size (g) + ffeglobal_common_pad (g));
+      assert (DECL_SIZE_UNIT (cbt) != NULL_TREE);
+      assert (TREE_CODE (DECL_SIZE_UNIT (cbt)) == INTEGER_CST);
+      assert (0 == compare_tree_int (DECL_SIZE_UNIT (cbt),
+				     (ffeglobal_common_size (g)
+				      + ffeglobal_common_pad (g))));
     }
 
   ffeglobal_set_hook (g, cbt);
@@ -8970,14 +8948,10 @@ ffecom_transform_equiv_ (ffestorag eqst)
     ffestorag_set_init (eqst, ffebld_new_any ());
 
   {
-    tree size_tree;
-
-    size_tree = size_binop (CEIL_DIV_EXPR,
-			    DECL_SIZE (eqt),
-			    size_int (BITS_PER_UNIT));
-    assert (TREE_INT_CST_HIGH (size_tree) == 0);
-    assert (TREE_INT_CST_LOW (size_tree)
-	    == ffestorag_size (eqst) + ffestorag_modulo (eqst));
+    assert (TREE_CODE (DECL_SIZE_UNIT (eqt)) == INTEGER_CST);
+    assert (0 == compare_tree_int (DECL_SIZE_UNIT (eqt),
+				   (ffestorag_size (eqst)
+				    + ffestorag_modulo (eqst))));
   }
 
   ffestorag_set_hook (eqst, eqt);
@@ -9108,14 +9082,13 @@ ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
       if (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST)
 	{
 	  /* An offset into COMMON.  */
-	  *offset = size_binop (PLUS_EXPR,
-				*offset,
-				TREE_OPERAND (t, 1));
+	  *offset = fold (build (PLUS_EXPR, TREE_TYPE (*offset),
+				 *offset, TREE_OPERAND (t, 1)));
 	  /* Convert offset (presumably in bytes) into canonical units
 	     (presumably bits).  */
-	  *offset = size_binop (MULT_EXPR,
-				TYPE_SIZE (TREE_TYPE (TREE_TYPE (t))),
-				*offset);
+	  *offset = fold (build (MULT_EXPR, TREE_TYPE (*offset),
+				 TYPE_SIZE (TREE_TYPE (TREE_TYPE (t))),
+				 *offset));
 	  break;
 	}
       /* Not a COMMON reference, so an unrecognized pattern.  */
@@ -9124,7 +9097,7 @@ ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
 
     case PARM_DECL:
       *decl = t;
-      *offset = bitsize_int (0L, 0L);
+      *offset = bitsize_int (0);
       break;
 
     case ADDR_EXPR:
@@ -9132,7 +9105,7 @@ ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
 	{
 	  /* A reference to COMMON.  */
 	  *decl = TREE_OPERAND (t, 0);
-	  *offset = bitsize_int (0L, 0L);
+	  *offset = bitsize_int (0);
 	  break;
 	}
       /* Fall through.  */
@@ -9253,7 +9226,7 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
     case VAR_DECL:
     case PARM_DECL:
       *decl = t;
-      *offset = bitsize_int (0L, 0L);
+      *offset = bitsize_int (0);
       *size = TYPE_SIZE (TREE_TYPE (t));
       return;
 
@@ -9276,16 +9249,17 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
 	    || (*decl == error_mark_node))
 	  return;
 
-	*offset = size_binop (MULT_EXPR,
-			      TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))),
-			      size_binop (MINUS_EXPR,
-					  element,
-					  TYPE_MIN_VALUE
-					  (TYPE_DOMAIN
-					   (TREE_TYPE (array)))));
+	*offset
+	  = size_binop (MULT_EXPR,
+			TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))),
+			convert (sizetype,
+				 fold (build (MINUS_EXPR, TREE_TYPE (element),
+					      element,
+					      TYPE_MIN_VALUE
+					      (TYPE_DOMAIN
+					       (TREE_TYPE (array)))))));;
 
-	*offset = size_binop (PLUS_EXPR,
-			      init_offset,
+	*offset = size_binop (PLUS_EXPR, convert (sizetype, init_offset),
 			      *offset);
 
 	*size = TYPE_SIZE (TREE_TYPE (t));
@@ -9515,41 +9489,6 @@ ffecom_type_namelist_ ()
   return type;
 }
 
-#endif
-
-/* Make a copy of a type, assuming caller has switched to the permanent
-   obstacks and that the type is for an aggregate (array) initializer.  */
-
-#if FFECOM_targetCURRENT == FFECOM_targetGCC && 0	/* Not used now. */
-static tree
-ffecom_type_permanent_copy_ (tree t)
-{
-  tree domain;
-  tree max;
-
-  assert (TREE_TYPE (t) != NULL_TREE);
-
-  domain = TYPE_DOMAIN (t);
-
-  assert (TREE_CODE (t) == ARRAY_TYPE);
-  assert (TREE_PERMANENT (TREE_TYPE (t)));
-  assert (TREE_PERMANENT (TREE_TYPE (domain)));
-  assert (TREE_PERMANENT (TYPE_MIN_VALUE (domain)));
-
-  max = TYPE_MAX_VALUE (domain);
-  if (!TREE_PERMANENT (max))
-    {
-      assert (TREE_CODE (max) == INTEGER_CST);
-
-      max = build_int_2 (TREE_INT_CST_LOW (max), TREE_INT_CST_HIGH (max));
-      TREE_TYPE (max) = TREE_TYPE (TYPE_MIN_VALUE (domain));
-    }
-
-  return build_array_type (TREE_TYPE (t),
-			   build_range_type (TREE_TYPE (domain),
-					     TYPE_MIN_VALUE (domain),
-					     max));
-}
 #endif
 
 /* Build Vardesc type.  */
@@ -13843,6 +13782,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  /* Since the type is OLDDECL's, make OLDDECL's size go with.  */
 	  DECL_SIZE (newdecl) = DECL_SIZE (olddecl);
+	  DECL_SIZE_UNIT (newdecl) = DECL_SIZE_UNIT (olddecl);
 	  if (TREE_CODE (olddecl) != FUNCTION_DECL)
 	    if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
 	      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
@@ -14109,9 +14049,6 @@ finish_decl (tree decl, tree init, bool is_top_level)
 				0);
     }
 
-  /* This test used to include TREE_PERMANENT, however, we have the same
-     problem with initializers at the function level.  Such initializers get
-     saved until the end of the function on the momentary_obstack.  */
   if (!(TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
       && temporary
   /* DECL_INITIAL is not defined in PARM_DECLs, since it shares space with
@@ -14135,11 +14072,6 @@ finish_decl (tree decl, tree init, bool is_top_level)
 	  if (TREE_READONLY (decl))
 	    {
 	      preserve_initializer ();
-	      /* Hack?  Set the permanent bit for something that is
-		 permanent, but not on the permenent obstack, so as to
-		 convince output_constant_def to make its rtl on the
-		 permanent obstack.  */
-	      TREE_PERMANENT (DECL_INITIAL (decl)) = 1;
 
 	      /* The initializer and DECL must have the same (or equivalent
 		 types), but if the initializer is a STRING_CST, its type
@@ -14149,23 +14081,6 @@ finish_decl (tree decl, tree init, bool is_top_level)
 	    }
 	  else
 	    DECL_INITIAL (decl) = error_mark_node;
-	}
-    }
-
-  /* If requested, warn about definitions of large data objects.  */
-
-  if (warn_larger_than
-      && (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
-      && !DECL_EXTERNAL (decl))
-    {
-      register tree decl_size = DECL_SIZE (decl);
-
-      if (decl_size && TREE_CODE (decl_size) == INTEGER_CST)
-	{
-	   unsigned units = TREE_INT_CST_LOW (decl_size) / BITS_PER_UNIT;
-
-	  if (units > larger_than_size)
-	    warning_with_decl (decl, "size of `%s' is %u bytes", units);
 	}
     }
 
@@ -14775,8 +14690,7 @@ incomplete_type_error (value, type)
 
 /* Mark ARG for GC.  */
 static void 
-mark_binding_level (arg)
-     void *arg;
+mark_binding_level (void *arg)
 {
   struct binding_level *level = *(struct binding_level **) arg;
 
@@ -15710,6 +15624,11 @@ type_for_mode (mode, unsignedp)
 
   if (mode == TYPE_MODE (long_long_integer_type_node))
     return unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
+
+#if HOST_BITS_PER_WIDE_INT >= 64
+  if (mode == TYPE_MODE (intTI_type_node))
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif
 
   if (mode == TYPE_MODE (float_type_node))
     return float_type_node;

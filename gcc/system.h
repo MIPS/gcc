@@ -23,6 +23,11 @@ Boston, MA 02111-1307, USA.  */
 #ifndef __GCC_SYSTEM_H__
 #define __GCC_SYSTEM_H__
 
+/* This is the location of the online document giving information how
+   to report bugs. If you change this string, also check for strings
+   not under control of the preprocessor.  */
+#define GCCBUGURL "<URL:http://www.gnu.org/software/gcc/bugs.html>"
+
 /* We must include stdarg.h/varargs.h before stdio.h. */
 #ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
@@ -58,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 # undef fputs
 # define fputs(String, Stream) fputs_unlocked (String, Stream)
 # ifdef NEED_DECLARATION_FPUTS_UNLOCKED
-extern int fputs_unlocked PROTO ((const char *, FILE *));
+extern int fputs_unlocked PARAMS ((const char *, FILE *));
 # endif
 #endif
 
@@ -393,17 +398,6 @@ extern PTR calloc PARAMS ((size_t, size_t));
 #ifdef NEED_DECLARATION_REALLOC
 extern PTR realloc PARAMS ((PTR, size_t));
 #endif
-
-#ifdef HAVE_STRERROR
-# ifdef NEED_DECLARATION_STRERROR
-#  ifndef strerror
-extern char *strerror PARAMS ((int));
-#  endif
-# endif
-#else /* ! HAVE_STRERROR */
-extern int sys_nerr;
-extern char *sys_errlist[];
-#endif /* HAVE_STRERROR */
 
 /* If the system doesn't provide strsignal, we get it defined in
    libiberty but no declaration is supplied. */

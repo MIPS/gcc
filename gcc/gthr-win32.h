@@ -1,4 +1,4 @@
-/* Threads compatibily routines for libgcc2.  */
+/* Threads compatibility routines for libgcc2.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1999, 2000 Free Software Foundation, Inc.
    Contributed by Mumit Khan <khan@xraylith.wisc.edu>.
@@ -85,7 +85,7 @@ typedef HANDLE __gthread_mutex_t;
 #if __MINGW32_MAJOR_VERSION >= 1 || \
   (__MINGW32_MAJOR_VERSION == 0 && __MINGW32_MINOR_VERSION > 2)
 #define MINGW32_SUPPORTS_MT_EH 1
-extern int __mingwthr_key_dtor PROTO((DWORD, void (*) (void *)));
+extern int __mingwthr_key_dtor PARAMS ((DWORD, void (*) (void *)));
 /* Mingw runtime >= v0.3 provides a magic variable that is set to non-zero
    if -mthreads option was specified, or 0 otherwise. This is to get around 
    the lack of weak symbols in PE-COFF.  */
@@ -93,7 +93,7 @@ extern int _CRT_MT;
 #endif
 
 static inline int
-__gthread_active_p ()
+__gthread_active_p (void)
 {
 #ifdef MINGW32_SUPPORTS_MT_EH
   return _CRT_MT;
@@ -103,7 +103,7 @@ __gthread_active_p ()
 }
 
 static inline int
-__gthread_once (__gthread_once_t *once, void (*func) ())
+__gthread_once (__gthread_once_t *once, void (*func) (void))
 {
   if (! __gthread_active_p ())
     return -1;

@@ -1,6 +1,6 @@
 /* XCOFF definitions.  These are needed in dbxout.c, final.c,
    and xcoffout.h. 
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -103,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
   if (current_sym_addr && current_sym_code == N_FUN		\
       && GET_CODE (current_sym_addr) == SYMBOL_REF)		\
     {								\
-      char *_p = XSTR (current_sym_addr, 0);			\
+      const char *_p = XSTR (current_sym_addr, 0);		\
       if (*_p == '*')						\
 	fprintf (asmfile, "%s", _p+1);				\
       else							\
@@ -188,24 +188,24 @@ extern char *xcoff_lastfile;
 
 /* Prototype functions in xcoffout.c. */
 
-extern int stab_to_sclass			PROTO ((int));
+extern int stab_to_sclass			PARAMS ((int));
 #ifdef BUFSIZ
-extern void xcoffout_begin_function		PROTO ((FILE *, int));
-extern void xcoffout_begin_block		PROTO ((FILE *, int, int));
-extern void xcoffout_end_epilogue		PROTO ((FILE *));
-extern void xcoffout_end_function		PROTO ((FILE *, int));
-extern void xcoffout_end_block			PROTO ((FILE *, int, int));
+extern void xcoffout_begin_function		PARAMS ((FILE *, int));
+extern void xcoffout_begin_block		PARAMS ((FILE *, int, int));
+extern void xcoffout_end_epilogue		PARAMS ((FILE *));
+extern void xcoffout_end_function		PARAMS ((FILE *, int));
+extern void xcoffout_end_block			PARAMS ((FILE *, int, int));
 #endif /* BUFSIZ */
 
 #ifdef TREE_CODE
-extern void xcoff_output_standard_types		PROTO ((tree));
+extern void xcoff_output_standard_types		PARAMS ((tree));
 #ifdef BUFSIZ
-extern void xcoffout_declare_function		PROTO ((FILE *, tree, char *));
+extern void xcoffout_declare_function		PARAMS ((FILE *, tree, char *));
 #endif /* BUFSIZ */
 #endif /* TREE_CODE */
 
 #ifdef RTX_CODE
 #ifdef BUFSIZ
-extern void xcoffout_source_line		PROTO ((FILE *, char *, rtx));
+extern void xcoffout_source_line		PARAMS ((FILE *, char *, rtx));
 #endif /* BUFSIZ */
 #endif /* RTX_CODE */

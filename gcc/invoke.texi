@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 89, 92-99, 2000 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -319,7 +319,7 @@ in the following sections.
 -mpowerpc  -mpowerpc64  -mno-powerpc
 -mpowerpc-gpopt  -mno-powerpc-gpopt
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt
--mnew-mnemonics  -mno-new-mnemonics
+-mnew-mnemonics  -mold-mnemonics
 -mfull-toc   -mminimal-toc  -mno-fop-in-toc  -mno-sum-in-toc
 -m64  -m32  -mxl-call  -mno-xl-call  -mthreads  -mpe
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple
@@ -350,7 +350,7 @@ in the following sections.
 -m4650  -msingle-float  -mmad
 -mstats  -EL  -EB  -G @var{num}  -nocpp
 -mabi=32 -mabi=n32 -mabi=64 -mabi=eabi
--mno-crt0
+-mfix7000 -mno-crt0
 
 @emph{i386 Options}
 -mcpu=@var{cpu type}
@@ -361,7 +361,7 @@ in the following sections.
 -mreg-alloc=@var{list}  -mregparm=@var{num}
 -malign-jumps=@var{num}  -malign-loops=@var{num}
 -malign-functions=@var{num} -mpreferred-stack-boundary=@var{num}
--mthreads
+-mthreads -mno-align-stringops -minline-all-stringops
 
 @emph{HPPA Options}
 -march=@var{architecture type}
@@ -428,6 +428,17 @@ in the following sections.
 -m32032 -m32332 -m32532 -m32081 -m32381 -mmult-add -mnomult-add
 -msoft-float -mrtd -mnortd -mregparam -mnoregparam -msb -mnosb
 -mbitfield -mnobitfield -mhimem -mnohimem
+
+@emph{AVR Options}
+-mmcu=@var{mcu} -msize -minit-stack=@var{n} -mno-interrupts
+-mcall-prologues
+
+@emph{MCore Options}
+-mhardlit, -mno-hardlit -mdiv -mno-div -mrelax-immediates 
+-mno-relax-immediates -mwide-bitfields -mno-wide-bitfields
+-m4byte-functions -mno-4byte-functions -mcallgraph-data
+-mno-callgraph-data -mslow-bytes -mno-slow-bytes -mno-lsim
+-mlittle-endian -mbig-endian -m210 -m340 -mstack-increment
 @end smallexample
 
 @item Code Generation Options
@@ -1053,6 +1064,12 @@ which is only used to initialize another object of the same type.
 Specifying this option disables that optimization, and forces g++ to
 call the copy constructor in all cases.
 
+@item -fno-enforce-eh-specs
+Don't check for violation of exception specifications at runtime.  This
+option violates the C++ standard, but may be useful for reducing code
+size in production builds, much like defining @samp{NDEBUG}.  The compiler
+will still optimize based on the exception specifications.
+
 @item -fexternal-templates
 Cause template instantiations to obey @samp{#pragma interface} and
 @samp{implementation}; template instances are emitted or not according
@@ -1119,6 +1136,12 @@ This flag is not useful when compiling with -fvtable-thunks.
 
 Like all options that change the ABI, all C++ code, @emph{including
 libgcc} must be built with the same setting of this option.
+
+@item -fmessage-length=@var{n}
+Try to format error messages so that they fit on lines of about @var{n}
+characters.  The default is 72 characters.  If @var{n} is zero, then no
+line-wrapping will be done; each error message will appear on a single
+line.
 
 @item -fno-implicit-templates
 Never emit code for non-inline templates which are instantiated
@@ -1707,6 +1730,17 @@ struct s x = @{ 3, 4 @};
 
 @item -Wfloat-equal
 Warn if floating point values are used in equality comparisons.
+
+The idea behind this is that sometimes it is convenient (for the
+programmer) to consider floating-point values as approximations to
+infinitely precise real numbers.  If you are doing this, then you need
+to compute (by analysing the code, or in some other way) the maximum or
+likely maximum error that the computation introduces, and allow for it
+when performing comparisons (and when producing output, but that's a
+different problem).  In particular, instead of testing for equality, you
+would check to see whether the two values have ranges that overlap; and
+this is done with the relational operators, so equality comparisons are
+probably mistaken.
 
 @item -Wtraditional (C only)
 Warn about certain constructs that behave differently in traditional and
@@ -3760,6 +3794,8 @@ that macro, which enables you to change the defaults.
 * V850 Options::
 * ARC Options::
 * NS32K Options::
+* AVR Options::
+* MCore Options::
 @end menu
 
 @node M680x0 Options
@@ -5778,6 +5814,11 @@ value.
 Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
 
+@item -mfix7000
+Pass an option to gas which will cause nops to be inserted if
+the read of the destination register of an mfhi or mflo instruction
+occurs in the following two instructions.
+
 @item -no-crt0
 Do not include the default crt0.
 @end table
@@ -5981,6 +6022,19 @@ on thread-safe exception handling must compile and link all code with the
 @samp{-mthreads} option. When compiling, @samp{-mthreads} defines 
 @samp{-D_MT}; when linking, it links in a special thread helper library 
 @samp{-lmingwthrd} which cleans up per thread exception handling data.
+
+@item -mno-align-stringops
+@kindex -mno-align-stringops
+Do not align destination of inlined string operations. This switch reduces
+code size and improves performance in case the destination is already aligned,
+but gcc don't know about it.
+
+@item -minline-all-stringops
+@kindex -minline-all-stringops
+By default GCC inlines string operations only when destination is known to be
+aligned at least to 4 byte boundary. This enables more inlining, increase code
+size, but may improve performance of code that depends on fast memcpy, strlen
+and memset for short lengths.
 @end table
 
 @node HPPA Options
@@ -6847,6 +6901,88 @@ This is the default for all platforms.
 
 @end table
 
+@node AVR Options
+@subsection AVR Options
+@cindex AVR Options
+
+These options are defined for AVR implementations:
+
+@table @code
+@item -mmcu=@var{mcu}
+Specify ATMEL AVR mcu (at90s23xx,attiny22,at90s44xx,at90s85xx,atmega603,
+atmega103).
+
+@item -msize
+Output instruction size's to the asm file
+
+@item -minit-stack=@var{N}
+Specify the initial stack address
+
+@item -mno-interrupts
+Generated code is not compatible with hardware interrupts.
+Code size will be smaller.
+
+@item -mcall-prologues
+Functions prologues/epilogues expanded as call to appropriate
+subroutines. Code size will be smaller.
+@end table
+
+@node MCore Options
+@subsection MCore Options
+@cindex MCore options
+
+These are the @samp{-m} options defined for the Motorola M*Core
+processors.  
+
+@table @code
+
+@item -mhardlit
+@itemx -mhardlit
+@itemx -mno-hardlit
+Inline constants into the code stream if it can be done in two
+instructions or less.
+
+@item -mdiv
+@itemx -mdiv
+@itemx -mno-div
+Use the divide instruction.  (Enabled by default).
+
+@item -mrelax-immediate
+@itemx -mrelax-immediate
+@itemx -mno-relax-immediate
+Allow arbitary sized immediated in bit operations.
+
+@item -mwide-bitfields
+@itemx -mwide-bitfields
+@itemx -mno-wide-bitfields
+Always treat bitfields as int-sized.
+
+@item -m4byte-functions
+@itemx -m4byte-functions
+@itemx -mno-4byte-functions
+Force all functions to be aligfned to a four byte boundary.
+
+@item -mcallgraph-data
+@itemx -mcallgraph-data
+@itemx -mno-callgraph-data
+Emit callgraph information.
+
+@item -mslow-bytes
+@itemx -mslow-bytes
+@itemx -mno-slow-bytes
+Prefer word access when reading byte quantities.
+
+@item -mlittle-endian
+@itemx -mlittle-endian
+@itemx -mbig-endian
+Genreate code for a little endian target.
+
+@item -m210
+@itemx -m210
+@itemx -m340
+Generate code for the 210 processor.
+
+@end table
 
 
 @node Code Gen Options
@@ -7422,8 +7558,9 @@ with @samp{-q}.
 
 The output from @code{protoize} or @code{unprotoize} replaces the
 original source file.  The original file is renamed to a name ending
-with @samp{.save}.  If the @samp{.save} file already exists, then
-the source file is simply discarded.
+with @samp{.save} (for DOS, the saved filename ends in @samp{.sav} 
+without the original @samp{.c} suffix).  If the @samp{.save} (@samp{.sav}
+for DOS) file already exists, then the source file is simply discarded.
 
 @code{protoize} and @code{unprotoize} both depend on GCC itself to
 scan the program and collect information about the functions it uses.
@@ -7456,8 +7593,8 @@ would produce the wrong kind of output.  These include @samp{-g},
 the @var{compilation-options}, they are ignored.
 
 @item -C
-Rename files to end in @samp{.C}, or @samp{.cc} for DOS-based file
-systems, instead of @samp{.c}.  This is convenient if you are converting 
+Rename files to end in @samp{.C} (@samp{.cc} for DOS-based file
+systems) instead of @samp{.c}.  This is convenient if you are converting 
 a C program to C++.  This option applies only to @code{protoize}.
 
 @item -g

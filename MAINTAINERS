@@ -23,13 +23,16 @@ arm port		Richard Earnshaw	rearnsha@arm.com
 m32r port		Nick Clifton		nickc@cygnus.com
 			Michael Meissner	meissner@cygnus.com
 h8 port			Jeff Law		law@cygnus.com
+mcore			Nick Clifton		nickc@redhat.com
+			Jim Dein		jdein@windriver.com
 mn10200 port		Jeff Law		law@cygnus.com
 mn10300 port		Jeff Law		law@cygnus.com
 hppa port		Jeff Law		law@cygnus.com
 m68k port (?)		Jeff Law		law@cygnus.com
-rs6000 port		Michael Meissner	meissner@cygnus.com
+rs6000 port		Geoff Keating		geoffk@cygnus.com
 rs6000 port		David Edelsohn		dje@watson.ibm.com
 mips port		Gavin Romig-Koch	gavin@cygnus.com
+ia64 port		Jim Wilson		wilson@cygnus.com
 i960 port		Jim Wilson		wilson@cygnus.com
 a29k port		Jim Wilson		wilson@cygnus.com
 alpha port		Richard Henderson	rth@cygnus.com
@@ -49,10 +52,9 @@ chill			Per Bothner		per@bothner.com
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@cygnus.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
-cpplib			Dave Brolley		brolley@cygnus.com
-cpplib			Per Bothner		per@bothner.com
-cpplib			Zack Weinberg		zack@wolery.cumb.org
-fixincludes		Ian Taylor		ian@cygnus.com
+cpplib/cccp		Dave Brolley		brolley@cygnus.com
+cpplib/cccp		Per Bothner		per@bothner.com
+cpplib/cccp		Zack Weinberg		zack@wolery.cumb.org
 alias analysis		John Carr		jfc@mit.edu
 loop unrolling		Jim Wilson		wilson@cygnus.com
 scheduler (+ haifa)	Jim Wilson		wilson@cygnus.com
@@ -75,12 +77,15 @@ jump.c			David S. Miller		davem@redhat.com
 web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
 C front end/isoc9x	Gavin Romig-Koch	gavin@cygnus.com
 config.sub/config.guess	Ben Elliston		bje@cygnus.com
+avr port		Denis Chertykov		denisc@overta.ru
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
 
 
 			Write After Approval
+Scott Bambrough					scottb@netwinder.org
+Neil Booth					NeilB@earthling.net
 Jason Eckhardt					jle@cygnus.com
 *Paul Eggert					eggert@twinsun.com
 Kaveh Ghazi					ghazi@caip.rutgers.edu
@@ -91,7 +96,6 @@ Manfred Hollstein				mhollstein@cygnus.com
 Jan Hubicka					hubicka@freesoft.cz
 Jakub Jelinek					jakub@redhat.com
 Klaus Kaempf					kkaempf@progis.de
-Geoff Keating					geoffk@cygnus.com
 Brendan Kehoe					brendan@cygnus.com
 Mumit Khan					khan@xraylith.wisc.edu
 Benjamin Kosnik					bkoz@cygnus.com
@@ -100,9 +104,9 @@ Don Lindsay					dlindsay@cygnus.com
 Dave Love					d.love@dl.ac.uk
 *HJ Lu						hjl@lucon.org
 Andrew Macleod					amacleod@cygnus.com
-Vladimir Markarov				vmakarov@cygnus.com
+Vladimir Makarov				vmakarov@cygnus.com
 Greg McGary					gkm@gnu.org
-*Toon Moene					toon@moene.indiv.nluug.nl
+Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@cygnus.com
 Hans-Peter Nilsson				hp@bitrange.com
 Diego Novillo					dnovillo@cygnus.com
@@ -120,6 +124,7 @@ Mike Stump					mrs@windriver.com
 Tom Tromey					tromey@cygnus.com
 John Wehle					john@feith.com
 Martin v. Löwis					loewis@informatik.hu-berlin.de
+Ian Taylor					ian@zembu.com
 
 * Indicates folks we need to get Kerberos/ssh accounts ready so they
 can write in the source tree

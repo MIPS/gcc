@@ -1,5 +1,5 @@
 /* Generate check macros for tree codes.
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -29,7 +29,7 @@ const char *tree_codes[] = {
 (char*)0
 };
 
-static void usage PROTO ((void));
+static void usage PARAMS ((void));
 
 static void
 usage ()
@@ -37,7 +37,7 @@ usage ()
   fprintf (stderr,"Usage: gencheck\n");
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

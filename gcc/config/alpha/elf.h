@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha w/ELF.
-   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Richard Henderson (rth@tamu.edu).
 
 This file is part of GNU CC.
@@ -282,7 +282,7 @@ const_section ()						\
 }
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)	\
-void FN PROTO ((void));				\
+void FN PARAMS ((void));				\
 void FN ()					\
 {						\
   if (in_section != ENUM)			\
@@ -507,19 +507,18 @@ void FN ()					\
 
 /* Provide a STARTFILE_SPEC appropriate for ELF.  Here we add the
    (even more) magical crtbegin.o file which provides part of the
-   support for getting C++ file-scope static object constructed before
-   entering `main'. 
+   support for getting C++ file-scope static object constructed
+   before entering `main'. 
 
-   Don't bother seeing crtstuff.c -- there is absolutely no hope of
-   getting that file to understand multiple GPs.  GNU Libc provides a
-   hand-coded version that is used on Linux; it could be copied here
-   if there is ever a need. */
+   Don't bother seeing crtstuff.c -- there is absolutely no hope
+   of getting that file to understand multiple GPs.  We provide a
+   hand-coded assembly version.  */
    
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
-   crti.o%s crtbegin.o%s"
+   crti.o%s %{shared:crtbeginS.o%s}%{!shared:crtbegin.o%s}"
 
 /* Provide a ENDFILE_SPEC appropriate for ELF.  Here we tack on the
    magical crtend.o file which provides part of the support for
@@ -528,7 +527,7 @@ void FN ()					\
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "crtend.o%s crtn.o%s"
+  "%{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
 
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA

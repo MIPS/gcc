@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for Sun SPARC.
-   Copyright (C) 1987, 88, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -98,6 +99,24 @@ char leaf_reg_remap[] =
   88, 89, 90, 91, 92, 93, 94, 95,
   96, 97, 98, 99, 100};
 
+/* Vector, indexed by hard register number, which contains 1
+   for a register that is allowable in a candidate for leaf
+   function treatment.  */
+char sparc_leaf_regs[] =
+{ 1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 0, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1};
+
 #endif
 
 /* Name of where we pretend to think the frame pointer points.
@@ -108,34 +127,34 @@ char leaf_reg_remap[] =
 static const char *frame_base_name;
 static int frame_base_offset;
 
-static rtx pic_setup_code	PROTO((void));
-static void sparc_init_modes	PROTO((void));
-static int save_regs		PROTO((FILE *, int, int, const char *,
+static rtx pic_setup_code	PARAMS ((void));
+static void sparc_init_modes	PARAMS ((void));
+static int save_regs		PARAMS ((FILE *, int, int, const char *,
 				       int, int, int));
-static int restore_regs		PROTO((FILE *, int, int, const char *, int, int));
-static void build_big_number	PROTO((FILE *, int, const char *));
-static int function_arg_slotno	PROTO((const CUMULATIVE_ARGS *,
+static int restore_regs		PARAMS ((FILE *, int, int, const char *, int, int));
+static void build_big_number	PARAMS ((FILE *, int, const char *));
+static int function_arg_slotno	PARAMS ((const CUMULATIVE_ARGS *,
 				       enum machine_mode, tree, int, int,
 				       int *, int *));
 
-static int supersparc_adjust_cost PROTO((rtx, rtx, rtx, int));
-static int hypersparc_adjust_cost PROTO((rtx, rtx, rtx, int));
-static int ultrasparc_adjust_cost PROTO((rtx, rtx, rtx, int));
+static int supersparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static int hypersparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static int ultrasparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
-static void sparc_output_addr_vec PROTO((rtx));
-static void sparc_output_addr_diff_vec PROTO((rtx));
-static void sparc_output_deferred_case_vectors PROTO((void));
-static void sparc_add_gc_roots    PROTO ((void));
-static void mark_ultrasparc_pipeline_state PROTO ((void *));
-static int check_return_regs PROTO ((rtx));
-static int epilogue_renumber PROTO ((rtx *, int));
-static int ultra_cmove_results_ready_p PROTO ((rtx));
-static int ultra_fpmode_conflict_exists PROTO ((enum machine_mode));
-static rtx *ultra_find_type PROTO ((int, rtx *, int));
-static void ultra_build_types_avail PROTO ((rtx *, int));
-static void ultra_flush_pipeline PROTO ((void));
-static void ultra_rescan_pipeline_state PROTO ((rtx *, int));
-static int set_extends PROTO ((rtx, rtx));
+static void sparc_output_addr_vec PARAMS ((rtx));
+static void sparc_output_addr_diff_vec PARAMS ((rtx));
+static void sparc_output_deferred_case_vectors PARAMS ((void));
+static void sparc_add_gc_roots    PARAMS ((void));
+static void mark_ultrasparc_pipeline_state PARAMS ((void *));
+static int check_return_regs PARAMS ((rtx));
+static int epilogue_renumber PARAMS ((rtx *, int));
+static int ultra_cmove_results_ready_p PARAMS ((rtx));
+static int ultra_fpmode_conflict_exists PARAMS ((enum machine_mode));
+static rtx *ultra_find_type PARAMS ((int, rtx *, int));
+static void ultra_build_types_avail PARAMS ((rtx *, int));
+static void ultra_flush_pipeline PARAMS ((void));
+static void ultra_rescan_pipeline_state PARAMS ((rtx *, int));
+static int set_extends PARAMS ((rtx, rtx));
 
 /* Option handling.  */
 
@@ -247,6 +266,13 @@ sparc_override_options ()
     	target_flags |= MASK_PTR64;
       else
         target_flags &= ~MASK_PTR64;
+    }
+
+  /* We force all 64bit archs to use 128 bit long double */
+  if (TARGET_64BIT && ! TARGET_LONG_DOUBLE_128)
+    {
+      error ("-mlong-double-64 not allowed with -m64");
+      target_flags |= MASK_LONG_DOUBLE_128;
     }
 
   /* Code model selection.  */
@@ -369,8 +395,7 @@ v9_regcmp_p (code)
 /* Operand constraints.  */
 
 /* Return non-zero only if OP is a register of mode MODE,
-   or const0_rtx.  Don't allow const0_rtx if TARGET_LIVE_G0 because
-   %g0 may contain anything.  */
+   or const0_rtx.  */
 
 int
 reg_or_0_operand (op, mode)
@@ -379,17 +404,13 @@ reg_or_0_operand (op, mode)
 {
   if (register_operand (op, mode))
     return 1;
-  if (TARGET_LIVE_G0)
-    return 0;
   if (op == const0_rtx)
     return 1;
   if (GET_MODE (op) == VOIDmode && GET_CODE (op) == CONST_DOUBLE
       && CONST_DOUBLE_HIGH (op) == 0
       && CONST_DOUBLE_LOW (op) == 0)
     return 1;
-  if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
-      && GET_CODE (op) == CONST_DOUBLE
-      && fp_zero_operand (op))
+  if (fp_zero_operand (op, mode))
     return 1;
   return 0;
 }
@@ -397,13 +418,13 @@ reg_or_0_operand (op, mode)
 /* Nonzero if OP is a floating point value with value 0.0.  */
 
 int
-fp_zero_operand (op)
+fp_zero_operand (op, mode)
      rtx op;
+     enum machine_mode mode;
 {
-  REAL_VALUE_TYPE r;
-
-  REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-  return (REAL_VALUES_EQUAL (r, dconst0) && ! REAL_VALUE_MINUS_ZERO (r));
+  if (GET_MODE_CLASS (GET_MODE (op)) != MODE_FLOAT)
+    return 0;
+  return op == CONST0_RTX (mode);
 }
 
 /* Nonzero if OP is a floating point constant which can
@@ -1126,16 +1147,6 @@ clobbered_register (op, mode)
   return (GET_CODE (op) == REG && call_used_regs[REGNO (op)]);
 }
 
-/* Return 1 if OP is const0_rtx, used for TARGET_LIVE_G0 insns.  */
-
-int
-zero_operand (op, mode)
-     rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  return op == const0_rtx;
-}
-
 /* Return 1 if OP is a valid operand for the source of a move insn.  */
 
 int
@@ -1421,10 +1432,10 @@ sparc_emit_set_symbolic_const64 (op0, op1, temp1)
 /* These avoid problems when cross compiling.  If we do not
    go through all this hair then the optimizer will see
    invalid REG_EQUAL notes or in some cases none at all.  */
-static void sparc_emit_set_safe_HIGH64 PROTO ((rtx, HOST_WIDE_INT));
-static rtx gen_safe_SET64 PROTO ((rtx, HOST_WIDE_INT));
-static rtx gen_safe_OR64 PROTO ((rtx, HOST_WIDE_INT));
-static rtx gen_safe_XOR64 PROTO ((rtx, HOST_WIDE_INT));
+static void sparc_emit_set_safe_HIGH64 PARAMS ((rtx, HOST_WIDE_INT));
+static rtx gen_safe_SET64 PARAMS ((rtx, HOST_WIDE_INT));
+static rtx gen_safe_OR64 PARAMS ((rtx, HOST_WIDE_INT));
+static rtx gen_safe_XOR64 PARAMS ((rtx, HOST_WIDE_INT));
 
 #if HOST_BITS_PER_WIDE_INT == 64
 #define GEN_HIGHINT64(__x)		GEN_INT ((__x) & 0xfffffc00)
@@ -1486,7 +1497,7 @@ gen_safe_XOR64 (src, val)
    opportunities.  */
 
 static void sparc_emit_set_const64_quick1
-	PROTO((rtx, rtx, unsigned HOST_WIDE_INT, int));
+	PARAMS ((rtx, rtx, unsigned HOST_WIDE_INT, int));
 
 static void
 sparc_emit_set_const64_quick1 (op0, temp, low_bits, is_neg)
@@ -1528,7 +1539,7 @@ sparc_emit_set_const64_quick1 (op0, temp, low_bits, is_neg)
 }
 
 static void sparc_emit_set_const64_quick2
-	PROTO((rtx, rtx, unsigned HOST_WIDE_INT,
+	PARAMS ((rtx, rtx, unsigned HOST_WIDE_INT,
 	       unsigned HOST_WIDE_INT, int));
 
 static void
@@ -1569,7 +1580,7 @@ sparc_emit_set_const64_quick2 (op0, temp, high_bits, low_immediate, shift_count)
 }
 
 static void sparc_emit_set_const64_longway
-	PROTO((rtx, rtx, unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT));
+	PARAMS ((rtx, rtx, unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT));
 
 /* Full 64-bit constant decomposition.  Even though this is the
    'worst' case, we still optimize a few things away.  */
@@ -1677,7 +1688,7 @@ sparc_emit_set_const64_longway (op0, temp, high_bits, low_bits)
 
 /* Analyze a 64-bit constant for certain properties. */
 static void analyze_64bit_constant
-	PROTO((unsigned HOST_WIDE_INT,
+	PARAMS ((unsigned HOST_WIDE_INT,
 	       unsigned HOST_WIDE_INT,
 	       int *, int *, int *));
 
@@ -1746,7 +1757,7 @@ analyze_64bit_constant (high_bits, low_bits, hbsp, lbsp, abbasp)
 }
 
 static int const64_is_2insns
-	PROTO((unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT));
+	PARAMS ((unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT));
 
 static int
 const64_is_2insns (high_bits, low_bits)
@@ -1774,7 +1785,7 @@ const64_is_2insns (high_bits, low_bits)
 }
 
 static unsigned HOST_WIDE_INT create_simple_focus_bits
-	PROTO((unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
+	PARAMS ((unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
 	       int, int));
 
 static unsigned HOST_WIDE_INT
@@ -2072,6 +2083,61 @@ sparc_emit_set_const64 (op0, op1)
   sparc_emit_set_const64_longway (op0, temp, high_bits, low_bits);
 }
 
+/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
+   return the mode to be used for the comparison.  For floating-point,
+   CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand
+   is a PLUS, MINUS, NEG, or ASHIFT.  CCmode should be used when no special
+   processing is needed.  */
+
+enum machine_mode
+select_cc_mode (op, x, y)
+     enum rtx_code op;
+     rtx x;
+     rtx y ATTRIBUTE_UNUSED;
+{
+  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+    {
+      switch (op)
+	{
+	case EQ:
+	case NE:
+	case UNORDERED:
+	case ORDERED:
+	case UNLT:
+	case UNLE:
+	case UNGT:
+	case UNGE:
+	case UNEQ:
+	case LTGT:
+	  return CCFPmode;
+
+	case LT:
+	case LE:
+	case GT:
+	case GE:
+	  return CCFPEmode;
+
+	default:
+	  abort ();
+	}
+    }
+  else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
+	   || GET_CODE (x) == NEG || GET_CODE (x) == ASHIFT)
+    {
+      if (TARGET_ARCH64 && GET_MODE (x) == DImode)
+	return CCX_NOOVmode;
+      else
+	return CC_NOOVmode;
+    }
+  else
+    {
+      if (TARGET_ARCH64 && GET_MODE (x) == DImode)
+	return CCXmode;
+      else
+	return CCmode;
+    }
+}
+
 /* X and Y are two things to compare using CODE.  Emit the compare insn and
    return the rtx for the cc reg in the proper mode.  */
 
@@ -2308,12 +2374,6 @@ eligible_for_epilogue_delay (trial, slot)
   if (get_attr_length (trial) != 1)
     return 0;
 
-  /* If %g0 is live, there are lots of things we can't handle.
-     Rather than trying to find them all now, let's punt and only
-     optimize things as necessary.  */
-  if (TARGET_LIVE_G0)
-    return 0;
-    
   /* If there are any call-saved registers, we should scan TRIAL if it
      does not reference them.  For now just make it easy.  */
   if (num_gfregs)
@@ -2330,19 +2390,24 @@ eligible_for_epilogue_delay (trial, slot)
       return 0;
     }
 
-  /* If only trivial `restore' insns work, nothing can go in the
-     delay slot.  */
-  else if (TARGET_BROKEN_SAVERESTORE)
-    return 0;
-
   pat = PATTERN (trial);
 
   /* Otherwise, only operations which can be done in tandem with
      a `restore' or `return' insn can go into the delay slot.  */
   if (GET_CODE (SET_DEST (pat)) != REG
-      || REGNO (SET_DEST (pat)) >= 32
       || REGNO (SET_DEST (pat)) < 24)
     return 0;
+
+  /* If this instruction sets up floating point register and we have a return
+     instruction, it can probably go in.  But restore will not work
+     with FP_REGS.  */
+  if (REGNO (SET_DEST (pat)) >= 32)
+    {
+      if (TARGET_V9 && ! epilogue_renumber (&pat, 1)
+	  && (get_attr_in_uncond_branch_delay (trial) == IN_BRANCH_DELAY_TRUE))
+	return 1;
+      return 0;
+    }
 
   /* The set of insns matched here must agree precisely with the set of
      patterns paired with a RETURN in sparc.md.  */
@@ -2402,6 +2467,98 @@ eligible_for_epilogue_delay (trial, slot)
     return 1;
 
   /* sll{,x} reg,1,reg2 is add reg,reg,reg2 as well.  */
+  else if (GET_CODE (src) == ASHIFT
+	   && (register_operand (XEXP (src, 0), SImode)
+	       || register_operand (XEXP (src, 0), DImode))
+	   && XEXP (src, 1) == const1_rtx)
+    return 1;
+
+  return 0;
+}
+
+/* Return nonzero if TRIAL can go into the sibling call
+   delay slot.  */
+
+int
+eligible_for_sibcall_delay (trial)
+     rtx trial;
+{
+  rtx pat, src;
+
+  if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
+    return 0;
+
+  if (get_attr_length (trial) != 1 || profile_block_flag == 2)
+    return 0;
+
+  pat = PATTERN (trial);
+
+  if (current_function_uses_only_leaf_regs)
+    {
+      /* If the tail call is done using the call instruction,
+	 we have to restore %o7 in the delay slot.  */
+      if (TARGET_ARCH64 && ! TARGET_CM_MEDLOW)
+	return 0;
+
+      /* %g1 is used to build the function address */
+      if (reg_mentioned_p (gen_rtx_REG (Pmode, 1), pat))
+	return 0;
+
+      return 1;
+    }
+
+  /* Otherwise, only operations which can be done in tandem with
+     a `restore' insn can go into the delay slot.  */
+  if (GET_CODE (SET_DEST (pat)) != REG
+      || REGNO (SET_DEST (pat)) < 24
+      || REGNO (SET_DEST (pat)) >= 32)
+    return 0;
+
+  /* If it mentions %o7, it can't go in, because sibcall will clobber it
+     in most cases.  */
+  if (reg_mentioned_p (gen_rtx_REG (Pmode, 15), pat))
+    return 0;
+
+  src = SET_SRC (pat);
+
+  if (arith_operand (src, GET_MODE (src)))
+    {
+      if (TARGET_ARCH64)
+        return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
+      else
+        return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (SImode);
+    }
+
+  else if (arith_double_operand (src, GET_MODE (src)))
+    return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
+
+  else if (! TARGET_FPU && restore_operand (SET_DEST (pat), SFmode)
+	   && register_operand (src, SFmode))
+    return 1;
+
+  else if (GET_CODE (src) == PLUS
+	   && arith_operand (XEXP (src, 0), SImode)
+	   && arith_operand (XEXP (src, 1), SImode)
+	   && (register_operand (XEXP (src, 0), SImode)
+	       || register_operand (XEXP (src, 1), SImode)))
+    return 1;
+
+  else if (GET_CODE (src) == PLUS
+	   && arith_double_operand (XEXP (src, 0), DImode)
+	   && arith_double_operand (XEXP (src, 1), DImode)
+	   && (register_operand (XEXP (src, 0), DImode)
+	       || register_operand (XEXP (src, 1), DImode)))
+    return 1;
+
+  else if (GET_CODE (src) == LO_SUM
+	   && ! TARGET_CM_MEDMID
+	   && ((register_operand (XEXP (src, 0), SImode)
+	        && immediate_operand (XEXP (src, 1), SImode))
+	       || (TARGET_ARCH64
+		   && register_operand (XEXP (src, 0), DImode)
+		   && immediate_operand (XEXP (src, 1), DImode))))
+    return 1;
+
   else if (GET_CODE (src) == ASHIFT
 	   && (register_operand (XEXP (src, 0), SImode)
 	       || register_operand (XEXP (src, 0), DImode))
@@ -2778,9 +2935,11 @@ mem_min_alignment (mem, desired)
 	{
 	  /* Check if the compiler has recorded some information
 	     about the alignment of the base REG.  If reload has
-	     completed, we already matched with proper alignments.  */
+	     completed, we already matched with proper alignments.
+	     If not running global_alloc, reload might give us
+	     unaligned pointer to local stack though.  */
 	  if (((cfun != 0 && REGNO_POINTER_ALIGN (regno) >= desired)
-	       || reload_completed)
+	       || (optimize && reload_completed))
 	      && ((INTVAL (offset) & (desired - 1)) == 0))
 	    return 1;
 	}
@@ -3218,7 +3377,7 @@ build_big_number (file, num, reg)
 /* Output any necessary .register pseudo-ops.  */
 void
 sparc_output_scratch_registers (file)
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_AS_REGISTER_PSEUDO_OP
   int i;
@@ -3271,7 +3430,7 @@ output_function_prologue (file, size, leaf_function)
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
-  else if (! leaf_function && ! TARGET_BROKEN_SAVERESTORE)
+  else if (! leaf_function)
     {
       if (actual_fsize <= 4096)
 	fprintf (file, "\tsave\t%%sp, -%d, %%sp\n", actual_fsize);
@@ -3284,26 +3443,6 @@ output_function_prologue (file, size, leaf_function)
 	{
 	  build_big_number (file, -actual_fsize, "%g1");
 	  fprintf (file, "\tsave\t%%sp, %%g1, %%sp\n");
-	}
-    }
-  else if (! leaf_function && TARGET_BROKEN_SAVERESTORE)
-    {
-      /* We assume the environment will properly handle or otherwise avoid
-	 trouble associated with an interrupt occurring after the `save' or
-	 trap occurring during it.  */
-      fprintf (file, "\tsave\n");
-
-      if (actual_fsize <= 4096)
-	fprintf (file, "\tadd\t%%fp, -%d, %%sp\n", actual_fsize);
-      else if (actual_fsize <= 8192)
-	{
-	  fprintf (file, "\tadd\t%%fp, -4096, %%sp\n");
-	  fprintf (file, "\tadd\t%%fp, -%d, %%sp\n", actual_fsize - 4096);
-	}
-      else
-	{
-	  build_big_number (file, -actual_fsize, "%g1");
-	  fprintf (file, "\tadd\t%%fp, %%g1, %%sp\n");
 	}
     }
   else /* leaf function */
@@ -3394,6 +3533,40 @@ output_function_prologue (file, size, leaf_function)
     }
 }
 
+/* Output code to restore any call saved registers.  */
+
+static void
+output_restore_regs (file, leaf_function)
+     FILE *file;
+     int leaf_function;
+{
+  int offset, n_regs;
+  const char *base;
+
+  offset = -apparent_fsize + frame_base_offset;
+  if (offset < -4096 || offset + num_gfregs * 4 > 4096 - 8 /*double*/)
+    {
+      build_big_number (file, offset, "%g1");
+      fprintf (file, "\tadd\t%s, %%g1, %%g1\n", frame_base_name);
+      base = "%g1";
+      offset = 0;
+    }
+  else
+    {
+      base = frame_base_name;
+    }
+
+  n_regs = 0;
+  if (TARGET_EPILOGUE && ! leaf_function)
+    /* ??? Originally saved regs 0-15 here.  */
+    n_regs = restore_regs (file, 0, 8, base, offset, 0);
+  else if (leaf_function)
+    /* ??? Originally saved regs 0-31 here.  */
+    n_regs = restore_regs (file, 0, 8, base, offset, 0);
+  if (TARGET_EPILOGUE)
+    restore_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs);
+}
+
 /* Output code for the function epilogue.  */
 
 void
@@ -3428,35 +3601,8 @@ output_function_epilogue (file, size, leaf_function)
       goto output_vectors;                                                    
     }
 
-  /* Restore any call saved registers.  */
   if (num_gfregs)
-    {
-      int offset, n_regs;
-      const char *base;
-
-      offset = -apparent_fsize + frame_base_offset;
-      if (offset < -4096 || offset + num_gfregs * 4 > 4096 - 8 /*double*/)
-	{
-	  build_big_number (file, offset, "%g1");
-	  fprintf (file, "\tadd\t%s, %%g1, %%g1\n", frame_base_name);
-	  base = "%g1";
-	  offset = 0;
-	}
-      else
-	{
-	  base = frame_base_name;
-	}
-
-      n_regs = 0;
-      if (TARGET_EPILOGUE && ! leaf_function)
-	/* ??? Originally saved regs 0-15 here.  */
-	n_regs = restore_regs (file, 0, 8, base, offset, 0);
-      else if (leaf_function)
-	/* ??? Originally saved regs 0-31 here.  */
-	n_regs = restore_regs (file, 0, 8, base, offset, 0);
-      if (TARGET_EPILOGUE)
-	restore_regs (file, 32, TARGET_V9 ? 96 : 64, base, offset, n_regs);
-    }
+    output_restore_regs (file, leaf_function);
 
   /* Work out how to skip the caller's unimp instruction if required.  */
   if (leaf_function)
@@ -3545,6 +3691,139 @@ output_function_epilogue (file, size, leaf_function)
 
  output_vectors:
   sparc_output_deferred_case_vectors ();
+}
+
+/* Output a sibling call.  */
+
+const char *
+output_sibcall (insn, call_operand)
+     rtx insn, call_operand;
+{
+  int leaf_regs = current_function_uses_only_leaf_regs;
+  rtx operands[3];
+  int delay_slot = dbr_sequence_length () > 0;
+
+  if (num_gfregs)
+    {
+      /* Call to restore global regs might clobber
+	 the delay slot. Instead of checking for this
+	 output the delay slot now.  */
+      if (delay_slot)
+	{
+	  rtx delay = NEXT_INSN (insn);
+
+	  if (! delay)
+	    abort ();
+
+	  final_scan_insn (delay, asm_out_file, 1, 0, 1);
+	  PATTERN (delay) = gen_blockage ();
+	  INSN_CODE (delay) = -1;
+	  delay_slot = 0;
+	}
+      output_restore_regs (asm_out_file, leaf_regs);
+    }
+
+  operands[0] = call_operand;
+
+  if (leaf_regs)
+    {
+      int spare_slot = (TARGET_ARCH32 || TARGET_CM_MEDLOW);
+      int size = 0;
+
+      if ((actual_fsize || ! spare_slot) && delay_slot)
+	{
+	  rtx delay = NEXT_INSN (insn);
+
+	  if (! delay)
+	    abort ();
+
+	  final_scan_insn (delay, asm_out_file, 1, 0, 1);
+	  PATTERN (delay) = gen_blockage ();
+	  INSN_CODE (delay) = -1;
+	  delay_slot = 0;
+	}
+      if (actual_fsize)
+	{
+	  if (actual_fsize <= 4096)
+	    size = actual_fsize;
+	  else if (actual_fsize <= 8192)
+	    {
+	      fputs ("\tsub\t%sp, -4096, %sp\n", asm_out_file);
+	      size = actual_fsize - 4096;
+	    }
+	  else if ((actual_fsize & 0x3ff) == 0)
+	    fprintf (asm_out_file,
+		     "\tsethi\t%%hi(%d), %%g1\n\tadd\t%%sp, %%g1, %%sp\n",
+		     actual_fsize);
+	  else
+	    {
+	      fprintf (asm_out_file,
+		       "\tsethi\t%%hi(%d), %%g1\n\tor\t%%g1, %%lo(%d), %%g1\n",
+		       actual_fsize, actual_fsize);
+	      fputs ("\tadd\t%%sp, %%g1, %%sp\n", asm_out_file);
+	    }
+	}
+      if (spare_slot)
+	{
+	  output_asm_insn ("sethi\t%%hi(%a0), %%g1", operands);
+	  output_asm_insn ("jmpl\t%%g1 + %%lo(%a0), %%g0", operands);
+	  if (size)
+	    fprintf (asm_out_file, "\t sub\t%%sp, -%d, %%sp\n", size);
+	  else if (! delay_slot)
+	    fputs ("\t nop\n", asm_out_file);
+	}
+      else
+	{
+	  if (size)
+	    fprintf (asm_out_file, "\tsub\t%%sp, -%d, %%sp\n", size);
+	  output_asm_insn ("mov\t%%o7, %%g1", operands);
+	  output_asm_insn ("call\t%a0, 0", operands);
+	  output_asm_insn (" mov\t%%g1, %%o7", operands);
+	}
+      return "";
+    }
+
+  output_asm_insn ("call\t%a0, 0", operands);
+  if (delay_slot)
+    {
+      rtx delay = NEXT_INSN (insn), pat;
+
+      if (! delay)
+	abort ();
+
+      pat = PATTERN (delay);
+      if (GET_CODE (pat) != SET)
+	abort ();
+
+      operands[0] = SET_DEST (pat);
+      pat = SET_SRC (pat);
+      switch (GET_CODE (pat))
+	{
+	case PLUS:
+	  operands[1] = XEXP (pat, 0);
+	  operands[2] = XEXP (pat, 1);
+	  output_asm_insn (" restore %r1, %2, %Y0", operands);
+	  break;
+	case LO_SUM:
+	  operands[1] = XEXP (pat, 0);
+	  operands[2] = XEXP (pat, 1);
+	  output_asm_insn (" restore %r1, %%lo(%a2), %Y0", operands);
+	  break;
+	case ASHIFT:
+	  operands[1] = XEXP (pat, 0);
+	  output_asm_insn (" restore %r1, %r1, %Y0", operands);
+	  break;
+	default:
+	  operands[1] = pat;
+	  output_asm_insn (" restore %%g0, %1, %Y0", operands);
+	  break;
+	}
+      PATTERN (delay) = gen_blockage ();
+      INSN_CODE (delay) = -1;
+    }
+  else
+    fputs ("\t restore\n", asm_out_file);
+  return "";
 }
 
 /* Functions for handling argument passing.
@@ -3782,13 +4061,13 @@ struct function_arg_record_value_parms
 };
 
 static void function_arg_record_value_3
-	PROTO((int, struct function_arg_record_value_parms *));
+	PARAMS ((int, struct function_arg_record_value_parms *));
 static void function_arg_record_value_2
-	PROTO((tree, int, struct function_arg_record_value_parms *));
+	PARAMS ((tree, int, struct function_arg_record_value_parms *));
 static void function_arg_record_value_1
-        PROTO((tree, int, struct function_arg_record_value_parms *));
+        PARAMS ((tree, int, struct function_arg_record_value_parms *));
 static rtx function_arg_record_value
-	PROTO((tree, enum machine_mode, int, int, int));
+	PARAMS ((tree, enum machine_mode, int, int, int));
 
 static void
 function_arg_record_value_1 (type, startbitpos, parms)
@@ -4489,7 +4768,7 @@ sparc_va_arg (valist, type)
 
   if (TARGET_ARCH64)
     {
-      if (TYPE_ALIGN (type) >= 2 * BITS_PER_WORD)
+      if (TYPE_ALIGN (type) >= 2 * (unsigned) BITS_PER_WORD)
 	align = 2 * UNITS_PER_WORD;
 
       if (AGGREGATE_TYPE_P (type))
@@ -4583,158 +4862,128 @@ output_cbranch (op, label, reversed, annul, noop, insn)
   static char v9_xcc_labelno[] = "%%xcc, %lX";
   static char v9_fcc_labelno[] = "%%fccX, %lY";
   char *labelno;
+  const char *branch;
   int labeloff, spaces = 8;
 
-  /* ??? !v9: FP branches cannot be preceded by another floating point insn.
-     Because there is currently no concept of pre-delay slots, we can fix
-     this only by always emitting a nop before a floating point branch.  */
-
-  if ((mode == CCFPmode || mode == CCFPEmode) && ! TARGET_V9)
-    strcpy (string, "nop\n\t");
-  else
-    string[0] = '\0';
-
-  /* If not floating-point or if EQ or NE, we can just reverse the code.  */
-  if (reversed
-      && ((mode != CCFPmode && mode != CCFPEmode) || code == EQ || code == NE))
-    code = reverse_condition (code), reversed = 0;
+  if (reversed)
+    {
+      /* Reversal of FP compares takes care -- an ordered compare
+	 becomes an unordered compare and vice versa.  */
+      if (mode == CCFPmode || mode == CCFPEmode)
+	code = reverse_condition_maybe_unordered (code);
+      else
+	code = reverse_condition (code);
+    }
 
   /* Start by writing the branch condition.  */
-  switch (code)
+  if (mode == CCFPmode || mode == CCFPEmode)
     {
-    case NE:
-      if (mode == CCFPmode || mode == CCFPEmode)
+      switch (code)
 	{
-	  strcat (string, "fbne");
-	  spaces -= 4;
-	}
-      else
-	{
-	  strcpy (string, "bne");
-	  spaces -= 3;
-	}
-      break;
+	case NE:
+	  branch = "fbne";
+	  break;
+	case EQ:
+	  branch = "fbe";
+	  break;
+	case GE:
+	  branch = "fbge";
+	  break;
+	case GT:
+	  branch = "fbg";
+	  break;
+	case LE:
+	  branch = "fble";
+	  break;
+	case LT:
+	  branch = "fbl";
+	  break;
+	case UNORDERED:
+	  branch = "fbu";
+	  break;
+	case ORDERED:
+	  branch = "fbo";
+	  break;
+	case UNGT:
+	  branch = "fbug";
+	  break;
+	case UNLT:
+	  branch = "fbul";
+	  break;
+	case UNEQ:
+	  branch = "fbue";
+	  break;
+	case UNGE:
+	  branch = "fbuge";
+	  break;
+	case UNLE:
+	  branch = "fbule";
+	  break;
+	case LTGT:
+	  branch = "fblg";
+	  break;
 
-    case EQ:
-      if (mode == CCFPmode || mode == CCFPEmode)
-	{
-	  strcat (string, "fbe");
-	  spaces -= 3;
+	default:
+	  abort ();
 	}
-      else
-	{
-	  strcpy (string, "be");
-	  spaces -= 2;
-	}
-      break;
 
-    case GE:
-      if (mode == CCFPmode || mode == CCFPEmode)
-	{
-	  if (reversed)
-	    strcat (string, "fbul");
-	  else
-	    strcat (string, "fbge");
-	  spaces -= 4;
-	}
-      else if (mode == CC_NOOVmode)
-	{
-	  strcpy (string, "bpos");
-	  spaces -= 4;
-	}
-      else
-	{
-	  strcpy (string, "bge");
-	  spaces -= 3;
-	}
-      break;
+      /* ??? !v9: FP branches cannot be preceded by another floating point
+	 insn.  Because there is currently no concept of pre-delay slots,
+	 we can fix this only by always emitting a nop before a floating
+	 point branch.  */
 
-    case GT:
-      if (mode == CCFPmode || mode == CCFPEmode)
-	{
-	  if (reversed)
-	    {
-	      strcat (string, "fbule");
-	      spaces -= 5;
-	    }
-	  else
-	    {
-	      strcat (string, "fbg");
-	      spaces -= 3;
-	    }
-	}
-      else
-	{
-	  strcpy (string, "bg");
-	  spaces -= 2;
-	}
-      break;
-
-    case LE:
-      if (mode == CCFPmode || mode == CCFPEmode)
-	{
-	  if (reversed)
-	    strcat (string, "fbug");
-	  else
-	    strcat (string, "fble");
-	  spaces -= 4;
-	}
-      else
-	{
-	  strcpy (string, "ble");
-	  spaces -= 3;
-	}
-      break;
-
-    case LT:
-      if (mode == CCFPmode || mode == CCFPEmode)
-	{
-	  if (reversed)
-	    {
-	      strcat (string, "fbuge");
-	      spaces -= 5;
-	    }
-	  else
-	    {
-	      strcat (string, "fbl");
-	      spaces -= 3;
-	    }
-	}
-      else if (mode == CC_NOOVmode)
-	{
-	  strcpy (string, "bneg");
-	  spaces -= 4;
-	}
-      else
-	{
-	  strcpy (string, "bl");
-	  spaces -= 2;
-	}
-      break;
-
-    case GEU:
-      strcpy (string, "bgeu");
-      spaces -= 4;
-      break;
-
-    case GTU:
-      strcpy (string, "bgu");
-      spaces -= 3;
-      break;
-
-    case LEU:
-      strcpy (string, "bleu");
-      spaces -= 4;
-      break;
-
-    case LTU:
-      strcpy (string, "blu");
-      spaces -= 3;
-      break;
-
-    default:
-      abort ();
+      string[0] = '\0';
+      if (! TARGET_V9)
+	strcpy (string, "nop\n\t");
+      strcat (string, branch);
     }
+  else
+    {
+      switch (code)
+	{
+	case NE:
+	  branch = "bne";
+	  break;
+	case EQ:
+	  branch = "be";
+	  break;
+	case GE:
+	  if (mode == CC_NOOVmode)
+	    branch = "bpos";
+	  else
+	    branch = "bge";
+	  break;
+	case GT:
+	  branch = "bg";
+	  break;
+	case LE:
+	  branch = "ble";
+	  break;
+	case LT:
+	  if (mode == CC_NOOVmode)
+	    branch = "bneg";
+	  else
+	    branch = "bl";
+	  break;
+	case GEU:
+	  branch = "bgeu";
+	  break;
+	case GTU:
+	  branch = "bgu";
+	  break;
+	case LEU:
+	  branch = "bleu";
+	  break;
+	case LTU:
+	  branch = "blu";
+	  break;
+
+	default:
+	  abort ();
+	}
+      strcpy (string, branch);
+    }
+  spaces -= strlen (branch);
 
   /* Now add the annulling, the label, and a possible noop.  */
   if (annul)
@@ -4797,33 +5046,45 @@ sparc_emit_float_lib_cmp (x, y, comparison)
      rtx x, y;
      enum rtx_code comparison;
 {
-  const char *qpfunc;
-  rtx slot0, slot1, result;
+  char *qpfunc;
+  rtx slot0, slot1, result, tem, tem2;
+  enum machine_mode mode;
 
   switch (comparison)
     {
     case EQ:
-      qpfunc = "_Qp_feq";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_feq" : "_Q_feq";
       break;
 
     case NE:
-      qpfunc = "_Qp_fne";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_fne" : "_Q_fne";
       break;
 
     case GT:
-      qpfunc = "_Qp_fgt";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_fgt" : "_Q_fgt";
       break;
 
     case GE:
-      qpfunc = "_Qp_fge";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_fge" : "_Q_fge";
       break;
 
     case LT:
-      qpfunc = "_Qp_flt";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_flt" : "_Q_flt";
       break;
 
     case LE:
-      qpfunc = "_Qp_fle";
+      qpfunc = (TARGET_ARCH64) ? "_Qp_fle" : "_Q_fle";
+      break;
+
+    case ORDERED:
+    case UNORDERED:
+    case UNGT:
+    case UNLT:
+    case UNEQ:
+    case UNGE:
+    case UNLE:
+    case LTGT:
+      qpfunc = (TARGET_ARCH64) ? "_Qp_cmp" : "_Q_cmp";
       break;
 
     default:
@@ -4831,33 +5092,97 @@ sparc_emit_float_lib_cmp (x, y, comparison)
       break;
     }
 
-  if (GET_CODE (x) != MEM)
+  if (TARGET_ARCH64)
     {
-      slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      emit_insn (gen_rtx_SET (VOIDmode, slot0, x));
+      if (GET_CODE (x) != MEM)
+	{
+	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
+	  emit_insn (gen_rtx_SET (VOIDmode, slot0, x));
+	}
+      else
+	slot0 = x;
+
+      if (GET_CODE (y) != MEM)
+	{
+	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
+	  emit_insn (gen_rtx_SET (VOIDmode, slot1, y));
+	}
+      else
+	slot1 = y;
+
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), 1,
+			 DImode, 2,
+			 XEXP (slot0, 0), Pmode,
+			 XEXP (slot1, 0), Pmode);
+
+      mode = DImode;
+    }
+  else
+    {
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, qpfunc), 1,
+			 SImode, 2,
+			 x, TFmode, y, TFmode);
+
+      mode = SImode;
     }
 
-  if (GET_CODE (y) != MEM)
-    {
-      slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      emit_insn (gen_rtx_SET (VOIDmode, slot1, y));
-    }
-
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, qpfunc), 1,
-                     DImode, 2,
-                     XEXP (slot0, 0), Pmode,
-                     XEXP (slot1, 0), Pmode);
 
   /* Immediately move the result of the libcall into a pseudo
      register so reload doesn't clobber the value if it needs
      the return register for a spill reg.  */
-  result = gen_reg_rtx (DImode);
-  emit_move_insn (result, hard_libcall_value (DImode));
+  result = gen_reg_rtx (mode);
+  emit_move_insn (result, hard_libcall_value (mode));
 
-  emit_cmp_insn (result, const0_rtx, comparison,
-                 NULL_RTX, DImode, 0, 0);
+  switch (comparison)
+    {
+    default:
+      emit_cmp_insn (result, const0_rtx, NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    case ORDERED:
+    case UNORDERED:
+      emit_cmp_insn (result, GEN_INT(3),
+		     (comparison == UNORDERED) ? EQ : NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    case UNGT:
+    case UNGE:
+      emit_cmp_insn (result, const1_rtx,
+		     (comparison == UNGT) ? GT : NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    case UNLE:
+      emit_cmp_insn (result, const2_rtx, NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    case UNLT:
+      tem = gen_reg_rtx (mode);
+      if (TARGET_ARCH32)
+	emit_insn (gen_andsi3 (tem, result, const1_rtx));
+      else
+	emit_insn (gen_anddi3 (tem, result, const1_rtx));
+      emit_cmp_insn (tem, const0_rtx, NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    case UNEQ:
+    case LTGT:
+      tem = gen_reg_rtx (mode);
+      if (TARGET_ARCH32)
+	emit_insn (gen_addsi3 (tem, result, const1_rtx));
+      else
+	emit_insn (gen_adddi3 (tem, result, const1_rtx));
+      tem2 = gen_reg_rtx (mode);
+      if (TARGET_ARCH32)
+	emit_insn (gen_andsi3 (tem2, tem, const2_rtx));
+      else
+	emit_insn (gen_anddi3 (tem2, tem, const2_rtx));
+      emit_cmp_insn (tem2, const0_rtx,
+		     (comparison == UNEQ) ? EQ : NE,
+		     NULL_RTX, mode, 0, 0);
+      break;
+    }
 }
-          
+
 /* Return the string to output a conditional branch to LABEL, testing
    register REG.  LABEL is the operand number of the label; REG is the
    operand number of the reg.  OP is the conditional expression.  The mode
@@ -5424,9 +5749,16 @@ print_operand (file, x, code)
     case 'c' :
     case 'C':
       {
-	enum rtx_code rc = (code == 'c'
-			    ? reverse_condition (GET_CODE (x))
-			    : GET_CODE (x));
+	enum rtx_code rc = GET_CODE (x);
+	
+	if (code == 'c')
+	  {
+	    enum machine_mode mode = GET_MODE (XEXP (x, 0));
+	    if (mode == CCFPmode || mode == CCFPEmode)
+	      rc = reverse_condition_maybe_unordered (GET_CODE (x));
+	    else
+	      rc = reverse_condition (GET_CODE (x));
+	  }
 	switch (rc)
 	  {
 	  case NE: fputs ("ne", file); break;
@@ -5439,6 +5771,14 @@ print_operand (file, x, code)
 	  case GTU: fputs ("gu", file); break;
 	  case LEU: fputs ("leu", file); break;
 	  case LTU: fputs ("lu", file); break;
+	  case LTGT: fputs ("lg", file); break;
+	  case UNORDERED: fputs ("u", file); break;
+	  case ORDERED: fputs ("o", file); break;
+	  case UNLT: fputs ("ul", file); break;
+	  case UNLE: fputs ("ule", file); break;
+	  case UNGT: fputs ("ug", file); break;
+	  case UNGE: fputs ("uge", file); break;
+	  case UNEQ: fputs ("ue", file); break;
 	  default: output_operand_lossage (code == 'c'
 					   ? "Invalid %%c operand"
 					   : "Invalid %%C operand");
@@ -5500,8 +5840,7 @@ print_operand (file, x, code)
     {
       fputc ('[', file);
 	/* Poor Sun assembler doesn't understand absolute addressing.  */
-      if (CONSTANT_P (XEXP (x, 0))
-	  && ! TARGET_LIVE_G0)
+      if (CONSTANT_P (XEXP (x, 0)))
 	fputs ("%g0+", file);
       output_address (XEXP (x, 0));
       fputc (']', file);
@@ -6231,7 +6570,7 @@ sparc_flat_output_function_prologue (file, size)
 	 the gdb folk first.  */
 
       /* Is the entire register save area offsettable from %sp?  */
-      if (reg_offset < 4096 - 64 * UNITS_PER_WORD)
+      if (reg_offset < 4096 - 64 * (unsigned) UNITS_PER_WORD)
 	{
 	  if (size <= 4096)
 	    {
@@ -6416,7 +6755,7 @@ sparc_flat_output_function_epilogue (file, size)
 	}
 
       /* Is the entire register save area offsettable from %sp?  */
-      if (reg_offset < 4096 - 64 * UNITS_PER_WORD)
+      if (reg_offset < 4096 - 64 * (unsigned) UNITS_PER_WORD)
 	{
 	  size1 = 0;
 	}
@@ -6526,12 +6865,6 @@ sparc_flat_eligible_for_epilogue_delay (trial, slot)
   rtx pat = PATTERN (trial);
 
   if (get_attr_length (trial) != 1)
-    return 0;
-
-  /* If %g0 is live, there are lots of things we can't handle.
-     Rather than trying to find them all now, let's punt and only
-     optimize things as necessary.  */
-  if (TARGET_LIVE_G0)
     return 0;
 
   if (! reg_mentioned_p (stack_pointer_rtx, pat)
@@ -6884,8 +7217,8 @@ enum ultra_code { NONE=0, /* no insn at all				*/
 		  SINGLE, /* single issue instructions			*/
 		  NUM_ULTRA_CODES };
 
-static enum ultra_code ultra_code_from_mask PROTO ((int));
-static void ultra_schedule_insn PROTO ((rtx *, rtx *, int, enum ultra_code));
+static enum ultra_code ultra_code_from_mask PARAMS ((int));
+static void ultra_schedule_insn PARAMS ((rtx *, rtx *, int, enum ultra_code));
 
 static const char *ultra_code_names[NUM_ULTRA_CODES] = {
   "NONE", "IEU0", "IEU1", "IEUN", "LSU", "CTI",
@@ -6931,6 +7264,7 @@ ultra_code_from_mask (type_mask)
     return IEU0;
   else if (type_mask & (TMASK (TYPE_COMPARE) |
 			TMASK (TYPE_CALL) |
+			TMASK (TYPE_SIBCALL) |
 			TMASK (TYPE_UNCOND_BRANCH)))
     return IEU1;
   else if (type_mask & (TMASK (TYPE_IALU) | TMASK (TYPE_BINARY) |
@@ -7403,6 +7737,7 @@ ultrasparc_sched_reorder (dump, sched_verbose, ready, n_ready)
 	/* If we are not in the process of emptying out the pipe, try to
 	   obtain an instruction which must be the first in it's group.  */
 	ip = ultra_find_type ((TMASK (TYPE_CALL) |
+			       TMASK (TYPE_SIBCALL) |
 			       TMASK (TYPE_CALL_NO_DELAY_SLOT) |
 			       TMASK (TYPE_UNCOND_BRANCH)),
 			      ready, this_insn);

@@ -1,5 +1,6 @@
 /* Generate code to initialize optabs from machine description.
-   Copyright (C) 1993, 94-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -121,13 +122,13 @@ const char * const optabs[] =
   "movstr_optab[(int) %A] = CODE_FOR_%(movstr%a%)",
   "clrstr_optab[(int) %A] = CODE_FOR_%(clrstr%a%)" };
 
-static void gen_insn PROTO((rtx));
+static void gen_insn PARAMS ((rtx));
 
 static void
 gen_insn (insn)
      rtx insn;
 {
-  char *name = XSTR (insn, 0);
+  const char *name = XSTR (insn, 0);
   int m1 = 0, m2 = 0, op = 0;
   size_t pindex;
   int i;
@@ -304,7 +305,7 @@ xrealloc (old, size)
   return ptr;
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

@@ -261,7 +261,9 @@ Unrecognized value in TARGET_CPU_DEFAULT.
   { "subtarget_cpp_spec",	SUBTARGET_CPP_SPEC },           \
   SUBTARGET_EXTRA_SPECS
 
+#ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS
+#endif
 
 #ifndef SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC      ""
@@ -1358,6 +1360,20 @@ enum reg_class
 #define CALL_NORMAL		0x00000000	/* No special processing.  */
 #define CALL_LONG		0x00000001	/* Always call indirect.  */
 #define CALL_SHORT		0x00000002	/* Never call indirect.  */
+
+/* A C structure for machine-specific, per-function data.  This is added
+   to the cfun structure.  */
+struct machine_function
+{
+  /* Records __builtin_return address.  */
+  struct rtx_def *ra_rtx;
+  /* Additionsl stack adjustment in __builtin_eh_throw.  */
+  struct rtx_def *eh_epilogue_sp_ofs;
+  /* Records if LR has to be saved for far jumps.  */
+  int far_jump_used;
+  /* Records if ARG_POINTER was ever live.  */
+  int arg_pointer_live;
+};
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the
@@ -2759,7 +2775,7 @@ extern int making_const_table;
   do										\
     {										\
       int mi_delta = (DELTA);							\
-      char * mi_op = mi_delta < 0 ? "sub" : "add";				\
+      const char *mi_op = mi_delta < 0 ? "sub" : "add";				\
       int shift = 0;								\
       int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION)))	\
 		        ? 1 : 0);						\
@@ -2795,6 +2811,13 @@ extern int making_const_table;
 /* Mask of the bits in the PC that contain the real return address 
    when running in 26-bit mode.  */
 #define RETURN_ADDR_MASK26 (0x03fffffc)
+
+/* Pick up the return address upon entry to a procedure. Used for
+   dwarf2 unwind information.  This also enables the table driven
+   mechanism.  */
+
+#define INCOMING_RETURN_ADDR_RTX	gen_rtx_REG (Pmode, LR_REGNUM)
+#define DWARF_FRAME_RETURN_COLUMN	DWARF_FRAME_REGNUM (LR_REGNUM)
 
 /* Used to mask out junk bits from the return address, such as
    processor state, interrupt status, condition codes and the like.  */

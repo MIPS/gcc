@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
-   Copyright (C) 1987, 88, 89, 92, 94-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -309,7 +310,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
    This is what GAS uses.  Add %(asm_arch) to ASM_SPEC to enable.  */
 
 #define ASM_ARCH32_SPEC "-32"
+#ifdef HAVE_AS_REGISTER_PSEUDO_OP
+#define ASM_ARCH64_SPEC "-64 -no-undeclared-regs"
+#else
 #define ASM_ARCH64_SPEC "-64"
+#endif
 #define ASM_ARCH_DEFAULT_SPEC \
 (DEFAULT_ARCH32_P ? ASM_ARCH32_SPEC : ASM_ARCH64_SPEC)
 
@@ -517,20 +522,7 @@ extern int target_flags;
 #define MASK_STACK_BIAS 0x80000
 #define TARGET_STACK_BIAS (target_flags & MASK_STACK_BIAS)
 
-/* Non-zero means %g0 is a normal register.
-   We still clobber it as necessary, but we can't rely on it always having
-   a zero value.
-   We don't bother to support this in true 64 bit mode.  */
-#define MASK_LIVE_G0 0x100000
-#define TARGET_LIVE_G0 (target_flags & MASK_LIVE_G0)
-
-/* Non-zero means the cpu has broken `save' and `restore' insns, only
-   the trivial versions work (save %g0,%g0,%g0; restore %g0,%g0,%g0).
-   We assume the environment will properly handle or otherwise avoid
-   trouble associated with an interrupt occurring after the `save' or trap
-   occurring during it.  */
-#define MASK_BROKEN_SAVERESTORE 0x200000
-#define TARGET_BROKEN_SAVERESTORE (target_flags & MASK_BROKEN_SAVERESTORE)
+/* 0x100000,0x200000 unused */
 
 /* Non-zero means -m{,no-}fpu was passed on the command line.  */
 #define MASK_FPU_SET 0x400000
@@ -549,6 +541,10 @@ extern int target_flags;
    faster copies.  */
 #define MASK_FASTER_STRUCTS 0x4000000
 #define TARGET_FASTER_STRUCTS (target_flags & MASK_FASTER_STRUCTS)
+
+/* Use IEEE quad long double.  */
+#define MASK_LONG_DOUBLE_128 0x8000000
+#define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
 
 /* TARGET_HARD_MUL: Use hardware multiply instructions but not %y.
    TARGET_HARD_MUL32: Use hardware multiply instructions with rd %y
@@ -1033,8 +1029,6 @@ do								\
       fixed_regs[5] = 1;					\
     else if (TARGET_ARCH64 && fixed_regs[5] == 2)		\
       fixed_regs[5] = 0;					\
-    if (TARGET_LIVE_G0)						\
-      fixed_regs[0] = 0;					\
     if (! TARGET_V9)						\
       {								\
 	int regno;						\
@@ -1072,8 +1066,8 @@ do								\
 	   %fp, but output it as %i7.  */			\
 	fixed_regs[31] = 1;					\
 	reg_names[FRAME_POINTER_REGNUM] = "%i7";		\
-	/* ??? This is a hack to disable leaf functions.  */	\
-	global_regs[7] = 1;					\
+	/* Disable leaf functions */				\
+	bzero (sparc_leaf_regs, FIRST_PSEUDO_REGISTER);		\
       }								\
     if (profile_block_flag)					\
       {								\
@@ -1379,26 +1373,8 @@ extern enum reg_class sparc_regno_reg_class[];
   
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
 
-/* ??? %g7 is not a leaf register to effectively #undef LEAF_REGISTERS when
-   -mflat is used.  Function only_leaf_regs_used will return 0 if a global
-   register is used and is not permitted in a leaf function.  We make %g7
-   a global reg if -mflat and voila.  Since %g7 is a system register and is
-   fixed it won't be used by gcc anyway.  */
-
-#define LEAF_REGISTERS \
-{ 1, 1, 1, 1, 1, 1, 1, 0,	\
-  0, 0, 0, 0, 0, 0, 1, 0,	\
-  0, 0, 0, 0, 0, 0, 0, 0,	\
-  1, 1, 1, 1, 1, 1, 0, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1, 1, 1, 1,	\
-  1, 1, 1, 1, 1}
+extern char sparc_leaf_regs[];
+#define LEAF_REGISTERS sparc_leaf_regs
 
 extern char leaf_reg_remap[];
 #define LEAF_REG_REMAP(REGNO) (leaf_reg_remap[REGNO])
@@ -1467,16 +1443,17 @@ extern char leaf_reg_remap[];
    Here VALUE is the CONST_DOUBLE rtx itself.  */
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-  ((C) == 'G' ? fp_zero_operand (VALUE)			\
-   : (C) == 'H' ? arith_double_operand (VALUE, DImode)	\
+  ((C) == 'G' ? fp_zero_operand (VALUE, GET_MODE (VALUE))	\
+   : (C) == 'H' ? arith_double_operand (VALUE, DImode)		\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
    in some cases it is preferable to use a more restrictive class.  */
-/* - We can't load constants into FP registers.  We can't load any FP
-     constant if an 'E' constraint fails to match it.
+/* - We can't load constants into FP registers.
+   - We can't load FP constants into integer registers when soft-float,
+     because there is no soft-float pattern with a r/F constraint.
    - Try and reload integer constants (symbolic or otherwise) back into
      registers directly, rather than having them dumped to memory.  */
 
@@ -1484,8 +1461,7 @@ extern char leaf_reg_remap[];
   (CONSTANT_P (X)					\
    ? ((FP_REG_CLASS_P (CLASS)				\
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
-	   && (HOST_FLOAT_FORMAT != IEEE_FLOAT_FORMAT	\
-	       || HOST_BITS_PER_INT != BITS_PER_WORD)))	\
+	   && ! TARGET_FPU))				\
       ? NO_REGS						\
       : (!FP_REG_CLASS_P (CLASS)			\
          && GET_MODE_CLASS (GET_MODE (X)) == MODE_INT)	\
@@ -1609,9 +1585,11 @@ extern char leaf_reg_remap[];
   (TARGET_ARCH64 ? (SPARC_STACK_BIAS + 16 * UNITS_PER_WORD) \
    : (STRUCT_VALUE_OFFSET + UNITS_PER_WORD))
 
-/* Offset from the argument pointer register value to the CFA.  */
+/* Offset from the argument pointer register value to the CFA.
+   This is different from FIRST_PARM_OFFSET because the register window
+   comes between the CFA and the arguments.  */
 
-#define ARG_POINTER_CFA_OFFSET  SPARC_STACK_BIAS
+#define ARG_POINTER_CFA_OFFSET(FNDECL)  SPARC_STACK_BIAS
 
 /* When a parameter is passed in a register, stack space is still
    allocated for it.
@@ -2149,6 +2127,10 @@ LFLGRET"ID":\n\
 
 #define STRICT_ARGUMENT_NAMING TARGET_V9
 
+/* We do not allow sibling calls if -mflat, nor
+   we do not allow indirect calls to be optimized into sibling calls.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) (DECL && ! TARGET_FLAT)
+
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
 #define SETUP_FRAME_ADDRESSES()		\
@@ -2188,6 +2170,7 @@ LFLGRET"ID":\n\
    is something you can return to.  */
 #define INCOMING_RETURN_ADDR_RTX \
   plus_constant (gen_rtx_REG (word_mode, 15), 8)
+#define DWARF_FRAME_RETURN_COLUMN	DWARF_FRAME_REGNUM (15)
 
 /* The offset from the incoming value of %sp to the top of the stack frame
    for the current function.  On sparc64, we have to account for the stack
@@ -2266,7 +2249,7 @@ LFLGRET"ID":\n\
    (TARGET_VIS &&							\
     (GET_MODE (X) == SFmode || GET_MODE (X) == DFmode ||		\
      GET_MODE (X) == TFmode) &&						\
-    fp_zero_operand (X)))
+    fp_zero_operand (X, GET_MODE (X))))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2669,21 +2652,16 @@ do {                                                                    \
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
-   CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand is a
-   PLUS, MINUS, NEG, or ASHIFT.  CCmode should be used when no special
+   CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand
+   is a PLUS, MINUS, NEG, or ASHIFT.  CCmode should be used when no special
    processing is needed.  */
-#define SELECT_CC_MODE(OP,X,Y) \
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT				\
-   ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)			\
-   : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS			\
-       || GET_CODE (X) == NEG || GET_CODE (X) == ASHIFT)		\
-      ? (TARGET_ARCH64 && GET_MODE (X) == DImode ? CCX_NOOVmode : CC_NOOVmode) \
-      : ((TARGET_ARCH64 || TARGET_V8PLUS) && GET_MODE (X) == DImode ? CCXmode : CCmode)))
+#define SELECT_CC_MODE(OP,X,Y)  select_cc_mode ((OP), (X), (Y))
 
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
-   floating point inequality comparison.  */
-
-#define REVERSIBLE_CC_MODE(MODE) ((MODE) != CCFPEmode)
+/* Return non-zero if MODE implies a floating point inequality can be
+   reversed.  For Sparc this is always true because we have a full
+   compliment of ordered and unordered comparisons, but until generic
+   code knows how to reverse it correctly we keep the old definition.  */
+#define REVERSIBLE_CC_MODE(MODE) ((MODE) != CCFPEmode && (MODE) != CCFPmode)
 
 /* A function address in a call instruction
    is a byte address (for indexing purposes)
@@ -3367,7 +3345,6 @@ do {									\
 {"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
 {"clobbered_register", {REG}},						\
 {"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
-{"zero_operand", {CONST_INT}},						\
 {"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
 {"const64_high_operand", {CONST_INT, CONST_DOUBLE}},
 

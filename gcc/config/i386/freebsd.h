@@ -35,7 +35,8 @@ Boston, MA 02111-1307, USA.  */
   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_NO_FANCY_MATH_387)
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Dunix -Di386 -D__FreeBSD__ -Asystem(unix) -Asystem(FreeBSD) -Acpu(i386) -Amachine(i386)"
+#define CPP_PREDEFINES "-Dunix -D__FreeBSD__\
+ -Asystem(unix) -Asystem(bsd) -Asystem(FreeBSD)"
 
 /* Like the default, except no -lg.  */
 #define LIB_SPEC "%{!shared:%{!pg:-lc}%{pg:-lc_p}}"
@@ -196,7 +197,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)        \
 do {                                                                    \
-     char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);                  \
+     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);            \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)	        \
          && ! AT_END && TOP_LEVEL                                       \
          && DECL_INITIAL (DECL) == error_mark_node                      \

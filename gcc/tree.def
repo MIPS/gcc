@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in the GNU C compiler.
-   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -82,7 +82,9 @@ DEFTREECODE (TREE_VEC, "tree_vec", 'x', 2)
    outermost scope of a particular inlining of a function).
    BLOCK_ABSTRACT is non-zero if the block represents an abstract
    instance of a block (i.e. one which is nested within an abstract
-   instance of an inline function). */
+   instance of an inline function). 
+   TREE_ASM_WRITTEN is non-zero if the block was actually referenced
+   in the generated assembly.  */
 DEFTREECODE (BLOCK, "block", 'b', 0)
 
 /* Each data type is represented by a tree node whose code is one of
@@ -641,6 +643,17 @@ DEFTREECODE (GE_EXPR, "ge_expr", '<', 2)
 DEFTREECODE (EQ_EXPR, "eq_expr", '<', 2)
 DEFTREECODE (NE_EXPR, "ne_expr", '<', 2)
 
+/* Additional relational operators for floating point unordered.  */
+DEFTREECODE (UNORDERED_EXPR, "unordered_expr", '<', 2)
+DEFTREECODE (ORDERED_EXPR, "ordered_expr", '<', 2)
+
+/* These are equivalent to unordered or ... */
+DEFTREECODE (UNLT_EXPR, "unlt_expr", '<', 2)
+DEFTREECODE (UNLE_EXPR, "unle_expr", '<', 2)
+DEFTREECODE (UNGT_EXPR, "ungt_expr", '<', 2)
+DEFTREECODE (UNGE_EXPR, "unge_expr", '<', 2)
+DEFTREECODE (UNEQ_EXPR, "uneq_expr", '<', 2)
+
 /* Operations for Pascal sets.  Not used now.  */
 DEFTREECODE (IN_EXPR, "in_expr", '2', 2)
 DEFTREECODE (SET_LE_EXPR, "set_le_expr", '<', 2)
@@ -673,10 +686,13 @@ DEFTREECODE (SAVE_EXPR, "save_expr", 'e', 3)
    but where we must re-expand.  */
 DEFTREECODE (UNSAVE_EXPR, "unsave_expr", 'e', 1)
 
-/* Represents something whose RTL has already been expanded
-   as a sequence which should be emitted when this expression is expanded.
-   The first operand is the RTL to emit.  It is the first of a chain of insns.
-   The second is the RTL expression for the result.  */
+/* Represents something whose RTL has already been expanded as a
+   sequence which should be emitted when this expression is expanded.
+   The first operand is the RTL to emit.  It is the first of a chain
+   of insns.  The second is the RTL expression for the result.  Any
+   temporaries created during the building of the RTL_EXPR can be
+   reused once the RTL_EXPR has been expanded, with the exception of
+   the RTL_EXPR_RTL.  */
 DEFTREECODE (RTL_EXPR, "rtl_expr", 'e', 2)
 
 /* & in C.  Value is the address at which the operand's value resides.

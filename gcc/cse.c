@@ -1,5 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987, 88, 89, 92-99, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -371,6 +372,11 @@ static int max_uid;
 
 #define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
 
+/* Nonzero if this pass has made changes, and therefore it's
+   worthwhile to run the garbage collector.  */
+
+static int cse_altered;
+
 /* Nonzero if cse has altered conditional jump insns
    in such a way that jump optimization should be redone.  */
 
@@ -645,57 +651,57 @@ struct cse_basic_block_data
 	   || XEXP (X, 0) == virtual_outgoing_args_rtx))	\
    || GET_CODE (X) == ADDRESSOF)
 
-static int notreg_cost		PROTO((rtx));
-static void new_basic_block	PROTO((void));
-static void make_new_qty	PROTO((int, enum machine_mode));
-static void make_regs_eqv	PROTO((int, int));
-static void delete_reg_equiv	PROTO((int));
-static int mention_regs		PROTO((rtx));
-static int insert_regs		PROTO((rtx, struct table_elt *, int));
-static void remove_from_table	PROTO((struct table_elt *, unsigned));
-static struct table_elt *lookup	PROTO((rtx, unsigned, enum machine_mode)),
-       *lookup_for_remove PROTO((rtx, unsigned, enum machine_mode));
-static rtx lookup_as_function	PROTO((rtx, enum rtx_code));
-static struct table_elt *insert PROTO((rtx, struct table_elt *, unsigned,
-				       enum machine_mode));
-static void merge_equiv_classes PROTO((struct table_elt *,
-				       struct table_elt *));
-static void invalidate		PROTO((rtx, enum machine_mode));
-static int cse_rtx_varies_p	PROTO((rtx));
-static void remove_invalid_refs	PROTO((int));
-static void remove_invalid_subreg_refs	PROTO((int, int, enum machine_mode));
-static void rehash_using_reg	PROTO((rtx));
-static void invalidate_memory	PROTO((void));
-static void invalidate_for_call	PROTO((void));
-static rtx use_related_value	PROTO((rtx, struct table_elt *));
-static unsigned canon_hash	PROTO((rtx, enum machine_mode));
-static unsigned safe_hash	PROTO((rtx, enum machine_mode));
-static int exp_equiv_p		PROTO((rtx, rtx, int, int));
-static rtx canon_reg		PROTO((rtx, rtx));
-static void find_best_addr	PROTO((rtx, rtx *));
-static enum rtx_code find_comparison_args PROTO((enum rtx_code, rtx *, rtx *,
-						 enum machine_mode *,
-						 enum machine_mode *));
-static rtx fold_rtx		PROTO((rtx, rtx));
-static rtx equiv_constant	PROTO((rtx));
-static void record_jump_equiv	PROTO((rtx, int));
-static void record_jump_cond	PROTO((enum rtx_code, enum machine_mode,
-				       rtx, rtx, int));
-static void cse_insn		PROTO((rtx, rtx));
-static int addr_affects_sp_p	PROTO((rtx));
-static void invalidate_from_clobbers PROTO((rtx));
-static rtx cse_process_notes	PROTO((rtx, rtx));
-static void cse_around_loop	PROTO((rtx));
-static void invalidate_skipped_set PROTO((rtx, rtx, void *));
-static void invalidate_skipped_block PROTO((rtx));
-static void cse_check_loop_start PROTO((rtx, rtx, void *));
-static void cse_set_around_loop	PROTO((rtx, rtx, rtx));
-static rtx cse_basic_block	PROTO((rtx, rtx, struct branch_path *, int));
-static void count_reg_usage	PROTO((rtx, int *, rtx, int));
-extern void dump_class          PROTO((struct table_elt*));
-static struct cse_reg_info* get_cse_reg_info PROTO((int));
+static int notreg_cost		PARAMS ((rtx));
+static void new_basic_block	PARAMS ((void));
+static void make_new_qty	PARAMS ((int, enum machine_mode));
+static void make_regs_eqv	PARAMS ((int, int));
+static void delete_reg_equiv	PARAMS ((int));
+static int mention_regs		PARAMS ((rtx));
+static int insert_regs		PARAMS ((rtx, struct table_elt *, int));
+static void remove_from_table	PARAMS ((struct table_elt *, unsigned));
+static struct table_elt *lookup	PARAMS ((rtx, unsigned, enum machine_mode)),
+       *lookup_for_remove PARAMS ((rtx, unsigned, enum machine_mode));
+static rtx lookup_as_function	PARAMS ((rtx, enum rtx_code));
+static struct table_elt *insert PARAMS ((rtx, struct table_elt *, unsigned,
+					 enum machine_mode));
+static void merge_equiv_classes PARAMS ((struct table_elt *,
+					 struct table_elt *));
+static void invalidate		PARAMS ((rtx, enum machine_mode));
+static int cse_rtx_varies_p	PARAMS ((rtx));
+static void remove_invalid_refs	PARAMS ((int));
+static void remove_invalid_subreg_refs	PARAMS ((int, int, enum machine_mode));
+static void rehash_using_reg	PARAMS ((rtx));
+static void invalidate_memory	PARAMS ((void));
+static void invalidate_for_call	PARAMS ((void));
+static rtx use_related_value	PARAMS ((rtx, struct table_elt *));
+static unsigned canon_hash	PARAMS ((rtx, enum machine_mode));
+static unsigned safe_hash	PARAMS ((rtx, enum machine_mode));
+static int exp_equiv_p		PARAMS ((rtx, rtx, int, int));
+static rtx canon_reg		PARAMS ((rtx, rtx));
+static void find_best_addr	PARAMS ((rtx, rtx *));
+static enum rtx_code find_comparison_args PARAMS ((enum rtx_code, rtx *, rtx *,
+						   enum machine_mode *,
+						   enum machine_mode *));
+static rtx fold_rtx		PARAMS ((rtx, rtx));
+static rtx equiv_constant	PARAMS ((rtx));
+static void record_jump_equiv	PARAMS ((rtx, int));
+static void record_jump_cond	PARAMS ((enum rtx_code, enum machine_mode,
+					 rtx, rtx, int));
+static void cse_insn		PARAMS ((rtx, rtx));
+static int addr_affects_sp_p	PARAMS ((rtx));
+static void invalidate_from_clobbers PARAMS ((rtx));
+static rtx cse_process_notes	PARAMS ((rtx, rtx));
+static void cse_around_loop	PARAMS ((rtx));
+static void invalidate_skipped_set PARAMS ((rtx, rtx, void *));
+static void invalidate_skipped_block PARAMS ((rtx));
+static void cse_check_loop_start PARAMS ((rtx, rtx, void *));
+static void cse_set_around_loop	PARAMS ((rtx, rtx, rtx));
+static rtx cse_basic_block	PARAMS ((rtx, rtx, struct branch_path *, int));
+static void count_reg_usage	PARAMS ((rtx, int *, rtx, int));
+extern void dump_class          PARAMS ((struct table_elt*));
+static struct cse_reg_info* get_cse_reg_info PARAMS ((int));
 
-static void flush_hash_table	PROTO((void));
+static void flush_hash_table	PARAMS ((void));
 
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
@@ -2246,7 +2252,9 @@ canon_hash (x, mode)
 	  hash += canon_hash (XVECEXP (x, i, j), 0);
       else if (fmt[i] == 's')
 	{
-	  register unsigned char *p = (unsigned char *) XSTR (x, i);
+	  register const unsigned char *p =
+	    (const unsigned char *) XSTR (x, i);
+
 	  if (p)
 	    while (*p)
 	      hash += *p++;
@@ -2899,7 +2907,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 		  && code == LT && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
 	      || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
-		  && FLOAT_STORE_FLAG_VALUE < 0)
+		  && (REAL_VALUE_NEGATIVE
+		      (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
 #endif
 	      )
 	    x = arg1;
@@ -2908,7 +2917,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 		       && code == GE && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		   || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
-		       && FLOAT_STORE_FLAG_VALUE < 0)
+		       && (REAL_VALUE_NEGATIVE
+			   (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
 #endif
 		   )
 	    x = arg1, reverse_code = 1;
@@ -2954,7 +2964,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		   || (code == LT
 		       && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-		       && FLOAT_STORE_FLAG_VALUE < 0)
+		       && (REAL_VALUE_NEGATIVE
+			   (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
 #endif
 		   )
 		  && GET_RTX_CLASS (GET_CODE (p->exp)) == '<'))
@@ -2973,7 +2984,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		    || (code == GE
 			&& GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			&& FLOAT_STORE_FLAG_VALUE < 0)
+		        && (REAL_VALUE_NEGATIVE
+			    (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
 #endif
 		    )
 		   && GET_RTX_CLASS (GET_CODE (p->exp)) == '<')
@@ -3639,8 +3651,8 @@ fold_rtx (x, insn)
 #ifdef FLOAT_STORE_FLAG_VALUE
 	  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	    {
-	      true = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE,
-						   mode);
+	      true = (CONST_DOUBLE_FROM_REAL_VALUE
+		      (FLOAT_STORE_FLAG_VALUE (mode), mode));
 	      false = CONST0_RTX (mode);
 	    }
 #endif
@@ -3714,9 +3726,9 @@ fold_rtx (x, insn)
 		      struct qty_table_elem *ent = &qty_table[qty];
 
 		      if ((comparison_dominates_p (ent->comparison_code, code)
-			   || (comparison_dominates_p (ent->comparison_code,
-						       reverse_condition (code))
-			       && ! FLOAT_MODE_P (mode_arg0)))
+			   || (! FLOAT_MODE_P (mode_arg0)
+			       && comparison_dominates_p (ent->comparison_code,
+						          reverse_condition (code))))
 			  && (rtx_equal_p (ent->comparison_const, folded_arg1)
 			      || (const_arg1
 				  && rtx_equal_p (ent->comparison_const,
@@ -3753,8 +3765,8 @@ fold_rtx (x, insn)
 #ifdef FLOAT_STORE_FLAG_VALUE
 	      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 		{
-		  true = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE,
-						       mode);
+		  true = (CONST_DOUBLE_FROM_REAL_VALUE
+			  (FLOAT_STORE_FLAG_VALUE (mode), mode));
 		  false = CONST0_RTX (mode);
 		}
 #endif
@@ -3784,8 +3796,13 @@ fold_rtx (x, insn)
 					   const_arg1 ? const_arg1 : folded_arg1);
 #ifdef FLOAT_STORE_FLAG_VALUE
       if (new != 0 && GET_MODE_CLASS (mode) == MODE_FLOAT)
-	new = ((new == const0_rtx) ? CONST0_RTX (mode)
-	       : CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE, mode));
+	{
+	  if (new == const0_rtx)
+	    new = CONST0_RTX (mode);
+	  else
+	    new = (CONST_DOUBLE_FROM_REAL_VALUE
+		   (FLOAT_STORE_FLAG_VALUE (mode), mode));
+	}
 #endif
       break;
 
@@ -4147,6 +4164,10 @@ record_jump_equiv (insn, taken)
     {
       reversed_nonequality = (code != EQ && code != NE);
       code = reverse_condition (code);
+
+      /* Don't remember if we can't find the inverse.  */
+      if (code == UNKNOWN)
+	return;
     }
 
   /* The mode is the mode of the non-constant.  */
@@ -5178,19 +5199,16 @@ cse_insn (insn, libcall_insn)
 		  || (GET_CODE (trial) == LABEL_REF
 		      && ! condjump_p (insn))))
 	    {
-	      /* If TRIAL is a label in front of a jump table, we are
-		 really falling through the switch (this is how casesi
-		 insns work), so we must branch around the table.  */
-	      if (GET_CODE (trial) == CODE_LABEL
-		  && NEXT_INSN (trial) != 0
-		  && GET_CODE (NEXT_INSN (trial)) == JUMP_INSN
-		  && (GET_CODE (PATTERN (NEXT_INSN (trial))) == ADDR_DIFF_VEC
-		      || GET_CODE (PATTERN (NEXT_INSN (trial))) == ADDR_VEC))
+	      if (trial == pc_rtx)
+		{
+		  SET_SRC (sets[i].rtl) = trial;
+		  cse_jumps_altered = 1;
+		  break;
+		}
 
-		trial = gen_rtx_LABEL_REF (Pmode, get_label_after (trial));
-
-	      SET_SRC (sets[i].rtl) = trial;
- 	      cse_jumps_altered = 1;
+	      PATTERN (insn) = gen_jump (XEXP (trial, 0));
+	      INSN_CODE (insn) = -1;
+	      cse_jumps_altered = 1;
 	      break;
 	    }
 	   
@@ -5290,6 +5308,7 @@ cse_insn (insn, libcall_insn)
       /* If we made a change, recompute SRC values.  */
       if (src != sets[i].src)
         {
+	  cse_altered = 1;
           do_not_record = 0;
           hash_arg_in_memory = 0;
 	  sets[i].src = src;
@@ -6761,6 +6780,7 @@ cse_main (f, nregs, after_loop, file)
   insn = f;
   while (insn)
     {
+      cse_altered = 0;
       cse_end_of_basic_block (insn, &val, flag_cse_follow_jumps, after_loop,
 			      flag_cse_skip_blocks);
 
@@ -6811,7 +6831,7 @@ cse_main (f, nregs, after_loop, file)
 	  cse_jumps_altered |= old_cse_jumps_altered;
 	}
 
-      if (ggc_p)
+      if (ggc_p && cse_altered)
 	ggc_collect ();
 
 #ifdef USE_C_ALLOCA

@@ -1,6 +1,7 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU compiler.
-   Copyright (C) 1988, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -32,10 +33,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 
 #if 0
-static tree extract_aggr_init PROTO((tree, tree));
-static tree extract_scalar_init PROTO((tree, tree));
+static tree extract_aggr_init PARAMS ((tree, tree));
+static tree extract_scalar_init PARAMS ((tree, tree));
 #endif
-static rtx cplus_expand_expr PROTO((tree, rtx, enum machine_mode,
+static rtx cplus_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 				    enum expand_modifier));
 
 /* Hook used by output_constant to expand language-specific
@@ -61,15 +62,21 @@ cplus_expand_constant (cst)
 	    /* Find the offset for the field.  */
 	    offset = convert (sizetype,
 			      size_binop (EASY_DIV_EXPR,
-					  DECL_FIELD_BITPOS (member),
-					  size_int (BITS_PER_UNIT)));
+					  bit_position (member),
+					  bitsize_int (BITS_PER_UNIT)));
 
-	    /* We offset all pointer to data members by 1 so that we
-	       can distinguish between a null pointer to data member
-	       and the first data member of a structure.  */
-	    offset = size_binop (PLUS_EXPR, offset, size_int (1));
-	
-	    cst = cp_convert (type, offset);
+	    if (flag_new_abi)
+	      /* Under the new ABI, we use -1 to represent the NULL
+		 pointer; non-NULL values simply contain the offset of
+		 the data member.  */
+	      ;
+	    else
+	      /* We offset all pointer to data members by 1 so that we
+		 can distinguish between a null pointer to data member
+		 and the first data member of a structure.  */
+	      offset = size_binop (PLUS_EXPR, offset, size_one_node);
+
+	    cst = fold (build1 (NOP_EXPR, type, offset));
 	  }
 	else
 	  {
@@ -131,6 +138,7 @@ cplus_expand_expr (exp, target, tmode, modifier)
       }
 
     case THUNK_DECL:
+      my_friendly_assert (DECL_RTL (exp) != NULL_RTX, 20000115);
       return DECL_RTL (exp);
 
     case THROW_EXPR:
@@ -144,9 +152,9 @@ cplus_expand_expr (exp, target, tmode, modifier)
 
     case STMT_EXPR:
       {
-	tree rtl_expr = begin_stmt_expr ();
+	tree rtl_expr = expand_start_stmt_expr ();
 	expand_stmt (STMT_EXPR_STMT (exp));
-	finish_stmt_expr (rtl_expr);
+	expand_end_stmt_expr (rtl_expr);
 	return expand_expr (rtl_expr, target, tmode, modifier);
       }
       break;
@@ -289,7 +297,7 @@ do_case (start, end)
     error ("pointers are not permitted as case values");
 
   if (end && pedantic)
-    pedwarn ("ANSI C++ forbids range expressions in switch statement");
+    pedwarn ("ISO C++ forbids range expressions in switch statement");
 
   if (start)
     value1 = check_cp_case_value (start);

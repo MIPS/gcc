@@ -1,6 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989, 92-98, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 92, 93, 94, 95, 96, 97, 98, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,36 +32,10 @@ Boston, MA 02111-1307, USA.  */
    do not apply.  */
 
 #include "tconfig.h"
-
-/* We disable this when inhibit_libc, so that gcc can still be built without
-   needing header files first.  */
-/* ??? This is not a good solution, since prototypes may be required in
-   some cases for correct code.  See also frame.c/crtstuff.c.  */
-#ifndef inhibit_libc
-/* fixproto guarantees these system headers exist. */
-#include <stdlib.h>
-#include <unistd.h>
-
-#else
-#ifndef L_trampoline
-#include <stddef.h>
-#ifndef malloc
-extern void *malloc (size_t);
-#endif
-#ifndef free
-extern void free (void *);
-#endif
-#ifndef atexit
-extern int atexit(void (*)(void));
-#endif
-#endif
-#endif
+#include "tsystem.h"
 
 #include "machmode.h"
 #include "defaults.h" 
-#ifndef L_trampoline
-#include <stddef.h>
-#endif
 
 /* Don't use `fancy_abort' here even if config.h says to use it.  */
 #ifdef abort
@@ -74,182 +49,7 @@ extern int atexit(void (*)(void));
 #define inhibit_libc
 #endif
 
-/* Permit the tm.h file to select the endianness to use just for this
-   file.  This is used when the endianness is determined when the
-   compiler is run.  */
-
-#ifndef LIBGCC2_WORDS_BIG_ENDIAN
-#define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
-#endif
-
-#ifndef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
-#endif
-
-/* In the first part of this file, we are interfacing to calls generated
-   by the compiler itself.  These calls pass values into these routines
-   which have very specific modes (rather than very specific types), and
-   these compiler-generated calls also expect any return values to have
-   very specific modes (rather than very specific types).  Thus, we need
-   to avoid using regular C language type names in this part of the file
-   because the sizes for those types can be configured to be anything.
-   Instead we use the following special type names.  */
-
-typedef		 int QItype	__attribute__ ((mode (QI)));
-typedef unsigned int UQItype	__attribute__ ((mode (QI)));
-typedef		 int HItype	__attribute__ ((mode (HI)));
-typedef unsigned int UHItype	__attribute__ ((mode (HI)));
-#if UNITS_PER_WORD > 1
-/* These typedefs are usually forbidden on dsp's with UNITS_PER_WORD 1 */
-typedef 	 int SItype	__attribute__ ((mode (SI)));
-typedef unsigned int USItype	__attribute__ ((mode (SI)));
-#if UNITS_PER_WORD > 2
-/* These typedefs are usually forbidden on archs with UNITS_PER_WORD 2 */
-typedef		 int DItype	__attribute__ ((mode (DI)));
-typedef unsigned int UDItype	__attribute__ ((mode (DI)));
-#endif
-#endif
-
-#if BITS_PER_UNIT == 8
-
-typedef 	float SFtype	__attribute__ ((mode (SF)));
-typedef		float DFtype	__attribute__ ((mode (DF)));
-
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
-typedef		float XFtype	__attribute__ ((mode (XF)));
-#endif
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
-typedef		float TFtype	__attribute__ ((mode (TF)));
-#endif
-
-#else /* BITS_PER_UNIT != 8 */
-
-/* On dsp's there are usually qf/hf/tqf modes used instead of the above.
-   For now we don't support them in libgcc2.c.  */
-
-#undef L_fixdfdi
-#undef L_fixsfdi
-#undef L_fixtfdi
-#undef L_fixunsdfdi
-#undef L_fixunsdfsi
-#undef L_fixunssfdi
-#undef L_fixunssfsi
-#undef L_fixunstfdi
-#undef L_fixunsxfdi
-#undef L_fixunsxfsi
-#undef L_fixxfdi
-#undef L_floatdidf
-#undef L_floatdisf
-#undef L_floatditf
-#undef L_floatdixf
-
-#endif /* BITS_PER_UNIT != 8 */
-
-typedef int word_type __attribute__ ((mode (__word__)));
-
-/* Make sure that we don't accidentally use any normal C language built-in
-   type names in the first part of this file.  Instead we want to use *only*
-   the type names defined above.  The following macro definitions insure
-   that if we *do* accidentally use some normal C language built-in type name,
-   we will get a syntax error.  */
-
-#define char bogus_type
-#define short bogus_type
-#define int bogus_type
-#define long bogus_type
-#define unsigned bogus_type
-#define float bogus_type
-#define double bogus_type
-
-#if UNITS_PER_WORD > 2
-#define W_TYPE_SIZE (4 * BITS_PER_UNIT)
-#define Wtype	SItype
-#define UWtype	USItype
-#define HWtype	SItype
-#define UHWtype	USItype
-#define DWtype	DItype
-#define UDWtype	UDItype
-#define __NW(a,b)	__ ## a ## si ## b
-#define __NDW(a,b)	__ ## a ## di ## b
-#elif UNITS_PER_WORD > 1
-#define W_TYPE_SIZE (2 * BITS_PER_UNIT)
-#define Wtype	HItype
-#define UWtype	UHItype
-#define HWtype	HItype
-#define UHWtype	UHItype
-#define DWtype	SItype
-#define UDWtype	USItype
-#define __NW(a,b)	__ ## a ## hi ## b
-#define __NDW(a,b)	__ ## a ## si ## b
-#else
-#define W_TYPE_SIZE BITS_PER_UNIT
-#define Wtype	QItype
-#define UWtype  UQItype
-#define HWtype	QItype
-#define UHWtype	UQItype
-#define DWtype	HItype
-#define UDWtype	UHItype
-#define __NW(a,b)	__ ## a ## qi ## b
-#define __NDW(a,b)	__ ## a ## hi ## b
-#endif
-
-#define __muldi3	__NDW(mul,3)
-#define __divdi3	__NDW(div,3)
-#define __udivdi3	__NDW(udiv,3)
-#define __moddi3	__NDW(mod,3)
-#define __umoddi3	__NDW(umod,3)
-#define __negdi2	__NDW(neg,2)
-#define __lshrdi3	__NDW(lshr,3)
-#define __ashldi3	__NDW(ashl,3)
-#define __ashrdi3	__NDW(ashr,3)
-#define __ffsdi2	__NDW(ffs,2)
-#define __cmpdi2	__NDW(cmp,2)
-#define __ucmpdi2	__NDW(ucmp,2)
-#define __udivmoddi4	__NDW(udivmod,4)
-#define __fixunstfdi	__NDW(fixunstf,)
-#define __fixtfdi	__NDW(fixtf,)
-#define __fixunsxfdi	__NDW(fixunsxf,)
-#define __fixxfdi	__NDW(fixxf,)
-#define __fixunsdfdi	__NDW(fixunsdf,)
-#define __fixdfdi	__NDW(fixdf,)
-#define __fixunssfdi	__NDW(fixunssf,)
-#define __fixsfdi	__NDW(fixsf,)
-#define __floatdixf	__NDW(float,xf)
-#define __floatditf	__NDW(float,tf)
-#define __floatdidf	__NDW(float,df)
-#define __floatdisf	__NDW(float,sf)
-#define __fixunsxfsi	__NW(fixunsxf,)
-#define __fixunstfsi	__NW(fixunstf,)
-#define __fixunsdfsi	__NW(fixunsdf,)
-#define __fixunssfsi	__NW(fixunssf,)
-
-/* DWstructs are pairs of Wtype values in the order determined by
-   LIBGCC2_WORDS_BIG_ENDIAN.  */
-
-#if LIBGCC2_WORDS_BIG_ENDIAN
-  struct DWstruct {Wtype high, low;};
-#else
-  struct DWstruct {Wtype low, high;};
-#endif
-
-/* We need this union to unpack/pack DImode values, since we don't have
-   any arithmetic yet.  Incoming DImode parameters are stored into the
-   `ll' field, and the unpacked result is read from the struct `s'.  */
-
-typedef union
-{
-  struct DWstruct s;
-  DWtype ll;
-} DWunion;
-
-#if (defined (L_udivmoddi4) || defined (L_muldi3) || defined (L_udiv_w_sdiv)\
-     || defined (L_divdi3) || defined (L_udivdi3) \
-     || defined (L_moddi3) || defined (L_umoddi3))
-
-#include "longlong.h"
-
-#endif /* udiv or mul */
-
+#include "libgcc2.h"
 
 #if defined (L_negdi2) || defined (L_divdi3) || defined (L_moddi3)
 #if defined (L_divdi3) || defined (L_moddi3)
@@ -896,8 +696,6 @@ __fixunstfdi (TFtype a)
 #endif
 
 #if defined(L_fixtfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
-extern DWtype __fixunstfdi (TFtype a);
-
 DWtype
 __fixtfdi (TFtype a)
 {
@@ -940,8 +738,6 @@ __fixunsxfdi (XFtype a)
 #endif
 
 #if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
-extern DWtype __fixunsxfdi (XFtype a);
-
 DWtype
 __fixxfdi (XFtype a)
 {
@@ -984,8 +780,6 @@ __fixunsdfdi (DFtype a)
 #endif
 
 #ifdef L_fixdfdi
-extern DWtype __fixunsdfdi (DFtype a);
-
 DWtype
 __fixdfdi (DFtype a)
 {
@@ -1032,8 +826,6 @@ __fixunssfdi (SFtype original_a)
 #endif
 
 #ifdef L_fixsfdi
-extern DWtype __fixunssfdi (SFtype a);
-
 DWtype
 __fixsfdi (SFtype a)
 {
@@ -1264,7 +1056,7 @@ __fixunssfsi (SFtype a)
    positive if S1 is greater, 0 if S1 and S2 are equal.  */
 
 int
-__gcc_bcmp (unsigned char *s1, unsigned char *s2, size_t size)
+__gcc_bcmp (const unsigned char *s1, const unsigned char *s2, size_t size)
 {
   while (size > 0)
     {
@@ -1495,7 +1287,7 @@ asm ("___builtin_saveregs:");
   asm ("	.end __builtin_saveregs");
 #else /* not __mips__, etc.  */
 
-void *
+void * __attribute__ ((__noreturn__))
 __builtin_saveregs (void)
 {
   abort ();
@@ -1512,9 +1304,6 @@ __builtin_saveregs (void)
 #undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
 #include <stdio.h>
 /* This is used by the `assert' macro.  */
-extern void __eprintf (const char *, const char *, unsigned int, const char *)
-  __attribute__ ((__noreturn__));
-
 void
 __eprintf (const char *string, const char *expression,
 	   unsigned int line, const char *filename)
@@ -1563,6 +1352,10 @@ char *ctime ();
 #include "gbl-ctors.h"
 #include "gcov-io.h"
 #include <string.h>
+#ifdef TARGET_HAS_F_SETLKW
+#include <fcntl.h>
+#include <errno.h>
+#endif
 
 static struct bb *bb_head;
 
@@ -1606,13 +1399,64 @@ __bb_exit_func (void)
 
       for (ptr = bb_head; ptr != (struct bb *) 0; ptr = ptr->next)
 	{
-	  /* If the file exists, and the number of counts in it is the same,
-	     then merge them in.  */
-	     
-	  if ((da_file = fopen (ptr->filename, "rb")) != 0)
+	  int firstchar;
+
+	  /* Make sure the output file exists -
+	     but don't clobber exiting data.  */
+	  if ((da_file = fopen (ptr->filename, "a")) != 0)
+	    fclose (da_file);
+
+	  /* Need to re-open in order to be able to write from the start.  */
+	  da_file = fopen (ptr->filename, "r+b");
+	  /* Some old systems might not allow the 'b' mode modifier.
+	     Therefore, try to open without it.  This can lead to a race
+	     condition so that when you delete and re-create the file, the
+	     file might be opened in text mode, but then, you shouldn't
+	     delete the file in the first place.  */
+	  if (da_file == 0)
+	    da_file = fopen (ptr->filename, "r+");
+	  if (da_file == 0)
+	    {
+	      fprintf (stderr, "arc profiling: Can't open output file %s.\n",
+		       ptr->filename);
+	      continue;
+	    }
+
+	  /* After a fork, another process might try to read and/or write
+	     the same file simultanously.  So if we can, lock the file to
+	     avoid race conditions.  */
+#if defined (TARGET_HAS_F_SETLKW)
+	  {
+	    struct flock s_flock;
+
+	    s_flock.l_type = F_WRLCK;
+	    s_flock.l_whence = SEEK_SET;
+	    s_flock.l_start = 0;
+	    s_flock.l_len = 1;
+	    s_flock.l_pid = getpid ();
+
+	    while (fcntl (fileno (da_file), F_SETLKW, &s_flock)
+		   && errno == EINTR);
+	  }
+#endif
+
+	  /* If the file is not empty, and the number of counts in it is the
+	     same, then merge them in.  */
+	  firstchar = fgetc (da_file);
+	  if (firstchar == EOF)
+	    {
+	      if (ferror (da_file))
+		{
+		  fprintf (stderr, "arc profiling: Can't read output file ");
+		  perror (ptr->filename);
+		}
+	    }
+	  else
 	    {
 	      long n_counts = 0;
 	      
+	      if (ungetc (firstchar, da_file) == EOF)
+		rewind (da_file);
 	      if (__read_long (&n_counts, da_file, 8) != 0)
 		{
 		  fprintf (stderr, "arc profiling: Can't read output file %s.\n",
@@ -1638,16 +1482,9 @@ __bb_exit_func (void)
 		    }
 		}
 
-	      if (fclose (da_file) == EOF)
-		fprintf (stderr, "arc profiling: Error closing output file %s.\n",
-			 ptr->filename);
 	    }
-	  if ((da_file = fopen (ptr->filename, "wb")) == 0)
-	    {
-	      fprintf (stderr, "arc profiling: Can't open output file %s.\n",
-		       ptr->filename);
-	      continue;
-	    }
+
+	  rewind (da_file);
 
 	  /* ??? Should first write a header to the file.  Preferably, a 4 byte
 	     magic number, 4 bytes containing the time the program was
@@ -1826,6 +1663,23 @@ __bb_init_func (struct bb *blocks)
   bb_head = blocks;
 }
 
+/* Called before fork or exec - write out profile information gathered so
+   far and reset it to zero.  This avoids duplication or loss of the
+   profile information gathered so far.  */
+void
+__bb_fork_func (void)
+{
+  struct bb *ptr;
+
+  __bb_exit_func ();
+  for (ptr = bb_head; ptr != (struct bb *) 0; ptr = ptr->next)
+    {
+      long i;
+      for (i = ptr->ncounts - 1; i >= 0; i--)
+	ptr->counts[i] = 0;
+    }
+}
+
 #ifndef MACHINE_STATE_SAVE
 #define MACHINE_STATE_SAVE(ID)
 #endif
@@ -1840,11 +1694,6 @@ __bb_init_func (struct bb *blocks)
 /* Maximum length of string in file bb.in.  */
 
 #define BBINBUFSIZE 500
-
-/* BBINBUFSIZE-1 with double quotes. We could use #BBINBUFSIZE or
-   "BBINBUFSIZE" but want to avoid trouble with preprocessors.  */
-
-#define BBINBUFSIZESTR "499"
 
 struct bb_edge
 {
@@ -2123,8 +1972,8 @@ found:        ;
                struct bb_edge *bucket = bb_hashbuckets[i];
                for ( ; bucket; bucket = bucket->next )
                  {
-                   fprintf (file, "Jump from block 0x%.*lx to "
-                                  "block 0x%.*lx executed %*lu time(s)\n", 
+                   fprintf (file,
+	"Jump from block 0x%.*lx to block 0x%.*lx executed %*lu time(s)\n", 
                             addr_len, bucket->src_addr, 
                             addr_len, bucket->dst_addr, 
                             cnt_len, bucket->count);
@@ -2195,8 +2044,12 @@ __bb_init_prg (void)
   if (!(file = fopen ("bb.in", "r")))
     return;
 
-  while(fscanf (file, " %" BBINBUFSIZESTR "s ", buf) != EOF)
+  while(fgets (buf, BBINBUFSIZE, file) != 0)
     {
+      i = strlen (buf);
+      if (buf[i] == '\n')
+	buf[i--] = '\0';
+
       p = buf;
       if (*p == '-') 
         { 
@@ -3127,8 +2980,6 @@ atexit (func_ptr func)
 
 /* Shared exception handling support routines.  */
 
-extern void __default_terminate (void) __attribute__ ((__noreturn__));
-
 void
 __default_terminate (void)
 {
@@ -3170,8 +3021,6 @@ __empty (void)
 #endif
 
 /* Allocate and return a new EH context structure. */
-
-extern void __throw (void);
 
 #if __GTHREADS
 static void *
@@ -3241,7 +3090,7 @@ __get_eh_info (void)
 
 #ifdef DWARF2_UNWIND_INFO
 static int dwarf_reg_size_table_initialized = 0;
-static char dwarf_reg_size_table[FIRST_PSEUDO_REGISTER];
+static char dwarf_reg_size_table[DWARF_FRAME_REGISTERS];
 
 static void
 init_reg_size_table (void)
@@ -3371,8 +3220,6 @@ __get_dynamic_handler_chain (void)
    dynamic handler chain, and use longjmp to transfer back to the associated
    handler.  */
 
-extern void __sjthrow (void) __attribute__ ((__noreturn__));
-
 void
 __sjthrow (void)
 {
@@ -3445,8 +3292,6 @@ __sjthrow (void)
    handler, then pop the handler off the dynamic handler stack, and
    then throw.  This is used to skip the first handler, and transfer
    control to the next handler in the dynamic handler stack.  */
-
-extern void __sjpopnthrow (void) __attribute__ ((__noreturn__));
 
 void
 __sjpopnthrow (void)
@@ -3949,7 +3794,7 @@ throw_helper (struct eh_context *eh, void *pc, frame_state *my_udata,
 	  udata = next_stack_level (pc, udata, sub_udata);
 	  sub_udata = p;
 
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
+	  for (i = 0; i < DWARF_FRAME_REGISTERS; ++i)
 	    if (i != udata->retaddr_column && udata->saved[i])
 	      {
 		/* If you modify the saved value of the return address
@@ -4113,8 +3958,6 @@ label:
 #endif /* inhibit_libc */
 
 #define MESSAGE "pure virtual method called\n"
-
-extern void __terminate (void) __attribute__ ((__noreturn__));
 
 void
 __pure_virtual (void)

@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for AMD Am29000 CPU.
-   Copyright (C) 1988, 90-98, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@nyu.edu)
 
 This file is part of GNU CC.
@@ -653,10 +654,6 @@ enum reg_class { NO_REGS, LR0_REGS, GENERAL_REGS, BP_REGS, FC_REGS, CR_REGS,
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
   secondary_reload_class (CLASS, MODE, IN)
 
-/* This function is used to get the address of an object.  */
-
-extern struct rtx_def *a29k_get_reloaded_address ();
-
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
@@ -932,7 +929,7 @@ extern int a29k_compare_fp_p;
    which can't be done until after register allocation, but must be done
    before final_start_function is called.  */
 
-extern char *a29k_function_name;
+extern const char *a29k_function_name;
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)	\
   a29k_function_name = NAME; \

@@ -128,7 +128,7 @@ WORDS_TO_DOUBLE(jword hi, jword lo)
   wu.l = WORDS_TO_LONG(lo, hi);
 #else
   wu.l = WORDS_TO_LONG(hi, lo);
-#endif  
+#endif
   return wu.d;
 } 
 

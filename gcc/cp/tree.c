@@ -1,5 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987, 88, 92-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -31,21 +32,21 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 
-static tree bot_manip PROTO((tree *, int *, void *));
-static tree bot_replace PROTO((tree *, int *, void *));
-static tree build_cplus_array_type_1 PROTO((tree, tree));
-static void list_hash_add PROTO((int, tree));
-static int list_hash PROTO((tree, tree, tree));
-static tree list_hash_lookup PROTO((int, tree, tree, tree));
-static cp_lvalue_kind lvalue_p_1 PROTO((tree, int));
-static tree no_linkage_helper PROTO((tree *, int *, void *));
-static tree build_srcloc PROTO((char *, int));
-static void mark_list_hash PROTO ((void *));
-static int statement_code_p PROTO((enum tree_code));
-static tree mark_local_for_remap_r PROTO((tree *, int *, void *));
-static tree cp_unsave_r PROTO ((tree *, int *, void *));
-static void cp_unsave PROTO((tree *));
-static tree build_target_expr PROTO((tree, tree));
+static tree bot_manip PARAMS ((tree *, int *, void *));
+static tree bot_replace PARAMS ((tree *, int *, void *));
+static tree build_cplus_array_type_1 PARAMS ((tree, tree));
+static void list_hash_add PARAMS ((int, tree));
+static int list_hash PARAMS ((tree, tree, tree));
+static tree list_hash_lookup PARAMS ((int, tree, tree, tree));
+static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int));
+static tree no_linkage_helper PARAMS ((tree *, int *, void *));
+static tree build_srcloc PARAMS ((char *, int));
+static void mark_list_hash PARAMS ((void *));
+static int statement_code_p PARAMS ((enum tree_code));
+static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
+static tree cp_unsave_r PARAMS ((tree *, int *, void *));
+static void cp_unsave PARAMS ((tree *));
+static tree build_target_expr PARAMS ((tree, tree));
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
@@ -321,7 +322,7 @@ break_out_cleanups (exp)
   tree tmp = exp;
 
   if (TREE_CODE (tmp) == CALL_EXPR
-      && TYPE_NEEDS_DESTRUCTOR (TREE_TYPE (tmp)))
+      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (tmp)))
     return build_cplus_new (TREE_TYPE (tmp), tmp);
 
   while (TREE_CODE (tmp) == NOP_EXPR
@@ -329,7 +330,7 @@ break_out_cleanups (exp)
 	 || TREE_CODE (tmp) == NON_LVALUE_EXPR)
     {
       if (TREE_CODE (TREE_OPERAND (tmp, 0)) == CALL_EXPR
-	  && TYPE_NEEDS_DESTRUCTOR (TREE_TYPE (TREE_OPERAND (tmp, 0))))
+	  && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (TREE_OPERAND (tmp, 0))))
 	{
 	  TREE_OPERAND (tmp, 0)
 	    = build_cplus_new (TREE_TYPE (TREE_OPERAND (tmp, 0)),
@@ -473,7 +474,7 @@ build_cplus_method_type (basetype, rettype, argtypes)
 
   t = type_hash_canon (hashcode, t);
 
-  if (TYPE_SIZE (t) == 0)
+  if (!COMPLETE_TYPE_P (t))
     layout_type (t);
 
   return t;
@@ -504,8 +505,8 @@ build_cplus_array_type_1 (elt_type, index_type)
      more easily.  */
   TYPE_NEEDS_CONSTRUCTING (t) 
     = TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
-  TYPE_NEEDS_DESTRUCTOR (t) 
-    = TYPE_NEEDS_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));
+  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) 
+    = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));
   return t;
 }
 
@@ -601,7 +602,7 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	}
 
       /* Even if we already had this variant, we update
-	 TYPE_NEEDS_CONSTRUCTING and TYPE_NEEDS_DESTRUCTOR in case
+	 TYPE_NEEDS_CONSTRUCTING and TYPE_HAS_NONTRIVIAL_DESTRUCTOR in case
 	 they changed since the variant was originally created.  
 	 
 	 This seems hokey; if there is some way to use a previous
@@ -609,8 +610,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	 TYPE_NEEDS_CONSTRUCTING will never be updated.  */
       TYPE_NEEDS_CONSTRUCTING (t) 
 	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (element_type));
-      TYPE_NEEDS_DESTRUCTOR (t) 
-	= TYPE_NEEDS_DESTRUCTOR (TYPE_MAIN_VARIANT (element_type));
+      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) 
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (element_type));
       return t;
     }
   else if (TYPE_PTRMEMFUNC_P (type))
@@ -845,7 +846,7 @@ make_binfo (offset, binfo, vtable, virtuals)
      tree offset, binfo;
      tree vtable, virtuals;
 {
-  tree new_binfo = make_tree_vec (7);
+  tree new_binfo = make_tree_vec (8);
   tree type;
 
   if (TREE_CODE (binfo) == TREE_VEC)
@@ -860,7 +861,6 @@ make_binfo (offset, binfo, vtable, virtuals)
   BINFO_OFFSET (new_binfo) = offset;
   BINFO_VTABLE (new_binfo) = vtable;
   BINFO_VIRTUALS (new_binfo) = virtuals;
-  BINFO_VPTR_FIELD (new_binfo) = NULL_TREE;
 
   if (binfo && BINFO_BASETYPES (binfo) != NULL_TREE)
     BINFO_BASETYPES (new_binfo) = copy_node (BINFO_BASETYPES (binfo));      
@@ -884,39 +884,44 @@ binfo_value (elem, type)
   return get_binfo (elem, type, 0);
 }
 
-/* Return a reversed copy of the BINFO-chain given by PATH.  (If the 
-   BINFO_INHERITANCE_CHAIN points from base classes to derived
-   classes, it will instead point from derived classes to base
-   classes.)  Returns the first node in the reversed chain.  */
+/* Return a TREE_LIST whose TREE_VALUE nodes along the
+   BINFO_INHERITANCE_CHAIN for BINFO, but in the opposite order.  In
+   other words, while the BINFO_INHERITANCE_CHAIN goes from base
+   classes to derived classes, the reversed path goes from derived
+   classes to base classes.  */
 
 tree
-reverse_path (path)
-     tree path;
+reverse_path (binfo)
+     tree binfo;
 {
-  register tree prev = NULL_TREE, cur;
-  for (cur = path; cur; cur = BINFO_INHERITANCE_CHAIN (cur))
+  tree reversed_path;
+
+  reversed_path = NULL_TREE;
+  while (binfo) 
     {
-      tree r = copy_node (cur);
-      BINFO_INHERITANCE_CHAIN (r) = prev;
-      prev = r;
+      reversed_path = tree_cons (NULL_TREE, binfo, reversed_path);
+      binfo = BINFO_INHERITANCE_CHAIN (binfo);
     }
-  return prev;
+
+  return reversed_path;
 }
 
 void
 debug_binfo (elem)
      tree elem;
 {
-  unsigned HOST_WIDE_INT n;
+  HOST_WIDE_INT n;
   tree virtuals;
 
-  fprintf (stderr, "type \"%s\"; offset = %ld\n",
-	   TYPE_NAME_STRING (BINFO_TYPE (elem)),
-	   (long) TREE_INT_CST_LOW (BINFO_OFFSET (elem)));
-  fprintf (stderr, "vtable type:\n");
+  fprintf (stderr, "type \"%s\", offset = ",
+	   TYPE_NAME_STRING (BINFO_TYPE (elem)));
+  fprintf (stderr, HOST_WIDE_INT_PRINT_DEC,
+	   TREE_INT_CST_LOW (BINFO_OFFSET (elem)));
+  fprintf (stderr, "\nvtable type:\n");
   debug_tree (BINFO_TYPE (elem));
   if (BINFO_VTABLE (elem))
-    fprintf (stderr, "vtable decl \"%s\"\n", IDENTIFIER_POINTER (DECL_NAME (BINFO_VTABLE (elem))));
+    fprintf (stderr, "vtable decl \"%s\"\n",
+	     IDENTIFIER_POINTER (DECL_NAME (BINFO_VTABLE (elem))));
   else
     fprintf (stderr, "no vtable decl yet\n");
   fprintf (stderr, "virtuals:\n");
@@ -1257,7 +1262,7 @@ walk_tree (tp, func, data)
 	{
 	  if (code == DECL_STMT 
 	      && DECL_STMT_DECL (*tp) 
-	      && TREE_CODE_CLASS (TREE_CODE (DECL_STMT_DECL (*tp))) == 'd')
+	      && DECL_P (DECL_STMT_DECL (*tp)))
 	    {
 	      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
 		 into declarations that are just mentioned, rather than
@@ -1266,6 +1271,7 @@ walk_tree (tp, func, data)
 		 refer to the declaration itself.  */
 	      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
 	      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+	      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
 	    }
 
 	  WALK_SUBTREE (TREE_CHAIN (*tp));
@@ -1483,23 +1489,6 @@ print_lang_statistics ()
 #endif
 }
 
-/* This is used by the `assert' macro.  It is provided in libgcc.a,
-   which `cc' doesn't know how to link.  Note that the C++ front-end
-   no longer actually uses the `assert' macro (instead, it calls
-   my_friendly_assert).  But all of the back-end files still need this.  */
-
-void
-__eprintf (string, expression, line, filename)
-     const char *string;
-     const char *expression;
-     unsigned line;
-     const char *filename;
-{
-  fprintf (stderr, string, expression, line, filename);
-  fflush (stderr);
-  abort ();
-}
-
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
    (which is an ARRAY_TYPE).  This counts only elements of the top
    array.  */
@@ -1561,9 +1550,13 @@ bot_manip (tp, walk_subtrees, data)
 	}
       else 
 	{
+	  tree var;
+
 	  u = copy_node (t);
-	  TREE_OPERAND (u, 0) = build (VAR_DECL, TREE_TYPE (t));
-	  layout_decl (TREE_OPERAND (u, 0), 0);
+	  var = build (VAR_DECL, TREE_TYPE (t));
+	  DECL_CONTEXT (var) = current_function_decl;
+	  layout_decl (var, 0);
+	  TREE_OPERAND (u, 0) = var;
 	}
 
       /* Map the old variable to the new one.  */
@@ -1644,7 +1637,7 @@ break_out_target_exprs (t)
    current line number.  */
 
 tree
-build_min_nt VPROTO((enum tree_code code, ...))
+build_min_nt VPARAMS ((enum tree_code code, ...))
 {
 #ifndef ANSI_PROTOTYPES
   enum tree_code code;
@@ -1678,7 +1671,7 @@ build_min_nt VPROTO((enum tree_code code, ...))
    line-number.  */
 
 tree
-build_min VPROTO((enum tree_code code, tree tt, ...))
+build_min VPARAMS ((enum tree_code code, tree tt, ...))
 {
 #ifndef ANSI_PROTOTYPES
   enum tree_code code;
@@ -1711,13 +1704,33 @@ build_min VPROTO((enum tree_code code, tree tt, ...))
   return t;
 }
 
+/* Returns an INTEGER_CST (of type `int') corresponding to I.
+   Multiple calls with the same value of I may or may not yield the
+   same node; therefore, callers should never modify the node
+   returned.  */
+
+tree
+build_shared_int_cst (i)
+     int i;
+{
+  static tree cache[256];
+
+  if (i >= 256)
+    return build_int_2 (i, 0);
+  
+  if (!cache[i])
+    cache[i] = build_int_2 (i, 0);
+  
+  return cache[i];
+}
+
 tree
 get_type_decl (t)
      tree t;
 {
   if (TREE_CODE (t) == TYPE_DECL)
     return t;
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+  if (TYPE_P (t))
     return TYPE_STUB_DECL (t);
   
   my_friendly_abort (42);
@@ -1762,20 +1775,6 @@ vec_binfo_member (elem, vec)
 	return TREE_VEC_ELT (vec, i);
 
   return NULL_TREE;
-}
-
-/* Kludge around the fact that DECL_CONTEXT for virtual functions returns
-   the wrong thing for decl_function_context.  Hopefully the uses in the
-   backend won't matter, since we don't need a static chain for local class
-   methods.  FIXME!  */
-
-tree
-hack_decl_function_context (decl)
-     tree decl;
-{
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_FUNCTION_MEMBER_P (decl))
-    return decl_function_context (TYPE_MAIN_DECL (DECL_CLASS_CONTEXT (decl)));
-  return decl_function_context (decl);
 }
 
 /* Returns the namespace that contains DECL, whether directly or
@@ -1916,7 +1915,7 @@ cp_tree_equal (t1, t2)
     case ALIGNOF_EXPR:
       if (TREE_CODE (TREE_OPERAND (t1, 0)) != TREE_CODE (TREE_OPERAND (t2, 0)))
 	return 0;
-      if (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t1, 0))) == 't')
+      if (TYPE_P (TREE_OPERAND (t1, 0)))
 	return same_type_p (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
       break;
 
@@ -2052,8 +2051,8 @@ int
 member_p (decl)
      tree decl;
 {
-  tree ctx = DECL_CONTEXT (decl);
-  return (ctx && TREE_CODE_CLASS (TREE_CODE (ctx)) == 't');
+  const tree ctx = DECL_CONTEXT (decl);
+  return (ctx && TYPE_P (ctx));
 }
 
 /* Create a placeholder for member access where we don't actually have an
@@ -2318,18 +2317,24 @@ mark_local_for_remap_r (tp, walk_subtrees, data)
 {
   tree t = *tp;
   splay_tree st = (splay_tree) data;
+  tree decl;
 
-  if ((TREE_CODE (t) == DECL_STMT
-       && nonstatic_local_decl_p (DECL_STMT_DECL (t)))
-      || TREE_CODE (t) == LABEL_STMT)
+  
+  if (TREE_CODE (t) == DECL_STMT
+      && nonstatic_local_decl_p (DECL_STMT_DECL (t)))
+    decl = DECL_STMT_DECL (t);
+  else if (TREE_CODE (t) == LABEL_STMT)
+    decl = LABEL_STMT_LABEL (t);
+  else if (TREE_CODE (t) == TARGET_EXPR
+	   && nonstatic_local_decl_p (TREE_OPERAND (t, 0)))
+    decl = TREE_OPERAND (t, 0);
+  else
+    decl = NULL_TREE;
+
+  if (decl)
     {
-      tree decl;
       tree copy;
 
-      /* Figure out what's being declared.  */
-      decl = (TREE_CODE (t) == DECL_STMT
-	      ? DECL_STMT_DECL (t) : LABEL_STMT_LABEL (t));
-      
       /* Make a copy.  */
       copy = copy_decl_for_inlining (decl, 
 				     DECL_CONTEXT (decl), 
@@ -2345,7 +2350,7 @@ mark_local_for_remap_r (tp, walk_subtrees, data)
 }
 
 /* Called via walk_tree when an expression is unsaved.  Using the
-   splay_tree pointed to by ST (which is really a `splay_tree *'),
+   splay_tree pointed to by ST (which is really a `splay_tree'),
    remaps all local declarations to appropriate replacements.  */
 
 static tree

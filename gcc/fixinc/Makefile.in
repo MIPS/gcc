@@ -1,5 +1,5 @@
 # Makefile for GNU compilers.
-#   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+#   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -22,7 +22,7 @@
 # Its purpose is to build the any-platforms fixinc.sh script.
 
 CFLAGS = -g
-FIXINC_DEFS = $(CFLAGS) $(CPPFLAGS) @fixinc_defs@ $(INCLUDES)
+FIXINC_DEFS = -DIN_GCC $(CFLAGS) $(CPPFLAGS) $(INCLUDES)
 
 CC = @CC@
 SHELL = /bin/sh
@@ -63,7 +63,7 @@ LIBERTY = ../../libiberty/libiberty.a
 LIBOBJ  = gnu-regex.o fixlib.o $(LIBERTY)
 FIOBJ   = fixincl.o server.o procopen.o $(LIBOBJ)
 
-HDR = server.h gnu-regex.h fixlib.h
+HDR = server.h gnu-regex.h fixlib.h machname.h
 
 SH_TARGET  = inclhack.sh fixincl.sh
 BIN_TARGET = fixincl fixfixes fixtests
@@ -76,9 +76,9 @@ gen : $(SH_TARGET) fixincl.x
 
 $(FIOBJ): $(HDR)
 
-fixincl: $(FIOBJ) fixfixes fixtests
-	@echo $(CC) -o $@ $(FIOBJ) $(LIBERTY) $(LIB) ; \
-	if $(CC) -o $@ $(FIOBJ) $(LIBERTY) $(LIB) ; then : ; else \
+fixincl: $(FIOBJ)
+	@echo $(CC) $(FIXINC_DEFS) -o $@ $(FIOBJ) ; \
+	if $(CC) $(FIXINC_DEFS) -o $@ $(FIOBJ) ; then : ; else \
 	rm -f $@ ; (echo "#! /bin/sh" ; echo exit 1 ) > $@ ; \
 	chmod 777 $@ ; fi
 
@@ -90,13 +90,10 @@ fixtests: fixtests.c $(LIBOBJ)
 	$(CC) -o $@ $(FIXINC_DEFS) -DMAIN \
 		$(srcdir)/fixtests.c $(LIBOBJ) $(LIB)
 
-gnu-regex.o: gnu-regex.c
-	-$(CC) $(CFLAGS) $(FIXINC_DEFS) $(INCLUDES) -DREGEX_MALLOC \
-		-c $(srcdir)/gnu-regex.c
-
-fixincl.o : fixincl.x fixincl.c
+fixincl.o : fixincl.x fixincl.c fixfixes.c fixtests.c
 server.o : server.c server.h
 procopen.o : procopen.c server.h
+fixlib.o: machname.h
 
 fixincl.x: fixincl.tpl inclhack.def
 	cd $(srcdir) ; ./genfixes $@
@@ -104,11 +101,12 @@ fixincl.x: fixincl.tpl inclhack.def
 inclhack.sh: inclhack.def inclhack.tpl hackshell.tpl
 	cd $(srcdir) ; ./genfixes $@
 
-fixincl.sh: inclhack.def inclhack.tpl
+# fixinc.sh, unlike the other two, has _no_ dependency on the .def file.
+fixincl.sh: inclhack.tpl
 	cd $(srcdir) ; ./genfixes $@
 
 clean:
-	rm -f *.o $(TARGETS) fixincl.x
+	rm -f *.o $(TARGETS) fixincl.x machname.h
 
 #  Ensure all the targets are built.  If the program "fixincl"
 #  failed to compile, link or load, then we install the
@@ -139,3 +137,6 @@ install: $(TARGETS)
 Makefile: Makefile.in ../config.status
 	cd .. \
 	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+machname.h: ../specs
+	$(SHELL) $(srcdir)/genfixes $@

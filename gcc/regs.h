@@ -1,5 +1,6 @@
 /* Define per-register tables for data flow info and register allocation.
-   Copyright (C) 1987, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -202,4 +203,4 @@ extern int caller_save_needed;
 #endif
 
 /* Allocate reg_n_info tables */
-extern void allocate_reg_info PROTO((size_t, int, int));
+extern void allocate_reg_info PARAMS ((size_t, int, int));

@@ -1,5 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
-   Copyright (C) 1987, 88, 91, 94, 95, 97, 98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -58,16 +59,16 @@ struct clobber_ent
   struct clobber_ent *next;
 };
 
-static void max_operand_1		PROTO((rtx));
-static int max_operand_vec		PROTO((rtx, int));
-static void print_code			PROTO((RTX_CODE));
-static void gen_exp			PROTO((rtx, enum rtx_code));
-static void gen_insn			PROTO((rtx));
-static void gen_expand			PROTO((rtx));
-static void gen_split			PROTO((rtx));
-static void output_add_clobbers		PROTO((void));
-static void gen_rtx_scratch		PROTO((rtx, enum rtx_code));
-static void output_peephole2_scratches	PROTO((rtx));
+static void max_operand_1		PARAMS ((rtx));
+static int max_operand_vec		PARAMS ((rtx, int));
+static void print_code			PARAMS ((RTX_CODE));
+static void gen_exp			PARAMS ((rtx, enum rtx_code));
+static void gen_insn			PARAMS ((rtx));
+static void gen_expand			PARAMS ((rtx));
+static void gen_split			PARAMS ((rtx));
+static void output_add_clobbers		PARAMS ((void));
+static void gen_rtx_scratch		PARAMS ((rtx, enum rtx_code));
+static void output_peephole2_scratches	PARAMS ((rtx));
 
 
 static void
@@ -572,7 +573,7 @@ gen_split (split)
   /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
     {
-      printf ("extern rtx gen_%s_%d PROTO ((rtx, rtx *));\n",
+      printf ("extern rtx gen_%s_%d PARAMS ((rtx, rtx *));\n",
 	      name, insn_code_number);
       printf ("rtx\ngen_%s_%d (curr_insn, operands)\n\
      rtx curr_insn ATTRIBUTE_UNUSED;\n\
@@ -581,7 +582,7 @@ gen_split (split)
     }
   else
     {
-      printf ("extern rtx gen_split_%d PROTO ((rtx *));\n", insn_code_number);
+      printf ("extern rtx gen_split_%d PARAMS ((rtx *));\n", insn_code_number);
       printf ("rtx\ngen_%s_%d (operands)\n     rtx *operands;\n", name,
 	      insn_code_number);
     }
@@ -770,7 +771,7 @@ xrealloc (old, size)
   return ptr;
 }
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)

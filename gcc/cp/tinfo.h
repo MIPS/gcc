@@ -1,9 +1,12 @@
 // RTTI support internals for -*- C++ -*-
-// Copyright (C) 1994, 1995, 1996, 1998, 1999 Free Software Foundation
+// Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000 Free Software Foundation
 
 #include "typeinfo"
 
 // Class declarations shared between the typeinfo implementation files.
+
+#if !defined(__GXX_ABI_VERSION) || __GXX_ABI_VERSION < 100
+// original (old) abi
 
 // type_info for a class with no base classes (or an enum).
 
@@ -24,13 +27,13 @@ struct __user_type_info : public std::type_info {
   // BOFF >= 0, there is only one public non-virtual SUBTYPE base at offset
   //    BOFF, and there are no public virtual SUBTYPE bases.
   //    Therefore check if SUBOBJ is at offset BOFF when we find a target
-  // BOFF == -1, SUBTYPE occurs as multiple public non-virtual bases.
-  //    Lazily search the non-virtual bases of TARGET.
-  // BOFF == -2, SUBTYPE occurs as multiple public virtual or non-virtual bases.
+  // BOFF == -1, SUBTYPE occurs as multiple public virtual or non-virtual bases.
   //    Lazily search all the bases of TARGET.
-  // BOFF == -3, SUBTYPE is not a public base.
-  // For backwards compatibility set BOFF to -2, that is the safe `don't know'
-  // value. We don't care about SUBTYPES as private bases of TARGET, as they
+  // BOFF == -2, SUBTYPE is not a public base.
+  // BOFF == -3, SUBTYPE occurs as multiple public non-virtual bases.
+  //    Lazily search the non-virtual bases of TARGET.
+  // For backwards compatibility set BOFF to -1, that is the safe "unknown"
+  // value. We do not care about SUBTYPES as private bases of TARGET, as they
   // can never succeed as downcasts, only as crosscasts -- and then only if
   // they are virtual. This is more complicated that it might seem.
   void *dyncast (int boff,
@@ -131,7 +134,7 @@ struct __user_type_info : public std::type_info {
     if (boff >= 0)
       return ((char *)subptr - (char *)objptr) == boff
               ? contained_public : not_contained;
-    if (boff == -3)
+    if (boff == -2)
       return not_contained;
     return do_find_public_subobj (boff, subtype, objptr, subptr);
   }
@@ -167,14 +170,23 @@ public:
 
 // type_info for a general class.
 
-typedef unsigned int USItype	__attribute__ ((mode (SI)));
+// Kludge, kludge, kludge.
+#include "tconfig.h"
+
+#if BITS_PER_UNIT == 8
+typedef int myint32 __attribute__ ((mode (SI)));
+#elif BITS_PER_UNIT == 16
+typedef int myint32 __attribute__ ((mode (HI)));
+#elif BITS_PER_UNIT == 32
+typedef int myint32 __attribute__ ((mode (QI)));
+#endif
 
 struct __class_type_info : public __user_type_info {
   enum access { PUBLIC = 1, PROTECTED = 2, PRIVATE = 3 };
 
   struct base_info {
     const __user_type_info *base;
-    USItype offset: 29;
+    myint32 offset: 29;
     bool is_virtual: 1;
     enum access access: 2;
   };
@@ -196,3 +208,8 @@ struct __class_type_info : public __user_type_info {
   virtual sub_kind do_find_public_subobj (int boff, const type_info &subtype,
                                           void *objptr, void *subptr) const;
 };
+#else
+// new abi
+#include <cxxabi.h>
+
+#endif

@@ -1,5 +1,5 @@
 /* Loop optimization definitions for GNU C-Compiler
-   Copyright (C) 1991, 1995, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1995, 1998, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,6 +19,10 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "varray.h"
+#include "basic-block.h"
+
+/* Get the loop info pointer of a loop.  */
+#define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux) 
 
 /* Get the luid of an insn.  Catch the error of trying to reference the LUID
    of an insn added during loop, since these don't have LUIDs.  */
@@ -159,10 +163,6 @@ struct iv_class {
 
 struct loop_info
 {
-  /* Loop number.  */
-  int num;
-  /* Loops enclosed by this loop including itself.  */
-  int loops_enclosed;
   /* Nonzero if there is a subroutine call in the current loop.  */
   int has_call;
   /* Nonzero if there is a volatile memory reference in the current
@@ -200,11 +200,7 @@ struct loop_info
   unsigned HOST_WIDE_INT n_iterations;
   /* The number of times the loop body was unrolled.  */
   unsigned int unroll_number;
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
-  rtx vtop;
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
-     A continue statement will generate a branch to NEXT_INSN (cont).  */
-  rtx cont;
+  int used_count_register;
 };
 
 /* Definitions used by the basic induction variable discovery code.  */
@@ -215,12 +211,8 @@ enum iv_mode { UNKNOWN_INDUCT, BASIC_INDUCT, NOT_BASIC_INDUCT,
 
 extern int *uid_luid;
 extern int max_uid_for_loop;
-extern int *uid_loop_num;
-extern int *loop_outer_loop;
-extern rtx *loop_number_exit_labels;
-extern int *loop_number_exit_count;
 extern int max_reg_before_loop;
-
+extern struct loop **uid_loop;
 extern FILE *loop_dump_stream;
 
 extern varray_type reg_iv_type;
@@ -238,27 +230,21 @@ extern int first_increment_giv, last_increment_giv;
 
 /* Forward declarations for non-static functions declared in loop.c and
    unroll.c.  */
-int invariant_p PROTO((rtx));
-rtx get_condition_for_loop PROTO((rtx));
-void emit_iv_add_mult PROTO((rtx, rtx, rtx, rtx, rtx));
-rtx express_from PROTO((struct induction *, struct induction *));
+int loop_invariant_p PARAMS ((const struct loop *, rtx));
+rtx get_condition_for_loop PARAMS ((const struct loop *, rtx));
+void emit_iv_add_mult PARAMS ((rtx, rtx, rtx, rtx, rtx));
+rtx express_from PARAMS ((struct induction *, struct induction *));
 
-void unroll_loop PROTO((rtx, int, rtx, rtx, struct loop_info *, int));
-rtx biv_total_increment PROTO((struct iv_class *, rtx, rtx));
-unsigned HOST_WIDE_INT loop_iterations PROTO((rtx, rtx, struct loop_info *));
-int precondition_loop_p PROTO((rtx, struct loop_info *, 
+void unroll_loop PARAMS ((struct loop *, int, rtx, int));
+rtx biv_total_increment PARAMS ((struct iv_class *));
+unsigned HOST_WIDE_INT loop_iterations PARAMS ((struct loop *));
+int precondition_loop_p PARAMS ((const struct loop *,
 			       rtx *, rtx *, rtx *, 
 			       enum machine_mode *mode));
-rtx final_biv_value PROTO((struct iv_class *, rtx, rtx,
-			   unsigned HOST_WIDE_INT));
-rtx final_giv_value PROTO((struct induction *, rtx, rtx,
-			   unsigned HOST_WIDE_INT));
-void emit_unrolled_add PROTO((rtx, rtx, rtx));
-int back_branch_in_range_p PROTO((rtx, rtx, rtx));
+rtx final_biv_value PARAMS ((const struct loop *, struct iv_class *));
+rtx final_giv_value PARAMS ((const struct loop *, struct induction *));
+void emit_unrolled_add PARAMS ((rtx, rtx, rtx));
+int back_branch_in_range_p PARAMS ((const struct loop *, rtx));
 
-int loop_insn_first_p PROTO((rtx, rtx));
-
-/* Forward declarations for non-static functions declared in stmt.c.  */
-void find_loop_tree_blocks PROTO((void));
-void unroll_block_trees PROTO((void));
+int loop_insn_first_p PARAMS ((rtx, rtx));
 

@@ -1,24 +1,23 @@
 /* Perform optimizations on tree structure.
-
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU CC is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
    
-   GNU CC is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,6 +25,7 @@
 #include "cp-tree.h"
 #include "rtl.h"
 #include "insn-config.h"
+#include "input.h"
 #include "integrate.h"
 #include "varray.h"
 
@@ -39,11 +39,8 @@
      are not needed.
      
    o Provide heuristics to clamp inlining of recursive template
-     calls?  
+     calls?  */
 
-   o It looks like the return label is not being placed in the optimal
-     place.  Shouldn't it come before the returned value?  */
-   
 /* Data required for function inlining.  */
 
 typedef struct inline_data
@@ -65,17 +62,17 @@ typedef struct inline_data
 
 /* Prototypes.  */
 
-static tree initialize_inlined_parameters PROTO((inline_data *, tree, tree));
-static tree declare_return_variable PROTO((inline_data *, tree *));
-static tree copy_body_r PROTO((tree *, int *, void *));
-static tree copy_body PROTO((inline_data *));
-static tree expand_call_inline PROTO((tree *, int *, void *));
-static void expand_calls_inline PROTO((tree *, inline_data *));
-static int inlinable_function_p PROTO((tree, inline_data *));
-static tree remap_decl PROTO((tree, inline_data *));
-static void remap_block PROTO((tree, tree, inline_data *));
-static void copy_scope_stmt PROTO((tree *, int *, inline_data *));
-static tree calls_setjmp_r PROTO((tree *, int *, void *));
+static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree));
+static tree declare_return_variable PARAMS ((inline_data *, tree *));
+static tree copy_body_r PARAMS ((tree *, int *, void *));
+static tree copy_body PARAMS ((inline_data *));
+static tree expand_call_inline PARAMS ((tree *, int *, void *));
+static void expand_calls_inline PARAMS ((tree *, inline_data *));
+static int inlinable_function_p PARAMS ((tree, inline_data *));
+static tree remap_decl PARAMS ((tree, inline_data *));
+static void remap_block PARAMS ((tree, tree, inline_data *));
+static void copy_scope_stmt PARAMS ((tree *, int *, inline_data *));
+static tree calls_setjmp_r PARAMS ((tree *, int *, void *));
 
 /* Remap DECL during the copying of the BLOCK tree for the function.
    DATA is really an `inline_data *'.  */
@@ -104,6 +101,17 @@ remap_decl (decl, id)
       /* Make a copy of the variable or label.  */
       t = copy_decl_for_inlining (decl, fn, 
 				  VARRAY_TREE (id->fns, 0));
+
+      /* The decl T could be a dynamic array or other variable size type,
+	 in which case some fields need to be remapped because they may
+	 contain SAVE_EXPRs.  */
+      walk_tree (&DECL_SIZE (t), copy_body_r, id);
+      walk_tree (&DECL_SIZE_UNIT (t), copy_body_r, id);
+      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE
+	  && TYPE_DOMAIN (TREE_TYPE (t)))
+	walk_tree (&TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (t))),
+		   copy_body_r, id);
+
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
       n = splay_tree_insert (id->decl_map, 
@@ -285,6 +293,9 @@ copy_body_r (tp, walk_subtrees, data)
       /* Replace this variable with the copy.  */
       *tp = new_decl;
     }
+  else if (nonstatic_local_decl_p (*tp) 
+	   && DECL_CONTEXT (*tp) != VARRAY_TREE (id->fns, 0))
+    my_friendly_abort (0);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, VARRAY_TREE (id->fns, 0), 
 		     walk_subtrees);
@@ -303,7 +314,10 @@ copy_body_r (tp, walk_subtrees, data)
       /* The copied TARGET_EXPR has never been expanded, even if the
 	 original node was expanded already.  */
       if (TREE_CODE (*tp) == TARGET_EXPR && TREE_OPERAND (*tp, 3))
-	TREE_OPERAND (*tp, 1) = TREE_OPERAND (*tp, 3);
+	{
+	  TREE_OPERAND (*tp, 1) = TREE_OPERAND (*tp, 3);
+	  TREE_OPERAND (*tp, 3) = NULL_TREE;
+	}
       /* Similarly, if we're copying a CALL_EXPR, the RTL for the
 	 result is no longer valid.  */
       else if (TREE_CODE (*tp) == CALL_EXPR)
@@ -553,6 +567,13 @@ expand_call_inline (tp, walk_subtrees, data)
   if (!inlinable_function_p (fn, id))
     return NULL_TREE;
 
+  /* Set the current filename and line number to the function we are
+     inlining so that when we create new _STMT nodes here they get
+     line numbers corresponding to the function we are calling.  We
+     wrap the whole inlined body in an EXPR_WITH_FILE_AND_LINE as well
+     because individual statements don't record the filename.  */
+  push_srcloc (fn->decl.filename, fn->decl.linenum);
+
   /* Build a statement-expression containing code to initialize the
      arguments, the actual inline expansion of the body, and a label
      for the return statements within the function to jump to.  The
@@ -620,6 +641,13 @@ expand_call_inline (tp, walk_subtrees, data)
   STMT_EXPR_STMT (expr)
     = chainon (STMT_EXPR_STMT (expr), scope_stmt);
 
+  /* After the body of the function comes the RET_LABEL.  This must come
+     before we evaluate the returned value below, because that evalulation
+     may cause RTL to be generated.  */
+  STMT_EXPR_STMT (expr)
+    = chainon (STMT_EXPR_STMT (expr), 
+	       build_min_nt (LABEL_STMT, id->ret_label));
+
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
   STMT_EXPR_STMT (expr) = chainon (STMT_EXPR_STMT (expr), use_stmt);
@@ -627,11 +655,6 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Clean up.  */
   splay_tree_delete (id->decl_map);
   id->decl_map = st;
-
-  /* After the body of the function comes the RET_LABEL.  */
-  STMT_EXPR_STMT (expr)
-    = chainon (STMT_EXPR_STMT (expr), 
-	       build_min_nt (LABEL_STMT, id->ret_label));
 
   /* The new expression has side-effects if the old one did.  */
   TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
@@ -644,6 +667,7 @@ expand_call_inline (tp, walk_subtrees, data)
 			/*col=*/0);
   EXPR_WFL_EMIT_LINE_NOTE (*tp) = 1;
   TREE_CHAIN (*tp) = chain;
+  pop_srcloc ();
 
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
@@ -726,6 +750,7 @@ calls_setjmp_r (tp, walk_subtrees, data)
 {
   int setjmp_p;
   int longjmp_p;
+  int fork_or_exec_p;
   int malloc_p;
   int alloca_p;
 
@@ -733,7 +758,8 @@ calls_setjmp_r (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) != FUNCTION_DECL)
     return NULL_TREE;
 
-  special_function_p (*tp, &setjmp_p, &longjmp_p, &malloc_p, &alloca_p);
+  special_function_p (*tp, &setjmp_p, &longjmp_p, &fork_or_exec_p, &malloc_p,
+		      &alloca_p);
 
   return setjmp_p ? *tp : NULL_TREE;
 }

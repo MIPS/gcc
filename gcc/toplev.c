@@ -1,5 +1,6 @@
 /* Top level of GNU C compiler
-   Copyright (C) 1987, 88, 89, 92-98, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -141,7 +142,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #ifdef NEED_DECLARATION_ENVIRON
 extern char **environ;
 #endif
-extern const char *version_string;
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
@@ -149,35 +149,34 @@ extern const char *version_string;
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
 
-static void set_target_switch PROTO((const char *));
-static const char *decl_name PROTO((tree, int));
+static void set_target_switch PARAMS ((const char *));
+static const char *decl_name PARAMS ((tree, int));
 
-extern void set_fatal_function PROTO((void (*)(const char *, va_list)));
-static void float_signal PROTO((int)) ATTRIBUTE_NORETURN;
-static void pipe_closed PROTO((int)) ATTRIBUTE_NORETURN;
+static void float_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
+static void pipe_closed PARAMS ((int)) ATTRIBUTE_NORETURN;
 #ifdef ASM_IDENTIFY_LANGUAGE
 /* This might or might not be used in ASM_IDENTIFY_LANGUAGE. */
-static void output_lang_identify PROTO((FILE *)) ATTRIBUTE_UNUSED;
+static void output_lang_identify PARAMS ((FILE *)) ATTRIBUTE_UNUSED;
 #endif
-static void open_dump_file PROTO((const char *, const char *));
-static void close_dump_file PROTO((void (*) (FILE *, rtx), rtx));
-static void dump_rtl PROTO((const char *, tree, void (*) (FILE *, rtx), rtx));
-static void clean_dump_file PROTO((const char *));
-static void compile_file PROTO((char *));
-static void display_help PROTO ((void));
-static void mark_file_stack PROTO ((void *));
+static void open_dump_file PARAMS ((const char *, const char *));
+static void close_dump_file PARAMS ((void (*) (FILE *, rtx), rtx));
+static void dump_rtl PARAMS ((const char *, tree, void (*) (FILE *, rtx), rtx));
+static void clean_dump_file PARAMS ((const char *));
+static void compile_file PARAMS ((char *));
+static void display_help PARAMS ((void));
+static void mark_file_stack PARAMS ((void *));
 
-static void decode_d_option PROTO ((const char *));
-static int  decode_f_option PROTO ((const char *));
-static int  decode_W_option PROTO ((const char *));
-static int  decode_g_option PROTO ((const char *));
-static unsigned independent_decode_option PROTO ((int, char **, unsigned));
+static void decode_d_option PARAMS ((const char *));
+static int  decode_f_option PARAMS ((const char *));
+static int  decode_W_option PARAMS ((const char *));
+static int  decode_g_option PARAMS ((const char *));
+static unsigned independent_decode_option PARAMS ((int, char **, unsigned));
 
-static void print_version PROTO((FILE *, const char *));
-static int print_single_switch PROTO((FILE *, int, int, const char *,
+static void print_version PARAMS ((FILE *, const char *));
+static int print_single_switch PARAMS ((FILE *, int, int, const char *,
 				      const char *, const char *,
 				      const char *, const char *));
-static void print_switch_values PROTO((FILE *, int, int, const char *,
+static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 				       const char *, const char *));
 
 /* Length of line when printing switch values.  */
@@ -250,6 +249,7 @@ int jump2_opt_dump = 0;
 #ifdef DELAY_SLOTS
 int dbr_sched_dump = 0;
 #endif
+int reorder_blocks_dump = 0;
 int flag_print_asm_name = 0;
 #ifdef STACK_REGS
 int stack_reg_dump = 0;
@@ -257,6 +257,7 @@ int stack_reg_dump = 0;
 #ifdef MACHINE_DEPENDENT_REORG
 int mach_dep_reorg_dump = 0;
 #endif
+int ssa_dump = 0;
 static int flag_print_mem = 0;
 static int version_flag = 0;
 static char * filename = 0;
@@ -307,6 +308,14 @@ int errorcount = 0;
 int warningcount = 0;
 int sorrycount = 0;
 
+/* The FUNCTION_DECL for the function currently being compiled,
+   or 0 if between functions.  */
+tree current_function_decl;
+
+/* Set to the FUNC_BEGIN label of the current function, or NULL_TREE
+   if none.  */
+tree current_function_func_begin_label;
+
 /* Pointer to function to compute the name to use to print a declaration.
    DECL is the declaration in question.
    VERBOSITY determines what information will be printed:
@@ -315,22 +324,22 @@ int sorrycount = 0;
      2: and any other information that might be interesting, such as function
         parameter types in C++.  */
 
-const char *(*decl_printable_name)	PROTO ((tree, int));
+const char *(*decl_printable_name)	PARAMS ((tree, int));
 
 /* Pointer to function to compute rtl for a language-specific tree code.  */
 
 typedef rtx (*lang_expand_expr_t)
-  PROTO ((union tree_node *, rtx, enum machine_mode,
+  PARAMS ((union tree_node *, rtx, enum machine_mode,
 	  enum expand_modifier modifier));
 
 lang_expand_expr_t lang_expand_expr = 0;
 
-tree (*lang_expand_constant) PROTO((tree)) = 0;
+tree (*lang_expand_constant) PARAMS ((tree)) = 0;
 
 /* Pointer to function to finish handling an incomplete decl at the
    end of compilation.  */
 
-void (*incomplete_decl_finalize_hook) PROTO((tree)) = 0;
+void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -352,6 +361,10 @@ int flag_test_coverage = 0;
 
 int flag_branch_probabilities = 0;
 
+/* Nonzero if basic blocks should be reordered. */
+
+int flag_reorder_blocks = 0;
+
 /* Nonzero for -pedantic switch: warn about anything
    that standard spec forbids.  */
 
@@ -361,11 +374,6 @@ int pedantic = 0;
    This is set while reading code from a system header file.  */
 
 int in_system_header = 0;
-
-/* Nonzero means do stupid register allocation.
-   Currently, this is 1 if `optimize' is 0.  */
-
-int obey_regdecls = 0;
 
 /* Don't print functions as they are compiled and don't print
    times taken by the various passes.  -quiet.  */
@@ -688,6 +696,9 @@ int flag_gnu_linker = 0;
 int flag_gnu_linker = 1;
 #endif
 
+/* Enable SSA.  */
+int flag_ssa = 0;
+
 /* Tag all structures with __attribute__(packed) */
 int flag_pack_struct = 0;
 
@@ -942,6 +953,8 @@ lang_independent_options f_options[] =
    "Create data files needed by gcov" },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    "Use profiling information for branch probabilities" },
+  {"reorder-blocks", &flag_reorder_blocks, 1,
+   "Reorder basic blocks to improve code placement" },
   {"fast-math", &flag_fast_math, 1,
    "Improve FP speed by violating ANSI & IEEE rules" },
   {"common", &flag_no_common, 0,
@@ -988,6 +1001,8 @@ lang_independent_options f_options[] =
    "Suppress output of instruction numbers and line number notes in debugging dumps"},
   {"instrument-functions", &flag_instrument_function_entry_exit, 1,
    "Instrument function entry/exit with profiling calls"},
+  {"ssa", &flag_ssa, 1,
+   "Enable SSA optimizations" },
   {"leading-underscore", &flag_leading_underscore, 1,
    "External symbols have a leading underscore" },
   {"ident", &flag_no_ident, 0,
@@ -1114,7 +1129,7 @@ documented_lang_options[] =
   { "-Wno-sign-compare", "" },
   { "-Wfloat-equal", "Warn about testing equality of floating point numbers" },
   { "-Wno-float-equal", "" },
-  { "-Wunknown-pragmas", "Warn about unrecognised pragmas" },
+  { "-Wunknown-pragmas", "Warn about unrecognized pragmas" },
   { "-Wno-unknown-pragmas", "" },
   { "-Wstrict-prototypes", "Warn about non-prototyped function decls" },
   { "-Wno-strict-prototypes", "" },
@@ -1224,14 +1239,14 @@ int warn_cast_align;
    characters.  The value N is in `id_clash_len'.  */
 
 int warn_id_clash;
-unsigned id_clash_len;
+int id_clash_len;
 
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
  
 int warn_larger_than;
-unsigned larger_than_size;
+HOST_WIDE_INT larger_than_size;
 
 /* Nonzero means warn if inline function is too large.  */
 
@@ -1335,6 +1350,7 @@ int flow2_time;
 int peephole2_time;
 int sched2_time;
 int dbr_sched_time;
+int reorder_blocks_time;
 int shorten_branch_time;
 int stack_reg_time;
 int final_time;
@@ -1423,7 +1439,7 @@ print_time (str, total)
   fprintf (stderr,
 	   "time in %s: %d.%06d (%.0f%%)\n",
 	   str, total / 1000000, total % 1000000,
-	   (double)total / (double)all_time * 100.0);
+	   all_time == 0 ? 0.00 : (double) total / (double) all_time * 100.0);
 }
 
 /* This is the default decl_printable_name function.  */
@@ -1557,7 +1573,7 @@ set_float_handler (handler)
 
 int
 do_float_handler (fn, data)
-  void (*fn) PROTO ((PTR));
+  void (*fn) PARAMS ((PTR));
   PTR data;
 {
   jmp_buf buf;
@@ -1742,7 +1758,7 @@ open_dump_file (suffix, function_name)
 /* Routine to close a dump file.  */
 static void
 close_dump_file (func, insns)
-     void (*func) PROTO ((FILE *, rtx));
+     void (*func) PARAMS ((FILE *, rtx));
      rtx    insns;
 {
   TIMEVAR
@@ -1765,7 +1781,7 @@ static void
 dump_rtl (suffix, decl, func, insns)
      const char *suffix;
      tree   decl;
-     void (*func) PROTO ((FILE *, rtx));
+     void (*func) PARAMS ((FILE *, rtx));
      rtx    insns;
 {
   open_dump_file (suffix, decl_printable_name (decl, 2));
@@ -1994,6 +2010,52 @@ check_global_declarations (vec, len)
     }
 }
 
+/* Save the current INPUT_FILENAME and LINENO on the top entry in the
+   INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
+   INPUT_FILENAME and LINENO accordingly.  */
+
+void
+push_srcloc (file, line)
+     char *file;
+     int line;
+{
+  struct file_stack *fs;
+
+  if (input_file_stack)
+    {
+      input_file_stack->name = input_filename;
+      input_file_stack->line = lineno;
+    }
+
+  fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
+  fs->name = input_filename = file;
+  fs->line = lineno = line;
+  fs->indent_level = 0;
+  fs->next = input_file_stack;
+  input_file_stack = fs;
+  input_file_stack_tick++;
+}
+
+/* Pop the top entry off the stack of presently open source files.
+   Restore the INPUT_FILENAME and LINENO from the new topmost entry on
+   the stack.  */
+
+void
+pop_srcloc ()
+{
+  struct file_stack *fs;
+  
+  fs = input_file_stack;
+  input_file_stack = fs->next;
+  free (fs);
+  input_file_stack_tick++;
+  /* The initial souce file is never popped.  */
+  if (!input_file_stack)
+    abort ();
+  input_filename = input_file_stack->name;
+  lineno = input_file_stack->line;
+}
+
 /* Compile an entire file of output from cpp, named NAME.
    Write a file of assembly output and various debugging dumps.  */
 
@@ -2028,6 +2090,7 @@ compile_file (name)
   peephole2_time = 0;
   sched2_time = 0;
   dbr_sched_time = 0;
+  reorder_blocks_time = 0;
   shorten_branch_time = 0;
   stack_reg_time = 0;
   final_time = 0;
@@ -2094,6 +2157,11 @@ compile_file (name)
       clean_dump_file (".03.addressof");
       if (graph_dump_format != no_graph)
 	clean_graph_dump_file (dump_base_name, ".03.addressof");
+    }
+  if (ssa_dump)
+    {
+      clean_dump_file (".033.ssa");
+      clean_dump_file (".037.ussa");
     }
   if (gcse_dump)
     {
@@ -2179,6 +2247,12 @@ compile_file (name)
 	clean_graph_dump_file (dump_base_name, ".16.sched2");
     }
 #endif
+  if (reorder_blocks_dump)
+    {
+      clean_dump_file (".bbro");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".bbro");
+    }
   if (jump2_opt_dump)
     {
       clean_dump_file (".17.jump2");
@@ -2248,10 +2322,7 @@ compile_file (name)
   input_filename = name;
 
   /* Put an entry on the input file stack for the main input file.  */
-  input_file_stack
-    = (struct file_stack *) xmalloc (sizeof (struct file_stack));
-  input_file_stack->next = 0;
-  input_file_stack->name = input_filename;
+  push_srcloc (input_filename, 0);
 
   /* Perform language-specific initialization.
      This may set main_input_filename.  */
@@ -2561,6 +2632,8 @@ compile_file (name)
       if (sched2_dump)
 	finish_graph_dump_file (dump_base_name, ".16.sched2");
 #endif
+      if (reorder_blocks_dump)
+	finish_graph_dump_file (dump_base_name, ".bbro");
       if (jump2_opt_dump)
 	finish_graph_dump_file (dump_base_name, ".17.jump2");
 #ifdef MACHINE_DEPENDENT_REORG
@@ -2614,6 +2687,7 @@ compile_file (name)
 #ifdef DELAY_SLOTS
       print_time ("dbranch", dbr_sched_time);
 #endif
+      print_time ("bbro", reorder_blocks_time);
       print_time ("shorten-branch", shorten_branch_time);
 #ifdef STACK_REGS
       print_time ("stack-reg", stack_reg_time);
@@ -2782,7 +2856,12 @@ rest_of_compilation (decl)
      have been run to re-initialize it.  */
   cse_not_expected = ! optimize;
 
-  /* First, remove any notes we don't need.  That will make iterating
+  /* First, make sure that NOTE_BLOCK is set correctly for each
+     NOTE_INSN_BLOCK_BEG/NOTE_INSN_BLOCK_END note.  */
+  if (!cfun->x_whole_function_mode_p)
+    identify_blocks ();
+
+  /* Then remove any notes we don't need.  That will make iterating
      over the instruction sequence faster, and allow the garbage
      collector to reclaim the memory used by the notes.  */
   remove_unncessary_notes ();
@@ -2790,10 +2869,7 @@ rest_of_compilation (decl)
   /* In function-at-a-time mode, we do not attempt to keep the BLOCK
      tree in sensible shape.  So, we just recalculate it here.  */
   if (cfun->x_whole_function_mode_p)
-    {
-      find_loop_tree_blocks ();
-      unroll_block_trees ();
-    }
+    reorder_blocks ();
 
   /* If we are reconsidering an inline function
      at the end of compilation, skip the stuff for making it inline.  */
@@ -2865,17 +2941,15 @@ rest_of_compilation (decl)
 	 for those functions that need to be output.  Also defer those
 	 functions that we are supposed to defer.  */
 
-      if (inlinable)
-	DECL_DEFER_OUTPUT (decl) = 1;
-
-      if (DECL_DEFER_OUTPUT (decl)
+      if (inlinable
 	  || (DECL_INLINE (decl)
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
 		   && ! flag_keep_inline_functions)
 		  || DECL_EXTERNAL (decl))))
-	{
-	  DECL_DEFER_OUTPUT (decl) = 1;
+	DECL_DEFER_OUTPUT (decl) = 1;
 
+      if (DECL_DEFER_OUTPUT (decl))
+	{
 	  /* If -Wreturn-type, we have to do a bit of compilation.
 	     However, if we just fall through we will call
 	     save_for_inline_copying() which results in excessive
@@ -2894,6 +2968,12 @@ rest_of_compilation (decl)
 	      optimize = saved_optimize;
 	    }
 
+	  current_function_nothrow = nothrow_function_p ();
+	  if (current_function_nothrow)
+	    /* Now we know that this can't throw; set the flag for the benefit
+	       of other functions later in this translation unit.  */
+	    TREE_NOTHROW (current_function_decl) = 1;
+
 	  note_deferral_of_defined_inline_function (decl);
 	  TIMEVAR (integration_time, save_for_inline_nocopy (decl));
 	  DECL_SAVED_INSNS (decl)->inlinable = inlinable;
@@ -2906,6 +2986,15 @@ rest_of_compilation (decl)
       if (DECL_EXTERNAL (decl))
 	goto exit_rest_of_compilation;
     }
+
+  /* We may have potential sibling or tail recursion sites.  Select one
+     (of possibly multiple) methods of performing the call.  */
+  init_EXPR_INSN_LIST_cache ();
+  if (optimize)
+    optimize_sibling_and_tail_recursive_calls ();
+  
+  if (ggc_p)
+    ggc_collect ();
 
   /* Initialize some variables used by the optimizers.  */
   init_function_for_compilation ();
@@ -2949,9 +3038,7 @@ rest_of_compilation (decl)
 
   /* Copy any shared structure that should not be shared.  */
 
-  unshare_all_rtl (insns);
-
-  init_EXPR_INSN_LIST_cache ();
+  unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
   /* This must be performed before virutal register instantiation.  */
@@ -3062,6 +3149,30 @@ rest_of_compilation (decl)
 
   if (ggc_p)
     ggc_collect ();
+
+  if (flag_ssa)
+    {
+      if (ssa_dump)
+	open_dump_file (".033.ssa", decl_printable_name (decl, 2));
+      convert_to_ssa ();
+      if (ssa_dump)
+	close_dump_file (print_rtl_with_bb, insns);
+
+      if (ssa_dump)
+	open_dump_file (".037.ussa", decl_printable_name (decl, 2));
+      convert_from_ssa ();
+      /* New registers have been created.  Rescan their usage.  */
+      reg_scan (insns, max_reg_num (), 1);
+      if (ssa_dump)
+	close_dump_file (print_rtl_with_bb, insns);
+
+      /* Life analysis used in SSA adds log_links but these shouldn't
+	 be there until the flow stage, so clear them away.  */
+      clear_log_links (insns);
+
+      if (ggc_p)
+	ggc_collect ();
+    }
 
   /* Perform global cse.  */
 
@@ -3207,13 +3318,6 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
-  /* Now we choose between stupid (pcc-like) register allocation
-     (if we got the -noreg switch and not -opt)
-     and smart register allocation.  */
-
-  if (optimize > 0)		/* Stupid allocation probably won't work */
-    obey_regdecls = 0;		/* if optimizations being done.  */
-
   regclass_init ();
 
   /* Print function header into flow dump now
@@ -3222,34 +3326,25 @@ rest_of_compilation (decl)
   if (flow_dump)
     open_dump_file (".08.flow", decl_printable_name (decl, 2));
   
-  if (obey_regdecls)
-    {
-      TIMEVAR (flow_time,
-	       {
-		 regclass (insns, max_reg_num (), NULL);
-		 stupid_life_analysis (insns, max_reg_num (),
-				       rtl_dump_file);
-	       });
-    }
-  else
-    {
-      /* Do control and data flow analysis,
-	 and write some of the results to dump file.  */
+  /* Do control and data flow analysis; wrote some of the results to
+     the dump file.  */
 
-      TIMEVAR
-	(flow_time,
-	 {
-	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file, 1);
-	   calculate_loop_depth (rtl_dump_file);
-	   life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
-	 });
+  TIMEVAR
+    (flow_time,
+     {
+       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+       cleanup_cfg (insns);
+       if (optimize)
+	 calculate_loop_depth (rtl_dump_file);
+       life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
+       mark_constant_function ();
+     });
 
-      if (warn_uninitialized || extra_warnings)
-	{
-	  uninitialized_vars_warning (DECL_INITIAL (decl));
-          if (extra_warnings)
-	    setjmp_args_warning ();
-	}
+  if (warn_uninitialized || extra_warnings)
+    {
+      uninitialized_vars_warning (DECL_INITIAL (decl));
+      if (extra_warnings)
+	setjmp_args_warning ();
     }
 
   /* Dump rtl after flow analysis.  */
@@ -3272,7 +3367,21 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
-      TIMEVAR (combine_time, combine_instructions (insns, max_reg_num ()));
+      int rebuild_jump_labels_after_combine = 0;
+
+      TIMEVAR (combine_time, 
+	       {
+		 rebuild_jump_labels_after_combine
+		   = combine_instructions (insns, max_reg_num ());
+	       });
+      
+      /* Combining insns may have turned an indirect jump into a
+	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
+	 instructions.  */
+      if (rebuild_jump_labels_after_combine)
+	{
+	  TIMEVAR (jump_time, rebuild_jump_labels (insns));
+	}
 
       /* Dump rtl code after insn combination.  */
 
@@ -3308,10 +3417,15 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
-  /* Print function header into sched dump now
-     because doing the sched analysis makes some of the dump.  */
+  if (optimize && n_basic_blocks)
+    {
+      TIMEVAR (gcse_time, optimize_mode_switching (NULL_PTR));
+    }
 
 #ifdef INSN_SCHEDULING
+
+  /* Print function header into sched dump now
+     because doing the sched analysis makes some of the dump.  */
   if (optimize > 0 && flag_schedule_insns)
     {
       if (sched_dump)
@@ -3344,24 +3458,20 @@ rest_of_compilation (decl)
   if (local_reg_dump)
     open_dump_file (".12.lreg", decl_printable_name (decl, 2));
 
-  /* Unless we did stupid register allocation,
-     allocate pseudo-regs that are used only within 1 basic block. 
+  /* Allocate pseudo-regs that are used only within 1 basic block. 
 
      RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
      jump optimizer after register allocation and reloading are finished.  */
 
-  if (!obey_regdecls)
-    TIMEVAR (local_alloc_time,
-	     {
-	       /* We recomputed reg usage as part of updating the rest
-		  of life info during sched.  */
-	       if (! flag_schedule_insns)
-		 recompute_reg_usage (insns, ! optimize_size);
-	       regclass (insns, max_reg_num (), rtl_dump_file);
-	       rebuild_label_notes_after_reload = local_alloc ();
-	     });
-  else
-    rebuild_label_notes_after_reload = 0;
+  TIMEVAR (local_alloc_time,
+	   {
+	     /* We recomputed reg usage as part of updating the rest
+		of life info during sched.  */
+	     if (! flag_schedule_insns)
+	       recompute_reg_usage (insns, ! optimize_size);
+	     regclass (insns, max_reg_num (), rtl_dump_file);
+	     rebuild_label_notes_after_reload = local_alloc ();
+	   });
 
   /* Dump rtl code after allocating regs within basic blocks.  */
 
@@ -3381,18 +3491,19 @@ rest_of_compilation (decl)
   if (global_reg_dump)
     open_dump_file (".13.greg", decl_printable_name (decl, 2));
 
-  /* Unless we did stupid register allocation,
-     allocate remaining pseudo-regs, then do the reload pass
-     fixing up any insns that are invalid.  */
+  /* If optimizing, allocate remaining pseudo-regs.  Do the reload
+     pass fixing up any insns that are invalid.  */
 
   TIMEVAR (global_alloc_time,
 	   {
-	     if (!obey_regdecls)
+	     if (optimize)
 	       failure = global_alloc (rtl_dump_file);
 	     else
-	       failure = reload (insns, 0, rtl_dump_file);
+	       {
+		 build_insn_chain (insns);
+		 failure = reload (insns, 0, rtl_dump_file);
+	       }
 	   });
-
 
   if (failure)
     goto exit_rest_of_compilation;
@@ -3404,19 +3515,6 @@ rest_of_compilation (decl)
   if (optimize > 0)
     reload_cse_regs (insns);
 
-  /* Register allocation and reloading may have turned an indirect jump into
-     a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
-     jumping instructions.  */
-  if (rebuild_label_notes_after_reload)
-    TIMEVAR (jump_time, rebuild_jump_labels (insns));
-
-  /* On some machines, the prologue and epilogue code, or parts thereof,
-     can be represented as RTL.  Doing so lets us schedule insns between
-     it and the rest of the code and also allows delayed branch
-     scheduling to operate in the epilogue.  */
-
-  thread_prologue_and_epilogue_insns (insns);
-
   /* If optimizing and we are performing instruction scheduling after
      reload, then go ahead and split insns now since we are about to
      recompute flow information anyway.
@@ -3425,6 +3523,12 @@ rest_of_compilation (decl)
      for double-word operations.  */
   if (optimize > 0 && flag_schedule_insns_after_reload)
     split_all_insns (0);
+
+  /* Register allocation and reloading may have turned an indirect jump into
+     a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
+     jumping instructions.  */
+  if (rebuild_label_notes_after_reload)
+    TIMEVAR (jump_time, rebuild_jump_labels (insns));
 
   if (global_reg_dump)
     {
@@ -3438,14 +3542,28 @@ rest_of_compilation (decl)
   if (flow2_dump)
     open_dump_file (".14.flow2", decl_printable_name (decl, 2));
   
+  TIMEVAR (flow2_time,
+	   {
+	     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	   });
+
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+  thread_prologue_and_epilogue_insns (insns);
+
   if (optimize)
     {
-      TIMEVAR
-	(flow2_time,
-	 {
-	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file, 1);
-	   life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
-	 });
+      TIMEVAR (flow2_time,
+	       {
+		 cleanup_cfg (insns);
+		 life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
+	       });
+
+#ifndef ACCUMULATE_OUTGOING_ARGS
+      TIMEVAR (flow2_time, { combine_stack_adjustments (); });
+#endif
 
       if (ggc_p)
 	ggc_collect ();
@@ -3507,10 +3625,23 @@ rest_of_compilation (decl)
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
 
-  /* One more attempt to remove jumps to .+1
-     left by dead-store-elimination.
-     Also do cross-jumping this time
-     and delete no-op move insns.  */
+  if (optimize > 0 && flag_reorder_blocks)
+    {
+      if (reorder_blocks_dump)
+	open_dump_file (".bbro", decl_printable_name (decl, 2));
+
+      TIMEVAR (reorder_blocks_time, reorder_basic_blocks ());
+
+      if (reorder_blocks_dump)
+	{
+	  close_dump_file (print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".bbro", insns);
+	}
+    }    
+
+  /* One more attempt to remove jumps to .+1 left by dead-store elimination. 
+     Also do cross-jumping this time and delete no-op move insns.  */
 
   if (optimize > 0)
     {
@@ -3595,16 +3726,22 @@ rest_of_compilation (decl)
 	print_rtl_graph_with_bb (dump_base_name, ".20.stack", insns);
     }
 
-   if (ggc_p)
-     ggc_collect ();
+  if (ggc_p)
+    ggc_collect ();
 #endif
+
+  current_function_nothrow = nothrow_function_p ();
+  if (current_function_nothrow)
+    /* Now we know that this can't throw; set the flag for the benefit
+       of other functions later in this translation unit.  */
+    TREE_NOTHROW (current_function_decl) = 1;
 
   /* Now turn the rtl into assembler code.  */
 
   TIMEVAR (final_time,
 	   {
 	     rtx x;
-	     char *fnname;
+	     const char *fnname;
 
 	     /* Get the function's name, as described by its RTL.
 		This may be different from the DECL_NAME name used
@@ -3633,8 +3770,8 @@ rest_of_compilation (decl)
 	     regset_release_memory ();
 	   });
 
-   if (ggc_p)
-     ggc_collect ();
+  if (ggc_p)
+    ggc_collect ();
 
   /* Write DBX symbols if requested */
 
@@ -3913,6 +4050,7 @@ decode_d_option (arg)
 #ifdef DELAY_SLOTS
 	dbr_sched_dump = 1;
 #endif
+	reorder_blocks_dump = 1;
 	flow_dump = 1;
 	flow2_dump = 1;
 	global_reg_dump = 1;
@@ -3935,12 +4073,16 @@ decode_d_option (arg)
 	mach_dep_reorg_dump = 1;
 #endif
 	peephole2_dump = 1;
+	ssa_dump = 1;
 	break;
       case 'A':
 	flag_debug_asm = 1;
 	break;
       case 'b':
 	branch_prob_dump = 1;
+	break;
+      case 'B':
+	reorder_blocks_dump = 1;
 	break;
       case 'c':
 	combine_dump = 1;
@@ -3950,6 +4092,9 @@ decode_d_option (arg)
 	dbr_sched_dump = 1;
 	break;
 #endif
+      case 'e':
+	ssa_dump = 1;
+	break;
       case 'f':
 	flow_dump = 1;
 	break;
@@ -4027,7 +4172,7 @@ decode_d_option (arg)
       case 'I':
 	break;
       default:
-	warning ("unrecognised gcc debugging option: %c", arg[-1]);
+	warning ("unrecognized gcc debugging option: %c", arg[-1]);
 	break;
       }
 }
@@ -4076,8 +4221,8 @@ decode_f_option (arg)
   else if (!strncmp (arg, "align-loops=", 12))
     align_loops = read_integral_parameter (arg + 12, arg - 2, align_loops);
   else if (!strncmp (arg, "align-functions=", 16))
-    align_functions =
-      read_integral_parameter (arg + 16, arg - 2, align_functions);
+    align_functions
+      = read_integral_parameter (arg + 16, arg - 2, align_functions);
   else if (!strncmp (arg, "align-jumps=", 12))
     align_jumps = read_integral_parameter (arg + 12, arg - 2, align_jumps);
   else if (!strncmp (arg, "align-labels=", 13))
@@ -4103,7 +4248,7 @@ decode_f_option (arg)
     stack_limit_rtx = NULL_RTX;
   else if (!strcmp (arg, "preprocessed"))
     /* Recognise this switch but do nothing.  This prevents warnings
-       about an unrecognised switch if cpplib has not been linked in.  */
+       about an unrecognized switch if cpplib has not been linked in.  */
     ;
   else
     return 0;
@@ -4114,6 +4259,7 @@ decode_f_option (arg)
 /* Parse a -W... comand line switch.  ARG is the value after the -W.
    It is safe to access 'ARG - 2' to generate the full switch name.
    Return the number of strings consumed.  */
+
 static int
 decode_W_option (arg)
      const char * arg;
@@ -4140,23 +4286,17 @@ decode_W_option (arg)
 
   if (!strncmp (arg, "id-clash-", 9))
     {
-      const int id_clash_val = read_integral_parameter (arg + 9, arg - 2, -1);
+      id_clash_len = read_integral_parameter (arg + 9, arg - 2, -1);
       
-      if (id_clash_val != -1)
-	{
-	  id_clash_len = id_clash_val;
-	  warn_id_clash = 1;
-	}
+      if (id_clash_len != -1)
+	warn_id_clash = 1;
     }
   else if (!strncmp (arg, "larger-than-", 12))
     {
-      const int larger_than_val =
-	read_integral_parameter (arg + 12, arg - 2, -1);
-      if (larger_than_val != -1)
-	{
-	  larger_than_size = larger_than_val;
-	  warn_larger_than = 1;
-	}
+      larger_than_size = read_integral_parameter (arg + 12, arg - 2, -1);
+
+      if (larger_than_size != -1)
+	warn_larger_than = 1;
     }
   else
     return 0;
@@ -4486,7 +4626,7 @@ independent_decode_option (argc, argv, strings_processed)
    Exit code is 35 if can't open files, 34 if fatal error,
    33 if had nonfatal errors, else success.  */
 
-extern int main PROTO ((int, char **));
+extern int main PARAMS ((int, char **));
 
 int
 main (argc, argv)
@@ -4536,6 +4676,8 @@ main (argc, argv)
   ggc_add_root (&input_file_stack, 1, sizeof input_file_stack,
 		mark_file_stack);
   ggc_add_rtx_root (&stack_limit_rtx, 1);
+  ggc_add_tree_root (&current_function_decl, 1);
+  ggc_add_tree_root (&current_function_func_begin_label, 1);
 
   /* Perform language-specific options intialization.  */
   lang_init_options ();
@@ -4572,8 +4714,6 @@ main (argc, argv)
 	    }
 	}
     }
-
-  obey_regdecls = (optimize == 0);
 
   if (optimize >= 1)
     {
@@ -4689,7 +4829,7 @@ main (argc, argv)
 		}
 	    }
 	  else
-	    error ("Unrecognised option `%s'", argv[i]);
+	    error ("Unrecognized option `%s'", argv[i]);
 	  
 	  i++;
 	}
@@ -5080,4 +5220,18 @@ debug_undef (lineno, buffer)
       && write_symbols == DWARF2_DEBUG)
     dwarf2out_undef (lineno, buffer);
 #endif /* DWARF2_DEBUGGING_INFO */
+}
+
+/* Tell the debugging backend that we've decided not to emit any
+   debugging information for BLOCK, so it can clean up after any local
+   classes or nested functions.  */
+
+void
+debug_ignore_block (block)
+     tree block ATTRIBUTE_UNUSED;
+{
+#ifdef DWARF2_DEBUGGING_INFO
+  if (write_symbols == DWARF2_DEBUG)
+    dwarf2out_ignore_block (block);
+#endif
 }

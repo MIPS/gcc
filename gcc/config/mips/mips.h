@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS version.
-   Copyright (C) 1989, 90-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
+   1999, 2000 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -30,7 +31,6 @@ extern char	call_used_regs[];
 extern int	may_call_alloca;
 extern char   **save_argv;
 extern int	target_flags;
-extern char    *version_string;
 
 /* MIPS external variables defined in mips.c.  */
 
@@ -588,6 +588,11 @@ extern void		sbss_section PARAMS ((void));
 #define ISA_HAS_CONDMOVE        (mips_isa == 4				\
 				 )
 
+/* ISA has just the integer condition move instructions (movn,movz) */
+#define ISA_HAS_INT_CONDMOVE     0
+
+
+
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC. */
 #define ISA_HAS_8CC		(mips_isa == 4				\
@@ -769,7 +774,7 @@ while (0)
 /* GAS_ASM_SPEC is passed when using gas, rather than the MIPS
    assembler.  */
 
-#define GAS_ASM_SPEC "%{mcpu=*} %{m4650} %{mmad:-m4650} %{m3900} %{v}"
+#define GAS_ASM_SPEC "%{mcpu=*} %{m4650} %{mmad:-m4650} %{m3900} %{v} %{mgp32} %{mgp64}"
 
 /* TARGET_ASM_SPEC is used to select either MIPS_AS_ASM_SPEC or
    GAS_ASM_SPEC as the default, depending upon the value of
@@ -824,6 +829,7 @@ while (0)
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
 %{membedded-pic} \
+%{mfix7000} \
 %{mabi=32:-32}%{mabi=o32:-32}%{mabi=n32:-n32}%{mabi=64:-64}%{mabi=n64:-64} \
 %(target_asm_spec) \
 %(subtarget_asm_spec)"
@@ -1437,6 +1443,11 @@ do {							\
     && (TREE_CODE (TYPE) == ARRAY_TYPE					\
 	|| TREE_CODE (TYPE) == UNION_TYPE				\
 	|| TREE_CODE (TYPE) == RECORD_TYPE)) ? BITS_PER_WORD : (ALIGN))
+
+
+/* Force right-alignment for small varargs in 32 bit little_endian mode */
+
+#define PAD_VARARGS_DOWN (TARGET_64BIT ? BYTES_BIG_ENDIAN : !BYTES_BIG_ENDIAN)
 
 /* Define this macro if an argument declared as `char' or `short' in a
    prototype should actually be passed as an `int'.  In addition to
@@ -2932,14 +2943,19 @@ typedef struct mips_args {
    to be generated at present.  Also, the MIPS assembler does not
    grok li.d Infinity.  */
 
-/* ??? SGI Irix 6 assembler fails for CONST address, so reject them.  */
+/* ??? SGI Irix 6 assembler fails for CONST address, so reject them.  
+   Note that the Irix 6 assembler problem may already be fixed.
+   Note also that the GET_CODE (X) == CONST test catches the mips16
+   gp pseudo reg (see mips16_gp_pseudo_reg) deciding it is not
+   a LEGITIMATE_CONSTANT.  If we ever want mips16 and ABI_N32 or
+   ABI_64 to work together, we'll need to fix this.  */
 #define LEGITIMATE_CONSTANT_P(X)					\
   ((GET_CODE (X) != CONST_DOUBLE					\
     || mips_const_double_ok (X, GET_MODE (X)))				\
-   && ! (GET_CODE (X) == CONST						\
-	 && mips_abi != ABI_32 						\
-	 && mips_abi != ABI_O64 					\
-         && mips_abi != ABI_EABI)					\
+   && ! (GET_CODE (X) == CONST 						\
+	 && ! TARGET_GAS						\
+	 && (mips_abi == ABI_N32 					\
+	     || mips_abi == ABI_64))					\
    && (! TARGET_MIPS16 || mips16_constant (X, GET_MODE (X), 0, 0)))
 
 /* A C compound statement that attempts to replace X with a valid
@@ -3703,9 +3719,6 @@ while (0)
    : (FROM) == FP_REGS && (TO) == FP_REGS ? 2				\
    : GR_REG_CLASS_P (FROM) && (TO) == FP_REGS ? 4			\
    : (FROM) == FP_REGS && GR_REG_CLASS_P (TO) ? 4			\
-   : (((FROM) == HI_REG || (FROM) == LO_REG				\
-       || (FROM) == MD_REGS || (FROM) == HILO_REG)			\
-      && ((TO) == M16_REGS || (TO) == M16_NA_REGS)) ? 6			\
    : (((FROM) == HI_REG || (FROM) == LO_REG				\
        || (FROM) == MD_REGS || (FROM) == HILO_REG)			\
       && GR_REG_CLASS_P (TO)) ? (TARGET_MIPS16 ? 12 : 6)		\
@@ -4514,7 +4527,7 @@ do {									\
 /* Output #ident as a in the read-only data section.  */
 #define ASM_OUTPUT_IDENT(FILE, STRING)					\
 {									\
-  char *p = STRING;							\
+  const char *p = STRING;						\
   int size = strlen (p) + 1;						\
   rdata_section ();							\
   assemble_string (p, size);						\

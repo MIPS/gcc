@@ -101,19 +101,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_SPEC
 #define ASM_SPEC \
   "%{V} %{v:%{!V:-V}} %{n} %{T} %{Ym,*} %{Wa,*:%*} -s %{fpic:-K PIC} %{fPIC:-K PIC}"
-
-#if 0
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
-   Sparc ABI says that long double is 4 words. GNU/Linux does not support
-   long double yet.  */
-#define LONG_DOUBLE_TYPE_SIZE 128
-#endif
-
-/* No weird SPARC variants on Linux */
-#undef TARGET_LIVE_G0
-#define TARGET_LIVE_G0			0
-#undef TARGET_BROKEN_SAVERESTORE
-#define TARGET_BROKEN_SAVERESTORE	0
 
 /* Override MACHINE_STATE_{SAVE,RESTORE} because we have special
    traps available which can get and set the condition codes

@@ -1,5 +1,6 @@
 /* Handle exceptional things in C++.
-   Copyright (C) 1989, 92-97, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -36,24 +37,26 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "eh-common.h"
 
-static void push_eh_cleanup PROTO((void));
-static tree build_eh_type_type PROTO((tree));
-static tree call_eh_info PROTO((void));
-static void push_eh_info PROTO((void));
-static tree get_eh_info PROTO((void));
-static tree get_eh_value PROTO((void));
+static void push_eh_cleanup PARAMS ((tree));
+static tree build_eh_type_type PARAMS ((tree));
+static tree call_eh_info PARAMS ((void));
+static void push_eh_info PARAMS ((void));
+static tree get_eh_info PARAMS ((void));
+static tree get_eh_value PARAMS ((void));
 #if 0
-static tree get_eh_type PROTO((void));
-static tree get_eh_caught PROTO((void));
-static tree get_eh_handlers PROTO((void));
+static tree get_eh_type PARAMS ((void));
+static tree get_eh_caught PARAMS ((void));
+static tree get_eh_handlers PARAMS ((void));
 #endif
-static tree do_pop_exception PROTO((void));
-static tree build_eh_type_type_ref PROTO((tree));
-static tree build_terminate_handler PROTO((void));
-static tree alloc_eh_object PROTO((tree));
-static int complete_ptr_ref_or_void_ptr_p PROTO((tree, tree));
-static void initialize_handler_parm PROTO((tree));
-static tree expand_throw PROTO((tree));
+static int dtor_nothrow PARAMS ((tree));
+static tree do_pop_exception PARAMS ((tree));
+static tree build_eh_type_type_ref PARAMS ((tree));
+static tree build_terminate_handler PARAMS ((void));
+static tree alloc_eh_object PARAMS ((tree));
+static int complete_ptr_ref_or_void_ptr_p PARAMS ((tree, tree));
+static void initialize_handler_parm PARAMS ((tree));
+static tree expand_throw PARAMS ((tree));
+static int decl_is_java_type PARAMS ((tree decl, int err));
 
 #if 0
 /* This is the startup, and finish stuff per exception table.  */
@@ -90,6 +93,14 @@ asm (TEXT_SECTION_ASM_OP);
 #include "decl.h"
 #include "insn-flags.h"
 #include "obstack.h"
+
+/* In a given translation unit we are constrained to catch only C++
+   types or only Java types.  `catch_language' holds the current type,
+   and `catch_language_init' registers whether `catch_language' has
+   been set.  */
+
+static int catch_language_init = 0;
+static int catch_language;
 
 /* ======================================================================
    Briefly the algorithm works like this:
@@ -163,8 +174,9 @@ init_exception_processing ()
   
   if (flag_honor_std)
     push_namespace (get_identifier ("std"));
-  terminate_node = auto_function (get_identifier ("terminate"), vtype);
+  terminate_node = build_cp_library_fn_ptr ("terminate", vtype);
   TREE_THIS_VOLATILE (terminate_node) = 1;
+  TREE_NOTHROW (terminate_node) = 1;
   if (flag_honor_std)
     pop_namespace ();
 
@@ -243,15 +255,8 @@ call_eh_info ()
       t = build_pointer_type (t);
 
       /* And now the function.  */
-      fn = build_lang_decl (FUNCTION_DECL, fn,
-			    build_function_type (t, void_list_node));
-      DECL_EXTERNAL (fn) = 1;
-      TREE_PUBLIC (fn) = 1;
-      DECL_ARTIFICIAL (fn) = 1;
-      pushdecl_top_level (fn);
-      make_function_rtl (fn);
+      fn = push_library_fn (fn, build_function_type (t, void_list_node));
     }
-  mark_used (fn);
   return build_function_call (fn, NULL_TREE);
 }
 
@@ -343,7 +348,7 @@ build_eh_type_type (type)
   return build1 (ADDR_EXPR, ptr_type_node, get_typeid_1 (type));
 }
 
-/* Build the address of a typeinfo function for use in the runtime
+/* Build the address of a typeinfo decl for use in the runtime
    matching field of the new exception model */
 
 static tree
@@ -352,8 +357,8 @@ build_eh_type_type_ref (type)
 {
   tree exp;
 
-  if (type == error_mark_node)
-    return error_mark_node;
+  if (type == NULL_TREE || type == error_mark_node)
+    return type;
 
   /* peel back references, so they match.  */
   if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -362,7 +367,8 @@ build_eh_type_type_ref (type)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  exp = get_tinfo_fn (type);
+  exp = get_tinfo_decl (type);
+  mark_used (exp);
   exp = build1 (ADDR_EXPR, ptr_type_node, exp);
 
   return (exp);
@@ -371,6 +377,7 @@ build_eh_type_type_ref (type)
 /* This routine is called to mark all the symbols representing runtime
    type functions in the exception table as having been referenced.
    This will make sure code is emitted for them. Called from finish_file. */
+
 void 
 mark_all_runtime_matches () 
 {
@@ -396,13 +403,32 @@ mark_all_runtime_matches ()
   free (ptr);
 }
 
+/* Returns nonzero if cleaning up an exception of type TYPE (which can be
+   NULL_TREE for a ... handler) will not throw an exception.  */
+
+static int
+dtor_nothrow (type)
+     tree type;
+{
+  tree fn;
+
+  if (type == NULL_TREE)
+    return 0;
+
+  if (! TYPE_HAS_DESTRUCTOR (type))
+    return 1;
+
+  fn = lookup_member (type, dtor_identifier, 0, 0);
+  fn = TREE_VALUE (fn);
+  return TREE_NOTHROW (fn);
+}
+
 /* Build up a call to __cp_pop_exception, to destroy the exception object
-   for the current catch block.  HANDLER is either true or false, telling
-   the library whether or not it is being called from an exception handler;
-   if it is, it avoids destroying the object on rethrow.  */
+   for the current catch block if no others are currently using it.  */
 
 static tree
-do_pop_exception ()
+do_pop_exception (type)
+     tree type;
 {
   tree fn, cleanup;
   fn = get_identifier ("__cp_pop_exception");
@@ -412,31 +438,27 @@ do_pop_exception ()
     {
       /* Declare void __cp_pop_exception (void *),
 	 as defined in exception.cc. */
-      fn = build_lang_decl
-	(FUNCTION_DECL, fn,
-	 build_function_type (void_type_node, tree_cons
-			      (NULL_TREE, ptr_type_node, void_list_node)));
-      DECL_EXTERNAL (fn) = 1;
-      TREE_PUBLIC (fn) = 1;
-      DECL_ARTIFICIAL (fn) = 1;
-      pushdecl_top_level (fn);
-      make_function_rtl (fn);
+      fn = push_void_library_fn
+	(fn, tree_cons (NULL_TREE, ptr_type_node, void_list_node));
+      /* This can throw if the destructor for the exception throws.  */
+      TREE_NOTHROW (fn) = 0;
     }
 
-  mark_used (fn);
   /* Arrange to do a dynamically scoped cleanup upon exit from this region.  */
   cleanup = lookup_name (get_identifier ("__exception_info"), 0);
   cleanup = build_function_call (fn, tree_cons
 				 (NULL_TREE, cleanup, NULL_TREE));
+  TREE_NOTHROW (cleanup) = dtor_nothrow (type);
   return cleanup;
 }
 
 /* This routine creates the cleanup for the current exception.  */
 
 static void
-push_eh_cleanup ()
+push_eh_cleanup (type)
+     tree type;
 {
-  finish_decl_cleanup (NULL_TREE, do_pop_exception ());
+  finish_decl_cleanup (NULL_TREE, do_pop_exception (type));
 }
 
 /* Build up a call to terminate on the function obstack, for use as an
@@ -448,6 +470,49 @@ build_terminate_handler ()
   return build_function_call (terminate_node, NULL_TREE);
 }
 
+/* Return nonzero value if DECL is a Java type suitable for catch or
+   throw.  */
+
+static int
+decl_is_java_type (decl, err)
+     tree decl;
+     int err;
+{
+  int r = (TREE_CODE (decl) == POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
+	   && TYPE_FOR_JAVA (TREE_TYPE (decl)));
+
+  if (err)
+    {
+      if (TREE_CODE (decl) == REFERENCE_TYPE
+	  && TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
+	  && TYPE_FOR_JAVA (TREE_TYPE (decl)))
+	{
+	  /* Can't throw a reference.  */
+	  cp_error ("type `%T' is disallowed in Java `throw' or `catch'",
+		    decl);
+	}
+
+      if (r)
+	{
+	  tree jthrow_node
+	    = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jthrowable"));
+	  if (jthrow_node == NULL_TREE)
+	    fatal ("call to Java `catch' or `throw', while `jthrowable' undefined");
+	  jthrow_node = TREE_TYPE (TREE_TYPE (jthrow_node));
+
+	  if (! DERIVED_FROM_P (jthrow_node, TREE_TYPE (decl)))
+	    {
+	      /* Thrown object must be a Throwable.  */
+	      cp_error ("type `%T' is not derived from `java::lang::Throwable'",
+			TREE_TYPE (decl));
+	    }
+	}
+    }
+
+  return r;
+}
+
 /* Initialize the catch parameter DECL.  */
 
 static void 
@@ -457,6 +522,7 @@ initialize_handler_parm (decl)
   tree exp;
   tree init;
   tree init_type;
+  int lang;
 
   /* Make sure we mark the catch param as used, otherwise we'll get a
      warning about an unused ((anonymous)).  */
@@ -468,7 +534,42 @@ initialize_handler_parm (decl)
       && TREE_CODE (init_type) != POINTER_TYPE)
     init_type = build_reference_type (init_type);
 
-  exp = get_eh_value ();
+  if (decl_is_java_type (init_type, 0))
+    {
+      tree fn
+	= builtin_function ("_Jv_exception_info", 
+			    build_function_type (ptr_type_node,
+						 tree_cons (NULL_TREE,
+							    void_type_node,
+							    NULL_TREE)),
+			    0, NOT_BUILT_IN, NULL_PTR);
+
+      exp = build (CALL_EXPR, ptr_type_node,
+		   build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)),
+			   fn),
+		   NULL_TREE, NULL_TREE);
+      TREE_SIDE_EFFECTS (exp) = 1;
+      lang = EH_LANG_Java;
+
+      set_exception_lang_code (EH_LANG_Java);
+      set_exception_version_code (1);
+    }
+  else
+    {
+      exp = get_eh_value ();
+      lang = EH_LANG_C_plus_plus;
+    }
+
+  if (catch_language_init)
+    {
+      if (lang != catch_language)
+	error ("mixing C++ and Java `catch'es in single translation unit");
+    }
+  else
+    {
+      catch_language_init = 1;
+      catch_language = lang;
+    }
 
   /* Since pointers are passed by value, initialize a reference to
      pointer catch parm with the address of the value slot.  */ 
@@ -509,7 +610,6 @@ expand_start_catch_block (decl)
 {
   tree compound_stmt_1;
   tree compound_stmt_2;
-  tree type;
 
   if (! doing_eh (1))
     return NULL_TREE;
@@ -522,14 +622,28 @@ expand_start_catch_block (decl)
      cleanup.  */
   compound_stmt_1 = begin_compound_stmt (/*has_no_scope=*/0);
 
-  if (decl)
-    type = build_eh_type_type_ref (TREE_TYPE (decl));
-  else
-    type = NULL_TREE;
-  begin_catch_block (type);
+  if (! decl || ! decl_is_java_type (TREE_TYPE (decl), 1))
+    {
+      /* The ordinary C++ case.  */
+      tree type;
 
-  push_eh_info ();
-  push_eh_cleanup ();
+      if (decl)
+	type = TREE_TYPE (decl);
+      else
+	type = NULL_TREE;
+      begin_catch_block (build_eh_type_type_ref (type));
+
+      push_eh_info ();
+      push_eh_cleanup (type);
+    }
+  else
+    {
+      /* The Java case.  In this case, the match_info is a pointer to
+	 the Java class object.  We assume that the class is a
+	 compiled class.  */
+      tree ref = build_java_class_ref (TREE_TYPE (TREE_TYPE (decl)));
+      begin_catch_block (build1 (ADDR_EXPR, jclass_node, ref));
+    }
 
   /* Create a binding level for the parm.  */
   compound_stmt_2 = begin_compound_stmt (/*has_no_scope=*/0);
@@ -599,50 +713,62 @@ expand_end_eh_spec (raises, try_block)
   handler = begin_handler ();
   blocks = finish_handler_parms (NULL_TREE, handler);
 
-  /* Build up an array of type_infos.  */
-  for (; raises && TREE_VALUE (raises); raises = TREE_CHAIN (raises))
+  if (TREE_VALUE (raises) == NULL_TREE)
     {
-      types = tree_cons
-	(NULL_TREE, build_eh_type_type (TREE_VALUE (raises)), types);
-      ++count;
+      fn = get_identifier ("__check_null_eh_spec");
+      if (IDENTIFIER_GLOBAL_VALUE (fn))
+	fn = IDENTIFIER_GLOBAL_VALUE (fn);
+      else
+	{
+	  tmp = build_function_type (void_type_node, void_list_node);
+	  fn = push_throw_library_fn (fn, tmp);
+	  /* Since the spec doesn't allow any exceptions, this call
+	     will never throw.  */
+	  TREE_NOTHROW (fn) = 1;
+	}
+      tmp = NULL_TREE;
     }
-
-  types = build_nt (CONSTRUCTOR, NULL_TREE, types);
-  TREE_HAS_CONSTRUCTOR (types) = 1;
-
-  /* We can't pass the CONSTRUCTOR directly, so stick it in a variable.  */
-  tmp = build_cplus_array_type (const_ptr_type_node, NULL_TREE);
-  decl = build_decl (VAR_DECL, NULL_TREE, tmp);
-  DECL_ARTIFICIAL (decl) = 1;
-  DECL_INITIAL (decl) = types;
-  DECL_CONTEXT (decl) = current_function_decl;
-  cp_finish_decl (decl, types, NULL_TREE, 0);
-
-  decl = decay_conversion (decl);
-
-  fn = get_identifier ("__check_eh_spec");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
   else
     {
-      tmp = tree_cons
-	(NULL_TREE, integer_type_node, tree_cons
-	 (NULL_TREE, TREE_TYPE (decl), void_list_node));
-      tmp = build_function_type	(void_type_node, tmp);
-  
-      fn = build_lang_decl (FUNCTION_DECL, fn, tmp);
-      DECL_EXTERNAL (fn) = 1;
-      TREE_PUBLIC (fn) = 1;
-      DECL_ARTIFICIAL (fn) = 1;
-      TREE_THIS_VOLATILE (fn) = 1;
-      pushdecl_top_level (fn);
-      make_function_rtl (fn);
+      /* Build up an array of type_infos.  */
+      for (; raises && TREE_VALUE (raises); raises = TREE_CHAIN (raises))
+	{
+	  types = tree_cons
+	    (NULL_TREE, build_eh_type_type (TREE_VALUE (raises)), types);
+	  ++count;
+	}
+
+      types = build_nt (CONSTRUCTOR, NULL_TREE, types);
+      TREE_HAS_CONSTRUCTOR (types) = 1;
+
+      /* We can't pass the CONSTRUCTOR directly, so stick it in a variable.  */
+      tmp = build_cplus_array_type (const_ptr_type_node, NULL_TREE);
+      decl = build_decl (VAR_DECL, NULL_TREE, tmp);
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_INITIAL (decl) = types;
+      DECL_CONTEXT (decl) = current_function_decl;
+      cp_finish_decl (decl, types, NULL_TREE, 0);
+
+      decl = decay_conversion (decl);
+
+      fn = get_identifier ("__check_eh_spec");
+      if (IDENTIFIER_GLOBAL_VALUE (fn))
+	fn = IDENTIFIER_GLOBAL_VALUE (fn);
+      else
+	{
+	  tmp = tree_cons
+	    (NULL_TREE, integer_type_node, tree_cons
+	     (NULL_TREE, TREE_TYPE (decl), void_list_node));
+	  tmp = build_function_type (void_type_node, tmp);
+
+	  fn = push_throw_library_fn (fn, tmp);
+	}
+
+      tmp = tree_cons (NULL_TREE, build_int_2 (count, 0), 
+		       tree_cons (NULL_TREE, decl, NULL_TREE));
     }
 
-  mark_used (fn);
-  tmp = tree_cons (NULL_TREE, build_int_2 (count, 0), 
-		   tree_cons (NULL_TREE, decl, NULL_TREE));
-  tmp = build_call (fn, TREE_TYPE (TREE_TYPE (fn)), tmp);
+  tmp = build_call (fn, tmp);
   finish_expr_stmt (tmp);
 
   finish_handler (blocks, handler);
@@ -670,13 +796,13 @@ expand_exception_blocks ()
 	expand_eh_region_start ();
 
       emit_insns (catch_clauses);
-      catch_clauses = NULL_RTX;
+      catch_clauses = catch_clauses_last = NULL_RTX;
 
       if (exceptions_via_longjmp == 0)
 	expand_eh_region_end (build_terminate_handler ());
 
       emit_insns (catch_clauses);
-      catch_clauses = NULL_RTX;
+      catch_clauses = catch_clauses_last = NULL_RTX;
       emit_label (funcend);
     }
 }
@@ -695,18 +821,10 @@ alloc_eh_object (type)
   else
     {
       /* Declare __eh_alloc (size_t), as defined in exception.cc.  */
-      tree tmp;
-      tmp = tree_cons (NULL_TREE, sizetype, void_list_node);
-      fn = build_lang_decl (FUNCTION_DECL, fn,
-			    build_function_type (ptr_type_node, tmp));
-      DECL_EXTERNAL (fn) = 1;
-      TREE_PUBLIC (fn) = 1;
-      DECL_ARTIFICIAL (fn) = 1;
-      pushdecl_top_level (fn);
-      make_function_rtl (fn);
+      tree tmp = tree_cons (NULL_TREE, sizetype, void_list_node);
+      fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
     }
 
-  mark_used (fn);
   exp = build_function_call (fn, tree_cons
 			     (NULL_TREE, size_in_bytes (type), NULL_TREE));
   exp = build1 (NOP_EXPR, build_pointer_type (type), exp);
@@ -732,7 +850,31 @@ expand_throw (exp)
   if (! doing_eh (1))
     return error_mark_node;
 
-  if (exp)
+  if (exp
+      && decl_is_java_type (TREE_TYPE (exp), 1))
+    {
+      /* A Java `throw' statement.  */
+      tree args = tree_cons (NULL_TREE, exp, NULL);
+
+      fn = get_identifier (exceptions_via_longjmp
+			   ? "_Jv_Sjlj_Throw"
+			   : "_Jv_Throw");
+      if (IDENTIFIER_GLOBAL_VALUE (fn))
+	fn = IDENTIFIER_GLOBAL_VALUE (fn);
+      else
+	{
+	  /* Declare _Jv_Throw (void *), as defined in Java's
+	     exception.cc.  */
+	  tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+	  tmp = build_function_type (ptr_type_node, tmp);
+	  fn = push_library_fn (fn, tmp);
+	  TREE_THIS_VOLATILE (fn) = 1;
+	  TREE_NOTHROW (fn) = 0;
+	}
+
+      exp = build_function_call (fn, args);
+    }
+  else if (exp)
     {
       tree throw_type;
       tree cleanup = NULL_TREE, e;
@@ -761,7 +903,7 @@ expand_throw (exp)
 	{
 	  tree object, ptr;
 
-	  /* OK, this is kind of wacky.  The WP says that we call
+	  /* OK, this is kind of wacky.  The standard says that we call
 	     terminate when the exception handling mechanism, after
 	     completing evaluation of the expression to be thrown but
 	     before the exception is caught (_except.throw_), calls a
@@ -840,16 +982,9 @@ expand_throw (exp)
 	    (NULL_TREE, ptr_type_node, tree_cons
 	     (NULL_TREE, ptr_type_node, tree_cons
 	      (NULL_TREE, cleanup_type, void_list_node)));
-	  fn = build_lang_decl (FUNCTION_DECL, fn,
-				build_function_type (void_type_node, tmp));
-	  DECL_EXTERNAL (fn) = 1;
-	  TREE_PUBLIC (fn) = 1;
-	  DECL_ARTIFICIAL (fn) = 1;
-	  pushdecl_top_level (fn);
-	  make_function_rtl (fn);
+	  fn = push_void_library_fn (fn, tmp);
 	}
 
-      mark_used (fn);
       e = tree_cons (NULL_TREE, exp, tree_cons
 		     (NULL_TREE, throw_type, tree_cons
 		      (NULL_TREE, cleanup, NULL_TREE)));
@@ -865,20 +1000,10 @@ expand_throw (exp)
       if (IDENTIFIER_GLOBAL_VALUE (fn))
 	fn = IDENTIFIER_GLOBAL_VALUE (fn);
       else
-	{
-	  /* Declare void __uncatch_exception (void)
-	     as defined in exception.cc. */
-	  fn = build_lang_decl (FUNCTION_DECL, fn,
-				build_function_type (void_type_node,
-						     void_list_node));
-	  DECL_EXTERNAL (fn) = 1;
-	  TREE_PUBLIC (fn) = 1;
-	  DECL_ARTIFICIAL (fn) = 1;
-	  pushdecl_top_level (fn);
-	  make_function_rtl (fn);
-	}
+	/* Declare void __uncatch_exception (void)
+	   as defined in exception.cc. */
+	fn = push_void_library_fn (fn, void_list_node);
 
-      mark_used (fn);
       exp = build_function_call (fn, NULL_TREE);
     }
 
@@ -945,3 +1070,30 @@ complete_ptr_ref_or_void_ptr_p (type, from)
   return 1;
 }
 
+/* Returns nonzero if FN is a declaration of a standard C library
+   function which is known not to throw.
+
+   [lib.res.on.exception.handling]: None of the functions from the
+   Standard C library shall report an error by throwing an
+   exception, unless it calls a program-supplied function that
+   throws an exception.  */
+
+#include "cfns.h"
+
+int
+nothrow_libfn_p (fn)
+     tree fn;
+{
+  tree id;
+
+  if (TREE_PUBLIC (fn)
+      && DECL_EXTERNAL (fn)
+      && DECL_LANGUAGE (fn) == lang_c)
+    /* OK */;
+  else
+    /* Can't be a C library function.  */
+    return 0;
+
+  id = DECL_ASSEMBLER_NAME (fn);
+  return !!libc_name_p (IDENTIFIER_POINTER (id), IDENTIFIER_LENGTH (id));
+}

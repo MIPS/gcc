@@ -1,3 +1,183 @@
+2000-03-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.ext/array4.C: New test.
+
+2000-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/noreturn-1.c: Check for another bogus noreturn case.
+
+2000-03-19  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/compile/20000314-2.c: Use __SIZE_TYPE__, not size_t.
+
+2000-03-19  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/compile/20000319-1.c: New test.
+
+Tue Mar 14 08:58:37 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000314-3.c: New test.
+	* gcc.c-torture/execute/20000314-2.c: New test.
+	* gcc.c-torture/execute/20000314-1.c: New test.
+	* gcc.c-torture/compile/20000314-2.c: New test.
+	* gcc.c-torture/compile/20000314-1.c: New test.
+
+2000-03-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.warn/inline.C: New test.
+
+2000-03-08  Jason Merrill  <jason@casey.cygnus.com>
+
+	* lib/g++.exp (g++_init): Don't put { } around -fmessage-length=0.
+	(g++_target_compile): Put test-specific options last.
+
+2000-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.eh/vbase4.C: New test.
+
+2000-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.bugs/900215_01.C: Adjust.
+
+2000-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.brendan/misc12.C: Removed.
+	* g++.old-deja/g++.pt/memtemp77.C: Constify.
+	* g++.old-deja/g++.ext/pretty4.C: New test.
+
+2000-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/string2.C: New test.
+
+2000-03-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.warn/impint2.C: New test.	
+
+2000-03-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.warn/impint.C: New test.
+	* g++.old-deja/g++.martin/sts_vectini.C: Add -w option.
+	* g++.old-deja/g++.pt/explicit10.C: Specify -w option.
+	* g++.old-deja/g++.pt/explicit12.C: Likewise.
+	* g++.old-deja/g++.pt/explicit13.C: Likewise.
+	* g++.old-deja/g++.pt/explicit17.C: Likewise.
+	* g++.old-deja/g++.pt/explicit18.C: Likewise.
+	* g++.old-deja/g++.pt/explicit19.C: Likewise.
+	* g++.old-deja/g++.pt/explicit23.C: Likewise.
+	* g++.old-deja/g++.pt/explicit31.C: Likewise.
+	* g++.old-deja/g++.pt/explicit35.C: Likewise.
+	* g++.old-deja/g++.pt/explicit6.C: Likewise.
+	* g++.old-deja/g++.pt/memclass7.C: Likewise.
+
+2000-03-01  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp-redef.c: New test.
+
+2000-02-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/unify7.C: New test.
+
+Sat Feb 26 19:46:09 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* g++.old-deja/g++.ext/attrib5.C: XFAIL on Alpha since no link alias.
+	* g++.old-deja/g++.pt/static3.C: Generalize system name for Alpha.
+
+Fri Feb 25 21:44:49 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000225-1.c: New test.
+
+2000-02-25  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/cpp-li2.c: New test.
+
+	* gcc.dg/cpp-wi1.c: New test.
+
+	* gcc.dg/cpp-li1.c: New test.
+
+2000-02-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/sizeof5.C: New test.
+
+2000-02-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/memtemp79.C: Fixed. Remove XFAIL.
+
+2000-02-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.abi/ptrmem.C: New test.
+
+2000-02-19  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/compile/init-3.c: New.
+
+2000-02-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/g++.exp (g++_init): Add -fmessage-length=0 to
+	ALWAYS_CXXFLAGS.
+
+Fri Feb 11 12:35:40 2000  Robert Lipe <robertl@sco.com>
+
+	* gcc.c-torture/compile/20000211-3.c: New test.
+
+Fri Feb 11 12:35:40 2000  Martin Buchholz <martin@xemacs.org>
+
+	* gcc.c-torture/compile/20000211-2.c: New test.
+
+Fri Feb 11 12:35:40 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000211-1.c: New test.
+
+2000-02-09  Jonathan Larmour  <jlarmour@redhat.co.uk>
+
+	* gcc.dg/special/ecos.exp: Use -static when testing --gc-sections
+        on native targets
+
+2000-02-08  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.other/cast5.C: New test.
+
+2000-02-05  Alan Modra  <alan@SPRI.Levels.UniSA.Edu.Au>
+
+	* gcc.c-torture/execute/20000205-1.c: New.
+
+2000-02-03  Nathan Sidwell  <nathan@acm.org>
+
+	* g++.old-deja/g++.jason/cast3.C: Return void.
+	* g++.old-deja/g++.pt/dynarray.C: Don't be pedantic.
+
+2000-02-02  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/unused-2.c: Use -Wreturn-type instead of -Wall.
+
+	* gcc.dg/loop-1.c: New test.
+
+2000-01-26  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* gcc.dg/unused-2.c: New test.
+
+	* gcc.dg/conv-1.c: New test.
+
+2000-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/g++.exp (g++init): Use g++, not xgcc, to invoke the C++
+	compiler.
+	(tool_option_proc): Fix typo.
+	
+2000-01-24  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.dg/special/ecos.exp (gcsec-1.c): Check the version
+	of the ld on the host, not on the build machine.
+	Also, don't crash if '--help' is not a supported option.
+
+2000-01-24  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/ieee/fp-cmp-4.c: New.
+
+Thu Jan 20 12:34:48 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000120-2.c: New test.
+	* gcc.c-torture/execute/20000120-1.c: New test.
+
 Thu Jan 13 02:29:32 2000  Jeffrey A Law  (law@cygnus.com)
 
 	* gcc.c-torture/execute/20000113-1.c: New test.

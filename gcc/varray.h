@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GNU CC.
@@ -76,6 +76,7 @@ typedef union varray_data_tag {
   struct reg_info_def	 *reg[1];
   struct const_equiv_data const_equiv[1];
   struct basic_block_def *bb[1];
+  struct elt_list       *te[1];
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -90,7 +91,7 @@ typedef struct varray_head_tag {
 
 /* Allocate a virtual array with NUM elements, each of which is SIZE bytes
    long, named NAME.  Array elements are zeroed.  */
-extern varray_type varray_init	PROTO ((size_t, size_t, const char *));
+extern varray_type varray_init	PARAMS ((size_t, size_t, const char *));
 
 #define VARRAY_CHAR_INIT(va, num, name) \
   va = varray_init (num, sizeof (char), name)
@@ -152,13 +153,16 @@ extern varray_type varray_init	PROTO ((size_t, size_t, const char *));
 #define VARRAY_BB_INIT(va, num, name) \
   va = varray_init (num, sizeof (struct basic_block_def *), name)
 
+#define VARRAY_ELT_LIST_INIT(va, num, name) \
+  va = varray_init (num, sizeof (struct elt_list *), name)
+
 /* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
   do { if (vp) { free (vp); vp = (varray_type)0; } } while (0)
 
 /* Grow/shrink the virtual array VA to N elements.  */
-extern varray_type varray_grow	PROTO((varray_type, size_t));
+extern varray_type varray_grow	PARAMS ((varray_type, size_t));
 
 #define VARRAY_GROW(VA, N) ((VA) = varray_grow (VA, N))
 
@@ -166,7 +170,7 @@ extern varray_type varray_grow	PROTO((varray_type, size_t));
 
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
-extern void varray_check_failed PROTO ((varray_type, size_t,
+extern void varray_check_failed PARAMS ((varray_type, size_t,
 					const char *, int,
 					const char *)) ATTRIBUTE_NORETURN;
 #define VARRAY_CHECK(VA, N, T)					\
@@ -219,6 +223,7 @@ extern void varray_check_failed PROTO ((varray_type, size_t,
 #define VARRAY_REG(VA, N)		VARRAY_CHECK (VA, N, reg)
 #define VARRAY_CONST_EQUIV(VA, N)	VARRAY_CHECK (VA, N, const_equiv)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
+#define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)

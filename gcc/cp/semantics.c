@@ -45,9 +45,9 @@
    parsing into this file; that will make implementing the new parser
    much easier since it will be able to make use of these routines.  */
 
-static tree expand_cond PROTO((tree));
-static tree maybe_convert_cond PROTO((tree));
-static tree simplify_aggr_init_exprs_r PROTO((tree *, int *, void *));
+static tree expand_cond PARAMS ((tree));
+static tree maybe_convert_cond PARAMS ((tree));
+static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
 
 /* Record the fact that STMT was the last statement added to the
    statement tree.  */
@@ -281,7 +281,7 @@ begin_while_stmt ()
   return r;
 }
 
-/* Process the COND of an if-statement, which may be given by
+/* Process the COND of a while-statement, which may be given by
    WHILE_STMT.  */
 
 void 
@@ -980,13 +980,8 @@ begin_compound_stmt (has_no_scope)
       && !current_function_name_declared 
       && !has_no_scope)
     {
-      /* When we get callbacks from the middle-end, we need to know
-	 we're in the midst of declaring these variables.  */
-      current_function_name_declared = 2;
-      /* Actually insert the declarations.  */
-      declare_function_name ();
-      /* And now just remember that we're all done.  */
       current_function_name_declared = 1;
+      declare_function_name ();
     }
 
   return r;
@@ -1164,7 +1159,7 @@ finish_named_return_value (return_id, init)
     /* Give this error as many times as there are occurrences,
        so that users can use Emacs compilation buffers to find
        and fix all such places.  */
-    pedwarn ("ANSI C++ does not permit named return values");
+    pedwarn ("ISO C++ does not permit named return values");
 
   if (return_id != NULL_TREE)
     {
@@ -1690,7 +1685,55 @@ finish_id_expr (expr)
   return expr;
 }
 
-/* Begin a function defniition declared with DECL_SPECS and
+static tree current_type_lookups;
+
+/* Perform deferred access control for types used in the type of a
+   declaration.  */
+
+static void
+deferred_type_access_control ()
+{
+  tree lookup = type_lookups;
+
+  if (lookup == error_mark_node)
+    return;
+
+  for (; lookup; lookup = TREE_CHAIN (lookup))
+    enforce_access (TREE_PURPOSE (lookup), TREE_VALUE (lookup));
+}
+
+void
+decl_type_access_control (decl)
+     tree decl;
+{
+  tree save_fn;
+
+  if (type_lookups == error_mark_node)
+    return;
+
+  save_fn = current_function_decl;
+
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+    current_function_decl = decl;
+
+  deferred_type_access_control ();
+
+  current_function_decl = save_fn;
+  
+  /* Now strip away the checks for the current declarator; they were
+     added to type_lookups after typed_declspecs saved the copy that
+     ended up in current_type_lookups.  */
+  type_lookups = current_type_lookups;
+}
+
+void
+save_type_access_control (lookups)
+     tree lookups;
+{
+  current_type_lookups = lookups;
+}
+
+/* Begin a function definition declared with DECL_SPECS and
    DECLARATOR.  Returns non-zero if the function-declaration is
    legal.  */
 
@@ -1701,10 +1744,14 @@ begin_function_definition (decl_specs, declarator)
 {
   tree specs;
   tree attrs;
+
   split_specs_attrs (decl_specs, &specs, &attrs);
   if (!start_function (specs, declarator, attrs, SF_DEFAULT))
     return 0;
-  
+
+  deferred_type_access_control ();
+  type_lookups = error_mark_node;
+
   reinit_parse_for_function ();
   /* The things we're about to see are not directly qualified by any
      template headers we've seen thus far.  */
@@ -1872,7 +1919,7 @@ begin_class_definition (t)
     }
   /* If this type was already complete, and we see another definition,
      that's an error.  */
-  else if (TYPE_SIZE (t))
+  else if (COMPLETE_TYPE_P (t))
     duplicate_tag_error (t);
 
   /* Update the location of the decl.  */
@@ -1948,14 +1995,7 @@ finish_member_declaration (decl)
     }
 
   /* Mark the DECL as a member of the current class.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL 
-      || DECL_FUNCTION_TEMPLATE_P (decl))
-    /* Historically, DECL_CONTEXT was not set for a FUNCTION_DECL in
-       finish_struct.  Presumably it is already set as the function is
-       parsed.  Perhaps DECL_CLASS_CONTEXT is already set, too?  */
-    DECL_CLASS_CONTEXT (decl) = current_class_type;
-  else
-    DECL_CONTEXT (decl) = current_class_type;
+  DECL_CONTEXT (decl) = current_class_type;
 
   /* Put functions on the TYPE_METHODS list and everything else on the
      TYPE_FIELDS list.  Note that these are built up in reverse order.
@@ -2353,7 +2393,15 @@ expand_stmt (t)
 					  DECL_ANON_UNION_ELEMS (decl));
 	      }
 	    else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-	      make_rtl_for_local_static (decl);
+	      {
+		if (DECL_ARTIFICIAL (decl) && ! TREE_USED (decl))
+		  /* Do not emit unused decls. This is not just an
+		     optimization. We really do not want to emit
+		     __PRETTY_FUNCTION__ etc, if they're never used.  */
+		  DECL_IGNORED_P (decl) = 1;
+		else
+		  make_rtl_for_local_static (decl);
+	      }
 	  }
 	  break;
 
@@ -2573,9 +2621,19 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
   tree call_type;
   int copy_from_buffer_p;
 
-  /* Only AGGR_INIT_EXPRs are interesting.  */
   aggr_init_expr = *tp;
-  if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  /* We don't need to walk into types; there's nothing in a type that
+     needs simplification.  (And, furthermore, there are places we
+     actively don't want to go.  For example, we don't want to wander
+     into the default arguments for a FUNCTION_DECL that appears in a
+     CALL_EXPR.)  */
+  if (TYPE_P (aggr_init_expr))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  /* Only AGGR_INIT_EXPRs are interesting.  */
+  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
   /* Form an appropriate CALL_EXPR.  */
@@ -2680,7 +2738,7 @@ expand_body (fn)
 	 DECL_COMDAT.  */
       && (!at_eof || DECL_COMDAT (fn))
       /* Or if this is a nested function.  */
-      && !hack_decl_function_context (fn))
+      && !decl_function_context (fn))
     {
       /* Give the function RTL now so that we can assign it to a
 	 function pointer, etc.  */

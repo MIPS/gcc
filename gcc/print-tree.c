@@ -1,5 +1,6 @@
 /* Prints out tree in human readable form - GNU C-compiler
-   Copyright (C) 1990, 91, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -111,7 +112,7 @@ print_node_brief (file, prefix, node, indent)
 	{
 	  fprintf (file, "-");
 	  fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED,
-		 -TREE_INT_CST_LOW (node));
+		   -TREE_INT_CST_LOW (node));
 	}
       else
 	fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
@@ -268,8 +269,10 @@ print_node (file, prefix, node, indent)
 	indent_to (file, indent + 3);
 
       if (!ggc_p)
-	print_obstack_name ((char *) node, file, "");
-      indent_to (file, indent + 3);
+	{
+	  print_obstack_name ((char *) node, file, "");
+	  indent_to (file, indent + 3);
+	}
     }
 
   /* If a permanent object is in the wrong obstack, or the reverse, warn.  */
@@ -298,9 +301,9 @@ print_node (file, prefix, node, indent)
     fputs (" asm_written", file);
   if (TREE_USED (node))
     fputs (" used", file);
-  if (TREE_RAISES (node))
-    fputs (" raises", file);
-  if (TREE_PERMANENT (node))
+  if (TREE_NOTHROW (node))
+    fputs (" nothrow", file);
+  if (!ggc_p && TREE_PERMANENT (node))
     fputs (" permanent", file);
   if (TREE_PUBLIC (node))
     fputs (" public", file);
@@ -396,19 +399,33 @@ print_node (file, prefix, node, indent)
 	       DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
 
       print_node (file, "size", DECL_SIZE (node), indent + 4);
-      indent_to (file, indent + 3);
+      print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
+      
+      if (TREE_CODE (node) != FUNCTION_DECL
+	  || DECL_INLINE (node) || DECL_BUILT_IN (node))
+	indent_to (file, indent + 3);
+
       if (TREE_CODE (node) != FUNCTION_DECL)
 	fprintf (file, " align %d", DECL_ALIGN (node));
       else if (DECL_INLINE (node))
-	fprintf (file, " frame_size %d", DECL_FRAME_SIZE (node));
+	{
+	  fprintf (file, " frame_size ");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, DECL_FRAME_SIZE (node));
+	}
       else if (DECL_BUILT_IN (node))
-	fprintf (file, " built-in code %d", DECL_FUNCTION_CODE (node));
-      if (TREE_CODE (node) == FIELD_DECL)
-	print_node (file, "bitpos", DECL_FIELD_BITPOS (node), indent + 4);
+	fprintf (file, " built-in %s:%s",
+		 built_in_class_names[(int) DECL_BUILT_IN_CLASS (node)],
+		 built_in_names[(int) DECL_FUNCTION_CODE (node)]);
+
       if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
 	fprintf (file, " alias set %d", DECL_POINTER_ALIAS_SET (node));
+
+      if (TREE_CODE (node) == FIELD_DECL)
+	print_node (file, "bitpos", DECL_FIELD_BITPOS (node), indent + 4);
+
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
-      print_node_brief (file, "machine_attributes", DECL_MACHINE_ATTRIBUTES (node), indent + 4);
+      print_node_brief (file, "machine_attributes",
+			DECL_MACHINE_ATTRIBUTES (node), indent + 4);
       print_node_brief (file, "abstract_origin",
 			DECL_ABSTRACT_ORIGIN (node), indent + 4);
 
@@ -478,6 +495,7 @@ print_node (file, prefix, node, indent)
       fprintf (file, " %s", GET_MODE_NAME(mode));
 
       print_node (file, "size", TYPE_SIZE (node), indent + 4);
+      print_node (file, "unit size", TYPE_SIZE_UNIT (node), indent + 4);
       indent_to (file, indent + 3);
 
       fprintf (file, " align %d", TYPE_ALIGN (node));
