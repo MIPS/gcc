@@ -1,3 +1,23 @@
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* basic-block.h (propagate_block): Declare.
+	(propagate_one_insn, init_propagate_block_info): Declare.
+	(free_propagate_block_info): Declare.
+	* flow.c (propagate_one_insn): Break out of propagate_block.
+	(init_propagate_block_info): Likewise.
+	(free_propagate_block_info): Likewise.
+	(propagate_block): Use them.  Export.
+	(find_auto_inc): Use pbi->bb instead of BLOCK_FOR_INSN.
+	(mark_used_reg): Update reg_live after emitting death notes.
+
+	* condexec.c (dop_validate_life): Remove.
+	(find_memory): New.
+	(dead_or_predicable): Use propagate_one_insn and company to 
+	collect live & set regsets; test regsets rather than calling
+	dop_validate_life.  Use find_memory.  Update JUMP_LABEL.
+
+	* graph.c (node_data): Use GET_NOTE_INSN_NAME instead of local array.
+
 2000-04-20  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (cond_exec_process_insns): Test whole insn for

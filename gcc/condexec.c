@@ -91,7 +91,7 @@ static int find_if_header		PARAMS ((basic_block));
 static int find_if_block		PARAMS ((basic_block, edge, edge));
 static int find_if_case_1		PARAMS ((basic_block, edge, edge));
 static int find_if_case_2		PARAMS ((basic_block, edge, edge));
-static void dop_validate_life		PARAMS ((rtx, rtx, void *));
+static int find_memory			PARAMS ((rtx *, void *));
 static int dead_or_predicable		PARAMS ((basic_block, basic_block,
 						 basic_block, rtx, int));
 
@@ -1595,59 +1595,15 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   return TRUE;
 }
 
-/* A subroutine of dead_or_predicable called through note_stores.  */
+/* A subroutine of dead_or_predicable called through for_each_rtx.
+   Return 1 if a memory is found.  */
 
-struct dop_validate_life_info
+static int
+find_memory (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
 {
-  regset live;
-  rtx test_first, test_last;
-  int fail;
-};
-
-static void
-dop_validate_life (x, set, data)
-     rtx x;
-     rtx set ATTRIBUTE_UNUSED;
-     void *data;
-{
-  struct dop_validate_life_info *info = (struct dop_validate_life_info *) data;
-  rtx insn;
-
-  /* Don't do anything if we've already failed.  */
-  if (info->fail)
-    return;
-
-  /* Fail the move if X is a memory.  Or really, anything that isn't
-     a register.  */
-  if (GET_CODE (x) != REG)
-    goto fail;
-
-  /* Fail the move if X is referenced in the test region, or is in the
-     set of registers that must remain live.  */
-  for (insn = info->test_first; ; insn = NEXT_INSN (insn))
-    {
-      int regno, n;
-
-      regno = REGNO (x);
-      n = (regno < FIRST_PSEUDO_REGISTER ? 1 
-	   : HARD_REGNO_NREGS (regno, GET_MODE (x)));
-
-      while (--n >= 0)
-	if (REGNO_REG_SET_P (info->live, regno + n))
-	  goto fail;
-
-      if (INSN_P (insn) && reg_mentioned_p (x, PATTERN (insn)))
-	goto fail;
-
-      if (insn == info->test_last)
-	break;
-    }
-
-  return;
-
- fail:
-  info->fail = 1;
-  return;
+  return GET_CODE (*px) == MEM;
 }
 
 /* Used by the code above to perform the actual rtl transformations.
@@ -1717,20 +1673,34 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
     }
   else
     {
-      /* In the non-conditional execution case, we have to verify that
-	 there are no trapping operations, no calls, no writes to memory,
-	 and that any registers modified are dead at the branch site.  */
+      /* In the non-conditional execution case, we have to verify that there
+	 are no trapping operations, no calls, no references to memory, and
+	 that any registers modified are dead at the branch site.  */
 
-      struct dop_validate_life_info info;
-      rtx insn, cond;
+      rtx insn, cond, prev;
+      regset_head merge_set_head, tmp_head, test_live_head, test_set_head;
+      regset merge_set, tmp, test_live, test_set;
+      struct propagate_block_info *pbi;
+      int i;
 
       /* Check for no calls or trapping operations.  */
       for (insn = head; ; insn = NEXT_INSN (insn))
 	{
 	  if (GET_CODE (insn) == CALL_INSN)
 	    return FALSE;
-	  if (GET_CODE (insn) == INSN && may_trap_p (PATTERN (insn)))
-	    return FALSE;
+	  if (INSN_P (insn))
+	    {
+	      if (may_trap_p (PATTERN (insn)))
+		return FALSE;
+
+	      /* ??? Even non-trapping memories such as stack frame
+		 references must be avoided.  For stores, we collect
+		 no lifetime info; for reads, we'd have to assert
+		 true_dependance false against every store in the
+		 TEST range.  */
+	      if (for_each_rtx (&PATTERN (insn), find_memory, NULL))
+		return FALSE;
+	    }
 	  if (insn == end)
 	    break;
 	}
@@ -1743,51 +1713,55 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
       if (! cond)
 	return FALSE;
 
-      /* Ideally we have
+      /* Collect:
 	   MERGE_SET = set of registers set in MERGE_BB
 	   TEST_LIVE = set of registers live at EARLIEST
 	   TEST_SET  = set of registers set between EARLIEST and the
-		       end of the block.
-	 then we can perform the transformation if
-	   MERGE_SET & (TEST_SET | TEST_LIVE)
-	 and
-	   TEST_SET & merge_bb->global_live_at_end
-	 are empty.
+		       end of the block.  */
 
-	 We could use propagate block and its subroutines to collect these,
-	 but that wouldn't check for memory stores.
+      tmp = INITIALIZE_REG_SET (tmp_head);
+      merge_set = INITIALIZE_REG_SET (merge_set_head);
+      test_live = INITIALIZE_REG_SET (test_live_head);
+      test_set = INITIALIZE_REG_SET (test_set_head);
 
-	 ??? There could, I suppose be memory stores in the test region
-	 that conflict with memory reads in MERGE_BB.  But I wouldn't 
-	 think so, given the way we collect the condition.  */
+      /* ??? bb->local_set is only valid during calculate_global_regs_live,
+	 so we must recompute usage for MERGE_BB.  Not so bad, I suppose, 
+         since we've already asserted that MERGE_BB is small.  */
+      propagate_block (merge_bb, tmp, merge_set, 0);
 
-      info.live = other_bb->global_live_at_start;
-      info.test_first = earliest;
-      info.test_last = jump;
-      info.fail = 0;
+      /* For TEST, we're interested in a range of insns, not a whole block.
+	 Moreover, we're interested in the insns live from OTHER_BB.  */
 
-      for (insn = head; !info.fail ; insn = NEXT_INSN (insn))
+      COPY_REG_SET (test_live, other_bb->global_live_at_start);
+      pbi = init_propagate_block_info (test_bb, test_live, test_set, 0);
+
+      for (insn = jump; ; insn = prev)
 	{
-	  rtx note;
-
-	  if (INSN_P (insn))
-	    {
-	      note_stores (PATTERN (insn), dop_validate_life, &info);
-
-	      /* Note stores does not check for autoinc.  */
-	      /* ??? Stack pushes don't have REG_INC notes.  I think these
-		 happen only in conjunction with calls, which we eliminated
-		 above.  */
-	      note = find_reg_note (insn, REG_INC, NULL_RTX);
-	      if (note && reg_mentioned_p (XEXP (note, 0), PATTERN (insn)))
-		info.fail = 1;
-	    }
-	  if (insn == end)
+	  prev = propagate_one_insn (pbi, insn);
+	  if (insn == earliest)
 	    break;
 	}
 
-      if (info.fail)
-	return FALSE;
+      free_propagate_block_info (pbi);
+
+      /* We can perform the transformation if
+	   MERGE_SET & (TEST_SET | TEST_LIVE)
+	 and
+	   TEST_SET & merge_bb->global_live_at_start
+	 are empty.  */
+
+      bitmap_operation (tmp, test_set, test_live, BITMAP_IOR);
+      bitmap_operation (tmp, tmp, merge_set, BITMAP_AND);
+      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, return FALSE);
+
+      bitmap_operation (tmp, test_set, merge_bb->global_live_at_start,
+			BITMAP_AND);
+      EXECUTE_IF_SET_IN_BITMAP(tmp, 0, i, return FALSE);
+
+      FREE_REG_SET (tmp);
+      FREE_REG_SET (merge_set);
+      FREE_REG_SET (test_live);
+      FREE_REG_SET (test_set);
     }
 
  no_body:
@@ -1808,6 +1782,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
     LABEL_NUSES (old_dest) -= 1;
   if (new_dest)
     LABEL_NUSES (new_dest) += 1;
+  JUMP_LABEL (jump) = new_dest;
 
   if (reversep)
     {
