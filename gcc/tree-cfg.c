@@ -2774,15 +2774,20 @@ static tree
 verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	     void *data ATTRIBUTE_UNUSED)
 {
-  if (TREE_CODE (*tp) == SSA_NAME
-      && SSA_NAME_IN_FREE_LIST (*tp))
+  tree t = *tp, x;
+
+  switch (TREE_CODE (t))
     {
-      error ("SSA name in freelist still referred");
-      return *tp;
-    }
-  if (TREE_CODE (*tp) == ADDR_EXPR)
-    {
-      tree x = TREE_OPERAND (*tp, 0);
+    case SSA_NAME:
+      if (SSA_NAME_IN_FREE_LIST (t))
+	{
+	  error ("SSA name in freelist but still referenced");
+	  return *tp;
+	}
+      break;
+
+    case ADDR_EXPR:
+      x = TREE_OPERAND (t, 0);
       while (TREE_CODE (x) == ARRAY_REF
 	     || TREE_CODE (x) == COMPONENT_REF
 	     || TREE_CODE (x) == REALPART_EXPR
@@ -2792,9 +2797,22 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	return NULL;
       if (!TREE_ADDRESSABLE (x))
 	{
-          error ("Address taken, but ADDRESABLE bit not set");
+          error ("address taken, but ADDRESABLE bit not set");
           return x;
 	}
+      break;
+
+    case COND_EXPR:
+      x = TREE_OPERAND (t, 0);
+      if (TREE_CODE (TREE_TYPE (x)) != BOOLEAN_TYPE)
+	{
+	  error ("non-boolean used in condition");
+	  return x;
+	}
+      break;
+
+    default:
+      break;
     }
   return NULL;
 }
