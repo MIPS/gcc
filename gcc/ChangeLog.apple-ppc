@@ -1,3 +1,14 @@
+2004-10-26  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3840704
+	* c-opts.c (c_common_handle_option): Rename flag_altivec to
+	flag_disable_opts_for_faltivec.
+	* c.opt (faltivec): Likewise.
+	* toplev.c (process_options): Likewise, and update comment.
+	* config/rs6000/rs6000.c (expand_block_clear): Handle
+	flag_disable_opts_for_faltivec.
+	(expand_block_move): Likewise.
+
 2004-10-26  Devang Patel  <dpatel@apple.com>
 
 	Radar 3233789

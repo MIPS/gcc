@@ -2071,9 +2071,10 @@ process_options (void)
     flag_trapping_math = 1;
 
   /* APPLE LOCAL begin Altivec 3837840 */
-  /* Disable inlining when Altivec is used.
-     Remove this when 3837835 is fixed.  */
-  if (flag_altivec)
+  /* Disable various optimisations, and limit code generation, when
+     -faltivec is used without specifying an ISA that includes AltiVec
+     instructions, for compatibility with historic compilers.  */
+  if (flag_disable_opts_for_faltivec)
     {
       if (optimize
 	  && (flag_inline_functions

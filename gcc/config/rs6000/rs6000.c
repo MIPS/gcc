@@ -9165,6 +9165,8 @@ expand_block_clear (rtx operands[])
   int offset;
   int clear_bytes;
   int clear_step;
+  /* APPLE LOCAL Altivec 3840704 */
+  bool cpu_altivec = TARGET_ALTIVEC && ! flag_disable_opts_for_faltivec;
 
   /* If this is not a fixed size move, just call memcpy */
   if (! constp)
@@ -9180,11 +9182,23 @@ expand_block_clear (rtx operands[])
   if (bytes <= 0)
     return 1;
 
+  /* APPLE LOCAL begin Altivec 3840704 */
+  {
+    static bool warned;
+    if (flag_disable_opts_for_faltivec && align >= 128 && ! warned)
+      {
+	warned = true;
+	warning ("vectorised memset disabled due to use of -faltivec without -maltivec");
+      }
+  }
+  /* APPLE LOCAL end Altivec 3840704 */
+
   /* Use the builtin memset after a point, to avoid huge code bloat.
      When optimize_size, avoid any significant code bloat; calling
      memset is about 4 instructions, so allow for one instruction to
      load zero and three to do clearing.  */
-  if (TARGET_ALTIVEC && align >= 128)
+  /* APPLE LOCAL Altivec 3840704 */
+  if (cpu_altivec && align >= 128)
     clear_step = 16;
   else if (TARGET_POWERPC64 && align >= 32)
     clear_step = 8;
@@ -9201,7 +9215,8 @@ expand_block_clear (rtx operands[])
       enum machine_mode mode = BLKmode;
       rtx dest;
 
-      if (bytes >= 16 && TARGET_ALTIVEC && align >= 128)
+      /* APPLE LOCAL Altivec 3840704 */
+      if (bytes >= 16 && cpu_altivec && align >= 128)
 	{
 	  clear_bytes = 16;
 	  mode = V4SImode;
@@ -9292,9 +9307,23 @@ expand_block_move (rtx operands[])
       enum machine_mode mode = BLKmode;
       rtx src, dest;
 
+      /* APPLE LOCAL begin Altivec 3840704 */
+      {
+	static bool warned;
+	if (flag_disable_opts_for_faltivec && bytes >= 16 && align >= 128 
+	    && ! warned)
+	  {
+	    warned = true;
+	    warning ("vectorised memcpy disabled due to use of -faltivec without -maltivec");
+	  }
+      }
+      /* APPLE LOCAL end Altivec 3840704 */
+
       /* Altivec first, since it will be faster than a string move
 	 when it applies, and usually not significantly larger.  */
-      if (TARGET_ALTIVEC && bytes >= 16 && align >= 128)
+      /* APPLE LOCAL Altivec 3840704 */
+      if (TARGET_ALTIVEC && ! flag_disable_opts_for_faltivec
+	  && bytes >= 16 && align >= 128)
 	{
 	  move_bytes = 16;
 	  mode = V4SImode;
