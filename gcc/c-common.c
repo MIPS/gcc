@@ -4428,6 +4428,8 @@ restore_fragment (cpp_fragment *fragment)
    (so cpp can skip to the end of the fragment).  Otherwise, sets things
    up so we can remember new bindings as we see them. */
 
+#define warn_fragment_invalidation (! quiet_flag)
+
 bool
 cb_enter_fragment (reader, fragment, name, line)
      cpp_reader* reader ATTRIBUTE_UNUSED;
@@ -4446,14 +4448,23 @@ cb_enter_fragment (reader, fragment, name, line)
   else
     {
       int i;
-      valid = st->valid && ! currently_nested;
+      valid = st->valid;
 
-      if (st->include_timestamp >= main_timestamp)
+      if (currently_nested && valid)
+	{
+	  valid = 0;
+	  if (warn_fragment_invalidation)
+	    warning ("invalidating cached fragment %s:%d because inside declaration", name, line);
+	}
+
+      if (st->include_timestamp >= main_timestamp && valid)
 	{
 	  /* This fragment has already been included for this main file.
 	     Perhaps there are missing header guards.  Easiest way to get
 	     the correct re-definition errors is to force reparsing. */
 	  valid = 0;
+	  if (warn_fragment_invalidation)
+	    warning ("invalidating cached fragment %s:%d because already included", name, line);
 	}
 
       if (valid)
@@ -4474,6 +4485,8 @@ cb_enter_fragment (reader, fragment, name, line)
 		  || uses->read_timestamp > st->read_timestamp)
 		{
 		  valid = 0;
+	  if (warn_fragment_invalidation)
+	    warning ("invalidating cached fragment %s:%d because of %s", name, line, uses->name);
 		  break;
 		}
 	    }
@@ -4482,8 +4495,6 @@ cb_enter_fragment (reader, fragment, name, line)
       if (! valid)
 	{
 	  st->valid = 0;
-	  if (! quiet_flag)
-	    fprintf (stderr, "(invalidating cached fragment %s:%d)\n", name, line);
 	}
       else
 	{
@@ -4582,7 +4593,14 @@ cb_exit_fragment (reader, fragment)
 	}
 
       current_c_fragment = NULL;
-      st->valid = ! currently_nested;
+      if (currently_nested)
+	{
+	  if (warn_fragment_invalidation)
+	    warning ("invalidating cached fragment in %s because inside declaration", st->name);
+	  st->valid = 0;
+	}
+      else
+	st->valid = 1;
     }
 #if 0
   fprintf(stderr, "(pop deps start:%d end:%d for %s ret:%s)\n",
