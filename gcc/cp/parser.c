@@ -4489,7 +4489,12 @@ cp_parser_logical_or_expression (parser)
 
    conditional-expression:
      logical-or-expression
-     logical-or-expression ? expression : assignment-expression  
+     logical-or-expression ? expression : assignment-expression
+     
+   GNU Extensions:
+   
+   conditional-expression:
+     logical-or-expression ?  : assignment-expression
 
    Returns a representation of the expression.  */
 
@@ -4517,7 +4522,13 @@ cp_parser_conditional_expression (parser)
 
    This routine exists only so that it can be shared between
    cp_parser_conditional_expression and
-   cp_parser_assignment_expression.  */
+   cp_parser_assignment_expression.
+
+     ? expression : assignment-expression
+   
+   GNU Extensions:
+   
+     ? : assignment-expression */
 
 static tree
 cp_parser_question_colon_clause (parser, logical_or_expr)
@@ -4529,8 +4540,14 @@ cp_parser_question_colon_clause (parser, logical_or_expr)
 
   /* Consume the `?' token.  */
   cp_lexer_consume_token (parser->lexer);
-  /* Parse the expression.  */
-  expr = cp_parser_expression (parser);
+  if (cp_parser_allow_gnu_extensions_p (parser)
+      && cp_lexer_next_token_is (parser->lexer, CPP_COLON))
+    /* Implicit true clause.  */
+    expr = NULL_TREE;
+  else
+    /* Parse the expression.  */
+    expr = cp_parser_expression (parser);
+  
   /* The next token should be a `:'.  */
   cp_parser_require (parser, CPP_COLON, "`:'");
   /* Parse the assignment-expression.  */
