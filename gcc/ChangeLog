@@ -1,3 +1,8 @@
+2002-11-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        * config/sh/lib1funcs.asm (FUNC, ENDFUNC0, ENDFUNC): New macros.
+	(all): Add .size and .type information.
+
 Tue Nov 26 22:43:50 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_int_movcc):  Do not emit lea for short mode on
