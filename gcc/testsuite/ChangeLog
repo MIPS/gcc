@@ -1,3 +1,74 @@
+2002-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/vt1.C: Fix regexp.
+
+2002-06-18  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: Correct bug-description.
+
+2002-06-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020615-1.c: New test.
+
+2002-06-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020611-1.c: New test.
+
+2002-06-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/template/typename2.C: Update error message.
+
+2002-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020605-1.c: New test.
+
+	* g++.dg/opt/vt1.C: New test.
+
+	* gcc.dg/20020530-1.c: New test.
+
+	* gcc.dg/20020527-1.c: New test.
+
+	* g++.dg/opt/cse1.C: New test.
+
+2002-05-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20020529-1.c: New test.
+
+2002-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/cse2.C: New test.
+
+2002-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/verbose-asm.c: New test.
+
+2002-05-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/paste12.c: New test.
+
+2002-05-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* g++.dg/parse/named_ops.C: New test.
+
+2002-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020517-1.c: New test.
+
+	* gcc.dg/20020523-1.c: New test.
+
+2002-05-22  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-2c.x: Remove, the test should pass
+	now.
+	* gcc.c-torture/execute/loop-2d.x: Likewise.
+
+2002-05-19  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/weak-2.c:  xfail warnings for platforms that don't
+	support weak symbols.
+	* gcc.dg/weak-4.c: Likewise
+	* gcc.dg/weak-6.c: Likewise
+
 2002-05-16  David.Billinghurst <David.Billinghurst@riotinto.com>
 
 	* gcc.dg/weak-3.c: Add dg-excess-error comment for
@@ -79,7 +150,7 @@
 
 	PR c++/6497
 	* g++.dg/inherit/access2.C: New test.
-	
+
 2002-04-26  Mark Mitchell  <mark@codesourcery.com>
 
 	PR bootstrap/6445
@@ -253,7 +324,7 @@
 	* g++.dg/opt/const1.C: New test.
 
 2002-04-10  Lars Brinkhoff  <lars@nocrew.org>
- 
+
 	* gcc.c-torture/execute/20020406-1.c: Declare malloc.
 
 2002-04-10  Nathan Sidwell  <nathan@codesourcery.com>
@@ -361,7 +432,7 @@
 2002-03-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/init/new2.C: New test.
-	
+
 2002-03-27  Richard Henderson  <rth@redhat.com>
 
 	* g++.old-deja/g++.brendan/crash52.C: Remove return warning marker.
@@ -459,7 +530,7 @@
 
 2002-03-21  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
-	* g++.old-deja/g++.eh/ia64-1.C: Use [ijkl]_[0-9] as variable names. 
+	* g++.old-deja/g++.eh/ia64-1.C: Use [ijkl]_[0-9] as variable names.
 	(A, E): Handle this.
 
 2002-03-20  Jason Merrill  <jason@redhat.com>

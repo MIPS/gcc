@@ -572,7 +572,6 @@ alpha*-*-netbsd*)
 	tm_file="${tm_file} netbsd.h alpha/elf.h netbsd-elf.h alpha/netbsd.h"
 	target_cpu_default="MASK_GAS"
 	tmake_file="${tmake_file} alpha/t-alpha alpha/t-ieee"
-	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	;;
 
 alpha*-*-openbsd*)
@@ -2382,6 +2381,7 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 		tm_file="mips/little.h $tm_file" 
 		;;
 	esac
+	tmake_file="${tmake_file} mips/t-netbsd"
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h mips/linux.h"
@@ -3089,6 +3089,13 @@ sparc-*-openbsd*)
 	tmake_file="t-libc-ok t-openbsd sparc/t-openbsd"
 	# we need collect2 until our bug is fixed...
 	use_collect2=yes
+	;;
+sparc64-*-openbsd*)
+	tm_file="sparc/openbsd1-64.h sparc/sparc.h elfos.h svr4.h sparc/sysv4.h sparc/sol2.h sparc/sp64-elf.h openbsd.h sparc/openbsd64.h"
+	xm_file=sparc/xm-sp64.h
+	gas=yes gnu_ld=yes
+	with_cpu=ultrasparc
+	float_format=i128
 	;;
 sparc-*-bsd*)
 	tm_file="${tm_file} sparc/bsd.h"

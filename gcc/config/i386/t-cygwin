@@ -1,10 +1,6 @@
 LIB1ASMSRC = i386/cygwin.asm
 LIB1ASMFUNCS = _chkstk
 
-# cygwin always has a limits.h, but, depending upon how we are doing
-# the build, it may not be installed yet.
-LIMITS_H_TEST = true
-
 T_CPPFLAGS=-DCYGWIN_CROSS_DIR=\"$(build_tooldir)\"
 
 # If we are building next to winsup, this will let us find the real

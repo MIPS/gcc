@@ -66,23 +66,17 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
 
 #ifdef CROSS_COMPILE
-#define CYGWIN_INCLUDES "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include}"
 #define W32API_INC "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include/w32api}"
 #define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/"
-#define CYGWIN_LIB CYGWIN_CROSS_DIR "/lib"
 #define MINGW_LIBS "-L" CYGWIN_CROSS_DIR "/lib/mingw"
 #define MINGW_INCLUDES "%{!nostdinc:-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
 		       "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++ "\
 		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw}"
 #else
-#define CYGWIN_INCLUDES "%{!nostdinc:-isystem /usr/local/include "\
-		           "-idirafter " CYGWIN_CROSS_DIR "/include "\
-		           "-idirafter /usr/include}"
 #define W32API_INC "%{!nostdinc:"\
 		      "-idirafter " CYGWIN_CROSS_DIR "/include/w32api "\
 		      "-idirafter /usr/include/w32api}"
 #define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/ -L/usr/lib/w32api/"
-#define CYGWIN_LIB "/usr/lib"
 #define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
 #define MINGW_INCLUDES "%{!nostdinc:-isystem /usr/include/mingw/g++-3 "\
 		       "-isystem /usr/include/mingw/g++ "\
@@ -116,8 +110,7 @@ Boston, MA 02111-1307, USA.  */
   %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{mthreads:-D_MT} "\
     MINGW_INCLUDES "} \
-  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix "\
-    CYGWIN_INCLUDES "}\
+  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix }\
   %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}}\
   %{!mno-win32:" W32API_INC "}\
 "
@@ -494,24 +487,6 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set\t"
 #endif
-
-/* Override GCC's relative pathname lookup (ie., relocatability) unless
-   otherwise told by other subtargets.  */
-#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
-#undef MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX     "/usr/lib/"
-
-#undef STANDARD_STARTFILE_PREFIX
-#define STANDARD_STARTFILE_PREFIX     "/usr/lib/mingw/"
-
-#ifndef CROSS_COMPILE
-#undef LOCAL_INCLUDE_DIR
-#undef TOOL_INCLUDE_DIR
-#undef SYSTEM_INCLUDE_DIR
-#undef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR 0
-#endif /* not CROSS_COMPILE */
-#endif /* not WIN32_NO_ABSOLUTE_INST_DIRS */
 
 #undef TREE
 
