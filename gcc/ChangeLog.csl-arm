@@ -1,3 +1,10 @@
+2004-01-05  Richard Earnshaw  <rearnsha@arm.com>
+
+	Backport form mainline.
+	* arm.h (TARGET_OPTIONS): Correctly record -mhard-float and
+	-msoft-float in target_float_switch.
+	* arm.c (arm_override_options): Fix processing of target_float_switch.
+
 2005-01-03  Paul Brook  <paul@codesourcery.com>
 
 	* version.c (bug_report_url): Correct email address,
