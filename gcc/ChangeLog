@@ -1,3 +1,11 @@
+2002-05-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengtype.c (set_gc_used_type): Correct some errors in last change.
+	(write_gc_structure_fields): If a field which should be NULL is
+	not, abort.
+	* c-pragma.c: Move struct align_stack and variable alignment_stack
+	out from the ifdef.
+
 2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* config/xtensa/t-xtensa: Add dependencies for gt-xtensa.h.

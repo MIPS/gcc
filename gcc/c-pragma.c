@@ -36,9 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_BAD(msgid) do { warning (msgid); return; } while (0)
 #define GCC_BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
 
-#ifdef HANDLE_PRAGMA_PACK
-static void handle_pragma_pack PARAMS ((cpp_reader *));
-
 typedef struct align_stack GTY(())
 {
   int                  alignment;
@@ -48,6 +45,9 @@ typedef struct align_stack GTY(())
 } align_stack;
 
 static GTY(()) struct align_stack * alignment_stack;
+
+#ifdef HANDLE_PRAGMA_PACK
+static void handle_pragma_pack PARAMS ((cpp_reader *));
 
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 /* If we have a "global" #pragma pack(<n>) in effect when the first

@@ -359,13 +359,13 @@ set_gc_used_type (t, level)
 	for (f = t->u.s.fields; f; f = f->next)
 	  {
 	    options_p o;
-	    int maybe_null = 0;
+	    int maybe_undef = 0;
 	    
 	    for (o = f->opt; o; o = o->next)
-	      if (strcmp (o->name, "maybe_null") == 0)
-		maybe_null = 1;
+	      if (strcmp (o->name, "maybe_undef") == 0)
+		maybe_undef = 1;
 	    
-	    if (maybe_null && f->type->kind == TYPE_POINTER)
+	    if (maybe_undef && f->type->kind == TYPE_POINTER)
 	      set_gc_used_type (f->type->u.p, GC_MAYBE_POINTED_TO);
 	    else
 	      set_gc_used_type (f->type, GC_USED);
@@ -824,17 +824,12 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       if (skip_p)
 	continue;
 
-      if (maybe_undef_p)
-	{
-	  if (f->type->kind != TYPE_POINTER
-	      || f->type->u.p->kind != TYPE_STRUCT)
-	    error_at_line (&f->line, 
-			   "field `%s' has invalid option `maybe_undef_p'\n",
-			   f->name);
-	  if (f->type->u.p->u.s.line.file == NULL)
-	    continue;
-	}
-      
+      if (maybe_undef_p
+	  && (f->type->kind != TYPE_POINTER
+	      || f->type->u.p->kind != TYPE_STRUCT))
+	error_at_line (&f->line, 
+		       "field `%s' has invalid option `maybe_undef_p'\n",
+		       f->name);
       if (s->kind == TYPE_UNION && ! always_p )
 	{
 	  if (! tagid)
@@ -869,7 +864,11 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	case TYPE_POINTER:
 	  if (! length)
 	    {
-	      if (f->type->u.p->kind == TYPE_STRUCT
+	      if (maybe_undef_p
+		  && f->type->u.p->u.s.line.file == NULL)
+		fprintf (of, "%*sif (%s.%s) abort();\n", indent, "",
+			 val, f->name);
+	      else if (f->type->u.p->kind == TYPE_STRUCT
 		       || f->type->u.p->kind == TYPE_UNION
 		       || f->type->u.p->kind == TYPE_LANG_STRUCT)
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
