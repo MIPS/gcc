@@ -2070,7 +2070,8 @@ get_temp_name (type, staticp)
   if (! toplev)
     {
       expand_decl (decl);
-      expand_decl_init (decl);
+      my_friendly_assert (DECL_INITIAL (decl) == NULL_TREE,
+			  19990826);
     }
   pop_obstacks ();
 
@@ -4617,6 +4618,11 @@ arg_assoc_class (k, type)
   tree list, friends, context;
   int i;
   
+  /* Backend build structures, such as __builtin_va_list, aren't
+     affected by all this.  */
+  if (!CLASS_TYPE_P (type))
+    return 0;
+
   if (purpose_member (type, k->classes))
     return 0;
   k->classes = tree_cons (type, NULL_TREE, k->classes);

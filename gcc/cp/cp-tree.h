@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
       DELETE_EXPR_USE_VEC (in DELETE_EXPR).
       (TREE_CALLS_NEW) (in _EXPR or _REF) (commented-out).
       TYPE_USES_COMPLEX_INHERITANCE (in _TYPE).
-      C_DECLARED_LABEL_FLAG.
+      C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       INHERITED_VALUE_BINDING_P (in CPLUS_BINDING)
       BASELINK_P (in TREE_LIST)
       ICS_ELLIPSIS_FLAG (in _CONV)
@@ -674,7 +674,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define IS_AGGR_TYPE_CODE(t)	(t == RECORD_TYPE || t == UNION_TYPE)
 #define IS_AGGR_TYPE_2(TYPE1,TYPE2) \
   (TREE_CODE (TYPE1) == TREE_CODE (TYPE2)	\
-   && IS_AGGR_TYPE (TYPE1)&IS_AGGR_TYPE (TYPE2))
+   && IS_AGGR_TYPE (TYPE1) && IS_AGGR_TYPE (TYPE2))
 #define IS_OVERLOAD_TYPE(t) \
   (IS_AGGR_TYPE (t) || TREE_CODE (t) == ENUMERAL_TYPE)
 
@@ -1690,13 +1690,6 @@ extern int flag_new_for_scope;
 /* Nonzero for _TYPE means that the _TYPE defines a destructor.  */
 #define TYPE_HAS_DESTRUCTOR(NODE) (TYPE_LANG_FLAG_2(NODE))
 
-#if 0
-/* Nonzero for _TYPE node means that creating an object of this type
-   will involve a call to a constructor.  This can apply to objects
-   of ARRAY_TYPE if the type of the elements needs a constructor.  */
-#define TYPE_NEEDS_CONSTRUCTING(NODE) ... defined in ../tree.h ...
-#endif
-
 /* Nonzero means that an object of this type can not be initialized using
    an initializer list.  */
 #define CLASSTYPE_NON_AGGREGATE(NODE) \
@@ -2159,6 +2152,7 @@ extern int flag_new_for_scope;
 #define DECL_STMT_DECL(NODE)    TREE_OPERAND (NODE, 0)
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (NODE, 0)
 #define SUBOBJECT_CLEANUP(NODE) TREE_OPERAND (NODE, 0)
+#define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (NODE, 0)
 
 /* Nonzero for an ASM_STMT if the assembly statement is volatile.  */
 #define ASM_VOLATILE_P(NODE)			\
@@ -2894,7 +2888,7 @@ extern tree push_using_directive                PROTO((tree));
 extern void push_class_level_binding		PROTO((tree, tree));
 extern tree implicitly_declare			PROTO((tree));
 extern tree lookup_label			PROTO((tree));
-extern tree shadow_label			PROTO((tree));
+extern tree declare_local_label                 PROTO((tree));
 extern tree define_label			PROTO((char *, int, tree));
 extern void push_switch				PROTO((void));
 extern void pop_switch				PROTO((void));
@@ -2935,7 +2929,10 @@ extern tree start_decl				PROTO((tree, tree, int, tree, tree));
 extern void start_decl_1			PROTO((tree));
 extern void cp_finish_decl			PROTO((tree, tree, tree, int, int));
 extern void finish_decl				PROTO((tree, tree, tree));
+extern void maybe_inject_for_scope_var          PROTO((tree));
+extern void initialize_local_var                PROTO((tree, tree, int));
 extern void expand_static_init			PROTO((tree, tree));
+extern void start_handler_parms                 PROTO((tree, tree));
 extern int complete_array_type			PROTO((tree, tree, int));
 extern tree build_ptrmemfunc_type		PROTO((tree));
 /* the grokdeclarator prototype is in decl.h */
@@ -3066,25 +3063,25 @@ extern void cp_deprecated                       PROTO((const char*));
 
 /* in error.c */
 extern void init_error				PROTO((void));
-extern char *fndecl_as_string			PROTO((tree, int));
-extern char *type_as_string			PROTO((tree, int));
-extern char *type_as_string_real		PROTO((tree, int, int));
-extern char *args_as_string			PROTO((tree, int));
-extern char *decl_as_string			PROTO((tree, int));
-extern char *expr_as_string			PROTO((tree, int));
-extern char *code_as_string			PROTO((enum tree_code, int));
-extern char *language_as_string			PROTO((enum languages, int));
-extern char *parm_as_string			PROTO((int, int));
-extern char *op_as_string			PROTO((enum tree_code, int));
-extern char *assop_as_string			PROTO((enum tree_code, int));
-extern char *cv_as_string			PROTO((tree, int));
-extern char *lang_decl_name			PROTO((tree, int));
-extern char *cp_file_of				PROTO((tree));
+extern const char *fndecl_as_string		PROTO((tree, int));
+extern const char *type_as_string		PROTO((tree, int));
+extern const char *type_as_string_real		PROTO((tree, int, int));
+extern const char *args_as_string		PROTO((tree, int));
+extern const char *decl_as_string		PROTO((tree, int));
+extern const char *expr_as_string		PROTO((tree, int));
+extern const char *code_as_string		PROTO((enum tree_code, int));
+extern const char *language_as_string		PROTO((enum languages, int));
+extern const char *parm_as_string		PROTO((int, int));
+extern const char *op_as_string			PROTO((enum tree_code, int));
+extern const char *assop_as_string		PROTO((enum tree_code, int));
+extern const char *cv_as_string			PROTO((tree, int));
+extern const char *lang_decl_name		PROTO((tree, int));
+extern const char *cp_file_of			PROTO((tree));
 extern int cp_line_of				PROTO((tree));
 
 /* in except.c */
 extern void init_exception_processing		PROTO((void));
-extern void expand_start_catch_block		PROTO((tree, tree));
+extern void expand_start_catch_block		PROTO((tree));
 extern void expand_end_catch_block		PROTO((void));
 extern void expand_builtin_throw		PROTO((void));
 extern void expand_start_eh_spec		PROTO((void));
@@ -3132,6 +3129,8 @@ extern tree build_delete			PROTO((tree, tree, tree, int, int));
 extern tree build_vbase_delete			PROTO((tree, tree));
 extern tree build_vec_delete			PROTO((tree, tree, tree, tree, int));
 extern tree create_temporary_var                PROTO((tree));
+extern void begin_init_stmts                    PROTO((tree *, tree *));
+extern tree finish_init_stmts                   PROTO((tree, tree));
 
 /* in input.c */
 
@@ -3353,6 +3352,7 @@ extern tree begin_function_try_block            PROTO((void));
 extern void finish_function_try_block           PROTO((tree));
 extern void finish_function_handler_sequence    PROTO((tree));
 extern tree begin_handler                       PROTO((void));
+extern void start_handler_parms                 PROTO((tree, tree));
 extern void finish_handler_parms                PROTO((tree));
 extern void finish_handler                      PROTO((tree));
 extern void finish_cleanup                      PROTO((tree, tree));
@@ -3360,6 +3360,7 @@ extern tree begin_compound_stmt                 PROTO((int));
 extern tree finish_compound_stmt                PROTO((int, tree));
 extern void finish_asm_stmt                     PROTO((tree, tree, tree, tree, tree));
 extern void finish_label_stmt                   PROTO((tree));
+extern void finish_label_decl                   PROTO((tree));
 extern void finish_subobject                    PROTO((tree));
 extern tree finish_parenthesized_expr           PROTO((tree));
 extern tree begin_stmt_expr                     PROTO((void));
@@ -3457,7 +3458,7 @@ extern tree fnaddr_from_vtable_entry		PROTO((tree));
 extern tree function_arg_chain			PROTO((tree));
 extern int promotes_to_aggr_type		PROTO((tree, enum tree_code));
 extern int is_aggr_type_2			PROTO((tree, tree));
-extern char *lang_printable_name		PROTO((tree, int));
+extern const char *lang_printable_name		PROTO((tree, int));
 extern tree build_exception_variant		PROTO((tree, tree));
 extern tree copy_template_template_parm		PROTO((tree));
 extern tree copy_to_permanent			PROTO((tree));
@@ -3572,6 +3573,7 @@ extern tree c_expand_start_case			PROTO((tree));
 extern int comp_ptr_ttypes			PROTO((tree, tree));
 extern int ptr_reasonably_similar		PROTO((tree, tree));
 extern tree build_ptrmemfunc			PROTO((tree, tree, int));
+extern tree strip_array_types                   PROTO((tree));
 extern int cp_type_quals                        PROTO((tree));
 extern int cp_has_mutable_p                     PROTO((tree));
 extern int at_least_as_qualified_p              PROTO((tree, tree));

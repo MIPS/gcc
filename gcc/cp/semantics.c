@@ -2046,7 +2046,11 @@ expand_stmt (t)
 	    if (TREE_CODE (decl) == VAR_DECL)
 	      DECL_DEAD_FOR_LOCAL (decl) = 0;
 	    maybe_push_decl (decl);
-	    cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0, 0);
+	    if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+	      {
+		maybe_inject_for_scope_var (decl);
+		initialize_local_var (decl, DECL_INITIAL (decl), 0);
+	      }
 	  }
 	resume_momentary (i);
       }
@@ -2178,13 +2182,9 @@ expand_stmt (t)
       lineno = STMT_LINENO (t);
       begin_handler ();
       if (HANDLER_PARMS (t))
-	{
-	  tree d = HANDLER_PARMS (t);
-	  expand_start_catch_block (TREE_OPERAND (d, 1),
-				    TREE_OPERAND (d, 0));
-	}
+	expand_start_catch_block (DECL_STMT_DECL (HANDLER_PARMS (t)));
       else
-	expand_start_catch_block (NULL_TREE, NULL_TREE);
+	expand_start_catch_block (NULL_TREE);
       finish_handler_parms (NULL_TREE);
       expand_stmt (HANDLER_BODY (t));
       finish_handler (NULL_TREE);

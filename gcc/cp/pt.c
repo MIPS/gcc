@@ -2461,6 +2461,22 @@ push_template_decl_real (decl, is_friend)
 	  && DECL_TEMPLATE_INFO (decl)
 	  && DECL_TI_TEMPLATE (decl))
 	tmpl = DECL_TI_TEMPLATE (decl);
+      /* If DECL is a TYPE_DECL for a class-template, then there won't
+	 be DECL_LANG_SPECIFIC.  The information equivalent to
+	 DECL_TEMPLATE_INFO is found in TYPE_TEMPLATE_INFO instead.  */
+      else if (DECL_IMPLICIT_TYPEDEF_P (decl) 
+	       && TYPE_TEMPLATE_INFO (TREE_TYPE (decl))
+	       && TYPE_TI_TEMPLATE (TREE_TYPE (decl)))
+	{
+	  /* Since a template declaration already existed for this
+	     class-type, we must be redeclaring it here.  Make sure
+	     that the redeclaration is legal.  */
+	  redeclare_class_template (TREE_TYPE (decl),
+				    current_template_parms);
+	  /* We don't need to create a new TEMPLATE_DECL; just use the
+	     one we already had.  */
+	  tmpl = TYPE_TI_TEMPLATE (TREE_TYPE (decl));
+	}
       else
 	{
 	  tmpl = build_template_decl (decl, current_template_parms);
@@ -2583,7 +2599,7 @@ push_template_decl_real (decl, is_friend)
   if (primary)
     DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
 
-  info = perm_tree_cons (tmpl, args, NULL_TREE);
+  info = perm_tree_cons (tmpl, copy_to_permanent (args), NULL_TREE);
 
   if (DECL_IMPLICIT_TYPEDEF_P (decl))
     {
@@ -7272,13 +7288,15 @@ tsubst_expr (t, args, complain, in_decl)
 	    decl = tsubst (decl, args, complain, in_decl);
 	    init = tsubst_expr (init, args, complain, in_decl);
 	    DECL_INITIAL (decl) = init;
-	    /* By marking the declaration as instantiated, we avoid trying
-	   to instantiate it.  Since instantiate_decl can't handle
-	   local variables, and since we've already done all that
-	   needs to be done, that's the right thing to do.  */
+	    /* By marking the declaration as instantiated, we avoid
+	       trying to instantiate it.  Since instantiate_decl can't
+	       handle local variables, and since we've already done
+	       all that needs to be done, that's the right thing to
+	       do.  */
 	    if (TREE_CODE (decl) == VAR_DECL)
 	      DECL_TEMPLATE_INSTANTIATED (decl) = 1;
 	    maybe_push_decl (decl);
+	    cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0, 0);
 	    add_decl_stmt (decl);
 	  }
 	resume_momentary (i);
@@ -7447,14 +7465,11 @@ tsubst_expr (t, args, complain, in_decl)
       lineno = STMT_LINENO (t);
       stmt = begin_handler ();
       if (HANDLER_PARMS (t))
-	{
-	  tree d = HANDLER_PARMS (t);
-	  expand_start_catch_block
-	    (tsubst (TREE_OPERAND (d, 1), args, complain, in_decl),
-	     tsubst (TREE_OPERAND (d, 0), args, complain, in_decl));
-	}
+	expand_start_catch_block
+	  (tsubst (DECL_STMT_DECL (HANDLER_PARMS (t)), 
+		   args, complain, in_decl));
       else
-	expand_start_catch_block (NULL_TREE, NULL_TREE);
+	expand_start_catch_block (NULL_TREE);
       finish_handler_parms (stmt);
       tsubst_expr (HANDLER_BODY (t), args, complain, in_decl);
       finish_handler (stmt);

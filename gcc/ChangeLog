@@ -1,3 +1,122 @@
+Mon Aug 30 16:07:49 1999  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (new_insn_dead_notes): Use sets_reg_or_subreg not
+	mark_set_resources.
+
+Mon Aug 30 16:36:33 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* invoke.texi: Fix typo.
+
+Mon Aug 30 12:23:53 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* fixinc/Makefile.in (subdir): New.
+	(fixincl.x, inclhack.sh, fixincl.sh): Use cp instead of $(CP).
+	(Makefile): New.
+	
+Mon Aug 30 01:02:09 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* dwarf2out.c (mem_loc_descriptor): New argument MODE.  All callers
+	changed.  Handle autoincrement addressing modes.
+
+	* integrate.c (copy_rtx_and_substitute): Handle internal_arg_pointer
+	just like we would the virtual incoming args register when
+	integrating.
+
+Sun Aug 29 23:17:54 1999  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.h (ASM_FILE_START): Specify complete filename, including
+	path, in .file directive. 
+
+Sun Aug 29 05:06:43 1999  Russ Allbery  <rra@stanford.edu>
+
+	* gcc.texi (External Bugs): Remove obsolete note about Perl on
+	SunOS.
+
+1999-08-29 08:38 -0700  Zack Weinberg  <zack@bitmover.com>
+
+	* stdbool.h: Make the typedef name _Bool, with bool a #defined
+	alias.
+
+Sun Aug 29 09:36:50 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree.c (tree_code_name): Constify a char*.
+
+	* tree.h (tree_code_name, decl_printable_name): Likewise.
+
+	* function.h (struct function): Likewise.
+
+	* toplev.c (decl_name, decl_printable_name): Likewise.
+
+	* vax/vms.h (MAYBE_VMS_FUNCTION_PROLOGUE): Likewise.
+
+	* objc/objc-act.c (decl_printable_name): Remove redundant prototype.
+	(init_objc): Remove function pointer cast.
+
+Sun Aug 29 05:01:17 1999  John David Anglin <dave@hiauly1.hia.nrc.ca>
+
+	* pa.md (interspace_jump): New pattern.
+	(builtin_longjmp): New expander.
+
+1999-08-29  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* fp-bit.c (add, sub, multiply, divide, compare, _eq_f2, _ne_f2,
+	_gt_f2, _ge_f2, _lt_f2, _le_f2, float_to_si, float_to_usi, negate,
+	sf_to_df, df_to_sf): Fix potential problem with alias analysis.
+
+Sun Aug 29 04:30:52 1999  John Wehle  (john@feith.com)
+
+	* jump.c (delete_prior_computation): Also check calls
+	to constant functions.  Don't bother checking for a
+	REG_UNUSED note before adding it.
+	(delete_computation): Handle multi-word hard registers
+	when synthesizing missing REG_DEAD notes for a register
+	which is both set and used by an insn.
+
+1999-08-29  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
+
+	* loop.c (this_loop_info): New variable.
+	(loop_has_call, loop_has_volatile, loop_has_tablejump,
+	loop_continue, loops_enclosed): Replace with fields in this_loop_info.
+	All uses updated.
+	(prescan_loop, strength_reduce): New argument loop_info.  All callers
+	updated.
+	(scan_loop): New variable loop_info, initialise to address of
+	this_loop_info.
+	(prescan_loop): Set loop_info->vtop if find NOTE_INSN_LOOP_VTOP.
+	Delete variable loop_has_multiple_exit targets and replace with
+	field in this_loop_info.
+	(find_and_verify_loops): Rename this_loop to this_loop_num.
+	(strength_reduce): Delete loop_iteration_info.  Replace variable
+	loop_info with function argument of same name.
+	(insert_bct): Rework test for loop being completely unrolled.
+
+	* loop.h (struct loop_info): New fields num, loops_enclosed,
+	has_call, has_volatile, has_tablejump, has_multiple_exit_targets,
+	has_indirect_jump, and cont.  Redefine use of unroll_number.
+	(loop_unroll_number): Delete.
+
+	* unroll.c (unroll_loop): Store loop unroll count in unroll_number
+	field of loop_info.
+	(loop_iterations): Delete variable vtop and instead use
+	loop_info->vtop computed in prescan_loop.
+
+Sun Aug 29 03:27:23 1999  Scott Weikart <scott@igc.apc.org>
+
+	* fix-header.c (main): Do not pass a null pointer to strcmp.
+
+Sun Aug 29 03:18:48 1999  William Bader  (william@nscs.fast.net)
+
+	* configure.in (i[34567]86-*-sco3.2v4*): Target does not truncate
+	filenames.
+	* configure: Rebuilt.
+
+Sat Aug 28 19:36:05 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* jump.c (jump_optimize_1): Do not delete assignments to 
+	internal_arg_pointer.
+	* cse.c (delete_trivially_dead_insns): Always consider a set of
+	the internal_arg_pointer live.
+
 Sat Aug 28 16:24:31 1999  Richard Henderson  <rth@cygnus.com>
 
 	* flow.c (flow_delete_insn_chain): Rename from delete_insn_chain.

@@ -1,7 +1,100 @@
+1999-08-30  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (IS_AGGR_TYPE_2): Fix typo.
+
+1999-08-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (begin_init_stmts): Declare.
+	(finish_init_stmts): Likewise.
+	* cvt.c (build_up_reference): Wrap the declaration of a temporary
+	in a statement-expression so that we will see it when expanding
+	tree structure later.
+	* init.c (begin_init_stmts): Don't make it static.
+	(finish_init_stmts): Likewise.
+
+	* cp-tree.h (start_handler_parms): New function.
+	(expand_start_catch_block): Take only one parameter.
+	(start_handler_parms): New function.
+	* decl.c (start_handler_parms): Define it.
+	* except.c (process_start_catch_block): Take only one parameter.
+	Don't call grokdeclarator here.
+	(expand_start_catch_block): Don't call grokdeclarator here,
+	either.
+	* parse.y (handler_args): Adjust call to
+	expand_start_catch_block.  Use start_handler_parms.
+	* pt.c (push_template_decl_real): Make permanent lists have
+	permanent elements.
+	(tsubst_expr): Adjust calls to expand_start_catch_block
+	appropriately.
+	* semantics.c (expand_stmt): Likewise.
+	
+1999-08-29  Alex Samuel  <samuel@codesourcery.com>
+
+	* pt.c (push_template_decl_real): Use template declaration from
+	class type if it exists.
+
+1999-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (TYPE_NEEDS_CONSTRUCTING): Remove #if 0'd definition.
+	(maybe_inject_for_scope_var): Declare it.
+	(initialize_local_var): Likewise.
+	* decl.c (maybe_inject_for_scope_var): Make it global.
+	(initialize_local_var): Likewise.  Move cleanup handling here,
+	from cp_finish_decl.
+	(make_rtl_for_nonlocal_decl): Use
+	push_obstacks_nochange/pop_obstacks, rather than
+	end_temporary_allocation/resume_temporary_allocation.
+	(cp_finish_decl): Try to complete the type of a variable when it
+	is declared.  Move cleanup-handling to initialize_local_var.
+	(expand_static_init): Use tree-building code, rather than
+	RTL-building code.
+	* decl2.c (get_temp_name): Assert non-initializedness of
+	temporaries.
+	* init.c (create_temporary_var): Move RTL-assigning code to ...
+	(get_temp_regvar): Here.
+	* pt.c (tsbust_expr): Fix indentation.  Call cp_finish_decl here.
+	* semantics.c (expand_stmt): Don't call cp_finish_decl here.  Just
+	call initialize_local_var to generate initialization code.
+	
+1999-08-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (fndecl_as_string, type_as_string,
+	type_as_string_real, args_as_string, decl_as_string,
+	expr_as_string, code_as_string, language_as_string,
+	parm_as_string, op_as_string, assop_as_string, cv_as_string,
+	lang_decl_name, cp_file_of, lang_printable_name): Constify a char*.
+
+	* errfn.c (cp_printer): Likewise.
+
+	* error.c (cp_printer, fndecl_as_string, type_as_string_real,
+	type_as_string, expr_as_string, decl_as_string, lang_decl_name,
+	cp_file_of, code_as_string, language_as_string, parm_as_string,
+	op_as_string, assop_as_string, args_as_string, cv_as_string):
+	Likewise.
+
+	* tree.c (lang_printable_name): Likewise.
+
+1999-08-28  Richard Henderson  <rth@cygnus.com>
+
+	* decl2.c (arg_assoc_class): Bail if the class is a builtin type.
+
 1999-08-28  Mark Mitchell  <mark@codesourcery.com>
 
+	* cp-tree.h (strip_array_types): New function.
+	* decl.c (maybe_deduce_size_from_array_init): New function, split
+	out from cp_finish_decl.
+	(layout_var_decl): Likewise.
+	(maybe_commonize_var): Likewise.
+	(maybe_inject_for_scope_var): Likewise.
+	(initialize_local_var): Likewise.
+	(build_cleanup_on_safe_obstack): Likewise.
+	(check_initializer): Likewise.
+	(make_rtl_for_nonlocal_decl): Likewise.
+	(cp_finish_decl): Use them.
+	* typeck.c (strip_array_types): New function.
+	
 	* cp-tree.def (LABEL_STMT): New tree node.
-	(LABEL_STMT_LABEL): New macro.
+	* cp-tree.h (LABEL_STMT_LABEL): New macro.
 	(shadow_label): Remove.
 	(declare_local_label): New function.
 	(finish_label_decl): Likewise.
