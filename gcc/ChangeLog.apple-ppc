@@ -1,3 +1,10 @@
+2005-04-02  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4072153
+	* tree.c (build2_stat): Never mark tcc_expression-class nodes
+	as constant, unless AltiVec PIM support has been selected
+	and we have a compound expression with constant elements.
+
 2005-03-31  Jon Ziegler  <jonz@apple.com>
 
 	Radar 4075524
