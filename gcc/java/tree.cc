@@ -719,9 +719,17 @@ tree_generator::visit_switch (model_switch *swstmt,
        ++i)
     {
       if ((*i).get () == def)
-	tsi_link_after (&out, build3 (CASE_LABEL_EXPR, NULL_TREE,
-				      NULL_TREE, NULL_TREE, NULL_TREE),
-			TSI_CONTINUE_LINKING);
+	{
+	  tree label = build0 (LABEL_DECL, NULL_TREE);
+	  DECL_CONTEXT (label) = current_block;
+	  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, label),
+			  TSI_CONTINUE_LINKING);
+
+	  tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE, NULL_TREE,
+				    NULL_TREE, label);
+	  annotate (case_label, (*i).get ());
+	  tsi_link_after (&out, case_label, TSI_CONTINUE_LINKING);
+	}
       (*i)->visit (this);
       tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
     }
@@ -759,9 +767,8 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
        ++i)
     {
       jint value = jint (intb->convert ((*i)->type (), (*i)->value ()));
-      tree new_label = build3 (CASE_LABEL_EXPR,
-			       void_type_node,
-			       build_int (value), NULL_TREE, label);
+      tree new_label = build3 (CASE_LABEL_EXPR, NULL_TREE, build_int (value),
+			       NULL_TREE, label);
       annotate (new_label, swblock);
       tsi_link_after (&out, new_label, TSI_CONTINUE_LINKING);
     }
