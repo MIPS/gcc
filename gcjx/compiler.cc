@@ -29,6 +29,8 @@ compiler::compiler (const std::string &name)
     multi_threaded (0),
     mt_monitor (),
     mt_condition (mt_monitor),
+    pause_monitor (),
+    pause_condition (pause_monitor),
     factory (NULL),
     primordial_package (new model_primordial_package ()),
     unnamed_package (new model_unnamed_package ()),
@@ -158,7 +160,7 @@ compiler::get_name ()
 void
 compiler::add_unit (const ref_unit &unit, bool emit_code)
 {
-  concurrence::sync::lock_sentinel sync (mt_monitor);
+  concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
   units.push_back (unit);
   if (emit_code && (pre_semantic_analysis || generating_bytecode))
     code_generation_units.push_back (unit);
@@ -227,15 +229,13 @@ compiler::semantic_analysis ()
 {
   pre_semantic_analysis = false;
 
-  // FIXME: here we need a way to wait until all the worker threads
-  // have parsed the input files.
-
   for (std::list<ref_unit>::const_iterator i = code_generation_units.begin ();
        ok && i != code_generation_units.end ();
        ++i)
-    {
-      do_analyze_unit ((*i).get ());
-    }
+    // Note that we do this single-threaded, as we don't have support
+    // for MT semantic analysis.
+    do_analyze_unit ((*i).get ());
+
   return ok;
 }
 
@@ -266,7 +266,7 @@ compiler::generate_code ()
   // FIXME: it would make more sense, perhaps, to turn this thread
   // into a worker as well...?
   {
-    concurrence::sync::lock_sentinel sync (mt_monitor);
+    concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
     while (multi_threaded)
       mt_condition.wait ();
   }
@@ -386,7 +386,7 @@ compiler::add_job (const work_item &job)
 {
   if (multi_threaded)
     {
-      concurrence::sync::lock_sentinel sync (work_monitor);
+      concurrence::exclusive_mutex::lock_sentinel sync (work_monitor);
       work_list.push_back (job);
       work_condition.signal ();
     }
@@ -409,6 +409,17 @@ compiler::dispatch_job (const work_item &job)
     case GENERATE_CODE:
       do_generate_code (job.unit);
       break;
+    case PAUSE:
+      {
+	{
+	  concurrence::exclusive_mutex::lock_sentinel hold (pause_monitor);
+	  pause_condition.signal ();
+	}
+	// Now wait on the pause mutex.  Since we release it as soon
+	// as we acquire it, this lets all the workers proceed.
+	concurrence::exclusive_mutex::lock_sentinel hold (pause_waiter);
+      }
+      break;
     case DIE:
       // We're done.
       result = true;
@@ -420,10 +431,8 @@ compiler::dispatch_job (const work_item &job)
 void
 compiler::work ()
 {
-  assert (0 && "thread code stubbed out for the time being");
-
   {
-    concurrence::sync::lock_sentinel sync (mt_monitor);
+    concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
     ++multi_threaded;
   }
 
@@ -435,7 +444,7 @@ compiler::work ()
 	  work_item job;
 
 	  {
-	    concurrence::sync::lock_sentinel sync (work_monitor);
+	    concurrence::exclusive_mutex::lock_sentinel sync (work_monitor);
 	    while (work_list.empty ())
 	      work_condition.wait ();
 	    // Pop the work item while we still hold the mutex.
@@ -449,16 +458,40 @@ compiler::work ()
     }
   catch (...)
     {
-      concurrence::sync::lock_sentinel sync (mt_monitor);
+      concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
       --multi_threaded;
       mt_condition.signal ();
 
       throw;
     }
 
-  concurrence::sync::lock_sentinel sync (mt_monitor);
+  concurrence::exclusive_mutex::lock_sentinel sync (mt_monitor);
   --multi_threaded;
   mt_condition.signal ();
+}
+
+void
+compiler::pause_workers ()
+{
+  if (! multi_threaded)
+    return;
+
+  // Acquire the lock used for pausing.
+  concurrence::exclusive_mutex::lock_sentinel outer (pause_waiter);
+
+  // Acquire the lock that controls the counter.
+  concurrence::exclusive_mutex::lock_sentinel inner (pause_monitor);
+
+  // Tell each thread to pause.
+  for (int i = 0; i < multi_threaded; ++i)
+    {
+      work_item job (PAUSE);
+      add_job (job);
+    }
+
+  // Wait for each thread to report back.
+  for (int i = 0; i < multi_threaded; ++i)
+    pause_condition.wait ();
 }
 
 void

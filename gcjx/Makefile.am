@@ -8,7 +8,7 @@ AUTOMAKE_OPTIONS = subdir-objects foreign
 ################################################################
 
 gcjx_SOURCES = main.cc
-gcjx_LDADD = libgcjx.la
+gcjx_LDADD = libgcjx.la -lpthread
 
 libgcjx_la_SOURCES = $(dot_sources) $(model_sources) $(reader_sources) \
 $(source_sources) $(format_sources) $(bytecode_sources)	\

@@ -70,6 +70,7 @@ class compiler : public warning_scope
     PARSE,
     ANALYZE,
     GENERATE_CODE,
+    PAUSE,
     DIE
   } job_type;
 
@@ -135,6 +136,14 @@ class compiler : public warning_scope
 
   // Work items.
   std::deque<work_item> work_list;
+
+  // This monitor and condition are acquired when waiting for worker
+  // threads to pause.
+  concurrence::exclusive_mutex pause_monitor;
+  concurrence::exclusive_condition pause_condition;
+
+  // This is held when waiting for worker threads to pause.
+  concurrence::exclusive_mutex pause_waiter;
 
   // The class path we search.
   classpath_class_factory *factory;
@@ -422,6 +431,9 @@ public:
 
   /// Register the current thread as a worker thread for the compiler.
   void work ();
+
+  /// FIXME: this probably shouldn't be public...
+  void pause_workers ();
 };
 
 #endif // GCJX_COMPILER_HH

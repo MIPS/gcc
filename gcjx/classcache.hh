@@ -1,6 +1,6 @@
 // Look up and cache classes.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -31,7 +31,7 @@ class class_cache
   model_class *cache;
 
   /// The mutex on which to synchronize.
-  concurrence::sync &mutex;
+  concurrence::exclusive_mutex &mutex;
 
   // This is here to make it impossible for user code to try to use
   // this class as anything other than a cache.
@@ -44,7 +44,7 @@ class class_cache
 
 public:
 
-  class_cache (concurrence::sync &m, const char *n)
+  class_cache (concurrence::exclusive_mutex &m, const char *n)
     : name (n),
       cache (NULL),
       mutex (m)

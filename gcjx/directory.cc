@@ -1,6 +1,6 @@
 // Directory cache.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -44,7 +44,7 @@ directory_cache::ensure (const std::string &dirname)
 std::string
 directory_cache::add (model_class *klass, const std::string &suffix)
 {
-  concurrence::sync::lock_sentinel sync (monitor);
+  concurrence::exclusive_mutex::lock_sentinel sync (monitor);
   std::list<std::string> qualname = split (klass->get_fully_qualified_name (),
 					   '.');
   std::string partial = base;

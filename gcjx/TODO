@@ -272,8 +272,9 @@ X must handle Miranda methods properly
 - must implement gcjh hacks for C++ keywords and method/field name
   clash
 - must implement gcjh hack for field alignment
-- implement the write-to-temp file thing that bytecode uses?
+X implement the write-to-temp file thing that bytecode uses?
   gcjh doesn't, perhaps we don't need this
+  [ we don't because we build all the headers before any .cc files ]
 
 ================================================================
 
@@ -281,6 +282,7 @@ Tree generation
 
 we should factor out things like object layout, etc, so that
 we can reuse the bulk of this code with LLVM
+  [ done ]
 
 build_address_of() the functions we call
 document this in tree.def:call_expr ?

@@ -1,3 +1,30 @@
+2005-02-05  Tom Tromey  <tromey@redhat.com>
+
+	* thread/thread.hh: Disable.
+
+	* main.cc (gcjx_main): Pause workers.
+	* compiler.cc (compiler): Initialize pause_count.
+	(dispatch_job): Handle PAUSE.
+	(pause_workers): New method.
+	* compiler.hh (compiler::pause_monitor): New field.
+	(compiler::pause_condition): Likewise.
+	(compiler::pause_count): Likewise.
+	(compiler::pause_waiter): Likewise.
+	(PAUSE): New enum constant.
+	(compiler::pause_workers): Declare.
+
+	* Makefile.am (gcjx_LDADD): Added -lpthread.
+	* directory.cc (add): Updated.
+	* classcache.cc (find_class): Updated.
+	* classcache.hh (class_cache::mutex): Changed type.
+	(class_cache): Updated.
+	* compiler.cc (add_unit): Updated.
+	(generate_code): Likewise.
+	(add_job): Likewise.
+	(work): Likewise.
+	* thread/thread.hh: Rewrote.
+	* main.cc (class argument_parser): Enable -j.
+
 2005-02-04  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.cc (get_class_signature): Handle Object case.

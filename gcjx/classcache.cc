@@ -1,6 +1,6 @@
 // Class cache implementation.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -24,7 +24,7 @@
 void
 class_cache::find_class ()
 {
-  concurrence::sync::lock_sentinel sync (mutex);
+  concurrence::exclusive_mutex::lock_sentinel sync (mutex);
   // We could require the compiler as an argument to the constructor.
   cache = global->get_compiler ()->find_class (name);
   if (! cache)

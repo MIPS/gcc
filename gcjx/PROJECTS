@@ -27,9 +27,8 @@ Annotations have been started but not finished
 - where should model_package call resolve_annotations ?
 
 enums partly work.  They are completely untested but much of the code
-is there.  some code generation work remains (at least switches on
-enum type).  a little semantic analysis work remains, including
-missing error checking
+is there.  some code generation work remains.  a little semantic
+analysis work remains, including missing error checking
 
 Generics partly work.  Generic methods have not been implemented at
 all.
@@ -121,8 +120,6 @@ Bytecode generation mostly works, but it occasionally generates
 incorrect bytecode.  Running the verifier over the output is helpful
 here.  (Having a mode for "gcjx --verify-only" would be very useful
 right now!)
-
-The bytecode generator doesn't emit debug information.
 
 JNI header generation is probably ok
 

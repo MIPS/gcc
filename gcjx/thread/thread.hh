@@ -1,6 +1,6 @@
 // Thread definitions.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -22,46 +22,85 @@
 #ifndef GCJX_THREAD_THREAD_HH
 #define GCJX_THREAD_THREAD_HH
 
+// #include <pthread.h>
+
 /// Note that this is just stubs.  The names come from Benjamin
 /// Kosnik's libthread++, which isn't checked in anywhere yet.
 /// Meanwhile this implements exactly the subset used by gcjx.
 namespace concurrence
 {
-  // Mutex base class.
-  class sync
+  class exclusive_condition;
+
+  class exclusive_mutex
   {
+//     pthread_mutex_t lock;
+
+    friend class exclusive_condition;
+
   public:
+
+    exclusive_mutex ()
+    {
+      // FIXME: we must use a recursive mutex here due to uses in
+      // compiler, but last time I looked (quite a long time ago),
+      // recursive mutexes did not work properly with condition
+      // variables.
+//       pthread_mutex_init (&lock, NULL);
+    }
+
+    ~exclusive_mutex ()
+    {
+//       pthread_mutex_destroy (&lock);
+    }
 
     // Acquire and release a mutex using RAII.
     class lock_sentinel
     {
+      exclusive_mutex &m;
+
     public:
 
-      lock_sentinel (const sync &)
+      lock_sentinel (exclusive_mutex &mu)
+	: m (mu)
       {
+// 	pthread_mutex_lock (&m.lock);
+      }
+
+      ~lock_sentinel ()
+      {
+// 	pthread_mutex_unlock (&m.lock);
       }
     };
-  };
-
-  class exclusive_mutex : public sync
-  {
   };
 
   // Condition variable.
   class exclusive_condition
   {
+    exclusive_mutex &m;
+
+//     pthread_cond_t cond;
+
   public:
 
-    exclusive_condition (const exclusive_mutex &)
+    exclusive_condition (exclusive_mutex &mu)
+      : m (mu)
     {
+//       pthread_cond_init (&cond, NULL);
+    }
+
+    ~exclusive_condition ()
+    {
+//       pthread_cond_destroy (&cond);
     }
 
     void wait ()
     {
+//       pthread_cond_wait (&cond, &m.lock);
     }
 
     void signal ()
     {
+//       pthread_cond_signal (&cond);
     }
   };
 
@@ -86,19 +125,41 @@ namespace concurrence
     }
   };
 
+  template<typename T>
   class thread
   {
+    T *obj;
+
+    void (T::*fn) ();
+
+    pthread_t thr;
+
+    static void *do_start (void *val)
+    {
+      thread *self = reinterpret_cast<thread *> (val);
+      ((self->obj)->*(self->fn)) ();
+      return NULL;
+    }
+
   public:
+
+    thread (T *o, void (T::*f) ())
+      : obj (o),
+	fn (f)
+    {
+    }
 
     void start ()
     {
+      abort ();
+//       pthread_create (&thr, NULL, do_start, this);
     }
   };
 
   template<typename T>
-  thread make_thread (const T &obj, void (T::*fn) ())
+  thread<T> make_thread (T *obj, void (T::*fn) ())
   {
-    abort ();
+    return thread<T> (obj, fn);
   }
 };
 

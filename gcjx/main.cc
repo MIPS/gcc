@@ -453,13 +453,8 @@ public:
 	  dash_i_args.push_back (get_arg_for (it, "-I", false));
         else if (arg == "-j")
 	  {
-#if 1
-	    throw make_error ("thread support is stubbed out until "
-		              "libthread++ is released");
-#else
 	    std::string threads (get_next_arg (it, arg));
-	    n_threads = atoi (arg);
-#endif
+	    n_threads = atoi (threads.c_str ());
 	  }
 	else if (is_form_of (it, "-source"))
 	  set_source (get_arg_for (it, "-source"));
@@ -526,7 +521,7 @@ public:
 
     // Start the worker threads.
     for (int i = 0; i < n_threads; ++i)
-      concurrence::make_thread (*comp, &compiler::work).start ();
+      concurrence::make_thread (comp, &compiler::work).start ();
 
     return source_files;
   }
@@ -555,6 +550,8 @@ gcjx_main (char *argv[])
   std::deque<std::string>::const_iterator it = source_files.begin ();
   for (; it != source_files.end (); ++it)
     global->get_compiler ()->load_source_file (*it);
+  // Make sure we don't do any analysis before the parsing is done.
+  global->get_compiler ()->pause_workers ();
 
   if (! global->get_compiler ()->semantic_analysis ())
     return 1;
