@@ -1,5 +1,10 @@
 2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-iv.c (fill_loop_rd_in_for_def): Fix.
+	(get_reg_value_at): Do not call fill_loop_rd_in_for_def unnecessarily.
+
+2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-iv.c (compute_loop_end_values): One more fix.
 	(analyse_induction_variables): Remove debugging tweak.
 

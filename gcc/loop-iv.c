@@ -1788,15 +1788,15 @@ get_reg_value_at (bb, insn, ref)
 	    continue;
 	}
 
-      if (!TEST_BIT (loop_rd_in_ok, defno))
-	fill_loop_rd_in_for_def (def->ref);
-
       /* The definition that dominates us.  */
       if (def_bb == bb
 	  && DF_INSN_LUID (df, def_insn) < DF_INSN_LUID (df, insn))
 	break;
       if (def_bb != bb && fast_dominated_by_p (dom, bb, def_bb))
 	break;
+
+      if (!TEST_BIT (loop_rd_in_ok, defno))
+	fill_loop_rd_in_for_def (def->ref);
 
       /* The definition that does not dominate us, but reaches us.  */
       if (bitmap_bit_p (loop_rd_in[bb->index], defno))
@@ -1966,7 +1966,7 @@ fill_loop_rd_in_for_def (def)
   SET_BIT (loop_rd_in_ok, defno);
   if (!DF_REF_REG_DEF_P (def)
       || !TEST_BIT (interesting_reg, DF_REF_REGNO (def))
-      || bitmap_bit_p (DF_BB_INFO (df, def_bb)->rd_kill, defno)
+      || !bitmap_bit_p (DF_BB_INFO (df, def_bb)->rd_out, defno)
       || !def_bb->succ)
     return;
 
