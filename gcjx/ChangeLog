@@ -1,3 +1,8 @@
+2005-01-30  Tom Tromey  <tromey@redhat.com>
+
+	* aot/aotclass.cc (lay_out_vtable): Check 'super' before copying
+	vtable.
+
 2005-01-29  Tom Tromey  <tromey@redhat.com>
 
 	* aot/aotfactory.cc: Added instantiations.

@@ -40,7 +40,8 @@ aot_class::lay_out_vtable ()
   model_class *sk = klass->get_superclass ();
   aot_class *super = sk ? factory->get_class (sk) : NULL;
 
-  vtable = super->vtable;
+  if (super)
+    vtable = super->vtable;
 
   for (AllMethodsIterator i = klass->begin_all_methods ();
        i != klass->end_all_methods ();
