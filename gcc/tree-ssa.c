@@ -375,7 +375,7 @@ rewrite_into_ssa (void)
 
      Also count the number of predecessors for each block.  Doing so
      can save significant time during PHI insertion for large graphs.  */
-  dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
+  dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
       edge e;
@@ -507,7 +507,7 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   basic_block bb, *worklist, *tos;
 
   tos = worklist
-    = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+    = (basic_block *) xmalloc (sizeof (basic_block) * (last_basic_block + 1));
 
   /* Initialize the worklist.  */
   FOR_EACH_BB (bb)
