@@ -1,5 +1,10 @@
 2003-02-04  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (add_stmt_operand): Do not add a VUSE for a pointer
+	when clobbering its associated INDIRECT_REF variable.
+
+2003-02-04  Diego Novillo  <dnovillo@redhat.com>
+
 	* config/rs6000/t-rs6000 (jump.o, regmove.o, c-typeck.o, cfgrtl.o,
 	combine.o, fold-const.o, ifcvt.o, reload1.o, rtlanal.o,
 	cp/decl2.o, cp/pt.o, f/where.o, java/expr.o, objc/objc-act.o,

@@ -516,6 +516,7 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   bool is_scalar;
   tree var, deref;
   varray_type aliases;
+  size_t i;
 
   var = *var_p;
   STRIP_NOPS (var);
@@ -563,8 +564,6 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   else
     {
       /* The variable is aliased.  Add its aliases to the virtual operands.  */
-      size_t i;
-
       if (is_def)
 	{
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
@@ -582,11 +581,17 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
      memory location.  */
   deref = indirect_ref (var);
   if (is_def
+      && deref != NULL_TREE
       && SSA_DECL_P (var)
-      && POINTER_TYPE_P (TREE_TYPE (var))
-      && deref != NULL_TREE)
+      && POINTER_TYPE_P (TREE_TYPE (var)))
     {
-      add_stmt_operand (&deref, stmt, true, true, prev_vops);
+      /* Add a VDEF for '*p' (or its aliases if it has any).  */
+      aliases = may_aliases (deref);
+      if (aliases == NULL)
+	add_vdef (deref, stmt, prev_vops);
+      else
+	for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	  add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
 
       /* If the relocation of 'p' is due to an expression that may
 	 point to global memory, then mark '*p' as an alias for
@@ -596,18 +601,20 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 		  		    get_base_symbol (TREE_OPERAND (stmt, 1))))
 	set_may_alias_global_mem (deref);
     }
+  else
+    {
+      /* If VAR is a pointer dereference, we need to add a VUSE for its
+	 base pointer.  If needed, strip its SSA version, to access the
+	 base pointer.  Otherwise we won't recognize use of pointers after
+	 variables have been renamed. For instance, in (*p)_35, we need to
+	 add an operand for 'p', and for that we need to remove the SSA
+	 version number first.  */
+      if (TREE_CODE (var) == SSA_NAME)
+	var = SSA_NAME_VAR (var);
 
-
-  /* Pointer dereferences represent a VUSE of their base pointer.  If
-     needed, strip its SSA version, to access the base pointer.  Otherwise
-     we won't recognize use of pointers after variables have been renamed.
-     For instance, in (*p)_35, we need to add an operand for 'p', and for
-     that we need to remove the SSA version number first.  */
-  if (TREE_CODE (var) == SSA_NAME)
-    var = SSA_NAME_VAR (var);
-
-  if (TREE_CODE (var) == INDIRECT_REF)
-    add_stmt_operand (&TREE_OPERAND (var, 0), stmt, false, true, prev_vops);
+      if (TREE_CODE (var) == INDIRECT_REF)
+	add_stmt_operand (&TREE_OPERAND (var, 0), stmt, false, true, prev_vops);
+    }
 }
 
 
