@@ -1554,7 +1554,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	s_low = ptr;
 	s_high = CLAMPSZ (ptr, sz);
 
-	while (tries < 4) /* magic */
+	while (tries < 16) /* magic */
 	  {
 	    if (dead_p)
 	      num_objs = __mf_find_dead_objects (s_low, s_high, objs, max_objs);
@@ -1565,8 +1565,8 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	      break;
 
 	    tries ++;
-	    s_low = CLAMPSUB (s_low, (sz * tries));
-	    s_high = CLAMPADD (s_high, (sz * tries));
+	    s_low = CLAMPSUB (s_low, (sz * tries * tries));
+	    s_high = CLAMPADD (s_high, (sz * tries * tries));
 	  }
 
 	for (i = 0; i < num_objs; i++)
