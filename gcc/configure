@@ -308,7 +308,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility gthread_flags GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB BANSHEEREBUILD gcc_tooldir dollar gmplibs gmpinc slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB BANSHEEREBUILD gcc_tooldir dollar gmplibs gmpinc slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -8749,6 +8749,10 @@ if test "$host_xm_file" != "$build_xm_file"; then
 	fi
 fi
 
+# ---------
+# Threading
+# ---------
+
 # Check if a valid thread package
 case ${enable_threads_flag} in
   "" | no)
@@ -8774,6 +8778,19 @@ if test x${thread_file} = x; then
   # so use file chosen by default logic above
   thread_file=${target_thread_file}
 fi
+
+# Make gthr-default.h if we have a thread file.
+gthread_flags=
+if test $thread_file != single; then
+  rm -f gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  gthread_flags=-DHAVE_GTHR_DEFAULT
+fi
+
+
+# --------
+# UNSORTED
+# --------
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
@@ -9437,6 +9454,10 @@ case $use_collect2 in
     xm_defines="${xm_defines} USE_COLLECT2"
     ;;
 esac
+
+# ---------------------------
+# Assembler & linker features
+# ---------------------------
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -11278,6 +11299,10 @@ fi
 echo "$as_me:$LINENO: result: $gcc_cv_ld_pie" >&5
 echo "${ECHO_T}$gcc_cv_ld_pie" >&6
 
+# --------
+# UNSORTED
+# --------
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
 
@@ -11415,15 +11440,6 @@ The following languages were available: c${found_languages}" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
-# Make gthr-default.h if we have a thread file.
-gthread_flags=
-if test $thread_file != single; then
-    rm -f gthr-default.h
-    echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
-    gthread_flags=-DHAVE_GTHR_DEFAULT
-fi
-
-
 # Find out what GC implementation we want, or may, use.
 
 # Check whether --with-gc or --without-gc was given.
@@ -11511,6 +11527,11 @@ fi
 
 
 
+
+
+# --------------
+# Language hooks
+# --------------
 
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
@@ -11633,6 +11654,10 @@ do
 	done
 	echo "lang.$t: $x" >> Make-hooks
 done
+
+# --------
+# UNSORTED
+# --------
 
 # Create .gdbinit.
 
@@ -12649,6 +12674,7 @@ s,@LIBICONV@,$LIBICONV,;t t
 s,@LIBICONV_DEP@,$LIBICONV_DEP,;t t
 s,@manext@,$manext,;t t
 s,@objext@,$objext,;t t
+s,@gthread_flags@,$gthread_flags,;t t
 s,@extra_modes_file@,$extra_modes_file,;t t
 s,@FORBUILD@,$FORBUILD,;t t
 s,@PACKAGE@,$PACKAGE,;t t
@@ -12672,7 +12698,6 @@ s,@BUILD_CFLAGS@,$BUILD_CFLAGS,;t t
 s,@STMP_FIXINC@,$STMP_FIXINC,;t t
 s,@STMP_FIXPROTO@,$STMP_FIXPROTO,;t t
 s,@libgcc_visibility@,$libgcc_visibility,;t t
-s,@gthread_flags@,$gthread_flags,;t t
 s,@GGC@,$GGC,;t t
 s,@zlibdir@,$zlibdir,;t t
 s,@zlibinc@,$zlibinc,;t t

@@ -216,6 +216,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
 extern int lhd_tree_dump_type_quals (tree);
+extern tree lhd_make_node (enum tree_code);
 
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN lhd_tree_dump_dump_tree
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN lhd_tree_dump_type_quals
@@ -227,7 +228,7 @@ extern int lhd_tree_dump_type_quals (tree);
 
 /* Types hooks.  There are no reasonable defaults for most of them,
    so we create a compile-time error instead.  */
-#define LANG_HOOKS_MAKE_TYPE make_node
+#define LANG_HOOKS_MAKE_TYPE lhd_make_node
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type

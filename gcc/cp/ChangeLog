@@ -1,3 +1,85 @@
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14369
+	* pt.c (build_non_dependent_expr): Do not create a
+	NON_DEPENDENT_EXPR for a THROW_EXPR.
+
+2004-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/14369
+	* error.c (dump_expr): Handle THROW_EXPR.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14360
+	* parser.c (cp_parser_postfix_expression): Do not perform Koenig
+	lookup if ordinary name-lookup finds a non-function.
+	* pt.c (tsubst_copy_and_build): Likewise.
+
+	PR c++/14361
+	* parser.c (cp_parser_late_parsing_default_args): Check that there
+	are no extra tokens after the end of the default-argument
+	expression.
+	
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14324
+	* lex.c (retrofit_lang_decl): Treat entities with no linkage as
+	having C++ linkage for name-mangling purposes.
+
+	PR c++/14260
+	* parser.c (cp_parser_direct_declarator): Recognize constructor
+	declarators that use a template-id to name the class being
+	constructed.
+
+	PR c++/14337
+	* pt.c (tsubst_qualified_id): Handle dependent qualifying scopes.
+	(tsubst_expr): Do not call tsubst_copy, even when
+	processing_template_decl.	
+
+2004-03-01  Jeff Law  <law@redhat.com>
+
+	* init.c (build_vec_delete_1): Convert 2nd argument to NE_EXPR to
+	the proper type.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14138
+	* name-lookup.h (push_scope): Change prototype.
+	* name-lookup.c (push_scope): Do not reenter the current class
+	scope.
+	* decl.c (grokfndecl): Check return code from push_scope before
+	calling pop_scope.
+	* decl2.c (check_classfn): Likewise.
+	* parser.c (cp_parser_conversion_function_id): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_class_specifier): Likewise.
+	(cp_parser_class_head): Likewise.
+	(cp_parser_lookup_name): Likewise.
+	(cp_parser_constructor_declarator_p): Likewise.
+	* pt.c (instantiate_class_template): Likewise.
+	(resolve_typename_type): Likewise.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14267
+	* typeck.c (build_modify_expr): Remove more of the cast-as-lvalue
+	extension.
+
+	PR debug/12103
+	* class.c (update_vtable_entry_for_fn): Do not go through
+	covariance machinery if the type returned by an overrider is the
+	same as the original.
+
+2004-02-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c: Fix a comment typo.
+
+2004-02-27  Ziemowit Laski  <zlaski@apple.com>
+
+	* tree.c (pod_type_p): Treat VECTOR_TYPEs as PODs.
+
 2004-02-26  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14278

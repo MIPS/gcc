@@ -1,3 +1,25 @@
+2004-03-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in (mips64*-*-linux*): Override mips*-*-linux* case
+	and disable libgcj.
+	* configure: Regenerated.
+
+2004-03-01  Brian Booth  <bbooth@redhat.com>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-03-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+	
+2004-02-28  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/7087
+	* Makefile.tpl: Guard XFOO sed statements better.
+	* Makefile.tpl: Add dependency for configure-target-libada.
+	* Makefile.in: Regenerate (incidentally fixes broken
+	commit when libada-branch was merged).
+
 2004-02-25  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* MAINTAINERS: Add myself to write-after-approval.

@@ -1766,9 +1766,11 @@ cgraph_optimize (void)
     }
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
-  /* Double check that all inline clones are gone and that all function bodies
-     has been released from memory.  */
-  if (flag_unit_at_a_time && !dump_enabled_p (TDI_all))
+  /* Double check that all inline clones are gone and that all
+     function bodies have been released from memory.  */
+  if (flag_unit_at_a_time
+      && !dump_enabled_p (TDI_all)
+      && !(sorrycount || errorcount))
     {
       struct cgraph_node *node;
       bool error_found = false;

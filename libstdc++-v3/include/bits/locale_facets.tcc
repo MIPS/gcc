@@ -184,12 +184,11 @@ namespace std
 	  const char_type __c = *__beg;
 	  const bool __plus = __traits_type::eq(__c, __lit[_S_iplus]);
 	  if ((__plus || __traits_type::eq(__c, __lit[_S_iminus]))
-	      && !__traits_type::eq(__c, __lc->_M_decimal_point)
 	      && (!__lc->_M_use_grouping
-		  || !__traits_type::eq(__c, __lc->_M_thousands_sep)))
+		  || !__traits_type::eq(__c, __lc->_M_thousands_sep))
+	      && !__traits_type::eq(__c, __lc->_M_decimal_point))
 	    {
-	      __xtrc += __plus ? _S_atoms_in[_S_iplus]
-		               : _S_atoms_in[_S_iminus];
+	      __xtrc += __plus ? '+' : '-';
 	      ++__beg;
 	    }
 	}
@@ -198,15 +197,15 @@ namespace std
       while (__beg != __end)
 	{
 	  const char_type __c = *__beg;
-	  if (__traits_type::eq(__c, __lc->_M_decimal_point)
-	      || (__lc->_M_use_grouping
-		  && __traits_type::eq(__c, __lc->_M_thousands_sep)))
+	  if (__lc->_M_use_grouping
+	      && __traits_type::eq(__c, __lc->_M_thousands_sep)
+	      || __traits_type::eq(__c, __lc->_M_decimal_point))
 	    break;
 	  else if (__traits_type::eq(__c, __lit[_S_izero]))
 	    {
 	      if (!__found_mantissa)
 		{
-		  __xtrc += _S_atoms_in[_S_izero];
+		  __xtrc += '0';
 		  __found_mantissa = true;
 		}
 	      ++__beg;
@@ -222,7 +221,7 @@ namespace std
       if (__lc->_M_use_grouping)
 	__found_grouping.reserve(32);
       int __sep_pos = 0;
-      bool __e;
+      const char_type* __lit_zero = __lit + _S_izero;
       const char_type* __q;
       while (__beg != __end)
         {
@@ -267,19 +266,21 @@ namespace std
 	      else
 		break;
 	    }
-          else if (__q = __traits_type::find(__lit + _S_izero, 10, __c))
+          else if (__q = __traits_type::find(__lit_zero, 10, __c))
 	    {
 	      __xtrc += _S_atoms_in[__q - __lit];
 	      __found_mantissa = true;
 	      ++__sep_pos;
 	      ++__beg;
 	    }
-	  else if ((__e = __traits_type::eq(__c, __lit[_S_ie])
+	  else if ((__traits_type::eq(__c, __lit[_S_ie])
 		    || __traits_type::eq(__c, __lit[_S_iE]))
 		   && __found_mantissa && !__found_sci)
 	    {
 	      // Scientific notation.
-	      __xtrc += __e ? _S_atoms_in[_S_ie] : _S_atoms_in[_S_iE];
+	      if (__found_grouping.size() && !__found_dec)
+		__found_grouping += static_cast<char>(__sep_pos);
+	      __xtrc += 'e';
 	      __found_sci = true;
 
 	      // Remove optional plus or minus sign, if they exist.
@@ -287,10 +288,12 @@ namespace std
 		{
 		  const bool __plus = __traits_type::eq(*__beg,
 							__lit[_S_iplus]);
-		  if (__plus || __traits_type::eq(*__beg, __lit[_S_iminus]))
+		  if ((__plus || __traits_type::eq(*__beg, __lit[_S_iminus]))
+		      && (!__lc->_M_use_grouping
+			  || !__traits_type::eq(*__beg, __lc->_M_thousands_sep))
+		      && !__traits_type::eq(*__beg, __lc->_M_decimal_point))
 		    {
-		      __xtrc += __plus ? _S_atoms_in[_S_iplus]
-			               : _S_atoms_in[_S_iminus];
+		      __xtrc += __plus ? '+' : '-';
 		      ++__beg;
 		    }
 		}
@@ -304,8 +307,8 @@ namespace std
       // match, then get very very upset, and set failbit.
       if (__found_grouping.size())
         {
-          // Add the ending grouping if a decimal wasn't found.
-	  if (!__found_dec)
+          // Add the ending grouping if a decimal or 'e'/'E' wasn't found.
+	  if (!__found_dec && !__found_sci)
 	    __found_grouping += static_cast<char>(__sep_pos);
 
           if (!std::__verify_grouping(__lc->_M_grouping, __lc->_M_grouping_size,
@@ -350,9 +353,9 @@ namespace std
 	    if (numeric_limits<_ValueT>::is_signed)
 	      __negative = __traits_type::eq(__c, __lit[_S_iminus]);
 	    if ((__negative || __traits_type::eq(__c, __lit[_S_iplus]))
-		&& !__traits_type::eq(__c, __lc->_M_decimal_point)
 		&& (!__lc->_M_use_grouping
-		    || !__traits_type::eq(__c, __lc->_M_thousands_sep)))
+		    || !__traits_type::eq(__c, __lc->_M_thousands_sep))
+		&& !__traits_type::eq(__c, __lc->_M_decimal_point))
 	      ++__beg;
 	  }
 
@@ -361,9 +364,9 @@ namespace std
 	while (__beg != __end)
 	  {
 	    const char_type __c = *__beg;
-	    if (__traits_type::eq(__c, __lc->_M_decimal_point)
-		|| (__lc->_M_use_grouping
-		    && __traits_type::eq(__c, __lc->_M_thousands_sep)))
+	    if (__lc->_M_use_grouping
+		&& __traits_type::eq(__c, __lc->_M_thousands_sep)
+		|| __traits_type::eq(__c, __lc->_M_decimal_point))
 	      break;
 	    else if (__traits_type::eq(__c, __lit[_S_izero])
 		     && (!__found_num || __base == 10))
@@ -1190,18 +1193,18 @@ namespace std
 	const __cache_type* __lc = __uc(__loc);
 	const char_type* __lit = __lc->_M_atoms;
 
-	const money_base::pattern __p = __lc->_M_neg_format;
-
 	// Deduced sign.
 	bool __negative = false;
-	// True for more than one character long sign.
-	bool __long_sign = false;
+	// Sign size.
+	size_type __sign_size = 0;
 	// String of grouping info from thousands_sep plucked from __units.
 	string __grouping_tmp;
 	if (__lc->_M_use_grouping)
 	  __grouping_tmp.reserve(32);
-	// Marker for thousands_sep position.
-	int __sep_pos = 0;
+	// Last position before the decimal point.
+	int __last_pos = 0;
+	// Separator positions, then, possibly, fractional digits.
+	int __n = 0;
 	// If input iterator is in a valid state.
 	bool __testvalid = true;
 	// Flag marking when a decimal point is found.
@@ -1213,48 +1216,44 @@ namespace std
 
 	const char_type* __lit_zero = __lit + _S_zero;
 	const char_type* __q;
-	for (int __i = 0; __beg != __end && __i < 4 && __testvalid; ++__i)
+	const money_base::pattern __p = __lc->_M_neg_format;	
+	for (int __i = 0; __i < 4 && __testvalid; ++__i)
 	  {
 	    const part __which = static_cast<part>(__p.field[__i]);
 	    switch (__which)
 	      {
 	      case money_base::symbol:
 		if (__io.flags() & ios_base::showbase
-		    || __i < 2 || __long_sign
+		    || __i < 2 || __sign_size > 1
 		    || ((static_cast<part>(__p.field[3]) != money_base::none)
 			&& __i == 2))
 		  {
 		    // According to 22.2.6.1.2, p2, symbol is required
-		    // if (__io.flags() & ios_base::showbase),
-		    // otherwise is optional and consumed only if
-		    // other characters are needed to complete the
-		    // format.
+		    // if (__io.flags() & ios_base::showbase), otherwise
+		    // is optional and consumed only if other characters
+		    // are needed to complete the format.
 		    const size_type __len = __lc->_M_curr_symbol_size;
 		    size_type __j = 0;
 		    for (; __beg != __end && __j < __len
 			   && *__beg == __lc->_M_curr_symbol[__j];
 			 ++__beg, ++__j);
-		    // When (__io.flags() & ios_base::showbase)
-		    // symbol is required.
 		    if (__j != __len && (__io.flags() & ios_base::showbase))
 		      __testvalid = false;
 		  }
 		break;
 	      case money_base::sign:
 		// Sign might not exist, or be more than one character long.
-		if (__lc->_M_positive_sign_size
+		if (__lc->_M_positive_sign_size && __beg != __end
 		    && *__beg == __lc->_M_positive_sign[0])
 		  {
-		    if (__lc->_M_positive_sign_size > 1)
-		      __long_sign = true;
+		    __sign_size = __lc->_M_positive_sign_size;
 		    ++__beg;
 		  }
-		else if (__lc->_M_negative_sign_size
+		else if (__lc->_M_negative_sign_size && __beg != __end
 			 && *__beg == __lc->_M_negative_sign[0])
 		  {
 		    __negative = true;
-		    if (__lc->_M_negative_sign_size > 1)
-		      __long_sign = true;		    
+		    __sign_size = __lc->_M_negative_sign_size;
 		    ++__beg;
 		  }
 		else if (__lc->_M_positive_sign_size
@@ -1276,26 +1275,23 @@ namespace std
 		  if (__q = __traits_type::find(__lit_zero, 10, *__beg))
 		    {
 		      __res += _S_atoms[__q - __lit];
-		      ++__sep_pos;
+		      ++__n;
 		    }
 		  else if (*__beg == __lc->_M_decimal_point && !__testdecfound)
 		    {
-		      // If no grouping chars are seen, no grouping check
-		      // is applied. Therefore __grouping_tmp is adjusted
-		      // only if decimal_point comes after some thousands_sep.
-		      if (__grouping_tmp.size())
-			__grouping_tmp += static_cast<char>(__sep_pos);
-		      __sep_pos = 0;
+		      __last_pos = __n;
+		      __n = 0;
 		      __testdecfound = true;
 		    }
 		  else if (__lc->_M_use_grouping
-			   && *__beg == __lc->_M_thousands_sep)
+			   && *__beg == __lc->_M_thousands_sep
+			   && !__testdecfound)
 		    {
-		      if (!__testdecfound)
+		      if (__n)
 			{
 			  // Mark position for later analysis.
-			  __grouping_tmp += static_cast<char>(__sep_pos);
-			  __sep_pos = 0;
+			  __grouping_tmp += static_cast<char>(__n);
+			  __n = 0;
 			}
 		      else
 			{
@@ -1305,6 +1301,8 @@ namespace std
 		    }
 		  else
 		    break;
+		if (__res.empty())
+		  __testvalid = false;
 		break;
 	      case money_base::space:
 	      case money_base::none:
@@ -1317,42 +1315,39 @@ namespace std
 	  }
 
 	// Need to get the rest of the sign characters, if they exist.
-	if (__long_sign)
+	if (__sign_size > 1 && __testvalid)
 	  {
 	    const char_type* __sign = __negative ? __lc->_M_negative_sign
 	                                         : __lc->_M_positive_sign;
-	    const size_type __len = __negative ? __lc->_M_negative_sign_size
-                                               : __lc->_M_positive_sign_size;
 	    size_type __i = 1;
-	    for (; __beg != __end && __i < __len
+	    for (; __beg != __end && __i < __sign_size
 		   && *__beg == __sign[__i]; ++__beg, ++__i);
 	    
-	    if (__i != __len)
+	    if (__i != __sign_size)
 	      __testvalid = false;
 	  }
 
-	if (__testvalid && __res.size())
+	if (__testvalid)
 	  {
 	    // Strip leading zeros.
 	    if (__res.size() > 1)
 	      {
-		size_type __first = __res.find_first_not_of(__lit[_S_zero]);
-		const bool __only_zeros = __first == string_type::npos;
+		const size_type __first = __res.find_first_not_of('0');
+		const bool __only_zeros = __first == string::npos;
 		if (__first)
 		  __res.erase(0, __only_zeros ? __res.size() - 1 : __first);
 	      }
 
 	    // 22.2.6.1.2, p4
-	    if (__negative && __res[0] != __lit[_S_zero])
-	      __res.insert(__res.begin(), __lit[_S_minus]);
+	    if (__negative && __res[0] != '0')
+	      __res.insert(__res.begin(), '-');
 	    
 	    // Test for grouping fidelity.
 	    if (__grouping_tmp.size())
 	      {
-		// Add the ending grouping if a decimal wasn't found.
-		if (!__testdecfound)
-		  __grouping_tmp += static_cast<char>(__sep_pos);
-		
+		// Add the ending grouping.
+		__grouping_tmp += static_cast<char>(__testdecfound ? __last_pos
+						                   : __n);
 		if (!std::__verify_grouping(__lc->_M_grouping,
 					    __lc->_M_grouping_size,
 					    __grouping_tmp))
@@ -1361,11 +1356,9 @@ namespace std
 	    
 	    // Iff not enough digits were supplied after the decimal-point.
 	    if (__testdecfound && __lc->_M_frac_digits > 0
-		&& __sep_pos != __lc->_M_frac_digits)
+		&& __n != __lc->_M_frac_digits)
 	      __testvalid = false;
 	  }
-	else
-	  __testvalid = false;
 	
 	// Iff no more characters are available.
 	if (__beg == __end)
@@ -1404,7 +1397,7 @@ namespace std
     do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io,
 	   ios_base::iostate& __err, string_type& __units) const
     {
-      typedef typename string_type::size_type             size_type;
+      typedef typename string::size_type                  size_type;
 
       const locale& __loc = __io._M_getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
@@ -1448,7 +1441,6 @@ namespace std
 	// Determine if negative or positive formats are to be used, and
 	// discard leading negative_sign if it is present.
 	const char_type* __beg = __digits.data();
-	const char_type* __end = __beg + __digits.size();
 
 	money_base::pattern __p;
 	const char_type* __sign;
@@ -1459,7 +1451,7 @@ namespace std
 	    __sign = __lc->_M_positive_sign;
 	    __sign_size = __lc->_M_positive_sign_size;
 	  }
-	else
+	else if (__digits.size())
 	  {
 	    __p = __lc->_M_neg_format;
 	    __sign = __lc->_M_negative_sign;
@@ -1468,21 +1460,23 @@ namespace std
 	  }
        
 	// Look for valid numbers in the ctype facet within input digits.
-	__end = __ctype.scan_not(ctype_base::digit, __beg, __end);
-	if (__beg != __end)
+	size_type __len = __ctype.scan_not(ctype_base::digit, __beg,
+					   __beg + __digits.size()) - __beg;
+	if (__len)
 	  {
 	    // Assume valid input, and attempt to format.
 	    // Break down input numbers into base components, as follows:
 	    //   final_value = grouped units + (decimal point) + (digits)
 	    string_type __value;
-	    size_type __len = __end - __beg;
 	    __value.reserve(2 * __len);
 
 	    // Add thousands separators to non-decimal digits, per
 	    // grouping rules.
-	    const int __paddec = __lc->_M_frac_digits - __len;	    
-	    if (__paddec < 0)
+	    int __paddec = __len - __lc->_M_frac_digits;
+	    if (__paddec > 0)
   	      {
+		if (__lc->_M_frac_digits < 0)
+		  __paddec = __len;
   		if (__lc->_M_grouping_size)
   		  {
 		    _CharT* __ws =
@@ -1492,24 +1486,23 @@ namespace std
 		      std::__add_grouping(__ws, __lc->_M_thousands_sep,
 					  __lc->_M_grouping,
 					  __lc->_M_grouping_size,
-					  __beg, __end - __lc->_M_frac_digits);
+					  __beg, __beg + __paddec);
 		    __value.assign(__ws, __ws_end - __ws);
   		  }
   		else
-		  __value.assign(__beg, -__paddec);
+		  __value.assign(__beg, __paddec);
 	      }
 
 	    // Deal with decimal point, decimal digits.
 	    if (__lc->_M_frac_digits > 0)
 	      {
 		__value += __lc->_M_decimal_point;
-		if (__paddec <= 0)
-		  __value.append(__end - __lc->_M_frac_digits,
-				 __lc->_M_frac_digits);
+		if (__paddec >= 0)
+		  __value.append(__beg + __paddec, __lc->_M_frac_digits);
 		else
 		  {
 		    // Have to pad zeros in the decimal position.
-		    __value.append(__paddec, __lit[_S_zero]);
+		    __value.append(-__paddec, __lit[_S_zero]);
 		    __value.append(__beg, __len);
 		  }
   	      }

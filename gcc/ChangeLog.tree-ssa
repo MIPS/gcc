@@ -1,3 +1,8 @@
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* cgraphunit.c (cgraph_optimize): Do not do memory release
+	check if there have been errors.
+
 2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
 
 	PR/14362

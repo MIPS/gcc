@@ -284,8 +284,8 @@ in the following sections.
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
--fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -floop-optimize @gol
--fcrossjumping  -fif-conversion  -fif-conversion2 @gol
+-fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
+-floop-optimize -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmove-all-movables  -fnew-ra  -fno-branch-count-reg @gol
@@ -495,8 +495,10 @@ in the following sections.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
--mfix-sb1  -mno-fix-sb1  -mflush-func=@var{func} @gol
--mno-flush-func  -mbranch-likely  -mno-branch-likely}
+-mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
+-mfix-sb1  -mno-fix-sb1 @gol
+-mflush-func=@var{func}  -mno-flush-func @gol
+-mbranch-likely  -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
@@ -3795,7 +3797,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-fweb} and @option{-frename-registers} options.
+@option{-fweb}, @option{-frename-registers}
+and @option{-fgcse-after-reload} options.
 
 @item -O0
 @opindex O0
@@ -4138,6 +4141,12 @@ elimination pass eliminates redundant loads that come after stores to the
 same memory location (both partial and full redundancies).
 
 Enabled by default when gcse is enabled.
+
+@item -fgcse-after-reload
+@opindex fgcse-after-reload
+When @option{-fgcse-after-reload} is enabled, a redundant load elimination
+pass is performed after reload. The purpose of this pass is to cleanup
+redundant spilling.
 
 @item -floop-optimize
 @opindex floop-optimize
@@ -8252,24 +8261,14 @@ Use (do not use) assembler relocation operators when dealing with symbolic
 addresses.  The alternative, selected by @option{-mno-explicit-relocs},
 is to use assembler macros instead.
 
-@option{-mexplicit-relocs} is usually the default if GCC was
-configured to use an assembler that supports relocation operators.
-However, there are two exceptions:
-
-@itemize @bullet
-@item
-GCC is not yet able to generate explicit relocations for the combination
-of @option{-mabi=64} and @option{-mno-abicalls}.  This will be addressed
-in a future release.
-
-@item
-The combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
+@option{-mexplicit-relocs} is usually the default if GCC was configured
+to use an assembler that supports relocation operators.  However, the
+combination of @option{-mabicalls} and @option{-fno-unit-at-a-time}
 implies @option{-mno-explicit-relocs} unless explicitly overridden.
 This is because, when generating abicalls, the choice of relocation
 depends on whether a symbol is local or global.  In some rare cases,
 GCC will not be able to decide this until the whole compilation unit
 has been read.
-@end itemize
 
 @item -mrnames
 @itemx -mno-rnames
@@ -8331,6 +8330,34 @@ circumstances.
 @opindex nocpp
 Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
+
+@item -mfix-r4000
+@itemx -mno-fix-r4000
+@opindex mfix-r4000
+@opindex mno-fix-r4000
+Work around certain R4000 CPU errata:
+@itemize @minus
+@item
+A double-word or a variable shift may give an incorrect result if executed
+immediately after starting an integer division.
+@item
+A double-word or a variable shift may give an incorrect result if executed
+while an integer multiplication is in progress.
+@item
+An integer division may give an incorrect result if started in a delay slot
+of a taken branch or a jump.
+@end itemize
+
+@item -mfix-r4400
+@itemx -mno-fix-r4400
+@opindex mfix-r4400
+@opindex mno-fix-r4400
+Work around certain R4400 CPU errata:
+@itemize @minus
+@item
+A double-word or a variable shift may give an incorrect result if executed
+immediately after starting an integer division.
+@end itemize
 
 @item -mfix-sb1
 @itemx -mno-fix-sb1

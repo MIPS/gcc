@@ -1,3 +1,79 @@
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14369
+	* g++.dg/template/cond4.C: New test.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14360
+	* g++.old-deja/g++.ns/koenig5.C: Remove some error markers.
+	
+	PR c++/14361
+	* g++.dg/parse/defarg7.C: New test.
+
+	PR c++/14359
+	* g++.dg/template/friend26.C: New test.
+
+2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14324
+	* g++.dg/abi/mangle21.C: New test.
+
+	PR c++/14260
+	* g++.dg/parse/constructor2.C: New test.
+
+	PR c++/14337
+	* g++.dg/template/sfinae1.C: New test.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14267
+	* g++.dg/expr/crash2.C: New test.
+
+	PR middle-end/13448
+	* gcc.dg/inline-5.c: New test.
+	* gcc.dg/always-inline.c: Split out tests into ...
+	* gcc.dg/always-inline2.c: ... this and ...
+	* gcc.dg/always-inline3.c: ... this.
+
+2004-02-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/12103
+	* g++.dg/debug/crash1.C: New test.
+
+2004-02-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/sibcall-3.c (recurser_void1): Make it an extern
+	function with __attribute__((noinline)).
+	(recurser_void2): Likewise.
+	* gcc.dg/sibcall-4.c (recurser_void1): Likewise.
+	(recurser_void2): Likewise.
+
+2004-02-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/14203
+	* g++.dg/warn/Wunused-6.C: New test case.
+
+2004-02-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lib/g++.exp (g++_link_flags): Don't crash if LD_LIBRARY_PATH is
+	not defined.
+
+2004-02-27  Eric Christopher  <echristo@redhat.com>
+
+	* g++.dg/charset/charset.exp: Change CFLAGS to CHARSETCFLAGS.
+	* g++.dg/charset/asm2.c: Run only x86.
+	* gcc.dg/charset/asm3.c: Ditto.
+
+2004-02-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/g++.exp (g++_link_flags): Append LD_LIBRARY_PATH to
+	ld_library_path.
+
+2004-02-27  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-3.C: New.
+
 2004-02-26  Richard Henderson  <rth@redhat.com>
 
         * g++.dg/ext/attrib10.C: Mark for warning.

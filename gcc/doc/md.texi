@@ -367,14 +367,14 @@ commutative arithmetic operators of RTL and whose mode is @var{mode}:
 
 @smallexample
 int
-commutative_operator (x, mode)
+commutative_integer_operator (x, mode)
      rtx x;
      enum machine_mode mode;
 @{
   enum rtx_code code = GET_CODE (x);
   if (GET_MODE (x) != mode)
     return 0;
-  return (GET_RTX_CLASS (code) == 'c'
+  return (GET_RTX_CLASS (code) == RTX_COMM_ARITH
           || code == EQ || code == NE);
 @}
 @end smallexample
@@ -488,25 +488,6 @@ An insn that matches this pattern might look like:
 @item (match_par_dup @var{n} [@var{subpat}@dots{}])
 Like @code{match_op_dup}, but for @code{match_parallel} instead of
 @code{match_operator}.
-
-@findex match_insn
-@item (match_insn @var{predicate})
-Match a complete insn.  Unlike the other @code{match_*} recognizers,
-@code{match_insn} does not take an operand number.
-
-The machine mode @var{m} of @code{match_insn} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
-
-@findex match_insn2
-@item (match_insn2 @var{n} @var{predicate})
-Match a complete insn.
-
-The machine mode @var{m} of @code{match_insn2} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
 
 @end table
 
@@ -3012,6 +2993,13 @@ tested, should also use the above mechanism.  @xref{Jump Patterns}.
 
 The above discussion also applies to the @samp{mov@var{mode}cc} and
 @samp{s@var{cond}} patterns.
+
+@cindex @code{cbranch@var{mode}4} instruction pattern
+@item @samp{cbranch@var{mode}4}
+Conditional branch instruction combined with a compare instruction.
+Operand 0 is a comparison operator.  Operand 1 and operand 2 are the
+first and second operands of the comparison, respectively.  Operand 3
+is a @code{label_ref} that refers to the label to jump to.
 
 @cindex @code{jump} instruction pattern
 @item @samp{jump}

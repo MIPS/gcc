@@ -169,7 +169,9 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_FIX_SB1       0x01000000   /* Work around SB-1 errata.  */
+#define MASK_FIX_R4000	   0x01000000	/* Work around R4000 errata.  */
+#define MASK_FIX_R4400	   0x02000000	/* Work around R4400 errata.  */
+#define MASK_FIX_SB1	   0x04000000	/* Work around SB-1 errata.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -247,6 +249,12 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
 
 #define TARGET_FIX_SB1		(target_flags & MASK_FIX_SB1)
+
+					/* Work around R4000 errata.  */
+#define TARGET_FIX_R4000	(target_flags & MASK_FIX_R4000)
+
+					/* Work around R4400 errata.  */
+#define TARGET_FIX_R4400		(target_flags & MASK_FIX_R4400)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,
@@ -588,6 +596,14 @@ extern const struct mips_cpu_info *mips_tune_info;
      N_("Work around errata for early SB-1 revision 2 cores")},		\
   {"no-fix-sb1",         -MASK_FIX_SB1,					\
      N_("Don't work around errata for early SB-1 revision 2 cores")},	\
+  {"fix-r4000",		  MASK_FIX_R4000,				\
+     N_("Work around R4000 errata")},					\
+  {"no-fix-r4000",	 -MASK_FIX_R4000,				\
+     N_("Don't work around R4000 errata")},				\
+  {"fix-r4400",		  MASK_FIX_R4400,				\
+     N_("Work around R4400 errata")},					\
+  {"no-fix-r4400",	 -MASK_FIX_R4400,				\
+     N_("Don't work around R4400 errata")},				\
   {"check-zero-division",-MASK_NO_CHECK_ZERO_DIV,			\
      N_("Trap on integer divide by zero")},				\
   {"no-check-zero-division", MASK_NO_CHECK_ZERO_DIV,			\
@@ -1901,7 +1917,7 @@ extern const enum reg_class mips_regno_to_class[];
    'd'  General (aka integer) registers
         Normally this is GR_REGS, but in mips16 mode this is M16_REGS
    'y'  General registers (in both mips16 and non mips16 mode)
-   'e'	mips16 non argument registers (M16_NA_REGS)
+   'e'	Effective address registers (general registers except $25)
    't'  mips16 temporary register ($24)
    'f'	Floating point registers
    'h'	Hi register
@@ -2690,6 +2706,7 @@ typedef struct mips_args {
 #define PREDICATE_CODES							\
   {"uns_arith_operand",		{ REG, CONST_INT, SUBREG, ADDRESSOF }},	\
   {"symbolic_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
+  {"general_symbolic_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"global_got_operand",	{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"local_got_operand",		{ CONST, SYMBOL_REF, LABEL_REF }},	\
   {"const_arith_operand",	{ CONST_INT }},				\

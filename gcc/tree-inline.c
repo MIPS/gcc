@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "tree-mudflap.h"
 #include "function.h"
-
+#include "diagnostic.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -1802,6 +1802,12 @@ optimize_inline_calls (tree fn)
 {
   inline_data id;
   tree prev_fn;
+
+  /* There is no point in performing inlining if errors have already
+     occurred -- and we might crash if we try to inline invalid
+     code.  */
+  if (errorcount || sorrycount)
+    return;
 
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
