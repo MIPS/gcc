@@ -4,6 +4,11 @@
 	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
 	__APPLE_ALTIVEC__ to indicate Apple syntax support.
 
+2004-05-10  Dale Johannesen  <dalej@apple.com>
+	* config/darwin.c:  ANSIfy syntax (eliminate warnings).
+	config/darwin-c.c:  Ditto.
+	rs6000.c: Small cosmetic change in local code.
+
 2004-05-06  Caroline Tice <ctice@apple.com>
 
 	* config/rs6000/rs6000.c (rs6000_override_options):  Modify to
