@@ -1906,7 +1906,8 @@ compute_alias_sets (void)
     for (i = 0; i < num_call_clobbered_vars; i++)
       {
 	tree var = call_clobbered_var (i);
-	add_may_alias (var, global_var);
+	if (var != global_var)
+	  add_may_alias (var, global_var);
       }
 
   /* Debugging dumps.  */

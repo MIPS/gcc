@@ -1,3 +1,8 @@
+2003-12-10  Dale Johannesen  <dalej@apple.com>
+
+        * tree-dfa.c (compute_alias_sets):  Don't try to make
+        GLOBAL_VAR alias itself.
+
 2003-12-08  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-must-alias.c (tree_compute_must_alias): Use
