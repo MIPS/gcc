@@ -1,3 +1,9 @@
+2002-05-13  Jason Merrill  <jason@redhat.com>
+
+	* class.c (build_vtbl_ref_1): Use fixed_type_or_null.
+	(fixed_type_or_null): See through reference vars.
+	(build_base_path): Vtable contents are constant.
+
 2003-02-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/9459

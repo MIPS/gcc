@@ -1,3 +1,7 @@
+2003-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/rtti1.C: New test.
+
 2003-03-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20030309-1.c: New test.
