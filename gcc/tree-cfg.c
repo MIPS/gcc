@@ -264,25 +264,25 @@ make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      An expression block avoids having multiple back edges to the condition
      block.  This, in turn, helps the natural loop recognizer identify only
      one loop instead of several shared ones.  */
-  cond = (FOR_COND (t)) ? FOR_COND (t) : build_int_2 (1, 0);
-  expr = (FOR_EXPR (t)) ? FOR_EXPR (t) : build_int_2 (1, 0);
+  cond = (FOR_COND (t)) ? FOR_COND (t) : integer_one_node;
+  expr = (FOR_EXPR (t)) ? FOR_EXPR (t) : integer_one_node;
 
   entry = create_bb (t, t, control_parent, prev_chain_p, NULL);
   entry->flags |= BB_CONTROL_ENTRY;
 
   bb = create_maximal_bb (FOR_INIT_STMT (t), entry, compound_stmt,
                           &(FOR_INIT_STMT (t)));
-  bb->flags |= BB_CONTROL_EXPR;
+  bb->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   FOR_INIT_STMT_BB (entry) = bb;
 
   bb = create_maximal_bb (cond, entry, compound_stmt, &(FOR_COND (t)));
-  bb->flags |= BB_CONTROL_EXPR;
+  bb->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   FOR_COND_BB (entry) = bb;
 
   make_blocks (FOR_BODY (t), entry, compound_stmt, &(FOR_BODY (t)));
 
   bb = create_maximal_bb (expr, entry, compound_stmt, &(FOR_EXPR (t)));
-  bb->flags |= BB_CONTROL_EXPR;
+  bb->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   FOR_EXPR_BB (entry) = bb;
 }
 
@@ -300,14 +300,14 @@ make_while_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   basic_block bb, entry;
   
   entry = create_bb (t, t, control_parent, prev_chain_p, NULL);
-  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   
   make_blocks (WHILE_BODY (t), entry, compound_stmt, &(WHILE_BODY (t)));
 
   /* END_WHILE block.  Needed to avoid multiple back edges that would
      result in multiple natural loops instead of just one.  */
-  bb = create_maximal_bb (build_int_2 (1, 0), entry, compound_stmt, NULL);
-  bb->flags |= BB_CONTROL_ENTRY;
+  bb = create_maximal_bb (integer_one_node, entry, compound_stmt, NULL);
+  bb->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   END_WHILE_BB (entry) = bb;
 }
 
@@ -330,7 +330,7 @@ make_do_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
   make_blocks (DO_BODY (t), entry, compound_stmt, &(DO_BODY (t)));
 
   bb = create_maximal_bb (DO_COND (t), entry, compound_stmt, &(DO_COND (t)));
-  bb->flags |= BB_CONTROL_EXPR;
+  bb->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   DO_COND_BB (entry) = bb;
 }
 
@@ -1159,6 +1159,41 @@ tree_delete_bb (bb)
 
   bb->pred = NULL;
   bb->succ = NULL;
+
+  /* When removing the blocks controlling a loop construct, we need to
+     update related blocks.  */
+  if (bb->flags & BB_LOOP_CONTROL_EXPR
+      /* If this is the entry block, do nothing.  The whole structure is
+	 going to disappear anyway.  */
+      && !(bb->flags & BB_CONTROL_ENTRY)
+      /* If the parent block has disappeared, we don't need to do anything
+	 else.  */
+      && BB_PARENT (bb)->index != INVALID_BLOCK)
+    {
+      basic_block entry_bb;
+      tree stmt;
+      
+      entry_bb = BB_PARENT (bb);
+      stmt = entry_bb->head_tree;
+
+      if (TREE_CODE (stmt) == FOR_STMT)
+	{
+	  if (FOR_COND_BB (entry_bb) == bb)
+	    FOR_COND_BB (entry_bb) = NULL;
+	  else if (FOR_EXPR_BB (entry_bb) == bb)
+	    FOR_EXPR_BB (entry_bb) = NULL;
+	  else if (FOR_INIT_STMT_BB (entry_bb) == bb)
+	    FOR_INIT_STMT_BB (entry_bb) = NULL;
+	  else
+	    abort ();
+	}
+      else if (TREE_CODE (stmt) == WHILE_STMT && END_WHILE_BB (entry_bb) == bb)
+	END_WHILE_BB (entry_bb) = NULL;
+      else if (TREE_CODE (stmt) == DO_STMT && DO_COND_BB (entry_bb) == bb)
+	DO_COND_BB (entry_bb) = NULL;
+      else
+	abort ();
+    }
 
   /* Remove the basic block from the array.  */
   expunge_block (bb);

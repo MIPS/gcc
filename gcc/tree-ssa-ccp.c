@@ -480,12 +480,13 @@ static void
 visit_assignment (ref)
      varref ref;
 {
-  tree set, src, dest;
+  tree set, src, dest, base_sym;
   value val;
 
+  dest = VARREF_SYM (ref);
+  base_sym = get_base_symbol (dest);
   set = VARREF_EXPR (ref);
   src = TREE_OPERAND (set, 1);
-  dest = TREE_OPERAND (set, 0);
 
   val = evaluate_expr_for (ref);
 
@@ -494,7 +495,7 @@ visit_assignment (ref)
   else if (val.lattice_val == VARYING)
     def_to_varying (ref);
   else if (TREE_ADDRESSABLE (dest)
-	   || DECL_CONTEXT (dest) == NULL
+	   || DECL_CONTEXT (base_sym) == NULL
 	   || TREE_THIS_VOLATILE (dest))
     {
       /* Certain types of variables cannot be proven constant even if they
@@ -696,8 +697,7 @@ ssa_ccp_substitute_constants ()
 
 	      /* Replace the constant inside the expression and mark the
 		 expression for folding.  */
-	      replace_expr_in_tree (VARREF_EXPR (ref), VARREF_SYM (ref),
-				    values[id].const_value);
+	      *(VARREF_OPERAND_P (ref)) = values[id].const_value;
 	      TREE_FLAGS (VARREF_EXPR (ref)) |= TF_FOLD;
 	    }
 	}
@@ -718,8 +718,13 @@ ssa_ccp_substitute_constants ()
 	      && (TREE_FLAGS (VARREF_EXPR (ref)) & TF_FOLD))
 	    {
 	      /* Fold the expression and clean the fold bit.  */
-	      replace_expr_in_tree (stmt, expr, fold (expr));
 	      TREE_FLAGS (VARREF_EXPR (ref)) &= ~TF_FOLD;
+	      
+	      if (TREE_CODE (expr) == MODIFY_EXPR
+		  || TREE_CODE (expr) == INIT_EXPR)
+		expr = TREE_OPERAND (expr, 1);
+
+	      replace_expr_in_tree (stmt, expr, fold (expr));
 	    }
 	}
     }
@@ -781,13 +786,21 @@ evaluate_expr_for (ref)
 
   /* Make a deep copy of the expression, but get the expression references
      first because deep copies do not copy the 'aux' field.  */
-  refs = TREE_REFS (VARREF_STMT (ref));
-  expr = deep_copy_node (VARREF_EXPR (ref));
+  refs = TREE_REFS (VARREF_EXPR (ref));
+  expr = VARREF_EXPR (ref);
 
   /* If any USE reference in the expression is known to be VARYING or
      UNDEFINED, then the expression is not a constant.  */
   val.lattice_val = VARYING;
   val.const_value = NULL_TREE;
+
+  /* If the expression and the referenced symbol are of different types,
+     then the reference cannot be a constant.  For instance, a.b = 5; is a
+     constant only when considering reference 'a.b'.  Although that
+     expression also defines symbol 'a', we cannot assign the value 5 to
+     symbol 'a'.  */
+  if (TREE_TYPE (expr) != TREE_TYPE (VARREF_SYM (ref)))
+    goto dont_fold;
 
   FOR_EACH_REF (r, tmp, refs)
     {
@@ -820,7 +833,7 @@ evaluate_expr_for (ref)
 
 	  /* The reference is a constant, substitute it into the
 	     expression.  */
-	  replace_expr_in_tree (expr, VARREF_SYM (r), values[id].const_value);
+	  *(VARREF_OPERAND_P (r)) = values[id].const_value;
 	}
     }
 
@@ -834,11 +847,18 @@ evaluate_expr_for (ref)
 
   /* Fold the expression.  If it results in a constant, set the lattice
       value for the LHS of the assignment to CONSTANT.  */
-  simplified = fold (expr);
+  simplified = fold (deep_copy_node (expr));
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
       val.const_value = simplified;
+    }
+
+  /* Restore the expression to its original form.  */
+  FOR_EACH_REF (r, tmp, refs)
+    {
+      if (VARREF_TYPE (r) == VARUSE)
+	*(VARREF_OPERAND_P (r)) = VARREF_SYM (r);
     }
 
 dont_fold:

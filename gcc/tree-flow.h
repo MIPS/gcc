@@ -41,8 +41,11 @@ struct treeref_common
   /* Statement containing the reference.  */
   tree stmt;
 
-  /* Sub-tree containing the reference.  */
+  /* Expression tree containing the reference.  */
   tree expr;
+
+  /* Pointer to operand of EXPR containing the reference.  */
+  tree *operand_p;
 
   /* Basic block containing the reference.  */
   basic_block bb;
@@ -217,6 +220,7 @@ typedef union varref_def *varref;
 #define VARREF_TYPE(r) (r)->common.type
 #define VARREF_BB(r) (r)->common.bb
 #define VARREF_EXPR(r) (r)->common.expr
+#define VARREF_OPERAND_P(r) (r)->common.operand_p
 #define VARREF_STMT(r) (r)->common.stmt
 #define VARREF_SYM(r) (r)->common.sym
 
@@ -355,6 +359,11 @@ typedef struct bb_ann_def *bb_ann;
 #define END_WHILE_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->end_while_bb
 #define DO_COND_BB(BLOCK)	BB_LOOP_HDR (BLOCK)->do_cond_bb
 
+/* Some basic blocks are nothing but markers used to give structure to the
+   flow graph (see make_while_stmt_blocks).  They contain no useful
+   instructions.  */
+#define BB_EMPTY_P(BLOCK)	((BLOCK)->head_tree == integer_one_node \
+                                 && (BLOCK)->end_tree == integer_one_node)
 
 /* Global declarations.  */
 
@@ -421,8 +430,9 @@ extern basic_block tree_split_bb PARAMS ((basic_block, tree));
 
 extern void tree_find_varrefs PARAMS ((void));
 extern tree_ann get_tree_ann PARAMS ((tree));
+extern void remove_tree_ann PARAMS ((tree));
 extern varref create_ref PARAMS ((tree, enum treeref_type,
-				  basic_block, tree, tree));
+				  basic_block, tree, tree, tree *));
 extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
 extern void debug_varref_list PARAMS ((ref_list));

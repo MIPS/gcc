@@ -90,7 +90,7 @@ tree_build_ssa ()
      definitions).  */
   for (i = 0; i < NREF_SYMBOLS; i++)
     create_ref (REF_SYMBOL (i), VARDEF, ENTRY_BLOCK_PTR->succ->dest, NULL,
-	        NULL);
+	        NULL, NULL);
 
   /* Insert the PHI terms and build FUD chains.  */
   insert_phi_terms (dfs);
@@ -205,7 +205,7 @@ insert_phi_terms (dfs)
 		    stmt_bb = BB_PARENT (stmt_bb);
 
 		  phi = create_ref (sym, VARPHI, bb, stmt_bb->head_tree,
-		                       NULL);
+		                    NULL, NULL);
 		  VARRAY_TREE (added, w) = sym;
 
 		  if (VARRAY_TREE (in_work, w) != sym)
@@ -376,8 +376,11 @@ delete_ssa ()
 {
   size_t i;
 
+  /* Remove annotations from every symbol.  We should only need to remove
+     annotations from global symbols, because those are the only ones who
+     might be re-used in other functions.  But better be safe.  */
   for (i = 0; i < NREF_SYMBOLS; i++)
-    delete_ref_list (TREE_REFS (REF_SYMBOL (i)));
+    remove_tree_ann (REF_SYMBOL (i));
 }
 
 

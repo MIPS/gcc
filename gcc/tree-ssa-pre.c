@@ -468,7 +468,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	{
 	  newref = create_ref (VARRAY_TREE (ei->occurs, i),
 				  EXPRKILL, block, occurstmt,
-				  VARRAY_TREE (ei->occurs, i));
+				  VARRAY_TREE (ei->occurs, i), NULL);
 	  VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	  fibheap_insert (fh, preorder_count++, newref);
 	}
@@ -476,7 +476,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
 	{
 	  newref = create_ref (VARRAY_TREE (ei->occurs, i), 
 				  EXPRUSE, block, occurstmt, 
-				  VARRAY_TREE (ei->occurs, i));
+				  VARRAY_TREE (ei->occurs, i), NULL);
 	  VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
 	  EXPRUSE_DEF (newref) = NULL;
 	  EXPRREF_CLASS (newref) = 0;
@@ -494,7 +494,7 @@ insert_occ_in_preorder_dt_order_1 (ei, fh, block)
         {
           if (phi_at_block (ei, succ->dest) != NULL)
             {
-              varref newref = create_ref (NULL, EXPRUSE, block, 0, 0);
+              varref newref = create_ref (NULL, EXPRUSE, block, 0, 0, 0);
               varref phi = phi_at_block (ei, succ->dest);
 	      VARRAY_PUSH_GENERIC_PTR (ei->erefs, newref);
               EXPRUSE_DEF (newref) = NULL;
@@ -1253,7 +1253,8 @@ finalize_1 (ei, temp)
 		    insert_stmt_tree_after (stmt, endtree, bb);
 		  
 		  EXPRUSE_DEF (X) = create_ref (expr, EXPRUSE, 
-						EXPRREF_BB (X), stmt, expr);
+						EXPRREF_BB (X), stmt, expr,
+						&TREE_OPERAND (stmt, 0));
 		  VARRAY_PUSH_GENERIC_PTR (ei->erefs, EXPRUSE_DEF (X));
 		  EXPRREF_RELOAD (EXPRUSE_DEF (X)) = 0;
 		  EXPRREF_SAVE (EXPRUSE_DEF (X)) = 1;
@@ -1324,7 +1325,7 @@ expr_phi_insertion (dfs, ei)
   {
     varref ref = create_ref (NULL, EXPRPHI, 
                                 BASIC_BLOCK (i), 
-                                NULL, ei->expr);
+                                NULL, ei->expr, NULL);
     VARRAY_PUSH_GENERIC_PTR (ei->erefs, ref);
     EXPRPHI_DOWNSAFE (ref) = 1;
     EXPRPHI_CANBEAVAIL (ref) = 1;

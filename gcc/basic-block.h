@@ -241,10 +241,13 @@ typedef struct basic_block_def {
 #define BB_VISITED		8
 
 /* Block contains a control flow expression.  */
-#define BB_CONTROL_EXPR		8
+#define BB_CONTROL_EXPR		16
+
+/* Block contains a control flow expression for a loop.  */
+#define BB_LOOP_CONTROL_EXPR	32
 
 /* Block is the entry block to a control statement but contains no code.  */
-#define BB_CONTROL_ENTRY	16
+#define BB_CONTROL_ENTRY	64
 
 /* Number of basic blocks in the current function.  */
 

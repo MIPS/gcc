@@ -75,4 +75,7 @@ int simplify_expr		       PARAMS ((tree *, tree *, tree *,
 						int (*) PARAMS ((tree)),
 						fallback_t));
 
+/* Miscellaneous helpers.  */
+tree get_base_symbol                   PARAMS ((tree));
+
 #endif /* _TREE_SIMPLE_H */

@@ -935,3 +935,32 @@ rationalize_compound_expr (top)
     }
   return top;
 }
+
+/* Given a SIMPLE varname (an ID, an arrayref or a compref), return the
+   base symbol for the object.  */
+
+tree
+get_base_symbol (t)
+     tree t;
+{
+  switch (TREE_CODE (t))
+    {
+    case VAR_DECL:
+    case FUNCTION_DECL:
+    case PARM_DECL:
+    case FIELD_DECL:
+    case LABEL_DECL:
+      return t;
+
+    case ARRAY_REF:
+    case COMPONENT_REF:
+    case INDIRECT_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      return get_base_symbol (TREE_OPERAND (t, 0));
+
+    default:
+      return NULL;
+    }
+}
+

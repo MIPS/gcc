@@ -1,3 +1,52 @@
+2002-08-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (BB_CONTROL_EXPR): Update value.
+	(BB_LOOP_CONTROL_EXPR): Define.
+	(BB_CONTROL_ENTRY): Update value.
+	* tree-cfg.c (make_for_stmt_blocks): Flag header blocks withh
+	BB_LOOP_CONTROL_EXPR.
+	(make_while_stmt_blocks): Ditto.
+	(make_do_stmt_blocks): Ditto.
+	(tree_delete_bb): Update annotations in the loop entry block when
+	removing one of the loop expression blocks.
+
+	* tree-dfa.c (tree_find_varrefs): Disregard empty blocks.
+	(find_refs_in_stmt): Handle all the loop expression blocks in
+	FOR_STMT and DO_STMT nodes.
+	(find_refs_in_expr): Change first argument to tree *.  Update all
+	callers.
+	Force all references to be definitions when the expression is not
+	in SIMPLE form.
+	Also create references for compound variables and array references.
+	Not just their individual components.
+	Always use the original parent expression when making recursive
+	calls.
+	(create_ref): Add new argument operand_p.  Update all callers.
+	(remove_tree_ann): New function.
+	(dump_varref): Don't assume that the referenced symbol is a _DECL
+	node.
+	* tree-flow.h (treeref_common): Add field operand_p.
+	(VARREF_OPERAND_P): Define.
+	(BB_EMPTY_P): Define.
+	(remove_tree_ann): Declare.
+	(create_ref): Add new argument operand_p.
+	* tree-simple.c (get_base_symbol): New function.
+	* tree-simple.h (get_base_symbol): Declare.
+	* tree-ssa-ccp.c (visit_assignment): Call it.
+	(ssa_ccp_substitute_constants): Use VARREF_OPERAND_P to replace
+	values into the expression.
+	(evaluate_expr_for): Ditto.
+	Do not try to evaluate the expression if the reference is not of
+	the same type as the expression.
+	After evaluation, restore the expression to its original form.
+	* tree-ssa-pre.c (insert_occ_in_preorder_dt_order_): Update calls
+	to create_ref.
+	(finalize_): Ditto.
+	(expr_phi_insertion): Ditto.
+	* tree-ssa.c (tree_build_ssa): Ditto.
+	(insert_phi_terms): Ditto.
+	(delete_ssa): Call remove_tree_ann.
+
 2002-08-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c: Move extern definitions to diagnostic.h.
