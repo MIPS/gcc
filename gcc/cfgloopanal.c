@@ -372,6 +372,12 @@ variable_initial_value (insn, invariant_regs, var, set_insn)
 	  rtx val;
 	  rtx note;
           
+	  /* This prevents us from considering var = var + 42 as a good
+	     source of initial value.  */
+	  note_stores (PATTERN (insn),
+		       (void (*) PARAMS ((rtx, rtx, void *))) unmark_altered,
+		       invariant_regs);
+
 	  set = single_set (insn);
 	  if (!set)
 	    return NULL;

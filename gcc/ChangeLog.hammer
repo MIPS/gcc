@@ -1,3 +1,7 @@
+2003-06-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (variable_initial_value): Fix.
+
 Fri Jun  6 12:08:36 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c (cleanup_cfg):  Remove dead code even before sibcall.
