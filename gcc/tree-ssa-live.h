@@ -20,7 +20,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef _TREE_SSA_LIVE_H__
+#ifndef _TREE_SSA_LIVE_H
 #define _TREE_SSA_LIVE_H 1
 
 /* Used to create the variable mapping when we go out of SSA form.  */
