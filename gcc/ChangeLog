@@ -1,3 +1,194 @@
+2004-03-26  Richard Henderson  <rth@redhat.com>
+
+	PR 11527
+	* c-typeck.c (pop_init_level): Emit pending init elements earlier
+	rather than later.
+
+2004-03-26  Jan Hubicka  <jh@suse.cz>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR Target/14723
+	* config.gcc: Add support --with-cpu=nocona.
+
+	* config/i386/i386.c (override_options): Add support for
+	Prescott and Nocona.
+
+	* doc/invoke.texi: Extend documentation of -mcpu/-march for new
+	CPUs.
+
+2004-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (sparc-*-linux*): Add sparc/t-linux to tmake_file.
+	* config/sparc/t-linux64 (TARGET_LIBGCC2_CFLAGS): Set.
+	* config/sparc/t-linux: New file.
+
+2004-03-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	Backport:
+	2004-03-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR bootstrap/14356
+	* gcc.c (process_command): Remove const-qualification from argv.
+	(main): Likewise.
+
+2004-03-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR preprocessor/14438
+	* cpplib.c (do_pragma): Remove line_change call after pragma
+	handler.
+
+2004-03-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	BackPort:
+		2004-01-09  Andrew Pinski <pinskia@physics.uc.edu>
+	
+		PR debug/11231
+		* dbxout.c (dbxout_type_fields): Return if any item is error_mark_node or the
+		type is error_mark_node.
+
+2004-03-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/14470
+	* expr.c (mark_queue): New function.
+	(emit_insns_enqueued_after_mark): New function replacing
+	emit_queue.  Clear the body of emitted queued insns.
+	(emit_queue): Call emit_insns_enqueued_after_mark.
+	(store_expr): Mark the increment queue on entry.  Emit
+	only the incrementations queued when expanding the source.
+
+2004-03-17  Ralf Corsepius <corsepiu@faw.uni-ulm.de>
+
+	PR target/14260
+	* config/rtems.h: Add STD_LIB_SPEC and LIB_SPEC.
+
+2004-03-21  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) <EQ_EXPR>: Rewrite optimization to transform
+	"foo++ == const" into "++foo == const+incr".
+
+2004-03-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/13889
+	* cse.c (fold_rtx): Avoid substituting constants into unary
+	conversion operations.
+
+2004-03-17  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	Backport:
+	2003-11-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-typeck.c (pedantic_lvalue_warning): Deprecate compound
+	expressions as lvalues.
+	* doc/extend.texi: Document that all extended lvalues are now
+	deprecated.
+
+	2003-11-05  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-typeck.c (pedantic_lvalue_warning): Deprecate use of
+	conditional expressions as lvalues.
+
+	2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-typeck.c (pedantic_lvalue_warning): Unconditionally warn of
+	deprecation of casts as lvalues.
+	* fixinc/inclhack.def (obstack_lvalue_cast): New fix.
+	* fixinc/fixincl.x: Regenerate.
+
+2004-03-15  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14535
+	* except.c (collect_one_action_chain): Record action for cleanup
+	outer of exception spec.
+
+2004-03-13  Dara Hazeghi  <dhazeghi@yahoo.com>
+
+	* doc/install.texi: Note status of -fnew-ra.
+
+2004-03-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/14533
+	* config/s390/s390.c (legitimize_pic_address): Don't abort on UNSPEC
+	other than 100.
+
+2004-03-13  Alan Modra  <amodra@bigpond.net.au>
+
+	PR debug/11983
+	* dwarf2out.c (enum dw_val_class): Rename dw_val_class_float to
+	dw_val_class_vec.  Replace use throughout file.
+	(dw_float_const): Delete.
+	(dw_vec_const): New.
+	(dw_val_struct_union): Rename val_float to val_vec.  Replace use
+	throughout file.
+	(add_AT_vec): Rename from add_AT_float.  Add elt_size param.
+	(same_dw_val_p): Adjust vec comparison.  Use memcmp.
+	(size_of_die): Adjust dw_val_class_vec sizing.
+	(output_die): Output dw_val_class_vec.
+	(insert_int, extract_int, insert_float): New functions.
+	(add_const_value_attribute): Use insert_float for CONST_DOUBLE.
+	Handle CONST_VECTOR.
+	(add_location_or_const_value_attribute): Handle CONST_VECTOR.
+
+2004-03-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport:
+	2004-03-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	PR middle-end/14470
+	* expr.c (store_expr): Call emit_queue before generating the move
+	from the temporary to the original target.  Protect the temporary
+	from emit_queue.
+
+2004-03-10  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/13877
+	* unroll.c (unroll_loop): If precondition loop, clear the initial_value
+	field in loop_info.
+	
+2004-03-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport:
+	2004-03-05  Nathan Sidwell  <nathan@codesourcery.com>
+	PR driver/13577
+	* gcc.c (cc1_options): Robustify -auxbase-strip from multiple -o
+	options.
+
+2004-03-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+	
+	Endorse:
+	2004-01-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	PR optimization/13472
+	* reload.c (reload): Don't record unchanging memory locations.
+
+2004-03-12  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Backport
+	2004-02-27  Mark Mitchell  <mark@codesourcery.com>
+	PR middle-end/13448
+	* c-tree.h (readonly_warning): Rename to ...
+	(readonly_error): ... this.
+	* c-typeck.c (build_unary_op): Adjust accordingly.
+	(readonly_warning): Rename to ...
+	(readonly_error): ... this and issue errors, not warnings.
+	(build_modify_expr): Call readonly_error, not readonly_warning.
+	(c_expand_asm_operands): Likewise.
+	* tree-inline.c (optimize_inline_calls): Do not inline
+	functions after errors have occurred.
+
+2004-03-12  Philip Blundell  <philb@gnu.org>
+
+	PR target/10730
+	Backport from trunk:
+	2003-05-15  Philip Blundell  <philb@gnu.org>
+	* config/arm/arm.c (adjacent_mem_locations): Reject offsets
+	involving invalid constants.
+ 
+2004-03-12  Philip Blundell  <philb@gnu.org>
+
+	PR target/14558
+	Backport from trunk:
+	2004-02-25  Richard Earnshaw  <rearnsha@arm.com>
+	* arm.h (ARM_GO_IF_LEGITIMATE_INDEX): For QImode the range of
+	an offset is -4095...+4095 inclusive.
+
 2004-03-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_output_dwarf_dtprel): Add
@@ -127,25 +318,25 @@
 
 2004-03-07  Aldy Hernandez  <aldyh@redhat.com>
  
-        * config/rs6000/rs6000.md (ashrdi3): Do not call ashrdi3_no_power
-        for little endian.
-        ("ashrdi3_no_power"): Disable for little endian.
+	* config/rs6000/rs6000.md (ashrdi3): Do not call ashrdi3_no_power
+	for little endian.
+	("ashrdi3_no_power"): Disable for little endian.
 	(ashrdi3): Same.
 
 2004-03-07  Richard Henderson  <rth@redhat.com>
 
-        * config/alpha/alpha.h (MASK_LONG_DOUBLE_128): New.
-        (TARGET_LONG_DOUBLE_128): New.
-        (TARGET_SWITCHES): Add long-double-{128,64}.
-        (TARGET_HAS_XFLOATING_LIBS): Default to TARGET_LONG_DOUBLE_128.
-        (LONG_DOUBLE_TYPE_SIZE): Honor TARGET_LONG_DOUBLE_128.
-        (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): New.
-        (WIDEST_HARDWARE_FP_SIZE): New.
-        (TARGET_CPU_CPP_BUILTINS): Define __LONG_DOUBLE_128__.
-        * config/alpha/alpha.c (override_options): Clear MASK_LONG_DOUBLE_128
-        if TARGET_VAX_FLOAT.
-        * config/alpha/osf5.h (LONG_DOUBLE_TYPE_SIZE): Remove.
-        (TARGET_DEFAULT): Set MASK_LONG_DOUBLE_128.
+	* config/alpha/alpha.h (MASK_LONG_DOUBLE_128): New.
+	(TARGET_LONG_DOUBLE_128): New.
+	(TARGET_SWITCHES): Add long-double-{128,64}.
+	(TARGET_HAS_XFLOATING_LIBS): Default to TARGET_LONG_DOUBLE_128.
+	(LONG_DOUBLE_TYPE_SIZE): Honor TARGET_LONG_DOUBLE_128.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): New.
+	(WIDEST_HARDWARE_FP_SIZE): New.
+	(TARGET_CPU_CPP_BUILTINS): Define __LONG_DOUBLE_128__.
+	* config/alpha/alpha.c (override_options): Clear MASK_LONG_DOUBLE_128
+	if TARGET_VAX_FLOAT.
+	* config/alpha/osf5.h (LONG_DOUBLE_TYPE_SIZE): Remove.
+	(TARGET_DEFAULT): Set MASK_LONG_DOUBLE_128.
 
 2004-03-08  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -172,7 +363,7 @@
 
 2004-03-06  Richard Henderson  <rth@redhat.com>
 
-        * config/alpha/alpha.c (alpha_in_small_data_p): False for functions.
+	* config/alpha/alpha.c (alpha_in_small_data_p): False for functions.
 
 2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -258,15 +449,15 @@
 
 2004-03-02  Richard Henderson  <rth@redhat.com>
 
-        PR middle-end/11767
-        * optabs.c (prepare_cmp_insn): Force trapping memories to registers
-        before the compare, if flag_non_call_exceptions.
+	PR middle-end/11767
+	* optabs.c (prepare_cmp_insn): Force trapping memories to registers
+	before the compare, if flag_non_call_exceptions.
 
 2004-03-02  Richard Henderson  <rth@redhat.com>
 
-        PR middle-end/14327
-        * stmt.c (expand_computed_goto): Do do_pending_stack_adjust before
-        emitting the label, not after.
+	PR middle-end/14327
+	* stmt.c (expand_computed_goto): Do do_pending_stack_adjust before
+	emitting the label, not after.
 
 2004-03-02  Danny Smith  <dannysmith@users.sourceforge.net>
 
@@ -282,9 +473,9 @@
 	constants as signed values.
 
 	2004-01-16  J"orn Rennecke <joern.rennecke@superh.com>
-        PR optimization/11864
-        * reload1.c (reload_cse_simplify_operands): Don't remove
-        implicit extension from LOAD_EXTEND_OP.
+	PR optimization/11864
+	* reload1.c (reload_cse_simplify_operands): Don't remove
+	implicit extension from LOAD_EXTEND_OP.
 
 2004-02-29  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -494,7 +685,7 @@
 
 	* config/i386/i386.c: Rename pni to sse3.
 	* config/i386/i386.h: Likewise.
-        * config/i386/i386.md: Likewise.
+	* config/i386/i386.md: Likewise.
 	* config/i386/pmmintrin.h: Likewise.
 	* doc/extend.texi: Likewise.
 	* doc/invoke.texi: Likewise.
@@ -544,10 +735,10 @@
 
 2004-01-23  Richard Henderson  <rth@redhat.com>
 
-        PR opt/12941
-        * combine.c (SHIFT_COUNT_TRUNCATED): Provide default value.
-        (simplify_comparison): Don't simplify (eq (zero_extract c 1 r) 0)
-        if SHIFT_COUNT_TRUNCATED is set.
+	PR opt/12941
+	* combine.c (SHIFT_COUNT_TRUNCATED): Provide default value.
+	(simplify_comparison): Don't simplify (eq (zero_extract c 1 r) 0)
+	if SHIFT_COUNT_TRUNCATED is set.
 
 2004-01-23  Ian Lance Taylor  <ian@wasabisystems.com>
 
@@ -567,18 +758,18 @@
 2004-01-21  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
 
 	PR target/13073
-        * config/h8300/t-rtems (h8300-*-rtems*): New.
-        * config.gcc: Use config/h8300/t-rtems.
+	* config/h8300/t-rtems (h8300-*-rtems*): New.
+	* config.gcc: Use config/h8300/t-rtems.
 	
 2004-01-20  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
-        Backport from mainline
+	Backport from mainline
 
-        2004-01-10  Jan Hubicka  <jh@suse.cz>
-        PR opt/12826
-        * loop.c (insert_loop_mem): Prefer VOLATILE memory references to be
-        stored. 
-        
+	2004-01-10  Jan Hubicka  <jh@suse.cz>
+	PR opt/12826
+	* loop.c (insert_loop_mem): Prefer VOLATILE memory references to be
+	stored. 
+	
 2004-01-16  Jan Hubicka  <jh@suse.cz>
 
 	PR opt/13608
@@ -586,16 +777,16 @@
 
 2004-01-16  Segher Boessenkool  <boessen@de.ibm.com>
 
-        PR target/11793
+	PR target/11793
 	* config/rs6000/rs6000.h (LEGITIMATE_CONSTANT_P): Handle
 	vectors.
 	
 2004-01-16  Jan Hubicka  <jh@suse.cz>
 
-        PR opt/11350
-        * cfgcleanup.c (try_optimize_cfg): Suppress tablejump removal
+	PR opt/11350
+	* cfgcleanup.c (try_optimize_cfg): Suppress tablejump removal
 	after reload.
-        * cfgrtl.c (try_redirect_by_replacing_branch): Likewise.
+	* cfgrtl.c (try_redirect_by_replacing_branch): Likewise.
 
 2004-01-15  J"orn Rennecke <joern.rennecke@superh.com>
 
@@ -621,11 +812,11 @@
 2003-01-14  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	PR objc/7993
-        * objc-act.c (is_private): Do not emit the 'instance variable %s
-        is declared private' error.
-        (is_public): Emit the error after calling is_private.
-        (lookup_objc_ivar): If the instance variable is private, return 0
-        - the instance variable is invisible here.
+	* objc-act.c (is_private): Do not emit the 'instance variable %s
+	is declared private' error.
+	(is_public): Emit the error after calling is_private.
+	(lookup_objc_ivar): If the instance variable is private, return 0
+	- the instance variable is invisible here.
        
 2004-01-12  Marc Espie <espie@openbsd.org>
 
@@ -633,10 +824,10 @@
 
 2004-01-12  Matthias Klose  <doko@debian.org>
 
-        Backport from mainline
+	Backport from mainline
 
-        2003-12-08 Stuart Hastings <stuart@apple.com>
-        * config/i386/i386.md: Typo in split of fp-valued if_then_else.
+	2003-12-08 Stuart Hastings <stuart@apple.com>
+	* config/i386/i386.md: Typo in split of fp-valued if_then_else.
 
 2004-01-12  Roger Sayle  <roger@eyesopen.com>
 
@@ -691,10 +882,10 @@
 	Backport the following from mainline: 
 
 	2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
-        * config/sh/rtemself.h (TARGET_OS_CPP_BUILTINS): Use instead of
-        CPP_PREDEFINES.
-        * config/sh/rtems.h (TARGET_OS_CPP_BUILTINS): Use instead of
-        CPP_PREDEFINES.
+	* config/sh/rtemself.h (TARGET_OS_CPP_BUILTINS): Use instead of
+	CPP_PREDEFINES.
+	* config/sh/rtems.h (TARGET_OS_CPP_BUILTINS): Use instead of
+	CPP_PREDEFINES.
 
 	2003-09-27  Kelley Cook  <kcook@gcc.gnu.org>
 	* config/sh/rtemself.h, config/sh/rtems.h: GNU CC -> GCC.

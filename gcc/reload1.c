@@ -790,7 +790,7 @@ reload (first, global)
 		     stages of reload assume that all addresses found
 		     in the reg_equiv_* arrays were originally legitimate,
 		     we ignore such REG_EQUIV notes.
- 
+
 		     It also can happen that a REG_EQUIV note contains a MEM
 		     that carries the /u flag, for example when GCSE turns
 		     the load of a constant into a move from a pseudo that

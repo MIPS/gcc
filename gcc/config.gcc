@@ -2444,7 +2444,7 @@ sparc-*-linux*libc1*)	# SPARC's running GNU/Linux, libc5
 	;;
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-crtfm"
+	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-linux sparc/t-crtfm"
 	;;
 sparc-*-lynxos*)
 	if test x$gas = xyes
@@ -2832,7 +2832,25 @@ x86_64-*-*)
 	# We should have hammer chip here, but it does not exist yet and
 	# thus it is not supported.  Athlon_SSE is probably equivalent feature
 	# wise to hammer from our point of view except for 64bit mode.
-	target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
+	case "x$with_cpu" in
+		x)
+			target_cpu_default2=TARGET_CPU_DEFAULT_athlon_sse
+			;;
+		xnocona)
+			target_cpu_default2=TARGET_CPU_DEFAULT_pentium4
+			;;
+		xyes|xno)
+			echo "--with-cpu must be passed a value" 1>&2
+			exit 1
+			;;
+		*)
+			if test x$pass2done = xyes
+			then
+				echo "Unknown cpu used with --with-cpu=$with_cpu" 1>&2
+				exit 1
+			fi
+			;;
+	esac
 	;;
 alpha*-*-*)
 	case $machine in

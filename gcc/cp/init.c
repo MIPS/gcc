@@ -390,6 +390,9 @@ perform_member_init (tree member, tree init)
 	  /* member traversal: note it leaves init NULL */
 	  else if (TREE_CODE (type) == REFERENCE_TYPE)
 	    pedwarn ("uninitialized reference member `%D'", member);
+          else if (CP_TYPE_CONST_P (type))
+            pedwarn ("uninitialized member '%D' with 'const' type '%T'",
+                     member, type);
 	}
       else if (TREE_CODE (init) == TREE_LIST)
 	{
@@ -1286,8 +1289,9 @@ expand_aggr_init_1 (binfo, true_exp, exp, init, flags)
       /* If store_init_value returns NULL_TREE, the INIT has been
 	 record in the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
-      if (store_init_value (exp, init))
-	finish_expr_stmt (build (INIT_EXPR, type, exp, init));
+      init = store_init_value (exp, init);
+      if (init)
+	finish_expr_stmt (init);
       return;
     }
 
