@@ -478,15 +478,33 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	  tree arg1 = TREE_OPERAND (t, 1);
 
 	  if ((TREE_CODE (arg0) == VAR_DECL
-	       || TREE_CODE (arg0) == PARM_DECL)
-	      && TREE_CODE (arg1) == ADDR_EXPR)
+	       || TREE_CODE (arg0) == PARM_DECL))
 	    {
-	      arg1 = TREE_OPERAND (arg1, 0);
-	      if (TREE_CODE (arg1) == FUNCTION_DECL)
+	      if (TREE_CODE (arg1) == ADDR_EXPR)
 		{
-		    cgraph_indirect_assign_edge (data, arg0, arg1);
-		    cgraph_mark_needed_node (cgraph_node (arg1));
-		    *walk_subtrees = 0; 
+		  arg1 = TREE_OPERAND (arg1, 0);
+		  if (TREE_CODE (arg1) == FUNCTION_DECL)
+		    {
+		      cgraph_indirect_assign_edge (data, arg0, arg1);
+		      cgraph_mark_needed_node (cgraph_node (arg1));
+		      *walk_subtrees = 0; 
+		    }
+		}
+	      else if (TREE_CODE (arg1) == CALL_EXPR
+		       && flag_peel_structs)
+		{
+		  tree decl = get_callee_fndecl (arg1);
+		  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+		    {
+		      char * fn_name = (char *) IDENTIFIER_POINTER 
+			(DECL_NAME (decl));
+		      if ((strcmp (fn_name, "malloc") == 0)
+			  || (strcmp (fn_name, "calloc") == 0)
+			  || (strcmp (fn_name, "xmalloc") == 0))
+			{
+			  add_call_to_malloc_list (t);
+			}
+		    }
 		}
 	    }
 	}
@@ -1206,6 +1224,9 @@ cgraph_optimize (void)
       dump_varpool (cgraph_dump_file);
     }
 
+  if (flag_peel_structs)
+    peel_structs ();
+
   ipa_passes ();
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */
@@ -1225,9 +1246,6 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
-
-  if (flag_peel_structs)
-    peel_structs ();
 
   cgraph_mark_functions_to_output ();
   

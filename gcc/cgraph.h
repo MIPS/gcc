@@ -298,6 +298,7 @@ bool cgraph_default_inline_p (struct cgraph_node *);
 
 /* In struct-reorg.c  */
 void peel_structs (void);
+void add_call_to_malloc_list (tree);
 
 #endif  /* GCC_CGRAPH_H  */
 

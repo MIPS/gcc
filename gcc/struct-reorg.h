@@ -2,6 +2,16 @@
    reorganization optimization. Currently there is the API for stage 2
    of the optimization - the profile based clustering decisions.  */
 
+/* Represents a linked list of trees, usually of RECORD_TYPE.  These would
+   be groups that we want to keep together, but for which it would be 
+   inappropriate to use the normal TREE_CHAIN method of connecting them.  */
+
+struct struct_tree_list {
+  tree data;
+  struct struct_tree_list *next;
+};
+
+
 /* Represents access site of a data field.  */
 struct access_site {
   /* The statement in which the access site occurs.  */
@@ -29,6 +39,14 @@ struct allocation_site {
   struct allocation_site *next;
 };
 
+/* Represents new mapping information for fields, once struct has been
+   reorganized.  */
+struct field_map {
+  tree decl;                           /* Either a field decl or a type decl */
+  struct field_map *containing_type;   /* Pointer to type containing "decl".  */
+  struct field_map *contains;          /* Pointer to contained type/field decl. */
+};
+
 /* Represents a field within a data structure and its accesses.  */
 struct data_field_entry {
   /* Field index; unique within the data structure, better start with
@@ -38,6 +56,7 @@ struct data_field_entry {
   /* The number of times the field is accessed (according to profiling).  */
   gcov_type count;
   tree decl;
+  struct field_map *new_mapping;
   struct access_site *acc_sites;
 };
 
@@ -130,6 +149,10 @@ struct data_structure {
   /* An array of structure that holds for each basic block
      the list of accessed fields, the array is index by the bb index.  */
   struct bb_field_access **bbs_f_acc_lists;
+
+  /* A linked list of the newly created type(s),  corresponding to the
+     reorganization of the original structure.  */
+  struct struct_tree_list *new_types;
 };
 
 /*

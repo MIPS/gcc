@@ -1,3 +1,64 @@
+2004-12-19  Caroline Tice  <ctice@apple.com>
+
+	* cgraph.h (add_call_to_malloc_list):  New function declaration.
+	* cgraphunit.c (record_call_1): Add code to collect information about
+	  calls to malloc (by calling add_call_to_malloc_list).
+	(cgraph_optimize): Move call to peel_structs.
+	* struct-reorg-cpg.c (split_data_structure): Add calls to zero bitmaps
+	after allocating them.
+	* struct-reorg.c (tree-gimple.h, pointer-set.h, c-tree.h):  Add new
+	include statements.
+	(visited_nodes):  Change from hash table to pointer set.
+	(use_struct, new_type_node, new_var_data, malloc_call_data, 
+	malloc_struct):  New struct types.
+	(struct_reorg_malloc_list, malloc_data_list, split_all_fields):  New
+	global variables.
+	(build_f1neuron_cluster_info): New function.
+	(get_type_name): New function.
+	(print_type): New function.
+	(print_new_types): New function.
+	(build_basic_struct): New function.
+	(make_new_field_decl): New function.
+	(update_field_mapings): New function.
+	(build_child-struct): New function.
+	(add_to_types_list): New function.
+	(create_and_assemble_new_types): New function.
+	(add_to_varpool_list): New function.
+	(insert_into_var_list): New function.
+	(make_new_vars_1): New function.
+	(add_to_vars_list): New function.
+	(create_new_var_decls): New function.
+	(collect_malloc_data): New function.
+	(record_malloc_1): New function.
+	(add_bb_info): New function.
+	(find_var): New function.
+	(is_constant_0): New function.
+	(lookup_field_2); New function.
+	(build_component_ref_2): New function.
+	(create_new_mallocs): New function.
+	(search_rhs_for_struct_vars): New function.
+	(find_and_substitute_types_and_vars): New function.
+	(build_new_stmts): New function.
+	(find_base): New function.
+	(find_new_var): New function.
+	(update_struct_offset): New function.
+	(append_to_var_list): New function.
+	(update_field_accesses): New function.
+	(collect_struct_use_data): New function.
+	(update_struct_use_stmts): New function.
+	(do_peel): Added code to check and fix struct_clustering info if
+	desired or appropriate.  Add code to actually perform the
+	requrested code transformations.
+	(perform_escape_analysis): New function.
+	(peel_structs):  Added code to call and use new (preliminary)
+	escape analysis code.  Modified code to only call do_peel once, and
+	pass it all the information about all the data structs at once.
+	(add_call_to_malloc_list): New function.
+	* struct-reorg.h (struct_tree_list):  New struct type.
+	(field_map): New struct type.
+	(struct data_field_entry):  Added new field (new_maping).
+	(struct data_structure):  Added new field (new_types).
+
 2004-12-13  Dale Johannesen  <dalej@apple.com>
 
 	* tree-inline.c (optimize_inline_calls):  Call counts_to_freqs.

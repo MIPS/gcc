@@ -1445,6 +1445,7 @@ split_data_structure (struct data_structure *ds)
       ds->struct_clustering->sibling = crr_cluster;
       crr_cluster = ds->struct_clustering;
       crr_cluster->fields_in_cluster = sbitmap_alloc (ds->num_fields);
+      sbitmap_zero (crr_cluster->fields_in_cluster);
       SET_BIT (crr_cluster->fields_in_cluster, max_i);
       RESET_BIT (remaining_fields, max_i);
       SET_BIT (crr_cluster->fields_in_cluster, max_j);
@@ -1488,6 +1489,6 @@ split_data_structure (struct data_structure *ds)
     }
   else
     sbitmap_free (remaining_fields);
-
+  
 }
 
