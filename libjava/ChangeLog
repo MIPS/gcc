@@ -17,6 +17,8 @@
 	* jawt.c: New file.
 	* include/jawt.h: Likewise.
 	* include/jawt_md.h: Likewise.
+	* include/Makefile.am (tool_include__HEADERS): Add jawt.h and
+	jawt_md.h files.
 	* jni/classpath/classpath_jawt.h: Likewise.
 	* jni/gtk-peer/gtk_jawt.c: Likewise.
 	* Makefile.am: Build libjawt.so.
