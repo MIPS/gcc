@@ -1,5 +1,8 @@
 /* { dg-do run { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -funsafe-math-optimizations" } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec -ffast-math" } */
+
+/* need -funsafe-math-optimizations to vectorize the summation.
+   also need -ffinite-math-only to create the min/max expr.  */
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -48,7 +51,4 @@ int main (void)
   return main1 (0, 15);
 }
 
-/* The min/max pattern is not detected by phiopt. 
-   For now, only the summation loop is vectorized. */
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" } } */

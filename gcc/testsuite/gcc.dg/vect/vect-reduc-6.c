@@ -47,4 +47,5 @@ int main (void)
   return main1 (0, 15);
 }
 
+/* need -ffast-math to vectorizer these loops.  */
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" } } */
