@@ -2,6 +2,8 @@
 
         * cse.c (cse_insn): Don't lose REG_NON_LOCAL_GOTO note.
 
+	* fold-const.c (operand_equal_p): Fix VECTOR_CST comparison.
+
 2004-02-11  Thiemo Seufer  <seufer@csv.ica.uni-stuttgart.de>
 
 	* config/mips/mips.h (TARGET_OLDABI): Define. Use TARGET_NEWABI and
