@@ -1,5 +1,10 @@
 2005-02-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTabbedPane.java
+	(Page.setDisplayedMnemonicIndex): Handle empty menmonic.
+
+2005-02-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/tree/DefaultMutableTreeNode.java:
 	Reworked Javadocs all over.
 	(getPathToRoot): Fixed direction of result array initialization.
