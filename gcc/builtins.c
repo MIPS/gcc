@@ -74,7 +74,7 @@ const char *const built_in_names[(int) END_BUILTINS] =
 tree built_in_decls[(int) END_BUILTINS];
 
 static int get_pointer_alignment	PARAMS ((tree, unsigned int));
-static tree c_strlen			PARAMS ((tree));
+static tree c_strlen			PARAMS ((tree, int));
 static const char *c_getstr		PARAMS ((tree));
 static rtx c_readstr			PARAMS ((const char *,
 						 enum machine_mode));
@@ -235,19 +235,43 @@ get_pointer_alignment (exp, max_align)
    way, because it could contain a zero byte in the middle.
    TREE_STRING_LENGTH is the size of the character array, not the string.
 
+   ONLY_VALUE should be non-zero if the result is not going to be emitted
+   into the instruction stream and zero if it si going to be expanded.
+   E.g. with i++ ? "foo" : "bar", if ONLY_VALUE is non-zero, constant 3
+   is returned, otherwise NULL, since
+   len = c_strlen (src, 1); if (len) expand_expr (len, ...); would not
+   evaluate the side-effects.
+
    The value returned is of type `ssizetype'.
 
    Unfortunately, string_constant can't access the values of const char
    arrays with initializers, so neither can we do so here.  */
 
 static tree
-c_strlen (src)
+c_strlen (src, only_value)
      tree src;
+     int only_value;
 {
   tree offset_node;
   HOST_WIDE_INT offset;
   int max;
   const char *ptr;
+
+  STRIP_NOPS (src);
+  if (TREE_CODE (src) == COND_EXPR
+      && (only_value || !TREE_SIDE_EFFECTS (TREE_OPERAND (src, 0))))
+    {
+      tree len1, len2;
+
+      len1 = c_strlen (TREE_OPERAND (src, 1), only_value);
+      len2 = c_strlen (TREE_OPERAND (src, 2), only_value);
+      if (tree_int_cst_equal (len1, len2))
+	return len1;
+    }
+
+  if (TREE_CODE (src) == COMPOUND_EXPR
+      && (only_value || !TREE_SIDE_EFFECTS (TREE_OPERAND (src, 0))))
+    src = TREE_OPERAND (src, 1);
 
   src = string_constant (src, &offset_node);
   if (src == 0)
@@ -1620,14 +1644,30 @@ expand_builtin_strlen (exp, target)
   else
     {
       rtx pat;
-      tree src = TREE_VALUE (arglist);
-
-      int align
-	= get_pointer_alignment (src, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
-
+      tree len, src = TREE_VALUE (arglist);
       rtx result, src_reg, char_rtx, before_strlen;
       enum machine_mode insn_mode = value_mode, char_mode;
       enum insn_code icode = CODE_FOR_nothing;
+      int align;
+
+      /* If the length can be computed at compile-time, return it.  */
+      len = c_strlen (src, 0);
+      if (len)
+	return expand_expr (len, target, value_mode, EXPAND_NORMAL);
+
+      /* If the length can be computed at compile-time and is constant
+	 integer, but there are side-effects in src, evaluate
+	 src for side-effects, then return len.
+	 E.g. x = strlen (i++ ? "xfoo" + 1 : "bar");
+	 can be optimized into: i++; x = 3;  */
+      len = c_strlen (src, 1);
+      if (len && TREE_CODE (len) == INTEGER_CST)
+	{
+	  expand_expr (src, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	  return expand_expr (len, target, value_mode, EXPAND_NORMAL);
+	}
+
+      align = get_pointer_alignment (src, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
 
       /* If SRC is not a pointer type, don't do this operation inline.  */
       if (align == 0)
@@ -2234,7 +2274,7 @@ expand_builtin_strcpy (exp, target, mode)
     return 0;
 
   src = TREE_VALUE (TREE_CHAIN (arglist));
-  len = c_strlen (src);
+  len = c_strlen (src, 1);
   if (len == 0 || TREE_SIDE_EFFECTS (len))
     return 0;
 
@@ -2281,7 +2321,7 @@ expand_builtin_stpcpy (arglist, target, mode)
          because the latter will potentially produce pessimized code
          when used to produce the return value.  */
       src = TREE_VALUE (TREE_CHAIN (arglist));
-      if (! c_getstr (src) || ! (len = c_strlen (src)))
+      if (! c_getstr (src) || ! (len = c_strlen (src, 0)))
 	return 0;
 
       len = fold (size_binop (PLUS_EXPR, len, ssize_int (1)));
@@ -2323,7 +2363,7 @@ expand_builtin_strncpy (arglist, target, mode)
     return 0;
   else
     {
-      tree slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
+      tree slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)), 1);
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
       tree fn;
 
@@ -2773,8 +2813,8 @@ expand_builtin_strcmp (exp, target, mode)
     enum machine_mode insn_mode
       = insn_data[(int) CODE_FOR_cmpstrsi].operand[0].mode;
 
-    len1 = c_strlen (arg1);
-    len2 = c_strlen (arg2);
+    len1 = c_strlen (arg1, 1);
+    len2 = c_strlen (arg2, 1);
 
     if (len1)
       len1 = size_binop (PLUS_EXPR, ssize_int (1), len1);
@@ -2923,8 +2963,8 @@ expand_builtin_strncmp (exp, target, mode)
     enum machine_mode insn_mode
       = insn_data[(int) CODE_FOR_cmpstrsi].operand[0].mode;
 
-    len1 = c_strlen (arg1);
-    len2 = c_strlen (arg2);
+    len1 = c_strlen (arg1, 1);
+    len2 = c_strlen (arg2, 1);
 
     if (len1)
       len1 = size_binop (PLUS_EXPR, ssize_int (1), len1);
@@ -3771,7 +3811,7 @@ expand_builtin_fputs (arglist, ignore, unlocked)
 
   /* Get the length of the string passed to fputs.  If the length
      can't be determined, punt.  */
-  if (!(len = c_strlen (TREE_VALUE (arglist)))
+  if (!(len = c_strlen (TREE_VALUE (arglist), 1))
       || TREE_CODE (len) != INTEGER_CST)
     return 0;
 
@@ -4594,7 +4634,7 @@ fold_builtin (exp)
     case BUILT_IN_STRLEN:
       if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
 	{
-	  tree len = c_strlen (TREE_VALUE (arglist));
+	  tree len = c_strlen (TREE_VALUE (arglist), 0);
 	  if (len)
 	    {
 	      /* Convert from the internal "sizetype" type to "size_t".  */
