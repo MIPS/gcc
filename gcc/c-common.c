@@ -438,9 +438,17 @@ int print_struct_values;
 const char *constant_string_class_name;
 
 /* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
+   different argument types.  Performs the check on the whole selector
+   table at the end of compilation.  */
 
 int warn_selector;
+
+/* Warn if a @selector() is found, and no method with that selector
+   has been previously declared.  The check is done on each
+   @selector() as soon as it is found - so it warns about forward
+   declarations.  */
+
+int warn_undeclared_selector;
 
 /* Warn if methods required by a protocol are not implemented in the 
    class adopting it.  When turned off, methods inherited to that
@@ -557,6 +565,11 @@ int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 int flag_enforce_eh_specs = 1;
+
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+int warn_abi = 0;
 
 /* Nonzero means warn about implicit declarations.  */
 
@@ -747,8 +760,10 @@ static bool get_nonnull_operand		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT *));
 void builtin_define_std PARAMS ((const char *));
 static void builtin_define_with_value PARAMS ((const char *, const char *,
-					       int));
+                                               int));
 static void builtin_define_type_max PARAMS ((const char *, tree, int));
+static void cpp_define_data_format PARAMS ((cpp_reader *));
+static void builtin_define_type_precision PARAMS ((const char *, tree));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -4661,6 +4676,107 @@ boolean_increment (code, arg)
   return val;
 }
 
+/* Define macros necessary to describe fundamental data type formats.  */
+static void
+cpp_define_data_format (pfile)
+    cpp_reader *pfile;
+{
+  const char *format;
+  /* Define endianness enumeration values.  */
+  cpp_define (pfile, "__GCC_LITTLE_ENDIAN__=0");
+  cpp_define (pfile, "__GCC_BIG_ENDIAN__=1");
+
+  /* Define supported floating-point format enumeration values.  */
+  cpp_define (pfile, "__UNKNOWN_FORMAT__=0");
+  cpp_define (pfile, "__IEEE_FORMAT__=1");
+  cpp_define (pfile, "__IBM_FORMAT__=2");
+  cpp_define (pfile, "__C4X_FORMAT__=3");
+  cpp_define (pfile, "__VAX_FORMAT__=4");
+  
+  /* Define target endianness:
+       - bit order
+       - byte order
+       - word order in an integer that spans a multi-word
+       - word order in a floating-poing that spans a multi-word  */
+  if (BITS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
+  if (BYTES_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_LITTLE_ENDIAN__");
+  /* Define words order in a multi-word integer.  */
+  if (WORDS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
+  /* Define words order in a multi-word floating point.  */
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
+
+  switch (TARGET_FLOAT_FORMAT)
+    {
+    case UNKNOWN_FLOAT_FORMAT:
+      format = "__UNKNOWN_FORMAT__";
+      break;
+
+    case IEEE_FLOAT_FORMAT:
+      format = "__IEEE_FORMAT__";
+      break;
+
+    case VAX_FLOAT_FORMAT:
+      format = "__VAX_FORMAT__";
+      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=1");
+#ifdef TARGET_G_FLOAT      
+      if (TARGET_G_FLOAT)
+        {
+          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
+          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=1");
+        }
+      else
+        {
+          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=1");
+          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
+        }
+#endif       
+      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=1");
+      break;
+
+    case IBM_FLOAT_FORMAT:
+      format = "__IBM_FORMAT__";
+      break;
+
+    case C4X_FLOAT_FORMAT:
+      format = "__C4X_FORMAT__";
+      break;
+
+    default:
+      abort();
+    }
+  if (TARGET_FLOAT_FORMAT != VAX_FLOAT_FORMAT)
+    {
+      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=0");
+    }
+  builtin_define_with_value ("__GCC_FLOAT_FORMAT__", format, 0);
+}
+
+/* Define NAME with value TYPE precision.  */
+static void
+builtin_define_type_precision (name, type)
+     const char *name;
+     tree type;
+{
+  char buf[8];
+  sprintf (buf, "%d", (int) TYPE_PRECISION (type));
+  builtin_define_with_value (name, buf, 0);
+}
+
 /* Hook that registers front end and target-specific built-ins.  */
 void
 cb_register_builtins (pfile)
@@ -4703,11 +4819,16 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
 
-  {
-    char buf[8];
-    sprintf (buf, "%d", (int) TYPE_PRECISION (signed_char_type_node));
-    builtin_define_with_value ("__CHAR_BIT__", buf, 0);
-  }
+  builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
+  builtin_define_type_precision ("__WCHAR_BIT__", wchar_type_node);
+  builtin_define_type_precision ("__SHRT_BIT__", short_integer_type_node);
+  builtin_define_type_precision ("__INT_BIT__", integer_type_node);
+  builtin_define_type_precision ("__LONG_BIT__", long_integer_type_node);
+  builtin_define_type_precision ("__LONG_LONG_BIT__",
+                                 long_long_integer_type_node);
+  builtin_define_type_precision ("__FLOAT_BIT__", float_type_node);
+  builtin_define_type_precision ("__DOUBLE_BIT__", double_type_node);
+  builtin_define_type_precision ("__LONG_DOUBLE_BIT__", long_double_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
@@ -4745,6 +4866,11 @@ cb_register_builtins (pfile)
   if (!flag_signed_char)
     cpp_define (pfile, "__CHAR_UNSIGNED__");
 
+  if (c_language == clk_cplusplus && TREE_UNSIGNED (wchar_type_node))
+    cpp_define (pfile, "__WCHAR_UNSIGNED__");
+
+  cpp_define_data_format (pfile);
+  
   /* Make the choice of ObjC runtime visible to source code.  */
   if (flag_objc && flag_next_runtime)
     cpp_define (pfile, "__NEXT_RUNTIME__");

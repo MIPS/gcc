@@ -513,7 +513,7 @@ The directory you use for @option{--with-local-prefix} @strong{must not}
 contain any of the system's standard header files.  If it did contain
 them, certain programs would be miscompiled (including GNU Emacs, on
 certain targets), because this would override and nullify the header
-file corrections made by the @code{fixincludes} script.
+file corrections made by the @command{fixincludes} script.
 
 Indications are that people who use this option use it based on mistaken
 ideas of what it is for.  People use it as if it specified where to
@@ -876,10 +876,10 @@ Some options which only apply to building cross compilers:
 @item --with-headers=@var{dir}
 Specifies a directory
 which has target include files.
-@emph{This options is required} when building a cross
+@emph{This option is required} when building a cross
 compiler, if @file{@var{prefix}/@var{target}/sys-include} doesn't pre-exist.
 These include files will be copied into the @file{gcc} install directory.
-Fixincludes will be run on these files to make them compatible with
+@command{fixincludes} will be run on these files to make them compatible with
 GCC.
 @item --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
 Specifies a list of directories which contain the target runtime
@@ -947,7 +947,7 @@ because you have previously configured the compiler in the source
 directory.  Make sure you have done all the necessary preparations.
 
 If you build GCC on a BSD system using a directory stored in an old System
-V file system, problems may occur in running @code{fixincludes} if the
+V file system, problems may occur in running @command{fixincludes} if the
 System V file system doesn't support symbolic links.  These problems
 result in a failure to fix the declaration of @code{size_t} in
 @file{sys/types.h}.  If you find that @code{size_t} is a signed type and
@@ -1712,6 +1712,13 @@ As of GCC 3.2, versions before @code{alpha*-dec-osf4} are no longer
 supported.  (These are the versions which identify themselves as DEC
 OSF/1.)
 
+In Digital Unix V4.0, virtual memory exhausted bootstrap failures
+may be fixed by configuring with @option{--with-gc=simple},
+reconfiguring Kernel Virtual Memory and Swap parameters
+per the @command{/usr/sbin/sys_check} Tuning Suggestions,
+or applying the patch in
+@uref{http://gcc.gnu.org/ml/gcc/2002-08/msg00822.html}.
+
 In Tru64 UNIX V5.1, Compaq introduced a new assembler that does not
 currently (2001-06-13) work with @command{mips-tfile}.  As a workaround,
 we need to use the old assembler, invoked via the barely documented
@@ -2036,7 +2043,8 @@ longer a multiple of 2 bytes.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
-assembler.
+assembler.  The HP assembler does not work with the @samp{hppa64-hp-hpux11*}
+port.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2044,8 +2052,9 @@ use GAS and GDB and configure GCC with the
 @uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}} and
 @option{--with-as=@dots{}} options.
 
-If you wish to use pa-risc 2.0 architecture support, you must use either
-the HP assembler, gas/binutils 2.11 or a recent
+If you wish to use the pa-risc 2.0 architecture support with a 32-bit
+runtime, you must use either the HP assembler, gas/binutils 2.11 or newer,
+or a recent
 @uref{ftp://sources.redhat.com/pub/binutils/snapshots,,snapshot of gas}.
 
 There are two default scheduling models for instructions.  These are
@@ -2117,14 +2126,34 @@ bootstrap}.
 @end html
 @heading @anchor{hppa*-hp-hpux11}hppa*-hp-hpux11
 
-GCC 3.0 and up support HP-UX 11.  You must use GNU binutils 2.11 or above on
-this platform.  Thread support is not currently implemented for this
-platform, so @option{--enable-threads} does not work.
-See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
+GCC 3.0 and up support HP-UX 11.  On 64-bit capable systems, there
+are two distinct ports.  The @samp{hppa2.0w-hp-hpux11*} port generates
+code for the 32-bit pa-risc runtime architecture.  It uses the HP
+linker and is currently the default selected by config.guess.  The
+optional @samp{hppa64-hp-hpux11*} port generates 64-bit code for the
+pa-risc 2.0 architecture.  It must be explicitly selected using the
+@samp{--host=hppa64-hp-hpux11*} configure option.  Different prefixes
+must be used if both ports are to be installed on the same system.
+
+You must use GNU binutils 2.11 or above with the 32-bit port.  Thread
+support is not currently implemented, so @option{--enable-threads} does
+not work.  See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
 and @uref{http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00663.html}.
 GCC 2.95.x is not supported under HP-UX 11 and cannot be used to
 compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
 information about obtaining precompiled GCC binaries for HP-UX.
+
+GNU binutils 2.13 or later is recommended with the 64-bit port.
+The HP assembler is not supported.  It is @emph{highly} recommended
+that the GNU linker be used as well.  Either binutils must be built
+prior to gcc, or a binary distribution of gcc or binutils must be
+obtained for the initial builds.  When starting with a HP compiler,
+it is preferable to use the ANSI compiler as the bundled compiler
+only supports traditional C.  Bootstrapping with the bundled compiler
+is tested infrequently and problems often arise because of the subtle
+differences in semantics between traditional and ISO C.  There also
+have been problems reported with various binary distributions.  This
+port still is undergoing significant development.
 
 @html
 </p>

@@ -1972,6 +1972,10 @@ unsigned on the target machine.  It exists to cause the standard header
 file @file{limits.h} to work correctly.  You should not use this macro
 yourself; instead, refer to the standard macros defined in @file{limits.h}.
 
+@item __WCHAR_UNSIGNED__
+Like @code{__CHAR_UNSIGNED__}, this macro is defined if and only if the
+data type @code{wchar_t} is unsigned and the front-end is in C++ mode.
+
 @item __REGISTER_PREFIX__
 This macro expands to a single token (not a string constant) which is
 the prefix applied to CPU register names in assembly language for this
@@ -2002,14 +2006,74 @@ typedefs, respectively.  They exist to make the standard header files
 these macros directly; instead, include the appropriate headers and use
 the typedefs.
 
+@item __CHAR_BIT__
+@itemx __WCHAR_BIT__
+@itemx __SHRT_BIT__
+@itemx __INT_BIT__
+@itemx __LONG_BIT__
+@itemx __LONG_LONG_BIT__
+@itemx __FLOAT_BIT__
+@itemx __DOUBLE_BIT__
+@itemx __LONG_DOUBLE_BIT__
+These macros are defined to the number of bits used in the
+representation of the data types @code{char}, @code{wchar_t},
+@code{short}, @code{int}, @code{long}, @code{long long}, @code{float},
+@code{double} and @code{long double}.  They exist to make the standard
+header given numerical limits work correctly.  You should not use
+these macros directly; instead, include the appropriate headers.
+
 @item __USING_SJLJ_EXCEPTIONS__
 This macro is defined, with value 1, if the compiler uses the old
 mechanism based on @code{setjmp} and @code{longjmp} for exception
 handling.
 
 @item __NEXT_RUNTIME__
-This macro is defined, with value 1, when the NeXT runtime
-(as in @option{-fnext-runtime}) is in use for Objective-C.
+This macro is defined, with value 1, if (and only if) the NeXT runtime
+(as in @option{-fnext-runtime}) is in use for Objective-C.  If the GNU
+runtime is used, this macro is not defined, so that you can use this
+macro to determine which runtime (NeXT or GNU) is being used.
+
+@item __TARGET_BITS_ORDER__
+This macro describes the target's bits order in a byte.  Its value is
+@code{__GCC_LITTLE_ENDIAN__} or @code{__GCC_BIG_ENDIAN__}.
+
+@item __TARGET_BYTES_ORDER__
+This macro is defined with value @code{__GCC_LITTLE_ENDIAN__} or
+@code{__GCC_BIG_ENDIAN__} if the target's bytes order within a word
+is little-endian or big-endian, respectively.
+
+@item __TARGET_INT_WORDS_ORDER__
+This macro is defined with value @code{__GCC_LITTLE_ENDIAN__} or
+@code{__GCC_BIG_ENDIAN__} if the target's words order within a
+multi-word integer datum is little-endian or big-endian, respectively.
+
+@item __TARGET_FLOAT_WORDS_ORDER__
+This macro is defined with value @code{__GCC_LITTLE_ENDIAN__} or
+@code{__GCC_BIG_ENDIAN__} if the target's words order within a
+multi-word floating-point datum is little-endian or big-endian, respectively.
+
+@item __TARGET_FLOAT_FORMAT__
+This macro is defined to describe the floating-point format used by the
+target.  It has value in the set comprised of:
+@code{__UNKNOWN_FORMAT__}, @code{__IEEE_FORMAT__},
+@code{__IBM_FORMAT__}, @code{__C4X_FORMAT__} and @code{__VAX_FORMAT__}.
+
+@item __TARGET_USES_VAX_F_FLOAT__
+This macro is defined with value 1 if the target uses the VAX F-format
+for the single precision floating-point data type; else if has value 0.
+
+@item __TARGET_USES_VAX_D_FLOAT__
+@item __TARGET_USES_VAX_G_FLOAT__
+These macros are always defined, with values 0 or 1.  If
+@code{__TARGET_FLOAT_FORMAT__} is @code{__VAX_FORMAT__} then they have
+mutually exclusive values; else both have value 0.  Non-zero
+@code{__TARGET_USES_VAX_D_FLOAT__} means the target uses the VAX
+D-format for the double precision floating-point data type; non-zero
+@code{__TARGET_USES_VAX_G_FLOAT__} means the VAX G-format is used.
+
+@item __TARGET_USES_VAX_H_FLOAT__
+When non-zero, the target uses the VAX H-format for the extended
+precision floating-point data type.
 @end table
 
 @node System-specific Predefined Macros

@@ -69,21 +69,30 @@ Boston, MA 02111-1307, USA.  */
 	  builtin_define ("_IEEE_FP_INEXACT");		\
 							\
 	/* Macros dependent on the C dialect.  */	\
-	if (preprocessing_asm_p ())			\
-	  builtin_define_std ("LANGUAGE_ASSEMBLY");	\
-        else if (c_language == clk_c)			\
-	  builtin_define_std ("LANGUAGE_C");		\
-	else if (c_language == clk_cplusplus)		\
-	  {						\
-	    builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
-	    builtin_define ("__LANGUAGE_C_PLUS_PLUS__");\
-	  }						\
-	if (flag_objc)					\
-	  {						\
-	    builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
-	    builtin_define ("__LANGUAGE_OBJECTIVE_C__");\
-	  }						\
+	SUBTARGET_LANGUAGE_CPP_BUILTINS();		\
 } while (0)
+
+#ifndef SUBTARGET_LANGUAGE_CPP_BUILTINS
+#define SUBTARGET_LANGUAGE_CPP_BUILTINS()		\
+  do							\
+    {							\
+      if (preprocessing_asm_p ())			\
+	builtin_define_std ("LANGUAGE_ASSEMBLY");	\
+      else if (c_language == clk_c)			\
+	builtin_define_std ("LANGUAGE_C");		\
+      else if (c_language == clk_cplusplus)		\
+	{						\
+	  builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
+	  builtin_define ("__LANGUAGE_C_PLUS_PLUS__");	\
+	}						\
+      if (flag_objc)					\
+	{						\
+	  builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
+	  builtin_define ("__LANGUAGE_OBJECTIVE_C__");	\
+	}						\
+    }							\
+  while (0)
+#endif
 
 #define CPP_SPEC "%(cpp_subtarget)"
 
@@ -1990,9 +1999,9 @@ do {						\
 
 /* Definitions for debugging.  */
 
-#define SDB_DEBUGGING_INFO		/* generate info for mips-tfile */
-#define DBX_DEBUGGING_INFO		/* generate embedded stabs */
-#define MIPS_DEBUGGING_INFO		/* MIPS specific debugging info */
+#define SDB_DEBUGGING_INFO 1		/* generate info for mips-tfile */
+#define DBX_DEBUGGING_INFO 1		/* generate embedded stabs */
+#define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
 
 #ifndef PREFERRED_DEBUGGING_TYPE	/* assume SDB_DEBUGGING_INFO */
 #define PREFERRED_DEBUGGING_TYPE  SDB_DEBUG
