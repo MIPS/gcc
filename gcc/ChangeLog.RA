@@ -1,3 +1,7 @@
+2003-02-25  Michael Matz  <matz@suse.de>
+
+	* ra-colorize.c (merge_moves): Fix list handling.
+
 2003-02-21  Michael Matz  <matz@suse.de>
 
 	* df.h (DF_REF_ALREADY_SPILLED, DF_REF_COMPARE_RELATED,
