@@ -57,6 +57,26 @@ struct lang_hooks_for_tree_inlining
 							 union tree_node *));
 };
 
+/* Lang hooks for management of language-specific data or status
+   when entering / leaving functions etc.  */
+struct lang_hooks_for_functions
+{
+  /* Called when entering a function.  */
+  void (*init) PARAMS ((struct function *));
+
+  /* Called when leaving a function.  */
+  void (*free) PARAMS ((struct function *));
+
+  /* Called when entering a nested function.  */
+  void (*enter_nested) PARAMS ((struct function *));
+
+  /* Called when leaving a nested function.  */
+  void (*leave_nested) PARAMS ((struct function *));
+
+  /* Lang-specific function data marking for GC.  */
+  void (*mark) PARAMS ((struct function *));
+};
+
 /* The following hooks are used by tree-dump.c.  */
 
 struct lang_hooks_for_tree_dump
@@ -96,6 +116,18 @@ struct lang_hooks_for_types
   /* Return a type the same as TYPE except unsigned or signed
      according to UNSIGNEDP.  */
   tree (*signed_or_unsigned_type) PARAMS ((int, tree));
+
+  /* Given a type, apply default promotions to unnamed function
+     arguments and return the new type.  Return the same type if no
+     change.  Required by any language that supports variadic
+     arguments.  The default hook aborts.  */
+  tree (*type_promotes_to) PARAMS ((tree));
+
+  /* This routine is called in tree.c to print an error message for
+     invalid use of an incomplete type.  VALUE is the expression that
+     was used (or 0 if that isn't known) and TYPE is the type that was
+     invalid.  */
+  void (*incomplete_type_error) PARAMS ((tree value, tree type));
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -133,6 +165,10 @@ struct lang_hooks_for_decls
 
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) PARAMS ((void));
+
+  /* Returns true when we should warn for an unused global DECL.
+     We will already have checked that it has static binding.  */
+  bool (*warn_unused_global) PARAMS ((tree));
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -177,8 +213,9 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) PARAMS ((void));
 
-  /* Parses the entire file.  */
-  void (*parse_file) PARAMS ((void));
+  /* Parses the entire file.  The argument is non-zero to cause bison
+     parsers to dump debugging information during parsing.  */
+  void (*parse_file) PARAMS ((int));
 
   /* Called immediately after parsing to clear the binding stack.  */
   void (*clear_binding_stack) PARAMS ((void));
@@ -195,6 +232,19 @@ struct lang_hooks
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
   rtx (*expand_expr) PARAMS ((tree, rtx, enum machine_mode, int));
+
+  /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
+     operation.
+
+     This preparation consists of taking the ordinary representation
+     of an expression expr and producing a valid tree boolean
+     expression describing whether expr is nonzero.  We could simply
+     always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
+     but we optimize comparisons, &&, ||, and !.
+
+     The result should be an expression of boolean type (if not an
+     error_mark_node).  */
+  tree (*truthvalue_conversion) PARAMS ((tree));
 
   /* Possibly apply default attributes to a function (represented by
      a FUNCTION_DECL).  */
@@ -242,6 +292,13 @@ struct lang_hooks
   /* Mark nodes held through the lang_specific hooks in the tree.  */
   void (*mark_tree) PARAMS ((tree));
 
+  /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
+     thing that the assembler should talk about, set
+     DECL_ASSEMBLER_NAME to an appropriate IDENTIFIER_NODE.
+     Otherwise, set it to the ERROR_MARK_NODE to ensure that the
+     assembler does not talk about it.  */
+  void (*set_decl_assembler_name) PARAMS ((tree));
+
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
 
@@ -271,10 +328,17 @@ struct lang_hooks
   void (*print_error_function) PARAMS ((struct diagnostic_context *,
 					const char *));
 
-  /* Set yydebug for bison-based parsers, when -dy is given on the
-     command line.  By default, if the parameter is non-zero, prints a
-     warning that the front end does not use such a parser.  */
-  void (*set_yydebug) PARAMS ((int));
+  /* Pointers to machine-independent attribute tables, for front ends
+     using attribs.c.  If one is NULL, it is ignored.  Respectively, a
+     table of attributes specific to the language, a table of
+     attributes common to two or more languages (to allow easy
+     sharing), and a table of attributes for checking formats.  */
+  const struct attribute_spec *attribute_table;
+  const struct attribute_spec *common_attribute_table;
+  const struct attribute_spec *format_attribute_table;
+
+  /* Function-related language hooks.  */
+  struct lang_hooks_for_functions function;
 
   struct lang_hooks_for_tree_inlining tree_inlining;
   

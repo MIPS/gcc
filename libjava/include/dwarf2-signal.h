@@ -21,7 +21,7 @@ details.  */
 #undef HANDLE_FPE
 
 #define SIGNAL_HANDLER(_name)	\
-static void _Jv_##_name (int, siginfo_t *, void *_p)
+static void _Jv_##_name (int, siginfo_t *_sip, void *_p)
 
 class java::lang::Throwable;
 
@@ -58,6 +58,61 @@ do									\
   _sc->sc_ip++;								\
 }									\
 while (0)
+#elif defined(__sparc__)
+/* We could do the unwind of the signal frame quickly by hand here like
+   sparc-signal.h does under Solaris, but that makes debugging unwind
+   failures almost impossible.  */
+#if !defined(__arch64__)
+#define MAKE_THROW_FRAME(_exception)					\
+do									\
+{									\
+  /* Sparc-32 leaves PC pointing at a faulting instruction		\
+   always.								\
+   We advance the PC one instruction past the exception causing PC.	\
+   This is done because FDEs are found with "context->ra - 1" in the	\
+   unwinder.								\
+   Also, the dwarf2 unwind machinery is going to add 8 to the		\
+   PC it uses on Sparc.  So we adjust the PC here.  We do it here	\
+   because we run once for such an exception, however the Sparc specific\
+   unwind can run multiple times for the same exception and it would	\
+   adjust the PC more than once resulting in a bogus value.  */		\
+  struct sig_regs {							\
+    unsigned int psr, pc, npc, y, u_regs[16];				\
+  } *regp;								\
+  unsigned int insn;							\
+  __asm__ __volatile__("ld [%%i7 + 8], %0" : "=r" (insn));		\
+  /* mov __NR_sigaction, %g1; Old signal stack layout */		\
+  if (insn == 0x821020d8)						\
+    regp = (struct sig_regs *) _sip;					\
+  else									\
+    /* mov __NR_rt_sigaction, %g1; New signal stack layout */		\
+    regp = (struct sig_regs *) (_sip + 1);				\
+  regp->pc = ((regp->pc + 4) - 8);					\
+}									\
+while (0)
+#else
+#define MAKE_THROW_FRAME(_exception)					\
+do									\
+{									\
+  /* Sparc-64 leaves PC pointing at a faulting instruction		\
+   always.								\
+   We advance the PC one instruction past the exception causing PC.	\
+   This is done because FDEs are found with "context->ra - 1" in the	\
+   unwinder.								\
+   Also, the dwarf2 unwind machinery is going to add 8 to the		\
+   PC it uses on Sparc.  So we adjust the PC here.  We do it here	\
+   because we run once for such an exception, however the Sparc specific\
+   unwind can run multiple times for the same exception and it would	\
+   adjust the PC more than once resulting in a bogus value.  */		\
+  struct pt_regs {							\
+    unsigned long u_regs[16];						\
+    unsigned long tstate, tpc, tnpc;					\
+    unsigned int y, fprs;						\
+  } *regp = (struct pt_regs *) (_sip + 1);				\
+  regp->tpc = ((regp->tpc + 4) - 8);					\
+}									\
+while (0)
+#endif
 #else
 #define MAKE_THROW_FRAME(_exception)		\
 do						\
@@ -67,7 +122,7 @@ do						\
 while (0)
 #endif
 
-#ifndef __ia64__
+#if !(defined(__ia64__) || defined(__sparc__))
 #define INIT_SEGV						\
 do								\
   {								\
@@ -100,7 +155,7 @@ while (0)
  * go away once all systems have pthreads libraries that are
  * compiled with full unwind info.  */
 
-#else  /* __ia64__ */
+#else  /* __ia64__ || __sparc__ */
 
 // FIXME: We shouldn't be using libc_sigaction here, since it should
 // be glibc private.  But using syscall here would mean translating to
@@ -136,5 +191,5 @@ do								\
     __libc_sigaction (SIGFPE, &act, NULL);			\
   }								\
 while (0)  
-#endif /* __ia64__ */
+#endif /* __ia64__ || __sparc__ */
 #endif /* JAVA_SIGNAL_H */

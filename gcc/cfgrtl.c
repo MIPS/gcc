@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,8 +102,7 @@ can_delete_label_p (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
 	  && !in_expr_list_p (forced_labels, label)
-	  && !in_expr_list_p (label_value_list, label)
-	  && !in_expr_list_p (exception_handler_labels, label));
+	  && !in_expr_list_p (label_value_list, label));
 }
 
 /* Delete INSN by patching it out.  Return the next insn.  */
@@ -363,7 +362,7 @@ create_basic_block (index, head, end)
    to post-process the stream to remove empty blocks, loops, ranges, etc.  */
 
 int
-flow_delete_block (b)
+flow_delete_block_noexpunge (b)
      basic_block b;
 {
   int deleted_handler = 0;
@@ -412,6 +411,15 @@ flow_delete_block (b)
   b->pred = NULL;
   b->succ = NULL;
 
+  return deleted_handler;
+}
+
+int
+flow_delete_block (b)
+     basic_block b;
+{
+  int deleted_handler = flow_delete_block_noexpunge (b);
+  
   /* Remove the basic block from the array, and compact behind it.  */
   expunge_block (b);
 
@@ -1096,8 +1104,9 @@ tidy_fallthru_edge (e, b, c)
      So search through a sequence of barriers, labels, and notes for
      the head of block C and assert that we really do fall through.  */
 
-  if (next_real_insn (b->end) != next_real_insn (PREV_INSN (c->head)))
-    return;
+  for (q = NEXT_INSN (b->end); q != c->head; q = NEXT_INSN (q))
+    if (INSN_P (q))
+      return;
 
   /* Remove what will soon cease being the jump insn from the source block.
      If block B consisted only of this single jump, turn it into a deleted

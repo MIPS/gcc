@@ -235,6 +235,7 @@ FILE *loop_dump_stream;
 
 /* Forward declarations.  */
 
+static void invalidate_loops_containing_label PARAMS ((rtx));
 static void find_and_verify_loops PARAMS ((rtx, struct loops *));
 static void mark_loop_jump PARAMS ((rtx, struct loop *));
 static void prescan_loop PARAMS ((struct loop *));
@@ -353,6 +354,7 @@ static rtx loop_insn_sink_or_swim PARAMS((const struct loop *, rtx));
 static void loop_dump_aux PARAMS ((const struct loop *, FILE *, int));
 static void loop_delete_insns PARAMS ((rtx, rtx));
 static HOST_WIDE_INT remove_constant_addition PARAMS ((rtx *));
+static rtx gen_load_of_final_value PARAMS ((rtx, rtx));
 void debug_ivs PARAMS ((const struct loop *));
 void debug_iv_class PARAMS ((const struct iv_class *));
 void debug_biv PARAMS ((const struct induction *));
@@ -2493,6 +2495,8 @@ prescan_loop (loop)
 	      loop_info->unknown_address_altered = 1;
 	      loop_info->has_nonconst_call = 1;
 	    }
+	  else if (pure_call_p (insn))
+	    loop_info->has_nonconst_call = 1;
 	  loop_info->has_call = 1;
 	  if (can_throw_internal (insn))
 	    loop_info->has_multiple_exit_targets = 1;
@@ -2609,6 +2613,17 @@ prescan_loop (loop)
     }
 }
 
+/* Invalidate all loops containing LABEL.  */
+
+static void
+invalidate_loops_containing_label (label)
+     rtx label;
+{
+  struct loop *loop;
+  for (loop = uid_loop[INSN_UID (label)]; loop; loop = loop->outer)
+    loop->invalid = 1;
+}
+
 /* Scan the function looking for loops.  Record the start and end of each loop.
    Also mark as invalid loops any loops that contain a setjmp or are branched
    to from outside the loop.  */
@@ -2695,23 +2710,12 @@ find_and_verify_loops (f, loops)
 
   /* Any loop containing a label used in an initializer must be invalidated,
      because it can be jumped into from anywhere.  */
-
   for (label = forced_labels; label; label = XEXP (label, 1))
-    {
-      for (loop = uid_loop[INSN_UID (XEXP (label, 0))];
-	   loop; loop = loop->outer)
-	loop->invalid = 1;
-    }
+    invalidate_loops_containing_label (XEXP (label, 0));
 
   /* Any loop containing a label used for an exception handler must be
      invalidated, because it can be jumped into from anywhere.  */
-
-  for (label = exception_handler_labels; label; label = XEXP (label, 1))
-    {
-      for (loop = uid_loop[INSN_UID (XEXP (label, 0))];
-	   loop; loop = loop->outer)
-	loop->invalid = 1;
-    }
+  for_each_eh_label (invalidate_loops_containing_label);
 
   /* Now scan all insn's in the function.  If any JUMP_INSN branches into a
      loop that it is not contained within, that loop is marked invalid.
@@ -2735,11 +2739,7 @@ find_and_verify_loops (f, loops)
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
 	    if (note)
-	      {
-		for (loop = uid_loop[INSN_UID (XEXP (note, 0))];
-		     loop; loop = loop->outer)
-		  loop->invalid = 1;
-	      }
+	      invalidate_loops_containing_label (XEXP (note, 0));
 	  }
 
 	if (GET_CODE (insn) != JUMP_INSN)
@@ -4799,7 +4799,8 @@ loop_givs_rescan (loop, bl, reg_map)
 			       v->mult_val, v->add_val, v->dest_reg);
       else if (v->final_value)
 	loop_insn_sink_or_swim (loop,
-				gen_move_insn (v->dest_reg, v->final_value));
+				gen_load_of_final_value (v->dest_reg,
+							 v->final_value));
 
       if (loop_dump_stream)
 	{
@@ -5156,8 +5157,9 @@ strength_reduce (loop, flags)
 	     value, so we don't need another one.  We can't calculate the
 	     proper final value for such a biv here anyways.  */
 	  if (bl->final_value && ! bl->reversed)
-	      loop_insn_sink_or_swim (loop, gen_move_insn
-				      (bl->biv->dest_reg, bl->final_value));
+	      loop_insn_sink_or_swim (loop,
+				      gen_load_of_final_value (bl->biv->dest_reg,
+							       bl->final_value));
 
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv eliminated\n",
@@ -5166,8 +5168,8 @@ strength_reduce (loop, flags)
       /* See above note wrt final_value.  But since we couldn't eliminate
 	 the biv, we must set the value after the loop instead of before.  */
       else if (bl->final_value && ! bl->reversed)
-	loop_insn_sink (loop, gen_move_insn (bl->biv->dest_reg,
-					     bl->final_value));
+	loop_insn_sink (loop, gen_load_of_final_value (bl->biv->dest_reg,
+						       bl->final_value));
     }
 
   /* Go through all the instructions in the loop, making all the
@@ -5214,7 +5216,8 @@ strength_reduce (loop, flags)
      collected.  Always unroll loops that would be as small or smaller
      unrolled than when rolled.  */
   if ((flags & LOOP_UNROLL)
-      || (loop_info->n_iterations > 0
+      || (!(flags & LOOP_FIRST_PASS)
+	  && loop_info->n_iterations > 0
 	  && unrolled_insn_copies <= insn_count))
     unroll_loop (loop, insn_count, 1);
 
@@ -8361,7 +8364,7 @@ check_dbra_loop (loop, insn_count)
 	      if ((REGNO_LAST_UID (bl->regno) != INSN_UID (first_compare))
 		  || ! bl->init_insn
 		  || REGNO_FIRST_UID (bl->regno) != INSN_UID (bl->init_insn))
-		loop_insn_sink (loop, gen_move_insn (reg, final_value));
+		loop_insn_sink (loop, gen_load_of_final_value (reg, final_value));
 
 	      /* Delete compare/branch at end of loop.  */
 	      delete_related_insns (PREV_INSN (loop_end));
@@ -9261,7 +9264,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 	{
 	case LE:
 	  if ((unsigned HOST_WIDE_INT) const_val != max_val >> 1)
-	    code = LT, op1 = GEN_INT (const_val + 1);
+	    code = LT, op1 = gen_int_mode (const_val + 1, GET_MODE (op0));
 	  break;
 
 	/* When cross-compiling, const_val might be sign-extended from
@@ -9270,17 +9273,17 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 	  if ((HOST_WIDE_INT) (const_val & max_val)
 	      != (((HOST_WIDE_INT) 1
 		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
-	    code = GT, op1 = GEN_INT (const_val - 1);
+	    code = GT, op1 = gen_int_mode (const_val - 1, GET_MODE (op0));
 	  break;
 
 	case LEU:
 	  if (uconst_val < max_val)
-	    code = LTU, op1 = GEN_INT (uconst_val + 1);
+	    code = LTU, op1 = gen_int_mode (uconst_val + 1, GET_MODE (op0));
 	  break;
 
 	case GEU:
 	  if (uconst_val != 0)
-	    code = GTU, op1 = GEN_INT (uconst_val - 1);
+	    code = GTU, op1 = gen_int_mode (uconst_val - 1, GET_MODE (op0));
 	  break;
 
 	default:
@@ -9781,9 +9784,20 @@ load_mems (loop)
 		  && rtx_equal_p (SET_DEST (set), mem))
 		SET_REGNO_REG_SET (&store_copies, REGNO (SET_SRC (set)));
 
-	      /* Replace the memory reference with the shadow register.  */
-	      replace_loop_mems (p, loop_info->mems[i].mem,
-				 loop_info->mems[i].reg);
+	      /* If this is a call which uses / clobbers this memory
+		 location, we must not change the interface here.  */
+	      if (GET_CODE (p) == CALL_INSN
+		  && reg_mentioned_p (loop_info->mems[i].mem,
+				      CALL_INSN_FUNCTION_USAGE (p)))
+		{
+		  cancel_changes (0);
+		  loop_info->mems[i].optimize = 0;
+		  break;
+		}
+	      else
+	        /* Replace the memory reference with the shadow register.  */
+		replace_loop_mems (p, loop_info->mems[i].mem,
+				   loop_info->mems[i].reg);
 	    }
 
 	  if (GET_CODE (p) == CODE_LABEL
@@ -9791,7 +9805,9 @@ load_mems (loop)
 	    maybe_never = 1;
 	}
 
-      if (! apply_change_group ())
+      if (! loop_info->mems[i].optimize)
+	; /* We found we couldn't do the replacement, so do nothing.  */
+      else if (! apply_change_group ())
 	/* We couldn't replace all occurrences of the MEM.  */
 	loop_info->mems[i].optimize = 0;
       else
@@ -10352,6 +10368,21 @@ loop_insn_sink (loop, pattern)
   return loop_insn_emit_before (loop, 0, loop->sink, pattern);
 }
 
+/* bl->final_value can be eighter general_operand or PLUS of general_operand
+   and constant.  Emit sequence of intructions to load it into REG  */
+static rtx
+gen_load_of_final_value (reg, final_value)
+     rtx reg, final_value;
+{
+  rtx seq;
+  start_sequence ();
+  final_value = force_operand (final_value, reg);
+  if (final_value != reg)
+    emit_move_insn (reg, final_value);
+  seq = gen_sequence ();
+  end_sequence ();
+  return seq;
+}
 
 /* If the loop has multiple exits, emit insn for PATTERN before the
    loop to ensure that it will always be executed no matter how the

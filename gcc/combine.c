@@ -3538,6 +3538,9 @@ subst (x, from, to, in_dest, unique_copy)
 
 	      if (GET_CODE (new) == CONST_INT && GET_CODE (x) == SUBREG)
 		{
+		  if (VECTOR_MODE_P (GET_MODE (x)))
+		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
+
 		  x = simplify_subreg (GET_MODE (x), new,
 				       GET_MODE (SUBREG_REG (x)),
 				       SUBREG_BYTE (x));
@@ -7382,7 +7385,7 @@ if_then_else_cond (x, ptrue, pfalse)
 	   && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	   && exact_log2 (nz = nonzero_bits (x, mode)) >= 0)
     {
-      *ptrue = GEN_INT (nz), *pfalse = const0_rtx;
+      *ptrue = gen_int_mode (nz, mode), *pfalse = const0_rtx;
       return x;
     }
 
@@ -9800,6 +9803,12 @@ gen_lowpart_for_combine (mode, x)
 	    || GET_MODE_SIZE (GET_MODE (x)) == GET_MODE_SIZE (mode)))
     return gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
 
+  /* simplify_gen_subreg does not know how to handle the case where we try
+     to convert an integer constant to a vector.
+     ??? We could try to teach it to generate CONST_VECTORs.  */
+  if (GET_MODE (x) == VOIDmode && VECTOR_MODE_P (mode))
+    return gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+
   /* X might be a paradoxical (subreg (mem)).  In that case, gen_lowpart
      won't know what to do.  So we will strip off the SUBREG here and
      process normally.  */
@@ -10955,38 +10964,56 @@ simplify_comparison (code, pop0, pop1)
 
   /* Now make any compound operations involved in this comparison.  Then,
      check for an outmost SUBREG on OP0 that is not doing anything or is
-     paradoxical.  The latter case can only occur when it is known that the
-     "extra" bits will be zero.  Therefore, it is safe to remove the SUBREG.
-     We can never remove a SUBREG for a non-equality comparison because the
-     sign bit is in a different place in the underlying object.  */
+     paradoxical.  The latter transformation must only be performed when
+     it is known that the "extra" bits will be the same in op0 and op1 or
+     that they don't matter.  There are three cases to consider:
+
+     1. SUBREG_REG (op0) is a register.  In this case the bits are don't
+     care bits and we can assume they have any convenient value.  So
+     making the transformation is safe.
+
+     2. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is not defined.
+     In this case the upper bits of op0 are undefined.  We should not make
+     the simplification in that case as we do not know the contents of
+     those bits.
+
+     3. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is defined and not
+     NIL.  In that case we know those bits are zeros or ones.  We must
+     also be sure that they are the same as the upper bits of op1.
+
+     We can never remove a SUBREG for a non-equality comparison because
+     the sign bit is in a different place in the underlying object.  */
 
   op0 = make_compound_operation (op0, op1 == const0_rtx ? COMPARE : SET);
   op1 = make_compound_operation (op1, SET);
 
   if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
+      /* Case 3 above, to sometimes allow (subreg (mem x)), isn't
+	 implemented.  */
+      && GET_CODE (SUBREG_REG (op0)) == REG
       && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
       && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
-      && (code == NE || code == EQ)
-      && ((GET_MODE_SIZE (GET_MODE (op0))
-	   > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))))
+      && (code == NE || code == EQ))
     {
-      op0 = SUBREG_REG (op0);
-      op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
-    }
+      if (GET_MODE_SIZE (GET_MODE (op0))
+	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))))
+	{
+	  op0 = SUBREG_REG (op0);
+	  op1 = gen_lowpart_for_combine (GET_MODE (op0), op1);
+	}
+      else if ((GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
+		<= HOST_BITS_PER_WIDE_INT)
+	       && (nonzero_bits (SUBREG_REG (op0),
+				 GET_MODE (SUBREG_REG (op0)))
+		   & ~GET_MODE_MASK (GET_MODE (op0))) == 0)
+	{
+	  tem = gen_lowpart_for_combine (GET_MODE (SUBREG_REG (op0)), op1);
 
-  else if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)
-	   && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-	   && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op0))) == MODE_INT
-	   && (code == NE || code == EQ)
-	   && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
-	       <= HOST_BITS_PER_WIDE_INT)
-	   && (nonzero_bits (SUBREG_REG (op0), GET_MODE (SUBREG_REG (op0)))
-	       & ~GET_MODE_MASK (GET_MODE (op0))) == 0
-	   && (tem = gen_lowpart_for_combine (GET_MODE (SUBREG_REG (op0)),
-					      op1),
-	       (nonzero_bits (tem, GET_MODE (SUBREG_REG (op0)))
-		& ~GET_MODE_MASK (GET_MODE (op0))) == 0))
-    op0 = SUBREG_REG (op0), op1 = tem;
+	  if ((nonzero_bits (tem, GET_MODE (SUBREG_REG (op0)))
+	       & ~GET_MODE_MASK (GET_MODE (op0))) == 0)
+	    op0 = SUBREG_REG (op0), op1 = tem;
+	}
+    }
 
   /* We now do the opposite procedure: Some machines don't have compare
      insns in all modes.  If OP0's mode is an integer mode smaller than a

@@ -22,7 +22,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef TARGET_VERSION
+
 #define TARGET_VERSION fprintf (stderr, " (i386 FreeBSD/ELF)");
 
 /* Override the default comment-starter of "/".  */
@@ -130,3 +130,11 @@ Boston, MA 02111-1307, USA.  */
     else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP));	\
   }
 #endif
+
+/* Don't default to pcc-struct-return, we want to retain compatibility with
+   older gcc versions AND pcc-struct-return is nonreentrant.
+   (even though the SVR4 ABI for the i386 says that records and unions are
+   returned in memory).  */
+
+#undef  DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 0

@@ -52,7 +52,7 @@ static void warn_ref_binding PARAMS ((tree, tree, tree));
    narrowing is always done with a NOP_EXPR:
      In convert.c, convert_to_integer.
      In c-typeck.c, build_binary_op_nodefault (boolean ops),
-        and truthvalue_conversion.
+        and c_common_truthvalue_conversion.
      In expr.c: expand_expr, for operands of a MULT_EXPR.
      In fold-const.c: fold.
      In tree.c: get_narrower and get_unwidened.
@@ -836,7 +836,7 @@ convert_to_void (expr, implicit)
         tree new_op1 = convert_to_void (op1, implicit);
         tree new_op2 = convert_to_void (op2, implicit);
         
-	expr = build (COND_EXPR, void_type_node,
+	expr = build (COND_EXPR, TREE_TYPE (new_op1),
 		      TREE_OPERAND (expr, 0), new_op1, new_op2);
         break;
       }

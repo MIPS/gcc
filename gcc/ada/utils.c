@@ -685,17 +685,6 @@ init_gigi_decls (long_long_float_type, exception_type)
   ggc_add_tree_root (gnat_raise_decls, ARRAY_SIZE (gnat_raise_decls));
 }
 
-/* This routine is called in tree.c to print an error message for invalid use
-   of an incomplete type.  */
-
-void
-incomplete_type_error (dont_care_1, dont_care_2)
-     tree dont_care_1 ATTRIBUTE_UNUSED;
-     tree dont_care_2 ATTRIBUTE_UNUSED;
-{
-  gigi_abort (404);
-}
-
 /* This function is called indirectly from toplev.c to handle incomplete 
    declarations, i.e. VAR_DECL nodes whose DECL_SIZE is zero.  To be precise,
    compile_file in toplev.c makes an indirect call through the function pointer
@@ -1756,7 +1745,7 @@ create_subprog_decl (subprog_name, asm_name, subprog_type, param_decl_list,
   DECL_RESULT (subprog_decl)    = build_decl (RESULT_DECL, 0, return_type);
 
   if (asm_name != 0)
-    DECL_ASSEMBLER_NAME (subprog_decl) = asm_name;
+    SET_DECL_ASSEMBLER_NAME (subprog_decl, asm_name);
 
   process_attributes (subprog_decl, attr_list);
 
@@ -1935,7 +1924,7 @@ builtin_function (name, type, function_code, class, library_name)
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   if (library_name)
-    DECL_ASSEMBLER_NAME (decl) = get_identifier (library_name);
+    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;

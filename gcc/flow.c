@@ -637,6 +637,7 @@ update_life_info (blocks, extent, prop_flags)
   regset tmp;
   regset_head tmp_head;
   int i;
+  int stabilized_prop_flags = prop_flags;
 
   tmp = INITIALIZE_REG_SET (tmp_head);
   ndead = 0;
@@ -677,8 +678,21 @@ update_life_info (blocks, extent, prop_flags)
 					      | PROP_KILL_DEAD_CODE));
 	    }
 
-	  if (! changed || ! cleanup_cfg (CLEANUP_EXPENSIVE))
+	  /* Don't pass PROP_SCAN_DEAD_CODE or PROP_KILL_DEAD_CODE to
+	     subsequent propagate_block calls, since removing or acting as
+	     removing dead code can affect global register liveness, which
+	     is supposed to be finalized for this call after this loop.  */
+	  stabilized_prop_flags
+	    &= ~(PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
+
+	  if (! changed)
 	    break;
+
+	  /* We repeat regardless of what cleanup_cfg says.  If there were
+	     instructions deleted above, that might have been only a
+	     partial improvement (see MAX_MEM_SET_LIST_LEN usage).
+	     Further improvement may be possible.  */
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
 	}
 
       /* If asked, remove notes from the blocks we'll update.  */
@@ -697,7 +711,7 @@ update_life_info (blocks, extent, prop_flags)
 	  basic_block bb = BASIC_BLOCK (i);
 
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
-	  propagate_block (bb, tmp, NULL, NULL, prop_flags);
+	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 
 	  if (extent == UPDATE_LIFE_LOCAL)
 	    verify_local_live_at_start (tmp, bb);
@@ -710,7 +724,8 @@ update_life_info (blocks, extent, prop_flags)
 	  basic_block bb = BASIC_BLOCK (i);
 
 	  COPY_REG_SET (tmp, bb->global_live_at_end);
-	  propagate_block (bb, tmp, NULL, NULL, prop_flags);
+
+	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 
 	  if (extent == UPDATE_LIFE_LOCAL)
 	    verify_local_live_at_start (tmp, bb);
@@ -3610,6 +3625,10 @@ mark_used_reg (pbi, reg, cond, insn)
   /* Mark the register as being live.  */
   for (i = regno_first; i <= regno_last; ++i)
     {
+#ifdef HAVE_conditional_execution
+      int this_was_live = REGNO_REG_SET_P (pbi->reg_live, i);
+#endif
+
       SET_REGNO_REG_SET (pbi->reg_live, i);
 
 #ifdef HAVE_conditional_execution
@@ -3621,7 +3640,7 @@ mark_used_reg (pbi, reg, cond, insn)
 	  struct reg_cond_life_info *rcli;
 	  rtx ncond;
 
-	  if (some_was_live)
+	  if (this_was_live)
 	    {
 	      node = splay_tree_lookup (pbi->reg_cond_dead, i);
 	      if (node == NULL)
@@ -3663,7 +3682,7 @@ mark_used_reg (pbi, reg, cond, insn)
 	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 	    }
 	}
-      else if (some_was_live)
+      else if (this_was_live)
 	{
 	  /* The register may have been conditionally live previously, but
 	     is now unconditionally live.  Remove it from the conditionally

@@ -121,6 +121,7 @@ ZINCS = @ZINCS@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
+gcc_version = @gcc_version@
 glibjava_CXX = @glibjava_CXX@
 here = @here@
 libgcj_basedir = @libgcj_basedir@
@@ -144,7 +145,9 @@ AUTOMAKE_OPTIONS = foreign
 
 toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
-data_DATA = libgcj.jar
+
+jardir = $(datadir)/java
+jar_DATA = libgcj-@gcc_version@.jar
 
 secdir = $(libdir)/security
 
@@ -178,6 +181,7 @@ GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 WARNINGS = -W -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 	-fdollars-in-identifiers \
+	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\""
 
@@ -212,7 +216,7 @@ EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 	win32-threads.cc posix.cc win32.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
 
-libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
+libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
 	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL) \
 	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 
@@ -230,7 +234,7 @@ libgcj_la_LINK = $(LIBLINK)
 
 libgcjx_la_SOURCES = $(x_nat_source_files)
 EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
-libgcjx_la_DEPENDENCIES = libgcj.jar $(x_javao_files)
+libgcjx_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
 libgcjx_la_LIBADD = $(x_javao_files)
 libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
@@ -239,7 +243,7 @@ libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
 libgcjx_la_LINK = $(LIBLINK)
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
-CLEANFILES = tmp-list libgcj.jar
+CLEANFILES = tmp-list libgcj-@gcc_version@.jar
 
 SUFFIXES = .class .java .h
 
@@ -1733,7 +1737,7 @@ COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CF
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-DATA =  $(data_DATA) $(toolexeclib_DATA)
+DATA =  $(jar_DATA) $(toolexeclib_DATA)
 
 DIST_COMMON =  README COPYING ChangeLog Makefile.am Makefile.in NEWS \
 THANKS acinclude.m4 aclocal.m4 configure configure.in \
@@ -2870,23 +2874,23 @@ uninstall-binSCRIPTS:
 .cc.lo:
 	$(LTCXXCOMPILE) -c $<
 
-install-dataDATA: $(data_DATA)
+install-jarDATA: $(jar_DATA)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(datadir)
-	@list='$(data_DATA)'; for p in $$list; do \
+	$(mkinstalldirs) $(DESTDIR)$(jardir)
+	@list='$(jar_DATA)'; for p in $$list; do \
 	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(datadir)/$$p"; \
-	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(datadir)/$$p; \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(jardir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(jardir)/$$p; \
 	  else if test -f $$p; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(datadir)/$$p"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(datadir)/$$p; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(jardir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(jardir)/$$p; \
 	  fi; fi; \
 	done
 
-uninstall-dataDATA:
+uninstall-jarDATA:
 	@$(NORMAL_UNINSTALL)
-	list='$(data_DATA)'; for p in $$list; do \
-	  rm -f $(DESTDIR)$(datadir)/$$p; \
+	list='$(jar_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(jardir)/$$p; \
 	done
 
 install-toolexeclibDATA: $(toolexeclib_DATA)
@@ -3125,14 +3129,14 @@ install-exec-am: install-toolexeclibLTLIBRARIES install-binPROGRAMS \
 	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 install-exec: install-exec-recursive
 
-install-data-am: install-dataDATA install-data-local
+install-data-am: install-jarDATA install-data-local
 install-data: install-data-recursive
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 install: install-recursive
 uninstall-am: uninstall-toolexeclibLTLIBRARIES uninstall-binPROGRAMS \
-		uninstall-binSCRIPTS uninstall-dataDATA \
+		uninstall-binSCRIPTS uninstall-jarDATA \
 		uninstall-toolexeclibDATA
 uninstall: uninstall-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
@@ -3142,7 +3146,7 @@ install-strip:
 installdirs: installdirs-recursive
 installdirs-am:
 	$(mkinstalldirs)  $(DESTDIR)$(toolexeclibdir) $(DESTDIR)$(bindir) \
-		$(DESTDIR)$(bindir) $(DESTDIR)$(datadir) \
+		$(DESTDIR)$(bindir) $(DESTDIR)$(jardir) \
 		$(DESTDIR)$(toolexeclibdir)
 
 
@@ -3202,7 +3206,7 @@ distclean-binPROGRAMS clean-binPROGRAMS maintainer-clean-binPROGRAMS \
 uninstall-binPROGRAMS install-binPROGRAMS mostlyclean-noinstPROGRAMS \
 distclean-noinstPROGRAMS clean-noinstPROGRAMS \
 maintainer-clean-noinstPROGRAMS uninstall-binSCRIPTS install-binSCRIPTS \
-uninstall-dataDATA install-dataDATA uninstall-toolexeclibDATA \
+uninstall-jarDATA install-jarDATA uninstall-toolexeclibDATA \
 install-toolexeclibDATA install-data-recursive uninstall-data-recursive \
 install-exec-recursive uninstall-exec-recursive installdirs-recursive \
 uninstalldirs-recursive all-recursive check-recursive \
@@ -3226,12 +3230,12 @@ install-exec-hook:
 	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
 	fi
 
-$(built_java_source_files:.java=.class): libgcj.jar
-$(java_source_files:.java=.class): libgcj.jar
+$(built_java_source_files:.java=.class): libgcj-@gcc_version@.jar
+$(java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
-$(x_java_source_files:.java=.class): libgcj.jar
+$(x_java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
-libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
+libgcj-@gcc_version@.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
 	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
 	javac="$(JAVAC)"; \
@@ -3241,7 +3245,7 @@ libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_file
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
 	test "$$fail" = no)
-	-@rm -f tmp-list libgcj.jar
+	-@rm -f tmp-list libgcj-@gcc_version@.jar
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
@@ -3304,6 +3308,7 @@ java/lang/Thread.h: java/lang/Thread.class
 		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
 		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
 		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon(jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
@@ -3357,13 +3362,15 @@ $(extra_headers):
 
 install-data-local:
 	$(PRE_INSTALL)
-	@for f in $(nat_headers) $(extra_headers); do \
+	@: $(shell echo Creating list of headers to install...) $(shell rm -f tmp-ilist || :) $(shell touch tmp-ilist) $(foreach hdr,$(nat_headers) $(extra_headers),$(shell echo $(hdr) >> tmp-ilist))
+	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
 	done
+	-@rm -f tmp-ilist
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
 	@for f in classpath.security libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
@@ -3376,14 +3383,14 @@ maintainer-check: libgcj.la
 	  | grep -v 'Jv' \
 	  | grep -v 'terminate__Fv' | grep -v 'unexpected__Fv'
 
-header-check: libgcj.jar $(nat_headers)
+header-check: libgcj-@gcc_version@.jar $(nat_headers)
 	rm -f htest.cc; \
 	for h in $(nat_headers); do \
 	  echo "#include \"$$h\"" >> htest.cc; \
 	done; \
 	$(CXXCOMPILE) -fsyntax-only htest.cc
 
-class-check: libgcj.jar
+class-check: libgcj-@gcc_version@.jar
 	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
 	while read f; do \
 	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \

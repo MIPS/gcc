@@ -31,7 +31,9 @@ endif
 
 toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
 toolexeclib_DATA = libgcj.spec
-data_DATA = libgcj.jar
+
+jardir = $(datadir)/java
+jar_DATA = libgcj-@gcc_version@.jar
 
 ## FIXME: Using libdir violates GNU coding standards.
 secdir = $(libdir)/security
@@ -89,6 +91,8 @@ WARNINGS = -W -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 ## Some systems don't allow `$' in identifiers by default, so we force it.
 	-fdollars-in-identifiers \
+## Detect bugs in the verifier implementation, and maybe other places.
+	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\""
 if USING_GCC
@@ -129,7 +133,7 @@ libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 	win32-threads.cc posix.cc win32.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
-libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
+libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
 	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL) \
 	$(LIBFFI) $(ZLIBS) $(GCLIBS)
 
@@ -145,7 +149,7 @@ libgcj_la_LINK = $(LIBLINK)
 
 libgcjx_la_SOURCES = $(x_nat_source_files)
 EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
-libgcjx_la_DEPENDENCIES = libgcj.jar $(x_javao_files)
+libgcjx_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
 libgcjx_la_LIBADD = $(x_javao_files)
 libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
@@ -167,13 +171,13 @@ install-exec-hook:
 ## a .java file with some other class which is caught.  Note that we
 ## only want to create headers for those files which do not have
 ## hand-maintained headers.
-$(built_java_source_files:.java=.class): libgcj.jar
-$(java_source_files:.java=.class): libgcj.jar
+$(built_java_source_files:.java=.class): libgcj-@gcc_version@.jar
+$(java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
 ## The .class files for X will not be included in libgcj.jar, but the
 ## rule for libgcj.jar will cause all out-of-date .class files to be
 ## built. We need this to generate headers for the nat-files.
-$(x_java_source_files:.java=.class): libgcj.jar
+$(x_java_source_files:.java=.class): libgcj-@gcc_version@.jar
 
 ## We have the zip file depend on the java sources and not the class
 ## files, because we don't know the names of all the class files.
@@ -181,7 +185,7 @@ $(x_java_source_files:.java=.class): libgcj.jar
 ## up-to-date, and foo.class is removed, and bar.java is touched, then
 ## `make libgcj.jar' will not rebuilt foo.class.  That's because
 ## libgcj.jar is not out-of-date with respect to foo.java.
-libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
+libgcj-@gcc_version@.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_files)
 ## Create a list of all Java sources, without exceeding any shell limits.
 	@: $(shell echo Creating list of files to compile...) $(shell rm -f tmp-list || :) $(shell touch tmp-list) $(foreach source,$?,$(shell echo $(source) >> tmp-list))
 	@set fnord $(MAKEFLAGS); amf=$$2; fail=no; \
@@ -192,14 +196,14 @@ libgcj.jar: $(built_java_source_files) $(java_source_files) $(x_java_source_file
 	    || case "$$amf" in *=*) exit 1;; *k*) fail=yes ;; *) exit 1;; esac; \
 	done; \
 	test "$$fail" = no)
-	-@rm -f tmp-list libgcj.jar
+	-@rm -f tmp-list libgcj-@gcc_version@.jar
 ## Note that we explicitly want to include directory information.
 	find java gnu javax org -type d -o -type f -name '*.class' | \
 	  sed -e '/\/\./d' -e '/\/xlib/d' | \
 	  $(ZIP) cfM0E@ $@
 
 MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
-CLEANFILES = tmp-list libgcj.jar
+CLEANFILES = tmp-list libgcj-@gcc_version@.jar
 
 clean-local:
 ## We just remove every .class file that was created.
@@ -288,6 +292,7 @@ java/lang/Thread.h: java/lang/Thread.class
 		-friend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
 		-friend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
 		-friend 'java::lang::Thread* _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);' \
+		-friend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon(jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint _Jv_DetachCurrentThread ();' \
 		$(basename $<)
 
@@ -346,13 +351,17 @@ $(extra_headers):
 ## hand.
 install-data-local:
 	$(PRE_INSTALL)
-	@for f in $(nat_headers) $(extra_headers); do \
+## We use a GNU make trick here so that we don't go over the command
+## length limit of some shells.
+	@: $(shell echo Creating list of headers to install...) $(shell rm -f tmp-ilist || :) $(shell touch tmp-ilist) $(foreach hdr,$(nat_headers) $(extra_headers),$(shell echo $(hdr) >> tmp-ilist))
+	@cat tmp-ilist | while read f; do \
 	  d="`echo $$f | sed -e 's,/[^/]*$$,,'`"; \
 	  $(mkinstalldirs) $(DESTDIR)$(includedir)/$$d; \
 	  if test -f $(srcdir)/$$f; then p=$(srcdir)/$$f; else p=$$f; fi; \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/$$f; \
 	done
+	-@rm -f tmp-ilist
 ## FIXME: the obvious approach using lib_DATA doesn't work with
 ## automake 1.4.
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
@@ -383,7 +392,7 @@ maintainer-check: libgcj.la
 
 ## This rule can be used to see if the headers are more or less
 ## correct.
-header-check: libgcj.jar $(nat_headers)
+header-check: libgcj-@gcc_version@.jar $(nat_headers)
 	rm -f htest.cc; \
 	for h in $(nat_headers); do \
 	  echo "#include \"$$h\"" >> htest.cc; \
@@ -392,7 +401,7 @@ header-check: libgcj.jar $(nat_headers)
 
 ## This rule can be used to see if all the .class files verify
 ## correctly.
-class-check: libgcj.jar
+class-check: libgcj-@gcc_version@.jar
 	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
 	while read f; do \
 	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \

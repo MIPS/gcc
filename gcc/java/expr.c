@@ -152,7 +152,7 @@ init_expr_processing()
 }
 
 tree
-truthvalue_conversion (expr)
+java_truthvalue_conversion (expr)
      tree expr;
 {
   /* It is simpler and generates better code to have only TRUTH_*_EXPR
@@ -183,19 +183,19 @@ truthvalue_conversion (expr)
     case FLOAT_EXPR:
     case FFS_EXPR:
       /* These don't change whether an object is non-zero or zero.  */
-      return truthvalue_conversion (TREE_OPERAND (expr, 0));
+      return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       return fold (build (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
-                          truthvalue_conversion (TREE_OPERAND (expr, 1)),
-                          truthvalue_conversion (TREE_OPERAND (expr, 2))));
+                          java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+                          java_truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
     case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
       if (TYPE_PRECISION (TREE_TYPE (expr))
           >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-        return truthvalue_conversion (TREE_OPERAND (expr, 0));
+        return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
       /* fall through to default */
 
     default:
@@ -1656,7 +1656,7 @@ expand_compare (condition, value1, value2, target_pc)
 {
   tree target = lookup_label (target_pc);
   tree cond = fold (build (condition, boolean_type_node, value1, value2));
-  expand_start_cond (truthvalue_conversion (cond), 0);
+  expand_start_cond (java_truthvalue_conversion (cond), 0);
   expand_goto (target);
   expand_end_cond ();
 }
@@ -2526,6 +2526,9 @@ java_expand_expr (exp, target, tmode, modifier)
 	    DECL_INITIAL (init_decl) = value;
 	    DECL_IGNORED_P (init_decl) = 1;
 	    TREE_READONLY (init_decl) = 1;
+	    /* Hash synchronization requires at least 64-bit alignment. */
+	    if (flag_hash_synchronization && POINTER_SIZE < 64)
+	      DECL_ALIGN (init_decl) = 64;
 	    rest_of_decl_compilation (init_decl, NULL, 1, 0);
 	    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (init_decl)) = 1;
 	    init = build1 (ADDR_EXPR, TREE_TYPE (exp), init_decl);
@@ -2771,6 +2774,7 @@ note_instructions (jcf, method)
   if (!saw_index)  NOTE_LABEL(oldpc + INT_temp);
 #define PRE_JSR(OPERAND_TYPE, OPERAND_VALUE) \
   saw_index = 0;  INT_temp = (OPERAND_VALUE); \
+  NOTE_LABEL (PC); \
   if (!saw_index)  NOTE_LABEL(oldpc + INT_temp);
 
 #define PRE_RET(OPERAND_TYPE, OPERAND_VALUE)  (void)(OPERAND_VALUE)

@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "tm_p.h"
 #include "target.h"
+#include "langhooks.h"
 
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
@@ -71,8 +72,6 @@ const char *const built_in_names[(int) END_BUILTINS] =
 /* Setup an array of _DECL trees, make sure each element is
    initialized to NULL_TREE.  */
 tree built_in_decls[(int) END_BUILTINS];
-
-tree (*lang_type_promotes_to) PARAMS ((tree));
 
 static int get_pointer_alignment	PARAMS ((tree, unsigned int));
 static tree c_strlen			PARAMS ((tree));
@@ -126,6 +125,8 @@ static rtx builtin_strncpy_read_str	PARAMS ((PTR, HOST_WIDE_INT,
 static rtx expand_builtin_strncpy	PARAMS ((tree, rtx,
 						 enum machine_mode));
 static rtx builtin_memset_read_str	PARAMS ((PTR, HOST_WIDE_INT,
+						 enum machine_mode));
+static rtx builtin_memset_gen_str	PARAMS ((PTR, HOST_WIDE_INT,
 						 enum machine_mode));
 static rtx expand_builtin_memset	PARAMS ((tree, rtx,
                                                  enum machine_mode));
@@ -787,10 +788,17 @@ expand_builtin_prefetch (arglist)
 #ifdef HAVE_prefetch
   if (HAVE_prefetch)
     {
-      if (! (*insn_data[(int)CODE_FOR_prefetch].operand[0].predicate)
-	    (op0,
-	     insn_data[(int)CODE_FOR_prefetch].operand[0].mode))
-        op0 = force_reg (Pmode, op0);
+      if ((! (*insn_data[(int)CODE_FOR_prefetch].operand[0].predicate)
+	     (op0,
+	      insn_data[(int)CODE_FOR_prefetch].operand[0].mode)) ||
+          (GET_MODE(op0) != Pmode))
+        {
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE(op0) != Pmode)
+	    op0 = convert_memory_address (Pmode, op0);
+#endif
+          op0 = force_reg (Pmode, op0);
+        }
       emit_insn (gen_prefetch (op0, op1, op2));
     }
   else
@@ -2128,6 +2136,34 @@ builtin_memset_read_str (data, offset, mode)
   return c_readstr (p, mode);
 }
 
+/* Callback routine for store_by_pieces.  Return the RTL of a register
+   containing GET_MODE_SIZE (MODE) consecutive copies of the unsigned
+   char value given in the RTL register data.  For example, if mode is
+   4 bytes wide, return the RTL for 0x01010101*data.  */
+
+static rtx
+builtin_memset_gen_str (data, offset, mode)
+     PTR data;
+     HOST_WIDE_INT offset ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
+{
+  rtx target, coeff;
+  size_t size;
+  char *p;
+
+  size = GET_MODE_SIZE (mode);
+  if (size==1)
+    return (rtx)data;
+
+  p = alloca (size);
+  memset (p, 1, size);
+  coeff = c_readstr (p, mode);
+
+  target = convert_to_mode (mode, (rtx)data, 1);
+  target = expand_mult (mode, target, coeff, NULL_RTX, 1);
+  return force_reg (mode, target);
+}
+
 /* Expand expression EXP, which is a call to the memset builtin.  Return 0
    if we failed the caller should emit a normal call, otherwise try to get
    the result in TARGET, if convenient (and in mode MODE if that's
@@ -2169,7 +2205,34 @@ expand_builtin_memset (exp, target, mode)
         }
 
       if (TREE_CODE (val) != INTEGER_CST)
-	return 0;
+        {
+          rtx val_rtx;
+
+          if (!host_integerp (len, 1))
+            return 0;
+
+          if (optimize_size && tree_low_cst (len, 1) > 1)
+            return 0;
+
+          /* Assume that we can memset by pieces if we can store the
+           * the coefficients by pieces (in the required modes).
+           * We can't pass builtin_memset_gen_str as that emits RTL.  */
+          c = 1;
+	  if (!can_store_by_pieces (tree_low_cst (len, 1),
+				    builtin_memset_read_str,
+                                    (PTR) &c, dest_align))
+	    return 0;
+
+          val = fold (build1 (CONVERT_EXPR, unsigned_char_type_node, val));
+          val_rtx = expand_expr (val, NULL_RTX, VOIDmode, 0);
+          val_rtx = force_reg (TYPE_MODE (unsigned_char_type_node),
+                               val_rtx);
+	  dest_mem = get_memory_rtx (dest);
+	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
+			   builtin_memset_gen_str,
+			   (PTR)val_rtx, dest_align);
+	  return force_operand (XEXP (dest_mem, 0), NULL_RTX);
+        }
 
       if (target_char_cast (val, &c))
 	return 0;
@@ -3076,7 +3139,8 @@ expand_builtin_va_arg (valist, type)
 
   /* Generate a diagnostic for requesting data of a type that cannot
      be passed through `...' due to type promotion at the call site.  */
-  else if ((promoted_type = (*lang_type_promotes_to) (type)) != NULL_TREE)
+  else if ((promoted_type = (*lang_hooks.types.type_promotes_to) (type))
+	   != type)
     {
       const char *name = "<anonymous type>", *pname = 0;
       static bool gave_help;

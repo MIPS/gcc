@@ -178,6 +178,9 @@ struct tree_common
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
        TREE_SYMBOL_REFERENCED in
            IDENTIFIER_NODE
+       CLEANUP_EH_ONLY in
+           TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
+	   TREE_LIST elements of a block's cleanup list.
 
    public_flag:
 
@@ -195,7 +198,7 @@ struct tree_common
        TREE_VIA_PRIVATE in
            TREE_LIST or TREE_VEC
        TREE_PRIVATE in
-           ??? unspecified nodes
+           ..._DECL
 
    protected_flag:
 
@@ -204,7 +207,7 @@ struct tree_common
 	   TREE_VEC
        TREE_PROTECTED in
            BLOCK
-	   ??? unspecified nodes
+	   ..._DECL
 
    side_effects_flag:
 
@@ -503,6 +506,11 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    In a FUNCTION_DECL, nonzero if function has been defined.
    In a CONSTRUCTOR, nonzero means allocate static storage.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
+
+/* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
+   block's cleanup list, means that the pertinent cleanup should only be
+   executed if an exception is thrown, not on normal exit of its scope.  */
+#define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
 /* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
    made implicitly and should not lead to an "unused value" warning.  */
@@ -1353,11 +1361,7 @@ struct tree_type
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
-#define DECL_ASSEMBLER_NAME(NODE)		\
-  ((DECL_ASSEMBLER_NAME_SET_P (NODE)		\
-    ? (void) 0					\
-    : (*lang_set_decl_assembler_name) (NODE)),	\
-   DECL_CHECK (NODE)->decl.assembler_name)
+#define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
 /* Returns non-zero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
@@ -2058,6 +2062,7 @@ extern double approx_sqrt		PARAMS ((double));
 
 extern char *permalloc			PARAMS ((int));
 extern char *expralloc			PARAMS ((int));
+extern tree decl_assembler_name		PARAMS ((tree));
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -2216,8 +2221,6 @@ struct attribute_spec
   tree (*const handler) PARAMS ((tree *node, tree name, tree args,
 				 int flags, bool *no_add_attrs));
 };
-
-extern const struct attribute_spec default_target_attribute_table[];
 
 /* Flags that may be passed in the third argument of decl_attributes, and
    to handler functions for attributes.  */
@@ -2696,7 +2699,7 @@ extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
 extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
-extern tree expand_start_stmt_expr		PARAMS ((void));
+extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
 extern void expand_expr_stmt			PARAMS ((tree));
 extern void expand_expr_stmt_value		PARAMS ((tree, int, int));
@@ -2795,11 +2798,6 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-/* In builtins.c.  Given a type, apply default promotions wrt unnamed
-   function arguments and return the new type.  Return NULL_TREE if no
-   change.  Required by any language that supports variadic arguments.  */
-
-extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 extern tree build_range_type PARAMS ((tree, tree, tree));
@@ -2811,13 +2809,6 @@ extern int alias_sets_conflict_p		PARAMS ((HOST_WIDE_INT,
 							 HOST_WIDE_INT));
 extern int readonly_fields_p			PARAMS ((tree));
 extern int objects_must_conflict_p		PARAMS ((tree, tree));
-
-/* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of thing
-   that the assembler should talk about, set DECL_ASSEMBLER_NAME to an
-   appropriate IDENTIFIER_NODE.  Otherwise, set it to the
-   ERROR_MARK_NODE to ensure that the assembler does not talk about
-   it.  */
-extern void (*lang_set_decl_assembler_name)     PARAMS ((tree));
 
 struct obstack;
 
@@ -2934,23 +2925,6 @@ extern const char *uninlinable_call_p		PARAMS ((tree));
    a decl attribute to the declaration rather than to its type).  */
 extern tree decl_attributes		PARAMS ((tree *, tree, int));
 
-/* The following function must be provided by front ends
-   using attribs.c.  */
-
-/* Table of machine-independent attributes for checking formats, if used.  */
-extern const struct attribute_spec *format_attribute_table;
-
-/* Table of machine-independent attributes for a particular language.  */
-extern const struct attribute_spec *lang_attribute_table;
-
-/* Flag saying whether common language attributes are to be supported.  */
-extern int lang_attribute_common;
-
-/* In front end.  */
-
-extern void incomplete_type_error	PARAMS ((tree, tree));
-extern tree truthvalue_conversion	PARAMS ((tree));
-
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));
 extern void set_decl_abstract_flags	PARAMS ((tree, int));
@@ -2996,6 +2970,7 @@ extern void expand_elseif		PARAMS ((tree));
 extern void save_stack_pointer		PARAMS ((void));
 extern void expand_decl			PARAMS ((tree));
 extern int expand_decl_cleanup		PARAMS ((tree, tree));
+extern int expand_decl_cleanup_eh	PARAMS ((tree, tree, int));
 extern void expand_anon_union_decl	PARAMS ((tree, tree, tree));
 extern void move_cleanups_up		PARAMS ((void));
 extern void expand_start_case_dummy	PARAMS ((void));

@@ -2507,9 +2507,16 @@ broken_move (insn)
 		&& GET_CODE (SET_SRC (pat)) == CONST_DOUBLE
 		&& (fp_zero_operand (SET_SRC (pat))
 		    || fp_one_operand (SET_SRC (pat)))
-		/* ??? If this is a -m4 or -m4-single compilation, we don't
-		   know the current setting of fpscr, so disable fldi.  */
-		&& (! TARGET_SH4 || TARGET_FMOVD)
+		/* ??? If this is a -m4 or -m4-single compilation, in general
+		   we don't know the current setting of fpscr, so disable fldi.
+		   There is an exception if this was a register-register move
+		   before reload - and hence it was ascertained that we have
+		   single precision setting - and in a post-reload optimization
+		   we changed this to do a constant load.  In that case
+		   we don't have an r0 clobber, hence we must use fldi.  */
+		&& (! TARGET_SH4 || TARGET_FMOVD
+		    || (GET_CODE (XEXP (XVECEXP (PATTERN (insn), 0, 2), 0))
+			== SCRATCH))
 		&& GET_CODE (SET_DEST (pat)) == REG
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
 	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
@@ -4343,10 +4350,12 @@ calc_live_regs (count_ptr, live_regs_mask)
 	  target_flags &= ~FPU_SINGLE_BIT;
 	  break;
 	}
-  pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
+  pr_initial = has_hard_reg_initial_val (Pmode,
+					 TARGET_SHMEDIA
+					 ? PR_MEDIA_REG : PR_REG);
   pr_live = (pr_initial
-	     ? REGNO (pr_initial) != PR_REG
-	     : regs_ever_live[PR_REG]);
+	     ? REGNO (pr_initial) != (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
+	     : regs_ever_live[TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG]);
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
@@ -4356,7 +4365,7 @@ calc_live_regs (count_ptr, live_regs_mask)
     pr_live = 1;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
     {
-      if (reg == PR_REG
+      if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
 	  : (interrupt_handler && ! pragma_trapa)
 	  ? (/* Need to save all the regs ever live.  */
@@ -5284,10 +5293,15 @@ sh_va_arg (valist, type)
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
   rtx addr_rtx, r;
+  rtx result;
+  int pass_by_ref = MUST_PASS_IN_STACK (TYPE_MODE (type), type);
 
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
   pptr_type_node = build_pointer_type (ptr_type_node);
+
+  if (pass_by_ref)
+    type = build_pointer_type (type);
 
   if (! TARGET_SH5 && (TARGET_SH3E || TARGET_SH4) && ! TARGET_HITACHI)
     {
@@ -5402,7 +5416,19 @@ sh_va_arg (valist, type)
   /* ??? In va-sh.h, there had been code to make values larger than
      size 8 indirect.  This does not match the FUNCTION_ARG macros.  */
 
-  return std_expand_builtin_va_arg (valist, type);
+  result = std_expand_builtin_va_arg (valist, type);
+  if (pass_by_ref)
+    {
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (addr) != Pmode)
+	addr = convert_memory_address (Pmode, result);
+#endif
+      result = gen_rtx_MEM (ptr_mode, force_reg (Pmode, result));
+      set_mem_alias_set (result, get_varargs_alias_set ());
+    }
+  /* ??? expand_builtin_va_arg will also set the alias set of the dereferenced
+     argument to the varargs alias set.  */
+  return result;
 }
 
 /* Define the offset between two registers, one to be eliminated, and
@@ -6697,7 +6723,7 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 int
 sh_pr_n_sets ()
 {
-  return REG_N_SETS (PR_REG);
+  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
 /* SHmedia requires registers for branches, so we can't generate new

@@ -99,7 +99,7 @@ require_complete_type (value)
   if (COMPLETE_TYPE_P (type))
     return value;
 
-  incomplete_type_error (value, type);
+  c_incomplete_type_error (value, type);
   return error_mark_node;
 }
 
@@ -108,7 +108,7 @@ require_complete_type (value)
    and TYPE is the type that was invalid.  */
 
 void
-incomplete_type_error (value, type)
+c_incomplete_type_error (value, type)
      tree value;
      tree type;
 {
@@ -171,6 +171,28 @@ incomplete_type_error (value, type)
 	error ("invalid use of incomplete typedef `%s'",
 	       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))));
     }
+}
+
+/* Given a type, apply default promotions wrt unnamed function
+   arguments and return the new type.  */
+
+tree
+c_type_promotes_to (type)
+     tree type;
+{
+  if (TYPE_MAIN_VARIANT (type) == float_type_node)
+    return double_type_node;
+
+  if (c_promoting_integer_type_p (type))
+    {
+      /* Preserve unsignedness if not really getting any wider.  */
+      if (TREE_UNSIGNED (type)
+          && (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
+        return unsigned_type_node;
+      return integer_type_node;
+    }
+
+  return type;
 }
 
 /* Return a variant of TYPE which has all the type qualifiers of LIKE
@@ -658,12 +680,12 @@ type_lists_compatible_p (args1, args2)
 	 So match anything that self-promotes.  */
       if (TREE_VALUE (args1) == 0)
 	{
-	  if (simple_type_promotes_to (TREE_VALUE (args2)) != NULL_TREE)
+	  if (c_type_promotes_to (TREE_VALUE (args2)) != TREE_VALUE (args2))
 	    return 0;
 	}
       else if (TREE_VALUE (args2) == 0)
 	{
-	  if (simple_type_promotes_to (TREE_VALUE (args1)) != NULL_TREE)
+	  if (c_type_promotes_to (TREE_VALUE (args1)) != TREE_VALUE (args1))
 	    return 0;
 	}
       else if (! (newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)), 
@@ -1163,7 +1185,7 @@ build_component_ref (datum, component)
     {
       if (!COMPLETE_TYPE_P (type))
 	{
-	  incomplete_type_error (NULL_TREE, type);
+	  c_incomplete_type_error (NULL_TREE, type);
 	  return error_mark_node;
 	}
 
@@ -2084,8 +2106,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = truthvalue_conversion (op0);
-	  op1 = truthvalue_conversion (op1);
+	  op0 = c_common_truthvalue_conversion (op0);
+	  op1 = c_common_truthvalue_conversion (op1);
 	  converted = 1;
 	}
       break;
@@ -2737,6 +2759,7 @@ build_unary_op (code, xarg, flag)
 	}
       else if (!noconvert)
 	arg = default_conversion (arg);
+      arg = non_lvalue (arg);
       break;
 
     case NEGATE_EXPR:
@@ -2801,7 +2824,7 @@ build_unary_op (code, xarg, flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = truthvalue_conversion (arg);
+      arg = c_common_truthvalue_conversion (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -3365,7 +3388,7 @@ build_conditional_expr (ifexp, op1, op2)
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
 
-  ifexp = truthvalue_conversion (default_conversion (ifexp));
+  ifexp = c_common_truthvalue_conversion (default_conversion (ifexp));
 
 #if 0 /* Produces wrong result if within sizeof.  */
   /* Don't promote the operands separately if they promote
@@ -6827,8 +6850,6 @@ simple_asm_stmt (expr)
     {
       tree stmt;
 
-      if (TREE_CHAIN (expr))
-	expr = combine_strings (expr);
       stmt = add_stmt (build_stmt (ASM_STMT, NULL_TREE, expr,
 				   NULL_TREE, NULL_TREE,
 				   NULL_TREE));
@@ -6853,8 +6874,6 @@ build_asm_stmt (cv_qualifier, string, outputs, inputs, clobbers)
 {
   tree tail;
 
-  if (TREE_CHAIN (string))
-    string = combine_strings (string);
   if (TREE_CODE (string) != STRING_CST)
     {
       error ("asm template is not a string constant");

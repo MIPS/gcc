@@ -49,6 +49,7 @@ through the macros defined in the @file{.h} file.
 * Floating Point::      Handling floating point for cross-compilers.
 * Mode Switching::      Insertion of mode-switching instructions.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
+* MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * Misc::                Everything else.
 @end menu
 
@@ -377,6 +378,11 @@ the argument @option{-lgcc} to tell the linker to do the search.
 This macro is similar to @code{LINK_LIBGCC_SPECIAL}, except that it does
 not affect @option{-L} options.
 
+@findex LINK_GCC_C_SEQUENCE_SPEC
+@item LINK_GCC_C_SEQUENCE_SPEC
+The sequence in which libgcc and libc are specified to the linker.
+By default this is @code{%G %L %G}.
+
 @findex LINK_COMMAND_SPEC
 @item LINK_COMMAND_SPEC
 A C string constant giving the complete command line need to execute the
@@ -384,7 +390,8 @@ linker.  When you do this, you will need to update your port each time a
 change is made to the link command line within @file{gcc.c}.  Therefore,
 define this macro only if you need to completely redefine the command
 line for invoking the linker and there is no other way to accomplish
-the effect you need.
+the effect you need.  Overriding this macro may be avoidable by overriding
+@code{LINK_GCC_C_SEQUENCE_SPEC} instead.
 
 @findex LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
 @item LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
@@ -8032,6 +8039,50 @@ into the current function, despite its having target-specific
 attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
 @end deftypefn
+
+@node MIPS Coprocessors
+@section Defining coprocessor specifics for MIPS targets.
+@cindex MIPS coprocessor-definition macros
+
+The MIPS specification allows MIPS implementations to have as many as 4
+coprocessors, each with as many as 32 private registers.  gcc supports
+accessing these registers and transferring values between the registers
+and memory using asm-ized variables.  For example:
+
+@smallexample
+  register unsigned int cp0count asm ("c0r1");
+  unsigned int d;
+
+  d = cp0count + 3;
+@end smallexample
+
+(``c0r1'' is the default name of register 1 in coprocessor 0; alternate
+names may be added as described below, or the default names may be
+overridden entirely in @code{SUBTARGET_CONDITIONAL_REGISTER_USAGE}.)
+
+Coprocessor registers are assumed to be epilogue-used; sets to them will
+be preserved even if it does not appear that the register is used again
+later in the function.
+
+Another note: according to the MIPS spec, coprocessor 1 (if present) is
+the FPU.  One accesses COP1 registers through standard mips
+floating-point support; they are not included in this mechanism.
+
+There is one macro used in defining the MIPS coprocessor interface which
+you may want to override in subtargets; it is described below.
+
+@table @code
+
+@item ALL_COP_ADDITIONAL_REGISTER_NAMES
+@findex ALL_COP_ADDITIONAL_REGISTER_NAMES
+A comma-separated list (with leading comma) of pairs describing the
+alternate names of coprocessor registers.  The format of each entry should be
+@smallexample
+@{ @var{alternatename}, @var{register_number}@}
+@end smallexample
+Default: empty.
+
+@end table
 
 @node Misc
 @section Miscellaneous Parameters

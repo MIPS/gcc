@@ -453,6 +453,9 @@
  * DATAEND, if not `end' where `end' is defined as ``extern int end[];''.
  * RTH suggests gaining access to linker script synth'd values with
  * this idiom instead of `&end' where `end' is defined as ``extern int end;'' .
+ * Otherwise, ``GCC will assume these are in .sdata/.sbss'' and it will, e.g.,
+ * cause failures on alpha*-*-* with ``-msmall-data or -fpic'' or mips-*-*
+ * without any special options.
  *
  * ALIGN_DOUBLE of GC_malloc should return blocks aligned to twice
  * the pointer size.
@@ -774,9 +777,7 @@
 #       define GETPAGESIZE()  sysconf(_SC_PAGESIZE)
 		/* getpagesize() appeared to be missing from at least one */
 		/* Solaris 5.4 installation.  Weird.			  */
-#       if CPP_WORDSZ == 32
-#	  define DYNAMIC_LOADING
-#    	endif
+#	define DYNAMIC_LOADING
 #   endif
 #   ifdef SUNOS4
 #	define OS_TYPE "SUNOS4"
@@ -818,10 +819,11 @@
 #     define DATAEND (_end)
 #     define SVR4
 #     ifdef __arch64__
-#       define STACKBOTTOM ((ptr_t) 0x80000000000ULL)
+	/* libc_stack_end is not set reliably for sparc64 */
+#       define STACKBOTTOM ((ptr_t) 0x80000000000)
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x100000, _etext)
 #     else
-#       define STACKBOTTOM ((ptr_t) 0xf0000000)
+#       define LINUX_STACKBOTTOM
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x10000, _etext)
 #     endif
 #   endif
@@ -1058,8 +1060,16 @@
 #	ifdef __ELF__
 #	    define DYNAMIC_LOADING
 #	endif
+/* Handle unmapped hole i386*-*-freebsd[45]* may put between etext and edata. */
 	extern char etext[];
+	extern char edata[];
+	extern char end[];
+#	define NEED_FIND_LIMIT
 #	define DATASTART ((ptr_t)(etext))
+#   	define MIN(x,y) ((x) < (y) ? (x) : (y))
+#	define DATAEND (MIN (GC_find_limit (DATASTART, TRUE), DATASTART2))
+#	define DATASTART2 ((ptr_t)(edata))
+#	define DATAEND2 ((ptr_t)(end))
 #   endif
 #   ifdef NETBSD
 #	define OS_TYPE "NETBSD"

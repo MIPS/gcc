@@ -209,6 +209,20 @@ c_cannot_inline_tree_fn (fnp)
   return 0;
 }
 
+/* Called from check_global_declarations.  */
+
+bool
+c_warn_unused_global_decl (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
+    return false;
+  if (DECL_IN_SYSTEM_HEADER (decl))
+    return false;
+
+  return true;
+}
+
 /* Initialization common to C and Objective-C front ends.  */
 const char *
 c_objc_common_init (filename)
@@ -220,9 +234,6 @@ c_objc_common_init (filename)
   if (filename == NULL)
     return NULL;
 
-  save_lang_status = &push_c_function_context;
-  restore_lang_status = &pop_c_function_context;
-  mark_lang_status = &mark_c_function_context;
   lang_expand_decl_stmt = c_expand_decl_stmt;
 
   /* These were not defined in the Objective-C front end, but I'm

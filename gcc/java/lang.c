@@ -223,8 +223,6 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_INIT_OPTIONS java_init_options
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION java_decode_option
-#undef LANG_HOOKS_SET_YYDEBUG
-#define LANG_HOOKS_SET_YYDEBUG java_set_yydebug
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE java_parse_file
 #undef LANG_HOOKS_MARK_TREE
@@ -233,6 +231,8 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR java_expand_expr
+#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION java_truthvalue_conversion
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -355,6 +355,13 @@ java_decode_option (argc, argv)
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
       jcf_path_bootclasspath_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
+#define CLARG "-fextdirs="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_extdirs_arg (p + sizeof (CLARG) - 1);
       return 1;
     }
 #undef CLARG

@@ -150,14 +150,6 @@ namespace std
     int __out_bufsize = __sync ? 0 : static_cast<int>(BUFSIZ);
     int __in_bufsize = __sync ? 1 : static_cast<int>(BUFSIZ);
 
-#if _GLIBCPP_AVOID_FSEEK
-    // Platforms that prefer to avoid fseek() calls on streams only
-    // get their desire when the C++-layer input buffer size is 1.
-    // This hack hurts performance but keeps correctness across
-    // all types of streams that might be attached to (e.g.) cin.
-    __in_bufsize = 1;
-#endif
-
     // NB: The file globals.cc creates the four standard files
     // with NULL buffers. At this point, we swap out the dummy NULL
     // [io]stream objects and buffers with the real deal.
@@ -190,16 +182,10 @@ namespace std
     // Explicitly call dtors to free any memory that is dynamically
     // allocated by filebuf ctor or member functions, but don't
     // deallocate all memory by calling operator delete.
-    cout.flush();
-    cerr.flush();
-    clog.flush();
     buf_cout.~filebuf();
     buf_cin.~filebuf();
     buf_cerr.~filebuf();
 #ifdef _GLIBCPP_USE_WCHAR_T
-    wcout.flush();
-    wcerr.flush();
-    wclog.flush();
     buf_wcout.~wfilebuf();
     buf_wcin.~wfilebuf();
     buf_wcerr.~wfilebuf();

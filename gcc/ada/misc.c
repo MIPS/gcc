@@ -85,7 +85,7 @@ static void gnat_print_type		PARAMS ((FILE *, tree, int));
 static const char *gnat_printable_name	PARAMS  ((tree, int));
 static tree gnat_eh_runtime_type	PARAMS ((tree));
 static int gnat_eh_type_covers		PARAMS ((tree, tree));
-static void gnat_parse_file		PARAMS ((void));
+static void gnat_parse_file		PARAMS ((int));
 static void gnat_mark_tree		PARAMS ((tree));
 static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 						 int));
@@ -116,6 +116,8 @@ static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 #define LANG_HOOKS_EXPAND_EXPR		gnat_expand_expr
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE	gnat_mark_addressable
+#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION gnat_truthvalue_conversion
 #undef LANG_HOOKS_PRINT_DECL
 #define LANG_HOOKS_PRINT_DECL		gnat_print_decl
 #undef LANG_HOOKS_PRINT_TYPE
@@ -190,7 +192,8 @@ extern void _ada_gnat1drv	PARAMS((void));
 /* The parser for the language.  For us, we process the GNAT tree.  */
 
 static void
-gnat_parse_file ()
+gnat_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
   /* call the target specific initializations */
   __gnat_initialize();
@@ -385,9 +388,6 @@ gnat_init (filename)
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
-
-  /* Show we don't use the common language attributes.  */
-  lang_attribute_common = 0;
 
   set_lang_adjust_rli (gnat_adjust_rli);
   return filename;

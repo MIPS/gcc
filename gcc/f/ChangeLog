@@ -1,3 +1,44 @@
+Thu Apr 25 07:44:44 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.h (ffe_parse_file): Update.
+	* lex.c (ffe_parse_file): Update.
+
+2002-04-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* root.texi: Remove variable version-g77.
+	* g77.texi: Remove the single use of that variable.
+
+Thu Apr 18 19:10:44 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (incomplete_type_error): Remove.
+
+Tue Apr 16 14:55:47 2002  Mark Mitchell  <mark@codesourcery.com>
+
+	* com.c (ffecom_expr_power_integer): Add has_scope argument to
+	call to expand_start_stmt_expr.
+
+Mon Apr 15 10:59:14 2002  Mark Mitchell  <mark@codesourcery.com>
+
+	* g77.texi: Remove Chill reference.
+
+2002-04-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Deprecate frontend version number;
+	update list of fixed bugs.
+
+2002-04-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* Make-lang.in (f/target.o): Depend on diagnostic.h.
+	* target.c: Include diagnostic.h.
+ 	(ffetarget_memcpy_): Call sorry if host and target endians are
+	not matching.
+
+Thu Apr  4 23:29:48 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Redefine.
+	(truthvalue_conversion): Rename.  Update.  Make static.
+	(ffecom_truth_value): Update.
+
 Mon Apr  1 21:39:36 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* com.c (LANG_HOOKS_MARK_ADDRESSABLE): Redefine.

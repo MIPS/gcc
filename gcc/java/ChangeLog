@@ -1,3 +1,147 @@
+2002-04-27  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6382:
+	* parse.y (string_convert_int_cst): New function.
+	(merge_string_cste): Use it.
+
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_parse_file): Update.
+	(java_set_yydebug): Remove.
+	* jcf-parse.c (yydebug): Remove.
+	(java_set_yydebug): Die.
+	(java_parse_file): Update.
+	* lang.c (LANG_HOOKS_SET_YYDEBUG): Remove.
+
+2002-04-24  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6425:
+	* parse.y (qualify_ambiguous_name) [case CALL_EXPR]: Always choose
+	EXPR_WFL_QUALIFICATION of qual_wfl.
+
+2002-04-23  Per Bothner  <per@bothner.com>
+
+	* expr.c (PRE_JSR):  Call NOTE_LABEL for return address.
+	* java-tree.h (BCODE_RETURN_TARGET):  Removed - never set.
+	(BCODE_TARGET):  Remove BCODE_RETURN_TARGET.
+
+2002-04-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6314:
+	* jvspec.c (lang_specific_driver): Use --resource, not -R.  Also
+	recognize `-fcompile-resource='.
+	* gcj.texi (Invoking gcj): Use --resource, not -R.  Expanded text
+	a bit.
+
+2002-04-22  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-parse.c: (yyparse): Don't prepend "./" to relative
+	paths. Fixes PR java/2791.
+
+2002-04-19  Andrew Haley  <aph@redhat.com>
+
+        * jcf-write.c (push_long_const): lo, hi: New variables.
+        Use rshift_double to extract the high part of a 64-bit long.
+        Use WORD_TO_INT to extract the low part.
+
+        * jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
+        HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
+        CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* typeck.c (incomplete_type_error): Remove.
+
+2002-04-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* class.c (make_class_data): Set DECL_ALIGN on static class data,
+	for hash synchronization.
+	* expr.c (java_expand_expr): Set DECL_ALIGN on static array objects.
+	* decl.c (java_init_decl_processing): Don't set TYPE_ALIGN for
+	class_type_node.
+
+2002-04-16  Mark Wielaard  <mark@klomp.org>
+
+	* jcf-write.c (generate_bytecode_insns): Only write const_0 if not
+	negative zero.
+
+2002-04-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6294:
+	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
+	interfaces.
+	
+2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6085:
+	* parse.y (patch_method_invocation): Always use build_access_to_thisn
+	to get enclosing "this" argument for inner-class constructor
+	invocation. Pass correct arguments to build_access_to_thisn.
+
+2002-04-10  Andreas Jaeger  <aj@suse.de>
+
+	* gcj.texi (Input Options): Fix extdirs patch.
+
+2002-04-10  Anthony Green  <green@redhat.com>
+
+	* jcf-path.c (jcf_path_init) : Clean up local extdirs declaration.
+
+2002-04-09  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Input Options): Add --extdirs documentation.
+	* jcf-dump.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* gjavah.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* jcf-path.c (jcf_path_init): Add extdirs support.
+	(jcf_path_extdirs_arg): New function.
+	(extensions): New variable to hold extensions path entries.
+	* jvspec.c: Remove -fextdirs= when compiling main().
+	* lang.c (java_decode_option): Handle -fextdirs=.
+	* jcf.h (jcf_path_extdirs_arg): Declare new function.
+	* Make-lang.in: Compile jcf-path with version info for use in
+	identifying the appropriate libgcj.jar.
+
+2002-04-08  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/5303:
+	* .cvsignore: Added rmic.1 and rmiregistry.1.
+	* gcj.texi (Top): Link to new nodes.
+	(Invoking rmic): New node.
+	(Invoking rmiregistry): Likewise.
+	* Make-lang.in (java.generated-manpages): Added rmic.1 and
+	rmiregistry.1.
+	(java.maintainer-clean): Likewise.
+	($(srcdir)/java/rmic.1): New target.
+	($(srcdir)/java/rmiregistry.1): Likewise.
+	(java.install-man): Handle rmic.1 and rmiregistry.1.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gcj.texi (Invocation): Update JvAttachCurrentThread documentation.
+	Add note about handling uncaught exceptions. Add an exception handler
+	to example.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (resolve_qualified_expression_name): Clear "from_super" flag
+	after using it to patch CALL_EXPR.
+
+2002-04-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* gcj.texi (Invocation): Document CNI invocation API.
+
+2002-04-04  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* expr.c (truthvalue_conversion): Rename.  Update.
+	(expand_compare): Update.
+	* java-tree.h (java_truthvalue_conversion): New.
+	* lang.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Redefine.
+
 2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* java-tree.h (java_mark_addressable): New.
@@ -245,9 +389,9 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5812.
 	* expr.c (build_java_jsr):  Take pc arguments, and do lookup_label
-	gere instead of in JSR macro.  Likewise with load_type_state call.
+	here instead of in JSR macro.  Likewise with load_type_state call.
 	Do the latter on if the return_pc has been verified (the jsr returns).
-	(JSR):  No just call build_java_jsr.
+	(JSR):  Now just call build_java_jsr.
 
 2002-03-07  Jeff Sturm  <jsturm@one-point.com>
 

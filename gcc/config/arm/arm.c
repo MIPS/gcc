@@ -7209,7 +7209,6 @@ output_return_instruction (operand, really_return, reverse)
   if (current_function_calls_alloca && !really_return)
     abort ();
 
-  /* Construct the conditional part of the instruction(s) to be emitted.  */
   sprintf (conditional, "%%?%%%c0", reverse ? 'D' : 'd');
 
   return_used_this_function = 1;

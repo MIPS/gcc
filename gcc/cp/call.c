@@ -298,27 +298,10 @@ build_scoped_method_call (exp, basetype, name, parms)
       return error_mark_node;
     }
 
-  if (! binfo)
-    {
-      binfo = lookup_base (type, basetype, ba_check, NULL);
-      if (binfo == error_mark_node)
-	return error_mark_node;
-      if (! binfo)
-	error_not_base_type (basetype, type);
-    }
+  decl = build_scoped_ref (exp, basetype, &binfo);
 
   if (binfo)
     {
-      if (TREE_CODE (exp) == INDIRECT_REF)
-	{
-	  decl = build_base_path (PLUS_EXPR,
-				  build_unary_op (ADDR_EXPR, exp, 0),
-				  binfo, 1);
-	  decl = build_indirect_ref (decl, NULL);
-	}
-      else
-	decl = build_scoped_ref (exp, basetype);
-
       /* Call to a destructor.  */
       if (TREE_CODE (name) == BIT_NOT_EXPR)
 	{
@@ -2238,6 +2221,36 @@ add_template_candidate_real (candidates, tmpl, ctype, explicit_targs,
   if (fn == error_mark_node)
     return candidates;
 
+  /* In [class.copy]:
+
+       A member function template is never instantiated to perform the
+       copy of a class object to an object of its class type.  
+
+     It's a little unclear what this means; the standard explicitly
+     does allow a template to be used to copy a class.  For example,
+     in:
+
+       struct A {
+         A(A&);
+	 template <class T> A(const T&);
+       };
+       const A f ();
+       void g () { A a (f ()); }
+       
+     the member template will be used to make the copy.  The section
+     quoted above appears in the paragraph that forbids constructors
+     whose only parameter is (a possibly cv-qualified variant of) the
+     class type, and a logical interpretation is that the intent was
+     to forbid the instantiation of member templates which would then
+     have that form.  */
+  if (DECL_CONSTRUCTOR_P (fn) && list_length (arglist) == 2) 
+    {
+      tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (fn);
+      if (arg_types && same_type_p (TYPE_MAIN_VARIANT (TREE_VALUE (arg_types)),
+				    ctype))
+	return candidates;
+    }
+
   if (obj != NULL_TREE)
     /* Aha, this is a conversion function.  */
     cand = add_conv_candidate (candidates, fn, obj, arglist);
@@ -4013,24 +4026,27 @@ build_x_va_arg (expr, type)
   return build_va_arg (expr, type);
 }
 
-/* TYPE has been given to va_arg. Apply the default conversions which would
-   have happened when passed via ellipsis. Return the promoted type, or
-   NULL_TREE, if there is no change.  */
+/* TYPE has been given to va_arg.  Apply the default conversions which
+   would have happened when passed via ellipsis.  Return the promoted
+   type, or the passed type if there is no change.  */
 
 tree
-convert_type_from_ellipsis (type)
+cxx_type_promotes_to (type)
      tree type;
 {
   tree promote;
-  
+
   if (TREE_CODE (type) == ARRAY_TYPE)
-    promote = build_pointer_type (TREE_TYPE (type));
-  else if (TREE_CODE (type) == FUNCTION_TYPE)
-    promote = build_pointer_type (type);
-  else
-    promote = type_promotes_to (type);
+    return build_pointer_type (TREE_TYPE (type));
+
+  if (TREE_CODE (type) == FUNCTION_TYPE)
+    return build_pointer_type (type);
+
+  promote = type_promotes_to (type);
+  if (same_type_p (type, promote))
+    promote = type;
   
-  return same_type_p (type, promote) ? NULL_TREE : promote;
+  return promote;
 }
 
 /* ARG is a default argument expression being passed to a parameter of
@@ -4623,7 +4639,7 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       if (flags & LOOKUP_SPECULATIVELY)
 	return NULL_TREE;
       if (!COMPLETE_TYPE_P (basetype))
-	incomplete_type_error (instance_ptr, basetype);
+	cxx_incomplete_type_error (instance_ptr, basetype);
       else
 	error ("no matching function for call to `%T::%D(%A)%#V'",
 	       basetype, pretty_name, user_args,

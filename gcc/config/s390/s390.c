@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "recog.h"
 #include "expr.h"
+#include "reload.h"
 #include "toplev.h"
 #include "basic-block.h"
 #include "integrate.h"
@@ -1189,15 +1190,21 @@ s390_expand_plus_operand (target, src, scratch_in)
   if (GET_CODE (src) != PLUS || GET_MODE (src) != Pmode)
     abort ();
 
-  sum1 = XEXP (src, 0);
-  sum2 = XEXP (src, 1);
+  /* Check if any of the two operands is already scheduled
+     for replacement by reload.  This can happen e.g. when
+     float registers occur in an address.  */
+  sum1 = find_replacement (&XEXP (src, 0));
+  sum2 = find_replacement (&XEXP (src, 1));
 
   /* If one of the two operands is equal to the target,
-     make it the first one.  */
-  if (rtx_equal_p (target, sum2))
+     make it the first one.  If one is a constant, make
+     it the second one.  */
+  if (rtx_equal_p (target, sum2)
+      || GET_CODE (sum1) == CONST_INT)
     {
-      sum2 = XEXP (src, 0);
-      sum1 = XEXP (src, 1);
+      rtx tem = sum2;
+      sum2 = sum1;
+      sum1 = tem;
     }
 
   /* If the first operand is not an address register,
@@ -1210,8 +1217,11 @@ s390_expand_plus_operand (target, src, scratch_in)
 
   /* Likewise for the second operand.  However, take
      care not to clobber the target if we already used
-     it for the first operand.  Use the scratch instead.  */
-  if (true_regnum (sum2) < 1 || true_regnum (sum2) > 15)
+     it for the first operand.  Use the scratch instead.
+     Also, allow an immediate offset if it is in range.  */
+  if ((true_regnum (sum2) < 1 || true_regnum (sum2) > 15)
+      && !(GET_CODE (sum2) == CONST_INT
+           && INTVAL (sum2) >= 0 && INTVAL (sum2) < 4096))
     {
       if (!rtx_equal_p (target, sum1))
         {
@@ -1701,6 +1711,7 @@ legitimize_pic_address (orig, reg)
                         {
                           int even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
+			  op0 = gen_rtx_CONST (Pmode, op0);
                           op1 = GEN_INT (1);
                         }
 
@@ -1861,6 +1872,43 @@ legitimize_address (x, oldx, mode)
   return x;
 }
 
+/* In the name of slightly smaller debug output, and to cater to
+   general assembler losage, recognize various UNSPEC sequences
+   and turn them back into a direct symbol reference.  */
+
+rtx
+s390_simplify_dwarf_addr (orig_x)
+     rtx orig_x;
+{
+  rtx x = orig_x, y;
+
+  if (GET_CODE (x) != MEM)
+    return orig_x;
+
+  x = XEXP (x, 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST
+      && GET_CODE (XEXP (x, 0)) == REG
+      && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
+    {
+      y = XEXP (XEXP (x, 1), 0);
+      if (GET_CODE (y) == UNSPEC
+	  && XINT (y, 1) == 110)
+	return XVECEXP (y, 0, 0);
+      return orig_x;
+    }
+
+  if (GET_CODE (x) == CONST)
+    {
+      y = XEXP (x, 0);
+      if (GET_CODE (y) == UNSPEC
+	  && XINT (y, 1) == 111)
+	return XVECEXP (y, 0, 0);
+      return orig_x;
+    }
+
+  return orig_x;      
+}
 
 /* Output symbolic constant X in assembler syntax to 
    stdio stream FILE.  */
@@ -3207,6 +3255,14 @@ s390_emit_epilogue ()
 	   i <= frame.last_save_gpr;
 	   i++)
 	{
+	  /* These registers are special and need to be 
+	     restored in any case.  */
+	  if (i == STACK_POINTER_REGNUM 
+              || i == RETURN_REGNUM
+              || i == BASE_REGISTER 
+              || (flag_pic && i == PIC_OFFSET_TABLE_REGNUM))
+	    continue;
+
 	  if (global_regs[i])
 	    {
 	      addr = plus_constant (frame_pointer, 

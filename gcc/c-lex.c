@@ -40,13 +40,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 
-/* MULTIBYTE_CHARS support only works for native compilers.
-   ??? Ideally what we want is to model widechar support after
-   the current floating point support.  */
-#ifdef CROSS_COMPILE
-#undef MULTIBYTE_CHARS
-#endif
-
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
 #include <locale.h>
@@ -64,9 +57,6 @@ static unsigned int src_lineno;
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
-
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
 
 /* File used for outputting assembler code.  */
 extern FILE *asm_out_file;
@@ -156,12 +146,20 @@ init_c_lex (filename)
    the primary source file.  */
 
 void
-c_common_parse_file ()
+c_common_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
+#if YYDEBUG != 0
+  yydebug = set_yydebug;
+#else
+  warning ("YYDEBUG not defined");
+#endif
+
   (*debug_hooks->start_source_file) (lineno, input_filename);
   cpp_finish_options (parse_in);
 
   yyparse ();
+  free_parser_stacks ();
 }
 
 struct c_fileinfo *
@@ -1282,8 +1280,8 @@ lex_string (str, len, wide)
 	  c = cpp_parse_escape (parse_in, &p, limit, mask);
 	}
 	
-      /* Add this single character into the buffer either as a wchar_t
-	 or as a single byte.  */
+      /* Add this single character into the buffer either as a wchar_t,
+	 a multibyte sequence, or as a single byte.  */
       if (wide)
 	{
 	  unsigned charwidth = TYPE_PRECISION (char_type_node);
@@ -1304,6 +1302,16 @@ lex_string (str, len, wide)
 	    }
 	  q += WCHAR_BYTES;
 	}
+#ifdef MULTIBYTE_CHARS
+      else if (char_len > 1)
+	{
+	  /* We're dealing with a multibyte character. */
+	  for ( ; char_len >0; --char_len)
+	    {
+	      *q++ = *(p - char_len);
+	    }
+	}
+#endif
       else
 	{
 	  *q++ = c;
@@ -1338,7 +1346,7 @@ lex_charconst (token)
      const cpp_token *token;
 {
   HOST_WIDE_INT result;
-  tree value;
+  tree type, value;
   unsigned int chars_seen;
  
   result = cpp_interpret_charconst (parse_in, token, warn_multichar,
@@ -1346,7 +1354,7 @@ lex_charconst (token)
   if (token->type == CPP_WCHAR)
     {
       value = build_int_2 (result, 0);
-      TREE_TYPE (value) = wchar_type_node;
+      type = wchar_type_node;
     }
   else
     {
@@ -1358,10 +1366,24 @@ lex_charconst (token)
       /* In C, a character constant has type 'int'.
  	 In C++ 'char', but multi-char charconsts have type 'int'.  */
       if (c_language == clk_cplusplus && chars_seen <= 1)
- 	TREE_TYPE (value) = char_type_node;
+	type = char_type_node;
       else
- 	TREE_TYPE (value) = integer_type_node;
+	type = integer_type_node;
     }
- 
+
+  /* cpp_interpret_charconst issues a warning if the constant
+     overflows, but if the number fits in HOST_WIDE_INT anyway, it
+     will return it un-truncated, which may cause problems down the
+     line.  So set the type to widest_integer_literal_type, call
+     convert to truncate it to the proper type, then clear
+     TREE_OVERFLOW so we don't get a second warning.
+
+     FIXME: cpplib's assessment of overflow may not be accurate on a
+     platform where the final type can change at (compiler's) runtime.  */
+
+  TREE_TYPE (value) = widest_integer_literal_type_node;
+  value = convert (type, value);
+  TREE_OVERFLOW (value) = 0;
+
   return value;
 }

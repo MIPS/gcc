@@ -26,6 +26,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "hashtable.h"
 
 struct directive;		/* Deliberately incomplete.  */
+struct pending_option;
 
 /* Test if a sign is valid within a preprocessing number.  */
 #define VALID_SIGN(c, prevc) \
@@ -250,6 +251,11 @@ struct cpp_reader
   /* If in_directive, the directive if known.  */
   const struct directive *directive;
 
+  /* The next -include-d file; NULL if they all are done.  If it
+     points to NULL, the last one is in progress, and
+     _cpp_maybe_push_include_file has yet to restore the line map.  */
+  struct pending_option **next_include_file;
+
   /* Multiple inlcude optimisation.  */
   const cpp_hashnode *mi_cmacro;
   const cpp_hashnode *mi_ind_cmacro;
@@ -356,8 +362,7 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
 
 /* In cpperror.c  */
-enum error_type { WARNING = 0, WARNING_SYSHDR, PEDWARN, ERROR, FATAL, ICE };
-extern int _cpp_begin_message PARAMS ((cpp_reader *, enum error_type,
+extern int _cpp_begin_message PARAMS ((cpp_reader *, int,
 				       unsigned int, unsigned int));
 
 /* In cppmacro.c */
@@ -382,7 +387,7 @@ extern int _cpp_compare_file_date       PARAMS ((cpp_reader *,
 extern void _cpp_report_missing_guards	PARAMS ((cpp_reader *));
 extern void _cpp_init_includes		PARAMS ((cpp_reader *));
 extern void _cpp_cleanup_includes	PARAMS ((cpp_reader *));
-extern bool _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
+extern void _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
 						 struct include_file *));
 
 /* In cppexp.c */
@@ -397,7 +402,7 @@ extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 extern void _cpp_init_tokenrun		PARAMS ((tokenrun *, unsigned int));
 
 /* In cppinit.c.  */
-extern bool _cpp_push_next_buffer	PARAMS ((cpp_reader *));
+extern void _cpp_maybe_push_include_file PARAMS ((cpp_reader *));
 
 /* In cpplib.c */
 extern int _cpp_test_assertion PARAMS ((cpp_reader *, int *));
@@ -412,7 +417,7 @@ extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum lc_reason,
 extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
 /* Utility routines and macros.  */
-#define DSC(str) (const U_CHAR *)str, sizeof str - 1
+#define DSC(str) (const uchar *)str, sizeof str - 1
 #define xnew(T)		(T *) xmalloc (sizeof(T))
 #define xcnew(T)	(T *) xcalloc (1, sizeof(T))
 #define xnewvec(T, N)	(T *) xmalloc (sizeof(T) * (N))
@@ -421,27 +426,27 @@ extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
 /* These are inline functions instead of macros so we can get type
    checking.  */
-typedef unsigned char U_CHAR;
-#define U (const U_CHAR *)  /* Intended use: U"string" */
+typedef unsigned char uchar;
+#define U (const uchar *)  /* Intended use: U"string" */
 
-static inline int ustrcmp	PARAMS ((const U_CHAR *, const U_CHAR *));
-static inline int ustrncmp	PARAMS ((const U_CHAR *, const U_CHAR *,
+static inline int ustrcmp	PARAMS ((const uchar *, const uchar *));
+static inline int ustrncmp	PARAMS ((const uchar *, const uchar *,
 					 size_t));
-static inline size_t ustrlen	PARAMS ((const U_CHAR *));
-static inline U_CHAR *uxstrdup	PARAMS ((const U_CHAR *));
-static inline U_CHAR *ustrchr	PARAMS ((const U_CHAR *, int));
-static inline int ufputs	PARAMS ((const U_CHAR *, FILE *));
+static inline size_t ustrlen	PARAMS ((const uchar *));
+static inline uchar *uxstrdup	PARAMS ((const uchar *));
+static inline uchar *ustrchr	PARAMS ((const uchar *, int));
+static inline int ufputs	PARAMS ((const uchar *, FILE *));
 
 static inline int
 ustrcmp (s1, s2)
-     const U_CHAR *s1, *s2;
+     const uchar *s1, *s2;
 {
   return strcmp ((const char *)s1, (const char *)s2);
 }
 
 static inline int
 ustrncmp (s1, s2, n)
-     const U_CHAR *s1, *s2;
+     const uchar *s1, *s2;
      size_t n;
 {
   return strncmp ((const char *)s1, (const char *)s2, n);
@@ -449,29 +454,29 @@ ustrncmp (s1, s2, n)
 
 static inline size_t
 ustrlen (s1)
-     const U_CHAR *s1;
+     const uchar *s1;
 {
   return strlen ((const char *)s1);
 }
 
-static inline U_CHAR *
+static inline uchar *
 uxstrdup (s1)
-     const U_CHAR *s1;
+     const uchar *s1;
 {
-  return (U_CHAR *) xstrdup ((const char *)s1);
+  return (uchar *) xstrdup ((const char *)s1);
 }
 
-static inline U_CHAR *
+static inline uchar *
 ustrchr (s1, c)
-     const U_CHAR *s1;
+     const uchar *s1;
      int c;
 {
-  return (U_CHAR *) strchr ((const char *)s1, c);
+  return (uchar *) strchr ((const char *)s1, c);
 }
 
 static inline int
 ufputs (s, f)
-     const U_CHAR *s;
+     const uchar *s;
      FILE *f;
 {
   return fputs ((const char *)s, f);

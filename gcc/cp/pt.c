@@ -4833,23 +4833,28 @@ tsubst_friend_class (friend_tmpl, args)
   tree tmpl;
 
   /* First, we look for a class template.  */
-  tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0); 
-  
-  /* But, if we don't find one, it might be because we're in a
-     situation like this:
-
-       template <class T>
-       struct S {
-         template <class U>
-	 friend struct S;
-       };
-
-     Here, in the scope of (say) S<int>, `S' is bound to a TYPE_DECL
-     for `S<int>', not the TEMPLATE_DECL.  */
-  if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
+  if (DECL_CONTEXT (friend_tmpl))
+    tmpl = friend_tmpl;
+  else
     {
-      tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/1);
-      tmpl = maybe_get_template_decl_from_type_decl (tmpl);
+      tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0); 
+
+      /* But, if we don't find one, it might be because we're in a
+	 situation like this:
+
+	   template <class T>
+	   struct S {
+	     template <class U>
+	     friend struct S;
+	   };
+
+	 Here, in the scope of (say) S<int>, `S' is bound to a TYPE_DECL
+	 for `S<int>', not the TEMPLATE_DECL.  */
+      if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
+	{
+	  tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/1);
+	  tmpl = maybe_get_template_decl_from_type_decl (tmpl);
+	}
     }
 
   if (tmpl && DECL_CLASS_TEMPLATE_P (tmpl))
@@ -5559,7 +5564,11 @@ tsubst_default_argument (fn, type, arg)
        };
      
      we must be careful to do name lookup in the scope of S<T>,
-     rather than in the current class.  */
+     rather than in the current class.
+
+     ??? current_class_type affects a lot more than name lookup.  This is
+     very fragile.  Fortunately, it will go away when we do 2-phase name
+     binding properly.  */
   if (DECL_CLASS_SCOPE_P (fn))
     pushclass (DECL_CONTEXT (fn), 2);
 
@@ -6806,7 +6815,7 @@ tsubst (t, args, complain, in_decl)
 	    if (!COMPLETE_TYPE_P (ctx))
 	      {
 		if (complain & tf_error)
-		  incomplete_type_error (NULL_TREE, ctx);
+		  cxx_incomplete_type_error (NULL_TREE, ctx);
 		return error_mark_node;
 	      }
 	  }
@@ -7582,10 +7591,6 @@ tsubst_expr (t, args, complain, in_decl)
     case TAG_DEFN:
       prep_stmt (t);
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
-      break;
-
-    case CTOR_STMT:
-      add_stmt (copy_node (t));
       break;
 
     default:

@@ -126,6 +126,9 @@ static int print_single_switch PARAMS ((FILE *, int, int, const char *,
 static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 				       const char *, const char *));
 
+/* Nonzero to dump debug info whilst parsing (-dy option).  */
+static int set_yydebug;
+
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -636,12 +639,12 @@ int flag_keep_inline_functions;
 
 /* Nonzero means that functions will not be inlined.  */
 
-int flag_no_inline;
+int flag_no_inline = 2;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
 
-int flag_really_no_inline;
+int flag_really_no_inline = 2;
 
 /* Nonzero means that we should emit static const variables
    regardless of whether or not optimization is turned on.  */
@@ -1950,22 +1953,19 @@ check_global_declarations (vec, len)
 	  assemble_external (decl);
 	}
 
-      /* Warn about static fns or vars defined but not used,
-	 but not about inline functions or static consts
-	 since defining those in header files is normal practice.  */
-      if (((warn_unused_function
-	    && TREE_CODE (decl) == FUNCTION_DECL && ! DECL_INLINE (decl))
-	   || (warn_unused_variable
-	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
+      /* Warn about static fns or vars defined but not used.  */
+      if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
+	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	  && ! TREE_USED (decl)
+	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
+	     to handle multiple external decls in different scopes.  */
+	  && ! TREE_USED (DECL_NAME (decl))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
-	  && ! TREE_USED (decl)
-	  && (TREE_CODE (decl) == FUNCTION_DECL || ! DECL_REGISTER (decl))
-	  /* The TREE_USED bit for file-scope decls
-	     is kept in the identifier, to handle multiple
-	     external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl)))
+	  /* Global register variables must be declared to reserve them.  */
+	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+	  /* Otherwise, ask the language.  */
+	  && (*lang_hooks.decls.warn_unused_global) (decl))
 	warning_with_decl (decl, "`%s' defined but not used");
 
       timevar_push (TV_SYMOUT);
@@ -2037,7 +2037,7 @@ compile_file ()
 
   /* Call the parser, which parses the entire file (calling
      rest_of_compilation for each function).  */
-  (*lang_hooks.parse_file) ();
+  (*lang_hooks.parse_file) (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
@@ -2382,6 +2382,7 @@ rest_of_compilation (decl)
       if (inlinable
 	  || (DECL_INLINE (decl)
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
+		   && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 		   && ! flag_keep_inline_functions)
 		  || DECL_EXTERNAL (decl))))
 	DECL_DEFER_OUTPUT (decl) = 1;
@@ -2810,8 +2811,7 @@ rest_of_compilation (decl)
 	  cleanup_barriers ();
 
 	  /* We only want to perform unrolling once.  */
-
-	  loop_optimize (insns, rtl_dump_file, 0);
+	  loop_optimize (insns, rtl_dump_file, LOOP_FIRST_PASS);
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
@@ -3730,7 +3730,7 @@ decode_d_option (arg)
 	rtl_dump_and_exit = 1;
 	break;
       case 'y':
-	(*lang_hooks.set_yydebug) (1);
+	set_yydebug = 1;
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
@@ -3982,7 +3982,7 @@ ignoring option `%s' due to invalid debug level specification",
 
 	      if (da_len > 1 && strncmp (arg, "gdb", da_len) == 0)
 		{
-#if defined (DWARF2_DEBUGGING_INFO) && !defined (LINKER_DOES_NOT_WORK_WITH_DWARF2)
+#ifdef DWARF2_DEBUGGING_INFO
 		  type = DWARF2_DEBUG;
 #else
 #ifdef DBX_DEBUGGING_INFO
@@ -4726,6 +4726,11 @@ parse_options_and_default_flags (argc, argv)
 	}
     }
 
+  if (flag_no_inline == 2)
+    flag_no_inline = 0;
+  else
+    flag_really_no_inline = flag_no_inline;
+
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
      code should be lang-independent when all front ends use tree
@@ -4746,6 +4751,9 @@ parse_options_and_default_flags (argc, argv)
       if (warn_uninitialized == 1 && !flag_tree_ssa)
 	warning ("-Wuninitialized is not supported without -O");
     }
+
+  if (flag_really_no_inline == 2)
+    flag_really_no_inline = flag_no_inline;
 
   /* All command line options have been parsed; allow the front end to
      perform consistency checks, etc.  */

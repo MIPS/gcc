@@ -483,11 +483,13 @@ rs6000_override_options (default_cpu)
 	}
     }
 
-  if (flag_pic && DEFAULT_ABI == ABI_AIX && extra_warnings)
+  if (flag_pic != 0 && DEFAULT_ABI == ABI_AIX)
     {
-      warning ("-f%s ignored (all code is position independent)",
-	       (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
+
+      if (extra_warnings)
+	warning ("-f%s ignored (all code is position independent)",
+		 (flag_pic > 1) ? "PIC" : "pic");
     }
 
 #ifdef XCOFF_DEBUGGING_INFO
@@ -1219,18 +1221,24 @@ easy_vector_constant (op)
 	 with CONST0_RTX for the current mode, but let's be safe
 	 instead.  */
 
-      if (GET_CODE (elt) == CONST_INT && INTVAL (elt) != 0)
-	return 0;
-
-      if (GET_CODE (elt) == CONST_DOUBLE
-	       && (CONST_DOUBLE_LOW (elt) != 0
-		   || CONST_DOUBLE_HIGH (elt) != 0))
-	return 0;
+      switch (GET_CODE (elt))
+	{
+	case CONST_INT:
+	  if (INTVAL (elt) != 0)
+	    return 0;
+	  break;
+	case CONST_DOUBLE:
+	  if (CONST_DOUBLE_LOW (elt) != 0 || CONST_DOUBLE_HIGH (elt) != 0)
+	    return 0;
+	  break;
+	default:
+	  return 0;
+	}
     }
 
   /* We could probably generate a few other constants trivially, but
      gcc doesn't generate them yet.  FIXME later.  */
-  return 0;
+  return 1;
 }
 
 /* Return 1 if the operand is the constant 0.  This works for scalars
@@ -1552,9 +1560,21 @@ lwa_operand (op, mode)
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
 }
 
+/* Return 1 if the operand, used inside a MEM, is a SYMBOL_REF.  */
+
+int
+symbol_ref_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return 0;
+
+  return (GET_CODE (op) == SYMBOL_REF);
+}
+
 /* Return 1 if the operand, used inside a MEM, is a valid first argument
-   to CALL.  This is a SYMBOL_REF or a pseudo-register, which will be
-   forced to lr.  */
+   to CALL.  This is a SYMBOL_REF, a pseudo-register, LR or CTR.  */
 
 int
 call_operand (op, mode)
@@ -1565,7 +1585,10 @@ call_operand (op, mode)
     return 0;
 
   return (GET_CODE (op) == SYMBOL_REF
-	  || (GET_CODE (op) == REG && REGNO (op) >= FIRST_PSEUDO_REGISTER));
+	  || (GET_CODE (op) == REG
+	      && (REGNO (op) == LINK_REGISTER_REGNUM
+		  || REGNO (op) == COUNT_REGISTER_REGNUM
+		  || REGNO (op) >= FIRST_PSEUDO_REGISTER)));
 }
 
 /* Return 1 if the operand is a SYMBOL_REF for a function known to be in
@@ -7224,8 +7247,17 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   rtx op0 = rs6000_compare_op0;
   rtx op1 = rs6000_compare_op1;
   REAL_VALUE_TYPE c1;
-  enum machine_mode mode = GET_MODE (op0);
+  enum machine_mode compare_mode = GET_MODE (op0);
+  enum machine_mode result_mode = GET_MODE (dest);
   rtx temp;
+
+  /* These modes should always match. */
+  if (GET_MODE (op1) != compare_mode)
+    return 0;
+  if (GET_MODE (true_cond) != result_mode)
+    return 0;
+  if (GET_MODE (false_cond) != result_mode)
+    return 0;
 
   /* First, work out if the hardware can do this at all, or
      if it's too slow...  */
@@ -7269,11 +7301,11 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   /* At this point we know we can use fsel.  */
 
   /* Reduce the comparison to a comparison against zero.  */
-  temp = gen_reg_rtx (mode);
+  temp = gen_reg_rtx (compare_mode);
   emit_insn (gen_rtx_SET (VOIDmode, temp,
-			  gen_rtx_MINUS (mode, op0, op1)));
+			  gen_rtx_MINUS (compare_mode, op0, op1)));
   op0 = temp;
-  op1 = CONST0_RTX (mode);
+  op1 = CONST0_RTX (compare_mode);
 
   /* If we don't care about NaNs we can reduce some of the comparisons
      down to faster ones.  */
@@ -7303,52 +7335,52 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
       break;
 
     case LE:
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case ORDERED:
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (compare_mode, op0)));
       op0 = temp;
       break;
 
     case EQ:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (compare_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp, 
-			      gen_rtx_NEG (mode,
-					   gen_rtx_ABS (mode, op0))));
+			      gen_rtx_NEG (compare_mode,
+					   gen_rtx_ABS (compare_mode, op0))));
       op0 = temp;
       break;
 
     case UNGE:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
-			      gen_rtx_IF_THEN_ELSE (mode, 
+			      gen_rtx_IF_THEN_ELSE (result_mode,
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
       false_cond = temp;
       true_cond = false_cond;
 
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case GT:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
-			      gen_rtx_IF_THEN_ELSE (mode, 
+			      gen_rtx_IF_THEN_ELSE (result_mode, 
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
       true_cond = temp;
       false_cond = true_cond;
 
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
@@ -7357,7 +7389,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
     }
 
   emit_insn (gen_rtx_SET (VOIDmode, dest,
-			  gen_rtx_IF_THEN_ELSE (GET_MODE (dest),
+			  gen_rtx_IF_THEN_ELSE (result_mode,
 						gen_rtx_GE (VOIDmode,
 							    op0, op1),
 						true_cond, false_cond)));
@@ -9003,13 +9035,24 @@ rs6000_output_function_prologue (file, size)
   if (! HAVE_prologue)
     {
       start_sequence ();
-      
+
       /* A NOTE_INSN_DELETED is supposed to be at the start and end of
 	 the "toplevel" insn chain.  */
       emit_note (0, NOTE_INSN_DELETED);
       rs6000_emit_prologue ();
       emit_note (0, NOTE_INSN_DELETED);
-      
+
+      /* Expand INSN_ADDRESSES so final() doesn't crash. */
+      {
+	rtx insn;
+	unsigned addr = 0;
+	for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+	  {
+	    INSN_ADDRESSES_NEW (insn, addr);
+	    addr += 4;
+	  }
+      }
+
       if (TARGET_DEBUG_STACK)
 	debug_rtx_list (get_insns (), 100);
       final (get_insns (), file, FALSE, FALSE);
@@ -9396,6 +9439,17 @@ rs6000_output_function_epilogue (file, size)
 	  emit_note (0, NOTE_INSN_DELETED);
 	  rs6000_emit_epilogue (FALSE);
 	  emit_note (0, NOTE_INSN_DELETED);
+
+	  /* Expand INSN_ADDRESSES so final() doesn't crash. */
+	  {
+	    rtx insn;
+	    unsigned addr = 0;
+	    for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+	      {
+		INSN_ADDRESSES_NEW (insn, addr);
+		addr += 4;
+	      }
+	  }
 
 	  if (TARGET_DEBUG_STACK)
 	    debug_rtx_list (get_insns (), 100);
@@ -10403,8 +10457,6 @@ output_profile_hook (labelno)
       char buf[30];
       const char *label_name;
       rtx fun;
-
-      labelno += 1;
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
       STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));

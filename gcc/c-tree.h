@@ -160,7 +160,6 @@ extern tree lookup_objc_ivar			PARAMS ((tree));
 
 /* in c-parse.in */
 extern void c_parse_init			PARAMS ((void));
-extern void c_set_yydebug			PARAMS ((int));
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
@@ -206,9 +205,9 @@ extern tree lookup_name                         PARAMS ((tree));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern void parmlist_tags_warning               PARAMS ((void));
 extern void pending_xref_error                  PARAMS ((void));
-extern void mark_c_function_context             PARAMS ((struct function *));
-extern void push_c_function_context             PARAMS ((struct function *));
-extern void pop_c_function_context              PARAMS ((struct function *));
+extern void c_mark_function_context             PARAMS ((struct function *));
+extern void c_push_function_context             PARAMS ((struct function *));
+extern void c_pop_function_context              PARAMS ((struct function *));
 extern void pop_label_level                     PARAMS ((void));
 extern void push_label_level                    PARAMS ((void));
 extern void push_parm_decl                      PARAMS ((tree));
@@ -237,6 +236,7 @@ extern const char *c_objc_common_init		PARAMS ((const char *));
 extern int c_missing_noreturn_ok_p		PARAMS ((tree));
 extern void c_objc_common_finish_file		PARAMS ((void));
 extern int defer_fn				PARAMS ((tree));
+extern bool c_warn_unused_global_decl		PARAMS ((tree));
 
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
   c_build_qualified_type ((TYPE),				  \
@@ -249,6 +249,8 @@ extern int comptypes				PARAMS ((tree, tree));
 extern tree c_sizeof_nowarn			PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));
 extern bool c_mark_addressable			PARAMS ((tree));
+extern void c_incomplete_type_error		PARAMS ((tree, tree));
+extern tree c_type_promotes_to			PARAMS ((tree));
 extern tree build_component_ref                 PARAMS ((tree, tree));
 extern tree build_indirect_ref                  PARAMS ((tree, const char *));
 extern tree build_array_ref                     PARAMS ((tree, tree));

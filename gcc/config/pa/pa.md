@@ -2281,17 +2281,19 @@
   ""
   "*
 {
-  rtx label_rtx = gen_label_rtx ();
   rtx xoperands[3];
   extern FILE *asm_out_file;
 
   xoperands[0] = operands[0];
   xoperands[1] = operands[1];
-  xoperands[2] = label_rtx;
+  if (TARGET_SOM || ! TARGET_GAS)
+    xoperands[2] = gen_label_rtx ();
+
   output_asm_insn (\"{bl|b,l} .+8,%0\", xoperands);
   output_asm_insn (\"{depi|depwi} 0,31,2,%0\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (label_rtx));
+  if (TARGET_SOM || ! TARGET_GAS)
+    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+			       CODE_LABEL_NUMBER (xoperands[2]));
 
   /* If we're trying to load the address of a label that happens to be
      close, then we can use a shorter sequence.  */
@@ -2302,12 +2304,24 @@
     {
       /* Prefixing with R% here is wrong, it extracts just 11 bits and is
 	 always non-negative.  */
-      output_asm_insn (\"ldo %1-%2(%0),%0\", xoperands);
+      if (TARGET_SOM || ! TARGET_GAS)
+	output_asm_insn (\"ldo %1-%2(%0),%0\", xoperands);
+      else
+	output_asm_insn (\"ldo %1-$PIC_pcrel$0+8(%0),%0\", xoperands);
     }
   else
     {
-      output_asm_insn (\"addil L%%%1-%2,%0\", xoperands);
-      output_asm_insn (\"ldo R%%%1-%2(%0),%0\", xoperands);
+      if (TARGET_SOM || ! TARGET_GAS)
+	{
+	  output_asm_insn (\"addil L%%%1-%2,%0\", xoperands);
+	  output_asm_insn (\"ldo R%%%1-%2(%0),%0\", xoperands);
+	}
+      else
+	{
+	  output_asm_insn (\"addil L%%%1-$PIC_pcrel$0+8,%0\", xoperands);
+	  output_asm_insn (\"ldo R%%%1-$PIC_pcrel$0+12(%0),%0\",
+	  		   xoperands);
+	}
     }
   return \"\";
 }"
@@ -5568,6 +5582,21 @@
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
+;; Use the PIC register to ensure it's restored after a
+;; call in PIC mode.  This is used for eh returns which
+;; bypass the return stub.
+(define_insn "return_external_pic"
+  [(return)
+   (use (match_operand 0 "register_operand" "r"))
+   (use (reg:SI 2))
+   (clobber (reg:SI 1))]
+  "flag_pic
+   && current_function_calls_eh_return
+   && true_regnum (operands[0]) == PIC_OFFSET_TABLE_REGNUM"
+  "ldsid (%%sr0,%%r2),%%r1\;mtsp %%r1,%%sr0\;be%* 0(%%sr0,%%r2)"
+  [(set_attr "type" "branch")
+   (set_attr "length" "12")])
+
 (define_expand "prologue"
   [(const_int 0)]
   ""
@@ -5590,15 +5619,24 @@
   /* Try to use the trivial return first.  Else use the full
      epilogue.  */
   if (hppa_can_use_return_insn_p ())
-   emit_jump_insn (gen_return ());
+    emit_jump_insn (gen_return ());
   else
     {
       rtx x;
 
       hppa_expand_epilogue ();
       if (flag_pic)
-	x = gen_return_internal_pic (gen_rtx_REG (word_mode,
-						  PIC_OFFSET_TABLE_REGNUM));
+	{
+	  rtx pic = gen_rtx_REG (word_mode, PIC_OFFSET_TABLE_REGNUM);
+
+	  /* EH returns bypass the normal return stub.  Thus, we must do an
+	     interspace branch to return from functions that call eh_return.
+	     This is only a problem for returns from shared code.  */
+	  if (current_function_calls_eh_return)
+	    x = gen_return_external_pic (pic);
+	  else
+	    x = gen_return_internal_pic (pic);
+	}
       else
 	x = gen_return_internal ();
       emit_jump_insn (x);
@@ -5687,14 +5725,23 @@
     {
       rtx xoperands[2];
       xoperands[0] = operands[0];
-      xoperands[1] = gen_label_rtx ();
+      if (TARGET_SOM || ! TARGET_GAS)
+	{
+	  xoperands[1] = gen_label_rtx ();
 
-      output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
-		       xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-                                 CODE_LABEL_NUMBER (xoperands[1]));
-      output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\\n\\tbv %%r0(%%r1)\",
-		       xoperands);
+	  output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
+			   xoperands);
+	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+				     CODE_LABEL_NUMBER (xoperands[1]));
+	  output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\", xoperands);
+	}
+      else
+	{
+	  output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
+	  output_asm_insn (\"addil L'%l0-$PIC_pcrel$0+4,%%r1\", xoperands);
+	  output_asm_insn (\"ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1\", xoperands);
+	}
+      output_asm_insn (\"bv %%r0(%%r1)\", xoperands);
     }
   else
     output_asm_insn (\"ldil L'%l0,%%r1\\n\\tbe R'%l0(%%sr4,%%r1)\", operands);;
@@ -5856,18 +5903,19 @@
   [(set_attr "type" "call")
    (set (attr "length")
 ;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
+;;	 linker can use a long-branch stub, then the length is at most
+;;	 8 bytes.
 ;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
+;;	 For long-calls the length will be at most 68 bytes (non-pic)
+;;	 or 84 bytes (pic).  */
 ;;	 Else we have to use a long-call;
       (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
 			(const_int 240000))
-		    (const_int 4)
+		    (const_int 8)
 		    (if_then_else (eq (symbol_ref "flag_pic")
 				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+				  (const_int 68)
+				  (const_int 84))))])
 
 (define_insn "call_internal_reg_64bit"
   [(call (mem:SI (match_operand:DI 0 "register_operand" "r"))
@@ -5917,12 +5965,22 @@
 
   /* If we're generating PIC code.  */
   xoperands[0] = operands[0];
-  xoperands[1] = gen_label_rtx ();
+  if (TARGET_SOM || ! TARGET_GAS)
+    xoperands[1] = gen_label_rtx ();
   output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
-  output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (xoperands[1]));
-  output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
+  if (TARGET_SOM || ! TARGET_GAS)
+    {
+      output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
+      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+				 CODE_LABEL_NUMBER (xoperands[1]));
+      output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
+    }
+  else
+    {
+      output_asm_insn (\"addil L%%$$dyncall-$PIC_pcrel$0+4,%%r1\", xoperands);
+      output_asm_insn (\"ldo R%%$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1\",
+      		       xoperands);
+    }
   output_asm_insn (\"blr %%r0,%%r2\", xoperands);
   output_asm_insn (\"bv,n %%r0(%%r1)\\n\\tnop\", xoperands);
   return \"\";
@@ -6029,18 +6087,19 @@
   [(set_attr "type" "call")
    (set (attr "length")
 ;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
+;;	 linker can use a long-branch stub, then the length is at most
+;;	 8 bytes.
 ;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
+;;	 For long-calls the length will be at most 68 bytes (non-pic)
+;;	 or 84 bytes (pic).  */
 ;;	 Else we have to use a long-call;
       (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
 			(const_int 240000))
-		    (const_int 4)
+		    (const_int 8)
 		    (if_then_else (eq (symbol_ref "flag_pic")
 				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+				  (const_int 68)
+				  (const_int 84))))])
 
 (define_insn "call_value_internal_reg_64bit"
   [(set (match_operand 0 "" "=rf")
@@ -6092,12 +6151,22 @@
 
   /* If we're generating PIC code.  */
   xoperands[0] = operands[1];
-  xoperands[1] = gen_label_rtx ();
+  if (TARGET_SOM || ! TARGET_GAS)
+    xoperands[1] = gen_label_rtx ();
   output_asm_insn (\"{bl|b,l} .+8,%%r1\", xoperands);
-  output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
-			     CODE_LABEL_NUMBER (xoperands[1]));
-  output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
+  if (TARGET_SOM || ! TARGET_GAS)
+    {
+      output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
+      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+				 CODE_LABEL_NUMBER (xoperands[1]));
+      output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
+    }
+  else
+    {
+      output_asm_insn (\"addil L%%$$dyncall-$PIC_pcrel$0+4,%%r1\", xoperands);
+      output_asm_insn (\"ldo R%%$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1\",
+      		       xoperands);
+    }
   output_asm_insn (\"blr %%r0,%%r2\", xoperands);
   output_asm_insn (\"bv,n %%r0(%%r1)\\n\\tnop\", xoperands);
   return \"\";
@@ -6200,18 +6269,19 @@
   [(set_attr "type" "call")
    (set (attr "length")
 ;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
+;;	 linker can use a long-branch stub, then the length is at most
+;;	 8 bytes.
 ;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
+;;	 For long-calls the length will be at most 68 bytes (non-pic)
+;;	 or 84 bytes (pic).  */
 ;;	 Else we have to use a long-call;
       (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
 			(const_int 240000))
-		    (const_int 4)
+		    (const_int 8)
 		    (if_then_else (eq (symbol_ref "flag_pic")
 				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+				  (const_int 68)
+				  (const_int 84))))])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "" "")
@@ -6258,18 +6328,19 @@
   [(set_attr "type" "call")
    (set (attr "length")
 ;;       If we're sure that we can either reach the target or that the
-;;	 linker can use a long-branch stub, then the length is 4 bytes.
+;;	 linker can use a long-branch stub, then the length is at most
+;;	 8 bytes.
 ;;
-;;	 For long-calls the length will be either 52 bytes (non-pic)
-;;	 or 68 bytes (pic).  */
+;;	 For long-calls the length will be at most 68 bytes (non-pic)
+;;	 or 84 bytes (pic).  */
 ;;	 Else we have to use a long-call;
       (if_then_else (lt (plus (symbol_ref "total_code_bytes") (pc))
 			(const_int 240000))
-		    (const_int 4)
+		    (const_int 8)
 		    (if_then_else (eq (symbol_ref "flag_pic")
 				      (const_int 0))
-				  (const_int 52)
-				  (const_int 68))))])
+				  (const_int 68)
+				  (const_int 84))))])
 
 (define_insn "nop"
   [(const_int 0)]
@@ -7216,16 +7287,12 @@
 ;; restore the PIC register.
 (define_expand "exception_receiver"
   [(const_int 4)]
-  "!TARGET_PORTABLE_RUNTIME && flag_pic"
+  "flag_pic"
   "
 {
-  /* Load the PIC register from the stack slot (in our caller's
-     frame).  */
-  emit_move_insn (pic_offset_table_rtx,
-		  gen_rtx_MEM (SImode,
-			       plus_constant (stack_pointer_rtx, -32)));
-  emit_insn (gen_rtx (USE, VOIDmode, pic_offset_table_rtx));
-  emit_insn (gen_blockage ());
+  /* Restore the PIC register using hppa_pic_save_rtx ().  The
+     PIC register is not saved in the frame in 64-bit ABI.  */
+  emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
   DONE;
 }")
 

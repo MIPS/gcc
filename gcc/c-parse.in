@@ -43,7 +43,7 @@ end ifc
 #include "cpplib.h"
 #include "intl.h"
 #include "timevar.h"
-#include "c-lex.h"
+#include "c-lex.h"		/* Gets YYDEBUG macro.  */
 #include "c-tree.h"
 #include "c-pragma.h"
 #include "flags.h"
@@ -62,8 +62,48 @@ end ifobjc
 /* Like YYERROR but do call yyerror.  */
 #define YYERROR1 { yyerror ("syntax error"); YYERROR; }
 
-/* Cause the "yydebug" variable to be defined.  */
-#define YYDEBUG 1
+/* Like the default stack expander, except (1) use realloc when possible,
+   (2) impose no hard maxiumum on stack size, (3) REALLY do not use alloca.
+
+   Irritatingly, YYSTYPE is defined after this %{ %} block, so we cannot
+   give malloced_yyvs its proper type.  This is ok since all we need from
+   it is to be able to free it.  */
+
+static short *malloced_yyss;
+static void *malloced_yyvs;
+
+#define yyoverflow(MSG, SS, SSSIZE, VS, VSSIZE, YYSSZ)			\
+do {									\
+  size_t newsize;							\
+  short *newss;								\
+  YYSTYPE *newvs;							\
+  newsize = *(YYSSZ) *= 2;						\
+  if (malloced_yyss)							\
+    {									\
+      newss = (short *)							\
+	really_call_realloc (*(SS), newsize * sizeof (short));		\
+      newvs = (YYSTYPE *)						\
+	really_call_realloc (*(VS), newsize * sizeof (YYSTYPE));	\
+    }									\
+  else									\
+    {									\
+      newss = (short *) really_call_malloc (newsize * sizeof (short));	\
+      newvs = (YYSTYPE *) really_call_malloc (newsize * sizeof (YYSTYPE)); \
+      if (newss)							\
+        memcpy (newss, *(SS), (SSSIZE));				\
+      if (newvs)							\
+        memcpy (newvs, *(VS), (VSSIZE));				\
+    }									\
+  if (!newss || !newvs)							\
+    {									\
+      yyerror (MSG);							\
+      return 2;								\
+    }									\
+  *(SS) = newss;							\
+  *(VS) = newvs;							\
+  malloced_yyss = newss;						\
+  malloced_yyvs = (void *) newvs;					\
+} while (0)
 %}
 
 %start program
@@ -149,7 +189,7 @@ end ifobjc
 %type <ttype> BREAK CONTINUE RETURN GOTO ASM_KEYWORD SIZEOF TYPEOF ALIGNOF
 
 %type <ttype> identifier IDENTIFIER TYPENAME CONSTANT expr nonnull_exprlist exprlist
-%type <ttype> expr_no_commas cast_expr unary_expr primary string STRING
+%type <ttype> expr_no_commas cast_expr unary_expr primary STRING
 %type <ttype> declspecs_nosc_nots_nosa_noea declspecs_nosc_nots_nosa_ea
 %type <ttype> declspecs_nosc_nots_sa_noea declspecs_nosc_nots_sa_ea
 %type <ttype> declspecs_nosc_ts_nosa_noea declspecs_nosc_ts_nosa_ea
@@ -297,6 +337,7 @@ end ifc
 static void yyprint	  PARAMS ((FILE *, int, YYSTYPE));
 static void yyerror	  PARAMS ((const char *));
 static int yylexname	  PARAMS ((void));
+static int yylexstring	  PARAMS ((void));
 static inline int _yylex  PARAMS ((void));
 static int  yylex	  PARAMS ((void));
 static void init_reswords PARAMS ((void));
@@ -566,19 +607,22 @@ expr_no_commas:
 	| expr_no_commas '^' expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
 	| expr_no_commas ANDAND
-		{ $1 = truthvalue_conversion (default_conversion ($1));
+		{ $1 = c_common_truthvalue_conversion
+		    (default_conversion ($1));
 		  skip_evaluation += $1 == boolean_false_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == boolean_false_node;
 		  $$ = parser_build_binary_op (TRUTH_ANDIF_EXPR, $1, $4); }
 	| expr_no_commas OROR
-		{ $1 = truthvalue_conversion (default_conversion ($1));
+		{ $1 = c_common_truthvalue_conversion
+		    (default_conversion ($1));
 		  skip_evaluation += $1 == boolean_true_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == boolean_true_node;
 		  $$ = parser_build_binary_op (TRUTH_ORIF_EXPR, $1, $4); }
 	| expr_no_commas '?'
-		{ $1 = truthvalue_conversion (default_conversion ($1));
+		{ $1 = c_common_truthvalue_conversion
+		    (default_conversion ($1));
 		  skip_evaluation += $1 == boolean_false_node; }
           expr ':'
 		{ skip_evaluation += (($1 == boolean_true_node)
@@ -591,7 +635,8 @@ expr_no_commas:
 		    pedwarn ("ISO C forbids omitting the middle term of a ?: expression");
 		  /* Make sure first operand is calculated only once.  */
 		  $<ttype>2 = save_expr ($1);
-		  $1 = truthvalue_conversion (default_conversion ($<ttype>2));
+		  $1 = c_common_truthvalue_conversion
+		    (default_conversion ($<ttype>2));
 		  skip_evaluation += $1 == boolean_true_node; }
 	  ':' expr_no_commas
 		{ skip_evaluation -= $1 == boolean_true_node;
@@ -606,7 +651,8 @@ expr_no_commas:
 	| expr_no_commas ASSIGN expr_no_commas
 		{ char class;
 		  $$ = build_modify_expr ($1, $2, $3);
-		  /* This inhibits warnings in truthvalue_conversion.  */
+		  /* This inhibits warnings in
+		     c_common_truthvalue_conversion.  */
 		  class = TREE_CODE_CLASS (TREE_CODE ($$));
 		  if (IS_EXPR_CODE_CLASS (class))
 		    C_SET_EXP_ORIGINAL_CODE ($$, ERROR_MARK);
@@ -621,8 +667,8 @@ primary:
 		  $$ = build_external_ref ($1, yychar == '(');
 		}
 	| CONSTANT
-	| string
-		{ $$ = combine_strings ($1); }
+	| STRING
+		{ $$ = fix_string_type ($$); }
 	| VAR_FUNC_NAME
 		{ $$ = fname_decl (C_RID_CODE ($$), $$); }
 	| '(' typename ')' '{' 
@@ -731,29 +777,6 @@ ifobjc
 	| objc_string
 		{ $$ = build_objc_string_object ($1); }
 end ifobjc
-	;
-
-/* Produces a STRING_CST with perhaps more STRING_CSTs chained onto it.  */
-string:
-	  STRING
-	| string STRING
-		{
-ifc
-                  static int last_lineno = 0;
-                  static const char *last_input_filename = 0;
-end ifc
-                  $$ = chainon ($1, $2);
-ifc
-		  if (warn_traditional && !in_system_header
-		      && (lineno != last_lineno || !last_input_filename ||
-			  strcmp (last_input_filename, input_filename)))
-		    {
-		      warning ("traditional C rejects string concatenation");
-		      last_lineno = lineno;
-		      last_input_filename = input_filename;
-		    }
-end ifc
-		}
 	;
 
 ifobjc
@@ -1396,10 +1419,8 @@ notype_initdecls:
 maybeasm:
 	  /* empty */
 		{ $$ = NULL_TREE; }
-	| ASM_KEYWORD '(' string ')'
-		{ if (TREE_CHAIN ($3)) $3 = combine_strings ($3);
-		  $$ = $3;
-		}
+	| ASM_KEYWORD '(' STRING ')'
+		{ $$ = $3; }
 	;
 
 initdcl:
@@ -2058,6 +2079,7 @@ end ifobjc
 
 poplevel:  /* empty */
                 { $$ = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0); }
+        ;
 
 /* Start and end blocks created for the new scopes of C99.  */
 c99_block_start: /* empty */
@@ -2128,7 +2150,8 @@ compstmt_or_error:
 	;
 
 compstmt_start: '{' { compstmt_count++;
-                      $$ = c_begin_compound_stmt (); } 
+                      $$ = c_begin_compound_stmt (); }
+        ;
 
 compstmt_nostart: '}'
 		{ $$ = convert (void_type_node, integer_zero_node); }
@@ -2160,6 +2183,7 @@ compstmt_primary_start:
 		  compstmt_count++;
 		  $$ = add_stmt (build_stmt (COMPOUND_STMT, last_tree));
 		}
+        ;
 
 compstmt: compstmt_start compstmt_nostart
 		{ RECHAIN_STMTS ($1, COMPOUND_BODY ($1)); 
@@ -2189,7 +2213,7 @@ if_prefix:
           IF
                 { $<ttype>$ = c_begin_if_stmt (); }
             '(' expr ')'
-		{ c_expand_start_cond (truthvalue_conversion ($4), 
+		{ c_expand_start_cond (c_common_truthvalue_conversion ($4), 
 				       compstmt_count,$<ttype>2);
 		  $<itype>$ = stmt_count;
 		  if_stmt_file = $<filename>-2;
@@ -2301,15 +2325,15 @@ select_or_iter_stmt:
                 { stmt_count++; 
 		  $<ttype>$ = c_begin_while_stmt (); }
 	  '(' expr ')'
-                { $4 = truthvalue_conversion ($4);
-		  c_finish_while_stmt_cond (truthvalue_conversion ($4),
-					    $<ttype>2);
+                { $4 = c_common_truthvalue_conversion ($4);
+		  c_finish_while_stmt_cond
+		    (c_common_truthvalue_conversion ($4), $<ttype>2);
 		  $<ttype>$ = add_stmt ($<ttype>2); }
 	  c99_block_lineno_labeled_stmt
 		{ RECHAIN_STMTS ($<ttype>6, WHILE_BODY ($<ttype>6)); }
 	| do_stmt_start
 	  '(' expr ')' ';'
-                { DO_COND ($1) = truthvalue_conversion ($3); }
+                { DO_COND ($1) = c_common_truthvalue_conversion ($3); }
 	| do_stmt_start error
  		{ }
 	| FOR
@@ -2321,7 +2345,8 @@ select_or_iter_stmt:
 		  RECHAIN_STMTS ($<ttype>2, FOR_INIT_STMT ($<ttype>2)); }
 	  xexpr ';'
                 { if ($6) 
-		    FOR_COND ($<ttype>2) = truthvalue_conversion ($6); }
+		    FOR_COND ($<ttype>2)
+		      = c_common_truthvalue_conversion ($6); }
 	  xexpr ')'
 		{ FOR_EXPR ($<ttype>2) = $9; }
 	  c99_block_lineno_labeled_stmt
@@ -2461,14 +2486,16 @@ asm_operand:
 	  STRING '(' expr ')'
 		{ $$ = build_tree_list (build_tree_list (NULL_TREE, $1), $3); }
 	| '[' identifier ']' STRING '(' expr ')'
-		{ $$ = build_tree_list (build_tree_list ($2, $4), $6); }
+		{ $2 = build_string (IDENTIFIER_LENGTH ($2),
+				     IDENTIFIER_POINTER ($2));
+		  $$ = build_tree_list (build_tree_list ($2, $4), $6); }
 	;
 
 asm_clobbers:
-	  string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($1), NULL_TREE); }
-	| asm_clobbers ',' string
-		{ $$ = tree_cons (NULL_TREE, combine_strings ($3), $1); }
+	  STRING
+		{ $$ = tree_cons (NULL_TREE, $1, NULL_TREE); }
+	| asm_clobbers ',' STRING
+		{ $$ = tree_cons (NULL_TREE, $3, $1); }
 	;
 
 /* This is what appears inside the parens in a function declarator.
@@ -3660,6 +3687,59 @@ end ifobjc
   return IDENTIFIER;
 }
 
+/* Concatenate strings before returning them to the parser.  This isn't quite
+   as good as having it done in the lexer, but it's better than nothing.  */
+
+static int
+yylexstring ()
+{
+  enum cpp_ttype next_type;
+  tree orig = yylval.ttype;
+
+  next_type = c_lex (&yylval.ttype);
+  if (next_type == CPP_STRING
+      || next_type == CPP_WSTRING
+      || (next_type == CPP_NAME && yylexname () == STRING))
+    {
+      varray_type strings;
+
+ifc
+      static int last_lineno = 0;
+      static const char *last_input_filename = 0;
+      if (warn_traditional && !in_system_header
+	  && (lineno != last_lineno || !last_input_filename ||
+	      strcmp (last_input_filename, input_filename)))
+	{
+	  warning ("traditional C rejects string concatenation");
+	  last_lineno = lineno;
+	  last_input_filename = input_filename;
+	}
+end ifc
+
+      VARRAY_TREE_INIT (strings, 32, "strings");
+      VARRAY_PUSH_TREE (strings, orig);
+
+      do
+	{
+	  VARRAY_PUSH_TREE (strings, yylval.ttype);
+	  next_type = c_lex (&yylval.ttype);
+	}
+      while (next_type == CPP_STRING
+	     || next_type == CPP_WSTRING
+	     || (next_type == CPP_NAME && yylexname () == STRING));
+
+      yylval.ttype = combine_strings (strings);
+
+      VARRAY_FREE (strings);
+    }
+  else
+    yylval.ttype = orig;
+
+  /* We will have always read one token too many.  */
+  _cpp_backup_tokens (parse_in, 1);
+
+  return STRING;
+}
 
 static inline int
 _yylex ()
@@ -3726,7 +3806,13 @@ _yylex ()
       return 0;
 
     case CPP_NAME:
-      return yylexname ();
+      {
+	int ret = yylexname ();
+	if (ret == STRING)
+	  return yylexstring ();
+	else
+	  return ret;
+      }
 
     case CPP_NUMBER:
     case CPP_CHAR:
@@ -3735,7 +3821,7 @@ _yylex ()
 
     case CPP_STRING:
     case CPP_WSTRING:
-      return STRING;
+      return yylexstring ();
       
       /* This token is Objective-C specific.  It gives the next token
 	 special significance.  */
@@ -3789,21 +3875,6 @@ yylex()
   r = _yylex();
   timevar_pop (TV_LEX);
   return r;
-}
-
-/* Sets the value of the 'yydebug' variable to VALUE.
-   This is a function so we don't have to have YYDEBUG defined
-   in order to build the compiler.  */
-
-void
-c_set_yydebug (value)
-     int value;
-{
-#if YYDEBUG != 0
-  yydebug = value;
-#else
-  warning ("YYDEBUG not defined");
-#endif
 }
 
 /* Function used when yydebug is set, to print a token in more detail.  */
@@ -3879,4 +3950,16 @@ make_pointer_declarator (type_quals_attrs, target)
   if (attrs != NULL_TREE)
     itarget = tree_cons (attrs, target, NULL_TREE);
   return build1 (INDIRECT_REF, quals, itarget);
+}
+
+/* Free malloced parser stacks if necessary.  */
+
+void
+free_parser_stacks ()
+{
+  if (malloced_yyss)
+    {
+      free (malloced_yyss);
+      free (malloced_yyvs);
+    }
 }

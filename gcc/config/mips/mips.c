@@ -90,6 +90,10 @@ struct mips_arg_info;
 static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
 static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
+int coprocessor_operand 			PARAMS ((rtx,
+							enum machine_mode));
+int coprocessor2_operand 			PARAMS ((rtx,
+							enum machine_mode));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
 static void block_move_loop			PARAMS ((rtx, rtx,
 							 unsigned int,
@@ -139,6 +143,7 @@ static hashval_t iris_section_align_entry_hash	PARAMS ((const PTR));
 static int iris6_section_align_1		PARAMS ((void **, void *));
 #endif
 static int mips_adjust_cost			PARAMS ((rtx, rtx, rtx, int));
+static int mips_issue_rate			PARAMS ((void));
 
 static void mips_init_machine_status		PARAMS ((struct function *));
 static void mips_free_machine_status		PARAMS ((struct function *));
@@ -383,13 +388,25 @@ char mips_reg_names[][8] =
  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
  "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
- "$fcc5","$fcc6","$fcc7","$rap"
+ "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+ "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
+ "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
+ "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
+ "$c0r24","$c0r25","$c0r26","$c0r27","$c0r28","$c0r29","$c0r30","$c0r31",
+ "$c2r0", "$c2r1", "$c2r2", "$c2r3", "$c2r4", "$c2r5", "$c2r6", "$c2r7",
+ "$c2r8", "$c2r9", "$c2r10","$c2r11","$c2r12","$c2r13","$c2r14","$c2r15",
+ "$c2r16","$c2r17","$c2r18","$c2r19","$c2r20","$c2r21","$c2r22","$c2r23",
+ "$c2r24","$c2r25","$c2r26","$c2r27","$c2r28","$c2r29","$c2r30","$c2r31",
+ "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",
+ "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15",
+ "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23",
+ "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31"
 };
 
 /* Mips software names for the registers, used to overwrite the
    mips_reg_names array.  */
 
-static const char mips_sw_reg_names[][8] =
+char mips_sw_reg_names[][8] =
 {
   "$zero","$at",  "$v0",  "$v1",  "$a0",  "$a1",  "$a2",  "$a3",
   "$t0",  "$t1",  "$t2",  "$t3",  "$t4",  "$t5",  "$t6",  "$t7",
@@ -400,7 +417,19 @@ static const char mips_sw_reg_names[][8] =
   "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
   "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
   "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
-  "$fcc5","$fcc6","$fcc7","$rap"
+  "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+  "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
+  "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
+  "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
+  "$c0r24","$c0r25","$c0r26","$c0r27","$c0r28","$c0r29","$c0r30","$c0r31",
+  "$c2r0", "$c2r1", "$c2r2", "$c2r3", "$c2r4", "$c2r5", "$c2r6", "$c2r7",
+  "$c2r8", "$c2r9", "$c2r10","$c2r11","$c2r12","$c2r13","$c2r14","$c2r15",
+  "$c2r16","$c2r17","$c2r18","$c2r19","$c2r20","$c2r21","$c2r22","$c2r23",
+  "$c2r24","$c2r25","$c2r26","$c2r27","$c2r28","$c2r29","$c2r30","$c2r31",
+  "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",
+  "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15",
+  "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23",
+  "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31"
 };
 
 /* Map hard register number to register class */
@@ -424,7 +453,32 @@ const enum reg_class mips_regno_to_class[] =
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   HI_REG,	LO_REG,		HILO_REG,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	ST_REGS,
-  ST_REGS,	ST_REGS,	ST_REGS,	GR_REGS
+  ST_REGS,	ST_REGS,	ST_REGS,	GR_REGS,
+  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS
 };
 
 /* Map register constraint character to register class.  */
@@ -518,6 +572,9 @@ enum reg_class mips_char_to_class[256] =
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
+
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE mips_issue_rate
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1284,6 +1341,29 @@ consttable_operand (op, mode)
   return CONSTANT_P (op);
 }
 
+/* Coprocessor operand; return true if rtx is a REG and refers to a
+   coprocessor.  */
+
+int
+coprocessor_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == REG
+	  && COP0_REG_FIRST <= REGNO (op)
+	  && REGNO (op) <= COP3_REG_LAST);
+}
+
+int
+coprocessor2_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == REG
+	  && COP2_REG_FIRST <= REGNO (op)
+	  && REGNO (op) <= COP2_REG_LAST);
+}
+
 /* Return nonzero if we split the address into high and low parts.  */
 
 /* ??? We should also handle reg+array somewhere.  We get four
@@ -1900,7 +1980,7 @@ embedded_pic_fnaddr_reg ()
     }
 
   return cfun->machine->embedded_pic_fnaddr_rtx;
-}  
+}
 
 /* Return RTL for the offset from the current function to the argument.
    X is the symbol whose offset from the current function we want.  */
@@ -1995,7 +2075,13 @@ mips_move_1word (operands, insn, unsignedp)
 		  delay = DELAY_LOAD;
 		  if (FP_REG_P (regno1))
 		    ret = "mfc1\t%0,%1";
+		  else if (ALL_COP_REG_P (regno1))
+		    {
+		      static char retval[] = "mfc_\t%0,%1";
 
+		      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+		      ret = retval;
+		    }
 		  else if (regno1 == FPSW_REGNUM && ! ISA_HAS_8CC)
 		    ret = "cfc1\t%0,$31";
 		}
@@ -2029,6 +2115,21 @@ mips_move_1word (operands, insn, unsignedp)
 		{
 		  delay = DELAY_LOAD;
 		  ret = "ctc1\t%0,$31";
+		}
+	    }
+	  else if (ALL_COP_REG_P (regno0))
+	    {
+	      if (GP_REG_P (regno1))
+		{
+		  static char retval[] = "mtc_\t%1,%0";
+		  char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+		  if (cop == '0')
+		    abort_with_insn (insn,
+				     "mtc0 not supported; it disturbs virtual address translation");
+		  delay = DELAY_LOAD;
+		  retval[3] = cop;
+		  ret = retval;
 		}
 	    }
 	}
@@ -2068,6 +2169,19 @@ mips_move_1word (operands, insn, unsignedp)
 
 	  else if (FP_REG_P (regno0) && (mode == SImode || mode == SFmode))
 	    ret = "l.s\t%0,%1";
+
+	  else if (ALL_COP_REG_P (regno0))
+	    {
+	      static char retval[] = "lwc_\t%0,%1";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "loads from memory to COP0 are illegal");
+	      delay = DELAY_LOAD;
+	      retval[3] = cop;
+	      ret = retval;
+	    }
 
 	  if (ret != (char *)0 && MEM_VOLATILE_P (op1))
 	    {
@@ -2267,6 +2381,13 @@ mips_move_1word (operands, insn, unsignedp)
 
 	  else if (FP_REG_P (regno1) && (mode == SImode || mode == SFmode))
 	    ret = "s.s\t%1,%0";
+	  else if (ALL_COP_REG_P (regno1))
+	    {
+	      static char retval[] = "swc_\t%1,%0";
+
+	      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
 	}
 
       else if (code1 == CONST_INT && INTVAL (op1) == 0)
@@ -2453,7 +2574,28 @@ mips_move_2words (operands, insn)
 	      else
 		ret = "mfhi\t%M0\n\tmflo\t%L0";
 	    }
+	  else if (GP_REG_P (regno0) && ALL_COP_REG_P (regno1)
+		   && TARGET_64BIT)
+	    {
+	      static char retval[] = "dmfc_\t%0,%1";
 
+	      delay = DELAY_LOAD;
+	      retval[4] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
+	  else if (ALL_COP_REG_P (regno0) && GP_REG_P (regno1)
+		   && TARGET_64BIT)
+	    {
+	      static char retval[] = "dmtc_\t%1,%0";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "dmtc0 not supported; it disturbs virtual address translation");
+	      delay = DELAY_LOAD;
+	      retval[4] = cop;
+	      ret = retval;
+	    }
 	  else if (TARGET_64BIT)
 	    ret = "move\t%0,%1";
 
@@ -2634,6 +2776,19 @@ mips_move_2words (operands, insn)
 	  if (FP_REG_P (regno0))
 	    ret = "l.d\t%0,%1";
 
+	  else if (ALL_COP_REG_P (regno0) && TARGET_64BIT)
+	    {
+	      static char retval[] = "ldc_\t%0,%1";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "loads from memory to COP0 are illegal");
+	      delay = DELAY_LOAD;
+	      retval[3] = cop;
+	      ret = retval;
+	    }
+
 	  else if (TARGET_64BIT)
 	    {
 
@@ -2727,6 +2882,13 @@ mips_move_2words (operands, insn)
 	  if (FP_REG_P (regno1))
 	    ret = "s.d\t%1,%0";
 
+	  else if (ALL_COP_REG_P (regno1) && TARGET_64BIT)
+	    {
+	      static char retval[] = "sdc_\t%1,%0";
+
+	      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
 	  else if (TARGET_64BIT)
 	    {
 
@@ -4023,8 +4185,8 @@ mips_arg_info (cum, mode, type, named, info)
      The EABI allocates the floating-point registers separately,
      but the other ABIs allocate them like integer registers.  */
   info->reg_offset = (mips_abi == ABI_EABI && info->fpr_p
-		      ? cum->fp_regs
-		      : cum->gp_regs);
+		      ? cum->num_fprs
+		      : cum->num_gprs);
 
   if (even_reg_p)
     info->reg_offset += info->reg_offset & 1;
@@ -4102,9 +4264,9 @@ function_arg_advance (cum, mode, type, named)
     cum->fp_code += (mode == SFmode ? 1 : 2) << ((cum->arg_number - 1) * 2);
 
   if (mips_abi != ABI_EABI || !info.fpr_p)
-    cum->gp_regs = info.reg_offset + info.reg_words;
+    cum->num_gprs = info.reg_offset + info.reg_words;
   else if (info.reg_words > 0)
-    cum->fp_regs += FP_INC;
+    cum->num_fprs += FP_INC;
 
   if (info.stack_words > 0)
     cum->stack_words = info.stack_offset + info.stack_words;
@@ -4279,9 +4441,9 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
     FUNCTION_ARG_ADVANCE (local_cum, mode, type, 1);
 
   /* Found out how many registers we need to save.  */
-  gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.gp_regs;
+  gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.num_gprs;
   fp_saved = (EABI_FLOAT_VARARGS_P
-	      ? MAX_ARGS_IN_REGISTERS - local_cum.fp_regs
+	      ? MAX_ARGS_IN_REGISTERS - local_cum.num_fprs
 	      : 0);
 
   if (!no_rtl)
@@ -4302,7 +4464,7 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
 	  if (mips_abi != ABI_EABI && BYTES_BIG_ENDIAN)
 	    MEM_SET_IN_STRUCT_P (mem, 1);
 
-	  move_block_from_reg (local_cum.gp_regs + GP_ARG_FIRST, mem,
+	  move_block_from_reg (local_cum.num_gprs + GP_ARG_FIRST, mem,
 			       gp_saved, gp_saved * UNITS_PER_WORD);
 	}
       if (fp_saved > 0)
@@ -4321,7 +4483,7 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
 
 	  mode = TARGET_SINGLE_FLOAT ? SFmode : DFmode;
 
-	  for (i = local_cum.fp_regs; i < MAX_ARGS_IN_REGISTERS; i += FP_INC)
+	  for (i = local_cum.num_fprs; i < MAX_ARGS_IN_REGISTERS; i += FP_INC)
 	    {
 	      rtx ptr = plus_constant (virtual_incoming_args_rtx, off);
 	      emit_move_insn (gen_rtx_MEM (mode, ptr),
@@ -4412,7 +4574,7 @@ mips_va_start (stdarg_p, valist, nextarg)
       int gpr_save_area_size;
 
       gpr_save_area_size
-	= (MAX_ARGS_IN_REGISTERS - cum->gp_regs) * UNITS_PER_WORD;
+	= (MAX_ARGS_IN_REGISTERS - cum->num_gprs) * UNITS_PER_WORD;
 
       if (EABI_FLOAT_VARARGS_P)
 	{
@@ -4470,7 +4632,7 @@ mips_va_start (stdarg_p, valist, nextarg)
 	  /* Likewise emit code to initialize FOFF, the offset from FTOP
 	     of the next FPR argument.  */
 	  fpr_save_area_size
-	    = (MAX_ARGS_IN_REGISTERS - cum->fp_regs) * UNITS_PER_FPREG;
+	    = (MAX_ARGS_IN_REGISTERS - cum->num_fprs) * UNITS_PER_FPREG;
 	  t = build (MODIFY_EXPR, TREE_TYPE (foff), foff,
 		     build_int_2 (fpr_save_area_size, 0));
 	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -4502,7 +4664,9 @@ mips_va_start (stdarg_p, valist, nextarg)
 	  if (mips_abi == ABI_N32
 	      || mips_abi == ABI_64
 	      || mips_abi == ABI_MEABI)
- 	    ofs = (cum->gp_regs < MAX_ARGS_IN_REGISTERS ? 0 : -UNITS_PER_WORD);
+ 	    ofs = (cum->num_gprs < MAX_ARGS_IN_REGISTERS
+		   ? 0
+		   : -UNITS_PER_WORD);
 	  else
 	    ofs = -UNITS_PER_WORD;
 	}
@@ -4580,6 +4744,7 @@ mips_va_arg (valist, type)
 	  tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff;
 	  tree ovfl, top, off;
 	  rtx lab_over = NULL_RTX, lab_false;
+	  HOST_WIDE_INT osize;
 
 	  f_ovfl = TYPE_FIELDS (va_list_type_node);
 	  f_gtop = TREE_CHAIN (f_ovfl);
@@ -4594,7 +4759,11 @@ mips_va_arg (valist, type)
 		 TOP be the top of the register save area;
 		 OFF be the offset from TOP of the next register;
 		 ADDR_RTX be the address of the argument; and
-		 RSIZE be the number of bytes used to store the argument.
+		 RSIZE be the number of bytes used to store the argument
+		   when it's in the register save area
+		 OSIZE be the number of bytes used to store it when it's
+		   in the stack overflow area
+		 PADDING be (BYTES_BIG_ENDIAN ? OSIZE - RSIZE : 0)
 
 	     The code we want is:
 
@@ -4606,10 +4775,10 @@ mips_va_arg (valist, type)
 		  6:   }
 		  7: else
 		  8:   {
-		  9:	 ovfl += ((intptr_t) ovfl + rsize - 1) & -rsize;
-		 10:	 addr_rtx = ovfl;
-		 11:	 ovfl += rsize;
-		 12:   }
+		  9:	 ovfl += ((intptr_t) ovfl + osize - 1) & -osize;
+		 10:	 addr_rtx = ovfl + PADDING;
+		 11:	 ovfl += osize;
+		 14:   }
 
 	     [1] and [9] can sometimes be optimized away.  */
 
@@ -4641,6 +4810,13 @@ mips_va_arg (valist, type)
 		  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 		}
 	    }
+	  /* Every overflow argument must take up at least UNITS_PER_WORD
+	     bytes (= PARM_BOUNDARY bits).  RSIZE can sometimes be smaller
+	     than that, such as in the combination -mgp64 -msingle-float
+	     -fshort-double.  Doubles passed in registers will then take
+	     up UNITS_PER_FPVALUE bytes, but those passed on the stack
+	     take up UNITS_PER_WORD bytes.  */
+	  osize = MAX (rsize, UNITS_PER_WORD);
 
 	  /* [2] Emit code to branch if off == 0.  */
 	  r = expand_expr (off, NULL_RTX, TYPE_MODE (TREE_TYPE (off)),
@@ -4666,21 +4842,25 @@ mips_va_arg (valist, type)
 	  emit_barrier ();
 	  emit_label (lab_false);
 
-	  if (rsize > UNITS_PER_WORD)
+	  if (osize > UNITS_PER_WORD)
 	    {
-	      /* [9] Emit: ovfl += ((intptr_t) ovfl + rsize - 1) & -rsize.  */
+	      /* [9] Emit: ovfl += ((intptr_t) ovfl + osize - 1) & -osize.  */
 	      t = build (PLUS_EXPR, TREE_TYPE (ovfl), ovfl,
-			 build_int_2 (rsize - 1, 0));
+			 build_int_2 (osize - 1, 0));
 	      t = build (BIT_AND_EXPR, TREE_TYPE (ovfl), t,
-			 build_int_2 (-rsize, -1));
+			 build_int_2 (-osize, -1));
 	      t = build (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
 	      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	    }
 
 	  /* [10, 11].	Emit code to store ovfl in addr_rtx, then
-	     post-increment ovfl by rsize.  */
+	     post-increment ovfl by osize.  On big-endian machines,
+	     the argument has OSIZE - RSIZE bytes of leading padding.  */
 	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (ovfl), ovfl,
-		     size_int (rsize));
+		     size_int (osize));
+	  if (BYTES_BIG_ENDIAN && osize > rsize)
+	    t = build (PLUS_EXPR, TREE_TYPE (t), t,
+		       build_int_2 (osize - rsize, 0));
 	  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
 	  if (r != addr_rtx)
 	    emit_move_insn (addr_rtx, r);
@@ -4842,7 +5022,7 @@ override_options ()
 	{
 	  if (! ISA_HAS_64BIT_REGS)
 	    mips_abi = ABI_32;
-	  else
+	  else if (mips_abi != ABI_N32)
 	    mips_abi = ABI_64;
 	}
     }
@@ -5154,6 +5334,9 @@ override_options ()
   mips_char_to_class['b'] = ALL_REGS;
   mips_char_to_class['y'] = GR_REGS;
   mips_char_to_class['z'] = ST_REGS;
+  mips_char_to_class['B'] = COP0_REGS;
+  mips_char_to_class['C'] = COP2_REGS;
+  mips_char_to_class['D'] = COP3_REGS;
 
   /* Set up array to map GCC register number to debug register number.
      Ignore the special purpose register numbers.  */
@@ -5219,6 +5402,8 @@ override_options ()
 			|| (regno == MD_REG_FIRST
 			    && size == 2 * UNITS_PER_WORD)));
 
+	  else if (ALL_COP_REG_P (regno))
+	    temp = (class == MODE_INT && size <= UNITS_PER_WORD);
 	  else
 	    temp = 0;
 
@@ -8197,6 +8382,20 @@ mips_secondary_reload_class (class, mode, x, in_p)
 
   return NO_REGS;
 }
+
+/* This function returns the maximum number of consecutive registers
+   needed to represent mode MODE in registers of class CLASS.  */
+
+int
+mips_class_max_nregs (class, mode)
+     enum reg_class class;
+     enum machine_mode mode;
+{
+  if (class == FP_REGS)
+    return FP_INC;
+  else
+    return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+}
 
 /* For each mips16 function which refers to GP relative symbols, we
    use a pseudo register, initialized at the start of the function, to
@@ -9511,6 +9710,106 @@ highpart_shift_operator (x, mode)
 	  || code == ROTATE);
 }
 
+/* Return a number assessing the cost of moving a register in class
+   FROM to class TO.  The classes are expressed using the enumeration
+   values such as `GENERAL_REGS'.  A value of 2 is the default; other
+   values are interpreted relative to that.
+
+   It is not required that the cost always equal 2 when FROM is the
+   same as TO; on some machines it is expensive to move between
+   registers if they are not general registers.
+
+   If reload sees an insn consisting of a single `set' between two
+   hard registers, and if `REGISTER_MOVE_COST' applied to their
+   classes returns a value of 2, reload does not check to ensure that
+   the constraints of the insn are met.  Setting a cost of other than
+   2 will allow reload to verify that the constraints are met.  You
+   should do this if the `movM' pattern's constraints do not allow
+   such copying.
+
+   ??? We make make the cost of moving from HI/LO/HILO/MD into general
+   registers the same as for one of moving general registers to
+   HI/LO/HILO/MD for TARGET_MIPS16 in order to prevent allocating a
+   pseudo to HI/LO/HILO/MD.  This might hurt optimizations though, it
+   isn't clear if it is wise.  And it might not work in all cases.  We
+   could solve the DImode LO reg problem by using a multiply, just
+   like reload_{in,out}si.  We could solve the SImode/HImode HI reg
+   problem by using divide instructions.  divu puts the remainder in
+   the HI reg, so doing a divide by -1 will move the value in the HI
+   reg for all values except -1.  We could handle that case by using a
+   signed divide, e.g.  -1 / 2 (or maybe 1 / -2?).  We'd have to emit
+   a compare/branch to test the input value to see which instruction
+   we need to use.  This gets pretty messy, but it is feasible.  */
+
+int
+mips_register_move_cost (mode, to, from)
+     enum machine_mode mode;
+     enum reg_class to, from;
+{
+  if (from == M16_REGS && GR_REG_CLASS_P (to))
+    return 2;
+  else if (from == M16_NA_REGS && GR_REG_CLASS_P (to))
+    return 2;
+  else if (GR_REG_CLASS_P (from))
+    {
+      if (to == M16_REGS)
+	return 2;
+      else if (to == M16_NA_REGS)
+	return 2;
+      else if (GR_REG_CLASS_P (to))
+	{
+	  if (TARGET_MIPS16)
+	    return 4;
+	  else
+	    return 2;
+	}
+      else if (to == FP_REGS)
+	return 4;
+      else if (to == HI_REG || to == LO_REG || to == MD_REGS
+	       || to == HILO_REG)
+	{
+	  if (TARGET_MIPS16)
+	    return 12;
+	  else
+	    return 6;
+	}
+      else if (COP_REG_CLASS_P (to))
+	{
+	  return 5;
+	}
+    }  /* GR_REG_CLASS_P (from) */
+  else if (from == FP_REGS)
+    {
+      if (GR_REG_CLASS_P (to))
+	return 4;
+      else if (to == FP_REGS)
+	return 2;
+      else if (to == ST_REGS)
+	return 8;
+    }  /* from == FP_REGS */
+  else if (from == HI_REG || from == LO_REG || from == MD_REGS
+	   || from == HILO_REG)
+    {
+      if (GR_REG_CLASS_P (to))
+	{
+	  if (TARGET_MIPS16)
+	    return 12;
+	  else
+	    return 6;
+	}
+    }  /* from == HI_REG, etc. */
+  else if (from == ST_REGS && GR_REG_CLASS_P (to))
+    return 4;
+  else if (COP_REG_CLASS_P (from))
+    {
+      return 5;
+    }  /* COP_REG_CLASS_P (from) */
+
+  /* fallthru */
+
+  return 12;
+}
+
 /* Return the length of INSN.  LENGTH is the initial length computed by
    attributes in the machine-description file.  */
 
@@ -10029,7 +10328,24 @@ mips_return_in_memory (type)
 	    || (int_size_in_bytes (type) == -1));
 }
 
+static int
+mips_issue_rate ()
+{
+  int rate;
 
+  switch (mips_tune)
+    {
+    case PROCESSOR_R3000:
+      rate = 1;
+      break;
+
+    default:
+      rate = 1;
+      break;
+    }
+
+  return rate;
+}
 
 
 #ifdef TARGET_IRIX6

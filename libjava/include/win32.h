@@ -17,13 +17,22 @@ details.  */
 #undef __INSIDE_CYGWIN__
 #include <winsock.h>
 #include <gcj/cni.h>
+#include <java/util/Properties.h>
 
 extern void _Jv_platform_initialize (void);
+extern void _Jv_platform_initProperties (java::util::Properties*);
 extern jlong _Jv_platform_gettimeofday ();
 
-void _Jv_platform_close_on_exec (jint)
+inline void
+_Jv_platform_close_on_exec (jint)
 {
   // Ignore.
 }
+
+#define HAVE_BACKTRACE
+
+/* Store up to SIZE return address of the current program state in
+   ARRAY and return the exact number of values stored.  */
+extern int backtrace (void **__array, int __size);
 
 #endif /* __JV_WIN32_H__ */

@@ -130,14 +130,14 @@ enum { BRACKET = 0, SYSTEM, AFTER };
 
 #define init_trigraph_map()  /* Nothing.  */
 #define TRIGRAPH_MAP \
-__extension__ const U_CHAR _cpp_trigraph_map[UCHAR_MAX + 1] = {
+__extension__ const uchar _cpp_trigraph_map[UCHAR_MAX + 1] = {
 
 #define END };
 #define s(p, v) [p] = v,
 
 #else
 
-#define TRIGRAPH_MAP U_CHAR _cpp_trigraph_map[UCHAR_MAX + 1] = { 0 }; \
+#define TRIGRAPH_MAP uchar _cpp_trigraph_map[UCHAR_MAX + 1] = { 0 }; \
  static void init_trigraph_map PARAMS ((void)) { \
  unsigned char *x = _cpp_trigraph_map;
 
@@ -225,7 +225,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
     {
       /* Dirs that don't exist are silently ignored.  */
       if (errno != ENOENT)
-	cpp_notice_from_errno (pfile, dir);
+	cpp_errno (pfile, DL_ERROR, dir);
       else if (CPP_OPTION (pfile, verbose))
 	fprintf (stderr, _("ignoring nonexistent directory \"%s\"\n"), dir);
       free (dir);
@@ -234,7 +234,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
 
   if (!S_ISDIR (st.st_mode))
     {
-      cpp_notice (pfile, "%s: Not a directory", dir);
+      cpp_error_with_line (pfile, DL_ERROR, 0, 0, "%s: Not a directory", dir);
       free (dir);
       return;
     }
@@ -308,16 +308,16 @@ remove_dup_dirs (pfile, head)
 	  {
 	    if (cur->sysp && !other->sysp)
 	      {
-		cpp_warning (pfile,
-			     "changing search order for system directory \"%s\"",
-			     cur->name);
+		cpp_error (pfile, DL_WARNING,
+			   "changing search order for system directory \"%s\"",
+			   cur->name);
 		if (strcmp (cur->name, other->name))
-		  cpp_warning (pfile, 
-			       "  as it is the same as non-system directory \"%s\"",
-			       other->name);
+		  cpp_error (pfile, DL_WARNING,
+			     "  as it is the same as non-system directory \"%s\"",
+			     other->name);
 		else
-		  cpp_warning (pfile, 
-			       "  as it has already been specified as a non-system directory");
+		  cpp_error (pfile, DL_WARNING,
+			     "  as it has already been specified as a non-system directory");
 	      }
 	    cur = remove_dup_dir (pfile, prev);
 	    break;
@@ -488,6 +488,7 @@ cpp_create_reader (lang)
   set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_import) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
+  CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
@@ -552,6 +553,9 @@ cpp_destroy (pfile)
   struct search_path *dir, *dirn;
   cpp_context *context, *contextn;
   tokenrun *run, *runn;
+
+  free_chain (CPP_OPTION (pfile, pending)->include_head);
+  free (CPP_OPTION (pfile, pending));
 
   while (CPP_BUFFER (pfile) != NULL)
     _cpp_pop_buffer (pfile);
@@ -618,7 +622,7 @@ cpp_destroy (pfile)
    Also, macros with CPLUS set in the flags field are entered only for C++.  */
 struct builtin
 {
-  const U_CHAR *name;
+  const uchar *name;
   const char *value;
   unsigned char builtin;
   unsigned char operator;
@@ -1013,65 +1017,44 @@ cpp_finish_options (pfile)
       for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
 	(*p->handler) (pfile, p->arg);
 
-      /* Scan -imacros files after command line defines, but before
-	 files given with -include.  */
-      while ((p = CPP_OPTION (pfile, pending)->imacros_head) != NULL)
-	{
-	  if (push_include (pfile, p))
-	    {
-	      pfile->buffer->return_at_eof = true;
-	      cpp_scan_nooutput (pfile);
-	    }
-	  CPP_OPTION (pfile, pending)->imacros_head = p->next;
-	  free (p);
-	}
+      /* Scan -imacros files after -D, -U, but before -include.
+	 pfile->next_include_file is NULL, so _cpp_pop_buffer does not
+	 push -include files.  */
+      for (p = CPP_OPTION (pfile, pending)->imacros_head; p; p = p->next)
+	if (push_include (pfile, p))
+	  cpp_scan_nooutput (pfile);
+
+      pfile->next_include_file = &CPP_OPTION (pfile, pending)->include_head;
+      _cpp_maybe_push_include_file (pfile);
     }
 
+  free_chain (CPP_OPTION (pfile, pending)->imacros_head);
   free_chain (CPP_OPTION (pfile, pending)->directive_head);
-  _cpp_push_next_buffer (pfile);
 }
 
-/* Called to push the next buffer on the stack given by -include.  If
-   there are none, free the pending structure and restore the line map
-   for the main file.  */
-bool
-_cpp_push_next_buffer (pfile)
+/* Push the next buffer on the stack given by -include, if any.  */
+void
+_cpp_maybe_push_include_file (pfile)
      cpp_reader *pfile;
 {
-  bool pushed = false;
-
-  /* This is't pretty; we'd rather not be relying on this as a boolean
-     for reverting the line map.  Further, we only free the chains in
-     this conditional, so an early call to cpp_finish / cpp_destroy
-     will leak that memory.  */
-  if (CPP_OPTION (pfile, pending)
-      && CPP_OPTION (pfile, pending)->imacros_head == NULL)
+  if (pfile->next_include_file)
     {
-      while (!pushed)
+      struct pending_option *head = *pfile->next_include_file;
+  
+      while (head && !push_include (pfile, head))
+	head = head->next;
+
+      if (head)
+	pfile->next_include_file = &head->next;
+      else
 	{
-	  struct pending_option *p = CPP_OPTION (pfile, pending)->include_head;
-
-	  if (p == NULL)
-	    break;
-	  if (! CPP_OPTION (pfile, preprocessed))
-	    pushed = push_include (pfile, p);
-	  CPP_OPTION (pfile, pending)->include_head = p->next;
-	  free (p);
-	}
-
-      if (!pushed)
-	{
-	  free (CPP_OPTION (pfile, pending));
-	  CPP_OPTION (pfile, pending) = NULL;
-
-	  /* Restore the line map for the main file.  */
-	  if (! CPP_OPTION (pfile, preprocessed))
-	    _cpp_do_file_change (pfile, LC_RENAME,
-				 pfile->line_maps.maps[0].to_file, 1, 0);
+	  /* All done; restore the line map from <command line>.  */
+	  _cpp_do_file_change (pfile, LC_RENAME,
+			       pfile->line_maps.maps[0].to_file, 1, 0);
+	  /* Don't come back here again.  */
+	  pfile->next_include_file = NULL;
 	}
     }
-
-  return pushed;
 }
 
 /* Use mkdeps.c to output dependency information.  */
@@ -1091,7 +1074,7 @@ output_deps (pfile)
       deps_stream = fopen (CPP_OPTION (pfile, deps_file), deps_mode);
       if (deps_stream == 0)
 	{
-	  cpp_notice_from_errno (pfile, CPP_OPTION (pfile, deps_file));
+	  cpp_errno (pfile, DL_ERROR, CPP_OPTION (pfile, deps_file));
 	  return;
 	}
     }
@@ -1105,7 +1088,7 @@ output_deps (pfile)
   if (deps_stream != stdout)
     {
       if (ferror (deps_stream) || fclose (deps_stream) != 0)
-	cpp_fatal (pfile, "I/O error on output");
+	cpp_error (pfile, DL_FATAL, "I/O error on output");
     }
 }
 
@@ -1172,6 +1155,7 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("-version",                 0,      OPT__version)                   \
   DEF_OPT("A",                        no_ass, OPT_A)                          \
   DEF_OPT("C",                        0,      OPT_C)                          \
+  DEF_OPT("CC",                       0,      OPT_CC)                         \
   DEF_OPT("D",                        no_mac, OPT_D)                          \
   DEF_OPT("H",                        0,      OPT_H)                          \
   DEF_OPT("I",                        no_dir, OPT_I)                          \
@@ -1348,7 +1332,8 @@ cpp_handle_option (pfile, argc, argv, ignore)
       else if (CPP_OPTION (pfile, out_fname) == NULL)
 	CPP_OPTION (pfile, out_fname) = argv[i];
       else
-	cpp_fatal (pfile, "too many filenames. Type %s --help for usage info",
+	cpp_error (pfile, DL_FATAL,
+		   "too many filenames. Type %s --help for usage info",
 		   progname);
     }
   else
@@ -1375,7 +1360,8 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	      arg = argv[++i];
 	      if (!arg)
 		{
-		  cpp_fatal (pfile, cl_options[opt_index].msg, argv[i - 1]);
+		  cpp_error (pfile, DL_FATAL,
+			     cl_options[opt_index].msg, argv[i - 1]);
 		  return argc;
 		}
 	    }
@@ -1452,6 +1438,10 @@ cpp_handle_option (pfile, argc, argv, ignore)
 
 	case OPT_C:
 	  CPP_OPTION (pfile, discard_comments) = 0;
+	  break;
+	case OPT_CC:
+	  CPP_OPTION (pfile, discard_comments) = 0;
+	  CPP_OPTION (pfile, discard_comments_in_macro_exp) = 0;
 	  break;
 	case OPT_P:
 	  CPP_OPTION (pfile, no_line_commands) = 1;
@@ -1539,7 +1529,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	    CPP_OPTION (pfile, out_fname) = arg;
 	  else
 	    {
-	      cpp_fatal (pfile, "output filename specified twice");
+	      cpp_error (pfile, DL_FATAL, "output filename specified twice");
 	      return argc;
 	    }
 	  break;
@@ -1651,7 +1641,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 		}
 	      else
 		{
-		  cpp_fatal (pfile, "-I- specified twice");
+		  cpp_error (pfile, DL_FATAL, "-I- specified twice");
 		  return argc;
 		}
  	    }
@@ -1837,7 +1827,8 @@ cpp_post_options (pfile)
       (CPP_OPTION (pfile, print_deps_missing_files)
        || CPP_OPTION (pfile, deps_file)
        || CPP_OPTION (pfile, deps_phony_targets)))
-    cpp_fatal (pfile, "you must additionally specify either -M or -MM");
+    cpp_error (pfile, DL_FATAL,
+	       "you must additionally specify either -M or -MM");
 }
 
 /* Set up dependency-file output.  On exit, if print_deps is non-zero

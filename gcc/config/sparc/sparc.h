@@ -358,6 +358,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
   SUBTARGET_EXTRA_SPECS
 
 #define SUBTARGET_EXTRA_SPECS
+
+/* Because libgcc can generate references back to libc (via .umul etc.) we have
+   to list libc again after the second libgcc.  */
+#define LINK_GCC_C_SEQUENCE_SPEC "%G %L %G %L"
+
 
 #ifdef SPARC_BI_ARCH
 #define NO_BUILTIN_PTRDIFF_TYPE
@@ -678,7 +683,11 @@ extern struct sparc_cpu_select sparc_select[];
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		(TARGET_ARCH64 ? 8 : 4)
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD	UNITS_PER_WORD
+#else
 #define MIN_UNITS_PER_WORD	4
+#endif
 
 /* Now define the sizes of the C data types.  */
 
@@ -1893,8 +1902,25 @@ do {									\
 #define STRICT_ARGUMENT_NAMING TARGET_V9
 
 /* We do not allow sibling calls if -mflat, nor
-   we do not allow indirect calls to be optimized into sibling calls.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) (DECL && ! TARGET_FLAT)
+   we do not allow indirect calls to be optimized into sibling calls.
+
+   Also, on sparc 32-bit we cannot emit a sibling call when the
+   current function returns a structure.  This is because the "unimp
+   after call" convention would cause the callee to return to the
+   wrong place.  The generic code already disallows cases where the
+   function being called returns a structure.
+
+   It may seem strange how this last case could occur.  Usually there
+   is code after the call which jumps to epilogue code which dumps the
+   return value into the struct return area.  That ought to invalidate
+   the sibling call right?  Well, in the c++ case we can end up passing
+   the pointer to the struct return area to a constructor (which returns
+   void) and then nothing else happens.  Such a sibling call would look
+   valid without the added check here.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) \
+	(DECL \
+	 && ! TARGET_FLAT \
+	 && (TARGET_ARCH64 || ! current_function_returns_struct))
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
@@ -1955,14 +1981,27 @@ do {									\
    If assembler and linker properly support .uaword %r_disp32(foo),
    then use PC relative 32-bit relocations instead of absolute relocs
    for shared libraries.  On sparc64, use pc relative 32-bit relocs even
-   for binaries, to save memory.  */
+   for binaries, to save memory.
+
+   binutils 2.12 would emit a R_SPARC_DISP32 dynamic relocation if the
+   symbol %r_disp32() is against was not local, but .hidden.  In that
+   case, we have to use DW_EH_PE_absptr for pic personality.  */
 #ifdef HAVE_AS_SPARC_UA_PCREL
+#ifdef HAVE_AS_SPARC_UA_PCREL_HIDDEN
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
   (flag_pic								\
    ? (GLOBAL ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
    : ((TARGET_ARCH64 && ! GLOBAL)					\
       ? (DW_EH_PE_pcrel | DW_EH_PE_sdata4)				\
       : DW_EH_PE_absptr))
+#else
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
+  (flag_pic								\
+   ? (GLOBAL ? DW_EH_PE_absptr : (DW_EH_PE_pcrel | DW_EH_PE_sdata4))	\
+   : ((TARGET_ARCH64 && ! GLOBAL)					\
+      ? (DW_EH_PE_pcrel | DW_EH_PE_sdata4)				\
+      : DW_EH_PE_absptr))
+#endif
 
 /* Emit a PC-relative relocation.  */
 #define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
@@ -2077,13 +2116,10 @@ do {									\
        be at least 8 bytes.
 
    `U' handles all pseudo registers or a hard even numbered
-       integer register, needed for ldd/std instructions.  */
+       integer register, needed for ldd/std instructions.
 
-#define EXTRA_CONSTRAINT_BASE(OP, C)   \
-   ((C) == 'Q' ? fp_sethi_p(OP)        \
-    : (C) == 'R' ? fp_mov_p(OP)        \
-    : (C) == 'S' ? fp_high_losum_p(OP) \
-    : 0)
+   'W' handles the memory operand when moving operands in/out
+       of 'e' constraint floating point registers.  */
 
 #ifndef REG_OK_STRICT
 
@@ -2098,15 +2134,14 @@ do {									\
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_INDEX_P (X)
 
-/* 'T', 'U' are for aligned memory loads which aren't needed for arch64.  */
+/* 'T', 'U' are for aligned memory loads which aren't needed for arch64.
+   'W' is like 'T' but is assumed true on arch64.
 
-#define EXTRA_CONSTRAINT(OP, C)				\
-   (EXTRA_CONSTRAINT_BASE(OP, C)                        \
-    || ((! TARGET_ARCH64 && (C) == 'T')			\
-        ? (mem_min_alignment (OP, 8))			\
-        : ((! TARGET_ARCH64 && (C) == 'U')		\
-            ? (register_ok_for_ldd (OP))		\
-            : 0)))
+   Remember to accept pseudo-registers for memory constraints if reload is
+   in progress.  */
+
+#define EXTRA_CONSTRAINT(OP, C) \
+	sparc_extra_constraint_check(OP, C, 0)
 
 #else
 
@@ -2115,16 +2150,8 @@ do {									\
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#define EXTRA_CONSTRAINT(OP, C)				\
-   (EXTRA_CONSTRAINT_BASE(OP, C)                        \
-    || ((! TARGET_ARCH64 && (C) == 'T')			\
-        ? mem_min_alignment (OP, 8) && strict_memory_address_p (Pmode, XEXP (OP, 0)) \
-        : ((! TARGET_ARCH64 && (C) == 'U')		\
-           ? (GET_CODE (OP) == REG			\
-              && (REGNO (OP) < FIRST_PSEUDO_REGISTER	\
-	          || reg_renumber[REGNO (OP)] >= 0)	\
-              && register_ok_for_ldd (OP))		\
-           : 0)))
+#define EXTRA_CONSTRAINT(OP, C) \
+	sparc_extra_constraint_check(OP, C, 1)
 
 #endif
 
@@ -2326,12 +2353,13 @@ do {                                                                    \
   /* Decompose SImode constants into hi+lo_sum.  We do have to 		\
      rerecognize what we produce, so be careful.  */			\
   if (CONSTANT_P (X)							\
-      && (MODE != TFmode || TARGET_V9)					\
+      && (MODE != TFmode || TARGET_ARCH64)				\
       && GET_MODE (X) == SImode						\
       && GET_CODE (X) != LO_SUM && GET_CODE (X) != HIGH			\
       && ! (flag_pic							\
 	    && (symbolic_operand (X, Pmode)				\
-		|| pic_address_needs_scratch (X))))			\
+		|| pic_address_needs_scratch (X)))			\
+      && sparc_cmodel <= CM_MEDLOW)					\
     {									\
       X = gen_rtx_LO_SUM (GET_MODE (X),					\
 			  gen_rtx_HIGH (GET_MODE (X), X), X);		\
@@ -2595,6 +2623,23 @@ do {                                                                    \
     || (GENERAL_OR_I64 (CLASS1) && FP_REG_CLASS_P (CLASS2)) \
     || (CLASS1) == FPCC_REGS || (CLASS2) == FPCC_REGS)		\
    ? (sparc_cpu == PROCESSOR_ULTRASPARC ? 12 : 6) : 2)
+
+/* Provide the cost of a branch.  For pre-v9 processors we use
+   a value of 3 to take into account the potential annulling of
+   the delay slot (which ends up being a bubble in the pipeline slot)
+   plus a cycle to take into consideration the instruction cache
+   effects.
+
+   On v9 and later, which have branch prediction facilities, we set
+   it to the depth of the pipeline as that is the cost of a
+   mispredicted branch.
+
+   ??? Set to 9 when PROCESSOR_ULTRASPARC3 is added  */
+
+#define BRANCH_COST \
+	((sparc_cpu == PROCESSOR_V9 \
+	  || sparc_cpu == PROCESSOR_ULTRASPARC) \
+	 ? 7 : 3)
 
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE.  The purpose for the cost of MULT is to encourage
@@ -2936,6 +2981,7 @@ do {									\
 #define PREDICATE_CODES							\
 {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
 {"fp_zero_operand", {CONST_DOUBLE}},					\
+{"fp_register_operand", {SUBREG, REG}},					\
 {"intreg_operand", {SUBREG, REG}},					\
 {"fcc_reg_operand", {REG}},						\
 {"fcc0_reg_operand", {REG}},						\
