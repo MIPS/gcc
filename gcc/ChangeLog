@@ -1,3 +1,7 @@
+2005-03-23  Ben Elliston  <bje@au.ibm.com>
+
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_decimal_float.
+
 2005-03-03  Jan Hubicka  <jh@suse.cz>
 
 	* tree-dfa.c (add_referenced_var): Don't walk initializer of external
