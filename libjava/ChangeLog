@@ -1,3 +1,18 @@
+2004-03-12  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Clipping fixes.
+	* javax/swing/JComponent.java (paint): Use persistent double buffer. 
+	* javax/swing/JList.java (ListListener): Revalidate on changes.
+	* javax/swing/JScrollPane.java: Reimplement.
+	* javax/swing/JViewport.java: Reimplement.
+	* javax/swing/ScrollPaneLayout.java: Reimplement.
+	* javax/swing/ViewportLayout.java: Tidy up.
+	* javax/swing/plaf/basic/BasicButtonListener.java: Remove printlns.
+	* javax/swing/plaf/basic/BasicScrollPaneUI.java: Reimplement.
+	* javax/swing/plaf/basic/BasicSliderUI.java: Handle missing labels.
+	* javax/swing/plaf/basic/BasicViewportUI.java: Implement in terms of
+	backing store only.
+
 2004-03-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
