@@ -110,6 +110,7 @@ static inline bool stmt_ends_bb_p	PARAMS ((tree));
 static void find_contained_blocks_and_edge_targets
   PARAMS ((tree *, bitmap, bitmap, tree **));
 static void compute_reachable_eh	(tree stmt);
+static int could_trap_p			PARAMS ((tree));
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks	PARAMS ((void));
@@ -420,7 +421,10 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 	    This will need to be generalized in the future.  */
 	  if (TREE_CODE (stmt) == CALL_EXPR
 	      || (TREE_CODE (stmt) == MODIFY_EXPR
-		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	      || (flag_non_call_exceptions && TREE_CODE (stmt) == MODIFY_EXPR
+		  && (could_trap_p (TREE_OPERAND (stmt, 0))
+		      || could_trap_p (TREE_OPERAND (stmt, 1)))))
 	    compute_reachable_eh (stmt);
 	}
 
@@ -438,6 +442,17 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
   return NULL;
 }
 
+/* Return 1 if the expr can trap, as in dereferencing an
+   invalid pointer location.  */
+
+static int
+could_trap_p (expr)
+  tree expr;
+{
+  return (TREE_CODE (expr) == INDIRECT_REF
+	  || (TREE_CODE (expr) == COMPONENT_REF
+	      && (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)));
+}
 
 /* Create the blocks for the LOOP_EXPR node pointed by LOOP_P.
 
@@ -1206,6 +1221,24 @@ make_exit_edges (bb)
 	  if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	    make_goto_expr_edges (bb);
 
+	  if (stmt_ann (last)->reachable_exception_handlers)
+	    {
+	      tree t;
+
+	      for (t = stmt_ann (last)->reachable_exception_handlers;
+		   t;
+		   t = TREE_CHAIN (t))
+		make_edge (bb,
+			   first_exec_block (&TREE_VALUE (t)),
+			   EDGE_ABNORMAL);
+	    }
+
+          make_edge (bb, successor_block (bb), 0);
+	}
+      if (flag_non_call_exceptions
+	  && (could_trap_p (TREE_OPERAND (last, 0))
+	      || could_trap_p (TREE_OPERAND (last, 1))))
+	{
 	  if (stmt_ann (last)->reachable_exception_handlers)
 	    {
 	      tree t;
@@ -2782,6 +2815,15 @@ is_ctrl_altering_stmt (t)
       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
       && (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)
           || VARRAY_ACTIVE_SIZE (eh_stack) > 0
+	  || stmt_ann (t)->reachable_exception_handlers))
+    return true;
+
+  /* A MODIFY_EXPR may throw if it contains a INDIRECT_REF and
+     flag_non_call_exceptions is set.  */
+  if (flag_non_call_exceptions && code == MODIFY_EXPR
+      && (could_trap_p (TREE_OPERAND (t, 0))
+	  || could_trap_p (TREE_OPERAND (t, 1)))
+      && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
 	  || stmt_ann (t)->reachable_exception_handlers))
     return true;
 

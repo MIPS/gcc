@@ -280,7 +280,8 @@ stmt_useful_p (stmt)
       || (TREE_CODE (stmt) == BIND_EXPR)
       || (TREE_CODE (stmt) == CALL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+      || (TREE_CODE (stmt) == CATCH_EXPR))
     return true;
 
   /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes

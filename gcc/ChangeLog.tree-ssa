@@ -1,3 +1,12 @@
+2003-06-07  Jeff Sturm  <jsturm@one-point.com>
+
+	* tree-cfg.c (could_trap_p): New function.
+	(stmt_ends_bb_p): Handle flag_non_call_exceptions.
+	(make_exit_edges): Handle flag_non_call_exceptions.
+	(is_ctrl_altering_stmt): Handle flag_non_call_exceptions.
+	* tree-inline.c (walk_tree): Add case for CHAR_TYPE.
+	* tree-ssa-dce.c (stmt_useful_p): Keep all CATCH_EXPRs.
+
 2003-06-05  Jason Merrill  <jason@redhat.com>
 
 	* stmt.c (asm_op_is_mem_input): New fn.

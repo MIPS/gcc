@@ -1602,6 +1602,7 @@ walk_tree (tp, func, data, htab_)
 	  WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
 
 	case INTEGER_TYPE:
+	case CHAR_TYPE:
 	  WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
 	  WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
 
