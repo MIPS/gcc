@@ -1,3 +1,7 @@
+2004-10-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* verify.h: New file.
+
 2004-10-05  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* verify-impl.c, verify-glue.c, verify.h: New files.
