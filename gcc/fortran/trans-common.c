@@ -143,6 +143,30 @@ gfc_set_common_master_type (gfc_typespec ts, tree * common_decl)
 }
 
 
+/* Construct mangled common block name from symbol name.  */
+
+static tree
+gfc_sym_mangled_common_id (gfc_symbol * sym)
+{
+  int has_underscore;
+  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
+
+  if (strcmp (sym->name, "__BLNK__") == 0)
+    return get_identifier (sym->name);
+  if (gfc_option.flag_underscoring)
+    {
+      has_underscore = strchr (sym->name, '_') != 0;
+      if (gfc_option.flag_second_underscore && has_underscore)
+        snprintf (name, sizeof name, "%s__", sym->name);
+      else
+        snprintf (name, sizeof name, "%s_", sym->name);
+      return get_identifier (name);
+    }
+  else
+    return get_identifier (sym->name);
+}
+
+
 /* Make the master area for a COMMON block. Initial values for this COMMON
    block will be collected as needed.  */
 
@@ -220,6 +244,8 @@ gfc_build_common_decl (gfc_common_type common_type, gfc_symbol * common_sym,
     {
       common_decl = build_decl (VAR_DECL, get_identifier (common_sym->name),
                                 array_type);
+      SET_DECL_ASSEMBLER_NAME (common_decl,
+                               gfc_sym_mangled_common_id (common_sym));
       TREE_PUBLIC (common_decl) = 1;
       TREE_STATIC (common_decl) = 1;
     }

@@ -1,3 +1,19 @@
+2003-08-10  Paul Brook  <paul@nowt.org>
+
+	* intrinsic.c (add_sym): Prefix names with correct string.
+	(add_sym_0s): New function.
+	(add_subroutines): Register abort.
+
+2003-08-10  Erik Schnetter  <schnetter@uni-tuebingen.de>
+
+	* gfortran.h: Introduce options to control the mangling.
+	* lang.opt: Likewise.
+	* options.c (gfc_init_options): Handle the options.
+	* trans-common.c (gfc_sym_mangled_common_id): New function.
+	(gfc_build_common_decl): Call it.
+	* trans-decl.c (gfc_sym_mangled_function_id): New function.
+	(gfc_get_extern_function_decl, gfc_build_function_decl): Call it.
+
 2003-08-09  Paul Brook  <paul@nowt.org>
 
 	* module.c (mio_symbol): Always ouput a namespace for formal args.

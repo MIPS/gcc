@@ -158,6 +158,7 @@ io/io.h
 
 
 gfor_helper_src = \
+intrinsics/abort.c \
 intrinsics/cpu_time.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
@@ -536,7 +537,7 @@ am__objects_24 = $(am__objects_2) $(am__objects_3) $(am__objects_4) \
 am__objects_25 = backspace.lo close.lo endfile.lo format.lo inquire.lo \
 	list_read.lo lock.lo open.lo read.lo rewind.lo transfer.lo \
 	unit.lo unix.lo write.lo
-am__objects_26 = cpu_time.lo eoshift0.lo eoshift2.lo ishftc.lo \
+am__objects_26 = abort.lo cpu_time.lo eoshift0.lo eoshift2.lo ishftc.lo \
 	pack_generic.lo unpack_generic.lo string_intrinsics.lo size.lo \
 	spread_generic.lo reshape_generic.lo reshape_packed.lo \
 	transpose_generic.lo associated.lo in_pack_generic.lo \
@@ -562,9 +563,9 @@ libgfortranbegin_la_OBJECTS = $(am_libgfortranbegin_la_OBJECTS)
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
 am__depfiles_maybe = depfiles
-@AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/all_l4.Plo ./$(DEPDIR)/all_l8.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/any_l4.Plo ./$(DEPDIR)/any_l8.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/associated.Plo \
+@AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/abort.Plo ./$(DEPDIR)/all_l4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/all_l8.Plo ./$(DEPDIR)/any_l4.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/any_l8.Plo ./$(DEPDIR)/associated.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/backspace.Plo ./$(DEPDIR)/close.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/count_4_l4.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/count_4_l8.Plo \
@@ -759,6 +760,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/abort.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/all_l4.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/all_l8.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/any_l4.Plo@am__quote@
@@ -4625,6 +4627,39 @@ write.lo: io/write.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/write.Plo' tmpdepfile='$(DEPDIR)/write.TPlo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o write.lo `test -f 'io/write.c' || echo '$(srcdir)/'`io/write.c
+
+abort.o: intrinsics/abort.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT abort.o -MD -MP -MF "$(DEPDIR)/abort.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o abort.o `test -f 'intrinsics/abort.c' || echo '$(srcdir)/'`intrinsics/abort.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/abort.Tpo" "$(DEPDIR)/abort.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/abort.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='intrinsics/abort.c' object='abort.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/abort.Po' tmpdepfile='$(DEPDIR)/abort.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o abort.o `test -f 'intrinsics/abort.c' || echo '$(srcdir)/'`intrinsics/abort.c
+
+abort.obj: intrinsics/abort.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT abort.obj -MD -MP -MF "$(DEPDIR)/abort.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o abort.obj `if test -f 'intrinsics/abort.c'; then $(CYGPATH_W) 'intrinsics/abort.c'; else $(CYGPATH_W) '$(srcdir)/intrinsics/abort.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/abort.Tpo" "$(DEPDIR)/abort.Po"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/abort.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='intrinsics/abort.c' object='abort.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/abort.Po' tmpdepfile='$(DEPDIR)/abort.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o abort.obj `if test -f 'intrinsics/abort.c'; then $(CYGPATH_W) 'intrinsics/abort.c'; else $(CYGPATH_W) '$(srcdir)/intrinsics/abort.c'; fi`
+
+abort.lo: intrinsics/abort.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT abort.lo -MD -MP -MF "$(DEPDIR)/abort.Tpo" \
+@am__fastdepCC_TRUE@	  -c -o abort.lo `test -f 'intrinsics/abort.c' || echo '$(srcdir)/'`intrinsics/abort.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/abort.Tpo" "$(DEPDIR)/abort.Plo"; \
+@am__fastdepCC_TRUE@	else rm -f "$(DEPDIR)/abort.Tpo"; exit 1; \
+@am__fastdepCC_TRUE@	fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='intrinsics/abort.c' object='abort.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	depfile='$(DEPDIR)/abort.Plo' tmpdepfile='$(DEPDIR)/abort.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o abort.lo `test -f 'intrinsics/abort.c' || echo '$(srcdir)/'`intrinsics/abort.c
 
 cpu_time.o: intrinsics/cpu_time.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT cpu_time.o -MD -MP -MF "$(DEPDIR)/cpu_time.Tpo" \

@@ -1,3 +1,10 @@
+2003-08-10  Paul Brook  <paul@nowt.org>
+
+	* Makefile.am (gfor_helper_src): Add intrinsics/abort.c.
+	(FFLAGS): Add -fno-underscoring.
+	* Makefile.in: Regenerate.
+	* intrinsics/abort.c: New file.
+
 2003-08-10  Erik Schnetter  <schnetter@uni-tuebingen.de>
 
 	* fmain.c (main): Do not call init and cleanup; call set_args instead.

@@ -270,7 +270,41 @@ gfc_sym_mangled_identifier (gfc_symbol * sym)
     return gfc_sym_identifier (sym);
   else
     {
-      sprintf (name, "__%s__%s", sym->module, sym->name);
+      snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
+      return get_identifier (name);
+    }
+}
+
+
+/* Construct mangled function name from symbol name.  */
+
+static tree
+gfc_sym_mangled_function_id (gfc_symbol * sym)
+{
+  int has_underscore;
+  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 1];
+
+  if (sym->module[0] == 0)
+    {
+      if (strcmp (sym->name, "MAIN__") == 0
+	  || sym->attr.proc == PROC_INTRINSIC)
+        return get_identifier (sym->name);
+
+      if (gfc_option.flag_underscoring)
+        {
+          has_underscore = strchr (sym->name, '_') != 0;
+          if (gfc_option.flag_second_underscore && has_underscore)
+            snprintf (name, sizeof name, "%s__", sym->name);
+          else
+            snprintf (name, sizeof name, "%s_", sym->name);
+          return get_identifier (name);
+        }
+      else
+        return get_identifier (sym->name);
+    }
+  else
+    {
+      snprintf (name, sizeof name, "__%s__%s", sym->module, sym->name);
       return get_identifier (name);
     }
 }
@@ -804,6 +838,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   int n;
   char s[GFC_MAX_SYMBOL_LEN];
   tree name;
+  tree mangled_name;
 
   if (sym->backend_decl)
     return sym->backend_decl;
@@ -845,15 +880,18 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	}
       sprintf (s, "specific%s", e.value.function.name);
       name = get_identifier (s);
+      mangled_name = name;
     }
   else
-    name = gfc_sym_identifier (sym);
+    {
+      name = gfc_sym_identifier (sym);
+      mangled_name = gfc_sym_mangled_function_id (sym);
+    }
 
   type = gfc_get_function_type (sym);
   fndecl = build_decl (FUNCTION_DECL, name, type);
 
-  if (sym->module[0])
-    SET_DECL_ASSEMBLER_NAME (fndecl, gfc_sym_mangled_identifier (sym));
+  SET_DECL_ASSEMBLER_NAME (fndecl, mangled_name);
   /* If the return type is a pointer, avoid alias issues by setting
      DECL_IS_MALLOC to nonzero. This means that the function should be
      treated as if it were a malloc, meaning it returns a pointer that
@@ -919,8 +957,7 @@ gfc_build_function_decl (gfc_symbol * sym)
   type = gfc_get_function_type (sym);
   fndecl = build_decl (FUNCTION_DECL, gfc_sym_identifier (sym), type);
 
-  if (sym->module[0])
-    SET_DECL_ASSEMBLER_NAME (fndecl, gfc_sym_mangled_identifier (sym));
+  SET_DECL_ASSEMBLER_NAME (fndecl, gfc_sym_mangled_function_id (sym));
   /* Figure out the return type of the declared function, and build a
      RESULT_DECL for it.  If this is subroutine with alternate
      returns, build a RESULT_DECL for it.  */

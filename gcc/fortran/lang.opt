@@ -89,6 +89,14 @@ fg77-calls
 F95
 Generate g77-compatible calls
 
+funderscoring
+F95
+Append underscores to externally visible names
+
+fsecond-underscore
+F95
+Append a second underscore if the name already contains an underscore
+
 fimplicit-none
 F95
 Specify that no implicit typing is allowed, unless overridden by explicit IMPLICIT statements

@@ -30,6 +30,7 @@ gfor_io_headers= \
 io/io.h
 
 gfor_helper_src= \
+intrinsics/abort.c \
 intrinsics/cpu_time.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \

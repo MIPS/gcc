@@ -247,7 +247,7 @@ add_sym (const char *name, int elemental, int actual_ok ATTRIBUTE_UNUSED,
     case SZ_NOTHING:
       strcpy (next_sym->name, name);
 
-      strcpy (next_sym->lib_name, "_gfc_");
+      strcpy (next_sym->lib_name, "_gfortran_");
       strcat (next_sym->lib_name, name);
 
       next_sym->elemental = elemental;
@@ -340,6 +340,23 @@ static void add_sym_1 (const char *name, int elemental, int actual_ok, bt type,
 
   add_sym (name, elemental, actual_ok, type, kind, cf, sf, rf,
 	   a1, type1, kind1, optional1,
+	   (void*)0);
+}
+
+
+static void
+add_sym_0s (const char * name, int actual_ok,
+	    void (*resolve)(gfc_code *))
+{
+  gfc_check_f cf;
+  gfc_simplify_f sf;
+  gfc_resolve_f rf;
+
+  cf.f1 = NULL;
+  sf.f1 = NULL;
+  rf.s1 = resolve;
+
+  add_sym (name, 1, actual_ok, BT_UNKNOWN, 0, cf, sf, rf,
 	   (void*)0);
 }
 
@@ -1578,6 +1595,8 @@ add_subroutines (void)
   di = gfc_default_integer_kind ();
   dr = gfc_default_real_kind ();
   dc = gfc_default_character_kind ();
+
+  add_sym_0s ("abort", 1, NULL);
 
   add_sym_1s ("cpu_time", 0, 1, BT_UNKNOWN, 0,
 	      gfc_check_cpu_time, NULL, gfc_resolve_cpu_time,

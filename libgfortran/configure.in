@@ -21,11 +21,11 @@ if test "x$GCC" = "xyes"; then
 fi
 
 # We need gfortran to compile parts of the library
-# We can't use AC_PROG_F77 because it expecxts a fully working gfortran. 
+# We can't use AC_PROG_F77 because it expects a fully working gfortran. 
 #AC_PROG_F77(gfortran)
 F77="$GFORTRAN"
 AC_PROG_F77(gfortran)
-FFLAGS="$FFLAGS -Wall -fno-repack-arrays"
+FFLAGS="$FFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
 AC_FUNC_MMAP
 AC_TYPE_OFF_T

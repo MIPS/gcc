@@ -1224,6 +1224,8 @@ typedef struct
 
   int flag_dollar_ok;
   int flag_g77_calls;
+  int flag_underscoring;
+  int flag_second_underscore;
   int flag_implicit_none;
   int flag_max_stack_var_size;
   int flag_module_access_private;
