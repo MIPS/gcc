@@ -1,3 +1,13 @@
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3951689
+	* c-common.h (objc_finish_try_stmt, objc_build_synchronized):
+	Return 'tree' instead of 'void'.
+	* stub-objc.c (objc_build_throw_stmt, objc_begin_try_stmt,
+	objc_finish_try_stmt, objc_begin_catch_clause,
+	objc_finish_catch_clause, objc_build_finally_clause,
+	objc_build_synchronized: New stubs.
+
 2005-01-15  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.c (macosx_version_min_required): Make static.

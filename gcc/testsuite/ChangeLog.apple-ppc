@@ -1,3 +1,25 @@
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3955336
+	* obj-c++.dg/cxx-scope-1.mm: New.
+	* obj-c++.dg/cxx-scope-2.mm: New.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3953044 (PR objc/19321)
+	* objc.dg/func-ptr-2.m: New.
+	* objc.dg/volatile-1.m: New.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3951689
+	* obj-c++.dg/try-catch-1.mm: New.
+	* obj-c++.dg/try-catch-2.mm: New.
+	* obj-c++.dg/try-catch-3.mm: New.
+	* obj-c++.dg/try-catch-4.mm: New.
+	* obj-c++.dg/try-catch-5.mm: New.
+	* obj-c++.dg/try-catch-6.mm: New.
+
 2005-01-14  Stuart Hastings  <stuart@apple.com>
 
 	Radar 3943021

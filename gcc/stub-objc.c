@@ -260,3 +260,45 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
 {
   return 1;
 }
+
+/* APPLE LOCAL begin Objective-C++ */
+tree
+objc_build_throw_stmt (tree ARG_UNUSED (expr))
+{
+  return 0;
+}
+
+void
+objc_begin_try_stmt (location_t ARG_UNUSED (loc), tree ARG_UNUSED (stmt))
+{
+}
+
+tree
+objc_finish_try_stmt (void)
+{
+  return 0;
+}
+
+void
+objc_begin_catch_clause (tree ARG_UNUSED (parm))
+{
+}
+
+void
+objc_finish_catch_clause (void) {
+}
+
+void
+objc_build_finally_clause (location_t ARG_UNUSED (location),
+			   tree ARG_UNUSED (stmt))
+{
+}
+
+
+tree
+objc_build_synchronized (location_t ARG_UNUSED (location), 
+			 tree ARG_UNUSED (lock), tree ARG_UNUSED (stmt))
+{
+  return 0;
+}
+/* APPLE LOCAL end Objective-C++ */

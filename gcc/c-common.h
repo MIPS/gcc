@@ -1019,11 +1019,13 @@ extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
 extern void objc_begin_try_stmt (location_t, tree);
-extern void objc_finish_try_stmt (void);
+/* APPLE LOCAL Objective-C++ */
+extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
 extern void objc_finish_catch_clause (void);
 extern void objc_build_finally_clause (location_t, tree);
-extern void objc_build_synchronized (location_t, tree, tree);
+/* APPLE LOCAL Objective-C++ */
+extern tree objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
 

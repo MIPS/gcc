@@ -2566,18 +2566,30 @@ tree
 objc_get_class_reference (tree ident)
 {
   tree orig_ident;
-
+  /* APPLE LOCAL Objective-C++ */
+  bool local_scope = false;
+  
 #ifdef OBJCPLUS
   if (processing_template_decl)
     /* Must wait until template instantiation time.  */
     return build_min_nt (CLASS_REFERENCE_EXPR, ident);
+
+  /* APPLE LOCAL begin Objective-C++ */
   if (TREE_CODE (ident) == TYPE_DECL)
-    ident = DECL_NAME (ident);
+    {
+      /* The type must exist in the global namespace.  */
+      if (DECL_CONTEXT (ident) && DECL_CONTEXT (ident) != global_namespace)
+	local_scope = true;
+
+      ident = DECL_NAME (ident);
+    }
+  /* APPLE LOCAL end Objective-C++ */
 #endif
   orig_ident = ident;
 
-  if (!(ident = objc_is_class_name (ident)))
+  if (local_scope || !(ident = objc_is_class_name (ident)))
     {
+      /* APPLE LOCAL Objective-C++ */
       error ("`%s' is not an Objective-C class name or alias",
 	     IDENTIFIER_POINTER (orig_ident));
       return error_mark_node;
@@ -3024,7 +3036,15 @@ next_sjlj_build_enter_and_setjmp (void)
   t = build_component_ref (cur_try_context->stack_decl,
 			   get_identifier ("buf"));
   t = build_fold_addr_expr (t);
+  /* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+  /* Convert _setjmp argument to type that is expected.  */
+  if (TYPE_ARG_TYPES (TREE_TYPE (objc_setjmp_decl)))
+    t = convert (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (objc_setjmp_decl))), t);
+  else
+#endif
   t = convert (ptr_type_node, t);
+  /* APPLE LOCAL end Objective-C++ */
   t = tree_cons (NULL, t, NULL);
   sj = build_function_call (objc_setjmp_decl, t);
 
@@ -3346,7 +3366,8 @@ objc_build_finally_clause (location_t finally_locus, tree body)
 
 /* Called to finalize a @try construct.  */
 
-void
+/* APPLE LOCAL Objective-C++ */
+tree
 objc_finish_try_stmt (void)
 {
   struct objc_try_context *c = cur_try_context;
@@ -3384,6 +3405,9 @@ objc_finish_try_stmt (void)
 
   cur_try_context = c->outer;
   free (c);
+
+  /* APPLE LOCAL Objective-C++ */
+  return stmt;
 }
 
 tree
@@ -3415,7 +3439,8 @@ objc_build_throw_stmt (tree throw_expr)
   return add_stmt (build_function_call (objc_exception_throw_decl, args));
 }
 
-void
+/* APPLE LOCAL Objective-C++ */
+tree
 objc_build_synchronized (location_t start_locus, tree mutex, tree body)
 {
   tree args, call;
@@ -3435,7 +3460,9 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
   /* Put the that and the body in a TRY_FINALLY.  */
   objc_begin_try_stmt (start_locus, body);
   objc_build_finally_clause (input_location, call);
-  objc_finish_try_stmt ();
+
+  /* APPLE LOCAL Objective-C++ */
+  return objc_finish_try_stmt ();
 }
 
 
@@ -5503,9 +5530,11 @@ get_arg_type_list (tree meth, int context, int superflag)
     {
       tree arg_type = TREE_VALUE (TREE_TYPE (akey));
 
-      /* Decay arrays into pointers.  */
+      /* Decay arrays and functions into pointers.  */
       if (TREE_CODE (arg_type) == ARRAY_TYPE)
 	arg_type = build_pointer_type (TREE_TYPE (arg_type));
+      else if (TREE_CODE (arg_type) == FUNCTION_TYPE)
+	arg_type = build_pointer_type (arg_type);
 
       chainon (arglist, build_tree_list (NULL_TREE, arg_type));
     }
@@ -7660,11 +7689,22 @@ static GTY(()) tree objc_parmlist = NULL_TREE;
 static void
 objc_push_parm (tree parm)
 {
-  /* Convert array parameters of unknown size into pointers.  */
-  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE
-      && !TYPE_SIZE (TREE_TYPE (parm)))
+  /* Decay arrays and functions into pointers.  */
+  if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
     TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (TREE_TYPE (parm)));
+  else if (TREE_CODE (TREE_TYPE (parm)) == FUNCTION_TYPE)
+    TREE_TYPE (parm) = build_pointer_type (TREE_TYPE (parm));
 
+  DECL_ARG_TYPE_AS_WRITTEN (parm) = TREE_TYPE (parm);
+  DECL_ARG_TYPE (parm)
+    = lang_hooks.types.type_promotes_to (TREE_TYPE (parm));
+
+  /* Record constancy and volatility.  */
+  c_apply_type_quals_to_decl
+  ((TYPE_READONLY (TREE_TYPE (parm)) ? TYPE_QUAL_CONST : 0)
+   | (TYPE_RESTRICT (TREE_TYPE (parm)) ? TYPE_QUAL_RESTRICT : 0)
+   | (TYPE_VOLATILE (TREE_TYPE (parm)) ? TYPE_QUAL_VOLATILE : 0), parm);
+  
   objc_parmlist = chainon (objc_parmlist, parm);
 }
 
@@ -7696,7 +7736,8 @@ objc_get_parm_info (int have_ellipsis)
       tree next = TREE_CHAIN (parm_info);
 
       TREE_CHAIN (parm_info) = NULL_TREE; 
-      pushdecl (parm_info);
+      parm_info = pushdecl (parm_info);
+      finish_decl (parm_info, NULL_TREE, NULL_TREE);
       parm_info = next;
     }
   arg_info = get_parm_info (have_ellipsis);
@@ -7757,10 +7798,6 @@ start_method_def (tree method)
   while (parmlist)
     {
       tree type = TREE_VALUE (TREE_TYPE (parmlist)), parm;
-
-      /* Decay arrays into pointers.  */
-      if (TREE_CODE (type) == ARRAY_TYPE)
-	type = build_pointer_type (TREE_TYPE (type));
 
       parm = build_decl (PARM_DECL, KEYWORD_ARG_NAME (parmlist), type);
       objc_push_parm (parm);
@@ -7895,24 +7932,26 @@ objc_start_function (tree name, tree type, tree attrs,
 
 #ifdef OBJCPLUS
   DECL_ARGUMENTS (fndecl) = params;
-#endif
   DECL_INITIAL (fndecl) = error_mark_node;
   DECL_EXTERNAL (fndecl) = 0;
   TREE_STATIC (fndecl) = 1;
-
-#ifdef OBJCPLUS
   retrofit_lang_decl (fndecl);
   cplus_decl_attributes (&fndecl, attrs, 0);
   start_preparsed_function (fndecl, attrs, /*flags=*/SF_DEFAULT);
 #else
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
+  DECL_INITIAL (fndecl) = error_mark_node;
+  DECL_EXTERNAL (fndecl) = 0;
+  TREE_STATIC (fndecl) = 1;
   current_function_decl = pushdecl (fndecl);
   push_scope ();
   declare_parm_level ();
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE,
 		  TREE_TYPE (TREE_TYPE (current_function_decl)));
+  DECL_ARTIFICIAL (DECL_RESULT (current_function_decl)) = 1;
+  DECL_IGNORED_P (DECL_RESULT (current_function_decl)) = 1;
   start_fname_decls ();
   store_parm_decls_from (params);
 #endif

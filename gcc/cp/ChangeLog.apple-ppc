@@ -1,3 +1,19 @@
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3955336
+	* parser.c (cp_parser_objc_message_receiver): Try parsing
+	receiver as an expression first; failing that, as a
+	nested type.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3951689
+	* parser.c (cp_parser_objc_try_catch_finally_statement,
+	cp_parser_objc_synchronized_statement, cp_parser_objc_throw_statement
+	cp_parser_objc_statement): New functions.
+	(cp_parser_statement): Call cp_parser_objc_statement() to
+	parse Objective-C statements.
+
 2005-01-15  Geoffrey Keating  <geoffk@apple.com>
 
 	* g++spec.c: Remove APPLE LOCAL changes involving

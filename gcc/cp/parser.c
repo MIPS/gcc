@@ -1736,6 +1736,14 @@ static void cp_parser_objc_end_implementation
   (cp_parser *);
 static void cp_parser_objc_declaration
   (cp_parser *);
+static tree cp_parser_objc_try_catch_finally_statement
+  (cp_parser *);
+static tree cp_parser_objc_synchronized_statement
+  (cp_parser *);
+static tree cp_parser_objc_throw_statement
+  (cp_parser *);
+static tree cp_parser_objc_statement
+  (cp_parser *);
 /* APPLE LOCAL end Objective-C++ */
 
 /* Utility Routines */
@@ -6064,6 +6072,17 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr)
 	case RID_GOTO:
 	  statement = cp_parser_jump_statement (parser);
 	  break;
+
+	/* APPLE LOCAL begin Objective-C++ */
+	/* Objective-C++ exception-handling constructs.  */
+	case RID_AT_TRY:
+	case RID_AT_CATCH:
+	case RID_AT_FINALLY:
+	case RID_AT_SYNCHRONIZED:
+	case RID_AT_THROW:
+	  statement = cp_parser_objc_statement (parser);
+	  break;
+	/* APPLE LOCAL end Objective-C++ */
 
 	case RID_TRY:
 	  statement = cp_parser_try_block (parser);
@@ -16943,16 +16962,36 @@ static tree
 cp_parser_objc_message_receiver (cp_parser* parser)
 {
   tree rcv;
+  bool class_scope_p, template_p;
 
   /* An Objective-C message receiver may be either (1) a type
      or (2) an expression.  */
   cp_parser_parse_tentatively (parser);
-  rcv = cp_parser_type_name (parser);
+  rcv = cp_parser_expression (parser);
 
   if (cp_parser_parse_definitely (parser))
-    return objc_get_class_reference (rcv);
+    return rcv;
 
-  return cp_parser_expression (parser);
+  /* Look for the optional `::' operator.  */
+  cp_parser_global_scope_opt (parser, false);
+  /* Look for the nested-name-specifier.  */
+  cp_parser_nested_name_specifier_opt (parser,
+				       /*typename_keyword_p=*/true,
+				       /*check_dependency_p=*/true,
+				       /*type_p=*/true,
+				       /*is_declaration=*/true);
+  class_scope_p = (parser->scope && TYPE_P (parser->scope));
+  template_p = class_scope_p && cp_parser_optional_template_keyword (parser);
+  /* Finally, look for the class-name.  */
+  rcv = cp_parser_class_name (parser,
+			       class_scope_p,
+			       template_p,
+			       /*type_p=*/true,
+			       /*check_dependency_p=*/true,
+			       /*class_head_p=*/false,
+			       /*is_declaration=*/true);
+
+  return objc_get_class_reference (rcv);
 }
 
 /* Parse the arguments and selectors comprising an Objective-C message.
@@ -17751,6 +17790,129 @@ cp_parser_objc_declaration (cp_parser* parser)
       error ("misplaced `@%D' Objective-C++ construct", kwd->value);
       cp_parser_skip_to_end_of_block_or_statement (parser);
     }
+}
+
+/* Parse an Objective-C try-catch-finally statement.
+
+   objc-try-catch-finally-stmt:
+     @try compound-statement objc-catch-clause-seq [opt]
+       objc-finally-clause [opt]
+
+   objc-catch-clause-seq:
+     objc-catch-clause objc-catch-clause-seq [opt]
+
+   objc-catch-clause:
+     @catch ( exception-declaration ) compound-statement
+
+   objc-finally-clause
+     @finally compound-statement
+
+   Returns NULL_TREE.  */
+
+static tree
+cp_parser_objc_try_catch_finally_statement (cp_parser *parser) {
+  location_t location;
+  tree stmt;
+
+  cp_parser_require_keyword (parser, RID_AT_TRY, "`@try'");
+  location = cp_lexer_peek_token (parser->lexer)->location;
+  stmt = push_stmt_list ();
+  cp_parser_compound_statement (parser, NULL, false);
+  objc_begin_try_stmt (location, pop_stmt_list (stmt));
+  
+  while (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_CATCH))
+    {
+      cp_parameter_declarator *parmdecl;
+      tree parm;
+
+      cp_lexer_consume_token (parser->lexer);
+      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+      parmdecl = cp_parser_parameter_declaration (parser, false, NULL);
+      parm = grokdeclarator (parmdecl->declarator,
+			     &parmdecl->decl_specifiers,
+			     PARM, /*initialized=*/0, 
+			     /*attrlist=*/NULL);
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      objc_begin_catch_clause (parm);
+      cp_parser_compound_statement (parser, NULL, false);
+      objc_finish_catch_clause ();
+    }
+
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_FINALLY))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      location = cp_lexer_peek_token (parser->lexer)->location;
+      stmt = cp_parser_compound_statement (parser, NULL, false);
+      objc_build_finally_clause (location, stmt);
+    }
+
+  return objc_finish_try_stmt ();
+}
+
+/* Parse an Objective-C synchronized statement.
+
+   objc-synchronized-stmt:
+     @synchronized ( expression ) compound-statement
+
+   Returns NULL_TREE.  */
+
+static tree
+cp_parser_objc_synchronized_statement (cp_parser *parser) {
+  location_t location;
+  tree lock, stmt;
+
+  cp_parser_require_keyword (parser, RID_AT_SYNCHRONIZED, "`@synchronized'");
+
+  location = cp_lexer_peek_token (parser->lexer)->location;
+  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  lock = cp_parser_expression (parser);
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+  stmt = cp_parser_compound_statement (parser, NULL, false);
+
+  return objc_build_synchronized (location, lock, stmt);
+}
+
+/* Parse an Objective-C throw statement.
+
+   objc-throw-stmt:
+     @throw assignment-expression [opt] ;
+
+   Returns a constructed '@throw' statement.  */
+
+static tree
+cp_parser_objc_throw_statement (cp_parser *parser) {
+  tree expr = NULL_TREE;
+
+  cp_parser_require_keyword (parser, RID_AT_THROW, "`@throw'");
+
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+    expr = cp_parser_assignment_expression (parser);
+
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  return objc_build_throw_stmt (expr);
+}
+
+static tree
+cp_parser_objc_statement (cp_parser * parser) {
+  /* Try to figure out what kind of declaration is present.  */
+  cp_token *kwd = cp_lexer_peek_token (parser->lexer);
+
+  switch (kwd->keyword)
+    {
+    case RID_AT_TRY:
+      return cp_parser_objc_try_catch_finally_statement (parser);
+    case RID_AT_SYNCHRONIZED:
+      return cp_parser_objc_synchronized_statement (parser);
+    case RID_AT_THROW:
+      return cp_parser_objc_throw_statement (parser);
+    default:
+      error ("misplaced `@%D' Objective-C++ construct", kwd->value);
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+    }
+
+  return error_mark_node;
 }
 /* APPLE LOCAL end Objective-C++ */
 
