@@ -1,3 +1,887 @@
+Wed Apr 12 17:20:41 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	(expand_call): Do not reverse args in "equal from" field.
+	(emit_library_call_value_1): Emit_libcall_block for const and pure
+	function.
+
+Wed Apr 12 16:00:25 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* reload1.c (reload_combine): Don't enable optimization for fixed
+	registers when encountering a BARRIER.
+
+Wed Apr 12 15:54:11 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (expand_builtin_memcmp): Do expansion even with
+	!HAVE_cmpstrsi, do libcall when gen_strcmpsi fails.
+
+	* calls.c (expand_call): Do NO_DEFER_POP unconditionally once
+	stack is propertly aligned; add sanity checking for aligned
+	stack pointer.
+	(expand_library_call_value_1): Add sanity checking for aligned
+	stack pointer.
+
+Wed Apr 12 07:51:54 2000  Catherine Moore  <clm@cygnus.com>
+ 
+        * calls.c (emit_library_call_value_1): Change 3rd arg to
+        locate_and_pad_parm to disregard the setting of partial.
+
+Wed Apr 12 08:47:38 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* tree.c (unsave_expr_now_r, unsafe_for_reeval): Properly do TREE_LIST.
+
+	* print-rtl.c (print_rtx): For CALL_PLACEHOLDER, output the
+	CALL_INSN from the normal case.
+
+Fri Apr  7 12:23:04 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_sub_esp_4, x86_sub_esp_8, x86_add_esp_4, x86_add_esp_8):
+	New global variables.
+	(ix86_emit_epilogue_adjustment): Do not attempt to use pop for the
+	adjustment.
+	* i386.h (x86_sub_esp_4, x86_sub_esp_8, x86_add_esp_4, x86_add_esp_8):
+	Declare,
+	(TARGET_SUB_ESP_4, TARGET_SUB_ESP_8, TARGET_ADD_ESP_4,
+	 TARGET_ADD_ESP_8): New macros.
+	* i386.md: Add peep2s to convert esp adjustments to push and pop
+	instructions.
+	(pushsi_prologue, popsi_epilogue): New patterns.
+
+2000-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* real.c (toe64): Remove stale #endif from the last change.
+
+2000-04-12  Stephen L Moshier  <moshier@mediaone.net>
+
+	* real.h (MAX_LONG_DOUBLE_TYPE_SIZE): Comment.
+	* real.c (toe64): Revert previous change.
+
+2000-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* objc/objc-act.c: Include ggc.h.
+	(objc_tree_index, objc_global_trees): Convert most of the
+	static tree variables into a static array with previous names
+	as defines.
+	(objc_ellipsis_node): New variable.
+	(lang_init): Call objc_act_parse_init and c_parse_init.
+	Create objc_ellipsis_node.
+	(build_selector_translation_table): Use objc_ellipsis_node instead
+	of (tree)1.
+	(hack_method_prototype): Likewise.
+	(get_arg_type_list): Likewise.
+	(start_method_def): Likewise.
+	(continue_method_def): Likewise.
+	(gen_method_decl): Likewise.
+	(ggc_mark_imp_list): New function.
+	(ggc_mark_hash_table): New function.
+	(objc_act_parse_init): New function.
+	* objc/objc-act.h (objc_ellipsis_node): Add extern variable.
+	* c-parse.in (c_parse_init): For objc add roots of objc specific
+	local tree variables.
+	* objc/objc-parse.y: Rebuilt.
+	* objc/objc-parse.c: Rebuilt.
+	(opt_parm_list): Use objc_ellipsis_node instead of (tree)1.
+
+Wed Apr 12 01:00:44 EDT 2000  John Wehle  (john@feith.com)
+
+	* cse.c (delete_trivially_dead_insns): Also delete insns
+	that copy a register to itself where the destination is
+	a strict_low_part.
+
+2000-04-11  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (struct propagate_block_info): Add new_dead, new_live.
+	(propagate_block): Initialize them.  Use them in parallel instead
+	of one tmp variable, ie revert much of the 0408 and 0407 functional
+	changes, but keep the structural changes.
+	(mark_set_regs): Take new_dead from propagate_block_info instead.
+	(mark_set_1, mark_set_reg): Likewise.
+	(mark_used_regs): Likewise with new_live.
+	(mark_used_reg): Likewise.  Revert 0408 change.
+
+2000-04-11  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.h: (INCOMING_RETURN_ADDR_RTX): Remove Dwarf2
+	restriction.
+	(DWARF_FRAME_RETURN_COLUMN): Remove Dwarf2 restriction.
+
+2000-04-11  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* config/elfos.h (SELECT_SECTION): Decide whether to use a data or
+	const section to output a CONSTRUCTOR based on the same conditions
+	used for VAR_DECLs.
+
+Tue Apr 11 09:55:59 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* pa/long-double.h (FIX_TRUNCTFSI2_LIBCALL): Tweak for PA64.
+	* pa/pa-protos.h (output_call): Add additional argument indicating
+	if the call is a sibling/tail call.
+	(compute_zdepdi_operands, output_64bit_and): Prototype new functions.
+	(compute_64bit_ior, cmpib_comparison_operator): Likewise.
+	(function_arg, function_arg_partial_nregs): Likewise
+	* pa/pa.c (override_options): Always set flag_pic for TARGET_64BIT.
+	(emit_move_sequence): Zero extend certain constants as needed
+	for TARGET_64BIT.
+	(compute_zdepdi_operands, output_64bit_and): New functions.
+	(output_64bit_ior, function_arg): Likewise.
+	(cmpib_comparison_operator, function_arg_partial_nregs): Likewise.
+	(compute_frame_size, hppa_expand_prologue): Handle TARGET_64BIT.
+	(hppa_expand_epilogue, return_addr_rtx, hppa_va_arg): Likewise.
+	(hppa_builtin_saveregs, output_cbranch, output_bb): Likewise.
+	(output_bvb): Likewise.
+	(output_millicode_call): Return pointer is in %r2 for TARGET_64BIT.
+	(output_call): New argument 'sibcall'.  Generate sibcall sequences
+	as needed.
+	(print_operand); Handle cases 'Q', 'p', and 'z' for TARGET_64BIT.  For
+	(ouput_arg_descriptor): Do not emit argument descriptors for
+	TARGET_64BIT.
+	* pa/pa.h (TARGET_PA_11, TARGET_PA_20): Only define if not already
+	defined.
+	(TARGET_64BIT, PROMOTE_FUNCTION_RETURN): Define.
+	(FUNCTION_OK_FOR_SIBALL): Define.
+	(CPP_PA10_SPEC, CPP_PA11_SPEC, CPP_PA20_SPEC): Define.
+	(CPP_CPU_DEFAULT_SPEC, SUBTARGET_EXTRA_SPECS, EXTRA_SPECS): Likewise.
+	(CPP_SPEC): Use new spec infrastructure.
+	(BITS_PER_WORD, UNITS_PER_WORD): Handle TARGET_64BIT.
+	(STACK_BOUNDARY, FUNCTION_BOUNDARY, PIC_OFFSET_TABLE_REGNUM): Likewise.
+	(RETURN_IN_MEMORY, EXTRA_CONSTRAINT, FIRST_PARM_OFFSET): Likewise.
+	(REG_PARM_STACK_SPACE, STACK_POINTER_OFFSET): Likewise.
+	(STACK_DYNAMIC_OFFSET, FUNCTION_VALUE): Likewise.
+	(FUNCTION_ARG_PASS_BY_REFERENCE, FUNCTION_ARG_CALLEE_COPIES): Likewise.
+	(TRAMPOLINE_TEMPLATE, TRAMPOLINE_SIZE): Likewise.
+	(INITIALIZE_TRAMPOLINE, LEGITIMATE_CONSTANT_P): Likewise.
+	(CONST_OK_FOR_LETTER_P, MOVE_RATIO): Likewise.
+	(FUNCTION_ARG); Call out to C code.
+	(FUNCTION_ARG_PARTIAL_NREGS): Likewise.
+	(MAX_BITS_PER_WORD, MAX_LONG_TYPE_SIZE, MAX_WCHAR_TYPE_SIZE): Define.
+	(MIN_UNITS_PER_WORD): Likewise.
+	* pa/pa.md (cmpdi): New expander.
+	(scc patterns, movstrsi): Not available for TARGET_64BIT.
+	(64bit conditional arithmetic): New patterns.
+	(absdi2, smindi3, umindi3, smaxdi3, umaxdi3): New patterns.
+	(movsicc): Not available if modes on all the operands to not match.	
+	(movdicc): New expander and associated patterns.
+	(64bit branches): New patterns.
+	(pre_load, post_store): Generate appropriate code for TARGET_64BIT.
+	(pre_ldd, post_std): New patterns.
+	(64bit addil, load low part): New patterns.
+	(special movsf constant): Not available for TARGET_64BIT.
+	(movsf, movdf expanders): Force constants into memory.
+	(32bit movdf/movdi patterns): Disable for TARGET_64BIT.
+	(64bit movdf/movdi patterns): New patterns.
+	(zero_extendqidi2, zero_extendhidi2, zero_extendsidi2): New patterns
+	for TARGET_64BIT.
+	(extendqidi2, extendhidi2, extendsidi2): Similarly.
+	(adddi3 expander): Allow "arith_operand" for second input.
+	(32bit adddi3, subdi3, uaddcm): Disable for TARGET_64BIT.
+	(64bit adddi3, subsi3, uaddcm): New patterns for TARGET_64BIT.
+	(mulsi3 expander): Revamp slightly so it supports TARGET_64BIT too.
+	(muldi3): New expander for TARGET_64BIT.
+	(divsi3, udivsi3, modsi3, umodsi3): Fourth operand must be (reg:SI 2)
+	for TARGET_64BIT.
+	(32bit anddi3, iordi3, xordi3, andcm, negdi2, uaddcm): Disable
+	patterns for TARGET_64BIT.
+	(64bit anddi3, iordi3, xordi3, andcm, negdi2, uaddcm, shadd): New
+	patterns for TARGET_64BIT.
+	(64bit bit insertion/extractions): New patterns for TARGET_64BIT.
+	(64bit shifts/rotates): New patterns/expanders for TARGET_64BIT.
+	(sibcall_epilogue): New expander.
+	(casesi): Tweak for TARGET_64BIT.
+	(call expanders): Set & use the outgoing argument pointer.  Use the
+	64bit call patterns as needed. Add additional arg to output_call.
+	(call_internal_reg_64bit, call_value_internal_reg_64bit): New pattern.
+	(sibcall, sibcall_internal_symref): New expanders.
+	(sibcall_value, sibcall_value_internal_symref
+	(interspace_jump): Turn into an expander + matching patterns.
+	(canonicalize_funcptr_for_compare): Not needed for TARGET_64BIT.
+	* pa/pa64-regs.h: Eliminate trigraph sequences.
+	* pa/pa64-start.h (TARGET_PA_20): Fix typo.
+
+2000-04-11  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppexp.c, cpphash.c, cpphash.h, cpplex.c, cpplib.c,
+	cpplib.h, cppmain.c, fix-header.c, scan-decls.c: Replace
+	cpp_token with cpp_ttype everywhere.
+	* cpperror.c, cpphash.c, cpplex.c, cpplib.c, scan-decls.c:
+	Replace cpp_buf_line_and_col with CPP_BUF_LINE and/or
+	CPP_BUF_COL.  Line and column numbers are unsigned int, not
+	long.
+	* cpplex.c (cpp_buf_line_and_col): Delete.
+	* cpplib.h (struct cpp_buffer, struct cpp_reader): Change
+	'long lineno' to 'unsigned int lineno'.
+	(CPP_BUF_LINE, CPP_BUF_COL): New macros.
+
+2000-04-11  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* extend.texi: ISO C99 is not a draft anymore.
+	* invoke.texi: ISO C++ is not a draft anymore.
+	* cpp.texi: __cplusplus is required by the ISO standard.
+
+	* extend.texi (-fthis-is-variable): Undocument.
+	* flags.h (warn_template_debugging): Remove declaration.
+	* gcc.1 (-fall-virtual, -fenum-int-equiv, -fthis-is-variable,
+	-Wenum-clash, -Wtemplate-debugging): Undocument.
+
+2000-04-10  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.h (HOST_INT): New macro: Declare a HOST_WIDE_INT
+	integer.
+	(HOST_UINT): New macro: Declare an unsigned HOST_WIDE_INT
+	integer.
+	(ARM_SIGN_EXTEND): Use HOST_UINT.
+	(STRIP_NAME_ENCODING): Prevent warnings about redefinitions.
+	(ASM_OUTPUT_LABELREF): Prevent warnings about redefinitions.
+	(INCOMING_RETURN_ADDR_RTX): Only define if Dwarf2 is supported.
+	(DWARF_FRAME_RETURN_COLUMN): Only define if Dwarf2 is supported.
+
+	* config/arm/arm.c: (const_ok_for_arm): Use HOST_UINT.
+	(arm_gen_constant): Use HOST_UINT.
+	(arm_canonicalize_constant): Use HOST_UINT.
+	(arm_reload_in_hi): Use HOST_UINT.
+	(arm_reload_out_hi): Use HOST_UINT.
+	(output_multi_immediate): Use HOST_UINT.
+	(int_log2): Use HOST_UINT.
+	(arm_poke_function_name): Use HOST_UINT.
+	(arm_output_epilogue): Use arm_volatile_func().
+	(output_thumb_prologue): Use arm_strip_name_encoding().
+	
+Mon Apr 10 15:40:59 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* sbitmap.c (sbitmap_a_subset_b_p): Rework loop to avoid potential
+	of sequence point problems.
+
+2000-04-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* rtl.def (ASHIFT, ROTATE, ASHIFTRT, LSHIFTRT, ROTATERT):
+	Recomment.
+	* tree.def (LSHIFT_EXPR, RSHIFT_EXPR): Recomment.
+
+Mon Apr 10 07:21:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* sbitmap.h: Whitespace changes and use upper-case macro args.
+	(struct simple_bitmap_def): All sizes now unsigned.
+	(EXECUTE_IF_SET_IN_SBITMAP): Internal vars now _X instead of X_.
+	* sbitmap.c (sbitmap_alloc): N_ELMS now unsigned; also local vars.
+	(sbitmap_vector_alloc): Parms and local vars now unsigned.
+	(sbitmap_zero): Cast bzero arg to PTR.
+	(sbitmap_vector_zero, sbitmap_vector_one): Parm and Local var unsigned.
+	(sbitmap_union_of_diffs): Change loop index to unsigned and rework
+	loop to make structure clearer.
+	(sbitmap_not, sbitmap_difference, sbitmap_a_and_b): Likewise.
+	(sbitmap_a_or_b, sbitmap_a_subset_b_p, sbitmap_a_or_b_and_c): Likewise.
+	(sbitmap_a_and_b_or_c): Likewise.
+	(sbitmap_intersection_of_succs): Minor cleanups.
+	(sbitmap_intersection_of_preds, sbitmap_union_of_succs): Likewise.
+	(sbitmap_union_of_preds): Likewise.
+	(sbitmap_first_set_bit, dump_sbitmap): Local variables now unsigned.
+	(debug_sbitmap): New function.
+	
+	* c-convert.c (convert): Handle REFERENCE_TYPE like POINTER_TYPE.
+	* c-typeck.c (convert_for_assignment): Likewise.
+
+	* expmed.c (init_expmed): Don't free objects we make.
+	* emit-rtl.c (gen_rtx_CONST_INT, init_emit_once): Minor cleanups.
+
+	* expr.c (get_inner_reference): Correct some WITH_RECORD_EXPR cases.
+	(expand_expr, case CONVERT_EXPR): Pass proper alignment to store_field.
+
+	* gcse.c (expr_hash_table_size): Now unsigned.
+	(compute_ae_gen): Local variable `i' now unsigned.
+	(compute_ae_kill, pre_insert_copies, pre_delete, pre_gcse): Likewise.
+	(compute_transout, hoist_code): Likewise.
+	(compute_local_properties): Likewise, also hash_table_size.
+	(alloc_expr_hash_table): N_INSNS now unsigned.
+	(delete_null_pointer_checks): Mark arg F as unused.
+
+	* regrename.c: Minor cleanups, including chang some variables
+	to unsigned int.
+
+2000-04-10  Neil Booth  <NeilB@earthling.net>
+
+	* cpplex.c (skip_block_comment): Use pointer arithmetic rather
+	than GETC ().
+	* cpphash.h: (CPP_BUMP_BUFFER_LINE_CUR, CPP_BUMP_LINE_CUR): New.
+
+2000-04-10  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* invoke.texi (-fno-gnu-keywords): Remove classof, headof,
+	__classof__, and __headof__ from the list of gnu keywords.
+	(-ansi): Remove -foperator-names from list of implied options. 
+	Do not call it ANSI C++.
+	(-foperator-names): Document as -fno-operator-names.
+
+2000-04-09  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (timestamp): Delete.
+	(del_HASHNODE): If type is T_MCONST, free value.cpval.
+	(special_symbol): Remove unnecessary braces.  Remove
+	T_VERSION.  Treat T_STDC like T_CONST unless
+	STDC_0_IN_SYSTEM_HEADERS.  Render both __DATE__ and __TIME__
+	when one is encountered, then convert them into T_MCONST
+	nodes.
+	* cppinit.c (builtin_array): version_string is T_MCONST.
+	__STDC__ has a "1" in its cpval.  Don't have a terminator
+	entry.  Clean up which entries are dumped.
+	(initialize_builtins): Only __STDC__ gets the special
+	-traditional treatment.  Count the length of builtin_array.
+	Render version_string here.
+	* cpphash.h: Remove T_VERSION.  Add T_MCONST.
+	* cpplib.h (struct cpp_reader): Remove timebuf.	
+
+2000-04-09  Richard Henderson  <rth@cygnus.com>
+
+	* genrecog.c (pred): Update comparison_operator for the unordered
+	operators.
+
+	* config/i386/i386.c (no_comparison_operator): Disallow unordered
+	operators.
+	(fcmov_comparison_operator): Allow UNORDERED/ORDERED.
+	(uno_comparison_operator): New.
+	(put_condition_code): Handle UNORDERED/ORDERED.
+	(unsigned_comparison): Likewise.
+	(ix86_fp_compare_mode): Broken out of ix86_expand_fp_compare.
+	(ix86_use_fcomi_compare, ix86_prepare_fp_compare_args): Likewise.
+	(ix86_expand_fp_compare): Use them.  Take scratch as argument,
+	update all callers.  Handle all 8 unordered operators.
+	(ix86_expand_setcc): Lose the unordered argument, update all callers.
+	(ix86_expand_branch): Likewise.  Don't fully expand fp branches.
+	* config/i386/i386.h (PREDICATE_CODES): Update.
+	* config/i386/i386-protos.h (ix86_expand_fp_compare): Declare.
+	(ix86_expand_branch, ix86_expand_setcc): Update.
+	* config/i386/i386.md (sunordered, sordered): New.
+	(suneq, sunge, sungt, sunle, sunlt, sltgt): New.
+	(bunordered, bordered): New.
+	(buneq, bunge, bungt, bunle, bunlt, bltgt): New.
+	(*fp_jcc_1, *fp_jcc_2, *fp_jcc_3, *fp_jcc_4): New.
+	(*fp_jcc_5, *fp_jcc_6, and splitters): New.
+
+2000-04-09  Philip Blundell  <philb@gnu.org>
+
+	* config/arm/arm.h (ARM_NAME_ENCODING_LENGTHS): Strip `*' too.
+	
+Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
+
+	* i386.md (fix_truncsfhi2, fix_truncdfhi2,
+	fix_truncxfhi2): New patterns.
+	* i386.c (output_fix_trunc): Handle converting to HImode.
+
+2000-04-08  Alex Samuel  <samuel@codesourcery.com>
+
+	* ssa.c (convert_to_ssa): Eliminate dead code when calling
+	life_analysis.  
+	(convert_from_ssa): Call compute_bb_for_insn before life_analysis.
+	(for_each_successor_phi): Change parameter to basic_block.
+	(coalesce_regs_in_successor_phi_nodes): Likewise.
+	(coalesce_regs_in_copies): Likewise.
+	(compute_coalesced_reg_partition): Use basic_block instead of index.
+	* rtl.h (convert_to_ssa): Delete.
+	(convert_from_ssa): Likewise.
+	(successor_phi_fn): Likewise.
+	(for_each_successor_phi): Likewise.
+	(in_ssa_form): Likewise.
+	* basic-block.h (convert_to_ssa): Moved from rtl.h.
+	(convert_from_ssa): Likewise.
+	(successor_phi_fn): Likewise.
+	(in_ssa_form): Likewise.
+	(for_each_successor_phi): Likewise.  Change parameter to basic_block. 
+	* flow.c (calculate_global_regs_live): Pass a basic_block to
+	for_each_successor_phi.
+
+2000-04-08  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (mark_used_reg): Use reg_set_p to determine if a register
+	was modified in the current insn.
+
+2000-04-08  Richard Earnshaw (rearnsha@arm.com)
+
+	* arm/thumb.md: Delete.
+	* arm/thumb-protos.h: Delete.
+
+2000-04-08  Richard Earnshaw (rearnsha@arm.com)
+
+	Merge changes from merged-arm-thumb-backend-branch onto trunk.
+
+	2000-04-08  Richard Earnshaw (rearnsha@arm.com)
+
+	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000408
+	into branch.
+
+	* arm.md (nop): Use the standard RTL expression.  Don't code as a
+	define_expand.
+	(*arm_nop, *thumb_nop): Delete.
+
+	* arm.c (const_ok_for_arm): Don't use ANSI extensions for defining
+	constants.  Use casts instead.
+	(arm_gen_constant, arm_rtx_costs, arm_reload_in_hi, arm_reload_out_hi,
+	output_multi_immediate, arm_poke_function_name): Likewise.
+	* arm.h (ARM_LEGITIIMIZE_RELOAD_ADDRESS, ARM_SIGN_EXTEND,
+	MASK_RETURN_ADDDR): Likewise.
+
+	2000-03-31  Richard Earnshaw (rearnsha@arm.com)
+
+	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000325 
+	into branch.
+	
+	* arm.md (eh_epilogue): New function.
+	* arm.h (struct machine_function): Move to here ...
+	* arm.c: ... from here.
+	(arm_output_epilogue): Support epilogues for __builtin_eh_return.
+	(thumb_exit): Extra parameter eh_ofs.  All callers changed.
+	Handle epilogues for __builtin_eh_return.  Make bit-fields unsigned.
+
+	2000-03-30  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/semi.h (ASM_SPEC): Restore definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Define if not already defined.
+
+	* config/arm/elf.h (ASM_SPEC): Restore definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Define if not already defined.
+
+	* config/arm/arm.h (ASM_SPEC): Remove definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Remove definition.
+
+	2000-03-26  Bernd Schmidt <bernds@cygnus.co.uk>
+
+	* config/arm/arm.c: Disable -fschedule-insns for Thumb.
+
+	2000-03-24  Nick Clifton  <nickc@cygnus.com>
+
+	Various formating tidyups, elimination of compile time
+	warnings and synchronisation with internal sources:
+	
+	* config/arm/arm-protos.h (assemble_align): Add prototype.
+	(gen_rotated_half_load): Rename to arm_gen_rotated_half_load.
+	(gen_comapre_reg): Rename to arm_gen_compare_reg.
+	(arm_return_addr_rtx): Rename to arm_return_addr.
+
+	* config/arm/arm.c: Include except.h.
+	Define shorter typenames for strict minipool_node and struct
+	minipool_fix.
+	(arm_return_in_memory): For WinCE return all structures <= 32 bits
+	in memory.
+	(gen_rotated_half_load): Rename to arm_gen_rotated_half_load.
+	(gen_comapre_reg): Rename to arm_gen_compare_reg.
+
+	* config/arm/arm.h (SUBTARGET_EXTRA_ASM_SPEC): Define if not
+	already defined.
+	(ASM_SPEC): Define if not already defined.
+	(ASM_OUTPUT_DEF_FROM_DECLS): Define.
+
+	* config/arm/arm.md: Rename references to gen_rotated_half_load to
+	arm_gen_rotated_half_load, and references to gen_comapre_reg to
+	arm_gen_compare_reg.
+	(indirect_jump):  Only accept register operands.
+	(load_indirect_jump): Keep this pattern since combine can generate
+	it.
+
+	* config/arm/coff.h: Include aout.h.
+	(MULTILIB_DEFAULTS): Only define if not already defined.
+
+	* config/arm/elf.h (ASM_OUTPUT_DEF_FROM_DECLS): Move definition
+	into arm.h (so that COFF ports can support thumb based aliases).
+	(ASM_SPEC): Move definition into arm.h
+	
+	* config/arm/linux-elf.h (SUBTARGET_EXTRA_ASM_SPEC): Remove
+	redundant apcs spec.
+	(ASM_SPEC): Move definition to arm.h
+
+	* config/arm/semi.h (ASM_SPEC): Move definition to arm.h
+
+	* config/arm/unknown-elf.h (ASM_OUTPUT_SECTION_NAME): Add support
+	for entries in the .bss section
+
+	2000-03-23  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.h (THUMB_INITIAL_ELIMINATION_OFFSET): Pass 0
+	to thumb_far_jump_used_p.
+
+	* config/arm/arm-protos.h (thumb_far_jump_used_p): Take a
+	single integer parameter.
+
+	* config/arm/arm.c (struct machine_function): Add two new
+	fields, 'far_jump_used' and 'arg_pointer_live'.
+	(thumb_far_jump_used_p): Once the decision has been made that
+	far jumps might be used, always return true.
+	If being called from the initial elimination offset macro then
+	do not bother to perform the test if the arg pointer is not
+	being used.
+	(thumb_unexpand_epilogue): Pass 1 to thumb_far_jump_used_p().
+	(output_thumb_prologue): Pass 1 to thumb_far_jump_used_p().
+
+	2000-03-23  Richard Earnshaw (rearnsha@arm.com)
+
+	* arm.c (output_return_instruction): Handle more cases where we can
+	return from a function with an ldr instruction.
+	(arm_output_epilogue): Likewise.
+
+	* arm.c (thumb_expand_prologue): Don't clobber the frame pointer
+	if we need to push a large stack frame and there are no callee-saved
+	registers.
+
+	* arm.c (arm_debugger_arg_offset): An offset of 0 is also valid
+	in ARM code if the frame pointer has been eliminated.
+
+	* arm.md (epilogue, *epilogue_insns, consttable_*, align_4): Renumber
+	unspec_volatile arguments to avoid duplicates.
+	(consttable_1, consttable_2): Fixes for big-endian mode.
+
+	* arm.md (all ARM-mode load insns): Add neg_pool_range attribute
+	as appropriate.
+
+	Re-write constant pool code.
+	* arm.c (minipool_node, minipool_fix): New types.
+	(minifix): Delete type.
+	(arm_add_minipool_constant): Delete.
+	(arm_compute_minipool_offsets, arm_find_barrier, 
+	arm_find_minipool_constant, fixup_compare, sort_fixups): Likewise.
+	(get_jump_table_size): Now returns HOST_WIDE_INT.
+	(move_minipool_fix_forward_ref, add_minipool_forward_ref): New
+	functions.
+	(move_minipool_fix_backward_ref, add_minipool_backward_ref): Likewise.
+	(assign_minipool_offsets, arm_print_value): Likewise.
+	(dump_minipool): Rewrite.
+	(arm_barrier_cost): New function.
+	(create_fix_barrier): New function.
+	(push_minipool_barrier): New function.
+	(push_minipool_fix): Record additional information about the fixup 
+	required.
+	(note_invalid_constants): Remove push for (UNSPEC 3).  Don't
+	check the mode of what needs fixing.
+	(arm_reorg): Rewrite.
+
+	2000-03-08  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.md (indirect_jump): Force constant addresses into
+	a register. 
+
+	2000-03-01  Bernd Schmidt <bernds@cygnus.co.uk>
+
+	* config/arm/arm.md: Add splitter to turn SF moves into SI moves.
+
+	2000-02-24  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c (thumb_expand_prologue): Make sure that stack
+	adjust is word aligned.
+	(thumb_expand_epilogue): Make sure that stack adjust is word
+	aligned.
+
+	* config/arm/elf.h (ASM_FILE_START): Fix type of version string.
+	
+	2000-02-24  Bernd Schmidt <bernds@cygnus.com>
+
+	* config/arm/arm.h (THUMB_GO_IF_LEGITIMATE_ADDRESS): Allow frame
+	pointer relative addresses.
+
+	2000-02-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (find_barrier): Find the last barrier within the allowed 
+	range.
+
+	2000-02-09  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm-protos.h: Replace PROTO with PARAMS.
+
+	2000-02-09  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/linux-elf.h (FUNCTION_PROFILER): Rename to
+	ARM_FUNCTION_PROFILER. 
+
+	* config/arm/netbsd.h (FUNCTION_PROFILER): Rename to
+	ARM_FUNCTION_PROFILER. 
+
+	* config/arm/linux-oldld.h: Imported from mainline sources.
+
+	2000-02-07  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/lib1funcs.asm: Merge in thumb functions from
+	lib1thumb.asm.
+	
+	* config/arm/lib1thumb.asm: Delete.
+
+	2000-02-04  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c: Sychronised with current Red hat local
+	sources. 
+	* config/arm/arm.h: Ditto.
+	* config/arm/arm-protos.h: Ditto.
+
+	2000-02-02  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* arm.c (soft_df_operand): Reject SUBREGs containing a constant.
+
+	* arm.c (arm_gen_movstrqi): Generate halfword stores rather than two
+	byte stores.
+
+	2000-02-02  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/thumb.c (thumb_exit): Additional fix for same bug.
+
+	* config/arm/arm.md (epilogue): Fix rtl checking abort because
+	(return) was emited using an emit_insn() call. 
+	
+	2000-01-31  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c (output_thumb_prologue): Fix bug generating
+	thumb stack frame.
+	(thumb_exit): Move frame pointer back into hard frame pointer
+	register if backtracing is being used.
+
+	2000-01-13  Richard Earnshaw (rearnsha@arm.com)
+
+	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000113 
+	into branch.
+
+	1999-12-15  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/arm/arm.md (neg_pool_offset): Provide default for new
+	attribute.
+	(arm_movsi_insn): Add neg_pool_offset attribute.
+	* config/arm/arm.c (arm_find_barrier): Replace arg FIX with an
+	rtx for the insn that starts the scan and an unsigned long for its
+	address.  Add MIN_OFFSET and PINSERTED args.  All callers changed.
+	Change scan to ignore insns before MIN_OFFSET.  Store size of inserted
+	instructions in *PINSERTED.
+	(struct minipool_fixup): Add MIN_ADDRESS elt.
+	(sort_fixups): Compute it.
+	(arm_reorg): Changes to support inserting pools before the insn to be
+	fixed up.
+
+	1999-12-08  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/arm/elf.h (MULTILIB_DEFAULTS): Add "marm".
+	* config/arm/linux-elf.h (MULTILIB_DEFAULTS): Add "marm".
+	* config/arm/coff.h (MULTILIB_DEFAULTS): Add "marm".
+
+	Wed Nov  3 10:04:07 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/semi.h (TARGET_VERSION): Do not define if already
+	defined.
+	(TARGET_DEFAULT): Do not define if already defined.
+
+	Tue Nov  2 10:37:25 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.md (anddi3): Allow disjoint source operands.
+	(iordi3): Allow disjoint source operands.
+	(xordi3): Allow disjoint source operands.
+	(negdi2): Permit construction for ARM and Thumb.
+	(arm_negdi2): Renamed version of old negdi2 pattern.
+	(thumb_negdi2): New pattern: Only permit non-overlapping
+	source and destination.
+
+	Fri Oct 29 18:52:38 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c (thumb_expand_prologue): Emit a USE of the
+	scratch low register so that it will not be deleted.
+
+	Fri Oct 29 15:23:48 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/pe.h (ARM_PE): Define.
+	
+	* config/arm/arm.c (arm_valid_machine_decl_attribute): Allow
+	interfacearm attribute if this is a PE toolchain.
+	(output_return_instruction): Do not emit anything if the function
+	has the naked attribute set.
+	(is_called_in_ARM_mode): If the function has the interfacearm
+	attribute then return true.
+	(thumb_expand_prologue): Do not generate a prologue for naked
+	functions.
+	(thumb_expand_epilogue): Do not generate an epilogie for a naked
+	function.
+	(output_thumb_prologue): Do not bother if the function is naked.
+	Strip PE encoding from function name before emitting.
+
+	Thu Oct 28 11:05:13 1999  Richard Earnshaw <rearnsha@arm.com>
+
+	* arm.md (pic_load_addr): Fix constraints.
+
+	* arm.md (casesi_insn): Fix mis-applied patch.
+
+	* arm.md ("core" function unit): Add rules for single- and
+	multi-cycle insns.
+	(All TARGET_THUMB patterns): Add "type" attribute information
+	where needed.
+	* arm.c (arm_adjust_cost): Reduce the cost of a data dependency if
+	the following insn is a CALL.
+
+	* arm.c (thumb_expand_epilogue): Add a use of the adjusted stack
+	pointer.
+	* arm.h (CONDITIONAL_REGISTER_USAGE): Nail down the 
+	ARM_HARD_FRAME_POINTER_REGNUM when TARGET_APCS_FRAME.
+	(FRAME_POINTER_REQUIRED): Only check TARGET_APCS_FRAME if TARGET_ARM.
+	
+	Wed Oct 27 14:40:48 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/linux-gas.h: oops - this file was missed out when the
+	branch was created...
+
+	Tue Oct 26 17:07:38 1999  Richard Earnshaw <rearnsha@arm.com>
+
+	* thumb.c: Deleted.  Move contents to ...
+	* arm.c: ... here.
+	* t-arm-aout, t-arm-coff, t-arm-elf, t-linux, t-netbsd, t-semi: Remove
+	rule for thumb.o
+	* configure.in (arm*-*-*): Remove thumb.o from extra_objs list.
+	* configure: Regen.
+
+	* arm-protos.h: Use RTX_CODE and tidy up long lines.  Don't
+	declare a prototype for asm_output_align();
+
+	* arm.c (thumb_condition_code): Delete.
+	(arm_print_operand): Always use arm_condition_code array.
+
+	* arm.c (thumb_return_addr_rtx): Delete.
+	(arm_save_machine_status, arm_restore_machine_status): Delete.
+	(arm_init_machine_status, arm_mark_machine_status): New functions.
+	(arm_init_expanders): Update accordingly.
+	(arm_return_addr): Renamed from arm_return_addr_rtx.  Rewrite.
+	(thumb_expand_prologue): Delete code referencing thumb_return_addr_rtx.
+	* arm.h (RETURN_ADDR_RTX): Call arm_return_addr().
+	
+	Tue Oct 26 13:24:16 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* configure.in : Fix arm-*-aout target to use new t-arm-aout
+	script. 
+	* config/arm/t-arm-aout: New file: Makefile script for arm-*-aout
+	targets.
+
+	Tue Oct 26 11:27:12 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/thumb.c (output_thumb_prologue): Fix bug creating
+	stack backtrace structure.
+
+	* config/arm/arm-protos.h: Add prototypes for functions defined in
+	arm/pe.h.
+	
+	* config/arm/arm.c (arm_override_options): Fix selection of 
+	attributes of default processor.
+	
+	* config/arm/coff.h: Delete needless #include.
+	
+	* config/arm/pe.c: Delete unused code.
+	
+	* config/arm/pe.h (CPP_DEFINES): Delete
+	(SUBTARGET_CPP_SPEC): Define.
+	(ASM_DECLARE_FUNCTION_NAME): Use ARM_DECLARE_FUNCTION_NAME.
+	
+	* config/arm/t-pe: Add -DInhibit_libc to allof libgcc.a to build.
+
+	Mon Oct 25 15:42:09 1999  Richard Earnshaw (rearnsha@arm.com)
+
+	* arm.h (TARGET_APCS_FRAME): Renamed from TARGET_APCS -- all uses
+	updated.
+	(CAN_DEBUG_WITHOUT_FP): Define.
+	(FIXED_REGISTERS): Make r11 call-saved.
+	(CALL_USED_REGISTERS): Likewise.
+	(CONDITIONAL_REGISTER_USAGE): Fix r11 if TARGET_APCS_FRAME.
+	(FRAME_POINTER_REQUIRED): Correct logic for determining when a 
+	frame-pointer is required.
+	(TARGET_DEFAULT): Make default setting include ARM_FLAG_APCS_FRAME.
+	* arm.c (arm_override_options): Warn about -mno-apcs-frame and -g
+	if the target normally needs a stack frame in non-leaf functions.
+	(use_return_insn): Correct logic for determining when a return
+	instruction can be used.
+	(output_return_instruction): Handle the frame-pointer register as
+	a normal register when not TARGET_APCS_FRAME.
+	(arm_output_prologue): Likewise.
+	(arm_output_epilogue): Likewise.
+	(output_func_epilogue): Likewise.
+	(arm_expand_prologue): Likewise.
+	* netbsd.h semi.h (TARGET_DEFAULT): Add ARM_FLAG_APCS_FRAME.
+
+	* arm.c (use_return_insn): No need to check floating point regs if
+	TARGET_SOFT_FLOAT.
+	(arm_find_minipool_constant): Correct typo; use GET_CODE to get
+	the code of value stored in the minipool array.
+	(arm_add_minipool_constant): Likewise.
+
+2000-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* basic-block.h (conflict_graph_enum_fn): K&R fix.
+
+2000-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree.c (tree_expr_nonnegative_p): New function.
+
+	* tree.h (tree_expr_nonnegative_p): Declare.
+
+	* c-typeck.c (build_binary_op): Call `tree_expr_nonnegative_p' to
+	elide some sign_compare warnings.
+	(build_conditional_expr): Likewise.
+
+Sat Apr  8 00:21:51 EDT 2000  John Wehle  (john@feith.com)
+
+	* i386.md (ashrsi3, ashrhi3, ashrqi3): Fix typo.
+
+	* i386.md (floathisf2, floathidf2, floathixf2): New patterns.
+	* i386.c (print_operand): Use the proper suffix for a 387 HImode
+	operand.  Abort if a 387 operand has an unsupported size.
+
+2000-04-08  Neil Booth  <NeilB@earthling.net>
+
+	* cppexp.c (parse_charconst): Null does not end character
+	constants.
+	* cppinit.c (ISTABLE): Null character handled as whitespace.
+	* cpplex.c (null_warning):  new function.
+	(skip_string): Emit warning if nulls encountered.
+	(_cpp_skip_hspace): Emit warning if nulls encountered.
+	(_cpp_lex_token): Emit warning if nulls encountered.  Drop
+	them.
+	* cpp.texi: Update.
+
+2000-04-07  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (loop_depth): Remove.
+	(reg_next_use, cc0_live, mem_set_list): Replace with ...
+	(struct propagate_block_info): New.
+	(life_analysis): Don't allocate reg_next_use.
+	(propagate_block_delete_insn): Break out of propagate_block.
+	Use flow_delete_insn to unlink rather than use NOTE_INSN_DELETED.
+	(propagate_block_delete_libcall): Likewise.
+	(propagate_block): Create a propagate_block_info struct to pass
+	to subroutines.  Allocate one not two temporary regsets.  Don't
+	clobber memory for const calls.  Look for clobbers in
+	CALL_INSN_FUNCTION_USAGE.
+	(mark_set_regs): Recognize COND_EXEC.
+	(mark_set_reg): Break out of mark_set_1.
+	(mark_used_reg): Break out of mark_used_regs.
+	(mark_used_regs): Recognize COND_EXEC.
+	(insn_dead_p): Use propagate_block_info struct.
+	(libcall_dead_p, invalidate_mems_from_autoinc): Likewise.
+	(find_auto_inc, try_pre_increment_1): Likewise.
+	(print_rtl_with_bb): Dump regs live at end too.
+	(count_reg_sets_1): Pass in loop_depth.
+	(count_reg_sets, count_reg_references): Likewise.
+	(recompute_reg_usage): Provide it.
+
+2000-04-07  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (conflict.o): Depend on $(RTL_H) and $(BASIC_BLOCK_H)
+	not the raw files.
+
+2000-04-07  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplib.c (do_elif): Skip the rest of the line if we're
+	not going to bother evaluating it.
+	(skip_if_group): Clear pfile->only_seen_white.  Reorder loop
+	to avoid pointless calls to the lexer.
+
+Fri Apr  7 11:50:54 2000  Jim Wilson  <wilson@cygnus.com>
+
+	* config/ia64/ia64.c: Delete stdio.h and ctype.h includes.
+
+2000-04-07  Jason Merrill  <jason@casey.cygnus.com>
+
+	* calls.c (expand_call): emit_queue if we're trying a sibcall.
+
+2000-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/t-linux64 (tcrtbeginS.o, tcrtendS.o): Remove.
+
+2000-04-06  Geoff Keating  <geoffk@cygnus.com>
+
+	* Makefile.in: Build crtbeginS and crtendS like crtbegin and
+	crtend so they can be multilibbed.
+	(STAGESTUFF): Remove s-crt and s-crtS.
+
 2000-04-07  Richard Henderson  <rth@cygnus.com>
 
 	* config/alpha/alpha.c (alpha_emit_conditional_move): Fail
@@ -293,7 +1177,7 @@ Wed Apr  5 12:35:18 2000  Hans-Peter Nilsson  <hp@axis.com>
 Wed Apr  5 18:03:31 2000  Toshiyasu Morita  (toshi.morita@sega.com)
 	                  J"orn Rennecke <amylaar@cygnus.co.uk>
 
-	* sh.c (block_lump_real_i4): Add missing clobber of T_REG
+	* sh.md (block_lump_real_i4): Add missing clobber of T_REG
 	(block_lump_real): Likewise.
 
 2000-04-05  Chris Demetriou  <cgd@netbsd.org>
@@ -2302,12 +3186,699 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 2000-03-15  Geoff Keating  <geoffk@cygnus.com>
 
-	See the ChangeLog on the branch for more details.
+	Merge changes from newppc-branch onto trunk.
+
+	2000-03-15  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (toc_hash_table): Update for new hash table functions.
+	(toc_hash_function): Likewise.
+	(toc_hash_eq): Likewise.
+	(toc_hash_mark_entry): Likewise.
+	(toc_hash_mark_table): Likewise.
+	(output_toc): Likewise.
+	(rs6000_add_gc_roots): Likewise.
+
+	2000-03-15  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* t-aix43 (AR_FOR_TARGET): Deleted.  Moved `-X32_64'...
+	(AR_FLAGS_FOR_TARGET): here.  New macro.
+
+	2000-03-05  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000.c (rs6000_fpmem_offset, rs6000_fpmem_size,
+	fpmem_operand) Delete.
+	(xer_operand) New.
+	(rs6000_reg_names, alt_reg_names): Change fpmem to xer.
+	(machine_function): Remove fpmem_size, fpmem_offset, save_toc_p.
+	(rs6000_save_machine_status, rs6000_restore_machine_status, 
+	rs6000_init_expanders, rs6000_stack_info, debug_stack_info): Remove 
+	references to above variables.
+	(gpc_reg_operand): Use XER_REGNO_P instead of FPMEM_REGNO_P.
+	* config/rs6000/rs6000.h (REG_ALLOC_ORDER, REGISTER_NAMES,
+	DEBUG_REGISTER_NAMES): Chagne fpmem to xer.
+	(FPMEM_REGNO_P, FPMEM_REGNUM): Delete.
+	(XER_REGNO_P, XER_REGNO): New.
+	(rs6000_stack): Remove fpmem_p, fpmem_offset, fpmem_size.
+	(PREDICATE_CODES): Change fpmem_operand to xer_operand.
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK): Change FPMEM_REGNO_P to 
+	XER_REGNO_P.
+	(reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS, REGNO_REG_CLASS,
+	REG_CLASS_FROM_LETTER, CLASS_MAX_NREGS): Change FPMEM_REGS to XER_REGS,		and remove FLOAT_OR_FPMEM_REGS.
+	(CLASS_CANNOT_CHANGE_SIZE): Change to FLOAT_REGS.
 	
-	* configure.in: Merge in changes from newppc-branch.
-	* configure: Regenerate.
-	* config/rs6000/*: Merge in changes from newppc-branch.
-	Also correct copyright notices.
+	2000-02-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* aix.h (FP_SAVE_INLINE, ASM_OUTPUT_INTERNAL_LABEL_PREFIX,
+	TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP): Move here...
+	* rs6000.h: from here.
+
+	* rs6000-protos.h (rs6000_select_section): Provide prototype.
+	(rs6000_select_rtx_section): Likewise.
+	(rs6000_encode_section_info): Likewise.
+	(sdata_section): Likewise.
+	(sdata2_section): Likewise.
+	(sbss_section): Likewise.
+	* sysv4.h (rs6000_select_section): Delete prototype.
+	(rs6000_select_rtx_section): Likewise.
+	(rs6000_encode_section_info): Likewise.
+	(sdata_section): Likewise.
+	(sdata2_section): Likewise.
+	(sbss_section): Likewise.
+	(REG_SAVE_AREA): Delete definition duplicated in rs6000.h.
+
+	* sysv4.h: Delete various unnecessary #undef's and put a comment
+	on the remaining ones.
+	Change various comments according to coding standard.
+
+	2000-02-29  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000.h (MQ_REGNO, CR0_REGNO, CR1_REGNO, CR2_REGNO, 
+	CR3_REGNO, CR4_REGNO, MAX_CR_REGNO): Define.
+	(CR0_REGNO_P) Remove.
+	* config/rs6000/rs6000.c (gpc_reg_operand, and64_operand, and_operand, 
+	setup_incoming_varargs, mtcrf_operation, print_operand, 
+	rs6000_stack_info, rs6000_emit_prologue, rs6000_emit_epilogue): 
+	Use the above macros.
+
+	2000-02-24  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000.md: Added a new alternative for each
+	pattern that had a 'x' alternative but no 'y' alternative.
+	Added a new split for each of the above patterns.
+
+	2000-02-18  Geoff Keating  <geoffk@cygnus.com>
+
+	* aix41.h (ASM_CPU_SPEC): Delete.
+	(CPP_CPU_SPEC): Delete.
+
+	* aix.h (RS6000_OUTPUT_BASENAME): Define.
+	(ASM_OUTPUT_LABEL): Define.
+	(ASM_GLOBALIZE_LABEL): Define.
+	(STRIP_NAME_ENCODING): Define.
+	* rs6000.h (RS6000_OUTPUT_BASENAME): Don't define.
+	(STRIP_NAME_ENCODING): Don't define.
+	(ASM_OUTPUT_LABEL): Don't define.
+	(ASM_GLOBALIZE_LABEL): Don't define.
+	* sysv4.h (ASM_DECLARE_FUNCTION_NAME): Use assemble_name to output
+	names, and ASM_OUTPUT_LABEL to output labels, rather than
+	asm_fprintf.
+	(ASM_OUTPUT_LABEL): Define.
+	(ASM_OUTPUT_INT): Use assemble_name.
+	(ASM_OUTPUT_DWARF_ADDR): Use assemble_name.
+	(STRIP_NAME_ENCODING): Don't undefine first.
+	(RS6000_OUTPUT_BASENAME): Make equivalent to assemble_name for
+	ELF.
+	(ASM_OUTPUT_LABELREF): Don't prepend underscores to labels
+	specified with 'asm' even with -fleading-underscore.
+	* rs6000.c (print_operand): Use assemble_name when !TARGET_AIX.
+	(output_epilog): Likewise.
+	(output_toc): Likewise. 
+	* tramp.asm: Handle -fleading-underscore correctly.
+
+	* rs6000.md (builtin_setjmp_receiver): Also run for -fPIC and
+	-mminimal-toc.
+	(nonlocal_goto_receiver): Delete.
+	* rs6000.h (DONT_ACCESS_GBLS_AFTER_EPILOGUE): Delete.
+
+	* rs6000.h (ASM_OUTPUT_DEF): Don't define.
+	(SET_ASM_OP): Define.
+	* sysv4.h (ASM_OUTPUT_DEF): Don't undefine.
+
+	* rs6000.h (ASM_OUTPUT_ADDR_VEC_ELT): Don't define.
+	(ASM_LONG): Define.
+
+	* rs6000.c (rs6000_dll_import_ref): Delete, not used.
+	* rs6000-protos.h (rs6000_dll_import_ref): Delete.
+
+	* rs6000.h: Add 'u' to more constants.
+
+	2000-02-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.md (mfcr+shift): Delete PowerPC64 version.
+
+	2000-02-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.c (reg_or_u_cint_operand): New function.
+	(logical_operand): Handle 64-bit hosts.
+	(logical_u_operand): New function.
+	(non_logical_cint_operand): Handle 64-bit hosts.
+	(non_logical_u_cint_operand): New function.
+	* rs6000.h (DATA_SECTION_ASM_OP): Add tab.
+	(PREDICATE_CODES): Define new functions.
+	* rs6000-protos.h: Declare new functions.
+	* rs6000.md (iordi3, xordi3): Constant int must be unsigned 32-bits.
+	(movdi_64): Bracket code intended for 64-bit hosts.  Create
+	CONST_DOUBLE for 32-bit values.
+	(scc insns): Generate DImode compares.
+	(mfcr insns): Create DImode versions.
+	(sge matchers): New patterns.
+	
+	2000-02-15  Gabriel Paubert  <paubert@iram.es>
+
+	* rs6000.md: Correct instructions length attributes and
+	constraints on unsigned compare instructions.
+	(*ne0): Disable for PowerPC64.
+
+	2000-02-11  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (output_function_profiler): Use .long for a 32-bit
+	quantity, fix profile1.C test failure under -fPIC.
+
+	* rs6000.c: Add 'u' to many constants to suppress warnings.
+	(constant_pool_expr_1): Make static.
+	(rs6000_emit_eh_toc_restore): Remove unused 'r2'.
+	* rs6000.h: Add 'u' to many constants to suppress warnings.
+
+	* rs6000.c (rs6000_emit_load_toc_table): Use LCTOC..1 under AIX
+	for the start of the TOC, instead of LCTOC..0.
+	* aix.h (toc_section): Use LCTOC..1 under AIX for the start
+	of the TOC.
+	* rs6000.md (load_toc_aix_si): Use LCTOC..1.
+	(load_toc_aix_di): Use LCTOC..1.
+
+	* rs6000.h (LEGITIMIZE_ADDRESS): Turn into a function.
+	* rs6000.c (rs6000_legitimize_address): New function from
+	LEGITIMIZE_ADDRESS.  Only use create_TOC_reference on
+	symbols in the constant pool that really are TOC references.
+	(print_operand_address): For ELF, write TOC offsets under
+	-fPIC as subtractions in the insn.
+	(output_toc): For ELF, define symbols in TOC as normal labels,
+	to match RTL.
+	(create_TOC_reference): Use gen_rtx_PLUS rather than gen_rtx.
+	* rs6000-protos.h (rs6000_legitimize_address): Prototype.
+	(create_TOC_reference): Prototype only when RTX_CODE is defined.
+	* rs6000.md (movsi): Only use create_TOC_reference on
+	symbols in the constant pool that really are TOC references.
+
+	* rs6000.h (MACHINE_DEPENDENT_REORG): Don't define.
+	* rs6000.c (rs6000_reorg): Delete.
+	* rs6000-protos.h (rs6000_reorg): Delete.
+
+	2000-02-09  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (INCOMING_RETURN_ADDR_RTX): New macro.
+
+	* aix.h (SETUP_FRAME_ADDRESSES): Define.
+	* rs6000.c [TARGET_AIX] (insn_after_throw): New static variable.
+	[TARGET_AIX] (rs6000_aix_emit_builtin_unwind_init): New function.
+	[TARGET_AIX] (rs6000_emit_eh_toc_restore): New function.
+	* rs6000-protos.h: Prototype rs6000_emit_eh_toc_restore,
+	rs6000_aix_emit_builtin_unwind_init.
+	* rs6000.md (eh_epilogue) [TARGET_AIX]: Call 
+	rs6000_emit_eh_toc_restore on AIX.
+	(return_eh_si): Use r2.
+	(return_eh_di): Use r2.
+
+	* aix43.h: Turn on HAS_INIT_SECTION and LD_INIT_SWITCH,
+	since we're breaking binary compatibility anyway.
+
+	2000-02-09  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000-protos.h: (get_TOC_alias_set, uses_TOC,
+	constant_pool_expr_p): Declare them.
+	(constant_pool_expr_p): Declare it.
+	* config/rs6000/rs6000.c (toc_label_name): Define.
+	(rs6000_override_options): Set toc_label_name.
+	(input_operand): Allow any TOC_RELATIVE_EXPR_P.
+	(get_TOC_alias_set, constant_pool_expr_p, constant_pool_expr_1,
+	uses_TOC): New functions.
+	(print_operand): Delete old '*' case.
+	(print_operand_address): Use LEGITIMATE_CONSTANT_POOL_ADDRESS_P,
+	and strip off rtl for TOC before calling output_addr_const.
+	(rs6000_emit_load_toc_table): Use toc_label_name.
+	* config/rs6000/rs6000.h (TARGET_SWITCHES): Make msched-prolog
+	the default.
+	(LEGITIMATE_CONSTANT_POOL_BASE_P): Delete.
+	(CONSTANT_POOL_EXPR_P, TOC_RELATIVE_EXPR_P): New macros.
+	(LEGITIMATE_CONSTANT_POOL_ADDRESS_P): Use CONSTANT_POOL_EXPR_P.
+	(LEGITIMIZE_ADDRESS, LEGITIMIZE_RELOAD_ADDRESS): Turn symbol_refs
+	into explicit TOC_REGISTER offsets.
+	(TOC_REGISTER): New macro.
+	* config/rs6000/rs6000.md (movsi, movdi): Emit rtl under 
+	TARGET_TOC to reference TOC_REGISTER.
+	(load_toc_v4_PIC_1b): Add 4 to offset for toc reload.
+	* config/rs6000/sysv4.h (ASM_DECLARE_FUNCTION_NAME): Call  
+	uses_TOC before emitting label references.
+
+	2000-02-05  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (stack_tie): Fix warning.
+
+	* eabi-ctors.c: Use 'asm' names for the start/end variables,
+	to handle -fleading-underscore.
+	* sysv4.h (ASM_DECLARE_FUNCTION_NAME): Use asm_fprintf and %U.
+	(USER_LABEL_PREFIX): New macro.
+	(ASM_OUTPUT_INTERNAL_LABEL_PREFIX): Use asm_fprintf and %L.
+	(ASM_OUTPUT_LABELREF): Use asm_fprintf and %U.
+	* t-ppccomm (MULTILIB_MATCHES_SYSV): Note that call-sysv and
+	call-linux can use the same multilibs.
+	* t-ppcgas (MULTILIB_OPTIONS): Don't need to have separate call-sysv
+	and call-linux multilibs.  Do multilib with -fleading-underscore.
+	(MULTILIB_DIRNAMES): Follow MULTILIB_OPTIONS change.
+	(MULTILIB_EXCEPTIONS): Remove call-linux exceptions.  Add restrictions
+	to call-aix.
+
+	* sysv4.h (CPP_SYSV_SPEC): Define _SOFT_FLOAT for all those CPUs that
+	have MASK_SOFT_FLOAT set.
+	(CPP_FLOAT_DEFAULT_SPEC): New macro.
+	(SUBTARGET_EXTRA_SPECS): Set `cpp_float_default' to the value of
+	CPP_FLOAT_DEFAULT_SPEC.
+
+	* rs6000.c (ccr_bit): Add some consistency checks and a variable 'reg'.
+	* rs6000.md: Whitespace change.
+	* sysv4.h (LINK_TARGET_SPEC): Whitespace change.
+	* sysv4le.h (LINK_TARGET_SPEC): Whitespace change.
+
+	2000-02-05  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (eh_epilogue): New expander.
+	(eh_reg_restore): New expand/split/insn combination.
+	(return_eh_si): New insn.
+	(return_eh_di): New insn.
+
+	* eabi-ci.asm: Put a label at the start of the .eh_frame section.
+	* eabi-cn.asm: Put a zero at the end of the .eh_frame section.
+	* eabi-ctors.c (__do_global_ctors): Register this object's
+	frame.  Clean up.  Call atexit() after the constructors.
+	(__do_global_dtors): Deregister this object's frame.  Clean up.
+	Allow for recursive calls to exit().
+	* rs6000.c (fixuplabelno): New variable.
+	* sysv4.h (ASM_OUTPUT_INT): Don't do .fixup if not
+	TARGET_RELOCATABLE, it slows down exec() under linux.
+	(ASM_OUTPUT_DWARF_ADDR): Do .fixup if TARGET_RELOCATABLE.
+
+	* aix.h (ASM_OUTPUT_DWARF_ADDR_VAR): New macro.
+	(ASM_OUTPUT_DWARF_DELTA_VAR): New macro.
+	(ASM_OUTPUT_DWARF_DELTA2): New macro.
+	(ASM_OUTPUT_DWARF_DELTA4): New macro.
+	(ASM_OUTPUT_DWARF_ADDR_DELTA): New macro.
+	(ASM_OUTPUT_DWARF_ADDR): New macro.
+	(ASM_OUTPUT_DWARF_DATA4): New macro.
+	(ASM_OUTPUT_DWARF_DATA2): New macro.
+	(ASM_OUTPUT_DWARF_OFFSET4): New macro.
+	(ASM_OUTPUT_DWARF_OFFSET): New macro.
+	(UNALIGNED_INT_ASM_OP): New macro, fake definition.
+
+	2000-02-03  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_sr_alias_set): New variable.
+	(rs6000_override_options): Initialise rs6000_sr_alias_set.
+	(rs6000_emit_stack_tie): New function.
+	(rs6000_emit_allocate_stack): Specify RTX_FRAME_RELATED_P
+	in a way that dwarf2out can understand.
+	(rs6000_frame_related): New function.
+	(rs6000_emit_prologue): Use rs6000_sr_alias_set.  Specify
+	RTX_FRAME_RELATED_P in a way that dwarf2out can understand.
+	Use rs6000_emit_stack_tie when needed.
+	(rs6000_emit_epilogue): Use rs6000_sr_alias_set.  Don't set
+	RTX_FRAME_RELATED_P.  Use rs6000_emit_stack_tie when needed.
+	* rs6000.md (stack_tie): New insn.
+	(return_internal_si): Allow return value to be in the count
+	register.
+	(return_internal_di): Likewise.
+
+	* rs6000.c (output_mi_thunk): Remove unused variable `sp'.
+
+	2000-02-03  Geoff Keating  <geoffk@cygnus.com>
+
+	* sysv4.h (LOCAL_LABEL_PREFIX): Define, for the use of dbxelf.h.
+
+	2000-01-31  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (ASM_OUTPUT_DEF_FROM_DECLS): New macro.
+
+	* rs6000.md (stmw): Use the right POWER opcode.
+	(lmw): Likewise.
+
+	2000-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* rs6000-protos.h: New file.
+
+	* rs6000.c: Include tm_p.h.  Fix compile time warnings.
+	
+	* rs6000.h: Move prototypes to rs6000-protos.h.  Fix compile time
+	warnings.
+	
+	* sysv4.h: Likewise.
+
+	2000-01-28  Geoff Keating  <geoffk@cygnus.com>
+
+	* ../../configure.in: Delete powerpcle-*-winnt*
+	and powerpcle-*-pe|powerpcle-*-cygwin*.
+	* ../../configure: Regenerated.
+	* cygwin.h: Delete.
+	* rs6000.h (OBJECT_WINDOWS_NT): Delete.
+	(TARGET_WINDOWS_NT): Delete.
+	(ABI_NT): Delete.
+	(CALL_NT_DLLIMPORT): Delete.
+	Delete NT-specific code.
+	* rs6000.md, rs6000.c, sysv4.h: Delete NT-specific code.
+	* win-nt.h: Delete.
+	* t-winnt: Delete.
+	* nt-ci.asm: Delete.
+	* nt-cn.asm: Delete.
+	* ntstack.asm: Delete.
+
+	2000-01-27  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* rs6000.h (SELECT_RTX_SECTION): Move to aix.h.
+	(ASM_FILE_START): Likewise.
+	(ASM_DECLARE_FUNCTION_NAME): Likewise.
+	(ASM_OUTPUT_LABELREF): Likewise.
+	(ASM_OUTPUT_SKIP): Likewise.
+	(ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	(ASM_GENERATE_INTERNAL_LABEL): Likewise.
+	(ASM_OUTPUT_CASE_LABEL): Likewise.
+	(ASM_OUTPUT_ALIGNED_COMMON): Likewise.
+	(ASM_OUTPUT_ASCII): Likewise.
+
+	2000-01-27  Clinton Popetz  <cpopetz@cygnus.com>
+
+        * rs6000.c (rs6000_emit_load_toc_table): Use "LCG" and
+        reload_toc_labelno for non-prologue TOC reloads.  Also, don't
+        increment rs6000_pic_labelno here.
+        (rs6000_emit_prologue): Pass TRUE to rs6000_emit_load_toc_table,
+        and increment rs6000_pic_labelno here.
+
+	2000-01-24  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (fctiwz): Use (set (reg) (unspec:DI [(fix:SI ...)]))
+	rather than (set (subreg:SI (reg)) (fix:SI ...)) so that register
+	allocation knows (reg) is dead before the insn.
+
+	2000-01-21  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (movsi_to_cr): Correct typo in output template.
+
+	2000-01-19  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_pic_labelno): Always define.
+	(rs6000_pic_func_labelno): Delete.
+	(lmw_operation): Check for a zero base register,
+	which doesn't mean what we want.
+	(stmw_operation): New function.
+	(print_operand): Define new 'l' modifier.
+	(rs6000_stack_info): We must save all 64 bits of the registers
+	if TARGET_POWERPC64.
+	(rs6000_output_load_toc_table): Delete.
+	(rs6000_emit_load_toc_table): New function.
+	(rs6000_allocate_stack_space): Delete.
+	(rs6000_emit_allocate_stack): New function.
+	(rs6000_emit_prologue): New function.
+	(output_prolog): Use rs6000_emit_prologue.
+	(rs6000_emit_epilogue): Change a few variable names to be
+	more accurate.  Restore all 64 bits of the registers if
+	TARGET_POWERPC64.  Only restore the FP registers which were used
+	if they are being saved/restored one-at-a-time.
+	(output_mi_thunk): Delete inefficient code generation.
+	(output_function_profiler): Don't use rs6000_output_load_toc_table.
+	* rs6000.h: Declare rs6000_emit_load_toc_table,
+	rs6000_allocate_stack_space, stmw_operation.  Don't declare
+	rs6000_output_load_toc_table.
+	* rs6000.md (elf_high): Allow register 0, but discourage it
+	heavily.
+	(elf_low): Support loading into register 0.
+	(load_toc_aix_si): New pattern.
+	(load_toc_aix_di): New pattern.
+	(load_toc_v4_pic_si): New pattern.
+	(load_toc_v4_pic_di): New pattern.
+	(load_toc_v4_PIC_1): New pattern.
+	(load_toc_v4_PIC_1b): New pattern.
+	(load_toc_v4_PIC_2): New pattern.
+	(builtin_setjmp_receiver): Use rs6000_emit_load_toc_table.
+	(nonlocal_goto_receiver): Use rs6000_emit_load_toc_table.
+	(prologue): New expander.
+	(movesi_from_cr): New pattern.
+	(stmw): New pattern.
+	(save_fpregs_si): New pattern.
+	(save_fpregs_di): New pattern.
+
+	2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (movsi): Don't use force_reg when no_new_pseudos.
+	(movdi): Likewise.
+	(movhi): Likewise.
+	(movqi): Likewise.
+
+	2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (movsi_got): 'unspec 8' returns a SImode result,
+	at present.
+	(movsi_got_internal): Likewise.
+	(movsi_got_internal+1): Likewise.
+	(set_sp): 'unspec 7' does a SImode clobber.
+
+	2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (floatsidf2): Don't use the fpmem "register", just
+	allocate a stack temporary.
+	(floatsidf2_internal): Likewise.
+	(floatsidf2_internal+1): Likewise.  Don't do bizzare hacks
+	with unspec.
+	(floatunssidf2): Don't use the fpmem "register", just
+	allocate a stack temporary.
+	(floatunssidf2_internal): Likewise.
+	(floatunssidf2_internal+1): Likewise.  Don't do bizzare hacks
+	with unspec.
+	(floatsidf2_loadaddr): Delete.
+	(floatsidf2_store1): Delete.
+	(floatsidf2_store2): Delete.
+	(floatsidf2_load): Delete.
+	(fix_truncdfsi2): Don't use the fpmem "register", just
+	allocate a stack temporary.
+	(fix_truncdfsi2_internal_si): Delete.
+	(fix_truncdfsi2_internal_di): Delete.
+	(fix_truncdfsi2_internal): New insn.
+	(fix_truncdfsi2_internal+1): Don't use the fpmem "register".
+	(fix_truncdfsi2_store): Delete.
+	(fix_truncdfsi2_load): Delete.
+	(fctiwz): Produce gen_fctiwz.
+
+	2000-01-19  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* eabi.h (INVOKE__main): Define.
+	* rs6000.c (rs6000_stack_info): Don't handle call to NAME__MAIN
+	specially.
+	(rs6000_emit_prologue): Likewise.
+	* rs6000.h (struct rs6000_stack): Don't keep track of whether
+	this is the main program.
+
+	2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_va_arg): Delete some unused variables.
+
+	2000-01-19  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_va_arg): On AIX, padding for small arguments
+	goes after the argument.
+
+	2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md: Document 'unspec' values used.
+	(epilogue): New expander.
+	(movesi_to_cr_one): New expander.
+	(movesi_to_cr and following): New pattern.
+	(lmw): New pattern.
+	(return_internal_si): New pattern.
+	(return_internal_di): New pattern.
+	(return_and_restore_fpregs_si): New pattern.
+	(return_and_restore_fpregs_di): New pattern.
+	* rs6000.h: Declare new functions.
+	* rs6000.c (rs6000_stack_info): Use current_function_is_leaf
+	rather than rs6000_calls_p.
+	(rs6000_makes_calls): Delete.
+	(lmw_operation): New function.
+	(mtcrf_operation): New function.
+	(rs6000_emit_epilogue): New function.
+	(output_epilog): Call rs6000_emit_epilogue and final if
+	!TARGET_SCHED_PROLOG, instead of writing text unconditionally.
+
+	2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
+	* aix43.h (SUBSUBTARGET_SWITCHES): Document switches.
+	* aix41.h (SUBSUBTARGET_SWITCHES): Document switches.
+	* aix.h (SUBTARGET_SWITCHES): Document switches.
+	* rs6000.h: (TARGET_SWITCHES): Don't print options twice.  Make
+	sched-prolog and sched-epilog the same.  Document all the
+	switches.
+	(TARGET_OPTIONS): No longer allow -mdebug-.
+
+	2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (ASM_FILE_END): Move to aix.h.
+	(EXTRA_SECTIONS): Move to aix.h.
+	(READONLY_DATA_SECTION): Move to aix.h.
+	(EXTRA_SECTION_FUNCTIONS): Move to aix.h.
+	(SELECT_SECTION): Move to aix.h.
+	(JUMP_TABLES_IN_TEXT_SECTION): Move to aix.h.
+	(INT_REGNO_P): Use symbolic name for ARG_POINTER_REGNUM.
+	(LINK_REGISTER_REGNUM): New definition.
+	(RETURN_ADDR_RTX): Use symbolic name for LINK_REGISTER_REGNUM.
+	(SLOW_UNALIGNED_ACCESS): Define in a way suitable for both
+	AIX and SVR4.
+	* sysv4.h: Delete the code between the inclusion of rs6000.h
+	and svr4.h.
+	(DWARF_DEBUGGING_INFO): Don't define, it's defined in elfos.h.
+	(FP_ARG_MAX_REG): Move generic definition to rs6000.h.
+	(RS6000_REG_SAVE): Move generic definition to rs6000.h.
+	(RS6000_SAVE_AREA): Move generic definition to rs6000.h.
+	* rs6000.md (floatsidf2_loadaddr): The first arg here is Pmode.
+	(fix_truncdfsi2_internal): Rename to fix_truncdfsi2_internal_si.
+	(fix_truncdfsi2_internal_di): New pattern.
+	(fix_truncdfsi2_store): The second arg here is Pmode too.
+	(fix_truncdfsi2_load): The second arg here is Pmode too.
+	(tablejumpdi): Now that switch tables hold only SImode values,
+	gcc needs to know how to add them to the pc which is DImode.
+	* rs6000.c (rs6000_stack_info): Use symbolic name for 
+	LINK_REGISTER_REGNUM.
+	(output_mi_thunk) [!TARGET_ELF]: Don't define sp, it's not used.
+	(output_toc): Delete unused variables s1 and s2.
+	(output_ascii): Use fputs not fprintf on a variable string.
+
+	2000-01-07  David Edelsohn  <edelsohn@gnu.org>
+
+        * rs6000.c (processor_target_table): Add power3 as alias for 630.
+        * aix43.h: Revert Aug 2 change.
+        (HAS_INIT_SECTION): Define, not visible yet.
+        (LD_INIT_SWITCH): Define, not visible yet.
+        * t-aix43 (MULTILIB_OPTIONS): Revert Aug 2 change.
+
+	2000-01-04  Joel Sherrill (joel@OARcorp.com>
+
+        * config/rs6000/rtems.h: Include config/rtems.h.
+
+	2000-01-04  David Edelsohn  <edelsohn@gnu.org>
+
+        * rs6000.h (HANDLE_PRAGMA_PACK): Define.
+        (SLOW_UNALIGNED_ACCESS): Define.
+        (CASE_VECTOR_MODE): Always use 32-bit offsets.
+        (ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
+        (EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
+        (toc_section): Likewise and .toc pseudo-op.
+        (ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
+        64-bit mode.
+        (TEXT_SECTION_ASM_OP): Likewise.
+        (ASM_OUTPUT_ADD_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Always use
+        32-bit offsets.
+
+	1999-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.h (TARGET_POWERPC64): Make sure
+	UNITS_PER_WORD and BITS_PER_WORD are compile time constants when
+	compiling libgcc2.
+	
+	2000-01-06  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+	* rs6000.h: Move more stuff from here...
+	* aix.h: to here.
+	* sysv4.h: Cleanup accordingly.
+	* netware.h: Likewise
+
+	2000-01-05  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+        * rs6000.h: Continue cleanup.
+	* aix.h: Likewise.
+	* lynx.h: Likewise.
+	* netware.h: Likewise.
+	* sol2.h: Likewise.
+	* sysv4.h: Likewise.
+	* win-nt.h: Likewise.
+
+	* rs6000.h (TARGET_SWITCHES): Add descriptions.
+	(TARGET_OPTIONS): Likewise.
+
+	* sysv4.h (SUBTARGET_SWITCHES): Add descriptions.
+	(SUBTARGET_OPTIONS): Likewise.
+
+	* rs6000.md: Fix compile time warnings.
+
+	2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
+	vxworks patches from the Cygnus tree originally by
+	Michael Meissner <meissner@cygnus.com> and Vladimir Makarov
+	<vmakarov@cygnus.com>.
+	* sysv4.h (SUBTARGET_SWITCHES): Add vxworks.
+	(ENDFILE_SPEC): Likewise.
+	(LIB_VXWORKS_SPEC): New macro.
+	(STARTFILE_VXWORKS_SPEC): New macro.
+	(ENDFILE_VXWORKS_SPEC): New macro.
+	(LINK_START_VXWORKS_SPEC): New macro.
+	(LINK_OS_VXWORKS_SPEC): New macro.
+	(CPP_OS_VXWORKS_SPEC): New macro.
+	(SUBTARGET_EXTRA_SPECS): Add all the vxworks specs.
+	* vxppc.h: Rewrite to use proper configuration method.
+	* vxppcle.h: New file.
+	* ../../configure.in: Add powerpcle-wrs-vxworks*.
+	* ../../configure: Rebuilt.
+
+	2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
+	Lots of changes to rs6000.h, sysv4.h, aix.h,
+	aix31.h, aix3newas.h, aix41.h, aix43.h, beos.h,
+	with the aim that rs6000.h is the first header
+	included and the others override it.
+	* aix.h: New file.
+
+	* x-aix41-gld: Remove.  
+	* x-aix43: Remove.
+	* x-aix41: Remove target-specific switches, and don't specify
+	-Wl,-bbigtoc as we don't need it any more.
+	* ../../configure.in: Use x-aix41 for ppc AIX 4.1 and above.
+	Use t-aix43 for AIX 4.3 and above.
+	* ../../configure: Regenerated.
+
+	* rs6000.h (TARGET_SWITCHES): Add some initial prolog-scheduling
+	options, that don't do anything yet.
+	(MASK_SCHED_PROLOG): New macro.
+	(MASK_SCHED_EPILOG): New macro.
+	(TARGET_SCHED_PROLOG): New macro.
+	(TARGET_SCHED_EPILOG): New macro.
+
+	2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c: Correct comment, the `minimal' TOCs are actually
+	one per translation unit, not one per function.
+	(output_toc): Also do duplicate constant elimination
+	for per-translation-unit TOCs.
+
+	* rs6000.md (nonlocal_goto_receiver): Put it back as before.  Add
+	a comment explaining _exactly_ when this pattern gets used.
+	(builtin_setjmp_receiver): New pattern for better clarity.
+	(init_v4_pic): Move it into a section dealing with TOC registers.
+
+	1999-12-30  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (toc_hash_table): New variable.
+	(rs6000_hash_constant): New function.
+	(toc_hash_function): New function.
+	(toc_hash_eq): New function.
+	(toc_hash_mark_entry): New function.
+	(toc_hash_mark_table): New function.
+	(output_toc): Don't output duplicate TOC entries in
+	a single file.
+	(rs6000_add_gc_roots): Add the hash table as a GC root.
+	* t-aix43: Move AR_FOR_TARGET and CLIB here from x-aix43,
+	where they clearly shouldn't be.  This may need to be fixed
+	later when there is a GNU ar for AIX.
+	* x-aix43: Don't define CLIB or AR_FOR_TARGET.
+	Don't define BOOT_LDFLAGS as it is now not necessary.
+
+	1999-12-29  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (rs6000_build_va_list): Use 'char *' rather than 'void *'
+	for va_list on AIX.  Use unsigned_char_type_node rather than
+	constructing our own version on svr4.
+
+	1999-12-17  Geoff Keating  <geoffk@cygnus.com>
+
+	* tramp.asm (__trampoline_size): Delete CYGNUS LOCAL comment,
+	since patently it's not.
+
+	1999-12-08  Geoff Keating  <geoffk@cygnus.com>
+
+	* config/rs6000/rs6000.md (nonlocal_goto_receiver): Turn into
+	define_expand/define_insn pair, and handle restore of the
+	SVR4 -fpic register.
 
 Wed Mar 15 15:43:38 2000  Jeffrey A Law  (law@cygnus.com)
 
@@ -22980,3 +24551,5 @@ Wed May 19 00:34:40 1999  Jeffrey A Law  (law@cygnus.com)
 	gcc-2.95 branch.
 
 See ChangeLog.1 for earlier changes.
+
+	

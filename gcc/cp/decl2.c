@@ -419,7 +419,7 @@ int flag_access_control = 1;
 
 /* Nonzero if we want to understand the operator names, i.e. 'bitand'.  */
 
-int flag_operator_names;
+int flag_operator_names = 1;
 
 /* Nonzero if we want to check the return value of new and avoid calling
    constructors if it is a null pointer.  */
@@ -789,7 +789,7 @@ lang_decode_option (argc, argv)
     }
   else if (!strcmp (p, "-ansi"))
     flag_no_nonansi_builtin = 1, flag_ansi = 1,
-    flag_no_gnu_keywords = 1, flag_operator_names = 1;
+    flag_no_gnu_keywords = 1;
 #ifdef SPEW_DEBUG
   /* Undocumented, only ever used when you're invoking cc1plus by hand, since
      it's probably safe to assume no sane person would ever want to use this
@@ -929,18 +929,15 @@ maybe_retrofit_in_chrg (fn)
 {
   tree basetype, arg_types, parms, parm, fntype;
 
-  if (DECL_CONSTRUCTOR_P (fn)
-      && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn))
-      && ! DECL_CONSTRUCTOR_FOR_VBASE_P (fn))
-    /* OK */;
-  else if (! DECL_CONSTRUCTOR_P (fn)
-	   && TREE_CHAIN (DECL_ARGUMENTS (fn)) == NULL_TREE)
-    /* OK */;
-  else
+  /* If we've already add the in-charge parameter don't do it again.  */
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
     return;
 
-  if (DECL_CONSTRUCTOR_P (fn))
-    DECL_CONSTRUCTOR_FOR_VBASE_P (fn) = 1;
+  /* We don't need an in-charge parameter for constructors that don't
+     have virtual bases.  */
+  if (DECL_CONSTRUCTOR_P (fn)
+      && !TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+    return;
 
   /* First add it to DECL_ARGUMENTS...  */
   parm = build_decl (PARM_DECL, in_charge_identifier, integer_type_node);
@@ -962,6 +959,9 @@ maybe_retrofit_in_chrg (fn)
     fntype = build_exception_variant (fntype,
 				      TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)));
   TREE_TYPE (fn) = fntype;
+
+  /* Now we've got the in-charge parameter.  */
+  DECL_HAS_IN_CHARGE_PARM_P (fn) = 1;
 }
 
 /* Classes overload their constituent function names automatically.
@@ -1982,7 +1982,6 @@ void
 defer_fn (fn)
      tree fn;
 {
-  fn = DECL_MAIN_VARIANT (fn);
   if (DECL_DEFERRED_FN (fn))
     return;
   DECL_DEFERRED_FN (fn) = 1;
@@ -2862,7 +2861,7 @@ finish_objects (method_type, initp, body)
 
   /* Finish up. */
   finish_compound_stmt(/*has_no_scope=*/0, body);
-  fn = finish_function (lineno, 0);
+  fn = finish_function (0);
   expand_body (fn);
 
   /* When only doing semantic analysis, and no RTL generation, we
@@ -3046,7 +3045,7 @@ finish_static_storage_duration_function (body)
 {
   /* Close out the function.  */
   finish_compound_stmt (/*has_no_scope=*/0, body);
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 }
 
 /* Return the information about the indicated PRIORITY level.  If no
@@ -4473,6 +4472,8 @@ static tree
 decl_namespace (decl)
      tree decl;
 {
+  if (TYPE_P (decl))
+    decl = TYPE_STUB_DECL (decl);
   while (DECL_CONTEXT (decl))
     {
       decl = DECL_CONTEXT (decl);
@@ -5227,7 +5228,12 @@ mark_used (decl)
       && ! DECL_INITIAL (decl)
       /* Kludge: don't synthesize for default args.  */
       && current_function_decl)
-    synthesize_method (decl);
+    {
+      synthesize_method (decl);
+      /* If we've already synthesized the method we don't need to
+	 instantiate it, so we can return right away.  */
+      return;
+    }
 
   /* If this is a function or variable that is an instance of some
      template, we now know that we will need to actually do the

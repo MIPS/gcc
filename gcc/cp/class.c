@@ -174,6 +174,8 @@ static void build_vcall_and_vbase_vtbl_entries PARAMS ((tree,
 							vcall_offset_data *));
 static tree dfs_mark_primary_bases PARAMS ((tree, void *));
 static void mark_primary_bases PARAMS ((tree));
+static void clone_constructors_and_destructors PARAMS ((tree));
+static tree build_clone PARAMS ((tree, tree));
 
 /* Variables shared between class.c and call.c.  */
 
@@ -1150,14 +1152,15 @@ add_method (type, fields, method)
       method_vec = CLASSTYPE_METHOD_VEC (type);
       len = TREE_VEC_LENGTH (method_vec);
 
-      if (DECL_NAME (method) == constructor_name (type))
-	/* A new constructor or destructor.  Constructors go in 
-	   slot 0; destructors go in slot 1.  */
-	slot = DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (method)) ? 1 : 0;
+      /* Constructors and destructors go in special slots.  */
+      if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (method))
+	slot = CLASSTYPE_CONSTRUCTOR_SLOT;
+      else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
+	slot = CLASSTYPE_DESTRUCTOR_SLOT;
       else
 	{
 	  /* See if we already have an entry with this name.  */
-	  for (slot = 2; slot < len; ++slot)
+	  for (slot = CLASSTYPE_FIRST_CONVERSION_SLOT; slot < len; ++slot)
 	    if (!TREE_VEC_ELT (method_vec, slot)
 		|| (DECL_NAME (OVL_CURRENT (TREE_VEC_ELT (method_vec, 
 							  slot))) 
@@ -2122,14 +2125,9 @@ method_name_cmp (m1, m2)
    list.  That allows them to be quickly deleted, and requires no
    extra storage.
 
-   If there are any constructors/destructors, they are moved to the
-   front of the list.  This makes pushclass more efficient.
-
-   @@ The above comment is obsolete.  It mostly describes what add_method
-   @@ and add_implicitly_declared_members do.
-
-   Sort methods that are not special (i.e., constructors, destructors, and
-   type conversion operators) so that we can find them faster in search.  */
+   Sort methods that are not special (i.e., constructors, destructors,
+   and type conversion operators) so that we can find them faster in
+   search.  */
 
 static void
 finish_struct_methods (t)
@@ -2137,7 +2135,6 @@ finish_struct_methods (t)
 {
   tree fn_fields;
   tree method_vec;
-  tree ctor_name = constructor_name (t);
   int slot, len;
 
   if (!TYPE_METHODS (t))
@@ -2158,50 +2155,8 @@ finish_struct_methods (t)
      and the next few with type conversion operators (if any).  */
   for (fn_fields = TYPE_METHODS (t); fn_fields; 
        fn_fields = TREE_CHAIN (fn_fields))
-    {
-      tree fn_name = DECL_NAME (fn_fields);
-
-      /* Clear out this flag.
-
-	 @@ Doug may figure out how to break
-	 @@ this with nested classes and friends.  */
-      DECL_IN_AGGR_P (fn_fields) = 0;
-
-      /* Note here that a copy ctor is private, so we don't dare generate
- 	 a default copy constructor for a class that has a member
- 	 of this type without making sure they have access to it.  */
-      if (fn_name == ctor_name)
- 	{
- 	  tree parmtypes = FUNCTION_ARG_CHAIN (fn_fields);
- 	  tree parmtype = parmtypes ? TREE_VALUE (parmtypes) : void_type_node;
-	  
- 	  if (TREE_CODE (parmtype) == REFERENCE_TYPE
- 	      && TYPE_MAIN_VARIANT (TREE_TYPE (parmtype)) == t)
- 	    {
- 	      if (TREE_CHAIN (parmtypes) == NULL_TREE
- 		  || TREE_CHAIN (parmtypes) == void_list_node
- 		  || TREE_PURPOSE (TREE_CHAIN (parmtypes)))
- 		{
- 		  if (TREE_PROTECTED (fn_fields))
- 		    TYPE_HAS_NONPUBLIC_CTOR (t) = 1;
- 		  else if (TREE_PRIVATE (fn_fields))
- 		    TYPE_HAS_NONPUBLIC_CTOR (t) = 2;
- 		}
- 	    }
-	}
-      else if (fn_name == ansi_opname[(int) MODIFY_EXPR])
-	{
-	  tree parmtype = TREE_VALUE (FUNCTION_ARG_CHAIN (fn_fields));
-
-	  if (copy_assignment_arg_p (parmtype, DECL_VIRTUAL_P (fn_fields)))
-	    {
-	      if (TREE_PROTECTED (fn_fields))
-		TYPE_HAS_NONPUBLIC_ASSIGN_REF (t) = 1;
-	      else if (TREE_PRIVATE (fn_fields))
-		TYPE_HAS_NONPUBLIC_ASSIGN_REF (t) = 2;
-	    }
-	}
-    }
+    /* Clear out this flag.  */
+    DECL_IN_AGGR_P (fn_fields) = 0;
 
   if (TYPE_HAS_DESTRUCTOR (t) && !TREE_VEC_ELT (method_vec, 1))
     /* We thought there was a destructor, but there wasn't.  Some
@@ -2922,36 +2877,33 @@ finish_struct_anon (t)
     }
 }
 
-extern int interface_only, interface_unknown;
-
 /* Create default constructors, assignment operators, and so forth for
    the type indicated by T, if they are needed.
    CANT_HAVE_DEFAULT_CTOR, CANT_HAVE_CONST_CTOR, and
-   CANT_HAVE_ASSIGNMENT are nonzero if, for whatever reason, the class
-   cannot have a default constructor, copy constructor taking a const
-   reference argument, or an assignment operator, respectively.  If a
-   virtual destructor is created, its DECL is returned; otherwise the
-   return value is NULL_TREE.  */
+   CANT_HAVE_CONST_ASSIGNMENT are nonzero if, for whatever reason, the
+   class cannot have a default constructor, copy constructor taking a
+   const reference argument, or an assignment operator taking a const
+   reference, respectively.  If a virtual destructor is created, its
+   DECL is returned; otherwise the return value is NULL_TREE.  */
 
 static tree
 add_implicitly_declared_members (t, cant_have_default_ctor,
 				 cant_have_const_cctor,
-				 cant_have_assignment)
+				 cant_have_const_assignment)
      tree t;
      int cant_have_default_ctor;
      int cant_have_const_cctor;
-     int cant_have_assignment;
+     int cant_have_const_assignment;
 {
   tree default_fn;
   tree implicit_fns = NULL_TREE;
-  tree name = TYPE_IDENTIFIER (t);
   tree virtual_dtor = NULL_TREE;
   tree *f;
 
   /* Destructor.  */
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) && !TYPE_HAS_DESTRUCTOR (t))
     {
-      default_fn = cons_up_default_function (t, name, 0);
+      default_fn = implicitly_declare_fn (sfk_destructor, t, /*const_p=*/0);
       check_for_override (default_fn, t);
 
       /* If we couldn't make it work, then pretend we didn't need it.  */
@@ -2973,7 +2925,7 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
   /* Default constructor.  */
   if (! TYPE_HAS_CONSTRUCTOR (t) && ! cant_have_default_ctor)
     {
-      default_fn = cons_up_default_function (t, name, 2);
+      default_fn = implicitly_declare_fn (sfk_constructor, t, /*const_p=*/0);
       TREE_CHAIN (default_fn) = implicit_fns;
       implicit_fns = default_fn;
     }
@@ -2983,8 +2935,9 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
     {
       /* ARM 12.18: You get either X(X&) or X(const X&), but
 	 not both.  --Chip  */
-      default_fn = cons_up_default_function (t, name,
-					     3 + cant_have_const_cctor);
+      default_fn 
+	= implicitly_declare_fn (sfk_copy_constructor, t,
+				 /*const_p=*/!cant_have_const_cctor);
       TREE_CHAIN (default_fn) = implicit_fns;
       implicit_fns = default_fn;
     }
@@ -2992,8 +2945,9 @@ add_implicitly_declared_members (t, cant_have_default_ctor,
   /* Assignment operator.  */
   if (! TYPE_HAS_ASSIGN_REF (t) && ! TYPE_FOR_JAVA (t))
     {
-      default_fn = cons_up_default_function (t, name,
-					     5 + cant_have_assignment);
+      default_fn 
+	= implicitly_declare_fn (sfk_assignment_operator, t,
+				 /*const_p=*/!cant_have_const_assignment);
       TREE_CHAIN (default_fn) = implicit_fns;
       implicit_fns = default_fn;
     }
@@ -3904,6 +3858,175 @@ check_methods (t)
     }
 }
 
+/* FN is a constructor or destructor.  Clone the declaration to create
+   a specialized in-charge or not-in-charge version, as indicated by
+   NAME.  */
+
+static tree
+build_clone (fn, name)
+     tree fn;
+     tree name;
+{
+  tree parms;
+  tree clone;
+
+  /* Copy the function.  */
+  clone = copy_decl (fn);
+  /* Remember where this function came from.  */
+  DECL_CLONED_FUNCTION (clone) = fn;
+  /* Reset the function name.  */
+  DECL_NAME (clone) = name;
+  DECL_ASSEMBLER_NAME (clone) = DECL_NAME (clone);
+  /* There's no pending inline data for this function.  */
+  DECL_PENDING_INLINE_INFO (clone) = NULL;
+  DECL_PENDING_INLINE_P (clone) = 0;
+  /* And it hasn't yet been deferred.  */
+  DECL_DEFERRED_FN (clone) = 0;
+
+  /* The base-class destructor is not virtual.  */
+  if (name == base_dtor_identifier)
+    {
+      DECL_VIRTUAL_P (clone) = 0;
+      if (TREE_CODE (clone) != TEMPLATE_DECL)
+	DECL_VINDEX (clone) = NULL_TREE;
+    }
+
+  /* If there was an in-charge paramter, drop it from the function
+     type.  */
+  if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+    {
+      tree basetype;
+      tree parmtypes;
+      tree exceptions;
+
+      exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
+      basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
+      parmtypes = TYPE_ARG_TYPES (TREE_TYPE (clone));
+      /* Skip the `this' parameter.  */
+      parmtypes = TREE_CHAIN (parmtypes);
+      /* Skip the in-charge parameter.  */
+      parmtypes = TREE_CHAIN (parmtypes);
+      TREE_TYPE (clone) 
+	= build_cplus_method_type (basetype,
+				   TREE_TYPE (TREE_TYPE (clone)),
+				   parmtypes);
+      if (exceptions)
+	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
+						     exceptions);
+    }
+
+  /* Copy the function parameters.  But, DECL_ARGUMENTS aren't
+     function parameters; instead, those are the template parameters.  */
+  if (TREE_CODE (clone) != TEMPLATE_DECL)
+    {
+      DECL_ARGUMENTS (clone) = copy_list (DECL_ARGUMENTS (clone));
+      /* Remove the in-charge parameter.  */
+      if (DECL_HAS_IN_CHARGE_PARM_P (clone))
+	{
+	  TREE_CHAIN (DECL_ARGUMENTS (clone))
+	    = TREE_CHAIN (TREE_CHAIN (DECL_ARGUMENTS (clone)));
+	  DECL_HAS_IN_CHARGE_PARM_P (clone) = 0;
+	}
+      for (parms = DECL_ARGUMENTS (clone); parms; parms = TREE_CHAIN (parms))
+	{
+	  DECL_CONTEXT (parms) = clone;
+	  copy_lang_decl (parms);
+	}
+    }
+
+  /* Mangle the function name.  */
+  set_mangled_name_for_decl (clone);
+
+  /* Create the RTL for this function.  */
+  DECL_RTL (clone) = NULL_RTX;
+  rest_of_decl_compilation (clone, NULL, /*top_level=*/1, at_eof);
+  
+  /* Make it easy to find the CLONE given the FN.  */
+  TREE_CHAIN (clone) = TREE_CHAIN (fn);
+  TREE_CHAIN (fn) = clone;
+
+  /* If this is a template, handle the DECL_TEMPLATE_RESULT as well.  */
+  if (TREE_CODE (clone) == TEMPLATE_DECL)
+    {
+      tree result;
+
+      DECL_TEMPLATE_RESULT (clone) 
+	= build_clone (DECL_TEMPLATE_RESULT (clone), name);
+      result = DECL_TEMPLATE_RESULT (clone);
+      DECL_TEMPLATE_INFO (result) = copy_node (DECL_TEMPLATE_INFO (result));
+      DECL_TI_TEMPLATE (result) = clone;
+    }
+  else if (DECL_DEFERRED_FN (fn))
+    defer_fn (clone);
+
+  return clone;
+}
+
+/* Produce declarations for all appropriate clones of FN.  If
+   UPDATE_METHOD_VEC_P is non-zero, the clones are added to the
+   CLASTYPE_METHOD_VEC as well.  */
+
+void
+clone_function_decl (fn, update_method_vec_p)
+     tree fn;
+     int update_method_vec_p;
+{
+  tree clone;
+
+  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn))
+    {
+      /* For each constructor, we need two variants: an in-charge version
+	 and a not-in-charge version.  */
+      clone = build_clone (fn, complete_ctor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, base_ctor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+    }
+  else
+    {
+      my_friendly_assert (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn), 20000411);
+
+      /* For each destructor, we need two variants: an in-charge
+	 version, a not-in-charge version, and an in-charge deleting
+	 version.  */
+      clone = build_clone (fn, complete_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, deleting_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+      clone = build_clone (fn, base_dtor_identifier);
+      if (update_method_vec_p)
+	add_method (DECL_CONTEXT (clone), NULL, clone);
+    }
+}
+
+/* For each of the constructors and destructors in T, create an
+   in-charge and not-in-charge variant.  */
+
+static void
+clone_constructors_and_destructors (t)
+     tree t;
+{
+  tree fns;
+
+  /* We only clone constructors and destructors under the new ABI.  */
+  if (!flag_new_abi)
+    return;
+
+  /* If for some reason we don't have a CLASSTYPE_METHOD_VEC, we bail
+     out now.  */
+  if (!CLASSTYPE_METHOD_VEC (t))
+    return;
+
+  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
+  for (fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
+}
+
 /* Remove all zero-width bit-fields from T.  */
 
 static void
@@ -3999,6 +4122,10 @@ check_bases_and_members (t, empty_p)
 				   cant_have_const_ctor,
 				   no_const_asn_ref);
 
+  /* Create the in-charge and not-in-charge variants of constructors
+     and destructors.  */
+  clone_constructors_and_destructors (t);
+
   /* Process the using-declarations.  */
   for (; access_decls; access_decls = TREE_CHAIN (access_decls))
     handle_using_decl (TREE_VALUE (access_decls), t);
@@ -4027,7 +4154,8 @@ create_vtable_ptr (t, empty_p, vfuns_p,
   /* Loop over the virtual functions, adding them to our various
      vtables.  */
   for (fn = TYPE_METHODS (t); fn; fn = TREE_CHAIN (fn))
-    if (DECL_VINDEX (fn))
+    if (DECL_VINDEX (fn) 
+	&& !(flag_new_abi && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)))
       add_virtual_function (new_virtuals_p, overridden_virtuals_p,
 			    vfuns_p, fn, t);
 
@@ -4694,8 +4822,7 @@ finish_struct_1 (t)
     {
       tree binfo = get_binfo (DECL_FIELD_CONTEXT (vfield), t, 0);
 
-      vfield = copy_node (vfield);
-      copy_lang_decl (vfield);
+      vfield = copy_decl (vfield);
 
       DECL_FIELD_CONTEXT (vfield) = t;
       DECL_FIELD_OFFSET (vfield)
@@ -5441,6 +5568,9 @@ resolve_address_of_overloaded_function (target_type,
 			&& (TREE_CODE (TREE_TYPE (target_type)) 
 			    == METHOD_TYPE)), 0);
 
+  if (TREE_CODE (overload) == COMPONENT_REF)
+    overload = TREE_OPERAND (overload, 1);
+
   /* Check that the TARGET_TYPE is reasonable.  */
   if (TYPE_PTRFN_P (target_type))
     /* This is OK.  */
@@ -5650,6 +5780,7 @@ instantiate_type (lhstype, rhs, flags)
 {
   int complain = (flags & 1);
   int strict = (flags & 2) ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
+  tree r;
 
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
@@ -5710,8 +5841,9 @@ instantiate_type (lhstype, rhs, flags)
 
     case COMPONENT_REF:
       {
-	tree r = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
+	r = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
 
+      comp:
 	if (r != error_mark_node && TYPE_PTRMEMFUNC_P (lhstype)
 	    && complain && !flag_ms_extensions)
 	  {
@@ -5746,12 +5878,23 @@ instantiate_type (lhstype, rhs, flags)
       /* Fall through.  */
 
     case TEMPLATE_ID_EXPR:
-      return 
-	resolve_address_of_overloaded_function (lhstype,
-						TREE_OPERAND (rhs, 0),
-						complain,
-						/*template_only=*/1,
-						TREE_OPERAND (rhs, 1));
+      {
+	tree fns = TREE_OPERAND (rhs, 0);
+	tree args = TREE_OPERAND (rhs, 1);
+
+	r =
+	  resolve_address_of_overloaded_function (lhstype,
+						  fns,
+						  complain,
+						  /*template_only=*/1,
+						  args);
+	if (TREE_CODE (fns) == COMPONENT_REF)
+	  {
+	    rhs = fns;
+	    goto comp;
+	  }
+	return r;
+      }
 
     case OVERLOAD:
       return 

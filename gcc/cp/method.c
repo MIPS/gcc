@@ -1748,7 +1748,7 @@ set_mangled_name_for_decl (decl)
   DECL_ASSEMBLER_NAME (decl)
     = build_decl_overload (DECL_NAME (decl), parm_types, 
 			   DECL_FUNCTION_MEMBER_P (decl)
-			   + DECL_CONSTRUCTOR_P (decl));
+			   + DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl));
 }
 
 /* Build an overload name for the type expression TYPE.  */
@@ -2157,7 +2157,7 @@ emit_thunk (thunk_fndecl)
     t = build_call (function, t);
     finish_return_stmt (t);
 
-    expand_body (finish_function (lineno, 0));
+    expand_body (finish_function (0));
 
     /* Don't let the backend defer this function.  */
     if (DECL_DEFER_OUTPUT (thunk_fndecl))
@@ -2179,7 +2179,7 @@ do_build_copy_constructor (fndecl)
   tree parm = TREE_CHAIN (DECL_ARGUMENTS (fndecl));
   tree t;
 
-  if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
+  if (DECL_HAS_IN_CHARGE_PARM_P (fndecl))
     parm = TREE_CHAIN (parm);
   parm = convert_from_reference (parm);
 
@@ -2359,6 +2359,15 @@ synthesize_method (fndecl)
   if (at_eof)
     import_export_decl (fndecl);
 
+  /* If we've been asked to synthesize a clone, just synthesize the
+     cloned function instead.  Doing so will automatically fill in the
+     body for the clone.  */
+  if (DECL_CLONED_FUNCTION_P (fndecl))
+    {
+      synthesize_method (DECL_CLONED_FUNCTION (fndecl));
+      return;
+    }
+
   if (! context)
     push_to_top_level ();
   else if (nested)
@@ -2383,12 +2392,12 @@ synthesize_method (fndecl)
       do_build_assign_ref (fndecl);
       need_body = 0;
     }
-  else if (DESTRUCTOR_NAME_P (DECL_ASSEMBLER_NAME (fndecl)))
+  else if (DECL_DESTRUCTOR_P (fndecl))
     setup_vtbl_ptr ();
   else
     {
       tree arg_chain = FUNCTION_ARG_CHAIN (fndecl);
-      if (DECL_CONSTRUCTOR_FOR_VBASE_P (fndecl))
+      if (DECL_HAS_IN_CHARGE_PARM_P (fndecl))
 	arg_chain = TREE_CHAIN (arg_chain);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
@@ -2405,11 +2414,94 @@ synthesize_method (fndecl)
       finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
     }
 
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 
   extract_interface_info ();
   if (! context)
     pop_from_top_level ();
   else if (nested)
     pop_function_context_from (context);
+}
+
+/* Implicitly declare the special function indicated by KIND, as a
+   member of TYPE.  For copy constructors and assignment operators,
+   CONST_P indicates whether these functions should take a const
+   reference argument or a non-const reference.  */
+
+tree
+implicitly_declare_fn (kind, type, const_p)
+     special_function_kind kind;
+     tree type;
+     int const_p;
+{
+  tree declspecs = NULL_TREE;
+  tree fn, args = NULL_TREE;
+  tree argtype;
+  int retref = 0;
+  tree name = constructor_name (TYPE_IDENTIFIER (type));
+
+  switch (kind)
+    {
+      /* Destructors.  */
+    case sfk_destructor:
+      name = build_parse_node (BIT_NOT_EXPR, name);
+      args = void_list_node;
+      break;
+
+    case sfk_constructor:
+      /* Default constructor.  */
+      args = void_list_node;
+      break;
+
+    case sfk_copy_constructor:
+      if (const_p)
+	type = build_qualified_type (type, TYPE_QUAL_CONST);
+      argtype = build_reference_type (type);
+      args = tree_cons (NULL_TREE,
+			build_tree_list (hash_tree_chain (argtype, NULL_TREE),
+					 get_identifier ("_ctor_arg")),
+			void_list_node);
+      break;
+
+    case sfk_assignment_operator:
+      retref = 1;
+      declspecs = build_decl_list (NULL_TREE, type);
+
+      if (const_p)
+	type = build_qualified_type (type, TYPE_QUAL_CONST);
+
+      name = ansi_opname [(int) MODIFY_EXPR];
+
+      argtype = build_reference_type (type);
+      args = tree_cons (NULL_TREE,
+			build_tree_list (hash_tree_chain (argtype, NULL_TREE),
+					 get_identifier ("_ctor_arg")),
+			void_list_node);
+      break;
+
+    default:
+      my_friendly_abort (59);
+    }
+
+  TREE_PARMLIST (args) = 1;
+
+  {
+    tree declarator = make_call_declarator (name, args, NULL_TREE, NULL_TREE);
+    if (retref)
+      declarator = build_parse_node (ADDR_EXPR, declarator);
+
+    fn = grokfield (declarator, declspecs, NULL_TREE, NULL_TREE, NULL_TREE);
+  }
+
+  my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 20000408);
+
+  if (kind != sfk_constructor && kind != sfk_destructor)
+    SET_DECL_ARTIFICIAL (TREE_CHAIN (DECL_ARGUMENTS (fn)));
+  SET_DECL_ARTIFICIAL (fn);
+  DECL_NOT_REALLY_EXTERN (fn) = 1;
+  DECL_THIS_INLINE (fn) = 1;
+  DECL_INLINE (fn) = 1;
+  defer_fn (fn);
+  
+  return fn;
 }

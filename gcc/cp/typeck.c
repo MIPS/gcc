@@ -2669,6 +2669,8 @@ build_x_function_call (function, params, decl)
       return build_method_call (decl, function, params,
 				NULL_TREE, LOOKUP_NORMAL);
     }
+  else if (TREE_CODE (function) == OFFSET_REF)
+    my_friendly_abort (20000406);
   else if (TREE_CODE (function) == COMPONENT_REF
 	   && type == unknown_type_node)
     {
@@ -3960,11 +3962,10 @@ build_binary_op (code, orig_op0, orig_op1)
 	    /* OK */;
 	  /* Do not warn if the signed quantity is an unsuffixed
 	     integer literal (or some static constant expression
+	     involving such literals or a conditional expression
 	     involving such literals) and it is non-negative.  */
-	  else if ((op0_signed && TREE_CODE (orig_op0) == INTEGER_CST
-		    && tree_int_cst_sgn (orig_op0) >= 0)
-		   || (op1_signed && TREE_CODE (orig_op1) == INTEGER_CST
-		       && tree_int_cst_sgn (orig_op1) >= 0))
+	  else if ((op0_signed && tree_expr_nonnegative_p (orig_op0))
+		   || (op1_signed && tree_expr_nonnegative_p (orig_op1)))
 	    /* OK */;
 	  /* Do not warn if the comparison is an equality operation,
 	     the unsigned quantity is an integral constant and it does
@@ -4989,15 +4990,13 @@ mark_addressable (exp)
 	return 1;
 
       case FUNCTION_DECL:
-	if (DECL_LANG_SPECIFIC (x) != 0)
-	  {
-	    x = DECL_MAIN_VARIANT (x);
-	    /* We have to test both conditions here.  The first may be
-	       non-zero in the case of processing a default function.  The
-	       second may be non-zero in the case of a template function.  */
-	    if (DECL_TEMPLATE_INFO (x) && !DECL_TEMPLATE_SPECIALIZATION (x))
-	      mark_used (x);
-	  }
+	/* We have to test both conditions here.  The first may be
+	   non-zero in the case of processing a default function.  The
+	   second may be non-zero in the case of a template function.  */
+	if (DECL_LANG_SPECIFIC (x)
+	    && DECL_TEMPLATE_INFO (x) 
+	    && !DECL_TEMPLATE_SPECIALIZATION (x))
+	  mark_used (x);
 	TREE_ADDRESSABLE (x) = 1;
 	TREE_USED (x) = 1;
 	TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (x)) = 1;
@@ -5152,11 +5151,11 @@ build_static_cast (type, expr)
 				   LOOKUP_COMPLAIN, NULL_TREE)));
 
   if (IS_AGGR_TYPE (type))
-    return build_cplus_new
-      (type, (build_method_call
-	      (NULL_TREE, ctor_identifier, build_tree_list (NULL_TREE, expr),
-	       TYPE_BINFO (type), LOOKUP_NORMAL)));
-
+    return build_cplus_new (type, (build_method_call
+				   (NULL_TREE, complete_ctor_identifier, 
+				    build_tree_list (NULL_TREE, expr),
+				    TYPE_BINFO (type), LOOKUP_NORMAL)));
+  
   expr = decay_conversion (expr);
   intype = TREE_TYPE (expr);
 
@@ -5476,9 +5475,6 @@ build_c_cast (type, expr)
     cp_warning ("cast from `%T' to `%T' discards qualifiers from pointer target type",
                 otype, type);
 
-#if 0
-  /* We should see about re-enabling these, they seem useful to
-     me.  */
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (otype) == POINTER_TYPE
       && TYPE_PRECISION (type) != TYPE_PRECISION (otype))
@@ -5491,7 +5487,6 @@ build_c_cast (type, expr)
 	 provided the 0 was explicit--not cast or made by folding.  */
       && !(TREE_CODE (value) == INTEGER_CST && integer_zerop (value)))
     warning ("cast to pointer from integer of different size");
-#endif
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
     value = (convert_from_reference
@@ -5672,7 +5667,7 @@ build_modify_expr (lhs, modifycode, rhs)
 	/* Do the default thing */;
       else
 	{
-	  result = build_method_call (lhs, ctor_identifier,
+	  result = build_method_call (lhs, complete_ctor_identifier,
 				      build_tree_list (NULL_TREE, rhs),
 				      TYPE_BINFO (lhstype), LOOKUP_NORMAL);
 	  if (result == NULL_TREE)
@@ -6797,9 +6792,9 @@ check_return_expr (retval)
     /* You can't return a value from a constructor.  */
     error ("returning a value from a constructor");
 
-  /* Constructors actually always return `this', even though in C++
-     you can't return a value from a constructor.  */
-  if (DECL_CONSTRUCTOR_P (current_function_decl))
+  /* Under the old ABI, constructors actually always return `this',
+     even though in C++ you can't return a value from a constructor.  */
+  if (!flag_new_abi && DECL_CONSTRUCTOR_P (current_function_decl))
     retval = current_class_ptr;
 
   /* When no explicit return-value is given in a function with a named

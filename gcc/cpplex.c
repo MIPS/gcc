@@ -45,6 +45,7 @@ static void skip_string		PARAMS ((cpp_reader *, int));
 static void parse_string	PARAMS ((cpp_reader *, int));
 static U_CHAR *find_position	PARAMS ((U_CHAR *, U_CHAR *, unsigned long *));
 static int null_cleanup		PARAMS ((cpp_buffer *, cpp_reader *));
+static void null_warning        PARAMS ((cpp_reader *, unsigned int));
 
 /* Re-allocates PFILE->token_buffer so it will hold at least N more chars.  */
 
@@ -123,7 +124,7 @@ cpp_scan_buffer (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = CPP_BUFFER (pfile);
-  enum cpp_token token;
+  enum cpp_ttype token;
   if (CPP_OPTION (pfile, no_output))
     {
       long old_written = CPP_WRITTEN (pfile);
@@ -208,25 +209,6 @@ cpp_expand_to_buffer (pfile, buf, length)
   CPP_NUL_TERMINATE (pfile);
 }
 
-void
-cpp_buf_line_and_col (pbuf, linep, colp)
-     register cpp_buffer *pbuf;
-     long *linep, *colp;
-{
-  if (pbuf)
-    {
-      *linep = pbuf->lineno;
-      if (colp)
-	*colp = pbuf->cur - pbuf->line_base;
-    }
-  else
-    {
-      *linep = 0;
-      if (colp)
-	*colp = 0;
-    }
-}
-
 /* Return the topmost cpp_buffer that corresponds to a file (not a macro).  */
 
 cpp_buffer *
@@ -247,33 +229,42 @@ static void
 skip_block_comment (pfile)
      cpp_reader *pfile;
 {
-  int c, prev_c = -1;
-  long line, col;
+  unsigned int line, col;
+  const U_CHAR *limit, *cur;
 
   FORWARD(1);
-  cpp_buf_line_and_col (CPP_BUFFER (pfile), &line, &col);
-  for (;;)
+  line = CPP_BUF_LINE (CPP_BUFFER (pfile));
+  col = CPP_BUF_COL (CPP_BUFFER (pfile));
+  limit = CPP_BUFFER (pfile)->rlimit;
+  cur = CPP_BUFFER (pfile)->cur;
+
+  while (cur < limit)
     {
-      c = GETC ();
-      if (c == EOF)
-	{
-	  cpp_error_with_line (pfile, line, col, "unterminated comment");
-	  return;
-	}
-      else if (c == '\n' || c == '\r')
+      char c = *cur++;
+      if (c == '\n' || c == '\r')
 	{
 	  /* \r cannot be a macro escape marker here. */
 	  if (!ACTIVE_MARK_P (pfile))
-	    CPP_BUMP_LINE (pfile);
+	    CPP_BUMP_LINE_CUR (pfile, cur);
 	}
-      else if (c == '/' && prev_c == '*')
-	return;
-      else if (c == '*' && prev_c == '/'
-	       && CPP_OPTION (pfile, warn_comments))
-	cpp_warning (pfile, "`/*' within comment");
+      else if (c == '*')
+	{
+	  /* Check for teminator.  */
+	  if (cur < limit && *cur == '/')
+	    goto out;
 
-      prev_c = c;
+	  /* Warn about comment starter embedded in comment.  */
+	  if (cur[-2] == '/' && CPP_OPTION (pfile, warn_comments))
+	    cpp_warning_with_line (pfile, CPP_BUFFER (pfile)->lineno,
+				   cur - CPP_BUFFER (pfile)->line_base,
+				   "'/*' within comment");
+	}
     }
+
+  cpp_error_with_line (pfile, line, col, "unterminated comment");
+  cur--;
+ out:
+  CPP_BUFFER (pfile)->cur = cur + 1;
 }
 
 /* Skip a C++/Chill line comment.  We know it's a comment, and point
@@ -381,23 +372,38 @@ copy_comment (pfile, m)
   return ' ';
 }
 
+static void
+null_warning (pfile, count)
+     cpp_reader *pfile;
+     unsigned int count;
+{
+  if (count == 1)
+    cpp_warning (pfile, "embedded null character ignored");
+  else
+    cpp_warning (pfile, "embedded null characters ignored");
+}
+
 /* Skip whitespace \-newline and comments.  Does not macro-expand.  */
 
 void
 _cpp_skip_hspace (pfile)
      cpp_reader *pfile;
 {
+  unsigned int null_count = 0;
   int c;
+
   while (1)
     {
       c = GETC();
       if (c == EOF)
-	return;
+	goto out;
       else if (is_hspace(c))
 	{
 	  if ((c == '\f' || c == '\v') && CPP_PEDANTIC (pfile))
 	    cpp_pedwarn (pfile, "%s in preprocessing directive",
 			 c == '\f' ? "formfeed" : "vertical tab");
+	  else if (c == '\0')
+	    null_count++;
 	}
       else if (c == '\r')
 	{
@@ -423,6 +429,9 @@ _cpp_skip_hspace (pfile)
 	break;
     }
   FORWARD(-1);
+ out:
+  if (null_count)
+    null_warning (pfile, null_count);
 }
 
 /* Read and discard the rest of the current line.  */
@@ -504,9 +513,11 @@ skip_string (pfile, c)
      cpp_reader *pfile;
      int c;
 {
-  long start_line, start_column;
-  cpp_buf_line_and_col (cpp_file_buffer (pfile), &start_line, &start_column);
+  unsigned int start_line, start_column;
+  unsigned int null_count = 0;
 
+  start_line = CPP_BUF_LINE (CPP_BUFFER (pfile));
+  start_column = CPP_BUF_COL (CPP_BUFFER (pfile));
   while (1)
     {
       int cc = GETC();
@@ -521,8 +532,12 @@ skip_string (pfile, c)
 				 pfile->multiline_string_line, -1,
 			 "possible real start of unterminated constant");
 	  pfile->multiline_string_line = 0;
-	  return;
+	  goto out;
 
+	case '\0':
+	  null_count++;
+	  break;
+	  
 	case '\n':
 	  CPP_BUMP_LINE (pfile);
 	  /* In Fortran and assembly language, silently terminate
@@ -533,7 +548,7 @@ skip_string (pfile, c)
 	      || CPP_OPTION (pfile, lang_asm))
 	    {
 	      FORWARD(-1);
-	      return;
+	      goto out;
 	    }
 	  /* Character constants may not extend over multiple lines.
 	     In Standard C, neither may strings.  We accept multiline
@@ -543,7 +558,7 @@ skip_string (pfile, c)
 	      cpp_error_with_line (pfile, start_line, start_column,
 				   "unterminated character constant");
 	      FORWARD(-1);
-	      return;
+	      goto out;
 	    }
 	  if (CPP_PEDANTIC (pfile) && pfile->multiline_string_line == 0)
 	    cpp_pedwarn_with_line (pfile, start_line, start_column,
@@ -570,10 +585,16 @@ skip_string (pfile, c)
 	case '\"':
 	case '\'':
 	  if (cc == c)
-	    return;
+	    goto out;
 	  break;
 	}
     }
+
+ out:
+  if (null_count == 1)
+    cpp_warning (pfile, "null character in string or character constant");
+  else if (null_count > 1)
+    cpp_warning (pfile, "null characters in string or character constant");
 }
 
 /* Parse a string and copy it to the output.  */
@@ -678,12 +699,12 @@ _cpp_parse_assertion (pfile)
 /* Get the next token, and add it to the text in pfile->token_buffer.
    Return the kind of token we got.  */
 
-enum cpp_token
+enum cpp_ttype
 _cpp_lex_token (pfile)
      cpp_reader *pfile;
 {
   register int c, c2, c3;
-  enum cpp_token token;
+  enum cpp_ttype token;
 
  get_next:
   c = GETC();
@@ -976,16 +997,25 @@ _cpp_lex_token (pfile)
     _cpp_parse_name (pfile, c);
     return CPP_MACRO;
 
-    case ' ': case '\t': case '\v': case '\f':
-      for (;;)
-	{
-	  CPP_PUTC (pfile, c);
-	  c = PEEKC ();
-	  if (c == EOF || !is_hspace(c))
-	    break;
-	  FORWARD(1);
-	}
-      return CPP_HSPACE;
+    case ' ':  case '\t':  case '\v': case '\f': case '\0':
+      {
+	int null_count = 0;
+
+	for (;;)
+	  {
+	    if (c == '\0')
+	      null_count++;
+	    else
+	      CPP_PUTC (pfile, c);
+	    c = PEEKC ();
+	    if (c == EOF || !is_hspace(c))
+	      break;
+	    FORWARD(1);
+	  }
+	if (null_count)
+	  null_warning (pfile, null_count);
+	return CPP_HSPACE;
+      }
 
     case '\r':
       if (CPP_BUFFER (pfile)->has_escapes)
@@ -1134,11 +1164,11 @@ maybe_macroexpand (pfile, written)
   return 1;
 }
 
-enum cpp_token
+enum cpp_ttype
 cpp_get_token (pfile)
      cpp_reader *pfile;
 {
-  enum cpp_token token;
+  enum cpp_ttype token;
   long written = CPP_WRITTEN (pfile);
 
  get_next:
@@ -1206,14 +1236,14 @@ cpp_get_token (pfile)
 
 /* Like cpp_get_token, but skip spaces and comments.  */
 
-enum cpp_token
+enum cpp_ttype
 cpp_get_non_space_token (pfile)
      cpp_reader *pfile;
 {
   int old_written = CPP_WRITTEN (pfile);
   for (;;)
     {
-      enum cpp_token token = cpp_get_token (pfile);
+      enum cpp_ttype token = cpp_get_token (pfile);
       if (token != CPP_COMMENT && token != CPP_HSPACE && token != CPP_VSPACE)
 	return token;
       CPP_SET_WRITTEN (pfile, old_written);
@@ -1227,12 +1257,12 @@ cpp_get_non_space_token (pfile)
    XXX This function will exist only till collect_expansion doesn't
    need to see whitespace anymore, then it'll be merged with
    _cpp_get_directive_token (below).  */
-enum cpp_token
+enum cpp_ttype
 _cpp_get_define_token (pfile)
      cpp_reader *pfile;
 {
   long old_written;
-  enum cpp_token token;
+  enum cpp_ttype token;
 
  get_next:
   old_written = CPP_WRITTEN (pfile);
@@ -1293,14 +1323,14 @@ _cpp_get_define_token (pfile)
 /* Just like _cpp_get_define_token except that it discards horizontal
    whitespace.  */
 
-enum cpp_token
+enum cpp_ttype
 _cpp_get_directive_token (pfile)
      cpp_reader *pfile;
 {
   int old_written = CPP_WRITTEN (pfile);
   for (;;)
     {
-      enum cpp_token token = _cpp_get_define_token (pfile);
+      enum cpp_ttype token = _cpp_get_define_token (pfile);
       if (token != CPP_COMMENT && token != CPP_HSPACE)
 	return token;
       CPP_SET_WRITTEN (pfile, old_written);

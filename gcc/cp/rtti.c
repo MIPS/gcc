@@ -558,7 +558,7 @@ build_dynamic_cast_1 (type, expr)
      tree type, expr;
 {
   enum tree_code tc = TREE_CODE (type);
-  tree exprtype;
+  tree exprtype = TREE_TYPE (expr);
   tree dcast_fn;
   tree old_expr = expr;
   const char *errstr = NULL;
@@ -589,10 +589,10 @@ build_dynamic_cast_1 (type, expr)
     }
 
   if (TREE_CODE (expr) == OFFSET_REF)
-    expr = resolve_offset_ref (expr);
-
-  exprtype = TREE_TYPE (expr);
-  assert (exprtype != NULL_TREE);
+    {
+      expr = resolve_offset_ref (expr);
+      exprtype = TREE_TYPE (expr);
+    }
 
   if (tc == POINTER_TYPE)
     expr = convert_from_reference (expr);
@@ -676,7 +676,12 @@ build_dynamic_cast_1 (type, expr)
       }
 
     if (distance >= 0)
-      return build_vbase_path (PLUS_EXPR, type, expr, path, 0);
+      {
+	expr = build_vbase_path (PLUS_EXPR, type, expr, path, 0);
+	if (TREE_CODE (exprtype) == POINTER_TYPE)
+	  expr = non_lvalue (expr);
+	return expr;
+      }
   }
 
   /* Otherwise *exprtype must be a polymorphic class (have a vtbl).  */
@@ -1269,7 +1274,7 @@ synthesize_tinfo_fn (fndecl)
   finish_return_stmt (tmp);
   /* Finish the function body.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 }
 
 /* Return the runtime bit mask encoding the qualifiers of TYPE.  */
@@ -1286,6 +1291,8 @@ qualifier_flags (type)
     flags |= 1;
   if (quals & TYPE_QUAL_VOLATILE)
     flags |= 2;
+  if (quals & TYPE_QUAL_RESTRICT)
+    flags |= 4;
   return flags;
 }
 
@@ -1369,14 +1376,14 @@ ptmd_initializer (desc, target)
   tree klass = TYPE_PTRMEM_CLASS_TYPE (target);
   int flags = qualifier_flags (to);
   
-  init = tree_cons (NULL_TREE,
-                    build_unary_op (ADDR_EXPR, get_tinfo_decl (klass), 0),
-                    init);  
+  init = tree_cons (NULL_TREE, build_int_2 (flags, 0), init);
   init = tree_cons (NULL_TREE,
                     build_unary_op (ADDR_EXPR,
                                     get_tinfo_decl (TYPE_MAIN_VARIANT (to)), 0),
                     init);
-  init = tree_cons (NULL_TREE, build_int_2 (flags, 0), init);
+  init = tree_cons (NULL_TREE,
+                    build_unary_op (ADDR_EXPR, get_tinfo_decl (klass), 0),
+                    init);  
   
   init = build (CONSTRUCTOR, NULL_TREE, NULL_TREE, nreverse (init));
   TREE_HAS_CONSTRUCTOR (init) = TREE_CONSTANT (init) = TREE_STATIC (init) = 1;
@@ -1821,7 +1828,8 @@ create_tinfo_types ()
         ("__class_type_info", 0,
          NULL);
   
-  /* Single public non-virtual base class. Add pointer to base class.  */
+  /* Single public non-virtual base class. Add pointer to base class. 
+     This is really a descendant of __class_type_info.  */
   si_class_desc_type_node = create_pseudo_type_info
            ("__si_class_type_info", 0,
             build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
@@ -1843,13 +1851,14 @@ create_tinfo_types ()
   /* General heirarchy is created as necessary in this vector. */
   vmi_class_desc_type_node = make_tree_vec (10);
   
-  /* Pointer to member data type_info.  Add pointer to the class, pointer
-     to the member's type info and qualifications flags.  */
+  /* Pointer to member data type_info.  Add qualifications flags,
+     pointer to the member's type info and pointer to the class.
+     This is really a descendant of __pointer_type_info.  */
   ptmd_desc_type_node = create_pseudo_type_info
        ("__pointer_to_member_type_info", 0,
-        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
-        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
         build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
+        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
         NULL);
 
   pop_nested_namespace (abi_node);

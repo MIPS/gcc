@@ -469,7 +469,7 @@ typedef struct conflict_graph_def *conflict_graph;
 /* Callback function when enumerating conflicts.  The arguments are
    the smaller and larger regno in the conflict.  Returns zero if
    enumeration is to continue, non-zero to halt enumeration.  */
-typedef int (*conflict_graph_enum_fn) (int, int, void *);
+typedef int (*conflict_graph_enum_fn) PARAMS ((int, int, void *));
 
 
 /* Prototypes of operations on conflict graphs.  */
@@ -490,5 +490,14 @@ extern void conflict_graph_print        PARAMS ((conflict_graph, FILE*));
 extern conflict_graph conflict_graph_compute 
                                         PARAMS ((regset,
 						 partition));
+
+/* In ssa.c */
+extern void convert_to_ssa		PARAMS ((void));
+extern void convert_from_ssa		PARAMS ((void));
+typedef int (*successor_phi_fn)         PARAMS ((rtx, int, int, void *));
+extern int for_each_successor_phi       PARAMS ((basic_block bb,
+						 successor_phi_fn,
+						 void *));
+extern int in_ssa_form;
 
 #endif /* _BASIC_BLOCK_H */

@@ -2012,9 +2012,7 @@ expand_call (exp, target, ignore)
   /* If we don't have specific function to call, see if we have a 
      attributes set in the type.  */
   if (fndecl == 0)
-    {
-      flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
-    }
+    flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
 
 #ifdef REG_PARM_STACK_SPACE
 #ifdef MAYBE_REG_PARM_STACK_SPACE
@@ -2263,6 +2261,10 @@ expand_call (exp, target, ignore)
 	      || fndecl == NULL_TREE
 	      || ! FUNCTION_OK_FOR_SIBCALL (fndecl))
 	    continue;
+
+	  /* Emit any queued insns now; otherwise they would end up in
+             only one of the alternates.  */
+	  emit_queue ();
 
 	  /* We know at this point that there are not currently any
 	     pending cleanups.  If, however, in the process of evaluating
@@ -2669,10 +2671,10 @@ expand_call (exp, target, ignore)
 	  else if (argblock == 0)
 	    anti_adjust_stack (GEN_INT (args_size.constant
 					- unadjusted_args_size));
-	  /* Now that the stack is properly aligned, pops can't safely
-	     be deferred during the evaluation of the arguments.  */
-	  NO_DEFER_POP;
 	}
+      /* Now that the stack is properly aligned, pops can't safely
+	 be deferred during the evaluation of the arguments.  */
+      NO_DEFER_POP;
 #endif
 
       /* Don't try to defer pops if preallocating, not even from the first arg,
@@ -2798,6 +2800,12 @@ expand_call (exp, target, ignore)
       /* All arguments and registers used for the call must be set up by
 	 now!  */
 
+#ifdef PREFERRED_STACK_BOUNDARY
+      /* Stack must to be properly aligned now.  */
+      if (stack_pointer_delta & (preferred_stack_boundary / BITS_PER_UNIT - 1))
+	abort();
+#endif
+
       /* Generate the actual call instruction.  */
       emit_call_1 (funexp, fndecl, funtype, unadjusted_args_size,
 		   args_size.constant, struct_value_size,
@@ -2825,12 +2833,8 @@ expand_call (exp, target, ignore)
 
 	  /* Construct an "equal form" for the value which mentions all the
 	     arguments in order as well as the function name.  */
-	  if (PUSH_ARGS_REVERSED)
-	    for (i = 0; i < num_actuals; i++)
-	      note = gen_rtx_EXPR_LIST (VOIDmode, args[i].initial_value, note);
-	  else
-	    for (i = num_actuals - 1; i >= 0; i--)
-	      note = gen_rtx_EXPR_LIST (VOIDmode, args[i].initial_value, note);
+	  for (i = 0; i < num_actuals; i++)
+	    note = gen_rtx_EXPR_LIST (VOIDmode, args[i].initial_value, note);
 	  note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
 
 	  insns = get_insns ();
@@ -3193,6 +3197,7 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
   int old_inhibit_defer_pop = inhibit_defer_pop;
   rtx call_fusage = 0;
   rtx mem_value = 0;
+  rtx valreg;
   int pcc_struct_value = 0;
   int struct_value_size = 0;
   int flags = 0;
@@ -3275,6 +3280,11 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
 
   count = 0;
 
+  /* Now we are about to start emitting insns that can be deleted
+     if a libcall is deleted.  */
+  if (flags & ECF_CONST)
+    start_sequence ();
+
   push_temp_slots ();
 
   /* If there's a structure value address to be passed,
@@ -3300,7 +3310,11 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
 #endif
 
       locate_and_pad_parm (Pmode, NULL_TREE,
-			   argvec[count].reg && argvec[count].partial == 0,
+#ifdef STACK_PARMS_IN_REG_PARM_AREA
+                           1,
+#else
+			   argvec[count].reg != 0,
+#endif
 			   NULL_TREE, &args_size, &argvec[count].offset,
 			   &argvec[count].size, &alignment_pad);
 
@@ -3365,7 +3379,11 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
 #endif
 
       locate_and_pad_parm (mode, NULL_TREE,
-			   argvec[count].reg && argvec[count].partial == 0,
+#ifdef STACK_PARMS_IN_REG_PARM_AREA
+                           1,
+#else
+			   argvec[count].reg != 0,
+#endif
 			   NULL_TREE, &args_size, &argvec[count].offset,
 			   &argvec[count].size, &alignment_pad);
 
@@ -3651,12 +3669,6 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
       NO_DEFER_POP;
     }
 
-#if 0
-  /* For version 1.37, try deleting this entirely.  */
-  if (! no_queue)
-    emit_queue ();
-#endif
-
   /* Any regs containing parms remain in use through the call.  */
   for (count = 0; count < nargs; count++)
     {
@@ -3681,6 +3693,14 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
   /* Don't allow popping to be deferred, since then
      cse'ing of library calls could delete a call and leave the pop.  */
   NO_DEFER_POP;
+  valreg = (mem_value == 0 && outmode != VOIDmode
+	    ? hard_libcall_value (outmode) : NULL_RTX);
+
+#ifdef PREFERRED_STACK_BOUNDARY
+  /* Stack must to be properly aligned now.  */
+  if (stack_pointer_delta & (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1))
+    abort();
+#endif
 
   /* We pass the old value of inhibit_defer_pop + 1 to emit_call_1, which
      will set inhibit_defer_pop to that value.  */
@@ -3696,12 +3716,45 @@ emit_library_call_value_1 (retval, orgfun, value, no_queue, outmode, nargs, p)
                original_args_size.constant, args_size.constant,
 	       struct_value_size,
 	       FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1),
-	       mem_value == 0 && outmode != VOIDmode ? hard_libcall_value (outmode) : NULL_RTX,
+	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags);
 
   /* Now restore inhibit_defer_pop to its actual original value.  */
   OK_DEFER_POP;
 
+  /* If call is cse'able, make appropriate pair of reg-notes around it.
+     Test valreg so we don't crash; may safely ignore `const'
+     if return type is void.  Disable for PARALLEL return values, because
+     we have no way to move such values into a pseudo register.  */
+  if ((flags & ECF_CONST)
+      && valreg != 0 && GET_CODE (valreg) != PARALLEL)
+    {
+      rtx note = 0;
+      rtx temp = gen_reg_rtx (GET_MODE (valreg));
+      rtx insns;
+      int i;
+
+      /* Construct an "equal form" for the value which mentions all the
+	 arguments in order as well as the function name.  */
+      for (i = 0; i < nargs; i++)
+	note = gen_rtx_EXPR_LIST (VOIDmode, argvec[i].value, note);
+      note = gen_rtx_EXPR_LIST (VOIDmode, fun, note);
+
+      insns = get_insns ();
+      end_sequence ();
+
+      emit_libcall_block (insns, temp, valreg, note);
+
+      valreg = temp;
+    }
+  else if (flags & ECF_CONST)
+    {
+      /* Otherwise, just write out the sequence without a note.  */
+      rtx insns = get_insns ();
+
+      end_sequence ();
+      emit_insns (insns);
+    }
   pop_temp_slots ();
 
   /* Copy the value to the right place.  */

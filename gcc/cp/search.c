@@ -1337,7 +1337,7 @@ lookup_field_queue_p (binfo, data)
   struct lookup_field_info *lfi = (struct lookup_field_info *) data;
 
   /* Don't look for constructors or destructors in base classes.  */
-  if (lfi->name == ctor_identifier || lfi->name == dtor_identifier)
+  if (IDENTIFIER_CTOR_OR_DTOR_P (lfi->name))
     return NULL_TREE;
 
   /* If this base class is hidden by the best-known value so far, we
@@ -1688,13 +1688,16 @@ lookup_fnfields_1 (type, name)
 
       /* Constructors are first...  */
       if (name == ctor_identifier)
-	return methods[0] ? 0 : -1;
-
+	return (methods[CLASSTYPE_CONSTRUCTOR_SLOT] 
+		? CLASSTYPE_CONSTRUCTOR_SLOT : -1);
       /* and destructors are second.  */
       if (name == dtor_identifier)
-	return methods[1] ? 1 : -1;
+	return (methods[CLASSTYPE_DESTRUCTOR_SLOT]
+		? CLASSTYPE_DESTRUCTOR_SLOT : -1);
 
-      for (i = 2; i < len && methods[i]; ++i)
+      for (i = CLASSTYPE_FIRST_CONVERSION_SLOT; 
+	   i < len && methods[i]; 
+	   ++i)
 	{
 #ifdef GATHER_STATISTICS
 	  n_outer_fields_searched++;
@@ -1737,7 +1740,9 @@ lookup_fnfields_1 (type, name)
 	 above so that we will always find specializations first.)  */
       if (IDENTIFIER_TYPENAME_P (name)) 
 	{
-	  for (i = 2; i < len && methods[i]; ++i)
+	  for (i = CLASSTYPE_FIRST_CONVERSION_SLOT; 
+	       i < len && methods[i]; 
+	       ++i)
 	    {
 	      tmp = OVL_CURRENT (methods[i]);
 	      if (! DECL_CONV_FN_P (tmp))
@@ -3393,7 +3398,6 @@ void
 init_search_processing ()
 {
   gcc_obstack_init (&search_obstack);
-  vptr_identifier = get_identifier ("_vptr");
 }
 
 void

@@ -460,9 +460,7 @@ build_cplus_method_type (basetype, rettype, argtypes)
   ptype = build_pointer_type (basetype);
 
   /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  Make
-     sure that the new argument list is allocated on the same obstack
-     as the type.  */
+     which is "this".  Put it into the list of argument types.  */
   argtypes = tree_cons (NULL_TREE, ptype, argtypes);
   TYPE_ARG_TYPES (t) = argtypes;
   TREE_SIDE_EFFECTS (argtypes) = 1;  /* Mark first argtype as "artificial".  */
@@ -1181,8 +1179,7 @@ copy_template_template_parm (t)
   tree t2;
 
   t2 = make_aggr_type (TEMPLATE_TEMPLATE_PARM);
-  template = copy_node (template);
-  copy_lang_decl (template);
+  template = copy_decl (template);
 
   TREE_TYPE (template) = t2;
   TYPE_NAME (t2) = template;
@@ -1442,7 +1439,6 @@ copy_tree_r (tp, walk_subtrees, data)
       || TREE_CODE_CLASS (code) == 'r'
       || TREE_CODE_CLASS (code) == 'c'
       || TREE_CODE_CLASS (code) == 's'
-      || code == PARM_DECL
       || code == TREE_LIST
       || code == TREE_VEC
       || code == OVERLOAD)

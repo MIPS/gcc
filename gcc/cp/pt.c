@@ -159,6 +159,7 @@ static int template_args_equal PARAMS ((tree, tree));
 static void print_template_context PARAMS ((int));
 static void tsubst_default_arguments PARAMS ((tree));
 static tree for_each_template_parm_r PARAMS ((tree *, int *, void *));
+static tree instantiate_clone PARAMS ((tree, tree));
 
 /* Called once to initialize pt.c.  */
 
@@ -5440,8 +5441,7 @@ tsubst_decl (t, args, type, in_decl)
 	   We also create a new function declaration, which is just
 	   like the old one, but points to this new template, rather
 	   than the old one.  */
-	r = copy_node (t);
-	copy_lang_decl (r);
+	r = copy_decl (t);
 	my_friendly_assert (DECL_LANG_SPECIFIC (r) != 0, 0);
 	TREE_CHAIN (r) = NULL_TREE;
 
@@ -5681,9 +5681,7 @@ tsubst_decl (t, args, type, in_decl)
            point, as they may not represent instantiations of this
            template, and in any case are considered separate under the
            discrete model.  Instead, see add_maybe_template.  */
-
-	r = copy_node (t);
-	copy_lang_decl (r);
+	r = copy_decl (t);
 	DECL_USE_TEMPLATE (r) = 0;
 	TREE_TYPE (r) = type;
 
@@ -5700,7 +5698,6 @@ tsubst_decl (t, args, type, in_decl)
 
 	DECL_ARGUMENTS (r) = tsubst (DECL_ARGUMENTS (t), args,
 				     /*complain=*/1, t);
-	DECL_MAIN_VARIANT (r) = r;
 	DECL_TEMPLATE_RESULT (r) = NULL_TREE;
 
 	TREE_STATIC (r) = 0;
@@ -5712,6 +5709,13 @@ tsubst_decl (t, args, type, in_decl)
 	DECL_PENDING_INLINE_INFO (r) = 0;
 	DECL_PENDING_INLINE_P (r) = 0;
 	TREE_USED (r) = 0;
+	if (DECL_CLONED_FUNCTION (r))
+	  {
+	    DECL_CLONED_FUNCTION (r) = tsubst (DECL_CLONED_FUNCTION (t),
+					       args, /*complain=*/1, t);
+	    TREE_CHAIN (r) = TREE_CHAIN (DECL_CLONED_FUNCTION (r));
+	    TREE_CHAIN (DECL_CLONED_FUNCTION (r)) = r;
+	  }
 
 	/* Set up the DECL_TEMPLATE_INFO for R and compute its mangled
 	   name.  There's no need to do this in the special friend
@@ -5820,8 +5824,7 @@ tsubst_decl (t, args, type, in_decl)
 
     case FIELD_DECL:
       {
-	r = copy_node (t);
-	copy_lang_decl (r);
+	r = copy_decl (t);
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (CP_TYPE_QUALS (type), r);
 
@@ -5900,10 +5903,7 @@ tsubst_decl (t, args, type, in_decl)
 	    break;
 	  }
 
-	/* This declaration is going to have to be around for a while,
-	   so me make sure it is on a saveable obstack.  */
-	r = copy_node (t);
-	
+	r = copy_decl (t);
 	TREE_TYPE (r) = type;
 	c_apply_type_quals_to_decl (CP_TYPE_QUALS (type), r);
 	DECL_CONTEXT (r) = ctx;
@@ -5913,7 +5913,6 @@ tsubst_decl (t, args, type, in_decl)
 	DECL_INITIAL (r) = NULL_TREE;
 	DECL_RTL (r) = 0;
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
-	copy_lang_decl (r);
 
 	/* For __PRETTY_FUNCTION__ we have to adjust the initializer.  */
 	if (DECL_PRETTY_FUNCTION_P (r))
@@ -7376,6 +7375,43 @@ tsubst_expr (t, args, complain, in_decl)
   return NULL_TREE;
 }
 
+/* TMPL is a TEMPLATE_DECL for a cloned constructor or destructor.
+   Instantiate it with the ARGS.  */
+
+static tree
+instantiate_clone (tmpl, args)
+     tree tmpl;
+     tree args;
+{
+  tree spec;
+  tree clone;
+
+  /* Instantiated the cloned function, rather than the clone.  */
+  spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), args);
+
+  /* Then, see if we've already cloned the instantiation.  */
+  for (clone = TREE_CHAIN (spec);
+       clone && DECL_CLONED_FUNCTION_P (clone);
+       clone = TREE_CHAIN (clone))
+    if (DECL_NAME (clone) == DECL_NAME (tmpl))
+      return clone;
+
+  /* If we haven't, do so know.  */
+  if (!clone)
+    clone_function_decl (spec, /*update_method_vec_p=*/0);
+
+  /* Look again.  */
+  for (clone = TREE_CHAIN (spec);
+       clone && DECL_CLONED_FUNCTION_P (clone);
+       clone = TREE_CHAIN (clone))
+    if (DECL_NAME (clone) == DECL_NAME (tmpl))
+      return clone;
+
+  /* We should always have found the clone by now.  */
+  my_friendly_abort (20000411);
+  return NULL_TREE;
+}
+
 /* Instantiate the indicated variable or function template TMPL with
    the template arguments in TARG_PTR.  */
 
@@ -7393,6 +7429,10 @@ instantiate_template (tmpl, targ_ptr)
     return error_mark_node;
 
   my_friendly_assert (TREE_CODE (tmpl) == TEMPLATE_DECL, 283);
+
+  /* If this function is a clone, handle it specially.  */
+  if (DECL_CLONED_FUNCTION_P (tmpl))
+    return instantiate_clone (tmpl, targ_ptr);
 
   /* Check to see if we already have this specialization.  */
   spec = retrieve_specialization (tmpl, targ_ptr);
@@ -7429,8 +7469,7 @@ instantiate_template (tmpl, targ_ptr)
 	    {
 	      cp_error ("type `%T' composed from a local class is not a valid template-argument", t);
 	      cp_error ("  trying to instantiate `%D'", gen_tmpl);
-	      fndecl = error_mark_node;
-	      goto out;
+	      return error_mark_node;
 	    }
 	}
     }
@@ -7445,7 +7484,6 @@ instantiate_template (tmpl, targ_ptr)
   if (flag_external_templates)
     add_pending_template (fndecl);
 
- out:
   return fndecl;
 }
 
@@ -9400,6 +9438,11 @@ instantiate_decl (d, defer_ok)
   my_friendly_assert (TREE_CODE (d) == FUNCTION_DECL
 		      || TREE_CODE (d) == VAR_DECL, 0);
 
+  /* Don't instantiate cloned functions.  Instead, instantiate the
+     functions they cloned.  */
+  if (TREE_CODE (d) == FUNCTION_DECL && DECL_CLONED_FUNCTION_P (d))
+    d = DECL_CLONED_FUNCTION (d);
+
   if (DECL_TEMPLATE_INSTANTIATED (d))
     /* D has already been instantiated.  It might seem reasonable to
        check whether or not D is an explict instantiation, and, if so,
@@ -9586,7 +9629,7 @@ instantiate_decl (d, defer_ok)
 		   /*complain=*/1, tmpl);
 
       /* Finish the function.  */
-      expand_body (finish_function (lineno, 0));
+      expand_body (finish_function (0));
     }
 
   /* We're not deferring instantiation any more.  */
@@ -9946,7 +9989,7 @@ set_mangled_name_for_template_decl (decl)
     = build_decl_overload_real (DECL_NAME (decl), parm_types, ret_type,
 				tparms, targs, 
 				DECL_FUNCTION_MEMBER_P (decl) 
-				+ DECL_CONSTRUCTOR_P (decl));
+				+ DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl));
 
   /* Restore the previously active namespace.  */
   current_namespace = saved_namespace;

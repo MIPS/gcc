@@ -91,10 +91,10 @@ enum node_type
   T_FILE,	   /* `__FILE__' */
   T_BASE_FILE,	   /* `__BASE_FILE__' */
   T_INCLUDE_LEVEL, /* `__INCLUDE_LEVEL__' */
-  T_VERSION,	   /* `__VERSION__' */
   T_TIME,	   /* `__TIME__' */
   T_STDC,	   /* `__STDC__' */
   T_CONST,	   /* Constant string, used by `__SIZE_TYPE__' etc */
+  T_MCONST,	   /* Ditto, but the string is malloced memory */
   T_MACRO,	   /* macro defined by `#define' */
   T_DISABLED,	   /* macro temporarily turned off for rescan */
   T_POISON,	   /* macro defined with `#pragma poison' */
@@ -221,6 +221,10 @@ extern unsigned char _cpp_IStable[256];
 #define CPP_BUMP_BUFFER_LINE(PBUF) ((PBUF)->lineno++,\
 				    (PBUF)->line_base = (PBUF)->cur)
 #define CPP_BUMP_LINE(PFILE) CPP_BUMP_BUFFER_LINE(CPP_BUFFER(PFILE))
+#define CPP_BUMP_BUFFER_LINE_CUR(PBUF, CUR) ((PBUF)->lineno++,\
+				             (PBUF)->line_base = CUR)
+#define CPP_BUMP_LINE_CUR(PFILE, CUR) \
+                            CPP_BUMP_BUFFER_LINE_CUR(CPP_BUFFER(PFILE), CUR)
 #define CPP_PREV_BUFFER(BUFFER) ((BUFFER)->prev)
 
 /* Are we in column 1 right now?  Used mainly for -traditional handling
@@ -298,14 +302,14 @@ extern void _cpp_parse_name		PARAMS ((cpp_reader *, int));
 extern void _cpp_skip_rest_of_line	PARAMS ((cpp_reader *));
 extern void _cpp_skip_hspace		PARAMS ((cpp_reader *));
 extern int _cpp_parse_assertion		PARAMS ((cpp_reader *));
-extern enum cpp_token _cpp_lex_token	PARAMS ((cpp_reader *));
+extern enum cpp_ttype _cpp_lex_token	PARAMS ((cpp_reader *));
 extern long _cpp_read_and_prescan	PARAMS ((cpp_reader *, cpp_buffer *,
 						 int, size_t));
 extern void _cpp_init_input_buffer	PARAMS ((cpp_reader *));
 extern void _cpp_grow_token_buffer	PARAMS ((cpp_reader *, long));
-extern enum cpp_token _cpp_get_directive_token
+extern enum cpp_ttype _cpp_get_directive_token
 					PARAMS ((cpp_reader *));
-extern enum cpp_token _cpp_get_define_token
+extern enum cpp_ttype _cpp_get_define_token
 					PARAMS ((cpp_reader *));
 
 /* In cpplib.c */

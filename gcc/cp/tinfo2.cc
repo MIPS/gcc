@@ -127,26 +127,33 @@ __pointer_to_member_type_info::
 {}
 
 bool __pointer_type_info::
-is_pointer_p () const
+__is_pointer_p () const
 {
   return true;
 }
 
 bool __function_type_info::
-is_function_p () const
+__is_function_p () const
 {
   return true;
 }
 
+bool __pointer_to_member_type_info::
+__is_pointer_p () const
+{
+  return false;
+}
+
+
 bool __pointer_type_info::
-do_catch (const type_info *thr_type,
-          void **thr_obj,
-          unsigned outer) const
+__do_catch (const type_info *thr_type,
+            void **thr_obj,
+            unsigned outer) const
 {
   if (*this == *thr_type)
     return true;      // same type
   if (typeid (*this) != typeid (*thr_type))
-    return false;     // not both pointers
+    return false;     // not both same kind of pointers
   
   if (!(outer & 1))
     // We're not the same and our outer pointers are not all const qualified
@@ -164,45 +171,37 @@ do_catch (const type_info *thr_type,
   if (!(quals & const_mask))
     outer &= ~1;
   
+  return __pointer_catch (thrown_type, thr_obj, outer);
+}
+
+bool __pointer_type_info::
+__pointer_catch (const __pointer_type_info *thrown_type,
+                 void **thr_obj,
+                 unsigned outer) const
+{
   if (outer < 2 && *type == typeid (void))
     {
       // conversion to void
-      return !thrown_type->is_function_p ();
+      return !thrown_type->type->__is_function_p ();
     }
   
-  return type->do_catch (thrown_type->type, thr_obj, outer + 2);
+  return type->__do_catch (thrown_type->type, thr_obj, outer + 2);
 }
 
 bool __pointer_to_member_type_info::
-do_catch (const type_info *thr_type,
-          void **thr_obj,
-          unsigned outer) const
+__pointer_catch (const __pointer_type_info *thr_type,
+                 void **thr_obj,
+                 unsigned outer) const
 {
-  if (*this == *thr_type)
-    return true;      // same type
-  if (typeid (*this) != typeid (*thr_type))
-    return false;     // not both pointers to member
-  
-  if (!(outer & 1))
-    // We're not the same and our outer pointers are not all const qualified
-    // Therefore there must at least be a qualification conversion involved.
-    // But for that to be valid, our outer pointers must be const qualified.
-    return false;
-  
+  // This static cast is always valid, as our caller will have determined that
+  // thr_type is really a __pointer_to_member_type_info.
   const __pointer_to_member_type_info *thrown_type =
     static_cast <const __pointer_to_member_type_info *> (thr_type);
-  
-  if (thrown_type->quals & ~quals)
-    // We're less qualified.
-    return false;
-  
-  if (!(quals & const_mask))
-    outer &= ~1;
   
   if (*klass != *thrown_type->klass)
     return false;     // not pointers to member of same class
   
-  return type->do_catch (thrown_type->type, thr_obj, outer + 2);
+  return type->__do_catch (thrown_type->type, thr_obj, outer + 2);
 }
 
 } // namespace std
@@ -338,7 +337,7 @@ __throw_type_match_rtti_2 (const void *catch_type_r, const void *throw_type_r,
 #else
 // new abi
   
-  return catch_type.do_catch (&throw_type, valp, 1);
+  return catch_type.__do_catch (&throw_type, valp, 1);
 #endif
   return 0;
 }
@@ -371,7 +370,7 @@ __is_pointer (void *p)
   return pt != 0;
 #else
 // new abi
-  return t->is_pointer_p ();
+  return t->__is_pointer_p ();
 #endif
 }
 

@@ -59,8 +59,8 @@ struct processor_costs {
   int mult_bit;			/* cost of multiply per each bit set */
   int divide;			/* cost of a divide/mod */
   int large_insn;		/* insns larger than this cost more */
-  int move_ratio;		/* The threshold of number of scalar memory-to-memory
-				   move insns.  */
+  int move_ratio;		/* The threshold of number of scalar
+				   memory-to-memory move insns.  */
   int movzbl_load;		/* cost of loading using movzbl */
   int int_load[3];		/* cost of loading integer registers
 				   in QImode, HImode and SImode relative
@@ -174,6 +174,7 @@ extern const int x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop;
 extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
 extern const int x86_promote_hi_regs;
+extern const int x86_add_esp_4, x86_add_esp_8, x86_sub_esp_4, x86_sub_esp_8;
 
 #define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
@@ -201,6 +202,10 @@ extern const int x86_promote_hi_regs;
 #define TARGET_HIMODE_MATH (x86_himode_math & CPUMASK)
 #define TARGET_PROMOTE_QI_REGS (x86_promote_qi_regs & CPUMASK)
 #define TARGET_PROMOTE_HI_REGS (x86_promote_hi_regs & CPUMASK)
+#define TARGET_ADD_ESP_4 (x86_add_esp_4 & CPUMASK)
+#define TARGET_ADD_ESP_8 (x86_add_esp_8 & CPUMASK)
+#define TARGET_SUB_ESP_4 (x86_sub_esp_4 & CPUMASK)
+#define TARGET_SUB_ESP_8 (x86_sub_esp_8 & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -2508,6 +2513,8 @@ do { long l;						\
   {"non_q_regs_operand", {SUBREG, REG}},				\
   {"no_comparison_operator", {EQ, NE, LT, GE, LTU, GTU, LEU, GEU}},	\
   {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU}},		\
+  {"uno_comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU,	\
+			       GTU, UNORDERED, ORDERED}},		\
   {"cmp_fp_expander_operand", {CONST_DOUBLE, SUBREG, REG, MEM}},	\
   {"ext_register_operand", {SUBREG, REG}},				\
   {"binary_fp_operator", {PLUS, MINUS, MULT, DIV}},			\

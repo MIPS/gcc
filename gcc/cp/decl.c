@@ -37,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "decl.h"
 #include "lex.h"
 #include <signal.h>
-#include "obstack.h"
 #include "defaults.h"
 #include "output.h"
 #include "except.h"
@@ -45,11 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "../hash.h"
 #include "defaults.h"
 #include "ggc.h"
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
-extern struct obstack permanent_obstack;
 
 extern int current_class_depth;
 
@@ -183,6 +177,9 @@ static tree get_dso_handle_node PARAMS ((void));
 static tree start_cleanup_fn PARAMS ((void));
 static void end_cleanup_fn PARAMS ((void));
 static tree cp_make_fname_decl PARAMS ((tree, const char *, int));
+static void initialize_predefined_identifiers PARAMS ((void));
+static tree check_special_function_return_type 
+  PARAMS ((special_function_kind, tree, tree, tree));
 
 #if defined (DEBUG_CP_BINDING_LEVELS)
 static void indent PARAMS ((void));
@@ -3635,8 +3632,6 @@ duplicate_decls (newdecl, olddecl)
 	  if (DECL_ARGUMENTS (olddecl))
 	    DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 	}
-      if (DECL_LANG_SPECIFIC (olddecl))
-	DECL_MAIN_VARIANT (newdecl) = DECL_MAIN_VARIANT (olddecl);
     }
 
   if (TREE_CODE (newdecl) == NAMESPACE_DECL)
@@ -6041,6 +6036,59 @@ record_unknown_type (type, name)
   TYPE_MODE (type) = TYPE_MODE (void_type_node);
 }
 
+/* An string for which we should create an IDENTIFIER_NODE at
+   startup.  */
+
+typedef struct predefined_identifier
+{
+  /* The name of the identifier.  */
+  const char *name;
+  /* The place where the IDENTIFIER_NODE should be stored.  */
+  tree *node;
+  /* Non-zero if this is the name of a constructor or destructor.  */
+  int ctor_or_dtor_p;
+} predefined_identifier;
+
+/* Create all the predefined identifiers.  */
+
+static void
+initialize_predefined_identifiers () 
+{
+  struct predefined_identifier *pid;
+
+  /* A table of identifiers to create at startup.  */
+  static predefined_identifier predefined_identifiers[] = {
+    { "C++", &lang_name_cplusplus, 0 },
+    { "C", &lang_name_c, 0 },
+    { "Java", &lang_name_java, 0 },
+    { CTOR_NAME, &ctor_identifier, 1 },
+    { "__base_ctor", &base_ctor_identifier, 1 },
+    { "__comp_ctor", &complete_ctor_identifier, 1 },
+    { DTOR_NAME, &dtor_identifier, 1 },
+    { "__comp_dtor", &complete_dtor_identifier, 1 },
+    { "__base_dtor", &base_dtor_identifier, 1 },
+    { "__deleting_dtor", &deleting_dtor_identifier, 1 },
+    { VTABLE_DELTA2_NAME, &delta2_identifier, 0 },
+    { VTABLE_DELTA_NAME, &delta_identifier, 0 },
+    { IN_CHARGE_NAME, &in_charge_identifier, 0 },
+    { VTABLE_INDEX_NAME, &index_identifier, 0 },
+    { "nelts", &nelts_identifier, 0 },
+    { THIS_NAME, &this_identifier, 0 },
+    { VTABLE_PFN_NAME, &pfn_identifier, 0 },
+    { "__pfn_or_delta2", &pfn_or_delta2_identifier, 0 },
+    { "_vptr", &vptr_identifier, 0 },
+    { "__cp_push_exception", &cp_push_exception_identifier, 0 },
+    { NULL, NULL, 0 }
+  };
+
+  for (pid = predefined_identifiers; pid->name; ++pid)
+    {
+      *pid->node = get_identifier (pid->name);
+      if (pid->ctor_or_dtor_p)
+	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
+    }
+}
+
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *)0).
    Initialize the global binding level.
@@ -6058,10 +6106,8 @@ init_decl_processing ()
   if (flag_new_abi && !flag_vtable_thunks)
     fatal ("the new ABI requires vtable thunks");
 
-  /* Have to make these distinct before we try using them.  */
-  lang_name_cplusplus = get_identifier ("C++");
-  lang_name_c = get_identifier ("C");
-  lang_name_java = get_identifier ("Java");
+  /* Create all the identifiers we need.  */
+  initialize_predefined_identifiers ();
 
   /* Let the back-end now how to save and restore language-specific
      per-function globals.  */
@@ -6132,16 +6178,6 @@ init_decl_processing ()
   /* The global level is the namespace level of ::.  */
   NAMESPACE_LEVEL (global_namespace) = global_binding_level;
   declare_namespace_level ();
-
-  this_identifier = get_identifier (THIS_NAME);
-  in_charge_identifier = get_identifier (IN_CHARGE_NAME);
-  ctor_identifier = get_identifier (CTOR_NAME);
-  dtor_identifier = get_identifier (DTOR_NAME);
-  pfn_identifier = get_identifier (VTABLE_PFN_NAME);
-  index_identifier = get_identifier (VTABLE_INDEX_NAME);
-  delta_identifier = get_identifier (VTABLE_DELTA_NAME);
-  delta2_identifier = get_identifier (VTABLE_DELTA2_NAME);
-  pfn_or_delta2_identifier = get_identifier ("__pfn_or_delta2");
 
   /* Define `int' and `char' first so that dbx will output them first.  */
   record_builtin_type (RID_INT, NULL_PTR, integer_type_node);
@@ -6753,6 +6789,7 @@ check_tag_decl (declspecs)
      tree declspecs;
 {
   int found_type = 0;
+  int saw_friend = 0;
   tree ob_modifier = NULL_TREE;
   register tree link;
   register tree t = NULL_TREE;
@@ -6761,7 +6798,10 @@ check_tag_decl (declspecs)
     {
       register tree value = TREE_VALUE (link);
 
-      if (TYPE_P (value))
+      if (TYPE_P (value)
+	  || (TREE_CODE (value) == IDENTIFIER_NODE
+	      && IDENTIFIER_GLOBAL_VALUE (value)
+	      && TYPE_P (IDENTIFIER_GLOBAL_VALUE (value))))
 	{
 	  ++found_type;
 
@@ -6776,6 +6816,8 @@ check_tag_decl (declspecs)
 	  if (current_class_type == NULL_TREE
 	      || current_scope () != current_class_type)
 	    ob_modifier = value;
+	  else
+	    saw_friend = 1;
 	}
       else if (value == ridpointers[(int) RID_STATIC]
 	       || value == ridpointers[(int) RID_EXTERN]
@@ -6792,9 +6834,7 @@ check_tag_decl (declspecs)
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  /* Inside a class, we might be in a friend or access declaration.
-     Until we have a good way of detecting the latter, don't warn.  */
-  if (t == NULL_TREE && ! current_class_type)
+  if (t == NULL_TREE && ! saw_friend)
     pedwarn ("declaration does not declare anything");
 
   /* Check for an anonymous union.  We're careful
@@ -6894,10 +6934,6 @@ groktypename (typename)
    instead.  However, external and forward declarations of functions
    do go through here.  Structure field declarations are done by
    grokfield and not through here.  */
-
-/* Set this to zero to debug not using the temporary obstack
-   to parse initializers.  */
-int debug_temp_inits = 1;
 
 tree
 start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
@@ -8255,7 +8291,7 @@ end_cleanup_fn ()
 {
   do_poplevel ();
 
-  expand_body (finish_function (lineno, 0));
+  expand_body (finish_function (0));
 
   pop_from_top_level ();
 }
@@ -9275,6 +9311,54 @@ create_array_type_for_decl (name, type, size)
   return build_cplus_array_type (type, itype);
 }
 
+/* Check that it's OK to declare a function with the indicated TYPE.
+   SFK indicates the kind of special function (if any) that this
+   function is.  CTYPE is the class of which this function is a
+   member.  OPTYPE is the type given in a conversion operator
+   declaration.  Returns the actual return type of the function; that
+   may be different than TYPE if an error occurs, or for certain
+   special functions.  */
+
+static tree
+check_special_function_return_type (sfk, type, ctype, optype)
+     special_function_kind sfk;
+     tree type;
+     tree ctype;
+     tree optype;
+{
+  switch (sfk)
+    {
+    case sfk_constructor:
+      if (type)
+	cp_error ("return type specification for constructor invalid");
+	
+      /* In the old ABI, we return `this'; in the new ABI we don't
+	 bother.  */
+      type = flag_new_abi ? void_type_node : build_pointer_type	(ctype);
+      break;
+
+    case sfk_destructor:
+      if (type)
+	cp_error ("return type specification for destructor invalid");
+      type = void_type_node;
+      break;
+
+    case sfk_conversion:
+      if (type && !same_type_p (type, optype))
+	cp_error ("operator `%T' declared to return `%T'", optype, type);
+      else if (type)
+	cp_pedwarn ("return type specified for `operator %T'",  optype);
+      type = optype;
+      break;
+
+    default:
+      my_friendly_abort (20000408);
+      break;
+    }
+
+  return type;
+}
+
 /* Given declspecs and a declarator,
    determine the name and type of the object declared
    and construct a ..._DECL node for it.
@@ -9335,8 +9419,6 @@ create_array_type_for_decl (name, type, size)
    May return void_type_node if the declarator turned out to be a friend.
    See grokfield for details.  */
 
-enum return_types { return_normal, return_ctor, return_dtor, return_conversion };
-
 tree
 grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
      tree declspecs;
@@ -9375,7 +9457,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   /* Keep track of what sort of function is being processed
      so that we can warn about default return values, or explicit
      return values which do not match prescribed defaults.  */
-  enum return_types return_type = return_normal;
+  special_function_kind sfk = sfk_none;
 
   tree dname = NULL_TREE;
   tree ctype = current_class_type;
@@ -9425,7 +9507,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	      my_friendly_assert (flags == NO_SPECIAL, 152);
 	      flags = DTOR_FLAG;
-	      return_type = return_dtor;
+	      sfk = sfk_destructor;
 	      if (TREE_CODE (name) == TYPE_DECL)
 		TREE_OPERAND (decl, 0) = name = constructor_name (name);
 	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 153);
@@ -9524,7 +9606,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		&& decl != NULL_TREE && flags != DTOR_FLAG
 		&& decl == constructor_name (ctype))
 	      {
-		return_type = return_ctor;
+		sfk = sfk_constructor;
 		ctor_return_type = ctype;
 	      }
 	    ctype = NULL_TREE;
@@ -9572,7 +9654,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    my_friendly_assert (flags == NO_SPECIAL, 154);
 		    flags = TYPENAME_FLAG;
 		    ctor_return_type = TREE_TYPE (dname);
-		    return_type = return_conversion;
+		    sfk = sfk_conversion;
 		  }
 		name = operator_name_string (dname);
 	      }
@@ -9636,7 +9718,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  if (TREE_CODE (decl) == IDENTIFIER_NODE
 		      && constructor_name (ctype) == decl)
 		    {
-		      return_type = return_ctor;
+		      sfk = sfk_constructor;
 		      ctor_return_type = ctype;
 		    }
 		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
@@ -9644,7 +9726,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			   && (constructor_name (ctype) == TREE_OPERAND (decl, 0)
 			       || constructor_name_full (ctype) == TREE_OPERAND (decl, 0)))
 		    {
-		      return_type = return_dtor;
+		      sfk = sfk_destructor;
 		      ctor_return_type = ctype;
 		      flags = DTOR_FLAG;
 		      TREE_OPERAND (decl, 0) = constructor_name (ctype);
@@ -9860,58 +9942,35 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       defaulted_int = 1;
     }
 
-  if (type == NULL_TREE)
+  if (sfk != sfk_none)
+    type = check_special_function_return_type (sfk, type,
+					       ctor_return_type,
+					       ctor_return_type);
+  else if (type == NULL_TREE)
     {
+      int is_main;
+
       explicit_int = -1;
-      if (return_type == return_dtor)
-	type = void_type_node;
-      else if (return_type == return_ctor)
-	type = build_pointer_type (ctor_return_type);
-      else if (return_type == return_conversion)
-	type = ctor_return_type;
-      else
-	{
+
 	  /* We handle `main' specially here, because 'main () { }' is so
 	     common.  With no options, it is allowed.  With -Wreturn-type,
 	     it is a warning.  It is only an error with -pedantic-errors.  */
-	  int is_main = (funcdef_flag
-			 && MAIN_NAME_P (dname)
-			 && ctype == NULL_TREE
-			 && in_namespace == NULL_TREE
-			 && current_namespace == global_namespace);
+      is_main = (funcdef_flag
+		 && MAIN_NAME_P (dname)
+		 && ctype == NULL_TREE
+		 && in_namespace == NULL_TREE
+		 && current_namespace == global_namespace);
 
-	  if (in_system_header || flag_ms_extensions)
-	    /* Allow it, sigh.  */;
-	  else if (pedantic || ! is_main)
-	    cp_pedwarn ("ISO C++ forbids declaration of `%s' with no type",
-			name);
-	  else if (warn_return_type)
-	    cp_warning ("ISO C++ forbids declaration of `%s' with no type",
-			name);
+      if (in_system_header || flag_ms_extensions)
+	/* Allow it, sigh.  */;
+      else if (pedantic || ! is_main)
+	cp_pedwarn ("ISO C++ forbids declaration of `%s' with no type",
+		    name);
+      else if (warn_return_type)
+	cp_warning ("ISO C++ forbids declaration of `%s' with no type",
+		    name);
 
-	  type = integer_type_node;
-	}
-    }
-  else if (return_type == return_dtor)
-    {
-      error ("return type specification for destructor invalid");
-      type = void_type_node;
-    }
-  else if (return_type == return_ctor)
-    {
-      error ("return type specification for constructor invalid");
-      type = build_pointer_type (ctor_return_type);
-    }
-  else if (return_type == return_conversion)
-    {
-      if (!same_type_p (type, ctor_return_type))
-	cp_error ("operator `%T' declared to return `%T'",
-		  ctor_return_type, type);
-      else
-	cp_pedwarn ("return type specified for `operator %T'",
-		    ctor_return_type);
-
-      type = ctor_return_type;
+      type = integer_type_node;
     }
 
   ctype = NULL_TREE;
@@ -10056,7 +10115,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	type = build_complex_type (type);
     }
 
-  if (return_type == return_conversion
+  if (sfk == sfk_conversion
       && (RIDBIT_SETP (RID_CONST, specbits)
 	  || RIDBIT_SETP (RID_VOLATILE, specbits)
 	  || RIDBIT_SETP (RID_RESTRICT, specbits)))
@@ -10353,7 +10412,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		&& (friendp == 0 || dname == current_class_name))
 	      ctype = current_class_type;
 
-	    if (ctype && return_type == return_conversion)
+	    if (ctype && sfk == sfk_conversion)
 	      TYPE_HAS_CONVERSION (ctype) = 1;
 	    if (ctype && constructor_name (ctype) == dname)
 	      {
@@ -10412,7 +10471,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		      if (RIDBIT_ANY_SET (tmp_bits))
 			error ("return value type specifier for constructor ignored");
 		    }
-		    type = build_pointer_type (ctype);
 		    if (decl_context == FIELD)
 		      {
 			if (! member_function_or_else (ctype,
@@ -10420,7 +10478,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 						       flags))
 			  return void_type_node;
 			TYPE_HAS_CONSTRUCTOR (ctype) = 1;
-			if (return_type != return_ctor)
+			if (sfk != sfk_constructor)
 			  return NULL_TREE;
 		      }
 		  }
@@ -10876,6 +10934,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	 Nothing can refer to it, so nothing needs know about the name
 	 change.  */
       if (type != error_mark_node
+	  && declarator
 	  && TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && ANON_AGGRNAME_P (TYPE_IDENTIFIER (type))
@@ -11199,7 +11258,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl)));
 
 		/* Skip the `in_chrg' argument too, if present.  */
-		if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (decl)))
+		if (DECL_HAS_IN_CHARGE_PARM_P (decl))
 		  arg_types = TREE_CHAIN (arg_types);
 
 		if (arg_types == void_list_node
@@ -11917,8 +11976,7 @@ copy_args_p (d)
     return 0;
 
   t = FUNCTION_ARG_CHAIN (d);
-  if (DECL_CONSTRUCTOR_P (d)
-      && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (d)))
+  if (DECL_CONSTRUCTOR_P (d) && DECL_HAS_IN_CHARGE_PARM_P (d))
     t = TREE_CHAIN (t);
   if (t && TREE_CODE (TREE_VALUE (t)) == REFERENCE_TYPE
       && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (t)))
@@ -11949,7 +12007,7 @@ grok_ctor_properties (ctype, decl)
      added to any ctor so we can tell if the class has been initialized
      yet.  This could screw things up in this function, so we deliberately
      ignore the leading int if we're in that situation.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (ctype))
+  if (DECL_HAS_IN_CHARGE_PARM_P (decl))
     {
       my_friendly_assert (parmtypes
 			  && TREE_VALUE (parmtypes) == integer_type_node,
@@ -13345,7 +13403,6 @@ start_function (declspecs, declarator, attrs, flags)
 	  /* And make sure we have enough default args.  */
 	  check_default_args (decl1);
 	}
-      DECL_MAIN_VARIANT (decl1) = decl1;
       fntype = TREE_TYPE (decl1);
     }
 
@@ -13394,13 +13451,7 @@ start_function (declspecs, declarator, attrs, flags)
 
       /* Constructors and destructors need to know whether they're "in
 	 charge" of initializing virtual base classes.  */
-      if (DECL_DESTRUCTOR_P (decl1))
-	current_in_charge_parm = TREE_CHAIN (t);
-      else if (DECL_CONSTRUCTOR_P (decl1)
-	       && TREE_CHAIN (t)
-	       && DECL_ARTIFICIAL (TREE_CHAIN (t))
-	       && (DECL_NAME (TREE_CHAIN (t))
-		   == in_charge_identifier))
+      if (DECL_HAS_IN_CHARGE_PARM_P (decl1))
 	current_in_charge_parm = TREE_CHAIN (t);
     }
 
@@ -13509,7 +13560,12 @@ start_function (declspecs, declarator, attrs, flags)
       dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (dtor_label) = current_function_decl;
     }
-  else if (DECL_CONSTRUCTOR_P (decl1))
+  /* Under the old ABI we return `this' from constructors, so we make
+     ordinary `return' statements in constructors jump to CTOR_LABEL;
+     from there we return `this'.  Under the new ABI, we don't bother
+     with any of this.  By not setting CTOR_LABEL the remainder of the
+     machinery is automatically disabled.  */
+  else if (!flag_new_abi && DECL_CONSTRUCTOR_P (decl1))
     {
       ctor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (ctor_label) = current_function_decl;
@@ -13741,7 +13797,8 @@ static void
 finish_constructor_body ()
 {
   /* Any return from a constructor will end up here.  */
-  add_tree (build_min_nt (LABEL_STMT, ctor_label));
+  if (ctor_label)
+    add_tree (build_min_nt (LABEL_STMT, ctor_label));
 
   /* Clear CTOR_LABEL so that finish_return_stmt knows to really
      generate the return, rather than a goto to CTOR_LABEL.  */
@@ -13761,9 +13818,9 @@ static void
 finish_destructor_body ()
 {
   tree compound_stmt;
-  tree in_charge;
   tree virtual_size;
   tree exprstmt;
+  tree if_stmt;
 
   /* Create a block to contain all the extra code.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
@@ -13781,16 +13838,9 @@ finish_destructor_body ()
      will set the flag again.  */
   TYPE_HAS_DESTRUCTOR (current_class_type) = 0;
 
-  /* These are two cases where we cannot delegate deletion.  */
-  if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type)
-      || TYPE_GETS_REG_DELETE (current_class_type))
-    in_charge = integer_zero_node;
-  else
-    in_charge = current_in_charge_parm;
-
   exprstmt = build_delete (current_class_type,
 			   current_class_ref,
-			   in_charge,
+			   integer_zero_node,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR|LOOKUP_NORMAL,
 			   0);
 
@@ -13823,8 +13873,8 @@ finish_destructor_body ()
 		     TYPE_BINFO (current_class_type));
 		  finish_expr_stmt
 		    (build_scoped_method_call
-		     (current_class_ref, vb, dtor_identifier,
-		      build_tree_list (NULL_TREE, integer_zero_node)));
+		     (current_class_ref, vb, complete_dtor_identifier,
+		      NULL_TREE));
 		}
 	      vbases = TREE_CHAIN (vbases);
 	    }
@@ -13847,24 +13897,18 @@ finish_destructor_body ()
      only defines placement deletes we don't do anything here.  So we
      pass LOOKUP_SPECULATIVELY; delete_sanity will complain for us if
      they ever try to delete one of these.  */
-  if (TYPE_GETS_REG_DELETE (current_class_type)
-      || TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
-    {
-      tree if_stmt;
+  exprstmt = build_op_delete_call
+    (DELETE_EXPR, current_class_ptr, virtual_size,
+     LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
 
-      exprstmt = build_op_delete_call
-	(DELETE_EXPR, current_class_ptr, virtual_size,
-	 LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
-
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
-				  current_in_charge_parm,
-				  integer_one_node),
-			   if_stmt);
-      finish_expr_stmt (exprstmt);
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
-    }
+  if_stmt = begin_if_stmt ();
+  finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
+			      current_in_charge_parm,
+			      integer_one_node),
+		       if_stmt);
+  finish_expr_stmt (exprstmt);
+  finish_then_clause (if_stmt);
+  finish_if_stmt ();
 
   /* Close the block we started above.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
@@ -13873,9 +13917,6 @@ finish_destructor_body ()
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
-
-   This is called after parsing the body of the function definition.
-   LINENO is the current line number.
 
    FLAGS is a bitwise or of the following values:
      1 - CALL_POPLEVEL
@@ -13888,8 +13929,7 @@ finish_destructor_body ()
        after the class definition is complete.)  */
 
 tree
-finish_function (lineno, flags)
-     int lineno;
+finish_function (flags)
      int flags;
 {
   register tree fndecl = current_function_decl;
@@ -13900,6 +13940,7 @@ finish_function (lineno, flags)
   int inclass_inline = (flags & 2) != 0;
   int expand_p;
   int nested;
+  int current_line = lineno;
 
   /* When we get some parse errors, we can end up without a
      current_function_decl, so cope.  */
@@ -13920,7 +13961,11 @@ finish_function (lineno, flags)
       store_parm_decls ();
     }
 
-  if (building_stmt_tree ())
+  /* For a cloned function, we've already got all the code we need;
+     there's no need to add any extra bits.  */
+  if (building_stmt_tree () && DECL_CLONED_FUNCTION_P (fndecl))
+    ;
+  else if (building_stmt_tree ())
     {
       if (DECL_CONSTRUCTOR_P (fndecl))
 	{
@@ -14014,7 +14059,7 @@ finish_function (lineno, flags)
 	  DECL_CONTEXT (no_return_label) = fndecl;
 	  DECL_INITIAL (no_return_label) = error_mark_node;
 	  DECL_SOURCE_FILE (no_return_label) = input_filename;
-	  DECL_SOURCE_LINE (no_return_label) = lineno;
+	  DECL_SOURCE_LINE (no_return_label) = current_line;
 	  expand_goto (no_return_label);
 	}
 
@@ -14053,7 +14098,7 @@ finish_function (lineno, flags)
       immediate_size_expand = 1;
 
       /* Generate rtl for function exit.  */
-      expand_function_end (input_filename, lineno, 1);
+      expand_function_end (input_filename, current_line, 1);
     }
 
   /* We have to save this value here in case
@@ -14308,12 +14353,6 @@ start_method (declspecs, declarator, attrlist)
   if (processing_template_decl && !DECL_TEMPLATE_SPECIALIZATION (fndecl))
     fndecl = push_template_decl (fndecl);
 
-  /* We read in the parameters on the maybepermanent_obstack,
-     but we won't be getting back to them until after we
-     may have clobbered them.  So the call to preserve_data
-     will keep them safe.  */
-  preserve_data ();
-
   if (! DECL_FRIEND_P (fndecl))
     {
       if (TREE_CHAIN (fndecl))
@@ -14477,10 +14516,7 @@ hack_incomplete_structures (type)
 }
 
 /* If DECL is of a type which needs a cleanup, build that cleanup here.
-   See build_delete for information about AUTO_DELETE.
-
-   Don't build these on the momentary obstack; they must live
-   the life of the binding contour.  */
+   See build_delete for information about AUTO_DELETE.  */
 
 static tree
 maybe_build_cleanup_1 (decl, auto_delete)
@@ -14518,16 +14554,6 @@ maybe_build_cleanup_1 (decl, auto_delete)
 }
 
 /* If DECL is of a type which needs a cleanup, build that cleanup
-   here.  The cleanup does free the storage with a call to delete.  */
-
-tree
-maybe_build_cleanup_and_delete (decl)
-     tree decl;
-{
-  return maybe_build_cleanup_1 (decl, integer_three_node);
-}
-
-/* If DECL is of a type which needs a cleanup, build that cleanup
    here.  The cleanup does not free the storage with a call a delete.  */
 
 tree
@@ -14549,9 +14575,6 @@ void
 cplus_expand_expr_stmt (exp)
      tree exp;
 {
-  if (stmts_are_full_exprs_p)
-    exp = convert_to_void (exp, "statement");
-
 #if 0
   /* We should do this eventually, but right now this causes regex.o from
      libg++ to miscompile, and tString to core dump.  */
@@ -14727,9 +14750,9 @@ lang_mark_tree (t)
 	    mark_binding_level (&NAMESPACE_LEVEL (t));
 	  if (CAN_HAVE_FULL_LANG_DECL_P (t))
 	    {
-	      ggc_mark_tree (ld->main_decl_variant);
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->saved_tree);
+	      ggc_mark_tree (ld->cloned_function);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL

@@ -1,3 +1,391 @@
+2000-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (IDENTIFIER_CTOR_OR_DTOR_P): New macro.
+	(cp_tree_index): Add CPTI_PUSH_EXCEPTION_IDENTIFIER.
+	(cp_push_exception_identifier): New macro.
+	(DECL_COMPLETE_DESTRUCTOR_P): New macro.
+	(DECL_BASE_DESTRUCTOR_P): Likewise.
+	(DECL_DELETING_DESTRUCTOR_P): Likewise.
+	(get_vtbl_decl_for_binfo): Fix formatting.
+	(in_charge_arg_for_name): New macro.
+	(maybe_build_cleanup_and_delete): Remove declaration.
+	* call.c (build_field_call): Use IDENTIFIER_CTOR_OR_DTOR_P.
+	(in_charge_arg_for_name): New function.
+	(build_new_method_call): Use it.  Handle cloned destructors.
+	(build_clone): Don't make the base constructor virtual.
+	Automatically defer generated functions.
+	(clone_function_decl): Handle destructors, too.
+	(clone_constructors_and_destructors): Likewise.
+	(create_vtable_ptr): Don't create a vtable entry for a cloned
+	function.
+	* decl.c (predefined_identifier): Add ctor_or_dtor_p.
+	(initialize_predefined_identifiers): Update appropriately.
+	(finish_destructor_body): Simplify.
+	(maybe_build_cleanup_and_delete): Remove.
+	* except.c (expand_throw): Handle new-ABI destructors.
+	* init.c (expand_cleanup_for_base): Use base_dtor_identifier.
+	(build_dtor_call): New function.
+	(build_delete): Use it.  Simplify.
+	* optimize.c (maybe_clone_body): Handle destructors.
+	* search.c (lookup_field_queue_p): Use IDENTIFIER_CTOR_OR_DTOR_P.
+	
+	* exception.cc (cleanup_fn): New typedef.
+	(CALL_CLEANUP): New macro.
+	(cp_eh_info): Use them.
+	(__cp_push_exception): Likewise.
+	(__cp_pop_exception): Likewise.
+	
+2000-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (cp_tree_index): Add CPTI_DTOR_IDENTIFIER.
+	(complete_dtor_identifier): New macro.
+	(CLASSTYPE_FIRST_CONVERSION): Remove.
+	(CLASSTYPE_CONSTRUCTOR_SLOT): New macro.
+	(CLASSTYPE_DESTRUCTOR_SLOT): Likewise.
+	(CLASSTYPE_FIRST_CONVERSION_SLOT): Likewise.
+	(CLASSTYPE_CONSTRUCTORS): Likewise.
+	(CLASSTYPE_DESTRUCTORS): Likewise.
+	(lang_decl): Add cloned_function.
+	(DECL_COMPLETE_CONSTRUCTOR_P): New macro.
+	(DECL_BASE_CONSTRUCTOR_P): Likewise.
+	(DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P): Likewise.
+	(DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P): Likewise.
+	(DECL_CLONED_FUNCTION_P): Likewise.
+	(DECL_CLONED_FUNCTION): Likewise.
+	(clone_function_decl): Declare.
+	(maybe_clone_body): Likewise.
+	* call.c (build_user_type_conversion_1): Call complete object
+	constructors in the new ABI.
+	(build_new_method_call): Don't add in-charge parameters under the
+	new ABI.
+	* class.c (add_method): Use DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P,
+	DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P, CLASSTYPE_CONSTRUCTOR_SLOT, and
+	CLASSTYPE_DESTRUCTOR_SLOT.
+	(build_clone): New function.
+	(clone_function_decl): Likewise.
+	(clone_constructors_and_destructors): Likewise.
+	(check_bases_and_members): Use it.
+	* decl.c (iniitialize_predefined_identifiers): Initialize
+	complete_dtor_identifier.
+	(finish_function): Don't add extra code to a clone.
+	(lang_mark_tree): Mark cloned_function.
+	* decl2.c (mark_used): Don't bother trying to instantiate things
+	we synthesized.
+	* dump.c (dequeue_and_dump): Don't dump CP_DECL_CONTEXT twice.
+	* method.c (set_mangled_name_for_decl): Don't treat clones as
+	constructors.
+	(synthesize_method): Sythesize cloned functions, not the clones.
+	* optimize.c (inline_data): Update comment on ret_label.
+	(remap_block): Don't assume DECL_INITIAL exists.
+	(copy_body_r): Allow ret_label to be NULL.
+	(maybe_clone_body): Define.
+	* pt.c (tsubst_decl): Handle clones.
+	(instantiate_clone): New function.
+	(instantiate_template): Use it.
+	(set_mangled_name_for_template_decl): Don't treat clones as
+	constructors.
+	* search.c (lookup_fnfields_1): Use CLASSTYPE_CONSTRUCTOR_SLOT,
+	CLASSTYPE_DESTRUCTOR_SLOT, and CLASSTYPE_FIRST_CONVERSION_SLOT.
+	* semantics.c (expand_body): Clone function bodies as necessary.
+	
+	* optimize.c (remap_decl): Avoid sharing structure for arrays
+	whose size is only known at run-time.
+	* tree.c (copy_tree_r): Don't copy PARM_DECLs.
+
+	* cp-tree.h (lang_decl_flags): Rename constructor_for_vbase_attr
+	to has_in_charge_parm_p.
+	(DECL_CONSTRUCTOR_FOR_VBASE_P): Rename to ...
+	(DECL_HAS_IN_CHARGE_PARM_P): ... this.
+	(DECL_COPY_CONSTRUCTOR_P): New macro.
+	* call.c (add_function_candidate): Use DECL_HAS_IN_CHARGE_PARM_P.
+	(build_user_type_conversion_1): Likewise.
+	(convert_like_real): Likewise.
+	(build_over_call): Likeiwse.  Use DECL_COPY_CONSTRUCTOR_P.
+	* decl.c (grokdeclarator): Use DECL_HAS_IN_CHARGE_PARM_P.
+	(copy_args_p): Likewise.
+	(grok_ctor_properties): Likewise.
+	(start_function): Likewise.
+	* decl2.c (maybe_retrofit_in_charge): Likewise.  Set it.
+	* error.c (dump_function_decl): Use DECL_HAS_IN_CHARGE_PARM_P.
+	* init.c (emit_base_init): Use DECL_COPY_CONSTRUCTOR_P.
+	* method.c (do_build_copy_constructor): Use
+	DECL_HAS_IN_CHARGE_PARM_P.
+	(synthesize_method): Likewise.
+	* pt.c (instantiate_template): Remove goto.
+	* tree.c (build_cplus_method_type): Remove mention of obstacks in
+	comment.
+	
+	* cp-tre.h (finish_function): Change prototype.
+	* decl.c (end_cleanup_fn): Adjust caller.
+	(finish_function): Take only one parameter.
+	* decl2.c (finish_objects): Adjust caller.
+	(finish_static_storage_duration_function): Likewise.
+	* method.c (emit_thunk): Likewise.
+	* parse.y: Likewise.
+	* parse.c: Regenerated.
+	* pt.c (instantiate_decl): Likewise.
+	* rtti.c (synthesize_tinfo_fn): Likewise.
+	* semantics.c (expand_body): Likewise.
+
+	* cp-tree.h (copy_decl): New function.
+	* class.c (finish_struct_1): Use it.
+	* lex.c (copy_decl): Define it.
+	* pt.c (tsubst_decl): Likewise.
+	* tree.c (copy_template_template_parm): Likewise.
+	
+	* cp-tree.h (lang_type): Remove has_nonpublic_ctor and
+	has_nonpublic_assign_ref.
+	(TYPE_HAS_NONPUBLIC_CTOR): Don't declare.
+	(TYPE_HAS_NONPUBLIC_ASSIGN_REF): Likewise.
+	* class.c (finish_struct_methods): Don't set
+	TYPE_HAS_NONPUBLIC_CTOR or TYPE_HAS_NONPUBLIC_ASSIGN_REF.
+	(interface_only): Don't declare.
+	(interface_unknown): Likewise.
+
+2000-04-11  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* tree.h (HAVE_TEMPLATES): Remove definition.
+	* lang-options.h (-fthis-is-variable): Remove documentation.
+
+2000-04-10  Jason Merrill  <jason@casey.cygnus.com>
+
+	* class.c (instantiate_type): Handle object-relative template-id.
+
+	* semantics.c (finish_expr_stmt): Call convert_to_void here.
+	* decl.c (cplus_expand_expr_stmt): Not here.
+
+	* rtti.c (build_dynamic_cast_1): Call non_lvalue.
+	Initialize exprtype earlier.
+
+	* parse.y (fn.def1): Check for defining types in return types.
+
+	* decl.c (check_tag_decl): Notice extra fundamental types.
+	Diagnose empty decls in classes, too.
+
+	* decl.c (grokdeclarator): Don't override an anonymous name if no 
+	declarator was given.
+
+	* cvt.c (convert_to_void): Call resolve_offset_ref.
+
+	* typeck.c (build_x_function_call): Abort if we get an OFFSET_REF.
+
+	* decl2.c (decl_namespace): Handle getting a type.
+
+	* typeck.c (build_c_cast): Re-enable warning for cast between
+	pointer and integer of different size.
+
+2000-04-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* inc/cxxabi.h (__pointer_type_info): Add restrict and
+	incomplete flags.
+	(__pointer_type_info::__pointer_catch): New virtual function.
+	(__pointer_to_member_type_info): Derive from
+	__pointer_type_info. Adjust.
+	(__pointer_to_member_type_info::__do_catch): Remove.
+	(__pointer_to_member_type_info::__is_pointer_p): Declare.
+	(__pointer_to_member_type_info::__pointer_catch): Declare.
+	* rtti.c (qualifier_flags): Add restrict flag.
+	(ptmd_initializer): Reorder members.
+	(create_tinfo_types): Expand comments. Reorder
+	ptmd_desc_type_node members.
+	* tinfo2.cc (__pointer_to_member_type_info::__is_pointer_p):
+	Implement.
+	(__pointer_type_info::__do_catch): Move specific code into
+	__pointer_catch. Call it.
+	(__pointer_type_info::__pointer_catch): Non-pointer-to-member
+	specific catch checking. Fix void conversion check.
+	(__pointer_to_member_type_info::__do_catch): Remove.
+	(__pointer_to_member_type_info::__pointer_catch): Implement.
+	
+2000-04-10  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* lex.c (init_parse): Remove traces of classof and headof.
+	* decl2.c (flag_operator_names): Default to 1.
+	(lang_decode_option): Do not set it for -ansi.
+
+2000-04-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (struct lang_decl): Remove main_decl_variant.
+	(DECL_MAIN_VARIANT): Remove.
+	* decl.c (duplicate_decls): Don't set it.
+	(start_function): Likewise.
+	(lang_mark_tree): Don't mark it.
+	* decl2.c (defer_fn): Don't use it.
+	* lex.c (retrofit_lang_decl): Don't set it.
+	* pt.c (tsubst_decl): Likewise.
+	* ptree.c (print_lang_decl): Don't print it.
+	* typeck.c (mark_addressable): Don't use it.
+	
+2000-04-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* vec.cc: Include <new> and <exception>.
+	(__cxa_vec_ctor): Use __cxa_vec_dtor for cleanup.
+	(__cxa_vec_dtor): Catch dtor exceptions, and rethrow or
+	terminate.
+	(__cxa_vec_delete): Catch dtor exceptions.
+
+2000-04-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Prepend __ to implementation defined names.
+	* inc/typeinfo (type_info): Rename _name to __name.
+	(type_info::type_info): Rename parameter.
+	(type_info::operator==, type_info::operator!=,
+	type_info::before): Likewise.
+	(type_info::is_pointer_p, type_info::is_function_p,
+	type_info::do_catch, type_info::do_upcast): Prepend __. Rename
+	parameters.
+	* inc/cxxabi.h
+	(__fundamental_type_info::__fundamental_type_info) Rename parameters.
+	(__pointer_type_info::__pointer_type_info): Likewise.
+	(__pointer_type_info::is_pointer_p,
+	__pointer_type_info::do_catch): Prepend __. Rename parameters.
+	(__array_type_info::__array_type_info): Rename parameters.
+	(__function_type_info::__function_type_info): Likewise.
+	(__function_type_info::is_function_p): Prepend __.
+	(__enum_type_info::__enum_type_info): Rename parameters.
+	(__pointer_to_member_type_info::__pointer_to_member_type_info):
+	Likewise.
+	(__pointer_to_member_type_info::do_catch): Prepend __. Rename
+	parameters.
+	(__base_class_info::is_virtual_p, is_public_p, offset): Prepend	__.
+	(__class_type_info::__class_type_info): Rename parameters.
+	(__class_type_info::sub_kind): Prepend __. Adjust member names.
+	(__class_type_info::upcast_result,
+	__class_type_info::dyncast_result): Prepend __. Move definition
+	into tinfo.cc.
+	(__class_type_info::do_upcast, __class_type_info::do_catch,
+	__class_type_info::find_public_src,
+	__class_type_info::do_dyncast,
+	__class_type_info::do_find_public_src): Prepend __. Rename
+	parameters.
+	(__si_class_type_info::__si_class_type_info): Rename parameters.
+	(__si_class_type_info::do_upcast, __si_class_type_info::do_dyncast,
+	__si_class_type_info::do_find_public_src): Prepent __. Rename
+	parameters.
+	(__vmi_class_type_info::__vmi_class_type_info): Rename parameters.
+	(__vmi_class_type_info::do_upcast, __vmi_class_type_info::do_dyncast,
+	__vmi_class_type_info::do_find_public_src): Prepent __. Rename
+	parameters.
+	(__dynamic_cast): Rename parameters.
+	* tinfo.cc (type_info::is_pointer_p, type_info::is_function_p,
+	type_info::do_catch, type_info::do_upcast): Prepend __.
+	(contained_p, public_p, virtual_p, contained_public_p,
+	contained_nonpublic_p, contained_nonvirtual_p): Adjust.
+	(__class_type_info::do_catch,
+	__class_type_info::do_upcast): Prepend __. Adjust.
+	(__class_type_info::__upcast_result,
+	__class_type_info::__dyncast_result): Move from inc/cxxabi.h.
+	Adjust.
+	(__class_type_info::find_public_src): Prepend __. Adjust.
+	(__class_type_info::do_find_public_src, 
+	__si_class_type_info::do_find_public_src, 
+	__vmi_class_type_info::do_find_public_src): Likewise.
+	(__class_type_info::do_dyncast,
+	__si_class_type_info::do_dyncast,
+	__vmi_class_type_info::do_dyncast): Likewise.
+	(__class_type_info::do_upcast,
+	__si_class_type_info::do_upcast,
+	__vmi_class_type_info::do_upcast): Likewise.
+	(__dynamic_cast): Adjust.
+	* tinfo2.cc (__pointer_type_info::is_pointer_p): Prepend __.
+	(__function_type_info::is_function_p): Likewise.
+	(__pointer_type_info::do_catch): Likewise. Adjust.
+	(__pointer_to_member_type_info::do_catch): Likewise. Adjust.
+	(__throw_type_match_rtti_2): Adjust.
+	(__is_pointer): Adjust.
+
+2000-04-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (cp_tree_index): Add CPTI_COMPLETE_CTOR_IDENTIFIER.
+	(complete_ctor_identifier): New macro.
+	(special_function_kind): Add sfk_copy_constructor and
+	sfk_assignment_operator.
+	(LOOKUP_HAS_IN_CHARGE): Remove.
+	(cons_up_default_function): Rename to ...
+	(implicitly_declare_fn): ... this.
+	* call.c (build_new_method_call): Add in-charge parameters for
+	constructors here.
+	* class.c (add_implicitly_declared_members): Change parameter name
+	from cant_have_assignment to cant_have_const_assignment.
+	Replace calls to cons_up_default_function to implicitly_declare_fn.
+	* cvt.c (ocp_convert): Use complete_ctor_identifier.
+	* decl.c (initialize_predefined_identifiers): Initialize it.
+	(start_function): Use DECL_CONSTRUCTOR_FOR_VBASE_P instead of
+	complex expression.
+	* init.c (expand_default_init): Don't calculate the in-charge
+	parameter here.
+	(build_new_1): Likewise.
+	* lex.c (cons_up_default_function): Move to method.c.
+	* method.c (synthesize_method): Use DECL_DESTRUCTOR_P.
+	(implicitly_declare_fn): New function.
+	* typeck.c (build_static_cast): Use complete_ctor_identifier.
+	(build_modify_expr): Likewise.
+	* typeck2.c (build_functional_cast): Likewise.
+	
+	Under the new ABI, constructors don't return `this'.
+	* cp-tree.h (warn_reorder): Declare.
+	(special_function_kind): New enum.
+	(global_base_init_list): Remove declaration.
+	(emit_base_init): Don't return a value.
+	(check_base_init): Don't declare.
+	(is_aggr_typedef): Likewise.
+	* decl.c (check_special_function_return_type): New function.
+	(return_types): Remove.
+	(grokdeclarator): Use check_special_function_return_type.
+	(start_function): Don't initialize ctor_label under the new ABI.
+	(finish_construtor_body): Don't create a corresponding LABEL_STMT.
+	* init.c (begin_init_stmts): Move to top of file.
+	(finish_init_stmts): Likewise.
+	(warn_reorder): Don't declare.
+	(emit_base_init): Don't create a STMT_EXPR here.  Don't return a
+	value.
+	(check_base_init): Remove.
+	(is_aggr_typedef): Likewise.
+	(build_new_1): Don't use the return value of a constructor.
+	* semantics.c (setup_vtbl_ptr): Don't use the return value
+	of emit_base_init.
+	* typeck.c (check_return_expr): Don't magically convert return
+	statements into `return this' in constructors under the new ABI.
+	
+	* cp-tree.h (cp_tree_index): Add CPTI_BASE_CTOR_IDENTIFIER,
+	CPTI_BASE_DTOR_IDENTIFIER, and CPTI_DELETING_DTOR_IDENTIFIER.
+	(base_ctor_identifier): New macro.
+	(base_dtor_identifier): Likewise.
+	(deleting_dtor_identifier): Likewise.
+	* decl.c: Don't include obstack.h.
+	(obstack_chunk_alloc): Don't define.
+	(obstack_chunk_free): Likewise.
+	(struct predefined_identifier): New type.
+	(initialize_predefined_identifiers): New function.
+	(init_decl_processing): Use it.
+	(debug_temp_inits): Remove.
+	(start_method): Don't call preserve_data.
+	(hack_incomplete_structures): Update comment.
+	* init.c (init_init_processing): Don't initialize
+	nelts_identifier.
+	(build_offset_rf): Remove dead code.
+	(build_delete): Use CLASSTYPE_N_BASECLASSES.
+	* search.c (init_search_processing): Don't initialize
+	vptr_identifier.
+	
+2000-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* typeck.c (build_binary_op): Call `tree_expr_nonnegative_p' to elide
+	some sign_compare warnings.
+
+2000-04-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Rename abi::__vmi_class_type_info members.
+	* inc/cxxabi.h (__vmi_class_type_info): Rename details, n_bases,
+	base_list, detail_masks members to vmi_flags, vmi_base_count,
+	vmi_bases and vmi_flags_masks respectively.
+	(__vmi_class_type_info::vmi_flags_masks): Rename
+	details_unknown_mask to flags_unknown_mask.
+	* tinfo.cc (__class_type_info::do_upcast): Adjust.
+	(__vmi_class_type_info::do_find_public_src): Adjust.
+	(__vmi_class_type_info::do_dyncast): Adjust.
+	(__vmi_class_type_info::do_upcast): Adjust.
+	
 2000-04-07  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* tinfo.cc (convert_to_base): New function.

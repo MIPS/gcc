@@ -1,3 +1,54 @@
+Wed Apr 12 10:25:08 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000412-5.c: New test.
+	* g77.f-torture/compile/20000412-1.f: New test.
+	* gcc.c-torture/execute/20000412-4.c: New test.
+	* gcc.c-torture/compile/20000412-2.c: New test.
+	* gcc.c-torture/execute/20000412-3.c: New test.
+	* gcc.c-torture/compile/20000412-1.c: New test.
+	* gcc.c-torture/execute/20000412-2.c: New test.
+
+2000-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* objc/execute/bf-20.m: New test.
+
+2000-04-10  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000412-1.c: Reduce some more.
+
+	* gcc.c-torture/execute/20000412-1.c: New test.
+
+2000-04-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.eh/catchptr1.C: New test.
+
+2000-04-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/cxa_vec.C: New test.
+
+2000-04-08  Neil Booth  <NeilB@earthling.net>
+	
+	* gcc.dg/cpp-nullchar.c: Remove test as
+	embedded nulls cause problems.
+
+2000-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/compare2.c: New test.
+
+2000-04-08  Neil Booth  <NeilB@earthling.net>
+	
+	* gcc.dg/cpp-nullchar.c: New test.
+
+2000-04-07  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp-mi2.c: New test.
+	* gcc.dg/cpp-mi2[abc].h: New files.
+
+2000-04-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/vmihint.C: Adjust __vmi_class_type_info
+	member name.
+
 2000-04-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.old-deja/g++.abi/vmihint.C: New test.
