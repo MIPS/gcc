@@ -37,10 +37,6 @@ Boston, MA 02111-1307, USA.  */
 #include "splay-tree.h"
 #include "ggc.h"
 #include "fibheap.h"
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
 #include "bitmap.h"
 #include "splay-tree.h"
 #include "tree-simple.h"
@@ -1624,6 +1620,7 @@ finalize_1 (ei, temp)
 		  basic_block bb;
 		  tree endtree;
 		  tree *endtreep;
+		  tree copy;
 
                   /* Insert definition of expr at end of BB containing X. */
 		  if (dump_file)
@@ -1641,8 +1638,9 @@ finalize_1 (ei, temp)
 		      fprintf (dump_file, " in BB %d\n", 
 			       ref_bb (phi)->index);
 		    }
-		  expr = fold (build_modify_expr (temp, NOP_EXPR, 
-						  deep_copy_node (ei->expr)));
+		  copy = ei->expr;
+		  walk_tree (&copy, copy_tree_r, NULL, NULL);
+		  expr = fold (build (INIT_EXPR, TREE_TYPE (temp), temp, copy));
 		  bb = ref_bb (X);
 		  endtree = last_stmt (bb);
 		  endtreep = last_stmt_ptr (bb);
@@ -2332,10 +2330,9 @@ repair_injury (ei, use, temp, orig_euse)
 		      }
 #endif
 		    incr = calculate_increment (ei, ref_stmt (v));
-		    expr = build_modify_expr (temp, NOP_EXPR, 
-					      fold (build (PLUS_EXPR, 
-							  TREE_TYPE (temp),
-							  temp, incr)));
+		    expr = build (INIT_EXPR, TREE_TYPE (temp), temp,
+				  fold (build (PLUS_EXPR, TREE_TYPE (temp),
+					       temp, incr)));
 		    oldstmt = ref_stmt (v);
 		    stmt = build (COMPOUND_EXPR, void_type_node, oldstmt,
 				  expr);
@@ -2548,8 +2545,8 @@ update_ssa_for_new_use (temp, newuse, defby, bb)
 #endif
   useexpr = ref_stmt (use_orig_ref);
   STRIP_WFL (useexpr);
-  newmodifyexpr = build_modify_expr (TREE_OPERAND (useexpr, 0), 
-				     NOP_EXPR, temp);
+  newmodifyexpr = build (INIT_EXPR, TREE_TYPE (TREE_OPERAND (useexpr, 0)),
+		         TREE_OPERAND (useexpr, 0), temp);
   replace_ref_stmt_with (use_orig_ref, newmodifyexpr);
 
 #if WAITING_FOR_DFA_UPDATE
@@ -2681,6 +2678,7 @@ code_motion (ei, temp)
 	      tree newexpr, newstmt;
 	      size_t j;	      
 	      ref_list_iterator i;
+	      tree copy;
 	      
 	      i = rli_start (tree_refs (use_expr));
 	      for (; !rli_after_end (i); rli_step (&i))
@@ -2706,8 +2704,9 @@ code_motion (ei, temp)
 			   EXPR_WFL_LINENO (use_expr));
 		}
 	      STRIP_WFL (use_expr);
-	      newexpr = build_modify_expr (temp, NOP_EXPR, 
-					   deep_copy_node (TREE_OPERAND (use_expr, 1)));
+	      copy = TREE_OPERAND (use_expr, 1);
+	      walk_tree (&copy, copy_tree_r, NULL, NULL);
+	      newexpr = build (INIT_EXPR, TREE_TYPE (temp), temp, copy);
 	      newexpr = fold (newexpr);
 	      newstmt = build (COMPOUND_EXPR, void_type_node, newexpr,
 			       use_stmt);
@@ -3284,13 +3283,7 @@ tree_perform_ssapre ()
   /* Debugging dump after SSA PRE */
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n", get_name (current_function_decl));
-      
-      if (dump_flags & TDF_RAW)
-        dump_node (fn, TDF_SLIM | dump_flags, dump_file);
-      else
-        print_generic_stmt (dump_file, fn, dump_flags);
-
+      dump_current_function (dump_file, dump_flags);
       dump_end (TDI_pre, dump_file);
     }
 }

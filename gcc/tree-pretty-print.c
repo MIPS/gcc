@@ -1602,7 +1602,7 @@ print_call_name (buffer, node)
     case ADDR_EXPR:
     case INDIRECT_REF:
     case NOP_EXPR:
-      PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       break;
     
     case EXPR_WITH_FILE_LOCATION:

@@ -107,7 +107,7 @@ static void substitute_and_fold		PARAMS ((void));
 static value evaluate_stmt		PARAMS ((tree));
 static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield		PARAMS ((tree, tree, tree));
-static bool replace_uses_in		PARAMS ((tree));
+static bool replace_uses_in		PARAMS ((tree, int));
 static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
@@ -170,14 +170,17 @@ tree_ssa_ccp (fndecl)
   /* Debugging dumps.  */
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n", get_name (fndecl));
+      dump_current_function (dump_file, dump_flags);
 
-      if (dump_flags & TDF_RAW)
-	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
-      else
-	print_generic_stmt (dump_file, fnbody, dump_flags);
+      if (dump_flags & TDF_DETAILS)
+	{
+	  compute_reaching_defs ();
+	  dump_referenced_vars (dump_file, 1);
+	  fprintf (dump_file, "\n\n");
+	  dump_reaching_defs (dump_file);
+	  fprintf (dump_file, "\n");
+	}
 
-      fprintf (dump_file, "\n");
       dump_end (TDI_ccp, dump_file);
       dump_file = NULL;
     }
@@ -266,7 +269,8 @@ simulate_def_use_chains (def)
 }
 
 
-/* Perform substitution and folding.   */
+/* Perform final substitution and folding.  After this pass the program
+   should still be in SSA form.  */
 
 static void
 substitute_and_fold ()
@@ -298,7 +302,7 @@ substitute_and_fold ()
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 
-	  if (replace_uses_in (stmt))
+	  if (replace_uses_in (stmt, true))
 	    {
 	      fold_stmt (stmt);
 	      set_tree_flag (stmt, TF_FOLDED);
@@ -337,7 +341,6 @@ visit_phi_node (phi_node)
     for (i = 0; i < num_phi_args (phi_node); i++)
       {
 	/* Compute the meet operator over all the PHI arguments. */
-
 	phi_node_arg arg = phi_arg (phi_node, i);
 	edge e = phi_arg_edge (arg);
 
@@ -610,7 +613,7 @@ evaluate_stmt (stmt)
   STRIP_NOPS (stmt);
   copy = stmt;
   walk_tree (&copy, copy_tree_r, NULL, NULL);
-  if (replace_uses_in (copy))
+  if (replace_uses_in (copy, false))
     fold_stmt (copy);
 
   /* Extract the folded value from the statement.  */
@@ -884,11 +887,14 @@ set_lattice_value (def, val)
 
 
 /* Replace USE references in statement STMT with their immediate reaching
-   definition.  Return true if at least one reference was replaced.  */
+   definition.  Return true if at least one reference was replaced.  If
+   COMMIT is nonzero, the SSA web is also updated to remove all the
+   replaced references (used only in the final phase of the algorithm)  */
 
 static bool
-replace_uses_in (stmt)
+replace_uses_in (stmt, commit)
      tree stmt;
+     int commit;
 {
   bool replaced = false;
   ref_list refs = tree_refs (stmt);
@@ -919,7 +925,11 @@ replace_uses_in (stmt)
       rdef_id = ref_id (rdef);
       if (values[rdef_id].lattice_val == CONSTANT)
 	{
-	  replace_ref_in (stmt, use, values[rdef_id].const_value);
+	  if (commit)
+	    replace_ref_with (use, values[rdef_id].const_value);
+	  else
+	    try_replace_ref_with (stmt, use, values[rdef_id].const_value);
+
 	  replaced = true;
 	}
     }

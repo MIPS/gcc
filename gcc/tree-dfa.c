@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-alias-common.h"
+#include "convert.h"
 
 /* Local declarations.  */
 struct clobber_data_d
@@ -95,6 +96,9 @@ static void compute_may_aliases		PARAMS ((void));
 static void find_may_aliases_for	PARAMS ((tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
 static tree replace_ref_r		PARAMS ((tree *, int *, void *));
+static void remove_def			PARAMS ((tree_ref));
+static void reset_def_def_links		PARAMS ((ref_list, tree_ref, tree_ref));
+static void replace_phi_arg_with	PARAMS ((tree_ref, tree_ref, tree_ref));
 
 
 /* Global declarations.  */
@@ -952,83 +956,132 @@ add_referenced_var (var)
 /*---------------------------------------------------------------------------
 			     Code replacement
 ---------------------------------------------------------------------------*/
-/* Replace reference REF in statement STMT with a new variable or constant OP.
-
-   FIXME: Need to properly update DFA information (create new references,
-   update SSA links, etc).  */
+/* Replace reference REF with operand OP, which must be a constant or a
+   variable.  
+   
+   1- REF is removed from the list of references for its variable
+      and statement.
+      
+   2- If OP is a variable, a new reference for it is created.
+   
+   3- The SSA web is updated by removing all use-def and def-use links
+      reaching this reference.  */
 
 void
-replace_ref_in (stmt, ref, op)
+replace_ref_with (ref, op)
+     tree_ref ref;
+     tree op;
+{
+#if 1
+  /* FIXME  We still can't replace a reference with another variable.  For
+	    that we need to be able to insert new references in the SSA
+	    web, not just remove them.  */
+  if (!really_constant_p (op))
+    abort ();
+#endif
+
+  try_replace_ref_with (ref_stmt (ref), ref, op);
+  remove_ref (ref);
+}
+
+
+/* Replace reference REF in statement STMT with tree node OP.  Note that
+   this does not update the SSA web nor the references made by the program.  */
+
+void
+try_replace_ref_with (stmt, ref, op)
      tree stmt;
      tree_ref ref;
      tree op;
 {
   enum tree_code code;
-  struct replace_data_d replace_data;
+  struct replace_data_d replace;
 
   STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
 
 #if defined ENABLE_CHECKING
-  if (!really_constant_p (op) && !DECL_P (op))
+  if (!really_constant_p (op)
+      && !DECL_P (op)
+      && TREE_CODE (op) != INDIRECT_REF
+      && TREE_CODE (op) != COMPONENT_REF)
     abort ();
 
   if (ref_type (ref) != V_DEF && ref_type (ref) != V_USE)
     abort ();
 
-  if (ref_type (ref) == V_DEF && !DECL_P (op))
-    abort ();
-
-  if (DECL_P (stmt))
+  if (ref_type (ref) == V_DEF && really_constant_p (op))
     abort ();
 #endif
 
-  replace_data.old = ref_var (ref);
-  replace_data.new = op;
+  replace.old = ref_var (ref);
+  replace.new = op;
+
   code = TREE_CODE (stmt);
   switch (code)
     {
     case INIT_EXPR:
     case MODIFY_EXPR:
-      if (ref_type (ref) == V_DEF)
-	walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace_data, NULL);
+      /* The LHS of an assignment can only be a variable that we match
+	 exactly.  */
+      if (ref_type (ref) == V_DEF
+	  && same_var_p (TREE_OPERAND (stmt, 0), replace.old))
+	TREE_OPERAND (stmt, 0) = replace.new;
       else
-	walk_tree (&TREE_OPERAND (stmt, 1), replace_ref_r, &replace_data, NULL);
+	{
+	  /* If the LHS of the assignment is a VAR_DECL, then it can have
+	     no V_USE references and should be ignored.  Otherwise, given
+	     an expression of the form 'a = a + 1', if we were replacing
+	     uses of 'a' with '3' we would end up with '3 = 3 + 1'.  */
+	  if (!DECL_P (TREE_OPERAND (stmt, 0)))
+	    walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace,
+		      NULL);
+	  walk_tree (&TREE_OPERAND (stmt, 1), replace_ref_r, &replace,
+		     NULL);
+	}
       break;
 
     case CALL_EXPR:
-      walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace_data, NULL);
-      walk_tree (&TREE_OPERAND (stmt, 1), replace_ref_r, &replace_data, NULL);
+      {
+	tree old_type = TREE_TYPE (replace.old);
+	tree new_type = TREE_TYPE (replace.new);
+
+	if (old_type != new_type)
+	  replace.new = fold (convert_to_pointer (old_type, replace.new));
+
+	walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace, NULL);
+	walk_tree (&TREE_OPERAND (stmt, 1), replace_ref_r, &replace, NULL);
+      }
       break;
 
     case COND_EXPR:
-      walk_tree (&COND_EXPR_COND (stmt), replace_ref_r, &replace_data, NULL);
+      walk_tree (&COND_EXPR_COND (stmt), replace_ref_r, &replace, NULL);
       break;
 
     case SWITCH_EXPR:
-      walk_tree (&SWITCH_COND (stmt), replace_ref_r, &replace_data, NULL);
+      walk_tree (&SWITCH_COND (stmt), replace_ref_r, &replace, NULL);
       break;
 
     case ASM_EXPR:
       if (ref_type (ref) == V_USE)
-	walk_tree (&ASM_INPUTS (stmt), replace_ref_r, &replace_data, NULL);
+	walk_tree (&ASM_INPUTS (stmt), replace_ref_r, &replace, NULL);
       else
 	{
-	  walk_tree (&ASM_OUTPUTS (stmt), replace_ref_r, &replace_data, NULL);
-	  walk_tree (&ASM_CLOBBERS (stmt), replace_ref_r, &replace_data, NULL);
+	  walk_tree (&ASM_OUTPUTS (stmt), replace_ref_r, &replace, NULL);
+	  walk_tree (&ASM_CLOBBERS (stmt), replace_ref_r, &replace, NULL);
 	}
       break;
 
     case RETURN_EXPR:
-      walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace_data, NULL);
+      walk_tree (&TREE_OPERAND (stmt, 0), replace_ref_r, &replace, NULL);
       break;
 
     case GOTO_EXPR:
-      walk_tree (&GOTO_DESTINATION (stmt), replace_ref_r, &replace_data, NULL);
+      walk_tree (&GOTO_DESTINATION (stmt), replace_ref_r, &replace, NULL);
       break;
 
     case LABEL_EXPR:
-      walk_tree (&LABEL_EXPR_LABEL (stmt), replace_ref_r, &replace_data, NULL);
+      walk_tree (&LABEL_EXPR_LABEL (stmt), replace_ref_r, &replace, NULL);
       break;
 
       /* These nodes contain no variable references.  */
@@ -1056,15 +1109,24 @@ replace_ref_r (tp, walk_subtrees, data)
   tree old = replace_data->old;
   tree new = replace_data->new;
 
-  /* INDIRECT_REF nodes cannot be compared directly.  */
-  if (TREE_CODE (old) == INDIRECT_REF
-      && TREE_CODE (t) == INDIRECT_REF
-      && TREE_OPERAND (old, 0) == TREE_OPERAND (t, 0))
-    *tp = new;
-  else if (old == t)
+  if (same_var_p (old, t))
     *tp = new;
 
   return NULL_TREE;
+}
+
+
+/* Return true if V1 and V2 are the same variable.  */
+
+bool
+same_var_p (v1, v2)
+     tree v1;
+     tree v2;
+{
+  return (v1 == v2
+	  || (TREE_CODE (v1) == INDIRECT_REF
+	      && TREE_CODE (v2) == INDIRECT_REF
+	      && TREE_OPERAND (v1, 0) == TREE_OPERAND (v2, 0)));
 }
 
 
@@ -1079,6 +1141,176 @@ replace_ref_stmt_with (ref, stmt)
 {
   if (ref->common.stmt_p)
     *(ref->common.stmt_p) = stmt;
+}
+
+
+/* Remove reference REF from the program.  Update all the places in the SSA
+   web where this reference is used.  */
+
+void
+remove_ref (ref)
+     tree_ref ref;
+{
+  tree var;
+  tree_ref rdef;
+
+  if (ref == NULL)
+    return;
+
+  var = ref_var (ref);
+  rdef = imm_reaching_def (ref);
+
+  if (ref_type (ref) == V_USE)
+    {
+      /* Remove REF from the imm-uses list of its immediate reaching
+	 definition.  */
+      if (rdef)
+	remove_ref_from_list (imm_uses (rdef), ref);
+    }
+  else if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
+    remove_def (ref);
+  else
+    abort ();
+
+  remove_ref_from_list (tree_refs (var), ref);
+  remove_ref_from_list (tree_refs (ref_stmt (ref)), ref);
+  remove_ref_from_list (bb_refs (ref_bb (ref)), ref);
+
+  /* If there are no more references to REF's variable, remove it from the
+     symbol table.  */
+  if (ref_list_is_empty (tree_refs (var))
+      && TREE_CODE (var) == VAR_DECL)
+    remove_decl (ref_var (ref));
+}
+
+
+/* Remove a V_DEF or V_PHI reference from the SSA web.  Note that this does
+   not remove the reference from all the appropriate places.  It only
+   removes def-use and def-def edges that involve this reference.  This
+   function is only a helper for remove_ref.  */
+
+static void
+remove_def (def)
+     tree_ref def;
+{
+  ref_list_iterator i;
+  tree_ref rdef;
+  tree var;
+
+  rdef = imm_reaching_def (def);
+  var = ref_var (def);
+
+  /* Every use or PHI node reached by this definition should now be reached
+     by DEF's immediate reaching definition.  In the case of PHI nodes, we
+     look for DEF in the list of arguments and replace it with DEF's
+     immediate reaching definition.  */
+  for (i = rli_start (imm_uses (def)); !rli_after_end (i); rli_step (&i))
+    {
+      tree_ref r = rli_ref (i);
+
+      if (ref_type (r) == V_USE)
+	set_imm_reaching_def (r, rdef);
+      else if (ref_type (r) == V_PHI)
+	replace_phi_arg_with (r, def, rdef);
+      else
+	abort ();
+    }
+
+  /* Fix all the definitions that contain a def-def link back to DEF.
+     Since we don't keep bidirectional def-def links, we don't know
+     what other definitions may have a def-def link back to DEF.  There
+     are several ways we could look for them:
+
+     - Keep bidirectional def-def links similarly to the def-use links
+       we keep.  This would increase memory usage.
+
+     - Traverse all the definitions in blocks dominated by DEF's block.
+       This would work, but this function is typically called while
+       removing blocks from the flowgraph, therefore it is not always
+       possible to compute dominance information (parts of the graph may be
+       disconnected).
+
+     - Traverse all the definitions for DEF's variable and its aliases.
+       This is the solution that we implement here.  It has the drawback
+       that if DEF's variable has many aliases, we will be traversing a lot
+       of lists.  */
+  reset_def_def_links (tree_refs (var), def, rdef);
+
+  /* If DEF's variable is aliased we must now look through all the
+     definitions for variables in its alias set.
+     
+     FIXME  this can be very expensive.  Maybe it's better to keep
+     bi-directional def-def links after all?  */
+  if (is_aliased (var))
+    {
+      unsigned long j;
+
+      for (j = 0; j < num_referenced_vars; j++)
+	{
+	  tree alias = referenced_var (j);
+	  if (alias != var && alias_leader (alias) == alias_leader (var))
+	    reset_def_def_links (tree_refs (alias), def, rdef);
+	}
+    }
+
+  /* If DEF is a PHI node, then all of its arguments have it in their list
+     of immediate uses.  Remove DEF from the list of immediate uses of each
+     of its arguments.  */
+  if (ref_type (def) == V_PHI)
+    {
+      unsigned int j;
+      for (j = 0; j < num_phi_args (def); j++)
+	{
+	  tree_ref arg_def = phi_arg_def (phi_arg (def, j));
+	  if (arg_def)
+	    remove_ref_from_list (imm_uses (arg_def), def);
+	}
+    }
+}
+
+
+/* Change the def-def link for every definition in REFS.  If a definition D
+   in REFS was pointing to OLD_RDEF, make it point to NEW_RDEF.  */
+
+static void
+reset_def_def_links (refs, old_rdef, new_rdef)
+     ref_list refs;
+     tree_ref old_rdef;
+     tree_ref new_rdef;
+{
+  ref_list_iterator i;
+
+  for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
+    {
+      tree_ref d = rli_ref (i);
+      if (ref_type (d) == V_DEF && imm_reaching_def (d) == old_rdef)
+	set_imm_reaching_def (rli_ref (i), new_rdef);
+    }
+}
+
+
+/* Find argument OLD_DEF in the list of arguments of phi node PHI and
+   replace it with argument NEW_DEF.  Note that this assumes that both
+   OLD_DEF and NEW_DEF are coming from the same edge (not necessarily the
+   same basic block).  That is, OLD_DEF reaches NEW_DEF.  */
+
+static void
+replace_phi_arg_with (phi, old_def, new_def)
+     tree_ref phi;
+     tree_ref old_def;
+     tree_ref new_def;
+{
+  unsigned int i;
+
+  for (i = 0; i < num_phi_args (phi); i++)
+    {
+      phi_node_arg arg = phi_arg (phi, i);
+      if (phi_arg_def (arg) == old_def)
+	{
+	  arg->def = new_def;
+	  return;
+	}
+    }
 }
 
 
@@ -1326,32 +1558,37 @@ debug_ref_array (reflist)
 }
 
 
-/* Dump the list of all the referenced variables in the current function.  */
+/* Dump the list of all the referenced variables in the current function.
+   If DETAILS is nonzero, each reference is dumped in full.  */
 
 void
-dump_referenced_vars (file)
+dump_referenced_vars (file, details)
      FILE *file;
+     int details;
 {
-  size_t i;
+  unsigned long i;
 
-  fprintf (file, "\nReferenced variables: %lu\n\n", num_referenced_vars);
+  fprintf (file, "\nReferenced variables in %s: %lu\n\n", 
+	   get_name (current_function_decl), num_referenced_vars);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
       dump_variable (file, var);
-      dump_ref_list (file, "", tree_refs (var), 4, 1);
-      fputc ('\n', file);
+      dump_ref_list (file, "", tree_refs (var), 2, details);
+      fprintf (file, "\n");
     }
 }
 
 
-/* Dump the list of all the referenced variables to stderr.  */
+/* Dump the list of all the referenced variables to stderr.  If DETAILS is
+   nonzero, each reference is dumped in full.  */
 
 void
-debug_referenced_vars ()
+debug_referenced_vars (details)
+     int details;
 {
-  dump_referenced_vars (stderr);
+  dump_referenced_vars (stderr, details);
 }
 
 

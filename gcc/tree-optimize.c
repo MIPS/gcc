@@ -80,7 +80,7 @@ optimize_function_tree (fndecl)
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
       
-      if (flag_tree_dce)
+      if (flag_tree_dce || getenv ("TREE_DCE"))
 	tree_ssa_eliminate_dead_code (fndecl);
     }
 
@@ -93,16 +93,7 @@ optimize_function_tree (fndecl)
   dump_file = dump_begin (TDI_optimized, &dump_flags);
   if (dump_file)
     {
-      /* We never get here if the function body is empty,
-	 see simplify_function_tree().  */ 
-      fprintf (dump_file, "%s()\n", get_name (fndecl));
-
-      if (dump_flags & TDF_RAW)
-	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
-      else
-	print_generic_stmt (dump_file, fnbody, dump_flags);
-      fprintf (dump_file, "\n");
-
+      dump_current_function (dump_file, dump_flags);
       dump_end (TDI_optimized, dump_file);
       dump_file = NULL;
     }
@@ -110,4 +101,39 @@ optimize_function_tree (fndecl)
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fnbody);
   delete_tree_cfg ();
+}
+
+
+/* Dump the body of current_function_decl to DUMP_FILE.  DUMP_FLAGS affect
+   dumping options.  */
+
+void
+dump_current_function (dump_file, dump_flags)
+     FILE *dump_file;
+     int dump_flags;
+{
+  tree fnbody;
+  tree arg;
+
+  fprintf (dump_file, "%s(", get_name (current_function_decl));
+
+  arg = DECL_ARGUMENTS (current_function_decl);
+  while (arg)
+    {
+      print_generic_expr (dump_file, arg, 0);
+      if (TREE_CHAIN (arg))
+	fprintf (dump_file, ", ");
+      arg = TREE_CHAIN (arg);
+    }
+
+  fprintf (dump_file, ")\n");
+
+  fnbody = DECL_SAVED_TREE (current_function_decl);
+
+  if (dump_flags & TDF_RAW)
+    dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+  else
+    print_generic_stmt (dump_file, fnbody, dump_flags);
+
+  fprintf (dump_file, "\n\n");
 }

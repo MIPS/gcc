@@ -1,3 +1,52 @@
+2002-12-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* fold-const.c (operand_equal_p): Check for NULL TREE_TYPEs.
+
+	* tree-cfg.c (remove_stmt): Call remove_ref.
+	(disconnect_unreachable_case_labels): Do not disconnect the edge
+	going to the block holding the BIND_EXPR node for the switch()
+	body.
+	(dump_tree_cfg): Call dump_current_function.
+
+	* Makefile.in (tree-dfa.o): Depend on convert.h.
+	* tree-dfa.c: Include convert.h.
+	(remove_def): New local function.
+	(reset_def_def_links): New local function.
+	(replace_phi_arg_with): New local function.
+	(replace_ref_with): New function.
+	(try_replace_ref_with): Rename from replace_ref_in.
+	Also look for V_USE references on the LHS of assignments.
+	When replacing the callee of a CALL_EXPR, make sure that the type
+	of the new callee is compatible with the old one.
+	(replace_ref_r): Call operand_equal_p.
+	(remove_ref): New function.
+	(same_var_p): New function.
+	(dump_referenced_vars): Add new flag DETAILS.  Update all users.
+	(debug_referenced_vars): Likewise.
+
+	* tree-ssa.c (dump_reaching_defs): Change output format.
+	(set_ssa_links): Don't set def-def links for PHI nodes.
+
+	* tree-ssa-ccp.c (replace_uses_in): Add new argument COMMIT.
+	Update all users.
+
+	* tree-optimize.c (dump_current_function): New function.
+	(optimize_function_tree): Call it.
+	* tree.h (dump_current_function): Declare.
+	* c-decl.c (c_expand_body): Call dump_current_function.
+	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Likewise.
+	* tree-ssa-pre.c (tree_perform_ssapre): Likewise.
+	* tree-ssa.c (build_tree_ssa): Likewise.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Likewise.
+	Dump variables and reaching definitions if TDF_DETAILS is set.
+
+	* tree-pretty-print.c (print_call_name): Call dump_generic_node for
+	NOP_EXPR operands.
+
+	* tree-ssa-pre.c: Don't include c-common.h nor c-tree.h
+	Replace calls to build_modify_expr with build everywhere.
+	Replace calls to deep_copy_node with copy_node_r everywhere.
+
 2002-11-29  Andreas Jaeger  <aj@suse.de>
 
 	* c-call-graph.c (construct_call_graph): Fix format.

@@ -208,6 +208,7 @@ struct var_def_d GTY(())
   ref_list reached_uses;
 };
 
+
 /* Variable PHIs.  */
 struct var_phi_d GTY(())
 {
@@ -363,9 +364,6 @@ static inline tree ref_var			PARAMS ((tree_ref));
 static inline tree ref_stmt			PARAMS ((tree_ref));
 static inline basic_block ref_bb		PARAMS ((tree_ref));
 static inline unsigned long ref_id		PARAMS ((tree_ref));
-extern void replace_ref_in			PARAMS ((tree, tree_ref, tree));
-extern void replace_ref_stmt_with		PARAMS ((tree_ref, tree));
-
 
 /* For var_ref.  */
 static inline ref_list imm_uses			PARAMS ((tree_ref));
@@ -666,8 +664,8 @@ extern void dump_phi_args		PARAMS ((FILE *, const char *,
       						 varray_type, int, int));
 extern void dump_dfa_stats		PARAMS ((FILE *));
 extern void debug_dfa_stats		PARAMS ((void));
-extern void debug_referenced_vars	PARAMS ((void));
-extern void dump_referenced_vars	PARAMS ((FILE *));
+extern void debug_referenced_vars	PARAMS ((int));
+extern void dump_referenced_vars	PARAMS ((FILE *, int));
 extern void dump_variable		PARAMS ((FILE *, tree));
 extern void debug_variable		PARAMS ((tree));
 extern bool function_may_recurse_p	PARAMS ((void));
@@ -693,6 +691,11 @@ extern void remove_decl			PARAMS ((tree));
 extern tree * find_decl_location	PARAMS ((tree, tree));
 extern tree_ref output_ref		PARAMS ((tree));
 extern bool may_alias_p			PARAMS ((tree, tree));
+extern void replace_ref_with		PARAMS ((tree_ref, tree));
+extern void try_replace_ref_with	PARAMS ((tree, tree_ref, tree));
+extern void replace_ref_stmt_with	PARAMS ((tree_ref, tree));
+extern void remove_ref			PARAMS ((tree_ref));
+extern bool same_var_p			PARAMS ((tree, tree));
 
 
 /* In tree-ssa.c  */

@@ -480,15 +480,8 @@ tree_ssa_eliminate_dead_code (fndecl)
   if (dump_file)
     {
       /* Dump the function tree after DCE.  */
-      fprintf (dump_file, "\n%s()\n", get_name (fndecl));
-
-      if (dump_flags & TDF_RAW)
-	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
-      else
-	print_generic_stmt (dump_file, fnbody, dump_flags);
-
+      dump_current_function (dump_file, dump_flags);
       print_stats ();
-
       fclose (dump_file);
     }
 }

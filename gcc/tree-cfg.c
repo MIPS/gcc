@@ -937,44 +937,20 @@ remove_stmt (stmt_p)
      tree *stmt_p;
 {
   ref_list_iterator i;
-  varray_type todelete;
   tree stmt = *stmt_p;
 
   STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
 
-  /* Collect variables referenced by the statement.  */
-  VARRAY_TREE_INIT (todelete, 5, "todelete");
-  for (i = rli_start (tree_refs (stmt)); !rli_after_end (i); rli_step (&i))
-    {
-      tree var = ref_var (rli_ref (i));
-      if (!TREE_VISITED (var))
-	{
-	  VARRAY_PUSH_TREE (todelete, var);
-	  TREE_VISITED (var) = 1;
-	}
-    }
-
-  /* For every variable, remove all the references associated with STMT.  */
-  while (VARRAY_ACTIVE_SIZE (todelete) > 0)
-    {
-      ref_list_iterator j;
-      tree var = VARRAY_TOP_TREE (todelete);
-      VARRAY_POP (todelete);
-
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref ref = rli_ref (j);
-	  if (ref_stmt (ref) == stmt)
-	    rli_delete (j);
-	}
-
-      /* If there are no more references to VAR, mark it unused.  */
-      if (ref_list_is_empty (tree_refs (var)))
-	TREE_USED (var) = 0;
-
-      TREE_VISITED (var) = 0;
-    }
+  /* Remove all the references made by this statement, only if the
+     statement itself is not a variable.
+     FIXME  It may happen that a statement is nothing but a variable (e.g.
+	    'a;'), in this case, removing all references from the statement
+	    would actually remove all the references to the decl.  Should
+	    we allow this in GIMPLE?  */
+  if (!is_simple_varname (stmt))
+    for (i = rli_start (tree_refs (stmt)); !rli_after_end (i); rli_step (&i))
+      remove_ref (rli_ref (i));
 
   /* Finally, if the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
@@ -1073,7 +1049,7 @@ cleanup_control_flow ()
       
 /* If the predicate of the COND_EXPR node in block BB is constant,
    disconnect the subgraph that contains the clause that is never
-   executed.  FIXME  Must also update DFA/SSA information.  */
+   executed.  */
 
 static void
 cleanup_cond_expr_graph (bb)
@@ -1107,7 +1083,7 @@ cleanup_cond_expr_graph (bb)
 
 /* If the switch condition of the SWITCH_EXPR node in block SWITCH_BB is
    constant, disconnect all the subgraphs for all the case labels that will
-   never be taken.  FIXME  Must also update DFA/SSA information.  */
+   never be taken.  */
 
 static void
 cleanup_switch_expr_graph (switch_bb)
@@ -1155,13 +1131,25 @@ disconnect_unreachable_case_labels (bb)
   if (taken_edge)
     {
       edge e, next;
+      tree switch_body = SWITCH_BODY (first_stmt (bb));
+
+      STRIP_WFL (switch_body);
 
       /* Remove all the edges that go to case labels that will never
 	 be taken.  */
       for (e = bb->succ; e; e = next)
 	{
+	  tree label_stmt = first_stmt (e->dest);
 	  next = e->succ_next;
-	  if (e != taken_edge)
+	  if (e != taken_edge
+	      /* FIXME  we need to keep the edge to the BIND_EXPR that
+			starts the BIND_EXPR because otherwise we lose the
+			containment relationship between the case labels
+			and the switch entry block.  All this nonsense is
+			ultimately caused by the same reason that forced us
+			to create this silly edge to begin with (see FIXME
+			note in make_ctrl_stmt_edges).  */
+	      && label_stmt != switch_body)
 	    remove_edge (e);
 	}
     }
@@ -1429,12 +1417,7 @@ dump_tree_cfg (file, flags)
     }
 
   if (n_basic_blocks > 0)
-    {
-      fprintf (file, "%s()\n", current_function_name);
-      print_generic_stmt (file, DECL_SAVED_TREE (current_function_decl),
-			  flags|TDF_BLOCK);
-      fprintf (file, "\n");
-    }
+    dump_current_function (file, flags|TDF_BLOCK);
 }
 
 

@@ -204,7 +204,7 @@ build_tree_ssa (fndecl)
 	 indices.  */
       if (tree_ssa_dump_flags & (TDF_DETAILS))
 	{
-	  dump_referenced_vars (tree_ssa_dump_file);
+	  dump_referenced_vars (tree_ssa_dump_file, true);
 	  dump_tree_ssa (tree_ssa_dump_file);
 	}
 
@@ -586,8 +586,8 @@ dump_reaching_defs (file)
 	  tree_ref u = rli_ref (j);
 	  if (ref_type (u) == V_USE)
 	    {
-	      dump_ref (file, "", u, 4, 0);
-	      dump_ref_list (file, "", reaching_defs (u), 6, 0);
+	      dump_ref (file, "", u, 2, 0);
+	      dump_ref_list (file, "", reaching_defs (u), 4, 0);
 	      fprintf (file, "\n");
 	    }
 	}
@@ -796,9 +796,14 @@ set_ssa_links (ref, var)
 	 variables referenced in BB.  */
       save_chain[ref_id (ref)] = currdef;
 
-      /* If VAR is aliased, set a def-def link to the current definition for
-	 the alias leader of the set.  */
-      if (alias_leader (var) && ref != currdef)
+      /* Set a def-def link to the current definition.  This allows
+	 compute_reaching_defs to find all the reaching definitions in the
+	 presence of non-killing definitions.  It also makes it possible
+	 for remove_ref to patch the SSA web when removing V_DEF
+	 references.  Note that this is unnecessary when processing PHI
+	 nodes.  The argument list of a PHI node represents all the def-def
+	 links for the node.  */
+      if (ref != currdef && ref_type (ref) != V_PHI)
 	set_imm_reaching_def (ref, currdef);
 
       /* Finally, set REF to be the new CURRDEF for VAR.  If VAR is

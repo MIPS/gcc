@@ -1795,7 +1795,9 @@ operand_equal_p (arg0, arg1, only_const)
   /* If both types don't have the same signedness, then we can't consider
      them equal.  We must check this before the STRIP_NOPS calls
      because they may change the signedness of the arguments.  */
-  if (TREE_UNSIGNED (TREE_TYPE (arg0)) != TREE_UNSIGNED (TREE_TYPE (arg1)))
+  if (TREE_TYPE (arg0) == NULL_TREE
+      || TREE_TYPE (arg1) == NULL_TREE
+      || TREE_UNSIGNED (TREE_TYPE (arg0)) != TREE_UNSIGNED (TREE_TYPE (arg1)))
     return 0;
 
   STRIP_NOPS (arg0);
