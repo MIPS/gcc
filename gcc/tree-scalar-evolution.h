@@ -33,7 +33,6 @@ extern tree instantiate_parameters (struct loop *, tree);
 extern void eliminate_redundant_checks (void);
 extern void gather_stats_on_scev_database (void);
 extern void scev_analysis (void);
-
-bool simple_iv (struct loop *, tree, tree, tree *, tree *);
+extern bool simple_iv (struct loop *, tree, tree, tree *, tree *);
 
 #endif  /* GCC_TREE_SCALAR_EVOLUTION_H  */

@@ -248,10 +248,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
-#include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
-#include "tree-vectorizer.h"
 #include "flags.h"
 
 static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
@@ -379,7 +377,7 @@ count_ev_in_wider_type (tree type, tree chrec)
 				 base, step);
 }
 
-/* Determines whether the chrec contains symbolic names defined in
+/* Return true when CHREC contains symbolic names defined in
    LOOP_NB.  */
 
 bool 
@@ -436,12 +434,7 @@ chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
     }
 }
 
-
-
-/* This section contains the interface to the SSA IR.  */
-
-/* This function determines whether PHI is a loop-phi-node.  Otherwise
-   it is a condition-phi-node.  */
+/* Return true when PHI is a loop-phi-node.  */
 
 static bool
 loop_phi_node_p (tree phi)
@@ -536,10 +529,6 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
   else
     return chrec_dont_know;
 }
-
-
-
-/* The following section constitutes the interface with the chrecs.  */
 
 /* Determine whether the CHREC is always positive/negative.  If the expression
    cannot be statically analyzed, return false, otherwise set the answer into
@@ -950,14 +939,11 @@ set_nb_iterations_in_loop (struct loop *loop,
 
 
 /* This section selects the loops that will be good candidates for the
-   scalar evolution analysis.
-   
-   Note: This section will be rewritten to expose a better interface
-   to other client passes.  For the moment, greedily select all the
+   scalar evolution analysis.  For the moment, greedily select all the
    loop nests we could analyze.  */
 
-/* Determine whether it is possible to analyze this condition
-   expression.  */
+/* Return true when it is possible to analyze the condition expression
+   EXPR.  */
 
 static bool
 analyzable_condition (tree expr)
@@ -1007,7 +993,7 @@ analyzable_condition (tree expr)
   return false;
 }
 
-/* For a loop with a single exit edge, determine the COND_EXPR that
+/* For a loop with a single exit edge, return the COND_EXPR that
    guards the exit edge.  If the expression is too difficult to
    analyze, then give up.  */
 
@@ -1064,10 +1050,7 @@ get_exit_conditions_rec (struct loop *loop,
 }
 
 /* Select the candidate loop nests for the analysis.  This function
-   initializes the EXIT_CONDITIONS array.  The vector EXIT_CONDITIONS is
-   initialized in a loop-depth-first order, ie. the inner loops
-   conditions appear before the outer.  This property of the
-   EXIT_CONDITIONS list is exploited by the evolution analyzer.  */
+   initializes the EXIT_CONDITIONS array.   */
 
 static void
 select_loops_exit_conditions (struct loops *loops, 
@@ -1083,7 +1066,8 @@ select_loops_exit_conditions (struct loops *loops,
 
 static bool follow_ssa_edge (struct loop *loop, tree, tree, tree *);
 
-/* Follow the ssa edge into the right hand side of an assignment.  */
+/* Follow the ssa edge into the right hand side RHS of an assignment.
+   Return true if the strongly connected component has been found.  */
 
 static bool
 follow_ssa_edge_in_rhs (struct loop *loop,
@@ -1357,7 +1341,9 @@ backedge_phi_arg_p (tree phi, int i)
   return false;
 }
 
-/* Helper function for one branch of the condition-phi-node.  */
+/* Helper function for one branch of the condition-phi-node.  Return
+   true if the strongly connected component has been found following
+   this path.  */
 
 static inline bool
 follow_ssa_edge_in_condition_phi_branch (int i,
@@ -1385,7 +1371,6 @@ follow_ssa_edge_in_condition_phi_branch (int i,
   /* This case occurs when one of the condition branches sets 
      the variable to a constant: ie. a phi-node like
      "a_2 = PHI <a_7(5), 2(6)>;".  
-     The testsuite/.../ssa-chrec-17.c exercises this code.  
 	 
      FIXME:  This case have to be refined correctly: 
      in some cases it is possible to say something better than
@@ -1603,10 +1588,10 @@ analyze_evolution_in_loop (tree loop_phi_node,
   return evolution_function;
 }
 
-/* Given a loop-phi-node, this function determines the initial
-   conditions of the variable on entry of the loop.  When the CCP has
-   propagated constants into the loop-phi-node, the initial condition
-   is instantiated, otherwise the initial condition is kept symbolic.
+/* Given a loop-phi-node, return the initial conditions of the
+   variable on entry of the loop.  When the CCP has propagated
+   constants into the loop-phi-node, the initial condition is
+   instantiated, otherwise the initial condition is kept symbolic.
    This analyzer does not analyze the evolution outside the current
    loop, and leaves this task to the on-demand tree reconstructor.  */
 
@@ -1806,8 +1791,8 @@ interpret_rhs_modify_expr (struct loop *loop,
    - instantiate_parameters.
 */
 
-/* Compute the evolution function in WRTO_LOOP, the nearest common
-   ancestor of DEF_LOOP and USE_LOOP.  */
+/* Compute and return the evolution function in WRTO_LOOP, the nearest
+   common ancestor of DEF_LOOP and USE_LOOP.  */
 
 static tree 
 compute_scalar_evolution_in_loop (struct loop *wrto_loop, 
@@ -2166,7 +2151,7 @@ resolve_mixers (struct loop *loop, tree chrec)
 /* Entry point for the analysis of the number of iterations pass.  
    This function tries to safely approximate the number of iterations
    the loop will run.  When this property is not decidable at compile
-   time, the result is chrec_dont_know: [-oo, +oo].  Otherwise the result is
+   time, the result is chrec_dont_know.  Otherwise the result is
    a scalar or a symbolic parameter.
    
    Example of analysis: suppose that the loop has an exit condition:

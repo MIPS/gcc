@@ -1,3 +1,14 @@
+2004-07-12  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (tree-scalar-evolution.o): Remove dependences on 
+	tree-vectorizer.h and tree-data-ref.h. 
+	(tree-data-ref.o): Add dependence on lambda.h.
+	* lambda-trans.c, lambda.h: Add missing copyright notice.
+	* tree-scalar-evolution.c: Don't include tree-data-ref.h and 
+	tree-vectorizer.h.  Fix some comments.
+	* tree-scalar-evolution.h (simple_iv): Modified to match the
+	declaration that is in mainline.
+
 2004-07-11  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c: Update documentation. Use '#ifdef
