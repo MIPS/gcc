@@ -1530,7 +1530,7 @@ direct_notype_declarator:
 	| notype_unqualified_id %prec '('
 	| notype_template_declarator
 	| '(' expr_or_declarator_intern ')'
-                { $$ = finish_decl_parsing ($2); }
+                { $$ = NULL_TREE; }
 	;
 
 primary:
@@ -1558,8 +1558,7 @@ primary:
 	| '(' expr ')'
 		{ $$ = finish_parenthesized_expr ($2); }
 	| '(' expr_or_declarator_intern ')'
-		{ $2 = reparse_decl_as_expr (NULL_TREE, $2);
-		  $$ = finish_parenthesized_expr ($2); }
+		{ $$ = finish_parenthesized_expr ($2); }
 	| '(' error ')'
 		{ $$ = error_mark_node; }
 	| '('
@@ -2592,7 +2591,7 @@ component_decl:
 		}
 	| template_header typed_declspecs ';'
                 { 
-		  $$ = finish_member_class_template ($2.t); 
+		  finish_member_class_template ($2.t); 
 		  finish_template_decl ($1);
 		}
 	| bad_decl
@@ -2999,7 +2998,7 @@ functional_cast:
 	  typespec '(' nonnull_exprlist ')'
 		{ $$ = build_functional_cast ($1.t, $3); }
 	| typespec '(' expr_or_declarator_intern ')'
-		{ $$ = reparse_decl_as_expr ($1.t, $3); }
+		{ $$ = $3; }
 	| typespec fcast_or_absdcl  %prec EMPTY
 		{ $$ = reparse_absdcl_as_expr ($1.t, $2); }
 	;

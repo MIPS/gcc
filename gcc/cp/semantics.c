@@ -49,7 +49,6 @@
 
 static tree maybe_convert_cond PARAMS ((tree));
 static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
-static void deferred_type_access_control PARAMS ((void));
 static void emit_associated_thunks PARAMS ((tree));
 static void genrtl_try_block PARAMS ((tree));
 static void genrtl_eh_spec_block PARAMS ((tree));
@@ -1526,6 +1525,35 @@ finish_id_expr (expr)
   return expr;
 }
 
+/* Finish a compound-literal expression.  TYPE is the type to which
+   the INITIALIZER_LIST is being cast.  */
+
+tree
+finish_compound_literal (type, initializer_list)
+     tree type;
+     tree initializer_list;
+{
+  tree compound_literal;
+
+  /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
+  compound_literal = build_nt (CONSTRUCTOR, NULL_TREE,
+			       initializer_list);
+  /* Mark it as a compound-literal.  */
+  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+  /* Check the initialization.  */
+  compound_literal = digest_init (type, compound_literal, NULL);
+  /* If the TYPE was an array type with an unknown bound, then we can
+     figure out the dimension now.  For example, something like:
+
+       `(int []) { 2, 3 }'
+     
+     implies that the array has two elements.  */
+  if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+    complete_array_type (type, compound_literal, 1);
+
+  return compound_literal;
+}
+
 /* Finish processing `__FUNCTION__', `__PRETTY_FUNCTION__', or
    `__func__'.  ID is the IDENTIFIER_NODE indicating which name was
    used.  */
@@ -1541,80 +1569,26 @@ finish_fname (id)
   return decl;
 }
 
-static tree current_type_lookups;
+/* FIXME: Add prototype.  */
 
-/* Perform deferred access control for types used in the type of a
-   declaration.  */
+/* LOOKUPS is a TREE_LIST representing name-lookups for which we have
+   deferred checking access controls.  The TREE_PURPOSE of each node
+   is the scope in which the name was found; the TREE_VALUE is the
+   DECL to which the name was resolved.  
 
-static void
-deferred_type_access_control ()
-{
-  tree lookup = type_lookups;
-
-  if (lookup == error_mark_node)
-    return;
-
-  for (; lookup; lookup = TREE_CHAIN (lookup))
-    enforce_access (TREE_PURPOSE (lookup), TREE_VALUE (lookup));
-}
+   Go through the list, issuing error messages if any of the names are
+   inaccessible in the current scope.  */
 
 void
-decl_type_access_control (decl)
-     tree decl;
-{
-  tree save_fn;
-
-  if (type_lookups == error_mark_node)
-    return;
-
-  save_fn = current_function_decl;
-
-  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
-    current_function_decl = decl;
-
-  deferred_type_access_control ();
-
-  current_function_decl = save_fn;
-  
-  /* Now strip away the checks for the current declarator; they were
-     added to type_lookups after typed_declspecs saved the copy that
-     ended up in current_type_lookups.  */
-  type_lookups = current_type_lookups;
-  
-  current_type_lookups = NULL_TREE;
-}
-
-/* Record the lookups, if we're doing deferred access control.  */
-
-void
-save_type_access_control (lookups)
+deferred_access_control (lookups)
      tree lookups;
 {
-  if (type_lookups != error_mark_node)
+  while (lookups) 
     {
-      my_friendly_assert (!current_type_lookups, 20010301);
-      current_type_lookups = lookups;
+      enforce_access (TREE_PURPOSE (lookups),
+		      TREE_VALUE (lookups));
+      lookups = TREE_CHAIN (lookups);
     }
-  else
-    my_friendly_assert (!lookups || lookups == error_mark_node, 20010301);
-}
-
-/* Set things up so that the next deferred access control will succeed.
-   This is needed for friend declarations see grokdeclarator for details.  */
-
-void
-skip_type_access_control ()
-{
-  type_lookups = NULL_TREE;
-}
-
-/* Reset the deferred access control.  */
-
-void
-reset_type_access_control ()
-{
-  type_lookups = NULL_TREE;
-  current_type_lookups = NULL_TREE;
 }
 
 /* Begin a function definition declared with DECL_SPECIFIERS,
@@ -1630,9 +1604,6 @@ begin_function_definition (decl_specifiers, attributes, declarator)
   if (!start_function (decl_specifiers, declarator, 
 		       attributes, SF_DEFAULT))
     return 0;
-
-  deferred_type_access_control ();
-  type_lookups = error_mark_node;
 
   /* The things we're about to see are not directly qualified by any
      template headers we've seen thus far.  */
@@ -1743,10 +1714,6 @@ tree
 begin_class_definition (t)
      tree t;
 {
-  /* Check the bases are accessible. */
-  decl_type_access_control (TYPE_NAME (t));
-  reset_type_access_control ();
-  
   if (processing_template_parmlist)
     {
       cp_error ("definition of `%#T' inside template parameter list", t);
@@ -1973,64 +1940,32 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_function_decl)
-    type_lookups = error_mark_node;
   if (current_scope () == current_function_decl)
     do_pending_defargs ();
 
   return t;
 }
 
-/* Finish processing the default argument expressions cached during
-   the processing of a class definition.  */
-
-void
-begin_inline_definitions ()
-{
-  if (current_scope () == current_function_decl)
-    do_pending_inlines ();
-}
-
-/* Finish processing the inline function definitions cached during the
-   processing of a class definition.  */
-
-void
-finish_inline_definitions ()
-{
-  if (current_class_type == NULL_TREE)
-    clear_inline_text_obstack (); 
-}
-
 /* Finish processing the declaration of a member class template
-   TYPES whose template parameters are given by PARMS.  */
+   TYPE.  */
 
-tree
-finish_member_class_template (types)
-     tree types;
+void
+finish_member_class_template (type)
+     tree type;
 {
-  tree t;
+  /* FIXME: Issue errors for anonymous classes?  */
 
-  /* If there are declared, but undefined, partial specializations
-     mixed in with the typespecs they will not yet have passed through
-     maybe_process_partial_specialization, so we do that here.  */
-  for (t = types; t != NULL_TREE; t = TREE_CHAIN (t))
-    if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
-      maybe_process_partial_specialization (TREE_VALUE (t));
-
-  note_list_got_semicolon (types);
-  grok_x_components (types);
-  if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
-    /* The component was in fact a friend declaration.  We avoid
-       finish_member_template_decl performing certain checks by
-       unsetting TYPES.  */
-    types = NULL_TREE;
+  /* For a friend, there is nothing to do.  */
+  if (TYPE_CONTEXT (type) != current_class_type)
+    return;
   
-  finish_member_template_decl (types);
-
-  /* As with other component type declarations, we do
-     not store the new DECL on the list of
-     component_decls.  */
-  return NULL_TREE;
+  if (IS_AGGR_TYPE (type) 
+      && CLASSTYPE_TEMPLATE_INFO (type)
+      && ! CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
+    {
+      tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
+      check_member_template (tmpl);
+    }
 }
 
 /* Finish processsing a complete template declaration.  The PARMS are

@@ -1063,17 +1063,16 @@ member_init_ok_or_else (field, type, member_name)
   return 1;
 }
 
-/* If NAME is a viable field name for the aggregate DECL,
-   and PARMS is a viable parameter list, then expand an _EXPR
-   which describes this initialization.
+/* Generate code to handle a mem-initializer.  EXP is an expression
+   for `*this'.  If the initializer is for a base-class NAME is the
+   TYPE_DECL for the base class.  Otherwise, NAME is an
+   IDENTIFIER_NODE giving the name of the data member to be
+   initialized.  In either case, INIT is a TREE_LIST representing the
+   arguments to the initialization.
 
-   Note that we do not need to chase through the class's base classes
-   to look for NAME, because if it's in that list, it will be handled
-   by the constructor for that base class.
-
-   We do not yet have a fixed-point finder to instantiate types
-   being fed to overloaded constructors.  If there is a unique
-   constructor, then argument types can be got from that one.  */
+   Returns a TREE_LIST.  The TREE_PURPOSE is the TYPE or FIELD_DECL to
+   initialize; the TREE_VALUE is the initializer.  Returns
+   ERROR_MARK_NODE if an error occurs.  */
 
 tree
 expand_member_init (exp, name, init)
@@ -1082,67 +1081,21 @@ expand_member_init (exp, name, init)
   tree basetype = NULL_TREE, field;
   tree type;
 
-  if (exp == NULL_TREE)
-    return NULL_TREE;
-
   type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
 
-  if (name && TYPE_P (name))
-    {
-      basetype = name;
-      name = TYPE_IDENTIFIER (name);
-    }
-  else if (name && TREE_CODE (name) == TYPE_DECL)
+  if (TREE_CODE (name) == TYPE_DECL)
     {
       basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
       name = DECL_NAME (name);
     }
 
-  if (name == NULL_TREE && IS_AGGR_TYPE (type))
-    switch (CLASSTYPE_N_BASECLASSES (type))
-      {
-      case 0:
-	error ("base class initializer specified, but no base class to initialize");
-	return NULL_TREE;
-      case 1:
-	basetype = TYPE_BINFO_BASETYPE (type, 0);
-	break;
-      default:
-	error ("initializer for unnamed base class ambiguous");
-	cp_error ("(type `%T' uses multiple inheritance)", type);
-	return NULL_TREE;
-      }
-
-  my_friendly_assert (init != NULL_TREE, 0);
-
-  /* The grammar should not allow fields which have names that are
-     TYPENAMEs.  Therefore, if the field has a non-NULL TREE_TYPE, we
-     may assume that this is an attempt to initialize a base class
-     member of the current type.  Otherwise, it is an attempt to
-     initialize a member field.  */
-
-  if (init == void_type_node)
-    init = NULL_TREE;
-
-  if (name == NULL_TREE || basetype)
+  if (basetype)
     {
-      if (name == NULL_TREE)
-	{
-#if 0
-	  if (basetype)
-	    name = TYPE_IDENTIFIER (basetype);
-	  else
-	    {
-	      error ("no base class to initialize");
-	      return;
-	    }
-#endif
-	}
-      else if (basetype != type
-	       && ! current_template_parms
-	       && ! vec_binfo_member (basetype,
-				      TYPE_BINFO_BASETYPES (type))
-	       && ! binfo_for_vbase (basetype, type))
+      if (basetype != type
+	  && ! current_template_parms
+	  && ! vec_binfo_member (basetype,
+				 TYPE_BINFO_BASETYPES (type))
+	  && ! binfo_for_vbase (basetype, type))
 	{
 	  if (IDENTIFIER_CLASS_VALUE (name))
 	    goto try_member;
@@ -1152,7 +1105,7 @@ expand_member_init (exp, name, init)
 	  else
 	    cp_error ("type `%T' is not an immediate basetype for `%T'",
 		      basetype, type);
-	  return NULL_TREE;
+	  return error_mark_node;
 	}
 
       init = build_tree_list (basetype, init);
@@ -1163,7 +1116,7 @@ expand_member_init (exp, name, init)
       field = lookup_field (type, name, 1, 0);
 
       if (! member_init_ok_or_else (field, type, name))
-	return NULL_TREE;
+	return error_mark_node;
 
       init = build_tree_list (field, init);
     }

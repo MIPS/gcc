@@ -1091,7 +1091,7 @@ diagnostic_commit (buffer)
      there's a new diagnostic, issue the message now.  */
   if (!buffer->ds->tenative_diagnostic
       && (output_message_text (buffer)
-	  != obstack_base (&buffer->obstack)))
+	  != obstack_next_free (&buffer->obstack)))
     {
       /* FIXME: This should be shared with output_buffer_to_stream.  */
       fputs (output_finalize_message (buffer),

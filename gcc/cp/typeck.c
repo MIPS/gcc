@@ -2089,7 +2089,7 @@ build_component_ref (datum, component, basetype_path, protect)
 
   if (TREE_CODE (component) == BIT_NOT_EXPR)
     {
-      if (TYPE_IDENTIFIER (basetype) != TREE_OPERAND (component, 0))
+      if (!check_dtor_name (basetype, component))
 	{
 	  cp_error ("destructor specifier `%T::~%T' must have matching names",
 		    basetype, TREE_OPERAND (component, 0));

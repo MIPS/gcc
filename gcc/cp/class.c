@@ -5923,13 +5923,9 @@ push_nested_class (type, modify)
 {
   tree context;
 
-  /* A namespace might be passed in error cases, like A::B:C.  */
-  if (type == NULL_TREE 
-      || type == error_mark_node 
-      || TREE_CODE (type) == NAMESPACE_DECL
-      || ! IS_AGGR_TYPE (type)
-      || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+  /* FIXME: This check should go in push_scope, analagous to the
+     handling of pop_scope vs. pop_nested_class.  */
+  if (!CLASS_TYPE_P (type))
     return;
   
   context = DECL_CONTEXT (TYPE_MAIN_DECL (type));
@@ -5939,12 +5935,14 @@ push_nested_class (type, modify)
   pushclass (type, modify);
 }
 
-/* Undoes a push_nested_class call.  MODIFY is passed on to popclass.  */
+/* Undoes a push_nested_class call.  */
 
 void
 pop_nested_class ()
 {
-  tree context = DECL_CONTEXT (TYPE_MAIN_DECL (current_class_type));
+  tree context;
+
+  context = DECL_CONTEXT (TYPE_MAIN_DECL (current_class_type));
 
   popclass ();
   if (context && CLASS_TYPE_P (context))

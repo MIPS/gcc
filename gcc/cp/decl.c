@@ -332,6 +332,16 @@ tree anonymous_namespace_name;
    (Zero if we are at namespace scope, one inside the body of a
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
+
+/* Back-door communication channel to the lexer.  */
+int looking_for_typename;
+int looking_for_template;
+
+/* Tell the lexer where to look for names.  */
+tree got_scope;
+tree got_object;
+
+const char * const language_string = "GNU C++";
 
 /* For each binding contour we allocate a binding_level structure
    which records the names defined in that contour.
@@ -5790,10 +5800,7 @@ lookup_qualified_name (scope, name)
   else if (scope == current_class_type)
     val = IDENTIFIER_CLASS_VALUE (name);
   else
-    {
-      val = lookup_member (scope, name, 0, /*prefer_type=*/0);
-      type_access_control (scope, val);
-    }
+    val = lookup_member (scope, name, 0, /*prefer_type=*/0);
 
   return val;
 }
@@ -5806,8 +5813,6 @@ lookup_qualified_name (scope, name)
 
    If PREFER_TYPE is > 0, we prefer TYPE_DECLs or namespaces.
    If PREFER_TYPE is > 1, we reject non-type decls (e.g. namespaces).
-   If PREFER_TYPE is -2, we're being called from yylex(). (UGLY)
-   Otherwise we prefer non-TYPE_DECLs.
 
    If NONCLASS is non-zero, we don't look for the NAME in class scope,
    using IDENTIFIER_CLASS_VALUE.  */
@@ -5828,86 +5833,9 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   if (only_namespace_names)
     namespaces_only = 1;
 
-  if (prefer_type == -2)
-    {
-      extern int looking_for_typename;
-      tree type = NULL_TREE;
-
-      yylex = 1;
-      prefer_type = looking_for_typename;
-
-      flags = lookup_flags (prefer_type, namespaces_only);
-      /* If the next thing is '<', class templates are types. */
-      if (looking_for_template)
-        flags |= LOOKUP_TEMPLATES_EXPECTED;
-
-      /* std:: becomes :: for now.  */
-      if (got_scope && got_scope == fake_std_node)
-	got_scope = void_type_node;
-
-      if (got_scope)
-	type = got_scope;
-      else if (got_object != error_mark_node)
-	type = got_object;
-
-      if (type)
-	{
-	  if (type == error_mark_node)
-	    return error_mark_node;
-	  if (TREE_CODE (type) == TYPENAME_TYPE && TREE_TYPE (type))
-	    type = TREE_TYPE (type);
-
-	  if (TYPE_P (type))
-	    type = complete_type (type);
-
-	  if (TREE_CODE (type) == VOID_TYPE)
-	    type = global_namespace;
-	  if (TREE_CODE (type) == NAMESPACE_DECL)
-	    {
-	      val = make_node (CPLUS_BINDING);
-	      flags |= LOOKUP_COMPLAIN;
-	      if (!qualified_lookup_using_namespace (name, type, val, flags))
-		return NULL_TREE;
-	      val = select_decl (val, flags);
-	    }
-	  else if (! IS_AGGR_TYPE (type)
-		   || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-		   || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
-		   || TREE_CODE (type) == TYPENAME_TYPE)
-	    /* Someone else will give an error about this if needed.  */
-	    val = NULL_TREE;
-	  else if (type == current_class_type)
-	    val = IDENTIFIER_CLASS_VALUE (name);
-	  else
-	    {
-	      val = lookup_member (type, name, 0, prefer_type);
-	      type_access_control (type, val);
-
-	      /* Restore the containing TYPENAME_TYPE if we looked
-		 through it before.  */
-	      if (got_scope && got_scope != type
-		  && val && TREE_CODE (val) == TYPE_DECL
-		  && TREE_CODE (TREE_TYPE (val)) == TYPENAME_TYPE)
-		TYPE_CONTEXT (TREE_TYPE (val)) = got_scope;
-	    }
-	}
-      else
-	val = NULL_TREE;
-
-      if (got_scope)
-	goto done;
-      else if (got_object && val)
-	{
-	  from_obj = val;
-	  val = NULL_TREE;
-	}
-    }
-  else
-    {
-      flags = lookup_flags (prefer_type, namespaces_only);
-      /* If we're not parsing, we need to complain. */
-      flags |= LOOKUP_COMPLAIN;
-    }
+  flags = lookup_flags (prefer_type, namespaces_only);
+  /* If we're not parsing, we need to complain. */
+  flags |= LOOKUP_COMPLAIN;
 
   /* First, look in non-namespace scopes.  */
 
@@ -5930,11 +5858,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	binding = BINDING_TYPE (t);
       else
 	binding = NULL_TREE;
-
-      /* Handle access control on types from enclosing or base classes.  */
-      if (binding && ! yylex
-	  && BINDING_LEVEL (t) && BINDING_LEVEL (t)->parm_flag == 2)
-	type_access_control (BINDING_LEVEL (t)->this_class, binding);
 
       if (binding
 	  && (!val || !IMPLICIT_TYPENAME_TYPE_DECL_P (binding)))
@@ -5961,7 +5884,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	}
     }
 
- done:
   if (val)
     {
       /* This should only warn about types used in qualified-ids.  */
@@ -6281,8 +6203,8 @@ init_decl_processing ()
   lang_safe_from_p = &c_safe_from_p;
   lang_dump_tree = &cp_dump_tree;
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
+  lang_parse = &cp_parse_translation_unit;
 
-  cp_parse_init ();
   init_decl2 ();
   init_pt ();
 
@@ -7058,22 +6980,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   register tree decl;
   register tree type, tem;
   tree context;
-  extern int have_extern_spec;
-  extern int used_extern_spec;
   tree attrlist;
-
-#if 0
-  /* See code below that used this.  */
-  int init_written = initialized;
-#endif
-
-  /* This should only be done once on the top most decl.  */
-  if (have_extern_spec && !used_extern_spec)
-    {
-      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"),
-			     declspecs);
-      used_extern_spec = 1;
-    }
 
   if (attributes || prefix_attributes)
     attrlist = build_tree_list (attributes, prefix_attributes);
@@ -11001,10 +10908,6 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	  /* Only try to do this stuff if we didn't already give up.  */
 	  if (type != integer_type_node)
 	    {
-	      /* DR 209. The friendly class does not need to be accessible
-                 in the scope of the class granting friendship. */
-	      skip_type_access_control ();
-
 	      /* A friendly class?  */
 	      if (current_class_type)
 		make_friend_class (current_class_type, TYPE_MAIN_VARIANT (type));
@@ -11266,10 +11169,6 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	  {
 	    /* Friends are treated specially.  */
             tree t = NULL_TREE;
-	    
-	    /* DR 209. The friend does not need to be accessible at this
-               point. */
-	    skip_type_access_control ();
 	    
 	    if (ctype == current_class_type)
 	      warning ("member functions are implicitly friends of their class");
@@ -13073,8 +12972,6 @@ start_function (declspecs, declarator, attrs, flags)
   tree ctype = NULL_TREE;
   tree fntype;
   tree restype;
-  extern int have_extern_spec;
-  extern int used_extern_spec;
   int doing_friend = 0;
   struct binding_level *bl;
   tree current_function_parms;
@@ -13083,13 +12980,6 @@ start_function (declspecs, declarator, attrs, flags)
   /* Sanity check.  */
   my_friendly_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE, 160);
   my_friendly_assert (TREE_CHAIN (void_list_node) == NULL_TREE, 161);
-
-  /* This should only be done once on the top most decl.  */
-  if (have_extern_spec && !used_extern_spec)
-    {
-      declspecs = tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
-      used_extern_spec = 1;
-    }
 
   if (flags & SF_PRE_PARSED)
     {
@@ -14158,7 +14048,7 @@ void
 finish_stmt ()
 {
   /* Always assume this statement was not an expression statement.  If
-     it actually was an expression statement, its our callers
+     it actually was an expression statement, it's our caller's
      responsibility to fix this up.  */
   last_expr_type = NULL_TREE;
 }
@@ -14325,7 +14215,7 @@ lang_mark_tree (t)
 		mark_lang_function (DECL_SAVED_FUNCTION_DATA (t));
 	      else if (TREE_CODE (t) == FUNCTION_DECL
 		       && DECL_PENDING_INLINE_P (t))
-		ggc_mark (DECL_PENDING_INLINE_INFO (t));
+		ggc_mark_inline_definition (t);
 	    }
 	}
     }

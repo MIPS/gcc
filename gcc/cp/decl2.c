@@ -1508,23 +1508,17 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
   cp_finish_decl (decl, init, asmspec_tree, flags);
 }
 
-/* Process the specs, declarator (NULL if omitted) and width (NULL if omitted)
-   of a structure component, returning a _DECL node.
-   QUALS is a list of type qualifiers for this decl (such as for declaring
-   const member functions).
+/* Process a member-declaration declared in a class-specification.
+   The DECLSPECS, DECLARATOR and ATTRLIST are as for grokdeclarator.
+   If the member is initialized (as for `static const int i = 7')
+   then INIT is the initializer.
 
-   This is done during the parsing of the struct declaration.
-   The _DECL nodes are chained together and the lot of them
-   are ultimately passed to `build_struct' to make the RECORD_TYPE node.
+   Returns the DECL for the declarator, or the ERROR_MARK_NODE if an
+   error occurs.  If the member-declaration is a friend, then
+   NULL_TREE is returned, since the member-declaration does not
+   actually refer to a member of this class.
 
-   If class A defines that certain functions in class B are friends, then
-   the way I have set things up, it is B who is interested in permission
-   granted by A.  However, it is in A's context that these declarations
-   are parsed.  By returning a void_type_node, class A does not attempt
-   to incorporate the declarations of the friends within its structure.
-
-   DO NOT MAKE ANY CHANGES TO THIS CODE WITHOUT MAKING CORRESPONDING
-   CHANGES TO CODE IN `start_method'.  */
+   FIXME: Document ASMSPEC_TREE.  */
 
 tree
 grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
@@ -1547,15 +1541,14 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
     init = NULL_TREE;
 
   value = grokdeclarator (declarator, declspecs, FIELD, init != 0, attrlist);
-  if (! value || value == error_mark_node)
-    /* friend or constructor went bad.  */
-    return value;
-  if (TREE_TYPE (value) == error_mark_node)
-    return error_mark_node;  
+  if (! value 
+      || value == error_mark_node
+      || TREE_TYPE (value) == error_mark_node)
+    return error_mark_node;
 
   /* Pass friendly classes back.  */
   if (TREE_CODE (value) == VOID_TYPE)
-    return void_type_node;
+    return NULL_TREE;
 
   if (DECL_NAME (value) != NULL_TREE
       && IDENTIFIER_POINTER (DECL_NAME (value))[0] == '_'
@@ -1582,7 +1575,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
     {
       cp_error ("`%D' is already defined in `%T'", value,
 		DECL_CONTEXT (value));
-      return void_type_node;
+      return error_mark_node;
     }
 
   if (asmspec_tree)
@@ -4092,66 +4085,6 @@ build_expr_from_tree (t)
     }
 }
 
-/* This is something of the form `int (*a)++' that has turned out to be an
-   expr.  It was only converted into parse nodes, so we need to go through
-   and build up the semantics.  Most of the work is done by
-   build_expr_from_tree, above.
-
-   In the above example, TYPE is `int' and DECL is `*a'.  */
-
-tree
-reparse_decl_as_expr (type, decl)
-     tree type, decl;
-{
-  decl = build_expr_from_tree (decl);
-  if (type)
-    return build_functional_cast (type, build_tree_list (NULL_TREE, decl));
-  else
-    return decl;
-}
-
-/* FIXME: This can go.  */
-
-/* This is something of the form `int (*a)' that has turned out to be a
-   decl.  It was only converted into parse nodes, so we need to do the
-   checking that make_{pointer,reference}_declarator do.  */
-
-tree
-finish_decl_parsing (decl)
-     tree decl;
-{
-  switch (TREE_CODE (decl))
-    {
-    case IDENTIFIER_NODE:
-      return decl;
-    case INDIRECT_REF:
-      return make_pointer_declarator
-	(NULL_TREE, finish_decl_parsing (TREE_OPERAND (decl, 0)));
-    case ADDR_EXPR:
-      return make_reference_declarator
-	(NULL_TREE, finish_decl_parsing (TREE_OPERAND (decl, 0)));
-    case BIT_NOT_EXPR:
-      TREE_OPERAND (decl, 0) = finish_decl_parsing (TREE_OPERAND (decl, 0));
-      return decl;
-    case SCOPE_REF:
-      push_nested_class (TREE_TYPE (TREE_OPERAND (decl, 0)), 3);
-      TREE_COMPLEXITY (decl) = current_class_depth;
-      return decl;
-    case ARRAY_REF:
-      TREE_OPERAND (decl, 0) = finish_decl_parsing (TREE_OPERAND (decl, 0));
-      return decl;
-    case TREE_LIST:
-      /* For attribute handling.  */
-      TREE_VALUE (decl) = finish_decl_parsing (TREE_VALUE (decl));
-      return decl;
-    case TEMPLATE_ID_EXPR:
-      return decl;
-    default:
-      my_friendly_abort (5);
-      return NULL_TREE;
-    }
-}
-
 /* Return 1 if root encloses child. */
 
 static int
@@ -4544,7 +4477,7 @@ pop_scope (t)
 {
   if (TREE_CODE (t) == NAMESPACE_DECL)
     pop_decl_namespace ();
-  else
+  else if (CLASS_TYPE_P (t))
     pop_nested_class ();
 }
 

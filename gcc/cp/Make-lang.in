@@ -97,8 +97,8 @@ CXX_C_OBJS = c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o c-dump.o $(C
 
 # Language-specific object files.
 CXX_OBJS = cp/call.o cp/decl.o cp/errfn.o cp/expr.o cp/pt.o cp/typeck2.o \
- cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parse.o cp/ptree.o cp/rtti.o \
- cp/spew.o cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
+ cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/ptree.o cp/rtti.o \
+ cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
  cp/search.o cp/semantics.o cp/tree.o cp/xref.o cp/repo.o cp/dump.o \
  cp/optimize.o cp/mangle.o cp/parser.o
 
@@ -114,12 +114,6 @@ cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 	gperf -o -C -E -k '1-6,$$' -j1 -D -N 'libc_name_p' \
 		$(srcdir)/cp/cfns.gperf > $(srcdir)/cp/cfns.h
-
-$(srcdir)/cp/parse.h $(srcdir)/cp/parse.c: $(srcdir)/cp/parse.y
-	@echo "Expect 33 shift/reduce conflicts and 58 reduce/reduce conflicts."
-	cd $(srcdir)/cp; $(BISON) $(BISONFLAGS) -d -o p$$$$.c parse.y ; \
-	grep '^#define[ 	]*YYEMPTY' p$$$$.c >> p$$$$.h ; \
-	mv -f p$$$$.c parse.c ; mv -f p$$$$.h parse.h
 
 #
 # Build hooks:
@@ -216,7 +210,7 @@ c++.distclean:
 	-rm -f $(srcdir)/cp/parse.output
 c++.extraclean:
 c++.maintainer-clean:
-	-rm -f $(srcdir)/cp/parse.c $(srcdir)/cp/parse.h
+
 #
 # Stage hooks:
 # The main makefile has already created stage?/cp.
@@ -236,8 +230,7 @@ CXX_TREE_H = $(TREE_H) cp/cp-tree.h c-common.h cp/cp-tree.def c-common.def \
 	function.h varray.h $(SYSTEM_H) $(CONFIG_H) \
 	$(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h
 
-cp/spew.o: cp/spew.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h toplev.h
-cp/lex.o: cp/lex.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h c-pragma.h \
+cp/lex.o: cp/lex.c $(CXX_TREE_H)  flags.h cp/lex.h c-pragma.h \
   toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def \
   $(TM_P_H)
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
@@ -265,7 +258,7 @@ cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
 cp/xref.o: cp/xref.c $(CXX_TREE_H) input.h toplev.h
-cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
+cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h  cp/lex.h toplev.h \
   $(GGC_H) $(RTL_H) except.h
 cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h
 cp/errfn.o: cp/errfn.c $(CXX_TREE_H) toplev.h
@@ -277,11 +270,6 @@ cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
   input.h params.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h
 
-cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \
-	$(SYSTEM_H) toplev.h $(GGC_H)
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
-		$(srcdir)/cp/parse.c $(OUTPUT_OPTION)
-
 cp/parser.o: cp/parser.c $(CXX_TREE_H) diagnostic.h
 
 #
@@ -290,7 +278,6 @@ cp/parser.o: cp/parser.c $(CXX_TREE_H) diagnostic.h
 # Update the tags table.
 cp/TAGS: force
 	cd $(srcdir)/cp ;			\
-	etags --no-globals -l c `echo *.c | sed 's/parse.c//'` \
-	  parse.y *.h ../*.c ../*.h;
+	etags --no-globals -l c *.c *.h ../*.c ../*.h;
 
 .PHONY: cp/TAGS

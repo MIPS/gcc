@@ -191,19 +191,6 @@ finish_member_template_decl (decl)
     /* By returning NULL_TREE, the parser will just ignore this
        declaration.  We have already issued the error.  */
     return NULL_TREE;
-  else if (TREE_CODE (decl) == TREE_LIST)
-    {
-      /* Assume that the class is the only declspec.  */
-      decl = TREE_VALUE (decl);
-      if (IS_AGGR_TYPE (decl) && CLASSTYPE_TEMPLATE_INFO (decl)
-	  && ! CLASSTYPE_TEMPLATE_SPECIALIZATION (decl))
-	{
-	  tree tmpl = CLASSTYPE_TI_TEMPLATE (decl);
-	  check_member_template (tmpl);
-	  return tmpl;
-	}
-      return NULL_TREE;
-    }
   else if (TREE_CODE (decl) == FIELD_DECL)
     cp_error ("data member `%D' cannot be a member template", decl);
   else if (DECL_TEMPLATE_INFO (decl))
@@ -1314,7 +1301,8 @@ check_explicit_specialization (declarator, decl, flags)
   else if (processing_specialization)
     {
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
-      if (ctype)
+      if (ctype 
+	  && TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
 	member_specialization = 1;
       else
 	specialization = 1;
@@ -5612,10 +5600,6 @@ tsubst_decl (t, args, type)
 	       being called from tsubst_friend_function, and we want
 	       only to create a new decl (R) with appropriate types so
 	       that we can call determine_specialization.  */
-	    my_friendly_assert ((TREE_CODE (DECL_TI_TEMPLATE (t)) 
-				 == LOOKUP_EXPR)
-				|| (TREE_CODE (DECL_TI_TEMPLATE (t))
-				    == IDENTIFIER_NODE), 0);
 	    gen_tmpl = NULL_TREE;
 	  }
 

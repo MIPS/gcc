@@ -297,7 +297,6 @@ typedef struct
 {
   tree t;
   int new_type_flag;
-  tree lookups;
 } flagged_type_tree;
 
 typedef struct
@@ -847,10 +846,6 @@ struct saved_scope
 /* A list of the declarations with incomplete type at namespace scope.  */
 
 #define namespace_scope_incomplete scope_chain->incomplete
-
-/* A list of private types mentioned, for deferred access checking.  */
-
-#define type_lookups scope_chain->lookups
 
 extern struct saved_scope *scope_chain;
 
@@ -3933,8 +3928,6 @@ extern void finish_file				PARAMS ((void));
 extern tree reparse_absdcl_as_expr		PARAMS ((tree, tree));
 extern tree reparse_absdcl_as_casts		PARAMS ((tree, tree));
 extern tree build_expr_from_tree		PARAMS ((tree));
-extern tree reparse_decl_as_expr		PARAMS ((tree, tree));
-extern tree finish_decl_parsing			PARAMS ((tree));
 extern void set_decl_namespace                  PARAMS ((tree, tree, int));
 extern tree current_decl_namespace              PARAMS ((void));
 extern void push_decl_namespace                 PARAMS ((tree));
@@ -4054,7 +4047,6 @@ extern void process_next_inline			PARAMS ((struct unparsed_text *));
 extern void yyungetc				PARAMS ((int, int));
 extern void snarf_method			PARAMS ((tree));
 
-extern void check_for_missing_semicolon		PARAMS ((tree));
 extern void note_got_semicolon			PARAMS ((tree));
 extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
@@ -4173,9 +4165,6 @@ extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_binfo				PARAMS ((tree, tree, int));
 extern int get_base_distance			PARAMS ((tree, tree, int, tree *));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
-extern void type_access_control			PARAMS ((tree, tree));
-extern void skip_type_access_control            PARAMS ((void));
-extern void reset_type_access_control           PARAMS ((void));
 extern int accessible_p                         PARAMS ((tree, tree));
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));
@@ -4285,8 +4274,7 @@ extern tree finish_pseudo_destructor_call_expr  PARAMS ((tree, tree, tree));
 extern tree finish_qualified_call_expr          PARAMS ((tree, tree));
 extern tree finish_unary_op_expr                PARAMS ((enum tree_code, tree));
 extern tree finish_id_expr                      PARAMS ((tree));
-extern void save_type_access_control		PARAMS ((tree));
-extern void decl_type_access_control		PARAMS ((tree));
+extern tree finish_compound_literal             PARAMS ((tree, tree));
 extern int begin_function_definition            PARAMS ((tree, tree, tree));
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
 extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
@@ -4297,9 +4285,7 @@ extern tree finish_parmlist                     PARAMS ((tree, int));
 extern tree begin_class_definition              PARAMS ((tree));
 extern tree finish_class_definition             PARAMS ((tree, tree, int, int));
 extern void finish_default_args                 PARAMS ((void));
-extern void begin_inline_definitions            PARAMS ((void));
-extern void finish_inline_definitions           PARAMS ((void));
-extern tree finish_member_class_template        PARAMS ((tree));
+extern void finish_member_class_template        PARAMS ((tree));
 extern void finish_template_decl                PARAMS ((tree));
 extern tree finish_template_type                PARAMS ((tree, tree, int));
 extern void enter_scope_of                      PARAMS ((tree));
@@ -4532,6 +4518,7 @@ extern int cp_dump_tree                         PARAMS ((dump_info_p, tree));
 
 /* in parser.c */
 extern int cp_parse_translation_unit            PARAMS ((void));
+extern void ggc_mark_inline_definition          PARAMS ((tree));
 
 /* -- end of C++ */
 

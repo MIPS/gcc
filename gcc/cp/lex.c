@@ -100,9 +100,6 @@ int flag_digraphs = 1;
    used in a context which makes it a reference to a variable.  */
 tree lastiddecl;
 
-/* Array for holding counts of the numbers of tokens seen.  */
-extern int *token_count;
-
 /* Functions and data structures for #pragma interface.
 
    `#pragma implementation' means that the main file being compiled
@@ -300,20 +297,6 @@ const char *
 lang_identify ()
 {
   return "cplusplus";
-}
-
-static int *
-init_cpp_parse ()
-{
-#ifdef GATHER_STATISTICS
-#ifdef REDUCE_LENGTH
-  reduce_count = (int *) xcalloc (sizeof (int), (REDUCE_LENGTH + 1));
-  reduce_count += 1;
-  token_count = (int *) xcalloc (sizeof (int), (TOKEN_LENGTH + 1));
-  token_count += 1;
-#endif
-#endif
-  return token_count;
 }
 
 /* A mapping from tree codes to operator name information.  */
@@ -712,7 +695,6 @@ init_parse (filename)
   init_reswords ();
   init_pragma ();
   init_cp_pragma ();
-  init_spew ();
   init_tree ();
   init_cplus_expand ();
   init_cp_semantics ();
@@ -758,7 +740,6 @@ init_parse (filename)
   null_node = build_int_2 (0, 0);
   ridpointers[RID_NULL] = null_node;
 
-  token_count = init_cpp_parse ();
   interface_unknown = 1;
 
   return init_c_lex (filename);
@@ -772,177 +753,6 @@ finish_parse ()
   errorcount += cpp_errors (parse_in);
 }
 
-inline void
-yyprint (file, yychar, yylval)
-     FILE *file;
-     int yychar;
-     YYSTYPE yylval;
-{
-  tree t;
-  switch (yychar)
-    {
-    case IDENTIFIER:
-    case TYPENAME:
-    case TYPESPEC:
-    case PTYPENAME:
-    case PFUNCNAME:
-    case IDENTIFIER_DEFN:
-    case TYPENAME_DEFN:
-    case PTYPENAME_DEFN:
-    case SCSPEC:
-    case PRE_PARSED_CLASS_DECL:
-      t = yylval.ttype;
-      if (TREE_CODE (t) == TYPE_DECL || TREE_CODE (t) == TEMPLATE_DECL)
-	{
-	  fprintf (file, " `%s'", IDENTIFIER_POINTER (DECL_NAME (t)));
-	  break;
-	}
-      my_friendly_assert (TREE_CODE (t) == IDENTIFIER_NODE, 224);
-      if (IDENTIFIER_POINTER (t))
-	  fprintf (file, " `%s'", IDENTIFIER_POINTER (t));
-      break;
-
-    case AGGR:
-      if (yylval.ctk == ctk_class)
-	fprintf (file, " `class'");
-      else if (yylval.ctk == ctk_struct)
-	fprintf (file, " `struct'");
-      else if (yylval.ctk == ctk_union)
-	fprintf (file, " `union'");
-      else if (yylval.ctk == ctk_enum)
-	fprintf (file, " `enum'");
-      else
-	my_friendly_abort (80);
-      break;
-
-    case CONSTANT:
-      t = yylval.ttype;
-      if (TREE_CODE (t) == INTEGER_CST)
-	fprintf (file,
-#if HOST_BITS_PER_WIDE_INT == 64
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-		 " 0x%x%016x",
-#else
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-		 " 0x%lx%016lx",
-#else
-		 " 0x%llx%016llx",
-#endif
-#endif
-#else
-#if HOST_BITS_PER_WIDE_INT != HOST_BITS_PER_INT
-		 " 0x%lx%08lx",
-#else
-		 " 0x%x%08x",
-#endif
-#endif
-		 TREE_INT_CST_HIGH (t), TREE_INT_CST_LOW (t));
-      break;
-    }
-}
-
-#if defined(GATHER_STATISTICS) && defined(REDUCE_LENGTH)
-static int *reduce_count;
-#endif
-
-int *token_count;
-
-#if 0
-#define REDUCE_LENGTH (sizeof (yyr2) / sizeof (yyr2[0]))
-#define TOKEN_LENGTH (256 + sizeof (yytname) / sizeof (yytname[0]))
-#endif
-
-#ifdef GATHER_STATISTICS
-#ifdef REDUCE_LENGTH
-void
-yyhook (yyn)
-     int yyn;
-{
-  reduce_count[yyn] += 1;
-}
-
-static int
-reduce_cmp (p, q)
-     int *p, *q;
-{
-  return reduce_count[*q] - reduce_count[*p];
-}
-
-static int
-token_cmp (p, q)
-     int *p, *q;
-{
-  return token_count[*q] - token_count[*p];
-}
-#endif
-#endif
-
-void
-print_parse_statistics ()
-{
-#ifdef GATHER_STATISTICS
-#ifdef REDUCE_LENGTH
-#if YYDEBUG != 0
-  int i;
-  int maxlen = REDUCE_LENGTH;
-  unsigned *sorted;
-
-  if (reduce_count[-1] == 0)
-    return;
-
-  if (TOKEN_LENGTH > REDUCE_LENGTH)
-    maxlen = TOKEN_LENGTH;
-  sorted = (unsigned *) alloca (sizeof (int) * maxlen);
-
-  for (i = 0; i < TOKEN_LENGTH; i++)
-    sorted[i] = i;
-  qsort (sorted, TOKEN_LENGTH, sizeof (int), token_cmp);
-  for (i = 0; i < TOKEN_LENGTH; i++)
-    {
-      int idx = sorted[i];
-      if (token_count[idx] == 0)
-	break;
-      if (token_count[idx] < token_count[-1])
-	break;
-      fprintf (stderr, "token %d, `%s', count = %d\n",
-	       idx, yytname[YYTRANSLATE (idx)], token_count[idx]);
-    }
-  fprintf (stderr, "\n");
-  for (i = 0; i < REDUCE_LENGTH; i++)
-    sorted[i] = i;
-  qsort (sorted, REDUCE_LENGTH, sizeof (int), reduce_cmp);
-  for (i = 0; i < REDUCE_LENGTH; i++)
-    {
-      int idx = sorted[i];
-      if (reduce_count[idx] == 0)
-	break;
-      if (reduce_count[idx] < reduce_count[-1])
-	break;
-      fprintf (stderr, "rule %d, line %d, count = %d\n",
-	       idx, yyrline[idx], reduce_count[idx]);
-    }
-  fprintf (stderr, "\n");
-#endif
-#endif
-#endif
-}
-
-/* Sets the value of the 'yydebug' variable to VALUE.
-   This is a function so we don't have to have YYDEBUG defined
-   in order to build the compiler.  */
-
-void
-set_yydebug (value)
-     int value;
-{
-#if YYDEBUG != 0
-  extern int yydebug;
-  yydebug = value;
-#else
-  warning ("YYDEBUG not defined.");
-#endif
-}
-
 /* Helper function to load global variables with interface
    information.  */
 
@@ -1007,36 +817,6 @@ interface_strcmp (s)
 
   /* No matches.  */
   return 1;
-}
-
-/* Heuristic to tell whether the user is missing a semicolon
-   after a struct or enum declaration.  Emit an error message
-   if we know the user has blown it.  */
-
-void
-check_for_missing_semicolon (type)
-     tree type;
-{
-  if (yychar < 0)
-    yychar = yylex ();
-
-  if ((yychar > 255
-       && yychar != SCSPEC
-       && yychar != IDENTIFIER
-       && yychar != TYPENAME
-       && yychar != CV_QUALIFIER
-       && yychar != SELFNAME)
-      || yychar == 0  /* EOF */)
-    {
-      if (TYPE_ANONYMOUS_P (type))
-	error ("semicolon missing after %s declaration",
-	       TREE_CODE (type) == ENUMERAL_TYPE ? "enum" : "struct");
-      else
-	cp_error ("semicolon missing after declaration of `%T'", type);
-      shadow_tag (build_tree_list (0, type));
-    }
-  /* Could probably also hack cases where class { ... } f (); appears.  */
-  clear_anon_tags ();
 }
 
 void
@@ -1399,8 +1179,6 @@ do_scoped_id (token, parsing)
     }
   else
     id = IDENTIFIER_GLOBAL_VALUE (token);
-  if (parsing && yychar == YYEMPTY)
-    yychar = yylex ();
   if (! id)
     {
       if (processing_template_decl)

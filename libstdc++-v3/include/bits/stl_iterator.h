@@ -416,11 +416,11 @@ private:
 // _Iterator parameter is the same.
 template<typename _Iterator, typename _Container>
 class __normal_iterator
-  : public iterator<iterator_traits<_Iterator>::iterator_category,
-                    iterator_traits<_Iterator>::value_type,
-                    iterator_traits<_Iterator>::difference_type,
-                    iterator_traits<_Iterator>::pointer,
-                    iterator_traits<_Iterator>::reference>
+  : public iterator<typename iterator_traits<_Iterator>::iterator_category,
+                    typename iterator_traits<_Iterator>::value_type,
+                    typename iterator_traits<_Iterator>::difference_type,
+                    typename iterator_traits<_Iterator>::pointer,
+                    typename iterator_traits<_Iterator>::reference>
 {
 
 protected:
@@ -535,7 +535,7 @@ operator>=(const __normal_iterator<_IteratorL, _Container>& __lhs,
 
 template<typename _Iterator, typename _Container>
 inline __normal_iterator<_Iterator, _Container>
-operator+(__normal_iterator<_Iterator, _Container>::difference_type __n,
+operator+(typename __normal_iterator<_Iterator, _Container>::difference_type __n,
           const __normal_iterator<_Iterator, _Container>& __i)
 { return __normal_iterator<_Iterator, _Container>(__i.base() + __n); }
 
