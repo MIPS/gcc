@@ -1,5 +1,8 @@
 2002-11-21  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.tpl: Remove unnecessary ifs.
+	* Makefile.in: Regenerate.
+
 	* Makefile.tpl: Implement soft dependency machinery.  Maybe-ize 
 	dependencies.  Maybe-ize build-libiberty.  Create dummy install
 	targets for 'no_install' modules.

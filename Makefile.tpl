@@ -894,17 +894,13 @@ configure-build-[+module+]:
 maybe-all-[+module+]:
 all-[+module+]:
 	@dir=[+module+]; \
-	if [ -f ./[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
-	    ENDIF with_x +] all); \
-	else \
-	  true; \
-	fi
+	    ENDIF with_x +] all)
 
 [+ IF no_check +]
 .PHONY: check-[+module+]
@@ -915,7 +911,6 @@ check-[+module+]:
 check-[+module+]:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
 	  dir=[+module+]; \
-	  if [ -f ./[+module+]/Makefile ] ; then \
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -923,25 +918,18 @@ check-[+module+]:
 	      IF with_x 
 	        +] $(X11_FLAGS_TO_PASS)[+ 
 	      ENDIF with_x +] check); \
-	  else \
-	    true; \
-	  fi; \
 	fi
 [+ ELSE check +]
 .PHONY: check-[+module+]
 check-[+module+]:
 	@dir=[+module+]; \
-	if [ -f ./[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
-	    ENDIF with_x +] check); \
-	else \
-	  true; \
-	fi
+	    ENDIF with_x +] check)
 [+ ENDIF no_check +]
 
 [+ IF no_install +]
@@ -953,17 +941,13 @@ install-[+module+]:
 maybe-install-[+module+]:
 install-[+module+]: installdirs
 	@dir=[+module+]; \
-	if [ -f ./[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
-	    ENDIF with_x +] install); \
-	else \
-	  true; \
-	fi
+	    ENDIF with_x +] install)
 [+ ENDIF no_install +]
 [+ ENDFOR host_modules +]
 
@@ -973,8 +957,7 @@ install-[+module+]: installdirs
 .PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
 maybe-configure-target-[+module+]:
 configure-target-[+module+]:
-	@if [ -d $(TARGET_SUBDIR)/[+module+] ]; then \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  $(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/[+module+]/tmpmulti.out 2> /dev/null; \
 	  if [ -s $(TARGET_SUBDIR)/[+module+]/tmpmulti.out ]; then \
 	    if [ -f $(TARGET_SUBDIR)/[+module+]/multilib.out ]; then \
@@ -988,14 +971,8 @@ configure-target-[+module+]:
 	    else \
 	      mv $(TARGET_SUBDIR)/[+module+]/tmpmulti.out $(TARGET_SUBDIR)/[+module+]/multilib.out; \
 	    fi; \
-	  fi; \
 	fi; exit 0	# break command into two pieces
 	@dir=[+module+] ; \
-	if [ ! -d $(TARGET_SUBDIR) ]; then \
-	  true; \
-	elif [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
-	  true; \
-	elif echo " $(TARGET_CONFIGDIRS) " | grep " [+module+] " >/dev/null 2>&1; then \
 	  if [ -d $(srcdir)/[+module+] ]; then \
 	    [ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
@@ -1069,24 +1046,17 @@ configure-target-[+module+]:
 	    fi; \
 	  else \
 	    true; \
-	  fi; \
-	else \
-	  true; \
-	fi
+	  fi
 
 .PHONY: all-target-[+module+] maybe-all-target-[+module+]
 maybe-all-target-[+module+]:
 all-target-[+module+]:
 	@dir=[+module+] ; \
-	if [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
-	    $(MAKE) $(TARGET_FLAGS_TO_PASS) all); \
-	else \
-	  true; \
-	fi
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) all)
 [+ IF no_check +]
 # Dummy target for uncheckable module.
 .PHONY: check-target-[+module+]
@@ -1095,15 +1065,11 @@ check-target-[+module+]:
 .PHONY: check-target-[+module+]
 check-target-[+module+]:
 	@dir=[+module+] ; \
-	if [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
-	    $(MAKE) $(TARGET_FLAGS_TO_PASS) check);\
-	else \
-	  true; \
-	fi
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) check)
 [+ ENDIF no_check +]
 [+ IF no_install +]
 .PHONY: install-target-[+module+] maybe-install-target-[+module+]
@@ -1115,15 +1081,11 @@ install-target-[+module+]:
 maybe-install-target-[+module+]:
 install-target-[+module+]: installdirs
 	@dir=[+module+] ; \
-	if [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
-	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install); \
-	else \
-	  true; \
-	fi
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 [+ ENDIF no_install +]
 [+ ENDFOR target_modules +]
 
