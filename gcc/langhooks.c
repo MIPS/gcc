@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -189,13 +189,6 @@ lhd_set_decl_assembler_name (tree decl)
        these DECLs -- unless they're in language-dependent code, in
        which case set_decl_assembler_name hook should handle things.  */
     abort ();
-}
-
-/* By default we always allow bit-field based optimizations.  */
-bool
-lhd_can_use_bit_fields_p (void)
-{
-  return true;
 }
 
 /* Type promotion for variable arguments.  */

@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -59,7 +59,6 @@ extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
 				      const char *);
 extern void lhd_set_decl_assembler_name (tree);
-extern bool lhd_can_use_bit_fields_p (void);
 extern bool lhd_warn_unused_global_decl (tree);
 extern void lhd_incomplete_type_error (tree, tree);
 extern tree lhd_type_promotes_to (tree);
@@ -109,7 +108,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
-#define LANG_HOOKS_CAN_USE_BIT_FIELDS_P lhd_can_use_bit_fields_p
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS false
 #define LANG_HOOKS_NO_BODY_BLOCKS	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
@@ -274,7 +272,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \
   LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
-  LANG_HOOKS_CAN_USE_BIT_FIELDS_P, \
   LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS, \
   LANG_HOOKS_NO_BODY_BLOCKS, \
   LANG_HOOKS_PRINT_STATISTICS, \

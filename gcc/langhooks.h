@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -321,10 +321,6 @@ struct lang_hooks
      Otherwise, set it to the ERROR_MARK_NODE to ensure that the
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) (tree);
-
-  /* Return nonzero if fold-const is free to use bit-field
-     optimizations, for instance in fold_truthop().  */
-  bool (*can_use_bit_fields_p) (void);
 
   /* Nonzero if operations on types narrower than their mode should
      have their results reduced to the precision of the type.  */
