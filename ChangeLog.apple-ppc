@@ -1,3 +1,9 @@
+2004-11-23  Stan Shebs  <shebs@apple.com>
+
+	* build_gcc: Detect Darwin version (7 vs 8), and append
+	version to all the "-apple-darwin" pathnames.
+	* libstdc++-v3/configure: Remove bringup hack.
+
 2004-11-13  Stan Shebs  <shebs@apple.com>
 
 	* fixincludes/fixinc.in: Revive 64-bit bandaid.

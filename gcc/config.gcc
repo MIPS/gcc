@@ -331,10 +331,13 @@ esac
 # Common parts for widely ported systems.
 case ${target} in
 *-*-darwin*)
+  # APPLE LOCAL begin mainline
   case ${target} in
+    *-darwin1[0-9]*) tm_file="${tm_file} darwin7.h" ;;
     *-darwin[0-6]*) ;;
-    *) tm_file="${tm_file} darwin7.h" ;;
+    *-darwin[7-9]*) tm_file="${tm_file} darwin7.h" ;;
   esac
+  # APPLE LOCAL end mainline
   tm_file="${tm_file} darwin.h"
   tm_p_file="${tm_p_file} darwin-protos.h"
   tmake_file="t-darwin t-slibgcc-darwin"
@@ -1499,20 +1502,16 @@ powerpc-*-beos*)
 	extra_headers=
 	use_fixproto=yes
 	;;
-powerpc-*-darwin*)
+powerpc-*-darwin[0-9]*)
 	tm_file="${tm_file} rs6000/darwin.h"
 	tmake_file="${tmake_file} rs6000/t-darwin"
-	# APPLE LOCAL begin 64-bit
-	echo enable_bringup=$enable_bringup
-	case ${enable_bringup} in
-	yes)
+	# APPLE LOCAL begin mainline
 	case ${target} in
+	  *-darwin1[0-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
 	  *-darwin[0-7]*) ;;
-	  *) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
+	  *-darwin[8-9]*) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
 	esac
-	;;
-	esac
-	# APPLE LOCAL end 64-bit
+	# APPLE LOCAL end mainline
 	extra_headers=altivec.h
 	;;
 powerpc*-*-freebsd*)

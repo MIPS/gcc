@@ -1,3 +1,10 @@
+2004-11-23  Stan Shebs  <shebs@apple.com>
+
+	* config.gcc (powerpc-*-darwin*): Remove bringup conditional.
+	* mklibgcc.in: Don't try to make dylibs from static/kext
+	libgcc.
+	* config/t-slibgcc-darwin: Don't use SHLIB_MULTILIB.
+
 2004-11-23  Devang Patel  <dpatel@apple.com>
 
 	Radar 3886137

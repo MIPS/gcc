@@ -455,7 +455,8 @@ EOF
     echo '	$(AR_CREATE_FOR_TARGET)' ${dir}/libgcc_eh.a $libgcc_eh_static_objs
     echo '	$(RANLIB_FOR_TARGET)' ${dir}/libgcc_eh.a
 
-    if [ -z "$SHLIB_MULTILIB" ]; then
+    # APPLE LOCAL libcc_kext
+    if [ -z "$SHLIB_MULTILIB" -a  "$dir" != "static" -a "$dir" != "kext" ]; then
       if [ "$dir" = . ]; then
 	shlib_base_name=libgcc_s
 	shlibunwind_base_name=libunwind
@@ -577,7 +578,8 @@ for ml in $MULTILIBS; do
   fi
   if [ "$SHLIB_LINK" ]; then
     all="$all ${dir}/libgcc_eh.a"
-    if [ -z "$SHLIB_MULTILIB" ]; then
+    # APPLE LOCAL libcc_kext
+    if [ -z "$SHLIB_MULTILIB"  -a  "$dir" != "static" -a "$dir" != "kext" ]; then
       if [ "$dir" = "." ]; then
 	suff="";
       else
@@ -648,7 +650,8 @@ for ml in $MULTILIBS; do
     echo '	$(INSTALL_DATA)' ${dir}/libgcc_eh.a ${ldir}/
     echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc_eh.a
 
-    if [ -z "$SHLIB_MULTILIB" ]; then
+    # APPLE LOCAL libcc_kext
+    if [ -z "$SHLIB_MULTILIB" -a  "$dir" != "static" -a "$dir" != "kext" ]; then
       if [ "$dir" = . ]; then
 	shlib_base_name=libgcc_s
 	shlibunwind_base_name=libunwind

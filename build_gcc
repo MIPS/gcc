@@ -70,6 +70,14 @@ VERS=`sed -n -e '/version_string/s/.*\"\([^ \"]*\)[ \"].*/\1/p' \
 # to be built.  It's VERS but only up to the second '.' (if there is one).
 MAJ_VERS=`echo $VERS | sed 's/\([0-9]*\.[0-9]*\)[.-].*/\1/'`
 
+# Sniff to see if we can do ppc64 building.
+DARWIN_VERS=8
+if [ x"`file /usr/lib/crt1.o | grep 'architecture ppc64'`" == x ]; then
+    DARWIN_VERS=7
+fi
+
+echo DARWIN_VERS = $DARWIN_VERS
+
 ########################################
 # Run the build.
 
@@ -89,7 +97,7 @@ CONFIGFLAGS="--disable-checking \
   --enable-languages=c,objc,c++,obj-c++ \
   --program-transform-name=/^[cg][^+.-]*$/s/$/-$MAJ_VERS/ \
   --with-gxx-include-dir=\${prefix}/include/gcc/darwin/$MAJ_VERS/c++ \
-  --build=$BUILD-apple-darwin"
+  --build=$BUILD-apple-darwin$DARWIN_VERS"
 
 # For 64-bit bringup
 if [ "$VERS" == "3.5.0" ]; then
@@ -120,7 +128,7 @@ mkdir -p $DIR/obj-$BUILD-$BUILD $DIR/dst-$BUILD-$BUILD || exit 1
 cd $DIR/obj-$BUILD-$BUILD || exit 1
 if [ \! -f $DIR/$BUILD-configured ] ; then
  $SRC_DIR/configure $CONFIGFLAGS \
-   --host=$BUILD-apple-darwin --target=$BUILD-apple-darwin || exit 1
+   --host=$BUILD-apple-darwin$DARWIN_VERS --target=$BUILD-apple-darwin$DARWIN_VERS || exit 1
  touch $DIR/$BUILD-configured || exit 1
 fi
 make $MAKEFLAGS $BOOTSTRAP CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -130,18 +138,18 @@ make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$BUILD install-gcc install-target \
 # Add the compiler we just built to the path, giving it appropriate names.
 D=$DIR/dst-$BUILD-$BUILD/usr/bin
 ln -f $D/gcc-$MAJ_VERS $D/gcc || exit 1
-ln -f $D/gcc $D/$BUILD-apple-darwin-gcc || exit 1
+ln -f $D/gcc $D/$BUILD-apple-darwin$DARWIN_VERS-gcc || exit 1
 PATH=$DIR/dst-$BUILD-$BUILD/usr/bin:$PATH
 
 # The cross-tools' build process expects to find certain programs
-# under names like 'i386-apple-darwin-ar'; so make them.
+# under names like 'i386-apple-darwin$DARWIN_VERS-ar'; so make them.
 # Annoyingly, ranlib changes behaviour depending on what you call it,
 # so we have to use a shell script for indirection, grrr.
 rm -rf $DIR/bin || exit 1
 mkdir $DIR/bin || exit 1
 for prog in ar nm ranlib ; do
   for t in `echo $TARGETS $HOSTS | sort -u`; do
-    P=$DIR/bin/${t}-apple-darwin-${prog}
+    P=$DIR/bin/${t}-apple-darwin$DARWIN_VERS-${prog}
     echo '#!/bin/sh' > $P || exit 1
     echo 'exec /usr/bin/'${prog}' $*' >> $P || exit 1
     chmod a+x $P || exit 1
@@ -155,8 +163,8 @@ for t in $TARGETS ; do
   mkdir -p $DIR/obj-$BUILD-$t $DIR/dst-$BUILD-$t || exit 1
    cd $DIR/obj-$BUILD-$t || exit 1
    $SRC_DIR/configure $CONFIGFLAGS  \
-     --program-prefix=$t-apple-darwin- \
-     --host=$BUILD-apple-darwin --target=$t-apple-darwin || exit 1
+     --program-prefix=$t-apple-darwin$DARWIN_VERS- \
+     --host=$BUILD-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
    make $MAKEFLAGS all CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
    make $MAKEFLAGS DESTDIR=$DIR/dst-$BUILD-$t install-gcc install-target \
      CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -169,7 +177,7 @@ done
 # Rearrange various libraries, for no really good reason.
 for t in $TARGETS ; do
   DT=$DIR/dst-$BUILD-$t
-  D=`echo $DT/usr/lib/gcc/$t-apple-darwin/$VERS`
+  D=`echo $DT/usr/lib/gcc/$t-apple-darwin$DARWIN_VERS/$VERS`
   if [ $t == $BUILD ] ; then
     mv $DT/usr/lib/libstdc++.a $D || exit 1
     mv $DT/usr/lib/libsupc++.a $D || exit 1
@@ -179,7 +187,7 @@ for t in $TARGETS ; do
 	mv $DT/usr/lib/ppc64/libsupc++.a $D/ppc64 || exit 1
     fi
   else
-    DD=$DT/usr/${t}-apple-darwin/lib
+    DD=$DT/usr/${t}-apple-darwin$DARWIN_VERS/lib
     mv $DD/libstdc++.a $D || exit 1
     mv $DD/libsupc++.a $D || exit 1
     # 64-bit bringup
@@ -202,12 +210,12 @@ for h in $HOSTS ; do
       if [ $h = $t ] ; then
 	pp=
       else
-	pp=$t-apple-darwin-
+	pp=$t-apple-darwin$DARWIN_VERS-
       fi
 
       $SRC_DIR/configure $CONFIGFLAGS \
         --program-prefix=$pp \
-        --host=$h-apple-darwin --target=$t-apple-darwin || exit 1
+        --host=$h-apple-darwin$DARWIN_VERS --target=$t-apple-darwin$DARWIN_VERS || exit 1
       make $MAKEFLAGS all-gcc CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
       make $MAKEFLAGS DESTDIR=$DIR/dst-$h-$t install-gcc \
         CFLAGS="$CFLAGS" CXXFLAGS="$CFLAGS" || exit 1
@@ -235,13 +243,13 @@ cp -Rp $DIR/dst-$BUILD-$BUILD$DEST_ROOT/share/man .$DEST_ROOT/share/ \
   || exit 1
 
 # libexec
-cd $DIR/dst-$BUILD-$BUILD$DEST_ROOT/libexec/gcc/$BUILD-apple-darwin/$VERS \
+cd $DIR/dst-$BUILD-$BUILD$DEST_ROOT/libexec/gcc/$BUILD-apple-darwin$DARWIN_VERS/$VERS \
   || exit 1
 LIBEXEC_FILES=`find . -type f -print || exit 1` 
 LIBEXEC_DIRS=`find . -type d -print || exit 1`
 cd $DEST_DIR || exit 1
 for t in $TARGETS ; do
-  DL=$DEST_ROOT/libexec/gcc/$t-apple-darwin/$VERS
+  DL=$DEST_ROOT/libexec/gcc/$t-apple-darwin$DARWIN_VERS/$VERS
   for d in $LIBEXEC_DIRS ; do
     mkdir -p .$DL/$d || exit 1
   done
@@ -269,16 +277,16 @@ lipo -output .$DEST_ROOT/bin/gcov-$MAJ_VERS -create \
   $DIR/dst-*-$TARG0$DEST_ROOT/bin/*gcov* || exit 1
 # The fully-named drivers, which have the same target on every host.
 for t in $TARGETS ; do
-  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS || exit 1
-  lipo -output .$DEST_ROOT/bin/$t-apple-darwin-g++-$VERS -create \
-    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin-g++ || exit 1
+  lipo -output .$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS -create \
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS || exit 1
+  lipo -output .$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-g++-$VERS -create \
+    $DIR/dst-*-$t$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-g++ || exit 1
 done
 
 # lib
 mkdir -p .$DEST_ROOT/lib/gcc || exit 1
 for t in $TARGETS ; do
-  cp -Rp $DIR/dst-$BUILD-$t$DEST_ROOT/lib/gcc/$t-apple-darwin \
+  cp -Rp $DIR/dst-$BUILD-$t$DEST_ROOT/lib/gcc/$t-apple-darwin$DARWIN_VERS \
     .$DEST_ROOT/lib/gcc || exit 1
 done
 
@@ -286,9 +294,9 @@ SHARED_LIBS=`ls $DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib | grep '\.dylib$'`
 for l in $SHARED_LIBS ; do
   F=$DIR/dst-$BUILD-$BUILD$DEST_ROOT/lib/$l
   if [ \! -L $F ] ; then
-    if [ -f $DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin/lib/$l ] ; then
+    if [ -f $DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin$DARWIN_VERS/lib/$l ] ; then
       lipo -output .$DEST_ROOT/lib/$l -create $F \
-	$DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin/lib/$l || exit 1
+	$DIR/dst-$BUILD-*$DEST_ROOT/*-apple-darwin$DARWIN_VERS/lib/$l || exit 1
     else
       cp -p $F .$DEST_ROOT/lib/$l || exit 1
     fi
@@ -297,7 +305,7 @@ for l in $SHARED_LIBS ; do
     F0=`echo $l | sed 's/\(\.[0-9]\{1,\}\)\{1,\}\.dylib/.dylib/'`
     ln -s $l .$DEST_ROOT/lib/$F1 || exit 1
     for t in $TARGETS ; do
-      ln -s ../../../$F1 .$DEST_ROOT/lib/gcc/$t-apple-darwin/$VERS/$F0 \
+      ln -s ../../../$F1 .$DEST_ROOT/lib/gcc/$t-apple-darwin$DARWIN_VERS/$VERS/$F0 \
         || exit 1
     done
   fi
@@ -338,7 +346,7 @@ for l in $SHARED_LIBS ; do
       USINGPATH=.$DEST_ROOT/lib/$usinglib
       if [ -f $USINGPATH ] ; then
         for t1 in $TARGETS ; do
-          BADPATH=$DEST_ROOT/$t-apple-darwin/lib/$l 
+          BADPATH=$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/$l 
           GOODPATH=$DEST_ROOT/lib/$F1
           # Deal with the weird names generated for cross compiler portions.
           install_name_tool -change $BADPATH $GOODPATH $USINGPATH
@@ -356,7 +364,7 @@ cp -Rp $DIR/dst-$BUILD-$BUILD$HEADERPATH/c++ \
 for t in $TARGETS ; do
   DS=$HEADERPATH/c++
   [ $t = $BUILD ] || \
-    cp -Rp $DIR/dst-$BUILD-$t$DS/$t-apple-darwin .$DS/ || exit 1
+    cp -Rp $DIR/dst-$BUILD-$t$DS/$t-apple-darwin$DARWIN_VERS .$DS/ || exit 1
 done
 
 # Some headers are installed from more-hdrs/.  They all share
@@ -371,7 +379,7 @@ for h in `echo [^C]*` ; do
   if [ $h != assert.h -o ! -f /usr/include/assert.h -o -L /usr/include/assert.h ] ; then
     cp -R $h $DEST_DIR$HEADERPATH/$h || exit 1
     for t in $TARGETS ; do
-      THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin/$VERS/include
+      THEADERPATH=$DEST_DIR$DEST_ROOT/lib/gcc/${t}-apple-darwin$DARWIN_VERS/$VERS/include
       [ -f $THEADERPATH/$h ] || \
         ln -s ../../../../../include/gcc/darwin/$MAJ_VERS/$h $THEADERPATH/$h || \
         exit 1
@@ -388,29 +396,29 @@ ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
    $DEST_DIR$DEST_ROOT/share/man/man1/c++-$MAJ_VERS.1
 for t in $TARGETS ; do
   ln -f $DEST_DIR$DEST_ROOT/share/man/man1/gcc-$MAJ_VERS.1 \
-     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin-gcc-$VERS.1
+     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin$DARWIN_VERS-gcc-$VERS.1
   ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
-     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin-g++-$VERS.1
+     $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin$DARWIN_VERS-g++-$VERS.1
 done
 
 # Build driver-driver using fully-named drivers
 for t in $TARGETS ; do
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	-DPDN="\"-apple-darwin-gcc-$VERS\""                                    \
+	-DPDN="\"-apple-darwin$DARWIN_VERS-gcc-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
 	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
-	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin/lib/                    \
+	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/                    \
 	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-gcc-$MAJ_VERS || exit 1
 
-    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin-gcc-$VERS                          \
+    $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	-DPDN="\"-apple-darwin-g++-$VERS\""                                    \
+	-DPDN="\"-apple-darwin$DARWIN_VERS-g++-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
 	-liberty -L$DIR/dst-$BUILD-$t$DEST_ROOT/lib/                           \
-	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin/lib/                    \
+	-L$DIR/dst-$BUILD-$t$DEST_ROOT/$t-apple-darwin$DARWIN_VERS/lib/                    \
 	-o $DEST_DIR/$DEST_ROOT/bin/tmp-$t-g++-$MAJ_VERS || exit 1
 done
 
