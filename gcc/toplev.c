@@ -3052,7 +3052,7 @@ rest_of_compilation (decl)
 	    {
 	      /* Mark unused registers.  This is needed to turn divmods back into
 		 corresponding divs/mods.  */
-	      life_analysis (get_insns (), NULL, PROP_FINAL);
+	      life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
 	    }
 	  branch_prob ();
 	}
