@@ -1,6 +1,5 @@
 #ifndef TREE_ALIAS_TYPE_H
 #define TREE_ALIAS_TYPE_H
-#include "tree.h"
 
 struct ECR_def;
 typedef struct ECR_def *ECR;
