@@ -1,5 +1,9 @@
 2004-01-04  Paul Brook  <paul@codesourcery.com>
 
+	* lang.opt (i8, r8, std=*): Remove RejectNegative.
+
+2004-01-04  Paul Brook  <paul@codesourcery.com>
+
 	* error.c (gfc_notify_std): New function.
 	* gfortran.h (gfc_notify_std): Declare.
 	(GFC_STD_*): Define.
