@@ -1,3 +1,14 @@
+2004-03-05  Olga Rodimina  <rodimina@redhat.com>
+
+	gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(GdkGraphics2D (BufferedImage)): Initialize
+	pixmap associated with specified BufferedImage.
+	(setPaint): Changed implementation of Texture
+	Paint to use AffineTransformOp.
+	* java/awt/image/AffineTransformOp.java
+	(createCompatibleDestRaster): Throw RasterFormatException 
+	if resulting width or height of raster is 0.
+
 2004-03-04  Olga Rodimina  <rodimina@redhat.com>
 
 	* java/awt/image/AffineTransformOp.java:

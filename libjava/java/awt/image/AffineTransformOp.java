@@ -129,14 +129,22 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      * source raster and correct number of bands 
      *
      * @param src source raster
+     * @throws RasterFormatException if resulting width or height of raster is 0
      * @return new compatible raster
      */
 
     public WritableRaster createCompatibleDestRaster (Raster src)
     {
       Rectangle rect = (Rectangle) getBounds2D (src);
+      
+      // throw RasterFormatException if resulting width or height of the
+      // transformed raster is 0
+
+      if (rect.getWidth () == 0 || rect.getHeight () == 0) 
+        throw new RasterFormatException("width or height is 0");
+
       return src.createCompatibleWritableRaster ((int) rect.getWidth (), 
-                                                 (int) rect.getHeight ());
+                                                (int) rect.getHeight ());
     }
 
     /**

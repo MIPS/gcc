@@ -197,6 +197,11 @@ public class GdkGraphics2D extends Graphics2D
     setRenderingHints (getDefaultHints());
 
     stateStack = new Stack();
+    
+    // draw current buffered image to the pixmap associated 
+    // with it.
+    
+    drawImage (bimage, new AffineTransform (1,0,0,1,0,0), null);
   }
 
 
@@ -560,11 +565,14 @@ public class GdkGraphics2D extends Graphics2D
 
         int width = (int) tp.getAnchorRect ().getWidth ();
         int height = (int) tp.getAnchorRect ().getHeight ();
-        GdkGraphics2D gr =  (GdkGraphics2D) img.createGraphics ();
-        gr.drawImage(img, 0, 0, width, height, 
-                     0, 0, img.getWidth (), img.getHeight (), null);
 	
-        int pixels[] = img.getRGB (0, 0, width, height, null, 0, width);
+        double scaleX = width / (double) img.getWidth ();
+        double scaleY = width / (double) img.getHeight ();
+	 
+        AffineTransform at = new AffineTransform (scaleX, 0, 0, scaleY, 0, 0);
+        AffineTransformOp op = new AffineTransformOp (at, getRenderingHints());
+        BufferedImage texture = op.filter(img, null);
+        int pixels[] = texture.getRGB (0, 0, width, height, null, 0, width);
         setTexturePixels (pixels, width, height, width);
 
       }
