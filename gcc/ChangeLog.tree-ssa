@@ -1,3 +1,10 @@
+2003-03-10  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mx_xfn_indirect_ref): Allow unfolded "& ptr->field"
+	constructs to pass uninstrumented.  Remove TREE_ADDRESSABLE settings.
+	Keep array accesses to non-ADDRESSABLE objects uninstrumented.  Update
+	__MF_TYPE_* constants for __mf_register calls.
+
 2003-03-10  Jeff Law  <law@redhat.com>
 
 	* c-decl.c (c_expand_body_1): Update comments relating to
@@ -18,7 +25,6 @@
 	expand_call_inline when we're working with gimple form.
 	* Makefile.in (tree-inline.o): Update dependencies.
 	* tree.h (keep_function_tree_in_gimple_form): Prototype.
-
 
 2003-03-10  Andrew MacLeod  <amacleod@redhat.com>
 

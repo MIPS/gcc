@@ -768,6 +768,21 @@ mx_xfn_indirect_ref (t, continue_p, data)
       ; /* Continue traversal.  */
       break;
 
+      /* Catch unfolded "& ptr->field" constructs that come from the
+	 C++ front-end. */
+    case ADDR_EXPR:
+      {
+	tree arg = TREE_OPERAND (*t, 0);
+	if (TREE_CODE (arg) == COMPONENT_REF
+	    && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF)
+	  {
+	    mx_flag (TREE_OPERAND (arg, 0));
+	    mx_flag (arg);
+	    mx_flag (*t);
+	  }
+      }
+      break;
+
     case ARRAY_REF:
       {
 	tree base_array, base_obj_type, base_ptr_type;
@@ -790,9 +805,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
 
 	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
-
-	TREE_ADDRESSABLE (base_array) = 1;
-
 
 	/* Maybe we have an expression like ptr->array[4].  In this
 	   case, we don't want to check (*ptr), since ptr+sizeof(*ptr)
@@ -840,26 +852,18 @@ mx_xfn_indirect_ref (t, continue_p, data)
 				     base_ptr_type,
 				     mx_flag (*t)));
 	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
-	TREE_ADDRESSABLE (*t) = 1;
 
 	/* As an optimization, omit checking if the base object is
 	   known to be large enough.  Only certain kinds of
 	   declarations and indexes/sizes are trustworthy.  */
-	if (TREE_CODE (check_size) == INTEGER_CST && /* constant offset */
-	    TREE_CODE (base_array) == VAR_DECL && /* not a PARM_DECL */
-	    ! DECL_EXTERNAL (base_array) && /* has known size */
-	    TREE_CODE (TREE_TYPE (base_array)) == ARRAY_TYPE && /* an array */
-	    ((size_t) int_size_in_bytes (TREE_TYPE (base_array)) >= (size_t) TREE_INT_CST_LOW (check_size) &&
-	     TREE_INT_CST_HIGH (check_size) == 0)) /* offset within bounds */
+	if (TREE_CODE (check_size) == INTEGER_CST /* constant offset */
+	    && TREE_CODE (base_array) == VAR_DECL /* not a PARM_DECL */
+	    && ! DECL_EXTERNAL (base_array) /* has known size */
+	    && TREE_CODE (TREE_TYPE (base_array)) == ARRAY_TYPE /* an array */
+	    && ! TREE_ADDRESSABLE (base_array) /* ought not to be __mf_registered */
+	    && ((size_t) int_size_in_bytes (TREE_TYPE (base_array)) >= (size_t) TREE_INT_CST_LOW (check_size)
+	    && TREE_INT_CST_HIGH (check_size) == 0)) /* offset within bounds */
 	  {
-#if 0
-	    warning ("mudflap is omitting array bounds checks");
-	    fprintf (stderr, "  for expression: ");
-	    print_generic_expr (stderr, *t, 0);
-	    fprintf (stderr, " array-size=%u", int_size_in_bytes (TREE_TYPE (base_array)));
-	    fprintf (stderr, " check-size=%u", TREE_INT_CST_LOW (check_size));
-	    fprintf (stderr, "\n");
-#endif
 	    if (check_decls != NULL_TREE) abort();
 	    break;
 	  }
@@ -1026,7 +1030,7 @@ mx_register_decls (decl, compound_expr)
 	    build_function_call (mf_unregister_fndecl,
 				 unregister_fncall_params);
 
-	  /* (& VARIABLE, sizeof (VARIABLE), __MF_LIFETIME_STACK=2) */
+	  /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK) */
 	  tree variable_name = mf_varname_tree (decl);
 	  tree register_fncall_params =
 	    tree_cons (NULL_TREE,
@@ -1038,10 +1042,11 @@ mx_register_decls (decl, compound_expr)
 				  convert (size_type_node, 
 					   TYPE_SIZE_UNIT (TREE_TYPE (decl))),
 				  tree_cons (NULL_TREE,
-					     build_int_2 (2, 0),
+					     build_int_2 (3, 0), /* __MF_TYPE_STACK */
 					     tree_cons (NULL_TREE,
 							variable_name,
 							NULL_TREE))));
+
 	  /* __mf_register (...) */
 	  tree register_fncall =
 	    build_function_call (mf_register_fndecl,
@@ -1052,8 +1057,6 @@ mx_register_decls (decl, compound_expr)
 	  add_tree (unregister_fncall, & finally_stmts);
 	  
 	  mx_flag (decl);
-	  /* Hint to inhibit any fancy register optimizations on this variable. */
-	  TREE_ADDRESSABLE (decl) = 1;
 	}
 
       decl = TREE_CHAIN (decl);
@@ -1177,10 +1180,6 @@ mudflap_enqueue_decl (obj, label)
   */
   if (DECL_P (obj) && DECL_EXTERNAL (obj) && DECL_ARTIFICIAL (obj))
     {
-#if 0
-	warning_with_decl (obj, "ignoring system extern decl `%s'",
-			   IDENTIFIER_POINTER (DECL_NAME (obj)));
-#endif
       return;
     }
 
@@ -1199,7 +1198,7 @@ mudflap_enqueue_decl (obj, label)
       tree call_stmt =
 	mflang_register_call (label,
 			      size_in_bytes (TREE_TYPE (obj)),
-			      build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+			      build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			      mf_varname_tree (obj));
 
       /* Link this call into the chain. */
@@ -1225,8 +1224,7 @@ mudflap_enqueue_decl (obj, label)
 	  found_p = 1;
       
       if (found_p)
-	warning_with_decl (obj, "mudflap cannot track lifetime of `%s'", 
-			   IDENTIFIER_POINTER (DECL_NAME (obj)));
+	warning ("mudflap cannot track lifetime of `%D'", obj);
       else
 	{
 	  VARRAY_PUSH_TREE (deferred_static_decls, obj);
@@ -1250,12 +1248,12 @@ mudflap_enqueue_constant (obj, label)
     (TREE_CODE (obj) == STRING_CST)
     ? mflang_register_call (label,
 			    build_int_2 (TREE_STRING_LENGTH (obj), 0),
-			    build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			    mx_flag (fix_string_type
 				     (build_string (15, "string literal"))))
     : mflang_register_call (label,
 			    size_in_bytes (TREE_TYPE (obj)),
-			    build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+			    build_int_2 (4, 0), /* __MF_TYPE_STATIC */
 			    mx_flag (fix_string_type
 				     (build_string (9, "constant"))));
     
