@@ -1,3 +1,22 @@
+2005-04-04  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* c-common.c (shorten_compare): For now, if decimal types involved,
+	bypass narrow to smallest comparable precision.
+	* dfp.c (decimal_from_string): Don't bother setting real_value.uexp.
+	(decimal_real_from_string):  Set real_value.decimal bit. 
+	(encode_decimal64), (decode_decimal64), (encode_decimal128),
+	(decode_decimal128): Formatting fixes.
+	(decimal_from_binary): Helper to convert from internal binary to
+	internal decimal encoding. 
+	(decimal_do_compare): Callout from real.c when decimal floats are
+	involved in the comparison. 
+	* dfp.h: Add decimal_do_compare().
+	* real.c (do_compare): Call out to decimal_do_compare() when decimal.
+	(real_convert): For now, don't convert when decimal floats are
+	involved. 
+	(decode_decimal_double): Formatting fix. 
+	* real.h:  Steal a bitfield for 'decimal' from real_value.uexp.
+
 2005-03-24  Ben Elliston  <bje@au.ibm.com>
 
 	Resolve merge conflicts:

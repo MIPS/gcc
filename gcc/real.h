@@ -35,7 +35,7 @@ enum real_value_class {
 };
 
 #define SIGNIFICAND_BITS	(128 + HOST_BITS_PER_LONG)
-#define EXP_BITS		(32 - 5)
+#define EXP_BITS		(32 - 6)
 #define MAX_EXP			((1 << (EXP_BITS - 1)) - 1)
 #define SIGSZ			(SIGNIFICAND_BITS / HOST_BITS_PER_LONG)
 #define SIG_MSB			((unsigned long)1 << (HOST_BITS_PER_LONG - 1))
@@ -46,6 +46,7 @@ struct real_value GTY(())
      sure they're packed together, otherwise REAL_VALUE_TYPE_SIZE will
      be miscomputed.  */
   unsigned int /* ENUM_BITFIELD (real_value_class) */ cl : 2;
+  unsigned int decimal : 1;
   unsigned int sign : 1;
   unsigned int signalling : 1;
   unsigned int canonical : 1;
@@ -68,7 +69,7 @@ struct real_value GTY(())
    consecutive "w" slots.  Moreover, we've got to compute the number of "w"
    slots at preprocessor time, which means we can't use sizeof.  Guess.  */
 
-#define REAL_VALUE_TYPE_SIZE (SIGNIFICAND_BITS + 32)
+#define REAL_VALUE_TYPE_SIZE (SIGNIFICAND_BITS + 32 + 32)
 #define REAL_WIDTH \
   (REAL_VALUE_TYPE_SIZE/HOST_BITS_PER_WIDE_INT \
    + (REAL_VALUE_TYPE_SIZE%HOST_BITS_PER_WIDE_INT ? 1 : 0)) /* round up */

@@ -36,6 +36,7 @@
 #define ENCODE_DECIMAL_QUAD(x,y,z)
 #define DECODE_DECIMAL_QUAD(x,y,z) 
 #define REAL_OR_DECIMAL_FROM_STRING(r, s, mode) real_from_string((r),(s))
+#define DECIMAL_DO_COMPARE(r1, r2, nan_result) ((nan_result)) 
 
 #else
 
@@ -51,8 +52,9 @@ void encode_decimal128 (const struct real_format *fmt,
 			long *, const REAL_VALUE_TYPE *);
 void decode_decimal128 (const struct real_format *,
 			REAL_VALUE_TYPE *, const long *);
-void decimal_real_from_string (REAL_VALUE_TYPE *, const char *, 
+void decimal_real_from_string (REAL_VALUE_TYPE *, const char *,
 			       enum machine_mode );
+int decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 
 #define ENCODE_DECIMAL_SINGLE encode_decimal32
 #define DECODE_DECIMAL_SINGLE decode_decimal32
@@ -61,8 +63,8 @@ void decimal_real_from_string (REAL_VALUE_TYPE *, const char *,
 #define ENCODE_DECIMAL_QUAD encode_decimal128
 #define DECODE_DECIMAL_QUAD decode_decimal128
 #define REAL_OR_DECIMAL_FROM_STRING decimal_real_from_string
+#define DECIMAL_DO_COMPARE decimal_do_compare
 
 #endif
-
 
 #endif /* ! GCC_DFP_H */

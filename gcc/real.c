@@ -939,6 +939,9 @@ do_compare (const REAL_VALUE_TYPE *a, const REAL_VALUE_TYPE *b,
   if (a->sign != b->sign)
     return -a->sign - -b->sign;
 
+  if (a->decimal || b->decimal)
+    return DECIMAL_DO_COMPARE (a, b, nan_result);
+
   if (REAL_EXP (a) > REAL_EXP (b))
     ret = 1;
   else if (REAL_EXP (a) < REAL_EXP (b))
@@ -2386,9 +2389,8 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
   fmt = REAL_MODE_FORMAT (mode);
   gcc_assert (fmt);
 
-  /* FIXME: Fix real.c to be safe for other formats. For now, just
-     short-circuit.*/
-  if (fmt->b == 10)
+  /* FIXME: Short-circuit for now, but need to do something real here. */
+  if (a->decimal || fmt->b == 10)
     return;
 
   *r = *a;
@@ -4266,7 +4268,7 @@ decode_decimal_double (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED, 
 		       const long *buf ATTRIBUTE_UNUSED)
 {
-  DECODE_DECIMAL_DOUBLE(fmt, r, buf);
+  DECODE_DECIMAL_DOUBLE (fmt, r, buf);
 }
 
 static void 

@@ -2153,6 +2153,24 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	       == TYPE_PRECISION (TREE_TYPE (primop1))))
     type = TREE_TYPE (primop0);
 
+  else if (real1 && real2 && 
+	   (TYPE_MODE (TREE_TYPE (primop0)) 
+	    == TYPE_MODE (dfloat32_type_node) ||
+	    TYPE_MODE (TREE_TYPE (primop0)) 
+	    == TYPE_MODE (dfloat64_type_node) ||
+	    TYPE_MODE (TREE_TYPE (primop0)) 
+	    == TYPE_MODE (dfloat128_type_node) ||
+	    TYPE_MODE (TREE_TYPE (primop1))
+	    == TYPE_MODE (dfloat32_type_node) ||
+	    TYPE_MODE (TREE_TYPE (primop1))
+	    == TYPE_MODE (dfloat64_type_node) ||
+	    TYPE_MODE (TREE_TYPE (primop1))
+	    == TYPE_MODE (dfloat128_type_node)))
+    /* FIXME: Fix this for real someday. For now, ignore
+       narrowing of decimal floats.  Once real_convert works for
+       decimal floats, this can probably go away. */
+    return 0;
+
   /* If args' natural types are both narrower than nominal type
      and both extend in the same manner, compare them
      in the type of the wider arg.
