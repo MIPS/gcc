@@ -1,3 +1,76 @@
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-09-05  Mark Mitchell <mark@codesourcery.com>
+
+	PR bootstrap/17325
+	Backport from mainline
+	2004-06-23  Wu Yongwei  <adah@sh163.net>
+	* gthr-win32.h (__GTHREAD_MUTEX_INIT_DEFAULT): Adjust.
+	(__gthr_i486_lock_cmp_xchg): New inline assembly function.
+	(__GTHR_W32_InterlockedCompareExchange): New macro to choose a
+	suitable function for interlocked compare-and-exchange.
+	(__gthread_mutex_trylock): Use
+	__GTHR_W32_InterlockedCompareExchange.
+	(__gthread_mutex_init_function, __gthread_mutex_lock,
+	__gthread_mutex_trylock, __gthread_mutex_unlock): Adjust the
+	initial counter value to work correctly under Windows 95.
+	* config/i386/gthr-win32.c: Adjust include order.
+	Define __GTHREAD_I486_INLINE_LOCK_PRIMITIVES before including
+	gthr-win32.h.
+	(__gthr_win32_mutex_init_function, __gthr_win32_mutex_lock,
+	__gthr_win32_mutex_trylock, __gthr_win32_mutex_unlock): Adjust
+	to match inline versions in gthr-win32.h.
+
+	2004-04-27  Wu Yongwei  <adah@sh163.net>
+	* gthr-win32.h (__gthread_mutex_t): Change typedef to new structure.
+	(__GTHREAD_MUTEX_INIT_DEFAULT): Adjust.
+	(__gthread_mutex_init_function): Replace CreateMutex with
+	initialization of custom mutex using CreateSemaphore.
+	(__gthread_mutex_lock): Use InterlockedIncrement.
+	(__gthread_mutex_trylock): Use InterlockedCompareExchange.
+	(__gthread_mutex_unlock): Use InterlockedDecrement and
+	ReleaseSemaphore to unlock
+	* config/i386/gthr-win32.c (__gthread_mutex_init_function,
+	__gthread_mutex_lock, __gthread_mutex_trylock,
+	__gthread_mutex_unlock): Adjust to match inline versions in
+	gthr-win32.h.
+
+2004-09-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/17303
+	Backport from mainline:
+	2004-08-31  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (output_branch): Check the insn length possibly
+	in the delayed slot.
+
+2004-09-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR rtl-optimization/16408
+	* gcse.c (replace_store_insn): Fix LIBCALL/RETVAL notes.
+
+2004-09-01  Richard Henderson  <rth@redhat.com>
+
+        * config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
+        (TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
+                                                                                
+2004-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgcc-std.ver (GCC_3.4.2): Export also __trampoline_setup.
+
+2004-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (operand_equal_p): Require equal sign also for
+	FIX_{CEIL,TRUNC,FLOOR,ROUND}_EXPR.
+
+2004-08-31  Jeff Law  <law@redhat.com>
+
+	* gcse.c (remove_reachable_equiv_notes): Scan loops where
+	the store expression is killed for REG_EQUAL/REG_EQUIV notes
+	that need to be removed.
+
 2004-08-27  Jason Merrill  <jason@redhat.com>
 
 	PR c++/13684
@@ -17,11 +90,6 @@
 	* gthr-solaris.h, gthr-single.h, gthr-dce.h: Likewise.
 	* gthr-vxworks.h: Likewise.
 	* gthr.h: Document.
-
-2004-09-01  Jakub Jelinek  <jakub@redhat.com>
-
-	* fold-const.c (operand_equal_p): Require equal sign also for
-	FIX_{CEIL,TRUNC,FLOOR,ROUND}_EXPR.
 
 2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
 	    Brian Ryner  <bryner@brianryner.com>

@@ -7777,9 +7777,14 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	}
       bb = act->dest;
       
+      /* We used to continue the loop without scanning this block if the
+	 store expression was killed in this block.  That is wrong as
+	 we could have had a REG_EQUAL note with the store expression
+	 appear in the block before the insn which killed the store
+	 expression and that REG_EQUAL note needs to be removed as it
+	 is invalid.  */
       if (bb == EXIT_BLOCK_PTR
-	  || TEST_BIT (visited, bb->index)
-	  || TEST_BIT (ae_kill[bb->index], smexpr->index))
+	  || TEST_BIT (visited, bb->index))
 	{
 	  act = act->succ_next;
 	  continue;
@@ -7824,7 +7829,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 static void
 replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 {
-  rtx insn, mem, note, set, ptr;
+  rtx insn, mem, note, set, ptr, pair;
 
   mem = smexpr->pattern;
   insn = gen_move_insn (reg, SET_SRC (single_set (del)));
@@ -7846,6 +7851,26 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 	XEXP (ptr, 0) = insn;
 	break;
       }
+
+  /* Move the notes from the deleted insn to its replacement, and patch
+     up the LIBCALL notes.  */
+  REG_NOTES (insn) = REG_NOTES (del);
+
+  note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
+  if (note)
+    {
+      pair = XEXP (note, 0);
+      note = find_reg_note (pair, REG_LIBCALL, NULL_RTX);
+      XEXP (note, 0) = insn;
+    }
+  note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+  if (note)
+    {
+      pair = XEXP (note, 0);
+      note = find_reg_note (pair, REG_RETVAL, NULL_RTX);
+      XEXP (note, 0) = insn;
+    }
+
   delete_insn (del);
 
   /* Now we must handle REG_EQUAL notes whose contents is equal to the mem;
