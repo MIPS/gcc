@@ -55,7 +55,6 @@ ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
 THREAD_KIND=native
 GNATBIND = gnatbind
 ADA_FLAGS_TO_PASS = \
-	"ADA_CFLAGS=$(CFLAGS)" \
 	"ADA_FOR_BUILD=$(ADA_FOR_BUILD)" \
 	"ADA_INCLUDE_DIR=$(ADA_INCLUDE_DIR)" \
 	"ADA_RTL_OBJ_DIR=$(ADA_RTL_OBJ_DIR)" \
@@ -137,6 +136,12 @@ gnatfind$(exeext): $(CONFIG_H) prefix.o force
 gnatlbr$(exeext): $(CONFIG_H) prefix.o force
 	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
 		../gnatlbr$(exeext)
+
+# Gnatdll is extra tool only used on i386-pe targets
+
+gnatdll$(exeext): $(CONFIG_H) prefix.o force
+	$(MAKE) -C ada $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) \
+		../gnatdll$(exeext)
 
 # use target-gcc
 gnattools: $(GCC_PARTS) force

@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef _VARARGS_H
 #define _VARARGS_H
+#ifndef RC_INVOKED
 
 #ifdef __NeXT__
 
@@ -101,7 +102,7 @@ typedef __gnuc_va_list va_list;
 /* Michael Eriksson <mer@sics.se> at Thu Sep 30 11:00:57 1993:
    Sequent defines _VA_LIST_ in <machine/machtypes.h> to be the type to
    use for va_list (``typedef _VA_LIST_ va_list'') */
-#if !defined (_VA_LIST_) || defined (__BSD_NET2__) || defined (____386BSD____) || defined (__bsdi__) || defined (__sequent__) || defined (__FreeBSD__) || defined(WINNT)
+#if !defined (_VA_LIST_) || defined (__BSD_NET2__) || defined (____386BSD____) || defined (__bsdi__) || defined (__sequent__) || defined (__FreeBSD__) || defined(__WIN32__)
 /* The macro _VA_LIST_DEFINED is used in Windows NT 3.5  */
 #ifndef _VA_LIST_DEFINED
 /* The macro _VA_LIST is used in SCO Unix 3.2.  */
@@ -141,4 +142,5 @@ typedef __gnuc_va_list va_list;
 #undef _BSD_VA_LIST
 #endif
 
+#endif /* not RC_INVOKED */
 #endif /* _VARARGS_H */

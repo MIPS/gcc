@@ -4,7 +4,7 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision: 1.6 $
+ *                            $Revision: 1.7.2.2 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
@@ -28,7 +28,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -65,9 +65,17 @@
 #include "config.h"
 #include "system.h"
 #endif
+
+#if !defined __MINGW32__
 #include <sys/wait.h>
+#endif
 
 #if defined (__EMX__) || defined (MSDOS) || defined (_WIN32)
+#include <process.h>
+#include <ctype.h> /* for isalpha() */ 
+#ifndef HAVE_DOS_BASED_FILE_SYSTEM
+#define HAVE_DOS_BASED_FILE_SYSTEM 1
+#endif
 #elif defined (VMS)
 
 /* Header files and definitions for __gnat_set_file_time_name. */
@@ -117,13 +125,17 @@ struct vstring
 #include <utime.h>
 #endif
 
-#if defined (__EMX__) || defined (MSDOS) || defined (_WIN32)
-#include <process.h>
-#endif
-
 #if defined (_WIN32)
 #include <dir.h>
 #include <windows.h>
+static time_t win32_filetime		PARAMS ((HANDLE));
+static int win32_no_block_spawn 	PARAMS ((char *, char **));
+static int win32_wait			PARAMS ((int *));
+static void remove_handle 		PARAMS ((HANDLE));
+static void add_handle 			PARAMS ((HANDLE));
+static void plist_enter 		PARAMS ((void));
+static void plist_leave			PARAMS ((void));
+
 #endif
 
 #include "adaint.h"
@@ -165,6 +177,16 @@ struct vstring
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
 #endif
+
+/* Define IS_DIR_SEPARATOR.  */
+#ifndef IS_DIR_SEPARATOR
+# ifndef DIR_SEPARATOR_2
+#  define IS_DIR_SEPARATOR(CH) ((CH) == DIR_SEPARATOR)
+# else /* DIR_SEPARATOR_2 */
+#  define IS_DIR_SEPARATOR(CH) \
+	(((CH) == DIR_SEPARATOR) || ((CH) == DIR_SEPARATOR_2))
+# endif /* DIR_SEPARATOR_2 */
+#endif /* IS_DIR_SEPARATOR */
 
 char __gnat_dir_separator = DIR_SEPARATOR;
 
@@ -242,7 +264,7 @@ __gnat_to_gm_time (p_time, p_year, p_month, p_day, p_hours, p_mins, p_secs)
 /* Place the contents of the symbolic link named PATH in the buffer BUF,
    which has size BUFSIZ.  If PATH is a symbolic link, then return the number
    of characters of its content in BUF.  Otherwise, return -1.  For Windows,
-   OS/2 and vxworks, always return -1.  */
+   OS/2 and vxworks, always return -1.  CYGWIN supports symlinks.  */
 
 int    
 __gnat_readlink (path, buf, bufsiz)
@@ -250,7 +272,7 @@ __gnat_readlink (path, buf, bufsiz)
      char *buf;
      size_t bufsiz;
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) && !defined (__CYGWIN__)
   return -1;
 #elif defined (__INTERIX) || defined (VMS)
   return -1;
@@ -271,7 +293,7 @@ __gnat_symlink (oldpath, newpath)
      char *oldpath;
      char *newpath;
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) && !defined (__CYGWIN__)
   return -1;
 #elif defined (__INTERIX) || defined (VMS)
   return -1;
@@ -284,8 +306,9 @@ __gnat_symlink (oldpath, newpath)
 
 /* Try to lock a file, return 1 if success */
 
-#if defined (__vxworks) || defined (MSDOS) || defined (_WIN32)
-
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) \
+  || defined (__vxworks) || defined (VMS)
+             
 /* Version that does not use link. */
 
 int
@@ -301,28 +324,6 @@ __gnat_try_lock (dir, file)
   if (fd < 0) {
     return 0;
   }
-  close (fd);
-  return 1;
-}
-
-#elif defined (__EMX__) || defined (VMS)
-
-/* More cases that do not use link; identical code, to solve too long
-   line problem ??? */
-
-int
-__gnat_try_lock (dir, file)
-     char *dir;
-     char *file;
-{
-  char full_path [256];
-  int fd;
-
-  sprintf (full_path, "%s%c%s", dir, DIR_SEPARATOR, file);
-  fd = open (full_path, O_CREAT | O_EXCL, 0600);
-  if (fd < 0)
-    return 0;
-
   close (fd);
   return 1;
 }
@@ -395,7 +396,7 @@ __gnat_get_switch_character ()
 int
 __gnat_get_file_names_case_sensitive ()
 {
-#if defined (__EMX__) || defined (MSDOS) || defined (VMS) || defined(WINNT)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) || defined (VMS)
   return 0;
 #else
   return 1;
@@ -512,7 +513,7 @@ __gnat_open_read (path, fmode)
   return fd < 0 ? -1 : fd;
 }
 
-#if defined (__EMX__)
+#if defined (__EMX__) || defined (__MINGW32__)
 #define PERM (S_IREAD | S_IWRITE)
 #else
 #define PERM (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -713,7 +714,7 @@ __gnat_tmp_name (tmp_filename)
   if (tmpdir == NULL)
     strcpy (tmp_filename, "/tmp/gnat-XXXXXX");
   else
-    sprintf (tmp_filename, "%s/gnat-XXXXXX", tmpdir);
+    sprintf (tmp_filename, "%200s/gnat-XXXXXX", tmpdir);
 
   close (mkstemp(tmp_filename));
 #else
@@ -1219,10 +1220,6 @@ __gnat_set_env_value (name, value)
 #endif
 }
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 /* Get the list of installed standard libraries from the
    HKEY_LOCAL_MACHINE\SOFTWARE\Ada Core Technologies\GNAT\Standard Libraries
    key.  */
@@ -1326,9 +1323,9 @@ int
 __gnat_is_absolute_path (name)
      char *name;
 {
-  return (*name == '/' || *name == DIR_SEPARATOR
-#if defined(__EMX__) || defined(MSDOS) || defined(WINNT)
-      || strlen (name) > 1 && isalpha (name [0]) && name [1] == ':'
+  return ((*name == '/') || IS_DIR_SEPARATOR (*name)
+#if defined(HAVE_DOS_BASED_FILE_SYSTEM)
+      || (strlen (name) > 1 && isalpha (name [0]) && name [1] == ':')
 #endif
 	  );
 }
@@ -1449,7 +1446,7 @@ plist_enter ()
   EnterCriticalSection (&plist_cs);
 }
 
-void
+static void
 plist_leave ()
 {
   LeaveCriticalSection (&plist_cs);
@@ -1485,7 +1482,8 @@ add_handle (h)
   plist_leave();
 }
 
-void remove_handle (h)
+static void
+remove_handle (h)
      HANDLE h;
 {
   Process_List *pl, *prev;
@@ -1714,12 +1712,13 @@ __gnat_locate_regular_file (file_name, path_val)
   char *ptr;
 
   /* Handle absolute pathnames. */
-  for (ptr = file_name; *ptr && *ptr != '/' && *ptr != DIR_SEPARATOR; ptr++)
+  for (ptr = file_name;
+       *ptr && *ptr != '/' && !IS_DIR_SEPARATOR (*ptr); ptr++)
     ;
 
   if (*ptr != 0
-#if defined(__EMX__) || defined(MSDOS) || defined(WINNT)
-      || isalpha (file_name [0]) && file_name [1] == ':'
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
+      || (isalpha (file_name [0]) && file_name [1] == ':')
 #endif
      )
     {
@@ -1748,7 +1747,7 @@ __gnat_locate_regular_file (file_name, path_val)
         *ptr++ = *path_val++;
 
       ptr--;
-      if (*ptr != '/' && *ptr != DIR_SEPARATOR)
+      if (*ptr != '/'  &&  !IS_DIR_SEPARATOR (*ptr))
         *++ptr = DIR_SEPARATOR;
 
       strcpy (++ptr, file_name);

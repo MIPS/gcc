@@ -1,0 +1,17 @@
+2002-07-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libsupc++/typeinfo (__GXX_MERGED_TYPEINFO_NAMES): Define to
+	0 for win32 targets to allow dynamic_cast to work across
+	dll boundaries.
+
+2002-06-22  Luke Dunstan  <coder_infidel@hotmail.com>
+
+	* config/os/mingw32/bits/cpu_limits.h: Fix typo in long double
+	numeric limits constants.
+
+2002-04-3  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libstdc++-v3/configure.target (CPULIMITSH): Set to
+	config/os/mingw32 for i?86-*-mingw32*.
+	* libstdc++-v3/config/os/mingw32/bits/cpu_limits.h:
+	New file.

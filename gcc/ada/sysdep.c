@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.4 $
+ *                            $Revision: 1.5.10.1 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -28,7 +28,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -172,6 +172,7 @@ __gnat_set_text_mode (handle)
 
 #ifdef __MINGW32__
 #include <windows.h>
+#include <conio.h>  /* for getch(), kbhit() */
 
 /* Return the name of the tty.   Under windows there is no name for
    the tty, so this function, if connected to a tty, returns the generic name
@@ -291,8 +292,8 @@ __gnat_ttyname (filedes)
 #endif
 
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
-  || (defined (__osf__) && ! defined (__alpha_vxworks)) || defined (WINNT) \
-  || defined (__MACHTEN__)
+  || (defined (__osf__) && ! defined (__alpha_vxworks))  \
+  || defined (__MACHTEN__) || defined (__CYGWIN__) || defined (__CYGWIN32__)
 #include <termios.h>
 
 #else
@@ -347,7 +348,7 @@ getc_immediate_common (stream, ch, end_of_file, avail, waiting)
 {
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
     || (defined (__osf__) && ! defined (__alpha_vxworks)) \
-    || defined (__CYGWIN32__) || defined (__MACHTEN__)
+    || defined (__CYGWIN32__) || defined (__CYGWIN__) || defined (__MACHTEN__)
   char c;
   int nread;
   int good_one = 0;
@@ -529,7 +530,7 @@ int   rts_get_nShowCmd      PARAMS ((void));
 char *
 rts_get_hInstance () 
 { 
-  return GetModuleHandleA (0); 
+  return (char *) GetModuleHandleA (0); 
 }
 
 char *

@@ -1,0 +1,241 @@
+2002-07-12  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/cygwin.h (CPP_SPEC): Fix include/w32api search behavior
+	in absence of -mwin32.  Always define STANDARD_INCLUDE_DIR when
+	required.
+	* config/i386/cygwin2.c (add_mingw): Tack /mingw on the end of
+	directories that have not been otherwise converted.
+	* config/t-cygming (STMP_FIXINC): Define.
+
+2002-07-05  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/cygming.h (TARGET_SUBTARGET_DEFAULT): Default to
+	MASK_ALIGN_DOUBLE for MSVC compatibility.
+	* config/i386/mingw32.h: Remove cygming.h include.  Assume that it is
+	already included in config.h.
+	* config/i386/cygwin.h: Ditto.
+	(LINK_SPEC): Don't use cyg search prefix when -mno-cygwin.
+	(GCC_DRIVER_HOST_INITIALIZATION): Avoid a compiler warning.
+	* config.gcc: Add cygming.h to mingw32 and cygwin targets.
+
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
+	* config.gcc: Use new common makefile stub for cygwin and mingw32.
+
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/t-cygming: New makefile stub.
+	* config/i386/t-cygwin: Assume existence of new makefile stub.
+	* config/i386/t-mingw32: Ditto.
+	* config/i386/cygming.h: New file.
+	* config/i386/cygwin.h: Use new common header file.
+	* config/i386/mingw32.h: Ditto.
+
+2002-06-27  Christopher Faylor  <cgf@redhat.com>
+
+	* gcc/config.gcc: Add extra files to cygwin targets.  Default cygwin to
+	posix threading.
+	* i386/cygwin.h: Simplify special spec logic.  Define "wrappers" around
+	certain path defines to accommodate -mno-cygwin.  Remove some #if 0'ed
+	code.
+	(GCC_DRIVER_HOST_INITIALIZATION): Define.
+	* gcc/config/i386/i386.h: Add appropriate whitespace to some _SPEC
+	defines.
+	* gcc/config/i386/t-cygwin: Add compilation rules for new cygwin
+	targets.
+	* cygwin1.c: New file.
+	* cygwin2.c: New file.
+
+2002-06-22  Casper S. Hornstrup  <chorns@users.sourceforge.net>
+
+	* gcc/config/i386/i386.c (ix86_comp_type_attributes): Fix
+	thinko in comparison of fastcall types.
+
+2002-05-28  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* doc/install.texi (binaries): Change mingw binaries
+	link to www.mingw.org.
+
+2002-05-28  Danny Smith  <dannysmith@users.sourforge.net>
+
+	* gthr-win32.h: Wrap all functions in extern "C".
+	(__gthread_key_t): Typedef as unsigned long,
+	not win32 DWORD.
+	(__GTHREAD_ONCE_INIT): Use 0, not win32 FALSE.
+	(__gthread_mutex_t): Typedef as void*, not win32 HANDLE.
+	(__gthr_win32_once, __gthr_win32_key_create,
+	__gthr_win32_key_delete, __gthr_win32_getspecific,
+	__gthr_win32_setspecific, __gthr_win32_mutex_init_function,
+	__gthr_win32_mutex_lock,__gthr_win32_mutex_trylock,
+	__gthr_win32_mutex_unlock): Declare.
+	(__gthread_once,__gthread_key_create,
+	__gthread_key_delete, __gthread_getspecific,
+	__gthread_setspecific, __gthread_mutex_init_function,
+	__gthread_mutex_lock,__gthread_mutex_trylock,
+	__gthread_mutex_unlock): Call corresponding
+	__gthr_win32_* extern implementations if #defined
+	__GTHREAD_HIDE_WIN32API.
+	* config/i386/t-mingw32 (LIB2FUNCS_EXTRA): Set to
+	$(srcdir)/config/i386/gthr-win32.c 
+	* config/i386/gthr-win32.c: New implementation file.
+	(__gthr_win32_once, __gthr_win32_key_create,
+	__gthr_win32_key_delete, __gthr_win32_getspecific,
+	__gthr_win32_setspecific, __gthr_win32_mutex_init_function,
+	__gthr_win32_mutex_lock,__gthr_win32_mutex_trylock,
+	__gthr_win32_mutex_unlock): New functions, based on
+	static inlines in gthr-win32.h.
+
+2002-05-24  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32.h (CPP_SPEC): Remove -remap.
+
+2002-05-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport fixes from 3.2 branch.  
+	Tue Apr 23 11:48:53 CEST 2002  Jan HUbicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_clrstr): Fix pasto.
+
+2002-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/winnt.c (associated_type): Remove test for
+	artificial methods.
+
+2002-05-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* ada/gnat_ug.texi (Replace @ifinfo with @ifnottex to allow
+	html output.
+
+2002-05-15  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Add Dwarf2 EH support for mingw.
+	* config/i386/mingw32.h (ENDFILE_SPEC): Define.
+	(STARTFILE_SPEC): Add crtbegin.o.
+	(DWARF2_UNWIND_INFO): Define.
+	* config.gcc(i[34567]86-*-mingw32*): Add crtbegin.o and
+	crtend.o as extra parts
+	* crtstuff.c : Add support for __MINGW32__ and __CYGWIN__.
+	* libgcc2.c (L__main): Don't compile for mingw32. 
+
+2002-05-07  Donn Terry  <donnte@microsoft.com>
+
+	* stor-layout.c (place_field): Bitfields force alignment of
+	record to underlying type if targetm.ms_bitfield_layout_p.
+
+2002-04-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/xm-mingw32.h (HOST_WIDEST_INT): Define.
+	(HOST_BITS_PER_WIDEST_INT): Define.
+	(HOST_WIDEST_INT_PRINT_DEC): Define.
+	(HOST_WIDEST_INT_PRINT_UNSIGNED): Define.
+	(HOST_WIDEST_INT_PRINT_HEX): Define.
+
+2002-04-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygwin.h (MASK_MS_BITFIELD_LAYOUT): New mask for
+	target switch -mms-bitfields.
+	(TARGET_USE_MS_BITFIELD_LAYOUT): New define, using mask.
+	(SUBTARGET_SWITCHES): Set mask, document -mms-bitfield switch.
+	* config/i386/i386.c (ix86_ms_bitfield_layout_p): Add new hook
+	function for TARGET_MS_BITFIELD_LAYOUT_P returning ...
+	(TARGET_USE_MS_BITFIELD_LAYOUT): Define to 0 if not defined
+	by subtarget.
+	* doc/invoke.texi (-mms-bitfields): Document target switch.
+	* testsuite/gcc.dg/bf-ms-layout.c: New file.
+	* testsuite/gcc.dg/bf-no-ms-layout.c: New file.
+
+2002-03-25  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygwin.h (TARGET_DLL, TARGET_WIN32,
+	TARGET_CYGWIN, TARGET_WINDOWS): Remove unused switch defines.
+	(MASK_DLL, MASK_WIN32, MASK_CYGWIN, MASK_WINDOWS):
+	Remove unnecessary masks.
+	(MASK_NOP_FUN_DLLIMPORT): Use an unused bit.
+	(SUBTARGET_SWITCHES): Use empty masks for -mwin32, -mcygwin,
+	-mwindows, -mdll switches and their negations.
+
+2002-03-24  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32.h (WINT_TYPE): Define as "short unsigned
+	int".
+
+2002-03-03  Danny Smith  <dannysmith@users.sourceforge.net>
+ 
+ 	* gthr-win32.h (__GTHREAD_MUTEX_INIT_DEFAULT): Define.
+
+2002-02-01  Danny Smith  <dannysmith@users.sourceforge.net>
+ 
+ 	* config/i386/mingw32.h (LIBGCC_SPEC): Add libmingwex.a.
+
+2001-11-05  Eric Kohl  <ekohl@rz-online.de> 
+
+	*config/i386/cygwin.h (CPP_SPEC): Add fastcall attributes.
+	(I386_PE_STRIP_ENCODING): Return length of internal fastcall
+	prefix (+).
+	(ASM_OUTPUT_LABELREF): Add _imp_ prefix now rather than in
+	winnt.c (i386_pe_mark_dllimport). Convert internal
+	fastcall decoration to MS-compatable decoration.
+	* config/i386/i386.h (CUMULATIVE_ARGS): Add fastcall attribute
+	 flag.
+	* config/i386/mingw32.h(CPP_SPEC): Add fastcall attributes.
+	* config/i386/i386.c (i386_valid_type_attribute_p): Accept
+	'fastcall' as a valid type attribute.
+	(i386_return_pops_args): Fastcall functions pop the stack.
+	(init_cumulative_args): Reserve registers ECX and EDX if
+	function has fastcall attribute.
+	(function_arg_advance): Take care of argument type restrictions
+	of fastcall functions.
+	(function_arg): Use registers ECX and EDX if function has
+	fastcall attribute.
+	* config/i386/winnt.c (i386_pe_mark_dllimport): Don't add _imp_
+	prefix now. It is done in ASM_OUTPUT_LABELREF in cygwin.h.
+	(gen_fastcall_suffix): New function. Decorates
+	a label name with a preliminary fastcall prefix (+) and the
+	stdcall suffix.
+	(i386_pe_encode_section_info): Calls gen_fastcall_suffix() if
+	a symbol has a fastcall attribute.
+	
+	* doc/extend.texi: Added documentation of fastcall attribute.
+
+2001-11-05  Danny Smith  <danny_r_smith_2001@yahoo.com.nz>
+
+	* config/i386/i386.c (i386_comp_type_attributes): Check for
+	mismatched fastcall types.
+	config/winnt.c (i386_pe_unmark_dllimport): Adjust for changes
+	in i386_pe_mark_dllimport.
+	(i386_pe_mark_dllexport): Likewise.
+
+2002-06-30  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* Makefile.in (PREPROCESSOR_DEFINES): Create a relative path
+	for LOCAL_INCLUDE_DIR.
+
+	* gcc.c (canon_filename): New function for converting '/' to
+	'\\' if __MINGW32__.
+	(execute): Use it when passing filenames to pexecute. 
+	* config/i386/xm-mingw32.h (DIR_SEPARATOR): Make '/' the
+	default.
+
+2001-06-20  Danny Smith  <danny_r_smith_2001@yahoo.co.nz>
+
+	* config/i386/winnt.c (i386_pe_dllimport_p): Don't mark
+	initialized variables as dllimported.
+
+2001-06-20  Mumit Khan  <khan@nanotech.wisc.edu>
+
+	* config/i386/winnt.c (i386_pe_unmark_dllimport): New static
+	function.
+	(i386_pe_encode_section_info): Use.
+	(i386_pe_mark_dllimport): Likewise.
+	(i386_pe_dllexport_p): Make static.
+	(i386_pe_dllimport_p): Likewise.
+	(i386_pe_mark_dllexport): Make static. Implement override rules 
+	and handle illegal dllimports/exports. 
+	(i386_pe_mark_dllimport): Likewise. Don't import C++ methods
+	and vtables.
+
+2001-06-20  Mumit Khan  <khan@nanotech.wisc.edu>
+
+	* ginclude/stdarg.h: Use RC_INVOKED guard for x86-win32 targets.
+	* ginclude/stddef.h: Likewise.
+	* ginclude/varargs.h: Likewise. Replace WINNT macro with __WIN32__. 

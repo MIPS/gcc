@@ -4,7 +4,7 @@
  *                                                                          *
  *                                 I N I T                                  *
  *                                                                          *
- *                            $Revision: 1.7 $
+ *                            $Revision: 1.8.10.1 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
@@ -28,7 +28,7 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -676,17 +676,17 @@ __gnat_initialize ()
 #elif defined (__MINGW32__)
 #include <windows.h>
 
-static LONG __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
+static LONG  CALLBACK __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
 
 /* __gnat_initialize (mingw32).  */
 
-static LONG
+static LONG  CALLBACK
 __gnat_error_handler (info)
      PEXCEPTION_POINTERS info;
 {
   static int recurse;
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (info->ExceptionRecord->ExceptionCode)
     {
