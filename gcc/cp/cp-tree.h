@@ -3847,7 +3847,6 @@ extern tree implicitly_declare_fn (special_function_kind, tree, bool);
 extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern void optimize_function (tree);
 extern bool calls_setjmp_p (tree);
 extern bool maybe_clone_body (tree);
 

@@ -46,27 +46,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static tree calls_setjmp_r (tree *, int *, void *);
 static void update_cloned_parm (tree, tree);
 
-/* Optimize the body of FN.  */
-
-void
-optimize_function (tree fn)
-{
-  if (flag_inline_trees
-      /* We do not inline thunks, as (a) the backend tries to optimize
-         the call to the thunkee, (b) tree based inlining breaks that
-         optimization, (c) virtual functions are rarely inlineable,
-         and (d) TARGET_ASM_OUTPUT_MI_THUNK is there to DTRT anyway.  */
-      && !DECL_THUNK_P (fn))
-    {
-      optimize_inline_calls (fn);
-
-      /* FIXME: The inliner is creating shared nodes.  This was causing a
-	 compile failure in g++.dg/opt/cleanup1.C because COMPONENT_REF
-	 nodes were being shared.  This is probably a bit heavy handed.  */
-      unshare_all_trees (DECL_SAVED_TREE (fn));
-    }
-}
-
 /* Called from calls_setjmp_p via walk_tree.  */
 
 static tree

@@ -1,5 +1,12 @@
 2003-12-12  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (remap_decl): Avoid invalid sharing.
+	* cp-tree.h (optimize_function): Kill.
+	* optimize.c (optimize_function): Kill.
+	* semantics.c (expand_body): Do not call optimize_function.
+
+2003-12-12  Jan Hubicka  <jh@suse.cz>
+
 	* cgraphunit.c (cgraph_optimize):  Do not decide inlining when not
 	inlining
 

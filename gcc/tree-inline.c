@@ -227,7 +227,7 @@ remap_decl (tree decl, inline_data *id)
       return t;
     }
 
-  return (tree) n->value;
+  return unshare_expr ((tree) n->value);
 }
 
 static tree
