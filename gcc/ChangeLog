@@ -1,3 +1,53 @@
+2002-07-18  Richard Henderson  <rth@redhat.com>
+
+	PR optimization/7147
+	* ifcvt.c (noce_get_condition): Make certain that the condition
+	is valid at JUMP.
+
+2002-07-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/linux.h (CRIS_LINK_SUBTARGET_SPEC): Don't
+	--gc-sections if -r.
+
+2002-07-15  Eric Botcazou  <ebotcazou@multimania.com>
+
+	PR optimization/7153
+	* regmove.c (optimize_reg_copy_3): Don't optimize if the register
+	dies in more than one insn.
+
+2002-07-15  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/sparc/netbsd-elf.h (TRANSFER_FROM_TRAMPOLINE): Remove.
+
+2002-07-15  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* bb-reorder.c (make_reorder_chain_1): Search harder for the vax
+	casesi fallthru edge.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Place redirection
+	block after ADDR_VEC.
+	* vax.md (casesi): Use emit_jump_insn.  Remove unused constraints.
+
+2002-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/7245
+	* config/i386/i386.c (const_int_1_31_operand): New.
+	* config/i386/i386.h (PREDICATE_CODES): Add it.
+	* config/i386/i386.md (ashlsi3_cmp, ashlsi3_cmp_zext, ashlhi3_cmp,
+	ashlqi3_cmp, ashrsi3_cmp, ashrsi3_cmp_zext, ashrhi3_cmp, ashrqi3_cmp,
+	lshrsi3_cmp, lshrsi3_cmp_zext, lshrhi3_cmp, lshrqi3_cmp): Use it.
+
+2002-06-11  Andreas Schwab  <schwab@suse.de>
+
+	* config/m68k/m68k.h (PREDICATE_CODES): Define.
+
+2002-07-15  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/7282
+	* config/rs6000/rs6000.md (floatsidf2): Enable for POWERPC64.
+	(floatunssidf2): Likewise.
+	(floatsidf_ppc64): New insn_and_split.
+	(floatunssidf_ppc64): Likewise.
+
 2002-07-12  Stephane Carrez  <stcarrez@nerim.fr>
 
 	* config/m68hc11/m68hc11.md ("zero_extendsidi2"): Use D_REG only for
