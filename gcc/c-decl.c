@@ -43,6 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
+#include "tree-opt.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -6659,6 +6660,13 @@ c_expand_body (fndecl, nested_p)
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
+
+  /* Invoke the SSA tree optimizer.  */
+  if (flag_tree_ssa)
+    {
+      init_tree_opt ();
+      optimize_tree (DECL_SAVED_TREE (fndecl));
+    }
 
   if (nested_p)
     {

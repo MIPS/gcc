@@ -1,3 +1,28 @@
+2001-07-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add tree-cfg.o, tree-dfa.o,
+	tree-ssa.o and tree-opt.o.
+	(c-decl.o): Add dependency on tree-opt.h
+	(tree-ssa.o): New rule.
+	(tree-cfg.o): New rule.
+	(tree-dfa.o): New rule.
+	(tree-opt.o): New rule.
+	* c-decl.c: Include tree-opt.h.
+	(c_expand_body): Call optimize_tree() when the -ftree-ssa flag is
+	given.
+	* flags.h (flag_tree_ssa): Declare.
+	* toplev.c (flag_tree_ssa): Define.
+	(lang_independent_options): Add -ftree-ssa.
+	* tree-cfg.c: New file.
+	* tree-dfa.c: New file.
+	* tree-flow.h: New file.
+	* tree-opt.c: New file.
+	* tree-opt.h: New file.
+	* tree-ssa.c: New file.
+	* cp/Make-lang.in (CXX_C_OBJS): Add tree-cfg.o, tree-dfa.o,
+	tree-opt.o and tree-ssa.o.
+	* doc/invoke.texi: Add documentation for -ftree-ssa.
+
 2001-07-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* Makefile.in (calls.o): Depend on intl.h.

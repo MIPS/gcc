@@ -274,7 +274,7 @@ in the following sections.
 -fschedule-insns  -fschedule-insns2 @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -fthread-jumps  -ftrapv @gol
--funroll-all-loops  -funroll-loops  @gol
+-ftree-ssa  -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3565,6 +3565,11 @@ those which have no call-preserved registers to use instead.
 
 For all machines, optimization level 2 and higher enables this flag by
 default.
+
+@item -ftree-ssa
+Enable optimizations on the tree representation based on the Static
+Single Assignment form (SSA). @emph{Note:} This feature is under
+development and should not be used in this version of GCC.
 
 @item -funroll-loops
 @opindex funroll-loops

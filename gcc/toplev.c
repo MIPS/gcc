@@ -896,6 +896,9 @@ int flag_bounds_check = 0;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* Enable the SSA tree optimizer.  */
+int flag_tree_ssa = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -1172,6 +1175,8 @@ lang_independent_options f_options[] =
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication.") },
+  { "tree-ssa", &flag_tree_ssa, 1,
+   N_("Enable SSA optimizations on trees.") },
 };
 
 /* Table of language-specific options.  */
