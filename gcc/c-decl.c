@@ -3335,18 +3335,13 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
      so we can give it its new name.  Also, update built_in_decls if it
      was a normal built-in.  */
   if (TREE_CODE (decl) == FUNCTION_DECL && asmspec)
+    /* APPLE LOCAL begin mainline radar 3845716 */
     {
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	{
-	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
-	  set_user_assembler_name (builtin, asmspec);
-	   if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
-	     init_block_move_fn (asmspec);
-	   else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
-	     init_block_clear_fn (asmspec);
-	 }
+	set_builtin_user_assembler_name (decl, asmspec);
       set_user_assembler_name (decl, asmspec);
     }
+    /* APPLE LOCAL end mainline   radar 3845716 */
 
   /* If #pragma weak was used, mark the decl weak now.  */
   if (current_scope == file_scope)

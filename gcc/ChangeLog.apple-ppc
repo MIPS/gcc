@@ -1,3 +1,11 @@
+2004-12-20  Matt Austern  <austern@apple.com>
+
+        Radar 3845716
+	PR c++/19044
+	* c-common.c (set_builtin_user_assembler_name): New.
+	* c-common.h (set_builtin_user_assembler_name): Declare.
+	* c-decl.c (finish_decl): Use set_builtin_user_assembler_name
+	
 2004-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3926488

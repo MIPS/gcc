@@ -4730,7 +4730,14 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	  DECL_HARD_REGISTER (decl) = 1;
 	}
       else
-	set_user_assembler_name (decl, asmspec);
+	{
+	  if (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	    /* APPLE LOCAL begin mainline radar 3845716 */
+	    set_builtin_user_assembler_name (decl, asmspec);
+	    /* APPLE LOCAL end mainline   radar 3845716 */
+	  set_user_assembler_name (decl, asmspec);
+	}
     }
 
   /* Handle non-variables up front.  */

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline radar 3845716 */
 // PR c++/19044
 // Verify that alternate asm name for builtin named "foo" also gets
 // applied to its sibling "__builtin_foo".
