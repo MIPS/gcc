@@ -1,0 +1,7 @@
+2004-01-22  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+	2003-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+		* com.c (ffecom_sym_transform_): Set tree type of offset
+		to ssizetype.
