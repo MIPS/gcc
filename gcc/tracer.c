@@ -129,12 +129,13 @@ construct_traces ()
 
   for (i = 0; i < numblocks; i++)
     {
-      basic_block bb = blocks [i];
+      basic_block seed = blocks [i];
 
-      while (!seen (bb))
+      while (!seen (seed))
 	{
 	  edge e;
-	  bool found = 0;
+	  bool found = false;
+	  basic_block bb = seed;
 
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Trace seed %i", bb->index);
@@ -179,7 +180,7 @@ construct_traces ()
 		}
 	      else if (rtl_dump_file)
 		fprintf (rtl_dump_file, "\n");
-	      found = 1;
+	      found = true;
 	      RBI (bb)->next = bb2;
 	      RBI (bb2)->visited = 1;
 	      bb = bb2;
@@ -229,6 +230,7 @@ tracer ()
   if (n_basic_blocks <= 1)
     return;
   cfg_layout_initialize ();
+  mark_dfs_back_edges ();
   construct_traces ();
   layout_traces ();
   if (rtl_dump_file)
