@@ -24,13 +24,12 @@ Boston, MA 02111-1307, USA.  */
 extern void optimization_options PARAMS ((int, int));
 extern void override_options PARAMS ((void));
 extern int s390_arg_frame_offset PARAMS ((void));
-extern void s390_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-extern void s390_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 extern void s390_emit_prologue PARAMS ((void));
 extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
 
 #ifdef RTX_CODE
+extern int q_constraint PARAMS ((rtx));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
 extern int larl_operand PARAMS ((rtx, enum machine_mode));
@@ -46,6 +45,7 @@ extern int s390_single_qi PARAMS ((rtx, enum machine_mode, int));
 extern int s390_extract_qi PARAMS ((rtx, enum machine_mode, int));
 
 extern int s390_match_ccmode PARAMS ((rtx, enum machine_mode));
+extern enum machine_mode s390_tm_ccmode PARAMS ((rtx, rtx, int));
 extern enum machine_mode s390_select_ccmode PARAMS ((enum rtx_code, rtx, rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 extern int legitimate_la_operand_p PARAMS ((rtx));
@@ -70,6 +70,7 @@ extern void s390_trampoline_template PARAMS ((FILE *));
 extern void s390_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx s390_gen_rtx_const_DI PARAMS ((int, int));
 extern rtx s390_simplify_dwarf_addr PARAMS ((rtx));
+extern void s390_machine_dependent_reorg PARAMS ((rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

@@ -513,6 +513,8 @@ adjust_field_rtx_def (t, opt)
 		t = rtx_tp, subname = "rtx";
 	      else if (i == NOTE && aindex == 4)
 		t = note_union_tp, subname = "";
+	      else if (i == NOTE && aindex >= 7)
+		t = scalar_tp, subname = "rtint";
 	      else if (i == ADDR_DIFF_VEC && aindex == 4)
 		t = scalar_tp, subname = "rtint";
 	      else if (i == VALUE && aindex == 0)
@@ -520,6 +522,8 @@ adjust_field_rtx_def (t, opt)
 	      else if (i == REG && aindex == 1)
 		t = scalar_tp, subname = "rtint";
 	      else if (i == SCRATCH && aindex == 0)
+		t = scalar_tp, subname = "rtint";
+	      else if (i == BARRIER && aindex >= 3)
 		t = scalar_tp, subname = "rtint";
 	      else
 		{
@@ -1696,7 +1700,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	      oprintf (of, "%*ssize_t i%d;\n", indent, "", loopcounter);
 	      oprintf (of, "%*sggc_set_mark (%s%s%s);\n", indent, "", 
 		       val, dot, f->name);
-	      oprintf (of, "%*sfor (i%d = 0; i%d < (", indent, "", 
+	      oprintf (of, "%*sfor (i%d = 0; i%d < (size_t)(", indent, "", 
 		       loopcounter, loopcounter);
 	      output_escaped_param (of, length, val, prev_val, "length", line);
 	      oprintf (of, "); i%d++) {\n", loopcounter);

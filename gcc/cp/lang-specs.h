@@ -38,26 +38,24 @@ Boston, MA 02111-1307, USA.  */
      /* We should convert -ansi to -std=c++98 even if -fpreprocessed,
 	to get dollars in identifiers correct.  */
     "%{E|M|MM:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
-       %{ansi:-std=c++98} %(cpp_options) %2 %(cpp_debug_options)}\
+       %(cpp_options) %2 %(cpp_debug_options)}\
      %{!E:%{!M:%{!MM:\
        %{save-temps:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
-		%{ansi:-std=c++98} %(cpp_options) %2 %b.ii \n}\
+		%(cpp_options) %2 %b.ii \n}\
       cc1plus %{save-temps:-fpreprocessed %b.ii}\
 	      %{!save-temps:%(cpp_unique_options) %{!no-gcc:-D__GNUG__=%v1}}\
-	%{ansi:-std=c++98} %(cc1_options) %2 %{+e1*}\
+	%(cc1_options) %2 %{+e1*}\
         -o %g.s %{!o*:--output-pch=%i.pch} %W{^o*:--output-pch=%*}%V}}}",
      CPLUSPLUS_CPP_SPEC},
   {"@c++",
-     /* We should convert -ansi to -std=c++98 even if -fpreprocessed,
-	to get dollars in identifiers correct.  */
     "%{E|M|MM:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
-       %{ansi:-std=c++98} %(cpp_options) %2 %(cpp_debug_options)}\
+       %(cpp_options) %2 %(cpp_debug_options)}\
      %{!E:%{!M:%{!MM:\
        %{save-temps:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
-		%{ansi:-std=c++98} %(cpp_options) %2 %b.ii \n}\
+		%(cpp_options) %2 %b.ii \n}\
       cc1plus %{save-temps:-fpreprocessed %b.ii}\
 	      %{!save-temps:%(cpp_unique_options) %{!no-gcc:-D__GNUG__=%v1}}\
-	%{ansi:-std=c++98} %(cc1_options) %2 %{+e1*}\
+	%(cc1_options) %2 %{+e1*}\
        %{!fsyntax-only:%(invoke_as)}}}}",
      CPLUSPLUS_CPP_SPEC},
   {".ii", "@c++-cpp-output", 0},

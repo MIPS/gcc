@@ -1098,7 +1098,7 @@ struct cum_arg
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \
   {"er5", 5}, {"er6", 6}, {"er7", 7}, {"r7", 7} }
 
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 #define SDB_DELIM	"\n"
 
 /* Support -gstabs.  */
@@ -1165,7 +1165,7 @@ struct cum_arg
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "%s.L%d\n", ASM_WORD_OP, VALUE)
+  fprintf (FILE, "%s.L%d\n", ASM_WORD_OP, VALUE)
 
 /* This is how to output an element of a case-vector that is relative.  */
 

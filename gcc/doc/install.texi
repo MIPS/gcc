@@ -384,6 +384,10 @@ default is @file{@var{libdir}}.
 Specify the installation directory for documentation in info format.
 The default is @file{@var{prefix}/info}.
 
+@item --datadir=@var{dirname}
+Specify the installation directory for some architecture-independent
+data files referenced by GCC@.  The default is @file{@var{prefix}/share}.
+
 @item --mandir=@var{dirname}
 Specify the installation directory for manual pages.  The default is
 @file{@var{prefix}/man}.  (Note that the manual pages are only extracts from
@@ -467,12 +471,49 @@ any in that directory---are not part of GCC@.  They are part of other
 programs---perhaps many others.  (GCC installs its own header files in
 another directory which is based on the @option{--prefix} value.)
 
+Both the local-prefix include directory and the GCC-prefix include
+directory are part of GCC's "system include" directories.  Although these
+two directories are not fixed, they need to be searched in the proper
+order for the correct processing of the include_next directive.  The
+local-prefix include directory is searched before the GCC-prefix
+include directory.  Another characteristic of system include directories
+is that pedantic warnings are turned off for headers in these directories.
+
+Some autoconf macros add @option{-I @var{directory}} options to the
+compiler command line, to ensure that directories containing installed
+packages' headers are searched.  When @var{directory} is one of GCC's
+system include directories, GCC will ignore the option so that system
+directories continue to be processed in the correct order.  This
+may result in a search order different from what was specified but the
+directory will still be searched.
+
+GCC automatically searches for ordinary libraries using
+@env{GCC_EXEC_PREFIX}.  Thus, when the same installation prefix is
+used for both GCC and packages, GCC will automatically search for
+both headers and libraries.  This provides a configuration that is
+easy to use.  GCC behaves in a manner similar to that when it is
+installed as a system compiler in @file{/usr}.
+
+Sites that need to install multiple versions of GCC may not want to
+use the above simple configuration.  It is possible to use the
+@option{--program-prefix}, @option{--program-suffix} and
+@option{--program-transform-name} options to install multiple versions
+into a single directory, but it may be simpler to use different prefixes
+and the @option{--with-local-prefix} option to specify the location of the
+site-specific files for each version.  It will then be necessary for
+users to specify explicitly the location of local site libraries
+(e.g., with @env{LIBRARY_PATH}).
+
+The same value can be used for both @option{--with-local-prefix} and
+@option{--prefix} provided it is not @file{/usr}.  This can be used
+to avoid the default search of @file{/usr/local/include}.
+
 @strong{Do not} specify @file{/usr} as the @option{--with-local-prefix}!
 The directory you use for @option{--with-local-prefix} @strong{must not}
 contain any of the system's standard header files.  If it did contain
 them, certain programs would be miscompiled (including GNU Emacs, on
 certain targets), because this would override and nullify the header
-file corrections made by the @code{fixincludes} script.
+file corrections made by the @command{fixincludes} script.
 
 Indications are that people who use this option use it based on mistaken
 ideas of what it is for.  People use it as if it specified where to
@@ -835,10 +876,10 @@ Some options which only apply to building cross compilers:
 @item --with-headers=@var{dir}
 Specifies a directory
 which has target include files.
-@emph{This options is required} when building a cross
+@emph{This option is required} when building a cross
 compiler, if @file{@var{prefix}/@var{target}/sys-include} doesn't pre-exist.
 These include files will be copied into the @file{gcc} install directory.
-Fixincludes will be run on these files to make them compatible with
+@command{fixincludes} will be run on these files to make them compatible with
 GCC.
 @item --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
 Specifies a list of directories which contain the target runtime
@@ -906,7 +947,7 @@ because you have previously configured the compiler in the source
 directory.  Make sure you have done all the necessary preparations.
 
 If you build GCC on a BSD system using a directory stored in an old System
-V file system, problems may occur in running @code{fixincludes} if the
+V file system, problems may occur in running @command{fixincludes} if the
 System V file system doesn't support symbolic links.  These problems
 result in a failure to fix the declaration of @code{size_t} in
 @file{sys/types.h}.  If you find that @code{size_t} is a signed type and
@@ -1291,10 +1332,8 @@ parts of the compiler in @file{@var{libdir}/gcc-lib}; documentation in
 info format in @file{@var{infodir}} (normally @file{@var{prefix}/info}).
 
 If you built a released version of GCC using @samp{make bootstrap} then please
-quickly review the build status page for
-@uref{http://gcc.gnu.org/gcc-3.1/buildstat.html,,3.1},
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0}, or
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
+quickly review the build status page for your release, available from
+@uref{http://gcc.gnu.org/buildstat.html}.
 If your system is not listed for the version of GCC that you built,
 send a note to
 @email{gcc@@gcc.gnu.org} indicating
@@ -1673,6 +1712,13 @@ As of GCC 3.2, versions before @code{alpha*-dec-osf4} are no longer
 supported.  (These are the versions which identify themselves as DEC
 OSF/1.)
 
+In Digital Unix V4.0, virtual memory exhausted bootstrap failures
+may be fixed by configuring with @option{--with-gc=simple},
+reconfiguring Kernel Virtual Memory and Swap parameters
+per the @command{/usr/sbin/sys_check} Tuning Suggestions,
+or applying the patch in
+@uref{http://gcc.gnu.org/ml/gcc/2002-08/msg00822.html}.
+
 In Tru64 UNIX V5.1, Compaq introduced a new assembler that does not
 currently (2001-06-13) work with @command{mips-tfile}.  As a workaround,
 we need to use the old assembler, invoked via the barely documented
@@ -1997,7 +2043,8 @@ longer a multiple of 2 bytes.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
-assembler.
+assembler.  The HP assembler does not work with the @samp{hppa64-hp-hpux11*}
+port.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2005,8 +2052,9 @@ use GAS and GDB and configure GCC with the
 @uref{./configure.html#with-gnu-as,,@option{--with-gnu-as}} and
 @option{--with-as=@dots{}} options.
 
-If you wish to use pa-risc 2.0 architecture support, you must use either
-the HP assembler, gas/binutils 2.11 or a recent
+If you wish to use the pa-risc 2.0 architecture support with a 32-bit
+runtime, you must use either the HP assembler, gas/binutils 2.11 or newer,
+or a recent
 @uref{ftp://sources.redhat.com/pub/binutils/snapshots,,snapshot of gas}.
 
 There are two default scheduling models for instructions.  These are
@@ -2078,14 +2126,34 @@ bootstrap}.
 @end html
 @heading @anchor{hppa*-hp-hpux11}hppa*-hp-hpux11
 
-GCC 3.0 and up support HP-UX 11.  You must use GNU binutils 2.11 or above on
-this platform.  Thread support is not currently implemented for this
-platform, so @option{--enable-threads} does not work.
-See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
+GCC 3.0 and up support HP-UX 11.  On 64-bit capable systems, there
+are two distinct ports.  The @samp{hppa2.0w-hp-hpux11*} port generates
+code for the 32-bit pa-risc runtime architecture.  It uses the HP
+linker and is currently the default selected by config.guess.  The
+optional @samp{hppa64-hp-hpux11*} port generates 64-bit code for the
+pa-risc 2.0 architecture.  It must be explicitly selected using the
+@samp{--host=hppa64-hp-hpux11*} configure option.  Different prefixes
+must be used if both ports are to be installed on the same system.
+
+You must use GNU binutils 2.11 or above with the 32-bit port.  Thread
+support is not currently implemented, so @option{--enable-threads} does
+not work.  See @uref{http://gcc.gnu.org/ml/gcc-prs/2002-01/msg00551.html}
 and @uref{http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00663.html}.
 GCC 2.95.x is not supported under HP-UX 11 and cannot be used to
 compile GCC 3.0 and up.  Refer to @uref{binaries.html,,binaries} for
 information about obtaining precompiled GCC binaries for HP-UX.
+
+GNU binutils 2.13 or later is recommended with the 64-bit port.
+The HP assembler is not supported.  It is @emph{highly} recommended
+that the GNU linker be used as well.  Either binutils must be built
+prior to gcc, or a binary distribution of gcc or binutils must be
+obtained for the initial builds.  When starting with a HP compiler,
+it is preferable to use the ANSI compiler as the bundled compiler
+only supports traditional C.  Bootstrapping with the bundled compiler
+is tested infrequently and problems often arise because of the subtle
+differences in semantics between traditional and ISO C.  There also
+have been problems reported with various binary distributions.  This
+port still is undergoing significant development.
 
 @html
 </p>
@@ -2336,6 +2404,35 @@ interoperate with GCC@.
 
 Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
 APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).
+
+@samp{libstdc++} in GCC 3.2 increments the major version number of the
+shared object and GCC installation places the @file{libstdc++.a}
+shared library in a common location which will overwrite the GCC 3.1
+version of the shared library.  Applications either need to be
+re-linked against the new shared library or the GCC 3.1 version of the
+@samp{libstdc++} shared object needs to be available to the AIX
+runtime loader.  The GCC 3.1 @samp{libstdc++.so.4} shared object can
+be installed for runtime dynamic loading using the following steps to
+set the @samp{F_LOADONLY} flag in the shared object for @emph{each}
+multilib @file{libstdc++.a} installed:
+
+Extract the shared object from each the GCC 3.1 @file{libstdc++.a}
+archive:
+@example
+   % ar -x libstdc++.a libstdc++.so.4
+@end example
+
+Enable the @samp{F_LOADONLY} flag so that the shared object will be
+available for runtime dynamic loading, but not linking:
+@example
+   % strip -e libstdc++.so.4
+@end example
+
+Archive the runtime-only shared object in the GCC 3.2
+@file{libstdc++.a} archive:
+@example
+   % ar -q libstdc++.a libstdc++.so.4
+@end example
 
 Linking executables and shared libraries may produce warnings of
 duplicate symbols.  The assembly files generated by GCC for AIX always

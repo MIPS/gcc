@@ -193,6 +193,7 @@ static void c4x_insert_attributes PARAMS ((tree, tree *));
 static void c4x_asm_named_section PARAMS ((const char *, unsigned int));
 static int c4x_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void c4x_encode_section_info PARAMS ((tree, int));
+static void c4x_globalize_label PARAMS ((FILE *, const char *));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -219,6 +220,9 @@ static void c4x_encode_section_info PARAMS ((tree, int));
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO c4x_encode_section_info
+
+#undef TARGET_ASM_GLOBALIZE_LABEL
+#define TARGET_ASM_GLOBALIZE_LABEL c4x_globalize_label
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1850,7 +1854,7 @@ c4x_print_operand (file, op, letter)
     {
     case '#':			/* Delayed.  */
       if (final_sequence)
-	asm_fprintf (file, "d");
+	fprintf (file, "d");
       return;
     }
 
@@ -1859,7 +1863,7 @@ c4x_print_operand (file, op, letter)
     {
     case 'A':			/* Direct address.  */
       if (code == CONST_INT || code == SYMBOL_REF || code == CONST)
-	asm_fprintf (file, "@");
+	fprintf (file, "@");
       break;
 
     case 'H':			/* Sethi.  */
@@ -1892,9 +1896,9 @@ c4x_print_operand (file, op, letter)
 	  op1 = XEXP (XEXP (op, 0), 1);
           if (GET_CODE(op1) == CONST_INT || GET_CODE(op1) == SYMBOL_REF)
 	    {
-	      asm_fprintf (file, "\t%s\t@", TARGET_C3X ? "ldp" : "ldpk");
+	      fprintf (file, "\t%s\t@", TARGET_C3X ? "ldp" : "ldpk");
 	      output_address (XEXP (adjust_address (op, VOIDmode, 1), 0));
-	      asm_fprintf (file, "\n");
+	      fprintf (file, "\n");
 	    }
 	}
       return;
@@ -1905,9 +1909,9 @@ c4x_print_operand (file, op, letter)
 	  && (GET_CODE (XEXP (op, 0)) == CONST
 	      || GET_CODE (XEXP (op, 0)) == SYMBOL_REF))
 	{
-	  asm_fprintf (file, "%s\t@", TARGET_C3X ? "ldp" : "ldpk");
+	  fprintf (file, "%s\t@", TARGET_C3X ? "ldp" : "ldpk");
           output_address (XEXP (op, 0));
-	  asm_fprintf (file, "\n\t");
+	  fprintf (file, "\n\t");
 	}
       return;
 
@@ -1927,7 +1931,7 @@ c4x_print_operand (file, op, letter)
 
     case 'U':			/* Call/callu.  */
       if (code != SYMBOL_REF)
-	asm_fprintf (file, "u");
+	fprintf (file, "u");
       return;
 
     default:
@@ -1964,43 +1968,43 @@ c4x_print_operand (file, op, letter)
       break;
       
     case NE:
-      asm_fprintf (file, "ne");
+      fprintf (file, "ne");
       break;
       
     case EQ:
-      asm_fprintf (file, "eq");
+      fprintf (file, "eq");
       break;
       
     case GE:
-      asm_fprintf (file, "ge");
+      fprintf (file, "ge");
       break;
 
     case GT:
-      asm_fprintf (file, "gt");
+      fprintf (file, "gt");
       break;
 
     case LE:
-      asm_fprintf (file, "le");
+      fprintf (file, "le");
       break;
 
     case LT:
-      asm_fprintf (file, "lt");
+      fprintf (file, "lt");
       break;
 
     case GEU:
-      asm_fprintf (file, "hs");
+      fprintf (file, "hs");
       break;
 
     case GTU:
-      asm_fprintf (file, "hi");
+      fprintf (file, "hi");
       break;
 
     case LEU:
-      asm_fprintf (file, "ls");
+      fprintf (file, "ls");
       break;
 
     case LTU:
-      asm_fprintf (file, "lo");
+      fprintf (file, "lo");
       break;
 
     case SYMBOL_REF:
@@ -5045,3 +5049,11 @@ c4x_asm_named_section (name, flags)
   fprintf (asm_out_file, "\t.sect\t\"%s\"\n", name);
 }
 
+static void
+c4x_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  default_globalize_label (stream, name);
+  c4x_global_label (name);
+}

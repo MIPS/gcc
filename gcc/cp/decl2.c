@@ -3500,7 +3500,10 @@ build_call_from_tree (tree fn, tree args, bool disallow_virtual)
       fn = TREE_OPERAND (fn, 0);
     }
   else
-    template_id = NULL_TREE;
+    {
+      template_id = NULL_TREE;
+      template_args = NULL_TREE;
+    }
 
   f = (TREE_CODE (fn) == OVERLOAD) ? get_first_fn (fn) : fn;
   /* Make sure we have a baselink (rather than simply a
@@ -4717,7 +4720,8 @@ mark_used (decl)
   TREE_USED (decl) = 1;
   if (processing_template_decl)
     return;
-  assemble_external (decl);
+  if (!skip_evaluation)
+    assemble_external (decl);
 
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL

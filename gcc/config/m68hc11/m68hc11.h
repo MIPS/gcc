@@ -49,7 +49,7 @@ Note:
 /* We need to tell the linker the target elf format.  Just pass an
    emulation option.  This can be overriden by -Wl option of gcc.  */
 #ifndef LINK_SPEC
-#define LINK_SPEC      "%{m68hc12:-m m68hc12elf}%{!m68hc12:-m m68hc11elf}"
+#define LINK_SPEC      "%{m68hc12:-m m68hc12elf}%{!m68hc12:-m m68hc11elf} %{mrelax:-relax}"
 #endif
 
 #ifndef LIB_SPEC
@@ -66,7 +66,8 @@ Note:
  %{!mshort:-D__INT__=32}\
  %{m68hc12:-Dmc6812 -DMC6812 -Dmc68hc12}\
  %{!m68hc12:-Dmc6811 -DMC6811 -Dmc68hc11}\
- %{fshort-double:-D__HAVE_SHORT_DOUBLE__}"
+ %{fshort-double:-D__HAVE_SHORT_DOUBLE__}\
+ %{mlong-calls:-D__USE_RTC__}"
 #endif
 
 #undef STARTFILE_SPEC
@@ -119,14 +120,18 @@ extern short *reg_renumber;	/* def in local_alloc.c */
 #define MASK_M6811              0010
 #define MASK_M6812              0020
 #define MASK_NO_DIRECT_MODE     0040
+#define MASK_MIN_MAX            0100
+#define MASK_LONG_CALLS         0200
 
 #define TARGET_OP_TIME		(optimize && optimize_size == 0)
 #define TARGET_SHORT            (target_flags & MASK_SHORT)
 #define TARGET_M6811            (target_flags & MASK_M6811)
 #define TARGET_M6812            (target_flags & MASK_M6812)
 #define TARGET_AUTO_INC_DEC     (target_flags & MASK_AUTO_INC_DEC)
+#define TARGET_MIN_MAX          (target_flags & MASK_MIN_MAX)
 #define TARGET_NO_DIRECT_MODE   (target_flags & MASK_NO_DIRECT_MODE)
 #define TARGET_RELAX            (TARGET_NO_DIRECT_MODE)
+#define TARGET_LONG_CALLS       (target_flags & MASK_LONG_CALLS)
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
@@ -159,6 +164,14 @@ extern short *reg_renumber;	/* def in local_alloc.c */
     N_("Auto pre/post decrement increment allowed")},		\
   { "noauto-incdec", - MASK_AUTO_INC_DEC,			\
     N_("Auto pre/post decrement increment not allowed")},	\
+  { "inmax", MASK_MIN_MAX,                                     \
+    N_("Min/max instructions allowed")},                        \
+  { "nominmax", MASK_MIN_MAX,                                   \
+    N_("Min/max instructions not allowed")},                    \
+  { "long-calls", MASK_LONG_CALLS,				\
+    N_("Use call and rtc for function calls and returns")},	\
+  { "nolong-calls", - MASK_LONG_CALLS,				\
+    N_("Use jsr and rts for function calls and returns")},	\
   { "relax", MASK_NO_DIRECT_MODE,                               \
     N_("Do not use direct addressing mode for soft registers")},\
   { "68hc11", MASK_M6811,					\
@@ -1122,7 +1135,7 @@ typedef struct m68hc11_args
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 #define FUNCTION_PROFILER(FILE, LABELNO)		\
-    asm_fprintf (FILE, "\tldy\t.LP%d\n\tjsr mcount\n", (LABELNO))
+    fprintf (FILE, "\tldy\t.LP%d\n\tjsr mcount\n", (LABELNO))
 /* Length in units of the trampoline for entering a nested function.  */
 #define TRAMPOLINE_SIZE		(TARGET_M6811 ? 11 : 9)
 
@@ -1549,6 +1562,45 @@ do {                                                                    \
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF 		"; End of inline assembler code\n#NO_APP\n"
 
+/* Write the extra assembler code needed to declare a function properly.
+   Some svr4 assemblers need to also have something extra said about the
+   function's return value.  We allow for that here.
+
+   For 68HC12 we mark functions that return with 'rtc'.  The linker
+   will ensure that a 'call' is really made (instead of 'jsr').
+   The debugger needs this information to correctly compute the stack frame.
+
+   For 68HC11/68HC12 we also mark interrupt handlers for gdb to
+   compute the correct stack frame.  */
+
+#undef ASM_DECLARE_FUNCTION_NAME
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
+  do							\
+    {							\
+      fprintf (FILE, "%s", TYPE_ASM_OP);		\
+      assemble_name (FILE, NAME);			\
+      putc (',', FILE);					\
+      fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
+      putc ('\n', FILE);				\
+      							\
+      if (TARGET_M6812 && current_function_far)		\
+        {						\
+          fprintf (FILE, "\t.far\t");			\
+	  assemble_name (FILE, NAME);			\
+	  putc ('\n', FILE);				\
+	}						\
+      else if (current_function_interrupt		\
+	       || current_function_trap)		\
+        {						\
+	  fprintf (FILE, "\t.interrupt\t");		\
+	  assemble_name (FILE, NAME);			\
+	  putc ('\b', FILE);				\
+	}						\
+      ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));	\
+      ASM_OUTPUT_LABEL(FILE, NAME);			\
+    }							\
+  while (0)
+
 /* Output #ident as a .ident.  */
 
 /* output external reference */
@@ -1598,18 +1650,18 @@ do {                                                                    \
 /* This is how to output an element of a case-vector that is relative.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  asm_fprintf (FILE, "\t%s\tL%d-L%d\n", integer_asm_op (2, TRUE), VALUE, REL)
+  fprintf (FILE, "\t%s\tL%d-L%d\n", integer_asm_op (2, TRUE), VALUE, REL)
 
 /* This is how to output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "\t%s\t.L%d\n", integer_asm_op (2, TRUE), VALUE)
+  fprintf (FILE, "\t%s\t.L%d\n", integer_asm_op (2, TRUE), VALUE)
 
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)			\
   do {                                                  \
       if ((LOG) > 1)                                    \
-          asm_fprintf ((FILE), "%s\n", ALIGN_ASM_OP); \
+          fprintf ((FILE), "%s\n", ALIGN_ASM_OP); \
   } while (0)
 
 
@@ -1703,3 +1755,4 @@ extern int debug_m6811;
 extern int z_replacement_completed;
 extern int current_function_interrupt;
 extern int current_function_trap;
+extern int current_function_far;

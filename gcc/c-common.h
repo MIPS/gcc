@@ -238,10 +238,8 @@ extern GTY(()) tree c_global_trees[CTI_MAX];
 
 typedef enum c_language_kind
 {
-  clk_c,           /* A dialect of C: K&R C, ANSI/ISO C89, C2000,
-		       etc.  */
-  clk_cplusplus,   /* ANSI/ISO C++ */
-  clk_objective_c  /* Objective C */
+  clk_c = 0,      /* A dialect of C: K&R C, ANSI/ISO C89, C2000, etc.  */
+  clk_cplusplus   /* ANSI/ISO C++ */
 }
 c_language_kind;
 
@@ -370,7 +368,6 @@ extern c_language_kind c_language;
 /* Nonzero if we can read a PCH file now.  */
 
 extern int allow_pch;
-
 
 /* Switches common to the C front ends.  */
 
@@ -387,6 +384,9 @@ extern const char *pch_file;
    user's namespace.  */
 
 extern int flag_iso;
+
+/* Nonzero whenever Objective-C functionality is being used.  */
+extern int flag_objc;
 
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
@@ -492,10 +492,6 @@ extern int warn_conversion;
 /* Warn about #pragma directives that are not recognised.  */      
 
 extern int warn_unknown_pragmas; /* Tri state variable.  */  
-
-/* Nonzero means warn about use of multicharacter literals.  */
-
-extern int warn_multichar;
 
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
@@ -622,12 +618,20 @@ extern int print_struct_values;
 
 /* ???.  Undocumented.  */
 
-const char *constant_string_class_name;
+extern const char *constant_string_class_name;
 
 /* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
+   different argument types.  Performs the check on the whole selector
+   table at the end of compilation.  */
 
 extern int warn_selector;
+
+/* Warn if a @selector() is found, and no method with that selector
+   has been previously declared.  The check is done on each
+   @selector() as soon as it is found - so it warns about forward
+   declarations.  */
+
+extern int warn_undeclared_selector;
 
 /* Warn if methods required by a protocol are not implemented in the 
    class adopting it.  When turned off, methods inherited to that
@@ -745,6 +749,11 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+extern int warn_abi;
+
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
@@ -806,8 +815,10 @@ extern int warn_deprecated;
 
 extern int max_tinst_depth;
 
+/* Nonzero means the expression being parsed will never be evaluated.
+   This is a count, since unevaluated expressions can nest.  */
 
-
+extern int skip_evaluation;
 
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
@@ -959,7 +970,7 @@ extern tree strip_array_types                   PARAMS ((tree));
 /* RETURN_STMT accessors. These give the expression associated with a
    return statement, and whether it should be ignored when expanding
    (as opposed to inlining).  */
-#define RETURN_EXPR(NODE)       TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
+#define RETURN_STMT_EXPR(NODE)  TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
 
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement.  */
@@ -1223,6 +1234,8 @@ extern int c_staticp                            PARAMS ((tree));
 extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
 extern const char *init_c_lex			PARAMS ((const char *));
+
+extern void cb_register_builtins		PARAMS ((cpp_reader *));
 
 /* Information recorded about each file examined during compilation.  */
 

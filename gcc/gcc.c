@@ -830,34 +830,32 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)\
-	  %(cpp_debug_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
-		%{ansi:-std=c89} %(cpp_options) %b.i \n\
+		%(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:\
-		cc1 %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)\
-	  %(cpp_debug_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
-		%{ansi:-std=c89} %(cpp_options) %b.i \n\
+		%(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)\
                         -o %g.s %{!o*:--output-pch=%i.pch}\
                         %W{^o*:--output-pch=%*}%V}\
 	  %{!save-temps:%{!traditional-cpp:\
-		cc1 %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)\
+		cc1 %(cpp_unique_options) %(cc1_options)\
                     -o %g.s %{!o*:--output-pch=%i.pch}\
                     %W{^o*:--output-pch=%*}%V}}}}}", 0},
   {".i", "@cpp-output", 0},

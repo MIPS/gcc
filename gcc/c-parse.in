@@ -563,6 +563,10 @@ alignof:
 	ALIGNOF { skip_evaluation++; }
 	;
 
+typeof:
+	TYPEOF { skip_evaluation++; }
+	;
+
 cast_expr:
 	unary_expr
 	| '(' typename ')' cast_expr  %prec UNARY
@@ -1395,10 +1399,10 @@ ifobjc
         | non_empty_protocolrefs
                 { $$ = get_object_reference ($1); }
 end ifobjc
-	| TYPEOF '(' expr ')'
-		{ $$ = TREE_TYPE ($3); }
-	| TYPEOF '(' typename ')'
-		{ $$ = groktypename ($3); }
+	| typeof '(' expr ')'
+		{ skip_evaluation--; $$ = TREE_TYPE ($3); }
+	| typeof '(' typename ')'
+		{ skip_evaluation--; $$ = groktypename ($3); }
 	;
 
 /* typespec_nonreserved_attr does not exist.  */
@@ -3547,7 +3551,7 @@ init_reswords ()
   int mask = (flag_isoc99 ? 0 : D_C89)
 	      | (flag_no_asm ? (flag_isoc99 ? D_EXT : D_EXT|D_EXT89) : 0);
 
-  if (c_language != clk_objective_c)
+  if (!flag_objc)
      mask |= D_OBJC;
 
   /* It is not necessary to register ridpointers as a GC root, because

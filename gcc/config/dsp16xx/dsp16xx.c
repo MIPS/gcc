@@ -1841,7 +1841,7 @@ print_operand(file, op, letter)
 	REAL_VALUE_TYPE r;
 	REAL_VALUE_FROM_CONST_DOUBLE (r, op);
 	REAL_VALUE_TO_TARGET_SINGLE (r, l);
-	fprintf (file, "0x%x", l);
+	fprintf (file, "0x%lx", l);
       }
     else if (code == CONST)
       {
@@ -2198,7 +2198,7 @@ asm_output_common(file, name, size, rounded)
      int rounded;
 {
     bss_section ();
-    ASM_GLOBALIZE_LABEL (file, name);
+    (*targetm.asm_out.globalize_label) (file, name);
     assemble_name (file, name);
     fputs (":", file);
     if (rounded > 1)

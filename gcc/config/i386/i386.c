@@ -1146,6 +1146,9 @@ override_options ()
 	       ix86_tls_dialect_string);
     }
 
+  if (profile_flag)
+    target_flags &= ~MASK_OMIT_LEAF_FRAME_POINTER;
+
   /* Keep nonleaf frame pointers.  */
   if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
@@ -1257,6 +1260,8 @@ optimization_options (level, size)
       flag_pcc_struct_return = 0;
       flag_asynchronous_unwind_tables = 1;
     }
+  if (profile_flag)
+    flag_omit_frame_pointer = 0;
 }
 
 /* Table of valid machine attributes.  */
@@ -1587,7 +1592,11 @@ classify_argument (mode, type, classes, bit_offset)
 {
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
-  int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  int words = (bytes + (bit_offset % 64) / 8 + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+
+  /* Variable sized entities are always passed/returned in memory.  */
+  if (bytes < 0)
+    return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
     {
@@ -1634,7 +1643,7 @@ classify_argument (mode, type, classes, bit_offset)
 		     return 0;
 		   for (i = 0; i < num; i++)
 		     {
-		       int pos = (offset + bit_offset) / 8 / 8;
+		       int pos = (offset + (bit_offset % 64)) / 8 / 8;
 		       classes[i + pos] =
 			 merge_classes (subclasses[i], classes[i + pos]);
 		     }
@@ -1671,7 +1680,7 @@ classify_argument (mode, type, classes, bit_offset)
 		      for (i = 0; i < num; i++)
 			{
 			  int pos =
-			    (int_bit_position (field) + bit_offset) / 8 / 8;
+			    (int_bit_position (field) + (bit_offset % 64)) / 8 / 8;
 			  classes[i + pos] =
 			    merge_classes (subclasses[i], classes[i + pos]);
 			}
@@ -1717,12 +1726,12 @@ classify_argument (mode, type, classes, bit_offset)
 
 		   num = classify_argument (TYPE_MODE (type),
 					    type, subclasses,
-					    (offset + bit_offset) % 256);
+					    (offset + (bit_offset % 64)) % 256);
 		   if (!num)
 		     return 0;
 		   for (i = 0; i < num; i++)
 		     {
-		       int pos = (offset + bit_offset) / 8 / 8;
+		       int pos = (offset + (bit_offset % 64)) / 8 / 8;
 		       classes[i + pos] =
 			 merge_classes (subclasses[i], classes[i + pos]);
 		     }
@@ -3926,7 +3935,7 @@ ix86_asm_file_end (file)
 	  (*targetm.asm_out.unique_section) (decl, 0);
 	  named_section (decl, NULL, 0);
 
-	  ASM_GLOBALIZE_LABEL (file, name);
+	  (*targetm.asm_out.globalize_label) (file, name);
 	  fputs ("\t.hidden\t", file);
 	  assemble_name (file, name);
 	  fputc ('\n', file);
@@ -8985,7 +8994,7 @@ ix86_expand_int_movcc (operands)
 		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
 	    }
 	  if (out != operands[0])
-	    emit_move_insn (operands[0], out);
+	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
 	}

@@ -22,6 +22,93 @@
 	* lib/gcc-dg.exp (gcc-dg-test): Add case for when $do_what is
 	"precompile".
 
+Sun Sep  1 12:47:39 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/class-tests-1.h (test_class_with_superclass): Call
+	[Object class], not [Object initialize].
+
+2002-08-31  Roger Sayle  <roger@eyesopen.com>
+	    Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip test on
+	mmix-knuth-mmixware.  Correct comment.
+
+2002-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/bitfield5.C: New test.
+	* testsuite/g++.dg/abi/vbase10.C: Likewise.
+
+Tue Aug 27 22:23:22 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc.dg/undeclared-selector.m: New test.
+
+2002-08-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/offsetof1.C: Avoid cast warning.
+
+2002-08-26  Ziemowit Laski  <zlaski@apple.com>
+
+        * objc.dg/super-class-2.m: New test.
+
+2002-08-24  Matt Austern  <austern@apple.com>
+
+	* g++.dg/ext/lvaddr.C: New test.
+	* g++.dg/ext/lvcast.C: New test.
+	
+2002-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/inherit/cond1.C: New test.
+
+2002-08-22  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/noncompile/incomplete-1.c: New test.
+
+2002-08-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/typespec-1.c: New test.
+
+2002-08-20  Devang Patel  <dpatel@apple.com>
+	* objc.dg/proto-hier-2.m: New test.
+	
+2002-08-19  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/bitfield-1.m: New test.
+	* objc.dg/bitfield-2.m: New test.
+
+2002-08-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-flex-array-1.c, gcc.dg/c99-flex-array-3.c,
+	gcc.dg/c99-flex-array-4.c: New tests.
+
+2002-08-16  Stan Shebs  <shebs@apple.com>
+
+	* objc/execute/selector-1.m: Add __NEXT_RUNTIME__ case.
+
+2002-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/typeof-1.c: New test.
+	* g++.dg/ext/typeof2.C: New test.
+
+2002-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/offsetof1.C: New test.
+
+2002-08-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tls/diag-3.c: Fix expected message strings.
+
+2002-08-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma3.c: New test.
+
+2002-08-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/inherit3: New test.
+
+2002-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/bitfld-4.c: Add blank options.
+
 2002-08-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/template/crash1.C: New test.
@@ -36,7 +123,7 @@
 	
 2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* g++.dg/abi/bitfield4.c: New test.
+	* g++.dg/abi/bitfield4.C: New test.
 	* gcc.dg/bitfld-4.c: New test.
 
 2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>

@@ -335,6 +335,9 @@ cpp_write_pch (r, f)
       return -1;
     }
 
+  if (!r->deps)
+    r->deps = deps_init ();
+
   if (deps_save (r->deps, f) != 0)
     {
       cpp_errno (r, DL_ERROR, "while writing precompiled header");

@@ -95,6 +95,7 @@ gnu::gcj::runtime::NameFinder::lookupInterp(RawData* addrs, jint n)
 
   _Jv_InterpMethod *meth
     = reinterpret_cast<_Jv_InterpMethod *> (stack[n].interp);
+  // FIXME: demangle.
   java::lang::StringBuffer *sb = new java::lang::StringBuffer();
   sb->append(_Jv_NewStringUtf8Const(meth->self->name));
   sb->append(_Jv_NewStringUtf8Const(meth->self->signature));
@@ -102,11 +103,9 @@ gnu::gcj::runtime::NameFinder::lookupInterp(RawData* addrs, jint n)
   // bytecode debug information.  But currently we don't keep that
   // around.
   // FIXME: is using the defining class correct here?
-  java::lang::String *className = meth->defining_class->getName();
-  java::lang::String *methodName
-	  = demangleInterpreterMethod(sb->toString(), className);
   return new java::lang::StackTraceElement(NULL, -1,
-					   className, methodName, false);
+					   meth->defining_class->getName(),
+					   sb->toString(), false);
 #else // INTERPRETER
   return NULL;
 #endif // INTERPRETER

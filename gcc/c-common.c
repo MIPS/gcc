@@ -84,10 +84,6 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 			: "long long unsigned int"))
 #endif
 
-#ifndef STDC_0_IN_SYSTEM_HEADERS
-#define STDC_0_IN_SYSTEM_HEADERS 0
-#endif
-
 #ifndef REGISTER_PREFIX
 #define REGISTER_PREFIX ""
 #endif
@@ -210,6 +206,9 @@ const char *pch_file;
    user's namespace.  */
 int flag_iso;
 
+/* Nonzero whenever Objective-C functionality is being used.  */
+int flag_objc;
+
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
 int flag_undef;
@@ -316,10 +315,6 @@ int warn_conversion;
 /* Warn about #pragma directives that are not recognised.  */      
 
 int warn_unknown_pragmas; /* Tri state variable.  */  
-
-/* Nonzero means warn about use of multicharacter literals.  */
-
-int warn_multichar = 1;
 
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
@@ -453,9 +448,17 @@ int print_struct_values;
 const char *constant_string_class_name;
 
 /* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
+   different argument types.  Performs the check on the whole selector
+   table at the end of compilation.  */
 
 int warn_selector;
+
+/* Warn if a @selector() is found, and no method with that selector
+   has been previously declared.  The check is done on each
+   @selector() as soon as it is found - so it warns about forward
+   declarations.  */
+
+int warn_undeclared_selector;
 
 /* Warn if methods required by a protocol are not implemented in the 
    class adopting it.  When turned off, methods inherited to that
@@ -572,6 +575,11 @@ int flag_permissive;
    assertions and optimize accordingly, but not check them.  */
 
 int flag_enforce_eh_specs = 1;
+
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+int warn_abi = 0;
 
 /* Nonzero means warn about implicit declarations.  */
 
@@ -699,8 +707,6 @@ static int if_stack_space = 0;
 /* Stack pointer.  */
 static int if_stack_pointer = 0;
 
-static void cb_register_builtins PARAMS ((cpp_reader *));
-
 static tree handle_packed_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_nocommon_attribute	PARAMS ((tree *, tree, tree, int,
@@ -764,8 +770,10 @@ static bool get_nonnull_operand		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT *));
 void builtin_define_std PARAMS ((const char *));
 static void builtin_define_with_value PARAMS ((const char *, const char *,
-					       int));
+                                               int));
 static void builtin_define_type_max PARAMS ((const char *, tree, int));
+static void cpp_define_data_format PARAMS ((cpp_reader *));
+static void builtin_define_type_precision PARAMS ((const char *, tree));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -4678,8 +4686,109 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Hook that registers front end and target-specific built-ins.  */
+/* Define macros necessary to describe fundamental data type formats.  */
 static void
+cpp_define_data_format (pfile)
+    cpp_reader *pfile;
+{
+  const char *format;
+  /* Define endianness enumeration values.  */
+  cpp_define (pfile, "__GCC_LITTLE_ENDIAN__=0");
+  cpp_define (pfile, "__GCC_BIG_ENDIAN__=1");
+
+  /* Define supported floating-point format enumeration values.  */
+  cpp_define (pfile, "__UNKNOWN_FORMAT__=0");
+  cpp_define (pfile, "__IEEE_FORMAT__=1");
+  cpp_define (pfile, "__IBM_FORMAT__=2");
+  cpp_define (pfile, "__C4X_FORMAT__=3");
+  cpp_define (pfile, "__VAX_FORMAT__=4");
+  
+  /* Define target endianness:
+       - bit order
+       - byte order
+       - word order in an integer that spans a multi-word
+       - word order in a floating-poing that spans a multi-word  */
+  if (BITS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
+  if (BYTES_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_LITTLE_ENDIAN__");
+  /* Define words order in a multi-word integer.  */
+  if (WORDS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
+  /* Define words order in a multi-word floating point.  */
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
+  else
+    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
+
+  switch (TARGET_FLOAT_FORMAT)
+    {
+    case UNKNOWN_FLOAT_FORMAT:
+      format = "__UNKNOWN_FORMAT__";
+      break;
+
+    case IEEE_FLOAT_FORMAT:
+      format = "__IEEE_FORMAT__";
+      break;
+
+    case VAX_FLOAT_FORMAT:
+      format = "__VAX_FORMAT__";
+      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=1");
+#ifdef TARGET_G_FLOAT      
+      if (TARGET_G_FLOAT)
+        {
+          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
+          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=1");
+        }
+      else
+        {
+          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=1");
+          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
+        }
+#endif       
+      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=1");
+      break;
+
+    case IBM_FLOAT_FORMAT:
+      format = "__IBM_FORMAT__";
+      break;
+
+    case C4X_FLOAT_FORMAT:
+      format = "__C4X_FORMAT__";
+      break;
+
+    default:
+      abort();
+    }
+  if (TARGET_FLOAT_FORMAT != VAX_FLOAT_FORMAT)
+    {
+      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
+      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=0");
+    }
+  builtin_define_with_value ("__GCC_FLOAT_FORMAT__", format, 0);
+}
+
+/* Define NAME with value TYPE precision.  */
+static void
+builtin_define_type_precision (name, type)
+     const char *name;
+     tree type;
+{
+  char buf[8];
+  sprintf (buf, "%d", (int) TYPE_PRECISION (type));
+  builtin_define_with_value (name, buf, 0);
+}
+
+/* Hook that registers front end and target-specific built-ins.  */
+void
 cb_register_builtins (pfile)
      cpp_reader *pfile;
 {
@@ -4720,11 +4829,16 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
 
-  {
-    char buf[8];
-    sprintf (buf, "%d", (int) TYPE_PRECISION (signed_char_type_node));
-    builtin_define_with_value ("__CHAR_BIT__", buf, 0);
-  }
+  builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
+  builtin_define_type_precision ("__WCHAR_BIT__", wchar_type_node);
+  builtin_define_type_precision ("__SHRT_BIT__", short_integer_type_node);
+  builtin_define_type_precision ("__INT_BIT__", integer_type_node);
+  builtin_define_type_precision ("__LONG_BIT__", long_integer_type_node);
+  builtin_define_type_precision ("__LONG_LONG_BIT__",
+                                 long_long_integer_type_node);
+  builtin_define_type_precision ("__FLOAT_BIT__", float_type_node);
+  builtin_define_type_precision ("__DOUBLE_BIT__", double_type_node);
+  builtin_define_type_precision ("__LONG_DOUBLE_BIT__", long_double_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
@@ -4761,6 +4875,15 @@ cb_register_builtins (pfile)
 
   if (!flag_signed_char)
     cpp_define (pfile, "__CHAR_UNSIGNED__");
+
+  if (c_language == clk_cplusplus && TREE_UNSIGNED (wchar_type_node))
+    cpp_define (pfile, "__WCHAR_UNSIGNED__");
+
+  cpp_define_data_format (pfile);
+  
+  /* Make the choice of ObjC runtime visible to source code.  */
+  if (flag_objc && flag_next_runtime)
+    cpp_define (pfile, "__NEXT_RUNTIME__");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
@@ -4889,63 +5012,6 @@ builtin_define_type_max (macro, type, is_long)
 	   (is_long == 1 ? "L" : is_long == 2 ? "LL" : ""));
 
   cpp_define (parse_in, buf);
-}
-
-/* Front end initialization common to C, ObjC and C++.  */
-const char *
-c_common_init (filename)
-     const char *filename;
-{
-  cpp_options *options = cpp_get_options (parse_in);
-
-  /* Set up preprocessor arithmetic.  Must be done after call to
-     c_common_nodes_and_builtins for wchar_type_node to be good.  */
-  options->precision = TYPE_PRECISION (intmax_type_node);
-  options->char_precision = TYPE_PRECISION (char_type_node);
-  options->int_precision = TYPE_PRECISION (integer_type_node);
-  options->wchar_precision = TYPE_PRECISION (wchar_type_node);
-  options->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-  options->unsigned_char = !flag_signed_char;
-  options->warn_multichar = warn_multichar;
-  options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
-
-  /* We want -Wno-long-long to override -pedantic -std=non-c99
-     and/or -Wtraditional, whatever the ordering.  */
-  options->warn_long_long
-    = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
-
-  /* Register preprocessor built-ins before calls to
-     cpp_main_file.  */
-  cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
-
-  /* NULL is passed up to toplev.c and we exit quickly.  */
-  if (flag_preprocess_only)
-    {
-      cpp_preprocess_file (parse_in);
-      return NULL;
-    }
-
-  /* Do this before initializing pragmas, as then cpplib's hash table
-     has been set up.  */
-  filename = init_c_lex (filename);
-
-  init_pragma ();
-
-  if (!c_attrs_initialized)
-    c_init_attributes ();
-
-  return filename;
-}
-
-/* Common finish hook for the C, ObjC and C++ front ends.  */
-void
-c_common_finish ()
-{
-  cpp_finish (parse_in);
-
-  /* For performance, avoid tearing down cpplib's internal structures.
-     Call cpp_errors () instead of cpp_destroy ().  */
-  errorcount += cpp_errors (parse_in);
 }
 
 static void

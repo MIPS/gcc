@@ -202,7 +202,8 @@ static void rs6000_elf_encode_section_info PARAMS ((tree, int));
 static const char *rs6000_elf_strip_name_encoding PARAMS ((const char *));
 #endif
 #if TARGET_XCOFF
-static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
+static void rs6000_xcoff_asm_globalize_label PARAMS ((FILE *, const char *));
+static void rs6000_xcoff_asm_named_section PARAMS ((const char *, unsigned int));
 static void rs6000_xcoff_select_section PARAMS ((tree, int,
 						 unsigned HOST_WIDE_INT));
 static void rs6000_xcoff_unique_section PARAMS ((tree, int));
@@ -2375,35 +2376,59 @@ rs6000_emit_set_const (dest, mode, source, n)
      enum machine_mode mode;
      int n ATTRIBUTE_UNUSED;
 {
+  rtx result, insn, set;
   HOST_WIDE_INT c0, c1;
 
-  if (mode == QImode || mode == HImode || mode == SImode)
+  if (mode == QImode || mode == HImode)
     {
       if (dest == NULL)
         dest = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (VOIDmode, dest, source));
       return dest;
     }
+  else if (mode == SImode)
+    {
+      result = no_new_pseudos ? dest : gen_reg_rtx (SImode);
 
-  if (GET_CODE (source) == CONST_INT)
-    {
-      c0 = INTVAL (source);
-      c1 = -(c0 < 0);
+      emit_insn (gen_rtx_SET (VOIDmode, result,
+			      GEN_INT (INTVAL (source)
+				       & (~ (HOST_WIDE_INT) 0xffff))));
+      emit_insn (gen_rtx_SET (VOIDmode, dest,
+			      gen_rtx_IOR (SImode, result,
+					   GEN_INT (INTVAL (source) & 0xffff))));
+      result = dest;
     }
-  else if (GET_CODE (source) == CONST_DOUBLE)
+  else if (mode == DImode)
     {
+      if (GET_CODE (source) == CONST_INT)
+	{
+	  c0 = INTVAL (source);
+	  c1 = -(c0 < 0);
+	}
+      else if (GET_CODE (source) == CONST_DOUBLE)
+	{
 #if HOST_BITS_PER_WIDE_INT >= 64
-      c0 = CONST_DOUBLE_LOW (source);
-      c1 = -(c0 < 0);
+	  c0 = CONST_DOUBLE_LOW (source);
+	  c1 = -(c0 < 0);
 #else
-      c0 = CONST_DOUBLE_LOW (source);
-      c1 = CONST_DOUBLE_HIGH (source);
+	  c0 = CONST_DOUBLE_LOW (source);
+	  c1 = CONST_DOUBLE_HIGH (source);
 #endif
+	}
+      else
+	abort ();
+
+      result = rs6000_emit_set_long_const (dest, c0, c1);
     }
   else
     abort ();
 
-  return rs6000_emit_set_long_const (dest, c0, c1);
+  insn = get_last_insn ();
+  set = single_set (insn);
+  if (! CONSTANT_P (SET_SRC (set)))
+    set_unique_reg_note (insn, REG_EQUAL, source);
+
+  return result;
 }
 
 /* Having failed to find a 3 insn sequence in rs6000_emit_set_const,
@@ -8555,7 +8580,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   /* We're going to try to implement comparions by performing
      a subtract, then comparing against zero.  Unfortunately,
      Inf - Inf is NaN which is not zero, and so if we don't
-     know that the the operand is finite and the comparison
+     know that the operand is finite and the comparison
      would treat EQ different to UNORDERED, we can't do it.  */
   if (! flag_unsafe_math_optimizations
       && code != GT && code != UNGE
@@ -9438,12 +9463,12 @@ function_ok_for_sibcall (fndecl)
 	  for (type = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
 	       type; type = TREE_CHAIN (type))
 	    {
-	      if (TREE_CODE (TREE_VALUE (type)) == VECTOR_TYPE )
+	      if (TREE_CODE (TREE_VALUE (type)) == VECTOR_TYPE)
 		return 0;
 	    }
         }
       if (DEFAULT_ABI == ABI_DARWIN
-            || (TREE_ASM_WRITTEN (fndecl) && !flag_pic) || !TREE_PUBLIC (fndecl))
+	  || (TREE_ASM_WRITTEN (fndecl) && !flag_pic) || !TREE_PUBLIC (fndecl))
         return 1;
     }
   return 0;
@@ -9487,10 +9512,10 @@ rs6000_ra_ever_killed ()
 	  if (FIND_REG_INC_NOTE (insn, reg))
 	    return 1;
 	  else if (GET_CODE (insn) == CALL_INSN 
-		    && !SIBLING_CALL_P (insn))
+		   && !SIBLING_CALL_P (insn))
 	    return 1;
 	  else if (set_of (reg, insn) != NULL_RTX 
-		    && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
+		   && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
 	    return 1;
     	}
     }
@@ -11253,23 +11278,22 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, delta);
     }
 
+  /* 64-bit constants.  If "int" is 32 bits, we'll never hit this abort.  */
+  else if (TARGET_64BIT && (delta < -2147483647 - 1 || delta > 2147483647))
+    abort ();
+
   /* Large constants that can be done by one addis instruction.  */
-  else if ((delta & 0xffff) == 0 && num_insns_constant_wide (delta) == 1)
+  else if ((delta & 0xffff) == 0)
     asm_fprintf (file, "\t{cau|addis} %s,%s,%d\n", this_reg, this_reg,
 		 delta >> 16);
 
   /* 32-bit constants that can be done by an add and addis instruction.  */
-  else if (TARGET_32BIT || num_insns_constant_wide (delta) == 1)
+  else
     {
       /* Break into two pieces, propagating the sign bit from the low
 	 word to the upper word.  */
-      int delta_high = delta >> 16;
-      int delta_low  = delta & 0xffff;
-      if ((delta_low & 0x8000) != 0)
-	{
-	  delta_high++;
-	  delta_low = (delta_low ^ 0x8000) - 0x8000;	/* sign extend */
-	}
+      int delta_low  = ((delta & 0xffff) ^ 0x8000) - 0x8000;
+      int delta_high = (delta - delta_low) >> 16;
 
       asm_fprintf (file, "\t{cau|addis} %s,%s,%d\n", this_reg, this_reg,
 		   delta_high);
@@ -11279,10 +11303,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
       else
 	fprintf (file, "\taddi %s,%s,%d\n", this_reg, this_reg, delta_low);
     }
-
-  /* 64-bit constants, fixme */
-  else
-    abort ();
 
   /* Get the prefix in front of the names.  */
   switch (DEFAULT_ABI)
@@ -11342,7 +11362,10 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	    }
 	  assemble_name (file, fname);
 	  putc ('\n', file);
-	  text_section ();
+	  if (TARGET_ELF)
+	    function_section (current_function_decl);
+	  else
+	    text_section();
 	  if (TARGET_MINIMAL_TOC)
 	    asm_fprintf (file, (TARGET_32BIT)
 			 ? "\t{l|lwz} %s,%s(%s)\n" : "\tld %s,%s(%s)\n", r12,
@@ -12373,8 +12396,8 @@ rs6000_elf_select_section (decl, reloc, align)
      unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   int size = int_size_in_bytes (TREE_TYPE (decl));
-  int needs_sdata;
-  int readonly;
+  bool needs_sdata;
+  bool readonly;
   static void (* const sec_funcs[4]) PARAMS ((void)) = {
     &readonly_data_section,
     &sdata2_section,
@@ -12388,22 +12411,23 @@ rs6000_elf_select_section (decl, reloc, align)
 		 && (rs6000_sdata != SDATA_DATA || TREE_PUBLIC (decl)));
 
   if (TREE_CODE (decl) == STRING_CST)
-    readonly = ! flag_writable_strings;
+    readonly = !flag_writable_strings;
   else if (TREE_CODE (decl) == VAR_DECL)
-    readonly = (! (flag_pic && reloc)
+    readonly = (!((flag_pic || DEFAULT_ABI == ABI_AIX) && reloc)
 		&& TREE_READONLY (decl)
-		&& ! TREE_SIDE_EFFECTS (decl)
+		&& !TREE_SIDE_EFFECTS (decl)
 		&& DECL_INITIAL (decl)
 		&& DECL_INITIAL (decl) != error_mark_node
 		&& TREE_CONSTANT (DECL_INITIAL (decl)));
   else if (TREE_CODE (decl) == CONSTRUCTOR)
-    readonly = (! (flag_pic && reloc)
-		&& ! TREE_SIDE_EFFECTS (decl)
+    readonly = (!((flag_pic || DEFAULT_ABI == ABI_AIX) && reloc)
+		&& !TREE_SIDE_EFFECTS (decl)
 		&& TREE_CONSTANT (decl));
   else
-    readonly = 1;
+    readonly = !((flag_pic || DEFAULT_ABI == ABI_AIX) && reloc);
+
   if (needs_sdata && rs6000_sdata != SDATA_EABI)
-    readonly = 0;
+    readonly = false;
   
   (*sec_funcs[(readonly ? 0 : 2) + (needs_sdata ? 1 : 0)])();
 }
@@ -12442,18 +12466,19 @@ rs6000_elf_unique_section (decl, reloc)
     sec = 6;
   else
     {
-      int readonly;
-      int needs_sdata;
+      bool readonly;
+      bool needs_sdata;
       int size;
 
-      readonly = 1;
       if (TREE_CODE (decl) == STRING_CST)
-	readonly = ! flag_writable_strings;
+	readonly = !flag_writable_strings;
       else if (TREE_CODE (decl) == VAR_DECL)
-	readonly = (! (flag_pic && reloc)
+	readonly = (!((flag_pic || DEFAULT_ABI == ABI_AIX) && reloc)
 		    && TREE_READONLY (decl)
-		    && ! TREE_SIDE_EFFECTS (decl)
+		    && !TREE_SIDE_EFFECTS (decl)
 		    && TREE_CONSTANT (DECL_INITIAL (decl)));
+      else
+	readonly = !((flag_pic || DEFAULT_ABI == ABI_AIX) && reloc);
 
       size = int_size_in_bytes (TREE_TYPE (decl));
       needs_sdata = (size > 0 
@@ -12461,10 +12486,10 @@ rs6000_elf_unique_section (decl, reloc)
 		     && rs6000_sdata != SDATA_NONE
 		     && (rs6000_sdata != SDATA_DATA || TREE_PUBLIC (decl)));
 
-      if (DECL_INITIAL (decl) == 0
+      if (DECL_INITIAL (decl) == NULL
 	  || DECL_INITIAL (decl) == error_mark_node)
 	sec = 4;
-      else if (! readonly)
+      else if (!readonly)
 	sec = 2;
       else
 	sec = 0;
@@ -13026,7 +13051,17 @@ rs6000_elf_asm_out_destructor (symbol, priority)
 
 #if TARGET_XCOFF
 static void
-xcoff_asm_named_section (name, flags)
+rs6000_xcoff_asm_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  fputs (GLOBAL_ASM_OP, stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+  putc ('\n', stream);
+}
+
+static void
+rs6000_xcoff_asm_named_section (name, flags)
      const char *name;
      unsigned int flags ATTRIBUTE_UNUSED;
 {

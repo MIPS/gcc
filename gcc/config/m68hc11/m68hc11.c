@@ -101,6 +101,10 @@ int current_function_interrupt;
 /* Set to 1 by expand_prologue() when the function is a trap handler.  */
 int current_function_trap;
 
+/* Set to 1 when the current function is placed in 68HC12 banked
+   memory and must return with rtc.  */
+int current_function_far;
+
 /* Min offset that is valid for the indirect addressing mode.  */
 HOST_WIDE_INT m68hc11_min_offset = 0;
 
@@ -249,7 +253,7 @@ m68hc11_override_options ()
         target_flags &= ~TARGET_DEFAULT;
 
       if (!TARGET_M6812)
-        target_flags &= ~TARGET_AUTO_INC_DEC;
+        target_flags &= ~(TARGET_AUTO_INC_DEC | TARGET_MIN_MAX);
       m68hc11_cost = &m6811_cost;
       m68hc11_min_offset = 0;
       m68hc11_max_offset = 256;
@@ -280,9 +284,12 @@ m68hc11_override_options ()
       m68hc11_sp_correction = 0;
       m68hc11_tmp_regs_class = TMP_REGS;
       target_flags &= ~MASK_M6811;
-      target_flags |= MASK_NO_DIRECT_MODE;
+      target_flags |= MASK_NO_DIRECT_MODE | MASK_MIN_MAX;
       if (m68hc11_soft_reg_count == 0)
 	m68hc11_soft_reg_count = "0";
+
+      if (TARGET_LONG_CALLS)
+        current_function_far = 1;
     }
   return 0;
 }
@@ -1277,6 +1284,11 @@ m68hc11_initial_elimination_offset (from, to)
   trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
   if (trap_handler && from == ARG_POINTER_REGNUM)
     size = 7;
+
+  /* For a function using 'call/rtc' we must take into account the
+     page register which is pushed in the call.  */
+  else if (current_function_far && from == ARG_POINTER_REGNUM)
+    size = 1;
   else
     size = 0;
 
@@ -2087,7 +2099,7 @@ asm_print_register (file, regno)
   if (TARGET_NO_DIRECT_MODE && name[0] == '*')
     name++;
 
-  asm_fprintf (file, "%s", name);
+  fprintf (file, "%s", name);
 }
 
 /* A C compound statement to output to stdio stream STREAM the
@@ -2136,7 +2148,7 @@ print_operand (file, op, letter)
   else if (letter == 'T')
     {
       asm_print_register (file, SOFT_TMP_REGNUM);
-      asm_fprintf (file, "+1");
+      fprintf (file, "+1");
       return;
     }
   else if (letter == '#')
@@ -2149,7 +2161,7 @@ print_operand (file, op, letter)
       if (letter == 'b' && S_REG_P (op))
 	{
 	  asm_print_register (file, REGNO (op));
-	  asm_fprintf (file, "+1");
+	  fprintf (file, "+1");
 	}
       else
 	{
@@ -2166,7 +2178,7 @@ print_operand (file, op, letter)
 	asm_fprintf (file, "%0I%%hi(");
 
       output_addr_const (file, op);
-      asm_fprintf (file, ")");
+      fprintf (file, ")");
       return;
     }
 
@@ -2192,7 +2204,7 @@ print_operand (file, op, letter)
 	case PRE_DEC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,-", GET_MODE_SIZE (GET_MODE (op)));
+	      fprintf (file, "%u,-", GET_MODE_SIZE (GET_MODE (op)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
 	    }
 	  else
@@ -2202,9 +2214,9 @@ print_operand (file, op, letter)
 	case POST_DEC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (op)));
+	      fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (op)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
-	      asm_fprintf (file, "-");
+	      fprintf (file, "-");
 	    }
 	  else
 	    abort ();
@@ -2213,9 +2225,9 @@ print_operand (file, op, letter)
 	case POST_INC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (op)));
+	      fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (op)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
-	      asm_fprintf (file, "+");
+	      fprintf (file, "+");
 	    }
 	  else
 	    abort ();
@@ -2224,7 +2236,7 @@ print_operand (file, op, letter)
 	case PRE_INC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,+", GET_MODE_SIZE (GET_MODE (op)));
+	      fprintf (file, "%u,+", GET_MODE_SIZE (GET_MODE (op)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
 	    }
 	  else
@@ -2265,11 +2277,11 @@ print_operand (file, op, letter)
         need_parenthesize = must_parenthesize (op);
 
       if (need_parenthesize)
-        asm_fprintf (file, "(");
+        fprintf (file, "(");
 
       output_addr_const (file, op);
       if (need_parenthesize)
-        asm_fprintf (file, ")");
+        fprintf (file, ")");
     }
 }
 
@@ -2338,7 +2350,7 @@ print_operand_address (file, addr)
       if (!REG_P (addr) || !REG_OK_FOR_BASE_STRICT_P (addr))
 	abort ();
 
-      asm_fprintf (file, "0,");
+      fprintf (file, "0,");
       asm_print_register (file, REGNO (addr));
       break;
 
@@ -2349,7 +2361,7 @@ print_operand_address (file, addr)
 	case PRE_DEC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,-", GET_MODE_SIZE (GET_MODE (addr)));
+	      fprintf (file, "%u,-", GET_MODE_SIZE (GET_MODE (addr)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
 	    }
 	  else
@@ -2359,9 +2371,9 @@ print_operand_address (file, addr)
 	case POST_DEC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (addr)));
+	      fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (addr)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
-	      asm_fprintf (file, "-");
+	      fprintf (file, "-");
 	    }
 	  else
 	    abort ();
@@ -2370,9 +2382,9 @@ print_operand_address (file, addr)
 	case POST_INC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (addr)));
+	      fprintf (file, "%u,", GET_MODE_SIZE (GET_MODE (addr)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
-	      asm_fprintf (file, "+");
+	      fprintf (file, "+");
 	    }
 	  else
 	    abort ();
@@ -2381,7 +2393,7 @@ print_operand_address (file, addr)
 	case PRE_INC:
 	  if (TARGET_M6812)
 	    {
-	      asm_fprintf (file, "%u,+", GET_MODE_SIZE (GET_MODE (addr)));
+	      fprintf (file, "%u,+", GET_MODE_SIZE (GET_MODE (addr)));
 	      asm_print_register (file, REGNO (XEXP (base, 0)));
 	    }
 	  else
@@ -2391,11 +2403,11 @@ print_operand_address (file, addr)
 	default:
 	  need_parenthesis = must_parenthesize (base);
 	  if (need_parenthesis)
-	    asm_fprintf (file, "(");
+	    fprintf (file, "(");
 
 	  output_addr_const (file, base);
 	  if (need_parenthesis)
-	    asm_fprintf (file, ")");
+	    fprintf (file, ")");
 	  break;
 	}
       break;
@@ -2413,13 +2425,13 @@ print_operand_address (file, addr)
 	  need_parenthesis = must_parenthesize (addr);
 
 	  if (need_parenthesis)
-	    asm_fprintf (file, "(");
+	    fprintf (file, "(");
 
 	  output_addr_const (file, base);
-	  asm_fprintf (file, "+");
+	  fprintf (file, "+");
 	  output_addr_const (file, offset);
 	  if (need_parenthesis)
-	    asm_fprintf (file, ")");
+	    fprintf (file, ")");
 	}
       else if (REG_P (base) && REG_OK_FOR_BASE_STRICT_P (base))
 	{
@@ -2428,7 +2440,7 @@ print_operand_address (file, addr)
 	      if (TARGET_M6812)
 		{
 		  asm_print_register (file, REGNO (offset));
-		  asm_fprintf (file, ",");
+		  fprintf (file, ",");
 		  asm_print_register (file, REGNO (base));
 		}
 	      else
@@ -2438,12 +2450,12 @@ print_operand_address (file, addr)
 	    {
               need_parenthesis = must_parenthesize (offset);
               if (need_parenthesis)
-                asm_fprintf (file, "(");
+                fprintf (file, "(");
 
 	      output_addr_const (file, offset);
               if (need_parenthesis)
-                asm_fprintf (file, ")");
-	      asm_fprintf (file, ",");
+                fprintf (file, ")");
+	      fprintf (file, ",");
 	      asm_print_register (file, REGNO (base));
 	    }
 	}
@@ -2457,17 +2469,17 @@ print_operand_address (file, addr)
       if (GET_CODE (addr) == CONST_INT
 	  && INTVAL (addr) < 0x8000 && INTVAL (addr) >= -0x8000)
 	{
-	  asm_fprintf (file, "%d", INTVAL (addr));
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));
 	}
       else
 	{
 	  need_parenthesis = must_parenthesize (addr);
 	  if (need_parenthesis)
-	    asm_fprintf (file, "(");
+	    fprintf (file, "(");
 
 	  output_addr_const (file, addr);
 	  if (need_parenthesis)
-	    asm_fprintf (file, ")");
+	    fprintf (file, ")");
 	}
       break;
     }
@@ -5500,6 +5512,11 @@ m68hc11_asm_file_start (out, main_file)
   print_options (out);
   fprintf (out, ";;;-----------------------------------------\n");
   output_file_directive (out, main_file);
+
+  if (TARGET_SHORT)
+    fprintf (out, "\t.mode mshort\n");
+  else
+    fprintf (out, "\t.mode mlong\n");
 }
 
 

@@ -2,6 +2,16 @@
 
 	* ada-tree.h (union lang_tree_node): Add chain_next option.
 
+2002-08-25  Andre Leis <a.leis@gmx.net>
+ 	    David Billinghurst (David.Billinghurst@riotinto.com>
+
+ 	* sysdep.c (__gnat_ttyname): include <termios.h> on cygwin
+
+2002-08-13  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Make-lang.in (gnatbind$(exeext)): Link with $(SYSLIBS).
+	Remove $(CONFIG_H) dependency.
+
 2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* ada/Make-lang.in (ada.mostlyclean): Remove coverage files.

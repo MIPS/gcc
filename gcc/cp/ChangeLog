@@ -14,6 +14,107 @@
 	* cp-tree.h (union lang_tree_node): Add chain_next option.
 
 *** End of unmerged pch-branch ChangeLog ***
+2002-08-31  Jason Merrill  <jason@redhat.com>
+
+	* cp-lang.c (cp_expr_size): Allow initialization from a
+	CONSTRUCTOR.
+
+2002-08-30  Richard Henderson  <rth@redhat.com>
+
+	PR opt/7515
+	* tree.c: Include target.h.
+	(cp_cannot_inline_tree_fn): Don't auto-inline functions that
+	don't bind locally.
+	* Makefile.in (tree.o): Update.
+
+2002-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_virtual_bases): Warn about bugs in G++ that
+	result in incorrect object layouts.
+	(layout_class_type): Likewise.
+	
+2002-08-24  Matt Austern  <austern@apple.com>
+
+	* tree.c (lvalue_p_1): Add argument for whether casts of lvalues
+	are allowable.
+	(real_lvalue_p): Update caller.
+	(lvalue_p): Ditto.
+	(non_cast_lvalue_or_else): New.
+	* tree.h: Declare it.
+        * typeck.c (build_unary_op): Use non_cast_lvalue_or_else.
+
+2002-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* typeck.c (build_class_member_access_expr): Handle COMPOUND_EXPR
+	and COND_EXPR specially; fix error message output.
+
+2002-08-22  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (tsubst_expr): RETURN_EXPR is now RETURN_STMT_EXPR.
+	* semantics.c (nullify_returns_r): Likewise.
+
+2002-08-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Fix PR/7621
+	* typeck.c (finish_class_member_access_expr): Diagnose cases where
+	name lookup finds nothing.
+
+2002-08-15  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (finish_then_clause): Remove redundant assignment.
+	(finish_if_stmt, begin_switch_stmt, finish_switch_stmt): Move the
+	extra binding level outside the if/switch statement.
+	(finish_while_cond, finish_for_cond): Rewrite complex condition
+	into the loop body.
+
+2002-08-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* parse.y (sizeof, alignof, typeof): New non-terminals to
+	increment skip_evaluation.  Replace terminals with them and
+	decrement skip_evaluation at the end of rules using them.
+	* decl2.c (mark_used): Don't assemble_external if
+	skipping evaluation.
+
+2002-08-15  Gabriel Dos Reis  <gdr@nerim.net>
+
+	Fix PR/7504
+	* parse.y (parse_finish_call_expr): Handle incomplete
+	type used to name a scope.
+
+2002-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7598
+	* typeck.c (build_unary_op): Fold offsetof idiom. Fixes
+	regression caused by my 2002-08-08 patch.
+
+2002-08-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (pushdecl_class_level): Honor requests to bind names to
+	OVERLOADs.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl2.c (build_call_from_tree): Fix uninitialized variable.
+	* parse.y (parse_finish_call_expr): Likewise.
+	* repo.c (old_args, old_dir, old_main): Const-ify.
+
+2002-08-11  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* decl.c (duplicate_decls): Replace DECL_SOURCE_FILE +
+	DECL_SOURCE_LINE with DECL_SOURCE_LOCATION.
+	* optimize.c (maybe_clone_body): Likewise.
+	* pt.c (tsubst_enum): Likewise.
+	(lookup_template_class): Likewise.
+	* tree.c (cp_copy_res_decl_for_inlining): Likewise.
+
+2002-08-10  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-specs.h: Remove -ansi.
+
+2002-08-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.c (maybe_dummy_object): Replace // with /* */
+
 2002-08-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* call.c (standard_conversion): Use build_ptrmem_type.

@@ -1859,6 +1859,27 @@ build_class_member_access_expr (tree object, tree member,
   my_friendly_assert (DECL_P (member) || BASELINK_P (member),
 		      20020801);
 
+  /* Transform `(a, b).x' into `a, b.x' and `(a ? b : c).x' into 
+     `a ? b.x : c.x'.  These transformations should not really be
+     necessary, but they are.  */
+  if (TREE_CODE (object) == COMPOUND_EXPR)
+    {
+      result = build_class_member_access_expr (TREE_OPERAND (object, 1),
+					       member, access_path, 
+					       preserve_reference);
+      return build (COMPOUND_EXPR, TREE_TYPE (result), 
+		    TREE_OPERAND (object, 0), result);
+    }
+  else if (TREE_CODE (object) == COND_EXPR)
+    return (build_conditional_expr
+	    (TREE_OPERAND (object, 0),
+	     build_class_member_access_expr (TREE_OPERAND (object, 1),
+					     member, access_path,
+					     preserve_reference),
+	     build_class_member_access_expr (TREE_OPERAND (object, 2),
+					     member, access_path,
+					     preserve_reference)));
+
   /* [expr.ref]
 
      The type of the first expression shall be "class object" (of a
@@ -2135,7 +2156,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  if (TREE_CODE (scope) == NAMESPACE_DECL)
 	    {
 	      error ("`%D::%D' is not a member of `%T'", 
-		     scope, member, object_type);
+		     scope, name, object_type);
 	      return error_mark_node;
 	    }
 
@@ -2147,7 +2168,12 @@ finish_class_member_access_expr (tree object, tree name)
 	  /* Look up the member.  */
 	  member = lookup_member (access_path, name, /*protect=*/1, 
 				  /*want_type=*/0);
-	  if (member == error_mark_node)
+	  if (member == NULL_TREE)
+	    {
+	      error ("'%D' has no member named '%E'", object_type, name);
+	      return error_mark_node;
+	    }
+	  else if (member == error_mark_node)
 	    return error_mark_node;
 	}
       else if (TREE_CODE (name) == BIT_NOT_EXPR)
@@ -2171,7 +2197,12 @@ finish_class_member_access_expr (tree object, tree name)
 	  /* An unqualified name.  */
 	  member = lookup_member (object_type, name, /*protect=*/1, 
 				  /*want_type=*/0);
-	  if (member == error_mark_node)
+	  if (member == NULL_TREE)
+	    {
+	      error ("'%D' has no member named '%E'", object_type, name);
+	      return error_mark_node;
+	    }
+	  else if (member == error_mark_node)
 	    return error_mark_node;
 	}
       else
@@ -4237,7 +4268,7 @@ build_unary_op (code, xarg, noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && !lvalue_or_else (arg, "unary `&'"))
+	       && !non_cast_lvalue_or_else (arg, "unary `&'"))
 	return error_mark_node;
 
       if (argtype != error_mark_node)
@@ -4255,6 +4286,24 @@ build_unary_op (code, xarg, noconvert)
 	    error ("attempt to take address of bit-field structure member `%D'",
 		   TREE_OPERAND (arg, 1));
 	    return error_mark_node;
+	  }
+	else if (TREE_CODE (arg) == COMPONENT_REF
+		 && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF
+		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
+		     == INTEGER_CST))
+	  {
+	    /* offsetof idiom, fold it. */
+	    tree field = TREE_OPERAND (arg, 1);
+	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
+	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
+				      decl_type_context (field),
+				      ba_check, NULL);
+	    
+	    rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
+	    rval = build1 (NOP_EXPR, argtype, rval);
+	    TREE_CONSTANT (rval) = TREE_CONSTANT (TREE_OPERAND (rval, 0));
+	    addr = fold (build (PLUS_EXPR, argtype, rval,
+				cp_convert (argtype, byte_position (field))));
 	  }
 	else
 	  addr = build1 (ADDR_EXPR, argtype, arg);

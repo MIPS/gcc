@@ -47,7 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #define MMIX_LAST_GENERAL_REGISTER 255
 #define MMIX_INCOMING_RETURN_ADDRESS_REGNUM MMIX_rJ_REGNUM
 #define MMIX_HIMULT_REGNUM 258
-#define MMIX_REMAINDER_REGNUM 260
+#define MMIX_REMAINDER_REGNUM MMIX_rR_REGNUM
 #define MMIX_ARG_POINTER_REGNUM 261
 #define MMIX_rO_REGNUM 262
 #define MMIX_LAST_STACK_REGISTER_REGNUM 31
@@ -980,8 +980,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_DECLARE_REGISTER_GLOBAL(STREAM, DECL, REGNO, NAME) \
  mmix_asm_declare_register_global (STREAM, DECL, REGNO, NAME)
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME) \
- mmix_asm_globalize_label (STREAM, NAME)
+#define GLOBAL_ASM_OP "\t.global "
 
 #define ASM_WEAKEN_LABEL(STREAM, NAME) \
  mmix_asm_weaken_label (STREAM, NAME)
@@ -1120,7 +1119,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 
 /* Node: SDB and DWARF */
-#define DWARF2_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
 /* Node: Misc */

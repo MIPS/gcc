@@ -1,3 +1,263 @@
+2002-08-30  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/util/Calendar.java (getTimeInMillis, getTimeInMillis): Now
+	public, per 1.4 spec.  Fixes PR libgcj/7785.
+
+2002-08-30  Jeff Sturm  <jsturm@one-point.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ZIP, GCJH): Remove $(EXEEXT).
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/JarURLConnection.java (getCertificates): New method
+	from Classpath.
+	* java/net/URLClassLoader.java (URLClassLoader): Extends
+	SecureClassLoader.
+	(definePackage): New method from Classpath.
+	(getPermissions): Likewise.
+	(newInstance): Likewise.
+	(findClass): Construct CodeSource for new class (from Classpath).
+	* java/net/SocketImpl.java (shutdownInput, shutdownOutput): New
+	methods.
+	* java/net/URL.java (getUserInfo): New method.
+	(set(String,String,int,String,String,String,String,String)): New
+	method.
+	* java/net/PlainSocketImpl.java (_Jv_SO_KEEPALIVE_): Define.
+	(shutdownInput, shutdownOutput): Declare.
+	* java/net/PlainDatagramSocketImpl.java (_Jv_SO_KEEPALIVE_):
+	Define.
+	* java/net/natPlainSocketImpl.cc (setOption): Handle keepalive.
+	(getOption): Likewise.
+	(shutdownInput): New method.
+	(shutdownOutput): Likewise.
+	* java/net/natPlainDatagramSocketImpl.cc (setOption): Handle
+	keepalive.
+	(getOption): Likewise.
+	* java/net/SocketOptions.java (SO_KEEPALIVE): New constant.
+	* java/net/Socket.java (setKeepAlive): New method.
+	(getKeepAlive): Likewise.
+	(shutdownInput, shutdownOutput): New methods.
+
+2002-08-29  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java: updated to JDK 1.4 API
+	new methods are:
+	DatagramPacket(byte[] buf, int offset, int length, SocketAddress
+	  address),
+	DatagramPacket(byte[] buf, int length, SocketAddress address),
+	void setSocketAddress(SocketAddress address)
+	public SocketAddress getSocketAddress()
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorPosix.cc (setLength): Handle case where
+	ftruncate is missing.
+	* configure, include/config.h.in: Rebuilt.
+	* acconfig.h (HAVE_FTRUNCATE): Mention.
+	* configure.in: Check for ftruncate.
+
+2002-08-29  Tom Tromey  <tromey@redhat.com>
+
+	* include/jvm.h (struct _Jv_frame_info): New structure.
+	* gnu/gcj/runtime/natNameFinder.cc: Include StringBuffer.h,
+	java-interp.h.
+	(lookupInterp): New method.
+	(getAddrAsString): Use _Jv_frame_info.
+	(dladdrLookup): Likewise.
+	* gnu/gcj/runtime/NameFinder.java (lookup): Try to look up
+	interpreted frame.
+	(lookupInterp): Declare.
+	* java/lang/natVMThrowable.cc: Include Thread.h, java-interp.h.
+	(fillInStackTrace): Collect information on interpreted frames.
+	Use _Jv_frame_info.
+	* interpret.cc: Include Thread.h.
+	(run): Create and push _Jv_MethodChain object.
+	(_Jv_EndOfInterpreter): New global.
+	* java/lang/Thread.java (interp_frame): New field.
+	* include/java-interp.h (struct _Jv_MethodChain): New structure.
+	Include NameFinder.h.
+
+2002-08-28  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h: Include Package.h.
+	(Class::getProtectionDomain): Declare.
+	(Class::getPackage): Declare.
+
+2002-08-28  Michael Koch <konqueror@gmx.de>
+
+	* java/net/InetSocketAddress.java: Added some documentation and argument
+	checks for the port numbers.
+	* java/net/DatagramSocketImplFactory.java: New file.
+
+2002-08-28  Michael Koch <konqueror@gmx.de>
+
+	* java/net/Authenticator.java: added some documentation.
+
+2002-08-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natConstructor.cc (newInstance): Initialize
+	class.
+	* java/lang/reflect/natMethod.cc (invoke): Initialize class.
+
+2002-08-27  Michael Koch <konqueror@gmx.de>
+
+	* java/net/BindException.java,
+	java/net/JarURLConnection.java,
+	java/net/FileNameMap.java,
+	java/net/HttpURLConnection.java,
+	java/net/InetSocketAddress.java,
+	java/net/DatagramPacket.java,
+	java/net/DatagramSocket.java,
+	java/net/DatagramSocketImpl.java,
+	java/net/MulticastSocket.java,
+	java/net/PasswordAuthentication.java,
+	java/net/ServerSocket.java,
+	java/net/Socket.java,
+	java/net/URLClassLoader.java,
+	java/net/URLConnection.java: add/update of some @since/@deprecated
+	
+2002-08-27  Tony Kimball <alk@pobox.com>
+            Tom Tromey  <tromey@redhat.com>
+
+	* java/net/natPlainDatagramSocketImpl.cc (NATIVE_CLOSE): New
+	define.
+	(::close): Removed.
+	(PlainDatagramSocketImpl::close): Use NATIVE_CLOSE.
+	* java/net/natPlainSocketImpl.cc (NATIVE_CLOSE): New define.
+	(::close): Removed.
+	(PlainSocketImpl::close): Use NATIVE_CLOSE.
+	* include/win32.h (getcwd): Removed declaration.  Include io.h.
+
+2002-08-25  Adam Megacz <adam@xwt.org>
+
+	* include/win32.h (getcwd): copied function declaration as
+	temporary fix for header confusion.
+	
+2002-08-24  Mark Wielaard <mark@klomp.org>
+
+	* Makefile.am (libgcj_la_SOURCES): Remove name-finder.cc.
+	(core_java_source_files): Add VMThrowable.java and NameFinder.java
+	(nat_source_files): Remove natThrowable.cc, add natVMThrowable.cc
+	and natNameFinder.cc.
+	* Makefile.in: Regenerate.
+	* prims.cc: Use trace_enabled from VMThrowable.
+	* name-finder.cc: Removed.
+	* gcj/javaprims.h: Add class VMThrowable.
+	* gnu/gcj/runtime/NameFinder.java: New file.
+	* gnu/gcj/runtime/natNameFinder.cc: Likewise.
+	* include/name-finder.h: Removed.
+	* java/lang/Throwable.java (printStackTrace (PrintStream)): Use new
+	method stackTraceString().
+	(printStackTrace (PrintWriter)): Likewise.
+	(stackTraceString): Complete rewrite of old printStackTrace using
+	StringBuffer.
+	(stackTraceStringBuffer): New helper method for stackTraceString().
+	(fillInStackTrace): Delegate to VMTrowable.
+	(getStackTrace): Likewise.
+	(getStackTrace0): Removed. 
+	(trace_enabled, stackTraceBytes): Moved to new VMThrowable.java.
+	(setStackTrace): Copy given array.
+	* java/lang/natThrowable.cc: Removed (replaced by natVMThrowable).
+	* java/lang/VMThrowable.java: New class.
+	* java/lang/natVMThrowable.cc: New file.
+
+2003-08-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java,
+	java/netJarURLConnection.java,
+	gnu/gcj/protocol/core/Connection.java,
+	gnu/gcj/protocol/file/Connection.java,
+	gnu/gcj/protocol/http/Connection.java: Added implementation of
+	getHeaderFields().
+
+2002-08-22  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (help): Document -cp and -classpath.
+	(main): Handle -classpath.
+
+2002-08-21  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ordinary_java_source_files): Added
+	SocketAddress.java, InetSocketAddress.java.
+	* java/net/PortUnreachableException.java: Merged with Classpath.
+	* java/net/SocketTimeoutException.java: Likewise.
+	* java/net/URISyntaxException.java: Likewise.
+	* java/net/SocketAddress.java: New class from Classpath.
+	* java/net/InetSocketAddress.java: Likewise.
+
+2003-08-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Authenticator.java: updated JDK 1.4
+	* java/net/ContentHandler.java: updated JDK 1.4
+
+2002-08-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URISyntaxException.java: New file.
+	* java/net/SocketTimeoutException.java: New file.
+	* java/net/PortUnreachableException.java: New file.	
+	* Makefile.am: Updated.
+	* Makefile.in: Rebuilt.
+
+2002-08-18  Mark Wielaard  <mark@klomp.org>
+
+	Thanks to Vladimir Puskas <vpuskas@eunet.yu>
+	* gnu/java/security/provider/MD5.java: Extends MessageDigest, not
+	MessageDigestSpi (fixes Classpath bug #783).
+
+2002-08-14  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/lang/natPosixProcess.cc (cleanup): Added `path' argument.
+	(startProcess): Allocate path for chdir in async-signal-safe way.
+
+2002-08-13  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	Fix for PR libgcj/7570 and PR libgcj/7578:
+	* java/lang/natPosixProcess.cc: Include java/io/File.h.
+	(startProcess): Handle new `dir' argument.
+	* java/lang/Win32Process.java (ConcreteProcess): Added `dir'
+	argument.
+	* java/lang/PosixProcess.java (ConcreteProcess): Added `dir'
+	argument.
+	(startProcess): Likewise.
+	* java/lang/EcosProcess.java (ConcreteProcess): Added `dir'
+	argument.
+	* java/lang/Runtime.java (execInternal): Added `dir' argument.
+	(exec): Don't create new environment if ENV==null.  Pass DIR to
+	execInternal.
+	* java/lang/natRuntime.cc: Include java/io/File.h.
+	(execInternal): Added `dir' argument.
+
+2002-08-13  Jesse Rosenstock  <jmr@fulcrummicro.com>
+
+	* java/io/RandomAccessFile.java (skipBytes): Return number of
+	bytes skipped.
+
+2002-08-01  Mark Wielaard  <mark@klomp.org>
+
+	Reenable patch since shared library troubles on powerpc are solved:
+	* gnu/java/security/provider/Gnu.java: Reference all implementation
+	classes by using Class.getName().
+	* gnu/java/security/der/DEREncodingException.java,
+	gnu/java/security/provider/DERReader.java,
+	gnu/java/security/provider/DERWriter.java,
+	gnu/java/security/provider/DSAKeyPairGenerator.java,
+	gnu/java/security/provider/DSAParameterGenerator.java,
+	gnu/java/security/provider/DSAParameters.java,
+	gnu/java/security/provider/DSASignature.java,
+	gnu/java/security/provider/GnuDSAPrivateKey.java,
+	gnu/java/security/provider/GnuDSAPublicKey.java,
+	gnu/java/security/provider/MD5.java,
+	gnu/java/security/util/Prime.java: New classes
+	* Makefile.am (ordinary_java_source_files): Add above files.
+	* Makefile.in: Regenerate.
+	* gnu/java/security/provider/DefaultPolicy.java
+	(getPermissions): Don't maintain static class variable of Permissions.
+	* gnu/java/security/provider/SHA.java 
+	(engineUpdate): algorithm change.
+	(engineDigest): algorithm change.
+
 2002-08-09  Mark Wielaard  <mark@klomp.org>
 
 	* java/awt/image/MemoryImageSource.java: Change constructor to take

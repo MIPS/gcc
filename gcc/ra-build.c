@@ -346,7 +346,7 @@ static struct undef_table_s {
   unsigned int new_undef;
   /* size | (byte << 16)  */
   unsigned int size_word;
-} undef_table [] = {
+} const undef_table [] = {
   { 0, BL_TO_WORD (0, 0)}, /* 0 */
   { 0, BL_TO_WORD (0, 1)},
   { 0, BL_TO_WORD (1, 1)},
@@ -1815,7 +1815,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
   webnum = 0;
   for (i = 0; i < def_id + use_id; i++)
     {
-      struct web *web, *subweb;
+      struct web *subweb, *web = 0; /* Initialize web to silence warnings.  */
       struct web_part *wp = &web_parts[i];
       struct ref *ref = wp->ref;
       unsigned int ref_id;

@@ -129,7 +129,6 @@ static tree build_objc_method_call		PARAMS ((int, tree, tree,
 static void generate_strings			PARAMS ((void));
 static tree get_proto_encoding 			PARAMS ((tree));
 static void build_selector_translation_table	PARAMS ((void));
-static tree build_ivar_chain			PARAMS ((tree, int));
 
 static tree objc_add_static_instance		PARAMS ((tree, tree));
 
@@ -250,7 +249,6 @@ static tree build_typed_selector_reference     	PARAMS ((tree, tree));
 static tree build_selector_reference		PARAMS ((tree));
 static tree build_class_reference_decl		PARAMS ((void));
 static void add_class_reference			PARAMS ((tree));
-static tree objc_copy_list			PARAMS ((tree, tree *));
 static tree build_protocol_template		PARAMS ((void));
 static tree build_descriptor_table_initializer	PARAMS ((tree, tree));
 static tree build_method_prototype_list_template PARAMS ((tree, int));
@@ -519,14 +517,6 @@ define_decl (declarator, declspecs)
    `a' and `b' are the same class type, or
    `a' and `b' are of class types A and B such that B is a descendant of A.  */
 
-int
-maybe_objc_comptypes (lhs, rhs, reflexive)
-     tree lhs, rhs;
-     int reflexive;
-{
-  return objc_comptypes (lhs, rhs, reflexive);
-}
-
 static tree
 lookup_method_in_protocol_list (rproto_list, sel_name, class_meth)
    tree rproto_list;
@@ -763,13 +753,6 @@ objc_check_decl (decl)
       && TREE_STATIC_TEMPLATE (type)
       && type != constant_string_type)
     error_with_decl (decl, "`%s' cannot be statically allocated");
-}
-
-void
-maybe_objc_check_decl (decl)
-     tree decl;
-{
-  objc_check_decl (decl);
 }
 
 /* Implement static typing.  At this point, we know we have an interface.  */
@@ -2293,51 +2276,23 @@ lookup_interface (ident)
   return NULL_TREE;
 }
 
-static tree
-objc_copy_list (list, head)
-     tree list;
-     tree *head;
-{
-  tree newlist = NULL_TREE, tail = NULL_TREE;
+/* Used by: build_private_template, continue_class,
+   and for @defs constructs.  */
 
-  while (list)
-    {
-      tail = copy_node (list);
-
-      /* The following statement fixes a bug when inheriting instance
-	 variables that are declared to be bitfields. finish_struct
-	 expects to find the width of the bitfield in DECL_INITIAL.  */
-      if (DECL_BIT_FIELD (tail) && DECL_INITIAL (tail) == 0)
-	DECL_INITIAL (tail) = DECL_SIZE (tail);
-
-      newlist = chainon (newlist, tail);
-      list = TREE_CHAIN (list);
-    }
-
-  *head = newlist;
-  return tail;
-}
-
-/* Used by: build_private_template, get_class_ivars, and
-   continue_class.  COPY is 1 when called from @defs.  In this case
-   copy all fields.  Otherwise don't copy leaf ivars since we rely on
-   them being side-effected exactly once by finish_struct.  */
-
-static tree
-build_ivar_chain (interface, copy)
+tree
+get_class_ivars (interface)
      tree interface;
-     int copy;
 {
   tree my_name, super_name, ivar_chain;
 
   my_name = CLASS_NAME (interface);
   super_name = CLASS_SUPER_NAME (interface);
+  ivar_chain = CLASS_IVARS (interface);
 
-  /* Possibly copy leaf ivars.  */
-  if (copy)
-    objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
-  else
-    ivar_chain = CLASS_IVARS (interface);
+  /* Save off a pristine copy of the leaf ivars (i.e, those not
+     inherited from a super class).  */
+  if (!CLASS_OWN_IVARS (interface))
+    CLASS_OWN_IVARS (interface) = copy_list (ivar_chain);
 
   while (super_name)
     {
@@ -2361,14 +2316,14 @@ build_ivar_chain (interface, copy)
       my_name = CLASS_NAME (interface);
       super_name = CLASS_SUPER_NAME (interface);
 
-      op1 = CLASS_IVARS (interface);
+      op1 = CLASS_OWN_IVARS (interface);
       if (op1)
         {
-	  tree head, tail = objc_copy_list (op1, &head);
+	  tree head = copy_list (op1);
 
 	  /* Prepend super class ivars...make a copy of the list, we
 	     do not want to alter the original.  */
-	  TREE_CHAIN (tail) = ivar_chain;
+	  chainon (head, ivar_chain);
 	  ivar_chain = head;
         }
     }
@@ -2395,7 +2350,7 @@ build_private_template (class)
     {
       uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      ivar_context = build_ivar_chain (class, 0);
+      ivar_context = get_class_ivars (class);
 
       finish_struct (uprivate_record, ivar_context, NULL_TREE);
 
@@ -4688,12 +4643,12 @@ receiver_is_class_object (receiver)
    the identifier of the selector of the message.  This is
    used when printing warnings about argument mismatches.  */
 
-static tree building_objc_message_expr = 0;
+static tree current_objc_message_selector = 0;
 
 tree
-maybe_building_objc_message_expr ()
+objc_message_selector ()
 {
-  return building_objc_message_expr;
+  return current_objc_message_selector;
 }
 
 /* Construct an expression for sending a message.
@@ -4969,7 +4924,7 @@ finish_message_expr (receiver, sel_name, method_params)
     }
 
   /* Save the selector name for printing error messages.  */
-  building_objc_message_expr = sel_name;
+  current_objc_message_selector = sel_name;
 
   /* Build the parameters list for looking up the method.
      These are the object itself and the selector.  */
@@ -4983,7 +4938,7 @@ finish_message_expr (receiver, sel_name, method_params)
 				   receiver, self_object,
 				   selector, method_params);
 
-  building_objc_message_expr = 0;
+  current_objc_message_selector = 0;
 
   return retval;
 }
@@ -5151,6 +5106,9 @@ build_protocol_expr (protoname)
   return expr;
 }
 
+/* This function is called by the parser when a @selector() expression
+   is found, in order to compile it.  It is only called by the parser
+   and only to compile a @selector().  */
 tree
 build_selector_expr (selnamelist)
      tree selnamelist;
@@ -5165,6 +5123,32 @@ build_selector_expr (selnamelist)
     selname = build_keyword_selector (selnamelist);
   else
     abort ();
+
+  /* If we are required to check @selector() expressions as they
+     are found, check that the selector has been declared.  */
+  if (warn_undeclared_selector)
+    {
+      /* Look the selector up in the list of all known class and
+         instance methods (up to this line) to check that the selector
+         exists.  */
+      hash hsh;
+
+      /* First try with instance methods.  */
+      hsh = hash_lookup (nst_method_hash_list, selname);
+      
+      /* If not found, try with class methods.  */
+      if (!hsh)
+	{
+	  hsh = hash_lookup (cls_method_hash_list, selname);
+	}
+      
+      /* If still not found, print out a warning.  */
+      if (!hsh)
+	{
+	  warning ("undeclared selector `%s'", IDENTIFIER_POINTER (selname));
+	}
+    }
+  
 
   if (flag_typed_selectors)
     return build_typed_selector_reference (selname, 0);
@@ -5305,6 +5289,7 @@ lookup_method (mchain, method)
     {
       if (METHOD_SEL_NAME (mchain) == key)
 	return mchain;
+
       mchain = TREE_CHAIN (mchain);
     }
   return NULL_TREE;
@@ -5676,18 +5661,6 @@ is_public (expr, identifier)
 
   return 1;
 }
-
-/* Implement @defs (<classname>) within struct bodies.  */
-
-tree
-get_class_ivars (interface)
-     tree interface;
-{
-  /* Make sure we copy the leaf ivars in case @defs is used in a local
-     context.  Otherwise finish_struct will overwrite the layout info
-     using temporary storage.  */
-  return build_ivar_chain (interface, 1);
-}
 
 /* Make sure all entries in CHAIN are also in LIST.  */
 
@@ -5919,7 +5892,7 @@ start_class (code, class_name, super_name, protocol_list)
     }
 
   class = make_node (code);
-  TYPE_BINFO (class) = make_tree_vec (5);
+  TYPE_BINFO (class) = make_tree_vec (6);
 
   CLASS_NAME (class) = class_name;
   CLASS_SUPER_NAME (class) = super_name;
@@ -6109,7 +6082,7 @@ continue_class (class)
 
       if (!TYPE_FIELDS (record))
 	{
-	  finish_struct (record, build_ivar_chain (class, 0), NULL_TREE);
+	  finish_struct (record, get_class_ivars (class), NULL_TREE);
 	  CLASS_STATIC_TEMPLATE (class) = record;
 
 	  /* Mark this record as a class template for static typing.  */
@@ -6733,14 +6706,14 @@ encode_field_decl (field_decl, curtype, format)
      the bitfield typing information.  */
   if (flag_next_runtime)
     {
-      if (DECL_BIT_FIELD (field_decl))
+      if (DECL_BIT_FIELD_TYPE (field_decl))
 	encode_bitfield (tree_low_cst (DECL_SIZE (field_decl), 1));
       else
 	encode_type (TREE_TYPE (field_decl), curtype, format);
     }
   else
     {
-      if (DECL_BIT_FIELD (field_decl))
+      if (DECL_BIT_FIELD_TYPE (field_decl))
 	encode_complete_bitfield (int_bit_position (field_decl),
 				  DECL_BIT_FIELD_TYPE (field_decl),
 				  tree_low_cst (DECL_SIZE (field_decl), 1));
@@ -7100,9 +7073,13 @@ get_super_receiver ()
 	    {
 	      super_class = get_class_reference (super_name);
 	      if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
+		/* Cast the super class to 'id', since the user may not have
+		   included <objc/objc-class.h>, leaving 'struct objc_class'
+		   an incomplete type.  */
 		super_class
-		  = build_component_ref (build_indirect_ref (super_class, "->"),
-					 get_identifier ("isa"));
+		  = build_component_ref (build_indirect_ref 
+					 (build_c_cast (id_type, super_class), "->"),
+					  get_identifier ("isa"));
 	    }
 	  else
 	    {

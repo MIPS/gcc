@@ -300,8 +300,6 @@ extern void literals_section	PARAMS ((void));
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
   fprintf (FILE, "\t.quad $L%d\n", (VALUE))
 
-#define ASM_FILE_END(FILE) alpha_write_linkage (FILE);
-
 #undef CASE_VECTOR_MODE
 #define CASE_VECTOR_MODE DImode
 #undef CASE_VECTOR_PC_RELATIVE
@@ -366,8 +364,8 @@ do {									\
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
 
-#define DWARF2_DEBUGGING_INFO
-#define VMS_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
+#define VMS_DEBUGGING_INFO 1
 
 #define DWARF2_UNWIND_INFO 1
 

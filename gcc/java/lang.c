@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -40,6 +40,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "xref.h"
 #include "ggc.h"
 #include "diagnostic.h"
+#include "tree-inline.h"
 
 struct string_option
 {
@@ -61,7 +62,14 @@ static void java_print_error_function PARAMS ((diagnostic_context *,
 static int process_option_with_no PARAMS ((const char *,
 					   const struct string_option *,
 					   int));
+static tree java_tree_inlining_walk_subtrees  PARAMS ((tree *,
+						       int *,
+						       walk_tree_fn,
+						       void *,
+						       void *));
 static int java_unsafe_for_reeval PARAMS ((tree));
+static bool java_can_use_bit_fields_p PARAMS ((void));
+
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -253,6 +261,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_DECL_PRINTABLE_NAME lang_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	java_print_error_function
+#undef LANG_HOOKS_CAN_USE_BIT_FIELDS_P
+#define LANG_HOOKS_CAN_USE_BIT_FIELDS_P java_can_use_bit_fields_p
 
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
@@ -264,6 +274,9 @@ struct language_function GTY(())
 #define LANG_HOOKS_UNSIGNED_TYPE java_unsigned_type
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE java_signed_or_unsigned_type
+
+#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
+#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES java_tree_inlining_walk_subtrees
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -495,6 +508,9 @@ java_init (filename)
   extern int flag_minimal_debug;
   flag_minimal_debug = 0;
 #endif
+
+  if (flag_inline_functions)
+    flag_inline_trees = 1;
 
   /* Open input file.  */
 
@@ -782,19 +798,103 @@ java_init_options ()
   flag_trapping_math = 0;
 }
 
+static bool
+java_can_use_bit_fields_p ()
+{
+  /* The bit-field optimizations cause problems when generating class
+     files.  */
+  return flag_emit_class_files ? false : true;
+}
+
 /* Post-switch processing.  */
 static bool
 java_post_options ()
 {
-  /* Turn off RTL inliner unless -finline-functions was really specified.  */
-  if (flag_really_inline == 0)
+ /* Use tree inlining if possible.  Function instrumentation is only
+     done in the RTL level, so we disable tree inlining.  */
+  if (! flag_instrument_function_entry_exit)
     {
-      flag_no_inline = 1;
-      flag_inline_functions = 0;
+      if (!flag_no_inline)
+	flag_no_inline = 1;
+      if (flag_inline_functions)
+	{
+	  flag_inline_trees = 2;
+	  flag_inline_functions = 0;
+	}
     }
 
   /* Initialize the compiler back end.  */
   return false;
+}
+
+/* Return either DECL or its known constant value (if it has one).  */
+
+tree
+decl_constant_value (decl)
+     tree decl;
+{
+  if (/* Don't change a variable array bound or initial value to a constant
+	 in a place where a variable is invalid.  */
+      current_function_decl != 0
+      && ! TREE_THIS_VOLATILE (decl)
+      && TREE_READONLY (decl)
+      && DECL_INITIAL (decl) != 0
+      && TREE_CODE (DECL_INITIAL (decl)) != ERROR_MARK
+      /* This is invalid if initial value is not constant.
+	 If it has either a function call, a memory reference,
+	 or a variable, then re-evaluating it could give different results.  */
+      && TREE_CONSTANT (DECL_INITIAL (decl))
+      /* Check for cases where this is sub-optimal, even though valid.  */
+      && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
+    return DECL_INITIAL (decl);
+  return decl;
+}
+
+/* Walk the language specific tree nodes during inlining.  */
+
+static tree
+java_tree_inlining_walk_subtrees (tp,subtrees,func,data,htab)
+     tree *tp ATTRIBUTE_UNUSED;
+     int *subtrees ATTRIBUTE_UNUSED;
+     walk_tree_fn func ATTRIBUTE_UNUSED;
+     void *data ATTRIBUTE_UNUSED;
+     void *htab ATTRIBUTE_UNUSED;
+{
+  enum tree_code code;
+  tree result;
+
+#define WALK_SUBTREE(NODE)				\
+  do							\
+    {							\
+      result = walk_tree (&(NODE), func, data, htab);	\
+      if (result)					\
+	return result;					\
+    }							\
+  while (0)
+
+  tree t = *tp;
+  if (!t)
+    return NULL_TREE;
+
+  code = TREE_CODE (t);
+  switch (code)
+    {
+    case BLOCK:
+      if (BLOCK_EXPR_BODY (t))
+	{
+	  tree *prev = &BLOCK_EXPR_BODY (*tp);
+	  while (*prev)
+	    {
+	      WALK_SUBTREE (*prev);
+	      prev = &TREE_CHAIN (*prev);
+	    }	    
+	}
+      return NULL_TREE;
+      break;
+
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Called from unsafe_for_reeval.  */

@@ -137,9 +137,6 @@ init_c_lex (filename)
   /* Start it at 0.  */
   lineno = 0;
 
-  if (filename == NULL || !strcmp (filename, "-"))
-    filename = "";
-
   return cpp_read_main_file (parse_in, filename, ident_hash);
 }
 
@@ -1082,8 +1079,7 @@ lex_charconst (token)
     type = wchar_type_node;
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
-  else if ((c_language == clk_c || c_language == clk_objective_c)
-	   || chars_seen > 1)
+  else if ((c_language == clk_c) || chars_seen > 1)
     type = integer_type_node;
   else
     type = char_type_node;

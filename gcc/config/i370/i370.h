@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_I370_H
 #define GCC_I370_H
 
-/* Target CPU builtins.  */			\
+/* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
@@ -1071,18 +1071,6 @@ enum reg_class
     {									\
       fprintf (FILE, "%s\tALIAS\tC'%s'\n", temp, NAME);			\
     }									\
-}
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
-{ 									\
-  char temp[MAX_MVS_LABEL_SIZE + 1];					\
-  if (mvs_check_alias (NAME, temp) == 2)				\
-    {									\
-      fprintf (FILE, "%s\tALIAS\tC'%s'\n", temp, NAME);			\
-    }									\
-  fputs ("\tENTRY\t", FILE);						\
-  assemble_name (FILE, NAME);						\
-  fputs ("\n", FILE);							\
 }
 
 /* MVS externals are limited to 8 characters, upper case only.
