@@ -1,3 +1,8 @@
+2002-12-06  Per Bothner  <pbothner@apple.com>
+
+	* cpplib.h (struct cpp_hashnode):  Change field directive_index from
+	char to an int bit-field, for hosts where char is unsigned.
+
 2002-12-07  Roger Sayle  <roger@eyesopen.com>
 	    Richard Henderson <rth@redhat.com>
 
