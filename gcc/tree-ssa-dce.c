@@ -485,6 +485,9 @@ remove_dead_stmt (i, bb)
 {
   tree t;
 
+  t = gsi_stmt (i);
+  STRIP_NOPS (t);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Deleting : ");
@@ -493,9 +496,6 @@ remove_dead_stmt (i, bb)
     }
 
   stats.removed++;
-
-  t = gsi_stmt (i);
-  STRIP_NOPS (t);
 
   /* If we have determined that a conditional branch statement contributes
      nothing to the program, then we not only remove it, but change the

@@ -1,3 +1,8 @@
+2003-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-dce.c (remove_dead_stmt): Fix uninitialized use
+	warning.
+
 2003-01-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* timevar.def (TV_TREE_SSA_REWRITE_BLOCKS): Adjust legend.
