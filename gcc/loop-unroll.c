@@ -554,7 +554,10 @@ unroll_or_peel_loop (loops, loop, flags)
       flags &= ~(UAP_UNROLL | UAP_UNROLL_ALL);
     }
 
-  if ((flags & UAP_PEEL) && npeel_completely > 0)
+  /* Avoid FAQ - most people when asking for unrolling will expect
+     compiler to remove loop iterating few times.  We handle this as special
+     case of loop peeling but enable it when -funroll-loops is present too.  */
+  if ((flags & (UAP_PEEL | UAP_UNROLL)) && npeel_completely > 0)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Allowing to peel loop completely\n");

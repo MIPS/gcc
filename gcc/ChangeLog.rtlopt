@@ -1,3 +1,8 @@
+Wed Oct 23 16:46:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* loop-unroll.c (unroll_or_peel_loop): Do complete unrolling
+	when -funroll-loop is specified.
+
 2002-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopmanip.c (fix_bb_placement, fix_bb_placements): New.
