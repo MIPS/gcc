@@ -1,3 +1,8 @@
+2004-03-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (conditional_replacement):
+	Disable the use of non-gimple of invert_truthvalue.
+
 2004-03-08  Andrew Pinski  <apinski@apple.com>
 
 	* tree-ssa-phiopt.c (make_temp): New function.

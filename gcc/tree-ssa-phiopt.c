@@ -324,11 +324,15 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
       if (is_gimple_cast (cond)
 	  && !is_gimple_val (TREE_OPERAND (cond, 0)))
         {
+          return false;
+          /* FIXME: disabled for now as it causes a bootstrap failure.   */
+#if 0
           tree temp = TREE_OPERAND (cond, 0);
           tree new_var_1 = make_temp (TREE_TYPE (temp));
           new = build (MODIFY_EXPR, TREE_TYPE (new_var_1), new_var_1, temp);
           bsi_insert_after (&bsi, new, BSI_NEW_STMT);
           cond = convert (TREE_TYPE (result), new_var_1);
+#endif
         }
 
       new = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
