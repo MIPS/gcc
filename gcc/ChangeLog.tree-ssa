@@ -1,3 +1,11 @@
+2004-04-21  Ben Elliston  <bje@au.ibm.com>
+
+	PR middle-end/14730
+	* expr.c (expand_expr_real_1) <SWITCH_EXPR>: Discard out of bounds
+	case label values and ranges.  Saturate case range values that
+	exceed the minimum or maximum permitted value for the controlling
+	expression type to TYPE_MIN_VALUE or TYPE_MAX_VALUE.
+	
 2004-04-20  Jeff Law  <law@redhat.com>
 
 	* tree-into-ssa.c (register_new_def): Avoid pushing useless

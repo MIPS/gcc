@@ -9294,8 +9294,52 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  for (i = 0; i < n; ++i)
 	    {
 	      tree elt = TREE_VEC_ELT (vec, i);
-	      add_case_node (CASE_LOW (elt), CASE_HIGH (elt),
-			     CASE_LABEL (elt), &duplicate, true);
+	      tree controlling_expr_type = TREE_TYPE (SWITCH_COND (exp));
+	      tree min_value = TYPE_MIN_VALUE (controlling_expr_type);
+	      tree max_value = TYPE_MAX_VALUE (controlling_expr_type);
+	      
+	      tree case_low = CASE_LOW (elt);
+	      tree case_high = CASE_HIGH (elt) ? CASE_HIGH (elt) : case_low;
+	      if (case_low && case_high)
+		{
+		  /* Case label is less than minimum for type.  */
+		  if ((tree_int_cst_compare (case_low, min_value) < 0)
+		      && (tree_int_cst_compare (case_high, min_value) < 0))
+		    {
+		      warning ("case label value %d is less than minimum value for type",
+			       TREE_INT_CST (case_low));
+		      continue;
+		    }
+		  
+		  /* Case value is greater than maximum for type.  */
+		  if ((tree_int_cst_compare (case_low, max_value) > 0)
+		      && (tree_int_cst_compare (case_high, max_value) > 0))
+		    {
+		      warning ("case label value %d exceeds maximum value for type",
+			       TREE_INT_CST (case_high));
+		      continue;
+		    }
+		  
+		  /* Saturate lower case label value to minimum.  */
+		  if ((tree_int_cst_compare (case_high, min_value) >= 0)
+		      && (tree_int_cst_compare (case_low, min_value) < 0))
+		    {
+		      warning ("lower value %d in case label range less than minimum value for type",
+			       TREE_INT_CST (case_low));
+		      case_low = min_value;
+		    }
+		  
+		  /* Saturate upper case label value to maximum.  */
+		  if ((tree_int_cst_compare (case_low, max_value) <= 0)
+		      && (tree_int_cst_compare (case_high, max_value) > 0))
+		    {
+		      warning ("upper value %d in case label range exceeds maximum value for type",
+			       TREE_INT_CST (case_high));
+		      case_high = max_value;
+		    }
+		}
+	      
+	      add_case_node (case_low, case_high, CASE_LABEL (elt), &duplicate, true);
 	      if (duplicate)
 		abort ();
 	    }
