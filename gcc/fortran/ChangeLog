@@ -1,3 +1,7 @@
+2003-10-17  Paul Brook  <paul@nowt.org>
+
+	* trans-io.c (gfc_build_io_library_fndecls): Set TREE_PUBLIC.
+
 2003-10-17  Feng Wang  <wf_cs@yahoo.com>
 
 	* iresolve.c (gfc_resolve_maxloc): Change the result's kind and type.
