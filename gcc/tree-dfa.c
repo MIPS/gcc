@@ -137,8 +137,8 @@ static void add_indirect_ref_var	PARAMS ((tree, struct walk_state *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
 static void add_may_alias		PARAMS ((tree, tree, tree, tree));
 static bool call_may_clobber		PARAMS ((tree));
-static void find_vla_decls		PARAMS ((tree));
-static tree find_vla_decls_r		PARAMS ((tree *, int *, void *));
+static int find_hidden_use_vars		PARAMS ((tree));
+static tree find_hidden_use_vars_r	PARAMS ((tree *, int *, void *));
 
 
 /* Global declarations.  */
@@ -1651,14 +1651,23 @@ compute_may_aliases (fndecl)
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
+  tree block;
 
   timevar_push (TV_TREE_MAY_ALIAS);
 
   /* Walk the lexical blocks in the function looking for variables that may
-     have been used to declare VLAs.  Those variables will be considered
-     implicitly live by passes like DCE.  FIXME: This is a hack.  GIMPLE
-     should expose VLAs in the code.  */
-  find_vla_decls (DECL_INITIAL (fndecl));
+     have been used to declare VLAs and for nested functions.  Both
+     constructs create hidden uses of variables. 
+
+     Note that at this point we may have multiple blocks hung off
+     DECL_INITIAL chained through the BLOCK_CHAIN field due to
+     how inlining works.  Egad.  */
+  block = DECL_INITIAL (fndecl);
+  while (block)
+    {
+      find_hidden_use_vars (block);
+      block = BLOCK_CHAIN (block);
+    }
 
   num_aliased_objects = 0;
   VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
@@ -2539,37 +2548,61 @@ call_may_clobber (expr)
 }
 
 
-/* Mark variables that are being used to declare VLAs (Variable Length
-   Arrays).  Those variables will be considered implicitly live by the
-   dataflow routines.  FIXME: This is a huge ugly hack.  GIMPLE should
-   expose VLAs more gracefully.  */
+/* Mark variables that have hidden uses.
 
-static void
-find_vla_decls (block)
+   A hidden use can occur due to VLA declarations or nested functions. 
+
+   Return nonzero if we found a nested function at this block's
+   depth or in one of its children (recursively).  */
+
+static int
+find_hidden_use_vars (block)
     tree block;
 {
   tree sub, decl;
+  int found_nested_function = 0;
 
-  /* Check all the arrays declared in the block.  */
+  /* Check all the arrays declared in the block for VLAs.
+
+     While scanning the block's variables, also see if there is
+     a nested function at this scope.  */
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
       int inside_vla = 0;
-      walk_tree (&decl, find_vla_decls_r, &inside_vla, NULL);
+
+      /* Note if we saw a nested function.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	found_nested_function = 1;
+
+      walk_tree (&decl, find_hidden_use_vars_r, &inside_vla, NULL);
     }
 
   /* Now repeat the search in any sub-blocks.  */
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    find_vla_decls (sub);
+    found_nested_function |= find_hidden_use_vars (sub);
+
+  /* If this scope or one of its children has a nested function,
+     then we have to mark all the variables at this block's scope
+     as having a hidden use and propagate that information up the
+     block scope tree.  */
+  if (found_nested_function)
+    {
+      for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
+        if (TREE_CODE (decl) == VAR_DECL)
+	  set_has_hidden_use (decl);
+      return 1;
+    }
+
+  return 0;
 }
 
-
-/* Callback for walk_tree used by find_vla_decls to analyze each array in a
-   lexical block.  For each array type, it walks its TYPE_SIZE and
+/* Callback for walk_tree used by find_hidden_use_vars to analyze each array
+   in a lexical block.  For each array type, it walks its TYPE_SIZE and
    TYPE_SIZE_UNIT trees looking for VAR_DECLs.  Those VAR_DECLs will be
    marked as having a hidden use.  */
 
 static tree
-find_vla_decls_r (tp, walk_subtrees, data)
+find_hidden_use_vars_r (tp, walk_subtrees, data)
      tree *tp;
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
@@ -2579,8 +2612,9 @@ find_vla_decls_r (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) == ARRAY_TYPE)
     {
       *inside_vla = 1;
-      walk_tree (&TYPE_SIZE (*tp), find_vla_decls_r, inside_vla, NULL);
-      walk_tree (&TYPE_SIZE_UNIT (*tp), find_vla_decls_r, inside_vla, NULL);
+      walk_tree (&TYPE_SIZE (*tp), find_hidden_use_vars_r, inside_vla, NULL);
+      walk_tree (&TYPE_SIZE_UNIT (*tp), find_hidden_use_vars_r,
+		 inside_vla, NULL);
     }
   else if (*inside_vla && SSA_DECL_P (*tp))
     set_has_hidden_use (*tp);
