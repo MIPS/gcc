@@ -539,16 +539,19 @@ struct type
   
      First, when constructing a new object, it is the PC of the
      `new' instruction which created the object.  We use the special
-     value UNINIT to mean that this is uninitialized, and the
-     special value SELF for the case where the current method is
-     itself the <init> method.
-
+     value UNINIT to mean that this is uninitialized.  The special
+     value SELF is used for the case where the current method is
+     itself the <init> method.  the special value EITHER is used
+     when we may optionally allow either an uninitialized or
+     initialized reference to match.
+  
      Second, when the key is return_address_type, this holds the PC
      of the instruction following the `jsr'.  */
   int pc;
 
-  #define UNINIT -2
-  #define SELF -1
+#define UNINIT -2
+#define SELF -1
+#define EITHER -3
 };
 
 #if 0
@@ -721,21 +724,50 @@ types_compatible (type *t, type *k)
   if (k->klass == NULL)
     verify_fail ("programmer error in type::compatible");
 
-  /* An initialized type and an uninitialized type are not
-     compatible.  */
-  if (type_initialized (t) != type_initialized (k))
-    return false;
-
-  /* Two uninitialized objects are compatible if either:
-     * The PCs are identical, or
-     * One PC is UNINIT.  */
-  if (type_initialized (t))
+  /* Handle the special 'EITHER' case, which is only used in a
+     special case of 'putfield'.  Note that we only need to handle
+     this on the LHS of a check.  */
+  if (! type_initialized (t) && t->pc == EITHER)
     {
-      if (t->pc != k->pc && t->pc != UNINIT && k->pc != UNINIT)
+      /* If the RHS is uninitialized, it must be an uninitialized
+	 'this'.  */
+      if (! type_initialized (k) && k->pc != SELF)
 	return false;
+    }
+  else if (type_initialized (t) != type_initialized (k))
+    {
+      /* An initialized type and an uninitialized type are not
+	 otherwise compatible.  */
+      return false;
+    }
+  else
+    {
+      /* Two uninitialized objects are compatible if either:
+       * The PCs are identical, or
+       * One PC is UNINIT.  */
+      if (type_initialized (t))
+	{
+	  if (t->pc != k->pc && t->pc != UNINIT && k->pc != UNINIT)
+	    return false;
+	}
     }
 
   return ref_compatible (t->klass, k->klass);
+}
+
+/* Return true if two types are equal.  Only valid for reference
+   types.  */
+static bool
+types_equal (type *t1, type *t2)
+{
+  if ((t1->key != reference_type && t1->key != uninitialized_reference_type)
+      || (t2->key != reference_type
+	  && t2->key != uninitialized_reference_type))
+    return false;
+  /* Only single-ref types are allowed.  */
+  if (t1->klass->ref_next || t2->klass->ref_next)
+    return false;
+  return refs_equal (t1->klass, t2->klass);
 }
 
 static bool
@@ -2117,9 +2149,10 @@ handle_field_or_method (int index, int expected,
   return check_class_constant (class_index);
 }
 
-/* Return field's type, compute class' type if requested.  */
+/* Return field's type, compute class' type if requested.  If
+   PUTFIELD is true, use the special 'putfield' semantics.  */
 static type
-check_field_constant (int index, type *class_type)
+check_field_constant (int index, type *class_type, bool putfield)
 {
   vfy_string name, field_type;
   const char *typec;
@@ -2137,6 +2170,21 @@ check_field_constant (int index, type *class_type)
     init_type_from_string (&t, field_type);
   else
     init_type_from_tag (&t, get_type_val_for_signature (typec[0]));
+
+  /* We have an obscure special case here: we can use `putfield' on a
+     field declared in this class, even if `this' has not yet been
+     initialized.  */
+  if (putfield
+      && ! type_initialized (&vfr->current_state->this_type)
+      && vfr->current_state->this_type.pc == SELF
+      && types_equal (&vfr->current_state->this_type, &ct)
+      && vfy_class_has_field (vfr->current_class, name, field_type))
+    /* Note that we don't actually know whether we're going to match
+       against 'this' or some other object of the same type.  So,
+       here we set things up so that it doesn't matter.  This relies
+       on knowing what our caller is up to.  */
+    type_set_uninitialized (class_type, EITHER);
+
   return t;
 }
 
@@ -2971,15 +3019,15 @@ verify_instructions_0 (void)
 	  invalidate_pc ();
 	  break;
 	case op_getstatic:
-	  push_type_t (check_field_constant (get_ushort (), NULL));
+	  push_type_t (check_field_constant (get_ushort (), NULL, false));
 	  break;
 	case op_putstatic:
-	  pop_type_t (check_field_constant (get_ushort (), NULL));
+	  pop_type_t (check_field_constant (get_ushort (), NULL, false));
 	  break;
 	case op_getfield:
 	  {
 	    type klass;
-	    type field = check_field_constant (get_ushort (), &klass);
+	    type field = check_field_constant (get_ushort (), &klass, false);
 	    pop_type_t (klass);
 	    push_type_t (field);
 	  }
@@ -2987,15 +3035,8 @@ verify_instructions_0 (void)
 	case op_putfield:
 	  {
 	    type klass;
-	    type field = check_field_constant (get_ushort (), &klass);
+	    type field = check_field_constant (get_ushort (), &klass, true);
 	    pop_type_t (field);
-
-	    /* We have an obscure special case here: we can use
-	       `putfield' on a field declared in this class, even if
-	       `this' has not yet been initialized.  */
-	    if (! type_initialized (&vfr->current_state->this_type)
-		&& vfr->current_state->this_type.pc == SELF)
-	      type_set_uninitialized (&klass, SELF);
 	    pop_type_t (klass);
 	  }
 	  break;

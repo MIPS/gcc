@@ -864,10 +864,12 @@ init_cse_reg_info (unsigned int nregs)
 	}
 
       /* Reallocate the table with NEW_SIZE entries.  */
-      cse_reg_info_table = xrealloc (cse_reg_info_table,
-				     (sizeof (struct cse_reg_info)
-				      * new_size));
+      if (cse_reg_info_table)
+	free (cse_reg_info_table);
+      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
+				     * new_size);
       cse_reg_info_table_size = new_size;
+      cse_reg_info_table_first_uninitialized = 0;
     }
 
   /* Do we have all of the first NREGS entries initialized?  */
@@ -7282,8 +7284,9 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
   counts = xcalloc (nreg, sizeof (int));
-  for (insn = next_real_insn (insns); insn; insn = next_real_insn (insn))
-    count_reg_usage (insn, counts, 1);
+  for (insn = insns; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      count_reg_usage (insn, counts, 1);
 
   /* Go from the last insn to the first and delete insns that only set unused
      registers or copy a register to itself.  As we delete an insn, remove
@@ -7292,15 +7295,13 @@ delete_trivially_dead_insns (rtx insns, int nreg)
      The first jump optimization pass may leave a real insn as the last
      insn in the function.   We must not skip that insn or we may end
      up deleting code that is not really dead.  */
-  insn = get_last_insn ();
-  if (! INSN_P (insn))
-    insn = prev_real_insn (insn);
-
-  for (; insn; insn = prev)
+  for (insn = get_last_insn (); insn; insn = prev)
     {
       int live_insn = 0;
 
-      prev = prev_real_insn (insn);
+      prev = PREV_INSN (insn);
+      if (!INSN_P (insn))
+	continue;
 
       /* Don't delete any insns that are part of a libcall block unless
 	 we can delete the whole libcall block.
@@ -7328,7 +7329,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 	  ndead++;
 	}
 
-      if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+      if (in_libcall && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	{
 	  in_libcall = 0;
 	  dead_libcall = 0;

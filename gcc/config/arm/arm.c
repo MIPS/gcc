@@ -2283,7 +2283,8 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
 /* Define how to find the value returned by a function.  */
 
-rtx arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
+rtx
+arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   int unsignedp ATTRIBUTE_UNUSED;
@@ -2297,6 +2298,28 @@ rtx arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
   return LIBCALL_VALUE(mode);
 }
 
+/* Determine the amount of memory needed to store the possible return 
+   registers of an untyped call.  */
+int
+arm_apply_result_size (void)
+{
+  int size = 16;
+
+  if (TARGET_ARM)
+    {
+      if (TARGET_HARD_FLOAT_ABI)
+	{
+	  if (TARGET_FPA)
+	    size += 12;
+	  if (TARGET_MAVERICK)
+	    size += 8;
+	}
+      if (TARGET_IWMMXT_ABI)
+	size += 8;
+    }
+
+  return size;
+}
 
 /* Decide whether a type should be returned in memory (true)
    or in a register (false).  This is called by the macro
@@ -8634,8 +8657,14 @@ int_log2 (HOST_WIDE_INT power)
   return shift;
 }
 
-/* Output a .ascii pseudo-op, keeping track of lengths.  This is because
-   /bin/as is horribly restrictive.  */
+/* Output a .ascii pseudo-op, keeping track of lengths.  This is
+   because /bin/as is horribly restrictive.  The judgement about
+   whether or not each character is 'printable' (and can be output as
+   is) or not (and must be printed with an octal escape) must be made
+   with reference to the *host* character set -- the situation is
+   similar to that discussed in the comments above pp_c_char in
+   c-pretty-print.c.  */
+
 #define MAX_ASCII_LEN 51
 
 void
@@ -8656,57 +8685,20 @@ output_ascii_pseudo_op (FILE *stream, const unsigned char *p, int len)
 	  len_so_far = 0;
 	}
 
-      switch (c)
+      if (ISPRINT (c))
 	{
-	case TARGET_TAB:
-	  fputs ("\\t", stream);
-	  len_so_far += 2;
-	  break;
-
-	case TARGET_FF:
-	  fputs ("\\f", stream);
-	  len_so_far += 2;
-	  break;
-
-	case TARGET_BS:
-	  fputs ("\\b", stream);
-	  len_so_far += 2;
-	  break;
-
-	case TARGET_CR:
-	  fputs ("\\r", stream);
-	  len_so_far += 2;
-	  break;
-
-	case TARGET_NEWLINE:
-	  fputs ("\\n", stream);
-	  c = p [i + 1];
-	  if ((c >= ' ' && c <= '~')
-	      || c == TARGET_TAB)
-	    /* This is a good place for a line break.  */
-	    len_so_far = MAX_ASCII_LEN;
-	  else
-	    len_so_far += 2;
-	  break;
-
-	case '\"':
-	case '\\':
-	  putc ('\\', stream);
-	  len_so_far++;
-	  /* Drop through.  */
-
-	default:
-	  if (c >= ' ' && c <= '~')
+	  if (c == '\\' || c == '\"')
 	    {
-	      putc (c, stream);
+	      putc ('\\', stream);
 	      len_so_far++;
 	    }
-	  else
-	    {
-	      fprintf (stream, "\\%03o", c);
-	      len_so_far += 4;
-	    }
-	  break;
+	  putc (c, stream);
+	  len_so_far++;
+	}
+      else
+	{
+	  fprintf (stream, "\\%03o", c);
+	  len_so_far += 4;
 	}
     }
 

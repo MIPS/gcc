@@ -1,5 +1,5 @@
 /* Routines for liveness in SSA trees.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -428,7 +428,7 @@ tpa_decompact(tpa_p tpa)
 }
 
 
-/* Once a var_map has been created and compressed, a complimentary root_var
+/* Once a var_map has been created and compressed, a complementary root_var
    object can be built.  This creates a list of all the root variables from
    which ssa version names are derived.  Each root variable has a list of 
    which partitions are versions of that root.  

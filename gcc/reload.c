@@ -2160,12 +2160,15 @@ operands_match_p (rtx x, rtx y)
 	j = REGNO (y);
 
       /* On a WORDS_BIG_ENDIAN machine, point to the last register of a
-	 multiple hard register group, so that for example (reg:DI 0) and
-	 (reg:SI 1) will be considered the same register.  */
+	 multiple hard register group of scalar integer registers, so that
+	 for example (reg:DI 0) and (reg:SI 1) will be considered the same
+	 register.  */
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
+	  && SCALAR_INT_MODE_P (GET_MODE (x))
 	  && i < FIRST_PSEUDO_REGISTER)
 	i += hard_regno_nregs[i][GET_MODE (x)] - 1;
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (y)) > UNITS_PER_WORD
+	  && SCALAR_INT_MODE_P (GET_MODE (y))
 	  && j < FIRST_PSEUDO_REGISTER)
 	j += hard_regno_nregs[j][GET_MODE (y)] - 1;
 
@@ -3667,6 +3670,10 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  t = pref_or_nothing[commutative];
 	  pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
 	  pref_or_nothing[commutative + 1] = t;
+
+	  t = address_reloaded[commutative];
+	  address_reloaded[commutative] = address_reloaded[commutative + 1];
+	  address_reloaded[commutative + 1] = t;
 
 	  memcpy (constraints, recog_data.constraints,
 		  noperands * sizeof (char *));
@@ -6705,12 +6712,14 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 
 	  if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < nregs; ++i)
-	      if (call_used_regs[regno + i])
+	      if (call_used_regs[regno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (regno + i, mode))
 		return 0;
 
 	  if (valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER)
 	    for (i = 0; i < valuenregs; ++i)
-	      if (call_used_regs[valueno + i])
+	      if (call_used_regs[valueno + i]
+		  || HARD_REGNO_CALL_PART_CLOBBERED (valueno + i, mode))
 		return 0;
 	}
 

@@ -1570,17 +1570,17 @@ build_offset_ref (tree type, tree name, bool address_p)
 tree
 integral_constant_value (tree decl)
 {
-  if ((TREE_CODE (decl) == CONST_DECL
-      || (TREE_CODE (decl) == VAR_DECL
-	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
-	  && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
-      && DECL_INITIAL (decl)
-      && DECL_INITIAL (decl) != error_mark_node
-      && TREE_TYPE (DECL_INITIAL (decl))
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-    return DECL_INITIAL (decl);
+  while ((TREE_CODE (decl) == CONST_DECL
+	  || (TREE_CODE (decl) == VAR_DECL
+	      /* And so are variables with a 'const' type -- unless they
+		 are also 'volatile'.  */
+	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)))
+	 && DECL_INITIAL (decl)
+	 && DECL_INITIAL (decl) != error_mark_node
+	 && TREE_TYPE (DECL_INITIAL (decl))
+	 && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
+    decl = DECL_INITIAL (decl);
   return decl;
 }
 
@@ -1762,7 +1762,7 @@ build_new_1 (tree exp)
      from ELT_TYPE for a multi-dimensional array; ELT_TYPE is never an
      ARRAY_TYPE, but TYPE may be an ARRAY_TYPE.  */
   tree type;
-  /* A pointer type pointing to to the FULL_TYPE.  */
+  /* A pointer type pointing to the FULL_TYPE.  */
   tree full_pointer_type;
   tree outer_nelts = NULL_TREE;
   tree nelts = NULL_TREE;

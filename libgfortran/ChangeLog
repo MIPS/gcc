@@ -1,3 +1,61 @@
+2005-02-27  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* runtime/environ.c: Update copyright years.
+
+2005-02-27  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/write.c: Update copyright years.
+
+2005-02-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20101
+	* io/write.c (output_float): Added special check for value 0.0 in
+	PE format.
+
+2004-02-27  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* io/write.c (output_float): Fix typo in condition.
+
+2005-02-25  Peter O'Gorman  <peter@pogma.com>
+            Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR libgfortran/17748
+	* runtime/environ.c: Remove references to environ.
+	(show_variables): remove GFORTRAN_UNBUFFERED_* and 
+	GFORTRAN_NAME_* because they require environ.
+	(pattern_scan): Remove function.
+
+2004-02-22  Paul Thomas <paulthomas2@wannado.fr>
+	    Bud Davis  <bdavis@gfortran.org>
+
+	* io/list_read.c (read_real): Handle separators properly
+	in list directed read.
+
+2004-02-21  Bud Davis  <bdavis@gfortran.org>
+
+	PR fortran/20086
+	* io/transfer.c (write_constant_string): accept an 'h' as
+	the start of a hollerith format string.
+
+2005-02-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libfortran/19302
+	* intrinsics/c99_functions.c (nextafterf): Special-case infinite
+	numbers.
+
+2005-02-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* io/write.c (output_float):  Typo in error meesage.
+
+2005-02-20  Steven G. Kargl  <kargls@comcast.net>
+
+        PR 20085
+        * intrinsic/args.c (iargc): Off by 1.
+
+2005-02-19  Steven G. Kargl  <kargls@comcast.net>
+
+      *  intrinsic/date_and_time.c: Fix conformance problems.
+
 2005-02-01  Paul Thomas <paulthomas2@wanadoo.fr>
 
 	PR libgfortran/19363
