@@ -24,55 +24,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 typedef unsigned char U_CHAR;
 
-/* Structure allocated for every #define.  For a simple replacement
-   such as
-   	#define foo bar ,
-   nargs = -1, the `pattern' list is null, and the expansion is just
-   the replacement text.  Nargs = 0 means a functionlike macro with no args,
-   e.g.,
-       #define getchar() getc (stdin) .
-   When there are args, the expansion is the replacement text with the
-   args squashed out, and the reflist is a list describing how to
-   build the output from the input: e.g., "3 chars, then the 1st arg,
-   then 9 chars, then the 3rd arg, then 0 chars, then the 2nd arg".
-   The chars here come from the expansion.  Whatever is left of the
-   expansion after the last arg-occurrence is copied after that arg.
-   Note that the reflist can be arbitrarily long---
-   its length depends on the number of times the arguments appear in
-   the replacement text, not how many args there are.  Example:
-   #define f(x) x+x+x+x+x+x+x would have replacement text "++++++" and
-   pattern list
-     { (0, 1), (1, 1), (1, 1), ..., (1, 1), NULL }
-   where (x, y) means (nchars, argno). */
-
-struct reflist
-{
-  struct reflist *next;
-  char stringify;		/* nonzero if this arg was preceded by a
-				   # operator. */
-  char raw_before;		/* Nonzero if a ## operator before arg. */
-  char raw_after;		/* Nonzero if a ## operator after arg. */
-  char rest_args;		/* Nonzero if this arg. absorbs the rest */
-  int nchars;			/* Number of literal chars to copy before
-				   this arg occurrence.  */
-  int argno;			/* Number of arg to substitute (origin-0) */
-};
-
-typedef struct definition DEFINITION;
-struct definition
-{
-  int nargs;
-  int length;			/* length of expansion string */
-  U_CHAR *expansion;
-  char rest_args;		/* Nonzero if last arg. absorbs the rest */
-  struct reflist *pattern;
-
-  /* Names of macro args, concatenated in order with \0 between
-     them.  The only use of this is that we warn on redefinition if
-     this differs between the old and new definitions.  */
-  U_CHAR *argnames;
-};
-
 /* The structure of a node in the hash table.  The hash table
    has entries for all tokens defined by #define commands (type T_MACRO),
    plus some special tokens like __LINE__ (these each have their own
@@ -94,35 +45,28 @@ enum node_type
   T_CONST,	   /* Constant string, used by `__SIZE_TYPE__' etc */
   T_XCONST,	   /* Ditto, but the string is malloced memory */
   T_POISON,	   /* poisoned identifier */
-  T_MCONST,	   /* object-like macro defined to a single identifier */
-  T_MACRO,	   /* general object-like macro */
-  T_FMACRO,	   /* general function-like macro */
+  T_MACRO,	   /* object-like macro */
+  T_FMACRO,	   /* function-like macro */
   T_IDENTITY,	   /* macro defined to itself */
   T_EMPTY	   /* macro defined to nothing */
-};
-
-/* different kinds of things that can appear in the value field
-   of a hash node. */
-union hashval
-{
-  const char *cpval;		/* some predefined macros */
-  DEFINITION *defn;		/* #define */
-  struct hashnode *aschain;	/* #assert */
 };
 
 typedef struct hashnode HASHNODE;
 struct hashnode
 {
-  const U_CHAR *name;		/* the actual name */
-  size_t length;		/* length of token, for quick comparison */
-  unsigned long hash;		/* cached hash value */
-  union hashval value;		/* pointer to expansion, or whatever */
-  enum node_type type;		/* type of special token */
-  int disabled;			/* macro turned off for rescan?  */
+  unsigned int hash;			/* cached hash value */
+  unsigned short length;		/* length of name */
+  ENUM_BITFIELD(node_type) type : 8;	/* node type */
+  char disabled;			/* macro turned off for rescan? */
 
-  const char *file;		/* File, line, column of definition; */
-  int line;
-  int col;
+  union {
+    const char *cpval;			/* some predefined macros */
+    const struct object_defn *odefn;	/* #define foo bar */
+    const struct funct_defn *fdefn;	/* #define foo(x) bar(x) */
+    struct hashnode *aschain;		/* #assert */
+  } value;
+
+  const U_CHAR *name;
 };
 
 /* List of directories to look for include files in. */
@@ -276,7 +220,7 @@ extern HASHNODE **_cpp_lookup_slot	PARAMS ((cpp_reader *,
 						 const U_CHAR *, int,
 						 enum insert_option,
 						 unsigned long *));
-extern void _cpp_free_definition	PARAMS ((DEFINITION *));
+extern void _cpp_free_definition	PARAMS ((HASHNODE *));
 extern int _cpp_create_definition	PARAMS ((cpp_reader *,
 						 cpp_toklist *, HASHNODE *));
 extern void _cpp_dump_definition	PARAMS ((cpp_reader *, HASHNODE *));

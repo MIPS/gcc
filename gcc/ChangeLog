@@ -1,3 +1,79 @@
+2000-04-29  Richard Henderson  <rth@cygnus.com>
+
+	* config/alpha/crtend.asm: Use C comments instead of #.
+	* config/alpha/crtbegin.asm: Likewise.  Mark __dso_handle hidden.
+
+	* config/alpha/elf.h (SELECT_SECTION): Treat CONSTRUCTOR like VAR_DECL.
+
+2000-04-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.h (enum node_type: Take out T_MCONST.
+	(union hashval): Move into struct hashnode.
+	(struct hashnode): Pack tighter.  Remove file, line, col
+	members.
+	* cpphash.c: Constify most of the macro-definition structures.
+	(struct definition): Replace by struct object_defn
+	and struct funct_defn.  Put file, line, column information
+	here.  All users updated to match.
+	(_cpp_create_definition, _cpp_macroexpand): Remove special
+	case for #define WORD OTHERWORD.
+	* cpplib.c (do_undef): Remove T_MCONST case.
+
+	* cpphash.h: Move struct reflist, struct definition, and the
+	DEFINITION typedef to cpphash.c.  Use 'struct definition *' in
+	union hashval.  _cpp_free_definition takes a HASHNODE pointer.
+	* cpphash.c (_cpp_free_definition): Free data pointed to by
+	MCONST, XCONST, MACRO, and FMACRO nodes properly.
+	(_cpp_create_definition, del_HASHNODE): Just call
+	_cpp_free_definition to clear out a hashnode.
+	* cpplib.c (do_pragma_poison): Likewise.
+
+Sat Apr 29 12:25:17 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (FIRST_DATA_REGNUM,
+	LAST_DATA_REGNUM, FIRST_ADDRESS_REGNUM, LAST_ADDRESS_REGNUM,
+	FIRST_EXTENDED_REGNUM, LAST_EXTENDED_REGNUM): New macros.
+	(REGNO_SP_P): Redefine in terms of STACK_POINTER_REGNUM.
+	(REGNO_DATA_P, REGNO_ADDRESS_P, REGNO_EXTENDED_P,
+	REGNO_AM33_P): Redefine in terms of the new macros.
+	(CONDITIONAL_REGISTER_USAGE, REGNO_REG_CLASS): Likewise.
+	(FUNCTION_VALUE, LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P,
+	STRUCT_VALUE): Likewise.
+	(STACK_POINTER_REGNUM, FRAME_POINTER_REGNUM,
+	ARG_POINTER_REGNUM, STATIC_CHAIN_REGNUM): Likewise.  Moved.
+
+Sat Apr 29 01:18:45 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* regmove.c (struct record_stack_memrefs_data): New.
+	(record_stack_memrefs): New function.
+	(combine_stack_adjustments_for_block): Use it.
+
+Sat Apr 29 01:15:27 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (calls_function_1):  Propertly handle TREE_LIST expressions;
+	use special_function_p to detect alloca.
+
+Fri Apr 28 16:30:33 2000  Marc Espie <espie@cvs.openbsd.org>
+
+	* gcc.texi: Fixes for makeinfo 4.0 --html.
+
+2000-04-28  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* pcp.h: Delete file.
+
+2000-04-28  Kazu Hirata  <kazu@hxi.com>
+
+	* h8300.c (function_epilogue): Clean up flags when the last insn
+	in a function is a barrier.
+
+2000-04-28  Chris Demetriou  <cgd@sibyte.com>
+
+	* configure.in (sparc-hal-solaris2*): protect [] glob from
+	my expansion.
+	(mips*-*-ecoff*, mips*-*-elf*, mips*-*-*): use MASK_ defines
+	rather than hard-coded constants in target_cpu_default2.
+	* configure: Regenerate.
+
 2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
 
 	* tree.c (get_callee_fndecl): Extract the initial value from

@@ -1,7 +1,6 @@
-2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+2000-04-28  Cosmin Truta  <cosmint@cs.ubbcluj.ro>
 
-	* optimize.c (initialize_inlined_parameters): Call 
-	c_apply_type_quals_to_decl.  Set DECL_INITIAL.
+	* decl.c (grok_op_properties): Add an extra check of argtypes.
 
 2000-04-27  Mark Mitchell  <mark@codesourcery.com>
 
