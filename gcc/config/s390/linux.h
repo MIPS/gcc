@@ -133,6 +133,12 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_SPEC "%{m64:%(link_arch64)} %{!m64:%(link_arch31)}"
 #endif
 
+#define ASM_FILE_END(FILE) \
+  do {									\
+    named_section_flags (".note.GNU-stack",				\
+			 SECTION_DEBUG					\
+			 | (trampolines_created ? SECTION_CODE : 0));	\
+  } while (0)
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
