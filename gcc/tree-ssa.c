@@ -2397,7 +2397,13 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	{
 	  def = USE_OP (uses, i);
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
-	    mark_replaceable (tab, def);
+	    {
+	      /* Mark expression as replaceable unless stmt is volatile.  */
+	      if (!ann->has_volatile_ops)
+		mark_replaceable (tab, def);
+	      else
+		finish_expr (tab, SSA_NAME_VERSION (def), false);
+	    }
 	}
       
       /* Next, see if this stmt kills off an active expression.  */
@@ -2412,7 +2418,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	}
 
       /* Now see if we are creating a new expression or not.  */
-      check_replaceable (tab, stmt);
+      if (!ann->has_volatile_ops)
+	check_replaceable (tab, stmt);
 
       /* Free any unused dependancy lists.  */
       while ((p = tab->pending_dependence))
