@@ -987,6 +987,7 @@ unswitch_loop (loops, loop, unswitch_on)
   struct loop *nloop;
   int n_dom_bbs, i, j;
   int just_one_edge;
+  sbitmap zero_bitmap;
 
   /* Some sanity checking.  */
   if (!flow_bb_inside_loop_p (loop, unswitch_on))
@@ -1014,8 +1015,11 @@ unswitch_loop (loops, loop, unswitch_on)
        entry = entry->pred_next);
   
   /* Make a copy.  */
-  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, 0, 0))
+  zero_bitmap = sbitmap_alloc (2);
+  sbitmap_zero (zero_bitmap);
+  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, zero_bitmap, 0))
     return NULL;
+  free (zero_bitmap);
 
   /* Record switch block.  */
   unswitch_on_alt = RBI (unswitch_on)->copy;
@@ -1394,7 +1398,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
      edge e;
      struct loops *loops;
      int ndupl;
-     int wont_exit;
+     sbitmap wont_exit;
      int flags;
 {
   struct loop *target, *aloop;
@@ -1495,14 +1499,14 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
     {
       loop_made_infinite = 1;
       for (i = 0; i <= ndupl; i++)
-	if (!(wont_exit & (1 << i)))
+	if (!TEST_BIT (wont_exit, i))
 	  {
 	    loop_made_infinite = 0;
 	    break;
 	  }
     }
   else
-    loop_made_infinite = (wont_exit & 1);
+    loop_made_infinite = TEST_BIT (wont_exit, 0);
   /* We cannot handle infinite loops yet.  It is relatively hard to do,
      as outer loops might become infinite too.  */
   if (loop_made_infinite)
@@ -1525,7 +1529,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
   n = loop->num_nodes;
 
   first_active = xcalloc(n, sizeof (basic_block));
-  if (is_latch && !(wont_exit & 1))
+  if (is_latch && !TEST_BIT (wont_exit, 0))
     {
       memcpy (first_active, bbs, n * sizeof (basic_block));
       first_active_latch = latch;
@@ -1568,7 +1572,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
 	}
 
       /* Remove exit edges if needed.  */
-      if (wont_exit & (1 << (j + 1)))
+      if (TEST_BIT (wont_exit, j + 1))
 	remove_exit_edges (new_bbs, n, header);
       else if (!first_active_latch)
 	{
@@ -1610,7 +1614,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
   /* Now handle original loop.  */
   
   /* Remove exit edges if needed.  */
-  if (wont_exit & 1)
+  if (TEST_BIT (wont_exit, 0))
     remove_exit_edges (bbs, n, latch_edge->dest);
  
   /* Update edge counts.  */
