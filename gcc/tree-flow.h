@@ -416,7 +416,7 @@ extern void get_stmt_operands (tree);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree, tree, edge);
+extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
 extern void remove_phi_arg_num (tree, int);
 extern void remove_phi_node (tree, tree, basic_block);

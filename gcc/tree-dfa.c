@@ -865,29 +865,55 @@ create_phi_node (tree var, basic_block bb)
 
 /* Add a new argument to PHI node PHI.  DEF is the incoming reaching
    definition and E is the edge through which DEF reaches PHI.  The new
-   argument is added at the end of the argument list.  */
+   argument is added at the end of the argument list.
+   If PHI has reached its maximum capacity, add a few slots.  In this case,
+   PHI points to the reallocated phi node when we return.  */
 
 void
-add_phi_arg (tree phi, tree def, edge e)
+add_phi_arg (tree *phi, tree def, edge e)
 {
-  int i = PHI_NUM_ARGS (phi);
+  int i = PHI_NUM_ARGS (*phi);
 
-#if defined ENABLE_CHECKING
-  if (i >= PHI_ARG_CAPACITY (phi))
-    abort ();
-#endif
+  if (i >= PHI_ARG_CAPACITY (*phi))
+    {
+      /* Resize the phi.  Unfortunately, this also relocates it...  */
+      bb_ann_t ann = bb_ann (bb_for_stmt (*phi));
+      tree old_phi = *phi;
+
+      resize_phi_node (phi, i + 4);
+
+      /* The result of the phi is defined by this phi node.  */
+      SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
+
+      /* Update the list head if replacing the first listed phi.  */
+      if (ann->phi_nodes == old_phi)
+	ann->phi_nodes = *phi;
+      else
+	{
+          /* Traverse the list looking for the phi node to chain to.  */
+	  tree p;
+	  for (p = ann->phi_nodes;
+	       p && TREE_CHAIN (p) != old_phi;
+	       p = TREE_CHAIN (p));
+
+	  if (!p)
+	    abort ();
+
+	  TREE_CHAIN (p) = *phi;
+	}
+    }
 
   /* Copy propagation needs to know what object occur in abnormal
      PHI nodes.  This is a convenient place to record such information.  */
   if (e->flags & EDGE_ABNORMAL)
     {
       SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def) = 1;
-      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (*phi)) = 1;
     }
 
-  PHI_ARG_DEF (phi, i) = def;
-  PHI_ARG_EDGE (phi, i) = e;
-  PHI_NUM_ARGS (phi)++;
+  PHI_ARG_DEF (*phi, i) = def;
+  PHI_ARG_EDGE (*phi, i) = e;
+  PHI_NUM_ARGS (*phi)++;
 }
 
 

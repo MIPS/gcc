@@ -806,7 +806,7 @@ rewrite_block (basic_block bb)
 	    continue;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
-	  add_phi_arg (phi, currdef, e);
+	  add_phi_arg (&phi, currdef, e);
 	}
     }
 

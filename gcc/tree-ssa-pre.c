@@ -2521,6 +2521,7 @@ code_motion (struct expr_info *ei)
 	    }
 	  if (ei->strred_cand)
 	    repair_ephi_injury (ei, use, temp);
+
 	  newtemp = EPHI_TEMP (use);
 	  for (i = 0; i < EPHI_NUM_ARGS (use); i++)
 	    {
@@ -2535,7 +2536,7 @@ code_motion (struct expr_info *ei)
 				     NULL_TREE);
 	      if (!rdef)
 	        abort();
-	      add_phi_arg (newtemp, rdef, EPHI_ARG_EDGE (use, i));
+	      add_phi_arg (&newtemp, rdef, EPHI_ARG_EDGE (use, i));
 	    }
 
 	  /* Associate BB to the PHI node.  */

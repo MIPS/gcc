@@ -1,3 +1,12 @@
+2003-08-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-dfa.c (add_phi_arg): Allow PHI capacity to grow.
+	* tree-flow.h  (add_phi_arg): Adjust prototype.
+	* tree-ssa-pre.c (code_motion): Adjust call.
+	* tree-ssa.c (rewrite_block): Likewise.
+	* tree.c (resize_phi_node): New function.
+	* tree.h (resize_phi_node): Add prototype.
+
 2003-08-05  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dce.c (mark_tree_necessary): Empty statements may be

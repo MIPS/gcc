@@ -5022,6 +5022,28 @@ make_phi_node (tree var, int len)
 }
 
 
+/* Resize an existing PHI node.  The only way is up.  Return the
+   possibly relocated phi.  */
+
+void
+resize_phi_node (tree *phi, int len)
+{
+  int size;
+  tree new_phi;
+
+#ifdef ENABLE_CHECKING
+  if (len < PHI_ARG_CAPACITY (*phi))
+    abort ();
+#endif
+
+  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+  new_phi = ggc_realloc (*phi, size);
+  PHI_ARG_CAPACITY (new_phi) = len;
+
+  *phi = new_phi;
+}
+
+
 /* Return an SSA_NAME node for variable VAR defined in statement STMT.
    STMT may be an empty statement for artificial references (e.g., default
    definitions created when a variable is used without a preceding
