@@ -1001,7 +1001,7 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
-      %{combine|fast:\
+      %{combine|fast|fastf|fastcp:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
@@ -3707,7 +3707,9 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_switches++;
 	}
       /* APPLE LOCAL begin IMA */
-      else if (strcmp (argv[i], "-fast") == 0)
+      else if (strcmp (argv[i], "-fast") == 0
+	       || strcmp (argv[i], "-fastf") == 0
+	       || strcmp (argv[i], "-fastcp") == 0)
 	{
 	  combine_flag = 1;
 	  n_switches++;
