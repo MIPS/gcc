@@ -1,6 +1,7 @@
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
 	* gcc.dg/tree-ssa/20030731-1.c: XFAIL.
+	* gcc.dg/tree-ssa/20030814-6.c: XFAIL.
 
 	* gcc.dg/i386-ssetype-1.c: XFAIL.
 	* gcc.dg/i386-ssetype-3.c: XFAIL.
