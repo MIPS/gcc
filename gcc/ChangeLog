@@ -1,5 +1,19 @@
 2003-11-30  Per Bothner  <pbothner@apple.com>
 
+	Remember a tag type across compilation units.
+	* c-decl.c (TYPE_IS_OLD_TAG):  New macro.
+	* c-decl.c (restore_fragment_bindings):  Chain new decl after old one.
+	When restoring a tag, reuse old tag type, and clear TYPE_IS_OLD_TAG.
+	(poplevel):  If popping a global tag, keep the IDNTEFIER_TAG_VALUE,
+	but hide it using TYPE_IS_OLD_TAG.
+	(lookup_tag, shadow_tag_warned, xref_tag, start_struct, start_enum,
+	finish_enum):  Handle TYPE_IS_OLD_TAG.
+
+	* c-decl.c (pushdecl, lookup_name, finish_enum):  Use new
+	track_declarations global.
+
+2003-11-30  Per Bothner  <pbothner@apple.com>
+
 	* gcc.c (reuse_server_sockets, server_socket):  New globals.
 	(excute, get_server_socket):  If reuse_server_sockets, do so.
 

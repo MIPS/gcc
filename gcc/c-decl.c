@@ -158,6 +158,11 @@ static int warn_about_return_type;
 /* Nonzero when starting a function declared `extern inline'.  */
 
 static int current_extern_inline;
+
+/* For a RECORD_TYPE, UNION_TYPE or ENUM_TYPE means we haven't seen
+   a mention of it this compilation unit.
+   An alternative solution:  use C_DECL_INVISIBLE on the TYPE_STUB_DECL. */
+#define TYPE_IS_OLD_TAG(TYPE) TYPE_STRING_FLAG (TYPE)
 
 /* Each c_scope structure describes the complete contents of one scope.
    Three scopes are distinguished specially: the innermost or current
@@ -396,9 +401,23 @@ restore_fragment_bindings (tree bindings)
 	{
 	  tree n = DECL_NAME (x);
 	  if (n != NULL_TREE)
-	    IDENTIFIER_SYMBOL_VALUE (n) = x;
-	  TREE_CHAIN (x) = b->names;
-	  b->names = x;
+	    {
+	      tree old = IDENTIFIER_SYMBOL_VALUE (n);
+	      if (old != NULL_TREE)
+		{
+		  TREE_CHAIN (x) = TREE_CHAIN (old);
+		  TREE_CHAIN (old) = x;
+		  if (b->names_last == old)
+		    b->names_last = x;
+		}
+	      else
+		{
+		  SCOPE_LIST_APPEND (b, names, x);
+		  TREE_CHAIN (x) = NULL_TREE;
+		}
+	      IDENTIFIER_SYMBOL_VALUE (n) = x;
+	      TREE_USED (x) = 0;
+	    }
 	  i++;
 	}
 #if 0
@@ -426,20 +445,27 @@ restore_fragment_bindings (tree bindings)
 	{ /* lookup_tag/pushtag/finish_struct */
 	  tree type = x;
 	  tree name = TYPE_NAME (type);
+	  tree fields = TREE_VEC_ELT (bindings, i + 1);
+	  tree size = TREE_VEC_ELT (bindings, i + 2);
 	  if (name != NULL_TREE)
 	    {
-	      if (IDENTIFIER_TAG_VALUE (name) == NULL)
+	      if (IDENTIFIER_TAG_VALUE (name) == NULL_TREE
+		  || TYPE_IS_OLD_TAG (IDENTIFIER_TAG_VALUE (name)))
 		{
 		  IDENTIFIER_TAG_VALUE (name) = type;
+		  TYPE_IS_OLD_TAG (type) = 0;
 		  b->tags = tree_cons (name, x, b->tags);
 		  TYPE_SIZE (type) = NULL_TREE;
 		  TYPE_FIELDS (type) = NULL_TREE;
 		}
 	    }
-	  if (TYPE_SIZE (type) == NULL_TREE)
+	  if (fields != NULL)
 	    {
-	      TYPE_FIELDS (type) = TREE_VEC_ELT (bindings, i + 1);
-	      TYPE_SIZE (type) = TREE_VEC_ELT (bindings, i + 2);
+	      for (x = TYPE_MAIN_VARIANT (type); x; x = TYPE_NEXT_VARIANT (x))
+		{
+		  TYPE_FIELDS (x) = fields;
+		  TYPE_SIZE (x) = size;
+		}
 	    }
 	  i += 3;
 	}
@@ -455,11 +481,21 @@ lang_clear_identifier (pfile, node, v)
      void *v ATTRIBUTE_UNUSED;
 {
   tree tnode = HT_IDENT_TO_GCC_IDENT (node);
+  tree t;
   if (TREE_CODE (tnode) != IDENTIFIER_NODE)
      abort();
   IDENTIFIER_SYMBOL_VALUE (tnode) = NULL_TREE;
-  IDENTIFIER_TAG_VALUE (tnode) = NULL_TREE;
+  t = IDENTIFIER_TAG_VALUE (tnode);
+  if (t != NULL)
+    {
+      /* We want to re-use the same type for subsequent compiles. */
+      TYPE_IS_OLD_TAG (t) = 1;
+      TYPE_SIZE (t) = NULL_TREE;
+      TYPE_FIELDS (t) = NULL_TREE;
+    }
   IDENTIFIER_LABEL_VALUE (tnode) = NULL_TREE;
+  TREE_USED (tnode) = 0;
+  TREE_PUBLIC (tnode) = 0;
   reset_hashnode (node);
 
   return 1;
@@ -758,8 +794,15 @@ poplevel (int keep, int dummy ATTRIBUTE_UNUSED, int functionbody)
   decl = scope->function_body ? current_function_decl : block;
   for (p = scope->tags; p; p = TREE_CHAIN (p))
     {
-      if (TREE_PURPOSE (p))
-	IDENTIFIER_TAG_VALUE (TREE_PURPOSE (p)) = 0;
+      tree tag;
+      if (TREE_PURPOSE (p)
+	  && (tag = IDENTIFIER_TAG_VALUE (TREE_PURPOSE (p))) != NULL_TREE)
+	{
+	  if (current_scope == global_scope)
+	    TYPE_IS_OLD_TAG (tag) = 1;
+	  else
+	    IDENTIFIER_TAG_VALUE (TREE_PURPOSE (p)) = 0;
+	}
       if (decl)
 	TYPE_CONTEXT (TREE_VALUE (p)) = decl;
     }
@@ -835,15 +878,18 @@ pushtag (tree name, tree type)
       if (TYPE_NAME (type) == 0)
 	TYPE_NAME (type) = name;
 
-      if (IDENTIFIER_TAG_VALUE (name))
+      if (IDENTIFIER_TAG_VALUE (name)
+	  && ! TYPE_IS_OLD_TAG (IDENTIFIER_TAG_VALUE (name)))
 	b->shadowed_tags = tree_cons (name, IDENTIFIER_TAG_VALUE (name),
 				      b->shadowed_tags);
       IDENTIFIER_TAG_VALUE (name) = type;
     }
 
+  TYPE_IS_OLD_TAG (type) = 0;
   b->tags = tree_cons (name, type, b->tags);
 
 #if 0
+  if (track_declarations) /*server_mode >= 0 && server_mode != 1*/
   if (b == global_scope && server_mode >= 0 && server_mode != 1)
     {
       note_fragment_binding_1 (b->tags);
@@ -1812,8 +1858,7 @@ pushdecl (tree x)
 	      return old;
 	    }
 
-	  if (server_mode >= 0 && server_mode != 1
-	      && scope == global_scope)
+	  if (track_declarations && scope == global_scope)
 	    {
 	      SET_DECL_FRAGMENT (x, current_c_fragment);
 	      note_fragment_binding_1 (x);
@@ -1858,8 +1903,7 @@ pushdecl (tree x)
 	}
 
       /* Install the new declaration in the requested scope.  */
-      if (server_mode >= 0 && server_mode != 1
-	  && scope == global_scope)
+      if (track_declarations && scope == global_scope)
 	{
 	  SET_DECL_FRAGMENT (x, current_c_fragment);
 	  note_fragment_binding_1 (x);
@@ -2267,7 +2311,7 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
   tree tag = IDENTIFIER_TAG_VALUE (name);
   int thislevel = 0;
 
-  if (!tag)
+  if (!tag || TYPE_IS_OLD_TAG (tag))
     return 0;
 
   /* We only care about whether it's in this level if
@@ -2328,9 +2372,7 @@ lookup_name (tree name)
   if (C_DECL_INVISIBLE (decl))
     return 0;
   /* FIXME also need to do this for C++ !*/
-  if (decl != NULL_TREE
-      && (server_mode > 1
-	  || server_mode == 0 /* ??? */))
+  if (decl != NULL_TREE && track_dependencies)
     register_decl_dependency (decl);
   return decl;
 }
@@ -2509,8 +2551,6 @@ shadow_tag (tree declspecs)
 
 void
 shadow_tag_warned (tree declspecs, int warned)
-
-
      /* 1 => we have done a pedwarn.  2 => we have done a warning, but
 	no pedwarn.  */
 {
@@ -2553,7 +2593,10 @@ shadow_tag_warned (tree declspecs, int warned)
 
 	      if (t == 0)
 		{
-		  t = make_node (code);
+		  if ((t = IDENTIFIER_TAG_VALUE (name)) == NULL
+		      || ! TYPE_IS_OLD_TAG (t)
+		      || TREE_CODE (t) != code)
+		    t = make_node (code);
 		  pushtag (name, t);
 		}
 	      note_tag (t);
@@ -4804,7 +4847,11 @@ xref_tag (enum tree_code code, tree name)
      When a real declaration of this type is found,
      the forward-reference will be altered into a real type.  */
 
-  ref = make_node (code);
+  if (name == NULL_TREE
+      || (ref = IDENTIFIER_TAG_VALUE (name)) == NULL
+      || ! TYPE_IS_OLD_TAG (ref)
+      || TREE_CODE (ref) != code)
+    ref = make_node (code);
   if (code == ENUMERAL_TYPE)
     {
       /* Give the type a default layout like unsigned int
@@ -4852,7 +4899,11 @@ start_struct (enum tree_code code, tree name)
     {
       /* Otherwise create a forward-reference just so the tag is in scope.  */
 
-      ref = make_node (code);
+      if (name == NULL_TREE
+	  || (ref = IDENTIFIER_TAG_VALUE (name)) == NULL_TREE
+	  || ! TYPE_IS_OLD_TAG (ref)
+	  || TREE_CODE (ref) != code)
+	ref = make_node (code);
       pushtag (name, ref);
     }
 
@@ -5187,7 +5238,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 
   layout_type (t);
 
-  if (server_mode >= 0 && server_mode != 1)
+  if (track_declarations) /*server_mode >= 0 && server_mode != 1*/
     {
       note_fragment_binding_3 (t, fieldlist, TYPE_SIZE (t));
     }
@@ -5366,7 +5417,11 @@ start_enum (tree name)
 
   if (enumtype == 0 || TREE_CODE (enumtype) != ENUMERAL_TYPE)
     {
-      enumtype = make_node (ENUMERAL_TYPE);
+      if (name == NULL_TREE
+	  || (enumtype = IDENTIFIER_TAG_VALUE (name)) == NULL_TREE
+	  || ! TYPE_IS_OLD_TAG (enumtype)
+	  || TREE_CODE (enumtype) != ENUMERAL_TYPE)
+	enumtype = make_node (ENUMERAL_TYPE);
       pushtag (name, enumtype);
     }
   note_tag (enumtype);
@@ -5499,7 +5554,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_VALUES (enumtype) = values;
     }
 
-  if (server_mode >= 0 && server_mode != 1)
+  if (track_declarations)
     {
       note_fragment_binding_3 (enumtype, values, TYPE_SIZE (enumtype));
     }
