@@ -1,3 +1,7 @@
+2003-05-27  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (shortcut_cond_expr): Avoid jumps to jumps.
+
 2003-05-26  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_switch_stmt): A SWITCH_EXPR also gets the
