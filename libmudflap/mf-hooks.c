@@ -289,7 +289,7 @@ WRAPPER(void, free, void *buf)
 static void *
 __mf_0fn_mmap (void *start, size_t l, int prot, int f, int fd, off_t off)
 {
-  return NULL;
+  return (void *) -1;
 }
 #endif
 

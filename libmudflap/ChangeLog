@@ -1,3 +1,7 @@
+2003-04-07  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (__mf_0fn_mmap): Correct return value, as per <rth>.
+
 2003-04-02  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks.c (BEGIN_PROTECT): Handle startup-time reentrant
