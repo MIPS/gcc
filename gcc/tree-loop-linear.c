@@ -57,8 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    TODO: Add dependence matrix collection and appropriate matrix
    calculations so we can determine if a given transformation matrix
    is legal for a loop. 
-   TODO: Completion of partial transforms.
-*/
+   TODO: Completion of partial transforms.  */
 
 /* Perform a set of linear transforms on LOOPS.  */
 
@@ -74,15 +73,29 @@ linear_transform_loops (struct loops *loops)
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
 
-      if (!loop_nest->inner)
+      /* If it's not a loop nest, we don't want it.
+         We also don't handle sibling loops properly, 
+         which are loops of the following form:
+         like 
+         for (i = 0; i < 50; i++)_
+           {
+             for (j = 0; j < 50; j++)
+               {
+                ...
+               }
+           for (j = 0; j < 50; j++)
+               {
+                ...
+               }
+           } */
+      if (!loop_nest->inner || loop_nest->inner->next != NULL )
 	continue;
       flow_loop_scan (loop_nest, LOOP_ALL);
       flow_loop_scan (loop_nest->inner, LOOP_ALL);
-#if 0
-      if (loop_nest->num_pre_header_edges != 1 
-	  || loop_nest->inner->num_pre_header_edges != 1)
-	  continue;
-#endif 
+      /* We also don't handle loops with multiple exit edges.  */
+      if (loop_nest->num_exits != 1 
+	  || loop_nest->inner->num_exits != 1)
+	continue;
       before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs, &invariants);
       if (!before)
 	continue;

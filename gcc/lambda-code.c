@@ -1040,10 +1040,15 @@ gcc_tree_to_linear_expression (int depth, tree expr,
   return lle;
 }
 
-/* Return true if OP is invariant in LOOP.  */
+/* Return true if OP is invariant in LOOP and all outer loops.
+   XXX: We only need to verify the invariantness in all loops that
+   might now go before this loop according to the transformation.  */
+
 static bool
 invariant_in_loop (struct loop *loop, tree op)
 {
+  if (loop->depth == 0)
+    return true;
   if (TREE_CODE (op) == SSA_NAME)
     {
       if (TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL
@@ -1051,6 +1056,9 @@ invariant_in_loop (struct loop *loop, tree op)
 	return true;
       if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (op)))
 	return false;
+      if (loop->outer)
+	if (!invariant_in_loop (loop->outer, op))
+	  return false;
       return !flow_bb_inside_loop_p (loop, 
 				     bb_for_stmt (SSA_NAME_DEF_STMT (op)));
     }
@@ -1059,7 +1067,10 @@ invariant_in_loop (struct loop *loop, tree op)
 
     
 
-/* Generate a lambda loop from a gcc loop.  */
+/* Generate a lambda loop from a gcc loop.
+   TODO: Get rid of most of this code in favor of
+   number_of_iterations_in_loop,  and SCEV stuff, now that it works
+   symbolically.  */
 
 static lambda_loop
 gcc_loop_to_lambda_loop (struct loop *loop, int depth,
@@ -1461,10 +1472,17 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	      tree newname;
 	      tree mult;
 	      tree coeff;
-	      coeff = build_int_cst (integer_type_node, 
-				     LLE_COEFFICIENTS (lle)[i]);
-	      mult = fold (build (MULT_EXPR, integer_type_node,
-				  VARRAY_TREE (induction_vars, i), coeff));
+	      if (LLE_COEFFICIENTS (lle)[i] == 1)
+		{
+		  mult = VARRAY_TREE (induction_vars, i);
+		}
+	      else
+		{
+		  coeff = build_int_cst (integer_type_node, 
+					 LLE_COEFFICIENTS (lle)[i]);
+		  mult = fold (build (MULT_EXPR, integer_type_node,
+				      VARRAY_TREE (induction_vars, i), coeff));
+		}
 	      /* newname = coefficient * induction_variable */
 	      stmt = build (MODIFY_EXPR, void_type_node, resvar, mult);
 	      newname = make_ssa_name (resvar, stmt);
@@ -1490,10 +1508,17 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	      tree newname;
 	      tree mult;
 	      tree coeff;
-	      coeff = build_int_cst (integer_type_node, 
-				     LLE_INVARIANT_COEFFICIENTS (lle)[i]);
-	      mult = fold (build (MULT_EXPR, integer_type_node,
-				  VARRAY_TREE (invariants, i), coeff));
+	      if (LLE_INVARIANT_COEFFICIENTS (lle)[i] == 1)
+		{
+		  mult = VARRAY_TREE (invariants, i);
+		}
+	      else
+		{
+		  coeff = build_int_cst (integer_type_node, 
+					 LLE_INVARIANT_COEFFICIENTS (lle)[i]);
+		  mult = fold (build (MULT_EXPR, integer_type_node,
+				      VARRAY_TREE (invariants, i), coeff));
+		}
 	      /* newname = coefficient * invariant */
 	      stmt = build (MODIFY_EXPR, void_type_node, resvar, mult);
 	      newname = make_ssa_name (resvar, stmt);
@@ -1703,7 +1728,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	    for (k = 0; k < VARRAY_ACTIVE_SIZE (old_ivs); k++)
 	      {
 		tree oldiv = VARRAY_TREE (old_ivs, k);
-		if (SSA_NAME_VAR (*use) == SSA_NAME_VAR (oldiv))
+		if (*use == oldiv)
 		  {
 		    tree newiv, stmts;
 		    lambda_body_vector lbv;
