@@ -75,11 +75,11 @@ static bool found_computed_goto;
 /* If we found computed gotos, then they are all revectored to this
    location.  We try to unfactor them after we have translated out
    of SSA form.  */
-static tree factored_computed_goto_label;
+static GTY(()) tree factored_computed_goto_label;
 
 /* The factored computed goto.  We cache this so we can easily recover
    the destination of computed gotos when unfactoring them.  */
-static tree factored_computed_goto;
+static GTY(()) tree factored_computed_goto;
 
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (tree, basic_block);
@@ -3800,3 +3800,5 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_loop_optimizer_init,     /* cfgh_loop_optimizer_init  */
   tree_loop_optimizer_finalize  /* cfgh_loop_optimizer_finalize  */
 };
+
+#include "gt-tree-cfg.h"
