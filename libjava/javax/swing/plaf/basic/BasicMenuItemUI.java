@@ -37,8 +37,6 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
-import java.awt.AWTKeyStroke;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -70,8 +68,6 @@ import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.MenuDragMouseEvent;
 import javax.swing.event.MenuDragMouseListener;
 import javax.swing.event.MenuKeyEvent;
