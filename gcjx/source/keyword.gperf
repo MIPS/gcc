@@ -1,0 +1,82 @@
+%{
+/* Copyright (C) 2004 Free Software Foundation, Inc.
+  
+   This file is part of GCC.
+  
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+  
+   GCC is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+  
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.
+*/
+%}
+struct keyword { const char *const name; enum token_value value; };
+const struct keyword *find_keyword (const char *, unsigned int);
+%%
+abstract, TOKEN_ABSTRACT
+assert, TOKEN_ASSERT
+boolean, TOKEN_BOOLEAN
+break, TOKEN_BREAK
+byte, TOKEN_BYTE
+case, TOKEN_CASE
+catch, TOKEN_CATCH
+char, TOKEN_CHAR
+class, TOKEN_CLASS
+# Not actually used.
+const, TOKEN_CONST
+continue, TOKEN_CONTINUE
+default, TOKEN_DEFAULT
+do, TOKEN_DO
+double, TOKEN_DOUBLE
+else, TOKEN_ELSE
+enum, TOKEN_ENUM
+extends, TOKEN_EXTENDS
+# Not technically a token, but we don't care.
+false, TOKEN_FALSE
+final, TOKEN_FINAL
+finally, TOKEN_FINALLY
+float, TOKEN_FLOAT
+for, TOKEN_FOR
+# Not actually used.
+goto, TOKEN_GOTO
+if, TOKEN_IF
+implements, TOKEN_IMPLEMENTS
+import, TOKEN_IMPORT
+instanceof, TOKEN_INSTANCEOF
+int, TOKEN_INT
+interface, TOKEN_INTERFACE
+long, TOKEN_LONG
+native, TOKEN_NATIVE
+new, TOKEN_NEW
+# Not technically a token, but we don't care.
+null, TOKEN_NULL
+package, TOKEN_PACKAGE
+private, TOKEN_PRIVATE
+protected, TOKEN_PROTECTED
+public, TOKEN_PUBLIC
+return, TOKEN_RETURN
+short, TOKEN_SHORT
+static, TOKEN_STATIC
+strictfp, TOKEN_STRICT
+super, TOKEN_SUPER
+switch, TOKEN_SWITCH
+synchronized, TOKEN_SYNCHRONIZED
+this, TOKEN_THIS
+throw, TOKEN_THROW
+throws, TOKEN_THROWS
+transient, TOKEN_TRANSIENT
+# Not technically a token, but we don't care.
+true, TOKEN_TRUE
+try, TOKEN_TRY
+void, TOKEN_VOID
+volatile, TOKEN_VOLATILE
+while, TOKEN_WHILE

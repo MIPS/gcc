@@ -1,0 +1,17 @@
+Thanks to those who have helped out:
+
+Michael Koch
+- Some early name-lookup help
+
+Julian Scheid
+- Some nice bug reports
+
+Ranjit Mathew
+- Wrote zip and jar support
+
+Dalibor Topic
+- Tested on kaffe
+
+Bernardo Innocenti
+Gabriel Dos Reis
+- Did the work to let us use C++ in a GCC front end

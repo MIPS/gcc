@@ -1,0 +1,667 @@
+we have a codegen bug when a finally clause contains a
+try statement.  the bug is that we don't replicate the
+exception handlers for the new code
+
+we initialize fields that were added by variable capture
+even when the constructor calls this().  this is wrong
+we could fix this by attaching the assignments to the super() call
+instead of adding them to each constructor
+then they simply wouldn't show up for a this() call
+
+we give the wrong line number for a malformed utf-8 character :-(
+
+we could save some more memory by clearing field initializers
+for non-constant fields after generating code for a class.
+interleaving code generation and analysis some more would probably
+also help.
+
+model_catch should accept a model_catch_decl only
+
+the special code that knows that a private member of an outer
+class can't be accessed via inheritance must also handle the
+case where a package-private member is "not inherited" via a superclass
+in a different package; see jacks test 6.5.6.1-explicit-constructor-5
+It may be more clear for name lookup to record the path by which
+lookup succeeded.
+
+the ugly code in model_class::resolve_classes for .class files
+has to be even uglier: we need to push type parameters as well.
+But, we only want to do this when it is correct.
+
+Elliott's fix to method_conversion_p() on 2004-12-06 may point
+to some other lurking bug in that method; investigate
+
+do we do the right thing if we override one abstract method with
+another, where both come from classes (not interfaces), and they have
+conflicting `throws'?
+
+change method to accept a list of parameters,
+not variables
+
+must really implement capture conversion
+there are similar little hacks in other places
+widening conversion is now officially a mess
+have to do a real pass to solidify this stuff
+
+we can get rid of model_field_base and ambiguous field handling
+
+rewrite jcf-dump
+would be convenient to have a mode to disassemble in jasmin format
+would also be convenient to have an assembler
+Elliott suggests:
+- print floating point values as hex integers
+- quote strings as they would appear in the source
+
+it is invalid to look up a cached class while parsing
+the compiler ought to enforce this with asserts
+
+varargs: what if the final argument is `Object... x'
+and the invocation's final argument is an int[]?
+we handle this wrong
+
+some forms of boxing still don't work
+see model_prefix_simple::resolve
+model_prefix_side_effect::resolve
+model_postfix::resolve
+side-effecting pre/post-fix operators with unboxing will require
+special code generation.  e.g.:
+    Integer x = 0; ++x;
+We must write Jacks tests for all this!
+
+must gettextize
+
+for common errors, have a section in the manual explaining them
+then have gcjx emit a URL in the error message
+user can click to see what to do
+
+we're introducing unnecessary casts in maybe_wrap.
+eg when called from assignment_conversion(BaseClass, DerivedClass)
+
+accessors don't work properly with String +=.
+
+make sure we aren't susceptible to PR 17733
+a leading "./" in jar file names confused gcj
+
+note that a jar reader could be shared
+by multiple compiler instances.  implement this...?
+
+give a real error if encoding is not found
+
+`import' needs to use the canonical name
+we have to implement this by adding a flag to classify_type_name()
+that indicates we only want canonical names.
+
+ext/dtoa.c has some #define tweaks we could apply
+we probably need to depending on host
+
+Ranjit points out that some places we use ref_* where we needn't.
+eg, get_this_0() returns a ref_field but should return model_field*
+
+assert fails since we do the wrong thing when resolving it.
+we need to create assert members earlier
+creating them when resolving an assert statement would work ok,
+but we would need special handling when the only assert statement
+is in <clinit>
+
+right now we don't complain if we try to load `x.y.z', find x/y/z.java,
+but the file has the wrong package statement
+
+comment from gcc/java/parse.y:
+      /* We write out the classes in reverse order.  This ensures that
+	 inner classes are written before their containing classes,
+	 which is important for parallel builds.  Otherwise, the
+	 class file for the outer class may be found, but the class
+	 file for the inner class may not be present.  In that
+	 situation, the compiler cannot fall back to the original
+	 source, having already read the outer class, so we must
+	 prevent that situation.  */
+We probably need to do something like this
+
+for interfaces we can't generate class$.  instead compilers build
+a new inner class and put it there.  should we?  we could just
+inline the code in <clinit>, couldn't we?
+
+the code generator api is ugly
+
+it would be nice to do coverage analysis of the code
+this is easy, just rebuild it correctly and run classpath
+and a couple other things through it
+(classpath exercises most but not all language constructs.  ecj is a
+good additional source.)
+
+cpool is deleted when class reader is destroyed
+this is wrong... reference count or pass on to compilation unit
+
+abort() isn't very friendly since it doesn't print a message
+we should use assert(0) instead
+in a similar vein sometimes it would be nice to have the
+"current location" in an assertion message, could have a new
+macro and method on element
+
+why is there a model_block in a for loop's update slot?
+
+perhaps we should compute can-complete-normally as a side effect of
+resolution?  how does that interact with resolving unreachable
+statements?  do we care?
+
+our visitor API could probably benefit from a way to express scopes
+explicitly, so we don't have to remember to handle them in every
+visitor.  we could do this by:
+* introduce IVisitable
+* for something like `for', have it call visit_scope(), and pass in
+  a new visitor stub which is called into later; this stub just
+  re-visits the parts of the `for'
+[ this is very low priority as we already have a hoc solutions in place ]
+
+use slist<> instead of list<> to save space?
+
+error to reference a member of a type variable with more than one bound
+unless member is accessible member of Object
+
+model_class::member_p() looks wrong; check it
+
+should see if a package exists.  perhaps by testing to see if its
+directory exists on classpath?  see what jikes/jdk/etc do...
+this could be used to give better messages in name.cc
+
+model_forwarding_type should probably be a subclass of type
+then we can remove model_forwarding_resolved entirely
+(or can we?  are there error reports that we need?)
+could measure to see how much this saves, by instrumenting
+the model_forwarding_resolved constructors
+
+outpool::add(string) and outpool::add_utf() have the wrong names.
+add_utf() is used more and should be plain add()
+
+we also don't emit variable names
+  these could be handled like exceptions
+  except that is already ugly
+
+in gcc a declaration can also be used as a variable reference.
+the idea is, having all those extra reference objects is
+wasteful.  we could try this... but is it true?  we would
+need to do variable lookups at parse time for this to work
+out, wouldn't we?  Or perhaps replace the forwarding references
+in the AST (there's no support for this atm)
+
+we don't handle the case where a local class captures
+a variable and then there is another local or anonymous
+class that extends the first class
+
+what does gcj do if we compile:
+  aconst_null
+  invokespecial Object.<init> ()
+[ this is a verification error, we should reject ]
+
+need error checking for super() when this class is static but
+superclass is not... in this case must require expr.super(), not an
+additional argument to super().  we should probably share some code
+between `new', super() and this(), in particular code for determining
+enclosing instances, etc
+
+must write dependency-tracking code.  green suggests being able to
+write a list of files to package up for some distcc-like action.  we
+could feed that to jar and ship it off to a remote gcj with the jar as
+the sole class path entry. we could even generate the jar file
+ourselves.
+
+during code generation we might need to generate access$foo methods
+and use them.  might this not also mean introducing this$1, etc?
+if so then we will need a special case in the analysis code to do this
+before code generation begins, since it is too hard to add new
+parameters and such after we've possibly generated code to call
+constructors
+
+need a way to add duplicate declarations to an error message; this
+occurs in several places
+
+we may need a method to resolve a single field in a class
+elements should probably track their own resolution status
+
+functions in name.hh should take a location, not an element,
+as the request object.  that way they can work properly when
+reading .class files
+
+the modifier class is a bit strange
+we should probably rewrite to make it more like ordinary
+model classes
+the token stuff could go into source/ instead of in the model
+
+name.cc is very inefficient
+it should probably be rewritten in a more intelligent way
+
+factory code can go in its own subdir?
+
+performance is already a major problem :-(
+
+assignment expression parsing is just broken
+
+switch token stream to use a deque?
+also the lexer when constructing identifiers?
+really we should just get rid of token stream and never have
+the lexer return javadoc; instead the lexer could just put
+deprecation info directly into tokens somehow and we would change
+the parser to just notice that in the one or two important cases
+eg it could be a flag on modifier tokens only
+
+standardize error messages
+what do they refer to?  (what is wrong or what should be)
+voice, etc
+
+one thing that would be nice would be to unify the visitor API
+with the constant value computation stuff, so we'd only need a single
+implementation of the logic in the model.
+
+================================================================
+
+header generation
+
+X must handle Miranda methods properly
+- must implement gcjh hacks for C++ keywords and method/field name
+  clash
+- must implement gcjh hack for field alignment
+- implement the write-to-temp file thing that bytecode uses?
+  gcjh doesn't, perhaps we don't need this
+
+================================================================
+
+Tree generation
+
+build_address_of() the functions we call
+document this in tree.def:call_expr ?
+
+!! must terminate arguments with void_list_node
+init. void_list_node ?
+
+we must generate an array store check for something like:
+  Object[] x;  x[0] = something;
+gcj cleverly omits the check if we know that `something' came from `x'.
+however, we ought to be able to do better with tree-ssa
+might be a good example of when FE knowledge is needed later...?
+can we express the array check in a statically checkable way?
+
+look to see how IMA works in C
+in particular how are the command line arguments handled?
+did we miss a sharing opportunity?
+
+These are optimization -vs- code-size checks
+- should we inline the null checks for instanceof?
+- should we turn checkcast into explicit instanceof/throw?
+- should we call _jv_divi or generate inline checks?
+... one idea would be to have a pass after all SSA optimizations
+that then further lowers things like _jv_divi, or changes explicit
+instanceof/throw back into checkcast.  the latter would be hard?
+
+X use the new buildN interfaces
+X must set flag_evaluation_order
+X ensure that Class and Object don't have any instance fields
+  declared in Java.  Static fields are ok though.
+X TYPE_NONALIASED_COMPONENT - important!
+  [ pretty sure we're done with this one.  not clear we can
+    apply it to the "data" field of a java array type ]
+
+TREE_THIS_NOTRAP is important...
+use whenever we're certain an indirect can't trap
+we should just disallow build(INDIRECT_REF...) -- and force use of
+one wrapper or another
+
+
+must share code between both code generation engines.
+eg, only implement the ABI differences once
+
+we can remove the bit field langhook once gcjx is checked in
+
+we could have a separate atable slot for each class referenced
+by `new' that we would use to store the appropriate allocator.
+this would let us continue to avoid finalizer and other penalties
+
+what is TYPE_VFIELD ?
+and add the abort() to tree.c:find_compatible_field()
+
+when generating old ABI code, we should ensure that java.lang.Object
+comes from libgcj.  In other cases, it doesn't matter, and we should
+let it slide.  Also, when generating old ABI code, we should ensure
+that old-ABI-ness holds for all other classes where it matters (eg our
+hierarchy, maybe classes we call too?)
+
+very random thought: we could have a tree-generating back end that
+generates trees the way that g++ likes.  then you could directly
+#include <foo.class>, and we could eliminate gcjh and perhaps its
+various limitations.
+- update on this idea: you would just #include <fully.qualified.name>
+  and let gcjx decide whether to read a class file or parse a java file
+
+Another random thought: we could have a GDirect ("pinvoke") -like mode
+where we directly generate native code that calls functions in some C
+library.
+
+
+================================================================
+
+we could have some simple java source generation tools
+based on gcjx.  E.g., a tool to generate a stub class based on some
+superclass and superinterfaces, with flags saying what methods to
+add: say implementations of abstract methods and constructors.
+Then you could add a M-x command to Emacs to make it easy to
+write certain kinds of new classes
+
+================================================================
+
+See this quote from the D programming language
+
+  The need for compiler warnings is symptomatic of poor language
+  design.
+
+In gcjx we take a different point of view, namely that warnings can
+help you catch situations where you did something you did not intend,
+or where you are violating what has come to be considered good style.
+
+
+should we allow unconditional warnings?  [no]
+there are some currently
+
+perhaps our SuppressWarnings strings should all start with "gcj-"?
+or have a form that starts with that?
+
+
+Warnings to emit:
+
+X use of deprecated class/method/field
+X unused import
+- look at jikes
+X use of static member in non-static context
+- optionally print reference URL in messages?
+
+X use of "$" in an identifier
+X warn if an ascii character is represented by \u
+
+- if a parameter `x' shadows a field `x', (optionally) emit a warning
+  if we assign to x.  usually this is a bug
+X type and permissions of serialVersionUID
+  (are there any other magic fields?)
+- check types and such of magic serialization methods
+- don't emit "unused" warning for serialization methods
+  [ got two of them, make a full list... ]
+  [ also don't emit this for default constructors ]
+- don't emit "unused" warning for anything in a serializable class?
+X check that serialization fields occur in class which is actually serializable
+- check that serialization methods occur in class which
+  is actually serializable
+X require serialVersionUID in serializable class
+- Shouldn't override ClassLoader.loadClass()
+- clone() doesn't call super.clone()
+- a `static final' method doesn't make much sense
+X warn if a case in a switch falls through
+X equivalents of gcc's -Wswitch, -Wswitch-default
+  (-Wswitch-enum doesn't make sense for us)
+- String comparison with '=='
+
+- unneeded `throws' in method decl.
+- overly general `throws' in method decl (shadows other decl)
+
+- use of com.sun.* or sun.* !
+
+- type variable bound already implied by another bound
+- useless cast, eg byte to int
+
+- warn about a private inner class with a public constructor
+  this is actually accessible at runtime
+- have a separate flag controlling the need for a trampoline
+  method when the access is to an inherited protected member
+
+- Mark suggests a warning for code like:
+     long var = <int> * <int>
+  ... "did you mean to cast to long...?"
+  basically when the lhs of an assignment has a wider type than the rhs
+
+From eclipse 2:
+
+X unreachable code
+    I think this one is done... are there other places?
+- unresolvable import statement
+X unused local variable
+X unused parameter
+X unused import
+- unused private type/method/field
+  [ note unused private no-arg constructor is still ok if there
+    are no non-private constructors ]
+  [ this works for field and method, but for types we don't
+    mark them as used yet ]
+- use of non-externalized strings (!?)
+X use of deprecated API
+- ... use of deprecated API inside deprecated code
+- methods overridden but not package visible (?)
+X methods with a constructor name
+- conflict of iface method with protected Object method
+X hidden catch blocks
+X non-static access to static member
+X access to non-accessible member of enclosing class
+X assignment with no effect  (x = x)
+X using a char array in string concat
+
+From Eclipse 3:
+
+- indirect access to static member (?)
+- possible accidental boolean assignment  if (a = b)
+    when to emit this and when not?  if (a = (b > 5)) looks ok
+X `finally' does not complete normally
+- undocumented empty block
+- local variable decl hides field or variable
+- ... include constructor or setter method parameters
+- field decl hides field or variable
+- unqualified access to instance field
+    does this support some standard coding style?
+- signal overriding or implementing deprecated method
+  [ should @deprecated be inherited?  probably so ... ]
+- unnecessary semicolon
+- unnecessary cast
+X unnecessary instanceof
+- unnecessary decl of thrown checked exception
+- ... check overriding and implementing methods
+X unnecessary else (`then' clause can't complete normally)
+
+mjw suggests:
+
+X Are you sure you want to override finalise and not finaliZe?
+  [ users can use @Override too ]
+
+
+from jikes:
+
+- warn if a constant isn't spelled like one
+X constant shift count too large for type
+  (or negative...)
+
+from Effective Java book, according to jikes list
+http://www-124.ibm.com/pipermail/jikes/2004-February/002679.html
+- empty catch block
+- empty finally block
+- accidental overloading of `equals'
+- implementing `equals' but not `hashCode'
+- missing private constructors to prevent instantiation
+- overly-general throws clauses
+- public static final array fields
+- return null instead of a zero-length array
+- deviations from standard naming conventions
+
+- warn if wait() is used outside of a loop
+  [ I think this comes from Effective Java ]
+
+
+- find a way to run FindBugs from inside the compiler
+
+================================================================
+
+test
+
+   if ((boolean) x) { ... }
+
+
+================================================================
+
+parsing
+
+on irc bosch suggests doing what gnat does, tracking indentation
+automatically and then using that to emit better errors.
+eg, if you see new indentation and then later an extra "}",
+you can emit an error at the suspicious indentation change.
+likewise for "{"
+
+================================================================
+
+Bytecode generation
+
+- if we generate an invoke against a miranda method, we want to
+  generate a Methodref referring to <somewhere>.  but currently we
+  can't do this and we end up with something incorrect
+
+we could recognize adjacent catch clauses with empty bodies and point
+them all to the same bytecode block
+
+can turn `goto X; ... X: return' into plain return
+this is smaller; gcj seems to do it
+
+
+Most verifiers can't verify the code generated by most compilers for
+this code:
+
+    public class three
+    {
+      public static int foo (boolean b)
+      {
+	int i;
+	try {
+	    if (b) return 1;
+	    i= 2;
+	}
+	finally {
+	  if (b) i = 3;
+	}
+	return i;
+      }
+      public static void main(String[] args)
+      {
+      }
+    }
+
+We can avoid this by never generating jsr/ret opcodes.  Instead we
+should just inline finally clauses where needed.  This can mean
+bytecode explosion in some cases :-(.  Also it makes local variable
+scoping difficult.
+
+================================================================
+
+I looked at file sizes of .class files, in particular the class files
+from rhug, Eclipse, and libgcj.  You end up with a nice logarithmic
+plot.  The largest number of class files are less than 1000 bytes,
+about half as many as that less than 2000 bytes, and so on up to 10000
+bytes where the graph flattens out.
+
+Is this interesting?  Maybe not.
+
+[ redo this and record the actual results, it is useful sometimes ]
+
+================================================================
+
+Improvements over gcj
+
+for local classes we will only capture the variables actually used by
+the class; gcj will capture all final local variables
+
+in theory our byte code will be a bit better:
+* we won't generate dead code
+* we can generate 1.5 bytecode
+* we won't generate jsr/ret (more programs will verify)
+* we can peephole optimize some things gcj can't
+
+we have much better warnings already, with more to come
+
+will be able to write class files, header files, and object code
+all at once.  internal representation doesn't depend on target
+
+much better correctness.  we fail fewer jacks tests
+
+see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=16927
+this is a classic gcj front end bug
+gcjx basically isn't susceptible to this sort of thing, due
+to static typing
+
+see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=14853
+another classic gcj bug, caused by generating different
+trees depending on the target
+
+
+gcj PRs believed to be fixed by gcjx:
+
+1259
+1330
+1374
+1812
+2279
+2499
+4467
+4695
+4811
+5178
+5411
+5537
+5640
+6933
+8298
+8433
+8544
+8608
+8626
+8627
+8628 ?
+8709 - make sure to do this
+8899
+8923
+8939
+9351
+9369
+9547
+9866
+9884
+9943
+10894
+11075
+11117
+11470
+12217
+12257
+12434
+12459
+12734
+12741
+12759 (silly though)
+13020 (I think)
+13091
+13124
+13252
+13378
+13493 ?
+13788 (sad one for gcj really)
+15377
+15411
+15543 (by deleting jv-scan)
+15714
+16327
+16653
+16658
+16677
+16839
+16843
+17157
+17691
+17848 (probably)
+18086
+18119
+18147
+18175
+test 18281
+18682
+18728
+18789
+18796
+19070

@@ -1,0 +1,31 @@
+This is gcjx, an experimental replacement for the gcj front end.
+
+It is still a work in progress.  To build it, run the various
+autotools to create a Makefile.in, then configure and build as usual.
+You will need a new-ish g++ that is capable of making precompiled
+headers.
+
+I currently test gcjx against Classpath and Jacks.  Check out
+Classpath and configure with --with-gcjx=/full/path/to/gcjx.
+For Jacks, ask and I will send a sample gcjx_setup file to you.
+
+gcjx works like many other compilers, use "gcjx --help" to see the
+options, and "gcjx --help-warnings" to see the list of warnings.
+
+
+The file TODO lists various possible things to do.
+The file PROJECTS also has some, and also a brief tour of the
+source.
+
+
+The goal of gcjx is to aim for complete Java conformance, to be easy
+to read and hack, to have excellent error and warning messages, and to
+have acceptable performance.
+
+The big picture of the design is that every language construct has a
+corresponding C++ object.  The AST is strongly typed and each field
+comes with an explanation of its possible values (e.g., can it be
+NULL?).  We try for modularization, for instance, AST construction
+doesn't depend on the chosen output format.  We also try to conform to
+the JLS by choosing names and algorithms that reflect the language in
+the JLS as closely as possible.
