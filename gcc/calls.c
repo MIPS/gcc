@@ -598,8 +598,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
 static int
 special_function_p (tree fndecl, int flags)
 {
-  if (! (flags & ECF_MALLOC)
-      && fndecl && DECL_NAME (fndecl)
+  if (fndecl && DECL_NAME (fndecl)
       && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
       /* Exclude functions not at the file scope, or not `extern',
 	 since they are not the magic functions we would otherwise
@@ -735,6 +734,8 @@ flags_from_decl_or_type (tree exp)
 
       if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
 	flags |= ECF_LIBCALL_BLOCK;
+
+      flags = special_function_p (exp, flags);
     }
 
   if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
@@ -2307,10 +2308,6 @@ expand_call (tree exp, rtx target, int ignore)
     }
   else
     type_arg_types = TYPE_ARG_TYPES (funtype);
-
-  /* See if this is a call to a function that can return more than once
-     or a call to longjmp or malloc.  */
-  flags |= special_function_p (fndecl, flags);
 
   if (flags & ECF_MAY_BE_ALLOCA)
     current_function_calls_alloca = 1;

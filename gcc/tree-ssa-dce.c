@@ -395,6 +395,7 @@ remove_dead_stmts (void)
   basic_block bb;
   block_stmt_iterator i;
 
+  clear_special_calls ();
   FOR_EACH_BB_REVERSE (bb)
     {
       /* Remove dead PHI nodes.  */
@@ -415,7 +416,14 @@ remove_dead_stmts (void)
 	      bsi_remove (&j);
 	    }
 	  else
-	    bsi_prev (&i);
+	    {
+	      if (TREE_CODE (t) == CALL_EXPR)
+		notice_special_calls (t);
+	      else if (TREE_CODE (t) == MODIFY_EXPR
+		       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+		notice_special_calls (TREE_OPERAND (t, 1));
+	      bsi_prev (&i);
+	    }
 	}
     }
 }

@@ -446,6 +446,8 @@ extern basic_block tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern void bsi_commit_edge_inserts (bool, int *);
 extern void bsi_insert_on_edge_immediate (edge, tree);
+extern void notice_special_calls (tree);
+extern void clear_special_calls (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

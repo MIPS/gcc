@@ -554,7 +554,8 @@ make_exit_edges (basic_block bb)
       /* If this function receives a nonlocal goto, then we need to
 	 make edges from this call site to all the nonlocal goto
 	 handlers.  */
-      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+      if (TREE_SIDE_EFFECTS (last)
+	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	make_goto_expr_edges (bb);
 
       /* If this statement has reachable exception handlers, then
@@ -583,6 +584,7 @@ make_exit_edges (basic_block bb)
 	 may have an abnormal edge.  Search the RHS for this case and
 	 create any required edges.  */
       if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
+	  && TREE_SIDE_EFFECTS (TREE_OPERAND (last, 1))
 	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	make_goto_expr_edges (bb);
 
@@ -1146,8 +1148,29 @@ update_call_expr_flags (tree call)
     return;
   if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
     TREE_SIDE_EFFECTS (call) = 0;
-  if (!TREE_NOTHROW (decl))
-    TREE_NOTHROW (call) = 0;
+  if (TREE_NOTHROW (decl))
+    TREE_NOTHROW (call) = 1;
+}
+
+/* t is CALL_EXPR.  Set current_function_calls_* flags.  */
+void
+notice_special_calls (tree t)
+{
+  int flags = call_expr_flags (t);
+
+  if (flags & ECF_MAY_BE_ALLOCA)
+    current_function_calls_alloca = true;
+  if (flags & ECF_RETURNS_TWICE)
+    current_function_calls_setjmp = true;
+}
+
+/* Clear flags set by notice_special_calls.  Used by dead code removal
+   to update the flags.  */
+void
+clear_special_calls (void)
+{
+  current_function_calls_alloca = false;
+  current_function_calls_setjmp = false;
 }
 
 static void
@@ -1187,6 +1210,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 
     case CALL_EXPR:
       data->last_goto = NULL;
+      notice_special_calls (t);
       update_call_expr_flags (t);
       if (tree_could_throw_p (t))
         data->may_throw = true;
@@ -1195,7 +1219,10 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     case MODIFY_EXPR:
       data->last_goto = NULL;
       if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-	update_call_expr_flags (TREE_OPERAND (t, 1));
+	{
+	  update_call_expr_flags (TREE_OPERAND (t, 1));
+	  notice_special_calls (TREE_OPERAND (t, 1));
+	}
       if (tree_could_throw_p (t))
 	data->may_throw = true;
       break;
@@ -1236,6 +1263,9 @@ void
 remove_useless_stmts (tree *first_p)
 {
   struct rus_data data;
+
+  clear_special_calls ();
+
   do
     {
       memset (&data, 0, sizeof (data));
@@ -2723,7 +2753,17 @@ tree_verify_flow_info (void)
 	    break;
 	  if (label_to_block (LABEL_EXPR_LABEL (bsi_stmt (bsi))) != bb)
 	    {
-	      error ("Label to block does not match in bb %d\n", bb->index);
+	      error ("Label %s to block does not match in bb %d\n",
+		     IDENTIFIER_POINTER (DECL_NAME (bsi_stmt (bsi))),
+		     bb->index);
+	      err = 1;
+	    }
+	  if (decl_function_context (LABEL_EXPR_LABEL (bsi_stmt (bsi)))
+	      != current_function_decl)
+	    {
+	      error ("Label %s has incorrect context in bb %d\n",
+		     IDENTIFIER_POINTER (DECL_NAME (bsi_stmt (bsi))),
+		     bb->index);
 	      err = 1;
 	    }
 	}

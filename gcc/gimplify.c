@@ -2993,6 +2993,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
+#ifdef ENABLE_CHECKING
+	  if (decl_function_context (LABEL_EXPR_LABEL (*expr_p)) != current_function_decl)
+	    abort ();
+#endif
 	  break;
 
 	case CASE_LABEL_EXPR:

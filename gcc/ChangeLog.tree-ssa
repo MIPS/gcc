@@ -1,3 +1,23 @@
+2003-11-13  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (special_function_p): Do not check for ECF_MALLOC.
+	(flags_from_decl_or_type):  Use special_function_p.
+	(expand_call): Remove call to special_function_p.
+	* tree-cfg.c (notice_special_calls, clear_special_calls): New functions.
+	(remove_useless_stmts): Use clear_special_calls.
+	(remove_useless_stmts_1): Use notice_special_calls.
+	* tree-flow.h (notice_special_calls, clear_special_calls): New functions.
+	* tree-ssa-dce.c (remove_dead_stmts): Use clear_special_calls and
+	notice_special_calls..
+
+	* gimplify.c (gimplify_expr): Check labels.
+
+	* tree-cfg.c (tree_verify_flow_info): Check labels.
+
+	* tree-cfg.c (make_exit_edges): Do not create edges for const
+	functions.
+	(update_call_expr_flags): Fix.
+
 2003-11-12  Diego Novillo  <dnovillo@redhat.com>
 
 	(declare_inlined_vars): New local function.
