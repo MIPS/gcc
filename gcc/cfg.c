@@ -148,15 +148,15 @@ clear_edges (void)
       FOR_EACH_EDGE (e, bb->succ, ix)
 	free_edge (e);
 
-      bb->succ = NULL;
-      bb->pred = NULL;
+      VEC_edge_truncate (bb->succ, 0);
+      VEC_edge_truncate (bb->pred, 0);
     }
 
   FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
     free_edge (e);
 
-  EXIT_BLOCK_PTR->pred = NULL;
-  ENTRY_BLOCK_PTR->succ = NULL;
+  VEC_edge_truncate (EXIT_BLOCK_PTR->pred, 0);
+  VEC_edge_truncate (ENTRY_BLOCK_PTR->succ, 0);
 
   if (n_edges)
     abort ();
