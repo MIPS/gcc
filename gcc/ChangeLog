@@ -1,3 +1,7 @@
+Fri Nov  8 13:33:58 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_loadss, sse2_loadsd): Fix expander.
+
 Fri Nov  8 13:25:41 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_machine_dependent_reorg): Fix handling of empty functions.
