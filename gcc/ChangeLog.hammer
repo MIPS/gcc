@@ -1,3 +1,7 @@
+Mon Aug 25 10:13:45 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (set_decl_assembler_name): Fix.
+
 2003-08-20  Josef Zlomek  <zlomekj@suse.cz>
 
 	* fold-const.c (fold): Fix bug in (A & C) == D where D & ~C != 0

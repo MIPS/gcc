@@ -625,7 +625,7 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
 				  IDENTIFIER_HASH_VALUE (name), 1);
       if (*slot)
 	abort ();
-      *slot = node;
+      *slot = vnode;
     }
 }
 

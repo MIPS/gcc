@@ -387,7 +387,7 @@ handle_pragma_redefine_extname (dummy)
       if (DECL_ASSEMBLER_NAME_SET_P (decl)
 	  && DECL_ASSEMBLER_NAME (decl) != newname)
         warning ("#pragma redefine_extname conflicts with declaration");
-      SET_DECL_ASSEMBLER_NAME (decl, newname);
+      cgraph_set_decl_assembler_name (decl, newname);
     }
   else
     add_to_renaming_pragma_list(oldname, newname);
