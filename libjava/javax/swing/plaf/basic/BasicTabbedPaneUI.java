@@ -290,7 +290,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
 	  width = tabAreaWidth + componentWidth;
         }
 
-      return new Dimension(300, 200);
+      return new Dimension(width, height);
     }
 
     // if tab placement is LEFT OR RIGHT, they share width.

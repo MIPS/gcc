@@ -1,5 +1,10 @@
 2004-03-23  Kim Ho  <kho@redhat.com>
 
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java:
+	(calculateSizes): Return real width and height.
+
+2004-03-23  Kim Ho  <kho@redhat.com>
+
 	* javax/swing/plaf/basic/BasicTabbedPaneUI.java
 	(calculateTabRects): Set the selectedRun before
 	trying to rotate tabs.
