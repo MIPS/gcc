@@ -1933,7 +1933,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   if (EDGE_COUNT (bb->succs) > 1)
     {
       edge e;
-      unsigned ix;
+      edge_iterator ei;
 
       switch (TREE_CODE (expr))
 	{
@@ -1956,7 +1956,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	return false;
 
       /* Remove all the edges except the one that is always executed.  */
-      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
 	  if (e != taken_edge)
 	    {
@@ -1966,7 +1966,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      retval = true;
 	    }
 	  else
-	    ix++;
+	    ei_next (&ei);
 	}
 
       if (taken_edge->probability > REG_BR_PROB_BASE)
@@ -3861,7 +3861,7 @@ thread_jumps (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      unsigned ix;
+      edge_iterator ei;
 
       /* Don't waste time on unreachable blocks.  */
       if (EDGE_COUNT (bb->preds) == 0)
@@ -3878,7 +3878,7 @@ thread_jumps (void)
 
       /* Examine each of our block's successors to see if it is
 	 forwardable.  */
-      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
 	  int freq;
 	  gcov_type count;
@@ -3888,7 +3888,7 @@ thread_jumps (void)
 	  if ((e->flags & EDGE_ABNORMAL)
 	      || !tree_forwarder_block_p (e->dest))
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 
@@ -3933,7 +3933,7 @@ thread_jumps (void)
 
 	  if (dest == e->dest)
 	    {
-	      ix++;
+	      ei_next (&ei);
 	      continue;
 	    }
 	      
@@ -3952,7 +3952,7 @@ thread_jumps (void)
 		  /* That might mean that no forwarding at all is possible.  */
 		  if (dest == e->dest)
 		    {
-		      ix++;
+		      ei_next (&ei);
 		      continue;
 		    }
 
@@ -5091,13 +5091,13 @@ tree_purge_dead_eh_edges (basic_block bb)
 {
   bool changed = false;
   edge e;
-  unsigned ix;
+  edge_iterator ei;
   tree stmt = last_stmt (bb);
 
   if (stmt && tree_can_throw_internal (stmt))
     return false;
 
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (e->flags & EDGE_EH)
 	{
@@ -5105,7 +5105,7 @@ tree_purge_dead_eh_edges (basic_block bb)
 	  changed = true;
 	}
       else
-	ix++;
+	ei_next (&ei);
     }
 
   return changed;

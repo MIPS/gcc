@@ -35,7 +35,7 @@ loop_optimizer_init (FILE *dumpfile)
 {
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
-  unsigned ix;
+  edge_iterator ei;
   static bool first_time = true;
 
   if (first_time)
@@ -47,12 +47,12 @@ loop_optimizer_init (FILE *dumpfile)
   /* Avoid annoying special cases of edges going to exit
      block.  */
 
-  for (ix = 0; VEC_iterate (edge, EXIT_BLOCK_PTR->preds, ix, e); )
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
     {
       if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succs) > 1)
 	split_edge (e);
       else
-	ix++;
+	ei_next (&ei);
     }
 
   /* Find the loops.  */

@@ -560,8 +560,8 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 		      void (*new_bb_cbk) (basic_block))
 {
   edge e, fallthru;
+  edge_iterator ei;
   basic_block dummy, jump;
-  unsigned ix;
 
   if (!cfg_hooks->make_forwarder_block)
     internal_error ("%s does not support make_forwarder_block.",
@@ -572,11 +572,11 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
   bb = fallthru->dest;
 
   /* Redirect back edges we want to keep.  */
-  for (ix = 0; VEC_iterate (edge, dummy->preds, ix, e); )
+  for (ei = ei_start (dummy->preds); (e = ei_safe_edge (ei)); )
     {
       if (redirect_edge_p (e))
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 

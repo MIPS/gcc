@@ -1,5 +1,23 @@
 2004-09-19  Ben Elliston  <bje@au.ibm.com>
 
+	* cfg.c (remove_edge): Use an edge_iterator, not VEC_iterate().
+	(redirect_edge_succ): Likewise.
+	(redirect_edge_pred): Likewise.
+	* cfganal.c (remove_fake_predecessors): Likewise.
+	* cfgcleanup.c (try_forward_edges): Likewise.
+	* cfghooks.c (make_forwarder_block): Likewise.
+	* gcse.c (bypass_block): Likewise.
+	* except.c (emit_to_new_bb_before): Likewise.
+	(finish_eh_generation): Likewise.
+	* loop-init.c (loop_optimizer_init): Likewise.
+	* tree-cfg.c (cleanup_control_expr_graph): Likewise.
+	(thread_jumps): Likewise.
+	(tree_purge_dead_eh_edges): Likewise.
+	* tree-ssa-threadupdate.c (thread_block): Likewise.
+	(remove_last_stmt_and_useless_edges): Likewise.
+
+2004-09-19  Ben Elliston  <bje@au.ibm.com>
+
 	* var-tracking.c (vt_stack_adjustments): Use ei_one_before_end_p,
 	not ei_end_p, to correct an off-by-one error.
 

@@ -556,14 +556,14 @@ static void
 remove_fake_predecessors (basic_block bb)
 {
   edge e;
-  unsigned ix;
+  edge_iterator ei;
 
-  for (ix = 0; VEC_iterate (edge, bb->preds, ix, e); )
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
       if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
 	remove_edge (e);
       else
-	ix++;
+	ei_next (&ei);
     }
 }
 

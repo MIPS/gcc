@@ -142,7 +142,7 @@ remove_last_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 {
   block_stmt_iterator bsi;
   edge e;
-  unsigned ix;
+  edge_iterator ei;
 
   bsi = bsi_last (bb);
 
@@ -151,12 +151,12 @@ remove_last_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 
   bsi_remove (&bsi);
 
-  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
       if (e->dest != dest_bb)
 	ssa_remove_edge (e);
       else
-	ix++;
+	ei_next (&ei);
     }
 
   /* BB now has a single outgoing edge. We need to update the flags for
@@ -237,7 +237,7 @@ thread_block (basic_block bb)
      be threaded to a duplicate of BB.  */
   bool all = true;
 
-  unsigned int i, ix;
+  unsigned int i;
 
   VARRAY_GENERIC_PTR_INIT (redirection_data, 2, "redirection data");
 
@@ -303,14 +303,14 @@ thread_block (basic_block bb)
      a list of incoming edges associated with each entry in 
      REDIRECTION_DATA and walk over that list of edges instead.  */
 
-  for (ix = 0; VEC_iterate (edge, bb->preds, ix, e); )
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
       edge new_dest = e->aux;
 
       /* E was not threaded, then there is nothing to do.  */
       if (!new_dest)
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 

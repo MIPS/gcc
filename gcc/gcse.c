@@ -3570,7 +3570,6 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
   int i, change;
   int may_be_loop_header;
   unsigned removed_p;
-  unsigned ix;
   edge_iterator ei;
 
   insn = (setcc != NULL) ? setcc : jump;
@@ -3594,20 +3593,20 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
     }
 
   change = 0;
-  for (ix = 0; VEC_iterate (edge, bb->preds, ix, e); )
+  for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
       removed_p = 0;
 	  
       if (e->flags & EDGE_COMPLEX)
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 
       /* We can't redirect edges from new basic blocks.  */
       if (e->src->index >= bypass_last_basic_block)
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 
@@ -3617,7 +3616,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
       if (may_be_loop_header
 	  && !(e->flags & EDGE_DFS_BACK))
 	{
-	  ix++;
+	  ei_next (&ei);
 	  continue;
 	}
 
@@ -3663,9 +3662,11 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else if (GET_CODE (new) == LABEL_REF)
 	    {
+	      edge_iterator ei2;
+
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      FOR_EACH_EDGE (edest, ei, bb->succs)
+	      FOR_EACH_EDGE (edest, ei2, bb->succs)
 		{
 		  if (edest->dest == dest && edest->insns.r)
 		    {
@@ -3684,7 +3685,9 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
 	    {
 	      edge e2;
-	      FOR_EACH_EDGE (e2, ei, e->src->succs)
+	      edge_iterator ei2;
+
+	      FOR_EACH_EDGE (e2, ei2, e->src->succs)
 		{
 		  if (e2->dest == dest)
 		    {
@@ -3725,7 +3728,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	}
       if (!removed_p)
-	ix++;
+	ei_next (&ei);
     }
   return change;
 }
