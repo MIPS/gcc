@@ -1939,7 +1939,7 @@ java_add_stmt (stmt)
      tree stmt;
 {
   if (input_filename)
-    annotate_with_file_line (stmt, input_filename, input_line);
+    annotate_with_locus (stmt, input_location);
   
   return current_binding_level->stmts 
     = add_stmt_to_compound (current_binding_level->stmts, 

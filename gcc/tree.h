@@ -2513,6 +2513,7 @@ extern tree build_tree_list (tree, tree);
 extern tree build_decl (enum tree_code, tree, tree);
 extern tree build_block (tree, tree, tree, tree, tree);
 extern void annotate_with_file_line (tree, const char *, int);
+extern void annotate_with_locus (tree, location_t);
 extern tree build_empty_stmt (void);
 
 /* Construct various nodes representing data types.  */

@@ -1,5 +1,9 @@
 2003-10-13  Richard Henderson  <rth@redhat.com>
 
+	* decl.c (java_add_stmt): Use annotate_with_locus.
+
+2003-10-13  Richard Henderson  <rth@redhat.com>
+
         * expr.c (build_java_jsr): Don't emit LABEL_EXPR or
         load_type_state here.
 

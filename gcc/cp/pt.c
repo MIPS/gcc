@@ -4647,7 +4647,7 @@ push_tinst_level (tree d)
     }
 
   new = make_node (TINST_LEVEL);
-  annotate_with_file_line (new, input_filename, input_line);
+  annotate_with_locus (new, input_location);
   TINST_DECL (new) = d;
   TREE_CHAIN (new) = current_tinst_level;
   current_tinst_level = new;

@@ -1,3 +1,7 @@
+2003-10-13  Richard Henderson  <rth@redhat.com>
+
+	* pt.c (push_tinst_level): Use annotate_with_locus.
+
 2003-10-12  Richard Henderson  <rth@redhat.com>
 
 	* call.c (call_builtin_trap): Use implicit_built_in_decls.

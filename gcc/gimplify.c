@@ -63,7 +63,6 @@ static void gimplify_bind_expr (tree *, tree *);
 static inline void remove_suffix (char *, int);
 static void push_gimplify_context (void);
 static void pop_gimplify_context (void);
-static void annotate_stmt_with_file_line (tree *);
 static tree copy_if_shared_r (tree *, int *, void *);
 static tree unmark_visited_r (tree *, int *, void *);
 static tree mostly_copy_tree_r (tree *, int *, void *);
@@ -695,10 +694,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   if (is_statement)
     {
       add_tree (*expr_p, pre_p);
-      annotate_all_with_file_line (&internal_post, input_filename, input_line);
+      annotate_all_with_locus (&internal_post, input_location);
       add_tree (internal_post, pre_p);
       tmp = rationalize_compound_expr (internal_pre);
-      annotate_all_with_file_line (&tmp, input_filename, input_line);
+      annotate_all_with_locus (&tmp, input_location);
       *expr_p = tmp;
 
       goto out;
@@ -764,7 +763,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
   if (internal_post)
     {
-      annotate_all_with_file_line (&internal_post, input_filename, input_line);
+      annotate_all_with_locus (&internal_post, input_location);
       add_tree (internal_post, pre_p);
     }
 
@@ -1592,7 +1591,7 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
   /* For reliable diagnostics during inlining, it is necessary that 
      every call_expr be annotated with file and line.  */
   if (!EXPR_LOCUS (*expr_p))
-    annotate_with_file_line (*expr_p, input_filename, input_line);
+    annotate_with_locus (*expr_p, input_location);
 
   /* This may be a call to a builtin function.
 
@@ -2355,11 +2354,10 @@ foreach_stmt (tree *stmt_p, foreach_stmt_fn *fn)
   fn (stmt_p);
 }
 
-static const char *wfl_filename;
-static int wfl_lineno;
+static location_t wfl_locus;
 
 static void
-annotate_stmt_with_file_line (tree *stmt_p)
+annotate_all_with_locus_1 (tree *stmt_p)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
@@ -2367,15 +2365,14 @@ annotate_stmt_with_file_line (tree *stmt_p)
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*stmt_p)))
       && TREE_CODE (*stmt_p) != LABEL_EXPR
       && ! EXPR_LOCUS (*stmt_p))
-    annotate_with_file_line (*stmt_p, wfl_filename, wfl_lineno);
+    annotate_with_locus (*stmt_p, wfl_locus);
 }
 
 void
-annotate_all_with_file_line (tree *stmt_p, const char *file, int line)
+annotate_all_with_locus (tree *stmt_p, location_t locus)
 {
-  wfl_filename = file;
-  wfl_lineno = line;
-  foreach_stmt (stmt_p, annotate_stmt_with_file_line);
+  wfl_locus = locus;
+  foreach_stmt (stmt_p, annotate_all_with_locus_1);
 }
 
 /* Add STMT to EXISTING if possible, otherwise create a new
@@ -2658,7 +2655,7 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
   if (EXPR_LOCUS (val))
     SET_EXPR_LOCUS (mod, EXPR_LOCUS (val));
   else
-    annotate_with_file_line (mod, input_filename, input_line);
+    annotate_with_locus (mod, input_location);
   /* gimplify_modify_expr might want to reduce this further.  */
   gimplify_stmt (&mod);
   add_tree (mod, pre_p);

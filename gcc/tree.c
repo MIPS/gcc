@@ -2595,6 +2595,7 @@ static GTY(()) tree last_annotated_node;
 
 /* Record the exact location where an expression or an identifier were
    encountered.  */
+
 void
 annotate_with_file_line (tree node, const char *file, int line)
 {
@@ -2627,6 +2628,12 @@ annotate_with_file_line (tree node, const char *file, int line)
   EXPR_LINENO (node) = line;
   EXPR_FILENAME (node) = file;
   last_annotated_node = node;
+}
+
+void
+annotate_with_locus (tree node, location_t locus)
+{
+  annotate_with_file_line (node, locus.file, locus.line);
 }
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES

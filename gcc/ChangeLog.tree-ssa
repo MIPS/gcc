@@ -1,3 +1,15 @@
+2003-10-13  Richard Henderson  <rth@redhat.com>
+
+	* c-simplify.c (c_gimplify_stmt): Upreate on location_t and not
+	fine and line individually.
+	(gimplify_c_loop, gimplify_switch_stmt): Likewise.
+	* gimplify.c (wfl_locus): Merge wfl_filename+wfl_lineno.
+	(annotate_all_with_locus_1): Rename from annotate_stmt_with_file_line.
+	(annotate_all_with_locus): Replace annotate_all_with_file_line;
+	update all callers.
+	* tree-simple.h: Update.
+	* tree.c, tree.h (annotate_with_locus): New.
+
 2003-10-13  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-flow-inline.h (def_ops): Take a stmt_ann_t as argument

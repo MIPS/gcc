@@ -34,7 +34,7 @@ extern void declare_tmp_vars (tree, tree);
 
 extern tree rationalize_compound_expr (tree);
 extern tree right_assocify_expr (tree);
-extern void annotate_all_with_file_line (tree *, const char *, int);
+extern void annotate_all_with_locus (tree *, location_t);
 
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that

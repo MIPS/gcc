@@ -189,14 +189,12 @@ c_gimplify_stmt (tree *stmt_p)
     {
       tree pre, post;
       int saved_stmts_are_full_exprs_p;
-      const char *stmt_filename;
-      int stmt_lineno;
+      location_t stmt_locus;
 
       /* Set up context appropriately for handling this statement.  */
       saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
       prep_stmt (stmt);
-      stmt_filename = input_filename;
-      stmt_lineno = input_line;
+      stmt_locus = input_location;
 
       pre = NULL_TREE;
       post = NULL_TREE;
@@ -306,7 +304,7 @@ c_gimplify_stmt (tree *stmt_p)
       add_tree (stmt, &pre);
       add_tree (post, &pre);
       pre = rationalize_compound_expr (pre);
-      annotate_all_with_file_line (&pre, stmt_filename, stmt_lineno);
+      annotate_all_with_locus (&pre, stmt_locus);
 
       add_tree (pre, &outer_pre);
     cont:
@@ -580,12 +578,10 @@ static tree
 gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
 {
   tree exit, cont_block, break_block, loop;
-  const char *stmt_filename;
-  int stmt_lineno;
+  location_t stmt_locus;
   tree stuff, entry = NULL_TREE;
 
-  stmt_filename = input_filename;
-  stmt_lineno = input_line;
+  stmt_locus = input_location;
 
   break_block = begin_bc_block (bc_break);
 
@@ -631,7 +627,7 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
       add_tree (exit, &stuff);
     }
 
-  annotate_all_with_file_line (&stuff, stmt_filename, stmt_lineno);
+  annotate_all_with_locus (&stuff, stmt_locus);
 
   LOOP_EXPR_BODY (loop) = rationalize_compound_expr (stuff);
 
@@ -767,8 +763,7 @@ gimplify_switch_stmt (tree *stmt_p)
   tree body = SWITCH_BODY (stmt);
   tree break_block, switch_;
   tree cond = SWITCH_COND (stmt);
-  const char *stmt_filename = input_filename;
-  int stmt_lineno = input_line;
+  location_t stmt_locus = input_location;
 
   gimplify_condition (&cond);
 
@@ -777,7 +772,7 @@ gimplify_switch_stmt (tree *stmt_p)
   c_gimplify_stmt (&body);
 
   switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
-  annotate_with_file_line (switch_, stmt_filename, stmt_lineno);
+  annotate_with_locus (switch_, stmt_locus);
 
   switch_ = finish_bc_block (break_block, switch_);
 
