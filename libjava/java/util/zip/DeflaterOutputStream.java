@@ -127,7 +127,12 @@ public class DeflaterOutputStream extends FilterOutputStream
    */
   public void finish () throws IOException
   {
-    inbufWrite();
+    if (inbufLength > 0)
+      {
+	def.setInput (inbuf, 0, inbufLength);
+	deflate ();
+	inbufLength = 0;
+      }
     def.finish();
     while (! def.finished ())
       {
@@ -140,27 +145,28 @@ public class DeflaterOutputStream extends FilterOutputStream
   public void write (int bval) throws IOException
   {
     if (inbuf == null)
-      inbuf = new byte[128];
+      {
+	inbuf = new byte[128];
+      }
     else if (inbufLength == inbuf.length)
-      inbufWrite ();
+      {
+	def.setInput (inbuf, 0, inbufLength);
+	deflate ();
+	inbufLength = 0;
+      }
     inbuf[inbufLength++] = (byte) bval;
   }
 
   public void write (byte[] buf, int off, int len) throws IOException
   {
-    inbufWrite ();
-    def.setInput (buf, off, len);
-    deflate ();
-  }
-
-  private void inbufWrite () throws IOException
-  {
     if (inbufLength > 0)
       {
-	int size = inbufLength;
+	def.setInput (inbuf, 0, inbufLength);
+	deflate ();
 	inbufLength = 0;
-	write (inbuf, 0, size);
       }
+    def.setInput (buf, off, len);
+    deflate ();
   }
 
   // Used, if needed, for write(int).

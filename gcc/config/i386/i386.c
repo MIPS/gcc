@@ -4882,7 +4882,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 {
   HOST_WIDE_INT total_size;
   int stack_alignment_needed = cfun->stack_alignment_needed / BITS_PER_UNIT;
-  HOST_WIDE_INT offset;
+  int offset;
   int preferred_alignment = cfun->preferred_stack_boundary / BITS_PER_UNIT;
   HOST_WIDE_INT size = get_frame_size ();
 
@@ -4998,8 +4998,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
     (size + frame->padding1 + frame->padding2
      + frame->outgoing_arguments_size + frame->va_arg_size);
 
-  if ((!frame->to_allocate && frame->nregs <= 1)
-      || (TARGET_64BIT && frame->to_allocate >= (HOST_WIDE_INT) 0x80000000))
+  if (!frame->to_allocate && frame->nregs <= 1)
     frame->save_regs_using_mov = false;
 
   if (TARGET_RED_ZONE && current_function_sp_is_unchanging
@@ -5066,41 +5065,6 @@ ix86_emit_save_regs_using_mov (rtx pointer, HOST_WIDE_INT offset)
       }
 }
 
-/* Expand prologue or epilogue stack adjustement.
-   The pattern exist to put a dependency on all ebp-based memory accesses.
-   STYLE should be negative if instructions should be marked as frame related,
-   zero if %r11 register is live and cannot be freely used and positive
-   otherwise.  */
-
-static void
-pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
-{
-  rtx insn;
-
-  if (! TARGET_64BIT)
-    insn = emit_insn (gen_pro_epilogue_adjust_stack_1 (dest, src, offset));
-  else if (x86_64_immediate_operand (offset, DImode))
-    insn = emit_insn (gen_pro_epilogue_adjust_stack_rex64 (dest, src, offset));
-  else
-    {
-      rtx r11;
-      /* r11 is used by indirect sibcall return as well, set before the
-	 epilogue and used after the epilogue.  ATM indirect sibcall
-	 shouldn't be used together with huge frame sizes in one
-	 function because of the frame_size check in sibcall.c.  */
-      if (style == 0)
-	abort ();
-      r11 = gen_rtx_REG (DImode, FIRST_REX_INT_REG + 3 /* R11 */);
-      insn = emit_insn (gen_rtx_SET (DImode, r11, offset));
-      if (style < 0)
-	RTX_FRAME_RELATED_P (insn) = 1;
-      insn = emit_insn (gen_pro_epilogue_adjust_stack_rex64_2 (dest, src, r11,
-							       offset));
-    }
-  if (style < 0)
-    RTX_FRAME_RELATED_P (insn) = 1;
-}
-
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -5142,8 +5106,12 @@ ix86_expand_prologue (void)
   if (allocate == 0)
     ;
   else if (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT)
-    pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-			       GEN_INT (-allocate), -1);
+    {
+      insn = emit_insn (gen_pro_epilogue_adjust_stack
+			(stack_pointer_rtx, stack_pointer_rtx,
+			 GEN_INT (-allocate)));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
   else
     {
       /* Only valid for Win32.  */
@@ -5298,8 +5266,8 @@ ix86_expand_epilogue (int style)
 	      tmp = gen_rtx_MEM (Pmode, hard_frame_pointer_rtx);
 	      emit_move_insn (hard_frame_pointer_rtx, tmp);
 
-	      pro_epilogue_adjust_stack (stack_pointer_rtx, sa,
-					 const0_rtx, style);
+	      emit_insn (gen_pro_epilogue_adjust_stack
+			 (stack_pointer_rtx, sa, const0_rtx));
 	    }
 	  else
 	    {
@@ -5310,19 +5278,19 @@ ix86_expand_epilogue (int style)
 	    }
 	}
       else if (!frame_pointer_needed)
-	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-				   GEN_INT (frame.to_allocate
-					    + frame.nregs * UNITS_PER_WORD),
-				   style);
+	emit_insn (gen_pro_epilogue_adjust_stack
+		   (stack_pointer_rtx, stack_pointer_rtx,
+		    GEN_INT (frame.to_allocate
+			     + frame.nregs * UNITS_PER_WORD)));
       /* If not an i386, mov & pop is faster than "leave".  */
       else if (TARGET_USE_LEAVE || optimize_size
 	       || !cfun->machine->use_fast_prologue_epilogue)
 	emit_insn (TARGET_64BIT ? gen_leave_rex64 () : gen_leave ());
       else
 	{
-	  pro_epilogue_adjust_stack (stack_pointer_rtx,
-				     hard_frame_pointer_rtx,
-				     const0_rtx, style);
+	  emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+						    hard_frame_pointer_rtx,
+						    const0_rtx));
 	  if (TARGET_64BIT)
 	    emit_insn (gen_popdi1 (hard_frame_pointer_rtx));
 	  else
@@ -5337,13 +5305,14 @@ ix86_expand_epilogue (int style)
 	{
 	  if (!frame_pointer_needed)
 	    abort ();
-	  pro_epilogue_adjust_stack (stack_pointer_rtx,
-				     hard_frame_pointer_rtx,
-				     GEN_INT (offset), style);
+          emit_insn (gen_pro_epilogue_adjust_stack (stack_pointer_rtx,
+						    hard_frame_pointer_rtx,
+						    GEN_INT (offset)));
 	}
       else if (frame.to_allocate)
-	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-				   GEN_INT (frame.to_allocate), style);
+	emit_insn (gen_pro_epilogue_adjust_stack
+		   (stack_pointer_rtx, stack_pointer_rtx,
+		    GEN_INT (frame.to_allocate)));
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (ix86_save_reg (regno, false))
@@ -5382,7 +5351,7 @@ ix86_expand_epilogue (int style)
 	{
 	  rtx ecx = gen_rtx_REG (SImode, 2);
 
-	  /* There is no "pascal" calling convention in 64bit ABI.  */
+	  /* There are is no "pascal" calling convention in 64bit ABI.  */
 	  if (TARGET_64BIT)
 	    abort ();
 
@@ -11625,7 +11594,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx callarg2,
     {
       rtx addr;
       addr = copy_to_mode_reg (Pmode, XEXP (fnaddr, 0));
-      fnaddr = gen_rtx_REG (Pmode, FIRST_REX_INT_REG + 3 /* R11 */);
+      fnaddr = gen_rtx_REG (Pmode, 40);
       emit_move_insn (fnaddr, addr);
       fnaddr = gen_rtx_MEM (QImode, fnaddr);
     }
