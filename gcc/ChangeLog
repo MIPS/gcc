@@ -1,3 +1,13 @@
+2003-11-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* calls.c (initialize_argument_information): Add CALL_FROM_THUNK_P
+	parameter.  Use it instead of current_function_is_thunk.
+	* function.h (struct function): Update documentation for is_thunk.
+	* tree.h (CALL_FROM_THUNK_P): New macro.
+	* config/alpha/alpha.c (alpha_sa_mask): Do not check
+	no_new_pseudos when testing current_function_is_thunk.
+	* config/rs6000/rs6000.c (rs6000_ra_ever_killed): Likeiwse.
+
 2003-10-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/arm/arm.h (processor_type): New enumeration type.
