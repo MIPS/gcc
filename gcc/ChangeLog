@@ -1,3 +1,7 @@
+2005-03-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin8.h (LIB_SPEC): Switch -lmx and -lSystem.
+
 2005-02-13  David Edelsohn  <edelsohn@gnu.org>
 
 	PR target/19019
