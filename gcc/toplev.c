@@ -3186,9 +3186,6 @@ rest_of_compilation (decl)
 	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
     }
 
-  if (flag_tracer)
-    tracer ();
-
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
   timevar_pop (TV_FLOW);
 
@@ -3217,6 +3214,9 @@ rest_of_compilation (decl)
   if (optimize)
     flow_loops_free (&loops);
 
+  if (flag_tracer)
+    tracer ();
+
   if (optimize > 0)
     {
       timevar_push (TV_CSE2);
@@ -3239,6 +3239,8 @@ rest_of_compilation (decl)
 
 	  reg_scan (insns, max_reg_num (), 0);
 
+	  timevar_pop (TV_JUMP);
+
 	  timevar_push (TV_IFCVT);
 
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
@@ -3246,8 +3248,6 @@ rest_of_compilation (decl)
 	  if_convert (0);
 
 	  timevar_pop(TV_IFCVT);
-
-	  timevar_pop (TV_JUMP);
 
 	  /* CFG is no longer maintained up-to-date.  */
 	  reg_scan (insns, max_reg_num (), 0);

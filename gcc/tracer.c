@@ -55,8 +55,8 @@ static void construct_traces		PARAMS ((void));
 static int
 cmpblocks (const void *a, const void *b)
 {
-  basic_block b1 = (basic_block) a;
-  basic_block b2 = (basic_block) b;
+  basic_block b1 = *(basic_block *) a;
+  basic_block b2 = *(basic_block *) b;
   if (b1->frequency != b2->frequency)
     return b2->frequency - b1->frequency;
   return b1->count - b2->count;
@@ -103,9 +103,7 @@ construct_traces ()
   int numblocks = n_basic_blocks;
 
   for (i = 0; i < numblocks; i++)
-    {
-      blocks [i] = BASIC_BLOCK (i);
-    }
+    blocks [i] = BASIC_BLOCK (i);
  
   qsort (blocks, numblocks, sizeof (basic_block), cmpblocks);
 
