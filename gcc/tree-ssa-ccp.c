@@ -360,8 +360,10 @@ visit_phi_node (tree phi)
   phi_val.lattice_val = UNDEFINED;
   phi_val.const_val = NULL_TREE;
 
-  /* If the variable is volatile, consider it VARYING.  */
-  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
+  /* If the variable is volatile or we have already determined it
+     to be varying, then consider it VARYING.  */
+  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi)))
+      || get_value (PHI_RESULT (phi))->lattice_val == VARYING)
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)

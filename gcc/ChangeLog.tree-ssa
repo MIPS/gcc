@@ -1,3 +1,8 @@
+2003-06-15  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c (visit_phi_node): If the PHI is already known
+	to be varying, don't recompute its value.
+	
 2003-06-14  Jeff Law  <law@redhat.com>
 	    Jason Merrill <jason@redhat.com>
 
