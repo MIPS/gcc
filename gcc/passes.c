@@ -1712,16 +1712,6 @@ rest_of_compilation (void)
   if (optimize > 0 && flag_if_conversion)
     rest_of_handle_if_after_combine ();
 
-  /* The optimization to partition hot/cold basic blocks into separate
-     sections of the .o file does not work well with linkonce or with
-     user defined section attributes.  Don't call it if either case
-     arises.  */
-
-  if (flag_reorder_blocks_and_partition 
-      && !DECL_ONE_ONLY (current_function_decl)
-      && !user_defined_section_attribute)
-    rest_of_handle_partition_blocks ();
-
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
     rest_of_handle_regmove ();
 
@@ -1745,6 +1735,16 @@ rest_of_compilation (void)
   if (flag_schedule_insns)
     rest_of_handle_sched ();
 #endif
+
+  /* The optimization to partition hot/cold basic blocks into separate
+     sections of the .o file does not work well with linkonce or with
+     user defined section attributes.  Don't call it if either case
+     arises.  */
+
+  if (flag_reorder_blocks_and_partition 
+      && !DECL_ONE_ONLY (current_function_decl)
+      && !user_defined_section_attribute)
+    rest_of_handle_partition_blocks ();
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and

@@ -1,3 +1,9 @@
+2004-10-11  Caroline Tice  <ctice@apple.com>
+
+	* passes.c (rest_of_compilation):  Move hot/cold partitioning to
+	occur after scheduling (and SMS), but still before register
+	allocation.
+
 2004-10-10  Dale Johannesen  <dalej@apple.com>
 
 	* alias.c (write_dependence_p):  Refs to same FE object interfere.
