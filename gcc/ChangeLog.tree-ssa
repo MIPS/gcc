@@ -1,3 +1,8 @@
+2003-01-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mx_xfn_indirect_ref): Use new TREE_LOCUS field
+	as a predicate for finding TREE_FILENAME etc.
+
 2003-01-16  Daniel Berlin  <dan@dberlin.org>
 
 	* Remove dead PRE code.	
