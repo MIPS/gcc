@@ -75,16 +75,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    element ordering 'ordered_remove', and one which does not
    'unordered_remove'.  The latter function copies the end element
    into the removed slot, rather than invoke a memmove operation.
+   The 'lower_bound' function will determine where to place an item in the
+   array using insert that will maintain sorted order.
 
    If you need to directly manipulate a vector, then the 'address'
    accessor will return the address of the start of the vector.  Also
    the 'space' predicate will tell you whether there is spare capacity
    in the vector.  You will not normally need to use these two functions.
    
-   Vector types are defined using a DEF_VEC_x(TYPEDEF) macro, and
+   Vector types are defined using a DEF_VEC_{O,P}(TYPEDEF) macro, and
    variables of vector type are declared using a VEC(TYPEDEF)
-   macro. The 'x' letter indicates whether TYPEDEF is a pointer (P) or
-   object (O) type.
+   macro. The characters O and P indicate whether TYPEDEF is a pointer
+   (P) or object (O) type.
 
    An example of their use would be,
 
@@ -99,8 +101,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    if (VEC_length(tree,s->v)) { we have some contents }
    VEC_safe_push(tree,s->v,decl); // append some decl onto the end
-   for (ix = 0; VEC_iterate(tree,s->v,ix,t); ix++)
-     { do something with t }
+   for (ix = 0; VEC_iterate(tree,s->v,ix,elt); ix++)
+     { do something with elt }
 
 */
 
@@ -300,6 +302,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_address(TDEF,V)		(VEC_OP(TDEF,address)(V))
 
+/* Find the first index in the vector not less than the object.
+   unsigned VEC_T_lower_bound (VEC(T) *v, const T val, 
+                               bool (*lessthan) (const T, const T)); // Pointer
+   unsigned VEC_T_lower_bound (VEC(T) *v, const T *val,
+                               bool (*lessthan) (const T*, const T*)); // Object
+   
+   Find the first position in which VAL could be inserted without
+   changing the ordering of V.  LESSTHAN is a function that returns
+   true if the first argument is strictly less than the second.   */
+   
+#define VEC_lower_bound(TDEF,V,O,LT)    \
+       (VEC_OP(TDEF,lower_bound)(V,O,LT VEC_CHECK_INFO))
+
 #if !IN_GENGTYPE
 /* Reallocate an array of elements with prefix.  */
 extern void *vec_p_reserve (void *, int MEM_STAT_DECL);
@@ -475,7 +490,32 @@ static inline TDEF VEC_OP (TDEF,replace)		  	     	  \
   return old_obj_;							  \
 }									  \
 									  \
-static inline TDEF *VEC_OP (TDEF,quick_insert)		     	  	  \
+static inline unsigned VEC_OP (TDEF,lower_bound)			\
+     (VEC (TDEF) *vec_, const TDEF obj_, bool (*lessthan_)(const TDEF, const TDEF) VEC_CHECK_DECL) \
+{									\
+   unsigned int len_ = VEC_OP (TDEF, length) (vec_);			\
+   unsigned int half_, middle_;						\
+   unsigned int first_ = 0;						\
+   while (len_ > 0)							\
+     {									\
+        TDEF middle_elem_;						\
+        half_ = len_ >> 1;						\
+        middle_ = first_;						\
+        middle_ += half_;						\
+        middle_elem_ = VEC_OP (TDEF, index) (vec_, middle_ VEC_CHECK_PASS); \
+        if (lessthan_ (middle_elem_, obj_))				\
+          {								\
+             first_ = middle_;						\
+             ++first_;							\
+             len_ = len_ - half_ - 1;					\
+          }								\
+        else								\
+          len_ = half_;							\
+     }									\
+   return first_;							\
+}									\
+									\
+static inline TDEF *VEC_OP (TDEF,quick_insert)				\
      (VEC (TDEF) *vec_, unsigned ix_, TDEF obj_ VEC_CHECK_DECL)		  \
 {									  \
   TDEF *slot_;								  \
@@ -670,8 +710,33 @@ static inline TDEF *VEC_OP (TDEF,replace)				  \
   return slot_;								  \
 }									  \
 									  \
-static inline TDEF *VEC_OP (TDEF,quick_insert)				  \
-     (VEC (TDEF) *vec_, unsigned ix_, const TDEF *obj_ VEC_CHECK_DECL)	  \
+static inline unsigned VEC_OP (TDEF,lower_bound)			\
+     (VEC (TDEF) *vec_, const TDEF *obj_, bool (*lessthan_)(const TDEF *, const TDEF *) VEC_CHECK_DECL) \
+{									\
+   unsigned int len_ = VEC_OP (TDEF, length) (vec_);			\
+   unsigned int half_, middle_;						\
+   unsigned int first_ = 0;						\
+   while (len_ > 0)							\
+     {									\
+        TDEF *middle_elem_;						\
+        half_ = len_ >> 1;						\
+        middle_ = first_;						\
+        middle_ += half_;						\
+        middle_elem_ = VEC_OP (TDEF, index) (vec_, middle_ VEC_CHECK_PASS); \
+        if (lessthan_ (middle_elem_, obj_))				\
+          {								\
+             first_ = middle_;						\
+             ++first_;							\
+             len_ = len_ - half_ - 1;					\
+          }								\
+        else								\
+          len_ = half_;							\
+     }									\
+   return first_;							\
+}									\
+									\
+static inline TDEF *VEC_OP (TDEF,quick_insert)				\
+     (VEC (TDEF) *vec_, unsigned ix_, const TDEF *obj_ VEC_CHECK_DECL)	\
 {									  \
   TDEF *slot_;								  \
 									  \

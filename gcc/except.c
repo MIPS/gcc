@@ -376,7 +376,7 @@ init_eh (void)
 			 integer_type_node);
       DECL_FIELD_CONTEXT (f_cs) = sjlj_fc_type_node;
 
-      tmp = build_index_type (build_int_2 (4 - 1, 0));
+      tmp = build_index_type (build_int_cst (NULL_TREE, 4 - 1, 0));
       tmp = build_array_type (lang_hooks.types.type_for_mode (word_mode, 1),
 			      tmp);
       f_data = build_decl (FIELD_DECL, get_identifier ("__data"), tmp);
@@ -392,17 +392,19 @@ init_eh (void)
 
 #ifdef DONT_USE_BUILTIN_SETJMP
 #ifdef JMP_BUF_SIZE
-      tmp = build_int_2 (JMP_BUF_SIZE - 1, 0);
+      tmp = build_int_cst (NULL_TREE, JMP_BUF_SIZE - 1, 0);
 #else
       /* Should be large enough for most systems, if it is not,
 	 JMP_BUF_SIZE should be defined with the proper value.  It will
 	 also tend to be larger than necessary for most systems, a more
 	 optimal port will define JMP_BUF_SIZE.  */
-      tmp = build_int_2 (FIRST_PSEUDO_REGISTER + 2 - 1, 0);
+      tmp = build_int_cst (NULL_TREE,
+			   FIRST_PSEUDO_REGISTER + 2 - 1, 0);
 #endif
 #else
       /* builtin_setjmp takes a pointer to 5 words.  */
-      tmp = build_int_2 (5 * BITS_PER_WORD / POINTER_SIZE - 1, 0);
+      tmp = build_int_cst (NULL_TREE,
+			   5 * BITS_PER_WORD / POINTER_SIZE - 1, 0);
 #endif
       tmp = build_index_type (tmp);
       tmp = build_array_type (ptr_type_node, tmp);
@@ -626,7 +628,7 @@ get_exception_filter (struct function *fun)
   rtx filter = fun->eh->filter;
   if (fun == cfun && ! filter)
     {
-      filter = gen_reg_rtx (word_mode);
+      filter = gen_reg_rtx (targetm.eh_return_filter_mode ());
       fun->eh->filter = filter;
     }
   return filter;
@@ -1414,7 +1416,7 @@ assign_filter_values (void)
 	      for (;tp_node; tp_node = TREE_CHAIN (tp_node))
 		{
 		  int flt = add_ttypes_entry (ttypes, TREE_VALUE (tp_node));
-		  tree flt_node = build_int_2 (flt, 0);
+		  tree flt_node = build_int_cst (NULL_TREE, flt, 0);
 
 		  r->u.catch.filter_list
 		    = tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
@@ -1425,7 +1427,7 @@ assign_filter_values (void)
 	      /* Get a filter value for the NULL list also since it will need
 		 an action record anyway.  */
 	      int flt = add_ttypes_entry (ttypes, NULL);
-	      tree flt_node = build_int_2 (flt, 0);
+	      tree flt_node = build_int_cst (NULL_TREE, flt, 0);
 
 	      r->u.catch.filter_list
 		= tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
@@ -1526,7 +1528,8 @@ build_post_landing_pads (void)
 			emit_cmp_and_jump_insns
 			  (cfun->eh->filter,
 			   GEN_INT (tree_low_cst (TREE_VALUE (flt_node), 0)),
-			   EQ, NULL_RTX, word_mode, 0, c->label);
+			   EQ, NULL_RTX, 
+			   targetm.eh_return_filter_mode (), 0, c->label);
 
 			tp_node = TREE_CHAIN (tp_node);
 			flt_node = TREE_CHAIN (flt_node);
@@ -1558,7 +1561,8 @@ build_post_landing_pads (void)
 
 	  emit_cmp_and_jump_insns (cfun->eh->filter,
 				   GEN_INT (region->u.allowed.filter),
-				   EQ, NULL_RTX, word_mode, 0, region->label);
+				   EQ, NULL_RTX, 
+				   targetm.eh_return_filter_mode (), 0, region->label);
 
 	  /* We delay the generation of the _Unwind_Resume until we generate
 	     landing pads.  We emit a marker here so as to get good control
@@ -1736,7 +1740,8 @@ dw2_build_landing_pads (void)
       emit_move_insn (cfun->eh->exc_ptr,
 		      gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
       emit_move_insn (cfun->eh->filter,
-		      gen_rtx_REG (word_mode, EH_RETURN_DATA_REGNO (1)));
+		      gen_rtx_REG (targetm.eh_return_filter_mode (), 
+				   EH_RETURN_DATA_REGNO (1)));
 
       seq = get_insns ();
       end_sequence ();

@@ -48,6 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "basic-block.h"
 #include "tree-flow.h"
+#include "params.h"
 
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p (struct obstack *h, void *obj);
@@ -420,18 +421,91 @@ copy_list (tree list)
 }
 
 
-/* Return a newly constructed INTEGER_CST node whose constant value
-   is specified by the two ints LOW and HI.
-   The TREE_TYPE is set to `int'.  */
+/* Create an INT_CST node of TYPE and value HI:LOW.  If TYPE is NULL,
+   integer_type_node is used.  */
 
 tree
-build_int_2 (unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
+build_int_cst (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 {
-  tree t = make_node (INTEGER_CST);
+  tree t;
+  int ix = -1;
+  int limit = 0;
+
+  if (!type)
+    type = integer_type_node;
+
+  switch (TREE_CODE (type))
+    {
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      /* Cache NULL pointer.  */
+      if (!hi && !low)
+	{
+	  limit = 1;
+	  ix = 0;
+	}
+      break;
+
+    case BOOLEAN_TYPE:
+      /* Cache false or true.  */
+      limit = 2;
+      if (!hi && low < 2)
+	ix = low;
+      break;
+
+    case INTEGER_TYPE:
+    case CHAR_TYPE:
+    case OFFSET_TYPE:
+      if (TYPE_UNSIGNED (type))
+	{
+	  /* Cache 0..N */
+	  limit = INTEGER_SHARE_LIMIT;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low;
+	}
+      else
+	{
+	  /* Cache -1..N */
+	  limit = INTEGER_SHARE_LIMIT + 1;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low + 1;
+	  else if (hi == -1 && low == -(unsigned HOST_WIDE_INT)1)
+	    ix = 0;
+	}
+      break;
+    default:
+      break;
+    }
+
+  if (ix >= 0)
+    {
+      if (!TYPE_CACHED_VALUES_P (type))
+	{
+	  TYPE_CACHED_VALUES_P (type) = 1;
+	  TYPE_CACHED_VALUES (type) = make_tree_vec (limit);
+	}
+
+      t = TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix);
+      if (t)
+	{
+	  /* Make sure no one is clobbering the shared constant.  */
+	  if (TREE_TYPE (t) != type)
+	    abort ();
+	  if (TREE_INT_CST_LOW (t) != low || TREE_INT_CST_HIGH (t) != hi)
+	    abort ();
+	  return t;
+	}
+    }
+
+  t = make_node (INTEGER_CST);
 
   TREE_INT_CST_LOW (t) = low;
   TREE_INT_CST_HIGH (t) = hi;
-  TREE_TYPE (t) = integer_type_node;
+  TREE_TYPE (t) = type;
+
+  if (ix >= 0)
+    TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
+
   return t;
 }
 
@@ -1488,31 +1562,6 @@ tree_node_structure (tree t)
 
     default:
       abort ();
-    }
-}
-
-/* Perform any modifications to EXPR required when it is unsaved.  Does
-   not recurse into EXPR's subtrees.  */
-
-void
-unsave_expr_1 (tree expr)
-{
-  switch (TREE_CODE (expr))
-    {
-    case TARGET_EXPR:
-      /* Don't mess with a TARGET_EXPR that hasn't been expanded.
-         It's OK for this to happen if it was part of a subtree that
-         isn't immediately expanded, such as operand 2 of another
-         TARGET_EXPR.  */
-      if (TREE_OPERAND (expr, 1))
-	break;
-
-      TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 3);
-      TREE_OPERAND (expr, 3) = NULL_TREE;
-      break;
-
-    default:
-      break;
     }
 }
 
@@ -3093,6 +3142,14 @@ build_type_copy (tree type)
   tree t, m = TYPE_MAIN_VARIANT (type);
 
   t = copy_node (type);
+  if (TYPE_CACHED_VALUES_P(t))
+    {
+      /* Do not copy the values cache.  */
+      if (TREE_CODE (t) == INTEGER_TYPE && TYPE_IS_SIZETYPE (t))
+	abort ();
+      TYPE_CACHED_VALUES_P (t) = 0;
+      TYPE_CACHED_VALUES (t) = NULL_TREE;
+    }
 
   TYPE_POINTER_TO (t) = 0;
   TYPE_REFERENCE_TO (t) = 0;
@@ -5256,7 +5313,7 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
   layout_type (t);
 
   {
-    tree index = build_int_2 (nunits - 1, 0);
+    tree index = build_int_cst (NULL_TREE, nunits - 1, 0);
     tree array = build_array_type (innertype, build_index_type (index));
     tree rt = make_node (RECORD_TYPE);
 
@@ -5333,8 +5390,7 @@ build_common_tree_nodes (int signed_char)
      boolean_type_node before calling build_common_tree_nodes_2.  */
   boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
   TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
-  TYPE_MAX_VALUE (boolean_type_node) = build_int_2 (1, 0);
-  TREE_TYPE (TYPE_MAX_VALUE (boolean_type_node)) = boolean_type_node;
+  TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1, 0);
   TYPE_PRECISION (boolean_type_node) = 1;
 
   /* Fill in the rest of the sized types.  Reuse existing type nodes
@@ -5363,9 +5419,9 @@ void
 build_common_tree_nodes_2 (int short_double)
 {
   /* Define these next since types below may used them.  */
-  integer_zero_node = build_int_2 (0, 0);
-  integer_one_node = build_int_2 (1, 0);
-  integer_minus_one_node = build_int_2 (-1, -1);
+  integer_zero_node = build_int_cst (NULL_TREE, 0, 0);
+  integer_one_node = build_int_cst (NULL_TREE, 1, 0);
+  integer_minus_one_node = build_int_cst (NULL_TREE, -1, -1);
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
@@ -5384,8 +5440,8 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
-  null_pointer_node = build_int_2 (0, 0);
-  TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);
+  null_pointer_node = build_int_cst (build_pointer_type (void_type_node),
+				     0, 0);
   layout_type (TREE_TYPE (null_pointer_node));
 
   ptr_type_node = build_pointer_type (void_type_node);
@@ -5624,15 +5680,22 @@ in_array_bounds_p (tree ref)
   return true;
 }
 
+/* Return true if T (assumed to be a DECL) is a global variable.  */
+
+bool
+is_global_var (tree t)
+{
+  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+}
+
 /* Return true if T (assumed to be a DECL) must be assigned a memory
    location.  */
 
 bool
 needs_to_live_in_memory (tree t)
 {
-  return (DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (t)
-	  || TREE_STATIC (t)
-          || DECL_EXTERNAL (t)
+  return (TREE_ADDRESSABLE (t)
+	  || is_global_var (t)
 	  || (TREE_CODE (t) == RESULT_DECL
 	      && aggregate_value_p (t, current_function_decl)));
 }

@@ -30,10 +30,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include <objc/thr.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #define OBJC_SPARSE2		/* 2-level sparse array */
 /* #define OBJC_SPARSE3 */      /* 3-level sparse array */
 
@@ -46,13 +42,16 @@ extern const char* __objc_sparse3_id;
 #endif
 
 #include <stddef.h>
+#include <assert.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 extern int nbuckets;		/* for stats */
 extern int nindices;
 extern int narrays;
 extern int idxsize;
-
-#include <assert.h>
 
 /* An unsigned integer of same size as a pointer */
 #define SIZET_BITS (sizeof(size_t)*8)

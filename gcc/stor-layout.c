@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "regs.h"
+#include "params.h"
 
 /* Set to one when set_sizetype has been called.  */
 static int sizetype_set;
@@ -269,54 +270,6 @@ get_mode_alignment (enum machine_mode mode)
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
 }
 
-/* Return the value of VALUE, rounded up to a multiple of DIVISOR.
-   This can only be applied to objects of a sizetype.  */
-
-tree
-round_up (tree value, int divisor)
-{
-  tree t;
-
-  /* If divisor is a power of two, simplify this to bit manipulation.  */
-  if (divisor == (divisor & -divisor))
-    {
-      t = size_int_type (divisor - 1, TREE_TYPE (value));
-      value = size_binop (PLUS_EXPR, value, t);
-      t = size_int_type (-divisor, TREE_TYPE (value));
-      value = size_binop (BIT_AND_EXPR, value, t);
-    }
-  else
-    {
-      t = size_int_type (divisor, TREE_TYPE (value));
-      value = size_binop (CEIL_DIV_EXPR, value, t);
-      value = size_binop (MULT_EXPR, value, t);
-    }
-
-  return value;
-}
-
-/* Likewise, but round down.  */
-
-tree
-round_down (tree value, int divisor)
-{
-  tree t;
-
-  /* If divisor is a power of two, simplify this to bit manipulation.  */
-  if (divisor == (divisor & -divisor))
-    {
-      t = size_int_type (-divisor, TREE_TYPE (value));
-      value = size_binop (BIT_AND_EXPR, value, t);
-    }
-  else
-    {
-      t = size_int_type (divisor, TREE_TYPE (value));
-      value = size_binop (FLOOR_DIV_EXPR, value, t);
-      value = size_binop (MULT_EXPR, value, t);
-    }
-
-  return value;
-}
 
 /* Subroutine of layout_decl: Force alignment required for the data type.
    But if the decl itself wants greater alignment, don't override that.  */
@@ -1585,7 +1538,7 @@ layout_type (tree type)
     case VECTOR_TYPE:
       {
 	int nunits = TYPE_VECTOR_SUBPARTS (type);
-	tree nunits_tree = build_int_2 (nunits, 0);
+	tree nunits_tree = build_int_cst (NULL_TREE, nunits, 0);
 	tree innertype = TREE_TYPE (type);
 
 	if (nunits & (nunits - 1))
@@ -1907,29 +1860,24 @@ initialize_sizetypes (void)
 {
   tree t = make_node (INTEGER_TYPE);
 
-  /* Set this so we do something reasonable for the build_int_2 calls
-     below.  */
-  integer_type_node = t;
-
   TYPE_MODE (t) = SImode;
   TYPE_ALIGN (t) = GET_MODE_ALIGNMENT (SImode);
   TYPE_USER_ALIGN (t) = 0;
-  TYPE_SIZE (t) = build_int_2 (GET_MODE_BITSIZE (SImode), 0);
-  TYPE_SIZE_UNIT (t) = build_int_2 (GET_MODE_SIZE (SImode), 0);
+  TYPE_SIZE (t) = build_int_cst (t, GET_MODE_BITSIZE (SImode), 0);
+  TYPE_SIZE_UNIT (t) = build_int_cst (t, GET_MODE_SIZE (SImode), 0);
   TYPE_UNSIGNED (t) = 1;
   TYPE_PRECISION (t) = GET_MODE_BITSIZE (SImode);
-  TYPE_MIN_VALUE (t) = build_int_2 (0, 0);
+  TYPE_MIN_VALUE (t) = build_int_cst (t, 0, 0);
   TYPE_IS_SIZETYPE (t) = 1;
 
   /* 1000 avoids problems with possible overflow and is certainly
      larger than any size value we'd want to be storing.  */
-  TYPE_MAX_VALUE (t) = build_int_2 (1000, 0);
+  TYPE_MAX_VALUE (t) = build_int_cst (t, 1000, 0);
 
   /* These two must be different nodes because of the caching done in
      size_int_wide.  */
   sizetype = t;
   bitsizetype = copy_node (t);
-  integer_type_node = 0;
 }
 
 /* Set sizetype to TYPE, and initialize *sizetype accordingly.
@@ -1953,7 +1901,9 @@ set_sizetype (tree type)
 
   /* Make copies of nodes since we'll be setting TYPE_IS_SIZETYPE.  */
   sizetype = copy_node (type);
-  TYPE_ORIG_SIZE_TYPE (sizetype) = type;
+  TYPE_CACHED_VALUES (sizetype) = make_tree_vec (INTEGER_SHARE_LIMIT);
+  TYPE_CACHED_VALUES_P (sizetype) = 1;
+  TREE_TYPE (TYPE_CACHED_VALUES (sizetype)) = type;
   TYPE_IS_SIZETYPE (sizetype) = 1;
   bitsizetype = make_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = TYPE_NAME (type);
@@ -2028,36 +1978,36 @@ set_min_and_max_values_for_integral_type (tree type,
 
   if (is_unsigned)
     {
-      min_value = build_int_2 (0, 0);
+      min_value = build_int_cst (type, 0, 0);
       max_value 
-	= build_int_2 (precision - HOST_BITS_PER_WIDE_INT >= 0
-		       ? -1 : ((HOST_WIDE_INT) 1 << precision) - 1,
-		       precision - HOST_BITS_PER_WIDE_INT > 0
-		       ? ((unsigned HOST_WIDE_INT) ~0
-			  >> (HOST_BITS_PER_WIDE_INT
-			      - (precision - HOST_BITS_PER_WIDE_INT)))
-		       : 0);
+	= build_int_cst (type, precision - HOST_BITS_PER_WIDE_INT >= 0
+			 ? -1 : ((HOST_WIDE_INT) 1 << precision) - 1,
+			 precision - HOST_BITS_PER_WIDE_INT > 0
+			 ? ((unsigned HOST_WIDE_INT) ~0
+			    >> (HOST_BITS_PER_WIDE_INT
+				- (precision - HOST_BITS_PER_WIDE_INT)))
+			 : 0);
     }
   else
     {
       min_value 
-	= build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
-			? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
-		       (((HOST_WIDE_INT) (-1)
-			 << (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
-			     ? precision - HOST_BITS_PER_WIDE_INT - 1
-			     : 0))));    
+	= build_int_cst (type,
+			 (precision - HOST_BITS_PER_WIDE_INT > 0
+			  ? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
+			 (((HOST_WIDE_INT) (-1)
+			   << (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
+			       ? precision - HOST_BITS_PER_WIDE_INT - 1
+			       : 0))));    
       max_value
-	= build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
-			? -1 : ((HOST_WIDE_INT) 1 << (precision - 1)) - 1),
-		       (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
-			? (((HOST_WIDE_INT) 1
-			    << (precision - HOST_BITS_PER_WIDE_INT - 1))) - 1
-			: 0));
+	= build_int_cst (type,
+			 (precision - HOST_BITS_PER_WIDE_INT > 0
+			  ? -1 : ((HOST_WIDE_INT) 1 << (precision - 1)) - 1),
+			 (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
+			  ? (((HOST_WIDE_INT) 1
+			      << (precision - HOST_BITS_PER_WIDE_INT - 1))) - 1
+			  : 0));
     }
 
-  TREE_TYPE (min_value) = type;
-  TREE_TYPE (max_value) = type;
   TYPE_MIN_VALUE (type) = min_value;
   TYPE_MAX_VALUE (type) = max_value;
 }
@@ -2100,6 +2050,8 @@ fixup_unsigned_type (tree type)
   if (precision > HOST_BITS_PER_WIDE_INT * 2)
     precision = HOST_BITS_PER_WIDE_INT * 2;
 
+  TYPE_UNSIGNED (type) = 1;
+  
   set_min_and_max_values_for_integral_type (type, precision, 
 					    /*is_unsigned=*/true);
 

@@ -723,7 +723,8 @@ fixup_reorder_chain (void)
 
 	      /* If the "jumping" edge is a crossing edge, and the fall
 		 through edge is non-crossing, leave things as they are.  */
-	      else if (e_taken->crossing_edge && !e_fall->crossing_edge)
+	      else if ((e_taken->flags & EDGE_CROSSING)
+		       && !(e_fall->flags & EDGE_CROSSING))
 		continue;
 
 	      /* Otherwise we can try to invert the jump.  This will
@@ -795,7 +796,8 @@ fixup_reorder_chain (void)
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source).  */
 	  e_fall->src->partition = bb->pred->src->partition;
-	  if (flag_reorder_blocks_and_partition)
+	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections)
 	    {
 	      if (bb->pred->src->partition == COLD_PARTITION)
 		{
@@ -813,7 +815,7 @@ fixup_reorder_chain (void)
 		}
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && bb->succ->crossing_edge )
+		  && (bb->succ->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }
@@ -1107,6 +1109,7 @@ cfg_layout_duplicate_bb (basic_block bb)
 			       insn ? get_last_insn () : NULL,
 			       EXIT_BLOCK_PTR->prev_bb);
 
+  new_bb->partition = bb->partition;
   if (bb->rbi->header)
     {
       insn = bb->rbi->header;

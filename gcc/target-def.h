@@ -87,6 +87,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_UNIQUE_SECTION default_unique_section
 #endif
 
+#ifndef TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_function_rodata_section
+#endif
+
 #ifndef TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION default_select_rtx_section
 #endif
@@ -179,6 +183,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
 #endif
 
+#ifndef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -212,13 +220,15 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_SELECT_SECTION,		\
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
+			TARGET_ASM_FUNCTION_RODATA_SECTION,	\
 			TARGET_ASM_CONSTRUCTOR,			\
 			TARGET_ASM_DESTRUCTOR,                  \
                         TARGET_ASM_OUTPUT_MI_THUNK,             \
                         TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
-			TARGET_ASM_EXTERNAL_LIBCALL}
+			TARGET_ASM_EXTERNAL_LIBCALL,            \
+                        TARGET_ASM_MARK_DECL_PRESERVED}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -262,6 +272,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,	\
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
+
+/* In except.c */
+#define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -431,6 +444,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 {						\
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
+  TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\

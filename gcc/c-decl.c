@@ -3049,7 +3049,24 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    add_stmt (build_stmt (DECL_EXPR, decl));
+	    {
+	      /* If we're building a variable sized type, and we might be
+		 reachable other than via the top of the current binding
+		 level, then create a new BIND_EXPR so that we deallocate
+		 the object at the right time.  */
+	      /* Note that DECL_SIZE can be null due to errors.  */
+	      if (DECL_SIZE (decl)
+		  && !TREE_CONSTANT (DECL_SIZE (decl))
+		  && STATEMENT_LIST_HAS_LABEL (cur_stmt_list))
+		{
+		  tree bind;
+		  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
+		  TREE_SIDE_EFFECTS (bind) = 1;
+		  add_stmt (bind);
+		  BIND_EXPR_BODY (bind) = push_stmt_list ();
+		}
+	      add_stmt (build_stmt (DECL_EXPR, decl));
+	    }
 	}
   
 
@@ -3254,20 +3271,21 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	{
 	  int eltsize
 	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_2 ((TREE_STRING_LENGTH (initial_value)
-				   / eltsize) - 1, 0);
+	  maxindex = build_int_cst (NULL_TREE,
+				    (TREE_STRING_LENGTH (initial_value)
+				     / eltsize) - 1, 0);
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
 	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-	  maxindex = build_int_2 (-1, -1);
+	  maxindex = build_int_cst (NULL_TREE, -1, -1);
 	  for (; elts; elts = TREE_CHAIN (elts))
 	    {
 	      if (TREE_PURPOSE (elts))
 		maxindex = TREE_PURPOSE (elts);
 	      else
-		maxindex = fold (build (PLUS_EXPR, integer_type_node,
-					maxindex, integer_one_node));
+		maxindex = fold (build2 (PLUS_EXPR, integer_type_node,
+					 maxindex, integer_one_node));
 	    }
 	}
       else
@@ -3277,14 +3295,14 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	    value = 1;
 
 	  /* Prevent further error messages.  */
-	  maxindex = build_int_2 (0, 0);
+	  maxindex = build_int_cst (NULL_TREE, 0, 0);
 	}
     }
 
   if (!maxindex)
     {
       if (do_default)
-	maxindex = build_int_2 (0, 0);
+	maxindex = build_int_cst (NULL_TREE, 0, 0);
       value = 2;
     }
 
@@ -3395,7 +3413,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       error ("width of `%s' exceeds its type", name);
       w = max_width;
-      *width = build_int_2 (w, 0);
+      *width = build_int_cst (NULL_TREE, w, 0);
     }
   else
     w = tree_low_cst (*width, 1);
@@ -4088,9 +4106,9 @@ grokdeclarator (tree declarator, tree declspecs,
 		     Do the calculation in index_type, so that if it is
 		     a variable the computations will be done in the
 		     proper mode.  */
-	          itype = fold (build (MINUS_EXPR, index_type,
-				       convert (index_type, size),
-				       convert (index_type, size_one_node)));
+	          itype = fold (build2 (MINUS_EXPR, index_type,
+					convert (index_type, size),
+					convert (index_type, size_one_node)));
 
 	          /* If that overflowed, the array is too big.
 		     ??? While a size of INT_MAX+1 technically shouldn't
@@ -4160,12 +4178,17 @@ grokdeclarator (tree declarator, tree declspecs,
 	}
       else if (TREE_CODE (declarator) == CALL_EXPR)
 	{
-	  /* Say it's a definition only for the CALL_EXPR closest to
-	     the identifier.  */
-	  bool really_funcdef = (funcdef_flag
-				 && (TREE_CODE (TREE_OPERAND (declarator, 0))
-				     == IDENTIFIER_NODE));
+	  /* Say it's a definition only for the declarator closest to
+	     the identifier, apart possibly from some attributes.  */
+	  bool really_funcdef = false;
 	  tree arg_types;
+	  if (funcdef_flag)
+	    {
+	      tree t = TREE_OPERAND (declarator, 0);
+	      while (TREE_CODE (t) == TREE_LIST)
+		t = TREE_VALUE (t);
+	      really_funcdef = (TREE_CODE (t) == IDENTIFIER_NODE);
+	    }
 
 	  /* Declaring a function type.
 	     Make sure we have a valid type for the function to return.  */

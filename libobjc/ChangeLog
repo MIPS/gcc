@@ -1,3 +1,47 @@
+2004-08-13  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/sarray.h: Hoist include of assert.h near the top of file,
+	and mark the remainder of the file 'extern "C"'.
+
+2004-08-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc/Object.h: Move includes out of extern "C" blocks.
+	* objc/encoding.h: Likewise.
+	* objc/hash.h: Likewise.
+	* objc/objc-api.h: Likewise.
+	* objc/runtime.h: Likewise.
+	* objc/sarray.h: Likewise.
+	* objc/typedstream.h: Likewise.
+
+2004-08-12  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/NXConstStr.h: Update copyright date; bracket with
+	'extern "C"' for C++ use; make include syntax consistent
+	by using <...> instead of "..."; hoist <objc/...> includes
+	above the 'extern "C"' block.
+	* objc/Object.h: Likewise.
+	* objc/Protocol.h: Likewise.
+	* objc/encoding.h: Likewise.
+	* objc/hash.h: Likewise.
+	* objc/runtime.h: Likewise.
+	* objc/sarray.h: Likewise.
+	* objc/thr.h: Likewise.
+	* objc/typedstream.h: Likewise.
+	* objc/objc-api.h: Add 'extern "C"' block for C++ use.
+	(objc_static_instances): For C++ case, do away with
+	zero-sized array.
+	(objc_method): Hoist definition to file scope.
+	(_objc_load_callback, _objc_object_alloc, class_get_class_method,
+	class_get_instance_method, class_create_instance, 
+	class_get_class_name, class_get_instance_size,
+	class_get_meta_class, class_get_super_class, class_get_version,
+	class_is_class, class_is_meta_class, class_set_version,
+	class_get_gc_object_type, class_ivar_set_gcinvisible,
+	get_imp): Rename 'class' parameter to '_class'.
+	* objc/objc-list.h: Add 'extern "C"' block for C++ use.
+	* objc/objc.h: Update copyright date.
+	(arglist_t): Provide a union tag.
+
 2004-07-22  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* thr.c (__objc_thread_detach_function): Do not mark as volatile
@@ -151,7 +195,7 @@
 
 2004-05-09  Richard Sandiford  <rsandifo@redhat.com>
 
-        Sync up with HEAD:2004-04-20T00:00.
+	* Makefile.in (toolexecdir): Remove trailing space.
 
 2004-04-15  Nathanael Nerode  <neroden@gcc.gnu.org>
 
@@ -229,10 +273,6 @@
 	* aclocal.m4: Remove hand-inlined macros.  Update copyright notice.
 	* configure: Regenerate.
 
-2004-03-26  Ziemowit Laski  <zlaski@apple.com>
-
-        Sync up with HEAD:2004-03-26T01:30.
-
 2004-03-16  Manfred Hollstein  <mh@suse.com>
 
 	* Makefile.in, configure.in, configure: Update copyright years.
@@ -244,15 +284,6 @@
 	* configure.in (PACKAGE): Add definition.
 	(VERSION): Add definition; substitute it in output files.
 	* configure: Re-generate.
-
-2004-03-08  Ziemowit Laski  <zlaski@apple.com>
-
-	Sync up with HEAD:2004-03-06T01:00.
-
-2004-02-06  Ziemowit Laski  <zlaski@apple.com>
-
-	* objc/objc-api.h (objc_super): The 'class' field shall
-	be named 'super_class' #ifdef __cplusplus.
 
 2004-03-05  Ziemowit Laski  <zlaski@apple.com>
 

@@ -76,9 +76,8 @@ mf_build_string (const char *string)
   size_t len = strlen (string);
   tree result = mf_mark (build_string (len + 1, string));
 
-  TREE_TYPE (result)
-      = build_array_type (char_type_node,
-                          build_index_type (build_int_2 (len, 0)));
+  TREE_TYPE (result) = build_array_type
+    (char_type_node, build_index_type (build_int_cst (NULL_TREE, len, 0)));
   TREE_CONSTANT (result) = 1;
   TREE_INVARIANT (result) = 1;
   TREE_READONLY (result) = 1;
@@ -897,6 +896,8 @@ mx_register_decls (tree decl, tree *stmt_list)
           && TREE_ADDRESSABLE (decl)
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
+	  /* The decl hasn't been decomposed somehow.  */
+	  && DECL_VALUE_EXPR (decl) == NULL
           /* Don't process the same decl twice.  */
           && ! mf_marked_p (decl))
         {
@@ -904,73 +905,7 @@ mx_register_decls (tree decl, tree *stmt_list)
           tree unregister_fncall, unregister_fncall_params;
           tree register_fncall, register_fncall_params;
 
-          if (DECL_DEFER_OUTPUT (decl))
-            {
-              /* Oh no ... it's probably a variable-length array (VLA).
-                 The size and address cannot be computed by merely
-                 looking at the DECL.  See gimplify_decl_stmt for the
-                 method by which VLA declarations turn into calls to
-                 BUILT_IN_STACK_ALLOC.  We assume that multiple
-                 VLAs declared later in the same block get allocation 
-                 code later than the others.  */
-              tree stack_alloc_call = NULL_TREE;
-
-              while(! tsi_end_p (initially_stmts))
-                {
-                  tree t = tsi_stmt (initially_stmts);
-
-                  tree call = NULL_TREE;
-                  if (TREE_CODE (t) == CALL_EXPR)
-                    call = t;
-                  else if (TREE_CODE (t) == MODIFY_EXPR &&
-                           TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-                    call = TREE_OPERAND (t, 1);
-                  else if (TREE_CODE (t) == TRY_FINALLY_EXPR)
-                    {
-                      /* We hope that this is the try/finally block sometimes
-                         constructed by gimplify_bind_expr() for a BIND_EXPR
-                         that contains VLAs.  This very naive recursion
-                         appears to be sufficient.  */
-                      initially_stmts = tsi_start (TREE_OPERAND (t, 0));
-                    }
-
-                  if (call != NULL_TREE)
-                    {
-                      if (TREE_CODE (TREE_OPERAND(call, 0)) == ADDR_EXPR &&
-                          TREE_OPERAND (TREE_OPERAND (call, 0), 0) ==
-                                implicit_built_in_decls [BUILT_IN_STACK_ALLOC])
-                        {
-                          tree stack_alloc_args = TREE_OPERAND (call, 1);
-                          tree stack_alloc_op1 = TREE_VALUE (stack_alloc_args);
-                          tree stack_alloc_op2 = TREE_VALUE (TREE_CHAIN (stack_alloc_args));
-                          
-                          if (TREE_CODE (stack_alloc_op1) == ADDR_EXPR &&
-                              TREE_OPERAND (stack_alloc_op1, 0) == decl)
-                            {
-                              /* Got it! */
-                              size = stack_alloc_op2;
-                              stack_alloc_call = call;
-                              /* Advance iterator to point past this allocation call.  */
-                              tsi_next (&initially_stmts);
-                              break;
-                            }
-                        }
-                    }
-
-                  tsi_next (&initially_stmts);
-                }
-
-              if (stack_alloc_call == NULL_TREE)
-                {
-                  warning ("mudflap cannot handle variable-sized declaration `%s'",
-                         IDENTIFIER_POINTER (DECL_NAME (decl)));
-                  break;
-                }
-            }
-          else
-            {
-              size = convert (size_type_node, TYPE_SIZE_UNIT (TREE_TYPE (decl)));
-            }
+	  size = convert (size_type_node, TYPE_SIZE_UNIT (TREE_TYPE (decl)));
 
           /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK) */
           unregister_fncall_params =
@@ -981,8 +916,9 @@ mx_register_decls (tree decl, tree *stmt_list)
                                                  decl))),
                        tree_cons (NULL_TREE, 
                                   size,
-                                  tree_cons (NULL_TREE, 
-                                             build_int_2 (3, 0), /* __MF_TYPE_STACK */
+                                  tree_cons (NULL_TREE,
+					     /* __MF_TYPE_STACK */
+                                             build_int_cst (NULL_TREE, 3, 0),
                                              NULL_TREE)));
           /* __mf_unregister (...) */
           unregister_fncall = build_function_call_expr (mf_unregister_fndecl,
@@ -999,7 +935,8 @@ mx_register_decls (tree decl, tree *stmt_list)
                        tree_cons (NULL_TREE,
                                   size,
                                   tree_cons (NULL_TREE,
-                                             build_int_2 (3, 0), /* __MF_TYPE_STACK */
+					     /* __MF_TYPE_STACK */
+                                             build_int_cst (NULL_TREE, 3, 0),
                                              tree_cons (NULL_TREE,
                                                         variable_name,
                                                         NULL_TREE))));
@@ -1142,7 +1079,7 @@ mudflap_register_call (tree obj, tree object_size, tree varname)
 
   args = tree_cons (NULL_TREE, varname, NULL_TREE);
 
-  arg = build_int_2 (4, 0); /* __MF_TYPE_STATIC */
+  arg = build_int_cst (NULL_TREE, 4, 0); /* __MF_TYPE_STATIC */
   args = tree_cons (NULL_TREE, arg, args);
 
   arg = convert (size_type_node, object_size);
@@ -1224,7 +1161,7 @@ mudflap_enqueue_constant (tree obj)
     return;
 
   if (TREE_CODE (obj) == STRING_CST)
-    object_size = build_int_2 (TREE_STRING_LENGTH (obj), 0);
+    object_size = build_int_cst (NULL_TREE, TREE_STRING_LENGTH (obj), 0);
   else
     object_size = size_in_bytes (TREE_TYPE (obj));
 

@@ -977,8 +977,8 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)\
                     -o %g.s %{!o*:--output-pch=%i.gch}\
                     %W{o*:--output-pch=%*}%V}}}}}}", 0, 0, 0},
-  {".i", "@c-cpp-output", 0, 1, 0},
-  {"@c-cpp-output",
+  {".i", "@cpp-output", 0, 1, 0},
+  {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
   {".s", "@assembler", 0, 1, 0},
   {"@assembler",

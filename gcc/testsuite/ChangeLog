@@ -1,3 +1,282 @@
+2004-08-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15890
+	* g++.dg/template/delete1.C: New test.
+
+2004-08-19  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/14976
+	PR fortran/16228 
+	* gfortran.dg/data_char_1.f90: New test.
+
+2004-08-19  Erik Schnetter  <schnetter@aei.mpg.de>
+
+	PR fortran/16946
+	* gfortran.dg/reduction.f90: New testcase.
+
+2004-08-19  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16520
+	* gfortran.dg/g77/19990905-1.f: Don't expect excess errors.
+
+2004-08-19  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c++/17041
+	* g++.dg/Wparentheses-3.C: New test.
+
+2004-08-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-1.c: Remove xfail from i?86-*-* x86_64-*-* due
+	to usage of PREFERRED_STACK_BOUNDARY in the vectorizer.
+	* gcc.dg/vect/vect-2.c: Likewise.
+	* gcc.dg/vect/vect-3.c: Likewise.
+	* gcc.dg/vect/vect-4.c: Likewise.
+	* gcc.dg/vect/vect-5.c: Likewise.
+	* gcc.dg/vect/vect-6.c: Likewise.
+	* gcc.dg/vect/vect-7.c: Likewise.
+	* gcc.dg/vect/vect-25.c: Likewise.
+	* gcc.dg/vect/vect-31.c: Likewise.
+	* gcc.dg/vect/vect-32.c: Likewise.
+	* gcc.dg/vect/vect-34.c: Likewise.
+	* gcc.dg/vect/vect-36.c: Likewise.
+	* gcc.dg/vect/vect-all.c: Likewise.
+
+2004-08-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17068
+	* g++.dg/template/operator4.C: New test.
+
+2004-08-18  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/20040206-1.c: XFAIL.
+
+2004-08-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16246
+	* g++.dg/template/array7.C: New test.
+
+2004-08-17  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.dg/mips-movcc-1.c: New test.
+	* gcc.dg/mips-movcc-2.c: New test.
+	* gcc.dg/mips-movcc-3.c: New test.
+
+	* gcc.dg/mips-nmadd-1.c: New test.
+	* gcc.dg/mips-nmadd-2.c: New test.
+
+2004-08-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15871
+	* g++.dg/opt/inline8.C: New test.
+
+	PR c++/16965
+	* g++.dg/parse/error17.C: New test.
+	
+2004-08-17  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect: New directory for vectorizer tests.
+	* gcc.dg/vect/tree-vect.h: New file.
+	* gcc.dg/vect/vect.exp: New file.
+	* gcc.dg/vect/pr16105.c.c: New test.
+	* gcc.dg/vect/vect-1.c: New test.
+	* gcc.dg/vect/vect-2.c: New test.
+	* gcc.dg/vect/vect-3.c: New test.
+	* gcc.dg/vect/vect-4.c: New test.
+	* gcc.dg/vect/vect-5.c: New test.
+	* gcc.dg/vect/vect-6.c: New test.
+	* gcc.dg/vect/vect-7.c: New test.
+	* gcc.dg/vect/vect-8.c: New test.
+	* gcc.dg/vect/vect-9.c: New test.
+	* gcc.dg/vect/vect-10.c: New test.
+	* gcc.dg/vect/vect-11.c: New test.
+	* gcc.dg/vect/vect-12.c: New test.
+	* gcc.dg/vect/vect-13.c: New test.
+	* gcc.dg/vect/vect-14.c: New test.
+	* gcc.dg/vect/vect-15.c: New test.
+	* gcc.dg/vect/vect-16.c: New test.
+	* gcc.dg/vect/vect-17.c: New test.
+	* gcc.dg/vect/vect-18.c: New test.
+	* gcc.dg/vect/vect-19.c: New test.
+	* gcc.dg/vect/vect-20.c: New test.
+	* gcc.dg/vect/vect-21.c: New test.
+	* gcc.dg/vect/vect-22.c: New test.
+	* gcc.dg/vect/vect-23.c: New test.
+	* gcc.dg/vect/vect-24.c: New test.
+	* gcc.dg/vect/vect-25.c: New test.
+	* gcc.dg/vect/vect-26.c: New test.
+	* gcc.dg/vect/vect-27.c: New test.
+	* gcc.dg/vect/vect-28.c: New test.
+	* gcc.dg/vect/vect-29.c: New test.
+	* gcc.dg/vect/vect-30.c: New test.
+	* gcc.dg/vect/vect-31.c: New test.
+	* gcc.dg/vect/vect-32.c: New test.
+	* gcc.dg/vect/vect-33.c: New test.
+	* gcc.dg/vect/vect-34.c: New test.
+	* gcc.dg/vect/vect-35.c: New test.
+	* gcc.dg/vect/vect-36.c: New test.
+	* gcc.dg/vect/vect-37.c: New test.
+	* gcc.dg/vect/vect-38.c: New test.
+	* gcc.dg/vect/vect-40.c: New test.
+	* gcc.dg/vect/vect-41.c: New test.
+	* gcc.dg/vect/vect-42.c: New test.
+	* gcc.dg/vect/vect-43.c: New test.
+	* gcc.dg/vect/vect-44.c: New test.
+	* gcc.dg/vect/vect-45.c: New test.
+	* gcc.dg/vect/vect-46.c: New test.
+	* gcc.dg/vect/vect-47.c: New test.
+	* gcc.dg/vect/vect-48.c: New test.
+	* gcc.dg/vect/vect-49.c: New test.
+	* gcc.dg/vect/vect-50.c: New test.
+	* gcc.dg/vect/vect-51.c: New test.
+	* gcc.dg/vect/vect-52.c: New test.
+	* gcc.dg/vect/vect-53.c: New test.
+	* gcc.dg/vect/vect-54.c: New test.
+	* gcc.dg/vect/vect-55.c: New test.
+	* gcc.dg/vect/vect-56.c: New test.
+	* gcc.dg/vect/vect-57.c: New test.
+	* gcc.dg/vect/vect-58.c: New test.
+	* gcc.dg/vect/vect-59.c: New test.
+	* gcc.dg/vect/vect-60.c: New test.
+	* gcc.dg/vect/vect-61.c: New test.
+	* gcc.dg/vect/vect-all.c: New test.
+	* gcc.dg/vect/vect-none.c: New test.
+
+2004-08-17  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13082
+	* gfortran.dg/entry_1.f90: New test.
+
+2004-08-17  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/darwin-20040812-1.c: Compile only on darwin.
+
+2004-08-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/pr17036-1.c: New test.
+	
+2004-08-16  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-20040809-1.c: New test.
+	
+2004-08-16  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/funcdef-attr-1.c: New test.
+
+2004-08-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-17.c: New test.
+	* gcc.dg/altivec-18.c: New test.
+
+2004-08-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6749
+	* g++.dg/template/vtable2.C: New test.
+
+2004-08-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/torture/builtin-attr-1.c: Fix scalbln prototype.
+	* gcc.dg/pack-test-4.c (main): Return 0.
+	* gcc.dg/setjmp-1.c: Remove XFAIL.
+	* gcc.dg/tree-ssa/20040615-1.c: Pass during dom1.
+
+2004-08-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/980217-1.c: Add prototype for printf.
+
+2004-08-13  Bud Davis  <bdavis9659@comcast.net>
+
+	* gfortran.dg/pr16935.f90: New test.
+
+2004-08-13  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/ext/altivec-2.C: Revert previous changes and don't execute.
+
+2004-08-13  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/der_io_1.f90: Remove stray comma.
+
+2004-08-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/cw-bug-2.c: Remove.
+	* gcc.dg/vmx/vprint-1.c: Remove.
+	* gcc.dg/vmx/vscan-1.c: Remove.
+
+2004-08-12  Devang patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-20040809-2.c: New test.
+	
+2004-08-12  Janis Johnson  <janis1872us.ibm.com>
+
+	* g++.dg/ext/altivec-12.C: New test.
+
+	* g++.dg/ext/altivec-11.C: New test.
+
+2004-08-12  Paul Brook  <paul@codesourcery.com>
+
+	* g++.dg/abi/arm_cxa_vec_1.C: New test.
+
+2004-08-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/ext/altivec-2.C: Check for hardware support before
+	executing any VMX instructions.
+
+	* gcc.dg/vmx/ops-long-2.c: Add dg-error directives.
+
+2004-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/16276
+	* g++.old-deja/g++.other/comdat4.C: New test.
+	* g++.old-deja/g++.other/comdat4-aux.cc: New.
+
+2004-08-12  Ben Elliston  <bje@au.ibm.com>
+
+	PR target/16286
+	* gcc.dg/pr16286.c: New test.
+
+2004-08-12 Jan Beulich <jbeulich@novell.com>
+
+	* g++.dg/ext/asm5.C: New.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16698
+	* g++.dg/eh/crash1.C: New test.
+
+	PR c++/16717
+	* g++.dg/ext/construct1.C: New test.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16853
+	* g++.dg/init/ptrmem1.C: New test.
+
+	PR c++/16618
+	* g++.dg/parse/offsetof5.C: New test.
+
+	PR c++/16870
+	* g++.dg/template/overload3.C: New test.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16964
+	* g++.dg/parse/error16.C: New test.
+
+	PR c++/16904
+	* g++.dg/template/error14.C: New test.
+
+	PR c++/16929
+	* g++.dg/template/error15.C: New test.
+
+2004-08-11  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/darwin-ld-20040809-1.c: New test.
+	* gcc.dg/darwin-ld-20040809-2.c: New test.
+	
+2004-08-11  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/16917
+	* gfortran.dg/dfloat_1.f90: New test.
+
 2004-08-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc.dg/testsuite/gcc.dg/arm-eabi1.c: New test.

@@ -64,8 +64,8 @@
 namespace _GLIBCXX_STD
 {
   template <typename _Tp, typename _Alloc>
-    deque<_Tp,_Alloc>&
-    deque<_Tp,_Alloc>::
+    deque<_Tp, _Alloc>&
+    deque<_Tp, _Alloc>::
     operator=(const deque& __x)
     {
       const size_type __len = size();
@@ -85,7 +85,7 @@ namespace _GLIBCXX_STD
     }
 
   template <typename _Tp, typename _Alloc>
-    typename deque<_Tp,_Alloc>::iterator
+    typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     insert(iterator position, const value_type& __x)
     {
@@ -106,7 +106,7 @@ namespace _GLIBCXX_STD
     }
 
   template <typename _Tp, typename _Alloc>
-    typename deque<_Tp,_Alloc>::iterator
+    typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     erase(iterator __position)
     {
@@ -127,7 +127,7 @@ namespace _GLIBCXX_STD
     }
 
   template <typename _Tp, typename _Alloc>
-    typename deque<_Tp,_Alloc>::iterator
+    typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
@@ -268,12 +268,11 @@ namespace _GLIBCXX_STD
           for (__cur = this->_M_impl._M_start._M_node;
 	       __cur < this->_M_impl._M_finish._M_node;
 	       ++__cur)
-            std::__uninitialized_fill_a(*__cur, *__cur + _S_buffer_size(), __value,
-					this->get_allocator());
+            std::__uninitialized_fill_a(*__cur, *__cur + _S_buffer_size(),
+					__value, this->get_allocator());
           std::__uninitialized_fill_a(this->_M_impl._M_finish._M_first,
 				      this->_M_impl._M_finish._M_cur,
-				      __value,
-				      this->get_allocator());
+				      __value, this->get_allocator());
         }
       catch(...)
         {
@@ -519,8 +518,8 @@ namespace _GLIBCXX_STD
 		{
 		  iterator __start_n = (this->_M_impl._M_start
 					+ difference_type(__n));
-		  std::__uninitialized_copy_a(this->_M_impl._M_start, __start_n,
-					      __new_start,
+		  std::__uninitialized_copy_a(this->_M_impl._M_start,
+					      __start_n, __new_start,
 					      this->get_allocator());
 		  this->_M_impl._M_start = __new_start;
 		  std::copy(__start_n, __pos, __old_start);
@@ -557,7 +556,8 @@ namespace _GLIBCXX_STD
 		{
 		  iterator __finish_n = (this->_M_impl._M_finish
 					 - difference_type(__n));
-		  std::__uninitialized_copy_a(__finish_n, this->_M_impl._M_finish,
+		  std::__uninitialized_copy_a(__finish_n,
+					      this->_M_impl._M_finish,
 					      this->_M_impl._M_finish,
 					      this->get_allocator());
 		  this->_M_impl._M_finish = __new_finish;
@@ -605,8 +605,8 @@ namespace _GLIBCXX_STD
 		  {
 		    iterator __start_n = (this->_M_impl._M_start
 					  + difference_type(__n));
-		    std::__uninitialized_copy_a(this->_M_impl._M_start, __start_n,
-						__new_start,
+		    std::__uninitialized_copy_a(this->_M_impl._M_start,
+						__start_n, __new_start,
 						this->get_allocator());
 		    this->_M_impl._M_start = __new_start;
 		    std::copy(__start_n, __pos, __old_start);

@@ -56,7 +56,7 @@ extern const char tree_code_type[];
 
 /* Returns nonzero iff CLASS is not the tree code of a type.  */
 
-#define IS_NON_TYPE_CODE_CLASS(CLASS) (strchr ("xbcdr<12se", (CLASS)) != 0)
+#define IS_NON_TYPE_CODE_CLASS(CLASS) ((CLASS) != 't')
 
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
@@ -228,10 +228,10 @@ struct tree_common GTY(())
 	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
-       TREE_VIA_PUBLIC in
-           TREE_LIST or TREE_VEC
        ASM_VOLATILE_P in
            ASM_EXPR
+       TYPE_CACHED_VALUES_P in
+          ..._TYPE
 
    private_flag:
 
@@ -670,11 +670,18 @@ extern void tree_operand_check_failed (int, enum tree_code,
   (TREE_CODE (TYPE) == COMPLEX_TYPE	\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
+/* Nonzero if TYPE represents a vector floating-point type.  */
+
+#define VECTOR_FLOAT_TYPE_P(TYPE)	\
+  (TREE_CODE (TYPE) == VECTOR_TYPE	\
+   && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
+
 /* Nonzero if TYPE represents a floating-point type, including complex
-   floating-point types.  */
+   and vector floating-point types.  */
 
 #define FLOAT_TYPE_P(TYPE)		\
-  (SCALAR_FLOAT_TYPE_P (TYPE) || COMPLEX_FLOAT_TYPE_P (TYPE))
+  (SCALAR_FLOAT_TYPE_P (TYPE) || COMPLEX_FLOAT_TYPE_P (TYPE)	\
+   || VECTOR_FLOAT_TYPE_P (TYPE))
 
 /* Nonzero if TYPE represents an aggregate (multi-component) type.  */
 
@@ -776,6 +783,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    accessible from outside this module was previously seen
    for this name in an inner scope.  */
 #define TREE_PUBLIC(NODE) ((NODE)->common.public_flag)
+
+/* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
+   of cached values, or is something else.  */
+#define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK(NODE)->common.public_flag)
 
 /* In any expression, decl, or constant, nonzero means it has side effects or
    reevaluation of the whole expression could produce a different value.
@@ -1372,10 +1383,13 @@ struct tree_block GTY(())
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type.size)
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
-#define TYPE_ORIG_SIZE_TYPE(NODE) (INTEGER_TYPE_CHECK (NODE)->type.values)
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
 #define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values)
 #define TYPE_FIELDS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.values)
+#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK(NODE)->type.values)
+#define TYPE_ORIG_SIZE_TYPE(NODE)			\
+  (INTEGER_TYPE_CHECK (NODE)->type.values		\
+  ? TREE_TYPE ((NODE)->type.values) : NULL_TREE)
 #define TYPE_METHODS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.maxval)
 #define TYPE_VFIELD(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.minval)
 #define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.values)
@@ -2027,6 +2041,13 @@ struct tree_binfo GTY (())
    entire function.  */
 #define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.saved_tree)
 
+/* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
+   if transformations have made this more complicated than evaluating the
+   decl itself.  This should only be used for debugging; once this field has
+   been set, the decl itself may not legitimately appear in the function.  */
+#define DECL_VALUE_EXPR(NODE) \
+  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.saved_tree)
+
 /* List of FUNCTION_DECLs inlined into this function's body.  */
 #define DECL_INLINED_FNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inlined_fns)
 
@@ -2154,20 +2175,21 @@ struct tree_binfo GTY (())
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
-/* Nonzero for a decl that has been marked as needing a memory slot.
-   NOTE: Never use this macro directly.  It will give you incomplete
-   information. Most of the time this bit will only be set after alias
-   analysis in the tree optimizers.  It's always better to call
-   needs_to_live_in_memory instead.  To mark memory variables use
-   mark_call_clobbered.  */
-#define DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL(DECL)		\
-  DECL_CHECK (DECL)->decl.needs_to_live_in_memory
-
 /* Nonzero for a decl that cgraph has decided should be inlined into
    at least one call site.  It is not meaningful to look at this
    directly; always use cgraph_function_possibly_inlined_p.  */
 #define DECL_POSSIBLY_INLINED(DECL) \
   FUNCTION_DECL_CHECK (DECL)->decl.possibly_inlined
+
+/* Nonzero for a decl that is decorated using attribute used.
+   This indicates compiler tools that this decl needs to be preserved.  */
+#define DECL_PRESERVE_P(DECL) \
+  DECL_CHECK (DECL)->decl.preserve_flag
+
+/* Internal to the gimplifier.  Indicates that the value is a formal
+   temporary controlled by the gimplifier.  */
+#define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
+  DECL_CHECK (DECL)->decl.gimple_formal_temp
 
 /* Enumerate visibility settings.  */
 #ifndef SYMBOL_VISIBILITY_DEFINED
@@ -2235,9 +2257,10 @@ struct tree_decl GTY(())
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
 
-  unsigned needs_to_live_in_memory : 1;
   unsigned possibly_inlined : 1;
-  /* 14 unused bits.  */
+  unsigned preserve_flag: 1;
+  unsigned gimple_formal_temp : 1;
+  /* 13 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -2278,7 +2301,8 @@ struct tree_decl GTY(())
     int GTY ((tag ("VAR_DECL"))) i;
   } GTY ((desc ("TREE_CODE((tree) &(%0))"))) u2;
 
-  /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
+  /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.
+     In a VAR_DECL or PARM_DECL, this is DECL_VALUE_EXPR.  */
   tree saved_tree;
 
   /* In a FUNCTION_DECL, these are function data which is to be kept
@@ -2718,7 +2742,7 @@ extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
 
-extern tree build_int_2 (unsigned HOST_WIDE_INT, HOST_WIDE_INT);
+extern tree build_int_cst (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_constructor (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
@@ -3179,11 +3203,6 @@ extern int first_rtl_op (enum tree_code);
 
 enum tree_node_structure_enum tree_node_structure (tree);
 
-/* Reset EXP in place so that it can be expanded again.  Does not
-   recurse into subtrees.  */
-
-extern void unsave_expr_1 (tree);
-
 /* Return 1 if EXP contains a PLACEHOLDER_EXPR; i.e., if it represents a size
    or offset that depends on a field within a record.
 
@@ -3338,7 +3357,6 @@ extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
 extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
-extern tree lhd_unsave_expr_now (tree);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
 
@@ -3353,7 +3371,6 @@ extern void expand_label (tree);
 extern void expand_goto (tree);
 extern void expand_asm (tree, int);
 
-extern void expand_stack_alloc (tree, tree);
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
@@ -3450,7 +3467,6 @@ extern void record_component_aliases (tree);
 extern HOST_WIDE_INT get_alias_set (tree);
 extern int alias_sets_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int alias_sets_might_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
-extern int readonly_fields_p (tree);
 extern int objects_must_conflict_p (tree, tree);
 
 /* In tree.c */
@@ -3472,6 +3488,7 @@ extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void expand_pending_sizes (tree);
 extern void recompute_tree_invarant_for_addr_expr (tree);
+extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);
 
@@ -3528,6 +3545,9 @@ extern void indent_to (FILE *, int);
 
 /* In tree-inline.c:  */
 extern bool debug_find_tree (tree, tree);
+/* This is in tree-inline.c since the routine uses
+   data structures from the inliner.  */
+extern tree unsave_expr_now (tree);
 
 /* In expr.c */
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
@@ -3766,11 +3786,13 @@ extern int tree_node_sizes[];
 extern bool in_gimple_form;
 
 /* In tree-ssa-loop-niter.c.  */
-
 tree lower_bound_in_type (tree, tree);
 tree upper_bound_in_type (tree, tree);
 
 /* In tree-ssa-threadupdate.c.  */
 extern bool thread_through_all_blocks (void);
+
+/* In tree-gimple.c.  */
+extern tree get_base_address (tree t);
 
 #endif  /* GCC_TREE_H  */

@@ -132,6 +132,10 @@ struct gcc_target
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
 
+    /* Tell assembler to switch to the readonly data section associated
+       with function DECL.  */
+    void (* function_rodata_section) (tree); 
+
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
 
@@ -168,6 +172,11 @@ struct gcc_target
     /* Output an assembler pseudo-op to declare a library function name
        external.  */
     void (*external_libcall) (rtx);
+
+     /* Output an assembler directive to mark decl live. This instructs
+	linker to not dead code strip this symbol.  */
+    void (*mark_decl_preserved) (const char *);
+
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -271,6 +280,9 @@ struct gcc_target
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
+
+  /* Return machine mode for filter value. */
+  enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);

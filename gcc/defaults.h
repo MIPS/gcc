@@ -627,12 +627,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
 
-/* True if the target should use the standard libgcc arithmetic
-   library functions, like __addsi3 and _fixdfdi.  */
-#ifndef TARGET_LIBGCC_LIBFUNCS
-#define TARGET_LIBGCC_LIBFUNCS (true)
-#endif
-
 /* True if the targets integer-comparision fucntions return { 0, 1, 2
    } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
    instead.  The libgcc routines are biased.  */
@@ -654,10 +648,6 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define HOT_TEXT_SECTION_NAME ".text.hot"
 #endif
 
-#ifndef NORMAL_TEXT_SECTION_NAME
-#define NORMAL_TEXT_SECTION_NAME ".text"
-#endif
-
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
 #endif
@@ -672,6 +662,10 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef VECTOR_MODE_SUPPORTED_P
 #define VECTOR_MODE_SUPPORTED_P(MODE) 0
+#endif
+
+#ifndef UNITS_PER_SIMD_WORD
+#define UNITS_PER_SIMD_WORD 0
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
@@ -801,6 +795,11 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef REVERSIBLE_CC_MODE
 #define REVERSIBLE_CC_MODE(MODE) 0
+#endif
+
+/* Biggest alignment supported by the object file format of this machine.  */
+#ifndef MAX_OFILE_ALIGNMENT
+#define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -1096,7 +1096,7 @@ get_file_basename (const char *f)
       s2 = lang_dir_names [i];
       l1 = strlen (s1);
       l2 = strlen (s2);
-      if (l1 >= l2 && s1[-1] == '/' && !memcmp (s1, s2, l2))
+      if (l1 >= l2 && IS_DIR_SEPARATOR (s1[-1]) && !memcmp (s1, s2, l2))
         {
           basename -= l2 + 1;
           if ((basename - f - 1) != srcdir_len)
@@ -1210,13 +1210,17 @@ get_output_file_with_visibility (const char *input_file)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
-  else if (strcmp (basename, "cp/cp-tree.h") == 0)
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "cp-tree.h") == 0)
     output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
-  else if (strcmp (basename, "cp/decl.h") == 0)
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "decl.h") == 0)
     output_name = "gt-cp-decl.h", for_name = "cp/decl.c";
-  else if (strcmp (basename, "cp/name-lookup.h") == 0)
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "name-lookup.h") == 0)
     output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
-  else if (strcmp (basename, "objc/objc-act.h") == 0)
+  else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
+	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
   else 
     {

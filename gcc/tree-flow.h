@@ -62,6 +62,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer is dereferenced.  */
   unsigned int is_dereferenced : 1;
 
+  /* Nonzero if this pointer points to a global variable.  */
+  unsigned int pt_global_mem : 1;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -266,14 +269,7 @@ struct stmt_ann_d GTY(())
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
 
-  /* Statement operands.  */
-  struct def_optype_d * GTY (()) def_ops;
-  struct use_optype_d * GTY (()) use_ops;
-
-  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
-  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
-  struct vuse_optype_d * GTY (()) vuse_ops;
-  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
+  struct stmt_operands_d operands;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -493,7 +489,6 @@ extern void bsi_insert_on_edge (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
-extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
@@ -635,6 +630,12 @@ struct tree_niter_desc
 			   the loop), then the information would be lost.  */
 };
 
+/* In tree-vectorizer.c */
+void vectorize_loops (struct loops *);
+
+/* In tree-ssa-phiopt.c */
+bool empty_block_p (basic_block);
+
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);
@@ -689,6 +690,10 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
+/* In tree-ssa-operands.c  */
+extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
+				stmt_operands_p);
 
 #include "tree-flow-inline.h"
 
