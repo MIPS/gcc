@@ -1971,6 +1971,7 @@ enum tree_index
   TI_VOID_TYPE,
   TI_PTR_TYPE,
   TI_CONST_PTR_TYPE,
+  TI_SIZE_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
 
@@ -2048,6 +2049,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
 /* The C type `const void *'.  */
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
+/* The C type `size_t'.  */
+#define size_type_node                  global_trees[TI_SIZE_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
 
@@ -2133,6 +2136,16 @@ enum tls_model {
 };
 
 extern enum tls_model flag_tls_default;
+
+/* Enumerate visibility settings.  */
+
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
 
 /* A pointer-to-function member type looks like:
 
@@ -2354,11 +2367,6 @@ enum attribute_flags
 
 extern tree merge_decl_attributes PARAMS ((tree, tree));
 extern tree merge_type_attributes PARAMS ((tree, tree));
-extern int default_comp_type_attributes PARAMS ((tree, tree));
-extern void default_set_default_type_attributes PARAMS ((tree));
-extern void default_insert_attributes PARAMS ((tree, tree *));
-extern bool default_function_attribute_inlinable_p PARAMS ((tree));
-extern bool default_ms_bitfield_layout_p PARAMS ((tree));
 struct cpp_reader;
 extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
@@ -3023,6 +3031,7 @@ extern rtx emit_line_note		PARAMS ((const char *, int));
 /* In calls.c */
 
 extern int setjmp_call_p		PARAMS ((tree));
+extern bool alloca_call_p		PARAMS ((tree));
 
 /* In attribs.c.  */
 
@@ -3052,6 +3061,7 @@ extern void make_decl_one_only		PARAMS ((tree));
 extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
 enum tls_model decl_tls_model		PARAMS ((tree));
+enum symbol_visibility decl_visibility	PARAMS ((tree));
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,

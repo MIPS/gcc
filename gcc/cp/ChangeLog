@@ -1,3 +1,33 @@
+2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	DR 180
+	* decl.c (grokdeclarator): Require class-key for all friend class.
+	Output the correct type and context in the error message.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5919
+	* pt.c (unify): Use variably_modified_type_p to test validity of
+	template argument types.
+
+	PR c++/8727
+	* cp-tree.h (lang_type_class): Add typeinfo_var.
+	(CLASSTYPE_TYPEINFO_VAR): New macro.
+	* rtti.c (get_tinfo_decl): Use it.
+
+	PR c++/8663
+	* init.c (expand_member_init): Always get the main variant of a
+	base class.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8332
+	PR c++/8493
+	* decl.c (cxx_init_decl_processing): Use size_type_node, not
+	c_size_type_node.
+	* decl2.c (coerce_new_type): Likewise.
+	* except.c (do_allocate_exception): Likewise.
+
 2002-11-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* call.c, class.c, cp-lang.c, cvt.c, cxxfilt.c, decl.c, decl2.c,
@@ -7,10 +37,77 @@
 	typeck2.c: Include coretypes.h and tm.h.
 	* Make-lang.in: Update dependencies.
 
+2002-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8227
+	* decl.c (layout_var_decl): Deal gracefully with erroneous types.
+	(check_initializer): Validate the type of the initialized
+	variable, even if the initializer is absent.
+	* typeck.c (cp_type_quals): Deal gracefully with erroneous types.
+
+	PR c++/8214
+	* typeck.c (convert_for_assignment): Do not use
+	decl_constant_value on the operand.
+
+	PR c++/8511
+	* pt.c (instantiate_decl): Handle template friends defined outside
+	of the class correctly.
+
+2002-11-29  Joe Buck <jbuck@synopsys.com>
+
+	* parse.y (class_head_defn): Set CLASSTYPE_DECLARED_CLASS for
+	anonymous structs.
+
+2002-11-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (walk_subobject_offsets): Recur on binfos as well as on
+	types.
+	(layout_nonempty_base_or_field): Pass it a binfo when processing a
+	base class.
+	(layout_empty_base): Likewise.
+	(build_base_field): Likewise.
+
+2002-11-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_base_field): Make sure we get the canonical base
+	when descending through primary bases.
+
+2002-11-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (check_initializer): Don't error on initialisation of
+	a scalar with a brace-enclosed expression.
+
+2002-11-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (DECL_LANG_FLAG_4): Document more uses.
+	(template_parms_equal): Remove prototype.
+	* typeck.c (buuld_indirect_ref): Reformat.
+
 2002-11-25  Jason Merrill  <jason@redhat.com>
 
 	* init.c (build_vec_init): Use a FOR_STMT instead of an IF_STMT
 	and a DO_STMT.
+
+2002-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (cp_build_qualified_type_real): Correct handling of
+	array types.
+	* class.c (walk_subobject_offsets): Fix thinko.
+	(build_base_field): Record offsets of empty bases in primary
+	virtual bases.
+	(layout_class_type): Record offsets of empty bases in fields.
+
+	* search.c (is_subobject_of_p_1): Fix thinko.
+	(lookup_field_queue_p): Likewise.
+
+2002-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_class_type): Reuse tail padding when laying out
+	virtual bases.
+
+2002-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtti.c (qualifier_flags): Fix thinko.
 
 2002-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
@@ -32,6 +129,23 @@
 	* optimize.c (calls_setjmp_r, update_cloned_parm, dump_function):
 	Remove old-style declaration.
 	(maybe_clone_body): Use 'bool' type and constants.
+
+2002-11-21  Glen Nakamura  <glen@imodulo.com>
+
+	PR c++/8342
+	* typeck.c (get_member_function_from_ptrfunc): Make sure that a
+	SAVE_EXPR for instance_ptr doesn't get evaluated first inside one
+	of the branches of a COND_EXPR.
+
+2002-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (for_each_template_parm): Free allocated memory.
+	* search.c (is_subobject_of_p_1): New function.
+	(is_subobject_of_p): Avoid walking virtual bases multiple times.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* g++spec.c (lang_specific_spec_functions): New.
 
 2002-11-15  Kazu Hirata  <kazu@cs.umass.edu>
 
@@ -7616,7 +7730,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(cp_make_fname_decl): Use size_int, not build_int_2.
 	(push_inline_template_parms_recursive): Likewise.
 	(end_template_parm_list): Likewise.
-	(for_each_tempalte_parm): Do not use walk_tree_without_duplicates.
+	(for_each_template_parm): Do not use walk_tree_without_duplicates.
 	(tsubst_template_parms): Use size_int, not build_int_2.
 	(tsubst): Likewise.
 	* rtti.c (get_vmi_pseudo_type_info): Likewise.

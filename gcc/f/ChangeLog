@@ -10,9 +10,23 @@
 	Include coretypes.h and tm.h.
 	* Make-lang.in: Update dependencies.
 
+2002-11-20  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Explain the purpose of -fmove-all-movables,
+	-freduce-all-givs and -frerun-loop-opts better.
+
 2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-lang.in: Correct BUILD/HOST confusion.
+
+2002-11-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/8587
+	* news.texi: Show PR fortran/8587 fixed.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* g77spec.c (lang_specific_spec_functions): New.
 
 2002-11-02  Toon Moene  <toon@moene.indiv.nluug.nl>
 

@@ -88,7 +88,7 @@ GLIBCPP_3.2 {
     _ZNSbIwSt11char_traitsIwESaIwEE[0-9]_[A-Ra-z]*;
     _ZNSbIwSt11char_traitsIwESaIwEE[0-9][0-9]_[A-Ra-z]*;
     _ZNSbIwSt11char_traitsIwESaIwEE13_S_copy_chars*;
-    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructEjwRKS1_;
+    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructE[jm]wRKS1_;
     _ZNSbIwSt11char_traitsIwESaIwEE12_S_empty_repEv;
     _ZSt24__uninitialized_copy_auxIN9*;
     _ZSt26__uninitialized_fill_n_aux*;
@@ -105,10 +105,7 @@ GLIBCPP_3.2 {
     # std::codecvt<char>::~codecvt
     _ZNSt7codecvtIcc11__mbstate_tED*;
     # std::codecvt<char>::codecvt(size_t), where size_t variable.
-    _ZNSt7codecvtIcc11__mbstate_tEC1Ej;
-    _ZNSt7codecvtIcc11__mbstate_tEC2Ej;
-    _ZNSt7codecvtIcc11__mbstate_tEC1Em;
-    _ZNSt7codecvtIcc11__mbstate_tEC2Em;
+    _ZNSt7codecvtIcc11__mbstate_tEC[12]E[jm];
     # std::codecvt<char>::id
     _ZNSt7codecvtIcc11__mbstate_tE2idE;
 
@@ -117,10 +114,7 @@ GLIBCPP_3.2 {
     # std::codecvt<wchar_t>::~codecvt
     _ZNSt7codecvtIwc11__mbstate_tED*;
     # std::codecvt<wchar_t>::codecvt(size_t), where size_t variable.
-    _ZNSt7codecvtIwc11__mbstate_tEC1Ej;
-    _ZNSt7codecvtIwc11__mbstate_tEC2Ej;
-    _ZNSt7codecvtIwc11__mbstate_tEC1Em;
-    _ZNSt7codecvtIwc11__mbstate_tEC2Em;
+    _ZNSt7codecvtIwc11__mbstate_tEC[12]E[jm];
     # std::codecvt<wchar_t>::id
     _ZNSt7codecvtIwc11__mbstate_tE2idE;
 
@@ -252,7 +246,48 @@ GLIBCPP_3.2.1 {
 CXXABI_1.2 {
 
   global:
-    __cxa_*;
+    __cxa_allocate_exception;
+    __cxa_bad_cast;
+    __cxa_bad_typeid;
+    __cxa_begin_catch;
+    __cxa_call_unexpected;
+    __cxa_current_exception_type;
+    __cxa_demangle;
+    __cxa_dyn_string_append_char;
+    __cxa_dyn_string_append_cstr;
+    __cxa_dyn_string_append;
+    __cxa_dyn_string_clear;
+    __cxa_dyn_string_copy_cstr;
+    __cxa_dyn_string_copy;
+    __cxa_dyn_string_delete;
+    __cxa_dyn_string_eq;
+    __cxa_dyn_string_init;
+    __cxa_dyn_string_insert_char;
+    __cxa_dyn_string_insert_cstr;
+    __cxa_dyn_string_insert;
+    __cxa_dyn_string_new;
+    __cxa_dyn_string_prepend_cstr;
+    __cxa_dyn_string_prepend;
+    __cxa_dyn_string_release;
+    __cxa_dyn_string_resize;
+    __cxa_dyn_string_substring;
+    __cxa_end_catch;
+    __cxa_free_exception;
+    __cxa_get_globals;
+    __cxa_get_globals_fast;
+    __cxa_pure_virtual;
+    __cxa_rethrow;
+    __cxa_throw;
+    __cxa_vec_cctor;
+    __cxa_vec_cleanup;
+    __cxa_vec_ctor;
+    __cxa_vec_delete2;
+    __cxa_vec_delete3;
+    __cxa_vec_delete;
+    __cxa_vec_dtor;
+    __cxa_vec_new2;
+    __cxa_vec_new3;
+    __cxa_vec_new;
     __gxx_personality_v0;
     __gxx_personality_sj0;
     __dynamic_cast;
@@ -263,3 +298,12 @@ CXXABI_1.2 {
   local:
     *;
 };
+
+# Symbols added after CXXABI_1.2
+CXXABI_1.2.1 {
+
+    __cxa_guard_acquire;
+    __cxa_guard_release;
+    __cxa_guard_abort;
+
+} CXXABI_1.2;

@@ -2329,8 +2329,8 @@ build_indirect_ref (ptr, errorstring)
           return error_mark_node;
         }
       else if (TREE_CODE (pointer) == ADDR_EXPR
-	  && !flag_volatile
-	  && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
+	       && !flag_volatile
+	       && same_type_p (t, TREE_TYPE (TREE_OPERAND (pointer, 0))))
 	/* The POINTER was something like `&x'.  We simplify `*&x' to
 	   `x'.  */
 	return TREE_OPERAND (pointer, 0);
@@ -2543,6 +2543,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
       tree fntype = TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function));
 
       tree instance_ptr = *instance_ptrptr;
+      tree instance_save_expr = 0;
       if (instance_ptr == error_mark_node)
 	{
 	  if (TREE_CODE (function) == PTRMEM_CST)
@@ -2562,7 +2563,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	}
 
       if (TREE_SIDE_EFFECTS (instance_ptr))
-	instance_ptr = save_expr (instance_ptr);
+	instance_ptr = instance_save_expr = save_expr (instance_ptr);
 
       if (TREE_SIDE_EFFECTS (function))
 	function = save_expr (function);
@@ -2623,9 +2624,9 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
       
       /* Make sure this doesn't get evaluated first inside one of the
 	 branches of the COND_EXPR.  */
-      if (TREE_CODE (instance_ptr) == SAVE_EXPR)
+      if (instance_save_expr)
 	e1 = build (COMPOUND_EXPR, TREE_TYPE (e1),
-		    instance_ptr, e1);
+		    instance_save_expr, e1);
 
       function = e1;
     }
@@ -5860,8 +5861,16 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   /* Simplify the RHS if possible.  */
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
-  else if (coder != ARRAY_TYPE)
-    rhs = decl_constant_value (rhs);
+  
+  /* We do not use decl_constant_value here because of this case:
+
+       const char* const s = "s";
+ 
+     The conversion rules for a string literal are more lax than for a
+     variable; in particular, a string literal can be converted to a
+     "char *" but the variable "s" cannot be converted in the same
+     way.  If the conversion is allowed, the optimization should be
+     performed while creating the converted expression.  */
 
   /* [expr.ass]
 
@@ -6466,6 +6475,8 @@ cp_type_quals (type)
      tree type;
 {
   type = strip_array_types (type);
+  if (type == error_mark_node)
+    return TYPE_UNQUALIFIED;
   return TYPE_QUALS (type);
 }
 

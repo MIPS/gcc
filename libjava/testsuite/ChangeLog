@@ -1,3 +1,26 @@
+2002-12-01  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_setup_xfail): New function.
+	(gcj_jacks_parse): Use it; set up xfails.
+	* libjava.jacks/jacks.xfail: New file.
+
+2002-12-01  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Remove Inspector FAILs that now PASS.
+
+2002-11-21  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/8676:
+	* libjava.lang/pr8676.java: New file.
+	* libjava.lang/pr8676.out: New file.
+
+2002-11-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* libjava.loader/loader.exp (gcj_loader_test_one): Fix typo in
+	'type' argument to libjava_tcompile.
+	(gcj_loader_run): Use libjava_tcompile instead of running
+	GCJ_UNDER_TEST directly.
+
 2002-11-05  Tom Tromey  <tromey@redhat.com>
 
 	* libjava.jacks/jacks.exp: New file.

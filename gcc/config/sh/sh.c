@@ -2250,6 +2250,10 @@ typedef struct
   rtx label;			/* Label of value.  */
   rtx wend;			/* End of window.  */
   enum machine_mode mode;	/* Mode of value.  */
+
+  /* True if this constant is accessed as part of a post-increment
+     sequence.  Note that HImode constants are never accessed in this way.  */
+  bool part_of_sequence_p;
 } pool_node;
 
 /* The maximum number of constants that can fit into one pool, since
@@ -2323,12 +2327,16 @@ add_constant (x, mode, last_value)
   /* Need a new one.  */
   pool_vector[pool_size].value = x;
   if (last_value && rtx_equal_p (last_value, pool_vector[pool_size - 1].value))
-    lab = 0;
+    {
+      lab = 0;
+      pool_vector[pool_size - 1].part_of_sequence_p = true;
+    }
   else
     lab = gen_label_rtx ();
   pool_vector[pool_size].mode = mode;
   pool_vector[pool_size].label = lab;
   pool_vector[pool_size].wend = NULL_RTX;
+  pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
       newref = gen_rtx_LABEL_REF (VOIDmode, pool_window_label);
@@ -2401,7 +2409,7 @@ dump_table (scan)
 	      break;
 	    case SImode:
 	    case SFmode:
-	      if (align_insn)
+	      if (align_insn && !p->part_of_sequence_p)
 		{
 		  for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		    emit_label_before (lab, align_insn);
@@ -3724,7 +3732,6 @@ machine_dependent_reorg (first)
 	     behind.  */
 	  rtx barrier = find_barrier (num_mova, mova, insn);
 	  rtx last_float_move, last_float = 0, *last_float_addr;
-	  int may_need_align = 1;
 
 	  if (num_mova && ! mova_p (mova))
 	    {
@@ -3782,27 +3789,11 @@ machine_dependent_reorg (first)
 		      if (last_float
 			  && reg_set_between_p (r0_rtx, last_float_move, scan))
 			last_float = 0;
-		      if (TARGET_SHCOMPACT)
-			{
-			  /* The first SFmode constant after a DFmode
-			     constant may be pulled before a sequence
-			     of DFmode constants, so the second SFmode
-			     needs a label, just in case.  */
-			  if (GET_MODE_SIZE (mode) == 4)
-			    {
-			      if (last_float && may_need_align)
-				last_float = 0;
-			      may_need_align = 0;
-			    }
-			  if (last_float
-			      && (GET_MODE_SIZE (GET_MODE (last_float))
-				  != GET_MODE_SIZE (mode)))
-			    {
-			      last_float = 0;
-			      if (GET_MODE_SIZE (mode) == 4)
-				may_need_align = 1;
-			    }
-			}
+		      if (last_float
+			  && TARGET_SHCOMPACT
+			  && GET_MODE_SIZE (mode) != 4
+			  && GET_MODE_SIZE (GET_MODE (last_float)) == 4)
+			last_float = 0;
 		      lab = add_constant (src, mode, last_float);
 		      if (lab)
 			emit_insn_before (gen_mova (lab), scan);
@@ -4448,7 +4439,11 @@ calc_live_regs (count_ptr, live_regs_mask)
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
 	     && reg != T_REG && reg != GBR_REG)
 	  : (/* Only push those regs which are used and need to be saved.  */
-	     (regs_ever_live[reg] && ! call_used_regs[reg])
+	     (TARGET_SHCOMPACT
+	      && flag_pic
+	      && current_function_args_info.call_cookie
+	      && reg == PIC_OFFSET_TABLE_REGNUM)
+	     || (regs_ever_live[reg] && ! call_used_regs[reg])
 	     || (current_function_calls_eh_return
 		 && (reg == EH_RETURN_DATA_REGNO (0)
 		     || reg == EH_RETURN_DATA_REGNO (1)
@@ -7883,6 +7878,28 @@ sh_cannot_change_mode_class (from, to)
 	 }
     }
   return NO_REGS;
+}
+
+
+/* If ADDRESS refers to a CODE_LABEL, add NUSES to the number of times
+   that label is used.  */
+
+void
+sh_mark_label (address, nuses)
+     rtx address;
+     int nuses;
+{
+  if (GOTOFF_P (address))
+    {
+      /* Extract the label or symbol.  */
+      address = XEXP (address, 0);
+      if (GET_CODE (address) == PLUS)
+	address = XEXP (address, 0);
+      address = XVECEXP (address, 0, 0);
+    }
+  if (GET_CODE (address) == LABEL_REF
+      && GET_CODE (XEXP (address, 0)) == CODE_LABEL)
+    LABEL_NUSES (XEXP (address, 0)) += nuses;
 }
 
 #include "gt-sh.h"

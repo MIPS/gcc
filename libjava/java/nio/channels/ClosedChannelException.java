@@ -39,6 +39,10 @@ package java.nio.channels;
 
 import java.io.IOException;
 
+/**
+ * @author Michael Koch
+ * @since 1.4
+ */
 public class ClosedChannelException extends IOException
 {
   /**

@@ -330,6 +330,15 @@ get_tinfo_decl (type)
     type = build_function_type (TREE_TYPE (type),
 				TREE_CHAIN (TYPE_ARG_TYPES (type)));
 
+  /* For a class type, the variable is cached in the type node
+     itself.  */
+  if (CLASS_TYPE_P (type))
+    {
+      d = CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type));
+      if (d)
+	return d;
+    }
+    
   name = mangle_typeinfo_for_type (type);
 
   d = IDENTIFIER_GLOBAL_VALUE (name);
@@ -348,6 +357,9 @@ get_tinfo_decl (type)
       cp_finish_decl (d, NULL_TREE, NULL_TREE, 0);
 
       pushdecl_top_level (d);
+
+      if (CLASS_TYPE_P (type))
+	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
 
       /* Remember the type it is for.  */
       TREE_TYPE (name) = type;
@@ -687,8 +699,7 @@ qualifier_flags (type)
      tree type;
 {
   int flags = 0;
-  /* we want the qualifiers on this type, not any array core, it might have */
-  int quals = TYPE_QUALS (type);
+  int quals = cp_type_quals (type);
   
   if (quals & TYPE_QUAL_CONST)
     flags |= 1;

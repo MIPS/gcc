@@ -1448,6 +1448,7 @@ num_part_mul (lhs, rhs)
 
   result.high += HIGH_PART (middle[0]);
   result.high += HIGH_PART (middle[1]);
+  result.unsignedp = 1;
 
   return result;
 }

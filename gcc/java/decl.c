@@ -59,6 +59,12 @@ static tree check_local_named_variable PARAMS ((tree, tree, int, int *));
 static tree check_local_unnamed_variable PARAMS ((tree, tree, tree));
 static void dump_function PARAMS ((enum tree_dump_index, tree));
 
+/* Name of the Cloneable class.  */
+tree java_lang_cloneable_identifier_node;
+
+/* Name of the Serializable class.  */
+tree java_io_serializable_identifier_node;
+
 /* Set to nonzero value in order to emit class initilization code
    before static field references.  */
 extern int always_initialize_class_p;
@@ -460,7 +466,7 @@ java_init_decl_processing ()
   decimal_int_max = build_int_2 (0x80000000, 0);
   TREE_TYPE (decimal_int_max) = unsigned_int_type_node;
 #if HOST_BITS_PER_WIDE_INT == 64
-  decimal_long_max = build_int_2 (0x8000000000000000, 0);
+  decimal_long_max = build_int_2 (0x8000000000000000LL, 0);
 #else
 #if HOST_BITS_PER_WIDE_INT == 32
   decimal_long_max = build_int_2 (0, 0x80000000);
@@ -602,6 +608,10 @@ java_init_decl_processing ()
   continue_identifier_node = get_identifier ("continue");
   access0_identifier_node = get_identifier ("access$0");
   classdollar_identifier_node = get_identifier ("class$");
+
+  java_lang_cloneable_identifier_node = get_identifier ("java.lang.Cloneable");
+  java_io_serializable_identifier_node =
+    get_identifier ("java.io.Serializable");
 
   /* for lack of a better place to put this stub call */
   init_expr_processing();
@@ -1185,7 +1195,7 @@ static struct binding_level *
 make_binding_level ()
 {
   /* NOSTRICT */
-  return (struct binding_level *) xmalloc (sizeof (struct binding_level));
+  return xmalloc (sizeof (struct binding_level));
 }
 
 void
@@ -1780,7 +1790,7 @@ start_java_method (fndecl)
 
   i = DECL_MAX_LOCALS(fndecl) + DECL_MAX_STACK(fndecl);
   decl_map = make_tree_vec (i);
-  type_map = (tree *) xrealloc (type_map, i * sizeof (tree));
+  type_map = xrealloc (type_map, i * sizeof (tree));
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
   fprintf (stderr, "%s:\n", lang_printable_name (fndecl, 2));

@@ -50,7 +50,7 @@ static const char *byte_reg PARAMS ((rtx, int));
 static int h8300_interrupt_function_p PARAMS ((tree));
 static int h8300_monitor_function_p PARAMS ((tree));
 static int h8300_os_task_function_p PARAMS ((tree));
-static void dosize PARAMS ((FILE *, const char *, unsigned int));
+static void dosize PARAMS ((FILE *, int, unsigned int));
 static int round_frame_size PARAMS ((int));
 static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
@@ -314,7 +314,13 @@ h8300_init_once ()
   if (!TARGET_H8300S && TARGET_MAC)
     {
       error ("-ms2600 is used without -ms");
-      target_flags |= 1;
+      target_flags |= MASK_H8300S;
+    }
+
+  if (TARGET_H8300 && TARGET_NORMAL_MODE)
+    {
+      error ("-mn is used without -mh or -ms");
+      target_flags ^= MASK_NORMAL_MODE;
     }
 
   /* Some of the shifts are optimized for speed by default.
@@ -389,9 +395,9 @@ byte_reg (x, b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (file, op, size)
+dosize (file, sign, size)
      FILE *file;
-     const char *op;
+     int sign;
      unsigned int size;
 {
   /* On the H8/300H and H8S, for sizes <= 8 bytes, it is as good or
@@ -405,8 +411,9 @@ dosize (file, op, size)
       || ((TARGET_H8300H || TARGET_H8300S) && size <= 8)
       || (TARGET_H8300 && interrupt_handler)
       || (TARGET_H8300 && current_function_needs_context
-	  && ! strcmp (op, "sub")))
+	  && sign < 0))
     {
+      const char *op = (sign > 0) ? "add" : "sub";
       unsigned HOST_WIDE_INT amount;
 
       /* Try different amounts in descending order.  */
@@ -414,16 +421,24 @@ dosize (file, op, size)
 	   amount > 0;
 	   amount /= 2)
 	{
+	  char insn[100];
+
+	  sprintf (insn, "\t%ss\t#%d,%s\n", op, amount,
+		   TARGET_H8300 ? "r7" : "er7");
 	  for (; size >= amount; size -= amount)
-	    fprintf (file, "\t%ss\t#%d,sp\n", op, amount);
+	    fputs (insn, file);
 	}
     }
   else
     {
       if (TARGET_H8300)
-	fprintf (file, "\tmov.w\t#%d,r3\n\t%s.w\tr3,sp\n", size, op);
+	{
+	  fprintf (file, "\tmov.w\t#%d,r3\n\tadd.w\tr3,r7\n", sign * size);
+	}
       else
-	fprintf (file, "\t%s.l\t#%d,sp\n", op, size);
+	{
+	  fprintf (file, "\tadd.l\t#%d,er7\n", sign * size);
+	}
     }
 }
 
@@ -467,7 +482,10 @@ push (file, rn)
      FILE *file;
      int rn;
 {
-  fprintf (file, "\t%s\t%s\n", h8_push_op, h8_reg_names[rn]);
+  if (TARGET_H8300)
+    fprintf (file, "\t%s\t%s,@-r7\n", h8_mov_op, h8_reg_names[rn]);
+  else
+    fprintf (file, "\t%s\t%s,@-er7\n", h8_mov_op, h8_reg_names[rn]);
 }
 
 /* Output assembly language code to pop register RN.  */
@@ -477,7 +495,10 @@ pop (file, rn)
      FILE *file;
      int rn;
 {
-  fprintf (file, "\t%s\t%s\n", h8_pop_op, h8_reg_names[rn]);
+  if (TARGET_H8300)
+    fprintf (file, "\t%s\t@r7+,%s\n", h8_mov_op, h8_reg_names[rn]);
+  else
+    fprintf (file, "\t%s\t@er7+,%s\n", h8_mov_op, h8_reg_names[rn]);
 }
 
 /* This is what the stack looks like after the prolog of
@@ -506,7 +527,7 @@ h8300_output_function_prologue (file, size)
      HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
-  int idx;
+  int regno;
   int saved_regs;
   int n_regs;
 
@@ -572,14 +593,12 @@ h8300_output_function_prologue (file, size)
     }
 
   /* Leave room for locals.  */
-  dosize (file, "sub", fsize);
+  dosize (file, -1, fsize);
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
-  for (idx = 0; idx < FIRST_PSEUDO_REGISTER; idx += n_regs)
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno += n_regs)
     {
-      int regno = idx;
-
       n_regs = 1;
       if (saved_regs & (1 << regno))
 	{
@@ -599,12 +618,29 @@ h8300_output_function_prologue (file, size)
 		n_regs = 2;
 	    }
 
-	  if (n_regs == 1)
-	    push (file, regno);
-	  else
-	    fprintf (file, "\tstm.l\t%s-%s,@-sp\n",
-		     h8_reg_names[regno],
-		     h8_reg_names[regno + (n_regs - 1)]);
+	  switch (n_regs)
+	    {
+	    case 1:
+	      push (file, regno);
+	      break;
+	    case 2:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 1]);
+	      break;
+	    case 3:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 2]);
+	      break;
+	    case 4:
+	      fprintf (file, "\tstm.l\t%s-%s,@-er7\n",
+		       h8_reg_names[regno],
+		       h8_reg_names[regno + 3]);
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
     }
 }
@@ -617,7 +653,7 @@ h8300_output_function_epilogue (file, size)
      HOST_WIDE_INT size;
 {
   int fsize = round_frame_size (size);
-  int idx;
+  int regno;
   rtx insn = get_last_insn ();
   int saved_regs;
   int n_regs;
@@ -644,10 +680,8 @@ h8300_output_function_epilogue (file, size)
 
   /* Pop the saved registers in descending order.  */
   saved_regs = compute_saved_regs ();
-  for (idx = 0; idx < FIRST_PSEUDO_REGISTER; idx += n_regs)
+  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno -= n_regs)
     {
-      int regno = (FIRST_PSEUDO_REGISTER - 1) - idx;
-
       n_regs = 1;
       if (saved_regs & (1 << regno))
 	{
@@ -667,17 +701,34 @@ h8300_output_function_epilogue (file, size)
 		n_regs = 2;
 	    }
 
-	  if (n_regs == 1)
-	    pop (file, regno);
-	  else
-	    fprintf (file, "\tldm.l\t@sp+,%s-%s\n",
-		     h8_reg_names[regno - (n_regs - 1)],
-		     h8_reg_names[regno]);
+	  switch (n_regs)
+	    {
+	    case 1:
+	      pop (file, regno);
+	      break;
+	    case 2:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 1],
+		       h8_reg_names[regno]);
+	      break;
+	    case 3:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 2],
+		       h8_reg_names[regno]);
+	      break;
+	    case 4:
+	      fprintf (file, "\tldm.l\t@er7+,%s-%s\n",
+		       h8_reg_names[regno - 3],
+		       h8_reg_names[regno]);
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
     }
 
   /* Deallocate locals.  */
-  dosize (file, "add", fsize);
+  dosize (file, 1, fsize);
 
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
@@ -1130,6 +1181,44 @@ const_costs (r, c, outer_code)
       return 4;
     }
 }
+
+int
+h8300_and_costs (x)
+     rtx x;
+{
+  rtx operands[4];
+
+  if (GET_MODE (x) == QImode)
+    return 1;
+
+  if (GET_MODE (x) != HImode
+      && GET_MODE (x) != SImode)
+    return 100;
+
+  operands[0] = NULL;
+  operands[1] = NULL;
+  operands[2] = XEXP (x, 1);
+  operands[3] = x;
+  return compute_logical_op_length (GET_MODE (x), operands);
+}
+
+int
+h8300_shift_costs (x)
+     rtx x;
+{
+  rtx operands[4];
+
+  if (GET_MODE (x) != QImode
+      && GET_MODE (x) != HImode
+      && GET_MODE (x) != SImode)
+    return 100;
+
+  operands[0] = NULL;
+  operands[1] = NULL;
+  operands[2] = XEXP (x, 1);
+  operands[3] = x;
+  return compute_a_shift_length (NULL, operands);
+}
 
 /* Documentation for the machine specific operand escapes:
 
@@ -1436,12 +1525,6 @@ print_operand (file, x, code)
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
-	    int eightbit_ok = ((GET_CODE (addr) == SYMBOL_REF
-				&& SYMBOL_REF_FLAG (addr))
-			       || EIGHTBIT_CONSTANT_ADDRESS_P (addr));
-	    int tiny_ok = ((GET_CODE (addr) == SYMBOL_REF
-			    && TINY_DATA_NAME_P (XSTR (addr, 0)))
-			   || TINY_CONSTANT_ADDRESS_P (addr));
 
 	    fprintf (file, "@");
 	    output_address (addr);
@@ -1452,7 +1535,7 @@ print_operand (file, x, code)
 	      {
 	      case 'R':
 		/* Used for mov.b and bit operations.  */
-		if (eightbit_ok)
+		if (h8300_eightbit_constant_address_p (addr))
 		  {
 		    fprintf (file, ":8");
 		    break;
@@ -1466,7 +1549,7 @@ print_operand (file, x, code)
 	      case 'T':
 	      case 'S':
 		/* Used for mov.w and mov.l.  */
-		if (tiny_ok)
+		if (h8300_tiny_constant_address_p (addr))
 		  fprintf (file, ":16");
 		break;
 	      default:
@@ -1641,6 +1724,10 @@ h8300_initial_elimination_offset (from, to)
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */
     }
+
+  if ((TARGET_H8300H || TARGET_H8300S) && TARGET_NORMAL_MODE)
+    offset -= 2;
+
   return offset;
 }
 
@@ -3091,6 +3178,14 @@ compute_a_shift_length (insn, operands)
 	{
 	case SHIFT_SPECIAL:
 	  wlength += h8300_asm_insn_count (info.special);
+
+	  /* Every assembly instruction used in SHIFT_SPECIAL case
+	     takes 2 bytes except xor.l, which takes 4 bytes, so if we
+	     see xor.l, we just pretend that xor.l counts as two insns
+	     so that the insn length will be computed correctly.  */
+	  if (strstr (info.special, "xor.l") != NULL)
+	    wlength++;
+
 	  /* Fall through.  */
 
 	case SHIFT_INLINE:
@@ -3723,8 +3818,7 @@ h8300_adjust_insn_length (insn, length)
 
 	  /* @aa:8 is 2 bytes shorter than the longest.  */
 	  if (GET_MODE (SET_SRC (pat)) == QImode
-	      && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
-		  || EIGHTBIT_CONSTANT_ADDRESS_P (addr)))
+	      && h8300_eightbit_constant_address_p (addr))
 	    return -2;
 	}
       else
@@ -3747,14 +3841,11 @@ h8300_adjust_insn_length (insn, length)
 
 	  /* @aa:8 is 6 bytes shorter than the longest.  */
 	  if (GET_MODE (SET_SRC (pat)) == QImode
-	      && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
-		  || EIGHTBIT_CONSTANT_ADDRESS_P (addr)))
+	      && h8300_eightbit_constant_address_p (addr))
 	    return -6;
 
 	  /* @aa:16 is 4 bytes shorter than the longest.  */
-	  if ((GET_CODE (addr) == SYMBOL_REF
-	       && TINY_DATA_NAME_P (XSTR (addr, 0)))
-	      || TINY_CONSTANT_ADDRESS_P (addr))
+	  if (h8300_tiny_constant_address_p (addr))
 	    return -4;
 
 	  /* @aa:24 is 2 bytes shorter than the longest.  */
@@ -3863,11 +3954,14 @@ h8300_asm_named_section (name, flags)
 }
 #endif /* ! OBJECT_FORMAT_ELF */
 
+/* Nonzero if X is a constant address suitable as an 8-bit absolute,
+   which is a special case of the 'R' operand.  */
+
 int
 h8300_eightbit_constant_address_p (x)
      rtx x;
 {
-  /* The ranges the 8-bit area. */
+  /* The ranges of the 8-bit area. */
   const unsigned HOST_WIDE_INT n1 = trunc_int_for_mode (0xff00, HImode);
   const unsigned HOST_WIDE_INT n2 = trunc_int_for_mode (0xffff, HImode);
   const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00ffff00, SImode);
@@ -3877,22 +3971,29 @@ h8300_eightbit_constant_address_p (x)
 
   unsigned HOST_WIDE_INT addr;
 
+  /* We accept symbols declared with eightbit_data.  */
+  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+    return 1;
+
   if (GET_CODE (x) != CONST_INT)
     return 0;
 
   addr = INTVAL (x);
 
   return (0
-	  || (TARGET_H8300  && IN_RANGE (addr, n1, n2))
+	  || ((TARGET_H8300 || TARGET_NORMAL_MODE) && IN_RANGE (addr, n1, n2))
 	  || (TARGET_H8300H && IN_RANGE (addr, h1, h2))
 	  || (TARGET_H8300S && IN_RANGE (addr, s1, s2)));
 }
+
+/* Nonzero if X is a constant address suitable as an 16-bit absolute
+   on H8/300H and H8S.  */
 
 int
 h8300_tiny_constant_address_p (x)
      rtx x;
 {
-  /* The ranges for the 16-bit area.  */
+  /* The ranges of the 16-bit area.  */
   const unsigned HOST_WIDE_INT h1 = trunc_int_for_mode (0x00000000, SImode);
   const unsigned HOST_WIDE_INT h2 = trunc_int_for_mode (0x00007fff, SImode);
   const unsigned HOST_WIDE_INT h3 = trunc_int_for_mode (0x00ff8000, SImode);
@@ -3904,14 +4005,18 @@ h8300_tiny_constant_address_p (x)
 
   unsigned HOST_WIDE_INT addr;
 
+  /* We accept symbols declared with tiny_data.  */
+  if (GET_CODE (x) == SYMBOL_REF && TINY_DATA_NAME_P (XSTR (x, 0)))
+    return 1;
+
   if (GET_CODE (x) != CONST_INT)
     return 0;
 
   addr = INTVAL (x);
 
   return (0
-	  || (TARGET_H8300H
+	  || ((TARGET_H8300H && !TARGET_NORMAL_MODE)
 	      && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
-	  || (TARGET_H8300S
+	  || ((TARGET_H8300S && !TARGET_NORMAL_MODE)
 	      && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
 }

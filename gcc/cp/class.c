@@ -3393,8 +3393,8 @@ check_subobject_offset (type, offset, offsets)
 
 /* Walk through all the subobjects of TYPE (located at OFFSET).  Call
    F for every subobject, passing it the type, offset, and table of
-   OFFSETS.  If VBASES_P is nonzero, then even virtual non-primary
-   bases should be traversed; otherwise, they are ignored.  
+   OFFSETS.  If VBASES_P is one, then virtual non-primary bases should
+   be traversed.
 
    If MAX_OFFSET is non-NULL, then subobjects with an offset greater
    than MAX_OFFSET will not be walked.
@@ -3412,11 +3412,19 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
      int vbases_p;
 {
   int r = 0;
+  tree type_binfo = NULL_TREE;
 
   /* If this OFFSET is bigger than the MAX_OFFSET, then we should
      stop.  */
   if (max_offset && INT_CST_LT (max_offset, offset))
     return 0;
+
+  if (!TYPE_P (type)) 
+    {
+      if (abi_version_at_least (2))
+	type_binfo = type;
+      type = BINFO_TYPE (type);
+    }
 
   if (CLASS_TYPE_P (type))
     {
@@ -3434,9 +3442,13 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
 	return r;
 
       /* Iterate through the direct base classes of TYPE.  */
-      for (i = 0; i < CLASSTYPE_N_BASECLASSES (type); ++i)
+      if (!type_binfo)
+	type_binfo = TYPE_BINFO (type);
+      for (i = 0; i < BINFO_N_BASETYPES (type_binfo); ++i)
 	{
-	  binfo = BINFO_BASETYPE (TYPE_BINFO (type), i);
+	  tree binfo_offset;
+
+	  binfo = BINFO_BASETYPE (type_binfo, i);
 
 	  if (abi_version_at_least (2) 
 	      && TREE_VIA_VIRTUAL (binfo))
@@ -3447,11 +3459,25 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
 	      && !BINFO_PRIMARY_P (binfo))
 	    continue;
 
-	  r = walk_subobject_offsets (BINFO_TYPE (binfo),
+	  if (!abi_version_at_least (2))
+	    binfo_offset = size_binop (PLUS_EXPR,
+				       offset,
+				       BINFO_OFFSET (binfo));
+	  else
+	    {
+	      tree orig_binfo;
+	      /* We cannot rely on BINFO_OFFSET being set for the base
+		 class yet, but the offsets for direct non-virtual
+		 bases can be calculated by going back to the TYPE.  */
+	      orig_binfo = BINFO_BASETYPE (TYPE_BINFO (type), i);
+	      binfo_offset = size_binop (PLUS_EXPR,	      
+					 offset,
+					 BINFO_OFFSET (orig_binfo));
+	    }
+
+	  r = walk_subobject_offsets (binfo,
 				      f,
-				      size_binop (PLUS_EXPR,
-						  offset,
-						  BINFO_OFFSET (binfo)),
+				      binfo_offset,
 				      offsets,
 				      max_offset,
 				      (abi_version_at_least (2) 
@@ -3460,28 +3486,55 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
 	    return r;
 	}
 
-      /* Iterate through the virtual base classes of TYPE.  In G++
-	 3.2, we included virtual bases in the direct base class loop
-	 above, which results in incorrect results; the correct
-	 offsets for virtual bases are only known when working with
-	 the most derived type.  */
-      if (abi_version_at_least (2) && vbases_p)
+      if (abi_version_at_least (2))
 	{
 	  tree vbase;
 
-	  for (vbase = CLASSTYPE_VBASECLASSES (type);
-	       vbase;
-	       vbase = TREE_CHAIN (vbase))
+	  /* Iterate through the virtual base classes of TYPE.  In G++
+	     3.2, we included virtual bases in the direct base class
+	     loop above, which results in incorrect results; the
+	     correct offsets for virtual bases are only known when
+	     working with the most derived type.  */
+	  if (vbases_p)
+	    for (vbase = CLASSTYPE_VBASECLASSES (type);
+		 vbase;
+		 vbase = TREE_CHAIN (vbase))
+	      {
+		binfo = TREE_VALUE (vbase);
+		r = walk_subobject_offsets (binfo,
+					    f,
+					    size_binop (PLUS_EXPR,
+							offset,
+							BINFO_OFFSET (binfo)),
+					    offsets,
+					    max_offset,
+					    /*vbases_p=*/0);
+		if (r)
+		  return r;
+	      }
+	  else
 	    {
-	      binfo = TREE_VALUE (vbase);
-	      r = walk_subobject_offsets (BINFO_TYPE (binfo),
-					  f,
-					  size_binop (PLUS_EXPR,
-						      offset,
-						      BINFO_OFFSET (binfo)),
-					  offsets,
-					  max_offset,
-					  /*vbases_p=*/0);
+	      /* We still have to walk the primary base, if it is
+		 virtual.  (If it is non-virtual, then it was walked
+		 above.)  */
+	      vbase = get_primary_binfo (type_binfo);
+	      if (vbase && TREE_VIA_VIRTUAL (vbase))
+		{
+		  tree derived = type_binfo;
+		  while (BINFO_INHERITANCE_CHAIN (derived))
+		    derived = BINFO_INHERITANCE_CHAIN (derived);
+		  derived = TREE_TYPE (derived);
+		  vbase = binfo_for_vbase (TREE_TYPE (vbase), derived);
+
+		  if (BINFO_PRIMARY_BASE_OF (vbase) == type_binfo)
+		    {
+		      r = (walk_subobject_offsets 
+			   (vbase, f, offset,
+			    offsets, max_offset, /*vbases_p=*/0));
+		      if (r)
+			return r;
+		    }
+		}
 	    }
 	}
 
@@ -3652,7 +3705,8 @@ layout_nonempty_base_or_field (record_layout_info rli,
 	 virtual base.  */
       if (!abi_version_at_least (2) && binfo && TREE_VIA_VIRTUAL (binfo))
 	break;
-      if (layout_conflict_p (type, offset, offsets, field_p))
+      if (layout_conflict_p (field_p ? type : binfo, offset, 
+			     offsets, field_p))
 	{
 	  /* Strip off the size allocated to this field.  That puts us
 	     at the first place we could have put the field with
@@ -3726,7 +3780,7 @@ layout_empty_base (binfo, eoc, offsets, t)
 
   /* This is an empty base class.  We first try to put it at offset
      zero.  */
-  if (layout_conflict_p (BINFO_TYPE (binfo),
+  if (layout_conflict_p (binfo,
 			 BINFO_OFFSET (binfo),
 			 offsets, 
 			 /*vbases_p=*/0))
@@ -3737,7 +3791,7 @@ layout_empty_base (binfo, eoc, offsets, t)
       propagate_binfo_offsets (binfo, convert (ssizetype, eoc), t);
       while (1) 
 	{
-	  if (!layout_conflict_p (BINFO_TYPE (binfo),
+	  if (!layout_conflict_p (binfo,
 				  BINFO_OFFSET (binfo), 
 				  offsets,
 				  /*vbases_p=*/0))
@@ -3848,7 +3902,7 @@ build_base_field (record_layout_info rli, tree binfo,
     }
 
   /* Record the offsets of BINFO and its base subobjects.  */
-  record_subobject_offsets (BINFO_TYPE (binfo), 
+  record_subobject_offsets (binfo,
 			    BINFO_OFFSET (binfo),
 			    offsets, 
 			    /*vbases_p=*/0);
@@ -4942,6 +4996,13 @@ layout_class_type (tree t, tree *virtuals_p)
       layout_nonempty_base_or_field (rli, field, NULL_TREE,
 				     empty_base_offsets);
 
+      /* Remember the location of any empty classes in FIELD.  */
+      if (abi_version_at_least (2))
+	record_subobject_offsets (TREE_TYPE (field), 
+				  byte_position(field),
+				  empty_base_offsets,
+				  /*vbases_p=*/1);
+
       /* If a bit-field does not immediately follow another bit-field,
 	 and yet it starts in the middle of a byte, we have failed to
 	 comply with the ABI.  */
@@ -4995,9 +5056,10 @@ layout_class_type (tree t, tree *virtuals_p)
       normalize_rli (rli);
     }
 
-  /* Make sure that empty classes are reflected in RLI at this 
-     point.  */
-  include_empty_classes(rli);
+  /* G++ 3.2 does not allow virtual bases to be overlaid with tail
+     padding.  */
+  if (!abi_version_at_least (2))
+    include_empty_classes(rli);
 
   /* Delete all zero-width bit-fields from the list of fields.  Now
      that the type is laid out they are no longer important.  */
@@ -5024,8 +5086,17 @@ layout_class_type (tree t, tree *virtuals_p)
 	}
       else
 	{
-	  TYPE_SIZE (base_t) = rli_size_so_far (rli);
-	  TYPE_SIZE_UNIT (base_t) = rli_size_unit_so_far (rli);
+	  TYPE_SIZE_UNIT (base_t) 
+	    = size_binop (MAX_EXPR,
+			  rli_size_unit_so_far (rli),
+			  end_of_class (t, /*include_virtuals_p=*/0));
+	  TYPE_SIZE (base_t) 
+	    = size_binop (MAX_EXPR,
+			  rli_size_so_far (rli),
+			  size_binop (MULT_EXPR,
+				      convert (bitsizetype,
+					       TYPE_SIZE_UNIT (base_t)),
+				      bitsize_int (BITS_PER_UNIT)));
 	}
       TYPE_ALIGN (base_t) = rli->record_align;
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);

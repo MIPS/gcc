@@ -412,7 +412,7 @@ cmp_significands (a, b)
   return 0;
 }
 
-/* Return true if A is non-zero.  */
+/* Return true if A is nonzero.  */
 
 static inline int 
 cmp_significand_0 (a)
@@ -1487,6 +1487,11 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
       abort ();
     }
 
+  /* Bound the number of digits printed by the size of the representation.  */
+  max_digits = SIGNIFICAND_BITS * M_LOG10_2;
+  if (digits == 0 || digits > max_digits)
+    digits = max_digits;
+
   /* Estimate the decimal exponent, and compute the length of the string it
      will print as.  Be conservative and add one to account for possible
      overflow or rounding error.  */
@@ -1499,11 +1504,6 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
   if (max_digits > buf_size)
     abort ();
   if (digits > max_digits)
-    digits = max_digits;
-
-  /* Bound the number of digits printed by the size of the representation.  */
-  max_digits = SIGNIFICAND_BITS * M_LOG10_2;
-  if (digits == 0 || digits > max_digits)
     digits = max_digits;
 
   one = real_digit (1);
@@ -1677,8 +1677,8 @@ real_to_decimal (str, r_orig, buf_size, digits, crop_trailing_zeros)
   /* Round the result.  */
   if (digit == 5)
     {
-      /* Round to nearest.  If R is non-zero there are additional
-	 non-zero digits to be extracted.  */
+      /* Round to nearest.  If R is nonzero there are additional
+	 nonzero digits to be extracted.  */
       if (cmp_significand_0 (&r))
 	digit++;
       /* Round to even.  */
