@@ -946,7 +946,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
   edge ae, latch_edge, he;
   unsigned i, j, n;
   int is_latch = (latch == e->src);
-  int scale_act, *scale_step, scale_main, p, freq_in, freq_le, freq_out_orig;
+  int scale_act = 0, *scale_step = NULL, scale_main, p, freq_in, freq_le, freq_out_orig;
   unsigned hsteps;
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;

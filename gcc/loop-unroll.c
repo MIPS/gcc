@@ -414,7 +414,7 @@ decide_unroll_constant_iterations (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll, nunroll_by_av, best_copies, best_unroll, n_copies, i;
+  unsigned nunroll, nunroll_by_av, best_copies, best_unroll = -1, n_copies, i;
 
   if (!(flags & UAP_UNROLL))
     {
