@@ -192,6 +192,11 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
+/* FIXME all of the is_simple_* predicates should be changed to only test
+   for appropriate top-level structures; we can safely assume that after
+   simplification, a PLUS_EXPR is a simple PLUS_EXPR, so the predicate only
+   needs to decide whether or not a PLUS_EXPR is suitable here.  */
+
 /* Returns nonzero if T is a simple CONSTRUCTOR:
 
      aggr_init: '{' vals '}'
@@ -859,11 +864,17 @@ is_simplifiable_builtin (expr)
          constants.  Make sure we don't simplify something which will
          be folded by the builtin later.  */
 
+      /* FIXME this is a horrible kludge.  The builtin expanders should use
+	 dfa info to handle simplified arguments.  */
+
       /* foo (const char *, const char *, ...).  */
+    case BUILT_IN_STRCMP:
     case BUILT_IN_STRNCMP:
     case BUILT_IN_STRSPN:
     case BUILT_IN_STRSTR:
     case BUILT_IN_STRCSPN:
+    case BUILT_IN_STRPBRK:
+    case BUILT_IN_MEMCMP:
       t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
       t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
       return !(string_constant (t1, &t3) || string_constant (t2, &t3));
@@ -873,7 +884,9 @@ is_simplifiable_builtin (expr)
     case BUILT_IN_STRRCHR:
     case BUILT_IN_STRCHR:
     case BUILT_IN_INDEX:
+    case BUILT_IN_RINDEX:
     case BUILT_IN_FPUTS:
+    case BUILT_IN_PRINTF:
       t1 = TREE_VALUE (TREE_OPERAND (expr, 1));
       return !string_constant (t1, &t3);
 
@@ -882,6 +895,7 @@ is_simplifiable_builtin (expr)
     case BUILT_IN_STRNCPY:
     case BUILT_IN_STRCAT:
     case BUILT_IN_STRNCAT:
+    case BUILT_IN_FPRINTF:
       t2 = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
       return !string_constant (t2, &t3);
 

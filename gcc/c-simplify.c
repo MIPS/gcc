@@ -997,191 +997,207 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      fallback_t fallback;
 {
   tree tmp;
+  tree internal_pre = NULL_TREE;
   tree internal_post = NULL_TREE;
-  int done;
+  tree save_expr;
+  int is_statement = (pre_p == NULL);
 
-  if (pre_p == NULL)
-    {
-      /* Temporary kludge: If pre_p is null, this is a statement.  Hand off
-	 to the C-specific code.  Soon we will have a l-i notion of
-	 statements.  */
-      return (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
-    }
-
-#if defined ENABLE_CHECKING
-  if (simple_test_f == NULL)
-    abort ();
-#endif
-
-  if ((*simple_test_f) (*expr_p))
+  if (*expr_p == NULL_TREE)
     return 1;
 
-  /* Set up our internal postqueue if needed.  */
+  /* Set up our internal queues if needed.  */
+  if (pre_p == NULL)
+    pre_p = &internal_pre;
   if (post_p == NULL)
     post_p = &internal_post;
 
-  /* First do any language-specific simplification.  */
-  done = (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
-
-  if (done)
-    /* The frontend completely simplified this node.  */;
-  else switch (TREE_CODE (*expr_p))
+  /* Loop over the specific simplifiers until the toplevel node remains the
+     same.  */
+  do
     {
-      /* First deal with the special cases.  */
+      /* First do any language-specific simplification.  */
+      (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
 
-    case POSTINCREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-    case PREINCREMENT_EXPR:
-    case PREDECREMENT_EXPR:
-      simplify_self_mod_expr (expr_p, pre_p, post_p);
-      break;
+      /* Then remember the expr.  */
+      save_expr = *expr_p;
 
-    case ARRAY_REF:
-      simplify_array_ref (expr_p, pre_p, post_p);
-      break;
+      switch (TREE_CODE (*expr_p))
+	{
+	  /* First deal with the special cases.  */
 
-    case COMPONENT_REF:
-      simplify_component_ref (expr_p, pre_p, post_p);
-      break;
+	case POSTINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case PREDECREMENT_EXPR:
+	  simplify_self_mod_expr (expr_p, pre_p, post_p);
+	  break;
+
+	case ARRAY_REF:
+	  simplify_array_ref (expr_p, pre_p, post_p);
+	  break;
+
+	case COMPONENT_REF:
+	  simplify_component_ref (expr_p, pre_p, post_p);
+	  break;
       
-    case COND_EXPR:
-      simplify_cond_expr (expr_p, pre_p);
-      break;
+	case COND_EXPR:
+	  simplify_cond_expr (expr_p, pre_p);
+	  break;
 
-    case CALL_EXPR:
-      simplify_call_expr (expr_p, pre_p, post_p);
-      break;
+	case CALL_EXPR:
+	  simplify_call_expr (expr_p, pre_p, post_p);
+	  break;
 
-    case TREE_LIST:
-      simplify_tree_list (expr_p, pre_p, post_p);
-      break;
+	case TREE_LIST:
+	  simplify_tree_list (expr_p, pre_p, post_p);
+	  break;
 
-    case COMPOUND_EXPR:
-      simplify_compound_expr (expr_p, pre_p, post_p);
-      break;
+	case COMPOUND_EXPR:
+	  simplify_compound_expr (expr_p, pre_p, post_p);
+	  break;
 
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-      return simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		            simple_test_f, fallback);
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	  return simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+				simple_test_f, fallback);
 
-    case MODIFY_EXPR:
-    case INIT_EXPR:
-      simplify_modify_expr (expr_p, pre_p, post_p);
-      break;
+	case MODIFY_EXPR:
+	case INIT_EXPR:
+	  simplify_modify_expr (expr_p, pre_p, post_p);
+	  break;
 
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
-      simplify_boolean_expr (expr_p, pre_p);
-      break;
+	case TRUTH_ANDIF_EXPR:
+	case TRUTH_ORIF_EXPR:
+	  simplify_boolean_expr (expr_p, pre_p);
+	  break;
 
-    case TRUTH_NOT_EXPR:
-      tmp = TREE_OPERAND (*expr_p, 0);
-      simplify_expr (&tmp, pre_p, post_p, is_simple_id, fb_rvalue);
-      *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp, integer_zero_node);
-      break;
+	case TRUTH_NOT_EXPR:
+	  tmp = TREE_OPERAND (*expr_p, 0);
+	  simplify_expr (&tmp, pre_p, post_p, is_simple_id, fb_rvalue);
+	  *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp, integer_zero_node);
+	  break;
 
-    case ADDR_EXPR:
-      simplify_addr_expr (expr_p, pre_p, post_p);
-      break;
+	case ADDR_EXPR:
+	  simplify_addr_expr (expr_p, pre_p, post_p);
+	  break;
 
-    /* va_arg expressions should also be left alone to avoid confusing the
-       vararg code.  FIXME: Is this really necessary?  */
-    case VA_ARG_EXPR:
-      walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
-      break;
+	  /* va_arg expressions should also be left alone to avoid confusing the
+	     vararg code.  FIXME: Is this really necessary?  */
+	case VA_ARG_EXPR:
+	  walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
+	  break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-	             is_simple_varname, fb_rvalue);
-      break;
+	case NOP_EXPR:
+	  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
+	    {
+	      /* Just strip a conversion to void and try again.  */
+	      *expr_p = TREE_OPERAND (*expr_p, 0);
+	      break;
+	    }
+	case CONVERT_EXPR:
+	case FIX_TRUNC_EXPR:
+	case FIX_CEIL_EXPR:
+	case FIX_FLOOR_EXPR:
+	case FIX_ROUND_EXPR:
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 is_simple_varname, fb_rvalue);
+	  break;
 
-    case INDIRECT_REF:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
-	             fb_rvalue);
-      break;
+	case INDIRECT_REF:
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id,
+			 fb_rvalue);
+	  break;
 
-    case NEGATE_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_val,
-	             fb_rvalue);
-      break;
+	case NEGATE_EXPR:
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_val,
+			 fb_rvalue);
+	  break;
 
-    /* Constants need not be simplified.  */
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case COMPLEX_CST:
-      break;
+	  /* Constants need not be simplified.  */
+	case INTEGER_CST:
+	case REAL_CST:
+	case STRING_CST:
+	case COMPLEX_CST:
+	  break;
 
-    case CONSTRUCTOR:
-      simplify_constructor (*expr_p, pre_p, post_p);
-      break;
+	case CONSTRUCTOR:
+	  simplify_constructor (*expr_p, pre_p, post_p);
+	  break;
 
-    /* The following are special cases that are not handled by the original
-       SIMPLE grammar.  */
+	  /* The following are special cases that are not handled by the original
+	     SIMPLE grammar.  */
 
-    /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
-       eliminated.  */
-    case SAVE_EXPR:
-      simplify_save_expr (expr_p, pre_p);
-      break;
+	  /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
+	     eliminated.  */
+	case SAVE_EXPR:
+	  simplify_save_expr (expr_p, pre_p);
+	  break;
 
-    case EXPR_WITH_FILE_LOCATION:
-      simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f);
-      break;
+	case EXPR_WITH_FILE_LOCATION:
+	  simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f);
+	  break;
 
-    /* FIXME: This breaks stage2.  I still haven't figured out why.  When
-	      fixing remember to undo a similar change in
-	      is_simple_unary_expr.  */
-    case BIT_FIELD_REF:
+	  /* FIXME: This breaks stage2.  I still haven't figured out why.  When
+	     fixing remember to undo a similar change in
+	     is_simple_unary_expr.  */
+	case BIT_FIELD_REF:
 #if 0
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id);
-      simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_val);
-      simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p, is_simple_val);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, is_simple_id);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_val);
+	  simplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p, is_simple_val);
 #else
-      walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
+	  walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
 #endif
-      break;
+	  break;
 
-    case NON_LVALUE_EXPR:
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, simple_test_f,
-	             fb_rvalue);
-      break;
+	case NON_LVALUE_EXPR:
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, simple_test_f,
+			 fb_rvalue);
+	  break;
 
-    /* If *EXPR_P does not need to be special-cased, handle it according to
-       its class.  */
-    default:
-      {
-	if (TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '1')
+	  /* If *EXPR_P does not need to be special-cased, handle it according to
+	     its class.  */
+	default:
 	  {
-	    simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-	                   is_simple_val, fb_rvalue);
-	  }
-	else if (TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '2'
-	         || TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '<'
-		 || TREE_CODE (*expr_p) == TRUTH_AND_EXPR
-		 || TREE_CODE (*expr_p) == TRUTH_OR_EXPR
-		 || TREE_CODE (*expr_p) == TRUTH_XOR_EXPR)
-	  {
-	    simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			   is_simple_val, fb_rvalue);
+	    if (TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '1')
+	      {
+		simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			       is_simple_val, fb_rvalue);
+	      }
+	    else if (TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '2'
+		     || TREE_CODE_CLASS (TREE_CODE (*expr_p)) == '<'
+		     || TREE_CODE (*expr_p) == TRUTH_AND_EXPR
+		     || TREE_CODE (*expr_p) == TRUTH_OR_EXPR
+		     || TREE_CODE (*expr_p) == TRUTH_XOR_EXPR)
+	      {
+		simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			       is_simple_val, fb_rvalue);
 
-	    simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
-			   is_simple_val, fb_rvalue);
+		simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+			       is_simple_val, fb_rvalue);
+	      }
 	  }
-	else
-	  {
-	    fprintf (stderr, "unhandled expression in simplify_expr ():\n");
-	    debug_tree (*expr_p);
-	    abort ();
-	  }
-      }
+	}
     }
+  /* If we replaced *expr_p, simplify again.  */
+  while (*expr_p != save_expr);
+
+  /* If we are simplifying at the statement level, we're done.  Tack
+     everything together and replace the original statement with the
+     simplified form.  */
+  if (is_statement)
+    {
+#if 0
+      /* Soon.  */
+      add_tree (*expr_p, pre_p);
+      add_tree (internal_post, pre_p);
+      *expr_p = rationalize_compound_expr (internal_pre);
+#endif
+      return 1;
+    }
+
+  /* Otherwise we're simplifying a subexpression, so the resulting value is
+     interesting.  */
 
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
@@ -2025,16 +2041,8 @@ simplify_addr_expr (expr_p, pre_p, post_p)
     simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, 
 		   is_simple_addr_expr_arg, fb_lvalue);
   else
-    {
-      /* Fold &*EXPR into EXPR and simplify EXPR into a legal argument for
-	 ADDR_EXPR.  Notice that we need to request an rvalue because EXPR is
-	 already the lvalue that we were looking for originally.
-
-         ??? is_simple_addr_expr_arg is wrong here.  we really want to tell
-         simplify_expr to start over.  */
-      *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
-      simplify_expr (expr_p, pre_p, post_p, is_simple_addr_expr_arg, fb_rvalue);
-    }
+    /* Fold &*EXPR into EXPR.  simplify_expr will re-simplify EXPR.  */
+    *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
 }
 
 

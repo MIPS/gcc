@@ -1,3 +1,13 @@
+2002-08-12  Jason Merrill  <jason@redhat.com>
+
+	* c-typeck.c (build_component_ref): Don't add a NON_LVALUE_EXPR
+	in C99 mode.
+
+	* c-simplify.c (simplify_expr): Always simplify.  Loop if *expr_p
+	changed.
+	(simplify_addr_expr): Just replace *expr_p if we have a '&*'.
+	* tree-simple.c (is_simplifiable_builtin): Add more tree codes.
+
 2002-08-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c: Fix typo.  Substitute CHECKING with ENABLE_CHECKING.

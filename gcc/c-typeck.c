@@ -1108,7 +1108,8 @@ build_component_ref (datum, component)
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
-		      TREE_OPERAND (datum, 0), pedantic_non_lvalue (value));
+		      TREE_OPERAND (datum, 0),
+		      flag_isoc99 ? value : pedantic_non_lvalue (value));
       }
     default:
       break;
