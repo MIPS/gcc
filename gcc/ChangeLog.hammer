@@ -1,3 +1,15 @@
+2003-07-09  Josef Zlomek  <zlomekj@suse.cz>
+
+	* vrp.c (enum oper_type): New type.
+	(struct operation_def): New struct.
+	(struct bb_info_def): Added element 'operation_list'.
+	(operation_pool): New alloc pool.
+	(compute_ranges_for_insn): Deleted.
+	(find_operations_1): New function.
+	(find_operations): New function.
+	(compute_ranges_for_bb): Update ranges according to preprocessed RTL.
+	(value_range_propagation): Alloc operation_pool, preprocess RTL.
+
 2003-07-08  Josef Zlomek  <zlomekj@suse.cz>
 
 	* cfgcleanup.c (merge_blocks_move_successor_nojumps): Skip

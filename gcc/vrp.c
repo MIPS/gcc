@@ -101,6 +101,24 @@ typedef struct range_def
 #define RANGE_SIGNED_INT	1	/* Signed integer.  */
 #define RANGE_UNSIGNED_INT	2	/* Unsigned integer.  */
 
+/* Type of operation.  */
+enum oper_type
+{
+  CONST_INT_TO_REG,			/* REG <- CONST_INT.  */
+  REG_TO_REG,				/* REG <- REG.  */
+  UNKNOWN_TO_REG,			/* REG <- anything else.  */
+  CLOBBER_CALL_USED_REGS		/* CALL_INSN.  */
+};
+
+/* Information about operation.  */
+typedef struct operation_def
+{
+  enum oper_type type;
+  rtx dst;
+  rtx src;
+  struct operation_def *next;
+} *operation;
+
 /* Data for each edge.  */
 typedef struct edge_info_def
 {
@@ -113,6 +131,8 @@ typedef struct bb_info_def
 {
   /* Normalized condition (if any) for the branch in the end of BB.  */
   rtx cond;
+
+  operation operation_list;
 
   /* The IN list of ranges of registers for BB.  */
   htab_t in;
@@ -129,6 +149,9 @@ typedef struct bb_info_def
 
 /* Alloc pool for range_t.  */
 alloc_pool range_pool;
+
+/* Alloc pool for operation.  */
+alloc_pool operation_pool;
 
 /* Local function prototypes.  */
 static hashval_t range_hash		PARAMS ((const void *));
@@ -147,7 +170,8 @@ static void process_ranges_eq		PARAMS ((rtx, rtx, edge));
 static void process_ranges_lt		PARAMS ((rtx, rtx, edge, edge));
 static void process_ranges_ltu		PARAMS ((rtx, rtx, edge, edge));
 static bool update_outgoing_edges	PARAMS ((basic_block, int));
-static void compute_ranges_for_insn	PARAMS ((rtx, rtx, void *));
+static void find_operations_1		PARAMS ((rtx, rtx, void *));
+static void find_operations		PARAMS ((basic_block));
 static int delete_call_used_regs	PARAMS ((void **, void *));
 static bool compute_ranges_for_bb	PARAMS ((basic_block));
 static void compute_ranges_for_pending	PARAMS ((basic_block, sbitmap,
@@ -1180,106 +1204,92 @@ update_outgoing_edges (bb, changed)
   return changed;
 }
 
-/* Compute the effect of set to STORE in insn PATTERN and update the ranges
-   in table DATA.  */
+/* Find operations in a single insn pattern PATTERN and insert them to the
+   linked list DATA->OPERATION_LIST.  STORE is the destination of the store.  */
 
 static void
-compute_ranges_for_insn (store, pattern, data)
+find_operations_1 (store, pattern, data)
      rtx store;
      rtx pattern;
      void *data;
 {
-  htab_t htab = (htab_t) data;
+  bb_info *bbi = data;
   rtx set_src, set_dst;
-  void **slot;
-  range_t *dst_r, *src_r;
-  unsigned HOST_WIDE_INT mask;
+  operation oper;
 
   set_dst = SET_DEST (pattern);
   if (GET_CODE (store) == REG)
     {
       if (set_dst != store || GET_CODE (pattern) == CLOBBER)
 	{
-	  /* SET_DST is a SUBREG, ZERO_EXTRACT, etc.
-	     or we are clobbering the register.
-	     We do not know the resulting range so delete the range
-	     (i.e. make it to be a full range).  */
-
-	  slot = htab_find_slot_with_hash (htab, store, HASH_REG (store),
-					   NO_INSERT);
-	  if (slot)
-	    htab_clear_slot (htab, slot);
+	  oper = pool_alloc (operation_pool);
+	  oper->next = bbi->operation_list;
+	  oper->type = UNKNOWN_TO_REG;
+	  oper->dst = set_dst;
+	  bbi->operation_list = oper;
 	  return;
 	}
 
-      mask = (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (set_dst));
       set_src = SET_SRC (pattern);
       switch (GET_CODE (set_src))
 	{
 	  case REG:
-	    src_r = htab_find_with_hash (htab, set_src, HASH_REG (set_src));
-	    if (src_r)
-	      {
-		/* Copy the range from SET_SRC to SET_DST.  */
-		slot = htab_find_slot_with_hash (htab, set_dst,
-						 HASH_REG (set_dst), NO_INSERT);
-
-		if (slot)
-		  dst_r = *slot;
-		else
-		  {
-		    dst_r = pool_alloc (range_pool);
-		    slot = htab_find_slot_with_hash (htab, set_dst,
-						     HASH_REG (set_dst),
-						     INSERT);
-		    *slot = dst_r;
-		  }
-
-		*dst_r = *src_r;
-		dst_r->reg = set_dst;
-	      }
-	    else
-	      {
-		/* SET_SRC has a full range.  */
-		slot = htab_find_slot_with_hash (htab, set_dst,
-						 HASH_REG (set_dst),
-						 NO_INSERT);
-		if (slot)
-		  htab_clear_slot (htab, slot);
-	      }
+	    oper = pool_alloc (operation_pool);
+	    oper->next = bbi->operation_list;
+	    oper->type = REG_TO_REG;
+	    oper->dst = set_dst;
+	    oper->src = set_src;
+	    bbi->operation_list = oper;
 	    return;
 
 	  case CONST_INT:
-	    /* Set the range of SET_DST to be a single value.  */
-	    slot = htab_find_slot_with_hash (htab, set_dst,
-					     HASH_REG (set_dst), NO_INSERT);
-	    if (slot)
-	      dst_r = *slot;
-	    else
-	      {
-		dst_r = pool_alloc (range_pool);
-		slot = htab_find_slot_with_hash (htab, set_dst,
-						 HASH_REG (set_dst), INSERT);
-		*slot = dst_r;
-	      }
-
-	    /* We do not know whether the constant is signed or unsigned.  */
-	    dst_r->type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
-	    dst_r->reg = set_dst;
-	    dst_r->from.si = INTVAL (set_src);
-	    dst_r->to.si = INTVAL (set_src);
-	    dst_r->from.ui = (unsigned HOST_WIDE_INT) INTVAL (set_src) & mask;
-	    dst_r->to.ui = (unsigned HOST_WIDE_INT) INTVAL (set_src) & mask;
+	    oper = pool_alloc (operation_pool);
+	    oper->next = bbi->operation_list;
+	    oper->type = CONST_INT_TO_REG;
+	    oper->dst = set_dst;
+	    oper->src = set_src;
+	    bbi->operation_list = oper;
 	    return;
 
 	  default:
-	    /* We do not know how the range changes so make it to be
-	       a full range.  */
-	    slot = htab_find_slot_with_hash (htab, set_dst,
-					     HASH_REG (set_dst), NO_INSERT);
-	    if (slot)
-	      htab_clear_slot (htab, slot);
+	    oper = pool_alloc (operation_pool);
+	    oper->next = bbi->operation_list;
+	    oper->type = UNKNOWN_TO_REG;
+	    oper->dst = set_dst;
+	    bbi->operation_list = oper;
 	    return;
+	}
+    }
+}
+
+/* Find operations in basic block BB and store it to the linked list of
+   operations.  */
+
+static void
+find_operations (bb)
+     basic_block bb;
+{
+  rtx insn;
+  operation oper;
+
+  /* Scan the insns from the end of BB to the beginning of BB because we are
+     adding the opeations to the head of the chain.  */
+  for (insn = bb->end; insn != PREV_INSN (bb->head); insn = PREV_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  note_stores (PATTERN (insn), find_operations_1, BBI (bb));
+	}
+
+      if (GET_CODE (insn) == CALL_INSN)
+	{
+	  /* Set the range to be a full range for the registers
+	     which do not survive during the call.  */
+
+	  oper = pool_alloc (operation_pool);
+	  oper->next = BBI (bb)->operation_list;
+	  oper->type = CLOBBER_CALL_USED_REGS;
+	  BBI (bb)->operation_list = oper;
 	}
     }
 }
@@ -1317,23 +1327,90 @@ compute_ranges_for_bb (bb)
 {
   bool changed;
   htab_t new_out;
-  rtx insn;
+  operation oper;
+  range_t *dst_r, *src_r;
+  unsigned HOST_WIDE_INT mask;
+  void **slot;
 
   new_out = htab_create (BBI (bb)->in->n_elements, range_hash, range_eq,
 			 range_del);
   copy_register_table (new_out, BBI (bb)->in);
 
-  for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+  for (oper = BBI (bb)->operation_list; oper; oper = oper->next)
     {
-      if (GET_CODE (insn) == CALL_INSN)
+      switch (oper->type)
 	{
-	  /* Set the range to be a full range for the registers
-	     which do not survive during the call.  */
-	  htab_traverse (new_out, delete_call_used_regs, new_out);
-	}
-      if (INSN_P (insn))
-	{
-	  note_stores (PATTERN (insn), compute_ranges_for_insn, new_out);
+
+	  case CLOBBER_CALL_USED_REGS:
+	    htab_traverse (new_out, delete_call_used_regs, new_out);
+	    break;
+
+	  case UNKNOWN_TO_REG:
+	    slot = htab_find_slot_with_hash (new_out, oper->dst,
+					     HASH_REG (oper->dst), NO_INSERT);
+	    if (slot)
+	      htab_clear_slot (new_out, slot);
+	    break;
+
+	  case REG_TO_REG:
+	    src_r = htab_find_with_hash (new_out, oper->src,
+					 HASH_REG (oper->src));
+	    if (src_r)
+	      {
+		/* Copy the range from SET_SRC to SET_DST.  */
+		slot = htab_find_slot_with_hash (new_out, oper->dst,
+						 HASH_REG (oper->dst),
+						 NO_INSERT);
+
+		if (slot)
+		  dst_r = *slot;
+		else
+		  {
+		    dst_r = pool_alloc (range_pool);
+		    slot = htab_find_slot_with_hash (new_out, oper->dst,
+						     HASH_REG (oper->dst),
+						     INSERT);
+		    *slot = dst_r;
+		  }
+
+		*dst_r = *src_r;
+		dst_r->reg = oper->dst;
+	      }
+	    else
+	      {
+		/* SET_SRC has a full range.  */
+		slot = htab_find_slot_with_hash (new_out, oper->dst,
+						 HASH_REG (oper->dst),
+						 NO_INSERT);
+		if (slot)
+		  htab_clear_slot (new_out, slot);
+	      }
+	    break;
+
+	  case CONST_INT_TO_REG:
+	    mask
+	      = (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (oper->dst));
+	    /* Set the range of SET_DST to be a single value.  */
+	    slot = htab_find_slot_with_hash (new_out, oper->dst,
+					     HASH_REG (oper->dst), NO_INSERT);
+	    if (slot)
+	      dst_r = *slot;
+	    else
+	      {
+		dst_r = pool_alloc (range_pool);
+		slot = htab_find_slot_with_hash (new_out, oper->dst,
+						 HASH_REG (oper->dst), INSERT);
+		*slot = dst_r;
+	      }
+
+	    /* We do not know whether the constant is signed or unsigned.  */
+	    dst_r->type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
+	    dst_r->reg = oper->dst;
+	    dst_r->from.si = INTVAL (oper->src);
+	    dst_r->to.si = INTVAL (oper->src);
+	    dst_r->from.ui = (unsigned HOST_WIDE_INT) INTVAL (oper->src) & mask;
+	    dst_r->to.ui = (unsigned HOST_WIDE_INT) INTVAL (oper->src) & mask;
+	    break;
 	}
     }
 
@@ -1622,21 +1699,26 @@ value_range_propagation ()
   int i;
 
   /* Initialization.  */
+  operation_pool = create_alloc_pool ("operation",
+				      sizeof (struct operation_def), 1000);
   range_pool = create_alloc_pool ("range_t", sizeof (range_t), 250);
   alloc_aux_for_blocks (sizeof (bb_info));
   alloc_aux_for_edges (sizeof (edge_info));
 
   FOR_ALL_BB (bb)
     {
-      if (bb != ENTRY_BLOCK_PTR && bb != EXIT_BLOCK_PTR)
-	BBI (bb)->cond = get_condition (bb->end, NULL);
-      else
-	BBI (bb)->cond = NULL;
-
+      BBI (bb)->operation_list = NULL;
       BBI (bb)->in = htab_create (5, range_hash, range_eq, range_del);
       BBI (bb)->out = htab_create (5, range_hash, range_eq, range_del);
       for (e = bb->succ; e; e = e->succ_next)
 	EI (e)->htab = htab_create (5, range_hash, range_eq, range_del);
+    }
+  BBI (ENTRY_BLOCK_PTR)->cond = NULL;
+  BBI (EXIT_BLOCK_PTR)->cond = NULL;
+  FOR_EACH_BB (bb)
+    {
+      BBI (bb)->cond = get_condition (bb->end, NULL);
+      find_operations (bb);
     }
 
   /* Compute reverse completion order of depth first search of the CFG
@@ -1689,6 +1771,7 @@ value_range_propagation ()
   free_aux_for_edges ();
   free_aux_for_blocks ();
   free_alloc_pool (range_pool);
+  free_alloc_pool (operation_pool);
 
   return modified;
 }
