@@ -202,6 +202,9 @@ append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
   tree list = *list_p;
   tree_stmt_iterator i;
 
+  if (!side_effects)
+    return;
+
   if (!list)
     {
       if (t && TREE_CODE (t) == STATEMENT_LIST)
@@ -211,9 +214,6 @@ append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
 	}
       *list_p = list = alloc_stmt_list ();
     }
-
-  if (!side_effects)
-    return;
 
   i = tsi_last (list);
   tsi_link_after (&i, t, TSI_CONTINUE_LINKING);
@@ -282,7 +282,7 @@ create_artificial_label (void)
   return lab;
 }
 
-/* Create a new temporary name with PREFIX.  Returns an indentifier.  */
+/* Create a new temporary name with PREFIX.  Returns an identifier.  */
 
 static GTY(()) unsigned int tmp_var_id_num;
 
@@ -797,7 +797,7 @@ voidify_wrapper_expr (tree wrapper)
 }
 
 /* Prepare calls to builtins to SAVE and RESTORE the stack as well as
-   temporary through that they comunicate.  */
+   a temporary through which they communicate.  */
 
 static void
 build_stack_save_restore (tree *save, tree *restore)
@@ -994,6 +994,37 @@ compare_case_labels (const void *p1, const void *p2)
   return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
 }
 
+/* Sort the case labels in LABEL_VEC in ascending order.  */
+
+void
+sort_case_labels (tree label_vec)
+{
+  size_t len = TREE_VEC_LENGTH (label_vec);
+  tree default_case = TREE_VEC_ELT (label_vec, len - 1);
+
+  if (CASE_LOW (default_case))
+    {
+      size_t i;
+
+      /* The last label in the vector should be the default case
+         but it is not.  */
+      for (i = 0; i < len; ++i)
+	{
+	  tree t = TREE_VEC_ELT (label_vec, i);
+	  if (!CASE_LOW (t))
+	    {
+	      default_case = t;
+	      TREE_VEC_ELT (label_vec, i) = TREE_VEC_ELT (label_vec, len - 1);
+	      TREE_VEC_ELT (label_vec, len - 1) = default_case;
+	      break;
+	    }
+	}
+    }
+
+  qsort (&TREE_VEC_ELT (label_vec, 0), len - 1, sizeof (tree),
+	 compare_case_labels);
+}
+
 /* Gimplify a SWITCH_EXPR, and collect a TREE_VEC of the labels it can
    branch to.  */
 
@@ -1057,11 +1088,11 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
       else
 	*expr_p = SWITCH_BODY (switch_expr);
 
-      qsort (&VARRAY_TREE (labels, 0), len, sizeof (tree),
-	     compare_case_labels);
       for (i = 0; i < len; ++i)
 	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
       TREE_VEC_ELT (label_vec, len) = default_case;
+
+      sort_case_labels (label_vec);
 
       SWITCH_BODY (switch_expr) = NULL;
     }
@@ -1310,7 +1341,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	/* ??? This bit ought not be needed.  For any element not present
 	   in the initializer, we should simply set them to zero.  Except
 	   we'd need to *find* the elements that are not present, and that
-	   requires trickery to avoid quadratic compile-time behaviour in
+	   requires trickery to avoid quadratic compile-time behavior in
 	   large cases or excessive memory use in small cases.  */
 	else
 	  {
@@ -2189,7 +2220,7 @@ shortcut_cond_expr (tree expr)
       else_ = build_empty_stmt ();
     }
 
-  /* If we aren't hijacking a label for the 'then' branch, it falls through. */
+  /* If we aren't hijacking a label for the 'then' branch, it falls through.  */
   if (true_label)
     true_label_p = &true_label;
   else
@@ -2600,7 +2631,7 @@ gimplify_compound_expr (tree *expr_p, tree *pre_p, bool want_value)
 }
 
 /* Gimplifies a statement list.  These may be created either by an
-   enlightend front-end, or by shortcut_cond_expr.  */
+   enlightened front-end, or by shortcut_cond_expr.  */
 
 static enum gimplify_status
 gimplify_statement_list (tree *expr_p)
@@ -3023,7 +3054,7 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 /* Gimplification of expression trees.  */
 
 /* Gimplify an expression which appears at statement context; usually, this
-   means replacing it with a suitably gimple COMPOUND_EXPR.  */
+   means replacing it with a suitably gimple STATEMENT_LIST.  */
 
 void
 gimplify_stmt (tree *stmt_p)
@@ -3042,7 +3073,7 @@ gimplify_to_stmt_list (tree *stmt_p)
   if (TREE_CODE (*stmt_p) != STATEMENT_LIST)
     {
       tree t = *stmt_p;
-      *stmt_p = NULL;
+      *stmt_p = alloc_stmt_list ();
       append_to_statement_list (t, stmt_p);
     }
 }
@@ -3526,10 +3557,13 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      gimplified form.  */
   if (is_statement)
     {
-      append_to_statement_list (*expr_p, &internal_pre);
-      append_to_statement_list (internal_post, &internal_pre);
-      annotate_all_with_locus (&internal_pre, input_location);
-      *expr_p = internal_pre;
+      if (internal_pre || internal_post)
+	{
+	  append_to_statement_list (*expr_p, &internal_pre);
+	  append_to_statement_list (internal_post, &internal_pre);
+	  annotate_all_with_locus (&internal_pre, input_location);
+	  *expr_p = internal_pre;
+	}
       goto out;
     }
 
@@ -3725,7 +3759,7 @@ gimplify_body (tree *body_p, tree fndecl)
       tree b = build (BIND_EXPR, void_type_node, NULL_TREE,
 		      NULL_TREE, NULL_TREE);
       TREE_SIDE_EFFECTS (b) = 1;
-      append_to_statement_list (body, &BIND_EXPR_BODY (b));
+      append_to_statement_list_force (body, &BIND_EXPR_BODY (b));
       body = b;
     }
   *body_p = body;

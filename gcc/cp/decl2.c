@@ -451,6 +451,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       t = build_min (DELETE_EXPR, void_type_node, exp, size);
       DELETE_EXPR_USE_GLOBAL (t) = use_global_delete;
       DELETE_EXPR_USE_VEC (t) = doing_vec;
+      TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
 
@@ -1421,7 +1422,7 @@ comdat_linkage (tree decl)
    linkonce sections, so that they will be merged with implicit
    instantiations; otherwise we get duplicate symbol errors.  
    For Darwin we do not want explicit instantiations to be 
-   linkonce. */
+   linkonce.  */
 
 void
 maybe_make_one_only (tree decl)
@@ -3068,7 +3069,7 @@ mark_used (tree decl)
 		  information.  */
 	       || cp_function_chain->can_throw);
 
-      instantiate_decl (decl, defer);
+      instantiate_decl (decl, defer, /*undefined_ok=*/0);
     }
 }
 

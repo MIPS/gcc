@@ -199,10 +199,13 @@ qualify_type (tree type, tree like)
 				 TYPE_QUALS (type) | TYPE_QUALS (like));
 }
 
-/* Return the common type of two types.
-   We assume that comptypes has already been done and returned 1;
-   if that isn't so, this may crash.  In particular, we assume that qualifiers
-   match.
+/* Return the composite type of two compatible types, or the common
+   type for two arithmetic types under the usual arithmetic
+   conversions.
+
+   Unless both types are arithmetic types, we assume that comptypes
+   has already been done and returned 1; if that isn't so, this may
+   crash.  In particular, we assume that qualifiers match.
 
    This is the type for the result of most arithmetic operations
    if the operands have the given two types.  */
@@ -276,45 +279,64 @@ common_type (tree t1, tree t2)
 
       /* Same precision.  Prefer long longs to longs to ints when the
 	 same precision, following the C99 rules on integer type rank
-	 (which are equivalent to the C90 rules for C90 types).  */
+	 (which are equivalent to the C90 rules for C90 types).
+	 Make sure that we don't lose the type qualifications when
+	 creating the new variant.  */
 
       if (TYPE_MAIN_VARIANT (t1) == long_long_unsigned_type_node
 	  || TYPE_MAIN_VARIANT (t2) == long_long_unsigned_type_node)
-	return build_type_attribute_variant (long_long_unsigned_type_node,
-					     attributes);
+	{
+	  t1 = build_qualified_type (long_long_unsigned_type_node,
+				     TYPE_QUALS (t1));
+	  return build_type_attribute_variant (t1, attributes);
+	}
 
       if (TYPE_MAIN_VARIANT (t1) == long_long_integer_type_node
 	  || TYPE_MAIN_VARIANT (t2) == long_long_integer_type_node)
 	{
+	  tree ntype;
+
 	  if (TYPE_UNSIGNED (t1) || TYPE_UNSIGNED (t2))
-	     t1 = long_long_unsigned_type_node;
+	     ntype = long_long_unsigned_type_node;
 	  else
-	     t1 = long_long_integer_type_node;
-	  return build_type_attribute_variant (t1, attributes);
+	     ntype = long_long_integer_type_node;
+
+	  ntype = build_qualified_type (ntype, TYPE_QUALS (t1));
+	  return build_type_attribute_variant (ntype, attributes);
 	}
 
       if (TYPE_MAIN_VARIANT (t1) == long_unsigned_type_node
 	  || TYPE_MAIN_VARIANT (t2) == long_unsigned_type_node)
-	return build_type_attribute_variant (long_unsigned_type_node,
-					     attributes);
+	{
+	  t1 = build_qualified_type (long_unsigned_type_node,
+				     TYPE_QUALS (t1));
+	  return build_type_attribute_variant (t1, attributes);
+	}
 
       if (TYPE_MAIN_VARIANT (t1) == long_integer_type_node
 	  || TYPE_MAIN_VARIANT (t2) == long_integer_type_node)
 	{
+	  tree ntype;
+
 	  /* But preserve unsignedness from the other type,
 	     since long cannot hold all the values of an unsigned int.  */
 	  if (TYPE_UNSIGNED (t1) || TYPE_UNSIGNED (t2))
-	     t1 = long_unsigned_type_node;
+	     ntype = long_unsigned_type_node;
 	  else
-	     t1 = long_integer_type_node;
-	  return build_type_attribute_variant (t1, attributes);
+	     ntype = long_integer_type_node;
+
+	  ntype = build_qualified_type (ntype, TYPE_QUALS (t1));
+	  return build_type_attribute_variant (ntype, attributes);
 	}
 
       /* Likewise, prefer long double to double even if same size.  */
       if (TYPE_MAIN_VARIANT (t1) == long_double_type_node
 	  || TYPE_MAIN_VARIANT (t2) == long_double_type_node)
-	return build_type_attribute_variant (long_double_type_node,
-					     attributes);
+	{
+	  t1 = build_qualified_type (long_double_type_node,
+				     TYPE_QUALS (t1));
+	  return build_type_attribute_variant (t1, attributes);
+	}
 
       /* Otherwise prefer the unsigned one.  */
 
@@ -422,7 +444,7 @@ common_type (tree t1, tree t2)
 		tree memb;
 		for (memb = TYPE_FIELDS (TREE_VALUE (p1));
 		     memb; memb = TREE_CHAIN (memb))
-		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p2), 
+		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p2),
 				 COMPARE_STRICT))
 		    {
 		      TREE_VALUE (n) = TREE_VALUE (p2);
@@ -437,7 +459,7 @@ common_type (tree t1, tree t2)
 		tree memb;
 		for (memb = TYPE_FIELDS (TREE_VALUE (p2));
 		     memb; memb = TREE_CHAIN (memb))
-		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p1), 
+		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p1),
 				 COMPARE_STRICT))
 		    {
 		      TREE_VALUE (n) = TREE_VALUE (p1);
@@ -503,7 +525,8 @@ comptypes (tree type1, tree type2, int flags)
 
   /* Different classes of types can't be compatible.  */
 
-  if (TREE_CODE (t1) != TREE_CODE (t2)) return 0;
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return 0;
 
   /* Qualifiers must match.  */
 
@@ -683,7 +706,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 {
   tree s1, s2;
   bool needs_warning = false;
-  
+
   /* We have to verify that the tags of the types are the same.  This
      is harder than it looks because this may be a typedef, so we have
      to go look at the original type.  It may even be a typedef of a
@@ -703,33 +726,33 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
   /* C90 didn't have the requirement that the two tags be the same.  */
   if (flag_isoc99 && TYPE_NAME (t1) != TYPE_NAME (t2))
     return 0;
-  
+
   /* C90 didn't say what happened if one or both of the types were
      incomplete; we choose to follow C99 rules here, which is that they
      are compatible.  */
   if (TYPE_SIZE (t1) == NULL
       || TYPE_SIZE (t2) == NULL)
     return 1;
-  
+
   {
     const struct tagged_tu_seen * tts_i;
     for (tts_i = tagged_tu_seen_base; tts_i != NULL; tts_i = tts_i->next)
       if (tts_i->t1 == t1 && tts_i->t2 == t2)
 	return 1;
   }
-  
+
   switch (TREE_CODE (t1))
     {
     case ENUMERAL_TYPE:
       {
-      
+
         /* Speed up the case where the type values are in the same order.  */
         tree tv1 = TYPE_VALUES (t1);
         tree tv2 = TYPE_VALUES (t2);
-        
+
         if (tv1 == tv2)
           return 1;
-        
+
         for (;tv1 && tv2; tv1 = TREE_CHAIN (tv1), tv2 = TREE_CHAIN (tv2))
           {
             if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
@@ -737,15 +760,15 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
             if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
               return 0;
           }
-        
+
         if (tv1 == NULL_TREE && tv2 == NULL_TREE)
           return 1;
         if (tv1 == NULL_TREE || tv2 == NULL_TREE)
           return 0;
-        
+
 	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
 	  return 0;
-	
+
 	for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
 	  {
 	    s2 = purpose_member (TREE_PURPOSE (s1), TYPE_VALUES (t2));
@@ -770,7 +793,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 	    tts.t1 = t1;
 	    tts.t2 = t2;
 	    tagged_tu_seen_base = &tts;
-	
+
 	    if (DECL_NAME (s1) != NULL)
 	      for (s2 = TYPE_VALUES (t2); s2; s2 = TREE_CHAIN (s2))
 		if (DECL_NAME (s1) == DECL_NAME (s2))
@@ -781,7 +804,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 		      break;
 		    if (result == 2)
 		      needs_warning = true;
-		    
+
 		    if (TREE_CODE (s1) == FIELD_DECL
 			&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
 					     DECL_FIELD_BIT_OFFSET (s2)) != 1)
@@ -800,13 +823,13 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
     case RECORD_TYPE:
       {
 	struct tagged_tu_seen tts;
-	
+
 	tts.next = tagged_tu_seen_base;
 	tts.t1 = t1;
 	tts.t2 = t2;
 	tagged_tu_seen_base = &tts;
-	  
-	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2); 
+
+	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2);
 	     s1 && s2;
 	     s1 = TREE_CHAIN (s1), s2 = TREE_CHAIN (s2))
 	  {
@@ -819,7 +842,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
 	      break;
 	    if (result == 2)
 	      needs_warning = true;
-	    
+
 	    if (TREE_CODE (s1) == FIELD_DECL
 		&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
 				     DECL_FIELD_BIT_OFFSET (s2)) != 1)
@@ -1343,6 +1366,9 @@ build_component_ref (tree datum, tree component)
   enum tree_code code = TREE_CODE (type);
   tree field = NULL;
   tree ref;
+
+  if (!objc_is_public (datum, component))
+    return error_mark_node;
 
   /* If DATUM is a COMPOUND_EXPR, move our reference inside it.
      Ensure that the arguments are not lvalues; otherwise,
@@ -4313,7 +4339,7 @@ finish_init (void)
 
   /* Pop back to the data of the outer initializer (if any).  */
   free (spelling_base);
-  
+
   constructor_decl = p->decl;
   constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
@@ -6798,6 +6824,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
       build_type = integer_type_node;
       if (code0 != REAL_TYPE || code1 != REAL_TYPE)
 	{
@@ -7110,3 +7137,30 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   }
 }
 
+/* Build the result of __builtin_offsetof.  TYPE is the first argument to
+   offsetof, i.e. a type.  LIST is a tree_list that encodes component and
+   array references; PURPOSE is set for the former and VALUE is set for
+   the later.  */
+
+tree
+build_offsetof (tree type, tree list)
+{
+  tree t;
+
+  /* Build "*(type *)0".  */
+  t = convert (build_pointer_type (type), null_pointer_node);
+  t = build_indirect_ref (t, "");
+
+  /* Build COMPONENT and ARRAY_REF expressions as needed.  */
+  for (list = nreverse (list); list ; list = TREE_CHAIN (list))
+    if (TREE_PURPOSE (list))
+      t = build_component_ref (t, TREE_PURPOSE (list));
+    else
+      t = build_array_ref (t, TREE_VALUE (list));
+
+  /* Finalize the offsetof expression.  For now all we need to do is take
+     the address of the expression we created, and cast that to an integer
+     type; this mirrors the traditional macro implementation of offsetof.  */
+  t = build_unary_op (ADDR_EXPR, t, 0);
+  return convert (size_type_node, t);
+}

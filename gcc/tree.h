@@ -35,7 +35,7 @@ enum tree_code {
 #include "tree.def"
 
   LAST_AND_UNUSED_TREE_CODE	/* A convenient way to get a value for
-				   NUM_TREE_CODE.  */
+				   NUM_TREE_CODES.  */
 };
 
 #undef DEFTREECODE
@@ -54,7 +54,7 @@ enum tree_code {
 extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
-/* Returns nonzero iff CLASS is not the tree code of a type. */
+/* Returns nonzero iff CLASS is not the tree code of a type.  */
 
 #define IS_NON_TYPE_CODE_CLASS(CLASS) (strchr ("xbcdr<12se", (CLASS)) != 0)
 
@@ -1008,7 +1008,7 @@ struct tree_vec GTY(())
 
 /* Define fields and accessors for some nodes that represent expressions.  */
 
-/* Non-zero if NODE is an emtpy statement (NOP_EXPR <0>).  */
+/* Nonzero if NODE is an empty statement (NOP_EXPR <0>).  */
 #define IS_EMPTY_STMT(NODE)	(TREE_CODE (NODE) == NOP_EXPR \
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
@@ -1245,7 +1245,7 @@ struct tree_eref_common GTY(())
   /* SSAPRE: The statement associated with this expression reference.  */
   tree stmt;
   
-  /* SSAPRE: True if expression needs to be saved to a temporary. */
+  /* SSAPRE: True if expression needs to be saved to a temporary.  */
   unsigned int save:1;
   
   /* SSAPRE: True if expression needs to be reloaded from a temporary.  */
@@ -1254,7 +1254,7 @@ struct tree_eref_common GTY(())
   /* SSAPRE: Redundancy class of expression.  */
   unsigned int class;
   
-  /* SSAPRE: Processed flag 1. */
+  /* SSAPRE: Processed flag 1.  */
   unsigned int processed:1;
 
   /* SSAPRE: True if expression is injured.  */
@@ -1269,10 +1269,10 @@ struct tree_euse_node GTY(())
 {
   struct tree_eref_common common;
   
-  /* SSAPRE: Definition for this use. */
+  /* SSAPRE: Definition for this use.  */
   tree def;
   
-  /* SSAPRE: True if this is an EPHI operand occurrence. */
+  /* SSAPRE: True if this is an EPHI operand occurrence.  */
   unsigned int op_occurrence:1;
   
   /* SSAPRE: True if expression was inserted as a PHI operand occurrence.  */
@@ -1287,7 +1287,7 @@ struct ephi_arg_d GTY(())
   /* SSAPRE: True if this phi argument is injured.  */
   unsigned int injured:1;
 
-  /* SSAPRE: True if there is a real occurrence for this phi argument. */
+  /* SSAPRE: True if there is a real occurrence for this phi argument.  */
   unsigned int has_real_use:1;
 
   /* SSAPRE: True if delayed renaming is required on this phi argument.  */
@@ -1299,7 +1299,7 @@ struct ephi_arg_d GTY(())
   /* SSAPRE: True if this operand stops forward movement.  */
   unsigned int stops:1;
  
-  /* SSAPRE: Definition of this phi operand. */
+  /* SSAPRE: Definition of this phi operand.  */
   tree def;
   
   /* SSAPRE: Phi predecessor for this phi operand.  */
@@ -1317,10 +1317,10 @@ struct tree_ephi_node GTY(())
   /* SSAPRE: True if PHI is cant_be_avail.  */
   unsigned int cant_be_avail:1;
 
-  /* SSAPRE: True if PHI is dead. */
+  /* SSAPRE: True if PHI is dead.  */
   unsigned int dead:1;
   
-  /* SSAPRE: True if PHI is pointless or identical to some value. */
+  /* SSAPRE: True if PHI is pointless or identical to some value.  */
   unsigned int identity:1;
 
   /* SSAPRE: True if replacing occurrence known for ESSA minimization.  */
@@ -2184,7 +2184,7 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET(NODE) \
   (DECL_CHECK (NODE)->decl.pointer_alias_set)
 
-/* Used to store the alias_var for a DECL node. */
+/* Used to store the alias_var for a DECL node.  */
 #define DECL_PTA_ALIASVAR(NODE) \
   (DECL_CHECK (NODE)->decl.alias_var)
 
@@ -3675,6 +3675,7 @@ extern tree create_artificial_label (void);
 extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
+extern void sort_case_labels (tree);
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */
@@ -3734,7 +3735,7 @@ enum tree_dump_index
   TDI_expand,			/* dump RTL expansion of each function */
   TDI_vcg,			/* create a VCG graph file for each 
 				   function's flowgraph.  */
-  TDI_xml,                      /* dump function call graph.   */
+  TDI_xml,                      /* dump function call graph.  */
   TDI_all,			/* enable all the dumps.  */
   TDI_end
 };

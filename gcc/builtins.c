@@ -158,6 +158,7 @@ static tree fold_builtin_mempcpy (tree);
 static tree fold_builtin_memmove (tree);
 static tree fold_builtin_strcpy (tree);
 static tree fold_builtin_strncpy (tree);
+static tree fold_builtin_strchr (tree, bool);
 static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
@@ -2002,7 +2003,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
     errno_set = false;
 
   /* Check if sincos insn is available, otherwise fallback
-     to sin or cos insn. */
+     to sin or cos insn.  */
   if (builtin_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing) {
     switch (DECL_FUNCTION_CODE (fndecl))
       {
@@ -7093,6 +7094,62 @@ fold_builtin_strncpy (tree exp)
   return 0;
 }
 
+/* Fold function call to builtin strchr and strrchr.
+   Return NULL_TREE if no simplification can be made.  */
+
+static tree
+fold_builtin_strchr (tree exp, bool actually_strrchr)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree s1 = TREE_VALUE (arglist), s2 = TREE_VALUE (TREE_CHAIN (arglist));
+      const char *p1;
+
+      if (TREE_CODE (s2) != INTEGER_CST)
+	return 0;
+
+      p1 = c_getstr (s1);
+      if (p1 != NULL)
+	{
+	  char c;
+	  const char *r;
+
+	  if (target_char_cast (s2, &c))
+	    return 0;
+
+	  r = actually_strrchr ? strrchr (p1, c) : strchr (p1, c);
+
+	  if (r == NULL)
+	    return fold_convert (TREE_TYPE (s1), integer_zero_node);
+
+	  /* Return an offset into the constant string argument.  */
+	  return fold (build2 (PLUS_EXPR, TREE_TYPE (s1),
+			       s1, fold_convert (TREE_TYPE (s1),
+						 ssize_int (r - p1))));
+	}
+
+      if (actually_strrchr)
+	{
+	  tree fn;
+
+	  if (!integer_zerop (s2))
+	    return 0;
+
+	  fn = implicit_built_in_decls[BUILT_IN_STRCHR];
+	  if (!fn)
+	    return 0;
+
+	  /* Transform strrchr(s1, '\0') to strchr(s1, '\0').  */
+	  return build_function_call_expr (fn, arglist);
+	}
+
+      return 0;
+    }
+}
+
 /* Fold function call to builtin memcmp.  Return
    NULL_TREE if no simplification can be made.  */
 
@@ -7803,6 +7860,14 @@ fold_builtin_1 (tree exp)
 
     case BUILT_IN_STRNCPY:
       return fold_builtin_strncpy (exp);
+
+    case BUILT_IN_INDEX:
+    case BUILT_IN_STRCHR:
+      return fold_builtin_strchr (exp, false);
+
+    case BUILT_IN_RINDEX:
+    case BUILT_IN_STRRCHR:
+      return fold_builtin_strchr (exp, true);
 
     case BUILT_IN_MEMCMP:
       return fold_builtin_memcmp (exp);
@@ -8901,7 +8966,7 @@ simplify_builtin_fputs (tree arglist, int ignore, int unlocked, tree known_len)
       {
 	tree string_arg;
 
-	/* If optimizing for size keep fputs. */
+	/* If optimizing for size keep fputs.  */
 	if (optimize_size)
 	  return 0;
 	string_arg = TREE_VALUE (arglist);

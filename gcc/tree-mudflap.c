@@ -115,7 +115,7 @@ mf_varname_tree (tree decl)
     }
   pp_clear_output_area (buf);
 
-  /* Add FILENAME[:LINENUMBER]. */
+  /* Add FILENAME[:LINENUMBER].  */
   {
     const char *sourcefile;
     unsigned sourceline;
@@ -800,7 +800,7 @@ execute_mudflap_function_decls (void)
 
 /* This struct is passed between mf_xform_decls to store state needed
    during the traversal searching for objects that have their
-   addresses taken. */
+   addresses taken.  */
 struct mf_xform_decls_data
 {
   tree param_decls;
@@ -842,7 +842,7 @@ mx_register_decls (tree decl, tree *stmt_list)
                  method by which VLA declarations turn into calls to
                  BUILT_IN_STACK_ALLOC.  We assume that multiple
                  VLAs declared later in the same block get allocation 
-                 code later than the others. */
+                 code later than the others.  */
               tree stack_alloc_call = NULL_TREE;
 
               while(! tsi_end_p (initially_stmts))
@@ -880,7 +880,7 @@ mx_register_decls (tree decl, tree *stmt_list)
                               /* Got it! */
                               size = stack_alloc_op2;
                               stack_alloc_call = call;
-                              /* Advance iterator to point past this allocation call. */
+                              /* Advance iterator to point past this allocation call.  */
                               tsi_next (&initially_stmts);
                               break;
                             }
@@ -944,7 +944,7 @@ mx_register_decls (tree decl, tree *stmt_list)
             internal_error ("mudflap ran off end of BIND_EXPR body");
           tsi_link_before (&initially_stmts, register_fncall, TSI_SAME_STMT);
 
-          /* Accumulate the FINALLY piece. */
+          /* Accumulate the FINALLY piece.  */
           append_to_statement_list (unregister_fncall, &finally_stmts);
 
           mf_mark (decl);

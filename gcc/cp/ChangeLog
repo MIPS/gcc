@@ -1,3 +1,168 @@
+2004-06-02  Matt Austern  <austern@apple.com>
+
+	* cp-tree.h (instantiate_decl): new boolean parameter,
+	undefined_ok. Current behavior is equivalent to its being 0.
+	* decl2.c (mark_used): Add new argument when calling instantiate_decl
+	* pt.c (mark_decl_instantiated): Unconditionally make
+	instantiations explicit unconditionally
+	(do_decl_instantiation): Don't call SET_DECL_EXPLICIT_INSTANTIATION,
+	since mark_decl_instantiated now does it.
+	(instantiate_class_member): New.  Instantiate a member of an
+	explicitly instantiated class template.
+	(do_type_instantiation): Explicitly instantiate members of an
+	explicitly instantiated class template.
+	(instantiate_decl): if undefined_ok is nonzero, and if we're
+	trying to explicitly instantiated a template with no definition,
+	change it to an implicit instantiation.
+	(instantiate_pending_templates): Add new argument to instantiate_decl.
+	* tree.c (cp_cannot_inline_tree_fn): Likewise.
+	
+2004-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* cp-tree.h: Fix typo.
+
+	* cp-tree.h: Include cgraph.h
+	(DECL_NEEDED_P): Use cgraph_*node on the decl instead of
+	TREE_SYMBOL_REFERENCED on the DECL_ASSEMBLER_NAME of the decl.
+
+2004-06-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15142
+	* call.c (call_builtin_trap): Remove type parm.
+	(convert_arg_to_ellipsis): Change a non-POD argument to integer type.
+	(build_x_va_arg): Dereference a null pointer for a non-POD argument.
+
+2004-06-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* init.c (build_offset_ref): Build SCOPE_REF with non-null
+	TREE_TYPE for non-dependent names.
+	* pt.c (type_dependent_expression_p): Handle SCOPE_REF with
+	unknown_type_node as its TREE_TYPE.
+	* cxx-pretty_print.c (pp_cxx_unqualified_id): Handle BASELINK.
+	* error.c (dump_decl) <SCOPE_REF case>: Use pp_expression.
+	(dump_expr) <SCOPE_REF case>: Likewise.
+
+2004-06-01  Richard Henderson  <rth@redhat.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* lex.c (reswords): Rename "__offsetof" to "__builtin_offsetof".
+	* parser.c (struct cp_parser): Remove in_offsetof.
+	(cp_parser_new): Don't set it.
+	(cp_parser_unary_expression): Don't check it.
+	(cp_parser_postfix_open_square_expression): Split out from ...
+	(cp_parser_postfix_expression): ... here.
+	(cp_parser_postfix_dot_deref_expression): Likewise.
+	(cp_parser_builtin_offsetof): New.
+	(cp_parser_primary_expression): Use it.
+
+2004-06-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14932
+	* parser.c (cp_parser_postfix_expression): Allow subscript
+	operator in offsetof.
+
+2004-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15701
+	* friend.c (add_friend): Do not try to perform access checks for
+	functions from dependent classes.
+
+2004-05-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cxx-pretty-print.c (pp_cxx_colon_colon): Expor.
+	(pp_cxx_begin_template_argument_list): Turn into a function.
+	(pp_cxx_end_template_argument_list): Likewise.
+	(pp_cxx_separate_with): Define.
+	(pp_cxx_unqualified_id): Tidy.
+	(pp_cxx_primary_expression): Likewise.
+	(pp_cxx_postfix_expression): Likewise.
+	(pp_cxx_expression): Likewise.
+	(pp_cxx_simple_type_specifier): Likewise.
+	(pp_cxx_type_specifier_seq): Likewise.
+	(pp_cxx_parameter_declaration_clause): Likewise.
+	(pp_cxx_exception_specification): Likewise.
+	(pp_cxx_direct_declarator): Likewise.
+	(pp_cxx_type_id): Likewise.
+	* cxx-pretty-print.h (pp_cxx_whitespace): Export from
+	cxx-pretty-print.c.
+	(pp_cxx_left_paren): Likewise.
+	(pp_cxx_right_paren): Likewise.
+	(pp_cxx_left_brace): Likewise.
+	(pp_cxx_right_brace): Likewise.
+	(pp_cxx_left_bracket): Likewise.
+	(pp_cxx_right_bracket): Likewise.
+	(pp_cxx_dot): Likewise.
+	(pp_cxx_identifier): Likewise.
+	(pp_cxx_tree_identifier): Likewise.
+	(pp_cxx_ampersand): New macro.
+	(pp_cxx_star): Likewise.
+	(pp_cxx_arrow): Likewise.
+	(pp_cxx_semicolon): Likewise.
+	(pp_cxx_complement): Likewise.
+	(pp_cxx_begin_template_argument_list): Declaree.
+	(pp_cxx_end_template_argument_list): Likewise.
+	(pp_cxx_colon_colon): likewise.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* parser.c (cp_parser_simple_type_specifier): Explicitly test
+	against NULL_TREE.
+
+2004-05-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c, class.c, cp-tree.def, decl2.c, name-lookup.c, pt.c,
+	typeck.c: Fix comment formatting.
+
+2004-05-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* cp-lang.c (cp_expand_decl): Remove.
+	(LANG_HOOKS_EXPAND_DECL): Use c_expand_decl.
+
+2004-05-30  Andreas Jaeger  <aj@suse.de>
+
+	* lang-specs.h: Add missing initializers for .ii.
+
+2004-05-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* decl.c (cp_make_fname_decl): Free return value from
+	fname_as_string.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15083
+	* decl2.c (delete_sanity): Set TREE_SIDE_EFFECTS on a DELETE_EXPR,
+	even in a templat.e
+	* init.c (build_new): Likewise.
+
+	PR c++/15640
+	* name-lookup.c (arg_assoc): Robustify.
+
+	PR c++/15471
+	* typeck.c (unary_complex_lvalue): Use context_for_name_lookup
+	when determining the scope to use for a pointer to member.
+	(lookup_anon_field): Give it external linkage.
+	* cp-tree.h (lookup_anon_field): Declare it.
+	* expr.c (cplus_expand_constant): Use it.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14668
+	* parser.c (cp_parser_simple_type_specifier): Call
+	maybe_note_name_used_in_class.
+
+2004-05-28  Tom Marshall  <tmarshall@real.com>
+
+	PR c++/15214
+	* class.c (finish_struct_1): Warn only if the dtor is non-private or
+	the class has friends.
+
+2004-05-27  Adam Nemet  <anemet@lnxw.com>
+
+	PR c++/12883
+	* decl.c (complete_array_type): Set TYPE_NEEDS_CONSTRUCTING and
+	TYPE_HAS_NONTRIVIAL_DESTRUCTOR based on the underlying type.
+
 2004-05-24  Geoffrey Keating  <geoffk@apple.com>
 
 	* method.c (implicitly_declare_fn): Don't call defer_fn; abort
@@ -1470,7 +1635,7 @@
 2004-01-14  Danny Smith  <dannysmith@users,sourceforge.net>
 
 	PR c++/9021
-  	PR c++/11005
+	PR c++/11005
 	* parser.c (cp_parser_elaborated_type_specifier): Warn about
 	attributes and discard.
 	* decl.c (xref_tag): Don't overwite existing attributes with

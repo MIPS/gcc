@@ -54,7 +54,6 @@ static int comp_ptr_ttypes_const (tree, tree);
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (tree, tree, bool);
 static tree common_base_type (tree, tree);
-static tree lookup_anon_field (tree, tree);
 static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, int);
 static void casts_away_constness_r (tree *, tree *);
@@ -1027,7 +1026,7 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      /* Fall through. */
+      /* Fall through.  */
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -1293,6 +1292,33 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
 }
   
 
+/* EXPR is being used in a context that is not a function call.
+   Enforce:
+
+     [expr.ref] 
+
+     The expression can be used only as the left-hand operand of a
+     member function call.  
+
+     [expr.mptr.operator]
+
+     If the result of .* or ->* is a function, then that result can be
+     used only as the operand for the function call operator ().  
+
+   by issuing an error message if appropriate.  Returns true iff EXPR
+   violates these rules.  */
+
+bool
+invalid_nonstatic_memfn_p (tree expr)
+{
+  if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
+    {
+      error ("invalid use of non-static member function");
+      return true;
+    }
+  return false;
+}
+
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
    function-to-pointer conversions.
@@ -1345,11 +1371,8 @@ decay_conversion (tree exp)
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (code == METHOD_TYPE)
-    {
-      error ("invalid use of non-static member function");
-      return error_mark_node;
-    }
+  if (invalid_nonstatic_memfn_p (exp))
+    return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -1517,7 +1540,7 @@ rationalize_conditional_expr (enum tree_code code, tree t)
    anonymous unions can nest, we must also search all anonymous unions
    that are directly reachable.  */
 
-static tree
+tree
 lookup_anon_field (tree t, tree type)
 {
   tree field;
@@ -4209,7 +4232,8 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 	      return error_mark_node;
 	    }
 
-	  type = build_ptrmem_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
+	  type = build_ptrmem_type (context_for_name_lookup (t), 
+				    TREE_TYPE (t));
 	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
 	  return t;
 	}
@@ -5994,7 +6018,7 @@ check_return_expr (tree retval)
      returned expression uses the chosen variable somehow.  And people expect
      this restriction, anyway.  (jason 2000-11-19)
 
-     See finish_function and finalize_nrv for the rest of this optimization. */
+     See finish_function and finalize_nrv for the rest of this optimization.  */
 
   if (fn_returns_value_p && flag_elide_constructors)
     {

@@ -1,3 +1,536 @@
+2004-06-02  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_find_edge_insert_loc):  Allow inserting before
+	return_stmt.
+
+2004-06-02  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (TAGS): Don't mess with c-parse.[ch].
+	Do include c-parse.in.
+
+2004-06-02  Eric Christopher  <echristo@redhat.com>
+
+	* c-typeck.c (common_type): Don't lose type qualifiers
+	when creating new variants.
+
+2004-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-optimization/14042
+	PR tree-optimization/14729
+	PR tree-optimization/14736
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1):
+	Check the type which the pointer points to
+	instead of the pointer types.
+
+2004-06-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/15738.
+	* builtins.c (fold_builtin_strchr): Transform
+	strrchr (s, '\0') to strchr (s, '\0').
+
+2004-06-02  Steven Bosscher  <stevenb@suse.de>
+
+	* i386.c (ix86_adjust_cost): Don't increase the cost for
+	load+operation for PROCESSOR_PENTIUMPRO, it is already
+	modelled in the DFA description
+
+2004-06-01  Jerry Quinn  <jlquinn@optonline.net>
+
+	* Makefile.in (EXPR_H): Add insn-config.h, function.h,
+	$(RTL_H), flags.h, $(TREE_H), $(MACHMODE_H), $(EXPR_H).
+	(ALIAS_H, EMIT_RTL_H): New.
+	(cselib.o): Replace EXPR_H with EMIT_RTL_H.
+	(cfgcleanup.o): Add EMIT_RTL_H.
+	(alias.o): Replace EXPR_H with EMIT_RTL_H and ALIAS_H.
+	* alias.c: Replace expr.h with emit-rtl.h and alias.h.
+	* attribs.c, c-lex.c, c-obj-common.c, c-semantics.c: Remove expr.h.
+	* cfgcleanup.c, cselib.c: Replace expr.h with emit-rtl.h.
+	* expr.h: Add include guard.  Include function.h, rtl.h, flags.h,
+	tree.h, machmode.h, insn-config.h, alias.h, emit-rtl.h.
+	(get_varargs_alias_set, get_frame_alias_set, record_base_value,
+	record_alias_subset, new_alias_set, can_address_p): Move to alias.h.
+	(set_mem_alias_set, set_mem_align, set_mem_expr, set_mem_offset,
+	set_mem_size): Move to emit-rtl.h.
+	* emit-rtl.h: New.
+	* alias.h: New.
+
+2004-06-01  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	* function.c (walk_fixup_memory_subreg): New parameter 'var'.
+	Call fixup_memory_subreg only if the MEM is equal to 'var'.
+	Adjust recursive calls to self.
+	(fixup_var_refs_insn): Pass 'var' to walk_fixup_memory_subreg.
+
+2004-06-01  Richard Henderson  <rth@redhat.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-parse.in (OFFSETOF, offsetof_member_designator): New.
+	(primary): Handle offsetof.  Add error productions for faux functions.
+	Move component_ref objc checking to build_component_ref.
+	(reswords): Add offsetof.
+	(rid_to_yy): Add offsetof.
+	* c-tree.h (build_offsetof): Declare.
+	* c-common.h (objc_is_public): Declare.
+	* c-typeck.c (build_component_ref): Check objc_is_public.
+	(build_offsetof): New.
+	* stub-objc.c (objc_is_public): New.
+	* objc/objc-act.c, objc/objc-act.h (objc_is_public): Rename
+	from is_public.
+	* ginclude/stddef.h (offsetof): Use __builtin_offsetof.
+	* doc/extend.texi (Offsetof): Move from C++ section to C section
+	and rewrite for __builtin_offsetof.
+
+2004-06-01  Peter Barada  <peter@the-baradas.com>
+	    Peter Jakubek  <peter@laseranimation.com>
+
+	* config/m68k/m68k.c(m68k_output_mi_thunk):  For ColdFire, use %d0 as
+	a scratch to perform an add to memory.
+
+2004-06-01  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/14018
+	* config/m68k/m68k.c (m68k_align_loops_string, m68k_align_jumps_string,
+	m68k_align_funcs_string, m68k_align_loops, m68k_align_jumps,
+	m68k_align_funcs): Remove.
+	(override_options): Remove code to handle -malign-* options.
+	* config/m68k/m68k.h (TARGET_OPTIONS): Remove -malign-* options.
+	(FUNCTION_BOUNDARY, LOOP_ALIGN, LOOP_ALIGN_AFTER_BARRIER): Remove.
+	(m68k_align_loops_string, m68k_align_jumps_string,
+	m68k_align_funcs_string, m68k_align_loops, m68k_align_jumps,
+	m68k_align_funcs): Remove definitions.
+
+2004-06-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	PR target/15626
+	* doc/install.texi (sparc-sun-solaris2*): Document messages issued
+	by the Sun linker in conjunction with the Sun assembler.
+	(sparc-sun-solaris2.7): Update revision info for Sun patch 106950.
+
+2004-06-01  Jeff Law  <law@redhat.com>
+
+	* stmt.c (expand_decl): Be more selective about calling
+	mark_reg_pointer.
+
+2004-06-01  Nicola Pero  <nicola@brainstorm.co.uk>
+
+ 	PR objc/7993
+	* objc-act.c (is_private): Do not emit the 'instance variable %s
+	is declared private' error.
+	(is_public): Emit the error after calling is_private.
+	(lookup_objc_ivar): If the instance variable is private, return 0
+	- the instance variable is invisible here.
+
+2004-06-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/invoke.texi (-static-libgcc): Explicitly mention
+	non-GNU linkers.
+
+2004-06-01  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/12968
+	* doc/invoke.texi: Document stack alignment side-effect of -mshort.
+
+2004-05-31  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15749
+	* c-decl.c (grokdeclarator, finish_struct): Don't pedwarn for
+	misuses of structures with flexible array members if
+	in_system_header.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/15693
+	* config/sparc/sparc.c (compare_operand): New predicate.
+	* config/sparc/sparc.h (PREDICATE_CODES): Add it.
+	* config/sparc/sparc.md (cmpsi expander): Use it.  If the first
+	operand is a ZERO_EXTRACT and the second operand is not zero,
+	force the former to a register.
+	(cmpdi expander): Likewise.
+
+2004-05-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype-lex.l: Catch stray GTY markers in the files gengtype
+	looks at.
+	* alias.c (alias_invariant_size): Make alias_invariant_size
+	static, fix GTY marker.
+
+2004-05-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR tree-optimization/15743.
+	* builtins.c (fold_builtin_1): Fold index() and rindex().
+
+2004-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/15069
+	* fold-const.c (fold_single_bit_test): Only perform "(X & C) != 0"
+	into "X < 0" (where C is the signbit) if X's type is a full mode.
+
+2004-05-31  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md: Disable the peephole2 patterns that generate indexed
+	floating-point stores when indexing is disabled.
+
+2004-05-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-pretty-print.c (pp_c_left_bracket): Make a function.
+	(pp_c_right_bracket): Likewise.
+	(pp_c_star): Likewise.
+	(pp_c_ampersand): Define.
+	* c-pretty-print.h (pp_c_left_bracket): Declare.
+	(pp_c_right_bracket): Likewise.
+	(pp_c_star): Likewise.
+	(pp_c_ampersand): Likewise.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sol2.h (__enable_execute_stack): ANSIfy function
+	definition.
+
+2004-05-31  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* c-incpath.c (add_path): Canonicalize paths to use '/' if
+	HAVE_DOS_BASED_FILESYSTEM.
+
+2004-05-31  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-ssa-dom.c (record_equivalences_from_incoming_edge):
+	Only look at case labels if the immediate dominator is also
+	the only predecessor.  Don't look for more case labels if the
+	first seen is a case range.
+
+2004-05-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c: Add a prototype for fold_builtin_strchr().
+
+2004-05-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert this patch:
+	2004-05-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (gen_binary): Remove.
+	(known_cond, simplify_shift_const
+	find_split_point, combine_simplify_rtx,
+	simplify_if_then_else, simplify_set,
+	simplify_logical, expand_field_assignment,
+	extract_left_shift, force_to_mode,
+	if_then_else_cond, apply_distributive_law,
+	simplify_and_const_int, simplify_shift_const,
+	gen_lowpart_for_combine, simplify_comparison,
+	reversed_comparison): Replace with
+	simplify_gen_binary, simplify_gen_relational or
+	distribute_and_simplify_rtx.
+	(distribute_and_simplify_rtx): New function.
+
+2004-05-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.c (emit_move_sequence): Fix loading of non 14-bit CONST operands
+	when generating PIC code.
+
+2004-05-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-decl.c (c_expand_body_1): Remove and fold back into ...
+	(c_expand_body): here.
+	(c_expand_decl): Move to ...
+	* c-common.c (c_expand_decl): Here and remove check for nested
+	functions.
+	* c-common.h (c_expand_decl): Add prototype.
+	* c-tree.h (c_expand_decl): Remove.
+
+2004-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (combine_comparisons, optimize_bit_field_compare,
+	range_binop, fold_truthop, fold_binary_op_with_conditional_arg,
+	fold_mathfn_compare, fold_inf_compare, fold,
+	fold_relational_hi_lo, nondestructive_fold_binary_to_constant):
+	Use constant_boolean_node where appropriate.  Don't bother using
+	fold_convert on the second argument to omit_one_operand.
+
+2004-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	* doc/c-tree.texi (Expressions): Document FLOOR_DIV_EXPR,
+	CEIL_DIV_EXPR, ROUND_DIV_EXPR, FLOOR_MOD_EXPR, CEIL_MOD_EXPR,
+	ROUND_MOD_EXPR, EXACT_DIV_EXPR.  Improve documentation of
+	TRUNC_DIV_EXPR, TRUNC_MOD_EXPR and comparison operations.
+	Add missing (but documented) tree nodes to the index.
+
+2004-05-30  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/14819
+	* builtins.c (fold_builtin_strchr): New.
+	(fold_builtin_1): Handle BUILT_IN_STRCHR and BUILT_IN_STRRCHR
+	with fold_builtin_strchr().
+
+2004-05-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* bb-reorder.c, builtins.c, c-common.c, c-gimplify.c,
+	c-incpath.c, cgraphunit.c, ddg.c, defaults.h, dwarf2out.c,
+	expmed.c, flags.h, gcc.c, gensupport.c, gimplify.c, global.c,
+	passes.c, reg-stack.c, target.h, toplev.c, tree-alias-ander.c,
+	tree-alias-common.c, tree-cfg.c, tree-complex.c, tree-dfa.c,
+	tree-eh.c, tree-mudflap.c, tree-mudflap.h, tree-outof-ssa.c,
+	tree-phinodes.c, tree-pretty-print.c, tree-ssa-alias.c,
+	tree-ssa-ccp.c, tree-ssa-live.c, tree-ssa-live.h,
+	tree-ssa-pre.c, tree.h, value-prof.h, varasm.c: Fix comment
+	formatting.
+
+2004-05-30  Steven Bosscher  <stevenb@suse.de>
+
+	* gimplify.c (sort_case_labels): New.  Split out from...
+	(gimplify_switch_expr): ...here.  Use it.
+	* tree-eh.c (lower_try_finally_switch): Sort the labels of
+	the SWITCH_EXPR created here before leaving the function.
+	* tree.c (sort_case_labels): Add prototype.
+
+2004-05-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* fold-const.c (fold) [case TRUTH_NOT_EXPR]: Make sure the type is
+	of BOOLEAN_TYPE.
+
+2004-05-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* c-common.c, calls.c, cfgcleanup.c, cgraph.c, cgraphunit.c,
+	ddg.c, ddg.h, df.c, df.h, except.c, expr.c, flags.h,
+	fold-const.c, gcc.c, gimplify.c, haifa-sched.c,
+	modulo-sched.c, tree-inline.c, tree-into-ssa.c, tree-nested.c,
+	tree-nrv.c, tree-ssa-ccp.c, tree-ssa-dom.c, tree-ssa-live.c,
+	tree-ssa-loop.c, tree-ssa-pre.c, tree-tailcall.c, tree.h: Fix
+	comment typos.  Follow spelling conventions.
+
+2004-05-29  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype-yacc.y: Add NESTED_PTR token.
+	(option): Record `nested_ptr' option.
+	* gengtype-lex.l: Handle `nested_ptr' keyword.
+	* gengtype.c (walk_type): Process `nested_ptr' option.
+	* gengtype.h (struct nested_ptr_data): New.
+	* doc/gty.texi (GTY Options): Document `nested_ptr' option.
+	* stringpool.c (struct string_pool_data): Make 'entries' point to
+	ht_identifier instead of tree.
+	(gt_pch_save_stringpool): Don't adjust pointers.
+	(gt_pch_restore_stringpool): Call ht_load.
+
+2004-05-29  Jason Merrill  <jason@redhat.com>
+
+	* gimplify.c (gimplify_expr): Don't build a statement list
+	if no gimplification was necessary.
+
+2004-05-29  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* pretty-print.c (pp_base_format_text): Support %< instead of %`
+	and %> as well as %'.
+	* c-format.c: Use %< and %>.
+	(gcc_diag_char_table, gcc_cdiag_char_table,
+	gcc_cxxdiag_char_table): Update.
+
+2004-05-29  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-typeck.c (common_type): Correct comment.
+
+2004-05-29  Peter Barada  <peter@the-baradas.com>
+
+	* config/m68k/m68k.c (CONST_METHOD): Add MVZ, MVS.
+	* config/m68k/m68k.c (const_method): Likewise.
+	* config/m68k/m68k.c (const_int_cost): Likewise.
+	* config/m68k/m68k.c (const_int_cost): Likewise.
+	* config/m68k/m68k.c (output_move_const_into_data_reg): Likewise.
+
+2004-05-29  Peter Barada  <peter@the-baradas.com>
+
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): add 'U' for register offset
+	addressing.
+	* config/m68k/m68k.md: Add 'U,U' alternative to ColdFire variants of
+	movsi,movhi,movqi insn patterns.
+
+2005-05-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-semantics.c (emit_local_var): Remove code for DECL_INITIAL.
+
+	PR target/15720
+	* config/darwin.c (machopic_indirect_call_target): Copy
+	the SYMBOL_REF_DECL from the original RTX for the new
+	stub RTX.
+
+2004-05-28  DJ Delorie  <dj@redhat.com>
+
+	* stor-layout.c (place_field): Revert erroneous commit.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* config/rs6000/altivec.h (vec_ctf, vec_vcfsx, vec_vcfux, vec_cts,
+	vec_ctu, vec_dss, vec_dst, vec_dstst, vec_dststt, vec_dstt, vec_ld,
+	vec_ldl, vec_lvsl, vec_lvsr, vec_sld, vec_splat, vec_vspltw,
+	vec_vsplth, vec_vspltb, vec_splat_s8, vec_splat_s16, vec_splat_s32,
+	vec_splat_u8, vec_splat_u16, vec_splat_u32, vec_st, vec_stl,
+	vec_ste): Remove type checks for integral parameters and literals
+	from '..._args_eq' macros.
+
+2004-05-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-common.c (fname_as_string): Fix xcalloc to xmalloc.
+
+2004-05-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/g++.dg/charset/function.cc: New.
+
+	* testsuite/gcc.dg/charset/function.c: New.
+
+	* c-decl.c (c_make_fname_decl): Free return value from
+	fname_as_string.
+
+	* cp/decl.c (cp_make_fname_decl): Free return value from
+	fname_as_string.
+
+	* c-common.c (fname_as_string): Translate if necessary.
+
+2004-05-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* stringpool.c: Add comments to PCH saving/restoring routines.
+
+2004-05-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-common.c (c_estimate_num_insns_1): Kill.
+	(c_estimate_num_insns): Kill.
+	* c-common.h (c_estimate_num_insns): Kill.
+
+	* gthr-posix.h: Check for _POSIX_PRIORITY_SCHEDULING
+	when checking for _POSIX_THREAD_PRIORITY_SCHEDULING.
+	Remove comment about not checking for
+	_POSIX_PRIORITY_SCHEDULING.
+	* gthr-posix.c: Likewise.
+
+2004-05-28  Paolo Bonzini  <bonzini@gnu.org>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/15649
+	Add LTGT_EXPR and improve pretty-printing of unordered
+	comparisons.
+	* c-common.c (c_common_truthvalue_conversion):
+	Handle LTGT_EXPR.
+	* c-typeck.c (build_binary_op): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* expr.c (expand_expr_real_1, do_store_flag): Likewise.
+	* predict.c (tree_predict_by_opcode): Likewise.
+	* real.c (real_compare): Likewise.
+	* tree-cfg.c (verify_expr): Likewise.
+	* tree-inline.c (estimate_num_insns_1): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	Handle ORDERED_EXPR, UNORDERED_EXPR.
+	(op_symbol): Print unordered comparisons differently
+	than ordered ones.
+	* tree.def (LTGT_EXPR): New '<' tree code.
+	* doc/c-tree.texi (Expressions): Document floating-point
+	comparison nodes.
+
+	Fold comparisons between floating point values.
+	* fold-const.c (enum comparison_code): New, from
+	#define'd constants.  Define compcodes for unordered
+	comparisons and for invalid transformations.
+	(invert_tree_comparison): Add "honor_nans" parameter.
+	(fold_truthop): Revamp to work on floating-point types too.
+	(comparison_to_compcode): Support unordered comparisons.
+	Use new enum comparison_code.
+	(compcode_to_comparison): Likewise.
+	(combine_compcodes): New function.
+	(invert_truthvalue): Let invert_tree_comparison decide
+	whether it is valid to fold the comparison.  Fold ORDERED
+	and UNORDERED even if flag_unsafe_math_optimizations is off,
+	and the remaining even if flag_unsafe_math_optimizations
+	is off but we are under -fno-trapping-math.
+	(fold_relational_const): Integer modes do not honor NaNs.
+
+2004-05-28  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_output_epilogue): Remove redundant code.
+
+2004-05-28  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb_force_lr_save): New function.
+	(arm_get_frame_offsets, thumb_unexpanded_epilogue,
+	thumb_output_function_prologue): Use it.
+	(thumb_expand_prologue): Set lr_save_eliminated.
+
+2004-05-28  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (extendsidi2): Tie the source and destination
+	of the register alternative.  Split it into nothing.
+
+2004-05-28  Richard Sandiford  <rsandifo@redhat.com>
+
+	* rtl.h (skip_consecutive_labels): Declare.
+	* emit-rtl.c (skip_consecutive_labels): New function.
+	* reorg.c (relax_delay_slots, dbr_schedule): Use it.
+	* jump.c (follow_jumps): Say what null return values mean.
+
+2004-05-28  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/13250
+	* config/sh/sh.md (rotlsi3): Use emit_move_insn.
+
+2004-05-27  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-linux (SHLIB_MAPFILES): Use sh specific
+	libgcc-std.ver.
+	* config/sh/libgcc-std.ver: New file.
+
+2004-05-27  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* except.c: Revert change of 2004-05-26.
+	* config/i386/i386.md: Revert change of 2004-05-27.
+
+2004-05-27  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.ac: Remove --enable-tree-browser option.
+	Define TREEBROWSER when ac_tree_checking is defined.
+	* configure: Rebuilt.
+
+2004-05-27  Olivier Hainque  <hainque@act-europe.fr>
+
+	* expr.c (store_constructor): Restore sanity check on
+	the size of the type before clearing.
+
+2004-05-27  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c (control_flow_insn_p):  Notice noreturn call
+
+2004-05-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (gen_binary): Remove.
+	(known_cond, simplify_shift_const
+	find_split_point, combine_simplify_rtx,
+	simplify_if_then_else, simplify_set,
+	simplify_logical, expand_field_assignment,
+	extract_left_shift, force_to_mode,
+	if_then_else_cond, apply_distributive_law,
+	simplify_and_const_int, simplify_shift_const,
+	gen_lowpart_for_combine, simplify_comparison,
+	reversed_comparison): Replace with
+	simplify_gen_binary, simplify_gen_relational or
+	distribute_and_simplify_rtx.
+	(distribute_and_simplify_rtx): New function.
+	* simplify-rtx.c (simplify_binary_operation):
+	Use nonzero_bits to simplify ANDs where we are
+	turning off bits already known to be off in OP0.
+
+2004-05-27  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14478
+	* config/rs6000/rs6000.c (reg_or_neg_short_operand): Don't allow zero.
+
+2004-05-27  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR middle-end/14084
+	* emit-rtl.c (gen_rtx_REG_offset): Adjust the offset according
+	to size of decl.
+
+2004-05-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/14924
+	* config/rs6000/rs6000.c (spe_expand_stv_builtin): New.
+
+2004-05-26  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h: Fix comment typo.
+
 2004-05-27  Steven Bosscher  <stevenb@suse.de>
 
 	* gimplify.c (compare_case_labels): New function.
@@ -64,13 +597,13 @@
 	calculate_local_reg_bb_info, set_up_bb_rts_numbers, rpost_cmp,
 	modify_bb_reg_pav, calculate_reg_pav,
 	make_accurate_live_analysis): New functions.
-	
+
 2004-05-25  Devang Patel  <dpatel@apple.com>
 
 	* alias.c (init_alias_analysis): Use ggc_calloc instead of
 	xrealloc.
 	(end_alias_analysis): Use ggc_free instead fo free.
-	
+
 2004-05-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR target/15546
@@ -145,7 +678,7 @@
 	(nonzero_bits, cached_nonzero_bits, nonzero_bits1,
 	num_sign_bit_copies, cached_num_sign_bit_copies,
 	num_sign_bit_copies1): New, from combine.c.
-	* rtlhooks.c: New file. 
+	* rtlhooks.c: New file.
 
 2004-05-25  Svein E. Seldal  <Svein.Seldal@solidas.com>
 
@@ -153,7 +686,7 @@
 	to support 32-bit -mint8 mode.
 
 	* doc/invoke.texi (-mint8): Added documentation for the -mint8
-	option in the AVR architecture. 
+	option in the AVR architecture.
 
 2004-05-24  Mike Stump  <mrs@apple.com>
 
@@ -187,7 +720,7 @@
 
 	PR tree-optimization/14197
 	* builtins.c: Include "tree-gimple.h"
-	(readonly_data_expr): Use get_base_address.  Make sure to call 
+	(readonly_data_expr): Use get_base_address.  Make sure to call
 	decl_readonly_section only on trees it can handle.
 	* tree-gimple.c (get_base_address): Accept STRING_CST and
 	CONSTRUCTOR expressions.

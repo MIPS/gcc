@@ -1004,9 +1004,12 @@ javax/swing/plaf/basic/BasicCheckBoxUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
+javax/swing/plaf/basic/BasicMenuUI.java \
+javax/swing/plaf/basic/BasicMenuBarUI.java \
 javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicPopupMenuUI.java \
 javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
@@ -1920,6 +1923,7 @@ gnu/classpath/ServiceFactory.java \
 gnu/classpath/ServiceProviderLoadingAction.java \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
+gnu/gcj/RawDataManaged.java \
 gnu/gcj/io/DefaultMimeTypes.java \
 gnu/gcj/io/MimeTypes.java \
 gnu/gcj/io/SimpleSHSStream.java	\
@@ -3072,7 +3076,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/awt/xlib/XToolkit.P .deps/gnu/classpath/Configuration.P \
 .deps/gnu/classpath/ServiceFactory.P \
 .deps/gnu/classpath/ServiceProviderLoadingAction.P .deps/gnu/gcj/Core.P \
-.deps/gnu/gcj/RawData.P .deps/gnu/gcj/convert/BytesToUnicode.P \
+.deps/gnu/gcj/RawData.P .deps/gnu/gcj/RawDataManaged.P \
+.deps/gnu/gcj/convert/BytesToUnicode.P \
 .deps/gnu/gcj/convert/Convert.P .deps/gnu/gcj/convert/IOConverter.P \
 .deps/gnu/gcj/convert/Input_8859_1.P \
 .deps/gnu/gcj/convert/Input_ASCII.P \
@@ -4667,9 +4672,12 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicLabelUI.P \
 .deps/javax/swing/plaf/basic/BasicListUI.P \
 .deps/javax/swing/plaf/basic/BasicLookAndFeel.P \
+.deps/javax/swing/plaf/basic/BasicMenuBarUI.P \
 .deps/javax/swing/plaf/basic/BasicMenuItemUI.P \
+.deps/javax/swing/plaf/basic/BasicMenuUI.P \
 .deps/javax/swing/plaf/basic/BasicOptionPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicPanelUI.P \
+.deps/javax/swing/plaf/basic/BasicPopupMenuUI.P \
 .deps/javax/swing/plaf/basic/BasicProgressBarUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicRadioButtonUI.P \

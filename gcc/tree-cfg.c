@@ -711,7 +711,7 @@ make_goto_expr_edges (basic_block bb)
 	  return;
 	}
 
-      /* Nothing more to do for nonlocal gotos. */
+      /* Nothing more to do for nonlocal gotos.  */
       if (TREE_CODE (dest) == LABEL_DECL)
 	return;
 
@@ -3241,6 +3241,7 @@ verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:

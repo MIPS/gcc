@@ -1,3 +1,134 @@
+2004-06-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* lib/objc.exp (objc_target_compile): When running tests on
+	Darwin (Mac OS X), inform the linker about '-framework
+	'Foundation'.
+
+2004-06-02  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.c-torture/compile/20040602-1.c: New.
+
+2004-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/tree-ssa/ssa-sra-1.C: Fix comment.
+	* g++.dg/tree-ssa/ssa-sra-2.C: Likewise.
+
+	PR tree-optimization/14736
+	* g++.dg/tree-ssa/ssa-cast-1.C: New Test.
+
+	PR tree-optimization/14042
+	* g++.dg/tree-ssa/ssa-sra-1.C: New Test.
+
+	PR tree-optimization/14729
+	* g++.dg/tree-ssa/ssa-sra-2.C: New Test.
+
+2004-06-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15557
+	* gfortran.fortran-torture/execute/data_3.f90: New testcase.
+
+2004-06-01  Richard Hederson  <rth@redhat.com>
+
+	* g++.dg/template/dependent-expr4.C: Use __builtin_offsetof.
+
+2004-06-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14932
+	* g++.dg/parse/offsetof4.C: New test.
+
+2004-06-01  Nicola Pero  <nicola@brainstorm.co.uk>
+
+ 	PR objc/7993
+	* objc.dg/private-1.m, objc-dg/private-2.m: New testcases.
+
+2004-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15701
+	* g++.dg/template/friend29.C: New test.
+
+2004-05-31  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15749
+	* gcc.dg/pr15749-1.c, gcc.dg/pr15749-1.h: New test.
+
+2004-05-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-trap-1.c: New test.
+
+2004-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/15069
+	* g++.dg/opt/fold3.C: New test case.
+
+2004-05-30  Graham Stott  <graham.stott@btinternet.com>
+
+	* lib/target-supports.exp (check_iconv_available): Fix fallout
+	from 2004-05-28 patch.
+
+2004-05-30  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15620
+	* gfortran.fortran-torture/execute/st_function_1.f90: New test.
+	* gfortran.fortran-torture/execute/st_function_2.f90: New test.
+
+2004-05-30  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.fortran-torture/execute/random_1.f90: New test.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-10.C: New test.
+
+2004-05-29  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/equiv_1.f90: New test.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.dg/altivec-16.c: New test.
+
+2004-05-28  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/target-supports.exp (check_vmx_hw_available): New.
+	* gcc.dg/vmx/vmx.exp: Use it to determine default action.
+
+	* lib/target-supports.exp (check_alias_available,
+	check_iconv_available, check_named_sections_available): Use
+	unique names for temporary files.
+
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.dg/altivec-15.c: New test.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15083
+	* g++.dg/warn/noeffect6.C: New test.
+
+	PR c++/15471
+	* g++.dg/expr/ptrmem4.C: New test.
+
+	PR c++/15640
+	* g++.dg/template/operator3.C: New test.
+
+2004-05-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14668
+	* g++.dg/lookup/redecl1.C: New test.
+	* g++.old-deja/g++.benjamin/tem04.C: Add error marker.
+
+2004-05-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.c-torture/compare-fp-1.c, gcc.c-torture/compare-fp-2.c,
+	gcc.c-torture/compare-fp-3.c, gcc.c-torture/compare-fp-4.c,
+	gcc.c-torture/compare-fp-3.x, gcc.c-torture/compare-fp-4.x,
+	gcc.c-torture/pr15649-1.c: New.
+
+2004-05-27  Adam Nemet  <anemet@lnxw.com>
+
+	PR c++/12883
+	* g++.dg/init/array14.C: New test.
+
 2004-05-25  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/compat.exp (compat-get-options-main): New.
@@ -119,7 +250,7 @@
 	* gfortran.fortran-torture/execute/power.f90: Test constant integers.
 
 2004-05-18  Andrew Pinski  <pinskia@physics.uc.edu>
-            Jeff Law  <law@redhat.com>
+	    Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040514-2.c: Update expected output.
 	* gcc.dg/tree-ssa/20040518-2.c: New test.

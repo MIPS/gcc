@@ -4387,7 +4387,7 @@ store_expr (tree exp, rtx target, int want_value)
     return target;
 }
 
-/* Examine CTOR.  Discover how many scalar fields are set to non-zero
+/* Examine CTOR.  Discover how many scalar fields are set to nonzero
    values and place it in *P_NZ_ELTS.  Discover how many scalar fields
    are set to non-constant values and place it in  *P_NC_ELTS.  */
 
@@ -4673,8 +4673,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	 clear the whole structure first.  Don't do this if TARGET is a
 	 register whose mode size isn't equal to SIZE since clear_storage
 	 can't handle this case.  */
-      else if (((list_length (CONSTRUCTOR_ELTS (exp)) != fields_length (type))
-		|| mostly_zeros_p (exp))
+      else if (size > 0
+	       && ((list_length (CONSTRUCTOR_ELTS (exp)) != fields_length (type))
+		   || mostly_zeros_p (exp))
 	       && (GET_CODE (target) != REG
 		   || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 		       == size)))
@@ -8304,6 +8305,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
       temp = do_store_flag (exp,
 			    modifier != EXPAND_STACK_PARM ? target : NULL_RTX,
 			    tmode != VOIDmode ? tmode : mode, 0);
@@ -9813,6 +9815,9 @@ do_store_flag (tree exp, rtx target, enum machine_mode mode, int only_cheap)
       break;
     case UNEQ_EXPR:
       code = UNEQ;
+      break;
+    case LTGT_EXPR:
+      code = LTGT;
       break;
 
     default:

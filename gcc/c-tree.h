@@ -192,7 +192,6 @@ extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern tree c_begin_compound_stmt (void);
-extern int c_expand_decl (tree);
 extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
 
@@ -259,6 +258,7 @@ extern tree build_asm_expr (tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 extern int c_types_compatible_p (tree, tree);
+extern tree build_offsetof (tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

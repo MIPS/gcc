@@ -531,7 +531,7 @@ verify_norecord_switch_expr (struct leh_state *state, tree switch_expr)
 /* Redirect a RETURN_EXPR pointed to by STMT_P to FINLAB.  Place in CONT_P
    whatever is needed to finish the return.  If MOD is non-null, insert it
    before the new branch.  RETURN_VALUE_P is a cache containing a temporary
-   variable to be used in manipulating the value returned from the function. */
+   variable to be used in manipulating the value returned from the function.  */
 
 static void
 do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
@@ -1200,8 +1200,10 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   replace_goto_queue (tf);
   last_case_index += nlabels;
 
-  /* Make sure that we have a default label, as one is required.  */
+  /* Make sure that the last case is the default label, as one is required.
+     Then sort the labels, which is also required in GIMPLE.  */
   CASE_LOW (last_case) = NULL;
+  sort_case_labels (case_label_vec);
 
   /* Need to link switch_stmt after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */

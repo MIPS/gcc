@@ -1324,6 +1324,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
 
     case CONVERT_EXPR:
 
@@ -1342,7 +1343,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *count++;
       break;
 
-    /* Few special cases of expensive operations.  This is usefull
+    /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:

@@ -552,7 +552,7 @@ add_decl_to_level (tree decl, cxx_scope *b)
       /* If appropriate, add decl to separate list of statics.  We
 	 include extern variables because they might turn out to be 
 	 static later.  It's OK for this list to contain a few false
-	 positives. */
+	 positives.  */
       if (b->kind == sk_namespace)
 	if ((TREE_CODE (decl) == VAR_DECL
 	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
@@ -4306,11 +4306,21 @@ arg_assoc_class (struct arg_lookup *k, tree type)
     if (k->name == FRIEND_NAME (list))
       for (friends = FRIEND_DECLS (list); friends; 
 	   friends = TREE_CHAIN (friends))
-	/* Only interested in global functions with potentially hidden
-           (i.e. unqualified) declarations.  */
-	if (CP_DECL_CONTEXT (TREE_VALUE (friends)) == context)
-	  if (add_function (k, TREE_VALUE (friends)))
+	{
+	  tree fn = TREE_VALUE (friends);
+
+	  /* Only interested in global functions with potentially hidden
+	     (i.e. unqualified) declarations.  */
+	  if (CP_DECL_CONTEXT (fn) != context)
+	    continue;
+	  /* Template specializations are never found by name lookup.
+	     (Templates themselves can be found, but not template
+	     specializations.)  */
+	  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_USE_TEMPLATE (fn))
+	    continue;
+	  if (add_function (k, fn))
 	    return true;
+	}
 
   /* Process template arguments.  */
   if (CLASSTYPE_TEMPLATE_INFO (type) 
@@ -4464,10 +4474,8 @@ arg_assoc (struct arg_lookup *k, tree n)
 	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, ix)) == 1)
 	  return true;
     }
-  else
+  else if (TREE_CODE (n) == OVERLOAD)
     {
-      my_friendly_assert (TREE_CODE (n) == OVERLOAD, 980715);
-      
       for (; n; n = OVL_CHAIN (n))
 	if (arg_assoc_type (k, TREE_TYPE (OVL_FUNCTION (n))))
 	  return true;

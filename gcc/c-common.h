@@ -332,6 +332,7 @@ extern void prep_stmt (tree);
 extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
+extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
@@ -1221,7 +1222,6 @@ extern void c_common_no_more_pch (void);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
-extern int c_estimate_num_insns (tree decl);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* The following have been moved here from c-tree.h, since they're needed
@@ -1236,6 +1236,7 @@ extern tree objc_message_selector (void);
 extern tree lookup_objc_ivar (tree);
 extern void *get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
+extern int objc_is_public (tree, tree);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

@@ -3087,6 +3087,9 @@ cp_make_fname_decl (tree id, int type_dep)
   tree init = cp_fname_init (name, &type);
   tree decl = build_decl (VAR_DECL, id, type);
 
+  if (name)
+    free ((char *) name);
+
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
   DECL_PRETTY_FUNCTION_P (decl) = type_dep;
@@ -5337,6 +5340,7 @@ complete_array_type (tree type, tree initial_value, int do_default)
     {
       tree itype;
       tree domain;
+      tree elt_type;
 
       domain = build_index_type (maxindex);
       TYPE_DOMAIN (type) = domain;
@@ -5354,6 +5358,12 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	 size of the array.  */
       if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
 	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
+
+      elt_type = TREE_TYPE (type);
+      TYPE_NEEDS_CONSTRUCTING (type)
+	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
+      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));      
     }
 
   /* Lay out the type now that we can get the real answer.  */
