@@ -97,7 +97,7 @@ final class VMCompiler
 	  canUseCompiler = true;
       }
 
-    String prop = System.getProperty ("gnu.gcj.precompiled.db");
+    String prop = System.getProperty ("gnu.gcj.precompiled.db.path");
     if (prop != null)
       {
 	precompiledMapFiles = new Vector();

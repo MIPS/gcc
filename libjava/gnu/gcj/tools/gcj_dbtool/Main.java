@@ -6,6 +6,8 @@ This software is copyrighted work licensed under the terms of the
 Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
+package gnu.gcj.tools.gcj_dbtool;
+
 
 import gnu.gcj.runtime.PersistentByteMap;
 import java.io.*;
@@ -14,7 +16,7 @@ import java.util.jar.*;
 import java.security.MessageDigest;
 import java.math.BigInteger;
 
-public class jv_dbtool
+public class Main
 {
   public static void main (String[] s)
   {

@@ -117,7 +117,7 @@ propdir = $(libdir)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry jv-dbtool
+bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -905,13 +905,13 @@ jv_convert_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
 
-jv_dbtool_SOURCES = jv_dbtool.java
+gcj_dbtool_SOURCES = gnu/gcj/tools/gcj_dbtool/Main.java
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-jv_dbtool_LDFLAGS = --main=jv_dbtool \
+gcj_dbtool_LDFLAGS = --main=gnu.gcj.tools.gcj_dbtool.Main \
 	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
-jv_dbtool_LINK = $(GCJLINK)
+gcj_dbtool_LINK = $(GCJLINK)
 ## We don't explicitly link in the libraries we need; libgcj.la brings
 ## in all dependencies.  We need the -L so that gcj can find libgcj
 ## with `-lgcj', but it must come first, otherwise the -L flags
@@ -919,10 +919,10 @@ jv_dbtool_LINK = $(GCJLINK)
 ## searched before the build-tree ones, and we'd get errors because of
 ## different libraries with the same SONAME from picky linkers such as
 ## Solaris'.  FIXME: should be _libs on some systems.
-jv_dbtool_LDADD = -L$(here)/.libs libgcj.la
+gcj_dbtool_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
-jv_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
+gcj_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
 
 gij_SOURCES = 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We

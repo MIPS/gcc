@@ -1,5 +1,15 @@
 2004-11-05  Andrew Haley  <aph@redhat.com>
 
+	* Makefile.am: Move jv_dbtool.java to
+	gnu/gcj/tools/gcj_dbtool/Main.java.
+	* Makefile.in: Rebuild.
+	* java/lang/VMCompiler.java: Rename property
+	"gnu.gcj.precompiled.db" to "gnu.gcj.precompiled.db.path".
+	* gnu/gcj/tools/gcj_dbtool/Main.java: moved here from
+	jv_dbtool.java.
+	
+2004-11-05  Andrew Haley  <aph@redhat.com>
+
 	* jv_dbtool.java (main): Allow the user to specify the size of the
 	database.  Display the capacity and the size.
 	(usage): Show the new option.
