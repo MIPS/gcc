@@ -1209,7 +1209,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       break;
 
     case ASM_EXPR:
-      INDENT (spc);
       pp_string (buffer, "__asm__");
       if (ASM_VOLATILE_P (node))
 	pp_string (buffer, " __volatile__");

@@ -1,5 +1,9 @@
 2003-09-18  Richard Henderson  <rth@redhat.com>
 
+	* tree-pretty-print.c (dump_generic_node): Don't double indent asms.
+
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-eh.c: Include langhooks.h, remove errors.h.
 	(decide_copy_try_finally): Use estimate_num_insns to choose
 	between copy and switch implementations.
