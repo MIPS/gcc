@@ -1951,3 +1951,21 @@ lhd_unsave_expr_now (tree expr)
 
   return expr;
 }
+
+/* Allow someone to determine if SEARCH is a child of TOP from gdb.  */
+static tree
+debug_find_tree_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
+{
+  if (*tp == data)
+    return (tree) data;
+  else
+    return NULL;
+}
+
+extern bool debug_find_tree (tree top, tree search);
+
+bool
+debug_find_tree (tree top, tree search)
+{
+  return walk_tree_without_duplicates (&top, debug_find_tree_1, search) != 0;
+}
