@@ -867,6 +867,7 @@ int flag_merge_constants = 1;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+/* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 1;
 
 /* Nonzero if we perform superblock formation.  */

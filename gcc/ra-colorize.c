@@ -1,45 +1,49 @@
 /* Graph coloring register allocator
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
-   and Daniel Berlin <dan@cgsoftware.com>
+   Contributed by Michael Matz <matz@suse.de>
+   and Daniel Berlin <dan@cgsoftware.com>.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it under the
+   GCC is free software; you can redistribute it and/or modify it under the
    terms of the GNU General Public License as published by the Free Software
    Foundation; either version 2, or (at your option) any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but WITHOUT ANY
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
    FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
    details.
 
    You should have received a copy of the GNU General Public License along
-   with GNU CC; see the file COPYING.  If not, write to the Free Software
+   with GCC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
 #include "tm_p.h"
-#include "insn-config.h"
-#include "recog.h"
 #include "function.h"
 #include "regs.h"
-#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "df.h"
-#include "sbitmap.h"
-#include "expr.h"
 #include "output.h"
-#include "toplev.h"
-#include "flags.h"
-#include "ggc.h"
-#include "reload.h"
-#include "real.h"
-#include "pre-reload.h"
 #include "ra.h"
+
+/* This file is part of the graph coloring register allocator.
+   It contains the graph colorizer.  Given an interference graph
+   as set up in ra-build.c the toplevel function in this file
+   (ra_colorize_graph) colorizes the graph, leaving a list
+   of colored, coalesced and spilled nodes.
+
+   The algorithm used is a merge of George & Appels iterative coalescing
+   and optimistic coalescing, switchable at runtime.  The current default
+   is "optimistic coalescing +", which is based on the normal Briggs/Cooper
+   framework.  We can also use biased coloring.  Most of the structure
+   here follows the different papers.
+
+   Additionally there is a custom step to locally improve the overall
+   spill cost of the colored graph (recolor_spills).  */
 
 static void push_list PARAMS ((struct dlist *, struct dlist **));
 static void push_list_end PARAMS ((struct dlist *, struct dlist **));
@@ -75,7 +79,9 @@ static void try_recolor_web PARAMS ((struct web *));
 static void insert_coalesced_conflicts PARAMS ((void));
 static int comp_webs_maxcost PARAMS ((const void *, const void *));
 static void recolor_spills PARAMS ((void));
+static void check_colors PARAMS ((void));
 static void restore_conflicts_from_coalesce PARAMS ((struct web *));
+static void break_coalesced_spills PARAMS ((void));
 static void unalias_web PARAMS ((struct web *));
 static void break_aliases_to_web PARAMS ((struct web *));
 static void break_precolored_alias PARAMS ((struct web *));
@@ -86,7 +92,6 @@ static int comp_web_pairs PARAMS ((const void *, const void *));
 static void sort_and_combine_web_pairs PARAMS ((int));
 static void aggressive_coalesce PARAMS ((void));
 static void aggressive_coalesce_fast PARAMS ((void));
-static void extended_coalesce PARAMS ((void));
 static void extended_coalesce_2 PARAMS ((void));
 static void check_uncoalesced_moves PARAMS ((void));
 
@@ -94,6 +99,7 @@ static struct dlist *mv_worklist, *mv_coalesced, *mv_constrained;
 static struct dlist *mv_frozen, *mv_active;
 
 /* Push a node onto the front of the list.  */
+
 static void
 push_list (x, list)
      struct dlist *x;
@@ -126,6 +132,7 @@ push_list_end (x, list)
 }
 
 /* Remove a node from the list.  */
+
 void
 remove_list (x, list)
      struct dlist *x;
@@ -143,6 +150,7 @@ remove_list (x, list)
 }
 
 /* Pop the front of the list.  */
+
 struct dlist *
 pop_list (list)
      struct dlist **list;
@@ -154,6 +162,7 @@ pop_list (list)
 }
 
 /* Free the given double linked list.  */
+
 static void
 free_dlist (list)
      struct dlist **list;
@@ -161,7 +170,10 @@ free_dlist (list)
   *list = NULL;
 }
 
-/* Inline, because it's called with constant TYPE every time.  */
+/* The web WEB should get the given new TYPE.  Put it onto the
+   appropriate list.
+   Inline, because it's called with constant TYPE every time.  */
+
 inline void
 put_web (web, type)
      struct web *web;
@@ -196,8 +208,14 @@ put_web (web, type)
   web->type = type;
 }
 
+/* After we are done with the whole pass of coloring/spilling,
+   we reset the lists of webs, in preparation of the next pass.
+   The spilled webs become free, colored webs go to the initial list,
+   coalesced webs become free or initial, according to what type of web
+   they are coalesced to.  */
+
 void
-reset_lists (void)
+reset_lists ()
 {
   struct dlist *d;
   unsigned int i;
@@ -225,6 +243,7 @@ reset_lists (void)
   while ((d = pop_list (&WEBS(COLORED))) != NULL)
     put_web (DLIST_WEB (d), INITIAL);
 
+  /* All free webs have no conflicts anymore.  */
   for (d = WEBS(FREE); d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
@@ -232,6 +251,7 @@ reset_lists (void)
       web->useless_conflicts = NULL;
     }
 
+  /* Sanity check, that we only have free, initial or precolored webs.  */
   for (i = 0; i < num_webs; i++)
     {
       struct web *web = ID2WEB (i);
@@ -244,6 +264,9 @@ reset_lists (void)
   free_dlist (&mv_frozen);
   free_dlist (&mv_active);
 }
+
+/* Similar to put_web(), but add the web to the end of the appropriate
+   list.  Additionally TYPE may not be SIMPLIFY.  */
 
 static void
 put_web_at_end (web, type)
@@ -258,6 +281,9 @@ put_web_at_end (web, type)
   web->type = type;
 }
 
+/* Unlink WEB from the list it's currently on (which corresponds to
+   its current type).  */
+
 void
 remove_web_from_list (web)
      struct web *web;
@@ -267,6 +293,8 @@ remove_web_from_list (web)
   else
     remove_list (web->dlink, &WEBS(web->type));
 }
+
+/* Give MOVE the TYPE, and link it into the correct list.  */
 
 static inline void
 put_move (move, type)
@@ -297,12 +325,23 @@ put_move (move, type)
 }
 
 /* Build the worklists we are going to process.  */
+
 static void
 build_worklists (df)
      struct df *df ATTRIBUTE_UNUSED;
 {
   struct dlist *d, *d_next;
   struct move_list *ml;
+
+  /* If we are not the first pass, put all stackwebs (which are still
+     backed by a new pseudo, but conceptually can stand for a stackslot,
+     i.e. it doesn't really matter if they get a color or not), on
+     the SELECT stack first, those with lowest cost first.  This way
+     they will be colored last, so do not contrain the coloring of the
+     normal webs.  But still those with the highest count are colored
+     before, i.e. get a color more probable.  The use of stackregs is
+     a pure optimization, and all would work, if we used real stackslots
+     from the begin.  */
   if (ra_pass > 1)
     {
       unsigned int i, num, max_num;
@@ -333,6 +372,7 @@ build_worklists (df)
       free (order2web);
     }
 
+  /* For all remaining initial webs, classify them.  */
   for (d = WEBS(INITIAL); d; d = d_next)
     {
       struct web *web = DLIST_WEB (d);
@@ -349,6 +389,9 @@ build_worklists (df)
 	put_web (web, SIMPLIFY);
     }
 
+  /* And put all moves on the worklist for iterated coalescing.
+     Note, that if iterated coalescing is off, then wl_moves doesn't
+     contain any moves.  */
   for (ml = wl_moves; ml; ml = ml->next)
     if (ml->move)
       {
@@ -361,6 +404,7 @@ build_worklists (df)
 }
 
 /* Enable the active moves, in which WEB takes part, to be processed.  */
+
 static void
 enable_move (web)
      struct web *web;
@@ -374,8 +418,10 @@ enable_move (web)
       }
 }
 
-/* Decrement the degree of the node, and if necessary, it's
-   neighbors.  */
+/* Decrement the degree of node WEB by the amount DEC.
+   Possibly change the type of WEB, if the number of conflicts is
+   now smaller than its freedom.  */
+
 static void
 decrement_degree (web, dec)
      struct web *web;
@@ -404,9 +450,10 @@ decrement_degree (web, dec)
     }
 }
 
-/* Simplify the nodes on the simplify worklist.  */
+/* Repeatedly simplify the nodes on the simplify worklists.  */
+
 static void
-simplify (void)
+simplify ()
 {
   struct dlist *d;
   struct web *web;
@@ -443,6 +490,7 @@ simplify (void)
 }
 
 /* Helper function to remove a move from the movelist of the web.  */
+
 static void
 remove_move_1 (web, move)
      struct web *web;
@@ -465,6 +513,7 @@ remove_move_1 (web, move)
 /* Remove a move from the movelist of the web.  Actually this is just a
    wrapper around remove_move_1(), making sure, the removed move really is
    not in the list anymore.  */
+
 static void
 remove_move (web, move)
      struct web *web;
@@ -478,6 +527,7 @@ remove_move (web, move)
 }
 
 /* Merge the moves for the two webs into the first web's movelist.  */
+
 void
 merge_moves (u, v)
      struct web *u, *v;
@@ -501,6 +551,7 @@ merge_moves (u, v)
 }
 
 /* Add a web to the simplify worklist, from the freeze worklist.  */
+
 static void
 add_worklist (web)
      struct web *web;
@@ -514,6 +565,7 @@ add_worklist (web)
 }
 
 /* Precolored node coalescing heuristic.  */
+
 static int
 ok (target, source)
      struct web *target, *source;
@@ -605,6 +657,7 @@ ok (target, source)
 }
 
 /* Non-precolored node coalescing heuristic.  */
+
 static int
 conservative (target, source)
      struct web *target, *source;
@@ -642,6 +695,7 @@ conservative (target, source)
 
 /* If the web is coalesced, return it's alias.  Otherwise, return what
    was passed in.  */
+
 struct web *
 alias (web)
      struct web *web;
@@ -651,6 +705,9 @@ alias (web)
   return web;
 }
 
+/* Returns nonzero, if the TYPE belongs to one of those representing
+   SIMPLIFY types.  */
+
 static inline unsigned int
 simplify_p (type)
      enum node_type type;
@@ -659,6 +716,7 @@ simplify_p (type)
 }
 
 /* Actually combine two webs, that can be coalesced.  */
+
 static void
 combine (u, v)
      struct web *u, *v;
@@ -684,6 +742,13 @@ combine (u, v)
   for (wl = v->conflict_list; wl; wl = wl->next)
     {
       struct web *pweb = wl->t;
+      /* We don't strictly need to move conflicts between webs which are
+	 already coalesced or selected, if we do iterated coalescing, or
+	 better if we need not to be able to break aliases again.
+	 I.e. normally we would use the condition
+	 (pweb->type != SELECT && pweb->type != COALESCED).
+	 But for now we simply merge all conflicts.  It doesn't take that
+         much time.  */
       if (1 /*pweb->type != SELECT && pweb->type != COALESCED*/)
 	{
 	  struct web *web = u;
@@ -779,9 +844,11 @@ combine (u, v)
     u->spill_temp = 3;
 }
 
-/* Attempt to coalesce the first thing on the move worklist.  */
+/* Attempt to coalesce the first thing on the move worklist.
+   This is used only for iterated coalescing.  */
+
 static void
-coalesce (void)
+coalesce ()
 {
   struct dlist *d = pop_list (&mv_worklist);
   struct move *m = DLIST_MOVE (d);
@@ -811,7 +878,8 @@ coalesce (void)
       add_worklist (target);
     }
   else if ((source->type == PRECOLORED && ok (target, source))
-	   || (source->type != PRECOLORED /*&& conservative (target, source) */))
+	   || (source->type != PRECOLORED
+	       && conservative (target, source)))
     {
       remove_move (source, m);
       remove_move (target, m);
@@ -823,7 +891,8 @@ coalesce (void)
     put_move (m, ACTIVE);
 }
 
-/* Freeze the moves associated with the web.  */
+/* Freeze the moves associated with the web.  Used for iterated coalescing.  */
+
 static void
 freeze_moves (web)
      struct web *web;
@@ -853,18 +922,27 @@ freeze_moves (web)
     }
 }
 
-/* Freeze the first thing on the freeze worklist.  */
+/* Freeze the first thing on the freeze worklist (only for iterated
+   coalescing).  */
+
 static void
-freeze (void)
+freeze ()
 {
   struct dlist *d = pop_list (&WEBS(FREEZE));
   put_web (DLIST_WEB (d), SIMPLIFY);
   freeze_moves (DLIST_WEB (d));
 }
 
+/* The current spill heuristic.  Returns a number for a WEB.
+   Webs with higher numbers are selected later.  */
+
 static unsigned HOST_WIDE_INT (*spill_heuristic) PARAMS ((struct web *));
 
 static unsigned HOST_WIDE_INT default_spill_heuristic PARAMS ((struct web *));
+
+/* Our default heuristic is similar to spill_cost / num_conflicts.
+   Just scaled for integer arithmetic, and it favors coalesced webs,
+   and webs which span more insns with deaths.  */
 
 static unsigned HOST_WIDE_INT
 default_spill_heuristic (web)
@@ -888,8 +966,9 @@ default_spill_heuristic (web)
 
 /* Select the cheapest spill to be potentially spilled (we don't
    *actually* spill until we need to).  */
+
 static void
-select_spill (void)
+select_spill ()
 {
   unsigned HOST_WIDE_INT best = (unsigned HOST_WIDE_INT) -1;
   struct dlist *bestd = NULL;
@@ -922,13 +1001,17 @@ select_spill (void)
   if (!bestd)
     abort ();
 
-  DLIST_WEB (bestd)->was_spilled = 1; /* Note the potential spill.  */
+  /* Note the potential spill.  */
+  DLIST_WEB (bestd)->was_spilled = 1;
   remove_list (bestd, &WEBS(SPILL));
   put_web (DLIST_WEB (bestd), SIMPLIFY);
   freeze_moves (DLIST_WEB (bestd));
   ra_debug_msg (DUMP_PROCESS, " potential spill web %3d, conflicts = %d\n",
 	     DLIST_WEB (bestd)->id, DLIST_WEB (bestd)->num_conflicts);
 }
+
+/* Given a set of forbidden colors to begin at, and a set of still
+   free colors, and MODE, returns nonzero of color C is still usable.  */
 
 static int
 color_usable_p (c, dont_begin_colors, free_colors, mode)
@@ -950,9 +1033,11 @@ color_usable_p (c, dont_begin_colors, free_colors, mode)
 }
 
 /* Searches in FREE_COLORS for a block of hardregs of the right length
-   for MODE.  If it needs more than one hardreg it prefers blocks beginning
+   for MODE, which doesn't begin at a hardreg mentioned in DONT_BEGIN_COLORS.
+   If it needs more than one hardreg it prefers blocks beginning
    at an even hardreg, and only gives an odd begin reg if no other
    block could be found.  */
+
 int
 get_free_reg (dont_begin_colors, free_colors, mode)
      HARD_REG_SET dont_begin_colors, free_colors;
@@ -999,6 +1084,11 @@ get_free_reg (dont_begin_colors, free_colors, mode)
   return pref_reg >= 0 ? pref_reg : last_resort_reg;
 }
 
+/* Similar to get_free_reg(), but first search in colors provided
+   by BIAS _and_ PREFER_COLORS, then in BIAS alone, then in PREFER_COLORS
+   alone, and only then for any free color.  If flag_ra_biased is zero
+   only do the last two steps.  */
+
 static int
 get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode)
      HARD_REG_SET dont_begin_colors, bias, prefer_colors, free_colors;
@@ -1031,6 +1121,7 @@ get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode)
 
 /* Counts the number of non-overlapping bitblocks of length LEN
    in FREE_COLORS.  */
+
 static int
 count_long_blocks (free_colors, len)
      HARD_REG_SET free_colors;
@@ -1053,6 +1144,10 @@ count_long_blocks (free_colors, len)
   return count;
 }
 
+/* Given a hardreg set S, return a string representing it.
+   Either as 0/1 string, or as hex value depending on the implementation
+   of hardreg sets.  Note that this string is statically allocated.  */
+
 static char *
 hardregset_to_string (s)
      HARD_REG_SET s;
@@ -1074,6 +1169,16 @@ hardregset_to_string (s)
 #endif
   return string;
 }
+
+/* For WEB, look at its already colored neighbors, and calculate
+   the set of hardregs which is not allowed as color for WEB.  Place
+   that set int *RESULT.  Note that the set of forbidden begin colors
+   is not the same as all colors taken up by neighbors.  E.g. suppose
+   two DImode webs, but only the lo-part from one conflicts with the
+   hipart from the other, and suppose the other gets colors 2 and 3
+   (it needs two SImode hardregs).  Now the first can take also color
+   1 or 2, although in those cases there's a partial overlap.  Only
+   3 can't be used as begin color.  */
 
 static void
 calculate_dont_begin (web, result)
@@ -1151,15 +1256,19 @@ calculate_dont_begin (web, result)
   COPY_HARD_REG_SET (*result, dont_begin);
 }
 
-/* This is a little bit hairy, as it tries very hard, to not constrain
-   the uncolored non-spill neighbors, which need more hardregs than
-   we.  Consider a situation, 2 hardregs free for us (0 and 1),
-   and one of our neighbors needs 2 hardregs, and only conflicts with us.
-   There are 3 hardregs at all.  Now a simple minded method might choose 1
-   as color for us.  Then our neighbor has two free colors (0 and 2) as it
-   should, but they are not consecutive, so coloring it later would fail.
-   This leads to nasty problems on register starved machines, so we try
-   to avoid this.  */
+/* Try to assign a color to WEB.  If HARD if nonzero, we try many
+   tricks to get it one color, including respilling already colored
+   neighbors.
+
+   We also trie very hard, to not constrain the uncolored non-spill
+   neighbors, which need more hardregs than we.  Consider a situation, 2
+   hardregs free for us (0 and 1), and one of our neighbors needs 2
+   hardregs, and only conflicts with us.  There are 3 hardregs at all.  Now
+   a simple minded method might choose 1 as color for us.  Then our neighbor
+   has two free colors (0 and 2) as it should, but they are not consecutive,
+   so coloring it later would fail.  This leads to nasty problems on
+   register starved machines, so we try to avoid this.  */
+
 static void
 colorize_one_web (web, hard)
      struct web *web;
@@ -1181,8 +1290,12 @@ colorize_one_web (web, hard)
   if (web->regno >= max_normal_pseudo)
     hard = 0;
 
+  /* First we want to know the colors at which we can't begin.  */
   calculate_dont_begin (web, &dont_begin);
   CLEAR_HARD_REG_SET (bias);
+
+  /* Now setup the set of colors used by our neighbors neighbors,
+     and search the biggest noncolored neighbor.  */
   neighbor_needs = web->add_hardregs + 1;
   for (wl = web->conflict_list; wl; wl = wl->next)
     {
@@ -1212,12 +1325,17 @@ colorize_one_web (web, hard)
 
   ra_debug_msg (DUMP_COLORIZE, "colorize web %d [don't begin at %s]", web->id,
              hardregset_to_string (dont_begin));
+
+  /* If there are some fat neighbors, remember their usable regs,
+     and how many blocks are free in it for that neighbor.  */
   if (num_fat)
     {
       COPY_HARD_REG_SET (fat_colors, fats_parent->usable_regs);
       long_blocks = count_long_blocks (fat_colors, neighbor_needs + 1);
     }
 
+  /* We break out, if we found a color which doesn't constrain
+     neighbors, or if we can't find any colors.  */
   while (1)
     {
       HARD_REG_SET call_clobbered;
@@ -1251,6 +1369,9 @@ colorize_one_web (web, hard)
       COPY_HARD_REG_SET (call_clobbered, colors);
       AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
+      /* If this web got a color in the last pass, try to give it the
+	 same color again.  This will to much better colorization
+	 down the line, as we spilled for a certain coloring last time.  */
       if (web->old_color)
 	{
 	  c = web->old_color - 1;
@@ -1320,6 +1441,8 @@ colorize_one_web (web, hard)
 	    /* We found a color which doesn't destroy a block.  */
 	    break;
 	}
+      /* If we have no fat neighbors, the current color won't become
+	 "better", so we've found it.  */
       else
 	break;
     }
@@ -1367,38 +1490,6 @@ colorize_one_web (web, hard)
 	     a candidate, but we are a spill-temp, we make a third pass
 	     and include also webs, which were targets for coalescing, and
 	     spill those.  */
-#if 0
-	  for (loop = 0; (try == NULL && loop < 5); loop++)
-	    for (wl = web->conflict_list; wl; wl = wl->next)
-	      {
-	        /* We check that it's indeed a colored web (this rules
-		   out webs which are coalesced into others, but not targets
-		   for coalescing).  If we are a spill-temp, and haven't
-		   found a candidate in the first two passes, we also look
-		   at targets of coalescing to spill.  This later probably
-		   leads to more spill insertions than necessary (it would
-		   be better to split the coalesce again), but spill-temps
-		   _must_ get a color.  This is in difference to normal
-		   non-spill webs, which we can also spill, that's why we
-		   don't include coalesce targets also there.  */
-		struct web *w = wl->t;
-		/* If nothing worked we also check if some conflict was
-		   coalesced into something other, and spill _that_.  This is
-		   heavy, that's why only done at the fifth pass.  */
-		if (loop > 3 && web->spill_temp)
-		  w = alias (w);
-	        if (w->type == COLORED
-		    && (!w->spill_temp || (loop > 2 && w->spill_temp == 2))
-		    && (!w->is_coalesced || (loop > 1 && web->spill_temp))
-		    && (w->was_spilled || loop > 0)
-		    /*&& w->add_hardregs >= web->add_hardregs
-		    && w->span_deaths > web->span_deaths*/)
-		  {
-		    try = w;
-		    break;
-		  }
-	      }
-#else
 	  memset (candidates, 0, sizeof candidates);
 #define set_cand(i, w) \
 	  do { \
@@ -1460,7 +1551,7 @@ colorize_one_web (web, hard)
 			  || web->spill_temp != 2))
 		    set_cand (6, aw);
 		  /* For boehm-gc/misc.c.  If we are a difficult spilltemp,
-		     also coalsced neighbors are a chance, _even_ if they
+		     also coalesced neighbors are a chance, _even_ if they
 		     too are spilltemps.  At least their coalscing can be
 		     broken up, which may be reset usable_regs, and makes
 		     it easier colorable.  */
@@ -1473,7 +1564,6 @@ colorize_one_web (web, hard)
 	    if (candidates[loop])
 	      try = candidates[loop];
 #undef set_cand
-#endif
 	  if (try)
 	    {
 	      int old_c = try->color;
@@ -1503,13 +1593,14 @@ colorize_one_web (web, hard)
 		      remove_list (try->dlink, &WEBS(SPILLED));
 		      put_web (try, COLORED);
 		      try->color = old_c;
-		      ra_debug_msg (DUMP_COLORIZE, "  spilling %d was useless\n",
-				 try->id);
+		      ra_debug_msg (DUMP_COLORIZE,
+				    "  spilling %d was useless\n", try->id);
 		    }
 		  else
 		    {
-		      ra_debug_msg (DUMP_COLORIZE, "  to spill %d was a good idea\n",
-				 try->id);
+		      ra_debug_msg (DUMP_COLORIZE,
+				    "  to spill %d was a good idea\n",
+				    try->id);
 		      remove_list (try->dlink, &WEBS(SPILLED));
 		      if (try->was_spilled)
 			colorize_one_web (try, 0);
@@ -1562,9 +1653,11 @@ colorize_one_web (web, hard)
     }
 }
 
-/* Assign the colors to the nodes on the select stack.  */
+/* Assign the colors to all nodes on the select stack.  And update the
+   colors of coalesced webs.  */
+
 static void
-assign_colors (void)
+assign_colors ()
 {
   struct dlist *d;
 
@@ -1582,6 +1675,17 @@ assign_colors (void)
       DLIST_WEB (d)->color = a->color;
     }
 }
+
+/* WEB is a spilled web.  Look if we can improve the cost of the graph,
+   by coloring WEB, even if we then need to spill some of it's neighbors.
+   For this we calculate the cost for each color C, that results when we
+   _would_ give WEB color C (i.e. the cost of the then spilled neighbors).
+   If the lowest cost among them is smaller than the spillcost of WEB, we
+   do that recoloring, and instead spill the neighbors.
+
+   This can sometime help, when due to irregularities in register file,
+   and due to multi word pseudos, the colorization is suboptimal.  But
+   be aware, that currently this pass is quite slow.  */
 
 static void
 try_recolor_web (web)
@@ -1785,8 +1889,9 @@ try_recolor_web (web)
    to not destroy num_conflicts.  Here we add all remaining conflicts
    and thereby destroy num_conflicts.  This should be used when num_conflicts
    isn't used anymore, e.g. on a completely colored graph.  */
+
 static void
-insert_coalesced_conflicts (void)
+insert_coalesced_conflicts ()
 {
   struct dlist *d;
   for (d = WEBS(COALESCED); 0 && d; d = d->next)
@@ -1835,6 +1940,10 @@ insert_coalesced_conflicts (void)
     }
 }
 
+/* A function suitable to pass to qsort().  Compare the spill costs
+   of webs W1 and W2.  When used by qsort, this would order webs with
+   largest cost first.  */
+
 static int
 comp_webs_maxcost (w1, w2)
      const void *w1, *w2;
@@ -1849,8 +1958,11 @@ comp_webs_maxcost (w1, w2)
     return 0;
 }
 
+/* This tries to recolor all spilled webs.  See try_recolor_web()
+   how this is done.  This just calls it for each spilled web.  */
+
 static void
-recolor_spills (void)
+recolor_spills ()
 {
   unsigned int i, num;
   struct web **order2web;
@@ -1882,8 +1994,12 @@ recolor_spills (void)
   free (order2web);
 }
 
+/* This checks the current color assignment for obvious errors,
+   like two conflicting webs overlapping in colors, or the used colors
+   not being in usable regs.  */
+
 static void
-check_colors (void)
+check_colors ()
 {
   unsigned int i;
   for (i = 0; i < num_webs - num_subwebs; i++)
@@ -1957,6 +2073,9 @@ check_colors (void)
     }
 }
 
+/* WEB was a coalesced web.  Make it unaliased again, and put it
+   back onto SELECT stack.  */
+
 static void
 unalias_web (web)
      struct web *web;
@@ -1979,6 +2098,12 @@ unalias_web (web)
   else
     put_web_at_end (web, SELECT);
 }
+
+/* WEB is a _target_ for coalescing which got spilled.
+   Break all aliases to WEB, and restore some of its member to the state
+   they were before coalescing.  Due to the suboptimal structure of
+   the interference graph we need to go through all coalesced webs.
+   Somewhen we'll change this to be more sane.  */
 
 static void
 break_aliases_to_web (web)
@@ -2022,6 +2147,7 @@ break_aliases_to_web (web)
 /* WEB is a web coalesced into a precolored one.  Break that alias,
    making WEB SELECTed again.  Also restores the conflicts which resulted
    from initially coalescing both.  */
+
 static void
 break_precolored_alias (web)
      struct web *web;
@@ -2090,6 +2216,7 @@ break_precolored_alias (web)
 /* WEB is a spilled web which was target for coalescing.
    Delete all interference edges which were added due to that coalescing,
    and break up the coalescing.  */
+
 static void
 restore_conflicts_from_coalesce (web)
      struct web *web;
@@ -2193,8 +2320,12 @@ restore_conflicts_from_coalesce (web)
       }
 }
 
+/* Repeatedly break aliases for spilled webs, which were target for
+   coalescing, and recolorize the resulting parts.  Do this as long as
+   there are any spilled coalesce targets.  */
+
 static void
-break_coalesced_spills (void)
+break_coalesced_spills ()
 {
   int changed = 0;
   while (1)
@@ -2240,6 +2371,9 @@ break_coalesced_spills (void)
   dump_graph_cost (DUMP_COSTS, "after alias-breaking");
 }
 
+/* A structure for fast hashing of a pair of webs.
+   Used to cumulate savings (from removing copy insns) for coalesced webs.
+   All the pairs are also put into a single linked list.  */
 struct web_pair
 {
   struct web_pair *next_hash;
@@ -2250,18 +2384,25 @@ struct web_pair
   unsigned HOST_WIDE_INT cost;
 };
 
+/* The actual hash table.  */
 #define WEB_PAIR_HASH_SIZE 8192
 static struct web_pair *web_pair_hash[WEB_PAIR_HASH_SIZE];
 static struct web_pair *web_pair_list;
 static unsigned int num_web_pairs;
 
+/* Clear the hash table of web pairs.  */
+
 static void
-init_web_pairs (void)
+init_web_pairs ()
 {
   memset (web_pair_hash, 0, sizeof web_pair_hash);
   num_web_pairs = 0;
   web_pair_list = NULL;
 }
+
+/* Given two webs connected by a move with cost COST which together
+   have CONFLICTS conflicts, add that pair to the hash table, or if
+   already in, cumulate the costs and conflict number.  */
 
 static void
 add_web_pair_cost (web1, web2, cost, conflicts)
@@ -2297,6 +2438,10 @@ add_web_pair_cost (web1, web2, cost, conflicts)
   num_web_pairs++;
 }
 
+/* Suitable to be passed to qsort().  Sort web pairs so, that those
+   with more conflicts and higher cost (which actually is a saving
+   when the moves are removed) come first.  */
+
 static int
 comp_web_pairs (w1, w2)
      const void *w1, *w2;
@@ -2315,6 +2460,9 @@ comp_web_pairs (w1, w2)
     return 0;
 }
 
+/* Given the list of web pairs, begin to combine them from the one
+   with the most savings.  */
+
 static void
 sort_and_combine_web_pairs (for_move)
      int for_move;
@@ -2330,6 +2478,10 @@ sort_and_combine_web_pairs (for_move)
   if (i != num_web_pairs)
     abort ();
   qsort (sorted, num_web_pairs, sizeof (sorted[0]), comp_web_pairs);
+
+  /* After combining one pair, we actually should adjust the savings
+     of the other pairs, if they are connected to one of the just coalesced
+     pair.  Later.  */
   for (i = 0; i < num_web_pairs; i++)
     {
       struct web *w1, *w2;
@@ -2360,8 +2512,11 @@ sort_and_combine_web_pairs (for_move)
   free (sorted);
 }
 
+/* Greedily coalesce all moves possible.  Begin with the web pair
+   giving the most saving if coalesced.  */
+
 static void
-aggressive_coalesce (void)
+aggressive_coalesce ()
 {
   struct dlist *d;
   struct move *m;
@@ -2406,8 +2561,11 @@ aggressive_coalesce (void)
   sort_and_combine_web_pairs (1);
 }
 
+/* Similar to aggressive_coalesce(), but simply begin with the first move.
+   This doesn't set up the web pair hash table, or sorts the moves or pairs
+   to any cost criteria.  Simple and fast.  */
 static void
-aggressive_coalesce_fast (void)
+aggressive_coalesce_fast ()
 {
   while (mv_worklist)
     {
@@ -2544,8 +2702,21 @@ out:
   BITMAP_XFREE (defs);
 }
 
+/* This is the difference between optimistic coalescing and
+   optimistic coalescing+.  Extended coalesce tries to coalesce also
+   non-conflicting nodes, not related by a move.  The criteria here is,
+   the one web must be a source, the other a destination of the same insn.
+   This actually makes sense, as (because they are in the same insn) they
+   share many of their neighbors, and if they are coalesced, reduce the
+   number of conflicts of those neighbors by one.  For this we sort the
+   candidate pairs again according to savings (and this time also conflict
+   number).
+
+   This is also a comparatively slow operation, as we need to go through
+   all insns, and for each insn, through all defs and uses.  */
+
 static void
-extended_coalesce_2 (void)
+extended_coalesce_2 ()
 {
   rtx insn;
   struct ra_insn_info info;
@@ -2587,8 +2758,10 @@ extended_coalesce_2 (void)
   sort_and_combine_web_pairs (0);
 }
 
+/* Check if we forgot to coalesce some moves.  */
+
 static void
-check_uncoalesced_moves (void)
+check_uncoalesced_moves ()
 {
   struct move_list *ml;
   struct move *m;
@@ -2617,6 +2790,10 @@ check_uncoalesced_moves (void)
       }
 }
 
+/* The toplevel function in this file.  Precondition is, that
+   the interference graph is built completely by ra-build.c.  This
+   produces a list of spilled, colored and coalesced nodes.  */
+
 void
 ra_colorize_graph (df)
      struct df *df;
@@ -2624,6 +2801,8 @@ ra_colorize_graph (df)
   if (rtl_dump_file)
     dump_igraph (df);
   build_worklists (df);
+
+  /* With optimistic coalescing we coalesce everything we can.  */
   if (flag_ra_optimistic_coalescing)
     {
       aggressive_coalesce ();
@@ -2631,6 +2810,7 @@ ra_colorize_graph (df)
       extended_coalesce_2 ();
     }
 
+  /* Now build the select stack.  */
   do
     {
       simplify ();
@@ -2645,22 +2825,31 @@ ra_colorize_graph (df)
 	 || mv_worklist || WEBS(FREEZE) || WEBS(SPILL));
   if (flag_ra_optimistic_coalescing)
     check_uncoalesced_moves ();
+
+  /* Actually colorize the webs from the select stack.  */
   assign_colors ();
   check_colors ();
   dump_graph_cost (DUMP_COSTS, "initially");
   if (flag_ra_break_aliases)
     break_coalesced_spills ();
   check_colors ();
+
+  /* And try to improve the cost by recoloring spilled webs.  */
   recolor_spills ();
   dump_graph_cost (DUMP_COSTS, "after spill-recolor");
   check_colors ();
 }
 
-void ra_colorize_init (void)
+/* Initialize this module.  */
+
+void ra_colorize_init ()
 {
   /* FIXME: Choose spill heuristic for platform if we have one */
   spill_heuristic = default_spill_heuristic;
 }
+
+/* Free all memory.  (Note that we don't need to free any per pass
+   memory).  */
 
 void
 ra_colorize_free_all ()

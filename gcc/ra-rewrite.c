@@ -1,46 +1,41 @@
 /* Graph coloring register allocator
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
-   and Daniel Berlin <dan@cgsoftware.com>
+   Contributed by Michael Matz <matz@suse.de>
+   and Daniel Berlin <dan@cgsoftware.com>.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it under the
+   GCC is free software; you can redistribute it and/or modify it under the
    terms of the GNU General Public License as published by the Free Software
    Foundation; either version 2, or (at your option) any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but WITHOUT ANY
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
    FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
    details.
 
    You should have received a copy of the GNU General Public License along
-   with GNU CC; see the file COPYING.  If not, write to the Free Software
+   with GCC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
 #include "tm_p.h"
-#include "insn-config.h"
-#include "recog.h"
 #include "function.h"
 #include "regs.h"
-#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "df.h"
-#include "sbitmap.h"
 #include "expr.h"
 #include "output.h"
-#include "toplev.h"
-#include "flags.h"
-#include "ggc.h"
-#include "reload.h"
-#include "real.h"
 #include "except.h"
-#include "pre-reload.h"
 #include "ra.h"
+
+/* This file is part of the graph coloring register allocator, and
+   contains the functions to change the insn stream.  I.e. it adds
+   spill code, rewrites insns to use the new registers after
+   coloring and deletes coalesced moves.  */
 
 struct rewrite_info;
 struct rtx_list;
@@ -52,6 +47,7 @@ static void spill_prop_insert PARAMS ((struct web *, sbitmap, sbitmap));
 static int spill_propagation PARAMS ((sbitmap, sbitmap, sbitmap));
 static void spill_coalprop PARAMS ((void));
 static void allocate_spill_web PARAMS ((struct web *));
+static void choose_spill_colors PARAMS ((void));
 static void rewrite_program PARAMS ((bitmap));
 static void remember_slot PARAMS ((struct rtx_list **, rtx));
 static int slots_overlap_p PARAMS ((rtx, rtx));
@@ -74,8 +70,16 @@ static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
 
+/* For tracking some statistics, we count the number (and cost)
+   of deleted move insns.  */
 static unsigned int deleted_move_insns;
 static unsigned HOST_WIDE_INT deleted_move_cost;
+
+/* This is the spill coalescing phase.  In SPILLED the IDs of all
+   already spilled webs are noted.  In COALESCED the IDs of webs still
+   to check for coalescing.  This tries to coalesce two webs, which were
+   spilled, are connected by a move, and don't conflict.  Greatly
+   reduces memory shuffling.  */
 
 static void
 spill_coalescing (coalesce, spilled)
@@ -150,6 +154,9 @@ spill_coalescing (coalesce, spilled)
       }
 }
 
+/* Returns the probable saving of coalescing WEB with webs from
+   SPILLED, in terms of removed move insn cost.  */
+
 static unsigned HOST_WIDE_INT
 spill_prop_savings (web, spilled)
      struct web *web;
@@ -183,6 +190,9 @@ spill_prop_savings (web, spilled)
   return savings;
 }
 
+/* This add all IDs of colored webs, which are connected to WEB by a move
+   to LIST and PROCESSED.  */
+
 static void
 spill_prop_insert (web, list, processed)
      struct web *web;
@@ -208,6 +218,17 @@ spill_prop_insert (web, list, processed)
       }
 }
 
+/* The spill propagation pass.  If we have to spilled webs, the first
+   connected through a move to a colored one, and the second also connected
+   to that colored one, and this colored web is only used to connect both
+   spilled webs, it might be worthwhile to spill that colored one.
+   This is the case, if the cost of the removed copy insns (all three webs
+   could be placed into the same stack slot) is higher than the spill cost
+   of the web.
+   TO_PROP are the webs we try to propagate from (i.e. spilled ones),
+   SPILLED the set of all spilled webs so far and PROCESSED the set
+   of all webs processed so far, so we don't do work twice.  */
+
 static int
 spill_propagation (to_prop, spilled, processed)
      sbitmap to_prop, spilled, processed;
@@ -216,17 +237,25 @@ spill_propagation (to_prop, spilled, processed)
   int again = 0;
   sbitmap list = sbitmap_alloc (num_webs);
   sbitmap_zero (list);
+
+  /* First insert colored move neighbors into the candidate list.  */
   EXECUTE_IF_SET_IN_SBITMAP (to_prop, 0, id,
     {
       spill_prop_insert (ID2WEB (id), list, processed);
     });
   sbitmap_zero (to_prop);
+
+  /* For all candidates, see, if the savings are higher than it's
+     spill cost.  */
   while ((id = sbitmap_first_set_bit (list)) >= 0)
     {
       struct web *web = ID2WEB (id);
       RESET_BIT (list, id);
       if (spill_prop_savings (web, spilled) >= web->spill_cost)
 	{
+	  /* If so, we found a new spilled web.  Insert it's colored
+	     move neighbors again, and mark, that we need to repeat the
+	     whole mainloop of spillprog/coalescing again.  */
 	  remove_web_from_list (web);
 	  web->color = -1;
 	  put_web (web, SPILLED);
@@ -240,8 +269,11 @@ spill_propagation (to_prop, spilled, processed)
   return again;
 }
 
+/* The main phase to improve spill costs.  This repeatedly runs
+   spill coalescing and spill propagation, until nothing changes.  */
+
 static void
-spill_coalprop (void)
+spill_coalprop ()
 {
   sbitmap spilled, processed, to_prop;
   struct dlist *d;
@@ -270,7 +302,12 @@ spill_coalprop (void)
   sbitmap_free (spilled);
 }
 
-/* Allocate a spill slot for a web.  */
+/* Allocate a spill slot for a WEB.  Currently we spill to pseudo
+   registers, to be able to track also webs for "stack slots", and also
+   to possibly colorize them.  These pseudos are sometimes handled
+   in a special way, where we know, that they also can represent
+   MEM references.  */
+
 static void
 allocate_spill_web (web)
      struct web *web;
@@ -293,8 +330,9 @@ allocate_spill_web (web)
 
 /* This chooses a color for all SPILLED webs for interference region
    spilling.  The heuristic isn't good in any way.  */
+
 static void
-choose_spill_colors (void)
+choose_spill_colors ()
 {
   struct dlist *d;
   unsigned HOST_WIDE_INT *costs = (unsigned HOST_WIDE_INT *)
@@ -309,7 +347,6 @@ choose_spill_colors (void)
       for (wl = web->conflict_list; wl; wl = wl->next)
 	{
 	  struct web *pweb = wl->t;
-	  /*if (pweb->color >= 0)*/
 	  if (pweb->type == COLORED || pweb->type == PRECOLORED)
 	    costs[pweb->color] += pweb->spill_cost;
 	}
@@ -344,15 +381,28 @@ choose_spill_colors (void)
   free (costs);
 }
 
+/* For statistics sake we count the number and cost of all new loads,
+   stores and emitted rematerializations.  */
 static unsigned int emitted_spill_loads;
 static unsigned int emitted_spill_stores;
 static unsigned int emitted_remat;
 static unsigned HOST_WIDE_INT spill_load_cost;
 static unsigned HOST_WIDE_INT spill_store_cost;
 static unsigned HOST_WIDE_INT spill_remat_cost;
+
+/* In rewrite_program2() we detect if some def us useless, in the sense,
+   that the pseudo set is not live anymore at that point.  The REF_IDs
+   of such defs are noted here.  */
 static bitmap useless_defs;
 
-/* Rewrite the program to include the spill code.  */
+/* This is the simple and fast version of rewriting the program to
+   include spill code.  It spills at every insn containing spilled
+   defs or uses.  Loads are added only if flag_ra_spill_every_use is
+   nonzero, otherwise only stores will be added.  This doesn't
+   support rematerialization. 
+   NEW_DEATHS is filled with uids for insns, which probably contain
+   deaths.  */
+
 static void
 rewrite_program (new_deaths)
      bitmap new_deaths;
@@ -360,6 +410,10 @@ rewrite_program (new_deaths)
   unsigned int i;
   struct dlist *d;
   bitmap b = BITMAP_XMALLOC ();
+
+  /* We walk over all webs, over all uses/defs.  For all webs, we need
+     to look at spilled webs, and webs coalesced to spilled ones, in case
+     their alias isn't broken up, or they got spill coalesced.  */
   for (i = 0; i < 2; i++)
     for (d = (i == 0) ? WEBS(SPILLED) : WEBS(COALESCED); d; d = d->next)
       {
@@ -367,9 +421,12 @@ rewrite_program (new_deaths)
 	struct web *aweb = alias (web);
 	unsigned int j;
 	rtx slot;
+
+	/* Is trivially true for spilled webs, but not for coalesced ones.  */
 	if (aweb->type != SPILLED)
 	  continue;
 
+	/* First add loads before every use, if we have to.  */
 	if (flag_ra_spill_every_use)
 	  {
 	    bitmap_clear (b);
@@ -384,6 +441,10 @@ rewrite_program (new_deaths)
 		/* Happens when spill_coalescing() deletes move insns.  */
 		if (!INSN_P (insn))
 		  continue;
+
+		/* Check that we didn't already added a load for this web
+		   and insn.  Happens, when the an insn uses the same web
+		   multiple times.  */
 	        if (bitmap_bit_p (b, INSN_UID (insn)))
 		  continue;
 	        bitmap_set_bit (b, INSN_UID (insn));
@@ -391,8 +452,6 @@ rewrite_program (new_deaths)
 	        source = slot;
 		start_sequence ();
 	        if (GET_CODE (target) == SUBREG)
-		  /*source = adjust_address (source, GET_MODE (target),
-					   SUBREG_BYTE (target));*/
 		  source = simplify_gen_subreg (GET_MODE (target), source,
 						GET_MODE (source),
 						SUBREG_BYTE (target));
@@ -415,7 +474,8 @@ rewrite_program (new_deaths)
 	      }
 	  }
 
-	/* If any uses were loaded from stackslots (compared to
+	/* Now emit the stores after each def.
+	   If any uses were loaded from stackslots (compared to
 	   rematerialized or not reloaded due to IR spilling),
 	   aweb->stack_slot will be set.  If not, we don't need to emit
 	   any stack stores.  */
@@ -438,9 +498,8 @@ rewrite_program (new_deaths)
 	      source = DF_REF_REG (web->defs[j]);
 	      dest = slot;
 	      if (GET_CODE (source) == SUBREG)
+#if 0
 		{
-		  /*dest = adjust_address (dest, GET_MODE (source),
-					 SUBREG_BYTE (source));*/
 		  dest = simplify_gen_subreg (GET_MODE (source), dest,
 					      GET_MODE (dest),
 					      SUBREG_BYTE (source));
@@ -451,13 +510,18 @@ rewrite_program (new_deaths)
 		  /*if (! bitmap_bit_p (useless_defs, DF_REF_ID (web->defs[j]))
 		      || !validate_change (insn, DF_REF_LOC (web->defs[j]),
 					   slot, 0))*/
-/*		  rtx reg = gen_reg_rtx (GET_MODE (source));
+		  /*rtx reg = gen_reg_rtx (GET_MODE (source));
 		  if (validate_change (insn, DF_REF_LOC (web->defs[j]),
 				       reg, 0))
 		    emit_insn (gen_move_insn (dest, reg));
 		  else*/
 		    ra_emit_move_insn (dest, source);
 		}
+#endif
+		dest = simplify_gen_subreg (GET_MODE (source), dest,
+					    GET_MODE (dest),
+					    SUBREG_BYTE (source));
+	      ra_emit_move_insn (dest, source);
 
 	      insns = get_insns ();
 	      end_sequence ();
@@ -489,15 +553,16 @@ rewrite_program (new_deaths)
       }
 
   BITMAP_XFREE (b);
-
-  /*if (! validate_change (insn, df->defs[i]->loc, web->stack_slot, 0)) */
 }
 
+/* A simple list of rtx's.  */
 struct rtx_list
 {
   struct rtx_list *next;
   rtx x;
 };
+
+/* Adds X to *LIST.  */
 
 static void
 remember_slot (list, x)
@@ -511,6 +576,11 @@ remember_slot (list, x)
   l->x = x;
   *list = l;
 }
+
+/* Given two rtx' S1 and S2, either being REGs or MEMs (or SUBREGs
+   thereof), return non-zero, if they overlap.  REGs and MEMs don't
+   overlap, and if they are MEMs they must have an easy address
+   (plus (basereg) (const_inst x)), otherwise they overlap.  */
 
 static int
 slots_overlap_p (s1, s2)
@@ -560,6 +630,9 @@ slots_overlap_p (s1, s2)
   return 1;
 }
 
+/* This deletes from *LIST all rtx's which overlap with X in the sense
+   of slots_overlap_p().  */
+
 static void
 delete_overlapping_slots (list, x)
      struct rtx_list **list;
@@ -574,6 +647,8 @@ delete_overlapping_slots (list, x)
     }
 }
 
+/* Returns nonzero, of X is member of LIST.  */
+
 static int
 slot_member_p (list, x)
      struct rtx_list *list;
@@ -585,6 +660,12 @@ slot_member_p (list, x)
   return 0;
 }
 
+/* A more sophisticated (and slower) method of adding the stores, than
+   rewrite_program().  This goes backward the insn stream, adding
+   stores as it goes, but only if it hasn't just added a store to the
+   same location.  NEW_DEATHS is a bitmap filled with uids of insns
+   containing deaths.  */
+
 static void
 insert_stores (new_deaths)
      bitmap new_deaths;
@@ -592,18 +673,24 @@ insert_stores (new_deaths)
   rtx insn;
   rtx last_slot = NULL_RTX;
   struct rtx_list *slots = NULL;
+
+  /* We go simply backwards over basic block borders.  */
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
     {
       int uid = INSN_UID (insn);
-      if (/*GET_CODE (insn) == CODE_LABEL || */GET_CODE (insn) == BARRIER
+
+      /* If we reach a basic block border, which has more than one
+	 outgoing edge, we simply forget all already emitted stores.  */
+      if (GET_CODE (insn) == BARRIER
 	  || JUMP_P (insn) || can_throw_internal (insn))
 	{
-	  /* Clear any info about already emitted stores.  */
 	  last_slot = NULL_RTX;
 	  slots = NULL;
 	}
       if (!INSN_P (insn))
 	continue;
+
+      /* If this insn was not just added in this pass.  */
       if (uid < insn_df_max_uid)
 	{
 	  unsigned int n;
@@ -622,11 +709,12 @@ insert_stores (new_deaths)
 	      /* adjust_address() might generate code.  */
 	      start_sequence ();
 	      if (GET_CODE (source) == SUBREG)
-		/*slot = adjust_address (slot, GET_MODE (source),
-				       SUBREG_BYTE (source));*/
 		slot = simplify_gen_subreg (GET_MODE (source), slot,
 					    GET_MODE (slot),
 					    SUBREG_BYTE (source));
+	      /* If we have no info about emitted stores, or it didn't
+		 contain the location we intend to use soon, then
+		 add the store.  */
 	      if ((!last_slot || !rtx_equal_p (slot, last_slot))
 		  && ! slot_member_p (slots, slot))
 		{
@@ -655,13 +743,14 @@ insert_stores (new_deaths)
 		}
 	      else
 		{
-		  rtx insns = get_insns ();
+		  /* Otherwise ignore insns from adjust_address() above.  */
 		  end_sequence ();
-		  /* Ignore insns from adjust_address() above.  */
 		}
 	    }
 	}
-      /* Clear emitted stores if a new load is seen here.  */
+      /* If we look at a load generated by the allocator, forget
+	 the last emitted slot, and additionally clear all slots
+	 overlapping it's source (after all, we need it again).  */
       /* XXX If we emit the stack-ref directly into the using insn the
          following needs a change, because that is no new insn.  Preferably
 	 we would add some notes to the insn, what stackslots are needed
@@ -670,6 +759,7 @@ insert_stores (new_deaths)
 	{
 	  rtx set = single_set (insn);
 	  last_slot = NULL_RTX;
+	  /* If this was no simple set, give up, and forget everything.  */
 	  if (!set)
 	    slots = NULL;
 	  else
@@ -683,6 +773,7 @@ insert_stores (new_deaths)
 
 /* Returns 1 if both colored webs have some hardregs in common, even if
    they are not the same width.  */
+
 static int
 spill_same_color_p (web1, web2)
      struct web *web1, *web2;
@@ -702,6 +793,9 @@ spill_same_color_p (web1, web2)
   return 1;
 }
 
+/* Given the set of live web IDs LIVE, returns nonzero, if any of WEBs
+   subwebs (or WEB itself) is live.  */
+
 static int
 is_partly_live_1 (live, web)
      sbitmap live;
@@ -714,9 +808,14 @@ is_partly_live_1 (live, web)
   return 0;
 }
 
+/* Fast version in case WEB has no subwebs.  */
 #define is_partly_live(live, web) ((!web->subreg_next)	\
 				   ? TEST_BIT (live, web->id)	\
 				   : is_partly_live_1 (live, web))
+
+/* Change the set of currently IN_USE colors according to
+   WEB's color.  Either add those colors to the hardreg set (if ADD
+   is nonzero), or remove them.  */
 
 static void
 update_spill_colors (in_use, web, add)
@@ -745,6 +844,11 @@ update_spill_colors (in_use, web, add)
       CLEAR_HARD_REG_BIT (*in_use, c + size);
 }
 
+/* Given a set of hardregs currently IN_USE and the color C of WEB,
+   return -1 if WEB has no color, 1 of it has the unusable color,
+   0 if one of it's used hardregs are in use, and 1 otherwise.
+   Generally, if WEB can't be left colorized return 1.  */
+
 static int
 spill_is_free (in_use, web)
      HARD_REG_SET *in_use;
@@ -763,18 +867,43 @@ spill_is_free (in_use, web)
   return 1;
 }
 
+
+/* Structure for passing between rewrite_program2() and emit_loads().  */
 struct rewrite_info
 {
+  /* The web IDs which currently would need a reload.  These are
+     currently live spilled webs, whose color was still free.  */
   bitmap need_reload;
+  /* We need a scratch bitmap, but don't want to allocate one a zillion
+     times.  */
   bitmap scratch;
+  /* Web IDs of currently live webs.  This are the precise IDs,
+     not just those of the superwebs.  If only on part is live, only
+     that ID is placed here.  */
   sbitmap live;
+  /* An array of webs, which currently need a load added.
+     They will be emitted when seeing the first death.  */ 
   struct web **needed_loads;
+  /* The current number of entries in needed_loads.  */
   int nl_size;
+  /* The number of bits set in need_reload.  */
   int num_reloads;
+  /* The current set of hardregs not available.  */
   HARD_REG_SET colors_in_use;
+  /* Nonzero, if we just added some spill temps to need_reload or
+     needed_loads.  In this case we don't wait for the next death
+     to emit their loads.  */
   int any_spilltemps_spilled;
+  /* Nonzero, if we currently need to emit the loads.  E.g. when we
+     saw an insn containing deaths.  */
   int need_load;
 };
+
+/* The needed_loads list of RI contains some webs for which
+   we add the actual load insns here.  They are added just before
+   their use last seen.  NL_FIRST_RELOAD is the index of the first
+   load which is a converted reload, all other entries are normal
+   loads.  LAST_BLOCK_INSN is the last insn of the current basic block.  */
 
 static void
 emit_loads (ri, nl_first_reload, last_block_insn)
@@ -1025,6 +1154,13 @@ detect_deaths_in_bb (bb, live, new_deaths)
     }
 }
 
+/* Given a set of reloads in RI, an array of NUM_REFS references (either
+   uses or defs) in REFS, and REF2WEB to translate ref IDs to webs
+   (either use2web or def2web) convert some reloads to loads.
+   This looks at the webs referenced, and how they change the set of
+   available colors.  Now put all still live webs, which needed reloads,
+   and whose colors isn't free anymore, on the needed_loads list.  */
+
 static void
 reloads_to_loads (ri, refs, num_refs, ref2web)
      struct rewrite_info *ri;
@@ -1084,6 +1220,11 @@ reloads_to_loads (ri, refs, num_refs, ref2web)
 }
 
 #define NEW_SPILL
+
+/* This adds loads for spilled webs to the program.  It uses a kind of
+   interference region spilling.  If flag_ra_ir_spilling is zero it
+   only uses improved chaitin spilling (adding loads only at insns
+   containing deaths).  */
 
 static void
 rewrite_program2 (new_deaths)
@@ -1439,7 +1580,8 @@ rewrite_program2 (new_deaths)
 	      struct web *web2 = ID2WEB (j);
 	      struct web *supweb2 = find_web_for_subweb (web2);
 	      struct web *aweb2 = alias (supweb2);
-	      /* block entry is IR boundary for aweb2?  */
+	      /* block entry is IR boundary for aweb2?
+		 Currently more some tries for good conditions.  */
 	      if (((ra_pass > 0 || supweb2->target_of_spilled_move)
 		  && (1 || in_ir || spill_is_free (&cum_colors, aweb2) <= 0))
 		  || (ra_pass == 1
@@ -1475,6 +1617,13 @@ rewrite_program2 (new_deaths)
   BITMAP_XFREE (ri.need_reload);
 }
 
+/* WEBS is a web conflicting with a spilled one.  Prepare it
+   to be able to rescan it in the next pass.  Mark all it's uses
+   for checking, and clear the some members of their web parts
+   (of defs and uses).  Notably don't clear the uplink.  We don't
+   change the layout of this web, just it's conflicts.
+   Also remember all IDs of its uses in USES_AS_BITMAP.  */
+
 static void
 mark_refs_for_checking (web, uses_as_bitmap)
      struct web *web;
@@ -1497,8 +1646,14 @@ mark_refs_for_checking (web, uses_as_bitmap)
     }
 }
 
+/* The last step of the spill phase is to set up the structures for
+   incrementally rebuilding the interference graph.  We break up
+   the web part structure of all spilled webs, mark their uses for
+   rechecking, look at their neighbors, and clean up some global
+   information, we will rebuild.  */
+
 static void
-detect_web_parts_to_rebuild (void)
+detect_web_parts_to_rebuild ()
 {
   bitmap uses_as_bitmap;
   unsigned int i, pass;
@@ -1524,6 +1679,10 @@ detect_web_parts_to_rebuild (void)
 	/* This check is only needed for coalesced nodes, but hey.  */
 	if (alias (web)->type != SPILLED)
 	  continue;
+
+	/* For the spilled web itself we also need to clear it's
+	   uplink, to be able to rebuild smaller webs.  After all
+	   spilling has split the web.  */
         for (i = 0; i < web->num_uses; i++)
 	  {
 	    unsigned int id = DF_REF_ID (web->uses[i]);
@@ -1540,6 +1699,8 @@ detect_web_parts_to_rebuild (void)
 	    web_parts[id].spanned_deaths = 0;
 	    web_parts[id].crosses_call = 0;
 	  }
+
+	/* Now look at all neighbors of this spilled web.  */
 	if (web->have_orig_conflicts)
 	  wl = web->orig_conflict_list;
 	else
@@ -1578,6 +1739,9 @@ detect_web_parts_to_rebuild (void)
 	    bitmap_set_bit (uses_as_bitmap, DF_REF_ID (link->ref));
       }
 
+  /* The information in live_at_end[] will be rebuild for all uses
+     we recheck, so clear it here (the uses of spilled webs, might
+     indeed not become member of it again).  */
   live_at_end -= 2;
   for (i = 0; i < (unsigned int) last_basic_block + 2; i++)
     bitmap_operation (live_at_end[i], live_at_end[i], uses_as_bitmap,
@@ -1593,11 +1757,15 @@ detect_web_parts_to_rebuild (void)
   BITMAP_XFREE (uses_as_bitmap);
 }
 
+/* Statistics about deleted insns, which are useless now.  */
 static unsigned int deleted_def_insns;
 static unsigned HOST_WIDE_INT deleted_def_cost;
 
+/* In rewrite_program2() we noticed, when a certain insn set a pseudo
+   which wasn't live.  Try to delete all those insns.  */
+
 static void
-delete_useless_defs (void)
+delete_useless_defs ()
 {
   unsigned int i;
   /* If the insn only sets the def without any sideeffect (besides
@@ -1619,8 +1787,13 @@ delete_useless_defs (void)
     });
 }
 
+/* Look for spilled webs, on whose behalf no insns were emitted.
+   We inversify (sp?) the changed flag of the webs, so after this function
+   a nonzero changed flag means, that this web was not spillable (at least
+   in this pass).  */
+
 static void
-detect_non_changed_webs (void)
+detect_non_changed_webs ()
 {
   struct dlist *d, *d_next;
   for (d = WEBS(SPILLED); d; d = d_next)
@@ -1643,16 +1816,23 @@ detect_non_changed_webs (void)
     }
 }
 
+/* Before spilling we clear the changed flags for all spilled webs.  */
+
 static void
-reset_changed_flag (void)
+reset_changed_flag ()
 {
   struct dlist *d;
   for (d = WEBS(SPILLED); d; d = d->next)
     DLIST_WEB(d)->changed = 0;
 }
 
+/* The toplevel function for this file.  Given a colorized graph,
+   and lists of spilled, coalesced and colored webs, we add some
+   spill code.  This also sets up the structures for incrementally
+   building the interference graph in the next pass.  */
+
 void
-actual_spill (void)
+actual_spill ()
 {
   int i;
   bitmap new_deaths = BITMAP_XMALLOC ();
@@ -1660,8 +1840,10 @@ actual_spill (void)
   spill_coalprop ();
   choose_spill_colors ();
   useless_defs = BITMAP_XMALLOC ();
-  rewrite_program2 (new_deaths);
-  /*rewrite_program (new_deaths);*/
+  if (flag_ra_improved_spilling)
+    rewrite_program2 (new_deaths);
+  else
+    rewrite_program (new_deaths);
   insert_stores (new_deaths);
   delete_useless_defs ();
   BITMAP_XFREE (useless_defs);
@@ -1676,9 +1858,14 @@ actual_spill (void)
   BITMAP_XFREE (new_deaths);
 }
 
+/* A bitmap of pseudo reg numbers which are coalesced directly
+   to a hardreg.  Set in emit_colors(), used and freed in
+   remove_suspicious_death_notes().  */
 static bitmap regnos_coalesced_to_hardregs;
 
-/* Create new pseudos for each web we colored, and set up reg_renumber.  */
+/* Create new pseudos for each web we colored, change insns to
+   use those pseudos and set up ra_reg_renumber.  */
+
 void
 emit_colors (df)
      struct df *df;
@@ -1830,8 +2017,10 @@ emit_colors (df)
   BITMAP_XFREE (old_regs);
 }
 
+/* Delete some coalesced moves from the insn stream.  */
+
 void
-delete_moves (void)
+delete_moves ()
 {
   struct move_list *ml;
   struct web *s, *t;
@@ -1887,8 +2076,9 @@ delete_moves (void)
    accidentally overwriting it.  So we need to remove those REG_DEAD notes.
    (Or better teach life_analysis() and reload about our coalescing, but
    that comes later) Bah.  */
+
 void
-remove_suspicious_death_notes (void)
+remove_suspicious_death_notes ()
 {
   rtx insn;
   for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
@@ -1912,6 +2102,10 @@ remove_suspicious_death_notes (void)
   regnos_coalesced_to_hardregs = NULL;
 }
 
+/* Allocate space for max_reg_num() pseudo registers, and
+   fill reg_renumber[] from ra_reg_renumber[].  If FREE_IT
+   is nonzero, also free ra_reg_renumber and reset ra_max_regno.  */
+
 void
 setup_renumber (free_it)
      int free_it;
@@ -1930,6 +2124,9 @@ setup_renumber (free_it)
       ra_max_regno = 0;
     }
 }
+
+/* Dump the costs and savings due to spilling, i.e. of added spill insns
+   and removed moves or useless defs.  */
 
 void
 dump_cost (level)
@@ -1951,8 +2148,10 @@ dump_cost (level)
 #undef LU
 }
 
+/* Initialization of the rewrite phase.  */
+
 void
-ra_rewrite_init (void)
+ra_rewrite_init ()
 {
   emitted_spill_loads = 0;
   emitted_spill_stores = 0;

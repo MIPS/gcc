@@ -1,3 +1,22 @@
+2002-07-11  Michael Matz  <matz@suse.de>
+
+	* ra.c (flag_ra_improved_spilling): New.
+	* ra.h (flag_ra_improved_spilling): Declare.
+	* ra-rewrite.c (actual_spill): Use it, and call rewrite_program().
+
+2002-06-27  Michael Matz  <matz@suse.de>
+
+	* toplev.c (flag_new_regalloc): Add comment.
+	* df.c (df_insn_table_realloc): Size param is absolute.
+	* Makefile.in: Clean up header dependencies for ra*.o  
+	* doc/invoke.texi: Document -fnew-ra.
+	* ra.c: Add comments everywhere.  Delete some #if 0'ed code.
+	* ra.h: Ditto.
+	* ra-build.c: Ditto.
+	* ra-colorize.c: Ditto.
+	* ra-debug.c: Ditto.
+	* ra-rewrite.c: Ditto.
+
 2002-06-21  Andreas Jaeger  <aj@suse.de>
 
 	* ra.c: Cleanup whitespace.
@@ -88,7 +107,7 @@
 	(DUMP_VALIDIFY): New.
 	(copy_insn_p): Moves involving spill-pseudos are not coalescable.
 	(init_one_web_common): Initialize num_conflicts to 0.
-	(add_subweb, check_conflict_numbers, conservative): Dito.
+	(add_subweb, check_conflict_numbers, conservative): Ditto.
 	(remember_web_was_spilled): Adjust num_conflicts by 0.
 	(dump_igraph, check_colors, spill_same_color_p, update_spill_colors,
 	spill_is_free, emit_loads): Handle spillpseudos.
@@ -439,7 +458,7 @@ Sat Feb  2 18:58:07 2002  Denis Chertykov  <denisc@overta.ru>
 	(undef_to_bitmap): Use undef_to_size_word.
 	(prune_hardregs_for_mode): Use hardregs_for_mode[].
 	(find_subweb): web->subreg_next is no circular list anymore.
-	(find_subweb_2): Dito and use one argument for size/word.
+	(find_subweb_2): Ditto and use one argument for size/word.
 	(find_web_for_subweb): Macro, plus use parent_web.
 	(add_subweb): Set parent_web.
 	(add_subweb_2): One size/word argument.
@@ -889,7 +908,7 @@ Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c : (rtx_to_bits): Use SUBREG_BYTE, instead of calculating
 	things from SUBREG_WORD.
-	(defuse_overlap_p, find_subweb): Dito.
+	(defuse_overlap_p, find_subweb): Ditto.
 	(dump_igraph, dump_ra): s/SUBREG_WORD/SUBREG_BYTE/ .
 	(colorize_one_web): Simulate SUBREG_WORD.
 	(rewrite_program): Don't emit (subreg(mem ...)).
@@ -903,7 +922,7 @@ Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
         preliminar dump_constraints()
  
         * ra.c : (struct web_part): New member crosses_call.
-        (struct web): Dito.
+        (struct web): Ditto.
         (union_web_parts): Merge it.
         (live_out_1): Set it.
         (parts_to_webs): Copy it.
@@ -1015,9 +1034,9 @@ Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
         (parts_to_webs): Don't alloc conflicts.
         Make sup_igraph a num_webs*num_webs bitmap.
         (remember_web_was_spilled): Don't deal with fake conflicts.
-        (free_mem): Dito.  Change to two level conflicts approach.
-        (decrement_degree): Dito (both).
-        (simplify, ok, conservative, combine, colorize_one_web): Dito.
+        (free_mem): Ditto.  Change to two level conflicts approach.
+        (decrement_degree): Ditto (both).
+        (simplify, ok, conservative, combine, colorize_one_web): Ditto.
         (coalesce): Test bits [a,b] and [b,a] in sup_igraph.
         (rewrite_program): Iterate over webs, not defs/uses.
         (emit_colors): Don't rely on reg_renumber to color aliased webs

@@ -311,17 +311,20 @@ static inline bool read_modify_subreg_p PARAMS ((rtx));
 /* Local memory allocation/deallocation routines.  */
 
 
-/* Increase the insn info table by SIZE more elements.  */
+/* Increase the insn info table to have space for at least SIZE + 1
+   elements.  */
 static void
 df_insn_table_realloc (df, size)
      struct df *df;
      int size;
 {
-  /* Make table 25 percent larger by default.  */
-  if (! size)
-    size = df->insn_size / 4;
+  size++;
+  if (size <= df->insn_size)
+    return;
 
-  size += df->insn_size;
+  /* Make the table a little larger than requested, so we don't need
+     to enlarge it so often.  */
+  size += df->insn_size / 4;
 
   df->insns = (struct insn_info *)
     xrealloc (df->insns, size * sizeof (struct insn_info));
@@ -2498,10 +2501,7 @@ df_insn_modify (df, bb, insn)
 
   uid = INSN_UID (insn);
   if (uid >= df->insn_size)
-    df_insn_table_realloc (df, 0);
-
-  if (uid >= df->insn_size)
-    df_insn_table_realloc (df, 0);
+    df_insn_table_realloc (df, uid);
 
   bitmap_set_bit (df->bbs_modified, bb->index);
   bitmap_set_bit (df->insns_modified, uid);
@@ -2788,7 +2788,7 @@ df_insns_modify (df, bb, first_insn, last_insn)
       uid = INSN_UID (insn);
 
       if (uid >= df->insn_size)
-	df_insn_table_realloc (df, 0);
+	df_insn_table_realloc (df, uid);
 
       df_insn_modify (df, bb, insn);
 

@@ -1,55 +1,48 @@
 /* Graph coloring register allocator
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
-   and Daniel Berlin <dan@cgsoftware.com>
+   Contributed by Michael Matz <matz@suse.de>
+   and Daniel Berlin <dan@cgsoftware.com>.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it under the
+   GCC is free software; you can redistribute it and/or modify it under the
    terms of the GNU General Public License as published by the Free Software
    Foundation; either version 2, or (at your option) any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but WITHOUT ANY
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
    FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
    details.
 
    You should have received a copy of the GNU General Public License along
-   with GNU CC; see the file COPYING.  If not, write to the Free Software
+   with GCC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
-#include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "function.h"
-#include "regs.h"
-#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "df.h"
-#include "sbitmap.h"
-#include "expr.h"
 #include "output.h"
-#include "toplev.h"
-#include "flags.h"
-#include "ggc.h"
-#include "reload.h"
-#include "real.h"
-#include "pre-reload.h"
 #include "ra.h"
+
+/* This file contains various dumping and debug functions for
+   the graph coloring register allocator.  */
 
 static void ra_print_rtx_1op PARAMS ((FILE *, rtx));
 static void ra_print_rtx_2op PARAMS ((FILE *, rtx));
 static void ra_print_rtx_3op PARAMS ((FILE *, rtx));
 static void ra_print_rtx_object PARAMS ((FILE *, rtx));
 
+/* The hardregs as names, for debugging.  */
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
-/* Print a message to the dump file, if debug_new_regalloc is the
-   same or greater than the specified level. */
+/* Print a message to the dump file, if debug_new_regalloc and LEVEL
+   have any bits in common.  */
 
 void
 ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
@@ -71,6 +64,17 @@ ra_debug_msg VPARAMS ((unsigned int level, const char *format, ...))
       va_end (ap);
     }
 }
+
+
+/* The following ra_print_xxx() functions print RTL expressions
+   in concise infix form.  If the mode can be seen from context it's
+   left out.  Most operators are represented by their graphical
+   characters, e.g. LE as "<=".  Unknown constructs are currently
+   printed with print_inline_rtx(), which disrupts the nice layout.
+   Currently only the inline asm things are written this way.  */
+
+/* Print rtx X, which is a one operand rtx (op:mode (Y)), as
+   "op(Y)" to FILE.  */
 
 static void
 ra_print_rtx_1op (file, x)
@@ -103,6 +107,10 @@ ra_print_rtx_1op (file, x)
 	  break;
     }
 }
+
+/* Print rtx X, which is a two operand rtx (op:mode (Y) (Z))
+   as "(Y op Z)", if the operand is know, or as "op(Y, Z)", if not,
+   to FILE.  */
 
 static void
 ra_print_rtx_2op (file, x)
@@ -166,6 +174,9 @@ ra_print_rtx_2op (file, x)
     }
 }
 
+/* Print rtx X, which a three operand rtx to FILE.
+   I.e. X is either an IF_THEN_ELSE, or a bitmap operation.  */
+
 static void
 ra_print_rtx_3op (file, x)
      FILE *file;
@@ -196,6 +207,12 @@ ra_print_rtx_3op (file, x)
       fputs (")", file);
     }
 }
+
+/* Print rtx X, which represents an object (class 'o' or some constructs
+   of class 'x' (e.g. subreg)), to FILE.
+   (reg XX) rtl is represented as "pXX", of XX was a pseudo,
+   as "name" it name is the nonnull hardreg name, or as "hXX", if XX
+   is a hardreg, whose name is NULL, or empty.  */
 
 static void
 ra_print_rtx_object (file, x)
@@ -328,6 +345,11 @@ ra_print_rtx_object (file, x)
     }
 }
 
+/* Print a general rtx X to FILE in nice infix form.
+   If WITH_PN is set, and X is one of the toplevel constructs
+   (insns, notes, labels or barriers), then print also the UIDs of
+   the preceding and following insn.  */
+
 void
 ra_print_rtx (file, x, with_pn)
      FILE *file;
@@ -341,15 +363,20 @@ ra_print_rtx (file, x, with_pn)
     return;
   code = GET_CODE (x);
   class = GET_RTX_CLASS (code);
+
+  /* First handle the insn like constructs.  */
   if (INSN_P (x) || code == NOTE || code == CODE_LABEL || code == BARRIER)
     {
       if (INSN_P (x))
 	fputs ("  ", file);
+      /* Non-insns are prefixed by a ';'.  */
       if (code == BARRIER)
 	fputs ("; ", file);
       else if (code == NOTE)
+	/* But notes are indented very far right.  */
 	fprintf (file, "\t\t\t\t\t; ");
       else if (code == CODE_LABEL)
+	/* And labels have their Lxx name first, before the actual UID.  */
 	{
 	  fprintf (file, "L%d:\t; ", CODE_LABEL_NUMBER (x));
 	  if (LABEL_NAME (x))
@@ -488,6 +515,8 @@ ra_print_rtx (file, x, with_pn)
     print_inline_rtx (file, x, 0);
 }
 
+/* This only calls ra_print_rtx(), but emits a final newline.  */
+
 void
 ra_print_rtx_top (file, x, with_pn)
      FILE *file;
@@ -498,12 +527,17 @@ ra_print_rtx_top (file, x, with_pn)
   fprintf (file, "\n");
 }
 
+/* Callable from gdb.  This prints rtx X onto stderr.  */
+
 void
 ra_debug_rtx (x)
      rtx x;
 {
   ra_print_rtx_top (stderr, x, 1);
 }
+
+/* This prints the content of basic block with index BBI.
+   The first and last insn are emitted with UIDs of prev and next insns.  */
 
 void
 ra_debug_bbi (bbi)
@@ -519,6 +553,9 @@ ra_debug_bbi (bbi)
 	break;
     }
 }
+
+/* Beginning from INSN, emit NUM insns (if NUM is non-negative)
+   or emit a window of NUM insns around INSN, to stderr.  */
 
 void
 ra_debug_insns (insn, num)
@@ -536,6 +573,10 @@ ra_debug_insns (insn, num)
       ra_print_rtx_top (stderr, insn, (i == count || i == 1));
     }
 }
+
+/* Beginning with INSN, emit the whole insn chain into FILE.
+   This also outputs comments when basic blocks start or end and omits
+   some notes, if flag_ra_dump_notes is zero.  */
 
 void
 ra_print_rtl_with_bb (file, insn)
@@ -584,8 +625,11 @@ ra_print_rtl_with_bb (file, insn)
     }
 }
 
+/* Count how many insns were seen how often, while building the interference
+   graph, and prints the findings.  */
+
 void
-dump_number_seen (void)
+dump_number_seen ()
 {
 #define N 17
   int num[N];
@@ -608,7 +652,8 @@ dump_number_seen (void)
 #undef N
 }
 
-/* Dump the interference graph.  */
+/* Dump the interference graph, the move list and the webs.  */
+
 void
 dump_igraph (df)
      struct df *df ATTRIBUTE_UNUSED;
@@ -691,8 +736,12 @@ dump_igraph (df)
     }
 }
 
+/* Dump the interference graph and webs in a format easily
+   parsable by programs.  Used to emit real world interference graph
+   to my custom graph colorizer.  */
+
 void
-dump_igraph_machine (void)
+dump_igraph_machine ()
 {
   unsigned int i;
 
@@ -747,8 +796,12 @@ dump_igraph_machine (void)
   ra_debug_msg (DUMP_IGRAPH_M, "e\n");
 }
 
+/* This runs after colorization and changing the insn stream.
+   It temporarily replaces all pseudo registers with their colors,
+   and emits information, if the resulting insns are strictly valid.  */
+
 void
-dump_constraints (void)
+dump_constraints ()
 {
   rtx insn;
   int i;
@@ -797,6 +850,9 @@ dump_constraints (void)
       REGNO (regno_reg_rtx[i]) = i;
 }
 
+/* This counts and emits the cumulated cost of all spilled webs,
+   preceded by a custom message MSG, with debug level LEVEL.  */
+
 void
 dump_graph_cost (level, msg)
      unsigned int level;
@@ -820,7 +876,8 @@ dump_graph_cost (level, msg)
 #undef LU
 }
 
-/* Dump debugging info for the register allocator.  */
+/* Dump the color assignment per web, the coalesced and spilled webs.  */
+
 void
 dump_ra (df)
      struct df *df ATTRIBUTE_UNUSED;
@@ -852,6 +909,9 @@ dump_ra (df)
   ra_debug_msg (DUMP_RESULTS, "\n");
   dump_cost (DUMP_RESULTS);
 }
+
+/* Calculate and dump the cumulated costs of certain types of insns
+   (loads, stores and copies).  */
 
 void
 dump_static_insn_cost (file, message, prefix)
@@ -937,10 +997,13 @@ dump_static_insn_cost (file, message, prefix)
 	   selfcopy.cost);
 }
 
+/* Returns nonzero, if WEB1 and WEB2 have some possible
+   hardregs in common.  */
+
 int
 web_conflicts_p (web1, web2)
-     struct web * web1;
-     struct web * web2;
+     struct web *web1;
+     struct web *web2;
 {
   if (web1->type == PRECOLORED && web2->type == PRECOLORED)
     return 0;
@@ -953,11 +1016,12 @@ web_conflicts_p (web1, web2)
 
   return hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs);
 }
-
-/* Dump all insns from one web.  */
+
+/* Dump all uids of insns in which WEB is mentioned.  */
+
 void
 dump_web_insns (web)
-     struct web* web;
+     struct web *web;
 {
   unsigned int i;
 
@@ -979,9 +1043,9 @@ dump_web_insns (web)
     }
   ra_debug_msg (DUMP_EVER, "\n");
 }
-
 
 /* Dump conflicts for web WEB.  */
+
 void
 dump_web_conflicts (web)
      struct web *web;
@@ -1032,8 +1096,8 @@ dump_web_conflicts (web)
   }
 }
 
-void debug_hard_reg_set PARAMS ((HARD_REG_SET));
 /* Output HARD_REG_SET to stderr.  */
+
 void
 debug_hard_reg_set (set)
      HARD_REG_SET set;
@@ -1048,3 +1112,7 @@ debug_hard_reg_set (set)
     }
   fprintf (stderr, "\n");
 }
+
+/*
+vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
+*/

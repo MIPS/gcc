@@ -1,21 +1,21 @@
 /* Graph coloring register allocator
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
-   Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
+   Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify it under the
+   GCC is free software; you can redistribute it and/or modify it under the
    terms of the GNU General Public License as published by the Free Software
    Foundation; either version 2, or (at your option) any later version.
 
-   GNU CC is distributed in the hope that it will be useful, but WITHOUT ANY
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
    FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
    details.
 
    You should have received a copy of the GNU General Public License along
-   with GNU CC; see the file COPYING.  If not, write to the Free Software
+   with GCC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
@@ -26,20 +26,42 @@
 #include "recog.h"
 #include "function.h"
 #include "regs.h"
-#include "obstack.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "df.h"
-#include "sbitmap.h"
-#include "expr.h"
 #include "output.h"
-#include "toplev.h"
-#include "flags.h"
 #include "ggc.h"
-#include "reload.h"
-#include "real.h"
-#include "pre-reload.h"
 #include "ra.h"
+
+/* This file is part of the graph coloring register alloctor.
+   It deals with building the interference graph.  When rebuilding
+   the graph for a function after spilling, we rebuild only those
+   parts needed, i.e. it works incrementally.
+
+   The first part (the functions called from build_web_parts_and_conflicts()
+   ) constructs a web_part for each pseudo register reference in the insn
+   stream, then goes backward from each use, until it reaches defs for that
+   pseudo.  While going back it remember seen defs for other registers as
+   conflicts.  By connecting the uses and defs, which reach each other, webs
+   (or live ranges) are built conceptually.
+
+   The second part (make_webs() and childs) deals with converting that
+   structure to the nodes and edges, on which our interference graph is
+   built.  For each root web part constructed above, an instance of struct
+   web is created.  For all subregs of pseudos, which matter for allocation,
+   a subweb of the corresponding super web is built.  Finally all the
+   conflicts noted in the first part (as bitmaps) are transformed into real
+   edges.
+
+   As part of that process the webs are also classified (their spill cost
+   is calculated, and if they are spillable at all, and if not, for what
+   reason; or if they are rematerializable), and move insns are collected,
+   which are potentially coalescable.
+
+   The top-level entry of this file (build_i_graph) puts it all together,
+   and leaves us with a complete interference graph, which just has to
+   be colored.  */
+
 
 struct curr_use;
 
@@ -60,7 +82,8 @@ static void live_in PARAMS ((struct df *, struct curr_use *, rtx));
 static int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
 static void remember_move PARAMS ((rtx));
 static void handle_asm_insn PARAMS ((struct df *, rtx));
-static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *, enum machine_mode));
+static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *,
+					     enum machine_mode));
 static void init_one_web_common PARAMS ((struct web *, rtx));
 static void init_one_web PARAMS ((struct web *, rtx));
 static void reinit_one_web PARAMS ((struct web *, rtx));
@@ -74,7 +97,7 @@ static void copy_web PARAMS ((struct web *, struct web_link **));
 static void compare_and_free_webs PARAMS ((struct web_link **));
 static void init_webs_defs_uses PARAMS ((void));
 static unsigned int parts_to_webs_1 PARAMS ((struct df *, struct web_link **,
-				    struct df_link *));
+					     struct df_link *));
 static void parts_to_webs PARAMS ((struct df *));
 static void reset_conflicts PARAMS ((void));
 static void check_conflict_numbers PARAMS ((void));
@@ -95,28 +118,63 @@ static void init_bb_info PARAMS ((void));
 static void free_bb_info PARAMS ((void));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
 
+
+/* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
+   edge.  */
 static sbitmap live_over_abnormal;
+
+/* To cache if we already saw a certain edge while analyzing one
+   use, we use a tick count incremented per use.  */
 static unsigned int visited_pass;
+
+/* A sbitmap of UIDs of move insns, which we already analyzed.  */
 static sbitmap move_handled;
 
+/* One such structed is allocated per insn, and traces for the currently
+   analyzed use, which web part belongs to it, and how many bytes of
+   it were still undefined when that insn was reached.  */
 struct visit_trace
 {
   struct web_part *wp;
   unsigned HOST_WIDE_INT undefined;
 };
-static struct visit_trace *visit_trace;  /* Indexed by UID.  */
+/* Indexed by UID.  */
+static struct visit_trace *visit_trace;
 
+/* Per basic block we have one such structure, used to speed up
+   the backtracing of uses.  */
 struct ra_bb_info
 {
+  /* The value of visited_pass, as the first insn of this BB was reached
+     the last time.  If this equals the current visited_pass, then
+     undefined is valid.  Otherwise not.  */
   unsigned int pass;
+  /* The still undefined bytes at that time.  The use to which this is
+     relative is the current use.  */
   unsigned HOST_WIDE_INT undefined;
-  bitmap regnos_mentioned, live_throughout;
+  /* Bit regno is set, if that regno is mentioned in this BB as a def, or
+     the source of a copy insn.  In these cases we can not skip the whole
+     block if we reach it from the end.  */
+  bitmap regnos_mentioned;
+  /* If a use reaches the end of a BB, and that BB doesn't mention its
+     regno, we skip the block, and remember the ID of that use
+     as living throughout the whole block.  */
+  bitmap live_throughout;
+  /* The content of the aux field before placing a pointer to this
+     structure there.  */
   void *old_aux;
 };
 
+/* We need a fast way to describe a certain part of a register.
+   Therefore we put together the size and offset (in bytes) in one
+   integer.  */
 #define BL_TO_WORD(b, l) ((((b) & 0xFFFF) << 16) | ((l) & 0xFFFF))
 #define BYTE_BEGIN(i) (((unsigned int)(i) >> 16) & 0xFFFF)
 #define BYTE_LENGTH(i) ((unsigned int)(i) & 0xFFFF)
+
+/* For a REG or SUBREG expression X return the size/offset pair
+   as an integer.  */
+
 unsigned int
 rtx_to_bits (x)
      rtx x;
@@ -126,6 +184,8 @@ rtx_to_bits (x)
   beg = (GET_CODE (x) == SUBREG) ? SUBREG_BYTE (x) : 0;
   return BL_TO_WORD (beg, len);
 }
+
+/* X is a REG or SUBREG rtx.  Return the bytes it touches as a bitmask.  */
 
 static unsigned HOST_WIDE_INT
 rtx_to_undefined (x)
@@ -140,6 +200,8 @@ rtx_to_undefined (x)
   return ret;
 }
 
+/* We remember if we've analyzed an insn for being a move insn, and if yes
+   between which operands.  */
 struct copy_p_cache
 {
   int seen;
@@ -150,7 +212,12 @@ struct copy_p_cache
 /* On demand cache, for if insns are copy insns, and if yes, what
    source/target they have.  */
 static struct copy_p_cache * copy_cache;
+
 int *number_seen;
+
+/* For INSN, return nonzero, if it's a move insn, we consider to coalesce
+   later, and place the operands in *SOURCE and *TARGET, if they are
+   not NULL.  */
 
 static int
 copy_insn_p (insn, source, target)
@@ -165,8 +232,10 @@ copy_insn_p (insn, source, target)
   if (!INSN_P (insn))
     abort ();
 
+  /* First look, if we already saw this insn.  */
   if (copy_cache[uid].seen)
     {
+      /* And if we saw it, if it's actually a copy insn.  */
       if (copy_cache[uid].seen == 1)
 	{
 	  if (source)
@@ -214,6 +283,8 @@ copy_insn_p (insn, source, target)
     *source = s;
   if (target)
     *target = d;
+
+  /* Still mark it as seen, but as a copy insn this time.  */
   copy_cache[uid].seen = 1;
   copy_cache[uid].source = s;
   copy_cache[uid].target = d;
@@ -224,15 +295,12 @@ copy_insn_p (insn, source, target)
    the insn stream, noting any defs as potentially conflicting with the
    current use.  We stop at defs of the current regno.  The conflicts are only
    potentially, because we may never reach a def, so this is an undefined use,
-   which conflicts with nothing. We do this by queuing all conflicts, and
-   applying them, if we are done with this use.  As soon as we reach a def of
-   the current regno we have a webpart.  This might be the first found for the
-   current use, in which case this is the new current_web, or we already have
-   a current web.  In the latter case we link the newly found part to the
-   current web.
-   If we iterate over all uses in this way, we build the webs.
-   Note, that the whole runtime of build_i_graph struct web doesn't refer
-   to web, but rather webparts, as they are not constructed fully yet.  */
+   which conflicts with nothing.  */
+
+
+/* Given a web part WP, and the location of a reg part SIZE_WORD
+   return the conflict bitmap for that reg part, or NULL if it doesn't
+   exist yet in WP.  */
 
 static bitmap
 find_sub_conflicts (wp, size_word)
@@ -246,6 +314,9 @@ find_sub_conflicts (wp, size_word)
       return cl->conflicts;
   return NULL;
 }
+
+/* Similar to find_sub_conflicts(), but creates that bitmap, if it
+   doesn't exist.  I.e. this never returns NULL.  */
 
 static bitmap
 get_sub_conflicts (wp, size_word)
@@ -266,10 +337,12 @@ get_sub_conflicts (wp, size_word)
   return b;
 }
 
-/* Offsets and lengths are byte based.  */
-struct undef_table_s {
+/* Helper table for undef_to_size_word() below for small values
+   of UNDEFINED.  Offsets and lengths are byte based.  */
+static struct undef_table_s {
   unsigned int new_undef;
-  unsigned int size_word;      /* size | (word << 16) */
+  /* size | (byte << 16)  */
+  unsigned int size_word;
 } undef_table [] = {
   { 0, BL_TO_WORD (0, 0)}, /* 0 */
   { 0, BL_TO_WORD (0, 1)},
@@ -288,11 +361,29 @@ struct undef_table_s {
   { 2, BL_TO_WORD (2, 2)},
   { 0, BL_TO_WORD (0, 4)}};
 
+/* Interpret *UNDEFINED as bitmask where each bit corresponds to a byte.
+   A set bit means an undefined byte.  Factor all undefined bytes into
+   groups, and return a size/ofs pair of consecutive undefined bytes,
+   but according to certain borders.  Clear out those bits corrsponding
+   to bytes overlaid by that size/ofs pair.  REG is only used for
+   the mode, to detect if it's a floating mode or not.
+
+   For example:	*UNDEFINED	size+ofs	new *UNDEFINED
+		 1111		4+0		  0
+		 1100		2+2		  0
+		 1101		2+2		  1
+		 0001		1+0		  0
+		10101		1+4		101
+
+   */
+
 static unsigned int
 undef_to_size_word (reg, undefined)
      rtx reg;
      unsigned HOST_WIDE_INT *undefined;
 {
+  /* When only the lower four bits are possibly set, we use
+     a fast lookup table.  */
   if (*undefined <= 15)
     {
       struct undef_table_s u;
@@ -300,6 +391,8 @@ undef_to_size_word (reg, undefined)
       *undefined = u.new_undef;
       return u.size_word;
     }
+
+  /* Otherwise we handle certain cases directly.  */
   switch (*undefined)
     {
       case 0x00f0 : *undefined = 0; return BL_TO_WORD (4, 4);
@@ -315,11 +408,13 @@ undef_to_size_word (reg, undefined)
       case 0xff00 : *undefined = 0; return BL_TO_WORD (8, 8);
       case 0xfff0 : *undefined = 0xf0; return BL_TO_WORD (8, 8);
       case 0xffff : *undefined = 0; return BL_TO_WORD (0, 16);
+
+      /* And if nothing matched fall back to the general solution.
+	 For now unknown undefined bytes are converted to sequences
+	 of maximal length 4 bytes.  We could make this larger if
+	 necessary.  */
       default :
 	{
-	  /* XXX For now unknown undefined bytes are converted to sequences
-	     of maximal length 4 bytes.  We could make this larger if
-	     necessary.  */
 	  unsigned HOST_WIDE_INT u = *undefined;
 	  int word;
 	  struct undef_table_s tab;
@@ -338,6 +433,11 @@ undef_to_size_word (reg, undefined)
     }
 }
 
+/* Put the above three functions together.  For a set of undefined bytes
+   as bitmap *UNDEFINED, look for (create if necessary) and return the
+   corresponding conflict bitmap.  Change *UNDEFINED to remove the bytes
+   covered by the part for that bitmap.  */
+
 static bitmap
 undef_to_bitmap (wp, undefined)
      struct web_part *wp;
@@ -350,6 +450,7 @@ undef_to_bitmap (wp, undefined)
 
 /* Returns the root of the web part P is a member of.  Additionally
    it compresses the path.  P may not be NULL.  */
+
 static struct web_part *
 find_web_part_1 (p)
      struct web_part *p;
@@ -366,6 +467,9 @@ find_web_part_1 (p)
   return r;
 }
 
+/* Fast macro for the common case (WP either being the root itself, or
+   the end of an already compressed path.  */
+
 #define find_web_part(wp) ((! (wp)->uplink) ? (wp) \
   : (! (wp)->uplink->uplink) ? (wp)->uplink : find_web_part_1 (wp))
 
@@ -373,6 +477,7 @@ find_web_part_1 (p)
    All dynamic information associated with the parts (number of spanned insns
    and so on) is also merged.
    The root of the resulting (possibly larger) web part is returned.  */
+
 static struct web_part *
 union_web_part_roots (r1, r2)
      struct web_part *r1, *r2;
@@ -444,6 +549,7 @@ union_web_part_roots (r1, r2)
       : union_web_part_roots (find_web_part (p1), find_web_part (p2)))
 
 /* Remember that we've handled a given move, so we don't reprocess it.  */
+
 static void
 remember_move (insn)
      rtx insn;
@@ -466,12 +572,6 @@ remember_move (insn)
 	  if (link->next
 	      && DF_REF_REGNO (link->next->ref) >= FIRST_PSEUDO_REGISTER)
 	    abort ();
-	  /* This happens with a read/modify/write insn. E.g.
-	     a (set (subreg:SI (reg:DI a) 1) (reg:SI b)) .
-	     But it would be still vavorable, if we coalesce both.
-	  if (slink->next
-	      && DF_REF_REGNO (slink->next->ref) >= FIRST_PSEUDO_REGISTER)
-	    abort (); */
 	}
       else
 	abort ();
@@ -526,6 +626,7 @@ struct curr_use {
    by DEF (only for cases with partial overlap).
    I.e. if bit 1 is set for the result != -1, the USE was completely covered,
    otherwise a test is needed to track the already defined bytes.  */
+
 static int
 defuse_overlap_p_1 (def, use)
      rtx def;
@@ -590,11 +691,20 @@ defuse_overlap_p_1 (def, use)
     }
 }
 
+/* Macro for the common case of either def and use having the same rtx,
+   or based on different regnos.  */
 #define defuse_overlap_p(def, use) \
   ((def) == (use)->x ? 1 : \
      (REGNO (GET_CODE (def) == SUBREG \
 	     ? SUBREG_REG (def) : def) != use->regno \
       ? 0 : defuse_overlap_p_1 (def, use)))
+
+
+/* The use USE flows into INSN (backwards).  Determine INSNs effect on it,
+   and return nonzero, if (parts of) that USE are also live before it.
+   This also notes conflicts between the USE and all DEFS in that insn,
+   and modifies the undefined bits of USE in case parts of it were set in
+   this insn.  */
 
 static int
 live_out_1 (df, use, insn)
@@ -620,15 +730,23 @@ live_out_1 (df, use, insn)
       unsigned int n, num_defs = insn_df[uid].num_defs;
       struct ref **defs = insn_df[uid].defs;
 
+      /* We want to access the root webpart.  */
       wp = find_web_part (wp);
       if (GET_CODE (insn) == CALL_INSN)
 	wp->crosses_call = 1;
       else if (copy_insn_p (insn, &s, NULL))
 	source_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
+
+      /* Look at all DEFS in this insn.  */
       for (n = 0; n < num_defs; n++)
 	{
 	  struct ref *ref = defs[n];
 	  int lap;
+
+	  /* Reset the undefined bits for each iteration, in case this
+	     insn has more than one set, and one of them sets this regno.
+	     But still the original undefined part conflicts with the other
+	     sets.  */
 	  use->undefined = orig_undef;
 	  if ((lap = defuse_overlap_p (DF_REF_REG (ref), use)) != 0)
 	    {
@@ -678,7 +796,11 @@ live_out_1 (df, use, insn)
 	    }
 	  else
 	    {
+	      /* The DEF and the USE don't overlap at all, different
+		 regnos.  I.e. make conflicts between the undefined bits,
+	         and that DEF.  */
 	      unsigned HOST_WIDE_INT undef = use->undefined;
+
 	      if (regno == source_regno)
 		/* This triggers only, when this was a copy insn and the
 		   source is at least a part of the USE currently looked at.
@@ -718,6 +840,8 @@ live_out_1 (df, use, insn)
 	use->undefined = 0;
       else
 	{
+	  /* If this insn doesn't completely define the USE, increment also
+	     it's spanned deaths count (if this insn contains a death). */
 	  if (uid >= death_insns_max_uid)
 	    abort ();
 	  if (TEST_BIT (insns_with_deaths, uid))
@@ -728,6 +852,14 @@ live_out_1 (df, use, insn)
 
   return !defined;
 }
+
+/* Same as live_out_1() (actually calls it), but caches some information.
+   E.g. if we reached this INSN with the current regno already, and the
+   current undefined bits are a subset of those as we came here, we
+   simply connect the web parts of the USE, and the one cached for this
+   INSN, and additionally return zero, indicating we don't need to traverse
+   this path any longer (all effect were already seen, as we first reached
+   this insn).  */
 
 static inline int
 live_out (df, use, insn)
@@ -740,13 +872,25 @@ live_out (df, use, insn)
       && DF_REF_REGNO (visit_trace[uid].wp->ref) == use->regno
       && (use->undefined & ~visit_trace[uid].undefined) == 0)
     {
-      (void) union_web_parts (visit_trace[uid].wp, use->wp);
+      union_web_parts (visit_trace[uid].wp, use->wp);
       /* Don't search any further, as we already were here with this regno. */
       return 0;
     }
   else
     return live_out_1 (df, use, insn);
 }
+
+/* The current USE reached a basic block head.  The edge E is one
+   of the predecessors edges.  This evaluates the effect of the predecessor
+   block onto the USE, and returns the next insn, which should be looked at.
+   This either is the last insn of that pred. block, or the first one.
+   The latter happens, when the pred. block has no possible effect on the
+   USE, except for conflicts.  In that case, it's remembered, that the USE
+   is live over that whole block, and it's skipped.  Otherwise we simply
+   continue with the last insn of the block.
+
+   This also determines the effects of abnormal edges, and remembers
+   which uses are live at the end of that basic block.  */
 
 static rtx
 live_in_edge (df, use, e)
@@ -768,6 +912,9 @@ live_in_edge (df, use, e)
   bitmap_set_bit (live_at_end[e->src->index], DF_REF_ID (use->wp->ref));
   info_pred = (struct ra_bb_info *) e->src->aux;
   next_insn = e->src->end;
+
+  /* If the last insn of the pred. block doesn't completely define the
+     current use, we need to check the block.  */
   if (live_out (df, use, next_insn))
     {
       /* If the current regno isn't mentioned anywhere in the whole block,
@@ -787,6 +934,13 @@ live_in_edge (df, use, e)
     return NULL_RTX;
 }
 
+/* USE flows into the end of the insns preceding INSN.  Determine
+   their effects (in live_out()) and possibly loop over the preceding INSN,
+   or call itself recursively on a basic block border.  When a topleve
+   call of this function returns the USE is completely analyzed.  I.e.
+   its def-use chain (at least) is built, possibly connected with other
+   def-use chains, and all defs during that chain are noted.  */
+
 static void
 live_in (df, use, insn)
      struct df *df;
@@ -805,6 +959,8 @@ live_in (df, use, insn)
       basic_block bb = BLOCK_FOR_INSN (insn);
       number_seen[uid]++;
 
+      /* We want to be as fast as possible, so explicitely write
+	 this loop.  */
       for (insn = PREV_INSN (insn); insn && !INSN_P (insn);
 	   insn = PREV_INSN (insn))
 	;
@@ -843,8 +999,13 @@ live_in (df, use, insn)
     }
 }
 
+/* Determine all regnos which are mentioned in a basic block, in an
+   interesting way.  Interesting here means either in a def, or as the
+   source of a move insn.  We only look at insns added since the last
+   pass.  */
+
 static void
-update_regnos_mentioned (void)
+update_regnos_mentioned ()
 {
   int last_uid = last_max_uid;
   rtx insn;
@@ -852,10 +1013,11 @@ update_regnos_mentioned (void)
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
-	/* XXX We should also remember moves over iterations (we already
-	   save the cache, but not the movelist).  */
+	/* Don't look at old insns.  */
 	if (INSN_UID (insn) < last_uid)
 	  {
+	    /* XXX We should also remember moves over iterations (we already
+	       save the cache, but not the movelist).  */
 	    if (copy_insn_p (insn, NULL, NULL))
 	      remember_move (insn);
 	  }
@@ -879,6 +1041,11 @@ update_regnos_mentioned (void)
       }
 }
 
+/* Handle the uses which reach a block end, but were defered due
+   to it's regno not being mentioned in that block.  This adds the
+   remaining conflicts and updates also the crosses_call and
+   spanned_deaths members.  */
+
 static void
 livethrough_conflicts_bb (bb)
      basic_block bb;
@@ -890,9 +1057,12 @@ livethrough_conflicts_bb (bb)
   unsigned int deaths = 0;
   unsigned int contains_call = 0;
 
+  /* If there are no defered uses, just return.  */
   if ((first = bitmap_first_set_bit (info->live_throughout)) < 0)
     return;
 
+  /* First collect the IDs of all defs, count the number of death
+     containing insns, and if there's some call_insn here.  */
   all_defs = BITMAP_XMALLOC ();
   for (insn = bb->head; insn; insn = NEXT_INSN (insn))
     {
@@ -911,6 +1081,8 @@ livethrough_conflicts_bb (bb)
 	break;
     }
 
+  /* And now, if we have found anything, make all live_through
+     uses conflict with all defs, and update their other members.  */
   if (deaths > 0 || bitmap_first_set_bit (all_defs) >= 0)
     EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id,
       {
@@ -927,8 +1099,11 @@ livethrough_conflicts_bb (bb)
   BITMAP_XFREE (all_defs);
 }
 
+/* Allocate the per basic block info for traversing the insn stream for
+   building live ranges.  */
+
 static void
-init_bb_info (void)
+init_bb_info ()
 {
   basic_block bb;
   FOR_ALL_BB (bb)
@@ -942,8 +1117,10 @@ init_bb_info (void)
     }
 }
 
+/* Free that per basic block info.  */
+
 static void
-free_bb_info (void)
+free_bb_info ()
 {
   basic_block bb;
   FOR_ALL_BB (bb)
@@ -956,8 +1133,10 @@ free_bb_info (void)
     }
 }
 
-/* Connect web parts, thereby implicitely building webs, and
+/* Toplevel function for the first part of this file.
+   Connect web parts, thereby implicitely building webs, and remember
    their conflicts.  */
+
 static void
 build_web_parts_and_conflicts (df)
      struct df *df;
@@ -1016,6 +1195,7 @@ build_web_parts_and_conflicts (df)
    as the REG reference is only one time in the RTL we can't color
    both webs different (arguably this also would be wrong for a real
    read-mod-write instruction), so we must reconnect such webs.  */
+
 static void
 connect_rmw_web_parts (df)
      struct df *df;
@@ -1045,20 +1225,17 @@ connect_rmw_web_parts (df)
 }
 
 /* Deletes all hardregs from *S which are not allowed for MODE.  */
+
 static void
 prune_hardregs_for_mode (s, mode)
      HARD_REG_SET *s;
      enum machine_mode mode;
 {
-  /* We work by first noting _all_ hardregs for which MODE is OK (including
-     it's consecutive regs), and later intersect that with *S.
-     We are not interested only in the beginning of a multi-reg, but in
-     all the hardregs involved.  May be HARD_REGNO_MODE_OK() only ok's
-     for beginnings.  */
   AND_HARD_REG_SET (*s, hardregs_for_mode[(int) mode]);
 }
 
-/* Initialize a single web.  */
+/* Initialize the members of a web, which are deducible from REG.  */
+
 static void
 init_one_web_common (web, reg)
      struct web *web;
@@ -1137,6 +1314,8 @@ init_one_web_common (web, reg)
   COPY_HARD_REG_SET (web->orig_usable_regs, web->usable_regs);
 }
 
+/* Initializes WEBs members from REG or zero them.  */
+
 static void
 init_one_web (web, reg)
      struct web *web;
@@ -1146,6 +1325,10 @@ init_one_web (web, reg)
   init_one_web_common (web, reg);
   web->useless_conflicts = BITMAP_XMALLOC ();
 }
+
+/* WEB is an old web, meaning it came from the last pass, and got a
+   color.  We want to remember some of it's info, so zero only some
+   members.  */
 
 static void
 reinit_one_web (web, reg)
@@ -1173,8 +1356,6 @@ reinit_one_web (web, reg)
       web->num_defs = 0;
       web->num_uses = 0;
       web->orig_spill_cost = 0;
-      /*web->defs = NULL;
-      web->uses = NULL;*/
     }
   CLEAR_HARD_REG_SET (web->bias_colors);
   CLEAR_HARD_REG_SET (web->prefer_colors);
@@ -1188,6 +1369,9 @@ reinit_one_web (web, reg)
     abort ();
 }
 
+/* Insert and returns a subweb corresponding to REG into WEB (which
+   becomes its super web).  It must not exist already.  */
+
 static struct web *
 add_subweb (web, reg)
      struct web *web;
@@ -1199,6 +1383,7 @@ add_subweb (web, reg)
   w = (struct web *) xmalloc (sizeof (struct web));
   /* Copy most content from parent-web.  */
   *w = *web;
+  /* And initialize the private stuff.  */
   w->orig_x = reg;
   w->add_hardregs = CLASS_MAX_NREGS (web->regclass, GET_MODE (reg)) - 1;
   w->num_conflicts = 0 * w->add_hardregs;
@@ -1210,6 +1395,10 @@ add_subweb (web, reg)
   web->subreg_next = w;
   return w;
 }
+
+/* Similar to add_subweb(), but instead of relying on a given SUBREG,
+   we have just a size and an offset of the subpart of the REG rtx.
+   In difference to add_subweb() this marks the new subweb as artificial.  */
 
 static struct web *
 add_subweb_2 (web, size_word)
@@ -1239,6 +1428,7 @@ add_subweb_2 (web, size_word)
 }
 
 /* Initialize all the web parts we are going to need.  */
+
 static void
 init_web_parts (df)
      struct df *df;
@@ -1311,6 +1501,9 @@ init_web_parts (df)
     }
 }
 
+/* In case we want to remember the conflict list of a WEB, before adding
+   new conflicts, we copy it here to orig_conflict_list.  */
+
 static void
 copy_conflict_list (web)
      struct web *web;
@@ -1350,6 +1543,7 @@ copy_conflict_list (web)
    deleted from the conflict list.  Likewise if TO is overlapped by a web
    already in the list, it isn't added at all.  Note, that this can only
    happen, if SUBREG webs are involved.  */
+
 static void
 add_conflict_edge (from, to)
      struct web *from, *to;
@@ -1415,6 +1609,7 @@ add_conflict_edge (from, to)
 
 /* Record a conflict between two webs, if we haven't recorded it
    already.  */
+
 void
 record_conflict (web1, web2)
      struct web *web1, *web2;
@@ -1467,6 +1662,7 @@ record_conflict (web1, web2)
 
 /* For each web W this produces the missing subwebs Wx, such that it's
    possible to exactly specify (W-Wy) for all already existing subwebs Wy.  */
+
 static void
 build_inverse_webs (web)
      struct web *web;
@@ -1485,12 +1681,13 @@ build_inverse_webs (web)
 	  {
 	    unsigned int size_word = undef_to_size_word (web->orig_x, &bits);
 	    if (!find_subweb_2 (web, size_word))
-	      {
-		(void) add_subweb_2 (web, size_word);
-	      }
+	      add_subweb_2 (web, size_word);
 	  }
       }
 }
+
+/* Copies the content of WEB to a new one, and link it into WL.
+   Used for consistency checking.  */
 
 static void
 copy_web (web, wl)
@@ -1504,6 +1701,9 @@ copy_web (web, wl)
   link->web = cweb;
   *cweb = *web;
 }
+
+/* Given a list of webs LINK, compare the content of the webs therein
+   with the global webs of the same ID.  For consistency checking.  */
 
 static void
 compare_and_free_webs (link)
@@ -1549,11 +1749,12 @@ compare_and_free_webs (link)
   *link = NULL;
 }
 
+/* Setup and fill uses[] and defs[] arrays of the webs.  */
+
 static void
-init_webs_defs_uses (void)
+init_webs_defs_uses ()
 {
   struct dlist *d;
-  /* Setup and fill uses[] and defs[] arrays of the webs.  */
   for (d = WEBS(INITIAL); d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
@@ -1585,6 +1786,10 @@ init_webs_defs_uses (void)
 	abort ();
     }
 }
+
+/* Called by parts_to_webs().  This creates (or recreates) the webs (and
+   subwebs) from web parts, gives them IDs (only to super webs), and sets
+   up use2web and def2web arrays.  */
 
 static unsigned int
 parts_to_webs_1 (df, copy_webs, all_refs)
@@ -1619,8 +1824,12 @@ parts_to_webs_1 (df, copy_webs, all_refs)
       reg = DF_REF_REG (ref);
       if (! wp->uplink)
 	{
+	  /* If we have a web part root, create a new web.  */
 	  unsigned int newid = ~0U;
 	  unsigned int old_web = 0;
+
+	  /* In the first pass, there are no old webs, so unconditionally
+	     allocate a new one.  */
 	  if (ra_pass == 1)
 	    {
 	      web = (struct web *) xmalloc (sizeof (struct web));
@@ -1628,16 +1837,21 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	      init_one_web (web, GET_CODE (reg) == SUBREG
 			         ? SUBREG_REG (reg) : reg);
 	    }
+	  /* Otherwise, we look for an old web.  */
 	  else
 	    {
 	      /* Remember, that use2web == def2web + def_id.
 		 Ergo is def2web[i] == use2web[i - def_id] for i >= def_id.
-		 So we only need to look into def2web[] array.  */
+		 So we only need to look into def2web[] array.
+		 Try to look at the web, which formerly belonged to this
+		 def (or use).  */
 	      web = def2web[i];
+	      /* Or which belonged to this hardreg.  */
 	      if (!web && DF_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER)
 		web = hardreg2web[DF_REF_REGNO (ref)];
 	      if (web)
 		{
+		  /* If we found one, reuse it.  */
 		  web = find_web_for_subweb (web);
 		  remove_list (web->dlink, &WEBS(INITIAL));
 		  old_web = 1;
@@ -1645,10 +1859,12 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		}
 	      else
 		{
+		  /* Otherwise use a new one.  First from the free list.  */
 		  if (WEBS(FREE))
 		    web = DLIST_WEB (pop_list (&WEBS(FREE)));
 		  else
 		    {
+		      /* Else allocate a new one.  */
 		      web = (struct web *) xmalloc (sizeof (struct web));
 		      newid = last_num_webs++;
 		    }
@@ -1675,20 +1891,30 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 		   && hardreg2web[web->regno] != web)
 	    abort ();
 	}
+
+      /* If this reference already had a web assigned, we are done.
+         This test better is equivalent to the web being an old web.
+         Otherwise something is screwed.  (This is tested)  */
       if (def2web[i] != NULL)
 	{
 	  web = def2web[i];
 	  web = find_web_for_subweb (web);
+	  /* But if this ref includes a mode change, or was a use live
+	     over an abnormal call, set appropriate flags in the web.  */
 	  if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
 	      && web->regno >= FIRST_PSEUDO_REGISTER)
 	    web->mode_changed = 1;
 	  if (i >= def_id
 	      && TEST_BIT (live_over_abnormal, ref_id))
 	    web->live_over_abnormal = 1;
+	  /* And check, that it's not a newly allocated web.  This would be
+	     an inconsistency.  */
 	  if (!web->old_web || web->type == PRECOLORED)
 	    abort ();
 	  continue;
 	}
+      /* In case this was no web part root, we need to initialize WEB
+	 from the ref2web array belonging to the root.  */
       if (wp->uplink)
 	{
 	  struct web_part *rwp = find_web_part (wp);
@@ -1699,10 +1925,17 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	    web = use2web[j];
 	  web = find_web_for_subweb (web);
 	}
+
+      /* Remember all references for a web in a single linked list.  */
       all_refs[i].next = web->temp_refs;
       web->temp_refs = &all_refs[i];
+
+      /* And the test, that if def2web[i] was NULL above, that we are _not_
+	 an old web.  */
       if (web->old_web && web->type != PRECOLORED)
 	abort ();
+
+      /* Possible create a subweb, if this ref was a subreg.  */
       if (GET_CODE (reg) == SUBREG)
 	{
 	  subweb = find_subweb (web, reg);
@@ -1715,11 +1948,16 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	}
       else
 	subweb = web;
+
+      /* And look, if the ref involves an invalid mode change.  */
       if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
 	  && web->regno >= FIRST_PSEUDO_REGISTER)
 	web->mode_changed = 1;
+
+      /* Setup def2web, or use2web, and increment num_defs or num_uses.  */
       if (i < def_id)
 	{
+	  /* Some sanity checks.  */
 	  if (ra_pass > 1)
 	    {
 	      struct web *compare = def2web[i];
@@ -1757,6 +1995,8 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	    web->live_over_abnormal = 1;
 	}
     }
+
+  /* We better now have exactly as many webs as we had web part roots.  */
   if (webnum != num_webs)
     abort ();
 
@@ -1765,6 +2005,7 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 
 /* This builds full webs out of web parts, without relating them to each
    other (i.e. without creating the conflict edges).  */
+
 static void
 parts_to_webs (df)
      struct df *df;
@@ -1776,10 +2017,13 @@ parts_to_webs (df)
   struct df_link *all_refs;
   num_subwebs = 0;
 
+  /* First build webs and ordinary subwebs.  */
   all_refs = (struct df_link *) xcalloc (df->def_id + df->use_id,
 					 sizeof (all_refs[0]));
   webnum = parts_to_webs_1 (df, &copy_webs, all_refs);
 
+  /* Setup the webs for hardregs which are still missing (weren't
+     mentioned in the code).  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (!hardreg2web[i])
       {
@@ -1790,7 +2034,7 @@ parts_to_webs (df)
       }
   num_webs = last_num_webs;
 
-  /* Now create all remaining artificial subwebs, i.e. those, which do
+  /* Now create all artificial subwebs, i.e. those, which do
      not correspond to a real subreg in the current function's RTL, but
      which nevertheless is a target of a conflict.
      XXX we need to merge this loop with the one above, which means, we need
@@ -1812,9 +2056,7 @@ parts_to_webs (df)
       web = find_web_for_subweb (web);
       for (cl = wp->sub_conflicts; cl; cl = cl->next)
         if (!find_subweb_2 (web, cl->size_word))
-	  {
-	    (void) add_subweb_2 (web, cl->size_word);
-	  }
+	  add_subweb_2 (web, cl->size_word);
     }
 
   /* And now create artificial subwebs needed for representing the inverse
@@ -1832,6 +2074,7 @@ parts_to_webs (df)
 	}
     }
 
+  /* Now that everyone has an ID, we can setup the id2web array.  */
   id2web = (struct web **) xcalloc (webnum, sizeof (id2web[0]));
   for (d = WEBS(INITIAL); d; d = d->next)
     {
@@ -1843,12 +2086,17 @@ parts_to_webs (df)
   num_subwebs = webnum - last_num_webs;
   num_allwebs = num_webs + num_subwebs;
   num_webs += num_subwebs;
+
+  /* Allocate and clear the conflict graph bitmaps.  */
   igraph = sbitmap_alloc (num_webs * num_webs / 2);
   sup_igraph = sbitmap_alloc (num_webs * num_webs);
   sbitmap_zero (igraph);
   sbitmap_zero (sup_igraph);
 
+  /* Distibute the references to their webs.  */
   init_webs_defs_uses ();
+  /* And do some sanity checks if old webs, and those recreated from the
+     really are the same.  */
   compare_and_free_webs (&copy_webs);
   free (all_refs);
 }
@@ -1857,8 +2105,9 @@ parts_to_webs (df)
    in this pass of the allocator, i.e. those which were spilled in the
    last pass.  Furthermore it also rebuilds the bitmaps for the remaining
    conflicts.  */
+
 static void
-reset_conflicts (void)
+reset_conflicts ()
 {
   unsigned int i;
   bitmap newwebs = BITMAP_XMALLOC ();
@@ -1870,12 +2119,16 @@ reset_conflicts (void)
       if (web->type == PRECOLORED || !web->old_web)
 	bitmap_set_bit (newwebs, web->id);
     }
+
   for (i = 0; i < num_webs - num_subwebs; i++)
     {
       struct web *web = ID2WEB (i);
       struct conflict_link *cl;
       struct conflict_link **pcl;
       pcl = &(web->conflict_list);
+
+      /* First restore the conflict list to be like it was before
+	 coalescing.  */
       if (web->have_orig_conflicts)
 	{
 	  web->conflict_list = web->orig_conflict_list;
@@ -1883,10 +2136,14 @@ reset_conflicts (void)
 	}
       if (web->orig_conflict_list)
 	abort ();
+
+      /* New non-precolored webs, have no conflict list.  */
       if (web->type != PRECOLORED && !web->old_web)
 	{
 	  *pcl = NULL;
-	  /* Useless conflicts will be rebuilt completely.  */
+	  /* Useless conflicts will be rebuilt completely.  But check
+	     for cleanlyness, as the web might have come from the
+	     free list.  */
 	  if (bitmap_first_set_bit (web->useless_conflicts) >= 0)
 	    abort ();
 	}
@@ -1896,12 +2153,15 @@ reset_conflicts (void)
 	     are still there.  */
 	  bitmap_operation (web->useless_conflicts, web->useless_conflicts,
 			    newwebs, BITMAP_AND_COMPL);
+	  /* Go through all conflicts, and retain those to old webs.  */
 	  for (cl = web->conflict_list; cl; cl = cl->next)
 	    {
 	      if (cl->t->old_web || cl->t->type == PRECOLORED)
 		{
 		  *pcl = cl;
 		  pcl = &(cl->next);
+
+		  /* Also restore the entries in the igraph bitmaps.  */
 		  web->num_conflicts += 1 + cl->t->add_hardregs;
 		  SET_BIT (sup_igraph, (web->id * num_webs + cl->t->id));
 		  /* No subconflicts mean full webs conflict.  */
@@ -1924,8 +2184,11 @@ reset_conflicts (void)
   BITMAP_XFREE (newwebs);
 }
 
+/* For each web check it's num_conflicts member against that
+   number, as calculated from scratch from all neighbors.  */
+
 static void
-check_conflict_numbers (void)
+check_conflict_numbers ()
 {
   unsigned int i;
   for (i = 0; i < num_webs; i++)
@@ -1953,6 +2216,7 @@ check_conflict_numbers (void)
    thinking that a web can only be allocated to the current usable_regs,
    whereas later this is extended) leading to colorings, where some regs which
    in reality conflict get the same color.  */
+
 static void
 conflicts_between_webs (df)
      struct df *df;
@@ -2047,7 +2311,9 @@ conflicts_between_webs (df)
 #endif
 }
 
-/* Remember that a web was spilled.  */
+/* Remember that a web was spilled, and change some characteristics
+   accordingly.  */
+
 static void
 remember_web_was_spilled (web)
      struct web *web;
@@ -2126,8 +2392,11 @@ remember_web_was_spilled (web)
   web->num_conflicts -= adjust;
 }
 
+/* Look at each web, if it is used as spill web.  Or better said,
+   if it will be spillable in this pass.  */
+
 static void
-detect_spill_temps (void)
+detect_spill_temps ()
 {
   struct dlist *d;
   bitmap already = BITMAP_XMALLOC ();
@@ -2228,6 +2497,8 @@ detect_spill_temps (void)
   BITMAP_XFREE (already);
 }
 
+/* Returns nonzero if the rtx MEM refers somehow to a stack location.  */
+
 int
 memref_is_stack_slot (mem)
      rtx mem;
@@ -2243,6 +2514,8 @@ memref_is_stack_slot (mem)
     return 1;
   return 0;
 }
+
+/* Returns nonzero, if rtx X somewhere contains any pseudo register.  */
 
 static int
 contains_pseudo (x)
@@ -2277,19 +2550,16 @@ contains_pseudo (x)
   return 0;
 }
 
-static void ggc_mark_rtx_ptr PARAMS ((void *));
-static void
-ggc_mark_rtx_ptr (elt)
-     void *elt;
-{
-  ggc_mark_rtx (*(rtx *) elt);
-}
+/* Returns nonzero, if we are able to rematerialize something with
+   value X.  If it's not a general operand, we test if we can produce
+   a valid insn which set a pseudo to that value, and that insn doesn't
+   clobber anything.  */
 
+static GTY(()) rtx remat_test_insn;
 static int
 want_to_remat (x)
      rtx x;
 {
-  static rtx test_insn = 0;
   int num_clobbers = 0;
   int icode;
 
@@ -2299,30 +2569,34 @@ want_to_remat (x)
 
   /* Otherwise, check if we can make a valid insn from it.  First initialize
      our test insn if we haven't already.  */
-  if (test_insn == 0)
+  if (remat_test_insn == 0)
     {
-      test_insn
+      remat_test_insn
 	= make_insn_raw (gen_rtx_SET (VOIDmode,
 				      gen_rtx_REG (word_mode,
 						   FIRST_PSEUDO_REGISTER * 2),
 				      const0_rtx));
-      NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
-      ggc_add_root (&test_insn, 1, sizeof (rtx), ggc_mark_rtx_ptr);
+      NEXT_INSN (remat_test_insn) = PREV_INSN (remat_test_insn) = 0;
     }
 
   /* Now make an insn like the one we would make when rematerializing
      the value X and see if valid.  */
-  PUT_MODE (SET_DEST (PATTERN (test_insn)), GET_MODE (x));
-  SET_SRC (PATTERN (test_insn)) = x;
+  PUT_MODE (SET_DEST (PATTERN (remat_test_insn)), GET_MODE (x));
+  SET_SRC (PATTERN (remat_test_insn)) = x;
   /* XXX For now we don't allow any clobbers to be added, not just no
      hardreg clobbers.  */
-  return ((icode = recog (PATTERN (test_insn), test_insn, &num_clobbers)) >= 0
+  return ((icode = recog (PATTERN (remat_test_insn), remat_test_insn,
+			  &num_clobbers)) >= 0
 	  && (num_clobbers == 0
 	      /*|| ! added_clobbers_hard_reg_p (icode)*/));
 }
 
+/* Look at all webs, if they perhaps are rematerializable.
+   They are, if all their defs are simple sets to the same value,
+   and that value is simple enough, and want_to_remat() holds for it.  */
+
 static void
-detect_remat_webs (void)
+detect_remat_webs ()
 {
   struct dlist *d;
   for (d = WEBS(INITIAL); d; d = d->next)
@@ -2386,8 +2660,10 @@ detect_remat_webs (void)
     }
 }
 
+/* Determine the spill costs of all webs.  */
+
 static void
-determine_web_costs (void)
+determine_web_costs ()
 {
   struct dlist *d;
   for (d = WEBS(INITIAL); d; d = d->next)
@@ -2450,8 +2726,9 @@ determine_web_costs (void)
    decrement-and-branch type of insn), and mark them not to be
    spillable.  The stores for them would need to be placed on edges,
    which destroys the CFG.  (Somewhen we want to deal with that XXX)  */
+
 static void
-detect_webs_set_in_cond_jump (void)
+detect_webs_set_in_cond_jump ()
 {
   basic_block bb;
   FOR_EACH_BB (bb)
@@ -2467,10 +2744,12 @@ detect_webs_set_in_cond_jump (void)
       }
 }
 
-/* Converts the connected web parts to full webs.  This means, it allocates
+/* Second top-level function of this file.
+   Converts the connected web parts to full webs.  This means, it allocates
    all webs, and initializes all fields, including detecting spill
    temporaries.  It does not distribute moves to their corresponding webs,
    though.  */
+
 static void
 make_webs (df)
      struct df *df;
@@ -2489,6 +2768,7 @@ make_webs (df)
 }
 
 /* Distribute moves to the corresponding webs.  */
+
 static void
 moves_to_webs (df)
      struct df *df;
@@ -2565,7 +2845,11 @@ moves_to_webs (df)
     }
 }
 
-/* Handle tricky asm insns.  */
+/* Handle tricky asm insns.
+   Supposed to create conflicts to hardregs which aren't allowed in
+   the constraints.  Doesn't actually do that, as it might confuse
+   and constrain the allocator too much.  */
+
 static void
 handle_asm_insn (df, insn)
      struct df *df;
@@ -2734,7 +3018,10 @@ handle_asm_insn (df, insn)
     }
 }
 
-/* Build the interference graph (including all webs).  */
+/* The real toplevel function in this file.
+   Build (or rebuilds) the complete interference graph with webs
+   and conflicts.  */
+
 void
 build_i_graph (df)
      struct df *df;
@@ -2763,6 +3050,12 @@ build_i_graph (df)
     handle_asm_insn (df, insn);
 }
 
+/* Allocates or reallocates most memory for the interference graph and
+   assiciated structures.  If it reallocates memory (meaning, this is not
+   the first pass), this also changes some structures to reflect the
+   additional entries in various array, and the higher number of
+   defs and uses.  */
+
 void
 ra_build_realloc (df)
      struct df *df;
@@ -2781,14 +3074,20 @@ ra_build_realloc (df)
   use2web = &def2web[df->def_id];
   live_over_abnormal = sbitmap_alloc (df->use_id);
   sbitmap_zero (live_over_abnormal);
+
+  /* First go through all old defs and uses.  */
   for (i = 0; i < last_def_id + last_use_id; i++)
     {
+      /* And relocate them to the new array.  This is made ugly by the
+         fact, that defs and uses are placed consecutive into one array.  */
       struct web_part *dest = &web_parts[i < last_def_id
 					 ? i : (df->def_id + i - last_def_id)];
       struct web_part *up;
       *dest = last_web_parts[i];
       up = dest->uplink;
       dest->uplink = NULL;
+
+      /* Also relocate the uplink to point into the new array.  */
       if (up && up->ref)
 	{
 	  unsigned int id = DF_REF_ID (up->ref);
@@ -2801,6 +3100,9 @@ ra_build_realloc (df)
 	    dest->uplink = &web_parts[df->def_id + DF_REF_ID (up->ref)];
 	}
     }
+
+  /* Also set up the def2web and use2web arrays, from the last pass.i
+     Remember also the state of live_over_abnormal.  */
   for (i = 0; i < last_def_id; i++)
     {
       struct web *web = last_def2web[i];
@@ -2823,6 +3125,13 @@ ra_build_realloc (df)
       if (TEST_BIT (last_live_over_abnormal, i))
 	SET_BIT (live_over_abnormal, i);
     }
+
+  /* We don't have any subwebs for now.  Somewhen we might want to
+     remember them too, instead of recreating all of them every time.
+     The problem is, that which subwebs we need, depends also on what
+     other webs and subwebs exist, and which conflicts are there.
+     OTOH it should be no problem, if we had some more subwebs than strictly
+     needed.  Later.  */
   for (d = WEBS(FREE); d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
@@ -2834,6 +3143,10 @@ ra_build_realloc (df)
 	}
       DLIST_WEB (d)->subreg_next = NULL;
     }
+
+  /* The uses we anyway are going to check, are not yet live over an abnormal
+     edge.  In fact, they might actually not anymore, due to added
+     loads.  */
   if (last_check_uses)
     sbitmap_difference (live_over_abnormal, live_over_abnormal,
 		        last_check_uses);
@@ -2860,13 +3173,16 @@ ra_build_realloc (df)
     }
 }
 
+/* Free up/clear some memory, only needed for one pass.  */
+
 void
-ra_build_free (void)
+ra_build_free ()
 {
   struct dlist *d;
   unsigned int i;
 
-  /* We must also cycle over subwebs.  */
+  /* Clear the moves associated with a web (we also need to look into
+     subwebs here).  */
   for (i = 0; i < num_webs; i++)
     {
       struct web *web = ID2WEB (i);
@@ -2877,6 +3193,7 @@ ra_build_free (void)
 	abort ();
       web->moves = NULL;
     }
+  /* All webs in the free list have no defs or uses anymore.  */
   for (d = WEBS(FREE); d; d = d->next)
     {
       struct web *web = DLIST_WEB (d);
@@ -2891,6 +3208,12 @@ ra_build_free (void)
 	 We free them there (or in free_all_mem()).  */
     }
 
+  /* Free all conflict bitmaps from web parts.  Note that we clear
+     _all_ these conflicts, and don't rebuild them next time for uses
+     which aren't rechecked.  This mean, that those conflict bitmaps
+     only contain the incremental information.  The cumulative one
+     is still contained in the edges of the I-graph, i.e. in
+     conflict_list (or orig_conflict_list) of the webs.  */
   for (i = 0; i < df->def_id + df->use_id; i++)
     {
       struct tagged_conflict *cl;
@@ -2909,6 +3232,8 @@ ra_build_free (void)
   sbitmap_free (sup_igraph);
   sbitmap_free (igraph);
 }
+
+/* Free all memory for the interference graph structures.  */
 
 void
 ra_build_free_all (df)
@@ -2939,6 +3264,8 @@ ra_build_free_all (df)
   use2web = NULL;
   def2web = NULL;
 }
+
+#include "gt-ra-build.h"
 
 /*
 vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
