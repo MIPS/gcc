@@ -1,3 +1,8 @@
+2003-09-22  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (handle_switch_split): Properly mark the fallthru
+	edge from SRC to DEST with EDGE_FALLTHRU.
+
 2003-09-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow.h (struct bb_ann_d): Add erefs array.

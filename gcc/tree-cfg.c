@@ -3770,6 +3770,10 @@ handle_switch_split (basic_block src, basic_block dest)
   basic_block new_bb;
   edge e;
 
+  /* The edge between SRC and DEST will always be a fallthru edge at this
+     point.  */
+  src->succ->flags |= EDGE_FALLTHRU;
+
   label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_CONTEXT (label) = current_function_decl;
   TREE_USED (label) = 1;
