@@ -1,3 +1,10 @@
+2005-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* lower.cc (visit_bytecode_block): Fix use of statement
+	iterators.
+
+	* classobj.cc (create_index_table): Indentation fix.
+
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
 	* lower.cc (visit_bytecode_block): Clean up label handling.

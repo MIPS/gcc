@@ -1142,11 +1142,9 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		int where = base_pc + get4 (bytes, pc);
 		tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE,
 					  build_int (i), NULL_TREE, label);
-		tsi_link_after (&body_statements, case_label,
-				TSI_CONTINUE_LINKING);
-		tsi_link_after (&body_statements,
-				build1 (GOTO_EXPR, void_type_node,
-					find_label (where)),
+		tsi_link_after (&out, case_label, TSI_CONTINUE_LINKING);
+		tsi_link_after (&out, build1 (GOTO_EXPR, void_type_node,
+					      find_label (where)),
 				TSI_CONTINUE_LINKING);
 	      }
 
@@ -1154,11 +1152,10 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    DECL_CONTEXT (label) = current_block;
 	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
 				     NULL_TREE, NULL_TREE, label);
-	    tsi_link_after (&body_statements, def_label, TSI_CONTINUE_LINKING);
+	    tsi_link_after (&out, def_label, TSI_CONTINUE_LINKING);
 
-	    tsi_link_after (&body_statements,
-			    build1 (GOTO_EXPR, void_type_node,
-				    find_label (base_pc + def)),
+	    tsi_link_after (&out, build1 (GOTO_EXPR, void_type_node,
+					  find_label (base_pc + def)),
 			    TSI_CONTINUE_LINKING);
 
 	    insn = build3 (SWITCH_EXPR, type_jint, expr, body_statements,
@@ -1191,11 +1188,9 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 		tree case_label = build3 (CASE_LABEL_EXPR, void_type_node,
 					  build_int (match), NULL_TREE,
 					  label);
-		tsi_link_after (&body_statements, case_label,
-				TSI_CONTINUE_LINKING);
-		tsi_link_after (&body_statements,
-				build1 (GOTO_EXPR, void_type_node,
-					find_label (dest)),
+		tsi_link_after (&out, case_label, TSI_CONTINUE_LINKING);
+		tsi_link_after (&out, build1 (GOTO_EXPR, void_type_node,
+					      find_label (dest)),
 				TSI_CONTINUE_LINKING);
 	      }
 
@@ -1204,11 +1199,10 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 
 	    tree def_label = build3 (CASE_LABEL_EXPR, void_type_node,
 				     NULL_TREE, NULL_TREE, label);
-	    tsi_link_after (&body_statements, def_label, TSI_CONTINUE_LINKING);
+	    tsi_link_after (&out, def_label, TSI_CONTINUE_LINKING);
 
-	    tsi_link_after (&body_statements,
-			    build1 (GOTO_EXPR, void_type_node,
-				    find_label (base_pc + def)),
+	    tsi_link_after (&out, build1 (GOTO_EXPR, void_type_node,
+					  find_label (base_pc + def)),
 			    TSI_CONTINUE_LINKING);
 
 	    insn = build3 (SWITCH_EXPR, type_jint, expr, body_statements,

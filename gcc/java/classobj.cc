@@ -300,7 +300,8 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
 
   tree type
     = build_array_type (type_method_symbol,
-			build_index_type (build_int_cst (type_jint, table.size ())));
+			build_index_type (build_int_cst (type_jint,
+							 table.size ())));
   result_syms = make_decl (type, result);
 
   tree symtype
