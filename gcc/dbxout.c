@@ -777,8 +777,8 @@ dbxout_source_file (FILE *file, const char *filename)
       /* APPLE LOCAL STABS SOL address suppression (radar 3109828) */
       fprintf (file, ",%d,0,0,0\n", N_SOL);
       /* Don't change section amid function.  */
-      /* APPLE LOCAL begin hot/cold partitioning  */
       if (current_function_decl == NULL_TREE
+	  /* APPLE LOCAL hot/cold partitioning  */
 	  && !flag_reorder_blocks_and_partition)
 	text_section ();
 
