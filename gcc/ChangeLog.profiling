@@ -1,5 +1,9 @@
 2004-03-14  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa.c (rewrite_into_ssa, compute_global_livein): Fix.
+
+2004-03-14  Jan Hubicka  <jh@suse.cz>
+
 	* opts.c (decode_options): Disable flag_loop_optimize.
 
 2004-03-07  Jan Hubicka  <jh@suse.cz>
