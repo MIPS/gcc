@@ -1,3 +1,8 @@
+2004-01-05  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_expr): Move check for error_mark inside
+	the main loop.
+
 2004-01-04  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (cgraph.o, cgraphunit.o): Add intl.h dependency.

@@ -2821,12 +2821,9 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   location_t saved_location;
   enum gimplify_status ret;
 
-  if (*expr_p == NULL_TREE)
+  save_expr = *expr_p;
+  if (save_expr == NULL_TREE)
     return GS_ALL_DONE;
-
-  /* Die, die, die, my darling.  */
-  if (*expr_p == error_mark_node || TREE_TYPE (*expr_p) == error_mark_node)
-    return GS_ERROR;
 
   /* We used to check the predicate here and return immediately if it
      succeeds.  This is wrong; the design is for gimplification to be
@@ -2840,12 +2837,15 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
     post_p = &internal_post;
 
   saved_location = input_location;
-  locus = EXPR_LOCUS (*expr_p);
+  if (save_expr == error_mark_node)
+    locus = NULL;
+  else
+    locus = EXPR_LOCUS (save_expr);
   if (locus)
     input_location = *locus;
 
-  /* Loop over the specific gimplifiers until the toplevel node remains the
-     same.  */
+  /* Loop over the specific gimplifiers until the toplevel node
+     remains the same.  */
   do
     {
       /* Strip any uselessness.  */
@@ -2853,6 +2853,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
       /* Remember the expr.  */
       save_expr = *expr_p;
+
+      /* Die, die, die, my darling.  */
+      if (save_expr == error_mark_node
+	  || TREE_TYPE (save_expr) == error_mark_node)
+	{
+	  ret = GS_ERROR;
+	  break;
+	}
 
       /* Do any language-specific gimplification.  */
       ret = (*lang_hooks.gimplify_expr) (expr_p, pre_p, post_p);
