@@ -1,3 +1,7 @@
+2003-10-20  Andreas Jaeger  <aj@suse.de>
+
+	* mklibgcc.in (libgcc2_eh_objs): Remove extra @.
+
 2003-10-19  Andreas Jaeger  <aj@suse.de>
 
 	Merge from mainline:
