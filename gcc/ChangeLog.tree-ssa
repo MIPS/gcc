@@ -1,3 +1,15 @@
+2003-06-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (fixup_domchildren): Rename from
+	compute_domchildren, change to not use our own array.
+	(domchildren): Remove variable.
+	(insert_occ_in_preorder_dt_order_1): Use dom_children now.
+	(insert_euse_in_preorder_dt_order_1): Ditto.
+	(search_dt_preorder): Ditto.
+	(handle_bb_creation): Fix to work properly.
+	(tree_perform_ssapre): Remove remnants of domchildren.
+	Redo dominator info if we have to due to a new block.		
+
 2003-06-26  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (handle_switch_split): Use a tree iterator to find the

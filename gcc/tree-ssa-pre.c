@@ -115,7 +115,7 @@ struct expr_info;
 static bool expr_lexically_eq (const tree, const tree);
 static void free_expr_info (struct expr_info *);
 static bitmap compute_idfs (bitmap *, tree);
-static void compute_domchildren (dominance_info, sbitmap *);
+static void fixup_domchildren (dominance_info);
 static inline bool a_dom_b (tree, tree);
 static void set_var_phis (struct expr_info *, tree);
 static void calculate_preorder (void);
@@ -205,7 +205,7 @@ static splay_tree idom_of_ephi;
 /* Map from blocks to their depth first number.  */
 static splay_tree dfn;
 
-static bool redo_dominators;
+static bool redo_dominators = false;
 
 static struct pre_stats_d
 {
@@ -222,9 +222,6 @@ static struct pre_stats_d
    trees, not the trees themselves). */
 
 static splay_tree old_new_map;
-
-/* sbitmap vector mapping blocks to the child blocks they dominate. */
-static sbitmap *domchildren;
 
 struct expr_info
 {
@@ -750,10 +747,11 @@ insert_occ_in_preorder_dt_order_1 (struct expr_info *ei, fibheap_t fh,
             }
         }          
     }
-  EXECUTE_IF_SET_IN_SBITMAP (domchildren[block->index], 0, i, 
-  {
-    insert_occ_in_preorder_dt_order_1 (ei, fh, BASIC_BLOCK (i));
-  });
+  if (dom_children (block))
+    EXECUTE_IF_SET_IN_BITMAP (dom_children (block), 0, i, 
+    {
+      insert_occ_in_preorder_dt_order_1 (ei, fh, BASIC_BLOCK (i));
+    });
 }
 
 static void
@@ -1670,10 +1668,11 @@ insert_euse_in_preorder_dt_order_1 (struct expr_info *ei, basic_block block)
 	  || TREE_CODE (ref) == ELEFT_NODE)
 	VARRAY_PUSH_TREE (ei->euses_dt_order, ref);
     }
-  EXECUTE_IF_SET_IN_SBITMAP (domchildren[block->index], 0, i, 
-  {
-    insert_euse_in_preorder_dt_order_1 (ei, BASIC_BLOCK (i));
-  });
+  if (dom_children (block))
+    EXECUTE_IF_SET_IN_BITMAP (dom_children (block), 0, i, 
+    {
+      insert_euse_in_preorder_dt_order_1 (ei, BASIC_BLOCK (i));
+    });
 }
 
 static void
@@ -1838,10 +1837,13 @@ handle_bb_creation (struct expr_info *ei, edge old_edge,
 	  int j;
 	  for (j = 0; j < num_elem; j++)
 	    if (PHI_ARG_EDGE (phi, j) == old_edge)
-	      {
-		PHI_ARG_EDGE (phi, j) = new_edge;
-		EPHI_ARG_EDGE (tempephi, j) = new_edge;
-	      }
+	      PHI_ARG_EDGE (phi, j) = new_edge;
+	  
+	  num_elem = EPHI_NUM_ARGS (tempephi);
+	  for (j = 0; j < num_elem; j++)
+	    if (EPHI_ARG_EDGE (tempephi, j) == old_edge)
+	      EPHI_ARG_EDGE (tempephi, j) = new_edge;
+
 	}
     }
 }
@@ -2750,10 +2752,10 @@ a_dom_b (tree a, tree b)
   return ret;
 }
 
-/* Compute the domchildren sbitmap vector from the list of immediate
-   dominators.  */     
+/* Fixup the dom_children annotations. Only needed until
+   insert_on_edge_immediate does it for us. */
 static void
-compute_domchildren (dominance_info idom, sbitmap * domc)
+fixup_domchildren (dominance_info idom)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
@@ -2761,7 +2763,8 @@ compute_domchildren (dominance_info idom, sbitmap * domc)
       basic_block dom;
       dom = get_immediate_dominator (idom, bb);
       if (dom && dom->index >= 0)
-        SET_BIT (domc[dom->index], bb->index);
+	add_dom_child (dom, bb);
+
     }
 }
 
@@ -3184,8 +3187,8 @@ search_dt_preorder (basic_block bb, int num)
 {
   int i;
   splay_tree_insert (dfn, (splay_tree_key) bb, num);
-  if (bb_ann (bb)->dom_children)
-    EXECUTE_IF_SET_IN_BITMAP (bb_ann (bb)->dom_children, 0, i,
+  if (dom_children (bb))
+    EXECUTE_IF_SET_IN_BITMAP (dom_children (bb), 0, i,
     {
       num = search_dt_preorder (BASIC_BLOCK (i), ++num);
     });
@@ -3216,9 +3219,7 @@ tree_perform_ssapre (tree fndecl)
   
   /* Compute immediate dominators.  */
   pre_idom = calculate_dominance_info (CDI_DOMINATORS);
-  domchildren = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-  sbitmap_vector_zero (domchildren, last_basic_block);
-  compute_domchildren (pre_idom, domchildren);
+  fixup_domchildren (pre_idom);
   currbbs = n_basic_blocks;
   /* Compute dominance frontiers.  */
   pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
@@ -3301,7 +3302,39 @@ tree_perform_ssapre (tree fndecl)
       }
   
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
-    pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs);
+    {
+      pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs);
+      if (redo_dominators)
+	{
+	  redo_dominators = false;
+	  
+	  free_dominance_info (pre_idom);
+	  free (pre_preorder);	  
+	  for (i = 0; i < currbbs; i++)
+	    BITMAP_XFREE (pre_dfs[i]);
+	  free (pre_dfs);
+	  splay_tree_delete (dfn);
+
+	  /* Recompute immediate dominators.  */
+	  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
+	  fixup_domchildren (pre_idom);
+	  currbbs = n_basic_blocks;
+
+	  /* Reompute dominance frontiers.  */
+	  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
+	  for (i = 0; i < currbbs; i++)
+	    pre_dfs[i] = BITMAP_XMALLOC ();
+	  compute_dominance_frontiers (pre_dfs, pre_idom);
+	  
+	  calculate_preorder ();
+	  dfn = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  
+	  compute_dt_preorder ();
+  
+	  /* Recompute immediate uses.  */
+	  compute_immediate_uses (TDFA_USE_OPS);
+	}
+    }
   for (k = 0; k < VARRAY_ACTIVE_SIZE (bexprs); k++)
     free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
 
@@ -3328,6 +3361,5 @@ tree_perform_ssapre (tree fndecl)
      BITMAP_XFREE (pre_dfs[i]);
   free (pre_dfs);
   splay_tree_delete (dfn);
-  sbitmap_vector_free (domchildren);
   timevar_pop (TV_TREE_PRE);
 }
