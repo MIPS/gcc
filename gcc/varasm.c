@@ -4966,6 +4966,8 @@ categorize_decl_for_section (decl, reloc, shlib)
     {
       if (flag_writable_strings)
 	return SECCAT_DATA;
+      else if (flag_mudflap) /* or !flag_merge_constants */
+        return SECCAT_RODATA;
       else
 	return SECCAT_RODATA_MERGE_STR;
     }

@@ -55,14 +55,15 @@ static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
 static void mf_flush_enqueued_calls PARAMS ((void));
 static tree mf_mostly_copy_tree_r PARAMS ((tree *, int *, void *));
-static tree mx_external_ref PARAMS ((tree, int));
+static tree mx_external_ref PARAMS ((tree));
 static tree mx_flag PARAMS ((tree));
 static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 
-static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree, tree *));
-static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, const char *, int));
+static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree *, tree *, tree *));
+static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, 
+						  const char *, int));
 static void mx_register_decl PARAMS ((tree *, tree, tree));
 
 
@@ -147,7 +148,8 @@ mudflap_enqueue_decl (obj, label)
   fprintf (stderr, "' label=`%s'\n", label);
   */
 
-  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj)))
+  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj)) 
+      && TREE_USED (obj) /* && TREE_ADDRESSABLE (obj) ??? */)
     {
       mf_enqueue_register_call (label,
 				c_size_in_bytes (TREE_TYPE (obj)),
@@ -178,7 +180,7 @@ mudflap_enqueue_decl (obj, label)
       else
 	{
 	  VARRAY_PUSH_TREE (deferred_static_decls, obj);
-	  VARRAY_PUSH_CHAR_PTR (deferred_static_decl_labels, label);
+	  VARRAY_PUSH_CHAR_PTR (deferred_static_decl_labels, (char *) label);
 	}
     }
 }
@@ -318,44 +320,32 @@ mf_init_extern_trees ()
   mx_flag (mf_cache_mask_decl);
 
   mf_check_fndecl = build_decl (FUNCTION_DECL, get_identifier ("__mf_check"),
-				build_function_type 
-				(void_type_node,
-				 tree_cons (NULL_TREE,
-					    mf_uintptr_type,
-					    tree_cons (NULL_TREE, 
-						       mf_uintptr_type,
-						       tree_cons (NULL_TREE,
-								  const_string_type_node,
-								  NULL_TREE)))));
+				build_function_type_list (void_type_node,
+							  mf_uintptr_type,
+							  mf_uintptr_type,
+							  const_string_type_node,
+							  NULL_TREE));
   DECL_EXTERNAL (mf_check_fndecl) = 1;
   DECL_ARTIFICIAL (mf_check_fndecl) = 1;
   TREE_PUBLIC (mf_check_fndecl) = 1;
 
   mf_register_fndecl = build_decl (FUNCTION_DECL, get_identifier ("__mf_register"),
-				   build_function_type
-				   (void_type_node,
-				    tree_cons (NULL_TREE,
-					       mf_uintptr_type,
-					       tree_cons (NULL_TREE, 
-							  mf_uintptr_type,
-							  tree_cons (NULL_TREE,
-								     integer_type_node,
-								     tree_cons (NULL_TREE,
-										const_string_type_node,
-										NULL_TREE))))));
+				   build_function_type_list (void_type_node,
+							     mf_uintptr_type,
+							     mf_uintptr_type,
+							     integer_type_node,
+							     const_string_type_node,
+							     NULL_TREE));
   
   DECL_EXTERNAL (mf_register_fndecl) = 1;
   DECL_ARTIFICIAL (mf_register_fndecl) = 1;
   TREE_PUBLIC (mf_register_fndecl) = 1;
 
   mf_unregister_fndecl = build_decl (FUNCTION_DECL, get_identifier ("__mf_unregister"),
-				   build_function_type 
-				     (void_type_node,
-				      tree_cons (NULL_TREE,
-						 mf_uintptr_type,
-						 tree_cons (NULL_TREE, 
-							    mf_uintptr_type,
-							    NULL_TREE))));
+				   build_function_type_list (void_type_node,
+							     mf_uintptr_type,
+							     mf_uintptr_type,
+							     NULL_TREE));
   DECL_EXTERNAL (mf_unregister_fndecl) = 1;
   DECL_ARTIFICIAL (mf_unregister_fndecl) = 1;
   TREE_PUBLIC (mf_unregister_fndecl) = 1;
@@ -391,9 +381,8 @@ mx_flag (t)
 
 /* This is a derivative / subset of build_external_ref in c-typeck.c.  */
 static tree
-mx_external_ref (t, fun)
+mx_external_ref (t)
      tree t;
-     int fun;
 {
   assemble_external (t);
   TREE_USED (t) = 1;
@@ -571,43 +560,66 @@ mf_file_function_line_tree (file, line)
 */
 
 static tree 
-mf_offset_expr_of_array_ref (t, offset, base)
+mf_offset_expr_of_array_ref (t, offset, base, decls)
      tree t;
-     tree offset;
+     tree *offset;
      tree *base;
+     tree *decls;
 {
-  if ( TREE_CODE (t) == ARRAY_REF )
+  /* Replace the array index operand [1] with a temporary variable.
+     This is meant to emulate SAVE_EXPRs that are sometimes screwed up
+     by other parts of gcc.  */
+  if (TREE_CODE (t) == ARRAY_REF ||
+      TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
+    {
+      static unsigned declindex;
+      char declname[20];
+      tree newdecl, idxexpr;
+
+      idxexpr = *offset;
+      sprintf (declname, "__mf_index_%u", declindex++);
+
+      newdecl = build_decl (VAR_DECL, get_identifier (declname),
+			    TREE_TYPE (idxexpr));
+      DECL_ARTIFICIAL (newdecl) = 1;
+      DECL_INITIAL (newdecl) = idxexpr;
+
+      /* Accumulate this new decl. */
+      *decls = tree_cons (TREE_TYPE (idxexpr),
+			  newdecl,
+			  *decls);
+
+      /* Replace the index expression with the plain VAR_DECL reference.  */
+      *offset = newdecl;
+    }
+
+  if (TREE_CODE (t) == ARRAY_REF)
     {
       /* It's a sub-array-ref; recurse. */
 
       tree factor = fold (build (PLUS_EXPR, 
 				 integer_type_node, 
 				 integer_one_node, 
-				 TYPE_MAX_VALUE 
-				 (TYPE_DOMAIN (TREE_TYPE (t)))));
-      tree child = TREE_OPERAND (t, 0);
-      tree next_offset = TREE_OPERAND (t, 1);
+				 TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (t)))));
 
-      /* Wrap the inner index in a SAVE_EXPR to prevent multiple evaluation.  */
-      TREE_OPERAND (t, 1) = save_expr (TREE_OPERAND (t, 1));
-
-      /* mark this node to inhibit further transformation */
+      /* Mark this node to inhibit further transformation.  */
       mx_flag (t);
       
-      return 
-	fold (build (PLUS_EXPR, integer_type_node, offset, 
+      return
+	fold (build (PLUS_EXPR, integer_type_node, *offset, 
 		     fold (build (MULT_EXPR, integer_type_node, factor, 
-				  mf_offset_expr_of_array_ref (child, 
-							       next_offset,
-							       base)))));
+				  mf_offset_expr_of_array_ref (TREE_OPERAND (t, 0), 
+							       & TREE_OPERAND (t, 1),
+							       base,
+							       decls)))));
     } 
-  else if ( TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE )
+  else if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
     {
-      /* It's *not* an ARRAY_REF, but it *is* an ARRAY_TYPE; we are at the
-	 bottom of the ARRAY_REF expression */ 
+      /* It's *not* an ARRAY_REF, but it *is* an ARRAY_TYPE; we are at
+	 the bottom of the ARRAY_REF expression.  */ 
       *base = t;
 
-      return offset;
+      return *offset;
     }
   else 
     {
@@ -618,10 +630,12 @@ mf_offset_expr_of_array_ref (t, offset, base)
 
 
 static tree 
-mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
+mf_build_check_statement_for (ptrvalue, chkbase, chksize, 
+			      chkdecls, filename, lineno)
      tree ptrvalue;
      tree chkbase;
      tree chksize;
+     tree chkdecls;
      const char *filename;
      int lineno;
 {
@@ -630,6 +644,7 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
   tree location_string;
 
   tree t1_1;
+  tree t1_1a;
   tree t1_2, t1_2_1;
   tree t1_2a, t1_2a_1;
   tree t1_2b, t1_2b_1;
@@ -650,12 +665,25 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
   
   pushlevel (0);
 
+  /* Insert any supplied helper declarations.  */
+  t1_1a = t1_1;
+  while (chkdecls != NULL_TREE)
+    {
+      tree decl = TREE_VALUE (chkdecls);
+      tree type = TREE_PURPOSE (chkdecls);
+      tree declstmt = build1 (DECL_STMT, type, pushdecl (decl));
+
+      TREE_CHAIN (t1_1a) = declstmt;
+      t1_1a = declstmt;
+      chkdecls = TREE_CHAIN (chkdecls);
+    }
+
   /* <TYPE> const __mf_value = <EXPR>; */
   t1_2_1 = build_decl (VAR_DECL, get_identifier ("__mf_value"), myptrtype);
   DECL_ARTIFICIAL (t1_2_1) = 1;
   DECL_INITIAL (t1_2_1) = ptrvalue;
   t1_2 = build1 (DECL_STMT, myptrtype, pushdecl (t1_2_1));
-  TREE_CHAIN (t1_1) = t1_2;
+  TREE_CHAIN (t1_1a) = t1_2;
 
   /* uintptr_t __mf_base = <EXPR2>; */
   t1_2a_1 = build_decl (VAR_DECL, get_identifier ("__mf_base"), mf_uintptr_type);
@@ -684,12 +712,12 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
 		     mx_flag (build (ARRAY_REF, TYPE_MAIN_VARIANT (TREE_TYPE
 								   (TREE_TYPE
 								    (mf_cache_array_decl))),
-				     mx_external_ref (mf_cache_array_decl, 0),
+				     mx_external_ref (mf_cache_array_decl),
 				     build (BIT_AND_EXPR, mf_uintptr_type,
 					    build (RSHIFT_EXPR, mf_uintptr_type,
 						   convert (mf_uintptr_type, t1_2a_1),
-						   mx_external_ref (mf_cache_shift_decl, 0)),
-					    mx_external_ref (mf_cache_mask_decl, 0))))));
+						   mx_external_ref (mf_cache_shift_decl)),
+					    mx_external_ref (mf_cache_mask_decl))))));
   
   t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, pushdecl (t1_3_1));
   TREE_CHAIN (t1_2b) = t1_3;
@@ -721,7 +749,7 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
 						      integer_zero_node,
 						      NULL_TREE)));
   
-  t1_4_2 = build_function_call (mx_external_ref (mf_check_fndecl, 1),
+  t1_4_2 = build_function_call (mx_external_ref (mf_check_fndecl),
 				tree_cons (NULL_TREE,
 					   t1_2a_1,
 					   tree_cons (NULL_TREE, 
@@ -814,11 +842,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
       last_lineno = (EXPR_WFL_LINENO (*t) > 0 ? EXPR_WFL_LINENO (*t) : last_lineno);
     }
 
-  /* Avoid infinite recursion of transforming instrumented or
-     instrumentation code. */
-  if (TREE_MUDFLAPPED_P (*t))
-    return NULL_TREE;
-
   /* Avoid traversal into subtrees specifically listed as
      do-not-traverse.  This occurs for certain nested operator/array
      expressions.  */
@@ -827,7 +850,14 @@ mx_xfn_indirect_ref (t, continue_p, data)
       *continue_p = 0;
       return NULL_TREE;
     }
-      
+
+  /* Avoid infinite recursion of transforming instrumented or
+     instrumentation code.  NB: This check is done second, in case the
+     same node is marked verboten as well as mudflapped.  The former
+     takes priority, and is meant to prevent further traversal.  */
+  if (TREE_MUDFLAPPED_P (*t))
+    return NULL_TREE;
+
   /* Process some node types.  */
   switch (TREE_CODE (*t))
     {
@@ -841,15 +871,17 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	tree offset_expr;
 	tree value_ptr, check_ptr, check_size;
 	tree tmp;
+	tree check_decls = NULL_TREE;
 
-	/* Wrap the outermost index in a SAVE_EXPR to prevent multiple evaluation.  */
-	TREE_OPERAND (*t, 1) = save_expr (TREE_OPERAND (*t, 1));
+	/* Unshare the whole darned tree.  */
+	walk_tree (t, mf_mostly_copy_tree_r, NULL, NULL);
 
 	offset_expr = mf_offset_expr_of_array_ref (TREE_OPERAND (*t,0), 
-						   TREE_OPERAND (*t,1), 
-						   &base_array);
-	/* walk_tree (& offset_expr, mf_mostly_copy_tree_r, NULL, NULL); */
-	
+						   & TREE_OPERAND (*t,1), 
+						   & base_array,
+						   & check_decls);
+	check_decls = nreverse (check_decls); /* XXX: evaluation order?  */
+
 	/* We now have a tree representing the array in base_array, 
 	   and a tree representing the complete desired offset in
 	   offset_expr. */
@@ -857,12 +889,12 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
 
-	/* NB: Previously, this was (& base_array[0]) */
-	/* XXX: subset of default_conversion() for arrays */
-	check_ptr = mx_flag (build1 (ADDR_EXPR, 
+        check_ptr = mx_flag (build1 (ADDR_EXPR, 
 				     base_ptr_type, 
-				     base_array));
-	/* walk_tree (& check_ptr, mf_mostly_copy_tree_r, NULL, NULL); */
+				     mx_flag (build (ARRAY_REF, 
+						     base_obj_type, 
+						     base_array,
+						     integer_zero_node))));
 	TREE_ADDRESSABLE (base_array) = 1;
 
 	value_ptr = mx_flag (build1 (ADDR_EXPR,
@@ -882,8 +914,10 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	   following call is meant to eliminate the
 	   redundant/recursive check of the outer size=b[c] check. */
 	* (htab_find_slot (verboten, check_size, INSERT)) = check_size;
+	* (htab_find_slot (verboten, check_ptr, INSERT)) = check_ptr;
   
 	tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
+					    check_decls,
 					    last_filename, last_lineno);
 	*t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
       }
@@ -902,7 +936,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 				      TYPE_SIZE_UNIT (TREE_TYPE
 						      (TREE_TYPE
 						       (TREE_OPERAND (*t, 0)))),
-				      last_filename, last_lineno);
+				      NULL_TREE, last_filename, last_lineno);
 	/* Prevent this transform's reapplication to this tree node.
 	   Note that we do not prevent recusion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
@@ -923,6 +957,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	    mf_build_check_statement_for (*pointer,
 					  *pointer,
 					  check_size,
+					  NULL_TREE,
 					  last_filename, last_lineno);
 	  
 	  /* Don't instrument the nested INDIRECT_REF. */ 
@@ -993,7 +1028,7 @@ mx_register_decl (posn, decl, containing_stmt)
 			      NULL_TREE));
       /* __mf_unregister (...) */
       tree unregister_fncall =
-	build_function_call (mx_external_ref (mf_unregister_fndecl, 1),
+	build_function_call (mx_external_ref (mf_unregister_fndecl),
 			     unregister_fncall_params);
       
       tree cleanup_stmt = build_stmt (CLEANUP_STMT, decl, unregister_fncall);
@@ -1016,7 +1051,7 @@ mx_register_decl (posn, decl, containing_stmt)
 						    NULL_TREE))));
       /* __mf_register (...) */
       tree register_fncall =
-	build_function_call (mx_external_ref (mf_register_fndecl, 1),
+	build_function_call (mx_external_ref (mf_register_fndecl),
 			     register_fncall_params);
       
       tree register_fncall_stmt =
@@ -1247,7 +1282,7 @@ mf_enqueue_register_call (label, regsize, regtype, regname)
 							    NULL_TREE))));
 
   call_stmt = build1 (EXPR_STMT, void_type_node,
-		      build_function_call (mx_external_ref (mf_register_fndecl, 1),
+		      build_function_call (mx_external_ref (mf_register_fndecl),
 					   call_params));
 
   /* Link this call into the chain. */

@@ -1,3 +1,17 @@
+2002-09-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c (cc1_options): Make -fmudflap imply -fno-merge-constants.
+	* varasm.c (categorize_decl_for_section): Likewise, for strings.
+	* tree-mudflap.c (mudflap_enqueue_decl): Don't be interested
+	in !TREE_USED decls.  Fix minor type warning.
+	(mf_offset_expr_of_array_ref): Create explicit temporary variables
+	for array index expressions instead of SAVE_EXPRs.  Update callers.
+	(mf_build_check_statement_for): Insert temp variables.
+	(mx_xfn_indirect_ref): Correct recursion-protection checking
+	sequence.  Tweak array check-base calculation back to "&array[0]".
+	(*): Use build_function_type_list instead of build_function_type.
+	(mx_external_ref): Remove unused parameter.  Update callers.
+
 2002-09-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-decl.c (c_expand_body): Invoke tree optimizers with -O1 and
