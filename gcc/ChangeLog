@@ -1,3 +1,36 @@
+2000-05-18  Greg McGary  <greg@mcgary.org>
+
+	* builtins.c (expand_builtin_va_arg): Assert that va types
+	are unbounded.
+	* c-decl.c (grokdeclarator): Force pointer-conversion of va_list
+	arrays types to be unbounded.
+	* c-typeck.c (build_bounded_ptr_field_ref): Report an error on
+	access to __ptrbase or __ptrextent of an unbounded pointer.
+	Warn on access to __ptrvalue of an unbounded pointer.
+	(build_bounded_ptr_check): Punt on warnings for
+	compile-time-determined bounds violations.
+	(build_array_ref): Compile lvalue a[i] as *(a+i), so we can
+	leverage the pointer bounds checking code.
+	(build_binary_op): Wrap save_expr around bounded-pointer bind_exprs.
+	(build_c_cast): Warn about casting ints and unbounded pointers
+	with bounded types, while implictly demoting the cast-type to be
+	unbounded.
+	* combine.c (combine_instructions): Disable redundant-check
+	optimizations which don't belong here and which crash the PPC backend.
+	(rtx_and_links_equal_p): Remove function.
+	* convert.c (convert_to_pointer): Simplify condition.
+	convert to from unbounded to bounded pointer by constructing
+	bounds rather than with a CONVERT_EXPR.
+	* fold-const.c (fold): Handle unbounded-to-bounded pointer
+	conversions in the form of CONSTRUCTOR nodes.
+	* config/rs6000/rs6000.c (rs6000_build_va_list, rs6000_va_arg):
+	Make internal va_list pointers unbounded.
+	* config/rs6000/sysv4.h (LIB_LINUX_SPEC, STARTFILE_LINUX_SPEC):
+	Handle -fbounded-pointers.
+	* emit-rtl.c (init_emit_once): Don't treat multi-dimensional array
+	as linear.
+	* optabs.c (init_optabs): Likewise.
+
 2000-05-01  Richard Henderson  <rth@cygnus.com>
 
 	* ifcvt.c (if_convert): Only verify_flow_info if ENABLE_CHECKING.
