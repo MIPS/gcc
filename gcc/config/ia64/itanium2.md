@@ -909,7 +909,7 @@
   (and (and (eq_attr "cpu" "itanium2")
             (eq_attr "itanium_class" "lfetch"))
        (eq (symbol_ref "bundling_p") (const_int 0)))
-  "2_M+2_only_ui0")
+  "2_M_only_um01")
 
 (define_insn_reservation "2_nop_m"   0
   (and (and (eq_attr "cpu" "itanium2")

@@ -1,5 +1,9 @@
 2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* config/ia64/itanium2.md (lfetch): Change the insn reservcation.
+
+2002-12-17  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* config/ia64/ia64.c (bundling): Try to insert 2 nops for M insn
 	for Itanium.
 
