@@ -1,3 +1,8 @@
+2004-01-15  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* lang-specs.h: Enable preprocessing of source files
+	ending in .F, .fpp, .FPP, .F90 and .F95.
+
 2004-01-13  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	PR fortran/12912
