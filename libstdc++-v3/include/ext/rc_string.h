@@ -95,10 +95,6 @@ namespace __gnu_cxx
     : public __string_utility<_CharT, _Traits, _Alloc>
     {
     public:
-      using __string_utility<_CharT, _Traits, _Alloc>::_S_assign;
-      using __string_utility<_CharT, _Traits, _Alloc>::_S_copy;
-      using __string_utility<_CharT, _Traits, _Alloc>::_S_move;
-
       // Types:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
@@ -117,7 +113,7 @@ namespace __gnu_cxx
       // m = ((npos - sizeof(_Rep))/sizeof(CharT)) - 1
       // In addition, this implementation quarters this amount.
       static const size_type	_S_max_size;
-      static const _CharT	_S_terminal;      
+      static const _CharT	_S_terminal;
 
     private:
       // _Rep: string representation
@@ -141,33 +137,18 @@ namespace __gnu_cxx
 
 	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
 
-        bool
-	_M_is_leaked() const
-        { return _M_refcount < 0; }
-
-        bool
-	_M_is_shared() const
-        { return _M_refcount > 0; }
-
-        void
-	_M_set_leaked()
-        { _M_refcount = -1; }
-
-        void
-	_M_set_sharable()
-        { _M_refcount = 0; }
-
-	_CharT*
+ 	_CharT*
 	_M_refdata()
 	{ return reinterpret_cast<_CharT*>(this + 1); }
 
 	void
 	_M_set_length(size_type __n)
 	{ 
-	  _M_set_sharable();  // One reference.
+	  _M_refcount = 0;  // One reference.
 	  _M_length = __n;
-	  _M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
+	  // grrr. (per 21.3.4)
 	  // You cannot leave those LWG people alone for a second.
+	  traits_type::assign(_M_refdata()[__n], _S_terminal);
 	}
 
 	// Create & Destroy
@@ -195,97 +176,23 @@ namespace __gnu_cxx
 	_CharT* _M_p; // The actual data.
       };
 
-      // Data Members (private):
+      // Data Member (private):
       mutable _Alloc_hider	_M_dataplus;
 
-    public:
-      _CharT*
-      _M_data() const
-      { return _M_dataplus._M_p; }
-
-      _CharT**
-      _M_data_pointer() const
-      { return &_M_dataplus._M_p; }
-	
-      _Rep*
-      _M_rep() const
-      { return &((reinterpret_cast<_Rep*> (_M_data()))[-1]); }
-
-      void
-      _M_dispose(const _Alloc& __a)
-      {
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-	if (__builtin_expect(_M_rep() != &_S_empty_rep(), false))
-#endif
-	  if (__exchange_and_add(&_M_rep()->_M_refcount, -1) <= 0)
-	    _M_rep()->_M_destroy(__a);
-      }  // XXX MT
-
-      _CharT*
-      _M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2) const
-      {
-	return (!_M_rep()->_M_is_leaked() && __alloc1 == __alloc2)
-	        ? _M_refcopy() : _M_rep()->_M_clone(__alloc1);
-      }
-
-      void
-      _M_leak()    // for use in begin() & non-const op[]
-      {
-	if (!_M_rep()->_M_is_leaked())
-	  _M_leak_hard();
-      }
-
-      __rc_string()
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-      : _M_dataplus(_S_empty_rep()._M_refdata(), _Alloc()) { }
-#else
-      : _M_dataplus(_S_construct(size_type(), _CharT(), _Alloc()), _Alloc()) { }
-#endif
-      __rc_string(const _Alloc& __a);
-
-      __rc_string(_CharT* __ptr, const _Alloc& __a);
-
-      __rc_string(size_type __n, _CharT __c, const _Alloc& __a);
-
-      template<typename _InputIterator>
-        __rc_string(_InputIterator __beg, _InputIterator __end,
-		    const _Alloc& __a);
-
-      ~__rc_string()
-      { _M_dispose(_M_get_allocator()); }      
-
-      allocator_type
-      _M_get_allocator() const
-      { return _M_dataplus; }
-
-      void
-      _M_assign(_CharT* __ptr)
-      {
-	_M_dispose(_M_get_allocator());
-	_M_dataplus._M_p = __ptr;
-      }
-
-      void
-      _M_swap(_CharT** __ptr)
-      {
-	_CharT* __tmp = _M_data();
-	_M_dataplus._M_p = *__ptr;
-	*__ptr = __tmp;
-      }
-
-      void
-      _M_reserve(size_type __res);
-
-      void
-      _M_mutate(size_type __pos, size_type __len1, size_type __len2);
-	
-    private:
       static _Rep_empty&
       _S_empty_rep()
       {
 	static _Rep_empty _Empty_rep;
 	return _Empty_rep;
       }
+
+      _CharT*
+      _M_data(_CharT* __p)
+      { return (_M_dataplus._M_p = __p); }
+
+      _Rep*
+      _M_rep() const
+      { return &((reinterpret_cast<_Rep*>(_M_data()))[-1]); }
 
       _CharT*
       _M_refcopy() const throw()
@@ -295,6 +202,23 @@ namespace __gnu_cxx
 #endif
 	  __atomic_add(&_M_rep()->_M_refcount, 1);
 	return _M_data();
+      }  // XXX MT
+
+      _CharT*
+      _M_grab(const _Alloc& __alloc1, const _Alloc& __alloc2) const
+      {
+	return (!_M_is_leaked() && __alloc1 == __alloc2)
+	        ? _M_refcopy() : _M_rep()->_M_clone(__alloc1);
+      }
+
+      void
+      _M_dispose(const _Alloc& __a)
+      {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
+	if (__builtin_expect(_M_rep() != &_S_empty_rep(), false))
+#endif
+	  if (__exchange_and_add(&_M_rep()->_M_refcount, -1) <= 0)
+	    _M_rep()->_M_destroy(__a);
       }  // XXX MT
 
       void
@@ -341,6 +265,86 @@ namespace __gnu_cxx
 
       static _CharT*
       _S_construct(size_type __req, _CharT __c, const _Alloc& __a);
+
+    public:
+      _CharT*
+      _M_data() const
+      { return _M_dataplus._M_p; }
+
+      size_type
+      _M_length() const
+      { return _M_rep()->_M_length; }
+
+      size_type
+      _M_capacity() const
+      { return _M_rep()->_M_capacity; }
+
+      bool
+      _M_is_shared() const
+      { return _M_rep()->_M_refcount > 0; }
+
+      bool
+      _M_is_leaked() const
+      { return _M_rep()->_M_refcount < 0; }
+
+      void
+      _M_set_sharable()
+      { _M_rep()->_M_refcount = 0; }
+
+      void
+      _M_set_leaked()
+      { _M_rep()->_M_refcount = -1; }
+
+      void
+      _M_set_length(size_type __n)
+      { _M_rep()->_M_set_length(__n); }
+
+      void
+      _M_leak()    // for use in begin() & non-const op[]
+      {
+	if (!_M_is_leaked())
+	  _M_leak_hard();
+      }
+
+      __rc_string()
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
+      : _M_dataplus(_S_empty_rep()._M_refdata(), _Alloc()) { }
+#else
+      : _M_dataplus(_S_construct(size_type(), _CharT(), _Alloc()), _Alloc()) { }
+#endif
+      __rc_string(const _Alloc& __a);
+
+      __rc_string(const __rc_string& __rcs);
+
+      __rc_string(size_type __n, _CharT __c, const _Alloc& __a);
+
+      template<typename _InputIterator>
+        __rc_string(_InputIterator __beg, _InputIterator __end,
+		    const _Alloc& __a);
+
+      ~__rc_string()
+      { _M_dispose(_M_get_allocator()); }      
+
+      allocator_type
+      _M_get_allocator() const
+      { return _M_dataplus; }
+
+      void
+      _M_swap(__rc_string& __rcs)
+      {
+	_CharT* __tmp = _M_data();
+	_M_data(__rcs._M_data());
+	__rcs._M_data(__tmp);
+      }
+
+      void
+      _M_assign(const __rc_string& __rcs);
+
+      void
+      _M_reserve(size_type __res);
+
+      void
+      _M_mutate(size_type __pos, size_type __len1, size_type __len2);
     };
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -429,7 +433,7 @@ namespace __gnu_cxx
     _M_destroy(const _Alloc& __a) throw ()
     {
       const size_type __size = sizeof(_Rep) +
-	                       (this->_M_capacity + 1) * sizeof(_CharT);
+	                       (_M_capacity + 1) * sizeof(_CharT);
       _Raw_bytes_alloc(__a).deallocate(reinterpret_cast<char*>(this), __size);
     }
 
@@ -439,13 +443,13 @@ namespace __gnu_cxx
     _M_clone(const _Alloc& __alloc, size_type __res)
     {
       // Requested capacity of the clone.
-      const size_type __requested_cap = this->_M_length + __res;
-      _Rep* __r = _Rep::_S_create(__requested_cap, this->_M_capacity,
-				  __alloc);
-      if (this->_M_length)
-	_S_copy(__r->_M_refdata(), this->_M_refdata(), this->_M_length);
+      const size_type __requested_cap = _M_length + __res;
+      _Rep* __r = _Rep::_S_create(__requested_cap, _M_capacity, __alloc);
 
-      __r->_M_set_length(this->_M_length);
+      if (_M_length)
+	_S_copy(__r->_M_refdata(), _M_refdata(), _M_length);
+
+      __r->_M_set_length(_M_length);
       return __r->_M_refdata();
     }
 
@@ -456,8 +460,10 @@ namespace __gnu_cxx
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
-    __rc_string(_CharT* __ptr, const _Alloc& __a)
-    : _M_dataplus(__ptr, __a) { }
+    __rc_string(const __rc_string& __rcs)
+    : _M_dataplus(__rcs._M_grab(_Alloc(__rcs._M_get_allocator()),
+				__rcs._M_get_allocator()),
+		  __rcs._M_get_allocator()) { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     __rc_string<_CharT, _Traits, _Alloc>::
@@ -475,47 +481,17 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __rc_string<_CharT, _Traits, _Alloc>::
-    _M_reserve(size_type __res)
+    _M_leak_hard()
     {
-      const allocator_type __a = _M_get_allocator();
-      _CharT* __tmp = _M_rep()->_M_clone(__a, __res - _M_rep()->_M_length);
-      _M_dispose(__a);
-      _M_dataplus._M_p = __tmp;
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
+      if (_M_rep() == &_S_empty_rep())
+	return;
+#endif
+      if (_M_is_shared())
+	_M_mutate(0, 0, 0);
+      _M_set_leaked();
     }
 
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    __rc_string<_CharT, _Traits, _Alloc>::
-    _M_mutate(size_type __pos, size_type __len1, size_type __len2)
-    {
-      const size_type __old_size = _M_rep()->_M_length;
-      const size_type __new_size = __old_size + __len2 - __len1;
-      const size_type __how_much = __old_size - __pos - __len1;
-
-      if (__new_size > _M_rep()->_M_capacity || _M_rep()->_M_is_shared())
-	{
-	  // Must reallocate.
-	  const allocator_type __a = _M_dataplus;
-	  _Rep* __r = _Rep::_S_create(__new_size, _M_rep()->_M_capacity, __a);
-
-	  if (__pos)
-	    _S_copy(__r->_M_refdata(), _M_data(), __pos);
-	  if (__how_much)
-	    _S_copy(__r->_M_refdata() + __pos + __len2,
-		    _M_data() + __pos + __len1, __how_much);
-
-	  _M_dispose(__a);
-	  _M_dataplus._M_p = __r->_M_refdata();
-	}
-      else if (__how_much && __len1 != __len2)
-	{
-	  // Work in-place.
-	  _S_move(_M_data() + __pos + __len2,
-		  _M_data() + __pos + __len1, __how_much);
-	}
-      _M_rep()->_M_set_length(__new_size);
-    }
- 
   // NB: This is the special case for Input Iterators, used in
   // istreambuf_iterators, etc.
   // Input Iterators have a cost structure very different from
@@ -618,15 +594,59 @@ namespace __gnu_cxx
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __rc_string<_CharT, _Traits, _Alloc>::
-    _M_leak_hard()
+    _M_assign(const __rc_string& __rcs)
     {
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-      if (_M_rep() == &_S_empty_rep())
-	return;
-#endif
-      if (_M_rep()->_M_is_shared())
-	_M_mutate(0, 0, 0);
-      _M_rep()->_M_set_leaked();
+      if (_M_rep() != __rcs._M_rep())
+	{
+	  const allocator_type __a = _M_get_allocator();
+	  _CharT* __tmp = __rcs._M_grab(__a, __rcs._M_get_allocator());
+	  _M_dispose(__a);
+	  _M_data(__tmp);
+	}
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    void
+    __rc_string<_CharT, _Traits, _Alloc>::
+    _M_reserve(size_type __res)
+    {
+      const allocator_type __a = _M_get_allocator();
+      _CharT* __tmp = _M_rep()->_M_clone(__a, __res - _M_length());
+      _M_dispose(__a);
+      _M_data(__tmp);
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    void
+    __rc_string<_CharT, _Traits, _Alloc>::
+    _M_mutate(size_type __pos, size_type __len1, size_type __len2)
+    {
+      const size_type __old_size = _M_length();
+      const size_type __new_size = __old_size + __len2 - __len1;
+      const size_type __how_much = __old_size - __pos - __len1;
+      
+      if (__new_size > _M_capacity() || _M_is_shared())
+	{
+	  // Must reallocate.
+	  const allocator_type __a = _M_get_allocator();
+	  _Rep* __r = _Rep::_S_create(__new_size, _M_capacity(), __a);
+
+	  if (__pos)
+	    _S_copy(__r->_M_refdata(), _M_data(), __pos);
+	  if (__how_much)
+	    _S_copy(__r->_M_refdata() + __pos + __len2,
+		    _M_data() + __pos + __len1, __how_much);
+
+	  _M_dispose(__a);
+	  _M_data(__r->_M_refdata());
+	}
+      else if (__how_much && __len1 != __len2)
+	{
+	  // Work in-place.
+	  _S_move(_M_data() + __pos + __len2,
+		  _M_data() + __pos + __len1, __how_much);
+	}
+      _M_rep()->_M_set_length(__new_size);
     }
 } // namespace __gnu_cxx
 

@@ -1,3 +1,16 @@
+2005-02-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string.h: Add __rc_string(const __rc_string&);
+	restore the _M_data(_CharT*); add _M_length(), _M_capacity(),
+	_M_set_length(); minor clean-ups.
+	(__rc_string(_CharT*, const _Alloc&), _M_data_pointer): Remove.
+	(_M_assign): Tweak to take a const __rc_string&.
+	(_M_swap): Tweak to take a __rc_string&.
+	(_Rep::_M_is_shared, _M_is_leaked, _M_set_shared, _M_set_leaked):
+	Move out to __rc_string.
+	* include/bits/basic_string.h: Tweak consistently with the above.
+	* include/bits/basic_string.tcc: Likewise.
+
 2005-02-18  Paolo Carlini  <pcarlini@suse.de>
 
 	* acinclude.m4 ([GLIBCXX_ENABLE_STRING]): New, allows to

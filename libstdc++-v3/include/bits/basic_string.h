@@ -134,7 +134,7 @@ namespace std
 
       iterator
       _M_iend() const
-      { return iterator(this->_M_data() + this->_M_rep()->_M_length); }
+      { return iterator(this->_M_data() + this->_M_length()); }
 
     public:
       // Construct/copy/destroy:
@@ -160,9 +160,7 @@ namespace std
        *  @param  str  Source string.
        */
       basic_string(const basic_string& __str)
-      : __string_base(__str._M_grab(_Alloc(__str.get_allocator()),
-				    __str.get_allocator()),
-		      __str.get_allocator()) { }
+      : __string_base(__str) { }
 
       /**
        *  @brief  Construct string as copy of a substring.
@@ -349,13 +347,13 @@ namespace std
       ///  null-termination.
       size_type
       size() const
-      { return this->_M_rep()->_M_length; }
+      { return this->_M_length(); }
 
       ///  Returns the number of characters in the string, not including any
       ///  null-termination.
       size_type
       length() const
-      { return this->_M_rep()->_M_length; }
+      { return this->_M_length(); }
 
       /// Returns the size() of the largest possible %string.
       size_type
@@ -395,7 +393,7 @@ namespace std
        */
       size_type
       capacity() const
-      { return this->_M_rep()->_M_capacity; }
+      { return this->_M_capacity(); }
 
       /**
        *  @brief  Attempt to preallocate enough memory for specified number of
@@ -612,10 +610,10 @@ namespace std
       push_back(_CharT __c)
       { 
 	const size_type __len = 1 + this->size();
-	if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
+	if (__len > this->capacity() || this->_M_is_shared())
 	  this->reserve(__len);
 	traits_type::assign(this->_M_data()[this->size()], __c);
-	this->_M_rep()->_M_set_length(__len);
+	this->_M_set_length(__len);
       }
 
       /**
@@ -851,7 +849,7 @@ namespace std
 	_GLIBCXX_DEBUG_PEDASSERT(__p >= _M_ibegin() && __p <= _M_iend());
 	const size_type __pos = __p - _M_ibegin();
 	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
-	this->_M_rep()->_M_set_leaked();
+	this->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
 
@@ -892,7 +890,7 @@ namespace std
 				 && __position < _M_iend());
 	const size_type __pos = __position - _M_ibegin();
 	this->_M_mutate(__pos, size_type(1), size_type(0));
-	this->_M_rep()->_M_set_leaked();
+	this->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
 
@@ -912,7 +910,7 @@ namespace std
 				 && __last <= _M_iend());
         const size_type __pos = __first - _M_ibegin();
 	this->_M_mutate(__pos, __last - __first, size_type(0));
-	this->_M_rep()->_M_set_leaked();
+	this->_M_set_leaked();
 	return _M_ibegin() + __pos;
       }
 
@@ -1181,8 +1179,7 @@ namespace std
 	basic_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n,
 			    _Integer __val, __true_type)
-        { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1,
-				__n, __val); }
+        { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
 
       template<class _InputIterator>
 	basic_string&

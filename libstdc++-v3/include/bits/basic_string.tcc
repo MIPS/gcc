@@ -56,11 +56,7 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     assign(const basic_string& __str)
     {
-      if (this->_M_rep() != __str._M_rep())
-	{
-	  const allocator_type __a = this->get_allocator();
-	  this->_M_assign(__str._M_grab(__a, __str.get_allocator()));
-	}
+      this->_M_assign(__str);
       return *this;
     }
 
@@ -71,7 +67,7 @@ namespace std
     {
       __glibcxx_requires_string_len(__s, __n);
       _M_check_length(this->size(), __n, "basic_string::assign");
-      if (_M_disjunct(__s) || this->_M_rep()->_M_is_shared())
+      if (_M_disjunct(__s) || this->_M_is_shared())
 	return _M_replace_safe(size_type(0), this->size(), __s, __n);
       else
 	{
@@ -81,7 +77,7 @@ namespace std
 	    this->_S_copy(this->_M_data(), __s, __n);
 	  else if (__pos)
 	    this->_S_move(this->_M_data(), __s, __n);
-	  this->_M_rep()->_M_set_length(__n);
+	  this->_M_set_length(__n);
 	  return *this;
 	}
      }
@@ -95,10 +91,10 @@ namespace std
 	{
 	  _M_check_length(size_type(0), __n, "basic_string::append");	  
 	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
+	  if (__len > this->capacity() || this->_M_is_shared())
 	    this->reserve(__len);
 	  this->_S_assign(this->_M_data() + this->size(), __n, __c);
-	  this->_M_rep()->_M_set_length(__len);
+	  this->_M_set_length(__len);
 	}
       return *this;
     }
@@ -113,7 +109,7 @@ namespace std
 	{
 	  _M_check_length(size_type(0), __n, "basic_string::append");
 	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
+	  if (__len > this->capacity() || this->_M_is_shared())
 	    {
 	      if (_M_disjunct(__s))
 		this->reserve(__len);
@@ -125,7 +121,7 @@ namespace std
 		}
 	    }
 	  this->_S_copy(this->_M_data() + this->size(), __s, __n);
-	  this->_M_rep()->_M_set_length(__len);
+	  this->_M_set_length(__len);
 	}
       return *this;
     }
@@ -139,11 +135,11 @@ namespace std
       if (__size)
 	{
 	  const size_type __len = __size + this->size();
-	  if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
+	  if (__len > this->capacity() || this->_M_is_shared())
 	    this->reserve(__len);
 	  this->_S_copy(this->_M_data() + this->size(), __str._M_data(),
 			__size);
-	  this->_M_rep()->_M_set_length(__len);
+	  this->_M_set_length(__len);
 	}
       return *this;
     }    
@@ -158,11 +154,11 @@ namespace std
       if (__n)
 	{
 	  const size_type __len = __n + this->size();
-	  if (__len > this->capacity() || this->_M_rep()->_M_is_shared())
+	  if (__len > this->capacity() || this->_M_is_shared())
 	    this->reserve(__len);
 	  this->_S_copy(this->_M_data() + this->size(),
 			__str._M_data() + __pos, __n);
-	  this->_M_rep()->_M_set_length(__len);	  
+	  this->_M_set_length(__len);	  
 	}
       return *this;
     }
@@ -175,7 +171,7 @@ namespace std
        __glibcxx_requires_string_len(__s, __n);
        _M_check(__pos, "basic_string::insert");
        _M_check_length(size_type(0), __n, "basic_string::insert");
-       if (_M_disjunct(__s) || this->_M_rep()->_M_is_shared())
+       if (_M_disjunct(__s) || this->_M_is_shared())
          return _M_replace_safe(__pos, size_type(0), __s, __n);
        else
          {
@@ -209,7 +205,7 @@ namespace std
        __n1 = _M_limit(__pos, __n1);
        _M_check_length(__n1, __n2, "basic_string::replace");
        bool __left;
-       if (_M_disjunct(__s) || this->_M_rep()->_M_is_shared())
+       if (_M_disjunct(__s) || this->_M_is_shared())
          return _M_replace_safe(__pos, __n1, __s, __n2);
        else if ((__left = __s + __n2 <= this->_M_data() + __pos)
 		|| this->_M_data() + __pos + __n1 <= __s)
@@ -235,7 +231,7 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     reserve(size_type __res)
     {
-      if (__res != this->capacity() || this->_M_rep()->_M_is_shared())
+      if (__res != this->capacity() || this->_M_is_shared())
         {
 	  // Make sure we don't shrink below the current size
 	  if (__res < this->size())
@@ -249,12 +245,12 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     swap(basic_string& __s)
     {
-      if (this->_M_rep()->_M_is_leaked())
-	this->_M_rep()->_M_set_sharable();
-      if (__s._M_rep()->_M_is_leaked())
-	__s._M_rep()->_M_set_sharable();
+      if (this->_M_is_leaked())
+	this->_M_set_sharable();
+      if (__s._M_is_leaked())
+	__s._M_set_sharable();
       if (this->get_allocator() == __s.get_allocator())
-	this->_M_swap(__s._M_data_pointer());
+	this->_M_swap(__s);
       // The code below can usually be optimized away.
       else
 	{
