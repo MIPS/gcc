@@ -1,5 +1,9 @@
 2004-04-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(nativeSetBounds): Call gdk_window_move in addition to
+	gtk_window_move.
+
 	* java/applet/Applet.java (preferredSize): Call parent's
 	preferredSize if the applet stub is null.
 	(minimumSize): Likewise for parent's minimumSize.
