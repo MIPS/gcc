@@ -1,5 +1,12 @@
 2004-11-15  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/TextArea.java (AccessibleAWTTextArea,
+	getAccessibleContext): Implement.
+	* java/awt/TextField.java (AccessibleAWTTextField,
+	getAccessibleContext): Implement.
+
+2004-11-15  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Menu.java (AccessibleAWTMenu, getAccessibleContext):
 	Implement.
 	* java/awt/PopupMenu.java (AccessibleAWTMenu, getAccessibleContext):
