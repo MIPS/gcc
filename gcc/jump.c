@@ -121,6 +121,8 @@ static int jump_back_p			PARAMS ((rtx, rtx));
 static int tension_vector_labels	PARAMS ((rtx, int));
 static void mark_jump_label		PARAMS ((rtx, rtx, int, int));
 static void delete_computation		PARAMS ((rtx));
+static void redirect_exp_1		PARAMS ((rtx *, rtx, rtx, rtx));
+static void invert_exp_1		PARAMS ((rtx, rtx));
 static void delete_from_jump_chain	PARAMS ((rtx));
 static int delete_labelref_insn		PARAMS ((rtx, rtx, int));
 static void mark_modified_reg		PARAMS ((rtx, rtx, void *));
@@ -507,246 +509,6 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 	      reallabelprev = prev_real_insn (temp1);
 	      changed = 1;
 	      next = NEXT_INSN (insn);
-	    }
-
-	  /* Simplify   if (...) x = a; else x = b; by converting it
-	     to         x = b; if (...) x = a;
-	     if B is sufficiently simple, the test doesn't involve X,
-	     and nothing in the test modifies B or X.
-
-	     ??? This should be handled via the condexec code instead.
-
-	     If we have small register classes, we also can't do this if X
-	     is a hard register.
-
-	     If the "x = b;" insn has any REG_NOTES, we don't do this because
-	     of the possibility that we are running after CSE and there is a
-	     REG_EQUAL note that is only valid if the branch has already been
-	     taken.  If we move the insn with the REG_EQUAL note, we may
-	     fold the comparison to always be false in a later CSE pass.
-	     (We could also delete the REG_NOTES when moving the insn, but it
-	     seems simpler to not move it.)  An exception is that we can move
-	     the insn if the only note is a REG_EQUAL or REG_EQUIV whose
-	     value is the same as "b".
-
-	     INSN is the branch over the `else' part. 
-
-	     We set:
-
-	     TEMP to the jump insn preceding "x = a;"
-	     TEMP1 to X
-	     TEMP2 to the insn that sets "x = b;"
-	     TEMP3 to the insn that sets "x = a;"
-	     TEMP4 to the set of "x = b";  */
-
-	  if (0 && this_is_simplejump
-	      && (temp3 = prev_active_insn (insn)) != 0
-	      && GET_CODE (temp3) == INSN
-	      && (temp4 = single_set (temp3)) != 0
-	      && GET_CODE (temp1 = SET_DEST (temp4)) == REG
-	      && (! SMALL_REGISTER_CLASSES
-		  || REGNO (temp1) >= FIRST_PSEUDO_REGISTER)
-	      && (temp2 = next_active_insn (insn)) != 0
-	      && GET_CODE (temp2) == INSN
-	      && (temp4 = single_set (temp2)) != 0
-	      && rtx_equal_p (SET_DEST (temp4), temp1)
-	      && ! side_effects_p (SET_SRC (temp4))
-	      && ! may_trap_p (SET_SRC (temp4))
-	      && (REG_NOTES (temp2) == 0
-		  || ((REG_NOTE_KIND (REG_NOTES (temp2)) == REG_EQUAL
-		       || REG_NOTE_KIND (REG_NOTES (temp2)) == REG_EQUIV)
-		      && XEXP (REG_NOTES (temp2), 1) == 0
-		      && rtx_equal_p (XEXP (REG_NOTES (temp2), 0),
-				      SET_SRC (temp4))))
-	      && (temp = prev_active_insn (temp3)) != 0
-	      && condjump_p (temp) && ! simplejump_p (temp)
-	      /* TEMP must skip over the "x = a;" insn */
-	      && prev_real_insn (JUMP_LABEL (temp)) == insn
-	      && no_labels_between_p (insn, JUMP_LABEL (temp))
-	      /* There must be no other entries to the "x = b;" insn.  */
-	      && no_labels_between_p (JUMP_LABEL (temp), temp2)
-	      /* INSN must either branch to the insn after TEMP2 or the insn
-		 after TEMP2 must branch to the same place as INSN.  */
-	      && (reallabelprev == temp2
-		  || ((temp5 = next_active_insn (temp2)) != 0
-		      && simplejump_p (temp5)
-		      && JUMP_LABEL (temp5) == JUMP_LABEL (insn))))
-	    {
-	      /* The test expression, X, may be a complicated test with
-		 multiple branches.  See if we can find all the uses of
-		 the label that TEMP branches to without hitting a CALL_INSN
-		 or a jump to somewhere else.  */
-	      rtx target = JUMP_LABEL (temp);
-	      int nuses = LABEL_NUSES (target);
-	      rtx p;
-#ifdef HAVE_cc0
-	      rtx q;
-#endif
-
-	      /* Set P to the first jump insn that goes around "x = a;".  */
-	      for (p = temp; nuses && p; p = prev_nonnote_insn (p))
-		{
-		  if (GET_CODE (p) == JUMP_INSN)
-		    {
-		      if (condjump_p (p) && ! simplejump_p (p)
-			  && JUMP_LABEL (p) == target)
-			{
-			  nuses--;
-			  if (nuses == 0)
-			    break;
-			}
-		      else
-			break;
-		    }
-		  else if (GET_CODE (p) == CALL_INSN)
-		    break;
-		}
-
-#ifdef HAVE_cc0
-	      /* We cannot insert anything between a set of cc and its use
-		 so if P uses cc0, we must back up to the previous insn.  */
-	      q = prev_nonnote_insn (p);
-	      if (q && GET_RTX_CLASS (GET_CODE (q)) == 'i'
-		  && sets_cc0_p (PATTERN (q)))
-		p = q;
-#endif
-
-	      if (p)
-		p = PREV_INSN (p);
-
-	      /* If we found all the uses and there was no data conflict, we
-		 can move the assignment unless we can branch into the middle
-		 from somewhere.  */
-	      if (nuses == 0 && p
-		  && no_labels_between_p (p, insn)
-		  && ! reg_referenced_between_p (temp1, p, NEXT_INSN (temp3))
-		  && ! reg_set_between_p (temp1, p, temp3)
-		  && (GET_CODE (SET_SRC (temp4)) == CONST_INT
-		      || ! modified_between_p (SET_SRC (temp4), p, temp2))
-		  /* Verify that registers used by the jump are not clobbered
-		     by the instruction being moved.  */
-		  && ! regs_set_between_p (PATTERN (temp),
-					   PREV_INSN (temp2),
-					   NEXT_INSN (temp2)))
-		{
-		  emit_insn_after_with_line_notes (PATTERN (temp2), p, temp2);
-		  delete_insn (temp2);
-
-		  /* Set NEXT to an insn that we know won't go away.  */
-		  next = next_active_insn (insn);
-
-		  /* Delete the jump around the set.  Note that we must do
-		     this before we redirect the test jumps so that it won't
-		     delete the code immediately following the assignment
-		     we moved (which might be a jump).  */
-
-		  delete_insn (insn);
-
-		  /* We either have two consecutive labels or a jump to
-		     a jump, so adjust all the JUMP_INSNs to branch to where
-		     INSN branches to.  */
-		  for (p = NEXT_INSN (p); p != next; p = NEXT_INSN (p))
-		    if (GET_CODE (p) == JUMP_INSN)
-		      redirect_jump (p, target);
-
-		  changed = 1;
-		  next = NEXT_INSN (insn);
-		  continue;
-		}
-	    }
-
-	  /* Simplify   if (...) { x = a; goto l; } x = b; by converting it
-	     to         x = a; if (...) goto l; x = b;
-	     if A is sufficiently simple, the test doesn't involve X,
-	     and nothing in the test modifies A or X.
-
-	     ??? This should be handled via the condexec code instead.
-
-	     If we have small register classes, we also can't do this if X
-	     is a hard register.
-
-	     If the "x = a;" insn has any REG_NOTES, we don't do this because
-	     of the possibility that we are running after CSE and there is a
-	     REG_EQUAL note that is only valid if the branch has already been
-	     taken.  If we move the insn with the REG_EQUAL note, we may
-	     fold the comparison to always be false in a later CSE pass.
-	     (We could also delete the REG_NOTES when moving the insn, but it
-	     seems simpler to not move it.)  An exception is that we can move
-	     the insn if the only note is a REG_EQUAL or REG_EQUIV whose
-	     value is the same as "a".
-
-	     INSN is the goto.
-
-	     We set:
-
-	     TEMP to the jump insn preceding "x = a;"
-	     TEMP1 to X
-	     TEMP2 to the insn that sets "x = b;"
-	     TEMP3 to the insn that sets "x = a;"
-	     TEMP4 to the set of "x = a";  */
-
-	  if (0 && this_is_simplejump
-	      && (temp2 = next_active_insn (insn)) != 0
-	      && GET_CODE (temp2) == INSN
-	      && (temp4 = single_set (temp2)) != 0
-	      && GET_CODE (temp1 = SET_DEST (temp4)) == REG
-	      && (! SMALL_REGISTER_CLASSES
-		  || REGNO (temp1) >= FIRST_PSEUDO_REGISTER)
-	      && (temp3 = prev_active_insn (insn)) != 0
-	      && GET_CODE (temp3) == INSN
-	      && (temp4 = single_set (temp3)) != 0
-	      && rtx_equal_p (SET_DEST (temp4), temp1)
-	      && ! side_effects_p (SET_SRC (temp4))
-	      && ! may_trap_p (SET_SRC (temp4))
-	      && (REG_NOTES (temp3) == 0
-		  || ((REG_NOTE_KIND (REG_NOTES (temp3)) == REG_EQUAL
-		       || REG_NOTE_KIND (REG_NOTES (temp3)) == REG_EQUIV)
-		      && XEXP (REG_NOTES (temp3), 1) == 0
-		      && rtx_equal_p (XEXP (REG_NOTES (temp3), 0),
-				      SET_SRC (temp4))))
-	      && (temp = prev_active_insn (temp3)) != 0
-	      && condjump_p (temp) && ! simplejump_p (temp)
-	      /* TEMP must skip over the "x = a;" insn */
-	      && prev_real_insn (JUMP_LABEL (temp)) == insn
-	      && no_labels_between_p (temp, insn))
-	    {
-	      rtx prev_label = JUMP_LABEL (temp);
-	      rtx insert_after = prev_nonnote_insn (temp);
-
-#ifdef HAVE_cc0
-	      /* We cannot insert anything between a set of cc and its use.  */
-	      if (insert_after && GET_RTX_CLASS (GET_CODE (insert_after)) == 'i'
-		  && sets_cc0_p (PATTERN (insert_after)))
-		insert_after = prev_nonnote_insn (insert_after);
-#endif
-	      ++LABEL_NUSES (prev_label);
-
-	      if (insert_after
-		  && no_labels_between_p (insert_after, temp)
-		  && ! reg_referenced_between_p (temp1, insert_after, temp3)
-		  && ! reg_referenced_between_p (temp1, temp3,
-						 NEXT_INSN (temp2))
-		  && ! reg_set_between_p (temp1, insert_after, temp)
-		  && ! modified_between_p (SET_SRC (temp4), insert_after, temp)
-		  /* Verify that registers used by the jump are not clobbered
-		     by the instruction being moved.  */
-		  && ! regs_set_between_p (PATTERN (temp),
-					   PREV_INSN (temp3),
-					   NEXT_INSN (temp3))
-		  && invert_jump (temp, JUMP_LABEL (insn)))
-		{
-		  emit_insn_after_with_line_notes (PATTERN (temp3),
-						   insert_after, temp3);
-		  delete_insn (temp3);
-		  delete_insn (insn);
-		  /* Set NEXT to an insn that we know won't go away.  */
-		  next = temp2;
-		  changed = 1;
-		}
-	      if (prev_label && --LABEL_NUSES (prev_label) == 0)
-		delete_insn (prev_label);
-	      if (changed)
-		continue;
 	    }
 
 #ifdef HAVE_trap
@@ -3232,113 +2994,102 @@ never_reached_warning (avoided_insn)
 				"will never be executed");
 }
 
-/* Invert the condition of the jump JUMP, and make it jump
-   to label NLABEL instead of where it jumps now.  */
+/* Throughout LOC, redirect OLABEL to NLABEL.  Treat null OLABEL or
+   NLABEL as a return.  Accrue modifications into the change group.  */
 
-int
-invert_jump (jump, nlabel)
-     rtx jump, nlabel;
-{
-  /* We have to either invert the condition and change the label or
-     do neither.  Either operation could fail.  We first try to invert
-     the jump. If that succeeds, we try changing the label.  If that fails,
-     we invert the jump back to what it was.  */
-
-  if (! invert_exp (PATTERN (jump), jump))
-    return 0;
-
-  if (redirect_jump (jump, nlabel))
-    {
-      if (flag_branch_probabilities)
-	{
-	  rtx note = find_reg_note (jump, REG_BR_PROB, 0);
-
-	  /* An inverted jump means that a probability taken becomes a
-	     probability not taken.  Subtract the branch probability from the
-	     probability base to convert it back to a taken probability.
-	     (We don't flip the probability on a branch that's never taken.  */
-	  if (note && XINT (XEXP (note, 0), 0) >= 0)
-	    XINT (XEXP (note, 0), 0) = REG_BR_PROB_BASE - XINT (XEXP (note, 0), 0);
-	}
-
-      return 1;
-    }
-
-  if (! invert_exp (PATTERN (jump), jump))
-    /* This should just be putting it back the way it was.  */
-    abort ();
-
-  return  0;
-}
-
-/* Invert the jump condition of rtx X contained in jump insn, INSN. 
-
-   Return 1 if we can do so, 0 if we cannot find a way to do so that
-   matches a pattern.  */
-
-int
-invert_exp (x, insn)
-     rtx x;
+static void
+redirect_exp_1 (loc, olabel, nlabel, insn)
+     rtx *loc;
+     rtx olabel, nlabel;
      rtx insn;
 {
-  register RTX_CODE code;
+  register rtx x = *loc;
+  register RTX_CODE code = GET_CODE (x);
   register int i;
   register const char *fmt;
 
-  code = GET_CODE (x);
-
-  if (code == IF_THEN_ELSE)
+  if (code == LABEL_REF)
     {
-      register rtx comp = XEXP (x, 0);
-      register rtx tem;
+      if (XEXP (x, 0) == olabel)
+	{
+	  rtx n;
+	  if (nlabel)
+	    n = gen_rtx_LABEL_REF (VOIDmode, nlabel);
+	  else
+	    n = gen_rtx_RETURN (VOIDmode); 
 
-      /* We can do this in two ways:  The preferable way, which can only
-	 be done if this is not an integer comparison, is to reverse
-	 the comparison code.  Otherwise, swap the THEN-part and ELSE-part
-	 of the IF_THEN_ELSE.  If we can't do either, fail.  */
+	  validate_change (insn, loc, n, 1);
+	  return;
+	}
+    }
+  else if (code == RETURN && olabel == 0)
+    {
+      x = gen_rtx_LABEL_REF (VOIDmode, nlabel);
+      if (loc == &PATTERN (insn))
+	x = gen_rtx_SET (VOIDmode, pc_rtx, x);
+      validate_change (insn, loc, x, 1);
+      return;
+    }
 
-      if (can_reverse_comparison_p (comp, insn)
-	  && validate_change (insn, &XEXP (x, 0),
-			      gen_rtx_fmt_ee (reverse_condition (GET_CODE (comp)),
-					      GET_MODE (comp), XEXP (comp, 0),
-					      XEXP (comp, 1)), 0))
-	return 1;
-				       
-      tem = XEXP (x, 1);
-      validate_change (insn, &XEXP (x, 1), XEXP (x, 2), 1);
-      validate_change (insn, &XEXP (x, 2), tem, 1);
-      return apply_change_group ();
+  if (code == SET && nlabel == 0 && SET_DEST (x) == pc_rtx
+      && GET_CODE (SET_SRC (x)) == LABEL_REF
+      && XEXP (SET_SRC (x), 0) == olabel)
+    {
+      validate_change (insn, loc, gen_rtx_RETURN (VOIDmode), 1);
+      return;
     }
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	{
-	  if (! invert_exp (XEXP (x, i), insn))
-	    return 0;
-	}
+	redirect_exp_1 (&XEXP (x, i), olabel, nlabel, insn);
       else if (fmt[i] == 'E')
 	{
 	  register int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (!invert_exp (XVECEXP (x, i, j), insn))
-	      return 0;
+	    redirect_exp_1 (&XVECEXP (x, i, j), olabel, nlabel, insn);
 	}
     }
-
-  return 1;
 }
-
-/* Make jump JUMP jump to label NLABEL instead of where it jumps now.
-   If the old jump target label is unused as a result,
-   it and the code following it may be deleted.
+
+/* Similar, but apply the change group and report success or failure.  */
+
+int
+redirect_exp (loc, olabel, nlabel, insn)
+     rtx *loc;
+     rtx olabel, nlabel;
+     rtx insn;
+{
+  redirect_exp_1 (loc, olabel, nlabel, insn);
+  if (num_validated_changes () == 0)
+    return 0;
+
+  return apply_change_group ();
+}
+
+/* Make JUMP go to NLABEL instead of where it jumps now.  Accrue
+   the modifications into the change group.  Return false if we did
+   not see how to do that.  */
+
+int
+redirect_jump_1 (jump, nlabel)
+     rtx jump, nlabel;
+{
+  int ochanges = num_validated_changes ();
+  redirect_exp_1 (&PATTERN (jump), JUMP_LABEL (jump), nlabel, jump);
+  return num_validated_changes () > ochanges;
+}
+
+/* Make JUMP go to NLABEL instead of where it jumps now.  If the old
+   jump target label is unused as a result, it and the code following
+   it may be deleted.
 
    If NLABEL is zero, we are to turn the jump into a (possibly conditional)
    RETURN insn.
 
-   The return value will be 1 if the change was made, 0 if it wasn't (this
-   can only occur for NLABEL == 0).  */
+   The return value will be 1 if the change was made, 0 if it wasn't
+   (this can only occur for NLABEL == 0).  */
 
 int
 redirect_jump (jump, nlabel)
@@ -3386,6 +3137,131 @@ redirect_jump (jump, nlabel)
   return 1;
 }
 
+/* Invert the jump condition of rtx X contained in jump insn, INSN.  
+   Accrue the modifications into the change group.  */
+
+static void
+invert_exp_1 (x, insn)
+     rtx x;
+     rtx insn;
+{
+  register RTX_CODE code;
+  register int i;
+  register const char *fmt;
+
+  code = GET_CODE (x);
+
+  if (code == IF_THEN_ELSE)
+    {
+      register rtx comp = XEXP (x, 0);
+      register rtx tem;
+
+      /* We can do this in two ways:  The preferable way, which can only
+	 be done if this is not an integer comparison, is to reverse
+	 the comparison code.  Otherwise, swap the THEN-part and ELSE-part
+	 of the IF_THEN_ELSE.  If we can't do either, fail.  */
+
+      if (can_reverse_comparison_p (comp, insn))
+	{
+	  validate_change (insn, &XEXP (x, 0),
+			   gen_rtx_fmt_ee (reverse_condition (GET_CODE (comp)),
+					   GET_MODE (comp), XEXP (comp, 0),
+					   XEXP (comp, 1)),
+			   1);
+	  return;
+	}
+				       
+      tem = XEXP (x, 1);
+      validate_change (insn, &XEXP (x, 1), XEXP (x, 2), 1);
+      validate_change (insn, &XEXP (x, 2), tem, 1);
+      return;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	invert_exp_1 (XEXP (x, i), insn);
+      else if (fmt[i] == 'E')
+	{
+	  register int j;
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    invert_exp_1 (XVECEXP (x, i, j), insn);
+	}
+    }
+}
+
+/* Invert the jump condition of rtx X contained in jump insn, INSN. 
+
+   Return 1 if we can do so, 0 if we cannot find a way to do so that
+   matches a pattern.  */
+
+int
+invert_exp (x, insn)
+     rtx x;
+     rtx insn;
+{
+  invert_exp_1 (x, insn);
+  if (num_validated_changes () == 0)
+    return 0;
+
+  return apply_change_group ();
+}
+
+/* Invert the condition of the jump JUMP, and make it jump to label
+   NLABEL instead of where it jumps now.  Accrue changes into the
+   change group.  Return false if we didn't see how to perform the
+   inversion and redirection.  */
+
+int
+invert_jump_1 (jump, nlabel)
+     rtx jump, nlabel;
+{
+  int ochanges;
+
+  ochanges = num_validated_changes ();
+  invert_exp_1 (PATTERN (jump), jump);
+  if (num_validated_changes () == ochanges)
+    return 0;
+
+  return redirect_jump_1 (jump, nlabel);
+}
+
+/* Invert the condition of the jump JUMP, and make it jump to label
+   NLABEL instead of where it jumps now.  Return true if successful.  */
+
+int
+invert_jump (jump, nlabel)
+     rtx jump, nlabel;
+{
+  /* We have to either invert the condition and change the label or
+     do neither.  Either operation could fail.  We first try to invert
+     the jump. If that succeeds, we try changing the label.  If that fails,
+     we invert the jump back to what it was.  */
+
+  if (! invert_exp (PATTERN (jump), jump))
+    return 0;
+
+  if (redirect_jump (jump, nlabel))
+    {
+      /* An inverted jump means that a probability taken becomes a
+	 probability not taken.  Subtract the branch probability from the
+	 probability base to convert it back to a taken probability.  */
+
+      rtx note = find_reg_note (jump, REG_BR_PROB, NULL_RTX);
+      if (note)
+	XEXP (note, 0) = GEN_INT (REG_BR_PROB_BASE - INTVAL (XEXP (note, 0)));
+
+      return 1;
+    }
+
+  if (! invert_exp (PATTERN (jump), jump))
+    /* This should just be putting it back the way it was.  */
+    abort ();
+
+  return 0;
+}
+
 /* Delete the instruction JUMP from any jump chain it might be on.  */
 
 static void
@@ -3420,72 +3296,6 @@ delete_from_jump_chain (jump)
 	    break;
 	  }
     }
-}
-
-/* If NLABEL is nonzero, throughout the rtx at LOC,
-   alter (LABEL_REF OLABEL) to (LABEL_REF NLABEL).  If OLABEL is
-   zero, alter (RETURN) to (LABEL_REF NLABEL).
-
-   If NLABEL is zero, alter (LABEL_REF OLABEL) to (RETURN) and check
-   validity with validate_change.  Convert (set (pc) (label_ref olabel))
-   to (return).
-
-   Return 0 if we found a change we would like to make but it is invalid.
-   Otherwise, return 1.  */
-
-int
-redirect_exp (loc, olabel, nlabel, insn)
-     rtx *loc;
-     rtx olabel, nlabel;
-     rtx insn;
-{
-  register rtx x = *loc;
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
-
-  if (code == LABEL_REF)
-    {
-      if (XEXP (x, 0) == olabel)
-	{
-	  if (nlabel)
-	    XEXP (x, 0) = nlabel;
-	  else
-	    return validate_change (insn, loc, gen_rtx_RETURN (VOIDmode), 0);
-	  return 1;
-	}
-    }
-  else if (code == RETURN && olabel == 0)
-    {
-      x = gen_rtx_LABEL_REF (VOIDmode, nlabel);
-      if (loc == &PATTERN (insn))
-	x = gen_rtx_SET (VOIDmode, pc_rtx, x);
-      return validate_change (insn, loc, x, 0);
-    }
-
-  if (code == SET && nlabel == 0 && SET_DEST (x) == pc_rtx
-      && GET_CODE (SET_SRC (x)) == LABEL_REF
-      && XEXP (SET_SRC (x), 0) == olabel)
-    return validate_change (insn, loc, gen_rtx_RETURN (VOIDmode), 0);
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if (! redirect_exp (&XEXP (x, i), olabel, nlabel, insn))
-	    return 0;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  register int j;
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (! redirect_exp (&XVECEXP (x, i, j), olabel, nlabel, insn))
-	      return 0;
-	}
-    }
-
-  return 1;
 }
 
 /* Make jump JUMP jump to label NLABEL, assuming it used to be a tablejump.

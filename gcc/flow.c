@@ -327,7 +327,6 @@ static void commit_one_edge_insertion	PARAMS ((edge));
 static void delete_unreachable_blocks	PARAMS ((void));
 static void delete_eh_regions		PARAMS ((void));
 static int can_delete_note_p		PARAMS ((rtx));
-static int delete_block			PARAMS ((basic_block));
 static void expunge_block		PARAMS ((basic_block));
 static int can_delete_label_p		PARAMS ((rtx));
 static int merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
@@ -1779,8 +1778,9 @@ delete_unreachable_blocks ()
 	  }
     }
 
-  /* Delete all unreachable basic blocks.  Count down so that we don't
-     interfere with the block renumbering that happens in delete_block.  */
+  /* Delete all unreachable basic blocks.  Count down so that we
+     don't interfere with the block renumbering that happens in
+     flow_delete_block.  */
 
   deleted_handler = 0;
 
@@ -1792,7 +1792,7 @@ delete_unreachable_blocks ()
 	/* This block was found.  Tidy up the mark.  */
 	b->aux = NULL;
       else
-	deleted_handler |= delete_block (b);
+	deleted_handler |= flow_delete_block (b);
     }
 
   tidy_fallthru_edges ();
@@ -1880,8 +1880,8 @@ flow_delete_insn_chain (start, finish)
 /* ??? Preserving all such notes strikes me as wrong.  It would be nice
    to post-process the stream to remove empty blocks, loops, ranges, etc.  */
 
-static int
-delete_block (b)
+int
+flow_delete_block (b)
      basic_block b;
 {
   int deleted_handler = 0;
@@ -2442,7 +2442,9 @@ tidy_fallthru_edge (e, b, c)
      If block B consisted only of this single jump, turn it into a deleted
      note.  */
   q = b->end;
-  if (GET_CODE (q) == JUMP_INSN)
+  if (GET_CODE (q) == JUMP_INSN
+      && (! condjump_p (q)
+	  || (b->succ == e && e->succ_next == NULL)))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
@@ -2503,23 +2505,6 @@ tidy_fallthru_edges ()
 	      || onlyjump_p (b->end)))
 	tidy_fallthru_edge (s, b, c);
     }
-}
-
-/* Discover and record the loop depth at the head of each basic block.  */
-
-void
-calculate_loop_depth (dump)
-     FILE *dump;
-{
-  struct loops loops;
-
-  /* The loop infrastructure does the real job for us.  */
-  flow_loops_find (&loops);
-
-  if (dump)
-    flow_loops_dump (&loops, dump, 0);
-
-  flow_loops_free (&loops);
 }
 
 /* Perform data flow analysis.

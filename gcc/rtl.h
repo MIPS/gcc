@@ -1486,9 +1486,11 @@ extern int simplejump_p			PARAMS ((rtx));
 extern int returnjump_p			PARAMS ((rtx));
 extern int onlyjump_p			PARAMS ((rtx));
 extern int sets_cc0_p			PARAMS ((rtx));
+extern int invert_jump_1		PARAMS ((rtx, rtx));
 extern int invert_jump			PARAMS ((rtx, rtx));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
+extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx));
 extern void jump_optimize		PARAMS ((rtx, int, int, int));
 extern void jump_optimize_minimal	PARAMS ((rtx));
@@ -1813,6 +1815,6 @@ extern rtx stack_limit_rtx;
 extern void regrename_optimize		PARAMS ((void));
 
 /* In condexec.c */
-extern void if_convert			PARAMS ((void));
+extern void if_convert			PARAMS ((int));
 
 #endif /* _RTL_H */

@@ -1,3 +1,51 @@
+2000-04-20  Richard Henderson  <rth@cygnus.com>
+
+	* basic-block.h (flow_delete_block): Declare.
+	* flow.c (flow_delete_block): Renamed from delete_block.  Export.
+
+	* flow.c (calculate_loop_depth): Remove.
+	* output.h (calculate_loop_depth): Remove decl.
+	* bb-reorder.c (reorder_basic_blocks): Don't call estimate_probability.
+	* toplev.c (DFI_ce2): New.
+	(dump_file): Add ce2.
+	(rest_of_compilation): Add argument to if_convert.  Explode 
+	calculate_loop_depth inline.  Call estimate_probability at the
+	same time.  Break final if_convert into it's own dump file.
+
+	* condexec.c (AUX_UPDATE_LIFE): Remove.
+	(num_modified_insns): Remove.
+	(post_dominators): New.
+	(SET_ORIG_INDEX, ORIG_INDEX): New.
+	(SET_UPDATE_LIFE, UPDATE_LIFE): New.
+	(cond_exec_process_insns): Remove undo buffer; accrue changes in
+	the change set instead.  Replace call_ok with mod_ok.  Don't check
+	for calls explicitly.
+	(cond_exec_unprocess_insns): Remove.
+	(cond_exec_get_condition): New.
+	(cond_exec_process_if_block): Use it.  Update for
+	cond_exec_process_insns changes.
+	(noce_get_condition): New.
+	(noce_process_if_block): Use it.
+	(find_if_header): Break out from find_if_block.
+	(find_if_block): Look for triangles and diamonds only.  Relax
+	adjacent join block test.
+	(find_if_case_1, find_if_case_2): New.
+	(struct dop_validate_life_info, dop_validate_life): New.
+	(dead_or_predicable): New.
+	(if_convert): New argument life_data_ok.  Compute post_dominators.
+	Record original block numbers.
+
+	* jump.c (redirect_exp_1): Rework from old redirect_exp.  Never
+	commit change group changes.
+	(invert_exp_1): Similarly.
+	(redirect_exp, invert_exp): Use them.
+	(redirect_jump_1): New.
+	(invert_jump_1): New.
+	(jump_optimize_1): Remove code subsumed by condexec.c.
+	* rtl.h (invert_jump_1, redirect_jump_1): Declare.
+
+	* config/alpha/alpha.c (alpha_emit_floatuns): Emit missing barrier.
+
 2000-04-17  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (HAVE_conditional_execution): Default to 0.

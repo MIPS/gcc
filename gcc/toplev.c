@@ -267,6 +267,7 @@ enum dump_file_index
   DFI_lreg,
   DFI_greg,
   DFI_flow2,
+  DFI_ce2,
   DFI_peephole2,
   DFI_sched2,
   DFI_bbro,
@@ -300,6 +301,7 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "lreg",	'l', 1, 0, 0 },
   { "greg",	'g', 1, 0, 0 },
   { "flow2",	'w', 1, 0, 0 },
+  { "ce2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -2984,7 +2986,7 @@ rest_of_compilation (decl)
 	        be changed -- no since converting if's that are going to
 	        be deleted.  */
 	     if (optimize > 0)
-	       if_convert ();
+	       if_convert (0);
 
 	     /* Try to identify useless null pointer tests and delete them.  */
 	     if (flag_delete_null_pointer_checks)
@@ -3042,7 +3044,7 @@ rest_of_compilation (decl)
 		     cleanup_cfg (insns);
 		   });
 
-	  TIMEVAR (jump_time, if_convert ());
+	  TIMEVAR (jump_time, if_convert (0));
 	}
 
       /* Try to identify useless null pointer tests and delete them.  */
@@ -3189,7 +3191,7 @@ rest_of_compilation (decl)
 
 		     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 		     cleanup_cfg (insns);
-		     if_convert ();
+		     if_convert (0);
 		   });
 	  
 	  TIMEVAR (cse2_time,
@@ -3264,8 +3266,25 @@ rest_of_compilation (decl)
      {
        find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
        cleanup_cfg (insns);
+
        if (optimize)
-	 calculate_loop_depth (rtl_dump_file);
+	 {
+	   struct loops loops;
+
+	   /* Discover and record the loop depth at the head of each basic
+	      block.  The loop infrastructure does the real job for us.  */
+	   flow_loops_find (&loops);
+
+	   /* Estimate using heuristics if no profiling info is available.  */
+	   if (! flag_branch_probabilities)
+	     estimate_probability (&loops);
+
+	   if (rtl_dump_file)
+	     flow_loops_dump (&loops, rtl_dump_file, 0);
+
+	   flow_loops_free (&loops);
+	 }
+
        life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
        mark_constant_function ();
      });
@@ -3460,7 +3479,6 @@ rest_of_compilation (decl)
 	       {
 		 cleanup_cfg (insns);
 		 life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
-		 if_convert ();
 	       });
 
       /* This is kind of heruistics.  We need to run combine_stack_adjustments
@@ -3479,6 +3497,13 @@ rest_of_compilation (decl)
   flow2_completed = 1;
 
   close_dump_file (DFI_flow2, print_rtl_with_bb, insns);
+
+  if (optimize > 0)
+    {
+      open_dump_file (DFI_ce2, decl);
+      if_convert (1);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+    }
 
 #ifdef HAVE_peephole2
   if (optimize > 0 && flag_peephole2)
