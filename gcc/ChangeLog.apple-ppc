@@ -1,3 +1,10 @@
+2004-10-15  Stuart Hastings <stuart@apple.com>
+        * gcc/simplify-rtx.c(simplify_relational_operation): copied from FSF mainline.
+
+2004-10-15  Stuart Hastings <stuart@apple.com>
+        * gcc/c-common.c(print_cw_asm_operand): proper casting.
+        * gcc/expr.c(expand_expr_addr_expr): delete problematic assertions.
+
 2004-10-14  Robert Bowdidge <bowdidge@apple.com>
         * config/darwin-driver.c: Remove off-by-one error in QA_OVERIDE...
           machinery.
