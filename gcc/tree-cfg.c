@@ -2782,6 +2782,17 @@ tree_verify_flow_info (void)
   block_stmt_iterator bsi;
   tree stmt;
 
+  if (ENTRY_BLOCK_PTR->stmt_list)
+    {
+      error ("ENTRY_BLOCK has stmt list associated with it\n");
+      err = 1;
+    }
+  if (EXIT_BLOCK_PTR->stmt_list)
+    {
+      error ("EXIT_BLOCK has stmt list associated with it\n");
+      err = 1;
+    }
+
   FOR_EACH_BB (bb)
     {
       edge e;

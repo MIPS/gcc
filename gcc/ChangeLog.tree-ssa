@@ -1,3 +1,8 @@
+2003-11-23  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_verify_flow_info): Check that ENTRY/EXIT block
+	has no instructions associated with it.
+
 2003-11-22  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-names.c (release_ssa_name): Use SSA_NAME_IN_FREE_LIST
