@@ -1452,6 +1452,7 @@ javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
 javax/swing/text/GapContent.java \
+javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/PlainDocument.java \

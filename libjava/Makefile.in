@@ -1157,6 +1157,7 @@ javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
 javax/swing/text/GapContent.java \
+javax/swing/text/Highlighter.java \
 javax/swing/text/JTextComponent.java \
 javax/swing/text/Keymap.java \
 javax/swing/text/PlainDocument.java \
@@ -3151,12 +3152,12 @@ javax/swing/text/CharacterIterator.lo javax/swing/text/ComponentView.lo \
 javax/swing/text/DefaultCaret.lo javax/swing/text/DefaultEditorKit.lo \
 javax/swing/text/Document.lo javax/swing/text/DocumentFilter.lo \
 javax/swing/text/EditorKit.lo javax/swing/text/Element.lo \
-javax/swing/text/GapContent.lo javax/swing/text/JTextComponent.lo \
-javax/swing/text/Keymap.lo javax/swing/text/PlainDocument.lo \
-javax/swing/text/PlainEditorKit.lo javax/swing/text/Position.lo \
-javax/swing/text/Segment.lo javax/swing/text/Style.lo \
-javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
-javax/swing/text/MutableAttributeSet.lo \
+javax/swing/text/GapContent.lo javax/swing/text/Highlighter.lo \
+javax/swing/text/JTextComponent.lo javax/swing/text/Keymap.lo \
+javax/swing/text/PlainDocument.lo javax/swing/text/PlainEditorKit.lo \
+javax/swing/text/Position.lo javax/swing/text/Segment.lo \
+javax/swing/text/Style.lo javax/swing/text/View.lo \
+javax/swing/text/ViewFactory.lo javax/swing/text/MutableAttributeSet.lo \
 javax/swing/text/NavigationFilter.lo javax/swing/text/StyledDocument.lo \
 javax/swing/text/StyledEditorKit.lo javax/swing/text/TextAction.lo \
 javax/swing/text/html/HTML.lo \
@@ -5163,6 +5164,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/DocumentFilter.P \
 .deps/javax/swing/text/EditorKit.P .deps/javax/swing/text/Element.P \
 .deps/javax/swing/text/GapContent.P \
+.deps/javax/swing/text/Highlighter.P \
 .deps/javax/swing/text/JTextComponent.P .deps/javax/swing/text/Keymap.P \
 .deps/javax/swing/text/MutableAttributeSet.P \
 .deps/javax/swing/text/NavigationFilter.P \
