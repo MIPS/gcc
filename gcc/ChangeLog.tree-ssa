@@ -49,6 +49,17 @@
 
 2003-04-23  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-flow.h (create_global_var): Add prototype.
+	
+	* tree-dfa.c (create_global_var): Externalize.
+	
+	* tree-alias-common.c: Set DECL_CONTEXT on our temp alias vars.
+	(call_may_clobber): Make a copy of this function, since our version
+	will be slightly different soon.
+	(create_alias_vars): We need global_var, so create it if necessary.
+
+2003-04-23  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-ssa-pre.c (do_proper_save): Remove old code, since the new
 	insertion code works okay.
 	(pre_expression): Use new_rename_1, it removes a *lot* of useless
