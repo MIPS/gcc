@@ -100,8 +100,8 @@ can_widen (jclass from, jclass to)
   // Boolean arguments may not be widened.
   if (fromx == BOOLEAN && tox != BOOLEAN)
     return false;
-  // Nothing promotes to char.
-  if (tox == CHAR && fromx != CHAR)
+  // Special-case short->char conversions.
+  if (fromx == SHORT && tox == CHAR)
     return false;
 
   return fromx <= tox;
