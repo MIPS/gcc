@@ -1,3 +1,12 @@
+2004-08-19  Dhruv Matani  <dhruvbird@gmx.net>
+	
+	* include/bits/stl_tree.h (struct _Rb_tree_impl): Change the
+	_M_key_compare member to a function, so that the _M_impl's member
+	can be accessed with equal ease for either the normal version, or
+	the specialization for PODs - this reduces the size of the red-black
+	tree by 4-bytes for optimizable struct comparators; tweak consistently
+	all users.
+
 2004-08-17  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20040817.
