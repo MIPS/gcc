@@ -1,3 +1,13 @@
+2002-08-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c (MFWRAP_SPEC, MFLIB_SPEC): New macros, splitting MFLIB_SPEC.
+	(mfwrap_spec, mflib_spec): Define corresponding vars.
+	(static_specs): Define correponding spec aliases.
+	(LINK_COMMAND_SPEC): Include -fmudflap refs to new spec aliases.
+	(cpp_unique_options): Move -fmudflap MFCPP_SPEC clause here.
+	(cc1_options): Move -fmudflap MFCC1_SPEC clause here.
+	(MFCC1_SPEC, MFCPP_SPEC, MFLIB_SPEC): Remove macros and uses.
+
 2002-08-13  Graydon Hoare  <graydon@redhat.com>
 
 	* tree-mudflap.c (mf_build_check_statement_for): Factor code out of

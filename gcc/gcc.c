@@ -544,18 +544,24 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
-/* general mudflap specs */
-#ifndef MFCPP_SPEC
-#define MFCPP_SPEC " %{fmudflap:-D_MUDFLAP}"
+/* mudflap specs */
+#ifndef MFWRAP_SPEC
+/* XXX: valid only if linking with static libmudflap.a */
+/* XXX: valid only for GNU ld */
+/* XXX: should exactly match hooks provided by libmudflap.a */
+#define MFWRAP_SPEC " %{fmudflap:\
+ --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
+ --wrap=memcpy --wrap=memmove\
+ --wrap=memset --wrap=memcmp --wrap=memchr --wrap=memrchr\
+ --wrap=strcpy --wrap=strncpy --wrap=strcat --wrap=strncat\
+ --wrap=strcmp --wrap=strcasecmp --wrap=strncmp --wrap=strncasecmp\
+ --wrap=strdup --wrap=strndup --wrap=strchr --wrap=strrchr\
+ --wrap=strstr --wrap=memmem --wrap=strlen --wrap=strnlen\
+ --wrap=bzero --wrap=bcopy --wrap=bcmp --wrap=index --wrap=rindex\
+}"
 #endif
-
-#ifndef MFCC1_SPEC
-#define MFCC1_SPEC " %{fmudflap:-fmudflap -fno-builtin}"
-#endif
-
 #ifndef MFLIB_SPEC
-/* XXX hack */
-#define MFLIB_SPEC " %{fmudflap: --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc -lmudflap}"
+#define MFLIB_SPEC " %{fmudflap: -lmudflap}"
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -632,7 +638,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r} %{s} %{t}\
     %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
+    %{static:} %{L*} %(mfwrap) %(mflib) \
+    %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -651,15 +658,17 @@ proper position among the other output files.  */
 #endif
 
 static const char *asm_debug;
-static const char *cpp_spec = CPP_SPEC MFCPP_SPEC;
+static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
-static const char *cc1_spec = CC1_SPEC MFCC1_SPEC;
+static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
 static const char *link_gcc_c_sequence_spec = LINK_GCC_C_SEQUENCE_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
-static const char *lib_spec = LIB_SPEC MFLIB_SPEC;
+static const char *lib_spec = LIB_SPEC;
+static const char *mfwrap_spec = MFWRAP_SPEC;
+static const char *mflib_spec = MFLIB_SPEC;
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
@@ -692,6 +701,7 @@ static const char *cpp_unique_options =
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
  %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{fmudflap:-D_MUDFLAP}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -717,7 +727,8 @@ static const char *cc1_options =
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
- %{fsyntax-only:-o %j} %{-param*}";
+ %{fsyntax-only:-o %j} %{-param*}\
+ %{fmudflap:-fmudflap -fno-builtin}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -1392,6 +1403,8 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
+  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
+  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),

@@ -1,6 +1,6 @@
 /* {{{ Copyright */
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -26,7 +26,7 @@ XXX: libgcc license?
 #endif
 
 
-/* XXX: if -DSHARED, use dlsym-style wrapping instead */
+/* XXX: if -DPIC, use dlsym-style wrapping instead */
 
 /* {{{ malloc/free etc. */
 void *
@@ -117,7 +117,6 @@ __wrap_free (void *buf)
     __mf_check ((unsigned)value, size);                       \
  }
 
-#if 0
 
 void *
 __wrap_memcpy (void *dest, const void *src, size_t n)
@@ -437,6 +436,5 @@ __wrap_ ()
 
 /* }}} */
 
-#endif /* #if 0 */
 
 /* ------------------------------------------------------------------------ */
