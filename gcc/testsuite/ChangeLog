@@ -1,3 +1,12 @@
+2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/pch/pch.exp: Better handle failing testcases.
+	* gcc.dg/pch/pch.exp: Likewise.
+	* gcc.dg/pch/macro-1.c: New.
+	* gcc.dg/pch/macro-1.h: New.
+	* gcc.dg/pch/macro-2.c: New.
+	* gcc.dg/pch/macro-2.h: New.
+
 2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
 
 	* g++.dg/dg.exp: Treat files in pch/ specially.

@@ -368,7 +368,7 @@ stack_include_file (pfile, inc)
      will approximately double the memory consumption of the compiler.  */
   if (INCLUDE_PCH_P (inc))
     {
-      pfile->cb.read_pch (pfile, inc->fd);
+      pfile->cb.read_pch (pfile, inc->name, inc->fd);
       close (inc->fd);
       inc->fd = -1;
       

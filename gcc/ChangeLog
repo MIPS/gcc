@@ -1,3 +1,45 @@
+2002-09-01  Geoffrey Keating  <geoffk@redhat.com>
+	    Catherine Moore  <clm@redhat.com>
+
+	* Makefile (c-pch.o): Update dependencies.
+	(LIBCPP_OBJS): Add cpppch.o.
+	(cpppch.o): New.
+	* c-common.c (c_common_init): Don't call pch_init here.
+	* c-common.h (c_common_read_pch): Update prototype.
+	* c-lex.c (c_common_parse_file): Call pch_init here.
+	* c-opts.c (COMMAND_LINE_OPTIONS): Add -Winvalid-pch, -fpch-deps.
+	(c_common_decode_option): Handle them.
+	* c-pch.c: Include c-pragma.h.
+	(save_asm_offset): Delete.
+	(pch_init): Move contents of save_asm_offset into here, call
+	cpp_save_state.
+	(c_common_write_pch): Call cpp_write_pch.
+	(c_common_valid_pch): Warn only when -Winvalid-pch.  Call
+	cpp_valid_state.
+	(c_common_read_pch): Add NAME parameter.  Call cpp_read_state.
+	* cppfiles.c (stack_include_file): Update for change to 
+	parameters of cb.read_pch.
+	* cpphash.h (struct cpp_reader): Add `savedstate' field.
+	* cpplib.h (struct cpp_options): Add `warn_invalid_pch' and
+	`restore_pch_deps' fields.
+	(struct cpp_callbacks): Add NAME parameter to `read_pch'.
+	(cpp_save_state): Prototype.
+	(cpp_write_pch): Prototype.
+	(cpp_valid_state): Prototype.
+	(cpp_read_state): Prototype.
+	* cpppch.c: New file.
+	* flags.h (version_flag): Remove prototype.
+	* mkdeps.c (deps_save): New.
+	(deps_restore): New.
+	* mkdeps.h (deps_save): Prototype.
+	(deps_restore): Prototype.
+	* toplev.c (late_init_hook): Delete.
+	(version_flag): Make static again.
+	(compile_file): Don't call late_init_hook.
+	* toplev.h (late_init_hook): Delete.
+	* doc/cppopts.texi: Document -fpch-deps.
+	* doc/invoke.texi (Warning Options): Document -Winvalid-pch.
+
 2002-08-27  Geoffrey Keating  <geoffk@redhat.com>
 
 	* c-pch.c (c_common_write_pch): Rename from c_write_pch, change

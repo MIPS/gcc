@@ -412,6 +412,12 @@ struct cpp_options
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
+
+  /* True to warn about precompiled header files we couldn't use.  */
+  bool warn_invalid_pch;
+
+  /* True if dependencies should be restored from a precompiled header.  */
+  bool restore_pch_deps;
 };
 
 /* Call backs.  */
@@ -430,7 +436,7 @@ struct cpp_callbacks
      built-ins with cpp_define() and cpp_assert().  */
   void (*register_builtins) PARAMS ((cpp_reader *));
   int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
-  void (*read_pch) PARAMS ((cpp_reader *, int));
+  void (*read_pch) PARAMS ((cpp_reader *, const char *, int));
 };
 
 /* Name under which this program was invoked.  */
@@ -718,6 +724,12 @@ extern unsigned char *cpp_quote_string	PARAMS ((unsigned char *,
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
+
+/* In cpppch.c */
+extern int cpp_save_state PARAMS ((cpp_reader *, FILE *));
+extern int cpp_write_pch PARAMS ((cpp_reader *, FILE *));
+extern int cpp_valid_state PARAMS ((cpp_reader *, const char *, int));
+extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *));
 
 /* In cppmain.c */
 extern void cpp_preprocess_file PARAMS ((cpp_reader *));

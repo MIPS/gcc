@@ -226,10 +226,6 @@ extern int in_system_header;
    pattern and alternative used.  */
 
 extern int flag_print_asm_name;
-
-/* Print compiler version information.  -v.  */
-
-extern int version_flag;
 
 /* Now the symbols that are set with `-f' switches.  */
 

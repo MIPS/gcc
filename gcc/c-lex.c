@@ -161,6 +161,8 @@ c_common_parse_file (set_yydebug)
   (*debug_hooks->start_source_file) (lineno, input_filename);
   cpp_finish_options (parse_in);
 
+  pch_init();
+  
   yyparse ();
   free_parser_stacks ();
 }

@@ -112,6 +112,7 @@ static void handle_OPT_d PARAMS ((const char *));
   OPT("Wimplicit-function-declaration",	CL_C, OPT_Wimplicit_function_decl)   \
   OPT("Wimplicit-int",		CL_C,	  OPT_Wimplicit_int)		     \
   OPT("Wimport",                CL_ALL,   OPT_Wimport)			     \
+  OPT("Winvalid-pch",           CL_ALL,   OPT_Winvalid_pch)		     \
   OPT("Wlong-long",		CL_ALL,   OPT_Wlong_long)		     \
   OPT("Wmain",			CL_C,     OPT_Wmain)			     \
   OPT("Wmissing-braces",	CL_ALL,   OPT_Wmissing_braces)		     \
@@ -187,6 +188,7 @@ static void handle_OPT_d PARAMS ((const char *));
   OPT("fnonnull-objects",	CL_CXX,   OPT_fnonnull_objects)		     \
   OPT("foperator-names",	CL_CXX,   OPT_foperator_names)		     \
   OPT("foptional-diags",	CL_CXX,   OPT_foptional_diags)		     \
+  OPT("fpch-deps",		CL_ALL,	  OPT_fpch_deps)		     \
   OPT("fpermissive",		CL_CXX,   OPT_fpermissive)		     \
   OPT("fpreprocessed",		CL_ALL,   OPT_fpreprocessed)		     \
   OPT("frepo",			CL_CXX,   OPT_frepo)			     \
@@ -681,6 +683,10 @@ c_common_decode_option (argc, argv)
       cpp_opts->warn_import = on;
       break;
 
+    case OPT_Winvalid_pch:
+      cpp_opts->warn_invalid_pch = on;
+      break;
+
     case OPT_Wlong_long:
       warn_long_long = on;
       break;
@@ -1010,6 +1016,10 @@ c_common_decode_option (argc, argv)
 
     case OPT_foptional_diags:
       flag_optional_diags = on;
+      break;
+
+    case OPT_fpch_deps:
+      cpp_opts->restore_pch_deps = on;
       break;
 
     case OPT_fpermissive:

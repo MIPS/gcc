@@ -4931,8 +4931,6 @@ c_common_init (filename)
 
   init_pragma ();
 
-  pch_init ();
-
   if (!c_attrs_initialized)
     c_init_attributes ();
 

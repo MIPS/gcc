@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "output.h"
 #include "toplev.h"
+#include "c-pragma.h"
 
 struct c_pch_header 
 {
@@ -37,17 +38,6 @@ static FILE *pch_outfile;
 
 extern char *asm_file_name;
 static off_t asm_file_startpos;
-static void (*old_late_init_hook) PARAMS((void));
-
-static void save_asm_offset PARAMS((void));
-
-static void
-save_asm_offset ()
-{
-  if (old_late_init_hook)
-    old_late_init_hook ();
-  asm_file_startpos = ftello (asm_out_file);
-}
 
 void
 pch_init ()
@@ -63,9 +53,6 @@ pch_init ()
       
       if (fwrite (pch_ident, sizeof (pch_ident), 1, f) != 1)
 	fatal_io_error ("can't write to %s", pch_file);
-#if 0
-      cpp_save_state (&parse_in, f);
-#endif
 
       /* We need to be able to re-read the output.  */
       /* The driver always provides a valid -o option.  */
@@ -73,8 +60,9 @@ pch_init ()
 	  || strcmp (asm_file_name, "-") == 0)
 	fatal_error ("`%s' is not a valid output file", asm_file_name);
 
-      old_late_init_hook = late_init_hook;
-      late_init_hook = save_asm_offset;
+      asm_file_startpos = ftello (asm_out_file);
+      
+      cpp_save_state (parse_in, f);
     }
 }
 
@@ -86,9 +74,7 @@ c_common_write_pch ()
   off_t written;
   struct c_pch_header h;
 
-#if 0
-  cpp_write_pch (&parse_in, pch_outfile);
-#endif
+  cpp_write_pch (parse_in, pch_outfile);
 
   asm_file_end = ftello (asm_out_file);
   h.asm_size = asm_file_end - asm_file_startpos;
@@ -145,32 +131,37 @@ c_common_valid_pch (pfile, name, fd)
   
   if (memcmp (ident, pch_ident, sizeof (pch_ident)) != 0)
     {
-      if (memcmp (ident, pch_ident, 5) == 0)
-	/* It's a PCH, for the right language, but has the wrong version.  */
-	cpp_error (pfile, DL_WARNING, "not compatible with this GCC version");
-      else if (memcmp (ident, pch_ident, 4) == 0)
-	/* It's a PCH for the wrong language.  */
-	cpp_error (pfile, DL_WARNING, "not for C language");
+      if (cpp_get_options (pfile)->warn_invalid_pch)
+	{
+	  if (memcmp (ident, pch_ident, 5) == 0)
+	    /* It's a PCH, for the right language, but has the wrong version.
+	     */
+	    cpp_error (pfile, DL_WARNING, 
+		       "%s: not compatible with this GCC version", name);
+	  else if (memcmp (ident, pch_ident, 4) == 0)
+	    /* It's a PCH for the wrong language.  */
+	    cpp_error (pfile, DL_WARNING, "%s: not for C language", name);
+	  else 
+	    /* Not any kind of PCH.  */
+	    cpp_error (pfile, DL_WARNING, "%s: not a PCH file", name);
+	}
       return 2;
     }
 
-#if 0
   /* Check the preprocessor macros are the same as when the PCH was
      generated.  */
   
-  result = cpp_valid_state (pfile, fd);
+  result = cpp_valid_state (pfile, name, fd);
   if (result == -1)
     return 2;
   else
     return result == 0;
-#else
-  return 1;
-#endif
 }
 
 void
-c_common_read_pch (pfile, fd)
+c_common_read_pch (pfile, name, fd)
      cpp_reader *pfile;
+     const char *name;
      int fd;
 {
   FILE *f;
@@ -187,10 +178,8 @@ c_common_read_pch (pfile, fd)
 
   allow_pch = 0;
 
-#if 0
-  if (cpp_read_state (pfile, f) != 0)
+  if (cpp_read_state (pfile, name, f) != 0)
     return;
-#endif
 
   if (fread (&h, sizeof (h), 1, f) != 1)
     {

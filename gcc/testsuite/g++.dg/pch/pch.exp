@@ -36,23 +36,28 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.C]] {
 
     verbose "Testing $nshort" 1
 
+    catch { file delete "$bname.Hp.pch" }
+    catch { file delete "$bname.H.pch" }
+
     # For the header files, the default is to precompile.
     set old_dg_do_what_default "${dg-do-what-default}"
     set dg-do-what-default precompile
     dg-test -keep-output "[file rootname $test].H" "" ""
     set dg-do-what-default "$old_dg_do_what_default"
     
-    # To ensure that the PCH is used, not the original header,
-    # the actual PCH file is renamed to "<foo>.Hp.pch".
-    if { [ is_remote host ] } {
-	remote_upload host "$bname.H.pch" "$bname.Hp.pch"
-	file_on_host delete "$bname.H.pch"
-	remote_download host "$bname.Hp.pch"
-    } else {
+    if { [ file exists "$bname.H.pch" ] } {
+	# To ensure that the PCH is used, not the original header,
+	# the actual PCH file is renamed to "<foo>.hp.pch".
 	file rename "$bname.H.pch" "$bname.Hp.pch"
+	if { [ is_remote host ] } {
+	    remote_download host "$bname.Hp.pch"
+	}
+	
+	dg-test $test "" "-I."
+	file delete "$bname.Hp.pch"
+    } else {
+	untested $test
     }
-    dg-test $test "" "-I."
-    file delete "$bname.Hp.pch"
 }
 
 # All done.

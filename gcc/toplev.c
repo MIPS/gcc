@@ -138,9 +138,6 @@ const char *progname;
 /* Copy of arguments to toplev_main.  */
 int save_argc;
 char **save_argv;
-
-/* A hook for last-second initialisations.  */
-void (*late_init_hook) PARAMS((void));
 
 /* Name of current original source file (what was input to cpp).
    This comes from each #-command in the actual input.  */
@@ -311,12 +308,9 @@ static void close_dump_file PARAMS ((enum dump_file_index,
 
 int rtl_dump_and_exit;
 int flag_print_asm_name;
+static int version_flag;
 static char *filename;
 enum graph_dump_types graph_dump_format;
-
-/* Print compiler version information.  -v.  */
-
-int version_flag;
 
 /* Name for output file of assembly code, specified with -o.  */
 
@@ -2128,10 +2122,6 @@ compile_file ()
 
   init_final (main_input_filename);
   init_branch_prob (aux_base_name);
-
-  /* Last call, time to go... */
-  if (late_init_hook)
-    late_init_hook ();
 
   timevar_push (TV_PARSE);
 

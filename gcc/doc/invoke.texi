@@ -221,7 +221,7 @@ in the following sections.
 -Wimplicit  -Wimplicit-int  @gol
 -Wimplicit-function-declaration @gol
 -Werror-implicit-function-declaration @gol
--Wimport  -Winline -Wno-endif-labels @gol
+-Wimport  -Winline  -Winvalid-pch  -Wno-endif-labels @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces  -Wmissing-declarations @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
@@ -2626,6 +2626,11 @@ code is to provide behavior which is selectable at compile-time.
 @item -Winline
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
+
+@item -Winvalid-pch
+@opindex Winvalid-pch
+Warn if a precompiled header (@pxref{Precompiled Headers}) is found in
+the search path but can't be used.
 
 @item -Wlong-long
 @opindex Wlong-long
