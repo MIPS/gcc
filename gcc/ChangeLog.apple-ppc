@@ -1,3 +1,8 @@
+2005-01-24  Stuart Hastings  <stuart@apple.com>
+
+        Radar 3939078
+        * gcc/cgraphunit.c (cgraph_build_static_cdtor) Don't set DECL_IGNORED_P.
+
 2005-01-24  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3961973 (Part 2)
