@@ -1,3 +1,8 @@
+2003-12-05  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/common.f90: New test for
+	COMMON and EQUIVALENCE.
+
 2003-12-01  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* gfortran.fortran-torture/excute/intrinsic_fraction_exponent.f90:
