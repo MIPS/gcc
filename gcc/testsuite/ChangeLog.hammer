@@ -1,3 +1,7 @@
+2004-07-19  Michael Matz  <matz@suse.de>
+
+	* g++.dg/init/static2.C: Use -O2 to compile to trigger the bug.
+
 2004-06-09  Michael Matz  <matz@suse.de>
 
 	* gcc.dg/altivec-14.c: Backport from mainline.

@@ -1,5 +1,6 @@
 // PR 14804
 // { dg-do run }
+// { dg-options "-O2" }
 
 struct A {
   virtual void foo() = 0;
