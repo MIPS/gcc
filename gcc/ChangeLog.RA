@@ -1,3 +1,8 @@
+2003-11-13  Michael Matz  <matz@suse.de>
+
+	* ra-rewrite.c (assign_stack_slots_1): Don't substitute rematerial-
+	izable webs into their refs.
+
 2003-11-10  Michael Matz  <matz@suse.de>
 
 	* ra-colorize.c (build_worklists): Don't special-case stack

@@ -2597,8 +2597,10 @@ assign_stack_slots_1 ()
 		continue;
 	      }
 	    
-	    /* Trying to substitute this use to corresponding web.  */
-	    if (coalesce_spill_slot (web, refs[j], place))
+	    /* Try to substitute this use to corresponding web if
+	       we aren't rematerializing.  */
+	    if (!web->pattern
+		&& coalesce_spill_slot (web, refs[j], place))
 	      continue;
 	      
 	    target = DF_REF_REG (refs[j]);
