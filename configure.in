@@ -310,16 +310,14 @@ case "${host}" in
 esac
 
 AC_ARG_WITH(libbanshee,
-[  --without-libbanshee   Don't build with libbanshee],
-[with_libbanshee=$enableval],
-[with_libbanshee=])
+[  --without-libbanshee   Don't build with libbanshee])
 case ${with_libbanshee} in
-  no | "")
+  no)
     noconfigdirs="$noconfigdirs libbanshee" ;;
-  yes)
+  yes|"")
     ;;
   *)
-    AC_MSG_ERROR([--with-libbanshee can only be "yes", "no".])
+    AC_MSG_ERROR([--with-libbanshee can only be empty, "yes" or "no" (empty defaults to "yes".])
 esac
 
 AC_ARG_ENABLE(libada,
