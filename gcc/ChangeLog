@@ -1,3 +1,8 @@
+Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation): Reorganize way reg_scan is called
+	before final pass.
+
 2002-10-28  Zack Weinberg  <zack@codesourcery.com>
 
 	* config.gcc (*-*-vxworks, powerpc-wrs-vxworks*): New stanzas.
