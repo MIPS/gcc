@@ -497,7 +497,7 @@ dump_flow_info (FILE *file)
       int sum;
       gcov_type lsum;
 
-      fprintf (file, "\nBasic block %d ");
+      fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
 	       bb->prev_bb->index, bb->next_bb->index);
       fprintf (file, "loop_depth %d, count ", bb->loop_depth);
