@@ -59,21 +59,30 @@ fi
 
 ### To add a new directory to the tree, first choose whether it is a target
 ### or a host dependent tool.  Then put it into the appropriate list
-### (library or tools, host or target), doing a dependency sort.  For
-### example, gdb requires that byacc (or bison) be built first, so it is in
-### the ${host_tools} list after byacc and bison.  
+### (library or tools, host or target), doing a dependency sort.
 
+# Subdirs will be configured in the order listed in build_configdirs, 
+# configdirs, or target_configdirs; see the serialization section below.
+
+# Dependency sorting is only needed when *configuration* must be done in 
+# a particular order.  In all cases a dependency should be specified in 
+# the Makefile, whether or not it's implicitly specified here.
+
+# Double entries in build_configdirs, configdirs, or target_configdirs may
+# cause circular dependencies and break everything horribly.
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline db tcl tk tclX itcl tix libgui zlib libbanshee"
+host_libs="intl mmalloc libiberty opcodes bfd readline db tcl tk itcl tix libgui zlib libbanshee"
 
 libstdcxx_version="target-libstdc++-v3"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
 # know that we are building the simulator.
-host_tools="texinfo byacc flex bison binutils ld gas gcc sid sim gdb make patch prms send-pr gprof etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool grep diff rcs fileutils shellutils time textutils wdiff find uudecode hello tar gzip indent recode release sed utils guile perl gawk findutils snavigator libtool gettext zip fastjar"
+# binutils, gas and ld appear in that order because it makes sense to run
+# "make check" in that particular order.
+host_tools="texinfo byacc flex bison binutils gas ld gcc sid sim gdb make patch prms send-pr gprof etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool grep diff rcs fileutils shellutils time textutils wdiff find uudecode hello tar gzip indent recode release sed utils guile perl gawk findutils snavigator gettext zip fastjar"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -523,7 +532,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libstdc++-v3"
     ;;
   mmix-*-*)
-    noconfigdirs="$noconfigdirs ${libgcj}"
+    noconfigdirs="$noconfigdirs ${libgcj} gdb libgloss"
     ;;
   mn10200-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -1439,6 +1448,41 @@ rm -f Makefile
 mv -f Makefile.tem Makefile
 rm -f maybedep.tmp
 
+# Create the serialization dependencies.  This uses a temporary file.
+
+# These force 'configure's to be done one at a time, to avoid problems
+# with contention over a shared config.cache.
+rm -f serdep.tmp
+olditem=
+for item in ${build_configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "\$(BUILD_SUBDIR)/${item}/Makefile: \$(BUILD_SUBDIR)/${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+olditem=
+for item in ${configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "${item}/Makefile: ${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+olditem=
+for item in ${target_configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "\$(TARGET_SUBDIR)/${item}/Makefile: \$(TARGET_SUBDIR)/${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+sed -e '/@serialization_dependencies@/r serdep.tmp' \
+    -e 's/@serialization_dependencies@//' Makefile > Makefile.tem
+rm -f Makefile
+mv -f Makefile.tem Makefile
+rm -f serdep.tmp
+
 # Base args.  Strip norecursion, cache-file, srcdir, host, build, target.
 # These are the ones we might not want to pass down to subconfigures.
 baseargs=`echo "${arguments}" | \
@@ -1658,15 +1702,23 @@ qRAW_CXX_FOR_TARGET=`echo "$RAW_CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
 qqCXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 qqRAW_CXX_FOR_TARGET=`echo "$qRAW_CXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 
+# BASE_CC_FOR_TARGET is the actual program file of CC_FOR_TARGET,
+# for use in dependencies.  Replace $$r with a relative
+# path if it's present.
+set dummy $CC_FOR_TARGET; cc_for_target_first_word=$2
+BASE_CC_FOR_TARGET=`echo "$cc_for_target_first_word" | sed -e 's,[$][$]r,.,'`
+
 sedtemp=sed.$$
 cat >$sedtemp <<EOF
 s%@GDB_TK@%${GDB_TK}%
-s%@all_build_modules@%${all_build_modules}%
 s%@configure_build_modules@%${configure_build_modules}%
+s%@all_build_modules@%${all_build_modules}%
+s%@configure_host_modules@%${configure_host_modules}%
 s%@all_host_modules@%${all_host_modules}%
 s%@check_host_modules@%${check_host_modules}%
 s%@install_host_modules@%${install_host_modules}%
 s%@install_host_modules_nogcc@%${install_host_modules_nogcc}%
+s%@configure_target_modules@%${configure_target_modules}%
 s%@all_target_modules@%${all_target_modules}%
 s%@check_target_modules@%${check_target_modules}%
 s%@install_target_modules@%${install_target_modules}%
@@ -1674,6 +1726,7 @@ s:@target_configdirs@:${target_configdirs}:
 s%@target_configargs@%${targargs}%
 s%@FLAGS_FOR_TARGET@%${FLAGS_FOR_TARGET}%
 s%@CC_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${CC_FOR_TARGET}%
+s%@BASE_CC_FOR_TARGET@%${BASE_CC_FOR_TARGET}%
 s%@GCJ_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${GCJ_FOR_TARGET}%
 s%@CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qCXX_FOR_TARGET}%
 s%@RAW_CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qRAW_CXX_FOR_TARGET}%
@@ -1689,8 +1742,4 @@ sed -f $sedtemp Makefile > Makefile.tem
 rm -f Makefile $sedtemp
 mv -f Makefile.tem Makefile
 
-#
-# Local Variables:
-# fill-column: 131
-# End:
 #

@@ -1,3 +1,11 @@
+Mon Dec 16 13:53:18 2002  Mark Mitchell  <mark@codesourcery.com>
+
+	* root.texi: Change version number to 3.4.
+
+2002-12-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* target.h: Don't define HOST_WIDE_INT.
+
 2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-lang.in, ansify.c, intdoc.c, proj.h: Replace hconfig.h with

@@ -819,8 +819,12 @@ reload (first, global)
 		      else if (LEGITIMATE_CONSTANT_P (x))
 			reg_equiv_constant[i] = x;
 		      else
-			reg_equiv_memory_loc[i]
-			  = force_const_mem (GET_MODE (SET_DEST (set)), x);
+			{
+			  reg_equiv_memory_loc[i]
+			    = force_const_mem (GET_MODE (SET_DEST (set)), x);
+			  if (!reg_equiv_memory_loc[i])
+			    continue;
+			}
 		    }
 		  else
 		    continue;
@@ -9456,7 +9460,7 @@ fixup_abnormal_edges ()
     {
       edge e;
 
-      /* Look for cases we are interested in - an calls or instructions causing
+      /* Look for cases we are interested in - calls or instructions causing
          exceptions.  */
       for (e = bb->succ; e; e = e->succ_next)
 	{

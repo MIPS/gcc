@@ -2622,7 +2622,8 @@ build_user_type_conversion_1 (totype, expr, flags)
       cand = candidates;	/* any one will do */
       cand->second_conv = build1 (AMBIG_CONV, totype, expr);
       ICS_USER_FLAG (cand->second_conv) = 1;
-      ICS_BAD_FLAG (cand->second_conv) = 1;
+      /* Don't set ICS_BAD_FLAG; an ambiguous conversion is no worse than
+	 another user-defined conversion.  */
 
       return cand;
     }
@@ -4459,12 +4460,12 @@ build_over_call (cand, args, flags)
          temp or an INIT_EXPR otherwise.  */
       if (integer_zerop (TREE_VALUE (args)))
 	{
-	  if (! real_lvalue_p (arg))
+	  if (TREE_CODE (arg) == TARGET_EXPR)
 	    return arg;
 	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	    return build_target_expr_with_type (arg, DECL_CONTEXT (fn));
 	}
-      else if (!real_lvalue_p (arg)
+      else if (TREE_CODE (arg) == TARGET_EXPR
 	       || TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	{
 	  tree address;
@@ -4907,7 +4908,7 @@ build_new_method_call (tree instance, tree fns, tree args,
       call = build_over_call (cand, args, flags);
       /* In an expression of the form `a->f()' where `f' turns out to
 	 be a static member function, `a' is none-the-less evaluated.  */
-      if (instance && TREE_SIDE_EFFECTS (instance))
+      if (!is_dummy_object (instance_ptr) && TREE_SIDE_EFFECTS (instance))
 	call = build (COMPOUND_EXPR, TREE_TYPE (call), instance, call);
     }
 

@@ -140,6 +140,8 @@ add_scope_stmt (begin_p, partial_p)
     }
   else
     {
+      if (partial_p != SCOPE_PARTIAL_P (TREE_PURPOSE (top)))
+	abort ();
       TREE_VALUE (top) = ss;
       *stack_ptr = TREE_CHAIN (top);
     }
@@ -626,6 +628,7 @@ genrtl_scope_stmt (t)
 	{
 	  if (TREE_CODE (fn) == FUNCTION_DECL 
 	      && DECL_CONTEXT (fn) == current_function_decl
+	      && DECL_SAVED_INSNS (fn)
 	      && !TREE_ASM_WRITTEN (fn)
 	      && TREE_ADDRESSABLE (fn))
 	    {

@@ -859,7 +859,7 @@ rank_for_schedule (x, y)
   /* Prefer an insn with smaller contribution to registers-pressure.  */
   if (!reload_completed &&
       (weight_val = INSN_REG_WEIGHT (tmp) - INSN_REG_WEIGHT (tmp2)))
-    return (weight_val);
+    return weight_val;
 
   info_val = (*current_sched_info->rank) (tmp, tmp2);
   if (info_val)

@@ -1946,7 +1946,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(STAMP) s-preds
 
 GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h \
-  $(HASHTAB_H) \
+  $(host_xm_file_list) $(tm_file_list) $(HASHTAB_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h $(srcdir)/real.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
@@ -2412,7 +2412,7 @@ gcov-iov.o: gcov-iov.c version.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) c
 gcov-iov$(build_exeext): gcov-iov.o
 	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) gcov-iov.o -o $@
 gcov-iov.h: gcov-iov$(build_exeext)
-	./$< > $@
+	./gcov-iov$(build_exeext) > $@
 
 gcov.o: gcov.c gcov-io.h gcov-iov.h intl.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
 gcov-dump.o: gcov-dump.c gcov-io.h gcov-iov.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)

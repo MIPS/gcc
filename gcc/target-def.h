@@ -249,6 +249,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 /* In hook.c.  */
 #define TARGET_CANNOT_MODIFY_JUMPS_P hook_bool_void_false
+#define TARGET_CANNOT_FORCE_CONST_MEM hook_bool_rtx_false
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
@@ -281,6 +282,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_EXPAND_BUILTIN,			\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
+  TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_FUNCTION_OK_FOR_SIBCALL,		\
   TARGET_IN_SMALL_DATA_P,			\
   TARGET_BINDS_LOCAL_P,				\

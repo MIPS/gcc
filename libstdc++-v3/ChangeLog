@@ -1,3 +1,215 @@
+2002-12-16  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8949
+	* include/std/std_limits.h
+	(struct numeric_limits<short>,
+	struct numeric_limits<unsigned short>,
+	struct numeric_limits<int>,
+	struct numeric_limits<unsigned int>,
+	struct numeric_limits<long>,
+	struct numeric_limits<unsigned long>,
+	struct numeric_limits<long long>,
+	struct numeric_limits<unsigned long long>): According
+	to 18.2.1.2,53 and 18.2.1.5,1 is_iec559 shall be false.
+	* testsuite/18_support/numeric_limits.cc: Add test04.
+
+2002-12-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * configure.in (GLIBCPP_ENABLE_DEBUG): Default to none.
+	Call GLIBCPP_ENABLE_DEBUG_FLAGS.
+        * acinclude.m4 (GLIBCPP_ENABLE_DEBUG): GLIBCPP_BUILD_DEBUG, new
+        conditional if --enable-debug is yes. Rework.
+	(GLIBCPP_ENABLE_DEBUG_FLAGS): New.
+        * aclocal.m4: Regenerate.
+	* libio/Makefile.am: Remove DEBUG_FLAGS.
+	* libio/Makefile.in: Regenerate.	
+	* libsupc++/Makefile.am: Remove DEBUG_FLAGS.
+	* libsupc++/Makefile.in: Regenerate.	
+	* docs/html/configopts.html: Add docs for --enable-debug,
+	--enable-debug-flags.
+
+2002-12-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Correct dependency tracking, build warts.
+	* configure.in: Correct repeated AC_OUTPUT thrashing by
+	config-ml.in
+	* configure: Regenerate.
+	* include/Makefile.am (stamp-target): Stamp in top_builddir.
+	* include/Makefile.in: Regenerate.
+	* src/Makefile.am (codecvt_members.cc): New rule.
+	(collate_members.cc): Same.
+	(ctype_members.cc): Same.	
+	(messages_members.cc): Same.
+	(monetary_members.cc): Same.
+	(numeric_members.cc): Same.
+	(time_members.cc): Same.
+	(c++locale.cc): Same.
+	(basic_file.cc): Same.
+	* src/Makefile.in: Regenerate.
+	* acinclude.m4 (CCTYPE_CHAR_CC): Remove.
+	(CCCODECVT_CC): Don't link, AC_SUBST.
+	(CCOLLATE_CC): Same.
+	(CCTYPE_CC): Same.
+	(CMESSAGES_CC): Same.
+	(CMONEY_CC): Same.
+	(CNUMERIC_CC): Same.
+	(CTIME_CC): Same.
+	(CLOCALE_CC): Same.
+	* aclocal.m4: Regenerate.
+	
+	* src/Makefile.am (libstdc___la_LIBADD): Use top_builddir
+	for convenience libraries.
+	(version_arg): Rename linker.map to libstdc++.ver.
+	(libstdc___la_DEPENDENCIES): Remove linker.map, add
+	libstdc++-symbol.ver as a dependency.
+	(libstdc++-symbol.ver): Add rule.
+	* acinclude.m4 (GLIBCPP_ENABLE_SYMVERS): Change LINKER_MAP to
+	SYMVER_MAP. Don't link, AC_SUBST.
+
+	* include/Makefile.am (target_headers_noinst): New.
+	(stamp-target): Add CLOCALE_INTERNAL_H.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Don't link
+	CLOCALE_INTERNAL_H, AC_SUBST.
+	* config/locale/gnu/c_locale.cc: Modify c++locale_internal.h
+	include.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* config/locale/gnu/monetary_members.cc: Same.
+	* config/locale/gnu/messages_members.cc: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/collate_members.cc: Same.
+	* config/locale/gnu/codecvt_members.cc: Same.
+	* config/locale/generic/codecvt_members.cc: Remove.
+
+2002-12-11  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8887
+	* config/locale/generic/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct): Fix typos
+	in _M_date_format and _M_date_era_format string literals.
+
+2002-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/cxxabi.h (__cxa_bad_cast): Declare it.
+	(__cxa_bad_typeid): Likewise.
+	(__cxa_atexit): Likewise.
+	(__cxa_finalize): Likewise.
+
+2002-12-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/bits/slice_array.h (slice_array<>::operator=): Fix typo.
+
+2002-12-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* libsupc++/cxxabi.h (__cxa_pure_virtual): Declare it.
+
+2002-12-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/abi_check.cc: Add GLIBCPP_3.2.2.
+
+2002-12-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	* config/locale/generic/codecvt_members.cc (codecvt::do_out
+	(state_type&, const intern_type*, const intern_type*,
+	const intern_type*&, extern_type*, extern_type*, extern_type*&),
+	codecvt::do_in(state_type&, const extern_type*, const extern_type*,
+	const extern_type*&, intern_type*, intern_type*, intern_type*&)):
+	Fully qualify min() with std::.
+	* config/locale/gnu/codecvt_members.cc: Ditto.
+	* locale/ieee_1003.1-2001/codecvt_specializations.h
+	(codecvt::do_length(const state_type&, const extern_type*,
+	const extern_type*, size_t): Ditto.
+	* include/bits/deque.tcc
+	(_M_range_initialize(_ForwardIterator, _ForwardIterator,
+	forward_iterator_tag), deque::_M_range_insert_aux(iterator,
+	_ForwardIterator, _ForwardIterator, forward_iterator_tag),
+	deque::_M_reallocate_map(size_type, bool)): Fully qualify
+	distance() and max() with std::.
+	* include/bits/fstream.tcc (basic_filebuf::seekoff(off_type,
+	ios_base::seekdir, ios_base::openmode)): Fully qualify max()
+	with std::.
+	* include/bits/istream.tcc (basic_istream::ignore(streamsize,
+	int_type), basic_istream::readsome(char_type*, streamsize)):
+	Fully qualify min() with std::.
+	* include/bits/locale_facets.tcc (time_get::_M_extract_name
+	(iter_type&, iter_type&, int&, const _CharT**, size_t,
+	ios_base::iostate&)): Ditto.
+	* include/bits/sstream.tcc (basic_stringbuf::overflow(int_type)):
+	Fully qualify max() with std::.
+	* include/bits/stl_algo.h (__inplace_stable_partition(_ForwardIter
+	__first, _ForwardIter, _Predicate, _Distance),
+	__stable_partition_adaptive(_ForwardIter, _ForwardIter, _Predicate,
+	_Distance, _Pointer, _Distance), __merge_sort_loop(_RandomAccessIter1,
+	_RandomAccessIter1, _RandomAccessIter2, _Distance),
+	__merge_sort_loop(_RandomAccessIter1, _RandomAccessIter1,
+	_RandomAccessIter2, _Distance, _Compare), lower_bound(_ForwardIter,
+	_ForwardIter, const _Tp&), lower_bound(_ForwardIter, _ForwardIter,
+	const _Tp&, _Compare), upper_bound(_ForwardIter, _ForwardIter,
+	const _Tp&), upper_bound(_ForwardIter, _ForwardIter, const _Tp&,
+	_Compare), equal_range(_ForwardIter, _ForwardIter, const _Tp&),
+	equal_range(_ForwardIter, _ForwardIter, const _Tp&, _Compare),
+	__merge_without_buffer(_BidirectionalIter, _BidirectionalIter,
+	_BidirectionalIter, _Distance, _Distance), __merge_without_buffer
+	(_BidirectionalIter, _BidirectionalIter, _BidirectionalIter,
+	_Distance, _Distance, _Compare), __rotate_adaptive(_BidirectionalIter1,
+	_BidirectionalIter1, _BidirectionalIter1, _Distance, _Distance,
+	_BidirectionalIter2, _Distance), __merge_adaptive(_BidirectionalIter,
+	_BidirectionalIter, _BidirectionalIter, _Distance, _Distance,
+	_Pointer, _Distance), __merge_adaptive(_BidirectionalIter,
+	_BidirectionalIter, _BidirectionalIter, _Distance, _Distance,
+	_Pointer, _Distance, _Compare), inplace_merge(_BidirectionalIter,
+	_BidirectionalIter, _BidirectionalIter), inplace_merge
+	(_BidirectionalIter, _BidirectionalIter, _BidirectionalIter,
+	_Compare), __find_end(_BidirectionalIter1, _BidirectionalIter1,
+	_BidirectionalIter2, _BidirectionalIter2, bidirectional_iterator_tag,
+	bidirectional_iterator_tag), __find_end(_BidirectionalIter1,
+	_BidirectionalIter1, _BidirectionalIter2, _BidirectionalIter2,
+	bidirectional_iterator_tag, bidirectional_iterator_tag,
+	_BinaryPredicate)): Fully qualify distance() and min() with std::.
+	* include/bits/stl_algobase.h (lexicographical_compare
+	(const unsigned char*, const unsigned char*, const unsigned char*,
+	const unsigned char*)): Fully qualify min() with std::.
+	* include/bits/stl_bvector.h (_M_insert_range(iterator,
+	_ForwardIterator, _ForwardIterator, forward_iterator_tag),
+	_M_assign_aux(_ForwardIterator, _ForwardIterator, forward_iterator_tag),
+	_M_initialize_range(_ForwardIterator, _ForwardIterator,
+	forward_iterator_tag), _M_fill_insert(iterator, size_type, bool)):
+	Fully qualify distance() and max() with std::.
+	* include/bits/stl_deque.h (_Deque_base::_M_initialize_map(size_t),
+	_M_assign_aux(_ForwardIterator, _ForwardIterator, forward_iterator_tag)):
+	Ditto.
+	* include/bits/stl_list.h (size()): Fully qualify distance() with std::.
+	* include/bits/stl_tempbuf.h (_Temporary_buffer::_Temporary_buffer
+	(_ForwardIterator, _ForwardIterator)): Ditto.
+	* include/bits/stl_tree.h (_Rb_tree::erase(const _Key&),
+	_Rb_tree::count(const _Key&)): Ditto.
+	* include/bits/stl_vector.h (_M_range_initialize(_ForwardIterator,
+	_ForwardIterator, forward_iterator_tag)): Ditto.
+	* include/bits/streambuf.tcc (basic_streambuf::xsgetn(char_type*,
+	streamsize), basic_streambuf::xsputn(const char_type*, streamsize)):
+	Fully qualify min() with std::.
+	* include/bits/vector.tcc (_M_assign_aux(_ForwardIter, _ForwardIter,
+	forward_iterator_tag), _M_fill_insert(iterator, size_type,
+	const value_type&), _M_range_insert(iterator, _ForwardIterator,
+	_ForwardIterator, forward_iterator_tag)): Fully qualify max() and
+	distance() with std::.
+	* include/std/std_bitset.h (bitset::_M_copy_from_string
+	(const basic_string&, size_t, size_t)): Fully qualify min() with std::.
+	* include/std/std_streambuf.h (_M_pback_create()): Ditto.
+	* include/std/std_complex.h (abs(const complex<_Tp>&)):
+	Fully qualify max() with std::.
+	* include/std/std_sstream.h (str()): Ditto.
+	* src/codecvt.cc (codecvt::do_out(state_type&, const intern_type*,
+	const intern_type*, const intern_type*&, extern_type*, extern_type*,
+	 extern_type*&), codecvt::do_in(state_type&, const extern_type*,
+	const extern_type*, const extern_type*&, intern_type*, intern_type*,
+	intern_type*&), codecvt::do_length(const state_type&,
+	const extern_type*, const extern_type*, size_t), do_length
+	(const state_type&, const extern_type*, const extern_type*,
+	size_t)): Fully qualify min() with std::.
+	* src/strstream.cc (strstreambuf::strstreambuf(streamsize),
+	strstreambuf::overflow(int_type)): Fully qualify max() with std::.
+
 2002-12-02  Paolo Carlini  <pcarlini@unitus.it>
 
 	* include/bits/basic_string.h (compare(const basic_string&)):

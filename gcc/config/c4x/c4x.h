@@ -1651,17 +1651,11 @@ fini_section ()							\
 /* The TI assembler wants to have hex numbers this way.  */
 
 #undef HOST_WIDE_INT_PRINT_HEX
-#ifndef HOST_WIDE_INT_PRINT_HEX
-# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-#  define HOST_WIDE_INT_PRINT_HEX "0%xh"
-# else
-#  if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-#   define HOST_WIDE_INT_PRINT_HEX "0%lxh"
-#  else
-#   define HOST_WIDE_INT_PRINT_HEX "0%llxh"
-#  endif
-# endif
-#endif /* ! HOST_WIDE_INT_PRINT_HEX */
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+# define HOST_WIDE_INT_PRINT_HEX "0%lxh"
+#else
+# define HOST_WIDE_INT_PRINT_HEX "0%llxh"
+#endif
 
 /* Overall Framework of an Assembler File.  */
 /* We need to have a data section we can identify so that we can set

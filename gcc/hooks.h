@@ -28,6 +28,7 @@ bool hook_bool_tree_hwi_hwi_tree_false
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 bool hook_bool_tree_hwi_hwi_tree_true
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+bool hook_bool_rtx_false PARAMS ((rtx));
 
 void hook_void_tree_int PARAMS ((tree, int));
 void hook_void_void PARAMS ((void));
@@ -40,6 +41,6 @@ int hook_int_tree_tree_1 PARAMS ((tree, tree));
 bool default_can_output_mi_thunk_no_vcall
   PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 
-bool hook_tree_tree_bool_false PARAMS ((tree, tree));
+bool hook_bool_tree_tree_false PARAMS ((tree, tree));
 
 #endif

@@ -1,3 +1,7 @@
+2002-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* fastjar.texi (jar @direntry, grepjar @direntry): Add (fastjar).
+
 2002-11-23  H.J. Lu <hjl@gnu.org>
 
 	* acinclude.m4: Include ../config/accross.m4.

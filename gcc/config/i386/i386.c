@@ -512,6 +512,7 @@ const int x86_sse_partial_regs_for_cvtsd2ss = 0;
 const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 const int x86_use_ffreep = m_ATHLON_K8;
+const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -831,6 +832,7 @@ struct ix86_address
 };
 
 static int ix86_decompose_address PARAMS ((rtx, struct ix86_address *));
+static bool ix86_cannot_force_const_mem PARAMS ((rtx));
 
 static void ix86_encode_section_info PARAMS ((tree, int)) ATTRIBUTE_UNUSED;
 static const char *ix86_strip_name_encoding PARAMS ((const char *))
@@ -974,6 +976,8 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
@@ -3548,6 +3552,18 @@ q_regs_operand (op, mode)
   return ANY_QI_REG_P (op);
 }
 
+/* Return true if op is an flags register.  */
+
+int
+flags_reg_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return 0;
+  return REG_P (op) && REGNO (op) == FLAGS_REG && GET_MODE (op) != VOIDmode;
+}
+
 /* Return true if op is a NON_Q_REGS class register.  */
 
 int
@@ -4646,9 +4662,25 @@ ix86_expand_prologue ()
   if (!optimize_size)
     {
       int count = frame.nregs;
+
+      /* The fast prologue uses move instead of push to save registers.  This
+         is significantly longer, but also executes faster as modern hardware
+         can execute the moves in parallel, but can't do that for push/pop.
+	 
+	 Be curefull about choosing what prologue to emit:  When function takes
+	 many instructions to execute we may use slow version as well as in
+	 case function is known to be outside hot spot (this is known with
+	 feedback only).  Weight the size of function by number of registers
+	 to save as it is cheap to use one or two push instructions but very
+	 slow to use many of them.  */
       if (count)
 	count = (count - 1) * FAST_PROLOGUE_INSN_COUNT;
-      use_fast_prologue_epilogue = !expensive_function_p (count);
+      if (cfun->function_frequency < FUNCTION_FREQUENCY_NORMAL
+	  || (flag_branch_probabilities
+	      && cfun->function_frequency < FUNCTION_FREQUENCY_HOT))
+	use_fast_prologue_epilogue = 0;
+      else
+        use_fast_prologue_epilogue = !expensive_function_p (count);
       if (TARGET_PROLOGUE_USING_MOVE)
         use_mov = use_fast_prologue_epilogue;
     }
@@ -5239,6 +5271,17 @@ legitimate_constant_p (x)
 
   /* Otherwise we handle everything else in the move patterns.  */
   return true;
+}
+
+/* Determine if it's legal to put X into the constant pool.  This
+   is not possible for the address of thread-local symbols, which
+   is checked above.  */
+
+static bool
+ix86_cannot_force_const_mem (x)
+     rtx x;
+{
+  return !legitimate_constant_p (x);
 }
 
 /* Determine if a given RTX is a valid constant address.  */
@@ -7877,29 +7920,6 @@ ix86_expand_move (mode, operands)
   op0 = operands[0];
   op1 = operands[1];
 
-  /* ??? We have a slight problem.  We need to say that tls symbols are
-     not legitimate constants so that reload does not helpfully reload
-     these constants from a REG_EQUIV, which we cannot handle.  (Recall
-     that general- and local-dynamic address resolution requires a
-     function call.)
-
-     However, if we say that tls symbols are not legitimate constants,
-     then emit_move_insn helpfully drop them into the constant pool.
-
-     It is far easier to work around emit_move_insn than reload.  Recognize
-     the MEM that we would have created and extract the symbol_ref.  */
-
-  if (mode == Pmode
-      && GET_CODE (op1) == MEM
-      && RTX_UNCHANGING_P (op1))
-    {
-      tmp = maybe_get_pool_constant (op1);
-      /* Note that we only care about symbolic constants here, which
-	 unlike CONST_INT will always have a proper mode.  */
-      if (tmp && GET_MODE (tmp) == Pmode)
-	op1 = tmp;
-    }
-
   if (tls_symbolic_operand (op1, Pmode))
     {
       op1 = legitimize_address (op1, op1, VOIDmode);
@@ -9521,16 +9541,7 @@ ix86_expand_int_movcc (operands)
 	  if (!rtx_equal_p (tmp, out))
 	    {
 	      if (nops == 1)
-		{
-		  rtx clob;
-
-		  clob = gen_rtx_REG (CCmode, FLAGS_REG);
-		  clob = gen_rtx_CLOBBER (VOIDmode, clob);
-
-		  tmp = gen_rtx_SET (VOIDmode, out, tmp);
-		  tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
-		  emit_insn (tmp);
-		}
+		out = force_operand (tmp, out);
 	      else
 		emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (out), copy_rtx (tmp)));
 	    }
@@ -9709,9 +9720,15 @@ ix86_expand_int_movcc (operands)
       emit_move_insn (tmp, operands[2]);
       operands[2] = tmp;
     }
+
   if (! register_operand (operands[2], VOIDmode)
-      && ! register_operand (operands[3], VOIDmode))
+      && (mode == QImode 
+          || ! register_operand (operands[3], VOIDmode)))
     operands[2] = force_reg (mode, operands[2]);
+
+  if (mode == QImode
+      && ! register_operand (operands[3], VOIDmode))
+    operands[3] = force_reg (mode, operands[3]);
 
   emit_insn (compare_seq);
   emit_insn (gen_rtx_SET (VOIDmode, operands[0],
@@ -10541,8 +10558,12 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 
       /* In case we don't know anything about the alignment, default to
          library version, since it is usually equally fast and result in
-         shorter code.  */
-      if (!TARGET_INLINE_ALL_STRINGOPS && align < UNITS_PER_WORD)
+         shorter code. 
+
+	 Also emit call when we know that the count is large and call overhead
+	 will not be important.  */
+      if (!TARGET_INLINE_ALL_STRINGOPS
+	  && (align < UNITS_PER_WORD || !TARGET_REP_MOVL_OPTIMAL))
 	{
 	  end_sequence ();
 	  return 0;
@@ -10756,8 +10777,12 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 
       /* In case we don't know anything about the alignment, default to
          library version, since it is usually equally fast and result in
-         shorter code.  */
-      if (!TARGET_INLINE_ALL_STRINGOPS && align < UNITS_PER_WORD)
+         shorter code.
+
+	 Also emit call when we know that the count is large and call overhead
+	 will not be important.  */
+      if (!TARGET_INLINE_ALL_STRINGOPS
+	  && (align < UNITS_PER_WORD || !TARGET_REP_MOVL_OPTIMAL))
 	return 0;
 
       if (TARGET_SINGLE_STRINGOP)

@@ -1,3 +1,97 @@
+2002-12-17  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.sub: Import from master repository
+	* config.guess: Ditto
+
+2002-12-16  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.tpl (all-gcc): Use 'make quickstrap' if there was a
+	previous 'make bootstrap'.
+	* Makefile.in: Regenerate.
+
+2002-12-17  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (noconfigdirs) [mmix-*-*]: Disable libgloss and gdb.
+
+2002-12-13  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in, Makefile.tpl, Makefile.def: Remove tclX.
+	* Makefile.in: Regenerate.
+
+2002-12-13  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.tpl (check-gcc-c++): Renamed from check-c++.  Don't run
+	library tests.
+	(check-c++): Just depend on it and check-target-libstdc++-v3.
+	* Makefile.in: Regenerate.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (configure-target-rda): Depend on $(ALL_GCC_C).
+	* Makefile.in: Rebuilt.
+
+2002-12-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (configure-target-rda): Depend on ALL_GCC_C.
+
+2002-12-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure: Fix bug put in by gremlins.
+
+	* Makefile.tpl: Substitute more autoconfily.
+	* configure: Substitute more autoconfily.
+	* Makefile.in: Regenerate.
+
+2002-12-09  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config.sub: Import from master repository
+	* config.guess: Ditto
+	* MAINTAINERS: Added Svein Seldal under write after approval
+
+2002-12-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* Makefile.tpl (all-sim): Depend on maybe-configure-gdb.
+	* Makefile.in (all-sim): Ditto.
+
+2002-12-06  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.tpl: Change configure dependencies to not have real
+	targets depend on phony targets.
+
+2002-12-05  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Revert unintentional change.
+
+	* Makefile.tpl: Change dependency for */multilib.out so that
+	it works when gcc isn't in the tree.
+
+	* configure.in: Substitute more.
+	* configure: Run subconfigures from the Makefile.
+	* Makefile.tpl: Run subconfigures from the Makefile; add a few
+	convenience targets.  Make sure gcc isn't rebuilt after bootstrap.
+
+2002-12-05  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add Christian Ehrhardt under "GNATS only".
+
+2002-12-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Add targets for configuring host subdirs in Makefile,
+	and corresponding dependencies.
+	* Makefile.in: Regenerate.
+
+	* configure.in (host_tools): Order binutils, gas and ld for
+	convenience in running the testsuites.
+
+	* Makefile.tpl: Introduce rules to serialize subconfigure runs.
+	* Makefile.in: Regenerate.
+	* configure.in: Introduce rules to serialize subconfigure runs.
+
+	* configure.in: Introduce BASE_CC_FOR_TARGET.
+	* Makefile.tpl: Reorganize and comment.  Introduce HOST_CONFIGARGS.
+	Realize configure-build-* targets.  Realize configure-target-* targets.
+	* Makefile.in: Regenerate.
+
 2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure: Move gcc_version_trigger stuff from here...

@@ -125,14 +125,17 @@ do_poplevel ()
     {
       tree scope_stmts = NULL_TREE;
 
-      if (!processing_template_decl)
-	scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-
       block = poplevel (kept_level_p (), 1, 0);
-      if (block && !processing_template_decl)
+      if (!processing_template_decl)
 	{
-	  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
-	  SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
+	  /* This needs to come after the poplevel so that partial scopes
+	     are properly nested.  */
+	  scope_stmts = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
+	  if (block)
+	    {
+	      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmts)) = block;
+	      SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmts)) = block;
+	    }
 	}
     }
 
@@ -146,9 +149,9 @@ do_pushlevel ()
 {
   if (stmts_are_full_exprs_p ())
     {
-      pushlevel (0);
       if (!processing_template_decl)
 	add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
+      pushlevel (0);
     }
 }
 
@@ -2211,8 +2214,19 @@ emit_associated_thunks (fn)
   if (DECL_VIRTUAL_P (fn))
     {
       tree thunk;
+      
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
-	use_thunk (thunk, /*emit_p=*/1);
+	{
+	  use_thunk (thunk, /*emit_p=*/1);
+	  if (DECL_RESULT_THUNK_P (thunk))
+	    {
+	      tree probe;
+
+	      for (probe = DECL_THUNKS (thunk);
+		   probe; probe = TREE_CHAIN (probe))
+		use_thunk (probe, /*emit_p=*/1);
+	    }
+	}
     }
 }
 
