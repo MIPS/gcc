@@ -1522,10 +1522,8 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_WRITES (res), 20,
-			   "loop_write_datarefs");
-  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREF_READS (res), 20,
-			   "loop_read_datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "datarefs");
+  VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
   VARRAY_TREE_INIT (LOOP_VINFO_MAY_MISALIGN_STMTS (res),
                     MAX_RUNTIME_ALIGNMENT_CHECKS, "loop_may_misalign_stmts");
@@ -1588,8 +1586,8 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-  varray_clear (LOOP_VINFO_DATAREF_READS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
+  varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
   varray_clear (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
 
   free (loop_vinfo);

@@ -65,10 +65,6 @@ static void vect_update_misalignment_for_peel
 static void vect_pattern_recog_1 
   (tree (* ) (tree, varray_type *), block_stmt_iterator);
 
-/* Utilities for dependence analysis.  */
-static unsigned int vect_build_dist_vector (struct loop *,
-					    struct data_dependence_relation *);
-
 /* Pattern recognition functions  */
 _recog_func_ptr vect_pattern_recog_func[NUM_PATTERNS] = {
         vect_recog_unsigned_subsat_pattern};
@@ -511,19 +507,45 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 }
 
 
-/* Function vect_build_dist_vector.
+/* Function vect_analyze_data_ref_dependence.
 
-   Build classic dist vector for dependence relation DDR using LOOP's loop
-   nest. Return LOOP's depth in its loop nest.  */
+   Return TRUE if there (might) exist a dependence between a memory-reference
+   DRA and a memory-reference DRB of DDR.  */
 
-static unsigned int
-vect_build_dist_vector (struct loop *loop,
-			struct data_dependence_relation *ddr)
+static bool
+vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr, 
+				  loop_vec_info loop_vinfo)
 {
-  struct loop *loop_nest = loop;
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   unsigned int loop_depth = 1;
+  struct data_reference *dra = DDR_A (ddr);
+  struct data_reference *drb = DDR_B (ddr);
+  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  stmt_vec_info stmt_info_a = vinfo_for_stmt (DR_STMT (dra));
+  stmt_vec_info stmt_info_b = vinfo_for_stmt (DR_STMT (drb));
+  int dist;
+  struct loop *loop_nest = loop; 
 
-  /* Find loop nest and loop depth.  */
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+    return false;
+
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    return true;
+
+  if (!DDR_DIST_VECT (ddr))
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+				LOOP_LOC (loop_vinfo)))
+	{
+	  fprintf (vect_dump, "not vectorized: bad dist vector for ");
+	  print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+	  fprintf (vect_dump, " and ");
+	  print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+	}      
+      return true;
+    }
+
+  /* Find loop depth.  */
   while (loop_nest)
     {
       if (loop_nest->outer && loop_nest->outer->outer)
@@ -534,66 +556,7 @@ vect_build_dist_vector (struct loop *loop,
       else
 	break;
     }
-
-  /* Compute distance vector.  */
-  compute_subscript_distance (ddr);
-  build_classic_dist_vector (ddr, loops_num, loop_nest->depth);
-
-  return loop_depth - 1;
-}
-
-
-/* Function vect_analyze_data_ref_dependence.
-
-   Return TRUE if there (might) exist a dependence between a memory-reference
-   DRA and a memory-reference DRB.  */
-
-static bool
-vect_analyze_data_ref_dependence (struct data_reference *dra,
-				  struct data_reference *drb, 
-				  loop_vec_info loop_vinfo)
-{
-  bool differ_p; 
-  struct data_dependence_relation *ddr;
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  unsigned int loop_depth = 0;
-  int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  stmt_vec_info stmt_info_a = vinfo_for_stmt (DR_STMT (dra));
-  stmt_vec_info stmt_info_b = vinfo_for_stmt (DR_STMT (drb));
-  int dist;
-
-  if (!base_addr_differ_p (dra, drb, &differ_p))
-    {
-      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
-				LOOP_LOC (loop_vinfo)))
-        {
-          fprintf (vect_dump,
-                "not vectorized: can't determine dependence between: ");
-          print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
-          fprintf (vect_dump, " and ");
-          print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
-        }
-      return true;
-    }
-
-  if (differ_p)
-    return false;
-
-  ddr = initialize_data_dependence_relation (dra, drb);
-  compute_affine_dependence (ddr);
-
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
-    return false;
-
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-    return true;
-
-  loop_depth = vect_build_dist_vector (loop, ddr);
-
-  if (!DDR_DIST_VECT (ddr))
-    return true;
-
-  dist = DDR_DIST_VECT (ddr)[loop_depth];
+  dist = DDR_DIST_VECT (ddr)[(loop_depth - 1)];
 
   /* Same loop iteration.  */
   if (dist == 0)
@@ -603,7 +566,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
       VARRAY_PUSH_GENERIC_PTR (STMT_VINFO_SAME_ALIGN_REFS (stmt_info_b), dra);
 
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	fprintf (vect_dump, "dependece distance 0.");
+	fprintf (vect_dump, "dependence distance 0.");
       return false;
     }
 
@@ -615,8 +578,8 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 			    LOOP_LOC (loop_vinfo)))
     {
-      fprintf (vect_dump,
-	"not vectorized: possible dependence between data-refs ");
+      fprintf (vect_dump, 
+	       "not vectorized: possible dependence between data-refs ");
       print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
       fprintf (vect_dump, " and ");
       print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
@@ -634,48 +597,19 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
 static bool
 vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 {
-  unsigned int i, j;
-  varray_type loop_write_refs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
-  varray_type loop_read_refs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
-
-  /* Examine store-store (output) dependences.  */
+  unsigned int i;
+  varray_type ddrs = LOOP_VINFO_DDRS (loop_vinfo);
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_dependences ===");
 
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-    fprintf (vect_dump, "compare all store-store pairs.");
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_refs); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ddrs); i++)
     {
-      for (j = i + 1; j < VARRAY_ACTIVE_SIZE (loop_write_refs); j++)
-	{
-	  struct data_reference *dra =
-	    VARRAY_GENERIC_PTR (loop_write_refs, i);
-	  struct data_reference *drb =
-	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb, loop_vinfo))
-	    return false;
-	}
+      struct data_dependence_relation *ddr = VARRAY_GENERIC_PTR (ddrs, i);
+
+      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo))
+	return false; 
     }
-
-  /* Examine load-store (true/anti) dependences.  */
-
-  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-    fprintf (vect_dump, "compare all load-store pairs.");
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_refs); i++)
-    {
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (loop_write_refs); j++)
-	{
-	  struct data_reference *dra = VARRAY_GENERIC_PTR (loop_read_refs, i);
-	  struct data_reference *drb =
-	    VARRAY_GENERIC_PTR (loop_write_refs, j);
-	  if (vect_analyze_data_ref_dependence (dra, drb, loop_vinfo))
-	    return false;
-	}
-    }
-
   return true;
 }
 
@@ -779,20 +713,12 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 static bool
 vect_compute_data_refs_alignment (loop_vec_info loop_vinfo)
 {
-  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
-  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+  varray_type datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
   unsigned int i;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
     {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
-      if (!vect_compute_data_ref_alignment (dr))
-	return false;
-    }
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
-    {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       if (!vect_compute_data_ref_alignment (dr))
 	return false;
     }
@@ -836,45 +762,35 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
 static bool
 vect_verify_datarefs_alignment (loop_vec_info loop_vinfo)
 {
-  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
-  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
+  varray_type datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
   enum dr_alignment_support supportable_dr_alignment;
   unsigned int i;
 
   /* Check that all the data references in the loop can be
      handled with respect to their alignment.  */
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
     {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       supportable_dr_alignment = vect_supportable_dr_alignment (dr);
       if (!supportable_dr_alignment)
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
 				    LOOP_LOC (loop_vinfo)))
-            fprintf (vect_dump, "not vectorized: unsupported unaligned load.");
+	    {
+	      if (DR_IS_READ (dr))
+		fprintf (vect_dump, 
+			 "not vectorized: unsupported unaligned load.");
+	      else
+		fprintf (vect_dump, 
+			 "not vectorized: unsupported unaligned store.");
+	    }
           return false;
         }
       if (supportable_dr_alignment != dr_aligned
           && (vect_print_dump_info (REPORT_ALIGNMENT, LOOP_LOC (loop_vinfo))))
         fprintf (vect_dump, "Vectorizing an unaligned access.");
     }
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
-    {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
-      supportable_dr_alignment = vect_supportable_dr_alignment (dr);
-      if (!supportable_dr_alignment)
-        {
-          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
-				    LOOP_LOC (loop_vinfo)))
-            fprintf (vect_dump, "not vectorized: unsupported unaligned store.");
-          return false;
-        }
-      if (supportable_dr_alignment != dr_aligned
-          && (vect_print_dump_info (REPORT_ALIGNMENT, LOOP_LOC (loop_vinfo))))
-        fprintf (vect_dump, "Vectorizing an unaligned access.");
-    }
-
   return true;
 }
 
@@ -972,12 +888,11 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo)
 static bool
 vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 {
-  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
-  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
+  varray_type loop_datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
   enum dr_alignment_support supportable_dr_alignment;
   struct data_reference *dr0 = NULL;
   varray_type datarefs;
-  unsigned int i, j;
+  unsigned int i;
   bool do_peeling = false;
   bool do_versioning = false;
   bool stat;
@@ -1021,10 +936,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
      TODO: Use a cost model.  */
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_datarefs); i++)
     {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
-      if (!aligned_access_p (dr))
+      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_datarefs, i);
+      if (!DR_IS_READ (dr) && !aligned_access_p (dr))
         {
           dr0 = dr;
           do_peeling = true;
@@ -1064,32 +979,24 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
 
       /* Ensure that all data refs can be vectorized after the peel.  */
-      datarefs = loop_write_datarefs;
-      for (j = 0; j < 2; j++) /* same treatment for read and write datarefs */
-        {
-          for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-            {
-              struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-              int save_misalignment;
-              if (dr == dr0)
-                continue;
-              save_misalignment = DR_MISALIGNMENT (dr);
-              vect_update_misalignment_for_peel (dr, dr0, npeel);
-              supportable_dr_alignment = vect_supportable_dr_alignment (dr);
-              DR_MISALIGNMENT (dr) = save_misalignment;
-
-              if (!supportable_dr_alignment)
-                {
-                  do_peeling = false;
-                  break;
-                }
-            }
-
-          if (!do_peeling)
-            break;
-
-          datarefs = loop_read_datarefs;
-        }
+      datarefs = loop_datarefs;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+	{
+	  struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+	  int save_misalignment;
+	  if (dr == dr0)
+	    continue;
+	  save_misalignment = DR_MISALIGNMENT (dr);
+	  vect_update_misalignment_for_peel (dr, dr0, npeel);
+	  supportable_dr_alignment = vect_supportable_dr_alignment (dr);
+	  DR_MISALIGNMENT (dr) = save_misalignment;
+	  
+	  if (!supportable_dr_alignment)
+	    {
+	      do_peeling = false;
+	      break;
+	    }
+	}
 
       if (do_peeling)
         {
@@ -1100,18 +1007,14 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              by the peeling factor times the element size of DR_i (MOD the
              vectorization factor times the size).  Otherwise, the
              misalignment of DR_i must be set to unknown.  */
-          datarefs = loop_write_datarefs;
-          for (j = 0; j < 2; j++) /* same for read and write datarefs */
-            {
-              for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-                {
-                  struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-                  if (dr == dr0)
-                    continue;
-                  vect_update_misalignment_for_peel (dr, dr0, npeel);
-                }
-              datarefs = loop_read_datarefs;
-            }
+          datarefs = loop_datarefs;
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+	    {
+	      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+	      if (dr == dr0)
+		continue;
+	      vect_update_misalignment_for_peel (dr, dr0, npeel);
+	    }
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = DR_MISALIGNMENT (dr0);
           DR_MISALIGNMENT (dr0) = 0;
@@ -1150,65 +1053,59 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
      2) all misaligned data refs with a known misalignment are supported, and
      3) the number of runtime alignment checks is within reason.  */
   do_versioning = true;
-  datarefs = loop_write_datarefs;
-  for (j = 0; j < 2; j++) /* same for read and write datarefs */
+  datarefs = loop_datarefs;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
     {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-        {
-          struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
 
-          if (aligned_access_p (dr))
-            continue;
+      if (aligned_access_p (dr))
+	continue;
 
-          supportable_dr_alignment = vect_supportable_dr_alignment (dr);
+      supportable_dr_alignment = vect_supportable_dr_alignment (dr);
 
-          if (!supportable_dr_alignment)
-            {
-              tree stmt;
-              int mask;
-              tree vectype;
+      if (!supportable_dr_alignment)
+	{
+	  tree stmt;
+	  int mask;
+	  tree vectype;
 
-              if (known_alignment_for_access_p (dr)
-                  || VARRAY_ACTIVE_SIZE
-                         (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
-                     >= MAX_RUNTIME_ALIGNMENT_CHECKS)
-                {
-                  do_versioning = false;
-                  break;
-                }
-
-              stmt = DR_STMT (dr);
-              vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
-	      gcc_assert (vectype);
-
-              /* The rightmost bits of an aligned address must be zeros.
-                 Construct the mask needed for this test.  For example,
-                 GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
-                 mask must be 15 = 0xf. */
-              mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
-
-              /* FORNOW: using the same mask to test all potentially unaligned
-                 references in the loop.  The vectorizer currently supports a
-                 single vector size, see the reference to
-                 GET_MODE_NUNITS (TYPE_MODE (vectype)) where the vectorization
-                 factor is computed.  */
-              gcc_assert (!LOOP_VINFO_PTR_MASK (loop_vinfo)
-                          || LOOP_VINFO_PTR_MASK (loop_vinfo) == mask);
-              LOOP_VINFO_PTR_MASK (loop_vinfo) = mask;
-              VARRAY_PUSH_TREE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo),
-                                DR_STMT (dr));
+	  if (known_alignment_for_access_p (dr)
+	      || VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
+	      >= MAX_RUNTIME_ALIGNMENT_CHECKS)
+	    {
+	      do_versioning = false;
+	      break;
 	    }
-        }
 
+	  stmt = DR_STMT (dr);
+	  vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
+	  gcc_assert (vectype);
+	  
+	  /* The rightmost bits of an aligned address must be zeros.
+	     Construct the mask needed for this test.  For example,
+	     GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
+	     mask must be 15 = 0xf. */
+	  mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
+	  
+	  /* FORNOW: using the same mask to test all potentially unaligned
+	     references in the loop.  The vectorizer currently supports a
+	     single vector size, see the reference to
+	     GET_MODE_NUNITS (TYPE_MODE (vectype)) where the vectorization
+	     factor is computed.  */
+	  gcc_assert (!LOOP_VINFO_PTR_MASK (loop_vinfo)
+		      || LOOP_VINFO_PTR_MASK (loop_vinfo) == mask);
+	  LOOP_VINFO_PTR_MASK (loop_vinfo) = mask;
+	  VARRAY_PUSH_TREE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo),
+			    DR_STMT (dr));
+	}
+  
       if (!do_versioning)
         {
           varray_clear (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
           break;
         }
-
-      datarefs = loop_read_datarefs;
     }
-
+      
   /* Versioning requires at least one candidate misaligned data reference.  */
   if (VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)) == 0)
     do_versioning = false;
@@ -1319,15 +1216,14 @@ static bool
 vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
 {
   unsigned int i;
-  varray_type loop_write_datarefs = LOOP_VINFO_DATAREF_WRITES (loop_vinfo);
-  varray_type loop_read_datarefs = LOOP_VINFO_DATAREF_READS (loop_vinfo);
+  varray_type datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_data_ref_accesses ===");
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
     {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       bool ok = vect_analyze_data_ref_access (dr);
       if (!ok)
 	{
@@ -1337,20 +1233,6 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
 	  return false;
 	}
     }
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
-    {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
-      bool ok = vect_analyze_data_ref_access (dr);
-      if (!ok)
-	{
-	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
-				    LOOP_LOC (loop_vinfo)))
-	    fprintf (vect_dump, "not vectorized: complicated access pattern.");
-	  return false;
-	}
-    }
-
   return true;
 }
 
@@ -1361,144 +1243,103 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
 
    The general structure of the analysis of data refs in the vectorizer is as 
    follows:
-   1- vect_analyze_data_refs(loop): 
-      Find and analyze all data-refs in the loop:
-          foreach ref
-	     base_address = create_data_ref(ref)
-      1.1- create_data_ref(ref): 
-           Analyze ref, and build a DR (data_referece struct) for it;
-           compute base, initial_offset, step and alignment. 
-           Call get_inner_reference for refs handled in this function.
-           Call vect_addr_analysis(addr) to analyze pointer type expressions.
-	   Set dr.base_address, dr.initial_offset, dr.step.
-      1.2- Set ref_stmt.alignment, and ref_stmt.memtag accordingly. 
-   2- vect_analyze_dependences(): apply dependence testing using ref_stmt.DR
+   1- vect_analyze_data_refs(loop): call compute_data_dependences_for_loop to
+      find and analyze all data-refs in the loop and their dependences.
+   2- vect_analyze_dependences(): apply dependence testing using ddrs.
    3- vect_analyze_drs_alignment(): check that ref_stmt.alignment is ok.
    4- vect_analyze_drs_access(): check that ref_stmt.step is ok.
 
-   FORNOW: Handle aligned INDIRECT_REFs and ARRAY_REFs 
-	   which base is really an array (not a pointer) and which alignment 
-	   can be forced. This restriction will be relaxed.  */
+*/
 
 static bool
 vect_analyze_data_refs (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
-  int nbbs = loop->num_nodes;
-  block_stmt_iterator si;
-  int j;
-  struct data_reference *dr;
+  unsigned int i;
+  varray_type datarefs;
+  tree scalar_type;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     fprintf (vect_dump, "=== vect_analyze_data_refs ===");
 
-  for (j = 0; j < nbbs; j++)
+  compute_data_dependences_for_loop (loops_num, loop,
+				     ssize_int (UNITS_PER_SIMD_WORD), true,
+				     &(LOOP_VINFO_DATAREFS (loop_vinfo)),
+				     &(LOOP_VINFO_DDRS (loop_vinfo)));
+
+  /* Go through the data-refs, check that the analysis succeeded. Update pointer
+     from stmt_vec_info struct to DR and vectype.  */
+  datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
     {
-      basic_block bb = bbs[j];
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+      tree stmt;
+      stmt_vec_info stmt_info;
+
+      if (!DR_REF (dr))
 	{
-	  bool is_read = false;
-	  tree stmt = bsi_stmt (si);
-	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-	  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
-	  vuse_optype vuses = STMT_VUSE_OPS (stmt);
-	  varray_type *datarefs = NULL;
-	  int nvuses, nv_may_defs, nv_must_defs;
-	  tree memref = NULL;
-	  tree scalar_type, vectype;	  
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+				    LOOP_LOC (loop_vinfo)))
+	      fprintf (vect_dump, "not vectorized: not handled data-ref "); 
+	  return false;
+	}
 
-	  /* Assumption: there exists a data-ref in stmt, if and only if 
-             it has vuses/vdefs.  */
+      /* Update DR field in stmt_vec_info struct.  */
+      stmt = DR_STMT (dr);
+      stmt_info = vinfo_for_stmt (stmt);
 
-	  if (!vuses && !v_may_defs && !v_must_defs)
-	    continue;
+      if (STMT_VINFO_DATA_REF (stmt_info))
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	    {
+	      fprintf (vect_dump, "more than one data ref in stmt: ");
+	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	    }	  
+	  return false;
+	}
+      STMT_VINFO_DATA_REF (stmt_info) = dr;
 
-	  nvuses = NUM_VUSES (vuses);
-	  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-	  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
+      /* Check that analysis of the data-ref succeeded.  */
+      if (!dr || !DR_BASE_ADDRESS (dr) || !DR_INIT_OFFSET (dr) || !DR_STEP (dr))
+	{
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+				    LOOP_LOC (loop_vinfo)))
+	    {
+	      fprintf (vect_dump, "not vectorized: data ref analysis failed "); 
+	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	    }
+	  return false;
+	}
+      if (!DR_MEMTAG (dr))
+	{
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+				    LOOP_LOC (loop_vinfo)))
+	    {
+	      fprintf (vect_dump, "not vectorized: no memory tag for "); 
+	      print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM);
+	    }
+	  return false;
+	}
 
-	  if (nvuses && (nv_may_defs || nv_must_defs))
+      /* Set vectype for STMT.  */
+      scalar_type = TREE_TYPE (DR_REF (dr)); 
+      STMT_VINFO_VECTYPE (stmt_info) = get_vectype_for_scalar_type (scalar_type);
+      if (!STMT_VINFO_VECTYPE (stmt_info))
+	{
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+				    LOOP_LOC (loop_vinfo)))
 	    {
-	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-		{
-		  fprintf (vect_dump, "unexpected vdefs and vuses in stmt: ");
-		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		}
-	      return false;
+	      fprintf (vect_dump, "no vectype for stmt: ");
+	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	      fprintf (vect_dump, " scalar_type: ");
+	      print_generic_expr (vect_dump, scalar_type, TDF_DETAILS);
 	    }
-
-	  if (TREE_CODE (stmt) != MODIFY_EXPR)
-	    {
-	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-		{
-		  fprintf (vect_dump, "unexpected vops in stmt: ");
-		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		}
-	      return false;
-	    }
-
-	  if (vuses)
-	    {
-	      memref = TREE_OPERAND (stmt, 1);
-	      datarefs = &(LOOP_VINFO_DATAREF_READS (loop_vinfo));
-	      is_read = true;
-	    } 
-	  else /* vdefs */
-	    {
-	      memref = TREE_OPERAND (stmt, 0);
-	      datarefs = &(LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
-	      is_read = false;
-	    }
-	  
-	  scalar_type = TREE_TYPE (memref);
-	  vectype = get_vectype_for_scalar_type (scalar_type);
-	  if (!vectype)
-	    {
-	      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-		{
-		  fprintf (vect_dump, "no vectype for stmt: ");
-		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		  fprintf (vect_dump, " scalar_type: ");
-		  print_generic_expr (vect_dump, scalar_type, TDF_DETAILS);
-		}
-	      /* It is not possible to vectorize this data reference.  */
-	      return false;
-	    }
-	  /* Analyze MEMREF. If it is of a supported form, build data_reference
-	     struct for it (DR).  */
-	  dr = create_data_ref (memref, stmt, is_read, vectype);
-	  if (!dr || !DR_BASE_ADDRESS (dr) 
-	      || !DR_INIT_OFFSET (dr) || !DR_STEP (dr))
-	    {
-	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
-					LOOP_LOC (loop_vinfo)))
-		{
-		  fprintf (vect_dump, "not vectorized: unhandled data ref: "); 
-		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		}
-	      return false;
-	    }
-	  if (!DR_MEMTAG (dr))
-	    {
-	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
-					LOOP_LOC (loop_vinfo)))
-		{
-		  fprintf (vect_dump, "not vectorized: no memory tag for "); 
-		  print_generic_expr (vect_dump, memref, TDF_SLIM);
-		}
-	      return false;
-	    }
-	  STMT_VINFO_VECTYPE (stmt_info) = vectype;
-	  VARRAY_PUSH_GENERIC_PTR (*datarefs, dr);
-	  STMT_VINFO_DATA_REF (stmt_info) = dr;
+	  return false;  
 	}
     }
-
   return true;
 }
-
+				     
 
 /* Utility functions used by vect_mark_stmts_to_be_vectorized.  */
 

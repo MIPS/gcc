@@ -1,3 +1,65 @@
+2005-03-08  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (base_addr_differ_p): Check parameters.
+	(analyze_offset_expr): Remove redundant convert.
+	(get_ptr_offset): Change in function parameter - alignment in bytes
+	instead of type.
+	(address_analysis): New parameter - boolean flag to determine the 
+	analysis mode. Change in parameter - alignment in bytes instead of 
+	type. Call object_analysis with additional parameter. Use alignment 
+	in bytes and call get_ptr_offset with different parameter.
+	(object_analysis):  New parameter - boolean flag to determine the 
+	analysis mode. Change in parameter - alignment in bytes instead of type.
+	Return after dr creation if the flag is false. Use alignment in bytes
+	instead of alignment type.
+	(create_data_ref):  New parameter - boolean flag to determine the 
+	analysis mode. Change in parameter - alignment in bytes instead of type.
+	Call object_analysis with new parameters. Fix printings.
+	(initialize_data_dependence_relation): Call base_addr_differ_p if 
+	possible.
+	(compute_all_dependences): Skip read-read dependences.
+	(find_data_references_in_loop): New parameters - boolean flag to 
+	determine the analysis mode and required alignment in bytes. Call 
+	create_data_ref.
+	(compute_data_dependences_for_loop): New parameters - boolean flag to 
+	determine the analysis mode and required alignment in bytes. Call
+	find_data_references_in_loop with new parameters.
+	
+	* tree-data-ref.h: New parameters in functions 
+	find_data_references_in_loop and compute_data_dependences_for_loop. 
+	Remove (make static) create_data_ref and base_addr_differ_p.
+
+	* tree-loop-linear.c (linear_transform_loops): Call 
+	compute_data_dependences_for_loop with new parameters.
+
+	* tree-ssa-loop-niter.c (estimate_numbers_of_iterations_loop): Call
+	find_data_references_in_loop with new parameters.
+
+	* tree-vect-analyze.c (vect_build_dist_vector): Remove.
+	(vect_analyze_data_ref_dependence): Use ddr fields set previously. 
+	Compute loop depth for use of distance vector. Fix printings.
+	(vect_analyze_data_ref_dependences): Go through ddrs instead of 
+	data-refs.
+	(vect_compute_data_ref_alignment): All data-refs are now stored in one
+	varray, and loads and stores are not separated.
+	(vect_update_misalignment_for_peel, vect_verify_datarefs_alignment,
+	vect_enhance_data_refs_alignment,  vect_analyze_data_ref_accesses): 
+	Likewise.
+	(vect_analyze_data_refs): Fix comment. Call 
+	compute_data_dependences_for_loop to find and analyze data-refs in the 
+	loop.
+	
+	* tree-vect-transform.c (vect_update_inits_of_drs): All data-refs are 
+	now stored in one varray, and loads and stores are not separated.
+	
+	* tree-vectorizer.c (new_loop_vec_info): Initialize data-refs and ddr 
+	structures (varray).
+	(destroy_loop_vec_info): Clear data-refs and ddr structures (varray).
+
+	* tree-vectorizer.h (struct _loop_vec_inf): All data-refs are now 
+	stored in one varray, datarefs, and loads and stores are not separated. 
+	New field, ddrs. Macros for new fields.	
+
 2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree.def (SAT_REDUC_PLUS_EXPR): Removed.

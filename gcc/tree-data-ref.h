@@ -188,7 +188,8 @@ struct data_dependence_relation
 
 
 
-extern tree find_data_references_in_loop (struct loop *, varray_type *);
+extern tree find_data_references_in_loop (struct loop *, tree, bool,
+					  varray_type *);
 extern struct data_dependence_relation *initialize_data_dependence_relation 
 (struct data_reference *, struct data_reference *);
 extern void compute_affine_dependence (struct data_dependence_relation *);
@@ -197,7 +198,8 @@ extern bool build_classic_dist_vector (struct data_dependence_relation *, int,
 				       int);
 
 extern void analyze_all_data_dependences (struct loops *);
-extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
+extern void compute_data_dependences_for_loop (unsigned, struct loop *, tree, 
+					       bool,
 					       varray_type *, varray_type *);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
@@ -216,9 +218,6 @@ extern bool array_base_name_differ_p (struct data_reference *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
-extern struct data_reference * create_data_ref (tree, tree, bool, tree); 
-extern bool base_addr_differ_p (struct data_reference *,
-				struct data_reference *drb, bool *);
 
 
 

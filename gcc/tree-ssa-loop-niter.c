@@ -1225,7 +1225,7 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
     {
       varray_type datarefs;
       VARRAY_GENERIC_PTR_INIT (datarefs, 3, "datarefs");
-      find_data_references_in_loop (loop, &datarefs);
+      find_data_references_in_loop (loop, NULL_TREE, false, &datarefs);
       free_data_refs (datarefs);
     }
 }

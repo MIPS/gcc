@@ -119,11 +119,11 @@ typedef struct _loop_vec_info {
   /* The mask used to check the alignment of pointers or arrays.  */
   int ptr_mask;
   
-  /* All data references in the loop that are being written to.  */
-  varray_type data_ref_writes;
+  /* All data references in the loop.  */
+  varray_type datarefs;
 
-  /* All data references in the loop that are being read from.  */
-  varray_type data_ref_reads;
+  /* All data dependences in the loop.  */
+  varray_type ddrs;
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
@@ -141,8 +141,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
 #define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
 #define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
-#define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
-#define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
+#define LOOP_VINFO_DATAREFS(L)       (L)->datarefs
+#define LOOP_VINFO_DDRS(L)           (L)->ddrs
 #define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))
 #define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
 #define LOOP_VINFO_UNALIGNED_DR(L) (L)->unaligned_dr
