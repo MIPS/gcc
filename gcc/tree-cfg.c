@@ -148,24 +148,6 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
   } while (0)
 
 
-/* FIXME These need to be filled in with appropriate pointers.  But this
-   implies an ABI change in some functions.  */
-struct cfg_hooks tree_cfg_hooks = {
-  tree_verify_flow_info,
-  tree_dump_bb,			/* dump_bb  */
-  NULL,				/* create_basic_block  */
-  NULL,				/* redirect_edge_and_branch  */
-  NULL,				/* redirect_edge_and_branch_force  */
-  NULL,				/* delete_basic_block  */
-  NULL,				/* split_block  */
-  NULL,				/* can_merge_blocks_p  */
-  NULL,				/* merge_blocks  */
-  tree_split_edge,		/* cfgh_split_edge  */
-  tree_make_forwarder_block,	/* cfgh_make_forward_block  */
-  tree_loop_optimizer_init,     /* cfgh_loop_optimizer_init  */
-  tree_loop_optimizer_finalize  /* cfgh_loop_optimizer_finalize  */
-};
-
 /*---------------------------------------------------------------------------
 			      Create basic blocks
 ---------------------------------------------------------------------------*/
@@ -3771,7 +3753,7 @@ thread_jumps (void)
 
 	  /* Perform the redirection.  */
 	  retval = true;
-	  e = thread_edge (e, dest);
+	  e = redirect_edge_and_branch (e, dest);
 	  if (!old)
 	    {
 	      /* Update phi nodes.   We know that the new argument should
@@ -3794,27 +3776,100 @@ thread_jumps (void)
   return retval;
 }
 
-/* Redirects edge E to basic block DEST.  Returns the new edge to DEST.  */
-edge
-thread_edge (edge e, basic_block dest)
+/* Return the label in the head of basic block BLOCK.  Create one if it doesn't
+   exist.  */
+
+static tree
+tree_block_label (basic_block bb)
 {
-  tree dest_stmt = first_stmt (dest);
+  tree stmt = first_stmt (bb);
+  /* We need a label at our final destination.  If it does not already exist,
+     create it.  */
+  if (!stmt || TREE_CODE (stmt) != LABEL_EXPR)
+    {
+      block_stmt_iterator iterator = bsi_start (bb);
+      tree label;
+
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (label) = current_function_decl;
+      stmt = build1 (LABEL_EXPR, void_type_node, label);
+      bsi_insert_before (&iterator, stmt, BSI_SAME_STMT);
+      return label;
+    }
+  else
+    return LABEL_EXPR_LABEL (stmt);
+}
+
+/* Attempt to perform edge redirection by replacing possibly complex jump
+   instruction by goto or removing jump completely.  This can apply only
+   if all edges now point to the same block.  The parameters and
+   return values are equivalent to redirect_edge_and_branch.  */
+
+static edge
+tree_try_redirect_by_replacing_jump (edge e, basic_block target)
+{
+  basic_block src = e->src;
+  edge tmp;
+  block_stmt_iterator b;
+  tree stmt;
+  int flags;
+
+  /* Verify that all targets will be TARGET.  */
+  for (tmp = src->succ; tmp; tmp = tmp->succ_next)
+    if (tmp->dest != target && tmp != e)
+      break;
+
+  if (tmp)
+    return NULL;
+
+  b = bsi_last (src);
+  if (bsi_end_p (b))
+    return NULL;
+  stmt = bsi_stmt (b);
+
+  if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR
+      || (TREE_CODE (stmt) == GOTO_EXPR && target == successor_block (src)))
+    {
+      if (target == successor_block (src))
+	{
+	  flags = EDGE_FALLTHRU;
+          bsi_remove (&b);
+	}
+      else
+	{
+	  flags = 0;
+          stmt = build1 (GOTO_EXPR, void_type_node, tree_block_label (target));
+          bsi_replace (b, stmt);
+	}
+      e = ssa_redirect_edge (e, target);
+      e->flags = flags;
+      return e;
+    }
+  return NULL;
+}
+
+/* Redirect E to DEST.  Return NULL on failure, edge representing redirected
+   branch otherwise  */
+
+static edge
+tree_redirect_edge_and_branch (edge e, basic_block dest)
+{
+  edge ret;
   tree label, stmt;
   basic_block bb = e->src, new_bb;
   int flags;
 
-  /* We need a label at our final destination.  If it does not already exist,
-     create it.  */
-  if (!dest_stmt || TREE_CODE (dest_stmt) != LABEL_EXPR)
-    {
-      block_stmt_iterator dest_iterator = bsi_start (dest);
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (label) = current_function_decl;
-      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
-      bsi_insert_before (&dest_iterator, dest_stmt, BSI_SAME_STMT);
-    }
-  else
-    label = LABEL_EXPR_LABEL (dest_stmt);
+  if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
+    return NULL;
+
+  if (e->src != ENTRY_BLOCK_PTR 
+      && (ret = tree_try_redirect_by_replacing_jump (e, dest)))
+    return ret;
+
+  if (e->dest == dest)
+    return NULL;
+
+  label = tree_block_label (dest);
 
   /* If our block does not end with a GOTO, then create one.
      Otherwise redirect the existing GOTO_EXPR to LABEL.  */
@@ -3853,20 +3908,48 @@ thread_edge (edge e, basic_block dest)
     default:
       stmt = build1 (GOTO_EXPR, void_type_node, label);
       bsi_insert_on_edge_immediate (e, stmt, NULL, &new_bb);
+      /* ??? In RTL equivalent we never create new basic blocks here.
+	 Hopefully this will be just a temporary side case before we switch
+	 to cfg_layout style mode with no explicit GOTO statements.  */
+      if (new_bb)
+	e = new_bb->succ;
+      e->flags &= ~EDGE_FALLTHRU;
       break;
     }
 
   /* Update/insert PHI nodes as necessary.  */
 
   /* Now update the edges in the CFG.  */
-  if (new_bb)
-    {
-      ssa_remove_edge (new_bb->succ);
-      return make_edge (new_bb, dest, 0);
-    }
-  else
-    {
-      ssa_remove_edge (e);
-      return make_edge (bb, dest, flags);
-    }
+  e = ssa_redirect_edge (e, dest);
+  e->flags |= flags;
+  return e;
 }
+
+/* Simple wrapper as we always can redirect fallthru edges.  */
+static basic_block
+tree_redirect_edge_and_branch_force (edge e, basic_block dest)
+{
+  basic_block old = e->src;
+  e = tree_redirect_edge_and_branch (e, dest);
+  if (!e)
+    abort ();
+  return e->src == old ? NULL : old;
+}
+
+/* FIXME These need to be filled in with appropriate pointers.  But this
+   implies an ABI change in some functions.  */
+struct cfg_hooks tree_cfg_hooks = {
+  tree_verify_flow_info,
+  tree_dump_bb,			/* dump_bb  */
+  NULL,				/* create_basic_block  */
+  tree_redirect_edge_and_branch,/* redirect_edge_and_branch  */
+  tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
+  NULL,				/* delete_basic_block  */
+  NULL,				/* split_block  */
+  NULL,				/* can_merge_blocks_p  */
+  NULL,				/* merge_blocks  */
+  tree_split_edge,		/* cfgh_split_edge  */
+  tree_make_forwarder_block,	/* cfgh_make_forward_block  */
+  tree_loop_optimizer_init,     /* cfgh_loop_optimizer_init  */
+  tree_loop_optimizer_finalize  /* cfgh_loop_optimizer_finalize  */
+};

@@ -35,9 +35,10 @@ struct cfg_hooks
   basic_block (*create_basic_block) (void *head, void *end, basic_block after);
 
   /* Redirect edge E to the given basic block B and update underlying program
-     representation.  Returns false when edge is not easily redirectable for
-     whatever reason.  */
-  bool (*redirect_edge_and_branch) (edge e, basic_block b);
+     representation.  Returns edge representing redirected branch (that may not
+     be equivalent to E in the case of duplicate edges being removed) or NULL
+     if edge is not easily redirectable for whatever reason.  */
+  edge (*redirect_edge_and_branch) (edge e, basic_block b);
 
   /* Same as the above but allows redirecting of fallthru edges.  In that case
      newly created forwarder basic block is returned.  It aborts when called

@@ -1852,8 +1852,7 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
 
 /* Remove edge E and remove the corresponding arguments from the PHI nodes
-   in E's destination block.  Return a TREE_LIST node with all the removed
-   PHI arguments.  */
+   in E's destination block.  */
 
 void
 ssa_remove_edge (edge e)
@@ -1865,6 +1864,22 @@ ssa_remove_edge (edge e)
     remove_phi_arg (phi, e->src);
 
   remove_edge (e);
+}
+
+/* Remove remove the corresponding arguments from the PHI nodes
+   in E's destination block and redirect it to DEST.  Return redirected edge.
+   It is up to caller to update phi nodes on the destination.  */
+
+edge
+ssa_redirect_edge (edge e, basic_block dest)
+{
+  tree phi;
+
+  /* Remove the appropriate PHI arguments in E's destination block.  */
+  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+    remove_phi_arg (phi, e->src);
+
+  return redirect_edge_succ_nodup (e, dest);
 }
 
 /*---------------------------------------------------------------------------

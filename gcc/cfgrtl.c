@@ -78,12 +78,12 @@ basic_block force_nonfallthru_and_redirect (edge, basic_block);
 static basic_block rtl_split_edge (edge);
 static int rtl_verify_flow_info (void);
 static edge cfg_layout_split_block (basic_block, void *);
-static bool cfg_layout_redirect_edge_and_branch (edge, basic_block);
+static edge cfg_layout_redirect_edge_and_branch (edge, basic_block);
 static basic_block cfg_layout_redirect_edge_and_branch_force (edge, basic_block);
 static void cfg_layout_delete_block (basic_block);
 static void rtl_delete_block (basic_block);
 static basic_block rtl_redirect_edge_and_branch_force (edge, basic_block);
-static bool rtl_redirect_edge_and_branch (edge, basic_block);
+static edge rtl_redirect_edge_and_branch (edge, basic_block);
 static edge rtl_split_block (basic_block, void *);
 static void rtl_dump_bb (basic_block, FILE *, int);
 static int rtl_verify_flow_info_1 (void);
@@ -681,7 +681,7 @@ block_label (basic_block block)
    apply only if all edges now point to the same block.  The parameters and
    return values are equivalent to redirect_edge_and_branch.  */
 
-static bool
+static edge
 try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 {
   basic_block src = e->src;
@@ -696,14 +696,14 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       break;
 
   if (tmp || !onlyjump_p (insn))
-    return false;
+    return NULL;
   if ((!optimize || flow2_completed) && tablejump_p (insn, NULL, NULL))
-    return false;
+    return NULL;
 
   /* Avoid removing branch with side effects.  */
   set = single_set (insn);
   if (!set || side_effects_p (set))
-    return false;
+    return NULL;
 
   /* In case we zap a conditional jump, we'll need to kill
      the cc0 setter too.  */
@@ -752,21 +752,21 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   else if (simplejump_p (insn))
     {
       if (e->dest == target)
-	return false;
+	return NULL;
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Redirecting jump %i from %i to %i.\n",
 		 INSN_UID (insn), e->dest->index, target->index);
       if (!redirect_jump (insn, block_label (target), 0))
 	{
 	  if (target == EXIT_BLOCK_PTR)
-	    return false;
+	    return NULL;
 	  abort ();
 	}
     }
 
   /* Cannot do anything for target exit block.  */
   else if (target == EXIT_BLOCK_PTR)
-    return false;
+    return NULL;
 
   /* Or replace possibly complicated jump insn by simple jump insn.  */
   else
@@ -816,7 +816,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   if (e->dest != target)
     redirect_edge_succ (e, target);
 
-  return true;
+  return e;
 }
 
 /* Return last loop_beg note appearing after INSN, before start of next
@@ -841,8 +841,9 @@ last_loop_beg_note (rtx insn)
   return last;
 }
 
-/* Redirect edge representing branch of (un)conditional jump or tablejump.  */
-static bool
+/* Redirect edge representing branch of (un)conditional jump or tablejump,
+   NULL on failure  */
+static edge
 redirect_branch_edge (edge e, basic_block target)
 {
   rtx tmp;
@@ -852,9 +853,9 @@ redirect_branch_edge (edge e, basic_block target)
 
   /* We can only redirect non-fallthru edges of jump insn.  */
   if (e->flags & EDGE_FALLTHRU)
-    return false;
+    return NULL;
   else if (GET_CODE (insn) != JUMP_INSN)
-    return false;
+    return NULL;
 
   /* Recognize a tablejump and adjust all matching cases.  */
   if (tablejump_p (insn, NULL, &tmp))
@@ -864,7 +865,7 @@ redirect_branch_edge (edge e, basic_block target)
       rtx new_label = block_label (target);
 
       if (target == EXIT_BLOCK_PTR)
-	return false;
+	return NULL;
       if (GET_CODE (PATTERN (tmp)) == ADDR_VEC)
 	vec = XVEC (PATTERN (tmp), 0);
       else
@@ -899,7 +900,7 @@ redirect_branch_edge (edge e, basic_block target)
       if (computed_jump_p (insn)
 	  /* A return instruction can't be redirected.  */
 	  || returnjump_p (insn))
-	return false;
+	return NULL;
 
       /* If the insn doesn't go where we think, we're confused.  */
       if (JUMP_LABEL (insn) != old_label)
@@ -911,7 +912,7 @@ redirect_branch_edge (edge e, basic_block target)
       if (!redirect_jump (insn, block_label (target), 0))
 	{
 	  if (target == EXIT_BLOCK_PTR)
-	    return false;
+	    return NULL;
 	  abort ();
 	}
     }
@@ -921,8 +922,8 @@ redirect_branch_edge (edge e, basic_block target)
 	     e->src->index, e->dest->index, target->index);
 
   if (e->dest != target)
-    redirect_edge_succ_nodup (e, target);
-  return true;
+    e = redirect_edge_succ_nodup (e, target);
+  return e;
 }
 
 /* Attempt to change code to redirect edge E to TARGET.  Don't do that on
@@ -931,28 +932,28 @@ redirect_branch_edge (edge e, basic_block target)
    Function can be also called with edge destination equivalent to the TARGET.
    Then it should try the simplifications and do nothing if none is possible.
 
-   Return true if transformation succeeded.  We still return false in case E
-   already destinated TARGET and we didn't managed to simplify instruction
-   stream.  */
+   Return edge representing the branch if transformation succeeded.  Return NULL
+   on failure.
+   We still return NULL in case E already destinated TARGET and we didn't
+   managed to simplify instruction stream.  */
 
-static bool
+static edge
 rtl_redirect_edge_and_branch (edge e, basic_block target)
 {
+  edge ret;
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-    return false;
+    return NULL;
 
-  if (try_redirect_by_replacing_jump (e, target, false))
-    return true;
+  if ((ret = try_redirect_by_replacing_jump (e, target, false)) != NULL)
+    return ret;
 
   /* Do this fast path late, as we want above code to simplify for cases
      where called on single edge leaving basic block containing nontrivial
      jump insn.  */
   else if (e->dest == target)
-    return false;
-  else if (!redirect_branch_edge (e, target))
-    return false;
+    return NULL;
 
-  return true;
+  return redirect_branch_edge (e, target);
 }
 
 /* Like force_nonfallthru below, but additionally performs redirection
@@ -2405,21 +2406,21 @@ cfg_layout_split_block (basic_block bb, void *insnp)
 
 
 /* Redirect Edge to DEST.  */
-static bool
+static edge
 cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 {
   basic_block src = e->src;
-  bool ret;
+  edge ret;
 
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-    return false;
+    return NULL;
 
   if (e->src != ENTRY_BLOCK_PTR
-      && try_redirect_by_replacing_jump (e, dest, true))
-    return true;
+      && (ret = try_redirect_by_replacing_jump (e, dest, true)))
+    return ret;
 
   if (e->dest == dest)
-    return true;
+    return NULL;
 
   if (e->src == ENTRY_BLOCK_PTR
       && (e->flags & EDGE_FALLTHRU) && !(e->flags & EDGE_COMPLEX))
@@ -2429,7 +2430,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 		 e->src->index, dest->index);
 
       redirect_edge_succ (e, dest);
-      return true;
+      return e;
     }
 
   /* Redirect_edge_and_branch may decide to turn branch into fallthru edge
@@ -2456,12 +2457,10 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      && onlyjump_p (src->end))
 	    delete_insn (src->end);
 	}
-      redirect_edge_succ_nodup (e, dest);
+      ret = redirect_edge_succ_nodup (e, dest);
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Fallthru edge %i->%i redirected to %i\n",
 		 e->src->index, e->dest->index, dest->index);
-
-      ret = true;
     }
   else
     ret = redirect_branch_edge (e, dest);

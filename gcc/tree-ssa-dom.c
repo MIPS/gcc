@@ -421,7 +421,7 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
 	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 		SET_BIT (vars_to_rename, var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid);
 
-	      e = thread_edge (e, tgt);
+	      e = redirect_edge_and_branch (e, tgt);
 	      
 	      if ((dump_file && (dump_flags & TDF_DETAILS))
     		  && e->src != src)
