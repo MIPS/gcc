@@ -27,7 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "tree-dump.h"
 #include "tree-simple.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "tm.h"
@@ -35,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "errors.h"
 #include "flags.h"
+#include "cgraph.h"
 #include <assert.h>
 #include "gfortran.h"
 #include "trans.h"
@@ -871,7 +871,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
     DECL_IS_MALLOC (fndecl) = 1;
 
   /* Set the context of this decl.  */
-  if (sym->ns && sym->ns->proc_name)
+  if (0 && sym->ns && sym->ns->proc_name)
     {
       /* TODO: Add external decls to the appropriate scope.  */
       DECL_CONTEXT (fndecl) = sym->ns->proc_name->backend_decl;
@@ -1791,6 +1791,20 @@ generate_local_vars (gfc_namespace * ns)
 }
 
 
+/* Finalize DECL and all nested functions with cgraph.  */
+
+static void
+gfc_finalize (tree decl)
+{
+  struct cgraph_node *cgn;
+
+  cgn = cgraph_node (decl);
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    gfc_finalize (cgn->decl);
+
+  cgraph_finalize_function (decl, false);
+}
+
 /* Generate code for a function.  */
 
 void
@@ -1959,13 +1973,26 @@ gfc_generate_function_code (gfc_namespace * ns)
       pop_function_context ();
       saved_function_decls = saved_parent_function_decls;
     }
+  current_function_decl = old_context;
+
+  if (decl_function_context (fndecl))
+    {
+      /* Register this function with cgraph just far enough to get it
+	 added to our parent's nested function list.  */
+      (void) cgraph_node (fndecl);
+
+      /* Lowering nested functions requires gimple input.  */
+      gimplify_function_tree (fndecl);
+    }
   else
     {
-      /* Pass the function to the backend.  */
-      expand_function_body (fndecl, 0);
+      if (cgraph_node (fndecl)->nested)
+	{
+	  gimplify_function_tree (fndecl);
+          lower_nested_functions (fndecl);
+	}
+      gfc_finalize (fndecl);
     }
-
-  current_function_decl = old_context;
 }
 
 
@@ -2025,7 +2052,7 @@ gfc_generate_constructors (void)
   free_after_parsing (cfun);
   free_after_compilation (cfun);
 
-  expand_function_body (fndecl, 0);
+  tree_rest_of_compilation (fndecl, 0);
 
   current_function_decl = NULL_TREE;
 #endif

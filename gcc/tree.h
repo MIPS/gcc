@@ -243,8 +243,6 @@ struct tree_common GTY(())
            all expressions
        TYPE_READONLY in
            ..._TYPE
-       NONLOCAL_LABEL in
-	   LABEL_DECL
 
    constant_flag:
 
@@ -669,10 +667,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    (but the macro TYPE_READONLY should be used instead of this macro
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
-
-/* In a LABEL_DECL, nonzero means this label is a jump target for
-   a nonlocal goto.  */
-#define NONLOCAL_LABEL(NODE) ((NODE)->common.readonly_flag)
 
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))
@@ -3519,7 +3513,6 @@ extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
 extern void expand_start_case_dummy (void);
-extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In gimplify.c.  */
@@ -3580,6 +3573,7 @@ enum tree_dump_index
   TDI_class,			/* dump class hierarchy.  */
   TDI_original,			/* dump each function before optimizing it */
   TDI_generic,			/* dump each function after genericizing it */
+  TDI_nested,			/* dump each function after unnesting it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_dot,			/* create a dot graph file for each 

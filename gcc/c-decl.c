@@ -51,6 +51,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-pragma.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "tree-simple.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "cgraph.h"
@@ -1975,10 +1976,6 @@ lookup_label (tree name)
 /* Make a label named NAME in the current function, shadowing silently
    any that may be inherited from containing functions or containing
    scopes.  This is called for __label__ declarations.  */
-
-/* Note that valid use, if the label being shadowed comes from another
-   scope in the same function, requires calling declare_nonlocal_label
-   right away.  (Is this still true?  -zw 2003-07-17)  */
 
 tree
 declare_label (tree name)
@@ -6147,6 +6144,7 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
+	  lower_nested_functions (fndecl);
           c_finalize (fndecl);
         }
       else
@@ -6449,9 +6447,6 @@ c_expand_decl (tree decl)
 	   && DECL_CONTEXT (decl) == current_function_decl
 	   && DECL_SAVED_TREE (decl))
     c_expand_body_1 (decl, 1);
-  else if (TREE_CODE (decl) == LABEL_DECL 
-	   && C_DECLARED_LABEL_FLAG (decl))
-    declare_nonlocal_label (decl);
   else
     return 0;
 

@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "cgraph.h"
 
 #include "gfortran.h"
 #include "trans.h"
@@ -103,8 +104,8 @@ int global_bindings_p (void);
 void insert_block (tree);
 void set_block (tree);
 static void gfc_be_parse_file (int);
-static int gfc_expand_decl (tree t);
-static void gfc_expand_stmt (tree t);
+static void gfc_expand_stmt (tree);
+static void gfc_expand_function (tree);
 
 #undef LANG_HOOKS_NAME
 #undef LANG_HOOKS_INIT
@@ -112,7 +113,6 @@ static void gfc_expand_stmt (tree t);
 #undef LANG_HOOKS_INIT_OPTIONS
 #undef LANG_HOOKS_HANDLE_OPTION
 #undef LANG_HOOKS_POST_OPTIONS
-#undef LANG_HOOKS_EXPAND_DECL
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #undef LANG_HOOKS_PARSE_FILE
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
@@ -124,6 +124,7 @@ static void gfc_expand_stmt (tree t);
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_GIMPLE_BEFORE_INLINING
 #undef LANG_HOOKS_RTL_EXPAND_STMT
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -132,7 +133,6 @@ static void gfc_expand_stmt (tree t);
 #define LANG_HOOKS_INIT_OPTIONS         gfc_init_options
 #define LANG_HOOKS_HANDLE_OPTION        gfc_handle_option
 #define LANG_HOOKS_POST_OPTIONS		gfc_post_options
-#define LANG_HOOKS_EXPAND_DECL          gfc_expand_decl
 #define LANG_HOOKS_PRINT_IDENTIFIER     gfc_print_identifier
 #define LANG_HOOKS_PARSE_FILE           gfc_be_parse_file
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION   gfc_truthvalue_conversion
@@ -144,6 +144,7 @@ static void gfc_expand_stmt (tree t);
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 #define LANG_HOOKS_GIMPLE_BEFORE_INLINING false
 #define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -194,20 +195,12 @@ static GTY(()) struct binding_level *free_binding_level;
 tree *ridpointers = NULL;
 
 /* language-specific flags.  */
-void
-expand_function_body (tree fndecl, int nested)
+
+static void
+gfc_expand_function (tree fndecl)
 {
-  if (nested)
-    push_function_context ();
-
-  gimplify_function_tree (fndecl);
-
-  tree_rest_of_compilation (fndecl, nested);
-
-  if (nested)
-    pop_function_context ();
+  tree_rest_of_compilation (fndecl, 0);
 }
-
 
 /* We generate GENERIC trees, so just pass everything on to the backend
    expanders.  */
@@ -284,29 +277,15 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   gfc_parse_file ();
   gfc_generate_constructors ();
 
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
+
   /* Tell the frontent about any errors.  */
   gfc_get_errors (&warnings, &errors);
   errorcount += errors;
   warningcount += warnings;
 }
 
-/* Routines Expected by GCC:  */
-
-/* Expand a decl.  */
-static int
-gfc_expand_decl (tree t)
-{
-  /* Expand nested functions.  */
-  if (TREE_CODE (t) == FUNCTION_DECL
-      && DECL_CONTEXT (t) == current_function_decl && DECL_SAVED_TREE (t))
-    expand_function_body (t, 1);
-  else
-    return 0;
-
-  return 1;
-}
-
-
 /* Initialize everything.  */
 
 static bool
@@ -835,6 +814,18 @@ gfc_init_builtin_functions (void)
   tmp = tree_cons (NULL_TREE, long_long_integer_type_node, voidchain);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll", true);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_init_trampoline", ftype,
+		      BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
+		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 }
 
 #undef DEFINE_MATH_BUILTIN

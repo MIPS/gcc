@@ -921,6 +921,17 @@ get_first_label_num (void)
 {
   return first_label_num;
 }
+
+/* If the rtx for label was created during the expansion of a nested
+   function, then first_label_num won't include this label number.
+   Fix this now so that array indicies work later.  */
+
+void
+maybe_set_first_label_num (rtx x)
+{
+  if (CODE_LABEL_NUMBER (x) < first_label_num)
+    first_label_num = CODE_LABEL_NUMBER (x);
+}
 
 /* Return the final regno of X, which is a SUBREG of a hard
    register.  */

@@ -408,7 +408,6 @@ tree pushdecl (tree);
 tree pushdecl_top_level (tree);
 void pushlevel (int);
 tree poplevel (int, int, int);
-void expand_function_body (tree, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
 

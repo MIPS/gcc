@@ -888,10 +888,6 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
   if (inl_f->uses_pic_offset_table)
     current_function_uses_pic_offset_table = 1;
 
-  /* If this function needs a context, set it up.  */
-  if (inl_f->needs_context)
-    static_chain_value = lookup_static_chain (fndecl);
-
   /* If the inlined function calls __builtin_constant_p, then we'll
      need to call purge_builtin_constant_p on this function.  */
   if (inl_f->calls_constant_p)

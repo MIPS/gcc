@@ -2213,7 +2213,7 @@ max_size (tree exp, int max_p)
 				max_size (TREE_OPERAND (exp, 2), max_p)));
 	  else if (code == CALL_EXPR && TREE_OPERAND (exp, 1) != 0)
 	    return build (CALL_EXPR, type, TREE_OPERAND (exp, 0),
-			  max_size (TREE_OPERAND (exp, 1), max_p));
+			  max_size (TREE_OPERAND (exp, 1), max_p), NULL);
 	}
     }
 

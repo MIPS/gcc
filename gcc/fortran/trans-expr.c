@@ -1107,7 +1107,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
-  se->expr = build (CALL_EXPR, TREE_TYPE (fntype), se->expr, arglist);
+  se->expr = build (CALL_EXPR, TREE_TYPE (fntype), se->expr,
+		    arglist, NULL_TREE);
 
 /* A pure function may still have side-effects - it may modify its
    parameters.  */

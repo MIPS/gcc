@@ -11110,13 +11110,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  add_AT_loc (subr_die, DW_AT_frame_base, reg_loc_descriptor (fp_reg));
 	}
 
-#if 0
-      /* ??? This fails for nested inline functions, because context_display
-	 is not part of the state saved/restored for inline functions.  */
-      if (current_function_needs_context)
+      if (cfun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
-			     loc_descriptor (lookup_static_chain (decl)));
-#endif
+		 loc_descriptor_from_tree (cfun->static_chain_decl, 0));
     }
 
   /* Now output descriptions of the arguments for this function. This gets

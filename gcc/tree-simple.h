@@ -30,6 +30,7 @@ extern tree create_tmp_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);
 extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
+extern void declare_tmp_vars (tree, tree);
 
 extern tree rationalize_compound_expr (tree);
 extern tree right_assocify_expr (tree);
@@ -120,5 +121,8 @@ tree gimple_build_eh_filter (tree, tree, tree);
 tree build_and_jump (tree *);
 tree alloc_stmt_list (void);
 void free_stmt_list (tree);
+
+/* In tree-nested.c.  */
+extern void lower_nested_functions (tree);
 
 #endif /* _TREE_SIMPLE_H  */

@@ -650,6 +650,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".class", "class-hierarchy", 0, 0},
   {".original", "tree-original", 0, 0},
   {".generic", "tree-generic", 0, 0},
+  {".nested", "tree-nested", 0, 0},
   {".inlined", "tree-inlined", 0, 0},
   {".dot", "tree-dot", 0, 0},
   {".xml", "call-graph", 0, 0},

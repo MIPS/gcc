@@ -280,16 +280,10 @@ calls_function_1 (tree exp, int which)
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
-		      int reg_parm_seen, int sibcallp)
+prepare_call_address (rtx funexp, rtx static_chain_value,
+		      rtx *call_fusage, int reg_parm_seen, int sibcallp)
 {
-  rtx static_chain_value = 0;
-
   funexp = protect_from_queue (funexp, 0);
-
-  if (fndecl != 0)
-    /* Get possible static chain value for nested function in C.  */
-    static_chain_value = lookup_static_chain (fndecl);
 
   /* Make a valid memory address and copy constants through pseudo-regs,
      but not for a constant address if -fno-function-cse.  */
@@ -2246,7 +2240,8 @@ expand_call (tree exp, rtx target, int ignore)
   HOST_WIDE_INT preferred_stack_boundary;
   /* The alignment of the stack, in bytes.  */
   HOST_WIDE_INT preferred_unit_stack_boundary;
-
+  /* The static chain value to use for this call.  */
+  rtx static_chain_value;
   /* See if this is "nothrow" function call.  */
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
@@ -3005,6 +3000,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
 
+      if (TREE_OPERAND (exp, 2))
+	static_chain_value = expand_expr (TREE_OPERAND (exp, 2),
+					  NULL_RTX, VOIDmode, 0);
+      else
+	static_chain_value = 0;
+
 #ifdef REG_PARM_STACK_SPACE
       /* Save the fixed argument area if it's part of the caller's frame and
 	 is clobbered by argument setup for this call.  */
@@ -3095,8 +3096,8 @@ expand_call (tree exp, rtx target, int ignore)
 	    use_reg (&call_fusage, struct_value);
 	}
 
-      funexp = prepare_call_address (funexp, fndecl, &call_fusage,
-				     reg_parm_seen, pass == 0);
+      funexp = prepare_call_address (funexp, static_chain_value,
+				     &call_fusage, reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags,
 				pass == 0, &sibcall_failure);
@@ -3426,8 +3427,8 @@ expand_call (tree exp, rtx target, int ignore)
 	 Check for the handler slots since we might not have a save area
 	 for non-local gotos.  */
 
-      if ((flags & ECF_MAY_BE_ALLOCA) && nonlocal_goto_handler_slots != 0)
-	emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
+      if ((flags & ECF_MAY_BE_ALLOCA) && cfun->nonlocal_goto_save_area != 0)
+	update_nonlocal_goto_save_area ();
 
       /* Free up storage we no longer need.  */
       for (i = 0; i < num_actuals; ++i)
@@ -4162,7 +4163,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   else
     argnum = 0;
 
-  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0, 0);
+  fun = prepare_call_address (fun, NULL, &call_fusage, 0, 0);
 
   /* Now load any reg parms into their regs.  */
 

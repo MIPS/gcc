@@ -447,7 +447,6 @@ extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
-extern bool nonlocal_goto_p (tree);
 extern bool simple_goto_p (tree);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);

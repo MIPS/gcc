@@ -1555,7 +1555,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
 	{
-	  result = build_nt (CALL_EXPR, fn, args);
+	  result = build_nt (CALL_EXPR, fn, args, NULL_TREE);
 	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  return result;
 	}
@@ -1630,7 +1630,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       if (processing_template_decl)
 	{
 	  if (type_dependent_expression_p (object))
-	    return build_nt (CALL_EXPR, orig_fn, orig_args);
+	    return build_nt (CALL_EXPR, orig_fn, orig_args, NULL_TREE);
 	  object = build_non_dependent_expr (object);
 	}
 
@@ -1662,7 +1662,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
   if (processing_template_decl)
     {
-      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn, orig_args);
+      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn,
+		      orig_args, NULL_TREE);
       KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;

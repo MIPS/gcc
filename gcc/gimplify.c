@@ -60,9 +60,6 @@ static struct gimplify_ctx
 } *gimplify_ctxp;
 
 
-static void declare_tmp_vars (tree vars, tree scope);
-
-
 /* Formal (expression) temporary table handling: Multiple occurrences of
    the same scalar expression are evaluated into the same temporary.  */
 
@@ -279,7 +276,7 @@ remove_suffix (char *name, int len)
 tree
 create_artificial_label (void)
 {
-  tree lab = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  tree lab = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (lab) = 1;
   DECL_CONTEXT (lab) = current_function_decl;
   return lab;
@@ -488,7 +485,7 @@ is_gimple_tmp_var (tree t)
 /* Declares all the variables in VARS in SCOPE.  Returns the last
    DECL_STMT emitted.  */
 
-static void
+void
 declare_tmp_vars (tree vars, tree scope)
 {
   tree last = vars;
@@ -3181,28 +3178,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case GOTO_EXPR:
-	  {
-	    tree dest = GOTO_DESTINATION (*expr_p);
-
-	    /* If the target is not LABEL, then it is a computed jump
-	       and the target needs to be gimplified.  */
-	    if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
-	      ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
-				   NULL, is_gimple_val, fb_rvalue);
-	    else
-	      {
-		/* If this label is in a different context (function), then
-		   mark it as a nonlocal label and mark its context as
-		   receiving nonlocal gotos.  */
-		tree context = decl_function_context (dest);
-		if (current_function_decl != context)
-		  {
-		    NONLOCAL_LABEL (dest) = 1;
-		    DECL_SAVED_INSNS (context)->has_nonlocal_label = 1;
-		  }
-	      }
-	    break;
-	  }
+	  /* If the target is not LABEL, then it is a computed jump
+	     and the target needs to be gimplified.  */
+	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
+	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
+				 NULL, is_gimple_val, fb_rvalue);
+	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;

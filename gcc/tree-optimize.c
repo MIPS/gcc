@@ -603,7 +603,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   else
     DECL_SAVED_TREE (fndecl) = NULL;
   cfun = 0;
-  DECL_SAVED_INSNS (fndecl) = 0;
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
