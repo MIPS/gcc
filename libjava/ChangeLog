@@ -1,3 +1,10 @@
+2004-12-22  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JLabel.java
+	(setDisplayedMnemonic): Use only upper case characters.
+	(setDisplayedMnemonicIndex): Handle index == -1 and fire
+	PropertyChangeEvent after property got set to the new index.
+
 2004-12-22  Robert Schuster <thebohemian@gmx.net>
 
 	* javax/swing/JComboBox.java:
