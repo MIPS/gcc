@@ -2527,14 +2527,12 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
       {
 	fprintf (outf, "%s%s# ", s_indent, prefix);
 	print_generic_stmt (outf, phi, 0);
-	fprintf (outf, "\n");
       }
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
       fprintf (outf, "%s%s%d  ", s_indent, prefix, get_lineno (bsi_stmt (si)));
       print_generic_stmt (outf, bsi_stmt (si), TDF_SLIM);
-      fprintf (outf, "\n");
     }
 }
 

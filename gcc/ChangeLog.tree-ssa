@@ -1,3 +1,7 @@
+2003-09-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (dump_tree_bb): Remove superlfuous newlines.
+
 2003-09-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (compute_alias_sets): Use TDI_alias instead of
