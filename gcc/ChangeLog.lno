@@ -1,3 +1,29 @@
+2004-08-31  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* tree-vectorizer.h (struct _loop_vec_info): Add fields ptr_mask,
+	may_misalign_stmts, and num_blocks
+	* tree-vectorizer.c (vect_compute_data_refs_alignment): Return 
+	bool so caller knows when no vectorization is possible.
+	(vect_compute_data_ref_alignment): Return bool and rearrange code
+	so false returns, no vectorization possible, are performed first.
+	(vect_analyze_data_refs): 
+	(vect_create_index_for_array_ref): Replaced with 
+	vect_create_index_for_vector_ref.
+	(vect_create_addr_base_for_vector_ref): New function, contains code from
+	vect_create_data_ref so that it may be used by that procedure and
+	by vect_create_cond_for_align_checks.
+	(vect_create_cond_for_align_checks): New function.
+	(new_loop_vec_info): initialize added _loop_vec_info fields.
+	(destroy_loop_vec_info): Use/clear added _loop_vec_info fields.
+	(vect_create_data_ref): Changed to use vect_create_index_for_vector_ref
+	and vect_create_addr_base_for_vector_ref. 
+	(vect_generate_tmps_on_preheader): Fix comment.
+	(vect_transform_loop): Add calls to tree_ssa_loop_version and
+	vect_create_cond_for_align_checks to implement the vector loop
+	versioning for alignment.
+	(vect_analyze_operations, vect_mark_stmts_to_be_vectorized,
+	vect_analyze_data_refs): Use num_blocks field from _loop_vec_info.
+
 2004-08-25  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-vectorizer.c (vect_can_force_dr_alignment_p):

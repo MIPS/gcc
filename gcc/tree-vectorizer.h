@@ -119,6 +119,10 @@ vinfo_for_stmt (tree stmt)
 /* Info on data references alignment.                              */
 /*-----------------------------------------------------------------*/
 
+/* FORNOW: the number of alignment checks may change in the future to
+   a target specific compilation flag.  */
+#define MAX_RUNTIME_ALIGNMENT_CHECKS 6
+
 #define DR_MISALIGNMENT(DR)   (DR)->aux
 
 static inline bool
@@ -145,6 +149,9 @@ typedef struct _loop_vec_info {
   /* The loop basic blocks.  */
   basic_block *bbs;
 
+  /* The number of basic blocks in the loop.  */
+  int num_blocks;
+
   /* The loop exit_condition.  */
   tree exit_cond;
 
@@ -160,23 +167,33 @@ typedef struct _loop_vec_info {
   /* Unrolling factor  */
   int vectorization_factor;
 
+  /* The mask used to check the alignment of pointers or arrays.  */
+  int ptr_mask;
+
   /* All data references in the loop that are being written to.  */
   varray_type data_ref_writes;
 
   /* All data references in the loop that are being read from.  */
   varray_type data_ref_reads;
+
+  /* Statements in the loop that have data references that are candidates for a
+     runtime (loop versioning) misalignment check.  */
+  varray_type may_misalign_stmts;
 } *loop_vec_info;
 
 /* Access Functions.  */
 #define LOOP_VINFO_LOOP(L)           (L)->loop
 #define LOOP_VINFO_BBS(L)            (L)->bbs
+#define LOOP_VINFO_NUM_BLOCKS(L)     (L)->num_blocks
 #define LOOP_VINFO_EXIT_COND(L)      (L)->exit_cond
 #define LOOP_VINFO_NITERS(L)         (L)->num_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
 #define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
+#define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
 #define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
 #define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
-#define LOOP_VINFO_SYMB_NUM_OF_ITERS(L) (L)->symb_numb_of_iters
+#define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
+#define LOOP_VINFO_SYMB_NUM_OF_ITERS(L)  (L)->symb_numb_of_iters
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L) ((L)->num_iters > 0)
 
