@@ -19696,6 +19696,12 @@ cat >>confdefs.h <<_ACEOF
 #define LTDL_SHLIB_EXT "$libltdl_cv_shlibext"
 _ACEOF
 
+  libltdl_cv_shlibversionext=.so.`grep -v '^\#' ${srcdir}/../libtool-version | awk -F: '{ print $'1' }'`
+
+cat >>confdefs.h <<_ACEOF
+#define LTDL_SHLIB_VERSION_EXT "$libltdl_cv_shlibversionext"
+_ACEOF
+
 fi
 
 

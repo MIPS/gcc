@@ -1,3 +1,12 @@
+2005-03-09  Thomas Fitzsimmons <fitzsim@redhat.com>
+
+	* acinclude.m4 (LTDL_SHLIB_VERSION_EXT): Add.
+	* config-h.in, configure: Rebuilt.
+	* ltdl.c (shlib_version_ext): New variable.
+	(tryall_dlopen): Uncomment access check.
+	(lt_dlopenext): Try first versioned extension (like .so.5) before
+	version-less one.
+
 2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Makefile.in: Regenrate with Automake 1.9.3.

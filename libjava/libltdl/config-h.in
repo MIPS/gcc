@@ -158,6 +158,10 @@
 /* Define to the extension used for shared libraries, say, ".so". */
 #undef LTDL_SHLIB_EXT
 
+/* Define to the versioned extension used for shared libraries, say, ".so.6".
+   */
+#undef LTDL_SHLIB_VERSION_EXT
+
 /* Define to the system default library search path. */
 #undef LTDL_SYSSEARCHPATH
 
