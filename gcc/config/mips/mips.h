@@ -1538,19 +1538,18 @@ do {							\
    words.  */
 #define LONG_DOUBLE_TYPE_SIZE 64
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
+/* Width in bits of a pointer.  */
 #ifndef POINTER_SIZE
-#define POINTER_SIZE (Pmode == DImode ? 64 : 32)
+#define POINTER_SIZE ((TARGET_LONG64 && TARGET_64BIT) ? 64 : 32)
 #endif
 
-/* Allocation boundary (in *bits*) for storing pointers in memory.  */
-#define POINTER_BOUNDARY (Pmode == DImode ? 64 : 32)
+#define POINTERS_EXTEND_UNSIGNED 0
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY ((mips_abi == ABI_O64 || mips_abi == ABI_N32 \
 			|| mips_abi == ABI_64 \
 			|| (mips_abi == ABI_EABI && TARGET_64BIT)) ? 64 : 32)
+
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -1659,26 +1658,28 @@ do {							\
    in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
    type, but kept valid in the wider mode.  The signedness of the
-   extension may differ from that of the type.
-
-   We promote any value smaller than SImode up to SImode.  We don't
-   want to promote to DImode when in 64 bit mode, because that would
-   prevent us from using the faster SImode multiply and divide
-   instructions.  */
+   extension may differ from that of the type.  */
 
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
-      && GET_MODE_SIZE (MODE) < 4)		\
-    (MODE) = SImode;
+      && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
+    {                                           \
+      if ((MODE) == SImode)                     \
+        (UNSIGNEDP) = 0;                        \
+      (MODE) = Pmode;                           \
+    }
+
+/* Define if loading short immediate values into registers sign extends.  */
+#define SHORT_IMMEDIATES_SIGN_EXTEND
+
 
 /* Define this if function arguments should also be promoted using the above
    procedure.  */
-
 #define PROMOTE_FUNCTION_ARGS
 
 /* Likewise, if the function return value is promoted.  */
-
 #define PROMOTE_FUNCTION_RETURN
+
 
 /* Standard register usage.  */
 
@@ -1718,7 +1719,7 @@ do {							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,			\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,			\
   /* COP0 registers */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
@@ -1744,7 +1745,7 @@ do {							\
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* COP0 registers */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
@@ -1773,7 +1774,7 @@ do {							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   /* Others.  */                                                        \
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* COP0 registers */							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
@@ -1807,8 +1808,8 @@ do {							\
 #define ST_REG_LAST  74
 #define ST_REG_NUM   (ST_REG_LAST - ST_REG_FIRST + 1)
 
-#define RAP_REG_NUM   75
 
+/* FIXME: renumber.  */
 #define COP0_REG_FIRST 80
 #define COP0_REG_LAST 111
 #define COP0_REG_NUM (COP0_REG_LAST - COP0_REG_FIRST + 1)
@@ -1927,10 +1928,6 @@ extern char mips_hard_regno_mode_ok[][FIRST_PSEUDO_REGISTER];
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM GP_REG_FIRST
-
-/* Fake register that holds the address on the stack of the
-   current function's return address.  */
-#define RETURN_ADDRESS_POINTER_REGNUM RAP_REG_NUM
 
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM (GP_REG_FIRST + 2)
@@ -2403,26 +2400,14 @@ extern enum reg_class mips_char_to_class[256];
    during reload to be either the frame pointer or the stack pointer plus
    an offset.  */
 
-/* ??? This definition fails for leaf functions.  There is currently no
-   general solution for this problem.  */
-
-/* ??? There appears to be no way to get the return address of any previous
-   frame except by disassembling instructions in the prologue/epilogue.
-   So currently we support only the current frame.  */
-
-#define RETURN_ADDR_RTX(count, frame)					\
-  (((count) == 0)							\
-   ? (leaf_function_p ()						\
-      ? gen_rtx_REG (Pmode, GP_REG_FIRST + 31)				\
-      : gen_rtx_MEM (Pmode, gen_rtx_REG (Pmode,				\
-					 RETURN_ADDRESS_POINTER_REGNUM))) \
-   : (rtx) 0)
+#define RETURN_ADDR_RTX mips_return_addr
 
 /* Since the mips16 ISA mode is encoded in the least-significant bit
    of the address, mask it off return addresses for purposes of
    finding exception handling regions.  */
 
 #define MASK_RETURN_ADDR GEN_INT (-2)
+
 
 /* Similarly, don't use the least-significant bit to tell pointers to
    code from vtable index.  */
@@ -2462,9 +2447,6 @@ extern enum reg_class mips_char_to_class[256];
 {{ ARG_POINTER_REGNUM,   STACK_POINTER_REGNUM},				\
  { ARG_POINTER_REGNUM,   GP_REG_FIRST + 30},				\
  { ARG_POINTER_REGNUM,   GP_REG_FIRST + 17},				\
- { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
- { RETURN_ADDRESS_POINTER_REGNUM, GP_REG_FIRST + 30},			\
- { RETURN_ADDRESS_POINTER_REGNUM, GP_REG_FIRST + 17},			\
  { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 30},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 17}}
@@ -2490,15 +2472,11 @@ extern enum reg_class mips_char_to_class[256];
    */
 
 #define CAN_ELIMINATE(FROM, TO)						\
-  (((FROM) == RETURN_ADDRESS_POINTER_REGNUM				\
-    && (((TO) == STACK_POINTER_REGNUM && ! frame_pointer_needed)	\
- 	|| (TO) == HARD_FRAME_POINTER_REGNUM))				\
-   || ((FROM) != RETURN_ADDRESS_POINTER_REGNUM				\
-      && ((TO) == HARD_FRAME_POINTER_REGNUM 				\
+   (((TO) == HARD_FRAME_POINTER_REGNUM 				        \
 	  || ((TO) == STACK_POINTER_REGNUM && ! frame_pointer_needed	\
 	      && ! (TARGET_MIPS16 && TARGET_64BIT)			\
 	      && (! TARGET_MIPS16					\
-	          || compute_frame_size (get_frame_size ()) < 32768)))))
+	          || compute_frame_size (get_frame_size ()) < 32768))))
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
 	(OFFSET) = mips_initial_elimination_offset ((FROM), (TO))
@@ -3331,30 +3309,23 @@ typedef struct mips_args {
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
-/* In 64 bit mode, 32 bit instructions require that register values be properly
-   sign-extended to 64 bits.  As a result, a truncate is not a no-op if it
-   converts a value >32 bits to a value <32 bits.  */
-/* ??? This results in inefficient code for 64 bit to 32 conversions.
-   Something needs to be done about this.  Perhaps not use any 32 bit
-   instructions?  Perhaps use PROMOTE_MODE?  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) \
   (TARGET_64BIT ? ((INPREC) <= 32 || (OUTPREC) > 32) : 1)
 
+
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
-   between pointers and any other objects of this machine mode.
-
-   For MIPS we make pointers are the smaller of longs and gp-registers.  */
+   between pointers and any other objects of this machine mode.  */
 
 #ifndef Pmode
-#define Pmode ((TARGET_LONG64 && TARGET_64BIT) ? DImode : SImode)
+#define Pmode (TARGET_64BIT ? DImode : SImode)
 #endif
 
 /* A function address in a call instruction
    is a word address (for indexing purposes)
    so give the MEM rtx a words's mode.  */
 
-#define FUNCTION_MODE (Pmode == DImode ? DImode : SImode)
+#define FUNCTION_MODE Pmode
 
 
 /* A part of a C `switch' statement that describes the relative
@@ -3801,24 +3772,9 @@ typedef struct mips_args {
   {"move_operand", 		{ CONST_INT, CONST_DOUBLE, CONST,	\
 				  SYMBOL_REF, LABEL_REF, SUBREG,	\
 				  REG, MEM}},				\
-  {"movdi_operand",		{ CONST_INT, CONST_DOUBLE, CONST,	\
-				  SYMBOL_REF, LABEL_REF, SUBREG, REG,	\
-				  MEM, SIGN_EXTEND }},			\
-  {"se_register_operand",	{ SUBREG, REG, SIGN_EXTEND }},		\
-  {"se_reg_or_0_operand",	{ REG, CONST_INT, CONST_DOUBLE, SUBREG,	\
-				  SIGN_EXTEND }},			\
-  {"se_uns_arith_operand",	{ REG, CONST_INT, SUBREG,		\
-				  SIGN_EXTEND }},			\
-  {"se_arith_operand",		{ REG, CONST_INT, SUBREG,		\
-				  SIGN_EXTEND }},			\
-  {"se_nonmemory_operand",	{ CONST_INT, CONST_DOUBLE, CONST,	\
-				  SYMBOL_REF, LABEL_REF, SUBREG,	\
-				  REG, SIGN_EXTEND }},			\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
-  {"fcc_register_operand",	{ REG, SUBREG }},			\
-  {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
-  {"highpart_shift_operator",   { ASHIFTRT, LSHIFTRT, ROTATERT, ROTATE }},
+  {"fcc_register_operand",	{ REG, SUBREG }},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
@@ -4566,11 +4522,11 @@ while (0)
 /* Default definitions for size_t and ptrdiff_t.  */
 
 #ifndef SIZE_TYPE
-#define SIZE_TYPE (Pmode == DImode ? "long unsigned int" : "unsigned int")
+#define SIZE_TYPE (POINTER_SIZE == 64 ? "long unsigned int" : "unsigned int")
 #endif
 
 #ifndef PTRDIFF_TYPE
-#define PTRDIFF_TYPE (Pmode == DImode ? "long int" : "int")
+#define PTRDIFF_TYPE (POINTER_SIZE == 64 ? "long int" : "int")
 #endif
 
 /* See mips_expand_prologue's use of loadgp for when this should be

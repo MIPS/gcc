@@ -407,7 +407,7 @@ char mips_reg_names[][8] =
  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
  "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
- "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+ "$fcc5","$fcc6","$fcc7","", "",     "",     "",     "",
  "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
  "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
  "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
@@ -472,7 +472,7 @@ const enum reg_class mips_regno_to_class[] =
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   HI_REG,	LO_REG,		HILO_REG,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	ST_REGS,
-  ST_REGS,	ST_REGS,	ST_REGS,	GR_REGS,
+  ST_REGS,	ST_REGS,	ST_REGS,	NO_REGS,
   NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
   COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
   COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
@@ -1226,132 +1226,6 @@ move_operand (op, mode)
 	  && ! (TARGET_MIPS16
 		&& GET_CODE (op) == SYMBOL_REF
 		&& ! mips16_constant (op, mode, 1, 0)));
-}
-
-/* Return nonzero if OPERAND is valid as a source operand for movdi.
-   This accepts not only general_operand, but also sign extended
-   move_operands.  Note that we need to accept sign extended constants
-   in case a sign extended register which is used in an expression,
-   and is equivalent to a constant, is spilled.  We need to accept
-   sign-extended memory in order to reload registers from stack slots,
-   and so that we generate efficient code for extendsidi2.  */
-
-int
-movdi_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && move_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return (general_operand (op, mode)
-	  && ! (TARGET_MIPS16
-		&& GET_CODE (op) == SYMBOL_REF
-		&& ! mips16_constant (op, mode, 1, 0)));
-}
-
-/* Like register_operand, but when in 64 bit mode also accept a sign
-   extend of a 32 bit register, since the value is known to be already
-   sign extended.  */
-
-int
-se_register_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return register_operand (op, mode);
-}
-
-/* Like reg_or_0_operand, but when in 64 bit mode also accept a sign
-   extend of a 32 bit register, since the value is known to be already
-   sign extended.  */
-
-int
-se_reg_or_0_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return reg_or_0_operand (op, mode);
-}
-
-/* Like uns_arith_operand, but when in 64 bit mode also accept a sign
-   extend of a 32 bit register, since the value is known to be already
-   sign extended.  */
-
-int
-se_uns_arith_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return uns_arith_operand (op, mode);
-}
-
-/* Like arith_operand, but when in 64 bit mode also accept a sign
-   extend of a 32 bit register, since the value is known to be already
-   sign extended.  */
-
-int
-se_arith_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return arith_operand (op, mode);
-}
-
-/* Like nonmemory_operand, but when in 64 bit mode also accept a sign
-   extend of a 32 bit register, since the value is known to be already
-   sign extended.  */
-
-int
-se_nonmemory_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return nonmemory_operand (op, mode);
 }
 
 /* Accept any operand that can appear in a mips16 constant table
@@ -6803,13 +6677,6 @@ mips_initial_elimination_offset (from, to)
 	offset -= current_function_pretend_args_size;
       break;
 
-    case RETURN_ADDRESS_POINTER_REGNUM:
-      compute_frame_size (get_frame_size ());
-      offset = cfun->machine->frame.gp_sp_offset;
-      if (BYTES_BIG_ENDIAN)
-	offset += UNITS_PER_WORD - (POINTER_SIZE / BITS_PER_UNIT);
-      break;
-
     default:
       abort ();
     }
@@ -6827,6 +6694,20 @@ mips_initial_elimination_offset (from, to)
    is not modified within save_restore_insns.  */
 
 #define BITSET_P(VALUE,BIT) (((VALUE) & (1L << (BIT))) != 0)
+
+/* Implement RETURN_ADDR_RTX.  Note, we do not support moving
+   back to a previous frame.  */
+rtx
+mips_return_addr (count, frame)
+     int count;
+     rtx frame ATTRIBUTE_UNUSED;
+{
+  if (count != 0)
+    return const0_rtx;
+
+  return get_hard_reg_initial_val (Pmode, GP_REG_FIRST + 31);
+}
+
 
 /* Emit instructions to load the value (SP + OFFSET) into MIPS_TEMP2_REGNUM
    and return an rtl expression for the register.
@@ -9851,32 +9732,6 @@ machine_dependent_reorg (first)
   /* ??? If we output all references to a constant in internal
      constants table, we don't need to output the constant in the real
      constant table, but we have no way to prevent that.  */
-}
-
-/* Return nonzero if X is a SIGN or ZERO extend operator.  */
-int
-extend_operator (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  enum rtx_code code = GET_CODE (x);
-  return code == SIGN_EXTEND || code == ZERO_EXTEND;
-}
-
-/* Accept any operator that can be used to shift the high half of the
-   input value to the lower half, suitable for truncation.  The
-   remainder (the lower half of the input, and the upper half of the
-   output) will be discarded.  */
-int
-highpart_shift_operator (x, mode)
-     rtx x;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  enum rtx_code code = GET_CODE (x);
-  return (code == LSHIFTRT
-	  || code == ASHIFTRT
-	  || code == ROTATERT
-	  || code == ROTATE);
 }
 
 /* Return a number assessing the cost of moving a register in class

@@ -161,6 +161,7 @@ extern int		m16_usym5_4 PARAMS ((rtx, enum machine_mode));
 extern rtx		gen_int_relational PARAMS ((enum rtx_code, rtx, rtx,
 						    rtx,int *));
 extern void		gen_conditional_branch PARAMS ((rtx *, enum rtx_code));
+extern rtx              mips_return_addr PARAMS ((int, rtx));
 #endif
 
 #endif /* ! GCC_MIPS_PROTOS_H */

@@ -1,3 +1,42 @@
+2002-10-22  Eric Christopher  <echristo@redhat.com>
+
+        * config/mips/mips-protos.h (mips_return_addr): New.
+        * config/mips/mips.c (mips_return_addr): New.
+        (movdi_operand): Remove.
+        (se_register_operand): Ditto.
+        (se_reg_or_0_operand): Ditto.
+        (se_uns_arith_operand): Ditto.
+        (se_arith_operand): Ditto.
+        (se_nonmemory_operand): Ditto.
+        (extend_operator): Ditto.
+        (highpart_shift_operator): Ditto.
+        (mips_initial_elimination_offset): Remove return address pointer
+        elimination.
+        (mips_reg_names): Remove $ra.
+        (mips_regno_to_class): Ditto.
+        * config/mips/mips.h (POINTER_SIZE): Define based on TARGET_LONG64
+        and TARGET_64BIT.
+        (POINTER_BOUNDARY): Remove.
+        (POINTERS_EXTEND_UNSIGNED): Define to 0.
+        (PROMOTE_MODE): Promote to Pmode.
+        (SHORT_IMMEDIATES_SIGN_EXTEND): Define.
+        (Pmode): Define to TARGET_64BIT.
+        (FUNCTION_MODE): Define as Pmode.
+        (mips_args): Remove deleted functions.
+        (SIZE_TYPE): Depend on POINTER_SIZE.
+        (PTRDIFF_TYPE): Ditto.
+        (FIXED_REGISTERS): Fix extra registers.
+        (CALL_USED_REGISTERS): Ditto.
+        (CALL_REALLY_USED_REGISTERS): Ditto.
+        (RAP_REG_NUM): Remove.
+        (RETURN_ADDRESS_POINTER_REGNUM): Ditto.
+        (RETURN_ADDR_RTX): Define to mips_return_addr.
+        (ELIMINABLE_REGS): Remove RETURN_ADDRESS_POINTER_REGNUM.
+        (CAN_ELIMINATE): Ditto.
+        * config/mips/mips.md: For DImode patterns, take into account
+        deletions above. Split mulsidi patterns into sign_extend and
+	zero_extend.
+
 2002-10-16  Richard Sandiford  <rsandifo@redhat.com>
 	    Michael Meissner  <meissner@redhat.com>
 
