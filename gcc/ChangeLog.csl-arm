@@ -1,5 +1,24 @@
 2004-09-30  Paul Brook  <paul@codesourcery.com>
 
+	Backport from mainline.
+	2004-09-01  Richard Earnshaw  <rearnsha@arm.com>
+	* arm/arm-cores.def (ARM_CORE): Add new field for the real name of the
+	CPU.
+	(arm7tdmi-s): New CPU name.
+	* arm/arm.c (ARM_CORE): Update for new format.
+	* arm/arm.h (ARM_CORE): Likewise.
+	* arm/gentune.sh: Update for extra field.
+	* config.gcc: Likewise.
+	* arm/arm-tune.md: Regenerate.
+	* doc/invoke.texi: Document the real processor names for ARM cpus.
+
+	2004-09-01  Richard Earnshaw  <rearnsha@arm.com>
+	* config.gcc (--with-cpu on ARM): Preserve the canonical cpu name
+	for use in configargs.h.  Put the cname in a separate variable.  Use
+	that to set target_cpu_default2.
+
+2004-09-30  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/symbian.h (STARTFILE_SPEC): Remove crt*.o.
 	(ENDFILE_SPEC): Define.
 	* config/arm/t-symbian.h (EXTRA_MULTILIB_PARTS): Set.

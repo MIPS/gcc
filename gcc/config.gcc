@@ -2470,10 +2470,16 @@ fi
 			# See if it matches any of the entries in arm-cores.def
 			eval "val=\$with_$which"
 			if [ x"$val" = x ] \
-			    || grep "^ARM_CORE($val," \
+			    || grep "^ARM_CORE(\"$val\"," \
 				    ${srcdir}/config/arm/arm-cores.def \
 				    > /dev/null; then
 			  # Ok
+			  new_val=`grep "^ARM_CORE(\"$val\"," \
+				${srcdir}/config/arm/arm-cores.def | \
+				sed -e 's/^[^,]*,[ 	]*//' | \
+				sed -e 's/,.*$//'`
+			  eval "target_${which}_cname=$new_val"
+			echo "For $val real value is $new_val"
 			  true
 			else
 			  echo "Unknown CPU used in --with-$which=$val" 1>&2
@@ -2711,16 +2717,12 @@ fi
 		;;
 
 	arm*-*-*)
-		case "x$with_cpu" in
-		x)
-			# The most generic
-			target_cpu_default2="TARGET_CPU_generic"
-			;;
-
-		*)
-			target_cpu_default2="TARGET_CPU_$with_cpu"
-			;;
-		esac
+		if test x$target_cpu_cname = x
+		then
+			target_cpu_default2=TARGET_CPU_generic
+		else
+			target_cpu_default2=TARGET_CPU_$target_cpu_cname
+		fi
 		;;
 
 	hppa*-*-* | parisc*-*-*)
