@@ -869,10 +869,10 @@ struct cum_arg
        && REG_OK_FOR_BASE_P (XEXP (OP, 0)))				\
    || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
        && TARGET_H8300S)						\
-   || ((GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST	\
-	&& GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
-	&& GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
-	&& GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT)	\
+   || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == CONST		\
+       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
+       && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
+       && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT	\
        && (TARGET_H8300S						\
 	   || SYMBOL_REF_FLAG (XEXP (XEXP (XEXP (OP, 0), 0), 0))))	\
    || (GET_CODE (OP) == MEM						\
@@ -1020,20 +1020,22 @@ struct cum_arg
 
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE.  */
-/* ??? Shifts need to have a *much* higher cost than this.  */
 
-#define RTX_COSTS(RTX, CODE, OUTER_CODE)	\
-  case MOD:					\
-  case DIV:					\
-    return 60;					\
-  case MULT:					\
-    return 20;					\
-  case ASHIFT:					\
-  case ASHIFTRT:				\
-  case LSHIFTRT:				\
-  case ROTATE:					\
-  case ROTATERT:				\
-    if (GET_MODE (RTX) == HImode) return 2;	\
+#define RTX_COSTS(RTX, CODE, OUTER_CODE)		\
+  case AND:						\
+    return COSTS_N_INSNS (h8300_and_costs (RTX));	\
+  case MOD:						\
+  case DIV:						\
+    return 60;						\
+  case MULT:						\
+    return 20;						\
+  case ASHIFT:						\
+  case ASHIFTRT:					\
+  case LSHIFTRT:					\
+    return COSTS_N_INSNS (h8300_shift_costs (RTX));	\
+  case ROTATE:						\
+  case ROTATERT:					\
+    if (GET_MODE (RTX) == HImode) return 2;		\
     return 8;
 
 /* Tell final.c how to eliminate redundant test instructions.  */

@@ -1,3 +1,102 @@
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/DatagramChannel.java
+	(open): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(disconnect): Added exception documentation.
+	(isConnected): Added exception documentation.
+	(read): Added exception documentation.
+	(receive): Added exception documentation.
+	(send): Added exception documentation.
+	(validOps): Added exception documentation.
+	* java/nio/channels/SocketChannel.java
+	(open): Added exception documentation.
+	(read): Added exception documentation.
+	(write): Added exception documentation.
+	(connect): Added exception documentation.
+	(finishConnect): Added exception documentation.
+	
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/DatagramChannelImpl:
+	(fd): New member variable to store file descriptor of socket.
+	* gnu/java/nio/SelectionKeyImpl.java:
+	(ops): Removed.
+	(readyOps): New member variable.
+	(interestOps): New member variable.
+	(readyOps): Implemented.
+	(readyOps): New method to set member variable readyOps.
+	(interestOps): Replaced ops by interestOps.
+	* gnu/java/nio/SelectorImpl.java:
+	(SelectorImpl): Initialize key sets.
+	(select): Call select with -1 instead of Long.MAX_VALUE).
+	(java_do_select): Make it a native method.
+	(getFDsAsArray): New helper method.
+	(select): Remove canceled keys, give only interested file discriptors
+	to java_do_select, set ready ops.
+	(add): No need to initialize keys set here.
+	(add_selected): No need to initialize selected set here.
+	(deregisterCanceledKeys): New helper method.
+	(register): Set interest ops, set attachments, added handling of datagram
+	channels.
+	* gnu/java/nio/ServerSocketChannelImpl:
+	(SocketAccept): Renamed from NioSocketAccept.
+	(implConfigureBlocking): Implemented.
+	(accept): Use SocketAccept instead of NioSocketAccept.	
+	* gnu/java/nio/SocketChannelImpl:
+	Reactivate native methods.
+	
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc,
+	gnu/java/nio/natDoubleBufferImpl.cc,
+	gnu/java/nio/natFloatBufferImpl.cc,
+	gnu/java/nio/natIntBufferImpl.cc,
+	gnu/java/nio/natLongBufferImpl.cc,
+	gnu/java/nio/natSelectorImpl.cc,
+	gnu/java/nio/natServerSocketChannelImpl.cc,
+	gnu/java/nio/natShortBufferImpl.cc,
+	gnu/java/nio/natSocketChannelImpl.cc:
+	New files that implement native functionalities.
+
+2002-11-29  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/CharBufferImpl.java:
+	Reformated.
+	(endian): New member variable string endianess of buffer.
+	(CharBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	(subSequence): Implemented.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/FloatBufferImpl.java
+	Reformated.
+	(FloatBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/IntBufferImpl.java
+	Added needed imports, Reformated.
+	(IntBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/LongBufferImpl.java
+	Reformated.
+	(LongBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+	* gnu/java/nio/ShortBufferImpl.java
+	Reformated.
+	(ShortBufferImpl): Moved position() after limit.
+	(nio_*): Use native implementation.
+
+2002-11-27  Julian Dolby  <dolby@us.ibm.com>
+
+	* java/util/Locale.java (toString): Improve efficiency if country
+	and variant are both empty.
+
 2002-11-26  Tom Tromey  <tromey@redhat.com>
 
 	* verify.cc (pop_init_ref): New method.

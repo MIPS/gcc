@@ -1,3 +1,26 @@
+2002-11-28  Phil Edwards  <pme@gcc.gnu.org>
+
+	PR libstdc++/8716
+	* testsuite/21_strings/ctor_copy_dtor.cc (test05):  Also test
+	the NULL-pointer, zero-size case.
+
+2002-11-28  Jonathan Wakely  <redi@gcc.gnu.org>
+	* docs/html/faq/index.html: Add tip about a namespace for extensions.
+
+2002-11-28  Paolo Carlini  <pcarlini@unitus.it>
+            Nathan Myers  <ncm@cantrip.org>
+
+	* src/localename.cc
+	(locale::_Impl::_Impl(const char*, size_t)):
+	Improve previous fix for the strtok vs MT issue.
+
+2002-11-28  Paolo Carlini  <pcarlini@unitus.it>
+
+	* config/locale/gnu/c_locale.cc (locale::_S_categories):
+	Reorder the categories to match that of glibc's setlocale(LC_ALL, ""))
+	* config/locale/generic/c_locale.cc (locale::_S_categories): Ditto.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test04): Tweak.
+
 2002-11-25  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/abi_check.cc: Add CXXABI_1.2.1 as compatible.
