@@ -1,3 +1,7 @@
+2005-03-17  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-parse.in: Change number of expected conflicts to 15.
+
 2005-03-14  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4045984

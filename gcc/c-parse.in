@@ -29,7 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    written by AT&T, but I have never seen it.  */
 
 @@ifc
-%expect 13 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
+/* APPLE LOCAL CW asm blocks */
+%expect 15 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
 @@end_ifc
 
 %{
