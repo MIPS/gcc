@@ -56,6 +56,7 @@ extern void lhd_clear_binding_stack PARAMS ((void));
 extern void lhd_print_tree_nothing PARAMS ((FILE *, tree, int));
 extern const char *lhd_decl_printable_name PARAMS ((tree, int));
 extern rtx lhd_expand_expr PARAMS ((tree, rtx, enum machine_mode, int));
+extern void lhd_expand_decl PARAMS ((tree));
 extern void lhd_print_error_function PARAMS ((struct diagnostic_context *,
 					      const char *));
 extern void lhd_set_decl_assembler_name PARAMS ((tree));
@@ -97,6 +98,7 @@ int lhd_simplify_expr			     PARAMS ((tree *, tree *, tree *));
 #define LANG_HOOKS_GET_ALIAS_SET	lhd_get_alias_set
 #define LANG_HOOKS_EXPAND_CONSTANT	lhd_return_tree
 #define LANG_HOOKS_EXPAND_EXPR		lhd_expand_expr
+#define LANG_HOOKS_EXPAND_DECL		lhd_expand_decl
 #define LANG_HOOKS_SAFE_FROM_P		lhd_safe_from_p
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL	lhd_unsafe_for_reeval
@@ -238,6 +240,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_GET_ALIAS_SET, \
   LANG_HOOKS_EXPAND_CONSTANT, \
   LANG_HOOKS_EXPAND_EXPR, \
+  LANG_HOOKS_EXPAND_DECL, \
   LANG_HOOKS_TRUTHVALUE_CONVERSION, \
   LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES, \
   LANG_HOOKS_SAFE_FROM_P, \

@@ -6873,15 +6873,13 @@ c_begin_compound_stmt ()
   return stmt;
 }
 
-/* Expand T (a DECL_STMT) if it declares an entity not handled by the
+/* Expand DECL if it declares an entity not handled by the
    common code.  */
 
 void
-c_expand_decl_stmt (t)
-     tree t;
+c_expand_decl (decl)
+     tree decl;
 {
-  tree decl = DECL_STMT_DECL (t);
-
   /* Expand nested functions.  */
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_CONTEXT (decl) == current_function_decl

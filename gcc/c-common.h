@@ -1029,10 +1029,6 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define SCOPE_PARTIAL_P(NODE) \
   (TREE_LANG_FLAG_4 (SCOPE_STMT_CHECK (NODE)))
 
-/* Nonzero for an ASM_STMT if the assembly statement is volatile.  */
-#define ASM_VOLATILE_P(NODE)			\
-  (ASM_CV_QUAL (ASM_STMT_CHECK (NODE)) != NULL_TREE)
-
 /* The VAR_DECL to clean up in a CLEANUP_STMT.  */
 #define CLEANUP_DECL(NODE) \
   TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
@@ -1087,7 +1083,7 @@ extern void genrtl_scope_stmt                   PARAMS ((tree));
 extern void genrtl_switch_stmt                  PARAMS ((tree));
 extern void genrtl_case_label                   PARAMS ((tree));
 extern void genrtl_compound_stmt                PARAMS ((tree));
-extern void genrtl_asm_stmt                     PARAMS ((tree, tree,
+extern void genrtl_asm_stmt                     PARAMS ((int, tree,
 							 tree, tree,
 							 tree, int));
 extern void genrtl_decl_cleanup                 PARAMS ((tree));

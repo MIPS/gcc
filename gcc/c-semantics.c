@@ -37,17 +37,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "timevar.h"
 #include "predict.h"
+#include "langhooks.h"
 
 /* If non-NULL, the address of a language-specific function for
    expanding statements.  */
 void (*lang_expand_stmt) PARAMS ((tree));
-
-/* If non-NULL, the address of a language-specific function for
-   expanding a DECL_STMT.  After the language-independent cases are
-   handled, this function will be called.  If this function is not
-   defined, it is assumed that declarations other than those for
-   variables and labels do not require any RTL generation.  */
-void (*lang_expand_decl_stmt) PARAMS ((tree));
 
 /* Create an empty statement tree rooted at T.  */
 
@@ -389,8 +383,8 @@ genrtl_decl_stmt (t)
   else if (TREE_CODE (decl) == LABEL_DECL 
 	   && C_DECLARED_LABEL_FLAG (decl))
     declare_nonlocal_label (decl);
-  else if (lang_expand_decl_stmt)
-    (*lang_expand_decl_stmt) (t);
+  else
+    (*lang_hooks.expand_decl) (decl);
 }
 
 /* Generate the RTL for T, which is an IF_STMT.  */
@@ -708,29 +702,21 @@ genrtl_compound_stmt (t)
 /* Generate the RTL for an ASM_STMT.  */
 
 void
-genrtl_asm_stmt (cv_qualifier, string, output_operands,
+genrtl_asm_stmt (volatile_p, string, output_operands,
 		 input_operands, clobbers, asm_input_p)
-     tree cv_qualifier;
+     int volatile_p;
      tree string;
      tree output_operands;
      tree input_operands;
      tree clobbers;
      int asm_input_p;
 {
-  if (cv_qualifier != NULL_TREE
-      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-    {
-      warning ("%s qualifier ignored on asm",
-	       IDENTIFIER_POINTER (cv_qualifier));
-      cv_qualifier = NULL_TREE;
-    }
-
   emit_line_note (input_filename, lineno);
   if (asm_input_p)
     expand_asm (string);
   else
     c_expand_asm_operands (string, output_operands, input_operands, 
-			   clobbers, cv_qualifier != NULL_TREE,
+			   clobbers, volatile_p,
 			   input_filename, lineno);
 }
 
@@ -846,7 +832,7 @@ expand_stmt (t)
 	  break;
 
 	case ASM_STMT:
-	  genrtl_asm_stmt (ASM_CV_QUAL (t), ASM_STRING (t),
+	  genrtl_asm_stmt (ASM_VOLATILE_P (t), ASM_STRING (t),
 			   ASM_OUTPUTS (t), ASM_INPUTS (t),
 			   ASM_CLOBBERS (t), ASM_INPUT_P (t));
 	  break;

@@ -980,5 +980,43 @@ void
 recalculate_side_effects (t)
      tree t;
 {
-  
+  enum tree_code code = TREE_CODE (t);
+  int fro = first_rtl_op (code);
+  int i;
+
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 'e':
+      switch (code)
+	{
+	case INIT_EXPR:
+	case MODIFY_EXPR:
+	case VA_ARG_EXPR:
+	case RTL_EXPR:
+	case PREDECREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case POSTINCREMENT_EXPR:
+	  /* All of these have side-effects, no matter what their
+	     operands are.  */
+	  return;
+
+	default:
+	  break;
+	}
+      /* Fall through.  */
+
+    case '<':  /* a comparison expression */
+    case '1':  /* a unary arithmetic expression */
+    case '2':  /* a binary arithmetic expression */
+    case 'r':  /* a reference */
+      TREE_SIDE_EFFECTS (t) = 0;
+      for (i = 0; i < fro; ++i)
+	{
+	  tree op = TREE_OPERAND (t, i);
+	  if (op && TREE_SIDE_EFFECTS (op))
+	    TREE_SIDE_EFFECTS (t) = 1;
+	}
+      break;
+   }
 }

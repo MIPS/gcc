@@ -5238,7 +5238,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 
       if (bitpos != 0)
 	abort ();
-      return store_expr (exp, target, 0);
+      return store_expr (exp, target, value_mode != VOIDmode);
     }
 
   /* If the structure is in a register or if the component
@@ -6760,7 +6760,14 @@ expand_expr (exp, target, tmode, modifier)
 	    if (!DECL_RTL_SET_P (vars))
 	      {
 		vars_need_expansion = 1;
-		expand_decl (vars);
+		if (DECL_EXTERNAL (vars))
+		  /* Do nothing.  */;
+		else if (TREE_CODE (vars) == VAR_DECL && !TREE_STATIC (vars))
+		  expand_decl (vars);
+		else if (TREE_CODE (vars) == VAR_DECL && TREE_STATIC (vars))
+		  rest_of_decl_compilation (vars, NULL, 0, 0);
+		else
+		  (*lang_hooks.expand_decl) (vars);
 	      }
 	    expand_decl_init (vars);
 	    vars = TREE_CHAIN (vars);
@@ -9091,7 +9098,7 @@ expand_expr (exp, target, tmode, modifier)
       else
 	expand_asm_operands (ASM_STRING (exp), ASM_OUTPUTS (exp),
 			     ASM_INPUTS (exp), ASM_CLOBBERS (exp),
-			     ASM_CV_QUAL (exp) != NULL_TREE,
+			     ASM_VOLATILE_P (exp),
 			     input_filename, lineno);
       /* FIXME copy outputs into proper locations?  */
       return const0_rtx;

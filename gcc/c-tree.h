@@ -237,7 +237,7 @@ extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));
 extern tree c_begin_compound_stmt               PARAMS ((void));
 extern void c_expand_deferred_function          PARAMS ((tree));
-extern void c_expand_decl_stmt                  PARAMS ((tree));
+extern void c_expand_decl	                PARAMS ((tree));
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 
 /* in c-objc-common.c */

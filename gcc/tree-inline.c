@@ -855,6 +855,8 @@ inlinable_function_p (fn, id)
   int inlinable;
   int currfn_insns;
 
+  return 0;
+
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
   if (DECL_UNINLINABLE (fn))
@@ -1160,7 +1162,9 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Declare the return variable for the function.  */
   decl = declare_return_variable (id, &use_stmt);
   COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), decl);
-  if (TREE_CODE (decl) == DECL_STMT)
+  if (!decl)
+    /* OK */;
+  else if (TREE_CODE (decl) == DECL_STMT)
     BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt))
       = chainon (BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt)),
 		 DECL_STMT_DECL (decl));

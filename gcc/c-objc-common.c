@@ -235,8 +235,6 @@ c_objc_common_init (filename)
   if (filename == NULL)
     return NULL;
 
-  lang_expand_decl_stmt = c_expand_decl_stmt;
-
   /* These were not defined in the Objective-C front end, but I'm
      putting them here anyway.  The diagnostic format decoder might
      want an enhanced ObjC implementation.  */

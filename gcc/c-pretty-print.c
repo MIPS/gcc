@@ -1394,6 +1394,8 @@ print_declaration (buffer, t, spc, brief_dump)
 
   if (TREE_PUBLIC (t) && DECL_EXTERNAL (t))
     output_add_string (buffer, "extern ");
+  else if (TREE_STATIC (t))
+    output_add_string (buffer, "static ");
 
   /* Print the type and name.  */
   if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)

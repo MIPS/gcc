@@ -187,7 +187,7 @@ struct tree_common GTY(())
 	   TREE_LIST elements of a block's cleanup list.
        EXIT_EXPR_IS_LOOP_COND in
            EXIT_EXPR
-       ASM_EXPR_INPUT_P in
+       ASM_INPUT_P in
            ASM_EXPR
 
    public_flag:
@@ -200,6 +200,8 @@ struct tree_common GTY(())
            TREE_LIST or TREE_VEC
        EXPR_WFL_EMIT_LINE_NOTE in
            EXPR_WITH_FILE_LOCATION
+       ASM_VOLATILE_P in
+           ASM_EXPR
 
    private_flag:
 
@@ -896,7 +898,7 @@ struct tree_vec GTY(())
 #define EXIT_EXPR_IS_LOOP_COND(NODE) TREE_STATIC (NODE)
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
 
-/* SWITCH_STMT accessors. These give access to the condition, body and
+/* SWITCH_EXPR accessors. These give access to the condition, body and
    original condition type (before any compiler conversions)
    of the switch statement, respectively.  */
 #define SWITCH_COND(NODE)       TREE_OPERAND ((NODE), 0)
@@ -912,7 +914,7 @@ struct tree_vec GTY(())
 #define BIND_EXPR_BODY(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 1))
 #define BIND_EXPR_BLOCK(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 2))
 
-/* GOTO_STMT accessor. This gives access to the label associated with
+/* GOTO_EXPR accessor. This gives access to the label associated with
    a goto statement.  */
 #define GOTO_DESTINATION(NODE)  TREE_OPERAND ((NODE), 0)
 
@@ -920,14 +922,14 @@ struct tree_vec GTY(())
    instruction (e.g., "mov x, y"). ASM_OUTPUTS, ASM_INPUTS, and
    ASM_CLOBBERS represent the outputs, inputs, and clobbers for the
    statement.  */
-#define ASM_CV_QUAL(NODE)       TREE_OPERAND ((NODE), 0)
-#define ASM_STRING(NODE)        TREE_OPERAND ((NODE), 1)
-#define ASM_OUTPUTS(NODE)       TREE_OPERAND ((NODE), 2)
-#define ASM_INPUTS(NODE)        TREE_OPERAND ((NODE), 3)
-#define ASM_CLOBBERS(NODE)      TREE_OPERAND ((NODE), 4)
+#define ASM_STRING(NODE)        TREE_OPERAND ((NODE), 0)
+#define ASM_OUTPUTS(NODE)       TREE_OPERAND ((NODE), 1)
+#define ASM_INPUTS(NODE)        TREE_OPERAND ((NODE), 2)
+#define ASM_CLOBBERS(NODE)      TREE_OPERAND ((NODE), 3)
 /* Nonzero if we want to create an ASM_INPUT instead of an
    ASM_OPERAND with no operands.  */
 #define ASM_INPUT_P(NODE) (TREE_STATIC (NODE))
+#define ASM_VOLATILE_P(NODE) (TREE_PUBLIC (NODE))
 
 struct tree_exp GTY(())
 {
