@@ -223,12 +223,12 @@ gfc_build_io_library_fndecls (void)
   locus_line = build_decl (VAR_DECL, get_identifier (PREFIX("line")),
 			   gfc_int4_type_node);
   DECL_EXTERNAL (locus_line) = 1;
-  TREE_PUBLIC (ioparm_var) = 1;
+  TREE_PUBLIC (locus_line) = 1;
 
   locus_file = build_decl (VAR_DECL, get_identifier (PREFIX("filename")),
 			   pchar_type_node);
   DECL_EXTERNAL (locus_file) = 1;
-  TREE_PUBLIC (ioparm_var) = 1;
+  TREE_PUBLIC (locus_file) = 1;
 
   /* Define the transfer functions.  */
 
