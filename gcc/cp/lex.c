@@ -206,8 +206,6 @@ init_operators (void)
   operator_name_info [(int) FLOOR_MOD_EXPR].name = "(floor %)";
   operator_name_info [(int) ROUND_MOD_EXPR].name = "(round %)";
   operator_name_info [(int) ABS_EXPR].name = "abs";
-  operator_name_info [(int) FFS_EXPR].name = "ffs";
-  operator_name_info [(int) BIT_ANDTC_EXPR].name = "&~";
   operator_name_info [(int) TRUTH_AND_EXPR].name = "strict &&";
   operator_name_info [(int) TRUTH_OR_EXPR].name = "strict ||";
   operator_name_info [(int) IN_EXPR].name = "in";
@@ -234,7 +232,7 @@ init_operators (void)
 struct resword
 {
   const char *const word;
-  const ENUM_BITFIELD(rid) rid : 16;
+  ENUM_BITFIELD(rid) const rid : 16;
   const unsigned int disable   : 16;
 };
 
@@ -543,28 +541,6 @@ interface_strcmp (const char* s)
   return 1;
 }
 
-void
-note_got_semicolon (tree type)
-{
-  if (!TYPE_P (type))
-    abort ();
-  if (CLASS_TYPE_P (type))
-    CLASSTYPE_GOT_SEMICOLON (type) = 1;
-}
-
-void
-note_list_got_semicolon (tree declspecs)
-{
-  tree link;
-
-  for (link = declspecs; link; link = TREE_CHAIN (link))
-    {
-      tree type = TREE_VALUE (link);
-      if (type && TYPE_P (type))
-	note_got_semicolon (type);
-    }
-  clear_anon_tags ();
-}
 
 
 /* Parse a #pragma whose sole argument is a string constant.

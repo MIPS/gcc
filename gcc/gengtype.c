@@ -371,7 +371,7 @@ write_rtx_next (void)
       oprintf (f, "  0,\n");
     else
       oprintf (f,
-	       "  offsetof (struct rtx_def, fld) + %d * sizeof (rtunion),\n",
+	       "  RTX_HDR_SIZE + %d * sizeof (rtunion),\n",
 	       rtx_next_new[i]);
   oprintf (f, "};\n");
 }
@@ -395,10 +395,10 @@ adjust_field_rtx_def (type_p t, options_p opt ATTRIBUTE_UNUSED)
 #undef DEF_RTL_EXPR
   };
 
-  if (t->kind != TYPE_ARRAY)
+  if (t->kind != TYPE_UNION)
     {
       error_at_line (&lexer_line,
-		     "special `rtx_def' must be applied to an array");
+		     "special `rtx_def' must be applied to a union");
       return &string_type;
     }
 
@@ -578,7 +578,7 @@ adjust_field_rtx_def (type_p t, options_p opt ATTRIBUTE_UNUSED)
 	  subfields = xmalloc (sizeof (*subfields));
 	  subfields->next = old_subf;
 	  subfields->type = t;
-	  subfields->name = xasprintf ("[%lu].%s", (unsigned long)aindex,
+	  subfields->name = xasprintf (".fld[%lu].%s", (unsigned long)aindex,
 				       subname);
 	  subfields->line.file = __FILE__;
 	  subfields->line.line = __LINE__;
@@ -1087,7 +1087,7 @@ open_base_files (void)
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h",
       "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
-      "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
+      "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
       "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       NULL
     };
@@ -1480,12 +1480,13 @@ output_escaped_param (struct walk_type_data *d, const char *param,
 /* Call D->PROCESS_FIELD for every field (or subfield) of D->VAL,
    which is of type T.  Write code to D->OF to constrain execution (at
    the point that D->PROCESS_FIELD is called) to the appropriate
-   cases.  D->PREV_VAL lists the objects containing the current object,
-   D->OPT is a list of options to apply, D->INDENT is the current
-   indentation level, D->LINE is used to print error messages,
-   D->BITMAP indicates which languages to print the structure for, and
-   D->PARAM is the current parameter (from an enclosing param_is
-   option).  */
+   cases.  Call D->PROCESS_FIELD on subobjects before calling it on
+   pointers to those objects.  D->PREV_VAL lists the objects
+   containing the current object, D->OPT is a list of options to
+   apply, D->INDENT is the current indentation level, D->LINE is used
+   to print error messages, D->BITMAP indicates which languages to
+   print the structure for, and D->PARAM is the current parameter
+   (from an enclosing param_is option).  */
 
 static void
 walk_type (type_p t, struct walk_type_data *d)
@@ -1622,7 +1623,6 @@ walk_type (type_p t, struct walk_type_data *d)
 	    oprintf (d->of, "%*sif (%s != NULL) {\n", d->indent, "", d->val);
 	    d->indent += 2;
 	    oprintf (d->of, "%*ssize_t i%d;\n", d->indent, "", loopcounter);
-	    d->process_field(t, d);
 	    oprintf (d->of, "%*sfor (i%d = 0; i%d < (size_t)(", d->indent, "",
 		     loopcounter, loopcounter);
 	    output_escaped_param (d, length, "length");
@@ -1638,6 +1638,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	    d->used_length = 0;
 	    d->indent -= 2;
 	    oprintf (d->of, "%*s}\n", d->indent, "");
+	    d->process_field(t, d);
 	    d->indent -= 2;
 	    oprintf (d->of, "%*s}\n", d->indent, "");
 	  }

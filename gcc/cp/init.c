@@ -85,9 +85,7 @@ finish_init_stmts (bool is_global, tree stmt_expr, tree compound_stmt)
 {  
   finish_compound_stmt (compound_stmt);
   
-  stmt_expr = finish_stmt_expr (stmt_expr);
-  STMT_EXPR_NO_SCOPE (stmt_expr) = true;
-  TREE_USED (stmt_expr) = 1;
+  stmt_expr = finish_stmt_expr (stmt_expr, true);
 
   my_friendly_assert (!building_stmt_tree () == is_global, 20030726);
   
@@ -294,7 +292,7 @@ build_default_init (tree type, tree nelts)
     return NULL_TREE;
       
   /* At this point, TYPE is either a POD class type, an array of POD
-     classes, or something even more inoccuous.  */
+     classes, or something even more innocuous.  */
   return build_zero_init (type, nelts, /*static_storage_p=*/false);
 }
 
@@ -1229,7 +1227,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
 
   rval = build_special_member_call (exp, ctor_name, parms, binfo, flags);
   if (TREE_SIDE_EFFECTS (rval))
-    finish_expr_stmt (rval);
+    finish_expr_stmt (convert_to_void (rval, NULL));
 }
 
 /* This function is responsible for initializing EXP with INIT
@@ -1504,8 +1502,20 @@ build_offset_ref (tree type, tree name, bool address_p)
 	  /* Get rid of a potential OVERLOAD around it */
 	  t = OVL_CURRENT (t);
 
-	  /* unique functions are handled easily.  */
-	  perform_or_defer_access_check (basebinfo, t);
+	  /* Unique functions are handled easily.  */
+
+	  /* For non-static member of base class, we need a special rule
+	     for access checking [class.protected]:
+
+	       If the access is to form a pointer to member, the
+	       nested-name-specifier shall name the derived class
+	       (or any class derived from that class).  */
+	  if (address_p && DECL_P (t)
+	      && DECL_NONSTATIC_MEMBER_P (t))
+	    perform_or_defer_access_check (TYPE_BINFO (type), t);
+	  else
+	    perform_or_defer_access_check (basebinfo, t);
+
 	  mark_used (t);
 	  if (DECL_STATIC_FUNCTION_P (t))
 	    return t;
@@ -1517,6 +1527,11 @@ build_offset_ref (tree type, tree name, bool address_p)
 	  member = fnfields;
 	}
     }
+  else if (address_p && TREE_CODE (member) == FIELD_DECL)
+    /* We need additional test besides the one in
+       check_accessibility_of_qualified_id in case it is
+       a pointer to non-static member.  */
+    perform_or_defer_access_check (TYPE_BINFO (type), member);
 
   if (!address_p)
     {
@@ -1572,6 +1587,24 @@ build_offset_ref (tree type, tree name, bool address_p)
 tree
 decl_constant_value (tree decl)
 {
+  /* When we build a COND_EXPR, we don't know whether it will be used
+     as an lvalue or as an rvalue.  If it is an lvalue, it's not safe
+     to replace the second and third operands with their
+     initializers.  So, we do that here.  */
+  if (TREE_CODE (decl) == COND_EXPR)
+    {
+      tree d1;
+      tree d2;
+
+      d1 = decl_constant_value (TREE_OPERAND (decl, 1));
+      d2 = decl_constant_value (TREE_OPERAND (decl, 2));
+
+      if (d1 != TREE_OPERAND (decl, 1) || d2 != TREE_OPERAND (decl, 2))
+	return build (COND_EXPR,
+		      TREE_TYPE (decl),
+		      TREE_OPERAND (decl, 0), d1, d2);
+    }
+
   if (TREE_READONLY_DECL_P (decl)
       && ! TREE_THIS_VOLATILE (decl)
       && DECL_INITIAL (decl)
@@ -2027,13 +2060,22 @@ build_new_1 (tree exp)
   if (alloc_call == error_mark_node)
     return error_mark_node;
 
-  /* The ALLOC_CALL should be a CALL_EXPR -- or a COMPOUND_EXPR whose
-     right-hand-side is ultimately a CALL_EXPR -- and the first
-     operand should be the address of a known FUNCTION_DECL.  */
-  t = alloc_call;
-  while (TREE_CODE (t) == COMPOUND_EXPR) 
-    t = TREE_OPERAND (t, 1);
-  alloc_fn = get_callee_fndecl (t);
+  /* In the simple case, we can stop now.  */
+  pointer_type = build_pointer_type (type);
+  if (!cookie_size && !is_initialized)
+    return build_nop (pointer_type, alloc_call);
+
+  /* While we're working, use a pointer to the type we've actually
+     allocated. Store the result of the call in a variable so that we
+     can use it more than once.  */
+  full_pointer_type = build_pointer_type (full_type);
+  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
+  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
+
+  /* Strip any COMPOUND_EXPRs from ALLOC_CALL.  */
+  while (TREE_CODE (alloc_call) == COMPOUND_EXPR) 
+    alloc_call = TREE_OPERAND (alloc_call, 1);
+  alloc_fn = get_callee_fndecl (alloc_call);
   my_friendly_assert (alloc_fn != NULL_TREE, 20020325);
 
   /* Now, check to see if this function is actually a placement
@@ -2050,6 +2092,27 @@ build_new_1 (tree exp)
     = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1 
        || varargs_function_p (alloc_fn));
 
+  /* Preevaluate the placement args so that we don't reevaluate them for a
+     placement delete.  */
+  if (placement_allocation_fn_p)
+    {
+      tree inits = NULL_TREE;
+      t = TREE_CHAIN (TREE_OPERAND (alloc_call, 1));
+      for (; t; t = TREE_CHAIN (t))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
+	  {
+	    tree init;
+	    TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
+	    if (inits)
+	      inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	    else
+	      inits = init;
+	  }
+      if (inits)
+	alloc_expr = build (COMPOUND_EXPR, TREE_TYPE (alloc_expr), inits,
+			    alloc_expr);
+    }
+
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
      allocate storage by throwing a bad_alloc exception  (clause  _except_,
@@ -2062,18 +2125,6 @@ build_new_1 (tree exp)
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
   check_new = (flag_check_new || nothrow) && ! use_java_new;
-
-  /* In the simple case, we can stop now.  */
-  pointer_type = build_pointer_type (type);
-  if (!cookie_size && !is_initialized)
-    return build_nop (pointer_type, alloc_call);
-
-  /* While we're working, use a pointer to the type we've actually
-     allocated. Store the result of the call in a variable so that we
-     can use it more than once.  */
-  full_pointer_type = build_pointer_type (full_type);
-  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
-  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
 
   if (cookie_size)
     {
@@ -2243,7 +2294,13 @@ build_new_1 (tree exp)
     }
 
   /* Convert to the final type.  */
-  return build_nop (pointer_type, rval);
+  rval = build_nop (pointer_type, rval);
+
+  /* A new-expression is never an lvalue.  */
+  if (real_lvalue_p (rval))
+    rval = build1 (NON_LVALUE_EXPR, TREE_TYPE (rval), rval);
+
+  return rval;
 }
 
 static tree
@@ -2478,7 +2535,7 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
     base = cp_convert (ptype, decay_conversion (base));
 
   /* The code we are generating looks like:
-
+     ({
        T* t1 = (T*) base;
        T* rval = t1;
        ptrdiff_t iterator = maxindex;
@@ -2490,7 +2547,8 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
        } catch (...) {
          ... destroy elements that were constructed ...
        }
-       return rval;
+       rval;
+     })
        
      We can omit the try and catch blocks if we know that the
      initialization will never throw an exception, or if the array
@@ -2662,18 +2720,22 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 
       finish_compound_stmt (try_body);
       finish_cleanup_try_block (try_block);
-      e = build_vec_delete_1 (rval, m,
-			      type,
-			      sfk_base_destructor,
+      e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }
 
-  /* The value of the array initialization is the address of the
-     first element in the array.  */
-  finish_expr_stmt (rval);
+  /* The value of the array initialization is the array itself, RVAL
+     is a pointer to the first element.  */
+  finish_stmt_expr_expr (rval);
 
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
+
+  /* Now convert make the result have the correct type.  */
+  atype = build_pointer_type (atype);
+  stmt_expr = build1 (NOP_EXPR, atype, stmt_expr);
+  stmt_expr = build_indirect_ref (stmt_expr, NULL);
+  
   current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
   return stmt_expr;
 }
@@ -2895,7 +2957,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
    Called from begin_destructor_body.  */
 
 void
-push_base_cleanups ()
+push_base_cleanups (void)
 {
   tree binfos;
   int i, n_baseclasses;

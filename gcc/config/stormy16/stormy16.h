@@ -496,11 +496,6 @@ enum reg_class
   if (! SECOND_TIME) \
     xstormy16_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE)
 
-/* Build up the stdarg/varargs va_list type tree, assigning it to NODE.  If not
-   defined, it is assumed that va_list is a void * pointer.  */
-#define BUILD_VA_LIST_TYPE(NODE) \
-  ((NODE) = xstormy16_build_va_list ())
-
 /* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
@@ -540,11 +535,7 @@ enum reg_class
    The obvious choice would be `float'--but that won't work with traditional C
    compilers that expect all arguments declared as `float' to arrive as
    `double'.  To avoid this conversion, the library routines ask for the value
-   as some other type and then treat it as a `float'.
-
-   On some systems, no other type will work for this.  For these systems, you
-   must use `LIBGCC_NEEDS_DOUBLE' instead, to force conversion of the values
-   `double' before they are passed.  */
+   as some other type and then treat it as a `float'.  */
 /* #define FLOAT_ARG_TYPE */
 
 /* Define this macro to override the way library routines redesignate a `float'

@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler, for HP PA-RISC
    Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -74,6 +74,13 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
+#undef CPP_SPEC
+#define CPP_SPEC \
+  "%{mt|pthread:-D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=199506L}"
+/* aCC defines also -DRWSTD_MULTI_THREAD, -DRW_MULTI_THREAD.  These
+   affect only aCC's C++ library (Rogue Wave-derived) which we do not
+   use, and they violate the user's name space.  */
+
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  */
 #undef LINK_SPEC
@@ -100,15 +107,12 @@ Boston, MA 02111-1307, USA.  */
    %{static:-a archive} %{shared:-b}"
 #endif
 
-/* Like the default, except no -lg.  */
+/* hpux 11 has posix threads.  */
 #undef LIB_SPEC
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:%{!pg:\
-       %{!threads:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}\
-       %{threads:-lcma -lc_r}}}\
-     %{p:%{!pg:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
-     %{pg:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
+     %{mt|pthread:-lpthread} -lc \
+     %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}"
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */

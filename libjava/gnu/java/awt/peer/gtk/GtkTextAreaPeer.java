@@ -48,15 +48,14 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
 {
   native void create (int scrollbarVisibility);
 
-  native void gtkSetFont(String xlfd, int size);
+  native void gtkSetFont(String name, int style, int size);
 
   void create ()
   {
     create (((TextArea)awtComponent).getScrollbarVisibility ());
   }
 
-  // native void create (Object parent, String text, int scroll);
-  native void gtkTextGetSize (int rows, int cols, int dims[]);
+  native void gtkTextGetSize (int dims[]);
 
   public GtkTextAreaPeer (TextArea ta)
   {
@@ -70,7 +69,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
   {
     int dims[] = new int[2];
 
-    gtkTextGetSize (rows, cols, dims);
+    gtkTextGetSize (dims);
 
     return (new Dimension (dims[0], dims[1]));
   }
@@ -79,7 +78,7 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
   {
     int dims[] = new int[2];
 
-    gtkTextGetSize (rows, cols, dims);
+    gtkTextGetSize (dims);
 
     return (new Dimension (dims[0], dims[1]));
   }
@@ -107,6 +106,6 @@ public class GtkTextAreaPeer extends GtkTextComponentPeer
 
   public void setFont (Font f)
   {
-    gtkSetFont(f.getName(), f.getSize());
+    gtkSetFont(f.getName(), f.getStyle(), f.getSize());
   }
 }

@@ -1573,7 +1573,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
@@ -1581,7 +1580,6 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -7921,6 +7919,7 @@ ffecom_sym_transform_ (ffesymbol s)
 	      {
 		ffetargetOffset offset;
 		ffestorag cst;
+		tree toffset;
 
 		cst = ffestorag_parent (st);
 		assert (cst == ffesymbol_storage (cs));
@@ -7937,9 +7936,10 @@ ffecom_sym_transform_ (ffesymbol s)
 			     ffecom_1 (ADDR_EXPR,
 				       build_pointer_type (TREE_TYPE (ct)),
 				       ct));
+		toffset = build_int_2 (offset, 0);
+		TREE_TYPE (toffset) = ssizetype;
 		t = ffecom_2 (PLUS_EXPR, TREE_TYPE (t),
-			      t,
-			      build_int_2 (offset, 0));
+			      t, toffset);
 		t = convert (build_pointer_type (type),
 			     t);
 		TREE_CONSTANT (t) = 1;
@@ -8883,7 +8883,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset, tree *size, tree t)
     case MIN_EXPR:
     case MAX_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
     case LROTATE_EXPR:
@@ -8891,7 +8890,6 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset, tree *size, tree t)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
@@ -13301,8 +13299,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       if ((DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0)
 	  || (DECL_CONTEXT (newdecl) != 0 && DECL_CONTEXT (olddecl) == 0))
 	{
-	  DECL_SOURCE_LINE (newdecl) = DECL_SOURCE_LINE (olddecl);
-	  DECL_SOURCE_FILE (newdecl) = DECL_SOURCE_FILE (olddecl);
+	  DECL_SOURCE_LOCATION (newdecl) = DECL_SOURCE_LOCATION (olddecl);
 
 	  if (DECL_CONTEXT (olddecl) == 0
 	      && TREE_CODE (newdecl) != FUNCTION_DECL)
@@ -14803,7 +14800,6 @@ ffe_truthvalue_conversion (tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
-    case FFS_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return ffe_truthvalue_conversion (TREE_OPERAND (expr, 0));
 

@@ -5,20 +5,20 @@
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -325,9 +325,7 @@ extern int target_flags;
 
 #define OVERRIDE_OPTIONS override_options ()
 
-/* stabs-in-som is nearly identical to stabs-in-elf.  To avoid useless
-   code duplication we simply include this file and override as needed.  */
-#include "dbxelf.h"
+/* Override some settings from dbxelf.h.  */
 
 /* We do not have to be compatible with dbx, so we enable gdb extensions
    by default.  */
@@ -552,7 +550,7 @@ do {								\
 
 /* Function to return the rtx used to save the pic offset table register
    across function calls.  */
-extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
+extern struct rtx_def *hppa_pic_save_rtx (void);
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -654,10 +652,14 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
     && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
    ? NO_REGS : secondary_reload_class (CLASS, MODE, IN))
 
+#define MAYBE_FP_REG_CLASS_P(CLASS) \
+  reg_classes_intersect_p ((CLASS), FP_REGS)
+
 /* On the PA it is not possible to directly move data between
    GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)  \
-  (FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2))
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
+  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
+   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
 
 /* Return the stack location to use for secondary memory needed reloads.  */
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
@@ -960,7 +962,7 @@ extern enum cmp_type hppa_branch_type;
   (*targetm.asm_out.internal_label) (FILE, FUNC_BEGIN_PROLOG_LABEL, LABEL)
 
 #define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
-void hppa_profile_hook PARAMS ((int label_no));
+void hppa_profile_hook (int label_no);
 
 /* The profile counter if emitted must come before the prologue.  */
 #define PROFILE_BEFORE_PROLOGUE 1
@@ -991,7 +993,7 @@ extern int may_call_alloca;
 
 #define TRAMPOLINE_TEMPLATE(FILE) 					\
   {									\
-    if (! TARGET_64BIT)							\
+    if (!TARGET_64BIT)							\
       {									\
 	fputs ("\tldw	36(%r22),%r21\n", FILE);			\
 	fputs ("\tbb,>=,n	%r21,30,.+16\n", FILE);			\
@@ -1050,7 +1052,7 @@ extern int may_call_alloca;
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) 			\
 {									\
-  if (! TARGET_64BIT)							\
+  if (!TARGET_64BIT)							\
     {									\
       rtx start_addr, end_addr;						\
 									\
@@ -1068,9 +1070,9 @@ extern int may_call_alloca;
       start_addr = force_reg (Pmode, (TRAMP));				\
       end_addr = force_reg (Pmode, plus_constant ((TRAMP), 32));	\
       emit_insn (gen_dcacheflush (start_addr, end_addr));		\
-      end_addr = force_reg (Pmode, plus_constant (start_addr, 32));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, start_addr,	\
-				  gen_reg_rtx (Pmode), gen_reg_rtx (Pmode)));\
+				  gen_reg_rtx (Pmode),			\
+				  gen_reg_rtx (Pmode)));		\
     }									\
   else									\
     {									\
@@ -1088,13 +1090,14 @@ extern int may_call_alloca;
       start_addr = memory_address (Pmode, plus_constant ((TRAMP), 24));	\
       emit_move_insn (gen_rtx_MEM (Pmode, start_addr), end_addr);	\
       /* fdc and fic only use registers for the address to flush,	\
-	 they do not accept integer displacements.  */ 			\
+	 they do not accept integer displacements.   PA 2.0 cache	\
+	 lines are 64 bytes.  */		 			\
       start_addr = force_reg (Pmode, (TRAMP));				\
-      end_addr = force_reg (Pmode, plus_constant ((TRAMP), 32));	\
+      end_addr = force_reg (Pmode, plus_constant ((TRAMP), 64));	\
       emit_insn (gen_dcacheflush (start_addr, end_addr));		\
-      end_addr = force_reg (Pmode, plus_constant (start_addr, 32));	\
       emit_insn (gen_icacheflush (start_addr, end_addr, start_addr,	\
-				  gen_reg_rtx (Pmode), gen_reg_rtx (Pmode)));\
+				  gen_reg_rtx (Pmode),			\
+				  gen_reg_rtx (Pmode)));		\
     }									\
 }
 
@@ -1548,11 +1551,14 @@ do { 									\
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 
-/* Specify the machine mode that this machine uses
-   for the index in the tablejump instruction.  */
-#define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? TImode : DImode)
+/* Specify the machine mode that this machine uses for the index in the
+   tablejump instruction.  For small tables, an element consists of a
+   ia-relative branch and its delay slot.  When -mbig-switch is specified,
+   we use a 32-bit absolute address for non-pic code, and a 32-bit offset
+   for both 32 and 64-bit pic code.  */
+#define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? SImode : DImode)
 
-/* Jump tables must be 32 bit aligned, no matter the size of the element.  */
+/* Jump tables must be 32-bit aligned, no matter the size of the element.  */
 #define ADDR_VEC_ALIGN(ADDR_VEC) 2
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
@@ -1671,6 +1677,12 @@ do { 									\
 
 /* Control the assembler format that we output.  */
 
+/* A C string constant describing how to begin a comment in the target
+   assembler language.  The compiler assumes that the comment will end at
+   the end of the line.  */
+
+#define ASM_COMMENT_START ";"
+
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1716,35 +1728,41 @@ do { 									\
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii ((FILE), (P), (SIZE))
 
-/* This is how to output an element of a case-vector that is absolute.
-   Note that this method makes filling these branch delay slots
-   impossible.  */
+/* Jump tables are always placed in the text section.  Technically, it
+   is possible to put them in the readonly data section when -mbig-switch
+   is specified.  This has the benefit of getting the table out of .text
+   and reducing branch lengths as a result.  The downside is that an
+   additional insn (addil) is needed to access the table when generating
+   PIC code.  The address difference table also has to use 32-bit
+   pc-relative relocations.  Currently, GAS does not support these
+   relocations, although it is easily modified to do this operation.
+   The table entries need to look like "$L1+(.+8-$L0)-$PIC_pcrel$0"
+   when using ELF GAS.  A simple difference can be used when using
+   SOM GAS or the HP assembler.  The final downside is GDB complains
+   about the nesting of the label for the table when debugging.  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-  if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldil LR'L$%04d,%%r1\n\tbe RR'L$%04d(%%sr4,%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE, VALUE);		\
-  else								\
-    fprintf (FILE, "\tb L$%04d\n\tnop\n", VALUE)
-
-/* Jump tables are executable code and live in the TEXT section on the PA.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* This is how to output an element of a case-vector that is relative.
-   This must be defined correctly as it is used when generating PIC code.
+/* This is how to output an element of a case-vector that is absolute.  */
 
-   I believe it safe to use the same definition as ASM_OUTPUT_ADDR_VEC_ELT
-   on the PA since ASM_OUTPUT_ADDR_VEC_ELT uses pc-relative jump instructions
-   rather than a table of absolute addresses.  */
-
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
-  if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldw T'L$%04d(%%r19),%%r1\n\tbv %%r0(%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE);				\
-  else								\
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
+  if (TARGET_BIG_SWITCH)						\
+    fprintf (FILE, "\t.word L$%04d\n", VALUE);				\
+  else									\
     fprintf (FILE, "\tb L$%04d\n\tnop\n", VALUE)
 
-/* This is how to output an assembler line
-   that says to advance the location counter
-   to a multiple of 2**LOG bytes.  */
+/* This is how to output an element of a case-vector that is relative. 
+   Since we always place jump tables in the text section, the difference
+   is absolute and requires no relocation.  */
+
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
+  if (TARGET_BIG_SWITCH)						\
+    fprintf (FILE, "\t.word L$%04d-L$%04d\n", VALUE, REL);		\
+  else									\
+    fprintf (FILE, "\tb L$%04d\n\tnop\n", VALUE)
+
+/* This is how to output an assembler line that says to advance the
+   location counter to a multiple of 2**LOG bytes.  */
 
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))

@@ -1,3 +1,4 @@
+// { dg-do compile }
 // 2001-06-21  Benjamin Kosnik  <bkoz@redhat.com>
 
 // Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
@@ -36,7 +37,7 @@ void test01()
                    iterator_traits<long*>::reference>
     base_iterator;
   test_iterator  r_it(&l);
-  base_iterator* base = &r_it;
+  base_iterator* base __attribute__((unused)) = &r_it;
 
   // Check for required typedefs
   typedef test_iterator::value_type value_type;
@@ -48,9 +49,3 @@ void test01()
 
 // Make sure iterator can be instantiated.
 template class std::reverse_iterator<int*>;
-
-int main() 
-{ 
-  test01();
-  return 0;
-}

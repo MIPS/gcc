@@ -396,7 +396,7 @@ struct cpp_callbacks
   /* Called when switching to/from a new file.
      The line_map is for the new file.  It is NULL if there is no new file.
      (In C this happens when done with <built-in>+<command line> and also
-     when done with a main file.)  This can be used for resource cleanup. */
+     when done with a main file.)  This can be used for resource cleanup.  */
   void (*file_change) (cpp_reader *, const struct line_map *);
 
   void (*dir_change) (cpp_reader *, const char *);
@@ -557,19 +557,19 @@ extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
 
 /* This function finds the main file, but does not start reading it.
-   Returns true iff the file was found. */
+   Returns true iff the file was found.  */
 extern bool cpp_find_main_file (cpp_reader *, const char *);
 
 /* This function reads the file, but does not start preprocessing.
    This will generate at least one file change callback, and possibly
-   a line change callback. */
+   a line change callback.  */
 extern void cpp_push_main_file (cpp_reader *);
 
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);
 
 /* This is called after options have been parsed, and partially
-   processed. */
+   processed.  */
 extern void cpp_post_options (cpp_reader *);
 
 /* Set up translation to the target character set.  */
@@ -693,21 +693,21 @@ cpp_num cpp_num_sign_extend (cpp_num, size_t);
    with a line number of zero.  */
 
 /* Warning, an error with -Werror.  */
-#define DL_WARNING		0x00
-/* Same as DL_WARNING, except it is not suppressed in system headers.  */
-#define DL_WARNING_SYSHDR	0x01
+#define CPP_DL_WARNING		0x00
+/* Same as CPP_DL_WARNING, except it is not suppressed in system headers.  */
+#define CPP_DL_WARNING_SYSHDR	0x01
 /* Warning, an error with -pedantic-errors or -Werror.  */
-#define DL_PEDWARN		0x02
+#define CPP_DL_PEDWARN		0x02
 /* An error.  */
-#define DL_ERROR		0x03
+#define CPP_DL_ERROR		0x03
 /* An internal consistency check failed.  Prints "internal error: ",
-   otherwise the same as DL_ERROR.  */
-#define DL_ICE			0x04
+   otherwise the same as CPP_DL_ERROR.  */
+#define CPP_DL_ICE		0x04
 /* Extracts a diagnostic level from an int.  */
-#define DL_EXTRACT(l)		(l & 0xf)
+#define CPP_DL_EXTRACT(l)	(l & 0xf)
 /* Nonzero if a diagnostic level is one of the warnings.  */
-#define DL_WARNING_P(l)		(DL_EXTRACT (l) >= DL_WARNING \
-				 && DL_EXTRACT (l) <= DL_PEDWARN)
+#define CPP_DL_WARNING_P(l)	(CPP_DL_EXTRACT (l) >= CPP_DL_WARNING \
+				 && CPP_DL_EXTRACT (l) <= CPP_DL_PEDWARN)
 
 /* N.B. The error-message-printer prototypes have not been nicely
    formatted because exgettext needs to see 'msgid' on the same line

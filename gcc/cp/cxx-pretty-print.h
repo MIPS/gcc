@@ -30,14 +30,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 typedef enum
 {
   /* Ask for an qualified-id.  */
-  pp_cxx_flag_qualified_id = 1 << pp_c_flag_last_bit,
-  pp_cxx_flag_global_scope = 1 << (pp_c_flag_last_bit + 1)
+  pp_cxx_flag_default_argument = 1 << pp_c_flag_last_bit
   
 } cxx_pretty_printer_flags;
 
 typedef struct
 {
-  struct c_pretty_print_info c_base;
+  c_pretty_printer c_base;
   /* This is the enclosing scope of the entity being pretty-printed.  */
   tree enclosing_scope;
 } cxx_pretty_printer;
@@ -45,6 +44,8 @@ typedef struct
 void pp_cxx_pretty_printer_init (cxx_pretty_printer *);
 
 void pp_cxx_declaration (cxx_pretty_printer *, tree);
+void pp_cxx_function_definition (cxx_pretty_printer *, tree);
+void pp_cxx_canonical_template_parameter (cxx_pretty_printer *, tree);
 void pp_cxx_statement (cxx_pretty_printer *, tree);
 
 

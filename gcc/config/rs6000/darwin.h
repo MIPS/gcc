@@ -71,6 +71,7 @@
 #define SUBTARGET_OVERRIDE_OPTIONS				  	\
 do {									\
   rs6000_altivec_abi = 1;						\
+  rs6000_altivec_vrsave = 1;						\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
     if (MACHO_DYNAMIC_NO_PIC_P)						\
@@ -96,6 +97,14 @@ do {									\
 %{gused: -feliminate-unused-debug-symbols %<gused }\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
+
+#define ASM_SPEC "-arch ppc \
+  %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
+  %{!Zforce_cpusubtype_ALL:%{maltivec:-force_cpusubtype_ALL}}"
+
+#undef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS			\
+  { "darwin_arch", "ppc" },
 
 /* Make both r2 and r3 available for allocation.  */
 #define FIXED_R2 0
@@ -133,11 +142,29 @@ do {									\
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
 
-/* Always use the "debug" register names, they're what the assembler
-   wants to see.  */
-
+/* The assembler wants the alternate register names, but without
+   leading percent sign.  */
 #undef REGISTER_NAMES
-#define REGISTER_NAMES DEBUG_REGISTER_NAMES
+#define REGISTER_NAMES							\
+{									\
+     "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
+     "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",		\
+    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",		\
+    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",		\
+     "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",		\
+     "f8",  "f9", "f10", "f11", "f12", "f13", "f14", "f15",		\
+    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",		\
+    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
+     "mq",  "lr", "ctr",  "ap",						\
+    "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
+    "xer",								\
+     "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",             \
+     "v8",  "v9", "v10", "v11", "v12", "v13", "v14", "v15",             \
+    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
+    "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
+    "vrsave", "vscr",							\
+    "spe_acc", "spefscr"                                                \
+}
 
 /* This outputs NAME to FILE.  */
 
@@ -237,16 +264,17 @@ do {									\
    a SYMBOL_REF.  */
 
 #undef PREFERRED_RELOAD_CLASS
-#define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
-   ? NO_REGS						\
-   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-      && (CLASS) == NON_SPECIAL_REGS)			\
-   ? GENERAL_REGS					\
-   : (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
-   ? BASE_REGS						\
-   : (CLASS)))
+#define PREFERRED_RELOAD_CLASS(X,CLASS)				\
+  ((GET_CODE (X) == CONST_DOUBLE				\
+    && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)		\
+   ? NO_REGS							\
+   : ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == HIGH)	\
+      && reg_class_subset_p (BASE_REGS, (CLASS)))		\
+   ? BASE_REGS							\
+   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT			\
+      && (CLASS) == NON_SPECIAL_REGS)				\
+   ? GENERAL_REGS						\
+   : (CLASS))
 
 /* Fix for emit_group_load (): force large constants to be pushed via regs.  */
 #define ALWAYS_PUSH_CONSTS_USING_REGS_P		1

@@ -87,6 +87,10 @@ extern int target_flags;
 
 #define MASK_INLINE_INT_DIV_THR   0x00001000 /* inline div, max throughput.  */
 
+#define MASK_INLINE_SQRT_LAT      0x00002000 /* inline sqrt, min latency.  */
+
+#define MASK_INLINE_SQRT_THR      0x00004000 /* inline sqrt, max throughput. */
+
 #define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
 
 #define MASK_EARLY_STOP_BITS 0x00002000 /* tune stop bits for the model.  */
@@ -127,7 +131,23 @@ extern int target_flags;
 #define TARGET_INLINE_INT_DIV \
   (target_flags & (MASK_INLINE_INT_DIV_LAT | MASK_INLINE_INT_DIV_THR))
 
+#define TARGET_INLINE_SQRT_LAT (target_flags & MASK_INLINE_SQRT_LAT)
+
+#define TARGET_INLINE_SQRT_THR (target_flags & MASK_INLINE_SQRT_THR)
+
+#define TARGET_INLINE_SQRT \
+  (target_flags & (MASK_INLINE_SQRT_LAT | MASK_INLINE_SQRT_THR))
+
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
+
+/* If the assembler supports thread-local storage, assume that the
+   system does as well.  If a particular target system has an
+   assembler that supports TLS -- but the rest of the system does not
+   support TLS -- that system should explicit define TARGET_HAVE_TLS
+   to false in its own configuration file.  */
+#if !defined(TARGET_HAVE_TLS) && defined(HAVE_AS_TLS)
+#define TARGET_HAVE_TLS true
+#endif
 
 extern int ia64_tls_size;
 #define TARGET_TLS14		(ia64_tls_size == 14)
@@ -135,6 +155,7 @@ extern int ia64_tls_size;
 #define TARGET_TLS64		(ia64_tls_size == 64)
 #define TARGET_EARLY_STOP_BITS	(target_flags & MASK_EARLY_STOP_BITS)
 
+#define TARGET_HPUX		0
 #define TARGET_HPUX_LD		0
 
 #ifndef HAVE_AS_LTOFFX_LDXMOV_RELOCS
@@ -185,6 +206,10 @@ extern int ia64_tls_size;
       N_("Generate inline integer division, optimize for latency") },	\
   { "inline-int-divide-max-throughput", MASK_INLINE_INT_DIV_THR,	\
       N_("Generate inline integer division, optimize for throughput") },\
+  { "inline-sqrt-min-latency", MASK_INLINE_SQRT_LAT,			\
+      N_("Generate inline square root, optimize for latency") },	\
+  { "inline-sqrt-max-throughput", MASK_INLINE_SQRT_THR,			\
+      N_("Generate inline square root, optimize for throughput") },     \
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -261,16 +286,16 @@ extern const char *ia64_tune_string;
 
 /* Driver configuration */
 
-/* A C string constant that tells the GNU CC driver program options to pass to
-   `cc1'.  It can also specify how to translate options you give to GNU CC into
-   options for GNU CC to pass to the `cc1'.  */
+/* A C string constant that tells the GCC driver program options to pass to
+   `cc1'.  It can also specify how to translate options you give to GCC into
+   options for GCC to pass to the `cc1'.  */
 
 #undef CC1_SPEC
 #define CC1_SPEC "%{G*}"
 
-/* A C string constant that tells the GNU CC driver program options to pass to
-   `cc1plus'.  It can also specify how to translate options you give to GNU CC
-   into options for GNU CC to pass to the `cc1plus'.  */
+/* A C string constant that tells the GCC driver program options to pass to
+   `cc1plus'.  It can also specify how to translate options you give to GCC
+   into options for GCC to pass to the `cc1plus'.  */
 
 /* #define CC1PLUS_SPEC "" */
 
@@ -417,11 +442,11 @@ while (0)
 
 #define DOUBLE_TYPE_SIZE 64
 
-#define LONG_DOUBLE_TYPE_SIZE 128
+/* long double is XFmode normally, TFmode for HPUX.  */
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_HPUX ? 128 : 96)
 
-/* By default we use the 80-bit Intel extended float format packaged
-   in a 128-bit entity.  */
-#define INTEL_EXTENDED_IEEE_FORMAT 1
+/* We always want the XFmode operations from libgcc2.c.  */
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -651,7 +676,7 @@ while (0)
 /* Order of allocation of registers */
 
 /* If defined, an initializer for a vector of integers, containing the numbers
-   of hard registers in the order in which GNU CC should prefer to use them
+   of hard registers in the order in which GCC should prefer to use them
    (from most preferred to least).
 
    If this macro is not defined, registers are used lowest numbered first (all
@@ -779,7 +804,7 @@ while (0)
   ((REGNO) == PR_REG (0) && (MODE) == DImode ? 64			\
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
    : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
-   : FR_REGNO_P (REGNO) && (MODE) == TFmode && INTEL_EXTENDED_IEEE_FORMAT ? 1 \
+   : FR_REGNO_P (REGNO) && (MODE) == XFmode ? 1				\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* A C expression that is nonzero if it is permissible to store a value of mode
@@ -791,10 +816,10 @@ while (0)
      GET_MODE_CLASS (MODE) != MODE_CC &&			\
      (MODE) != TImode &&					\
      (MODE) != BImode &&					\
-     ((MODE) != TFmode || INTEL_EXTENDED_IEEE_FORMAT) 		\
+     (MODE) != TFmode 						\
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
-   : GR_REGNO_P (REGNO) ? (MODE) != CCImode && (MODE) != TFmode	\
+   : GR_REGNO_P (REGNO) ? (MODE) != CCImode && (MODE) != XFmode	\
    : AR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : BR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : 0)
@@ -807,11 +832,11 @@ while (0)
    ever different for any R, then `MODES_TIEABLE_P (MODE1, MODE2)' must be
    zero.  */
 /* Don't tie integer and FP modes, as that causes us to get integer registers
-   allocated for FP instructions.  TFmode only supported in FP registers so
+   allocated for FP instructions.  XFmode only supported in FP registers so
    we can't tie it with any other modes.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
-   && (((MODE1) == TFmode) == ((MODE2) == TFmode))	\
+   && (((MODE1) == XFmode) == ((MODE2) == XFmode))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
 
 /* Handling Leaf Functions */
@@ -1011,12 +1036,12 @@ enum reg_class
    into a register of CLASS2.  */
 
 #if 0
-/* ??? May need this, but since we've disallowed TFmode in GR_REGS,
+/* ??? May need this, but since we've disallowed XFmode in GR_REGS,
    I'm not quite sure how it could be invoked.  The normal problems
    with unions should be solved with the addressof fiddling done by
-   movtf and friends.  */
+   movxf and friends.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
-  ((MODE) == TFmode && (((CLASS1) == GR_REGS && (CLASS2) == FR_REGS)	\
+  ((MODE) == XFmode && (((CLASS1) == GR_REGS && (CLASS2) == FR_REGS)	\
 			|| ((CLASS1) == FR_REGS && (CLASS2) == GR_REGS)))
 #endif
 
@@ -1026,7 +1051,7 @@ enum reg_class
 
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((MODE) == BImode && (CLASS) == PR_REGS ? 2			\
-   : ((CLASS) == FR_REGS && (MODE) == TFmode) ? 1		\
+   : ((CLASS) == FR_REGS && (MODE) == XFmode) ? 1		\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* In FP regs, we can't change FP values to integer values and vice
@@ -1303,6 +1328,13 @@ enum reg_class
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   ia64_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
 
+/* Nonzero if we do not know how to pass TYPE solely in registers.  */
+
+#define MUST_PASS_IN_STACK(MODE, TYPE) \
+  ((TYPE) != 0							\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
+       || TREE_ADDRESSABLE (TYPE)))
+
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
    `int' suffices and can hold the number of bytes of argument so far.  */
@@ -1367,7 +1399,7 @@ do {									\
    On many machines, no registers can be used for this purpose since all
    function arguments are pushed on the stack.  */
 #define FUNCTION_ARG_REGNO_P(REGNO) \
-(((REGNO) >= GR_ARG_FIRST && (REGNO) < (GR_ARG_FIRST + MAX_ARGUMENT_SLOTS)) \
+(((REGNO) >= AR_ARG_FIRST && (REGNO) < (AR_ARG_FIRST + MAX_ARGUMENT_SLOTS)) \
  || ((REGNO) >= FR_ARG_FIRST && (REGNO) < (FR_ARG_FIRST + MAX_ARGUMENT_SLOTS)))
 
 /* Implement `va_arg'.  */
@@ -1389,7 +1421,7 @@ do {									\
   gen_rtx_REG (MODE,							\
 	       (((GET_MODE_CLASS (MODE) == MODE_FLOAT			\
 		 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) &&	\
-		      ((MODE) != TFmode || INTEL_EXTENDED_IEEE_FORMAT))	\
+		      (MODE) != TFmode)	\
 		? FR_RET_FIRST : GR_RET_FIRST))
 
 /* A C expression that is nonzero if REGNO is the number of a hard register in
@@ -1555,7 +1587,7 @@ do {									\
 
 /* Implicit Calls to Library Routines */
 
-/* Define this macro if GNU CC should generate calls to the System V (and ANSI
+/* Define this macro if GCC should generate calls to the System V (and ANSI
    C) library functions `memcpy' and `memset' rather than the BSD functions
    `bcopy' and `bzero'.  */
 
@@ -1745,17 +1777,12 @@ do {									\
 /* A C string constant for text to be output before each `asm' statement or
    group of consecutive ones.  */
 
-/* ??? This won't work with the Intel assembler, because it does not accept
-   # as a comment start character.  However, //APP does not work in gas, so we
-   can't use that either.  Same problem for ASM_APP_OFF below.  */
-
-#define ASM_APP_ON "#APP\n"
+#define ASM_APP_ON (TARGET_GNU_AS ? "#APP\n" : "//APP\n")
 
 /* A C string constant for text to be output after each `asm' statement or
    group of consecutive ones.  */
 
-#define ASM_APP_OFF "#NO_APP\n"
-
+#define ASM_APP_OFF (TARGET_GNU_AS ? "#NO_APP\n" : "//NO_APP\n")
 
 /* Output of Uninitialized Variables.  */
 
@@ -2120,7 +2147,7 @@ do {									\
 
 /* Macros for SDB and Dwarf Output.  */
 
-/* Define this macro if GNU CC should produce dwarf version 2 format debugging
+/* Define this macro if GCC should produce dwarf version 2 format debugging
    output in response to the `-g' option.  */
 
 #define DWARF2_DEBUGGING_INFO 1
@@ -2133,7 +2160,7 @@ do {									\
    add brackets around the label.  */
 
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
-  fprintf (FILE, "[.%s%d:]\n", PREFIX, NUM)
+  fprintf (FILE, TARGET_GNU_AS ? "[.%s%d:]\n" : ".%s%d:\n", PREFIX, NUM)
 
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
@@ -2219,9 +2246,9 @@ do {									\
 { "ar_lc_reg_operand", {REG}},						\
 { "ar_ccv_reg_operand", {REG}},						\
 { "ar_pfs_reg_operand", {REG}},						\
-{ "general_tfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
-{ "destination_tfmode_operand", {SUBREG, REG, MEM}},			\
-{ "tfreg_or_fp01_operand", {REG, CONST_DOUBLE}},			\
+{ "general_xfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
+{ "destination_xfmode_operand", {SUBREG, REG, MEM}},			\
+{ "xfreg_or_fp01_operand", {REG, CONST_DOUBLE}},			\
 { "basereg_operand", {SUBREG, REG}},
 
 /* An alias for a machine mode name.  This is the machine mode that elements of

@@ -125,7 +125,7 @@ namespace std
   template<typename _CharT>
     bool
     __verify_grouping(const basic_string<_CharT>& __grouping, 
-		      basic_string<_CharT>& __grouping_tmp);
+		      const basic_string<_CharT>& __grouping_tmp);
 
   // Used by both numeric and monetary facets.
   // Inserts "group separator" characters into an array of characters.
@@ -334,7 +334,7 @@ namespace std
 
   // 22.2.1.3  ctype<char> specialization.
   template<>
-    class ctype<char> : public __ctype_abstract_base<char>
+    class ctype<char> : public locale::facet, public ctype_base
     {
     public:
       // Types:
@@ -371,6 +371,39 @@ namespace std
       inline const char*
       scan_not(mask __m, const char* __lo, const char* __hi) const;
      
+      char_type 
+      toupper(char_type __c) const
+      { return this->do_toupper(__c); }
+
+      const char_type*
+      toupper(char_type *__lo, const char_type* __hi) const
+      { return this->do_toupper(__lo, __hi); }
+
+      char_type 
+      tolower(char_type __c) const
+      { return this->do_tolower(__c); }
+
+      const char_type*
+      tolower(char_type* __lo, const char_type* __hi) const
+      { return this->do_tolower(__lo, __hi); }
+
+      char_type 
+      widen(char __c) const
+      { return this->do_widen(__c); }
+
+      const char*
+      widen(const char* __lo, const char* __hi, char_type* __to) const
+      { return this->do_widen(__lo, __hi, __to); }
+
+      char 
+      narrow(char_type __c, char __dfault) const
+      { return this->do_narrow(__c, __dfault); }
+
+      const char_type*
+      narrow(const char_type* __lo, const char_type* __hi,
+	      char __dfault, char *__to) const
+      { return this->do_narrow(__lo, __hi, __dfault, __to); }
+
     protected:
       const mask* 
       table() const throw()
@@ -381,19 +414,6 @@ namespace std
 
       virtual 
       ~ctype();
-
-      virtual bool 
-      do_is(mask __m, char_type __c) const;
-
-      virtual const char_type*
-      do_is(const char_type* __lo, const char_type* __hi, mask* __vec) const;
-
-      virtual const char_type*
-      do_scan_is(mask __m, const char_type* __lo, const char_type* __hi) const;
-
-      virtual const char_type*
-      do_scan_not(mask __m, const char_type* __lo, 
-		  const char_type* __hi) const;
 
       virtual char_type 
       do_toupper(char_type) const;
@@ -408,17 +428,27 @@ namespace std
       do_tolower(char_type* __lo, const char_type* __hi) const;
       
       virtual char_type 
-      do_widen(char) const;
+      do_widen(char __c) const
+      { return __c; }
 
       virtual const char*
-      do_widen(const char* __lo, const char* __hi, char_type* __dest) const;
+      do_widen(const char* __lo, const char* __hi, char_type* __dest) const
+      {
+	memcpy(__dest, __lo, __hi - __lo);
+	return __hi;
+      }
 
       virtual char 
-      do_narrow(char_type, char __dfault) const;
+      do_narrow(char_type __c, char) const
+      { return __c; }
 
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
-		char __dfault, char* __dest) const;
+		char, char* __dest) const
+      {
+	memcpy(__dest, __lo, __hi - __lo);
+	return __hi;
+      }
     };
  
   template<>
@@ -492,7 +522,6 @@ namespace std
       virtual const char_type*
       do_narrow(const char_type* __lo, const char_type* __hi,
 		char __dfault, char* __dest) const;
-
     };
 
   template<>
@@ -618,32 +647,33 @@ namespace std
     void
     __numpunct_cache<_CharT>::_M_cache(const locale& __loc)
     {
+      _M_allocated = true;
+
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
-      string __grouping = __np.grouping();
-      char* __group = new char[__grouping.length() + 1];
-      __grouping.copy(__group, __grouping.length());
-      __group[__grouping.length()] = char();
-      _M_grouping = __group;
-      
-      _M_use_grouping = __grouping.length() != 0 && __grouping.data()[0] != 0;
+
+      const string::size_type __len = __np.grouping().size();
+      char* __grouping = new char[__len + 1];
+      __np.grouping().copy(__grouping, __len);
+      __grouping[__len] = char();
+      _M_grouping = __grouping;
+      _M_use_grouping = __len && __np.grouping()[0] != 0;
 
       typedef basic_string<_CharT> __string_type;
-
-      __string_type __true = __np.truename();
-      _CharT* __truename = new _CharT[__true.length() + 1];
-      __true.copy(__truename, __true.length());
-      __truename[__true.length()] = _CharT(); 
+      typename __string_type::size_type __lentf = __np.truename().size();
+      _CharT* __truename = new _CharT[__lentf + 1];
+      __np.truename().copy(__truename, __lentf);
+      __truename[__lentf] = _CharT();
       _M_truename = __truename;
-
-      __string_type __false = __np.falsename();
-      _CharT* __falsename = new _CharT[__false.length() + 1];
-      __false.copy(__falsename, __false.length());
-      __falsename[__false.length()] = _CharT(); 
+      
+      __lentf = __np.falsename().size();
+      _CharT* __falsename = new _CharT[__lentf + 1];
+      __np.falsename().copy(__falsename, __lentf);
+      __falsename[__lentf] = _CharT();
       _M_falsename = __falsename;
-            
+          
       _M_decimal_point = __np.decimal_point();
       _M_thousands_sep = __np.thousands_sep();
-
+      
       const ctype<_CharT>& __ct = use_facet<ctype<_CharT> >(__loc);
       __ct.widen(__num_base::_S_atoms_out, 
 		 __num_base::_S_atoms_out + __num_base::_S_oend, _M_atoms_out);
@@ -651,8 +681,6 @@ namespace std
       __ct.widen(__num_base::_S_atoms_in, 
 		 __num_base::_S_atoms_in + __num_base::_S_iend, _M_atoms_in);
       _M_atoms_in[__num_base::_S_iend] = _CharT();
-
-      _M_allocated = true;
     }
 
   template<typename _CharT>
@@ -766,9 +794,6 @@ namespace std
   template<typename _CharT>
     class numpunct_byname : public numpunct<_CharT>
     {
-      // Data Member.
-      __c_locale			_M_c_locale_numpunct;
-
     public:
       typedef _CharT               	char_type;
       typedef basic_string<_CharT> 	string_type;
@@ -777,14 +802,18 @@ namespace std
       numpunct_byname(const char* __s, size_t __refs = 0)
       : numpunct<_CharT>(__refs)
       {
-	this->_S_create_c_locale(_M_c_locale_numpunct, __s);
-	this->_M_initialize_numpunct(_M_c_locale_numpunct);	
+	if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
+	  {
+	    __c_locale __tmp;
+	    this->_S_create_c_locale(__tmp, __s);
+	    this->_M_initialize_numpunct(__tmp);	
+	    this->_S_destroy_c_locale(__tmp); 
+	  }
       }
 
     protected:
       virtual 
-      ~numpunct_byname() 
-      { this->_S_destroy_c_locale(_M_c_locale_numpunct); }
+      ~numpunct_byname() { }	
     };
 
   template<typename _CharT, typename _InIter>
@@ -917,22 +946,6 @@ namespace std
   template<typename _CharT, typename _InIter>
     locale::id num_get<_CharT, _InIter>::id;
 
-#if 0
-  // Partial specialization for istreambuf_iterator, so can use traits_type.
-  template<typename _CharT>
-    class num_get<_CharT, istreambuf_iterator<_CharT> >;
-
-      iter_type 
-      _M_extract_float(iter_type, iter_type, ios_base&, ios_base::iostate&, 
-		       string& __xtrc) const;
-
-      iter_type 
-      _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
-		     string& __xtrc, int& __base) const;
-
-      virtual iter_type 
-      do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
-#endif
 
   template<typename _CharT, typename _OutIter>
     class num_put : public locale::facet, public __num_base
@@ -1062,7 +1075,7 @@ namespace std
       explicit 
       collate(size_t __refs = 0)
       : facet(__refs)
-      { _M_c_locale_collate = _S_c_locale; }
+      { _M_c_locale_collate = _S_get_c_locale(); }
 
       explicit 
       collate(__c_locale __cloc, size_t __refs = 0) 
@@ -1138,8 +1151,11 @@ namespace std
       collate_byname(const char* __s, size_t __refs = 0)
       : collate<_CharT>(__refs) 
       { 
-	this->_S_destroy_c_locale(this->_M_c_locale_collate);
-	this->_S_create_c_locale(this->_M_c_locale_collate, __s); 
+	if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
+	  {
+	    this->_S_destroy_c_locale(this->_M_c_locale_collate);
+	    this->_S_create_c_locale(this->_M_c_locale_collate, __s); 
+	  }
       }
 
     protected:
@@ -1277,7 +1293,7 @@ namespace std
     protected:
       __cache_type*			_M_data;
       __c_locale			_M_c_locale_timepunct;
-      char*				_M_name_timepunct;
+      const char*			_M_name_timepunct;
 
     public:
       static locale::id 		id;
@@ -1502,6 +1518,7 @@ namespace std
       void
       _M_extract_name(iter_type& __beg, iter_type& __end, int& __member,
 		      const _CharT** __names, size_t __indexlen, 
+		      const ctype<_CharT>& __ctype, 
 		      ios_base::iostate& __err) const;
 
       // Extract on a component-by-component basis, via __format argument.
@@ -1576,7 +1593,7 @@ namespace std
       typedef _OutIter   		iter_type;
 
       explicit 
-      time_put_byname(const char* /*__s*/, size_t __refs = 0) 
+      time_put_byname(const char*, size_t __refs = 0) 
       : time_put<_CharT, _OutIter>(__refs) 
       { };
 
@@ -1792,8 +1809,6 @@ namespace std
   template<typename _CharT, bool _Intl>
     class moneypunct_byname : public moneypunct<_CharT, _Intl>
     {
-      __c_locale			_M_c_locale_moneypunct;
-
     public:
       typedef _CharT 			char_type;
       typedef basic_string<_CharT> 	string_type;
@@ -1804,14 +1819,18 @@ namespace std
       moneypunct_byname(const char* __s, size_t __refs = 0)
       : moneypunct<_CharT, _Intl>(__refs)
       {
-	this->_S_create_c_locale(_M_c_locale_moneypunct, __s);
-	this->_M_initialize_moneypunct(_M_c_locale_moneypunct);	
+	if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
+	  {
+	    __c_locale __tmp;
+	    this->_S_create_c_locale(__tmp, __s);
+	    this->_M_initialize_moneypunct(__tmp);	
+	    this->_S_destroy_c_locale(__tmp); 
+	  }
       }
 
     protected:
       virtual 
-      ~moneypunct_byname() 
-      { this->_S_destroy_c_locale(_M_c_locale_moneypunct); }
+      ~moneypunct_byname() { }
     };
 
   template<typename _CharT, bool _Intl>
@@ -1914,7 +1933,7 @@ namespace std
       // Underlying "C" library locale information saved from
       // initialization, needed by messages_byname as well.
       __c_locale			_M_c_locale_messages;
-      char*				_M_name_messages;
+      const char*			_M_name_messages;
 
     public:
       static locale::id 		id;

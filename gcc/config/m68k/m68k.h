@@ -3,23 +3,35 @@
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
    2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* We need to have MOTOROLA always defined (either 0 or 1) because we use
+   if-statements and ?: on it.  This way we have compile-time error checking
+   for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
+   to optimize away all constant tests.  */
+#ifdef MOTOROLA
+# undef MOTOROLA
+# define MOTOROLA 1  /* Use the Motorola assembly syntax.  */
+# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
+#else
+# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
+# define MOTOROLA 0  /* Use the MIT assembly syntax.  */
+#endif
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  */
@@ -28,15 +40,70 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
-	builtin_define ("__mc68000__");		\
-	if (TARGET_68020)			\
-	  builtin_define ("__mc68020__");	\
-	builtin_define ("__m68k__");		\
-	builtin_assert ("cpu=m68k");		\
-	builtin_assert ("machine=m68k");	\
+      builtin_define ("__m68k__");		\
+      builtin_define_std ("mc68000");		\
+      if (TARGET_68040_ONLY)			\
+	{					\
+	  if (TARGET_68060)			\
+	    builtin_define_std ("mc68060");	\
+	  else					\
+	    builtin_define_std ("mc68040");	\
+	}					\
+      else if (TARGET_68060) /* -m68020-60 */	\
+	{					\
+	  builtin_define_std ("mc68060");	\
+	  builtin_define_std ("mc68040");	\
+	  builtin_define_std ("mc68030");	\
+	  builtin_define_std ("mc68020");	\
+	}					\
+      else if (TARGET_68040) /* -m68020-40 */	\
+	{					\
+	  builtin_define_std ("mc68040");	\
+	  builtin_define_std ("mc68030");	\
+ 	  builtin_define_std ("mc68020");	\
+	}					\
+      else if (TARGET_68030)			\
+	builtin_define_std ("mc68030");		\
+      else if (TARGET_68020)			\
+	builtin_define_std ("mc68020");		\
+      if (TARGET_68881)				\
+	builtin_define ("__HAVE_68881__");	\
+      if (TARGET_CPU32)				\
+	{					\
+	  builtin_define_std ("mc68332");	\
+	  builtin_define_std ("mcpu32");	\
+	}					\
+      if (TARGET_COLDFIRE)			\
+	builtin_define ("__mcoldfire__");	\
+      if (TARGET_5200)				\
+	builtin_define ("__mcf5200__");		\
+      if (TARGET_528x)				\
+	{					\
+	  builtin_define ("__mcf528x__");	\
+	  builtin_define ("__mcf5200__");	\
+	}					\
+      if (TARGET_CFV3)				\
+	{					\
+	  builtin_define ("__mcf5300__");	\
+	  builtin_define ("__mcf5307__");	\
+	}					\
+      if (TARGET_CFV4)				\
+	{					\
+	  builtin_define ("__mcf5400__");	\
+	  builtin_define ("__mcf5407__");	\
+	}					\
+      if (TARGET_CF_HWDIV)			\
+	builtin_define ("__mcfhwdiv__");	\
+      if (flag_pic)				\
+	{					\
+	  builtin_define ("__pic__");		\
+	  if (flag_pic > 1)			\
+	    builtin_define ("__PIC__");		\
+	}					\
+      builtin_assert ("cpu=m68k");		\
+      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
-
 
 /* Classify the groups of pseudo-ops used to assemble QI, HI and SI
    quantities.  */
@@ -48,13 +115,6 @@ Boston, MA 02111-1307, USA.  */
 /* Set the default */
 #define INT_OP_GROUP INT_OP_DOT_WORD
 
-/* Print subsidiary information on the compiler version in use.  */
-#ifdef MOTOROLA
-#define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)");
-#else
-#define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)");
-#endif
-
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
 extern int target_flags;
@@ -62,33 +122,13 @@ extern int target_flags;
 /* Macros used in the machine description to test the flags.  */
 
 /* Compile for a 68020 (not a 68000 or 68010).  */
-#define MASK_68020	1
+#define MASK_68020	(1<<0)
 #define TARGET_68020 (target_flags & MASK_68020)
 
-/* Compile 68881 insns for floating point (not library calls).  */
-#define MASK_68881	2
-#define TARGET_68881 (target_flags & MASK_68881)
-
-/* Compile using 68020 bit-field insns.  */
-#define MASK_BITFIELD	4
-#define TARGET_BITFIELD (target_flags & MASK_BITFIELD)
-
-/* Compile using rtd insn calling sequence.
-   This will not work unless you use prototypes at least
-   for all functions that can take varying numbers of args.  */
-#define MASK_RTD	8
-#define TARGET_RTD (target_flags & MASK_RTD)
-
-/* Compile passing first two args in regs 0 and 1.
-   This exists only to test compiler features that will
-   be needed for RISC chips.  It is not usable
-   and is not intended to be usable on this cpu.  */
-#define MASK_REGPARM	16
-#define TARGET_REGPARM (target_flags & MASK_REGPARM)
-
-/* Compile with 16-bit `int'.  */
-#define MASK_SHORT	32
-#define TARGET_SHORT (target_flags & MASK_SHORT)
+/* Compile for a 68030.  This does not really make a difference in GCC,
+   it just enables the __mc68030__ predefine.  */
+#define MASK_68030	(1<<1)
+#define TARGET_68030 (target_flags & MASK_68030)
 
 /* Optimize for 68040, but still allow execution on 68020
    (-m68020-40 or -m68040).
@@ -96,11 +136,11 @@ extern int target_flags;
    of them must be emulated in software by the OS.  When TARGET_68040 is
    turned on, these instructions won't be used.  This code will still
    run on a 68030 and 68881/2.  */
-#define MASK_68040	256
+#define MASK_68040	(1<<2)	
 #define TARGET_68040 (target_flags & MASK_68040)
 
 /* Use the 68040-only fp instructions (-m68040 or -m68060).  */
-#define MASK_68040_ONLY	512
+#define MASK_68040_ONLY	(1<<3)
 #define TARGET_68040_ONLY (target_flags & MASK_68040_ONLY)
 
 /* Optimize for 68060, but still allow execution on 68020
@@ -109,23 +149,47 @@ extern int target_flags;
    of them must be emulated in software by the OS.  When TARGET_68060 is
    turned on, these instructions won't be used.  This code will still
    run on a 68030 and 68881/2.  */
-#define MASK_68060	1024
+#define MASK_68060	(1<<4)
 #define TARGET_68060 (target_flags & MASK_68060)
 
 /* Compile for mcf5200 */
-#define MASK_5200	2048
+#define MASK_5200	(1<<5)
 #define TARGET_5200 (target_flags & MASK_5200)
+
+/* Build for ColdFire v3 */
+#define MASK_CFV3	(1<<6)
+#define TARGET_CFV3	(target_flags & MASK_CFV3)
+
+/* Build for ColdFire v4 */
+#define MASK_CFV4	(1<<7)
+#define TARGET_CFV4	(target_flags & MASK_CFV4)
+
+/* Compile for ColdFire 528x */
+#define MASK_528x	(1<<8)
+#define TARGET_528x	(target_flags & MASK_528x)
+
+/* Divide support for ColdFire */
+#define MASK_CF_HWDIV	(1<<9)
+#define TARGET_CF_HWDIV	(target_flags & MASK_CF_HWDIV)
+
+/* Compile 68881 insns for floating point (not library calls).  */
+#define MASK_68881	(1<<10)
+#define TARGET_68881	(target_flags & MASK_68881)
+
+/* Compile using 68020 bit-field insns.  */
+#define MASK_BITFIELD	(1<<11)
+#define TARGET_BITFIELD (target_flags & MASK_BITFIELD)
+
+/* Compile with 16-bit `int'.  */
+#define MASK_SHORT	(1<<12)
+#define TARGET_SHORT	(target_flags & MASK_SHORT)
 
 /* Align ints to a word boundary.  This breaks compatibility with the 
    published ABI's for structures containing ints, but produces faster
-   code on cpus with 32 bit busses (020, 030, 040, 060, CPU32+, coldfire).
-   It's required for coldfire cpus without a misalignment module.  */
-#define MASK_ALIGN_INT	4096
+   code on cpus with 32-bit busses (020, 030, 040, 060, CPU32+, ColdFire).
+   It's required for ColdFire cpus without a misalignment module.  */
+#define MASK_ALIGN_INT	(1<<13)
 #define TARGET_ALIGN_INT (target_flags & MASK_ALIGN_INT)
-
-/* Compile for a CPU32 */
-	/* A 68020 without bitfields is a good heuristic for a CPU32 */
-#define TARGET_CPU32	(TARGET_68020 && !TARGET_BITFIELD)
 
 /* Use PC-relative addressing modes (without using a global offset table).
    The m68000 supports 16-bit PC-relative addressing.
@@ -136,12 +200,42 @@ extern int target_flags;
    treated as all containing an implicit PC-relative component, and hence
    cannot be used directly as addresses for memory writes.  See the comments
    in m68k.c for more information.  */
-#define MASK_PCREL	8192
+#define MASK_PCREL	(1<<14)
 #define TARGET_PCREL	(target_flags & MASK_PCREL)
 
 /* Relax strict alignment.  */
-#define MASK_NO_STRICT_ALIGNMENT 16384
+#define MASK_NO_STRICT_ALIGNMENT (1<<15)
 #define TARGET_STRICT_ALIGNMENT  (~target_flags & MASK_NO_STRICT_ALIGNMENT)
+
+/* Compile using rtd insn calling sequence.
+   This will not work unless you use prototypes at least
+   for all functions that can take varying numbers of args.  */
+#define MASK_RTD	(1<<16)
+#define TARGET_RTD	(target_flags & MASK_RTD)
+
+/* Support A5 relative data seperate from text.
+ * This option implies -fPIC, however it inhibits the generation of the
+ * A5 save/restore in functions and the loading of a5 with a got pointer.
+ */
+#define MASK_SEP_DATA	(1<<17)
+#define TARGET_SEP_DATA (target_flags & MASK_SEP_DATA)
+
+/* Compile using library ID based shared libraries.
+ * Set a specific ID using the -mshared-library-id=xxx option.
+ */
+#define MASK_ID_SHARED_LIBRARY	(1<<18)
+#define TARGET_ID_SHARED_LIBRARY	(target_flags & MASK_ID_SHARED_LIBRARY)
+
+/* Compile for a CPU32.  A 68020 without bitfields is a good
+   heuristic for a CPU32.  */
+#define TARGET_CPU32	(TARGET_68020 && !TARGET_BITFIELD)
+
+/* Is the target a ColdFire?  */
+#define MASK_COLDFIRE	(MASK_5200|MASK_528x|MASK_CFV3|MASK_CFV4)
+#define TARGET_COLDFIRE	(target_flags & MASK_COLDFIRE)
+
+/* Which bits can be set by specifying a ColdFire */
+#define MASK_ALL_CF_BITS	(MASK_COLDFIRE|MASK_CF_HWDIV)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -150,26 +244,22 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES							\
-  { { "68020", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
+  { { "68020", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
       N_("Generate code for a 68020") },				\
-    { "c68020", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
+    { "c68020", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
       N_("Generate code for a 68020") },				\
     { "68020", (MASK_68020|MASK_BITFIELD), "" },			\
     { "c68020", (MASK_68020|MASK_BITFIELD), "" },			\
-    { "68000", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY	\
+    { "68000", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY	\
 		|MASK_68020|MASK_BITFIELD|MASK_68881),			\
       N_("Generate code for a 68000") },				\
-    { "c68000", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY	\
+    { "c68000", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY	\
 		|MASK_68020|MASK_BITFIELD|MASK_68881),			\
       N_("Generate code for a 68000") },				\
     { "bitfield", MASK_BITFIELD,					\
       N_("Use the bit-field instructions") },				\
     { "nobitfield", - MASK_BITFIELD,					\
       N_("Do not use the bit-field instructions") },			\
-    { "rtd", MASK_RTD,							\
-      N_("Use different calling convention using 'rtd'") },		\
-    { "nortd", - MASK_RTD,						\
-      N_("Use normal calling convention") },				\
     { "short", MASK_SHORT,						\
       N_("Consider type `int' to be 16 bits wide") },			\
     { "noshort", - MASK_SHORT,						\
@@ -177,40 +267,56 @@ extern int target_flags;
     { "68881", MASK_68881, "" },					\
     { "soft-float", - (MASK_68040_ONLY|MASK_68881),			\
       N_("Generate code with library calls for floating point") },	\
-    { "68020-40", -(MASK_5200|MASK_68060|MASK_68040_ONLY),		\
+    { "68020-40", -(MASK_ALL_CF_BITS|MASK_68060|MASK_68040_ONLY),	\
       N_("Generate code for a 68040, without any new instructions") },	\
     { "68020-40", (MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040), ""},\
-    { "68020-60", -(MASK_5200|MASK_68040_ONLY),				\
+    { "68020-60", -(MASK_ALL_CF_BITS|MASK_68040_ONLY),			\
       N_("Generate code for a 68060, without any new instructions") },	\
     { "68020-60", (MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040	\
 		   |MASK_68060), "" },					\
-    { "68030", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
+    { "68030", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY),	\
       N_("Generate code for a 68030") },				\
-    { "68030", (MASK_68020|MASK_BITFIELD), "" },			\
-    { "68040", - (MASK_5200|MASK_68060),				\
+    { "68030", (MASK_68020|MASK_68030|MASK_BITFIELD), "" },		\
+    { "68040", - (MASK_ALL_CF_BITS|MASK_68060),				\
       N_("Generate code for a 68040") },				\
     { "68040", (MASK_68020|MASK_68881|MASK_BITFIELD			\
 		|MASK_68040_ONLY|MASK_68040), "" },			\
-    { "68060", - (MASK_5200|MASK_68040),				\
+    { "68060", - (MASK_ALL_CF_BITS|MASK_68040),				\
       N_("Generate code for a 68060") },				\
     { "68060", (MASK_68020|MASK_68881|MASK_BITFIELD			\
 		|MASK_68040_ONLY|MASK_68060), "" },			\
-    { "5200", - (MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
+    { "5200", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
 		|MASK_BITFIELD|MASK_68881),				\
       N_("Generate code for a 520X") },					\
     { "5200", (MASK_5200), "" },					\
+    { "5206e", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
+		|MASK_BITFIELD|MASK_68881),				\
+      N_("Generate code for a 5206e") },				\
+    { "5206e", (MASK_5200|MASK_CF_HWDIV), "" },				\
+    { "528x", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
+		|MASK_BITFIELD|MASK_68881),				\
+      N_("Generate code for a 528x") },					\
+    { "528x", (MASK_528x|MASK_CF_HWDIV), "" },				\
+    { "5307", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
+		|MASK_BITFIELD|MASK_68881),				\
+      N_("Generate code for a 5307") },					\
+    { "5307", (MASK_CFV3|MASK_CF_HWDIV), "" },				\
+    { "5407", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY|MASK_68020	\
+		|MASK_BITFIELD|MASK_68881),				\
+      N_("Generate code for a 5407") },					\
+    { "5407", (MASK_CFV4|MASK_CF_HWDIV), "" },				\
     { "68851", 0,							\
       N_("Generate code for a 68851") },				\
     { "no-68851", 0,							\
       N_("Do no generate code for a 68851") },				\
-    { "68302", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY	\
+    { "68302", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY	\
 		  |MASK_68020|MASK_BITFIELD|MASK_68881),		\
       N_("Generate code for a 68302") },				\
-    { "68332", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY	\
+    { "68332", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY	\
 		  |MASK_BITFIELD|MASK_68881),				\
       N_("Generate code for a 68332") },				\
     { "68332", MASK_68020, "" },					\
-    { "cpu32", - (MASK_5200|MASK_68060|MASK_68040|MASK_68040_ONLY	\
+    { "cpu32", - (MASK_ALL_CF_BITS|MASK_68060|MASK_68040|MASK_68040_ONLY	\
 		  |MASK_BITFIELD|MASK_68881),				\
       N_("Generate code for a cpu32") },				\
     { "cpu32", MASK_68020, "" },					\
@@ -218,15 +324,27 @@ extern int target_flags;
       N_("Align variables on a 32-bit boundary") },			\
     { "no-align-int", -MASK_ALIGN_INT, 					\
       N_("Align variables on a 16-bit boundary") },			\
+    { "sep-data", MASK_SEP_DATA,					\
+      N_("Enable separate data segment") },				\
+    { "no-sep-data", -MASK_SEP_DATA,					\
+      N_("Disable separate data segment") },				\
+    { "id-shared-library", MASK_ID_SHARED_LIBRARY,			\
+      N_("Enable ID based shared library") },				\
+    { "no-id-shared-library", -MASK_ID_SHARED_LIBRARY,			\
+      N_("Disable ID based shared library") },				\
     { "pcrel", MASK_PCREL,						\
       N_("Generate pc-relative code") },				\
     { "strict-align", -MASK_NO_STRICT_ALIGNMENT,			\
       N_("Do not use unaligned memory references") },			\
     { "no-strict-align", MASK_NO_STRICT_ALIGNMENT,			\
       N_("Use unaligned memory references") },				\
+    { "rtd", MASK_RTD,							\
+      N_("Use different calling convention using 'rtd'") },		\
+    { "nortd", - MASK_RTD,						\
+      N_("Use normal calling convention") },				\
     SUBTARGET_SWITCHES							\
     { "", TARGET_DEFAULT, "" }}
-/* TARGET_DEFAULT is defined in sun*.h and isi.h, etc.  */
+/* TARGET_DEFAULT is defined in m68k-none.h, netbsd.h, etc.  */
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
@@ -244,6 +362,8 @@ extern int target_flags;
     N_("Jump targets are aligned to this power of 2"), 0},		\
   { "align-functions=",	&m68k_align_funcs_string,			\
     N_("Function starts are aligned to this power of 2"), 0},		\
+  { "shared-library-id=",	&m68k_library_id_string,		\
+    N_("ID of shared library to build"), 0},				\
   SUBTARGET_OPTIONS							\
 }
 
@@ -308,9 +428,9 @@ extern int target_flags;
 
 /* No data type wants to be aligned rounder than this. 
    Most published ABIs say that ints should be aligned on 16 bit
-   boundaries, but cpus with 32 bit busses get better performance
-   aligned on 32 bit boundaries.  Coldfires without a misalignment
-   module require 32 bit alignment.  */
+   boundaries, but cpus with 32-bit busses get better performance
+   aligned on 32-bit boundaries.  ColdFires without a misalignment
+   module require 32-bit alignment.  */
 #define BIGGEST_ALIGNMENT (TARGET_ALIGN_INT ? 32 : 16)
 
 /* Set this nonzero if move instructions will actually fail to work
@@ -319,6 +439,9 @@ extern int target_flags;
 
 /* Maximum power of 2 that code can be aligned to.  */
 #define MAX_CODE_ALIGN	2			/* 4 byte alignment */
+
+/* Maximum number of library ids we permit */
+#define MAX_LIBRARY_ID 255
 
 /* Align loop starts for optimal branching.  */
 #define LOOP_ALIGN(LABEL) (m68k_align_loops)
@@ -346,7 +469,7 @@ extern int target_flags;
    For the 68000, we give the data registers numbers 0-7,
    the address registers numbers 010-017,
    and the 68881 floating point registers numbers 020-027.  */
-#define FIRST_PSEUDO_REGISTER 24
+#define FIRST_PSEUDO_REGISTER 25
 
 /* This defines the register which is used to hold the offset table for PIC.  */
 #define PIC_OFFSET_TABLE_REGNUM (flag_pic ? 13 : INVALID_REGNUM)
@@ -453,8 +576,11 @@ extern int target_flags;
    This is computed in `reload', in reload1.c.  */
 #define FRAME_POINTER_REQUIRED 0
 
-/* Base register for access to arguments of the function.  */
-#define ARG_POINTER_REGNUM 14
+/* Base register for access to arguments of the function.
+ * This isn't a hardware register. It will be eliminated to the
+ * stack pointer or frame pointer.
+ */
+#define ARG_POINTER_REGNUM 24
 
 /* Register in which static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM 8
@@ -687,13 +813,13 @@ enum reg_class {
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
    On the 68000, sp@- in a byte insn really pushes a word.
-   On the 5200 (coldfire), sp@- in a byte insn pushes just a byte.  */
-#define PUSH_ROUNDING(BYTES) (TARGET_5200 ? BYTES : ((BYTES) + 1) & ~1)
+   On the 5200 (ColdFire), sp@- in a byte insn pushes just a byte.  */
+#define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
 
 /* We want to avoid trying to push bytes.  */
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN) < MOVE_RATIO \
-    && (((SIZE) >=16 && (ALIGN) >= 16) || (TARGET_5200)))
+    && (((SIZE) >=16 && (ALIGN) >= 16) || (TARGET_COLDFIRE)))
 
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 8
@@ -798,26 +924,17 @@ enum reg_class {
    CUM is a variable of type CUMULATIVE_ARGS which gives info about
     the preceding args and about the function being called.
    NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).  */
+    (otherwise it is an extra parameter matching an ellipsis).
 
-/* On the 68000 all args are pushed, except if -mregparm is specified
-   then the first two words of arguments are passed in d0, d1.
-   *NOTE* -mregparm does not work.
-   It exists only to test register calling conventions.  */
+   On the m68k all args are always pushed.  */
 
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-((TARGET_REGPARM && (CUM) < 8) ? gen_rtx_REG ((MODE), (CUM) / 4) : 0)
+#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
    For args passed entirely in registers or entirely in memory, zero.  */
 
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-((TARGET_REGPARM && (CUM) < 8					\
-  && 8 < ((CUM) + ((MODE) == BLKmode				\
-		      ? int_size_in_bytes (TYPE)		\
-		      : GET_MODE_SIZE (MODE))))  		\
- ? 2 - (CUM) / 4 : 0)
+#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -838,32 +955,6 @@ enum reg_class {
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
 #define USE_RETURN_INSN use_return_insn ()
-
-/* Store in the variable DEPTH the initial difference between the
-   frame pointer reg contents and the stack pointer reg contents,
-   as of the start of the function body.  This depends on the layout
-   of the fixed parts of the stack frame and on how registers are saved.
-
-   On the 68k, if we have a frame, we must add one word to its length
-   to allow for the place that a6 is stored when we do have a frame pointer.
-   Otherwise, we would need to compute the offset from the frame pointer
-   of a local variable as a function of frame_pointer_needed, which
-   is hard.  */
-
-#define INITIAL_FRAME_POINTER_OFFSET(DEPTH)			\
-{ int regno;							\
-  int offset = -4;						\
-  for (regno = 16; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
-      offset += 12;						\
-  for (regno = 0; regno < 16; regno++)				\
-    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
-      offset += 4;						\
-  if (flag_pic && current_function_uses_pic_offset_table)	\
-    offset += 4;						\
-  (DEPTH) = (offset + ((get_frame_size () + 3) & -4)		\
-	     + (get_frame_size () == 0 ? 0 : 4));		\
-}
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
@@ -941,6 +1032,38 @@ __transfer_from_trampoline ()					\
   asm volatile ("move%.l %1,%0" : "=a" (a0) : "m" (a0[18]));	\
   asm ("rts":);							\
 }
+
+/* Definitions for register eliminations.
+
+   This is an array of structures.  Each structure initializes one pair
+   of eliminable registers.  The "from" register number is given first,
+   followed by "to".  Eliminations of the same "from" register are listed
+   in order of preference.
+
+   There are two registers that can always be eliminated on the m68k.
+   The frame pointer and the arg pointer can be replaced by either the
+   hard frame pointer or to the stack pointer, depending upon the
+   circumstances.  The hard frame pointer is not used before reload and
+   so it is not eligible for elimination.  */
+
+#define ELIMINABLE_REGS					\
+{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM },		\
+ { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM },	\
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM }}
+
+/* Given FROM and TO register numbers, say whether this elimination is
+   allowed.  Frame pointer elimination is automatically handled.
+
+   All other eliminations are valid.  */
+
+#define CAN_ELIMINATE(FROM, TO) \
+  ((TO) == STACK_POINTER_REGNUM ? ! frame_pointer_needed : 1)
+
+/* Define the offset between two registers, one to be eliminated, and the other
+   its replacement, at the start of a routine.  */
+
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
+  (OFFSET) = m68k_initial_elimination_offset(FROM, TO)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1119,10 +1242,10 @@ __transfer_from_trampoline ()					\
 	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
 	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
 
-/* coldfire/5200 does not allow HImode index registers.  */
+/* ColdFire/5200 does not allow HImode index registers.  */
 #define LEGITIMATE_INDEX_REG_P(X)   \
   ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (! TARGET_5200					\
+   || (! TARGET_COLDFIRE					\
        && GET_CODE (X) == SIGN_EXTEND			\
        && GET_CODE (XEXP (X, 0)) == REG			\
        && GET_MODE (XEXP (X, 0)) == HImode		\
@@ -1133,12 +1256,12 @@ __transfer_from_trampoline ()					\
 
 #define LEGITIMATE_INDEX_P(X)   \
    (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((TARGET_68020 || TARGET_5200) && GET_CODE (X) == MULT \
+    || ((TARGET_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
 	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
 	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
 	&& (INTVAL (XEXP (X, 1)) == 2			\
 	    || INTVAL (XEXP (X, 1)) == 4		\
-	    || (INTVAL (XEXP (X, 1)) == 8 && !TARGET_5200))))
+	    || (INTVAL (XEXP (X, 1)) == 8 && !TARGET_COLDFIRE))))
 
 /* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
@@ -1281,11 +1404,11 @@ __transfer_from_trampoline ()					\
 #define NOTICE_UPDATE_CC(EXP,INSN) notice_update_cc (EXP, INSN)
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
-{ if (cc_prev_status.flags & CC_IN_68881)			\
+do { if (cc_prev_status.flags & CC_IN_68881)			\
     return FLOAT;						\
   if (cc_prev_status.flags & CC_NO_OVERFLOW)			\
     return NO_OV;						\
-  return NORMAL; }
+  return NORMAL; } while (0)
 
 /* Control the assembler format that we output.  */
 
@@ -1341,7 +1464,7 @@ __transfer_from_trampoline ()					\
 #define REGISTER_NAMES \
 {"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",	\
  "a0", "a1", "a2", "a3", "a4", "a5", "a6", "sp",	\
- "fp0", "fp1", "fp2", "fp3", "fp4", "fp5", "fp6", "fp7" }
+ "fp0", "fp1", "fp2", "fp3", "fp4", "fp5", "fp6", "fp7", "argptr" }
 
 /* How to renumber registers for dbx and gdb.
    On the Sun-3, the floating point registers have numbers
@@ -1547,6 +1670,7 @@ __transfer_from_trampoline ()					\
 extern const char *m68k_align_loops_string;
 extern const char *m68k_align_jumps_string;
 extern const char *m68k_align_funcs_string;
+extern const char *m68k_library_id_string;
 extern int m68k_align_loops;
 extern int m68k_align_jumps;
 extern int m68k_align_funcs;

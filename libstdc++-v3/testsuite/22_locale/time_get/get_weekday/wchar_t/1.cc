@@ -30,7 +30,7 @@ void test01()
   typedef time_base::dateorder dateorder;
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction and sanity checks.
   locale loc_c = locale::classic();
@@ -41,12 +41,6 @@ void test01()
   VERIFY( loc_hk != loc_fr );
   VERIFY( loc_hk != loc_de );
   VERIFY( loc_de != loc_fr );
-
-  // cache the __timepunct facets, for quicker gdb inspection
-  const __timepunct<wchar_t>& time_c = use_facet<__timepunct<wchar_t> >(loc_c); 
-  const __timepunct<wchar_t>& time_de = use_facet<__timepunct<wchar_t> >(loc_de); 
-  const __timepunct<wchar_t>& time_hk = use_facet<__timepunct<wchar_t> >(loc_hk); 
-  const __timepunct<wchar_t>& time_fr = use_facet<__timepunct<wchar_t> >(loc_fr); 
 
   const wstring empty;
 
@@ -61,11 +55,7 @@ void test01()
   ios_base::iostate errorstate = good;
 
   // create "C" time objects
-  const tm time_bday = { 0, 0, 12, 4, 3, 71 };
-  const wchar_t* all = L"%a %A %b %B %c %d %H %I %j %m %M %p %s %U "
-                    L"%w %W %x %X %y %Y %Z %%";
-  const wchar_t* date = L"%A, the second of %B";
-  const wchar_t* date_ex = L"%Ex";
+  const tm time_bday = { 0, 0, 12, 4, 3, 71, 0, 93, 0 };
 
   // iter_type 
   // get_weekday(iter_type, iter_type, ios_base&, 
@@ -95,7 +85,7 @@ void test01()
   tim_get.get_weekday(is_it03, end, iss, errorstate, &time03);
   VERIFY( time03.tm_wday == time_bday.tm_wday );
   VERIFY( errorstate == good );
-  VERIFY( *is_it03 == ' ');
+  VERIFY( *is_it03 == L' ' );
 
   iss.str(L"San");
   iterator_type is_it04(iss);
@@ -104,7 +94,7 @@ void test01()
   errorstate = good;
   tim_get.get_weekday(is_it04, end, iss, errorstate, &time04);
   VERIFY( time04.tm_wday == 4 );
-  VERIFY( *is_it04 == 'n');
+  VERIFY( *is_it04 == L'n' );
   VERIFY( errorstate == ios_base::failbit );
 
   iss.str(L"Tuesday ");
@@ -114,7 +104,7 @@ void test01()
   tim_get.get_weekday(is_it05, end, iss, errorstate, &time05);
   VERIFY( time05.tm_wday == 2 );
   VERIFY( errorstate == good );
-  VERIFY( *is_it05 == ' ');
+  VERIFY( *is_it05 == L' ' );
 
   iss.str(L"Tuesducky "); // Kind of like Fryday, without the swirls.
   iterator_type is_it06(iss);
@@ -124,7 +114,7 @@ void test01()
   tim_get.get_weekday(is_it06, end, iss, errorstate, &time06);
   VERIFY( time06.tm_wday == 4 );
   VERIFY( errorstate == ios_base::failbit );
-  VERIFY( *is_it05 == 'u');
+  VERIFY( *is_it05 == L'u' );
 }
 
 int main()

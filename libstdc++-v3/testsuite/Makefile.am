@@ -23,15 +23,12 @@
 
 AUTOMAKE_OPTIONS = dejagnu
 
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
+include $(top_srcdir)/fragment.am
 
 AM_MAKEFLAGS = -j1
 AM_RUNTESTFLAGS =
-PWD_COMMAND = $${PWDCMD-pwd}
 
 ## CXX is actually a "C" compiler. These are real C++ programs.
-glibcxx_srcdir=@glibcxx_srcdir@
-glibcxx_builddir=@glibcxx_builddir@
 testsuite_flags_script=${glibcxx_builddir}/scripts/testsuite_flags
 CXX=`${testsuite_flags_script} --build-cxx`
 
@@ -39,13 +36,6 @@ CXXLINK = \
 	LD_RUN_PATH=$${LD_RUN_PATH:+$$LD_RUN_PATH:}${glibcxx_builddir}/src/.libs\
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) \
 	$(AM_CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -o $@
-
-GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
-LIBSUPCXX_INCLUDES = @LIBSUPCXX_INCLUDES@
-TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
-INCLUDES = \
-	-nostdinc++ \
-	@GLIBCXX_INCLUDES@ @LIBSUPCXX_INCLUDES@ @TOPLEVEL_INCLUDES@ 
 
 # Generated lists of files to run.  All of these names are valid make
 # targets, if you wish to generate a list manually.
@@ -62,7 +52,7 @@ libv3test_a_SOURCES = testsuite_hooks.cc testsuite_allocator.cc
 if GLIBCXX_TEST_ABI
 noinst_PROGRAMS = abi_check
 else
-noinst_PROGRAMS = 
+noinst_PROGRAMS =
 endif
 abi_check_SOURCES = abi_check.cc
 
@@ -79,9 +69,8 @@ endif
 # This is automatically run after the generated check-DEJAGNU rule.
 check-local: check-abi
 
-baseline_dir = @baseline_dir@
 baseline_file = ${baseline_dir}/baseline_symbols.txt
-extract_symvers = @glibcxx_srcdir@/scripts/extract_symvers
+extract_symvers = $(glibcxx_srcdir)/scripts/extract_symvers
 
 current_symbols.txt: ${extract_symvers} ../src/.libs/libstdc++.so
 	  -@(${extract_symvers} ../src/.libs/libstdc++.so current_symbols.txt)
@@ -94,7 +83,7 @@ baseline_symbols:
 	    exit 1; \
 	  fi; true)
 
-new-abi-baseline: 
+new-abi-baseline:
 	-@$(mkinstalldirs) ${baseline_dir}
 	-@(output=${baseline_file}; \
 	  if test -f $${output}; then \
@@ -111,7 +100,7 @@ check-abi: abi_check baseline_symbols current_symbols.txt
 	-@(./abi_check --check ./current_symbols.txt ${baseline_file} \
 	2>&1 | tee libstdc++-abi.sum)
 
-check-abi-verbose: abi_check baseline_symbols current_symbols.txt 
+check-abi-verbose: abi_check baseline_symbols current_symbols.txt
 	-@(./abi_check --check-verbose ./current_symbols.txt ${baseline_file} \
 	2>&1 | tee libstdc++-abi.sum)
 
@@ -136,7 +125,7 @@ check-script-install: ${survey_script}
 	  ${survey_script} 0)
 
 
-# Runs the testsuite/performance tests.  
+# Runs the testsuite/performance tests.
 # Some of these tests create large (~75MB) files, allocate huge
 # ammounts of memory, or otherwise tie up machine resources. Thus,
 # running this is off by default.
@@ -157,4 +146,4 @@ check-script check-script-install check-performance
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
-	     testsuite_* site.exp abi_check baseline_symbols 
+	     testsuite_* site.exp abi_check baseline_symbols

@@ -154,7 +154,7 @@ extern tree stabilize_reference (tree);
 /* Quickly build a temporary pointer on hypothetical type NAME. */
 #define BUILD_PTR_FROM_NAME(ptr, name)		\
   do {						\
-    ptr = build (POINTER_TYPE, NULL_TREE);	\
+    ptr = make_node (POINTER_TYPE);		\
     TYPE_NAME (ptr) = name;			\
   } while (0)
 
@@ -941,6 +941,7 @@ ATTRIBUTE_NORETURN
 #endif
 ;
 extern void java_expand_classes (void);
+extern void java_finish_classes (void);
 
 extern GTY(()) struct parser_ctxt *ctxp;
 extern GTY(()) struct parser_ctxt *ctxp_for_generation;

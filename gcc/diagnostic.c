@@ -130,10 +130,17 @@ text_specifies_location (text_info *text, location_t *locus)
     ;
 
   /* Extract the location information if any.  */
-  if (*p == '%' && *++p == 'H')
+  if (p[0] == '%' && p[1] == 'H')
     {
       *locus = *va_arg (*text->args_ptr, location_t *);
-      text->format_spec = p + 1;
+      text->format_spec = p + 2;
+      return true;
+    }
+  else if (p[0] == '%' && p[1] == 'J')
+    {
+      tree t = va_arg (*text->args_ptr, tree);
+      *locus = DECL_SOURCE_LOCATION (t);
+      text->format_spec = p + 2;
       return true;
     }
 
@@ -276,57 +283,6 @@ diagnostic_action_after_output (diagnostic_context *context,
 
     default:
       real_abort ();
-    }
-}
-
-/* Called when the start of a function definition is parsed,
-   this function prints on stderr the name of the function.  */
-void
-announce_function (tree decl)
-{
-  if (!quiet_flag)
-    {
-      if (rtl_dump_and_exit)
-	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
-      else
-	verbatim (" %s", (*lang_hooks.decl_printable_name) (decl, 2));
-      fflush (stderr);
-      global_dc->printer->need_newline = true;
-      diagnostic_set_last_function (global_dc);
-    }
-}
-
-/* The default function to print out name of current function that caused
-   an error.  */
-void
-lhd_print_error_function (diagnostic_context *context, const char *file)
-{
-  if (diagnostic_last_function_changed (context))
-    {
-      const char *old_prefix = context->printer->prefix;
-      char *new_prefix = file ? build_message_string ("%s: ", file) : NULL;
-
-      pp_set_prefix (context->printer, new_prefix);
-
-      if (current_function_decl == NULL)
-	pp_string (context->printer, _("At top level:"));
-      else
-	{
-	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
-	    pp_printf
-	      (context->printer, "In member function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
-	  else
-	    pp_printf
-	      (context->printer, "In function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
-	}
-      pp_newline (context->printer);
-
-      diagnostic_set_last_function (context);
-      pp_flush (context->printer);
-      context->printer->prefix = old_prefix;
-      free ((char*) new_prefix);
     }
 }
 
@@ -599,44 +555,6 @@ fnotice (FILE *file, const char *msgid, ...)
   va_start (ap, msgid);
   vfprintf (file, _(msgid), ap);
   va_end (ap);
-}
-
-/* Warn about a use of an identifier which was marked deprecated.  */
-void
-warn_deprecated_use (tree node)
-{
-  if (node == 0 || !warn_deprecated_decl)
-    return;
-
-  if (DECL_P (node))
-    warning ("`%s' is deprecated (declared at %s:%d)",
-	     IDENTIFIER_POINTER (DECL_NAME (node)),
-	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
-  else if (TYPE_P (node))
-    {
-      const char *what = NULL;
-      tree decl = TYPE_STUB_DECL (node);
-
-      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-	what = IDENTIFIER_POINTER (TYPE_NAME (node));
-      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (node)))
-	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
-
-      if (what)
-	{
-	  if (decl)
-	    warning ("`%s' is deprecated (declared at %s:%d)", what,
-		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
-	  else
-	    warning ("`%s' is deprecated", what);
-	}
-      else if (decl)
-	warning ("type is deprecated (declared at %s:%d)",
-		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
-      else
-	warning ("type is deprecated");
-    }
 }
 
 /* Inform the user that an error occurred while trying to report some

@@ -3264,17 +3264,18 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		          win = 1;
 			/* If the address was already reloaded,
 			   we win as well.  */
-			if (GET_CODE (operand) == MEM && address_reloaded[i])
+			else if (GET_CODE (operand) == MEM
+				 && address_reloaded[i])
 			  win = 1;
 			/* Likewise if the address will be reloaded because
 			   reg_equiv_address is nonzero.  For reg_equiv_mem
 			   we have to check.  */
-		        if (GET_CODE (operand) == REG
-			    && REGNO (operand) >= FIRST_PSEUDO_REGISTER
-			    && reg_renumber[REGNO (operand)] < 0
-			    && ((reg_equiv_mem[REGNO (operand)] != 0
-			         && EXTRA_CONSTRAINT_STR (reg_equiv_mem[REGNO (operand)], c, p))
-			        || (reg_equiv_address[REGNO (operand)] != 0)))
+		        else if (GET_CODE (operand) == REG
+				 && REGNO (operand) >= FIRST_PSEUDO_REGISTER
+				 && reg_renumber[REGNO (operand)] < 0
+				 && ((reg_equiv_mem[REGNO (operand)] != 0
+				      && EXTRA_CONSTRAINT_STR (reg_equiv_mem[REGNO (operand)], c, p))
+				     || (reg_equiv_address[REGNO (operand)] != 0)))
 			  win = 1;
 
 			/* If we didn't already win, we can reload
@@ -4883,7 +4884,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 0)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 0)) < FIRST_PSEUDO_REGISTER
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
+	       || XEXP (XEXP (ad, 0), 0) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 0) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 0) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 1)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -4903,7 +4912,15 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (ad, 0), 1)) == REG
 	   && REGNO (XEXP (XEXP (ad, 0), 1)) < FIRST_PSEUDO_REGISTER
-	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
+	   && (REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
+	       || XEXP (XEXP (ad, 0), 1) == frame_pointer_rtx
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == hard_frame_pointer_rtx
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+	       || XEXP (XEXP (ad, 0), 1) == arg_pointer_rtx
+#endif
+	       || XEXP (XEXP (ad, 0), 1) == stack_pointer_rtx)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 0)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -5806,9 +5823,16 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	  if (force_replace
 	      || ! rtx_equal_p (tem, reg_equiv_mem[regno]))
 	    {
-	      int offset = SUBREG_BYTE (x);
 	      unsigned outer_size = GET_MODE_SIZE (GET_MODE (x));
 	      unsigned inner_size = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
+	      int offset;
+
+	      /* For big-endian paradoxical subregs, SUBREG_BYTE does not
+		 hold the correct (negative) byte offset.  */
+	      if (BYTES_BIG_ENDIAN && outer_size > inner_size)
+		offset = inner_size - outer_size;
+	      else
+		offset = SUBREG_BYTE (x);
 
 	      XEXP (tem, 0) = plus_constant (XEXP (tem, 0), offset);
 	      PUT_MODE (tem, GET_MODE (x));

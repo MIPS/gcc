@@ -29,7 +29,7 @@
 // the GNU General Public License.
 
 //
-// ISO C++ 14882: 27.8  File-based streams
+// ISO C++ 14882: 27.4  Iostreams base classes
 //
 
 /** @file ios_base.h
@@ -164,8 +164,8 @@ namespace std
     class failure : public exception
     {
     public:
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-      //48.  Use of non-existent exception constructor
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 48.  Use of non-existent exception constructor
       explicit 
       failure(const string& __str) throw();
 
@@ -178,9 +178,7 @@ namespace std
       what() const throw();
       
     private:
-      enum { _S_bufsize = 256 };
-      char _M_name[_S_bufsize];
-#endif
+      string _M_msg;
     };
 
     // 27.4.2.1.2  Type ios_base::fmtflags
@@ -739,14 +737,13 @@ namespace std
   protected:
     ios_base();
 
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-  //50.  Copy constructor and assignment operator of ios_base
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 50.  Copy constructor and assignment operator of ios_base
   private:
     ios_base(const ios_base&);
 
     ios_base& 
     operator=(const ios_base&);
-#endif
   };
  
   // [27.4.5.1] fmtflags manipulators

@@ -166,6 +166,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE false
 #endif
 
+#ifndef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL default_external_libcall
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -202,7 +206,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_OUTPUT_MI_THUNK,             \
                         TARGET_ASM_CAN_OUTPUT_MI_THUNK,         \
                         TARGET_ASM_FILE_START,                  \
-                        TARGET_ASM_FILE_END}
+                        TARGET_ASM_FILE_END,			\
+			TARGET_ASM_EXTERNAL_LIBCALL}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -225,6 +230,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SCHED_DFA_NEW_CYCLE 0
 #define TARGET_SCHED_INIT_DFA_BUBBLES 0
 #define TARGET_SCHED_DFA_BUBBLE 0
+#define TARGET_SCHED_IS_COSTLY_DEPENDENCE 0
 
 #define TARGET_SCHED						\
   {TARGET_SCHED_ADJUST_COST,					\
@@ -245,7 +251,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,	\
    TARGET_SCHED_DFA_NEW_CYCLE,					\
    TARGET_SCHED_INIT_DFA_BUBBLES,				\
-   TARGET_SCHED_DFA_BUBBLE}
+   TARGET_SCHED_DFA_BUBBLE,                                     \
+   TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
@@ -256,7 +263,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ADDRESS_COST default_address_cost
 
 /* In builtins.c.  */
-#define TARGET_INIT_BUILTINS default_init_builtins
+#define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
 
 /* In varasm.c.  */
@@ -295,6 +302,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 
+#ifndef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS hook_void_void
+#endif
+
 #ifndef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P hook_bool_tree_false
 #endif
@@ -313,6 +324,37 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_OPTF hook_void_charptr
 #endif
 
+#define TARGET_BUILD_BUILTIN_VA_LIST std_build_builtin_va_list
+
+#define TARGET_GET_PCH_VALIDITY default_get_pch_validity
+#define TARGET_PCH_VALID_P default_pch_valid_p
+
+#define TARGET_PROMOTE_FUNCTION_ARGS default_promote_function_args
+#define TARGET_PROMOTE_FUNCTION_RETURN default_promote_function_return
+#define TARGET_PROMOTE_PROTOTYPES default_promote_prototypes
+
+#define TARGET_STRUCT_VALUE_RTX default_struct_value_rtx
+#define TARGET_RETURN_IN_MEMORY default_return_in_memory
+#define TARGET_RETURN_IN_MSB hook_bool_tree_false
+
+#define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
+#define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
+#define TARGET_STRICT_ARGUMENT_NAMING default_strict_argument_naming
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED default_pretend_outgoing_varargs_named
+
+#define TARGET_CALLS {						\
+   TARGET_PROMOTE_FUNCTION_ARGS,				\
+   TARGET_PROMOTE_FUNCTION_RETURN,				\
+   TARGET_PROMOTE_PROTOTYPES,					\
+   TARGET_STRUCT_VALUE_RTX,					\
+   TARGET_RETURN_IN_MEMORY,					\
+   TARGET_RETURN_IN_MSB,					\
+   TARGET_EXPAND_BUILTIN_SAVEREGS,				\
+   TARGET_SETUP_INCOMING_VARARGS,				\
+   TARGET_STRICT_ARGUMENT_NAMING,				\
+   TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
+   }
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -328,9 +370,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_MS_BITFIELD_LAYOUT_P,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
-  TARGET_BRANCH_TARGET_REGISTER_CLASS,	\
+  TARGET_BRANCH_TARGET_REGISTER_CLASS,		\
   TARGET_BRANCH_TARGET_REGISTER_CALLEE_SAVED,	\
   TARGET_CANNOT_FORCE_CONST_MEM,		\
   TARGET_CANNOT_COPY_INSN_P,			\
@@ -346,6 +389,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ADDRESS_COST,				\
   TARGET_DWARF_REGISTER_SPAN,                   \
   TARGET_MACHINE_DEPENDENT_REORG,		\
+  TARGET_BUILD_BUILTIN_VA_LIST,			\
+  TARGET_GET_PCH_VALIDITY,			\
+  TARGET_PCH_VALID_P,				\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -353,8 +399,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  TARGET_CALLS,					\
   TARGET_EXTRA_INCLUDES,			\
   TARGET_OPTF,					\
 }
 
 #include "hooks.h"
+#include "targhooks.h"

@@ -41,6 +41,7 @@ package gnu.java.awt.peer.gtk;
 import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Dialog;
+import java.awt.Insets;
 import java.awt.peer.DialogPeer;
 
 public class GtkDialogPeer extends GtkWindowPeer
@@ -51,9 +52,21 @@ public class GtkDialogPeer extends GtkWindowPeer
     super (dialog);
   }
 
+  void initializeInsets ()
+  {
+    synchronized (latestInsets)
+      {
+	insets = new Insets (latestInsets.top,
+			     latestInsets.left,
+			     latestInsets.bottom,
+			     latestInsets.right);
+      }
+  }
+
   void create ()
   {
-    create (GTK_WINDOW_POPUP);
+    // Create a decorated dialog window.
+    create (GDK_WINDOW_TYPE_HINT_DIALOG, true);
   }
 
   public void getArgs (Component component, GtkArgList args)
@@ -62,17 +75,9 @@ public class GtkDialogPeer extends GtkWindowPeer
 
     Dialog dialog = (Dialog) component;
 
+    args.add ("title", dialog.getTitle ());
     args.add ("modal", dialog.isModal ());
     args.add ("allow_shrink", dialog.isResizable ());
     args.add ("allow_grow", dialog.isResizable ());
   }
-
-  public void handleEvent (AWTEvent event)
-  {
-//     int id = event.getID();
-    
-//     if (id == WindowEvent.WINDOW_CLOSING)
-//       System.out.println ("got a closing event");
-  }
-
 }

@@ -3,20 +3,20 @@
    2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -377,7 +377,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
    definition is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
@@ -460,15 +460,6 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 	(UNSIGNEDP) = 0;			\
       (MODE) = DImode;				\
     }
-
-/* Define this if function arguments should also be promoted using the above
-   procedure.  */
-
-#define PROMOTE_FUNCTION_ARGS
-
-/* Likewise, if the function return value is promoted.  */
-
-#define PROMOTE_FUNCTION_RETURN
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -1003,15 +994,6 @@ extern int alpha_memory_latency;
 #define LIBCALL_VALUE(MODE) \
   function_value (NULL, NULL, MODE)
 
-/* The definition of this macro implies that there are cases where
-   a scalar value cannot be returned in registers.
-
-   For the Alpha, any structure or union type is returned in memory, as
-   are integers whose size is larger than 64 bits.  */
-
-#define RETURN_IN_MEMORY(TYPE) \
-  return_in_memory (TYPE, VOIDmode)
-
 /* 1 if N is a possible register number for a function value
    as seen by the caller.  */
 
@@ -1095,11 +1077,6 @@ extern int alpha_memory_latency;
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
 ((CUM) < 6 && 6 < (CUM) + ALPHA_ARG_SIZE (MODE, TYPE, NAMED)	\
  ? 6 - (CUM) : 0)
-
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.  */
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL) \
-  alpha_setup_incoming_varargs(CUM,MODE,TYPE,&(PRETEND_SIZE),NO_RTL)
 
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
@@ -1208,6 +1185,7 @@ do {						\
 /* Before the prologue, RA lives in $26.  */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
 #define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (26)
+#define DWARF_ALT_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (64)
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N)	((N) < 4 ? (N) + 16 : INVALID_REGNUM)
@@ -1359,14 +1337,6 @@ do {									     \
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* This flag, if defined, says the same insns that convert to a signed fixnum
-   also convert validly to an unsigned one.
-
-   We actually lie a bit here as overflow conditions are different.  But
-   they aren't being checked anyway.  */
-
-#define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
 /* Max number of bytes we can move to or from memory
    in one reasonably fast instruction.  */
@@ -1676,6 +1646,7 @@ do {						\
   {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}},		\
   {"alpha_fp_comparison_operator", {EQ, LE, LT, UNORDERED}},		\
   {"divmod_operator", {DIV, MOD, UDIV, UMOD}},				\
+  {"fix_operator", {FIX, UNSIGNED_FIX}},				\
   {"const0_operand", {CONST_INT, CONST_DOUBLE, CONST_VECTOR}},		\
   {"samegp_function_operand", {SYMBOL_REF}},				\
   {"direct_call_operand", {SYMBOL_REF}},				\
@@ -1698,6 +1669,7 @@ do {						\
   {"unaligned_memory_operand", {MEM}},					\
   {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},			\
   {"any_memory_operand", {MEM}},					\
+  {"normal_memory_operand", {MEM}},					\
   {"hard_fp_register_operand", {SUBREG, REG}},				\
   {"hard_int_register_operand", {SUBREG, REG}},				\
   {"reg_not_elim_operand", {SUBREG, REG}},				\
@@ -1707,10 +1679,6 @@ do {						\
   {"some_small_symbolic_operand", {SET, PARALLEL, PREFETCH, UNSPEC,	\
 				   UNSPEC_VOLATILE}},
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = alpha_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   alpha_va_start (valist, nextarg)

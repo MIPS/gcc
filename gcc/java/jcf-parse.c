@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "debug.h"
 #include "assert.h"
 #include "tm_p.h"
+#include "cgraph.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -471,7 +472,7 @@ read_class (tree name)
   JCF this_jcf, *jcf;
   tree icv, class = NULL_TREE;
   tree save_current_class = current_class;
-  const char *save_input_filename = input_filename;
+  location_t save_location = input_location;
   JCF *save_current_jcf = current_jcf;
 
   if ((icv = IDENTIFIER_CLASS_VALUE (name)) != NULL_TREE)
@@ -549,7 +550,7 @@ read_class (tree name)
     }
 
   current_class = save_current_class;
-  input_filename = save_input_filename;
+  input_location = save_location;
   current_jcf = save_current_jcf;
   return 1;
 }
@@ -692,25 +693,17 @@ load_inner_classes (tree cur_class)
     }
 }
 
-void
-init_outgoing_cpool (void)
-{
-  outgoing_cpool = ggc_alloc_cleared (sizeof (struct CPool));
-}
-
 static void
 parse_class_file (void)
 {
   tree method;
-  const char *save_input_filename = input_filename;
-  int save_lineno = input_line;
+  location_t save_location = input_location;
 
   java_layout_seen_class_methods ();
 
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   input_line = 0;
   (*debug_hooks->start_source_file) (input_line, input_filename);
-  init_outgoing_cpool ();
 
   /* Currently we always have to emit calls to _Jv_InitClass when
      compiling from class files.  */
@@ -798,9 +791,8 @@ parse_class_file (void)
 
   finish_class ();
 
-  (*debug_hooks->end_source_file) (save_lineno);
-  input_filename = save_input_filename;
-  input_line = save_lineno;
+  (*debug_hooks->end_source_file) (save_location.line);
+  input_location = save_location;
 }
 
 /* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
@@ -983,10 +975,11 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 
 	  if (twice)
 	    {
-	      const char *saved_input_filename = input_filename;
-	      input_filename = value;
-	      warning ("source file seen twice on command line and will be compiled only once");
-	      input_filename = saved_input_filename;
+	      location_t warn_loc;
+	      warn_loc.file = value;
+	      warn_loc.line = 0;
+	      warning ("%Hsource file seen twice on command line and "
+		       "will be compiled only once", &warn_loc);
 	    }
 	  else
 	    {
@@ -1119,9 +1112,25 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   java_expand_classes ();
   if (!java_report_errors () && !flag_syntax_only)
     {
+      /* Optimize and expand all classes compiled from source.  */
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
+      java_finish_classes ();
+
+      /* Emit the .jcf section.  */
       emit_register_classes ();
       if (flag_indirect_dispatch)
-	emit_offset_symbol_table ();
+	{
+	  otable_decl 
+	    = emit_symbol_table 
+	    (get_identifier ("otable"), 
+	     otable_decl, otable_methods, otable_syms_decl, integer_type_node);
+	  atable_decl 
+	    = emit_symbol_table 
+	    (get_identifier ("atable"), 
+	     atable_decl, atable_methods, atable_syms_decl, ptr_type_node);
+	}
+      emit_catch_table ();
     }
 
   write_resource_constructor ();
@@ -1156,10 +1165,9 @@ classify_zip_file (struct ZipDirectory *zdir)
 		   ".class", 6))
     return 1;
 
-  /* For now we drop the manifest and other information.  Maybe it
-     would make more sense to compile it in?  */
-  if (zdir->filename_length > 8
-      && !strncmp (class_name_in_zip_dir, "META-INF/", 9))
+  /* For now we drop the manifest, but not other information.  */
+  if (zdir->filename_length == 20
+      && !strncmp (class_name_in_zip_dir, "META-INF/MANIFEST.MF", 20))
     return 0;
 
   /* Drop directory entries.  */

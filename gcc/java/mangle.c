@@ -67,6 +67,9 @@ struct obstack *mangle_obstack;
 #define MANGLE_RAW_STRING(S) \
   obstack_grow (mangle_obstack, (S), sizeof (S)-1)
 
+/* atms: array template mangled string. */
+static GTY(()) tree atms;
+
 /* This is the mangling interface: a decl, a class field (.class) and
    the vtable. */
 
@@ -233,7 +236,7 @@ mangle_type (tree type)
    already seen, so they can be reused. For example, java.lang.Object
    would generate three entries: two package names and a type. If
    java.lang.String is presented next, the java.lang will be matched
-   against the first two entries (and kept for compression as S_0), and
+   against the first two entries (and kept for compression as S0_), and
    type String would be added to the table. See mangle_record_type.
    COMPRESSION_NEXT is the index to the location of the next insertion
    of an element.  */
@@ -284,34 +287,29 @@ find_compression_array_template_match (tree string)
 static int
 find_compression_record_match (tree type, tree *next_current)
 {
-  int i, match;
+  int i, match = -1;
   tree current, saved_current = NULL_TREE;
 
-  /* Search from the beginning for something that matches TYPE, even
-     partially. */
-  for (current = TYPE_PACKAGE_LIST (type), i = 0, match = -1; current;
-       current = TREE_CHAIN (current))
+  current = TYPE_PACKAGE_LIST (type);
+      
+  for (i = 0; i < compression_next; i++)
     {
-      int j;
-      for (j = i; j < compression_next; j++)
-	if (TREE_VEC_ELT (compression_table, j) == TREE_PURPOSE (current))
-	  {
-	    match = i = j;
-	    saved_current = current;
-	    i++;
-	    break;
-	  }
-	else
-	  {
-	    /* We don't want to match an element that appears in the middle
-	    of a package name, so skip forward to the next complete type name.
-	    IDENTIFIER_NODEs are partial package names while RECORD_TYPEs
-	    represent complete type names. */
-	    while (j < compression_next 
-		   && TREE_CODE (TREE_VEC_ELT (compression_table, j)) == 
-		      IDENTIFIER_NODE)
-	      j++;
-	  }
+      tree compression_entry = TREE_VEC_ELT (compression_table, i);
+      if (current && compression_entry == TREE_PURPOSE (current))
+        {
+	  match = i;
+	  saved_current = current;
+	  current = TREE_CHAIN (current);
+	}
+      else
+	/* We don't want to match an element that appears in the middle
+	   of a package name, so skip forward to the next complete type name.
+	   IDENTIFIER_NODEs (except for a "6JArray") are partial package
+	   names while RECORD_TYPEs represent complete type names. */
+	while (i < compression_next 
+	       && TREE_CODE (compression_entry) == IDENTIFIER_NODE
+	       && compression_entry != atms)
+	  compression_entry = TREE_VEC_ELT (compression_table, ++i);
     }
 
   if (!next_current)
@@ -413,11 +411,9 @@ mangle_pointer_type (tree type)
 
 /* Mangle an array type. Search for an easy solution first, then go
    through the process of finding out whether the bare array type or even
-   the template indicator where already used an compress appropriately.
+   the template indicator were already used and compressed appropriately.
    It handles pointers. */
 
-/* atms: array template mangled string. */
-static GTY(()) tree atms;
 static void
 mangle_array_type (tree p_type)
 {
@@ -436,7 +432,7 @@ mangle_array_type (tree p_type)
       atms = get_identifier ("6JArray");
     }
 
-  /* Maybe we have what we're looking in the compression table. */
+  /* Maybe we have what we're looking for in the compression table. */
   if ((match = find_compression_array_match (p_type)) >= 0)
     {
       emit_compression_string (match);
@@ -475,7 +471,7 @@ mangle_array_type (tree p_type)
 }
 
 /* Write a substitution string for entry I. Substitution string starts a
-   -1 (encoded S_.) The base is 36, and the code shamlessly taken from
+   -1 (encoded S_.) The base is 36, and the code shamelessly taken from
    cp/mangle.c.  */
 
 static void

@@ -2,25 +2,28 @@
 
 AUTOMAKE_OPTIONS = cygnus
 
-SUBDIRS = include
+SUBDIRS = include testsuite
 
-EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
-		src/mips/n32.s src/mips/o32.S src/mips/o32.s \
-		src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S \
-		src/x86/ffi.c src/x86/sysv.S src/x86/win32.S \
-		src/x86/ffi64.c src/x86/unix64.S \
-		src/alpha/ffi.c src/alpha/osf.S \
-		src/m68k/ffi.c src/m68k/sysv.S \
-		src/powerpc/ffi.c src/powerpc/sysv.S \
-		src/powerpc/linux64.S src/powerpc/linux64_closure.S \
-		src/powerpc/ppc_closure.S src/powerpc/asm.h \
-		src/powerpc/ffi_darwin.c \
-		src/powerpc/darwin.S src/powerpc/aix.S \
-		src/powerpc/darwin_closure.S src/powerpc/aix_closure.S \
-		src/arm/ffi.c src/arm/sysv.S \
-		src/s390/ffi.c src/s390/sysv.S \
-		src/sh/ffi.c src/sh/sysv.S \
-		src/sh64/ffi.c src/sh64/sysv.S
+EXTRA_DIST = LICENSE ChangeLog.v1 \
+	src/alpha/ffi.c src/alpha/osf.S src/alpha/ffitarget.h \
+	src/arm/ffi.c src/arm/sysv.S src/arm/ffitarget.h \
+	src/mips/ffi.c src/mips/n32.S src/mips/o32.S \
+	src/mips/ffitarget.h \
+	src/m68k/ffi.c src/m68k/sysv.S src/m68k/ffitarget.h \
+	src/powerpc/ffi.c src/powerpc/sysv.S \
+	src/powerpc/linux64.S src/powerpc/linux64_closure.S \
+	src/powerpc/ppc_closure.S src/powerpc/asm.h \
+	src/powerpc/aix.S src/powerpc/darwin.S \
+	src/powerpc/aix_closure.S src/powerpc/darwin_closure.S \
+	src/powerpc/ffi_darwin.c src/powerpc/ffitarget.h \
+	src/s390/ffi.c src/s390/sysv.S src/s390/ffitarget.h \
+	src/sh/ffi.c src/sh/sysv.S src/sh/ffitarget.h \
+	src/sh64/ffi.c src/sh64/sysv.S src/sh64/ffitarget.h \
+	src/sparc/v8.S src/sparc/v9.S src/sparc/ffitarget.h \
+	src/sparc/ffi.c \
+	src/x86/ffi.c src/x86/sysv.S src/x86/win32.S \
+	src/x86/ffi64.c src/x86/unix64.S src/x86/ffitarget.h
+
 
 VPATH = @srcdir@:@srcdir@/src:@srcdir@/src/@TARGETDIR@
 
@@ -52,6 +55,7 @@ AM_MAKEFLAGS = \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"SHELL=$(SHELL)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
@@ -81,15 +85,10 @@ MULTICLEAN = true
 toolexeclib_LTLIBRARIES = libffi.la
 noinst_LTLIBRARIES = libffi_convenience.la
 
-noinst_PROGRAMS = ffitest
 
-ffitest_OBJECTS = ffitest.lo
-ffitest_LDADD = libffi.la
-ffitest_LDFLAGS = -shared-libgcc
 
-TARGET_SRC_MIPS_GCC = src/mips/ffi.c src/mips/o32.S src/mips/n32.S
+TARGET_SRC_MIPS_IRIX = src/mips/ffi.c src/mips/o32.S src/mips/n32.S
 TARGET_SRC_MIPS_LINUX = src/mips/ffi.c src/mips/o32.S
-TARGET_SRC_MIPS_SGI = src/mips/ffi.c src/mips/o32.s src/mips/n32.s
 TARGET_SRC_X86 = src/x86/ffi.c src/x86/sysv.S
 TARGET_SRC_X86_WIN32 = src/x86/ffi.c src/x86/win32.S
 TARGET_SRC_SPARC = src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S
@@ -109,17 +108,13 @@ TARGET_SRC_SH64 =  src/sh64/sysv.S src/sh64/ffi.c
 ## Work around automake deficiency
 libffi_la_common_SOURCES = src/debug.c src/prep_cif.c src/types.c \
 		src/raw_api.c src/java_raw_api.c
-if MIPS_GCC
-libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
-libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_GCC)
+if MIPS_IRIX
+libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_IRIX)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_IRIX)
 endif
 if MIPS_LINUX
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_LINUX)
 libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_LINUX)
-endif
-if MIPS_SGI
-libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
-libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_MIPS_SGI)
 endif
 if X86
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86)
@@ -178,11 +173,11 @@ libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH64)
 libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH64)
 endif
 
-AM_CFLAGS = -fexceptions
+AM_CFLAGS = -Wall -g -fexceptions
 
 libffi_la_LDFLAGS = -release $(VERSION) 
 
-INCLUDES = -I$(top_srcdir)/include -Iinclude -I$(top_srcdir)/src
+INCLUDES = -I. -I$(top_srcdir)/include -Iinclude -I$(top_srcdir)/src
 
 # Override these rules so that object files get put in the correct 
 # subdirectories. 
@@ -230,4 +225,16 @@ maintainer-clean-multi:
 
 
 ## ################################################################
+
+# Our hacked automake doesn't clean subdirectories properly.
+mostlyclean-am: mostlyclean-sub
+mostlyclean-sub:
+	-rm -f src/*.o src/*.lo
+	-rm -f src/@TARGETDIR@/*.o src/@TARGETDIR@/*.lo
+
+clean-am: clean-sub
+clean-sub:
+	-rm -rf src/.libs src/_libs
+	-rm -rf src/@TARGETDIR@/.libs src/@TARGETDIR@/_libs
+
 

@@ -543,7 +543,7 @@ lookup_field_1 (tree type, tree name, bool want_type)
    function.  If so, we know to put the decls into the class's scope.  */
 
 tree
-current_scope ()
+current_scope (void)
 {
   if (current_function_decl == NULL_TREE)
     return current_class_type;
@@ -565,7 +565,7 @@ current_scope ()
    not within a member function body of the local class.  */
 
 int
-at_function_scope_p ()
+at_function_scope_p (void)
 {
   tree cs = current_scope ();
   return cs && TREE_CODE (cs) == FUNCTION_DECL;
@@ -574,10 +574,20 @@ at_function_scope_p ()
 /* Returns true if the innermost active scope is a class scope.  */
 
 bool
-at_class_scope_p ()
+at_class_scope_p (void)
 {
   tree cs = current_scope ();
   return cs && TYPE_P (cs);
+}
+
+/* Returns true if the innermost active scope is a namespace scope.  */
+
+bool
+at_namespace_scope_p (void)
+{
+  /* We are in a namespace scope if we are not it a class scope or a
+     function scope.  */
+  return !current_scope();
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
@@ -602,7 +612,7 @@ context_for_name_lookup (tree decl)
 }
 
 /* The accessibility routines use BINFO_ACCESS for scratch space
-   during the computation of the accssibility of some declaration.  */
+   during the computation of the accessibility of some declaration.  */
 
 #define BINFO_ACCESS(NODE) \
   ((access_kind) ((TREE_PUBLIC (NODE) << 1) | TREE_PRIVATE (NODE)))
@@ -625,7 +635,7 @@ dfs_access_in_type (tree binfo, void *data)
 
   if (context_for_name_lookup (decl) == type)
     {
-      /* If we have desceneded to the scope of DECL, just note the
+      /* If we have descended to the scope of DECL, just note the
 	 appropriate access.  */
       if (TREE_PRIVATE (decl))
 	access = ak_private;
@@ -739,7 +749,7 @@ access_in_type (tree type, tree decl)
   return BINFO_ACCESS (binfo);
 }
 
-/* Called from dfs_accessible_p via dfs_walk.  */
+/* Called from accessible_p via dfs_walk.  */
 
 static tree
 dfs_accessible_queue_p (tree derived, int ix, void *data ATTRIBUTE_UNUSED)
@@ -758,20 +768,17 @@ dfs_accessible_queue_p (tree derived, int ix, void *data ATTRIBUTE_UNUSED)
   return binfo;
 }
 
-/* Called from dfs_accessible_p via dfs_walk.  */
+/* Called from accessible_p via dfs_walk.  */
 
 static tree
-dfs_accessible_p (tree binfo, void *data)
+dfs_accessible_p (tree binfo, void *data ATTRIBUTE_UNUSED)
 {
-  int protected_ok = data != 0;
   access_kind access;
 
   BINFO_MARKED (binfo) = 1;
   access = BINFO_ACCESS (binfo);
-  if (access == ak_public || (access == ak_protected && protected_ok))
-    return binfo;
-  else if (access != ak_none
-	   && is_friend (BINFO_TYPE (binfo), current_scope ()))
+  if (access != ak_none
+      && is_friend (BINFO_TYPE (binfo), current_scope ()))
     return binfo;
 
   return NULL_TREE;
@@ -898,6 +905,7 @@ accessible_p (tree type, tree decl)
 {
   tree binfo;
   tree t;
+  access_kind access;
 
   /* Nonzero if it's OK to access DECL if it has protected
      accessibility in TYPE.  */
@@ -958,18 +966,22 @@ accessible_p (tree type, tree decl)
 
   /* Compute the accessibility of DECL in the class hierarchy
      dominated by type.  */
-  access_in_type (type, decl);
-  /* Walk the hierarchy again, looking for a base class that allows
-     access.  */
-  t = dfs_walk (binfo, dfs_accessible_p, 
-		dfs_accessible_queue_p,
-		protected_ok ? &protected_ok : 0);
-  /* Clear any mark bits.  Note that we have to walk the whole tree
-     here, since we have aborted the previous walk from some point
-     deep in the tree.  */
-  dfs_walk (binfo, dfs_unmark, 0,  0);
+  access = access_in_type (type, decl);
+  if (access == ak_public
+      || (access == ak_protected && protected_ok))
+    return 1;
+  else
+    {
+      /* Walk the hierarchy again, looking for a base class that allows
+	 access.  */
+      t = dfs_walk (binfo, dfs_accessible_p, dfs_accessible_queue_p, 0);
+      /* Clear any mark bits.  Note that we have to walk the whole tree
+	 here, since we have aborted the previous walk from some point
+	 deep in the tree.  */
+      dfs_walk (binfo, dfs_unmark, 0,  0);
 
-  return t != NULL_TREE;
+      return t != NULL_TREE;
+    }
 }
 
 struct lookup_field_info {
@@ -2256,7 +2268,7 @@ unuse_fields (tree type)
 }
 
 void
-pop_class_decls ()
+pop_class_decls (void)
 {
   /* We haven't pushed a search level when dealing with cached classes,
      so we'd better not try to pop it.  */
@@ -2265,7 +2277,7 @@ pop_class_decls ()
 }
 
 void
-print_search_statistics ()
+print_search_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   fprintf (stderr, "%d fields searched in %d[%d] calls to lookup_field[_1]\n",
@@ -2279,13 +2291,13 @@ print_search_statistics ()
 }
 
 void
-init_search_processing ()
+init_search_processing (void)
 {
   gcc_obstack_init (&search_obstack);
 }
 
 void
-reinit_search_statistics ()
+reinit_search_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   n_fields_searched = 0;
@@ -2321,8 +2333,27 @@ add_conversions (tree binfo, void *data)
       /* Make sure we don't already have this conversion.  */
       if (! IDENTIFIER_MARKED (name))
 	{
-	  *conversions = tree_cons (binfo, tmp, *conversions);
-	  IDENTIFIER_MARKED (name) = 1;
+	  tree t;
+
+	  /* Make sure that we do not already have a conversion
+	     operator for this type.  Merely checking the NAME is not
+	     enough because two conversion operators to the same type
+	     may not have the same NAME.  */
+	  for (t = *conversions; t; t = TREE_CHAIN (t))
+	    {
+	      tree fn;
+	      for (fn = TREE_VALUE (t); fn; fn = OVL_NEXT (fn))
+		if (same_type_p (TREE_TYPE (name),
+				 DECL_CONV_FN_TYPE (OVL_CURRENT (fn))))
+		  break;
+	      if (fn)
+		break;
+	    }
+	  if (!t)
+	    {
+	      *conversions = tree_cons (binfo, tmp, *conversions);
+	      IDENTIFIER_MARKED (name) = 1;
+	    }
 	}
     }
   return NULL_TREE;

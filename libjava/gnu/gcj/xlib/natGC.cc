@@ -217,23 +217,46 @@ void gnu::gcj::xlib::GC::putImage(XImage* image,
   // no fast fail
 }
 
-void gnu::gcj::xlib::GC::updateClip()
+void gnu::gcj::xlib::GC::updateClip(AWTRectArray* rectangles)
 {
-  if (clip == 0)
-    return;
+  int numRect = JvGetArrayLength(rectangles);
+  XRectVector* xrectvector = new XRectVector(numRect);
   
+  for (int i=0; i<numRect; i++)
+  {
+    AWTRect* awtrect = elements(rectangles)[i];
+    XRectangle& xrect = (*xrectvector)[i];
+      
+    xrect.x      = awtrect->x;
+    xrect.y      = awtrect->y;
+    xrect.width  = awtrect->width;
+    xrect.height = awtrect->height;
+  }
+
   Display* display = target->getDisplay();
   ::Display* dpy = (::Display*) (display->display);
   ::GC gc = (::GC) structure;
-  
-  XRectVector* xrectvector = (XRectVector*) (clip->xrects);
-  int numRect = xrectvector->size();
-  
+
   int originX = 0;
   int originY = 0;
   int ordering = Unsorted;
   XSetClipRectangles(dpy, gc, originX, originY,
 		     &(xrectvector->front()), numRect,
 		     ordering);
-  // no fast fail
+  delete xrectvector;
+}
+
+void gnu::gcj::xlib::GC::copyArea (gnu::gcj::xlib::Drawable * source, 
+				  jint srcX, jint srcY,
+				  jint destX, jint destY,
+				  jint width, jint height)
+{
+  Display* display = target->getDisplay ();
+  ::Display* dpy = (::Display*) (display->display);
+  ::Drawable drawableXID = target->getXID ();
+  ::GC gc = (::GC) structure;
+  ::Drawable srcXID = source->getXID ();
+
+  XCopyArea (dpy, srcXID, drawableXID, gc, srcX, srcY, width, height,
+    destX, destY);
 }

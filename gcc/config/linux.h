@@ -1,5 +1,6 @@
 /* Definitions for Linux-based GNU systems with ELF format
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2003
+   Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu (hjl@lucon.org).
 
@@ -96,6 +97,16 @@ Boston, MA 02111-1307, USA.  */
        %{!p:%{!pg:%{!g*:-lc} %{g*:-lg}}}}"
 #endif
 
+#define LINUX_TARGET_OS_CPP_BUILTINS()				\
+    do {							\
+	builtin_define ("__gnu_linux__");			\
+	builtin_define_std ("linux");				\
+	builtin_define_std ("unix");				\
+	builtin_assert ("system=linux");			\
+	builtin_assert ("system=unix");				\
+	builtin_assert ("system=posix");			\
+    } while (0)
+
 #if !defined(USE_GNULIBC_1) && defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
@@ -103,6 +114,8 @@ Boston, MA 02111-1307, USA.  */
 /* Define this so we can compile MS code for use with WINE.  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP
 
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 /* Determine whether the the entire c99 runtime
    is present in the runtime library.  */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,7 @@ package body Sprint is
 
    Dump_Generated_Only : Boolean;
    --  Set True if the -gnatG (dump generated tree) debug flag is set
-   --  or for Print_Generated_Code (-gnatG) or Dump_Gnerated_Code (-gnatD).
+   --  or for Print_Generated_Code (-gnatG) or Dump_Generated_Code (-gnatD).
 
    Dump_Freeze_Null : Boolean;
    --  Set True if freeze nodes and non-source null statements output
@@ -186,7 +186,7 @@ package body Sprint is
    --  Write Condition and Reason codes of Raise_xxx_Error node
 
    procedure Write_Discr_Specs (N : Node_Id);
-   --  Output discriminant specification for node, which is any of the type
+   --  Ouput discriminant specification for node, which is any of the type
    --  declarations that can have discriminants.
 
    procedure Write_Ekind (E : Entity_Id);
@@ -928,7 +928,14 @@ package body Sprint is
             Set_Debug_Sloc;
             Sprint_Bar_List (Choices (Node));
             Write_Str (" => ");
-            Sprint_Node (Expression (Node));
+
+            --  Ada0Y (AI-287): Print the mbox if present
+
+            if Box_Present (Node) then
+               Write_Str_With_Col_Check ("<>");
+            else
+               Sprint_Node (Expression (Node));
+            end if;
 
          when N_Component_Clause =>
             Write_Indent;
@@ -1232,9 +1239,14 @@ package body Sprint is
 
             Write_Char (';');
 
+         when N_Expanded_Name =>
+            Sprint_Node (Prefix (Node));
+            Write_Char_Sloc ('.');
+            Sprint_Node (Selector_Name (Node));
+
          when N_Explicit_Dereference =>
             Sprint_Node (Prefix (Node));
-            Write_Char ('.');
+            Write_Char_Sloc ('.');
             Write_Str_Sloc ("all");
 
          when N_Extension_Aggregate =>
@@ -1653,49 +1665,28 @@ package body Sprint is
             end if;
 
          when N_Object_Declaration =>
+            Set_Debug_Sloc;
 
-            --  Put extra blank line before and after if this is a handler
-            --  record or a subprogram descriptor.
+            if Write_Indent_Identifiers (Node) then
+               Write_Str (" : ");
 
-            declare
-               Typ : constant Entity_Id := Etype (Defining_Identifier (Node));
-               Exc : constant Boolean :=
-                       Is_RTE (Typ, RE_Handler_Record)
-                         or else
-                       Is_RTE (Typ, RE_Subprogram_Descriptor);
-
-            begin
-               if Exc then
-                  Write_Indent;
+               if Aliased_Present (Node) then
+                  Write_Str_With_Col_Check ("aliased ");
                end if;
 
-               Set_Debug_Sloc;
-
-               if Write_Indent_Identifiers (Node) then
-                  Write_Str (" : ");
-
-                  if Aliased_Present (Node) then
-                     Write_Str_With_Col_Check ("aliased ");
-                  end if;
-
-                  if Constant_Present (Node) then
-                     Write_Str_With_Col_Check ("constant ");
-                  end if;
-
-                  Sprint_Node (Object_Definition (Node));
-
-                  if Present (Expression (Node)) then
-                     Write_Str (" := ");
-                     Sprint_Node (Expression (Node));
-                  end if;
-
-                  Write_Char (';');
+               if Constant_Present (Node) then
+                  Write_Str_With_Col_Check ("constant ");
                end if;
 
-               if Exc then
-                  Write_Indent;
+               Sprint_Node (Object_Definition (Node));
+
+               if Present (Expression (Node)) then
+                  Write_Str (" := ");
+                  Sprint_Node (Expression (Node));
                end if;
-            end;
+
+               Write_Char (';');
+            end if;
 
          when N_Object_Renaming_Declaration =>
             Write_Indent;
@@ -2243,7 +2234,7 @@ package body Sprint is
 
             Write_Char (';');
 
-         when N_Selected_Component | N_Expanded_Name =>
+         when N_Selected_Component =>
             Sprint_Node (Prefix (Node));
             Write_Char_Sloc ('.');
             Sprint_Node (Selector_Name (Node));
@@ -2506,7 +2497,15 @@ package body Sprint is
 
             else
                if First_Name (Node) or else not Dump_Original_Only then
-                  Write_Indent_Str ("with ");
+
+                  --  Ada0Y (AI-50217): Print limited with_clauses
+
+                  if Limited_Present (Node) then
+                     Write_Indent_Str ("limited with ");
+                  else
+                     Write_Indent_Str ("with ");
+                  end if;
+
                else
                   Write_Str (", ");
                end if;
@@ -2519,7 +2518,6 @@ package body Sprint is
             end if;
 
          when N_With_Type_Clause =>
-
             Write_Indent_Str ("with type ");
             Sprint_Node_Sloc (Name (Node));
 
@@ -2793,10 +2791,11 @@ package body Sprint is
       then
          Write_Id (Entity (Parent (N)));
 
-      --  For any other kind of node with an associated entity, output it.
+      --  For any other node with an associated entity, output it
 
       elsif Nkind (N) in N_Has_Entity
-        and then Present (Entity (N))
+        and then Present (Entity_Or_Associated_Node (N))
+        and then Nkind (Entity_Or_Associated_Node (N)) in N_Entity
       then
          Write_Id (Entity (N));
 

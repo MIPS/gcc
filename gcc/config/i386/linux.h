@@ -4,24 +4,22 @@
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#define LINUX_DEFAULT_ELF
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
@@ -75,10 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	builtin_define_std ("linux");		\
-	builtin_define_std ("unix");		\
-	builtin_define ("__gnu_linux__");	\
-	builtin_assert ("system=posix");	\
+	LINUX_TARGET_OS_CPP_BUILTINS();		\
 	if (flag_pic)				\
 	  {					\
 	    builtin_define ("__PIC__");		\
@@ -115,15 +110,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	LINK_SPEC
 #ifdef USE_GNULIBC_1
-#ifndef LINUX_DEFAULT_ELF
-#define LINK_SPEC "-m elf_i386 %{shared:-shared} \
-  %{!shared: \
-    %{!ibcs: \
-      %{!static: \
-	%{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /lib/elf/ld-linux.so.1} \
-	%{!rpath:-rpath /lib/elf/}} %{static:-static}}}"
-#else
 #define LINK_SPEC "-m elf_i386 %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
@@ -131,7 +117,6 @@ Boston, MA 02111-1307, USA.  */
 	%{rdynamic:-export-dynamic} \
 	%{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.1}} \
 	%{static:-static}}}"
-#endif
 #else
 #define LINK_SPEC "-m elf_i386 %{shared:-shared} \
   %{!shared: \

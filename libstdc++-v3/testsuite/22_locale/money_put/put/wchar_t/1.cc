@@ -32,27 +32,16 @@ void test01()
   typedef money_base::pattern pattern;
   typedef ostreambuf_iterator<wchar_t> iterator_type;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
   locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
   VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
 
   // cache the moneypunct facets
   typedef moneypunct<wchar_t, true> __money_true;
   typedef moneypunct<wchar_t, false> __money_false;
-  const __money_true& monpunct_c_t = use_facet<__money_true>(loc_c); 
-  const __money_true& monpunct_de_t = use_facet<__money_true>(loc_de); 
-  const __money_false& monpunct_c_f = use_facet<__money_false>(loc_c); 
-  const __money_false& monpunct_de_f = use_facet<__money_false>(loc_de); 
-  const __money_true& monpunct_hk_t = use_facet<__money_true>(loc_hk); 
-  const __money_false& monpunct_hk_f = use_facet<__money_false>(loc_hk); 
 
   // sanity check the data is correct.
   const wstring empty;
@@ -60,14 +49,8 @@ void test01()
   // total EPA budget FY 2002
   const wstring digits1(L"720000000000");
 
-  // est. cost, national missile "defense", expressed as a loss in USD 2001
-  const wstring digits2(L"-10000000000000");  
-
-  // not valid input
-  const wstring digits3(L"-A"); 
-
   // input less than frac_digits
-  const wstring digits4(L"-1");
+  const wstring digits2(L"-1");
   
   // cache the money_put facet
   wostringstream oss;
@@ -110,14 +93,14 @@ void test01()
   // test various fill strategies
   oss.str(empty);
   oss.width(20);
-  iterator_type os_it10 = mon_put.put(oss.rdbuf(), true, oss, '*', digits4);
+  iterator_type os_it10 = mon_put.put(oss.rdbuf(), true, oss, '*', digits2);
   wstring result10 = oss.str();
   VERIFY( result10 == L"***************-,01*");
 
   oss.str(empty);
   oss.width(20);
   oss.setf(ios_base::internal);
-  iterator_type os_it11 = mon_put.put(oss.rdbuf(), true, oss, '*', digits4);
+  iterator_type os_it11 = mon_put.put(oss.rdbuf(), true, oss, '*', digits2);
   wstring result11 = oss.str();
   VERIFY( result11 == L"-,01****************");
 }

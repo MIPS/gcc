@@ -3,20 +3,20 @@
 ;; 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 ;;
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 ;;
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -97,8 +97,8 @@
 ;; separately.
 
 (define_attr "type"
-  "ild,fld,ldsym,ist,fst,ibr,callpal,fbr,jsr,iadd,ilog,shift,icmov,fcmov,icmp,imul,\
-fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
+  "ild,fld,ldsym,ist,fst,ibr,callpal,fbr,jsr,iadd,ilog,shift,icmov,fcmov,
+   icmp,imul,fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   (const_string "iadd"))
 
 ;; Describe a user's asm statement.
@@ -154,6 +154,14 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	]
 	(const_string "no")))
 
+;; The CANNOT_COPY attribute marks instructions with relocations that
+;; cannot easily be duplicated.  This includes insns with gpdisp relocs
+;; since they have to stay in 1-1 correspondence with one another.  This
+;; also includes jsr insns, since they must stay in correspondence with
+;; the immediately following gpdisp instructions.
+
+(define_attr "cannot_copy" "false,true"
+  (const_string "false"))
 
 ;; Include scheduling descriptions.
   
@@ -2337,13 +2345,15 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*fix_truncdfsi_ieee"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")) 0))
+	(subreg:SI
+	  (match_operator:DI 4 "fix_operator" 
+	    [(match_operand:DF 1 "reg_or_0_operand" "fG")]) 0))
    (clobber (match_scratch:DI 2 "=&f"))
    (clobber (match_scratch:SI 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
-  [(set (match_dup 2) (fix:DI (match_dup 1)))
+  [(set (match_dup 2) (match_op_dup 4 [(match_dup 1)]))
    (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
    (set (match_dup 0) (match_dup 3))]
   ""
@@ -2352,22 +2362,25 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*fix_truncdfsi_internal"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")) 0))
+	(subreg:SI
+	  (match_operator:DI 3 "fix_operator" 
+	    [(match_operand:DF 1 "reg_or_0_operand" "fG")]) 0))
    (clobber (match_scratch:DI 2 "=f"))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
-  [(set (match_dup 2) (fix:DI (match_dup 1)))
-   (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 3))]
+  [(set (match_dup 2) (match_op_dup 3 [(match_dup 1)]))
+   (set (match_dup 4) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 0) (match_dup 4))]
   ;; Due to REG_CANNOT_CHANGE_SIZE issues, we cannot simply use SUBREG.
-  "operands[3] = gen_rtx_REG (SImode, REGNO (operands[2]));"
+  "operands[4] = gen_rtx_REG (SImode, REGNO (operands[2]));"
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
 (define_insn "*fix_truncdfdi_ieee"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=&f")
-	(fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")))]
+	(match_operator:DI 2 "fix_operator" 
+	  [(match_operand:DF 1 "reg_or_0_operand" "fG")]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2375,9 +2388,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "round_suffix" "c")
    (set_attr "trap_suffix" "v_sv_svi")])
 
-(define_insn "fix_truncdfdi2"
+(define_insn "*fix_truncdfdi2"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=f")
-	(fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")))]
+	(match_operator:DI 2 "fix_operator" 
+	  [(match_operand:DF 1 "reg_or_0_operand" "fG")]))]
   "TARGET_FP"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2385,18 +2399,32 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "round_suffix" "c")
    (set_attr "trap_suffix" "v_sv_svi")])
 
+(define_expand "fix_truncdfdi2"
+  [(set (match_operand:DI 0 "reg_no_subreg_operand" "")
+	(fix:DI (match_operand:DF 1 "reg_or_0_operand" "")))]
+  "TARGET_FP"
+  "")
+
+(define_expand "fixuns_truncdfdi2"
+  [(set (match_operand:DI 0 "reg_no_subreg_operand" "")
+	(unsigned_fix:DI (match_operand:DF 1 "reg_or_0_operand" "")))]
+  "TARGET_FP"
+  "")
+
 ;; Likewise between SFmode and SImode.
 
 (define_insn_and_split "*fix_truncsfsi_ieee"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_0_operand" "fG"))) 0))
+	(subreg:SI
+	  (match_operator:DI 4 "fix_operator" 
+	    [(float_extend:DF
+	       (match_operand:SF 1 "reg_or_0_operand" "fG"))]) 0))
    (clobber (match_scratch:DI 2 "=&f"))
    (clobber (match_scratch:SI 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
-  [(set (match_dup 2) (fix:DI (float_extend:DF (match_dup 1))))
+  [(set (match_dup 2) (match_op_dup 4 [(float_extend:DF (match_dup 1))]))
    (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
    (set (match_dup 0) (match_dup 3))]
   ""
@@ -2405,24 +2433,26 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*fix_truncsfsi_internal"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_0_operand" "fG"))) 0))
+	(subreg:SI
+	  (match_operator:DI 3 "fix_operator" 
+	    [(float_extend:DF
+	       (match_operand:SF 1 "reg_or_0_operand" "fG"))]) 0))
    (clobber (match_scratch:DI 2 "=f"))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "#"
   "&& reload_completed"
-  [(set (match_dup 2) (fix:DI (float_extend:DF (match_dup 1))))
-   (set (match_dup 3) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
-   (set (match_dup 0) (match_dup 3))]
+  [(set (match_dup 2) (match_op_dup 3 [(float_extend:DF (match_dup 1))]))
+   (set (match_dup 4) (unspec:SI [(match_dup 2)] UNSPEC_CVTQL))
+   (set (match_dup 0) (match_dup 4))]
   ;; Due to REG_CANNOT_CHANGE_SIZE issues, we cannot simply use SUBREG.
-  "operands[3] = gen_rtx_REG (SImode, REGNO (operands[2]));"
+  "operands[4] = gen_rtx_REG (SImode, REGNO (operands[2]));"
   [(set_attr "type" "fadd")
    (set_attr "trap" "yes")])
 
 (define_insn "*fix_truncsfdi_ieee"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=&f")
-	(fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_0_operand" "fG"))))]
+	(match_operator:DI 2 "fix_operator" 
+	  [(float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2430,10 +2460,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "round_suffix" "c")
    (set_attr "trap_suffix" "v_sv_svi")])
 
-(define_insn "fix_truncsfdi2"
+(define_insn "*fix_truncsfdi2"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=f")
-	(fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_0_operand" "fG"))))]
+	(match_operator:DI 2 "fix_operator" 
+	  [(float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2441,11 +2471,30 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (set_attr "round_suffix" "c")
    (set_attr "trap_suffix" "v_sv_svi")])
 
+(define_expand "fix_truncsfdi2"
+  [(set (match_operand:DI 0 "reg_no_subreg_operand" "")
+	(fix:DI (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))))]
+  "TARGET_FP"
+  "")
+
+(define_expand "fixuns_truncsfdi2"
+  [(set (match_operand:DI 0 "reg_no_subreg_operand" "")
+	(unsigned_fix:DI
+	  (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))))]
+  "TARGET_FP"
+  "")
+
 (define_expand "fix_trunctfdi2"
   [(use (match_operand:DI 0 "register_operand" ""))
    (use (match_operand:TF 1 "general_operand" ""))]
   "TARGET_HAS_XFLOATING_LIBS"
   "alpha_emit_xfloating_cvt (FIX, operands); DONE;")
+
+(define_expand "fixuns_trunctfdi2"
+  [(use (match_operand:DI 0 "register_operand" ""))
+   (use (match_operand:TF 1 "general_operand" ""))]
+  "TARGET_HAS_XFLOATING_LIBS"
+  "alpha_emit_xfloating_cvt (UNSIGNED_FIX, operands); DONE;")
 
 (define_insn "*floatdisf_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
@@ -4699,7 +4748,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (match_operand 3 "const_int_operand" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "jsr $26,(%0),%2%J3"
-  [(set_attr "type" "jsr")])
+  [(set_attr "type" "jsr")
+   (set_attr "cannot_copy" "true")])
 
 ;; We output a nop after noreturn calls at the very end of the function to
 ;; ensure that the return address always remains in the caller's code range,
@@ -6773,7 +6823,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 			    UNSPECV_LDGP1))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "ldah %0,0(%1)\t\t!gpdisp!%2")
+  "ldah %0,0(%1)\t\t!gpdisp!%2"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*ldgp_er_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6781,7 +6832,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 		    (match_operand 2 "const_int_operand" "")]
 		   UNSPEC_LDGP2))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "lda %0,0(%1)\t\t!gpdisp!%2")
+  "lda %0,0(%1)\t\t!gpdisp!%2"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_er_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6789,7 +6841,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 		   	    UNSPECV_PLDGP2))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
-  "lda %0,0(%1)\t\t!gpdisp!%2\n$%~..ng:")
+  "lda %0,0(%1)\t\t!gpdisp!%2\n$%~..ng:"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_1"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6797,7 +6850,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 			     (match_operand 2 "const_int_operand" "")]
 			    UNSPECV_LDGP1))]
   ""
-  "ldgp %0,0(%1)\n$%~..ng:")
+  "ldgp %0,0(%1)\n$%~..ng:"
+  [(set_attr "cannot_copy" "true")])
 
 (define_insn "*prologue_ldgp_2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -7171,7 +7225,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7186,7 +7240,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7201,7 +7255,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7216,7 +7270,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extxl_be;
   else
@@ -7231,7 +7285,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extwh_be;
   else
@@ -7246,7 +7300,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extlh_be;
   else
@@ -7261,7 +7315,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_extqh_be;
   else
@@ -7276,7 +7330,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insbl_be;
   else
@@ -7292,7 +7346,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_inswl_be;
   else
@@ -7308,7 +7362,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insll_be;
   else
@@ -7325,7 +7379,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx);
   if (WORDS_BIG_ENDIAN)
     gen = gen_insql_be;
   else
@@ -7370,7 +7424,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7387,7 +7441,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7404,7 +7458,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7421,7 +7475,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (match_operand:DI 2 "reg_or_8bit_operand" "")]
   ""
 {
-  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx (*gen) (rtx, rtx, rtx, rtx);
   rtx mask;
   if (WORDS_BIG_ENDIAN)
     gen = gen_mskxl_be;
@@ -7933,7 +7987,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
    (use (match_operand 4 "" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "jsr $26,(%1),%3%J4"
-  [(set_attr "type" "jsr")])
+  [(set_attr "type" "jsr")
+   (set_attr "cannot_copy" "true")])
 
 (define_insn "*call_value_osf_1_noreturn"
   [(set (match_operand 0 "" "")

@@ -316,9 +316,8 @@ extern void debug_decision_list
 static struct decision *
 new_decision (const char *position, struct decision_head *last)
 {
-  struct decision *new = xmalloc (sizeof (struct decision));
+  struct decision *new = xcalloc (1, sizeof (struct decision));
 
-  memset (new, 0, sizeof (*new));
   new->success = *last;
   new->position = xstrdup (position);
   new->number = next_number++;
@@ -634,7 +633,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	if (GET_CODE (dest) == STRICT_LOW_PART)
 	  dest = XEXP (dest, 0);
 
-	/* Find the referant for a DUP.  */
+	/* Find the referent for a DUP.  */
 
 	if (GET_CODE (dest) == MATCH_DUP
 	    || GET_CODE (dest) == MATCH_OP_DUP

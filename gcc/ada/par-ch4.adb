@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +27,8 @@
 pragma Style_Checks (All_Checks);
 --  Turn off subprogram body ordering check. Subprograms are in order
 --  by RM section rather than alphabetical
+
+with Hostparm; use Hostparm;
 
 separate (Par)
 package body Ch4 is
@@ -79,7 +81,7 @@ package body Ch4 is
 
    procedure Set_Op_Name (Node : Node_Id) is
       type Name_Of_Type is array (N_Op) of Name_Id;
-      Name_Of : Name_Of_Type := Name_Of_Type'(
+      Name_Of : constant Name_Of_Type := Name_Of_Type'(
          N_Op_And                    => Name_Op_And,
          N_Op_Or                     => Name_Op_Or,
          N_Op_Xor                    => Name_Op_Xor,
@@ -718,7 +720,7 @@ package body Ch4 is
          --  a possible fix.
 
          if Nkind (Expr_Node) = N_Op_Eq then
-            Error_Msg_N ("\maybe `=>` was intended", Expr_Node);
+            Error_Msg_N ("\maybe `='>` was intended", Expr_Node);
          end if;
 
          --  We go back to scanning out expressions, so that we do not get
@@ -1116,6 +1118,7 @@ package body Ch4 is
    --  POSITIONAL_ARRAY_AGGREGATE ::=
    --    (EXPRESSION, EXPRESSION {, EXPRESSION})
    --  | (EXPRESSION {, EXPRESSION}, others => EXPRESSION)
+   --  | (EXPRESSION {, EXPRESSION}, others => <>)
 
    --  NAMED_ARRAY_AGGREGATE ::=
    --    (ARRAY_COMPONENT_ASSOCIATION {, ARRAY_COMPONENT_ASSOCIATION})
@@ -1123,6 +1126,9 @@ package body Ch4 is
    --  PRIMARY ::= (EXPRESSION);
 
    --  Error recovery: can raise Error_Resync
+
+   --  Note: POSITIONAL_ARRAY_AGGREGATE rule has been extended to give support
+   --        to Ada0Y limited aggregates (AI-287)
 
    function P_Aggregate_Or_Paren_Expr return Node_Id is
       Aggregate_Node : Node_Id;
@@ -1271,6 +1277,17 @@ package body Ch4 is
                              "extension aggregate");
             raise Error_Resync;
 
+         --  A range attribute can only appear as part of a discrete choice
+         --  list.
+
+         elsif Nkind (Expr_Node) = N_Attribute_Reference
+           and then Attribute_Name (Expr_Node) = Name_Range
+           and then Token /= Tok_Arrow
+           and then Token /= Tok_Vertical_Bar
+         then
+            Bad_Range_Attribute (Sloc (Expr_Node));
+            return Error;
+
          --  Assume positional case if comma, right paren, or literal or
          --  identifier or OTHERS follows (the latter cases are missing
          --  comma cases). Also assume positional if a semicolon follows,
@@ -1284,7 +1301,7 @@ package body Ch4 is
          then
             if Present (Assoc_List) then
                Error_Msg_BC
-                  ("""=>"" expected (positional association cannot follow " &
+                  ("""='>"" expected (positional association cannot follow " &
                    "named association)");
             end if;
 
@@ -1324,7 +1341,8 @@ package body Ch4 is
             Expr_Node := Empty;
          else
             Save_Scan_State (Scan_State); -- at start of expression
-            Expr_Node := P_Expression;
+            Expr_Node := P_Expression_Or_Range_Attribute;
+
          end if;
       end loop;
 
@@ -1342,6 +1360,7 @@ package body Ch4 is
 
    --  RECORD_COMPONENT_ASSOCIATION ::=
    --    [COMPONENT_CHOICE_LIST =>] EXPRESSION
+   --  | COMPONENT_CHOICE_LIST => <>
 
    --  COMPONENT_CHOICE_LIST =>
    --    component_SELECTOR_NAME {| component_SELECTOR_NAME}
@@ -1349,12 +1368,17 @@ package body Ch4 is
 
    --  ARRAY_COMPONENT_ASSOCIATION ::=
    --    DISCRETE_CHOICE_LIST => EXPRESSION
+   --  | DISCRETE_CHOICE_LIST => <>
 
    --  Note: this routine only handles the named cases, including others.
    --  Cases where the component choice list is not present have already
    --  been handled directly.
 
    --  Error recovery: can raise Error_Resync
+
+   --  Note: RECORD_COMPONENT_ASSOCIATION and ARRAY_COMPONENT_ASSOCIATION
+   --        rules have been extended to give support to Ada0Y limited
+   --        aggregates (AI-287)
 
    function P_Record_Or_Array_Component_Association return Node_Id is
       Assoc_Node : Node_Id;
@@ -1364,7 +1388,28 @@ package body Ch4 is
       Set_Choices (Assoc_Node, P_Discrete_Choice_List);
       Set_Sloc (Assoc_Node, Token_Ptr);
       TF_Arrow;
-      Set_Expression (Assoc_Node, P_Expression);
+
+      if Token = Tok_Box then
+         if not Extensions_Allowed then
+            Error_Msg_SP
+              ("Limited aggregates are an Ada0X extension");
+
+            if OpenVMS then
+               Error_Msg_SP
+                 ("\unit must be compiled with " &
+                  "'/'E'X'T'E'N'S'I'O'N'S'_'A'L'L'O'W'E'D qualifier");
+            else
+               Error_Msg_SP
+                 ("\unit must be compiled with -gnatX switch");
+            end if;
+         end if;
+
+         Set_Box_Present (Assoc_Node);
+         Scan; -- Past box
+      else
+         Set_Expression (Assoc_Node, P_Expression);
+      end if;
+
       return Assoc_Node;
    end P_Record_Or_Array_Component_Association;
 
@@ -2142,7 +2187,7 @@ package body Ch4 is
 
    begin
       if Token = Tok_Box then
-         Error_Msg_SC ("""<>"" should be ""/=""");
+         Error_Msg_SC ("""'<'>"" should be ""/=""");
       end if;
 
       Op_Kind := Relop_Node (Token);

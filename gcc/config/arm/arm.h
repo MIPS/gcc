@@ -98,6 +98,10 @@
 #define TARGET_CPU_xscale       0x0100
 #define TARGET_CPU_ep9312	0x0200
 #define TARGET_CPU_iwmmxt	0x0400
+#define TARGET_CPU_arm926ej_s   0x0800
+#define TARGET_CPU_arm1026ej_s  0x1000
+#define TARGET_CPU_arm1136j_s   0x2000
+#define TARGET_CPU_arm1136jf_s  0x4000
 /* Configure didn't specify.  */
 #define TARGET_CPU_generic	0x8000
 
@@ -172,9 +176,13 @@ extern GTY(()) rtx aof_pic_label;
 #ifdef  TARGET_DEFAULT
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT	(ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
-#endif /* TARGET_CPU_DEFAULT */
+#endif
 #else
-Unrecognized value in TARGET_CPU_DEFAULT.
+#if TARGET_CPU_DEFAULT == TARGET_CPU_iwmmxt
+#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TE__ -D__XSCALE__ -D__IWMMXT__"
+#else
+#error Unrecognized value in TARGET_CPU_DEFAULT.
+#endif
 #endif
 #endif
 #endif
@@ -795,7 +803,7 @@ extern int arm_is_6_or_7;
   (TYPE_NEEDS_IWMMXT_ALIGNMENT (TYPE) ? IWMMXT_ALIGNMENT : ALIGN)
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
-#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_arch_xscale ? 1 : 2)
+#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_tune_xscale ? 1 : 2)
     
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
   ((TARGET_REALLY_IWMMXT && TREE_CODE (EXP) == VECTOR_TYPE) ? IWMMXT_ALIGNMENT : \
@@ -941,6 +949,22 @@ extern const char * structure_size_string;
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
     }								\
 								\
+  if (TARGET_THUMB && optimize_size)				\
+    {								\
+      /* When optimizing for size, it's better not to use	\
+	 the HI regs, because of the overhead of stacking 	\
+	 them. */						\
+      for (regno = FIRST_HI_REGNUM;				\
+	   regno <= LAST_HI_REGNUM; ++regno)			\
+	fixed_regs[regno] = call_used_regs[regno] = 1;		\
+    }								\
+								\
+  /* The link register can be clobbered by any branch insn,	\
+     but we have no way to track that at present, so mark	\
+     it as unavailable.  */					\
+  if (TARGET_THUMB)						\
+    fixed_regs[LR_REGNUM] = call_used_regs[LR_REGNUM] = 1;	\
+								\
   if (TARGET_CIRRUS)						\
     {								\
       for (regno = FIRST_ARM_FP_REGNUM;				\
@@ -1047,8 +1071,11 @@ extern const char * structure_size_string;
 /* The number of the last argument register.  */
 #define LAST_ARG_REGNUM 	ARG_REGISTER (NUM_ARG_REGS)
 
-/* The number of the last "lo" register (thumb).  */
+/* The numbers of the Thumb register ranges.  */
+#define FIRST_LO_REGNUM  	0
 #define LAST_LO_REGNUM  	7
+#define FIRST_HI_REGNUM		8
+#define LAST_HI_REGNUM		11
 
 /* The register that holds the return address in exception handlers.  */
 #define EXCEPTION_LR_REGNUM	2
@@ -1843,7 +1870,7 @@ typedef struct
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
 #define USE_RETURN_INSN(ISCOND)				\
-  (TARGET_ARM ? use_return_insn (ISCOND) : 0)
+  (TARGET_ARM ? use_return_insn (ISCOND, NULL) : 0)
 
 /* Definitions for register eliminations.
 
@@ -2279,7 +2306,7 @@ do {							\
 #define MOVE_MAX 4
 
 #undef  MOVE_RATIO
-#define MOVE_RATIO (arm_arch_xscale ? 4 : 2)
+#define MOVE_RATIO (arm_tune_xscale ? 4 : 2)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2405,19 +2432,25 @@ extern int making_const_table;
 
 /* Output a push or a pop instruction (only used when profiling).  */
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO)		\
-  if (TARGET_ARM)					\
-    asm_fprintf (STREAM,"\tstmfd\t%r!,{%r}\n", 		\
-		 STACK_POINTER_REGNUM, REGNO);		\
-  else							\
-    asm_fprintf (STREAM, "\tpush {%r}\n", REGNO)
+  do							\
+    {							\
+      if (TARGET_ARM)					\
+	asm_fprintf (STREAM,"\tstmfd\t%r!,{%r}\n",	\
+		     STACK_POINTER_REGNUM, REGNO);	\
+      else						\
+	asm_fprintf (STREAM, "\tpush {%r}\n", REGNO);	\
+    } while (0)
 
 
 #define ASM_OUTPUT_REG_POP(STREAM, REGNO)		\
-  if (TARGET_ARM)					\
-    asm_fprintf (STREAM, "\tldmfd\t%r!,{%r}\n",		\
-                 STACK_POINTER_REGNUM, REGNO);		\
-  else							\
-    asm_fprintf (STREAM, "\tpop {%r}\n", REGNO)
+  do							\
+    {							\
+      if (TARGET_ARM)					\
+	asm_fprintf (STREAM, "\tldmfd\t%r!,{%r}\n",	\
+		     STACK_POINTER_REGNUM, REGNO);	\
+      else						\
+	asm_fprintf (STREAM, "\tpop {%r}\n", REGNO);	\
+    } while (0)
 
 /* This is how to output a label which precedes a jumptable.  Since
    Thumb instructions are 2 bytes, we may need explicit alignment here.  */
@@ -2427,7 +2460,7 @@ extern int making_const_table;
     {								\
       if (TARGET_THUMB)						\
         ASM_OUTPUT_ALIGN (FILE, 2);				\
-      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
+      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);	\
     }								\
   while (0)
 
@@ -2671,6 +2704,7 @@ extern int making_const_table;
   {"arm_hard_register_operand", {REG}},					\
   {"f_register_operand", {SUBREG, REG}},				\
   {"arm_add_operand",    {SUBREG, REG, CONST_INT}},			\
+  {"arm_addimm_operand", {CONST_INT}},					\
   {"fpa_add_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
   {"fpa_rhs_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
   {"arm_rhs_operand",    {SUBREG, REG, CONST_INT}},			\
@@ -2678,6 +2712,8 @@ extern int making_const_table;
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\
   {"index_operand",      {SUBREG, REG, CONST_INT}},			\
   {"thumb_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
+  {"thumb_cmpneg_operand", {CONST_INT}},				\
+  {"thumb_cbrch_target_operand", {SUBREG, REG, MEM}},			\
   {"offsettable_memory_operand", {MEM}},				\
   {"bad_signed_byte_operand", {MEM}},					\
   {"alignable_memory_operand", {MEM}},					\

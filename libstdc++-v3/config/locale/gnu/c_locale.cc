@@ -33,6 +33,7 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
+#include <cerrno>  // For errno
 #include <locale>
 #include <stdexcept>
 #include <langinfo.h>
@@ -180,7 +181,7 @@ namespace std
   void
   locale::facet::_S_destroy_c_locale(__c_locale& __cloc)
   {
-    if (_S_c_locale != __cloc)
+    if (_S_get_c_locale() != __cloc)
       __freelocale(__cloc); 
   }
 
@@ -191,7 +192,7 @@ namespace std
 
 namespace __gnu_cxx
 {
-  const char* category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
+  const char* const category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
       "LC_NUMERIC",
@@ -210,5 +211,5 @@ namespace __gnu_cxx
 
 namespace std
 {
-  const char** locale::_S_categories = __gnu_cxx::category_names;
+  const char* const* const locale::_S_categories = __gnu_cxx::category_names;
 }  // namespace std

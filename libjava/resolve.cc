@@ -32,6 +32,7 @@ details.  */
 #include <java/lang/AbstractMethodError.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 
 using namespace gcj;
@@ -435,7 +436,7 @@ _Jv_PrepareClass(jclass klass)
   // resolved.
 
   if (klass->superclass)
-    java::lang::ClassLoader::resolveClass0 (klass->superclass);
+    java::lang::VMClassLoader::resolveClass (klass->superclass);
 
   _Jv_InterpClass *clz = (_Jv_InterpClass*)klass;
 
@@ -574,6 +575,16 @@ _Jv_PrepareClass(jclass klass)
 	  _Jv_InterpMethod *im = reinterpret_cast<_Jv_InterpMethod *> (imeth);
 	  _Jv_VerifyMethod (im);
 	  clz->methods[i].ncode = im->ncode ();
+
+	  // Resolve ctable entries pointing to this method.  See
+	  // _Jv_Defer_Resolution.
+	  void **code = (void **)imeth->deferred;
+	  while (code)
+	    {
+	      void **target = (void **)*code;
+	      *code = clz->methods[i].ncode;
+	      code = target;
+	    }
 	}
     }
 

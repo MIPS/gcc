@@ -33,6 +33,9 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
+#include <cerrno>  // For errno
+#include <cmath>  // For isinf, finite, finitef, fabs
+#include <cstdlib>  // For strof, strtold
 #include <locale>
 
 #ifdef _GLIBCXX_HAVE_IEEEFP_H
@@ -234,7 +237,7 @@ namespace std
 
 namespace __gnu_cxx
 {
-  const char* category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
+  const char* const category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
       "LC_NUMERIC",
@@ -247,5 +250,5 @@ namespace __gnu_cxx
 
 namespace std
 {
-  const char** locale::_S_categories = __gnu_cxx::category_names;
+  const char* const* const locale::_S_categories = __gnu_cxx::category_names;
 }  // namespace std

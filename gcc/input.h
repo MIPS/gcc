@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_INPUT_H
 
 /* The data structure used to record a location in a translation unit.  */
-/* Long-term, we want to get rid of this and typedef fileline location_t. */
+/* Long-term, we want to get rid of this and typedef fileline location_t.  */
 struct location_s GTY (())
 {
   /* The name of the source file involved.  */
@@ -50,6 +50,9 @@ extern location_t input_location;
 /* Stack of currently pending input files.
    The line member is not accurate for the innermost file on the stack.  */
 extern struct file_stack *input_file_stack;
+
+/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
+extern struct file_stack *expr_wfl_stack;
 
 /* Incremented on each change to input_file_stack.  */
 extern int input_file_stack_tick;

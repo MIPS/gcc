@@ -35,10 +35,9 @@ class gnu_ctype: public std::ctype<char_type> { };
 
 void test01()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char_type strlit00[] = L"manilla, cebu, tandag PHILIPPINES";
   const char_type strlit01[] = L"MANILLA, CEBU, TANDAG PHILIPPINES";
-  const char_type strlit02[] = L"manilla, cebu, tandag philippines";
   const char_type c00 = L'S';
   const char_type c10 = L's';
   const char_type c20 = L'9';
@@ -46,13 +45,9 @@ void test01()
   const char_type c40 = L'!';
   const char_type c50 = L'F';
   const char_type c60 = L'f';
-  const char_type c70 = L'X';
   const char_type c80 = L'x';
 
   gnu_ctype gctype;
-  char_type c100;
-  int len = std::char_traits<char_type>::length(strlit00);
-  char_type c_array[len + 1];
 
   // sanity check ctype_base::mask members
   int i01 = std::ctype_base::space;
@@ -66,7 +61,6 @@ void test01()
   int i09 = std::ctype_base::graph;
   int i10 = std::ctype_base::print;
   int i11 = std::ctype_base::cntrl;
-  int i12 = sizeof(std::ctype_base::mask);
   VERIFY ( i01 != i02);
   VERIFY ( i02 != i03);
   VERIFY ( i03 != i04);
@@ -103,28 +97,31 @@ void test01()
   const char_type* cc2 = NULL;
 
   cc0 = strlit00;
-  m01[0] = m00;
-  m01[1] = m00;
-  m01[2] = m00;
+  for (std::size_t i = 0; i < 3; ++i)
+    m01[i] = m00;
   cc1 = gctype.is(cc0, cc0, m01);
   VERIFY( cc1 == strlit00 );
   VERIFY( m01[0] == m00 );
   VERIFY( m01[1] == m00 );
   VERIFY( m01[2] == m00 );
 
-#if 0
+  cc0 = strlit00;
+  for (std::size_t i = 0; i < 3; ++i)
+    m01[i] = m00;
+  cc2 = gctype.is(cc0, cc0 + 3, m01);
+  VERIFY( cc2 == strlit00 + 3);
   VERIFY( m01[0] != m00 );
   VERIFY( m01[1] != m00 );
   VERIFY( m01[2] != m00 );
   VERIFY( gctype.is(m01[0], cc0[0]) );
   VERIFY( gctype.is(m01[1], cc0[1]) );
   VERIFY( gctype.is(m01[2], cc0[2]) );
-#endif
 
   cc0 = strlit01;
+  for (std::size_t i = 0; i < 13; ++i)
+    m02[i] = m00;
   cc1 = gctype.is(cc0, cc0 + 13, m02);
   VERIFY( cc1 == strlit01 + 13);
-#if 0
   VERIFY( m02[6] != m00 );
   VERIFY( m02[7] != m00 );
   VERIFY( m02[8] != m00 );
@@ -138,7 +135,6 @@ void test01()
   VERIFY( gctype.is(m02[6], cc0[6]) );
   VERIFY( gctype.is(m02[7], cc0[7]) );
   VERIFY( gctype.is(m02[8], cc0[8]) );
-#endif
 }
 
 int main() 

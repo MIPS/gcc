@@ -3,6 +3,38 @@
 	* libiberty.h (set_last_pipe_input): Add hooks into piping internals.
 	(get_last_pipe_input): Likewise.
 
+2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* obstack.h: Merge the following change from gnulib:
+	2003-10-21  Paul Eggert  <eggert@twinsun.com>
+	* obstack.h (obstack_1grow_fast): Properly parenthesize arg.
+	(obstack_ptr_grow_fast, obstack_int_grow_fast):
+	Don't use lvalue casts, as GCC plans to remove support for them
+	in GCC 3.5.  Reported by Joseph S. Myers.  This bug
+	was also present in the non-GCC version, indicating that this
+	code had always been buggy and had never been widely used.
+	(obstack_1grow, obstack_ptr_grow, obstack_int_grow, obstack_blank):
+	Use the fast variant of each macro, rather than copying the
+	definiens of the fast variant; that way, we'll be more likely to
+	catch future bugs in the fast variants.
+
+2003-09-22  Andrew Cagney  <cagney@redhat.com>
+
+	* floatformat.h (struct floatformat): Add field "is_valid".
+
+2003-09-15  Andrew Cagney  <cagney@redhat.com>
+
+	* floatformat.h (floatformat_to_double): Make input buffer constant.
+	(floatformat_from_double, floatformat_is_valid): Ditto.
+
+2003-09-15  Andrew Cagney  <cagney@redhat.com>
+
+	* floatformat.h (struct floatformat): Make "exp_bias" signed.
+
+2003-09-15  Daniel Jacobowitz  <drow@mvista.com>
+
+	* floatformat.h (floatformat_is_valid): Add prototype.
+
 2003-07-09  Bob Wilson  <bob.wilson@acm.org>
 
 	* xtensa-config.h: Undef all macros before defining them.

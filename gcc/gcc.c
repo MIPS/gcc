@@ -795,7 +795,7 @@ static const char *cpp_unique_options =
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
 "%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
- %{g*} %{O*} %{undef}";
+ %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}";
 
 /* This contains cpp options which are not passed when the preprocessor
    output will be used by another program.  */
@@ -1114,14 +1114,12 @@ static const struct option_map option_map[] =
    {"--static", "-static", 0},
    {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
-   {"--target", "-b", "a"},
    {"--time", "-time", 0},
    {"--trace-includes", "-H", 0},
    {"--traditional", "-traditional", 0},
    {"--traditional-cpp", "-traditional-cpp", 0},
    {"--trigraphs", "-trigraphs", 0},
    {"--undefine-macro", "-U", "aj"},
-   {"--use-version", "-V", "a"},
    {"--user-dependencies", "-MM", 0},
    {"--verbose", "-v", 0},
    {"--warn-", "-W", "*j"},
@@ -1448,21 +1446,6 @@ static const char *gcc_libexec_prefix;
 #define MD_STARTFILE_PREFIX_1 ""
 #endif
 
-/* Supply defaults for the standard prefixes.  */
-
-#ifndef STANDARD_EXEC_PREFIX
-#define STANDARD_EXEC_PREFIX "/usr/local/lib/gcc/"
-#endif
-#ifndef STANDARD_STARTFILE_PREFIX
-#define STANDARD_STARTFILE_PREFIX "/usr/local/lib/"
-#endif
-#ifndef TOOLDIR_BASE_PREFIX
-#define TOOLDIR_BASE_PREFIX "/usr/local/"
-#endif
-#ifndef STANDARD_BINDIR_PREFIX
-#define STANDARD_BINDIR_PREFIX "/usr/local/bin"
-#endif
-
 static const char *const standard_exec_prefix = STANDARD_EXEC_PREFIX;
 static const char *const standard_exec_prefix_1 = "/usr/libexec/gcc/";
 static const char *const standard_exec_prefix_2 = "/usr/lib/gcc/";
@@ -1696,12 +1679,14 @@ init_spec (void)
 #else
 			    "-lgcc_s%M"
 #endif
+			    ,
+			    "-lgcc",
+			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
 			    " -lunwind"
 #endif
-			    ,
-			    "-lgcc",
-			    "-lgcc_eh");
+			    );
+
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1717,7 +1702,11 @@ init_spec (void)
 #endif
 			    ,
 			    "libgcc.a%s",
-			    "libgcc_eh.a%s");
+			    "libgcc_eh.a%s"
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
+			    );
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -2874,7 +2863,14 @@ execute (void)
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
-	return 0;
+        {
+	  /* verbose_only_flag should act as if the spec was
+	     executed, so increment execution_count before
+	     returning.  Theis prevent spurious warnings about
+	     unused linker input files, etc.  */
+	  execution_count++;
+	  return 0;
+        }
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -3411,7 +3407,7 @@ process_command (int argc, const char *const *argv)
 	  if (IS_DIR_SEPARATOR (*temp)
 	      && strncmp (temp + 1, "lib", 3) == 0
 	      && IS_DIR_SEPARATOR (temp[4])
-	      && strncmp (temp + 5, "gcc", 7) == 0)
+	      && strncmp (temp + 5, "gcc", 3) == 0)
 	    len -= sizeof ("/lib/gcc/") - 1;
 	}
 
@@ -6516,12 +6512,15 @@ main (int argc, const char *const *argv)
       /* If standard_startfile_prefix is relative, base it on
 	 standard_exec_prefix.  This lets us move the installed tree
 	 as a unit.  If GCC_EXEC_PREFIX is defined, base
-	 standard_startfile_prefix on that as well.  */
+	 standard_startfile_prefix on that as well.
+
+         If the prefix is relative, only search it for native compilers;
+         otherwise we will search a directory containing host libraries.  */
       if (IS_ABSOLUTE_PATH (standard_startfile_prefix))
 	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix, "BINUTILS",
 			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
-      else
+      else if (*cross_compile == '0')
 	{
 	  if (gcc_exec_prefix)
 	    add_prefix (&startfile_prefixes,

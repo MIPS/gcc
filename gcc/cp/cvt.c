@@ -694,20 +694,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
-	{
-	  tree fn = NULL_TREE;
+	return cp_truthvalue_conversion (e);
 
-	  /* Common Ada/Pascal programmer's mistake.  We always warn
-             about this since it is so bad.  */
-	  if (TREE_CODE (expr) == FUNCTION_DECL)
-	    fn = expr;
-	  else if (TREE_CODE (expr) == ADDR_EXPR 
-		   && TREE_CODE (TREE_OPERAND (expr, 0)) == FUNCTION_DECL)
-	    fn = TREE_OPERAND (expr, 0);
-	  if (fn && !DECL_WEAK (fn))
-	    warning ("the address of `%D', will always be `true'", fn);
-	  return cp_truthvalue_conversion (e);
-	}
       return fold (convert_to_integer (type, e));
     }
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
@@ -782,7 +770,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
    no lvalue-rvalue and similar conversions happen [expr.static.cast/4,
    stmt.expr/1, expr.comma/1].  This permits dereferencing an incomplete type
    in a void context. The C++ standard does not define what an `access' to an
-   object is, but there is reason to beleive that it is the lvalue to rvalue
+   object is, but there is reason to believe that it is the lvalue to rvalue
    conversion -- if it were not, `*&*p = 1' would violate [expr]/4 in that it
    accesses `*p' not to calculate the value to be stored. But, dcl.type.cv/8
    indicates that volatile semantics should be the same between C and C++
@@ -812,8 +800,12 @@ convert_to_void (tree expr, const char *implicit)
         /* The two parts of a cond expr might be separate lvalues.  */
         tree op1 = TREE_OPERAND (expr,1);
         tree op2 = TREE_OPERAND (expr,2);
-        tree new_op1 = convert_to_void (op1, implicit);
-        tree new_op2 = convert_to_void (op2, implicit);
+        tree new_op1 = convert_to_void
+	  (op1, (implicit && !TREE_SIDE_EFFECTS (op2)
+		 ? "second operand of conditional" : NULL));
+        tree new_op2 = convert_to_void
+	  (op2, (implicit && !TREE_SIDE_EFFECTS (op1)
+		 ? "third operand of conditional" : NULL));
         
 	expr = build (COND_EXPR, TREE_TYPE (new_op1),
 		      TREE_OPERAND (expr, 0), new_op1, new_op2);
@@ -824,14 +816,13 @@ convert_to_void (tree expr, const char *implicit)
       {
         /* The second part of a compound expr contains the value.  */
         tree op1 = TREE_OPERAND (expr,1);
-        tree new_op1 = convert_to_void (op1, implicit);
+        tree new_op1 = convert_to_void
+	  (op1, implicit ? "right-hand operand of comma" : NULL);
         
         if (new_op1 != op1)
 	  {
 	    tree t = build (COMPOUND_EXPR, TREE_TYPE (new_op1),
 			    TREE_OPERAND (expr, 0), new_op1);
-	    TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (expr);
-	    TREE_NO_UNUSED_WARNING (t) = TREE_NO_UNUSED_WARNING (expr);
 	    expr = t;
 	  }
 
@@ -892,6 +883,7 @@ convert_to_void (tree expr, const char *implicit)
 	   of an overloaded function, and this is not one of them.  */
 	pedwarn ("%s cannot resolve address of overloaded function",
 		    implicit ? implicit : "void cast");
+	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       /* Only warn when there is no &.  */
@@ -901,13 +893,9 @@ convert_to_void (tree expr, const char *implicit)
   
   if (expr != error_mark_node && !VOID_TYPE_P (TREE_TYPE (expr)))
     {
-      /* FIXME: This is where we should check for expressions with no
-         effects.  At the moment we do that in both build_x_component_expr
-         and expand_expr_stmt -- inconsistently too.  For the moment
-         leave implicit void conversions unadorned so that expand_expr_stmt
-         has a chance of detecting some of the cases.  */
-      if (!implicit)
-        expr = build1 (CONVERT_EXPR, void_type_node, expr);
+      if (implicit && !TREE_SIDE_EFFECTS (expr) && warn_unused_value)
+	warning ("%s has no effect", implicit);
+      expr = build1 (CONVERT_EXPR, void_type_node, expr);
     }
   return expr;
 }

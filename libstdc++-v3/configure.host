@@ -30,8 +30,6 @@
 #   abi_baseline_pair      directory name for ABI compat testing,
 #                          defaults to host_cpu-host_os (as per config.guess)
 #
-#   fpos_include_dir       directory for definition of fpos template
-#
 #   atomicity_include_dir  location of atomicity.h,
 #                          defaults to cpu_include_dir
 #
@@ -59,7 +57,6 @@
 # systems out there.  :-)
 c_model=c_std
 c_compatibility=no
-fpos_include_dir="os/generic"
 
 # HOST-SPECIFIC OVERRIDES
 # Set any CPU-dependent bits.
@@ -129,9 +126,11 @@ case "${host_os}" in
     OPT_LDFLAGS="-Wl,-G"
     ;;
   aix4.*)
+    os_include_dir="os/generic"
     atomicity_include_dir="os/aix"
     ;;
   aix*)
+    os_include_dir="os/generic"
     atomicity_include_dir="cpu/generic"
     ;;
   bsd*)
@@ -147,9 +146,8 @@ case "${host_os}" in
   freebsd*)
     os_include_dir="os/bsd/freebsd"
     ;;
-  gnu* | linux*)
+  gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
     os_include_dir="os/gnu-linux"
-    fpos_include_dir=$os_include_dir
     ;;
   hpux*)
     os_include_dir="os/hpux"
@@ -173,14 +171,23 @@ case "${host_os}" in
     os_include_dir="os/qnx/qnx6.1"
     c_model=c
     ;;
-  solaris2.5*)
+  solaris2)
+    # This too-vague configuration does not provide enough information
+    # to select a ctype include, and thus os_include_dir is a crap shoot.
+    echo "Please specify the full version of Solaris, ie. solaris2.9 " 1>&2
+    exit 1;
+    ;;
+  solaris2.5 | solaris2.5.[0-9])
     os_include_dir="os/solaris/solaris2.5"
     ;;
-  solaris2.6*)
+  solaris2.6)
     os_include_dir="os/solaris/solaris2.6"
     ;;
-  solaris2.[789]*)
+  solaris2.[789] | solaris2.1[0-9])
     os_include_dir="os/solaris/solaris2.7"
+    ;;
+  vxworks)
+    os_include_dir="os/vxworks"
     ;;
   windiss*)
     os_include_dir="os/windiss"

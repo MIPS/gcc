@@ -1,23 +1,23 @@
 /* Target definitions for GNU compiler for mc680x0 running System V.4
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2003
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com) and
    Fred Fish (fnf@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -33,19 +33,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_assert ("system=svr4");		\
    }						\
   while (0)
-
-/* Use SGS_* macros to control compilation in m68k.md */
-
-#define SGS_SWITCH_TABLES	/* Different switch table handling */
-
-/* TODO: convert includes to ${tm_file} list in config.gcc.  */
-#include "m68k/sgs.h"		/* The m68k/SVR4 assembler is SGS based */
-
-#include "dbxelf.h"
-#include "elfos.h"
-#include "svr4.h"		/* Pick up the generic SVR4 macros */
-
-/* See m68k.h.  7 means 68020 with 68881.  */
 
 #ifndef TARGET_DEFAULT
 #define	TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
@@ -257,7 +244,7 @@ do {									\
   switch_table_difference_label_flag = 0;				\
 } while (0)
 
-int switch_table_difference_label_flag;
+extern int switch_table_difference_label_flag;
 
 #undef ASM_OUTPUT_COMMON
 #undef ASM_OUTPUT_LOCAL

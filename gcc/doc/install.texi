@@ -43,7 +43,7 @@
 @end ifset
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c Include everything if we're not making html
@@ -256,6 +256,9 @@ use @command{bash} to be sure.  Then set @env{CONFIG_SHELL} in your
 environment to your ``good'' shell prior to running
 @command{configure}/@command{make}.
 
+@command{zsh} is not a fully compliant POSIX shell and will not 
+work when configuring GCC.
+
 @item GNU binutils
 
 Necessary in some circumstances, optional in others.  See the
@@ -267,6 +270,10 @@ requirements.
 
 Necessary to uncompress GCC @command{tar} files when source code is
 obtained via FTP mirror sites.
+
+@item GNU make version 3.79.1 (or later)
+
+You must have GNU make installed to build GCC.
 
 @item GNU tar version 1.12 (or later)
 
@@ -280,16 +287,24 @@ systems' @command{tar} programs will also work, only try GNU
 @heading Tools/packages necessary for modifying GCC
 @table @asis
 
-@item autoconf version 2.13 (NO earlier or later versions) and
+@item autoconf versions 2.13 and 2.57
 @itemx GNU m4 version 1.4 (or later)
 
 Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
-to regenerate @file{configure} and @file{config.in} files
+to regenerate @file{configure} and @file{config.in} files.  Most
+directories require autoconf 2.13 (exactly), but @file{libiberty},
+@file{fastjar}, and @file{libstdc++-v3} require autoconf 2.57 (exactly).
 
-@item automake version ???
+@item automake versions 1.4-p? and 1.7.?
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
-associated @file{Makefile.in}
+associated @file{Makefile.in}.  Most directories require a 1.4 series
+automake; @file{libstdc++-v3} and @file{fastjar} requires a 1.7 series
+automake.
+
+@item gettext version 0.12 (or later)
+
+Needed to regenerate @file{gcc.pot}.
 
 @item gperf version 2.7.2 (or later)
 
@@ -355,8 +370,10 @@ snapshots of the development sources are also available via FTP.
 @item perl version 5.6.1 (or later)
 
 Necessary when regenerating @file{Makefile} dependencies in libiberty.
-Necessary when regenerating something with intl??? (pod2man???)
-Other stuff???
+Necessary when regenerating @file{libiberty/functions.texi}.
+Necessary when generating manpages from Texinfo manuals.
+Used by various scripts to generate some files included in CVS (mainly
+Unicode-related and rarely changing) from source tables.
 
 @item GNU diffutils version 2.7 (or later)
 
@@ -886,10 +903,6 @@ missing and thus this setting will cause a known bootstrap failure.)
 This is an alias for @samp{single}.
 @item posix
 Generic POSIX thread support.
-@item pthreads
-Same as @samp{posix} on arm*-*-linux*, *-*-chorusos* and *-*-freebsd*
-only.  A future release of gcc might remove this alias or extend it
-to all platforms.
 @item rtems
 RTEMS thread support.
 @item single
@@ -953,6 +966,20 @@ tree is present.  If you have changed the sources and want to rebuild the
 catalog, configuring with @option{--enable-maintainer-mode} will enable
 this.  Note that you need a recent version of the @code{gettext} tools
 to do so.
+
+@item --enable-generated-files-in-srcdir
+Neither the .c and .h files that are generated from bison and flex nor the
+info manuals and man pages that are built from the .texi files are present
+in the CVS development tree.  When building GCC from that development tree,
+or from a snapshot which are created from CVS, then those generated files
+are placed in your build directory, which allows for the source to be in a
+readonly directory.
+
+If you configure with @option{--enable-generated-files-in-srcdir} then those
+generated files will go into the source directory.  This is mainly intended
+for generating release or prerelease tarballs of the GCC sources, since it
+is not a requirement that the users of source releases to have flex, bison, or
+makeinfo.  
 
 @item --enable-version-specific-runtime-libs
 Specify
@@ -1045,7 +1072,7 @@ specifying @var{list}; the categories of checks available are
 @samp{misc}, @samp{tree}, @samp{gc}, @samp{rtl}, @samp{rtlflag},
 @samp{fold}, @samp{gcac} and @samp{valgrind}.  The check @samp{valgrind}
 requires the external @command{valgrind} simulator, available from
-@uref{http://developer.kde.org/~sewardj/}.  The default when @var{list} is
+@uref{http://valgrind.kde.org/}.  The default when @var{list} is
 not specified is @samp{misc,tree,gc,rtlflag}; the checks @samp{rtl},
 @samp{gcac} and @samp{valgrind} are very expensive.
 
@@ -1330,6 +1357,49 @@ Build runtime libraries using the compiler from the previous step.
 
 Note that if an error occurs in any step the make process will exit.
 
+If you are not building GNU binutils in the same source tree as GCC,
+you will need a cross-assembler and cross-linker installed before
+configuring GCC@.  Put them in the directory
+@file{@var{prefix}/@var{target}/bin}.  Here is a table of the tools
+you should put in this directory:
+
+@table @file
+@item as
+This should be the cross-assembler.
+
+@item ld
+This should be the cross-linker.
+
+@item ar
+This should be the cross-archiver: a program which can manipulate
+archive files (linker libraries) in the target machine's format.
+
+@item ranlib
+This should be a program to construct a symbol table in an archive file.
+@end table
+
+The installation of GCC will find these programs in that directory,
+and copy or link them to the proper place to for the cross-compiler to
+find them when run later.
+
+The easiest way to provide these files is to build the Binutils package.
+Configure it with the same @option{--host} and @option{--target}
+options that you use for configuring GCC, then build and install
+them.  They install their executables automatically into the proper
+directory.  Alas, they do not support all the targets that GCC
+supports.
+
+If you are not building a C library in the same source tree as GCC,
+you should also provide the target libraries and headers before
+configuring GCC, specifying the directories with
+@option{--with-sysroot} or @option{--with-headers} and
+@option{--with-libs}.  Many targets also require ``start files'' such
+as @file{crt0.o} and
+@file{crtn.o} which are linked into each executable.  There may be several
+alternatives for @file{crt0.o}, for use with profiling or other
+compilation options.  Check your target's definition of
+@code{STARTFILE_SPEC} to find out what start files it uses.
+
 @section Building in parallel
 
 You can use @samp{make bootstrap MAKE="make -j 2" -j 2}, or just
@@ -1350,11 +1420,9 @@ GNAT-specific extensions), and GNU make.
 However, you do not need a full installation of GNAT, just the GNAT
 binary @file{gnat1}, a copy of @file{gnatbind}, and a compiler driver
 which can deal with Ada input (by invoking the @file{gnat1} binary).
-You can specify this compiler driver by setting the @env{ADAC}
-environment variable at the configure step.  @command{configure} can
-detect the driver automatically if it has got a common name such as
-@command{gcc} or @command{gnatgcc}.  Of course, you still need a working
-C compiler (the compiler driver can be different or not).
+Of course, you still need a working C compiler, with the same compiler
+driver.
+
 @command{configure} does not test whether the GNAT installation works
 and has a sufficiently recent version; if too old a GNAT version is
 installed, the build will fail unless @option{--enable-languages} is
@@ -1373,9 +1441,13 @@ source distribution):
 @end example
 
 At the moment, the GNAT library and several tools for GNAT are not built
-by @samp{make bootstrap}.  You have to invoke
+by @samp{make bootstrap}.  For a native build, you have to invoke
 @samp{make gnatlib_and_tools} in the @file{@var{objdir}/gcc}
 subdirectory before proceeding with the next steps.
+For a cross build, you need to invoke
+@samp{make gnatlib cross-gnattools ada.all.cross}.  For a canadian
+cross you only need to invoke @samp{make cross-gnattools}; the GNAT
+library would be the same as the one built for the cross compiler.
 
 For example, you can build a native Ada compiler by issuing the
 following commands (assuming @command{make} is GNU make):
@@ -1510,11 +1582,81 @@ To get a list of the possible @file{*.exp} files, pipe the
 output of @samp{make check} into a file and look at the
 @samp{Running @dots{}  .exp} lines.
 
+@section Passing options and running multiple testsuites
+
+You can pass multiple options to the testsuite using the
+@samp{--target_board} option of DejaGNU, either passed as part of
+@samp{RUNTESTFLAGS}, or directly to @command{runtest} if you prefer to
+work outside the makefiles.  For example,
+
+@example
+    make check-g++ RUNTESTFLAGS="--target_board=unix/-O3/-fno-strength-reduce"
+@end example
+
+will run the standard @command{g++} testsuites (``unix'' is the target name
+for a standard native testsuite situation), passing
+@samp{-O3 -fno-strength-reduce} to the compiler on every test, i.e.,
+slashes separate options.
+
+You can run the testsuites multiple times using combinations of options
+with a syntax similar to the brace expansion of popular shells:
+
+@example
+    @dots{}"--target_board=arm-sim@{-mhard-float,-msoft-float@}@{-O1,-O2,-O3,@}"
+@end example
+
+(Note the empty option caused by the trailing comma in the final group.)
+The following will run each testsuite eight times using the @samp{arm-sim}
+target, as if you had specified all possible combinations yourself:
+
+@example
+    --target_board=arm-sim/-mhard-float/-O1
+    --target_board=arm-sim/-mhard-float/-O2
+    --target_board=arm-sim/-mhard-float/-O3
+    --target_board=arm-sim/-mhard-float
+    --target_board=arm-sim/-msoft-float/-O1
+    --target_board=arm-sim/-msoft-float/-O2
+    --target_board=arm-sim/-msoft-float/-O3
+    --target_board=arm-sim/-msoft-float
+@end example
+
+They can be combined as many times as you wish, in arbitrary ways.  This
+list:
+
+@example
+    @dots{}"--target_board=unix/-Wextra@{-O3,-fno-strength-reduce@}@{-fomit-frame-pointer,@}"
+@end example
+
+will generate four combinations, all involving @samp{-Wextra}.
+
+The disadvantage to this method is that the testsuites are run in serial,
+which is a waste on multiprocessor systems.  For users with GNU Make and
+a shell which performs brace expansion, you can run the testsuites in
+parallel by having the shell perform the combinations and @command{make}
+do the parallel runs.  Instead of using @samp{--target_board}, use a
+special makefile target:
+
+@example
+    make -j@var{N} check-@var{testsuite}//@var{test-target}/@var{option1}/@var{option2}/@dots{}
+@end example
+
+For example,
+
+@example
+    make -j3 check-gcc//sh-hms-sim/@{-m1,-m2,-m3,-m3e,-m4@}/@{,-nofpu@}
+@end example
+
+will run three concurrent ``make-gcc'' testsuites, eventually testing all
+ten combinations as described above.  Note that this is currently only
+supported in the @file{gcc} subdirectory.  (To see how this works, try
+typing @command{echo} before the example given here.)
+
+
+@section Additional testing for Java Class Libraries
+
 The Java runtime tests can be executed via @samp{make check}
 in the @file{@var{target}/libjava/testsuite} directory in
 the build tree.
-
-@section Additional testing for Java Class Libraries
 
 The @uref{http://sources.redhat.com/mauve/,,Mauve Project} provides
 a suite of tests for the Java Class Libraries.  This suite can be run
@@ -1948,6 +2090,8 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#s390x-*-linux*,,s390x-*-linux*}
 @item
+@uref{#s390x-ibm-tpf*,,s390x-ibm-tpf*}
+@item
 @uref{#*-*-solaris2*,,*-*-solaris2*}
 @item
 @uref{#sparc-sun-solaris2*,,sparc-sun-solaris2*}
@@ -2274,7 +2418,7 @@ The version of binutils installed in @file{/usr/bin} is known to work unless
 otherwise specified in any per-architecture notes.  However, binutils
 2.12.1 or greater is known to improve overall testsuite results.
 
-FreeBSD 1 is no longer supported.
+Support for FreeBSD 1 was discontinued in GCC 3.2.
 
 For FreeBSD 2 or any mutant a.out versions of FreeBSD 3: All
 configuration support and files as shipped with GCC 2.95 are still in
@@ -2327,7 +2471,7 @@ longer a multiple of 2 bytes.
 <hr />
 @end html
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
-HP-UX version 9 or older is no longer supported.
+Support for HP-UX version 9 and older was discontinued in GCC 3.4.
 
 We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
 platforms; you may encounter a variety of problems when using the HP
@@ -2496,20 +2640,6 @@ Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
 in glibc 2.2.5 and later.  More information is available in the
 libstdc++-v3 documentation.
 
-If you use glibc 2.2 (or 2.1.9x), GCC 2.95.2 won't install
-out-of-the-box.  You'll get compile errors while building @samp{libstdc++}.
-The patch @uref{glibc-2.2.patch,,glibc-2.2.patch}, that is to be
-applied in the GCC source tree, fixes the compatibility problems.
-
-Currently Glibc 2.2.3 (and older releases) and GCC 3.0 are out of sync
-since the latest exception handling changes for GCC@.  Compiling glibc
-with GCC 3.0 will give a binary incompatible glibc and therefore cause
-lots of problems and might make your system completely unusable.  This
-will definitely need fixes in glibc but might also need fixes in GCC@.  We
-strongly advise to wait for glibc 2.2.4 and to read the release notes of
-glibc 2.2.4 whether patches for GCC 3.0 are needed.  You can use glibc
-2.2.3 with GCC 3.0, just do not try to recompile it.
-
 @html
 <hr />
 @end html
@@ -2642,7 +2772,7 @@ is required to build GCC. For GCC 3.3 and later, this is the default.
 <!-- rs6000-ibm-aix*, powerpc-ibm-aix* -->
 @end html
 @heading @anchor{*-ibm-aix*}*-ibm-aix*
-AIX version 3 or older is no longer supported.
+Support for AIX version 3 and older was discontinued in GCC 3.4.
 
 AIX Make frequently has problems with GCC makefiles.  GNU Make 3.79.1 or
 newer is recommended to build on this platform.
@@ -2858,6 +2988,12 @@ make @samp{mips*-*-*} use the generic implementation instead.  You can also
 configure for @samp{mipsel-elf} as a workaround.  The
 @samp{mips*-*-linux*} target continues to use the MIPS II routines.  More
 work on this is expected in future releases.
+
+Cross-compilers for the Mips as target using the Mips assembler
+currently do not work, because the auxiliary programs
+@file{mips-tdump.c} and @file{mips-tfile.c} can't be compiled on
+anything but a Mips.  It does work to cross compile for a Mips
+if you use the GNU assembler and linker.
 
 @html
 <hr />
@@ -3101,6 +3237,13 @@ S/390 system running Linux for S/390@.
 @end html
 @heading @anchor{s390x-*-linux*}s390x-*-linux*
 zSeries system (64-bit) running Linux for zSeries@.
+
+@html
+<hr />
+@end html
+@heading @anchor{s390x-ibm-tpf*}s390x-ibm-tpf*
+zSeries system (64-bit) running TPF.  This platform is 
+supported as cross-compilation target only.
 
 @html
 <hr />

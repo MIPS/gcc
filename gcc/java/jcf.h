@@ -73,7 +73,7 @@ jcf_open_exact_case (const char* filename, int oflag);
 #endif /* WIN32 */
 
 struct JCF;
-typedef int (*jcf_filbuf_t) PARAMS ((struct JCF*, int needed));
+typedef int (*jcf_filbuf_t) (struct JCF*, int needed);
 
 union cpool_entry GTY(()) {
   jword GTY ((tag ("0"))) w;
@@ -230,6 +230,9 @@ typedef struct JCF GTY(()) {
 #define ACC_INTERFACE 0x0200
 #define ACC_ABSTRACT 0x0400
 #define ACC_STRICT 0x0800
+/* "Invisible" refers to Miranda methods inserted into an abstract
+   #class.  It is also used in the runtime.  */
+#define ACC_INVISIBLE 0x1000
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 

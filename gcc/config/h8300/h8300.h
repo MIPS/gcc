@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 version generating coff
+   Hitachi H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
    2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
@@ -224,9 +224,7 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 
 /* Define this if most significant word of a multiword number is lowest
-   numbered.
-   This is true on an H8/300 (actually we can make it up, but we choose to
-   be consistent).  */
+   numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
 #define MAX_BITS_PER_WORD	32
@@ -256,9 +254,6 @@ extern int target_flags;
    need 16 bit alignment, this is left as is so that -mint32 doesn't change
    structure layouts.  */
 #define EMPTY_FIELD_BOUNDARY 16
-
-/* A bit-field declared as `int' forces `int' alignment for the struct.  */
-#define PCC_BITFIELD_TYPE_MATTERS  0
 
 /* No data type wants to be aligned rounder than this.
    32 bit values are aligned as such on the H8/300H and H8S for speed.  */
@@ -352,6 +347,12 @@ extern int target_flags;
 	|| ((TARGET_H8300H || TARGET_H8300S) && (MODE1) == SImode))	  \
        &&  ((MODE2) == QImode || (MODE2) == HImode			  \
 	    || ((TARGET_H8300H || TARGET_H8300S) && (MODE2) == SImode))))
+
+/* A C expression that is nonzero if hard register NEW_REG can be
+   considered for use as a rename register for OLD_REG register */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG)		\
+   h8300_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -567,10 +568,12 @@ enum reg_class {
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.
 
-   We have two registers that can be eliminated on the h8300.  First, the
-   frame pointer register can often be eliminated in favor of the stack
-   pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer.  */
+   We have three registers that can be eliminated on the h8300.
+   First, the frame pointer register can often be eliminated in favor
+   of the stack pointer register.  Secondly, the argument pointer
+   register and the return address pointer register are always
+   eliminated; they are replaced with either the stack or frame
+   pointer.  */
 
 #define ELIMINABLE_REGS					\
 {{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
@@ -604,7 +607,7 @@ enum reg_class {
    On the H8 the return value is in R0/R1.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), R0_REG)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -612,12 +615,12 @@ enum reg_class {
 /* On the H8 the return value is in R0/R1.  */
 
 #define LIBCALL_VALUE(MODE) \
-  gen_rtx_REG (MODE, 0)
+  gen_rtx_REG (MODE, R0_REG)
 
 /* 1 if N is a possible register number for a function value.
    On the H8, R0 is the only register thus used.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == R0_REG)
 
 /* Define this if PCC uses the nonreentrant convention for returning
    structure and union values.  */
@@ -732,7 +735,7 @@ struct cum_arg
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE ((TARGET_H8300 || TARGET_NORMAL_MODE) ? 8 : 12)
+#define TRAMPOLINE_SIZE ((Pmode == HImode) ? 8 : 12)
 
 /* Emit RTL insns to build a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -782,8 +785,9 @@ struct cum_arg
 
 #define REGNO_OK_FOR_INDEX_P(regno) 0
 
-#define REGNO_OK_FOR_BASE_P(regno) \
-  (((regno) < FIRST_PSEUDO_REGISTER && regno != 8) || reg_renumber[regno] >= 0)
+#define REGNO_OK_FOR_BASE_P(regno)				\
+  (((regno) < FIRST_PSEUDO_REGISTER && regno != MAC_REG)	\
+   || reg_renumber[regno] >= 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -1038,7 +1042,6 @@ struct cum_arg
 #define ASM_APP_OFF "; #NO_APP\n"
 
 #define FILE_ASM_OP "\t.file\n"
-#define IDENT_ASM_OP "\t.ident\t"
 
 /* The assembler op to get a word, 2 bytes for the H8/300, 4 for H8/300H.  */
 #define ASM_WORD_OP							\
@@ -1047,16 +1050,13 @@ struct cum_arg
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
-#define INIT_SECTION_ASM_OP "\t.section .init"
-#define READONLY_DATA_SECTION_ASM_OP "\t.section .rodata"
 
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __ctors[];			\
-  extern pfunc __ctors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __ctors[];			\
+  extern func_ptr __ctors_end[];		\
+  func_ptr *p;					\
   for (p = __ctors_end; p > __ctors; )		\
     {						\
       (*--p)();					\
@@ -1066,10 +1066,9 @@ struct cum_arg
 #undef DO_GLOBAL_DTORS_BODY
 #define DO_GLOBAL_DTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __dtors[];			\
-  extern pfunc __dtors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __dtors[];			\
+  extern func_ptr __dtors_end[];		\
+  func_ptr *p;					\
   for (p = __dtors; p < __dtors_end; p++)	\
     {						\
       (*p)();					\
@@ -1085,26 +1084,6 @@ struct cum_arg
 #define ADDITIONAL_REGISTER_NAMES \
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \
   {"er5", 5}, {"er6", 6}, {"er7", 7}, {"r7", 7} }
-
-#define SDB_DEBUGGING_INFO 1
-#define SDB_DELIM	"\n"
-
-/* Support -gstabs.  */
-
-#include "dbxcoff.h"
-
-/* Override definition in dbxcoff.h.  */
-/* Generate a blank trailing N_SO to mark the end of the .o file, since
-   we can't depend upon the linker to mark .o file boundaries with
-   embedded stabs.  */
-
-#undef DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME)			\
-  fprintf (FILE,							\
-	   "\t.text\n.stabs \"\",%d,0,0,.Letext\n.Letext:\n", N_SO)
-
-/* Switch into a generic section.  */
-#define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)
 
@@ -1157,12 +1136,6 @@ struct cum_arg
 #define ASM_OUTPUT_ALIGN(FILE, LOG)		\
   if ((LOG) != 0)				\
     fprintf (FILE, "\t.align %d\n", (LOG))
-
-/* This is how to output an assembler line
-   that says to advance the location counter by SIZE bytes.  */
-
-#define ASM_OUTPUT_IDENT(FILE, NAME)			\
-  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME)
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
   fprintf (FILE, "\t.space %d\n", (int)(SIZE))
@@ -1221,31 +1194,7 @@ struct cum_arg
    (and ANSI C) library functions `memcpy' and `memset' rather than
    the BSD functions `bcopy' and `bzero'.  */
 
-#define TARGET_MEM_FUNCTIONS 1
-
-#define MULHI3_LIBCALL	"__mulhi3"
-#define DIVHI3_LIBCALL	"__divhi3"
-#define UDIVHI3_LIBCALL	"__udivhi3"
-#define MODHI3_LIBCALL	"__modhi3"
-#define UMODHI3_LIBCALL	"__umodhi3"
-
-/* Perform target dependent optabs initialization.  */
-
-#define INIT_TARGET_OPTABS					\
-  do								\
-    {								\
-      smul_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (MULHI3_LIBCALL);			\
-      sdiv_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (DIVHI3_LIBCALL);			\
-      udiv_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (UDIVHI3_LIBCALL);			\
-      smod_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (MODHI3_LIBCALL);			\
-      umod_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (UMODHI3_LIBCALL);			\
-    }								\
-  while (0)
+#define TARGET_MEM_FUNCTIONS
 
 #define MOVE_RATIO 3
 

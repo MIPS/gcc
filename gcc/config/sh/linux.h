@@ -2,14 +2,14 @@
    Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Kazumoto Kojima <kkojima@rr.iij4u.or.jp>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
@@ -57,6 +57,8 @@ do { \
   builtin_define_std ("unix"); \
   builtin_define ("__gnu_linux__"); \
   builtin_define_std ("linux"); \
+  builtin_assert ("system=linux"); \
+  builtin_assert ("system=unix"); \
   builtin_assert ("system=posix"); \
 } while (0)
 
@@ -104,6 +106,9 @@ do { \
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 /* Output assembler code to STREAM to call the profiler.  */
 
@@ -217,13 +222,24 @@ do { \
 									\
     /* mov.w 1f,r3; trapa #0x10; 1: .short 0x77  (sigreturn)  */	\
     /* mov.w 1f,r3; trapa #0x10; 1: .short 0xad  (rt_sigreturn)  */	\
-    if ((*(unsigned short *) (pc_+0)  == 0x9300)			\
-	&& (*(unsigned short *) (pc_+2)  == 0xc310)			\
-	&& (*(unsigned short *) (pc_+4)  == 0x0077))			\
+    /* Newer kernel uses pad instructions to avoid an SH-4 core bug.  */\
+    /* mov.w 1f,r3; trapa #0x10; or r0,r0; or r0,r0; or r0,r0; or r0,r0;\
+       or r0,r0; 1: .short 0x77  (sigreturn)  */			\
+    /* mov.w 1f,r3; trapa #0x10; or r0,r0; or r0,r0; or r0,r0; or r0,r0;\
+       or r0,r0; 1: .short 0xad  (rt_sigreturn)  */			\
+    if (((*(unsigned short *) (pc_+0)  == 0x9300)			\
+	 && (*(unsigned short *) (pc_+2)  == 0xc310)			\
+	 && (*(unsigned short *) (pc_+4)  == 0x0077))			\
+	|| (((*(unsigned short *) (pc_+0)  == 0x9305)			\
+	    && (*(unsigned short *) (pc_+2)  == 0xc310)			\
+	    && (*(unsigned short *) (pc_+14)  == 0x0077))))		\
       sc_ = (CONTEXT)->cfa;						\
-    else if ((*(unsigned short *) (pc_+0) == 0x9300)			\
-	&& (*(unsigned short *) (pc_+2)  == 0xc310)			\
-	&& (*(unsigned short *) (pc_+4)  == 0x00ad))			\
+    else if (((*(unsigned short *) (pc_+0) == 0x9300)			\
+	      && (*(unsigned short *) (pc_+2)  == 0xc310)		\
+	      && (*(unsigned short *) (pc_+4)  == 0x00ad))		\
+	     || (((*(unsigned short *) (pc_+0) == 0x9305)		\
+		 && (*(unsigned short *) (pc_+2)  == 0xc310)		\
+		 && (*(unsigned short *) (pc_+14)  == 0x00ad))))	\
       {									\
 	struct rt_sigframe {						\
 	  struct siginfo info;						\
@@ -277,3 +293,14 @@ do { \
 
 #endif /* defined (__SH5__) */
 #endif /* IN_LIBGCC2 */
+
+/* For SH3 and SH4, we use a slot of the unwind frame which correspond
+   to a fake register number 16 as a placeholder for the return address
+   in MD_FALLBACK_FRAME_STATE_FOR and its content will be read with
+   _Unwind_GetGR which uses dwarf_reg_size_table to get the size of
+   the register.  So the entry of dwarf_reg_size_table corresponding to
+   this slot must be set.  To do this, we redefine DBX_REGISTER_NUMBER
+   so as to return itself for 16.  */
+#undef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(REGNO) \
+  ((! TARGET_SH5 && (REGNO) == 16) ? 16 : SH_DBX_REGISTER_NUMBER (REGNO))

@@ -49,17 +49,6 @@ optimize_function (tree fn)
 {
   dump_function (TDI_original, fn);
 
-  /* While in this function, we may choose to go off and compile
-     another function.  For example, we might instantiate a function
-     in the hopes of inlining it.  Normally, that wouldn't trigger any
-     actual RTL code-generation -- but it will if the template is
-     actually needed.  (For example, if it's address is taken, or if
-     some other function already refers to the template.)  If
-     code-generation occurs, then garbage collection will occur, so we
-     must protect ourselves, just as we do while building up the body
-     of the function.  */
-  ++function_depth;
-
   if (flag_inline_trees
       /* We do not inline thunks, as (a) the backend tries to optimize
          the call to the thunkee, (b) tree based inlining breaks that
@@ -68,12 +57,8 @@ optimize_function (tree fn)
       && !DECL_THUNK_P (fn))
     {
       optimize_inline_calls (fn);
-
       dump_function (TDI_inlined, fn);
     }
-  
-  /* Undo the call to ggc_push_context above.  */
-  --function_depth;
   
   dump_function (TDI_optimized, fn);
 }
@@ -135,7 +120,6 @@ bool
 maybe_clone_body (tree fn)
 {
   tree clone;
-  bool first = true;
 
   /* We only clone constructors and destructors.  */
   if (!DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)
@@ -145,11 +129,16 @@ maybe_clone_body (tree fn)
   /* Emit the DWARF1 abstract instance.  */
   (*debug_hooks->deferred_inline_function) (fn);
 
+  /* Our caller does not expect collection to happen, which it might if
+     we decide to compile the function to rtl now.  Arrange for a new
+     gc context to be created if so.  */
+  function_depth++;
+
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
   for (clone = TREE_CHAIN (fn);
        clone && DECL_CLONED_FUNCTION_P (clone);
-       clone = TREE_CHAIN (clone), first = false)
+       clone = TREE_CHAIN (clone))
     {
       tree parm;
       tree clone_parm;
@@ -169,6 +158,7 @@ maybe_clone_body (tree fn)
       DECL_INTERFACE_KNOWN (clone) = DECL_INTERFACE_KNOWN (fn);
       DECL_NOT_REALLY_EXTERN (clone) = DECL_NOT_REALLY_EXTERN (fn);
       TREE_PUBLIC (clone) = TREE_PUBLIC (fn);
+      DECL_VISIBILITY (clone) = DECL_VISIBILITY (fn);
 
       /* Adjust the parameter names and locations.  */
       parm = DECL_ARGUMENTS (fn);
@@ -185,13 +175,8 @@ maybe_clone_body (tree fn)
 	clone_parm = TREE_CHAIN (clone_parm);
       for (; parm;
 	   parm = TREE_CHAIN (parm), clone_parm = TREE_CHAIN (clone_parm))
-	{
-	  /* Update this parameter.  */
-	  update_cloned_parm (parm, clone_parm);
-	  /* We should only give unused information for one clone.  */
-	  if (!first)
-	    TREE_USED (clone_parm) = 1;
-	}
+	/* Update this parameter.  */
+	update_cloned_parm (parm, clone_parm);
 
       /* Start processing the function.  */
       push_to_top_level ();
@@ -267,6 +252,8 @@ maybe_clone_body (tree fn)
       expand_or_defer_fn (clone);
       pop_from_top_level ();
     }
+
+  function_depth--;
 
   /* We don't need to process the original function any further.  */
   return 1;

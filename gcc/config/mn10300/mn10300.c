@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -65,10 +65,10 @@ int mn10300_protect_label;
 				|| regs_ever_live[16] || regs_ever_live[17]))
 
 
-static int mn10300_address_cost_1 PARAMS ((rtx, int *));
-static int mn10300_address_cost PARAMS ((rtx));
-static bool mn10300_rtx_costs PARAMS ((rtx, int, int, int *));
-static void mn10300_file_start PARAMS ((void));
+static int mn10300_address_cost_1 (rtx, int *);
+static int mn10300_address_cost (rtx);
+static bool mn10300_rtx_costs (rtx, int, int, int *);
+static void mn10300_file_start (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -695,7 +695,7 @@ expand_prologue ()
 #define SIZE_FMOV_SP(S,N) (SIZE_FMOV_SP_ ((unsigned HOST_WIDE_INT)(S), (N)))
 
       /* Consider alternative save_sp_merge only if we don't need the
-	 frame pointer and size is non-zero.  */
+	 frame pointer and size is nonzero.  */
       if (! frame_pointer_needed && size)
 	{
 	  /* Insn: add -(size + 4 * num_regs_to_save), sp.  */
@@ -750,7 +750,7 @@ expand_prologue ()
 	}
 
       /* Consider alternative save_a0_merge only if we don't need a
-	 frame pointer, size is non-zero and the user hasn't
+	 frame pointer, size is nonzero and the user hasn't
 	 changed the calling conventions of a0.  */
       if (! frame_pointer_needed && size
 	  && call_used_regs[FIRST_ADDRESS_REGNUM]
@@ -1855,7 +1855,7 @@ legitimize_pic_address (orig, reg)
 }
 
 /* Return zero if X references a SYMBOL_REF or LABEL_REF whose symbol
-   isn't protected by a PIC unspec; non-zero otherwise.  */
+   isn't protected by a PIC unspec; nonzero otherwise.  */
 int
 legitimate_pic_operand_p (x)
      rtx x;

@@ -27,8 +27,7 @@
 
 #include <istream>
 #include <streambuf>
-//#include <testsuite_hooks.h>
-#define VERIFY(x) x
+#include <testsuite_hooks.h>
 
 struct buf: std::streambuf
 {
@@ -39,7 +38,7 @@ struct buf: std::streambuf
 template<typename T>
 void testthrow(T arg)
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   buf b;
   std::istream is(&b);
   is.exceptions(std::ios::badbit);
@@ -55,7 +54,7 @@ void testthrow(T arg)
       }
   catch(...) 
     {
-      VERIFY( false );
+      VERIFY( test = false );
     }    
 }
 

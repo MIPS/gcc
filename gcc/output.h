@@ -437,6 +437,10 @@ extern rtx this_is_asm_operands;
 extern bool decl_readonly_section (tree, int);
 extern bool decl_readonly_section_1 (tree, int, int);
 
+/* This can be used to compute RELOC for the function above, when
+   given a constant expression.  */
+extern int compute_reloc_for_constant (tree);
+
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
 
@@ -447,6 +451,8 @@ extern void default_function_pro_epilogue (FILE *, HOST_WIDE_INT);
 extern void default_exception_section (void);
 
 /* Tell assembler to switch to the section for the EH frames.  */
+extern void named_section_eh_frame_section (void);
+extern void collect2_eh_frame_section (void);
 extern void default_eh_frame_section (void);
 
 /* Default target hook that outputs nothing to a stream.  */

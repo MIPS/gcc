@@ -185,19 +185,28 @@ enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
    pair of the file number and the type number within the file.
    This is a stack of input files.  */
 
-struct dbx_file GTY(())
+struct dbx_file
 {
   struct dbx_file *next;
   int file_number;
   int next_type_number;
-  enum binclstatus bincl_status;      /* Keep track of lazy bincl.  */
-  const char *pending_bincl_name;     /* Name of bincl.  */
-  struct dbx_file *prev;              /* Chain to traverse all pending bincls.  */
+  enum binclstatus bincl_status;  /* Keep track of lazy bincl.  */
+  const char *pending_bincl_name; /* Name of bincl.  */
+  struct dbx_file *prev;          /* Chain to traverse all pending bincls.  */
 };
 
-/* This is the top of the stack.  */
+/* This is the top of the stack.  
+   
+   This is not saved for PCH, because restoring a PCH should not change it.
+   next_file_number does have to be saved, because the PCH may use some
+   file numbers; however, just before restoring a PCH, next_file_number
+   should always be 0 because we should not have needed any file numbers
+   yet.  */
 
-static GTY(()) struct dbx_file *current_file;
+#if (defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)) \
+    && defined (DBX_USE_BINCL)
+static struct dbx_file *current_file;
+#endif
 
 /* This is the next file number to use.  */
 
@@ -328,7 +337,6 @@ static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
 static void dbxout_typedefs (tree);
-static void dbxout_fptype_value (tree);
 static void dbxout_type_index (tree);
 #if DBX_CONTIN_LENGTH > 0
 static void dbxout_continue (void);
@@ -515,7 +523,7 @@ dbxout_init (const char *input_file_name)
   base_input_file = lastfile = input_file_name;
 
 #ifdef DBX_USE_BINCL
-  current_file = ggc_alloc (sizeof *current_file);
+  current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = next_file_number++;
   current_file->next_type_number = next_type_number;
@@ -535,13 +543,14 @@ dbxout_init (const char *input_file_name)
   DBX_OUTPUT_STANDARD_TYPES (syms);
 #endif
 
-  /* Get all permanent types that have typedef names,
-     and output them all, except for those already output.  */
-
+  /* Get all permanent types that have typedef names, and output them
+     all, except for those already output.  Some language front ends
+     put these declarations in the top-level scope; some do not.  */
+  dbxout_typedefs ((*lang_hooks.decls.builtin_type_decls) ());
   dbxout_typedefs (syms);
 }
 
-/* Output any typedef names for types described by TYPE_DECLs in SYMS. */
+/* Output any typedef names for types described by TYPE_DECLs in SYMS.  */
 
 static void
 dbxout_typedefs (tree syms)
@@ -553,7 +562,7 @@ dbxout_typedefs (tree syms)
 	  tree type = TREE_TYPE (syms);
 	  if (TYPE_NAME (type)
 	      && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	      && COMPLETE_TYPE_P (type)
+	      && COMPLETE_OR_VOID_TYPE_P (type)
 	      && ! TREE_ASM_WRITTEN (TYPE_NAME (type)))
 	    dbxout_symbol (TYPE_NAME (type), 0);
 	}
@@ -625,7 +634,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = ggc_alloc (sizeof *n);
+  struct dbx_file *n = xmalloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -803,60 +812,6 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
 #endif /* DBX_OUTPUT_MAIN_SOURCE_FILE_END */
 
   debug_free_queue ();
-}
-
-/* Output floating point type values used by the 'R' stab letter.
-   These numbers come from include/aout/stab_gnu.h in binutils/gdb.
-
-   There are only 3 real/complex types defined, and we need 7/6.
-   We use NF_SINGLE as a generic float type, and NF_COMPLEX as a generic
-   complex type.  Since we have the type size anyways, we don't really need
-   to distinguish between different FP types, we only need to distinguish
-   between float and complex.  This works fine with gdb.
-
-   We only use this for complex types, to avoid breaking backwards
-   compatibility for real types.  complex types aren't in ISO C90, so it is
-   OK if old debuggers don't understand the debug info we emit for them.  */
-
-/* ??? These are supposed to be IEEE types, but we don't check for that.
-   We could perhaps add additional numbers for non-IEEE types if we need
-   them.  */
-
-static void
-dbxout_fptype_value (tree type)
-{
-  char value = '0';
-  enum machine_mode mode = TYPE_MODE (type);
-
-  if (TREE_CODE (type) == REAL_TYPE)
-    {
-      if (mode == SFmode)
-	value = '1';
-      else if (mode == DFmode)
-	value = '2';
-      else if (mode == TFmode || mode == XFmode)
-	value = '6';
-      else
-	/* Use NF_SINGLE as a generic real type for other sizes.  */
-	value = '1';
-    }
-  else if (TREE_CODE (type) == COMPLEX_TYPE)
-    {
-      if (mode == SCmode)
-	value = '3';
-      else if (mode == DCmode)
-	value = '4';
-      else if (mode == TCmode || mode == XCmode)
-	value = '5';
-      else
-	/* Use NF_COMPLEX as a generic complex type for other sizes.  */
-	value = '3';
-    }
-  else
-    abort ();
-
-  putc (value, asmfile);
-  CHARS (1);
 }
 
 /* Output the index of a type.  */
@@ -1541,15 +1496,14 @@ dbxout_type (tree type, int full)
       break;
 
     case COMPLEX_TYPE:
-      /* Differs from the REAL_TYPE by its new data type number */
+      /* Differs from the REAL_TYPE by its new data type number.
+	 R3 is NF_COMPLEX.  We don't try to use any of the other NF_*
+	 codes since gdb doesn't care anyway.  */
 
       if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	{
-	  putc ('R', asmfile);
-	  CHARS (1);
-	  dbxout_fptype_value (type);
-	  putc (';', asmfile);
-	  CHARS (1);
+	  fputs ("R3;", asmfile);
+	  CHARS (3);
 	  print_wide_int (2 * int_size_in_bytes (TREE_TYPE (type)));
 	  fputs (";0;", asmfile);
 	  CHARS (3);

@@ -19,13 +19,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#define TARGET_OS_CPP_BUILTINS()				\
-  do {								\
-    builtin_define_std ("linux");				\
-    builtin_define_std ("unix");				\
-    builtin_define ("__gnu_linux__");				\
-    builtin_assert ("system=posix");				\
-  } while (0)
+#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
 #undef SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
@@ -40,13 +34,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define WCHAR_TYPE_SIZE 32
 
 #undef ASM_SPEC
-#define ASM_SPEC "%{v} %{mno-density:--no-density} \
-                  %{mtext-section-literals:--text-section-literals} \
-                  %{mno-text-section-literals:--no-text-section-literals} \
-		  %{mtarget-align:--target-align} \
-		  %{mno-target-align:--no-target-align} \
-		  %{mlongcalls:--longcalls} \
-		  %{mno-longcalls:--no-longcalls}"
+#define ASM_SPEC \
+ "%{v} \
+  %{mtext-section-literals:--text-section-literals} \
+  %{mno-text-section-literals:--no-text-section-literals} \
+  %{mtarget-align:--target-align} \
+  %{mno-target-align:--no-target-align} \
+  %{mlongcalls:--longcalls} \
+  %{mno-longcalls:--no-longcalls}"
 
 #undef LINK_SPEC
 #define LINK_SPEC \

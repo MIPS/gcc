@@ -115,6 +115,9 @@
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
 
+/* Define if you have the <iconv.h> header file.  */
+#undef HAVE_ICONV_H
+
 /* Define if you have the <langinfo.h> header file.  */
 #undef HAVE_LANGINFO_H
 
@@ -241,6 +244,9 @@
    through valgrind (a memory checker).  This is extremely expensive. */
 #undef ENABLE_VALGRIND_CHECKING
 
+/* Define if valgrind's valgrind/memcheck.h header is installed. */
+#undef HAVE_VALGRIND_MEMCHECK_H
+
 /* Define if valgrind's memcheck.h header is installed. */
 #undef HAVE_MEMCHECK_H
 
@@ -340,6 +346,9 @@
 #undef HAVE_DECL_ERRNO
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_SNPRINTF
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_VASPRINTF
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
@@ -415,10 +424,6 @@
    for this architecture. */
 #undef EXTRA_MODES_FILE
 
-/* Define if the target architecture needs extra machine modes to represent
-   the results of comparisons. */
-#undef EXTRA_CC_MODES
-
 /* Define to 1 if translation of program messages to the 
   user's native language is requested. */
 #undef ENABLE_NLS
@@ -453,7 +458,7 @@
 /* Define if your assembler mis-optimizes .eh_frame data. */
 #undef USE_AS_TRADITIONAL_FORMAT
 
-/* Define if your assembler supports marking sections with SHF_MERGE flag. */
+/* Define 0/1 if your assembler supports marking sections with SHF_MERGE flag. */
 #undef HAVE_GAS_SHF_MERGE
 
 /* Define if your assembler supports thread-local storage. */
@@ -479,6 +484,9 @@
 
 /* Define if your assembler uses the new HImode fild and fist notation. */
 #undef HAVE_GAS_FILDS_FISTS
+
+/* Define if your assembler supports the Sun syntax for cmov. */
+#undef HAVE_AS_IX86_CMOV_SUN_SYNTAX
 
 /* Define true if the assembler supports '.long foo@GOTOFF'. */
 #undef HAVE_AS_GOTOFF_IN_DATA

@@ -24,11 +24,11 @@
 #define GCC_ARM_PROTOS_H
 
 extern void arm_override_options (void);
-extern int use_return_insn (int);
+extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
 extern void arm_finalize_pic (int);
 extern int arm_volatile_func (void);
-extern const char *arm_output_epilogue (int);
+extern const char *arm_output_epilogue (rtx);
 extern void arm_expand_prologue (void);
 extern HOST_WIDE_INT arm_get_frame_size	(void);
 extern const char *arm_strip_name_encoding (const char *);
@@ -65,6 +65,7 @@ extern int arm_reload_memory_operand (rtx, enum machine_mode);
 extern int arm_rhs_operand (rtx, enum machine_mode);
 extern int arm_rhsm_operand (rtx, enum machine_mode);
 extern int arm_add_operand (rtx, enum machine_mode);
+extern int arm_addimm_operand (rtx, enum machine_mode);
 extern int arm_not_operand (rtx, enum machine_mode);
 extern int offsettable_memory_operand (rtx, enum machine_mode);
 extern int alignable_memory_operand (rtx, enum machine_mode);
@@ -177,6 +178,7 @@ extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
 extern void thumb_expand_movstrqi (rtx *);
 extern int thumb_cmp_operand (rtx, enum machine_mode);
+extern int thumb_cbrch_target_operand (rtx, enum machine_mode);
 extern rtx *thumb_legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);
 extern rtx arm_return_addr (int, rtx);

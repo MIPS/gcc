@@ -1,6 +1,6 @@
 // std::ctype implementation details, generic version -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,8 +43,11 @@ namespace std
     ctype_byname<char>::ctype_byname(const char* __s, size_t __refs)
     : ctype<char>(0, false, __refs) 
     { 	
-      _S_destroy_c_locale(_M_c_locale_ctype);
-      _S_create_c_locale(_M_c_locale_ctype, __s); 
+      if (std::strcmp(__s, "C") != 0 && std::strcmp(__s, "POSIX") != 0)
+	{
+	  _S_destroy_c_locale(_M_c_locale_ctype);
+	  _S_create_c_locale(_M_c_locale_ctype, __s); 
+	}
     }
 
 #ifdef _GLIBCXX_USE_WCHAR_T  
@@ -126,15 +129,39 @@ namespace std
   bool
   ctype<wchar_t>::
   do_is(mask __m, char_type __c) const
-  { return static_cast<bool>(iswctype(__c, _M_convert_to_wmask(__m))); }
+  { 
+    bool __ret = false;
+    // Generically, 15 (instead of 10) since we don't know the numerical
+    // encoding of the various categories in /usr/include/ctype.h.
+    const size_t __bitmasksize = 15; 
+    for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+      {
+	const mask __bit = static_cast<mask>(1 << __bitcur);
+	if (__m & __bit)
+	  __ret |= iswctype(__c, _M_convert_to_wmask(__bit));
+      }
+    return __ret;    
+  }
   
   const wchar_t* 
   ctype<wchar_t>::
-  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __m) const
+  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __vec) const
   {
-    while (__lo < __hi && !this->do_is(*__m, *__lo))
-      ++__lo;
-    return __lo;
+    for (;__lo < __hi; ++__vec, ++__lo)
+      {
+	// Generically, 15 (instead of 10) since we don't know the numerical
+	// encoding of the various categories in /usr/include/ctype.h.
+	const size_t __bitmasksize = 15; 
+	mask __m = 0;
+	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+	  { 
+	    const mask __bit = static_cast<mask>(1 << __bitcur);
+	    if (iswctype(*__lo, _M_convert_to_wmask(__bit)))
+	      __m |= __bit;
+	  }
+	*__vec = __m;
+      }
+    return __hi;
   }
   
   const wchar_t* 

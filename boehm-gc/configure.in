@@ -137,8 +137,8 @@ case "$THREADS" in
     ;;
  win32)
     AC_DEFINE(GC_WIN32_THREADS)
-    dnl Wine getenv may not return NULL for missing entry
-    AC_DEFINE(NO_GETENV)
+    dnl Old wine getenv may not return NULL for missing entry.
+    dnl Define EMPTY_GETENV_RESULTS here to work around the bug.
     ;;
  dgux386)
     THREADS=dgux386
@@ -257,7 +257,7 @@ case "$host" in
  alpha*-*-linux*)
     machdep="alpha_mach_dep.lo"
     ;;
- i?86-*-solaris2.[[89]]*)
+ i?86-*-solaris2.[[89]] | i?86-*-solaris2.1?)
     AC_DEFINE(SOLARIS25_PROC_VDB_BUG_FIXED)
     ;;
  mipstx39-*-elf*)
@@ -279,7 +279,7 @@ case "$host" in
  sparc-*-netbsd*)
     machdep="sparc_netbsd_mach_dep.lo"
     ;;
- sparc-sun-solaris2.3*)
+ sparc-sun-solaris2.3)
     machdep="sparc_mach_dep.lo"
     AC_DEFINE(SUNOS53_SHARED_LIB)
     ;;

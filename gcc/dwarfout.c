@@ -597,12 +597,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define ASM_COMMENT_START ";#"
 #endif
 
-/* How to print out a register name.  */
-#ifndef PRINT_REG
-#define PRINT_REG(RTX, CODE, FILE) \
-  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
-#endif
-
 /* Define a macro which returns nonzero for any tagged type which is
    used (directly or indirectly) in the specification of either some
    function's return type or some formal parameter of some function.
@@ -942,7 +936,7 @@ static void retry_incomplete_types (void);
 #endif
 
 /* Pseudo-ops for pushing the current section onto the section stack (and
-   simultaneously changing to a new section) and for poping back to the
+   simultaneously changing to a new section) and for popping back to the
    section we were in immediately before this one.  Note that most svr4
    assemblers only maintain a one level stack... you can push all the
    sections you want, but you can only pop out one level.  (The sparc
@@ -2036,9 +2030,8 @@ output_reg_number (rtx rtl)
 
   if (regno >= DWARF_FRAME_REGISTERS)
     {
-      warning ("%Hinternal regno botch: '%D' has regno = %d\n",
-               &DECL_SOURCE_LOCATION (dwarf_last_decl), dwarf_last_decl,
-               regno);
+      warning ("%Jinternal regno botch: '%D' has regno = %d\n",
+	       dwarf_last_decl, dwarf_last_decl, regno);
       regno = 0;
     }
   dw2_assemble_integer (4, GEN_INT (DBX_REGISTER_NUMBER (regno)));
@@ -4066,7 +4059,7 @@ output_string_type_die (void *arg)
   sibling_attribute ();
   equate_type_number_to_die_number (type);
   member_attribute (TYPE_CONTEXT (type));
-  /* this is a fixed length string */
+  /* This is a fixed length string.  */
   byte_size_attribute (type);
 }
 
@@ -5226,13 +5219,13 @@ output_decl (tree decl, tree containing_scope)
 
 	    if (fn_arg_types)
 	      {
-	      /* this is the prototyped case, check for ...  */
+	      /* This is the prototyped case, check for....  */
 	      if (TREE_VALUE (tree_last (fn_arg_types)) != void_type_node)
 	        output_die (output_unspecified_parameters_die, decl);
 	      }
 	    else
 	      {
-		/* this is unprototyped, check for undefined (just declaration) */
+		/* This is unprototyped, check for undefined (just declaration).  */
 		if (!DECL_INITIAL (decl))
 		  output_die (output_unspecified_parameters_die, decl);
 	      }

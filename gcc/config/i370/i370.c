@@ -5,20 +5,20 @@
    Modified for OS/390 LanguageEnvironment C by Dave Pitts (dpitts@cozx.com)
    Hacked for Linux-ELF/390 by Linas Vepstas (linas@linas.org) 
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -99,22 +99,22 @@ static label_node_t *free_anchor = 0;
 /* Assembler source file descriptor.  */
 static FILE *assembler_source = 0;
 
-static label_node_t * mvs_get_label PARAMS ((int));
-static void i370_label_scan PARAMS ((void));
+static label_node_t * mvs_get_label (int);
+static void i370_label_scan (void);
 #ifdef TARGET_HLASM
-static bool i370_hlasm_assemble_integer PARAMS ((rtx, unsigned int, int));
-static void i370_globalize_label PARAMS ((FILE *, const char *));
+static bool i370_hlasm_assemble_integer (rtx, unsigned int, int);
+static void i370_globalize_label (FILE *, const char *);
 #endif
-static void i370_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void i370_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void i370_file_start PARAMS ((void));
-static void i370_file_end PARAMS ((void));
+static void i370_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void i370_output_function_epilogue (FILE *, HOST_WIDE_INT);
+static void i370_file_start (void);
+static void i370_file_end (void);
 
 #ifdef LONGEXTERNAL
-static int mvs_hash_alias PARAMS ((const char *));
+static int mvs_hash_alias (const char *);
 #endif
-static void i370_internal_label PARAMS ((FILE *, const char *, unsigned long));
-static bool i370_rtx_costs PARAMS ((rtx, int, int, int *));
+static void i370_internal_label (FILE *, const char *, unsigned long);
+static bool i370_rtx_costs (rtx, int, int, int *);
 
 /* ===================================================== */
 /* defines and functions specific to the HLASM assembler */
@@ -213,8 +213,8 @@ override_options ()
 {
   /* We're 370 floating point, not IEEE floating point.  */
   memset (real_format_for_mode, 0, sizeof real_format_for_mode);
-  real_format_for_mode[SFmode - QFmode] = &i370_single_format;
-  real_format_for_mode[DFmode - QFmode] = &i370_double_format;
+  REAL_MODE_FORMAT (SFmode) = &i370_single_format;
+  REAL_MODE_FORMAT (DFmode) = &i370_double_format;
 }
 
 /* ===================================================== */

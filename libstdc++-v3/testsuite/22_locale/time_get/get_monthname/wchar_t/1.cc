@@ -33,7 +33,7 @@ void test01()
   const ios_base::iostate good = ios_base::goodbit;
   ios_base::iostate errorstate = good;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   // basic construction and sanity checks.
   locale loc_c = locale::classic();
@@ -45,14 +45,8 @@ void test01()
   VERIFY( loc_hk != loc_de );
   VERIFY( loc_de != loc_fr );
 
-  // cache the __timepunct facets, for quicker gdb inspection
-  const __timepunct<wchar_t>& time_c = use_facet<__timepunct<wchar_t> >(loc_c); 
-  const __timepunct<wchar_t>& time_de = use_facet<__timepunct<wchar_t> >(loc_de); 
-  const __timepunct<wchar_t>& time_hk = use_facet<__timepunct<wchar_t> >(loc_hk); 
-  const __timepunct<wchar_t>& time_fr = use_facet<__timepunct<wchar_t> >(loc_fr); 
-
   // create "C" time objects
-  const tm time_bday = { 0, 0, 12, 4, 3, 71 };
+  const tm time_bday = { 0, 0, 12, 4, 3, 71, 0, 93, 0 };
 
   // iter_type 
   // get_monthname(iter_type, iter_type, ios_base&, 
@@ -87,7 +81,7 @@ void test01()
   tim_get.get_monthname(is_it03, end, iss, errorstate, &time03);
   VERIFY( time03.tm_mon == time_bday.tm_mon );
   VERIFY( errorstate == good );
-  VERIFY( *is_it03 == ' ');
+  VERIFY( *is_it03 == L' ' );
 
   iss.str(L"Aar");
   iterator_type is_it04(iss);
@@ -96,7 +90,7 @@ void test01()
   errorstate = good;
   tim_get.get_monthname(is_it04, end, iss, errorstate, &time04);
   VERIFY( time04.tm_mon == 5 );
-  VERIFY( *is_it04 == 'a');
+  VERIFY( *is_it04 == L'a' );
   VERIFY( errorstate == ios_base::failbit );
 
   iss.str(L"December ");
@@ -106,7 +100,7 @@ void test01()
   tim_get.get_monthname(is_it05, end, iss, errorstate, &time05);
   VERIFY( time05.tm_mon == 11 );
   VERIFY( errorstate == good );
-  VERIFY( *is_it05 == ' ');
+  VERIFY( *is_it05 == L' ' );
 
   iss.str(L"Decelember "); 
   iterator_type is_it06(iss);
@@ -116,7 +110,7 @@ void test01()
   tim_get.get_monthname(is_it06, end, iss, errorstate, &time06);
   VERIFY( time06.tm_mon == 4 );
   VERIFY( errorstate == ios_base::failbit );
-  VERIFY( *is_it05 == 'l');
+  VERIFY( *is_it05 == L'l' );
 }
 
 int main()

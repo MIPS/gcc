@@ -59,9 +59,6 @@ static void genrtl_try_block (tree);
 static void genrtl_eh_spec_block (tree);
 static void genrtl_handler (tree);
 static void cp_expand_stmt (tree);
-static void genrtl_start_function (tree);
-static void genrtl_finish_function (tree);
-static tree clear_decl_rtl (tree *, int *, void *);
 static bool is_type_again (tree t);
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
@@ -363,7 +360,7 @@ do_pushlevel (scope_kind sk)
     {
       if (!processing_template_decl)
 	add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
-      begin_scope (sk);
+      begin_scope (sk, NULL);
     }
 }
 
@@ -379,13 +376,17 @@ finish_goto_stmt (tree destination)
      mark the used labels as used.  */
   if (TREE_CODE (destination) == LABEL_DECL)
     TREE_USED (destination) = 1;
-    
-  if (TREE_CODE (destination) != LABEL_DECL)
-    /* We don't inline calls to functions with computed gotos.
-       Those functions are typically up to some funny business,
-       and may be depending on the labels being at particular
-       addresses, or some such.  */
-    DECL_UNINLINABLE (current_function_decl) = 1;
+  else
+    {
+      /* The DESTINATION is being used as an rvalue.  */
+      if (!processing_template_decl)
+	destination = decay_conversion (destination);
+      /* We don't inline calls to functions with computed gotos.
+	 Those functions are typically up to some funny business,
+	 and may be depending on the labels being at particular
+	 addresses, or some such.  */
+      DECL_UNINLINABLE (current_function_decl) = 1;
+    }
   
   check_goto (destination);
 
@@ -422,6 +423,8 @@ finish_expr_stmt (tree expr)
     {
       if (!processing_template_decl)
 	expr = convert_to_void (expr, "statement");
+      else if (!type_dependent_expression_p (expr))
+	convert_to_void (build_non_dependent_expr (expr), "statement");
       
       r = add_stmt (build_stmt (EXPR_STMT, expr));
     }
@@ -957,6 +960,8 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
+  if (!processing_template_decl && type)
+    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -999,12 +1004,12 @@ begin_compound_stmt (bool has_no_scope)
        statement-expression.  But, if it's a statement-expression with
        a scopeless block, there's nothing to keep, and we don't want
        to accidentally keep a block *inside* the scopeless block.  */ 
-    keep_next_level (0);
+    keep_next_level (false);
 
   return r;
 }
 
-/* Finish a compound-statement, which is given by COMPOUND_STMT. */
+/* Finish a compound-statement, which is given by COMPOUND_STMT.  */
 
 tree
 finish_compound_stmt (tree compound_stmt)
@@ -1219,7 +1224,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       return error_mark_node;
     }
   TREE_USED (current_class_ptr) = 1;
-  if (processing_template_decl)
+  if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
 
@@ -1257,6 +1262,13 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	      return error_mark_node;
 	    }
 	}
+
+      /* If PROCESSING_TEMPLATE_DECL is non-zero here, then
+	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
+	 for now.  */
+      if (processing_template_decl)
+	return build_min (SCOPE_REF, TREE_TYPE (decl),
+			  qualifying_scope, DECL_NAME (decl));
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
 
@@ -1403,8 +1415,8 @@ begin_stmt_expr (void)
 
   last_expr_type = NULL_TREE;
   
-  keep_next_level (1);
-  
+  keep_next_level (true);
+
   return last_tree; 
 }
 
@@ -1434,7 +1446,7 @@ finish_stmt_expr_expr (tree expr)
 
 	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
 	     will then pull it apart so the lifetime of the target is
-	     within the scope of the expresson containing this statement
+	     within the scope of the expression containing this statement
 	     expression.  */
 	  if (TREE_CODE (expr) == TARGET_EXPR)
 	    ;
@@ -1468,13 +1480,12 @@ finish_stmt_expr_expr (tree expr)
   return result;
 }
 
-/* Finish a statement-expression.  RTL_EXPR should be the value
-   returned by the previous begin_stmt_expr; EXPR is the
-   statement-expression.  Returns an expression representing the
-   statement-expression.  */
+/* Finish a statement-expression.  EXPR should be the value returned
+   by the previous begin_stmt_expr.  Returns an expression
+   representing the statement-expression.  */
 
 tree 
-finish_stmt_expr (tree rtl_expr)
+finish_stmt_expr (tree rtl_expr, bool has_no_scope)
 {
   tree result;
   tree result_stmt = last_expr_type;
@@ -1495,6 +1506,7 @@ finish_stmt_expr (tree rtl_expr)
   
   result = build_min (STMT_EXPR, type, last_tree);
   TREE_SIDE_EFFECTS (result) = 1;
+  STMT_EXPR_NO_SCOPE (result) = has_no_scope;
   
   last_expr_type = NULL_TREE;
   
@@ -1529,8 +1541,9 @@ finish_stmt_expr (tree rtl_expr)
 }
 
 /* Perform Koenig lookup.  FN is the postfix-expression representing
-   the call; ARGS are the arguments to the call.  Returns the
-   functions to be considered by overload resolution.  */
+   the function (or functions) to call; ARGS are the arguments to the
+   call.  Returns the functions to be considered by overload
+   resolution.  */
 
 tree
 perform_koenig_lookup (tree fn, tree args)
@@ -1580,7 +1593,7 @@ perform_koenig_lookup (tree fn, tree args)
    Returns code for the call.  */
 
 tree 
-finish_call_expr (tree fn, tree args, bool disallow_virtual)
+finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 {
   tree result;
   tree orig_fn;
@@ -1600,7 +1613,11 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
     {
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
-	return build_nt (CALL_EXPR, fn, args);
+	{
+	  result = build_nt (CALL_EXPR, fn, args);
+	  KOENIG_LOOKUP_P (result) = koenig_p;
+	  return result;
+	}
       if (!BASELINK_P (fn)
 	  && TREE_CODE (fn) != PSEUDO_DTOR_EXPR
 	  && TREE_TYPE (fn) != unknown_type_node)
@@ -1613,15 +1630,16 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
      to refer to it.  */
   if (!BASELINK_P (fn) && is_overloaded_fn (fn))
     {
-      tree f;
+      tree f = fn;
 
-      if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-	f = get_first_fn (TREE_OPERAND (fn, 0));
-      else
-	f = get_first_fn (fn);
+      if (TREE_CODE (f) == TEMPLATE_ID_EXPR)
+	f = TREE_OPERAND (f, 0);
+      f = get_first_fn (f);
       if (DECL_FUNCTION_MEMBER_P (f))
 	{
 	  tree type = currently_open_derived_class (DECL_CONTEXT (f));
+	  if (!type)
+	    type = DECL_CONTEXT (f);
 	  fn = build_baselink (TYPE_BINFO (type),
 			       TYPE_BINFO (type),
 			       fn, /*optype=*/NULL_TREE);
@@ -1702,7 +1720,10 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual)
     result = build_function_call (fn, args);
 
   if (processing_template_decl)
-    return build (CALL_EXPR, TREE_TYPE (result), orig_fn, orig_args);
+    {
+      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn, orig_args);
+      KOENIG_LOOKUP_P (result) = koenig_p;
+    }
   return result;
 }
 
@@ -2151,41 +2172,6 @@ finish_member_declaration (tree decl)
     }
 }
 
-/* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
-   the definition is immediately followed by a semicolon.  Returns the
-   type.  */
-
-tree
-finish_class_definition (tree t, tree attributes, int semi, int pop_scope_p)
-{
-  if (t == error_mark_node)
-    return error_mark_node;
-
-  /* finish_struct nukes this anyway; if finish_exception does too,
-     then it can go.  */
-  if (semi)
-    note_got_semicolon (t);
-
-  /* If we got any attributes in class_head, xref_tag will stick them in
-     TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
-  TYPE_ATTRIBUTES (t) = NULL_TREE;
-
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    ;
-  else
-    {
-      t = finish_struct (t, attributes);
-      if (semi) 
-	note_got_semicolon (t);
-    }
-
-  if (pop_scope_p)
-    pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-
-  return t;
-}
-
 /* Finish processing the declaration of a member class template
    TYPES whose template parameters are given by PARMS.  */
 
@@ -2201,7 +2187,6 @@ finish_member_class_template (tree types)
     if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
       maybe_process_partial_specialization (TREE_VALUE (t));
 
-  note_list_got_semicolon (types);
   grok_x_components (types);
   if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
     /* The component was in fact a friend declaration.  We avoid
@@ -2281,7 +2266,7 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
 }
 
 /* Called when multiple declarators are processed.  If that is not
-   premitted in this context, an error is issued.  */
+   permitted in this context, an error is issued.  */
 
 void
 check_multiple_declarators (void)
@@ -2493,7 +2478,7 @@ finish_id_expression (tree id_expression,
 	    }
 
 	  /* If there are no dependent template arguments, go through
-	     the overlaoded functions.  */
+	     the overloaded functions.  */
 	  while (fns && !dependent_p)
 	    {
 	      tree fn = OVL_CURRENT (fns);
@@ -2605,6 +2590,10 @@ finish_id_expression (tree id_expression,
 	{
 	  decl = (adjust_result_of_qualified_name_lookup 
 		  (decl, scope, current_class_type));
+
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    mark_used (decl);
+
 	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
 	    *qualifying_class = scope;
 	  else if (!processing_template_decl)
@@ -2705,26 +2694,6 @@ finish_typeof (tree expr)
   return type;
 }
 
-/* Compute the value of the `sizeof' operator.  */
-
-tree
-finish_sizeof (tree t)
-{
-  return TYPE_P (t) ? cxx_sizeof (t) : expr_sizeof (t);
-}
-
-/* Implement the __alignof keyword: Return the minimum required
-   alignment of T, measured in bytes.  */
-
-tree
-finish_alignof (tree t)
-{
-  if (processing_template_decl)
-    return build_min (ALIGNOF_EXPR, size_type_node, t);
-
-  return TYPE_P (t) ? cxx_alignof (t) : c_alignof_expr (t);
-}
-
 /* Generate RTL for the statement T, and its substatements, and any
    other statements at its nesting level.  */
 
@@ -2759,37 +2728,46 @@ cp_expand_stmt (tree t)
 
 static tree
 simplify_aggr_init_exprs_r (tree* tp, 
-                            int* walk_subtrees ATTRIBUTE_UNUSED , 
-                            void* data ATTRIBUTE_UNUSED )
+                            int* walk_subtrees,
+                            void* data ATTRIBUTE_UNUSED)
 {
-  tree aggr_init_expr;
-  tree call_expr;
-  tree fn;
-  tree args;
-  tree slot;
-  tree type;
-  enum style_t { ctor, arg, pcc } style;
-
-  aggr_init_expr = *tp;
   /* We don't need to walk into types; there's nothing in a type that
      needs simplification.  (And, furthermore, there are places we
      actively don't want to go.  For example, we don't want to wander
      into the default arguments for a FUNCTION_DECL that appears in a
      CALL_EXPR.)  */
-  if (TYPE_P (aggr_init_expr))
+  if (TYPE_P (*tp))
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
   /* Only AGGR_INIT_EXPRs are interesting.  */
-  else if (TREE_CODE (aggr_init_expr) != AGGR_INIT_EXPR)
+  else if (TREE_CODE (*tp) != AGGR_INIT_EXPR)
     return NULL_TREE;
 
+  simplify_aggr_init_expr (tp);
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+/* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  This
+   function is broken out from the above for the benefit of the tree-ssa
+   project.  */
+
+void
+simplify_aggr_init_expr (tree *tp)
+{
+  tree aggr_init_expr = *tp;
+
   /* Form an appropriate CALL_EXPR.  */
-  fn = TREE_OPERAND (aggr_init_expr, 0);
-  args = TREE_OPERAND (aggr_init_expr, 1);
-  slot = TREE_OPERAND (aggr_init_expr, 2);
-  type = TREE_TYPE (aggr_init_expr);
+  tree fn = TREE_OPERAND (aggr_init_expr, 0);
+  tree args = TREE_OPERAND (aggr_init_expr, 1);
+  tree slot = TREE_OPERAND (aggr_init_expr, 2);
+  tree type = TREE_TYPE (aggr_init_expr);
+
+  tree call_expr;
+  enum style_t { ctor, arg, pcc } style;
 
   if (AGGR_INIT_VIA_CTOR_P (aggr_init_expr))
     style = ctor;
@@ -2808,21 +2786,31 @@ simplify_aggr_init_exprs_r (tree* tp,
     {
       /* Pass the address of the slot.  If this is a constructor, we
 	 replace the first argument; otherwise, we tack on a new one.  */
+      tree addr;
+
       if (style == ctor)
 	args = TREE_CHAIN (args);
 
       cxx_mark_addressable (slot);
-      args = tree_cons (NULL_TREE, 
-			build1 (ADDR_EXPR, 
-				build_pointer_type (TREE_TYPE (slot)),
-				slot),
-			args);
+      addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (slot)), slot);
+      if (style == arg)
+	{
+	  /* The return type might have different cv-quals from the slot.  */
+	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
+#ifdef ENABLE_CHECKING
+	  if (TREE_CODE (fntype) != FUNCTION_TYPE
+	      && TREE_CODE (fntype) != METHOD_TYPE)
+	    abort ();
+#endif
+	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
+	}
+
+      args = tree_cons (NULL_TREE, addr, args);
     }
 
   call_expr = build (CALL_EXPR, 
 		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
 		     fn, args, NULL_TREE);
-  TREE_SIDE_EFFECTS (call_expr) = 1;
 
   if (style == arg)
     /* Tell the backend that we've added our return slot to the argument
@@ -2847,9 +2835,6 @@ simplify_aggr_init_exprs_r (tree* tp,
   /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
   TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
   *tp = call_expr;
-
-  /* Keep iterating.  */
-  return NULL_TREE;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -2868,15 +2853,20 @@ emit_associated_thunks (tree fn)
       
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
 	{
-	  use_thunk (thunk, /*emit_p=*/1);
-	  if (DECL_RESULT_THUNK_P (thunk))
+	  if (!THUNK_ALIAS_P (thunk))
 	    {
-	      tree probe;
-
-	      for (probe = DECL_THUNKS (thunk);
-		   probe; probe = TREE_CHAIN (probe))
-		use_thunk (probe, /*emit_p=*/1);
+	      use_thunk (thunk, /*emit_p=*/1);
+	      if (DECL_RESULT_THUNK_P (thunk))
+		{
+		  tree probe;
+		  
+		  for (probe = DECL_THUNKS (thunk);
+		       probe; probe = TREE_CHAIN (probe))
+		    use_thunk (probe, /*emit_p=*/1);
+		}
 	    }
+	  else
+	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
 	}
     }
 }
@@ -2886,12 +2876,8 @@ emit_associated_thunks (tree fn)
 void
 expand_body (tree fn)
 {
-  location_t saved_loc;
   tree saved_function;
   
-  if (flag_unit_at_a_time && !cgraph_global_info_ready)
-    abort ();
-
   /* Compute the appropriate object-file linkage for inline
      functions.  */
   if (DECL_DECLARED_INLINE_P (fn))
@@ -2905,61 +2891,53 @@ expand_body (tree fn)
   if (DECL_EXTERNAL (fn))
     return;
 
-  /* Save the current file name and line number.  When we expand the
-     body of the function, we'll set INPUT_LOCATION so that
-     error-messages come out in the right places.  */
-  saved_loc = input_location;
+  /* ??? When is this needed?  */
   saved_function = current_function_decl;
-  input_location = DECL_SOURCE_LOCATION (fn);
-  current_function_decl = fn;
 
   timevar_push (TV_INTEGRATION);
-
-  /* Optimize the body of the function before expanding it.  */
   optimize_function (fn);
-
   timevar_pop (TV_INTEGRATION);
-  timevar_push (TV_EXPAND);
 
-  genrtl_start_function (fn);
-  current_function_is_thunk = DECL_THUNK_P (fn);
+  tree_rest_of_compilation (fn, function_depth > 1);
 
-  /* Expand the body.  */
-  expand_stmt (DECL_SAVED_TREE (fn));
-
-  /* Statements should always be full-expressions at the outermost set
-     of curly braces for a function.  */
-  my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
-
-  /* The outermost statement for a function contains the line number
-     recorded when we finished processing the function.  */
-  input_line = STMT_LINENO (DECL_SAVED_TREE (fn));
-
-  /* Generate code for the function.  */
-  genrtl_finish_function (fn);
-
-  /* If possible, obliterate the body of the function so that it can
-     be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
-    /* Keep the body; we're going to dump it.  */
-    ;
-  else if (DECL_INLINE (fn) && flag_inline_trees)
-    /* We might need the body of this function so that we can expand
-       it inline somewhere else.  */
-    ;
-  else
-    /* We don't need the body; blow it away.  */
-    DECL_SAVED_TREE (fn) = NULL_TREE;
-
-  /* And restore the current source position.  */
   current_function_decl = saved_function;
-  input_location = saved_loc;
-  extract_interface_info ();
 
-  timevar_pop (TV_EXPAND);
+  extract_interface_info ();
 
   /* Emit any thunks that should be emitted at the same time as FN.  */
   emit_associated_thunks (fn);
+
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+
+  if (DECL_CLONED_FUNCTION_P (fn))
+    {
+      /* If this is a clone, go through the other clones now and mark
+         their parameters used.  We have to do that here, as we don't
+         know whether any particular clone will be expanded, and
+         therefore cannot pick one arbitrarily.  */ 
+      tree probe;
+
+      for (probe = TREE_CHAIN (DECL_CLONED_FUNCTION (fn));
+	   probe && DECL_CLONED_FUNCTION_P (probe);
+	   probe = TREE_CHAIN (probe))
+	{
+	  tree parms;
+
+	  for (parms = DECL_ARGUMENTS (probe);
+	       parms; parms = TREE_CHAIN (parms))
+	    TREE_USED (parms) = 1;
+	}
+    }
 }
 
 /* Generate RTL for FN.  */
@@ -3005,62 +2983,16 @@ expand_or_defer_fn (tree fn)
   if (flag_syntax_only)
     return;
 
-  if (flag_unit_at_a_time && cgraph_global_info_ready)
-    abort ();
+  /* Compute the appropriate object-file linkage for inline functions.  */
+  if (DECL_DECLARED_INLINE_P (fn))
+    import_export_decl (fn);
 
-  if (flag_unit_at_a_time && !cgraph_global_info_ready)
-    {
-      if (at_eof)
-	{
-	  /* Compute the appropriate object-file linkage for inline
-	     functions.  */
-	  if (DECL_DECLARED_INLINE_P (fn))
-	    import_export_decl (fn);
-	  cgraph_finalize_function (fn, DECL_SAVED_TREE (fn));
-	}
-      else
-	{
-	  if (!DECL_EXTERNAL (fn))
-	    {
-	      DECL_NOT_REALLY_EXTERN (fn) = 1;
-	      DECL_EXTERNAL (fn) = 1;
-	    }
-	  /* Remember this function.  In finish_file we'll decide if
-	     we actually need to write this function out.  */
-	  defer_fn (fn);
-	  /* Let the back-end know that this function exists.  */
-	  (*debug_hooks->deferred_inline_function) (fn);
-	}
-      return;
-    }
+  function_depth++;
 
+  /* Expand or defer, at the whim of the compilation unit manager.  */
+  cgraph_finalize_function (fn, function_depth > 1);
 
-  /* If possible, avoid generating RTL for this function.  Instead,
-     just record it as an inline function, and wait until end-of-file
-     to decide whether to write it out or not.  */
-  if (/* We have to generate RTL if it's not an inline function.  */
-      (DECL_INLINE (fn) || DECL_COMDAT (fn))
-      /* Or if we have to emit code for inline functions anyhow.  */
-      && !flag_keep_inline_functions
-      /* Or if we actually have a reference to the function.  */
-      && !DECL_NEEDED_P (fn))
-    {
-      /* Set DECL_EXTERNAL so that assemble_external will be called as
-	 necessary.  We'll clear it again in finish_file.  */
-      if (!DECL_EXTERNAL (fn))
-	{
-	  DECL_NOT_REALLY_EXTERN (fn) = 1;
-	  DECL_EXTERNAL (fn) = 1;
-	}
-      /* Remember this function.  In finish_file we'll decide if
-	 we actually need to write this function out.  */
-      defer_fn (fn);
-      /* Let the back-end know that this function exists.  */
-      (*debug_hooks->deferred_inline_function) (fn);
-      return;
-    }
-
-  expand_body (fn);
+  function_depth--;
 }
 
 /* Helper function for walk_tree, used by finish_function to override all
@@ -3088,197 +3020,12 @@ nullify_returns_r (tree* tp, int* walk_subtrees, void* data)
 
 /* Start generating the RTL for FN.  */
 
-static void
-genrtl_start_function (tree fn)
+void
+cxx_expand_function_start (void)
 {
-  /* Tell everybody what function we're processing.  */
-  current_function_decl = fn;
-  /* Get the RTL machinery going for this function.  */
-  init_function_start (fn);
-  /* Let everybody know that we're expanding this function, not doing
-     semantic analysis.  */
-  expanding_p = 1;
-
-  /* Even though we're inside a function body, we still don't want to
-     call expand_expr to calculate the size of a variable-sized array.
-     We haven't necessarily assigned RTL to all variables yet, so it's
-     not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-  /* Let the user know we're compiling this function.  */
-  announce_function (fn);
-
-  /* Initialize the per-function data.  */
-  my_friendly_assert (!DECL_PENDING_INLINE_P (fn), 20000911);
-  if (DECL_SAVED_FUNCTION_DATA (fn))
-    {
-      /* If we already parsed this function, and we're just expanding it
-	 now, restore saved state.  */
-      *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
-
-      /* This function is being processed in whole-function mode; we
-	 already did semantic analysis.  */
-      cfun->x_whole_function_mode_p = 1;
-
-      /* If we decided that we didn't want to inline this function,
-	 make sure the back-end knows that.  */
-      if (!current_function_cannot_inline)
-	current_function_cannot_inline = cp_function_chain->cannot_inline;
-
-      /* We don't need the saved data anymore.  Unless this is an inline
-         function; we need the named return value info for
-         cp_copy_res_decl_for_inlining.  */
-      if (! DECL_INLINE (fn))
-	DECL_SAVED_FUNCTION_DATA (fn) = NULL;
-    }
-
-  /* Keep track of how many functions we're presently expanding.  */
-  ++function_depth;
-
-  /* Create a binding level for the parameters.  */
-  expand_function_start (fn, /*parms_have_cleanups=*/0);
-  /* If this function is `main'.  */
-  if (DECL_MAIN_P (fn))
-    expand_main_function ();
-
   /* Give our named return value the same RTL as our RESULT_DECL.  */
   if (current_function_return_value)
-    COPY_DECL_RTL (DECL_RESULT (fn), current_function_return_value);
-}
-
-/* Finish generating the RTL for FN.  */
-
-static void
-genrtl_finish_function (tree fn)
-{
-  tree t;
-
-#if 0
-  if (write_symbols != NO_DEBUG)
-    {
-      /* Keep this code around in case we later want to control debug info
-	 based on whether a type is "used".  (jason 1999-11-11) */
-
-      tree ttype = target_type (fntype);
-      tree parmdecl;
-
-      if (IS_AGGR_TYPE (ttype))
-	/* Let debugger know it should output info for this type.  */
-	note_debug_info_needed (ttype);
-
-      for (parmdecl = DECL_ARGUMENTS (fndecl); parmdecl; parmdecl = TREE_CHAIN (parmdecl))
-	{
-	  ttype = target_type (TREE_TYPE (parmdecl));
-	  if (IS_AGGR_TYPE (ttype))
-	    /* Let debugger know it should output info for this type.  */
-	    note_debug_info_needed (ttype);
-	}
-    }
-#endif
-
-  /* Clean house because we will need to reorder insns here.  */
-  do_pending_stack_adjust ();
-
-  /* If we have a named return value, we need to force a return so that
-     the return register is USEd.  */
-  if (DECL_NAME (DECL_RESULT (fn)))
-    emit_jump (return_label);
-
-  /* We hard-wired immediate_size_expand to zero in start_function.
-     Expand_function_end will decrement this variable.  So, we set the
-     variable to one here, so that after the decrement it will remain
-     zero.  */
-  immediate_size_expand = 1;
-
-  /* Generate rtl for function exit.  */
-  expand_function_end ();
-
-  /* If this is a nested function (like a template instantiation that
-     we're compiling in the midst of compiling something else), push a
-     new GC context.  That will keep local variables on the stack from
-     being collected while we're doing the compilation of this
-     function.  */
-  if (function_depth > 1)
-    ggc_push_context ();
-
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (fn) = 0;
-
-  /* Run the optimizers and output the assembler code for this
-     function.  */
-  rest_of_compilation (fn);
-
-  /* Undo the call to ggc_push_context above.  */
-  if (function_depth > 1)
-    ggc_pop_context ();
-
-#if 0
-  /* Keep this code around in case we later want to control debug info
-     based on whether a type is "used".  (jason 1999-11-11) */
-
-  if (ctype && TREE_ASM_WRITTEN (fn))
-    note_debug_info_needed (ctype);
-#endif
-
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
-
-  --function_depth;
-
-  /* In C++, we should never be saving RTL for the function.  */
-  my_friendly_assert (!DECL_SAVED_INSNS (fn), 20010903);
-
-  /* Since we don't need the RTL for this function anymore, stop
-     pointing to it.  That's especially important for LABEL_DECLs,
-     since you can reach all the instructions in the function from the
-     CODE_LABEL stored in the DECL_RTL for the LABEL_DECL.  Walk the
-     BLOCK-tree, clearing DECL_RTL for LABEL_DECLs and non-static
-     local variables.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				clear_decl_rtl,
-				NULL);
-
-  /* Clear out the RTL for the arguments.  */
-  for (t = DECL_ARGUMENTS (fn); t; t = TREE_CHAIN (t))
-    {
-      SET_DECL_RTL (t, NULL_RTX);
-      DECL_INCOMING_RTL (t) = NULL_RTX;
-    }
-
-  if (!(flag_inline_trees && DECL_INLINE (fn)))
-    /* DECL_INITIAL must remain nonzero so we know this was an
-       actual function definition.  */
-    DECL_INITIAL (fn) = error_mark_node;
-  
-  /* Let the error reporting routines know that we're outside a
-     function.  For a nested function, this value is used in
-     pop_cp_function_context and then reset via pop_function_context.  */
-  current_function_decl = NULL_TREE;
-}
-
-/* Clear out the DECL_RTL for the non-static variables in BLOCK and
-   its sub-blocks.  */
-
-static tree
-clear_decl_rtl (tree* tp, 
-                int* walk_subtrees ATTRIBUTE_UNUSED , 
-                void* data ATTRIBUTE_UNUSED )
-{
-  if (nonstatic_local_decl_p (*tp)) 
-    SET_DECL_RTL (*tp, NULL_RTX);
-    
-  return NULL_TREE;
+    COPY_DECL_RTL (DECL_RESULT (cfun->decl), current_function_return_value);
 }
 
 /* Perform initialization related to this module.  */

@@ -39,9 +39,7 @@ void test05()
   typedef filebuf::off_type 	off_type;
   typedef filebuf::traits_type 	traits_type;
 
-  bool 				test = true;
-  streamsize 			strmsz_1, strmsz_2;
-  streamoff  			strmof_1, strmof_2;
+  bool test __attribute__((unused)) = true;
 
   int_type c1;
   int_type c2;
@@ -66,7 +64,7 @@ void test05()
 
     // beg
     pt_1 = fb.pubseekoff(78, ios_base::beg);
-    off_1 = pt_1;
+    off_1 = off_type(pt_1);
     VERIFY( off_1 > 0 );
     c1 = fb.snextc(); //current in pointer +1
     VERIFY( c1 == traits_type::eof() );
@@ -80,7 +78,7 @@ void test05()
     c3 = fb.sgetc();
     fb.pubsync(); //resets pointers
     pt_2 = fb.pubseekpos(pt_1);
-    off_2 = pt_2;
+    off_2 = off_type(pt_2);
     VERIFY( off_1 == off_2 );
     c3 = fb.snextc(); //current in pointer +1
     VERIFY( c2 != c3 );
@@ -88,7 +86,7 @@ void test05()
 
     // end
     pt_1 = fb.pubseekoff(0, ios_base::end);
-    off_1 = pt_1;
+    off_1 = off_type(pt_1);
     VERIFY( off_1 > off_2 );
     fb.sputn("\nof the wonderful things he does!!\nok", 37);
     fb.pubsync();
@@ -98,7 +96,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

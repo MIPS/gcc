@@ -382,10 +382,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #define POINTER_SIZE BITS_PER_WORD
 #endif
 
-#ifndef BUILD_VA_LIST_TYPE
-#define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
-#endif
-
 #ifndef PIC_OFFSET_TABLE_REGNUM
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
 #endif
@@ -574,6 +570,10 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    && !ROUND_TOWARDS_ZERO)
 #endif
 
+#ifndef FLOAT_LIB_COMPARE_RETURNS_BOOL
+#define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
+#endif
+
 /* If FLOAT_WORDS_BIG_ENDIAN is not defined in the header files,
    then the word-endianness is the same as for integers.  */
 #ifndef FLOAT_WORDS_BIG_ENDIAN
@@ -673,6 +673,16 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef MOVE_MAX_PIECES
 #define MOVE_MAX_PIECES   MOVE_MAX
+#endif
+
+#ifndef STACK_POINTER_OFFSET
+#define STACK_POINTER_OFFSET    0
+#endif
+
+/* How to print out a register name.  */
+#ifndef PRINT_REG
+#define PRINT_REG(RTX, CODE, FILE) \
+  fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -310,18 +310,22 @@ fix_irreducible_loops (basic_block from)
 	}
 
       for (i = 0; i < n_edges; i++)
-	if (e->flags & EDGE_IRREDUCIBLE_LOOP)
-	  {
-	    if (!flow_bb_inside_loop_p (from->loop_father, e->dest))
-	      continue;
+	{
+	  e = edges[i];
 
-	    e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
-	    if (TEST_BIT (on_stack, e->dest->index))
-	      continue;
+	  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
+	    {
+	      if (!flow_bb_inside_loop_p (from->loop_father, e->dest))
+		continue;
 
-	    SET_BIT (on_stack, e->dest->index);
-	    stack[stack_top++] = e->dest;
-	  }
+	      e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+	      if (TEST_BIT (on_stack, e->dest->index))
+		continue;
+
+	      SET_BIT (on_stack, e->dest->index);
+	      stack[stack_top++] = e->dest;
+	    }
+	}
       free (edges);
     }
 
@@ -645,7 +649,7 @@ unloop (struct loops *loops, struct loop *loop)
 }
 
 /* Fix placement of LOOP inside loop tree, i.e. find the innermost superloop
-   FATHER of LOOP such that all of the edges comming out of LOOP belong to
+   FATHER of LOOP such that all of the edges coming out of LOOP belong to
    FATHER, and set it as outer loop of LOOP.  Return 1 if placement of
    LOOP changed.  */
 int

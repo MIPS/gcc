@@ -58,8 +58,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
-#undef LANG_HOOKS_INITIALIZE_DIAGNOSTITCS
-#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS cxx_initialize_diagnostics
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS cxx_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
 #undef LANG_HOOKS_HANDLE_FILENAME
@@ -106,15 +106,28 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
+#undef LANG_HOOKS_BUILTIN_TYPE_DECLS
+#define LANG_HOOKS_BUILTIN_TYPE_DECLS cxx_builtin_type_decls
+#undef LANG_HOOKS_PUSHLEVEL
+#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
+#undef LANG_HOOKS_POPLEVEL
+#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS finish_file
+#undef LANG_HOOKS_DECL_UNINIT
+#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
 #undef LANG_HOOKS_FUNCTION_FINAL
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
+
+#undef LANG_HOOKS_RTL_EXPAND_START
+#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -159,10 +172,10 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_EXPR_SIZE
 #define LANG_HOOKS_EXPR_SIZE cp_expr_size
 
+#undef LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR
+#define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR cxx_callgraph_analyze_expr
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION expand_body
-#undef LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION lower_function
 
 #undef LANG_HOOKS_MAKE_TYPE
 #define LANG_HOOKS_MAKE_TYPE cxx_make_type
@@ -180,6 +193,8 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
+#define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 #undef LANG_HOOKS_USES_CONDITIONAL_SYMTAB
 #define LANG_HOOKS_USES_CONDITIONAL_SYMTAB true
 #undef LANG_HOOKS_INIT_OUTPUT_FRAGMENT

@@ -44,12 +44,12 @@ struct lang_identifier GTY(())
 
 /* The resulting tree type.  */
 
-union lang_tree_node 
+union lang_tree_node
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
        chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
-  union tree_node GTY ((tag ("0"), 
-			desc ("tree_node_structure (&%h)"))) 
+  union tree_node GTY ((tag ("0"),
+			desc ("tree_node_structure (&%h)")))
     generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
 };
@@ -94,6 +94,10 @@ struct lang_decl GTY(())
    nonzero if the definition of the type has already started.  */
 #define C_TYPE_BEING_DEFINED(TYPE) TYPE_LANG_FLAG_0 (TYPE)
 
+/* In an incomplete RECORD_TYPE or UNION_TYPE, a list of variable
+   declarations whose type would be completed by completing that type.  */
+#define C_TYPE_INCOMPLETE_VARS(TYPE) TYPE_VFIELD (TYPE)
+
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
@@ -102,7 +106,7 @@ struct lang_decl GTY(())
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
 {
-  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s; 
+  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s;
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -138,11 +142,6 @@ struct lang_type GTY(())
 	|| (TYPE_ARG_TYPES (TREE_TYPE (EXP)) == 0	\
 	    && !DECL_BUILT_IN (EXP)))
 
-/* Nonzero for a decl which is at file scope.  */
-#define C_DECL_FILE_SCOPE(EXP) 					\
-  (! DECL_CONTEXT (EXP)						\
-   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
-
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
@@ -153,16 +152,21 @@ struct lang_type GTY(())
 #define KEEP_YES	1
 #define KEEP_MAYBE	2
 
-
-/* in c-lang.c and objc-act.c */
-extern tree lookup_interface (tree);
-extern tree is_class_name (tree);
-extern tree objc_is_id (tree);
-extern void objc_check_decl (tree);
-extern int objc_comptypes (tree, tree, int);
-extern tree objc_message_selector (void);
-extern tree lookup_objc_ivar (tree);
-extern void c_expand_body (tree);
+/* Save and restore the variables in this file and elsewhere
+   that keep track of the progress of compilation of the current function.
+   Used for nested functions.  */
+
+struct language_function GTY(())
+{
+  struct c_language_function base;
+  int returns_value;
+  int returns_null;
+  int returns_abnormally;
+  int warn_about_return_type;
+  int extern_inline;
+  int x_in_iteration_stmt;
+  int x_in_case_stmt;
+};
 
 
 /* in c-parse.in */
@@ -172,12 +176,16 @@ extern void c_parse_init (void);
 extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
+extern int c_in_iteration_stmt;
+extern int c_in_case_stmt;
+
 extern int global_bindings_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
 extern void insert_block (tree);
 extern void set_block (tree);
 extern tree pushdecl (tree);
+extern void c_expand_body (tree);
 
 extern void init_c_decl_processing_once (void);
 extern void init_c_decl_processing_eachsrc (void);
@@ -194,7 +202,7 @@ extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
-extern void finish_function (int, int);
+extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (int);
 extern tree grokfield (tree, tree, tree);
@@ -247,8 +255,7 @@ extern bool c_warn_unused_global_decl (tree);
 
 /* For use with comptypes.  */
 enum {
-  COMPARE_STRICT = 0,
-  COMPARE_DIFFERENT_TU = 1
+  COMPARE_STRICT = 0
 };
 
 extern tree require_complete_type (tree);
@@ -287,7 +294,7 @@ extern tree c_start_case (tree);
 extern void c_finish_case (void);
 extern tree simple_asm_stmt (tree);
 extern tree build_asm_stmt (tree, tree, tree, tree, tree);
-extern tree c_convert_parm_for_inlining (tree, tree, tree);
+extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -310,6 +317,8 @@ extern int system_header_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
+extern void *get_current_scope (void);
+extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;

@@ -137,6 +137,7 @@ proc libjava_init { args } {
     global env libgcj_jar
     global tool_root_dir
     global libjava_libgcc_s_path
+    global target_triplet
 
     if { $libjava_initialized == 1 } { return; }
 
@@ -177,7 +178,11 @@ proc libjava_init { args } {
 	if [info exists env(SHLIB_PATH)] {
 	    set original_ld_library_path $env(SHLIB_PATH)
 	} else {
-	    set original_ld_library_path ""
+	    if [info exists env(DYLD_LIBRARY_PATH)] {
+		set original_ld_library_path $env(DYLD_LIBRARY_PATH)
+	    } else {
+		set original_ld_library_path ""
+	    }
 	}
     }
 
@@ -196,10 +201,17 @@ proc libjava_init { args } {
     # Finally, add the gcc build directory so that we can find the
     # shared libgcc.  This, like much of dejagnu, is hideous.
     set libjava_libgcc_s_path {}
-    set gccdir [lookfor_file $tool_root_dir gcc/libgcc_s.so]
+    
+    if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	set so_extension "dylib"
+    } else {
+	set so_extension "so"
+    }
+    set gccdir [lookfor_file $tool_root_dir gcc/libgcc_s.${so_extension}]
     if {$gccdir != ""} {
 	set gccdir [file dirname $gccdir]
 	lappend libjava_libgcc_s_path $gccdir
+	verbose "libjava_libgcc_s_path = $libjava_libgcc_s_path"
 	set compiler ${gccdir}/xgcc
 	if { [is_remote host] == 0 && [which $compiler] != 0 } {
 	    foreach i "[exec $compiler --print-multi-lib]" {
@@ -209,7 +221,7 @@ proc libjava_init { args } {
 		if { "$mldir" == "." } {
 		    continue
 		}
-		if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] == 1 } {
+		if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.${so_extension}.*]] == 1 } {
 		    lappend libjava_libgcc_s_path "${gccdir}/${mldir}"
 		}
 	    }
@@ -227,28 +239,31 @@ proc libjava_init { args } {
 # paths.  However we can't simply use those libraries; we still need
 # libtool for linking.
 # Don't return the the lib${name}.la files here, since this causes the
-# libraries to be linked twice: once as lib${name}.so and another time
+# libraries to be linked twice: once as lib${name}.so/dylib and another time
 # via gcj's implicit -l${name}.  This is both unnecessary and causes the
 # Solaris ld to warn: attempted multiple inclusion of file.  This warning
 # is not ignored by the dejagnu framework and cannot be disabled.
 proc libjava_find_lib {dir name} {
     global base_dir
     set gp [get_multilibs]
-    foreach sub {.libs _libs} {
-	if {$gp != ""} {
-	    if {[file exists $gp/$dir/$sub/lib${name}.a]} then {
-		# Just return the `-L' option.  The library itself
-		# will be picked up via the spec file.
-		return "-L$gp/$dir/$sub"
+    foreach extension {so dll a} {
+	foreach sub {.libs _libs} {
+	    if {$gp != ""} {
+		if {[file exists $gp/$dir/$sub/lib${name}.${extension}]} then {
+		    # Just return the `-L' option.  The library itself
+		    # will be picked up via the spec file.
+		    return "-L$gp/$dir/$sub"
+		}
 	    }
-	}
-	# Just return the `-L' option.  The library itself will be
-	# picked up via the spec file.
-	set lib [findfile $base_dir/../../$dir/$sub/lib${name}.a \
-		   "-L$base_dir/../../$dir/$sub" \
-		   ""]
-	if {$lib != ""} {
-	    return $lib
+	    # Just return the `-L' option.  The library itself will be
+	    # picked up via the spec file.
+	    set lib [findfile \
+		       $base_dir/../../$dir/$sub/lib${name}.${extension} \
+		       "-L$base_dir/../../$dir/$sub" \
+		       ""]
+	    if {$lib != ""} {
+		return $lib
+	    }
 	}
     }
     return ""
@@ -303,9 +318,6 @@ proc gcj_cleanup {args} {
 proc libjava_arguments {{mode compile}} {
     global base_dir
     global LIBJAVA
-    global LIBGC
-    global LIBQTHREADS
-    global LIBZ
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -322,39 +334,14 @@ proc libjava_arguments {{mode compile}} {
 	set libjava [libjava_find_lib libjava gcj]
     }
 
-    if [info exists LIBGC] {
-	set libgc $LIBGC;
-    } else {
-	set libgc [libjava_find_lib boehm-gc gcjgc]
-    }
-
-    if [info exists LIBQTHREADS] {
-	set libqthreads $LIBQTHREADS
-    } else {
-	set libqthreads [libjava_find_lib qthreads gcjcoop]
-    }
-
-    if [info exists LIBZ] {
-	set libz $LIBZ
-    } else {
-	set libz [libjava_find_lib zlib zgcj]
-    }
-
-    # FIXME: there's no way to determine whether -lpthread is
-    # required.  We should get this info from configure, or it should
-    # just be in the compiler driver.
-
     verbose "using LIBJAVA = $libjava" 2
-    verbose "using LIBGC = $libgc" 2
-    verbose "using LIBQTHREADS = $libqthreads" 2
-    verbose "using LIBZ = $libz" 2
     set args ""
 
     # Basically we want to build up a colon separated path list from
     # the value of $libjava.
 
     set lpath {}
-    foreach dir [list $libjava $libgc $libz] {
+    foreach dir [list $libjava] {
 	foreach item [split $dir " "] {
 	    switch -glob -- $item {
 		"-L*" {
@@ -365,6 +352,7 @@ proc libjava_arguments {{mode compile}} {
     }
 
     set lpath [concat $lpath $libjava_libgcc_s_path]
+    verbose "lpath = $lpath ; libgcc_s_path = $libjava_libgcc_s_path"
     set ld_library_path [join $lpath :]
 
     # That's enough to make things work for the normal case.
@@ -375,6 +363,7 @@ proc libjava_arguments {{mode compile}} {
     global original_ld_library_path
     setenv LD_LIBRARY_PATH "$ld_library_path:$original_ld_library_path"
     setenv SHLIB_PATH "$ld_library_path:$original_ld_library_path"
+    setenv DYLD_LIBRARY_PATH "$ld_library_path:$original_ld_library_path"
 
     verbose "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
 
@@ -384,13 +373,10 @@ proc libjava_arguments {{mode compile}} {
     set env(CLASSPATH) ".:$srcdir/$subdir:$objdir:$libgcj_jar"
 
     if {$mode == "link"} {
-	global wrapper_file wrap_compile_flags;
-	lappend args "additional_flags=$wrap_compile_flags";
-	lappend args "libs=$wrapper_file";
-	lappend args "libs=$libjava";
-	lappend args "libs=$libgc";
-	lappend args "libs=$libqthreads"
-	lappend args "libs=$libz"
+	global wrapper_file wrap_compile_flags
+	lappend args "additional_flags=$wrap_compile_flags"
+	lappend args "libs=$wrapper_file"
+	lappend args "libs=$libjava"
 	lappend args debug
     }
 
@@ -427,9 +413,13 @@ proc libjava_arguments {{mode compile}} {
     # Avoid libtool wrapper scripts when possible.
     # but not if libtool warnings results in FAILs
     if {$mode == "link"} {
-        if {! [istarget "*-*-cygwin*"] && ! [istarget "*-*-mingw*"] } {
-            lappend args "additional_flags=-no-install"
-        }
+	if {! [istarget "*-*-cygwin*"] && ! [istarget "*-*-mingw*"] } {
+	    lappend args "additional_flags=-no-install"
+	}
+	if { [istarget "*-*-darwin*"] } {
+	    lappend args "additional_flags=-bind_at_load"
+	    lappend args "additional_flags=-multiply_defined suppress"
+	}
     }
 
     return $args
@@ -470,6 +460,7 @@ proc gcj_invoke {program expectFile ld_library_additions} {
 
   setenv LD_LIBRARY_PATH $newval
   setenv SHLIB_PATH $newval
+  setenv DYLD_LIBRARY_PATH $newval
 
   verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
 
@@ -480,6 +471,7 @@ proc gcj_invoke {program expectFile ld_library_additions} {
   # Restore setting
   setenv LD_LIBRARY_PATH $lib_path
   setenv SHLIB_PATH $lib_path
+  setenv DYLD_LIBRAY_PATH $lib_path
 
   if {$status != "pass"} {
     verbose "got $output"
@@ -574,8 +566,6 @@ proc libjava_invoke {errname testName optName executable inpfile resultfile args
 #
 proc test_libjava_from_source { options srcfile compile_args inpfile resultfile exec_args } {
     global base_dir
-    global LIBJAVA
-    global LIBGC
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -681,8 +671,6 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 #
 proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile exec_args } {
     global base_dir
-    global LIBJAVA
-    global LIBGC
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST

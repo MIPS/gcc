@@ -175,7 +175,8 @@ timestamp.
 
 @menu
 * Config Fragments::     Scripts used by @file{configure}.
-* System Config::        The @file{config.gcc} file.
+* System Config::        The @file{config.build}, @file{config.host}, and
+                         @file{config.gcc} files.
 * Configuration Files::  Files created by running @file{configure}.
 @end menu
 
@@ -191,10 +192,14 @@ files, kept in the top level directory, are used.  FIXME: when is the
 the top level one) used?
 
 @item The file @file{config.gcc} is used to handle configuration
-specific to the particular build, host or target machine.  (In
-general, this should only be used for features that cannot reasonably
-be tested in Autoconf feature tests.)  @xref{System Config, , The
-@file{config.gcc} File}, for details of the contents of this file.
+specific to the particular target machine.  The file 
+@file{config.build} is used to handle configuration specific to the 
+particular build machine.  The file @file{config.host} is used to handle
+configuration specific to the particular host machine.  (In general,
+these should only be used for features that cannot reasonably be tested in
+Autoconf feature tests.)
+@xref{System Config, , The @file{config.build}, @file{config.host},
+and @file{config.gcc} Files}, for details of the contents of these files.
 
 @item Each language subdirectory has a file
 @file{@var{language}/config-lang.in} that is used for
@@ -206,9 +211,22 @@ creating the output of @file{configure}.
 @end itemize
 
 @node System Config
-@subsubsection The @file{config.gcc} File
+@subsubsection The @file{config.build}, @file{config.host}, and @file{config.gcc} Files
 
-FIXME: document the contents of this file, and what variables should
+The @file{config.build} file contains specific rules for particular systems
+which GCC is built on.  This should be used as rarely as possible, as the
+behavior of the build system can always be detected by autoconf.
+
+The @file{config.host} file contains specific rules for particular systems
+which GCC will run on.  This is rarely needed.
+
+The @file{config.gcc} file contains specific rules for particular systems
+which GCC will generate code for.  This is usually needed.
+
+Each file has a list of the shell variables it sets, with descriptions, at the
+top of the file.
+
+FIXME: document the contents of these files, and what variables should
 be set to control build, host and target configuration.
 
 @include configfiles.texi
@@ -530,7 +548,12 @@ setting of @code{language} in @file{config-lang.in}) for the following
 values of @code{@var{hook}}, and any other Makefile rules required to
 build those targets (which may if necessary use other Makefiles
 specified in @code{outputs} in @file{config-lang.in}, although this is
-deprecated).
+deprecated).  Some hooks are defined by using a double-colon rule for
+@code{@var{hook}}, rather than by using a target of form
+@code{@var{lang}.@var{hook}}.  These hooks are called ``double-colon
+hooks'' below.  It also adds any testsuite targets that can use the
+standard rule in @file{gcc/Makefile.in} to the variable
+@code{lang_checks}.
 
 @table @code
 @item all.build
@@ -545,17 +568,20 @@ in the source tree.
 Build info documentation for the front end, in the source directory.
 This target is only called by @samp{make bootstrap} if a suitable
 version of @command{makeinfo} is available, so does not need to check
-for this, and should fail if an error occurs.
+for this, and should fail if an error occurs.  This hook is a
+double-colon hook.
 @item dvi
 Build DVI documentation for the front end, in the build directory.
 This should be done using @code{$(TEXI2DVI)}, with appropriate
 @option{-I} arguments pointing to directories of included files.
+This hook is a double-colon hook.
 @item generated-manpages
 Build generated man pages for the front end from Texinfo manuals
 (@pxref{Man Page Generation}), in the source directory.  This target
 is only called if the necessary tools are available, but should ignore
 errors so as not to stop the build if errors occur; man pages are
 optional and the tools involved may be installed in a broken way.
+This hook is a double-colon hook.
 @item install-normal
 FIXME: what is this target for?
 @item install-common
@@ -564,10 +590,8 @@ compiler executables listed in @code{compilers} in
 @file{config-lang.in}.
 @item install-info
 Install info documentation for the front end, if it is present in the
-source directory.  (It may not be present if a suitable version of
-@command{makeinfo} was not installed.)  This target should run the
-command @command{install-info} to update the info directory, but
-should ignore errors when running that command.
+source directory.  This target should have dependencies on info files
+that should be installed.  This hook is a double-colon hook.
 @item install-man
 Install man pages for the front end.  This target should ignore
 errors.
@@ -578,14 +602,11 @@ anything.
 @item mostlyclean
 @itemx clean
 @itemx distclean
-@itemx extraclean
 @itemx maintainer-clean
-Except for @code{extraclean}, the language parts of the standard GNU
+The language parts of the standard GNU
 @samp{*clean} targets. @xref{Standard Targets, , Standard Targets for
 Users, standards, GNU Coding Standards}, for details of the standard
-targets.  @code{extraclean} does @code{distclean} and also deletes
-anything likely to be found in the source directory that shouldn't be
-in the distribution.  For GCC, @code{maintainer-clean} should delete
+targets.  For GCC, @code{maintainer-clean} should delete
 all generated files in the source directory that are not checked into
 CVS, but should not delete anything checked into CVS@.
 @item stage1
@@ -756,6 +777,7 @@ here; FIXME: document the others.
 
 @menu
 * Test Idioms::     Idioms used in test suite code.
+* Ada Tests::       The Ada language test suites.
 * C Tests::         The C language test suites.
 * libgcj Tests::    The Java library test suites.
 * gcov Testing::    Support for testing gcov.
@@ -837,6 +859,39 @@ appropriate code to avoid causing failures on unsupported systems;
 unfortunately, the mechanisms for this differ by directory.
 
 FIXME: discuss non-C test suites here.
+
+@node Ada Tests
+@subsection Ada Language Test Suites
+
+The Ada test suite includes executable tests from the ACATS 2.5 test
+suite, publicly available at @uref{http://www.adaic.org/compilers/acats/2.5}
+
+These tests are integrated in the GCC test suite in the
+@file{gcc/testsuite/ada/acats} directory, and
+enabled automatically when running @code{make check}, assuming
+the Ada language has been enabled when configuring GCC.
+
+You can also run the Ada test suite independently, using
+@code{make check-ada}, or run a subset of the tests by specifying which
+chapter to run, e.g:
+
+@smallexample
+$ make check-ada CHAPTERS="c3 c9"
+@end smallexample
+
+The tests are organized by directory, each directory corresponding to
+a chapter of the Ada Reference Manual. So for example, c9 corresponds
+to chapter 9, which deals with tasking features of the language.
+
+There is also an extra chapter called @file{gcc} containing a template for
+creating new executable tests.
+
+The tests are run using two 'sh' scripts: run_acats and run_all.sh
+To run the tests using a simulator or a cross target, see the small
+customization section at the top of run_all.sh
+
+These tests are run using the build tree: they can be run without doing
+a @code{make install}.
 
 @node C Tests
 @subsection C Language Test Suites

@@ -26,10 +26,10 @@
 void test01()
 {
   // Check for required base class.
-  typedef std::messages<char> test_type;
+  typedef std::collate<char> test_type;
   typedef std::locale::facet base_type;
   const test_type& obj = std::use_facet<test_type>(std::locale()); 
-  const base_type* base = &obj;
+  const base_type* base __attribute__((unused)) = &obj;
 
   // Check for required typedefs
   typedef test_type::char_type char_type;

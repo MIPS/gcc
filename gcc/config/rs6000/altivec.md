@@ -114,24 +114,24 @@
   [(set (match_operand:V4SI 0 "nonimmediate_operand" "")
         (match_operand:V4SI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 4))
    (set (match_dup 3) (match_dup 5))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
   [(set (match_operand:V4SI 0 "nonimmediate_operand" "")
         (match_operand:V4SI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && !TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 6))
    (set (match_dup 3) (match_dup 7))
    (set (match_dup 4) (match_dup 8))
    (set (match_dup 5) (match_dup 9))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
@@ -176,24 +176,24 @@
   [(set (match_operand:V8HI 0 "nonimmediate_operand" "")
         (match_operand:V8HI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 4))
    (set (match_dup 3) (match_dup 5))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
   [(set (match_operand:V8HI 0 "nonimmediate_operand" "")
         (match_operand:V8HI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && !TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 6))
    (set (match_dup 3) (match_dup 7))
    (set (match_dup 4) (match_dup 8))
    (set (match_dup 5) (match_dup 9))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
@@ -238,24 +238,24 @@
   [(set (match_operand:V16QI 0 "nonimmediate_operand" "")
         (match_operand:V16QI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 4))
    (set (match_dup 3) (match_dup 5))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
   [(set (match_operand:V16QI 0 "nonimmediate_operand" "")
         (match_operand:V16QI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && !TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 6))
    (set (match_dup 3) (match_dup 7))
    (set (match_dup 4) (match_dup 8))
    (set (match_dup 5) (match_dup 9))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
@@ -300,24 +300,24 @@
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
         (match_operand:V4SF 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 4))
    (set (match_dup 3) (match_dup 5))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_split
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
         (match_operand:V4SF 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed && !TARGET_POWERPC64 
-   && altivec_in_gprs_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])"
   [(set (match_dup 2) (match_dup 6))
    (set (match_dup 3) (match_dup 7))
    (set (match_dup 4) (match_dup 8))
    (set (match_dup 5) (match_dup 9))]
 "{
-     rs6000_split_altivec_in_gprs (operands);
+     rs6000_split_multireg_move (operands);
 }")
 
 (define_insn "get_vrsave_internal"
@@ -670,7 +670,7 @@
 		      (match_operand:V16QI 2 "register_operand" "v")
                       (match_operand:V4SI 3 "register_operand" "v")] 66))]
   "TARGET_ALTIVEC"
-  "vmsumubm %0,%1,%2,%3"
+  "vmsummbm %0,%1,%2,%3"
   [(set_attr "type" "veccomplex")])
 
 (define_insn "altivec_vmsumuhm"
@@ -1835,51 +1835,49 @@
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dst"
-  [(unspec [(match_operand:SI 0 "register_operand" "b")
+  [(unspec [(match_operand:V4SI 0 "memory_operand" "Q")
 	    (match_operand:SI 1 "register_operand" "r")
 	    (match_operand:QI 2 "immediate_operand" "i")] 190)]
   "TARGET_ALTIVEC"
-  "dst %0,%1,%2"
+  "dst %P0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dstt"
-  [(unspec [(match_operand:SI 0 "register_operand" "b")
+  [(unspec [(match_operand:V4SI 0 "memory_operand" "Q")
 	    (match_operand:SI 1 "register_operand" "r")
 	    (match_operand:QI 2 "immediate_operand" "i")] 191)]
   "TARGET_ALTIVEC"
-  "dstt %0,%1,%2"
+  "dstt %P0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dstst"
-  [(unspec [(match_operand:SI 0 "register_operand" "b")
+  [(unspec [(match_operand:V4SI 0 "memory_operand" "Q")
 	    (match_operand:SI 1 "register_operand" "r")
 	    (match_operand:QI 2 "immediate_operand" "i")] 192)]
   "TARGET_ALTIVEC"
-  "dstst %0,%1,%2"
+  "dstst %P0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_dststt"
-  [(unspec [(match_operand:SI 0 "register_operand" "b")
+  [(unspec [(match_operand:V4SI 0 "memory_operand" "Q")
 	    (match_operand:SI 1 "register_operand" "r")
 	    (match_operand:QI 2 "immediate_operand" "i")] 193)]
   "TARGET_ALTIVEC"
-  "dststt %0,%1,%2"
+  "dststt %P0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "altivec_lvsl"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
-	(unspec:V16QI [(match_operand:SI 1 "register_operand" "b")
-		       (match_operand:SI 2 "register_operand" "r")] 194))]
+	(unspec:V16QI [(match_operand 1 "memory_operand" "m")] 194))]
   "TARGET_ALTIVEC"
-  "lvsl %0,%1,%2"
+  "lvsl %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvsr"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
-	(unspec:V16QI [(match_operand:SI 1 "register_operand" "b")
-		       (match_operand:SI 2 "register_operand" "r")] 195))]
+	(unspec:V16QI [(match_operand 1 "memory_operand" "m")] 195))]
   "TARGET_ALTIVEC"
-  "lvsr %0,%1,%2"
+  "lvsr %0,%y1"
   [(set_attr "type" "vecload")])
 
 ;; Parallel some of the LVE* and STV*'s with unspecs because some have
@@ -1888,112 +1886,89 @@
 (define_insn "altivec_lvebx"
   [(parallel
     [(set (match_operand:V16QI 0 "register_operand" "=v")
-	  (mem:V16QI (plus:SI (match_operand:SI 1 "register_operand" "b")
-			      (match_operand:SI 2 "register_operand" "r"))))
+	  (match_operand:V16QI 1 "memory_operand" "m"))
      (unspec [(const_int 0)] 196)])]
   "TARGET_ALTIVEC"
-  "lvebx %0,%1,%2"
+  "lvebx %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvehx"
   [(parallel
     [(set (match_operand:V8HI 0 "register_operand" "=v")
-	  (mem:V8HI
-	   (and:SI (plus:SI (match_operand:SI 1 "register_operand" "b")
-			    (match_operand:SI 2 "register_operand" "r"))
-		   (const_int -2))))
+	  (match_operand:V8HI 1 "memory_operand" "m"))
      (unspec [(const_int 0)] 197)])]
   "TARGET_ALTIVEC"
-  "lvehx %0,%1,%2"
+  "lvehx %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvewx"
   [(parallel
     [(set (match_operand:V4SI 0 "register_operand" "=v")
-	  (mem:V4SI
-	   (and:SI (plus:SI (match_operand:SI 1 "register_operand" "b")
-			    (match_operand:SI 2 "register_operand" "r"))
-		   (const_int -4))))
+	  (match_operand:V4SI 1 "memory_operand" "m"))
      (unspec [(const_int 0)] 198)])]
   "TARGET_ALTIVEC"
-  "lvewx %0,%1,%2"
+  "lvewx %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvxl"
   [(parallel
     [(set (match_operand:V4SI 0 "register_operand" "=v")
-	  (mem:V4SI (plus:SI (match_operand:SI 1 "register_operand" "b")
-			     (match_operand:SI 2 "register_operand" "r"))))
+	  (match_operand:V4SI 1 "memory_operand" "m"))
      (unspec [(const_int 0)] 213)])]
   "TARGET_ALTIVEC"
-  "lvxl %0,%1,%2"
+  "lvxl %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_lvx"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
-	(mem:V4SI (plus:SI (match_operand:SI 1 "register_operand" "b")
-			   (match_operand:SI 2 "register_operand" "r"))))]
+	(match_operand:V4SI 1 "memory_operand" "m"))]
   "TARGET_ALTIVEC"
-  "lvx %0,%1,%2"
+  "lvx %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_insn "altivec_stvx"
   [(parallel
-    [(set (mem:V4SI
-	   (and:SI (plus:SI (match_operand:SI 0 "register_operand" "b")
-			    (match_operand:SI 1 "register_operand" "r"))
-		   (const_int -16)))
-	  (match_operand:V4SI 2 "register_operand" "v"))
+    [(set (match_operand:V4SI 0 "memory_operand" "=m")
+	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] 201)])]
   "TARGET_ALTIVEC"
-  "stvx %2,%0,%1"
+  "stvx %1,%y0"
   [(set_attr "type" "vecstore")])
 
 (define_insn "altivec_stvxl"
   [(parallel
-    [(set (mem:V4SI
-	   (and:SI (plus:SI (match_operand:SI 0 "register_operand" "b")
-			    (match_operand:SI 1 "register_operand" "r"))
-		   (const_int -16)))
-	  (match_operand:V4SI 2 "register_operand" "v"))
+    [(set (match_operand:V4SI 0 "memory_operand" "=m")
+	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] 202)])]
   "TARGET_ALTIVEC"
-  "stvxl %2,%0,%1"
+  "stvxl %1,%y0"
   [(set_attr "type" "vecstore")])
 
 (define_insn "altivec_stvebx"
   [(parallel
-    [(set (mem:V16QI
-	   (plus:SI (match_operand:SI 0 "register_operand" "b")
-		    (match_operand:SI 1 "register_operand" "r")))
-	  (match_operand:V16QI 2 "register_operand" "v"))
+    [(set (match_operand:V16QI 0 "memory_operand" "=m")
+	  (match_operand:V16QI 1 "register_operand" "v"))
      (unspec [(const_int 0)] 203)])]
   "TARGET_ALTIVEC"
-  "stvebx %2,%0,%1"
+  "stvebx %1,%y0"
   [(set_attr "type" "vecstore")])
 
 (define_insn "altivec_stvehx"
   [(parallel
-    [(set (mem:V8HI
-	   (and:SI (plus:SI (match_operand:SI 0 "register_operand" "b")
-			    (match_operand:SI 1 "register_operand" "r"))
-		   (const_int -2)))
-	  (match_operand:V8HI 2 "register_operand" "v"))
+    [(set (match_operand:V8HI 0 "memory_operand" "=m")
+	  (match_operand:V8HI 1 "register_operand" "v"))
      (unspec [(const_int 0)] 204)])]
   "TARGET_ALTIVEC"
-  "stvehx %2,%0,%1"
+  "stvehx %1,%y0"
   [(set_attr "type" "vecstore")])
 
 (define_insn "altivec_stvewx"
   [(parallel
-    [(set (mem:V4SI
-	   (and:SI (plus:SI (match_operand:SI 0 "register_operand" "b")
-			    (match_operand:SI 1 "register_operand" "r"))
-		   (const_int -4)))
-	  (match_operand:V4SI 2 "register_operand" "v"))
+    [(set (match_operand:V4SI 0 "memory_operand" "=m")
+	  (match_operand:V4SI 1 "register_operand" "v"))
      (unspec [(const_int 0)] 205)])]
   "TARGET_ALTIVEC"
-  "stvewx %2,%0,%1"
+  "stvewx %1,%y0"
   [(set_attr "type" "vecstore")])
 
 (define_insn "absv16qi2"

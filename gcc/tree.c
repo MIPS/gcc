@@ -497,7 +497,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
    and whose value is the integer value of the INTEGER_CST node I.  */
 
 REAL_VALUE_TYPE
-real_value_from_int_cst (tree type ATTRIBUTE_UNUSED, tree i)
+real_value_from_int_cst (tree type, tree i)
 {
   REAL_VALUE_TYPE d;
 
@@ -505,12 +505,9 @@ real_value_from_int_cst (tree type ATTRIBUTE_UNUSED, tree i)
      bitwise comparisons to see if two values are the same.  */
   memset (&d, 0, sizeof d);
 
-  if (! TREE_UNSIGNED (TREE_TYPE (i)))
-    REAL_VALUE_FROM_INT (d, TREE_INT_CST_LOW (i), TREE_INT_CST_HIGH (i),
-			 TYPE_MODE (type));
-  else
-    REAL_VALUE_FROM_UNSIGNED_INT (d, TREE_INT_CST_LOW (i),
-				  TREE_INT_CST_HIGH (i), TYPE_MODE (type));
+  real_from_integer (&d, type ? TYPE_MODE (type) : VOIDmode,
+		     TREE_INT_CST_LOW (i), TREE_INT_CST_HIGH (i),
+		     TREE_UNSIGNED (TREE_TYPE (i)));
   return d;
 }
 
@@ -2307,6 +2304,7 @@ build (enum tree_code code, tree tt, ...)
   int fro;
   int constant;
   va_list p;
+  tree node;
 
   va_start (p, tt);
 
@@ -2388,6 +2386,24 @@ build (enum tree_code code, tree tt, ...)
   va_end (p);
 
   TREE_CONSTANT (t) = constant;
+  
+  if (code == CALL_EXPR && !TREE_SIDE_EFFECTS (t))
+    {
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
+	TREE_SIDE_EFFECTS (t) = 1;
+
+      /* And even those have side-effects if their arguments do.  */
+      else for (node = TREE_OPERAND (t, 1); node; node = TREE_CHAIN (node))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
+	  {
+	    TREE_SIDE_EFFECTS (t) = 1;
+	    break;
+	  }
+    }
+
   return t;
 }
 
@@ -2466,6 +2482,29 @@ build1 (enum tree_code code, tree type, tree node)
       /* Whether a dereference is readonly has nothing to do with whether
 	 its operand is readonly.  */
       TREE_READONLY (t) = 0;
+      break;
+
+    case ADDR_EXPR:
+      if (node)
+	{
+	  /* The address of a volatile decl or reference does not have
+	     side-effects.  But be careful not to ignore side-effects from
+	     other sources deeper in the expression--if node is a _REF and
+	     one of its operands has side-effects, so do we.  */
+	  if (TREE_THIS_VOLATILE (node))
+	    {
+	      TREE_SIDE_EFFECTS (t) = 0;
+	      if (!DECL_P (node))
+		{
+		  int i = first_rtl_op (TREE_CODE (node)) - 1;
+		  for (; i >= 0; --i)
+		    {
+		      if (TREE_SIDE_EFFECTS (TREE_OPERAND (node, i)))
+			TREE_SIDE_EFFECTS (t) = 1;
+		    }
+		}
+	    }
+	}
       break;
 
     default:
@@ -2862,7 +2901,8 @@ get_qualified_type (tree type, int type_quals)
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
     if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
-        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
+        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	&& attribute_list_equal (TYPE_ATTRIBUTES (t), TYPE_ATTRIBUTES (type)))
       return t;
 
   return NULL_TREE;
@@ -3539,7 +3579,7 @@ iterative_hash_expr (tree t, hashval_t val)
       else
 	abort ();
     }
-  else if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+  else if (IS_EXPR_CODE_CLASS (class))
     {
       val = iterative_hash_object (code, val);
 
@@ -3836,7 +3876,7 @@ build_function_type (tree value_type, tree arg_types)
   return t;
 }
 
-/* Build a function type.  The RETURN_TYPE is the type retured by the
+/* Build a function type.  The RETURN_TYPE is the type returned by the
    function.  If additional arguments are provided, they are
    additional argument types.  The list of argument types must always
    be terminated by NULL_TREE.  */
@@ -3862,6 +3902,45 @@ build_function_type_list (tree return_type, ...)
   return args;
 }
 
+/* Build a METHOD_TYPE for a member of BASETYPE.  The RETTYPE (a TYPE)
+   and ARGTYPES (a TREE_LIST) are the return type and arguments types
+   for the method.  An implicit additional parameter (of type
+   pointer-to-BASETYPE) is added to the ARGTYPES.  */
+
+tree
+build_method_type_directly (tree basetype,
+			    tree rettype,
+			    tree argtypes)
+{
+  tree t;
+  tree ptype;
+  int hashcode;
+
+  /* Make a node of the sort we want.  */
+  t = make_node (METHOD_TYPE);
+
+  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
+  TREE_TYPE (t) = rettype;
+  ptype = build_pointer_type (basetype);
+
+  /* The actual arglist for this function includes a "hidden" argument
+     which is "this".  Put it into the list of argument types.  */
+  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
+  TYPE_ARG_TYPES (t) = argtypes;
+
+  /* If we already have such a type, use the old one and free this one.
+     Note that it also frees up the above cons cell if found.  */
+  hashcode = TYPE_HASH (basetype) + TYPE_HASH (rettype) +
+    type_hash_list (argtypes);
+
+  t = type_hash_canon (hashcode, t);
+
+  if (!COMPLETE_TYPE_P (t))
+    layout_type (t);
+
+  return t;
+}
+
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.
@@ -3870,33 +3949,12 @@ build_function_type_list (tree return_type, ...)
 tree
 build_method_type (tree basetype, tree type)
 {
-  tree t;
-  unsigned int hashcode;
-
-  /* Make a node of the sort we want.  */
-  t = make_node (METHOD_TYPE);
-
   if (TREE_CODE (type) != FUNCTION_TYPE)
     abort ();
 
-  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = TREE_TYPE (type);
-
-  /* The actual arglist for this function includes a "hidden" argument
-     which is "this".  Put it into the list of argument types.  */
-
-  TYPE_ARG_TYPES (t)
-    = tree_cons (NULL_TREE,
-		 build_pointer_type (basetype), TYPE_ARG_TYPES (type));
-
-  /* If we already have such a type, use the old one and free this one.  */
-  hashcode = TYPE_HASH (basetype) + TYPE_HASH (type);
-  t = type_hash_canon (hashcode, t);
-
-  if (!COMPLETE_TYPE_P (t))
-    layout_type (t);
-
-  return t;
+  return build_method_type_directly (basetype, 
+				     TREE_TYPE (type),
+				     TYPE_ARG_TYPES (type));
 }
 
 /* Construct, lay out and return the type of offsets to a value
@@ -4068,7 +4126,8 @@ get_unwidened (tree op, tree for_type)
     {
       unsigned int innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      int unsignedp = TREE_UNSIGNED (TREE_OPERAND (op, 1));
+      int unsignedp = (TREE_UNSIGNED (TREE_OPERAND (op, 1))
+		       || TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
       type = (*lang_hooks.types.type_for_size) (innerprec, unsignedp);
 
       /* We can get this structure field in the narrowest type it fits in.
@@ -4152,8 +4211,9 @@ get_narrower (tree op, int *unsignedp_ptr)
     {
       unsigned HOST_WIDE_INT innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      tree type = (*lang_hooks.types.type_for_size) (innerprec,
-						     TREE_UNSIGNED (op));
+      int unsignedp = (TREE_UNSIGNED (TREE_OPERAND (op, 1))
+		       || TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
+      tree type = (*lang_hooks.types.type_for_size) (innerprec, unsignedp);
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)
@@ -4259,6 +4319,8 @@ int_fits_type_p (tree c, tree type)
 bool
 variably_modified_type_p (tree type)
 {
+  tree t;
+
   if (type == error_mark_node)
     return false;
 
@@ -4267,39 +4329,50 @@ variably_modified_type_p (tree type)
      We do not yet have a representation of the C99 '[*]' syntax.
      When a representation is chosen, this function should be modified
      to test for that case as well.  */
-  if (TYPE_SIZE (type)
-      && TYPE_SIZE (type) != error_mark_node
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  t = TYPE_SIZE (type);
+  if (t && t != error_mark_node && TREE_CODE (t) != INTEGER_CST)
     return true;
 
-  /* If TYPE is a pointer or reference, it is variably modified if
-     the type pointed to is variably modified.  */
-  if ((TREE_CODE (type) == POINTER_TYPE
-       || TREE_CODE (type) == REFERENCE_TYPE)
-      && variably_modified_type_p (TREE_TYPE (type)))
-    return true;
-
-  /* If TYPE is an array, it is variably modified if the array
-     elements are.  (Note that the VLA case has already been checked
-     above.)  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && variably_modified_type_p (TREE_TYPE (type)))
-    return true;
-
-  /* If TYPE is a function type, it is variably modified if any of the
-     parameters or the return type are variably modified.  */
-  if (TREE_CODE (type) == FUNCTION_TYPE
-      || TREE_CODE (type) == METHOD_TYPE)
+  switch (TREE_CODE (type))
     {
-      tree parm;
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case ARRAY_TYPE:
+      /* If TYPE is a pointer or reference, it is variably modified if
+	 the type pointed to is variably modified.  Similarly for arrays;
+	 note that VLAs are handled by the TYPE_SIZE check above.  */
+      return variably_modified_type_p (TREE_TYPE (type));
 
-      if (variably_modified_type_p (TREE_TYPE (type)))
-	return true;
-      for (parm = TYPE_ARG_TYPES (type);
-	   parm && parm != void_list_node;
-	   parm = TREE_CHAIN (parm))
-	if (variably_modified_type_p (TREE_VALUE (parm)))
+    case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      /* If TYPE is a function type, it is variably modified if any of the
+         parameters or the return type are variably modified.  */
+      {
+	tree parm;
+
+	if (variably_modified_type_p (TREE_TYPE (type)))
 	  return true;
+	for (parm = TYPE_ARG_TYPES (type);
+	     parm && parm != void_list_node;
+	     parm = TREE_CHAIN (parm))
+	  if (variably_modified_type_p (TREE_VALUE (parm)))
+	    return true;
+      }
+      break;
+
+    case INTEGER_TYPE:
+      /* Scalar types are variably modified if their end points
+	 aren't constant.  */
+      t = TYPE_MIN_VALUE (type);
+      if (t && t != error_mark_node && TREE_CODE (t) != INTEGER_CST)
+	return true;
+      t = TYPE_MAX_VALUE (type);
+      if (t && t != error_mark_node && TREE_CODE (t) != INTEGER_CST)
+	return true;
+      return false;
+
+    default:
+      break;
     }
 
   /* The current language may have other cases to check, but in general,
@@ -4422,9 +4495,10 @@ get_callee_fndecl (tree call)
   if (TREE_CODE (addr) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (addr, 0)) == FUNCTION_DECL)
     return TREE_OPERAND (addr, 0);
-
-  /* We couldn't figure out what was being called.  */
-  return NULL_TREE;
+  
+  /* We couldn't figure out what was being called.  Maybe the front
+     end has some idea.  */
+  return (*lang_hooks.lang_get_callee_fndecl) (call);
 }
 
 /* Print debugging information about tree nodes generated during the compile,
@@ -4841,6 +4915,11 @@ build_common_tree_nodes_2 (int short_double)
   TYPE_PRECISION (long_double_type_node) = LONG_DOUBLE_TYPE_SIZE;
   layout_type (long_double_type_node);
 
+  float_ptr_type_node = build_pointer_type (float_type_node);
+  double_ptr_type_node = build_pointer_type (double_type_node);
+  long_double_ptr_type_node = build_pointer_type (long_double_type_node);
+  integer_ptr_type_node = build_pointer_type (integer_type_node);
+
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;
   layout_type (complex_integer_type_node);
@@ -4858,8 +4937,7 @@ build_common_tree_nodes_2 (int short_double)
   layout_type (complex_long_double_type_node);
 
   {
-    tree t;
-    BUILD_VA_LIST_TYPE (t);
+    tree t = (*targetm.build_builtin_va_list) ();
 
     /* Many back-ends define record types without setting TYPE_NAME.
        If we copied the record type here, we'd keep the original

@@ -37,6 +37,7 @@ exception statement from your version. */
 
 
 #include "gtkpeer.h"
+#include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include "gnu_java_awt_peer_gtk_GtkTextComponentPeer.h"
 
 static void textcomponent_commit_cb (GtkIMContext *context,
@@ -149,7 +150,6 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setCaretPosition
   GtkEditable *editable;    // type of GtkEntry    (TextField)
   GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
   GtkTextBuffer *buf;
-  GtkTextMark *mark;
   GtkTextIter iter;
 
   ptr = NSA_GET_PTR (env, obj);
@@ -174,9 +174,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setCaretPosition
       if (text)
 	{
 	  buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (text));
-	  mark = gtk_text_buffer_get_insert (buf);
-	  gtk_text_buffer_get_iter_at_mark (buf, &iter, mark);
-	  gtk_text_iter_set_offset (&iter, pos);
+	  gtk_text_buffer_get_iter_at_offset (buf, &iter, pos);
+	  gtk_text_buffer_place_cursor (buf, &iter);
 	}
     }
 
@@ -195,6 +194,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionStart
   GtkTextIter start;
   GtkTextIter end;
   int starti, endi;
+  GtkTextMark *mark;
+  GtkTextIter iter;
 
   ptr = NSA_GET_PTR (env, obj);
 
@@ -205,6 +206,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionStart
       editable = GTK_EDITABLE (ptr);
       if (gtk_editable_get_selection_bounds (editable, &starti, &endi))
 	pos = starti;
+      else
+        pos = gtk_editable_get_position (editable);
     }
   else
     {
@@ -222,6 +225,12 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionStart
 	  buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (text));
 	  if (gtk_text_buffer_get_selection_bounds(buf, &start, &end))
 	    pos = gtk_text_iter_get_offset (&start);
+	  else 
+           {
+            mark = gtk_text_buffer_get_insert (buf);
+            gtk_text_buffer_get_iter_at_mark (buf, &iter, mark);
+            pos = gtk_text_iter_get_offset (&iter);
+           }  
 	}
     }
 
@@ -242,6 +251,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionEnd
   GtkTextIter start;
   GtkTextIter end;
   int starti, endi;
+  GtkTextMark *mark;
+  GtkTextIter iter;
 
   ptr = NSA_GET_PTR (env, obj);
 
@@ -252,6 +263,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionEnd
       editable = GTK_EDITABLE (ptr);
       if (gtk_editable_get_selection_bounds (editable, &starti, &endi))
 	pos = endi;
+      else
+        pos = gtk_editable_get_position (editable);
     }
   else
     {
@@ -269,6 +282,12 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionEnd
 	  buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (text));
 	  if (gtk_text_buffer_get_selection_bounds(buf, &start, &end))
 	    pos = gtk_text_iter_get_offset (&end);
+	  else 
+           {
+            mark = gtk_text_buffer_get_insert (buf);
+            gtk_text_buffer_get_iter_at_mark (buf, &iter, mark);
+            pos = gtk_text_iter_get_offset (&iter);
+           }    
 	}
     }
 
@@ -417,7 +436,6 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setText
   const char *str;
   GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
   GtkTextBuffer *buf;
-  jobject *obj_ptr;
 
   ptr = NSA_GET_PTR (env, obj);
   str = (*env)->GetStringUTFChars (env, contents, NULL);
@@ -452,33 +470,30 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setText
 }
 
 static void
-textcomponent_commit_cb (GtkIMContext *context,
+textcomponent_commit_cb (GtkIMContext *context __attribute__((unused)),
                          const gchar  *str,
                          jobject peer)
 {
   /* str is a \0-terminated UTF-8 encoded character. */
   gunichar2 *jc = g_utf8_to_utf16 (str, -1, NULL, NULL, NULL);
+  GdkEvent *event = gtk_get_current_event ();
 
   if (jc)
     (*gdk_env)->CallVoidMethod (gdk_env, peer,
                                 postKeyEventID,
                                 (jint) AWT_KEY_TYPED,
-                                /* We don't have access to the event
-                                   that caused this commit signal to
-                                   be fired.  So approximate the event
-                                   time... */
-                                (jlong) gdk_event_get_time (NULL),
-                                /* ... and assume no modifiers. */
-                                0,
+                                (jlong) event->key.time,
+                                keyevent_state_to_awt_mods (event),
                                 VK_UNDEFINED,
                                 (jchar) jc[0],
                                 AWT_KEY_LOCATION_UNKNOWN);
   g_free (jc);
+  gdk_event_free (event);
 }
 
 static void
-textcomponent_changed_cb (GtkEditable *editable,
-                      jobject peer)
+textcomponent_changed_cb (GtkEditable *editable __attribute__((unused)),
+			  jobject peer)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, peer, postTextEventID);
 }

@@ -792,7 +792,6 @@ check_init (tree exp, words before)
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case ABS_EXPR:
-    case FFS_EXPR:
       /* Avoid needless recursion. */
       exp = TREE_OPERAND (exp, 0);
       goto again;
@@ -887,18 +886,16 @@ check_init (tree exp, words before)
 
     case EXPR_WITH_FILE_LOCATION:
       {
-	const char *saved_input_filename = input_filename;
+	location_t saved_location = input_location;
 	tree saved_wfl = wfl;
 	tree body = EXPR_WFL_NODE (exp);
-	int saved_lineno = input_line;
 	if (body == empty_stmt_node)
 	  break;
 	wfl = exp;
 	input_filename = EXPR_WFL_FILENAME (exp);
 	input_line = EXPR_WFL_LINENO (exp);
 	check_init (body, before);
-	input_filename = saved_input_filename;
-	input_line = saved_lineno;
+	input_location = saved_location;
 	wfl = saved_wfl;
       }
       break;
@@ -977,8 +974,8 @@ check_for_initialization (tree body, tree mdecl)
 	      if (index >= 0 && ! ASSIGNED_P (before, index))
 		{
 		  if (! is_finit_method)
-		    error ("%Hfinal field '%D' may not have been initialized",
-                           &DECL_SOURCE_LOCATION (decl), decl);
+		    error ("%Jfinal field '%D' may not have been initialized",
+                           decl, decl);
 		}
 	      else if (is_finit_method)
 		DECL_FIELD_FINAL_IUD (decl) = 1;

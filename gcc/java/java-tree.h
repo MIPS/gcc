@@ -44,7 +44,6 @@ struct JCF;
 
 /* Usage of TREE_LANG_FLAG_?:
    0: IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P (in IDENTIFIER_NODE)
-      RESOLVE_EXPRESSION_NAME_P (in EXPR_WITH_FILE_LOCATION)
       FOR_LOOP_P (in LOOP_EXPR)
       SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
       ANONYMOUS_CLASS_P (in RECORD_TYPE)
@@ -146,17 +145,29 @@ extern int compiling_from_source;
 /* List of all class filenames seen so far.  */
 #define all_class_filename java_global_trees [JTI_ALL_CLASS_FILENAME]
 
-/* List of virtual method decls called in this translation unit, used to 
-   generate virtual method offset symbol table. */
+/* List of virtual decls referred to by this translation unit, used to
+   generate virtual method offset symbol table.  */
 #define otable_methods java_global_trees [JTI_OTABLE_METHODS]
+/* List of static decls referred to by this translation unit, used to
+   generate virtual method offset symbol table.  */
+#define atable_methods java_global_trees [JTI_ATABLE_METHODS]
 
-/* The virtual method offset table. This is emitted as uninitialized data of 
-   the required length, and filled out at run time during class linking. */
+/* The virtual offset table.  This is emitted as uninitialized data of
+   the required length, and filled out at run time during class
+   linking. */
 #define otable_decl java_global_trees [JTI_OTABLE_DECL]
+/* The static address table.  */
+#define atable_decl java_global_trees [JTI_ATABLE_DECL]
 
-/* The virtual method offset symbol table. Used by the runtime to fill out the
-   otable. */
+/* The virtual offset symbol table. Used by the runtime to fill out
+   the otable. */
 #define otable_syms_decl java_global_trees [JTI_OTABLE_SYMS_DECL]
+/* The static symbol table. Used by the runtime to fill out the
+   otable. */
+#define atable_syms_decl java_global_trees [JTI_ATABLE_SYMS_DECL]
+
+#define ctable_decl java_global_trees [JTI_CTABLE_DECL]
+#define catch_classes java_global_trees [JTI_CATCH_CLASSES]
 
 extern int flag_emit_class_files;
 
@@ -296,8 +307,6 @@ enum java_tree_index
   JTI_RUNTIME_EXCEPTION_TYPE_NODE,
   JTI_ERROR_EXCEPTION_TYPE_NODE,
   JTI_RAWDATA_PTR_TYPE_NODE,
-  JTI_CLASS_NOT_FOUND_TYPE_NODE,
-  JTI_NO_CLASS_DEF_FOUND_TYPE_NODE,
 
   JTI_BYTE_ARRAY_TYPE_NODE,
   JTI_SHORT_ARRAY_TYPE_NODE,
@@ -364,9 +373,11 @@ enum java_tree_index
   JTI_METHOD_PTR_TYPE_NODE,
   JTI_OTABLE_TYPE,
   JTI_OTABLE_PTR_TYPE,
-  JTI_METHOD_SYMBOL_TYPE,
-  JTI_METHOD_SYMBOLS_ARRAY_TYPE,
-  JTI_METHOD_SYMBOLS_ARRAY_PTR_TYPE,
+  JTI_ATABLE_TYPE,
+  JTI_ATABLE_PTR_TYPE,
+  JTI_SYMBOL_TYPE,
+  JTI_SYMBOLS_ARRAY_TYPE,
+  JTI_SYMBOLS_ARRAY_PTR_TYPE,
 
   JTI_END_PARAMS_NODE,
 
@@ -408,6 +419,13 @@ enum java_tree_index
   JTI_OTABLE_METHODS,
   JTI_OTABLE_DECL,
   JTI_OTABLE_SYMS_DECL,
+
+  JTI_ATABLE_METHODS,
+  JTI_ATABLE_DECL,
+  JTI_ATABLE_SYMS_DECL,
+
+  JTI_CTABLE_DECL,
+  JTI_CATCH_CLASSES,
 
   JTI_PREDEF_FILENAMES,
 
@@ -471,10 +489,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_ERROR_EXCEPTION_TYPE_NODE]
 #define rawdata_ptr_type_node \
   java_global_trees[JTI_RAWDATA_PTR_TYPE_NODE]
-#define class_not_found_type_node \
-  java_global_trees[JTI_CLASS_NOT_FOUND_TYPE_NODE]
-#define no_class_def_found_type_node \
-  java_global_trees[JTI_NO_CLASS_DEF_FOUND_TYPE_NODE]
 
 #define byte_array_type_node \
   java_global_trees[JTI_BYTE_ARRAY_TYPE_NODE]
@@ -602,14 +616,20 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_METHOD_PTR_TYPE_NODE]
 #define otable_type \
   java_global_trees[JTI_OTABLE_TYPE]
+#define atable_type \
+  java_global_trees[JTI_ATABLE_TYPE]
 #define otable_ptr_type \
   java_global_trees[JTI_OTABLE_PTR_TYPE]
-#define method_symbol_type \
-  java_global_trees[JTI_METHOD_SYMBOL_TYPE]
-#define method_symbols_array_type \
-  java_global_trees[JTI_METHOD_SYMBOLS_ARRAY_TYPE]
-#define method_symbols_array_ptr_type \
-  java_global_trees[JTI_METHOD_SYMBOLS_ARRAY_PTR_TYPE]
+#define atable_ptr_type \
+  java_global_trees[JTI_ATABLE_PTR_TYPE]
+#define symbol_type \
+  java_global_trees[JTI_SYMBOL_TYPE]
+#define symbols_array_type \
+  java_global_trees[JTI_SYMBOLS_ARRAY_TYPE]
+#define symbols_array_ptr_type \
+  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]
+#define class_refs_decl \
+  Jjava_global_trees[TI_CLASS_REFS_DECL]
 
 #define end_params_node \
   java_global_trees[JTI_END_PARAMS_NODE]
@@ -672,9 +692,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_PREDEF_FILENAMES]
 
 #define nativecode_ptr_type_node ptr_type_node
-
-/* They need to be reset before processing each class */
-extern GTY(()) struct CPool *outgoing_cpool; 
 
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]
@@ -920,6 +937,9 @@ union lang_tree_node
 /* True if NODE is a class initialization flag. */
 #define LOCAL_CLASS_INITIALIZATION_FLAG_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE) && LOCAL_CLASS_INITIALIZATION_FLAG(NODE))
+/* True if NODE is a variable that is out of scope.  */
+#define LOCAL_VAR_OUT_OF_SCOPE_P(NODE) \
+    (DECL_LANG_SPECIFIC(NODE)->u.v.freed)
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -977,6 +997,9 @@ struct lang_decl_func GTY(())
   unsigned int fixed_ctor : 1;
   unsigned int init_calls_this : 1;
   unsigned int strictfp : 1;
+  unsigned int invisible : 1;	/* Set for methods we generate
+				   internally but which shouldn't be
+				   written to the .class file.  */
 };
 
 struct treetreehash_entry GTY(())
@@ -1001,6 +1024,7 @@ struct lang_decl_var GTY(())
   tree wfl;			/* Original wfl */
   unsigned int final_iud : 1;	/* Final initialized upon declaration */
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
+  unsigned int freed;		/* Decl is no longer in scope.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1071,6 +1095,12 @@ struct lang_type GTY(())
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
 
+/* Possible values to pass to lookup_argument_method_generic.  */
+#define SEARCH_INTERFACE      1
+#define SEARCH_SUPER          2
+#define SEARCH_ONLY_INTERFACE 4
+#define SEARCH_VISIBLE        8
+
 extern void java_parse_file (int);
 extern bool java_mark_addressable (tree);
 extern tree java_type_for_mode (enum machine_mode, int);
@@ -1084,7 +1114,7 @@ extern tree lookup_class (tree);
 extern tree lookup_java_constructor (tree, tree);
 extern tree lookup_java_method (tree, tree, tree);
 extern tree lookup_argument_method (tree, tree, tree);
-extern tree lookup_argument_method2 (tree, tree, tree);
+extern tree lookup_argument_method_generic (tree, tree, tree, int);
 extern int has_method (tree, tree);
 extern tree promote_type (tree);
 extern tree get_constant (struct JCF*, int);
@@ -1185,12 +1215,11 @@ extern int enclosing_context_p (tree, tree);
 extern void complete_start_java_method (tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
-extern void init_outgoing_cpool (void);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
 extern void emit_register_classes (void);
-extern void emit_offset_symbol_table (void);
+extern tree emit_symbol_table (tree, tree, tree, tree, tree);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
@@ -1272,7 +1301,6 @@ extern void append_gpp_mangled_name (const char *, int);
 extern void add_predefined_file (tree);
 extern int predefined_filename_p (tree);
 
-extern void java_optimize_inline (tree);
 extern tree decl_constant_value (tree);
 
 extern void java_mark_class_local (tree);
@@ -1288,6 +1316,13 @@ extern void compile_resource_file (const char *, const char *);
 extern void write_resource_constructor (void);
 extern void init_resource_processing (void);
 
+extern void start_complete_expand_method (tree);
+extern void java_expand_body (tree);
+
+extern int get_symbol_table_index (tree, tree *);
+
+extern tree make_catch_class_record (tree, tree);
+extern void emit_catch_table (void);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1302,6 +1337,7 @@ extern void init_resource_processing (void);
 #define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->u.f.native)
 #define METHOD_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.strictfp)
+#define METHOD_INVISIBLE(DECL) (DECL_LANG_SPECIFIC (DECL)->u.f.invisible)
 
 #define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)
@@ -1513,9 +1549,6 @@ extern tree *type_map;
    feature a finalizer method. */
 #define HAS_FINALIZER_P(EXPR) TREE_LANG_FLAG_3 (EXPR)
 
-/* True if EXPR (a WFL in that case) resolves into an expression name */
-#define RESOLVE_EXPRESSION_NAME_P(WFL) TREE_LANG_FLAG_0 (WFL)
-
 /* True if EXPR (a LOOP_EXPR in that case) is part of a for statement */
 #define FOR_LOOP_P(EXPR) TREE_LANG_FLAG_0 (EXPR)
 
@@ -1646,11 +1679,16 @@ extern tree *type_map;
 /* Append a field initializer to CONS for a field with the given VALUE.
    NAME is a char* string used for error checking;
    the initializer must be specified in order. */
-#define PUSH_FIELD_VALUE(CONS, NAME, VALUE) {\
-  tree field = TREE_CHAIN(CONS);\
-  if (strcmp (IDENTIFIER_POINTER (DECL_NAME (field)), NAME) != 0) abort();\
-  CONSTRUCTOR_ELTS(CONS) = tree_cons (field, VALUE, CONSTRUCTOR_ELTS(CONS));\
-  TREE_CHAIN(CONS) = TREE_CHAIN (field); }
+#define PUSH_FIELD_VALUE(CONS, NAME, VALUE) 					\
+do										\
+{										\
+  tree field = TREE_CHAIN(CONS);						\
+  if (strcmp (IDENTIFIER_POINTER (DECL_NAME (field)), NAME) != 0) 		\
+    abort();									\
+  CONSTRUCTOR_ELTS(CONS) = tree_cons (field, VALUE, CONSTRUCTOR_ELTS(CONS));	\
+  TREE_CHAIN(CONS) = TREE_CHAIN (field); 					\
+}										\
+while (0)
 
 /* Finish creating a record CONSTRUCTOR CONS. */
 #define FINISH_RECORD_CONSTRUCTOR(CONS) \
@@ -1679,6 +1717,8 @@ extern tree *type_map;
 #define BLOCK_EXPR_BODY(NODE)   BLOCK_SUBBLOCKS(NODE)
 /* True for an implicit block surrounding declaration not at start of {...}. */
 #define BLOCK_IS_IMPLICIT(NODE) TREE_LANG_FLAG_1 (NODE)
+#define BLOCK_EMPTY_P(NODE) \
+  (TREE_CODE (NODE) == BLOCK && BLOCK_EXPR_BODY (NODE) == empty_stmt_node)
 
 #define BUILD_MONITOR_ENTER(WHERE, ARG)				\
   {								\

@@ -31,10 +31,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "params.h"
 #ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_MEMCHECK_H
-# include <memcheck.h>
+# ifdef HAVE_VALGRIND_MEMCHECK_H
+#  include <valgrind/memcheck.h>
+# elif defined HAVE_MEMCHECK_H
+#  include <memcheck.h>
 # else
-# include <valgrind.h>
+#  include <valgrind.h>
 # endif
 #else
 /* Avoid #ifdef:s when we can help it.  */
@@ -171,7 +173,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NUM_EXTRA_ORDERS ARRAY_SIZE (extra_order_size_table)
 
 #define RTL_SIZE(NSLOTS) \
-  (sizeof (struct rtx_def) + ((NSLOTS) - 1) * sizeof (rtunion))
+  (RTX_HDR_SIZE + (NSLOTS) * sizeof (rtunion))
 
 #define TREE_EXP_SIZE(OPS) \
   (sizeof (struct tree_exp) + ((OPS) - 1) * sizeof (tree))
@@ -185,7 +187,7 @@ static const size_t extra_order_size_table[] = {
   sizeof (struct tree_list),
   TREE_EXP_SIZE (2),
   RTL_SIZE (2),			/* MEM, PLUS, etc.  */
-  RTL_SIZE (9),		/* INSN, CALL_INSN, JUMP_INSN */
+  RTL_SIZE (9),			/* INSN */
 };
 
 /* The total number of orders.  */
@@ -469,7 +471,10 @@ static void poison_pages (void);
 void debug_print_page_list (int);
 static void push_depth (unsigned int);
 static void push_by_depth (page_entry *, unsigned long *);
-
+struct alloc_zone *rtl_zone = NULL;
+struct alloc_zone *tree_zone = NULL;
+struct alloc_zone *garbage_zone = NULL;
+
 /* Push an entry onto G.depth.  */
 
 inline static void
@@ -1021,6 +1026,22 @@ static unsigned char size_lookup[257] =
   8
 };
 
+/* Typed allocation function.  Does nothing special in this collector.  */
+
+void *
+ggc_alloc_typed (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size)
+{
+  return ggc_alloc (size);
+}
+
+/* Zone allocation function.  Does nothing special in this collector.  */
+
+void *
+ggc_alloc_zone (size_t size, struct alloc_zone *zone ATTRIBUTE_UNUSED)
+{
+  return ggc_alloc (size);
+}
+
 /* Allocate a chunk of memory of SIZE bytes.  Its contents are undefined.  */
 
 void *
@@ -1380,6 +1401,20 @@ init_ggc (void)
   G.save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
 }
 
+/* Start a new GGC zone.  */
+
+struct alloc_zone *
+new_ggc_zone (const char *name ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+/* Destroy a GGC zone.  */
+void
+destroy_ggc_zone (struct alloc_zone *zone ATTRIBUTE_UNUSED)
+{
+}
+
 /* Increment the `GC context'.  Objects allocated in an outer context
    are never freed, eliminating the need to register their roots.  */
 
@@ -1452,7 +1487,7 @@ ggc_pop_context (void)
   G.context_depth_allocations &= omask - 1;
   G.context_depth_collections &= omask - 1;
 
-  /* The G.depth array is shortend so that the last index is the
+  /* The G.depth array is shortened so that the last index is the
      context_depth of the top element of by_depth.  */
   if (depth+1 < G.depth_in_use)
     e = G.depth[depth+1];
@@ -1894,7 +1929,7 @@ init_ggc_pch (void)
 
 void
 ggc_pch_count_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
 
@@ -1937,7 +1972,7 @@ ggc_pch_this_base (struct ggc_pch_data *d, void *base)
 
 char *
 ggc_pch_alloc_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
   char *result;
@@ -1966,9 +2001,10 @@ ggc_pch_prepare_write (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 void
 ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 		      FILE *f, void *x, void *newx ATTRIBUTE_UNUSED,
-		      size_t size)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
+  static const char emptyBytes[256];
 
   if (size <= 256)
     order = size_lookup[size];
@@ -1982,11 +2018,30 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
   if (fwrite (x, size, 1, f) != 1)
     fatal_error ("can't write PCH file: %m");
 
-  /* In the current implementation, SIZE is always equal to
-     OBJECT_SIZE (order) and so the fseek is never executed.  */
-  if (size != OBJECT_SIZE (order)
-      && fseek (f, OBJECT_SIZE (order) - size, SEEK_CUR) != 0)
-    fatal_error ("can't write PCH file: %m");
+  /* If SIZE is not the same as OBJECT_SIZE(order), then we need to pad the
+     object out to OBJECT_SIZE(order).  This happens for strings.  */
+
+  if (size != OBJECT_SIZE (order))
+    {
+      unsigned padding = OBJECT_SIZE(order) - size;
+
+      /* To speed small writes, we use a nulled-out array that's larger
+         than most padding requests as the source for our null bytes.  This
+         permits us to do the padding with fwrite() rather than fseek(), and
+         limits the chance the the OS may try to flush any outstanding
+         writes.  */
+      if (padding <= sizeof(emptyBytes))
+        {
+          if (fwrite (emptyBytes, 1, padding, f) != padding)
+            fatal_error ("can't write PCH file");
+        }
+      else
+        {
+          /* Larger than our buffer?  Just default to fseek.  */
+          if (fseek (f, padding, SEEK_CUR) != 0)
+            fatal_error ("can't write PCH file");
+        }
+    }
 
   d->written[order]++;
   if (d->written[order] == d->d.totals[order]
@@ -2068,7 +2123,7 @@ ggc_pch_read (FILE *f, void *addr)
   /* We've just read in a PCH file.  So, every object that used to be
      allocated is now free.  */
   clear_marks ();
-#ifdef GGC_POISON
+#ifdef ENABLE_GC_CHECKING
   poison_pages ();
 #endif
 

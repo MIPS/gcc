@@ -143,8 +143,10 @@ struct real_format
 
 /* The target format used for each floating floating point mode.
    Indexed by MODE - QFmode.  */
-extern const struct real_format *real_format_for_mode[TFmode - QFmode + 1];
+extern const struct real_format *
+  real_format_for_mode[MAX_MODE_FLOAT - MIN_MODE_FLOAT + 1];
 
+#define REAL_MODE_FORMAT(MODE) (real_format_for_mode[(MODE) - MIN_MODE_FLOAT])
 
 /* Declare functions in real.c.  */
 
@@ -322,14 +324,19 @@ extern void real_ldexp (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 
 /* **** End of software floating point emulator interface macros **** */
 
-/* Constant real values 0, 1, 2, -1, -2 and 0.5.  */
+/* Constant real values 0, 1, 2, 3, 10, -1, -2, 0.5 and 1/3.  */
 
 extern REAL_VALUE_TYPE dconst0;
 extern REAL_VALUE_TYPE dconst1;
 extern REAL_VALUE_TYPE dconst2;
+extern REAL_VALUE_TYPE dconst3;
+extern REAL_VALUE_TYPE dconst10;
 extern REAL_VALUE_TYPE dconstm1;
 extern REAL_VALUE_TYPE dconstm2;
 extern REAL_VALUE_TYPE dconsthalf;
+extern REAL_VALUE_TYPE dconstthird;
+extern REAL_VALUE_TYPE dconstpi;
+extern REAL_VALUE_TYPE dconste;
 
 /* Function to return a real value (not a tree node)
    from a given integer constant.  */

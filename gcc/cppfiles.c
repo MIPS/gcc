@@ -127,7 +127,7 @@ struct _cpp_file
 /* A singly-linked list for all searches for a given file name, with
    its head pointed to by a slot in FILE_HASH.  The file name is what
    appeared between the quotes in a #include directive; it can be
-   determined implicity from the hash table location or explicitly
+   determined implicitly from the hash table location or explicitly
    from FILE->name.
 
    FILE is a structure containing details about the file that was
@@ -163,8 +163,10 @@ struct file_hash_entry
 };
 
 static bool open_file (cpp_reader *pfile, _cpp_file *file);
-static bool pch_open_file (cpp_reader *pfile, _cpp_file *file);
-static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file);
+static bool pch_open_file (cpp_reader *pfile, _cpp_file *file,
+			   bool *invalid_pch);
+static bool find_file_in_dir (cpp_reader *pfile, _cpp_file *file,
+			      bool *invalid_pch);
 static bool read_file_guts (cpp_reader *pfile, _cpp_file *file);
 static bool read_file (cpp_reader *pfile, _cpp_file *file);
 static bool should_stack_file (cpp_reader *, _cpp_file *file, bool import);
@@ -298,9 +300,13 @@ open_file (cpp_reader *pfile, _cpp_file *file)
   return false;
 }
 
-/* Temporary PCH intercept of opening a file.  */
+/* Temporary PCH intercept of opening a file.  Try to find a PCH file
+   based on FILE->name and FILE->dir, and test those found for
+   validity using PFILE->cb.valid_pch.  Return true iff a valid file is
+   found.  Set *INVALID_PCH if a PCH file is found but wasn't valid.  */
+
 static bool
-pch_open_file (cpp_reader *pfile, _cpp_file *file)
+pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 {
   static const char extension[] = ".gch";
   const char *path = file->path;
@@ -325,8 +331,6 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
       struct dirent *d;
       size_t dlen, plen = len;
 
-      _cpp_file_data *data = file->data;
-
       if (!S_ISDIR (st.st_mode))
 	valid = validate_pch (pfile, file, pchname);
       else if ((pchdir = opendir (pchname)) != NULL)
@@ -336,7 +340,7 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
 	    {
 	      dlen = strlen (d->d_name) + 1;
 	      if ((strcmp (d->d_name, ".") == 0)
-		  || strcmp (d->d_name, "..") == 0)
+		  || (strcmp (d->d_name, "..") == 0))
 		continue;
 	      if (dlen + plen > len)
 		{
@@ -350,13 +354,7 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
 	    }
 	  closedir (pchdir);
 	}
-
-      if (data == NULL)
-	{
-	  data = xcalloc (1, sizeof (_cpp_file_data));
-	  file->data = data;
-	}
-      data->pch |= valid;
+      *invalid_pch |= ! valid;
     }
 
   if (valid)
@@ -369,9 +367,11 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file)
 
 /* Try to open the path FILE->name appended to FILE->dir.  This is
    where remap and PCH intercept the file lookup process.  Return true
-   if the file was found, whether or not the open was successful.  */
+   if the file was found, whether or not the open was successful.  
+   Set *INVALID_PCH to true if a PCH file is found but wasn't valid.  */
+
 static bool
-find_file_in_dir (cpp_reader *pfile, _cpp_file *file)
+find_file_in_dir (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 {
   char *path;
 
@@ -386,7 +386,7 @@ find_file_in_dir (cpp_reader *pfile, _cpp_file *file)
   if (path)
     {
       file->path = path;
-      if (pch_open_file (pfile, file))
+      if (pch_open_file (pfile, file, invalid_pch))
 	return true;
 
       if (open_file (pfile, file))
@@ -446,7 +446,7 @@ _cpp_find_failed (_cpp_file *file)
    add the result to our cache.
 
    If the file was not found in the filesystem, or there was an error
-   opening it, then ERR_NO is non-zero and FD is -1.  If the file was
+   opening it, then ERR_NO is nonzero and FD is -1.  If the file was
    found, then ERR_NO is zero and FD could be -1 or an open file
    descriptor.  FD can be -1 if the file was found in the cache and
    had previously been closed.  To open it again pass the return value
@@ -457,10 +457,11 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 {
   struct file_hash_entry *entry, **hash_slot;
   _cpp_file *file;
+  bool invalid_pch = false;
 
   /* Ensure we get no confusion between cached files and directories.  */
   if (start_dir == NULL)
-    cpp_error (pfile, DL_ICE, "NULL directory in find_file");
+    cpp_error (pfile, CPP_DL_ICE, "NULL directory in find_file");
 
   hash_slot = (struct file_hash_entry **)
     htab_find_slot_with_hash (pfile->file_hash, fname,
@@ -477,7 +478,7 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
   /* Try each path in the include chain.  */
   for (; !fake ;)
     {
-      if (find_file_in_dir (pfile, file))
+      if (find_file_in_dir (pfile, file, &invalid_pch))
 	break;
 
       file->dir = file->dir->next;
@@ -487,6 +488,14 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
 	    return file;
 
 	  open_file_failed (pfile, file);
+	  if (invalid_pch)
+	    {
+	      cpp_error (pfile, CPP_DL_ERROR, 
+	       "one or more PCH files were found, but they were invalid");
+	      if (!cpp_get_options (pfile)->warn_invalid_pch)
+		cpp_error (pfile, CPP_DL_ERROR, 
+			   "use -Winvalid-pch for more information");
+	    }
 	  break;
 	}
 
@@ -550,7 +559,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
   if (S_ISBLK (data->st.st_mode))
     {
-      cpp_error (pfile, DL_ERROR, "%s is a block device", file->path);
+      cpp_error (pfile, CPP_DL_ERROR, "%s is a block device", file->path);
       return false;
     }
 
@@ -567,7 +576,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 	 does not bite us.  */
       if (data->st.st_size > INTTYPE_MAXIMUM (ssize_t))
 	{
-	  cpp_error (pfile, DL_ERROR, "%s is too large", file->path);
+	  cpp_error (pfile, CPP_DL_ERROR, "%s is too large", file->path);
 	  return false;
 	}
 
@@ -596,12 +605,13 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
   if (count < 0)
     {
-      cpp_errno (pfile, DL_ERROR, file->path);
+      cpp_errno (pfile, CPP_DL_ERROR, file->path);
       return false;
     }
 
   if (regular && total != size && STAT_SIZE_RELIABLE (file->st))
-    cpp_error (pfile, DL_WARNING, "%s is shorter than expected", file->path);
+    cpp_error (pfile, CPP_DL_WARNING,
+	       "%s is shorter than expected", file->path);
 
   /* Shrink buffer if we allocated substantially too much.  */
   if (total + 4096 < size)
@@ -638,7 +648,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 }
 
 /* Convenience wrapper around read_file_guts that opens the file if
-   necessary and closes the file desciptor after reading.  FILE must
+   necessary and closes the file descriptor after reading.  FILE must
    have been passed through find_file() at some stage.  */
 static bool
 read_file (cpp_reader *pfile, _cpp_file *file)
@@ -864,7 +874,7 @@ _cpp_mark_file_once_only (cpp_reader *pfile, _cpp_file *file)
 }
 
 /* Return the directory from which searching for FNAME should start,
-   condiering the directive TYPE and ANGLE_BRACKETS.  If there is
+   considering the directive TYPE and ANGLE_BRACKETS.  If there is
    nothing left in the path, returns NULL.  */
 static struct cpp_dir *
 search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
@@ -876,7 +886,7 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
   if (IS_ABSOLUTE_PATH (fname))
     return &pfile->no_search_path;
 
-  /* pfile->buffer is NULL when processing an -include command-line flag. */
+  /* pfile->buffer is NULL when processing an -include command-line flag.  */
   file = pfile->buffer == NULL ? pfile->main_file : pfile->buffer->file;
 
   /* For #include_next, skip in the search path past the dir in which
@@ -896,14 +906,14 @@ search_path_head (cpp_reader *pfile, const char *fname, int angle_brackets,
     return make_cpp_dir (pfile, dir_name_of_file (file), pfile->map->sysp);
 
   if (dir == NULL)
-    cpp_error (pfile, DL_ERROR,
+    cpp_error (pfile, CPP_DL_ERROR,
 	       "no include path in which to search for %s", fname);
 
   return dir;
 }
 
 /* Strip the basename from the file's path.  It ends with a slash if
-   of non-zero length.  Note that this procedure also works for
+   of nonzero length.  Note that this procedure also works for
    <stdin>, which is represented by the empty string.  */
 static const char *
 dir_name_of_file (_cpp_file *file)
@@ -953,9 +963,9 @@ open_file_failed (cpp_reader *pfile, _cpp_file *file)
       /* If we are outputting dependencies but not for this file then
 	 don't error because we can still produce correct output.  */
       if (CPP_OPTION (pfile, deps.style) && ! print_dep)
-	cpp_errno (pfile, DL_WARNING, file->path);
+	cpp_errno (pfile, CPP_DL_WARNING, file->path);
       else
-	cpp_errno (pfile, DL_ERROR, file->path);
+	cpp_errno (pfile, CPP_DL_ERROR, file->path);
     }
 }
 

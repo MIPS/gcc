@@ -3,32 +3,22 @@
    Copyright (C) 1991, 1993, 1996, 2000, 2003 Free Software Foundation, Inc.
    Written by Fred Fish (fnf@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-/* Control assembler-syntax conditionals in m68k.md and conditionals in
-   m68k.h.  Note that some systems may also require SGS_SWAP_W and/or
-   SGS_SWITCH_TABLES to be defined as well.  */
-
-#define MOTOROLA		/* Use Motorola syntax rather than "MIT" */
-#define SGS			/* Uses SGS assembler */
-#define SGS_CMP_ORDER		/* Takes cmp operands in reverse order */
-
-#include "m68k/m68k.h"
 
 #undef INT_OP_GROUP
 #define INT_OP_GROUP INT_OP_STANDARD
@@ -82,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 #define REGISTER_NAMES \
 {"%d0",   "%d1",   "%d2",   "%d3",   "%d4",   "%d5",   "%d6",   "%d7",	     \
  "%a0",   "%a1",   "%a2",   "%a3",   "%a4",   "%a5",   "%fp",   "%sp",	     \
- "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7" }
+ "%fp0",  "%fp1",  "%fp2",  "%fp3",  "%fp4",  "%fp5",  "%fp6",  "%fp7", "argptr" }
 
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */

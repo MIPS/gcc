@@ -9,6 +9,15 @@
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
+   In addition to the permissions in the GNU General Public License, the
+   Free Software Foundation gives you unlimited permission to link the
+   compiled version of this file into combinations with other programs,
+   and to distribute those combinations without any restriction coming
+   from the use of this file.  (The General Public License restrictions
+   do apply in other respects; for example, they cover modification of
+   the file, and distribution when not linked into a combined
+   executable.)
+
    GCC is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
@@ -173,10 +182,10 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 /* Get the value of the CFA as saved in CONTEXT.  */
 
 _Unwind_Word
-_Unwind_GetCFA (struct _Unwind_Context *context)
+_Unwind_GetCFA (struct _Unwind_Context *context __attribute__((unused)))
 {
   /* ??? Ideally __builtin_setjmp places the CFA in the jmpbuf.  */
-  return NULL;
+  return (_Unwind_Word) 0;
 }
 
 void
@@ -214,7 +223,7 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) 
 }
 
 void *
-_Unwind_FindEnclosingFunction (void *pc)
+_Unwind_FindEnclosingFunction (void *pc __attribute__((unused)))
 {
   return NULL;
 }

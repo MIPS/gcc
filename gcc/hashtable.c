@@ -58,8 +58,7 @@ ht_create (unsigned int order)
   unsigned int nslots = 1 << order;
   hash_table *table;
 
-  table = xmalloc (sizeof (hash_table));
-  memset (table, 0, sizeof (hash_table));
+  table = xcalloc (1, sizeof (hash_table));
 
   /* Strings need no alignment.  */
   _obstack_begin (&table->stack, 0, 0,
@@ -185,19 +184,18 @@ ht_expand (hash_table *table)
 	unsigned int index, hash, hash2;
 
 	hash = (*p)->hash_value;
-	hash2 = ((hash * 17) & sizemask) | 1;
 	index = hash & sizemask;
 
-	for (;;)
+	if (nentries[index])
 	  {
-	    if (! nentries[index])
+	    hash2 = ((hash * 17) & sizemask) | 1;
+	    do
 	      {
-		nentries[index] = *p;
-		break;
+		index = (index + hash2) & sizemask;
 	      }
-
-	    index = (index + hash2) & sizemask;
+	    while (nentries[index]);
 	  }
+	nentries[index] = *p;
       }
   while (++p < limit);
 

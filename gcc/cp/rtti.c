@@ -172,9 +172,7 @@ static tree
 throw_bad_cast (void)
 {
   tree fn = get_identifier ("__cxa_bad_cast");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     fn = push_throw_library_fn (fn, build_function_type (ptr_type_node,
 							 void_list_node));
   
@@ -188,9 +186,7 @@ static tree
 throw_bad_typeid (void)
 {
   tree fn = get_identifier ("__cxa_bad_typeid");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       tree t = build_qualified_type (type_info_type_node, TYPE_QUAL_CONST);
       t = build_function_type (build_reference_type (t), void_list_node);
@@ -358,8 +354,9 @@ get_tinfo_decl (tree type)
       TREE_READONLY (d) = 1;
       TREE_STATIC (d) = 1;
       DECL_EXTERNAL (d) = 1;
-      SET_DECL_ASSEMBLER_NAME (d, name);
       DECL_COMDAT (d) = 1;
+      TREE_PUBLIC (d) = 1;
+      SET_DECL_ASSEMBLER_NAME (d, name);
 
       pushdecl_top_level_and_finish (d, NULL_TREE);
 
@@ -652,6 +649,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 		   (NULL_TREE, ptrdiff_type_node, void_list_node))));
 	      tmp = build_function_type (ptr_type_node, tmp);
 	      dcast_fn = build_library_fn_ptr (name, tmp);
+	      DECL_IS_PURE (dcast_fn) = 1;
               pop_nested_namespace (ns);
               dynamic_cast_node = dcast_fn;
 	    }
@@ -686,7 +684,12 @@ build_dynamic_cast (tree type, tree expr)
     return error_mark_node;
   
   if (processing_template_decl)
-    return build_min (DYNAMIC_CAST_EXPR, type, expr);
+    {
+      expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
+      TREE_SIDE_EFFECTS (expr) = 1;
+      
+      return expr;
+    }
 
   return convert_from_reference (build_dynamic_cast_1 (type, expr));
 }

@@ -115,11 +115,9 @@ prepare_eh_type (tree type)
   return type;
 }
 
-/* Build the address of a typeinfo decl for use in the runtime
-   matching field of the exception model.  */
-
-static tree
-build_eh_type_type (tree type)
+/* Return the type info for TYPE as used by EH machinery.  */
+tree
+eh_type_info (tree type)
 {
   tree exp;
 
@@ -131,10 +129,23 @@ build_eh_type_type (tree type)
   else
     exp = get_tinfo_decl (type);
 
-  mark_used (exp);
-  exp = build1 (ADDR_EXPR, ptr_type_node, exp);
-
   return exp;
+}
+
+/* Build the address of a typeinfo decl for use in the runtime
+   matching field of the exception model.  */
+
+static tree
+build_eh_type_type (tree type)
+{
+  tree exp = eh_type_info (type);
+
+  if (!exp)
+    return NULL;
+
+  mark_used (exp);
+
+  return build1 (ADDR_EXPR, ptr_type_node, exp);
 }
 
 tree
@@ -152,9 +163,7 @@ do_begin_catch (void)
   tree fn;
 
   fn = get_identifier ("__cxa_begin_catch");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void* __cxa_begin_catch (void *).  */
       tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -189,9 +198,7 @@ do_end_catch (tree type)
   tree fn, cleanup;
 
   fn = get_identifier ("__cxa_end_catch");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_end_catch ().  */
       fn = push_void_library_fn (fn, void_list_node);
@@ -470,8 +477,13 @@ finish_eh_spec_block (tree raw_raises, tree eh_spec_block)
   for (raises = NULL_TREE;
        raw_raises && TREE_VALUE (raw_raises);
        raw_raises = TREE_CHAIN (raw_raises))
-    raises = tree_cons (NULL_TREE, prepare_eh_type (TREE_VALUE (raw_raises)),
-			raises);
+    {
+      tree type = prepare_eh_type (TREE_VALUE (raw_raises));
+      tree tinfo = eh_type_info (type);
+
+      mark_used (tinfo);
+      raises = tree_cons (NULL_TREE, type, raises);
+    }
 
   EH_SPEC_RAISES (eh_spec_block) = raises;
 }
@@ -484,9 +496,7 @@ do_allocate_exception (tree type)
   tree fn;
 
   fn = get_identifier ("__cxa_allocate_exception");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void *__cxa_allocate_exception(size_t).  */
       tree tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
@@ -507,9 +517,7 @@ do_free_exception (tree ptr)
   tree fn;
 
   fn = get_identifier ("__cxa_free_exception");
-  if (IDENTIFIER_GLOBAL_VALUE (fn))
-    fn = IDENTIFIER_GLOBAL_VALUE (fn);
-  else
+  if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_free_exception (void *).  */
       fn = push_void_library_fn (fn, tree_cons (NULL_TREE, ptr_type_node,
@@ -630,9 +638,7 @@ build_throw (tree exp)
   if (exp && decl_is_java_type (TREE_TYPE (exp), 1))
     {
       tree fn = get_identifier ("_Jv_Throw");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void _Jv_Throw (void *).  */
 	  tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
@@ -651,9 +657,7 @@ build_throw (tree exp)
       tree temp_expr, allocate_expr;
 
       fn = get_identifier ("__cxa_throw");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* The CLEANUP_TYPE is the internal type of a destructor.  */
 	  if (cleanup_type == NULL_TREE)
@@ -758,9 +762,7 @@ build_throw (tree exp)
       /* Rethrow current exception.  */
 
       tree fn = get_identifier ("__cxa_rethrow");
-      if (IDENTIFIER_GLOBAL_VALUE (fn))
-	fn = IDENTIFIER_GLOBAL_VALUE (fn);
-      else
+      if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void __cxa_rethrow (void).  */
 	  fn = push_throw_library_fn

@@ -251,6 +251,8 @@ extern const char *cris_elinux_stacksize_str;
       builtin_define_std ("CRIS");		\
       builtin_define_std ("GNU_CRIS");		\
       builtin_define ("__CRIS_ABI_version=2");	\
+      builtin_assert ("cpu=cris");		\
+      builtin_assert ("machine=cris");		\
     }						\
   while (0)
 
@@ -1097,12 +1099,6 @@ struct cum_args {int regs;};
 
 /* Node: Library Calls */
 
-#define MULSI3_LIBCALL "__Mul"
-#define DIVSI3_LIBCALL "__Div"
-#define UDIVSI3_LIBCALL "__Udiv"
-#define MODSI3_LIBCALL "__Mod"
-#define UMODSI3_LIBCALL "__Umod"
-
 /* If you change this, you have to check whatever libraries and systems
    that use it.  */
 #define TARGET_EDOM 33
@@ -1619,6 +1615,8 @@ call_ ## FUNC (void)						\
   {ZERO_EXTEND, SIGN_EXTEND}},				\
  {"cris_plus_or_bound_operator",			\
   {PLUS, UMIN}},					\
+ {"cris_mem_op",					\
+  {MEM}},						\
  {"cris_bdap_operand",					\
   {SUBREG, REG, LABEL_REF, SYMBOL_REF, MEM, CONST_INT,	\
    CONST_DOUBLE, CONST, SIGN_EXTEND}},			\

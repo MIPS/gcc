@@ -50,6 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static int missing_braces_mentioned;
 
 static tree qualify_type (tree, tree);
+static int same_translation_unit_p (tree, tree);
 static int tagged_types_tu_compatible_p (tree, tree, int);
 static int comp_target_types (tree, tree, int);
 static int function_types_compatible_p (tree, tree, int);
@@ -510,8 +511,12 @@ comptypes (tree type1, tree type2, int flags)
   switch (TREE_CODE (t1))
     {
     case POINTER_TYPE:
+      /* We must give ObjC the first crack at comparing pointers, since
+	   protocol qualifiers may be involved.  */
+      if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
+	break;
       val = (TREE_TYPE (t1) == TREE_TYPE (t2)
-	      ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2), flags));
+	     ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2), flags));
       break;
 
     case FUNCTION_TYPE:
@@ -559,12 +564,14 @@ comptypes (tree type1, tree type2, int flags)
       }
 
     case RECORD_TYPE:
+      /* We are dealing with two distinct structs.  In assorted Objective-C
+	 corner cases, however, these can still be deemed equivalent.  */
       if (c_dialect_objc () && objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
 
     case ENUMERAL_TYPE:
     case UNION_TYPE:
-      if (val != 1 && (flags & COMPARE_DIFFERENT_TU))
+      if (val != 1 && !same_translation_unit_p (t1, t2))
 	val = tagged_types_tu_compatible_p (t1, t2, flags);
       break;
 
@@ -605,6 +612,34 @@ comp_target_types (tree ttl, tree ttr, int reflexive)
 }
 
 /* Subroutines of `comptypes'.  */
+
+/* Determine whether two types derive from the same translation unit.
+   If the CONTEXT chain ends in a null, that type's context is still
+   being parsed, so if two types have context chains ending in null,
+   they're in the same translation unit.  */
+static int
+same_translation_unit_p (tree t1, tree t2)
+{
+  while (t1 && TREE_CODE (t1) != TRANSLATION_UNIT_DECL)
+    switch (TREE_CODE_CLASS (TREE_CODE (t1)))
+      {
+      case 'd': t1 = DECL_CONTEXT (t1); break;
+      case 't': t1 = TYPE_CONTEXT (t1); break;
+      case 'b': t1 = BLOCK_SUPERCONTEXT (t1); break;
+      default: abort ();
+      }
+
+  while (t2 && TREE_CODE (t2) != TRANSLATION_UNIT_DECL)
+    switch (TREE_CODE_CLASS (TREE_CODE (t2)))
+      {
+      case 'd': t2 = DECL_CONTEXT (t1); break;
+      case 't': t2 = TYPE_CONTEXT (t2); break;
+      case 'b': t2 = BLOCK_SUPERCONTEXT (t2); break;
+      default: abort ();
+      }
+
+  return t1 == t2;
+}
 
 /* The C standard says that two structures in different translation
    units are compatible with each other only if the types of their
@@ -1545,7 +1580,7 @@ build_external_ref (tree id, int fun)
       /* Properly declared variable or function reference.  */
       if (!objc_ivar)
 	ref = decl;
-      else if (decl != objc_ivar && !C_DECL_FILE_SCOPE (decl))
+      else if (decl != objc_ivar && !DECL_FILE_SCOPE_P (decl))
 	{
 	  warning ("local declaration of `%s' hides instance variable",
 		   IDENTIFIER_POINTER (id));
@@ -1585,7 +1620,7 @@ build_external_ref (tree id, int fun)
       TREE_CONSTANT (ref) = 1;
     }
   else if (current_function_decl != 0
-	   && !C_DECL_FILE_SCOPE (current_function_decl)
+	   && !DECL_FILE_SCOPE_P (current_function_decl)
 	   && (TREE_CODE (ref) == VAR_DECL
 	       || TREE_CODE (ref) == PARM_DECL
 	       || TREE_CODE (ref) == FUNCTION_DECL))
@@ -1837,7 +1872,7 @@ convert_arguments (tree typelist, tree values, tree name, tree fundecl)
 					        (char *) 0, /* arg passing  */
 						fundecl, name, parmnum + 1);
 
-	      if (PROMOTE_PROTOTYPES
+	      if (targetm.calls.promote_prototypes (fundecl ? TREE_TYPE (fundecl) : 0)
 		  && INTEGRAL_TYPE_P (type)
 		  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 		parmval = default_conversion (parmval);
@@ -2152,8 +2187,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case ABS_EXPR:
-      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE))
+      if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE))
 	{
 	  error ("wrong type argument to abs");
 	  return error_mark_node;
@@ -2437,7 +2471,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	   file-scope function counts as a constant.  */
 	if (staticp (arg)
 	    && ! (TREE_CODE (arg) == FUNCTION_DECL
-		  && !C_DECL_FILE_SCOPE (arg)))
+		  && !DECL_FILE_SCOPE_P (arg)))
 	  TREE_CONSTANT (addr) = 1;
 	return addr;
       }
@@ -2551,19 +2585,18 @@ unary_complex_lvalue (enum tree_code code, tree arg, int flag)
 static void
 pedantic_lvalue_warning (enum tree_code code)
 {
-  if (pedantic)
-    switch (code)
-      {
-      case COND_EXPR:
-	pedwarn ("ISO C forbids use of conditional expressions as lvalues");
-	break;
-      case COMPOUND_EXPR:
-	pedwarn ("ISO C forbids use of compound expressions as lvalues");
-	break;
-      default:
-	pedwarn ("ISO C forbids use of cast expressions as lvalues");
-	break;
-      }
+  switch (code)
+    {
+    case COND_EXPR:
+      pedwarn ("use of conditional expressions as lvalues is deprecated");
+      break;
+    case COMPOUND_EXPR:
+      pedwarn ("use of compound expressions as lvalues is deprecated");
+      break;
+    default:
+      pedwarn ("use of cast expressions as lvalues is deprecated");
+      break;
+    }
 }
 
 /* Warn about storing in something that is `const'.  */
@@ -2869,11 +2902,6 @@ internal_build_compound_expr (tree list, int first_p)
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
         warning ("left-hand operand of comma expression has no effect");
-
-      /* When pedantic, a compound expression can be neither an lvalue
-         nor an integer constant expression.  */
-      if (! pedantic)
-        return rest;
     }
 
   /* With -Wunused, we should also warn if the left-hand operand does have
@@ -2899,7 +2927,7 @@ build_c_cast (tree type, tree expr)
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,
      the protocols do matter and must be kept around.  */
-  if (!c_dialect_objc () || !objc_is_id (type))
+  if (!c_dialect_objc () || !objc_is_object_ptr (type))
     type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3460,6 +3488,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
       tree ttl = TREE_TYPE (type);
       tree ttr = TREE_TYPE (rhstype);
       bool is_opaque_pointer;
+      int target_cmp = 0;   /* Cache comp_target_types () result.  */
 
       /* Opaque pointers are treated like void pointers.  */
       is_opaque_pointer = ((*targetm.vector_opaque_p) (type)
@@ -3471,7 +3500,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || comp_target_types (type, rhstype, 0)
+	  || (target_cmp = comp_target_types (type, rhstype, 0))
 	  || is_opaque_pointer
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
@@ -3497,7 +3526,7 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		       || comp_target_types (type, rhstype, 0))
+		       || target_cmp)
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (pedantic)
@@ -3520,6 +3549,11 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
 	warn_for_assignment ("%s from incompatible pointer type",
 			     errtype, funname, parmnum);
       return convert (type, rhs);
+    }
+  else if (codel == POINTER_TYPE && coder == ARRAY_TYPE)
+    {
+      error ("invalid use of non-lvalue array");
+      return error_mark_node;
     }
   else if (codel == POINTER_TYPE && coder == INTEGER_TYPE)
     {
@@ -3571,10 +3605,12 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
   return error_mark_node;
 }
 
-/* Convert VALUE for assignment into inlined parameter PARM.  */
+/* Convert VALUE for assignment into inlined parameter PARM.  ARGNUM
+   is used for error and waring reporting and indicates which argument
+   is being processed.  */
 
 tree
-c_convert_parm_for_inlining (tree parm, tree value, tree fn)
+c_convert_parm_for_inlining (tree parm, tree value, tree fn, int argnum)
 {
   tree ret, type;
 
@@ -3586,8 +3622,8 @@ c_convert_parm_for_inlining (tree parm, tree value, tree fn)
   type = TREE_TYPE (parm);
   ret = convert_for_assignment (type, value,
 				(char *) 0 /* arg passing  */, fn,
-				DECL_NAME (fn), 0);
-  if (PROMOTE_PROTOTYPES
+				DECL_NAME (fn), argnum);
+  if (targetm.calls.promote_prototypes (TREE_TYPE (fn))
       && INTEGRAL_TYPE_P (type)
       && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
     ret = default_conversion (ret);
@@ -4017,8 +4053,16 @@ digest_init (tree type, tree init, int require_constant)
 			    TREE_TYPE (type), COMPARE_STRICT))))
     {
       if (code == POINTER_TYPE)
-	inside_init = default_function_array_conversion (inside_init);
-      
+	{
+	  inside_init = default_function_array_conversion (inside_init);
+
+	  if (TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE)
+	    {
+	      error_init ("invalid use of non-lvalue array");
+	      return error_mark_node;
+	    }
+	 }
+
       if (code == VECTOR_TYPE)
 	/* Although the types are compatible, we may require a
 	   conversion.  */
@@ -4957,6 +5001,8 @@ set_init_index (tree first, tree last)
     error_init ("nonconstant array index in initializer");
   else if (TREE_CODE (constructor_type) != ARRAY_TYPE)
     error_init ("array index in non-array initializer");
+  else if (tree_int_cst_sgn (first) == -1)
+    error_init ("array index in initializer exceeds array bounds");
   else if (constructor_max_index
 	   && tree_int_cst_lt (constructor_max_index, first))
     error_init ("array index in initializer exceeds array bounds");
@@ -6179,8 +6225,7 @@ build_asm_stmt (tree cv_qualifier, tree string, tree outputs, tree inputs,
 
 void
 c_expand_asm_operands (tree string, tree outputs, tree inputs,
-		       tree clobbers, int vol, const char *filename,
-		       int line)
+		       tree clobbers, int vol, location_t locus)
 {
   int noutputs = list_length (outputs);
   int i;
@@ -6198,7 +6243,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs,
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */
-  expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line);
+  expand_asm_operands (string, outputs, inputs, clobbers, vol, locus);
 
   /* Copy all the intermediate outputs into the specified outputs.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
@@ -6593,7 +6638,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       break;
 
     case BIT_AND_EXPR:
-    case BIT_ANDTC_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)

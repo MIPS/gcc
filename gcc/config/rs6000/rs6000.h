@@ -84,11 +84,15 @@
 %{mcpu=740: -mppc} \
 %{mcpu=7400: -mppc} \
 %{mcpu=7450: -mppc} \
+%{mcpu=G4: -mppc} \
 %{mcpu=750: -mppc} \
+%{mcpu=G3: -mppc} \
 %{mcpu=801: -mppc} \
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc} \
+%{mcpu=970: -mpower4} \
+%{mcpu=G5: -mpower4} \
 %{mcpu=8540: -me500} \
 %{maltivec: -maltivec}"
 
@@ -183,7 +187,10 @@ extern int target_flags;
 /* Return small structures in memory (as the AIX ABI requires).  */
 #define MASK_AIX_STRUCT_RET	0x00040000
 
-/* The only remaining free bits are 0x00780000. sysv4.h uses
+/* Use single field mfcr instruction.  */
+#define MASK_MFCRF		0x00080000
+
+/* The only remaining free bits are 0x00700000. sysv4.h uses
    0x00800000 -> 0x40000000, and 0x80000000 is not available
    because target_flags is signed.  */
 
@@ -205,6 +212,17 @@ extern int target_flags;
 #define TARGET_SCHED_PROLOG	(target_flags & MASK_SCHED_PROLOG)
 #define TARGET_ALTIVEC		(target_flags & MASK_ALTIVEC)
 #define TARGET_AIX_STRUCT_RET	(target_flags & MASK_AIX_STRUCT_RET)
+
+/* Define TARGET_MFCRF if the target assembler supports the optional
+   field operand for mfcr and the target processor supports the
+   instruction.  */
+
+#ifdef HAVE_AS_MFCRF
+#define TARGET_MFCRF		(target_flags & MASK_MFCRF)
+#else
+#define TARGET_MFCRF 0
+#endif
+
 
 #define TARGET_32BIT		(! TARGET_64BIT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
@@ -255,19 +273,19 @@ extern int target_flags;
   {"powerpc-gpopt",	MASK_POWERPC | MASK_PPC_GPOPT,			\
 			N_("Use PowerPC General Purpose group optional instructions")},\
   {"no-powerpc-gpopt",	- MASK_PPC_GPOPT,				\
-			N_("Don't use PowerPC General Purpose group optional instructions")},\
+			N_("Do not use PowerPC General Purpose group optional instructions")},\
   {"powerpc-gfxopt",	MASK_POWERPC | MASK_PPC_GFXOPT,			\
 			N_("Use PowerPC Graphics group optional instructions")},\
   {"no-powerpc-gfxopt",	- MASK_PPC_GFXOPT,				\
-			N_("Don't use PowerPC Graphics group optional instructions")},\
+			N_("Do not use PowerPC Graphics group optional instructions")},\
   {"powerpc64",		MASK_POWERPC64,					\
 			N_("Use PowerPC-64 instruction set")},		\
   {"no-powerpc64",	- MASK_POWERPC64,				\
-			N_("Don't use PowerPC-64 instruction set")},	\
+			N_("Do not use PowerPC-64 instruction set")},	\
   {"altivec",		MASK_ALTIVEC ,					\
 			N_("Use AltiVec instructions")},		\
   {"no-altivec",	- MASK_ALTIVEC ,					\
-			N_("Don't use AltiVec instructions")},	\
+			N_("Do not use AltiVec instructions")},	\
   {"new-mnemonics",	MASK_NEW_MNEMONICS,				\
 			N_("Use new mnemonics for PowerPC architecture")},\
   {"old-mnemonics",	-MASK_NEW_MNEMONICS,				\
@@ -278,11 +296,11 @@ extern int target_flags;
   {"fp-in-toc",		- MASK_NO_FP_IN_TOC,				\
 			N_("Place floating point constants in TOC")},	\
   {"no-fp-in-toc",	MASK_NO_FP_IN_TOC,				\
-			N_("Don't place floating point constants in TOC")},\
+			N_("Do not place floating point constants in TOC")},\
   {"sum-in-toc",	- MASK_NO_SUM_IN_TOC,				\
 			N_("Place symbol+offset constants in TOC")},	\
   {"no-sum-in-toc",	MASK_NO_SUM_IN_TOC,				\
-			N_("Don't place symbol+offset constants in TOC")},\
+			N_("Do not place symbol+offset constants in TOC")},\
   {"minimal-toc",	MASK_MINIMAL_TOC,				\
 			"Use only one TOC entry per procedure"},	\
   {"minimal-toc",	- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC),	\
@@ -290,9 +308,9 @@ extern int target_flags;
   {"no-minimal-toc",	- MASK_MINIMAL_TOC,				\
 			N_("Place variable addresses in the regular TOC")},\
   {"hard-float",	- MASK_SOFT_FLOAT,				\
-			N_("Use hardware fp")},				\
+			N_("Use hardware floating point")},		\
   {"soft-float",	MASK_SOFT_FLOAT,				\
-			N_("Do not use hardware fp")},			\
+			N_("Do not use hardware floating point")},	\
   {"multiple",		MASK_MULTIPLE,					\
 			N_("Generate load/store multiple instructions")},	\
   {"no-multiple",	- MASK_MULTIPLE,				\
@@ -308,11 +326,11 @@ extern int target_flags;
   {"fused-madd",	- MASK_NO_FUSED_MADD,				\
 			N_("Generate fused multiply/add instructions")},\
   {"no-fused-madd",	MASK_NO_FUSED_MADD,				\
-			N_("Don't generate fused multiply/add instructions")},\
+			N_("Do not generate fused multiply/add instructions")},\
   {"sched-prolog",      MASK_SCHED_PROLOG,                              \
 			""},						\
   {"no-sched-prolog",   -MASK_SCHED_PROLOG,                             \
-			N_("Don't schedule the start and end of the procedure")},\
+			N_("Do not schedule the start and end of the procedure")},\
   {"sched-epilog",      MASK_SCHED_PROLOG,                              \
 			""},						\
   {"no-sched-epilog",   -MASK_SCHED_PROLOG,                             \
@@ -322,9 +340,13 @@ extern int target_flags;
   {"svr4-struct-return", - MASK_AIX_STRUCT_RET,				\
 			N_("Return small structures in registers (SVR4 default)")},\
   {"no-aix-struct-return", - MASK_AIX_STRUCT_RET,			\
-			""},\
+			""},						\
   {"no-svr4-struct-return", MASK_AIX_STRUCT_RET,			\
-			""},\
+			""},						\
+  {"mfcrf",		MASK_MFCRF,					\
+			N_("Generate single field mfcr instruction")},	\
+  {"no-mfcrf",		- MASK_MFCRF,					\
+			N_("Do not generate single field mfcr instruction")},\
   SUBTARGET_SWITCHES							\
   {"",			TARGET_DEFAULT | MASK_SCHED_PROLOG,		\
 			""}}
@@ -376,6 +398,31 @@ extern enum processor_type rs6000_cpu;
    and the old mnemonics are dialect zero.  */
 #define ASSEMBLER_DIALECT (TARGET_NEW_MNEMONICS ? 1 : 0)
 
+/* Types of costly dependences.  */
+enum rs6000_dependence_cost
+ {
+   max_dep_latency = 1000,
+   no_dep_costly,
+   all_deps_costly,
+   true_store_to_load_dep_costly,
+   store_to_load_dep_costly
+ };
+
+/* Types of nop insertion schemes in sched target hook sched_finish.  */
+enum rs6000_nop_insertion
+  {
+    sched_finish_regroup_exact = 1000,
+    sched_finish_pad_groups,
+    sched_finish_none
+  };
+
+/* Dispatch group termination caused by an insn.  */
+enum group_termination
+  {
+    current_group,
+    previous_group
+  };
+
 /* This is meant to be overridden in target specific files.  */
 #define	SUBTARGET_OPTIONS
 
@@ -402,8 +449,14 @@ extern enum processor_type rs6000_cpu;
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   {"sched-costly-dep=", &rs6000_sched_costly_dep_str,                  \
+    N_("Determine which dependences between insns are considered costly"), 0}, \
+   {"insert-sched-nops=", &rs6000_sched_insert_nops_str,                \
+    N_("Specify which post scheduling nop insertion scheme to apply"), 0}, \
    {"align-", &rs6000_alignment_string,					\
     N_("Specify alignment of structure fields default/natural"), 0},	\
+   {"prioritize-restricted-insns=", &rs6000_sched_restricted_insns_priority_str, \
+    N_("Specify scheduling priority for dispatch slot restricted insns"), 0}, \
    SUBTARGET_OPTIONS							\
 }
 
@@ -457,6 +510,12 @@ extern const char *rs6000_longcall_switch;
 extern int rs6000_default_long_calls;
 extern const char* rs6000_alignment_string;
 extern int rs6000_alignment_flags;
+extern const char *rs6000_sched_restricted_insns_priority_str;
+extern int rs6000_sched_restricted_insns_priority;
+extern const char *rs6000_sched_costly_dep_str;
+extern enum rs6000_dependence_cost rs6000_sched_costly_dep;
+extern const char *rs6000_sched_insert_nops_str;
+extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -475,15 +534,18 @@ extern int rs6000_alignment_flags;
 #define TARGET_ALIGN_NATURAL 0
 #endif
 
-/* Define TARGET_MFCRF if the target assembler supports the optional
-   field operand for mfcr and the target processor supports the
-   instruction.  */
+/* Set a default value for DEFAULT_SCHED_COSTLY_DEP used by target hook
+   is_costly_dependence.  */ 
+#define DEFAULT_SCHED_COSTLY_DEP                           \
+  (rs6000_cpu == PROCESSOR_POWER4 ? store_to_load_dep_costly : no_dep_costly)
 
-#ifdef HAVE_AS_MFCRF
-#define TARGET_MFCRF (rs6000_cpu == PROCESSOR_POWER4)
-#else
-#define TARGET_MFCRF 0
-#endif
+/* Define if the target has restricted dispatch slot instructions.  */
+#define DEFAULT_RESTRICTED_INSNS_PRIORITY (rs6000_cpu == PROCESSOR_POWER4 ? 1 : 0)
+
+/* Set a default value for post scheduling nop insertion scheme
+   (used by taget hook sched_finish).  */
+#define DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME          \
+  (rs6000_cpu == PROCESSOR_POWER4 ? sched_finish_regroup_exact : sched_finish_none)
 
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
@@ -501,7 +563,7 @@ extern int rs6000_alignment_flags;
    defined, is executed once just after all the command options have
    been parsed.
 
-   Don't use this macro to turn on various extra optimizations for
+   Do not use this macro to turn on various extra optimizations for
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.
 
    On the RS/6000 this is used to define the target cpu type.  */
@@ -554,16 +616,7 @@ extern int rs6000_alignment_flags;
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
-    (MODE) = word_mode;
-
-/* Define this if function arguments should also be promoted using the above
-   procedure.  */
-
-#define PROMOTE_FUNCTION_ARGS
-
-/* Likewise, if the function return value is promoted.  */
-
-#define PROMOTE_FUNCTION_RETURN
+    (MODE) = TARGET_32BIT ? SImode : DImode;
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -956,6 +1009,11 @@ extern int rs6000_alignment_flags;
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD) \
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
+  ((TARGET_32BIT && TARGET_POWERPC64			\
+    && (MODE == DImode || MODE == DFmode)		\
+    && INT_REGNO_P (REGNO)) ? 1 : 0)
+
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\
@@ -1144,11 +1202,6 @@ extern int rs6000_alignment_flags;
 
 /* Count register number.  */
 #define COUNT_REGISTER_REGNUM 66
-
-/* Place that structure value return address is placed.
-
-   On the RS/6000, it is passed as an extra parameter.  */
-#define STRUCT_VALUE 0
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1446,49 +1499,6 @@ enum rs6000_abi {
 
 extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
-/* Structure used to define the rs6000 stack */
-typedef struct rs6000_stack {
-  int first_gp_reg_save;	/* first callee saved GP register used */
-  int first_fp_reg_save;	/* first callee saved FP register used */
-  int first_altivec_reg_save;	/* first callee saved AltiVec register used */
-  int lr_save_p;		/* true if the link reg needs to be saved */
-  int cr_save_p;		/* true if the CR reg needs to be saved */
-  unsigned int vrsave_mask;	/* mask of vec registers to save */
-  int toc_save_p;		/* true if the TOC needs to be saved */
-  int push_p;			/* true if we need to allocate stack space */
-  int calls_p;			/* true if the function makes any calls */
-  enum rs6000_abi abi;		/* which ABI to use */
-  int gp_save_offset;		/* offset to save GP regs from initial SP */
-  int fp_save_offset;		/* offset to save FP regs from initial SP */
-  int altivec_save_offset;	/* offset to save AltiVec regs from initial SP */
-  int lr_save_offset;		/* offset to save LR from initial SP */
-  int cr_save_offset;		/* offset to save CR from initial SP */
-  int vrsave_save_offset;	/* offset to save VRSAVE from initial SP */
-  int spe_gp_save_offset;	/* offset to save spe 64-bit gprs  */
-  int toc_save_offset;		/* offset to save the TOC pointer */
-  int varargs_save_offset;	/* offset to save the varargs registers */
-  int ehrd_offset;		/* offset to EH return data */
-  int reg_size;			/* register size (4 or 8) */
-  int varargs_size;		/* size to hold V.4 args passed in regs */
-  int vars_size;		/* variable save area size */
-  int parm_size;		/* outgoing parameter size */
-  int save_size;		/* save area size */
-  int fixed_size;		/* fixed size of stack frame */
-  int gp_size;			/* size of saved GP registers */
-  int fp_size;			/* size of saved FP registers */
-  int altivec_size;		/* size of saved AltiVec registers */
-  int cr_size;			/* size to hold CR if not in save_size */
-  int lr_size;			/* size to hold LR if not in save_size */
-  int vrsave_size;		/* size to hold VRSAVE if not in save_size */
-  int altivec_padding_size;	/* size of altivec alignment padding if
-				   not in save_size */
-  int spe_gp_size;		/* size of 64-bit GPR save size for SPE */
-  int spe_padding_size;
-  int toc_size;			/* size to hold TOC if not in save_size */
-  int total_size;		/* total bytes allocated for stack */
-  int spe_64bit_regs_used;
-} rs6000_stack_t;
-
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
@@ -1609,28 +1619,6 @@ typedef struct rs6000_stack {
 
 #define LIBCALL_VALUE(MODE) rs6000_libcall_value ((MODE))
 
-/* The AIX ABI for the RS/6000 specifies that all structures are
-   returned in memory.  The Darwin ABI does the same.  The SVR4 ABI
-   specifies that structures <= 8 bytes are returned in r3/r4, but a
-   draft put them in memory, and GCC used to implement the draft
-   instead of the final standard.  Therefore, TARGET_AIX_STRUCT_RET
-   controls this instead of DEFAULT_ABI; V.4 targets needing backward
-   compatibility can change DRAFT_V4_STRUCT_RET to override the
-   default, and -m switches get the final word.  See
-   rs6000_override_options for more details.
-
-   The PPC32 SVR4 ABI uses IEEE double extended for long double, if 128-bit
-   long double support is enabled.  These values are returned in memory.
-
-   int_size_in_bytes returns -1 for variable size objects, which go in
-   memory always.  The cast to unsigned makes -1 > 8.  */
-
-#define RETURN_IN_MEMORY(TYPE) \
-  ((AGGREGATE_TYPE_P (TYPE)						\
-    && (TARGET_AIX_STRUCT_RET						\
-	|| (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 8))	\
-   || (DEFAULT_ABI == ABI_V4 && TYPE_MODE (TYPE) == TFmode))
-
 /* DRAFT_V4_STRUCT_RET defaults off.  */
 #define DRAFT_V4_STRUCT_RET 0
 
@@ -1745,10 +1733,12 @@ typedef struct rs6000_args
 /* Define intermediate macro to compute the size (in registers) of an argument
    for the RS/6000.  */
 
+#define UNITS_PER_ARG (TARGET_32BIT ? 4 : 8)
+
 #define RS6000_ARG_SIZE(MODE, TYPE)					\
 ((MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD	\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+ ? (GET_MODE_SIZE (MODE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG		\
+ : (int_size_in_bytes (TYPE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1774,18 +1764,6 @@ typedef struct rs6000_args
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   function_arg_advance (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we can use a floating-point register to pass this arg.  */
-#define USE_FP_FOR_ARG_P(CUM,MODE,TYPE) \
-  (GET_MODE_CLASS (MODE) == MODE_FLOAT  \
-   && (CUM).fregno <= FP_ARG_MAX_REG    \
-   && TARGET_HARD_FLOAT && TARGET_FPRS)
-
-/* Nonzero if we can use an AltiVec register to pass this arg.  */
-#define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE)	\
-  (ALTIVEC_VECTOR_MODE (MODE)			\
-   && (CUM).vregno <= ALTIVEC_ARG_MAX_REG	\
-   && TARGET_ALTIVEC_ABI)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -1849,27 +1827,6 @@ typedef struct rs6000_args
    This should be set for Linux and Darwin as well, but we can't break
    the ABIs at the moment.  For now, only AIX gets fixed.  */
 #define SPLIT_COMPLEX_ARGS (DEFAULT_ABI == ABI_AIX)
-
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.
-
-   CUM is as above.
-
-   MODE and TYPE are the mode and type of the current parameter.
-
-   PRETEND_SIZE is a variable that should be set to the amount of stack
-   that must be pushed by the prolog to pretend that our caller pushed
-   it.
-
-   Normally, this macro will push all remaining incoming registers on the
-   stack and set PRETEND_SIZE to the length of the registers pushed.  */
-
-#define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL) \
-  setup_incoming_varargs (&CUM, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = rs6000_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
@@ -1992,21 +1949,8 @@ typedef struct rs6000_args
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
-{									\
-  rs6000_stack_t *info = rs6000_stack_info ();				\
-									\
- if ((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
-   (OFFSET) = (info->push_p) ? 0 : - info->total_size;			\
- else if ((FROM) == ARG_POINTER_REGNUM && (TO) == FRAME_POINTER_REGNUM)	\
-   (OFFSET) = info->total_size;						\
- else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
-   (OFFSET) = (info->push_p) ? info->total_size : 0;			\
-  else if ((FROM) == RS6000_PIC_OFFSET_TABLE_REGNUM)			\
-    (OFFSET) = 0;							\
-  else									\
-    abort ();								\
-}
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
+  ((OFFSET) = rs6000_initial_elimination_offset(FROM, TO))
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -2283,6 +2227,9 @@ do {								\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode (TARGET_32BIT ? SImode : DImode)
+
+/* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space. */
+#define STACK_SIZE_MODE (TARGET_32BIT ? SImode : DImode)
 
 /* Mode of a function address in a call instruction (for indexing purposes).
    Doesn't matter on RS/6000.  */
@@ -2575,31 +2522,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   &rs6000_reg_names[110][0],	/* vscr  */				\
   &rs6000_reg_names[111][0],	/* spe_acc */				\
   &rs6000_reg_names[112][0],	/* spefscr */				\
-}
-
-/* print-rtl can't handle the above REGISTER_NAMES, so define the
-   following for it.  Switch to use the alternate names since
-   they are more mnemonic.  */
-
-#define DEBUG_REGISTER_NAMES						\
-{									\
-     "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",		\
-     "r8",  "r9", "r10", "r11", "r12", "r13", "r14", "r15",		\
-    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",		\
-    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",		\
-     "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",		\
-     "f8",  "f9", "f10", "f11", "f12", "f13", "f14", "f15",		\
-    "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",		\
-    "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",		\
-     "mq",  "lr", "ctr",  "ap",						\
-    "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",		\
-    "xer",								\
-     "v0",  "v1",  "v2",  "v3",  "v4",  "v5",  "v6",  "v7",             \
-     "v8",  "v9", "v10", "v11", "v12", "v13", "v14", "v15",             \
-    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
-    "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
-    "vrsave", "vscr",							\
-    "spe_acc", "spefscr"                                                \
 }
 
 /* Table of additional register names to use in user input.  */

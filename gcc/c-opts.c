@@ -107,7 +107,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (void);
+static bool finish_options (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -483,6 +483,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_format_zero_length = value;
       break;
 
+    case OPT_Winit_self:
+      warn_init_self = value;
+      break;
+
     case OPT_Wimplicit:
       set_Wimplicit (value);
       break;
@@ -552,6 +556,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wnonnull:
       warn_nonnull = value;
+      break;
+
+    case OPT_Wold_style_definition:
+      warn_old_style_definition = value;
       break;
 
     case OPT_Wold_style_cast:
@@ -854,8 +862,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_next_runtime = value;
       break;
 
+    case OPT_fnil_receivers:
+      flag_nil_receivers = value;
+      break;
+
     case OPT_fnonansi_builtins:
       flag_no_nonansi_builtin = !value;
+      break;
+
+    case OPT_fobjc_exceptions:
+      flag_objc_exceptions = value;
       break;
 
     case OPT_foperator_names:
@@ -878,6 +894,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->preprocessed = value;
       break;
 
+    case OPT_freplace_objc_classes:
+      flag_replace_objc_classes = value;
+      break;
+      
     case OPT_frepo:
       flag_use_repository = value;
       if (value)
@@ -920,6 +940,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fweak:
       flag_weak = value;
+      break;
+
+    case OPT_fzero_link:
+      flag_zero_link = value;
       break;
 
     case OPT_gen_decls:
@@ -1051,7 +1075,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
 /* Post-switch processing.  */
 bool
-c_common_post_options (const char **pfilename)
+c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
   /* Canonicalize the output filename.  */
   if (out_fname == NULL || !strcmp (out_fname, "-"))
@@ -1119,8 +1143,8 @@ init_c_common_once ()
   cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
   cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-
   cpp_opts->bytes_big_endian = BYTES_BIG_ENDIAN;
+
   /* This can't happen until after wchar_precision and bytes_big_endian
      are known.  */
   cpp_init_iconv (parse_in);
@@ -1403,10 +1427,17 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  */
-static void
+/* Handle -D, -U, -A, -imacros, and the first -include.  Returns true on success.  */
+static bool
 finish_options (void)
 {
+#if 0
+  /* MERGE ? They moved this in here, can we move it back? */
+  this_input_filename = tif;
+  if (! cpp_find_main_file (parse_in, this_input_filename))
+    return false;
+#endif
+
   if (!cpp_opts->preprocessed)
     {
       size_t i;
@@ -1436,12 +1467,17 @@ finish_options (void)
 
 	  if (opt->code == OPT_imacros
 	      && cpp_push_include (parse_in, opt->arg))
-	    cpp_scan_nooutput (parse_in);
+	    {
+	      /* Disable push_command_line_include callback for now. */
+	      include_cursor = deferred_count + 1;
+	      cpp_scan_nooutput (parse_in);
+	    }
 	}
     }
 
   include_cursor = 0;
   push_command_line_include ();
+  return true;
 }
 
 /* Give CPP the next file given by -include, if any.  */

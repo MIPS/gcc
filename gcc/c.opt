@@ -242,6 +242,10 @@ C ObjC
 Wformat=
 C ObjC C++ ObjC++ Joined
 
+Winit-self
+C ObjC C++ ObjC++
+Warn about variables which are initialized to themselves.
+
 Wimplicit
 C ObjC C++ ObjC++
 
@@ -311,6 +315,10 @@ C ObjC
 Wold-style-cast
 C++ ObjC++
 Warn if a C-style cast is used in a program
+
+Wold-style-definition
+C ObjC
+Warn if an old-style parameter definition is used
 
 Woverloaded-virtual
 C++ ObjC++
@@ -547,13 +555,21 @@ C++ ObjC++
 
 fnext-runtime
 ObjC ObjC++
-Generate code for NeXT runtime environment
+Generate code for NeXT (Apple Mac OS X) runtime environment
+
+fnil-receivers
+ObjC ObjC++
+Assume that receivers of Objective-C messages may be nil
 
 fnonansi-builtins
 C++ ObjC++
 
 fnonnull-objects
 C++ ObjC++
+
+fobjc-exceptions
+ObjC ObjC++
+Enable Objective-C exception and synchronization syntax
 
 foperator-names
 C++ ObjC++
@@ -573,6 +589,10 @@ Downgrade conformance errors to warnings
 fpreprocessed
 C ObjC C++ ObjC++
 Treat the input file as already preprocessed
+
+freplace-objc-classes
+ObjC ObjC++
+Used in Fix-and-Continue mode to indicate that object files may be swapped in at runtime
 
 frepo
 C++ ObjC++
@@ -661,6 +681,10 @@ Generate a #line directive pointing at the current working directory
 fxref
 C++ ObjC++
 Emit cross referencing information
+
+fzero-link
+ObjC ObjC++
+Generate lazy class lookup (via objc_getClass()) for use in Zero-Link mode
 
 gen-decls
 ObjC ObjC++

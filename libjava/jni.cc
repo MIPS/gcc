@@ -418,6 +418,18 @@ _Jv_JNI_PopSystemFrame (JNIEnv *env)
     }
 }
 
+template<typename T> T extract_from_jvalue(jvalue const & t);
+template<> jboolean extract_from_jvalue(jvalue const & jv) { return jv.z; }
+template<> jbyte    extract_from_jvalue(jvalue const & jv) { return jv.b; }
+template<> jchar    extract_from_jvalue(jvalue const & jv) { return jv.c; }
+template<> jshort   extract_from_jvalue(jvalue const & jv) { return jv.s; }
+template<> jint     extract_from_jvalue(jvalue const & jv) { return jv.i; }
+template<> jlong    extract_from_jvalue(jvalue const & jv) { return jv.j; }
+template<> jfloat   extract_from_jvalue(jvalue const & jv) { return jv.f; }
+template<> jdouble  extract_from_jvalue(jvalue const & jv) { return jv.d; }
+template<> jobject  extract_from_jvalue(jvalue const & jv) { return jv.l; }
+
+
 // This function is used from other template functions.  It wraps the
 // return value appropriately; we specialize it so that object returns
 // are turned into local references.
@@ -430,7 +442,7 @@ wrap_value (JNIEnv *, T value)
 
 // This specialization is used for jobject, jclass, jstring, jarray,
 // etc.
-template<typename T>
+template<typename R, typename T>
 static T *
 wrap_value (JNIEnv *env, T *value)
 {
@@ -755,9 +767,6 @@ static T
   obj = unwrap (obj);
   klass = unwrap (klass);
 
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -777,15 +786,12 @@ static T
 	return_type = klass;
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -818,9 +824,6 @@ static T
   obj = unwrap (obj);
   klass = unwrap (klass);
 
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -847,15 +850,12 @@ static T
 	}
 
       jvalue result;
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, arg_copy, &result);
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, arg_copy, &result);
 
-      if (ex != NULL)
-	env->ex = ex;
-
-      // We cheat a little here.  FIXME.
-      return wrap_value (env, * (T *) &result);
+      return wrap_value (env, extract_from_jvalue<T>(result));
     }
   catch (jthrowable t)
     {
@@ -872,9 +872,6 @@ static void
 {
   obj = unwrap (obj);
   klass = unwrap (klass);
-
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
 
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
@@ -893,12 +890,10 @@ static void
       if (style == constructor)
 	return_type = klass;
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -923,9 +918,6 @@ static void
 (JNICALL _Jv_JNI_CallAnyVoidMethodA) (JNIEnv *env, jobject obj, jclass klass,
 			              jmethodID id, jvalue *args)
 {
-  if (style == normal)
-    id = _Jv_LookupDeclaredMethod (obj->getClass (), id->name, id->signature);
-
   jclass decl_class = klass ? klass : obj->getClass ();
   JvAssert (decl_class != NULL);
 
@@ -947,12 +939,10 @@ static void
 	    arg_copy[i].l = unwrap (args[i].l);
 	}
 
-      jthrowable ex = _Jv_CallAnyMethodA (obj, return_type, id,
-					  style == constructor,
-					  arg_types, args, NULL);
-
-      if (ex != NULL)
-	env->ex = ex;
+      _Jv_CallAnyMethodA (obj, return_type, id,
+			  style == constructor,
+			  style == normal,
+			  arg_types, args, NULL);
     }
   catch (jthrowable t)
     {
@@ -1308,12 +1298,14 @@ static const char *
 (JNICALL _Jv_JNI_GetStringUTFChars) (JNIEnv *env, jstring string, 
                                      jboolean *isCopy)
 {
-  string = unwrap (string);
-  jsize len = JvGetStringUTFLength (string);
   try
     {
+      string = unwrap (string);
+      if (string == NULL)
+	return NULL;
+      jsize len = JvGetStringUTFLength (string);
       char *r = (char *) _Jv_Malloc (len + 1);
-      JvGetStringUTFRegion (string, 0, len, r);
+      JvGetStringUTFRegion (string, 0, string->length(), r);
       r[len] = '\0';
 
       if (isCopy)
@@ -2120,9 +2112,7 @@ _Jv_LookupJNIMethod (jclass klass, _Jv_Utf8Const *name,
           function = _Jv_FindSymbolInExecutable (buf + 1);
         }
     }
-#else /* WIN32 */
-  args_size;  /* Dummy statement to avoid unused parameter warning */
-#endif /* ! WIN32 */
+#endif /* WIN32 */
 
   if (function == NULL)
     {
@@ -2389,7 +2379,7 @@ static jint
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetDefaultJavaVMInitArgs (void *args)
 {
   jint version = * (jint *) args;
@@ -2406,7 +2396,7 @@ JNI_GetDefaultJavaVMInitArgs (void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
 {
   JvAssert (! the_vm);
@@ -2471,7 +2461,7 @@ JNI_CreateJavaVM (JavaVM **vm, void **penv, void *args)
   return 0;
 }
 
-JNIEXPORT jint JNICALL
+jint JNICALL
 JNI_GetCreatedJavaVMs (JavaVM **vm_buffer, jsize buf_len, jsize *n_vms)
 {
   if (buf_len <= 0)

@@ -1,6 +1,6 @@
 // javaprims.h - Main external header file for libgcj.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -291,6 +291,7 @@ extern "Java"
       class Collections$UnmodifiableSortedSet;
       class Comparator;
       class ConcurrentModificationException;
+      class Currency;
       class Date;
       class Dictionary;
       class EmptyStackException;
@@ -371,6 +372,39 @@ extern "Java"
         class JarInputStream;
         class JarOutputStream;
         class Manifest;
+      }
+
+      namespace logging
+      {
+        class ConsoleHandler;
+        class ErrorManager;
+        class FileHandler;
+        class Filter;
+        class Formatter;
+        class Handler;
+        class Level;
+        class LogManager;
+        class LogRecord;
+        class Logger;
+        class LoggingPermission;
+        class MemoryHandler;
+        class SimpleFormatter;
+        class SocketHandler;
+        class StreamHandler;
+        class XMLFormatter;
+      }
+
+      namespace prefs
+      {
+        class AbstractPreferences;
+        class BackingStoreException;
+        class InvalidPreferencesFormatException;
+        class NodeChangeEvent;
+        class NodeChangeListener;
+        class PreferenceChangeEvent;
+        class PreferenceChangeListener;
+        class Preferences;
+        class PreferencesFactory;
       }
 
       namespace regex
@@ -463,6 +497,7 @@ extern "C" void _Jv_RegisterClassHookDefault (jclass);
 
 typedef unsigned short _Jv_ushort __attribute__((__mode__(__HI__)));
 typedef unsigned int _Jv_uint __attribute__((__mode__(__SI__)));
+typedef unsigned int _Jv_ulong __attribute__((__mode__(__DI__)));
 
 struct _Jv_Utf8Const
 {

@@ -84,7 +84,6 @@ static tree build_java_check_indexed_type (tree, tree);
 static tree case_identity (tree, tree); 
 static unsigned char peek_opcode_at_pc (struct JCF *, int, int);
 static int emit_init_test_initialization (void **entry, void * ptr);
-static int get_offset_table_index (tree);
 
 static GTY(()) tree operand_type[59];
 
@@ -108,7 +107,7 @@ int always_initialize_class_p;
 
    If a variable is on the quick stack, it means the value of variable
    when the quick stack was last flushed.  Conceptually, flush_quick_stack
-   saves all the the quick_stack elements in parellel.  However, that is
+   saves all the the quick_stack elements in parallel.  However, that is
    complicated, so it actually saves them (i.e. copies each stack value
    to is home virtual register) from low indexes.  This allows a quick_stack
    element at index i (counting from the bottom of stack the) to references
@@ -175,7 +174,6 @@ java_truthvalue_conversion (tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
-    case FFS_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return java_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
@@ -458,7 +456,7 @@ pop_value (tree type)
 }
 
 
-/* Pop and discrad the top COUNT stack slots. */
+/* Pop and discard the top COUNT stack slots. */
 
 static void
 java_stack_pop (int count)
@@ -505,8 +503,9 @@ java_stack_swap (void)
   decl1 = find_stack_slot (stack_pointer - 1, type1);
   decl2 = find_stack_slot (stack_pointer - 2, type2);
   temp = copy_to_reg (DECL_RTL (decl1));
-  emit_move_insn (DECL_RTL (decl1), DECL_RTL (decl2));
-  emit_move_insn (DECL_RTL (decl2), temp);
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 1, type2)), 
+		  DECL_RTL (decl2));
+  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 2, type1)), temp);
   stack_type_map[stack_pointer - 1] = type2;
   stack_type_map[stack_pointer - 2] = type1;
 }
@@ -696,15 +695,13 @@ java_check_reference (tree expr, int check)
 {
   if (!flag_syntax_only && check)
     {
-      tree cond;
       expr = save_expr (expr);
-      cond = build (COND_EXPR, void_type_node,
+      expr = build (COND_EXPR, TREE_TYPE (expr),
 		    build (EQ_EXPR, boolean_type_node, expr, null_pointer_node),
 		    build (CALL_EXPR, void_type_node, 
 			   build_address_of (soft_nullpointer_node),
 			   NULL_TREE, NULL_TREE),
-		    empty_stmt_node);
-      expr = build (COMPOUND_EXPR, TREE_TYPE (expr), cond, expr);
+		    expr);
     }
 
   return expr;
@@ -1513,6 +1510,25 @@ build_field_ref (tree self_value, tree self_class, tree name)
       tree base_type = promote_type (base_class);
       if (base_type != TREE_TYPE (self_value))
 	self_value = fold (build1 (NOP_EXPR, base_type, self_value));
+      if (flag_indirect_dispatch
+	  && current_class != self_class)
+	/* FIXME: current_class != self_class is not exactly the right
+	   test.  What we really want to know is whether self_class is
+	   in the same translation unit as current_class.  If it is,
+	   we can make a direct reference.  */
+	{
+	  tree otable_index 
+	    = build_int_2 
+	    (get_symbol_table_index (field_decl, &otable_methods), 0);
+	  tree field_offset = build (ARRAY_REF, integer_type_node, otable_decl, 
+				     otable_index);
+	  tree address 
+	    = fold (build (PLUS_EXPR, 
+			   build_pointer_type (TREE_TYPE (field_decl)),
+			   self_value, field_offset));
+	  return fold (build1 (INDIRECT_REF, TREE_TYPE (field_decl), address));
+	}
+
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
 					    self_value, check);
       return fold (build (COMPONENT_REF, TREE_TYPE (field_decl),
@@ -1710,6 +1726,8 @@ build_class_init (tree clas, tree expr)
              optimizing class initialization. */
 	  if (!STATIC_CLASS_INIT_OPT_P ())
 	    DECL_BIT_INDEX(*init_test_decl) = -1;
+	  /* Don't emit any symbolic debugging info for this decl.  */
+	  DECL_IGNORED_P (*init_test_decl) = 1;
 	}
 
       init = build (CALL_EXPR, void_type_node,
@@ -1745,8 +1763,19 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
   tree func;
   if (is_compiled_class (self_type))
     {
-      make_decl_rtl (method, NULL);
-      func = build1 (ADDR_EXPR, method_ptr_type_node, method);
+      if (!flag_indirect_dispatch
+	  || (!TREE_PUBLIC (method) && DECL_CONTEXT (method)))
+	{
+	  make_decl_rtl (method, NULL);
+	  func = build1 (ADDR_EXPR, method_ptr_type_node, method);
+	}
+      else
+	{
+	  tree table_index = build_int_2 (get_symbol_table_index 
+					  (method, &atable_methods), 0);
+	  func = build (ARRAY_REF,  method_ptr_type_node, atable_decl, 
+			table_index);
+	}
     }
   else
     {
@@ -1817,27 +1846,29 @@ invoke_build_dtable (int is_invoke_interface, tree arg_list)
   return dtable;
 }
 
-/* Determine the index in the virtual offset table (otable) for a call to
-   METHOD. If this method has not been seen before, it will be added to the 
-   otable_methods. If it has, the existing otable slot will be reused. */
+/* Determine the index in SYMBOL_TABLE for a reference to the decl
+   T. If this decl has not been seen before, it will be added to the
+   otable_methods. If it has, the existing table slot will be
+   reused. */
 
-static int
-get_offset_table_index (tree method)
+int
+get_symbol_table_index (tree t, tree *symbol_table)
 {
   int i = 1;
   tree method_list;
-  
-  if (otable_methods == NULL_TREE)
+
+  if (*symbol_table == NULL_TREE)
     {
-      otable_methods = build_tree_list (method, method);
+      *symbol_table = build_tree_list (t, t);
       return 1;
     }
   
-  method_list = otable_methods;
+  method_list = *symbol_table;
   
   while (1)
     {
-      if (TREE_VALUE (method_list) == method)
+      tree value = TREE_VALUE (method_list);
+      if (value == t)
         return i;
       i++;
       if (TREE_CHAIN (method_list) == NULL_TREE)
@@ -1846,7 +1877,7 @@ get_offset_table_index (tree method)
         method_list = TREE_CHAIN (method_list);
     }
 
-  TREE_CHAIN (method_list) = build_tree_list (method, method);
+  TREE_CHAIN (method_list) = build_tree_list (t, t);
   return i;
 }
 
@@ -1861,7 +1892,8 @@ build_invokevirtual (tree dtable, tree method)
 
   if (flag_indirect_dispatch)
     {
-      otable_index = build_int_2 (get_offset_table_index (method), 0);
+      otable_index 
+	= build_int_2 (get_symbol_table_index (method, &otable_methods), 0);
       method_index = build (ARRAY_REF, integer_type_node, otable_decl, 
 			    otable_index);
     }
@@ -1925,7 +1957,8 @@ build_invokeinterface (tree dtable, tree method)
   
   if (flag_indirect_dispatch)
     {
-      otable_index = build_int_2 (get_offset_table_index (method), 0);
+      otable_index 
+	= build_int_2 (get_symbol_table_index (method, &otable_methods), 0);
       idx = build (ARRAY_REF, integer_type_node, otable_decl, otable_index);
     }
   else
@@ -2334,22 +2367,21 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       if (FIELD_FINAL (field_decl))
 	{
 	  if (DECL_CONTEXT (field_decl) != current_class)
-            error ("%Hassignment to final field '%D' not in field's class",
-                   &DECL_SOURCE_LOCATION (field_decl), field_decl);
+            error ("%Jassignment to final field '%D' not in field's class",
+		   field_decl, field_decl);
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning ("assignment to final static field `%s' not in "
-                         "class initializer",
-                         &DECL_SOURCE_LOCATION (field_decl), field_decl);
+		warning ("%Jassignment to final static field `%D' not in "
+                         "class initializer", field_decl, field_decl);
 	    }
 	  else
 	    {
 	      tree cfndecl_name = DECL_NAME (current_function_decl);
 	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
 		  && !ID_FINIT_P (cfndecl_name))
-                warning ("%Hassignment to final field '%D' not in constructor",
-                         &DECL_SOURCE_LOCATION (field_decl),  field_decl);
+                warning ("%Jassignment to final field '%D' not in constructor",
+			 field_decl, field_decl);
 	    }
 	}
       expand_assignment (field_ref, new_value, 0);
@@ -2807,8 +2839,9 @@ expand_byte_code (JCF *jcf, tree method)
 	  if (dead_code_index != -1)
 	    {
               /* We've just reached the end of a region of dead code.  */
-              warning ("unreachable bytecode from %d to before %d",
-                       dead_code_index, PC);
+	      if (extra_warnings)
+		warning ("unreachable bytecode from %d to before %d",
+			 dead_code_index, PC);
               dead_code_index = -1;
             }
 	}
@@ -2844,8 +2877,9 @@ expand_byte_code (JCF *jcf, tree method)
   if (dead_code_index != -1)
     {
       /* We've just reached the end of a region of dead code.  */
-      warning ("unreachable bytecode from %d to the end of the method", 
-              dead_code_index);
+      if (extra_warnings)
+	warning ("unreachable bytecode from %d to the end of the method", 
+		 dead_code_index);
     }
 }
 
@@ -3324,16 +3358,11 @@ force_evaluation_order (tree node)
 {
   if (flag_syntax_only)
     return node;
-  if (TREE_CODE_CLASS (TREE_CODE (node)) == '2')
-    {
-      if (TREE_SIDE_EFFECTS (TREE_OPERAND (node, 1)))
-	TREE_OPERAND (node, 0) = save_expr (TREE_OPERAND (node, 0));
-    }
-  else if (TREE_CODE (node) == CALL_EXPR
-           || TREE_CODE (node) == NEW_CLASS_EXPR
-           || (TREE_CODE (node) == COMPOUND_EXPR
-               && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
-               && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
+  if (TREE_CODE (node) == CALL_EXPR
+      || TREE_CODE (node) == NEW_CLASS_EXPR
+      || (TREE_CODE (node) == COMPOUND_EXPR
+	  && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
+	  && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
     {
       tree arg, cmp;
 

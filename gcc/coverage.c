@@ -637,7 +637,7 @@ build_ctr_info_value (unsigned int counter, tree type)
       array_type = build_array_type (TREE_TYPE (TREE_TYPE (fields)),
 				     array_type);
 
-      array = build (VAR_DECL, array_type, NULL_TREE, NULL_TREE);
+      array = build_decl (VAR_DECL, NULL_TREE, array_type);
       TREE_STATIC (array) = 1;
       DECL_NAME (array) = get_identifier (XSTR (ctr_labels[counter], 0));
       assemble_variable (array, 0, 0, 0);
@@ -824,8 +824,7 @@ create_coverage (void)
 
   gcov_info_value = build_gcov_info ();
 
-  gcov_info = build (VAR_DECL, TREE_TYPE (gcov_info_value),
-		     NULL_TREE, NULL_TREE);
+  gcov_info = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (gcov_info_value));
   DECL_INITIAL (gcov_info) = gcov_info_value;
 
   TREE_STATIC (gcov_info) = 1;
@@ -854,19 +853,18 @@ create_coverage (void)
   rest_of_decl_compilation (ctor, 0, 1, 0);
   announce_function (ctor);
   current_function_decl = ctor;
-  DECL_INITIAL (ctor) = error_mark_node;
   make_decl_rtl (ctor, NULL);
   init_function_start (ctor);
-  (*lang_hooks.decls.pushlevel) (0);
   expand_function_start (ctor, 0);
-
   /* Actually generate the code to call __gcov_init.  */
   gcov_info_address = force_reg (Pmode, XEXP (DECL_RTL (gcov_info), 0));
   emit_library_call (gcov_init_libfunc, LCT_NORMAL, VOIDmode, 1,
 		     gcov_info_address, Pmode);
 
   expand_function_end ();
-  (*lang_hooks.decls.poplevel) (1, 0, 1);
+  /* Create a dummy BLOCK.  */
+  DECL_INITIAL (ctor) = make_node (BLOCK);
+  TREE_USED (DECL_INITIAL (ctor)) = 1;
 
   rest_of_compilation (ctor);
 

@@ -2,7 +2,7 @@
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
    2000, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
-   Re-written by Richard Henderson  <rth@redhat.com>
+   Re-written by Richard Henderson <rth@redhat.com>
 
    This file is part of GCC.
 
@@ -31,7 +31,7 @@
 #include "tm_p.h"
 
 /* The floating point model used internally is not exactly IEEE 754
-   compliant, and close to the description in the ISO C standard,
+   compliant, and close to the description in the ISO C99 standard,
    section 5.2.4.2.2 Characteristics of floating types.
 
    Specifically
@@ -49,21 +49,21 @@
    significand is fractional.  Normalized significands are in the
    range [0.5, 1.0).
 
-   A requirement of the model is that P be larger than than the
-   largest supported target floating-point type by at least 2 bits.
-   This gives us proper rounding when we truncate to the target type.
-   In addition, E must be large enough to hold the smallest supported
-   denormal number in a normalized form.
+   A requirement of the model is that P be larger than the largest
+   supported target floating-point type by at least 2 bits.  This gives
+   us proper rounding when we truncate to the target type.  In addition,
+   E must be large enough to hold the smallest supported denormal number
+   in a normalized form.
 
    Both of these requirements are easily satisfied.  The largest target
    significand is 113 bits; we store at least 160.  The smallest
    denormal number fits in 17 exponent bits; we store 29.
 
    Note that the decimal string conversion routines are sensitive to
-   rounding error.  Since the raw arithmetic routines do not themselves
+   rounding errors.  Since the raw arithmetic routines do not themselves
    have guard digits or rounding, the computation of 10**exp can
    accumulate more than a few digits of error.  The previous incarnation
-   of real.c successfully used a 144 bit fraction; given the current
+   of real.c successfully used a 144-bit fraction; given the current
    layout of REAL_VALUE_TYPE we're forced to expand to at least 160 bits.
 
    Target floating point models that use base 16 instead of base 2
@@ -763,8 +763,8 @@ do_multiply (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
 	      continue;
 	    }
 
+	  memset (&u, 0, sizeof (u));
 	  u.class = rvc_normal;
-	  u.sign = 0;
 	  u.exp = exp;
 
 	  for (k = j; k < SIGSZ * 2; k += 2)
@@ -858,6 +858,8 @@ do_divide (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *a,
   else
     rr = r;
 
+  /* Make sure all fields in the result are initialized.  */
+  get_zero (rr, 0);
   rr->class = rvc_normal;
   rr->sign = sign;
 
@@ -2105,7 +2107,7 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2195,7 +2197,7 @@ real_maxval (REAL_VALUE_TYPE *r, int sign, enum machine_mode mode)
   const struct real_format *fmt;
   int np2;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2368,7 +2370,7 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2430,7 +2432,7 @@ real_to_target (long *buf, const REAL_VALUE_TYPE *r, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2455,7 +2457,7 @@ real_from_target (REAL_VALUE_TYPE *r, const long *buf, enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     abort ();
 
@@ -2470,7 +2472,7 @@ significand_size (enum machine_mode mode)
 {
   const struct real_format *fmt;
 
-  fmt = real_format_for_mode[mode - QFmode];
+  fmt = REAL_MODE_FORMAT (mode);
   if (fmt == NULL)
     return 0;
 
@@ -2534,9 +2536,10 @@ encode_ieee_single (const struct real_format *fmt, long *buf,
 		    const REAL_VALUE_TYPE *r)
 {
   unsigned long image, sig, exp;
+  unsigned long sign = r->sign;
   bool denormal = (r->sig[SIGSZ-1] & SIG_MSB) == 0;
 
-  image = r->sign << 31;
+  image = sign << 31;
   sig = (r->sig[SIGSZ-1] >> (HOST_BITS_PER_LONG - 24)) & 0x7fffff;
 
   switch (r->class)
@@ -3623,7 +3626,7 @@ const struct real_format mips_quad_format =
 
 /* Descriptions of VAX floating point formats can be found beginning at
 
-   http://www.openvms.compaq.com:8000/73final/4515/4515pro_013.html#f_floating_point_format
+   http://h71000.www7.hp.com/doc/73FINAL/4515/4515pro_013.html#f_floating_point_format
 
    The thing to remember is that they're almost IEEE, except for word
    order, exponent bias, and the lack of infinities, nans, and denormals.
@@ -3768,7 +3771,7 @@ decode_vax_d (const struct real_format *fmt ATTRIBUTE_UNUSED,
   image0 &= 0xffffffff;
   image1 &= 0xffffffff;
 
-  exp = (image0 >> 7) & 0x7f;
+  exp = (image0 >> 7) & 0xff;
 
   memset (r, 0, sizeof (*r));
 
@@ -4416,24 +4419,6 @@ const struct real_format real_internal_format =
     true
   };
 
-/* Set up default mode to format mapping for IEEE.  Everyone else has
-   to set these values in OVERRIDE_OPTIONS.  */
-
-const struct real_format *real_format_for_mode[TFmode - QFmode + 1] =
-{
-  NULL,				/* QFmode */
-  NULL,				/* HFmode */
-  NULL,				/* TQFmode */
-  &ieee_single_format,		/* SFmode */
-  &ieee_double_format,		/* DFmode */
-
-  /* We explicitly don't handle XFmode.  There are two formats,
-     pretty much equally common.  Choose one in OVERRIDE_OPTIONS.  */
-  NULL,				/* XFmode */
-  &ieee_quad_format		/* TFmode */
-};
-
-
 /* Calculate the square root of X in mode MODE, and store the result
    in R.  Return TRUE if the operation does not raise an exception.
    For details see "High Precision Division and Square Root",
@@ -4459,8 +4444,7 @@ real_sqrt (REAL_VALUE_TYPE *r, enum machine_mode mode,
   /* Negative arguments return NaN.  */
   if (real_isneg (x))
     {
-      /* Mode is ignored for canonical NaN.  */
-      real_nan (r, "", 1, SFmode);
+      get_canonical_qnan (r, 0);
       return false;
     }
 

@@ -148,7 +148,7 @@ static unsigned int columns = 80;
 /* What to print when a switch has no documentation.  */
 static const char undocumented_msg[] = N_("This switch lacks documentation");
 
-/* Input file names. */
+/* Input file names.  */
 const char **in_fnames;
 unsigned num_in_fnames;
 
@@ -558,6 +558,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      flag_unit_at_a_time = 1;
     }
 
   if (optimize >= 3)
@@ -565,7 +566,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
-      flag_unit_at_a_time = 1;
+      flag_web = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -1036,8 +1037,8 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_sm = value;
       break;
 
-    case OPT_fgnu_linker:
-      flag_gnu_linker = value;
+    case OPT_fgcse_las:
+      flag_gcse_las = value;
       break;
 
     case OPT_fguess_branch_probability:
@@ -1070,17 +1071,9 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_finline_limit_:
     case OPT_finline_limit_eq:
-      set_param_value ("max-inline-insns", value);
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
       set_param_value ("max-inline-insns-rtl", value);
-      if (value / 4 < MIN_INLINE_INSNS)
-	{
-	  if (value / 4 > 10)
-	    set_param_value ("min-inline-insns", value / 4);
-	  else
-	    set_param_value ("min-inline-insns", 10);
-	}
       break;
 
     case OPT_finstrument_functions:
@@ -1195,6 +1188,14 @@ common_handle_option (size_t scode, const char *arg,
       profile_arc_flag = value;
       break;
 
+    case OPT_fprofile_values:
+      flag_profile_values = value;
+      break;
+
+    case OPT_fvpt:
+      flag_value_profile_transformations = value;
+      break;
+
     case OPT_frandom_seed:
       /* The real switch is -fno-random-seed.  */
       if (value)
@@ -1238,8 +1239,12 @@ common_handle_option (size_t scode, const char *arg,
       flag_rerun_loop_opt = value;
       break;
 
+    case OPT_frounding_math:
+      flag_rounding_math = value;
+      break;
+
     case OPT_fsched_interblock:
-      flag_schedule_interblock= value;
+      flag_schedule_interblock = value;
       break;
 
     case OPT_fsched_spec:
@@ -1278,6 +1283,24 @@ common_handle_option (size_t scode, const char *arg,
       flag_schedule_insns_after_reload = value;
       break;
 
+    case OPT_fsched_stalled_insns:
+      flag_sched_stalled_insns = value;
+      break;
+
+    case OPT_fsched_stalled_insns_:
+      flag_sched_stalled_insns = value;
+      if (flag_sched_stalled_insns == 0)
+	flag_sched_stalled_insns = -1;
+      break;
+
+    case OPT_fsched_stalled_insns_dep:
+      flag_sched_stalled_insns_dep = 1;
+      break;
+
+    case OPT_fsched_stalled_insns_dep_:
+      flag_sched_stalled_insns_dep = value;
+      break;
+
     case OPT_fshared_data:
       flag_shared_data = value;
       break;
@@ -1288,18 +1311,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fsingle_precision_constant:
       flag_single_precision_constant = value;
-      break;
-
-    case OPT_fssa:
-      flag_ssa = value;
-      break;
-
-    case OPT_fssa_ccp:
-      flag_ssa_ccp = value;
-      break;
-
-    case OPT_fssa_dce:
-      flag_ssa_dce = value;
       break;
 
     case OPT_fstack_check:
@@ -1402,6 +1413,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fverbose_asm:
       flag_verbose_asm = value;
+      break;
+
+    case OPT_fweb:
+      flag_web = value;
       break;
       
     case OPT_fwrapv:
@@ -1567,7 +1582,10 @@ set_fast_math_flags (int set)
   flag_finite_math_only = set;
   flag_errno_math = !set;
   if (set)
-    flag_signaling_nans = 0;
+    {
+      flag_signaling_nans = 0;
+      flag_rounding_math = 0;
+    }
 }
 
 /* Return true iff flags are set as if -ffast-math.  */

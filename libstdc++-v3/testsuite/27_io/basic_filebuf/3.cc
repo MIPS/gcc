@@ -56,9 +56,9 @@ struct gnu_char_traits
 {
   typedef gnu_char_type	char_type;
   typedef long  		int_type;
-  typedef long 		pos_type;
-  typedef unsigned long 	off_type;
+  typedef std::streamoff 	off_type;
   typedef long   		state_type;
+  typedef std::fpos<state_type>	pos_type;
   
   static void 
   assign(char_type& __c1, const char_type& __c2) { }
@@ -115,7 +115,7 @@ struct gnu_char_traits
 
 void test07()
 {
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   typedef std::basic_filebuf<gnu_char_type, gnu_char_traits> gnu_filebuf;
   
   try

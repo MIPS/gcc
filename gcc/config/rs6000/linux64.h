@@ -65,24 +65,26 @@
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
   do								\
     {								\
+      if (rs6000_alignment_string == 0)				\
+	rs6000_alignment_flags = MASK_ALIGN_NATURAL;		\
       if (TARGET_64BIT)						\
 	{							\
 	  if (DEFAULT_ABI != ABI_AIX)				\
 	    {							\
-	      DEFAULT_ABI = ABI_AIX;				\
+	      rs6000_current_abi = ABI_AIX;			\
 	      error (INVALID_64BIT, "call");			\
 	    }							\
-	  if (TARGET_RELOCATABLE)				\
+	  if (target_flags & MASK_RELOCATABLE)			\
 	    {							\
 	      target_flags &= ~MASK_RELOCATABLE;		\
 	      error (INVALID_64BIT, "relocatable");		\
 	    }							\
-	  if (TARGET_EABI)					\
+	  if (target_flags & MASK_EABI)				\
 	    {							\
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (TARGET_PROTOTYPE)					\
+	  if (target_flags & MASK_PROTOTYPE)			\
 	    {							\
 	      target_flags &= ~MASK_PROTOTYPE;			\
 	      error (INVALID_64BIT, "prototype");		\
@@ -202,8 +204,7 @@
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
 
-/* This now supports a natural alignment mode. */
-/* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
+/* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   ((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)	\
@@ -216,8 +217,8 @@
    ? MIN ((COMPUTED), 32)						\
    : (COMPUTED))
 
-/* AIX increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
+/* PowerPC64 Linux increases natural record alignment to doubleword if
+   the first field is an FP double.  */
 #undef  ROUND_TYPE_ALIGN
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)		\
   ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)	\
@@ -241,7 +242,7 @@
    reasonably assume that they follow the normal rules for structure
    layout treating the parameter area as any other block of memory,
    then map the reg param area to registers.  ie. pad updard.
-   Setting both of the following defines results in this behaviour.
+   Setting both of the following defines results in this behavior.
    Setting just the first one will result in aggregates that fit in a
    doubleword being padded downward, and others being padded upward.
    Not a bad idea as this results in struct { int x; } being passed
@@ -536,6 +537,9 @@ while (0)
 #define DRAFT_V4_STRUCT_RET (!TARGET_64BIT)
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define LINK_GCC_C_SEQUENCE_SPEC \
+  "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */

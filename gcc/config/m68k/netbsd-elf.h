@@ -7,20 +7,20 @@
    This file is derived from <m68k/m68kv4.h>, <m68k/m68kelf.h>,
    and <m68k/linux.h>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -31,8 +31,6 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__m68k__");		\
       builtin_define ("__SVR4_ABI__");		\
       builtin_define ("__motorola__");		\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
 
@@ -145,9 +143,6 @@ while (0)
    Here is a bunch of stuff lifted from m68kelf.h.  We don't use that
    file directly, because it has a lot of baggage we don't want.  */
 
-#define MOTOROLA	/* Use Motorola syntax */
-#define USE_GAS		/* But GAS wants jbsr instead of jsr */
-
 
 /* The prefix for register names.  Note that REGISTER_NAMES
    is supposed to include this prefix.  Also note that this is NOT an
@@ -204,7 +199,7 @@ while (0)
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_5200)					\
+    if (TARGET_COLDFIRE)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\

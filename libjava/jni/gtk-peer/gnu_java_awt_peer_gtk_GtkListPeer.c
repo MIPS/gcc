@@ -192,12 +192,14 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_delItems
   list = CLIST_FROM_SW (ptr);
 
   if (end == -1)		/* special case for removing all rows */
-    end = list->rows;
-
-  gtk_clist_freeze (list);
-  for (i = start; i < end; i++)
-    gtk_clist_remove (list, i);
-  gtk_clist_thaw (list);
+    gtk_clist_clear (list);
+  else
+    {
+      gtk_clist_freeze (list);
+      for (i = end; i >= start; i--)
+        gtk_clist_remove (list, i);
+      gtk_clist_thaw (list);
+    }
 
   gdk_threads_leave ();
 }
@@ -228,7 +230,6 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_deselect
   gdk_threads_leave ();
 }
 
-/* FIXME: magic mojo (that doesn't seem to do anything) */
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkListPeer_getSize
   (JNIEnv *env, jobject obj, jint rows, jintArray jdims)
@@ -251,7 +252,7 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_getSize
   list = GTK_WIDGET (CLIST_FROM_SW (ptr));
   sw = GTK_SCROLLED_WINDOW (ptr);
 
-  gtk_widget_size_request(list, &myreq);
+  gtk_widget_size_request(GTK_WIDGET(sw), &myreq);
   dims[1]=myreq.height;
   dims[0]=myreq.width;
   
@@ -322,7 +323,9 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_setMultipleMode
 }
 
 static void
-item_select (GtkCList *list, int row, int col, GdkEventButton *event, 
+item_select (GtkCList *list __attribute__((unused)),
+	     int row, int col __attribute__((unused)),
+	     GdkEventButton *event __attribute__((unused)), 
 	     jobject *peer_obj)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, *peer_obj,
@@ -332,8 +335,11 @@ item_select (GtkCList *list, int row, int col, GdkEventButton *event,
 }
 
 static void
-item_unselect (GtkCList *list, int row, int col, GdkEventButton *event, 
-	     jobject *peer_obj)
+item_unselect (GtkCList *list __attribute__((unused)),
+	       int row,
+	       int col __attribute__((unused)),
+	       GdkEventButton *event __attribute__((unused)),
+	       jobject *peer_obj)
 {
   (*gdk_env)->CallVoidMethod (gdk_env, *peer_obj,
 			      postListItemEventID,

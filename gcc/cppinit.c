@@ -383,36 +383,37 @@ static void sanity_checks (cpp_reader *pfile)
      type precisions made by cpplib.  */
   test--;
   if (test < 1)
-    cpp_error (pfile, DL_ICE, "cppchar_t must be an unsigned type");
+    cpp_error (pfile, CPP_DL_ICE, "cppchar_t must be an unsigned type");
 
   if (CPP_OPTION (pfile, precision) > max_precision)
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "preprocessor arithmetic has maximum precision of %lu bits;"
 	       " target requires %lu bits",
 	       (unsigned long) max_precision,
 	       (unsigned long) CPP_OPTION (pfile, precision));
 
   if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "CPP arithmetic must be at least as precise as a target int");
 
   if (CPP_OPTION (pfile, char_precision) < 8)
-    cpp_error (pfile, DL_ICE, "target char is less than 8 bits wide");
+    cpp_error (pfile, CPP_DL_ICE, "target char is less than 8 bits wide");
 
   if (CPP_OPTION (pfile, wchar_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "target wchar_t is narrower than target char");
 
   if (CPP_OPTION (pfile, int_precision) < CPP_OPTION (pfile, char_precision))
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "target int is narrower than target char");
 
   /* This is assumed in eval_token() and could be fixed if necessary.  */
   if (sizeof (cppchar_t) > sizeof (cpp_num_part))
-    cpp_error (pfile, DL_ICE, "CPP half-integer narrower than CPP character");
+    cpp_error (pfile, CPP_DL_ICE,
+	       "CPP half-integer narrower than CPP character");
 
   if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
-    cpp_error (pfile, DL_ICE,
+    cpp_error (pfile, CPP_DL_ICE,
 	       "CPP on this host cannot handle wide character constants over"
 	       " %lu bits, but the target requires %lu bits",
 	       (unsigned long) BITS_PER_CPPCHAR_T,
@@ -435,7 +436,7 @@ cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
 }
 
 /* This is called after options have been parsed, and partially
-   processed. */
+   processed.  */
 void
 cpp_post_options (cpp_reader *pfile)
 {
@@ -448,8 +449,8 @@ cpp_post_options (cpp_reader *pfile)
     mark_named_operators (pfile);
 }
 
-/* Setup for processing input from the file named FNAME,
-   or stdin if it is the empty string.  Returns true if the file was found. */
+/* Setup for processing input from the file named FNAME, or stdin if
+   it is the empty string.  Returns true if the file was found.  */
 bool
 cpp_find_main_file (cpp_reader *pfile, const char *fname)
 {
@@ -483,7 +484,7 @@ cpp_find_main_file (cpp_reader *pfile, const char *fname)
 
 /* This function reads the file, but does not start preprocessing.
    This will generate at least one file change callback, and possibly
-   a line change callback. */
+   a line change callback.  */
 void
 cpp_push_main_file (cpp_reader *pfile)
 {

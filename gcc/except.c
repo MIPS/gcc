@@ -73,6 +73,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -2046,8 +2047,12 @@ sjlj_emit_function_enter (rtx dispatch_label)
   if (cfun->uses_eh_lsda)
     {
       char buf[20];
+      rtx sym;
+
       ASM_GENERATE_INTERNAL_LABEL (buf, "LLSDA", current_function_funcdef_no);
-      emit_move_insn (mem, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
+      sym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      SYMBOL_REF_FLAGS (sym) = SYMBOL_FLAG_LOCAL;
+      emit_move_insn (mem, sym);
     }
   else
     emit_move_insn (mem, const0_rtx);
@@ -2973,10 +2978,7 @@ expand_builtin_frob_return_addr (tree addr_tree)
 {
   rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-  if (GET_MODE (addr) != Pmode)
-    addr = convert_memory_address (Pmode, addr);
-#endif
+  addr = convert_memory_address (Pmode, addr);
 
 #ifdef RETURN_ADDR_OFFSET
   addr = force_reg (Pmode, addr);
@@ -2997,10 +2999,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
 
 #ifdef EH_RETURN_STACKADJ_RTX
   tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj, VOIDmode, 0);
-#ifdef POINTERS_EXTEND_UNSIGNED
-  if (GET_MODE (tmp) != Pmode)
-    tmp = convert_memory_address (Pmode, tmp);
-#endif
+  tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_stackadj)
     cfun->eh->ehr_stackadj = copy_to_reg (tmp);
   else if (tmp != cfun->eh->ehr_stackadj)
@@ -3008,10 +3007,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
 #endif
 
   tmp = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, 0);
-#ifdef POINTERS_EXTEND_UNSIGNED
-  if (GET_MODE (tmp) != Pmode)
-    tmp = convert_memory_address (Pmode, tmp);
-#endif
+  tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_handler)
     cfun->eh->ehr_handler = copy_to_reg (tmp);
   else if (tmp != cfun->eh->ehr_handler)
@@ -3704,11 +3700,28 @@ output_function_exception_table (void)
       rtx value;
 
       if (type == NULL_TREE)
-	type = integer_zero_node;
+	value = const0_rtx;
       else
-	type = lookup_type_for_runtime (type);
+	{
+	  struct cgraph_varpool_node *node;
 
-      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+	  type = lookup_type_for_runtime (type);
+	  value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+	  /* Let cgraph know that the rtti decl is used.  Not all of the
+	     paths below go through assemble_integer, which would take
+	     care of this for us.  */
+	  if (TREE_CODE (type) == ADDR_EXPR)
+	    {
+	      type = TREE_OPERAND (type, 0);
+	      node = cgraph_varpool_node (type);
+	      if (node)
+		cgraph_varpool_mark_needed_node (node);
+	    }
+	  else if (TREE_CODE (type) != INTEGER_CST)
+	    abort ();
+	}
+
       if (tt_format == DW_EH_PE_absptr || tt_format == DW_EH_PE_aligned)
 	assemble_integer (value, tt_format_size,
 			  tt_format_size * BITS_PER_UNIT, 1);

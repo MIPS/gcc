@@ -38,9 +38,8 @@ void test05()
   typedef filebuf::pos_type 	pos_type;
   typedef filebuf::off_type 	off_type;
 
-  bool 				test = true;
+  bool test __attribute__((unused)) = true;
   streamsize 			strmsz_1, strmsz_2;
-  streamoff  			strmof_1, strmof_2;
 
   int_type c1;
   int_type c2;
@@ -66,7 +65,7 @@ void test05()
     strmsz_1 = fb.in_avail(); 
     pt_1 = fb.pubseekoff(2, ios_base::beg);
     strmsz_2 = fb.in_avail(); 
-    off_1 = pt_1;
+    off_1 = off_type(pt_1);
     VERIFY( off_1 > 0 );
     c1 = fb.snextc(); //current in pointer +1
     VERIFY( c1 == '9' );
@@ -82,7 +81,7 @@ void test05()
 
     //cur
     pt_2 = fb.pubseekoff(2, ios_base::cur);
-    off_2 = pt_2;
+    off_2 = off_type(pt_2);
     VERIFY( (off_2 == (off_1 + 2 + 1 + 1)) );
     c1 = fb.snextc(); //current in pointer +1
     VERIFY( c1 == '1' );
@@ -97,7 +96,7 @@ void test05()
 
     //end
     pt_2 = fb.pubseekoff(0, ios_base::end);
-    off_1 = pt_2;
+    off_1 = off_type(pt_2);
     VERIFY( off_1 > off_2 ); //weak, but don't know exactly where it ends
     c3 = fb.sputc('\n');
     strmsz_1 = fb.sputn("because because because. . .", 28);  
@@ -115,7 +114,7 @@ void test05()
   }
 }
 
-main() 
+int main() 
 {
   test05();
   return 0;

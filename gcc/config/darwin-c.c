@@ -1,22 +1,21 @@
 /* Darwin support needed only by C/C++ frontends.
-   Copyright (C) 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003  Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -41,8 +40,8 @@ static bool using_frameworks = false;
 /* Maintain a small stack of alignments.  This is similar to pragma
    pack's stack, but simpler.  */
 
-static void push_field_alignment PARAMS ((int));
-static void pop_field_alignment PARAMS ((void));
+static void push_field_alignment (int);
+static void pop_field_alignment (void);
 static const char *find_subframework_file (const char *, const char *);
 static void add_system_framework_path (char *);
 static const char *find_subframework_header (cpp_reader *pfile, const char *header);
@@ -58,8 +57,7 @@ typedef struct align_stack
 static struct align_stack * field_align_stack = NULL;
 
 static void
-push_field_alignment (bit_alignment)
-     int bit_alignment;
+push_field_alignment (int bit_alignment)
 {
   align_stack *entry = (align_stack *) xmalloc (sizeof (align_stack));
 
@@ -71,7 +69,7 @@ push_field_alignment (bit_alignment)
 }
 
 static void
-pop_field_alignment ()
+pop_field_alignment (void)
 {
   if (field_align_stack)
     {
@@ -88,8 +86,7 @@ pop_field_alignment ()
 /* Handlers for Darwin-specific pragmas.  */
 
 void
-darwin_pragma_ignore (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_ignore (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   /* Do nothing.  */
 }
@@ -97,8 +94,7 @@ darwin_pragma_ignore (pfile)
 /* #pragma options align={mac68k|power|reset} */
 
 void
-darwin_pragma_options (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   const char *arg;
   tree t, x;
@@ -130,8 +126,7 @@ darwin_pragma_options (pfile)
 /* #pragma unused ([var {, var}*]) */
 
 void
-darwin_pragma_unused (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree decl, x;
   int tok;

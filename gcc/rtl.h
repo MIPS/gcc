@@ -64,6 +64,7 @@ extern const char * const rtx_format[NUM_RTX_CODE];
 extern const char rtx_class[NUM_RTX_CODE];
 #define GET_RTX_CLASS(CODE)		(rtx_class[(int) (CODE)])
 
+extern const unsigned char rtx_size[NUM_RTX_CODE];
 extern const unsigned char rtx_next[NUM_RTX_CODE];
 
 /* The flags and bitfields of an ADDR_DIFF_VEC.  BASE is the base label
@@ -117,7 +118,6 @@ typedef struct reg_attrs GTY(())
 
 union rtunion_def
 {
-  HOST_WIDE_INT rtwint;
   int rtint;
   unsigned int rtuint;
   const char *rtstr;
@@ -215,9 +215,17 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
   /* The first element of the operands of this rtx.
      The number of operands and their types are controlled
      by the `code' field, according to rtl.def.  */
-  rtunion GTY ((special ("rtx_def"),
-		desc ("GET_CODE (&%0)"))) fld[1];
+  union u {
+    rtunion fld[1];
+    HOST_WIDE_INT hwint[1];
+  } GTY ((special ("rtx_def"), desc ("GET_CODE (&%0)"))) u;
 };
+
+/* The size in bytes of an rtx header (code, mode and flags).  */
+#define RTX_HDR_SIZE offsetof (struct rtx_def, u)
+
+/* The size in bytes of an rtx with code CODE.  */
+#define RTX_SIZE(CODE) rtx_size[CODE]
 
 #define NULL_RTX (rtx) 0
 
@@ -241,10 +249,10 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
 /* Define macros to access the `code' field of the rtx.  */
 
 #define GET_CODE(RTX)	    ((enum rtx_code) (RTX)->code)
-#define PUT_CODE(RTX, CODE) ((RTX)->code = (ENUM_BITFIELD(rtx_code)) (CODE))
+#define PUT_CODE(RTX, CODE) ((RTX)->code = (CODE))
 
 #define GET_MODE(RTX)	    ((enum machine_mode) (RTX)->mode)
-#define PUT_MODE(RTX, MODE) ((RTX)->mode = (ENUM_BITFIELD(machine_mode)) (MODE))
+#define PUT_MODE(RTX, MODE) ((RTX)->mode = (MODE))
 
 /* RTL vector.  These appear inside RTX's when there is a need
    for a variable number of things.  The principle use is inside
@@ -303,7 +311,7 @@ struct rtvec_def GTY(()) {
      if (GET_RTX_FORMAT(_code)[_n] != C1)				\
        rtl_check_failed_type1 (_rtx, _n, C1, __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
-     &_rtx->fld[_n]; }))
+     &_rtx->u.fld[_n]; }))
 
 #define RTL_CHECK2(RTX, N, C1, C2) __extension__			\
 (*({ rtx const _rtx = (RTX); const int _n = (N);			\
@@ -315,14 +323,14 @@ struct rtvec_def GTY(()) {
 	 && GET_RTX_FORMAT(_code)[_n] != C2)				\
        rtl_check_failed_type2 (_rtx, _n, C1, C2, __FILE__, __LINE__,	\
 			       __FUNCTION__);				\
-     &_rtx->fld[_n]; }))
+     &_rtx->u.fld[_n]; }))
 
 #define RTL_CHECKC1(RTX, N, C) __extension__				\
 (*({ rtx const _rtx = (RTX); const int _n = (N);			\
      if (GET_CODE (_rtx) != (C))					\
        rtl_check_failed_code1 (_rtx, (C), __FILE__, __LINE__,		\
 			       __FUNCTION__);				\
-     &_rtx->fld[_n]; }))
+     &_rtx->u.fld[_n]; }))
 
 #define RTL_CHECKC2(RTX, N, C1, C2) __extension__			\
 (*({ rtx const _rtx = (RTX); const int _n = (N);			\
@@ -330,7 +338,7 @@ struct rtvec_def GTY(()) {
      if (_code != (C1) && _code != (C2))				\
        rtl_check_failed_code2 (_rtx, (C1), (C2), __FILE__, __LINE__,	\
 			       __FUNCTION__); \
-     &_rtx->fld[_n]; }))
+     &_rtx->u.fld[_n]; }))
 
 #define RTVEC_ELT(RTVEC, I) __extension__				\
 (*({ rtvec const _rtvec = (RTVEC); const int _i = (I);			\
@@ -338,6 +346,24 @@ struct rtvec_def GTY(()) {
        rtvec_check_failed_bounds (_rtvec, _i, __FILE__, __LINE__,	\
 				  __FUNCTION__);			\
      &_rtvec->elem[_i]; }))
+
+#define XWINT(RTX, N) __extension__					\
+(*({ rtx const _rtx = (RTX); const int _n = (N);			\
+     const enum rtx_code _code = GET_CODE (_rtx);			\
+     if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
+       rtl_check_failed_bounds (_rtx, _n, __FILE__, __LINE__,		\
+				__FUNCTION__);				\
+     if (GET_RTX_FORMAT(_code)[_n] != 'w')				\
+       rtl_check_failed_type1 (_rtx, _n, 'w', __FILE__, __LINE__,	\
+			       __FUNCTION__);				\
+     &_rtx->u.hwint[_n]; }))
+
+#define XCWINT(RTX, N, C) __extension__					\
+(*({ rtx const _rtx = (RTX);						\
+     if (GET_CODE (_rtx) != (C))					\
+       rtl_check_failed_code1 (_rtx, (C), __FILE__, __LINE__,		\
+			       __FUNCTION__);				\
+     &_rtx->u.hwint[N]; }))
 
 extern void rtl_check_failed_bounds (rtx, int, const char *, int,
 				     const char *)
@@ -360,11 +386,13 @@ extern void rtvec_check_failed_bounds (rtvec, int, const char *, int,
 
 #else   /* not ENABLE_RTL_CHECKING */
 
-#define RTL_CHECK1(RTX, N, C1)      ((RTX)->fld[N])
-#define RTL_CHECK2(RTX, N, C1, C2)  ((RTX)->fld[N])
-#define RTL_CHECKC1(RTX, N, C)	    ((RTX)->fld[N])
-#define RTL_CHECKC2(RTX, N, C1, C2) ((RTX)->fld[N])
+#define RTL_CHECK1(RTX, N, C1)      ((RTX)->u.fld[N])
+#define RTL_CHECK2(RTX, N, C1, C2)  ((RTX)->u.fld[N])
+#define RTL_CHECKC1(RTX, N, C)	    ((RTX)->u.fld[N])
+#define RTL_CHECKC2(RTX, N, C1, C2) ((RTX)->u.fld[N])
 #define RTVEC_ELT(RTVEC, I)	    ((RTVEC)->elem[I])
+#define XWINT(RTX, N)		    ((RTX)->u.hwint[N])
+#define XCWINT(RTX, N, C)	    ((RTX)->u.hwint[N])
 
 #endif
 
@@ -475,7 +503,6 @@ do {				\
   _rtx->volatil = 0;		\
 } while (0)
 
-#define XWINT(RTX, N)	(RTL_CHECK1 (RTX, N, 'w').rtwint)
 #define XINT(RTX, N)	(RTL_CHECK2 (RTX, N, 'i', 'n').rtint)
 #define XSTR(RTX, N)	(RTL_CHECK2 (RTX, N, 's', 'S').rtstr)
 #define XEXP(RTX, N)	(RTL_CHECK2 (RTX, N, 'e', 'u').rtx)
@@ -489,10 +516,9 @@ do {				\
 #define XVECEXP(RTX, N, M)	RTVEC_ELT (XVEC (RTX, N), M)
 #define XVECLEN(RTX, N)		GET_NUM_ELEM (XVEC (RTX, N))
 
-/* These are like XWINT, etc. except that they expect a '0' field instead
+/* These are like XINT, etc. except that they expect a '0' field instead
    of the normal type code.  */
 
-#define X0WINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtwint)
 #define X0INT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtint)
 #define X0UINT(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtuint)
 #define X0STR(RTX, N)	   (RTL_CHECK1 (RTX, N, '0').rtstr)
@@ -507,7 +533,9 @@ do {				\
 #define X0MEMATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, MEM).rtmem)
 #define X0REGATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, REG).rtreg)
 
-#define XCWINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rtwint)
+/* Access a '0' field with any type.  */
+#define X0ANY(RTX, N)	   RTL_CHECK1 (RTX, N, '0')
+
 #define XCINT(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtint)
 #define XCUINT(RTX, N, C)     (RTL_CHECKC1 (RTX, N, C).rtuint)
 #define XCSTR(RTX, N, C)      (RTL_CHECKC1 (RTX, N, C).rtstr)
@@ -1714,7 +1742,7 @@ rtx alloc_EXPR_LIST			(int, rtx, rtx);
 /* regclass.c */
 
 /* Maximum number of parallel sets and clobbers in any insn in this fn.
-   Always at least 3, since the combiner could put that many togetherm
+   Always at least 3, since the combiner could put that many together
    and we want this to remain correct for all the remaining passes.  */
 
 extern int max_parallel;
@@ -1816,8 +1844,6 @@ extern GTY(()) rtx global_rtl[GR_MAX];
 #define arg_pointer_rtx		(global_rtl[GR_ARG_POINTER])
 
 extern GTY(()) rtx pic_offset_table_rtx;
-extern GTY(()) rtx struct_value_rtx;
-extern GTY(()) rtx struct_value_incoming_rtx;
 extern GTY(()) rtx static_chain_rtx;
 extern GTY(()) rtx static_chain_incoming_rtx;
 extern GTY(()) rtx return_address_pointer_rtx;
@@ -2010,6 +2036,7 @@ extern void delete_insns_since (rtx);
 extern void mark_reg_pointer (rtx, int);
 extern void mark_user_reg (rtx);
 extern void reset_used_flags (rtx);
+extern void set_used_flags (rtx);
 extern void reorder_insns (rtx, rtx, rtx);
 extern void reorder_insns_nobb (rtx, rtx, rtx);
 extern int get_max_uid (void);
@@ -2026,6 +2053,8 @@ extern void set_new_first_and_last_insn (rtx, rtx);
 extern void set_new_first_and_last_label_num (int, int);
 extern void set_new_last_label_num (int);
 extern void unshare_all_rtl_again (rtx);
+extern void unshare_all_rtl_in_chain (rtx);
+extern void verify_rtl_sharing (void);
 extern void set_first_insn (rtx);
 extern void set_last_insn (rtx);
 extern void link_cc0_insns (rtx);
@@ -2058,6 +2087,8 @@ extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
 #endif
+/* In web.c */
+extern void web_main (void);
 
 /* In sched.c.  */
 #ifdef BUFSIZ
@@ -2103,6 +2134,7 @@ extern void purge_hard_subreg_sets (rtx);
 /* In stmt.c */
 extern void set_file_and_line_for_stmt (location_t);
 extern void expand_null_return (void);
+extern void expand_naked_return (void);
 extern void emit_jump (rtx);
 extern int preserve_subexpressions_p (void);
 
@@ -2256,6 +2288,7 @@ extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 extern int read_dependence (rtx, rtx);
 extern int anti_dependence (rtx, rtx);
 extern int output_dependence (rtx, rtx);
+extern int unchanging_anti_dependence (rtx, rtx);
 extern void mark_constant_function (void);
 extern void init_alias_once (void);
 extern void init_alias_analysis (void);

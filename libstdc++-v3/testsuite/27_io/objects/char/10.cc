@@ -26,7 +26,7 @@ void test10()
 {
   using namespace std;
 
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char* name = "filebuf_virtuals-1.txt";
 
   FILE* ret = freopen(name, "r", stdin);
@@ -50,7 +50,7 @@ void test10()
   streamoff n = p2 - p1;
   VERIFY( n > 0 );
 	
-  for (streamoff i = 0; i < n; ++i)
+  for (int i = 0; i < n; ++i)
     {
       streampos p3 = cin.tellg();
       VERIFY( streamoff(p3) == i );

@@ -370,6 +370,11 @@ extern int flag_finite_math_only;
 
 extern int flag_trapping_math;
 
+/* Nonzero means disable transformations that assume default floating
+   point rounding behavior.  */
+
+extern int flag_rounding_math;
+
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex divide (not yet implemented).  */
@@ -440,6 +445,20 @@ extern int flag_schedule_interblock;
 extern int flag_schedule_speculative;
 extern int flag_schedule_speculative_load;
 extern int flag_schedule_speculative_load_dangerous;
+
+/* The following flags have an effect during scheduling after register
+   allocation:   
+
+   sched_stalled_insns means that insns can be moved prematurely from the queue
+   of stalled insns into the ready list.
+
+   sched_stalled_insns_dep controls how many recently scheduled cycles will 
+   be examined for a dependency on a stalled insn that is candidate for
+   premature removal from the queue of stalled insns into the ready list (has 
+   an effect only if the flag 'sched_stalled_insns' is set).  */
+
+extern int flag_sched_stalled_insns;
+extern int flag_sched_stalled_insns_dep;
 
 /* flag_branch_on_count_reg means try to replace add-1,compare,branch tupple
    by a cheaper branch, on a count register.  */
@@ -537,10 +556,6 @@ extern int flag_dump_rtl_in_asm;
    in generated assembly code.  */
 extern int flag_leading_underscore;
 
-/* -fgnu-linker specifies use of the GNU linker for initializations.
-   -fno-gnu-linker says that collect will be used.  */
-extern int flag_gnu_linker;
-
 /* Tag all structures with __attribute__(packed) */
 extern int flag_pack_struct;
 
@@ -606,6 +621,9 @@ extern int flag_trapv;
 /* Nonzero if the signed arithmetic overflow should wrap around.  */
 extern int flag_wrapv;
 
+/* Nonzero if subexpressions must be evaluated from left-to-right.  */
+extern int flag_evaluation_order;
+
 /* Value of the -G xx switch, and whether it was passed or not.  */
 extern unsigned HOST_WIDE_INT g_switch_value;
 extern bool g_switch_set;
@@ -660,6 +678,14 @@ extern int flag_gcse_lm;
 
 extern int flag_gcse_sm;
 
+/* Nonzero if we want to perform redundant load-after-store elimination
+   in gcse.  */
+
+extern int flag_gcse_las;
+
+/* Nonzero if value histograms should be used to optimize code.  */
+extern int flag_value_profile_transformations;
+
 /* Perform branch target register optimization before prologue / epilogue
    threading.  */
 
@@ -694,6 +720,12 @@ extern int flag_signaling_nans;
 
 extern int flag_unit_at_a_time;
 
+extern int flag_web;
+
+/* Nonzero means that we defer emitting functions until they are actually
+   used.  */
+extern int flag_remove_unreachable_functions;
+
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */
 
@@ -723,6 +755,6 @@ extern const char *flag_random_seed;
 /* Like HONOR_NANS, but true if given mode supports sign-dependent rounding,
    and the rounding mode is important.  */
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
-  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && !flag_unsafe_math_optimizations)
+  (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
 
 #endif /* ! GCC_FLAGS_H */

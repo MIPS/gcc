@@ -32,11 +32,9 @@ std::stringbuf strb_03(str_03, std::ios_base::out);
 // test overloaded virtual functions
 void test04() 
 {
-  bool 			test = true;
+  bool test __attribute__((unused)) = true;
   std::string 		str_tmp;
   std::stringbuf 		strb_tmp;
-  std::streamsize 		strmsz_1, strmsz_2;
-  std::streamoff  		strmof_1(-1), strmof_2;
   typedef std::stringbuf::int_type int_type;
   typedef std::stringbuf::traits_type traits_type;
   typedef std::stringbuf::pos_type pos_type;
@@ -45,8 +43,6 @@ void test04()
   int_type c1 = strb_01.sbumpc();
   int_type c2 = strb_02.sbumpc();
   int_type c3 = strb_01.sbumpc();
-  int_type c4 = strb_02.sbumpc();
-  int_type c5 = strb_03.sbumpc();
 
   pos_type pt_1(off_type(-1));
   pos_type pt_2(off_type(0));
@@ -67,10 +63,10 @@ void test04()
   //IN|OUT
   //beg
   pt_1 = strb_01.pubseekoff(2, std::ios_base::beg);
-  off_1 = pt_1;
+  off_1 = off_type(pt_1);
   VERIFY( off_1 >= 0 );
   pt_1 = strb_01.pubseekoff(0, std::ios_base::cur, std::ios_base::out);
-  off_1 = pt_1;
+  off_1 = off_type(pt_1);
   c1 = strb_01.snextc(); //current in pointer +1
   VERIFY( c1 == 'o' );
   c2 = strb_01.sputc('x');  //test current out pointer
@@ -78,7 +74,7 @@ void test04()
   VERIFY( strb_01.str() == str_tmp );
   strb_01.pubsync(); //resets pointers
   pt_2 = strb_01.pubseekpos(pt_1, std::ios_base::in|std::ios_base::out);
-  off_2 = pt_2;
+  off_2 = off_type(pt_2);
   VERIFY( off_1 == off_2 );
   c3 = strb_01.snextc(); //current in pointer +1
   VERIFY( c1 == c3 );

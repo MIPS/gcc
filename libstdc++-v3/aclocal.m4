@@ -1,4 +1,4 @@
-# generated automatically by aclocal 1.7.6 -*- Autoconf -*-
+# generated automatically by aclocal 1.7.8 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
 # Free Software Foundation, Inc.
@@ -10,6 +10,23 @@
 # but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
+
+
+dnl
+dnl GLIBCXX_CONDITIONAL (NAME, SHELL-TEST)
+dnl
+dnl Exactly like AM_CONDITIONAL, but delays evaluation of the test until the
+dnl end of configure.  This lets tested variables be reassigned, and the
+dnl conditional will depend on the final state of the variable.  For a simple
+dnl example of why this is needed, see GLIBCXX_ENABLE_HOSTED.
+dnl
+m4_define([_m4_divert(glibcxx_diversion)], 8000)dnl
+AC_DEFUN(GLIBCXX_CONDITIONAL, [dnl
+  m4_divert_text([glibcxx_diversion],dnl
+   AM_CONDITIONAL([$1],[$2])
+  )dnl
+])dnl
+AC_DEFUN(GLIBCXX_EVALUATE_CONDITIONALS, [m4_undivert([glibcxx_diversion])])dnl
 
 
 dnl
@@ -61,6 +78,7 @@ dnl variables like $host.
 dnl
 dnl Sets:
 dnl  gcc_version          (x.y.z format)
+dnl  SUBDIRS
 dnl Substs:
 dnl  glibcxx_builddir     (absolute path)
 dnl  glibcxx_srcdir       (absolute path)
@@ -74,6 +92,12 @@ dnl  - default settings for all AM_CONFITIONAL test variables
 dnl  - lots of tools, like CC and CXX
 dnl
 AC_DEFUN(GLIBCXX_CONFIGURE, [
+  # Keep these sync'd with the list in Makefile.am.  The first provides an
+  # expandable list at autoconf time; the second provides an expandable list
+  # (i.e., shell variable) at configure time.
+  m4_define([glibcxx_SUBDIRS],[include libmath libsupc++ src po testsuite])
+  SUBDIRS='glibcxx_SUBDIRS'
+
   # These need to be absolute paths, yet at the same time need to
   # canonicalize only relative paths, because then amd will not unmount
   # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
@@ -135,9 +159,6 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
   gcc_version=`$CXX -dumpversion`
   AC_MSG_RESULT($gcc_version)
 
-  # For some reason, gettext needs this.
-  AC_ISC_POSIX
-
   # Will set LN_S to either 'ln -s', 'ln', or 'cp -p' (if linking isn't
   # available).  Uncomment the next line to force a particular method.
   AC_PROG_LN_S
@@ -149,7 +170,10 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
 
   AM_MAINTAINER_MODE
 
-  # Set up safe default values for all subsequent AM_CONDITIONAL tests.
+  # Set up safe default values for all subsequent AM_CONDITIONAL tests
+  # which are themselves conditionally expanded.
+  ## (Right now, this only matters for enable_wchar_t, but nothing prevents
+  ## other macros from doing the same.  This should be automated.)  -pme
   need_libmath=no
   enable_wchar_t=no
   #enable_libstdcxx_debug=no
@@ -158,6 +182,7 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
   #c_compatibility=no
   #enable_abi_check=no
   #enable_symvers=no
+  #enable_hosted_libstdcxx=yes
 
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
@@ -166,6 +191,7 @@ AC_DEFUN(GLIBCXX_CONFIGURE, [
 
 
 m4_include([linkage.m4])
+m4_include([../config/no-executables.m4])
 
 
 dnl
@@ -370,12 +396,17 @@ AC_DEFUN(GLIBCXX_CHECK_WCHAR_T_SUPPORT, [
 
     # Checks for names injected into std:: by the c_std headers.
     AC_CHECK_FUNCS([btowc wctob fgetwc fgetws fputwc fputws fwide \
-    fwprintf fwscanf swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf \
-    vwprintf vwscanf wprintf wscanf getwc getwchar mbsinit mbrlen mbrtowc \
-    mbsrtowcs wcsrtombs putwc putwchar ungetwc wcrtomb wcstod wcstof wcstol \
+    fwprintf fwscanf swprintf swscanf vfwprintf vswprintf \
+    vwprintf wprintf wscanf getwc getwchar mbsinit mbrlen mbrtowc \
+    mbsrtowcs wcsrtombs putwc putwchar ungetwc wcrtomb wcstod wcstol \
     wcstoul wcscpy wcsncpy wcscat wcsncat wcscmp wcscoll wcsncmp wcsxfrm \
     wcscspn wcsspn wcstok wcsftime wcschr wcspbrk wcsrchr wcsstr],
     [],[ac_wfuncs=no])
+
+    # Checks for wide character functions that are not required
+    # for basic wchar_t support.  Don't disable support if they are missing.
+    # Injection of these is wrapped with guard macros.
+    AC_CHECK_FUNCS([vfwscanf vswscanf vwscanf wcstof iswblank],[],[])
 
     AC_MSG_CHECKING([for ISO C99 wchar_t support])
     if test x"$has_weof" = xyes &&
@@ -522,7 +553,7 @@ dnl Check whether poll is available in <poll.h>, and define HAVE_POLL.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_POLL, [
   AC_CACHE_VAL(glibcxx_cv_POLL, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <poll.h>],
       [struct pollfd pfd[1];
        pfd[0].events = POLLIN;
@@ -541,7 +572,7 @@ dnl Check whether writev is available in <sys/uio.h>, and define HAVE_WRITEV.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   AC_CACHE_VAL(glibcxx_cv_WRITEV, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <sys/uio.h>],
       [struct iovec iov[2];
        writev(0, iov, 0);],
@@ -551,6 +582,49 @@ AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   if test $glibcxx_cv_WRITEV = yes; then
     AC_DEFINE(HAVE_WRITEV)
   fi
+])
+
+
+dnl
+dnl Check whether int64_t is available in <stdint.h>, and define HAVE_INT64_T.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_INT64_T, [
+  AC_CACHE_VAL(glibcxx_cv_INT64_T, [
+    AC_TRY_COMPILE(
+      [#include <stdint.h>],
+      [int64_t var;],
+      [glibcxx_cv_INT64_T=yes],
+      [glibcxx_cv_INT64_T=no])
+  ])
+  if test $glibcxx_cv_INT64_T = yes; then
+    AC_DEFINE(HAVE_INT64_T)
+  fi
+])
+
+
+dnl
+dnl Check whether LFS support is available.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_LFS, [
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS	
+  AC_CACHE_VAL(glibcxx_cv_LFS, [
+    AC_TRY_LINK(
+      [#include <unistd.h>
+       #include <stdio.h>
+      ],
+      [FILE* fp;
+       fopen64("t", "w");
+       fseeko64(fp, 0, SEEK_CUR);
+       ftello64(fp);
+       lseek64(1, 0, SEEK_CUR);],	
+      [glibcxx_cv_LFS=yes],
+      [glibcxx_cv_LFS=no])
+  ])
+  if test $glibcxx_cv_LFS = yes; then
+    AC_DEFINE(_GLIBCXX_USE_LFS)
+  fi
+  AC_LANG_RESTORE	
 ])
 
 
@@ -566,32 +640,35 @@ dnl Substs:
 dnl  baseline_dir
 dnl
 AC_DEFUN(GLIBCXX_CONFIGURE_TESTSUITE, [
-  if $GLIBCXX_IS_NATIVE; then
+  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
     # Do checks for memory limit functions.
     GLIBCXX_CHECK_SETRLIMIT
 
     # Look for setenv, so that extended locale tests can be performed.
     GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+
+    if test $enable_symvers = no; then
+      enable_abi_check=no
+    else
+      case "$host" in
+        *-*-cygwin*)
+          enable_abi_check=no ;;
+        *)
+          enable_abi_check=yes ;;
+      esac
+    fi
+  else
+    # Only build this as native, since automake does not understand
+    # CXX_FOR_BUILD.
+    enable_abi_check=no
   fi
 
   # Export file names for ABI checking.
   baseline_dir="$glibcxx_srcdir/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
   AC_SUBST(baseline_dir)
 
-  # Determine if checking the ABI is desirable.
-  if test $enable_symvers = no; then
-    enable_abi_check=no
-  else
-    case "$host" in
-      *-*-cygwin*)
-        enable_abi_check=no ;;
-      *)
-        enable_abi_check=yes ;;
-    esac
-  fi
-
-  AM_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
-  AM_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_WCHAR_T, test $enable_wchar_t = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_TEST_ABI, test $enable_abi_check = yes)
 ])
 
 
@@ -601,27 +678,27 @@ dnl
 dnl Substs:
 dnl  GLIBCXX_INCLUDES
 dnl  TOPLEVEL_INCLUDES
-dnl  LIBMATH_INCLUDES
-dnl  LIBSUPCXX_INCLUDES
 dnl
 AC_DEFUN(GLIBCXX_EXPORT_INCLUDES, [
-  # Root level of the build directory include sources.
-  GLIBCXX_INCLUDES="-I$glibcxx_builddir/include/$host_alias -I$glibcxx_builddir/include"
+  # Used for every C++ compile we perform.
+  GLIBCXX_INCLUDES="\
+-I$glibcxx_builddir/include/$host_alias \
+-I$glibcxx_builddir/include \
+-I$glibcxx_srcdir/libsupc++"
 
-  # Passed down for canadian crosses.
+  # For Canadian crosses, pick this up too.
   if test $CANADIAN = yes; then
-    TOPLEVEL_INCLUDES='-I${includedir}'
+    GLIBCXX_INCLUDES="$GLIBCXX_INCLUDES -I\${includedir}"
   fi
 
-  LIBMATH_INCLUDES='-I${glibcxx_srcdir}/libmath'
-
-  LIBSUPCXX_INCLUDES='-I${glibcxx_srcdir}/libsupc++'
+  # Stuff in the actual top level.  Currently only used by libsupc++ to
+  # get unwind* headers from the gcc dir.
+  #TOPLEVEL_INCLUDES='-I$(toplevel_srcdir)/gcc -I$(toplevel_srcdir)/include'
+  TOPLEVEL_INCLUDES='-I$(toplevel_srcdir)/gcc'
 
   # Now, export this to all the little Makefiles....
   AC_SUBST(GLIBCXX_INCLUDES)
   AC_SUBST(TOPLEVEL_INCLUDES)
-  AC_SUBST(LIBMATH_INCLUDES)
-  AC_SUBST(LIBSUPCXX_INCLUDES)
 ])
 
 
@@ -640,7 +717,7 @@ AC_DEFUN(GLIBCXX_EXPORT_FLAGS, [
   OPTIMIZE_CXXFLAGS=
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
-  WARN_FLAGS='-Wall -Wno-format -W -Wwrite-strings'
+  WARN_FLAGS='-Wall -W -Wwrite-strings -Wcast-qual'
   AC_SUBST(WARN_FLAGS)
 ])
 
@@ -903,9 +980,9 @@ AC_DEFUN(GLIBCXX_ENABLE_CHEADERS, [
   C_INCLUDE_DIR='${glibcxx_srcdir}/include/'$enable_cheaders
 
   AC_SUBST(C_INCLUDE_DIR)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_C, test $enable_cheaders = c)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_C_STD, test $enable_cheaders = c_std)
-  AM_CONDITIONAL(GLIBCXX_C_HEADERS_COMPATIBILITY, test $c_compatibility = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C, test $enable_cheaders = c)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C_STD, test $enable_cheaders = c_std)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_COMPATIBILITY, test $c_compatibility = yes)
 ])
 
 
@@ -935,7 +1012,7 @@ AC_DEFUN(GLIBCXX_ENABLE_CLOCALE, [
   # Default to "generic".
   if test $enable_clocale_flag = auto; then
     case x${target_os} in
-      xlinux* | xgnu*)
+      xlinux* | xgnu* | xkfreebsd*-gnu | xknetbsd*-gnu)
         AC_EGREP_CPP([_GLIBCXX_ok], [
         #include <features.h>
         #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2)
@@ -1132,11 +1209,7 @@ AC_DEFUN(GLIBCXX_ENABLE_CSTDIO, [
       ;;
   esac
 
-  dnl Set directory for fpos.h
-  FPOS_H=$fpos_include_dir
-
   AC_SUBST(CSTDIO_H)
-  AC_SUBST(FPOS_H)
   AC_SUBST(BASIC_FILE_H)
   AC_SUBST(BASIC_FILE_CC)
 ])
@@ -1219,7 +1292,7 @@ AC_DEFUN(GLIBCXX_ENABLE_DEBUG, [
   AC_MSG_CHECKING([for additional debug build])
   GLIBCXX_ENABLE(libstdcxx-debug,$1,,[build extra debug library])
   AC_MSG_RESULT($enable_libstdcxx_debug)
-  AM_CONDITIONAL(GLIBCXX_BUILD_DEBUG, test $enable_libstdcxx_debug = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_DEBUG, test $enable_libstdcxx_debug = yes)
 ])
 
 
@@ -1249,6 +1322,41 @@ AC_DEFUN(GLIBCXX_ENABLE_DEBUG_FLAGS, [
   AC_SUBST(DEBUG_FLAGS)
 
   AC_MSG_NOTICE([Debug build flags set to $DEBUG_FLAGS])
+])
+
+
+dnl
+dnl Check if the user only wants a freestanding library implementation.
+dnl
+dnl --disable-hosted-libstdcxx will turn off most of the library build,
+dnl installing only the headers required by [17.4.1.3] and the language
+dnl support library.  More than that will be built (to keep the Makefiles
+dnl conveniently clean), but not installed.
+dnl
+dnl Sets:
+dnl  is_hosted  (yes/no)
+dnl
+dnl Defines:
+dnl  _GLIBCXX_HOSTED   (always defined, either to 1 or 0)
+dnl
+AC_DEFUN(GLIBCXX_ENABLE_HOSTED, [
+  AC_ARG_ENABLE([hosted-libstdcxx],
+    AC_HELP_STRING([--disable-hosted-libstdcxx],
+                   [only build freestanding C++ runtime support]),,
+    [enable_hosted_libstdcxx=yes])
+  if test "$enable_hosted_libstdcxx" = no; then
+    AC_MSG_NOTICE([Only freestanding libraries will be built])
+    is_hosted=no
+    hosted_define=0
+    enable_abi_check=no
+    enable_libstdcxx_pch=no
+  else
+    is_hosted=yes
+    hosted_define=1
+  fi
+  GLIBCXX_CONDITIONAL(GLIBCXX_HOSTED, test $is_hosted = yes)
+  AC_DEFINE_UNQUOTED(_GLIBCXX_HOSTED, $hosted_define,
+    [Define to 1 if a full hosted library is built, or 0 if freestanding.])
 ])
 
 
@@ -1357,7 +1465,7 @@ AC_DEFUN(GLIBCXX_ENABLE_PCH, [
     enable_libstdcxx_pch=$glibcxx_cv_prog_CXX_pch
   fi
 
-  AM_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
+  GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
     glibcxx_PCHFLAGS="-include bits/stdc++.h"
   else
@@ -1529,7 +1637,7 @@ esac
 
 AC_SUBST(SYMVER_MAP)
 AC_SUBST(port_specific_symbol_files)
-AM_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
+GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 
@@ -1601,6 +1709,50 @@ AC_DEFUN([AC_PROG_LD])
 
 dnl vim:et:ts=2:sw=2
 
+# AM_CONDITIONAL                                              -*- Autoconf -*-
+
+# Copyright 1997, 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# serial 5
+
+AC_PREREQ(2.52)
+
+# AM_CONDITIONAL(NAME, SHELL-CONDITION)
+# -------------------------------------
+# Define a conditional.
+AC_DEFUN([AM_CONDITIONAL],
+[ifelse([$1], [TRUE],  [AC_FATAL([$0: invalid condition: $1])],
+        [$1], [FALSE], [AC_FATAL([$0: invalid condition: $1])])dnl
+AC_SUBST([$1_TRUE])
+AC_SUBST([$1_FALSE])
+if $2; then
+  $1_TRUE=
+  $1_FALSE='#'
+else
+  $1_TRUE='#'
+  $1_FALSE=
+fi
+AC_CONFIG_COMMANDS_PRE(
+[if test -z "${$1_TRUE}" && test -z "${$1_FALSE}"; then
+  AC_MSG_ERROR([conditional "$1" was never defined.
+Usually this means the macro was only invoked conditionally.])
+fi])])
+
 # Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -1669,33 +1821,6 @@ multi_basedir="$multi_basedir"
 CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 CC="$CC"])])dnl
 
-# isc-posix.m4 serial 2 (gettext-0.11.2)
-dnl Copyright (C) 1995-2002 Free Software Foundation, Inc.
-dnl This file is free software, distributed under the terms of the GNU
-dnl General Public License.  As a special exception to the GNU General
-dnl Public License, this file may be distributed as part of a program
-dnl that contains a configuration script generated by Autoconf, under
-dnl the same distribution terms as the rest of that program.
-
-# This file is not needed with autoconf-2.53 and newer.  Remove it in 2005.
-
-# This test replaces the one in autoconf.
-# Currently this macro should have the same name as the autoconf macro
-# because gettext's gettext.m4 (distributed in the automake package)
-# still uses it.  Otherwise, the use in gettext.m4 makes autoheader
-# give these diagnostics:
-#   configure.in:556: AC_TRY_COMPILE was called before AC_ISC_POSIX
-#   configure.in:556: AC_TRY_RUN was called before AC_ISC_POSIX
-
-undefine([AC_ISC_POSIX])
-
-AC_DEFUN([AC_ISC_POSIX],
-  [
-    dnl This test replaces the obsolescent AC_ISC_POSIX kludge.
-    AC_CHECK_LIB(cposix, strerror, [LIBS="$LIBS -lcposix"])
-  ]
-)
-
 # Add --enable-maintainer-mode option to configure.
 # From Jim Meyering
 
@@ -1734,50 +1859,6 @@ AC_DEFUN([AM_MAINTAINER_MODE],
 )
 
 AU_DEFUN([jm_MAINTAINER_MODE], [AM_MAINTAINER_MODE])
-
-# AM_CONDITIONAL                                              -*- Autoconf -*-
-
-# Copyright 1997, 2000, 2001 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
-
-# serial 5
-
-AC_PREREQ(2.52)
-
-# AM_CONDITIONAL(NAME, SHELL-CONDITION)
-# -------------------------------------
-# Define a conditional.
-AC_DEFUN([AM_CONDITIONAL],
-[ifelse([$1], [TRUE],  [AC_FATAL([$0: invalid condition: $1])],
-        [$1], [FALSE], [AC_FATAL([$0: invalid condition: $1])])dnl
-AC_SUBST([$1_TRUE])
-AC_SUBST([$1_FALSE])
-if $2; then
-  $1_TRUE=
-  $1_FALSE='#'
-else
-  $1_TRUE='#'
-  $1_FALSE=
-fi
-AC_CONFIG_COMMANDS_PRE(
-[if test -z "${$1_TRUE}" && test -z "${$1_FALSE}"; then
-  AC_MSG_ERROR([conditional "$1" was never defined.
-Usually this means the macro was only invoked conditionally.])
-fi])])
 
 # Do all the work for Automake.                            -*- Autoconf -*-
 
@@ -1931,7 +2012,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.7"])
 # Call AM_AUTOMAKE_VERSION so it can be traced.
 # This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-	 [AM_AUTOMAKE_VERSION([1.7.6])])
+	 [AM_AUTOMAKE_VERSION([1.7.8])])
 
 # Helper functions for option handling.                    -*- Autoconf -*-
 

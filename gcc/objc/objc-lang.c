@@ -83,11 +83,16 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_DECL_PRINTABLE_NAME objc_printable_name
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL c_warn_unused_global_decl
+#undef LANG_HOOKS_DECL_UNINIT
+#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
 
 #undef LANG_HOOKS_FUNCTION_ENTER_NESTED
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
 #undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
+
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

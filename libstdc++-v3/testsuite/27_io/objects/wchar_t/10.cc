@@ -22,12 +22,12 @@
 #include <cstdio>
 #include <testsuite_hooks.h>
 
-// Test handling of UTF-8 in wcin and wcout
+// Test handling of UTF-8 in wcin
 void test10()
 {
   using namespace std;
   
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char* name = "tmp_10";
 
   locale loc(__gnu_test::try_named_locale("se_NO.UTF-8"));
@@ -87,18 +87,9 @@ void test10()
   };
   size_t i_size = wcslen(i_lit);
 
-  freopen(name, "w", stdout);
-  
-  wcout.write(i_lit, i_size);
-  wcout.flush();
-  VERIFY( wcout.good() );
-
-  FILE* file = fopen(name, "r");
-  char* buf = new char[e_size + 10];
-  size_t n = fread(buf, 1, e_size + 10, file);
+  FILE* file = fopen(name, "w");
+  size_t n = fwrite(e_lit, 1, e_size, file);
   VERIFY( n == e_size );
-  VERIFY( !memcmp(buf, e_lit, e_size) );
-  delete[] buf;
   fclose(file);
 
   freopen(name, "r", stdin);

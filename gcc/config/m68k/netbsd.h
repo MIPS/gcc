@@ -6,17 +6,8 @@
       builtin_define_std ("m68k");		\
       builtin_define_std ("mc68000");		\
       builtin_define_std ("mc68020");		\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
     }						\
   while (0)
-
-#include <m68k/m68k.h>
-
-/* Get generic NetBSD definitions.  */
-
-#include <netbsd.h>
-#include <netbsd-aout.h>
 
 #define TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
 

@@ -25,7 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hashtable.h"
 
-#ifdef HAVE_ICONV
+#if defined HAVE_ICONV_H && defined HAVE_ICONV
 #include <iconv.h>
 #else
 #define HAVE_ICONV 0
@@ -35,10 +35,10 @@ typedef int iconv_t;  /* dummy */
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
-struct strbuf;
+struct _cpp_strbuf;
 
 typedef bool (*convert_f) (iconv_t, const unsigned char *, size_t,
-			   struct strbuf *);
+			   struct _cpp_strbuf *);
 struct cset_converter
 {
   convert_f func;
@@ -400,7 +400,7 @@ struct cpp_reader
      directory.  */
   bool quote_ignores_source_dir;
 
-  /* Non-zero if any file has contained #pragma once or #import has
+  /* Nonzero if any file has contained #pragma once or #import has
      been used.  */
   bool seen_once_only;
 

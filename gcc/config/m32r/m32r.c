@@ -2,20 +2,20 @@
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -69,27 +69,27 @@ static int m32r_sched_odd_word_p;
 #define LIT_NAME_P(NAME) ((NAME)[0] == '*' && (NAME)[1] == '.')
 
 /* Forward declaration.  */
-static void  init_reg_tables			PARAMS ((void));
-static void  block_move_call			PARAMS ((rtx, rtx, rtx));
-static int   m32r_is_insn			PARAMS ((rtx));
+static void  init_reg_tables (void);
+static void  block_move_call (rtx, rtx, rtx);
+static int   m32r_is_insn (rtx);
 const struct attribute_spec m32r_attribute_table[];
-static tree  m32r_handle_model_attribute PARAMS ((tree *, tree, tree, int, bool *));
-static void  m32r_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static void  m32r_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static tree  m32r_handle_model_attribute (tree *, tree, tree, int, bool *);
+static void  m32r_output_function_prologue (FILE *, HOST_WIDE_INT);
+static void  m32r_output_function_epilogue (FILE *, HOST_WIDE_INT);
 
-static void  m32r_file_start PARAMS ((void));
+static void  m32r_file_start (void);
 
-static int    m32r_adjust_cost 	   PARAMS ((rtx, rtx, rtx, int));
-static int    m32r_adjust_priority PARAMS ((rtx, int));
-static void   m32r_sched_init	   PARAMS ((FILE *, int, int));
-static int    m32r_sched_reorder   PARAMS ((FILE *, int, rtx *, int *, int));
-static int    m32r_variable_issue  PARAMS ((FILE *, int, rtx, int));
-static int    m32r_issue_rate	   PARAMS ((void));
+static int    m32r_adjust_cost (rtx, rtx, rtx, int);
+static int    m32r_adjust_priority (rtx, int);
+static void   m32r_sched_init (FILE *, int, int);
+static int    m32r_sched_reorder (FILE *, int, rtx *, int *, int);
+static int    m32r_variable_issue (FILE *, int, rtx, int);
+static int    m32r_issue_rate (void);
 
-static void m32r_encode_section_info PARAMS ((tree, rtx, int));
-static bool m32r_in_small_data_p PARAMS ((tree));
-static void init_idents PARAMS ((void));
-static bool m32r_rtx_costs PARAMS ((rtx, int, int, int *));
+static void m32r_encode_section_info (tree, rtx, int);
+static bool m32r_in_small_data_p (tree);
+static void init_idents (void);
+static bool m32r_rtx_costs (rtx, int, int, int *);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -249,13 +249,10 @@ init_reg_tables ()
 	    m32r_mode_class[i] = 0;
 	  break;
 	case MODE_CC:
+	  m32r_mode_class[i] = 1 << (int) C_MODE;
+	  break;
 	default:
-	  /* mode_class hasn't been initialized yet for EXTRA_CC_MODES, so
-	     we must explicitly check for them here.  */
-	  if (i == (int) CCmode)
-	    m32r_mode_class[i] = 1 << (int) C_MODE;
-	  else
-	    m32r_mode_class[i] = 0;
+	  m32r_mode_class[i] = 0;
 	  break;
 	}
     }

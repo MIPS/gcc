@@ -28,9 +28,11 @@ details.  */
 #include <java/lang/Long.h>
 #include <java/lang/Float.h>
 #include <java/lang/Double.h>
+#include <java/lang/IllegalAccessException.h>
 #include <java/lang/IllegalArgumentException.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
+#include <java/lang/VirtualMachineError.h>
 #include <java/lang/Class.h>
 #include <gcj/method.h>
 #include <gnu/gcj/RawData.h>
@@ -140,48 +142,51 @@ get_ffi_type (jclass klass)
 jobject
 java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 {
+  using namespace java::lang::reflect;
+  
   if (parameter_types == NULL)
     getType ();
-
-  gnu::gcj::runtime::StackTrace *t 
-    = new gnu::gcj::runtime::StackTrace(4);
-  Class *caller = NULL;
-  try
-    {
-      for (int i = 1; !caller; i++)
-	{
-	  caller = t->classAt (i);
-	}
-    }
-  catch (::java::lang::ArrayIndexOutOfBoundsException *e)
-    {
-    }
-
+    
   jmethodID meth = _Jv_FromReflectedMethod (this);
-  jclass klass;
-  if (! java::lang::reflect::Modifier::isStatic(meth->accflags))
-    {
-      if (! obj)
-	throw new java::lang::NullPointerException;
-      klass = obj->getClass();
-      if (! declaringClass->isAssignableFrom(klass))
-	throw new java::lang::IllegalArgumentException;
 
-      // Find the possibly overloaded method based on the runtime type
-      // of the object.
-      meth = _Jv_LookupDeclaredMethod (klass, meth->name, meth->signature);
-    }
-  else
+  jclass objClass;
+  
+  if (Modifier::isStatic(meth->accflags))
     {
       // We have to initialize a static class.  It is safe to do this
       // here and not in _Jv_CallAnyMethodA because JNI initializes a
       // class whenever a method lookup is done.
       _Jv_InitClass (declaringClass);
-      klass = declaringClass;
+      objClass = declaringClass;
+    }
+  else
+    {
+      objClass = JV_CLASS (obj);
+     
+      if (! _Jv_IsAssignableFrom (declaringClass, objClass))
+        throw new java::lang::IllegalArgumentException;
     }
 
-  if (! isAccessible() && ! _Jv_CheckAccess(caller, klass, meth->accflags))
-    throw new IllegalArgumentException;
+  // Check accessibility, if required.
+  if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
+    {
+      gnu::gcj::runtime::StackTrace *t 
+	= new gnu::gcj::runtime::StackTrace(4);
+      Class *caller = NULL;
+      try
+	{
+	  for (int i = 1; !caller; i++)
+	    {
+	      caller = t->classAt (i);
+	    }
+	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
+
+      if (! _Jv_CheckAccess(caller, objClass, meth->accflags))
+	throw new IllegalAccessException;
+    }
 
   return _Jv_CallAnyMethodA (obj, return_type, meth, false,
 			     parameter_types, args);
@@ -309,9 +314,8 @@ _Jv_GetTypesFromSignature (jmethodID method,
 	  break;
 	}
 
-      // FIXME: 2'nd argument should be "current loader"
       while (--num_arrays >= 0)
-	type = _Jv_GetArrayClass (type, 0);
+	type = _Jv_GetArrayClass (type, loader);
       // ARGPTR can be NULL if we are processing the return value of a
       // call from Constructor.
       if (argPtr)
@@ -328,15 +332,19 @@ _Jv_GetTypesFromSignature (jmethodID method,
 // to a `jvalue' (see jni.h); for a void method this should be NULL.
 // This function returns an exception (if one was thrown), or NULL if
 // the call went ok.
-jthrowable
+void
 _Jv_CallAnyMethodA (jobject obj,
 		    jclass return_type,
 		    jmethodID meth,
 		    jboolean is_constructor,
+		    jboolean is_virtual_call,
 		    JArray<jclass> *parameter_types,
 		    jvalue *args,
-		    jvalue *result)
+		    jvalue *result,
+		    jboolean is_jni_call)
 {
+  using namespace java::lang::reflect;
+  
 #ifdef USE_LIBFFI
   JvAssert (! is_constructor || ! obj);
   JvAssert (! is_constructor || return_type);
@@ -345,7 +353,7 @@ _Jv_CallAnyMethodA (jobject obj,
   // constructor does need a `this' argument, but it is one we create.
   jboolean needs_this = false;
   if (is_constructor
-      || ! java::lang::reflect::Modifier::isStatic(meth->accflags))
+      || ! Modifier::isStatic(meth->accflags))
     needs_this = true;
 
   int param_count = parameter_types->length;
@@ -409,14 +417,10 @@ _Jv_CallAnyMethodA (jobject obj,
 
   if (ffi_prep_cif (&cif, FFI_DEFAULT_ABI, param_count,
 		    rtype, argtypes) != FFI_OK)
-    {
-      // FIXME: throw some kind of VirtualMachineError here.
-    }
+    throw new java::lang::VirtualMachineError(JvNewStringLatin1("internal error: ffi_prep_cif failed"));
 
   using namespace java::lang;
   using namespace java::lang::reflect;
-
-  Throwable *ex = NULL;
 
   union
   {
@@ -427,17 +431,63 @@ _Jv_CallAnyMethodA (jobject obj,
     jdouble d;
   } ffi_result;
 
+  switch (rtype->type)
+    {
+    case FFI_TYPE_VOID:
+      break;
+    case FFI_TYPE_SINT8:
+      result->b = 0;
+      break;
+    case FFI_TYPE_SINT16:
+      result->s = 0;
+      break;
+    case FFI_TYPE_UINT16:
+      result->c = 0;
+      break;
+    case FFI_TYPE_SINT32:
+      result->i = 0;
+      break;
+    case FFI_TYPE_SINT64:
+      result->j = 0;
+      break;
+    case FFI_TYPE_FLOAT:
+      result->f = 0;
+      break;
+    case FFI_TYPE_DOUBLE:
+      result->d = 0;
+      break;
+    case FFI_TYPE_POINTER:
+      result->l = 0;
+      break;
+    default:
+      JvFail ("Unknown ffi_call return type");
+      break;
+    }
+
+  void *ncode;
+
+  if (is_virtual_call && ! Modifier::isFinal (meth->accflags))
+    {
+      _Jv_VTable *vtable = *(_Jv_VTable **) obj;
+      ncode = vtable->get_method (meth->index);
+    }
+  else
+    {
+      ncode = meth->ncode;
+    }
+
   try
     {
-      ffi_call (&cif, (void (*)()) meth->ncode, &ffi_result, values);
+      ffi_call (&cif, (void (*)()) ncode, &ffi_result, values);
     }
-  catch (Throwable *ex2)
+  catch (Throwable *ex)
     {
-      // FIXME: this is wrong for JNI.  But if we just return the
-      // exception, then the non-JNI cases won't be able to
-      // distinguish it from exceptions we might generate ourselves.
-      // Sigh.
-      ex = new InvocationTargetException (ex2);
+      // For JNI we just throw the real error.  For reflection, we
+      // wrap the underlying method's exception in an
+      // InvocationTargetException.
+      if (! is_jni_call)
+	ex = new InvocationTargetException (ex);
+      throw ex;
     }
 
   // Since ffi_call returns integer values promoted to a word, use
@@ -481,11 +531,8 @@ _Jv_CallAnyMethodA (jobject obj,
 	  break;
 	}
     }
-
-  return ex;
 #else
-  throw new java::lang::UnsupportedOperationException;
-  return 0;
+  throw new java::lang::UnsupportedOperationException(JvNewStringLatin1("reflection not available in this build"));
 #endif // USE_LIBFFI
 }
 
@@ -562,16 +609,10 @@ _Jv_CallAnyMethodA (jobject obj,
     }
 
   jvalue ret_value;
-  java::lang::Throwable *ex = _Jv_CallAnyMethodA (obj,
-						  return_type,
-						  meth,
-						  is_constructor,
-						  parameter_types,
-						  argvals,
-						  &ret_value);
-
-  if (ex)
-    throw ex;
+  _Jv_CallAnyMethodA (obj, return_type, meth, is_constructor,
+  		      _Jv_isVirtualMethod (meth),
+		      parameter_types, argvals, &ret_value,
+		      false);
 
   jobject r;
 #define VAL(Wrapper, Field)  (new Wrapper (ret_value.Field))

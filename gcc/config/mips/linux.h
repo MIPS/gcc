@@ -2,20 +2,20 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -55,12 +55,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_OS_CPP_BUILTINS()				\
     do {							\
-	builtin_define ("__gnu_linux__");			\
+	LINUX_TARGET_OS_CPP_BUILTINS();				\
 	builtin_define ("__PIC__");				\
 	builtin_define ("__pic__");				\
-	builtin_define_std ("unix");				\
-	builtin_define_std ("linux");				\
-	builtin_assert ("system=linux");			\
 	/* The GNU C++ standard library requires this.  */	\
 	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
@@ -81,7 +78,8 @@ Boston, MA 02111-1307, USA.  */
       }								\
      else							\
       {								\
-        builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");		\
+	builtin_define ("_ABIO32=1");			\
+	builtin_define ("_MIPS_SIM=_ABIO32");		\
         builtin_define ("_MIPS_SZLONG=32");			\
         builtin_define ("_MIPS_SZPTR=32");			\
       }								\
@@ -171,7 +169,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
-#define FUNCTION_NAME_ALREADY_DECLARED
+#undef FUNCTION_NAME_ALREADY_DECLARED
+#define FUNCTION_NAME_ALREADY_DECLARED 1
 
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
   (flag_pic								\
@@ -190,3 +189,75 @@ Boston, MA 02111-1307, USA.  */
 %{!static:-rpath-link %R/lib:%R/usr/lib} \
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
+
+#ifndef inhibit_libc
+/* Do code reading to identify a signal frame, and set the frame
+   state data appropriately.  See unwind-dw2.c for the structs.  */
+#ifdef IN_LIBGCC2
+#include <signal.h>
+
+/* The third parameter to the signal handler points to something with
+ * this structure defined in asm/ucontext.h, but the name clashes with
+ * struct ucontext from sys/ucontext.h so this private copy is used. */
+typedef struct _sig_ucontext {
+    unsigned long         uc_flags;
+    struct _sig_ucontext  *uc_link;
+    stack_t               uc_stack;
+    struct sigcontext uc_mcontext;
+    sigset_t      uc_sigmask;
+} _sig_ucontext_t;
+
+#endif /* IN_LIBGCC2  */
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)            \
+  do {                                                               \
+    u_int32_t *pc_ = (u_int32_t *) (CONTEXT)->ra;                \
+    struct sigcontext *sc_;                                          \
+    _Unwind_Ptr new_cfa_;                                            \
+    int i_;                                                          \
+                                                                     \
+    /* 24021061 li v0, 0x1061 (rt_sigreturn)*/                       \
+    /* 0000000c syscall    */                                        \
+    /*    or */                                                      \
+    /* 24021017 li v0, 0x1017 (sigreturn) */                         \
+    /* 0000000c syscall  */                                          \
+    if (*(pc_ + 1) != 0x0000000c)                                    \
+      break;                                                         \
+    if (*(pc_ + 0) == 0x24021017)                                    \
+      {                                                              \
+        struct sigframe {                                            \
+          u_int32_t  trampoline[2];                                \
+          struct sigcontext sigctx;                                  \
+        } *rt_ = (CONTEXT)->ra;                                      \
+        sc_ = &rt_->sigctx;                                          \
+      }                                                              \
+    else if (*(pc_ + 0) == 0x24021061)                               \
+      {                                                              \
+        struct rt_sigframe {                                         \
+          u_int32_t  trampoline[2];                                \
+          struct siginfo info;                                       \
+          _sig_ucontext_t uc;                                        \
+        } *rt_ = (CONTEXT)->ra;                                      \
+        sc_ = &rt_->uc.uc_mcontext;                                  \
+      }                                                              \
+    else                                                             \
+      break;                                                         \
+                                                                     \
+    new_cfa_ = (_Unwind_Ptr)sc_;                                     \
+    (FS)->cfa_how = CFA_REG_OFFSET;                                  \
+    (FS)->cfa_reg = STACK_POINTER_REGNUM;                            \
+    (FS)->cfa_offset = new_cfa_ - (_Unwind_Ptr) (CONTEXT)->cfa;      \
+                                                                     \
+    for (i_ = 0; i_ < 32; i_++) {                                    \
+      (FS)->regs.reg[i_].how = REG_SAVED_OFFSET;                     \
+      (FS)->regs.reg[i_].loc.offset                                  \
+        = (_Unwind_Ptr)&(sc_->sc_regs[i_]) - new_cfa_;               \
+    }                                                                \
+    (FS)->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].how = REG_SAVED_OFFSET; \
+    (FS)->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].loc.offset           \
+        = (_Unwind_Ptr)&(sc_->sc_pc) - new_cfa_;                     \
+    (FS)->retaddr_column = SIGNAL_UNWIND_RETURN_COLUMN;              \
+                                                                     \
+    goto SUCCESS;                                                    \
+  } while (0)
+#endif

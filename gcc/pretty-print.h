@@ -203,6 +203,8 @@ struct pretty_print_info
     pp_base_indent (pp_base (PP));   \
     pp_needs_newline (PP) = false;   \
   } while (0)
+#define pp_maybe_newline_and_indent(PP, N) \
+  if (pp_needs_newline (PP)) pp_newline_and_indent (PP, N)
 #define pp_separate_with(PP, C)     \
    do {                             \
      pp_character (PP, C);          \
@@ -232,7 +234,7 @@ struct pretty_print_info
 
 #define pp_buffer(PP) pp_base (PP)->buffer
 /* Clients that directly derive from pretty_printer need to override
-   this macro to return a pointer to the base pretty_printer structrure.  */
+   this macro to return a pointer to the base pretty_printer structure.  */
 #define pp_base(PP) (PP)
 
 extern void pp_construct (pretty_printer *, const char *, int);

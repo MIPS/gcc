@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -44,17 +44,17 @@ details.  */
 /////////// java.lang.ClassLoader native methods ////////////
 
 java::lang::Class *
-java::lang::ClassLoader::defineClass0 (jstring name,
-				       jbyteArray data, 
-				       jint offset,
-				       jint length,
-				       java::security::ProtectionDomain *pd)
+java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
+					jstring name,
+					jbyteArray data, 
+					jint offset,
+					jint length,
+					java::security::ProtectionDomain *pd)
 {
 #ifdef INTERPRETER
   jclass klass;
   klass = (jclass) JvAllocObject (&java::lang::Class::class$,
 				  sizeof (_Jv_InterpClass));
-  _Jv_InitNewClassFields (klass);
 
   // Synchronize on the class, so that it is not attempted initialized
   // until we're done loading.
@@ -62,8 +62,8 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 
   // Record the defining loader.  For the system class loader, we
   // record NULL.
-  if (this != java::lang::ClassLoader::getSystemClassLoader())
-    klass->loader = this;
+  if (loader != java::lang::ClassLoader::getSystemClassLoader())
+    klass->loader = loader;
 
   if (name != 0)
     {
@@ -105,6 +105,47 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 #endif
 }
 
+// Finish linking a class.  Only called from ClassLoader::resolveClass.
+void
+java::lang::VMClassLoader::linkClass0 (java::lang::Class *klass)
+{
+  _Jv_WaitForState (klass, JV_STATE_LINKED);
+}
+
+void
+java::lang::VMClassLoader::markClassErrorState0 (java::lang::Class *klass)
+{
+  klass->state = JV_STATE_ERROR;
+  klass->notifyAll ();
+}
+
+java::lang::ClassLoader *
+java::lang::VMClassLoader::getSystemClassLoaderInternal()
+{
+  _Jv_InitClass (&gnu::gcj::runtime::VMClassLoader::class$);
+  return gnu::gcj::runtime::VMClassLoader::instance;
+}
+
+jclass
+java::lang::VMClassLoader::getPrimitiveClass (jchar type)
+{
+  char sig[2];
+  sig[0] = (char) type;
+  sig[1] = '\0';
+  return _Jv_FindClassFromSignature (sig, NULL);
+}
+
+jclass
+java::lang::VMClassLoader::loadClass(jstring name, jboolean resolve)
+{
+  _Jv_Utf8Const *utf = _Jv_makeUtf8Const (name);
+  // FIXME: we culd make _Jv_FindClassFromSignature a template.
+  jclass klass = _Jv_FindClassInCache (utf, NULL);
+  if (klass && resolve)
+    _Jv_InitClass (klass);
+  return klass;
+}
+
 void
 _Jv_WaitForState (jclass klass, int state)
 {
@@ -139,39 +180,6 @@ _Jv_WaitForState (jclass klass, int state)
 
   if (klass->state == JV_STATE_ERROR)
     throw new java::lang::LinkageError;
-}
-
-// Finish linking a class.  Only called from ClassLoader::resolveClass.
-void
-java::lang::ClassLoader::linkClass0 (java::lang::Class *klass)
-{
-  _Jv_WaitForState (klass, JV_STATE_LINKED);
-}
-
-void
-java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
-{
-  klass->state = JV_STATE_ERROR;
-  klass->notifyAll ();
-}
-
-jclass
-java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *cl, 
-					jstring name,
-					jbyteArray data, 
-					jint offset,
-					jint length)
-{
-  return cl->defineClass (name, data, offset, length);
-}
-
-jclass
-java::lang::VMClassLoader::getPrimitiveClass (jchar type)
-{
-  char sig[2];
-  sig[0] = (char) type;
-  sig[1] = '\0';
-  return _Jv_FindClassFromSignature (sig, NULL);
 }
 
 typedef unsigned int uaddr __attribute__ ((mode (pointer)));
@@ -281,7 +289,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 //  The set of initiating class loaders are used to ensure
 //  safety of linking, and is maintained in the hash table
 //  "initiated_classes".  A defining classloader is by definition also
-//  initiating, so we only store classes in this table, if they have more
+//  initiating, so we only store classes in this table if they have more
 //  than one class loader associated.
 //
 
@@ -512,43 +520,11 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
   return klass;
 }
 
-void
-_Jv_InitNewClassFields (jclass ret)
-{
-  ret->next = NULL;
-  ret->name = NULL;
-  ret->accflags = 0;
-  ret->superclass = NULL;
-  ret->constants.size = 0;
-  ret->constants.tags = NULL;
-  ret->constants.data = NULL;
-  ret->methods = NULL;
-  ret->method_count = 0;
-  ret->vtable_method_count = 0;
-  ret->fields = NULL;
-  ret->size_in_bytes = 0;
-  ret->field_count = 0;
-  ret->static_field_count = 0;
-  ret->vtable = NULL;
-  ret->interfaces = NULL;
-  ret->loader = NULL;
-  ret->interface_count = 0;
-  ret->state = JV_STATE_NOTHING;
-  ret->thread = NULL;
-  ret->depth = 0;
-  ret->ancestors = NULL;
-  ret->idt = NULL;
-  ret->arrayclass = NULL;
-  ret->protectionDomain = NULL;
-  ret->chain = NULL;
-}
-
 jclass
 _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 	      java::lang::ClassLoader *loader)
 {
   jclass ret = (jclass) JvAllocObject (&java::lang::Class::class$);
-  _Jv_InitNewClassFields (ret);
   ret->name = name;
   ret->superclass = superclass;
   ret->loader = loader;

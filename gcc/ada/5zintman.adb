@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -53,26 +53,35 @@ with Interfaces.C;
 with System.OS_Interface;
 --  used for various Constants, Signal and types
 
+with Ada.Exceptions;
+--  used for Raise_Exception
+
 package body System.Interrupt_Management is
 
+   use Ada.Exceptions;
    use System.OS_Interface;
    use type Interfaces.C.int;
 
-   type Interrupt_List is array (Interrupt_ID range <>) of Interrupt_ID;
-   Exception_Interrupts : constant Interrupt_List (1 .. 4) :=
-     (SIGFPE, SIGILL, SIGSEGV, SIGBUS);
+   type Signal_List is array (Signal_ID range <>) of Signal_ID;
+   Exception_Signals : constant Signal_List (1 .. 4) :=
+                         (SIGFPE, SIGILL, SIGSEGV, SIGBUS);
 
-   --  Keep these variables global so that they are initialized only once.
+   --  Keep these variables global so that they are initialized only once
+   --  What are "these variables" ???, I see only one
 
    Exception_Action : aliased struct_sigaction;
 
-   ----------------------
-   -- Notify_Exception --
-   ----------------------
+   -----------------------
+   -- Local Subprograms --
+   -----------------------
 
    procedure Notify_Exception (signo : Signal);
    --  Identify the Ada exception to be raised using
    --  the information when the system received a synchronous signal.
+
+   ----------------------
+   -- Notify_Exception --
+   ----------------------
 
    procedure Notify_Exception (signo : Signal) is
       Mask   : aliased sigset_t;
@@ -87,6 +96,7 @@ package body System.Interrupt_Management is
       --  VxWorks will suspend the task when it gets a hardware
       --  exception.  We take the liberty of resuming the task
       --  for the application.
+
       My_Id := taskIdSelf;
 
       if taskIsSuspended (My_Id) /= 0 then
@@ -95,16 +105,17 @@ package body System.Interrupt_Management is
 
       case signo is
          when SIGFPE =>
-            raise Constraint_Error;
+            Raise_Exception (Constraint_Error'Identity, "SIGFPE");
          when SIGILL =>
-            raise Constraint_Error;
+            Raise_Exception (Constraint_Error'Identity, "SIGILL");
          when SIGSEGV =>
-            raise Program_Error;
+            Raise_Exception
+              (Program_Error'Identity,
+               "stack overflow or erroneous memory access");
          when SIGBUS =>
-            raise Program_Error;
+            Raise_Exception (Program_Error'Identity, "SIGBUS");
          when others =>
-            --  Unexpected signal
-            raise Program_Error;
+            Raise_Exception (Program_Error'Identity, "unhandled signal");
       end case;
    end Notify_Exception;
 
@@ -120,10 +131,10 @@ package body System.Interrupt_Management is
       old_act : aliased struct_sigaction;
 
    begin
-      for J in Exception_Interrupts'Range loop
+      for J in Exception_Signals'Range loop
          Result :=
            sigaction
-             (Signal (Exception_Interrupts (J)), Exception_Action'Access,
+             (Signal (Exception_Signals (J)), Exception_Action'Access,
               old_act'Unchecked_Access);
          pragma Assert (Result = 0);
       end loop;
@@ -133,21 +144,61 @@ begin
    declare
       mask   : aliased sigset_t;
       Result : int;
+
+      function State (Int : Interrupt_ID) return Character;
+      pragma Import (C, State, "__gnat_get_interrupt_state");
+      --  Get interrupt state.  Defined in a-init.c
+      --  The input argument is the interrupt number,
+      --  and the result is one of the following:
+
+      Runtime : constant Character := 'r';
+      Default : constant Character := 's';
+      --    'n'   this interrupt not set by any Interrupt_State pragma
+      --    'u'   Interrupt_State pragma set state to User
+      --    'r'   Interrupt_State pragma set state to Runtime
+      --    's'   Interrupt_State pragma set state to System (use "default"
+      --           system handler)
+
    begin
-      Abort_Task_Interrupt := SIGABRT;
+      --  Initialize signal handling
+
       --  Change this if you want to use another signal for task abort.
       --  SIGTERM might be a good one.
+
+      Abort_Task_Signal := SIGABRT;
 
       Exception_Action.sa_handler := Notify_Exception'Address;
       Exception_Action.sa_flags := SA_ONSTACK;
       Result := sigemptyset (mask'Access);
       pragma Assert (Result = 0);
 
-      for J in Exception_Interrupts'Range loop
-         Result := sigaddset (mask'Access, Signal (Exception_Interrupts (J)));
+      for J in Exception_Signals'Range loop
+         Result := sigaddset (mask'Access, Signal (Exception_Signals (J)));
          pragma Assert (Result = 0);
       end loop;
 
       Exception_Action.sa_mask := mask;
+
+      --  Initialize hardware interrupt handling
+
+      pragma Assert (Reserve = (Interrupt_ID'Range => False));
+
+      --  Check all interrupts for state that requires keeping them reserved
+
+      for J in Interrupt_ID'Range loop
+         if State (J) = Default or else State (J) = Runtime then
+            Reserve (J) := True;
+         end if;
+      end loop;
+
+      --  Add exception signals to the set of unmasked signals
+
+      for J in Exception_Signals'Range loop
+         Keep_Unmasked (Exception_Signals (J)) := True;
+      end loop;
+
+      --  The abort signal must also be unmasked
+
+      Keep_Unmasked (Abort_Task_Signal) := True;
    end;
 end System.Interrupt_Management;

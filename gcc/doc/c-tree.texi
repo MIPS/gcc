@@ -1546,10 +1546,10 @@ This is used for branch prediction.
 
 Used to represent a C++ @code{catch} block.  The @code{HANDLER_TYPE}
 is the type of exception that will be caught by this handler; it is
-equal (by pointer equality) to @code{CATCH_ALL_TYPE} if this handler
-is for all types.  @code{HANDLER_PARMS} is the @code{DECL_STMT} for
-the catch parameter, and @code{HANDLER_BODY} is the
-@code{COMPOUND_STMT} for the block itself.
+equal (by pointer equality) to @code{NULL} if this handler is for all
+types.  @code{HANDLER_PARMS} is the @code{DECL_STMT} for the catch
+parameter, and @code{HANDLER_BODY} is the @code{COMPOUND_STMT} for the
+block itself. 
 
 @item IF_STMT
 
@@ -1720,6 +1720,7 @@ This macro returns the attributes on the type @var{type}.
 @findex PTRMEM_CST_MEMBER
 @tindex VAR_DECL
 @tindex NEGATE_EXPR
+@tindex ABS_EXPR
 @tindex BIT_NOT_EXPR
 @tindex TRUTH_NOT_EXPR
 @tindex ADDR_EXPR
@@ -1914,6 +1915,20 @@ determined by looking at the type of the expression.
 
 The behavior of this operation on signed arithmetic overflow is
 controlled by the @code{flag_wrapv} and @code{flag_trapv} variables.
+
+@item ABS_EXPR
+These nodes represent the absolute value of the single operand, for
+both integer and floating-point types.  This is typically used to
+implement the @code{abs}, @code{labs} and @code{llabs} builtins for
+integer types, and the @code{fabs}, @code{fabsf} and @code{fabsl}
+builtins for floating point types.  The type of abs operation can
+be determined by looking at the type of the expression.
+
+This node is not used for complex types.  To represent the modulus
+or complex abs of a complex value, use the @code{BUILT_IN_CABS},
+@code{BUILT_IN_CABSF} or @code{BUILT_IN_CABSL} builtins, as used
+to implement the C99 @code{cabs}, @code{cabsf} and @code{cabsl}
+built-in functions.
 
 @item BIT_NOT_EXPR
 These nodes represent bitwise complement, and will always have integral
@@ -2219,10 +2234,7 @@ second operand is a @code{TREE_LIST}.  If the @code{TREE_TYPE} of the
 @code{CONSTRUCTOR} is a @code{RECORD_TYPE} or @code{UNION_TYPE}, then
 the @code{TREE_PURPOSE} of each node in the @code{TREE_LIST} will be a
 @code{FIELD_DECL} and the @code{TREE_VALUE} of each node will be the
-expression used to initialize that field.  You should not depend on the
-fields appearing in any particular order, nor should you assume that all
-fields will be represented.  Unrepresented fields may be assigned any
-value.
+expression used to initialize that field.
 
 If the @code{TREE_TYPE} of the @code{CONSTRUCTOR} is an
 @code{ARRAY_TYPE}, then the @code{TREE_PURPOSE} of each element in the
@@ -2232,8 +2244,10 @@ again, the @code{TREE_VALUE} is the corresponding initializer.  If the
 @code{TREE_PURPOSE} is @code{NULL_TREE}, then the initializer is for the
 next available array element.
 
-Conceptually, before any initialization is done, the entire area of
-storage is initialized to zero.
+In the front end, you should not depend on the fields appearing in any
+particular order.  However, in the middle end, fields must appear in
+declaration order.  You should not assume that all fields will be
+represented.  Unrepresented fields will be set to zero.
 
 @item COMPOUND_LITERAL_EXPR
 @findex COMPOUND_LITERAL_EXPR_DECL_STMT

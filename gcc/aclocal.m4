@@ -4,7 +4,7 @@ sinclude(../config/gettext.m4)
 sinclude(../config/progtest.m4)
 
 dnl See if stdbool.h properly defines bool and true/false.
-AC_DEFUN(gcc_AC_HEADER_STDBOOL,
+AC_DEFUN([gcc_AC_HEADER_STDBOOL],
 [AC_CACHE_CHECK([for working stdbool.h],
   ac_cv_header_stdbool_h,
 [AC_TRY_COMPILE([#include <stdbool.h>],
@@ -18,7 +18,7 @@ fi
 
 dnl Fixed AC_CHECK_TYPE that doesn't need anything in acconfig.h.
 dnl Remove after migrating to 2.5x.
-AC_DEFUN(gcc_AC_CHECK_TYPE,
+AC_DEFUN([gcc_AC_CHECK_TYPE],
 [AC_REQUIRE([AC_HEADER_STDC])dnl
 AC_MSG_CHECKING(for $1)
 AC_CACHE_VAL(ac_cv_type_$1,
@@ -38,7 +38,7 @@ fi
 
 
 dnl See whether we can include both string.h and strings.h.
-AC_DEFUN(gcc_AC_HEADER_STRING,
+AC_DEFUN([gcc_AC_HEADER_STRING],
 [AC_CACHE_CHECK([whether string.h and strings.h may both be included],
   gcc_cv_header_string,
 [AC_TRY_COMPILE([#include <string.h>
@@ -54,7 +54,7 @@ dnl to use a different cache variable name in this macro if it is invoked
 dnl in a different context somewhere else.
 dnl gcc_AC_CHECK_DECL(SYMBOL,
 dnl 	[ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND [, INCLUDES]]])
-AC_DEFUN(gcc_AC_CHECK_DECL,
+AC_DEFUN([gcc_AC_CHECK_DECL],
 [AC_MSG_CHECKING([whether $1 is declared])
 AC_CACHE_VAL(gcc_cv_have_decl_$1,
 [AC_TRY_COMPILE([$4],
@@ -72,7 +72,7 @@ dnl Check multiple functions to see whether each needs a declaration.
 dnl Arrange to define HAVE_DECL_<FUNCTION> to 0 or 1 as appropriate.
 dnl gcc_AC_CHECK_DECLS(SYMBOLS,
 dnl 	[ACTION-IF-NEEDED [, ACTION-IF-NOT-NEEDED [, INCLUDES]]])
-AC_DEFUN(gcc_AC_CHECK_DECLS,
+AC_DEFUN([gcc_AC_CHECK_DECLS],
 [for ac_func in $1
 do
 changequote(, )dnl
@@ -101,8 +101,41 @@ if test x = y ; then
 fi
 ])
 
+dnl 'make compare' can be significantly faster, if cmp itself can
+dnl skip bytes instead of using tail.  The test being performed is
+dnl "if cmp --ignore-initial=2 t1 t2 && ! cmp --ignore-initial=1 t1 t2"
+dnl but we need to sink errors and handle broken shells.  We also test
+dnl for the parameter format "cmp file1 file2 skip1 skip2" which is
+dnl accepted by cmp on some systems.
+AC_DEFUN([gcc_AC_PROG_CMP_IGNORE_INITIAL],
+[AC_CACHE_CHECK([for cmp's capabilities], gcc_cv_prog_cmp_skip,
+[ echo abfoo >t1
+  echo cdfoo >t2
+  gcc_cv_prog_cmp_skip=slowcompare
+  if cmp --ignore-initial=2 t1 t2 > /dev/null 2>&1; then
+    if cmp --ignore-initial=1 t1 t2 > /dev/null 2>&1; then
+      :
+    else
+      gcc_cv_prog_cmp_skip=gnucompare
+    fi
+  fi
+  if test $gcc_cv_prog_cmp_skip = slowcompare ; then
+    if cmp t1 t2 2 2 > /dev/null 2>&1; then
+      if cmp t1 t2 1 1 > /dev/null 2>&1; then
+        :
+      else
+        gcc_cv_prog_cmp_skip=fastcompare
+      fi
+    fi
+  fi
+  rm t1 t2
+])
+make_compare_target=$gcc_cv_prog_cmp_skip
+AC_SUBST(make_compare_target)
+])
+
 dnl See if the printf functions in libc support %p in format strings.
-AC_DEFUN(gcc_AC_FUNC_PRINTF_PTR,
+AC_DEFUN([gcc_AC_FUNC_PRINTF_PTR],
 [AC_CACHE_CHECK(whether the printf functions support %p,
   gcc_cv_func_printf_ptr,
 [AC_TRY_RUN([#include <stdio.h>
@@ -123,7 +156,7 @@ fi
 ])
 
 dnl See if symbolic links work and if not, try to substitute either hard links or simple copy.
-AC_DEFUN(gcc_AC_PROG_LN_S,
+AC_DEFUN([gcc_AC_PROG_LN_S],
 [AC_MSG_CHECKING(whether ln -s works)
 AC_CACHE_VAL(gcc_cv_prog_LN_S,
 [rm -f conftestdata_t
@@ -155,7 +188,7 @@ AC_SUBST(LN_S)dnl
 ])
 
 dnl See if hard links work and if not, try to substitute either symbolic links or simple copy.
-AC_DEFUN(gcc_AC_PROG_LN,
+AC_DEFUN([gcc_AC_PROG_LN],
 [AC_MSG_CHECKING(whether ln works)
 AC_CACHE_VAL(gcc_cv_prog_LN,
 [rm -f conftestdata_t
@@ -187,7 +220,7 @@ AC_SUBST(LN)dnl
 ])
 
 dnl Check whether _Bool is built-in.
-AC_DEFUN(gcc_AC_C__BOOL,
+AC_DEFUN([gcc_AC_C__BOOL],
 [AC_CACHE_CHECK(for built-in _Bool, gcc_cv_c__bool,
 [AC_TRY_COMPILE(,
 [_Bool foo;],
@@ -200,7 +233,7 @@ fi
 
 dnl Define MKDIR_TAKES_ONE_ARG if mkdir accepts only one argument instead
 dnl of the usual 2.
-AC_DEFUN(gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG,
+AC_DEFUN([gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG],
 [AC_CACHE_CHECK([if mkdir takes one argument], gcc_cv_mkdir_takes_one_arg,
 [AC_TRY_COMPILE([
 #include <sys/types.h>
@@ -219,7 +252,7 @@ if test $gcc_cv_mkdir_takes_one_arg = yes ; then
 fi
 ])
 
-AC_DEFUN(gcc_AC_PROG_INSTALL,
+AC_DEFUN([gcc_AC_PROG_INSTALL],
 [AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT])dnl
 # Find a good install program.  We prefer a C program (faster),
 # so one script is as good as another.  But avoid the broken or
@@ -285,46 +318,33 @@ AC_SUBST(INSTALL_DATA)dnl
 
 dnl Test for GNAT.
 dnl We require the gnatbind program, and a compiler driver that
-dnl understands Ada.  The user may set the driver name explicitly
-dnl with ADAC; also, the user's CC setting is tried.  Failing that,
-dnl we try gcc and cc, then a sampling of names known to be used for
-dnl the Ada driver on various systems.
+dnl understands Ada.  We use the user's CC setting, already found.
 dnl
 dnl Sets the shell variable have_gnat to yes or no as appropriate, and
-dnl substitutes GNATBIND and ADAC.
+dnl substitutes GNATBIND.
 AC_DEFUN([gcc_AC_PROG_GNAT],
 [AC_REQUIRE([AC_CHECK_TOOL_PREFIX])
+AC_REQUIRE([AC_PROG_CC])
 AC_CHECK_TOOL(GNATBIND, gnatbind, no)
-AC_CACHE_CHECK([for compiler driver that understands Ada],
-		 gcc_cv_prog_adac,
+AC_CACHE_CHECK([whether compiler driver understands Ada],
+		 gcc_cv_cc_supports_ada,
 [cat >conftest.adb <<EOF
 procedure conftest is begin null; end conftest;
 EOF
-gcc_cv_prog_adac=no
-# Have to do ac_tool_prefix and user overrides by hand.
-for cand in ${ADAC+"$ADAC"} ${CC+"$CC"}	\
-	    ${ac_tool_prefix}gcc	gcc		\
-	    ${ac_tool_prefix}cc		cc		\
-	    ${ac_tool_prefix}gnatgcc	gnatgcc		\
-	    ${ac_tool_prefix}gnatcc	gnatcc		\
-	    ${ac_tool_prefix}adagcc	adagcc		\
-	    ${ac_tool_prefix}adacc	adacc		; do
-  # There is a bug in all released versions of GCC which causes the
-  # driver to exit successfully when the appropriate language module
-  # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
-  # Therefore we must check for the error message as well as an
-  # unsuccessful exit.
-  errors=`($cand -c conftest.adb) 2>&1 || echo failure`
-  if test x"$errors" = x; then
-    gcc_cv_prog_adac=$cand
-    break
-  fi
-done
+gcc_cv_cc_supports_ada=no
+# There is a bug in old released versions of GCC which causes the
+# driver to exit successfully when the appropriate language module
+# has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
+# Therefore we must check for the error message as well as an
+# unsuccessful exit.
+errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
+if test x"$errors" = x; then
+  gcc_cv_cc_supports_ada=yes
+  break
+fi
 rm -f conftest.*])
-ADAC=$gcc_cv_prog_adac
-AC_SUBST(ADAC)
 
-if test x$GNATBIND != xno && test x$ADAC != xno; then
+if test x$GNATBIND != xno && test x$gcc_cv_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -333,7 +353,7 @@ fi
 
 dnl GCC_PATH_PROG(VARIABLE, PROG-TO-CHECK-FOR [, VALUE-IF-NOT-FOUND [, PATH]])
 dnl like AC_PATH_PROG but use other cache variables
-AC_DEFUN(GCC_PATH_PROG,
+AC_DEFUN([GCC_PATH_PROG],
 [# Extract the first word of "$2", so it can be a program name with args.
 set dummy $2; ac_word=[$]2
 AC_MSG_CHECKING([for $ac_word])
@@ -391,7 +411,7 @@ else
    # read() to the same fd.  The only system known to have a problem here
    # is VMS, where text files have record structure.
    case "$host_os" in
-     vms*) 
+     vms* | ultrix*) 
         gcc_cv_func_mmap_file=no ;;
      *)
         gcc_cv_func_mmap_file=yes;;
@@ -409,7 +429,7 @@ else
    # Systems known to be in this category are Windows (all variants),
    # VMS, and Darwin.
    case "$host_os" in
-     vms* | cygwin* | pe | mingw* | darwin*)
+     vms* | cygwin* | pe | mingw* | darwin* | ultrix* | hpux10* | hpux11.00)
         gcc_cv_func_mmap_dev_zero=no ;;
      *)
         gcc_cv_func_mmap_dev_zero=yes;;
@@ -466,7 +486,7 @@ fi
 dnl Locate a program and check that its version is acceptable.
 dnl AC_PROG_CHECK_VER(var, name, version-switch,
 dnl                  version-extract-regexp, version-glob)
-AC_DEFUN(gcc_AC_CHECK_PROG_VER,
+AC_DEFUN([gcc_AC_CHECK_PROG_VER],
 [AC_CHECK_PROG([$1], [$2], [$2])
 if test -n "[$]$1"; then
   # Found it, now check the version.
@@ -493,7 +513,7 @@ fi
 dnl Determine if enumerated bitfields are unsigned.   ISO C says they can 
 dnl be either signed or unsigned.
 dnl
-AC_DEFUN(gcc_AC_C_ENUM_BF_UNSIGNED,
+AC_DEFUN([gcc_AC_C_ENUM_BF_UNSIGNED],
 [AC_CACHE_CHECK(for unsigned enumerated bitfields, gcc_cv_enum_bf_unsigned,
 [AC_TRY_RUN(#include <stdlib.h>
 enum t { BLAH = 128 } ;
@@ -513,7 +533,7 @@ fi])
 dnl Probe number of bits in a byte.
 dnl Note C89 requires CHAR_BIT >= 8.
 dnl
-AC_DEFUN(gcc_AC_C_CHAR_BIT,
+AC_DEFUN([gcc_AC_C_CHAR_BIT],
 [AC_CACHE_CHECK(for CHAR_BIT, gcc_cv_decl_char_bit,
 [AC_EGREP_CPP(found,
 [#ifdef HAVE_LIMITS_H
@@ -587,6 +607,8 @@ AC_DEFUN([AM_ICONV],
     done
    ])
 
+  AC_CHECK_HEADERS([iconv.h])
+
   AC_CACHE_CHECK(for iconv, am_cv_func_iconv, [
     am_cv_func_iconv="no, consider installing GNU libiconv"
     am_cv_lib_iconv=no
@@ -640,7 +662,7 @@ size_t iconv();
   AC_SUBST(LIBICONV)
 ])
 
-AC_DEFUN(gcc_AC_INITFINI_ARRAY,
+AC_DEFUN([gcc_AC_INITFINI_ARRAY],
 [AC_ARG_ENABLE(initfini-array,
 	[  --enable-initfini-array	use .init_array/.fini_array sections],
 	[], [

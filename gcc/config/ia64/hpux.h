@@ -25,10 +25,11 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_VERSION fprintf (stderr, " (IA-64) HP-UX");
 
+/* Enable HPUX ABI quirks.  */
+#undef  TARGET_HPUX
+#define TARGET_HPUX 1
+
 /* Target OS builtins.  */
-/* -D__fpreg=long double is needed to compensate for
-   the lack of __fpreg which is a primitive type in
-   HP C but does not exist in GNU C.  */
 #define TARGET_OS_CPP_BUILTINS()			\
 do {							\
 	builtin_assert("system=hpux");			\
@@ -39,15 +40,19 @@ do {							\
 	builtin_define("__IA64__");			\
 	builtin_define("_LONGLONG");			\
 	builtin_define("_UINT128_T");			\
-	builtin_define("__fpreg=long double");		\
-	builtin_define("__float80=long double");	\
-	builtin_define("__float128=long double");	\
 	if (c_dialect_cxx () || !flag_iso)		\
 	  {						\
 	    builtin_define("_HPUX_SOURCE");		\
 	    builtin_define("__STDC_EXT__");		\
 	  }						\
 } while (0)
+
+#undef CPP_SPEC
+#define CPP_SPEC \
+  "%{mt|pthread:-D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=199506L}"
+/* aCC defines also -DRWSTD_MULTI_THREAD, -DRW_MULTI_THREAD.  These
+   affect only aCC's C++ library (Rogue Wave-derived) which we do not
+   use, and they violate the user's name space.  */
 
 #undef  ASM_EXTRA_SPEC
 #define ASM_EXTRA_SPEC "%{milp32:-milp32} %{mlp64:-mlp64}"
@@ -68,6 +73,7 @@ do {							\
 #undef  LIB_SPEC
 #define LIB_SPEC \
   "%{!shared: \
+     %{mt|pthread:-lpthread} \
      %{p:%{!mlp64:-L/usr/lib/hpux32/libp} \
 	 %{mlp64:-L/usr/lib/hpux64/libp} -lprof} \
      %{pg:%{!mlp64:-L/usr/lib/hpux32/libp} \
@@ -104,7 +110,8 @@ do {							\
    returned just like a char variable and that is wrong on HP-UX
    IA64.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
+  (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || MODE == TFmode)
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes
@@ -134,6 +141,10 @@ do {								\
 #undef TARGET_HPUX_LD
 #define TARGET_HPUX_LD	1
 
+/* The HPUX dynamic linker objects to weak symbols with no
+   definitions, so do not use them in gthr-posix.h.  */
+#define GTHREAD_USE_WEAK 0
+
 /* Put out the needed function declarations at the end.  */
 
 #define TARGET_ASM_FILE_END ia64_hpux_file_end
@@ -143,6 +154,10 @@ do {								\
 
 #undef DTORS_SECTION_ASM_OP
 #define DTORS_SECTION_ASM_OP  "\t.section\t.fini_array,\t\"aw\",\"fini_array\""
+
+/* The init_array/fini_array technique does not permit the use of
+   initialization priorities.  */
+#define SUPPORTS_INIT_PRIORITY 0
 
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP "\t.section\t.rodata,\t\"a\",\t\"progbits\""
@@ -173,7 +188,14 @@ do {								\
 #undef  TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS  ia64_rwreloc_section_type_flags
 
+/* HP-UX does not support thread-local storage.  */
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS false
+
 /* ia64 HPUX has the float and long double forms of math functions.  */
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS  1
 
+#define TARGET_INIT_LIBFUNCS ia64_hpux_init_libfuncs
+
+#define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)

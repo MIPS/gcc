@@ -249,8 +249,6 @@ public class ObjectStreamClass implements Serializable
   {
     ObjectStreamClass osc = ObjectStreamClass.lookup (clazz);
 
-    ObjectStreamClass[] ret_val;
-
     if (osc == null)
       return new ObjectStreamClass[0];
     else
@@ -621,7 +619,7 @@ public class ObjectStreamClass implements Serializable
       {
 	// Use getDeclaredField rather than getField for the same reason
 	// as above in getDefinedSUID.
-	Field f = clazz.getDeclaredField ("getSerialPersistentFields");
+	Field f = clazz.getDeclaredField ("serialPersistentFields");
 	f.setAccessible(true);
 	o = (ObjectStreamField[])f.get (null);
       }

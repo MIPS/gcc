@@ -55,8 +55,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_INIT_PCH pch_init
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
-#undef LANG_HOOKS_INITIALIZE_DIAGNOSTITCS
-#define LANG_HOOKS_INITIALIZE_DIAGNOSTITCS c_initialize_diagnostics
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS c_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
 #undef LANG_HOOKS_MISSING_ARGUMENT
@@ -103,6 +103,11 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_CREATE_OUTPUT_FRAGMENT create_output_fragment
 #undef LANG_HOOKS_END_OUTPUT_FRAGMENT
 #define LANG_HOOKS_END_OUTPUT_FRAGMENT end_output_fragment
+#undef LANG_HOOKS_DECL_UNINIT
+#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
+
+#undef LANG_HOOKS_RTL_EXPAND_STMT
+#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -144,6 +149,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
+#undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
+#define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_objc_common_finish_file
@@ -188,57 +195,11 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-/* Used by c-lex.c, but only for objc.  */
-
-tree
-lookup_interface (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-tree
-is_class_name (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-tree
-objc_is_id (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-void
-objc_check_decl (tree decl ATTRIBUTE_UNUSED)
-{
-}
-
-int
-objc_comptypes (tree lhs ATTRIBUTE_UNUSED, tree rhs ATTRIBUTE_UNUSED,
-		int reflexive ATTRIBUTE_UNUSED)
-{
-  return -1;
-}
-
-tree
-objc_message_selector (void)
-{
-  return 0;
-}
-
-/* Used by c-typeck.c (build_external_ref), but only for objc.  */
-
-tree
-lookup_objc_ivar (tree id ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
 static void
 c_initialize_diagnostics (diagnostic_context *context)
 {
   pretty_printer *base = context->printer;
-  c_pretty_printer pp = xmalloc (sizeof *pp);
+  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
   memcpy (pp_base (pp), base, sizeof (pretty_printer));
   pp_c_pretty_printer_init (pp);
   context->printer = (pretty_printer *) pp;
@@ -246,6 +207,5 @@ c_initialize_diagnostics (diagnostic_context *context)
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
 }
-
 
 #include "gtype-c.h"

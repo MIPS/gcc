@@ -86,7 +86,6 @@ static int number_of_first_bit_set (int);
 static void replace_symbols_in_block (tree, rtx, rtx);
 static void thumb_exit (FILE *, int, rtx);
 static void thumb_pushpop (FILE *, int, int);
-static const char *thumb_condition_code (rtx, int);
 static rtx is_jump_table (rtx);
 static HOST_WIDE_INT get_jump_table_size (rtx);
 static Mnode *move_minipool_fix_forward_ref (Mnode *, Mnode *, HOST_WIDE_INT);
@@ -282,6 +281,9 @@ int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 #define FL_XSCALE     (1 << 10)	      /* XScale */
 #define FL_CIRRUS     (1 << 11)	      /* Cirrus/DSP.  */
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
+#define FL_ARCH6J     (1 << 12)       /* Architecture rel 6.  Adds
+					 media instructions.  */
+#define FL_VFPV2      (1 << 13)       /* Vector Floating Point V2.  */
 
 /* The bits in this mask specify which
    instructions we are allowed to generate.  */
@@ -401,16 +403,17 @@ static const struct processors all_cores[] =
   {"arm700",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm700i",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm710",	             FL_MODE26 | FL_MODE32 },
-  {"arm710t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm720",	             FL_MODE26 | FL_MODE32 },
-  {"arm720t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
-  {"arm740t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm710c",	             FL_MODE26 | FL_MODE32 },
   {"arm7100",	             FL_MODE26 | FL_MODE32 },
   {"arm7500",	             FL_MODE26 | FL_MODE32 },
   /* Doesn't have an external co-proc, but does have embedded fpa.  */
   {"arm7500fe",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
+  /* V4 Architecture Processors */
   {"arm7tdmi",	FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm710t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm720t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
+  {"arm740t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
   {"arm8",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"arm810",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"arm9",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
@@ -424,11 +427,16 @@ static const struct processors all_cores[] =
   {"strongarm110",           FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm1100",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm1110",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
+  /* V5 Architecture Processors */
   {"arm10tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
   {"arm1020t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
+  {"arm926ejs",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
+  {"arm1026ejs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
   {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE },
   {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
-
+  /* V6 Architecture Processors */
+  {"arm1136js",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
+  {"arm1136jfs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J | FL_VFPV2 },
   {NULL, 0}
 };
 
@@ -447,6 +455,7 @@ static const struct processors all_architectures[] =
   { "armv5",     FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
   { "armv5t",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
   { "armv5te",   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E },
+  { "armv6j",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
   { "ep9312",				  FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS },
   {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
   { NULL, 0 }
@@ -547,6 +556,10 @@ arm_override_options (void)
 	{ TARGET_CPU_xscale,    "xscale" },
 	{ TARGET_CPU_ep9312,    "ep9312" },
 	{ TARGET_CPU_iwmmxt,    "iwmmxt" },
+	{ TARGET_CPU_arm926ej_s, "arm926ej-s" },
+	{ TARGET_CPU_arm1026ej_s, "arm1026ej-s" },
+	{ TARGET_CPU_arm1136j_s, "arm1136j_s" },
+	{ TARGET_CPU_arm1136jf_s, "arm1136jf_s" },
 	{ TARGET_CPU_generic,   "arm" },
 	{ 0, 0 }
       };
@@ -832,23 +845,37 @@ arm_override_options (void)
       flag_schedule_insns = 0;
     }
 
-  /* If optimizing for space, don't synthesize constants.
-     For processors with load scheduling, it never costs more than 2 cycles
-     to load a constant, and the load scheduler may well reduce that to 1.  */
-  if (optimize_size || (tune_flags & FL_LDSCHED))
-    arm_constant_limit = 1;
-  
-  if (arm_arch_xscale)
-    arm_constant_limit = 2;
-
-  /* If optimizing for size, bump the number of instructions that we
-     are prepared to conditionally execute (even on a StrongARM). 
-     Otherwise for the StrongARM, which has early execution of branches,
-     a sequence that is worth skipping is shorter.  */
   if (optimize_size)
-    max_insns_skipped = 6;
-  else if (arm_is_strong)
-    max_insns_skipped = 3;
+    {
+      /* There's some dispute as to whether this should be 1 or 2.  However,
+	 experiments seem to show that in pathological cases a setting of
+	 1 degrades less severly than a setting of 2.  This could change if
+	 other parts of the compiler change their behavior.  */
+      arm_constant_limit = 1;
+
+      /* If optimizing for size, bump the number of instructions that we
+         are prepared to conditionally execute (even on a StrongARM). */
+      max_insns_skipped = 6;
+    }
+  else
+    {
+      /* For processors with load scheduling, it never costs more than
+         2 cycles to load a constant, and the load scheduler may well
+	 reduce that to 1.  */
+      if (tune_flags & FL_LDSCHED)
+        arm_constant_limit = 1;
+
+      /* On XScale the longer latency of a load makes it more difficult
+         to achieve a good schedule, so it's faster to synthesize
+	 constants that can be done in two insns. */
+      if (arm_tune_xscale)
+        arm_constant_limit = 2;
+
+      /* StrongARM has early execution of branches, so a sequence
+         that is worth skipping is shorter.  */
+      if (arm_is_strong)
+        max_insns_skipped = 3;
+    }
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
@@ -975,19 +1002,22 @@ arm_current_func_type (void)
   return cfun->machine->func_type;
 }
 
-/* Return 1 if it is possible to return using a single instruction.  */
+/* Return 1 if it is possible to return using a single instruction.  
+   If SIBLING is non-null, this is a test for a return before a sibling
+   call.  SIBLING is the call insn, so we can examine its register usage.  */
 
 int
-use_return_insn (int iscond)
+use_return_insn (int iscond, rtx sibling)
 {
   int regno;
   unsigned int func_type;
   unsigned long saved_int_regs;
+  unsigned HOST_WIDE_INT stack_adjust;
 
   /* Never use a return instruction before reload has run.  */
   if (!reload_completed)
     return 0;
-      
+
   func_type = arm_current_func_type ();
 
   /* Naked functions and volatile functions need special
@@ -998,18 +1028,60 @@ use_return_insn (int iscond)
   /* So do interrupt functions that use the frame pointer.  */
   if (IS_INTERRUPT (func_type) && frame_pointer_needed)
     return 0;
-  
+
+  stack_adjust = arm_get_frame_size () + current_function_outgoing_args_size;
+
   /* As do variadic functions.  */
   if (current_function_pretend_args_size
       || cfun->machine->uses_anonymous_args
-      /* Of if the function calls __builtin_eh_return () */
+      /* Or if the function calls __builtin_eh_return () */
       || ARM_FUNC_TYPE (func_type) == ARM_FT_EXCEPTION_HANDLER
-      /* Or if there is no frame pointer and there is a stack adjustment.  */
-      || ((arm_get_frame_size () + current_function_outgoing_args_size != 0)
-	  && !frame_pointer_needed))
+      /* Or if the function calls alloca */
+      || current_function_calls_alloca
+      /* Or if there is a stack adjustment.  However, if the stack pointer
+	 is saved on the stack, we can use a pre-incrementing stack load.  */
+      || !(stack_adjust == 0 || (frame_pointer_needed && stack_adjust == 4)))
     return 0;
 
   saved_int_regs = arm_compute_save_reg_mask ();
+
+  /* Unfortunately, the insn
+
+       ldmib sp, {..., sp, ...}
+
+     triggers a bug on most SA-110 based devices, such that the stack
+     pointer won't be correctly restored if the instruction takes a
+     page fault.  We work around this problem by poping r3 along with
+     the other registers, since that is never slower than executing
+     another instruction.  
+
+     We test for !arm_arch5 here, because code for any architecture
+     less than this could potentially be run on one of the buggy
+     chips.  */
+  if (stack_adjust == 4 && !arm_arch5)
+    {
+      /* Validate that r3 is a call-clobbered register (always true in
+	 the default abi) ... */
+      if (!call_used_regs[3])
+	return 0;
+
+      /* ... that it isn't being used for a return value (always true
+	 until we implement return-in-regs), or for a tail-call
+	 argument ... */
+      if (sibling)
+	{
+	  if (GET_CODE (sibling) != CALL_INSN)
+	    abort ();
+
+	  if (find_regno_fusage (sibling, USE, 3))
+	    return 0;
+	}
+
+      /* ... and that there are no call-saved registers in r0-r2
+	 (always true in the default ABI).  */
+      if (saved_int_regs & 0x7)
+	return 0;
+    }
 
   /* Can't be done if interworking with Thumb, and any registers have been
      stacked.  */
@@ -1968,7 +2040,7 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 			  tree fndecl ATTRIBUTE_UNUSED)
 {
   /* On the ARM, the offset starts at 0.  */
-  pcum->nregs = ((fntype && aggregate_value_p (TREE_TYPE (fntype))) ? 1 : 0);
+  pcum->nregs = ((fntype && aggregate_value_p (TREE_TYPE (fntype), fntype)) ? 1 : 0);
   pcum->iwmmxt_nregs = 0;
   
   pcum->call_cookie = CALL_NORMAL;
@@ -2497,7 +2569,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
       if ((GET_CODE (orig) == LABEL_REF
 	   || (GET_CODE (orig) == SYMBOL_REF && 
-	       ENCODED_SHORT_CALL_ATTR_P (XSTR (orig, 0))))
+	       SYMBOL_REF_LOCAL_P (orig)))
 	  && NEED_GOT_RELOC)
 	pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
       else
@@ -3100,12 +3172,12 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 		return COSTS_N_INSNS (2);				
 	      return COSTS_N_INSNS (3);				
 	    }								
-	  else if (outer == PLUS					
+	  else if ((outer == PLUS || outer == COMPARE)
 		   && INTVAL (x) < 256 && INTVAL (x) > -256)		
-	    return 0;							
-	  else if (outer == COMPARE					
-		   && (unsigned HOST_WIDE_INT) INTVAL (x) < 256)	
-	    return 0;							
+	    return 0;
+	  else if (outer == AND
+		   && INTVAL (x) < 256 && INTVAL (x) >= -256)
+	    return COSTS_N_INSNS (1);
 	  else if (outer == ASHIFT || outer == ASHIFTRT		
 		   || outer == LSHIFTRT)				
 	    return 0;							
@@ -3182,7 +3254,9 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 
     case DIV:
     case MOD:
-      return 100;
+    case UDIV:
+    case UMOD:
+      return optimize_size ? COSTS_N_INSNS (2) : 100;
 
     case ROTATE:
       if (mode == SImode && GET_CODE (XEXP (x, 1)) == REG)
@@ -3315,19 +3389,41 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	{
 	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
 				      & (unsigned HOST_WIDE_INT) 0xffffffff);
-	  int add_cost = const_ok_for_arm (i) ? 4 : 8;
-	  int j;
+	  int cost, const_ok = const_ok_for_arm (i);
+	  int j, booth_unit_size;
+
+	  if (arm_tune_xscale)
+	    {
+	      unsigned HOST_WIDE_INT masked_const;
+
+	      /* The cost will be related to two insns.
+		 First a load of the constant (MOV or LDR), then a multiply. */
+	      cost = 2;
+	      if (! const_ok)
+		cost += 1;      /* LDR is probably more expensive because
+				   of longer result latency. */
+	      masked_const = i & 0xffff8000;
+	      if (masked_const != 0 && masked_const != 0xffff8000)
+		{
+		  masked_const = i & 0xf8000000;
+		  if (masked_const == 0 || masked_const == 0xf8000000)
+		    cost += 1;
+		  else
+		    cost += 2;
+		}
+	      return cost;
+	    }
 	  
 	  /* Tune as appropriate.  */ 
-	  int booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
-	  
+	  cost = const_ok ? 4 : 8;
+	  booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
 	  for (j = 0; i && j < 32; j += booth_unit_size)
 	    {
 	      i >>= booth_unit_size;
-	      add_cost += 2;
+	      cost += 2;
 	    }
 
-	  return add_cost;
+	  return cost;
 	}
 
       return (((tune_flags & FL_FAST_MULT) ? 8 : 30)
@@ -3748,6 +3844,15 @@ arm_add_operand (rtx op, enum machine_mode mode)
 	  || (GET_CODE (op) == CONST_INT
 	      && (const_ok_for_arm (INTVAL (op))
 		  || const_ok_for_arm (-INTVAL (op)))));
+}
+
+/* Return TRUE for valid ARM constants (or when valid if negated).  */
+int
+arm_addimm_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT
+	  && (const_ok_for_arm (INTVAL (op))
+	      || const_ok_for_arm (-INTVAL (op))));
 }
 
 int
@@ -5566,10 +5671,19 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
     return arm_select_dominance_cc_mode (XEXP (x, 0), XEXP (x, 1),
 					 DOM_CC_X_OR_Y);
 
+  /* An operation (on Thumb) where we want to test for a single bit.
+     This is done by shifting that bit up into the top bit of a
+     scratch register; we can then branch on the sign bit.  */
+  if (TARGET_THUMB
+      && GET_MODE (x) == SImode
+      && (op == EQ || op == NE)
+      && (GET_CODE (x) == ZERO_EXTRACT))
+    return CC_Nmode;
+
   /* An operation that sets the condition codes as a side-effect, the
      V flag is not set correctly, so we can only use comparisons where
      this doesn't matter.  (For LT and GE we can use "mi" and "pl"
-     instead.  */
+     instead.)  */
   if (GET_MODE (x) == SImode
       && y == const0_rtx
       && (op == EQ || op == NE || op == LT || op == GE)
@@ -5579,7 +5693,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  || GET_CODE (x) == NOT || GET_CODE (x) == NEG
 	  || GET_CODE (x) == LSHIFTRT
 	  || GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
-	  || GET_CODE (x) == ROTATERT || GET_CODE (x) == ZERO_EXTRACT))
+	  || GET_CODE (x) == ROTATERT
+	  || (TARGET_ARM && GET_CODE (x) == ZERO_EXTRACT)))
     return CC_NOOVmode;
 
   if (GET_MODE (x) == QImode && (op == EQ || op == NE))
@@ -6815,6 +6930,9 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
   if (!constrain_operands (1))
     fatal_insn_not_found (insn);
 
+  if (recog_data.n_alternatives == 0)
+    return false;
+
   /* Fill in recog_op_alt with information about the constraints of this insn.  */
   preprocess_constraints ();
 
@@ -6844,9 +6962,21 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
 		   && CONSTANT_POOL_ADDRESS_P (XEXP (op, 0)))
 	    {
 	      if (do_pushes)
-		push_minipool_fix (insn, address, recog_data.operand_loc[opno],
-				   recog_data.operand_mode[opno],
-				   get_pool_constant (XEXP (op, 0)));
+		{
+		  rtx cop = avoid_constant_pool_reference (op);
+
+		  /* Casting the address of something to a mode narrower
+		     than a word can cause avoid_constant_pool_reference()
+		     to return the pool reference itself.  That's no good to
+		     us here.  Lets just hope that we can use the 
+		     constant pool value directly.  */
+		  if (op == cop)
+		    cop = get_pool_constant (XEXP (op, 0));
+
+		  push_minipool_fix (insn, address,
+				     recog_data.operand_loc[opno],
+				     recog_data.operand_mode[opno], cop);
+		}
 
 	      result = true;
 	    }
@@ -8036,7 +8166,7 @@ arm_compute_save_reg_mask (void)
   return save_reg_mask;
 }
 
-/* Generate a function exit sequence.  If REALLY_RETURN is true, then do
+/* Generate a function exit sequence.  If REALLY_RETURN is false, then do
    everything bar the final return instruction.  */
 const char *
 output_return_instruction (rtx operand, int really_return, int reverse)
@@ -8054,8 +8184,9 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 
   if (IS_VOLATILE (func_type) && TARGET_ABORT_NORETURN)
     {
-      /* If this function was declared non-returning, and we have found a tail 
-	 call, then we have to trust that the called function won't return.  */
+      /* If this function was declared non-returning, and we have
+	 found a tail call, then we have to trust that the called
+	 function won't return.  */
       if (really_return)
 	{
 	  rtx ops[2];
@@ -8127,11 +8258,29 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	  char *p;
 	  int first = 1;
 
-	  /* Generate the load multiple instruction to restore the registers.  */
-	  if (frame_pointer_needed)
-	    sprintf (instr, "ldm%sea\t%%|fp, {", conditional);
-	  else if (live_regs_mask & (1 << SP_REGNUM))
-	    sprintf (instr, "ldm%sfd\t%%|sp, {", conditional);
+	  /* Generate the load multiple instruction to restore the
+	     registers.  Note we can get here, even if
+	     frame_pointer_needed is true, but only if sp already
+	     points to the base of the saved core registers.  */
+	  if (live_regs_mask & (1 << SP_REGNUM))
+	    {
+	      unsigned HOST_WIDE_INT stack_adjust =
+		arm_get_frame_size () + current_function_outgoing_args_size;
+	      
+	      if (stack_adjust != 0 && stack_adjust != 4)
+		abort ();
+
+	      if (stack_adjust && arm_arch5)
+		sprintf (instr, "ldm%sib\t%%|sp, {", conditional);
+	      else
+		{
+		  /* If we can't use ldmib (SA110 bug), then try to pop r3
+		     instead.  */
+		  if (stack_adjust)
+		    live_regs_mask |= 1 << 3;
+		  sprintf (instr, "ldm%sfd\t%%|sp, {", conditional);
+		}
+	    }
 	  else
 	    sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
 
@@ -8338,7 +8487,7 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
 }
 
 const char *
-arm_output_epilogue (int really_return)
+arm_output_epilogue (rtx sibling)
 {
   int reg;
   unsigned long saved_regs_mask;
@@ -8351,10 +8500,11 @@ arm_output_epilogue (int really_return)
   FILE * f = asm_out_file;
   rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
   unsigned int lrm_count = 0;
+  int really_return = (sibling == NULL);
 
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
-  if (use_return_insn (FALSE) && return_used_this_function)
+  if (use_return_insn (FALSE, sibling) && return_used_this_function)
     return "";
 
   func_type = arm_current_func_type ();
@@ -8482,8 +8632,22 @@ arm_output_epilogue (int really_return)
 	saved_regs_mask &= ~ (1 << LR_REGNUM);
       else
 	saved_regs_mask &= ~ (1 << PC_REGNUM);
-      
-      print_multi_reg (f, "ldmea\t%r", FP_REGNUM, saved_regs_mask);
+
+      /* We must use SP as the base register, because SP is one of the
+         registers being restored.  If an interrupt or page fault
+         happens in the ldm instruction, the SP might or might not
+         have been restored.  That would be bad, as then SP will no
+         longer indicate the safe area of stack, and we can get stack
+         corruption.  Using SP as the base register means that it will
+         be reset correctly to the original value, should an interrupt
+         occur.  If the stack pointer already points at the right
+         place, then omit the subtraction.  */
+      if (((frame_size + current_function_outgoing_args_size + floats_offset)
+	   != 4 * (1 + (int) bit_count (saved_regs_mask)))
+	  || current_function_calls_alloca)
+	asm_fprintf (f, "\tsub\t%r, %r, #%d\n", SP_REGNUM, FP_REGNUM,
+		     4 * bit_count (saved_regs_mask));
+      print_multi_reg (f, "ldmfd\t%r", SP_REGNUM, saved_regs_mask);
 
       if (IS_INTERRUPT (func_type))
 	/* Interrupt handlers will have pushed the
@@ -8653,7 +8817,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
       /* We need to take into account any stack-frame rounding.  */
       frame_size = arm_get_frame_size ();
 
-      if (use_return_insn (FALSE)
+      if (use_return_insn (FALSE, NULL)
 	  && return_used_this_function
 	  && (frame_size + current_function_outgoing_args_size) != 0
 	  && !frame_pointer_needed)
@@ -9548,11 +9712,8 @@ arm_print_operand (FILE *stream, rtx x, int code)
       if (x == const_true_rtx)
 	return;
       
-      if (TARGET_ARM)
-        fputs (arm_condition_codes[get_arm_condition_code (x)],
-	       stream);
-      else
-	fputs (thumb_condition_code (x, 0), stream);
+      fputs (arm_condition_codes[get_arm_condition_code (x)],
+	     stream);
       return;
 
     case 'D':
@@ -9561,12 +9722,9 @@ arm_print_operand (FILE *stream, rtx x, int code)
       if (x == const_true_rtx)
 	abort ();
 
-      if (TARGET_ARM)
-	fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
-				  (get_arm_condition_code (x))],
-	       stream);
-      else
-	fputs (thumb_condition_code (x, 1), stream);
+      fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
+				 (get_arm_condition_code (x))],
+	     stream);
       return;
 
     /* Cirrus registers can be accessed in a variety of ways:
@@ -9677,7 +9835,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	{
 	  if (GET_CODE (x) == SYMBOL_REF
 	      && (CONSTANT_POOL_ADDRESS_P (x)
-		  || ENCODED_SHORT_CALL_ATTR_P (XSTR (x, 0))))
+		  || SYMBOL_REF_LOCAL_P (x)))
 	    fputs ("(GOTOFF)", asm_out_file);
 	  else if (GET_CODE (x) == LABEL_REF)
 	    fputs ("(GOTOFF)", asm_out_file);
@@ -9803,6 +9961,14 @@ get_arm_condition_code (rtx comparison)
 	{
 	case NE: return ARM_NE;
 	case EQ: return ARM_EQ;
+	default: abort ();
+	}
+
+    case CC_Nmode:
+      switch (comp_code)
+	{
+	case NE: return ARM_MI;
+	case EQ: return ARM_PL;
 	default: abort ();
 	}
 
@@ -10108,7 +10274,7 @@ arm_final_prescan_insn (rtx insn)
 	      /* Fail if a conditional return is undesirable (eg on a
 		 StrongARM), but still allow this if optimizing for size.  */
 	      else if (GET_CODE (scanbody) == RETURN
-		       && !use_return_insn (TRUE)
+		       && !use_return_insn (TRUE, NULL)
 		       && !optimize_size)
 		fail = TRUE;
 	      else if (GET_CODE (scanbody) == RETURN
@@ -10290,6 +10456,9 @@ arm_regno_class (int regno)
 
   if (IS_IWMMXT_REGNUM (regno))
     return IWMMXT_REGS;
+
+  if (IS_IWMMXT_GR_REGNUM (regno))
+    return IWMMXT_GR_REGS;
 
   return FPA_REGS;
 }
@@ -12071,7 +12240,8 @@ thumb_expand_epilogue (void)
 {
   HOST_WIDE_INT amount = (thumb_get_frame_size ()
 			  + current_function_outgoing_args_size);
-  
+  int regno;
+
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (arm_current_func_type ()))
     return;
@@ -12101,6 +12271,15 @@ thumb_expand_epilogue (void)
 
   if (current_function_profile || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
+
+  /* Emit a clobber for each insn that will be restored in the epilogue,
+     so that flow2 will get register lifetimes correct.  */
+  for (regno = 0; regno < 13; regno++)
+    if (regs_ever_live[regno] && !call_used_regs[regno])
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, regno)));
+
+  if (! regs_ever_live[LR_REGNUM])
+    emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 static void
@@ -12558,37 +12737,35 @@ int
 thumb_cmp_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) (INTVAL (op)) < 256)
-	  || register_operand (op, mode));
+	   && INTVAL (op) < 256
+	   && INTVAL (op) >= 0)
+	  || s_register_operand (op, mode));
 }
 
-static const char *
-thumb_condition_code (rtx x, int invert)
+int
+thumb_cmpneg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  static const char * const conds[] =
-  {
-    "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", 
-    "hi", "ls", "ge", "lt", "gt", "le"
-  };
-  int val;
+  return (GET_CODE (op) == CONST_INT
+	  && INTVAL (op) < 0
+	  && INTVAL (op) > -256);
+}
 
-  switch (GET_CODE (x))
-    {
-    case EQ: val = 0; break;
-    case NE: val = 1; break;
-    case GEU: val = 2; break;
-    case LTU: val = 3; break;
-    case GTU: val = 8; break;
-    case LEU: val = 9; break;
-    case GE: val = 10; break;
-    case LT: val = 11; break;
-    case GT: val = 12; break;
-    case LE: val = 13; break;
-    default:
-      abort ();
-    }
+/* Return TRUE if a result can be stored in OP without clobbering the
+   condition code register.  Prior to reload we only accept a
+   register.  After reload we have to be able to handle memory as
+   well, since a pseudo may not get a hard reg and reload cannot
+   handle output-reloads on jump insns.
 
-  return conds[val ^ invert];
+   We could possibly handle mem before reload as well, but that might
+   complicate things with the need to handle increment
+   side-effects.  */
+
+int
+thumb_cbrch_target_operand (rtx op, enum machine_mode mode)
+{
+  return (s_register_operand (op, mode)
+	  || ((reload_in_progress || reload_completed)
+	      && memory_operand (op, mode)));
 }
 
 /* Handle storing a half-word to memory during reload.  */ 
@@ -12962,7 +13139,7 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   int mi_delta = delta;
   const char *const mi_op = mi_delta < 0 ? "sub" : "add";
   int shift = 0;
-  int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)))
+  int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function)
                     ? 1 : 0);
   if (mi_delta < 0)
     mi_delta = - mi_delta;
@@ -12987,9 +13164,7 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 }
 
 int
-arm_emit_vector_const (file, x)
-     FILE * file;
-     rtx    x;
+arm_emit_vector_const (FILE *file, rtx x)
 {
   int i;
   const char * pattern;
@@ -13018,8 +13193,7 @@ arm_emit_vector_const (file, x)
 }
 
 const char *
-arm_output_load_gr (operands)
-     rtx * operands;
+arm_output_load_gr (rtx *operands)
 {
   rtx reg;
   rtx offset;

@@ -1,51 +1,23 @@
 /* Definitions of target machine for GNU compiler.  HP-UX 68000/68020 version.
-   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2002
+   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-/* Define USE_GAS if GCC is supposed to work with the GNU assembler,
-   GNU linker and GNU debugger using DBX debugging information.
-   (In other words, much of HPUX has been cast aside.)
-   Undefine USE_GAS if you want GCC to feed the HP assembler.  */
-
-/* #define USE_GAS */  /* Use hp320g.h if you want this.  */
-
-/* Control assembler-syntax conditionals in m68k.md.  */
-
-#ifndef USE_GAS
-#define MOTOROLA		/* Use Motorola syntax rather than "MIT" */
-#define SGS			/* Uses SGS assembler */
-#define SGS_CMP_ORDER		/* Takes cmp operands in reverse order */
-#define HPUX_ASM
-
-#if !defined (CROSS_COMPILE) && !defined (NO_BUGS)
-/* The assembler on HP 9k3xx machines running HPUX 8.0 doesn't translate
-   floating point constants behind some operands.  The workaround is to
-   use hex constants.  Reported by Thomas Nau (nau@medizin.uni-ulm.de).  */
-#define AS_BUG_FLOATING_CONSTANT
-/* The assembler on HP 9k3xx machines running HPUX 8.0 doesn't accept
-   labels followed by a text, data, or other section directive.  Reported
-   by Thomas Nau (nau@medizin.uni-ulm.de).  */
-#define AS_BUG_TRAILING_LABEL
-#endif
-
-#endif /* not USE_GAS */
 
 /* gcc.c should find libgcc.a itself rather than expecting linker to.  */
 #define LINK_LIBGCC_SPECIAL
@@ -56,8 +28,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Be compatible with system stddef.h.  */
 #define SIZE_TYPE "unsigned int"
-
-#include "m68k/m68k.h"
 
 #undef INT_OP_GROUP
 #define INT_OP_GROUP INT_OP_NO_DOT
@@ -188,7 +158,7 @@ Boston, MA 02111-1307, USA.  */
 #define REGISTER_NAMES \
 {"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7",	\
  "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%fp", "%sp",	\
- "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7"}
+ "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7", "argptr"}
 
 #define IMMEDIATE_PREFIX        "&"
 #define REGISTER_PREFIX         "%"

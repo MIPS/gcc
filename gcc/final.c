@@ -170,9 +170,15 @@ CC_STATUS cc_prev_status;
 
 char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+
+char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
+
 /* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
+   Initialized in function.c to 0.  Set only in reload1.c as per
+   the needs of the function.  */
 
 int frame_pointer_needed;
 
@@ -1336,19 +1342,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   this_is_asm_operands = 0;
 
-#ifdef NON_SAVING_SETJMP
-  /* A function that calls setjmp should save and restore all the
-     call-saved registers on a system where longjmp clobbers them.  */
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    {
-      int i;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!call_used_regs[i])
-	  regs_ever_live[i] = 1;
-    }
-#endif
-
   last_filename = locator_file (prologue_locator);
   last_linenum = locator_line (prologue_locator);
 
@@ -1418,9 +1411,8 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 # define NO_PROFILE_COUNTERS	0
 #endif
 #if defined(ASM_OUTPUT_REG_PUSH)
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) || defined(STRUCT_VALUE_REGNUM)
   int sval = current_function_returns_struct;
-#endif
+  rtx svrtx = targetm.calls.struct_value_rtx (TREE_TYPE (current_function_decl), 1);
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) || defined(STATIC_CHAIN_REGNUM)
   int cxt = current_function_needs_context;
 #endif
@@ -1437,16 +1429,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
   function_section (current_function_decl);
 
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    ASM_OUTPUT_REG_PUSH (file, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-#if defined(STRUCT_VALUE_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    {
-      ASM_OUTPUT_REG_PUSH (file, STRUCT_VALUE_REGNUM);
-    }
-#endif
+#if defined(ASM_OUTPUT_REG_PUSH)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
+    ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
 #endif
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
@@ -1475,16 +1460,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 #endif
 #endif
 
-#if defined(STRUCT_VALUE_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    ASM_OUTPUT_REG_POP (file, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-#if defined(STRUCT_VALUE_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
-  if (sval)
-    {
-      ASM_OUTPUT_REG_POP (file, STRUCT_VALUE_REGNUM);
-    }
-#endif
+#if defined(ASM_OUTPUT_REG_PUSH)
+  if (sval && svrtx != NULL_RTX && GET_CODE (svrtx) == REG)
+    ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
 #endif
 }
 
@@ -2069,6 +2047,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
 
+#ifdef FINAL_PRESCAN_INSN
+	    FINAL_PRESCAN_INSN (insn, ops, insn_noperands);
+#endif
+
 	    /* Output the insn using them.  */
 	    if (string[0])
 	      {
@@ -2164,10 +2146,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	if (optimize)
 	  {
-#if 0
-	    rtx set = single_set (insn);
-#endif
-
 	    if (set
 		&& GET_CODE (SET_DEST (set)) == CC0
 		&& insn != last_ignored_compare)
@@ -2523,7 +2501,7 @@ cleanup_subreg_operands (rtx insn)
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     {
-      /* The following test cannot use recog_data.operand when tesing
+      /* The following test cannot use recog_data.operand when testing
 	 for a SUBREG: the underlying object might have been changed
 	 already if we are inside a match_operator expression that
 	 matches the else clause.  Instead we test the underlying
@@ -3437,7 +3415,7 @@ asm_fprintf (FILE *file, const char *p, ...)
 	    break;
 
 #ifdef ASM_FPRINTF_EXTENSIONS
-	    /* Upper case letters are reserved for general use by asm_fprintf
+	    /* Uppercase letters are reserved for general use by asm_fprintf
 	       and so are not available to target specific code.  In order to
 	       prevent the ASM_FPRINTF_EXTENSIONS macro from using them then,
 	       they are defined here.  As they get turned into real extensions

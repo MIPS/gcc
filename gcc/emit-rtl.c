@@ -110,9 +110,14 @@ rtx const_true_rtx;
 REAL_VALUE_TYPE dconst0;
 REAL_VALUE_TYPE dconst1;
 REAL_VALUE_TYPE dconst2;
+REAL_VALUE_TYPE dconst3;
+REAL_VALUE_TYPE dconst10;
 REAL_VALUE_TYPE dconstm1;
 REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
+REAL_VALUE_TYPE dconstthird;
+REAL_VALUE_TYPE dconstpi;
+REAL_VALUE_TYPE dconste;
 
 /* All references to the following fixed hard registers go through
    these unique rtl objects.  On machines where the frame-pointer and
@@ -132,8 +137,6 @@ REAL_VALUE_TYPE dconsthalf;
 
    In an inline procedure, the stack and frame pointer rtxs may not be
    used for anything else.  */
-rtx struct_value_rtx;		/* (REG:Pmode STRUCT_VALUE_REGNUM) */
-rtx struct_value_incoming_rtx;	/* (REG:Pmode STRUCT_VALUE_INCOMING_REGNUM) */
 rtx static_chain_rtx;		/* (REG:Pmode STATIC_CHAIN_REGNUM) */
 rtx static_chain_incoming_rtx;	/* (REG:Pmode STATIC_CHAIN_INCOMING_REGNUM) */
 rtx pic_offset_table_rtx;	/* (REG:Pmode PIC_OFFSET_TABLE_REGNUM) */
@@ -177,7 +180,6 @@ static rtx make_jump_insn_raw (rtx);
 static rtx make_call_insn_raw (rtx);
 static rtx find_line_note (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
-static void unshare_all_rtl_1 (rtx);
 static void unshare_all_decls (tree);
 static void reset_used_decls (tree);
 static void mark_label_nuses (rtx);
@@ -858,7 +860,7 @@ gen_reg_rtx (enum machine_mode mode)
   return val;
 }
 
-/* Generate an register with same attributes as REG,
+/* Generate a register with same attributes as REG,
    but offsetted by OFFSET.  */
 
 rtx
@@ -1353,6 +1355,8 @@ gen_lowpart (enum machine_mode mode, rtx x)
       /* The following exposes the use of "x" to CSE.  */
       if (GET_MODE_SIZE (GET_MODE (x)) <= UNITS_PER_WORD
 	  && SCALAR_INT_MODE_P (GET_MODE (x))
+	  && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+				    GET_MODE_BITSIZE (GET_MODE (x)))
 	  && ! no_new_pseudos)
 	return gen_lowpart (mode, force_reg (GET_MODE (x), x));
 
@@ -1822,6 +1826,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
     return;
 
   type = TYPE_P (t) ? t : TREE_TYPE (t);
+  if (type == error_mark_node)
+    return;
 
   /* If we have already set DECL_RTL = ref, get_alias_set will get the
      wrong answer, as it assumes that DECL_RTL already has the right alias
@@ -2445,7 +2451,7 @@ unshare_all_rtl (tree fndecl, rtx insn)
   unshare_all_decls (DECL_INITIAL (fndecl));
 
   /* Unshare just about everything else.  */
-  unshare_all_rtl_1 (insn);
+  unshare_all_rtl_in_chain (insn);
 
   /* Make sure the addresses of stack slots found outside the insn chain
      (such as, in DECL_RTL of a variable) are not shared
@@ -2487,11 +2493,138 @@ unshare_all_rtl_again (rtx insn)
   unshare_all_rtl (cfun->decl, insn);
 }
 
+/* Check that ORIG is not marked when it should not be and mark ORIG as in use,
+   Recursively does the same for subexpressions.  */
+
+static void
+verify_rtx_sharing (rtx orig, rtx insn)
+{
+  rtx x = orig;
+  int i;
+  enum rtx_code code;
+  const char *format_ptr;
+
+  if (x == 0)
+    return;
+
+  code = GET_CODE (x);
+
+  /* These types may be freely shared.  */
+
+  switch (code)
+    {
+    case REG:
+    case QUEUED:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case LABEL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+    case SCRATCH:
+      /* SCRATCH must be shared because they represent distinct values.  */
+      return;
+
+    case CONST:
+      /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
+	 a LABEL_REF, it isn't sharable.  */
+      if (GET_CODE (XEXP (x, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+	return;
+      break;
+
+    case MEM:
+      /* A MEM is allowed to be shared if its address is constant.  */
+      if (CONSTANT_ADDRESS_P (XEXP (x, 0))
+	  || reload_completed || reload_in_progress)
+	return;
+
+      break;
+
+    default:
+      break;
+    }
+
+  /* This rtx may not be shared.  If it has already been seen,
+     replace it with a copy of itself.  */
+
+  if (RTX_FLAG (x, used))
+    {
+      error ("Invalid rtl sharing found in the insn");
+      debug_rtx (insn);
+      error ("Shared rtx");
+      debug_rtx (x);
+      abort ();
+    }
+  RTX_FLAG (x, used) = 1;
+
+  /* Now scan the subexpressions recursively. */
+
+  format_ptr = GET_RTX_FORMAT (code);
+
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    {
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  verify_rtx_sharing (XEXP (x, i), insn);
+	  break;
+
+	case 'E':
+	  if (XVEC (x, i) != NULL)
+	    {
+	      int j;
+	      int len = XVECLEN (x, i);
+
+	      for (j = 0; j < len; j++)
+		{
+		  /* We allow sharing of ASM_OPERANDS inside single instruction.  */
+		  if (j && GET_CODE (XVECEXP (x, i, j)) == SET
+		      && GET_CODE (SET_SRC (XVECEXP (x, i, j))) == ASM_OPERANDS)
+		    verify_rtx_sharing (SET_DEST (XVECEXP (x, i, j)), insn);
+		  else
+		    verify_rtx_sharing (XVECEXP (x, i, j), insn);
+		}
+	    }
+	  break;
+	}
+    }
+  return;
+}
+
+/* Go through all the RTL insn bodies and chec that there is no inexpected
+   sharing in between the subexpressions.  */
+
+void
+verify_rtl_sharing (void)
+{
+  rtx p;
+
+  for (p = get_insns (); p; p = NEXT_INSN (p))
+    if (INSN_P (p))
+      {
+	reset_used_flags (PATTERN (p));
+	reset_used_flags (REG_NOTES (p));
+	reset_used_flags (LOG_LINKS (p));
+      }
+
+  for (p = get_insns (); p; p = NEXT_INSN (p))
+    if (INSN_P (p))
+      {
+	verify_rtx_sharing (PATTERN (p), p);
+	verify_rtx_sharing (REG_NOTES (p), p);
+	verify_rtx_sharing (LOG_LINKS (p), p);
+      }
+}
+
 /* Go through all the RTL insn bodies and copy any invalid shared structure.
    Assumes the mark bits are cleared at entry.  */
 
-static void
-unshare_all_rtl_1 (rtx insn)
+void
+unshare_all_rtl_in_chain (rtx insn)
 {
   for (; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -2626,8 +2759,7 @@ copy_most_rtx (rtx orig, rtx may_share)
 	  break;
 
 	case '0':
-	  /* Copy this through the wide int field; that's safest.  */
-	  X0WINT (copy, i) = X0WINT (orig, i);
+	  X0ANY (copy, i) = X0ANY (orig, i);
 	  break;
 
 	default:
@@ -2664,6 +2796,7 @@ copy_rtx_if_shared (rtx orig)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case SYMBOL_REF:
+    case LABEL_REF:
     case CODE_LABEL:
     case PC:
     case CC0:
@@ -2688,20 +2821,6 @@ copy_rtx_if_shared (rtx orig)
       /* The chain of insns is not being copied.  */
       return x;
 
-    case MEM:
-      /* A MEM is allowed to be shared if its address is constant.
-
-	 We used to allow sharing of MEMs which referenced
-	 virtual_stack_vars_rtx or virtual_incoming_args_rtx, but
-	 that can lose.  instantiate_virtual_regs will not unshare
-	 the MEMs, and combine may change the structure of the address
-	 because it looks safe and profitable in one context, but
-	 in some other context it creates unrecognizable RTL.  */
-      if (CONSTANT_ADDRESS_P (XEXP (x, 0)))
-	return x;
-
-      break;
-
     default:
       break;
     }
@@ -2714,9 +2833,7 @@ copy_rtx_if_shared (rtx orig)
       rtx copy;
 
       copy = rtx_alloc (code);
-      memcpy (copy, x,
-	     (sizeof (*copy) - sizeof (copy->fld)
-	      + sizeof (copy->fld[0]) * GET_RTX_LENGTH (code)));
+      memcpy (copy, x, RTX_SIZE (code));
       x = copy;
       copied = 1;
     }
@@ -2812,6 +2929,69 @@ reset_used_flags (rtx x)
 	case 'E':
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    reset_used_flags (XVECEXP (x, i, j));
+	  break;
+	}
+    }
+}
+
+/* Set all the USED bits in X to allow copy_rtx_if_shared to be used
+   to look for shared sub-parts.  */
+
+void
+set_used_flags (rtx x)
+{
+  int i, j;
+  enum rtx_code code;
+  const char *format_ptr;
+
+  if (x == 0)
+    return;
+
+  code = GET_CODE (x);
+
+  /* These types may be freely shared so we needn't do any resetting
+     for them.  */
+
+  switch (code)
+    {
+    case REG:
+    case QUEUED:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+      return;
+
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case NOTE:
+    case LABEL_REF:
+    case BARRIER:
+      /* The chain of insns is not being copied.  */
+      return;
+
+    default:
+      break;
+    }
+
+  RTX_FLAG (x, used) = 1;
+
+  format_ptr = GET_RTX_FORMAT (code);
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    {
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  set_used_flags (XEXP (x, i));
+	  break;
+
+	case 'E':
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    set_used_flags (XVECEXP (x, i, j));
 	  break;
 	}
     }
@@ -5107,7 +5287,7 @@ copy_insn_1 (rtx orig)
      all fields need copying, and then clear the fields that should
      not be copied.  That is the sensible default behavior, and forces
      us to explicitly document why we are *not* copying a flag.  */
-  memcpy (copy, orig, sizeof (struct rtx_def) - sizeof (rtunion));
+  memcpy (copy, orig, RTX_HDR_SIZE);
 
   /* We do not copy the USED flag, which is used as a mark bit during
      walks over the RTL.  */
@@ -5125,7 +5305,7 @@ copy_insn_1 (rtx orig)
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
     {
-      copy->fld[i] = orig->fld[i];
+      copy->u.fld[i] = orig->u.fld[i];
       switch (*format_ptr++)
 	{
 	case 'e':
@@ -5322,7 +5502,7 @@ init_emit_once (int line_numbers)
   enum machine_mode mode;
   enum machine_mode double_mode;
 
-  /* We need reg_raw_mode, so initialize the modes now. */
+  /* We need reg_raw_mode, so initialize the modes now.  */
   init_reg_modes_once ();
 
   /* Initialize the CONST_INT, CONST_DOUBLE, and memory attribute hash
@@ -5421,13 +5601,24 @@ init_emit_once (int line_numbers)
   REAL_VALUE_FROM_INT (dconst0,   0,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst1,   1,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst2,   2,  0, double_mode);
+  REAL_VALUE_FROM_INT (dconst3,   3,  0, double_mode);
+  REAL_VALUE_FROM_INT (dconst10, 10,  0, double_mode);
   REAL_VALUE_FROM_INT (dconstm1, -1, -1, double_mode);
   REAL_VALUE_FROM_INT (dconstm2, -2, -1, double_mode);
 
   dconsthalf = dconst1;
   dconsthalf.exp--;
 
-  for (i = 0; i <= 2; i++)
+  real_arithmetic (&dconstthird, RDIV_EXPR, &dconst1, &dconst3);
+
+  /* Initialize mathematical constants for constant folding builtins.
+     These constants need to be given to at least 160 bits precision.  */
+  real_from_string (&dconstpi,
+    "3.1415926535897932384626433832795028841971693993751058209749445923078");
+  real_from_string (&dconste,
+    "2.7182818284590452353602874713526624977572470936999595749669676277241");
+
+  for (i = 0; i < (int) ARRAY_SIZE (const_tiny_rtx); i++)
     {
       REAL_VALUE_TYPE *r =
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
@@ -5470,23 +5661,6 @@ init_emit_once (int line_numbers)
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
     = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
-#endif
-
-#ifdef STRUCT_VALUE
-  struct_value_rtx = STRUCT_VALUE;
-#else
-  struct_value_rtx = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
-
-#ifdef STRUCT_VALUE_INCOMING
-  struct_value_incoming_rtx = STRUCT_VALUE_INCOMING;
-#else
-#ifdef STRUCT_VALUE_INCOMING_REGNUM
-  struct_value_incoming_rtx
-    = gen_rtx_REG (Pmode, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-  struct_value_incoming_rtx = struct_value_rtx;
-#endif
 #endif
 
 #ifdef STATIC_CHAIN_REGNUM

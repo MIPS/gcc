@@ -1,4 +1,5 @@
 #define LIBFFI_ASM
+#include <fficonfig.h>
 #include <ffi.h>
 
 	.file	"linux64_closure.S"
@@ -97,7 +98,7 @@ ffi_closure_LINUX64:
 	addi %r1, %r1, 224
 	blr
 # case FFI_TYPE_FLOAT
-	lfs %f1, 112+4(%r1)
+	lfs %f1, 112+0(%r1)
 	mtlr %r0
 	addi %r1, %r1, 224
 	blr

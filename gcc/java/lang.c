@@ -67,6 +67,8 @@ static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
 static int java_estimate_num_insns (tree);
+static int java_start_inlining (tree);
+static tree java_get_callee_fndecl (tree);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -253,11 +255,20 @@ struct language_function GTY(())
 #undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
 #define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS java_estimate_num_insns
 
+#undef LANG_HOOKS_TREE_INLINING_START_INLINING
+#define LANG_HOOKS_TREE_INLINING_START_INLINING java_start_inlining
+
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
 
 #undef LANG_HOOKS_DECL_OK_FOR_SIBCALL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL java_decl_ok_for_sibcall
+
+#undef LANG_HOOKS_GET_CALLEE_FNDECL
+#define LANG_HOOKS_GET_CALLEE_FNDECL java_get_callee_fndecl
+
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -678,6 +689,9 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* In Java arithmetic overflow always wraps around.  */
   flag_wrapv = 1;
 
+  /* Java requires left-to-right evaluation of subexpressions.  */
+  flag_evaluation_order = 1;
+
   jcf_path_init ();
 
   return CL_Java;
@@ -826,21 +840,14 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
   switch (code)
     {
     case BLOCK:
-      if (BLOCK_EXPR_BODY (t))
-	{
-	  tree *prev = &BLOCK_EXPR_BODY (*tp);
-	  while (*prev)
-	    {
-	      WALK_SUBTREE (*prev);
-	      prev = &TREE_CHAIN (*prev);
-	    }	    
-	}
+      WALK_SUBTREE (BLOCK_EXPR_BODY (t));
       return NULL_TREE;
-      break;
 
     default:
       return NULL_TREE;
     }
+
+  #undef WALK_SUBTREE
 }
 
 /* Called from unsafe_for_reeval.  */
@@ -911,6 +918,24 @@ merge_init_test_initialization (void **entry, void *x)
     (DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl), ite->key);
   if (!*init_test_decl)
     *init_test_decl = (tree)n->value;
+
+  /* This fixes a weird case.  
+
+  The front end assumes that once we have called a method that
+  initializes some class, we can assume the class is initialized.  It
+  does this by setting the DECL_INITIAL of the init_test_decl for that
+  class, and no initializations are emitted for that class.
+  
+  However, what if the method that is suppoed to do the initialization
+  is itself inlined in the caller?  When expanding the called method
+  we'll assume that the class initalization has already been done,
+  because the DECL_INITIAL of the init_test_decl is set.
+  
+  To fix this we remove the DECL_INITIAL (in the caller scope) of all
+  the init_test_decls corresponding to classes initialized by the
+  inlined method.  This makes the caller no longer assume that the
+  method being inlined does any class initializations.  */
+  DECL_INITIAL (*init_test_decl) = NULL;
 
   return true;
 }
@@ -1094,14 +1119,14 @@ java_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       return NULL;
     }
   /* Assume that constants and references counts nothing.  These should
-     be majorized by amount of operations amoung them we count later
+     be majorized by amount of operations among them we count later
      and are common target of CSE and similar optimizations.  */
   if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
       || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
     return NULL;
   switch (TREE_CODE (x))
     { 
-    /* Reconginze assignments of large structures and constructors of
+    /* Recognize assignments of large structures and constructors of
        big arrays.  */
     case MODIFY_EXPR:
     case CONSTRUCTOR:
@@ -1178,8 +1203,62 @@ static int
 java_estimate_num_insns (tree decl)
 {
   int num = 0;
-  walk_tree (&DECL_SAVED_TREE (decl), java_estimate_num_insns_1, &num, NULL);
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (decl),
+				java_estimate_num_insns_1, &num);
   return num;
+}
+
+/* Start inlining fn.  Called by the tree inliner via
+   lang_hooks.tree_inlining.cannot_inline_tree_fn.  */
+
+static int
+java_start_inlining (tree fn)
+{
+  /* A java function's body doesn't have a BLOCK structure suitable
+     for debug output until it is expanded.  Prevent inlining functions
+     that are not yet expanded.  */
+  return TREE_ASM_WRITTEN (fn) ? 1 : 0;
+}
+
+/* Given a call_expr, try to figure out what its target might be.  In
+   the case of an indirection via the atable, search for the decl.  If
+   the decl is external, we return NULL.  If we don't, the optimizer
+   will replace the indirection with a direct call, which undoes the
+   purpose of the atable indirection.  */
+static tree
+java_get_callee_fndecl (tree call_expr)
+{
+  tree method, table, element;
+
+  HOST_WIDE_INT index;
+
+  if (TREE_CODE (call_expr) != CALL_EXPR)
+    return NULL;
+  method = TREE_OPERAND (call_expr, 0);
+  STRIP_NOPS (method);
+  if (TREE_CODE (method) != ARRAY_REF)
+    return NULL;
+  table = TREE_OPERAND (method, 0);
+  if (table != atable_decl)
+    return NULL;
+  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
+
+  /* FIXME: Replace this for loop with a hash table lookup.  */
+  for (element = atable_methods; element; element = TREE_CHAIN (element))
+    {
+      if (index == 1)
+	{
+	  tree purpose = TREE_PURPOSE (element);
+	  if (TREE_CODE (purpose) == FUNCTION_DECL
+	      && ! DECL_EXTERNAL (purpose))
+	    return purpose;
+	  else
+	    return NULL;
+	}
+      --index;
+    }
+  
+  return NULL;
 }
 
 #include "gt-java-lang.h"

@@ -63,7 +63,7 @@ extern void gt_pch_note_reorder (void *, void *, gt_handle_reorder);
 typedef void (*gt_pointer_walker) (void *);
 
 /* Structures for the easy way to mark roots.
-   In an array, terminated by having base == NULL.*/
+   In an array, terminated by having base == NULL.  */
 struct ggc_root_tab {
   void *base;
   size_t nelt;
@@ -141,8 +141,17 @@ extern void init_stringpool (void);
 /* A GC implementation must provide these functions.  They are internal
    to the GC system.  */
 
+/* Forward declare the zone structure.  Only ggc_zone implements this.  */
+struct alloc_zone;
+
 /* Initialize the garbage collector.  */
 extern void init_ggc (void);
+
+/* Start a new GGC zone.  */
+extern struct alloc_zone *new_ggc_zone (const char *);
+
+/* Free a complete GGC zone, destroying everything in it.  */
+extern void destroy_ggc_zone (struct alloc_zone *);
 
 /* Start a new GGC context.  Memory allocated in previous contexts
    will not be collected while the new context is active.  */
@@ -159,8 +168,9 @@ extern struct ggc_pch_data *init_ggc_pch (void);
 
 /* The second parameter and third parameters give the address and size
    of an object.  Update the ggc_pch_data structure with as much of
-   that information as is necessary.  */
-extern void ggc_pch_count_object (struct ggc_pch_data *, void *, size_t);
+   that information as is necessary. The last argument should be true
+   if the object is a string.  */
+extern void ggc_pch_count_object (struct ggc_pch_data *, void *, size_t, bool);
 
 /* Return the total size of the data to be written to hold all
    the objects previously passed to ggc_pch_count_object.  */
@@ -171,14 +181,16 @@ extern size_t ggc_pch_total_size (struct ggc_pch_data *);
 extern void ggc_pch_this_base (struct ggc_pch_data *, void *);
 
 /* Assuming that the objects really do end up at the address
-   passed to ggc_pch_this_base, return the address of this object.  */
-extern char *ggc_pch_alloc_object (struct ggc_pch_data *, void *, size_t);
+   passed to ggc_pch_this_base, return the address of this object.
+   The last argument should be true if the object is a string.  */
+extern char *ggc_pch_alloc_object (struct ggc_pch_data *, void *, size_t, bool);
 
 /* Write out any initial information required.  */
 extern void ggc_pch_prepare_write (struct ggc_pch_data *, FILE *);
-/* Write out this object, including any padding.  */
+/* Write out this object, including any padding.  The last argument should be
+   true if the object is a string.  */
 extern void ggc_pch_write_object (struct ggc_pch_data *, FILE *, void *,
-				  void *, size_t);
+				  void *, size_t, bool);
 /* All objects have been written, write out any final information
    required.  */
 extern void ggc_pch_finish (struct ggc_pch_data *, FILE *);
@@ -190,24 +202,36 @@ extern void ggc_pch_read (FILE *, void *);
 
 /* Allocation.  */
 
+/* For single pass garbage.  */
+extern struct alloc_zone *garbage_zone;
+/* For regular rtl allocations.  */
+extern struct alloc_zone *rtl_zone;
+/* For regular tree allocations.  */
+extern struct alloc_zone *tree_zone;
+
 /* The internal primitive.  */
 extern void *ggc_alloc (size_t);
+/* Allocate an object into the specified allocation zone.  */
+extern void *ggc_alloc_zone (size_t, struct alloc_zone *);
+/* Allocate an object of the specified type and size. */
+extern void *ggc_alloc_typed (enum gt_types_enum, size_t);
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared (size_t);
+/* Like ggc_alloc_zone, but allocates cleared memory.  */
+extern void *ggc_alloc_cleared_zone (size_t, struct alloc_zone *);
 /* Resize a block.  */
 extern void *ggc_realloc (void *, size_t);
 /* Like ggc_alloc_cleared, but performs a multiplication.  */
 extern void *ggc_calloc (size_t, size_t);
 
-#define ggc_alloc_rtx(NSLOTS)						  \
-  ((rtx) ggc_alloc (sizeof (struct rtx_def)				  \
-		    + ((NSLOTS) - 1) * sizeof (rtunion)))
+#define ggc_alloc_rtx(CODE)                    \
+  ((rtx) ggc_alloc_typed (gt_ggc_e_7rtx_def, RTX_SIZE (CODE)))
 
 #define ggc_alloc_rtvec(NELT)						  \
-  ((rtvec) ggc_alloc (sizeof (struct rtvec_def)				  \
+  ((rtvec) ggc_alloc_typed (gt_ggc_e_9rtvec_def, sizeof (struct rtvec_def) \
 		      + ((NELT) - 1) * sizeof (rtx)))
 
-#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc (LENGTH))
+#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc_zone (LENGTH, tree_zone))
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)

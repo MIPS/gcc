@@ -63,9 +63,6 @@
 // Define if gthr-default.h exists (meaning that threading support is enabled).
 #undef HAVE_GTHR_DEFAULT
 
-// Define if drand48 exists.
-#undef HAVE_DRAND48
-
 // Define if getpagesize exists.
 #undef HAVE_GETPAGESIZE
 
@@ -152,6 +149,12 @@
 
 // Define if writev is available in <sys/uio.h>.
 #undef HAVE_WRITEV
+
+// Define if int64_t is available in <stdint.h>.
+#undef HAVE_INT64_T
+
+// Define if LFS support is available.
+#undef _GLIBCXX_USE_LFS
 
 // Define if LC_MESSAGES is available in <locale.h>.
 #undef HAVE_LC_MESSAGES

@@ -46,6 +46,7 @@ namespace std
     basic_istream<_CharT, _Traits>::sentry::
     sentry(basic_istream<_CharT, _Traits>& __in, bool __noskipws)
     {
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       if (__in.good()) 
 	{
 	  if (__in.tie())
@@ -56,26 +57,27 @@ namespace std
 	      __streambuf_type* __sb = __in.rdbuf();
 	      __int_type __c = __sb->sgetc();
 
-	      __check_facet(__in._M_ctype);
+	      const __ctype_type& __ct = __check_facet(__in._M_ctype);
 	      while (!traits_type::eq_int_type(__c, __eof)
-		     && __in._M_ctype->is(ctype_base::space, 
-					  traits_type::to_char_type(__c)))
-		  __c = __sb->snextc();
+		     && __ct.is(ctype_base::space, 
+				traits_type::to_char_type(__c)))
+		__c = __sb->snextc();
 
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-//195.  Should basic_istream::sentry's constructor ever set eofbit? 
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 195. Should basic_istream::sentry's constructor ever
+	      // set eofbit?
 	      if (traits_type::eq_int_type(__c, __eof))
-		__in.setstate(ios_base::eofbit);
-#endif
+		__err |= ios_base::eofbit;
 	    }
 	}
 
-      if (__in.good())
+      if (__in.good() && __err == ios_base::goodbit)
 	_M_ok = true;
       else
 	{
 	  _M_ok = false;
-	  __in.setstate(ios_base::failbit);
+	  __err |= ios_base::failbit;
+	  __in.setstate(__err);
 	}
     }
 
@@ -83,10 +85,7 @@ namespace std
     basic_istream<_CharT, _Traits>& 
     basic_istream<_CharT, _Traits>::
     operator>>(__istream_type& (*__pf)(__istream_type&))
-    {
-      __pf(*this);
-      return *this;
-    }
+    { return __pf(*this); }
 
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>& 
@@ -114,20 +113,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -140,12 +135,13 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<short>::min() <= __l 
@@ -153,17 +149,11 @@ namespace std
 		__n = __l;
 	      else
                 __err |= ios_base::failbit;
-#endif
-	      this->setstate(__err);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -176,20 +166,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -202,12 +188,13 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<int>::min() <= __l 
@@ -215,17 +202,11 @@ namespace std
 		__n = __l;
 	      else
                 __err |= ios_base::failbit;
-#endif
-	      this->setstate(__err);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -238,20 +219,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -264,20 +241,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -290,20 +263,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -317,20 +286,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-	      __throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -343,20 +308,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -370,20 +331,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -396,20 +353,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -422,20 +375,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -448,20 +397,16 @@ namespace std
       sentry __cerb(*this, false);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      __check_facet(this->_M_num_get).get(*this, 0, *this, __err, __n);
-	      this->setstate(__err);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -471,30 +416,23 @@ namespace std
     basic_istream<_CharT, _Traits>::
     operator>>(__streambuf_type* __sbout)
     {
-       sentry __cerb(*this, false);
-       if (__cerb)
-	 {
-	   try
-	     {
-	       streamsize __xtrct = 0;
-	       if (__sbout)
-		 {
-		   __streambuf_type* __sbin = this->rdbuf();
-		   __xtrct = __copy_streambufs(*this, __sbin, __sbout);
-		 }
-	       if (!__sbout || !__xtrct)
-		 this->setstate(ios_base::failbit);
-	     }
-	   catch(...)
-	     {
-	       // 27.6.2.5.1 Common requirements.
-	       // Turn this on without causing an ios::failure to be thrown.
-	       this->_M_setstate(ios_base::badbit);
-	       if ((this->exceptions() & ios_base::badbit) != 0)
-		 __throw_exception_again;
-	     }
-	 }
-       return *this;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      sentry __cerb(*this, false);
+      if (__cerb && __sbout)
+	{
+	  try
+	    {
+	      if (!__copy_streambufs(this->rdbuf(), __sbout))
+		__err |= ios_base::failbit;
+	    }
+	  catch(...)
+	    { this->_M_setstate(ios_base::failbit); }
+	}
+      else if (!__sbout)
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
+      return *this;
     }
 
   template<typename _CharT, typename _Traits>
@@ -505,6 +443,7 @@ namespace std
       const int_type __eof = traits_type::eof();
       int_type __c = __eof;
       _M_gcount = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -515,17 +454,15 @@ namespace std
 	      if (!traits_type::eq_int_type(__c, __eof))
 		_M_gcount = 1;
 	      else
-		this->setstate(ios_base::eofbit | ios_base::failbit);
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
 	}
+      if (!_M_gcount)
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
       return __c;
     }
 
@@ -535,31 +472,29 @@ namespace std
     get(char_type& __c)
     {
       _M_gcount = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
  	  try 
 	    {
-	      const int_type __eof = traits_type::eof();
-	      int_type __bufval = this->rdbuf()->sbumpc();
+	      int_type __cb = this->rdbuf()->sbumpc();
 	      // 27.6.1.1 paragraph 3
-	      if (!traits_type::eq_int_type(__bufval, __eof))
+	      if (!traits_type::eq_int_type(__cb, traits_type::eof()))
 		{
 		  _M_gcount = 1;
-		  __c = traits_type::to_char_type(__bufval);
+		  __c = traits_type::to_char_type(__cb);
 		}
 	      else
-		this->setstate(ios_base::eofbit | ios_base::failbit);
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
 	}
+      if (!_M_gcount)
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
 
@@ -569,6 +504,7 @@ namespace std
     get(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -588,20 +524,16 @@ namespace std
 		  ++_M_gcount;
 		}
 	      if (traits_type::eq_int_type(__c, __eof))
-		this->setstate(ios_base::eofbit);
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
 	}
       *__s = char_type();
       if (!_M_gcount)
-	this->setstate(ios_base::failbit);
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
 
@@ -611,6 +543,7 @@ namespace std
     get(__streambuf_type& __sb, char_type __delim)
     {
       _M_gcount = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -631,19 +564,15 @@ namespace std
 		  __c2 = traits_type::to_char_type(__c);
 		}
 	      if (traits_type::eq_int_type(__c, __eof))
-		this->setstate(ios_base::eofbit);
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
 	}
       if (!_M_gcount)
-	this->setstate(ios_base::failbit);
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
 
@@ -653,6 +582,7 @@ namespace std
     getline(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -672,7 +602,7 @@ namespace std
 		  ++_M_gcount;
 		}
 	      if (traits_type::eq_int_type(__c, __eof))
-		this->setstate(ios_base::eofbit);
+		__err |= ios_base::eofbit;
 	      else
 		{
 		  if (traits_type::eq_int_type(__c, __idelim))
@@ -681,21 +611,17 @@ namespace std
 		      ++_M_gcount;
 		    }
 		  else
-		    this->setstate(ios_base::failbit);
+		    __err |= ios_base::failbit;
 		}
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
 	}
       *__s = char_type();
       if (!_M_gcount)
-	this->setstate(ios_base::failbit);
+	__err |= ios_base::failbit;
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
   
@@ -708,6 +634,7 @@ namespace std
       sentry __cerb(*this, true);
       if (__cerb && __n > 0) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      const int_type __eof = traits_type::eof();
@@ -723,16 +650,12 @@ namespace std
 		    break;
 		}
 	      if (traits_type::eq_int_type(__c, __eof))
-		this->setstate(ios_base::eofbit);
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return *this;
     }
@@ -747,16 +670,17 @@ namespace std
       sentry __cerb(*this, true);
       if (__cerb)
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
-	    { __c = this->rdbuf()->sgetc(); }
-	  catch(...)
 	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
+	      __c = this->rdbuf()->sgetc();
+	      if (traits_type::eq_int_type(__c, traits_type::eof()))
+		__err |= ios_base::eofbit;
 	    }
+	  catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	} 
       return __c;
     }
@@ -770,23 +694,18 @@ namespace std
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      _M_gcount = this->rdbuf()->sgetn(__s, __n);
 	      if (_M_gcount != __n)
-		this->setstate(ios_base::eofbit | ios_base::failbit);
+		__err |= (ios_base::eofbit | ios_base::failbit);
 	    }	    
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -799,6 +718,7 @@ namespace std
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      // Cannot compare int_type with streamsize generically.
@@ -810,19 +730,13 @@ namespace std
 		    _M_gcount = this->rdbuf()->sgetn(__s, __num);
 		}
 	      else
-		this->setstate(ios_base::eofbit);		    
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      else
-	this->setstate(ios_base::failbit);
       return _M_gcount;
     }
       
@@ -831,32 +745,26 @@ namespace std
     basic_istream<_CharT, _Traits>::
     putback(char_type __c)
     {
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 60. What is a formatted input function?
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 60. What is a formatted input function?
       _M_gcount = 0;
-#endif
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
 	      if (!__sb 
 		  || traits_type::eq_int_type(__sb->sputbackc(__c), __eof))
-		this->setstate(ios_base::badbit);		    
+		__err |= ios_base::badbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -865,32 +773,26 @@ namespace std
     basic_istream<_CharT, _Traits>::
     unget(void)
     {
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 60. What is a formatted input function?
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 60. What is a formatted input function?
       _M_gcount = 0;
-#endif
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      const int_type __eof = traits_type::eof();
 	      __streambuf_type* __sb = this->rdbuf();
 	      if (!__sb 
 		  || traits_type::eq_int_type(__sb->sungetc(), __eof))
-		this->setstate(ios_base::badbit);		    
+		__err |= ios_base::badbit;
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -899,30 +801,28 @@ namespace std
     basic_istream<_CharT, _Traits>::
     sync(void)
     {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       int __ret = -1;
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
 	    {
 	      __streambuf_type* __sb = this->rdbuf();
 	      if (__sb)
 		{
 		  if (__sb->pubsync() == -1)
-		    this->setstate(ios_base::badbit);		    
+		    __err |= ios_base::badbit;
 		  else 
 		    __ret = 0;
 		}
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.3 paragraph 1
-	      // Turn this on without causing an ios::failure to be thrown.
-	      this->_M_setstate(ios_base::badbit);
-	      if ((this->exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
       return __ret;
     }
@@ -932,31 +832,43 @@ namespace std
     basic_istream<_CharT, _Traits>::
     tellg(void)
     {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       pos_type __ret = pos_type(-1);
-      if (!this->fail())
-	__ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+      try
+	{
+	  if (!this->fail())
+	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+	}
+      catch(...)
+	{ this->_M_setstate(ios_base::badbit); }
       return __ret;
     }
-
 
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
     basic_istream<_CharT, _Traits>::
     seekg(pos_type __pos)
     {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      if (!this->fail())
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      try
 	{
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 136.  seekp, seekg setting wrong streams?
-	  pos_type __err = this->rdbuf()->pubseekpos(__pos, ios_base::in);
+	  if (!this->fail())
+	    {
+	      // 136.  seekp, seekg setting wrong streams?
+	      pos_type __p = this->rdbuf()->pubseekpos(__pos, ios_base::in);
 
-// 129. Need error indication from seekp() and seekg()
-	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(ios_base::failbit);
-#endif
+	      // 129. Need error indication from seekp() and seekg()
+	      if (__p == pos_type(off_type(-1)))
+		__err |= ios_base::failbit;
+	    }
 	}
+      catch(...)
+	{ this->_M_setstate(ios_base::badbit); }
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
 
@@ -965,19 +877,26 @@ namespace std
     basic_istream<_CharT, _Traits>::
     seekg(off_type __off, ios_base::seekdir __dir)
     {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      if (!this->fail())
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      try
 	{
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 136.  seekp, seekg setting wrong streams?
-	  pos_type __err = this->rdbuf()->pubseekoff(__off, __dir, 
-						     ios_base::in);
-
-// 129. Need error indication from seekp() and seekg()
-	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(ios_base::failbit);
-#endif
+	  if (!this->fail())
+	    {
+	      // 136.  seekp, seekg setting wrong streams?
+	      pos_type __p = this->rdbuf()->pubseekoff(__off, __dir, 
+						       ios_base::in);
+	      
+	      // 129. Need error indication from seekp() and seekg()
+	      if (__p == pos_type(off_type(-1)))
+		__err |= ios_base::failbit;
+	    }
 	}
+      catch(...)
+	{ this->_M_setstate(ios_base::badbit); }
+      if (__err)
+	this->setstate(__err);
       return *this;
     }
 
@@ -990,19 +909,20 @@ namespace std
       typename __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	  try 
-	    { __in.get(__c); }
-	  catch(...)
 	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      __in._M_setstate(ios_base::badbit);
-	      if ((__in.exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
+	      typename __istream_type::int_type __cb = __in.rdbuf()->sbumpc();
+	      if (!_Traits::eq_int_type(__cb, _Traits::eof()))
+		__c = _Traits::to_char_type(__cb);
+	      else
+		__err |= (ios_base::eofbit | ios_base::failbit);
 	    }
+	  catch(...)
+	    { __in._M_setstate(ios_base::badbit); }
+	  if (__err)
+	    __in.setstate(__err);
 	}
-      else
-	__in.setstate(ios_base::failbit);
       return __in;
     }
 
@@ -1015,8 +935,9 @@ namespace std
       typedef typename _Traits::int_type 		int_type;
       typedef _CharT                     		char_type;
       typedef ctype<_CharT>     			__ctype_type;
-      streamsize __extracted = 0;
 
+      streamsize __extracted = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       typename __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
@@ -1027,39 +948,36 @@ namespace std
 	      if (__num <= 0)
 		__num = numeric_limits<streamsize>::max();
 	      
-	      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+
 	      const int_type __eof = _Traits::eof();
 	      __streambuf_type* __sb = __in.rdbuf();
 	      int_type __c = __sb->sgetc();
 	      
 	      while (__extracted < __num - 1 
 		     && !_Traits::eq_int_type(__c, __eof)
-		     && !__ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+		     && !__ct.is(ctype_base::space, 
+				 _Traits::to_char_type(__c)))
 		{
 		  *__s++ = _Traits::to_char_type(__c);
 		  ++__extracted;
 		  __c = __sb->snextc();
 		}
 	      if (_Traits::eq_int_type(__c, __eof))
-		__in.setstate(ios_base::eofbit);
+		__err |= ios_base::eofbit;
 
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-//68.  Extractors for char* should store null at end
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 68.  Extractors for char* should store null at end
 	      *__s = char_type();
-#endif
 	      __in.width(0);
 	    }
 	  catch(...)
-	    {
-	      // 27.6.1.2.1 Common requirements.
-	      // Turn this on without causing an ios::failure to be thrown.
-	      __in._M_setstate(ios_base::badbit);
-	      if ((__in.exceptions() & ios_base::badbit) != 0)
-		__throw_exception_again;
-	    }
+	    { __in._M_setstate(ios_base::badbit); }
 	}
       if (!__extracted)
-	__in.setstate(ios_base::failbit);
+	__err |= ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
       return __in;
     }
 
@@ -1073,18 +991,17 @@ namespace std
       typedef typename __istream_type::__ctype_type 	__ctype_type;
       typedef typename __istream_type::int_type 	__int_type;
 
-      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
       const __int_type __eof = _Traits::eof();	      
       __streambuf_type* __sb = __in.rdbuf();
       __int_type __c = __sb->sgetc();
 
       while (!_Traits::eq_int_type(__c, __eof) 
-	     && __ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+	     && __ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 	__c = __sb->snextc();
 
        if (_Traits::eq_int_type(__c, __eof))
-	__in.setstate(ios_base::eofbit);
-
+	 __in.setstate(ios_base::eofbit);
       return __in;
     }
 
@@ -1100,38 +1017,49 @@ namespace std
       typedef typename __istream_type::__ctype_type 	__ctype_type;
       typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
       typedef typename __string_type::size_type		__size_type;
-      __size_type __extracted = 0;
 
+      __size_type __extracted = 0;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       typename __istream_type::sentry __cerb(__in, false);
       if (__cerb) 
 	{
-	  __str.erase();
-	  streamsize __w = __in.width();
-	  __size_type __n;
-	  __n = __w > 0 ? static_cast<__size_type>(__w) : __str.max_size();
-
-	  const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
-	  const __int_type __eof = _Traits::eof();
-	  __streambuf_type* __sb = __in.rdbuf();
-	  __int_type __c = __sb->sgetc();
-	  
-	  while (__extracted < __n 
-		 && !_Traits::eq_int_type(__c, __eof)
-		 && !__ctype.is(ctype_base::space, _Traits::to_char_type(__c)))
+	  try
 	    {
-	      __str += _Traits::to_char_type(__c);
-	      ++__extracted;
-	      __c = __sb->snextc();
+	      __str.erase();
+	      streamsize __w = __in.width();
+	      __size_type __n;
+	      __n = __w > 0 ? static_cast<__size_type>(__w) : __str.max_size();
+	      
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+	      const __int_type __eof = _Traits::eof();
+	      __streambuf_type* __sb = __in.rdbuf();
+	      __int_type __c = __sb->sgetc();
+	      
+	      while (__extracted < __n 
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
+		{
+		  __str += _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __sb->snextc();
+		}
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= ios_base::eofbit;
+	      __in.width(0);
 	    }
-	  if (_Traits::eq_int_type(__c, __eof))
-	    __in.setstate(ios_base::eofbit);
-	  __in.width(0);
+	  catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(ios_base::badbit);
+	    }
 	}
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-//211.  operator>>(istream&, string&) doesn't set failbit
+      // 211.  operator>>(istream&, string&) doesn't set failbit
       if (!__extracted)
-	__in.setstate (ios_base::failbit);
-#endif
+	__err |= ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
       return __in;
     }
 
@@ -1148,33 +1076,44 @@ namespace std
       typedef typename __string_type::size_type		__size_type;
 
       __size_type __extracted = 0;
+      const __size_type __n = __str.max_size();
       bool __testdelim = false;
+      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       typename __istream_type::sentry __cerb(__in, true);
       if (__cerb) 
 	{
-	  __str.erase();
-	  __size_type __n = __str.max_size();
-
-	  __int_type __idelim = _Traits::to_int_type(__delim);
-	  __streambuf_type* __sb = __in.rdbuf();
-	  __int_type __c = __sb->sbumpc();
-	  const __int_type __eof = _Traits::eof();
-	  __testdelim = _Traits::eq_int_type(__c, __idelim);
-
-	  while (__extracted <= __n 
-		 && !_Traits::eq_int_type(__c, __eof)
-		 && !__testdelim)
+	  try
 	    {
-	      __str += _Traits::to_char_type(__c);
-	      ++__extracted;
-	      __c = __sb->sbumpc();
+	      __str.erase();
+	      __int_type __idelim = _Traits::to_int_type(__delim);
+	      __streambuf_type* __sb = __in.rdbuf();
+	      __int_type __c = __sb->sbumpc();
+	      const __int_type __eof = _Traits::eof();
 	      __testdelim = _Traits::eq_int_type(__c, __idelim);
+	      
+	      while (!_Traits::eq_int_type(__c, __eof) && !__testdelim
+		     && __extracted < __n)
+		{
+		  __str += _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __sb->sbumpc();
+		  __testdelim = _Traits::eq_int_type(__c, __idelim);
+		}
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= ios_base::eofbit;
 	    }
-	  if (_Traits::eq_int_type(__c, __eof))
-	    __in.setstate(ios_base::eofbit);
+	  catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(ios_base::badbit);
+	    }
 	}
-      if (!__extracted && !__testdelim)
-	__in.setstate(ios_base::failbit);
+      if ((!__extracted && !__testdelim) || __extracted == __n)
+	__err |= ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
       return __in;
     }
 

@@ -32,13 +32,13 @@ GLIBCXX_3.4 {
       std::logic_error*;
       std::locale::[A-Za-e]*;
       std::locale::facet::[A-Za-z]*;
-      std::locale::facet::_S_c_locale;	
+      std::locale::facet::_S_get_c_locale*;	
       std::locale::facet::_S_clone_c_locale*;
       std::locale::facet::_S_create_c_locale*;
       std::locale::facet::_S_destroy_c_locale*;
       std::locale::[A-Zg-h]*;
       std::locale::id::[A-Za-z]*;
-      std::locale::id::_S_highwater;
+      std::locale::id::_M_id*;
       std::locale::[A-Zj-z]*;
       std::locale::_[A-Ha-z]*;
       std::locale::_Impl::[A-Za-z]*;
@@ -57,10 +57,34 @@ GLIBCXX_3.4 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
+      __gnu_norm::*;
+      __gnu_debug::_Safe_iterator_base*;
+      __gnu_debug::_Safe_sequence_base*;
+      __gnu_debug::_Error_formatter*
     };
 
     # Names not in an 'extern' block are mangled names.
+
+    # operator new(size_t)
+    _Znw[jm];
+    # operator new(size_t, std::nothrow_t const&)
+    _Znw[jm]RKSt9nothrow_t;
+
+    # operator delete(void*)
+    _ZdlPv;
+    # operator delete(void*, std::nothrow_t const&)
+    _ZdlPvRKSt9nothrow_t;
+
+    # operator new[](size_t)
+    _Zna[jm];
+    # operator new[](size_t, std::nothrow_t const&)
+    _Zna[jm]RKSt9nothrow_t;
+
+    # operator delete[](void*)
+    _ZdaPv;
+    # operator delete[](void*, std::nothrow_t const&)
+    _ZdaPvRKSt9nothrow_t;
 
     # std::locale destructors
     _ZNSt6localeD*;
@@ -68,7 +92,7 @@ GLIBCXX_3.4 {
     # std::locale::facet destructors
     _ZNSt6locale5facetD*;
 	 
-    # std::locale::_Impl constructors, destrutors
+    # std::locale::_Impl constructors, destructors
     _ZNSt6locale5_ImplC*;
     _ZNSt6locale5_ImplD*;
 
@@ -83,6 +107,9 @@ GLIBCXX_3.4 {
     _ZSt20_Rb_tree_rotate_leftPSt18_Rb_tree_node_baseRS0_;
     _ZSt21_Rb_tree_rotate_rightPSt18_Rb_tree_node_baseRS0_;
     _ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_;
+
+    # std::__codecvt_abstract_base*
+    _ZNStSt23__codecvt_abstract_base*;
 
     # virtual table
     _ZTVNSt8ios_base7failureE;
@@ -221,57 +248,68 @@ CXXABI_1.3 {
     __gxx_personality_sj0;
     __dynamic_cast;
 
-    # operator new(size_t)
-    _Znw[jm];
-    # operator new(size_t, std::nothrow_t const&)
-    _Znw[jm]RKSt9nothrow_t;
+    # *_type_info classes, ctor and dtor
+    _ZN10__cxxabiv117__array_type_info*;
+    _ZN10__cxxabiv117__class_type_info*;
+    _ZN10__cxxabiv116__enum_type_info*;
+    _ZN10__cxxabiv120__function_type_info*;
+    _ZN10__cxxabiv123__fundamental_type_info*;
+    _ZN10__cxxabiv117__pbase_type_info*;
+    _ZN10__cxxabiv129__pointer_to_member_type_info*;
+    _ZN10__cxxabiv119__pointer_type_info*;
+    _ZN10__cxxabiv120__si_class_type_info*;
+    _ZN10__cxxabiv121__vmi_class_type_info*;
 
-    # operator delete(void*)
-    _ZdlPv;
-    # operator delete(void*, std::nothrow_t const&)
-    _ZdlPvRKSt9nothrow_t;
-
-    # operator new[](size_t)
-    _Zna[jm];
-    # operator new[](size_t, std::nothrow_t const&)
-    _Zna[jm]RKSt9nothrow_t;
-
-    # operator delete[](void*)
-    _ZdaPv;
-    # operator delete[](void*, std::nothrow_t const&)
-    _ZdaPvRKSt9nothrow_t;
+    # *_type_info classes, member functions
+    _ZNK10__cxxabiv117__class_type_info*;
+    _ZNK10__cxxabiv120__function_type_info*;
+    _ZNK10__cxxabiv117__pbase_type_info*;
+    _ZNK10__cxxabiv129__pointer_to_member_type_info*;
+    _ZNK10__cxxabiv119__pointer_type_info*;
+    _ZNK10__cxxabiv120__si_class_type_info*;
+    _ZNK10__cxxabiv121__vmi_class_type_info*;
 
     # virtual table
+    _ZTVN10__cxxabiv117__array_type_infoE;
     _ZTVN10__cxxabiv117__class_type_infoE;
+    _ZTVN10__cxxabiv116__enum_type_infoE;
+    _ZTVN10__cxxabiv120__function_type_infoE;
+    _ZTVN10__cxxabiv123__fundamental_type_infoE;
+    _ZTVN10__cxxabiv117__pbase_type_infoE;
+    _ZTVN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTVN10__cxxabiv119__pointer_type_infoE;
     _ZTVN10__cxxabiv120__si_class_type_infoE;
     _ZTVN10__cxxabiv121__vmi_class_type_infoE;
-    _ZTVN10__cxxabiv123__fundamental_type_infoE;
-    _ZTVN10__cxxabiv117__array_type_infoE;
-    _ZTVN10__cxxabiv120__function_type_infoE;
-    _ZTVN10__cxxabiv116__enum_type_infoE;
-    _ZTVN10__cxxabiv117__pbase_type_infoE;
-    _ZTVN10__cxxabiv119__pointer_type_infoE;
-    _ZTVN10__cxxabiv129__pointer_to_member_type_infoE;
 
     # typeinfo structure (and some names)
     _ZTI[a-z];
     _ZTIP[a-z];
     _ZTIPK[a-z];
+    _ZTIN10__cxxabiv117__array_type_infoE;
     _ZTIN10__cxxabiv117__class_type_infoE;
+    _ZTIN10__cxxabiv116__enum_type_infoE;
+    _ZTIN10__cxxabiv120__function_type_infoE;
+    _ZTIN10__cxxabiv123__fundamental_type_infoE;
+    _ZTIN10__cxxabiv117__pbase_type_infoE;
+    _ZTIN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTIN10__cxxabiv119__pointer_type_infoE;
     _ZTIN10__cxxabiv120__si_class_type_infoE;
     _ZTIN10__cxxabiv121__vmi_class_type_infoE;
-    _ZTIN10__cxxabiv123__fundamental_type_infoE;
-    _ZTIN10__cxxabiv117__array_type_infoE;
-    _ZTIN10__cxxabiv120__function_type_infoE;
-    _ZTIN10__cxxabiv116__enum_type_infoE;
-    _ZTIN10__cxxabiv117__pbase_type_infoE;
-    _ZTIN10__cxxabiv119__pointer_type_infoE;
-    _ZTIN10__cxxabiv129__pointer_to_member_type_infoE;
 
     # typeinfo name
     _ZTS[a-z];
     _ZTSP[a-z];
     _ZTSPK[a-z];
+    _ZTSN10__cxxabiv117__array_type_infoE;
+    _ZTSN10__cxxabiv117__class_type_infoE;
+    _ZTSN10__cxxabiv116__enum_type_infoE;
+    _ZTSN10__cxxabiv120__function_type_infoE;
+    _ZTSN10__cxxabiv123__fundamental_type_infoE;
+    _ZTSN10__cxxabiv117__pbase_type_infoE;
+    _ZTSN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTSN10__cxxabiv119__pointer_type_infoE;
+    _ZTSN10__cxxabiv120__si_class_type_infoE;
+    _ZTSN10__cxxabiv121__vmi_class_type_infoE;
 
     # __gnu_cxx::_verbose_terminate_handler()
     _ZN9__gnu_cxx27__verbose_terminate_handlerEv;

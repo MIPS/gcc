@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,9 +33,12 @@ with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
+with Output;   use Output;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
 with Ttypef;   use Ttypef;
+with Scn;
 with Sem_Mech; use Sem_Mech;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
@@ -118,6 +121,9 @@ package body CStand is
      (New_Node_Kind : Node_Kind := N_Defining_Identifier)
       return          Entity_Id;
    --  Builds a new entity for Standard
+
+   procedure Print_Standard;
+   --  Print representation of package Standard if switch set
 
    procedure Set_Integer_Bounds
      (Id  : Entity_Id;
@@ -254,10 +260,10 @@ package body CStand is
    --  by Initialize_Standard in the semantics module.
 
    procedure Create_Standard is
-      Decl_S : List_Id;
+      Decl_S : List_Id := New_List;
       --  List of declarations in Standard
 
-      Decl_A : List_Id;
+      Decl_A : List_Id := New_List;
       --  List of declarations in ASCII
 
       Decl       : Node_Id;
@@ -292,7 +298,9 @@ package body CStand is
    --  Start of processing for Create_Standard
 
    begin
-      Decl_S := New_List;
+      --  Initialize scanner for internal scans of literals
+
+      Scn.Initialize_Scanner (No_Unit, Internal_Source_File);
 
       --  First step is to create defining identifiers for each entity
 
@@ -409,7 +417,6 @@ package body CStand is
 
       declare
          LIS : Nat;
-
       begin
          if Debug_Flag_M then
             LIS := 64;
@@ -652,7 +659,6 @@ package body CStand is
 
       Set_Defining_Unit_Name (Pspec, Standard_Entity (S_ASCII));
       Set_Ekind (Standard_Entity (S_ASCII), E_Package);
-      Decl_A := New_List; -- for ASCII declarations
       Set_Visible_Declarations (Pspec, Decl_A);
 
       --  Create control character definitions in package ASCII. Note that
@@ -667,13 +673,13 @@ package body CStand is
          Set_Constant_Present (Decl, True);
 
          declare
-            A_Char    : Entity_Id := Standard_Entity (S);
+            A_Char    : constant Entity_Id := Standard_Entity (S);
             Expr_Decl : Node_Id;
 
          begin
             Set_Sloc                   (A_Char, Staloc);
             Set_Ekind                  (A_Char, E_Constant);
-            Set_Not_Source_Assigned    (A_Char, True);
+            Set_Never_Set_In_Source    (A_Char, True);
             Set_Is_True_Constant       (A_Char, True);
             Set_Etype                  (A_Char, Standard_Character);
             Set_Scope                  (A_Char, Standard_Entity (S_ASCII));
@@ -716,7 +722,6 @@ package body CStand is
       Standard_Void_Type := New_Standard_Entity;
       Set_Ekind       (Standard_Void_Type, E_Void);
       Set_Etype       (Standard_Void_Type, Standard_Void_Type);
-      Init_Size_Align (Standard_Void_Type);
       Set_Scope       (Standard_Void_Type, Standard_Standard);
       Make_Name       (Standard_Void_Type, "_void_type");
 
@@ -787,6 +792,18 @@ package body CStand is
       Set_Prim_Alignment    (Any_Access);
       Make_Name             (Any_Access, "an access type");
 
+      Any_Character := New_Standard_Entity;
+      Set_Ekind             (Any_Character, E_Enumeration_Type);
+      Set_Scope             (Any_Character, Standard_Standard);
+      Set_Etype             (Any_Character, Any_Character);
+      Set_Is_Unsigned_Type  (Any_Character);
+      Set_Is_Character_Type (Any_Character);
+      Init_Esize            (Any_Character, Standard_Character_Size);
+      Init_RM_Size          (Any_Character, 8);
+      Set_Prim_Alignment    (Any_Character);
+      Set_Scalar_Range      (Any_Character, Scalar_Range (Standard_Character));
+      Make_Name             (Any_Character, "a character type");
+
       Any_Array := New_Standard_Entity;
       Set_Ekind             (Any_Array, E_String_Type);
       Set_Scope             (Any_Array, Standard_Standard);
@@ -805,18 +822,6 @@ package body CStand is
       Set_Is_Unsigned_Type  (Any_Boolean);
       Set_Scalar_Range      (Any_Boolean, Scalar_Range (Standard_Boolean));
       Make_Name             (Any_Boolean, "a boolean type");
-
-      Any_Character := New_Standard_Entity;
-      Set_Ekind             (Any_Character, E_Enumeration_Type);
-      Set_Scope             (Any_Character, Standard_Standard);
-      Set_Etype             (Any_Character, Any_Character);
-      Set_Is_Unsigned_Type  (Any_Character);
-      Set_Is_Character_Type (Any_Character);
-      Init_Esize            (Any_Character, Standard_Character_Size);
-      Init_RM_Size          (Any_Character, 8);
-      Set_Prim_Alignment    (Any_Character);
-      Set_Scalar_Range      (Any_Character, Scalar_Range (Standard_Character));
-      Make_Name             (Any_Character, "a character type");
 
       Any_Composite := New_Standard_Entity;
       Set_Ekind             (Any_Composite, E_Array_Type);
@@ -900,14 +905,12 @@ package body CStand is
 
       declare
          Index   : Node_Id;
-         Indexes : List_Id;
 
       begin
          Index :=
            Make_Range (Stloc,
              Low_Bound  => Make_Integer (Uint_0),
              High_Bound => Make_Integer (Uint_2 ** Standard_Integer_Size));
-         Indexes := New_List (Index);
          Set_Etype (Index, Standard_Integer);
          Set_First_Index (Any_String, Index);
       end;
@@ -952,14 +955,15 @@ package body CStand is
       Set_Prim_Alignment    (Standard_Unsigned);
       Set_Modulus           (Standard_Unsigned,
                               Uint_2 ** Standard_Integer_Size);
-
       Set_Is_Unsigned_Type  (Standard_Unsigned);
+      Set_Size_Known_At_Compile_Time
+                            (Standard_Unsigned);
 
       R_Node := New_Node (N_Range, Stloc);
-      Set_Low_Bound  (R_Node,
-        Make_Integer_Literal (Stloc, 0));
-      Set_High_Bound (R_Node,
-        Make_Integer_Literal (Stloc, Modulus (Standard_Unsigned)));
+      Set_Low_Bound  (R_Node, Make_Integer (Uint_0));
+      Set_High_Bound (R_Node, Make_Integer (Modulus (Standard_Unsigned) - 1));
+      Set_Etype (Low_Bound (R_Node), Standard_Unsigned);
+      Set_Etype (High_Bound (R_Node), Standard_Unsigned);
       Set_Scalar_Range (Standard_Unsigned, R_Node);
 
       --  Note: universal integer and universal real are constructed as fully
@@ -1002,26 +1006,24 @@ package body CStand is
                            (Universal_Fixed);
 
       --  Create type declaration for Duration, using a 64-bit size. The
-      --  delta value depends on the mode we are running in:
-
-      --     Normal mode or No_Run_Time mode when word size is 64 bits:
-      --       10**(-9) seconds, size is 64 bits
-
-      --     No_Run_Time mode when word size is 32 bits:
-      --       10**(-4) seconds, oize is 32 bits
+      --  delta and size values depend on the mode set in system.ads.
 
       Build_Duration : declare
          Dlo         : Uint;
          Dhi         : Uint;
          Delta_Val   : Ureal;
-         Use_32_Bits : constant Boolean :=
-                         No_Run_Time and then System_Word_Size = 32;
 
       begin
-         if Use_32_Bits then
+         --  In 32 bit mode, the size is 32 bits, and the delta and
+         --  small values are set to 20 milliseconds (20.0**(10.0**(-3)).
+
+         if Duration_32_Bits_On_Target then
             Dlo := Intval (Type_Low_Bound (Standard_Integer_32));
             Dhi := Intval (Type_High_Bound (Standard_Integer_32));
-            Delta_Val := UR_From_Components (Uint_1, Uint_4, 10);
+            Delta_Val := UR_From_Components (UI_From_Int (20), Uint_3, 10);
+
+         --  In standard 64-bit mode, the size is 64-bits and the delta and
+         --  amll values are set to nanoseconds (1.0**(10.0**(-9))
 
          else
             Dlo := Intval (Type_Low_Bound (Standard_Integer_64));
@@ -1045,7 +1047,7 @@ package body CStand is
          Set_Ekind (Standard_Duration, E_Ordinary_Fixed_Point_Type);
          Set_Etype (Standard_Duration, Standard_Duration);
 
-         if Use_32_Bits then
+         if Duration_32_Bits_On_Target then
             Init_Size (Standard_Duration, 32);
          else
             Init_Size (Standard_Duration, 64);
@@ -1087,7 +1089,7 @@ package body CStand is
       Set_Ekind       (Standard_Exception_Type, E_Record_Type);
       Set_Etype       (Standard_Exception_Type, Standard_Exception_Type);
       Set_Scope       (Standard_Exception_Type, Standard_Standard);
-      Set_Girder_Constraint
+      Set_Stored_Constraint
                       (Standard_Exception_Type, No_Elist);
       Init_Size_Align (Standard_Exception_Type);
       Set_Size_Known_At_Compile_Time
@@ -1105,7 +1107,8 @@ package body CStand is
                                                             "HTable_Ptr");
       Make_Component  (Standard_Exception_Type, Standard_Integer,
                                                           "Import_Code");
-
+      Make_Component  (Standard_Exception_Type, Standard_A_Char,
+                                                            "Raise_Hook");
       --  Build tree for record declaration, for use by the back-end.
 
       declare
@@ -1137,6 +1140,8 @@ package body CStand is
       end;
 
       Append (Decl, Decl_S);
+
+      Layout_Type (Standard_Exception_Type);
 
       --  Create declarations of standard exceptions
 
@@ -1243,6 +1248,12 @@ package body CStand is
       --  The Error node has an Etype of Any_Type to help error recovery
 
       Set_Etype (Error, Any_Type);
+
+      --  Print representation of standard if switch set
+
+      if Opt.Print_Standard then
+         Print_Standard;
+      end if;
    end Create_Standard;
 
    ------------------------------------
@@ -1256,9 +1267,10 @@ package body CStand is
       New_Ent : constant Entity_Id := New_Copy (E);
 
    begin
-      Set_Ekind          (E, K);
-      Set_Is_Constrained (E, True);
-      Set_Etype          (E, New_Ent);
+      Set_Ekind            (E, K);
+      Set_Is_Constrained   (E, True);
+      Set_Is_First_Subtype (E, True);
+      Set_Etype            (E, New_Ent);
 
       Append_Entity (New_Ent, Standard_Standard);
       Set_Is_Constrained (New_Ent, False);
@@ -1294,7 +1306,7 @@ package body CStand is
       Typ : Entity_Id;
       Nam : String)
    is
-      Id : Entity_Id := New_Standard_Entity;
+      Id : constant Entity_Id := New_Standard_Entity;
 
    begin
       Set_Ekind                 (Id, E_Component);
@@ -1415,6 +1427,249 @@ package body CStand is
 
       return E;
    end New_Standard_Entity;
+
+   --------------------
+   -- Print_Standard --
+   --------------------
+
+   procedure Print_Standard is
+
+      procedure P (Item : String) renames Output.Write_Line;
+      --  Short-hand, since we do a lot of line writes here!
+
+      procedure P_Int_Range (Size : Pos);
+      --  Prints the range of an integer based on its Size
+
+      procedure P_Float_Range (Id : Entity_Id);
+      --  Prints the bounds range for the given float type entity
+
+      -------------------
+      -- P_Float_Range --
+      -------------------
+
+      procedure P_Float_Range (Id : Entity_Id) is
+         Digs : constant Nat := UI_To_Int (Digits_Value (Id));
+
+      begin
+         Write_Str ("     range ");
+
+         if Vax_Float (Id) then
+            if Digs = VAXFF_Digits then
+               Write_Str (VAXFF_First'Universal_Literal_String);
+               Write_Str (" .. ");
+               Write_Str (VAXFF_Last'Universal_Literal_String);
+
+            elsif Digs = VAXDF_Digits then
+               Write_Str (VAXDF_First'Universal_Literal_String);
+               Write_Str (" .. ");
+               Write_Str (VAXDF_Last'Universal_Literal_String);
+
+            else
+               pragma Assert (Digs = VAXGF_Digits);
+
+               Write_Str (VAXGF_First'Universal_Literal_String);
+               Write_Str (" .. ");
+               Write_Str (VAXGF_Last'Universal_Literal_String);
+            end if;
+
+         elsif Is_AAMP_Float (Id) then
+            if Digs = AAMPS_Digits then
+               Write_Str (AAMPS_First'Universal_Literal_String);
+               Write_Str (" .. ");
+               Write_Str (AAMPS_Last'Universal_Literal_String);
+
+            else
+               pragma Assert (Digs = AAMPL_Digits);
+               Write_Str (AAMPL_First'Universal_Literal_String);
+               Write_Str (" .. ");
+               Write_Str (AAMPL_Last'Universal_Literal_String);
+            end if;
+
+         elsif Digs = IEEES_Digits then
+            Write_Str (IEEES_First'Universal_Literal_String);
+            Write_Str (" .. ");
+            Write_Str (IEEES_Last'Universal_Literal_String);
+
+
+         elsif Digs = IEEEL_Digits then
+            Write_Str (IEEEL_First'Universal_Literal_String);
+            Write_Str (" .. ");
+            Write_Str (IEEEL_Last'Universal_Literal_String);
+
+         else
+            pragma Assert (Digs = IEEEX_Digits);
+
+            Write_Str (IEEEX_First'Universal_Literal_String);
+            Write_Str (" .. ");
+            Write_Str (IEEEX_Last'Universal_Literal_String);
+         end if;
+
+         Write_Str (";");
+         Write_Eol;
+      end P_Float_Range;
+
+      -----------------
+      -- P_Int_Range --
+      -----------------
+
+      procedure P_Int_Range (Size : Pos) is
+      begin
+         Write_Str (" is range -(2 **");
+         Write_Int (Size - 1);
+         Write_Str (")");
+         Write_Str (" .. +(2 **");
+         Write_Int (Size - 1);
+         Write_Str (" - 1);");
+         Write_Eol;
+      end P_Int_Range;
+
+   --  Start of processing for Print_Standard
+
+   begin
+      P ("--  Representation of package Standard");
+      Write_Eol;
+      P ("--  This is not accurate Ada, since new base types cannot be ");
+      P ("--  created, but the listing shows the target dependent");
+      P ("--  characteristics of the Standard types for this compiler");
+      Write_Eol;
+
+      P ("package Standard is");
+      P ("pragma Pure(Standard);");
+      Write_Eol;
+
+      P ("   type Boolean is (False, True);");
+      P ("   for Boolean'Size use 1;");
+      P ("   for Boolean use (False => 0, True => 1);");
+      Write_Eol;
+
+      --  Integer types
+
+      Write_Str ("   type Integer");
+      P_Int_Range (Standard_Integer_Size);
+      Write_Str ("   for Integer'Size use ");
+      Write_Int (Standard_Integer_Size);
+      P (";");
+      Write_Eol;
+
+      P ("   subtype Natural  is Integer range 0 .. Integer'Last;");
+      P ("   subtype Positive is Integer range 1 .. Integer'Last;");
+      Write_Eol;
+
+      Write_Str ("   type Short_Short_Integer");
+      P_Int_Range (Standard_Short_Short_Integer_Size);
+      Write_Str ("   for Short_Short_Integer'Size use ");
+      Write_Int (Standard_Short_Short_Integer_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Short_Integer");
+      P_Int_Range (Standard_Short_Integer_Size);
+      Write_Str ("   for Short_Integer'Size use ");
+      Write_Int (Standard_Short_Integer_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Long_Integer");
+      P_Int_Range (Standard_Long_Integer_Size);
+      Write_Str ("   for Long_Integer'Size use ");
+      Write_Int (Standard_Long_Integer_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Long_Long_Integer");
+      P_Int_Range (Standard_Long_Long_Integer_Size);
+      Write_Str ("   for Long_Long_Integer'Size use ");
+      Write_Int (Standard_Long_Long_Integer_Size);
+      P (";");
+      Write_Eol;
+
+      --  Floating point types
+
+      Write_Str ("   type Short_Float is digits ");
+      Write_Int (Standard_Short_Float_Digits);
+      Write_Eol;
+      P_Float_Range (Standard_Short_Float);
+      Write_Str ("   for Short_Float'Size use ");
+      Write_Int (Standard_Short_Float_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Float is digits ");
+      Write_Int (Standard_Float_Digits);
+      Write_Eol;
+      P_Float_Range (Standard_Float);
+      Write_Str ("   for Float'Size use ");
+      Write_Int (Standard_Float_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Long_Float is digits ");
+      Write_Int (Standard_Long_Float_Digits);
+      Write_Eol;
+      P_Float_Range (Standard_Long_Float);
+      Write_Str ("   for Long_Float'Size use ");
+      Write_Int (Standard_Long_Float_Size);
+      P (";");
+      Write_Eol;
+
+      Write_Str ("   type Long_Long_Float is digits ");
+      Write_Int (Standard_Long_Long_Float_Digits);
+      Write_Eol;
+      P_Float_Range (Standard_Long_Long_Float);
+      Write_Str ("   for Long_Long_Float'Size use ");
+      Write_Int (Standard_Long_Long_Float_Size);
+      P (";");
+      Write_Eol;
+
+      P ("   type Character is (...)");
+      Write_Str ("   for Character'Size use ");
+      Write_Int (Standard_Character_Size);
+      P (";");
+      P ("   --  See RM A.1(35) for details of this type");
+      Write_Eol;
+
+      P ("   type Wide_Character is (...)");
+      Write_Str ("   for Wide_Character'Size use ");
+      Write_Int (Standard_Wide_Character_Size);
+      P (";");
+      P ("   --  See RM A.1(36) for details of this type");
+      Write_Eol;
+
+      P ("   type String is array (Positive range <>) of Character;");
+      P ("   pragma Pack (String);");
+      Write_Eol;
+
+      P ("   type Wide_String is array (Positive range <>)" &
+         " of Wide_Character;");
+      P ("   pragma Pack (Wide_String);");
+      Write_Eol;
+
+      --  Here it's OK to use the Duration type of the host compiler since
+      --  the implementation of Duration in GNAT is target independent.
+
+      if Duration_32_Bits_On_Target then
+         P ("   type Duration is delta 0.020");
+         P ("     range -((2 ** 31 - 1) * 0.020) ..");
+         P ("           +((2 ** 31 - 1) * 0.020);");
+         P ("   for Duration'Small use 0.020;");
+      else
+         P ("   type Duration is delta 0.000000001");
+         P ("     range -((2 ** 63 - 1) * 0.000000001) ..");
+         P ("           +((2 ** 63 - 1) * 0.000000001);");
+         P ("   for Duration'Small use 0.000000001;");
+      end if;
+
+      Write_Eol;
+
+      P ("   Constraint_Error : exception;");
+      P ("   Program_Error    : exception;");
+      P ("   Storage_Error    : exception;");
+      P ("   Tasking_Error    : exception;");
+      P ("   Numeric_Error    : exception renames Constraint_Error;");
+      Write_Eol;
+
+      P ("end Standard;");
+   end Print_Standard;
 
    ----------------------
    -- Set_Float_Bounds --

@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -190,6 +190,8 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_COMMAND_SPEC "\
 %{!fdump=*:%{!fsyntax-only:%{!precomp:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %{!Zdynamiclib:%(linker)}%{Zdynamiclib:/usr/bin/libtool} \
+    %{!Zdynamiclib:-arch %(darwin_arch)} \
+    %{Zdynamiclib:-arch_only %(darwin_arch)} \
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
@@ -248,7 +250,7 @@ Boston, MA 02111-1307, USA.  */
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
-   %{prebind} %{noprebind} %{prebind_all_twolevel_modules} \
+   %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} %{seg_addr_table*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
@@ -372,7 +374,7 @@ do { text_section ();							\
         || DECL_INITIAL (DECL))						\
       (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
     ASM_OUTPUT_LABEL (FILE, xname);					\
-    /* Darwin doesn't support zero-size objects, so give them a 	\
+    /* Darwin doesn't support zero-size objects, so give them a	\
        byte.  */							\
     if (tree_low_cst (DECL_SIZE_UNIT (DECL), 1) == 0)			\
       assemble_zeros (1);						\
@@ -482,9 +484,9 @@ do { text_section ();							\
 
 #undef	SECTION_FUNCTION
 #define SECTION_FUNCTION(FUNCTION, SECTION, DIRECTIVE, OBJC)		\
-extern void FUNCTION PARAMS ((void));					\
+extern void FUNCTION (void);						\
 void									\
-FUNCTION ()								\
+FUNCTION (void)								\
 {									\
   if (in_section != SECTION)						\
     {									\
@@ -512,8 +514,9 @@ FUNCTION ()								\
   in_objc_symbols, in_objc_module_info,			\
   in_objc_protocol, in_objc_string_object,		\
   in_objc_constant_string_object,			\
+  in_objc_image_info,					\
   in_objc_class_names, in_objc_meth_var_names,		\
-  in_objc_meth_var_types, in_objc_cls_refs, 		\
+  in_objc_meth_var_types, in_objc_cls_refs,		\
   in_machopic_nl_symbol_ptr,				\
   in_machopic_lazy_symbol_ptr,				\
   in_machopic_symbol_stub,				\
@@ -525,7 +528,7 @@ FUNCTION ()								\
 
 #undef	EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS			\
-static void objc_section_init PARAMS ((void));	\
+static void objc_section_init (void);		\
 SECTION_FUNCTION (const_section,		\
                   in_const,			\
                   ".const", 0)			\
@@ -601,6 +604,10 @@ SECTION_FUNCTION (objc_string_object_section,	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
 		  ".section __OBJC, __cstring_object", 1)	\
+/* Fix-and-Continue image marker.  */		\
+SECTION_FUNCTION (objc_image_info_section,	\
+                  in_objc_image_info,		\
+                  ".section __OBJC, __image_info", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
 		".objc_class_names", 1)	\
@@ -616,19 +623,19 @@ SECTION_FUNCTION (objc_cls_refs_section,	\
 						\
 SECTION_FUNCTION (machopic_lazy_symbol_ptr_section,	\
 		in_machopic_lazy_symbol_ptr,		\
-		".lazy_symbol_pointer", 0)      	\
+		".lazy_symbol_pointer", 0)	\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,	\
 		in_machopic_nl_symbol_ptr,		\
-		".non_lazy_symbol_pointer", 0)      	\
+		".non_lazy_symbol_pointer", 0)	\
 SECTION_FUNCTION (machopic_symbol_stub_section,		\
 		in_machopic_symbol_stub,		\
-		".symbol_stub", 0)      		\
+		".symbol_stub", 0)		\
 SECTION_FUNCTION (machopic_symbol_stub1_section,	\
 		in_machopic_symbol_stub1,		\
 		".section __TEXT,__symbol_stub1,symbol_stubs,pure_instructions,16", 0)\
 SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		in_machopic_picsymbol_stub,		\
-		".picsymbol_stub", 0)      		\
+		".picsymbol_stub", 0)		\
 SECTION_FUNCTION (machopic_picsymbol_stub1_section,	\
 		in_machopic_picsymbol_stub1,		\
 		".section __TEXT,__picsymbolstub1,symbol_stubs,pure_instructions,32", 0)\
@@ -640,7 +647,7 @@ SECTION_FUNCTION (darwin_eh_frame_section,		\
 		".section __TEXT,__eh_frame", 0)	\
 							\
 static void					\
-objc_section_init ()				\
+objc_section_init (void)			\
 {						\
   static int been_here = 0;			\
 						\
@@ -657,7 +664,7 @@ objc_section_init ()				\
       objc_cls_refs_section ();			\
       objc_class_section ();			\
       objc_meta_class_section ();		\
-          /* shared, hot -> cold */    		\
+          /* shared, hot -> cold */		\
       objc_cls_meth_section ();			\
       objc_inst_meth_section ();		\
       objc_protocol_section ();			\
@@ -680,7 +687,7 @@ objc_section_init ()				\
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
-    do { 								\
+    do {								\
 	 if (FILE) {							\
 	   if (MACHOPIC_INDIRECT)					\
 	     fprintf (FILE, "\t.lazy_reference ");			\
@@ -695,7 +702,7 @@ objc_section_init ()				\
     do {								\
 	 if (FILE) {							\
 	   fprintf (FILE, "\t");					\
-	   assemble_name (FILE, NAME); 					\
+	   assemble_name (FILE, NAME);					\
 	   fprintf (FILE, "=0\n");					\
 	   (*targetm.asm_out.globalize_label) (FILE, NAME);		\
 	 }								\
@@ -704,6 +711,13 @@ objc_section_init ()				\
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
 #define TARGET_ASM_GLOBALIZE_LABEL darwin_globalize_label
+
+/* Emit an assembler directive to set visibility for a symbol.  Used
+   to support visibility attribute and Darwin's private extern
+   feature. */
+#undef TARGET_ASM_ASSEMBLE_VISIBILITY
+#define TARGET_ASM_ASSEMBLE_VISIBILITY darwin_assemble_visibility
+
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
@@ -797,7 +811,7 @@ enum machopic_addr_class {
 #define TARGET_ASM_EXCEPTION_SECTION darwin_exception_section
 
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
-  
+
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \

@@ -79,6 +79,7 @@ extern int h8300_eightbit_constant_address_p (rtx);
 extern int h8300_tiny_constant_address_p (rtx);
 extern int byte_accesses_mergeable_p (rtx, rtx);
 extern int same_cmp_preceding_p (rtx);
+extern int same_cmp_following_p (rtx);
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx (int, rtx);
@@ -98,6 +99,7 @@ extern void h8300_expand_prologue (void);
 extern void h8300_expand_epilogue (void);
 extern int h8300_current_function_interrupt_function_p (void);
 extern int h8300_initial_elimination_offset (int, int);
+extern int h8300_hard_regno_rename_ok (unsigned int, unsigned int);
 
 struct cpp_reader;
 extern void h8300_pr_interrupt (struct cpp_reader *);

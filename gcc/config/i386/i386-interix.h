@@ -1,5 +1,5 @@
-/* Target definitions for GNU compiler for Intel 80386 running Interix
-   Parts Copyright (C) 1991, 1999, 2000, 2002 Free Software Foundation, Inc.
+/* Target definitions for GCC for Intel 80386 running Interix
+   Parts Copyright (C) 1991, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
    Parts:
      by Douglas B. Rupp (drupp@cs.washington.edu).
@@ -7,20 +7,20 @@
      by Donn Terry (donn@softway.com).
      by Mumit Khan (khan@xraylith.wisc.edu).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -341,7 +341,7 @@ while (0)
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-extern void i386_pe_unique_section PARAMS ((tree, int));
+extern void i386_pe_unique_section (tree, int);
 #define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1

@@ -293,12 +293,12 @@ struct elim_table
 {
   int from;			/* Register number to be eliminated.  */
   int to;			/* Register number used as replacement.  */
-  int initial_offset;		/* Initial difference between values.  */
+  HOST_WIDE_INT initial_offset;	/* Initial difference between values.  */
   int can_eliminate;		/* Nonzero if this elimination can be done.  */
   int can_eliminate_previous;	/* Value of CAN_ELIMINATE in previous scan over
 				   insns made by reload.  */
-  int offset;			/* Current offset between the two regs.  */
-  int previous_offset;		/* Offset at end of previous insn.  */
+  HOST_WIDE_INT offset;		/* Current offset between the two regs.  */
+  HOST_WIDE_INT previous_offset;/* Offset at end of previous insn.  */
   int ref_outside_mem;		/* "to" has been referenced outside a MEM.  */
   rtx from_rtx;			/* REG rtx for the register to be eliminated.
 				   We cannot simply compare the number since
@@ -352,7 +352,7 @@ static int num_eliminable_invariants;
 
 static int first_label_num;
 static char *offsets_known_at;
-static int (*offsets_at)[NUM_ELIMINABLE_REGS];
+static HOST_WIDE_INT (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 /* Number of labels in the current function.  */
 
@@ -673,6 +673,17 @@ reload (rtx first, int global)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	regs_ever_live[i] = 1;
 
+#ifdef NON_SAVING_SETJMP
+  /* A function that calls setjmp should save and restore all the
+     call-saved registers on a system where longjmp clobbers them.  */
+  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
+    {
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (! call_used_regs[i])
+	  regs_ever_live[i] = 1;
+    }
+#endif
+
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
      These include parameters (known equivalent to parameter slots)
@@ -698,9 +709,7 @@ reload (rtx first, int global)
   /* Look for REG_EQUIV notes; record what each pseudo is equivalent to.
      Also find all paradoxical subregs and find largest such for each pseudo.
      On machines with small register classes, record hard registers that
-     are used for user variables.  These can never be used for spills.
-     Also look for a "constant" REG_SETJMP.  This means that all
-     caller-saved registers must be marked live.  */
+     are used for user variables.  These can never be used for spills.  */
 
   num_eliminable_invariants = 0;
   for (insn = first; insn; insn = NEXT_INSN (insn))
@@ -713,12 +722,6 @@ reload (rtx first, int global)
       if (INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
 	  && GET_MODE (insn) != VOIDmode)
 	PUT_MODE (insn, VOIDmode);
-
-      if (GET_CODE (insn) == CALL_INSN
-	  && find_reg_note (insn, REG_SETJMP, NULL))
-	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	  if (! call_used_regs[i])
-	    regs_ever_live[i] = 1;
 
       if (set != 0 && GET_CODE (SET_DEST (set)) == REG)
 	{
@@ -816,7 +819,7 @@ reload (rtx first, int global)
      allocate would occasionally cause it to exceed the stack limit and
      cause a core dump.  */
   offsets_known_at = xmalloc (num_labels);
-  offsets_at = xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (int));
+  offsets_at = xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
   /* Alter each pseudo-reg rtx to contain its hard reg number.
      Assign stack slots to the pseudos that lack hard regs or equivalents.
@@ -1248,6 +1251,14 @@ reload (rtx first, int global)
      created shared rtx.  Subsequent passes would get confused
      by this, so unshare everything here.  */
   unshare_all_rtl_again (first);
+
+#ifdef STACK_BOUNDARY
+  /* init_emit has set the alignment of the hard frame pointer
+     to STACK_BOUNDARY.  It is very likely no longer valid if
+     the hard frame pointer was used for register allocation.  */
+  if (!frame_pointer_needed)
+    REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_UNIT;
+#endif
 
   return failure;
 }
@@ -2570,9 +2581,7 @@ eliminate_regs (rtx x, enum machine_mode mem_mode, rtx insn)
 	  if (new != XEXP (x, i) && ! copied)
 	    {
 	      rtx new_x = rtx_alloc (code);
-	      memcpy (new_x, x,
-		      (sizeof (*new_x) - sizeof (new_x->fld)
-		       + sizeof (new_x->fld[0]) * GET_RTX_LENGTH (code)));
+	      memcpy (new_x, x, RTX_SIZE (code));
 	      x = new_x;
 	      copied = 1;
 	    }
@@ -2591,10 +2600,7 @@ eliminate_regs (rtx x, enum machine_mode mem_mode, rtx insn)
 		  if (! copied)
 		    {
 		      rtx new_x = rtx_alloc (code);
-		      memcpy (new_x, x,
-			      (sizeof (*new_x) - sizeof (new_x->fld)
-			       + (sizeof (new_x->fld[0])
-				  * GET_RTX_LENGTH (code))));
+		      memcpy (new_x, x, RTX_SIZE (code));
 		      x = new_x;
 		      copied = 1;
 		    }
@@ -2902,7 +2908,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	      {
 		rtx base = SET_SRC (old_set);
 		rtx base_insn = insn;
-		int offset = 0;
+		HOST_WIDE_INT offset = 0;
 
 		while (base != ep->to_rtx)
 		  {
@@ -2985,7 +2991,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
       && REGNO (XEXP (SET_SRC (old_set), 0)) < FIRST_PSEUDO_REGISTER)
     {
       rtx reg = XEXP (SET_SRC (old_set), 0);
-      int offset = INTVAL (XEXP (SET_SRC (old_set), 1));
+      HOST_WIDE_INT offset = INTVAL (XEXP (SET_SRC (old_set), 1));
 
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == reg && ep->can_eliminate)
@@ -3268,7 +3274,7 @@ mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
 static void
 verify_initial_elim_offsets (void)
 {
-  int t;
+  HOST_WIDE_INT t;
 
 #ifdef ELIMINABLE_REGS
   struct elim_table *ep;

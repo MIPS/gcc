@@ -156,9 +156,15 @@ delete_insn (rtx insn)
     LABEL_NUSES (JUMP_LABEL (insn))--;
 
   /* Also if deleting an insn that references a label.  */
-  else if ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != NULL_RTX
-	   && GET_CODE (XEXP (note, 0)) == CODE_LABEL)
-    LABEL_NUSES (XEXP (note, 0))--;
+  else
+    {
+      while ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != NULL_RTX
+	     && GET_CODE (XEXP (note, 0)) == CODE_LABEL)
+	{
+	  LABEL_NUSES (XEXP (note, 0))--;
+	  remove_note (insn, note);
+	}
+    }
 
   if (GET_CODE (insn) == JUMP_INSN
       && (GET_CODE (PATTERN (insn)) == ADDR_VEC
@@ -793,6 +799,30 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       barrier = next_nonnote_insn (src->end);
       if (!barrier || GET_CODE (barrier) != BARRIER)
 	emit_barrier_after (src->end);
+      else
+	{
+	  if (barrier != NEXT_INSN (src->end))
+	    {
+	      /* Move the jump before barrier so that the notes
+		 which originally were or were created before jump table are
+		 inside the basic block.  */
+	      rtx new_insn = src->end;
+	      rtx tmp;
+
+	      for (tmp = NEXT_INSN (src->end); tmp != barrier;
+		   tmp = NEXT_INSN (tmp))
+		set_block_for_insn (tmp, src);
+
+	      NEXT_INSN (PREV_INSN (new_insn)) = NEXT_INSN (new_insn);
+	      PREV_INSN (NEXT_INSN (new_insn)) = PREV_INSN (new_insn);
+
+	      NEXT_INSN (new_insn) = barrier;
+	      NEXT_INSN (PREV_INSN (barrier)) = new_insn;
+
+	      PREV_INSN (new_insn) = PREV_INSN (barrier);
+	      PREV_INSN (barrier) = new_insn;
+	    }
+	}
     }
 
   /* Keep only one edge out and set proper flags.  */
@@ -2255,8 +2285,12 @@ purge_dead_edges (basic_block bb)
 	    continue;
 	  else if ((e->flags & EDGE_EH) && can_throw_internal (insn))
 	    /* Keep the edges that correspond to exceptions thrown by
-	       this instruction.  */
-	    continue;
+	       this instruction and rematerialize the EDGE_ABNORMAL
+	       flag we just cleared above.  */
+	    {
+	      e->flags |= EDGE_ABNORMAL;
+	      continue;
+	    }
 
 	  /* We do not need this edge.  */
 	  bb->flags |= BB_DIRTY;
@@ -2552,7 +2586,7 @@ cfg_layout_delete_block (basic_block bb)
     }
 }
 
-/* return true when blocks A and B can be safely merged.  */
+/* Return true when blocks A and B can be safely merged.  */
 static bool
 cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 {

@@ -70,8 +70,8 @@ namespace std
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef istreambuf_iterator<_CharT, _Traits>	__istreambuf_iter;
-      typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
+      typedef num_get<_CharT, istreambuf_iterator<_CharT, _Traits> >        
+ 							__num_get_type;
       typedef ctype<_CharT>           			__ctype_type;
 
       template<typename _CharT2, typename _Traits2>
@@ -705,15 +705,14 @@ namespace std
       public basic_ostream<_CharT, _Traits>
     {
     public:
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 271. basic_iostream missing typedefs
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 271. basic_iostream missing typedefs
       // Types (inherited):
       typedef _CharT                     		char_type;
       typedef typename _Traits::int_type 		int_type;
       typedef typename _Traits::pos_type 		pos_type;
       typedef typename _Traits::off_type 		off_type;
       typedef _Traits                    		traits_type;
-#endif
 
       // Non-standard Types:
       typedef basic_istream<_CharT, _Traits>		__istream_type;

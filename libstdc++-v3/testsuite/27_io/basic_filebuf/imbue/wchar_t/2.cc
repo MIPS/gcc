@@ -27,7 +27,7 @@
 void test02()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
   const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 
   locale loc;
@@ -41,13 +41,13 @@ void test02()
   pos_type p = ob.pubseekoff(2, ios_base::beg, ios_base::in);
   VERIFY( p != bad);
 
-  // 1 "if file is not positioned at its beginning" fails...
+  // According to 27.5.2.2.1, p1, loc == getloc() after pubimbue(loc).
   locale loc_de = __gnu_test::try_named_locale("de_DE");
   locale ret = ob.pubimbue(loc_de);
-  VERIFY( ob.getloc() == loc );
+  VERIFY( ob.getloc() == loc_de );
 }
 
-main() 
+int main() 
 {
   test02();
   return 0;

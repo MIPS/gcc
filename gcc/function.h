@@ -19,6 +19,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_FUNCTION_H
+#define GCC_FUNCTION_H
+
 struct var_refs_queue GTY(())
 {
   rtx modified;
@@ -267,6 +270,11 @@ struct function GTY(())
      on machines which require execution of the epilogue on all returns.  */
   rtx x_return_label;
 
+  /* Label that will go on the end of function epilogue.
+     Jumping to this label serves as a "naked return" instruction
+     on machines which require execution of the epilogue on all returns.  */
+  rtx x_naked_return_label;
+
   /* Label and register for unswitching computed gotos.  */
   rtx computed_goto_common_label;
   rtx computed_goto_common_reg;
@@ -389,6 +397,23 @@ struct function GTY(())
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
 
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  enum function_frequency {
+    /* This function most likely won't be executed at all.
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+    /* The default value.  */
+    FUNCTION_FREQUENCY_NORMAL,
+    /* Optimize this function hard
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_HOT
+  } function_frequency;
+
+  /* Maximal number of entities in the single jumptable.  Used to estimate
+     final flowgraph size.  */
+  int max_jumptable_ents;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -488,26 +513,19 @@ struct function GTY(())
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
 
-  /* How commonly executed the function is.  Initialized during branch
-     probabilities pass.  */
-  enum function_frequency {
-    /* This function most likely won't be executed at all.
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
-    /* The default value.  */
-    FUNCTION_FREQUENCY_NORMAL,
-    /* Optimize this function hard
-       (set only when profile feedback is available).  */
-    FUNCTION_FREQUENCY_HOT
-  } function_frequency;
+  /* Flag for use by ther rtl inliner, to tell if the function has been
+     processed at least once.  */
+  unsigned int rtl_inline_init : 1;
 
-  /* Maximal number of entities in the single jumptable.  Used to estimate
-     final flowgraph size.  */
-  int max_jumptable_ents;
+  /* Nonzero if the rtl inliner has saved the function for inlining.  */
+  unsigned int saved_for_inline : 1;
 };
 
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
+
+/* Pointer to chain of `struct function' for containing functions.  */
+extern GTY(()) struct function *outer_function_chain;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
@@ -553,6 +571,7 @@ extern int trampolines_created;
 #define parm_reg_stack_loc (cfun->x_parm_reg_stack_loc)
 #define cleanup_label (cfun->x_cleanup_label)
 #define return_label (cfun->x_return_label)
+#define naked_return_label (cfun->x_naked_return_label)
 #define save_expr_regs (cfun->x_save_expr_regs)
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
@@ -621,3 +640,5 @@ extern void init_virtual_regs (struct emit_status *);
 
 /* Called once, at initialization, to initialize function.c.  */
 extern void init_function_once (void);
+
+#endif  /* GCC_FUNCTION_H */

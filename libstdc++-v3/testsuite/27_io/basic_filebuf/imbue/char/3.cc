@@ -35,20 +35,21 @@ protected:
 void test03()
 {
   using namespace std;
-  bool test = true;
+  bool test __attribute__((unused)) = true;
 
   locale loc_s(locale::classic(), new state_codecvt);
   filebuf ob;
   ob.pubimbue(loc_s);
   VERIFY( ob.getloc() == loc_s );
 
-  // 2 "if encoding of current locale is state dependent" fails...
+  // 2 "if encoding of current locale is state dependent" and
+  // not at the beginning of the file fails...
   locale loc_c = locale::classic();
   locale ret = ob.pubimbue(loc_s);
   VERIFY( ob.getloc() == loc_s );
 }
 
-main() 
+int main() 
 {
   test03();
   return 0;

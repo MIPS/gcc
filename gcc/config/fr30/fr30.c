@@ -2,20 +2,20 @@
    Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -40,6 +40,7 @@
 #include "obstack.h"
 #include "except.h"
 #include "function.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -119,8 +120,8 @@ static struct fr30_frame_info 	current_frame_info;
 /* Zero structure to initialize current_frame_info.  */
 static struct fr30_frame_info 	zero_frame_info;
 
-static rtx fr30_pass_by_reference PARAMS ((tree, tree));
-static rtx fr30_pass_by_value PARAMS ((tree, tree));
+static rtx fr30_pass_by_reference (tree, tree);
+static rtx fr30_pass_by_value (tree, tree);
 
 #define FRAME_POINTER_MASK 	(1 << (FRAME_POINTER_REGNUM))
 #define RETURN_POINTER_MASK 	(1 << (RETURN_POINTER_REGNUM))

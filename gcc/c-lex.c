@@ -205,6 +205,7 @@ cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
 {
   if (token->type == CPP_EOF || parsing_args)
     return;
+
   input_line = SOURCE_LINE (map, token->line);
 }
 

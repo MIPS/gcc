@@ -342,15 +342,13 @@ public abstract class Toolkit
    * with its own native window.  Instead, this method allows the component
    * to draw on its parent window as a "lightweight" widget.
    *
-   * XXX: FIXME
-   *
    * @param target The <code>Component</code> to create the peer for.
    *
    * @return The peer for the specified <code>Component</code> object.
    */
   protected LightweightPeer createComponent(Component target)
   {
-    return null;
+    return new gnu.java.awt.peer.GLightweightPeer (target);
   }
 
   /**
@@ -805,22 +803,57 @@ public abstract class Toolkit
     return props.getProperty(key, def);
   }
 
+
   /**
-   * Returns the event queue for the applet.  Despite the word "System"
-   * in the name of this method, there is no guarantee that the same queue
-   * is shared system wide.
+   * Returns the event queue that is suitable for the calling context.
    *
-   * @return The event queue for this applet (or application)
+   * <p>Despite the word &#x201c;System&#x201d; in the name of this
+   * method, a toolkit may provide different event queues for each
+   * applet. There is no guarantee that the same queue is shared
+   * system-wide.
+   *
+   * <p>The implementation first checks whether a
+   * SecurityManager has been installed. If so, its {@link
+   * java.lang.SecurityManager#checkAwtEventQueueAccess()} method gets
+   * called. The security manager will throw a SecurityException if it
+   * does not grant the permission to access the event queue.
+   *
+   * <p>Next, the call is delegated to {@link
+   * #getSystemEventQueueImpl()}.
+   *
+   * @return The event queue for this applet (or application).
+   *
+   * @throws SecurityException if a security manager has been
+   * installed, and it does not grant the permission to access the
+   * event queue.
    */
   public final EventQueue getSystemEventQueue()
   {
+    SecurityManager sm;
+
+    sm = System.getSecurityManager();
+    if (sm != null)
+      sm.checkAwtEventQueueAccess();
+
     return getSystemEventQueueImpl();
   }
 
+
   /**
-   * // FIXME: What does this do?
+   * Returns the event queue that is suitable for the calling context.
+   *
+   * <p>Despite the word &#x201c;System&#x201d; in the name of this
+   * method, a toolkit may provide different event queues for each
+   * applet. There is no guarantee that the same queue is shared
+   * system-wide.
+   *
+   * <p>No security checks are performed, which is why this method
+   * may only be called by Toolkits.
+   *
+   * @see #getSystemEventQueue()
    */
   protected abstract EventQueue getSystemEventQueueImpl();
+
 
   /**
    * @since 1.3

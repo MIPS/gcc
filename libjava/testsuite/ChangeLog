@@ -1,3 +1,140 @@
+2003-12-03  Ralph Loader  <rcl@ihug.co.nz>
+
+	PR java/12374:
+	* libjava.compile/PR12374.java: New file.
+	
+2003-12-01  Jeff Sturm  <jsturm@one-point.com>
+
+	PR optimization/13024
+	* libjava.compile/PR13024.java: New file.
+
+	PR java/13237
+	* libjava.compile/PR13237.java: New file.
+
+2003-11-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libjava.jar/jar.exp: Cleanup files and reset CLASSPATH.
+
+2003-11-17  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.compile/PR12857.java: New test case.
+
+2003-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jar/simple.jar: Replaced.
+
+2003-11-13  Tom Fitzsimmons  <fitzsim@redhat.com>
+
+	* libjava.jni/jniutf.c: New file.
+	* libjava.jni/jniutf.java: New file.
+	* libjava.jni/jniutf.out: New file.
+
+2003-11-11  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/12915:
+	* libjava.lang/PR12915.java: New file.
+	* libjava.lang/PR12915.out: New file.
+
+	* libjava.jacks/jacks.exp (gcj_jacks_write): Enable "assert"
+	constraint.
+	* libjava.jacks/jacks.xfail: Added new xfails.
+
+2003-11-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/12996:
+	* libjava.jar/simple.jar: New file.
+	* libjava.jar/simple.xfail: New file.
+	* libjava.jar/simple.out: New file.
+	* libjava.jar/simple.java: New file.
+	* libjava.jar/jar.exp: New file.
+
+2003-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated.
+
+2003-11-03  Jeff Sturm  <jsturm@one-point.com>
+
+	PR java/12866:
+	* libjava.compile/InnerExcept.java: New File.
+
+2003-10-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/12416:
+	* libjava.lang/PR12416.out: New file.
+	* libjava.lang/PR12416.java: New file.
+
+	PR libgcj/12656:
+	* libjava.lang/PR12656.java: New file.
+	* libjava.lang/PR12656.out: New file.
+
+2003-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (find_javac): Use -Wno-unreachable-bytecode.
+
+2003-10-08  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.mauve/xfails: Removed some tests.
+
+2003-09-27  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated for new passes.
+
+2003-09-21  Ralph Loader  <suckfish@ihug.co.nz>
+
+	PR java/12350
+	* libjava.lang/PR12350.java: New file.
+	* libjava.lang/PR12350.out: New file.
+
+2003-09-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/9577
+	* libjava.cni/PR9577.java: New file.
+	* libjava.cni/natPR9577.cc: New file.
+	* libjava.cni/PR9577.out: New file.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.compile/compile.exp: Test with -O3 rather than -O.
+	* libjava.lang/lang.exp: Likewise.
+
+2003-09-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Remove unneeded variables.
+	(test_libjava_from_source): Likewise.
+	(test_libjava_from_javac): Likewise.
+
+2003-08-23  Andreas Tobler <a.tobler@schweiz.ch> 
+
+	PR libgcj/8823
+        * libjava.lang/pr8823.xfail: Removed.
+
+2003-08-19  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Add $libjava to the list of
+	libraries.
+
+2003-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/11951:
+	* libjava.jni/pr11951.c: New file.
+	* libjava.jni/pr11951.out: New file.
+	* libjava.jni/pr11951.java: New file.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated to account for new passes.
+	* libjava.compile/abstr.xfail: Now can compile from bytecode.
+	* libjava.compile/PR5641.xfail: Now can compile from bytecode.
+
+	* libjava.mauve/mauve.exp (test_mauve_sim): Don't find
+	DejaGNUTestHarness in gnu/testlet.
+	(test_mauve): Use correct object extension.
+
+2003-08-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (libjava_find_lib): Search for .so file first.
+	(libjava_arguments): Don't add libraries to link line explictly.
+
 2003-08-05  Tom Tromey  <tromey@redhat.com>
 
 	For PR java/11600:

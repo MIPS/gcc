@@ -244,10 +244,9 @@ public final class StringBuffer implements Serializable, CharSequence
   public synchronized void getChars(int srcOffset, int srcEnd,
                                     char[] dst, int dstOffset)
   {
-    int todo = srcEnd - srcOffset;
-    if (srcOffset < 0 || srcEnd > count || todo < 0)
+    if (srcOffset < 0 || srcEnd > count || srcEnd < srcOffset)
       throw new StringIndexOutOfBoundsException();
-    System.arraycopy(value, srcOffset, dst, dstOffset, todo);
+    System.arraycopy(value, srcOffset, dst, dstOffset, srcEnd - srcOffset);
   }
 
   /**
@@ -355,6 +354,8 @@ public final class StringBuffer implements Serializable, CharSequence
    */
   public synchronized StringBuffer append(char[] data, int offset, int count)
   {
+    if (offset < 0 || count < 0 || offset > data.length - count)
+      throw new StringIndexOutOfBoundsException();
     ensureCapacity_unsynchronized(this.count + count);
     System.arraycopy(data, offset, value, this.count, count);
     this.count += count;
@@ -560,14 +561,16 @@ public final class StringBuffer implements Serializable, CharSequence
   public synchronized String substring(int beginIndex, int endIndex)
   {
     int len = endIndex - beginIndex;
-    if (beginIndex < 0 || endIndex > count || len < 0)
+    if (beginIndex < 0 || endIndex > count || endIndex < beginIndex)
       throw new StringIndexOutOfBoundsException();
     if (len == 0)
       return "";
-    // Share the char[] unless 3/4 empty.
-    shared = (len << 2) >= value.length;
+    // Don't copy unless substring is smaller than 1/4 of the buffer.
+    boolean share_buffer = ((len << 2) >= value.length);
+    if (share_buffer)
+      this.shared = true;
     // Package constructor avoids an array copy.
-    return new String(value, beginIndex, len, shared);
+    return new String(value, beginIndex, len, share_buffer);
   }
 
   /**
@@ -587,7 +590,7 @@ public final class StringBuffer implements Serializable, CharSequence
                                           char[] str, int str_offset, int len)
   {
     if (offset < 0 || offset > count || len < 0
-        || str_offset < 0 || str_offset + len > str.length)
+        || str_offset < 0 || str_offset > str.length - len)
       throw new StringIndexOutOfBoundsException();
     ensureCapacity_unsynchronized(count + len);
     System.arraycopy(value, offset, value, offset + len, count - offset);

@@ -3,20 +3,20 @@
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -45,7 +45,7 @@ Boston, MA 02111-1307, USA.  */
 { "console",		  0, N_("Create console application") },\
 { "dll",		  0, N_("Generate code for a DLL") },	\
 { "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,		\
-  N_("Ignore dllimport for functions") }, 			\
+  N_("Ignore dllimport for functions") },			\
 { "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
 { "threads",		  0, N_("Use Mingw-specific thread support") },
 
@@ -88,13 +88,13 @@ Boston, MA 02111-1307, USA.  */
    is an initializer with a subgrouping for each command option.
 
    Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
+   specification name, and a string constant that used by the GCC driver
    program.
 
    Do not define this macro if it does not need to do anything.  */
 
 #undef  SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS 						\
+#define SUBTARGET_EXTRA_SPECS						\
   { "mingw_include_path", DEFAULT_TARGET_MACHINE }
 
 #undef MATH_LIBRARY
@@ -122,7 +122,7 @@ union tree_node;
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
-drectve_section ()							\
+drectve_section (void)							\
 {									\
   if (in_section != in_drectve)						\
     {									\
@@ -130,7 +130,11 @@ drectve_section ()							\
       in_section = in_drectve;						\
     }									\
 }
-void drectve_section PARAMS ((void));
+void drectve_section (void);
+
+/* Older versions of gas don't handle 'r' as data.
+   Explicitly set data flag with 'd'.  */  
+#define READONLY_DATA_SECTION_ASM_OP "\t.section .rdata,\"dr\""
 
 /* Switch to SECTION (an `enum in_section').
 
@@ -138,21 +142,20 @@ void drectve_section PARAMS ((void));
    The problem is that we want to temporarily switch sections in
    ASM_DECLARE_OBJECT_NAME and then switch back to the original section
    afterwards.  */
-#define SWITCH_TO_SECTION_FUNCTION 				\
-void switch_to_section PARAMS ((enum in_section, tree));        \
-void 								\
-switch_to_section (section, decl) 				\
-     enum in_section section; 					\
-     tree decl; 						\
-{ 								\
-  switch (section) 						\
-    { 								\
-      case in_text: text_section (); break; 			\
-      case in_data: data_section (); break; 			\
-      case in_named: named_section (decl, NULL, 0); break; 	\
-      case in_drectve: drectve_section (); break; 		\
-      default: abort (); break; 				\
-    } 								\
+#define SWITCH_TO_SECTION_FUNCTION				\
+void switch_to_section (enum in_section, tree);			\
+void								\
+switch_to_section (enum in_section section, tree decl)		\
+{								\
+  switch (section)						\
+    {								\
+      case in_text: text_section (); break;			\
+      case in_data: data_section (); break;			\
+      case in_readonly_data: readonly_data_section (); break;	\
+      case in_named: named_section (decl, NULL, 0); break;	\
+      case in_drectve: drectve_section (); break;		\
+      default: abort (); break;				\
+    }								\
 }
 
 /* Don't allow flag_pic to propagate since gas may produce invalid code
@@ -173,15 +176,15 @@ do {									\
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
 
-   On i386 running Windows NT, modify the assembler name with a suffix 
+   On i386 running Windows NT, modify the assembler name with a suffix
    consisting of an atsign (@) followed by string of digits that represents
-   the number of bytes of arguments passed to the function, if it has the 
+   the number of bytes of arguments passed to the function, if it has the
    attribute STDCALL.
 
-   In addition, we must mark dll symbols specially. Definitions of 
-   dllexport'd objects install some info in the .drectve section.  
+   In addition, we must mark dll symbols specially. Definitions of
+   dllexport'd objects install some info in the .drectve section.
    References to dllimport'd objects are fetched indirectly via
-   _imp__.  If both are declared, dllexport overrides.  This is also 
+   _imp__.  If both are declared, dllexport overrides.  This is also
    needed to implement one-only vtables: they go into their own
    section and we need to set DECL_SECTION_NAME so we do that here.
    Note that we can be called twice on the same decl.  */
@@ -203,7 +206,7 @@ do {							\
     i386_pe_record_exported_symbol (NAME, 1);		\
   if (! i386_pe_dllimport_name_p (NAME))		\
     {							\
-      fprintf ((STREAM), "\t.comm\t"); 			\
+      fprintf ((STREAM), "\t.comm\t");			\
       assemble_name ((STREAM), (NAME));			\
       fprintf ((STREAM), ", %d\t%s %d\n",		\
 	       (int)(ROUNDED), ASM_COMMENT_START, (int)(SIZE));	\
@@ -212,7 +215,7 @@ do {							\
 
 /* Output the label for an initialized variable.  */
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL) 	\
+#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)	\
 do {							\
   if (i386_pe_dllexport_name_p (NAME))			\
     i386_pe_record_exported_symbol (NAME, 1);		\
@@ -248,7 +251,7 @@ do {							\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-extern void i386_pe_unique_section PARAMS ((TREE, int));
+extern void i386_pe_unique_section (TREE, int);
 #define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1
@@ -328,12 +331,12 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 
 /* External function declarations.  */
 
-extern void i386_pe_record_external_function PARAMS ((const char *));
-extern void i386_pe_declare_function_type PARAMS ((FILE *, const char *, int));
-extern void i386_pe_record_exported_symbol PARAMS ((const char *, int));
-extern void i386_pe_file_end PARAMS ((void));
-extern int i386_pe_dllexport_name_p PARAMS ((const char *));
-extern int i386_pe_dllimport_name_p PARAMS ((const char *));
+extern void i386_pe_record_external_function (const char *);
+extern void i386_pe_declare_function_type (FILE *, const char *, int);
+extern void i386_pe_record_exported_symbol (const char *, int);
+extern void i386_pe_file_end (void);
+extern int i386_pe_dllexport_name_p (const char *);
+extern int i386_pe_dllimport_name_p (const char *);
 
 /* For Win32 ABI compatibility */
 #undef DEFAULT_PCC_STRUCT_RETURN
@@ -361,6 +364,23 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set\t"
 #endif
+/* This implements the `alias' attribute, keeping any stdcall or
+   fastcall decoration.  */
+#undef	ASM_OUTPUT_DEF_FROM_DECLS
+#define	ASM_OUTPUT_DEF_FROM_DECLS(STREAM, DECL, TARGET) 		\
+  do									\
+    {									\
+      const char *alias;						\
+      rtx rtlname = XEXP (DECL_RTL (DECL), 0);				\
+      if (GET_CODE (rtlname) == SYMBOL_REF)				\
+	alias = XSTR (rtlname, 0);					\
+      else								\
+	abort ();							\
+      if (TREE_CODE (DECL) == FUNCTION_DECL)				\
+	i386_pe_declare_function_type (STREAM, alias,			\
+				       TREE_PUBLIC (DECL));		\
+      ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
+    } while (0)
 
 #undef TREE
 

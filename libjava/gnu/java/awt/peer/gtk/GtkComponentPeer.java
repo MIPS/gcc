@@ -72,6 +72,8 @@ public class GtkComponentPeer extends GtkGenericPeer
 {
   Component awtComponent;
 
+  Insets insets;
+
   /* this isEnabled differs from Component.isEnabled, in that it
      knows if a parent is disabled.  In that case Component.isEnabled 
      may return true, but our isEnabled will always return false */
@@ -84,10 +86,17 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetGetDimensions(int[] dim);
   native void gtkWidgetGetLocationOnScreen(int[] point);
   native void gtkWidgetSetCursor (int type);
+  native void gtkWidgetSetBackground (int red, int green, int blue);
+  native void gtkWidgetSetForeground (int red, int green, int blue);
 
   void create ()
   {
     throw new RuntimeException ();
+  }
+
+  void initializeInsets ()
+  {
+    insets = new Insets (0, 0, 0, 0);
   }
 
   native void connectHooks ();
@@ -107,21 +116,19 @@ public class GtkComponentPeer extends GtkGenericPeer
 
       connectHooks ();
 
-      if (awtComponent.getForeground () == null)
-	awtComponent.setForeground (getForeground ());
-      if (awtComponent.getBackground () == null)
-	awtComponent.setBackground (getBackground ());
-      //        if (c.getFont () == null)
-      //  	c.setFont (cp.getFont ());
+      if (awtComponent.getForeground () != null)
+	setForeground (awtComponent.getForeground ());
+      if (awtComponent.getBackground () != null)
+	setBackground (awtComponent.getBackground ());
       if (awtComponent.getFont() != null)
 	setFont(awtComponent.getFont());
-      
-      if (! (awtComponent instanceof Window))
-	{
-	  setCursor (awtComponent.getCursor ());
-	  Rectangle bounds = awtComponent.getBounds ();
-	  setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
-	}
+
+      initializeInsets ();
+
+      setCursor (awtComponent.getCursor ());
+      Rectangle bounds = awtComponent.getBounds ();
+      setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
+
     } catch (RuntimeException ex) { ; }
   }
 
@@ -235,13 +242,12 @@ public class GtkComponentPeer extends GtkGenericPeer
       PrepareImage (GtkImage image, ImageObserver observer)
       {
 	this.image = image;
-	this.observer = observer;
+	image.setObserver (observer);
       }
       
       public void run ()
       {
-	// XXX: need to return data to image observer
-	image.source.startProduction (null);
+	image.source.startProduction (image);
       }
     }
 
@@ -269,7 +275,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setBackground (Color c) 
   {
-    // System.out.println ("setBackground [UNIMPLEMENTED");
+    gtkWidgetSetBackground (c.getRed(), c.getGreen(), c.getBlue());
   }
 
   native public void setNativeBounds (int x, int y, int width, int height);
@@ -278,11 +284,11 @@ public class GtkComponentPeer extends GtkGenericPeer
   {
     Component parent = awtComponent.getParent ();
     
-    if (parent instanceof Frame)
+    if (parent instanceof Window)
       {
-	Insets insets = ((Frame)parent).getInsets ();
-	/* convert Java's coordinate space into GTK+'s coordinate space */
-	setNativeBounds (x-insets.left, y-insets.top, width, height);
+	Insets insets = ((Window) parent).getInsets ();
+	// Convert from Java coordinates to GTK coordinates.
+	setNativeBounds (x - insets.left, y - insets.top, width, height);
       }
     else
       setNativeBounds (x, y, width, height);
@@ -307,7 +313,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setForeground (Color c) 
   {
-    // System.out.println ("setForeground [UNIMPLEMENTED");
+    gtkWidgetSetForeground (c.getRed(), c.getGreen(), c.getBlue());
   }
 
   public Color getForeground ()

@@ -61,7 +61,7 @@
 #ifndef _LIST_TCC
 #define _LIST_TCC 1
 
-namespace std
+namespace __gnu_norm
 {
   template<typename _Tp, typename _Alloc>
     void
@@ -249,21 +249,26 @@ namespace std
     list<_Tp,_Alloc>::
     merge(list& __x)
     {
-      iterator __first1 = begin();
-      iterator __last1 = end();
-      iterator __first2 = __x.begin();
-      iterator __last2 = __x.end();
-      while (__first1 != __last1 && __first2 != __last2)
-        if (*__first2 < *__first1)
-        {
-          iterator __next = __first2;
-          _M_transfer(__first1, __first2, ++__next);
-          __first2 = __next;
-        }
-        else
-          ++__first1;
-      if (__first2 != __last2)
-        _M_transfer(__last1, __first2, __last2);
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 300. list::merge() specification incomplete
+      if (this != &__x)
+	{
+	  iterator __first1 = begin();
+	  iterator __last1 = end();
+	  iterator __first2 = __x.begin();
+	  iterator __last2 = __x.end();
+	  while (__first1 != __last1 && __first2 != __last2)
+	    if (*__first2 < *__first1)
+	      {
+		iterator __next = __first2;
+		_M_transfer(__first1, __first2, ++__next);
+		__first2 = __next;
+	      }
+	    else
+	      ++__first1;
+	  if (__first2 != __last2)
+	    _M_transfer(__last1, __first2, __last2);
+	}
     }
   
   // FIXME put this somewhere else
@@ -351,20 +356,26 @@ namespace std
       list<_Tp,_Alloc>::
       merge(list& __x, _StrictWeakOrdering __comp)
       {
-        iterator __first1 = begin();
-        iterator __last1 = end();
-        iterator __first2 = __x.begin();
-        iterator __last2 = __x.end();
-        while (__first1 != __last1 && __first2 != __last2)
-          if (__comp(*__first2, *__first1))
-          {
-            iterator __next = __first2;
-            _M_transfer(__first1, __first2, ++__next);
-            __first2 = __next;
-          }
-          else
-            ++__first1;
-        if (__first2 != __last2) _M_transfer(__last1, __first2, __last2);
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 300. list::merge() specification incomplete	
+	if (this != &__x)
+	  {
+	    iterator __first1 = begin();
+	    iterator __last1 = end();
+	    iterator __first2 = __x.begin();
+	    iterator __last2 = __x.end();
+	    while (__first1 != __last1 && __first2 != __last2)
+	      if (__comp(*__first2, *__first1))
+		{
+		  iterator __next = __first2;
+		  _M_transfer(__first1, __first2, ++__next);
+		  __first2 = __next;
+		}
+	      else
+		++__first1;
+	    if (__first2 != __last2)
+	      _M_transfer(__last1, __first2, __last2);
+	  }
       }
   
   template<typename _Tp, typename _Alloc>
@@ -398,6 +409,6 @@ namespace std
         swap(__counter[__fill-1]);
       }
     }
-} // namespace std
+} // namespace __gnu_norm
 
 #endif /* _LIST_TCC */

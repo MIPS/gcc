@@ -65,25 +65,19 @@ namespace __gnu_cxx
       /**
        *  @param  fd  An open file descriptor.
        *  @param  mode  Same meaning as in a standard filebuf.
-       *  @param  del  Whether to close the file on destruction.
-       *  @param  size  Optimal or preferred size of internal buffer, in bytes.
-       *                Note that it includes a position for the overflow char,
-       *                therefore, can't be smaller than 2.
+       *  @param  size  Optimal or preferred size of internal buffer, in chars.
        *
        *  This constructor associates a file stream buffer with an open
-       *  POSIX file descriptor.  Iff @a del is true, then the associated
-       *  file will be closed when the stdio_filebuf is closed/destroyed.
+       *  POSIX file descriptor.
       */
-      stdio_filebuf(int __fd, std::ios_base::openmode __mode, bool __del, 
+      stdio_filebuf(int __fd, std::ios_base::openmode __mode, 
 		    size_t __size = static_cast<size_t>(BUFSIZ));
 
       /**
        *  @param  f  An open @c FILE*.
        *  @param  mode  Same meaning as in a standard filebuf.
-       *  @param  size  Optimal or preferred size of internal buffer, in bytes.
-       *                Defaults to system's @c BUFSIZ. Note that it includes
-       *                a position for the overflow char, therefore, can't be
-       *                smaller than 2.
+       *  @param  size  Optimal or preferred size of internal buffer, in chars.
+       *                Defaults to system's @c BUFSIZ. 
        *
        *  This constructor associates a file stream buffer with an open
        *  C @c FILE*.  The @c FILE* will not be automatically closed when the
@@ -118,10 +112,9 @@ namespace __gnu_cxx
 
   template<typename _CharT, typename _Traits>
     stdio_filebuf<_CharT, _Traits>::
-    stdio_filebuf(int __fd, std::ios_base::openmode __mode, bool __del, 
-		  size_t __size)
+    stdio_filebuf(int __fd, std::ios_base::openmode __mode, size_t __size)
     {
-      this->_M_file.sys_open(__fd, __mode, __del);
+      this->_M_file.sys_open(__fd, __mode);
       if (this->is_open())
 	{
 	  this->_M_mode = __mode;

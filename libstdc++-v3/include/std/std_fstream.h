@@ -60,6 +60,11 @@ namespace std
    *  sequences.  Many of its sematics are described in terms of similar
    *  behavior in the Standard C Library's @c FILE streams.
   */
+  // Requirements on traits_type, specific to this class:
+  // traits_type::pos_type must be fpos<traits_type::state_type>
+  // traits_type::off_type must be streamoff
+  // traits_type::state_type must be Assignable and DefaultConstructable,
+  // and traits_type::state_type() must be the initial state for codecvt.
   template<typename _CharT, typename _Traits>
     class basic_filebuf : public basic_streambuf<_CharT, _Traits>
     {
@@ -82,7 +87,6 @@ namespace std
       typedef __basic_file<char>		        __file_type;
       typedef typename traits_type::state_type          __state_type;
       typedef codecvt<char_type, char, __state_type>    __codecvt_type;
-      typedef ctype<char_type>                          __ctype_type;
       //@}
 
       friend class ios_base; // For sync_with_stdio.
@@ -112,18 +116,36 @@ namespace std
       */
       ios_base::openmode 	_M_mode;
 
-      // Current and beginning state type for codecvt.
+      // Beginning state type for codecvt.
+      /**
+       *  @if maint
+       *  @doctodo
+       *  @endif
+      */
+      __state_type 		_M_state_beg;
+
+      // During output, the state that corresponds to pptr(),
+      // during input, the state that corresponds to egptr() and
+      // _M_ext_next.
       /**
        *  @if maint
        *  @doctodo
        *  @endif
       */
       __state_type		_M_state_cur;
-      __state_type 		_M_state_beg;
+
+      // Not used for output. During input, the state that corresponds
+      // to eback() and _M_ext_buf.
+      /**
+       *  @if maint
+       *  @doctodo
+       *  @endif
+      */
+      __state_type		_M_state_last;
 
       /**
        *  @if maint
-       *  Pointer to the beginning of internally-allocated space.
+       *  Pointer to the beginning of internal buffer.
        *  @endif
       */
       char_type*		_M_buf; 	
@@ -157,9 +179,6 @@ namespace std
       bool                      _M_reading;
       bool                      _M_writing;
 
-      // XXX Needed?
-      bool			_M_last_overflowed;
-
       //@{
       /**
        *  @if maint
@@ -176,6 +195,32 @@ namespace std
 
       // Cached codecvt facet.
       const __codecvt_type* 	_M_codecvt;
+
+      /**
+       *  @if maint
+       *  Buffer for external characters. Used for input when
+       *  codecvt::always_noconv() == false. When valid, this corresponds
+       *  to eback().
+       *  @endif
+      */ 
+      char*			_M_ext_buf;
+
+      /**
+       *  @if maint
+       *  Size of buffer held by _M_ext_buf.
+       *  @endif
+      */ 
+      streamsize		_M_ext_buf_size;
+
+      /**
+       *  @if maint
+       *  Pointers into the buffer held by _M_ext_buf that delimit a
+       *  subsequence of bytes that have been read but not yet converted.
+       *  When valid, _M_ext_next corresponds to egptr().
+       *  @endif
+      */ 
+      const char*		_M_ext_next;
+      char*			_M_ext_end;
 
       /**
        *  @if maint
@@ -354,31 +399,18 @@ namespace std
       seekpos(pos_type __pos,
 	      ios_base::openmode __mode = ios_base::in | ios_base::out);
 
+      // Common code for seekoff and seekpos
+      /**
+       *  @if maint
+       *  @doctodo
+       *  @endif
+      */
+      pos_type
+      _M_seek(off_type __off, ios_base::seekdir __way, __state_type __state);
+
       // [documentation is inherited]
       virtual int
-      sync()
-      {
-	int __ret = 0;
-
-	// Make sure that the internal buffer resyncs its idea of
-	// the file position with the external file.
-	// NB: _M_file.sync() will be called within.
-	if (this->pbase() < this->pptr())
-	  {
-	    const int_type __tmp = this->overflow();
-	    if (traits_type::eq_int_type(__tmp, traits_type::eof()))
-	      __ret = -1;
-	    else
-	      {
-		_M_set_buffer(-1);
-		_M_reading = false;
-		_M_writing = false;
-	      }
-	  }
-
-	_M_last_overflowed = false;
-	return __ret;
-      }
+      sync();
 
       // [documentation is inherited]
       virtual void
@@ -409,13 +441,14 @@ namespace std
       virtual streamsize
       xsputn(const char_type* __s, streamsize __n);
 
+      // Flushes output buffer, then writes unshift sequence.
       /**
        *  @if maint
        *  @doctodo
        *  @endif
       */
-      void
-      _M_output_unshift();
+      bool
+      _M_terminate_output();
 
       /**
        *  @if maint 

@@ -1,5 +1,5 @@
 /* Socket.java -- Client socket implementation
-   Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,8 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
+import gnu.java.net.PlainSocketImpl;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -66,28 +68,36 @@ import java.nio.channels.IllegalBlockingModeException;
  */
 public class Socket
 {
-
-  // Class Variables
-
   /**
    * This is the user SocketImplFactory for this class.  If this variable is
    * null, a default factory is used.
    */
   static SocketImplFactory factory;
 
-  // Instance Variables
-
   /**
    * The implementation object to which calls are redirected
    */
-  SocketImpl impl;
+  private SocketImpl impl;
 
-  private boolean inputShutdown = false;
-  private boolean outputShutdown = false;
+  /**
+   * True if socket implementation was created by calling their create() method.
+   */
+  private boolean implCreated;
 
-  SocketChannel ch; // this field must have been set if created by SocketChannel
+  /**
+   * True if the socket is bound.
+   */
+  private boolean bound;
 
-  private boolean closed = false;
+  /**
+   * True if input is shutdown.
+   */
+  private boolean inputShutdown;
+
+  /**
+   * True if output is shutdown.
+   */
+  private boolean outputShutdown;
 
   /**
    * Initializes a new instance of <code>Socket</code> object without 
@@ -173,7 +183,7 @@ public class Socket
    *
    * @param host The name of the remote host to connect to.
    * @param port The remote port to connect to.
-   * @param loadAddr The local address to bind to.
+   * @param localAddr The local address to bind to.
    * @param localPort The local port to bind to.
    *
    * @exception SecurityException If the <code>SecurityManager</code>
@@ -296,13 +306,24 @@ public class Socket
     // that default.  JDK 1.2 doc infers not to do a bind.
   }
 
-  /*
-   * This method may only be used by java.nio.channels.ServerSocketChannel.accept and
-   * java.nio.channels.SocketChannel.open.
-   */
-  void setChannel (SocketChannel ch)
+  // This has to be accessible from java.net.ServerSocket.
+  SocketImpl getImpl()
+    throws SocketException
   {
-    this.ch = ch;
+    try
+      {
+	if (!implCreated)
+	  {
+	    impl.create(true);
+	    implCreated = true;
+	  }
+      }
+    catch (IOException e)
+      {
+	throw new SocketException(e.getMessage());
+      }
+
+    return impl;
   }
 
   /**
@@ -319,8 +340,8 @@ public class Socket
    */
   public void bind (SocketAddress bindpoint) throws IOException
   {
-    if (closed)
-      throw new SocketException ("Socket is closed");
+    if (isClosed())
+      throw new SocketException("socket is closed");
 
     // XXX: JDK 1.4.1 API documentation says that if bindpoint is null the
     // socket will be bound to an ephemeral port and a valid local address.
@@ -332,13 +353,11 @@ public class Socket
 
     InetSocketAddress tmp = (InetSocketAddress) bindpoint;
     
-    // create socket
-    impl.create (true);
-    
     // bind to address/port
     try
       {
-        impl.bind (tmp.getAddress(), tmp.getPort());
+        getImpl().bind (tmp.getAddress(), tmp.getPort());
+	bound = true;
       }
     catch (IOException exception)
       {
@@ -381,6 +400,8 @@ public class Socket
    * until established or an error occurs.
    *
    * @param endpoint The address to connect to
+   * @param timeout The length of the timeout in milliseconds, or 
+   * 0 to indicate no timeout.
    *
    * @exception IOException If an error occurs
    * @exception IllegalArgumentException If the address type is not supported
@@ -393,13 +414,14 @@ public class Socket
   public void connect (SocketAddress endpoint, int timeout)
     throws IOException
   {
-    if (closed)
-      throw new SocketException ("Socket is closed");
+    if (isClosed())
+      throw new SocketException("socket is closed");
     
     if (! (endpoint instanceof InetSocketAddress))
-      throw new IllegalArgumentException ("Address type not supported");
+      throw new IllegalArgumentException("unsupported address type");
 
-    if (ch != null && !ch.isBlocking ())
+    if (getChannel() != null
+        && !getChannel().isBlocking ())
       throw new IllegalBlockingModeException ();
   
     if (!isBound ())
@@ -407,7 +429,7 @@ public class Socket
 
     try
       {
-        impl.connect (endpoint, timeout);
+        getImpl().connect (endpoint, timeout);
       }
     catch (IOException exception)
       {
@@ -434,7 +456,19 @@ public class Socket
    */
   public InetAddress getInetAddress ()
   {
-    return impl.getInetAddress();
+    if (!isConnected())
+      return null;
+
+    try
+      {
+	return getImpl().getInetAddress();
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are connected.
+      }
+
+    return null;
   }
 
   /**
@@ -448,9 +482,10 @@ public class Socket
   public InetAddress getLocalAddress ()
   {
     InetAddress addr = null;
+    
     try
       {
-        addr = (InetAddress)impl.getOption(SocketOptions.SO_BINDADDR);
+        addr = (InetAddress) getImpl().getOption(SocketOptions.SO_BINDADDR);
       }
     catch(SocketException e)
       {
@@ -480,8 +515,18 @@ public class Socket
    */
   public int getPort ()
   {
-    if (impl != null)
-      return impl.getPort();
+    if (!isConnected())
+      return 0;
+
+    try
+      {
+	if (getImpl() != null)
+	  return getImpl().getPort();
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are connected.
+      }
 
     return -1;
   }
@@ -494,8 +539,18 @@ public class Socket
    */
   public int getLocalPort ()
   {
-    if (impl != null)
-      return impl.getLocalPort();
+    if (!isBound())
+      return -1;
+    
+    try
+      {
+	if (getImpl() != null)
+	  return getImpl().getLocalPort();
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are bound.
+      }
 
     return -1;
   }
@@ -508,12 +563,20 @@ public class Socket
    */
   public SocketAddress getLocalSocketAddress()
   {
-    InetAddress addr = getLocalAddress ();
-
-    if (addr == null)
+    if (!isBound())
       return null;
     
-    return new InetSocketAddress (addr, impl.getLocalPort());
+    InetAddress addr = getLocalAddress ();
+
+    try
+      {
+	return new InetSocketAddress (addr, getImpl().getLocalPort());
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are bound.
+	return null;
+      }
   }
 
   /**
@@ -527,7 +590,15 @@ public class Socket
     if (!isConnected ())
       return null;
 
-    return new InetSocketAddress (impl.getInetAddress (), impl.getPort ());
+    try
+      {
+	return new InetSocketAddress (getImpl().getInetAddress (), getImpl().getPort ());
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are connected.
+	return null;
+      }
   }
 
   /**
@@ -539,10 +610,13 @@ public class Socket
    */
   public InputStream getInputStream () throws IOException
   {
-    if (impl != null)
-      return(impl.getInputStream());
-
-    throw new IOException("Not connected");
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    if (!isConnected())
+      throw new IOException("not connected");
+	    
+    return getImpl().getInputStream();
   }
 
   /**
@@ -554,10 +628,13 @@ public class Socket
    */
   public OutputStream getOutputStream () throws IOException
   {
-    if (impl != null)
-      return impl.getOutputStream();
-
-    throw new IOException("Not connected");
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    if (!isConnected())
+      throw new IOException("not connected");
+    
+    return getImpl().getOutputStream();
   }
 
   /**
@@ -571,7 +648,10 @@ public class Socket
    */
   public void setTcpNoDelay (boolean on)  throws SocketException
   {
-    impl.setOption(SocketOptions.TCP_NODELAY, new Boolean(on));
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    getImpl().setOption(SocketOptions.TCP_NODELAY, new Boolean(on));
   }
 
   /**
@@ -588,7 +668,10 @@ public class Socket
    */
   public boolean getTcpNoDelay() throws SocketException
   {
-    Object on = impl.getOption(SocketOptions.TCP_NODELAY);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object on = getImpl().getOption(SocketOptions.TCP_NODELAY);
   
     if (on instanceof Boolean)
       return(((Boolean)on).booleanValue());
@@ -615,6 +698,9 @@ public class Socket
    */
   public void setSoLinger(boolean on, int linger) throws SocketException
   {
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
     if (on == true)
       {
         if (linger < 0)
@@ -623,11 +709,11 @@ public class Socket
         if (linger > 65535)
           linger = 65535;
 
-        impl.setOption(SocketOptions.SO_LINGER, new Integer(linger));
+        getImpl().setOption(SocketOptions.SO_LINGER, new Integer(linger));
       }
     else
       {
-        impl.setOption(SocketOptions.SO_LINGER, new Boolean(false));
+        getImpl().setOption(SocketOptions.SO_LINGER, new Boolean(false));
       }
   }
 
@@ -649,7 +735,11 @@ public class Socket
    */
   public int getSoLinger() throws SocketException
   {
-    Object linger = impl.getOption(SocketOptions.SO_LINGER);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object linger = getImpl().getOption(SocketOptions.SO_LINGER);
+
     if (linger instanceof Integer)
       return(((Integer)linger).intValue());
     else
@@ -668,7 +758,10 @@ public class Socket
    */
   public void sendUrgentData (int data) throws IOException
   {
-    impl.sendUrgentData (data);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    getImpl().sendUrgentData (data);
   }
 
   /**
@@ -682,19 +775,27 @@ public class Socket
    */
   public void setOOBInline (boolean on) throws SocketException
   {
-    impl.setOption(SocketOptions.SO_OOBINLINE, new Boolean(on));
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    getImpl().setOption(SocketOptions.SO_OOBINLINE, new Boolean(on));
   }
 
   /**
    * Returns the current setting of the SO_OOBINLINE option for this socket
    * 
+   * @return True if SO_OOBINLINE is set, false otherwise.
+   *
    * @exception SocketException If an error occurs
    * 
    * @since 1.4
    */
   public boolean getOOBInline () throws SocketException
   {
-    Object buf = impl.getOption(SocketOptions.SO_OOBINLINE);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object buf = getImpl().getOption(SocketOptions.SO_OOBINLINE);
 
     if (buf instanceof Boolean)
       return(((Boolean)buf).booleanValue());
@@ -721,10 +822,13 @@ public class Socket
    */
   public synchronized void setSoTimeout (int timeout) throws SocketException
   {
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
     if (timeout < 0)
       throw new IllegalArgumentException("SO_TIMEOUT value must be >= 0");
       
-    impl.setOption(SocketOptions.SO_TIMEOUT, new Integer(timeout));
+    getImpl().setOption(SocketOptions.SO_TIMEOUT, new Integer(timeout));
   }
 
   /**
@@ -746,7 +850,10 @@ public class Socket
    */
   public synchronized int getSoTimeout () throws SocketException
   {
-    Object timeout = impl.getOption(SocketOptions.SO_TIMEOUT);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object timeout = getImpl().getOption(SocketOptions.SO_TIMEOUT);
     if (timeout instanceof Integer)
       return(((Integer)timeout).intValue());
     else
@@ -767,10 +874,13 @@ public class Socket
    */
   public void setSendBufferSize (int size) throws SocketException
   {
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
     if (size <= 0)
       throw new IllegalArgumentException("SO_SNDBUF value must be > 0");
     
-    impl.setOption(SocketOptions.SO_SNDBUF, new Integer(size));
+    getImpl().setOption(SocketOptions.SO_SNDBUF, new Integer(size));
   }
 
   /**
@@ -786,7 +896,10 @@ public class Socket
    */
   public int getSendBufferSize () throws SocketException
   {
-    Object buf = impl.getOption(SocketOptions.SO_SNDBUF);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object buf = getImpl().getOption(SocketOptions.SO_SNDBUF);
 
     if (buf instanceof Integer)
       return(((Integer)buf).intValue());
@@ -808,10 +921,13 @@ public class Socket
    */
   public void setReceiveBufferSize (int size) throws SocketException
   {
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
     if (size <= 0)
       throw new IllegalArgumentException("SO_RCVBUF value must be > 0");
       
-    impl.setOption(SocketOptions.SO_RCVBUF, new Integer(size));
+    getImpl().setOption(SocketOptions.SO_RCVBUF, new Integer(size));
   }
 
   /**
@@ -827,7 +943,10 @@ public class Socket
    */
   public int getReceiveBufferSize () throws SocketException
   {
-    Object buf = impl.getOption(SocketOptions.SO_RCVBUF);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object buf = getImpl().getOption(SocketOptions.SO_RCVBUF);
 
     if (buf instanceof Integer)
       return(((Integer)buf).intValue());
@@ -847,7 +966,10 @@ public class Socket
    */
   public void setKeepAlive (boolean on) throws SocketException
   {
-    impl.setOption(SocketOptions.SO_KEEPALIVE, new Boolean(on));
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    getImpl().setOption(SocketOptions.SO_KEEPALIVE, new Boolean(on));
   }
 
   /**
@@ -862,7 +984,10 @@ public class Socket
    */
   public boolean getKeepAlive () throws SocketException
   {
-    Object buf = impl.getOption(SocketOptions.SO_KEEPALIVE);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object buf = getImpl().getOption(SocketOptions.SO_KEEPALIVE);
 
     if (buf instanceof Boolean)
       return(((Boolean)buf).booleanValue());
@@ -877,13 +1002,15 @@ public class Socket
    */
   public synchronized void close ()  throws IOException
   {
-    if (impl != null)
-      impl.close();
-
-    if (ch != null)
-      ch.close();
+    if (isClosed())
+      throw new SocketException("socket is closed");
     
-    closed = true;
+    getImpl().close();
+    impl = null;
+    bound = false;
+
+    if (getChannel() != null)
+      getChannel().close();
   }
 
   /**
@@ -893,10 +1020,21 @@ public class Socket
    */
   public String toString ()
   {
-    return("Socket " + impl);
-  }
+    try
+      {
+	if (isConnected())
+	  return ("Socket[addr=" + getImpl().getInetAddress()
+		  + ",port=" + getImpl().getPort()
+		  + ",localport=" + getImpl().getLocalPort()
+		  + "]");
+      }
+    catch (SocketException e)
+      {
+	// This cannot happen as we are connected.
+      }
 
-  // Class Methods
+    return "Socket[unconnected]";
+  }
 
   /**
    * Sets the <code>SocketImplFactory</code>.  This may be done only once per 
@@ -938,9 +1076,10 @@ public class Socket
    */
   public void shutdownInput() throws IOException
   {
-    if (impl != null)
-      impl.shutdownInput();
-
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    getImpl().shutdownInput();
     inputShutdown = true;
   }
 
@@ -953,9 +1092,10 @@ public class Socket
    */
   public void shutdownOutput() throws IOException
   {
-    if (impl != null)
-      impl.shutdownOutput();
+    if (isClosed())
+      throw new SocketException("socket is closed");
     
+    getImpl().shutdownOutput();
     outputShutdown = true;
   }
 
@@ -968,11 +1108,13 @@ public class Socket
    */
   public SocketChannel getChannel()
   {
-    return ch;
+    return null;
   }
 
   /**
    * Checks if the SO_REUSEADDR option is enabled
+   *
+   * @return True if SO_REUSEADDR is set, false otherwise.
    *
    * @exception SocketException If an error occurs
    *
@@ -980,7 +1122,10 @@ public class Socket
    */
   public boolean getReuseAddress () throws SocketException
   {
-    Object reuseaddr = impl.getOption (SocketOptions.SO_REUSEADDR);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object reuseaddr = getImpl().getOption (SocketOptions.SO_REUSEADDR);
 
     if (!(reuseaddr instanceof Boolean))
       throw new SocketException ("Internal Error");
@@ -991,18 +1136,22 @@ public class Socket
   /**
    * Enables/Disables the SO_REUSEADDR option
    *
+   * @param reuseAddress True if SO_REUSEADDR should be set.
+   * 
    * @exception SocketException If an error occurs
    *
    * @since 1.4
    */
   public void setReuseAddress (boolean on) throws SocketException
   {
-    impl.setOption (SocketOptions.SO_REUSEADDR, new Boolean (on));
+    getImpl().setOption (SocketOptions.SO_REUSEADDR, new Boolean (on));
   }
 
   /**
    * Returns the current traffic class
    *
+   * @return The current traffic class.
+   * 
    * @exception SocketException If an error occurs
    *
    * @see Socket#setTrafficClass(int tc)
@@ -1011,7 +1160,10 @@ public class Socket
    */
   public int getTrafficClass () throws SocketException
   {
-    Object obj = impl.getOption(SocketOptions.IP_TOS);
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
+    Object obj = getImpl().getOption(SocketOptions.IP_TOS);
 
     if (obj instanceof Integer)
       return ((Integer) obj).intValue ();
@@ -1033,45 +1185,63 @@ public class Socket
    */
   public void setTrafficClass (int tc) throws SocketException
   {
+    if (isClosed())
+      throw new SocketException("socket is closed");
+    
     if (tc < 0 || tc > 255)
       throw new IllegalArgumentException();
 
-    impl.setOption (SocketOptions.IP_TOS, new Integer (tc));
+    getImpl().setOption (SocketOptions.IP_TOS, new Integer (tc));
   }
 
   /**
    * Checks if the socket is connected
    *
+   * @return True if socket is connected, false otherwise.
+   *
    * @since 1.4
    */
   public boolean isConnected ()
   {
-    return impl.getInetAddress () != null;
+    try
+      {
+	return getImpl().getInetAddress () != null;
+      }
+    catch (SocketException e)
+      {
+	return false;
+      }
   }
 
   /**
    * Checks if the socket is already bound.
    *
+   * @return True if socket is bound, false otherwise.
+   *
    * @since 1.4
    */
   public boolean isBound ()
   {
-    return getLocalAddress () != null;
+    return bound;
   }
 
   /**
    * Checks if the socket is closed.
    * 
+   * @return True if socket is closed, false otherwise.
+   *
    * @since 1.4
    */
   public boolean isClosed ()
   {
-    return closed;
+    return impl == null;
   }
 
   /**
    * Checks if the socket's input stream is shutdown
    *
+   * @return True if input is shut down.
+   * 
    * @since 1.4
    */
   public boolean isInputShutdown ()
@@ -1082,6 +1252,8 @@ public class Socket
   /**
    * Checks if the socket's output stream is shutdown
    *
+   * @return True if output is shut down.
+   * 
    * @since 1.4
    */
   public boolean isOutputShutdown ()

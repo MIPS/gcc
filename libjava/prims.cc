@@ -70,8 +70,10 @@ details.  */
 // around for use if we run out of memory.
 static java::lang::OutOfMemoryError *no_memory;
 
-// Largest representable size_t.
-#define SIZE_T_MAX ((size_t) (~ (size_t) 0))
+// Number of bytes in largest array object we create.  This could be
+// increased to the largest size_t value, so long as the appropriate
+// functions are changed to take a size_t argument instead of jint.
+#define MAX_OBJECT_SIZE ((1<<31) - 1)
 
 static const char *no_properties[] = { NULL };
 
@@ -122,11 +124,26 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
+/* Unblock a signal.  Unless we do this, the signal may only be sent
+   once.  */
+static void 
+unblock_signal (int signum)
+{
+#ifdef _POSIX_VERSION
+  sigset_t sigs;
+
+  sigemptyset (&sigs);
+  sigaddset (&sigs, signum);
+  sigprocmask (SIG_UNBLOCK, &sigs, NULL);
+#endif
+}
+
 #ifdef HANDLE_SEGV
 SIGNAL_HANDLER (catch_segv)
 {
   java::lang::NullPointerException *nullp 
     = new java::lang::NullPointerException;
+  unblock_signal (SIGSEGV);
   MAKE_THROW_FRAME (nullp);
   throw nullp;
 }
@@ -137,6 +154,7 @@ SIGNAL_HANDLER (catch_fpe)
 {
   java::lang::ArithmeticException *arithexception 
     = new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));
+  unblock_signal (SIGFPE);
 #ifdef HANDLE_DIVIDE_OVERFLOW
   HANDLE_DIVIDE_OVERFLOW;
 #else
@@ -149,10 +167,10 @@ SIGNAL_HANDLER (catch_fpe)
 
 
 jboolean
-_Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
+_Jv_equalUtf8Consts (const Utf8Const* a, const Utf8Const *b)
 {
   int len;
-  _Jv_ushort *aptr, *bptr;
+  const _Jv_ushort *aptr, *bptr;
   if (a == b)
     return true;
   if (a->hash != b->hash)
@@ -160,8 +178,8 @@ _Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
   len = a->length;
   if (b->length != len)
     return false;
-  aptr = (_Jv_ushort *)a->data;
-  bptr = (_Jv_ushort *)b->data;
+  aptr = (const _Jv_ushort *)a->data;
+  bptr = (const _Jv_ushort *)b->data;
   len = (len + 1) >> 1;
   while (--len >= 0)
     if (*aptr++ != *bptr++)
@@ -465,6 +483,11 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   // Ensure that elements pointer is properly aligned.
   jobjectArray obj = NULL;
   size_t size = (size_t) elements (obj);
+  // Check for overflow.
+  if (__builtin_expect ((size_t) count > 
+			(MAX_OBJECT_SIZE - 1 - size) / sizeof (jobject), false))
+    throw no_memory;
+
   size += count * sizeof (jobject);
 
   jclass klass = _Jv_GetArrayClass (elementClass,
@@ -500,7 +523,7 @@ _Jv_NewPrimArray (jclass eltype, jint count)
 
   // Check for overflow.
   if (__builtin_expect ((size_t) count > 
-			(SIZE_T_MAX - size) / elsize, false))
+			(MAX_OBJECT_SIZE - size) / elsize, false))
     throw no_memory;
 
   jclass klass = _Jv_GetArrayClass (eltype, 0);
@@ -616,8 +639,6 @@ _Jv_InitPrimClass (jclass cl, char *cname, char sig, int len,
                    _Jv_ArrayVTable *array_vtable)
 {    
   using namespace java::lang::reflect;
-
-  _Jv_InitNewClassFields (cl);
 
   // We must set the vtable for the class; the Java constructor
   // doesn't do this.
@@ -966,6 +987,12 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 #else      
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
+
+      // We have to initialize this fairly early, to avoid circular
+      // class initialization.  In particular we want to start the
+      // initialization of ClassLoader before we start the
+      // initialization of VMClassLoader.
+      _Jv_InitClass (&java::lang::ClassLoader::class$);
 
       using namespace gnu::gcj::runtime;
       if (klass)
