@@ -1,3 +1,7 @@
+Mon Feb 10 21:18:38 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* c-decl.c (c_expand_deferred_function):  Optimize inlining.
+
 Mon Feb 10 11:38:17 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* combine.c (combine_simplify_rtx): Synchronize with mainline.

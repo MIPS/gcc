@@ -6464,6 +6464,12 @@ c_expand_deferred_function (fndecl)
      function was deferred, e.g. in duplicate_decls.  */
   if (DECL_INLINE (fndecl) && DECL_RESULT (fndecl))
     {
+      if (flag_inline_trees)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  optimize_inline_calls (fndecl);
+	  timevar_pop (TV_INTEGRATION);
+	}
       c_expand_body (fndecl);
       current_function_decl = NULL;
     }
