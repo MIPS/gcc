@@ -1,6 +1,6 @@
 /* { dg-do run { target powerpc*-*-* i?86-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect -msse" { target i?86-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse" { target i?86-*-* } } */
 
 #include <stdarg.h>
 #include <signal.h>

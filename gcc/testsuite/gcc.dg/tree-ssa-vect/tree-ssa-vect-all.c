@@ -1,6 +1,6 @@
 /* { dg-do run { target powerpc*-*-* i?86-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect -msse" { target i?86-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse" { target i?86-*-* } } */
 
 #include <stdarg.h>
 #include <signal.h>
@@ -81,7 +81,7 @@ main1 ()
   int ia[N];
   char cb[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   char ca[N];
-
+  short sa[N];
 
   /* Test 1: copy chars.  */
   for (i = 0; i < N; i++)
