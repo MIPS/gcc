@@ -41,11 +41,19 @@ namespace std
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>::sentry::
     sentry(basic_ostream<_CharT,_Traits>& __os)
-    : _M_ok(__os.good()), _M_os(__os)
+    : _M_os(__os)
     {
-      // XXX MT 
-      if (_M_ok && __os.tie())
-	__os.tie()->flush();  
+      // XXX MT
+      if (__os.tie() && __os.good())
+	__os.tie()->flush();
+
+      if (__os.good())
+	_M_ok = true;
+      else
+	{
+	  _M_ok = false;
+	  __os.setstate(ios_base::failbit);
+	}
     }
   
   template<typename _CharT, typename _Traits>
@@ -693,6 +701,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_ostream<char>;
   extern template ostream& endl(ostream&);
   extern template ostream& ends(ostream&);
@@ -713,5 +722,6 @@ namespace std
   extern template wostream& operator<<(wostream&, char);
   extern template wostream& operator<<(wostream&, const wchar_t*);
   extern template wostream& operator<<(wostream&, const char*);
+#endif
 #endif
 } // namespace std

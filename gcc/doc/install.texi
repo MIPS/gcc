@@ -358,7 +358,10 @@ other than the default.  The toplevel installation directory defaults to
 @file{/usr/local}.
 
 We @strong{highly} recommend against @var{dirname} being the same or a
-subdirectory of @var{objdir} or vice versa.
+subdirectory of @var{objdir} or vice versa.  If specifying a directory
+beneath a user's home directory tree, some shells will not expand
+@var{dirname} correctly if it contains the @samp{~} metacharacter; use
+@env{$HOME} instead.
 
 These additional options control where certain parts of the distribution
 are installed.  Normally you should not need to use these options.
@@ -906,16 +909,9 @@ searched in there.  The specified directory is not copied into the
 install tree, unlike the options @option{--with-headers} and
 @option{--with-libs} that this option obsoletes.  The default value,
 in case @option{--with-sysroot} is not given an argument, is
-@option{$@{gcc_tooldir@}/sys-root}.  Starting the pathname with
-@option{$@{gcc_tooldir@}/}, in such a way that this variable is not
-expanded by the shell, but rather by the gcc Makefile, enables the
-target sysroot directory to be relocatable along with the entire
-install tree, but it will require the gcc tool directory to be created
-@emph{before} the build is started.  This directory, as well as its
-intermediate pathnames, can be easily created by running @command{make
-install-gcc-tooldir} the gcc build directory.  This is not done
-automatically to avoid touching the install tree without explicit
-permission.
+@option{$@{gcc_tooldir@}/sys-root}.  If the specified directory is a
+subdirectory of @option{$@{exec_prefix@}}, then it will be found relative to
+the GCC binaries if the installation tree is moved.
 
 @item --with-headers
 @itemx --with-headers=@var{dir}
@@ -1551,7 +1547,7 @@ HP-UX:
 OpenServer/Unixware}.
 
 @item
-Sinix/Reliant Unix---@uref{ftp://ftp.siemens.de/sni/mr/pd/gnu/gcc,,Siemens}.
+Sinix/Reliant Unix---@uref{ftp://ftp.fujitsu-siemens.com/pub/pd/gnu/gcc/,,Siemens}.
  
 @item
 Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
@@ -2372,7 +2368,7 @@ additional OpenServer-specific flags.
 
 Systems based on OpenServer before 5.0.4 (@samp{uname -X}
 will tell you what you're running) require TLS597 from
-@uref{ftp://ftp.sco.com/TLS/,,ftp://ftp.sco.com/TLS/}
+@uref{ftp://stage.caldera.com/TLS/,,ftp://stage.caldera.com/TLS/}
 for C++ constructors and destructors to work right.
 
 The system linker in (at least) 5.0.4 and 5.0.5 will sometimes
@@ -2381,8 +2377,8 @@ code.  This can be seen as execution testsuite failures when using
 @option{-fPIC} on @file{921215-1.c}, @file{931002-1.c}, @file{nestfunc-1.c}, and @file{gcov-1.c}.
 For 5.0.5, an updated linker that will cure this problem is
 available.  You must install both
-@uref{ftp://ftp.sco.com/Supplements/rs505a/,,ftp://ftp.sco.com/Supplements/rs505a/}
-and @uref{ftp://ftp.sco.com/SLS/,,OSS499A}.
+@uref{ftp://ftp.sco.com/pub/openserver5/rs505a,,ftp://ftp.sco.com/pub/openserver5/rs505a}
+and @uref{ftp://ftp.sco.com/pub/openserver5,,OSS499A}.
 
 The dynamic linker in OpenServer 5.0.5 (earlier versions may show
 the same problem) aborts on certain G77-compiled programs.  It's particularly
@@ -2626,7 +2622,7 @@ AT&T 3b1, a.k.a.@: 7300 PC@.  This version of GCC cannot
 be compiled with the system C compiler, which is too buggy.
 You will need to get a previous version of GCC and use it to
 bootstrap.  Binaries are available from the OSU-CIS archive, at
-@uref{ftp://archive.cis.ohio-state.edu/pub/att7300/}.
+@uref{ftp://ftp.uu.net/systems/att7300/}.
 
 @html
 <hr />

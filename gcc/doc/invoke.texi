@@ -287,11 +287,12 @@ in the following sections.
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fschedule-insns  -fschedule-insns2 -fschedule-superblocks -fschedule-traces @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
--fsched-spec-load-dangerous  -fsignaling-nans @gol
+-fsched-spec-load-dangerous  -fsched2-use-superblocks @gol
+-fsched2-use-traces  -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops -fpeel-loops -funswitch-loops
--fold-unroll-loops -fold-unroll-all-loops -fweb @gol
+-fold-unroll-loops -fold-unroll-all-loops -fweb -funit-at-a-time @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3915,6 +3916,30 @@ Allow speculative motion of more load instructions.  This only makes
 sense when scheduling before register allocation, i.e.@: with
 @option{-fschedule-insns} or at @option{-O2} or higher.
 
+@item -fsched2-use-superblocks
+@opindex fsched2-use-superblocks
+When schedulilng after register allocation, do use superblock scheduling
+algorithm.  Superblock scheduling allows motion acress basic block boundaries
+resulting on faster schedules.  This option is experimental, as not all machine
+descriptions used by GCC model the CPU closely enought to avoid unreliable
+results from the algorithm. 
+
+This only makes sense when scheduling after register allocation, i.e.@: with
+@option{-fschedule-insns2} or at @option{-O2} or higher.
+
+@item -fsched2-use-traces
+@opindex fsched2-use-traces
+Use @option{-fsched2-use-superblocks} algorithm when scheduling after register
+allocation and additionally perform code duplication in order to increase the
+size of superblocks using tracer pass.  See @option{-ftracer} for details on
+trace formation.
+
+This mode should produce faster but singificantly longer programs.  Also
+without @code{-fbranch-probabilities} the traces constructed may not match the
+reality and hurt the performance.  This only makes
+sense when scheduling after register allocation, i.e.@: with
+@option{-fschedule-insns2} or at @option{-O2} or higher.
+
 @item -fcaller-saves
 @opindex fcaller-saves
 Enable values to be allocated in registers that will be clobbered by
@@ -4344,8 +4369,7 @@ file  The information in this data file is very dependent on the
 structure of the generated code, so you must use the same source code
 and the same optimization options for both compilations.
 
-With @option{-fbranch-probabilities}, GCC puts a @samp{REG_EXEC_COUNT}
-note on the first instruction of each basic block, and a
+With @option{-fbranch-probabilities}, GCC puts a 
 @samp{REG_BR_PROB} note on each @samp{JUMP_INSN} and @samp{CALL_INSN}.
 These can be used to improve optimization.  Currently, they are only
 used in one place: in @file{reorg.c}, instead of guessing which path a
@@ -4363,6 +4387,11 @@ for testing, so we are interested to hear about miscompilations with
 Perform tail duplication to enlarge superblock size. This transformation
 simplifies the control flow of the function allowing other optimizations to do
 better job.
+
+@item -funit-at-a-time
+@opindex funit-at-a-time
+Parse the whole compilation unit before starting to produce code.  This allows some
+extra optimizations to take place but consumes more memory.
 
 @item -funroll-loops
 @opindex funroll-loops
@@ -4452,6 +4481,13 @@ In each case, the @var{value} is an integer.  The allowable choices for
 @var{name} are given in the following table:
 
 @table @gcctabopt
+@item max-crossjump-edges
+The maximum number of incoming edges to consider for crossjumping.
+The algorithm used by @option{-fcrossjumping} is @math{O(N^2)} in
+the number of edges incoming to each block.  Increasing values mean
+more aggressive optimization, making the compile time increase with
+probably small improvement in executable size.
+
 @item max-delay-slot-insn-search
 The maximum number of instructions to consider when looking for an
 instruction to fill a delay slot.  If more than this arbitrary number of
@@ -4576,7 +4612,9 @@ collector's heap should be allowed to expand between collections.
 Tuning this may improve compilation speed; it has no effect on code
 generation.
 
-The default is 30%.  Setting this parameter and
+The default is 30% + 70% * (RAM/1GB) with an upper bound of 100% when
+RAM >= 1GB.  If GCC is not able to calculate RAM on a particular
+platform, the lower bound of 30% is used.  Setting this parameter and
 @option{ggc-min-heapsize} to zero causes a full collection to occur at
 every opportunity.  This is extremely slow, but can be useful for
 debugging.
@@ -4589,10 +4627,12 @@ by @option{ggc-min-expand}% beyond @option{ggc-min-heapsize}.  Again,
 tuning this may improve compilation speed, and has no effect on code
 generation.
 
-The default is 4096 (four megabytes).  Setting this parameter very large
-effectively disables garbage collection.  Setting this parameter and
-@option{ggc-min-expand} to zero causes a full collection to occur at
-every opportunity.  
+The default is RAM/8, with a lower bound of 4096 (four megabytes) and an
+upper bound of 131072 (128 megabytes).  If GCC is not able to calculate
+RAM on a particular platform, the lower bound is used.  Setting this
+parameter very large effectively disables garbage collection.  Setting
+this parameter and @option{ggc-min-expand} to zero causes a full
+collection to occur at every opportunity.
 
 @end table
 @end table
@@ -5222,7 +5262,10 @@ predefined macro, except for macros that start with @samp{__} or with
 C@.
 
 @item %I
-Substitute a @option{-iprefix} option made from @env{GCC_EXEC_PREFIX}.
+Substitute any of @option{-iprefix} (made from @env{GCC_EXEC_PREFIX}),
+@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}), and
+@option{-isystem} (made from @env{COMPILER_PATH} and @option{-B} options)
+as necessary.
 
 @item %s
 Current argument is the name of a library or startup file of some sort.

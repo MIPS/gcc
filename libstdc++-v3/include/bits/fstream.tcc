@@ -291,9 +291,15 @@ namespace std
 	  const char_type* __iend;
 	  __res_type __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen, 
 		 		     __iend, __buf, __buf + __blen, __bend);
-	  // Result == ok, partial, noconv
-	  if (__r != codecvt_base::error)
+
+	  if (__r == codecvt_base::ok || __r == codecvt_base::partial)
 	    __blen = __bend - __buf;
+	  // Similarly to the always_noconv case above.
+	  else if (__r == codecvt_base::noconv)
+	    {
+	      __buf = reinterpret_cast<char*>(__ibuf);
+	      __blen = __ilen;
+	    }
 	  // Result == error
 	  else 
 	    __blen = 0;
@@ -505,6 +511,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_filebuf<char>;
   extern template class basic_ifstream<char>;
   extern template class basic_ofstream<char>;
@@ -515,6 +522,7 @@ namespace std
   extern template class basic_ifstream<wchar_t>;
   extern template class basic_ofstream<wchar_t>;
   extern template class basic_fstream<wchar_t>;
+#endif
 #endif
 } // namespace std
 

@@ -768,20 +768,14 @@ namespace std
       _M_convert_int(_OutIter __s, ios_base& __io, _CharT __fill, 
 		     _ValueT __v) const
       {
-	// Buildup list of digits given the current ctype.
-	_CharT __lit[_S_udigits_end];
-	const locale __loc = __io.getloc();
-	if (__builtin_expect(has_facet< ctype<_CharT> >(__loc), true))
-	  {
-	    const ctype<_CharT>& __ct = use_facet< ctype<_CharT> >(__loc);
-	    __ct.widen(_S_atoms_out, _S_atoms_out + _S_udigits_end, __lit);
-	  }
+	typedef __locale_cache<_CharT> __cache_type;
+	__cache_type& __lc = static_cast<__cache_type&>(__io._M_cache());
+	_CharT* __lit = __lc._M_literals;
 
 	// Long enough to hold hex, dec, and octal representations.
 	int __ilen = 4 * sizeof(_ValueT);
 	_CharT* __cs = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							     * __ilen));
-
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	// Result is returned right-justified in the buffer.
 	int __len;
@@ -790,15 +784,13 @@ namespace std
 	
 	// Add grouping, if necessary. 
 	_CharT* __cs2;
-	const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
-	const string __grouping = __np.grouping();
-	if (__grouping.size())
+	if (__lc._M_use_grouping)
 	  {
 	    // Grouping can add (almost) as many separators as the
 	    // number of digits, but no more.
 	    __cs2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							  * __len * 2));
-	    _M_group_int(__grouping, __np.thousands_sep(), __io, 
+	    _M_group_int(__lc._M_grouping, __lc._M_thousands_sep, __io, 
 			 __cs2, __cs, __len);
 	    __cs = __cs2;
 	  }
@@ -880,6 +872,9 @@ namespace std
 	else if (__prec < static_cast<streamsize>(0))
 	  __prec = static_cast<streamsize>(6);
 
+	typedef __locale_cache<_CharT> __cache_type;
+	__cache_type& __lc = static_cast<__cache_type&>(__io._M_cache());
+
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	int __len;
 	// Long enough for the max format spec.
@@ -925,7 +920,6 @@ namespace std
       // numpunct.decimal_point() values for '.' and adding grouping.
       const locale __loc = __io.getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
-      const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
 
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							   * __len));
@@ -933,21 +927,20 @@ namespace std
       
       // Replace decimal point.
       const _CharT __cdec = __ctype.widen('.');
-      const _CharT __dec = __np.decimal_point();
+      const _CharT __dec = __lc._M_decimal_point;
       const _CharT* __p;
       if (__p = char_traits<_CharT>::find(__ws, __len, __cdec))
 	__ws[__p - __ws] = __dec;
 
       // Add grouping, if necessary. 
       _CharT* __ws2;
-      const string __grouping = __np.grouping();
-      if (__grouping.size())
+      if (__lc._M_use_grouping)
 	{
 	    // Grouping can add (almost) as many separators as the
 	    // number of digits, but no more.
 	    __ws2 = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) 
 							  * __len * 2));
-	    _M_group_float(__grouping, __np.thousands_sep(), __p, 
+	    _M_group_float(__lc._M_grouping, __lc._M_thousands_sep, __p,
 			   __ws2, __ws, __len);
 	    __ws = __ws2;
 	}
@@ -2216,9 +2209,35 @@ namespace std
       return __s;
     }
 
+  // Generic definition, locale cache initialization.
+  template<typename _CharT>
+    void
+    __locale_cache<_CharT>::_M_init(const locale& __loc)
+    {
+      if (__builtin_expect(has_facet<numpunct<_CharT> >(__loc), true))
+	{
+	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
+	  _M_falsename = __np.falsename();
+	  _M_truename = __np.truename();
+	  _M_thousands_sep = __np.thousands_sep();
+	  _M_decimal_point = __np.decimal_point();
+	  _M_grouping = __np.grouping();
+	  _M_use_grouping = _M_grouping.size() != 0 
+	    		    && _M_grouping.data()[0] != 0;
+	}
+      if (__builtin_expect(has_facet<ctype<_CharT> >(__loc), true))
+	{
+	  const ctype<_CharT>& __ct = use_facet< ctype<_CharT> >(__loc);
+	  __ct.widen(__num_base::_S_atoms_out,
+		     __num_base::_S_atoms_out + __num_base::_S_end, 
+		     _M_literals);
+	}
+    }
+
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB: This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class moneypunct<char, false>;
   extern template class moneypunct<char, true>;
   extern template class moneypunct_byname<char, false>;
@@ -2471,6 +2490,7 @@ namespace std
   extern template 
     bool
     has_facet<messages<wchar_t> >(const locale&);
+#endif
 #endif
 } // namespace std
 

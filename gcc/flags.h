@@ -429,8 +429,8 @@ extern int flag_shared_data;
 
 extern int flag_schedule_insns;
 extern int flag_schedule_insns_after_reload;
-extern int flag_superblock_scheduling;
-extern int flag_trace_scheduling;
+extern int flag_sched2_use_superblocks;
+extern int flag_sched2_use_traces;
 
 /* The following flags have effect only for scheduling before register
    allocation:
@@ -669,6 +669,8 @@ extern int flag_zero_initialized_in_bss;
 
 /* Nonzero means disable transformations observable by signaling NaNs.  */
 extern int flag_signaling_nans;
+
+extern int flag_unit_at_a_time;
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

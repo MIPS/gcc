@@ -688,11 +688,6 @@ enum reg_note
      return.  */
   REG_BR_PROB,
 
-  /* REG_EXEC_COUNT is attached to the first insn of each basic block, and
-     the first insn after each CALL_INSN.  It indicates how many times this
-     block was executed.  */
-  REG_EXEC_COUNT,
-
   /* REG_VALUE_HISTOGRAM is attached to an insn before that the contained
      histogram of a value is measured.  */
   REG_VALUE_HISTOGRAM,
@@ -2189,7 +2184,7 @@ extern void create_profiler		PARAMS ((void));
 
 /* In reg-stack.c */
 #ifdef BUFSIZ
-extern void reg_to_stack		PARAMS ((rtx, FILE *));
+extern bool reg_to_stack		PARAMS ((rtx, FILE *));
 #endif
 
 /* In fold-const.c */

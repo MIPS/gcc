@@ -1957,11 +1957,11 @@ arm_float_words_big_endian ()
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is NULL.  */
 void
-arm_init_cumulative_args (pcum, fntype, libname, indirect)
+arm_init_cumulative_args (pcum, fntype, libname, fndecl)
      CUMULATIVE_ARGS * pcum;
      tree fntype;
      rtx libname  ATTRIBUTE_UNUSED;
-     int indirect ATTRIBUTE_UNUSED;
+     tree fndecl ATTRIBUTE_UNUSED;
 {
   /* On the ARM, the offset starts at 0.  */
   pcum->nregs = ((fntype && aggregate_value_p (TREE_TYPE (fntype))) ? 1 : 0);
@@ -5845,7 +5845,14 @@ arm_reload_in_hi (operands)
 	}
     }
 
-  scratch = gen_rtx_REG (SImode, REGNO (operands[2]));
+  /* Operands[2] may overlap operands[0] (though it won't overlap
+     operands[1]), that's why we asked for a DImode reg -- so we can
+     use the bit that does not overlap.  */
+  if (REGNO (operands[2]) == REGNO (operands[0]))
+    scratch = gen_rtx_REG (SImode, REGNO (operands[2]) + 1);
+  else
+    scratch = gen_rtx_REG (SImode, REGNO (operands[2]));
+
   emit_insn (gen_zero_extendqisi2 (scratch,
 				   gen_rtx_MEM (QImode,
 						plus_constant (base,

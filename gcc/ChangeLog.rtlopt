@@ -1,3 +1,7 @@
+Sat Feb 22 21:22:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20030222)
+
 2003-02-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcov-io.h (gcov_save_position, gcov_reserve_length, gcov_resync,

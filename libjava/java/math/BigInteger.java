@@ -1018,8 +1018,7 @@ public class BigInteger extends Number implements Comparable
   }
 
   private static final void euclidInv(BigInteger a, BigInteger b,
-                                      BigInteger prevDiv, BigInteger xy0,
-                                      BigInteger xy1, BigInteger xy2)
+                                      BigInteger prevDiv, BigInteger[] xy)
   {
     if (b.isZero())
       throw new ArithmeticException("not invertible");
@@ -1028,9 +1027,8 @@ public class BigInteger extends Number implements Comparable
       {
 	// Success:  values are indeed invertible!
 	// Bottom of the recursion reached; start unwinding.
-        // WARNING: xy1 is, and xy0 may be, a shared BI!
-	xy0 = neg(prevDiv);
-	xy1 = ONE;
+	xy[0] = neg(prevDiv);
+        xy[1] = ONE;
 	return;
       }
 
@@ -1040,8 +1038,8 @@ public class BigInteger extends Number implements Comparable
     if (a.words == null)
       {
         int[] xyInt = euclidInv(b.ival, a.ival % b.ival, a.ival / b.ival);
-	xy0 = new BigInteger(xyInt[0]); // non-shared BI
-	xy1 = new BigInteger(xyInt[1]); // non-shared BI
+	xy[0] = new BigInteger(xyInt[0]);
+        xy[1] = new BigInteger(xyInt[1]);
       }
     else
       {
@@ -1051,15 +1049,12 @@ public class BigInteger extends Number implements Comparable
         // quot and rem may not be in canonical form. ensure
         rem.canonicalize();
         quot.canonicalize();
-        euclidInv(b, rem, quot, xy0, xy1, xy2);
+	euclidInv(b, rem, quot, xy);
       }
 
-    // xy2 is just temp storage for intermediate results in the following
-    // calculation.  This saves us a bit of space over having a BigInteger
-    // allocated at every level of this recursive method.
-    xy2 = xy0;
-    xy0 = add(xy1, times(xy2, prevDiv), -1);
-    xy1 = xy2;
+    BigInteger t = xy[0];
+    xy[0] = add(xy[1], times(t, prevDiv), -1);
+    xy[1] = t;
   }
 
   public BigInteger modInverse(BigInteger y)
@@ -1127,10 +1122,9 @@ public class BigInteger extends Number implements Comparable
         // quot and rem may not be in canonical form. ensure
         rem.canonicalize();
         quot.canonicalize();
-        BigInteger xy0 = new BigInteger();
-        BigInteger xy1 = new BigInteger();
-        euclidInv(y, rem, quot, xy0, xy1, result);
-	result = swapped ? xy0 : xy1;
+	BigInteger[] xy = new BigInteger[2];
+	euclidInv(y, rem, quot, xy);
+	result = swapped ? xy[0] : xy[1];
 
 	// Result can't be negative, so make it positive by adding the
 	// original modulus, y (which is now x if they were swapped).

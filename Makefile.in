@@ -107,6 +107,7 @@ INSTALL_DATA = $(INSTALL) -m 644
 AS = @AS@
 AR = @AR@
 AR_FLAGS = rc
+RANLIB = @RANLIB@
 CC = @CC@
 
 # Special variables passed down in EXTRA_GCC_FLAGS.  They are defined
@@ -5598,6 +5599,7 @@ configure-target-libstdc++-v3: $(TARGET_SUBDIR)/libstdc++-v3/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
 	    CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -5698,6 +5700,7 @@ configure-target-newlib: $(TARGET_SUBDIR)/newlib/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -5797,6 +5800,7 @@ configure-target-libf2c: $(TARGET_SUBDIR)/libf2c/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -5896,6 +5900,7 @@ configure-target-libobjc: $(TARGET_SUBDIR)/libobjc/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -5995,6 +6000,7 @@ configure-target-libtermcap: $(TARGET_SUBDIR)/libtermcap/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6090,6 +6096,7 @@ configure-target-winsup: $(TARGET_SUBDIR)/winsup/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6189,6 +6196,7 @@ configure-target-libgloss: $(TARGET_SUBDIR)/libgloss/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6284,6 +6292,7 @@ configure-target-libiberty: $(TARGET_SUBDIR)/libiberty/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6383,6 +6392,7 @@ configure-target-gperf: $(TARGET_SUBDIR)/gperf/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6482,6 +6492,7 @@ configure-target-examples: $(TARGET_SUBDIR)/examples/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6573,6 +6584,7 @@ configure-target-libffi: $(TARGET_SUBDIR)/libffi/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6672,6 +6684,7 @@ configure-target-libjava: $(TARGET_SUBDIR)/libjava/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
 	    CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
@@ -6772,6 +6785,7 @@ configure-target-zlib: $(TARGET_SUBDIR)/zlib/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6871,6 +6885,7 @@ configure-target-boehm-gc: $(TARGET_SUBDIR)/boehm-gc/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -6970,6 +6985,7 @@ configure-target-qthreads: $(TARGET_SUBDIR)/qthreads/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -7069,6 +7085,7 @@ configure-target-rda: $(TARGET_SUBDIR)/rda/multilib.out
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
 	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
 	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
@@ -7292,7 +7309,8 @@ check-gcc-c++:
 	fi
 
 .PHONY: check-c++
-check-c++: check-target-libstdc++-v3 check-gcc-c++
+check-c++:
+	$(MAKE) check-target-libstdc++-v3 check-gcc-c++ NOTPARALLEL=parallel-ok
 
 .PHONY: install-gcc maybe-install-gcc
 maybe-install-gcc:
@@ -7468,7 +7486,7 @@ multilib.out: maybe-all-gcc
 
 # Rebuilding Makefile.in, using autogen.
 AUTOGEN = autogen
-$(srcdir)/Makefile.in: # $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
+$(srcdir)/Makefile.in: @MAINT@ $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
 	cd $(srcdir) && $(AUTOGEN) Makefile.def
 
 # Rebuilding Makefile.
@@ -7480,7 +7498,7 @@ config.status: configure $(gcc_version_trigger)
 
 # Rebuilding configure.
 AUTOCONF = autoconf
-$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/config/acx.m4
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in $(srcdir)/config/acx.m4
 	cd $(srcdir) && $(AUTOCONF)
 #
 

@@ -524,7 +524,7 @@ build_method_call (tree instance, tree name, tree parms,
   if (has_template_args)
     fn = lookup_fnfields (object_type, name, /*protect=*/2);
   else
-    fn = lookup_member (object_type, name, /*protect=*/2, /*want_type=*/0);
+    fn = lookup_member (object_type, name, /*protect=*/2, /*want_type=*/false);
   
   if (fn && TREE_CODE (fn) == TREE_LIST && !BASELINK_P (fn))
     {
@@ -2623,7 +2623,7 @@ resolve_scoped_fn_name (tree scope, tree name)
       if (BASELINK_P (name))
 	fn = name;
       else
-	fn = lookup_member (scope, name, /*protect=*/1, /*prefer_type=*/0);
+	fn = lookup_member (scope, name, /*protect=*/1, /*want_type=*/false);
       if (fn && current_class_type)
 	fn = (adjust_result_of_qualified_name_lookup 
 	      (fn, scope, current_class_type));
@@ -4529,7 +4529,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
 
   /* Get the java.lang.Class pointer for the interface being called.  */
   iface = DECL_CONTEXT (fn);
-  iface_ref = lookup_field (iface, get_identifier ("class$"), 0, 0);
+  iface_ref = lookup_field (iface, get_identifier ("class$"), 0, false);
   if (!iface_ref || TREE_CODE (iface_ref) != VAR_DECL
       || DECL_CONTEXT (iface_ref) != iface)
     {
@@ -4653,8 +4653,6 @@ build_special_member_call (tree instance, tree name, tree args,
 			  current_in_charge_parm, integer_zero_node),
 		   current_vtt_parm,
 		   vtt);
-      if (TREE_VIA_VIRTUAL (binfo))
-	binfo = binfo_for_vbase (class_type, current_class_type);
       my_friendly_assert (BINFO_SUBVTT_INDEX (binfo), 20010110);
       sub_vtt = build (PLUS_EXPR, TREE_TYPE (vtt), vtt,
 		       BINFO_SUBVTT_INDEX (binfo));

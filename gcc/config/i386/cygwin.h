@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -136,7 +136,8 @@ Boston, MA 02111-1307, USA.  */
    by calling the init function from the prologue.  */
 
 #undef LIBGCC_SPEC
-#define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32} -lgcc %{mno-cygwin:-lmoldname -lmsvcrt}"
+#define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32}	\
+  -lgcc %{mno-cygwin:-lmoldname -lmingwex -lmsvcrt}"
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -306,11 +307,13 @@ do {							\
 #define CHECK_STACK_LIMIT 4000
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
-   and returns float values in the 387 and needs stack probes */
-#undef TARGET_SUBTARGET_DEFAULT
+   returns float values in the 387 and needs stack probes.
+   We also align doubles to 64-bits for MSVC default compatibility. */
 
+#undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
-   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE) 
+   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE \
+    | MASK_ALIGN_DOUBLE)
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -396,6 +399,15 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 		     gen_rtx_SYMBOL_REF (Pmode, "_monstartup")),	\
 	const0_rtx));							\
     }
+
+/* Java Native Interface (JNI) methods on Win32 are invoked using the
+   stdcall calling convention.  */
+#undef MODIFY_JNI_METHOD_CALL
+#define MODIFY_JNI_METHOD_CALL(MDECL)					      \
+  build_type_attribute_variant ((MDECL),				      \
+			       build_tree_list (get_identifier ("stdcall"),   \
+						NULL))
+
 
 /* External function declarations.  */
 

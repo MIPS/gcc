@@ -47,6 +47,8 @@ import java.io.ObjectInput;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 /**
   * This class represents a particular data format used for transferring
@@ -508,7 +510,7 @@ setHumanPresentableName(String humanPresentableName)
   *
   * @exception NullPointerException If mimeType is null.
   */
-public final boolean
+public boolean
 isMimeTypeEqual(String mimeType)
 {
   // FIXME: Need to handle default attributes and parameters
@@ -660,8 +662,7 @@ isFlavorJavaFileListType()
   * the Cloneable interface. Subclasses that override the clone method can also
   * throw this exception to indicate that an instance cannot be cloned.
   */
-public Object
-clone()
+public Object clone () throws CloneNotSupportedException
 {
   try
     {
@@ -975,10 +976,8 @@ selectBestTextFlavor(DataFlavor[] availableFlavors)
   * @exception UnsupportedEncodingException if the "charset" isn't supported
   * on this platform.
   */
-public Reader
-getReaderForText(Transferable transferable) throws UnsupportedFlavorException,
-                                                   IOException,
-                                                   UnsupportedEncodingException
+public Reader getReaderForText(Transferable transferable)
+  throws UnsupportedFlavorException, IOException
 {
     if (!transferable.isDataFlavorSupported(this))
         throw new UnsupportedFlavorException(this);
@@ -1001,6 +1000,39 @@ getReaderForText(Transferable transferable) throws UnsupportedFlavorException,
 
     throw new UnsupportedFlavorException(this);
 }
+
+  /**
+   * Returns whether the representation class for this DataFlavor is
+   * @see java.nio.ByteBuffer or a subclass thereof.
+   *
+   * @since 1.4
+   */
+  public boolean isRepresentationClassByteBuffer ()
+  {
+    return ByteBuffer.class.isAssignableFrom (representationClass);
+  }
+
+  /**
+   * Returns whether the representation class for this DataFlavor is
+   * @see java.nio.CharBuffer or a subclass thereof.
+   *
+   * @since 1.4
+   */
+  public boolean isRepresentationClassCharBuffer ()
+  {
+    return CharBuffer.class.isAssignableFrom (representationClass);
+  }
+
+  /**
+   * Returns whether the representation class for this DataFlavor is
+   * @see java.io.Reader or a subclass thereof.
+   *
+   * @since 1.4
+   */
+  public boolean isRepresentationClassReader ()
+  {
+    return Reader.class.isAssignableFrom (representationClass);
+  }
 
 } // class DataFlavor
 

@@ -157,7 +157,7 @@ char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 /* Provide reg_class from a letter such as appears in the machine
    description.  *: target independently reserved letter.
-   reg_class_from_letter['e'] is set to NO_REGS for TARGET_FMOVD.  */
+   reg_class_from_letter['e' - 'a'] is set to NO_REGS for TARGET_FMOVD.  */
 
 enum reg_class reg_class_from_letter[] =
 {
@@ -218,6 +218,8 @@ static int shiftcosts PARAMS ((rtx));
 static int andcosts PARAMS ((rtx));
 static int addsubcosts PARAMS ((rtx));
 static int multcosts PARAMS ((rtx));
+static bool unspec_caller_rtx_p PARAMS ((rtx));
+static bool sh_cannot_copy_insn_p PARAMS ((rtx));
 static bool sh_rtx_costs PARAMS ((rtx, int, int, int *));
 static int sh_address_cost PARAMS ((rtx));
 
@@ -271,6 +273,8 @@ static int sh_address_cost PARAMS ((rtx));
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL sh_function_ok_for_sibcall
 
+#undef TARGET_CANNOT_COPY_INSN_P
+#define TARGET_CANNOT_COPY_INSN_P sh_cannot_copy_insn_p
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS sh_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -1213,6 +1217,59 @@ output_file_start (file)
   else if (TARGET_SHMEDIA)
     fprintf (file, "\t.mode\tSHmedia\n\t.abi\t%i\n",
 	     TARGET_SHMEDIA64 ? 64 : 32);
+}
+
+/* Check if PAT includes UNSPEC_CALLER unspec pattern.  */
+
+static bool
+unspec_caller_rtx_p (pat)
+     rtx pat;
+{
+  switch (GET_CODE (pat))
+    {
+    case CONST:
+      return unspec_caller_rtx_p (XEXP (pat, 0));
+    case PLUS:
+    case MINUS:
+      if (unspec_caller_rtx_p (XEXP (pat, 0)))
+	return true;
+      return unspec_caller_rtx_p (XEXP (pat, 1));
+    case UNSPEC:
+      if (XINT (pat, 1) == UNSPEC_CALLER)
+	return true;
+    default:
+      break;
+    }
+
+  return false;
+}
+
+/* Indicate that INSN cannot be duplicated.  This is true for insn
+   that generates an unique label.  */
+
+static bool
+sh_cannot_copy_insn_p (insn)
+     rtx insn;
+{
+  rtx pat;
+
+  if (!reload_completed || !flag_pic)
+    return false;
+
+  if (GET_CODE (insn) != INSN)
+    return false;
+  if (asm_noperands (insn) >= 0)
+    return false;
+
+  pat = PATTERN (insn);
+  if (GET_CODE (pat) != SET)
+    return false;
+  pat = SET_SRC (pat);
+
+  if (unspec_caller_rtx_p (pat))
+    return true;
+
+  return false;
 }
 
 /* Actual number of instructions used to make a shift by N.  */
@@ -4571,7 +4628,9 @@ calc_live_regs (count_ptr, live_regs_mask)
     {
       rtx pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
       pr_live = (pr_initial
-		 ? REGNO (pr_initial) != (PR_REG) : regs_ever_live[PR_REG]);
+		 ? (GET_CODE (pr_initial) != REG
+		    || REGNO (pr_initial) != (PR_REG))
+		 : regs_ever_live[PR_REG]);
     }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
@@ -4635,7 +4694,7 @@ calc_live_regs (count_ptr, live_regs_mask)
 
 /* Code to generate prologue and epilogue sequences */
 
-/* PUSHED is the number of bytes that are bing pushed on the
+/* PUSHED is the number of bytes that are being pushed on the
    stack for register saves.  Return the frame size, padded
    appropriately so that the stack stays properly aligned.  */
 static HOST_WIDE_INT
@@ -8021,11 +8080,12 @@ sh_expand_binop_v2sf (code, op0, op1, op2)
 {
   rtx sel0 = const0_rtx;
   rtx sel1 = const1_rtx;
-  rtx (*fn) PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx, rtx)) = gen_binary_sf_op;
+  rtx (*fn) PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx, rtx, rtx))
+    = gen_binary_sf_op;
   rtx op = gen_rtx_fmt_ee (code, SFmode, op1, op2);
 
-  emit_insn ((*fn) (op0, op1, op2, op, sel0, sel0, sel0));
-  emit_insn ((*fn) (op0, op1, op2, op, sel1, sel1, sel1));
+  emit_insn ((*fn) (op0, op1, op2, op, sel0, sel0, sel0, sel1));
+  emit_insn ((*fn) (op0, op1, op2, op, sel1, sel1, sel1, sel0));
 }
 
 /* Return the class of registers for which a mode change from FROM to TO

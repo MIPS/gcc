@@ -292,6 +292,9 @@ struct gcc_target
   /* True if the constant X cannot be placed in the constant pool.  */
   bool (* cannot_force_const_mem) PARAMS ((rtx));
 
+  /* True if the insn X cannot be duplicated.  */
+  bool (* cannot_copy_insn_p) PARAMS ((rtx));
+
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) PARAMS ((rtx));
 
@@ -316,6 +319,9 @@ struct gcc_target
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) PARAMS ((enum machine_mode mode));
+
+  /* True if two vector types can be copied without an explicit cast.  */
+  bool (* vector_types_compatible) PARAMS ((tree, tree));
 
   /* Compute a (partial) cost for rtx X.  Return true if the complete
      cost has been computed, and false if subexpressions should be

@@ -1,3 +1,638 @@
+2002-02-21  Anthony Green  <green@redhat.com>
+
+	* java/lang/Thread.java (Thread): New constructor taking stack
+	size parameter (ignored for now).
+	* Many methods: Merged GNU Classpath documentation.
+
+	* java/lang/Class.java (finalize): throws a Throwable.
+
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java (setComment): Don't check length when
+	argument is null.
+
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java (ZipEntry(String)): When name is bigger
+	then 65535 chars throw IllegalArgumentException.
+
+2003-02-21  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipFile.java (finalize): New method.
+
+2003-02-21  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natSocketChannelImpl.cc:
+	Reverse logic for DISABLE_JAVA_NET. Thanks to Krister Walfridsson
+	<cato@df.lth.se> for pointing to it.
+
+2003-02-20  Raif S. Naffah <raif@fl.net.au>
+
+	* java/math/BigInteger.java (euclidInv): Take result array as an
+	argument.  Updated all callers.
+	(modInverse): Removed unused variables.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natSocketChannelImpl.cc:
+	Added support for platforms without network support.
+
+2003-02-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* gnu/gcj/runtime/natStackTrace.cc: Include platform.h immediately
+	after config.h.  Use <> for consistency.
+	* java/lang/natObject.cc: Likewise.
+	* java/lang/natRuntime.cc: Likewise.
+	* java/lang/natSystem.cc: Likewise.
+	* java/util/natTimeZone.cc: Likewise.
+	* win32.cc: Likewise.
+	* include/posix.h (fcntl, socket, connect, close, bind, accept,
+	listen, write, read): Undef to avoid interference from OS macros.
+
+2003-02-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): Renamed two variables.
+	* gnu/java/nio/CharBufferImpl.java
+	(CharBufferImpl): Renamed two variables.
+	* gnu/java/nio/DoubleBufferImpl.java
+	(DoubleBufferImpl): Renamed two variables.
+	* gnu/java/nio/FloatBufferImpl.java
+	(FloatBufferImpl): Renamed two variables.
+	* gnu/java/nio/IntBufferImpl.java
+	(IntBufferImpl): Renamed two variables.
+	* gnu/java/nio/LongBufferImpl.java
+	(LongBufferImpl): Renamed two variables.
+	* gnu/java/nio/ShortBufferImpl.java
+	(ShortBufferImpl): Renamed two variables.
+	* java/nio/CharBuffer.java
+	(wrap): Fixed arguments to CharBufferImpl constructor.
+	(hasArray): Only not read-only buffers have backing arrays.
+	(length): Documentation added.
+	(subSequence): Documentation added.
+	* java/nio/DoubleBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/FloatBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/IntBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/LongBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	* java/nio/ShortBuffer.java
+	(hasArray): Only not read-only buffers have backing arrays.
+	
+2003-02-19  Michael Koch  <konqueror@gmx.de>
+
+	* javax/accessibility/AccessibleContext.java
+	(ACCESSIBLE_DESCRIPTION_PROPERTY): Fixed typo.
+
+2003-02-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/ScrollPaneAdjustable.java: Reformated.
+
+2003-02-19  Michael Koch <konqueror@gmx.de>
+
+	* gnu/awt/j2d/Graphics2DImpl.java
+	(getFontRenderContext): New method.
+	(drawGlyphVector): New method.
+	* java/awt/Graphics2D.java
+	(getFontRenderContext): New abstract method.
+	(drawGlyphVector): New abstract method.
+	
+2003-02-18  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* gnu/awt/xlib/XToolkit.java (getFontMetrics): initialize
+	if necessary.
+	
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java,
+	gnu/java/awt/peer/gtk/GtkTextAreaPeer.java,
+	gnu/java/awt/peer/gtk/GtkTextFieldPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c
+	(setFont, gtkSetFont): add.
+	gnu/java/awt/peer/gtk/GtkComponentPeer.java (GtkComponentPeer):
+	Propagate font to peer.  (setFont): add FIXME comment.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
+	(gtkTextGetSize): fix height, width computation.
+
+	* gnu/java/awt/peer/gtk/GtkFontPeer.java (GtkFontPeer):
+	Make X font name a bit less bogus.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c
+	(post_adjustment_event): Pass on GTK_SCROLL_NONE.
+
+	* java/awt/Scrollbar.java (setValues): Fix visibleAmount range check.
+	(processAdjustmentEvent): Adjust value.
+
+	* java/awt/FlowLayout.java (layoutContainer) Fix 2 indexing and one
+	logic errors.
+
+	* java/awt/Component.java (setVisible, show, hide): Call show and
+	hide methods in subclasses.
+	(getPreferredSize): don't set prefSize before we have peer.
+
+	* java/awt/TextArea.java, java/awt/TextField.java (getPreferredSize):
+	Guess (0,0) if we don't have peer.
+
+
+2003-02-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/FileChannel.java
+	(toString): New implementation, added documentation.
+	(map): Added exception documentation.
+	(size): Added exception documentation.
+	(write): New methods, documentation work.
+	(read): New methods, documentation work.
+	(implCloseChannel): Rewrote exception documentation.
+	(force): Throws IOException, added documentation.
+	(lock): New methods.
+	(tryLock): New methods.
+	(position): New methods.
+	(transferTo): New method.
+	(transferFrom): New method.
+	(truncate): New method.
+	* java/nio/channels/spi/SelectorProvider.java
+	(provider): Implemented.
+	* Makefile.am
+	(ordinary_java_source_files): Added the following files:
+	gnu/java/nio/DatagramChannelImpl.java
+	gnu/java/nio/FileChannelImpl.java
+	gnu/java/nio/PipeImpl.java
+	gnu/java/nio/SelectionKeyImpl.java
+	gnu/java/nio/SelectorImpl.java
+	gnu/java/nio/SelectorProviderImpl.java
+	gnu/java/nio/ServerSocketChannelImpl.java
+	gnu/java/nio/SocketChannelImpl.java
+	java/nio/channels/FileLock.java
+	(nat_java_source_files): Added the following files:
+	gnu/java/nio/natFileChannelImpl.cc
+	gnu/java/nio/natSelectorImpl.cc
+	gnu/java/nio/natSocketChannelImpl.cc
+	* Makefile.in: Regenerated.
+
+2003-02-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/image/ColorModel.java: Re-merged with Classpath.
+	* java/awt/image/ImageFilter.java: Likewise.
+
+2003-02-17  Raif S. Naffah <raif@fl.net.au>
+
+	* java/math/BigInteger.java (euclidInv): Return array of
+	`BigInteger's.  Changed all callers.
+
+2003-02-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/util/Properties.java (store): Move the code formerly in
+	list(), into this method.
+	(list (PrintStream)): Just call list (PrintWriter) with a 
+	PrintWriter object constructed from the given PrintStream object.
+	(list (PrintWriter)): Emulate the output of Properties.list()
+	as found in JDK 1.3/1.4.
+
+2003-02-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(connect): Merged with classpath.
+	(disconnect): Merged documentation with classpath.
+	(receice): Merged documentation with classpath.
+	(send): Merged documentation with classpath.
+	
+2003-02-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/DragSourceContext.java
+	(addDragSourceListener): Added documentation.
+	* java/awt/dnd/DragSourceDragEvent.java
+	(serialVersionUID): New member variable.
+	(getDropAction): Reformated.
+	* java/awt/dnd/DragSourceDropEvent.java
+	(serialVersionUID): New member variable.
+	(dropSuccess): Renamed from success for serialization issues.
+	* java/awt/dnd/DragSourceEvent.java
+	(serialVersionUID): New member variable.
+	* java/awt/dnd/DropTarget.java
+	(serialVersionUID): New member variable.
+	(DropTarget): Implemented, documentation reworked.
+	(setComponent): Documentation added.
+	(getComponent): Documentation added.
+	(setDefaultActions): Documentation added.
+	(getDefaultActions): Documentation added.
+	(addDropTargetListener): Documentation added.
+	* java/awt/dnd/DropTargetContext.java
+	(DropTargetContext): Documentation added.
+	(TransferableProxy.TransferableProxy): New method.
+	(dropComplete): Fixed documentation.
+	(getTransferable): Fixed documentation.
+	(createTransferableProxy): Implemented.
+	* java/awt/dnd/DropTargetDragEvent.java
+	(DropTargetDragEvent): Documentation added.
+	(serialVersionUID): New member variable.
+	(DropTargetDragEvent): Throw exceptions, documentation added.
+	(acceptDrag): Implemented.
+	(getCurrentDataFlavors): Implemented.3yy
+	(getCurrentDataFlavorsAsList): Implemented.
+	(isDataFlavorSupported): Implemented.
+	(rejectDrag): Implemented.
+	* java/awt/dnd/DropTargetDropEvent.java
+	(DropTargetDropEvent): Documentation added.
+	(serialVersionUID): New member variable.
+	(actions): Renamed from srcActions for serialization issues.
+	(isLocalTx): Renamed from isLocalTx for serialization issues.
+	(DropTargetDropEvent): New implementation, throw exceptions,
+	documentation added.
+	(getCurrentDataFlavors): Implemented.
+	(getCurrentDataFlavorsAsList): Implemented.
+	(isDataFlavorSupported): Implemented.
+	(getSourceActions): Implemented.
+	(getDropAction): Implemented.
+	(getTransferable): Implemented.
+	(acceptDrop): Implemented.
+	(rejectDrop): Implemented.
+	* java/awt/dnd/DropTargetListener.java
+	(drop): Fixed documentation.
+	* java/awt/dnd/MouseDragGestureRecognizer.java
+	(MouseDragGestureRecognizer): Documentation added.
+
+2003-02-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/font/FontRenderContext.java,
+	java/awt/font/ShapeGraphicAttribute.java,
+	java/awt/font/MultipleMaster.java,
+	java/awt/font/TransformAttribute.java,
+	java/awt/font/GlyphJustificationInfo.java,
+	java/awt/font/LineBreakMeasurer.java,
+	java/awt/font/TextMeasurer.java,
+	java/awt/font/TextLayout.java,
+	java/awt/font/LineMetrics.java,
+	java/awt/font/TextAttribute.java,
+	java/awt/font/GlyphMetrics.java,
+	java/awt/font/OpenType.java,
+	java/awt/font/GlyphVector.java,
+	java/awt/font/GraphicAttribute.java,
+	java/awt/font/ImageGraphicAttribute.java,
+	java/awt/font/NumericShaper.java: New files.
+	* Makefile.am
+	(awt_java_source_files): Added the following files:
+	java/awt/font/FontRenderContext.java
+	java/awt/font/ShapeGraphicAttribute.java
+	java/awt/font/MultipleMaster.java
+	java/awt/font/TransformAttribute.java
+	java/awt/font/GlyphJustificationInfo.java
+	java/awt/font/LineBreakMeasurer.java
+	java/awt/font/TextMeasurer.java
+	java/awt/font/TextLayout.java
+	java/awt/font/LineMetrics.java
+	java/awt/font/TextAttribute.java
+	java/awt/font/GlyphMetrics.java
+	java/awt/font/OpenType.java
+	java/awt/font/GlyphVector.java
+	java/awt/font/GraphicAttribute.java
+	java/awt/font/ImageGraphicAttribute.java
+	java/awt/font/NumericShaper.java
+	* Makefile.in: Regenerated.
+
+2003-02-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/print/Paper.java
+	(Paper): Implements Cloneable.
+	* java/awt/print/PrinterJob.java
+	(setJobName): Return value must be void.
+	(print): Throws PrinterException.
+	
+2003-02-16  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (_Jv_BytecodeVerifier::pop_jump): Removed unused
+	variable.
+
+2003-02-15  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/datatransfer/DataFlavor.java
+	(isRepresentationClassByteBuffer): Removed try-catch block.
+	(isRepresentationClassCharBuffer): Removed try-catch block.
+	(isRepresentationClassReader): Removed try-catch block.
+
+2003-02-15  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/nio/charset/Charset.java
+	(isRegistered): Fixed method args and implementation.
+	* java/nio/charset/CharsetEncoder.java
+	(unmappableCharacterAction): New method.
+
+2003-02-15  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/CheckboxMenuItem.java
+	(CheckBoxMenuItem): Dont implement Serializable.
+	(getListeners): New method,
+	(getItemListeners): New method.
+	* java/awt/Choice.java
+	(getListeners): New method,
+	(getItemListeners): New method.
+	* java/awt/Container.java
+	(getListeners): Added exception documentation.
+	(setFocusTraversalKeys): Throw exceptions, added documentattion.
+	(getFocusTraversalKeys): Added documentation.
+	(areFocusTraversalKeysSet): Added documentation.
+	(applyComponentOrientation): Added documentation.
+	* java/awt/ContainerOrderFocusTraversalPolicy.java
+	(implicitDownCycleTraversal): Renamed from downCycle for
+	serialization.
+	(ContainerOrderFocusTraversalPolicy): Added documentation.
+	(accept): Reformated.
+	* java/awt/Dialog.java
+	(Dialog): Dont implement Serializable.
+	(Dialog): Added documentation.
+	* java/awt/Font.java
+	(Font): Dont use absolute class name.
+	* java/awt/Frame.java
+	(Frame): Font implement Serializable.
+	* java/awt/List.java
+	(getListeners): New method,
+	(getActionListeners): New method.	
+	(getItemListeners): New method.
+	* java/awt/Menu.java
+	(countItems): New deprecated method.
+	* java/awt/Scrollbar.java
+	(getListeners): New method,
+	(getAdjustmentListeners): New method,
+	* java/awt/TextComponent.java
+	(getListeners): New method,
+	(getTextListeners): New method,
+	* java/awt/TextField.java
+	(getListeners): New method,
+	(getActionListeners): New method.	
+	* java/awt/Window.java
+	(windowFocusListener): New member variable.
+	(windowStateListener): New member variable.
+	(getWindowFocusListeners): New method.
+	(getWindowStateListeners): New method.
+	(addWindowFocusListener): New method.
+	(addWindowStateListener): New method.
+	(removeWindowFocusListener): New method.
+	(removeWindowStateListener): New method.
+	* java/awt/datatransfer/DataFlavor.java
+	(isRepresentationClassByteBuffer): New method.
+	(isRepresentationClassCharBuffer): New method.
+	(isRepresentationClassReader): New method.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* java/math/BigDecimal.java (BigDecimal(String)): Always set scale to
+	zero when there is an exponent and the significant is zero.
+	(divide): Always set scale to newScale even in special ZERO case.
+
+2003-02-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/System.java (properties): Use Properties.clone.
+	(setProperties): Likewise.
+
+2003-02-14  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natServerSocketChannelImpl.cc: Removed.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(SocketAccept): Removed.
+	(accept): Commented out use of SocketAccept.
+
+2003-02-13  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (state::seen_subrs): New field.
+	(state::state): Initialize it.
+	(state::clean_subrs): New method.
+	(state::~state): Call it.
+	(state::copy): Copy subroutine list.
+	(state::add_subr): New method.
+	(state::merge): Only register a change if the current subroutine
+	hasn't yet been noted.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/InputStreamReader.java (getEncoding): Return null when
+	closed.
+	* java/io/OutputStreamWriter.java (getEncoding): Likewise.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+ 
+	* java/util/zip/InflaterInputStream.java (read): Return zero when len
+	is zero.
+
+2003-02-13  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/BufferedOutputStream.java (write(int)): Only flush when
+	next byte cannot be buffered.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+ 
+	* java/awt/Label.java
+	(Label): Don't implement Serializable directly.
+	(addNotify): Fixed typo in documentation.
+	* java/awt/List.java
+	(List): Don't implement Serializable directly.
+	* java/awt/PopupMenu.java
+	(PopupMenu): Don't implement Serializable directly.
+	* java/awt/ScrollPane.java
+	(ScrollPane): Don't implement Serializable directly.
+	* java/awt/Scrollbar.java
+	(Scrollbar): Don't implement Serializable directly.
+	* java/awt/TextArea.java
+	(preferredSize): Fixed method arguments.
+	* java/awt/TextField.java
+	(TextField): Don't implement Serializable directly.
+	* java/awt/color/ICC_ColorSpace.java
+	(fromCIOXYZ): Documentation added.
+	(getMinValue): Documentation added.
+	(getMaxValue): Documentation added.
+	* java/awt/datatransfer/DataFlavor.java
+	(isMimeTypeEqual): May not be final.
+	(clone): Throws CloneNotSupportedException.
+	(getReaderForText): Don't throws UnsupportedEncodingException.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+ 
+	* gnu/java/awt/peer/gtk/GdkGraphics.java
+	(drawString): New stubbed method.
+	* java/awt/Graphics.java
+	(drawString): New method.
+
+2003-02-13  Casey Marshall  <rsdio@metastatic.org>
+
+	PR libgcj/9271:
+	* java/security/SecureRandom.java (next): Avoid bias in results.
+
+2003-02-13  Michael  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(lengthInternal): Must be native.
+	(size): Check if channel is already closed.
+	(implCloseChannel): Reformated.
+	(read): w was unused, removed it.
+	(read): Removed.
+	(read): New method.
+	(write): New method.
+	(map): Check arguments.
+	(force): Throws IOException, check if channel is closed.
+	(transferTo): New method.
+	(transferFrom): New method.
+	(lock): New method.
+	(tryLock): New method.
+	(position): New method.
+	(truncate): New method.
+	(nio_mmap_file): Uncommented.
+	(nio_munmap_file): Uncommented.
+	(nio_msync): Uncommented.
+	* gnu/java/nio/natFileChannelImpl.cc: New file.
+	
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(endian): New member variable.
+	(get): New methods.
+	(equals): New method.
+	(compareTo): New method.
+	(order): New methods.
+	(compact): New method.
+	(isDirect): New method.
+	(slice): New method.
+	(duplicate): New method.
+	(asReadOnlyBuffer): New method.
+	(asCharBuffer): New method.
+	(asDoubleBuffer): New method.
+	(asFloatBuffer): New method.
+	(asIntBuffer): New method.
+	(asLongBuffer): New method.
+	(asShortBuffer): New method.
+	(get*): New methods.
+	(put*): New methods.
+	(toString): New method.
+	* java/nio/CharBuffer.java
+	(CharBuffer): Implement Comparable instead of Cloneable.
+	(get): May not be final.
+	(put): May not be final.
+	
+2002-02-13  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* gnu/gcj/runtime/NameFinder.java (createStackTraceElement): Use
+	lastIndexOf( ) instead of indexOf( ) to find the colon before
+	the line number, because Win32 file names might contain a 
+	drive letter and a colon at the start of an absolute path.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natSocketChannelImpl.cc
+	(SocketConnect): This is not implemented yet.
+	(SocketBind): This is not implemented yet.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc,
+	gnu/java/nio/natDoubleBufferImpl.cc,
+	gnu/java/nio/natFloatBufferImpl.cc,
+	gnu/java/nio/natIntBufferImpl.cc,
+	gnu/java/nio/natLongBufferImpl.cc,
+	gnu/java/nio/natShortBufferImpl.cc:
+	Added copyright and license.
+	* java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java
+	(array): Throw exceptions.
+	(arrayOffset): Throw exceptions.
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+ 
+	* gnu/java/util/prefs/FileBasedFactory.java,
+	gnu/java/util/prefs/MemmoryBasedFactory.java,
+	gnu/java/util/prefs/MemoryBasedPreferences.java,
+	gnu/java/util/prefs/NodeReader.java,
+	gnu/java/util/prefs/NodeWriter.java,
+	java/util/prefs/AbstractPreferences.java,
+	java/util/prefs/BackingStoreException.java,
+	java/util/prefs/InvalidPreferencesFormatException.java,
+	java/util/prefs/NodeChangeEvent.java,
+	java/util/prefs/NodeChangeListener.java,
+	java/util/prefs/PreferenceChangeEvent.java,
+	java/util/prefs/PreferenceChangeListener.java,
+	java/util/prefs/Preferences.java,
+	java/util/prefs/PreferencesFactory.java:
+	New files, all merged from classpath.
+	* Makefile.am
+	(ordinary_java_source_files): Added the following files:
+	gnu/java/util/prefs/FileBasedFactory.java,
+	gnu/java/util/prefs/MemmoryBasedFactory.java,
+	gnu/java/util/prefs/MemoryBasedPreferences.java,
+	gnu/java/util/prefs/NodeReader.java,
+	gnu/java/util/prefs/NodeWriter.java,
+	(core_java_source_files): Added the following files:
+	java/util/prefs/AbstractPreferences.java,
+	java/util/prefs/BackingStoreException.java,
+	java/util/prefs/InvalidPreferencesFormatException.java,
+	java/util/prefs/NodeChangeEvent.java,
+	java/util/prefs/NodeChangeListener.java,
+	java/util/prefs/PreferenceChangeEvent.java,
+	java/util/prefs/PreferenceChangeListener.java,
+	java/util/prefs/Preferences.java,
+	java/util/prefs/PreferencesFactory.java
+	* Makefile.in: Regenerated.
+ 
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetPermission.java
+	(NetPermission): Make doucmentation match the method declaration.
+	* java/net/NetworkInterface.java
+	(equals): Reformated for GNU coding style.
+	* java/net/ServerSocket.java: Merged with classpath.
+	* java/net/Socket.java: Partly merged with classpath (Added some @since).
+	* java/net/SocketImpl.java
+	(localPort): Merged with classpath (initialize with -1).
+	* java/net/SocketPermission.java: Merged with classpath (reindented).
+	* java/net/URLDecoder.java: Merged with classpath (reindented).
+
+2003-02-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/GridBagConstraints.java
+ 	(FIRST_LINE_ENT, FIRST_LINE_START, LAST_LINE_END, LAST_LINE_START,
+ 	LINE_END, LINE_START, PAGE_END, PAGE_START): New constants.
+ 	* java/awt/KeyboardFocusManager.java
+ 	(setGlobalCurrentFocusCycleRoot): Must be public.
+ 	* java/awt/MenuComponent.java
+ 	(MenuComponent): Must be public.
+ 	* java/awt/Toolkit.java:
+ 	Added some empty lines to make documentation more readable.
+ 	(getFontPeer): Added @deprecated.
+ 	(getColorModel): Added exception documentation.
+ 	(getProperty): Fixed documentation.
+ 
+2003-02-12  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.host (alpha*-*): Default to -mieee.
+	* configure.in (IEEESPEC): New.
+	* libgcj.spec.in (jc1): Add IEEESPEC.
+	* configure: Rebuild.
+
+2003-02-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* include/win32.h: Include ws2tcpip.h instead of
+	winsock.h to obtain definition of the socklen_t type.
+	Remove IP_TOS definition - not needed with ws2tcpip.h
+	(_Jv_connect): Correct slight formatting error.
+
+2003-02-12  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* jni.cc (_Jv_LookupJNIMethod): Modify to accept the
+	size of the arguments for a JNI function. For Win32,
+	modify to search for all forms of possible exported
+	names of an stdcall JNI function.
+	(_Jv_JNIMethod::call): Modify to calculate the size
+	of the arguments passed to a JNI function and pass
+	it to _Jv_LookupJNIMethod.
+
 2003-02-12  Michael Koch  <konqueror@gmx.de>
 
 	* java/nio/channels/Channels.java: New file.

@@ -42,7 +42,7 @@ import java.awt.peer.ScrollbarPeer;
 import java.awt.peer.ComponentPeer;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.AdjustmentEvent;
-import java.io.Serializable;
+import java.util.EventListener;
 import javax.accessibility.Accessible;
 
 /**
@@ -52,8 +52,7 @@ import javax.accessibility.Accessible;
   * @author Tom Tromey <tromey@cygnus.com>
   */
 public class Scrollbar extends Component implements Accessible,
-                                                    Adjustable,
-                                                    Serializable
+                                                    Adjustable
 {
 
 // FIXME: Serialization readObject/writeObject
@@ -391,8 +390,8 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
   if (value > maximum)
     value = maximum;
 
-  if (visibleAmount > value)
-    visibleAmount = value;
+  if (visibleAmount > maximum - minimum)
+    visibleAmount = maximum - minimum;
 
   this.value = value;
   this.visibleAmount = visibleAmount;
@@ -665,6 +664,7 @@ processEvent(AWTEvent event)
 protected void
 processAdjustmentEvent(AdjustmentEvent event)
 {
+  value = event.getValue();
   if (adjustment_listeners != null)
     adjustment_listeners.adjustmentValueChanged(event);
 }
@@ -701,5 +701,29 @@ paramString()
 	 + super.paramString());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>Scrollbar</code>. FooListeners are registered using the 
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == AdjustmentListener.class)
+      return AWTEventMulticaster.getListeners (adjustment_listeners,
+                                               listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns an array of all registered adjustment listeners.
+   */
+  public AdjustmentListener[] getAdjustmentListeners ()
+  {
+    return (AdjustmentListener[]) getListeners (AdjustmentListener.class);
+  }
 } // class Scrollbar 
 

@@ -110,6 +110,7 @@ INSTALL_DATA = $(INSTALL) -m 644
 AS = @AS@
 AR = @AR@
 AR_FLAGS = rc
+RANLIB = @RANLIB@
 CC = @CC@
 
 # Special variables passed down in EXTRA_GCC_FLAGS.  They are defined
@@ -986,7 +987,8 @@ configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
 	    AR="$(AR_FOR_TARGET)"; export AR; \
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
-	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \[+ 
+	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	    CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \[+ 
 	IF raw_cxx +]
 	    CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
 	    CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \[+ 
@@ -1232,7 +1234,8 @@ check-gcc-c++:
 	fi
 
 .PHONY: check-c++
-check-c++: check-target-libstdc++-v3 check-gcc-c++
+check-c++:
+	$(MAKE) check-target-libstdc++-v3 check-gcc-c++ NOTPARALLEL=parallel-ok
 
 .PHONY: install-gcc maybe-install-gcc
 maybe-install-gcc:
@@ -1408,7 +1411,7 @@ multilib.out: maybe-all-gcc
 
 # Rebuilding Makefile.in, using autogen.
 AUTOGEN = autogen
-$(srcdir)/Makefile.in: # $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
+$(srcdir)/Makefile.in: @MAINT@ $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
 	cd $(srcdir) && $(AUTOGEN) Makefile.def
 
 # Rebuilding Makefile.
@@ -1420,7 +1423,7 @@ config.status: configure $(gcc_version_trigger)
 
 # Rebuilding configure.
 AUTOCONF = autoconf
-$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/config/acx.m4
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in $(srcdir)/config/acx.m4
 	cd $(srcdir) && $(AUTOCONF)
 #
 

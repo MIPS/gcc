@@ -227,6 +227,9 @@ static unsigned int rs6000_xcoff_section_type_flags PARAMS ((tree, const char *,
 static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
      ATTRIBUTE_UNUSED;
 static bool rs6000_binds_local_p PARAMS ((tree));
+static int rs6000_use_dfa_pipeline_interface PARAMS ((void));
+static int rs6000_multipass_dfa_lookahead PARAMS ((void));
+static int rs6000_variable_issue PARAMS ((FILE *, int, rtx, int));
 static bool rs6000_rtx_costs PARAMS ((rtx, int, int, int *));
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
@@ -265,6 +268,8 @@ static void is_altivec_return_reg PARAMS ((rtx, void *));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
 static int easy_vector_constant PARAMS ((rtx));
+static int is_ev64_opaque_type PARAMS ((tree));
+static bool rs6000_spe_vector_types_compatible PARAMS ((tree, tree));
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -380,6 +385,13 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
 
+#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE rs6000_use_dfa_pipeline_interface
+#undef  TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD rs6000_multipass_dfa_lookahead
+#undef  TARGET_SCHED_VARIABLE_ISSUE
+#define TARGET_SCHED_VARIABLE_ISSUE rs6000_variable_issue
+
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE rs6000_issue_rate
 #undef TARGET_SCHED_ADJUST_COST
@@ -409,6 +421,9 @@ static const char alt_reg_names[][8] =
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_VECTOR_TYPES_COMPATIBLE
+#define TARGET_VECTOR_TYPES_COMPATIBLE  rs6000_spe_vector_types_compatible
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -737,6 +752,10 @@ rs6000_override_options (default_cpu)
       targetm.asm_out.aligned_op.di = NULL;
       targetm.asm_out.unaligned_op.di = NULL;
     }
+
+  /* Set maximum branch target alignment at two instructions, eight bytes.  */
+  align_jumps_max_skip = 8;
+  align_loops_max_skip = 8;
 
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
@@ -12203,6 +12222,57 @@ output_function_profiler (file, labelno)
     }
 }
 
+
+static int
+rs6000_use_dfa_pipeline_interface ()
+{
+  return 1;
+}
+
+static int
+rs6000_multipass_dfa_lookahead ()
+{
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    return 4;
+  else
+    return 1;
+}
+
+/* Power4 load update and store update instructions are cracked into a
+   load or store and an integer insn which are executed in the same cycle.
+   Branches have their own dispatch slot which does not count against the
+   GCC issue rate, but it changes the program flow so there are no other
+   instructions to issue in this cycle.  */
+
+static int
+rs6000_variable_issue (stream, verbose, insn, more)
+  FILE *stream ATTRIBUTE_UNUSED;
+  int verbose ATTRIBUTE_UNUSED;
+  rtx insn;
+  int more;
+{
+  if (GET_CODE (PATTERN (insn)) == USE
+      || GET_CODE (PATTERN (insn)) == CLOBBER)
+    return more;
+
+  if (rs6000_cpu == PROCESSOR_POWER4)
+    {
+      enum attr_type type = get_attr_type (insn);
+      if (type == TYPE_LOAD_EXT_U || type == TYPE_LOAD_EXT_UX
+	  || type == TYPE_LOAD_UX || type == TYPE_STORE_UX
+	  || type == TYPE_FPLOAD_UX || type == TYPE_FPSTORE_UX)
+	return 0;
+      else if (type == TYPE_LOAD_U || type == TYPE_STORE_U
+	       || type == TYPE_FPLOAD_U || type == TYPE_FPSTORE_U
+	       || type == TYPE_LOAD_EXT || type == TYPE_DELAYED_CR)
+	return more - 2;
+      else
+	return more - 1;
+    }
+  else
+    return more - 1;
+}
+
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
@@ -12246,10 +12316,12 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
 	       || rs6000_cpu_attr == CPU_POWER4)
 	      && recog_memoized (dep_insn)
 	      && (INSN_CODE (dep_insn) >= 0)
-	      && (get_attr_type (dep_insn) == TYPE_COMPARE
+	      && (get_attr_type (dep_insn) == TYPE_CMP
+		  || get_attr_type (dep_insn) == TYPE_COMPARE
 		  || get_attr_type (dep_insn) == TYPE_DELAYED_COMPARE
 		  || get_attr_type (dep_insn) == TYPE_FPCOMPARE
-		  || get_attr_type (dep_insn) == TYPE_CR_LOGICAL))
+		  || get_attr_type (dep_insn) == TYPE_CR_LOGICAL
+		  || get_attr_type (dep_insn) == TYPE_DELAYED_CR))
 	    return cost + 2;
 	default:
 	  break;
@@ -12315,6 +12387,7 @@ rs6000_issue_rate ()
   case CPU_PPC601: /* ? */
   case CPU_PPC7450:
     return 3;
+  case CPU_PPC440:
   case CPU_PPC603:
   case CPU_PPC750:
   case CPU_PPC7400:
@@ -12601,20 +12674,20 @@ rs6000_elf_encode_section_info (decl, first)
 	    abort ();
 	}
 
-      if ((size > 0 && size <= g_switch_value)
-	  || (name
-	      && ((len == sizeof (".sdata") - 1
-		   && strcmp (name, ".sdata") == 0)
-		  || (len == sizeof (".sdata2") - 1
-		      && strcmp (name, ".sdata2") == 0)
-		  || (len == sizeof (".sbss") - 1
-		      && strcmp (name, ".sbss") == 0)
-		  || (len == sizeof (".sbss2") - 1
-		      && strcmp (name, ".sbss2") == 0)
-		  || (len == sizeof (".PPC.EMB.sdata0") - 1
-		      && strcmp (name, ".PPC.EMB.sdata0") == 0)
-		  || (len == sizeof (".PPC.EMB.sbss0") - 1
-		      && strcmp (name, ".PPC.EMB.sbss0") == 0))))
+      if (name
+	  ? ((len == sizeof (".sdata") - 1
+	      && strcmp (name, ".sdata") == 0)
+	     || (len == sizeof (".sdata2") - 1
+		 && strcmp (name, ".sdata2") == 0)
+	     || (len == sizeof (".sbss") - 1
+		 && strcmp (name, ".sbss") == 0)
+	     || (len == sizeof (".sbss2") - 1
+		 && strcmp (name, ".sbss2") == 0)
+	     || (len == sizeof (".PPC.EMB.sdata0") - 1
+		 && strcmp (name, ".PPC.EMB.sdata0") == 0)
+	     || (len == sizeof (".PPC.EMB.sbss0") - 1
+		 && strcmp (name, ".PPC.EMB.sbss0") == 0))
+	  : (size > 0 && size <= g_switch_value))
 	{
 	  size_t len = strlen (XSTR (sym_ref, 0));
 	  char *str = alloca (len + 2);
@@ -13522,6 +13595,39 @@ rs6000_memory_move_cost (mode, class, in)
     return 4 * HARD_REGNO_NREGS (FIRST_ALTIVEC_REGNO, mode);
   else
     return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
+}
+
+/* Return true if TYPE is of type __ev64_opaque__.  */
+
+static int
+is_ev64_opaque_type (type)
+     tree type;
+{
+  return (TYPE_NAME (type)
+	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+	  && DECL_NAME (TYPE_NAME (type))
+	  && strcmp (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))),
+		     "__ev64_opaque__") == 0);
+}
+
+/* Return true if vector type1 can be converted into vector type2.  */
+
+static bool
+rs6000_spe_vector_types_compatible (t1, t2)
+     tree t1;
+     tree t2;
+{
+  if (!TARGET_SPE
+      || TREE_CODE (t1) != VECTOR_TYPE || TREE_CODE (t2) != VECTOR_TYPE)
+    return 0;
+
+  if (TYPE_NAME (t1) || TYPE_NAME (t2))
+    return is_ev64_opaque_type (t1) || is_ev64_opaque_type (t2);
+
+  /* FIXME: We assume V2SI is the opaque type, so we accidentally
+     allow inter conversion to and from V2SI modes.  We could use
+     V1D1, and rewrite <spe.h> accordingly.  */
+  return t1 == V2SI_type_node || t2 == V2SI_type_node;
 }
 
 #include "gt-rs6000.h"

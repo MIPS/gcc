@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "toplev.h"
 #include "cselib.h"
+#include "params.h"
 #include "tm_p.h"
 #include "target.h"
 
@@ -513,7 +514,7 @@ try_forward_edges (mode, b)
 	     For fallthru forwarders, the LOOP_BEG note must appear between
 	     the header of block and CODE_LABEL of the loop, for non forwarders
 	     it must appear before the JUMP_INSN.  */
-	  if (mode & CLEANUP_PRE_LOOP)
+	  if ((mode & CLEANUP_PRE_LOOP) && optimize)
 	    {
 	      rtx insn = (target->succ->flags & EDGE_FALLTHRU
 			  ? target->head : prev_nonnote_insn (target->end));
@@ -1141,9 +1142,11 @@ outgoing_edges_match (mode, bb1, bb2)
   /* If BB1 has only one successor, we may be looking at either an
      unconditional jump, or a fake edge to exit.  */
   if (bb1->succ && !bb1->succ->succ_next
-      && !(bb1->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)))
+      && (bb1->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)) == 0
+      && (GET_CODE (bb1->end) != JUMP_INSN || simplejump_p (bb1->end)))
     return (bb2->succ &&  !bb2->succ->succ_next
-	    && (bb2->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)) == 0);
+	    && (bb2->succ->flags & (EDGE_COMPLEX | EDGE_FAKE)) == 0
+	    && (GET_CODE (bb2->end) != JUMP_INSN || simplejump_p (bb2->end)));
 
   /* Match conditional jumps - this may get tricky when fallthru and branch
      edges are crossed.  */
@@ -1511,7 +1514,7 @@ try_crossjump_bb (mode, bb)
 {
   edge e, e2, nexte2, nexte, fallthru;
   bool changed;
-  int n = 0;
+  int n = 0, max;
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (!bb->pred || !bb->pred->pred_next)
@@ -1520,11 +1523,13 @@ try_crossjump_bb (mode, bb)
   /* It is always cheapest to redirect a block that ends in a branch to
      a block that falls through into BB, as that adds no branches to the
      program.  We'll try that combination first.  */
-  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next, n++)
+  fallthru = NULL;
+  max = PARAM_VALUE (PARAM_MAX_CROSSJUMP_EDGES);
+  for (e = bb->pred; e ; e = e->pred_next, n++)
     {
-      if (fallthru->flags & EDGE_FALLTHRU)
-	break;
-      if (n > 100)
+      if (e->flags & EDGE_FALLTHRU)
+	fallthru = e;
+      if (n > max)
 	return false;
     }
 
@@ -1839,6 +1844,7 @@ cleanup_cfg (mode)
 	    break;
 	}
       else if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_PRE_SIBCALL))
+	       && (mode & CLEANUP_EXPENSIVE)
 	       && !reload_completed)
 	{
 	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
