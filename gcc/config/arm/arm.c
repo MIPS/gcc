@@ -90,6 +90,7 @@ static int    number_of_first_bit_set   PROTO ((int));
 static void   replace_symbols_in_block  PROTO ((tree, rtx, rtx));
 static void   thumb_exit                PROTO ((FILE *, int));
 static void   thumb_pushpop             PROTO ((FILE *, int, int));
+static char * thumb_condition_code      PROTO ((rtx, int));
 
 #undef Hint
 #undef Mmode
@@ -412,13 +413,12 @@ arm_override_options ()
 	  /* Force apcs-32 to be used for interworking.  */
 	  target_flags |= ARM_FLAG_APCS_32;
 
-	  /* There are no ARM processor that supports both APCS-26 and
+	  /* There are no ARM processors that support both APCS-26 and
 	     interworking.  Therefore we force FL_MODE26 to be removed
 	     from insn_flags here (if it was set), so that the search
 	     below will always be able to find a compatible processor.  */
 	  insn_flags &= ~ FL_MODE26;
 	}
-
       else if (! TARGET_APCS_32)
 	sought |= FL_MODE26;
       
@@ -507,6 +507,12 @@ arm_override_options ()
       target_flags &= ~ARM_FLAG_THUMB;
     }
 
+  if (TARGET_APCS_FRAME && TARGET_THUMB)
+    {
+      warning ("ignoring -mapcs-frame because -mthumb was used.");
+      target_flags &= ~ARM_FLAG_APCS_FRAME;
+    }
+  
   /* TARGET_BACKTRACE calls leaf_function_p, which causes a crash if done
      from here where no function is being compiled currently.  */
   if ((target_flags & (THUMB_FLAG_LEAF_BACKTRACE | THUMB_FLAG_BACKTRACE))
@@ -549,7 +555,7 @@ arm_override_options ()
       && ! TARGET_APCS_FRAME
       && (TARGET_DEFAULT & ARM_FLAG_APCS_FRAME))
     warning ("-g with -mno-apcs-frame may not give sensible debugging");
-    
+  
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  */
   if (flag_pic && ! TARGET_APCS_STACK)
@@ -657,7 +663,6 @@ arm_add_gc_roots ()
 }
 
 /* Return 1 if it is possible to return using a single instruction.  */
-
 int
 use_return_insn (iscond)
      int iscond;
@@ -830,7 +835,7 @@ arm_split_constant (code, mode, val, target, source, subtargets)
 
 /* As above, but extra parameter GENERATE which, if clear, suppresses
    RTL generation.  */
-int
+static int
 arm_gen_constant (code, mode, val, target, source, subtargets, generate)
      enum rtx_code code;
      enum machine_mode mode;
@@ -1643,8 +1648,8 @@ arm_comp_type_attributes (type1, type2)
 
   /* Check for mismatched long_calls attribute.
      ??? Not sure this is necessary.  */
-  if (   ! lookup_attribute ("long_calls", TYPE_ATTRIBUTES (type1))
-      != ! lookup_attribute ("long_calls", TYPE_ATTRIBUTES (type2)))
+  if (   ! lookup_attribute ("long_call", TYPE_ATTRIBUTES (type1))
+      != ! lookup_attribute ("long_call", TYPE_ATTRIBUTES (type2)))
     return 0;
   
   return 1;
@@ -2226,7 +2231,7 @@ arm_adjust_cost (insn, link, dep, cost)
 {
   rtx i_pat, d_pat;
 
-  /* XXX This is not strictly true for the FPA. */
+  /* XXX This is not strictly true for the FPA.  a*/
   if (REG_NOTE_KIND (link) == REG_DEP_ANTI
       || REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
     return 0;
@@ -2675,7 +2680,7 @@ soft_df_operand (op, mode)
 
   if (GET_CODE (op) == SUBREG && CONSTANT_P (SUBREG_REG (op)))
     return FALSE;
-
+  
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
   
@@ -2719,8 +2724,9 @@ index_operand (op, mode)
      enum machine_mode mode;
 {
   return (s_register_operand(op, mode)
-	  || (immediate_operand (op, mode)
-	      && INTVAL (op) < 4096 && INTVAL (op) > -4096));
+	  || (immediate_operand (op, mode)	
+	      && (GET_CODE (op) != CONST_INT
+		  || (INTVAL (op) < 4096 && INTVAL (op) > -4096))));
 }
 
 /* Return TRUE for valid shifts by a constant. This also accepts any
@@ -2734,7 +2740,8 @@ const_shift_operand (op, mode)
 {
   return (power_of_two_operand (op, mode)
 	  || (immediate_operand (op, mode)
-	      && (INTVAL (op) < 32 && INTVAL (op) > 0)));
+	      && (GET_CODE (op) != CONST_INT
+		  || (INTVAL (op) < 32 && INTVAL (op) > 0))));
 }
 
 /* Return TRUE for arithmetic operators which can be combined with a multiply
@@ -3589,7 +3596,6 @@ arm_valid_machine_decl_attribute (decl, attr, args)
 }
 
 /* Return non-zero if FUNC is a naked function.  */
-
 static int
 arm_naked_function_p (func)
      tree func;
@@ -3819,7 +3825,7 @@ arm_gen_movstrqi (operands)
     {
       rtx tmp = gen_reg_rtx (SImode);
 
-      /* The bytes we want are in the top end of the word */
+      /* The bytes we want are in the top end of the word.  */
       emit_insn (gen_lshrsi3 (tmp, part_bytes_reg,
 			      GEN_INT (8 * (4 - last_bytes))));
       part_bytes_reg = tmp;
@@ -4171,7 +4177,7 @@ arm_reload_in_hi (operands)
       if (lo == 4095)
 	lo &= 0x7ff;
 
-      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xFFFFFFFFUL)
+      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xffffffffUL)
 	     ^ (HOST_WIDE_INT) 0x80000000UL)
 	    - (HOST_WIDE_INT) 0x80000000UL);
 
@@ -4317,7 +4323,7 @@ arm_reload_out_hi (operands)
       if (lo == 4095)
 	lo &= 0x7ff;
 
-      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xFFFFFFFFUL)
+      hi = ((((offset - lo) & (HOST_WIDE_INT) 0xffffffffUL)
 	     ^ (HOST_WIDE_INT) 0x80000000UL)
 	    - (HOST_WIDE_INT) 0x80000000UL);
 
@@ -5775,7 +5781,7 @@ output_multi_immediate (operands, instr1, instr2, immed_op, n)
      HOST_WIDE_INT n;
 {
 #if HOST_BITS_PER_WIDE_INT > 32
-  n &= 0xffffffff;
+  n &= 0xffffffffUL;
 #endif
 
   if (n == 0)
@@ -6140,8 +6146,10 @@ function_really_clobbers_lr (first)
 	  if (GET_CODE (next) == BARRIER)
 	    break;
 
-	  if (GET_CODE (next) == INSN && GET_CODE (PATTERN (next)) == USE
+	  if (GET_CODE (next) == INSN
+	      && GET_CODE (PATTERN (next)) == USE
 	      && (GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == SET)
+	      && (GET_CODE (XEXP (PATTERN (next), 0)) == REG)
 	      && (REGNO (SET_DEST (XVECEXP (PATTERN (insn), 0, 0)))
 		  == REGNO (XEXP (PATTERN (next), 0))))
 	    if ((next = next_nonnote_insn (next)) == NULL)
@@ -6175,9 +6183,9 @@ output_return_instruction (operand, really_return, reverse)
   /* If a function is naked, don't use the "return" insn.  */
   if (arm_naked_function_p (current_function_decl))
     return "";
-
+  
   return_used_this_function = 1;
- 
+  
   if (TARGET_ABORT_NORETURN && volatile_func)
     {
       /* If this function was declared non-returning, and we have found a tail 
@@ -7053,16 +7061,23 @@ arm_print_operand (stream, x, code)
     case 'd':
       if (! x)
 	return;
-      fputs (arm_condition_codes[get_arm_condition_code (x)], stream);
+      if (TARGET_ARM)
+        fputs (arm_condition_codes[get_arm_condition_code (x)],
+	       stream);
+      else
+	fputs (thumb_condition_code (x, 0), stream);
       return;
 
     case 'D':
       if (! x)
 	return;
 
-      fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
-				(get_arm_condition_code (x))],
-	     stream);
+      if (TARGET_ARM)
+	fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE
+				  (get_arm_condition_code (x))],
+	       stream);
+      else
+	fputs (thumb_condition_code (x, 1), stream);
       return;
 
     default:
@@ -7606,8 +7621,7 @@ arm_debugger_arg_offset (value, addr)
   if (value != 0)
     return 0;
 
-  /* We can only cope with the case where the address is held in a
-     register.  */
+  /* We can only cope with the case where the address is held in a register.  */
   if (GET_CODE (addr) != REG)
     return 0;
 
@@ -7643,8 +7657,7 @@ arm_debugger_arg_offset (value, addr)
 
      If the insn is a normal instruction
      and if the insn is setting the value in a register
-     and if the register being set is the register holding the address of 
-       the argument
+     and if the register being set is the register holding the address of the argument
      and if the address is computing by an addition
      that involves adding to a register
      which is the frame pointer
@@ -7659,8 +7672,7 @@ arm_debugger_arg_offset (value, addr)
 	  && REGNO    (XEXP (PATTERN (insn), 0)) == REGNO (addr)
 	  && GET_CODE (XEXP (PATTERN (insn), 1)) == PLUS
 	  && GET_CODE (XEXP (XEXP (PATTERN (insn), 1), 0)) == REG
-	  && REGNO    (XEXP (XEXP (PATTERN (insn), 1), 0))
-	     == HARD_FRAME_POINTER_REGNUM
+	  && REGNO    (XEXP (XEXP (PATTERN (insn), 1), 0)) == HARD_FRAME_POINTER_REGNUM
 	  && GET_CODE (XEXP (XEXP (PATTERN (insn), 1), 1)) == CONST_INT
 	     )
 	{
@@ -7738,7 +7750,7 @@ number_of_first_bit_set (mask)
 /* Generate code to return from a thumb function.  If
    'reg_containing_return_addr' is -1, then the return address is
    actually on the stack, at the stack pointer.  */
-void
+static void
 thumb_exit (f, reg_containing_return_addr)
      FILE * f;
      int    reg_containing_return_addr;
@@ -8973,6 +8985,37 @@ thumb_cmp_operand (op, mode)
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) (INTVAL (op)) < 256)
 	  || register_operand (op, mode));
+}
+
+static char *
+thumb_condition_code (x, invert)
+     rtx x;
+     int invert;
+{
+  static char * conds[] =
+  {
+    "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc", 
+    "hi", "ls", "ge", "lt", "gt", "le"
+  };
+  int val;
+
+  switch (GET_CODE (x))
+    {
+    case EQ: val = 0; break;
+    case NE: val = 1; break;
+    case GEU: val = 2; break;
+    case LTU: val = 3; break;
+    case GTU: val = 8; break;
+    case LEU: val = 9; break;
+    case GE: val = 10; break;
+    case LT: val = 11; break;
+    case GT: val = 12; break;
+    case LE: val = 13; break;
+    default:
+      abort ();
+    }
+
+  return conds[val ^ invert];
 }
 
 /* Handle storing a half-word to memory during reload.  */ 

@@ -1,5 +1,5 @@
-/* Prototypes for exported functions defined in arm.c and thumb.c
-   Copyright (C) 1991, 93-98, 1999 Free Software Foundation, Inc.
+/* Prototypes for exported functions defined in arm.c.
+   Copyright (C) 1991, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM.
-   Copyright (C) 1991, 93-98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1991, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -48,7 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_strongarm1100 0x0040
 #define TARGET_CPU_arm9		0x0080
 #define TARGET_CPU_arm9tdmi	0x0080
-/* Configure didn't specify */
+/* Configure didn't specify.  */
 #define TARGET_CPU_generic	0x8000
 
 typedef enum arm_cond_code
@@ -170,6 +170,9 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{march=armv4:-D__ARM_ARCH_4__} \
 %{march=armv4t:-D__ARM_ARCH_4T__} \
 %{march=armv5:-D__ARM_ARCH_5__} \
+%{march=armv5t:-D__ARM_ARCH_5T__} \
+%{march=armv5e:-D__ARM_ARCH_5E__} \
+%{march=armv5te:-D__ARM_ARCH_5TE__} \
 %{!march=*: \
  %{mcpu=arm2:-D__ARM_ARCH_2__} \
  %{mcpu=arm250:-D__ARM_ARCH_2__} \
@@ -386,78 +389,78 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #define SUBTARGET_SWITCHES
 #endif
 
-#define TARGET_SWITCHES							  \
-{									  \
-  {"apcs",			ARM_FLAG_APCS_FRAME, "" },		  \
-  {"apcs-frame",		ARM_FLAG_APCS_FRAME,			  \
-     "Generate APCS conformant stack frames" },				  \
-  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME, "" },		  \
-  {"poke-function-name",	ARM_FLAG_POKE,				  \
-     "Store function names in object code" },				  \
-  {"no-poke-function-name",    -ARM_FLAG_POKE, "" },			  \
-  {"fpe",			ARM_FLAG_FPE,  "" },			  \
-  {"apcs-32",			ARM_FLAG_APCS_32,			  \
-     "Use the 32bit version of the APCS" },				  \
-  {"apcs-26",		       -ARM_FLAG_APCS_32,			  \
-     "Use the 26bit version of the APCS" },				  \
-  {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },		  \
-  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },		  \
-  {"apcs-float",		ARM_FLAG_APCS_FLOAT,			  \
-     "Pass FP arguments in FP registers" },				  \
-  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT, "" },		  \
-  {"apcs-reentrant",		ARM_FLAG_APCS_REENT,			  \
-     "Generate re-entrant, PIC code" },					  \
-  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },		  \
-  {"alignment-traps",           ARM_FLAG_MMU_TRAPS,			  \
-     "The MMU will trap on unaligned accesses" },			  \
-  {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },		  \
-  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },		  \
-  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },		  \
-  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },		  \
-  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },		  \
-  {"soft-float",		ARM_FLAG_SOFT_FLOAT,			  \
-     "Use library calls to perform FP operations" },			  \
-  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			  \
-     "Use hardware floating point instructions" },			  \
-  {"big-endian",		ARM_FLAG_BIG_END,			  \
-     "Assume target CPU is configured as big endian" },			  \
-  {"little-endian",	       -ARM_FLAG_BIG_END,			  \
-     "Assume target CPU is configured as little endian" },		  \
-  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS,			  \
-     "Assume big endian bytes, little endian words" },			  \
-  {"thumb-interwork",		ARM_FLAG_INTERWORK,			  \
-     "Support calls between THUMB and ARM instructions sets" },		  \
-  {"no-thumb-interwork",       -ARM_FLAG_INTERWORK, "" },		  \
-  {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,		  \
-   "Generate a call to abort if a noreturn function returns"},		  \
-  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, ""},		  \
-  {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO,			  \
-     "Do not move instructions into a function's prologue" },		  \
-  {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" },		  \
-  {"single-pic-base",		ARM_FLAG_SINGLE_PIC_BASE,		  \
-     "Do not load the PIC register in function prologues" },		  \
-  {"no-single-pic-base",       -ARM_FLAG_SINGLE_PIC_BASE, "" },		  \
-  {"long-calls",		ARM_FLAG_LONG_CALLS,			  \
-   "Generate all call instructions as indirect calls"},			  \
-  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, ""},		  \
-  {"thumb",                     ARM_FLAG_THUMB,				  \
-     "Compile for the Thumb not the ARM" },				  \
-  {"no-thumb",                 -ARM_FLAG_THUMB, "" },			  \
-  {"arm",                      -ARM_FLAG_THUMB, "" },			  \
-  {"tpcs-frame",		    THUMB_FLAG_BACKTRACE,		  \
-   "Thumb: Generate (non-leaf) stack frames even if not needed"},	  \
-  {"no-tpcs-frame",                -THUMB_FLAG_BACKTRACE, ""},		  \
+#define TARGET_SWITCHES						\
+{								\
+  {"apcs",			ARM_FLAG_APCS_FRAME, "" },	\
+  {"apcs-frame",		ARM_FLAG_APCS_FRAME,		\
+     "Generate APCS conformant stack frames" },			\
+  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME, "" },	\
+  {"poke-function-name",	ARM_FLAG_POKE,			\
+     "Store function names in object code" },			\
+  {"no-poke-function-name",    -ARM_FLAG_POKE, "" },		\
+  {"fpe",			ARM_FLAG_FPE,  "" },		\
+  {"apcs-32",			ARM_FLAG_APCS_32,		\
+     "Use the 32bit version of the APCS" },			\
+  {"apcs-26",		       -ARM_FLAG_APCS_32,		\
+     "Use the 26bit version of the APCS" },			\
+  {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },	\
+  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },	\
+  {"apcs-float",		ARM_FLAG_APCS_FLOAT,		\
+     "Pass FP arguments in FP registers" },			\
+  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT, "" },	\
+  {"apcs-reentrant",		ARM_FLAG_APCS_REENT,		\
+     "Generate re-entrant, PIC code" },				\
+  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },	\
+  {"alignment-traps",           ARM_FLAG_MMU_TRAPS,		\
+     "The MMU will trap on unaligned accesses" },		\
+  {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },	\
+  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },	\
+  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },	\
+  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },	\
+  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },	\
+  {"soft-float",		ARM_FLAG_SOFT_FLOAT,		\
+     "Use library calls to perform FP operations" },		\
+  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,		\
+     "Use hardware floating point instructions" },		\
+  {"big-endian",		ARM_FLAG_BIG_END,		\
+     "Assume target CPU is configured as big endian" },		\
+  {"little-endian",	       -ARM_FLAG_BIG_END,		\
+     "Assume target CPU is configured as little endian" },	\
+  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS,		\
+     "Assume big endian bytes, little endian words" },		\
+  {"thumb-interwork",		ARM_FLAG_INTERWORK,		\
+     "Support calls between THUMB and ARM instructions sets" },	\
+  {"no-thumb-interwork",       -ARM_FLAG_INTERWORK, "" },	\
+  {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,	\
+     "Generate a call to abort if a noreturn function returns"},\
+  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, ""},	\
+  {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO,		\
+     "Do not move instructions into a function's prologue" },	\
+  {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" },	\
+  {"single-pic-base",		ARM_FLAG_SINGLE_PIC_BASE,	\
+     "Do not load the PIC register in function prologues" },	\
+  {"no-single-pic-base",       -ARM_FLAG_SINGLE_PIC_BASE, "" },	\
+  {"long-calls",		ARM_FLAG_LONG_CALLS,		\
+     "Generate all call instructions as indirect calls"},	\
+  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, ""},	\
+  {"thumb",                     ARM_FLAG_THUMB,			\
+     "Compile for the Thumb not the ARM" },			\
+  {"no-thumb",                 -ARM_FLAG_THUMB, "" },		\
+  {"arm",                      -ARM_FLAG_THUMB, "" },		\
+  {"tpcs-frame",		    THUMB_FLAG_BACKTRACE,	\
+     "Thumb: Generate (non-leaf) stack frames even if not needed" },	  \
+  {"no-tpcs-frame",                -THUMB_FLAG_BACKTRACE, "" },		  \
   {"tpcs-leaf-frame",	  	    THUMB_FLAG_LEAF_BACKTRACE,		  \
-   "Thumb: Generate (leaf) stack frames even if not needed"},		  \
-  {"no-tpcs-leaf-frame",           -THUMB_FLAG_LEAF_BACKTRACE, ""},	  \
+     "Thumb: Generate (leaf) stack frames even if not needed" },	  \
+  {"no-tpcs-leaf-frame",           -THUMB_FLAG_LEAF_BACKTRACE, "" },	  \
   {"callee-super-interworking",	    THUMB_FLAG_CALLEE_SUPER_INTERWORKING, \
-   "Thumb: Assume non-static functions may be called from ARM code"},	  \
+     "Thumb: Assume non-static functions may be called from ARM code" },  \
   {"no-callee-super-interworking", -THUMB_FLAG_CALLEE_SUPER_INTERWORKING, \
    ""},									  \
   {"caller-super-interworking",	    THUMB_FLAG_CALLER_SUPER_INTERWORKING, \
-   "Thumb: Assume function pointers may go to non-Thumb aware code"},	  \
+     "Thumb: Assume function pointers may go to non-Thumb aware code" },  \
   {"no-caller-super-interworking", -THUMB_FLAG_CALLER_SUPER_INTERWORKING, \
-   ""},									  \
+   "" },								  \
   SUBTARGET_SWITCHES							  \
   {"",				TARGET_DEFAULT, "" }			  \
 }
@@ -1189,7 +1192,7 @@ enum reg_class
 
    For the ARM, we wish to handle large displacements off a base
    register by splitting the addend across a MOV and the mem insn.
-   This can cut the number of reloads needed. */
+   This can cut the number of reloads needed.  */
 #define ARM_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND, WIN)	   \
   do									   \
     {									   \
@@ -1207,19 +1210,19 @@ enum reg_class
 	  else if (MODE == SImode					   \
 		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
-	    /* Need to be careful, -4096 is not a valid offset */	   \
+	    /* Need to be careful, -4096 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \
 	  else if ((MODE == HImode || MODE == QImode) && arm_arch4)	   \
-	    /* Need to be careful, -256 is not a valid offset */	   \
+	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (GET_MODE_CLASS (MODE) == MODE_FLOAT			   \
 		   && TARGET_HARD_FLOAT)				   \
-	    /* Need to be careful, -1024 is not a valid offset */	   \
+	    /* Need to be careful, -1024 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0x3ff) : -((-val) & 0x3ff);		   \
 	  else								   \
 	    break;							   \
 									   \
-	  high = ((((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000); \
+	  high = ((((val - low) & 0xffffffffUL) ^ 0x80000000UL) - 0x80000000UL); \
 	  /* Check for overflow or zero */				   \
 	  if (low == 0 || high == 0 || (high + low != val))		   \
 	    break;							   \
@@ -1782,7 +1785,7 @@ typedef struct
    patterns), nice doubles and symbol_refs which refer to the function's
    constant pool XXX.  */
 #define ARM_LEGITIMATE_CONSTANT_P(X)	(! label_mentioned_p (X))
-     
+
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
@@ -2708,7 +2711,7 @@ extern int making_const_table;
      in 26 bit mode, the condition codes must be masked out of the	\
      return address.  This does not apply to ARM6 and later processors	\
      when running in 32 bit mode.  */					\
-  ((!TARGET_APCS_32) ? (GEN_INT (RETURN_ADDR_MASK26)) : (GEN_INT (0xffffffff)))
+  ((!TARGET_APCS_32) ? (GEN_INT (RETURN_ADDR_MASK26)) : (GEN_INT (0xffffffffUL)))
 
 
 /* Define the codes that are matched by predicates in arm.c */

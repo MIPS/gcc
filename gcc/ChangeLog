@@ -1,3 +1,10 @@
+2000-02-04  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c: Sycnronised with current Red hat local
+	sources. 
+	* config/arm/arm.h: Ditto.
+	* config/arm/arm-protos.h: Ditto.
+
 2000-02-02  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* arm.c (soft_df_operand): Reject SUBREGs containing a constant.
