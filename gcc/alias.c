@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "timevar.h"
 #include "target.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "varray.h"
 
@@ -113,6 +114,11 @@ static bool nonoverlapping_component_refs_p (tree, tree);
 static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
 static int nonoverlapping_memrefs_p (rtx, rtx);
+
+/* APPLE LOCAL begin aliasing improvement */
+static int overlapping_memrefs_p (rtx, rtx);
+/* APPLE LOCAL end */
+
 static int write_dependence_p (rtx, rtx, int, int);
 
 static int nonlocal_mentioned_p_1 (rtx *, void *);
@@ -2151,6 +2157,64 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   return sizex >= 0 && offsety >= offsetx + sizex;
 }
 
+/* APPLE LOCAL begin aliasing improvement */
+/* Helper for the following.  Return 1 only if we're sure of overlap. */
+
+static int
+overlapping_trees_p (tree exprx, tree expry)
+{
+  /* If no info about either one, can't tell. */
+  if (exprx == 0 || expry == 0)
+    return 0;
+
+  /* Top level code must match. */
+  if (TREE_CODE (exprx) != TREE_CODE (expry))
+    return 0;
+
+  /* Components.  */
+  if (TREE_CODE (exprx) == COMPONENT_REF)
+    {
+      /* They must refer to the same field... */
+      if (TREE_OPERAND (exprx, 1) != TREE_OPERAND (expry, 1))
+        return 0;   
+      /* ...of the same object.  (The object may be null, which
+         will compare as not overlapping.) */
+      return overlapping_trees_p (TREE_OPERAND (exprx, 0),
+                                  TREE_OPERAND (expry, 0));
+    }
+
+  /* Pointers. */
+  if (TREE_CODE (exprx) == INDIRECT_REF)
+    return overlapping_trees_p (TREE_OPERAND (exprx, 0),         
+                                TREE_OPERAND (expry, 0));
+
+  if (TREE_CODE (exprx) == VAR_DECL
+      || TREE_CODE (exprx) == PARM_DECL
+      || TREE_CODE (exprx) == CONST_DECL
+      || TREE_CODE (exprx) == FUNCTION_DECL)  
+    return exprx == expry;
+
+  return 0;
+}
+
+/* Return 1 if memrefs definitely overlap, 0 otherwise. */
+
+
+static int
+overlapping_memrefs_p (rtx x, rtx y)   
+{
+  tree exprx = MEM_EXPR (x), expry = MEM_EXPR (y);
+  rtx offsetx = MEM_OFFSET (x), offsety = MEM_OFFSET (y);
+
+  /* See if offsets collide.  Known but different offsets do not
+     overlap.  Unknown offsets will if the underlying object is the same. */
+  if (offsetx != 0 && offsety != 0 && !rtx_equal_p (offsetx, offsety))
+    return 0;
+
+  return overlapping_trees_p (exprx, expry);
+}
+/* APPLE LOCAL end aliasing improvement */
+
 /* True dependence: X is read after store in MEM takes place.  */
 
 int
@@ -2200,6 +2264,11 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 	       || (GET_CODE (base) == SYMBOL_REF
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
+
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2268,6 +2337,11 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 
   x_addr = get_addr (XEXP (x, 0));
 
+  /* APPLE LOCAL begin aliasing improvement */
+  if (overlapping_memrefs_p (mem, x))  
+       return 1;
+  /* APPLE LOCAL end */
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
 
@@ -2313,6 +2387,19 @@ write_dependence_p (rtx mem, rtx x, int writep, int constp)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+
+  /* APPLE LOCAL begin make SPEC gcc work with strict aliasing */
+  x_addr = get_addr (XEXP (x, 0));
+  mem_addr = get_addr (XEXP (mem, 0));
+
+  /* If two addresses are "the same" they conflict, even if type
+     checking says they don't.  This is a bit too conservative
+     since there's no guarantee identical registers will have the
+     same values in both addresses.  This is required to build
+     the (nonstandard) version of gcc found in SPEC.  */
+  if (rtx_equal_p (x_addr, mem_addr))
+    return 1;
+  /* APPLE LOCAL end make SPEC gcc work with strict aliasing */
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;

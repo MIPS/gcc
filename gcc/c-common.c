@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "hashtab.h"
 #include "tree-mudflap.h"
+#include "opts.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -2672,7 +2673,7 @@ c_common_get_alias_set (tree t)
     return -1;
 
   /* Save time if there's only one input file.  */
-  if (!current_file_decl || TREE_CHAIN (current_file_decl) == NULL_TREE)
+  if (num_in_fnames == 1)
     return -1;
 
   /* Pointers need special handling if they point to any type that
@@ -2712,7 +2713,10 @@ c_common_get_alias_set (tree t)
 	    NULL);
   slot = htab_find_slot (type_hash_table, t, INSERT);
   if (*slot != NULL)
+    {
+      TYPE_ALIAS_SET (t) = TYPE_ALIAS_SET ((tree)*slot);
     return TYPE_ALIAS_SET ((tree)*slot);
+    }
   else
     /* Our caller will assign and record (in t) a new alias set; all we need
        to do is remember t in the hash table.  */

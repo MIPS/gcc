@@ -54,12 +54,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-gimple.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "basic-block.h"
 #include "cgraph.h"
 #include "hashtab.h"
 #include "libfuncs.h"
 #include "except.h"
 #include "langhooks-def.h"
+#include "tree-flow.h"
 
+#define disable_typechecking_for_spec_flag 1
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
@@ -1172,12 +1175,68 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       else
 	{
-	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
-	    error ("%J conflicting type qualifiers for '%D'", newdecl, newdecl);
+	  /* APPLE LOCAL begin disable typechecking for SPEC --dbj */
+	  /* Accept incompatible function declarations, and incompatible
+	     global variables provided they are in different files. 
+	     (Would be nice to check this for functions also, but
+	     context is not set for them.)  */
+	  void (*err) (const char*, ...);
+	  if (disable_typechecking_for_spec_flag 
+	      && TREE_PUBLIC (olddecl)
+	      && TREE_PUBLIC (newdecl)
+	      && ((TREE_CODE (olddecl) == VAR_DECL 
+	            && TREE_CODE (newdecl) == VAR_DECL
+		    && !same_translation_unit_p (olddecl, newdecl))
+	          || (TREE_CODE (olddecl) == FUNCTION_DECL
+		      && TREE_CODE (newdecl) == FUNCTION_DECL)))
+	    err = warning;
 	  else
-	    error ("%Jconflicting types for '%D'", newdecl, newdecl);
+	    err = error;
+	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
+	    err ("%J conflicting type qualifiers for '%D'", newdecl, newdecl);
+	  else
+	    err ("%Jconflicting types for '%D'", newdecl, newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl, *err);
+	  /* In the case where we're being lenient, two trees will
+	     continue to exist, which represent the same variable.
+	     These are currently never used in the same function, but
+	     watch out for inlining.  */
+	  if (err == warning
+	      && TREE_CODE (olddecl) == VAR_DECL)
+	    {
+	      HOST_WIDE_INT newalias;
+	      /* To prevent aliasing problems, 
+	         make both of them have the same alias class right now.  */
+	      if (TYPE_ALIAS_SET_KNOWN_P (oldtype))
+		{
+		  newalias = TYPE_ALIAS_SET (oldtype);
+		  if (TYPE_ALIAS_SET_KNOWN_P (newtype)
+		      && newalias != TYPE_ALIAS_SET (oldtype))
+		    internal_error ("%Jalias set conflict for '%D'", 
+				newdecl, newdecl);
+		}
+	      else if (TYPE_ALIAS_SET_KNOWN_P (newtype))
+		newalias = TYPE_ALIAS_SET (newtype);
+	      else
+		newalias = new_alias_set ();
+	      TYPE_ALIAS_SET (oldtype) = newalias;
+	      TYPE_ALIAS_SET (newtype) = newalias;
+	      /* Set a marker bit so that only one of them gets emitted
+		 to the output file.  I think this only matters if the 
+		 sizes are different, in which case we must emit the larger.
+		 If a size is unknown, we can mark that one.  */
+	      if (!DECL_SIZE (newdecl))
+		DECL_DUPLICATE_DECL (newdecl) = 1;
+	      else if (!DECL_SIZE (olddecl))
+		DECL_DUPLICATE_DECL (olddecl) = 1;
+	      else if (tree_int_cst_lt (DECL_SIZE (newdecl), 
+					DECL_SIZE (olddecl)))
+		DECL_DUPLICATE_DECL (newdecl) = 1;
+	      else
+		DECL_DUPLICATE_DECL (olddecl) = 1;
+	    }
+	  /* APPLE LOCAL end disable typechecking for SPEC --dbj */
 	  return false;
 	}
     }
@@ -2081,6 +2140,24 @@ implicitly_declare (tree functionid)
 	    {
 	      implicit_decl_warning (functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
+	    }
+	  /* APPLE LOCAL disable typechecking for SPEC --dbj */
+	  if (DECL_BUILT_IN (decl) || disable_typechecking_for_spec_flag)
+	    {
+	      if (!comptypes (default_function_type, TREE_TYPE (decl)))
+		{
+		  warning ("incompatible implicit declaration of built-in"
+			   " function %qD", decl);
+		}
+	    }
+	  else
+	    {
+	      if (!comptypes (default_function_type, TREE_TYPE (decl)))
+		{
+		  error ("incompatible implicit declaration of function %qD",
+			 decl);
+		  locate_old_decl (decl, error);
+		}
 	    }
 	  bind (functionid, decl, current_scope,
 		/*invisible=*/false, /*nested=*/true);

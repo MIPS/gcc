@@ -52,6 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "alloc-pool.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "flags.h"
@@ -78,8 +79,6 @@ void
 init_flow (void)
 {
   static int initialized;
-
-  n_edges = 0;
 
   if (!initialized)
     {

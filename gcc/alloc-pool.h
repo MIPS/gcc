@@ -24,28 +24,31 @@ Boston, MA 02111-1307, USA.  */
 
 typedef unsigned long ALLOC_POOL_ID_TYPE;
 
-typedef struct alloc_pool_list_def
+struct alloc_pool_list_def GTY((chain_next ("%h.next")))
 {
   struct alloc_pool_list_def *next;
-}
- *alloc_pool_list;
+};
 
-typedef struct alloc_pool_def
+/* gengtype can't handel "typedef struct foo_struct GTY(()) { ... } *foo;".  */
+typedef struct alloc_pool_list_def *alloc_pool_list;
+
+struct alloc_pool_def GTY (())
 {
   const char *name;
-#ifdef ENABLE_CHECKING
+  /* #ifdef ENABLE_CHECKING */ /* gengtype limitation.  */
   ALLOC_POOL_ID_TYPE id;
-#endif
+  /* #endif */
   size_t elts_per_block;
-  alloc_pool_list free_list;
+  alloc_pool_list GTY((skip (""))) free_list;
   size_t elts_allocated;
   size_t elts_free;
   size_t blocks_allocated;
-  alloc_pool_list block_list;
+  alloc_pool_list GTY((skip (""))) block_list;
   size_t block_size;
   size_t elt_size;
-}
- *alloc_pool;
+};
+/* As above.  */
+typedef struct alloc_pool_def * GTY (()) alloc_pool;
 
 extern alloc_pool create_alloc_pool (const char *, size_t, size_t);
 extern void free_alloc_pool (alloc_pool);
