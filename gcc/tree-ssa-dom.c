@@ -770,7 +770,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	 the result is nonzero is worth the effort.  */
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
 	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == BIT_IOR_EXPR
-	  && integer_zerop (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
+	  && integer_nonzerop (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
 	{
 	  tree cond;
 	  tree op = TREE_OPERAND (stmt, 0);
@@ -786,9 +786,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
       /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR and
          BIT_AND_EXPR respectively if the first operand is greater than
 	 zero and the second operand is an exact power of two.  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR
-	      || TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_MOD_EXPR)
+      if ((TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR
+	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_MOD_EXPR)
 	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0)))
 	  && integer_pow2p (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
         {
@@ -799,6 +798,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
 	  val = lookup_avail_expr (cond, block_avail_exprs_p, const_and_copies);
 
+	  /* Also try with GE_EXPR if we did not get a hit with GT_EXPR.  */
+	  if (! val || ! integer_onep (val))
+	    {
+	      cond = build (GE_EXPR, boolean_type_node, op, integer_zero_node);
+	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+	      val = lookup_avail_expr (cond,
+				       block_avail_exprs_p,
+				       const_and_copies);
+	    }
+	    
 	  if (val && integer_onep (val))
 	    {
 	      tree t;
@@ -814,18 +823,83 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 					op1, integer_one_node)));
 
 	      /* Remove the old entry from the hash table.  */
-	      htab_remove_elt (avail_exprs, stmt);
+	      if (may_optimize_p)
+		htab_remove_elt (avail_exprs, stmt);
 
 	      /* Now update the RHS of the assignment to use the new node.  */
 	      TREE_OPERAND (stmt, 1) = t;
 
-	      /* Now force the updated statement into the hash table.  */
-	      lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+	      if (may_optimize_p)
+		{
+		  /* Now force the updated statement into the hash table.  */
+		  lookup_avail_expr (stmt,
+				     block_avail_exprs_p,
+				     const_and_copies);
 
-	      /* Annoyingly we now have two entries for this statement in
-	         BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
-		 entry.  */
-	      VARRAY_POP (*block_avail_exprs_p);
+		  /* Annoyingly we now have two entries for this statement in
+		     BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
+		     entry.  */
+		  VARRAY_POP (*block_avail_exprs_p);
+		}
+
+	      /* And make sure we record the fact that we modified this
+	         statement.  */
+	      ann->modified = 1;
+	    }
+        }
+
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ABS_EXPR
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))))
+        {
+	  tree cond, val;
+	  tree op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+	  tree type = TREE_TYPE (op);
+
+	  cond = build (LT_EXPR, boolean_type_node, op,
+			convert (type, integer_zero_node));
+	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+	  val = lookup_avail_expr (cond, block_avail_exprs_p, const_and_copies);
+
+	  if (! val
+	      || (! integer_onep (val) && ! integer_zerop (val)))
+	    {
+	      cond = build (LE_EXPR, boolean_type_node, op,
+			    convert (type, integer_zero_node));
+	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+	      val = lookup_avail_expr (cond,
+				       block_avail_exprs_p,
+				       const_and_copies);
+	    }
+	    
+	  if (val
+	      && (integer_onep (val) || integer_zerop (val)))
+	    {
+	      tree t;
+
+	      if (integer_onep (val))
+		t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
+	      else
+		t = op;
+
+	      /* Remove the old entry from the hash table.  */
+	      if (may_optimize_p)
+		htab_remove_elt (avail_exprs, stmt);
+
+	      /* Now update the RHS of the assignment to use the new node.  */
+	      TREE_OPERAND (stmt, 1) = t;
+
+	      if (may_optimize_p)
+		{
+		  /* Now force the updated statement into the hash table.  */
+		  lookup_avail_expr (stmt,
+				     block_avail_exprs_p,
+				     const_and_copies);
+
+		  /* Annoyingly we now have two entries for this statement in
+		     BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
+		     entry.  */
+		  VARRAY_POP (*block_avail_exprs_p);
+		}
 
 	      /* And make sure we record the fact that we modified this
 	         statement.  */

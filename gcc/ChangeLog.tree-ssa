@@ -1,5 +1,16 @@
 2003-08-12  Jeff Law  <law@redhat.com>
 
+ 	* tree-ssa-dom.c (optimize_stmt): Optimize ABS_EXPR when we know
+	the sign of the source operand.
+                                                                                
+	* tree-ssa-dom.c (optimize_stmt): Rewrite TRUNC_DIV_EXPR and
+	TRUNC_MOD_EXPR even if the LHS is not an SSA variable.  Do not
+	enter the new expression in the hash tables if !may_optimize_p.
+	Also try GE_EXPR to see if this transformation is safe.
+                                                                                
+	* tree-ssa-dom.c (optimize_stmt): Fix typo in last change which
+	prevented recording equivalences created by IOR_EXPR.
+
 	* tree-ssa-dom.c (optimize_stmt): Record that the destination of
 	a MODIFY_EXPR nonzero if the RHS contains an IOR with a nonzero
 	constant.  Turn DIV/MOD by a power of 2 into SHIFT/AND if we know
