@@ -169,10 +169,8 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	{
 	  _Jv_Field* field = &c->fields[i];
 
-#ifndef COMPACT_FIELDS
 	  p = (ptr_t) field->name;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8alabel);
-#endif
 	  p = (ptr_t) field->type;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8blabel);
 

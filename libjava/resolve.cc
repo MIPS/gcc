@@ -1388,9 +1388,7 @@ _Jv_Resolver::ensure_fields_laid_out (jclass klass)
 	  field_align = __alignof__ (jobject);
 	}
 
-#ifndef COMPACT_FIELDS
       field->bsize = field_size;
-#endif
 
       if ((field->flags & java::lang::reflect::Modifier::STATIC))
 	{

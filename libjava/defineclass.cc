@@ -1075,11 +1075,7 @@ void _Jv_ClassReader::handleField (int field_no,
   _Jv_Field *field = &def->fields[field_no];
   _Jv_Utf8Const *field_name = pool_data[name].utf8;
 
-#ifndef COMPACT_FIELDS
   field->name      = field_name;
-#else
-  field->nameIndex = name;
-#endif
 
   // Ignore flags we don't know about.  
   field->flags = flags & Modifier::ALL_FLAGS;

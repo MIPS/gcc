@@ -1,5 +1,11 @@
 2004-09-14  Tom Tromey  <tromey@redhat.com>
 
+	* gcj/field.h (struct _Jv_Field): Don't mention COMPACT_FIELDS.
+	* resolve.cc (ensure_fields_laid_out): Don't mention
+	COMPACT_FIELDS.
+	* defineclass.cc (handleField): Don't mention COMPACT_FIELDS.
+	* boehm.cc (_Jv_MarkObj): Don't mention COMPACT_FIELDS.
+
 	* java/lang/reflect/natField.cc (getType): Use resolve_field.
 	* java/lang/natVMClassLoader.cc (resolveClass): New native
 	implementation.
