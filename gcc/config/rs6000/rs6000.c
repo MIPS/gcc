@@ -140,6 +140,7 @@ static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 static void rs6000_free_machine_status PARAMS ((struct function *));
 static void rs6000_init_machine_status PARAMS ((struct function *));
 static bool rs6000_assemble_integer PARAMS ((rtx, unsigned int, int));
+static void rs6000_assemble_visibility PARAMS ((tree, const char *));
 static int rs6000_ra_ever_killed PARAMS ((void));
 static tree rs6000_handle_longcall_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec rs6000_attribute_table[];
@@ -269,6 +270,11 @@ static const char alt_reg_names[][8] =
    in 64-bit code.  */
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER rs6000_assemble_integer
+
+#ifdef HAVE_GAS_HIDDEN
+#undef TARGET_ASM_ASSEMBLE_VISIBILITY
+#define TARGET_ASM_ASSEMBLE_VISIBILITY rs6000_assemble_visibility
+#endif
 
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS HAVE_AS_TLS
@@ -7345,6 +7351,31 @@ rs6000_assemble_integer (x, size, aligned_p)
 #endif /* RELOCATABLE_NEEDS_FIXUP */
   return default_assemble_integer (x, size, aligned_p);
 }
+
+#ifdef HAVE_GAS_HIDDEN
+/* Emit an assembler directive to set symbol visibility for DECL to
+   VISIBILITY_TYPE.  */
+   
+static void
+rs6000_assemble_visibility (decl, visibility_type)
+     tree decl;
+     const char *visibility_type;
+{
+  /* Functions need to have their entry point symbol visibility set as
+     well as their descriptor symbol visibility.  */
+  if (DEFAULT_ABI == ABI_AIX && TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      const char *name;
+
+      STRIP_NAME_ENCODING (name, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+    
+      fprintf (asm_out_file, "\t.%s\t%s\n", visibility_type, name);
+      fprintf (asm_out_file, "\t.%s\t.%s\n", visibility_type, name);
+    }
+  else
+    default_assemble_visibility (decl, visibility_type);
+}
+#endif
 
 enum rtx_code
 rs6000_reverse_condition (mode, code)

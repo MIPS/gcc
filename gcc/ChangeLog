@@ -1,3 +1,21 @@
+2002-09-08  Alan Modra  <amodra@bigpond.net.au>
+
+	* varasm.c (default_assemble_visibility): Rename from
+	assemble_visibility.
+	* output.h: Here too.
+	* target-def.h (TARGET_ASM_ASSEMBLE_VISIBILITY): And here.
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): And here.
+
+2002-09-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* target-def.h (TARGET_ASM_ASSEMBLE_VISIBILITY): Define.
+	(TARGET_ASM_OUT): Add the above here.
+	* target.h (struct gcc_target): Add "visibility" field.
+	* varasm.c (maybe_assemble_visibility): Call targetm visibility
+	func.
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): New function.
+	(TARGET_ASM_ASSEMBLE_VISIBILITY): Define.
+
 2003-04-23  Jakub Jelinek  <jakub@redhat.com>
 	    Alan Modra  <amodra@bigpond.net.au>
 

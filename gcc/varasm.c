@@ -5228,7 +5228,7 @@ assemble_alias (decl, target)
    VISIBILITY_TYPE.  */
 
 void
-assemble_visibility (decl, visibility_type)
+default_assemble_visibility (decl, visibility_type)
      tree decl;
      const char *visibility_type ATTRIBUTE_UNUSED;
 {
@@ -5254,7 +5254,7 @@ maybe_assemble_visibility (decl)
     {
       const char *type
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (visibility)));
-      assemble_visibility (decl, type);
+      (* targetm.asm_out.visibility) (decl, type);
     }
 }
 

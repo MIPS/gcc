@@ -69,6 +69,10 @@ struct gcc_target
        and UNALIGNED_OP are NULL.  */
     bool (* integer) PARAMS ((rtx x, unsigned int size, int aligned_p));
 
+    /* Emit an assembler directive to set visibility for the symbol
+       associated with the tree decl.  */
+    void (* visibility) PARAMS ((tree, const char *));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 
