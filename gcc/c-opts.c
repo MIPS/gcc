@@ -737,12 +737,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_implicit_templates = value;
       break;
 
-    /* APPLE LOCAL begin lvalue cast */
-    case OPT_flvalue_cast_assign:
-      flag_lvalue_cast_assign = value;
-      break;
-    /* APPLE LOCAL end lvalue cast */
-
     case OPT_fms_extensions:
       flag_ms_extensions = value;
       break;

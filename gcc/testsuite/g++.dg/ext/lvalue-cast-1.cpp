@@ -1,6 +1,6 @@
-/* APPLE LOCAL file lvalue cast */
+/* APPLE LOCAL file non lvalue assign */
 /* { dg-do run } */
-/* { dg-options "-flvalue-cast-assign" } */
+/* { dg-options "-fnon-lvalue-assign" } */
 
 #include <stdlib.h>
 #define CHECK_IF(expr) if (!(expr)) abort ()
@@ -16,15 +16,15 @@ int main(void) {
 
   char *p;
 
-  (long *)p = long_arr; /* { dg-warning "lvalue cast idiom is deprecated" } */
-  ((long *)p)++; /* { dg-warning "lvalue cast idiom is deprecated" } */
+  (long *)p = long_arr; /* { dg-warning "target of assignment not really an lvalue" } */
+  ((long *)p)++;        /* { dg-warning "target of assignment not really an lvalue" } */
   *(long *)p = -1;
 
   *p = -2;
   CHECK_IF(p[-1] == 0 && p[0] == -2 && p[1] == -1);
 
-  (long *)p += 2; /* { dg-warning "lvalue cast idiom is deprecated" } */
-  (long *)p -= 2; /* { dg-warning "lvalue cast idiom is deprecated" } */
+  (long *)p += 2;  /* { dg-warning "target of assignment not really an lvalue" } */
+  (long *)p -= 2;  /* { dg-warning "target of assignment not really an lvalue" } */
 
   long x = 0;
   f((int)x);

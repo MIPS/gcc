@@ -1,3 +1,14 @@
+2005-01-23  Ziemowit Laski  <zlaskI@apple.com>
+
+	Radar 3961973
+	* gcc.dg/cond-lvalue-1.c: Add '-fno-non-lvalue-assign';
+	adjust expected line number for error message.
+	* g++.dg/ext/lvalue-cast-1.cpp: Rename -flvalue-cast-assign
+	to -fnon-lvalue-assign; adjust wording of warning message.
+	* gcc.dg/lvalue-cast-1.c: Likewise.
+	* g++.dg/ext/lvalue-cond-1.cpp: New.
+	* gcc.dg/lvalue-cond-1.c: New.
+
 2005-01-21  Stan Shebs  <shebs@apple.com>
 
 	Radar 3952527

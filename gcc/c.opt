@@ -638,12 +638,6 @@ Emit implicit instantiations of templates
 flabels-ok
 C++ ObjC++
 
-; APPLE LOCAL begin lvalue cast
-flvalue-cast-assign
-C ObjC C++ ObjC++
-Allow assignment to casts of lvalue pointers
-; APPLE LOCAL end lvalue cast
-
 fms-extensions
 C ObjC C++ ObjC++
 Don't warn about uses of Microsoft extensions
@@ -661,6 +655,12 @@ Generate code for NeXT (Apple Mac OS X) runtime environment
 fnil-receivers
 ObjC ObjC++
 Assume that receivers of Objective-C messages may be nil
+
+; APPLE LOCAL begin non lvalue assign
+fnon-lvalue-assign
+C ObjC C++ ObjC++ Var(flag_non_lvalue_assign) Init(1)
+Allow assignment to casts and conditional expressions of lvalues
+; APPLE LOCAL end non lvalue assign
 
 fnonansi-builtins
 C++ ObjC++

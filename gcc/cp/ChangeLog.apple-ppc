@@ -1,3 +1,15 @@
+2005-01-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3961973
+	* cp-tree.h (lvalue_or_else): Change type of first parameter
+	from 'tree' to 'tree *'.
+	* tree.c (lvalue_or_else): Change first parameter from
+	'tree' to 'tree *'; handle conditional lvalues in addition
+	to lvalue casts; when rewriting expressions, create a new
+	tree instead of clobbering an existing one.
+	* typeck.c (build_unary_op, build_modify_expr): Adjust
+	calls to lvalue_or_else().
+
 2005-01-19  Matt Austern  <austern@apple.com>
 
         Radar 3960754

@@ -229,44 +229,73 @@ lvalue_p (tree ref)
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1) != clk_none);
 }
 
-/* Return nonzero if REF is an lvalue valid for this language;
-   otherwise, print an error message and return zero.  */
+/* APPLE LOCAL begin non lvalue assign */
+/* Return nonzero if the expression pointed to by REF is an lvalue
+   valid for this language; otherwise, print an error message and return
+   zero.  STRING describes how the lvalue is being used.
+   If -fnon-lvalue-assign has been specified, certain
+   non-lvalue expression shall be rewritten as lvalues and stored back
+   at the location pointed to by REF.  */
 
 int
-lvalue_or_else (tree ref, const char* string)
+lvalue_or_else (tree *ref, const char* string)
 {
-  if (!lvalue_p (ref))
-    {
-      /* APPLE LOCAL begin lvalue cast */
-      /* If -flvalue-cast-assignment is specified, we shall allow assignments
-	 (including increment/decrement) to casts of lvalues, as long as
-	 both the lvalue and the cast are POD types with identical size and
-	 alignment.  */
-      if (flag_lvalue_cast_assign
-	  && (TREE_CODE (ref) == NOP_EXPR || TREE_CODE (ref) == CONVERT_EXPR)
-	  && string && string[0] == 'a'
-	  && lvalue_or_else (TREE_OPERAND (ref, 0), string))
-	{
-	  tree cast_to = TREE_TYPE (ref);
-	  tree cast_from = TREE_TYPE (TREE_OPERAND (ref, 0));
-          
-	  if (pod_type_p (cast_to) && pod_type_p (cast_from)
-	      && simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
-	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
-	    {
-	      /* Rewrite '(cast_to)ref' as '(cast_to)(*(cast_to *)&ref)' so
-		 that the back-end need not think too hard...  */
-	      TREE_OPERAND (ref, 0)
-		= build_indirect_ref
-		  (convert (build_pointer_type (cast_to),
-			    build_unary_op (ADDR_EXPR,
-					    TREE_OPERAND (ref, 0), 0)), 0);
-	      warning ("lvalue cast idiom is deprecated");
+  tree r = *ref;
 
+  if (!lvalue_p (r))
+    {
+      /* If -fnon-lvalue-assign is specified, we shall allow assignments
+	 to certain constructs that are not (stricly speaking) lvalues.  */
+      if (flag_non_lvalue_assign)
+	{
+	  /* (1) Assignment to casts of lvalues, as long as both the lvalue
+		 and the cast are POD types with identical size and
+		 alignment.  */
+	  if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR)
+	      && string && string[0] == 'a'
+	      && lvalue_or_else (&TREE_OPERAND (r, 0), string))
+	    {
+	      tree cast_to = TREE_TYPE (r);
+	      tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
+
+	      if (pod_type_p (cast_to) && pod_type_p (cast_from)
+		  && simple_cst_equal (TYPE_SIZE (cast_to),
+				       TYPE_SIZE (cast_from))
+		  && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+		{
+		  /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
+		     that the back-end need not think too hard...  */
+		  *ref
+		    = build_indirect_ref
+		      (convert (build_pointer_type (cast_to),
+				build_unary_op
+				(ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
+
+		  goto allow_as_lvalue;
+		}
+	    }
+	  /* (2) Assignment to conditional expressions, as long as both
+		 alternatives are already lvalues.  */
+	  else if (TREE_CODE (r) == COND_EXPR
+		   && lvalue_or_else (&TREE_OPERAND (r, 1), string)
+		   && lvalue_or_else (&TREE_OPERAND (r, 2), string))
+	    {
+	      /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
+		 placate the back-end.  */
+	      *ref
+		= build_indirect_ref
+		  (build_conditional_expr
+		   (TREE_OPERAND (r, 0),
+		    build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
+		    build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
+		   0);
+
+	     allow_as_lvalue:
+	      warning ("target of assignment not really an lvalue");
 	      return 1;
 	    }
 	}
-      /* APPLE LOCAL end lvalue cast */
+      /* APPLE LOCAL end non lvalue assign */
 
       error ("non-lvalue in %s", string);
       return 0;

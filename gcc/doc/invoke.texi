@@ -192,8 +192,8 @@ in the following sections.
 -fallow-single-precision  -fcond-mismatch @gol
 @c APPLE LOCAL constant cfstrings --mrs
 -fconstant-cfstrings (APPLE ONLY) @gol
-@c APPLE LOCAL lvalue cast
--flvalue-cast-assign (APPLE ONLY) @gol
+@c APPLE LOCAL non lvalue assign
+-fnon-lvalue-assign (APPLE ONLY) @gol
 @c APPLE LOCAL pch distcc --mrs
 -fpch-preprocess (APPLE ONLY) @gol
 -fsigned-bitfields  -fsigned-char @gol
@@ -1408,23 +1408,33 @@ is not supported for C++.
 Enable PCH processing even when @option{-E} or @option{-save-temps} is used.
 @c APPLE LOCAL END pch distcc --mrs
 
-@c APPLE LOCAL begin lvalue cast
-@item -flvalue-cast-assign
-@item flvalue-cast-assign
-C and C++ forbid the use of lvalue casts, e.g.:
+@c APPLE LOCAL begin non lvalue assign
+@item -fnon-lvalue-assign
+@item fnon-lvalue-assign
+C and C++ forbid the use of casts and conditional expressions as lvalues, e.g.:
 
 @smallexample
-void *p;
+float *p, q, r;
 ((int *)p)++;
+(cond ? q : r) = 3.0;
 @end smallexample
 
 @noindent
-As a transitional measure, the Apple version of GCC 4.0 supports lvalue casts
-in certain situations.  This is accomplished via the
-@option{-flvalue-cast-assign} switch, which is on by default.  Whenever an
-lvalue cast is encountered, the compiler will issue a deprecation warning.
-To disallow lvalue casts altogether, specify @option{-fno-lvalue-cast-assign};
-lvalue casts will be disallowed in future versions of Apple's GCC.
+As a transitional measure, the Apple version of GCC 4.0 allows casts and 
+conditional expressions to be used as lvalues in certain situations.  This
+is accomplished via the @option{-fnon-lvalue-assign} switch, which is on
+by default.  Whenever an lvalue cast or an lvalue conditional expression is
+encountered, the compiler will issue a deprecation warning and then rewrite
+the expression as follows:
+
+@smallexample
+(type)expr                ---becomes--->      *(type *)&expr
+cond ? expr1 : expr2      ---becomes--->      *(cond ? &expr1 : &expr2)
+@end smallexample
+
+To disallow lvalue casts and lvalue conditional expressions altogether, 
+specify @option{-fno-non-lvalue-assign}; lvalue casts and lvalue conditional
+expressions will be disallowed in future versions of Apple's GCC.
 @c APPLE LOCAL end lvalue cast
 
 @item -funsigned-char

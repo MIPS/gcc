@@ -1,3 +1,21 @@
+2005-01-23  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3961973
+	* c-common.c (flag_lvalue_cast_assign): Remove.
+	* c-common.h (flag_lvalue_cast_assign): Remove.
+	* c-opts.c (c_common_handle_option): Remove
+	'-flvalue-cast-assign' handling.
+	* c-typeck.c (lvalue_or_else): Change first parameter from
+	'tree' to 'tree *'; handle conditional lvalues in addition
+	to lvalue casts; when rewriting expressions, create a new
+	tree instead of clobbering an existing one.
+	(build_unary_op, build_modify_expr, build_asm_expr):
+	Adjust calls to lvalue_or_else().
+	* c.opt: Rename -flvalue-cast-assign to -fnon-lvalue-assign
+	and add Var(...) and Init(...) annotation to create a flag.
+	* doc/invoke.texi: Likewise; add description of lvalue
+	conditional expressions and how they are transformed.
+
 2005-01-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3951887
