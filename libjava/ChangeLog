@@ -1,3 +1,9 @@
+2004-06-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkImagePainter.java
+	(setPixels(int,int,int,int,ColorModel,int[],int,int)): Remove
+	translation.
+
 2004-06-11  David Jee  <djee@redhat.com>
 
 	* java/awt/MediaTracker.java
