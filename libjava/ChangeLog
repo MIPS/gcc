@@ -1,3 +1,11 @@
+2004-05-06  David Jee  <djee@redhat.com>
+
+	* java/awt/image/CropImageFilter.java
+	(setPixels): Implement for byte array pixels.
+	* java/awt/image/ReplicateScaleFilter.java
+	(setPixels): Implement for byte array pixels.
+	(replicatePixels): Overload for byte array pixels.
+
 2004-05-06  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/Box.java:
