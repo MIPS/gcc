@@ -44,7 +44,7 @@ extern "C"
   void GC_disable();
 };
 
-#define MAYBE_MARK(Obj, Top, Limit, Source, Exit)  \
+#define MAYBE_MARK(Obj, Top, Limit, Source)  \
 	Top=GC_MARK_AND_PUSH((GC_PTR)Obj, Top, Limit, (GC_PTR *)Source)
 
 // `kind' index used when allocating Java arrays.
@@ -87,11 +87,11 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 # ifndef JV_HASH_SYNCHRONIZATION
     // Every object has a sync_info pointer.
     p = (ptr_t) obj->sync_info;
-    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj, o1label);
+    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
 # endif
   // Mark the object's class.
   p = (ptr_t) klass;
-  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj, o2label);
+  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
 
   if (__builtin_expect (klass == &java::lang::Class::class$, false))
     {
@@ -110,35 +110,35 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
       jclass c = (jclass) addr;
 
       p = (ptr_t) c->name;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c3label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (ptr_t) c->superclass;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c4label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       for (int i = 0; i < c->constants.size; ++i)
 	{
 	  /* FIXME: We could make this more precise by using the tags -KKT */
 	  p = (ptr_t) c->constants.data[i].p;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5label);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	}
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
 	{
 	  p = (ptr_t) c->constants.tags;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5alabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	  p = (ptr_t) c->constants.data;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5blabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	}
 #endif
 
       // The vtable might be allocated even for compiled code.
       p = (ptr_t) c->vtable;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c5clabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // If the class is an array, then the methods field holds a
       // pointer to the element class.  If the class is primitive,
       // then the methods field holds a pointer to the array class.
       p = (ptr_t) c->methods;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c6label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // The vtable might have been set, but the rest of the class
       // could still be uninitialized.  If this is the case, then
@@ -154,32 +154,30 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	  for (int i = 0; i < c->method_count; ++i)
 	    {
 	      p = (ptr_t) c->methods[i].name;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
-			     cm1label);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	      p = (ptr_t) c->methods[i].signature;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
-			     cm2label);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 	}
 
       // Mark all the fields.
       p = (ptr_t) c->fields;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       for (int i = 0; i < c->field_count; ++i)
 	{
 	  _Jv_Field* field = &c->fields[i];
 
 	  p = (ptr_t) field->name;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8alabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	  p = (ptr_t) field->type;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8blabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
 	  // For the interpreter, we also need to mark the memory
 	  // containing static members
 	  if ((field->flags & java::lang::reflect::Modifier::STATIC))
 	    {
 	      p = (ptr_t) field->u.addr;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c8clabel);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
 	      // also, if the static member is a reference,
 	      // mark also the value pointed to.  We check for isResolved
@@ -189,54 +187,52 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 		{
 		  jobject val = *(jobject*) field->u.addr;
 		  p = (ptr_t) val;
-		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit,
-			      c, c8elabel);
+		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 		}
 	    }
 	}
 
       p = (ptr_t) c->vtable;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c9label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (ptr_t) c->interfaces;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cAlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       for (int i = 0; i < c->interface_count; ++i)
 	{
 	  p = (ptr_t) c->interfaces[i];
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cClabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	}
       p = (ptr_t) c->loader;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cBlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // The dispatch tables can be allocated at runtime.
       p = (ptr_t) c->ancestors;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cancestorlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       if (c->idt)
 	{
 	  p = (ptr_t) c->idt;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cIDTlabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
 	  if (c->isInterface())
 	    {
 	      p = (ptr_t) c->idt->iface.ioffsets;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, ciofflabel);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 	  else if (! c->isPrimitive())
 	    {
 	      // This field is only valid for ordinary classes.
 	      p = (ptr_t) c->idt->cls.itable;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
-			  ictablelabel);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 	}
 
       p = (ptr_t) c->arrayclass;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cDlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (ptr_t) c->protectionDomain;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cPlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (ptr_t) c->hack_signers;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cSlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (ptr_t) c->aux_info;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cTlabel);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
@@ -244,13 +240,12 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	  _Jv_InterpClass* ic = (_Jv_InterpClass*) c->aux_info;
 
 	  p = (ptr_t) ic->interpreted_methods;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, cElabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 
 	  for (int i = 0; i < c->method_count; i++)
 	    {
 	      p = (ptr_t) ic->interpreted_methods[i];
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
-			  cFlabel);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 
 	      // Mark the direct-threaded code.
 	      if ((c->methods[i].accflags
@@ -261,20 +256,18 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 		  if (im)
 		    {
 		      p = (ptr_t) im->prepared;
-		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
-				  cFlabel);
+		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 		    }
 		}
 
 	      // The interpreter installs a heap-allocated trampoline
 	      // here, so we'll mark it.
 	      p = (ptr_t) c->methods[i].ncode;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
-			  cm3label);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 
 	  p = (ptr_t) ic->field_initializers;
-	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, cGlabel);
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 	  
 	}
 #endif
@@ -301,8 +294,7 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 		{
 		  jobject val = JvGetObjectField (obj, field);
 		  p = (ptr_t) val;
-		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit,
-			      obj, elabel);
+		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj);
 		}
 	      field = field->getNextField ();
 	    }
@@ -335,17 +327,17 @@ _Jv_MarkArray (void *addr, void *msp, void *msl, void * /*env*/)
 # ifndef JV_HASH_SYNCHRONIZATION
     // Every object has a sync_info pointer.
     p = (ptr_t) array->sync_info;
-    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array, e1label);
+    MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array);
 # endif
   // Mark the object's class.
   p = (ptr_t) klass;
-  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, &(dt -> clas), o2label);
+  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, &(dt -> clas));
 
   for (int i = 0; i < JvGetArrayLength (array); ++i)
     {
       jobject obj = elements (array)[i];
       p = (ptr_t) obj;
-      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array, e2label);
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, array);
     }
 
   return mark_stack_ptr;

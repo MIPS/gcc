@@ -1,5 +1,9 @@
 2004-09-14  Tom Tromey  <tromey@redhat.com>
 
+	* boehm.cc (MAYBE_MARK): Remove unused `Exit' argument.
+	(_Jv_MarkObj): Updated.
+	(_Jv_MarkArray): Likewise.
+
 	* include/jvm.h (StringClass): Removed.
 	* jni.cc (_Jv_JNI_ThrowNew): Don't use StringClass.
 	* interpret.cc (_Jv_InitField): Don't use StringClass.
