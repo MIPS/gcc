@@ -1,5 +1,13 @@
 2002-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-unroll.c (unroll_or_peel_loop): Modify loop peeling decision.
+	* params.def (PARAM_MAX_COMPLETELY_PEELED_INSNS,
+	PARAM_MAX_COMPLETELY_PEEL_TIMES, PARAM_MAX_ONCE_PEELED_INSNS): New.
+	* cfgloop.h (UAP_UNROLL_ALL, UAP_PEEL_COMPLETELY,
+	UAP_PEEL_ONCE_ROLLING): New.
+
+2002-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (cfgloopanal.o): New.
 	(doloop.o, predict.o, toplev.o, loop.o, unroll.o, cfgloop.o): Include
 	cfgloop.h

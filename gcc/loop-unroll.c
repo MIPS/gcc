@@ -505,7 +505,7 @@ unroll_or_peel_loop (loops, loop, flags)
      int flags;
 {
   int ninsns;
-  unsigned HOST_WIDE_INT nunroll, npeel, niter = 0;
+  unsigned HOST_WIDE_INT nunroll, npeel, npeel_completely, peel_once, niter = 0;
   struct loop_desc desc;
   bool simple, exact;
 
@@ -526,14 +526,6 @@ unroll_or_peel_loop (loops, loop, flags)
       return;
     }
 
-  /* Only peel innermost loops.  */
-  if (loop->inner)
-    {
-      if ((flags & UAP_PEEL) && rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, not innermost loop\n");
-      flags &= ~UAP_PEEL;
-    }
-
   /* Count maximal number of unrollings/peelings.  */
   ninsns = num_loop_insns (loop);
 
@@ -541,6 +533,12 @@ unroll_or_peel_loop (loops, loop, flags)
   npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
+
+  npeel_completely = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS) / ninsns;
+  if (npeel_completely > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES))
+    npeel_completely = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
+
+  peel_once = PARAM_VALUE (PARAM_MAX_ONCE_PEELED_INSNS) >= ninsns;
 
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
@@ -556,11 +554,33 @@ unroll_or_peel_loop (loops, loop, flags)
       flags &= ~(UAP_UNROLL | UAP_UNROLL_ALL);
     }
 
+  if ((flags & UAP_PEEL) && npeel_completely > 0)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Allowing to peel loop completely\n");
+      flags |= UAP_PEEL_COMPLETELY;
+    }
+
   if (npeel <= 0)
     {
       if ((flags & UAP_PEEL) && rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Not peeling loop, is too big\n");
       flags &= ~UAP_PEEL;
+    }
+
+  if (peel_once)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Allowing to peel once rolling loop\n");
+      flags |= UAP_PEEL_ONCE_ROLLING;
+    }
+
+  /* Only peel outer loops if they roll just once.  */
+  if (loop->inner)
+    {
+      if ((flags & UAP_PEEL) && rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not peeling loop, not innermost loop\n");
+      flags &= ~UAP_PEEL & ~UAP_PEEL_COMPLETELY;
     }
 
   /* Shortcut.  */
@@ -580,21 +600,16 @@ unroll_or_peel_loop (loops, loop, flags)
   exact = false;
   if (simple)
     {
-      /* Loop iterating 0 times.  These should really be eliminated earlier,
-	 but we may create them by other transformations.  */
-
-      if (desc.const_iter && desc.niter == 0)
-	{
-	  flags |= UAP_PEEL;
-	  exact = true;
-	  niter = 0;
-	}
-      else 
-	{
-	  exact = desc.const_iter;
-	  niter = desc.niter;
-	}
+      exact = desc.const_iter;
+      niter = desc.niter;
+ 
+      if (!desc.const_iter)
+	flags &= ~UAP_PEEL_ONCE_ROLLING & ~UAP_PEEL_COMPLETELY;
+      else if (desc.niter > 0)
+	flags &= ~UAP_PEEL_ONCE_ROLLING;
     }
+  else
+    flags &= ~UAP_PEEL_ONCE_ROLLING & ~UAP_PEEL_COMPLETELY;
 
   if (!exact)
     {
@@ -612,8 +627,16 @@ unroll_or_peel_loop (loops, loop, flags)
 	  if ((flags & UAP_PEEL) && rtl_dump_file)
 	    fprintf (rtl_dump_file,
 		     ";; Not peeling loop, rolls too much (%d iterations > %d [maximum peelings])\n",
-		     niter, npeel);
+		     niter + 1, npeel);
 	  flags &= ~UAP_PEEL;
+	}
+      if (niter + 1 > npeel_completely)
+	{
+	  if ((flags & UAP_PEEL_COMPLETELY) && rtl_dump_file)
+	    fprintf (rtl_dump_file,
+		     ";; Not peeling loop completely, rolls too much (%d iterations > %d [maximum peelings])\n",
+		     niter + 1, npeel_completely);
+	  flags &= ~UAP_PEEL_COMPLETELY;
 	}
       npeel = niter + 1;
 
@@ -671,7 +694,7 @@ unroll_or_peel_loop (loops, loop, flags)
     {
       /* Peeling:  */
 
-      if (simple && desc.const_iter)
+      if ((flags & UAP_PEEL_COMPLETELY) || (flags & UAP_PEEL_ONCE_ROLLING))
 	/* Peel and remove the loop completely.  */
 	peel_loop_completely (loops, loop, &desc);
       else

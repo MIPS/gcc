@@ -311,7 +311,9 @@ enum
 {
   UAP_PEEL = 1,
   UAP_UNROLL = 2,
-  UAP_UNROLL_ALL = 4
+  UAP_UNROLL_ALL = 4,
+  UAP_PEEL_COMPLETELY = 8,
+  UAP_PEEL_ONCE_ROLLING = 16
 };
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
