@@ -679,8 +679,8 @@ cgraph_function_possibly_inlined_p (tree decl)
     return (DECL_INLINE (decl) && !flag_really_no_inline);
   if (!cgraph_inline_hash)
     return false;
-  return htab_find_slot (cgraph_inline_hash, DECL_ASSEMBLER_NAME (decl),
-			 NO_INSERT);
+  return (htab_find_slot (cgraph_inline_hash, DECL_ASSEMBLER_NAME (decl),
+			  NO_INSERT) != NULL);
 }
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
