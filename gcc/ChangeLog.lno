@@ -1,3 +1,37 @@
+2004-01-12  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-chrec.c (chrec_fold_plus, chrec_fold_multiply): Verify
+	that there is no chrecs nested in the operands before calling
+	the folder.
+	(evolution_function_in_loop_num): When there is no evolution
+	in the loop, return the initial condition.
+	(evolution_part_in_loop_num): When there is no evolution
+	in the loop, return NULL_TREE.
+	(chrec_eval_next_init_cond): Adapt the function for the
+	multivariate case.
+	(tree_contains_chrecs): Avoid the use of double negation.
+	* tree-chrec.h (chrec_eval_next_init_cond): Add a parameter
+	for the dimension in which to evaluate the variation.
+	* tree-scalar-evolution.c (is_ssa_name_a_version_of_variable,
+	expression_contains_variable_p, remove_variable_from_expression,
+	analyze_non_gimple_initial_condition, matched_an_increment,
+	matched_an_exponentiation, matched_a_wrap_around,
+	matched_an_arithmetic_wrap_around,
+	evolution_of_phi_already_analyzed_p): New static functions.
+	(scev_analyze_modify_expr): Use these functions.  Refine the
+	cases detected as wrap-around variables.
+	(analyze_initial_condition): Don't erase the evolution in the
+	previous dimensions when computing the initial condition for a
+	new loop.
+	(analyze_evolution_in_loop): Call the scev_analyze_modify_expr
+	on the tree node, not on its evolution.
+	(scev_follow_ssa_edge): In the case of an inner loop-phi-node,
+	when the outer edge is a phi-node follow up the edge.
+	(scev_follow_ssa_edge): Avoid the analysis of the inner loop
+	when it has already been analyzed.
+	(merge_evolutions): Refine the operation for zero, one, and
+	more branches of evolutions.
+
 2004-01-09  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-scalar-evolution.c: New version of the analyzer.

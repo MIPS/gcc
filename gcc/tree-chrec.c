@@ -988,7 +988,9 @@ chrec_fold_plus (tree op0,
 	case SSA_NAME:
 	case VAR_DECL:
 	case PARM_DECL:
-	  if (TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE
+	  if (tree_does_not_contain_chrecs (op0)
+	      && tree_does_not_contain_chrecs (op1)
+	      && TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE
 	      && TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE)
 	    return tree_fold_int_plus (op0, op1);
 	  
@@ -1191,7 +1193,9 @@ chrec_fold_multiply (tree op0,
 	case VAR_DECL:
 	case PARM_DECL:
 	  /* testsuite/.../ssa-chrec-45.c.  */
-	  if (TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE
+	  if (tree_does_not_contain_chrecs (op0)
+	      && tree_does_not_contain_chrecs (op1)
+	      && TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE
 	      && TREE_CODE (TREE_TYPE (op0)) != REAL_TYPE)
 	    return tree_fold_int_multiply (op0, op1);
 	  
@@ -1714,6 +1718,11 @@ evolution_function_in_loop_num (tree chrec,
 	  (loop_num, 
 	   evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num), 
 	   CHREC_RIGHT (chrec));
+      
+      else if (CHREC_VARIABLE (chrec) < loop_num)
+	/* There is no evolution in this loop.  */
+	return initial_condition (chrec);
+      
       else
 	return evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num);
       
@@ -1723,6 +1732,11 @@ evolution_function_in_loop_num (tree chrec,
 	  (loop_num,
 	   evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num),
 	   CHREC_RIGHT (chrec));
+      
+      else if (CHREC_VARIABLE (chrec) < loop_num)
+	/* There is no evolution in this loop.  */
+	return initial_condition (chrec);
+      
       else
 	return evolution_function_in_loop_num (CHREC_LEFT (chrec), loop_num);
       
@@ -1760,6 +1774,10 @@ evolution_part_in_loop_num (tree chrec,
 	       CHREC_RIGHT (chrec));
 	}
       
+      else if (CHREC_VARIABLE (chrec) < loop_num)
+	/* There is no evolution part in this loop.  */
+	return NULL_TREE;
+      
       else
 	return evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num);
       
@@ -1776,6 +1794,10 @@ evolution_part_in_loop_num (tree chrec,
 	       evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num),
 	       CHREC_RIGHT (chrec));
 	}
+      
+      else if (CHREC_VARIABLE (chrec) < loop_num)
+	/* There is no evolution part in this loop.  */
+	return NULL_TREE;
       
       else
 	return evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num);
@@ -1813,40 +1835,49 @@ reset_evolution_in_loop (unsigned loop_num,
 }
 
 
-/* Returns the new value of a variable after its execution, supposing
-   that CHREC is its evolution function.
+/* Returns the value of the variable after one execution of the loop
+   LOOP_NB, supposing that CHREC is the evolution function of the
+   variable.
    
    Example:  
-   chrec_eval_next_init_cond ({[1, 1], +, [2, 3], +, [10, 10]}) = [3, 4].  */
+   chrec_eval_next_init_cond (4, {{1, +, 3}_2, +, 10}_4) = 11.  */
 
 tree 
-chrec_eval_next_init_cond (tree chrec)
+chrec_eval_next_init_cond (unsigned loop_nb, 
+			   tree chrec)
 {
-#if defined ENABLE_CHECKING 
-  if (chrec == NULL_TREE)
-    abort ();
-#endif
+  tree init_cond;
   
+  init_cond = initial_condition (chrec);
+
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
       || TREE_CODE (chrec) == EXPONENTIAL_CHREC)
     {
-      tree left, right;
+      if (CHREC_VARIABLE (chrec) < loop_nb)
+	/* There is no evolution in this dimension.  */
+	return init_cond;
       
-      while (TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
-	     || TREE_CODE (CHREC_LEFT (chrec)) == EXPONENTIAL_CHREC)
+      while ((TREE_CODE (CHREC_LEFT (chrec)) == POLYNOMIAL_CHREC
+	      || TREE_CODE (CHREC_LEFT (chrec)) == EXPONENTIAL_CHREC)
+	     && CHREC_VARIABLE (CHREC_LEFT (chrec)) >= loop_nb)
 	chrec = CHREC_LEFT (chrec);
       
-      left = CHREC_LEFT (chrec);
-      right = CHREC_RIGHT (chrec);
+      if (CHREC_VARIABLE (chrec) != loop_nb)
+	/* There is no evolution in this dimension.  */
+	return init_cond;
       
-      while (TREE_CODE (right) == POLYNOMIAL_CHREC
-	     || TREE_CODE (right) == EXPONENTIAL_CHREC)
-	right = CHREC_LEFT (right);
+      if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+	/* testsuite/.../ssa-chrec-14.c */
+	return chrec_fold_plus (init_cond, 
+				initial_condition (CHREC_RIGHT (chrec)));
       
-      return chrec_fold_plus (left, right);
+      else
+	return chrec_fold_multiply (init_cond, 
+				    initial_condition (CHREC_RIGHT (chrec)));
     }
   
-  return chrec;
+  else
+    return init_cond;
 }
 
 /* Merge the information contained in two intervals. 
@@ -2565,11 +2596,11 @@ tree_contains_chrecs (tree expr)
   switch (TREE_CODE_LENGTH (TREE_CODE (expr)))
     {
     case 2:
-      if (!tree_does_not_contain_chrecs (TREE_OPERAND (expr, 1)))
+      if (tree_contains_chrecs (TREE_OPERAND (expr, 1)))
 	return true;
       
     case 1:
-      if (!tree_does_not_contain_chrecs (TREE_OPERAND (expr, 0)))
+      if (tree_contains_chrecs (TREE_OPERAND (expr, 0)))
 	return true;
       
     default:

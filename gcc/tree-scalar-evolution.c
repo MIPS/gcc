@@ -140,7 +140,22 @@ static void analyze_evolution          (tree);
 static void analyze_evolution_scc      (varray_type);
 static void analyze_evolution_in_loop  (tree);
 static void scev_analyze_temporary_modify_expr (struct loop *, tree, tree);
-static void scev_analyze_modify_expr (unsigned, tree, tree, tree, tree *, tree *);
+static tree is_ssa_name_a_version_of_variable (tree *, int *, void *);
+static inline bool expression_contains_variable_p (tree, tree);
+static tree remove_variable_from_expression (tree, tree, enum tree_code *);
+static void analyze_non_gimple_initial_condition (unsigned, tree, tree,
+						  tree, tree, tree *, tree *);
+static void matched_an_increment (unsigned, tree, tree, tree, tree, 
+				  tree *, tree *);
+static void matched_an_exponentiation (unsigned, tree, tree, tree, tree, 
+				       tree *, tree *);
+static void matched_a_wrap_around (enum tree_code, unsigned, tree, tree, tree, 
+				   tree *, tree *);
+static void matched_an_arithmetic_wrap_around (unsigned, tree, tree, 
+					       tree *, tree *);
+static inline bool evolution_of_phi_already_analyzed_p (tree);
+static void scev_analyze_modify_expr (unsigned, tree, tree, tree, 
+				      tree *, tree *);
 static void scev_follow_ssa_edge       (tree, tree);
 static tree compute_value_on_exit_of_loop (tree);
 static void compute_overall_effect_of_inner_loop (tree, unsigned);
@@ -497,7 +512,8 @@ static void
 analyze_initial_condition (tree loop_phi_node)
 {
   int i;
-  tree res = chrec_not_analyzed_yet;
+  tree new_initial_condition = chrec_not_analyzed_yet;
+  tree new_evolution = chrec_not_analyzed_yet;
   tree original_chrec;
   varray_type branch_chrecs;
   
@@ -570,20 +586,25 @@ analyze_initial_condition (tree loop_phi_node)
       
       VARRAY_PUSH_TREE (branch_chrecs, branch_effect);
     }
-  
+
   if (VARRAY_ACTIVE_SIZE (branch_chrecs) == 1)
-    res = VARRAY_TREE (branch_chrecs, 0);
+    new_initial_condition = initial_condition (VARRAY_TREE (branch_chrecs, 0));
   
   /* When there are multiple branches that go outside the loop, then
      the result is the merge of all these branches.  */
   else
-    res = merge_evolutions (original_chrec, branch_chrecs);
+    new_initial_condition = initial_condition 
+      (merge_evolutions (original_chrec, branch_chrecs));
+  
+  new_evolution = replace_initial_condition (original_chrec, 
+					     new_initial_condition);
   
   varray_clear (branch_chrecs);
   
   set_scev_inner_value (PHI_RESULT (loop_phi_node), 
-			initial_condition (res));
-  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), res);
+			new_initial_condition);
+  
+  set_scev (0, SSA_NAME_VAR (PHI_RESULT (loop_phi_node)), new_evolution);
   
   DBG_S (fprintf (stderr, ")\n"));
 }
@@ -639,7 +660,7 @@ analyze_evolution_in_loop (tree loop_phi_node)
 		  scev_analyze_modify_expr 
 		    (loop_nb,
 		     PHI_RESULT (loop_phi_node),
-		     evolution_at_version (loop_nb, arg), 
+		     arg,
 		     loop_phi_node, 
 		     &evolution_function, 
 		     &effect_after_execution);
@@ -834,6 +855,418 @@ scev_analyze_temporary_modify_expr (struct loop *loop,
   DBG_S (fprintf (stderr, ")\n"));
 }
 
+/* Helper function for walk_tree.  Determines whether the tree pointer
+   TP is a version of the variable DATA.  */
+
+static tree
+is_ssa_name_a_version_of_variable (tree *tp, 
+				   int *walk_subtrees ATTRIBUTE_UNUSED,
+				   void *data)
+{
+  tree *variable = (tree *) data;
+  
+  if (TREE_CODE (*tp) == SSA_NAME
+      && SSA_NAME_VAR (*tp) == *variable)
+    return *tp;
+  
+  else
+    return NULL_TREE;
+}
+
+/* Determines whether EXPR contains versions of VARIABLE.  */
+
+static inline bool
+expression_contains_variable_p (tree expr, 
+				tree variable)
+{
+  tree res = walk_tree (&expr, is_ssa_name_a_version_of_variable, &variable, NULL);
+  
+  return (res != NULL_TREE);
+}
+
+/* Strips the first occurrence of VARIABLE from EXPR, and return the
+   tree_code of the subexpression that was deleted from RES.  */
+
+static tree
+remove_variable_from_expression (tree variable, 
+				 tree expr, 
+				 enum tree_code *code)
+{
+  switch (TREE_CODE (expr))
+    {
+    case PLUS_EXPR:
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
+	  && SSA_NAME_VAR (TREE_OPERAND (expr, 0)) == variable)
+	{
+	  *code = PLUS_EXPR;
+	  return TREE_OPERAND (expr, 1);
+	}
+      
+      else if (TREE_CODE (TREE_OPERAND (expr, 1)) == SSA_NAME
+	       && SSA_NAME_VAR (TREE_OPERAND (expr, 1)) == variable)
+	{
+	  *code = PLUS_EXPR;
+	  return TREE_OPERAND (expr, 0);
+	}
+      
+      else 
+	{
+	  tree opnd0, opnd1;
+	  
+	  opnd0 = remove_variable_from_expression 
+	    (variable, TREE_OPERAND (expr, 0), code);
+	  
+	  /* When the node has been found in opnd0, don't search for
+	     it in opnd1.  */
+	  if (*code != NOP_EXPR)
+	    opnd1 = TREE_OPERAND (expr, 1);
+	  
+	  else
+	    opnd1 = remove_variable_from_expression 
+	      (variable, TREE_OPERAND (expr, 1), code);
+	  
+	  return build (PLUS_EXPR, TREE_TYPE (expr), opnd0, opnd1);
+	}
+      
+    case MULT_EXPR:
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
+	  && SSA_NAME_VAR (TREE_OPERAND (expr, 0)) == variable)
+	{
+	  *code = MULT_EXPR;
+	  return TREE_OPERAND (expr, 1);
+	}
+      
+      else if (TREE_CODE (TREE_OPERAND (expr, 1)) == SSA_NAME
+	       && SSA_NAME_VAR (TREE_OPERAND (expr, 1)) == variable)
+	{
+	  *code = MULT_EXPR;
+	  return TREE_OPERAND (expr, 0);
+	}
+      
+      else 
+	{
+	  tree opnd0, opnd1;
+	  
+	  opnd0 = remove_variable_from_expression 
+	    (variable, TREE_OPERAND (expr, 0), code);
+	  
+	  /* When the node has been found in opnd0, don't search for
+	     it in opnd1.  */
+	  if (*code != NOP_EXPR)
+	    opnd1 = TREE_OPERAND (expr, 1);
+	  
+	  else
+	    opnd1 = remove_variable_from_expression 
+	      (variable, TREE_OPERAND (expr, 1), code);
+	  
+	  return build (MULT_EXPR, TREE_TYPE (expr), opnd0, opnd1);
+	}
+      
+    default:
+      switch (TREE_CODE_LENGTH (TREE_CODE (expr)))
+	{
+	case 2:
+	  {
+	    tree opnd0, opnd1;
+	    
+	    opnd0 = remove_variable_from_expression 
+	      (variable, TREE_OPERAND (expr, 0), code);
+	    
+	    /* When the node has been found in opnd0, don't search for
+	       it in opnd1.  */
+	    if (*code != NOP_EXPR)
+	      opnd1 = TREE_OPERAND (expr, 1);
+	    
+	    else
+	      opnd1 = remove_variable_from_expression 
+		(variable, TREE_OPERAND (expr, 1), code);
+	    return build (TREE_CODE (expr), TREE_TYPE (expr), opnd0, opnd1);
+	  }
+	  
+	case 1:
+	  {
+	    tree opnd0 = remove_variable_from_expression 
+	      (variable, TREE_OPERAND (expr, 0), code);
+	    
+	    return build1 (TREE_CODE (expr), TREE_TYPE (expr), opnd0);
+	  }
+	  
+	default:
+	  return expr;
+	}
+    }
+}
+
+/* When the gimplifier transforms an assignment into
+
+   temp_var = i + j;
+   i = temp_var + 2;
+   
+   the scalar evolution analyzer reconstructs the tree and ends to
+   analyze the expression "i = i + j + 2".  This function deals with
+   these reconstructed expressions.  */
+
+static void
+analyze_non_gimple_initial_condition (unsigned loop_nb, 
+				      tree opnd0,
+				      tree chrec_before,
+				      tree chrec1,
+				      tree init_cond,
+				      tree *evolution_function, 
+				      tree *effect_after_execution)
+{
+  tree stripped_expr;
+  tree init_cond_chrec_before;
+  enum tree_code code = NOP_EXPR;
+  
+  stripped_expr = remove_variable_from_expression 
+    (SSA_NAME_VAR (opnd0), init_cond, &code);
+  init_cond_chrec_before = initial_condition (chrec_before);
+  
+  switch (code)
+    {
+    case PLUS_EXPR:
+      {
+	tree to_be_added = replace_initial_condition 
+	  (chrec1, stripped_expr);
+	
+	*evolution_function = add_to_evolution 
+	  (loop_nb, init_cond_chrec_before, to_be_added);
+	*effect_after_execution = chrec_eval_next_init_cond 
+	  (loop_nb, *evolution_function);
+	break;
+      }
+      
+    case MULT_EXPR:
+      {
+	tree to_be_multiplied = replace_initial_condition 
+	  (chrec1, stripped_expr);
+	
+	*evolution_function = multiply_evolution
+	  (loop_nb, init_cond_chrec_before, to_be_multiplied);
+	*effect_after_execution = chrec_eval_next_init_cond 
+	  (loop_nb, *evolution_function);
+	break;
+      }
+  
+    default:
+      *effect_after_execution = chrec1;
+      *evolution_function = reset_evolution_in_loop 
+	(loop_nb, chrec_before, chrec_top);
+      break;
+    }
+}
+
+/* The following pattern has been matched: "a_1 = a_2 + ...".
+   OPND10 is "a_2", OPND11 is the rest "...".
+   This function updates the EVOLUTION_FUNCTION and the
+   EFFECT_AFTER_EXECUTION consequently.  */
+
+static void
+matched_an_increment (unsigned loop_nb, 
+		      tree var, 
+		      tree opnd10, 
+		      tree opnd11,
+		      tree halting_phi,
+		      tree *evolution_function, 
+		      tree *effect_after_execution)
+{
+  tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
+  tree chrec10, chrec11, chrec_before;
+  tree to_be_added;
+  
+  /* Recursively construct the SSA path.  */
+  scev_follow_ssa_edge (upper_chain, halting_phi);
+  
+  /* Analyze the assignment on the return walk.  */
+  
+  chrec_before = get_scev (0, var);
+  if (chrec_should_remain_symbolic (chrec_before))
+    /* KEEP_IT_SYMBOLIC.  */
+    chrec_before = opnd10;
+  
+  chrec10 = evolution_at_version (loop_nb, opnd10);
+  chrec11 = evolution_at_version (loop_nb, opnd11);
+  
+  if (chrec_should_remain_symbolic (chrec11))
+    /* KEEP_IT_SYMBOLIC.  
+       Don't propagate unknown values, but instead, 
+       keep the evolution function under a symbolic 
+       form.  Example: testsuite/.../ssa-chrec-17.c.  */
+    to_be_added = opnd11;
+  
+  else
+    to_be_added = chrec11;
+  
+  *effect_after_execution = chrec_fold_plus 
+    (initial_condition (chrec10), 
+     initial_condition (to_be_added));
+  
+  *evolution_function = add_to_evolution 
+    (loop_nb, chrec_before, to_be_added);
+}
+
+/* The following pattern has been matched: "a_1 = a_2 * ...".
+   OPND10 is "a_2", OPND11 is the rest "...".
+   This function updates the EVOLUTION_FUNCTION and the
+   EFFECT_AFTER_EXECUTION consequently.  */
+
+static void
+matched_an_exponentiation (unsigned loop_nb, 
+			   tree var, 
+			   tree opnd10, 
+			   tree opnd11,
+			   tree halting_phi,
+			   tree *evolution_function, 
+			   tree *effect_after_execution)
+{
+  tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
+  tree chrec10, chrec11, chrec_before;
+  tree to_be_multiplied;
+  
+  /* Recursively construct the SSA path.  */
+  scev_follow_ssa_edge (upper_chain, halting_phi);
+  /* Then, analyze the assignment on the return walk.  */
+  
+  chrec_before = get_scev (0, var);
+  if (chrec_should_remain_symbolic (chrec_before))
+    /* KEEP_IT_SYMBOLIC.  */
+    chrec_before = opnd10;
+  
+  chrec10 = evolution_at_version (loop_nb, opnd10);
+  chrec11 = evolution_at_version (loop_nb, opnd11);
+  if (chrec_should_remain_symbolic (chrec11))
+    /* KEEP_IT_SYMBOLIC.  */
+    to_be_multiplied = opnd11;
+  else
+    to_be_multiplied = chrec11;
+  
+  *effect_after_execution = chrec_fold_multiply 
+    (initial_condition (chrec10), 
+     initial_condition (to_be_multiplied));
+  
+  *evolution_function = multiply_evolution 
+    (loop_nb, chrec_before, to_be_multiplied);
+}
+
+/* The following pattern has been matched: "a = b code c".  
+
+   This function updates the EVOLUTION_FUNCTION and the
+   EFFECT_AFTER_EXECUTION consequently.  */
+
+static void
+matched_a_wrap_around (enum tree_code code,
+		       unsigned loop_nb,
+		       tree var,
+		       tree opnd0, 
+		       tree opnd1, 
+		       tree *evolution_function, 
+		       tree *effect_after_execution)
+{
+  tree opnd10, opnd11;
+  tree chrec10, chrec11;
+  tree init_cond, chrec1;
+  tree chrec_before;
+  
+  opnd10 = TREE_OPERAND (opnd1, 0);
+  opnd11 = TREE_OPERAND (opnd1, 1);
+  
+  chrec_before = get_scev (0, var);
+  if (chrec_should_remain_symbolic (chrec_before))
+    /* KEEP_IT_SYMBOLIC.  */
+    chrec_before = opnd1;
+  
+  chrec10 = evolution_at_version (loop_nb, opnd10);
+  chrec11 = evolution_at_version (loop_nb, opnd11);
+  
+  switch (code)
+    {
+    case PLUS_EXPR:
+      chrec1 = chrec_fold_plus (chrec10, chrec11);
+      break;
+      
+    case MINUS_EXPR:
+      chrec1 = chrec_fold_minus (chrec10, chrec11);
+      break;
+      
+    case MULT_EXPR:
+      chrec1 = chrec_fold_multiply (chrec10, chrec11);
+      break;
+      
+    default:
+      chrec1 = chrec_top;
+      break;
+    }
+  
+  init_cond = initial_condition (chrec1);
+  
+  /* If VAR occurs in the initial condition of opnd1
+     then the analyzed modify expression is not a
+     wrap-around: it is just an expression that has
+     been gimplified using temporary variables.  */
+  if (expression_contains_variable_p 
+      (init_cond, SSA_NAME_VAR (opnd0)))
+    analyze_non_gimple_initial_condition 
+      (loop_nb, opnd0, chrec_before, 
+       chrec1, init_cond,
+       evolution_function, effect_after_execution);
+  
+  else
+    {
+      /* FIXME wrap_around.  */
+      *effect_after_execution = chrec1;
+      *evolution_function = reset_evolution_in_loop 
+	(loop_nb, chrec_before, chrec_top);
+    }
+}
+
+/* The following pattern has been matched: "a_1 = b_2 - a_3".  
+   
+   This function updates the EVOLUTION_FUNCTION and the
+   EFFECT_AFTER_EXECUTION consequently.  */
+
+static void
+matched_an_arithmetic_wrap_around (unsigned loop_nb,
+				   tree var,
+				   tree opnd1, 
+				   tree *evolution_function, 
+				   tree *effect_after_execution)
+{
+  /* FIXME arithmetic flip-flop.  */
+  tree opnd10, opnd11;
+  tree chrec10, chrec11;
+  tree chrec_before = get_scev (0, var);
+  if (chrec_should_remain_symbolic (chrec_before))
+    /* KEEP_IT_SYMBOLIC.  */
+    chrec_before = opnd1;
+  
+  opnd10 = TREE_OPERAND (opnd1, 0);
+  opnd11 = TREE_OPERAND (opnd1, 1);
+  
+  chrec10 = evolution_at_version (loop_nb, opnd10);
+  chrec11 = evolution_at_version (loop_nb, opnd11);
+  
+  *effect_after_execution = chrec_fold_minus (chrec10, chrec11);
+  *evolution_function = reset_evolution_in_loop 
+    (loop_nb, chrec_before, chrec_top);
+}
+
+/* Given a loop-phi-node RDEF, determines whether its evolution has
+   already been analyzed.  */
+
+static inline bool
+evolution_of_phi_already_analyzed_p (tree rdef)
+{
+  /* Another way to check this property would be: "if all the edges
+     that enter the loop have been analyzed, then the loop-phi-node
+     has already been analyzed".  */
+  
+  return (evolution_part_in_loop_num 
+	  (get_scev (0, SSA_NAME_VAR (PHI_RESULT (rdef))), 
+	   loop_num (loop_of_stmt (rdef)))
+	  == NULL_TREE);
+}
+
 /* Helper function for analyzing a modify expression "OPND0 = OPND1"
    in the context of loop LOOP_NB.  The EVOLUTION_FUNCTION is the new
    evolution function after having analyzed the statement, and the
@@ -870,13 +1303,18 @@ scev_analyze_modify_expr (unsigned loop_nb,
     {
     case INTEGER_CST:
       {
-	/* FIXME wrap_around:  
+	/* FIXME wrap_around.
 	   This assignment is under the form "a_1 = 7".  */
-	*effect_after_execution = chrec_top;
-	*evolution_function = chrec_top;
+	tree chrec_before = get_scev (0, var);
+	if (chrec_should_remain_symbolic (chrec_before))
+	  /* KEEP_IT_SYMBOLIC.  */
+	  chrec_before = opnd1;
+	
+	*effect_after_execution = evolution_at_version (loop_nb, opnd1);
+	*evolution_function = reset_evolution_in_loop (loop_nb, chrec_before, chrec_top);
 	break;
       }
-	    
+      
     case SSA_NAME:
       if (var == SSA_NAME_VAR (opnd1))
 	{
@@ -884,15 +1322,42 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	     This is a strange case: "a_1 = a_2".  */
 	  abort ();
 	}
+      
+      /* This assignment is under the form: "a_1 = b_2".  */
       else
 	{
-	  /* FIXME wrap_around:
-	     This assignment is under the form: "a_1 = b_2".  */
-	  *effect_after_execution = chrec_top;
-	  *evolution_function = chrec_top;
+	  tree init_cond, chrec1;
+	  tree chrec_before;
+	  
+	  chrec_before = get_scev (0, var);
+	  if (chrec_should_remain_symbolic (chrec_before))
+	    /* KEEP_IT_SYMBOLIC.  */
+	    chrec_before = opnd1;
+	  
+	  chrec1 = evolution_at_version (loop_nb, opnd1);
+	  init_cond = initial_condition (chrec1);
+	  
+	  /* If VAR occurs in the initial condition of opnd1
+	     then the analyzed modify expression is not a
+	     wrap-around: it is just an expression that has
+	     been gimplified using temporary variables.  */
+	  if (expression_contains_variable_p 
+	      (init_cond, SSA_NAME_VAR (opnd0)))
+	    analyze_non_gimple_initial_condition 
+	      (loop_nb, opnd0, chrec_before, 
+	       chrec1, init_cond,
+	       evolution_function, effect_after_execution);
+	  
+	  else
+	    {
+	      /* FIXME wrap_around.  */
+	      *effect_after_execution = chrec1;
+	      *evolution_function = reset_evolution_in_loop 
+		(loop_nb, chrec_before, chrec_top);
+	    }
 	}
       break;
-	    
+      
     case PLUS_EXPR:
       {
 	/* This case is under the form "opnd0 = opnd10 + opnd11".  */
@@ -907,42 +1372,10 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	    /* Match an assignment under the form: 
 	       "a_1 = a_2 + ...".  */
 	    if (SSA_NAME_VAR (opnd10) == var)
-	      {
-		tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
-		tree chrec10, chrec11, chrec_before;
-		tree to_be_added;
-		      
-		/* Recursively construct the SSA path.  */
-		scev_follow_ssa_edge (upper_chain, halting_phi);
-		      
-		/* Analyze the assignment on the return walk.  */
-
-		chrec_before = get_scev (0, var);
-		if (chrec_should_remain_symbolic (chrec_before))
-		  /* KEEP_IT_SYMBOLIC.  */
-		  chrec_before = opnd10;
-		      
-		chrec10 = evolution_at_version (loop_nb, opnd10);
-		chrec11 = evolution_at_version (loop_nb, opnd11);
-		      
-		if (chrec_should_remain_symbolic (chrec11))
-		  /* KEEP_IT_SYMBOLIC.  
-		     Don't propagate unknown values, but instead, 
-		     keep the evolution function under a symbolic 
-		     form.  Example: testsuite/.../ssa-chrec-17.c.  */
-		  to_be_added = opnd11;
-		      
-		else
-		  to_be_added = chrec11;
-		      
-		*effect_after_execution = chrec_fold_plus 
-		  (initial_condition (chrec10), 
-		   initial_condition (to_be_added));
-		      
-		*evolution_function = add_to_evolution 
-		  (loop_nb, chrec_before, to_be_added);
-	      }
-	    
+	      matched_an_increment 
+		(loop_nb, var, opnd10, opnd11, halting_phi, 
+		 evolution_function, effect_after_execution);
+	      
 	    /* Otherwise the assignment is under the form: 
 	       "a_1 = b_2 + ...".  */
 	    else
@@ -952,49 +1385,19 @@ scev_analyze_modify_expr (unsigned loop_nb,
 		   "a_1 = b_2 + a_3".  */
 		if (TREE_CODE (opnd11) == SSA_NAME
 		    && SSA_NAME_VAR (opnd11) == var)
-		  {
-		    tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
-		    tree chrec10, chrec11, chrec_before;
-		    tree to_be_added;
-			  
-		    /* Recursively construct the SSA path.  */
-		    scev_follow_ssa_edge (upper_chain, halting_phi);
-			  
-		    /* Analyze the assignment on the return walk.  */
-			  
-		    chrec_before = get_scev (0, var);
-		    if (chrec_should_remain_symbolic (chrec_before))
-		      /* KEEP_IT_SYMBOLIC.  */
-		      chrec_before = opnd11;
-			  
-		    chrec10 = evolution_at_version (loop_nb, opnd10);
-		    chrec11 = evolution_at_version (loop_nb, opnd11);
-		    if (chrec_should_remain_symbolic (chrec10))
-		      /* KEEP_IT_SYMBOLIC.  */
-		      to_be_added = opnd10;
-			  
-		    else
-		      to_be_added = chrec10;
-			  
-		    *effect_after_execution = chrec_fold_plus 
-		      (initial_condition (chrec11), 
-		       initial_condition (to_be_added));
-			  
-		    *evolution_function = add_to_evolution 
-		      (loop_nb, chrec_before, to_be_added);
-		  }
+		  matched_an_increment
+		    (loop_nb, var, opnd11, opnd10, halting_phi, 
+		     evolution_function, effect_after_execution);
 		
 		/* Match an assignment under the form: 
 		   "a_1 = b_2 + c_3".  */
 		else
-		  {
-		    /* FIXME wrap_around.  */
-		    *effect_after_execution = chrec_top;
-		    *evolution_function = chrec_top;
-		  }
+		  matched_a_wrap_around 
+		    (PLUS_EXPR, loop_nb, var, opnd0, opnd1, 
+		     evolution_function, effect_after_execution);
 	      }
 	  }
-	      
+	
 	else if (TREE_CODE (opnd11) == SSA_NAME)
 	  {
 	    if (SSA_NAME_VAR (opnd11) == var)
@@ -1006,16 +1409,14 @@ scev_analyze_modify_expr (unsigned loop_nb,
 		   "a_1 = a_2 + 5".  */
 		abort ();
 	      }
-		  
+	    
+	    /* The assignment is under the form: "a_1 = 5 + b_2.  */
 	    else
-	      {
-		/* FIXME wrap_around:
-		   The assignment is under the form: "a_1 = 5 + b_2.  */
-		*effect_after_execution = chrec_top;
-		*evolution_function = chrec_top;
-	      }
+	      matched_a_wrap_around 
+		(PLUS_EXPR, loop_nb, var, opnd0, opnd1, 
+		 evolution_function, effect_after_execution);
 	  }
-	      
+	
 	else
 	  {
 	    /* The arguments do not contain SSA_NAMEs.  For
@@ -1086,20 +1487,16 @@ scev_analyze_modify_expr (unsigned loop_nb,
 		   "a_1 = b_2 - a_3".  */
 		if (TREE_CODE (opnd11) == SSA_NAME
 		    && SSA_NAME_VAR (opnd11) == var)
-		  {
-		    /* FIXME arithmetic flip-flop.  */
-		    *effect_after_execution = chrec_top;
-		    *evolution_function = chrec_top;
-		  }
+		  matched_an_arithmetic_wrap_around 
+		    (loop_nb, var, opnd1, evolution_function, 
+		     effect_after_execution);
 		
 		/* Otherwise the assignment is under the form: 
 		   "a_1 = b_2 - c_3".  */
 		else
-		  {
-		    /* FIXME wrap_around.  */
-		    *effect_after_execution = chrec_top;
-		    *evolution_function = chrec_top;
-		  }
+		  matched_a_wrap_around 
+		    (MINUS_EXPR, loop_nb, var, opnd0, opnd1, 
+		     evolution_function, effect_after_execution);
 	      }
 	  }
 	      
@@ -1109,22 +1506,18 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	    /* Match an assignment under the form: 
 	       "a_1 = 5 - a_2".  */
 	    if (SSA_NAME_VAR (opnd11) == var)
-	      {
-		/* FIXME arithmetic flip-flop.  */
-		*effect_after_execution = chrec_top;
-		*evolution_function = chrec_top;
-	      }
+	      matched_an_arithmetic_wrap_around 
+		(loop_nb, var, opnd1, evolution_function, 
+		 effect_after_execution);
 	    
 	    /* Otherwise the assignment is under the form: 
 	       "a_1 = 5 - b_2.  */
 	    else
-	      {
-		/* FIXME wrap_around.  */
-		*effect_after_execution = chrec_top;
-		*evolution_function = chrec_top;
-	      }
+	      matched_a_wrap_around
+		(MINUS_EXPR, loop_nb, var, opnd0, opnd1, 
+		 evolution_function, effect_after_execution);
 	  }
-	      
+	
 	else
 	  {
 	    /* The arguments do not contain SSA_NAMEs.  */
@@ -1148,83 +1541,28 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	    /* Match an assignment under the form: 
 	       "a_1 = a_2 * ...".  */
 	    if (SSA_NAME_VAR (opnd10) == var)
-	      {
-		tree upper_chain = SSA_NAME_DEF_STMT (opnd10);
-		tree chrec10, chrec11, chrec_before;
-		tree to_be_multiplied;
-		      
-		/* Recursively construct the SSA path.  */
-		scev_follow_ssa_edge (upper_chain, halting_phi);
-		/* Then, analyze the assignment on the return walk.  */
-		      
-		chrec_before = get_scev (0, var);
-		if (chrec_should_remain_symbolic (chrec_before))
-		  /* KEEP_IT_SYMBOLIC.  */
-		  chrec_before = opnd10;
-		      
-		chrec10 = evolution_at_version (loop_nb, opnd10);
-		chrec11 = evolution_at_version (loop_nb, opnd11);
-		if (chrec_should_remain_symbolic (chrec11))
-		  /* KEEP_IT_SYMBOLIC.  */
-		  to_be_multiplied = opnd11;
-		else
-		  to_be_multiplied = chrec11;
-		      
-		*effect_after_execution = chrec_fold_multiply 
-		  (initial_condition (chrec10), 
-		   initial_condition (to_be_multiplied));
-		
-		*evolution_function = multiply_evolution 
-		  (loop_nb, chrec_before, to_be_multiplied);
-	      }
-	  
+	      matched_an_exponentiation 
+		(loop_nb, var, opnd10, opnd11, halting_phi, 
+		 evolution_function, effect_after_execution);
+	    
 	    /* Otherwise the assignment is under the form: 
 	       "a_1 = b_2 * ...".  */
 	    else
 	      {
-
 		/* Match an assignment under the form: 
 		   "a_1 = b_2 * a_3".  */
 		if (TREE_CODE (opnd11) == SSA_NAME
 		    && SSA_NAME_VAR (opnd11) == var)
-		  {
-		    tree upper_chain = SSA_NAME_DEF_STMT (opnd11);
-		    tree chrec10, chrec11, chrec_before;
-		    tree to_be_multiplied;
-			  
-		    /* Recursively construct the SSA path.  */
-		    scev_follow_ssa_edge (upper_chain, halting_phi);
-		    /* Then, analyze the assignment on the return walk.  */
-
-		    chrec_before = get_scev (0, var);
-		    if (chrec_should_remain_symbolic (chrec_before))
-		      /* KEEP_IT_SYMBOLIC.  */
-		      chrec_before = opnd11;
-			  
-		    chrec10 = evolution_at_version (loop_nb, opnd10);
-		    chrec11 = evolution_at_version (loop_nb, opnd11);
-		    if (chrec_should_remain_symbolic (chrec10))
-		      /* KEEP_IT_SYMBOLIC.  */
-		      to_be_multiplied = opnd10;
-		    else
-		      to_be_multiplied = chrec10;
-			  
-		    *effect_after_execution = chrec_fold_multiply 
-		      (initial_condition (chrec11), 
-		       initial_condition (to_be_multiplied));
-		    
-		    *evolution_function = multiply_evolution 
-		      (loop_nb, chrec_before, to_be_multiplied);
-		  }
+		  matched_an_exponentiation 
+		    (loop_nb, var, opnd11, opnd10, halting_phi, 
+		     evolution_function, effect_after_execution);
 		
 		/* Otherwise the assignment is under the form: 
 		   "a_1 = b_2 * c_3".  */
 		else
-		  {
-		    /* FIXME wrap_around.  */
-		    *effect_after_execution = chrec_top;
-		    *evolution_function = chrec_top;
-		  }
+		  matched_a_wrap_around
+		    (MULT_EXPR, loop_nb, var, opnd0, opnd1, 
+		     evolution_function, effect_after_execution);
 	      }
 	  }
 	      
@@ -1244,11 +1582,9 @@ scev_analyze_modify_expr (unsigned loop_nb,
 	    /* Otherwise the assignment is under the form: 
 	       "a_1 = 5 * b_2.  */
 	    else
-	      {
-		/* FIXME wrap_around.  */
-		*effect_after_execution = chrec_top;
-		*evolution_function = chrec_top;
-	      }
+	      matched_a_wrap_around 
+		(MULT_EXPR, loop_nb, var, opnd0, opnd1, 
+		 evolution_function, effect_after_execution);
 	  }
 	
 	else
@@ -1262,9 +1598,17 @@ scev_analyze_modify_expr (unsigned loop_nb,
       }
 	    
     default:
-      *effect_after_execution = chrec_top;
-      *evolution_function = chrec_top;
-      break;
+      {
+	tree chrec_before = get_scev (0, var);
+	if (chrec_should_remain_symbolic (chrec_before))
+	  /* KEEP_IT_SYMBOLIC.  */
+	  chrec_before = opnd1;
+	
+	*effect_after_execution = chrec_top;
+	*evolution_function = reset_evolution_in_loop 
+	  (loop_nb, chrec_before, chrec_top);
+	break;
+      }
     }
   
   DBG_S (fprintf (stderr, ")\n"));
@@ -1343,6 +1687,7 @@ scev_follow_ssa_edge (tree rdef,
 		      break;
 		      
 		    case PHI_NODE:
+		      scev_follow_ssa_edge (upper_branch, halting_phi);
 		      res = evolution_at_version 
 			(upper_num, PHI_RESULT (upper_branch));
 		      break;
@@ -1357,11 +1702,14 @@ scev_follow_ssa_edge (tree rdef,
 		}
 	    }
 	  
-	  analyze_evolution_in_loop (rdef);
+	  /* Avoid the analysis of the inner loop when it has already
+	     been analyzed: testsuite/.../ssa-chrec-01.c  */
+	  if (evolution_of_phi_already_analyzed_p (rdef))
+	    analyze_evolution_in_loop (rdef);
 	  
 	  /* After having determined the evolution in the inner loop,
 	     the analyzer computes the overall effect of the inner
-	     loop on the analyzed variable.  
+	     loop on the analyzed variable.
 	     
 	     Example:  
 	     
@@ -1914,44 +2262,57 @@ static tree
 merge_evolutions (tree original_chrec, 
 		  varray_type branch_chrecs)
 {
-  unsigned int i;
-  tree res;
-  varray_type diff_chrecs;
-  
-  VARRAY_TREE_INIT (diff_chrecs, 2, "diff_chrecs");
+  unsigned i;
+  tree res = chrec_top;
+  unsigned nb_branches = VARRAY_ACTIVE_SIZE (branch_chrecs);
   
   DBG_S (fprintf (stderr, "(merge_evolutions \n"));
-
-  if (original_chrec == chrec_not_analyzed_yet)
-    original_chrec = integer_zero_node;
-  
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (branch_chrecs); i++)
+  if (nb_branches > 0)
     {
-      tree diff_chrec;
-      tree branch_chrec = VARRAY_TREE (branch_chrecs, i);
+      if (original_chrec == chrec_not_analyzed_yet)
+	original_chrec = integer_zero_node;
       
-      diff_chrec = chrec_fold_minus (branch_chrec, original_chrec);
-      DBG_S (fprintf (stderr, "  (branch = ");
-	     debug_generic_expr (diff_chrec);
-	     fprintf (stderr, "  )\n"));
-      VARRAY_PUSH_TREE (diff_chrecs, diff_chrec);
+      /* In the case where there is a single branch, there is no need
+	 to merge evolution functions.  */
+      if (nb_branches == 1) 
+	res = VARRAY_TREE (branch_chrecs, 0);
+      
+      /* Otherwise merge the different branches.  */
+      else
+	{
+	  varray_type diff_chrecs;
+	  VARRAY_TREE_INIT (diff_chrecs, 2, "diff_chrecs");
+	  
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (branch_chrecs); i++)
+	    {
+	      tree diff_chrec;
+	      tree branch_chrec = VARRAY_TREE (branch_chrecs, i);
+	      
+	      diff_chrec = chrec_fold_minus (branch_chrec, original_chrec);
+	      DBG_S (fprintf (stderr, "  (branch = ");
+		     debug_generic_expr (diff_chrec);
+		     fprintf (stderr, "  )\n"));
+	      VARRAY_PUSH_TREE (diff_chrecs, diff_chrec);
+	    }
+	  
+	  res = VARRAY_TREE (diff_chrecs, 0);
+	  if (res == NULL_TREE)
+	    res = chrec_top;
+	  
+	  for (i = 1; i < VARRAY_ACTIVE_SIZE (diff_chrecs); i++)
+	    res = chrec_merge (res, VARRAY_TREE (diff_chrecs, i));
+	  
+	  res = chrec_fold_plus (original_chrec, res);
+	  varray_clear (diff_chrecs);
+  	}
     }
   
-  res = VARRAY_TREE (diff_chrecs, 0);
-  if (res == NULL_TREE)
-    res = chrec_top;
-  
-  for (i = 1; i < VARRAY_ACTIVE_SIZE (diff_chrecs); i++)
-    res = chrec_merge (res, VARRAY_TREE (diff_chrecs, i));
-  
-  DBG_S (fprintf (stderr, "  (merged_branches = ");
+  DBG_S (fprintf (stderr, "  (evolution_after_merge = ");
 	 debug_generic_expr (res);
 	 fprintf (stderr, "  )\n");
 	 fprintf (stderr, ")\n"));
   
-  varray_clear (diff_chrecs);
-  
-  return chrec_fold_plus (original_chrec, res);
+  return res;
 }
 
 /* This function merges the branches of a condition phi node in a
@@ -2007,7 +2368,8 @@ merge_branches_of_condition_phi_node_in_loop (tree condition_phi,
   set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), res);
   set_scev (loop_num (loop_of_stmt (condition_phi)),
 	    PHI_RESULT (condition_phi), 
-	    chrec_eval_next_init_cond (res));
+	    chrec_eval_next_init_cond (loop_num (loop_of_stmt (condition_phi)), 
+				       res));
   
   varray_clear (branch_chrecs);
 }
@@ -2036,7 +2398,7 @@ merge_branches_of_condition_phi_node (tree condition_phi)
   
   set_scev (0, SSA_NAME_VAR (PHI_RESULT (condition_phi)), res);
   set_scev (loop_nb, PHI_RESULT (condition_phi), 
-	    chrec_eval_next_init_cond (res));
+	    chrec_eval_next_init_cond (loop_nb, res));
   
   varray_clear (branch_chrecs);
 }

@@ -100,7 +100,7 @@ extern tree initial_condition (tree);
 extern tree evolution_part_in_loop_num (tree, unsigned);
 extern tree evolution_function_in_loop_num (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
-extern tree chrec_eval_next_init_cond (tree);
+extern tree chrec_eval_next_init_cond (unsigned, tree);
 extern tree chrec_merge (tree, tree);
 extern tree build_polynomial_evolution_in_loop (unsigned, tree, tree);
 extern tree build_exponential_evolution_in_loop (unsigned, tree, tree);
