@@ -306,7 +306,8 @@ private:
   friend int _Jv_LayoutClass(jclass);
 
   friend _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
-					       _Jv_Utf8Const*);
+					       _Jv_Utf8Const*,
+					       jclass * = 0);
   friend jfieldID JvGetFirstInstanceField (jclass);
   friend jint JvNumInstanceFields (jclass);
   friend jfieldID JvGetFirstStaticField (jclass);

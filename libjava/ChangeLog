@@ -1,3 +1,14 @@
+2004-09-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natMethod.cc (invoke): Check access against
+	declaring class, not object's class.
+	* java/lang/natClass.cc (_Jv_LookupDeclaredMethod): Added another
+	argument.
+	(_Jv_LayoutVTableMethods): Perform checks of accessibility of
+	overridden method.
+	* java/lang/Class.h (_Jv_LookupDeclaredMethod): Added another
+	argument.
+
 2004-08-30  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClass.cc (_Jv_CheckAssignment): Catch

@@ -939,14 +939,19 @@ _Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
 
 _Jv_Method *
 _Jv_LookupDeclaredMethod (jclass klass, _Jv_Utf8Const *name,
-                          _Jv_Utf8Const *signature)
+                          _Jv_Utf8Const *signature,
+			  jclass *declarer_result)
 {
   for (; klass; klass = klass->getSuperclass())
     {
       _Jv_Method *meth = _Jv_GetMethodLocal (klass, name, signature);
 
       if (meth)
-        return meth;
+	{
+	  if (declarer_result)
+	    *declarer_result = klass;
+	  return meth;
+	}
     }
 
   return NULL;
@@ -2078,16 +2083,31 @@ _Jv_LayoutVTableMethods (jclass klass)
       if (! _Jv_isVirtualMethod (meth))
 	continue;
 
-      // FIXME: Must check that we don't override:
-      // - Package-private method where superclass is in different package.
-      // - Final or less-accessible declaration in superclass (check binary 
-      //   spec, do we allocate new vtable entry or put throw node in vtable?)
-      // - Static or private method in superclass.
-
       if (superclass != NULL)
 	{
+	  jclass declarer;
 	  super_meth = _Jv_LookupDeclaredMethod (superclass, meth->name, 
-						 meth->signature);
+						 meth->signature, &declarer);
+	  // See if this method actually overrides the other method
+	  // we've found.
+	  if (super_meth)
+	    {
+	      if (! _Jv_isVirtualMethod (super_meth)
+		  || ! _Jv_CheckAccess (klass, declarer,
+					super_meth->accflags))
+		super_meth = NULL;
+	      else if ((super_meth->accflags
+			& java::lang::reflect::Modifier::FINAL) != 0)
+		{
+		  using namespace java::lang;
+		  StringBuffer *sb = new StringBuffer();
+		  sb->append(JvNewStringLatin1("method "));
+		  sb->append(_Jv_GetMethodString(klass, meth->name));
+		  sb->append(JvNewStringLatin1(" overrides final method "));
+		  sb->append(_Jv_GetMethodString(declarer, super_meth->name));
+		  throw new VerifyError(sb->toString());
+		}
+	    }
 	}
 
       if (super_meth)
