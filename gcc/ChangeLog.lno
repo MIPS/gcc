@@ -1,3 +1,8 @@
+2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>,
+	    Dorit Naishlos <DORIT@il.ibm.com>
+
+	* tree-scalar-evolution.c (dump_chrecs_stats): Prevent format warning.
+
 2004-03-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* lambda-code.c (gcc_loop_to_lambda_loop): Changed due to changes in

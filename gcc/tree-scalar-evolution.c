@@ -3237,7 +3237,7 @@ dump_chrecs_stats (FILE *file)
 	   stats_nb_undetermined);
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, "%d\tchrecs in the scev database\n", 
-	   VARRAY_ACTIVE_SIZE (scalar_evolution_info));
+	   (int) VARRAY_ACTIVE_SIZE (scalar_evolution_info));
   fprintf (file, "-----------------------------------------\n");
   fprintf (file, ")\n\n");
 }
