@@ -72,6 +72,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "cfglayout.h"
 #include "cfgloop.h"
+#include "vpt.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -233,6 +234,7 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_vpt,
   DFI_loop2,
   DFI_ce1,
   DFI_tracer,
@@ -283,6 +285,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "vpt",	'v', 1, 0, 0 },
   { "loop2",	'L', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
@@ -387,6 +390,15 @@ int flag_test_coverage = 0;
 /* Nonzero indicates that branch taken probabilities should be calculated.  */
 
 int flag_branch_probabilities = 0;
+
+/* Nonzero if generating or using histograms for loop iterations.  */
+int flag_loop_histograms = 0;
+
+/* Nonzero if generating or using value histograms.  */
+int flag_value_histograms = 0;
+
+/* Nonzero if value histograms should be used to optimize code.  */
+int flag_value_profile_transformations = 0;
 
 /* Nonzero if basic blocks should be reordered.  */
 
@@ -1119,6 +1131,12 @@ static const lang_independent_options f_options[] =
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    N_("Use profiling information for branch probabilities") },
+  {"loop-histograms", &flag_loop_histograms, 1,
+   N_("Insert code to measure loop histograms and/or use them") },
+  {"value-histograms", &flag_value_histograms, 1,
+   N_("Insert code to measure value histograms and/or use them") },
+  {"value-profile-transformations", &flag_value_profile_transformations, 1,
+   N_("Use value histograms to optimize code") },
   {"profile", &profile_flag, 1,
    N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
@@ -2179,14 +2197,11 @@ compile_file ()
 
     wrapup_global_declarations (vec, len);
 
-    /* This must occur after the loop to output deferred functions.  Else
-       the profiler initializer would not be emitted if all the functions
-       in this compilation unit were deferred.
-
-       output_func_start_profiler can not cause any additional functions or
-       data to need to be output, so it need not be in the deferred function
-       loop above.  */
-    output_func_start_profiler ();
+    if (profile_arc_flag)
+      /* This must occur after the loop to output deferred functions.
+         Else the profiler initializer would not be emitted if all the
+         functions in this compilation unit were deferred.  */
+      create_profiler ();
 
     check_global_declarations (vec, len);
 
@@ -2212,8 +2227,6 @@ compile_file ()
   /* Output some stuff at end of file if nec.  */
 
   dw2_output_indirect_constants ();
-
-  end_final (aux_base_name);
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -3018,7 +3031,15 @@ rest_of_compilation (decl)
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
       if (cfun->arc_profile || flag_branch_probabilities)
-	branch_prob ();
+	{
+	  if (flag_value_histograms)
+	    {
+	      /* Mark unused registers.  This is needed to turn divmods back into
+		 corresponding divs/mods.  */
+	      life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
+	    }
+	  branch_prob ();
+	}
 
       /* Discover and record the loop depth at the head of each basic
 	 block.  The loop infrastructure does the real job for us.  */
@@ -3032,9 +3053,29 @@ rest_of_compilation (decl)
 	estimate_probability (&loops);
 
       flow_loops_free (&loops);
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      close_dump_file (DFI_bp, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_BRANCH_PROB);
     }
+
+  if (optimize > 0
+      && flag_branch_probabilities
+      && flag_value_histograms
+      && flag_value_profile_transformations)
+    {
+      open_dump_file (DFI_vpt, decl);
+
+      if (value_profile_transformations ())
+	cleanup_cfg (CLEANUP_EXPENSIVE);
+
+      close_dump_file (DFI_vpt, print_rtl_with_bb, get_insns ());
+    }
+  if ((cfun->arc_profile || flag_branch_probabilities)
+      && flag_value_histograms)
+    {
+      reg_scan (get_insns (), max_reg_num (), 1);
+      count_or_remove_death_notes (NULL, 1);
+    }
+
   if (optimize >= 0)
     {
       open_dump_file (DFI_ce1, decl);
@@ -3050,6 +3091,7 @@ rest_of_compilation (decl)
 	}
       timevar_push (TV_JUMP);
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      delete_trivially_dead_insns (insns, max_reg_num ());
       reg_scan (insns, max_reg_num (), 0);
       timevar_pop (TV_JUMP);
       close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
@@ -4915,6 +4957,8 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      flag_value_histograms = 1;
+      flag_value_profile_transformations = 1;
     }
 
   if (optimize >= 3)

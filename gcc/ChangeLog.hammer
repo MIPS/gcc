@@ -1,3 +1,133 @@
+2002-12-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from rtlopt branch:
+
+	2002-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+		Reimplement gcov format.
+		* gcov-io.h: Replace.
+		* gcov.c: Reimplement.
+		* gcov-iov.c: New file.
+		* gcov-dump.c: New file.
+		* libgcc2.c (L_bb): Replace with ...
+		(L_gcov): ... this.
+		(struct bb_function_info, struct bb): Remove.
+		(inhibit_libc): Never inhibit.
+		(gcov_list, gcov_crc): New static variables.
+		(gcov_version_mismatch): New static function.
+		(__bb_exit_func): Renamed to ...
+		(__gcov_exit): ... here. Made static. Reimplement.
+		(__gcov_init_func): Rename to ...
+		(__gcov_init): ... here. Check version, update crc.
+		(__bb_fork_func): Rename to ...
+		(__gcov_flush): ... here.
+		* libgcc2.h (struct bb, __bb_exit_func, __bb_init_func,
+		__bb_fork_func, gcov_type, __bb_find_arc_counters): Remove.
+		* calls.c (expand_call): Call __gcov_flush.
+		* profile.c (bb_file, last_bb_file_name): Remove.
+		(bbg_file_name): New global variable.
+		(output_gcov_string): Remove.
+		(get_exec_counts): Reimplement.
+		(branch_prob): Reimplement gcov file writing.
+		(init_branch_prob): Create bbg_file_name, don't create
+		bb_file_name.
+		(end_branch_prob): Adjust. Don't remove counter file when
+		instrumenting ourselves.
+		(create_profiler): Adjust.
+		* doc/gcov.texi (Gcov Data Files): Remove detailed specification,
+		point to gcov-io.h.
+		* Makefile.in (LANGUAGES): Add gcov-dump.
+		(coverageexts): Remove .bb.
+		(STAGESTUFF): Add gcov-dump.
+		(LIB2FUNCS_ST): Replace _bb with _gcov.
+		(profile.o): Depend on gcov-iov.h.
+		(final.o): Don't depend on profile.h, gcov.h.
+		(gcov.o): Depend on gcov-iov.h.
+		(gcov-iov.o): New target.
+		(gcov-iov): New target.
+		(gcov-iov.h): New target.
+		(gcov-dump.o): New target.
+		(GCOV_DUMP_OBJS): New variable.
+		(gcov-dump): New target.
+		(distclean): Remove coverageexts.
+		(stage1): Remove coverageexts.
+
+	2002-11-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* Makefile.in (vpt.o): New file.
+		(toplev.o, profile.o): Add vpt.h dependecy.
+		* vpt.h: New.
+		* vpt.c: New.
+		* combine.c (distribute_notes): Handle REG_VALUE_HISTOGRAM note.
+		* flags.h (flag_value_histograms): Declare.
+		* gcov-io.h (GCOV_TAG_VALUE_HISTOGRAMS): New.
+		(struct function_info): Add n_value_histogram_counters field.
+		(struct gcov_info): Add value_counts and n_value_counts fields.
+		* libgcc2.c (gcov_exit, __gcov_flush): Write out value histograms.
+		* profile.c: Include vpt.h.
+		(struct function_list): Add value_counters field.
+		(value_histograms_label): New.
+		(gen_loop_profiler): Deleted.
+		(gen_interval_profiler, gen_range_profiler, gen_pow2_profiler,
+		gen_one_value_profiler): New.
+		(get_histogram_counts, instrument_loops, compute_loop_histograms,
+		init_branch_prob): Modified.
+		(index_counts_file): Fix mistakes.
+		(instrument_values, compute_value_histograms): New.
+		(branch_prob): Call them.
+		(create_profiler): Emit requiered structures.
+		* profile.h (struct profile_info): Add count_value_counters,
+		count_value_counters_now and have_value_histograms fields.
+		* rtl.c (reg_note_name): Add REG_VALUE_HISTOGRAM.
+		* rtl.h (enum reg_note): Ditto.
+		* toplev.c: Include vpt.h.
+		(enum dump_file_index, dump_file): Add vpt dump file.
+		(flag_value_histograms, flag_value_profile_transformations): New.
+		(lang_independent_options): Add them.
+		(rest_of_compilation): Add vpt pass.
+
+	2002-11-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* vpt.c (find_values_to_profile): Move liveness analysis ...
+		* toplev.c (rest_of_compilation): ... here.  Also do cleanup
+		afterwards.
+
+	2002-11-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+		* Makefile.in (loop-init.o): Add gcov-io.h dependency.
+		* gcov-io.h (struct counter_section, struct counter_section_data): New.
+		(struct function_info): n_arc_counts, n_loop_histogram_counters and
+		n_value_histogram_counters fields merged into new n_counter_sections and
+		counter_sections fields.
+		(struct gcov_info): arc_counts, n_arc_counts, histogram_counts,
+		n_histogram_counts, value_counts and n_value_counts merged into
+		n_counter_sections and counter_sections fields.
+		* libgcc2.c (gcov_exit, __gcov_flush): Rewritten to enable adding
+		new section types.
+		* loop-init.c: Include gcov-io.h.
+		(loop_optimizer_init): Modified.
+		* profile.c (struct function_list): count_edges, histogram_counters
+		and value_counters merged to n_counter_sections and counter_sections
+		fields.
+		(set_purpose, label_for_tag, build_counter_section_fields,
+		build_counter_section_value, build_counter_section_data_fields,
+		build_counter_section_data_value, build_function_info_fields,
+		build_function_info_value, build_gcov_info_fields,
+		build_gcov_info_value, find_counters_section): New.
+		(instrument_edges, instrument_loops, instrument_values,
+		get_histogram_counts, compute_loop_histograms, compute_value_histograms,
+		compute_branch_probabilities, branch_prob, create_profiler): Modified
+		to enable adding new section types.
+		* profile.h (MAX_COUNTER_SECTIONS): New.
+		(struct section_info): New.
+		(struct profile_info): count_instrumented_edges, count_histogram_counters,
+		count_value_counters, count_edges_instrumented_now,
+		count_histogram_counters_now, count_value_counters_now,
+		have_loop_histograms, have_value_histograms fields merged into
+		new n_sections and section_info fields.
+		(find_counters_section): Declare.
+		* vpt.c (insn_values_to_profile, gen_mod_subtract): Fix.
+
 Wed Dec  4 23:42:16 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c: Fix merge problems.

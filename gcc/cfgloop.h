@@ -191,6 +191,14 @@ struct loop
      loops nested inside it.  */
   int exit_count;
 };
+  
+/* Histogram of a loop.  */
+struct loop_histogram
+{
+  unsigned steps;
+  gcov_type *counts;
+  gcov_type more;
+};
 
 /* Flags for state of loop structure.  */
 enum

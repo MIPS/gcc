@@ -754,8 +754,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
+ tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
+ xcoffout.o et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
 
@@ -778,7 +778,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) \
- gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
+ gcov-iov$(exeext) gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
 
 # Library members defined in libgcc2.c.
@@ -792,7 +792,7 @@ LIB2FUNCS_2 = _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf \
     _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
 
 # Defined in libgcc2.c, included only in the static library.
-LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp
+LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp _gcov
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
@@ -1390,7 +1390,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
-   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
+   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) vpt.h \
    langhooks.h insn-flags.h options.h cfglayout.h cfgloop.h real.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
@@ -1517,8 +1517,11 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
    $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
-   gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H) \
-   langhooks.h profile.h libfuncs.h gt-profile.h
+   gcov-io.h gcov-iov.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) \
+   $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h cfgloop.h \
+   params.h $(HASHTAB_H) vpt.h
+vpt.o : vpt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) profile.h \
+   hard-reg-set.h vpt.h $(EXPR_H) output.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
@@ -1552,7 +1555,7 @@ cfgloopanal.o : cfgloopanal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
 cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h output.h
 loop-init.o : loop-init.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) gcov-io.h \
-   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h profile.h
+   gcov-iov.h $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h profile.h
 loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(expr.h)
@@ -2297,7 +2300,15 @@ test-protoize-simple: ./protoize ./unprotoize $(GCC_PASSES)
 	diff $(srcdir)/protoize.c tmp-proto.c | cat
 	-rm -f tmp-proto.[cs] tmp-proto$(objext)
 
-gcov.o: gcov.c gcov-io.h intl.h $(SYSTEM_H) $(CONFIG_H)
+# gcov-iov.c is run on the build machine to generate gcov-iov.h from version.c
+gcov-iov.o: gcov-iov.c version.c $(HCONFIG_H) $(SYSTEM_H)
+	$(CC) -c $(ALL_CFLAGS) $(INCLUDES) $(srcdir)/gcov-iov.c $(OUTPUT_OPTION)
+gcov-iov$(exeext): gcov-iov.o
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) gcov-iov.o -o $@
+gcov-iov.h: gcov-iov$(build_exeext)
+	./$< > $@
+
+gcov.o: gcov.c gcov-io.h gcov-iov.h intl.h $(SYSTEM_H) $(CONFIG_H)
 
 # Only one of 'gcov' or 'gcov.exe' is actually built, depending
 # upon whether $(exeext) is empty or not.

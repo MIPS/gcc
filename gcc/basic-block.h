@@ -112,7 +112,11 @@ do {									\
    be done, other than zero the statistics on the first allocation.  */
 #define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P)
 
-/* Type we use to hold basic block counters.  Should be at least 64bit.  */
+/* Type we use to hold basic block counters.  Should be at least
+   64bit.  Although a counter cannot be negative, we use a signed
+   type, because erroneous negative counts can be generated when the
+   flow graph is manipulated by various optimizations.  A signed type
+   makes those easy to detect. */
 typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
@@ -125,6 +129,9 @@ typedef struct edge_def {
 
   /* Instructions queued on the edge.  */
   rtx insns;
+
+  /* Histogram of loop whose latch is this edge.  */
+  struct loop_histogram *loop_histogram;
 
   /* Auxiliary info specific to a pass.  */
   void *aux;
@@ -151,6 +158,7 @@ typedef struct edge_def {
 /* Declared in cfgloop.h.  */
 struct loop;
 struct loops;
+struct loop_histogram;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they

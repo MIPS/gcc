@@ -688,6 +688,10 @@ enum reg_note
      block was executed.  */
   REG_EXEC_COUNT,
 
+  /* REG_VALUE_HISTOGRAM is attached to an insn before that the contained
+     histogram of a value is measured.  */
+  REG_VALUE_HISTOGRAM,
+
   /* Attached to a call insn; indicates that the call is malloc-like and
      that the pointer returned cannot alias anything else.  */
   REG_NOALIAS,
@@ -2143,7 +2147,7 @@ extern int function_invariant_p		PARAMS ((rtx));
 extern void init_branch_prob		PARAMS ((const char *));
 extern void branch_prob			PARAMS ((void));
 extern void end_branch_prob		PARAMS ((void));
-extern void output_func_start_profiler	PARAMS ((void));
+extern void create_profiler		PARAMS ((void));
 
 /* In reg-stack.c */
 #ifdef BUFSIZ

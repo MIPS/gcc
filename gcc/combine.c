@@ -12258,6 +12258,11 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 	  place = i3;
 	  break;
 
+	case REG_VALUE_HISTOGRAM:
+	  /* Given that I don't understand what's going on here at all,
+	     just get rid of this.  */
+	  break;
+
 	case REG_VTABLE_REF:
 	  /* ??? Should remain with *a particular* memory load.  Given the
 	     nature of vtable data, the last insn seems relatively safe.  */

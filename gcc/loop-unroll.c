@@ -168,8 +168,8 @@ peel_loops_completely (loops, flags)
 
       if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
 	{
-#ifdef ENABLE_CHECKING
 	  peel_loop_completely (loops, loop);
+#ifdef ENABLE_CHECKING
 	  verify_dominators (loops->cfg.dom);
 	  verify_loop_structure (loops);
 #endif
