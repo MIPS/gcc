@@ -1,3 +1,8 @@
+2005-01-31  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3974393
+    	* g++.dg/pr19650.C:  Modify, move to opt subdirectory.
+
 2005-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013

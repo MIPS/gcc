@@ -1,3 +1,11 @@
+2005-01-31  Roger Sayle  <roger@eyesopen.com>
+	    Dale Johannesen  <dalej@apple.com>
+
+	Radar 3974393
+	* fold-const.c (fold_binary_op_with_conditional_arg):
+	Make types match original operands, before STRIP_NOPS.
+	(From mainline.)
+
 2005-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3962013
