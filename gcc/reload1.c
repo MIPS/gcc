@@ -3289,7 +3289,15 @@ usable_for_inheritance (rtx head_rtx, struct reload *rl, rtx this_rtx,
      it must be valid in MODE, not just INMODE.  */
 
   if (mode != inmode && ! HARD_REGNO_MODE_OK (offsetted_regno, mode))
-    can_use_inheritance_reg = 0;
+    {
+      nregs = HARD_REGNO_NREGS (offsetted_regno, inmode);
+
+      for (k = 0; k < nregs; k++)
+	if (! TEST_HARD_REG_BIT (*usable_regs, offsetted_regno + k))
+	  return IT_NONE;
+
+      can_use_inheritance_reg = 0;
+    }
   else
     {
       nregs = HARD_REGNO_NREGS (offsetted_regno, mode);

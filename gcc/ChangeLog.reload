@@ -1,3 +1,8 @@
+2005-03-20  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload1.c (usable_for_inheritance): Check usable_regs for 
+	override-in registers as well.
+
 2005-03-18  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* Makefile.in (gtfiles): Add reload1.c.
