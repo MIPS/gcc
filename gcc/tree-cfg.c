@@ -2073,21 +2073,6 @@ remove_stmt (tree *stmt_p)
 	SSA_NAME_DEF_STMT (vdef) = build_empty_stmt ();
     }
 
-  /* Update end_tree_p when stmt_p is the end of the tree.  We don't
-     need to handle the COMPOUND_EXPR case, since that's handled
-     below.  We don't need to handle the one statement bb case, since
-     we will remove the bb anyway.  */
-  if (bb 
-      && bb->end_tree_p == stmt_p 
-      && bb->head_tree_p != stmt_p
-      && TREE_CODE (*stmt_p) != COMPOUND_EXPR)
-    {
-      block_stmt_iterator bsi;
-      bsi = bsi_last (bb);
-      bsi_prev (&bsi);
-      bb->end_tree_p = bsi_container (bsi);
-    }
-
   stmt->common.ann = NULL;
 
   /* The RHS of a MODIFY_EXPR has an annotation for the benefit of

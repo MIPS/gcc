@@ -1,3 +1,8 @@
+2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-cfg.c (remove_stmt): Revert 07-15 change. Turns out the bug is in
+	the reverse iterator.
+
 2003-07-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (visit_phi_node): Assume default value of CONSTANT 
