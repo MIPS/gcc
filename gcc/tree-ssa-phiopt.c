@@ -185,7 +185,7 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
       same as the type of the result, then convert the type of the
       condition.  */
   if (!lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
-    cond = convert (TREE_TYPE (result), cond);
+    cond = fold_convert (TREE_TYPE (result), cond);
   
   /* We need to know which is the true edge and which is the false
       edge so that we know when to invert the condition below.  */
