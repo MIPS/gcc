@@ -59,8 +59,8 @@ get_alias_set (t)
 /* There should be one load of code.  */
 /* { dg-final { scan-tree-dump-times "code" 1 "ssa"} } */
 
-/* There should be two loads of rtmem.  */
-/* { dg-final { scan-tree-dump-times "rtmem" 2 "ssa"} } */
+/* There should be one load of rtmem.  */
+/* { dg-final { scan-tree-dump-times "rtmem" 1 "ssa"} } */
 
 /* There should be one load of alias.  */
 /* { dg-final { scan-tree-dump-times "->alias" 1 "ssa"} } */

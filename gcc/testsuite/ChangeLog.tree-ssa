@@ -1,3 +1,8 @@
+2003-07-29  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030711-2.c: There should only be one load
+	of rtmem after rewriting into SSA form.
+
 2003-07-28  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030728-1.c: New test.
