@@ -1,3 +1,24 @@
+2004-08-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/ext/visibility/assign1.C: Use scan-hidden and
+	dg-require-visiblity.
+	* g++.dg/ext/visibility/fvisibility-inlines-hidden.C: Likewise.
+	* g++.dg/ext/visibility/fvisibility.C: Likewise.
+	* g++.dg/ext/visibility/memfuncts.C: Likewise.
+	* g++.dg/ext/visibility/new1.C: Likewise.
+	* g++.dg/ext/visibility/pragma.C: Likewise.
+	* g++.dg/ext/visibility/staticmemfuncts.C: Likewise.
+	* g++.dg/ext/visibility/virtual.C: Likewise.
+	* g++/dg/ext/visibility/visibility-1.C: Likewise.
+	* g++/dg/ext/visibility/visibility-2.C: Likewise.
+	* g++/dg/ext/visibility/visibility-3.C: Likewise.
+	* g++/dg/ext/visibility/visibility-4.C: Likewise.
+	* g++/dg/ext/visibility/visibility-5.C: Likewise.
+	* g++/dg/ext/visibility/visibility-6.C: Likewise.
+	* g++/dg/ext/visibility/visibility-7.C: Likewise.
+	* lib/scanasm.exp (scan_hidden): New function.
+	(scan_not_hidden): Likewise.
+
 2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
 	    Brian Ryner  <bryner@brianryner.com>
 
