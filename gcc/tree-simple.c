@@ -285,11 +285,6 @@ is_simple_modify_expr (t)
   if (t == NULL_TREE)
     return 1;
 
-  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     wrappers.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR)
-    return is_simple_modify_expr (TREE_OPERAND (t, 0));
-
   return ((TREE_CODE (t) == MODIFY_EXPR
 	   || TREE_CODE (t) == INIT_EXPR)
 	  && is_simple_modify_expr_lhs (TREE_OPERAND (t, 0))
@@ -342,11 +337,6 @@ is_simple_binary_expr (t)
   if (t == NULL_TREE)
     return 1;
 
-  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     wrappers.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR)
-    return is_simple_binary_expr (TREE_OPERAND (t, 0));
-
   return ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 	   || is_simple_relop (TREE_CODE (t)))
 	  && is_simple_val (TREE_OPERAND (t, 0))
@@ -366,11 +356,6 @@ is_simple_condexpr (t)
 {
   if (t == NULL_TREE)
     return 1;
-
-  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     wrappers.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR)
-    return is_simple_condexpr (TREE_OPERAND (t, 0));
 
   return (is_simple_val (t)
 	  || (is_simple_relop (TREE_CODE (t))
@@ -401,10 +386,9 @@ is_simple_unary_expr (t)
 
   STRIP_NOPS (t);
 
-  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
+  /* Additions to the original grammar.  Allow VTABLE_REF
      wrappers.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR
-      || TREE_CODE (t) == VTABLE_REF)
+  if (TREE_CODE (t) == VTABLE_REF)
     return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
   if (is_simple_varname (t) || is_simple_const (t))
@@ -546,10 +530,6 @@ is_simple_compound_lval (t)
       || TREE_CODE (t) == IMAGPART_EXPR)
     t = TREE_OPERAND (t, 0);
 
-  /* Allow arrays wrapped in NON_LVALUE_EXPR nodes.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR)
-    t = TREE_OPERAND (t, 0);
-
   if (TREE_CODE (t) != ARRAY_REF && TREE_CODE (t) != COMPONENT_REF)
     return 0;
 
@@ -628,11 +608,6 @@ is_simple_id (t)
 {
   if (t == NULL_TREE)
     return 1;
-
-  /* Additions to the original grammar.  Allow identifiers wrapped in
-     NON_LVALUE_EXPR.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR)
-    return is_simple_id (TREE_OPERAND (t, 0));
 
   /* Allow real and imaginary parts of a complex variable.  */
   if (TREE_CODE (t) == REALPART_EXPR

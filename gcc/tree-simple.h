@@ -32,6 +32,7 @@ extern tree create_tmp_var             PARAMS ((tree, const char *));
 extern tree create_tmp_alias_var       PARAMS ((tree, const char *));
 extern bool is_simple_tmp_var	       PARAMS ((tree));
 extern tree get_initialized_tmp_var    PARAMS ((tree, tree *));
+extern tree get_formal_tmp_var         PARAMS ((tree, tree *));
 extern void declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));

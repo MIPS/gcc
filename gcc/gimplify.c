@@ -37,7 +37,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "timevar.h"
 #include "except.h"
+#include "hashtab.h"
 #include "flags.h"
+#include "real.h"
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
@@ -77,6 +79,11 @@ static void gimplify_loop_expr		PARAMS ((tree *));
 static void gimplify_exit_expr		PARAMS ((tree *, tree *));
 static void gimplify_switch_expr (tree *, tree *);
 static void gimple_add_case_label (tree);
+static hashval_t gimple_tree_hash (const void *);
+static int gimple_tree_eq (const void *, const void *);
+static tree lookup_tmp_var (tree, bool);
+static tree internal_get_tmp_var (tree, tree *, bool);
+static tree build_and_jump (tree *);
 
 static struct gimplify_ctx
 {
@@ -86,6 +93,8 @@ static struct gimplify_ctx
   int conditions;
   tree exit_label;
   varray_type case_labels;
+  /* The formal temporary table.  Should this be persistent?  */
+  htab_t temp_htab;
 } *gimplify_ctxp;
 
 static void
@@ -93,7 +102,10 @@ push_gimplify_context ()
 {
   if (gimplify_ctxp)
     abort ();
-  gimplify_ctxp = (struct gimplify_ctx *) xcalloc (1, sizeof (struct gimplify_ctx));
+  gimplify_ctxp
+    = (struct gimplify_ctx *) xcalloc (1, sizeof (struct gimplify_ctx));
+  gimplify_ctxp->temp_htab
+    = htab_create (1000, gimple_tree_hash, gimple_tree_eq, free);
 }
 
 static void
@@ -101,6 +113,12 @@ pop_gimplify_context ()
 {
   if (!gimplify_ctxp || gimplify_ctxp->current_bind_expr)
     abort ();
+#if 0
+  if (!quiet_flag)
+    fprintf (stderr, " collisions: %f ",
+	     htab_collisions (gimplify_ctxp->temp_htab));
+#endif
+  htab_delete (gimplify_ctxp->temp_htab);
   free (gimplify_ctxp);
   gimplify_ctxp = NULL;
 }
@@ -331,9 +349,6 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (post_p == NULL)
     post_p = &internal_post;
 
-  /* Strip any uselessness.  */
-  STRIP_TYPE_NOPS (*expr_p);
-
   class = TREE_CODE_CLASS (TREE_CODE (*expr_p));
   locus = TREE_LOCUS (*expr_p);
 
@@ -354,6 +369,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      same.  */
   do
     {
+      /* Strip any uselessness.  */
+      STRIP_MAIN_TYPE_NOPS (*expr_p);
+
       /* Remember the expr.  */
       save_expr = *expr_p;
 
@@ -444,6 +462,15 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
 	      break;
 	    }
+	  /* Only keep the outermost NOP/CONVERT.  */
+	  STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
+	  /* And not even that if it's useless.  */
+	  if (TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
+	    {
+	      *expr_p = TREE_OPERAND (*expr_p, 0);
+	      break;
+	    }
 
 	case FIX_TRUNC_EXPR:
 	case FIX_CEIL_EXPR:
@@ -501,11 +528,16 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  {
 	    tree dest = GOTO_DESTINATION (*expr_p);
 
+	    /* If the target is not LABEL, then it is a computed jump
+	       and the target needs to be simplified.  */
+	    if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
+	      simplify_expr (&GOTO_DESTINATION (*expr_p), pre_p, NULL,
+			     is_simple_val, fb_rvalue);
+
 	    /* If this label is in a different context (function), then
 	       mark it as a nonlocal label and mark its context as
 	       receiving nonlocal gotos.  */
-	    if (TREE_CODE (dest) == LABEL_DECL
-		&& current_function_decl != decl_function_context (dest))
+	    else if (current_function_decl != decl_function_context (dest))
 	      {
 		tree context = decl_function_context (dest);
 
@@ -513,12 +545,6 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 		FUNCTION_RECEIVES_NONLOCAL_GOTO (context) = 1;
 	      }
 	
-	    /* If the target is not LABEL, then it is a computed jump
-	       and the target needs to be simplified.  */
-	    if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
-	      simplify_expr (&GOTO_DESTINATION (*expr_p), pre_p, NULL,
-			     is_simple_val, fb_rvalue);
-
 	    break;
 	  }
 
@@ -556,9 +582,8 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
 
 	case NON_LVALUE_EXPR:
-	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			 simple_test_f, fb_rvalue);
-	  recalculate_side_effects (*expr_p);
+	  /* This should have been stripped above.  */
+	  abort ();
 	  break;
 
 	case ASM_EXPR:
@@ -710,7 +735,14 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
       /* An rvalue will do.  Assign the simplified expression into a new
 	 temporary TMP and replace the original expression with TMP.  */
-      *expr_p = get_initialized_tmp_var (*expr_p, pre_p);
+
+      if (internal_post)
+	/* The postqueue might change the value of the expression between
+	   the initialization and use of the temporary, so we can't use a
+	   formal temp.  FIXME do we care?  */
+	*expr_p = get_initialized_tmp_var (*expr_p, pre_p);
+      else
+	*expr_p = get_formal_tmp_var (*expr_p, pre_p);
     }
   else
     {
@@ -962,6 +994,23 @@ gimple_add_case_label (tree expr)
     VARRAY_PUSH_TREE (gimplify_ctxp->case_labels, CASE_LABEL (expr));
 }
 
+/* Build a GOTO to the LABEL_DECL pointed to by LABEL_P, building it first
+   if necessary.  */
+
+static tree
+build_and_jump (tree *label_p)
+{
+  if (*label_p == NULL_TREE)
+    {
+      tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_ARTIFICIAL (label) = 1;
+      DECL_CONTEXT (label) = current_function_decl;
+      *label_p = label;
+    }
+
+  return build1 (GOTO_EXPR, void_type_node, *label_p);
+}
+
 /* Simplify an EXIT_EXPR by converting to a GOTO_EXPR inside a COND_EXPR.
    This also involves building a label to jump to and communicating it to
    gimplify_loop_expr through gimplify_ctxp->exit_label.  */
@@ -972,21 +1021,11 @@ gimplify_exit_expr (expr_p, pre_p)
      tree *pre_p;
 {
   tree cond = TREE_OPERAND (*expr_p, 0);
-  tree label = gimplify_ctxp->exit_label;
   tree expr;
-
-  if (label == NULL_TREE)
-    {
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_ARTIFICIAL (label) = 1;
-      TREE_USED (label) = 1;
-      DECL_CONTEXT (label) = current_function_decl;
-      gimplify_ctxp->exit_label = label;
-    }
 
   simplify_expr (&cond, pre_p, NULL, is_simple_condexpr, fb_rvalue);
 
-  expr = build1 (GOTO_EXPR, void_type_node, label);
+  expr = build_and_jump (&gimplify_ctxp->exit_label);
   expr = build (COND_EXPR, void_type_node, cond, expr, build_empty_stmt ());
   *expr_p = expr;
 }
@@ -1405,6 +1444,100 @@ simplify_tree_list (expr_p, pre_p, post_p)
 		   fb_rvalue);
 }
 
+/* Handle shortcut semantics in the predicate operand of a COND_EXPR by
+   rewriting it into multiple COND_EXPRs, and possibly GOTO_EXPRs.  */
+
+static tree
+shortcut_cond_r (tree expr, tree *false_label_p)
+{
+  tree pred = TREE_OPERAND (expr, 0);
+  tree t;
+
+  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
+    {
+      /* If there is no 'else', turn (a && b) into if (a) if (b).  */
+      while (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
+	{
+	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
+	  expr = shortcut_cond_r (expr, false_label_p);
+	  pred = TREE_OPERAND (pred, 0);
+	  expr = build (COND_EXPR, void_type_node, pred, expr,
+			build_empty_stmt ());
+	}
+    }
+  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
+    {
+      /* If there is no 'then', turn
+	   if (a || b); else d
+	 into
+	   if (a); else if (b); else d.  */
+      while (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
+	{
+	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
+	  expr = shortcut_cond_r (expr, false_label_p);
+	  pred = TREE_OPERAND (pred, 0);
+	  expr = build (COND_EXPR, void_type_node, pred,
+			build_empty_stmt (), expr);
+	}
+    }
+
+  /* Don't do these other transformations yet.  */
+  return expr;
+
+  if (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
+    {
+      /* Turn if (a && b) c; else d; into
+
+      if (a); else goto no;
+      if (b) c; else { no: d; }  */
+
+      TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
+      expr = shortcut_cond_r (expr, false_label_p);
+
+      t = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
+		 build_empty_stmt (), build_and_jump (false_label_p));
+      t = shortcut_cond_r (t, false_label_p);
+
+      expr = add_stmt_to_compound (t, expr);
+    }
+  else if (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
+    {
+      /* Turn if (a || b) c; else d; into
+
+      if (a || b); else goto no;
+      if (1) c; else { no: d; } */
+      TREE_OPERAND (expr, 0) = integer_one_node;
+
+      t = build (COND_EXPR, void_type_node, pred,
+		 build_empty_stmt (), build_and_jump (false_label_p));
+      t = shortcut_cond_r (t, false_label_p);
+
+      expr = add_stmt_to_compound (t, expr);
+    }
+
+  return expr;
+}
+
+static tree
+shortcut_cond_expr (tree expr)
+{
+  tree false_label = NULL_TREE;
+  tree *false_branch_p = &TREE_OPERAND (expr, 2);
+
+  expr = shortcut_cond_r (expr, &false_label);
+
+  if (false_label)
+    {
+      false_label = build1 (LABEL_EXPR, void_type_node, false_label);
+      if (TREE_SIDE_EFFECTS (*false_branch_p))
+	*false_branch_p = add_stmt_to_compound (false_label, *false_branch_p);
+      else
+	expr = add_stmt_to_compound (expr, false_label);
+    }
+
+  return expr;
+}
+
 
 /*  Convert the conditional expression pointed by EXPR_P '(p) ? a : b;'
     into
@@ -1426,53 +1559,56 @@ simplify_cond_expr (expr_p, pre_p, target)
      tree *pre_p;
      tree target;
 {
-  tree tmp = NULL_TREE;
   tree expr = *expr_p;
 
   /* If this COND_EXPR has a value, copy the values into a temporary within
      the arms.  */
   if (! VOID_TYPE_P (TREE_TYPE (expr)))
-      {
-	if (target)
-	  tmp = target;
-	else
-	  tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+    {
+      tree tmp;
 
-	/* Build the then clause, 't1 = a;'.  But don't build an assignment
-	   if this branch is void; in C++ it can be, if it's a throw.  */
-	if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
-	  TREE_OPERAND (expr, 1)
-	    = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 1));
+      if (target)
+	tmp = target;
+      else
+	tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
 
-	/* Build the else clause, 't1 = b;'.  */
-	if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
-	  TREE_OPERAND (expr, 2)
-	    = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 2));
+      /* Build the then clause, 't1 = a;'.  But don't build an assignment
+	 if this branch is void; in C++ it can be, if it's a throw.  */
+      if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
+	TREE_OPERAND (expr, 1)
+	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 1));
 
-	TREE_TYPE (expr) = void_type_node;
-	recalculate_side_effects (expr);
-      }
+      /* Build the else clause, 't1 = b;'.  */
+      if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
+	TREE_OPERAND (expr, 2)
+	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 2));
+
+      TREE_TYPE (expr) = void_type_node;
+      recalculate_side_effects (expr);
+
+      /* Move the COND_EXPR to the prequeue and use the temp in its place.  */
+      simplify_stmt (&expr);
+      add_tree (expr, pre_p);
+      *expr_p = tmp;
+
+      return;
+    }
 
   /* Turn if (a && b) into if (a) if (b).  This only works if there is no
      'else'.  */
-  if (! TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2))
-      && TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR)
+  if (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR
+      || TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ORIF_EXPR)
     {
-      do
-	{
-	  tree pred = TREE_OPERAND (expr, 0);
-	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
-	  expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
-			expr, build_empty_stmt ());
-	}
-      while (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR);
+      expr = shortcut_cond_expr (expr);
 
-      if (!tmp)
-	/* Don't simplify our children now; simplify_expr will re-simplify
-	   us, since we've changed *expr_p.  */
-	goto skip;
+      if (expr != *expr_p)
+	{
+	  /* Don't simplify our children now; simplify_expr will re-simplify
+	     us, since we've changed *expr_p.  */
+	  *expr_p = expr;
+	  return;
+	}
     }
-      
 
   /* Now do the normal simplification.  */
   simplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
@@ -1485,18 +1621,8 @@ simplify_cond_expr (expr_p, pre_p, target)
 
   gimple_pop_condition (pre_p);
 
- skip:
-  /* If we had a value, move the COND_EXPR to the prequeue and use the temp
-     in its place.  */
-  if (tmp)
-    {
-      add_tree (expr, pre_p);
-      *expr_p = tmp;
-    }
-  else
-    *expr_p = expr;
+  *expr_p = expr;
 }
-
 
 /*  Simplify the MODIFY_EXPR node pointed by EXPR_P.
 
@@ -2006,21 +2132,122 @@ get_name (t)
     }
 }
 
+/* Formal (expression) temporary table handling: Multiple occurrences of
+   the same expression are evaluated into the same temporary.  */
 
-/*  Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
-    are as in simplify_expr.  */
+typedef struct gimple_temp_hash_elt
+{
+  tree val;   /* Key */
+  tree temp;  /* Value */
+} elt_t;
+
+/* Return a hash value for a formal temporary table entry.  */
+
+static hashval_t
+gimple_tree_hash (const void *p)
+{
+  tree t = ((const elt_t *)p)->val;
+  return iterative_hash_expr (t, 0);
+}
+
+/* Compare two formal temporary table entries.  */
+
+static int
+gimple_tree_eq (const void *p1, const void *p2)
+{
+  tree t1 = ((const elt_t *)p1)->val;
+  tree t2 = ((const elt_t *)p2)->val;
+  enum tree_code code = TREE_CODE (t1);
+
+  if (TREE_CODE (t2) != code
+      || TREE_TYPE (t1) != TREE_TYPE (t2))
+    return 0;
+
+  if (!operand_equal_p (t1, t2, 0))
+    return 0;
+
+  /* Only allow them to compare equal if they also hash equal; otherwise
+     results are nondeterminate, and we fail bootstrap comparison.  */
+  if (gimple_tree_hash (p1) != gimple_tree_hash (p2))
+    abort ();
+
+  return 1;
+}
+
+/* Create a temporary with a name derived from VAL.  Subroutine of
+   lookup_tmp_var; nobody else should call this function.  */
+
+static inline tree
+create_tmp_from_val (tree val)
+{
+  return create_tmp_var (TREE_TYPE (val), get_name (val));
+}
+
+/* Create a temporary to hold the value of VAL.  If IS_FORMAL, try to reuse
+   an existing expression temporary.  */
+
+static tree
+lookup_tmp_var (tree val, bool is_formal)
+{
+  if (!is_formal || TREE_SIDE_EFFECTS (val))
+    return create_tmp_from_val (val);
+  else
+    {
+      elt_t elt, *elt_p;
+      void **slot;
+
+      elt.val = val;
+      slot = htab_find_slot (gimplify_ctxp->temp_htab, (void *)&elt, INSERT);
+      if (*slot == NULL)
+	{
+	  elt_p = xmalloc (sizeof (*elt_p));
+	  elt_p->val = val;
+	  elt_p->temp = create_tmp_from_val (val);
+	  *slot = (void *)elt_p;
+	}
+      else
+	elt_p = (elt_t *) *slot;
+
+      return elt_p->temp;
+    }
+}
+
+/* Returns a formal temporary variable initialized with VAL.  PRE_P and
+   STMT are as in simplify_expr.  Only use this function if:
+
+   1) The value of the unfactored expression represented by VAL will not
+      change between the initialization and use of the temporary, and
+   2) The temporary will not be otherwise modified.
+
+   For instance, #1 means that this is inappropriate for SAVE_EXPR temps,
+   and #2 means it is inappropriate for && temps.
+
+   For other cases, use get_initialized_tmp_var instead.  */
 
 tree
-get_initialized_tmp_var (val, pre_p)
-     tree val;
-     tree *pre_p;
+get_formal_tmp_var (tree val, tree *pre_p)
+{
+  return internal_get_tmp_var (val, pre_p, true);
+}
+
+/* Returns a temporary variable initialized with VAL.  PRE_P and STMT
+   are as in simplify_expr.  */
+
+tree
+get_initialized_tmp_var (tree val, tree *pre_p)
+{
+  return internal_get_tmp_var (val, pre_p, false);
+}
+
+static tree
+internal_get_tmp_var (tree val, tree *pre_p, bool is_formal)
 {
   tree t, mod;
-  const char *prefix = NULL;
-  
-  prefix = get_name (val);
+
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
-  t = create_tmp_var (TREE_TYPE (val), prefix);
+
+  t = lookup_tmp_var (val, is_formal);
+
   mod = build (MODIFY_EXPR, TREE_TYPE (t), t, val);
   if (TREE_LOCUS (val))
     TREE_LOCUS (mod) = TREE_LOCUS (val);
