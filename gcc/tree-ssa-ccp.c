@@ -1922,7 +1922,18 @@ get_strlen (tree arg)
 	  arg_len = prev_arg_len = NULL_TREE;
 	  for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	    {
-	      arg_len = get_strlen (PHI_ARG_DEF (def_stmt, i));
+	      tree arg = PHI_ARG_DEF (def_stmt, i);
+
+	      /* If this PHI has itself as an argument, we cannot
+		 determine the string length of this argument.  However,
+		 if we can find a constant string length for the other
+		 PHI args then we can still be sure that this is a
+		 constant string length.  So be optimistic and just
+		 continue with the next argument.  */
+	      if (arg == PHI_RESULT (def_stmt))
+		continue;
+
+	      arg_len = get_strlen (arg);
 	      if (arg_len == NULL_TREE)
 		return NULL_TREE;
 
