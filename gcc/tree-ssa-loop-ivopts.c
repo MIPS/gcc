@@ -509,7 +509,7 @@ divide (unsigned bits, unsigned HOST_WIDE_INT a, unsigned HOST_WIDE_INT b,
    the base if it is an array and DATA to the callback.  If the callback returns
    false, the whole search stops and false is returned.  */
 
-static bool
+bool
 for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 {
   tree *nxt;
@@ -4020,7 +4020,7 @@ rewrite_use_address (struct iv_use *use, struct iv_cand *cand)
   block_stmt_iterator bsi = stmt_bsi (use->stmt);
   tree stmts;
   tree op = force_gimple_operand (comp, &stmts, NULL_TREE, false);
-  tree var, tmp_var;
+  tree var, tmp_var, name;
 
   if (stmts)
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
@@ -4035,13 +4035,23 @@ rewrite_use_address (struct iv_use *use, struct iv_cand *cand)
       tmp_var = create_tmp_var (TREE_TYPE (op), "ruatmp");
       add_referenced_tmp_var (tmp_var);
       SSA_NAME_VAR (op) = tmp_var;
-	 
-      var = get_base_decl (*use->op_p);
 
+      var = get_base_decl (*use->op_p);
       if (var_ann (var)->type_mem_tag)
 	var = var_ann (var)->type_mem_tag;
-
       var_ann (tmp_var)->type_mem_tag = var;
+
+      name = get_base_var (*use->op_p);
+      if (name && TREE_CODE (name) == SSA_NAME)
+	{
+	  ssa_name_ann_t ann = ssa_name_ann (name), new_ann;
+
+	  if (ann && ann->name_mem_tag)
+	    {
+	      new_ann = get_ssa_name_ann (op);
+	      new_ann->name_mem_tag = ann->name_mem_tag;
+	    }
+	}
     }
 
   *use->op_p = build1 (INDIRECT_REF, TREE_TYPE (*use->op_p), op);

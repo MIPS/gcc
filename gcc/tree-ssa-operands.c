@@ -1131,6 +1131,8 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   var_ann_t v_ann;
 
   var = *var_p;
+  if (!var)
+    return;
   STRIP_NOPS (var);
 
   s_ann = stmt_ann (stmt);

@@ -1,3 +1,29 @@
+2004-02-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-flow.h (for_each_index): Declare.
+	* tree-ssa-loop-im.c (struct lim_aux_data): Add always_executed_in
+	and sm_done fields.
+	(struct use): New.
+	(max_uid): New static variable.
+	(outermost_invariant_loop, commit_inserts, may_move_till,
+	force_move_till, record_use, free_uses, single_reachable_address,
+	rewrite_uses, schedule_sm, determine_lsm_reg,
+	loop_suitable_for_sm, determine_lsm_loop, determine_lsm): New functions.
+	(add_dependency): Use outermost_invariant_loop.
+	(set_level): Add sanity checking.
+	(determine_invariantness_stmt): Set always_executed_in field.
+	(move_computations_stmt): Modified.
+	(move_computations): Use commit_inserts.
+	(fill_always_executed_in): Take possibility of an infinite loop into
+	account.
+	(tree_ssa_lim): Call determine_lsm.
+	* tree-ssa-loop-ivopts.c (for_each_index): Export.
+	(rewrite_use_address): Improve handling of memory tags.
+
+	* tree-ssa-loop.c (do_while_loop_p): Readd.
+	(copy_loop_headers): Readd check for do_while_loop_p.
+	* tree-ssa-operands.c (add_stmt_operand): Modified.
+
 2004-02-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa branch (lno-merge-20040221).

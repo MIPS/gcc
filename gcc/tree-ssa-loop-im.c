@@ -45,7 +45,18 @@ struct depend
   struct depend *next;
 };
 
+/* The possibilities of statement movement.  */
+
+enum move_pos
+{
+  MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
+  MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
+				   become executed -- memory accesses, ... */
+  MOVE_POSSIBLE			/* Unlimited movement.  */
+};
+
 /* The auxiliary data kept for each statement.  */
+
 struct lim_aux_data
 {
   struct loop *max_loop;	/* The outermost loop in that the statement
@@ -53,6 +64,14 @@ struct lim_aux_data
 
   struct loop *tgt_loop;	/* The loop out of that we want to move the
 				   invariant.  */
+
+  struct loop *always_executed_in;
+				/* The outermost loop for that we are sure
+				   the statement is executed if the loop
+				   is entered.  */
+
+  bool sm_done;			/* The store motion for a memory reference in
+				   the statement has already been decided.  */
 
   unsigned cost;		/* Cost of the computation of the value.  */
 
@@ -62,6 +81,15 @@ struct lim_aux_data
 
 #define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->aux))
 
+/* Description of a use.  */
+
+struct use
+{
+  tree *addr;			/* The use itself.  */
+  tree stmt;			/* The statement in that it occurs.  */
+  struct use *next;		/* Next use in the chain.  */
+};
+
 /* Minimum cost of an expensive expression.  */
 #define LIM_EXPENSIVE ((unsigned) PARAM_VALUE (PARAM_LIM_EXPENSIVE))
 
@@ -69,14 +97,9 @@ struct lim_aux_data
    block will be executed.  */
 #define ALWAYS_EXECUTED_IN(BB) ((struct loop *) (BB)->aux)
 
-/* The possibilities of statement movement.  */
-enum move_pos
-{
-  MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
-  MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
-				   become executed -- memory accesses, ... */
-  MOVE_POSSIBLE			/* Unlimited movement.  */
-};
+/* Maximum uid in the statement in the function.  */
+
+static unsigned max_uid;
 
 /* Checks whether MEM is a memory access that might fail.  */
 
@@ -146,6 +169,36 @@ movement_possibility (tree stmt)
   return MOVE_POSSIBLE;
 }
 
+/* Returns the outermost loop in that DEF behaves as an invariant with respect
+   to LOOP.  */
+
+static struct loop *
+outermost_invariant_loop (tree def, struct loop *loop)
+{
+  tree def_stmt;
+  basic_block def_bb;
+  struct loop *max_loop;
+
+  if (is_gimple_min_invariant (def))
+    return superloop_at_depth (loop, 1);
+
+  def_stmt = SSA_NAME_DEF_STMT (def);
+  def_bb = bb_for_stmt (def_stmt);
+  if (!def_bb)
+    return superloop_at_depth (loop, 1);
+
+  max_loop = find_common_loop (loop, def_bb->loop_father);
+
+  if (LIM_DATA (def_stmt) && LIM_DATA (def_stmt)->max_loop)
+    max_loop = find_common_loop (max_loop,
+				 LIM_DATA (def_stmt)->max_loop->outer);
+  if (max_loop == loop)
+    return NULL;
+  max_loop = superloop_at_depth (loop, max_loop->depth + 1);
+
+  return max_loop;
+}
+
 /* Adds a dependency on DEF to DATA on statement inside LOOP.  If ADD_COST is
    true, add the cost of the computation to the cost in DATA.  */
 
@@ -161,18 +214,16 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
   if (!def_bb)
     return true;
 
-  max_loop = find_common_loop (loop, def_bb->loop_father);
-
-  if (LIM_DATA (def_stmt))
-    max_loop = find_common_loop (max_loop,
-				 LIM_DATA (def_stmt)->max_loop->outer);
-  if (max_loop == loop)
+  max_loop = outermost_invariant_loop (def, loop);
+  if (!max_loop)
     return false;
-  max_loop = superloop_at_depth (loop, max_loop->depth + 1);
 
   if (flow_loop_nested_p (data->max_loop, max_loop))
     data->max_loop = max_loop;
- 
+
+  if (!LIM_DATA (def_stmt))
+    return true;
+
   if (add_cost
       && def_bb->loop_father == loop)
     data->cost += LIM_DATA (def_stmt)->cost;
@@ -298,6 +349,13 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
   if (flow_loop_nested_p (stmt_loop, level))
     return;
 
+  if (!LIM_DATA (stmt))
+    abort ();
+
+  if (level != LIM_DATA (stmt)->max_loop
+      && !flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level))
+    abort ();
+
   LIM_DATA (stmt)->tgt_loop = level;
   for (dep = LIM_DATA (stmt)->depends; dep; dep = dep->next)
     set_level (dep->stmt, orig_loop, level);
@@ -350,6 +408,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
   block_stmt_iterator bsi;
   tree stmt;
   bool maybe_never = ALWAYS_EXECUTED_IN (bb) == NULL;
+  struct loop *outermost = ALWAYS_EXECUTED_IN (bb);
 
   if (!bb->loop_father->outer)
     return;
@@ -366,18 +425,22 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       if (pos == MOVE_IMPOSSIBLE)
 	{
 	  if (nonpure_call_p (stmt))
-	    maybe_never = true;
+	    {
+	      maybe_never = true;
+	      outermost = NULL;
+	    }
 	  continue;
 	}
+
+      stmt_ann (stmt)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+      LIM_DATA (stmt)->always_executed_in = outermost;
 
       if (maybe_never && pos == MOVE_PRESERVE_EXECUTION)
 	continue;
 
-      stmt_ann (stmt)->aux = xcalloc (1, sizeof (struct lim_aux_data));
       if (!determine_max_movement (stmt, pos == MOVE_PRESERVE_EXECUTION))
 	{
-	  free_lim_aux_data (LIM_DATA (stmt));
-	  stmt_ann (stmt)->aux = NULL;
+	  LIM_DATA (stmt)->max_loop = NULL;
 	  continue;
 	}
 
@@ -410,6 +473,25 @@ determine_invariantness (void)
   fini_walk_dominator_tree (&walk_data);
 }
 
+/* Commits edge inserts and updates loop info.  */
+
+static void
+commit_inserts (void)
+{
+  unsigned old_last_basic_block, i;
+  basic_block bb;
+
+  old_last_basic_block = last_basic_block;
+  bsi_commit_edge_inserts (NULL);
+  for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
+    {
+      bb = BASIC_BLOCK (i);
+      add_bb_to_loop (bb,
+		      find_common_loop (bb->succ->dest->loop_father,
+					bb->pred->src->loop_father));
+    }
+}
+
 /* Moves the statements in basic block BB to the right place.  Callback
    for walk_dominator_tree.  */
 
@@ -430,14 +512,15 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       stmt = bsi_stmt (bsi);
 
       if (!LIM_DATA (stmt))
-	level = NULL;
-      else
 	{
-	  cost = LIM_DATA (stmt)->cost;
-	  level = LIM_DATA (stmt)->tgt_loop;
-	  free_lim_aux_data (LIM_DATA (stmt));
-	  stmt_ann (stmt)->aux = NULL;
+	  bsi_next (&bsi);
+	  continue;
 	}
+
+      cost = LIM_DATA (stmt)->cost;
+      level = LIM_DATA (stmt)->tgt_loop;
+      free_lim_aux_data (LIM_DATA (stmt));
+      stmt_ann (stmt)->aux = NULL;
 
       if (!level)
 	{
@@ -463,7 +546,6 @@ static void
 move_computations (void)
 {
   struct dom_walk_data walk_data;
-  int old_last_basic_block, i;
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
   walk_data.before_dom_children_before_stmts = move_computations_stmt;
@@ -472,14 +554,380 @@ move_computations (void)
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
-  old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts (NULL);
-  for (i = old_last_basic_block; i < last_basic_block; i++)
+  commit_inserts ();
+  rewrite_into_ssa ();
+  BITMAP_XFREE (vars_to_rename);
+}
+
+/* Checks whether variable in *INDEX is movable out of the loop passed
+   in DATA.  Callback for for_each_index.  */
+
+static bool
+may_move_till (tree base ATTRIBUTE_UNUSED, tree *index, void *data)
+{
+  struct loop *loop = data, *max_loop;
+
+  if (TREE_CODE (*index) != SSA_NAME)
+    return true;
+
+  max_loop = outermost_invariant_loop (*index, loop);
+
+  if (!max_loop)
+    return false;
+
+  if (loop == max_loop
+      || flow_loop_nested_p (max_loop, loop))
+    return true;
+
+  return false;
+}
+
+/* Forces variable in *INDEX to be moved out of the loop passed
+   in DATA.  Callback for for_each_index.  */
+
+static bool
+force_move_till (tree base ATTRIBUTE_UNUSED, tree *index, void *data)
+{
+  tree stmt;
+
+  if (TREE_CODE (*index) != SSA_NAME)
+    return true;
+
+  stmt = SSA_NAME_DEF_STMT (*index);
+  if (IS_EMPTY_STMT (stmt))
+    return true;
+
+  set_level (stmt, bb_for_stmt (stmt)->loop_father, data);
+
+  return true;
+}
+
+/* Records use of *ADDR in STMT to USES.  */
+
+static void
+record_use (struct use **uses, tree stmt, tree *addr)
+{
+  struct use *use = xmalloc (sizeof (struct use));
+
+  use->stmt = stmt;
+  use->addr = addr;
+
+  use->next = *uses;
+  *uses = use;
+}
+
+/* Releases list of uses USES.  */
+
+static void
+free_uses (struct use *uses)
+{
+  struct use *act;
+
+  while (uses)
     {
-      basic_block bb = BASIC_BLOCK (i);
-      add_bb_to_loop (bb,
-		      find_common_loop (bb->succ->dest->loop_father,
-					bb->pred->src->loop_father));
+      act = uses;
+      uses = uses->next;
+      free (act);
+    }
+}
+
+/* Finds the single address inside LOOP corresponding to the virtual
+   ssa version defined in STMT.  Stores the list of its uses to USES.  */
+
+static tree
+single_reachable_address (struct loop *loop, tree stmt, struct use **uses)
+{
+  tree *queue = xmalloc (sizeof (tree) * max_uid);
+  sbitmap seen = sbitmap_alloc (max_uid);
+  tree addr = NULL, *aaddr;
+  unsigned in_queue = 1;
+  dataflow_t df;
+  unsigned i, n;
+
+  sbitmap_zero (seen);
+
+  *uses = NULL;
+
+  queue[0] = stmt;
+  SET_BIT (seen, stmt_ann (stmt)->uid);
+
+  while (in_queue)
+    {
+      stmt = queue[--in_queue];
+
+      if (LIM_DATA (stmt)
+	  && LIM_DATA (stmt)->sm_done)
+	goto fail;
+
+      switch (TREE_CODE (stmt))
+	{
+	case MODIFY_EXPR:
+	  aaddr = &TREE_OPERAND (stmt, 0);
+	  if (is_gimple_reg (*aaddr)
+	      || !is_gimple_lvalue (*aaddr))
+	    aaddr = &TREE_OPERAND (stmt, 1);
+	  if (is_gimple_reg (*aaddr)
+	      || !is_gimple_lvalue (*aaddr)
+	      || (addr && !operand_equal_p (*aaddr, addr, 0)))
+	    goto fail;
+	  addr = *aaddr;
+
+	  record_use (uses, stmt, aaddr);
+	  /* Fallthru.  */
+
+	case PHI_NODE:
+	  df = get_immediate_uses (stmt);
+	  n = num_immediate_uses (df);
+
+	  for (i = 0; i < n; i++)
+	    {
+	      stmt = immediate_use (df, i);
+
+	      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
+		continue;
+
+	      if (TEST_BIT (seen, stmt_ann (stmt)->uid))
+		continue;
+	      SET_BIT (seen, stmt_ann (stmt)->uid);
+
+	      queue[in_queue++] = stmt;
+	    }
+
+	  break;
+
+	default:
+	  goto fail;
+	}
+    }
+
+  free (queue);
+  sbitmap_free (seen);
+
+  return addr;
+
+fail:
+  free_uses (*uses);
+  *uses = NULL;
+  free (queue);
+  sbitmap_free (seen);
+
+  return NULL;
+}
+
+/* Rewrites uses in list USES by TMP_VAR.  */
+
+static void
+rewrite_uses (tree tmp_var, struct use *uses)
+{
+  vdef_optype vdefs;
+  vuse_optype vuses;
+  unsigned i;
+  tree var;
+
+  for (; uses; uses = uses->next)
+    {
+      vdefs = STMT_VDEF_OPS (uses->stmt);
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	{
+	  var = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+
+      vuses = STMT_VUSE_OPS (uses->stmt);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	{
+	  var = SSA_NAME_VAR (VUSE_OP (vuses, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+
+      *uses->addr = tmp_var;
+      modify_stmt (uses->stmt);
+    }
+}
+
+/* Records request for store motion of address ADDR from LOOP.  USES is the
+   list of uses to replace.  Exits from the LOOP are stored in EXITS, there
+   are N_EXITS of them.  */
+
+static void
+schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree addr,
+	     struct use *uses)
+{
+  struct use *use;
+  tree tmp_var;
+  unsigned i;
+  tree load, store;
+
+  tmp_var = create_tmp_var (TREE_TYPE (addr), "lsm_tmp");
+  add_referenced_tmp_var (tmp_var);
+  bitmap_set_bit (vars_to_rename,  var_ann (tmp_var)->uid);
+
+  for_each_index (&addr, force_move_till, loop);
+
+  rewrite_uses (tmp_var, uses);
+  for (use = uses; use; use = use->next)
+    if (LIM_DATA (use->stmt))
+      LIM_DATA (use->stmt)->sm_done = true;
+
+  /* Emit the load & stores.  */
+  load = build (MODIFY_EXPR, void_type_node, tmp_var, addr);
+  modify_stmt (load);
+  stmt_ann (load)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+  LIM_DATA (load)->max_loop = loop;
+  LIM_DATA (load)->tgt_loop = loop;
+
+  /* Put this into the latch, so that we are sure it will be processed after
+     all dependencies.  */
+  bsi_insert_on_edge (loop_latch_edge (loop), load);
+
+  for (i = 0; i < n_exits; i++)
+    {
+      store = build (MODIFY_EXPR, void_type_node,
+		     unshare_expr (addr), tmp_var);
+      bsi_insert_on_edge (exits[i], store);
+    }
+}
+
+/* For a virtual ssa version REG, determine whether all its uses inside
+   the LOOP correspond to a single address and whether it is hoistable.  LOOP
+   has N_EXITS stored in EXITS.  */
+
+static void
+determine_lsm_reg (struct loop *loop, edge *exits, unsigned n_exits, tree reg)
+{
+  tree addr;
+  struct use *uses, *use;
+  struct loop *must_exec;
+  
+  if (is_gimple_reg (reg))
+    return;
+  
+  addr = single_reachable_address (loop, SSA_NAME_DEF_STMT (reg), &uses);
+  if (!addr)
+    return;
+
+  if (!for_each_index (&addr, may_move_till, loop))
+    {
+      free_uses (uses);
+      return;
+    }
+
+  if (unsafe_memory_access_p (addr))
+    {
+      for (use = uses; use; use = use->next)
+	{
+	  if (!LIM_DATA (use->stmt))
+	    continue;
+
+	  must_exec = LIM_DATA (use->stmt)->always_executed_in;
+	  if (!must_exec)
+	    continue;
+
+	  if (must_exec == loop
+	      || flow_loop_nested_p (must_exec, loop))
+	    break;
+	}
+
+      if (!use)
+	{
+	  free_uses (uses);
+	  return;
+	}
+    }
+
+  schedule_sm (loop, exits, n_exits, addr, uses);
+  free_uses (uses);
+}
+
+/* Checks whether LOOP with N_EXITS exits stored in EXITS is suitable for
+   a store motion.  */
+
+static bool
+loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED, edge *exits, unsigned n_exits)
+{
+  unsigned i;
+
+  for (i = 0; i < n_exits; i++)
+    if (exits[i]->flags & EDGE_ABNORMAL)
+      return false;
+
+  return true;
+}
+
+/* Determine for all memory references whether we can hoist them out of
+   the LOOP.  */
+
+static void
+determine_lsm_loop (struct loop *loop)
+{
+  tree phi;
+  unsigned n_exits;
+  edge *exits = get_loop_exit_edges (loop, &n_exits);
+
+  if (!loop_suitable_for_sm (loop, exits, n_exits))
+    {
+      free (exits);
+      return;
+    }
+
+  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+    determine_lsm_reg (loop, exits, n_exits, PHI_RESULT (phi));
+
+  free (exits);
+}
+
+/* Determine for all memory references inside LOOPS whether we can hoist them
+   out.  */
+
+static void
+determine_lsm (struct loops *loops)
+{
+  struct loop *loop;
+  basic_block bb;
+
+  /* Create a UID for each statement in the function.  Ordering of the
+     UIDs is not important for this pass.  */
+  max_uid = 0;
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      tree phi;
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	stmt_ann (bsi_stmt (bsi))->uid = max_uid++;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	stmt_ann (phi)->uid = max_uid++;
+    }
+
+  vars_to_rename = BITMAP_XMALLOC ();
+  compute_immediate_uses (TDFA_USE_VOPS, NULL);
+
+  /* Pass the loops from the outermost.  For each virtual operand loop phi node
+     check whether all the references inside the loop correspond to a single
+     address, and if so, move them.  */
+
+  loop = loops->tree_root->inner;
+  while (1)
+    {
+      determine_lsm_loop (loop);
+
+      if (loop->inner)
+	{
+	  loop = loop->inner;
+	  continue;
+	}
+      while (!loop->next)
+	{
+	  loop = loop->outer;
+	  if (loop == loops->tree_root)
+	    {
+	      free_df ();
+	      commit_inserts ();
+	      return;
+	    }
+	}
+      loop = loop->next;
     }
 }
 
@@ -492,6 +940,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
   basic_block bb = NULL, *bbs, last = NULL;
   unsigned i;
   edge e;
+  struct loop *inn_loop = loop;
 
   if (!loop->header->aux)
     {
@@ -512,6 +961,24 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	      break;
 	  if (e)
 	    break;
+
+	  /* A loop might be infinite (TODO use simple loop analysis
+	     to disprove this if possible).  */
+	  if (bb->flags & BB_IRREDUCIBLE_LOOP)
+	    break;
+
+	  if (!flow_bb_inside_loop_p (inn_loop, bb))
+	    break;
+
+	  if (bb->loop_father->header == bb)
+	    {
+	      if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
+		break;
+
+	      /* In a loop that is always entered we may proceed anyway.
+		 But record that we entered it and stop once we leave it.  */
+	      inn_loop = bb->loop_father;
+	    }
 	}
 
       while (1)
@@ -584,6 +1051,11 @@ tree_ssa_lim (struct loops *loops)
   /* For each statement determine the outermost loop in that it is
      invariant and cost for computing the invariant.  */
   determine_invariantness ();
+
+  /* For each memory reference determine whether it is possible to hoist it
+     out of the loop.  Force the necessary invariants to be moved out of the
+     loops as well.  */
+  determine_lsm (loops);
 
   /* Move the expressions that are expensive enough.  */
   move_computations ();
