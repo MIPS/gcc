@@ -2036,7 +2036,7 @@ stmp-int-hdrs: stmp-fixinc $(USER_H) xlimits.h gfloat.h
 stmp-headers:
 	touch $@
 
-fixinc.sh :
+fixinc.sh: fixinc/mkfixinc.sh 
 	@- cp $(srcdir)/fixinc/[a-z]* fixinc > /dev/null 2>&1 || :
 	cd ./fixinc ; MAKE="$(MAKE)" \
 	$(SHELL) mkfixinc.sh $(target)
