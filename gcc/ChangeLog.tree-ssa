@@ -1,3 +1,7 @@
+2002-12-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (tree_find_loops): Remove unused declaration.
+
 2002-12-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* toplev.c: Add flag_ip, enable by default at -O4+ (This is not
