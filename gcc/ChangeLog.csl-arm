@@ -1,3 +1,10 @@
+2004-12-08  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/unwind-arm.c (selfrel_offset): remove.
+	(EIT_comparator): Use selfrel_offset31.
+	(get_eit_entry): Ditto.
+	(__gnu_unwind_pr_common): Ditto.
+
 2004-11-19  Paul Brook  <paul@codesourcery.com>
 
 	* unwind-arm.h: Don't include stdio.h.  Add prototype for abort().

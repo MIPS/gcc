@@ -317,13 +317,6 @@ _Unwind_VRS_Result _Unwind_VRS_Pop (_Unwind_Context *context,
 
 /* Core unwinding functions.  */
 
-/* Dereference a self-relative offset.  */
-static inline _uw
-selfrel_offset (const _uw *p)
-{
-  return *p + (_uw) p;
-}
-
 /* Dereference a 31-bit self-relative offset.  */
 static inline _uw
 selfrel_offset31 (const _uw *p)
@@ -349,9 +342,9 @@ EIT_comparator (const void *ck, const void *ce)
   _uw next_fn;
   _uw this_fn;
 
-  this_fn = selfrel_offset (&eitp->fnoffset);
+  this_fn = selfrel_offset31 (&eitp->fnoffset);
   if (next_eitp != &__exidx_end)
-    next_fn = selfrel_offset (&next_eitp->fnoffset);
+    next_fn = selfrel_offset31 (&next_eitp->fnoffset);
   else
     next_fn = ~(_uw) 0;
 
@@ -379,7 +372,7 @@ get_eit_entry (_Unwind_Control_Block *ucbp, _uw return_address)
       UCB_PR_ADDR (ucbp) = 0;
       return _URC_FAILURE;
     }
-  ucbp->pr_cache.fnstart = selfrel_offset (&eitp->fnoffset);
+  ucbp->pr_cache.fnstart = selfrel_offset31 (&eitp->fnoffset);
 
   /* Can this frame be unwound at all?  */
   if (eitp->content == EXIDX_CANTUNWIND)
@@ -930,8 +923,8 @@ __gnu_unwind_pr_common (_Unwind_State state,
 		  /* Cleanup in range, and we are running cleanups.  */
 		  _uw lp;
 
-		  /* Landing pad address is 31-bit  pc-relatvie offset.  */
-		  lp = selfrel_offset (data);
+		  /* Landing pad address is 31-bit pc-relatvie offset.  */
+		  lp = selfrel_offset31 (data);
 		  data++;
 		  /* Save the exception data pointer.  */
 		  ucbp->cleanup_cache.bitpattern[0] = (_uw) data;
