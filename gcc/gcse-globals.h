@@ -160,6 +160,7 @@ struct ls_expr
 {
   struct expr * expr;		/* Gcse expression reference for LM.  */
   rtx pattern;			/* Pattern of this mem.  */
+  rtx pattern_regs;		/* List of registers mentioned by the mem.  */
   rtx loads;			/* INSN list of loads seen.  */
   rtx stores;			/* INSN list of stores seen.  */
   struct ls_expr * next;	/* Next in the list.  */

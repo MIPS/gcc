@@ -1,3 +1,12 @@
+2003-02-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcse-globals.h (struct ls_expr): New pattern_regs field.
+	* gcse-store.c (store_killed_after, store_killed_before,
+	store_ops_ok): Improve speed.
+	(extract_mentioned_regs, extract_mentioned_regs_helper): New.
+	(find_moveable_store): Do not consider MEMS mentioning stack pointer.
+	* gcse-utils.c (ldst_entry): Initialize pattern_regs field.
+
 2003-02-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse-globals.h (struct store_global): Change type of regvec

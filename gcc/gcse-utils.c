@@ -1936,6 +1936,7 @@ ldst_entry (x)
       ptr->next         = pre_ldst_mems;
       ptr->expr         = NULL;
       ptr->pattern      = x;
+      ptr->pattern_regs	= NULL_RTX;
       ptr->loads        = NULL_RTX;
       ptr->stores       = NULL_RTX;
       ptr->reaching_reg = NULL_RTX;

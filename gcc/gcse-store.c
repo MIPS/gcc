@@ -53,14 +53,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void reg_set_info		PARAMS ((rtx, rtx, void *));
 static int store_ops_ok			PARAMS ((rtx, int *));
+static rtx extract_mentioned_regs	PARAMS ((rtx));
+static rtx extract_mentioned_regs_helper PARAMS ((rtx, rtx));
 static void find_moveable_store		PARAMS ((rtx, int *, int *));
 static int compute_store_table		PARAMS ((struct store_global *));
 static int load_kills_store		PARAMS ((rtx, rtx));
 static int find_loads			PARAMS ((rtx, rtx));
 static int store_killed_in_insn		PARAMS ((rtx, rtx));
-static int store_killed_after		PARAMS ((rtx, rtx, basic_block,
+static int store_killed_after		PARAMS ((rtx, rtx, rtx, basic_block,
 						 int *, rtx *));
-static int store_killed_before		PARAMS ((rtx, rtx, basic_block,
+static int store_killed_before		PARAMS ((rtx, rtx, rtx, basic_block,
 						 int *));
 static void build_store_vectors		PARAMS ((struct store_global *));
 static int insert_store			PARAMS ((struct ls_expr *, edge,
@@ -85,13 +87,40 @@ reg_set_info (dest, setter, data)
     store_data->regvec[REGNO (dest)] = INSN_UID (store_data->current_insn);
 }
 
-/* Return zero if the register operands of expression X are killed
+/* Return zero if some of the registers in list X are killed
    due to set of registers in bitmap REGS_SET.  */
 
 static int
 store_ops_ok (x, regs_set)
      rtx x;
      int *regs_set;
+{
+  rtx reg;
+
+  for (; x; x = XEXP (x, 1))
+    {
+      reg = XEXP (x, 0);
+      if (regs_set[REGNO(reg)])
+	return 0; 
+    }
+
+  return 1;
+}
+
+/* Returns a list of registers mentioned in X.  */
+static rtx
+extract_mentioned_regs (x)
+     rtx x;
+{
+  return extract_mentioned_regs_helper (x, NULL_RTX);
+}
+
+/* Helper for extract_mentioned_regs; ACCUM is used to accumulate used
+   registers.  */
+static rtx
+extract_mentioned_regs_helper (x, accum)
+     rtx x;
+     rtx accum;
 {
   int i;
   enum rtx_code code;
@@ -101,14 +130,13 @@ store_ops_ok (x, regs_set)
  repeat:
 
   if (x == 0)
-    return 1;
+    return accum;
 
   code = GET_CODE (x);
   switch (code)
     {
     case REG:
-	/* If a reg has changed, the operand has been killed.  */
-	return !regs_set[REGNO(x)];
+      return alloc_EXPR_LIST (0, x, accum);
 
     case MEM:
       x = XEXP (x, 0);
@@ -118,7 +146,8 @@ store_ops_ok (x, regs_set)
     case PRE_INC:
     case POST_DEC:
     case POST_INC:
-      return 0;
+      /* We do not run this function with arguments having side effects.  */
+      abort ();
 
     case PC:
     case CC0: /*FIXME*/
@@ -130,7 +159,7 @@ store_ops_ok (x, regs_set)
     case LABEL_REF:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-      return 1;
+      return accum;
 
     default:
       break;
@@ -146,30 +175,25 @@ store_ops_ok (x, regs_set)
 	  rtx tem = XEXP (x, i);
 
 	  /* If we are about to do the last recursive call
-	     needed at this level, change it into iteration.
-	     This function is called enough to be worth it.  */
+	     needed at this level, change it into iteration.  */
 	  if (i == 0)
 	    {
 	      x = tem;
 	      goto repeat;
 	    }
 
-	  if (! store_ops_ok (tem, regs_set))
-	    return 0;
+	  accum = extract_mentioned_regs_helper (tem, accum);
 	}
       else if (fmt[i] == 'E')
 	{
 	  int j;
 
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    {
-	      if (! store_ops_ok (XVECEXP (x, i, j), regs_set))
-		return 0;
-	    }
+	    accum = extract_mentioned_regs_helper (XVECEXP (x, i, j), accum);
 	}
     }
 
-  return 1;
+  return accum;
 }
 
 /* Determine whether INSN is MEM store pattern that we will consider moving.
@@ -215,7 +239,18 @@ find_moveable_store (insn, regs_set_before, regs_set_after)
       || GET_MODE (dest) == BLKmode)
     return;
 
+  if (side_effects_p (dest))
+    return;
+
+  /* Do not consider MEMs that mention stack pointer; in the following
+     we rely on that constant functions do not read memory, which of course
+     does not include their arguments if passed on stack.  */
+  if (reg_mentioned_p (stack_pointer_rtx, dest))
+    return;
+
   ptr = ldst_entry (dest);
+  if (!ptr->pattern_regs)
+    ptr->pattern_regs = extract_mentioned_regs (dest);
 
   /* Do not check for anticipatability if we either found one anticipatable
      store already, or tested for one and found out that it was killed.  */
@@ -231,7 +266,7 @@ find_moveable_store (insn, regs_set_before, regs_set_after)
     }
   if (check_anticipatable)
     {
-      if (store_killed_before (dest, insn, bb, regs_set_before))
+      if (store_killed_before (dest, ptr->pattern_regs, insn, bb, regs_set_before))
 	tmp = NULL_RTX;
       else
 	tmp = insn;
@@ -265,7 +300,8 @@ find_moveable_store (insn, regs_set_before, regs_set_after)
 	    check_available = 0;
 	}
       else
-	check_available = store_killed_after (dest, insn, bb, regs_set_after,
+	check_available = store_killed_after (dest, ptr->pattern_regs, insn,
+					      bb, regs_set_after,
 					      &LAST_AVAIL_CHECK_FAILURE (ptr));
     }
   if (!check_available)
@@ -489,19 +525,19 @@ store_killed_in_insn (x, insn)
 
 /* Returns 1 if the expression X is loaded or clobbered on or after INSN
    within basic block BB.  REGS_SET_AFTER is bitmap of registers set in
-   or after the insn.  If the store is killed, return the last insn in that it
-   occurs in FAIL_INSN.  */
+   or after the insn.  X_REGS is list of registers mentioned in X. If the store
+   is killed, return the last insn in that it occurs in FAIL_INSN.  */
 
 static int
-store_killed_after (x, insn, bb, regs_set_after, fail_insn)
-     rtx x, insn;
+store_killed_after (x, x_regs, insn, bb, regs_set_after, fail_insn)
+     rtx x, x_regs, insn;
      basic_block bb;
      int *regs_set_after;
      rtx *fail_insn;
 {
   rtx last = bb->end, act;
 
-  if (!store_ops_ok (x, regs_set_after))
+  if (!store_ops_ok (x_regs, regs_set_after))
     { 
       /* We do not know where it will happen.  */
       if (fail_insn)
@@ -522,17 +558,17 @@ store_killed_after (x, insn, bb, regs_set_after, fail_insn)
 }
 
 /* Returns 1 if the expression X is loaded or clobbered on or before INSN
-   within basic block BB.  REGS_SET_BEFORE is bitmap of registers set
-   before or in this insn.  */
+   within basic block BB. X_REGS is list of registers mentioned in X.
+   REGS_SET_BEFORE is bitmap of registers set before or in this insn.  */
 static int
-store_killed_before (x, insn, bb, regs_set_before)
-     rtx x, insn;
+store_killed_before (x, x_regs, insn, bb, regs_set_before)
+     rtx x, x_regs, insn;
      basic_block bb;
      int *regs_set_before;
 {
   rtx first = bb->head;
 
-  if (!store_ops_ok (x, regs_set_before))
+  if (!store_ops_ok (x_regs, regs_set_before))
     return 1;
 
   for ( ; insn != PREV_INSN (first); insn = PREV_INSN (insn))
@@ -608,8 +644,8 @@ build_store_vectors (store_data)
 
       for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
 	{
-	  if (store_killed_after (ptr->pattern, bb->head, bb,
-				  regs_set_in_block, NULL))
+	  if (store_killed_after (ptr->pattern, ptr->pattern_regs, bb->head,
+				  bb, regs_set_in_block, NULL))
 	    {
 	      /* It should not be neccessary to consider the expression
 		 killed if it is anticipatable.  */
