@@ -1,3 +1,24 @@
+2005-01-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR libstdc++/19510
+	* include/bits/stl_list.h (_List_iterator): Initialize _M_node
+	in constructor.
+	(_List_const_iterator): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree_iterator): Likewise.
+	(_Rb_tree_const_iterator): Likewise.
+
+	* testsuite/23_containers/map/operators/1_neg.cc: Adjust line numbers.
+	* testsuite/23_containers/set/operators/1_neg.cc: Likewise.
+
+2005-01-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h: Add a few missing std:: qualifications.
+
+2005-01-16  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/ext/rope: Qualify calls to std::copy() by sequence_buffer.
+	* testsuite/ext/rope/4.cc: Add.
+
 2005-01-12  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algobase.h (lexicographical_compare):

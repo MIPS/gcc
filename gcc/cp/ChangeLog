@@ -1,3 +1,23 @@
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19375
+	* semantics.c (finish_id_expression): Disable access checking for
+	already lookuped FIELD_DECL.
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19258
+	* parser.c (cp_parser_late_parsing_default_args): Handle friend
+	defined in class.
+	* pt.c (push_access_scope, pop_access_scope): Likewise.
+
+2005-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19263
+	* typeck2.c (split_nonconstant_init_1) <case VECTOR_TYPE>: Put a copy
+	of CONSTRUCTOR's node into MODIFY_EXPR, as the original is modified.
+	Store code to *pcode.
+
 2004-12-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/18384, c++/18327

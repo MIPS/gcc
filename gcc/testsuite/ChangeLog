@@ -1,3 +1,49 @@
+2005-01-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20050113-1.c: XFAIL on SPARC.
+
+2005-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/19551
+	* gcc.c-torture/execute/20050121-1.c: New test.
+
+2005-01-24 David Billinghurst (David.Billinghurst@riotinto.com)
+
+	PR other/16403 
+	* lib/g++.exp (g++_version): Tweak regexp for version 
+	* lib/g77.exp (g77_version): Likewise 
+	* lib/objc.exp (objc_version): Likewise 
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19258
+	* g++.dg/lookup/friend6.C: New test.
+
+2005-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/15139
+	* gcc.dg/20050111-2.c: New test.
+
+	PR c/17297
+	* gcc.c-torture/compile/20050113-1.c: New testcase.
+
+	PR middle-end/19164
+	* gcc.dg/20050113-1.c: New testcase.
+
+2005-01-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/debug/typedef3.C: New test.
+
+2005-01-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/short-compare-1.c: New test.
+	* gcc.dg/short-compare-2.c: Likewise.
+
+2005-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19263
+	* g++.dg/init/vector1.C: New test.
+
 2005-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/20050107-1.c: New test.
