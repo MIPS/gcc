@@ -1199,3 +1199,23 @@ expected_loop_iterations (loop)
   return freq_latch / freq_in;
 }
 
+edge
+loop_latch_edge (loop)
+     struct loop *loop;
+{
+  edge e;
+
+  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
+  return e;
+}
+
+edge
+loop_preheader_edge (loop)
+     struct loop *loop;
+{
+  edge e;
+
+  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
+  return e;
+}
+

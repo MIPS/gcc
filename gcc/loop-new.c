@@ -1393,9 +1393,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, flags)
     }
 
   /* Find edge from latch.  */
-  for (latch_edge = header->pred;
-       latch_edge->src != latch;
-       latch_edge = latch_edge->pred_next);
+  latch_edge = loop_latch_edge (loop);
 
   /* For updating frequencies.  */
   freq_e = EDGE_FREQUENCY (e);

@@ -696,6 +696,9 @@ extern int dfs_enumerate_from           PARAMS ((basic_block, int,
 				         bool (*)(basic_block, void *),
 					 basic_block *, int, void *));
 
+extern edge loop_preheader_edge PARAMS ((struct loop *));
+extern edge loop_latch_edge PARAMS ((struct loop *));
+
 extern void add_bb_to_loop PARAMS ((basic_block, struct loop *));
 extern void remove_bb_from_loops PARAMS ((basic_block));
 struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));

@@ -282,7 +282,7 @@ variable_initial_value (loop, var)
   rtx set, insn;
 
   /* Go back through cfg.  */
-  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
+  e = loop_preheader_edge (loop);
   for (bb = e->src; bb->pred; bb = bb->pred->src)
     {
       for (insn = bb->end;
@@ -503,7 +503,6 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
      struct loop_desc *desc;
 {
   int niter, exit_mod;
-  edge e;
   sbitmap wont_exit;
 
   /* Normalization.  */
@@ -528,7 +527,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	niter = 0;
     }
 
-  if (niter < max_unroll)
+  if (niter <= max_unroll)
     {
       /* We may peel the loop completely, and remove all
 	 exit edges but the last one.  */
@@ -537,10 +536,8 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
       RESET_BIT (wont_exit, 0);
       RESET_BIT (wont_exit, niter + 1);
 
-      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      if (!duplicate_loop_to_header_edge (
-	   loop, e, loops, niter + 1, wont_exit,
-	   DLTHE_FLAG_ALL))
+      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, niter + 1, wont_exit, DLTHE_FLAG_ALL))
 	abort ();
 
       free (wont_exit);
@@ -549,16 +546,54 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
       return 1;
     }
 
-  /* We must find out the right iteration to leave condition in.  */
-  exit_mod = niter % (max_unroll + 1);
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
-  RESET_BIT (wont_exit, exit_mod);
+  exit_mod = niter % (max_unroll + 1);
 
-  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
-  if (!duplicate_loop_to_header_edge (
-	loop, e, loops, max_unroll, wont_exit,
-	DLTHE_FLAG_ALL))
+  if (desc->postincr)
+    {
+      /* Counter is incremented after the exit test; leave exit test
+	 in the first copy.  */
+
+      if (rtl_dump_file)
+        fprintf (rtl_dump_file, ";; Condition on beginning of loop.\n");
+
+      /* Peel exit_mod iterations.  */
+      RESET_BIT (wont_exit, 0);
+
+      if (exit_mod
+	  && !duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, exit_mod, wont_exit, DLTHE_FLAG_ALL))
+	abort ();
+    }
+  else
+    {
+      /* Leave exit test in last copy.  */
+
+      if (rtl_dump_file)
+        fprintf (rtl_dump_file, ";; Condition on end of loop.\n");
+
+      /* We know that niter >= max_unroll + 1; so we do not need to care of
+	 case when we would exit before reaching the loop.  So just peel
+	 exit_mod + 1 iterations.
+	 */
+      if (exit_mod != max_unroll)
+	{
+	  RESET_BIT (wont_exit, 0);
+
+	  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, exit_mod + 1, wont_exit, DLTHE_FLAG_ALL))
+	    abort ();
+
+	  SET_BIT (wont_exit, 0);
+	}
+
+      RESET_BIT (wont_exit, max_unroll);
+    }
+
+  /* Now unroll the loop.  */
+  if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+		loops, max_unroll, wont_exit, DLTHE_FLAG_ALL))
     abort ();
 
   free (wont_exit);
@@ -583,6 +618,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   basic_block fake, preheader, *body, dom;
   edge e;
   sbitmap wont_exit;
+  int may_exit_copy, n_peel;
 
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
@@ -604,6 +640,27 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 		GEN_INT (max_unroll),
 		NULL_RTX, 0, OPTAB_LIB_WIDEN);
 
+  if (desc->postincr)
+    {
+      /* Leave exit in first copy.  */
+      may_exit_copy = 0;
+      n_peel = max_unroll;
+    }
+  else
+    {
+      /* Leave exit in last copy.  */
+      may_exit_copy = max_unroll;
+      niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
+		niter,
+		const1_rtx,
+		NULL_RTX, 0, OPTAB_LIB_WIDEN);
+      n_peel = max_unroll + 1;
+      /* First check for zero is obviously unnecessary now; it might seem
+	 we could do better by increasing it before AND; but we must have
+	 guaranteed that exit condition will be checked in first iteration,
+	 so that we won't miscompile loop with negative number of iterations.  */
+    }
+
   niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
 		niter,
 		const1_rtx,
@@ -613,14 +670,13 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   end_sequence ();
 
   /* Precondition the loop.  */
-  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-  loop_split_edge_with (e, init_code, loops);
+  loop_split_edge_with (loop_preheader_edge (loop), init_code, loops);
 
   /* Fake block, to record edges we need to redirect.  */
   fake = create_basic_block (n_basic_blocks, NULL, NULL);
   loop_beg_label = block_label (fake);
 
-  for (i = 0; i < max_unroll; i++)
+  for (i = 0; i < n_peel; i++)
     {
       start_sequence ();
       niter = expand_simple_binop (GET_MODE (desc->var), MINUS,
@@ -633,27 +689,26 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
       branch_code = gen_sequence ();
       end_sequence ();
 
-      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      preheader = loop_split_edge_with (e, branch_code, loops);
+      preheader = loop_split_edge_with (loop_preheader_edge (loop), branch_code, loops);
       make_edge (preheader, fake, 0);
 
       wont_exit = sbitmap_alloc (2);
       sbitmap_zero (wont_exit);
       /* We must be a bit careful here, as we might have negative
-	 number of iterations.  */
-      if (i || desc->cond == NE)
+	 number of iterations.  Also, in case of postincrement we do
+	 not know whether we should not exit before reaching the loop.  */
+      if (desc->postincr
+	  && (i || desc->cond == NE))
         SET_BIT (wont_exit, 1);
 
-      for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-      if (!duplicate_loop_to_header_edge (loop, e, loops, 1, wont_exit,
-		 DLTHE_FLAG_ALL))
+      if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, 1, wont_exit, DLTHE_FLAG_ALL))
         abort ();
       free (wont_exit);
     }
 
   /* Now redirect the edges from fake.  */
-  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-  preheader = loop_split_edge_with (e, NULL_RTX, loops);
+  preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX, loops);
   loop_beg_label = block_label (preheader);
 
   for (e = fake->pred; e; e = fake->pred)
@@ -665,7 +720,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   dom = recount_dominator (loops->cfg.dom, preheader);
   set_immediate_dominator (loops->cfg.dom, preheader, dom);
 
-  if (desc->cond != NE)
+  if (desc->cond != NE || !desc->postincr)
     {
       /* Recount dominators for outer blocks.  */
       body = get_loop_body (loop);
@@ -687,11 +742,10 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
-  RESET_BIT (wont_exit, 0);
+  RESET_BIT (wont_exit, may_exit_copy);
 
-  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
-  if (!duplicate_loop_to_header_edge (loop, e, loops, max_unroll, wont_exit,
-	 DLTHE_FLAG_ALL))
+  if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+	loops, max_unroll, wont_exit, DLTHE_FLAG_ALL))
     abort ();
 
   free (wont_exit);
@@ -755,7 +809,6 @@ peel_loop (loops, loop, will_unroll)
   int niter;
   struct loop_desc desc;
   sbitmap wont_exit;
-  edge e;
 
   if (!can_duplicate_loop_p (loop))
     {
@@ -816,9 +869,8 @@ peel_loop (loops, loop, will_unroll)
   wont_exit = sbitmap_alloc (npeel + 1);
   sbitmap_zero (wont_exit);
 
-  for (e = loop->header->pred; e->src == loop->latch; e = e->pred_next);
-  if (!duplicate_loop_to_header_edge (loop, e, loops, npeel, wont_exit,
-	     DLTHE_FLAG_ALL))
+  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+		loops, npeel, wont_exit, DLTHE_FLAG_ALL))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Peeling unsuccessful\n");
@@ -843,7 +895,6 @@ unroll_loop_new (loops, loop, unroll_all)
   int ninsns = 0, nunroll, niter;
   struct loop_desc desc;
   sbitmap wont_exit;
-  edge e;
 
   /* Do not unroll cold areas.  */
   if (!maybe_hot_bb_p (loop->header))
@@ -890,9 +941,8 @@ unroll_loop_new (loops, loop, unroll_all)
   wont_exit = sbitmap_alloc (nunroll + 1);
   sbitmap_zero (wont_exit);
 
-  for (e = loop->header->pred; e->src != loop->latch; e = e->pred_next);
-  if (!duplicate_loop_to_header_edge (loop, e, loops, nunroll, wont_exit,
-	   DLTHE_FLAG_ALL))
+  if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+		loops, nunroll, wont_exit, DLTHE_FLAG_ALL))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";;  Not unrolling loop, can't duplicate\n");
