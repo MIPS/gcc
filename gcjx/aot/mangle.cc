@@ -68,7 +68,7 @@ mangler::emit_saved (int n)
 	  out[--where] = digit > 9 ? ('A' + n - 10) : ('0' + n);
 	  n /= 36;
 	}
-      if (where == 18)
+      if (where == 19)
 	out[--where] = '0';
       result += &out[where];
     }

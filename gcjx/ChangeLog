@@ -1,3 +1,7 @@
+2005-02-23  Tom Tromey  <tromey@redhat.com>
+
+	* aot/mangle.cc (emit_saved): Fixed test for '0'.
+
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
 	* aot/aotclass.cc (add_class): New method.
