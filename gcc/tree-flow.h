@@ -224,6 +224,7 @@ static inline tree indirect_ref			PARAMS ((tree));
 static inline int get_lineno			PARAMS ((tree));
 static inline const char *get_filename		PARAMS ((tree));
 static inline bool is_exec_stmt			PARAMS ((tree));
+static inline bool is_label_stmt		PARAMS ((tree));
 static inline varray_type vdef_ops		PARAMS ((tree));
 static inline varray_type vuse_ops		PARAMS ((tree));
 static inline varray_type use_ops		PARAMS ((tree));
@@ -282,6 +283,7 @@ typedef struct {
 } block_stmt_iterator;
 
 extern block_stmt_iterator bsi_start 	PARAMS ((basic_block));
+extern block_stmt_iterator bsi_last	PARAMS ((basic_block));
 static inline bool bsi_end_p		PARAMS ((block_stmt_iterator));
 static inline void bsi_next		PARAMS ((block_stmt_iterator *));
 extern void bsi_prev			PARAMS ((block_stmt_iterator *));

@@ -409,4 +409,24 @@ is_exec_stmt (t)
   return (t && t != empty_stmt_node && t != error_mark_node);
 }
 
+
+/* Return true if this stmt can be the target of a control transfer stmt such
+   as a goto.  */
+static inline bool
+is_label_stmt (t)
+     tree t;
+{
+  if (t)
+    switch (TREE_CODE (t))
+      {
+	case LABEL_DECL:
+	case LABEL_EXPR:
+	case CASE_LABEL_EXPR:
+	  return true;
+	default:
+	  return false;
+      }
+  return false;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

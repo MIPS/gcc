@@ -1,3 +1,26 @@
+2003-03-18  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-cfg.c (make_blocks): Use append_stmt_to_bb. Check for NULL
+	tsi_stmt when deciding whether to start a new block.
+	(add_stmt_to_bb): Don't update the basic block end pointer.
+	(append_stmt_to_bb): New. Add stmt and update the BB end pointer.
+	(first_stmt): Use only 1 return.
+	(last_stmt): Modified to use bsi_last().
+	(last_stmt_ptr): Modified to use bsi_last().
+	(bsi_last): New. Return an iterator to the last stmt in a block.
+	(bsi_from_tsi): Fix bug which wouldn't set the context properly when
+	within a nested BIND_EXPR.
+	(bsi_update_from_tsi): Insert helper which is more efficient than
+	bsi_from_tsi().
+	(bsi_link_after): link in a new stmt and update the basic block 
+	data structures.
+	(bsi_insert_after): Insert a new stmt into a block.
+	(bsi_insert_before): Insert a new stmt into a block.
+	(bsi_insert_on_edge): Insert a new stmt on an edge.
+	* tree-flow-inline.h (is_label_stmt): Return true if stmt can be a 
+	target of a control transfer.
+	* tree-flow.h (is_label_stmt, bsi_last): New prototypes.
+	
 2003-03-12  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (simplify_switch_stmt): Save the type of the original
