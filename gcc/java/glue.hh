@@ -77,6 +77,7 @@ extern "C"
 #include "ggc.h"
 #include "debug.h"
 #include "version.h"
+#include "target.h"
 
 // This gets us alloc_stmt_list().  Shouldn't that be in
 // tree-iterator.h?

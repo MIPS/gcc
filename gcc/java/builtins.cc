@@ -119,6 +119,7 @@ tree_builtins::add (tree context, model_method *meth)
       tree this_decl = build_decl (PARM_DECL, get_identifier ("this"),
 				   klass_ptr);
       DECL_CONTEXT (this_decl) = result;
+      DECL_ARG_TYPE (this_decl) = TREE_TYPE (this_decl);
       TREE_CHAIN (this_decl) = formals;
       formals = this_decl;
     }
@@ -291,6 +292,17 @@ tree_builtins::map_param_or_var (tree_code type, tree context,
 				map_identifier (var->get_name ()),
 				map_type (var->type ()));
       DECL_CONTEXT (result) = context;
+      if (type == PARM_DECL)
+	{
+	  // Promote argument types here.  I think this assumes that
+	  // 'jint' and the ABI 'int' are the same... FIXME?
+	  tree argtype = TREE_TYPE (result);
+	  if (targetm.calls.promote_prototypes (argtype)
+	      && TYPE_PRECISION (argtype) < TYPE_PRECISION (type_jint)
+	      && INTEGRAL_TYPE_P (argtype))
+	    argtype = type_jint;
+	  DECL_ARG_TYPE (result) = argtype;
+	}
       varmap[var] = result;
     }
   return varmap[var];

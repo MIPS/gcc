@@ -1,5 +1,11 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* glue.hh: Include target.h.
+	* builtins.cc (add): Set DECL_ARG_TYPE on PARM_DECL.
+	(map_param_or_var): Likewise.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (map_type): Call pushdecl.
 	(map_class_object): Likewise.
 	(add): Likewise.
