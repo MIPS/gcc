@@ -1,3 +1,15 @@
+2003-12-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (bb_stack_adjust_offset): Adjust memory references
+	for the basic block, do not return a return value.
+	(vt_stack_adjustments): bb_stack_adjust_offset does not return a value.
+	(adjust_stack_reference): Remove redundant chack for
+	frame_pointer_needed.
+	(var_mem_delete_and_set): Do not adjust memory reference, it has already
+	been adjusted while computing stack adjusts.
+	(var_mem_delete): Likewise.
+	(vt_add_function_parameters): Check for frame_pointer_needed.
+
 2003-12-18  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from 3.3-branch (hammer-3_3-merge-20031216 tag)

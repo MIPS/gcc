@@ -262,7 +262,7 @@ static void stack_adjust_offset_pre_post	PARAMS ((rtx, HOST_WIDE_INT *,
 							 HOST_WIDE_INT *));
 static void insn_stack_adjust_offset_pre_post	PARAMS ((rtx, HOST_WIDE_INT *,
 							 HOST_WIDE_INT *));
-static HOST_WIDE_INT bb_stack_adjust_offset	PARAMS ((basic_block));
+static void bb_stack_adjust_offset	PARAMS ((basic_block));
 static HOST_WIDE_INT prologue_stack_adjust	PARAMS ((void));
 static bool vt_stack_adjustments	PARAMS ((void));
 static rtx adjust_stack_reference	PARAMS ((rtx, HOST_WIDE_INT));
@@ -460,18 +460,28 @@ insn_stack_adjust_offset_pre_post (insn, pre, post)
 
 /* Compute stack adjustnment in basic block BB.  */
 
-static HOST_WIDE_INT
+static void
 bb_stack_adjust_offset (bb)
      basic_block bb;
 {
-  HOST_WIDE_INT offset = 0;
+  HOST_WIDE_INT offset;
   int i;
 
+  offset = VTI (bb)->in.stack_adjust;
   for (i = 0; i < VTI (bb)->n_mos; i++)
-    if (VTI (bb)->mos[i].type == MO_ADJUST)
-      offset += VTI (bb)->mos[i].u.adjust;
-
-  return offset;
+    {
+      if (VTI (bb)->mos[i].type == MO_ADJUST)
+	offset += VTI (bb)->mos[i].u.adjust;
+      else if (VTI (bb)->mos[i].type != MO_CALL)
+	{
+	  if (GET_CODE (VTI (bb)->mos[i].u.loc) == MEM)
+	    {
+	      VTI (bb)->mos[i].u.loc
+		= adjust_stack_reference (VTI (bb)->mos[i].u.loc, -offset);
+	    }
+	}
+    }
+  VTI (bb)->out.stack_adjust = offset;
 }
 
 /* Compute stack adjustment caused by function prolog.  */
@@ -543,8 +553,7 @@ vt_stack_adjustments ()
 	{
 	  VTI (dest)->visited = true;
 	  VTI (dest)->in.stack_adjust = VTI (src)->out.stack_adjust;
-	  VTI (dest)->out.stack_adjust = (VTI (dest)->in.stack_adjust +
-					  bb_stack_adjust_offset (dest));
+	  bb_stack_adjust_offset (dest);
 
 	  if (dest->succ)
 	    /* Since the DEST node has been visited for the first
@@ -582,9 +591,6 @@ adjust_stack_reference (mem, adjustment)
 {
   rtx adjusted_mem;
   rtx tmp;
-
-  if (frame_pointer_needed)
-    return mem;
 
   adjusted_mem = copy_rtx (mem);
   XEXP (adjusted_mem, 0) = replace_rtx (XEXP (adjusted_mem, 0),
@@ -895,7 +901,6 @@ var_mem_delete_and_set (set, loc)
   tree decl = MEM_EXPR (loc);
   HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
-  loc = adjust_stack_reference (loc, -set->stack_adjust);
   set_variable_part (set, loc, decl, offset);
 }
 
@@ -909,8 +914,6 @@ var_mem_delete (set, loc)
 {
   tree decl = MEM_EXPR (loc);
   HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
-
-  loc = adjust_stack_reference (loc, -set->stack_adjust);
 
   delete_variable_part (set, loc, decl, offset);
 }
@@ -2420,7 +2423,7 @@ vt_add_function_parameters ()
 	abort ();
 
       incoming = eliminate_regs (incoming, 0, NULL_RTX);
-      if (GET_CODE (incoming) == MEM)
+      if (!frame_pointer_needed && GET_CODE (incoming) == MEM)
 	incoming = adjust_stack_reference (incoming, -stack_adjust);
       in = &VTI (ENTRY_BLOCK_PTR)->in;
       out = &VTI (ENTRY_BLOCK_PTR)->out;
