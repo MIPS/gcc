@@ -1348,7 +1348,7 @@ __gnat_get_libraries_from_registry (void)
     {
       value_size = name_size = 256;
       res = RegEnumValue (reg_key, index, name, &name_size, 0,
-                          &type, value, &value_size);
+                          &type, (LPBYTE)value, &value_size);
 
       if (res == ERROR_SUCCESS && type == REG_SZ)
         {
@@ -1551,7 +1551,7 @@ __gnat_portable_spawn (char *args[])
 
 #if defined (MSDOS) || defined (_WIN32)
   /* args[0] must be quotes as it could contain a full pathname with spaces */
-  const char *args_0 = args[0];
+  char *args_0 = args[0];
   args[0] = (char *)xmalloc (strlen (args_0) + 3);
   strcpy (args[0], "\"");
   strcat (args[0], args_0);
@@ -2469,8 +2469,11 @@ int __gnat_argument_needs_quote = 0;
 
 /* This option is used to enable/disable object files handling from the
    binder file by the GNAT Project module. For example, this is disabled on
-   Windows as it is already done by the mdll module. */
-#if defined (_WIN32)
+   Windows (prior to GCC 3.4) as it is already done by the mdll module.
+   Stating with GCC 3.4 the shared libraries are not based on mdll
+   anymore as it uses the GCC's -shared option  */
+#if defined (_WIN32) \
+    && ((__GNUC__ < 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ < 4)))
 int __gnat_prj_add_obj_files = 0;
 #else
 int __gnat_prj_add_obj_files = 1;

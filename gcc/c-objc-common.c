@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "target.h"
+#include "c-objc-common.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
 
@@ -77,7 +78,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it "
+	warning ("%Jfunction %qF can never be inlined because it "
 		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
@@ -87,15 +88,15 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it might not "
+	warning ("%Jfunction %qF can never be inlined because it might not "
 		 "be bound within this unit of translation", fn, fn);
       goto cannot_inline;
     }
 
-  if (! function_attribute_inlinable_p (fn))
+  if (!function_attribute_inlinable_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
+	warning ("%Jfunction %qF can never be inlined because it uses "
 		 "attributes conflicting with inlining", fn, fn);
       goto cannot_inline;
     }
@@ -110,20 +111,20 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (t)
 	{
 	  if (do_warning)
-	    warning ("%Jfunction '%F' can never be inlined because it has "
+	    warning ("%Jfunction %qF can never be inlined because it has "
 		     "pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
     }
 
-  if (! DECL_FILE_SCOPE_P (fn))
+  if (!DECL_FILE_SCOPE_P (fn))
     {
       /* If a nested function has pending sizes, we may have already
          saved them.  */
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
 	{
 	  if (do_warning)
-	    warning ("%Jnested function '%F' can never be inlined because it "
+	    warning ("%Jnested function %qF can never be inlined because it "
 		     "has possibly saved pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -186,7 +187,7 @@ c_objc_common_init (void)
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
    %D: a general decl,
-   %E: An expression,
+   %E: an identifier or expression,
    %F: a function declaration,
    %T: a type.
 
@@ -212,10 +213,9 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       break;
 
     case 'T':
-      if (TYPE_P (t))
-	name = TYPE_NAME (t);
-      else
-	abort ();
+      gcc_assert (TYPE_P (t));
+      name = TYPE_NAME (t);
+      
       if (name && TREE_CODE (name) == TYPE_DECL)
 	{
 	  if (DECL_NAME (name))
@@ -235,7 +235,10 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	n = IDENTIFIER_POINTER (t);
       else
-        return false;
+	{
+	  pp_expression (cpp, t);
+	  return true;
+	}
       break;
 
     default:

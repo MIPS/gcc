@@ -1175,8 +1175,7 @@ package body Sem_Ch6 is
          Check_Following_Pragma;
 
          if Is_Always_Inlined (Spec_Id)
-           or else (Has_Pragma_Inline (Spec_Id)
-             and then (Front_End_Inlining or else Configurable_Run_Time_Mode))
+           or else (Has_Pragma_Inline (Spec_Id) and then Front_End_Inlining)
          then
             Build_Body_To_Inline (N, Spec_Id);
          end if;
@@ -3285,6 +3284,13 @@ package body Sem_Ch6 is
                Formal_Type := Etype (Formal);
             end if;
 
+            --  Do not produce extra formals for Unchecked_Union parameters.
+            --  Jump directly to the end of the loop.
+
+            if Is_Unchecked_Union (Base_Type (Formal_Type)) then
+               goto Skip_Extra_Formal_Generation;
+            end if;
+
             if not Has_Discriminants (Formal_Type)
               and then Ekind (Formal_Type) in Private_Kind
               and then Present (Underlying_Type (Formal_Type))
@@ -3338,6 +3344,11 @@ package body Sem_Ch6 is
          if Present (P_Formal) then
             Next_Formal (P_Formal);
          end if;
+
+         --  This label is required when skipping extra formal generation for
+         --  Unchecked_Union parameters.
+
+         <<Skip_Extra_Formal_Generation>>
 
          Next_Formal (Formal);
       end loop;
@@ -5225,6 +5236,7 @@ package body Sem_Ch6 is
          elsif Is_Record_Type (T)
            and then Ekind (Formal) = E_In_Parameter
            and then Chars (Formal) /= Name_uInit
+           and then not Is_Unchecked_Union (T)
            and then not Is_Discrim_SO_Function (Subp)
          then
             AS_Needed := True;

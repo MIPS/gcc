@@ -102,10 +102,8 @@ gen_macro (const char *name, int real, int expect)
 {
   int i;
 
-  if (real > expect)
-    abort ();
-  if (real == 0)
-    abort ();
+  gcc_assert (real <= expect);
+  gcc_assert (real);
 
   /* #define GEN_CALL(A, B, C, D) gen_call((A), (B)) */
   fputs ("#define GEN_", stdout);
@@ -244,9 +242,6 @@ main (int argc, char **argv)
   /* We need to see all the possibilities.  Elided insns may have
      direct calls to their generators in C code.  */
   insn_elision = 0;
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

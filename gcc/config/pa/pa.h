@@ -67,6 +67,10 @@ extern const char *pa_fixed_range_string;
 extern const char *pa_cpu_string;
 extern enum processor_type pa_cpu;
 
+/* For -munix= option.  */
+extern const char *pa_unix_string;
+extern int flag_pa_unix;
+
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
 
 /* Print subsidiary information on the compiler version in use.  */
@@ -186,6 +190,21 @@ extern int target_flags;
 /* Generate code for SOM 32bit ABI.  */
 #ifndef TARGET_SOM
 #define TARGET_SOM 0
+#endif
+
+/* HP-UX UNIX features.  */
+#ifndef TARGET_HPUX
+#define TARGET_HPUX 0
+#endif
+
+/* HP-UX 10.10 UNIX 95 features.  */
+#ifndef TARGET_HPUX_10_10
+#define TARGET_HPUX_10_10 0
+#endif
+
+/* HP-UX 11i multibyte and UNIX 98 extensions.  */
+#ifndef TARGET_HPUX_11_11
+#define TARGET_HPUX_11_11 0
 #endif
 
 /* The following three defines are potential target switches.  The current
@@ -310,13 +329,18 @@ extern int target_flags;
 #define TARGET_OPTIONS							\
 {									\
   { "arch=",			&pa_arch_string,			\
-    N_("Specify PA-RISC architecture for code generation.  "		\
+    N_("Specify PA-RISC architecture for code generation.\n"		\
        "Values are 1.0, 1.1 and 2.0."), 0},				\
   { "fixed-range=",		&pa_fixed_range_string,			\
-    N_("Specify range of registers to make fixed"), 0},			\
+    N_("Specify range of registers to make fixed."), 0},		\
   { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes"), 0}			\
+    N_("Specify CPU for scheduling purposes."), 0},			\
+  SUBTARGET_OPTIONS							\
 }
+
+#ifndef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS
+#endif
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
    --with-schedule is ignored if -mschedule is specified.
@@ -344,10 +368,6 @@ extern int target_flags;
    string size accurately, so we are real conservative here.  */
 #undef DBX_CONTIN_LENGTH
 #define DBX_CONTIN_LENGTH 3000
-
-/* Only labels should ever begin in column zero.  */
-#define ASM_STABS_OP "\t.stabs\t"
-#define ASM_STABN_OP "\t.stabn\t"
 
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing
@@ -894,7 +914,8 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    We use a DImode register in the parallel for 5 to 7 byte structures
    so that there is only one element.  This allows the object to be
    correctly padded.  */
-#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) (TARGET_64BIT ? upward : downward)
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  function_arg_padding ((MODE), (TYPE))
 
 /* Do not expect to understand this without reading it several times.  I'm
    tempted to try and simply it, but I worry about breaking something.  */
@@ -924,8 +945,6 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
        || int_size_in_bytes (TYPE) <= UNITS_PER_WORD)			\
     : GET_MODE_SIZE(MODE) <= UNITS_PER_WORD)				\
    ? PARM_BOUNDARY : MAX_PARM_BOUNDARY)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 
 extern GTY(()) rtx hppa_compare_op0;
@@ -1653,11 +1672,77 @@ do { 									\
     goto LABEL
 
 #define TARGET_ASM_SELECT_SECTION  pa_select_section
-   
+
 /* Return a nonzero value if DECL has a section attribute.  */
 #define IN_NAMED_SECTION_P(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
+
+/* The following extra sections and extra section functions are only used
+   for SOM, but they must be provided unconditionally because pa.c's calls
+   to the functions might not get optimized out when other object formats
+   are in use.  */
+
+#define EXTRA_SECTIONS							\
+  in_som_readonly_data,							\
+  in_som_one_only_readonly_data,					\
+  in_som_one_only_data
+
+#define EXTRA_SECTION_FUNCTIONS						\
+  SOM_READONLY_DATA_SECTION_FUNCTION					\
+  SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION				\
+  SOM_ONE_ONLY_DATA_SECTION_FUNCTION					\
+  FORGET_SECTION_FUNCTION
+
+/* SOM puts readonly data in the default $LIT$ subspace when PIC code
+   is not being generated.  */
+#define SOM_READONLY_DATA_SECTION_FUNCTION				\
+void									\
+som_readonly_data_section (void)					\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  if (in_section != in_som_readonly_data)				\
+    {									\
+      in_section = in_som_readonly_data;				\
+      fputs ("\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n", asm_out_file);	\
+    }									\
+}
+
+/* When secondary definitions are not supported, SOM makes readonly data one
+   only by creating a new $LIT$ subspace in $TEXT$ with the comdat flag.  */
+#define SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION			\
+void									\
+som_one_only_readonly_data_section (void)				\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  in_section = in_som_one_only_readonly_data;				\
+  fputs ("\t.SPACE $TEXT$\n"						\
+	 "\t.NSUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=0x2c,SORT=16,COMDAT\n",\
+	 asm_out_file);							\
+}
+
+/* When secondary definitions are not supported, SOM makes data one only by
+   creating a new $DATA$ subspace in $PRIVATE$ with the comdat flag.  */
+#define SOM_ONE_ONLY_DATA_SECTION_FUNCTION				\
+void									\
+som_one_only_data_section (void)					\
+{									\
+  if (!TARGET_SOM)							\
+    return;								\
+  in_section = in_som_one_only_data;					\
+  fputs ("\t.SPACE $PRIVATE$\n"						\
+	 "\t.NSUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31,SORT=24,COMDAT\n",	\
+	 asm_out_file);							\
+}
+
+#define FORGET_SECTION_FUNCTION						\
+void									\
+forget_section (void)							\
+{									\
+  in_section = no_section;						\
+}
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
@@ -1682,7 +1767,7 @@ do { 									\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
        && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
-   || (TREE_CODE_CLASS (TREE_CODE (DECL)) == 'c'))
+   || CONSTANT_CLASS_P (DECL))
 
 #define FUNCTION_NAME_P(NAME)  (*(NAME) == '@')
 
@@ -1720,7 +1805,7 @@ do { 									\
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
@@ -1796,7 +1881,7 @@ do { 									\
    delay slot of the millicode call -- thus they act more like traditional
    CALL_INSNs.
 
-   Note we can not consider side effects of the insn to be delayed because
+   Note we cannot consider side effects of the insn to be delayed because
    the branch and link insn will clobber the return pointer.  If we happened
    to use the return pointer in the delay slot of the call, then we lose.
 
@@ -1902,25 +1987,28 @@ do { 									\
   fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
 	   (unsigned HOST_WIDE_INT)(SIZE))
 
+/* This says how to output an assembler line to define an uninitialized
+   global variable with size SIZE (in bytes) and alignment ALIGN (in bits).
+   This macro exists to properly support languages like C++ which do not
+   have common data.  */
+
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
+  pa_asm_output_aligned_bss (FILE, NAME, SIZE, ALIGN)
+  
 /* This says how to output an assembler line to define a global common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
 
-#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNED)  		\
-{ bss_section ();							\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
-	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
-		((unsigned HOST_WIDE_INT)(ALIGNED) / BITS_PER_UNIT)));}
+#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)  		\
+  pa_asm_output_aligned_common (FILE, NAME, SIZE, ALIGN)
 
 /* This says how to output an assembler line to define a local common symbol
-   with size SIZE (in bytes) and alignment ALIGN (in bits).  */
+   with size SIZE (in bytes) and alignment ALIGN (in bits).  This macro
+   controls how the assembler definitions of uninitialized static variables
+   are output.  */
 
-#define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGNED)		\
-{ bss_section ();							\
-  fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
-	   (unsigned HOST_WIDE_INT)(SIZE));}
+#define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
+  pa_asm_output_aligned_local (FILE, NAME, SIZE, ALIGN)
+  
   
 #define ASM_PN_FORMAT "%s___%lu"
 

@@ -1,4 +1,4 @@
-/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
 /* { dg-options "-maltivec -Wall" } */
 

@@ -675,7 +675,7 @@ package Prj is
       Language_Independent_Checked : Boolean := False;
       --  A flag that indicates that the project file has been checked
       --  for language independent features: Object_Directory,
-      --  Source_Directories, Library, non empty Naming Suffixs.
+      --  Source_Directories, Library, non empty Naming Suffixes.
 
       Checked : Boolean := False;
       --  A flag to avoid checking repetitively the naming scheme of
@@ -698,6 +698,9 @@ package Prj is
       --  be kept in the project tree.
 
    end record;
+
+   Project_Error : exception;
+   --  Raised by some subprograms in Prj.Attr.
 
    function Empty_Project return Project_Data;
    --  Return the representation of an empty project
@@ -732,7 +735,7 @@ package Prj is
      (Language            : Name_Id;
       Default_Spec_Suffix : Name_Id;
       Default_Body_Suffix : Name_Id);
-   --  Register the default suffixs for a given language. These extensions
+   --  Register the default suffixes for a given language. These extensions
    --  will be ignored if the user has specified a new naming scheme in a
    --  project file.
    --

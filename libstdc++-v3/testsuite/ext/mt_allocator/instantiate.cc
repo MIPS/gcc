@@ -27,9 +27,9 @@
 
 using namespace __gnu_cxx;
 template class __mt_alloc<int>;
-template class __mt_alloc<short, __common_pool_policy<__pool, false> >;
-template class __mt_alloc<short, __per_type_pool_policy<short, __pool, false> >;
+template class __mt_alloc<short, __common_pool_policy<false> >;
+template class __mt_alloc<short, __per_type_pool_policy<short, false> >;
 #ifdef __GTHREADS
-template class __mt_alloc<short, __common_pool_policy<__pool, true> >;
-template class __mt_alloc<short, __per_type_pool_policy<short, __pool, true> >;
+template class __mt_alloc<short, __common_pool_policy<true> >;
+template class __mt_alloc<short, __per_type_pool_policy<short, true> >;
 #endif

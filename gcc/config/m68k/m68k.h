@@ -480,6 +480,12 @@ extern int target_flags;
   ((REGNO) >= 16 ? GET_MODE_NUNITS (MODE)	\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
+/* A C expression that is nonzero if hard register NEW_REG can be
+   considered for use as a rename register for OLD_REG register.  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  m68k_hard_regno_rename_ok (OLD_REG, NEW_REG)
+
 /* On the m68k, the cpu registers can hold any mode but the 68881 registers
    can hold only SFmode or DFmode.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
@@ -1271,4 +1277,6 @@ extern int m68k_last_compare_had_fp_operands;
   {"valid_dbcc_comparison_p", {EQ, NE, GTU, LTU, GEU, LEU,		\
 			       GT, LT, GE, LE}},			\
   {"extend_operator", {SIGN_EXTEND, ZERO_EXTEND}},			\
-  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},
+  {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
+  {"post_inc_operand", {MEM}},						\
+  {"pre_dec_operand", {MEM}},

@@ -43,6 +43,7 @@ with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Eval; use Sem_Eval;
+with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
@@ -368,14 +369,22 @@ package body Checks is
          Check_Unset_Reference (P);
       end if;
 
-      --  Don't need access check if prefix is known to be non-null
+      --  We do not need access checks if prefix is known to be non-null
 
       if Known_Non_Null (P) then
          return;
 
-      --  Don't need access checks if they are suppressed on the type
+      --  We do not need access checks if they are suppressed on the type
 
       elsif Access_Checks_Suppressed (Etype (P)) then
+         return;
+
+         --  We do not need checks if we are not generating code (i.e. the
+         --  expander is not active). This is not just an optimization, there
+         --  are cases (e.g. with pragma Debug) where generating the checks
+         --  can cause real trouble).
+
+      elsif not Expander_Active then
          return;
       end if;
 
@@ -483,6 +492,7 @@ package body Checks is
          Expr := Expression (Expr);
 
       elsif Nkind (Expr) = N_Function_Call
+        and then Is_Entity_Name (Name (Expr))
         and then Is_RTE (Entity (Name (Expr)), RE_To_Address)
       then
          Expr := First (Parameter_Associations (Expr));
@@ -568,8 +578,8 @@ package body Checks is
       --  flag is not set anyway, or we are not doing code expansion.
 
       if Backend_Overflow_Checks_On_Target
-        or not Do_Overflow_Check (N)
-        or not Expander_Active
+        or else not Do_Overflow_Check (N)
+        or else not Expander_Active
       then
          return;
       end if;
@@ -1163,6 +1173,12 @@ package body Checks is
          return;
       end if;
 
+      --  Nothing to do if the type is an Unchecked_Union
+
+      if Is_Unchecked_Union (Base_Type (T_Typ)) then
+         return;
+      end if;
+
       --  Suppress checks if the subtypes are the same.
       --  the check must be preserved in an assignment to a formal, because
       --  the constraint is given by the actual.
@@ -1357,7 +1373,6 @@ package body Checks is
          --  part of the test is not controlled by the -gnato switch.
 
          if Do_Division_Check (N) then
-
             if (not ROK) or else (Rlo <= 0 and then 0 <= Rhi) then
                Insert_Action (N,
                  Make_Raise_Constraint_Error (Loc,
@@ -2377,14 +2392,26 @@ package body Checks is
             Dval := Duplicate_Subexpr_No_Checks (Dval);
          end if;
 
-         Dref :=
-           Make_Selected_Component (Loc,
-             Prefix =>
-               Duplicate_Subexpr_No_Checks (N, Name_Req => True),
-             Selector_Name =>
-               Make_Identifier (Loc, Chars (Disc_Ent)));
+         --  If we have an Unchecked_Union node, we can infer the discriminants
+         --  of the node.
 
-         Set_Is_In_Discriminant_Check (Dref);
+         if Is_Unchecked_Union (Base_Type (T_Typ)) then
+            Dref := New_Copy (
+              Get_Discriminant_Value (
+                First_Discriminant (T_Typ),
+                T_Typ,
+                Stored_Constraint (T_Typ)));
+
+         else
+            Dref :=
+              Make_Selected_Component (Loc,
+                Prefix =>
+                  Duplicate_Subexpr_No_Checks (N, Name_Req => True),
+                Selector_Name =>
+                  Make_Identifier (Loc, Chars (Disc_Ent)));
+
+            Set_Is_In_Discriminant_Check (Dref);
+         end if;
 
          Evolve_Or_Else (Cond,
            Make_Op_Ne (Loc,
@@ -3697,12 +3724,16 @@ package body Checks is
       Typ : constant Entity_Id := Etype (Expr);
 
    begin
-      --  Non-scalar types are always consdered valid, since they never
+      --  Non-scalar types are always considered valid, since they never
       --  give rise to the issues of erroneous or bounded error behavior
       --  that are the concern. In formal reference manual terms the
-      --  notion of validity only applies to scalar types.
+      --  notion of validity only applies to scalar types. Note that
+      --  even when packed arrays are represented using modular types,
+      --  they are still arrays semantically, so they are also always
+      --  valid (in particular, the unused bits can be random rubbish
+      --  without affecting the validity of the array value).
 
-      if not Is_Scalar_Type (Typ) then
+      if not Is_Scalar_Type (Typ) or else Is_Packed_Array_Type (Typ) then
          return True;
 
       --  If no validity checking, then everything is considered valid

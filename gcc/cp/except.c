@@ -150,7 +150,7 @@ build_eh_type_type (tree type)
 tree
 build_exc_ptr (void)
 {
-  return build (EXC_PTR_EXPR, ptr_type_node);
+  return build0 (EXC_PTR_EXPR, ptr_type_node);
 }
 
 /* Build up a call to __cxa_begin_catch, to tell the runtime that the
@@ -236,8 +236,8 @@ decl_is_java_type (tree decl, int err)
 	  && TYPE_FOR_JAVA (TREE_TYPE (decl)))
 	{
 	  /* Can't throw a reference.  */
-	  error ("type `%T' is disallowed in Java `throw' or `catch'",
-		    decl);
+	  error ("type %qT is disallowed in Java %<throw%> or %<catch%>",
+                 decl);
 	}
 
       if (r)
@@ -247,15 +247,15 @@ decl_is_java_type (tree decl, int err)
 
 	  if (jthrow_node == NULL_TREE)
 	    fatal_error
-	      ("call to Java `catch' or `throw' with `jthrowable' undefined");
+	      ("call to Java %<catch%> or %<throw%> with %<jthrowable%> undefined");
 
 	  jthrow_node = TREE_TYPE (TREE_TYPE (jthrow_node));
 
 	  if (! DERIVED_FROM_P (jthrow_node, TREE_TYPE (decl)))
 	    {
 	      /* Thrown object must be a Throwable.  */
-	      error ("type `%T' is not derived from `java::lang::Throwable'",
-			TREE_TYPE (decl));
+	      error ("type %qT is not derived from %<java::lang::Throwable%>",
+                     TREE_TYPE (decl));
 	    }
 	}
     }
@@ -312,7 +312,7 @@ choose_personality_routine (enum languages lang)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return;
 
@@ -407,8 +407,8 @@ expand_start_catch_block (tree decl)
 	     generic exception header.  */
 	  init = build_exc_ptr ();
 	  init = build1 (NOP_EXPR, build_pointer_type (type), init);
-	  init = build (MINUS_EXPR, TREE_TYPE (init), init,
-			TYPE_SIZE_UNIT (TREE_TYPE (init)));
+	  init = build2 (MINUS_EXPR, TREE_TYPE (init), init,
+			 TYPE_SIZE_UNIT (TREE_TYPE (init)));
 	  init = build_indirect_ref (init, NULL);
 	  is_java = true;
 	}
@@ -596,7 +596,7 @@ build_throw (tree exp)
 	}
       else if (really_overloaded_fn (fn))
 	{
-	  error ("`%D' should never be overloaded", fn);
+	  error ("%qD should never be overloaded", fn);
 	  return error_mark_node;
 	}
       fn = OVL_CURRENT (fn);
@@ -611,18 +611,18 @@ build_throw (tree exp)
       tree temp_expr, allocate_expr;
       bool elided;
 
+      /* The CLEANUP_TYPE is the internal type of a destructor.  */
+      if (!cleanup_type)
+	{
+	  tmp = void_list_node;
+	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+	  tmp = build_function_type (void_type_node, tmp);
+	  cleanup_type = build_pointer_type (tmp);
+	}
+      
       fn = get_identifier ("__cxa_throw");
       if (!get_global_value_if_present (fn, &fn))
 	{
-	  /* The CLEANUP_TYPE is the internal type of a destructor.  */
-	  if (cleanup_type == NULL_TREE)
-	    {
-	      tmp = void_list_node;
-	      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	      tmp = build_function_type (void_type_node, tmp);
-	      cleanup_type = build_pointer_type (tmp);
-	    }
-
 	  /* Declare void __cxa_throw (void*, void*, void (*)(void*)).  */
 	  /* ??? Second argument is supposed to be "std::type_info*".  */
 	  tmp = void_list_node;
@@ -632,7 +632,7 @@ build_throw (tree exp)
 	  tmp = build_function_type (void_type_node, tmp);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
-
+      
       /* throw expression */
       /* First, decay it.  */
       exp = decay_conversion (exp);
@@ -689,13 +689,13 @@ build_throw (tree exp)
       stabilize_init (exp, &temp_expr);
 
       if (elided)
-	exp = build (TRY_CATCH_EXPR, void_type_node, exp,
-		     do_free_exception (ptr));
+	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,
+		      do_free_exception (ptr));
       else
 	exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
 
       /* Prepend the allocation.  */
-      exp = build (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
+      exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
       if (temp_expr)
 	{
 	  /* Prepend the calculation of the throw expression.  Also, force
@@ -704,7 +704,7 @@ build_throw (tree exp)
 	     them in MUST_NOT_THROW_EXPR, since they are run after the
 	     exception object is initialized.  */
 	  walk_tree_without_duplicates (&temp_expr, wrap_cleanups_r, 0);
-	  exp = build (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
+	  exp = build2 (COMPOUND_EXPR, TREE_TYPE (exp), temp_expr, exp);
 	  exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
 	}
 
@@ -721,11 +721,8 @@ build_throw (tree exp)
 	  cleanup = build1 (ADDR_EXPR, cleanup_type, cleanup);
 	}
       else
-	{
-	  cleanup = build_int_2 (0, 0);
-	  TREE_TYPE (cleanup) = cleanup_type;
-	}
-
+	cleanup = build_int_cst (cleanup_type, 0);
+	
       tmp = tree_cons (NULL_TREE, cleanup, NULL_TREE);
       tmp = tree_cons (NULL_TREE, throw_type, tmp);
       tmp = tree_cons (NULL_TREE, ptr, tmp);
@@ -733,7 +730,7 @@ build_throw (tree exp)
       tmp = build_function_call (fn, tmp);
 
       /* Tack on the initialization stuff.  */
-      exp = build (COMPOUND_EXPR, TREE_TYPE (tmp), exp, tmp);
+      exp = build2 (COMPOUND_EXPR, TREE_TYPE (tmp), exp, tmp);
     }
   else
     {
@@ -810,7 +807,8 @@ is_admissible_throw_operand (tree expr)
             conversion.  */
   else if (CLASS_TYPE_P (type) && CLASSTYPE_PURE_VIRTUALS (type))
     {
-      error ("expression '%E' of abstract class type '%T' cannot be used in throw-expression", expr, type);
+      error ("expression %qE of abstract class type %qT cannot "
+             "be used in throw-expression", expr, type);
       return false;
     }
 
@@ -894,9 +892,9 @@ check_handlers_1 (tree master, tree_stmt_iterator i)
       tree handler = tsi_stmt (i);
       if (TREE_TYPE (handler) && can_convert_eh (type, TREE_TYPE (handler)))
 	{
-	  warning ("%Hexception of type `%T' will be caught",
+	  warning ("%Hexception of type %qT will be caught",
 		   EXPR_LOCUS (handler), TREE_TYPE (handler));
-	  warning ("%H   by earlier handler for `%T'",
+	  warning ("%H   by earlier handler for %qT",
 		   EXPR_LOCUS (master), type);
 	  break;
         }
@@ -926,7 +924,7 @@ check_handlers (tree handlers)
 	if (tsi_end_p (i))
 	  break;
 	if (TREE_TYPE (handler) == NULL_TREE)
-	  pedwarn ("%H`...' handler must be the last handler for"
+	  pedwarn ("%H%<...%> handler must be the last handler for"
 		   " its try block", EXPR_LOCUS (handler));
 	else
 	  check_handlers_1 (handler, i);

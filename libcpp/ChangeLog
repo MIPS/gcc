@@ -1,3 +1,133 @@
+2004-10-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* errors.c (_cpp_begin_message): Print "error: " for errors.
+
+2004-10-10  Andreas Jaeger  <aj@suse.de>
+
+	* makedepend.c: Include mkdeps.h for prototype of deps_add_vpath.
+	* Makefile.in (makedepend.o): Add dependency on mkdeps.h.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* pch.c (cpp_write_pch_state): Remove variable z as it is not
+	used.
+	(cpp_read_state): Remove unused variables, m, d and mac_count.
+
+2004-09-29  Per Bothner  <per@bothner.com>
+
+	* directives.c (cpp_handle_deferred_pragma):  Save, clear and restore
+	cb.line_change.  Otherwise do_pragma will call the line_change
+	call-back with a meaningless line number.
+
+2004-09-24  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Move AC_PROG_MAKE_SET, AC_PROG_INSTALL to
+	programs cluster. Use ACX_PROG_CC_WARNING_OPTS,
+	ACX_PROG_CC_WARNING_ALMOST_PEDANTIC, ACX_PROG_CC_WARNINGS_ARE_ERRORS.
+	* aclocal.m4, configure: Regenerate.
+	* init.c: Include localedir.h.
+	* Makefile.in (WARN_CFLAGS, ALL_CFLAGS): New variables.
+	(DEFS): Delete.
+	(.c.o): Use $(ALL_CFLAGS).
+	(localedir.h, localedir.hs): New rules.
+	(clean): Use rm -rf to remove directories.
+	(distclean): Also delete localedir.h and localedir.hs.
+	(init.o): Update dependencies.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in (aclocal.m4): Update dependencies.
+	* configure.ac (AC_CONFIG_MACRO_DIR): New.
+	* aclocal.m4, configure: Regenerate.
+
+2004-09-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* charset.c (_cpp_destroy_iconv, emit_numeric_escape)
+	(_cpp_convert_input, _cpp_default_encoding): Add comments.
+	Some other comments in this file also tweaked.
+
+	* directives.c (do_pragma): Save current buffer position
+	before lexing the pragma keywords; don't call
+	_cpp_backup_tokens in the defer_pragmas case.
+
+2004-09-15  Per Bothner  <per@bothner.com>
+
+	* include/line-map.h (line_map_start):  Add parameter names so
+	preceding comment makes sense.
+	(linemap_add):  Remove from comment mention of non-existing parameter.
+
+2004-09-09  Matt Austern  <austern@apple.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* include/cpplib.h (TTYPE_TABLE): Remove CPP_ and SPELL_
+	prefixes throughout.  Add entry for PRAGMA.  Remove
+	unnecessary "= 0" from EQ.
+	(enum cpp_ttype): Adjust OP and TK definitions to restore
+	prefixes, via token-paste.
+	(CPP_LAST_EQ, CPP_FIRST_DIGRAPH, CPP_LAST_PUNCTUATOR, CPP_LAST_CPP_OP):
+	Change from #defines to additional cpp_ttype enumerators.
+	(struct cpp_options): Add defer_pragmas.
+	(cpp_handle_deferred_pragma): Prototype new interface.
+
+	* internal.h (struct cpp_reader): Add directive_result.
+	* directives.c (struct pragma_entry): Add is_internal field;
+	give boolean fields type bool.
+	(start_directive): Initialize pfile->directive_result.type.
+	(_cpp_do__Pragma): Likewise.
+	(run_directive): Do not crash if pfile->buffer->prev is NULL.
+	(insert_pragma_entry): Add 'internal' argument; set new->is_internal
+	from it.
+	(register_pragma): New static function, bulk of former
+	cpp_register_pragma here; add 'internal' argument, pass along
+	to insert_pragma_entry.
+	(cpp_register_pragma): Now a wrapper around register_pragma which
+	always passes false for 'internal' argument.
+	(_cpp_init_internal_pragmas): Call register_pragma directly, passing
+	true for 'internal'.
+	(do_pragma): If CPP_OPTION (pfile, defer_pragmas) and this isn't
+	an internal pragma, save text till the end of the line as a CPP_PRAGMA
+	token instead of executing the pragma.
+	(cpp_handle_deferred_pragma): New interface.
+	* lex.c (token_spellings): Adjust OP and TK definitions to
+	match changes to cpplib.h.
+	(_cpp_lex_token): Check for a directive-result token and
+	return it if present.
+	(cpp_token_val_index): Handle CPP_PRAGMA.
+	* macro.c (cpp_builtin_macro_text): Correct comment.
+	(builtin_macro): Handle directive-result tokens from _cpp_do__Pragma.
+
+2004-09-06  Serge Belyshev  <belyshev@lubercy.com>
+
+	PR preprocessor/14699
+	* symtab.c (ht_dump_statistics): Change type of sum_of_squares
+	from size_t to double.
+
+2004-08-28  Andreas Schwab  <schwab@suse.de>
+	    Andreas Jaeger <aj@suse.de>
+
+	* configure.ac: Set PACKAGE correctly.
+	* configure: Regenerated.
+
+2004-08-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Add back top_builddir.
+
+2004-08-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac: Replace Automake macro invocations
+	with manual Autoconf checks and substitutions.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* config.in: Regenerate.
+	* Makefile.am: Removed.
+	* Makefile.in: Heavy simplification and reorganization.
+
+2004-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.ac (arm*-*-eabi*): New target.
+	(arm*-*-symbianelf*): Likewise.
+	* configure: Regenerated.
+
 2004-07-24  Bernardo Innocenti  <bernie@develer.com>
 
 	* internal.h (xnew, xcnew, xnewvec, xcnewvec, xobnew): Remove.
@@ -6,9 +136,9 @@
 	* macro.c: Likewise.
 	* cpplib.h (cpp_deps_style): Export enum with name.
 
-2004-07-23  Matthias Klose  <doko@debian.org> 
+2004-07-23  Matthias Klose  <doko@debian.org>
 
-	init.c (init_library): Use PACKAGE for the text domain. 
+	* init.c (init_library): Use PACKAGE for the text domain.
 
 2004-07-16  Andris Pavenis  <pavenis@latnet.lv>
 

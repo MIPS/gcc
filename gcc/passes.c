@@ -60,7 +60,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
-#include "loop.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -79,8 +78,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
-#include "alloc-pool.h"
 #include "tree-pass.h"
+#include "tree-dump.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -108,166 +107,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define DUMPFILE_FORMAT ".%02d."
 #endif
 
-/* Describes a dump file.  */
-
-struct dump_file_info
-{
-  /* The unique extension to apply, e.g. ".jump".  */
-  const char *const extension;
-
-  /* The -d<c> character that enables this dump file.  */
-  char const debug_switch;
-
-  /* True if there is a corresponding graph dump file.  */
-  char const graph_dump_p;
-
-  /* True if the user selected this dump.  */
-  char enabled;
-
-  /* True if the files have been initialized (ie truncated).  */
-  char initialized;
-};
-
-/* Enumerate the extant dump files.  */
-
-enum dump_file_index
-{
-  DFI_cgraph,
-  DFI_rtl,
-  DFI_sibling,
-  DFI_eh,
-  DFI_jump,
-  DFI_null,
-  DFI_cse,
-  DFI_gcse,
-  DFI_loop,
-  DFI_bypass,
-  DFI_cfg,
-  DFI_bp,
-  DFI_vpt,
-  DFI_ce1,
-  DFI_tracer,
-  DFI_loop2,
-  DFI_web,
-  DFI_cse2,
-  DFI_life,
-  DFI_combine,
-  DFI_ce2,
-  DFI_regmove,
-  DFI_sms,
-  DFI_sched,
-  DFI_lreg,
-  DFI_greg,
-  DFI_postreload,
-  DFI_gcse2,
-  DFI_flow2,
-  DFI_peephole2,
-  DFI_ce3,
-  DFI_rnreg,
-  DFI_bbro,
-  DFI_branch_target_load,
-  DFI_sched2,
-  DFI_stack,
-  DFI_vartrack,
-  DFI_mach,
-  DFI_dbr,
-  DFI_MAX
-};
-
-/* Describes all the dump files.  Should be kept in order of the
-   pass and in sync with dump_file_index above.
-
-   Remaining -d letters:
-
-	"   e            q         "
-	"    F     K   O Q     WXY "
-*/
-
-static struct dump_file_info dump_file_tbl[DFI_MAX] =
-{
-  { "cgraph",	'U', 0, 0, 0 },
-  { "rtl",	'r', 0, 0, 0 },
-  { "sibling",  'i', 0, 0, 0 },
-  { "eh",	'h', 0, 0, 0 },
-  { "jump",	'j', 0, 0, 0 },
-  { "null",	'u', 0, 0, 0 },
-  { "cse",	's', 0, 0, 0 },
-  { "gcse",	'G', 1, 0, 0 },
-  { "loop",	'L', 1, 0, 0 },
-  { "bypass",   'G', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "cfg",	'f', 1, 0, 0 },
-  { "bp",	'b', 1, 0, 0 },
-  { "vpt",	'V', 1, 0, 0 },
-  { "ce1",	'C', 1, 0, 0 },
-  { "tracer",	'T', 1, 0, 0 },
-  { "loop2",	'L', 1, 0, 0 },
-  { "web",      'Z', 0, 0, 0 },
-  { "cse2",	't', 1, 0, 0 },
-  { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
-  { "combine",	'c', 1, 0, 0 },
-  { "ce2",	'C', 1, 0, 0 },
-  { "regmove",	'N', 1, 0, 0 },
-  { "sms",      'm', 0, 0, 0 },
-  { "sched",	'S', 1, 0, 0 },
-  { "lreg",	'l', 1, 0, 0 },
-  { "greg",	'g', 1, 0, 0 },
-  { "postreload", 'o', 1, 0, 0 },
-  { "gcse2",    'J', 0, 0, 0 },
-  { "flow2",	'w', 1, 0, 0 },
-  { "peephole2", 'z', 1, 0, 0 },
-  { "ce3",	'E', 1, 0, 0 },
-  { "rnreg",	'n', 1, 0, 0 },
-  { "bbro",	'B', 1, 0, 0 },
-  { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "sched2",	'R', 1, 0, 0 },
-  { "stack",	'k', 1, 0, 0 },
-  { "vartrack",	'V', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "mach",	'M', 1, 0, 0 },
-  { "dbr",	'd', 0, 0, 0 },
-};
+static int initializing_dump = 0;
 
 /* Routine to open a dump file.  Return true if the dump file is enabled.  */
 
 static int
-open_dump_file (enum dump_file_index index, tree decl)
+open_dump_file (enum tree_dump_index index, tree decl)
 {
-  char *dump_name;
-  const char *open_arg;
-  char seq[16];
-
-  if (! dump_file_tbl[index].enabled)
+  if (! dump_enabled_p (index))
     return 0;
 
   timevar_push (TV_DUMP);
-  if (dump_file != NULL)
-    fclose (dump_file);
 
-  sprintf (seq, DUMPFILE_FORMAT, index);
+  if (dump_file != NULL || dump_file_name != NULL)
+    abort ();
 
-  if (! dump_file_tbl[index].initialized)
-    {
-      /* If we've not initialized the files, do so now.  */
-      if (graph_dump_format != no_graph
-	  && dump_file_tbl[index].graph_dump_p)
-	{
-	  dump_name = concat (seq, dump_file_tbl[index].extension, NULL);
-	  clean_graph_dump_file (dump_base_name, dump_name);
-	  free (dump_name);
-	}
-      dump_file_tbl[index].initialized = 1;
-      open_arg = "w";
-    }
-  else
-    open_arg = "a";
+  dump_file_name = get_dump_file_name (index);
+  initializing_dump = !dump_initialized_p (index);
+  dump_file = dump_begin (index, NULL);
 
-  dump_name = concat (dump_base_name, seq,
-		      dump_file_tbl[index].extension, NULL);
-
-  dump_file = fopen (dump_name, open_arg);
   if (dump_file == NULL)
-    fatal_error ("can't open %s: %m", dump_name);
-
-  free (dump_name);
+    fatal_error ("can't open %s: %m", dump_file_name);
 
   if (decl)
     fprintf (dump_file, "\n;; Function %s%s\n\n",
@@ -285,7 +145,7 @@ open_dump_file (enum dump_file_index index, tree decl)
 /* Routine to close a dump file.  */
 
 static void
-close_dump_file (enum dump_file_index index,
+close_dump_file (enum tree_dump_index index,
 		 void (*func) (FILE *, rtx),
 		 rtx insns)
 {
@@ -294,25 +154,23 @@ close_dump_file (enum dump_file_index index,
 
   timevar_push (TV_DUMP);
   if (insns
-      && graph_dump_format != no_graph
-      && dump_file_tbl[index].graph_dump_p)
+      && graph_dump_format != no_graph)
     {
-      char seq[16];
-      char *suffix;
+      /* If we've not initialized the files, do so now.  */
+      if (initializing_dump)
+	clean_graph_dump_file (dump_file_name);
 
-      sprintf (seq, DUMPFILE_FORMAT, index);
-      suffix = concat (seq, dump_file_tbl[index].extension, NULL);
-      print_rtl_graph_with_bb (dump_base_name, suffix, insns);
-      free (suffix);
+      print_rtl_graph_with_bb (dump_file_name, insns);
     }
 
   if (func && insns)
     func (dump_file, insns);
 
-  fflush (dump_file);
-  fclose (dump_file);
+  dump_end (index, dump_file);
+  free ((char *) dump_file_name);
 
   dump_file = NULL;
+  dump_file_name = NULL;
   timevar_pop (TV_DUMP);
 }
 
@@ -320,18 +178,16 @@ close_dump_file (enum dump_file_index index,
    and TYPE_DECL nodes.
 
    This does nothing for local (non-static) variables, unless the
-   variable is a register variable with an ASMSPEC.  In that case, or
-   if the variable is not an automatic, it sets up the RTL and
-   outputs any assembler code (label definition, storage allocation
-   and initialization).
+   variable is a register variable with DECL_ASSEMBLER_NAME set.  In
+   that case, or if the variable is not an automatic, it sets up the
+   RTL and outputs any assembler code (label definition, storage
+   allocation and initialization).
 
-   DECL is the declaration.  If ASMSPEC is nonzero, it specifies
-   the assembler symbol name to be used.  TOP_LEVEL is nonzero
+   DECL is the declaration.  TOP_LEVEL is nonzero
    if this declaration is not within a function.  */
 
 void
 rest_of_decl_compilation (tree decl,
-			  const char *asmspec,
 			  int top_level,
 			  int at_end)
 {
@@ -348,15 +204,17 @@ rest_of_decl_compilation (tree decl,
       }
   }
 
+  /* Can't defer this, because it needs to happen before any
+     later function definitions are processed.  */
+  if (DECL_REGISTER (decl) && DECL_ASSEMBLER_NAME_SET_P (decl))
+    make_decl_rtl (decl);
+
   /* Forward declarations for nested functions are not "external",
      but we need to treat them as if they were.  */
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
       || TREE_CODE (decl) == FUNCTION_DECL)
     {
       timevar_push (TV_VARCONST);
-
-      if (asmspec)
-	make_decl_rtl (decl, asmspec);
 
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.
@@ -366,18 +224,20 @@ rest_of_decl_compilation (tree decl,
 	 (see gcc.c-torture/compile/920624-1.c) */
       if ((at_end
 	   || !DECL_DEFER_OUTPUT (decl)
-	   || (flag_unit_at_a_time && DECL_INITIAL (decl)))
+	   || DECL_INITIAL (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
-	  if (flag_unit_at_a_time && !cgraph_global_info_ready
-	      && TREE_CODE (decl) != FUNCTION_DECL && top_level
-	      /* If we defer processing of decls that have had their
-		 DECL_RTL set above (say, in make_decl_rtl),
-		 check_global_declarations() will clear it before
-		 assemble_variable has a chance to act on it.  This
-		 would remove all traces of the register name in a
-		 global register variable, for example.  */
+	  /* If we defer processing of decls that have had their
+	     DECL_RTL set above (say, in make_decl_rtl),
+	     check_global_declarations() will clear it before
+	     assemble_variable has a chance to act on it.  This
+	     would remove all traces of the register name in a
+	     global register variable, for example.  */
+	  if (TREE_CODE (decl) != FUNCTION_DECL && top_level
+#if 0
 	      && !DECL_RTL_SET_P (decl))
+#endif
+	      )
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -392,22 +252,6 @@ rest_of_decl_compilation (tree decl,
 #endif
 
       timevar_pop (TV_VARCONST);
-    }
-  else if (DECL_REGISTER (decl) && asmspec != 0)
-    {
-      if (decode_reg_name (asmspec) >= 0)
-	{
-	  SET_DECL_RTL (decl, NULL_RTX);
-	  make_decl_rtl (decl, asmspec);
-	}
-      else
-	{
-	  error ("%Hinvalid register name `%s' for register variable",
-		 &DECL_SOURCE_LOCATION (decl), asmspec);
-	  DECL_REGISTER (decl) = 0;
-	  if (!top_level)
-	    expand_decl (decl);
-	}
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -469,6 +313,8 @@ rest_of_handle_final (void)
     /* Otherwise, it feels unclean to switch sections in the middle.  */
     output_function_exception_table ();
 #endif
+
+    user_defined_section_attribute = false;
 
     if (! quiet_flag)
       fflush (asm_out_file);
@@ -561,7 +407,7 @@ rest_of_handle_stack_regs (void)
 }
 #endif
 
-/* Track the variables, ie. compute where the variable is stored at each position in function.  */
+/* Track the variables, i.e. compute where the variable is stored at each position in function.  */
 static void
 rest_of_handle_variable_tracking (void)
 {
@@ -617,7 +463,7 @@ rest_of_handle_new_regalloc (void)
 
   ggc_collect ();
 
-  if (dump_file_tbl[DFI_greg].enabled)
+  if (dump_enabled_p (DFI_greg))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -671,7 +517,7 @@ rest_of_handle_old_regalloc (void)
       timevar_pop (TV_JUMP);
     }
 
-  if (dump_file_tbl[DFI_lreg].enabled)
+  if (dump_enabled_p (DFI_lreg))
     {
       timevar_push (TV_DUMP);
       dump_flow_info (dump_file);
@@ -697,7 +543,7 @@ rest_of_handle_old_regalloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_file_tbl[DFI_greg].enabled)
+  if (dump_enabled_p (DFI_greg))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -855,10 +701,10 @@ rest_of_handle_sched2 (void)
 static void
 rest_of_handle_gcse2 (void)
 {
-  timevar_push (TV_RELOAD_CSE_REGS);
+  timevar_push (TV_GCSE_AFTER_RELOAD);
   open_dump_file (DFI_gcse2, current_function_decl);
 
-  gcse_after_reload_main (get_insns (), dump_file);
+  gcse_after_reload_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   close_dump_file (DFI_gcse2, print_rtl_with_bb, get_insns ());
@@ -869,7 +715,7 @@ rest_of_handle_gcse2 (void)
   verify_flow_info ();
 #endif
 
-  timevar_pop (TV_RELOAD_CSE_REGS);
+  timevar_pop (TV_GCSE_AFTER_RELOAD);
 }
 
 /* Register allocation pre-pass, to reduce number of moves necessary
@@ -1035,8 +881,15 @@ rest_of_handle_cfg (void)
      it as constant, otherwise -fbranch-probabilities will not read data back.
 
      life_analysis rarely eliminates modification of external memory.
-   */
-  if (optimize)
+
+     FIXME: now with tree based profiling we are in the trap described above
+     again.  It seems to be easiest to disable the optimization for time
+     being before the problem is either solved by moving the transformation
+     to the IPA level (we need the CFG for this) or the very early optimization
+     passes are made to ignore the const/pure flags so code does not change.  */
+  if (optimize
+      && (!flag_tree_based_profiling
+	  || (!profile_arc_flag && !flag_branch_probabilities)))
     {
       /* Alias analysis depends on this information and mark_constant_function
        depends on alias analysis.  */
@@ -1160,7 +1013,7 @@ rest_of_handle_cse (void)
 
   reg_scan (get_insns (), max_reg_num (), 1);
 
-  tem = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges (0))
@@ -1192,7 +1045,7 @@ rest_of_handle_cse2 (void)
   if (dump_file)
     dump_flow_info (dump_file);
   /* CFG is no longer maintained up-to-date.  */
-  tem = cse_main (get_insns (), max_reg_num (), 1, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -1241,7 +1094,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_CSE);
       reg_scan (get_insns (), max_reg_num (), 1);
-      tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
@@ -1262,7 +1115,7 @@ rest_of_handle_gcse (void)
 	{
 	  timevar_push (TV_CSE);
 	  reg_scan (get_insns (), max_reg_num (), 1);
-	  tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
 	  purge_all_dead_edges (0);
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  timevar_pop (TV_CSE);
@@ -1284,7 +1137,7 @@ rest_of_handle_gcse (void)
 static void
 rest_of_handle_loop_optimize (void)
 {
-  int do_unroll, do_prefetch;
+  int do_prefetch;
 
   timevar_push (TV_LOOP);
   delete_dead_jumptables ();
@@ -1293,11 +1146,8 @@ rest_of_handle_loop_optimize (void)
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
+  profile_status = PROFILE_ABSENT;
 
-  if (flag_unroll_loops)
-    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
-  else
-    do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 
   if (flag_rerun_loop_opt)
@@ -1305,8 +1155,7 @@ rest_of_handle_loop_optimize (void)
       cleanup_barriers ();
 
       /* We only want to perform unrolling once.  */
-      loop_optimize (get_insns (), dump_file, do_unroll);
-      do_unroll = 0;
+      loop_optimize (get_insns (), dump_file, 0);
 
       /* The first call to loop_optimize makes some instructions
 	 trivially dead.  We delete those instructions now in the
@@ -1319,7 +1168,7 @@ rest_of_handle_loop_optimize (void)
       reg_scan (get_insns (), max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (get_insns (), dump_file, do_unroll | do_prefetch);
+  loop_optimize (get_insns (), dump_file, do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1457,6 +1306,11 @@ rest_of_handle_jump (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+
+  if (cfun->tail_call_emit)
+    fixup_tail_calls ();
+
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
   timevar_pop (TV_JUMP);
 }
 
@@ -1636,7 +1490,19 @@ rest_of_handle_shorten_branches (void)
 static void
 rest_of_clean_state (void)
 {
+  rtx insn, next;
   coverage_end_function ();
+
+  /* It is very important to decompose the RTL instruction chain here:
+     debug information keeps pointing into CODE_LABEL insns inside the function
+     body.  If these remain pointing to the other insns, we end up preserving
+     whole RTL chain and attached detailed debug info in memory.  */
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      NEXT_INSN (insn) = NULL;
+      PREV_INSN (insn) = NULL;
+    }
 
   /* In case the function was not output,
      don't leave any temporary anonymous types
@@ -1688,6 +1554,7 @@ rest_of_clean_state (void)
 
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
+  free_after_compilation (cfun);
 }
 
 
@@ -1695,7 +1562,7 @@ rest_of_clean_state (void)
    after all tree passes have finished for a single function, and we
    have expanded the function body from trees to RTL.
    Once we are here, we have decided that we're supposed to output
-   that function, ie. that we should write assembler code for it.
+   that function, i.e. that we should write assembler code for it.
 
    We run a series of low-level passes here on the function's RTL
    representation.  Each pass is called via a rest_of_* function.  */
@@ -1703,27 +1570,8 @@ rest_of_clean_state (void)
 void
 rest_of_compilation (void)
 {
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (current_function_decl) = 0;
-
-  /* Now that we're done expanding trees to RTL, we shouldn't have any
-     more CONCATs anywhere.  */
-  generating_concat_p = 0;
-
-  /* When processing delayed functions, prepare_function_start () won't
-     have been run to re-initialize it.  */
-  cse_not_expected = ! optimize;
-
-  finalize_block_changes ();
-
-  /* Dump the rtl code if we are dumping rtl.  */
-  if (open_dump_file (DFI_rtl, current_function_decl))
-    close_dump_file (DFI_rtl, print_rtl, get_insns ());
-
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  Delay this until after the
-     initial rtl dump so that we can see the original nesting.  */
+     sorts of eh initialization.  */
   convert_from_eh_region_ranges ();
 
   /* If we're emitting a nested function, make sure its parent gets
@@ -1759,9 +1607,6 @@ rest_of_compilation (void)
     goto exit_rest_of_compilation;
 
   rest_of_handle_jump ();
-
-  if (cfun->tail_call_emit)
-    fixup_tail_calls ();
 
   rest_of_handle_eh ();
 
@@ -1823,7 +1668,8 @@ rest_of_compilation (void)
 
       if (flag_branch_probabilities
 	  && flag_profile_values
-	  && flag_value_profile_transformations)
+	  && (flag_value_profile_transformations
+	      || flag_speculative_prefetching))
 	rest_of_handle_value_profile_transformations ();
 
       /* Remove the death notes created for vpt.  */
@@ -1859,10 +1705,13 @@ rest_of_compilation (void)
     rest_of_handle_if_after_combine ();
 
   /* The optimization to partition hot/cold basic blocks into separate
-     sections of the .o file does not work well with exception handling.
-     Don't call it if there are exceptions.  */
+     sections of the .o file does not work well with linkonce or with
+     user defined section attributes.  Don't call it if either case
+     arises.  */
 
-  if (optimize > 0 && flag_reorder_blocks_and_partition && !flag_exceptions)
+  if (flag_reorder_blocks_and_partition 
+      && !DECL_ONE_ONLY (current_function_decl)
+      && !user_defined_section_attribute)
     rest_of_handle_partition_blocks ();
 
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
@@ -1988,16 +1837,12 @@ rest_of_compilation (void)
 }
 
 void
-init_optimization_passes (void)
-{
-  open_dump_file (DFI_cgraph, NULL);
-  cgraph_dump_file = dump_file;
-  dump_file = NULL;
-}
-
-void
 finish_optimization_passes (void)
 {
+  enum tree_dump_index i;
+  struct dump_file_info *dfi;
+  char *name;
+
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -2012,61 +1857,27 @@ finish_optimization_passes (void)
       close_dump_file (DFI_combine, NULL, NULL_RTX);
     }
 
-  dump_file = cgraph_dump_file;
-  cgraph_dump_file = NULL;
-  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
-
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
-    {
-      int i;
-
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	if (dump_file_tbl[i].initialized && dump_file_tbl[i].graph_dump_p)
-	  {
-	    char seq[16];
-	    char *suffix;
-
-	    sprintf (seq, DUMPFILE_FORMAT, i);
-	    suffix = concat (seq, dump_file_tbl[i].extension, NULL);
-	    finish_graph_dump_file (dump_base_name, suffix);
-	    free (suffix);
-	  }
-    }
+    for (i = DFI_MIN; (dfi = get_dump_file_info (i)) != NULL; ++i)
+      if (dump_initialized_p (i)
+	  && (dfi->flags & TDF_RTL) != 0
+	  && (name = get_dump_file_name (i)) != NULL)
+        {
+          finish_graph_dump_file (name);
+          free (name);
+        }
 
   timevar_pop (TV_DUMP);
 }
 
-bool
-enable_rtl_dump_file (int letter)
-{
-  bool matched = false;
-  int i;
-
-  if (letter == 'a')
-    {
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	dump_file_tbl[i].enabled = 1;
-      matched = true;
-    }
-  else
-    {
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	if (letter == dump_file_tbl[i].debug_switch)
-	  {
-	    dump_file_tbl[i].enabled = 1;
-	    matched = true;
-	  }
-    }
-
-  return matched;
-}
-
 struct tree_opt_pass pass_rest_of_compilation =
 {
-  "rest of compilation",                /* name */
+  NULL,			                /* name */
   NULL,		                        /* gate */
+  NULL, NULL,				/* IPA analysis */
   rest_of_compilation,                  /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -2075,7 +1886,8 @@ struct tree_opt_pass pass_rest_of_compilation =
   0,                                    /* properties_provided */
   PROP_rtl,                             /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect			/* todo_flags_finish */
+  TODO_ggc_collect,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 

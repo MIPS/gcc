@@ -85,20 +85,24 @@
 @setfilename gnat_ugn_unw.info
 @end ifset
 
-@ifset vms
-@settitle GNAT User's Guide for Native Platforms / OpenVMS Alpha
-@dircategory GNU Ada tools
-@direntry
-* GNAT User's Guide (gnat_ugn_vms) for Native Platforms / OpenVMS Alpha
-@end direntry
-@end ifset
+@set FSFEDITION
+@set EDITION GNAT
 
 @ifset unw
-@settitle GNAT User's Guide for Native Platforms / Unix and Windows
-@direntry
-* GNAT User's Guide (gnat_ugn_unw) for Native Platforms / Unix and Windows
-@end direntry
+@set PLATFORM Unix and Windows
+@set FILE gnat_ugn_unw
 @end ifset
+
+@ifset vms
+@set PLATFORM OpenVMS Alpha
+@set FILE gnat_ugn_vms
+@end ifset
+
+@settitle @value{EDITION} User's Guide for Native Platforms / @value{PLATFORM}
+@dircategory GNU Ada tools
+@direntry
+* @value{EDITION} User's Guide (@value{FILE}) for Native Platforms / @value{PLATFORM}
+@end direntry
 
 @include gcc-common.texi
 
@@ -114,12 +118,7 @@ under the terms of the GNU Free Documentation License, Version 1.2
 or any later version published by the Free Software Foundation;
 with the Invariant Sections being ``GNU Free Documentation License'', with the
 Front-Cover Texts being
-@ifset vms
-``GNAT User's Guide for Native Platforms / OpenVMS Alpha'',
-@end ifset
-@ifset unw
-``GNAT User's Guide for Native Platforms / Unix and Windows'',
-@end ifset
+``GNAT User's Guide for Native Platforms / @value{PLATFORM}'',
 and with no Back-Cover Texts.
 A copy of the license is included in the section entitled
 ``GNU Free Documentation License''.
@@ -127,17 +126,12 @@ A copy of the license is included in the section entitled
 
 @titlepage
 
-@title GNAT User's Guide
+@title @value{EDITION} User's Guide
 @center @titlefont{for Native Platforms}
 @sp 1
 
 @flushright
-@ifset unw
-@titlefont{@i{Unix and Windows}}
-@end ifset
-@ifset vms
-@titlefont{@i{OpenVMS Alpha}}
-@end ifset
+@titlefont{@i{@value{PLATFORM}}}
 @end flushright
 @sp 2
 
@@ -153,20 +147,12 @@ A copy of the license is included in the section entitled
 
 @end titlepage
 
-
 @ifnottex
 @node Top, About This Guide, (dir), (dir)
-@top GNAT User's Guide
+@top @value{EDITION} User's Guide
 
-@ifset vms
 @noindent
-GNAT User's Guide for Native Platforms / OpenVMS Alpha
-@end ifset
-
-@ifset unw
-@noindent
-GNAT User's Guide for Native Platforms / Unix and Windows
-@end ifset
+@value{EDITION} User's Guide for Native Platforms / @value{PLATFORM}
 
 @noindent
 GNAT, The GNU Ada 95 Compiler@*
@@ -332,7 +318,6 @@ The GNAT Make Program gnatmake
 * How gnatmake Works::
 * Examples of gnatmake Usage::
 
-
 Improving Performance
 * Performance Considerations::
 * Reducing the Size of Ada Executables with gnatelim::
@@ -395,7 +380,6 @@ GNAT Project Manager
 * An Extended Example::
 * Project File Complete Syntax::
 
-
 The Cross-Referencing Tools gnatxref and gnatfind
 
 * gnatxref Switches::
@@ -405,12 +389,10 @@ The Cross-Referencing Tools gnatxref and gnatfind
 * Examples of gnatxref Usage::
 * Examples of gnatfind Usage::
 
-
 The GNAT Pretty-Printer gnatpp
 
 * Switches for gnatpp::
 * Formatting Rules::
-
 
 File Name Krunching Using gnatkr
 
@@ -633,7 +615,6 @@ Microsoft Windows Topics
 * GNAT and COM/DCOM Objects::
 @end ifset
 
-
 * Index::
 @end menu
 @end ifnottex
@@ -643,15 +624,22 @@ Microsoft Windows Topics
 
 @noindent
 @ifset vms
-This guide describes the use of of GNAT, a full language compiler for the Ada
+This guide describes the use of of @value{EDITION},
+a full language compiler for the Ada
 95 programming language, implemented on HP OpenVMS Alpha platforms.
 @end ifset
 @ifclear vms
-This guide describes the use of GNAT, a compiler and software development
+This guide describes the use of @value{EDITION},
+a compiler and software development
 toolset for the full Ada 95 programming language.
 @end ifclear
 It describes the features of the compiler and tools, and details
 how to use them to build Ada 95 applications.
+
+@ifset PROEDITION
+For ease of exposition, ``GNAT Pro'' will be referred to simply as
+``GNAT'' in the remainder of this document.
+@end ifset
 
 @menu
 * What This Guide Contains::
@@ -730,7 +718,6 @@ way to navigate through sources.
 @ref{The GNAT Pretty-Printer gnatpp}, shows how to produce a reformatted
 version of an Ada source file with control over casing, indentation,
 comment placement, and other elements of program presentation style.
-
 
 @item
 @ref{File Name Krunching Using gnatkr}, describes the @code{gnatkr}
@@ -827,7 +814,6 @@ in porting code from other environments.
 Microsoft Windows platform.
 @end ifset
 @end itemize
-
 
 @c *************************************************
 @node What You Should Know before Reading This Guide
@@ -935,8 +921,6 @@ If you are using GNAT on a Windows platform, please note that
 the ``@code{\}'' character should be used instead.
 @end ifset
 
-
-
 @c ****************************
 @node Getting Started with GNAT
 @chapter Getting Started with GNAT
@@ -992,7 +976,6 @@ All appropriate object files must be linked to produce an executable.
 All three steps are most commonly handled by using the @code{gnatmake}
 utility program that, given the name of the main program, automatically
 performs the necessary compilation, binding and linking steps.
-
 
 @node Running a Simple Ada Program
 @section Running a Simple Ada Program
@@ -1115,7 +1098,6 @@ Hello WORLD!
 
 @noindent
 appear in response to this command.
-
 
 @c ****************************************
 @node Running a Program with Multiple Units
@@ -1324,7 +1306,6 @@ startup menu).
 * Simple Debugging with GPS::
 @end menu
 
-
 @node Building a New Program with GPS
 @subsection Building a New Program with GPS
 @noindent
@@ -1431,7 +1412,6 @@ Select @code{File}, then @code{Save As}, and enter the source file name
 The file will be saved in the same directory you specified as the
 location of the default project file.
 
-
 @item @emph{Updating the project file}
 
 You need to add the new source file to the project.
@@ -1464,8 +1444,6 @@ update is displayed (@code{Run: hello}).
 Close the GPS window (or select @code{File}, then @code{Exit}) to
 terminate this GPS session.
 @end enumerate
-
-
 
 @node Simple Debugging with GPS
 @subsection Simple Debugging with GPS
@@ -1574,7 +1552,6 @@ Right click on @code{N}, select @code{Debug}, then select @code{Display N}.
 You will see information about @code{N} appear in the @code{Debugger Data}
 pane, showing the value as 5.
 
-
 @item @emph{Assigning a new value to a variable}
 
 Right click on the @code{N} in the @code{Debugger Data} pane, and
@@ -1609,7 +1586,6 @@ The value of @code{N} will be 0, and the program will terminate.
 The console window will disappear.
 @end enumerate
 @end enumerate
-
 
 @node Introduction to Glide and GVD
 @section Introduction to Glide and GVD
@@ -3485,7 +3461,6 @@ directory designated by the logical name @code{SYS$SCRATCH:}
 GNAT uses the current directory for temporary files.
 @end ifset
 
-
 @c *************************
 @node Compiling Using gcc
 @chapter Compiling Using @code{gcc}
@@ -4086,6 +4061,12 @@ generated, using @file{^.s^.S^} as the extension,
 instead of the object file.
 This may be useful if you need to examine the generated assembly code.
 
+@item ^-fverbose-asm^/VERBOSE_ASM^
+@cindex @option{^-fverbose-asm^/VERBOSE_ASM^} (@code{gcc})
+^Used in conjunction with @option{-S}^Used in place of @option{/ASM}^
+to cause the generated assembly code file to be annotated with variable
+names, making it significantly easier to follow.
+
 @item ^-v^/VERBOSE^
 @cindex @option{^-v^/VERBOSE^} (@code{gcc})
 Show commands generated by the @code{gcc} driver. Normally used only for
@@ -4117,7 +4098,6 @@ is equivalent to specifying the following sequence of switches:
 -gnato -gnatf -gnati3
 @end smallexample
 @end ifclear
-
 
 @c NEED TO CHECK THIS FOR VMS
 
@@ -4161,7 +4141,6 @@ switch), then all further characters in the switch are interpreted
 as validity checking options (see description of @option{-gnatV}).
 @end ifclear
 @end itemize
-
 
 @node Output and Error Message Control
 @subsection Output and Error Message Control
@@ -4326,7 +4305,6 @@ List possible interpretations for ambiguous calls
 Additional details on incorrect parameters
 @end itemize
 
-
 @item -gnatq
 @cindex @option{-gnatq} (@code{gcc})
 @ifclear vms
@@ -4369,7 +4347,6 @@ Note that @option{-gnatQ} has no effect if @option{-gnats} is specified,
 since ALI files are never generated if @option{-gnats} is set.
 
 @end table
-
 
 @node Warning Message Control
 @subsection Warning Message Control
@@ -4463,7 +4440,6 @@ Mismatching bounds in an aggregate
 @item
 Attempt to return local value by reference
 
-
 @item
 Premature instantiation of a generic body
 
@@ -4523,7 +4499,6 @@ Useless exception handlers
 
 @item
 Accidental hiding of name by child unit
-
 
 @item
 Access before elaboration detected at compile time
@@ -4965,7 +4940,6 @@ When no switch @option{^-gnatw^/WARNINGS^} is used, this is equivalent to:
 
 @end table
 
-
 @node Debugging and Assertion Control
 @subsection Debugging and Assertion Control
 
@@ -5058,7 +5032,6 @@ The options allowed for this qualifier
 indicate validity checks that are performed or not performed in addition
 to the default checks described above.
 @end ifset
-
 
 @table @option
 @c !sort!
@@ -5222,7 +5195,6 @@ ensures that wherever possible uninitialized variables have invalid values.
 See also the pragma @code{Validity_Checks} which allows modification of
 the validity checking mode at the program source level, and also allows for
 temporary disabling of validity checks.
-
 
 @node Style Checking
 @subsection Style Checking
@@ -5777,7 +5749,6 @@ increase the amount of stack for the environment task, then this
 is an operating systems issue, and must be addressed with the
 appropriate operating systems commands.
 
-
 @node Using gcc for Syntax Checking
 @subsection Using @code{gcc} for Syntax Checking
 @table @option
@@ -5832,7 +5803,6 @@ to check a file containing multiple compilation units concatenated
 together. This is primarily used by the @code{gnatchop} utility
 (@pxref{Renaming Files Using gnatchop}).
 @end table
-
 
 @node Using gcc for Semantic Checking
 @subsection Using @code{gcc} for Semantic Checking
@@ -6020,7 +5990,6 @@ to enable file name krunching.
 
 For the source file naming rules, @xref{File Naming Rules}.
 @end table
-
 
 @node Subprogram Inlining Control
 @subsection Subprogram Inlining Control
@@ -6411,7 +6380,6 @@ and communicates it to the compiler using this switch.
 
 @end table
 
-
 @node Integrated Preprocessing
 @subsection Integrated Preprocessing
 
@@ -6599,7 +6567,6 @@ are suitable for spawning with appropriate GNAT RTL routines.
 
 @end ifset
 
-
 @node Search Paths and the Run-Time Library (RTL)
 @section Search Paths and the Run-Time Library (RTL)
 
@@ -6713,7 +6680,6 @@ Besides simplifying access to the RTL, a major use of search paths is
 in compiling sources from multiple directories. This can make
 development environments much more flexible.
 
-
 @node Order of Compilation Issues
 @section Order of Compilation Issues
 
@@ -6823,7 +6789,6 @@ This information is output in the forms of comments in the generated program,
 to be read by the @code{gnatlink} utility used to link the Ada application.
 @end enumerate
 
-
 @node Running gnatbind
 @section Running @code{gnatbind}
 
@@ -6914,7 +6879,6 @@ GNAT compiler itself is an example.
 The use of the @option{^-C^/BIND_FILE=C^} switch
 for both @code{gnatbind} and @code{gnatlink} will cause the program to
 be generated in C (and compiled using the gnu C compiler).
-
 
 @node Switches for gnatbind
 @section Switches for @command{gnatbind}
@@ -7168,7 +7132,6 @@ No main subprogram.
 You may obtain this listing of switches by running @code{gnatbind} with
 no arguments.
 @end ifclear
-
 
 @node Consistency-Checking Modes
 @subsection Consistency-Checking Modes
@@ -7492,7 +7455,6 @@ a list of ALI files can be given, and the execution of the program
 consists of elaboration of these units in an appropriate order.
 @end table
 
-
 @node Command-Line Access
 @section Command-Line Access
 
@@ -7522,7 +7484,6 @@ them will raise @code{Constraint_Error}. If command line access is
 required, your main program must set @code{gnat_argc} and
 @code{gnat_argv} from the @code{argc} and @code{argv} values passed to
 it.
-
 
 @node Search Paths for gnatbind
 @section Search Paths for @code{gnatbind}
@@ -7691,7 +7652,6 @@ to @code{gnatbind} generates the file @file{ada-control.c} containing
 the @code{adainit} and @code{adafinal} routines to be called before and
 after accessing the Ada units.
 @end table
-
 
 @c ------------------------------------
 @node Linking Using gnatlink
@@ -8579,13 +8539,6 @@ if you want to specify library paths
 only.
 
 @item
-@code{gnatmake} examines both an ALI file and its corresponding object file
-for consistency. If an ALI is more recent than its corresponding object,
-or if the object file is missing, the corresponding source will be recompiled.
-Note that @code{gnatmake} expects an ALI and the corresponding object file
-to be in the same directory.
-
-@item
 @code{gnatmake} will ignore any files whose ALI file is write-protected.
 This may conveniently be used to exclude standard libraries from
 consideration and in particular it means that the use of the
@@ -8638,8 +8591,7 @@ approach and in particular to understand how it uses the results of
 previous compilations without incorrectly depending on them.
 
 First a definition: an object file is considered @dfn{up to date} if the
-corresponding ALI file exists and its time stamp predates that of the
-object file and if all the source files listed in the
+corresponding ALI file exists and if all the source files listed in the
 dependency section of this ALI file have time stamps matching those in
 the ALI file. This means that neither the source file itself nor any
 files that it depends on have been modified, and hence there is no need
@@ -8706,7 +8658,6 @@ listed by the binder. @code{gnatmake} will operate in quiet mode, not
 displaying commands it is executing.
 @end table
 
-
 @c *************************
 @node Improving Performance
 @chapter Improving Performance
@@ -8725,7 +8676,6 @@ the size of program executables.
 * Reducing the Size of Ada Executables with gnatelim::
 @end menu
 @end ifnottex
-
 
 @c *****************************
 @node Performance Considerations
@@ -8931,7 +8881,6 @@ is generally discouraged with GNAT, since it often results in larger
 executables which run more slowly. See further discussion of this point
 in @pxref{Inlining of Subprograms}.
 
-
 @node Debugging Optimized Code
 @subsection Debugging Optimized Code
 @cindex Debugging optimized code
@@ -9059,7 +9008,6 @@ Note that if you use @option{-g} you can then use the @command{strip} program
 on the resulting executable,
 which removes both debugging information and global symbols.
 @end ifclear
-
 
 @node Inlining of Subprograms
 @subsection Inlining of Subprograms
@@ -9570,7 +9518,6 @@ the @file{gnat.adc} file. You should recompile your program
 from scratch after that, because you need a consistent @file{gnat.adc} file
 during the entire compilation.
 
-
 @node Making Your Executables Smaller
 @subsection Making Your Executables Smaller
 
@@ -9631,9 +9578,6 @@ $ gnatmake ^-f main_prog^/FORCE_COMPILE MAIN_PROG^
 
 @end enumerate
 
-
-
-
 @c ********************************
 @node Renaming Files Using gnatchop
 @chapter Renaming Files Using @code{gnatchop}
@@ -9677,7 +9621,6 @@ perhaps to maintain compatibility with some other Ada compilation
 system, you can set up a procedure where you use @command{gnatchop} each
 time you compile, regarding the source files that it writes as temporary
 files that you throw away.
-
 
 @node Operating gnatchop in Compilation Mode
 @section Operating gnatchop in Compilation Mode
@@ -9993,6 +9936,7 @@ recognized by @code{GNAT}:
    Ada_95
    C_Pass_By_Copy
    Component_Alignment
+   Detect_Blocking
    Discard_Names
    Elaboration_Checks
    Eliminate
@@ -10328,7 +10272,6 @@ Note that several switches @option{^-d^/SOURCE_DIRS^} may be used,
 even in conjunction with one or several switches
 @option{^-D^/DIRS_FILE^}. Several Naming Patterns and one excluded pattern
 are used in this example.
-
 
 @c *****************************************
 @c * G N A T  P r o j e c t  M a n a g e r *
@@ -10740,7 +10683,7 @@ invoking @command{gnatmake} (see @ref{gnatmake and Project Files}).
 
 @noindent
 By default, the executable file name corresponding to a main source is
-deducted from the main source file name. Through the attributes
+deduced from the main source file name. Through the attributes
 @code{Executable} and @code{Executable_Suffix} of package @code{Builder},
 it is possible to change this default.
 In project @code{Debug} above, the executable file name
@@ -12538,7 +12481,6 @@ All @file{ALI} files will also be copied from the object directory to the
 library directory. To build executables, @command{gnatmake} will use the
 library rather than the individual object files.
 
-
 @c **********************************************
 @c * Using Third-Party Libraries through Projects
 @c **********************************************
@@ -13726,7 +13668,6 @@ simple_name ::=
 
 @end smallexample
 
-
 @node The Cross-Referencing Tools gnatxref and gnatfind
 @chapter  The Cross-Referencing Tools @code{gnatxref} and @code{gnatfind}
 @findex gnatxref
@@ -14422,7 +14363,6 @@ point to any character in the middle of the identifier.
 
 @end table
 
-
 @c *********************************
 @node The GNAT Pretty-Printer gnatpp
 @chapter The GNAT Pretty-Printer @command{gnatpp}
@@ -14473,7 +14413,6 @@ reformat; ``wildcards'' or several file names on the same gnatpp command are
 allowed.  The file name may contain path information; it does not have to
 follow the GNAT file naming rules
 @end itemize
-
 
 @menu
 * Switches for gnatpp::
@@ -14536,7 +14475,6 @@ indicate the effect.
 * Other gnatpp Switches::
 @end menu
 
-
 @node Alignment Control
 @subsection Alignment Control
 @cindex Alignment control in @command{gnatpp}
@@ -14576,7 +14514,6 @@ Align @code{=>} in associations
 @noindent
 The @option{^-A^/ALIGN^} switches are mutually compatible; any combination
 is allowed.
-
 
 @node Casing Control
 @subsection Casing Control
@@ -14672,7 +14609,6 @@ The @option{^-D-^/SPECIFIC_CASING^} and
 @option{^-D@var{file}^/DICTIONARY=@var{file}^} switches are mutually
 compatible.
 
-
 @node Construct Layout Control
 @subsection Construct Layout Control
 @cindex Layout control in @command{gnatpp}
@@ -14767,7 +14703,6 @@ indentation is set to 1 (in which case the default value for continuation
 line indentation is also 1)
 @end table
 
-
 @node Other Formatting Options
 @subsection Other Formatting Options
 
@@ -14826,7 +14761,6 @@ The same as the corresponding gcc switch
 The same as the corresponding gcc switch
 
 @end table
-
 
 @node Output File Control
 @subsection Output File Control
@@ -14909,7 +14843,6 @@ Warning mode;
 a required layout in the result source.
 @end table
 
-
 @node Formatting Rules
 @section Formatting Rules
 
@@ -14924,7 +14857,6 @@ They provide the detailed descriptions of the switches shown above.
 * Construct Layout::
 * Name Casing::
 @end menu
-
 
 @node White Space and Empty Lines
 @subsection White Space and Empty Lines
@@ -14958,7 +14890,6 @@ In order to preserve a visual separation between comment blocks, use an
 ``empty comment'' (a line comprising only hyphens) rather than an empty line.
 Likewise, if for some reason you wish to have a sequence of empty lines,
 use a sequence of empty comments instead.
-
 
 @node Formatting Comments
 @subsection Formatting Comments
@@ -15103,7 +15034,6 @@ comments may be reformatted in typical
 word processor style (that is, moving words between lines and putting as
 many words in a line as possible).
 
-
 @node Construct Layout
 @subsection Construct Layout
 
@@ -15181,7 +15111,6 @@ type q is record                        type q is
 end record;                                   b : integer;
                                            end record;
 
-
 Block : declare                         Block :
    A : Integer := 3;                       declare
 begin                                         A : Integer := 3;
@@ -15201,7 +15130,6 @@ end loop Clear;                               A (J) := 0;
 A further difference between GNAT style layout and compact layout is that
 GNAT style layout inserts empty lines as separation for
 compound statements, return statements and bodies.
-
 
 @node Name Casing
 @subsection Name Casing
@@ -15394,8 +15322,6 @@ begin
 end Test;
 @end cartouche
 @end smallexample
-
-
 
 @c ***********************************
 @node File Name Krunching Using gnatkr
@@ -16574,7 +16500,6 @@ library, by reordering the lines in the configuration files. In general, a
 library must be installed before the GNAT library if it redefines
 any part of it.
 
-
 @node Using the library
 @subsection Using the library
 
@@ -16641,7 +16566,6 @@ For example:
 pragma Linker_Options ("-lmy_lib");
 @end smallexample
 @end itemize
-
 
 @node Stand-alone Ada Libraries
 @section Stand-alone Ada Libraries
@@ -16921,7 +16845,6 @@ The last entry in the object search path usually contains the
 gnat library. This Makefile contains its own documentation and in
 particular the set of instructions needed to rebuild a new library and
 to use it.
-
 
 @node Using the GNU make Utility
 @chapter Using the GNU @code{make} Utility
@@ -17214,7 +17137,6 @@ all:
 @end smallexample
 @end ifclear
 
-
 @node Finding Memory Problems
 @chapter Finding Memory Problems
 
@@ -17233,7 +17155,6 @@ access values (including ``dangling references'').
 @end ifclear
 * The GNAT Debug Pool Facility::
 @end menu
-
 
 @ifclear vms
 @node The gnatmem Tool
@@ -17577,7 +17498,6 @@ and #3 thanks to the more precise associated backtrace.
 
 @end ifclear
 
-
 @node The GNAT Debug Pool Facility
 @section The GNAT Debug Pool Facility
 @findex Debug Pool
@@ -17721,7 +17641,6 @@ Debug Pool info:
   Current Water Mark:  4
   High Water Mark:  8
 @end smallexample
-
 
 @node Creating Sample Bodies Using gnatstub
 @chapter Creating Sample Bodies Using @command{gnatstub}
@@ -17898,7 +17817,6 @@ unless this option is set.
 Verbose mode: generate version information.
 
 @end table
-
 
 @node Other Utility Programs
 @chapter Other Utility Programs
@@ -18093,7 +18011,6 @@ Block commenting / uncommenting
 For more information, please refer to the online documentation
 available in the @code{Glide} @result{} @code{Help} menu.
 @end ifclear
-
 
 @node Converting Ada Files to html with gnathtml
 @section Converting Ada Files to HTML with @code{gnathtml}
@@ -18384,7 +18301,6 @@ activates the debugger and results in a prompt for debugger commands.
 The simplest command is simply @code{run}, which causes the program to run
 exactly as if the debugger were not present. The following section
 describes some of the additional commands that can be given to @code{GDB}.
-
 
 @c *******************************
 @node Introduction to GDB Commands
@@ -19184,7 +19100,6 @@ In STB.P1 : 16#0040_F1E4# 16#0040_14F2# 16#0040_170B# 16#0040_171C#
 You can then get further information by invoking the @code{addr2line}
 tool as described earlier (note that the hexadecimal addresses
 need to be specified in C format, with a leading ``0x'').
-
 
 @node Symbolic Traceback
 @subsection Symbolic Traceback
@@ -20889,7 +20804,6 @@ and GNAT systems.
 
 @end ifset
 
-
 @c **************************************
 @node Platform-Specific Information for the Run-Time Libraries
 @appendix Platform-Specific Information for the Run-Time Libraries
@@ -20953,10 +20867,8 @@ information about several specific platforms.
 * AIX-Specific Considerations::
 @end menu
 
-
 @node Summary of Run-Time Configurations
 @section Summary of Run-Time Configurations
-
 
 @multitable @columnfractions .30 .70
 @item @b{alpha-openvms}
@@ -21016,8 +20928,6 @@ information about several specific platforms.
 @item @code{@ @ @ @ }Exceptions @tab SJLJ
 @*
 @end multitable
-
-
 
 @node Specifying a Run-Time Library
 @section Specifying a Run-Time Library
@@ -21192,7 +21102,6 @@ you find that the improved efficiency of FSU threads is significant to you.
 Note also that to take full advantage of Florist and Glade, it is highly
 recommended that you use native threads.
 
-
 @node Choosing the Scheduling Policy
 @section Choosing the Scheduling Policy
 
@@ -21231,8 +21140,6 @@ you should use @code{pragma Time_Slice} with a
 value greater than @code{0.0}, or else use the corresponding @option{-T}
 binder option.
 
-
-
 @node Solaris-Specific Considerations
 @section Solaris-Specific Considerations
 @cindex Solaris Sparc threads libraries
@@ -21246,7 +21153,6 @@ debugging 64-bit applications.
 * Solaris Threads Issues::
 * Building and Debugging 64-bit Applications::
 @end menu
-
 
 @node Solaris Threads Issues
 @subsection Solaris Threads Issues
@@ -21301,7 +21207,6 @@ Run the program on the specified processor.
 (where @code{_SC_NPROCESSORS_CONF} is a system variable).
 @end table
 
-
 @node Building and Debugging 64-bit Applications
 @subsection Building and Debugging 64-bit Applications
 
@@ -21325,8 +21230,6 @@ amounts to:
      $ gdb64 hello
 @end smallexample
 
-
-
 @node IRIX-Specific Considerations
 @section IRIX-Specific Considerations
 @cindex IRIX thread library
@@ -21346,7 +21249,6 @@ See the @cite{GNAT Reference Manual} for further information.
 
 The @emph{n32 ABI} compiler comes with a run-time library based on the
 kernel POSIX threads and thus does not have the limitations mentioned above.
-
 
 @node Linux-Specific Considerations
 @section Linux-Specific Considerations
@@ -21390,7 +21292,6 @@ this call.
 This Appendix displays the source code for @command{gnatbind}'s output
 file generated for a simple ``Hello World'' program.
 Comments have been added for clarification purposes.
-
 
 @smallexample @c adanocomment
 @iftex
@@ -22106,7 +22007,6 @@ Ada.Text_Io'Elab_Body;
 and trace the elaboration routine for this package to find out where
 the problem might be (more usually of course you would be debugging
 elaboration code in your own application).
-
 
 @node Elaboration Order Handling in GNAT
 @appendix Elaboration Order Handling in GNAT
@@ -23963,7 +23863,6 @@ difference, by looking at the two elaboration orders that are chosen,
 and figuring out which is correct, and then adding the necessary
 @code{Elaborate_All} pragmas to ensure the desired order.
 
-
 @node Inline Assembler
 @appendix Inline Assembler
 
@@ -25574,8 +25473,6 @@ end Intel_CPU;
 @c END OF INLINE ASSEMBLER CHAPTER
 @c ===============================
 
-
-
 @c ***********************************
 @c * Compatibility and Porting Guide *
 @c ***********************************
@@ -25780,7 +25677,6 @@ include @code{pragma Interface} and the floating point type attributes
 (@code{Emax}, @code{Mantissa}, etc.), among other items.
 @end table
 
-
 @node Implementation-dependent characteristics
 @section Implementation-dependent characteristics
 @noindent
@@ -25800,7 +25696,6 @@ transition from certain Ada 83 compilers.
 * Elaboration order::
 * Target-specific aspects::
 @end menu
-
 
 @node Implementation-defined pragmas
 @subsection Implementation-defined pragmas
@@ -25898,7 +25793,6 @@ on the robustness of the original design.  Moreover, Ada 95 is sometimes
 incompatible with typical Ada 83 compiler practices regarding implicit
 packing, the meaning of the Size attribute, and the size of access values.
 GNAT's approach to these issues is described in @ref{Representation Clauses}.
-
 
 @node Compatibility with Other Ada 95 Systems
 @section Compatibility with Other Ada 95 Systems
@@ -26100,8 +25994,6 @@ attributes are recognized, although only a subset of them can sensibly
 be implemented.  The description of pragmas in this reference manual
 indicates whether or not they are applicable to non-VMS systems.
 
-
-
 @ifset unw
 @node Microsoft Windows Topics
 @appendix Microsoft Windows Topics
@@ -26123,6 +26015,8 @@ platforms (NT, 2000, and XP Professional).
 * Introduction to Dynamic Link Libraries (DLLs)::
 * Using DLLs with GNAT::
 * Building DLLs with GNAT::
+* Building DLLs with GNAT Project files::
+* Building DLLs with gnatdll::
 * GNAT and Windows Resources::
 * Debugging a DLL::
 * GNAT and COM/DCOM Objects::
@@ -26503,13 +26397,14 @@ slower since, as you will understand below, such calls are indirect.
 
 To illustrate the remainder of this section, suppose that an application
 wants to use the services of a DLL @file{API.dll}. To use the services
-provided by @file{API.dll} you must statically link against an import
-library which contains a jump table with an entry for each routine and
-variable exported by the DLL. In the Microsoft world this import library is
-called @file{API.lib}. When using GNAT this import library is called either
-@file{libAPI.a} or @file{libapi.a} (names are case insensitive).
+provided by @file{API.dll} you must statically link against the DLL or
+an import library which contains a jump table with an entry for each
+routine and variable exported by the DLL. In the Microsoft world this
+import library is called @file{API.lib}. When using GNAT this import
+library is called either @file{libAPI.a} or @file{libapi.a} (names are
+case insensitive).
 
-After you have statically linked your application with the import library
+After you have linked your application with the DLL or the import library
 and you run your application, here is what happens:
 
 @enumerate
@@ -26537,9 +26432,10 @@ routines and routines in the application using the DLL.
 @end itemize
 
 @item
-The entries in the @file{libAPI.a} or @file{API.lib} jump table which is
-part of your application are initialized with the addresses of the routines
-and variables in @file{API.dll}.
+The entries in the jump table (from the import library @file{libAPI.a}
+or @file{API.lib} or automatically created when linking against a DLL)
+which is part of your application are initialized with the addresses
+of the routines and variables in @file{API.dll}.
 
 @item
 If present in @file{API.dll}, routines @code{DllMain} or
@@ -26564,8 +26460,8 @@ still be relocated.
 As a side note, an interesting difference between Microsoft DLLs and
 Unix shared libraries, is the fact that on most Unix systems all public
 routines are exported by default in a Unix shared library, while under
-Windows the exported routines must be listed explicitly in a definition
-file (@pxref{The Definition File}).
+Windows it is possible (but not required) to list exported routines in
+a definition file (@pxref{The Definition File}).
 
 @node Using DLLs with GNAT
 @section Using DLLs with GNAT
@@ -26590,7 +26486,8 @@ The import library (@file{libAPI.a} or @file{API.lib}). As previously
 mentioned an import library is a statically linked library containing the
 import table which will be filled at load time to point to the actual
 @file{API.dll} routines. Sometimes you don't have an import library for the
-DLL you want to use. The following sections will explain how to build one.
+DLL you want to use. The following sections will explain how to build
+one. Note that this is optional.
 
 @item
 The actual DLL, @file{API.dll}.
@@ -26685,7 +26582,9 @@ subprograms, the @code{DLL} convention is a synonym of @code{Stdcall}
 @noindent
 If a Microsoft-style import library @file{API.lib} or a GNAT-style
 import library @file{libAPI.a} is available with @file{API.dll} you
-can skip this section. Otherwise read on.
+can skip this section. You can also skip this section if
+@file{API.dll} is built with GNU tools as in this case it is possible
+to link directly against the DLL. Otherwise read on.
 
 @node The Definition File
 @subsubsection The Definition File
@@ -26850,6 +26749,75 @@ See the Microsoft documentation for further details about the usage of
 @section Building DLLs with GNAT
 @cindex DLLs, building
 
+@noindent
+This section explain how to build DLLs using the GNAT built-in DLL
+support. With the following procedure it is straight forward to build
+and use DLLs with GNAT.
+
+@enumerate
+
+@item building object files
+
+The first step is to build all objects files that are to be included
+into the DLL. This is done by using the standard @code{gnatmake} tool.
+
+@item building the DLL
+
+To build the DLL you must use @code{gcc}'s @code{-shared}
+option. It is quite simple to use this method:
+
+@smallexample
+$ gcc -shared -o api.dll obj1.o obj2.o ...
+@end smallexample
+
+It is important to note that in this case all symbols found in the
+object files are automatically exported. It is possible to restrict
+the set of symbols to export by passing to @code{gcc} a definition
+file, @pxref{The Definition File}. For example:
+
+@smallexample
+$ gcc -shared -o api.dll api.def obj1.o obj2.o ...
+@end smallexample
+
+If you use a definition file you must export the elaboration procedures
+for every package that required one. Elaboration procedures are named
+using the package name followed by "_E".
+
+@item preparing DLL to be used
+
+For the DLL to be used by client programs the bodies must be hidden
+from it and the .ali set with read-only attribute. This is very important
+otherwise GNAT will recompile all packages and will not actually use
+the code in the DLL. For example:
+
+@smallexample
+$ mkdir apilib
+$ copy *.ads *.ali api.dll apilib
+$ attrib +R apilib\*.ali
+@end smallexample
+
+@end enumerate
+
+At this point it is possible to use the DLL by directly linking
+against it. Note that you must use the GNAT shared runtime when using
+GNAT shared libraries. This is achieved by using @code{-shared} binder's
+option.
+
+@smallexample
+$ gnatmake main -Iapilib -bargs -shared -largs -Lapilib -lAPI
+@end smallexample
+
+@node Building DLLs with GNAT Project files
+@section Building DLLs with GNAT Project files
+@cindex DLLs, building
+
+@noindent
+There is nothing specific to Windows in this area. @pxref{Library Projects}.
+
+@node Building DLLs with gnatdll
+@section Building DLLs with gnatdll
+@cindex DLLs, building
+
 @menu
 * Limitations When Using Ada DLLs from Ada::
 * Exporting Ada Entities::
@@ -26861,8 +26829,13 @@ See the Microsoft documentation for further details about the usage of
 @end menu
 
 @noindent
-This section explains how to build DLLs containing Ada code. These DLLs
-will be referred to as Ada DLLs in the remainder of this section.
+Note that it is prefered to use the built-in GNAT DLL support
+(@pxref{Building DLLs with GNAT}) or GNAT Project files
+(@pxref{Building DLLs with GNAT Project files}) to build DLLs.
+
+This section explains how to build DLLs containing Ada code using
+@code{gnatdll}. These DLLs will be referred to as Ada DLLs in the
+remainder of this section.
 
 The steps required to build an Ada DLL that is to be used by Ada as well as
 non-Ada applications are as follows:
@@ -27792,7 +27765,6 @@ approach to debug a program as described in
 This section is temporarily left blank.
 
 @end ifset
-
 
 @c **********************************
 @c * GNU Free Documentation License *

@@ -101,6 +101,7 @@ extern int sh_can_redirect_branch (rtx, rtx);
 extern void sh_expand_unop_v2sf (enum rtx_code, rtx, rtx);
 extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
 extern int sh_expand_t_scc (enum rtx_code code, rtx target);
+extern bool sh_vector_mode_supported_p (enum machine_mode);
 #ifdef TREE_CODE
 extern void sh_va_start (tree, rtx);
 #endif /* TREE_CODE */
@@ -142,6 +143,7 @@ extern rtx sh_get_pr_initial_val (void);
 extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
+extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
 extern const char *sh_pch_valid_p (const void *data_p, size_t sz);
 extern bool sh_promote_prototypes (tree);
 

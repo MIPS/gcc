@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.text;
 
 import gnu.java.text.FormatCharacterIterator;
+
 import java.io.Serializable;
 
 /**
@@ -60,6 +61,9 @@ import java.io.Serializable;
  */
 public abstract class Format implements Serializable, Cloneable
 {
+  /**
+   * For compatability with Sun's JDK 1.4.2 rev. 5
+   */
   static final long serialVersionUID = -299282585814624189L;
 
   public static class Field extends AttributedCharacterIterator.Attribute

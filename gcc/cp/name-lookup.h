@@ -91,7 +91,7 @@ typedef struct cxx_saved_binding GTY(())
   tree real_type_value;
 } cxx_saved_binding;
 
-DEF_VEC_O(cxx_saved_binding);
+DEF_VEC_GC_O(cxx_saved_binding);
 
 extern tree identifier_type_value (tree);
 extern void set_identifier_type_value (tree, tree);
@@ -132,7 +132,7 @@ typedef struct cp_class_binding GTY(())
   tree identifier;
 } cp_class_binding;
 
-DEF_VEC_O(cp_class_binding);
+DEF_VEC_GC_O(cp_class_binding);
 
 /* For each binding contour we allocate a binding_level structure
    which records the names defined in that contour.
@@ -231,7 +231,7 @@ struct cp_binding_level GTY(())
 
     /* The kind of scope that this object represents.  However, a
        SK_TEMPLATE_SPEC scope is represented with KIND set to
-       SK_TEMPALTE_PARMS and EXPLICIT_SPEC_P set to true.  */
+       SK_TEMPLATE_PARMS and EXPLICIT_SPEC_P set to true.  */
     ENUM_BITFIELD (scope_kind) kind : 4;
 
     /* True if this scope is an SK_TEMPLATE_SPEC scope.  This field is

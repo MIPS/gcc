@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "tree-inline.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
@@ -49,7 +48,7 @@ extern void rename_ssa_copies (void);
 
    Each copy is examined to determine if it is possible to rename the base
    variable of one of the operands to the same variable as the other operand.
-   ie.
+   i.e.
    T.3_5 = <blah>
    a_1 = T.3_5
 
@@ -117,13 +116,12 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 {
   int p1, p2, p3;
   tree root1, root2;
+  tree rep1, rep2;
   var_ann_t ann1, ann2, ann3;
-  bool gimp1, gimp2;
+  bool ign1, ign2, abnorm;
 
-#ifdef ENABLE_CHECKING
-  if (TREE_CODE (var1) != SSA_NAME || TREE_CODE (var2) != SSA_NAME)
-    abort ();
-#endif
+  gcc_assert (TREE_CODE (var1) == SSA_NAME);
+  gcc_assert (TREE_CODE (var2) == SSA_NAME);
 
   register_ssa_partition (map, var1, false);
   register_ssa_partition (map, var2, true);
@@ -140,26 +138,13 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       fprintf (debug, "(P%d)", p2);
     }
 
-#ifdef ENABLE_CHECKING
-  if (p1 == NO_PARTITION || p2 == NO_PARTITION)
-    abort ();
-#endif
+  gcc_assert (p1 != NO_PARTITION);
+  gcc_assert (p2 != NO_PARTITION);
 
-  root1 = SSA_NAME_VAR (partition_to_var (map, p1));
-  root2 = SSA_NAME_VAR (partition_to_var (map, p2));
-
-  if (DECL_HARD_REGISTER (root1) || DECL_HARD_REGISTER (root2))
-    {
-      if (debug)
-        {
-	  if (DECL_HARD_REGISTER (root1))
-	    print_generic_expr (debug, var1, TDF_SLIM);
-	  else
-	    print_generic_expr (debug, var2, TDF_SLIM);
-	  fprintf (debug, " is a hardware register.  No Coalescing.\n");
-	}
-      return;
-    }
+  rep1 = partition_to_var (map, p1);
+  rep2 = partition_to_var (map, p2);
+  root1 = SSA_NAME_VAR (rep1);
+  root2 = SSA_NAME_VAR (rep2);
 
   ann1 = var_ann (root1);
   ann2 = var_ann (root2);
@@ -168,6 +153,16 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Already coalesced.\n");
+      return;
+    }
+
+  /* Don't coalesce if one of the variables occurs in an abnormal PHI.  */
+  abnorm = (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep1)
+	    || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep2));
+  if (abnorm)
+    {
+      if (debug)
+	fprintf (debug, " : Abnormal PHI barrier.  No coalesce.\n");
       return;
     }
 
@@ -195,27 +190,25 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       return;
     }
 
-  gimp1 = is_gimple_tmp_var (root1);
-  gimp2 = is_gimple_tmp_var (root2);
+  ign1 = TREE_CODE (root1) == VAR_DECL && DECL_IGNORED_P (root1);
+  ign2 = TREE_CODE (root2) == VAR_DECL && DECL_IGNORED_P (root2);
 
   /* Never attempt to coalesce 2 user variables unless one is an inline 
      variable.  */
-  if (!gimp1 && !gimp2)
+  if (!ign1 && !ign2)
     {
       if (DECL_FROM_INLINE (root2))
-        gimp2 = true;
-      else
-        if (DECL_FROM_INLINE (root1))
-	  gimp1 = true;
-	else 
-	  {
-	    if (debug)
-	      fprintf (debug, " : 2 different USER vars. No coalesce.\n");
-	    return;
-	  }
+        ign2 = true;
+      else if (DECL_FROM_INLINE (root1))
+	ign1 = true;
+      else 
+	{
+	  if (debug)
+	    fprintf (debug, " : 2 different USER vars. No coalesce.\n");
+	  return;
+	}
     }
 
-    
   /* Don't coalesce if there are two different memory tags.  */
   if (ann1->type_mem_tag && ann2->type_mem_tag
       && ann1->type_mem_tag != ann2->type_mem_tag)
@@ -237,16 +230,15 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 	}
       else
         {
-	  gimp2 = true;
-	  gimp1 = false;
+	  ign2 = true;
+	  ign1 = false;
 	}
     }
-  else
-    if (default_def (root2))
-      {
-	gimp1 = true;
-	gimp2 = false;
-      }
+  else if (default_def (root2))
+    {
+      ign1 = true;
+      ign2 = false;
+    }
 
   /* Don't coalesce if the two variables aren't type compatible.  */
   if (!lang_hooks.types_compatible_p (TREE_TYPE (root1), TREE_TYPE (root2)))
@@ -256,16 +248,27 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       return;
     }
 
+  /* Don't coalesce if the aliasing sets of the types are different.  */
+  if (POINTER_TYPE_P (TREE_TYPE (root1))
+      && POINTER_TYPE_P (TREE_TYPE (root2))
+      && get_alias_set (TREE_TYPE (TREE_TYPE (root1)))
+          != get_alias_set (TREE_TYPE (TREE_TYPE (root2))))
+    {
+      if (debug)
+	fprintf (debug, " : 2 different alasing sets. No coalesce.\n");
+      return;
+    }
+
+
   /* Merge the two partitions.  */
   p3 = partition_union (map->var_partition, p1, p2);
 
   /* Set the root variable of the partition to the better choice, if there is 
      one.  */
-  if (!gimp2)
+  if (!ign2)
     replace_ssa_name_symbol (partition_to_var (map, p3), root2);
-  else
-    if (!gimp1)
-      replace_ssa_name_symbol (partition_to_var (map, p3), root1);
+  else if (!ign1)
+    replace_ssa_name_symbol (partition_to_var (map, p3), root1);
 
   /* Update the various flag widgitry of the current base representative.  */
   ann3 = var_ann (SSA_NAME_VAR (partition_to_var (map, p3)));
@@ -386,7 +389,9 @@ struct tree_opt_pass pass_rename_ssa_copies =
 {  
   "copyrename",				/* name */
   gate_copyrename,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   rename_ssa_copies,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -395,6 +400,7 @@ struct tree_opt_pass pass_rename_ssa_copies =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */ 
-  TODO_dump_func | TODO_verify_ssa      /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,     /* todo_flags_finish */
+  0					/* letter */
 }; 
 

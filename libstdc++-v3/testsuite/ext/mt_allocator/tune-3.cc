@@ -27,16 +27,12 @@ template<typename _Tp>
 struct test_policy
 { static bool per_type() { return true; } };
 
-using __gnu_cxx::__pool;
-using __gnu_cxx::__common_pool_policy;
-
-template<>
-struct test_policy<__common_pool_policy<__pool, true> >
-{ static bool per_type() { return false; } };
-
-template<>
-struct test_policy<__common_pool_policy<__pool, false> >
-{ static bool per_type() { return false; } };
+template<bool _Thread>
+struct test_policy<__gnu_cxx::__common_pool_policy<_Thread> >
+{ 
+  typedef __gnu_cxx::__common_pool_policy<_Thread> policy_type;
+  static bool per_type() { return false; } 
+};
 
 // Tune characteristics, two of different types
 template<typename _Tp, typename _Cp>
@@ -89,12 +85,12 @@ void test03()
 int main()
 {
 #ifdef __GTHREADS
-  test03<int, __gnu_cxx::__per_type_pool_policy<int, __pool, true> >();
-  test03<int, __gnu_cxx::__common_pool_policy<__pool, true> >();
+  test03<int, __gnu_cxx::__per_type_pool_policy<int, true> >();
+  test03<int, __gnu_cxx::__common_pool_policy<true> >();
 #endif
 
-  test03<int, __gnu_cxx::__per_type_pool_policy<int, __pool, false> >();
-  test03<int, __gnu_cxx::__common_pool_policy<__pool, false> >();
+  test03<int, __gnu_cxx::__common_pool_policy<false> >();
+  test03<int, __gnu_cxx::__per_type_pool_policy<int, false> >();
 
   return 0;
 }

@@ -1,5 +1,5 @@
 /* Register conflict graph computation routines.
-   Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC
 
 This file is part of GCC.
@@ -191,8 +191,7 @@ conflict_graph_add (conflict_graph graph, int reg1, int reg2)
   void **slot;
 
   /* A reg cannot conflict with itself.  */
-  if (reg1 == reg2)
-    abort ();
+  gcc_assert (reg1 != reg2);
 
   dummy.smaller = smaller;
   dummy.larger = larger;
@@ -325,10 +324,11 @@ print_conflict (int reg1, int reg2, void *contextp)
      is the interesting one.  */
   if (reg1 == context->reg)
     reg = reg2;
-  else if (reg2 == context->reg)
-    reg = reg1;
   else
-    abort ();
+    {
+      gcc_assert (reg2 == context->reg);
+      reg = reg1;
+    }
 
   /* Print the conflict.  */
   fprintf (context->fp, " %d", reg);
@@ -447,6 +447,8 @@ conflict_graph_compute (regset regs, partition p)
 	  /* Are we interested in this insn? */
 	  if (INSN_P (insn))
 	    {
+	      reg_set_iterator rsi;
+
 	      /* Determine which regs are set in this insn.  Since
   	         we're in SSA form, if a reg is set here it isn't set
   	         anywhere else, so this insn is where the reg is born.  */
@@ -460,20 +462,22 @@ conflict_graph_compute (regset regs, partition p)
 	      /* For every reg born here, add a conflict with every other
   	         reg live coming into this insn.  */
 	      EXECUTE_IF_SET_IN_REG_SET
-		(born, FIRST_PSEUDO_REGISTER, born_reg,
-		 {
-		   EXECUTE_IF_SET_IN_REG_SET
-		     (live, FIRST_PSEUDO_REGISTER, live_reg,
-		      {
-			/* Build the conflict graph in terms of canonical
-			   regnos.  */
-			int b = partition_find (p, born_reg);
-			int l = partition_find (p, live_reg);
+		(born, FIRST_PSEUDO_REGISTER, born_reg, rsi)
+		{
+		  reg_set_iterator rsj;
 
-			if (b != l)
-			  conflict_graph_add (graph, b, l);
-		      });
-		 });
+		  EXECUTE_IF_SET_IN_REG_SET
+		    (live, FIRST_PSEUDO_REGISTER, live_reg, rsj)
+		    {
+		      /* Build the conflict graph in terms of canonical
+			 regnos.  */
+		      int b = partition_find (p, born_reg);
+		      int l = partition_find (p, live_reg);
+
+		      if (b != l)
+			conflict_graph_add (graph, b, l);
+		    }
+		}
 
 	      /* Morgan's algorithm checks the operands of the insn
 	         and adds them to the set of live regs.  Instead, we

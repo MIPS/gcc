@@ -30,7 +30,6 @@ enum debug_info_type
   NO_DEBUG,	    /* Write no debug info.  */
   DBX_DEBUG,	    /* Write BSD .stabs for DBX (using dbxout.c).  */
   SDB_DEBUG,	    /* Write COFF for (old) SDB (using sdbout.c).  */
-  DWARF_DEBUG,	    /* Write Dwarf debug info (using dwarfout.c).  */
   DWARF2_DEBUG,	    /* Write Dwarf v2 debug info (using dwarf2out.c).  */
   XCOFF_DEBUG,	    /* Write IBM/Xcoff debug info (using dbxout.c).  */
   VMS_DEBUG,        /* Write VMS debug info (using vmsdbgout.c).  */
@@ -241,16 +240,6 @@ extern enum graph_dump_types graph_dump_format;
    and to print them when we are done.  */
 extern int flag_detailed_statistics;
 
-/* Enable points-to analysis on trees.  */
-enum pta_type
-  {
-    PTA_NONE,
-    PTA_ANDERSEN
-  };
-extern enum pta_type flag_tree_points_to;
-
-extern int flag_web;
-
 /* Nonzero means that we defer emitting functions until they are actually
    used.  */
 extern int flag_remove_unreachable_functions;
@@ -260,6 +249,10 @@ extern int flag_var_tracking;
 
 /* Nonzero if we should perform struct peeling optimization.  */
 extern int flag_peel_structs;
+
+/* True if flag_speculative_prefetching was set by user.  Used to suppress
+   warning message in case flag was set by -fprofile-{generate,use}.  */
+extern bool flag_speculative_prefetching_set;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */

@@ -89,11 +89,10 @@ make_thunk (tree function, bool this_adjusting,
   HOST_WIDE_INT d;
   tree thunk;
   
-  my_friendly_assert (TREE_CODE (function) == FUNCTION_DECL, 20021025);
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
   /* We can have this thunks to covariant thunks, but not vice versa.  */
-  my_friendly_assert (!DECL_THIS_THUNK_P (function), 20021127);
-  my_friendly_assert (!DECL_RESULT_THUNK_P (function) || this_adjusting,
-		      20031123);
+  gcc_assert (!DECL_THIS_THUNK_P (function));
+  gcc_assert (!DECL_RESULT_THUNK_P (function) || this_adjusting);
   
   /* Scale the VIRTUAL_OFFSET to be in terms of bytes.  */
   if (this_adjusting && virtual_offset)
@@ -122,12 +121,11 @@ make_thunk (tree function, bool this_adjusting,
   /* All thunks must be created before FUNCTION is actually emitted;
      the ABI requires that all thunks be emitted together with the
      function to which they transfer control.  */
-  my_friendly_assert (!TREE_ASM_WRITTEN (function), 20021025);
+  gcc_assert (!TREE_ASM_WRITTEN (function));
   /* Likewise, we can only be adding thunks to a function declared in
      the class currently being laid out.  */
-  my_friendly_assert (TYPE_SIZE (DECL_CONTEXT (function))
-		      && TYPE_BEING_DEFINED (DECL_CONTEXT (function)),
-		      20031211);
+  gcc_assert (TYPE_SIZE (DECL_CONTEXT (function))
+	      && TYPE_BEING_DEFINED (DECL_CONTEXT (function)));
 
   thunk = build_decl (FUNCTION_DECL, NULL_TREE, TREE_TYPE (function));
   DECL_LANG_SPECIFIC (thunk) = DECL_LANG_SPECIFIC (function);
@@ -183,7 +181,7 @@ finish_thunk (tree thunk)
   tree fixed_offset = ssize_int (THUNK_FIXED_OFFSET (thunk));
   tree virtual_offset = THUNK_VIRTUAL_OFFSET (thunk);
 
-  my_friendly_assert (!DECL_NAME (thunk) && DECL_THUNK_P (thunk), 20021127);
+  gcc_assert (!DECL_NAME (thunk) && DECL_THUNK_P (thunk));
   if (virtual_offset && DECL_RESULT_THUNK_P (thunk))
     virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
   function = THUNK_TARGET (thunk);
@@ -203,7 +201,7 @@ finish_thunk (tree thunk)
 	   cov_probe; cov_probe = TREE_CHAIN (cov_probe))
 	if (DECL_NAME (cov_probe) == name)
 	  {
-	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
+	    gcc_assert (!DECL_THUNKS (thunk));
 	    THUNK_ALIAS (thunk) = (THUNK_ALIAS (cov_probe)
 				   ? THUNK_ALIAS (cov_probe) : cov_probe);
 	    break;
@@ -225,8 +223,8 @@ thunk_adjust (tree ptr, bool this_adjusting,
 {
   if (this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold (build (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-		       ssize_int (fixed_offset)));
+    ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
+			ssize_int (fixed_offset)));
 
   /* If there's a virtual offset, look up that value in the vtable and
      adjust the pointer again.  */
@@ -243,17 +241,17 @@ thunk_adjust (tree ptr, bool this_adjusting,
       /* Form the vtable address.  */
       vtable = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (vtable)), vtable);
       /* Find the entry with the vcall offset.  */
-      vtable = build (PLUS_EXPR, TREE_TYPE (vtable), vtable, virtual_offset);
+      vtable = build2 (PLUS_EXPR, TREE_TYPE (vtable), vtable, virtual_offset);
       /* Get the offset itself.  */
       vtable = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (vtable)), vtable);
       /* Adjust the `this' pointer.  */
-      ptr = fold (build (PLUS_EXPR, TREE_TYPE (ptr), ptr, vtable));
+      ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr, vtable));
     }
   
   if (!this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold (build (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-		       ssize_int (fixed_offset)));
+    ptr = fold (build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
+			ssize_int (fixed_offset)));
 
   return ptr;
 }
@@ -318,11 +316,11 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   bool this_adjusting = DECL_THIS_THUNK_P (thunk_fndecl);
 
   /* We should have called finish_thunk to give it a name.  */
-  my_friendly_assert (DECL_NAME (thunk_fndecl), 20021127);
+  gcc_assert (DECL_NAME (thunk_fndecl));
 
   /* We should never be using an alias, always refer to the
      aliased thunk.  */
-  my_friendly_assert (!THUNK_ALIAS (thunk_fndecl), 20031023);
+  gcc_assert (!THUNK_ALIAS (thunk_fndecl));
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
     return;
@@ -356,7 +354,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       if (!this_adjusting)
 	virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
       virtual_value = tree_low_cst (virtual_offset, /*pos=*/0);
-      my_friendly_assert (virtual_value, 20021026);
+      gcc_assert (virtual_value);
     }
   else
     virtual_value = 0;
@@ -369,7 +367,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
   DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
-  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) = DECL_VISIBILITY_SPECIFIED (function);
+  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) 
+    = DECL_VISIBILITY_SPECIFIED (function);
   if (flag_weak && TREE_PUBLIC (thunk_fndecl))
     comdat_linkage (thunk_fndecl);
 
@@ -442,7 +441,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 	 doesn't work for varargs.  */
 
       if (varargs_function_p (function))
-	error ("generic thunk code fails for method `%#D' which uses `...'",
+	error ("generic thunk code fails for method %q#D which uses %<...%>",
 	       function);
 
       DECL_RESULT (thunk_fndecl) = NULL_TREE;
@@ -515,7 +514,7 @@ do_build_copy_constructor (tree fndecl)
        if *this is a base subobject.  */;
   else if (TYPE_HAS_TRIVIAL_INIT_REF (current_class_type))
     {
-      t = build (INIT_EXPR, void_type_node, current_class_ref, parm);
+      t = build2 (INIT_EXPR, void_type_node, current_class_ref, parm);
       finish_expr_stmt (t);
     }
   else
@@ -588,7 +587,7 @@ do_build_copy_constructor (tree fndecl)
 	  expr_type = TREE_TYPE (field);
 	  if (TREE_CODE (expr_type) != REFERENCE_TYPE)
 	    expr_type = cp_build_qualified_type (expr_type, cvquals);
-	  init = build (COMPONENT_REF, expr_type, init, field, NULL_TREE);
+	  init = build3 (COMPONENT_REF, expr_type, init, field, NULL_TREE);
 	  init = build_tree_list (NULL_TREE, init);
 
 	  member_init_list
@@ -613,7 +612,7 @@ do_build_assign_ref (tree fndecl)
        if *this is a base subobject.  */;
   else if (TYPE_HAS_TRIVIAL_ASSIGN_REF (current_class_type))
     {
-      tree t = build (MODIFY_EXPR, void_type_node, current_class_ref, parm);
+      tree t = build2 (MODIFY_EXPR, void_type_node, current_class_ref, parm);
       finish_expr_stmt (t);
     }
   else
@@ -655,12 +654,14 @@ do_build_assign_ref (tree fndecl)
 
 	  if (CP_TYPE_CONST_P (TREE_TYPE (field)))
 	    {
-              error ("non-static const member `%#D', can't use default assignment operator", field);
+              error ("non-static const member %q#D, can't use default "
+                     "assignment operator", field);
 	      continue;
 	    }
 	  else if (TREE_CODE (TREE_TYPE (field)) == REFERENCE_TYPE)
 	    {
-	      error ("non-static reference member `%#D', can't use default assignment operator", field);
+	      error ("non-static reference member %q#D, can't use "
+                     "default assignment operator", field);
 	      continue;
 	    }
 
@@ -680,17 +681,17 @@ do_build_assign_ref (tree fndecl)
 	  else
 	    continue;
 
-	  comp = build (COMPONENT_REF, TREE_TYPE (field), comp, field,
-			NULL_TREE);
-	  init = build (COMPONENT_REF,
-	                cp_build_qualified_type (TREE_TYPE (field), cvquals),
-	                init, field, NULL_TREE);
+	  comp = build3 (COMPONENT_REF, TREE_TYPE (field), comp, field,
+			 NULL_TREE);
+	  init = build3 (COMPONENT_REF,
+			 cp_build_qualified_type (TREE_TYPE (field), cvquals),
+			 init, field, NULL_TREE);
 
 	  if (DECL_NAME (field))
 	    finish_expr_stmt (build_modify_expr (comp, NOP_EXPR, init));
 	  else
-	    finish_expr_stmt (build (MODIFY_EXPR, TREE_TYPE (comp), comp,
-				     init));
+	    finish_expr_stmt (build2 (MODIFY_EXPR, TREE_TYPE (comp), comp,
+				      init));
 	}
     }
   finish_return_stmt (current_class_ref);
@@ -731,7 +732,6 @@ synthesize_method (tree fndecl)
      function.  */
   DECL_SOURCE_LOCATION (fndecl) = input_location;
 
-  interface_unknown = 1;
   start_preparsed_function (fndecl, NULL_TREE, SF_DEFAULT | SF_PRE_PARSED);
   stmt = begin_function_body ();
 
@@ -761,7 +761,6 @@ synthesize_method (tree fndecl)
   finish_function_body (stmt);
   expand_or_defer_fn (finish_function (0));
 
-  extract_interface_info ();
   if (! context)
     pop_from_top_level ();
   else if (nested)
@@ -933,13 +932,24 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
   tree parameter_types = void_list_node;
-  tree return_type = void_type_node;
+  tree return_type;
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
   tree name;
 
   type = TYPE_MAIN_VARIANT (type);
+
+  if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (type))
+    {
+      if (kind == sfk_destructor)
+	/* See comment in check_special_function_return_type.  */
+	return_type = build_pointer_type (void_type_node);
+      else
+	return_type = build_pointer_type (type);
+    }
+  else
+    return_type = void_type_node;
 
   switch (kind)
     {
@@ -984,7 +994,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       break;
     }
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Create the function.  */
@@ -1017,15 +1027,13 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 	       TYPE_UNQUALIFIED);
   grok_special_member_properties (fn);
   set_linkage_according_to_type (type, fn);
-  rest_of_decl_compilation (fn, /*asmspec=*/NULL,
-			    toplevel_bindings_p (), at_eof);
+  rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   DECL_NOT_REALLY_EXTERN (fn) = 1;
   DECL_DECLARED_INLINE_P (fn) = 1;
   DECL_INLINE (fn) = 1;
-  if (TREE_USED (fn))
-    abort ();
+  gcc_assert (!TREE_USED (fn));
   
   return fn;
 }

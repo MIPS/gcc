@@ -35,12 +35,14 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "except.h"
 #include "flags.h"
+#include "diagnostic.h"
+#include "toplev.h"
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
    ??? We really ought to pass the probability down to RTL expanders and let it
-   re-distribute it when the conditional expands into multiple coniditionals.
-   This is however dificult to do.  */
+   re-distribute it when the conditional expands into multiple conditionals.
+   This is however difficult to do.  */
 static void
 add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
 {
@@ -79,22 +81,773 @@ failed:
     fprintf (dump_file, "Failed to add probability note\n");
 }
 
+#ifndef LOCAL_ALIGNMENT
+#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
+#endif
 
-/* Expand variables in the unexpanded_var_list.  */
+#ifndef STACK_ALIGNMENT_NEEDED
+#define STACK_ALIGNMENT_NEEDED 1
+#endif
+
+#ifdef FRAME_GROWS_DOWNWARD
+# undef FRAME_GROWS_DOWNWARD
+# define FRAME_GROWS_DOWNWARD 1
+#else
+# define FRAME_GROWS_DOWNWARD 0
+#endif
+
+
+/* This structure holds data relevant to one variable that will be
+   placed in a stack slot.  */
+struct stack_var
+{
+  /* The Variable.  */
+  tree decl;
+
+  /* The offset of the variable.  During partitioning, this is the
+     offset relative to the partition.  After partitioning, this
+     is relative to the stack frame.  */
+  HOST_WIDE_INT offset;
+
+  /* Initially, the size of the variable.  Later, the size of the partition,
+     if this variable becomes it's partition's representative.  */
+  HOST_WIDE_INT size;
+
+  /* The *byte* alignment required for this variable.  Or as, with the
+     size, the alignment for this partition.  */
+  unsigned int alignb;
+
+  /* The partition representative.  */
+  size_t representative;
+
+  /* The next stack variable in the partition, or EOC.  */
+  size_t next;
+};
+
+#define EOC  ((size_t)-1)
+
+/* We have an array of such objects while deciding allocation.  */
+static struct stack_var *stack_vars;
+static size_t stack_vars_alloc;
+static size_t stack_vars_num;
+
+/* An array of indicies such that stack_vars[stack_vars_sorted[i]].size
+   is non-decreasing.  */
+static size_t *stack_vars_sorted;
+
+/* We have an interference graph between such objects.  This graph
+   is lower triangular.  */
+static bool *stack_vars_conflict;
+static size_t stack_vars_conflict_alloc;
+
+/* The phase of the stack frame.  This is the known misalignment of
+   virtual_stack_vars_rtx from PREFERRED_STACK_BOUNDARY.  That is,
+   (frame_offset+frame_phase) % PREFERRED_STACK_BOUNDARY == 0.  */
+static int frame_phase;
+
+
+/* Discover the byte alignment to use for DECL.  Ignore alignment
+   we can't do with expected alignment of the stack boundary.  */
+
+static unsigned int
+get_decl_align_unit (tree decl)
+{
+  unsigned int align;
+
+  align = DECL_ALIGN (decl);
+  align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
+  if (align > PREFERRED_STACK_BOUNDARY)
+    align = PREFERRED_STACK_BOUNDARY;
+  if (cfun->stack_alignment_needed < align)
+    cfun->stack_alignment_needed = align;
+
+  return align / BITS_PER_UNIT;
+}
+
+/* Allocate SIZE bytes at byte alignment ALIGN from the stack frame.
+   Return the frame offset.  */
+
+static HOST_WIDE_INT
+alloc_stack_frame_space (HOST_WIDE_INT size, HOST_WIDE_INT align)
+{
+  HOST_WIDE_INT offset, new_frame_offset;
+
+  new_frame_offset = frame_offset;
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      new_frame_offset -= size + frame_phase;
+      new_frame_offset &= -align;
+      new_frame_offset += frame_phase;
+      offset = new_frame_offset;
+    }
+  else
+    {
+      new_frame_offset -= frame_phase;
+      new_frame_offset += align - 1;
+      new_frame_offset &= -align;
+      new_frame_offset += frame_phase;
+      offset = new_frame_offset;
+      new_frame_offset += size;
+    }
+  frame_offset = new_frame_offset;
+
+  return offset;
+}
+
+/* Accumulate DECL into STACK_VARS.  */
+
+static void
+add_stack_var (tree decl)
+{
+  if (stack_vars_num >= stack_vars_alloc)
+    {
+      if (stack_vars_alloc)
+	stack_vars_alloc = stack_vars_alloc * 3 / 2;
+      else
+	stack_vars_alloc = 32;
+      stack_vars
+	= XRESIZEVEC (struct stack_var, stack_vars, stack_vars_alloc);
+    }
+  stack_vars[stack_vars_num].decl = decl;
+  stack_vars[stack_vars_num].offset = 0;
+  stack_vars[stack_vars_num].size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  stack_vars[stack_vars_num].alignb = get_decl_align_unit (decl);
+
+  /* All variables are initially in their own partition.  */
+  stack_vars[stack_vars_num].representative = stack_vars_num;
+  stack_vars[stack_vars_num].next = EOC;
+
+  /* Ensure that this decl doesn't get put onto the list twice.  */
+  SET_DECL_RTL (decl, pc_rtx);
+
+  stack_vars_num++;
+}
+
+/* Compute the linear index of a lower-triangular coordinate (I, J).  */
+
+static size_t
+triangular_index (size_t i, size_t j)
+{
+  if (i < j)
+    {
+      size_t t;
+      t = i, i = j, j = t;
+    }
+  return (i * (i + 1)) / 2 + j;
+}
+
+/* Ensure that STACK_VARS_CONFLICT is large enough for N objects.  */
+
+static void
+resize_stack_vars_conflict (size_t n)
+{
+  size_t size = triangular_index (n-1, n-1) + 1;
+
+  if (size <= stack_vars_conflict_alloc)
+    return;
+
+  stack_vars_conflict = XRESIZEVEC (bool, stack_vars_conflict, size);
+  memset (stack_vars_conflict + stack_vars_conflict_alloc, 0,
+	  (size - stack_vars_conflict_alloc) * sizeof (bool));
+  stack_vars_conflict_alloc = size;
+}
+
+/* Make the decls associated with luid's X and Y conflict.  */
+
+static void
+add_stack_var_conflict (size_t x, size_t y)
+{
+  size_t index = triangular_index (x, y);
+  gcc_assert (index < stack_vars_conflict_alloc);
+  stack_vars_conflict[index] = true;
+}
+
+/* Check whether the decls associated with luid's X and Y conflict.  */
+
+static bool
+stack_var_conflict_p (size_t x, size_t y)
+{
+  size_t index = triangular_index (x, y);
+  gcc_assert (index < stack_vars_conflict_alloc);
+  return stack_vars_conflict[index];
+}
+  
+/* A subroutine of expand_used_vars.  If two variables X and Y have alias
+   sets that do not conflict, then do add a conflict for these variables
+   in the interference graph.  We also have to mind MEM_IN_STRUCT_P and
+   MEM_SCALAR_P.  */
+
+static void
+add_alias_set_conflicts (void)
+{
+  size_t i, j, n = stack_vars_num;
+
+  for (i = 0; i < n; ++i)
+    {
+      bool aggr_i = AGGREGATE_TYPE_P (TREE_TYPE (stack_vars[i].decl));
+      HOST_WIDE_INT set_i = get_alias_set (stack_vars[i].decl);
+
+      for (j = 0; j < i; ++j)
+	{
+	  bool aggr_j = AGGREGATE_TYPE_P (TREE_TYPE (stack_vars[j].decl));
+	  HOST_WIDE_INT set_j = get_alias_set (stack_vars[j].decl);
+	  if (aggr_i != aggr_j || !alias_sets_conflict_p (set_i, set_j))
+	    add_stack_var_conflict (i, j);
+	}
+    }
+}
+
+/* A subroutine of partition_stack_vars.  A comparison function for qsort,
+   sorting an array of indicies by the size of the object.  */
+
+static int
+stack_var_size_cmp (const void *a, const void *b)
+{
+  HOST_WIDE_INT sa = stack_vars[*(const size_t *)a].size;
+  HOST_WIDE_INT sb = stack_vars[*(const size_t *)b].size;
+
+  if (sa < sb)
+    return -1;
+  if (sa > sb)
+    return 1;
+  return 0;
+}
+
+/* A subroutine of partition_stack_vars.  The UNION portion of a UNION/FIND
+   partitioning algorithm.  Partitions A and B are known to be non-conflicting.
+   Merge them into a single partition A.
+
+   At the same time, add OFFSET to all variables in partition B.  At the end
+   of the partitioning process we've have a nice block easy to lay out within
+   the stack frame.  */
+
+static void
+union_stack_vars (size_t a, size_t b, HOST_WIDE_INT offset)
+{
+  size_t i, last;
+
+  /* Update each element of partition B with the given offset,
+     and merge them into partition A.  */
+  for (last = i = b; i != EOC; last = i, i = stack_vars[i].next)
+    {
+      stack_vars[i].offset += offset;
+      stack_vars[i].representative = a;
+    }
+  stack_vars[last].next = stack_vars[a].next;
+  stack_vars[a].next = b;
+
+  /* Update the required alignment of partition A to account for B.  */
+  if (stack_vars[a].alignb < stack_vars[b].alignb)
+    stack_vars[a].alignb = stack_vars[b].alignb;
+
+  /* Update the interference graph and merge the conflicts.  */
+  for (last = stack_vars_num, i = 0; i < last; ++i)
+    if (stack_var_conflict_p (b, i))
+      add_stack_var_conflict (a, i);
+}
+
+/* A subroutine of expand_used_vars.  Binpack the variables into
+   partitions constrained by the interference graph.  The overall
+   algorithm used is as follows:
+
+	Sort the objects by size.
+	For each object A {
+	  S = size(A)
+	  O = 0
+	  loop {
+	    Look for the largest non-conflicting object B with size <= S.
+	    UNION (A, B)
+	    offset(B) = O
+	    O += size(B)
+	    S -= size(B)
+	  }
+	}
+*/
+
+static void
+partition_stack_vars (void)
+{
+  size_t si, sj, n = stack_vars_num;
+
+  stack_vars_sorted = XNEWVEC (size_t, stack_vars_num);
+  for (si = 0; si < n; ++si)
+    stack_vars_sorted[si] = si;
+
+  if (n == 1)
+    return;
+
+  qsort (stack_vars_sorted, n, sizeof (size_t), stack_var_size_cmp);
+
+  /* Special case: detect when all variables conflict, and thus we can't
+     do anything during the partitioning loop.  It isn't uncommon (with
+     C code at least) to declare all variables at the top of the function,
+     and if we're not inlining, then all variables will be in the same scope.
+     Take advantage of very fast libc routines for this scan.  */
+  gcc_assert (sizeof(bool) == sizeof(char));
+  if (memchr (stack_vars_conflict, false, stack_vars_conflict_alloc) == NULL)
+    return;
+
+  for (si = 0; si < n; ++si)
+    {
+      size_t i = stack_vars_sorted[si];
+      HOST_WIDE_INT isize = stack_vars[i].size;
+      HOST_WIDE_INT offset = 0;
+
+      for (sj = si; sj-- > 0; )
+	{
+	  size_t j = stack_vars_sorted[sj];
+	  HOST_WIDE_INT jsize = stack_vars[j].size;
+	  unsigned int jalign = stack_vars[j].alignb;
+
+	  /* Ignore objects that aren't partition representatives.  */
+	  if (stack_vars[j].representative != j)
+	    continue;
+
+	  /* Ignore objects too large for the remaining space.  */
+	  if (isize < jsize)
+	    continue;
+
+	  /* Ignore conflicting objects.  */
+	  if (stack_var_conflict_p (i, j))
+	    continue;
+
+	  /* Refine the remaining space check to include alignment.  */
+	  if (offset & (jalign - 1))
+	    {
+	      HOST_WIDE_INT toff = offset;
+	      toff += jalign - 1;
+	      toff &= -(HOST_WIDE_INT)jalign;
+	      if (isize - (toff - offset) < jsize)
+		continue;
+
+	      isize -= toff - offset;
+	      offset = toff;
+	    }
+
+	  /* UNION the objects, placing J at OFFSET.  */
+	  union_stack_vars (i, j, offset);
+
+	  isize -= jsize;
+	  if (isize == 0)
+	    break;
+	}
+    }
+}
+
+/* A debugging aid for expand_used_vars.  Dump the generated partitions.  */
+
+static void
+dump_stack_var_partition (void)
+{
+  size_t si, i, j, n = stack_vars_num;
+
+  for (si = 0; si < n; ++si)
+    {
+      i = stack_vars_sorted[si];
+
+      /* Skip variables that aren't partition representatives, for now.  */
+      if (stack_vars[i].representative != i)
+	continue;
+
+      fprintf (dump_file, "Partition %lu: size " HOST_WIDE_INT_PRINT_DEC
+	       " align %u\n", (unsigned long) i, stack_vars[i].size,
+	       stack_vars[i].alignb);
+
+      for (j = i; j != EOC; j = stack_vars[j].next)
+	{
+	  fputc ('\t', dump_file);
+	  print_generic_expr (dump_file, stack_vars[j].decl, dump_flags);
+	  fprintf (dump_file, ", offset " HOST_WIDE_INT_PRINT_DEC "\n",
+		   stack_vars[i].offset);
+	}
+    }
+}
+
+/* Assign rtl to DECL at frame offset OFFSET.  */
+
+static void
+expand_one_stack_var_at (tree decl, HOST_WIDE_INT offset)
+{
+  HOST_WIDE_INT align;
+  rtx x;
+  
+  /* If this fails, we've overflowed the stack frame.  Error nicely?  */
+  gcc_assert (offset == trunc_int_for_mode (offset, Pmode));
+
+  x = plus_constant (virtual_stack_vars_rtx, offset);
+  x = gen_rtx_MEM (DECL_MODE (decl), x);
+
+  /* Set alignment we actually gave this decl.  */
+  offset -= frame_phase;
+  align = offset & -offset;
+  align *= BITS_PER_UNIT;
+  if (align > STACK_BOUNDARY || align == 0)
+    align = STACK_BOUNDARY;
+  DECL_ALIGN (decl) = align;
+  DECL_USER_ALIGN (decl) = 0;
+
+  set_mem_attributes (x, decl, true);
+  SET_DECL_RTL (decl, x);
+}
+
+/* A subroutine of expand_used_vars.  Give each partition representative
+   a unique location within the stack frame.  Update each partition member
+   with that location.  */
+
+static void
+expand_stack_vars (void)
+{
+  size_t si, i, j, n = stack_vars_num;
+
+  for (si = 0; si < n; ++si)
+    {
+      HOST_WIDE_INT offset;
+
+      i = stack_vars_sorted[si];
+
+      /* Skip variables that aren't partition representatives, for now.  */
+      if (stack_vars[i].representative != i)
+	continue;
+
+      offset = alloc_stack_frame_space (stack_vars[i].size,
+					stack_vars[i].alignb);
+
+      /* Create rtl for each variable based on their location within the
+	 partition.  */
+      for (j = i; j != EOC; j = stack_vars[j].next)
+	expand_one_stack_var_at (stack_vars[j].decl,
+				 stack_vars[j].offset + offset);
+    }
+}
+
+/* A subroutine of expand_one_var.  Called to immediately assign rtl
+   to a variable to be allocated in the stack frame.  */
+
+static void
+expand_one_stack_var (tree var)
+{
+  HOST_WIDE_INT size, offset, align;
+
+  size = tree_low_cst (DECL_SIZE_UNIT (var), 1);
+  align = get_decl_align_unit (var);
+  offset = alloc_stack_frame_space (size, align);
+
+  expand_one_stack_var_at (var, offset);
+}
+
+/* A subroutine of expand_one_var.  Called to assign rtl
+   to a TREE_STATIC VAR_DECL.  */
+
+static void
+expand_one_static_var (tree var)
+{
+  /* If this is an inlined copy of a static local variable,
+     look up the original.  */
+  var = DECL_ORIGIN (var);
+
+  /* If we've already processed this variable because of that, do nothing.  */
+  if (TREE_ASM_WRITTEN (var))
+    return;
+
+  /* Give the front end a chance to do whatever.  In practice, this is
+     resolving duplicate names for IMA in C.  */
+  if (lang_hooks.expand_decl (var))
+    return;
+
+  /* Otherwise, just emit the variable.  */
+  rest_of_decl_compilation (var, 0, 0);
+}
+
+/* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL
+   that will reside in a hard register.  */
+
+static void
+expand_one_hard_reg_var (tree var)
+{
+  rest_of_decl_compilation (var, 0, 0);
+}
+
+/* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL
+   that will reside in a pseudo register.  */
+
+static void
+expand_one_register_var (tree var)
+{
+  tree type = TREE_TYPE (var);
+  int unsignedp = TYPE_UNSIGNED (type);
+  enum machine_mode reg_mode
+    = promote_mode (type, DECL_MODE (var), &unsignedp, 0);
+  rtx x = gen_reg_rtx (reg_mode);
+
+  SET_DECL_RTL (var, x);
+
+  /* Note if the object is a user variable.  */
+  if (!DECL_ARTIFICIAL (var))
+    {
+      mark_user_reg (x);
+
+      /* Trust user variables which have a pointer type to really
+	 be pointers.  Do not trust compiler generated temporaries
+	 as our type system is totally busted as it relates to
+	 pointer arithmetic which translates into lots of compiler
+	 generated objects with pointer types, but which are not really
+	 pointers.  */
+      if (POINTER_TYPE_P (type))
+	mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
+    }
+}
+
+/* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL that
+   has some associated error, e.g. it's type is error-mark.  We just need
+   to pick something that won't crash the rest of the compiler.  */
+
+static void
+expand_one_error_var (tree var)
+{
+  enum machine_mode mode = DECL_MODE (var);
+  rtx x;
+
+  if (mode == BLKmode)
+    x = gen_rtx_MEM (BLKmode, const0_rtx);
+  else if (mode == VOIDmode)
+    x = const0_rtx;
+  else
+    x = gen_reg_rtx (mode);
+
+  SET_DECL_RTL (var, x);
+}
+
+/* A subroutine of expand_one_var.  VAR is a variable that will be 
+   allocated to the local stack frame.  Return true if we wish to
+   add VAR to STACK_VARS so that it will be coalesced with other
+   variables.  Return false to allocate VAR immediately.
+
+   This function is used to reduce the number of variables considered
+   for coalescing, which reduces the size of the quadratic problem.  */
+
+static bool
+defer_stack_allocation (tree var, bool toplevel)
+{
+  /* Variables in the outermost scope automatically conflict with
+     every other variable.  The only reason to want to defer them
+     at all is that, after sorting, we can more efficiently pack
+     small variables in the stack frame.  Continue to defer at -O2.  */
+  if (toplevel && optimize < 2)
+    return false;
+
+  /* Without optimization, *most* variables are allocated from the
+     stack, which makes the quadratic problem large exactly when we
+     want compilation to proceed as quickly as possible.  On the 
+     other hand, we don't want the function's stack frame size to
+     get completely out of hand.  So we avoid adding scalars and
+     "small" aggregates to the list at all.  */
+  if (optimize == 0 && tree_low_cst (DECL_SIZE_UNIT (var), 1) < 32)
+    return false;
+
+  return true;
+}
+
+/* A subroutine of expand_used_vars.  Expand one variable according to
+   its flavor.  Variables to be placed on the stack are not actually
+   expanded yet, merely recorded.  */
+
+static void
+expand_one_var (tree var, bool toplevel)
+{
+  if (TREE_CODE (var) != VAR_DECL)
+    lang_hooks.expand_decl (var);
+  else if (DECL_EXTERNAL (var))
+    ;
+  else if (DECL_VALUE_EXPR (var))
+    ;
+  else if (TREE_STATIC (var))
+    expand_one_static_var (var);
+  else if (DECL_RTL_SET_P (var))
+    ;
+  else if (TREE_TYPE (var) == error_mark_node)
+    expand_one_error_var (var);
+  else if (DECL_HARD_REGISTER (var))
+    expand_one_hard_reg_var (var);
+  else if (use_register_for_decl (var))
+    expand_one_register_var (var);
+  else if (defer_stack_allocation (var, toplevel))
+    add_stack_var (var);
+  else
+    expand_one_stack_var (var);
+}
+
+/* A subroutine of expand_used_vars.  Walk down through the BLOCK tree
+   expanding variables.  Those variables that can be put into registers
+   are allocated pseudos; those that can't are put on the stack.
+
+   TOPLEVEL is true if this is the outermost BLOCK.  */
+
+static void
+expand_used_vars_for_block (tree block, bool toplevel)
+{
+  size_t i, j, old_sv_num, this_sv_num, new_sv_num;
+  tree t;
+
+  old_sv_num = toplevel ? 0 : stack_vars_num;
+
+  /* Expand all variables at this level.  */
+  for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
+    if (TREE_USED (t))
+      expand_one_var (t, toplevel);
+
+  this_sv_num = stack_vars_num;
+
+  /* Expand all variables at containing levels.  */
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+    expand_used_vars_for_block (t, false);
+
+  /* Since we do not track exact variable lifetimes (which is not even
+     possible for varibles whose address escapes), we mirror the block
+     tree in the interference graph.  Here we cause all variables at this
+     level, and all sublevels, to conflict.  Do make certain that a
+     variable conflicts with itself.  */
+  if (old_sv_num < this_sv_num)
+    {
+      new_sv_num = stack_vars_num;
+      resize_stack_vars_conflict (new_sv_num);
+
+      for (i = old_sv_num; i < new_sv_num; ++i)
+	for (j = i < this_sv_num ? i+1 : this_sv_num; j-- > old_sv_num ;)
+	  add_stack_var_conflict (i, j);
+    }
+}
+
+/* A subroutine of expand_used_vars.  Walk down through the BLOCK tree
+   and clear TREE_USED on all local variables.  */
+
+static void
+clear_tree_used (tree block)
+{
+  tree t;
+
+  for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
+    /* if (!TREE_STATIC (t) && !DECL_EXTERNAL (t)) */
+      TREE_USED (t) = 0;
+
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+    clear_tree_used (t);
+}
+
+/* Expand all variables used in the function.  */
 
 static void
 expand_used_vars (void)
 {
-  tree cell;
+  tree t, outer_block = DECL_INITIAL (current_function_decl);
 
-  cfun->unexpanded_var_list = nreverse (cfun->unexpanded_var_list);
+  /* Compute the phase of the stack frame for this function.  */
+  {
+    int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+    int off = STARTING_FRAME_OFFSET % align;
+    frame_phase = off ? align - off : 0;
+  }
 
-  for (cell = cfun->unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
-    expand_var (TREE_VALUE (cell));
+  /* Set TREE_USED on all variables in the unexpanded_var_list.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    TREE_USED (TREE_VALUE (t)) = 1;
 
+  /* Clear TREE_USED on all variables associated with a block scope.  */
+  clear_tree_used (outer_block);
+
+  /* At this point all variables on the unexpanded_var_list with TREE_USED
+     set are not associated with any block scope.  Lay them out.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+      bool expand_now = false;
+
+      /* We didn't set a block for static or extern because it's hard
+	 to tell the difference between a global variable (re)declared
+	 in a local scope, and one that's really declared there to
+	 begin with.  And it doesn't really matter much, since we're
+	 not giving them stack space.  Expand them now.  */
+      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+	expand_now = true;
+
+      /* Any variable that could have been hoisted into an SSA_NAME
+	 will have been propagated anywhere the optimizers chose,
+	 i.e. not confined to their original block.  Allocate them
+	 as if they were defined in the outermost scope.  */
+      else if (is_gimple_reg (var))
+	expand_now = true;
+
+      /* If the variable is not associated with any block, then it
+	 was created by the optimizers, and could be live anywhere
+	 in the function.  */
+      else if (TREE_USED (var))
+	expand_now = true;
+
+      /* Finally, mark all variables on the list as used.  We'll use
+	 this in a moment when we expand those associated with scopes.  */
+      TREE_USED (var) = 1;
+
+      if (expand_now)
+	expand_one_var (var, true);
+    }
   cfun->unexpanded_var_list = NULL_TREE;
+
+  /* At this point, all variables within the block tree with TREE_USED
+     set are actually used by the optimized function.  Lay them out.  */
+  expand_used_vars_for_block (outer_block, true);
+
+  if (stack_vars_num > 0)
+    {
+      /* Due to the way alias sets work, no variables with non-conflicting
+	 alias sets may be assigned the same address.  Add conflicts to 
+	 reflect this.  */
+      add_alias_set_conflicts ();
+
+      /* Now that we have collected all stack variables, and have computed a 
+	 minimal interference graph, attempt to save some stack space.  */
+      partition_stack_vars ();
+      if (dump_file)
+	dump_stack_var_partition ();
+
+      /* Assign rtl to each variable based on these partitions.  */
+      expand_stack_vars ();
+
+      /* Free up stack variable graph data.  */
+      XDELETEVEC (stack_vars);
+      XDELETEVEC (stack_vars_sorted);
+      XDELETEVEC (stack_vars_conflict);
+      stack_vars = NULL;
+      stack_vars_alloc = stack_vars_num = 0;
+      stack_vars_conflict = NULL;
+      stack_vars_conflict_alloc = 0;
+    }
+
+  /* If the target requires that FRAME_OFFSET be aligned, do it.  */
+  if (STACK_ALIGNMENT_NEEDED)
+    {
+      HOST_WIDE_INT align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+      if (!FRAME_GROWS_DOWNWARD)
+	frame_offset += align - 1;
+      frame_offset &= -align;
+    }
 }
 
+
+/* If we need to produce a detailed dump, print the tree representation
+   for STMT to the dump file.  SINCE is the last RTX after which the RTL
+   generated for STMT should have been appended.  */
+
+static void
+maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
+{
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\n;; ");
+      print_generic_expr (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
+
+      print_rtl (dump_file, since ? NEXT_INSN (since) : since);
+    }
+}
 
 /* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
    Returns a new basic block if we've terminated the current basic
@@ -110,7 +863,9 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   tree pred = COND_EXPR_COND (stmt);
   tree then_exp = COND_EXPR_THEN (stmt);
   tree else_exp = COND_EXPR_ELSE (stmt);
-  rtx last = get_last_insn ();
+  rtx last2, last;
+
+  last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (EXPR_LOCUS (stmt))
@@ -129,16 +884,22 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
     {
       jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
       add_reg_br_prob_note (dump_file, last, true_edge->probability);
+      maybe_dump_rtl_for_tree_stmt (stmt, last);
+      if (EXPR_LOCUS (then_exp))
+	emit_line_note (*(EXPR_LOCUS (then_exp)));
       return NULL;
     }
   if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
     {
       jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
       add_reg_br_prob_note (dump_file, last, false_edge->probability);
+      maybe_dump_rtl_for_tree_stmt (stmt, last);
+      if (EXPR_LOCUS (else_exp))
+	emit_line_note (*(EXPR_LOCUS (else_exp)));
       return NULL;
     }
-  if (TREE_CODE (then_exp) != GOTO_EXPR || TREE_CODE (else_exp) != GOTO_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (then_exp) == GOTO_EXPR
+	      && TREE_CODE (else_exp) == GOTO_EXPR);
 
   jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
   add_reg_br_prob_note (dump_file, last, true_edge->probability);
@@ -163,11 +924,10 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
     BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
 
-  if (dump_file)
-    {
-      dump_bb (bb, dump_file, 0);
-      dump_bb (new_bb, dump_file, 0);
-    }
+  maybe_dump_rtl_for_tree_stmt (stmt, last2);
+  
+  if (EXPR_LOCUS (else_exp))
+    emit_line_note (*(EXPR_LOCUS (else_exp)));
 
   return new_bb;
 }
@@ -175,15 +935,23 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 /* A subroutine of expand_gimple_basic_block.  Expand one CALL_EXPR
    that has CALL_EXPR_TAILCALL set.  Returns non-null if we actually
    generated a tail call (something that might be denied by the ABI
-   rules governing the call; see calls.c).  */
+   rules governing the call; see calls.c).
+
+   Sets CAN_FALLTHRU if we generated a *conditional* tail call, and
+   can still reach the rest of BB.  The case here is __builtin_sqrt,
+   where the NaN result goes through the external function (with a
+   tailcall) and the normal result happens via a sqrt instruction.  */
 
 static basic_block
-expand_gimple_tailcall (basic_block bb, tree stmt)
+expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 {
-  rtx last = get_last_insn ();
+  rtx last2, last;
   edge e;
+  edge_iterator ei;
   int probability;
   gcov_type count;
+
+  last2 = last = get_last_insn ();
 
   expand_expr_stmt (stmt);
 
@@ -191,6 +959,9 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
     if (CALL_P (last) && SIBLING_CALL_P (last))
       goto found;
 
+  maybe_dump_rtl_for_tree_stmt (stmt, last);
+
+  *can_fallthru = true;
   return NULL;
 
  found:
@@ -205,13 +976,11 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
      all edges here, or redirecting the existing fallthru edge to
      the exit block.  */
 
-  e = bb->succ;
   probability = 0;
   count = 0;
-  while (e)
-    {
-      edge next = e->succ_next;
 
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+    {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
 	  if (e->dest != EXIT_BLOCK_PTR)
@@ -227,22 +996,26 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 	  probability += e->probability;
 	  remove_edge (e);
 	}
-
-      e = next;
+      else
+	ei_next (&ei);
     }
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
      after the sibcall (to perform the function return).  These confuse the
      find_sub_basic_blocks code, so we need to get rid of these.  */
   last = NEXT_INSN (last);
-  if (!BARRIER_P (last))
-    abort ();
+  gcc_assert (BARRIER_P (last));
+
+  *can_fallthru = false;
   while (NEXT_INSN (last))
     {
       /* For instance an sqrt builtin expander expands if with
 	 sibcall in the then and label for `else`.  */
       if (LABEL_P (NEXT_INSN (last)))
-	break;
+	{
+	  *can_fallthru = true;
+	  break;
+	}
       delete_insn (NEXT_INSN (last));
     }
 
@@ -261,6 +1034,8 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 	BB_END (bb) = PREV_INSN (last);
     }
 
+  maybe_dump_rtl_for_tree_stmt (stmt, last2);
+
   return bb;
 }
 
@@ -273,12 +1048,13 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
+  edge_iterator ei;
 
   if (dump_file)
     {
-      tree_register_cfg_hooks ();
-      dump_bb (bb, dump_file, 0);
-      rtl_register_cfg_hooks ();
+      fprintf (dump_file,
+	       "\n;; Generating RTL for tree basic block %d\n",
+	       bb->index);
     }
 
   if (!bsi_end_p (bsi))
@@ -297,17 +1073,16 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
       bsi_next (&bsi);
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
+
+      maybe_dump_rtl_for_tree_stmt (stmt, last);
     }
   else
     note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  e = bb->succ;
-  while (e)
+  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
-      edge next = e->succ_next;
-
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
 
@@ -316,14 +1091,14 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
-
-      e = next;
+      else
+	ei_next (&ei);
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
-      basic_block new_bb = NULL;
+      basic_block new_bb;
 
       if (!stmt)
 	continue;
@@ -331,18 +1106,33 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       /* Expand this statement, then evaluate the resulting RTL and
 	 fixup the CFG accordingly.  */
       if (TREE_CODE (stmt) == COND_EXPR)
-	new_bb = expand_gimple_cond_expr (bb, stmt);
+	{
+	  new_bb = expand_gimple_cond_expr (bb, stmt);
+	  if (new_bb)
+	    return new_bb;
+	}
       else
 	{
 	  tree call = get_call_expr_in (stmt);
 	  if (call && CALL_EXPR_TAILCALL (call))
-	    new_bb = expand_gimple_tailcall (bb, stmt);
+	    {
+	      bool can_fallthru;
+	      new_bb = expand_gimple_tailcall (bb, stmt, &can_fallthru);
+	      if (new_bb)
+		{
+		  if (can_fallthru)
+		    bb = new_bb;
+		  else
+		    return new_bb;
+		}
+	    }
 	  else
-	    expand_expr_stmt (stmt);
+	    {
+	      last = get_last_insn ();
+	      expand_expr_stmt (stmt);
+	      maybe_dump_rtl_for_tree_stmt (stmt, last);
+	    }
 	}
-
-      if (new_bb)
-	return new_bb;
     }
 
   do_pending_stack_adjust ();
@@ -356,8 +1146,6 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
     last = PREV_INSN (PREV_INSN (last));
   BB_END (bb) = last;
 
-  if (dump_file)
-    dump_bb (bb, dump_file, 0);
   update_bb_for_insn (bb);
 
   return bb;
@@ -370,11 +1158,22 @@ static basic_block
 construct_init_block (void)
 {
   basic_block init_block, first_block;
-  edge e;
+  edge e = NULL, e2;
+  edge_iterator ei;
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
-    if (e->dest == ENTRY_BLOCK_PTR->next_bb)
-      break;
+  FOR_EACH_EDGE (e2, ei, ENTRY_BLOCK_PTR->succs)
+    {
+      /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.
+
+	 For all other blocks this edge flag is cleared while expanding
+	 a basic block in expand_gimple_basic_block, but there we never
+	 looked at the successors of the entry block.
+	 This caused PR17513.  */
+      e2->flags &= ~EDGE_EXECUTABLE;
+
+      if (e2->dest == ENTRY_BLOCK_PTR->next_bb)
+	e = e2;
+    }
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
@@ -405,7 +1204,9 @@ construct_exit_block (void)
   rtx head = get_last_insn ();
   rtx end;
   basic_block exit_block;
-  edge e, e2, next;
+  edge e, e2;
+  unsigned ix;
+  edge_iterator ei;
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
@@ -431,16 +1232,21 @@ construct_exit_block (void)
 				   EXIT_BLOCK_PTR->prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
-  for (e = EXIT_BLOCK_PTR->pred; e; e = next)
+
+  ix = 0;
+  while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
     {
-      next = e->pred_next;
+      e = EDGE_I (EXIT_BLOCK_PTR->preds, ix);
       if (!(e->flags & EDGE_ABNORMAL))
-        redirect_edge_succ (e, exit_block);
+	redirect_edge_succ (e, exit_block);
+      else
+	ix++;
     }
+
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
-  for (e2 = EXIT_BLOCK_PTR->pred; e2; e2 = e2->pred_next)
+  FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
     if (e2 != e)
       {
         e->count -= e2->count;
@@ -470,14 +1276,6 @@ tree_expand_cfg (void)
 {
   basic_block bb, init_block;
   sbitmap blocks;
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "\n;; Function %s",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
-      fprintf (dump_file, " (%s)\n",
-	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
-    }
 
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
@@ -512,8 +1310,7 @@ tree_expand_cfg (void)
   currently_expanding_to_rtl = 0;
 
   /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  Delay this until after the
-     initial rtl dump so that we can see the original nesting.  */
+     sorts of eh initialization.  */
   convert_from_eh_region_ranges ();
 
   rebuild_jump_labels (get_insns ());
@@ -529,13 +1326,32 @@ tree_expand_cfg (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info();
 #endif
+
+  /* There's no need to defer outputting this function any more; we
+     know we want to output it.  */
+  DECL_DEFER_OUTPUT (current_function_decl) = 0;
+
+  /* Now that we're done expanding trees to RTL, we shouldn't have any
+     more CONCATs anywhere.  */
+  generating_concat_p = 0;
+
+  finalize_block_changes ();
+
+  if (dump_file)
+    {
+      fprintf (dump_file,
+	       "\n\n;;\n;; Full RTL generated for this function:\n;;\n");
+      /* And the pass manager will dump RTL for us.  */
+    }
 }
 
 struct tree_opt_pass pass_expand =
 {
   "expand",		                /* name */
   NULL,                                 /* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_expand_cfg,	                /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -545,5 +1361,6 @@ struct tree_opt_pass pass_expand =
   PROP_rtl,                             /* properties_provided */
   PROP_gimple_leh,			/* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  'r'					/* letter */
 };

@@ -56,7 +56,7 @@ import java.util.PropertyPermission;
  * general environment.  As such, all methods are static.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  * @status still missing 1.4 functionality
  */
@@ -133,7 +133,7 @@ public final class System
    */
   // Note that we use clone here and not new.  Some programs assume
   // that the system properties do not have a parent.
-  private static Properties properties
+  static Properties properties
     = (Properties) Runtime.defaultProperties.clone();
 
   /**
@@ -163,7 +163,7 @@ public final class System
   /**
    * The standard output PrintStream.  This is assigned at startup and
    * starts its life perfectly valid. Although it is marked final, you can
-   * change it using {@link #setOut(PrintStream)} through some hefty VM magic.
+   * change it using {@link #setErr(PrintStream)} through some hefty VM magic.
    *
    * <p>This corresponds to the C stderr and C++ cerr variables, which
    * typically output error messages to the screen, but may be used to pipe

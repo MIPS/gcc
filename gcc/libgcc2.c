@@ -1,7 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -418,7 +418,6 @@ __ashrdi3 (DWtype u, word_type b)
 
 #ifdef L_ffssi2
 #undef int
-extern int __ffsSI2 (UWtype u);
 int
 __ffsSI2 (UWtype u)
 {
@@ -434,7 +433,6 @@ __ffsSI2 (UWtype u)
 
 #ifdef L_ffsdi2
 #undef int
-extern int __ffsDI2 (DWtype u);
 int
 __ffsDI2 (DWtype u)
 {
@@ -491,16 +489,16 @@ __udiv_w_sdiv (UWtype *rp, UWtype a1, UWtype a0, UWtype d)
     {
       if (a1 < d - a1 - (a0 >> (W_TYPE_SIZE - 1)))
 	{
-	  /* dividend, divisor, and quotient are nonnegative */
+	  /* Dividend, divisor, and quotient are nonnegative.  */
 	  sdiv_qrnnd (q, r, a1, a0, d);
 	}
       else
 	{
-	  /* Compute c1*2^32 + c0 = a1*2^32 + a0 - 2^31*d */
+	  /* Compute c1*2^32 + c0 = a1*2^32 + a0 - 2^31*d.  */
 	  sub_ddmmss (c1, c0, a1, a0, d >> 1, d << (W_TYPE_SIZE - 1));
-	  /* Divide (c1*2^32 + c0) by d */
+	  /* Divide (c1*2^32 + c0) by d.  */
 	  sdiv_qrnnd (q, r, c1, c0, d);
-	  /* Add 2^31 to quotient */
+	  /* Add 2^31 to quotient.  */
 	  q += (UWtype) 1 << (W_TYPE_SIZE - 1);
 	}
     }
@@ -611,7 +609,6 @@ const UQItype __clz_tab[] =
 
 #ifdef L_clzsi2
 #undef int
-extern int __clzSI2 (UWtype x);
 int
 __clzSI2 (UWtype x)
 {
@@ -625,7 +622,6 @@ __clzSI2 (UWtype x)
 
 #ifdef L_clzdi2
 #undef int
-extern int __clzDI2 (UDWtype x);
 int
 __clzDI2 (UDWtype x)
 {
@@ -645,7 +641,6 @@ __clzDI2 (UDWtype x)
 
 #ifdef L_ctzsi2
 #undef int
-extern int __ctzSI2 (UWtype x);
 int
 __ctzSI2 (UWtype x)
 {
@@ -659,7 +654,6 @@ __ctzSI2 (UWtype x)
 
 #ifdef L_ctzdi2
 #undef int
-extern int __ctzDI2 (UDWtype x);
 int
 __ctzDI2 (UDWtype x)
 {
@@ -698,7 +692,6 @@ const UQItype __popcount_tab[] =
 
 #ifdef L_popcountsi2
 #undef int
-extern int __popcountSI2 (UWtype x);
 int
 __popcountSI2 (UWtype x)
 {
@@ -713,7 +706,6 @@ __popcountSI2 (UWtype x)
 
 #ifdef L_popcountdi2
 #undef int
-extern int __popcountDI2 (UDWtype x);
 int
 __popcountDI2 (UDWtype x)
 {
@@ -728,7 +720,6 @@ __popcountDI2 (UDWtype x)
 
 #ifdef L_paritysi2
 #undef int
-extern int __paritySI2 (UWtype x);
 int
 __paritySI2 (UWtype x)
 {
@@ -750,7 +741,6 @@ __paritySI2 (UWtype x)
 
 #ifdef L_paritydi2
 #undef int
-extern int __parityDI2 (UDWtype x);
 int
 __parityDI2 (UDWtype x)
 {
@@ -1032,7 +1022,7 @@ __moddi3 (DWtype u, DWtype v)
   if (vv.s.high < 0)
     vv.ll = -vv.ll;
 
-  (void) __udivmoddi4 (uu.ll, vv.ll, &w);
+  (void) __udivmoddi4 (uu.ll, vv.ll, (UDWtype*)&w);
   if (c)
     w = -w;
 
@@ -1506,7 +1496,7 @@ __enable_execute_stack (void *addr __attribute__((__unused__)))
 
 #if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
 
-long
+int
 getpagesize (void)
 {
 #ifdef _ALPHA_

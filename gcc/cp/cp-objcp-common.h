@@ -30,7 +30,6 @@ extern tree cp_expr_size (tree);
 extern size_t cp_tree_size (enum tree_code);
 extern bool cp_var_mod_type_p (tree, tree);
 extern void cxx_initialize_diagnostics (struct diagnostic_context *);
-extern int cxx_types_compatible_p (tree, tree);
 
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
 
@@ -87,8 +86,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_PRINT_TYPE cxx_print_type
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER cxx_print_identifier
-#undef LANG_HOOKS_TYPES_COMPATIBLE_P
-#define LANG_HOOKS_TYPES_COMPATIBLE_P cxx_types_compatible_p
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -119,12 +116,12 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   cp_cannot_inline_tree_fn
-#undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
-#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
-  cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
+#undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
+#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
+  cp_copy_res_decl_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P

@@ -290,7 +290,7 @@ public class Mac implements Cloneable
    *
    * @return The MAC length.
    */
-  public final int getMacLength()
+  public int getMacLength()
   {
     return macSpi.engineGetMacLength();
   }
@@ -404,7 +404,7 @@ public class Mac implements Cloneable
    * @throws java.lang.CloneNotSupportedException If the underlying
    *         implementation is not cloneable.
    */
-  public final Object clone() throws CloneNotSupportedException
+  public Object clone() throws CloneNotSupportedException
   {
     Mac result = new Mac((MacSpi) macSpi.clone(), provider, algorithm);
     result.virgin = virgin;

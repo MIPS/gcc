@@ -38,7 +38,13 @@ exception statement from your version. */
 
 package java.io;
 
+import gnu.classpath.Configuration;
+import gnu.java.io.ObjectIdentityWrapper;
+
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.security.PrivilegedAction;
@@ -46,15 +52,6 @@ import java.security.AccessController;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
-
-
-import gnu.java.io.ObjectIdentityWrapper;
-import gnu.java.lang.reflect.TypeSignature;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-
-import gnu.classpath.Configuration;
 
 public class ObjectInputStream extends InputStream
   implements ObjectInput, ObjectStreamConstants
@@ -291,29 +288,7 @@ public class ObjectInputStream extends InputStream
 	      
 	      if (osc.realClassIsExternalizable)
 		{
-		  Externalizable obj = null;
-		  
-		  try
-		    {
-		      obj = (Externalizable)clazz.newInstance();
-		    }
-		  catch (InstantiationException e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz + " could not be created");
-		    }
-		  catch (IllegalAccessException e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz + " could not be created because class or "
-			 + "zero-argument constructor is not accessible");
-		    }
-		  catch (NoSuchMethodError e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz
-			 + " could not be created because zero-argument constructor is not defined");
-		    }
+		  Externalizable obj = osc.newInstance();
 		  
 		  int handle = assignNewHandle(obj);
 		  
@@ -1145,7 +1120,7 @@ public class ObjectInputStream extends InputStream
    *
    * XXX: finish up comments
    */
-  public static abstract class GetField
+  public abstract static class GetField
   {
     public abstract ObjectStreamClass getObjectStreamClass();
 
@@ -1835,7 +1810,8 @@ public class ObjectInputStream extends InputStream
   
   private native ClassLoader getCallersClassLoader();
 
-  private void callReadMethod (Method readObject, Class klass, Object obj) throws IOException
+  private void callReadMethod (Method readObject, Class klass, Object obj)
+    throws ClassNotFoundException, IOException
   {
     try
       {
@@ -1849,6 +1825,8 @@ public class ObjectInputStream extends InputStream
 	  throw (RuntimeException) exception;
 	if (exception instanceof IOException)
 	  throw (IOException) exception;
+        if (exception instanceof ClassNotFoundException)
+          throw (ClassNotFoundException) exception;
 
 	throw new IOException("Exception thrown from readObject() on " +
 			       klass + ": " + exception.getClass().getName());

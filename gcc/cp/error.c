@@ -272,7 +272,7 @@ dump_type (tree t, int flags)
       pp_cxx_tree_identifier (cxx_pp, t);
       break;
 
-    case TREE_VEC:
+    case TREE_BINFO:
       dump_type (BINFO_TYPE (t), flags);
       break;
 
@@ -677,7 +677,7 @@ dump_global_iord (tree t)
   else if (DECL_GLOBAL_DTOR_P (t))
     p = "destructors";
   else
-    abort ();
+    gcc_unreachable ();
 
   pp_printf (pp_base (cxx_pp), "(static %s for %s)", p, input_filename);
 }
@@ -735,7 +735,7 @@ dump_decl (tree t, int flags)
       if (DECL_NAME (t) && VTABLE_NAME_P (DECL_NAME (t)))
 	{
 	  pp_string (cxx_pp, "vtable for ");
-	  my_friendly_assert (TYPE_P (DECL_CONTEXT (t)), 20010720);
+	  gcc_assert (TYPE_P (DECL_CONTEXT (t)));
 	  dump_type (DECL_CONTEXT (t), flags);
 	  break;
 	}
@@ -790,7 +790,7 @@ dump_decl (tree t, int flags)
       break;
 
     case TYPE_EXPR:
-      abort ();
+      gcc_unreachable ();
       break;
 
       /* These special cases are duplicated here so that other functions
@@ -831,10 +831,10 @@ dump_decl (tree t, int flags)
       /* Fall through.  */
 
     case FUNCTION_DECL:
-      if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
-	dump_global_iord (t);
-      else if (! DECL_LANG_SPECIFIC (t))
+      if (! DECL_LANG_SPECIFIC (t))
 	pp_identifier (cxx_pp, "<built-in>");
+      else if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
+	dump_global_iord (t);
       else
         dump_function_decl (t, flags);
       break;
@@ -954,20 +954,22 @@ dump_template_decl (tree t, int flags)
                 | (flags & TFF_DECL_SPECIFIERS ? TFF_CLASS_KEY_OR_ENUM : 0)));
   else if (TREE_CODE (DECL_TEMPLATE_RESULT (t)) == VAR_DECL)
     dump_decl (DECL_TEMPLATE_RESULT (t), flags | TFF_TEMPLATE_NAME);
-  else if (TREE_TYPE (t) == NULL_TREE)
-    abort ();
   else
-    switch (NEXT_CODE (t))
     {
-      case METHOD_TYPE:
-      case FUNCTION_TYPE:
-        dump_function_decl (t, flags | TFF_TEMPLATE_NAME);
-        break;
-      default:
-        /* This case can occur with some invalid code.  */
-        dump_type (TREE_TYPE (t),
-                   (flags & ~TFF_CLASS_KEY_OR_ENUM) | TFF_TEMPLATE_NAME
-                   | (flags & TFF_DECL_SPECIFIERS ? TFF_CLASS_KEY_OR_ENUM : 0));
+      gcc_assert (TREE_TYPE (t));
+      switch (NEXT_CODE (t))
+	{
+	case METHOD_TYPE:
+	case FUNCTION_TYPE:
+	  dump_function_decl (t, flags | TFF_TEMPLATE_NAME);
+	  break;
+	default:
+	  /* This case can occur with some invalid code.  */
+	  dump_type (TREE_TYPE (t),
+		     (flags & ~TFF_CLASS_KEY_OR_ENUM) | TFF_TEMPLATE_NAME
+		     | (flags & TFF_DECL_SPECIFIERS
+			? TFF_CLASS_KEY_OR_ENUM : 0));
+	}
     }
 }
 
@@ -1348,7 +1350,7 @@ dump_expr (tree t, int flags)
 	if (fn && TREE_CODE (fn) == FUNCTION_DECL)
 	  {
 	    if (DECL_CONSTRUCTOR_P (fn))
-	      pp_cxx_tree_identifier (cxx_pp, TYPE_IDENTIFIER (TREE_TYPE (t)));
+	      dump_type (DECL_CONTEXT (fn), flags);
 	    else
 	      dump_decl (fn, 0);
 	  }
@@ -1409,9 +1411,9 @@ dump_expr (tree t, int flags)
 	if (TREE_CODE (type) == ARRAY_REF)
 	  type = build_cplus_array_type
 	    (TREE_OPERAND (type, 0),
-	     build_index_type (fold (build (MINUS_EXPR, integer_type_node,
-					    TREE_OPERAND (type, 1),
-					    integer_one_node))));
+	     build_index_type (fold (build2 (MINUS_EXPR, integer_type_node,
+					     TREE_OPERAND (type, 1),
+					     integer_one_node))));
 	dump_type (type, flags);
 	if (init)
 	  {
@@ -1468,6 +1470,7 @@ dump_expr (tree t, int flags)
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
+    case RDIV_EXPR:
       dump_binary_op ("/", t, flags);
       break;
 
@@ -1535,7 +1538,7 @@ dump_expr (tree t, int flags)
       if (TREE_HAS_CONSTRUCTOR (t))
 	{
 	  t = TREE_OPERAND (t, 0);
-	  my_friendly_assert (TREE_CODE (t) == CALL_EXPR, 237);
+	  gcc_assert (TREE_CODE (t) == CALL_EXPR);
 	  dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
 	  pp_cxx_left_paren (cxx_pp);
 	  dump_expr_list (TREE_CHAIN (TREE_OPERAND (t, 1)), flags);
@@ -1768,7 +1771,7 @@ dump_expr (tree t, int flags)
         pp_cxx_identifier (cxx_pp, "sizeof");
       else
 	{
-	  my_friendly_assert (TREE_CODE (t) == ALIGNOF_EXPR, 0);
+	  gcc_assert (TREE_CODE (t) == ALIGNOF_EXPR);
 	  pp_cxx_identifier (cxx_pp, "__alignof__");
 	}
       pp_cxx_whitespace (cxx_pp);
@@ -2034,9 +2037,9 @@ language_to_string (enum languages c)
       return "Java";
 
     default:
-      abort ();
-      return 0;
+      gcc_unreachable ();
     }
+  return 0;
 }
 
 /* Return the proper printed version of a parameter to a C++ function.  */
@@ -2337,9 +2340,14 @@ locate_error (const char *msgid, va_list ap)
       plus = 0;
       if (*f == '%')
 	{
-	  f++;
+          if (*++f == 'q')
+            ++f;                /* ignore quoting flag.  */
+
 	  if (*f == '+')
-	    f++, plus = 1;
+            {
+              ++f;
+              plus = 1;
+            }
 	  if (*f == '#')
 	    f++;
 
@@ -2394,6 +2402,9 @@ cp_error_at (const char *msgid, ...)
   va_end (ap);
 
   va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap,
+                       input_location, DK_ERROR);
+  cp_diagnostic_starter (global_dc, &diagnostic);
   diagnostic_set_info (&diagnostic, msgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);

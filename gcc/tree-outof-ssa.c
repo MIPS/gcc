@@ -42,11 +42,18 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
+
+/* Flags to pass to remove_ssa_form.  */
+
+#define SSANORM_PERFORM_TER		0x1
+#define SSANORM_COMBINE_TEMPS		0x2
+#define SSANORM_REMOVE_ALL_PHIS		0x4
+#define SSANORM_COALESCE_PARTITIONS	0x8
+#define SSANORM_USE_COALESCE_LIST	0x10
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -138,10 +145,8 @@ create_temp (tree t)
 
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
- 
-  if (TREE_CODE (t) != VAR_DECL 
-      && TREE_CODE (t) != PARM_DECL)
-    abort ();
+
+  gcc_assert (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == PARM_DECL);
 
   type = TREE_TYPE (t);
   tmp = DECL_NAME (t);
@@ -360,8 +365,7 @@ eliminate_build (elim_graph g, basic_block B, int i)
 	     in the same order as all of the other PHI nodes. If they don't 
 	     match, find the appropriate index here.  */
 	  pi = phi_arg_from_edge (phi, g->e);
-	  if (pi == -1)
-	    abort();
+	  gcc_assert (pi != -1);
 	  Ti = PHI_ARG_DEF (phi, pi);
 	}
 
@@ -488,12 +492,8 @@ eliminate_phi (edge e, int i, elim_graph g)
   int x;
   basic_block B = e->dest;
 
-#if defined ENABLE_CHECKING
-  if (i == -1)
-    abort ();
-  if (VARRAY_ACTIVE_SIZE (g->const_copies) != 0)
-    abort ();
-#endif
+  gcc_assert (i != -1);
+  gcc_assert (VARRAY_ACTIVE_SIZE (g->const_copies) == 0);
 
   /* Abnormal edges already have everything coalesced, or the coalescer
      would have aborted.  */
@@ -581,13 +581,14 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
   edge e;
   tree phi, var, tmp;
   int x, y;
+  edge_iterator ei;
 
   /* Code cannot be inserted on abnormal edges. Look for all abnormal 
      edges, and coalesce any PHI results with their arguments across 
      that edge.  */
 
   FOR_EACH_BB (bb)
-    for (e = bb->succ; e; e = e->succ_next)
+    FOR_EACH_EDGE (e, ei, bb->succs)
       if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
@@ -601,59 +602,71 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	      continue;
 
 	    y = phi_arg_from_edge (phi, e);
-	    if (y == -1)
-	      abort ();
+	    gcc_assert (y != -1);
 
 	    tmp = PHI_ARG_DEF (phi, y);
+#ifdef ENABLE_CHECKING
 	    if (!phi_ssa_name_p (tmp))
 	      {
 	        print_exprs_edge (stderr, e,
 				  "\nConstant argument in PHI. Can't insert :",
 				  var, " = ", tmp);
-		abort ();
+		internal_error ("SSA corruption");
 	      }
+#else
+	    gcc_assert (phi_ssa_name_p (tmp));
+#endif
 	    y = var_to_partition (map, tmp);
-	    if (x == NO_PARTITION || y == NO_PARTITION)
-	      abort ();
+	    gcc_assert (x != NO_PARTITION);
+	    gcc_assert (y != NO_PARTITION);
+#ifdef ENABLE_CHECKING
 	    if (root_var_find (rv, x) != root_var_find (rv, y))
 	      {
 		print_exprs_edge (stderr, e, "\nDifferent root vars: ",
 				  root_var (rv, root_var_find (rv, x)), 
 				  " and ", 
 				  root_var (rv, root_var_find (rv, y)));
-		abort ();
+		internal_error ("SSA corruption");
 	      }
+#else
+	    gcc_assert (root_var_find (rv, x) == root_var_find (rv, y));
+#endif
 
 	    if (x != y)
 	      {
-		if (!conflict_graph_conflict_p (graph, x, y))
-		  {
-		    /* Now map the partitions back to their real variables.  */
-		    var = partition_to_var (map, x);
-		    tmp = partition_to_var (map, y);
-		    if (dump_file 
-			&& (dump_flags & TDF_DETAILS))
-		      {
-			print_exprs_edge (dump_file, e, 
-					  "ABNORMAL: Coalescing ",
-					  var, " and ", tmp);
-		      }
-		    if (var_union (map, var, tmp) == NO_PARTITION)
-		      {
-			print_exprs_edge (stderr, e, "\nUnable to coalesce", 
-					  partition_to_var (map, x), " and ", 
-					  partition_to_var (map, y));
-			abort ();
-		      }
-		    conflict_graph_merge_regs (graph, x, y);
-		  }
-		else
+#ifdef ENABLE_CHECKING
+		if (conflict_graph_conflict_p (graph, x, y))
 		  {
 		    print_exprs_edge (stderr, e, "\n Conflict ", 
 				      partition_to_var (map, x),
 				      " and ", partition_to_var (map, y));
-		    abort ();
+		    internal_error ("SSA corruption");
 		  }
+#else
+		gcc_assert (!conflict_graph_conflict_p (graph, x, y));
+#endif
+		
+		/* Now map the partitions back to their real variables.  */
+		var = partition_to_var (map, x);
+		tmp = partition_to_var (map, y);
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    print_exprs_edge (dump_file, e, 
+				      "ABNORMAL: Coalescing ",
+				      var, " and ", tmp);
+		  }
+#ifdef ENABLE_CHECKING
+		if (var_union (map, var, tmp) == NO_PARTITION)
+		  {
+		    print_exprs_edge (stderr, e, "\nUnable to coalesce", 
+				      partition_to_var (map, x), " and ", 
+				      partition_to_var (map, y));
+		    internal_error ("SSA corruption");
+		  }
+#else
+		gcc_assert (var_union (map, var, tmp) != NO_PARTITION);
+#endif
+		conflict_graph_merge_regs (graph, x, y);
 	      }
 	  }
 }
@@ -793,12 +806,9 @@ coalesce_ssa_name (var_map map, int flags)
       /* If these aren't already coalesced...  */
       if (partition_to_var (map, x) != var)
 	{
-	  if (ann->out_of_ssa_tag)
-	    {
-	      /* This root variable has already been assigned to another
-		 partition which is not coalesced with this one.  */
-	      abort ();
-	    }
+	  /* This root variable should have not already been assigned
+	     to another partition which is not coalesced with this one.  */
+	  gcc_assert (!ann->out_of_ssa_tag);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1024,7 +1034,7 @@ eliminate_virtual_phis (void)
 		      print_generic_expr (stderr, arg, TDF_SLIM);
 		      fprintf (stderr, "), but the result is :");
 		      print_generic_stmt (stderr, phi, TDF_SLIM);
-		      abort();
+		      internal_error ("SSA corruption");
 		    }
 		}
 #endif
@@ -1270,8 +1280,7 @@ free_temp_expr_table (temp_expr_table_p t)
 #ifdef ENABLE_CHECKING
   int x;
   for (x = 0; x <= num_var_partitions (t->map); x++)
-    if (t->partition_dep_list[x] != NULL)
-      abort();
+    gcc_assert (!t->partition_dep_list[x]);
 #endif
 
   while ((p = t->free_list))
@@ -1430,10 +1439,7 @@ add_dependance (temp_expr_table_p tab, int version, tree var)
   else
     {
       i = var_to_partition (tab->map, var);
-#ifdef ENABLE_CHECKING
-      if (i== NO_PARTITION)
-	abort ();
-#endif
+      gcc_assert (i != NO_PARTITION);
       add_value_to_list (tab, &(tab->partition_dep_list[i]), version);
       add_value_to_list (tab, 
 			 (value_expr_p *)&(tab->version_info[version]), i);
@@ -1453,8 +1459,9 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   def_optype defs;
   use_optype uses;
   tree var, def;
-  int num_use_ops, version, i;
+  int num_use_ops, version;
   var_map map = tab->map;
+  ssa_op_iter iter;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1467,11 +1474,6 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     return false;
   def = DEF_OP (defs, 0);
   if (version_ref_count (map, def) != 1)
-    return false;
-
-  /* Assignments to variables assigned to hard registers are not
-     replaceable.  */
-  if (DECL_HARD_REGISTER (SSA_NAME_VAR (def)))
     return false;
 
   /* There must be no V_MAY_DEFS.  */
@@ -1504,9 +1506,8 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   version = SSA_NAME_VERSION (def);
 
   /* Add this expression to the dependency list for each use partition.  */
-  for (i = 0; i < num_use_ops; i++)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     {
-      var = USE_OP (uses, i);
       add_dependance (tab, version, var);
     }
 
@@ -1540,16 +1541,10 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
   for (info = (value_expr_p) tab->version_info[version]; info; info = tmp)
     {
       partition = info->value;
-#ifdef ENABLE_CHECKING
-      if (tab->partition_dep_list[partition] == NULL)
-        abort ();
-#endif
+      gcc_assert (tab->partition_dep_list[partition]);
       tmp = remove_value_from_list (&(tab->partition_dep_list[partition]), 
 				    version);
-#ifdef ENABLE_CHECKING
-      if (!tmp)
-        abort ();
-#endif
+      gcc_assert (tmp);
       free_value_expr (tab, tmp);
       /* Only clear the bit when the dependency list is emptied via 
          a replacement. Otherwise kill_expr will take care of it.  */
@@ -1567,10 +1562,7 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
     }
   else
     {
-#ifdef ENABLE_CHECKING
-      if (bitmap_bit_p (tab->replaceable, version))
-	abort ();
-#endif
+      gcc_assert (!bitmap_bit_p (tab->replaceable, version));
       tab->version_info[version] = NULL;
     }
 }
@@ -1638,11 +1630,10 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
   block_stmt_iterator bsi;
   tree stmt, def;
   stmt_ann_t ann;
-  int partition, num, i;
-  use_optype uses;
-  def_optype defs;
+  int partition;
   var_map map = tab->map;
   value_expr_p p;
+  ssa_op_iter iter;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -1650,11 +1641,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       ann = stmt_ann (stmt);
 
       /* Determine if this stmt finishes an existing expression.  */
-      uses = USE_OPS (ann);
-      num = NUM_USES (uses);
-      for (i = 0; i < num; i++)
+      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_USE)
 	{
-	  def = USE_OP (uses, i);
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
 	    {
 	      /* Mark expression as replaceable unless stmt is volatile.  */
@@ -1666,11 +1654,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	}
       
       /* Next, see if this stmt kills off an active expression.  */
-      defs = DEF_OPS (ann);
-      num = NUM_DEFS (defs);
-      for (i = 0; i < num; i++)
+      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
 	{
-	  def = DEF_OP (defs, i);
 	  partition = var_to_partition (map, def);
 	  if (partition != NO_PARTITION && tab->partition_dep_list[partition])
 	    kill_expr (tab, partition, true);
@@ -1717,11 +1702,13 @@ find_replaceable_exprs (var_map map)
   table = new_temp_expr_table (map);
   FOR_EACH_BB (bb)
     {
+      bitmap_iterator bi;
+
       find_replaceable_in_bb (table, bb);
-      EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i,
+      EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i, bi)
         {
 	  kill_expr (table, i, false);
-	});
+	}
     }
 
   ret = free_temp_expr_table (table);
@@ -1761,7 +1748,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 {
   tree t = *tp;
 
-  if (TYPE_P (t) || DECL_P (t))
+  if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
   else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
     {
@@ -1857,7 +1844,7 @@ rewrite_trees (var_map map, tree *values)
 		      print_generic_expr (stderr, arg, TDF_SLIM);
 		      fprintf (stderr, "), but the result is not :");
 		      print_generic_stmt (stderr, phi, TDF_SLIM);
-		      abort();
+		      internal_error ("SSA corruption");
 		    }
 		}
 	    }
@@ -1872,13 +1859,15 @@ rewrite_trees (var_map map, tree *values)
     {
       for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
-	  size_t i, num_uses, num_defs;
+	  size_t num_uses, num_defs;
 	  use_optype uses;
 	  def_optype defs;
 	  tree stmt = bsi_stmt (si);
 	  use_operand_p use_p;
+	  def_operand_p def_p;
 	  int remove = 0, is_copy = 0;
 	  stmt_ann_t ann;
+	  ssa_op_iter iter;
 
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
@@ -1890,10 +1879,8 @@ rewrite_trees (var_map map, tree *values)
 
 	  uses = USE_OPS (ann);
 	  num_uses = NUM_USES (uses);
-
-	  for (i = 0; i < num_uses; i++)
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
-	      use_p = USE_OP_PTR (uses, i);
 	      if (replace_use_variable (map, use_p, values))
 	        changed = true;
 	    }
@@ -1913,10 +1900,8 @@ rewrite_trees (var_map map, tree *values)
 	    }
 	  if (!remove)
 	    {
-	      for (i = 0; i < num_defs; i++)
+	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
 		{
-		  def_operand_p def_p = DEF_OP_PTR (defs, i);
-
 		  if (replace_def_variable (map, def_p, NULL))
 		    changed = true;
 
@@ -1927,7 +1912,7 @@ rewrite_trees (var_map map, tree *values)
 		      && (DEF_FROM_PTR (def_p) == USE_OP (uses, 0)))
 		    remove = 1;
 		}
-	      if (changed)
+	      if (changed & !remove)
 		modify_stmt (stmt);
 	    }
 
@@ -1941,7 +1926,8 @@ rewrite_trees (var_map map, tree *values)
       phi = phi_nodes (bb);
       if (phi)
         {
-	  for (e = bb->pred; e; e = e->pred_next)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    eliminate_phi (e, phi_arg_from_edge (phi, e), g);
 	}
     }
@@ -1956,7 +1942,7 @@ rewrite_trees (var_map map, tree *values)
 /* Remove the variables specified in MAP from SSA form.  Any debug information
    is sent to DUMP.  FLAGS indicate what options should be used.  */
 
-void
+static void
 remove_ssa_form (FILE *dump, var_map map, int flags)
 {
   tree_live_info_p liveinfo;
@@ -2039,122 +2025,6 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   dump_file = save;
 }
 
-
-/* Take a subset of the variables VARS in the current function out of SSA
-   form.  */
-
-void
-rewrite_vars_out_of_ssa (bitmap vars)
-{
-  if (bitmap_first_set_bit (vars) >= 0)
-    {
-      var_map map;
-      basic_block bb;
-      tree phi;
-      int i;
-      int ssa_flags;
-
-      /* Search for PHIs in which one of the PHI arguments is marked for
-	 translation out of SSA form, but for which the PHI result is not
-	 marked for translation out of SSA form.
-
-	 Our per-variable out of SSA translation can not handle that case;
-	 however we can easily handle it here by creating a new instance
-	 of the PHI result's underlying variable and initializing it to
-	 the offending PHI argument on the edge associated with the
-	 PHI argument.  We then change the PHI argument to use our new
-	 instead of the PHI's underlying variable.
-
-	 You might think we could register partitions for the out-of-ssa
-	 translation here and avoid a second walk of the PHI nodes.  No
-	 such luck since the size of the var map will change if we have
-	 to manually take variables out of SSA form here.  */
-      FOR_EACH_BB (bb)
-	{
-	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	    {
-	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-
-	      /* If the definition is marked for renaming, then we need
-		 to do nothing more for this PHI node.  */
-	      if (bitmap_bit_p (vars, var_ann (result)->uid))
-		continue;
-
-	      /* Look at all the arguments and see if any of them are
-		 marked for renaming.  If so, we need to handle them
-		 specially.  */
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		{
-		  tree arg = PHI_ARG_DEF (phi, i);
-
-		  /* If the argument is not an SSA_NAME, then we can ignore
-		     this argument.  */
-		  if (TREE_CODE (arg) != SSA_NAME)
-		    continue;
-
-		  /* If this argument is marked for renaming, then we need
-		     to undo the copy propagation so that we can take
-		     the argument out of SSA form without taking the
-		     result out of SSA form.  */
-		  arg = SSA_NAME_VAR (arg);
-		  if (bitmap_bit_p (vars, var_ann (arg)->uid))
-		    {
-		      tree new_name, copy;
-
-		      /* Get a new SSA_NAME for the copy, it is based on
-			 the result, not the argument!   We use the PHI
-			 as the definition since we haven't created the
-			 definition statement yet.  */
-		      new_name = make_ssa_name (result, phi);
-
-		      /* Now create the copy statement.  */
-		      copy = build (MODIFY_EXPR, TREE_TYPE (arg),
-				    new_name, PHI_ARG_DEF (phi, i));
-
-		      /* Now update SSA_NAME_DEF_STMT to point to the
-			 newly created statement.  */
-		      SSA_NAME_DEF_STMT (new_name) = copy;
-
-		      /* Now make the argument reference our new SSA_NAME.  */
-		      SET_PHI_ARG_DEF (phi, i, new_name);
-
-		      /* Queue the statement for insertion.  */
-		      bsi_insert_on_edge (PHI_ARG_EDGE (phi, i), copy);
-		      modify_stmt (copy);
-		    }
-		}
-	    }
-	}
-
-      /* If any copies were inserted on edges, actually insert them now.  */
-      bsi_commit_edge_inserts (NULL);
-                                                                                
-      /* Now register partitions for all instances of the variables we
-	 are taking out of SSA form.  */
-      map = init_var_map (num_ssa_names + 1);
-      register_ssa_partitions_for_vars (vars, map);
-
-      /* Now that we have all the partitions registered, translate the
-	 appropriate variables out of SSA form.  */
-      ssa_flags = SSANORM_COALESCE_PARTITIONS;
-      if (flag_tree_combine_temps)
-	ssa_flags |= SSANORM_COMBINE_TEMPS;
-      remove_ssa_form (dump_file, map, ssa_flags);
-
-      /* And finally, reset the out_of_ssa flag for each of the vars
-	 we just took out of SSA form.  */
-      EXECUTE_IF_SET_IN_BITMAP (vars, 0, i,
-	{
-	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
-	});
-
-     /* Free the map as we are done with it.  */
-     delete_var_map (map);
-
-    }
-}
-
-
 /* Take the current function out of SSA form, as described in
    R. Morgan, ``Building an Optimizing Compiler'',
    Butterworth-Heinemann, Boston, MA, 1998. pp 176-186.  */
@@ -2208,7 +2078,9 @@ struct tree_opt_pass pass_del_ssa =
 {
   "optimized",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   rewrite_out_of_ssa,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -2219,5 +2091,6 @@ struct tree_opt_pass pass_del_ssa =
   PROP_ssa,				/* properties_destroyed */
   TODO_verify_ssa | TODO_verify_flow
     | TODO_verify_stmts,		/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_dump_func | TODO_ggc_collect,	/* todo_flags_finish */
+  0					/* letter */
 };

@@ -66,6 +66,10 @@ graph: { title: \"%s\"\nfolding: 1\nhidden: 2\nnode: { title: \"%s.0\" }\n",
 static void
 start_bb (FILE *fp, int bb)
 {
+#if 0
+  reg_set_iterator rsi;
+#endif
+
   switch (graph_dump_format)
     {
     case vcg:
@@ -83,13 +87,12 @@ label: \"basic block %d",
 
   /* Print the live-at-start register list.  */
   fputc ('\n', fp);
-  EXECUTE_IF_SET_IN_REG_SET (basic_block_live_at_start[bb], 0, i,
-			     {
-			       fprintf (fp, " %d", i);
-			       if (i < FIRST_PSEUDO_REGISTER)
-				 fprintf (fp, " [%s]",
-					  reg_names[i]);
-			     });
+  EXECUTE_IF_SET_IN_REG_SET (basic_block_live_at_start[bb], 0, i, rsi)
+    {
+      fprintf (fp, " %d", i);
+      if (i < FIRST_PSEUDO_REGISTER)
+	fprintf (fp, " [%s]", reg_names[i]);
+    }
 #endif
 
   switch (graph_dump_format)
@@ -220,21 +223,19 @@ end_fct (FILE *fp)
 /* Like print_rtl, but also print out live information for the start of each
    basic block.  */
 void
-print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
+print_rtl_graph_with_bb (const char *base, rtx rtx_first)
 {
   rtx tmp_rtx;
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   if (basic_block_info == NULL)
     return;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "a");
   if (fp == NULL)
@@ -310,6 +311,7 @@ print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 	  if ((i = end[INSN_UID (tmp_rtx)]) >= 0)
 	    {
 	      edge e;
+	      edge_iterator ei;
 
 	      bb = BASIC_BLOCK (i);
 
@@ -318,7 +320,7 @@ print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 
 	      /* Now specify the edges to all the successors of this
 		 basic block.  */
-	      for (e = bb->succ; e ; e = e->succ_next)
+	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  if (e->dest != EXIT_BLOCK_PTR)
 		    {
@@ -385,31 +387,23 @@ print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 /* Similar as clean_dump_file, but this time for graph output files.  */
 
 void
-clean_graph_dump_file (const char *base, const char *suffix)
+clean_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + extlen + suffixlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "w");
 
   if (fp == NULL)
     fatal_error ("can't open %s: %m", buf);
 
-  switch (graph_dump_format)
-    {
-    case vcg:
-      fputs ("graph: {\nport_sharing: no\n", fp);
-      break;
-    case no_graph:
-      abort ();
-    }
+  gcc_assert (graph_dump_format == vcg);
+  fputs ("graph: {\nport_sharing: no\n", fp);
 
   fclose (fp);
 }
@@ -417,30 +411,21 @@ clean_graph_dump_file (const char *base, const char *suffix)
 
 /* Do final work on the graph output file.  */
 void
-finish_graph_dump_file (const char *base, const char *suffix)
+finish_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
-  size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + suffixlen + extlen);
+  char *buf = alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
-  memcpy (buf + namelen, suffix, suffixlen);
-  memcpy (buf + namelen + suffixlen, graph_ext[graph_dump_format], extlen);
+  memcpy (buf + namelen, graph_ext[graph_dump_format], extlen);
 
   fp = fopen (buf, "a");
   if (fp != NULL)
     {
-      switch (graph_dump_format)
-	{
-	case vcg:
-	  fputs ("}\n", fp);
-	  break;
-	case no_graph:
-	  abort ();
-	}
-
+      gcc_assert (graph_dump_format == vcg);
+      fputs ("}\n", fp);
       fclose (fp);
     }
 }

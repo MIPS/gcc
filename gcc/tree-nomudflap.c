@@ -89,7 +89,9 @@ struct tree_opt_pass pass_mudflap_1 =
 {
   "mudflap1",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -98,14 +100,17 @@ struct tree_opt_pass pass_mudflap_1 =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 struct tree_opt_pass pass_mudflap_2 = 
 {
   "mudflap2",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -114,7 +119,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
+  0				        /* letter */
 };
 
 /* Instead of:

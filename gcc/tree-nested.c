@@ -55,7 +55,7 @@
 
    The implementation here is much more direct.  Everything that can be
    referenced by an inner function is a member of an explicitly created
-   structure herein called the "nonlocal frame struct".  The incomming
+   structure herein called the "nonlocal frame struct".  The incoming
    static chain for a nested function is a pointer to this struct in 
    the parent.  In this way, we settle on known offsets from a known
    base, and so are decoupled from the logic that places objects in the
@@ -132,15 +132,12 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
 {
   tree tmp_var;
 
-#if defined ENABLE_CHECKING
   /* If the type is of variable size or a type which must be created by the
      frontend, something is wrong.  Note that we explicitly allow
      incomplete types here, since we create them ourselves here.  */
-  if (TREE_ADDRESSABLE (type)
-      || (TYPE_SIZE_UNIT (type)
-	  && TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST))
-    abort ();
-#endif
+  gcc_assert (!TREE_ADDRESSABLE (type));
+  gcc_assert (!TYPE_SIZE_UNIT (type)
+	      || TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
 
   tmp_var = create_tmp_var_raw (type, prefix);
   DECL_CONTEXT (tmp_var) = info->context;
@@ -153,7 +150,7 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
 
 /* Take the address of EXP.  Mark it for addressability as necessary.  */
 
-static tree
+tree
 build_addr (tree exp)
 {
   tree base = exp;
@@ -249,8 +246,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
   slot = htab_find_slot (info->var_map, &dummy, insert);
   if (!slot)
     {
-      if (insert == INSERT)
-	abort ();
+      gcc_assert (insert != INSERT);
       return NULL;
     }
   elt = *slot;
@@ -405,7 +401,7 @@ get_trampoline_type (void)
       align = STACK_BOUNDARY;
     }
 
-  t = build_index_type (build_int_2 (size - 1, 0));
+  t = build_index_type (build_int_cst (NULL_TREE, size - 1));
   t = build_array_type (char_type_node, t);
   t = build_decl (FIELD_DECL, get_identifier ("__data"), t);
   DECL_ALIGN (t) = align;
@@ -434,8 +430,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
   slot = htab_find_slot (info->var_map, &dummy, insert);
   if (!slot)
     {
-      if (insert == INSERT)
-	abort ();
+      gcc_assert (insert != INSERT);
       return NULL;
     }
   elt = *slot;
@@ -488,7 +483,8 @@ get_nl_goto_field (struct nesting_info *info)
       size = size / GET_MODE_SIZE (Pmode);
       size = size + 1;
 
-      type = build_array_type (type, build_index_type (build_int_2 (size, 0)));
+      type = build_array_type
+	(type, build_index_type (build_int_cst (NULL_TREE, size)));
 
       field = make_node (FIELD_DECL);
       DECL_NAME (field) = get_identifier ("__nl_goto_buf");
@@ -522,6 +518,7 @@ struct walk_stmt_info
   tree_stmt_iterator tsi;
   struct nesting_info *info;
   bool val_only;
+  bool changed;
 };
 
 /* A subroutine of walk_function.  Iterate over all sub-statements of *TP.  */
@@ -736,6 +733,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	  tree target_context = decl_function_context (t);
 	  struct nesting_info *i;
 	  tree x;
+	  wi->changed = true;
 
 	  for (i = info->outer; i->context != target_context; i = i->outer)
 	    continue;
@@ -774,17 +772,17 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
     case ADDR_EXPR:
       {
 	bool save_val_only = wi->val_only;
-	tree save_sub = TREE_OPERAND (t, 0);
 
+	wi->changed = false;
 	wi->val_only = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
 	wi->val_only = true;
 
-	if (save_sub != TREE_OPERAND (t, 0))
+	if (wi->changed)
 	  {
 	    /* If we changed anything, then TREE_INVARIANT is be wrong,
 	       since we're no longer directly referencing a decl.  */
-	    TREE_INVARIANT (t) = 0;
+	    recompute_tree_invarant_for_addr_expr (t);
 
 	    /* If the callback converted the address argument in a context
 	       where we only accept variables (and min_invariant, presumably),
@@ -835,7 +833,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     default:
-      if (!DECL_P (t) && !TYPE_P (t))
+      if (!IS_TYPE_OR_DECL_P (t))
 	{
 	  *walk_subtrees = 1;
           wi->val_only = true;
@@ -855,7 +853,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = data;
   struct nesting_info *info = wi->info;
-  tree t = *tp, field, x, y;
+  tree t = *tp, field, x;
 
   switch (TREE_CODE (t))
     {
@@ -878,6 +876,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	  field = lookup_field_for_decl (info, t, NO_INSERT);
 	  if (!field)
 	    break;
+	  wi->changed = true;
 
 	  x = get_frame_field (info, info->context, field, &wi->tsi);
 	  if (wi->val_only)
@@ -889,17 +888,19 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
     case ADDR_EXPR:
       {
 	bool save_val_only = wi->val_only;
-	tree save_sub = TREE_OPERAND (t, 0);
 
+	wi->changed = false;
 	wi->val_only = false;
 	walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
 	wi->val_only = save_val_only;
 
 	/* If we converted anything ... */
-	if (TREE_OPERAND (t, 0) != save_sub)
+	if (wi->changed)
 	  {
 	    /* Then the frame decl is now addressable.  */
 	    TREE_ADDRESSABLE (info->frame_decl) = 1;
+	    
+	    recompute_tree_invarant_for_addr_expr (t);
 
 	    /* If we are in a context where we only accept values, then
 	       compute the address into a temporary.  */
@@ -907,40 +908,6 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
 	  }
       }
-      break;
-
-    case CALL_EXPR:
-      *walk_subtrees = 1;
-
-      /* Ready for some fun?  We need to recognize
-	    __builtin_stack_alloc (&x, n)
-	 and insert
-	    FRAME.x = &x
-	 after that.  X should have use_pointer_in_frame set.  We can't
-	 do this any earlier, since we can't meaningfully evaluate &x.  */
-
-      x = get_callee_fndecl (t);
-      if (!x || DECL_BUILT_IN_CLASS (x) != BUILT_IN_NORMAL)
-	break;
-      if (DECL_FUNCTION_CODE (x) != BUILT_IN_STACK_ALLOC)
-	break;
-      t = TREE_VALUE (TREE_OPERAND (t, 1));
-      if (TREE_CODE (t) != ADDR_EXPR)
-	abort ();
-      t = TREE_OPERAND (t, 0);
-      if (TREE_CODE (t) != VAR_DECL)
-	abort ();
-      field = lookup_field_for_decl (info, t, NO_INSERT);
-      if (!field)
-	break;
-      if (!use_pointer_in_frame (t))
-	abort ();
-
-      x = build_addr (t);
-      y = get_frame_field (info, info->context, field, &wi->tsi);
-      x = build (MODIFY_EXPR, void_type_node, y, x);
-      SET_EXPR_LOCUS (x, EXPR_LOCUS (tsi_stmt (wi->tsi)));
-      tsi_link_after (&wi->tsi, x, TSI_SAME_STMT);
       break;
 
     case REALPART_EXPR:
@@ -983,7 +950,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     default:
-      if (!DECL_P (t) && !TYPE_P (t))
+      if (!IS_TYPE_OR_DECL_P (t))
 	{
 	  *walk_subtrees = 1;
 	  wi->val_only = true;
@@ -1162,7 +1129,7 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     default:
-      if (!DECL_P (t) && !TYPE_P (t))
+      if (!IS_TYPE_OR_DECL_P (t))
 	*walk_subtrees = 1;
       break;
     }
@@ -1227,12 +1194,7 @@ convert_all_function_calls (struct nesting_info *root)
       if (root->outer && !root->chain_decl && !root->chain_field)
 	DECL_NO_STATIC_CHAIN (root->context) = 1;
       else
-	{
-#ifdef ENABLE_CHECKING
-	  if (DECL_NO_STATIC_CHAIN (root->context))
-	    abort ();
-#endif
-	}
+	gcc_assert (!DECL_NO_STATIC_CHAIN (root->context));
 
       root = root->next;
     }
@@ -1250,6 +1212,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   tree stmt_list = NULL;
   tree context = root->context;
   struct function *sf;
+  struct cgraph_node *node;
 
   /* If we created a non-local frame type or decl, we need to lay them
      out at this time.  */
@@ -1360,6 +1323,15 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 
   /* Dump the translated tree function.  */
   dump_function (TDI_nested, root->context);
+  node = cgraph_node (root->context);
+
+  /* For nested functions update the cgraph to reflect unnesting.
+     We also delay finalizing of these functions up to this point.  */
+  if (node->origin)
+    {
+       cgraph_unnest_node (cgraph_node (root->context));
+       cgraph_finalize_function (root->context, true);
+    }
 }
 
 static void

@@ -166,6 +166,12 @@ enum processor_type pa_cpu;
 /* String to hold which cpu we are scheduling for.  */
 const char *pa_cpu_string;
 
+/* String used with the -munix= option.  */
+const char *pa_unix_string;
+
+/* The UNIX standard to use for predefines and linking.  */
+int flag_pa_unix;
+
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
@@ -274,6 +280,8 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
@@ -419,6 +427,36 @@ override_options (void)
   else if (pa_arch_string)
     {
       warning ("unknown -march= option (%s).\nValid options are 1.0, 1.1, and 2.0\n", pa_arch_string);
+    }
+
+  if (TARGET_HPUX)
+    {
+      /* Set the default UNIX standard for HP-UX.  This affects the
+	 predefines and startfiles used for the target.  */
+      if (pa_unix_string == NULL)
+	pa_unix_string
+	  = TARGET_HPUX_11_11 ? "98" : (TARGET_HPUX_10_10 ? "95" : "93");
+
+      if (!strcmp (pa_unix_string, "93"))
+	flag_pa_unix = 1993;
+      else if (!strcmp (pa_unix_string, "95"))
+	flag_pa_unix = 1995;
+      else if (TARGET_HPUX_11_11)
+	{
+	  if (!strcmp (pa_unix_string, "98"))
+	    flag_pa_unix = 1998;
+	  else
+	    warning ("unknown -munix= option (%s).\n"
+		     "Valid options are 93, 95 and 98.\n",
+		     pa_unix_string);
+	}
+      else if (TARGET_HPUX_10_10)
+	warning ("unknown -munix= option (%s)."
+		 "\nValid options are 93 and 95.\n",
+		 pa_unix_string);
+      else
+	warning ("unknown -munix= option (%s).\nValid option is 93.\n",
+		 pa_unix_string);
     }
 
   if (pa_fixed_range_string)
@@ -1013,15 +1051,13 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		      gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
 				    gen_rtx_HIGH (word_mode, orig)));
       pic_ref
-	= gen_rtx_MEM (Pmode,
-		       gen_rtx_LO_SUM (Pmode, tmp_reg,
-				       gen_rtx_UNSPEC (Pmode,
-						       gen_rtvec (1, orig),
-						       UNSPEC_DLTIND14R)));
+	= gen_const_mem (Pmode,
+		         gen_rtx_LO_SUM (Pmode, tmp_reg,
+				         gen_rtx_UNSPEC (Pmode,
+						         gen_rtvec (1, orig),
+						         UNSPEC_DLTIND14R)));
 
       current_function_uses_pic_offset_table = 1;
-      MEM_NOTRAP_P (pic_ref) = 1;
-      RTX_UNCHANGING_P (pic_ref) = 1;
       mark_reg_pointer (reg, BITS_PER_UNIT);
       insn = emit_move_insn (reg, pic_ref);
 
@@ -1091,7 +1127,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
    This is for CSE to find several similar references, and only use one Z.
 
-   X can either be a SYMBOL_REF or REG, but because combine can not
+   X can either be a SYMBOL_REF or REG, but because combine cannot
    perform a 4->2 combination we do nothing for SYMBOL_REF + D where
    D will not fit in 14 bits.
 
@@ -3423,7 +3459,7 @@ remove_useless_addtr_insns (int check_notes)
 	    {
 	      rtx pattern = PATTERN (next);
 
-	      /* If it a reversed fp conditional branch (eg uses add,tr)
+	      /* If it a reversed fp conditional branch (e.g. uses add,tr)
 		 and CCFP dies, then reverse our conditional and the branch
 		 to avoid the add,tr.  */
 	      if (GET_CODE (pattern) == SET
@@ -5066,7 +5102,10 @@ print_operand (FILE *file, rtx x, int code)
 	}
       return;
     /* For floating point comparisons.  Note that the output
-       predicates are the complement of the desired mode.  */
+       predicates are the complement of the desired mode.  The
+       conditions for GT, GE, LT, LE and LTGT cause an invalid
+       operation exception if the result is unordered and this
+       exception is enabled in the floating-point status register.  */
     case 'Y':
       switch (GET_CODE (x))
 	{
@@ -5085,19 +5124,19 @@ print_operand (FILE *file, rtx x, int code)
 	case LTGT:
 	  fputs ("!<>", file);  break;
 	case UNLE:
-	  fputs (">", file);  break;
+	  fputs ("!?<=", file);  break;
 	case UNLT:
-	  fputs (">=", file);  break;
+	  fputs ("!?<", file);  break;
 	case UNGE:
-	  fputs ("<", file);  break;
+	  fputs ("!?>=", file);  break;
 	case UNGT:
-	  fputs ("<=", file);  break;
+	  fputs ("!?>", file);  break;
 	case UNEQ:
-	  fputs ("<>", file);  break;
+	  fputs ("!?=", file);  break;
 	case UNORDERED:
-	  fputs ("<=>", file);  break;
+	  fputs ("!?", file);  break;
 	case ORDERED:
-	  fputs ("!<=>", file);  break;
+	  fputs ("?", file);  break;
 	default:
 	  abort ();
 	}
@@ -6119,8 +6158,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
-      u = build_int_2 ((size > 4 ? -8 : -4), -1);
-      u = fold_convert (valist_type, u);
+      u = build_int_cst (valist_type, (size > 4 ? -8 : -4));
       t = build (BIT_AND_EXPR, valist_type, t, u);
 
       t = build (MODIFY_EXPR, valist_type, valist, t);
@@ -6156,7 +6194,7 @@ output_cbranch (rtx *operands, int nullify, int length, int negated, rtx insn)
   int useskip = 0;
   rtx xoperands[5];
 
-  /* A conditional branch to the following instruction (eg the delay slot)
+  /* A conditional branch to the following instruction (e.g. the delay slot)
      is asking for a disaster.  This can happen when not optimizing and
      when jump optimization fails.
 
@@ -6465,7 +6503,7 @@ output_bb (rtx *operands ATTRIBUTE_UNUSED, int nullify, int length,
   static char buf[100];
   int useskip = 0;
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  I do not think this can happen as this pattern
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
@@ -6610,7 +6648,7 @@ output_bvb (rtx *operands ATTRIBUTE_UNUSED, int nullify, int length,
   static char buf[100];
   int useskip = 0;
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  I do not think this can happen as this pattern
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
@@ -6750,7 +6788,7 @@ const char *
 output_dbra (rtx *operands, rtx insn, int which_alternative)
 {
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
   if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
@@ -6854,7 +6892,7 @@ output_movb (rtx *operands, rtx insn, int which_alternative,
 	     int reverse_comparison)
 {
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
+  /* A conditional branch to the following instruction (e.g. the delay slot) is
      asking for a disaster.  Be prepared!  */
 
   if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
@@ -8108,13 +8146,13 @@ fmpyaddoperands (rtx *operands)
       && ! rtx_equal_p (operands[3], operands[5]))
     return 0;
 
-  /* Inout operand of add can not conflict with any operands from multiply.  */
+  /* Inout operand of add cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
     return 0;
 
-  /* multiply can not feed into addition operands.  */
+  /* multiply cannot feed into addition operands.  */
   if (rtx_equal_p (operands[4], operands[0])
       || rtx_equal_p (operands[5], operands[0]))
     return 0;
@@ -8169,6 +8207,79 @@ pa_asm_out_destructor (rtx symbol, int priority)
 }
 #endif
 
+/* This function places uninitialized global data in the bss section.
+   The ASM_OUTPUT_ALIGNED_BSS macro needs to be defined to call this
+   function on the SOM port to prevent uninitialized global data from
+   being placed in the data section.  */
+   
+void
+pa_asm_output_aligned_bss (FILE *stream,
+			   const char *name,
+			   unsigned HOST_WIDE_INT size,
+			   unsigned int align)
+{
+  bss_section ();
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+  ASM_OUTPUT_TYPE_DIRECTIVE (stream, name, "object");
+#endif
+
+#ifdef ASM_OUTPUT_SIZE_DIRECTIVE
+  ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
+#endif
+
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+  ASM_OUTPUT_LABEL (stream, name);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+}
+
+/* Both the HP and GNU assemblers under HP-UX provide a .comm directive
+   that doesn't allow the alignment of global common storage to be directly
+   specified.  The SOM linker aligns common storage based on the rounded
+   value of the NUM_BYTES parameter in the .comm directive.  It's not
+   possible to use the .align directive as it doesn't affect the alignment
+   of the label associated with a .comm directive.  */
+
+void
+pa_asm_output_aligned_common (FILE *stream,
+			      const char *name,
+			      unsigned HOST_WIDE_INT size,
+			      unsigned int align)
+{
+  bss_section ();
+
+  assemble_name (stream, name);
+  fprintf (stream, "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",
+           MAX (size, align / BITS_PER_UNIT));
+}
+
+/* We can't use .comm for local common storage as the SOM linker effectively
+   treats the symbol as universal and uses the same storage for local symbols
+   with the same name in different object files.  The .block directive
+   reserves an uninitialized block of storage.  However, it's not common
+   storage.  Fortunately, GCC never requests common storage with the same
+   name in any given translation unit.  */
+
+void
+pa_asm_output_aligned_local (FILE *stream,
+			     const char *name,
+			     unsigned HOST_WIDE_INT size,
+			     unsigned int align)
+{
+  bss_section ();
+  fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
+
+#ifdef LOCAL_ASM_OP
+  fprintf (stream, "%s", LOCAL_ASM_OP);
+  assemble_name (stream, name);
+  fprintf (stream, "\n");
+#endif
+
+  ASM_OUTPUT_LABEL (stream, name);
+  fprintf (stream, "\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+}
+
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
    use in fmpysub instructions.  */
 int
@@ -8201,11 +8312,11 @@ fmpysuboperands (rtx *operands)
   if (! rtx_equal_p (operands[3], operands[4]))
     return 0;
 
-  /* multiply can not feed into subtraction.  */
+  /* multiply cannot feed into subtraction.  */
   if (rtx_equal_p (operands[5], operands[0]))
     return 0;
 
-  /* Inout operand of sub can not conflict with any operands from multiply.  */
+  /* Inout operand of sub cannot conflict with any operands from multiply.  */
   if (rtx_equal_p (operands[3], operands[0])
      || rtx_equal_p (operands[3], operands[1])
      || rtx_equal_p (operands[3], operands[2]))
@@ -8445,7 +8556,7 @@ following_call (rtx insn)
    will adhere to those rules.
 
    So, late in the compilation process we find all the jump tables, and
-   expand them into real code -- eg each entry in the jump table vector
+   expand them into real code -- e.g. each entry in the jump table vector
    will get an appropriate label followed by a jump to the final target.
 
    Reorg and the final jump pass can then optimize these branches and
@@ -8865,7 +8976,7 @@ pa_can_combine_p (rtx new, rtx anchor, rtx floater, int reversed, rtx dest,
    delay slot of the millicode call -- thus they act more like traditional
    CALL_INSNs.
 
-   Note we can not consider side effects of the insn to be delayed because
+   Note we cannot consider side effects of the insn to be delayed because
    the branch and link insn will clobber the return pointer.  If we happened
    to use the return pointer in the delay slot of the call, then we lose.
 
@@ -9166,27 +9277,18 @@ cmpib_comparison_operator (rtx op, enum machine_mode mode)
 	      || GET_CODE (op) == LEU));
 }
 
-#ifndef ONE_ONLY_TEXT_SECTION_ASM_OP
-#define ONE_ONLY_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef NEW_TEXT_SECTION_ASM_OP
-#define NEW_TEXT_SECTION_ASM_OP ""
-#endif
-
-#ifndef DEFAULT_TEXT_SECTION_ASM_OP
-#define DEFAULT_TEXT_SECTION_ASM_OP ""
-#endif
-
-/* Select and return a TEXT_SECTION_ASM_OP for the current function.
+/* Return a string to output before text in the current function.
 
    This function is only used with SOM.  Because we don't support
    named subspaces, we can only create a new subspace or switch back
-   into the default text subspace.  */
+   to the default text subspace.  */
 const char *
 som_text_section_asm_op (void)
 {
-  if (TARGET_SOM && TARGET_GAS)
+  if (!TARGET_SOM)
+    return "";
+
+  if (TARGET_GAS)
     {
       if (cfun && !cfun->machine->in_nsubspa)
 	{
@@ -9199,9 +9301,10 @@ som_text_section_asm_op (void)
 	  if (cfun->decl
 	      && DECL_ONE_ONLY (cfun->decl)
 	      && !DECL_WEAK (cfun->decl))
-	    return ONE_ONLY_TEXT_SECTION_ASM_OP;
+	    return
+ "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
 
-	  return NEW_TEXT_SECTION_ASM_OP;
+	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
 	}
       else
 	{
@@ -9209,13 +9312,13 @@ som_text_section_asm_op (void)
 	     function has been completed.  So, we are changing to the
 	     text section to output debugging information.  Do this in
 	     the default text section.  We need to forget that we are
-	     in the text section so that text_section will call us the
-	     next time around.  */
+	     in the text section so that the function text_section in
+	     varasm.c will call us the next time around.  */
 	  forget_section ();
 	}
     }
 
-  return DEFAULT_TEXT_SECTION_ASM_OP;
+  return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";
 }
 
 /* On hpux10, the linker will give an error if we have a reference
@@ -9238,19 +9341,18 @@ pa_select_section (tree exp, int reloc,
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
 	  && !DECL_WEAK (exp))
-	one_only_readonly_data_section ();
+	som_one_only_readonly_data_section ();
       else
 	readonly_data_section ();
     }
-  else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
-	   && !reloc)
+  else if (CONSTANT_CLASS_P (exp) && !reloc)
     readonly_data_section ();
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL
 	   && DECL_ONE_ONLY (exp)
 	   && !DECL_WEAK (exp)
 	   && DECL_INITIAL (exp))
-    one_only_data_section ();
+    som_one_only_data_section ();
   else
     data_section ();
 }

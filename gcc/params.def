@@ -95,6 +95,15 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_RTL,
 	  "The maximum number of instructions for the RTL inliner",
 	  600)
 
+/* Limit the number of expansions created by the variable expansion
+   optimization to avoid register pressure.  */
+DEFPARAM (PARAM_MAX_VARIABLE_EXPANSIONS,
+	  "max-variable-expansions-in-unroller",
+	  "If -fvariable-expansion-in-unroller is used, the maximum number of \
+           times that an individual variable will be expanded \
+           during loop unrolling",
+          1)
+     
 /* The maximum number of instructions to consider when looking for an
    instruction to fill a delay slot.  If more than this arbitrary
    number of instructions is searched, the time savings from filling
@@ -306,6 +315,12 @@ DEFPARAM(PARAM_MAX_CROSSJUMP_EDGES,
 	 "The maximum number of incoming edges to consider for crossjumping",
 	 100)
 
+/* The minimum number of matching instructions to consider for crossjumping.  */
+DEFPARAM(PARAM_MIN_CROSSJUMP_INSNS,
+     "min-crossjump-insns",
+     "The minimum number of matching instructions to consider for crossjumping",
+     5)
+
 /* The maximum length of path considered in cse.  */
 DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "max-cse-path-length",
@@ -318,6 +333,23 @@ DEFPARAM(PARAM_LIM_EXPENSIVE,
 	 "lim-expensive",
 	 "The minimum cost of an expensive expression in the loop invariant motion",
 	 20)
+
+/* Bound on number of candidates for induction variables below that
+   all candidates are considered for each use in induction variable
+   optimizations.  */
+
+DEFPARAM(PARAM_IV_CONSIDER_ALL_CANDIDATES_BOUND,
+	 "iv-consider-all-candidates-bound",
+	 "Bound on number of candidates below that all candidates are considered in iv optimizations",
+	 30)
+
+/* The induction variable optimizations give up on loops that contain more
+   induction variable uses.  */
+
+DEFPARAM(PARAM_IV_MAX_CONSIDERED_USES,
+	 "iv-max-considered-uses",
+	 "Bound on number of iv uses in loop optimized in iv optimizations",
+	 250)
 
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */
@@ -372,6 +404,14 @@ DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
 	 "max-sched-region-insns",
 	 "The maximum number of insns in a region to be considered for interblock scheduling",
 	 100)
+
+/* INTEGER_CST nodes are shared for values [{-1,0} .. N) for
+   {signed,unsigned} integral types.  This determines N.
+   Experimentation shows 256 to be a good value.  */
+DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
+	  "integer-share-limit",
+	  "The upper bound for sharing integer constants",
+	  256)
 
 DEFPARAM(PARAM_COLD_FIELD_RATIO,
 	"cold-field-ratio",

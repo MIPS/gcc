@@ -206,6 +206,8 @@ static bool mmix_pass_by_reference (const CUMULATIVE_ARGS *,
 #define TARGET_SETUP_INCOMING_VARARGS mmix_setup_incoming_varargs
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE mmix_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1232,16 +1234,6 @@ mmix_output_quoted_string (FILE *stream, const char *string, int length)
 	    fprintf (stream, ",");
 	}
     }
-}
-
-/* ASM_OUTPUT_SOURCE_LINE.  */
-
-void
-mmix_asm_output_source_line  (FILE *stream, int lineno)
-{
-  fprintf (stream, "# %d ", lineno);
-  OUTPUT_QUOTED_STRING (stream, main_input_filename);
-  fprintf (stream, "\n");
 }
 
 /* Target hook for assembling integer objects.  Use mmix_print_operand
@@ -2701,12 +2693,12 @@ mmix_output_condition (FILE *stream, rtx x, int reversed)
   {
     enum machine_mode cc_mode;
 
-    /* Terminated with {NIL, NULL, NULL} */
+    /* Terminated with {UNKNOWN, NULL, NULL} */
     const struct cc_conv *const convs;
   };
 
 #undef CCEND
-#define CCEND {NIL, NULL, NULL}
+#define CCEND {UNKNOWN, NULL, NULL}
 
   static const struct cc_conv cc_fun_convs[]
     = {{ORDERED, "Z", "P"},
@@ -2764,7 +2756,7 @@ mmix_output_condition (FILE *stream, rtx x, int reversed)
     {
       if (mode == cc_convs[i].cc_mode)
 	{
-	  for (j = 0; cc_convs[i].convs[j].cc != NIL; j++)
+	  for (j = 0; cc_convs[i].convs[j].cc != UNKNOWN; j++)
 	    if (cc == cc_convs[i].convs[j].cc)
 	      {
 		const char *mmix_cc

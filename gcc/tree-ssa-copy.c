@@ -70,7 +70,7 @@ may_propagate_copy (tree dest, tree orig)
   /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
      pointers that have different alias sets.  This means that these
      pointers will have different memory tags associated to them.
-     
+
      If we allow copy propagation in these cases, statements de-referencing
      the new pointer will now have a reference to a different memory tag
      with potentially incorrect SSA information.
@@ -112,8 +112,8 @@ may_propagate_copy (tree dest, tree orig)
 	return false;
       else if (!lang_hooks.types_compatible_p (type_d, type_o))
 	return false;
-      else if (!alias_sets_conflict_p (get_alias_set (type_d),
-				       get_alias_set (type_o)))
+      else if (get_alias_set (TREE_TYPE (type_d)) != 
+	       get_alias_set (TREE_TYPE (type_o)))
 	return false;
     }
 
@@ -131,8 +131,7 @@ may_propagate_copy (tree dest, tree orig)
 #ifdef ENABLE_CHECKING
 	  /* If we have one real and one virtual operand, then something has
 	     gone terribly wrong.  */
-	  if (is_gimple_reg (orig))
-	    abort ();
+	  gcc_assert (!is_gimple_reg (orig));
 #endif
 	}
 
@@ -146,22 +145,32 @@ may_propagate_copy (tree dest, tree orig)
       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
     return false;
 
-  /* If DEST is an SSA_NAME that flows from an abnormal edge or if it
-     represents a hard register, then it cannot be replaced.  */
+  /* If DEST is an SSA_NAME that flows from an abnormal edge, then it
+     cannot be replaced.  */
   if (TREE_CODE (dest) == SSA_NAME
-      && (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
-	  || DECL_HARD_REGISTER (SSA_NAME_VAR (dest))))
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest))
     return false;
 
   /* Anything else is OK.  */
   return true;
 }
 
+/* Similarly, but we know that we're propagating into an ASM_EXPR.  */
+
+bool
+may_propagate_copy_into_asm (tree dest)
+{
+  /* Hard register operands of asms are special.  Do not bypass.  */
+  return !(TREE_CODE (dest) == SSA_NAME
+	   && TREE_CODE (SSA_NAME_VAR (dest)) == VAR_DECL
+	   && DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
+}
+
 
 /* Given two SSA_NAMEs pointers ORIG and NEW such that we are copy
    propagating NEW into ORIG, consolidate aliasing information so that
    they both share the same memory tags.  */
-   
+
 static void
 merge_alias_info (tree orig, tree new)
 {
@@ -170,18 +179,17 @@ merge_alias_info (tree orig, tree new)
   var_ann_t new_ann = var_ann (new_sym);
   var_ann_t orig_ann = var_ann (orig_sym);
 
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (orig)));
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (new)));
 #if defined ENABLE_CHECKING
-  if (!POINTER_TYPE_P (TREE_TYPE (orig))
-      || !POINTER_TYPE_P (TREE_TYPE (new))
-      || !lang_hooks.types_compatible_p (TREE_TYPE (orig), TREE_TYPE (new)))
-    abort ();
+  gcc_assert (lang_hooks.types_compatible_p (TREE_TYPE (orig),
+					     TREE_TYPE (new)));
 
   /* If the pointed-to alias sets are different, these two pointers
      would never have the same memory tag.  In this case, NEW should
      not have been propagated into ORIG.  */
-  if (get_alias_set (TREE_TYPE (TREE_TYPE (new_sym)))
-      != get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))))
-    abort ();
+  gcc_assert (get_alias_set (TREE_TYPE (TREE_TYPE (new_sym)))
+	      == get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))));
 #endif
 
   /* Merge type-based alias info.  */
@@ -189,14 +197,14 @@ merge_alias_info (tree orig, tree new)
     new_ann->type_mem_tag = orig_ann->type_mem_tag;
   else if (orig_ann->type_mem_tag == NULL_TREE)
     orig_ann->type_mem_tag = new_ann->type_mem_tag;
-  else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
-    abort ();
-}   
+  else
+    gcc_assert (new_ann->type_mem_tag == orig_ann->type_mem_tag);
+}
 
 
 /* Common code for propagate_value and replace_exp.
 
-   Replace use operand OP_P with VAL.  FOR_PROPAGATION indicates if the 
+   Replace use operand OP_P with VAL.  FOR_PROPAGATION indicates if the
    replacement is done to propagate a value or not.  */
 
 static void
@@ -206,11 +214,10 @@ replace_exp_1 (use_operand_p op_p, tree val,
   tree op = USE_FROM_PTR (op_p);
 
 #if defined ENABLE_CHECKING
-  if (for_propagation
-      && TREE_CODE (op) == SSA_NAME
-      && TREE_CODE (val) == SSA_NAME
-      && !may_propagate_copy (op, val))
-    abort ();
+  gcc_assert (!(for_propagation
+		&& TREE_CODE (op) == SSA_NAME
+		&& TREE_CODE (val) == SSA_NAME
+		&& !may_propagate_copy (op, val)));
 #endif
 
   if (TREE_CODE (val) == SSA_NAME)
@@ -220,7 +227,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
       SET_USE (op_p, val);
     }
   else
-    SET_USE (op_p, lhd_unsave_expr_now (val));
+    SET_USE (op_p, unsave_expr_now (val));
 }
 
 
@@ -240,8 +247,8 @@ propagate_value (use_operand_p op_p, tree val)
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the tree pointed by OP_P.
 
-   Use this version for const/copy propagation when SSA operands are not 
-   available.  It will perform the additional checks to ensure validity of 
+   Use this version for const/copy propagation when SSA operands are not
+   available.  It will perform the additional checks to ensure validity of
    the const/copy propagation, but will not update any operand information.
    Be sure to mark the stmt as modified.  */
 
@@ -249,10 +256,9 @@ void
 propagate_tree_value (tree *op_p, tree val)
 {
 #if defined ENABLE_CHECKING
-  if (TREE_CODE (val) == SSA_NAME
-      && TREE_CODE (*op_p) == SSA_NAME
-      && !may_propagate_copy (*op_p, val))
-    abort ();
+  gcc_assert (!(TREE_CODE (val) == SSA_NAME
+		&& TREE_CODE (*op_p) == SSA_NAME
+		&& !may_propagate_copy (*op_p, val)));
 #endif
 
   if (TREE_CODE (val) == SSA_NAME)
@@ -262,7 +268,7 @@ propagate_tree_value (tree *op_p, tree val)
       *op_p = val;
     }
   else
-    *op_p = lhd_unsave_expr_now (val);
+    *op_p = unsave_expr_now (val);
 }
 
 

@@ -76,9 +76,8 @@ mf_build_string (const char *string)
   size_t len = strlen (string);
   tree result = mf_mark (build_string (len + 1, string));
 
-  TREE_TYPE (result)
-      = build_array_type (char_type_node,
-                          build_index_type (build_int_2 (len, 0)));
+  TREE_TYPE (result) = build_array_type
+    (char_type_node, build_index_type (build_int_cst (NULL_TREE, len)));
   TREE_CONSTANT (result) = 1;
   TREE_INVARIANT (result) = 1;
   TREE_READONLY (result) = 1;
@@ -103,8 +102,7 @@ mf_varname_tree (tree decl)
   const char *buf_contents;
   tree result;
 
-  if (decl == NULL_TREE)
-    abort ();
+  gcc_assert (decl);
 
   if (!initialized)
     {
@@ -113,12 +111,15 @@ mf_varname_tree (tree decl)
     }
   pp_clear_output_area (buf);
 
-  /* Add FILENAME[:LINENUMBER].  */
+  /* Add FILENAME[:LINENUMBER[:COLUMNNUMBER]].  */
   {
     expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (decl));
     const char *sourcefile;
     unsigned sourceline = xloc.line;
-
+    unsigned sourcecolumn = 0;
+#ifdef USE_MAPPED_LOCATION
+    sourcecolumn = xloc.column;
+#endif
     sourcefile = xloc.file;
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
       sourcefile = DECL_SOURCE_FILE (current_function_decl);
@@ -131,12 +132,18 @@ mf_varname_tree (tree decl)
       {
         pp_string (buf, ":");
         pp_decimal_int (buf, sourceline);
+
+        if (sourcecolumn != 0)
+          {
+            pp_string (buf, ":");
+            pp_decimal_int (buf, sourcecolumn);
+          }
       }
   }
 
   if (current_function_decl != NULL_TREE)
     {
-      /* Add (FUNCTION): */
+      /* Add (FUNCTION) */
       pp_string (buf, " (");
       {
         const char *funcname = NULL;
@@ -190,11 +197,11 @@ mf_file_function_line_tree (location_t location)
 {
   expanded_location xloc = expand_location (location);
   const char *file = NULL, *colon, *line, *op, *name, *cp;
-  char linebuf[18];
+  char linecolbuf[30]; /* Enough for two decimal numbers plus a colon.  */
   char *string;
   tree result;
 
-  /* Add FILENAME[:LINENUMBER]. */
+  /* Add FILENAME[:LINENUMBER[:COLUMNNUMBER]].  */
   file = xloc.file;
   if (file == NULL && current_function_decl != NULL_TREE)
     file = DECL_SOURCE_FILE (current_function_decl);
@@ -203,9 +210,14 @@ mf_file_function_line_tree (location_t location)
 
   if (xloc.line > 0)
     {
-      sprintf (linebuf, "%d", xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      if (xloc.column > 0)
+        sprintf (linecolbuf, "%d:%d", xloc.line, xloc.column);
+      else
+#endif
+        sprintf (linecolbuf, "%d", xloc.line);
       colon = ":";
-      line = linebuf;
+      line = linecolbuf;
     }
   else
     colon = line = "";
@@ -252,7 +264,7 @@ static GTY (()) tree mf_cache_shift_decl;
 /* extern uintptr_t __mf_lc_mask; */
 static GTY (()) tree mf_cache_mask_decl;
 
-/* Their function-scope local shadows, used in single-threaded mode only. */
+/* Their function-scope local shadows, used in single-threaded mode only.  */
 
 /* auto const unsigned char __mf_lc_shift_l; */
 static GTY (()) tree mf_cache_shift_decl_l;
@@ -395,7 +407,10 @@ mudflap_init (void)
 static void
 execute_mudflap_function_ops (void)
 {
-  if (mf_marked_p (current_function_decl))
+  /* Don't instrument functions such as the synthetic constructor
+     built during mudflap_finish_file.  */
+  if (mf_marked_p (current_function_decl) ||
+      DECL_ARTIFICIAL (current_function_decl))
     return;
 
   push_gimplify_context ();
@@ -414,7 +429,7 @@ execute_mudflap_function_ops (void)
 
 /* Create and initialize local shadow variables for the lookup cache
    globals.  Put their decls in the *_l globals for use by
-   mf_build_check_statement_for. */
+   mf_build_check_statement_for.  */
 
 static void
 mf_decl_cache_locals (void)
@@ -463,13 +478,13 @@ mf_decl_cache_locals (void)
 static void
 mf_decl_clear_locals (void)
 {
-  /* Unset local shadows. */
+  /* Unset local shadows.  */
   mf_cache_shift_decl_l = NULL_TREE;
   mf_cache_mask_decl_l = NULL_TREE;
 }
 
 static void
-mf_build_check_statement_for (tree addr, tree size,
+mf_build_check_statement_for (tree base, tree addr, tree limit,
                               block_stmt_iterator *instr_bsi,
                               location_t *locus, tree dirflag)
 {
@@ -482,6 +497,7 @@ mf_build_check_statement_for (tree addr, tree size,
   tree mf_value;
   tree mf_base;
   tree mf_elem;
+  tree mf_limit;
 
   /* We first need to split the current basic block, and start altering
      the CFG.  This allows us to insert the statements we're about to
@@ -496,28 +512,46 @@ mf_build_check_statement_for (tree addr, tree size,
   bsi_prev (&bsi);
   if (! bsi_end_p (bsi))
     {
+      /* We're processing a statement in the middle of the block, so
+         we need to split the block.  This creates a new block and a new
+         fallthrough edge.  */
       e = split_block (cond_bb, bsi_stmt (bsi));
       cond_bb = e->src;
       join_bb = e->dest;
     }
   else
     {
+      /* We're processing the first statement in the block, so we need
+         to split the incoming edge.  This also creates a new block
+         and a new fallthrough edge.  */
       join_bb = cond_bb;
-      cond_bb = create_empty_bb (join_bb->prev_bb);
-      e = make_edge (cond_bb, join_bb, 0);
+      cond_bb = split_edge (find_edge (join_bb->prev_bb, join_bb));
     }
-  e->flags = EDGE_FALSE_VALUE;
+  
+  /* A recap at this point: join_bb is the basic block at whose head
+     is the gimple statement for which this check expression is being
+     built.  cond_bb is the (possibly new, synthetic) basic block the
+     end of which will contain the cache-lookup code, and a
+     conditional that jumps to the cache-miss code or, much more
+     likely, over to join_bb.  */
+
+  /* Create the bb that contains the cache-miss fallback block (mf_check).  */
   then_bb = create_empty_bb (cond_bb);
   make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
-  make_edge (then_bb, join_bb, EDGE_FALLTHRU);
+  make_single_succ_edge (then_bb, join_bb, EDGE_FALLTHRU);
 
   /* We expect that the conditional jump we will construct will not
      be taken very often as it basically is an exception condition.  */
-  predict_edge_def (then_bb->pred, PRED_MUDFLAP, NOT_TAKEN);
+  predict_edge_def (EDGE_PRED (then_bb, 0), PRED_MUDFLAP, NOT_TAKEN);
+
+  /* Mark the pseudo-fallthrough edge from cond_bb to join_bb.  */
+  e = find_edge (cond_bb, join_bb);
+  e->flags = EDGE_FALSE_VALUE;
+  predict_edge_def (e, PRED_MUDFLAP, TAKEN);
 
   /* Update dominance info.  Note that bb_join's data was
      updated by split_block.  */
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  if (dom_info_available_p (CDI_DOMINATORS))
     {
       set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
       set_immediate_dominator (CDI_DOMINATORS, join_bb, cond_bb);
@@ -527,6 +561,7 @@ mf_build_check_statement_for (tree addr, tree size,
   mf_value = create_tmp_var (ptrtype, "__mf_value");
   mf_elem = create_tmp_var (mf_cache_structptr_type, "__mf_elem");
   mf_base = create_tmp_var (mf_uintptr_type, "__mf_base");
+  mf_limit = create_tmp_var (mf_uintptr_type, "__mf_limit");
 
   /* Build: __mf_value = <address expression>.  */
   t = build (MODIFY_EXPR, void_type_node, mf_value, unshare_expr (addr));
@@ -535,9 +570,16 @@ mf_build_check_statement_for (tree addr, tree size,
   head = tsi_start (t);
   tsi = tsi_last (t);
 
-  /* Build: __mf_base = (uintptr_t)__mf_value.  */
+  /* Build: __mf_base = (uintptr_t) <base address expression>.  */
   t = build (MODIFY_EXPR, void_type_node, mf_base,
-             build1 (NOP_EXPR, mf_uintptr_type, mf_value));
+             convert (mf_uintptr_type, unshare_expr (base)));
+  SET_EXPR_LOCUS (t, locus);
+  gimplify_to_stmt_list (&t);
+  tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
+
+  /* Build: __mf_limit = (uintptr_t) <limit address expression>.  */
+  t = build (MODIFY_EXPR, void_type_node, mf_limit,
+             convert (mf_uintptr_type, unshare_expr (limit)));
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
@@ -560,7 +602,7 @@ mf_build_check_statement_for (tree addr, tree size,
   /* Quick validity check.
 
      if (__mf_elem->low > __mf_base
-         || (__mf_elem_high < __mf_base + sizeof(T) - 1))
+         || (__mf_elem_high < __mf_limit))
         {
           __mf_check ();
           ... and only if single-threaded:
@@ -577,22 +619,19 @@ mf_build_check_statement_for (tree addr, tree size,
              TYPE_FIELDS (mf_cache_struct_type), NULL_TREE);
   t = build (GT_EXPR, boolean_type_node, t, mf_base);
 
-  /* Construct '__mf_elem->high < __mf_base + sizeof(T) - 1'.
+  /* Construct '__mf_elem->high < __mf_limit'.
 
      First build:
         1) u <--  '__mf_elem->high'
-        2) v <--  '__mf_base + sizeof (T) - 1'.
+        2) v <--  '__mf_limit'.
 
      Then build 'u <-- (u < v).  */
-
 
   u = build (COMPONENT_REF, mf_uintptr_type,
              build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
              TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)), NULL_TREE);
 
-  v = convert (mf_uintptr_type,
-               size_binop (MINUS_EXPR, size, size_one_node));
-  v = fold (build (PLUS_EXPR, mf_uintptr_type, mf_base, v));
+  v = mf_limit;
 
   u = build (LT_EXPR, boolean_type_node, u, v);
 
@@ -617,12 +656,12 @@ mf_build_check_statement_for (tree addr, tree size,
      the conditional jump,
 
      if (__mf_elem->low > __mf_base
-         || (__mf_elem_high < __mf_base + sizeof(T) - 1))
+         || (__mf_elem_high < __mf_limit))
 
      The lowered GIMPLE tree representing this code is in the statement
      list starting at 'head'.
 
-     We can insert this now in the current basic block, ie. the one that
+     We can insert this now in the current basic block, i.e. the one that
      the statement we're instrumenting was originally in.  */
   bsi = bsi_last (cond_bb);
   for (tsi = head; ! tsi_end_p (tsi); tsi_next (&tsi))
@@ -640,8 +679,14 @@ mf_build_check_statement_for (tree addr, tree size,
                                              : *locus),
                  NULL_TREE);
   u = tree_cons (NULL_TREE, dirflag, u);
-  u = tree_cons (NULL_TREE, size, u);
-  u = tree_cons (NULL_TREE, mf_value, u);
+  /* NB: we pass the overall [base..limit] range to mf_check,
+     not the [mf_value..mf_value+size-1] range.  */
+  u = tree_cons (NULL_TREE, 
+                 fold (build (PLUS_EXPR, integer_type_node,
+                              fold (build (MINUS_EXPR, mf_uintptr_type, mf_limit, mf_base)),
+                              integer_one_node)),
+                 u);
+  u = tree_cons (NULL_TREE, mf_base, u);
   t = build_function_call_expr (mf_check_fndecl, u);
   gimplify_to_stmt_list (&t);
   head = tsi_start (t);
@@ -671,10 +716,14 @@ static void
 mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
                    location_t *locus, tree dirflag)
 {
-  tree type, ptr_type, addr, size, t;
+  tree type, ptr_type, addr, base, size, limit, t;
 
   /* Don't instrument read operations.  */
   if (dirflag == integer_zero_node && flag_mudflap_ignore_reads)
+    return;
+
+  /* Don't instrument marked nodes.  */
+  if (mf_marked_p (*tp))
     return;
 
   t = *tp;
@@ -722,12 +771,20 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
         /* If we got here, we couldn't statically the check.  */
         ptr_type = build_pointer_type (type);
         addr = build1 (ADDR_EXPR, ptr_type, t);
+        base = build1 (ADDR_EXPR, ptr_type, op0);
+        limit = fold (build (MINUS_EXPR, mf_uintptr_type,
+                             fold (build2 (PLUS_EXPR, mf_uintptr_type, addr, size)),
+                             integer_one_node));
       }
       break;
 
     case INDIRECT_REF:
       addr = TREE_OPERAND (t, 0);
       ptr_type = TREE_TYPE (addr);
+      base = addr;
+      limit = fold (build (MINUS_EXPR, ptr_type_node,
+                           fold (build (PLUS_EXPR, ptr_type_node, base, size)),
+                           integer_one_node));
       break;
 
     case ARRAY_RANGE_REF:
@@ -764,6 +821,12 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
             ptr_type = build_pointer_type (type);
             addr = build1 (ADDR_EXPR, ptr_type, t);
           }
+
+        /* XXXXXX */
+        base = addr;
+        limit = fold (build (MINUS_EXPR, ptr_type_node,
+                             fold (build (PLUS_EXPR, ptr_type_node, base, size)),
+                             integer_one_node));
       }
       break;
 
@@ -789,6 +852,11 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
         addr = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
         addr = convert (ptr_type_node, addr);
         addr = fold (build (PLUS_EXPR, ptr_type_node, addr, ofs));
+
+        base = addr;
+        limit = fold (build (MINUS_EXPR, ptr_type_node,
+                             fold (build (PLUS_EXPR, ptr_type_node, base, size)),
+                             integer_one_node));
       }
       break;
 
@@ -796,7 +864,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       return;
     }
 
-  mf_build_check_statement_for (addr, size, iter, locus, dirflag);
+  mf_build_check_statement_for (base, addr, limit, iter, locus, dirflag);
 }
 
 static void
@@ -857,7 +925,10 @@ mf_xform_derefs (void)
 static void
 execute_mudflap_function_decls (void)
 {
-  if (mf_marked_p (current_function_decl))
+  /* Don't instrument functions such as the synthetic constructor
+     built during mudflap_finish_file.  */
+  if (mf_marked_p (current_function_decl) ||
+      DECL_ARTIFICIAL (current_function_decl))
     return;
 
   push_gimplify_context ();
@@ -897,6 +968,8 @@ mx_register_decls (tree decl, tree *stmt_list)
           && TREE_ADDRESSABLE (decl)
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
+	  /* The decl hasn't been decomposed somehow.  */
+	  && DECL_VALUE_EXPR (decl) == NULL
           /* Don't process the same decl twice.  */
           && ! mf_marked_p (decl))
         {
@@ -904,73 +977,7 @@ mx_register_decls (tree decl, tree *stmt_list)
           tree unregister_fncall, unregister_fncall_params;
           tree register_fncall, register_fncall_params;
 
-          if (DECL_DEFER_OUTPUT (decl))
-            {
-              /* Oh no ... it's probably a variable-length array (VLA).
-                 The size and address cannot be computed by merely
-                 looking at the DECL.  See gimplify_decl_stmt for the
-                 method by which VLA declarations turn into calls to
-                 BUILT_IN_STACK_ALLOC.  We assume that multiple
-                 VLAs declared later in the same block get allocation 
-                 code later than the others.  */
-              tree stack_alloc_call = NULL_TREE;
-
-              while(! tsi_end_p (initially_stmts))
-                {
-                  tree t = tsi_stmt (initially_stmts);
-
-                  tree call = NULL_TREE;
-                  if (TREE_CODE (t) == CALL_EXPR)
-                    call = t;
-                  else if (TREE_CODE (t) == MODIFY_EXPR &&
-                           TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-                    call = TREE_OPERAND (t, 1);
-                  else if (TREE_CODE (t) == TRY_FINALLY_EXPR)
-                    {
-                      /* We hope that this is the try/finally block sometimes
-                         constructed by gimplify_bind_expr() for a BIND_EXPR
-                         that contains VLAs.  This very naive recursion
-                         appears to be sufficient.  */
-                      initially_stmts = tsi_start (TREE_OPERAND (t, 0));
-                    }
-
-                  if (call != NULL_TREE)
-                    {
-                      if (TREE_CODE (TREE_OPERAND(call, 0)) == ADDR_EXPR &&
-                          TREE_OPERAND (TREE_OPERAND (call, 0), 0) ==
-                                implicit_built_in_decls [BUILT_IN_STACK_ALLOC])
-                        {
-                          tree stack_alloc_args = TREE_OPERAND (call, 1);
-                          tree stack_alloc_op1 = TREE_VALUE (stack_alloc_args);
-                          tree stack_alloc_op2 = TREE_VALUE (TREE_CHAIN (stack_alloc_args));
-                          
-                          if (TREE_CODE (stack_alloc_op1) == ADDR_EXPR &&
-                              TREE_OPERAND (stack_alloc_op1, 0) == decl)
-                            {
-                              /* Got it! */
-                              size = stack_alloc_op2;
-                              stack_alloc_call = call;
-                              /* Advance iterator to point past this allocation call.  */
-                              tsi_next (&initially_stmts);
-                              break;
-                            }
-                        }
-                    }
-
-                  tsi_next (&initially_stmts);
-                }
-
-              if (stack_alloc_call == NULL_TREE)
-                {
-                  warning ("mudflap cannot handle variable-sized declaration `%s'",
-                         IDENTIFIER_POINTER (DECL_NAME (decl)));
-                  break;
-                }
-            }
-          else
-            {
-              size = convert (size_type_node, TYPE_SIZE_UNIT (TREE_TYPE (decl)));
-            }
+	  size = convert (size_type_node, TYPE_SIZE_UNIT (TREE_TYPE (decl)));
 
           /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK) */
           unregister_fncall_params =
@@ -981,8 +988,9 @@ mx_register_decls (tree decl, tree *stmt_list)
                                                  decl))),
                        tree_cons (NULL_TREE, 
                                   size,
-                                  tree_cons (NULL_TREE, 
-                                             build_int_2 (3, 0), /* __MF_TYPE_STACK */
+                                  tree_cons (NULL_TREE,
+					     /* __MF_TYPE_STACK */
+                                             build_int_cst (NULL_TREE, 3),
                                              NULL_TREE)));
           /* __mf_unregister (...) */
           unregister_fncall = build_function_call_expr (mf_unregister_fndecl,
@@ -999,7 +1007,8 @@ mx_register_decls (tree decl, tree *stmt_list)
                        tree_cons (NULL_TREE,
                                   size,
                                   tree_cons (NULL_TREE,
-                                             build_int_2 (3, 0), /* __MF_TYPE_STACK */
+					     /* __MF_TYPE_STACK */
+                                             build_int_cst (NULL_TREE, 3),
                                              tree_cons (NULL_TREE,
                                                         variable_name,
                                                         NULL_TREE))));
@@ -1142,7 +1151,7 @@ mudflap_register_call (tree obj, tree object_size, tree varname)
 
   args = tree_cons (NULL_TREE, varname, NULL_TREE);
 
-  arg = build_int_2 (4, 0); /* __MF_TYPE_STATIC */
+  arg = build_int_cst (NULL_TREE, 4); /* __MF_TYPE_STATIC */
   args = tree_cons (NULL_TREE, arg, args);
 
   arg = convert (size_type_node, object_size);
@@ -1206,7 +1215,7 @@ mudflap_enqueue_decl (tree obj)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
         if (VARRAY_TREE (deferred_static_decls, i) == obj)
           {
-            warning ("mudflap cannot track lifetime of `%s'",
+            warning ("mudflap cannot track unknown size extern %qs",
                      IDENTIFIER_POINTER (DECL_NAME (obj)));
             return;
           }
@@ -1224,7 +1233,7 @@ mudflap_enqueue_constant (tree obj)
     return;
 
   if (TREE_CODE (obj) == STRING_CST)
-    object_size = build_int_2 (TREE_STRING_LENGTH (obj), 0);
+    object_size = build_int_cst (NULL_TREE, TREE_STRING_LENGTH (obj));
   else
     object_size = size_in_bytes (TREE_TYPE (obj));
 
@@ -1307,7 +1316,9 @@ struct tree_opt_pass pass_mudflap_1 =
 {
   "mudflap1",                           /* name */
   gate_mudflap,                         /* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_mudflap_function_decls,       /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1316,14 +1327,17 @@ struct tree_opt_pass pass_mudflap_1 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_mudflap_2 = 
 {
   "mudflap2",                           /* name */
   gate_mudflap,                         /* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_mudflap_function_ops,         /* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1333,7 +1347,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_dump_func                      /* todo_flags_finish */
+  | TODO_dump_func,                     /* todo_flags_finish */
+  0					/* letter */
 };
 
 #include "gt-tree-mudflap.h"

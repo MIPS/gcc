@@ -1376,6 +1376,12 @@ package body Exp_Ch6 is
                  New_Occurrence_Of (Standard_True, Loc),
                  Extra_Constrained (Formal));
 
+            --  Do not produce extra actuals for Unchecked_Union parameters.
+            --  Jump directly to the end of the loop.
+
+            elsif Is_Unchecked_Union (Base_Type (Etype (Actual))) then
+               goto Skip_Extra_Actual_Generation;
+
             else
                --  If the actual is a type conversion, then the constrained
                --  test applies to the actual, not the target type.
@@ -1566,8 +1572,11 @@ package body Exp_Ch6 is
          --  are entities.
 
          if Validity_Checks_On then
-            if Ekind (Formal) = E_In_Parameter
-              and then Validity_Check_In_Params
+            if  (Ekind (Formal) = E_In_Parameter
+                   and then Validity_Check_In_Params)
+              or else
+                (Ekind (Formal) = E_In_Out_Parameter
+                   and then Validity_Check_In_Out_Params)
             then
                --  If the actual is an indexed component of a packed
                --  type, it has not been expanded yet. It will be
@@ -1578,11 +1587,6 @@ package body Exp_Ch6 is
                   Set_Analyzed (Actual, False);
                end if;
 
-               Ensure_Valid (Actual);
-
-            elsif Ekind (Formal) = E_In_Out_Parameter
-              and then Validity_Check_In_Out_Params
-            then
                Ensure_Valid (Actual);
             end if;
          end if;
@@ -1659,6 +1663,11 @@ package body Exp_Ch6 is
                   Make_Raise_Program_Error (Loc,
                     Reason => PE_Illegal_RACW_E_4_18))));
          end if;
+
+         --  This label is required when skipping extra actual generation for
+         --  Unchecked_Union parameters.
+
+         <<Skip_Extra_Actual_Generation>>
 
          Next_Actual (Actual);
          Next_Formal (Formal);
@@ -2925,6 +2934,12 @@ package body Exp_Ch6 is
       --  this because otherwise gigi may generate a large temporary on the
       --  fly and this can cause trouble with stack checking.
 
+      --  This is unecessary if the call is the expression in an object
+      --  declaration, or if it appears outside of any library unit. This
+      --  can only happen if it appears as an actual in a library-level
+      --  instance, in which case a temporary will be generated for it once
+      --  the instance itself is installed.
+
       if May_Generate_Large_Temp (Typ)
         and then Nkind (Parent (N)) /= N_Assignment_Statement
         and then
@@ -2934,6 +2949,7 @@ package body Exp_Ch6 is
           (Nkind (Parent (N)) /= N_Object_Declaration
              or else Expression (Parent (N)) /= N)
         and then not Returned_By_Reference
+        and then Current_Scope /= Standard_Standard
       then
          if Stack_Checking_Enabled then
 
@@ -3034,7 +3050,8 @@ package body Exp_Ch6 is
    -- Expand_N_Subprogram_Body --
    ------------------------------
 
-   --  Add poll call if ATC polling is enabled
+   --  Add poll call if ATC polling is enabled, unless the body will be
+   --  inlined by the back-end.
 
    --  Add return statement if last statement in body is not a return
    --  statement (this makes things easier on Gigi which does not want
@@ -3263,14 +3280,6 @@ package body Exp_Ch6 is
          L := Statements (Handled_Statement_Sequence (N));
       end if;
 
-      --  Need poll on entry to subprogram if polling enabled. We only
-      --  do this for non-empty subprograms, since it does not seem
-      --  necessary to poll for a dummy null subprogram.
-
-      if Is_Non_Empty_List (L) then
-         Generate_Poll_Call (First (L));
-      end if;
-
       --  Find entity for subprogram
 
       Body_Id := Defining_Entity (N);
@@ -3279,6 +3288,23 @@ package body Exp_Ch6 is
          Spec_Id := Corresponding_Spec (N);
       else
          Spec_Id := Body_Id;
+      end if;
+
+      --  Need poll on entry to subprogram if polling enabled. We only
+      --  do this for non-empty subprograms, since it does not seem
+      --  necessary to poll for a dummy null subprogram. Do not add polling
+      --  point if calls to this subprogram will be inlined by the back-end,
+      --  to avoid repeated polling points in nested inlinings.
+
+      if Is_Non_Empty_List (L) then
+         if Is_Inlined (Spec_Id)
+           and then Front_End_Inlining
+           and then Optimization_Level > 1
+         then
+            null;
+         else
+            Generate_Poll_Call (First (L));
+         end if;
       end if;
 
       --  If this is a Pure function which has any parameters whose root

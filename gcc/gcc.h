@@ -1,5 +1,5 @@
 /* Header file for modules that link with gcc.c
-   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,7 +56,6 @@ struct spec_function
 /* These are exported by gcc.c.  */
 extern int do_spec (const char *);
 extern void record_temp_file (const char *, int, int);
-extern void fancy_abort (void) ATTRIBUTE_NORETURN;
 extern void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 extern void error (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pfatal_with_name (const char *) ATTRIBUTE_NORETURN;

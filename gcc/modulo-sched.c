@@ -152,7 +152,9 @@ void free_partial_schedule (partial_schedule_ptr);
 void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
 ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
-					 ddg_node_ptr node, int cycle);
+					 ddg_node_ptr node, int cycle,
+					 sbitmap must_precede,
+					 sbitmap must_follow);
 void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 
@@ -669,9 +671,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
   rtx orig_loop_bct = NULL_RTX;
 
   /* Loop header edge.  */
-  e = ps->g->bb->pred;
+  e = EDGE_PRED (ps->g->bb, 0);
   if (e->src == ps->g->bb)
-    e = e->pred_next;
+    e = EDGE_PRED (ps->g->bb, 1);
 
   /* Generate the prolog, inserting its insns on the loop-entry edge.  */
   start_sequence ();
@@ -724,9 +726,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
       loop_exit_label_insn = emit_label (loop_exit_label);
     }
 
-  e = ps->g->bb->succ;
+  e = EDGE_SUCC (ps->g->bb, 0);
   if (e->dest == ps->g->bb)
-    e = e->succ_next;
+    e = EDGE_SUCC (ps->g->bb, 1);
 
   e->insns.r = get_insns ();
   end_sequence ();
@@ -740,7 +742,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
       basic_block epilog_bb = BLOCK_FOR_INSN (last_epilog_insn);
       basic_block precond_bb = BLOCK_FOR_INSN (precond_jump);
       basic_block orig_loop_bb = BLOCK_FOR_INSN (precond_exit_label_insn);
-      edge epilog_exit_edge = epilog_bb->succ;
+      edge epilog_exit_edge = EDGE_SUCC (epilog_bb, 0);
 
       /* Do loop preconditioning to take care of cases were the loop count is
 	 less than the stage count.  Update the CFG properly.  */
@@ -849,32 +851,29 @@ sms_schedule (FILE *dump_file)
 	continue;
 
       /* Check if bb has two successors, one being itself.  */
-      e = bb->succ;
-      if (!e || !e->succ_next || e->succ_next->succ_next)
+      if (EDGE_COUNT (bb->succs) != 2)
 	continue;
 
-      if (e->dest != bb && e->succ_next->dest != bb)
+      if (EDGE_SUCC (bb, 0)->dest != bb && EDGE_SUCC (bb, 1)->dest != bb)
 	continue;
 
-      if ((e->flags & EDGE_COMPLEX)
-	  || (e->succ_next->flags & EDGE_COMPLEX))
+      if ((EDGE_SUCC (bb, 0)->flags & EDGE_COMPLEX)
+	  || (EDGE_SUCC (bb, 1)->flags & EDGE_COMPLEX))
 	continue;
 
       /* Check if bb has two predecessors, one being itself.  */
-      /* In view of above tests, suffices to check e->pred_next->pred_next?  */
-      e = bb->pred;
-      if (!e || !e->pred_next || e->pred_next->pred_next)
+      if (EDGE_COUNT (bb->preds) != 2)
 	continue;
 
-      if (e->src != bb && e->pred_next->src != bb)
+      if (EDGE_PRED (bb, 0)->src != bb && EDGE_PRED (bb, 1)->src != bb)
 	continue;
 
-      if ((e->flags & EDGE_COMPLEX)
-	  || (e->pred_next->flags & EDGE_COMPLEX))
+      if ((EDGE_PRED (bb, 0)->flags & EDGE_COMPLEX)
+	  || (EDGE_PRED (bb, 1)->flags & EDGE_COMPLEX))
 	continue;
 
       /* For debugging.  */
-      if (passes++ > MAX_SMS_LOOP_NUMBER && MAX_SMS_LOOP_NUMBER != -1)
+      if ((passes++ > MAX_SMS_LOOP_NUMBER) && (MAX_SMS_LOOP_NUMBER != -1))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "SMS reached MAX_PASSES... \n");
@@ -882,9 +881,9 @@ sms_schedule (FILE *dump_file)
 	}
 
       get_block_head_tail (bb->index, &head, &tail);
-      pre_header_edge = bb->pred;
-      if (bb->pred->src != bb)
-	pre_header_edge = bb->pred->pred_next;
+      pre_header_edge = EDGE_PRED (bb, 0);
+      if (EDGE_PRED (bb, 0)->src != bb)
+	pre_header_edge = EDGE_PRED (bb, 1);
 
       /* Perfrom SMS only on loops that their average count is above threshold.  */
       if (bb->count < pre_header_edge->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
@@ -924,9 +923,9 @@ sms_schedule (FILE *dump_file)
       if ( !(count_reg = doloop_register_get (tail, &comp)))
 	continue;
 
-      e = bb->pred;
+      e = EDGE_PRED (bb, 0);
       if (e->src == bb)
-	pre_header = e->pred_next->src;
+	pre_header = EDGE_PRED (bb, 1)->src;
       else
 	pre_header = e->src;
 
@@ -985,9 +984,9 @@ sms_schedule (FILE *dump_file)
 
       get_block_head_tail (g->bb->index, &head, &tail);
 
-      pre_header_edge = g->bb->pred;
-      if (g->bb->pred->src != g->bb)
-	pre_header_edge = g->bb->pred->pred_next;
+      pre_header_edge = EDGE_PRED (g->bb, 0);
+      if (EDGE_PRED (g->bb, 0)->src != g->bb)
+	pre_header_edge = EDGE_PRED (g->bb, 1);
 
       if (stats_file)
 	{
@@ -1086,8 +1085,8 @@ sms_schedule (FILE *dump_file)
 	      int i;
 
               start_sequence ();
-	      /* Copy the original loop code before modifying it - so we can use
-		 it later.  */
+	      /* Copy the original loop code before modifying it -
+	 	 so we can use it later.  */
 	      for (i = 0; i < ps->g->num_nodes; i++)
 		duplicate_insn_chain (ps->g->nodes[i].first_note,
 				      ps->g->nodes[i].insn);
@@ -1106,6 +1105,12 @@ sms_schedule (FILE *dump_file)
 	  set_columns_for_ps (ps);
 
 	  permute_partial_schedule (ps, g->closing_branch->first_note);
+
+          /* Mark this loop as software pipelined so the later
+	     scheduling passes doesn't touch it.  */
+	  if (! flag_resched_modulo_sched)
+	    g->bb->flags |= BB_DISABLE_SCHEDULE;
+
 	  generate_reg_moves (ps);
 	  if (dump_file)
 	    print_node_sched_params (dump_file, g->num_nodes);
@@ -1217,6 +1222,9 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
   sbitmap sched_nodes = sbitmap_alloc (num_nodes);
   sbitmap psp = sbitmap_alloc (num_nodes);
   sbitmap pss = sbitmap_alloc (num_nodes);
+  sbitmap must_precede = sbitmap_alloc (num_nodes);
+  sbitmap must_follow = sbitmap_alloc (num_nodes);
+
   partial_schedule_ptr ps = create_partial_schedule (ii, g, DFA_HISTORY);
 
   while (try_again_with_larger_ii && ii < maxii)
@@ -1258,9 +1266,11 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 		  ddg_node_ptr v_node = e->src;
 		  if (TEST_BIT (sched_nodes, v_node->cuid))
 		    {
-		      early_start = MAX (early_start,
-					 SCHED_TIME (v_node)
-					 + e->latency - (e->distance * ii));
+                      int node_st = SCHED_TIME (v_node)
+		      		    + e->latency - (e->distance * ii);
+
+		      early_start = MAX (early_start, node_st);
+
 		      if (e->data_type == MEM_DEP)
 			end = MIN (end, SCHED_TIME (v_node) + ii - 1);
 		    }
@@ -1341,11 +1351,31 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	    fprintf(dump_file, "Trying to schedule node %d in (%d .. %d) step %d\n",
 		    u, start, end, step);
 
+          /* use must_follow & must_precede bitmaps to determine order
+	     of nodes within the cycle.  */
+          sbitmap_zero (must_precede);
+          sbitmap_zero (must_follow);
+      	  for (e = u_node->in; e != 0; e = e->next_in)
+            if (TEST_BIT (sched_nodes, e->src->cuid)
+	        && e->latency == (ii * e->distance)
+		&& start == SCHED_TIME (e->src))
+             SET_BIT (must_precede, e->src->cuid);
+
+	  for (e = u_node->out; e != 0; e = e->next_out)
+            if (TEST_BIT (sched_nodes, e->dest->cuid)
+	        && e->latency == (ii * e->distance)
+		&& end == SCHED_TIME (e->dest))
+             SET_BIT (must_follow, e->dest->cuid);
+
 	  success = 0;
 	  if ((step > 0 && start < end) ||  (step < 0 && start > end))
 	    for (c = start; c != end; c += step)
 	      {
-		ps_insn_ptr psi = ps_add_node_check_conflicts (ps, u_node, c);
+		ps_insn_ptr psi;
+
+		psi = ps_add_node_check_conflicts (ps, u_node, c,
+						   must_precede,
+						   must_follow);
 
   		if (psi)
 		  {
@@ -1884,13 +1914,80 @@ remove_node_from_ps (partial_schedule_ptr ps, ps_insn_ptr ps_i)
   return true;
 }
 
+/* Unlike what literature describes for modulo scheduling (which focuses
+   on VLIW machines) the order of the instructions inside a cycle is
+   important.  Given the bitmaps MUST_FOLLOW and MUST_PRECEDE we know
+   where the current instruction should go relative to the already
+   scheduled instructions in the given cycle.  Go over these
+   instructions and find the first possible column to put it in.  */
+static bool
+ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
+		     sbitmap must_precede, sbitmap must_follow)
+{
+  ps_insn_ptr next_ps_i;
+  ps_insn_ptr first_must_follow = NULL;
+  ps_insn_ptr last_must_precede = NULL;
+  int row;
+
+  if (! ps_i)
+    return false;
+
+  row = SMODULO (ps_i->cycle, ps->ii);
+
+  /* Find the first must follow and the last must precede
+     and insert the node immediately after the must precede
+     but make sure that it there is no must follow after it.   */
+  for (next_ps_i = ps->rows[row];
+       next_ps_i;
+       next_ps_i = next_ps_i->next_in_row)
+    {
+      if (TEST_BIT (must_follow, next_ps_i->node->cuid)
+	  && ! first_must_follow)
+        first_must_follow = next_ps_i;
+      if (TEST_BIT (must_precede, next_ps_i->node->cuid))
+        {
+          /* If we have already met a node that must follow, then
+	     there is no possible column.  */
+  	  if (first_must_follow)
+            return false;
+	  else
+            last_must_precede = next_ps_i;
+        }
+    }
+
+  /* Now insert the node after INSERT_AFTER_PSI.  */
+
+  if (! last_must_precede)
+    {
+      ps_i->next_in_row = ps->rows[row];
+      ps_i->prev_in_row = NULL;
+      if (ps_i->next_in_row)
+    	ps_i->next_in_row->prev_in_row = ps_i;
+      ps->rows[row] = ps_i;
+    }
+  else
+    {
+      ps_i->next_in_row = last_must_precede->next_in_row;
+      last_must_precede->next_in_row = ps_i;
+      ps_i->prev_in_row = last_must_precede;
+      if (ps_i->next_in_row)
+        ps_i->next_in_row->prev_in_row = ps_i;
+    }
+
+  return true;
+}
+
 /* Advances the PS_INSN one column in its current row; returns false
-   in failure and true in success.  */
+   in failure and true in success.  Bit N is set in MUST_FOLLOW if 
+   the node with cuid N must be come after the node pointed to by 
+   PS_I when scheduled in the same cycle.  */
 static int
-ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i)
+ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
+			sbitmap must_follow)
 {
   ps_insn_ptr prev, next;
   int row;
+  ddg_node_ptr next_node;
 
   if (!ps || !ps_i)
     return false;
@@ -1900,19 +1997,14 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i)
   if (! ps_i->next_in_row)
     return false;
 
+  next_node = ps_i->next_in_row->node;
+
   /* Check if next_in_row is dependent on ps_i, both having same sched
      times (typically ANTI_DEP).  If so, ps_i cannot skip over it.  */
-  if (ps_i->cycle == ps_i->next_in_row->cycle)
-    {
-      ddg_edge_ptr e;
-      ddg_node_ptr next_node = ps_i->next_in_row->node;
+  if (TEST_BIT (must_follow, next_node->cuid))
+    return false;
 
-      for (e = ps_i->node->out; e; e = e->next_out)
-	if (e->dest == next_node)
-	  return false;
-    }
-
-  /* Advace PS_I over its next_in_row in the doubly linked list.  */
+  /* Advance PS_I over its next_in_row in the doubly linked list.  */
   prev = ps_i->prev_in_row;
   next = ps_i->next_in_row;
 
@@ -1935,14 +2027,17 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i)
 }
 
 /* Inserts a DDG_NODE to the given partial schedule at the given cycle.
-   Returns 0 if this is not possible and a PS_INSN otherwise.  */
+   Returns 0 if this is not possible and a PS_INSN otherwise.  Bit N is 
+   set in MUST_PRECEDE/MUST_FOLLOW if the node with cuid N must be come 
+   before/after (respectively) the node pointed to by PS_I when scheduled 
+   in the same cycle.  */
 static ps_insn_ptr
-add_node_to_ps (partial_schedule_ptr ps, ddg_node_ptr node, int cycle)
+add_node_to_ps (partial_schedule_ptr ps, ddg_node_ptr node, int cycle,
+		sbitmap must_precede, sbitmap must_follow)
 {
-  ps_insn_ptr ps_i, next_ps_i, advance_after;
+  ps_insn_ptr ps_i;
   int rest_count = 1;
   int row = SMODULO (cycle, ps->ii);
-  ddg_edge_ptr e;
 
   if (ps->rows[row]
       && ps->rows[row]->row_rest_count >= issue_rate)
@@ -1952,30 +2047,14 @@ add_node_to_ps (partial_schedule_ptr ps, ddg_node_ptr node, int cycle)
     rest_count += ps->rows[row]->row_rest_count;
 
   ps_i = create_ps_insn (node, rest_count, cycle);
-  ps_i->next_in_row = ps->rows[row];
-  ps_i->prev_in_row = NULL;
-  if (ps_i->next_in_row)
-    ps_i->next_in_row->prev_in_row = ps_i;
-  ps->rows[row] = ps_i;
 
-  /* Check if n is dependent on an insn already in row, having same cycle
-     (typically ANTI_DEP).  If so, n must skip over it.  */
-  advance_after = NULL;
-  for (next_ps_i = ps_i->next_in_row;
-       next_ps_i;
-       next_ps_i = next_ps_i->next_in_row)
-    if (next_ps_i->cycle == cycle)
-      for (e = node->in; e; e = e->next_in)
-	if (e->src == next_ps_i->node)
-	  advance_after = next_ps_i;
-
-  if (advance_after)
-    while (ps_i->prev_in_row != advance_after)
-      if (!ps_insn_advance_column (ps, ps_i))
-	{
-	  remove_node_from_ps (ps, ps_i);
-	  return NULL;
-	}
+  /* Finds and inserts PS_I according to MUST_FOLLOW and
+     MUST_PRECEDE.  */
+  if (! ps_insn_find_column (ps, ps_i, must_precede, must_follow))
+    {
+      free (ps_i);
+      return NULL;
+    }
 
   return ps_i;
 }
@@ -2049,16 +2128,20 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 
 /* Checks if the given node causes resource conflicts when added to PS at
    cycle C.  If not the node is added to PS and returned; otherwise zero
-   is returned.  */
+   is returned.  Bit N is set in MUST_PRECEDE/MUST_FOLLOW if the node with 
+   cuid N must be come before/after (respectively) the node pointed to by 
+   PS_I when scheduled in the same cycle.  */
 ps_insn_ptr
-ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n, int c)
+ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n,
+   			     int c, sbitmap must_precede,
+			     sbitmap must_follow)
 {
   int has_conflicts = 0;
   ps_insn_ptr ps_i;
 
-  /* First add the node to the PS, if this succeeds check for conflicts,
-     trying different issue slots in the same row.  */
-  if (! (ps_i = add_node_to_ps (ps, n, c)))
+  /* First add the node to the PS, if this succeeds check for
+     conflicts, trying different issue slots in the same row.  */
+  if (! (ps_i = add_node_to_ps (ps, n, c, must_precede, must_follow)))
     return NULL; /* Failed to insert the node at the given cycle.  */
 
   has_conflicts = ps_has_conflicts (ps, c, c)
@@ -2071,7 +2154,7 @@ ps_add_node_check_conflicts (partial_schedule_ptr ps, ddg_node_ptr n, int c)
      scheduled in without conflicts.  */
   while (has_conflicts)
     {
-      if (! ps_insn_advance_column (ps, ps_i))
+      if (! ps_insn_advance_column (ps, ps_i, must_follow))
 	break;
       has_conflicts = ps_has_conflicts (ps, c, c)
 		      || (ps->history > 0

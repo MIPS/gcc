@@ -118,7 +118,7 @@ static int nonoverlapping_memrefs_p (rtx, rtx);
 static int overlapping_memrefs_p (rtx, rtx);
 /* APPLE LOCAL end */
 
-static int write_dependence_p (rtx, rtx, int, int);
+static int write_dependence_p (rtx, rtx, int);
 
 static int nonlocal_mentioned_p_1 (rtx *, void *);
 static int nonlocal_mentioned_p (rtx);
@@ -234,7 +234,6 @@ get_alias_set_entry (HOST_WIDE_INT alias_set)
 static inline int
 mems_in_disjoint_alias_sets_p (rtx mem1, rtx mem2)
 {
-#ifdef ENABLE_CHECKING
 /* Perform a basic sanity check.  Namely, that there are no alias sets
    if we're not using strict aliasing.  This helps to catch bugs
    whereby someone uses PUT_CODE, but doesn't clear MEM_ALIAS_SET, or
@@ -242,10 +241,8 @@ mems_in_disjoint_alias_sets_p (rtx mem1, rtx mem2)
    gen_rtx_MEM, and the MEM_ALIAS_SET is not cleared.  If we begin to
    use alias sets to indicate that spilled registers cannot alias each
    other, we might need to remove this check.  */
-  if (! flag_strict_aliasing
-      && (MEM_ALIAS_SET (mem1) != 0 || MEM_ALIAS_SET (mem2) != 0))
-    abort ();
-#endif
+  gcc_assert (flag_strict_aliasing
+	      || (!MEM_ALIAS_SET (mem1) && !MEM_ALIAS_SET (mem2)));
 
   return ! alias_sets_conflict_p (MEM_ALIAS_SET (mem1), MEM_ALIAS_SET (mem2));
 }
@@ -309,28 +306,6 @@ alias_sets_might_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
 }
 
 
-/* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
-   has any readonly fields.  If any of the fields have types that
-   contain readonly fields, return true as well.  */
-
-int
-readonly_fields_p (tree type)
-{
-  tree field;
-
-  if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE
-      && TREE_CODE (type) != QUAL_UNION_TYPE)
-    return 0;
-
-  for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL
-	&& (TREE_READONLY (field)
-	    || readonly_fields_p (TREE_TYPE (field))))
-      return 1;
-
-  return 0;
-}
-
 /* Return 1 if any MEM object of type T1 will always conflict (using the
    dependency routines in this file) with any MEM object of type T2.
    This is used when allocating temporary storage.  If T1 and/or T2 are
@@ -345,14 +320,6 @@ objects_must_conflict_p (tree t1, tree t2)
      because we may be using them to store objects of various types, for
      example the argument and local variables areas of inlined functions.  */
   if (t1 == 0 && t2 == 0)
-    return 0;
-
-  /* If one or the other has readonly fields or is readonly,
-     then they may not conflict.  */
-  if ((t1 != 0 && readonly_fields_p (t1))
-      || (t2 != 0 && readonly_fields_p (t2))
-      || (t1 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t1))
-      || (t2 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t2)))
     return 0;
 
   /* If they are the same type, they must conflict.  */
@@ -380,13 +347,13 @@ objects_must_conflict_p (tree t1, tree t2)
 static tree
 find_base_decl (tree t)
 {
-  tree d0, d1, d2;
+  tree d0, d1;
 
   if (t == 0 || t == error_mark_node || ! POINTER_TYPE_P (TREE_TYPE (t)))
     return 0;
 
   /* If this is a declaration, return it.  */
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'd')
+  if (DECL_P (t))
     return t;
 
   /* Handle general expressions.  It would be nice to deal with
@@ -394,10 +361,10 @@ find_base_decl (tree t)
      same, then `a->f' and `b->f' are also the same.  */
   switch (TREE_CODE_CLASS (TREE_CODE (t)))
     {
-    case '1':
+    case tcc_unary:
       return find_base_decl (TREE_OPERAND (t, 0));
 
-    case '2':
+    case tcc_binary:
       /* Return 0 if found in neither or both are the same.  */
       d0 = find_base_decl (TREE_OPERAND (t, 0));
       d1 = find_base_decl (TREE_OPERAND (t, 1));
@@ -409,21 +376,6 @@ find_base_decl (tree t)
 	return d0;
       else
 	return 0;
-
-    case '3':
-      d0 = find_base_decl (TREE_OPERAND (t, 0));
-      d1 = find_base_decl (TREE_OPERAND (t, 1));
-      d2 = find_base_decl (TREE_OPERAND (t, 2));
-
-      /* Set any nonzero values from the last, then from the first.  */
-      if (d1 == 0) d1 = d2;
-      if (d0 == 0) d0 = d1;
-      if (d1 == 0) d1 = d0;
-      if (d2 == 0) d2 = d1;
-
-      /* At this point all are nonzero or all are zero.  If all three are the
-	 same, return it.  Otherwise, return zero.  */
-      return (d0 == d1 && d1 == d2) ? d0 : 0;
 
     default:
       return 0;
@@ -503,7 +455,7 @@ get_alias_set (tree t)
 	}
 
       /* Check for accesses through restrict-qualified pointers.  */
-      if (TREE_CODE (inner) == INDIRECT_REF)
+      if (INDIRECT_REF_P (inner))
 	{
 	  tree decl = find_base_decl (TREE_OPERAND (inner, 0));
 
@@ -659,8 +611,7 @@ record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
   if (superset == subset)
     return;
 
-  if (superset == 0)
-    abort ();
+  gcc_assert (superset);
 
   superset_entry = get_alias_set_entry (superset);
   if (superset_entry == 0)
@@ -965,8 +916,7 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
 
   regno = REGNO (dest);
 
-  if (regno >= VARRAY_SIZE (reg_base_value))
-    abort ();
+  gcc_assert (regno < VARRAY_SIZE (reg_base_value));
 
   /* If this spans multiple hard registers, then we must indicate that every
      register has an unusable value.  */
@@ -1342,7 +1292,7 @@ rtx_equal_for_memref_p (rtx x, rtx y)
 	     contain anything but integers and other rtx's,
 	     except for within LABEL_REFs and SYMBOL_REFs.  */
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return 1;
@@ -2061,7 +2011,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
       moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
       exprx = t;
     }
-  else if (TREE_CODE (exprx) == INDIRECT_REF)
+  else if (INDIRECT_REF_P (exprx))
     {
       exprx = TREE_OPERAND (exprx, 0);
       if (flag_argument_noalias < 2
@@ -2078,7 +2028,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
       moffsety = adjust_offset_for_component_ref (expry, moffsety);
       expry = t;
     }
-  else if (TREE_CODE (expry) == INDIRECT_REF)
+  else if (INDIRECT_REF_P (expry))
     {
       expry = TREE_OPERAND (expry, 0);
       if (flag_argument_noalias < 2
@@ -2236,17 +2186,10 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  /* Unchanging memory can't conflict with non-unchanging memory.
-     A non-unchanging read can conflict with a non-unchanging write.
-     An unchanging read can conflict with an unchanging write since
-     there may be a single store to this address to initialize it.
-     Note that an unchanging store can conflict with a non-unchanging read
-     since we have to make conservative assumptions when we have a
-     record with readonly fields and we are copying the whole thing.
-     Just fall through to the code below to resolve potential conflicts.
-     This won't handle all cases optimally, but the possible performance
-     loss should be negligible.  */
-  if (RTX_UNCHANGING_P (x) && ! RTX_UNCHANGING_P (mem))
+  /* Read-only memory is by definition never modified, and therefore can't
+     conflict with anything.  We don't expect to find read-only set on MEM,
+     but stupid user tricks can produce them, so don't abort.  */
+  if (MEM_READONLY_P (x))
     return 0;
 
   if (nonoverlapping_memrefs_p (mem, x))
@@ -2321,14 +2264,10 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  /* If X is an unchanging read, then it can't possibly conflict with any
-     non-unchanging store.  It may conflict with an unchanging write though,
-     because there may be a single store to this address to initialize it.
-     Just fall through to the code below to resolve the case where we have
-     both an unchanging read and an unchanging write.  This won't handle all
-     cases optimally, but the possible performance loss should be
-     negligible.  */
-  if (RTX_UNCHANGING_P (x) && ! RTX_UNCHANGING_P (mem))
+  /* Read-only memory is by definition never modified, and therefore can't
+     conflict with anything.  We don't expect to find read-only set on MEM,
+     but stupid user tricks can produce them, so don't abort.  */
+  if (MEM_READONLY_P (x))
     return 0;
 
   if (nonoverlapping_memrefs_p (x, mem))
@@ -2367,11 +2306,10 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 }
 
 /* Returns nonzero if a write to X might alias a previous read from
-   (or, if WRITEP is nonzero, a write to) MEM.  If CONSTP is nonzero,
-   honor the RTX_UNCHANGING_P flags on X and MEM.  */
+   (or, if WRITEP is nonzero, a write to) MEM.  */
 
 static int
-write_dependence_p (rtx mem, rtx x, int writep, int constp)
+write_dependence_p (rtx mem, rtx x, int writep)
 {
   rtx x_addr, mem_addr;
   rtx fixed_scalar;
@@ -2403,18 +2341,9 @@ write_dependence_p (rtx mem, rtx x, int writep, int constp)
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
-  if (constp)
-    {
-      /* Unchanging memory can't conflict with non-unchanging memory.  */
-      if (RTX_UNCHANGING_P (x) != RTX_UNCHANGING_P (mem))
-	return 0;
-
-      /* If MEM is an unchanging read, then it can't possibly conflict with
-	 the store to X, because there is at most one store to MEM, and it
-	 must have occurred somewhere before MEM.  */
-      if (! writep && RTX_UNCHANGING_P (mem))
-	return 0;
-    }
+  /* A read from read-only memory can't conflict with read-write memory.  */
+  if (!writep && MEM_READONLY_P (mem))
+    return 0;
 
   if (nonoverlapping_memrefs_p (x, mem))
     return 0;
@@ -2455,7 +2384,7 @@ write_dependence_p (rtx mem, rtx x, int writep, int constp)
 int
 anti_dependence (rtx mem, rtx x)
 {
-  return write_dependence_p (mem, x, /*writep=*/0, /*constp*/1);
+  return write_dependence_p (mem, x, /*writep=*/0);
 }
 
 /* Output dependence: X is written after store in MEM takes place.  */
@@ -2463,16 +2392,7 @@ anti_dependence (rtx mem, rtx x)
 int
 output_dependence (rtx mem, rtx x)
 {
-  return write_dependence_p (mem, x, /*writep=*/1, /*constp*/1);
-}
-
-/* Unchanging anti dependence: Like anti_dependence but ignores
-   the UNCHANGING_RTX_P property on const variable references.  */
-
-int
-unchanging_anti_dependence (rtx mem, rtx x)
-{
-  return write_dependence_p (mem, x, /*writep=*/0, /*constp*/0);
+  return write_dependence_p (mem, x, /*writep=*/1);
 }
 
 /* A subroutine of nonlocal_mentioned_p, returns 1 if *LOC mentions
@@ -2864,7 +2784,7 @@ memory_modified_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 
 
 /* Return true when INSN possibly modify memory contents of MEM
-   (ie address can be modified).  */
+   (i.e. address can be modified).  */
 bool
 memory_modified_in_insn_p (rtx mem, rtx insn)
 {
@@ -2914,11 +2834,6 @@ init_alias_analysis (void)
 
   new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
   reg_seen = xmalloc (maxreg);
-  if (! reload_completed && flag_old_unroll_loops)
-    {
-      alias_invariant = ggc_calloc (maxreg, sizeof (rtx));
-      alias_invariant_size = maxreg;
-    }
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias
@@ -3045,8 +2960,8 @@ init_alias_analysis (void)
 	}
 
       /* Now propagate values from new_reg_base_value to reg_base_value.  */
-      if (maxreg != (unsigned int) max_reg_num())
-	abort ();
+      gcc_assert (maxreg == (unsigned int) max_reg_num());
+      
       for (ui = 0; ui < maxreg; ui++)
 	{
 	  if (new_reg_base_value[ui]

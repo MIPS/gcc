@@ -99,6 +99,21 @@ static void fix_phi_uses (tree, tree);
 static void fix_stmt_v_may_defs (tree, tree);
 static void record_voperand_set (bitmap, bitmap *, unsigned int);
 
+static unsigned max_stmt_uid;	/* Maximal uid of a statement.  Uids to phi
+				   nodes are assigned using the versions of
+				   ssa names they define.  */
+
+/* Returns uid of statement STMT.  */
+
+static unsigned
+get_stmt_uid (tree stmt)
+{
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return SSA_NAME_VERSION (PHI_RESULT (stmt)) + max_stmt_uid;
+
+  return stmt_ann (stmt)->uid;
+}
+
 /* Function indicating whether we ought to include information for 'var'
    when calculating immediate uses.  For this pass we only want use
    information for virtual variables.  */
@@ -170,13 +185,9 @@ fix_stmt_v_may_defs (tree stmt1, tree stmt2)
 	    }
 	}
 
-#ifdef ENABLE_CHECKING
       /* If we did not find a corresponding V_MAY_DEF_RESULT, then something
 	 has gone terribly wrong.  */
-      if (j == NUM_V_MAY_DEFS (v_may_defs2))
-	abort ();
-#endif
-
+      gcc_assert (j != NUM_V_MAY_DEFS (v_may_defs2));
     }
 }
 
@@ -275,7 +286,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	 same block.  */
       while (num_uses == 1
 	     && TREE_CODE (use) == PHI_NODE
-	     && bitmap_bit_p (dse_gd->stores, stmt_ann (use)->uid))
+	     && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use)))
 	{
 	  /* Record the first PHI we skip so that we can fix its
 	     uses if we find that STMT is a dead store.  */
@@ -292,7 +303,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
       /* If we have precisely one immediate use at this point, then we may
 	 have found redundant store.  */
       if (num_uses == 1
-	  && bitmap_bit_p (dse_gd->stores, stmt_ann (use)->uid)
+	  && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use))
 	  && operand_equal_p (TREE_OPERAND (stmt, 0),
 			      TREE_OPERAND (use, 0), 0))
 	{
@@ -316,6 +327,14 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	     This allows us to cascade dead stores.  */
 	  redirect_immediate_uses (stmt, skipped_phi ? skipped_phi : use);
 
+	  /* Be sure to remove any dataflow information attached to
+	     this statement.  */
+	  free_df_for_stmt (stmt);
+
+	  /* And release any SSA_NAMEs set in this statement back to the
+	     SSA_NAME manager.  */
+	  release_defs (stmt);
+
 	  /* Finally remove the dead store.  */
 	  bsi_remove (&bsi);
 	}
@@ -338,7 +357,7 @@ dse_record_phis (struct dom_walk_data *walk_data, basic_block bb)
     if (need_imm_uses_for (PHI_RESULT (phi)))
       record_voperand_set (dse_gd->stores,
 			   &bd->stores,
-			   get_stmt_ann (phi)->uid);
+			   get_stmt_uid (phi));
 }
 
 static void
@@ -350,10 +369,14 @@ dse_finalize_block (struct dom_walk_data *walk_data,
   struct dse_global_data *dse_gd = walk_data->global_data;
   bitmap stores = dse_gd->stores;
   unsigned int i;
+  bitmap_iterator bi;
 
   /* Unwind the stores noted in this basic block.  */
   if (bd->stores)
-    EXECUTE_IF_SET_IN_BITMAP (bd->stores, 0, i, bitmap_clear_bit (stores, i););
+    EXECUTE_IF_SET_IN_BITMAP (bd->stores, 0, i, bi)
+      {
+	bitmap_clear_bit (stores, i);
+      }
 }
 
 static void
@@ -361,21 +384,17 @@ tree_ssa_dse (void)
 {
   struct dom_walk_data walk_data;
   struct dse_global_data dse_gd;
-  unsigned int uid = 0;
   basic_block bb;
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */
+  max_stmt_uid = 0;
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
-      tree phi;
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	stmt_ann (bsi_stmt (bsi))->uid = uid++;
-
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	stmt_ann (phi)->uid = uid++;
+	stmt_ann (bsi_stmt (bsi))->uid = max_stmt_uid++;
     }
 
   /* We might consider making this a property of each pass so that it
@@ -433,7 +452,9 @@ gate_dse (void)
 struct tree_opt_pass pass_dse = {
   "dse",			/* name */
   gate_dse,			/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_dse,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
@@ -444,5 +465,6 @@ struct tree_opt_pass pass_dse = {
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
-  | TODO_verify_ssa
+  | TODO_verify_ssa,
+  0					/* letter */
 };

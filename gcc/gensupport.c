@@ -35,6 +35,8 @@ int target_flags;
 
 int insn_elision = 1;
 
+const char *in_fname;
+
 static struct obstack obstack;
 struct obstack *rtl_obstack = &obstack;
 
@@ -65,6 +67,8 @@ struct queue_elem
 
 static struct queue_elem *define_attr_queue;
 static struct queue_elem **define_attr_tail = &define_attr_queue;
+static struct queue_elem *define_pred_queue;
+static struct queue_elem **define_pred_tail = &define_pred_queue;
 static struct queue_elem *define_insn_queue;
 static struct queue_elem **define_insn_tail = &define_insn_queue;
 static struct queue_elem *define_cond_exec_queue;
@@ -109,6 +113,7 @@ static void process_one_cond_exec (struct queue_elem *);
 static void process_define_cond_exec (void);
 static void process_include (rtx, int);
 static char *save_string (const char *, int);
+static void init_predicate_table (void);
 
 void
 message_with_line (int lineno, const char *msg, ...)
@@ -241,20 +246,8 @@ process_include (rtx desc, int lineno)
   read_rtx_lineno = 1;
 
   /* Read the entire file.  */
-  while (1)
-    {
-      rtx desc;
-      int c;
-
-      c = read_skip_spaces (input_file);
-      if (c == EOF)
-	break;
-
-      ungetc (c, input_file);
-      lineno = read_rtx_lineno;
-      desc = read_rtx (input_file);
-      process_rtx (desc, lineno);
-    }
+  while (read_rtx (input_file, &desc, &lineno))
+    process_rtx (desc, lineno);
 
   /* Do not free pathname.  It is attached to the various rtx queue
      elements.  */
@@ -282,6 +275,11 @@ process_rtx (rtx desc, int lineno)
 
     case DEFINE_ATTR:
       queue_pattern (desc, &define_attr_tail, read_rtx_filename, lineno);
+      break;
+
+    case DEFINE_PREDICATE:
+    case DEFINE_SPECIAL_PREDICATE:
+      queue_pattern (desc, &define_pred_tail, read_rtx_filename, lineno);
       break;
 
     case INCLUDE:
@@ -394,7 +392,7 @@ is_predicable (struct queue_elem *elem)
 	  return 0;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -561,7 +559,7 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 }
@@ -647,7 +645,7 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -898,19 +896,22 @@ save_string (const char *s, int len)
 /* The entry point for initializing the reader.  */
 
 int
-init_md_reader_args (int argc, char **argv)
+init_md_reader_args_cb (int argc, char **argv, bool (*parse_opt)(const char *))
 {
-  int i;
-  const char *in_fname;
+  FILE *input_file;
+  int i, lineno;
+  size_t ix;
+  char *lastsl;
+  rtx desc;
 
-  max_include_len = 0;
-  in_fname = NULL;
   for (i = 1; i < argc; i++)
     {
       if (argv[i][0] != '-')
 	{
-	  if (in_fname == NULL)
-	    in_fname = argv[i];
+	  if (in_fname)
+	    fatal ("too many input files");
+
+	  in_fname = argv[i];
 	}
       else
 	{
@@ -939,33 +940,28 @@ init_md_reader_args (int argc, char **argv)
 	      }
 	      break;
 	    default:
-	      fatal ("invalid option `%s'", argv[i]);
+	      /* The program may have provided a callback so it can
+		 accept its own options.  */
+	      if (parse_opt && parse_opt (argv[i]))
+		break;
 
+	      fatal ("invalid option `%s'", argv[i]);
 	    }
 	}
     }
-    return init_md_reader (in_fname);
-}
-
-/* The entry point for initializing the reader.  */
 
-int
-init_md_reader (const char *filename)
-{
-  FILE *input_file;
-  int c;
-  size_t i;
-  char *lastsl;
+  if (!in_fname)
+    fatal ("no input file name");
 
-  lastsl = strrchr (filename, '/');
+  lastsl = strrchr (in_fname, '/');
   if (lastsl != NULL)
-    base_dir = save_string (filename, lastsl - filename + 1 );
+    base_dir = save_string (in_fname, lastsl - in_fname + 1 );
 
-  read_rtx_filename = filename;
-  input_file = fopen (filename, "r");
+  read_rtx_filename = in_fname;
+  input_file = fopen (in_fname, "r");
   if (input_file == 0)
     {
-      perror (filename);
+      perror (in_fname);
       return FATAL_EXIT_CODE;
     }
 
@@ -973,29 +969,19 @@ init_md_reader (const char *filename)
   condition_table = htab_create (n_insn_conditions,
 				 hash_c_test, cmp_c_test, NULL);
 
-  for (i = 0; i < n_insn_conditions; i++)
-    *(htab_find_slot (condition_table, &insn_conditions[i], INSERT))
-      = (void *) &insn_conditions[i];
+  for (ix = 0; ix < n_insn_conditions; ix++)
+    *(htab_find_slot (condition_table, &insn_conditions[ix], INSERT))
+      = (void *) &insn_conditions[ix];
+
+  init_predicate_table ();
 
   obstack_init (rtl_obstack);
   errors = 0;
   sequence_num = 0;
 
   /* Read the entire file.  */
-  while (1)
-    {
-      rtx desc;
-      int lineno;
-
-      c = read_skip_spaces (input_file);
-      if (c == EOF)
-        break;
-
-      ungetc (c, input_file);
-      lineno = read_rtx_lineno;
-      desc = read_rtx (input_file);
-      process_rtx (desc, lineno);
-    }
+  while (read_rtx (input_file, &desc, &lineno))
+    process_rtx (desc, lineno);
   fclose (input_file);
 
   /* Process define_cond_exec patterns.  */
@@ -1005,6 +991,14 @@ init_md_reader (const char *filename)
   return errors ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE;
 }
 
+/* Programs that don't have their own options can use this entry point
+   instead.  */
+int
+init_md_reader_args (int argc, char **argv)
+{
+  return init_md_reader_args_cb (argc, argv, 0);
+}
+
 /* The entry point for reading a single rtx from an md file.  */
 
 rtx
@@ -1018,6 +1012,8 @@ read_md_rtx (int *lineno, int *seqnr)
   /* Read all patterns from a given queue before moving on to the next.  */
   if (define_attr_queue != NULL)
     queue = &define_attr_queue;
+  else if (define_pred_queue != NULL)
+    queue = &define_pred_queue;
   else if (define_insn_queue != NULL)
     queue = &define_insn_queue;
   else if (other_queue != NULL)
@@ -1123,8 +1119,7 @@ maybe_eval_c_test (const char *expr)
 
   dummy.expr = expr;
   test = (const struct c_test *)htab_find (condition_table, &dummy);
-  if (!test)
-    abort ();
+  gcc_assert (test);
 
   return test->value;
 }
@@ -1173,4 +1168,155 @@ scan_comma_elt (const char **pstr)
 
   *pstr = p;
   return start;
+}
+
+/* Helper functions for define_predicate and define_special_predicate
+   processing.  Shared between genrecog.c and genpreds.c.  */
+
+static htab_t predicate_table;
+struct pred_data *first_predicate;
+static struct pred_data **last_predicate = &first_predicate;
+
+static hashval_t
+hash_struct_pred_data (const void *ptr)
+{
+  return htab_hash_string (((const struct pred_data *)ptr)->name);
+}
+
+static int
+eq_struct_pred_data (const void *a, const void *b)
+{
+  return !strcmp (((const struct pred_data *)a)->name,
+		  ((const struct pred_data *)b)->name);
+}
+
+struct pred_data *
+lookup_predicate (const char *name)
+{
+  struct pred_data key;
+  key.name = name;
+  return htab_find (predicate_table, &key);
+}
+
+void
+add_predicate (struct pred_data *pred)
+{
+  void **slot = htab_find_slot (predicate_table, pred, INSERT);
+  if (*slot)
+    {
+      error ("duplicate predicate definition for '%s'", pred->name);
+      return;
+    }
+  *slot = pred;
+  *last_predicate = pred;
+  last_predicate = &pred->next;
+}
+
+/* This array gives the initial content of the predicate table.  It
+   has entries for all predicates defined in recog.c.  The back end
+   can define PREDICATE_CODES to give additional entries for the
+   table; this is considered an obsolete mechanism (use
+   define_predicate instead).  */
+
+struct old_pred_table
+{
+  const char *name;
+  RTX_CODE codes[NUM_RTX_CODE];
+};
+
+static const struct old_pred_table old_preds[] = {
+  {"general_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+		       LABEL_REF, SUBREG, REG, MEM }},
+  {"address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+		       LABEL_REF, SUBREG, REG, MEM,
+		       PLUS, MINUS, MULT}},
+  {"register_operand", {SUBREG, REG}},
+  {"pmode_register_operand", {SUBREG, REG}},
+  {"scratch_operand", {SCRATCH, REG}},
+  {"immediate_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			 LABEL_REF}},
+  {"const_int_operand", {CONST_INT}},
+  {"const_double_operand", {CONST_INT, CONST_DOUBLE}},
+  {"nonimmediate_operand", {SUBREG, REG, MEM}},
+  {"nonmemory_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			 LABEL_REF, SUBREG, REG}},
+  {"push_operand", {MEM}},
+  {"pop_operand", {MEM}},
+  {"memory_operand", {SUBREG, MEM}},
+  {"indirect_operand", {SUBREG, MEM}},
+  {"comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU, GTU,
+			   UNORDERED, ORDERED, UNEQ, UNGE, UNGT, UNLE,
+			   UNLT, LTGT}},
+#ifdef PREDICATE_CODES
+  PREDICATE_CODES
+#endif
+};
+#define NUM_KNOWN_OLD_PREDS ARRAY_SIZE (old_preds)
+
+/* This table gives the initial set of special predicates.  It has
+   entries for all special predicates defined in recog.c.  The back
+   end can define SPECIAL_MODE_PREDICATES to give additional entries
+   for the table; this is considered an obsolete mechanism (use
+   define_special_predicate instead).  */
+static const char *const old_special_pred_table[] = {
+  "address_operand",
+  "pmode_register_operand",
+#ifdef SPECIAL_MODE_PREDICATES
+  SPECIAL_MODE_PREDICATES
+#endif
+};
+
+#define NUM_OLD_SPECIAL_MODE_PREDS ARRAY_SIZE (old_special_pred_table)
+
+/* Initialize the table of predicate definitions, starting with
+   the information we have on generic predicates, and the old-style
+   PREDICATE_CODES definitions.  */
+
+static void
+init_predicate_table (void)
+{
+  size_t i, j;
+  struct pred_data *pred;
+
+  predicate_table = htab_create_alloc (37, hash_struct_pred_data,
+				       eq_struct_pred_data, 0,
+				       xcalloc, free);
+
+  for (i = 0; i < NUM_KNOWN_OLD_PREDS; i++)
+    {
+      pred = xcalloc (sizeof (struct pred_data), 1);
+      pred->name = old_preds[i].name;
+
+      for (j = 0; old_preds[i].codes[j] != 0; j++)
+	{
+	  enum rtx_code code = old_preds[i].codes[j];
+
+	  pred->codes[code] = true;
+	  if (GET_RTX_CLASS (code) != RTX_CONST_OBJ)
+	    pred->allows_non_const = true;
+	  if (code != REG
+	      && code != SUBREG
+	      && code != MEM
+	      && code != CONCAT
+	      && code != PARALLEL
+	      && code != STRICT_LOW_PART)
+	    pred->allows_non_lvalue = true;
+	}
+      if (j == 1)
+	pred->singleton = old_preds[i].codes[0];
+      
+      add_predicate (pred);
+    }
+
+  for (i = 0; i < NUM_OLD_SPECIAL_MODE_PREDS; i++)
+    {
+      pred = lookup_predicate (old_special_pred_table[i]);
+      if (!pred)
+	{
+	  error ("old-style special predicate list refers "
+		 "to unknown predicate '%s'", old_special_pred_table[i]);
+	  continue;
+	}
+      pred->special = true;
+    }
 }

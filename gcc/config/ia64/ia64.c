@@ -276,6 +276,7 @@ static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 
 
 /* Table of valid machine attributes.  */
@@ -416,514 +417,10 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_UNWIND_EMIT
 #define TARGET_UNWIND_EMIT process_for_unwind_directive
 
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P ia64_scalar_mode_supported_p
+
 struct gcc_target targetm = TARGET_INITIALIZER;
-
-/* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
-
-int
-call_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != GET_MODE (op) && mode != VOIDmode)
-    return 0;
-
-  return (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == REG
-	  || (GET_CODE (op) == SUBREG && GET_CODE (XEXP (op, 0)) == REG));
-}
-
-/* Return 1 if OP refers to a symbol in the sdata section.  */
-
-int
-sdata_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  switch (GET_CODE (op))
-    {
-    case CONST:
-      if (GET_CODE (XEXP (op, 0)) != PLUS
-	  || GET_CODE (XEXP (XEXP (op, 0), 0)) != SYMBOL_REF)
-	break;
-      op = XEXP (XEXP (op, 0), 0);
-      /* FALLTHRU */
-
-    case SYMBOL_REF:
-      if (CONSTANT_POOL_ADDRESS_P (op))
-	return GET_MODE_SIZE (get_pool_mode (op)) <= ia64_section_threshold;
-      else
-	return SYMBOL_REF_LOCAL_P (op) && SYMBOL_REF_SMALL_P (op);
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-int
-small_addr_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return SYMBOL_REF_SMALL_ADDR_P (op);
-}
-
-/* Return 1 if OP refers to a symbol, and is appropriate for a GOT load.  */
-
-int
-got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  switch (GET_CODE (op))
-    {
-    case CONST:
-      /* Accept only (plus (symbol_ref) (const_int)).  */
-      op = XEXP (op, 0);
-      if (GET_CODE (op) != PLUS)
-	return 0;
-      if (GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
-	return 0;
-      op = XEXP (op, 1);
-      if (GET_CODE (op) != CONST_INT)
-	return 0;
-
-     /* Ok if we're not using GOT entries at all.  */
-     if (TARGET_NO_PIC || TARGET_AUTO_PIC)
-      return 1;
-      
-     /* The low 14 bits of the constant have been forced to zero
-	by ia64_expand_load_address, so that we do not use up so
-	many GOT entries.  Prevent cse from undoing this.  */
-     return (INTVAL (op) & 0x3fff) == 0;
-
-    case SYMBOL_REF:
-      /* This sort of load should not be used for things in sdata.  */
-      return !SYMBOL_REF_SMALL_ADDR_P (op);
-
-    case LABEL_REF:
-      return 1;
-
-    default:
-      break;
-    }
-  return 0;
-}
-
-/* Return 1 if OP refers to a symbol.  */
-
-int
-symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  switch (GET_CODE (op))
-    {
-    case CONST:
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return 1;
-
-    default:
-      break;
-    }
-  return 0;
-}
-
-/* Return tls_model if OP refers to a TLS symbol.  */
-
-int
-tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-  return SYMBOL_REF_TLS_MODEL (op);
-}
-
-
-/* Return 1 if OP refers to a function.  */
-
-int
-function_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (op))
-    return 1;
-  else
-    return 0;
-}
-
-/* Return 1 if OP is a general operand, excluding tls symbolic operands.  */
-
-int
-move_operand (rtx op, enum machine_mode mode)
-{
-  return general_operand (op, mode) && !tls_symbolic_operand (op, mode);
-}
-
-/* Return 1 if OP is a register operand that is (or could be) a GR reg.  */
-
-int
-gr_register_operand (rtx op, enum machine_mode mode)
-{
-  if (! register_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return GENERAL_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a register operand that is (or could be) an FR reg.  */
-
-int
-fr_register_operand (rtx op, enum machine_mode mode)
-{
-  if (! register_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return FR_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a register operand that is (or could be) a GR/FR reg.  */
-
-int
-grfr_register_operand (rtx op, enum machine_mode mode)
-{
-  if (! register_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return GENERAL_REGNO_P (regno) || FR_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a nonimmediate operand that is (or could be) a GR reg.  */
-
-int
-gr_nonimmediate_operand (rtx op, enum machine_mode mode)
-{
-  if (! nonimmediate_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return GENERAL_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a nonimmediate operand that is (or could be) a FR reg.  */
-
-int
-fr_nonimmediate_operand (rtx op, enum machine_mode mode)
-{
-  if (! nonimmediate_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return FR_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a nonimmediate operand that is a GR/FR reg.  */
-
-int
-grfr_nonimmediate_operand (rtx op, enum machine_mode mode)
-{
-  if (! nonimmediate_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (GET_CODE (op) == REG)
-    {
-      unsigned int regno = REGNO (op);
-      if (regno < FIRST_PSEUDO_REGISTER)
-	return GENERAL_REGNO_P (regno) || FR_REGNO_P (regno);
-    }
-  return 1;
-}
-
-/* Return 1 if OP is a GR register operand, or zero.  */
-
-int
-gr_reg_or_0_operand (rtx op, enum machine_mode mode)
-{
-  return (op == const0_rtx || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a GR register operand, or a 5 bit immediate operand.  */
-
-int
-gr_reg_or_5bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 32)
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a GR register operand, or a 6 bit immediate operand.  */
-
-int
-gr_reg_or_6bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a GR register operand, or an 8 bit immediate operand.  */
-
-int
-gr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a GR/FR register operand, or an 8 bit immediate.  */
-
-int
-grfr_reg_or_8bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op)))
-	  || grfr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a register operand, or an 8 bit adjusted immediate
-   operand.  */
-
-int
-gr_reg_or_8bit_adjusted_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_L (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a register operand, or is valid for both an 8 bit
-   immediate and an 8 bit adjusted immediate operand.  This is necessary
-   because when we emit a compare, we don't know what the condition will be,
-   so we need the union of the immediates accepted by GT and LT.  */
-
-int
-gr_reg_or_8bit_and_adjusted_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_K (INTVAL (op))
-	   && CONST_OK_FOR_L (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a register operand, or a 14 bit immediate operand.  */
-
-int
-gr_reg_or_14bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_I (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a register operand, or a 22 bit immediate operand.  */
-
-int
-gr_reg_or_22bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_J (INTVAL (op)))
-	  || gr_register_operand (op, mode));
-}
-
-/* Return 1 if OP is a 6 bit immediate operand.  */
-
-int
-shift_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)));
-}
-
-/* Return 1 if OP is a 5 bit immediate operand.  */
-
-int
-shift_32bit_count_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) >= 0 && INTVAL (op) < 32));
-}
-
-/* Return 1 if OP is a 2, 4, 8, or 16 immediate operand.  */
-
-int
-shladd_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-	  && (INTVAL (op) == 2 || INTVAL (op) == 4
-	      || INTVAL (op) == 8 || INTVAL (op) == 16));
-}
-
-/* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand.  */
-
-int
-fetchadd_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-          && (INTVAL (op) == -16 || INTVAL (op) == -8 ||
-              INTVAL (op) == -4  || INTVAL (op) == -1 ||
-              INTVAL (op) == 1   || INTVAL (op) == 4  ||
-              INTVAL (op) == 8   || INTVAL (op) == 16));
-}
-
-/* Return 1 if OP is a floating-point constant zero, one, or a register.  */
-
-int
-fr_reg_or_fp01_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (op))
-	  || fr_register_operand (op, mode));
-}
-
-/* Like nonimmediate_operand, but don't allow MEMs that try to use a
-   POST_MODIFY with a REG as displacement.  */
-
-int
-destination_operand (rtx op, enum machine_mode mode)
-{
-  if (! nonimmediate_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == MEM
-      && GET_CODE (XEXP (op, 0)) == POST_MODIFY
-      && GET_CODE (XEXP (XEXP (XEXP (op, 0), 1), 1)) == REG)
-    return 0;
-  return 1;
-}
-
-/* Like memory_operand, but don't allow post-increments.  */
-
-int
-not_postinc_memory_operand (rtx op, enum machine_mode mode)
-{
-  return (memory_operand (op, mode)
-	  && GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC);
-}
-
-/* Return 1 if this is a comparison operator, which accepts a normal 8-bit
-   signed immediate operand.  */
-
-int
-normal_comparison_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (code == EQ || code == NE
-	      || code == GT || code == LE || code == GTU || code == LEU));
-}
-
-/* Return 1 if this is a comparison operator, which accepts an adjusted 8-bit
-   signed immediate operand.  */
-
-int
-adjusted_comparison_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (code == LT || code == GE || code == LTU || code == GEU));
-}
-
-/* Return 1 if this is a signed inequality operator.  */
-
-int
-signed_inequality_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (code == GE || code == GT
-	      || code == LE || code == LT));
-}
-
-/* Return 1 if this operator is valid for predication.  */
-
-int
-predicate_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  return ((GET_MODE (op) == mode || mode == VOIDmode)
-	  && (code == EQ || code == NE));
-}
-
-/* Return 1 if this operator can be used in a conditional operation.  */
-
-int
-condop_operator (register rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-  return ((GET_MODE (op) == mode || mode == VOIDmode)
-	  && (code == PLUS || code == MINUS || code == AND
-	      || code == IOR || code == XOR));
-}
-
-/* Return 1 if this is the ar.lc register.  */
-
-int
-ar_lc_reg_operand (register rtx op, enum machine_mode mode)
-{
-  return (GET_MODE (op) == DImode
-	  && (mode == DImode || mode == VOIDmode)
-	  && GET_CODE (op) == REG
-	  && REGNO (op) == AR_LC_REGNUM);
-}
-
-/* Return 1 if this is the ar.ccv register.  */
-
-int
-ar_ccv_reg_operand (register rtx op, enum machine_mode mode)
-{
-  return ((GET_MODE (op) == mode || mode == VOIDmode)
-	  && GET_CODE (op) == REG
-	  && REGNO (op) == AR_CCV_REGNUM);
-}
-
-/* Return 1 if this is the ar.pfs register.  */
-
-int
-ar_pfs_reg_operand (register rtx op, enum machine_mode mode)
-{
-  return ((GET_MODE (op) == mode || mode == VOIDmode)
-	  && GET_CODE (op) == REG
-	  && REGNO (op) == AR_PFS_REGNUM);
-}
-
-/* Similarly.  */
-
-int
-xfreg_or_fp01_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == SUBREG)
-    return 0;
-  return fr_reg_or_fp01_operand (op, mode);
-}
-
-/* Return 1 if OP is valid as a base register in a reg + offset address.  */
-
-int
-basereg_operand (rtx op, enum machine_mode mode)
-{
-  /* ??? Should I copy the flag_omit_frame_pointer and cse_not_expected
-     checks from pa.c basereg_operand as well?  Seems to be OK without them
-     in test runs.  */
-
-  return (register_operand (op, mode) &&
-	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
-}
 
 typedef enum
   {
@@ -1099,7 +596,7 @@ ia64_depz_field_mask (rtx rop, rtx rshift)
 void
 ia64_expand_load_address (rtx dest, rtx src)
 {
-  if (tls_symbolic_operand (src, VOIDmode))
+  if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (src))
     abort ();
   if (GET_CODE (dest) != REG)
     abort ();
@@ -1176,10 +673,7 @@ static rtx
 gen_thread_pointer (void)
 {
   if (!thread_pointer_rtx)
-    {
-      thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
-      RTX_UNCHANGING_P (thread_pointer_rtx) = 1;
-    }
+    thread_pointer_rtx = gen_rtx_REG (Pmode, 13);
   return thread_pointer_rtx;
 }
 
@@ -1196,13 +690,11 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
 
       tga_op1 = gen_reg_rtx (Pmode);
       emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
-      RTX_UNCHANGING_P (tga_op1) = 1;
+      tga_op1 = gen_const_mem (Pmode, tga_op1);
 
       tga_op2 = gen_reg_rtx (Pmode);
       emit_insn (gen_load_ltoff_dtprel (tga_op2, op1));
-      tga_op2 = gen_rtx_MEM (Pmode, tga_op2);
-      RTX_UNCHANGING_P (tga_op2) = 1;
+      tga_op2 = gen_const_mem (Pmode, tga_op2);
 
       tga_ret = emit_library_call_value (gen_tls_get_addr (), NULL_RTX,
 					 LCT_CONST, Pmode, 2, tga_op1,
@@ -1225,8 +717,7 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
 
       tga_op1 = gen_reg_rtx (Pmode);
       emit_insn (gen_load_ltoff_dtpmod (tga_op1, op1));
-      tga_op1 = gen_rtx_MEM (Pmode, tga_op1);
-      RTX_UNCHANGING_P (tga_op1) = 1;
+      tga_op1 = gen_const_mem (Pmode, tga_op1);
 
       tga_op2 = const0_rtx;
 
@@ -1256,8 +747,7 @@ ia64_expand_tls_address (enum tls_model tls_kind, rtx op0, rtx op1)
     case TLS_MODEL_INITIAL_EXEC:
       tmp = gen_reg_rtx (Pmode);
       emit_insn (gen_load_ltoff_tprel (tmp, op1));
-      tmp = gen_rtx_MEM (Pmode, tmp);
-      RTX_UNCHANGING_P (tmp) = 1;
+      tmp = gen_const_mem (Pmode, tmp);
       tmp = force_reg (Pmode, tmp);
 
       if (!register_operand (op0, Pmode))
@@ -1299,7 +789,8 @@ ia64_expand_move (rtx op0, rtx op1)
   if ((mode == Pmode || mode == ptr_mode) && symbolic_operand (op1, VOIDmode))
     {
       enum tls_model tls_kind;
-      if ((tls_kind = tls_symbolic_operand (op1, VOIDmode)))
+      if (GET_CODE (op1) == SYMBOL_REF
+	  && (tls_kind = SYMBOL_REF_TLS_MODEL (op1)))
 	return ia64_expand_tls_address (tls_kind, op0, op1);
 
       if (!TARGET_NO_PIC && reload_completed)
@@ -2542,8 +2033,9 @@ ia64_expand_prologue (void)
   if (optimize)
     {
       edge e;
+      edge_iterator ei;
 
-      for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	if ((e->flags & EDGE_FAKE) == 0
 	    && (e->flags & EDGE_FALLTHRU) != 0)
 	  break;
@@ -3682,17 +3174,7 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	  else if (gr_size > UNITS_PER_WORD)
 	    int_regs += gr_size / UNITS_PER_WORD;
 	}
-
-      /* If we ended up using just one location, just return that one loc, but
-	 change the mode back to the argument mode.  However, we can't do this
-	 when hfa_mode is XFmode and mode is TImode.  In that case, we would
-	 return a TImode reference to an FP reg, but FP regs can't hold TImode.
-	 We need the PARALLEL to make this work.  This can happen for a union
-	 containing a single __float80 member.  */
-      if (i == 1 && ! (hfa_mode == XFmode && mode == TImode))
-	return gen_rtx_REG (mode, REGNO (XEXP (loc[0], 0)));
-      else
-	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
+      return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
     }
 
   /* Integral and aggregates go in general registers.  If we have run out of
@@ -3843,10 +3325,11 @@ ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->fp_regs = fp_regs;
     }
 
-  /* Integral and aggregates go in general registers.  If we have run out of
-     FR registers, then FP values must also go in general registers.  This can
-     happen when we have a SFmode HFA.  */
-  else if (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS)
+  /* Integral and aggregates go in general registers.  So do TFmode FP values.
+     If we have run out of FR registers, then other FP values must also go in
+     general registers.  This can happen when we have a SFmode HFA.  */
+  else if (mode == TFmode || mode == TCmode
+           || (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS))
     cum->int_regs = cum->words;
 
   /* If there is a prototype, then FP values go in a FR register when
@@ -3869,6 +3352,31 @@ ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
+/* Arguments with alignment larger than 8 bytes start at the next even
+   boundary.  On ILP32 HPUX, TFmode arguments start on next even boundary
+   even though their normal alignment is 8 bytes.  See ia64_function_arg.  */
+
+int
+ia64_function_arg_boundary (enum machine_mode mode, tree type)
+{
+
+  if (mode == TFmode && TARGET_HPUX && TARGET_ILP32)
+    return PARM_BOUNDARY * 2;
+
+  if (type)
+    {
+      if (TYPE_ALIGN (type) > PARM_BOUNDARY)
+        return PARM_BOUNDARY * 2;
+      else
+        return PARM_BOUNDARY;
+    }
+
+  if (GET_MODE_BITSIZE (mode) > PARM_BOUNDARY)
+    return PARM_BOUNDARY * 2;
+  else
+    return PARM_BOUNDARY;
+}
+
 /* Variable sized types are passed by reference.  */
 /* ??? At present this is a GCC extension to the IA-64 ABI.  */
 
@@ -3886,6 +3394,12 @@ ia64_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 static bool
 ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
+  /* We can't perform a sibcall if the current function has the syscall_linkage
+     attribute.  */
+  if (lookup_attribute ("syscall_linkage",
+			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
+    return false;
+
   /* We must always return with our current GP.  This means we can
      only sibcall to functions defined in the current module.  */
   return decl && (*targetm.binds_local_p) (decl);
@@ -3902,7 +3416,7 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       tree ptrtype = build_pointer_type (type);
       tree addr = std_gimplify_va_arg_expr (valist, ptrtype, pre_p, post_p);
-      return build_fold_indirect_ref (addr);
+      return build_va_arg_indirect_ref (addr);
     }
 
   /* Aggregate arguments with alignment larger than 8 bytes start at
@@ -3913,9 +3427,9 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
       tree t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		      build_int_2 (2 * UNITS_PER_WORD - 1, 0));
+		      build_int_cst (NULL_TREE, 2 * UNITS_PER_WORD - 1));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_2 (-2 * UNITS_PER_WORD, -1));
+		 build_int_cst (NULL_TREE, -2 * UNITS_PER_WORD));
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
       gimplify_and_add (t, pre_p);
     }
@@ -3990,11 +3504,7 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 				      GEN_INT (offset));
 	  offset += hfa_size;
 	}
-
-      if (i == 1)
-	return XEXP (loc[0], 0);
-      else
-	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
+      return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
     }
   else if (FLOAT_TYPE_P (valtype) && mode != TFmode && mode != TCmode)
     return gen_rtx_REG (mode, FR_ARG_FIRST);
@@ -5241,7 +4751,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	}
 
       /* For all ASM_OPERANDS, we must traverse the vector of input operands.
-	 We can not just fall through here since then we would be confused
+	 We cannot just fall through here since then we would be confused
 	 by the ASM_INPUT rtx inside ASM_OPERANDS, which do not indicate
 	 traditional asms unlike their normal usage.  */
 
@@ -6233,7 +5743,7 @@ ia64_first_cycle_multipass_dfa_lookahead_guard (rtx insn)
 
 static rtx dfa_pre_cycle_insn;
 
-/* We are about to being issuing INSN.  Return nonzero if we can not
+/* We are about to being issuing INSN.  Return nonzero if we cannot
    issue it on given cycle CLOCK and return zero if we should not sort
    the ready queue on the next clock start.  */
 
@@ -6782,7 +6292,7 @@ get_next_important_insn (rtx insn, rtx tail)
    by structure bundle_state (see above).  If we generate the same
    bundle state (key is automaton state after issuing the insns and
    nops for it), we reuse already generated one.  As consequence we
-   reject some decisions which can not improve the solution and
+   reject some decisions which cannot improve the solution and
    reduce memory for the algorithm.
 
    When we reach the end of EBB (extended basic block), we choose the
@@ -9003,6 +8513,31 @@ ia64_struct_value_rtx (tree fntype,
   if (fntype && ia64_struct_retval_addr_is_first_parm_p (fntype))
     return NULL_RTX;
   return gen_rtx_REG (Pmode, GR_REG (8));
+}
+
+static bool
+ia64_scalar_mode_supported_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+    case DImode:
+    case TImode:
+      return true;
+
+    case SFmode:
+    case DFmode:
+    case XFmode:
+      return true;
+
+    case TFmode:
+      return TARGET_HPUX;
+
+    default:
+      return false;
+    }
 }
 
 #include "gt-ia64.h"

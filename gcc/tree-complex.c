@@ -64,7 +64,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return gimplify_val (bsi, inner_type, ret);
@@ -78,12 +78,12 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
   tree stmt = bsi_stmt (*bsi);
   tree type;
 
-  modify_stmt (stmt);
   if (TREE_CODE (stmt) == RETURN_EXPR)
     stmt = TREE_OPERAND (stmt, 0);
   
   type = TREE_TYPE (TREE_OPERAND (stmt, 1));
   TREE_OPERAND (stmt, 1) = build (COMPLEX_EXPR, type, r, i);
+  modify_stmt (stmt);
 }
 
 /* Expand complex addition to scalars:
@@ -216,7 +216,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
       /* Update dominance info.  Note that bb_join's data was
          updated by split_block.  */
-      if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+      if (dom_info_available_p (CDI_DOMINATORS))
         {
           set_immediate_dominator (CDI_DOMINATORS, bb_true, bb_cond);
           set_immediate_dominator (CDI_DOMINATORS, bb_false, bb_cond);
@@ -285,7 +285,7 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
       break;
     default:
       /* C99-like requirements for complex divide (not yet implemented).  */
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -326,7 +326,7 @@ static void
 expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
 			   tree br, tree bi, enum tree_code code)
 {
-  tree cr, ci, cc, stmt, type;
+  tree cr, ci, cc, stmt, expr, type;
 
   cr = gimplify_build2 (bsi, code, boolean_type_node, ar, br);
   ci = gimplify_build2 (bsi, code, boolean_type_node, ai, bi);
@@ -334,24 +334,25 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
 			(code == EQ_EXPR ? TRUTH_AND_EXPR : TRUTH_OR_EXPR),
 			boolean_type_node, cr, ci);
 
-  stmt = bsi_stmt (*bsi);
-  modify_stmt (stmt);
+  stmt = expr = bsi_stmt (*bsi);
 
   switch (TREE_CODE (stmt))
     {
     case RETURN_EXPR:
-      stmt = TREE_OPERAND (stmt, 0);
+      expr = TREE_OPERAND (stmt, 0);
       /* FALLTHRU */
     case MODIFY_EXPR:
-      type = TREE_TYPE (TREE_OPERAND (stmt, 1));
-      TREE_OPERAND (stmt, 1) = fold_convert (type, cc);
+      type = TREE_TYPE (TREE_OPERAND (expr, 1));
+      TREE_OPERAND (expr, 1) = fold_convert (type, cc);
       break;
     case COND_EXPR:
       TREE_OPERAND (stmt, 0) = cc;
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
+
+  modify_stmt (stmt);
 }
 
 /* Process one statement.  If we identify a complex operation, expand it.  */
@@ -424,7 +425,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
   ar = extract_component (bsi, ac, 0);
   ai = extract_component (bsi, ac, 1);
 
-  if (TREE_CODE_CLASS (code) == '1')
+  if (TREE_CODE_CLASS (code) == tcc_unary)
     bc = br = bi = NULL;
   else
     {
@@ -471,7 +472,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -485,8 +486,7 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
   unsigned HOST_WIDE_INT low, high, mask;
   tree ret;
 
-  if (n == 0)
-    abort ();
+  gcc_assert (n);
 
   if (width == HOST_BITS_PER_WIDE_INT)
     low = value;
@@ -503,10 +503,9 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
   else if (TYPE_PRECISION (type) == 2 * HOST_BITS_PER_WIDE_INT)
     high = low;
   else
-    abort ();
+    gcc_unreachable ();
 
-  ret = build_int_2 (low, high);
-  TREE_TYPE (ret) = type;
+  ret = build_int_cst_wide (type, low, high);
   return ret;
 }
 
@@ -777,16 +776,14 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
     return;
 
   code = TREE_CODE (rhs);
-  if (TREE_CODE_CLASS (code) != '1'
-      && TREE_CODE_CLASS (code) != '2')
+  if (TREE_CODE_CLASS (code) != tcc_unary
+      && TREE_CODE_CLASS (code) != tcc_binary)
     return;
 
   if (code == NOP_EXPR || code == VIEW_CONVERT_EXPR)
     return;
-
-  if (code == CONVERT_EXPR)
-    abort ();
-
+  
+  gcc_assert (code != CONVERT_EXPR);
   op = optab_for_tree_code (code, type);
 
   /* Optabs will try converting a negation into a subtraction, so
@@ -875,7 +872,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 	break;
       }
 
-  if (TREE_CODE_CLASS (code) == '1')
+  if (TREE_CODE_CLASS (code) == tcc_unary)
     *p_rhs = expand_vector_piecewise (bsi, do_unop, type, compute_type,
 				      TREE_OPERAND (rhs, 0),
 				      NULL_TREE, code);
@@ -924,7 +921,9 @@ struct tree_opt_pass pass_lower_vector_ssa =
 {
   "vector",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   expand_vector_operations,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -935,14 +934,17 @@ struct tree_opt_pass pass_lower_vector_ssa =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars	/* todo_flags_finish */
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_verify_flow
+    | TODO_verify_stmts | TODO_verify_flow,
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_pre_expand = 
 {
   "oplower",				/* name */
   0,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_lower_operations,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -952,5 +954,6 @@ struct tree_opt_pass pass_pre_expand =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect
-    | TODO_verify_stmts			/* todo_flags_finish */
+    | TODO_verify_stmts,		/* todo_flags_finish */
+  0					/* letter */
 };

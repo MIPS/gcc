@@ -606,7 +606,7 @@ build_java_jsr (int target_pc, int return_pc)
   flush_quick_stack ();
   java_add_stmt (build1 (GOTO_EXPR, void_type_node, where));
 
-  /* Do not need to emit the label here.  We noted the existance of the
+  /* Do not need to emit the label here.  We noted the existence of the
      label as a jump target in note_instructions; we'll emit the label
      for real at the beginning of the expand_byte_code loop.  */
 }
@@ -698,7 +698,7 @@ build_java_array_length_access (tree node)
 
   length = java_array_type_length (type);
   if (length >= 0)
-    return build_int_2 (length, 0);
+    return build_int_cst (NULL_TREE, length);
 
   node = build3 (COMPONENT_REF, int_type_node,
 		 build_java_indirect_ref (array_type, node,
@@ -763,8 +763,8 @@ build_java_arrayaccess (tree array, tree type, tree index)
        * Note this is equivalent to and more efficient than:
        * INDEX < 0 || INDEX >= LEN && throw ... */
       tree test;
-      tree len = build_java_array_length_access (array);
-      TREE_TYPE (len) = unsigned_int_type_node;
+      tree len = convert (unsigned_int_type_node,
+			  build_java_array_length_access (array));
       test = fold (build2 (GE_EXPR, boolean_type_node, 
 			   convert (unsigned_int_type_node, index),
 			   len));
@@ -910,7 +910,7 @@ build_newarray (int atype_value, tree length)
      and save the runtime some work. However, the bytecode generator
      expects to find the type_code int here. */
   if (flag_emit_class_files)
-    type_arg = build_int_2 (atype_value, 0);
+    type_arg = build_int_cst (NULL_TREE, atype_value);
   else
     type_arg = build_class_ref (prim_type);
 
@@ -971,7 +971,8 @@ expand_java_multianewarray (tree class_type, int ndim)
 		      build_address_of (soft_multianewarray_node),
 		      tree_cons (NULL_TREE, build_class_ref (class_type),
 				 tree_cons (NULL_TREE, 
-					    build_int_2 (ndim, 0), args)),
+					    build_int_cst (NULL_TREE, ndim),
+					    args)),
 		      NULL_TREE));
 }
 
@@ -1081,10 +1082,7 @@ expand_java_pushc (int ival, tree type)
   if (type == ptr_type_node && ival == 0)
     value = null_pointer_node;
   else if (type == int_type_node || type == long_type_node)
-    {
-      value = build_int_2 (ival, ival < 0 ? -1 : 0);
-      TREE_TYPE (value) = type;
-    }
+    value = build_int_cst (type, ival);
   else if (type == float_type_node || type == double_type_node)
     {
       REAL_VALUE_TYPE x;
@@ -1289,7 +1287,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
 
   flush_quick_stack ();
   local_var = find_local_variable (local_var_index, int_type_node, pc);
-  constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
+  constant_value = build_int_cst (NULL_TREE, ival);
   res = fold (build2 (PLUS_EXPR, int_type_node, local_var, constant_value));
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
   update_aliases (local_var, local_var_index, pc);
@@ -1359,7 +1357,8 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
       }
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
-      mask = build_int_2 (TYPE_PRECISION (TREE_TYPE (arg1)) - 1, 0);
+      mask = build_int_cst (NULL_TREE,
+			    TYPE_PRECISION (TREE_TYPE (arg1)) - 1);
       arg2 = fold (build2 (BIT_AND_EXPR, int_type_node, arg2, mask));
       break;
 
@@ -1487,7 +1486,7 @@ lookup_field (tree *typep, tree name)
 		{
 		  tree i1 = DECL_CONTEXT (save_field);
 		  tree i2 = DECL_CONTEXT (field);
-		  error ("reference `%s' is ambiguous: appears in interface `%s' and interface `%s'",
+		  error ("reference %qs is ambiguous: appears in interface %qs and interface %qs",
 			 IDENTIFIER_POINTER (name),
 			 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (i1))),
 			 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (i2))));
@@ -1515,7 +1514,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
   tree field_decl = lookup_field (&base_class, name);
   if (field_decl == NULL_TREE)
     {
-      error ("field `%s' not found", IDENTIFIER_POINTER (name));
+      error ("field %qs not found", IDENTIFIER_POINTER (name));
       return error_mark_node;
     }
   if (self_value == NULL_TREE)
@@ -1539,9 +1538,8 @@ build_field_ref (tree self_value, tree self_class, tree name)
 	   we can make a direct reference.  */
 	{
 	  tree otable_index
-	    = build_int_2 (get_symbol_table_index 
-			   (field_decl, &TYPE_OTABLE_METHODS (output_class)),
-			   0);
+	    = build_int_cst (NULL_TREE, get_symbol_table_index 
+			     (field_decl, &TYPE_OTABLE_METHODS (output_class)));
 	  tree field_offset
 	    = build4 (ARRAY_REF, integer_type_node,
 		      TYPE_OTABLE_DECL (output_class), otable_index,
@@ -1689,8 +1687,7 @@ expand_java_add_case (tree switch_expr, int match, int target_pc)
 {
   tree value, x;
 
-  value = build_int_2 (match, match < 0 ? -1 : 0);
-  TREE_TYPE (value) = TREE_TYPE (switch_expr);
+  value = build_int_cst (TREE_TYPE (switch_expr), match);
   
   x = build3 (CASE_LABEL_EXPR, void_type_node, value, NULL_TREE,
 	      create_artificial_label ());
@@ -1705,7 +1702,7 @@ static void
 expand_java_call (int target_pc, int return_address)
 {
   tree target_label = lookup_label (target_pc);
-  tree value = build_int_2 (return_address, return_address < 0 ? -1 : 0);
+  tree value = build_int_cst (NULL_TREE, return_address);
   push_value (value);
   flush_quick_stack ();
   expand_goto (target_label);
@@ -1829,15 +1826,15 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
       if (!flag_indirect_dispatch
 	  || (!TREE_PUBLIC (method) && DECL_CONTEXT (method)))
 	{
-	  make_decl_rtl (method, NULL);
+	  make_decl_rtl (method);
 	  func = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (method)),
 			 method);
 	}
       else
 	{
 	  tree table_index
-	    = build_int_2 (get_symbol_table_index 
-			   (method, &TYPE_ATABLE_METHODS (output_class)), 0);
+	    = build_int_cst (NULL_TREE, get_symbol_table_index 
+			     (method, &TYPE_ATABLE_METHODS (output_class)));
 	  func = build4 (ARRAY_REF,  method_ptr_type_node, 
 			 TYPE_ATABLE_DECL (output_class), table_index,
 			 NULL_TREE, NULL_TREE);
@@ -1881,7 +1878,7 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	}
       method_index *= int_size_in_bytes (method_type_node);
       ref = fold (build2 (PLUS_EXPR, method_ptr_type_node,
-			  ref, build_int_2 (method_index, 0)));
+			  ref, build_int_cst (NULL_TREE, method_index)));
       ref = build1 (INDIRECT_REF, method_type_node, ref);
       func = build3 (COMPONENT_REF, nativecode_ptr_type_node,
 		     ref, lookup_field (&method_type_node, ncode_ident),
@@ -1961,8 +1958,8 @@ build_invokevirtual (tree dtable, tree method)
   if (flag_indirect_dispatch)
     {
       otable_index 
-	= build_int_2 (get_symbol_table_index 
-		       (method, &TYPE_OTABLE_METHODS (output_class)), 0);
+	= build_int_cst (NULL_TREE, get_symbol_table_index 
+			 (method, &TYPE_OTABLE_METHODS (output_class)));
       method_index = build4 (ARRAY_REF, integer_type_node, 
 			     TYPE_OTABLE_DECL (output_class), 
 			     otable_index, NULL_TREE, NULL_TREE);
@@ -2021,14 +2018,15 @@ build_invokeinterface (tree dtable, tree method)
   if (flag_indirect_dispatch)
     {
       otable_index
-	= build_int_2 (get_symbol_table_index 
-		       (method, &TYPE_OTABLE_METHODS (output_class)), 0);
+	= build_int_cst (NULL_TREE, get_symbol_table_index 
+			 (method, &TYPE_OTABLE_METHODS (output_class)));
       idx = build4 (ARRAY_REF, integer_type_node,
 		    TYPE_OTABLE_DECL (output_class), otable_index,
 		    NULL_TREE, NULL_TREE);
     }
   else
-    idx = build_int_2 (get_interface_method_index (method, interface), 0);
+    idx = build_int_cst (NULL_TREE,
+			 get_interface_method_index (method, interface));
 
   lookup_arg = tree_cons (NULL_TREE, dtable,
                           tree_cons (NULL_TREE, build_class_ref (interface),
@@ -2282,7 +2280,7 @@ build_jni_stub (tree method)
   /* We call _Jv_LookupJNIMethod to find the actual underlying
      function pointer.  _Jv_LookupJNIMethod will throw the appropriate
      exception if this function is not found at runtime.  */
-  tem = build_tree_list (NULL_TREE, build_int_2 (args_size, 0));
+  tem = build_tree_list (NULL_TREE, build_int_cst (NULL_TREE, args_size));
   method_sig = build_java_signature (TREE_TYPE (method));
   lookup_arg = tree_cons (NULL_TREE,
                           build_utf8_ref (unmangle_classname
@@ -2430,7 +2428,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning ("%Jassignment to final static field `%D' not in "
+		warning ("%Jassignment to final static field %qD not in "
                          "class initializer",
                          field_decl, field_decl);
 	    }
@@ -2697,7 +2695,12 @@ expand_byte_code (JCF *jcf, tree method)
 	      linenumber_pointer += 4;
 	      if (pc == PC)
 		{
-		  input_location.line = GET_u2 (linenumber_pointer - 2);
+		  int line = GET_u2 (linenumber_pointer - 2);
+#ifdef USE_MAPPED_LOCATION
+		  input_location = linemap_line_start (&line_table, line, 1);
+#else
+		  input_location.line = line;
+#endif
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3180,9 +3183,6 @@ force_evaluation_order (tree node)
     {
       tree arg, cmp;
 
-      if (!TREE_OPERAND (node, 1))
-	return node;
-
       arg = node;
       
       /* Position arg properly, account for wrapped around ctors. */
@@ -3191,7 +3191,11 @@ force_evaluation_order (tree node)
       
       arg = TREE_OPERAND (arg, 1);
       
-      /* Not having a list of argument here is an error. */ 
+      /* An empty argument list is ok, just ignore it.  */
+      if (!arg)
+	return node;
+
+      /* Not having a list of arguments here is an error. */ 
       if (TREE_CODE (arg) != TREE_LIST)
         abort ();
 
@@ -3226,21 +3230,33 @@ force_evaluation_order (tree node)
    recursively more than one file (Java is one of them).  */
 
 tree
-build_expr_wfl (tree node, const char *file, int line, int col)
+build_expr_wfl (tree node,
+#ifdef USE_MAPPED_LOCATION
+		source_location location
+#else
+		const char *file, int line, int col
+#endif
+)
 {
+  tree wfl;
   static const char *last_file = 0;
   static tree last_filenode = NULL_TREE;
-  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
 
-  EXPR_WFL_NODE (wfl) = node;
+#ifdef USE_MAPPED_LOCATION
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  SET_EXPR_LOCATION (wfl, location);
+#else
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+
   EXPR_WFL_SET_LINECOL (wfl, line, col);
   if (file != last_file)
     {
       last_file = file;
       last_filenode = file ? get_identifier (file) : NULL_TREE;
     }
-
   EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
+#endif
+  EXPR_WFL_NODE (wfl) = node;
   if (node)
     {
       if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
@@ -3251,6 +3267,42 @@ build_expr_wfl (tree node, const char *file, int line, int col)
   return wfl;
 }
 
+#ifdef USE_MAPPED_LOCATION
+tree
+expr_add_location (tree node, source_location location, bool statement)
+{
+  tree wfl;
+#if 0
+  /* FIXME. This optimization causes failures in code that expects an
+     EXPR_WITH_FILE_LOCATION.  E.g. in resolve_qualified_expression_name. */
+  if (node && ! (statement && flag_emit_class_files))
+    {
+      source_location node_loc = EXPR_LOCATION (node);
+      if (node_loc == location || location == UNKNOWN_LOCATION)
+	return node;
+      if (node_loc == UNKNOWN_LOCATION
+	  && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+	{
+	  SET_EXPR_LOCATION (node, location);
+	  return node;
+	}
+    }
+#endif
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  SET_EXPR_LOCATION (wfl, location);
+  EXPR_WFL_NODE (wfl) = node;
+  if (statement && debug_info_level != DINFO_LEVEL_NONE)
+    EXPR_WFL_EMIT_LINE_NOTE (wfl) = 1;
+  if (node)
+    {
+      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
+      TREE_TYPE (wfl) = TREE_TYPE (node);
+    }
+
+  return wfl;
+}
+#endif
 
 /* Build a node to represent empty statements and blocks. */
 

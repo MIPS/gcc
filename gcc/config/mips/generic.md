@@ -82,12 +82,12 @@
   "alu")
 
 (define_insn_reservation "generic_fdiv_single" 23
-  (and (eq_attr "type" "fdiv")
+  (and (eq_attr "type" "fdiv,frdiv")
        (eq_attr "mode" "SF"))
   "alu")
 
 (define_insn_reservation "generic_fdiv_double" 36
-  (and (eq_attr "type" "fdiv")
+  (and (eq_attr "type" "fdiv,frdiv")
        (eq_attr "mode" "DF"))
   "alu")
 
@@ -99,4 +99,8 @@
 (define_insn_reservation "generic_fsqrt_double" 112
   (and (eq_attr "type" "fsqrt,frsqrt")
        (eq_attr "mode" "DF"))
+  "alu")
+
+(define_insn_reservation "generic_frecip_fsqrt_step" 5
+  (eq_attr "type" "frdiv1,frdiv2,frsqrt1,frsqrt2")
   "alu")

@@ -13,7 +13,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:2:0
+libtool_VERSION=6:3:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -58,7 +58,7 @@ fi
 #  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is now required.
-AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AM_INIT_AUTOMAKE([1.9.1 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -94,6 +94,7 @@ GLIBCXX_ENABLE_CONCEPT_CHECKS([no])
 GLIBCXX_ENABLE_DEBUG_FLAGS(["-g3 -O0"])
 GLIBCXX_ENABLE_DEBUG([no])
 GLIBCXX_ENABLE_CXX_FLAGS
+GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
 # No surprises, no surprises...
 if test $atomicity_dir = cpu/generic ; then
@@ -193,7 +194,6 @@ else
 
     # GLIBCXX_CHECK_STDLIB_SUPPORT
     AC_DEFINE(HAVE_STRTOF)        
-    AC_DEFINE(HAVE_STRTOLD)        
     # AC_FUNC_MMAP
     AC_DEFINE(HAVE_MMAP)
 

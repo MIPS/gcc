@@ -95,6 +95,14 @@ Boston, MA 02111-1307, USA.  */
 #define MD_EXEC_PREFIX "/usr/ccs/bin"
 #endif
 
+/* Default prefixes.  */
+
+#undef STANDARD_STARTFILE_PREFIX_1
+#define STANDARD_STARTFILE_PREFIX_1 "/lib/pa20_64/"
+
+#undef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/pa20_64/"
+
 /* Under hpux11 the normal location of the various pa20_64 *crt*.o files
    is the /usr/ccs/lib/pa20_64 directory.  Some files may also be in the
    /opt/langtools/lib/pa20_64 directory.  */
@@ -108,6 +116,17 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_STARTFILE_PREFIX_1
 #define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/pa20_64/"
 #endif
+
+/* This macro specifies the biggest alignment supported by the object
+   file format of this machine.
+
+   The .align directive in the HP assembler allows alignments up to
+   4096 bytes.  However, the maximum alignment of a global common symbol
+   is 16 bytes using HP ld.  For consistency, we use the same limit
+   with GNU ld.  */
+#undef MAX_OFILE_ALIGNMENT
+#define MAX_OFILE_ALIGNMENT                                             \
+  (TREE_PUBLIC (decl) && DECL_COMMON (decl) ? 128 : 32768)
 
 /* Due to limitations in the target structure, it isn't currently possible
    to dynamically switch between the GNU and HP assemblers.  */
@@ -137,25 +156,16 @@ Boston, MA 02111-1307, USA.  */
 #define HP_FINI_ARRAY_SECTION_ASM_OP	"\t.section\t.fini"
 #define GNU_FINI_ARRAY_SECTION_ASM_OP	"\t.section\t.fini_array"
 
+/* We need to override the following two macros defined in elfos.h since
+   the .comm directive has a different syntax and it can't be used for
+   local common symbols.  */
 #undef ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
-do {									\
-  bss_section ();							\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
-	   MAX ((unsigned HOST_WIDE_INT)(SIZE),				\
-		((unsigned HOST_WIDE_INT)(ALIGN) / BITS_PER_UNIT)));	\
-} while (0)
+  pa_asm_output_aligned_common (FILE, NAME, SIZE, ALIGN)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
-do {									\
-  bss_section ();							\
-  fprintf ((FILE), "\t.align %d\n", ((ALIGN) / BITS_PER_UNIT));		\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
-	   (unsigned HOST_WIDE_INT)(SIZE));				\
-} while (0)
+  pa_asm_output_aligned_local (FILE, NAME, SIZE, ALIGN)
 
 /* The define in pa.h doesn't work with the alias attribute.  The
    default is ok with the following define for GLOBAL_ASM_OP.  */
@@ -263,11 +273,19 @@ do {								\
 /* The following STARTFILE_SPEC and ENDFILE_SPEC defines provide the
    magic needed to run initializers and finalizers.  */
 #undef STARTFILE_SPEC
+#if TARGET_HPUX_11_11
 #define STARTFILE_SPEC \
-  "%{!shared: %{!symbolic: crt0.o%s}} %{static:crtbeginT.o%s} \
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+  "%{!shared: %{!symbolic: crt0%O%s} %{munix=95:unix95.o%s} \
+     %{!munix=93:%{!munix=95:unix98%O%s}}} %{static:crtbeginT%Oos} \
+   %{!static:%{!shared:crtbegin%O%s} %{shared:crtbeginS%O%s}}"
+#else
+#define STARTFILE_SPEC \
+  "%{!shared: %{!symbolic: crt0%O%s} %{munix=95:unix95%O%s}} \
+   %{static:crtbeginT%O%s} %{!static:%{!shared:crtbegin%O%s} \
+   %{shared:crtbeginS%O%s}}"
+#endif
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s}"
+#define ENDFILE_SPEC "%{!shared:crtend%O%s} %{shared:crtendS%O%s}"
 
 /* Since HP uses the .init and .fini sections for array initializers
    and finalizers, we need different defines for INIT_SECTION_ASM_OP

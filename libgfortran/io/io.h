@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -90,6 +90,7 @@ typedef struct namelist_type
   void * mem_pos;
   int  value_acquired;
   int len;
+  int string_length;
   bt type;
   struct namelist_type * next;
 }
@@ -143,7 +144,9 @@ typedef enum
 { ADVANCE_YES, ADVANCE_NO, ADVANCE_UNSPECIFIED }
 unit_advance;
 
-
+typedef enum
+{READING, WRITING}
+unit_mode;
 
 /* Statement parameters.  These are all the things that can appear in
    an I/O statement.  Some are inputs and some are outputs, but none
@@ -270,6 +273,7 @@ typedef struct gfc_unit
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
 
+  unit_mode  mode;
   unit_flags flags;
   gfc_offset recl, last_record, maxrec, bytes_left;
 
@@ -298,7 +302,7 @@ typedef struct
   gfc_unit *unit_root;
   int seen_dollar;
 
-  enum {READING, WRITING} mode;
+  unit_mode  mode;
 
   unit_blank blank_status;
   enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
@@ -545,7 +549,7 @@ void st_set_nml_var_int (void * , char * , int , int );
 void st_set_nml_var_float (void * , char * , int , int );
 
 #define st_set_nml_var_char prefix(st_set_nml_var_char)
-void st_set_nml_var_char (void * , char * , int , int );
+void st_set_nml_var_char (void * , char * , int , int, gfc_charlen_type);
 
 #define st_set_nml_var_complex prefix(st_set_nml_var_complex)
 void st_set_nml_var_complex (void * , char * , int , int );

@@ -109,11 +109,17 @@ Boston, MA 02111-1307, USA.  */
   { "-bundle", "-Zbundle" },  \
   { "-bundle_loader", "-Zbundle_loader" },  \
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
+  { "-dead_strip", "-Zdead_strip" }, \
+  { "-no_dead_strip_inits_and_terms", "-Zno_dead_strip_inits_and_terms" }, \
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-segaddr", "-Zsegaddr" }, \
+  { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
+  { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
+  { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -138,9 +144,16 @@ Boston, MA 02111-1307, USA.  */
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
   
+extern int darwin_fix_and_continue;
+extern const char *darwin_fix_and_continue_switch;
+
 #undef SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS \
-  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }
+  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
+  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
+   N_("Generate code suitable for fast turn around debugging"), 0},	\
+  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}
 
 /* These compiler options take n arguments.  */
 
@@ -165,10 +178,13 @@ extern const char *darwin_one_byte_bool;
    !strcmp (STR, "read_only_relocs") ? 1 :      \
    !strcmp (STR, "sectcreate") ? 3 :            \
    !strcmp (STR, "sectorder") ? 3 :             \
+   !strcmp (STR, "Zsegaddr") ? 2 :              \
+   !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
+   !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
+   !strcmp (STR, "Zseg_addr_table") ? 1 :       \
    !strcmp (STR, "Zseg_addr_table_filename") ?1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
-   !strcmp (STR, "seg_addr_table") ? 1 :        \
    !strcmp (STR, "sub_library") ? 1 :           \
    !strcmp (STR, "sub_umbrella") ? 1 :          \
    !strcmp (STR, "umbrella") ? 1 :              \
@@ -222,6 +238,7 @@ extern const char *darwin_one_byte_bool;
    their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
+   %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
    %{!Zdynamiclib: \
      %{Zbundle:-bundle} \
      %{Zbundle_loader*:-bundle_loader %*} \
@@ -251,6 +268,8 @@ extern const char *darwin_one_byte_bool;
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
+   %{Zdead_strip:-dead_strip} \
+   %{Zno_dead_strip_inits_and_terms:-no_dead_strip_inits_and_terms} \
    %{Zdylib_file*:-dylib_file %*} \
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
@@ -264,7 +283,11 @@ extern const char *darwin_one_byte_bool;
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
-   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} %{seg_addr_table*} \
+   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
+   %{Zsegaddr*:-segaddr %*} \
+   %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
+   %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
+   %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
@@ -307,6 +330,9 @@ extern const char *darwin_one_byte_bool;
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
 
+/* Default Darwin ASM_SPEC, very simple.  */
+#define ASM_SPEC "-arch %(darwin_arch)"
+
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
@@ -336,12 +362,7 @@ extern const char *darwin_one_byte_bool;
 
 /* gdb needs a null N_SO at the end of each file for scattered loading.  */
 
-#undef	DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME)			\
-do { text_section ();							\
-     fprintf (FILE,							\
-	      "\t.stabs \"%s\",%d,0,0,Letext\nLetext:\n", "" , N_SO);	\
-   } while (0)
+#define DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
 
 /* Making a symbols weak on Darwin requires more than just setting DECL_WEAK. */
 #define MAKE_DECL_ONE_ONLY(DECL) darwin_make_decl_one_only (DECL)
@@ -655,7 +676,7 @@ SECTION_FUNCTION (objc_selector_refs_section,	\
 		  ".objc_message_refs", 1)	\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
-		  ".section __OBJC, __sel_fixup", 1)	\
+		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_symbols_section,		\
 		  in_objc_symbols,		\
 		  ".objc_symbols", 1)	\
@@ -670,11 +691,11 @@ SECTION_FUNCTION (objc_string_object_section,	\
 		  ".objc_string_object", 1)	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
-		  ".section __OBJC, __cstring_object", 1)	\
+		  ".section __OBJC, __cstring_object, regular, no_dead_strip", 1)	\
 /* Fix-and-Continue image marker.  */		\
 SECTION_FUNCTION (objc_image_info_section,	\
                   in_objc_image_info,		\
-                  ".section __OBJC, __image_info", 1)	\
+                  ".section __OBJC, __image_info, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
 		".objc_class_names", 1)	\
@@ -754,7 +775,8 @@ objc_section_init (void)			\
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
 #undef  TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
-
+#undef  TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
@@ -794,18 +816,22 @@ objc_section_init (void)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%ld", PREFIX, (long)(NUM))
 
-/* Since we have a separate readonly data section, define this so that
-   jump tables end up in text rather than data.  */
-
-#ifndef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION 1
-#endif
+#undef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
    variable has been defined in this translation unit.  */
+
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
+/* Set on a symbol to indicate when fix-and-continue style code
+   generation is being used and the symbol refers to a static symbol
+   that should be rebound from new instances of a translation unit to
+   the original instance of the data.  */
+
+#define MACHO_SYMBOL_STATIC ((SYMBOL_FLAG_MACH_DEP) << 2)
 
 /* Symbolic names for various things we might know about a symbol.  */
 
@@ -890,7 +916,7 @@ enum machopic_addr_class {
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
 #define EH_FRAME_SECTION_NAME   "__TEXT"
-#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
+#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms+live_support"
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
@@ -928,7 +954,9 @@ enum machopic_addr_class {
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
 
-void darwin_register_frameworks (int);
+void darwin_register_frameworks (const char *, const char *, int);
+void darwin_register_objc_includes (const char *, const char *, int);
+#define TARGET_EXTRA_PRE_INCLUDES darwin_register_objc_includes
 #define TARGET_EXTRA_INCLUDES darwin_register_frameworks
 
 void add_framework_path (char *);

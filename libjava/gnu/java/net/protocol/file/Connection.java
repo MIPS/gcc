@@ -37,8 +37,11 @@ exception statement from your version.  */
 
 package gnu.java.net.protocol.file;
 
+import gnu.java.security.action.GetPropertyAction;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -50,6 +53,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.Permission;
+import java.security.AccessController;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -65,12 +69,19 @@ import java.util.Locale;
 public class Connection extends URLConnection
 {
   /**
+   * Default permission for a file
+   */
+  private static final String DEFAULT_PERMISSION = "read";
+
+  /**
    * HTTP-style DateFormat, used to format the last-modified header.
    */
   private static SimpleDateFormat dateFormat
     = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'",
                            new Locale ("En", "Us", "Unix"));
 
+  private static String lineSeparator;
+  
   /**
    * This is a File object for this connection
    */
@@ -87,11 +98,18 @@ public class Connection extends URLConnection
   private OutputStream outputStream;
   
   /**
+   * FilePermission to read the file
+   */
+  private FilePermission permission;
+
+  /**
    * Calls superclass constructor to initialize.
    */
   public Connection(URL url)
   {
     super (url);
+
+    permission = new FilePermission(getURL().getFile(), DEFAULT_PERMISSION);
   }
   
   /**
@@ -105,11 +123,38 @@ public class Connection extends URLConnection
     
     // If not connected, then file needs to be openned.
     file = new File (getURL().getFile());
-    if (doInput)
-      inputStream = new BufferedInputStream(new FileInputStream(file));
+
+    if (! file.isDirectory())
+      {
+	if (doInput)
+	  inputStream = new BufferedInputStream(new FileInputStream(file));
     
-    if (doOutput)
-      outputStream = new BufferedOutputStream(new FileOutputStream(file));
+	if (doOutput)
+	  outputStream = new BufferedOutputStream(new FileOutputStream(file));
+      }
+    else
+      {
+	if (doInput)
+	  {
+	    if (lineSeparator == null)
+	      {
+		GetPropertyAction getProperty = new GetPropertyAction("line.separator");
+		lineSeparator = (String) AccessController.doPrivileged(getProperty);
+	      }
+	    
+	    StringBuffer sb = new StringBuffer();
+	    String[] files = file.list();
+
+	    for (int index = 0; index < files.length; ++index)
+	       sb.append(files[index]).append(lineSeparator);
+
+	    inputStream = new ByteArrayInputStream(sb.toString().getBytes());
+	  }
+
+	if (doOutput)
+	  throw new ProtocolException
+	    ("file: protocol does not support output on directories");
+      }
     
     connected = true;
   }
@@ -154,6 +199,26 @@ public class Connection extends URLConnection
   }
 
   /**
+   * Get the last modified time of the resource.
+   *
+   * @return the time since epoch that the resource was modified.
+   */
+  public long getLastModified()
+  {
+    try
+      {
+	if (!connected)
+	  connect();
+
+	return file.lastModified();
+      }
+    catch (IOException e)
+      {
+	return -1;
+      }
+  }
+  
+  /**
    *  Get an http-style header field. Just handle a few common ones. 
    */
   public String getHeaderField(String field)
@@ -184,43 +249,24 @@ public class Connection extends URLConnection
 
   /**
    * Get the length of content.
+   *
    * @return the length of the content.
    */
   public int getContentLength()
   {
     try
       {
- 	if (!connected)
- 	  connect();
-
-	return (int) file.length();
-      }
-    catch (IOException e)
-      {
- 	return -1;
-      }
-  }
-
-  /**
-   * Get the last modified time of the resource.
-   *
-   * @return the time since epoch that the resource was modified.
-   */
-  public long getLastModified()
-  {
-    try
-      {
 	if (!connected)
 	  connect();
-
-	return file.lastModified();
+        
+	return (int) file.length();
       }
     catch (IOException e)
       {
 	return -1;
       }
   }
-
+  
   /**
    * This method returns a <code>Permission</code> object representing the
    * permissions required to access this URL.  This method returns a
@@ -231,6 +277,6 @@ public class Connection extends URLConnection
    */
   public Permission getPermission() throws IOException
   {
-    return new FilePermission(getURL().getFile(), "read");
+    return permission;
   }
 }

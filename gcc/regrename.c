@@ -18,8 +18,6 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-#define REG_OK_STRICT
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -37,10 +35,6 @@
 #include "flags.h"
 #include "toplev.h"
 #include "obstack.h"
-
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
 
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
@@ -107,8 +101,7 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   nregs = hard_regno_nregs[regno][GET_MODE (x)];
 
   /* There must not be pseudos at this point.  */
-  if (regno + nregs > FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
 
   while (nregs-- > 0)
     SET_HARD_REG_BIT (*pset, regno + nregs);
@@ -129,8 +122,7 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
 	int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
 
 	/* There must not be pseudos at this point.  */
-	if (regno + nregs > FIRST_PSEUDO_REGISTER)
-	  abort ();
+	gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
 
 	while (nregs-- > 0)
 	  CLEAR_HARD_REG_BIT (*pset, regno + nregs);
@@ -444,8 +436,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl,
 
 	  if (action == mark_read)
 	    {
-	      if (! exact_match)
-		abort ();
+	      gcc_assert (exact_match);
 
 	      /* ??? Class NO_REGS can happen if the md file makes use of
 		 EXTRA_CONSTRAINTS to match registers.  Which is arguably
@@ -529,6 +520,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
+	rtx *locB_reg = NULL;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -565,14 +557,14 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	    int index_op;
 
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
@@ -580,7 +572,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB = &XEXP (x, !index_op);
+	    locB_reg = &XEXP (x, !index_op);
 	  }
 	else if (code0 == REG)
 	  {
@@ -597,6 +589,9 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  scan_rtx_address (insn, locI, INDEX_REG_CLASS, action, mode);
 	if (locB)
 	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode), action, mode);
+	if (locB_reg)
+	  scan_rtx_address (insn, locB_reg, MODE_BASE_REG_REG_CLASS (mode),
+			    action, mode);
 	return;
       }
 
@@ -694,7 +689,7 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
     case POST_MODIFY:
     case PRE_MODIFY:
       /* Should only happen inside MEM.  */
-      abort ();
+      gcc_unreachable ();
 
     case CLOBBER:
       scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 1);
@@ -1012,7 +1007,8 @@ struct value_data
   unsigned int max_value_regs;
 };
 
-static void kill_value_regno (unsigned, struct value_data *);
+static void kill_value_one_regno (unsigned, struct value_data *);
+static void kill_value_regno (unsigned, unsigned, struct value_data *);
 static void kill_value (rtx, struct value_data *);
 static void set_value_regno (unsigned, enum machine_mode, struct value_data *);
 static void init_value_data (struct value_data *);
@@ -1037,11 +1033,13 @@ extern void debug_value_data (struct value_data *);
 static void validate_value_data (struct value_data *);
 #endif
 
-/* Kill register REGNO.  This involves removing it from any value lists,
-   and resetting the value mode to VOIDmode.  */
+/* Kill register REGNO.  This involves removing it from any value
+   lists, and resetting the value mode to VOIDmode.  This is only a
+   helper function; it does not handle any hard registers overlapping
+   with REGNO.  */
 
 static void
-kill_value_regno (unsigned int regno, struct value_data *vd)
+kill_value_one_regno (unsigned int regno, struct value_data *vd)
 {
   unsigned int i, next;
 
@@ -1068,7 +1066,37 @@ kill_value_regno (unsigned int regno, struct value_data *vd)
 #endif
 }
 
-/* Kill X.  This is a convenience function for kill_value_regno
+/* Kill the value in register REGNO for NREGS, and any other registers
+   whose values overlap.  */
+
+static void
+kill_value_regno (unsigned int regno, unsigned int nregs,
+		  struct value_data *vd)
+{
+  unsigned int j;
+
+  /* Kill the value we're told to kill.  */
+  for (j = 0; j < nregs; ++j)
+    kill_value_one_regno (regno + j, vd);
+
+  /* Kill everything that overlapped what we're told to kill.  */
+  if (regno < vd->max_value_regs)
+    j = 0;
+  else
+    j = regno - vd->max_value_regs;
+  for (; j < regno; ++j)
+    {
+      unsigned int i, n;
+      if (vd->e[j].mode == VOIDmode)
+	continue;
+      n = hard_regno_nregs[j][vd->e[j].mode];
+      if (j + n > regno)
+	for (i = 0; i < n; ++i)
+	  kill_value_one_regno (j + i, vd);
+    }
+}
+
+/* Kill X.  This is a convenience function wrapping kill_value_regno
    so that we mind the mode the register is in.  */
 
 static void
@@ -1086,26 +1114,8 @@ kill_value (rtx x, struct value_data *vd)
     {
       unsigned int regno = REGNO (x);
       unsigned int n = hard_regno_nregs[regno][GET_MODE (x)];
-      unsigned int i, j;
 
-      /* Kill the value we're told to kill.  */
-      for (i = 0; i < n; ++i)
-	kill_value_regno (regno + i, vd);
-
-      /* Kill everything that overlapped what we're told to kill.  */
-      if (regno < vd->max_value_regs)
-	j = 0;
-      else
-	j = regno - vd->max_value_regs;
-      for (; j < regno; ++j)
-	{
-	  if (vd->e[j].mode == VOIDmode)
-	    continue;
-	  n = hard_regno_nregs[j][vd->e[j].mode];
-	  if (j + n > regno)
-	    for (i = 0; i < n; ++i)
-	      kill_value_regno (j + i, vd);
-	}
+      kill_value_regno (regno, n, vd);
     }
 }
 
@@ -1405,6 +1415,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	rtx op1 = orig_op1;
 	rtx *locI = NULL;
 	rtx *locB = NULL;
+	rtx *locB_reg = NULL;
 
 	if (GET_CODE (op0) == SUBREG)
 	  {
@@ -1441,14 +1452,14 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	    int index_op;
 
 	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_BASE_P (op1, mode))
+		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_BASE_P (op0, mode))
+		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_MODE_OK_FOR_BASE_P (op1, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
@@ -1456,7 +1467,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	      index_op = 0;
 
 	    locI = &XEXP (x, index_op);
-	    locB = &XEXP (x, !index_op);
+	    locB_reg = &XEXP (x, !index_op);
 	  }
 	else if (code0 == REG)
 	  {
@@ -1475,6 +1486,10 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	if (locB)
 	  changed |= replace_oldest_value_addr (locB,
 						MODE_BASE_REG_CLASS (mode),
+						mode, insn, vd);
+	if (locB_reg)
+	  changed |= replace_oldest_value_addr (locB_reg,
+						MODE_BASE_REG_REG_CLASS (mode),
 						mode, insn, vd);
 	return changed;
       }
@@ -1705,7 +1720,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       if (CALL_P (insn))
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	  if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
-	    kill_value_regno (i, vd);
+	    kill_value_regno (i, 1, vd);
 
       /* Notice stores.  */
       note_stores (PATTERN (insn), kill_set_value, vd);
@@ -1740,14 +1755,13 @@ copyprop_hardreg_forward (void)
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (bb->pred)
-	for (bbp = bb; bbp && bbp != bb->pred->src; bbp = bbp->prev_bb);
-      if (bb->pred
-	  && ! bb->pred->pred_next
-	  && ! (bb->pred->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	  && bb->pred->src != ENTRY_BLOCK_PTR
+      if (EDGE_COUNT (bb->preds) > 0)
+	for (bbp = bb; bbp && bbp != EDGE_PRED (bb, 0)->src; bbp = bbp->prev_bb);
+      if (EDGE_COUNT (bb->preds) == 1
+	  && ! (EDGE_PRED (bb, 0)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
+	  && EDGE_PRED (bb, 0)->src != ENTRY_BLOCK_PTR
 	  && bbp)
-	all_vd[bb->index] = all_vd[bb->pred->src->index];
+	all_vd[bb->index] = all_vd[EDGE_PRED (bb, 0)->src->index];
       else
 	init_value_data (all_vd + bb->index);
 

@@ -95,7 +95,7 @@ import java.util.Map;
  */
 public abstract class Policy
 {
-  static private Policy currentPolicy = null;
+  static private Policy currentPolicy;
 
   /** Map of ProtectionDomains to PermissionCollections for this instance. */
   private Map pd2pc = null;
@@ -191,7 +191,10 @@ public abstract class Policy
             {
               currentPolicy = (Policy) Class.forName(pp).newInstance();
             }
-          catch (Exception ignored) {}
+	  catch (Exception e)
+	    {
+	      // Ignored.
+	    }
 
         if (currentPolicy == null)
           currentPolicy = new gnu.java.security.provider.DefaultPolicy();

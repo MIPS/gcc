@@ -65,7 +65,7 @@ package body Makegpr is
    --  The name of a linking script, built one the fly, when there are C++
    --  sources and the C++ compiler is not g++.
 
-   No_Argument : constant Argument_List := (1 .. 0 => null);
+   No_Argument : aliased Argument_List := (1 .. 0 => null);
    --  Null argument list representing case of no arguments
 
    FD : Process_Descriptor;
@@ -182,6 +182,15 @@ package body Makegpr is
       Table_Initial        => 20,
       Table_Increment      => 100,
       Table_Name           => "Makegpr.Linker_Options");
+   --  Table to store the linking options
+
+   package Library_Opts is new Table.Table
+     (Table_Component_Type => String_Access,
+      Table_Index_Type     => Integer,
+      Table_Low_Bound      => 1,
+      Table_Initial        => 20,
+      Table_Increment      => 100,
+      Table_Name           => "Makegpr.Library_Opts");
    --  Table to store the linking options
 
    package Ada_Mains is new Table.Table
@@ -1337,7 +1346,9 @@ package body Makegpr is
 
       Object_Name : Name_Id;
       Time_Stamp  : Time_Stamp_Type;
+      Driver_Name : Name_Id := No_Name;
 
+      Lib_Opts : Argument_List_Access := No_Argument'Unrestricted_Access;
    begin
       Check_Archive_Builder;
 
@@ -1527,61 +1538,112 @@ package body Makegpr is
 
          Last_Argument := 0;
 
-            --  If there are sources in Ada, then gnatmake will build the
-            --  library, so nothing to do.
+         --  If there are sources in Ada, then gnatmake will build the
+         --  library, so nothing to do.
 
-            if not Data.Languages (Lang_Ada) then
+         if not Data.Languages (Lang_Ada) then
 
-               --  Get all the object files of the project
+            --  Get all the object files of the project
 
-               Source_Id := Data.First_Other_Source;
+            Source_Id := Data.First_Other_Source;
 
-               while Source_Id /= No_Other_Source loop
-                  Source := Other_Sources.Table (Source_Id);
-                  Add_Argument
-                    (Get_Name_String (Source.Object_Name), Verbose_Mode);
-                  Source_Id := Source.Next;
-               end loop;
+            while Source_Id /= No_Other_Source loop
+               Source := Other_Sources.Table (Source_Id);
+               Add_Argument
+                 (Get_Name_String (Source.Object_Name), Verbose_Mode);
+               Source_Id := Source.Next;
+            end loop;
 
-               --  If it is a library, it need to be built it the same way
-               --  Ada libraries are built.
+            --  If it is a library, it need to be built it the same way
+            --  Ada libraries are built.
 
-               if Data.Library_Kind = Static then
-                  MLib.Build_Library
-                    (Ofiles => Arguments (1 .. Last_Argument),
-                     Afiles => No_Argument,
-                     Output_File => Get_Name_String (Data.Library_Name),
-                     Output_Dir  => Get_Name_String (Data.Library_Dir));
+            if Data.Library_Kind = Static then
+               MLib.Build_Library
+                 (Ofiles      => Arguments (1 .. Last_Argument),
+                  Afiles      => No_Argument,
+                  Output_File => Get_Name_String (Data.Library_Name),
+                  Output_Dir  => Get_Name_String (Data.Library_Dir));
 
-               else
-                  MLib.Tgt.Build_Dynamic_Library
-                    (Ofiles       => Arguments (1 .. Last_Argument),
-                     Foreign      => Arguments (1 .. Last_Argument),
-                     Afiles       => No_Argument,
-                     Options      => No_Argument,
-                     Interfaces   => No_Argument,
-                     Lib_Filename => Get_Name_String (Data.Library_Name),
-                     Lib_Dir      => Get_Name_String (Data.Library_Dir),
-                     Symbol_Data  => No_Symbols,
-                     Driver_Name  => No_Name,
-                     Lib_Version  => "",
-                     Auto_Init    => False);
+            else
+               --  Link with g++ if C++ is one of the languages, otherwise
+               --  building the library may fail with unresolved symbols.
+
+               if C_Plus_Plus_Is_Used then
+                  if Compiler_Names (Lang_C_Plus_Plus) = null then
+                     Get_Compiler (Lang_C_Plus_Plus);
+                  end if;
+
+                  if Compiler_Is_Gcc (Lang_C_Plus_Plus) then
+                     Name_Len := 0;
+                     Add_Str_To_Name_Buffer
+                       (Compiler_Names (Lang_C_Plus_Plus).all);
+                     Driver_Name := Name_Find;
+                  end if;
                end if;
+
+               --  If Library_Options is specified, add these options
+
+               declare
+                  Library_Options : constant Variable_Value :=
+                                      Value_Of
+                                        (Name_Library_Options,
+                                         Data.Decl.Attributes);
+
+               begin
+                  if not Library_Options.Default then
+                     declare
+                        Current : String_List_Id := Library_Options.Values;
+                        Element : String_Element;
+
+                     begin
+                        while Current /= Nil_String loop
+                           Element := String_Elements.Table (Current);
+                           Get_Name_String (Element.Value);
+
+                           if Name_Len /= 0 then
+                              Library_Opts.Increment_Last;
+                              Library_Opts.Table (Library_Opts.Last) :=
+                                new String'(Name_Buffer (1 .. Name_Len));
+                           end if;
+
+                           Current := Element.Next;
+                        end loop;
+                     end;
+                  end if;
+
+                  Lib_Opts :=
+                    new Argument_List'(Argument_List
+                       (Library_Opts.Table (1 .. Library_Opts.Last)));
+               end;
+
+               MLib.Tgt.Build_Dynamic_Library
+                 (Ofiles       => Arguments (1 .. Last_Argument),
+                  Foreign      => Arguments (1 .. Last_Argument),
+                  Afiles       => No_Argument,
+                  Options      => No_Argument,
+                  Options_2    => Lib_Opts.all,
+                  Interfaces   => No_Argument,
+                  Lib_Filename => Get_Name_String (Data.Library_Name),
+                  Lib_Dir      => Get_Name_String (Data.Library_Dir),
+                  Symbol_Data  => No_Symbols,
+                  Driver_Name  => Driver_Name,
+                  Lib_Version  => "",
+                  Auto_Init    => False);
             end if;
+         end if;
 
-            --  Create fake empty archive, so we can check its time stamp later
+         --  Create fake empty archive, so we can check its time stamp later
 
-            declare
-               Archive : Ada.Text_IO.File_Type;
-               use Ada.Text_IO;
-            begin
-               Create (Archive, Out_File, Archive_Name);
-               Close (Archive);
-            end;
+         declare
+            Archive : Ada.Text_IO.File_Type;
+            use Ada.Text_IO;
+         begin
+            Create (Archive, Out_File, Archive_Name);
+            Close (Archive);
+         end;
 
-            Create_Archive_Dependency_File
-              (Archive_Dep_Name, Data.First_Other_Source);
-
+         Create_Archive_Dependency_File
+           (Archive_Dep_Name, Data.First_Other_Source);
       end if;
    end Build_Library;
 
@@ -2539,12 +2601,13 @@ package body Makegpr is
                Need_To_Rebuild_Global_Archive := True;
             end if;
 
-            --  If there was no compilation error, build/rebuild the archive
-            --  if necessary.
+            --  If there was no compilation error and -c was not used,
+            --  build / rebuild the archive if necessary.
 
             if not Local_Errors
               and then Data.Library
               and then not Data.Languages (Lang_Ada)
+              and then not Compile_Only
             then
                Build_Library (Project, Need_To_Rebuild_Archive);
             end if;
@@ -2810,6 +2873,15 @@ package body Makegpr is
                Get_Name_String (Element.Value);
 
                if Name_Len > 0 then
+                  --  Remove a trailing directory separator: this may cause
+                  --  problems on Windows.
+
+                  if Name_Len > 1
+                    and then Name_Buffer (Name_Len) = Directory_Separator
+                  then
+                     Name_Len := Name_Len - 1;
+                  end if;
+
                   declare
                      Arg : constant String :=
                              "-I" & Name_Buffer (1 .. Name_Len);
@@ -2985,29 +3057,44 @@ package body Makegpr is
          end if;
 
       else
-         --  First compile sources and build archives for library project,
-         --  if necessary.
+         declare
+            Data : constant Prj.Project_Data := Projects.Table (Main_Project);
+         begin
+            if Data.Library and then Mains.Number_Of_Mains /= 0 then
+               Osint.Fail
+                 ("Cannot specify mains on the command line " &
+                  "for a Library Project");
+            end if;
 
-         Compile_Sources;
+            --  First check for C++, to link libraries with g++,
+            --  rather than gcc.
 
-         --  When Keep_Going is True, if we had some errors, fail now,
-         --  reporting the number of compilation errors.
-         --  Do not attempt to link.
-
-         Report_Total_Errors ("compilation");
-
-         --  If -c was not specified, link the executables, if there are any.
-
-         if not Compile_Only then
-            Build_Global_Archive;
             Check_For_C_Plus_Plus;
-            Link_Executables;
-         end if;
 
-         --  When Keep_Going is True, if we had some errors, fail, reporting
-         --  the number of linking errors.
+            --  Compile sources and build archives for library project,
+            --  if necessary.
 
-         Report_Total_Errors ("linking");
+            Compile_Sources;
+
+            --  When Keep_Going is True, if we had some errors, fail now,
+            --  reporting the number of compilation errors.
+            --  Do not attempt to link.
+
+            Report_Total_Errors ("compilation");
+
+            --  If -c was not specified, link the executables,
+            --  if there are any.
+
+            if not Compile_Only and then not Data.Library then
+               Build_Global_Archive;
+               Link_Executables;
+            end if;
+
+            --  When Keep_Going is True, if we had some errors, fail, reporting
+            --  the number of linking errors.
+
+            Report_Total_Errors ("linking");
+         end;
       end if;
    end Gprmake;
 

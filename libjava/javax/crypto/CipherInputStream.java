@@ -294,7 +294,7 @@ public class CipherInputStream extends FilterInputStream
    *
    * @param mark Is ignored.
    */
-  public void mark(int mark)
+  public void mark(long mark)
   {
   }
 

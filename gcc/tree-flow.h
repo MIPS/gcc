@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
+#include "ipa-static.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -62,6 +63,9 @@ struct ptr_info_def GTY(())
 
   /* Nonzero if this pointer is dereferenced.  */
   unsigned int is_dereferenced : 1;
+
+  /* Nonzero if this pointer points to a global variable.  */
+  unsigned int pt_global_mem : 1;
 
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
@@ -197,6 +201,11 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_static_vars_info_t GTY ((skip)) static_vars_info;
 };
 
 
@@ -246,11 +255,6 @@ struct stmt_ann_d GTY(())
      need to be scanned again).  */
   unsigned modified : 1;
 
-  /* Nonzero if the statement is in the CCP worklist and has not been
-     "cancelled".  If we ever need to use this bit outside CCP, then
-     it should be renamed.  */
-  unsigned in_ccp_worklist: 1;
-
   /* Nonzero if the statement makes aliased loads.  */
   unsigned makes_aliased_loads : 1;
 
@@ -267,14 +271,7 @@ struct stmt_ann_d GTY(())
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
 
-  /* Statement operands.  */
-  struct def_optype_d * GTY (()) def_ops;
-  struct use_optype_d * GTY (()) use_ops;
-
-  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
-  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
-  struct vuse_optype_d * GTY (()) vuse_ops;
-  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
+  struct stmt_operands_d operands;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -286,6 +283,12 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
+
+  /* Linked list of histograms for value-based profiling.  This is really a
+     struct histogram_value*.  We use void* to avoid having to export that
+     everywhere, and to avoid having to put it in GC memory.  */
+  
+  void * GTY ((skip (""))) histograms;
 };
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
@@ -346,16 +349,16 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Number of predecessors for this block.  This is only valid during
-     SSA rewriting.  It is not maintained after conversion into SSA form.  */
-  int num_preds;
-
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
 
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
+
+  /* Nonzero if one or more incoming edges to this block should be threaded
+     to an outgoing edge of this block.  */
+  unsigned incoming_edge_threaded : 1;
 
   struct edge_prediction *predictions;
 };
@@ -420,6 +423,7 @@ typedef struct {
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
+block_stmt_iterator bsi_for_stmt (tree);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
@@ -449,6 +453,12 @@ extern void bsi_insert_after (block_stmt_iterator *, tree,
 
 extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 
+/* In tree-sra.c  */
+void sra_insert_before (block_stmt_iterator *, tree);
+void sra_insert_after (block_stmt_iterator *, tree);
+void sra_init_cache (void);
+bool sra_type_can_be_decomposed_p (tree);
+
 /*---------------------------------------------------------------------------
 			      Function prototypes
 ---------------------------------------------------------------------------*/
@@ -476,7 +486,7 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern void cleanup_tree_cfg (void);
+extern bool cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -487,15 +497,21 @@ extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
-extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
+extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
-extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
+extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
+					basic_block *);
+extern void add_phi_args_after_copy_bb (basic_block);
+extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
+extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
+extern void allocate_ssa_names (bitmap, struct htab **);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -531,9 +547,12 @@ extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
+extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
+extern void find_new_referenced_vars (tree *);
+
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
 
@@ -564,7 +583,6 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -574,6 +592,7 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
+extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
@@ -584,7 +603,7 @@ extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
-extern void rewrite_ssa_into_ssa (bitmap);
+extern void rewrite_ssa_into_ssa (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
@@ -602,6 +621,7 @@ extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern bool may_propagate_copy_into_asm (tree);
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
@@ -609,11 +629,11 @@ extern bool may_propagate_copy (tree, tree);
 
 struct tree_niter_desc
 {
-  tree assumptions;	/* The boolean expression.  If this expression evalutes
+  tree assumptions;	/* The boolean expression.  If this expression evaluates
 			   to false, then the other fields in this structure
 			   should not be used; there is no guarantee that they
 			   will be correct.  */
-  tree may_be_zero;	/* The booleand expression.  If it evaluates to true,
+  tree may_be_zero;	/* The boolean expression.  If it evaluates to true,
 			   the loop will exit in the first iteration (i.e.
 			   its latch will not be executed), even if the niter
 			   field says otherwise.  */
@@ -635,9 +655,19 @@ struct tree_niter_desc
 			   the loop), then the information would be lost.  */
 };
 
+/* In tree-vectorizer.c */
+void vectorize_loops (struct loops *);
+
+/* In tree-ssa-phiopt.c */
+bool empty_block_p (basic_block);
+
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);
+void tree_ssa_unswitch_loops (struct loops *);
+void canonicalize_induction_variables (struct loops *);
+void tree_unroll_loops_completely (struct loops *);
+void tree_ssa_iv_optimize (struct loops *);
 
 void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
 				struct tree_niter_desc *);
@@ -648,8 +678,40 @@ tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
 tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
+void rewrite_into_loop_closed_ssa (void);
+void verify_loop_closed_ssa (void);
 void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
+void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
+		tree *, tree *);
+void split_loop_exit_edge (edge);
+basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
+void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
+				     bool *);
+basic_block ip_end_pos (struct loop *);
+basic_block ip_normal_pos (struct loop *);
+bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					 unsigned int, sbitmap,
+					 edge, edge *,
+					 unsigned int *, int);
+struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
+				    basic_block *);
+
+/* In tree-ssa-loop-im.c  */
+/* The possibilities of statement movement.  */
+
+enum move_pos
+  {
+    MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
+    MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
+				   become executed -- memory accesses, ... */
+    MOVE_POSSIBLE		/* Unlimited movement.  */
+  };
+extern enum move_pos movement_possibility (tree);
+
+/* In tree-if-conv.c  */
+bool tree_if_conversion (struct loop *, bool);
+
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
@@ -687,6 +749,19 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
+/* In tree-ssa-operands.c  */
+extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
+				stmt_operands_p);
+
+/* In tree-loop-linear.c  */
+extern void linear_transform_loops (struct loops *);
+
+/* In tree-ssa-loop-ivopts.c  */
+extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
+/* In gimplify.c  */
+
+tree force_gimple_operand (tree, tree *, bool, tree);
 
 /* In tree-profile.c */
 extern bool do_tree_profiling (void);

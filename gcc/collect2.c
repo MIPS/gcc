@@ -149,10 +149,6 @@ int do_collecting = 1;
 int do_collecting = 0;
 #endif
 
-#ifndef COLLECT_PARSE_FLAG
-#define COLLECT_PARSE_FLAG(FLAG)
-#endif
-
 /* Nonzero if we should suppress the automatic demangling of identifiers
    in linker error messages.  Set from COLLECT_NO_DEMANGLE.  */
 int no_demangle;
@@ -401,9 +397,9 @@ error (const char * msgid, ...)
    provide a default entry.  */
 
 void
-fancy_abort (void)
+fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal error");
+  fatal ("internal gcc abort in %s, at %s:%d", func, file, line);
 }
 
 static void
@@ -864,7 +860,6 @@ main (int argc, char **argv)
       {
 	if (! strcmp (argv[i], "-debug"))
 	  debug = 1;
-	COLLECT_PARSE_FLAG (argv[i]);
       }
     vflag = debug;
   }

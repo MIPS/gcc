@@ -154,7 +154,7 @@ check_maybe_invariant (rtx x)
 
       /* Just handle the most trivial case where we load from an unchanging
 	 location (most importantly, pic tables).  */
-      if (RTX_UNCHANGING_P (x))
+      if (MEM_READONLY_P (x))
 	break;
 
       return false;
@@ -219,6 +219,7 @@ find_exits (struct loop *loop, basic_block *body,
 	    bitmap may_exit, bitmap has_exit)
 {
   unsigned i;
+  edge_iterator ei;
   edge e;
   struct loop *outermost_exit = loop, *aexit;
   bool has_call = false;
@@ -239,7 +240,7 @@ find_exits (struct loop *loop, basic_block *body,
 		}
 	    }
 
-	  for (e = body[i]->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, body[i]->succs)
 	    {
 	      if (flow_bb_inside_loop_p (loop, e->dest))
 		continue;
@@ -599,6 +600,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
   unsigned aregs_needed;
   unsigned depno;
   struct invariant *dep;
+  bitmap_iterator bi;
 
   *comp_cost = 0;
   *regs_needed = 0;
@@ -610,7 +612,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
   (*regs_needed)++;
   (*comp_cost) += inv->cost;
 
-  EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno,
+  EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno, bi)
     {
       dep = VARRAY_GENERIC_PTR_NOGC (invariants, depno);
 
@@ -631,7 +633,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
       (*regs_needed) += aregs_needed;
       (*comp_cost) += acomp_cost;
-    });
+    }
 }
 
 /* Calculates gain for eliminating invariant INV.  REGS_USED is the number
@@ -696,6 +698,7 @@ static void
 set_move_mark (unsigned invno)
 {
   struct invariant *inv = VARRAY_GENERIC_PTR_NOGC (invariants, invno);
+  bitmap_iterator bi;
 
   if (inv->move)
     return;
@@ -704,7 +707,10 @@ set_move_mark (unsigned invno)
   if (dump_file)
     fprintf (dump_file, "Decided to move invariant %d\n", invno);
 
-  EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, invno, set_move_mark (invno));
+  EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, invno, bi)
+    {
+      set_move_mark (invno);
+    }
 }
 
 /* Determines which invariants to move.  DF is the dataflow object.  */
@@ -714,17 +720,6 @@ find_invariants_to_move (struct df *df)
 {
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
-
-  if (flag_move_all_movables)
-    {
-      /* This is easy & stupid.  */
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
-	{
-	  inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
-	  inv->move = true;
-	}
-      return;
-    }
 
   if (!VARRAY_ACTIVE_SIZE (invariants))
     return;
@@ -772,6 +767,7 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
   basic_block preheader = loop_preheader_edge (loop)->src;
   rtx reg, set;
   struct use *use;
+  bitmap_iterator bi;
 
   if (inv->processed)
     return;
@@ -779,10 +775,10 @@ move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
 
   if (inv->depends_on)
     {
-      EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, i,
+      EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, i, bi)
 	{
 	  move_invariant_reg (loop, i, df);
-	});
+	}
     }
 
   /* Move the set out of the loop.  If the set is always executed (we could

@@ -88,8 +88,10 @@ namespace std
       _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		   input_iterator_tag)
       {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refdata();
+#endif
 	// Avoid reallocation for common case.
 	_CharT __buf[128];
 	size_type __len = 0;
@@ -122,8 +124,7 @@ namespace std
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;
 	  }
-	__r->_M_length = __len;
-	__r->_M_refdata()[__len] = _Rep::_S_terminal;       // grrr.
+	__r->_M_set_length_and_sharable(__len);
 	return __r->_M_refdata();
       }
 
@@ -134,11 +135,12 @@ namespace std
       _S_construct(_InIterator __beg, _InIterator __end, const _Alloc& __a,
 		   forward_iterator_tag)
       {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refdata();
-
+#endif
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg), 0))
+	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
 	  __throw_logic_error(__N("basic_string::_S_construct NULL not valid"));
 
 	const size_type __dnew = static_cast<size_type>(std::distance(__beg,
@@ -152,8 +154,7 @@ namespace std
 	    __r->_M_destroy(__a);
 	    __throw_exception_again;
 	  }
-	__r->_M_length = __dnew;
-	__r->_M_refdata()[__dnew] = _Rep::_S_terminal;  // grrr.
+	__r->_M_set_length_and_sharable(__dnew);
 	return __r->_M_refdata();
       }
 
@@ -162,16 +163,16 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     _S_construct(size_type __n, _CharT __c, const _Alloc& __a)
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (__n == 0 && __a == _Alloc())
 	return _S_empty_rep()._M_refdata();
-
+#endif
       // Check for out_of_range and length_error exceptions.
       _Rep* __r = _Rep::_S_create(__n, size_type(0), __a);
       if (__n)
 	traits_type::assign(__r->_M_refdata(), __n, __c);
 
-      __r->_M_length = __n;
-      __r->_M_refdata()[__n] = _Rep::_S_terminal;  // grrr
+      __r->_M_set_length_and_sharable(__n);
       return __r->_M_refdata();
     }
 
@@ -274,9 +275,7 @@ namespace std
 	     traits_type::copy(_M_data(), __s, __n);
 	   else if (__pos)
 	     traits_type::move(_M_data(), __s, __n);
-	   _M_rep()->_M_set_sharable();
-	   _M_rep()->_M_length = __n;
-	   _M_data()[__n] = _Rep::_S_terminal;  // grr.
+	   _M_rep()->_M_set_length_and_sharable(__n);
 	   return *this;
 	 }
      }
@@ -358,8 +357,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::_Rep::
     _M_destroy(const _Alloc& __a) throw ()
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (this == &_S_empty_rep())
-        return;
+	return;
+#endif
       const size_type __size = sizeof(_Rep_base) +
 	                       (this->_M_capacity + 1) * sizeof(_CharT);
       _Raw_bytes_alloc(__a).deallocate(reinterpret_cast<char*>(this), __size);
@@ -367,10 +368,13 @@ namespace std
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::_M_leak_hard()
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_leak_hard()
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (_M_rep() == &_S_empty_rep())
-        return;
+	return;
+#endif
       if (_M_rep()->_M_is_shared())
 	_M_mutate(0, 0, 0);
       _M_rep()->_M_set_leaked();
@@ -385,12 +389,11 @@ namespace std
       const size_type __new_size = __old_size + __len2 - __len1;
       const size_type __how_much = __old_size - __pos - __len1;
 
-      if (_M_rep() == &_S_empty_rep()
-	  || _M_rep()->_M_is_shared() || __new_size > capacity())
+      if (__new_size > this->capacity() || _M_rep()->_M_is_shared())
 	{
 	  // Must reallocate.
 	  const allocator_type __a = get_allocator();
-	  _Rep* __r = _Rep::_S_create(__new_size, capacity(), __a);
+	  _Rep* __r = _Rep::_S_create(__new_size, this->capacity(), __a);
 
 	  if (__pos)
 	    traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
@@ -407,15 +410,13 @@ namespace std
 	  traits_type::move(_M_data() + __pos + __len2,
 			    _M_data() + __pos + __len1, __how_much);
 	}
-      _M_rep()->_M_set_sharable();
-      _M_rep()->_M_length = __new_size;
-      _M_data()[__new_size] = _Rep::_S_terminal; // grrr. (per 21.3.4)
-      // You cannot leave those LWG people alone for a second.
+      _M_rep()->_M_set_length_and_sharable(__new_size);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::reserve(size_type __res)
+    basic_string<_CharT, _Traits, _Alloc>::
+    reserve(size_type __res)
     {
       if (__res != this->capacity() || _M_rep()->_M_is_shared())
         {
@@ -432,7 +433,9 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
-    void basic_string<_CharT, _Traits, _Alloc>::swap(basic_string& __s)
+    void
+    basic_string<_CharT, _Traits, _Alloc>::
+    swap(basic_string& __s)
     {
       if (_M_rep()->_M_is_leaked())
 	_M_rep()->_M_set_sharable();
@@ -462,7 +465,6 @@ namespace std
     _S_create(size_type __capacity, size_type __old_capacity,
 	      const _Alloc& __alloc)
     {
-      typedef basic_string<_CharT, _Traits, _Alloc> __string_type;
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 83.  String::npos vs. string::max_size()
       if (__capacity > _S_max_size)
@@ -491,9 +493,8 @@ namespace std
       // low-balling it (especially when this algorithm is used with
       // malloc implementations that allocate memory blocks rounded up
       // to a size which is a power of 2).
-      const size_type __pagesize = 4096; // must be 2^i * __subpagesize
-      const size_type __subpagesize = 128; // should be >> __malloc_header_size
-      const size_type __malloc_header_size = 4 * sizeof (void*);
+      const size_type __pagesize = 4096;
+      const size_type __malloc_header_size = 4 * sizeof(void*);
 
       // The below implements an exponential growth policy, necessary to
       // meet amortized linear time requirements of the library: see
@@ -501,14 +502,7 @@ namespace std
       // It's active for allocations requiring an amount of memory above
       // system pagesize. This is consistent with the requirements of the
       // standard: http://gcc.gnu.org/ml/libstdc++/2001-07/msg00130.html
-
-      // The biggest string which fits in a memory page
-      const size_type __page_capacity = ((__pagesize - __malloc_header_size
-					  - sizeof(_Rep) - sizeof(_CharT))
-					 / sizeof(_CharT));
-
-      if (__capacity > __old_capacity && __capacity < 2 * __old_capacity
-	  && __capacity > __page_capacity)
+      if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
 	__capacity = 2 * __old_capacity;
 
       // NB: Need an array of char_type[__capacity], plus a terminating
@@ -526,20 +520,12 @@ namespace std
 	    __capacity = _S_max_size;
 	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
 	}
-      else if (__size > __subpagesize)
-	{
-	  const size_type __extra = __subpagesize - __adj_size % __subpagesize;
-	  __capacity += __extra / sizeof(_CharT);
-	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
-	}
 
       // NB: Might throw, but no worries about a leak, mate: _Rep()
       // does not throw.
       void* __place = _Raw_bytes_alloc(__alloc).allocate(__size);
       _Rep *__p = new (__place) _Rep;
       __p->_M_capacity = __capacity;
-      __p->_M_set_sharable();  // One reference.
-      __p->_M_length = 0;
       return __p;
     }
 
@@ -553,17 +539,16 @@ namespace std
       _Rep* __r = _Rep::_S_create(__requested_cap, this->_M_capacity,
 				  __alloc);
       if (this->_M_length)
-	traits_type::copy(__r->_M_refdata(), _M_refdata(),
-			  this->_M_length);
+	traits_type::copy(__r->_M_refdata(), _M_refdata(), this->_M_length);
 
-      __r->_M_length = this->_M_length;
-      __r->_M_refdata()[this->_M_length] = _Rep::_S_terminal;
+      __r->_M_set_length_and_sharable(this->_M_length);
       return __r->_M_refdata();
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::resize(size_type __n, _CharT __c)
+    basic_string<_CharT, _Traits, _Alloc>::
+    resize(size_type __n, _CharT __c)
     {
       if (__n > max_size())
 	__throw_length_error(__N("basic_string::resize"));

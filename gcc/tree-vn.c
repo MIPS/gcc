@@ -87,14 +87,11 @@ vn_compute (tree expr, hashval_t val, vuse_optype vuses)
 {
   size_t i;
 
-#if defined ENABLE_CHECKING
   /* EXPR must not be a statement.  We are only interested in value
      numbering expressions on the RHS of assignments.  */
-  if (expr == NULL_TREE
-      || (expr->common.ann
-	  && expr->common.ann->common.type == STMT_ANN))
-    abort ();
-#endif
+  gcc_assert (expr);
+  gcc_assert (!expr->common.ann
+	      || expr->common.ann->common.type != STMT_ANN);
 
   val = iterative_hash_expr (expr, val);
 
@@ -151,15 +148,24 @@ val_expr_pair_expr_eq (const void *p1, const void *p2)
 {
   const val_expr_pair_t ve1 = (val_expr_pair_t) p1;
   const val_expr_pair_t ve2 = (val_expr_pair_t) p2;
+  size_t i;
 
-  if (expressions_equal_p (ve1->e, ve2->e))
-    return true;
+  if (! expressions_equal_p (ve1->e, ve2->e))
+    return false;
+
+  if (NUM_VUSES (ve1->vuses) != NUM_VUSES (ve2->vuses))
+    return false;
   
-  return false;
+  for (i = 0; i < NUM_VUSES (ve1->vuses); i++)
+    if (! expressions_equal_p (VUSE_OP (ve1->vuses, i),
+			       VUSE_OP (ve2->vuses, i)))
+      return false;
+  
+  return true;
 }
 
 
-/* Set the value handle for expression E to value V */
+/* Set the value handle for expression E to value V.  */
    
 static void
 set_value_handle (tree e, tree v)
@@ -168,11 +174,9 @@ set_value_handle (tree e, tree v)
     SSA_NAME_VALUE (e) = v;
   else if (EXPR_P (e) || DECL_P (e))
     get_tree_ann (e)->common.value_handle = v;
-  else if (is_gimple_min_invariant (e))
-    /* Do nothing.  Constants are their own value handles.  */
-    ;
   else
-    abort ();
+    /* Do nothing.  Constants are their own value handles.  */
+    gcc_assert (is_gimple_min_invariant (e));
 }
 
 
@@ -275,10 +279,11 @@ get_value_handle (tree expr)
       tree_ann_t ann = tree_ann (expr);
       return ((ann) ? ann->common.value_handle : NULL_TREE);
     }
-  else if (is_gimple_min_invariant (expr))
-    return expr;
-
-  abort ();
+  else
+    {
+      gcc_assert (is_gimple_min_invariant (expr));
+      return expr;
+    }
 }
 
 

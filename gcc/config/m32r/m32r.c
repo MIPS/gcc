@@ -1174,11 +1174,8 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 	y = force_reg (GET_MODE (x), y);
       else
 	{
-	  int ok_const =
-	    (code == LTU || code == LEU || code == GTU || code == GEU)
-	    ? uint16_operand (y, GET_MODE (y))
-	    : reg_or_cmp_int16_operand (y, GET_MODE (y));
-	  
+	  int ok_const = reg_or_int16_operand (y, GET_MODE (y));
+
 	  if (! ok_const)
 	    y = force_reg (GET_MODE (x), y);
 	}
@@ -1594,8 +1591,8 @@ static struct m32r_frame_info zero_frame_info;
    The return address and frame pointer are treated separately.
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
-((regno) != RETURN_ADDR_REGNUM && (regno) != FRAME_POINTER_REGNUM \
- && (regs_ever_live[regno] && (!call_used_regs[regno] || interrupt_p)))
+  ((regno) != RETURN_ADDR_REGNUM && (regno) != FRAME_POINTER_REGNUM \
+  && (regs_ever_live[regno] && (!call_really_used_regs[regno] || interrupt_p)))
 
 #define MUST_SAVE_FRAME_POINTER (regs_ever_live[FRAME_POINTER_REGNUM])
 #define MUST_SAVE_RETURN_ADDR   (regs_ever_live[RETURN_ADDR_REGNUM] || current_function_profile)
@@ -1993,9 +1990,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
       emit_insn (gen_pic_load_addr (address, orig));
 
       emit_insn (gen_addsi3 (address, address, pic_offset_table_rtx));
-      pic_ref = gen_rtx_MEM (Pmode, address);
-
-      RTX_UNCHANGING_P (pic_ref) = 1;
+      pic_ref = gen_const_mem (Pmode, address);
       insn = emit_move_insn (reg, pic_ref);
       current_function_uses_pic_offset_table = 1;
 #if 0

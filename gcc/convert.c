@@ -43,8 +43,7 @@ convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
     {
-      expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
+      expr = build_int_cst (type, 0);
       return expr;
     }
 
@@ -398,32 +397,11 @@ convert_to_integer (tree type, tree expr)
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
       /* If this is a logical operation, which just returns 0 or 1, we can
-	 change the type of the expression.  For some logical operations,
-	 we must also change the types of the operands to maintain type
-	 correctness.  */
+	 change the type of the expression.  */
 
-      if (TREE_CODE_CLASS (ex_form) == '<')
+      if (TREE_CODE_CLASS (ex_form) == tcc_comparison)
 	{
 	  expr = copy_node (expr);
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_AND_EXPR || ex_form == TRUTH_ANDIF_EXPR
-	       || ex_form == TRUTH_OR_EXPR || ex_form == TRUTH_ORIF_EXPR
-	       || ex_form == TRUTH_XOR_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
-	  TREE_OPERAND (expr, 1) = convert (type, TREE_OPERAND (expr, 1));
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_NOT_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_TYPE (expr) = type;
 	  return expr;
 	}
@@ -762,6 +740,6 @@ convert_to_vector (tree type, tree expr)
 
     default:
       error ("can't convert value to a vector");
-      return convert_to_vector (type, integer_zero_node);
+      return error_mark_node;
     }
 }

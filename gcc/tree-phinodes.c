@@ -236,12 +236,9 @@ resize_phi_node (tree *phi, int len)
   int size, old_size;
   tree new_phi;
   int i, old_len, bucket = NUM_BUCKETS - 2;
-                                                                                
-#ifdef ENABLE_CHECKING
-  if (len < PHI_ARG_CAPACITY (*phi))
-    abort ();
-#endif
-                                                                                
+
+  gcc_assert (len >= PHI_ARG_CAPACITY (*phi));
+
   /* Note that OLD_SIZE is guaranteed to be smaller than SIZE.  */
   old_size = (sizeof (struct tree_phi_node)
 	     + (PHI_ARG_CAPACITY (*phi) - 1) * sizeof (struct phi_arg_d));
@@ -295,7 +292,7 @@ create_phi_node (tree var, basic_block bb)
 {
   tree phi;
 
-  phi = make_phi_node (var, bb_ann (bb)->num_preds);
+  phi = make_phi_node (var, EDGE_COUNT (bb->preds));
 
   /* This is a new phi node, so note that is has not yet been
      rewritten.  */
@@ -336,24 +333,29 @@ add_phi_arg (tree *phi, tree def, edge e)
 	 release the old PHI node.  */
       if (*phi != old_phi)
 	{
+	  /* Extract the basic block for the PHI from the PHI's annotation
+	     rather than the edge.  This works better as the edge's
+	     destination may not currently be the block with the PHI
+	     node if we are in the process of threading the edge to
+	     a new destination.  */
+	  basic_block bb = bb_for_stmt (*phi);
+
 	  release_phi_node (old_phi);
 
 	  /* Update the list head if replacing the first listed phi.  */
-	  if (phi_nodes (e->dest) == old_phi)
-	    bb_ann (e->dest)->phi_nodes = *phi;
+	  if (phi_nodes (bb) == old_phi)
+	    bb_ann (bb)->phi_nodes = *phi;
 	  else
 	    {
 	      /* Traverse the list looking for the phi node to chain to.  */
 	      tree p;
 
-	      for (p = phi_nodes (e->dest);
+	      for (p = phi_nodes (bb);
 		   p && PHI_CHAIN (p) != old_phi;
 		   p = PHI_CHAIN (p))
 		;
 
-	      if (!p)
-		abort ();
-
+	      gcc_assert (p);
 	      PHI_CHAIN (p) = *phi;
 	    }
 	}
@@ -518,8 +520,7 @@ remove_all_phi_nodes_for (bitmap vars)
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
-	  if (bitmap_bit_p (vars, var_ann (var)->uid))
-	    abort ();
+	  gcc_assert (!bitmap_bit_p (vars, var_ann (var)->uid));
 	}
 #endif
     }

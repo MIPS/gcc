@@ -56,13 +56,10 @@ chrec_fold_poly_cst (enum tree_code code,
 		     tree poly, 
 		     tree cst)
 {
-#if defined ENABLE_CHECKING
-  if (poly == NULL_TREE
-      || cst == NULL_TREE
-      || TREE_CODE (poly) != POLYNOMIAL_CHREC
-      || is_not_constant_evolution (cst))
-    abort ();
-#endif
+  gcc_assert (poly);
+  gcc_assert (cst);
+  gcc_assert (TREE_CODE (poly) == POLYNOMIAL_CHREC);
+  gcc_assert (!is_not_constant_evolution (cst));
   
   switch (code)
     {
@@ -98,14 +95,11 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 			   tree poly1)
 {
   tree left, right;
-  
-#if defined ENABLE_CHECKING
-  if (poly0 == NULL_TREE
-      || poly1 == NULL_TREE
-      || TREE_CODE (poly0) != POLYNOMIAL_CHREC
-      || TREE_CODE (poly1) != POLYNOMIAL_CHREC)
-    abort ();
-#endif
+
+  gcc_assert (poly0);
+  gcc_assert (poly1);
+  gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
+  gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
   
   /*
     {a, +, b}_1 + {c, +, d}_2  ->  {{a, +, b}_1 + c, +, d}_2,
@@ -123,7 +117,7 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 	  (CHREC_VARIABLE (poly1), 
 	   chrec_fold_minus (type, poly0, CHREC_LEFT (poly1)),
 	   chrec_fold_multiply (type, CHREC_RIGHT (poly1), 
-				convert (type, integer_minus_one_node)));
+				build_int_cst_type (type, -1)));
     }
   
   if (CHREC_VARIABLE (poly0) > CHREC_VARIABLE (poly1))
@@ -171,13 +165,10 @@ chrec_fold_multiply_poly_poly (tree type,
 			       tree poly0, 
 			       tree poly1)
 {
-#if defined ENABLE_CHECKING
-  if (poly0 == NULL_TREE
-      || poly1 == NULL_TREE
-      || TREE_CODE (poly0) != POLYNOMIAL_CHREC
-      || TREE_CODE (poly1) != POLYNOMIAL_CHREC)
-    abort ();
-#endif
+  gcc_assert (poly0);
+  gcc_assert (poly1);
+  gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
+  gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
   
   /* {a, +, b}_1 * {c, +, d}_2  ->  {c*{a, +, b}_1, +, d}_2,
      {a, +, b}_2 * {c, +, d}_1  ->  {a*{c, +, d}_1, +, b}_2,
@@ -218,7 +209,7 @@ chrec_fold_multiply_poly_poly (tree type,
      
      /* "2*b*d".  */
      chrec_fold_multiply
-     (type, build_int_2 (2, 0),
+     (type, build_int_cst (NULL_TREE, 2),
       chrec_fold_multiply (type, CHREC_RIGHT (poly0), CHREC_RIGHT (poly1))));
 }
 
@@ -241,7 +232,7 @@ chrec_fold_automatically_generated_operands (tree op0,
       || op1 == chrec_not_analyzed_yet)
     return chrec_not_analyzed_yet;
   
-  /* The default case produces a safe result. */
+  /* The default case produces a safe result.  */
   return chrec_dont_know;
 }
 
@@ -291,9 +282,8 @@ chrec_fold_plus_1 (enum tree_code code,
 	    return build_polynomial_chrec 
 	      (CHREC_VARIABLE (op1), 
 	       chrec_fold_minus (type, op0, CHREC_LEFT (op1)),
-	       chrec_fold_multiply (type, CHREC_RIGHT (op1), 
-				    convert (type,
-					     integer_minus_one_node)));
+	       chrec_fold_multiply (type, CHREC_RIGHT (op1),
+				    build_int_cst_type (type, -1)));
 
 	default:
 	  if (tree_contains_chrecs (op0)
@@ -356,7 +346,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return convert (type, integer_zero_node);
+	    return build_int_cst_type (type, 0);
 	  
 	  return build_polynomial_chrec 
 	    (CHREC_VARIABLE (op0), 
@@ -369,7 +359,7 @@ chrec_fold_multiply (tree type,
 	return op1;
       
       if (integer_zerop (op0))
-	return convert (type, integer_zero_node);
+    	return build_int_cst_type (type, 0);
       
       switch (TREE_CODE (op1))
 	{
@@ -383,7 +373,7 @@ chrec_fold_multiply (tree type,
 	  if (integer_onep (op1))
 	    return op0;
 	  if (integer_zerop (op1))
-	    return convert (type, integer_zero_node);
+	    return build_int_cst_type (type, 0);
 	  return fold (build (MULT_EXPR, type, op0, op1));
 	}
     }
@@ -592,14 +582,16 @@ hide_evolution_in_other_loops_than_loop (tree chrec,
     }
 }
 
-/* Returns the evolution part in LOOP_NUM.  Example: the call
-   get_evolution_in_loop (1, {{0, +, 1}_1, +, 2}_1) returns 
-   {1, +, 2}_1  */
+/* Returns the evolution part of CHREC in LOOP_NUM when RIGHT is
+   true, otherwise returns the initial condition in LOOP_NUM.  */
 
-tree 
-evolution_part_in_loop_num (tree chrec, 
-			    unsigned loop_num)
+static tree 
+chrec_component_in_loop_num (tree chrec, 
+			     unsigned loop_num,
+			     bool right)
 {
+  tree component;
+
   if (automatically_generated_chrec_p (chrec))
     return chrec;
   
@@ -608,15 +600,22 @@ evolution_part_in_loop_num (tree chrec,
     case POLYNOMIAL_CHREC:
       if (CHREC_VARIABLE (chrec) == loop_num)
 	{
+	  if (right)
+	    component = CHREC_RIGHT (chrec);
+	  else
+	    component = CHREC_LEFT (chrec);
+
 	  if (TREE_CODE (CHREC_LEFT (chrec)) != POLYNOMIAL_CHREC
 	      || CHREC_VARIABLE (CHREC_LEFT (chrec)) != CHREC_VARIABLE (chrec))
-	    return CHREC_RIGHT (chrec);
+	    return component;
 	  
 	  else
 	    return build_polynomial_chrec
 	      (loop_num, 
-	       evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num), 
-	       CHREC_RIGHT (chrec));
+	       chrec_component_in_loop_num (CHREC_LEFT (chrec), 
+					    loop_num, 
+					    right), 
+	       component);
 	}
       
       else if (CHREC_VARIABLE (chrec) < loop_num)
@@ -624,11 +623,38 @@ evolution_part_in_loop_num (tree chrec,
 	return NULL_TREE;
       
       else
-	return evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num);
+	return chrec_component_in_loop_num (CHREC_LEFT (chrec), 
+					    loop_num, 
+					    right);
       
-    default:
-      return NULL_TREE;
+     default:
+      if (right)
+	return NULL_TREE;
+      else
+	return chrec;
     }
+}
+
+/* Returns the evolution part in LOOP_NUM.  Example: the call
+   evolution_part_in_loop_num ({{0, +, 1}_1, +, 2}_1, 1) returns 
+   {1, +, 2}_1  */
+
+tree 
+evolution_part_in_loop_num (tree chrec, 
+			    unsigned loop_num)
+{
+  return chrec_component_in_loop_num (chrec, loop_num, true);
+}
+
+/* Returns the initial condition in LOOP_NUM.  Example: the call
+   initial_condition_in_loop_num ({{0, +, 1}_1, +, 2}_2, 2) returns 
+   {0, +, 1}_1  */
+
+tree 
+initial_condition_in_loop_num (tree chrec, 
+			       unsigned loop_num)
+{
+  return chrec_component_in_loop_num (chrec, loop_num, false);
 }
 
 /* Set or reset the evolution of CHREC to NEW_EVOL in loop LOOP_NUM.
@@ -645,7 +671,7 @@ reset_evolution_in_loop (unsigned loop_num,
       && CHREC_VARIABLE (chrec) > loop_num)
     return build 
       (TREE_CODE (chrec), 
-       build_int_2 (CHREC_VARIABLE (chrec), 0), 
+       build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec)), 
        reset_evolution_in_loop (loop_num, CHREC_LEFT (chrec), new_evol), 
        reset_evolution_in_loop (loop_num, CHREC_RIGHT (chrec), new_evol));
   
@@ -906,6 +932,26 @@ evolution_function_is_univariate_p (tree chrec)
     }
 }
 
+/* Returns the number of variables of CHREC.  Example: the call
+   nb_vars_in_chrec ({{0, +, 1}_5, +, 2}_6) returns 2.  */
+
+unsigned 
+nb_vars_in_chrec (tree chrec)
+{
+  if (chrec == NULL_TREE)
+    return 0;
+
+  switch (TREE_CODE (chrec))
+    {
+    case POLYNOMIAL_CHREC:
+      return 1 + nb_vars_in_chrec 
+	(initial_condition_in_loop_num (chrec, CHREC_VARIABLE (chrec)));
+
+    default:
+      return 0;
+    }
+}
+
 
 
 /* Convert the initial condition of chrec to type.  */
@@ -941,7 +987,7 @@ chrec_convert (tree type,
 
 	/* Don't propagate overflows.  */
 	TREE_OVERFLOW (res) = 0;
-	if (TREE_CODE_CLASS (TREE_CODE (res)) == 'c')
+	if (CONSTANT_CLASS_P (res))
 	  TREE_CONSTANT_OVERFLOW (res) = 0;
 	return res;
       }
@@ -957,22 +1003,4 @@ chrec_type (tree chrec)
     return NULL_TREE;
   
   return TREE_TYPE (chrec);
-}
-
-extern void initialize_scalar_evolutions_analyzer (void);
-
-/* Initializer.  */
-
-void
-initialize_scalar_evolutions_analyzer (void)
-{
-  /* The elements below are unique.  */
-  if (chrec_dont_know == NULL_TREE)
-    {
-      chrec_not_analyzed_yet = NULL_TREE;
-      chrec_dont_know = make_node (SCEV_NOT_KNOWN);
-      chrec_known = make_node (SCEV_KNOWN);
-      TREE_TYPE (chrec_dont_know) = NULL_TREE;
-      TREE_TYPE (chrec_known) = NULL_TREE;
-    }
 }

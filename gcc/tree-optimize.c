@@ -44,9 +44,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
-#include "tree-alias-common.h"
 #include "ggc.h"
 #include "cgraph.h"
+#include "graph.h"
 
 
 /* Global variables used to communicate with passes.  */
@@ -55,64 +55,33 @@ bitmap vars_to_rename;
 bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
-static struct tree_opt_pass *all_passes;
+static struct tree_opt_pass *all_passes, *all_ipa_passes;
 
-/* Pass: inline.  */
-
-static void
-execute_inline (void)
+/* Do cleanup_cfg explicitely for first time.  */
+static void 
+execute_cleanup_cfg_pre_optimizing (void)
 {
-  struct cgraph_node *node;
-
-  node = cgraph_node (current_function_decl);
-
-  if (flag_inline_trees)
-    {
-      struct cgraph_edge *e;
-      for (e = node->callees; e; e = e->next_callee)
-	if (!e->inline_failed || warn_inline)
-	  break;
-      if (e)
-	{
-	  timevar_push (TV_INTEGRATION);
-	  optimize_inline_calls (current_function_decl);
-	  timevar_pop (TV_INTEGRATION);
-	}
-    }
-
+  cleanup_tree_cfg ();
 }
-
-static struct tree_opt_pass pass_inline = 
-{
-  "inline",				/* name */
-  NULL,					/* gate */
-  execute_inline,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
-};
 
 /* Pass: cleanup the CFG.  */
 static struct tree_opt_pass pass_cleanup_cfg = 
 {
   "cleanupcfg",				/* name */
   NULL,					/* gate */
-  cleanup_tree_cfg,			/* execute */
+  NULL, NULL,				/* IPA analysis */
+  execute_cleanup_cfg_pre_optimizing,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
   0,					/* properties_required */
-  0,					/* properties_provided */
+  PROP_cfg,				/* properties_required */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Pass: replace the outermost BIND_EXPR.  We removed all of them while
@@ -132,7 +101,9 @@ static struct tree_opt_pass pass_all_optimizations =
 {
   NULL,					/* name */
   gate_all_optimizations,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -141,7 +112,8 @@ static struct tree_opt_pass pass_all_optimizations =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
@@ -161,7 +133,9 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_cleanup_cfg_post_optimizing,	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -170,7 +144,8 @@ static struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Pass: do the actions required to finish with tree-ssa optimization
@@ -204,7 +179,9 @@ static struct tree_opt_pass pass_free_datastructures =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_free_datastructures,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -213,7 +190,8 @@ static struct tree_opt_pass pass_free_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -231,7 +209,9 @@ static struct tree_opt_pass pass_init_datastructures =
 {
   NULL,					/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   execute_init_datastructures,		/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -240,7 +220,8 @@ static struct tree_opt_pass pass_init_datastructures =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Iterate over the pass tree allocating dump file numbers.  We want
@@ -248,13 +229,10 @@ static struct tree_opt_pass pass_init_datastructures =
    enabled or not.  */
 
 static void
-register_one_dump_file (struct tree_opt_pass *pass)
+register_one_dump_file (struct tree_opt_pass *pass, bool ipa, int n)
 {
   char *dot_name, *flag_name;
   char num[10];
-
-  if (!pass->name)
-    return;
 
   /* See below in next_pass_1.  */
   num[0] = '\0';
@@ -263,31 +241,61 @@ register_one_dump_file (struct tree_opt_pass *pass)
 			 ? 1 : pass->static_pass_number));
 
   dot_name = concat (".", pass->name, num, NULL);
-  flag_name = concat ("tree-", pass->name, num, NULL);
-
-  pass->static_pass_number = dump_register (dot_name, flag_name);
+  if (ipa)
+    {
+      flag_name = concat ("ipa-", pass->name, num, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name,
+                                                TDF_IPA, n + 2, 0);
+    }
+  else if (pass->properties_provided & PROP_trees)
+    {
+      flag_name = concat ("tree-", pass->name, num, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name,
+                                                TDF_TREE, n + TDI_tree_all, 0);
+    }
+  else
+    {
+      flag_name = concat ("rtl-", pass->name, num, NULL);
+      pass->static_pass_number = dump_register (dot_name, flag_name,
+                                                TDF_RTL, n, pass->letter);
+    }
 }
 
 static int 
-register_dump_files (struct tree_opt_pass *pass, int properties)
+register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
 {
+  static int n = 0;
   do
     {
-      /* Verify that all required properties are present.  */
-      if (pass->properties_required & ~properties)
-        abort ();
-
-      if (pass->properties_destroyed & pass->properties_provided)
-        abort ();
+      int new_properties;
+      int pass_number;
 
       pass->properties_required = properties;
-      pass->properties_provided = properties =
+      new_properties =
         (properties | pass->properties_provided) & ~pass->properties_destroyed;
 
-      if (properties & PROP_trees)
-        register_one_dump_file (pass);
+      /* Reset the counter when we reach RTL-based passes.  */
+      if ((pass->properties_provided ^ pass->properties_required) & PROP_rtl)
+        n = 0;
+
+      pass_number = n;
+      if (pass->name)
+        n++;
+
       if (pass->sub)
-	properties = register_dump_files (pass->sub, properties);
+        new_properties = register_dump_files (pass->sub, ipa, new_properties);
+
+      /* If we have a gate, combine the properties that we could have with
+         and without the pass being examined.  */
+      if (pass->gate)
+        properties &= new_properties;
+      else
+        properties = new_properties;
+
+      pass->properties_provided = properties;
+      if (pass->name)
+        register_one_dump_file (pass, ipa, pass_number);
+
       pass = pass->next;
     }
   while (pass);
@@ -302,8 +310,8 @@ static struct tree_opt_pass **
 next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 {
 
-  /* A non-zero static_pass_number indicates that the
-     pass is already in the list. */
+  /* A nonzero static_pass_number indicates that the
+     pass is already in the list.  */
   if (pass->static_pass_number)
     {
       struct tree_opt_pass *new;
@@ -343,7 +351,6 @@ init_tree_optimization_passes (void)
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
 
   p = &all_passes;
-  NEXT_PASS (pass_inline);
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_pre_expand);
@@ -359,7 +366,6 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
-  NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -397,7 +403,6 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_late_warn_uninitialized);
-  NEXT_PASS (pass_del_pta);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);
@@ -407,21 +412,50 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
+  NEXT_PASS (pass_unswitch);
+  NEXT_PASS (pass_iv_canon);
+  NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_if_conversion);
+  NEXT_PASS (pass_vectorize);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_complete_unroll);
+  NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
+  *p = NULL;
+
+  p = &all_ipa_passes;
+  NEXT_PASS (pass_ipa_inline);
+/* Disabled until this pass can work on low GIMPLE and use the CFG.
+  NEXT_PASS (pass_ipa_static);  */
   *p = NULL;
 
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
-  register_dump_files (all_passes, PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg);
+  /* HACK, PROP_* should go away.  */
+  register_dump_files (all_passes, false, PROP_gimple_any
+					  | PROP_gimple_lcf
+					  | PROP_gimple_leh
+					  | PROP_cfg);
+  register_dump_files (all_ipa_passes, true, PROP_gimple_any
+					     | PROP_gimple_lcf
+					     | PROP_gimple_leh
+					     | PROP_cfg);
 }
-
-static void execute_pass_list (struct tree_opt_pass *);
 
 static unsigned int last_verified;
 
+enum execute_pass_hook
+{
+  ANALYZE_FUNCTION_HOOK,
+  ANALYZE_VARIABLE_HOOK,
+  EXECUTE_HOOK,
+  MODIFY_FUNCTION_HOOK,
+  MODIFY_VARIABLE_HOOK
+};
+
 static void
-execute_todo (unsigned int flags)
+execute_todo (int properties, unsigned int flags, enum execute_pass_hook hook)
 {
   if (flags & TODO_rename_vars)
     {
@@ -429,11 +463,27 @@ execute_todo (unsigned int flags)
       bitmap_clear (vars_to_rename);
     }
 
-  if ((flags & TODO_dump_func) && dump_file)
+  if ((flags & TODO_dump_func)
+      && (hook == MODIFY_FUNCTION_HOOK || hook == EXECUTE_HOOK)
+      && dump_file && current_function_decl)
     {
-      dump_function_to_file (current_function_decl,
-			     dump_file, dump_flags);
+      if ((properties & PROP_trees) || (hook == MODIFY_FUNCTION_HOOK))
+        dump_function_to_file (current_function_decl,
+                               dump_file, dump_flags);
+      else if (properties & PROP_cfg)
+        print_rtl_with_bb (dump_file, get_insns ());
+      else
+        print_rtl (dump_file, get_insns ());
 
+      /* Flush the file.  If verification fails, we won't be able to
+	 close the file before aborting.  */
+      fflush (dump_file);
+    }
+  if ((flags & TODO_dump_cgraph)
+      && dump_file && !current_function_decl
+      && hook == EXECUTE_HOOK)
+    {
+      dump_cgraph (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
@@ -453,7 +503,8 @@ execute_todo (unsigned int flags)
 }
 
 static bool
-execute_one_pass (struct tree_opt_pass *pass)
+execute_one_pass (struct tree_opt_pass *pass, enum execute_pass_hook hook,
+		  struct cgraph_node *node, struct cgraph_varpool_node *vnode)
 {
   unsigned int todo; 
 
@@ -468,20 +519,35 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run pre-pass verification.  */
   todo = pass->todo_flags_start & ~last_verified;
   if (todo)
-    execute_todo (todo);
+    execute_todo (pass->properties_required, todo, hook);
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
     {
+      bool initializing_dump = !dump_initialized_p (pass->static_pass_number);
+      dump_file_name = get_dump_file_name (pass->static_pass_number);
       dump_file = dump_begin (pass->static_pass_number, &dump_flags);
-      if (dump_file)
+      if (dump_file
+	  && ((current_function_decl && hook == EXECUTE_HOOK)
+	      || hook == MODIFY_FUNCTION_HOOK))
 	{
 	  const char *dname, *aname;
 	  dname = lang_hooks.decl_printable_name (current_function_decl, 2);
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
-	  fprintf (dump_file, "\n;; Function %s (%s)\n\n", dname, aname);
+	  fprintf (dump_file, "\n;; Function %s (%s)%s\n\n", dname, aname,
+	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
+	     ? " (hot)"
+	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+	     ? " (unlikely executed)"
+	     : "");
 	}
+
+      if (initializing_dump
+          && graph_dump_format != no_graph
+	  && (pass->properties_provided & (PROP_cfg | PROP_rtl))
+	      == (PROP_cfg | PROP_rtl))
+        clean_graph_dump_file (dump_file_name);
     }
 
   /* If a timevar is present, start it.  */
@@ -489,18 +555,51 @@ execute_one_pass (struct tree_opt_pass *pass)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
-  if (pass->execute)
-    pass->execute ();
+  switch (hook)
+    {
+    case ANALYZE_FUNCTION_HOOK:
+      if (pass->analyze_function)
+	pass->analyze_function (node);
+      break;
+    case ANALYZE_VARIABLE_HOOK:
+      if (pass->analyze_variable)
+	pass->analyze_variable (vnode);
+      break;
+    case EXECUTE_HOOK:
+      if (pass->execute)
+	pass->execute ();
+      break;
+    case MODIFY_FUNCTION_HOOK:
+      if (pass->modify_function)
+	pass->modify_function (node);
+      break;
+    case MODIFY_VARIABLE_HOOK:
+      if (pass->modify_variable)
+	pass->modify_variable (vnode);
+      break;
+    }
+
+  /* Stop timevar.  */
+  if (pass->tv_id)
+    timevar_pop (pass->tv_id);
+
+  if (dump_file
+      && (pass->properties_provided & (PROP_cfg | PROP_rtl))
+	  == (PROP_cfg | PROP_rtl))
+    print_rtl_with_bb (dump_file, get_insns ());
 
   /* Run post-pass cleanup and verification.  */
   todo = pass->todo_flags_finish;
   last_verified = todo & TODO_verify_all;
   if (todo)
-    execute_todo (todo);
+    execute_todo (pass->properties_provided, todo, hook);
 
-  /* Close down timevar and dump file.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  /* Flush and close dump file.  */
+  if (dump_file_name)
+    {
+      free ((char *) dump_file_name);
+      dump_file_name = NULL;
+    }
   if (dump_file)
     {
       dump_end (pass->static_pass_number, dump_file);
@@ -511,17 +610,62 @@ execute_one_pass (struct tree_opt_pass *pass)
 }
 
 static void
-execute_pass_list (struct tree_opt_pass *pass)
+execute_pass_list (struct tree_opt_pass *pass, enum execute_pass_hook hook,
+		   struct cgraph_node *node, struct cgraph_varpool_node *vnode)
 {
   do
     {
       pass->properties_provided |= PROP_gimple_any | PROP_gimple_lcf 
 	| PROP_gimple_leh | PROP_cfg;
-      if (execute_one_pass (pass) && pass->sub)
-	execute_pass_list (pass->sub);
+      if (execute_one_pass (pass, hook, node, vnode) && pass->sub)
+	execute_pass_list (pass->sub, hook, node, vnode);
       pass = pass->next;
     }
   while (pass);
+}
+
+void
+ipa_analyze_function (struct cgraph_node *node)
+{
+   execute_pass_list (all_ipa_passes, ANALYZE_FUNCTION_HOOK, node, NULL);
+}
+void
+ipa_analyze_variable (struct cgraph_varpool_node *vnode)
+{
+   execute_pass_list (all_ipa_passes, ANALYZE_VARIABLE_HOOK, NULL, vnode);
+}
+void
+ipa_modify_function (struct cgraph_node *node)
+{
+   execute_pass_list (all_ipa_passes, MODIFY_FUNCTION_HOOK, node, NULL);
+}
+void
+ipa_modify_variable (struct cgraph_varpool_node *vnode)
+{
+   execute_pass_list (all_ipa_passes, MODIFY_VARIABLE_HOOK, NULL, vnode);
+}
+void
+ipa_passes (void)
+{
+   execute_pass_list (all_ipa_passes, EXECUTE_HOOK, NULL, NULL);
+}
+
+
+/* Update recursively all inlined_to pointers of functions
+   inlined into NODE to INLINED_TO.  */
+static void
+update_inlined_to_pointers (struct cgraph_node *node,
+			    struct cgraph_node *inlined_to)
+{
+  struct cgraph_edge *e;
+  for (e = node->callees; e; e = e->next_callee)
+    {
+      if (e->callee->global.inlined_to)
+	{
+	  e->callee->global.inlined_to = inlined_to;
+	  update_inlined_to_pointers (e->callee, inlined_to);
+	}
+    }
 }
 
 
@@ -529,17 +673,16 @@ execute_pass_list (struct tree_opt_pass *pass)
    compilation for FNDECL.  */
 
 void
-tree_rest_of_compilation (tree fndecl, bool nested_p)
+tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *saved_node = NULL, *node;
 
   timevar_push (TV_EXPAND);
 
-  tree_register_cfg_hooks ();
+  gcc_assert (!flag_unit_at_a_time || cgraph_global_info_ready);
 
-  if (flag_unit_at_a_time && !cgraph_global_info_ready)
-    abort ();
+  tree_register_cfg_hooks ();
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
@@ -576,13 +719,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (!vars_to_rename)
     vars_to_rename = BITMAP_XMALLOC ();
 
-  /* If this is a nested function, protect the local variables in the stack
-     above us from being collected while we're compiling this function.  */
-  if (nested_p)
-    ggc_push_context ();
-
   /* Perform all tree transforms and optimizations.  */
-  execute_pass_list (all_passes);
+  ipa_modify_function (cgraph_node (fndecl));
+  execute_pass_list (all_passes, EXECUTE_HOOK, NULL, NULL);
 
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
@@ -595,7 +734,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       cfun->saved_tree = NULL_TREE;
       cfun->saved_args = NULL_TREE;
       cfun->static_chain_decl = cfun->saved_static_chain_decl;
-
       /* When not in unit-at-a-time mode, we must preserve out of line copy
 	 representing node before inlining.  Restore original outgoing edges
 	 using clone we created earlier.  */
@@ -607,7 +745,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	    cgraph_remove_edge (node->callees);
 	  node->callees = saved_node->callees;
 	  saved_node->callees = NULL;
-	  for (e = saved_node->callees; e; e = e->next_callee)
+	  update_inlined_to_pointers (node, node);
+	  for (e = node->callees; e; e = e->next_callee)
 	    e->caller = node;
 	  cgraph_remove_node (saved_node);
 	}
@@ -640,7 +779,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  if (!nested_p && !flag_inline_trees)
+  if (!flag_inline_trees)
     {
       DECL_SAVED_TREE (fndecl) = NULL;
       if (DECL_STRUCT_FUNCTION (fndecl) == 0
@@ -659,9 +798,5 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   input_location = saved_loc;
 
   ggc_collect ();
-
-  /* Undo the GC context switch.  */
-  if (nested_p)
-    ggc_pop_context ();
   timevar_pop (TV_EXPAND);
 }

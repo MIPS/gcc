@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       STMT_IS_FULL_EXPR_P (in _STMT)
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
-   3: unused
+   3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
    4: unused
 */
 
@@ -72,8 +72,8 @@ enum rid
 
   /* C extensions */
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
-  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTRBASE,
-  RID_PTREXTENT, RID_PTRVALUE, RID_CHOOSE_EXPR, RID_TYPES_COMPATIBLE_P,
+  RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
+  RID_TYPES_COMPATIBLE_P,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -113,16 +113,16 @@ enum rid
 };
 
 #define OBJC_IS_AT_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_AT && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_AT)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_AT && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_AT)
 
 #define OBJC_IS_PQ_KEYWORD(rid) \
-  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
-   (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PQ && \
+   (unsigned int) (rid) <= (unsigned int) RID_LAST_PQ)
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
-extern GTY ((length ("(int)RID_MAX"))) tree *ridpointers;
+extern GTY ((length ("(int) RID_MAX"))) tree *ridpointers;
 
 /* Standard named or nameless data types of the C compiler.  */
 
@@ -571,6 +571,11 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
+/* Nonzero (the default) means to generate thread-safe code for
+   initializing local statics.  */
+
+extern int flag_threadsafe_statics;
+
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
@@ -645,15 +650,13 @@ extern tree c_alignof_expr (tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error (enum tree_code);
-#define my_friendly_assert(EXP, N) (void) \
- (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
-
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
+extern bool c_determine_visibility (tree);
 
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
@@ -706,6 +709,10 @@ extern void finish_file	(void);
    if a statement expression.  */
 #define STATEMENT_LIST_STMT_EXPR(NODE) \
   TREE_LANG_FLAG_1 (STATEMENT_LIST_CHECK (NODE))
+
+/* Nonzero if a label has been added to the statement list.  */
+#define STATEMENT_LIST_HAS_LABEL(NODE) \
+  TREE_LANG_FLAG_3 (STATEMENT_LIST_CHECK (NODE))
 
 /* WHILE_STMT accessors. These give access to the condition of the
    while statement and the body of the while statement, respectively.  */
@@ -789,7 +796,6 @@ extern int anon_aggr_type_p (tree);
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
 extern void emit_local_var (tree);
-extern void make_rtl_for_local_static (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
@@ -814,10 +820,6 @@ extern tree decl_constant_value (tree);
 /* Handle increment and decrement of boolean types.  */
 extern tree boolean_increment (enum tree_code, tree);
 
-/* Hook currently used only by the C++ front end to reset internal state
-   after entering or leaving a header file.  */
-extern void extract_interface_info (void);
-
 extern int case_compare (splay_tree_key, splay_tree_key);
 
 extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
@@ -836,7 +838,7 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
-extern bool c_staticp (tree);
+extern tree c_staticp (tree);
 
 extern int c_common_unsafe_for_reeval (tree);
 
@@ -853,7 +855,14 @@ extern GTY(()) int pending_lang_change;
 struct c_fileinfo
 {
   int time;	/* Time spent in the file.  */
-  short interface_only;		/* Flags - used only by C++ */
+
+  /* Flags used only by C++.
+     INTERFACE_ONLY nonzero means that we are in an "interface" section
+     of the compiler.  INTERFACE_UNKNOWN nonzero means we cannot trust
+     the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN is zero and
+     INTERFACE_ONLY is zero, it means that we are responsible for
+     exporting definitions that others might need.  */
+  short interface_only;
   short interface_unknown;
 };
 
@@ -865,6 +874,8 @@ extern bool c_dump_tree (void *, tree);
 extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
+
+extern tree fold_offsetof (tree);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
@@ -885,20 +896,63 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
-/* The following have been moved here from c-tree.h, since they're needed
-   in the ObjC++ world, too.  What is more, stub-objc.c could use a few
-   prototypes.  */
-extern tree lookup_interface (tree);
-extern tree is_class_name (tree);
+/* Objective-C / Objective-C++ entry points.  */
+
+/* The following ObjC/ObjC++ functions are called by the C and/or C++
+   front-ends; they all must have corresponding stubs in stub-objc.c.  */
+extern tree objc_is_class_name (tree);
 extern tree objc_is_object_ptr (tree);
 extern void objc_check_decl (tree);
+extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
-extern tree lookup_objc_ivar (tree);
-extern void *get_current_scope (void);
-extern void objc_mark_locals_volatile (void *);
+extern tree objc_lookup_ivar (tree);
 extern void objc_clear_super_receiver (void);
 extern int objc_is_public (tree, tree);
+extern tree objc_is_id (tree);
+extern void objc_declare_alias (tree, tree);
+extern void objc_declare_class (tree);
+extern void objc_declare_protocols (tree);
+extern tree objc_build_message_expr (tree);
+extern tree objc_finish_message_expr (tree, tree, tree);
+extern tree objc_build_selector_expr (tree);
+extern tree objc_build_protocol_expr (tree);
+extern tree objc_build_encode_expr (tree);
+extern tree objc_build_string_object (tree);
+extern tree objc_get_protocol_qualified_type (tree, tree);
+extern tree objc_get_class_reference (tree);
+extern tree objc_get_class_ivars (tree);
+extern void objc_start_class_interface (tree, tree, tree);
+extern void objc_start_category_interface (tree, tree, tree);
+extern void objc_start_protocol (tree, tree);
+extern void objc_continue_interface (void);
+extern void objc_finish_interface (void);
+extern void objc_start_class_implementation (tree, tree);
+extern void objc_start_category_implementation (tree, tree);
+extern void objc_continue_implementation (void);
+extern void objc_finish_implementation (void);
+extern void objc_set_visibility (int);
+extern void objc_set_method_type (enum tree_code);
+extern tree objc_build_method_signature (tree, tree, tree);
+extern void objc_add_method_declaration (tree);
+extern void objc_start_method_definition (tree);
+extern void objc_finish_method_definition (tree);
+extern void objc_add_instance_variable (tree);
+extern tree objc_build_keyword_decl (tree, tree, tree);
+extern tree objc_build_throw_stmt (tree);
+extern void objc_begin_try_stmt (location_t, tree);
+extern void objc_finish_try_stmt (void);
+extern void objc_begin_catch_clause (tree);
+extern void objc_finish_catch_clause (void);
+extern void objc_build_finally_clause (location_t, tree);
+extern void objc_build_synchronized (location_t, tree, tree);
+extern int objc_static_init_needed_p (void);
+extern tree objc_generate_static_init_call (tree);
+
+/* The following are provided by the C and C++ front-ends, and called by
+   ObjC/ObjC++.  */
+extern void *objc_get_current_scope (void);
+extern void objc_mark_locals_volatile (void *);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

@@ -1,4 +1,4 @@
-/* G95 Backend interface
+/* gfortran backend interface
    Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
    Inc.
    Contributed by Paul Brook.
@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 
-#include <assert.h>
 #include <stdio.h>
 
 /* Language-dependent contents of an identifier.  */
@@ -154,7 +153,7 @@ const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-const char tree_code_type[] = {
+const enum tree_code_class tree_code_type[] = {
 #include "tree.def"
 };
 #undef DEFTREECODE
@@ -197,7 +196,7 @@ tree *ridpointers = NULL;
 static void
 gfc_expand_function (tree fndecl)
 {
-  tree_rest_of_compilation (fndecl, 0);
+  tree_rest_of_compilation (fndecl);
 }
 
 
@@ -222,7 +221,7 @@ gfc_truthvalue_conversion (tree expr)
     case BOOLEAN_TYPE:
       if (TREE_TYPE (expr) == boolean_type_node)
 	return expr;
-      else if (TREE_CODE_CLASS (TREE_CODE (expr)) == '<')
+      else if (COMPARISON_CLASS_P (expr))
 	{
 	  TREE_TYPE (expr) = boolean_type_node;
 	  return expr;
@@ -237,7 +236,7 @@ gfc_truthvalue_conversion (tree expr)
       if (TREE_CODE (expr) == INTEGER_CST)
 	return integer_zerop (expr) ? boolean_false_node : boolean_true_node;
       else
-        return build (NE_EXPR, boolean_type_node, expr, integer_zero_node);
+        return build2 (NE_EXPR, boolean_type_node, expr, integer_zero_node);
 
     default:
       internal_error ("Unexpected type in truthvalue_conversion");
@@ -280,6 +279,11 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 static bool
 gfc_init (void)
 {
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_ENTER, false, gfc_option.source, 1);
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+#endif
+
   /* First initialize the backend.  */
   gfc_init_decl_processing ();
   gfc_static_ctors = NULL_TREE;
@@ -350,7 +354,7 @@ static GTY(()) struct binding_level *global_binding_level;
 /* Binding level structures are initialized by copying this one.  */
 static struct binding_level clear_binding_level = { NULL, NULL, NULL };
 
-/* Return non-zero if we are currently in the global binding level.  */
+/* Return nonzero if we are currently in the global binding level.  */
 
 int
 global_bindings_p (void)
@@ -399,7 +403,7 @@ pushlevel (int ignore ATTRIBUTE_UNUSED)
 tree
 poplevel (int keep, int reverse, int functionbody)
 {
-  /* Points to a BLOCK tree node. This is the BLOCK node construted for the
+  /* Points to a BLOCK tree node. This is the BLOCK node constructed for the
      binding level that we are about to exit and which is returned by this
      routine.  */
   tree block_node = NULL_TREE;
@@ -409,7 +413,7 @@ poplevel (int keep, int reverse, int functionbody)
 
   /* Reverse the list of XXXX_DECL nodes if desired.  Note that the ..._DECL
      nodes chained through the `names' field of current_binding_level are in
-     reverse order except for PARM_DECL node, which are explicitely stored in
+     reverse order except for PARM_DECL node, which are explicitly stored in
      the right order.  */
   decl_chain = (reverse) ? nreverse (current_binding_level->names)
     : current_binding_level->names;
@@ -571,11 +575,12 @@ gfc_init_decl_processing (void)
   /* Build common tree nodes. char_type_node is unsigned because we
      only use it for actual characters, not for INTEGER(1). Also, we
      want double_type_node to actually have double precision.   */
-  build_common_tree_nodes (0);
+  build_common_tree_nodes (false, false);
   set_sizetype (long_unsigned_type_node);
   build_common_tree_nodes_2 (0);
 
   /* Set up F95 type nodes.  */
+  gfc_init_kinds ();
   gfc_init_types ();
 }
 
@@ -660,7 +665,7 @@ gfc_mark_addressable (tree exp)
 
 int ggc_p = 1;
 
-/* Builtin function initialisation.  */
+/* Builtin function initialization.  */
 
 /* Return a definition for a builtin function named NAME and whose data type
    is TYPE.  TYPE should be a function type with argument types.
@@ -684,7 +689,7 @@ builtin_function (const char *name,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -711,30 +716,66 @@ gfc_define_builtin (const char * name,
 }
 
 
-#define DEFINE_MATH_BUILTIN(code, name, nargs) \
-    gfc_define_builtin ("__builtin_" name, mfunc_double[nargs-1], \
+#define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
+    gfc_define_builtin ("__builtin_" name, tbase##double[argtype], \
 			BUILT_IN_ ## code, name, true); \
-    gfc_define_builtin ("__builtin_" name "f", mfunc_float[nargs-1], \
+    gfc_define_builtin ("__builtin_" name "f", tbase##float[argtype], \
 			BUILT_IN_ ## code ## F, name "f", true);
 
-/* Initialisation of builtin function nodes.  */
+#define DEFINE_MATH_BUILTIN(code, name, argtype) \
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
+
+/* The middle-end is missing builtins for some complex math functions, so
+   we don't use them yet.  */
+#define DEFINE_MATH_BUILTIN_C(code, name, argtype) \
+    DO_DEFINE_MATH_BUILTIN (code, name, argtype, mfunc_)
+/*    DO_DEFINE_MATH_BUILTIN (C##code, "c" name, argtype, mfunc_c)*/
+
+
+/* Create function types for builtin functions.  */
+
+static void
+build_builtin_fntypes (tree * fntype, tree type)
+{
+  tree tmp;
+
+  /* type (*) (type) */
+  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
+  fntype[0] = build_function_type (type, tmp);
+  /* type (*) (type, type) */
+  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
+  fntype[1] = build_function_type (type, tmp);
+  /* type (*) (int, type) */
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, type, tmp);
+  fntype[2] = build_function_type (type, tmp);
+}
+
+
+/* Initialization of builtin function nodes.  */
+
 static void
 gfc_init_builtin_functions (void)
 {
-  tree mfunc_float[2];
-  tree mfunc_double[2];
+  tree mfunc_float[3];
+  tree mfunc_double[3];
+  tree mfunc_cfloat[3];
+  tree mfunc_cdouble[3];
+  tree func_cfloat_float;
+  tree func_cdouble_double;
   tree ftype;
   tree tmp;
 
-  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
-  mfunc_float[0] = build_function_type (float_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, float_type_node, tmp);
-  mfunc_float[1] = build_function_type (float_type_node, tmp);
+  build_builtin_fntypes (mfunc_float, float_type_node);
+  build_builtin_fntypes (mfunc_double, double_type_node);
+  build_builtin_fntypes (mfunc_cfloat, complex_float_type_node);
+  build_builtin_fntypes (mfunc_cdouble, complex_double_type_node);
 
-  tmp = tree_cons (NULL_TREE, double_type_node, void_list_node);
-  mfunc_double[0] = build_function_type (double_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, double_type_node, tmp);
-  mfunc_double[1] = build_function_type (double_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
+  func_cfloat_float = build_function_type (float_type_node, tmp);
+
+  tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
+  func_cdouble_double = build_function_type (double_type_node, tmp);
 
 #include "mathbuiltins.def"
 
@@ -748,11 +789,22 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_ROUND, "round", true);
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
+  
+  gfc_define_builtin ("__builtin_cabs", func_cdouble_double, 
+		      BUILT_IN_CABS, "cabs", true);
+  gfc_define_builtin ("__builtin_cabsf", func_cfloat_float, 
+		      BUILT_IN_CABSF, "cabsf", true);
+		      
+  
+  gfc_define_builtin ("__builtin_copysign", mfunc_double[1], 
+		      BUILT_IN_COPYSIGN, "copysign", true);
+  gfc_define_builtin ("__builtin_copysignf", mfunc_float[1], 
+		      BUILT_IN_COPYSIGNF, "copysignf", true);
 
   /* These are used to implement the ** operator.  */
-  gfc_define_builtin ("__builtin_pow", mfunc_double[0], 
+  gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
 		      BUILT_IN_POW, "pow", true);
-  gfc_define_builtin ("__builtin_powf", mfunc_float[0], 
+  gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
 		      BUILT_IN_POWF, "powf", true);
 
   /* Other builtin functions we use.  */
@@ -794,23 +846,26 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
 		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (pvoid_type_node, tmp);
-  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
-		      "stack_alloc", false);
+  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
+     They are inserted during gimplification to implement variable sized
+     stack allocation.  */
 
-  /* The stack_save and stack_restore builtins aren't used directly.  They
-     are inserted during gimplification to implement stack_alloc calls.  */
   ftype = build_function_type (pvoid_type_node, void_list_node);
   gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 		      "stack_save", false);
+
   tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
   ftype = build_function_type (void_type_node, tmp);
   gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
 		      "stack_restore", false);
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+		      "alloca", false);
 }
 
+#undef DEFINE_MATH_BUILTIN_C
 #undef DEFINE_MATH_BUILTIN
 
 #include "gt-fortran-f95-lang.h"

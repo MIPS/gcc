@@ -46,7 +46,7 @@ genericize_try_block (tree *stmt_p)
   else
     gimplify_stmt (&cleanup);
 
-  *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
+  *stmt_p = build2 (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
 
 /* Genericize a HANDLER by converting to a CATCH_EXPR.  */
@@ -60,7 +60,7 @@ genericize_catch_block (tree *stmt_p)
   gimplify_stmt (&body);
 
   /* FIXME should the caught type go in TREE_TYPE?  */
-  *stmt_p = build (CATCH_EXPR, void_type_node, type, body);
+  *stmt_p = build2 (CATCH_EXPR, void_type_node, type, body);
 }
 
 /* Genericize an EH_SPEC_BLOCK by converting it to a
@@ -95,7 +95,7 @@ gimplify_if_stmt (tree *stmt_p)
   if (!else_)
     else_ = build_empty_stmt ();
 
-  stmt = build (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
+  stmt = build3 (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
   *stmt_p = stmt;
 }
 
@@ -210,12 +210,8 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case EMPTY_CLASS_EXPR:
-      {
-	/* Yes, an INTEGER_CST with RECORD_TYPE.  */
-	tree i = build_int_2 (0, 0);
-	TREE_TYPE (i) = TREE_TYPE (*expr_p);
-	*expr_p = i;
-      }
+      /* We create an INTEGER_CST with RECORD_TYPE and value zero.  */
+      *expr_p = build_int_cst (TREE_TYPE (*expr_p), 0);
       ret = GS_OK;
       break;
 
@@ -267,7 +263,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 static inline bool
 is_invisiref_parm (tree t)
 {
-  return (TREE_CODE (t) == PARM_DECL
+  return ((TREE_CODE (t) == PARM_DECL || TREE_CODE (t) == RESULT_DECL)
 	  && DECL_BY_REFERENCE (t));
 }
 
@@ -283,7 +279,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 
   if (is_invisiref_parm (stmt))
     {
-      *stmt_p = build_fold_indirect_ref (stmt);
+      *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
       return NULL;
     }
@@ -302,15 +298,23 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       *stmt_p = convert (TREE_TYPE (stmt), TREE_OPERAND (stmt, 0));
       *walk_subtrees = 0;
     }
-  else if (DECL_P (stmt) || TYPE_P (stmt))
+  else if (TREE_CODE (stmt) == RETURN_EXPR
+	   && TREE_OPERAND (stmt, 0)
+	   && is_invisiref_parm (TREE_OPERAND (stmt, 0)))
+    /* Don't dereference an invisiref RESULT_DECL inside a RETURN_EXPR.  */
+    *walk_subtrees = 0;
+  else if (IS_TYPE_OR_DECL_P (stmt))
     *walk_subtrees = 0;
 
   /* Due to the way voidify_wrapper_expr is written, we don't get a chance
      to lower this construct before scanning it, so we need to lower these
      before doing anything else.  */
   else if (TREE_CODE (stmt) == CLEANUP_STMT)
-    *stmt_p = build (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR,
-		     void_type_node, CLEANUP_BODY (stmt), CLEANUP_EXPR (stmt));
+    *stmt_p = build2 (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR
+					     : TRY_FINALLY_EXPR,
+		      void_type_node,
+		      CLEANUP_BODY (stmt),
+		      CLEANUP_EXPR (stmt));
 
   *slot = *stmt_p;
   return NULL;
@@ -325,16 +329,25 @@ cp_genericize (tree fndecl)
   /* Fix up the types of parms passed by invisible reference.  */
   for (t = DECL_ARGUMENTS (fndecl); t; t = TREE_CHAIN (t))
     {
-      if (DECL_BY_REFERENCE (t))
-	abort ();
+      gcc_assert (!DECL_BY_REFERENCE (t));
       if (TREE_ADDRESSABLE (TREE_TYPE (t)))
 	{
-	  if (DECL_ARG_TYPE (t) == TREE_TYPE (t))
-	    abort ();
-	  DECL_BY_REFERENCE (t) = 1;
+	  gcc_assert (DECL_ARG_TYPE (t) != TREE_TYPE (t));
 	  TREE_TYPE (t) = DECL_ARG_TYPE (t);
+	  DECL_BY_REFERENCE (t) = 1;
+	  TREE_ADDRESSABLE (t) = 0;
 	  relayout_decl (t);
 	}
+    }
+
+  /* Do the same for the return value.  */
+  if (TREE_ADDRESSABLE (TREE_TYPE (DECL_RESULT (fndecl))))
+    {
+      t = DECL_RESULT (fndecl);
+      TREE_TYPE (t) = build_reference_type (TREE_TYPE (t));
+      DECL_BY_REFERENCE (t) = 1;
+      TREE_ADDRESSABLE (t) = 0;
+      relayout_decl (t);
     }
 
   /* If we're a clone, the body is already GIMPLE.  */

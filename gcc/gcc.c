@@ -303,9 +303,9 @@ static void putenv_from_prefixes (struct path_prefix *, const char *);
 static int access_check (const char *, int);
 static char *find_a_file (struct path_prefix *, const char *, int, int);
 static void add_prefix (struct path_prefix *, const char *, const char *,
-			int, int, int *, int);
+			int, int, int);
 static void add_sysrooted_prefix (struct path_prefix *, const char *,
-				  const char *, int, int, int *, int);
+				  const char *, int, int, int);
 static void translate_options (int *, const char *const **);
 static char *skip_whitespace (char *);
 static void delete_if_ordinary (const char *);
@@ -361,6 +361,7 @@ static const char *convert_filename (const char *, int, int);
 
 static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
+static const char *replace_outfile_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -782,7 +783,7 @@ static const char *cpp_unique_options =
    options used to set target flags.  Those special target flags settings may
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
+"%(cpp_unique_options) %1 %{m*} %{std*&ansi} %{W*&pedantic*} %{w} %{f*}\
  %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}\
  %{save-temps:-fpch-preprocess}";
 
@@ -795,7 +796,7 @@ static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
- %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
+ %{g*} %{O*} %{W*&pedantic*} %{w} %{std*&ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
@@ -918,6 +919,8 @@ static const struct compiler default_compilers[] =
      and be given a more meaningful error than "file not used since
      linking is not done".  */
   {".m",  "#Objective-C", 0, 0, 0}, {".mi",  "#Objective-C", 0, 0, 0},
+  {".mm", "#Objective-C++", 0, 0, 0}, {".M", "#Objective-C++", 0, 0, 0},
+  {".mii", "#Objective-C++", 0, 0, 0},
   {".cc", "#C++", 0, 0, 0}, {".cxx", "#C++", 0, 0, 0}, 
   {".cpp", "#C++", 0, 0, 0}, {".cp", "#C++", 0, 0, 0}, 
   {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
@@ -1061,8 +1064,10 @@ static const struct option_map option_map[] =
    {"--dependencies", "-M", 0},
    {"--dump", "-d", "a"},
    {"--dumpbase", "-dumpbase", "a"},
+   {"--encoding", "-fencoding=", "aj"},
    {"--entry", "-e", 0},
    {"--extra-warnings", "-W", 0},
+   {"--extdirs", "-fextdirs=", "aj"},
    {"--for-assembler", "-Wa", "a"},
    {"--for-linker", "-Xlinker", "a"},
    {"--force-link", "-u", "a"},
@@ -1384,7 +1389,6 @@ struct prefix_list
   struct prefix_list *next;   /* Next in linked list.  */
   int require_machine_suffix; /* Don't use without machine_suffix.  */
   /* 2 means try both machine_suffix and just_machine_suffix.  */
-  int *used_flag_ptr;	      /* 1 if a file was found with this prefix.  */
   int priority;		      /* Sort key - priority within list.  */
   int os_multilib;	      /* 1 if OS multilib scheme should be used,
 				 0 for GCC multilib scheme.  */
@@ -1571,6 +1575,7 @@ static const struct spec_function static_spec_functions[] =
 {
   { "if-exists",		if_exists_spec_function },
   { "if-exists-else",		if_exists_else_spec_function },
+  { "replace-outfile",		replace_outfile_spec_function },
   { 0, 0 }
 };
 
@@ -1701,6 +1706,9 @@ init_spec (void)
 			    "-lgcc_s"
 #else
 			    "-lgcc_s%M"
+#endif
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
 #endif
 			    ,
 			    "-lgcc",
@@ -2502,11 +2510,7 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    /* Now try just the multilib_name.  */
@@ -2514,11 +2518,7 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 	    strcat (temp, machine_suffix);
 	    strcat (temp, multilib_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
 
 	/* Certain prefixes are tried with just the machine type,
@@ -2534,22 +2534,14 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, just_machine_suffix);
 	    strcat (temp, multilib_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
 
 	/* Certain prefixes can't be used without the machine suffix
@@ -2564,21 +2556,13 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, this_name);
 		strcat (temp, file_suffix);
 		if (access_check (temp, mode) == 0)
-		  {
-		    if (pl->used_flag_ptr != 0)
-		      *pl->used_flag_ptr = 1;
-		    return temp;
-		  }
+		  return temp;
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, this_name);
 	    if (access_check (temp, mode) == 0)
-	      {
-		if (pl->used_flag_ptr != 0)
-		  *pl->used_flag_ptr = 1;
-		return temp;
-	      }
+	      return temp;
 	  }
       }
 
@@ -2612,7 +2596,7 @@ enum path_prefix_priority
 static void
 add_prefix (struct path_prefix *pprefix, const char *prefix,
 	    const char *component, /* enum prefix_priority */ int priority,
-	    int require_machine_suffix, int *warn, int os_multilib)
+	    int require_machine_suffix, int os_multilib)
 {
   struct prefix_list *pl, **prev;
   int len;
@@ -2632,11 +2616,8 @@ add_prefix (struct path_prefix *pprefix, const char *prefix,
   pl = xmalloc (sizeof (struct prefix_list));
   pl->prefix = prefix;
   pl->require_machine_suffix = require_machine_suffix;
-  pl->used_flag_ptr = warn;
   pl->priority = priority;
   pl->os_multilib = os_multilib;
-  if (warn)
-    *warn = 0;
 
   /* Insert after PREV.  */
   pl->next = (*prev);
@@ -2648,10 +2629,10 @@ static void
 add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
 		      const char *component,
 		      /* enum prefix_priority */ int priority,
-		      int require_machine_suffix, int *warn, int os_multilib)
+		      int require_machine_suffix, int os_multilib)
 {
   if (!IS_ABSOLUTE_PATH (prefix))
-    abort ();
+    fatal ("system path `%s' is not absolute", prefix);
 
   if (target_system_root)
     {
@@ -2665,7 +2646,7 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
     }
 
   add_prefix (pprefix, prefix, component, priority,
-	      require_machine_suffix, warn, os_multilib);
+	      require_machine_suffix, os_multilib);
 }
 
 /* Execute the command specified by the arguments on the current line of spec.
@@ -2689,8 +2670,7 @@ execute (void)
 
   struct command *commands;	/* each command buffer with above info.  */
 
-  if (processing_spec_function)
-    abort ();
+  gcc_assert (!processing_spec_function);
 
   /* Count # of piped commands.  */
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
@@ -2863,8 +2843,7 @@ execute (void)
 	int pid;
 
 	pid = pwait (commands[i].pid, &status, 0);
-	if (pid < 0)
-	  abort ();
+	gcc_assert (pid >= 0);
 
 #ifdef HAVE_GETRUSAGE
 	if (report_times)
@@ -2990,12 +2969,6 @@ static int added_libraries;
 /* And a vector of corresponding output files is made up later.  */
 
 const char **outfiles;
-
-/* Used to track if none of the -B paths are used.  */
-static int warn_B;
-
-/* Gives value to pass as "warn" to add_prefix for standard prefixes.  */
-static int *warn_std_ptr = 0;
 
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 
@@ -3290,9 +3263,9 @@ process_command (int argc, const char **argv)
 
       set_std_prefix (gcc_exec_prefix, len);
       add_prefix (&exec_prefixes, gcc_libexec_prefix, "GCC",
-		  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		  PREFIX_PRIORITY_LAST, 0, 0);
       add_prefix (&startfile_prefixes, gcc_exec_prefix, "GCC",
-		  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		  PREFIX_PRIORITY_LAST, 0, 0);
     }
 
   /* COMPILER_PATH and LIBRARY_PATH have values
@@ -3320,9 +3293,9 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&exec_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+			  PREFIX_PRIORITY_LAST, 0, 0);
 	      add_prefix (&include_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 0);
+			  PREFIX_PRIORITY_LAST, 0, 0);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3354,7 +3327,7 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			  PREFIX_PRIORITY_LAST, 0, 1);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3387,7 +3360,7 @@ process_command (int argc, const char **argv)
 	      else
 		nstore[endp - startp] = 0;
 	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			  PREFIX_PRIORITY_LAST, 0, 1);
 	      if (*endp == 0)
 		break;
 	      endp = startp = endp + 1;
@@ -3675,23 +3648,23 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		  {
 		    if (len == 7)
 		      add_prefix (&include_prefixes, "./", NULL,
-				  PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+				  PREFIX_PRIORITY_B_OPT, 0, 0);
 		    else
 		      {
 		        char *string = xmalloc (len - 6);
 			memcpy (string, value, len - 7);
 			string[len - 7] = 0;
 		        add_prefix (&include_prefixes, string, NULL,
-				    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+				    PREFIX_PRIORITY_B_OPT, 0, 0);
 		      }
 		  }
 
 		add_prefix (&exec_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		add_prefix (&startfile_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, &warn_B, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		add_prefix (&include_prefixes, value, NULL,
-			    PREFIX_PRIORITY_B_OPT, 0, NULL, 0);
+			    PREFIX_PRIORITY_B_OPT, 0, 0);
 		n_switches++;
 	      }
 	      break;
@@ -3829,21 +3802,21 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
      as well as trying the machine and the version.  */
 #ifndef OS2
   add_prefix (&exec_prefixes, standard_libexec_prefix, "GCC",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
   add_prefix (&exec_prefixes, standard_libexec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix_1, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
   add_prefix (&exec_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 2, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 2, 0);
 #endif
 
   add_prefix (&startfile_prefixes, standard_exec_prefix, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
   add_prefix (&startfile_prefixes, standard_exec_prefix_2, "BINUTILS",
-	      PREFIX_PRIORITY_LAST, 1, warn_std_ptr, 0);
+	      PREFIX_PRIORITY_LAST, 1, 0);
 
   tooldir_prefix = concat (tooldir_base_prefix, spec_machine,
 			   dir_separator_str, NULL);
@@ -3866,11 +3839,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  add_prefix (&exec_prefixes,
 		      concat (gcc_exec_tooldir_prefix, "bin",
 			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 0);
 	  add_prefix (&startfile_prefixes,
 		      concat (gcc_exec_tooldir_prefix, "lib",
 			      dir_separator_str, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	}
 
       tooldir_prefix = concat (standard_exec_prefix, spec_machine,
@@ -3880,10 +3853,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
   add_prefix (&exec_prefixes,
 	      concat (tooldir_prefix, "bin", dir_separator_str, NULL),
-	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 0);
+	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, 0);
   add_prefix (&startfile_prefixes,
 	      concat (tooldir_prefix, "lib", dir_separator_str, NULL),
-	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+	      "BINUTILS", PREFIX_PRIORITY_LAST, 0, 1);
 
 #if defined(TARGET_SYSTEM_ROOT_RELOCATABLE) && !defined(VMS)
   /* If the normal TARGET_SYSTEM_ROOT is inside of $exec_prefix,
@@ -4227,7 +4200,9 @@ static int basename_length;
 static int suffixed_basename_length;
 static const char *input_basename;
 static const char *input_suffix;
+#ifndef HOST_LACKS_INODE_NUMBERS
 static struct stat input_stat;
+#endif
 static int input_stat_set;
 
 /* The compiler used to process the current input file.  */
@@ -4392,7 +4367,7 @@ do_self_spec (const char *spec)
 
 	  /* Each switch should start with '-'.  */
 	  if (argbuf[i][0] != '-')
-	    abort ();
+	    fatal ("switch '%s' does not start with '-'", argbuf[i]);
 
 	  sw = &switches[i + first];
 	  sw->part1 = &argbuf[i][1];
@@ -4619,7 +4594,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	switch (c = *p++)
 	  {
 	  case 0:
-	    fatal ("invalid specification!  Bug in cc");
+	    fatal ("spec '%s' invalid", spec);
 
 	  case 'b':
 	    obstack_grow (&obstack, input_basename, basename_length);
@@ -4758,7 +4733,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    p += 2;
 		    /* We don't support extra suffix characters after %O.  */
 		    if (*p == '.' || ISALPHA ((unsigned char) *p))
-		      abort ();
+		      fatal ("spec '%s' has invalid `%%0%c'", spec, *p);
 		    if (suffix_length == 0)
 		      suffix = TARGET_OBJECT_SUFFIX;
 		    else
@@ -4791,6 +4766,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    *((char *) temp_filename + temp_filename_length) = '\0';
 		    if (strcmp (temp_filename, input_filename) != 0)
 		      {
+#ifndef HOST_LACKS_INODE_NUMBERS
 			struct stat st_temp;
 
 			/* Note, set_input() resets input_stat_set to 0.  */
@@ -4805,11 +4781,19 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			   and we can do the stat for the temp_filename
 			   then the they could still refer to the same
 			   file if st_dev/st_ino's are the same.  */
-
 			if (input_stat_set != 1
 			    || stat (temp_filename, &st_temp) < 0
 			    || input_stat.st_dev != st_temp.st_dev
 			    || input_stat.st_ino != st_temp.st_ino)
+#else
+			/* Just compare canonical pathnames.  */
+			char* input_realname = lrealpath (input_filename);
+			char* temp_realname = lrealpath (temp_filename);
+			bool files_differ = strcmp (input_realname, temp_realname);
+			free (input_realname);
+			free (temp_realname);
+			if (files_differ) 	
+#endif
 			  {
 			    temp_filename = save_string (temp_filename,
 							 temp_filename_length + 1);
@@ -4946,7 +4930,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      int cur_index = argbuf_index;
 	      /* Handle the {...} following the %W.  */
 	      if (*p != '{')
-		abort ();
+		fatal ("spec `%s' has invalid `%%W%c", spec, *p);
 	      p = handle_braces (p + 1);
 	      if (p == 0)
 		return -1;
@@ -4977,7 +4961,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 
 	      /* Skip past the option value and make a copy.  */
 	      if (*p != '{')
-		abort ();
+		fatal ("spec `%s' has invalid `%%x%c'", spec, *p);
 	      while (*p++ != '}')
 		;
 	      string = save_string (p1 + 1, p - p1 - 2);
@@ -5187,7 +5171,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like
-		 '%{foo:%*}'.  ie there is no * in the pattern on the left
+		 '%{foo:%*}'.  i.e. there is no * in the pattern on the left
 		 hand side of the :.  */
 	      error ("spec failure: '%%*' has not been initialized by pattern match");
 	    break;
@@ -5535,6 +5519,7 @@ handle_braces (const char *p)
 {
   const char *atom, *end_atom;
   const char *d_atom = NULL, *d_end_atom = NULL;
+  const char *orig = p;
 
   bool a_is_suffix;
   bool a_is_starred;
@@ -5554,7 +5539,7 @@ handle_braces (const char *p)
   do
     {
       if (a_must_be_last)
-	abort ();
+	goto invalid;
 
       /* Scan one "atom" (S in the description above of %{}, possibly
 	 with !, ., or * modifiers).  */
@@ -5578,32 +5563,33 @@ handle_braces (const char *p)
 	p++, a_is_starred = 1;
 
       SKIP_WHITE();
-      if (*p == '&' || *p == '}')
+      switch (*p)
 	{
+	case '&': case '}':
 	  /* Substitute the switch(es) indicated by the current atom.  */
 	  ordered_set = true;
 	  if (disjunct_set || n_way_choice || a_is_negated || a_is_suffix
 	      || atom == end_atom)
-	    abort ();
+	    goto invalid;
 
 	  mark_matching_switches (atom, end_atom, a_is_starred);
 
 	  if (*p == '}')
 	    process_marked_switches ();
-	}
-      else if (*p == '|' || *p == ':')
-	{
+	  break;
+
+	case '|': case ':':
 	  /* Substitute some text if the current atom appears as a switch
 	     or suffix.  */
 	  disjunct_set = true;
 	  if (ordered_set)
-	    abort ();
+	    goto invalid;
 
 	  if (atom == end_atom)
 	    {
 	      if (!n_way_choice || disj_matched || *p == '|'
 		  || a_is_negated || a_is_suffix || a_is_starred)
-		abort ();
+		goto invalid;
 
 	      /* An empty term may appear as the last choice of an
 		 N-way choice set; it means "otherwise".  */
@@ -5614,7 +5600,7 @@ handle_braces (const char *p)
 	  else
 	    {
 	       if (a_is_suffix && a_is_starred)
-		 abort ();
+		 goto invalid;
 
 	       if (!a_is_starred)
 		 disj_starred = false;
@@ -5657,14 +5643,19 @@ handle_braces (const char *p)
 		  d_atom = d_end_atom = NULL;
 		}
 	    }
+	  break;
+
+	default:
+	  goto invalid;
 	}
-      else
-	abort ();
     }
   while (*p++ != '}');
 
   return p;
-
+  
+ invalid:
+  fatal ("braced spec `%s' is invalid at `%c'", orig, *p);
+  
 #undef SKIP_WHITE
 }
 
@@ -5704,7 +5695,7 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
       else if (*p == '%' && p[1] == '*' && nesting_level == 1)
 	have_subst = true;
       else if (*p == '\0')
-	abort ();
+	goto invalid;
       p++;
     }
 
@@ -5713,7 +5704,7 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
     end_body--;
 
   if (have_subst && !starred)
-    abort ();
+    goto invalid;
 
   if (matched)
     {
@@ -5749,6 +5740,9 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
     }
 
   return p;
+
+ invalid:
+  fatal ("braced spec body `%s' is invalid", body);
 }
 
 /* Return 0 iff switch number SWITCHNUM is obsoleted by a later switch
@@ -6165,7 +6159,7 @@ main (int argc, const char **argv)
       if (*md_exec_prefix)
 	{
 	  add_prefix (&exec_prefixes, md_exec_prefix, "GCC",
-		      PREFIX_PRIORITY_LAST, 0, NULL, 0);
+		      PREFIX_PRIORITY_LAST, 0, 0);
 	}
     }
 
@@ -6197,7 +6191,7 @@ main (int argc, const char **argv)
       int ndx;
       for (ndx = 0; ndx < argbuf_index; ndx++)
 	add_sysrooted_prefix (&startfile_prefixes, argbuf[ndx], "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
     }
   /* We should eventually get rid of all these and stick to
      startfile_prefix_spec exclusively.  */
@@ -6205,15 +6199,15 @@ main (int argc, const char **argv)
     {
       if (*md_exec_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
 
       if (*md_startfile_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix,
-			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
       if (*md_startfile_prefix_1)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix_1,
-			      "GCC", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
       /* If standard_startfile_prefix is relative, base it on
 	 standard_exec_prefix.  This lets us move the installed tree
@@ -6225,33 +6219,29 @@ main (int argc, const char **argv)
       if (IS_ABSOLUTE_PATH (standard_startfile_prefix))
 	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
       else if (*cross_compile == '0')
 	{
 	  if (gcc_exec_prefix)
 	    add_prefix (&startfile_prefixes,
 			concat (gcc_exec_prefix, machine_suffix,
 				standard_startfile_prefix, NULL),
-			NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	  add_prefix (&startfile_prefixes,
 		      concat (standard_exec_prefix,
 			      machine_suffix,
 			      standard_startfile_prefix, NULL),
-		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
+		      NULL, PREFIX_PRIORITY_LAST, 0, 1);
 	}
 
       if (*standard_startfile_prefix_1)
  	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix_1, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+			      PREFIX_PRIORITY_LAST, 0, 1);
       if (*standard_startfile_prefix_2)
 	add_sysrooted_prefix (&startfile_prefixes,
 			      standard_startfile_prefix_2, "BINUTILS",
-			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
-#if 0 /* Can cause surprises, and one can use -B./ instead.  */
-      add_prefix (&startfile_prefixes, "./", NULL,
-		  PREFIX_PRIORITY_LAST, 1, NULL, 0);
-#endif
+			      PREFIX_PRIORITY_LAST, 0, 1);
     }
 
   /* Process any user specified specs in the order given on the command
@@ -6476,13 +6466,13 @@ main (int argc, const char **argv)
 		{
 		  value = do_spec (input_file_compiler->spec);
 		  infiles[i].preprocessed = true;
-		  if (have_o_argbuf_index)
-		    infiles[i].name = argbuf[have_o_argbuf_index];
-		  else
-		    abort ();
-		  infiles[i].incompiler = lookup_compiler (infiles[i].name,
-						       strlen (infiles[i].name),
-						       infiles[i].language);
+		  if (!have_o_argbuf_index)
+		    fatal ("spec `%s' is invalid", input_file_compiler->spec);
+		  infiles[i].name = argbuf[have_o_argbuf_index];
+		  infiles[i].incompiler
+		    = lookup_compiler (infiles[i].name,
+				       strlen (infiles[i].name),
+				       infiles[i].language);
 
 		  if (value < 0)
 		    this_file_error = 1;
@@ -6749,9 +6739,9 @@ pfatal_pexecute (const char *errmsg_fmt, const char *errmsg_arg)
 /* Output an error message and exit.  */
 
 void
-fancy_abort (void)
+fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal gcc abort");
+  fatal ("internal gcc abort in %s, at %s:%d", func, file, line);
 }
 
 /* Output an error message and exit.  */
@@ -6943,7 +6933,10 @@ used_arg (const char *p, int len)
 	  while (*q != ' ')
 	    {
 	      if (*q == '\0')
-		abort ();
+		{
+		invalid_matches:
+		  fatal ("multilib spec `%s' is invalid", multilib_matches);
+		}
 	      q++;
 	    }
 	  matches[i].len = q - matches[i].str;
@@ -6952,7 +6945,7 @@ used_arg (const char *p, int len)
 	  while (*q != ';' && *q != '\0')
 	    {
 	      if (*q == ' ')
-		abort ();
+		goto invalid_matches;
 	      q++;
 	    }
 	  matches[i].rep_len = q - matches[i].replace;
@@ -7132,7 +7125,11 @@ set_multilib_dir (void)
       while (*p != ';')
 	{
 	  if (*p == '\0')
-	    abort ();
+	    {
+	    invalid_exclusions:
+	      fatal ("multilib exclusions `%s' is invalid",
+		     multilib_exclusions);
+	    }
 
 	  if (! ok)
 	    {
@@ -7144,7 +7141,7 @@ set_multilib_dir (void)
 	  while (*p != ' ' && *p != ';')
 	    {
 	      if (*p == '\0')
-		abort ();
+		goto invalid_exclusions;
 	      ++p;
 	    }
 
@@ -7186,7 +7183,11 @@ set_multilib_dir (void)
       while (*p != ' ')
 	{
 	  if (*p == '\0')
-	    abort ();
+	    {
+	    invalid_select:
+	      fatal ("multilib select `%s' is invalid",
+		     multilib_select);
+	    }
 	  ++p;
 	}
       this_path_len = p - this_path;
@@ -7198,7 +7199,7 @@ set_multilib_dir (void)
       while (*p != ';')
 	{
 	  if (*p == '\0')
-	    abort ();
+	    goto invalid_select;
 
 	  if (! ok)
 	    {
@@ -7210,7 +7211,7 @@ set_multilib_dir (void)
 	  while (*p != ' ' && *p != ';')
 	    {
 	      if (*p == '\0')
-		abort ();
+		goto invalid_select;
 	      ++p;
 	    }
 
@@ -7323,7 +7324,11 @@ print_multilib_info (void)
       while (*p != ' ')
 	{
 	  if (*p == '\0')
-	    abort ();
+	    {
+	    invalid_select:
+	      fatal ("multilib select `%s' is invalid", multilib_select);
+	    }
+	  
 	  ++p;
 	}
 
@@ -7357,7 +7362,11 @@ print_multilib_info (void)
 		int mp = 0;
 
 		if (*e == '\0')
-		  abort ();
+		  {
+		  invalid_exclusion:
+		    fatal ("multilib exclusion `%s' is invalid",
+			   multilib_exclusions);
+		  }
 
 		if (! m)
 		  {
@@ -7370,7 +7379,7 @@ print_multilib_info (void)
 		while (*e != ' ' && *e != ';')
 		  {
 		    if (*e == '\0')
-		      abort ();
+		      goto invalid_exclusion;
 		    ++e;
 		  }
 
@@ -7381,19 +7390,20 @@ print_multilib_info (void)
 		    int len = e - this_arg;
 
 		    if (*q == '\0')
-		      abort ();
+		      goto invalid_select;
 
 		    arg = q;
 
 		    while (*q != ' ' && *q != ';')
 		      {
 			if (*q == '\0')
-			  abort ();
+			  goto invalid_select;
 			++q;
 		      }
 
-		    if (! strncmp (arg, this_arg, (len < q - arg) ? q - arg : len) ||
-			default_arg (this_arg, e - this_arg))
+		    if (! strncmp (arg, this_arg,
+				   (len < q - arg) ? q - arg : len)
+			|| default_arg (this_arg, e - this_arg))
 		      {
 			mp = 1;
 			break;
@@ -7424,7 +7434,8 @@ print_multilib_info (void)
       if (! skip)
 	{
 	  /* If this is a duplicate, skip it.  */
-	  skip = (last_path != 0 && (unsigned int) (p - this_path) == last_path_len
+	  skip = (last_path != 0
+		  && (unsigned int) (p - this_path) == last_path_len
 		  && ! strncmp (last_path, this_path, last_path_len));
 
 	  last_path = this_path;
@@ -7444,7 +7455,7 @@ print_multilib_info (void)
 	      const char *arg;
 
 	      if (*q == '\0')
-		abort ();
+		goto invalid_select;
 
 	      if (*q == '!')
 		arg = NULL;
@@ -7454,7 +7465,7 @@ print_multilib_info (void)
 	      while (*q != ' ' && *q != ';')
 		{
 		  if (*q == '\0')
-		    abort ();
+		    goto invalid_select;
 		  ++q;
 		}
 
@@ -7485,7 +7496,7 @@ print_multilib_info (void)
 	  int use_arg;
 
 	  if (*p == '\0')
-	    abort ();
+	    goto invalid_select;
 
 	  if (skip)
 	    {
@@ -7501,7 +7512,7 @@ print_multilib_info (void)
 	  while (*p != ' ' && *p != ';')
 	    {
 	      if (*p == '\0')
-		abort ();
+		goto invalid_select;
 	      if (use_arg)
 		putchar (*p);
 	      ++p;
@@ -7575,3 +7586,24 @@ if_exists_else_spec_function (int argc, const char **argv)
 
   return argv[1];
 }
+
+/* replace-outfile built-in spec function.
+   This looks for the first argument in the outfiles array's name and replaces it
+   with the second argument.  */
+
+static const char *
+replace_outfile_spec_function (int argc, const char **argv)
+{
+  int i;
+  /* Must have exactly two arguments.  */
+  if (argc != 2)
+    abort ();
+  
+  for (i = 0; i < n_infiles; i++)
+    {
+      if (outfiles[i] && !strcmp (outfiles[i], argv[0]))
+	outfiles[i] = xstrdup (argv[1]);
+    }
+  return NULL;
+}
+

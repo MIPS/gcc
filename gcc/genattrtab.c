@@ -102,9 +102,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #if 0
 #define strcmp_check(S1, S2) ((S1) == (S2)		\
 			      ? 0			\
-			      : (strcmp ((S1), (S2))	\
-				 ? 1			\
-				 : (abort (), 0)))
+			      : (gcc_assert (strcmp ((S1), (S2))), 1))
 #else
 #define strcmp_check(S1, S2) ((S1) != (S2))
 #endif
@@ -160,9 +158,7 @@ struct insn_def
 struct insn_ent
 {
   struct insn_ent *next;	/* Next in chain.  */
-  int insn_code;		/* Instruction number.  */
-  int insn_index;		/* Index of definition in file */
-  int lineno;			/* Line number.  */
+  struct insn_def *def;		/* Instruction definition.  */
 };
 
 /* Each value of an attribute (either constant or computed) is assigned a
@@ -340,6 +336,7 @@ static rtx eliminate_known_true (rtx, rtx, int, int);
 static void write_attr_set	(struct attr_desc *, int, rtx,
 				 const char *, const char *, rtx,
 				 int, int);
+static void write_insn_cases	(struct insn_ent *, int);
 static void write_attr_case	(struct attr_desc *, struct attr_value *,
 				 int, const char *, const char *, int, rtx);
 static void write_attr_valueq	(struct attr_desc *, const char *);
@@ -598,7 +595,7 @@ attr_rtx_1 (enum rtx_code code, va_list p)
 	      break;
 
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       return rt_val;
@@ -635,8 +632,7 @@ attr_printf (unsigned int len, const char *fmt, ...)
 
   va_start (p, fmt);
 
-  if (len > sizeof str - 1) /* Leave room for \0.  */
-    abort ();
+  gcc_assert (len < sizeof str); /* Leave room for \0.  */
 
   vsprintf (str, fmt, p);
   va_end (p);
@@ -779,7 +775,7 @@ attr_copy_rtx (rtx orig)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   return copy;
@@ -1377,7 +1373,7 @@ get_attr_value (rtx value, struct attr_desc *attr, int insn_code)
   for (av = attr->first_value; av; av = av->next)
     if (rtx_equal_p (value, av->value)
 	&& (num_alt == 0 || av->first_insn == NULL
-	    || insn_alternatives[av->first_insn->insn_code]))
+	    || insn_alternatives[av->first_insn->def->insn_code]))
       return av;
 
   av = oballoc (sizeof (struct attr_value));
@@ -1524,8 +1520,7 @@ fill_attr (struct attr_desc *attr)
 	av = get_attr_value (value, attr, id->insn_code);
 
       ie = oballoc (sizeof (struct insn_ent));
-      ie->insn_code = id->insn_code;
-      ie->insn_index = id->insn_code;
+      ie->def = id;
       insert_insn_ent (av, ie);
     }
 }
@@ -1651,10 +1646,9 @@ make_length_attrs (void)
 	    new_av = get_attr_value (substitute_address (av->value,
 							 no_address_fn[i],
 							 address_fn[i]),
-				     new_attr, ie->insn_code);
+				     new_attr, ie->def->insn_code);
 	    new_ie = oballoc (sizeof (struct insn_ent));
-	    new_ie->insn_code = ie->insn_code;
-	    new_ie->insn_index = ie->insn_index;
+	    new_ie->def = ie->def;
 	    insert_insn_ent (new_av, new_ie);
 	  }
     }
@@ -1854,7 +1848,7 @@ remove_insn_ent (struct attr_value *av, struct insn_ent *ie)
     }
 
   av->num_insns--;
-  if (ie->insn_code == -1)
+  if (ie->def->insn_code == -1)
     av->has_asm_insn = 0;
 
   num_insn_ents--;
@@ -1868,7 +1862,7 @@ insert_insn_ent (struct attr_value *av, struct insn_ent *ie)
   ie->next = av->first_insn;
   av->first_insn = ie;
   av->num_insns++;
-  if (ie->insn_code == -1)
+  if (ie->def->insn_code == -1)
     av->has_asm_insn = 1;
 
   num_insn_ents++;
@@ -2006,45 +2000,46 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
   rtx newexp;
   int i;
 
-  if (GET_CODE (value) == CONST_STRING)
+  switch (GET_CODE (value))
     {
+    case CONST_STRING:
       if (! strcmp_check (XSTR (value, 0), XSTR (exp, 1)))
 	newexp = true_rtx;
       else
 	newexp = false_rtx;
-    }
-  else if (GET_CODE (value) == SYMBOL_REF)
-    {
-      char *p;
-      char string[256];
+      break;
+      
+    case SYMBOL_REF:
+      {
+	char *p;
+	char string[256];
+	
+	gcc_assert (GET_CODE (exp) == EQ_ATTR);
+	gcc_assert (strlen (XSTR (exp, 0)) + strlen (XSTR (exp, 1)) + 2
+		    <= 256);
+	
+	strcpy (string, XSTR (exp, 0));
+	strcat (string, "_");
+	strcat (string, XSTR (exp, 1));
+	for (p = string; *p; p++)
+	  *p = TOUPPER (*p);
+	
+	newexp = attr_rtx (EQ, value,
+			   attr_rtx (SYMBOL_REF,
+				     DEF_ATTR_STRING (string)));
+	break;
+      }
 
-      if (GET_CODE (exp) != EQ_ATTR)
-	abort ();
-
-      if (strlen (XSTR (exp, 0)) + strlen (XSTR (exp, 1)) + 2 > 256)
-	abort ();
-
-      strcpy (string, XSTR (exp, 0));
-      strcat (string, "_");
-      strcat (string, XSTR (exp, 1));
-      for (p = string; *p; p++)
-	*p = TOUPPER (*p);
-
-      newexp = attr_rtx (EQ, value,
-			 attr_rtx (SYMBOL_REF,
-				   DEF_ATTR_STRING (string)));
-    }
-  else if (GET_CODE (value) == COND)
-    {
-      /* We construct an IOR of all the cases for which the requested attribute
-	 value is present.  Since we start with FALSE, if it is not present,
-	 FALSE will be returned.
-
+    case COND:
+      /* We construct an IOR of all the cases for which the
+	 requested attribute value is present.  Since we start with
+	 FALSE, if it is not present, FALSE will be returned.
+	  
 	 Each case is the AND of the NOT's of the previous conditions with the
 	 current condition; in the default case the current condition is TRUE.
-
+	  
 	 For each possible COND value, call ourselves recursively.
-
+	  
 	 The extra TRUE and FALSE expressions will be eliminated by another
 	 call to the simplification routine.  */
 
@@ -2084,9 +2079,11 @@ evaluate_eq_attr (rtx exp, rtx value, int insn_code, int insn_index)
 						   insn_code, insn_index),
 				 insn_code, insn_index);
       newexp = insert_right_side (IOR, orexp, right, insn_code, insn_index);
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  else
-    abort ();
 
   /* If uses an address, must return original expression.  But set the
      ATTR_IND_SIMPLIFIED_P bit so we don't try to simplify it again.  */
@@ -2405,13 +2402,14 @@ attr_alt_subset_p (rtx s1, rtx s2)
       return !(XINT (s2, 0) &~ XINT (s1, 0));
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
 /* Returns true if S1 is a subset of complement of S2.  */
 
-static bool attr_alt_subset_of_compl_p (rtx s1, rtx s2)
+static bool
+attr_alt_subset_of_compl_p (rtx s1, rtx s2)
 {
   switch ((XINT (s1, 1) << 1) | XINT (s2, 1))
     {
@@ -2428,7 +2426,7 @@ static bool attr_alt_subset_of_compl_p (rtx s1, rtx s2)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2454,7 +2452,7 @@ attr_alt_intersection (rtx s1, rtx s2)
       XINT (result, 0) = XINT (s1, 0) | XINT (s2, 0);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   XINT (result, 1) = XINT (s1, 1) & XINT (s2, 1);
 
@@ -2483,7 +2481,7 @@ attr_alt_union (rtx s1, rtx s2)
       XINT (result, 0) = XINT (s1, 0) & XINT (s2, 0);
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   XINT (result, 1) = XINT (s1, 1) | XINT (s2, 1);
@@ -2826,7 +2824,7 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 	  && (attr = find_attr (&XSTR (exp, 0), 0)) != NULL)
 	for (av = attr->first_value; av; av = av->next)
 	  for (ie = av->first_insn; ie; ie = ie->next)
-	    if (ie->insn_code == insn_code)
+	    if (ie->def->insn_code == insn_code)
 	      {
 		rtx x;
 		x = evaluate_eq_attr (exp, av->value, insn_code, insn_index);
@@ -2896,14 +2894,13 @@ optimize_attrs (void)
 	    iv->attr = attr;
 	    iv->av = av;
 	    iv->ie = ie;
-	    iv->next = insn_code_values[ie->insn_code];
-	    insn_code_values[ie->insn_code] = iv;
+	    iv->next = insn_code_values[ie->def->insn_code];
+	    insn_code_values[ie->def->insn_code] = iv;
 	    iv++;
 	  }
 
   /* Sanity check on num_insn_ents.  */
-  if (iv != ivbuf + num_insn_ents)
-    abort ();
+  gcc_assert (iv == ivbuf + num_insn_ents);
 
   /* Process one insn code at a time.  */
   for (i = -2; i < insn_code_number; i++)
@@ -2927,8 +2924,8 @@ optimize_attrs (void)
 	  newexp = av->value;
 	  while (GET_CODE (newexp) == COND)
 	    {
-	      rtx newexp2 = simplify_cond (newexp, ie->insn_code,
-					   ie->insn_index);
+	      rtx newexp2 = simplify_cond (newexp, ie->def->insn_code,
+					   ie->def->insn_index);
 	      if (newexp2 == newexp)
 		break;
 	      newexp = newexp2;
@@ -2939,7 +2936,7 @@ optimize_attrs (void)
 	    {
 	      newexp = attr_copy_rtx (newexp);
 	      remove_insn_ent (av, ie);
-	      av = get_attr_value (newexp, attr, ie->insn_code);
+	      av = get_attr_value (newexp, attr, ie->def->insn_code);
 	      iv->av = av;
 	      insert_insn_ent (av, ie);
 	    }
@@ -3214,7 +3211,7 @@ gen_insn (rtx exp, int lineno)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -3358,7 +3355,7 @@ write_test_expr (rtx exp, int flags)
 	  printf (" >> ");
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       write_test_expr (XEXP (exp, 1), flags | comparison_operator);
@@ -3392,7 +3389,7 @@ write_test_expr (rtx exp, int flags)
 	  printf ("-");
 	  break;
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
 
       write_test_expr (XEXP (exp, 0), flags);
@@ -3458,8 +3455,7 @@ write_test_expr (rtx exp, int flags)
 	}
 
       attr = find_attr (&XSTR (exp, 0), 0);
-      if (! attr)
-	abort ();
+      gcc_assert (attr);
 
       /* Now is the time to expand the value of a constant attribute.  */
       if (attr->is_const)
@@ -3739,8 +3735,8 @@ write_attr_get (struct attr_desc *attr)
       for (av = attr->first_value; av; av = av->next)
 	if (av->num_insns != 0)
 	  write_attr_set (attr, 2, av->value, "return", ";",
-			  true_rtx, av->first_insn->insn_code,
-			  av->first_insn->insn_index);
+			  true_rtx, av->first_insn->def->insn_code,
+			  av->first_insn->def->insn_index);
 
       printf ("}\n\n");
       return;
@@ -3878,6 +3874,25 @@ write_attr_set (struct attr_desc *attr, int indent, rtx value,
     }
 }
 
+/* Write a series of case statements for every instruction in list IE.
+   INDENT is the amount of indentation to write before each case.  */
+
+static void
+write_insn_cases (struct insn_ent *ie, int indent)
+{
+  for (; ie != 0; ie = ie->next)
+    if (ie->def->insn_code != -1)
+      {
+	write_indent (indent);
+	if (GET_CODE (ie->def->def) == DEFINE_PEEPHOLE)
+	  printf ("case %d:  /* define_peephole, line %d */\n",
+		  ie->def->insn_code, ie->def->lineno);
+	else
+	  printf ("case %d:  /* %s */\n",
+		  ie->def->insn_code, XSTR (ie->def->def, 0));
+      }
+}
+
 /* Write out the computation for one attribute value.  */
 
 static void
@@ -3885,8 +3900,6 @@ write_attr_case (struct attr_desc *attr, struct attr_value *av,
 		 int write_case_lines, const char *prefix, const char *suffix,
 		 int indent, rtx known_true)
 {
-  struct insn_ent *ie;
-
   if (av->num_insns == 0)
     return;
 
@@ -3903,14 +3916,7 @@ write_attr_case (struct attr_desc *attr, struct attr_value *av,
     }
 
   if (write_case_lines)
-    {
-      for (ie = av->first_insn; ie; ie = ie->next)
-	if (ie->insn_code != -1)
-	  {
-	    write_indent (indent);
-	    printf ("case %d:\n", ie->insn_code);
-	  }
-    }
+    write_insn_cases (av->first_insn, indent);
   else
     {
       write_indent (indent);
@@ -3933,8 +3939,8 @@ write_attr_case (struct attr_desc *attr, struct attr_value *av,
     }
 
   write_attr_set (attr, indent + 2, av->value, prefix, suffix,
-		  known_true, av->first_insn->insn_code,
-		  av->first_insn->insn_index);
+		  known_true, av->first_insn->def->insn_code,
+		  av->first_insn->def->insn_index);
 
   if (strncmp (prefix, "return", 6))
     {
@@ -4065,7 +4071,7 @@ write_attr_value (struct attr_desc *attr, rtx value)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -4129,8 +4135,7 @@ write_eligible_delay (const char *kind)
   printf ("{\n");
   printf ("  rtx insn;\n");
   printf ("\n");
-  printf ("  if (slot >= %d)\n", max_slots);
-  printf ("    abort ();\n");
+  printf ("  gcc_assert (slot < %d);\n", max_slots);
   printf ("\n");
   /* Allow dbr_schedule to pass labels, etc.  This can happen if try_split
      converts a compound instruction into a loop.  */
@@ -4143,8 +4148,7 @@ write_eligible_delay (const char *kind)
   if (num_delays > 1)
     {
       attr = find_attr (&delay_type_str, 0);
-      if (! attr)
-	abort ();
+      gcc_assert (attr);
       common_av = find_most_used (attr);
 
       printf ("  insn = delay_insn;\n");
@@ -4160,8 +4164,7 @@ write_eligible_delay (const char *kind)
       printf ("    }\n\n");
 
       /* Ensure matched.  Otherwise, shouldn't have been called.  */
-      printf ("  if (slot < %d)\n", max_slots);
-      printf ("    abort ();\n\n");
+      printf ("  gcc_assert (slot >= %d);\n\n", max_slots);
     }
 
   /* If just one type of delay slot, write simple switch.  */
@@ -4172,8 +4175,7 @@ write_eligible_delay (const char *kind)
       printf ("    {\n");
 
       attr = find_attr (&delay_1_0_str, 0);
-      if (! attr)
-	abort ();
+      gcc_assert (attr);
       common_av = find_most_used (attr);
 
       for (av = attr->first_value; av; av = av->next)
@@ -4203,8 +4205,7 @@ write_eligible_delay (const char *kind)
 	    sprintf (str, "*%s_%d_%d", kind, delay->num, i / 3);
 	    pstr = str;
 	    attr = find_attr (&pstr, 0);
-	    if (! attr)
-	      abort ();
+	    gcc_assert (attr);
 	    common_av = find_most_used (attr);
 
 	    for (av = attr->first_value; av; av = av->next)
@@ -4216,7 +4217,7 @@ write_eligible_delay (const char *kind)
 	  }
 
       printf ("    default:\n");
-      printf ("      abort ();\n");
+      printf ("      gcc_unreachable ();\n");
       printf ("    }\n");
     }
 
@@ -4295,8 +4296,7 @@ make_internal_attr (const char *name, rtx value, int special)
   struct attr_desc *attr;
 
   attr = find_attr (&name, 1);
-  if (attr->default_val)
-    abort ();
+  gcc_assert (!attr->default_val);
 
   attr->is_numeric = 1;
   attr->is_const = 0;
@@ -4335,8 +4335,7 @@ make_numeric_value (int n)
   rtx exp;
   char *p;
 
-  if (n < 0)
-    abort ();
+  gcc_assert (n >= 0);
 
   if (n < 20 && int_values[n])
     return int_values[n];
@@ -4368,7 +4367,6 @@ write_const_num_delay_slots (void)
 {
   struct attr_desc *attr = find_attr (&num_delay_slots_str, 0);
   struct attr_value *av;
-  struct insn_ent *ie;
 
   if (attr)
     {
@@ -4382,12 +4380,7 @@ write_const_num_delay_slots (void)
 	  length_used = 0;
 	  walk_attr_value (av->value);
 	  if (length_used)
-	    {
-	      for (ie = av->first_insn; ie; ie = ie->next)
-		if (ie->insn_code != -1)
-		  printf ("    case %d:\n", ie->insn_code);
-	      printf ("      return 0;\n");
-	    }
+	    write_insn_cases (av->first_insn, 4);
 	}
 
       printf ("    default:\n");
@@ -4406,9 +4399,6 @@ main (int argc, char **argv)
   int i;
 
   progname = "genattrtab";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

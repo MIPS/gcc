@@ -40,7 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
-   increases effectivity of code motion optimizations, and reduces the need
+   increases effectiveness of code motion optimizations, and reduces the need
    for loop preconditioning.  */
 
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
@@ -59,20 +59,16 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (header->aux)
     return false;
 
-  if (!header->succ)
-    abort ();
-  if (!header->succ->succ_next)
+  gcc_assert (EDGE_COUNT (header->succs) > 0);
+  if (EDGE_COUNT (header->succs) == 1)
     return false;
-  if (header->succ->succ_next->succ_next)
-    return false;
-  if (flow_bb_inside_loop_p (loop, header->succ->dest)
-      && flow_bb_inside_loop_p (loop, header->succ->succ_next->dest))
+  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest)
+      && flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 1)->dest))
     return false;
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header
-      && header->pred->pred_next)
+  if (header != loop->header && EDGE_COUNT (header->preds) >= 2)
     return false;
 
   last = last_stmt (header);
@@ -97,121 +93,6 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
     }
 
   return true;
-}
-
-/* Marks variables defined in basic block BB for rewriting.  */
-
-static void
-mark_defs_for_rewrite (basic_block bb)
-{
-  tree stmt, var;
-  block_stmt_iterator bsi;
-  stmt_ann_t ann;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  unsigned i;
-
-  for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
-    {
-      var = PHI_RESULT (stmt);
-      bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
-    }
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	{
-	  var = DEF_OP (defs, i);
-	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
-	}
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  var = V_MAY_DEF_RESULT (v_may_defs, i);
-	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  var = V_MUST_DEF_OP (v_must_defs, i);
-	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
-	}
-    }
-}
-
-/* Duplicates destinations of edges in BBS_TO_DUPLICATE.  */
-
-static void
-duplicate_blocks (varray_type bbs_to_duplicate)
-{
-  unsigned i;
-  edge preheader_edge, e, e1;
-  basic_block header, new_header;
-  tree phi, new_phi, var;
-
-  /* TODO: It should be quite easy to keep the dominance information
-     up-to-date.  */
-  free_dominance_info (CDI_DOMINATORS);
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
-    {
-      preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
-      header = preheader_edge->dest;
-
-      /* It is sufficient to rewrite the definitions, since the uses of
-	 the operands defined outside of the duplicated basic block are
-	 still valid (every basic block that dominates the original block
-	 also dominates the duplicate).  */
-      mark_defs_for_rewrite (header);
-    }
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
-    {
-      preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
-      header = preheader_edge->dest;
-
-      if (!header->aux)
-	abort ();
-      header->aux = NULL;
-
-      new_header = duplicate_block (header, preheader_edge);
-
-      /* Create the phi nodes on on entry to new_header.  */
-      for (phi = phi_nodes (header), var = PENDING_STMT (preheader_edge);
-	   phi;
-	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
-	{
-	  new_phi = create_phi_node (PHI_RESULT (phi), new_header);
-	  add_phi_arg (&new_phi, TREE_VALUE (var), preheader_edge);
-	}
-      PENDING_STMT (preheader_edge) = NULL;
-
-      /* Add the phi arguments to the outgoing edges.  */
-      for (e = header->succ; e; e = e->succ_next)
-	{
-	  for (e1 = new_header->succ; e1->dest != e->dest; e1 = e1->succ_next)
-	    continue;
-
-	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-	    {
-	      tree def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      add_phi_arg (&phi, def, e1);
-	    }
-	}
-    }
-
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  rewrite_ssa_into_ssa (vars_to_rename);
-  bitmap_clear (vars_to_rename);
 }
 
 /* Checks whether LOOP is a do-while style loop.  */
@@ -246,12 +127,14 @@ copy_loop_headers (void)
   unsigned i;
   struct loop *loop;
   basic_block header;
-  edge preheader_edge;
-  varray_type bbs_to_duplicate = NULL;
+  edge exit;
+  basic_block *bbs;
+  unsigned n_bbs;
 
   loops = loop_optimizer_init (dump_file);
   if (!loops)
     return;
+  rewrite_into_loop_closed_ssa ();
   
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
@@ -261,14 +144,15 @@ copy_loop_headers (void)
   verify_loop_structure (loops);
 #endif
 
+  bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+
   for (i = 1; i < loops->num; i++)
     {
       /* Copy at most 20 insns.  */
       int limit = 20;
 
       loop = loops->parray[i];
-      preheader_edge = loop_preheader_edge (loop);
-      header = preheader_edge->dest;
+      header = loop->header;
 
       /* If the loop is already a do-while style one (either because it was
 	 written as such, or because jump threading transformed it into one),
@@ -281,43 +165,55 @@ copy_loop_headers (void)
 	 like while (a && b) {...}, where we want to have both of the conditions
 	 copied.  TODO -- handle while (a || b) - like cases, by not requiring
 	 the header to have just a single successor and copying up to
-	 postdominator. 
-	 
-	 We do not really copy the blocks immediately, so that we do not have
-	 to worry about updating loop structures, and also so that we do not
-	 have to rewrite variables out of and into ssa form for each block.
-	 Instead we just record the block into worklist and duplicate all of
-	 them at once.  */
+	 postdominator.  */
+
+      exit = NULL;
+      n_bbs = 0;
       while (should_duplicate_loop_header_p (header, loop, &limit))
 	{
-	  if (!bbs_to_duplicate)
-	    VARRAY_GENERIC_PTR_NOGC_INIT (bbs_to_duplicate, 10,
-					  "bbs_to_duplicate");
-	  VARRAY_PUSH_GENERIC_PTR_NOGC (bbs_to_duplicate, preheader_edge);
-	  header->aux = &header->aux;
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "Scheduled basic block %d for duplication.\n",
-		     header->index);
-
 	  /* Find a successor of header that is inside a loop; i.e. the new
 	     header after the condition is copied.  */
-	  if (flow_bb_inside_loop_p (loop, header->succ->dest))
-	    preheader_edge = header->succ;
+	  if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest))
+	    exit = EDGE_SUCC (header, 0);
 	  else
-	    preheader_edge = header->succ->succ_next;
-	  header = preheader_edge->dest;
+	    exit = EDGE_SUCC (header, 1);
+	  bbs[n_bbs++] = header;
+	  header = exit->dest;
 	}
+
+      if (!exit)
+	continue;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "Duplicating header of the loop %d up to edge %d->%d.\n",
+		 loop->num, exit->src->index, exit->dest->index);
+
+      /* Ensure that the header will have just the latch as a predecessor
+	 inside the loop.  */
+      if (EDGE_COUNT (exit->dest->preds) > 1)
+	exit = EDGE_SUCC (loop_split_edge_with (exit, NULL), 0);
+
+      if (!tree_duplicate_sese_region (loop_preheader_edge (loop), exit,
+				       bbs, n_bbs, NULL))
+	{
+	  fprintf (dump_file, "Duplication failed.\n");
+	  continue;
+	}
+
+      /* Ensure that the latch and the preheader is simple (we know that they
+	 are not now, since there was the loop exit condition.  */
+      loop_split_edge_with (loop_preheader_edge (loop), NULL);
+      loop_split_edge_with (loop_latch_edge (loop), NULL);
     }
+
+  free (bbs);
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
 
   loop_optimizer_finalize (loops, NULL);
-
-  if (bbs_to_duplicate)
-    {
-      duplicate_blocks (bbs_to_duplicate);
-      VARRAY_FREE (bbs_to_duplicate);
-    }
 
   /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
      that we cleanup the blocks created in order to get the loops into a
@@ -335,15 +231,18 @@ struct tree_opt_pass pass_ch =
 {
   "ch",					/* name */
   gate_ch,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   copy_loop_headers,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CH,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   (TODO_dump_func
-   | TODO_verify_ssa)			/* todo_flags_finish */
+   | TODO_verify_ssa),			/* todo_flags_finish */
+  0					/* letter */
 };

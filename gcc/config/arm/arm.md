@@ -117,6 +117,8 @@
    (VUNSPEC_WCMP_EQ  11) ; Used by the iWMMXt WCMPEQ instructions
    (VUNSPEC_WCMP_GTU 12) ; Used by the iWMMXt WCMPGTU instructions
    (VUNSPEC_WCMP_GT  13) ; Used by the iwMMXT WCMPGT instructions
+   (VUNSPEC_EH_RETURN 20); Use to override the return address for exception
+			 ; handling.
   ]
 )
 
@@ -284,14 +286,13 @@
 ;; distant label.  Only applicable to Thumb code.
 (define_attr "far_jump" "yes,no" (const_string "no"))
 
+(include "predicates.md")
+
 ;;---------------------------------------------------------------------------
 ;; Pipeline descriptions
 
-;; Processor type.  This attribute must exactly match the table in 
-;; arm-cores.def.
-(define_attr "tune" 
-	     "arm2,arm250,arm3,arm6,arm60,arm600,arm610,arm620,arm7,arm7m,arm7d,arm7dm,arm7di,arm7dmi,arm70,arm700,arm700i,arm710,arm720,arm710c,arm7100,arm7500,arm7500fe,arm7tdmi,arm710t,arm720t,arm740t,arm8,arm810,arm9,arm920,arm920t,arm940t,arm9tdmi,arm9e,ep9312,strongarm,strongarm110,strongarm1100,strongarm1110,arm10tdmi,arm1020t,arm926ejs,arm1026ejs,xscale,iwmmxt,arm1136js,arm1136jfs"
-	     (const (symbol_ref "arm_tune")))
+;; Processor type.  This is created automatically from arm-cores.def.
+(include "arm-tune.md")
 
 ;; True if the generic scheduling description should be used.
 
@@ -450,7 +451,7 @@
     {
       arm_split_constant (PLUS, SImode, NULL_RTX,
 	                  INTVAL (operands[2]), operands[0], operands[1],
-			  (no_new_pseudos ? 0 : preserve_subexpressions_p ()));
+			  optimize && !no_new_pseudos);
       DONE;
     }
   "
@@ -936,9 +937,7 @@
         {
           arm_split_constant (MINUS, SImode, NULL_RTX,
 	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2],
-			      (no_new_pseudos ? 0
-			       :  preserve_subexpressions_p ()));
+	  		      operands[2], optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -1513,9 +1512,8 @@
         {
           arm_split_constant (AND, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0],
-			      operands[1],
-			      (no_new_pseudos
-			       ? 0 : preserve_subexpressions_p ()));
+			      operands[1], optimize && !no_new_pseudos);
+
           DONE;
         }
     }
@@ -2168,8 +2166,7 @@
         {
           arm_split_constant (IOR, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0], operands[1],
-			      (no_new_pseudos
-			      ? 0 : preserve_subexpressions_p ()));
+			      optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -4257,8 +4254,7 @@
         {
            arm_split_constant (SET, SImode, NULL_RTX,
 	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			      (no_new_pseudos ? 0
-			       : preserve_subexpressions_p ()));
+			       optimize && !no_new_pseudos);
           DONE;
         }
     }
@@ -4463,7 +4459,9 @@
   "flag_pic"
   "
 {
-  arm_finalize_pic (0);
+  /* r3 is clobbered by set/longjmp, so we can use it as a scratch
+     register.  */
+  arm_load_pic_register (3);
   DONE;
 }")
 
@@ -4654,7 +4652,7 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
-	  else if (arm_arch4 && !no_new_pseudos && optimize > 0
+	  else if (arm_arch4 && optimize && !no_new_pseudos
 		   && GET_CODE (operands[1]) == MEM)
 	    {
 	      rtx reg = gen_reg_rtx (SImode);
@@ -5250,7 +5248,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5264,11 +5264,8 @@
   operands[3]
     = arm_gen_load_multiple (REGNO (operands[0]), INTVAL (operands[2]),
 			     force_reg (SImode, XEXP (operands[1], 0)),
-			     TRUE, FALSE, RTX_UNCHANGING_P(operands[1]),
-			     MEM_IN_STRUCT_P(operands[1]),
-	                     MEM_SCALAR_P (operands[1]));
-  "
-)
+			     TRUE, FALSE, operands[1], &offset);
+})
 
 ;; Load multiple with write-back
 
@@ -5372,7 +5369,9 @@
                           (match_operand:SI 1 "" ""))
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
-  "
+{
+  HOST_WIDE_INT offset = 0;
+
   /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
@@ -5386,11 +5385,8 @@
   operands[3]
     = arm_gen_store_multiple (REGNO (operands[1]), INTVAL (operands[2]),
 			      force_reg (SImode, XEXP (operands[0], 0)),
-			      TRUE, FALSE, RTX_UNCHANGING_P (operands[0]),
-			      MEM_IN_STRUCT_P(operands[0]), 
-	                      MEM_SCALAR_P (operands[0]));
-  "
-)
+			      TRUE, FALSE, operands[0], &offset);
+})
 
 ;; Store multiple with write-back
 
@@ -6423,7 +6419,7 @@
 	 (match_operator 3 "comparison_operator"
 	  [(plus:SI
 	    (match_operand:SI 1 "s_register_operand" "%l,l,l,0")
-	    (match_operand:SI 2 "reg_or_int_operand" "J,l,I,L"))
+	    (match_operand:SI 2 "reg_or_int_operand" "J,l,L,IJ"))
 	   (const_int 0)])
 	 (label_ref (match_operand 4 "" ""))
 	 (pc)))
@@ -6443,11 +6439,17 @@
        case 1:
 	 output_asm_insn (\"cmn\t%1, %2\", operands);
 	 break;
-       case 3:
-	 output_asm_insn (\"add\t%0, %1, %2\", operands);
+       case 2:
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %1, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %1, %2\", operands);
 	 break;
-       case 4:
-	 output_asm_insn (\"add\t%0, %0, %2\", operands);
+       case 3:
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %0, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %0, %2\", operands);
 	 break;
        }
 
@@ -7433,10 +7435,14 @@
   "TARGET_THUMB && !arm_arch5"
   "*
   {
-    if (TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__interwork_call_via_%0\";
-    else
+    if (!TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__call_via_%0\";
+    else if (operands[1] == const0_rtx)
+      return \"bl\\t%__interwork_call_via_%0\";
+    else if (frame_pointer_needed)
+      return \"bl\\t%__interwork_r7_call_via_%0\";
+    else
+      return \"bl\\t%__interwork_r11_call_via_%0\";
   }"
   [(set_attr "type" "call")]
 )
@@ -7523,10 +7529,14 @@
   "TARGET_THUMB && !arm_arch5"
   "*
   {
-    if (TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__interwork_call_via_%1\";
-    else
+    if (!TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__call_via_%1\";
+    else if (operands[2] == const0_rtx)
+      return \"bl\\t%__interwork_call_via_%1\";
+    else if (frame_pointer_needed)
+      return \"bl\\t%__interwork_r7_call_via_%1\";
+    else
+      return \"bl\\t%__interwork_r11_call_via_%1\";
   }"
   [(set_attr "type" "call")]
 )
@@ -9706,9 +9716,11 @@
 )
 
 (define_expand "epilogue"
-  [(unspec_volatile [(return)] VUNSPEC_EPILOGUE)]
+  [(clobber (const_int 0))]
   "TARGET_EITHER"
   "
+  if (current_function_calls_eh_return)
+    emit_insn (gen_prologue_use (gen_rtx_REG (Pmode, 2)));
   if (TARGET_THUMB)
     thumb_expand_epilogue ();
   else if (USE_RETURN_INSN (FALSE))
@@ -10225,6 +10237,53 @@
   [(unspec:SI [(match_operand:SI 0 "register_operand" "")] UNSPEC_PROLOGUE_USE)]
   ""
   "%@ %0 needed for prologue"
+)
+
+
+;; Patterns for exception handling
+
+(define_expand "eh_return"
+  [(use (match_operand 0 "general_operand" ""))]
+  "TARGET_EITHER"
+  "
+  {
+    if (TARGET_ARM)
+      emit_insn (gen_arm_eh_return (operands[0]));
+    else
+      emit_insn (gen_thumb_eh_return (operands[0]));
+    DONE;
+  }"
+)
+				   
+;; We can't expand this before we know where the link register is stored.
+(define_insn_and_split "arm_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "r")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&r"))]
+  "TARGET_ARM"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    arm_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
+)
+
+(define_insn_and_split "thumb_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "l")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&l"))]
+  "TARGET_THUMB"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    thumb_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
 )
 
 ;; Load the FPA co-processor patterns

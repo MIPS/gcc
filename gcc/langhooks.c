@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "intl.h"
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
@@ -125,10 +126,10 @@ lhd_safe_from_p (rtx ARG_UNUSED (x), tree ARG_UNUSED (exp))
 
 /* Called from staticp.  */
 
-bool
+tree
 lhd_staticp (tree ARG_UNUSED (exp))
 {
-  return false;
+  return NULL;
 }
 
 /* Called from check_global_declarations.  */
@@ -267,6 +268,7 @@ lhd_expand_decl (tree ARG_UNUSED (t))
 const char *
 lhd_decl_printable_name (tree decl, int ARG_UNUSED (verbosity))
 {
+  gcc_assert (decl && DECL_NAME (decl));
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
@@ -296,7 +298,7 @@ lhd_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
 				 int *subtrees ATTRIBUTE_UNUSED,
 				 walk_tree_fn func ATTRIBUTE_UNUSED,
 				 void *data ATTRIBUTE_UNUSED,
-				 void *htab ATTRIBUTE_UNUSED)
+				 struct pointer_set_t *pset ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
 }
@@ -410,7 +412,7 @@ lhd_tree_dump_type_quals (tree t)
 tree
 lhd_expr_size (tree exp)
 {
-  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+  if (DECL_P (exp)
       && DECL_SIZE_UNIT (exp) != 0)
     return DECL_SIZE_UNIT (exp);
   else
@@ -427,8 +429,8 @@ lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
 }
 
 /* lang_hooks.tree_size: Determine the size of a tree with code C,
-   which is a language-specific tree code in category 'x'.  The
-   default expects never to be called.  */
+   which is a language-specific tree code in category tcc_constant or
+   tcc_exceptional.  The default expects never to be called.  */
 size_t
 lhd_tree_size (enum tree_code c ATTRIBUTE_UNUSED)
 {
@@ -443,6 +445,14 @@ bool
 lhd_decl_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED)
 {
   return true;
+}
+
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+lhd_comdat_group (tree decl)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 }
 
 /* lang_hooks.decls.final_write_globals: perform final processing on
@@ -493,16 +503,16 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
       pp_set_prefix (context->printer, new_prefix);
 
       if (current_function_decl == NULL)
-	pp_printf (context->printer, "At top level:");
+	pp_printf (context->printer, _("At top level:"));
       else
 	{
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
 	    pp_printf
-	      (context->printer, "In member function `%s':",
+	      (context->printer, _("In member function %qs:"),
 	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	  else
 	    pp_printf
-	      (context->printer, "In function `%s':",
+	      (context->printer, _("In function %qs:"),
 	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	}
 

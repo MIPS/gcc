@@ -319,6 +319,7 @@ static void set_up_bb_rts_numbers (void);
 static int rpost_cmp (const void *, const void *);
 static bool modify_bb_reg_pav (basic_block, basic_block, bool);
 static void calculate_reg_pav (void);
+static void modify_reg_pav (void);
 static void make_accurate_live_analysis (void);
 
 
@@ -468,12 +469,12 @@ global_alloc (FILE *file)
 	&& (! current_function_has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
-	if (reg_renumber[i] < 0 && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
+	if (reg_renumber[i] < 0
+	    && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
 	  reg_allocno[i] = reg_allocno[reg_may_share[i]];
 	else
 	  reg_allocno[i] = max_allocno++;
-	if (REG_LIVE_LENGTH (i) == 0)
-	  abort ();
+	gcc_assert (REG_LIVE_LENGTH (i));
       }
     else
       reg_allocno[i] = -1;
@@ -699,20 +700,20 @@ global_conflicts (void)
       {
 	regset old = b->global_live_at_start;
 	int ax = 0;
+	reg_set_iterator rsi;
 
 	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
-	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i,
-				   {
-				     int a = reg_allocno[i];
-				     if (a >= 0)
-				       {
-					 SET_ALLOCNO_LIVE (a);
-					 block_start_allocnos[ax++] = a;
-				       }
-				     else if ((a = reg_renumber[i]) >= 0)
-				       mark_reg_live_nc
-					 (a, PSEUDO_REGNO_MODE (i));
-				   });
+	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i, rsi)
+	  {
+	    int a = reg_allocno[i];
+	    if (a >= 0)
+	      {
+		SET_ALLOCNO_LIVE (a);
+		block_start_allocnos[ax++] = a;
+	      }
+	    else if ((a = reg_renumber[i]) >= 0)
+	      mark_reg_live_nc (a, PSEUDO_REGNO_MODE (i));
+	  }
 
 	/* Record that each allocno now live conflicts with each hard reg
 	   now live.
@@ -733,7 +734,7 @@ global_conflicts (void)
 		   evaluates X.
 
 		3. Either X or Y is not evaluated on the path to P
-		   (ie it is used uninitialized) and thus the
+		   (i.e. it is used uninitialized) and thus the
 		   conflict can be ignored.
 
 	    In cases #1 and #2 the conflict will be recorded when we
@@ -747,8 +748,9 @@ global_conflicts (void)
 	   regs live across such edges.  */
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  for (e = b->pred; e ; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, b->preds)
 	    if (e->flags & EDGE_ABNORMAL)
 	      break;
 
@@ -1815,17 +1817,17 @@ build_insn_chain (rtx first)
       if (first == BB_HEAD (b))
 	{
 	  int i;
+	  bitmap_iterator bi;
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP
-	    (b->global_live_at_start, 0, i,
-	     {
-	       if (i < FIRST_PSEUDO_REGISTER
-		   ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
-		   : reg_renumber[i] >= 0)
-		 SET_REGNO_REG_SET (live_relevant_regs, i);
-	     });
+	  EXECUTE_IF_SET_IN_BITMAP (b->global_live_at_start, 0, i, bi)
+	    {
+	      if (i < FIRST_PSEUDO_REGISTER
+		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
+		  : reg_renumber[i] >= 0)
+		SET_REGNO_REG_SET (live_relevant_regs, i);
+	    }
 	}
 
       if (!NOTE_P (first) && !BARRIER_P (first))
@@ -1885,14 +1887,15 @@ build_insn_chain (rtx first)
 	 the previous real insn is a JUMP_INSN.  */
       if (b == EXIT_BLOCK_PTR)
 	{
-	  for (first = NEXT_INSN (first) ; first; first = NEXT_INSN (first))
-	    if (INSN_P (first)
-		&& GET_CODE (PATTERN (first)) != USE
-		&& ! ((GET_CODE (PATTERN (first)) == ADDR_VEC
-		       || GET_CODE (PATTERN (first)) == ADDR_DIFF_VEC)
-		      && prev_real_insn (first) != 0
-		      && JUMP_P (prev_real_insn (first))))
-	      abort ();
+#ifdef ENABLE_CHECKING
+	  for (first = NEXT_INSN (first); first; first = NEXT_INSN (first))
+	    gcc_assert (!INSN_P (first)
+			|| GET_CODE (PATTERN (first)) == USE
+			|| ((GET_CODE (PATTERN (first)) == ADDR_VEC
+			     || GET_CODE (PATTERN (first)) == ADDR_DIFF_VEC)
+			    && prev_real_insn (first) != 0
+			    && JUMP_P (prev_real_insn (first))));
+#endif
 	  break;
 	}
     }
@@ -2175,7 +2178,7 @@ check_earlyclobber (rtx insn)
     }
 }
 
-/* The function returns true if register classes C1 and C2 inetrsect.  */
+/* The function returns true if register classes C1 and C2 intersect.  */
 
 static bool
 regclass_intersect (enum reg_class c1, enum reg_class c2)
@@ -2337,12 +2340,14 @@ calculate_reg_pav (void)
       sbitmap_zero (wset);
       for (i = 0; i < nel; i++)
 	{
+	  edge_iterator ei;
+
 	  bb = bb_array [i];
 	  changed_p = 0;
-	  for (e = bb->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
 	  if (changed_p)
-	    for (e = bb->succ; e; e = e->succ_next)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
 		succ = e->dest;
 		if (succ->index != EXIT_BLOCK && !TEST_BIT (wset, succ->index))
@@ -2358,6 +2363,61 @@ calculate_reg_pav (void)
       VARRAY_POP_ALL (new_bbs);
     }
   sbitmap_free (wset);
+}
+
+/* The function modifies partial availability information for two
+   special cases to prevent incorrect work of the subsequent passes
+   with the accurate live information based on the partial
+   availability.  */
+
+static void
+modify_reg_pav (void)
+{
+  basic_block bb;
+  struct bb_info *bb_info;
+#ifdef STACK_REGS
+  int i;
+  HARD_REG_SET zero, stack_hard_regs, used;
+  bitmap stack_regs;
+
+  CLEAR_HARD_REG_SET (zero);
+  CLEAR_HARD_REG_SET (stack_hard_regs);
+  for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
+    SET_HARD_REG_BIT(stack_hard_regs, i);
+  stack_regs = BITMAP_XMALLOC ();
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    {
+      COPY_HARD_REG_SET (used, reg_class_contents[reg_preferred_class (i)]);
+      IOR_HARD_REG_SET (used, reg_class_contents[reg_alternate_class (i)]);
+      AND_HARD_REG_SET (used, stack_hard_regs);
+      GO_IF_HARD_REG_EQUAL(used, zero, skip);
+      bitmap_set_bit (stack_regs, i);
+    skip:
+      ;
+    }
+#endif
+  FOR_EACH_BB (bb)
+    {
+      bb_info = BB_INFO (bb);
+      
+      /* Reload can assign the same hard register to uninitialized
+	 pseudo-register and early clobbered pseudo-register in an
+	 insn if the pseudo-register is used first time in given BB
+	 and not lived at the BB start.  To prevent this we don't
+	 change life information for such pseudo-registers.  */
+      bitmap_a_or_b (bb_info->pavin, bb_info->pavin, bb_info->earlyclobber);
+#ifdef STACK_REGS
+      /* We can not use the same stack register for uninitialized
+	 pseudo-register and another living pseudo-register because if the
+	 uninitialized pseudo-register dies, subsequent pass reg-stack
+	 will be confused (it will believe that the other register
+	 dies).  */
+      bitmap_a_or_b (bb_info->pavin, bb_info->pavin, stack_regs);
+#endif
+    }
+#ifdef STACK_REGS
+  BITMAP_XFREE (stack_regs);
+#endif
 }
 
 /* The following function makes live information more accurate by
@@ -2379,16 +2439,11 @@ make_accurate_live_analysis (void)
   calculate_local_reg_bb_info ();
   set_up_bb_rts_numbers ();
   calculate_reg_pav ();
+  modify_reg_pav ();
   FOR_EACH_BB (bb)
     {
       bb_info = BB_INFO (bb);
       
-      /* Reload can assign the same hard register to uninitialized
-	 pseudo-register and early clobbered pseudo-register in an
-	 insn if the pseudo-register is used first time in given BB
-	 and not lived at the BB start.  To prevent this we don't
-	 change life information for such pseudo-registers.  */
-      bitmap_a_or_b (bb_info->pavin, bb_info->pavin, bb_info->earlyclobber);
       bitmap_a_and_b (bb->global_live_at_start, bb->global_live_at_start,
 		      bb_info->pavin);
       bitmap_a_and_b (bb->global_live_at_end, bb->global_live_at_end,

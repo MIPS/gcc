@@ -211,8 +211,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
   if (old == new || rtx_equal_p (old, new))
     return 1;
 
-  if (in_group == 0 && num_changes != 0)
-    abort ();
+  gcc_assert (in_group != 0 || num_changes == 0);
 
   *loc = new;
 
@@ -489,9 +488,9 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
 	      && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == ASM_OPERANDS)
 	    {
 	      /* Verify that operands are really shared.  */
-	      if (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0))) !=
-		  ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, j))))
-		abort ();
+	      gcc_assert (ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP (x, 0, 0)))
+			  == ASM_OPERANDS_INPUT_VEC (SET_SRC (XVECEXP
+							      (x, 0, j))));
 	      validate_replace_rtx_1 (&SET_DEST (XVECEXP (x, 0, j)),
 				      from, to, object);
 	    }
@@ -922,9 +921,7 @@ general_operand (rtx op, enum machine_mode mode)
   if (CONSTANT_P (op))
     return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
 	     || mode == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	    && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	    && LEGITIMATE_CONSTANT_P (op));
 
   /* Except for certain constants with VOIDmode, already checked for,
@@ -977,14 +974,11 @@ general_operand (rtx op, enum machine_mode mode)
 	return 0;
 
       /* Use the mem's mode, since it will be reloaded thus.  */
-      mode = GET_MODE (op);
-      GO_IF_LEGITIMATE_ADDRESS (mode, y, win);
+      if (memory_address_p (GET_MODE (op), y))
+	return 1;
     }
 
   return 0;
-
- win:
-  return 1;
 }
 
 /* Return 1 if OP is a valid memory address for a memory reference
@@ -1102,9 +1096,7 @@ immediate_operand (rtx op, enum machine_mode mode)
   return (CONSTANT_P (op)
 	  && (GET_MODE (op) == mode || mode == VOIDmode
 	      || GET_MODE (op) == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	  && LEGITIMATE_CONSTANT_P (op));
 }
 
@@ -1170,9 +1162,7 @@ nonmemory_operand (rtx op, enum machine_mode mode)
 
       return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
 	       || mode == VOIDmode)
-#ifdef LEGITIMATE_PIC_OPERAND_P
 	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
 	      && LEGITIMATE_CONSTANT_P (op));
     }
 
@@ -1576,8 +1566,7 @@ asm_operand_ok (rtx op, const char *constraint)
   int result = 0;
 
   /* Use constrain_operands after reload.  */
-  if (reload_completed)
-    abort ();
+  gcc_assert (!reload_completed);
 
   while (*constraint)
     {
@@ -1677,11 +1666,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	  /* Fall through.  */
 
 	case 'i':
-	  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-	      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-	      )
+	  if (CONSTANT_P (op) && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 	    result = 1;
 	  break;
 
@@ -2021,8 +2006,7 @@ extract_insn (rtx insn)
 	  /* This insn is an `asm' with operands.  */
 
 	  /* expand_asm_operands makes sure there aren't too many operands.  */
-	  if (noperands > MAX_RECOG_OPERANDS)
-	    abort ();
+	  gcc_assert (noperands <= MAX_RECOG_OPERANDS);
 
 	  /* Now get the operand values and constraints out of the insn.  */
 	  decode_asm_operands (body, recog_data.operand,
@@ -2070,8 +2054,7 @@ extract_insn (rtx insn)
 	 : recog_data.constraints[i][0] == '+' ? OP_INOUT
 	 : OP_IN);
 
-  if (recog_data.n_alternatives > MAX_RECOG_ALTERNATIVES)
-    abort ();
+  gcc_assert (recog_data.n_alternatives <= MAX_RECOG_ALTERNATIVES);
 }
 
 /* After calling extract_insn, you can use this function to extract some
@@ -2828,8 +2811,7 @@ static int peep2_current;
 rtx
 peep2_next_insn (int n)
 {
-  if (n >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (n < MAX_INSNS_PER_PEEP2 + 1);
 
   n += peep2_current;
   if (n >= MAX_INSNS_PER_PEEP2 + 1)
@@ -2846,15 +2828,13 @@ peep2_next_insn (int n)
 int
 peep2_regno_dead_p (int ofs, int regno)
 {
-  if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (ofs < MAX_INSNS_PER_PEEP2 + 1);
 
   ofs += peep2_current;
   if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
     ofs -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[ofs].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[ofs].insn != NULL_RTX);
 
   return ! REGNO_REG_SET_P (peep2_insn_data[ofs].live_before, regno);
 }
@@ -2866,15 +2846,13 @@ peep2_reg_dead_p (int ofs, rtx reg)
 {
   int regno, n;
 
-  if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (ofs < MAX_INSNS_PER_PEEP2 + 1);
 
   ofs += peep2_current;
   if (ofs >= MAX_INSNS_PER_PEEP2 + 1)
     ofs -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[ofs].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[ofs].insn != NULL_RTX);
 
   regno = REGNO (reg);
   n = hard_regno_nregs[regno][GET_MODE (reg)];
@@ -2904,8 +2882,8 @@ peep2_find_free_register (int from, int to, const char *class_str,
   HARD_REG_SET live;
   int i;
 
-  if (from >= MAX_INSNS_PER_PEEP2 + 1 || to >= MAX_INSNS_PER_PEEP2 + 1)
-    abort ();
+  gcc_assert (from < MAX_INSNS_PER_PEEP2 + 1);
+  gcc_assert (to < MAX_INSNS_PER_PEEP2 + 1);
 
   from += peep2_current;
   if (from >= MAX_INSNS_PER_PEEP2 + 1)
@@ -2914,8 +2892,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
   if (to >= MAX_INSNS_PER_PEEP2 + 1)
     to -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[from].insn == NULL_RTX)
-    abort ();
+  gcc_assert (peep2_insn_data[from].insn != NULL_RTX);
   REG_SET_TO_HARD_REG_SET (live, peep2_insn_data[from].live_before);
 
   while (from != to)
@@ -2924,8 +2901,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 
       if (++from >= MAX_INSNS_PER_PEEP2 + 1)
 	from = 0;
-      if (peep2_insn_data[from].insn == NULL_RTX)
-	abort ();
+      gcc_assert (peep2_insn_data[from].insn != NULL_RTX);
       REG_SET_TO_HARD_REG_SET (this_live, peep2_insn_data[from].live_before);
       IOR_HARD_REG_SET (live, this_live);
     }
@@ -3089,8 +3065,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  new_insn = NEXT_INSN (new_insn);
 			}
 
-		      if (new_insn == NULL_RTX)
-			abort ();
+		      gcc_assert (new_insn != NULL_RTX);
 
 		      CALL_INSN_FUNCTION_USAGE (new_insn)
 			= CALL_INSN_FUNCTION_USAGE (old_insn);
@@ -3119,8 +3094,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			  if (j >= MAX_INSNS_PER_PEEP2 + 1)
 			    j -= MAX_INSNS_PER_PEEP2 + 1;
 			  old_insn = peep2_insn_data[j].insn;
-			  if (CALL_P (old_insn))
-			    abort ();
+			  gcc_assert (!CALL_P (old_insn));
 			}
 		      break;
 		    }
@@ -3142,9 +3116,9 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  if (note || (was_call && nonlocal_goto_handler_labels))
 		    {
 		      edge eh_edge;
+		      edge_iterator ei;
 
-		      for (eh_edge = bb->succ; eh_edge
-			   ; eh_edge = eh_edge->succ_next)
+		      FOR_EACH_EDGE (eh_edge, ei, bb->succs)
 			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			  break;
 
@@ -3290,8 +3264,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
   rtx out_set, in_set;
 
   in_set = single_set (in_insn);
-  if (! in_set)
-    abort ();
+  gcc_assert (in_set);
 
   if (!MEM_P (SET_DEST (in_set)))
     return false;
@@ -3308,8 +3281,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
       int i;
 
       out_pat = PATTERN (out_insn);
-      if (GET_CODE (out_pat) != PARALLEL)
-	abort ();
+      gcc_assert (GET_CODE (out_pat) == PARALLEL);
 
       for (i = 0; i < XVECLEN (out_pat, 0); i++)
 	{
@@ -3318,8 +3290,7 @@ store_data_bypass_p (rtx out_insn, rtx in_insn)
 	  if (GET_CODE (exp) == CLOBBER)
 	    continue;
 
-	  if (GET_CODE (exp) != SET)
-	    abort ();
+	  gcc_assert (GET_CODE (exp) == SET);
 
 	  if (reg_mentioned_p (SET_DEST (exp), SET_DEST (in_set)))
 	    return false;
@@ -3342,9 +3313,8 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
   in_set = single_set (in_insn);
   if (! in_set)
     {
-      if (JUMP_P (in_insn) || CALL_P (in_insn))
-	return false;
-      abort ();
+      gcc_assert (JUMP_P (in_insn) || CALL_P (in_insn));
+      return false;
     }
 
   if (GET_CODE (SET_SRC (in_set)) != IF_THEN_ELSE)
@@ -3364,8 +3334,7 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
       int i;
 
       out_pat = PATTERN (out_insn);
-      if (GET_CODE (out_pat) != PARALLEL)
-	abort ();
+      gcc_assert (GET_CODE (out_pat) == PARALLEL);
 
       for (i = 0; i < XVECLEN (out_pat, 0); i++)
 	{
@@ -3374,8 +3343,7 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
 	  if (GET_CODE (exp) == CLOBBER)
 	    continue;
 
-	  if (GET_CODE (exp) != SET)
-	    abort ();
+	  gcc_assert (GET_CODE (exp) == SET);
 
 	  if (reg_mentioned_p (SET_DEST (out_set), XEXP (in_set, 1))
 	      || reg_mentioned_p (SET_DEST (out_set), XEXP (in_set, 2)))

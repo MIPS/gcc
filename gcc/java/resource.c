@@ -1,5 +1,5 @@
 /* Functions related to building resource files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "target.h"
 #include "expr.h"
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -69,9 +70,9 @@ compile_resource_data (const char *name, const char *buffer, int length)
   FINISH_RECORD (rtype);
   START_RECORD_CONSTRUCTOR (rinit, rtype);
   PUSH_FIELD_VALUE (rinit, "name_length", 
-		    build_int_2 (strlen (name), 0));
+		    build_int_cst (NULL_TREE, strlen (name)));
   PUSH_FIELD_VALUE (rinit, "resource_length", 
-		    build_int_2 (length, 0));
+		    build_int_cst (NULL_TREE, length));
   data = build_string (strlen(name) + length, buffer);
   TREE_TYPE (data) = data_type;
   PUSH_FIELD_VALUE (rinit, "data", data);
@@ -91,9 +92,9 @@ compile_resource_data (const char *name, const char *buffer, int length)
   DECL_INITIAL (decl) = rinit;
   layout_decl (decl, 0);
   pushdecl (decl);
-  rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
-  make_decl_rtl (decl, (char*) 0);
-  assemble_variable (decl, 1, 0, 0);
+  rest_of_decl_compilation (decl, global_bindings_p (), 0);
+  make_decl_rtl (decl);
+  cgraph_varpool_finalize_decl (decl);
 
   resources = tree_cons (NULL_TREE, decl, resources);
 }

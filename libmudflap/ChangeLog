@@ -1,3 +1,67 @@
+2004-10-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.ac: Check for more headers, functions.
+	* mf-hooks2.c (mkbuffer, unmkbuffer): New helper functions for
+	tracking overridden FILE buffers.
+	(fopen, setvbuf): New/revised hook functions for buffer overriding.
+	(setbuf,setlinebuf,fdopen,freopen,fopen64,freopen64,fclose): Ditto.
+	(fflush): Accept given NULL stream (means "all streams").
+	* mf-runtime.h.in: 
+	* mf-runtime.c (__mfu_check): Accept accesses that span adjacent
+	HEAP/GUESS objects.
+	(LOOKUP_CACHE_SIZE_MAX): Raise to 64K entries tentatively.
+	(__mf_adapt_cache): Use them all.
+	* testsuite/libmudflap.c/pass35-frag.c: Update warning message.
+	* testsuite/libmudflap.c++/ctors.exp: Ditto.
+	* testsuite/libmudflap.c/{pass51,pass52}-frag.c: New tests.
+	* configure, config.h.in: Regenerated.
+
+2004-10-05  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.ac: Checking for sys/socket.h once is enough.
+	* configure: Regenerated.
+
+2004-10-04  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.ac: Look for more headers & functions.
+	* mf-hooks2.c (getmntent, inet_ntoa, getproto*): New wrapper functions.
+	* mf-runtime.h.in: Add new "#pragma redefine_extname"s for them.
+	* mf-runtime.c (options): Clean up integer signedness warnings.
+	(main): Add a declaration to fix a warning.
+	* mf-hooks3.c (pthread_exit): Add not-reached exit() to wrapper.
+	* configure, config.h.in: Regenerated.
+
+2004-10-02  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/pass50-frag.c, fail33-frag.c, fail34-frag.c:
+	New tests for proper base/limit checking for aggregates.
+
+2004-09-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* testsuite/libmudflap.c/pass35-frag.c: Update expected message.
+
+2004-09-07  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.ac: Look for pwd.h, grp.h, netdb.h headers and functions.
+	* mf-hooks2.c (strerror): Unregister previous string returned by
+	previous strerror.
+	(getlogin,cuserid,getpwnam,getpwuid,getgrnam,getgrgid): New wrappers.
+	(getservent,getservbyname,getservbyport,gai_strerror): Ditto.
+	* mf-runtime.h.in: Add redefine_extname pragmas for them all.
+	* mf-runtime.c (__mf_describe_object): Clarify object life status.
+	* testsuite/libmudflap.c/pass48-frag.c, pass49-frag.c, fail32-frag.c:
+	New tests.
+	* configure, config.h.in: Regenerated.
+
+2004-08-03  Dale Johannesen  <dalej@apple.com>
+
+         * mf-runtime.c: Conditionalize POSIX_SOURCE for Darwin.
+
+2004-08-03  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.c (compare_uintptr_t): Remove function.  Inline
+	simplified contents in all former callers.
+
 2004-07-27  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
 
 	* mf-runtime.c (__mf_fini): Set mudflap_mode to mode_nop in

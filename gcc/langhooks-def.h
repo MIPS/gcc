@@ -50,7 +50,7 @@ extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
 extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern int lhd_safe_from_p (rtx, tree);
-extern bool lhd_staticp (tree);
+extern tree lhd_staticp (tree);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
 extern int lhd_types_compatible_p (tree, tree);
@@ -65,6 +65,7 @@ extern void lhd_incomplete_type_error (tree, tree);
 extern tree lhd_type_promotes_to (tree);
 extern void lhd_register_builtin_type (tree, const char *);
 extern bool lhd_decl_ok_for_sibcall (tree);
+extern const char *lhd_comdat_group (tree);
 extern tree lhd_expr_size (tree);
 extern bool lhd_decl_uninit (tree);
 extern tree lhd_get_callee_fndecl (tree);
@@ -72,7 +73,7 @@ extern size_t lhd_tree_size (enum tree_code);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					     void *, void *);
+					     void *, struct pointer_set_t*);
 extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
@@ -106,11 +107,9 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
 #define LANG_HOOKS_STATICP		lhd_staticp
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL lhd_do_nothing_t
-#define LANG_HOOKS_UNSAVE_EXPR_NOW	lhd_unsave_expr_now
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lhd_set_decl_assembler_name
 #define LANG_HOOKS_CAN_USE_BIT_FIELDS_P lhd_can_use_bit_fields_p
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS false
-#define LANG_HOOKS_HONOR_READONLY	false
 #define LANG_HOOKS_NO_BODY_BLOCKS	false
 #define LANG_HOOKS_PRINT_STATISTICS	lhd_do_nothing
 #define LANG_HOOKS_PRINT_XNODE		lhd_print_tree_nothing
@@ -229,6 +228,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
+#define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -239,6 +239,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
+  LANG_HOOKS_COMDAT_GROUP \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
@@ -265,11 +266,9 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_MARK_ADDRESSABLE, \
   LANG_HOOKS_STATICP, \
   LANG_HOOKS_DUP_LANG_SPECIFIC_DECL, \
-  LANG_HOOKS_UNSAVE_EXPR_NOW, \
   LANG_HOOKS_SET_DECL_ASSEMBLER_NAME, \
   LANG_HOOKS_CAN_USE_BIT_FIELDS_P, \
   LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS, \
-  LANG_HOOKS_HONOR_READONLY, \
   LANG_HOOKS_NO_BODY_BLOCKS, \
   LANG_HOOKS_PRINT_STATISTICS, \
   LANG_HOOKS_PRINT_XNODE, \

@@ -272,6 +272,8 @@ static int nb_soft_regs;
 #define TARGET_STRUCT_VALUE_RTX m68hc11_struct_value_rtx
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY m68hc11_return_in_memory
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_callee_copies_named
 
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING m68hc11_strip_name_encoding
@@ -292,6 +294,11 @@ m68hc11_override_options (void)
 	       (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
     }
+
+  /* Do not enable -fweb because it breaks the 32-bit shift patterns
+     by breaking the match_dup of those patterns.  The shift patterns
+     will no longer be recognized after that.  */
+  flag_web = 0;
 
   /* Configure for a 68hc11 processor.  */
   if (TARGET_M6811)
@@ -843,7 +850,7 @@ m68hc11_reload_operands (rtx operands[])
       /* If the offset is out of range, we have to compute the address
          with a separate add instruction.  We try to do with with an 8-bit
          add on the A register.  This is possible only if the lowest part
-         of the offset (ie, big_offset % 256) is a valid constant offset
+         of the offset (i.e., big_offset % 256) is a valid constant offset
          with respect to the mode.  If it's not, we have to generate a
          16-bit add on the D register.  From:
        
@@ -2782,11 +2789,11 @@ m68hc11_expand_compare_and_branch (enum rtx_code code, rtx op0, rtx op1,
 	    break;
 
 	  case EQ:
-	    code1 = NIL;
+	    code1 = UNKNOWN;
 	    code2 = NE;
 	    break;
 	  case NE:
-	    code2 = NIL;
+	    code2 = UNKNOWN;
 	    break;
 
 	  default:
@@ -2800,14 +2807,14 @@ m68hc11_expand_compare_and_branch (enum rtx_code code, rtx op0, rtx op1,
 	 *    if (lo(a) < lo(b)) goto true;
 	 *  false:
 	 */
-	if (code1 != NIL)
+	if (code1 != UNKNOWN)
 	  m68hc11_expand_compare_and_branch (code1, hi[0], hi[1], label);
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  m68hc11_expand_compare_and_branch (code2, hi[0], hi[1], label2);
 
 	m68hc11_expand_compare_and_branch (code3, lo[0], lo[1], label);
 
-	if (code2 != NIL)
+	if (code2 != UNKNOWN)
 	  emit_label (label2);
 	return 0;
       }

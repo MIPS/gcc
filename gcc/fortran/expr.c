@@ -154,7 +154,7 @@ free_expr0 (gfc_expr * e)
 	  break;
 
 	case BT_REAL:
-	  mpf_clear (e->value.real);
+	  mpfr_clear (e->value.real);
 	  break;
 
 	case BT_CHARACTER:
@@ -162,8 +162,8 @@ free_expr0 (gfc_expr * e)
 	  break;
 
 	case BT_COMPLEX:
-	  mpf_clear (e->value.complex.r);
-	  mpf_clear (e->value.complex.i);
+	  mpfr_clear (e->value.complex.r);
+	  mpfr_clear (e->value.complex.i);
 	  break;
 
 	default:
@@ -330,6 +330,50 @@ gfc_copy_shape (mpz_t * shape, int rank)
 }
 
 
+/* Copy a shape array excluding dimension N, where N is an integer
+   constant expression.  Dimensions are numbered in fortran style --
+   starting with ONE.
+
+   So, if the original shape array contains R elements
+      { s1 ... sN-1  sN  sN+1 ... sR-1 sR}
+   the result contains R-1 elements:
+      { s1 ... sN-1  sN+1    ...  sR-1}
+
+   If anything goes wrong -- N is not a constant, its value is out
+   of range -- or anything else, just returns NULL.
+*/
+
+mpz_t *
+gfc_copy_shape_excluding (mpz_t * shape, int rank, gfc_expr * dim)
+{
+  mpz_t *new_shape, *s;
+  int i, n;
+
+  if (shape == NULL 
+      || rank <= 1
+      || dim == NULL
+      || dim->expr_type != EXPR_CONSTANT 
+      || dim->ts.type != BT_INTEGER)
+    return NULL;
+
+  n = mpz_get_si (dim->value.integer);
+  n--; /* Convert to zero based index */
+  if (n < 0 && n >= rank)
+    return NULL;
+
+  s = new_shape = gfc_get_shape (rank-1);
+
+  for (i = 0; i < rank; i++)
+    {
+      if (i == n)
+        continue;
+      mpz_init_set (*s, shape[i]);
+      s++;
+    }
+
+  return new_shape;
+}
+
 /* Given an expression pointer, return a copy of the expression.  This
    subroutine is recursive.  */
 
@@ -365,12 +409,17 @@ gfc_copy_expr (gfc_expr * p)
 	  break;
 
 	case BT_REAL:
-	  mpf_init_set (q->value.real, p->value.real);
+          gfc_set_model_kind (q->ts.kind);
+          mpfr_init (q->value.real);
+	  mpfr_set (q->value.real, p->value.real, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  mpf_init_set (q->value.complex.r, p->value.complex.r);
-	  mpf_init_set (q->value.complex.i, p->value.complex.i);
+          gfc_set_model_kind (q->ts.kind);
+          mpfr_init (q->value.complex.r);
+          mpfr_init (q->value.complex.i);
+	  mpfr_set (q->value.complex.r, p->value.complex.r, GFC_RND_MODE);
+	  mpfr_set (q->value.complex.i, p->value.complex.i, GFC_RND_MODE);
 	  break;
 
 	case BT_CHARACTER:
@@ -475,7 +524,7 @@ gfc_int_expr (int i)
 
   p->expr_type = EXPR_CONSTANT;
   p->ts.type = BT_INTEGER;
-  p->ts.kind = gfc_default_integer_kind ();
+  p->ts.kind = gfc_default_integer_kind;
 
   p->where = gfc_current_locus;
   mpz_init_set_si (p->value.integer, i);
@@ -495,7 +544,7 @@ gfc_logical_expr (int i, locus * where)
 
   p->expr_type = EXPR_CONSTANT;
   p->ts.type = BT_LOGICAL;
-  p->ts.kind = gfc_default_logical_kind ();
+  p->ts.kind = gfc_default_logical_kind;
 
   if (where == NULL)
     where = &gfc_current_locus;
@@ -1748,9 +1797,18 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       return FAILURE;
     }
 
+  /* This is a guaranteed segfault and possibly a typo: p = NULL()
+     instead of p => NULL()  */
   if (rvalue->expr_type == EXPR_NULL)
     gfc_warning ("NULL appears on right-hand side in assignment at %L",
 		 &rvalue->where);
+
+  /* This is possibly a typo: x = f() instead of x => f()  */
+  if (gfc_option.warn_surprising 
+      && rvalue->expr_type == EXPR_FUNCTION
+      && rvalue->symtree->n.sym->attr.pointer)
+    gfc_warning ("POINTER valued function appears on right-hand side of "
+		 "assignment at %L", &rvalue->where);
 
   /* Check size of array assignments.  */
   if (lvalue->rank != 0 && rvalue->rank != 0
@@ -1925,3 +1983,30 @@ gfc_default_initializer (gfc_typespec *ts)
     }
   return init;
 }
+
+
+/* Given a symbol, create an expression node with that symbol as a
+   variable. If the symbol is array valued, setup a reference of the
+   whole array.  */
+
+gfc_expr *
+gfc_get_variable_expr (gfc_symtree * var)
+{
+  gfc_expr *e;
+
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_VARIABLE;
+  e->symtree = var;
+  e->ts = var->n.sym->ts;
+
+  if (var->n.sym->as != NULL)
+    {
+      e->rank = var->n.sym->as->rank;
+      e->ref = gfc_get_ref ();
+      e->ref->type = REF_ARRAY;
+      e->ref->u.ar.type = AR_FULL;
+    }
+
+  return e;
+}
+

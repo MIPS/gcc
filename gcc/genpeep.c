@@ -1,6 +1,6 @@
 /* Generate code from machine description to perform peephole optimizations.
    Copyright (C) 1987, 1989, 1992, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -358,9 +358,6 @@ main (int argc, char **argv)
   max_opno = -1;
 
   progname = "genpeep";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

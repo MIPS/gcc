@@ -798,6 +798,19 @@ find_constant_index (tree value, struct jcf_partial *state)
     {
       long words[2];
 
+      /* IEEE NaN can have many values, but the Java VM spec defines a
+	 canonical NaN.  */      
+      if (flag_emit_class_files
+	  && REAL_VALUE_ISNAN (TREE_REAL_CST (value)))
+	{
+	  if (TYPE_PRECISION (TREE_TYPE (value)) == 32)
+ 	    return find_constant1 (&state->cpool, CONSTANT_Float,
+ 				   0x7fc00000);
+	  else
+ 	    return find_constant2 (&state->cpool, CONSTANT_Double,
+ 				   0x7ff80000, 0x00000000);
+	}	    
+      
       real_to_target (words, &TREE_REAL_CST (value),
 		      TYPE_MODE (TREE_TYPE (value)));
       words[0] &= 0xffffffff;
@@ -1466,8 +1479,12 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	tree body = EXPR_WFL_NODE (exp);
 	if (IS_EMPTY_STMT (body))
 	  break;
+#ifdef USE_MAPPED_LOCATION
+	input_location = EXPR_LOCATION (exp);
+#else
 	input_filename = EXPR_WFL_FILENAME (exp);
 	input_line = EXPR_WFL_LINENO (exp);
+#endif
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp) && input_line > 0
 	    && debug_info_level > DINFO_LEVEL_NONE)
 	  put_linenumber (input_line, state);
@@ -2023,8 +2040,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	/* If the rhs is a binary expression and the left operand is
 	   `==' to the lhs then we have an OP= expression.  In this
 	   case we must do some special processing.  */
-	if (TREE_CODE_CLASS (TREE_CODE (rhs)) == '2'
-	    && lhs == TREE_OPERAND (rhs, 0))
+	if (BINARY_CLASS_P (rhs) && lhs == TREE_OPERAND (rhs, 0))
 	  {
 	    if (TREE_CODE (lhs) == COMPONENT_REF)
 	      {

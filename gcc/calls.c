@@ -349,7 +349,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
     }
   else
 #endif
-    abort ();
+    gcc_unreachable ();
 
   /* Find the call we just emitted.  */
   call_insn = last_call_insn ();
@@ -691,7 +691,7 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 	    && args[i].mode != BLKmode
 	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
 	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
-		|| preserve_subexpressions_p ()))
+		|| optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
       }
 }
@@ -970,54 +970,30 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       if (pass_by_reference (args_so_far, TYPE_MODE (type),
 			     type, argpos < n_named_args))
 	{
-	  /* If we're compiling a thunk, pass through invisible
-             references instead of making a copy.  */
+	  bool callee_copies;
+	  tree base;
+
+	  callee_copies
+	    = reference_callee_copied (args_so_far, TYPE_MODE (type),
+				       type, argpos < n_named_args);
+
+	  /* If we're compiling a thunk, pass through invisible references
+	     instead of making a copy.  */
 	  if (call_from_thunk_p
-	      || (FUNCTION_ARG_CALLEE_COPIES (*args_so_far, TYPE_MODE (type),
-					     type, argpos < n_named_args)
-		  /* If it's in a register, we must make a copy of it too.  */
-		  /* ??? Is this a sufficient test?  Is there a better one? */
-		  && !(TREE_CODE (args[i].tree_value) == VAR_DECL
-		       && REG_P (DECL_RTL (args[i].tree_value)))
-		  && ! TREE_ADDRESSABLE (type))
-	      )
+	      || (callee_copies
+		  && !TREE_ADDRESSABLE (type)
+		  && (base = get_base_address (args[i].tree_value))
+		  && (!DECL_P (base) || MEM_P (DECL_RTL (base)))))
 	    {
-	      /* C++ uses a TARGET_EXPR to indicate that we want to make a
-	         new object from the argument.  If we are passing by
-	         invisible reference, the callee will do that for us, so we
-	         can strip off the TARGET_EXPR.  This is not always safe,
-	         but it is safe in the only case where this is a useful
-	         optimization; namely, when the argument is a plain object.
-	         In that case, the frontend is just asking the backend to
-	         make a bitwise copy of the argument.  */
-
-	      if (TREE_CODE (args[i].tree_value) == TARGET_EXPR
-		  && (DECL_P (TREE_OPERAND (args[i].tree_value, 1)))
-		  && ! REG_P (DECL_RTL (TREE_OPERAND (args[i].tree_value, 1))))
-		args[i].tree_value = TREE_OPERAND (args[i].tree_value, 1);
-
-	      /* We can't use sibcalls if a callee-copied argument is stored
-		 in the current function's frame.  */
-	      if (!call_from_thunk_p
-		  && (!DECL_P (args[i].tree_value)
-		      || !TREE_STATIC (args[i].tree_value)))
+	      /* We can't use sibcalls if a callee-copied argument is
+		 stored in the current function's frame.  */
+	      if (!call_from_thunk_p && DECL_P (base) && !TREE_STATIC (base))
 		*may_tailcall = false;
 
-	      args[i].tree_value = build1 (ADDR_EXPR,
-					   build_pointer_type (type),
-					   args[i].tree_value);
-	      type = build_pointer_type (type);
-	    }
-	  else if (TREE_CODE (args[i].tree_value) == TARGET_EXPR)
-	    {
-	      /* In the V3 C++ ABI, parameters are destroyed in the caller.
-		 We implement this by passing the address of the temporary
-	         rather than expanding it into another allocated slot.  */
-	      args[i].tree_value = build1 (ADDR_EXPR,
-					   build_pointer_type (type),
-					   args[i].tree_value);
-	      type = build_pointer_type (type);
-	      *may_tailcall = false;
+	      args[i].tree_value = build_fold_addr_expr (args[i].tree_value);
+	      type = TREE_TYPE (args[i].tree_value);
+
+	      *ecf_flags &= ~(ECF_CONST | ECF_LIBCALL_BLOCK);
 	    }
 	  else
 	    {
@@ -1051,12 +1027,15 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		copy = assign_temp (type, 0, 1, 0);
 
 	      store_expr (args[i].tree_value, copy, 0);
-	      *ecf_flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
 
-	      args[i].tree_value = build1 (ADDR_EXPR,
-					   build_pointer_type (type),
-					   make_tree (type, copy));
-	      type = build_pointer_type (type);
+	      if (callee_copies)
+		*ecf_flags &= ~(ECF_CONST | ECF_LIBCALL_BLOCK);
+	      else
+		*ecf_flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+
+	      args[i].tree_value
+		= build_fold_addr_expr (make_tree (type, copy));
+	      type = TREE_TYPE (args[i].tree_value);
 	      *may_tailcall = false;
 	    }
 	}
@@ -1179,8 +1158,7 @@ compute_argument_block_size (int reg_parm_stack_space,
 	  /* We don't handle this case yet.  To handle it correctly we have
 	     to add the delta, round and subtract the delta.
 	     Currently no machine description requires this support.  */
-	  if (stack_pointer_delta & (preferred_stack_boundary - 1))
-	    abort ();
+	  gcc_assert (!(stack_pointer_delta & (preferred_stack_boundary - 1)));
 	  args_size->var = round_up (args_size->var, preferred_stack_boundary);
 	}
 
@@ -1246,8 +1224,7 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
       enum machine_mode mode;
 
       /* If this is an addressable type, we cannot pre-evaluate it.  */
-      if (TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)))
-	abort ();
+      gcc_assert (!TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)));
 
       args[i].initial_value = args[i].value
 	= expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
@@ -1505,7 +1482,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		     seem worth generating rtl to say that.  */
 		  reg = gen_rtx_REG (word_mode, REGNO (reg));
 		  x = expand_shift (LSHIFT_EXPR, word_mode, reg,
-				    build_int_2 (shift, 0), reg, 1);
+				    build_int_cst (NULL_TREE, shift),
+				    reg, 1);
 		  if (x != reg)
 		    emit_move_insn (reg, x);
 		}
@@ -1542,7 +1520,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 		  emit_move_insn (x, tem);
 		  x = expand_shift (dir, word_mode, x,
-				    build_int_2 (shift, 0), ri, 1);
+				    build_int_cst (NULL_TREE, shift),
+				    ri, 1);
 		  if (x != ri)
 		    emit_move_insn (ri, x);
 		}
@@ -1782,45 +1761,6 @@ purge_reg_equiv_notes (void)
     }
 }
 
-/* Clear RTX_UNCHANGING_P flag of incoming argument MEMs.  */
-
-static void
-purge_mem_unchanging_flag (rtx x)
-{
-  RTX_CODE code;
-  int i, j;
-  const char *fmt;
-
-  if (x == NULL_RTX)
-    return;
-
-  code = GET_CODE (x);
-
-  if (code == MEM)
-    {
-      if (RTX_UNCHANGING_P (x)
-	  && (XEXP (x, 0) == current_function_internal_arg_pointer
-	      || (GET_CODE (XEXP (x, 0)) == PLUS
-		  && XEXP (XEXP (x, 0), 0) ==
-		     current_function_internal_arg_pointer
-		  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)))
-	RTX_UNCHANGING_P (x) = 0;
-      return;
-    }
-
-  /* Scan all subexpressions.  */
-  fmt = GET_RTX_FORMAT (code);
-  for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
-    {
-      if (*fmt == 'e')
-	purge_mem_unchanging_flag (XEXP (x, i));
-      else if (*fmt == 'E')
-	for (j = 0; j < XVECLEN (x, i); j++)
-	  purge_mem_unchanging_flag (XVECEXP (x, i, j));
-    }
-}
-
-
 /* Generate all the code for a function call
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -2057,8 +1997,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Operand 0 is a pointer-to-function; get the type of the function.  */
   funtype = TREE_TYPE (addr);
-  if (! POINTER_TYPE_P (funtype))
-    abort ();
+  gcc_assert (POINTER_TYPE_P (funtype));
   funtype = TREE_TYPE (funtype);
 
   /* Munge the tree to split complex arguments into their imaginary
@@ -2699,8 +2638,8 @@ expand_call (tree exp, rtx target, int ignore)
 	 now!  */
 
       /* Stack must be properly aligned now.  */
-      if (pass && stack_pointer_delta % preferred_unit_stack_boundary)
-	abort ();
+      gcc_assert (!pass
+		  || !(stack_pointer_delta % preferred_unit_stack_boundary));
 
       /* Generate the actual call instruction.  */
       emit_call_1 (funexp, exp, fndecl, funtype, unadjusted_args_size,
@@ -2812,8 +2751,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      last = PREV_INSN (last);
 	      /* There was no CALL_INSN?  */
-	      if (last == before_call)
-		abort ();
+	      gcc_assert (last != before_call);
 	    }
 
 	  emit_barrier_after (last);
@@ -2913,36 +2851,36 @@ expand_call (tree exp, rtx target, int ignore)
 
       if (targetm.calls.promote_function_return(funtype))
 	{
-      /* If we promoted this return value, make the proper SUBREG.  TARGET
-	 might be const0_rtx here, so be careful.  */
-      if (REG_P (target)
-	  && TYPE_MODE (TREE_TYPE (exp)) != BLKmode
-	  && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
-	{
-	  tree type = TREE_TYPE (exp);
-	  int unsignedp = TYPE_UNSIGNED (type);
-	  int offset = 0;
-
-	  /* If we don't promote as expected, something is wrong.  */
-	  if (GET_MODE (target)
-	      != promote_mode (type, TYPE_MODE (type), &unsignedp, 1))
-	    abort ();
-
-	if ((WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN)
-	    && GET_MODE_SIZE (GET_MODE (target))
-	       > GET_MODE_SIZE (TYPE_MODE (type)))
-	  {
-	    offset = GET_MODE_SIZE (GET_MODE (target))
-		     - GET_MODE_SIZE (TYPE_MODE (type));
-	    if (! BYTES_BIG_ENDIAN)
-	      offset = (offset / UNITS_PER_WORD) * UNITS_PER_WORD;
-	    else if (! WORDS_BIG_ENDIAN)
-	      offset %= UNITS_PER_WORD;
-	  }
-	  target = gen_rtx_SUBREG (TYPE_MODE (type), target, offset);
-	  SUBREG_PROMOTED_VAR_P (target) = 1;
-	  SUBREG_PROMOTED_UNSIGNED_SET (target, unsignedp);
-	}
+	  /* If we promoted this return value, make the proper SUBREG.
+	     TARGET might be const0_rtx here, so be careful.  */
+	  if (REG_P (target)
+	      && TYPE_MODE (TREE_TYPE (exp)) != BLKmode
+	      && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
+	    {
+	      tree type = TREE_TYPE (exp);
+	      int unsignedp = TYPE_UNSIGNED (type);
+	      int offset = 0;
+	      enum machine_mode pmode;
+	      
+	      pmode = promote_mode (type, TYPE_MODE (type), &unsignedp, 1);
+	      /* If we don't promote as expected, something is wrong.  */
+	      gcc_assert (GET_MODE (target) == pmode);
+	      
+	      if ((WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN)
+		  && (GET_MODE_SIZE (GET_MODE (target))
+		      > GET_MODE_SIZE (TYPE_MODE (type))))
+		{
+		  offset = GET_MODE_SIZE (GET_MODE (target))
+		    - GET_MODE_SIZE (TYPE_MODE (type));
+		  if (! BYTES_BIG_ENDIAN)
+		    offset = (offset / UNITS_PER_WORD) * UNITS_PER_WORD;
+		  else if (! WORDS_BIG_ENDIAN)
+		    offset %= UNITS_PER_WORD;
+		}
+	      target = gen_rtx_SUBREG (TYPE_MODE (type), target, offset);
+	      SUBREG_PROMOTED_VAR_P (target) = 1;
+	      SUBREG_PROMOTED_UNSIGNED_SET (target, unsignedp);
+	    }
 	}
 
       /* If size of args is variable or this was a constructor call for a stack
@@ -3001,22 +2939,6 @@ expand_call (tree exp, rtx target, int ignore)
 	if (args[i].aligned_regs)
 	  free (args[i].aligned_regs);
 
-      /* If this function is returning into a memory location marked as
-	 readonly, it means it is initializing that location. We normally treat
-	 functions as not clobbering such locations, so we need to specify that
-	 this one does. We do this by adding the appropriate CLOBBER to the
-	 CALL_INSN function usage list.  This cannot be done by emitting a
-	 standalone CLOBBER after the call because the latter would be ignored
-	 by at least the delay slot scheduling pass. We do this now instead of
-	 adding to call_fusage before the call to emit_call_1 because TARGET
-	 may be modified in the meantime.  */
-      if (structure_value_addr != 0 && target != 0
-	  && MEM_P (target) && RTX_UNCHANGING_P (target))
-	add_function_usage_to
-	  (last_call_insn (),
-	   gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_CLOBBER (VOIDmode, target),
-			      NULL_RTX));
-
       insns = get_insns ();
       end_sequence ();
 
@@ -3045,10 +2967,9 @@ expand_call (tree exp, rtx target, int ignore)
 	  normal_call_insns = insns;
 
 	  /* Verify that we've deallocated all the stack we used.  */
-	  if (! (flags & (ECF_NORETURN | ECF_LONGJMP))
-	      && old_stack_allocated != stack_pointer_delta
-					- pending_stack_adjust)
-	    abort ();
+	  gcc_assert ((flags & (ECF_NORETURN | ECF_LONGJMP))
+		      || (old_stack_allocated
+			  == stack_pointer_delta - pending_stack_adjust));
 	}
 
       /* If something prevents making this a sibling call,
@@ -3097,32 +3018,7 @@ expand_call (tree exp, rtx target, int ignore)
 void
 fixup_tail_calls (void)
 {
-  rtx insn;
-  tree arg;
-
   purge_reg_equiv_notes ();
-
-  /* A sibling call sequence also may invalidate RTX_UNCHANGING_P
-     flag of some incoming arguments MEM RTLs, because it can write into
-     those slots.  We clear all those bits now.
-
-     This is (slight) overkill, we could keep track of which arguments
-     we actually write into.  */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      if (INSN_P (insn))
-	purge_mem_unchanging_flag (PATTERN (insn));
-    }
-
-  /* Similarly, invalidate RTX_UNCHANGING_P for any incoming
-     arguments passed in registers.  */
-  for (arg = DECL_ARGUMENTS (current_function_decl);
-       arg;
-       arg = TREE_CHAIN (arg))
-    {
-      if (REG_P (DECL_RTL (arg)))
-	RTX_UNCHANGING_P (DECL_RTL (arg)) = false;
-    }
 }
 
 /* Traverse an argument list in VALUES and expand all complex
@@ -3385,6 +3281,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   if (mem_value && struct_value == 0 && ! pcc_struct_value)
     {
       rtx addr = XEXP (mem_value, 0);
+      int partial;
+      
       nargs++;
 
       /* Make sure it is a reasonable operand for a move or push insn.  */
@@ -3397,8 +3295,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].partial = 0;
 
       argvec[count].reg = FUNCTION_ARG (args_so_far, Pmode, NULL_TREE, 1);
-      if (FUNCTION_ARG_PARTIAL_NREGS (args_so_far, Pmode, NULL_TREE, 1))
-	abort ();
+      partial = FUNCTION_ARG_PARTIAL_NREGS (args_so_far, Pmode, NULL_TREE, 1);
+      gcc_assert (!partial);
 
       locate_and_pad_parm (Pmode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3424,9 +3322,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
       /* We cannot convert the arg value to the mode the library wants here;
 	 must do it earlier where we know the signedness of the arg.  */
-      if (mode == BLKmode
-	  || (GET_MODE (val) != mode && GET_MODE (val) != VOIDmode))
-	abort ();
+      gcc_assert (mode != BLKmode
+		  && (GET_MODE (val) == mode || GET_MODE (val) == VOIDmode));
 
       /* Make sure it is a reasonable operand for a move or push insn.  */
       if (!REG_P (val) && !MEM_P (val)
@@ -3436,8 +3333,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       if (pass_by_reference (&args_so_far, mode, NULL_TREE, 1))
 	{
 	  rtx slot;
-	  int must_copy = ! FUNCTION_ARG_CALLEE_COPIES (args_so_far, mode,
-							NULL_TREE, 1);
+	  int must_copy
+	    = !reference_callee_copied (&args_so_far, mode, NULL_TREE, 1);
 
 	  /* loop.c won't look at CALL_INSN_FUNCTION_USAGE of const/pure
 	     functions, so we have to pretend this isn't such a function.  */
@@ -3457,24 +3354,13 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      flags |= ECF_PURE;
 	    }
 
-	  if (GET_MODE (val) == MEM && ! must_copy)
+	  if (GET_MODE (val) == MEM && !must_copy)
 	    slot = val;
-	  else if (must_copy)
+	  else
 	    {
 	      slot = assign_temp (lang_hooks.types.type_for_mode (mode, 0),
 				  0, 1, 1);
 	      emit_move_insn (slot, val);
-	    }
-	  else
-	    {
-	      tree type = lang_hooks.types.type_for_mode (mode, 0);
-
-	      slot
-		= gen_rtx_MEM (mode,
-			       expand_expr (build1 (ADDR_EXPR,
-						    build_pointer_type (type),
-						    make_tree (type, val)),
-					    NULL_RTX, VOIDmode, 0));
 	    }
 
 	  call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
@@ -3507,8 +3393,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 			   argvec[count].partial,
 			   NULL_TREE, &args_size, &argvec[count].locate);
 
-      if (argvec[count].locate.size.var)
-	abort ();
+      gcc_assert (!argvec[count].locate.size.var);
 
       if (argvec[count].reg == 0 || argvec[count].partial != 0
 	  || reg_parm_stack_space > 0)
@@ -3772,8 +3657,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    ? hard_libcall_value (outmode) : NULL_RTX);
 
   /* Stack must be properly aligned now.  */
-  if (stack_pointer_delta & (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1))
-    abort ();
+  gcc_assert (!(stack_pointer_delta
+		& (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1)));
 
   before_call = get_last_insn ();
 
@@ -3808,8 +3693,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	{
 	  last = PREV_INSN (last);
 	  /* There was no CALL_INSN?  */
-	  if (last == before_call)
-	    abort ();
+	  gcc_assert (last != before_call);
 	}
 
       emit_barrier_after (last);
@@ -4085,11 +3969,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       partial = arg->partial;
     }
 
-  if (reg != 0 && partial == 0)
-    /* Being passed entirely in a register.  We shouldn't be called in
-       this case.  */
-    abort ();
-
+  /* Being passed entirely in a register.  We shouldn't be called in
+     this case.  */
+  gcc_assert (reg == 0 || partial != 0);
+  
   /* If this arg needs special alignment, don't load the registers
      here.  */
   if (arg->n_aligned_regs != 0)
@@ -4261,8 +4144,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		i = INTVAL (XEXP (XEXP (x, 0), 1));
 
 	      /* expand_call should ensure this.  */
-	      if (arg->locate.offset.var || GET_CODE (size_rtx) != CONST_INT)
-		abort ();
+	      gcc_assert (!arg->locate.offset.var
+			  && GET_CODE (size_rtx) == CONST_INT);
 
 	      if (arg->locate.offset.constant > i)
 		{

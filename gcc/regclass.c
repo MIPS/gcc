@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "hashtab.h"
 
 static void init_reg_sets_1 (void);
 static void init_reg_autoinc (void);
@@ -103,6 +104,13 @@ static const char initial_call_used_regs[] = CALL_USED_REGISTERS;
 #ifdef CALL_REALLY_USED_REGISTERS
 char call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 #endif
+
+#ifdef CALL_REALLY_USED_REGISTERS
+#define CALL_REALLY_USED_REGNO_P(X)  call_really_used_regs[X]
+#else
+#define CALL_REALLY_USED_REGNO_P(X)  call_used_regs[X]
+#endif
+
 
 /* Indexed by hard register number, contains 1 for registers that are
    fixed use or call used registers that cannot hold quantities across
@@ -228,12 +236,6 @@ static char *in_inc_dec;
 
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
 
-#ifdef CANNOT_CHANGE_MODE_CLASS
-/* All registers that have been subreged.  Indexed by regno * MAX_MACHINE_MODE
-   + mode.  */
-bitmap_head subregs_of_mode;
-#endif
-
 /* Sample MEM values for use by memory_move_secondary_cost.  */
 
 static GTY(()) rtx top_of_stack[MAX_MACHINE_MODE];
@@ -284,9 +286,8 @@ init_reg_sets (void)
 
   /* Sanity check: make sure the target macros FIXED_REGISTERS and
      CALL_USED_REGISTERS had the right number of initializers.  */
-  if (sizeof fixed_regs != sizeof initial_fixed_regs
-      || sizeof call_used_regs != sizeof initial_call_used_regs)
-    abort();
+  gcc_assert (sizeof fixed_regs == sizeof initial_fixed_regs);
+  gcc_assert (sizeof call_used_regs == sizeof initial_call_used_regs);
 
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
@@ -427,6 +428,13 @@ init_reg_sets_1 (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
+      /* call_used_regs must include fixed_regs.  */
+      gcc_assert (!fixed_regs[i] || call_used_regs[i]);
+#ifdef CALL_REALLY_USED_REGISTERS
+      /* call_used_regs must include call_really_used_regs.  */
+      gcc_assert (!call_really_used_regs[i] || call_used_regs[i]);
+#endif
+
       if (fixed_regs[i])
 	SET_HARD_REG_BIT (fixed_reg_set, i);
       else
@@ -448,7 +456,11 @@ init_reg_sets_1 (void)
 	 If we are generating PIC code, the PIC offset table register is
 	 preserved across calls, though the target can override that.  */
 
-      if (i == STACK_POINTER_REGNUM || i == FRAME_POINTER_REGNUM)
+      if (i == STACK_POINTER_REGNUM)
+	;
+      else if (global_regs[i])
+	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
+      else if (i == FRAME_POINTER_REGNUM)
 	;
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
       else if (i == HARD_FRAME_POINTER_REGNUM)
@@ -462,13 +474,7 @@ init_reg_sets_1 (void)
       else if (i == (unsigned) PIC_OFFSET_TABLE_REGNUM && fixed_regs[i])
 	;
 #endif
-      else if (0
-#ifdef CALL_REALLY_USED_REGISTERS
-	       || call_really_used_regs[i]
-#else
-	       || call_used_regs[i]
-#endif
-	       || global_regs[i])
+      else if (CALL_REALLY_USED_REGNO_P (i))
 	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
     }
 
@@ -645,7 +651,7 @@ memory_move_secondary_cost (enum machine_mode mode, enum reg_class class, int in
        what it is, so MEMORY_MOVE_COST really ought not to be calling
        here in that case.
 
-       I'm tempted to put in an abort here, but returning this will
+       I'm tempted to put in an assert here, but returning this will
        probably only give poor estimates, which is what we would've
        had before this code anyways.  */
     return partial_cost;
@@ -794,17 +800,25 @@ globalize_reg (int i)
 
   global_regs[i] = 1;
 
+  /* If we're globalizing the frame pointer, we need to set the
+     appropriate regs_invalidated_by_call bit, even if it's already
+     set in fixed_regs.  */
+  if (i != STACK_POINTER_REGNUM)
+    SET_HARD_REG_BIT (regs_invalidated_by_call, i);
+
   /* If already fixed, nothing else to do.  */
   if (fixed_regs[i])
     return;
 
   fixed_regs[i] = call_used_regs[i] = call_fixed_regs[i] = 1;
+#ifdef CALL_REALLY_USED_REGISTERS
+  call_really_used_regs[i] = 1;
+#endif
   n_non_fixed_regs--;
 
   SET_HARD_REG_BIT (fixed_reg_set, i);
   SET_HARD_REG_BIT (call_used_reg_set, i);
   SET_HARD_REG_BIT (call_fixed_reg_set, i);
-  SET_HARD_REG_BIT (regs_invalidated_by_call, i);
 }
 
 /* Now the data and code for the `regclass' pass, which happens
@@ -1563,7 +1577,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  win = address_operand (op, GET_MODE (op));
 		  /* We know this operand is an address, so we want it to be
 		     allocated to a register that can be the base of an
-		     address, ie BASE_REG_CLASS.  */
+		     address, i.e. BASE_REG_CLASS.  */
 		  classes[i]
 		    = reg_class_subunion[(int) classes[i]]
 		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
@@ -1614,10 +1628,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    break;
 		case 'i':
 		  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-		      )
+		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 		    win = 1;
 		  break;
 
@@ -1648,10 +1659,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case 'g':
 		  if (MEM_P (op)
 		      || (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-			  ))
+			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))))
 		    win = 1;
 		  allows_mem[i] = 1;
 		case 'r':
@@ -1683,7 +1691,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			win = 1;
 		      /* We know this operand is an address, so we want it to
 			 be allocated to a register that can be the base of an
-			 address, ie BASE_REG_CLASS.  */
+			 address, i.e. BASE_REG_CLASS.  */
 		      classes[i]
 			= reg_class_subunion[(int) classes[i]]
 			  [(int) MODE_BASE_REG_CLASS (VOIDmode)];
@@ -2003,25 +2011,27 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	  record_address_regs (arg0, INDEX_REG_CLASS, scale);
 
 	/* If both operands are registers but one is already a hard register
-	   of index or base class, give the other the class that the hard
-	   register is not.  */
+	   of index or reg-base class, give the other the class that the
+	   hard register is not.  */
 
-#ifdef REG_OK_FOR_BASE_P
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg0) < FIRST_PSEUDO_REGISTER
-		 && (REG_OK_FOR_BASE_P (arg0) || REG_OK_FOR_INDEX_P (arg0)))
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
+		     || REG_OK_FOR_INDEX_P (arg0)))
 	  record_address_regs (arg1,
-			       REG_OK_FOR_BASE_P (arg0)
-			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
+			       REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
+			       ? INDEX_REG_CLASS
+			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
 			       scale);
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg1) < FIRST_PSEUDO_REGISTER
-		 && (REG_OK_FOR_BASE_P (arg1) || REG_OK_FOR_INDEX_P (arg1)))
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
+		     || REG_OK_FOR_INDEX_P (arg1)))
 	  record_address_regs (arg0,
-			       REG_OK_FOR_BASE_P (arg1)
-			       ? INDEX_REG_CLASS : MODE_BASE_REG_CLASS (VOIDmode),
+			       REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
+			       ? INDEX_REG_CLASS
+			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
 			       scale);
-#endif
 
 	/* If one operand is known to be a pointer, it must be the base
 	   with the other operand the index.  Likewise if the other operand
@@ -2030,14 +2040,16 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	else if ((code0 == REG && REG_POINTER (arg0))
 		 || code1 == MULT)
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode), scale);
+	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
+				 scale);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale);
 	  }
 	else if ((code1 == REG && REG_POINTER (arg1))
 		 || code0 == MULT)
 	  {
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale);
-	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode), scale);
+	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
+				 scale);
 	  }
 
 	/* Otherwise, count equal chances that each might be a base
@@ -2045,10 +2057,10 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 
 	else
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_CLASS (VOIDmode),
+	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
 				 scale / 2);
 	    record_address_regs (arg0, INDEX_REG_CLASS, scale / 2);
-	    record_address_regs (arg1, MODE_BASE_REG_CLASS (VOIDmode),
+	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
 				 scale / 2);
 	    record_address_regs (arg1, INDEX_REG_CLASS, scale / 2);
 	  }
@@ -2387,7 +2399,6 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 
 	if (regno >= min_regno)
 	  {
-	    REGNO_LAST_NOTE_UID (regno) = INSN_UID (insn);
 	    if (!note_flag)
 	      REGNO_LAST_UID (regno) = INSN_UID (insn);
 	    if (REGNO_FIRST_UID (regno) == 0)
@@ -2577,10 +2588,74 @@ reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 void
 regset_release_memory (void)
 {
-  bitmap_release_memory ();
+  /*  bitmap_release_memory (); */
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
+
+struct subregs_of_mode_node
+{
+  unsigned int block;
+  unsigned char modes[MAX_MACHINE_MODE];
+};
+
+static htab_t subregs_of_mode;
+
+static hashval_t
+som_hash (const void *x)
+{
+  const struct subregs_of_mode_node *a = x;
+  return a->block;
+}
+
+static int
+som_eq (const void *x, const void *y)
+{
+  const struct subregs_of_mode_node *a = x;
+  const struct subregs_of_mode_node *b = y;
+  return a->block == b->block;
+}
+
+void
+init_subregs_of_mode (void)
+{
+  if (subregs_of_mode)
+    htab_empty (subregs_of_mode);
+  else
+    subregs_of_mode = htab_create (100, som_hash, som_eq, free);
+}
+
+void
+record_subregs_of_mode (rtx subreg)
+{
+  struct subregs_of_mode_node dummy, *node;
+  enum machine_mode mode;
+  unsigned int regno;
+  void **slot;
+
+  if (!REG_P (SUBREG_REG (subreg)))
+    return;
+
+  regno = REGNO (SUBREG_REG (subreg));
+  mode = GET_MODE (subreg);
+
+  if (regno < FIRST_PSEUDO_REGISTER)
+    return;
+
+  dummy.block = regno & -8;
+  slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
+				   dummy.block, INSERT);
+  node = *slot;
+  if (node == NULL)
+    {
+      node = xcalloc (1, sizeof (*node));
+      node->block = regno & -8;
+      *slot = node;
+    }
+
+  node->modes[mode] |= 1 << (regno & 7);
+}
+
 /* Set bits in *USED which correspond to registers which can't change
    their mode from FROM to any mode in which REGNO was encountered.  */
 
@@ -2588,19 +2663,23 @@ void
 cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
 			     unsigned int regno)
 {
+  struct subregs_of_mode_node dummy, *node;
   enum machine_mode to;
-  int n, i;
-  int start = regno * MAX_MACHINE_MODE;
+  unsigned char mask;
+  unsigned int i;
 
-  EXECUTE_IF_SET_IN_BITMAP (&subregs_of_mode, start, n,
-    if (n >= MAX_MACHINE_MODE + start)
-      return;
-    to = n - start;
-    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      if (! TEST_HARD_REG_BIT (*used, i)
-	  && REG_CANNOT_CHANGE_MODE_P (i, from, to))
-	SET_HARD_REG_BIT (*used, i);
-  );
+  dummy.block = regno & -8;
+  node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
+  if (node == NULL)
+    return;
+
+  mask = 1 << (regno & 7);
+  for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
+    if (node->modes[to] & mask)
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (!TEST_HARD_REG_BIT (*used, i)
+	    && REG_CANNOT_CHANGE_MODE_P (i, from, to))
+	  SET_HARD_REG_BIT (*used, i);
 }
 
 /* Return 1 if REGNO has had an invalid mode change in CLASS from FROM
@@ -2608,20 +2687,24 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
 
 bool
 invalid_mode_change_p (unsigned int regno, enum reg_class class,
-		       enum machine_mode from_mode)
+		       enum machine_mode from)
 {
-  enum machine_mode to_mode;
-  int n;
-  int start = regno * MAX_MACHINE_MODE;
+  struct subregs_of_mode_node dummy, *node;
+  enum machine_mode to;
+  unsigned char mask;
 
-  EXECUTE_IF_SET_IN_BITMAP (&subregs_of_mode, start, n,
-    if (n >= MAX_MACHINE_MODE + start)
-      return 0;
-    to_mode = n - start;
-    if (CANNOT_CHANGE_MODE_CLASS (from_mode, to_mode, class))
-      return 1;
-  );
-  return 0;
+  dummy.block = regno & -8;
+  node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
+  if (node == NULL)
+    return false;
+
+  mask = 1 << (regno & 7);
+  for (to = VOIDmode; to < NUM_MACHINE_MODES; to++)
+    if (node->modes[to] & mask)
+      if (CANNOT_CHANGE_MODE_CLASS (from, to, class))
+	return true;
+
+  return false;
 }
 #endif /* CANNOT_CHANGE_MODE_CLASS */
 

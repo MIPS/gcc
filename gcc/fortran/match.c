@@ -912,6 +912,9 @@ cleanup:
    multiple times in order to guarantee that the symbol table ends up
    in the proper state.  */
 
+static match match_simple_forall (void);
+static match match_simple_where (void);
+
 match
 gfc_match_if (gfc_statement * if_type)
 {
@@ -1025,6 +1028,7 @@ gfc_match_if (gfc_statement * if_type)
   gfc_clear_error ();
 
   match ("allocate", gfc_match_allocate, ST_ALLOCATE)
+    match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
     match ("backspace", gfc_match_backspace, ST_BACKSPACE)
     match ("call", gfc_match_call, ST_CALL)
     match ("close", gfc_match_close, ST_CLOSE)
@@ -1033,7 +1037,7 @@ gfc_match_if (gfc_statement * if_type)
     match ("deallocate", gfc_match_deallocate, ST_DEALLOCATE)
     match ("end file", gfc_match_endfile, ST_END_FILE)
     match ("exit", gfc_match_exit, ST_EXIT)
-    match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT)
+    match ("forall", match_simple_forall, ST_FORALL)
     match ("go to", gfc_match_goto, ST_GOTO)
     match ("inquire", gfc_match_inquire, ST_INQUIRE)
     match ("nullify", gfc_match_nullify, ST_NULLIFY)
@@ -1043,8 +1047,8 @@ gfc_match_if (gfc_statement * if_type)
     match ("read", gfc_match_read, ST_READ)
     match ("return", gfc_match_return, ST_RETURN)
     match ("rewind", gfc_match_rewind, ST_REWIND)
-    match ("pause", gfc_match_stop, ST_PAUSE)
     match ("stop", gfc_match_stop, ST_STOP)
+    match ("where", match_simple_where, ST_WHERE)
     match ("write", gfc_match_write, ST_WRITE)
 
   /* All else has failed, so give up.  See if any of the matchers has
@@ -2049,7 +2053,7 @@ gfc_match_call (void)
 
       select_sym = select_st->n.sym;
       select_sym->ts.type = BT_INTEGER;
-      select_sym->ts.kind = gfc_default_integer_kind ();
+      select_sym->ts.kind = gfc_default_integer_kind;
       gfc_set_sym_referenced (select_sym);
       c->expr = gfc_get_expr ();
       c->expr->expr_type = EXPR_VARIABLE;
@@ -2098,7 +2102,7 @@ cleanup:
 
 
 /* Given a name, return a pointer to the common head structure,
-   creating it if it does not exist. If FROM_MODULE is non-zero, we
+   creating it if it does not exist. If FROM_MODULE is nonzero, we
    mangle the name so that it doesn't interfere with commons defined 
    in the using namespace.
    TODO: Add to global symbol tree.  */
@@ -2610,359 +2614,6 @@ undo_error:
 }
 
 
-/********************* DATA statement subroutines *********************/
-
-/* Free a gfc_data_variable structure and everything beneath it.  */
-
-static void
-free_variable (gfc_data_variable * p)
-{
-  gfc_data_variable *q;
-
-  for (; p; p = q)
-    {
-      q = p->next;
-      gfc_free_expr (p->expr);
-      gfc_free_iterator (&p->iter, 0);
-      free_variable (p->list);
-
-      gfc_free (p);
-    }
-}
-
-
-/* Free a gfc_data_value structure and everything beneath it.  */
-
-static void
-free_value (gfc_data_value * p)
-{
-  gfc_data_value *q;
-
-  for (; p; p = q)
-    {
-      q = p->next;
-      gfc_free_expr (p->expr);
-      gfc_free (p);
-    }
-}
-
-
-/* Free a list of gfc_data structures.  */
-
-void
-gfc_free_data (gfc_data * p)
-{
-  gfc_data *q;
-
-  for (; p; p = q)
-    {
-      q = p->next;
-
-      free_variable (p->var);
-      free_value (p->value);
-
-      gfc_free (p);
-    }
-}
-
-
-static match var_element (gfc_data_variable *);
-
-/* Match a list of variables terminated by an iterator and a right
-   parenthesis.  */
-
-static match
-var_list (gfc_data_variable * parent)
-{
-  gfc_data_variable *tail, var;
-  match m;
-
-  m = var_element (&var);
-  if (m == MATCH_ERROR)
-    return MATCH_ERROR;
-  if (m == MATCH_NO)
-    goto syntax;
-
-  tail = gfc_get_data_variable ();
-  *tail = var;
-
-  parent->list = tail;
-
-  for (;;)
-    {
-      if (gfc_match_char (',') != MATCH_YES)
-	goto syntax;
-
-      m = gfc_match_iterator (&parent->iter, 1);
-      if (m == MATCH_YES)
-	break;
-      if (m == MATCH_ERROR)
-	return MATCH_ERROR;
-
-      m = var_element (&var);
-      if (m == MATCH_ERROR)
-	return MATCH_ERROR;
-      if (m == MATCH_NO)
-	goto syntax;
-
-      tail->next = gfc_get_data_variable ();
-      tail = tail->next;
-
-      *tail = var;
-    }
-
-  if (gfc_match_char (')') != MATCH_YES)
-    goto syntax;
-  return MATCH_YES;
-
-syntax:
-  gfc_syntax_error (ST_DATA);
-  return MATCH_ERROR;
-}
-
-
-/* Match a single element in a data variable list, which can be a
-   variable-iterator list.  */
-
-static match
-var_element (gfc_data_variable * new)
-{
-  match m;
-  gfc_symbol *sym;
-
-  memset (new, '\0', sizeof (gfc_data_variable));
-
-  if (gfc_match_char ('(') == MATCH_YES)
-    return var_list (new);
-
-  m = gfc_match_variable (&new->expr, 0);
-  if (m != MATCH_YES)
-    return m;
-
-  sym = new->expr->symtree->n.sym;
-
-  if(sym->value != NULL)
-    {
-      gfc_error ("Variable '%s' at %C already has an initialization",
-		 sym->name);
-      return MATCH_ERROR;
-    }
-
-#if 0 // TODO: Find out where to move this message
-  if (sym->attr.in_common)
-    /* See if sym is in the blank common block.  */
-    for (t = &sym->ns->blank_common; t; t = t->common_next)
-      if (sym == t->head)
-	{
-	  gfc_error ("DATA statement at %C may not initialize variable "
-		     "'%s' from blank COMMON", sym->name);
-	  return MATCH_ERROR;
-	}
-#endif
-
-  if (gfc_add_data (&sym->attr, &new->expr->where) == FAILURE)
-    return MATCH_ERROR;
-
-  return MATCH_YES;
-}
-
-
-/* Match the top-level list of data variables.  */
-
-static match
-top_var_list (gfc_data * d)
-{
-  gfc_data_variable var, *tail, *new;
-  match m;
-
-  tail = NULL;
-
-  for (;;)
-    {
-      m = var_element (&var);
-      if (m == MATCH_NO)
-	goto syntax;
-      if (m == MATCH_ERROR)
-	return MATCH_ERROR;
-
-      new = gfc_get_data_variable ();
-      *new = var;
-
-      if (tail == NULL)
-	d->var = new;
-      else
-	tail->next = new;
-
-      tail = new;
-
-      if (gfc_match_char ('/') == MATCH_YES)
-	break;
-      if (gfc_match_char (',') != MATCH_YES)
-	goto syntax;
-    }
-
-  return MATCH_YES;
-
-syntax:
-  gfc_syntax_error (ST_DATA);
-  return MATCH_ERROR;
-}
-
-
-static match
-match_data_constant (gfc_expr ** result)
-{
-  char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_symbol *sym;
-  gfc_expr *expr;
-  match m;
-
-  m = gfc_match_literal_constant (&expr, 1);
-  if (m == MATCH_YES)
-    {
-      *result = expr;
-      return MATCH_YES;
-    }
-
-  if (m == MATCH_ERROR)
-    return MATCH_ERROR;
-
-  m = gfc_match_null (result);
-  if (m != MATCH_NO)
-    return m;
-
-  m = gfc_match_name (name);
-  if (m != MATCH_YES)
-    return m;
-
-  if (gfc_find_symbol (name, NULL, 1, &sym))
-    return MATCH_ERROR;
-
-  if (sym == NULL
-      || (sym->attr.flavor != FL_PARAMETER && sym->attr.flavor != FL_DERIVED))
-    {
-      gfc_error ("Symbol '%s' must be a PARAMETER in DATA statement at %C",
-		 name);
-      return MATCH_ERROR;
-    }
-  else if (sym->attr.flavor == FL_DERIVED)
-    return gfc_match_structure_constructor (sym, result);
-
-  *result = gfc_copy_expr (sym->value);
-  return MATCH_YES;
-}
-
-
-/* Match a list of values in a DATA statement.  The leading '/' has
-   already been seen at this point.  */
-
-static match
-top_val_list (gfc_data * data)
-{
-  gfc_data_value *new, *tail;
-  gfc_expr *expr;
-  const char *msg;
-  match m;
-
-  tail = NULL;
-
-  for (;;)
-    {
-      m = match_data_constant (&expr);
-      if (m == MATCH_NO)
-	goto syntax;
-      if (m == MATCH_ERROR)
-	return MATCH_ERROR;
-
-      new = gfc_get_data_value ();
-
-      if (tail == NULL)
-	data->value = new;
-      else
-	tail->next = new;
-
-      tail = new;
-
-      if (expr->ts.type != BT_INTEGER || gfc_match_char ('*') != MATCH_YES)
-	{
-	  tail->expr = expr;
-	  tail->repeat = 1;
-	}
-      else
-	{
-	  msg = gfc_extract_int (expr, &tail->repeat);
-	  gfc_free_expr (expr);
-	  if (msg != NULL)
-	    {
-	      gfc_error (msg);
-	      return MATCH_ERROR;
-	    }
-
-	  m = match_data_constant (&tail->expr);
-	  if (m == MATCH_NO)
-	    goto syntax;
-	  if (m == MATCH_ERROR)
-	    return MATCH_ERROR;
-	}
-
-      if (gfc_match_char ('/') == MATCH_YES)
-	break;
-      if (gfc_match_char (',') == MATCH_NO)
-	goto syntax;
-    }
-
-  return MATCH_YES;
-
-syntax:
-  gfc_syntax_error (ST_DATA);
-  return MATCH_ERROR;
-}
-
-
-/* Match a DATA statement.  */
-
-match
-gfc_match_data (void)
-{
-  gfc_data *new;
-  match m;
-
-  for (;;)
-    {
-      new = gfc_get_data ();
-      new->where = gfc_current_locus;
-
-      m = top_var_list (new);
-      if (m != MATCH_YES)
-	goto cleanup;
-
-      m = top_val_list (new);
-      if (m != MATCH_YES)
-	goto cleanup;
-
-      new->next = gfc_current_ns->data;
-      gfc_current_ns->data = new;
-
-      if (gfc_match_eos () == MATCH_YES)
-	break;
-
-      gfc_match_char (',');	/* Optional comma */
-    }
-
-  if (gfc_pure (NULL))
-    {
-      gfc_error ("DATA statement at %C is not allowed in a PURE procedure");
-      return MATCH_ERROR;
-    }
-
-  return MATCH_YES;
-
-cleanup:
-  gfc_free_data (new);
-  return MATCH_ERROR;
-}
-
-
 /***************** SELECT CASE subroutines ******************/
 
 /* Free a single case structure.  */
@@ -3170,6 +2821,51 @@ cleanup:
 
 /********************* WHERE subroutines ********************/
 
+/* Match the rest of a simple WHERE statement that follows an IF statement.  
+ */
+
+static match
+match_simple_where (void)
+{
+  gfc_expr *expr;
+  gfc_code *c;
+  match m;
+
+  m = gfc_match (" ( %e )", &expr);
+  if (m != MATCH_YES)
+    return m;
+
+  m = gfc_match_assignment ();
+  if (m == MATCH_NO)
+    goto syntax;
+  if (m == MATCH_ERROR)
+    goto cleanup;
+
+  if (gfc_match_eos () != MATCH_YES)
+    goto syntax;
+
+  c = gfc_get_code ();
+
+  c->op = EXEC_WHERE;
+  c->expr = expr;
+  c->next = gfc_get_code ();
+
+  *c->next = new_st;
+  gfc_clear_new_st ();
+
+  new_st.op = EXEC_WHERE;
+  new_st.block = c;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_WHERE);
+
+cleanup:
+  gfc_free_expr (expr);
+  return MATCH_ERROR;
+}
+
 /* Match a WHERE statement.  */
 
 match
@@ -3374,27 +3070,21 @@ cleanup:
 }
 
 
-/* Match a FORALL statement.  */
+/* Match the header of a FORALL statement.  */
 
-match
-gfc_match_forall (gfc_statement * st)
+static match
+match_forall_header (gfc_forall_iterator ** phead, gfc_expr ** mask)
 {
   gfc_forall_iterator *head, *tail, *new;
-  gfc_expr *mask;
-  gfc_code *c;
-  match m0, m;
+  match m;
+
+  gfc_gobble_whitespace ();
 
   head = tail = NULL;
-  mask = NULL;
-  c = NULL;
+  *mask = NULL;
 
-  m0 = gfc_match_label ();
-  if (m0 == MATCH_ERROR)
-    return MATCH_ERROR;
-
-  m = gfc_match (" forall (");
-  if (m != MATCH_YES)
-    return m;
+  if (gfc_match_char ('(') != MATCH_YES)
+    return MATCH_NO;
 
   m = match_forall_iterator (&new);
   if (m == MATCH_ERROR)
@@ -3419,8 +3109,9 @@ gfc_match_forall (gfc_statement * st)
 	  continue;
 	}
 
-      /* Have to have a mask expression.  */
-      m = gfc_match_expr (&mask);
+      /* Have to have a mask expression */
+
+      m = gfc_match_expr (mask);
       if (m == MATCH_NO)
 	goto syntax;
       if (m == MATCH_ERROR)
@@ -3430,6 +3121,111 @@ gfc_match_forall (gfc_statement * st)
     }
 
   if (gfc_match_char (')') == MATCH_NO)
+    goto syntax;
+
+  *phead = head;
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_FORALL);
+
+cleanup:
+  gfc_free_expr (*mask);
+  gfc_free_forall_iterator (head);
+
+  return MATCH_ERROR;
+}
+
+/* Match the rest of a simple FORALL statement that follows an IF statement. 
+ */
+
+static match
+match_simple_forall (void)
+{
+  gfc_forall_iterator *head;
+  gfc_expr *mask;
+  gfc_code *c;
+  match m;
+
+  mask = NULL;
+  head = NULL;
+  c = NULL;
+
+  m = match_forall_header (&head, &mask);
+
+  if (m == MATCH_NO)
+    goto syntax;
+  if (m != MATCH_YES)
+    goto cleanup;
+
+  m = gfc_match_assignment ();
+
+  if (m == MATCH_ERROR)
+    goto cleanup;
+  if (m == MATCH_NO)
+    {
+      m = gfc_match_pointer_assignment ();
+      if (m == MATCH_ERROR)
+	goto cleanup;
+      if (m == MATCH_NO)
+	goto syntax;
+    }
+
+  c = gfc_get_code ();
+  *c = new_st;
+  c->loc = gfc_current_locus;
+
+  if (gfc_match_eos () != MATCH_YES)
+    goto syntax;
+
+  gfc_clear_new_st ();
+  new_st.op = EXEC_FORALL;
+  new_st.expr = mask;
+  new_st.ext.forall_iterator = head;
+  new_st.block = gfc_get_code ();
+
+  new_st.block->op = EXEC_FORALL;
+  new_st.block->next = c;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_FORALL);
+
+cleanup:
+  gfc_free_forall_iterator (head);
+  gfc_free_expr (mask);
+
+  return MATCH_ERROR;
+}
+
+
+/* Match a FORALL statement.  */
+
+match
+gfc_match_forall (gfc_statement * st)
+{
+  gfc_forall_iterator *head;
+  gfc_expr *mask;
+  gfc_code *c;
+  match m0, m;
+
+  head = NULL;
+  mask = NULL;
+  c = NULL;
+
+  m0 = gfc_match_label ();
+  if (m0 == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  m = gfc_match (" forall");
+  if (m != MATCH_YES)
+    return m;
+
+  m = match_forall_header (&head, &mask);
+  if (m == MATCH_ERROR)
+    goto cleanup;
+  if (m == MATCH_NO)
     goto syntax;
 
   if (gfc_match_eos () == MATCH_YES)

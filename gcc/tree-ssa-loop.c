@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "diagnostic.h"
-#include "basic-block.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -37,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "flags.h"
 #include "tree-inline.h"
+#include "tree-scalar-evolution.h"
 
 /* The loop tree currently optimized.  */
 
@@ -60,6 +60,11 @@ tree_loop_optimizer_init (FILE *dump)
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
 
+  rewrite_into_loop_closed_ssa ();
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
   return loops;
 }
 
@@ -75,7 +80,9 @@ struct tree_opt_pass pass_loop =
 {
   "loop",				/* name */
   gate_loop,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -84,7 +91,8 @@ struct tree_opt_pass pass_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_ggc_collect,			/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer initialization.  */
@@ -93,13 +101,22 @@ static void
 tree_ssa_loop_init (void)
 {
   current_loops = tree_loop_optimizer_init (dump_file);
+  if (!current_loops)
+    return;
+
+  /* Find the loops that are exited just through a single edge.  */
+  mark_single_exit_loops (current_loops);
+
+  scev_initialize (current_loops);
 }
   
 struct tree_opt_pass pass_loop_init = 
 {
   "loopinit",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_init,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -108,7 +125,8 @@ struct tree_opt_pass pass_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop invariant motion pass.  */
@@ -125,14 +143,16 @@ tree_ssa_loop_im (void)
 static bool
 gate_tree_ssa_loop_im (void)
 {
-  return flag_tree_lim != 0;
+  return flag_tree_loop_im != 0;
 }
 
 struct tree_opt_pass pass_lim = 
 {
   "lim",				/* name */
   gate_tree_ssa_loop_im,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_im,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -141,7 +161,257 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func                	/* todo_flags_finish */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Loop unswitching pass.  */
+
+static void
+tree_ssa_loop_unswitch (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_unswitch_loops (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_unswitch (void)
+{
+  return flag_unswitch_loops != 0;
+}
+
+struct tree_opt_pass pass_unswitch = 
+{
+  "unswitch",				/* name */
+  gate_tree_ssa_loop_unswitch,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_ssa_loop_unswitch,		/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_UNSWITCH,		/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Loop autovectorization.  */
+
+static void
+tree_vectorize (void)
+{
+  if (!current_loops)
+    return;
+
+  bitmap_clear (vars_to_rename);
+  vectorize_loops (current_loops);
+}
+
+static bool
+gate_tree_vectorize (void)
+{
+  return flag_tree_vectorize != 0;
+}
+
+struct tree_opt_pass pass_vectorize =
+{
+  "vect",                               /* name */
+  gate_tree_vectorize,                  /* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_vectorize,                       /* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_TREE_VECTORIZATION,                /* tv_id */
+  PROP_cfg | PROP_ssa,                  /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+
+/* Loop nest optimizations.  */
+
+static void
+tree_linear_transform (void)
+{
+  if (!current_loops)
+    return;
+
+  linear_transform_loops (current_loops);
+}
+
+static bool
+gate_tree_linear_transform (void)
+{
+  return flag_tree_loop_linear != 0;
+}
+
+struct tree_opt_pass pass_linear_transform =
+{
+  "ltrans",				/* name */
+  gate_tree_linear_transform,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_linear_transform,       		/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LINEAR_TRANSFORM,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0				        /* letter */	
+};
+
+/* Canonical induction variable creation pass.  */
+
+static void
+tree_ssa_loop_ivcanon (void)
+{
+  if (!current_loops)
+    return;
+
+  canonicalize_induction_variables (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_ivcanon (void)
+{
+  return flag_tree_loop_ivcanon != 0;
+}
+
+struct tree_opt_pass pass_iv_canon =
+{
+  "ivcanon",				/* name */
+  gate_tree_ssa_loop_ivcanon,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_ssa_loop_ivcanon,	       	/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_IVCANON,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Record bounds on numbers of iterations of loops.  */
+
+static void
+tree_ssa_loop_bounds (void)
+{
+  if (!current_loops)
+    return;
+
+  estimate_numbers_of_iterations (current_loops);
+  scev_reset ();
+}
+
+struct tree_opt_pass pass_record_bounds =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_ssa_loop_bounds,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,			  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,			              	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Complete unrolling of loops.  */
+
+static void
+tree_complete_unroll (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_unroll_loops_completely (current_loops);
+}
+
+static bool
+gate_tree_complete_unroll (void)
+{
+  return flag_unroll_loops != 0;
+}
+
+struct tree_opt_pass pass_complete_unroll =
+{
+  "cunroll",				/* name */
+  gate_tree_complete_unroll,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_complete_unroll,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_COMPLETE_UNROLL,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Induction variable optimizations.  */
+
+static void
+tree_ssa_loop_ivopts (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_iv_optimize (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_ivopts (void)
+{
+  return flag_ivopts != 0;
+}
+
+struct tree_opt_pass pass_iv_optimize =
+{
+  "ivopts",				/* name */
+  gate_tree_ssa_loop_ivopts,		/* gate */
+  NULL, NULL,				/* IPA analysis */
+  tree_ssa_loop_ivopts,		       	/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_IVOPTS,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0					/* letter */
 };
 
 /* Loop optimizer finalization.  */
@@ -152,6 +422,12 @@ tree_ssa_loop_done (void)
   if (!current_loops)
     return;
 
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
+  free_numbers_of_iterations_estimates (current_loops);
+  scev_finalize ();
   loop_optimizer_finalize (current_loops,
 			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
   current_loops = NULL;
@@ -162,7 +438,9 @@ struct tree_opt_pass pass_loop_done =
 {
   "loopdone",				/* name */
   NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_loop_done,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -171,6 +449,7 @@ struct tree_opt_pass pass_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 

@@ -233,8 +233,7 @@ mark_referenced_resources (rtx x, struct resources *res,
 	  unsigned int last_regno
 	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
 
-	  if (last_regno > FIRST_PSEUDO_REGISTER)
-	    abort ();
+	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	  for (r = regno; r < last_regno; r++)
 	    SET_HARD_REG_BIT (res->regs, r);
 	}
@@ -246,8 +245,7 @@ mark_referenced_resources (rtx x, struct resources *res,
 	  unsigned int last_regno
 	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
 
-	  if (last_regno > FIRST_PSEUDO_REGISTER)
-	    abort ();
+	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	  for (r = regno; r < last_regno; r++)
 	    SET_HARD_REG_BIT (res->regs, r);
 	}
@@ -256,7 +254,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case MEM:
       /* If this memory shouldn't change, it really isn't referencing
 	 memory.  */
-      if (RTX_UNCHANGING_P (x))
+      if (MEM_READONLY_P (x))
 	res->unch_memory = 1;
       else
 	res->memory = 1;
@@ -340,8 +338,7 @@ mark_referenced_resources (rtx x, struct resources *res,
 	    {
 	      sequence = PATTERN (NEXT_INSN (insn));
 	      seq_size = XVECLEN (sequence, 0);
-	      if (GET_CODE (sequence) != SEQUENCE)
-		abort ();
+	      gcc_assert (GET_CODE (sequence) == SEQUENCE);
 	    }
 
 	  res->memory = 1;
@@ -753,7 +750,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
       if (in_dest)
 	{
 	  res->memory = 1;
-	  res->unch_memory |= RTX_UNCHANGING_P (x);
+	  res->unch_memory |= MEM_READONLY_P (x);
 	  res->volatil |= MEM_VOLATILE_P (x);
 	}
 
@@ -771,8 +768,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	      unsigned int last_regno
 		= regno + hard_regno_nregs[regno][GET_MODE (x)];
 
-	      if (last_regno > FIRST_PSEUDO_REGISTER)
-		abort ();
+	      gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	      for (r = regno; r < last_regno; r++)
 		SET_HARD_REG_BIT (res->regs, r);
 	    }
@@ -786,8 +782,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
 	  unsigned int last_regno
 	    = regno + hard_regno_nregs[regno][GET_MODE (x)];
 
-	  if (last_regno > FIRST_PSEUDO_REGISTER)
-	    abort ();
+	  gcc_assert (last_regno <= FIRST_PSEUDO_REGISTER);
 	  for (r = regno; r < last_regno; r++)
 	    SET_HARD_REG_BIT (res->regs, r);
 	}
@@ -976,6 +971,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
       unsigned int j;
       unsigned int regno;
       rtx start_insn, stop_insn;
+      reg_set_iterator rsi;
 
       /* Compute hard regs live at start of block -- this is the real hard regs
 	 marked live, plus live pseudo regs that have been renumbered to
@@ -983,19 +979,17 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
       REG_SET_TO_HARD_REG_SET (current_live_regs, regs_live);
 
-      EXECUTE_IF_SET_IN_REG_SET
-	(regs_live, FIRST_PSEUDO_REGISTER, i,
-	 {
-	   if (reg_renumber[i] >= 0)
-	     {
-	       regno = reg_renumber[i];
-	       for (j = regno;
-		    j < regno + hard_regno_nregs[regno]
-						[PSEUDO_REGNO_MODE (i)];
-		    j++)
-		 SET_HARD_REG_BIT (current_live_regs, j);
-	     }
-	 });
+      EXECUTE_IF_SET_IN_REG_SET (regs_live, FIRST_PSEUDO_REGISTER, i, rsi)
+	{
+	  if (reg_renumber[i] >= 0)
+	    {
+	      regno = reg_renumber[i];
+	      for (j = regno;
+		   j < regno + hard_regno_nregs[regno][PSEUDO_REGNO_MODE (i)];
+		   j++)
+		SET_HARD_REG_BIT (current_live_regs, j);
+	    }
+	}
 
       /* Get starting and ending insn, handling the case where each might
 	 be a SEQUENCE.  */

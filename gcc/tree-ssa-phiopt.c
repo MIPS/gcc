@@ -46,10 +46,9 @@ static void replace_phi_with_stmt (block_stmt_iterator, basic_block,
 static bool candidate_bb_for_phi_optimization (basic_block,
 					       basic_block *,
 					       basic_block *);
-static bool empty_block_p (basic_block);
 
 /* This pass eliminates PHI nodes which can be trivially implemented as
-   an assignment from a conditional expression.  ie if we have something
+   an assignment from a conditional expression.  i.e. if we have something
    like:
 
      bb0:
@@ -148,7 +147,7 @@ tree_ssa_phiopt (void)
 
 /* Return TRUE if block BB has no executable statements, otherwise return
    FALSE.  */
-static bool
+bool
 empty_block_p (basic_block bb)
 {
   block_stmt_iterator bsi;
@@ -187,39 +186,35 @@ candidate_bb_for_phi_optimization (basic_block bb,
 
   /* One of the alternatives must come from a block ending with
      a COND_EXPR.  */
-  last0 = last_stmt (bb->pred->src);
-  last1 = last_stmt (bb->pred->pred_next->src);
+  last0 = last_stmt (EDGE_PRED (bb, 0)->src);
+  last1 = last_stmt (EDGE_PRED (bb, 1)->src);
   if (last0 && TREE_CODE (last0) == COND_EXPR)
     {
-      cond_block = bb->pred->src;
-      other_block = bb->pred->pred_next->src;
+      cond_block = EDGE_PRED (bb, 0)->src;
+      other_block = EDGE_PRED (bb, 1)->src;
     }
   else if (last1 && TREE_CODE (last1) == COND_EXPR)
     {
-      other_block = bb->pred->src;
-      cond_block = bb->pred->pred_next->src;
+      other_block = EDGE_PRED (bb, 0)->src;
+      cond_block = EDGE_PRED (bb, 1)->src;
     }
   else
     return false;
   
   /* COND_BLOCK must have precisely two successors.  We indirectly
      verify that those successors are BB and OTHER_BLOCK.  */
-  if (!cond_block->succ
-      || !cond_block->succ->succ_next
-      || cond_block->succ->succ_next->succ_next
-      || (cond_block->succ->flags & EDGE_ABNORMAL) != 0
-      || (cond_block->succ->succ_next->flags & EDGE_ABNORMAL) != 0)
+  if (EDGE_COUNT (cond_block->succs) != 2
+      || (EDGE_SUCC (cond_block, 0)->flags & EDGE_ABNORMAL) != 0
+      || (EDGE_SUCC (cond_block, 1)->flags & EDGE_ABNORMAL) != 0)
     return false;
   
   /* OTHER_BLOCK must have a single predecessor which is COND_BLOCK,
      OTHER_BLOCK must have a single successor which is BB and
      OTHER_BLOCK must have no PHI nodes.  */
-  if (!other_block->pred
-      || other_block->pred->src != cond_block
-      || other_block->pred->pred_next
-      || !other_block->succ
-      || other_block->succ->dest != bb
-      || other_block->succ->succ_next
+  if (EDGE_COUNT (other_block->preds) != 1
+      || EDGE_PRED (other_block, 0)->src != cond_block
+      || EDGE_COUNT (other_block->succs) != 1
+      || EDGE_SUCC (other_block, 0)->dest != bb
       || phi_nodes (other_block))
     return false;
   
@@ -254,20 +249,20 @@ replace_phi_with_stmt (block_stmt_iterator bsi, basic_block bb,
   bb_ann (bb)->phi_nodes = NULL;
   
   /* Remove the empty basic block.  */
-  if (cond_block->succ->dest == bb)
+  if (EDGE_SUCC (cond_block, 0)->dest == bb)
     {
-      cond_block->succ->flags |= EDGE_FALLTHRU;
-      cond_block->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (cond_block, 0)->flags |= EDGE_FALLTHRU;
+      EDGE_SUCC (cond_block, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
-      block_to_remove = cond_block->succ->succ_next->dest;
+      block_to_remove = EDGE_SUCC (cond_block, 1)->dest;
     }
   else
     {
-      cond_block->succ->succ_next->flags |= EDGE_FALLTHRU;
-      cond_block->succ->succ_next->flags
+      EDGE_SUCC (cond_block, 1)->flags |= EDGE_FALLTHRU;
+      EDGE_SUCC (cond_block, 1)->flags
 	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
-      block_to_remove = cond_block->succ->dest;
+      block_to_remove = EDGE_SUCC (cond_block, 0)->dest;
     }
   delete_basic_block (block_to_remove);
   
@@ -338,19 +333,19 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   extract_true_false_edges_from_block (cond_block, &true_edge, &false_edge);
       
   /* Insert our new statement at the head of our block.  */
-  bsi = bsi_start (bb);
+  bsi = bsi_after_labels (bb);
   
   if (old_result)
     {
       tree new1;
-      if (TREE_CODE_CLASS (TREE_CODE (old_result)) != '<')
+      if (!COMPARISON_CLASS_P (old_result))
 	return false;
       
-      new1 = build (TREE_CODE (old_result), TREE_TYPE (result),
+      new1 = build (TREE_CODE (old_result), TREE_TYPE (old_result),
 		    TREE_OPERAND (old_result, 0),
 		    TREE_OPERAND (old_result, 1));
       
-      new1 = build (MODIFY_EXPR, TREE_TYPE (result), new_var, new1);
+      new1 = build (MODIFY_EXPR, TREE_TYPE (old_result), new_var, new1);
       bsi_insert_after (&bsi, new1, BSI_NEW_STMT);
     }
   
@@ -479,7 +474,7 @@ value_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
 	 edge from OTHER_BLOCK which reaches BB and represents the desired
 	 path from COND_BLOCK.  */
       if (e->dest == other_block)
-	e = e->dest->succ;
+	e = EDGE_SUCC (e->dest, 0);
 
       /* Now we know the incoming edge to BB that has the argument for the
 	 RHS of our new assignment statement.  */
@@ -491,7 +486,7 @@ value_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
       /* Build the new assignment.  */
       new = build (MODIFY_EXPR, TREE_TYPE (result), result, arg);
 
-      replace_phi_with_stmt (bsi_start (bb), bb, cond_block, phi, new);
+      replace_phi_with_stmt (bsi_after_labels (bb), bb, cond_block, phi, new);
 
       /* Note that we optimized this PHI.  */
       return true;
@@ -627,7 +622,7 @@ abs_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   new = build (MODIFY_EXPR, TREE_TYPE (lhs),
                lhs, build1 (ABS_EXPR, TREE_TYPE (lhs), rhs));
 
-  replace_phi_with_stmt (bsi_start (bb), bb, cond_block, phi, new);
+  replace_phi_with_stmt (bsi_after_labels (bb), bb, cond_block, phi, new);
 
   if (negate)
     {
@@ -665,7 +660,9 @@ struct tree_opt_pass pass_phiopt =
 {
   "phiopt",				/* name */
   gate_phiopt,				/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_phiopt,			/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -676,7 +673,8 @@ struct tree_opt_pass pass_phiopt =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
     | TODO_verify_ssa | TODO_rename_vars
-    | TODO_verify_flow
+    | TODO_verify_flow,
+  0					/* letter */
 };
 												
 

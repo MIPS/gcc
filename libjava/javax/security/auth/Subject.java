@@ -59,8 +59,12 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Set;
 
+/**
+ *
+ */
 public final class Subject implements Serializable
 {
+
   // Fields.
   // -------------------------------------------------------------------------
 
@@ -77,8 +81,8 @@ public final class Subject implements Serializable
    */
   private boolean readOnly;
 
-  private final transient SecureSet pubCred;
-  private final transient SecureSet privCred;
+  private transient final SecureSet pubCred;
+  private transient final SecureSet privCred;
 
   // Constructors.
   // -------------------------------------------------------------------------
@@ -367,6 +371,7 @@ public final class Subject implements Serializable
    */
   private static class SecureSet extends AbstractSet implements Serializable
   {
+
     // Fields.
     // -----------------------------------------------------------------------
 
@@ -378,7 +383,7 @@ public final class Subject implements Serializable
 
     private final Subject subject;
     private final LinkedList elements;
-    private final transient int type;
+    private transient final int type;
 
     // Constructors.
     // -----------------------------------------------------------------------

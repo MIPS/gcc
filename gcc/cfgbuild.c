@@ -52,7 +52,7 @@ static int count_basic_blocks (rtx);
 static void find_basic_blocks_1 (rtx);
 static void make_edges (basic_block, basic_block, int);
 static void make_label_edge (sbitmap *, basic_block, rtx, int);
-static rtx find_bb_boundaries (rtx, basic_block);
+static void find_bb_boundaries (basic_block);
 static void compute_outgoing_frequencies (basic_block);
 
 /* Return true if insn is something that should be contained inside basic
@@ -83,7 +83,7 @@ inside_basic_block_p (rtx insn)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -131,7 +131,7 @@ control_flow_insn_p (rtx insn)
       return false;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -183,8 +183,7 @@ count_basic_blocks (rtx f)
 static void
 make_label_edge (sbitmap *edge_cache, basic_block src, rtx label, int flags)
 {
-  if (!LABEL_P (label))
-    abort ();
+  gcc_assert (LABEL_P (label));
 
   /* If the label was never emitted, this insn is junk, but avoid a
      crash trying to refer to BLOCK_FOR_INSN (label).  This can happen
@@ -232,7 +231,10 @@ make_edges (basic_block min, basic_block max, int update_p)
   current_function_has_computed_jump = 0;
 
   /* If we are partitioning hot and cold basic blocks into separate
-     sections, we cannot assume there is no computed jump.  */
+     sections, we cannot assume there is no computed jump (partitioning
+     sometimes requires the use of indirect jumps; see comments about
+     partitioning at the top of bb-reorder.c:partition_hot_cold_basic_blocks 
+     for complete details).  */
 
   if (flag_reorder_blocks_and_partition)
     current_function_has_computed_jump = 1;
@@ -249,8 +251,9 @@ make_edges (basic_block min, basic_block max, int update_p)
         FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
 	  {
 	    edge e;
+	    edge_iterator ei;
 
-	    for (e = bb->succ; e ; e = e->succ_next)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      if (e->dest != EXIT_BLOCK_PTR)
 		SET_BIT (edge_cache[bb->index], e->dest->index);
 	  }
@@ -268,6 +271,7 @@ make_edges (basic_block min, basic_block max, int update_p)
       enum rtx_code code;
       int force_fallthru = 0;
       edge e;
+      edge_iterator ei;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -342,8 +346,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 	  /* Otherwise, we have a plain conditional or unconditional jump.  */
 	  else
 	    {
-	      if (! JUMP_LABEL (insn))
-		abort ();
+	      gcc_assert (JUMP_LABEL (insn));
 	      make_label_edge (edge_cache, bb, JUMP_LABEL (insn), 0);
 	    }
 	}
@@ -387,7 +390,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	  {
 	    insn = 0;
@@ -487,7 +490,7 @@ find_basic_blocks_1 (rtx f)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
 
@@ -496,8 +499,7 @@ find_basic_blocks_1 (rtx f)
   else if (bb_note)
     delete_insn (bb_note);
 
-  if (last_basic_block != n_basic_blocks)
-    abort ();
+  gcc_assert (last_basic_block == n_basic_blocks);
 
   clear_aux_for_blocks ();
 }
@@ -568,13 +570,10 @@ enum state {BLOCK_NEW = 0, BLOCK_ORIGINAL, BLOCK_TO_SPLIT};
 #define SET_STATE(BB, STATE) ((BB)->aux = (void *) (size_t) (STATE))
 
 /* Scan basic block BB for possible BB boundaries inside the block
-   and create new basic blocks in the progress. 
+   and create new basic blocks in the progress.  */
 
-   Collect and return a list of labels whose addresses are taken.  This
-   will be used in make_edges for use with computed gotos.  */
-
-static rtx
-find_bb_boundaries (rtx lvl, basic_block bb)
+static void
+find_bb_boundaries (basic_block bb)
 {
   rtx insn = BB_HEAD (bb);
   rtx end = BB_END (bb);
@@ -582,7 +581,7 @@ find_bb_boundaries (rtx lvl, basic_block bb)
   edge fallthru = NULL;
 
   if (insn == BB_END (bb))
-    return lvl;
+    return;
 
   if (LABEL_P (insn))
     insn = NEXT_INSN (insn);
@@ -591,30 +590,6 @@ find_bb_boundaries (rtx lvl, basic_block bb)
   while (1)
     {
       enum rtx_code code = GET_CODE (insn);
-
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
-	{
-	  rtx note;
-
-	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-	    if (REG_NOTE_KIND (note) == REG_LABEL)
-	      {
-		rtx lab = XEXP (note, 0), next;
-
-		if ((next = next_nonnote_insn (lab)) != NULL
-			 && GET_CODE (next) == JUMP_INSN
-			 && (GET_CODE (PATTERN (next)) == ADDR_VEC
-			     || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
-		  ;
-		else if (GET_CODE (lab) == NOTE)
-		  ;
-		else if (GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
-			 && find_reg_note (NEXT_INSN (insn), REG_LABEL, lab))
-		  ;
-		else
-		  lvl = alloc_EXPR_LIST (0, XEXP (note, 0), lvl);
-	      }
-	}
 
       /* On code label, split current basic block.  */
       if (code == CODE_LABEL)
@@ -658,7 +633,6 @@ find_bb_boundaries (rtx lvl, basic_block bb)
      followed by cleanup at fallthru edge, so the outgoing edges may
      be dead.  */
   purge_dead_edges (bb);
-  return lvl;
 }
 
 /*  Assume that frequency of basic block B is known.  Compute frequencies
@@ -668,15 +642,16 @@ static void
 compute_outgoing_frequencies (basic_block b)
 {
   edge e, f;
+  edge_iterator ei;
 
-  if (b->succ && b->succ->succ_next && !b->succ->succ_next->succ_next)
+  if (EDGE_COUNT (b->succs) == 2)
     {
       rtx note = find_reg_note (BB_END (b), REG_BR_PROB, NULL);
+      int probability;
 
       if (note)
 	{
-	  int probability = INTVAL (XEXP (note, 0));
-
+	  probability = INTVAL (XEXP (note, 0));
 	  e = BRANCH_EDGE (b);
 	  e->probability = probability;
 	  e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
@@ -688,21 +663,18 @@ compute_outgoing_frequencies (basic_block b)
 	}
     }
 
-  if (b->succ && !b->succ->succ_next)
+  if (EDGE_COUNT (b->succs) == 1)
     {
-      e = b->succ;
+      e = EDGE_SUCC (b, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = b->count;
       return;
     }
-  if (flag_guess_branch_prob && b->succ)
-    {
-      guess_outgoing_edge_probabilities (b);
-      if (b->count)
-	for (e = b->succ; e; e = e->succ_next)
-	  e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
-		      / REG_BR_PROB_BASE);
-    }
+  guess_outgoing_edge_probabilities (b);
+  if (b->count)
+    FOR_EACH_EDGE (e, ei, b->succs)
+      e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
+		  / REG_BR_PROB_BASE);
 }
 
 /* Assume that someone emitted code with control flow instructions to the
@@ -712,7 +684,6 @@ void
 find_many_sub_basic_blocks (sbitmap blocks)
 {
   basic_block bb, min, max;
-  rtx label_value_list = NULL;
 
   FOR_EACH_BB (bb)
     SET_STATE (bb,
@@ -720,7 +691,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 
   FOR_EACH_BB (bb)
     if (STATE (bb) == BLOCK_TO_SPLIT)
-      label_value_list = find_bb_boundaries (label_value_list, bb);
+      find_bb_boundaries (bb);
 
   FOR_EACH_BB (bb)
     if (STATE (bb) != BLOCK_ORIGINAL)
@@ -737,25 +708,27 @@ find_many_sub_basic_blocks (sbitmap blocks)
 
   /* Update branch probabilities.  Expect only (un)conditional jumps
      to be created with only the forward edges.  */
-  FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
-    {
-      edge e;
+  if (profile_status != PROFILE_ABSENT)
+    FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
+      {
+	edge e;
+	edge_iterator ei;
 
-      if (STATE (bb) == BLOCK_ORIGINAL)
-	continue;
-      if (STATE (bb) == BLOCK_NEW)
-	{
-	  bb->count = 0;
-	  bb->frequency = 0;
-	  for (e = bb->pred; e; e = e->pred_next)
-	    {
-	      bb->count += e->count;
-	      bb->frequency += EDGE_FREQUENCY (e);
-	    }
-	}
+	if (STATE (bb) == BLOCK_ORIGINAL)
+	  continue;
+	if (STATE (bb) == BLOCK_NEW)
+	  {
+	    bb->count = 0;
+	    bb->frequency = 0;
+	    FOR_EACH_EDGE (e, ei, bb->preds)
+	      {
+		bb->count += e->count;
+		bb->frequency += EDGE_FREQUENCY (e);
+	      }
+	  }
 
-      compute_outgoing_frequencies (bb);
-    }
+	compute_outgoing_frequencies (bb);
+      }
 
   FOR_EACH_BB (bb)
     SET_STATE (bb, 0);
@@ -770,7 +743,7 @@ find_sub_basic_blocks (basic_block bb)
   basic_block next = bb->next_bb;
 
   min = bb;
-  find_bb_boundaries (NULL, bb);
+  find_bb_boundaries (bb);
   max = next->prev_bb;
 
   /* Now re-scan and wire in all edges.  This expect simple (conditional)
@@ -782,12 +755,13 @@ find_sub_basic_blocks (basic_block bb)
   FOR_BB_BETWEEN (b, min, max->next_bb, next_bb)
     {
       edge e;
+      edge_iterator ei;
 
       if (b != min)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  for (e = b->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, ei, b->preds)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);

@@ -108,7 +108,7 @@ static const char *singlemove_string (rtx *);
 static void m68k_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void m68k_output_function_epilogue (FILE *, HOST_WIDE_INT);
 #ifdef M68K_TARGET_COFF
-static void m68k_coff_asm_named_section (const char *, unsigned int);
+static void m68k_coff_asm_named_section (const char *, unsigned int, tree);
 #endif /* M68K_TARGET_COFF */
 static void m68k_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 					  HOST_WIDE_INT, tree);
@@ -1383,7 +1383,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			     gen_rtx_PLUS (Pmode,
 					   pic_offset_table_rtx, orig));
       current_function_uses_pic_offset_table = 1;
-      RTX_UNCHANGING_P (pic_ref) = 1;
+      MEM_READONLY_P (pic_ref) = 1;
       emit_move_insn (reg, pic_ref);
       return reg;
     }
@@ -2713,8 +2713,8 @@ print_operand (FILE *file, rtx op, int letter)
 
    This routine is responsible for distinguishing between -fpic and -fPIC 
    style relocations in an address.  When generating -fpic code the
-   offset is output in word mode (eg movel a5@(_foo:w), a0).  When generating
-   -fPIC code the offset is output in long mode (eg movel a5@(_foo:l), a0) */
+   offset is output in word mode (e.g. movel a5@(_foo:w), a0).  When generating
+   -fPIC code the offset is output in long mode (e.g. movel a5@(_foo:l), a0) */
 
 #if MOTOROLA
 #  define ASM_OUTPUT_CASE_FETCH(file, labelno, regname)\
@@ -3185,6 +3185,18 @@ memory_src_operand (rtx op, enum machine_mode mode)
   return memory_operand (op, mode);
 }
 
+int
+post_inc_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return MEM_P (op) && GET_CODE (XEXP (op, 0)) == POST_INC;
+}
+
+int
+pre_dec_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return MEM_P (op) && GET_CODE (XEXP (op, 0)) == PRE_DEC;
+}
+
 /* Predicate that accepts only a pc-relative address.  This is needed
    because pc-relative addresses don't satisfy the predicate
    "general_src_operand".  */
@@ -3201,7 +3213,7 @@ output_andsi3 (rtx *operands)
 {
   int logval;
   if (GET_CODE (operands[2]) == CONST_INT
-      && (INTVAL (operands[2]) | 0xffff) == (HOST_WIDE_INT)0xffffffff
+      && (INTVAL (operands[2]) | 0xffff) == -1
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
       && !TARGET_COLDFIRE)
@@ -3312,7 +3324,8 @@ output_xorsi3 (rtx *operands)
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 
 static void
-m68k_coff_asm_named_section (const char *name, unsigned int flags)
+m68k_coff_asm_named_section (const char *name, unsigned int flags, 
+			     tree decl ATTRIBUTE_UNUSED)
 {
   char flagchar;
 
@@ -3414,4 +3427,21 @@ m68k_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 		       int incoming ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (Pmode, M68K_STRUCT_VALUE_REGNUM);
+}
+
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
+int
+m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
+			   unsigned int new_reg)
+{
+
+  /* Interrupt functions can only use registers that have already been
+     saved by the prologue, even if they would normally be
+     call-clobbered.  */
+
+  if (m68k_interrupt_function_p (current_function_decl)
+      && !regs_ever_live[new_reg])
+    return 0;
+
+  return 1;
 }

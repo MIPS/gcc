@@ -28,7 +28,9 @@ Boston, MA 02111-1307, USA.  */
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
+#endif
 #include <string.h>
 #include <errno.h>
 
@@ -41,6 +43,14 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef MAP_FAILED
 #define MAP_FAILED ((void *) -1)
+#endif
+
+#ifndef PROT_READ
+#define PROT_READ 1
+#endif
+
+#ifndef PROT_WRITE
+#define PROT_WRITE 2
 #endif
 
 /* This implementation of stream I/O is based on the paper:
@@ -746,12 +756,9 @@ mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
   if (where < s->buffer_offset || where > s->buffer_offset + s->active)
     return NULL;
 
-  if (is_internal_unit() && where + *len > s->file_length)
-    return NULL;
-
   s->logical_offset = where + *len;
 
-  n = (where - s->buffer_offset) - s->active;
+  n = s->buffer_offset + s->active - where;
   if (*len > n)
     *len = n;
 
@@ -804,6 +811,7 @@ mem_truncate (unix_stream * s)
 static try
 mem_close (unix_stream * s)
 {
+  free_mem (s);
 
   return SUCCESS;
 }

@@ -6,7 +6,7 @@
 --  Open source license information is in the zlib.ads file.  --
 ----------------------------------------------------------------
 
---  $Id: zlib-streams.adb,v 1.9 2003/08/12 13:15:31 vagul Exp $
+--  $Id: zlib-streams.adb,v 1.1.1.1.4.1 2004/10/17 18:37:05 hubicka Exp $
 
 with Ada.Unchecked_Deallocation;
 

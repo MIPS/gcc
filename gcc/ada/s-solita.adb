@@ -31,8 +31,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package contains the tasking versions soft links.
-
 pragma Style_Checks (All_Checks);
 --  Turn off subprogram alpha ordering check, since we group soft link
 --  bodies and dummy soft link bodies together separately in this unit.
@@ -45,6 +43,12 @@ pragma Polling (Off);
 with System.Task_Primitives.Operations;
 --  Used for Self
 --           Timed_Delay
+
+with System.Tasking;
+--  Used for Task_Id
+
+with Ada.Exceptions;
+--  Used for Raise_Exception
 
 package body System.Soft_Links.Tasking is
 
@@ -59,9 +63,9 @@ package body System.Soft_Links.Tasking is
    --  Boolean flag that indicates whether the tasking soft links have
    --  already been set.
 
-   ----------------------------------------------------------------------
-   -- Tasking versions of some services needed by non-tasking programs --
-   ----------------------------------------------------------------------
+   -----------------------------------------------------------------
+   -- Tasking Versions of Services Needed by Non-Tasking Programs --
+   -----------------------------------------------------------------
 
    function  Get_Jmpbuf_Address return  Address;
    procedure Set_Jmpbuf_Address (Addr : Address);
@@ -81,9 +85,9 @@ package body System.Soft_Links.Tasking is
    procedure Timed_Delay_T (Time : Duration; Mode : Integer);
    --  Task-safe version of SSL.Timed_Delay
 
-   ----------------------
-   -- Soft-Link Bodies --
-   ----------------------
+   --------------------------
+   -- Soft-Link Get Bodies --
+   --------------------------
 
    function Get_Current_Excep return SSL.EOA is
    begin
@@ -105,6 +109,10 @@ package body System.Soft_Links.Tasking is
       return STPO.Self.Common.Compiler_Data.Sec_Stack_Addr;
    end Get_Sec_Stack_Addr;
 
+   --------------------------
+   -- Soft-Link Set Bodies --
+   --------------------------
+
    procedure Set_Jmpbuf_Address (Addr : Address) is
    begin
       STPO.Self.Common.Compiler_Data.Jmpbuf_Address := Addr;
@@ -120,9 +128,27 @@ package body System.Soft_Links.Tasking is
       STPO.Self.Common.Compiler_Data.Sec_Stack_Addr := Addr;
    end Set_Sec_Stack_Addr;
 
+   -------------------
+   -- Timed_Delay_T --
+   -------------------
+
    procedure Timed_Delay_T (Time : Duration; Mode : Integer) is
+      Self_Id : constant System.Tasking.Task_Id := STPO.Self;
+
    begin
-      STPO.Timed_Delay (STPO.Self, Time, Mode);
+      --  In case pragma Detect_Blocking is active then Program_Error
+      --  must be raised if this potentially blocking operation
+      --  is called from a protected operation.
+
+      if System.Tasking.Detect_Blocking
+        and then Self_Id.Common.Protected_Action_Nesting > 0
+      then
+         Ada.Exceptions.Raise_Exception
+           (Program_Error'Identity, "potentially blocking operation");
+      else
+         STPO.Timed_Delay (Self_Id, Time, Mode);
+      end if;
+
    end Timed_Delay_T;
 
    -----------------------------
@@ -131,10 +157,10 @@ package body System.Soft_Links.Tasking is
 
    procedure Init_Tasking_Soft_Links is
    begin
-      --  If the tasking soft links have already been initialized do not
-      --  repeat it.
+      --  Set links only if not set already
 
       if not Initialized then
+
          --  Mark tasking soft links as initialized
 
          Initialized := True;
@@ -158,7 +184,6 @@ package body System.Soft_Links.Tasking is
          SSL.Set_Jmpbuf_Address     (SSL.Get_Jmpbuf_Address_NT);
          SSL.Set_Machine_State_Addr (SSL.Get_Machine_State_Addr_NT);
       end if;
-
    end Init_Tasking_Soft_Links;
 
 end System.Soft_Links.Tasking;

@@ -230,7 +230,7 @@ find_function_data (tree decl)
     if (p->decl == decl)
       return p;
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Save the current context for compilation of a nested function.
@@ -287,8 +287,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   current_function_decl = p->decl;
   reg_renumber = 0;
 
-  restore_emit_status (p);
-
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
@@ -315,7 +313,6 @@ free_after_parsing (struct function *f)
   /* f->eh->eh_return_stub_label is used by code generation.  */
 
   lang_hooks.function.final (f);
-  f->stmt = NULL;
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -330,6 +327,7 @@ free_after_compilation (struct function *f)
   f->emit = NULL;
   f->varasm = NULL;
   f->machine = NULL;
+  f->cfg = NULL;
 
   f->x_avail_temp_slots = NULL;
   f->x_used_temp_slots = NULL;
@@ -536,7 +534,6 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
-  level++;
 
   if (!used_temp_slots)
     VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
@@ -589,10 +586,9 @@ make_slot_available (struct temp_slot *temp)
 
    KEEP is 1 if this slot is to be retained after a call to
    free_temp_slots.  Automatic variables for a block are allocated
-   with this flag.  KEEP is 2 if we allocate a longer term temporary,
-   whose lifetime is controlled by CLEANUP_POINT_EXPRs.  KEEP is 3
-   if we are to allocate something at an inner level to be treated as
-   a variable in the block (e.g., a SAVE_EXPR).
+   with this flag.  KEEP values of 2 or 3 were needed respectively
+   for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
+   or for SAVE_EXPRs, but they are now unused and will abort.
 
    TYPE is the type that will be used for the stack slot.  */
 
@@ -606,8 +602,10 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
-  if (size == -1)
-    abort ();
+  gcc_assert (size != -1);
+
+  /* These are now unused.  */
+  gcc_assert (keep <= 1);
 
   if (mode == BLKmode)
     align = BIGGEST_ALIGNMENT;
@@ -693,8 +691,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 	 So for requests which depended on the rounding of SIZE, we go ahead
 	 and round it now.  We also make sure ALIGNMENT is at least
 	 BIGGEST_ALIGNMENT.  */
-      if (mode == BLKmode && align < BIGGEST_ALIGNMENT)
-	abort ();
+      gcc_assert (mode != BLKmode || align == BIGGEST_ALIGNMENT);
       p->slot = assign_stack_local (mode,
 				    (mode == BLKmode
 				     ? CEIL_ROUND (size, (int) align / BITS_PER_UNIT)
@@ -733,22 +730,8 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   p->in_use = 1;
   p->addr_taken = 0;
   p->type = type;
-
-  if (keep == 2)
-    {
-      p->level = target_temp_slot_level;
-      p->keep = 1;
-    }
-  else if (keep == 3)
-    {
-      p->level = var_temp_slot_level;
-      p->keep = 0;
-    }
-  else
-    {
-      p->level = temp_slot_level;
-      p->keep = keep;
-    }
+  p->level = temp_slot_level;
+  p->keep = keep;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -766,8 +749,6 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   /* If a type is specified, set the relevant flags.  */
   if (type != 0)
     {
-      RTX_UNCHANGING_P (slot) = (lang_hooks.honor_readonly
-				 && TYPE_READONLY (type));
       MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
       MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
     }
@@ -848,7 +829,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       if (decl && size == -1
 	  && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST)
 	{
-	  error ("%Jsize of variable '%D' is too large", decl, decl);
+	  error ("%Jsize of variable %qD is too large", decl, decl);
 	  size = 1;
 	}
 
@@ -1190,8 +1171,6 @@ init_temp_slots (void)
   avail_temp_slots = 0;
   used_temp_slots = 0;
   temp_slot_level = 0;
-  var_temp_slot_level = 0;
-  target_temp_slot_level = 0;
 }
 
 /* These routines are responsible for converting virtual register references
@@ -1365,10 +1344,20 @@ instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
   enum machine_mode mode;
   rtx addr;
 
+  if (x == 0)
+    return;
+
+  /* If this is a CONCAT, recurse for the pieces.  */
+  if (GET_CODE (x) == CONCAT)
+    {
+      instantiate_decl (XEXP (x, 0), size / 2, valid_only);
+      instantiate_decl (XEXP (x, 1), size / 2, valid_only);
+      return;
+    }
+
   /* If this is not a MEM, no need to do anything.  Similarly if the
      address is a constant or a register that is not a virtual register.  */
-
-  if (x == 0 || !MEM_P (x))
+  if (!MEM_P (x))
     return;
 
   addr = XEXP (x, 0);
@@ -1450,13 +1439,9 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
 static void
 instantiate_virtual_regs_lossage (rtx insn)
 {
-  if (asm_noperands (PATTERN (insn)) >= 0)
-    {
-      error_for_asm (insn, "impossible constraint in `asm'");
-      delete_insn (insn);
-    }
-  else
-    abort ();
+  gcc_assert (asm_noperands (PATTERN (insn)) >= 0);
+  error_for_asm (insn, "impossible constraint in %<asm%>");
+  delete_insn (insn);
 }
 /* Given a pointer to a piece of rtx and an optional pointer to the
    containing object, instantiate any virtual registers present in it.
@@ -1878,11 +1863,16 @@ aggregate_value_p (tree exp, tree fntype)
 	break;
       default:
 	/* We don't expect other rtl types here.  */
-	abort();
+	gcc_unreachable ();
       }
 
   if (TREE_CODE (type) == VOID_TYPE)
     return 0;
+  /* If the front end has decided that this needs to be passed by
+     reference, do so.  */
+  if ((TREE_CODE (exp) == PARM_DECL || TREE_CODE (exp) == RESULT_DECL)
+      && DECL_BY_REFERENCE (exp))
+    return 1;
   if (targetm.calls.return_in_memory (type, fntype))
     return 1;
   /* Types that are TREE_ADDRESSABLE must be constructed in memory,
@@ -1967,6 +1957,18 @@ pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode mode,
     }
 
   return targetm.calls.pass_by_reference (ca, mode, type, named_arg);
+}
+
+/* Return true if TYPE, which is passed by reference, should be callee
+   copied instead of caller copied.  */
+
+bool
+reference_callee_copied (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			 tree type, bool named_arg)
+{
+  if (type && TREE_ADDRESSABLE (type))
+    return false;
+  return targetm.calls.callee_copies (ca, mode, type, named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -2187,15 +2189,6 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
       data->passed_pointer = true;
       passed_mode = nominal_mode = Pmode;
     }
-  /* See if the frontend wants to pass this by invisible reference.  */
-  else if (passed_type != nominal_type
-	   && POINTER_TYPE_P (passed_type)
-	   && TREE_TYPE (passed_type) == nominal_type)
-    {
-      nominal_type = passed_type;
-      data->passed_pointer = 1;
-      passed_mode = nominal_mode = Pmode;
-    }
 
   /* Find mode as it is passed by the ABI.  */
   promoted_mode = passed_mode;
@@ -2329,8 +2322,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 
 	  /* We assume at most one partial arg, and it must be the first
 	     argument on the stack.  */
-	  if (all->extra_pretend_bytes || all->pretend_args_size)
-	    abort ();
+	  gcc_assert (!all->extra_pretend_bytes && !all->pretend_args_size);
 
 	  pretend_bytes = partial * UNITS_PER_WORD;
 	  all->pretend_args_size = CEIL_ROUND (pretend_bytes, STACK_BYTES);
@@ -2360,7 +2352,7 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
-  /* Trivially true if we've no incomming register.  */
+  /* Trivially true if we've no incoming register.  */
   if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
@@ -2529,8 +2521,12 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
     return true;
 
 #ifdef BLOCK_REG_PADDING
-  if (data->locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
-      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD)
+  /* Only assign_parm_setup_block knows how to deal with register arguments
+     that are padded at the least significant end.  */
+  if (REG_P (data->entry_parm)
+      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
+      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
+	  == (BYTES_BIG_ENDIAN ? upward : downward)))
     return true;
 #endif
 
@@ -2551,7 +2547,7 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
   if (GET_CODE (entry_parm) == PARALLEL
       && data->nominal_mode != BLKmode
       && XVECLEN (entry_parm, 0) > 1
-      && optimize)
+      && use_register_for_decl (parm))
     {
       rtx parmreg = gen_reg_rtx (data->nominal_mode);
 
@@ -2587,8 +2583,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	}
       else if (GET_CODE (entry_parm) == PARALLEL)
 	;
-      else if (size != 0 && PARM_BOUNDARY % BITS_PER_WORD != 0)
-	abort ();
+      else
+	gcc_assert (!size || !(PARM_BOUNDARY % BITS_PER_WORD));
 
       mem = validize_mem (stack_parm);
 
@@ -2636,7 +2632,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	      rtx reg = gen_rtx_REG (word_mode, REGNO (data->entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg,
-				build_int_2 (by, 0), NULL_RTX, 1);
+				build_int_cst (NULL_TREE, by),
+				NULL_RTX, 1);
 	      tem = change_address (mem, word_mode, 0);
 	      emit_move_insn (tem, x);
 	    }
@@ -2684,10 +2681,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       SET_DECL_RTL (parm, x);
     }
   else
-    {
-      SET_DECL_RTL (parm, parmreg);
-      maybe_set_unchanging (DECL_RTL (parm), parm);
-    }
+    SET_DECL_RTL (parm, parmreg);
 
   /* Copy the value into the register.  */
   if (data->nominal_mode != data->passed_mode
@@ -2737,7 +2731,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       /* TREE_USED gets set erroneously during expand_assignment.  */
       save_tree_used = TREE_USED (parm);
-      expand_assignment (parm, make_tree (data->nominal_type, tempreg), 0);
+      expand_assignment (parm, make_tree (data->nominal_type, tempreg));
       TREE_USED (parm) = save_tree_used;
       all->conversion_insns = get_insns ();
       end_sequence ();
@@ -2796,9 +2790,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
     {
       tree type = TREE_TYPE (data->passed_type);
     
-      if (FUNCTION_ARG_CALLEE_COPIES (all->args_so_far, TYPE_MODE (type),
-				      type, data->named_arg)
-	   && !TREE_ADDRESSABLE (type))
+      if (reference_callee_copied (&all->args_so_far, TYPE_MODE (type),
+				   type, data->named_arg))
 	{
 	  rtx copy;
 
@@ -3095,9 +3088,14 @@ assign_parms (tree fndecl)
       rtx addr = DECL_RTL (all.function_result_decl);
       rtx x;
 
-      addr = convert_memory_address (Pmode, addr);
-      x = gen_rtx_MEM (DECL_MODE (result), addr);
-      set_mem_attributes (x, result, 1);
+      if (DECL_BY_REFERENCE (result))
+	x = addr;
+      else
+	{
+	  addr = convert_memory_address (Pmode, addr);
+	  x = gen_rtx_MEM (DECL_MODE (result), addr);
+	  set_mem_attributes (x, result, 1);
+	}
       SET_DECL_RTL (result, x);
     }
 
@@ -3468,7 +3466,8 @@ setjmp_vars_warning (tree block)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
+	warning ("%Jvariable %qD might be clobbered by %<longjmp%>"
+		 " or %<vfork%>",
 		 decl, decl);
     }
 
@@ -3488,7 +3487,7 @@ setjmp_args_warning (void)
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
 	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
-      warning ("%Jargument '%D' might be clobbered by `longjmp' or `vfork'",
+      warning ("%Jargument %qD might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl, decl);
 }
 
@@ -3786,7 +3785,6 @@ allocate_struct_function (tree fndecl)
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
-  init_stmt_for_function ();
   init_eh_for_function ();
 
   lang_hooks.function.init (cfun);
@@ -4022,8 +4020,12 @@ expand_function_start (tree subr)
 	}
       if (value_address)
 	{
-	  rtx x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), value_address);
-	  set_mem_attributes (x, DECL_RESULT (subr), 1);
+	  rtx x = value_address;
+	  if (!DECL_BY_REFERENCE (DECL_RESULT (subr)))
+	    {
+	      x = gen_rtx_MEM (DECL_MODE (DECL_RESULT (subr)), x);
+	      set_mem_attributes (x, DECL_RESULT (subr), 1);
+	    }
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
@@ -4046,10 +4048,11 @@ expand_function_start (tree subr)
 	 so we may see a PARALLEL or a REG.  */
       if (REG_P (hard_reg))
 	SET_DECL_RTL (DECL_RESULT (subr), gen_reg_rtx (GET_MODE (hard_reg)));
-      else if (GET_CODE (hard_reg) == PARALLEL)
-	SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
       else
-	abort ();
+	{
+	  gcc_assert (GET_CODE (hard_reg) == PARALLEL);
+	  SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
+	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
 	 result to the real return register(s).  */
@@ -4068,7 +4071,6 @@ expand_function_start (tree subr)
 
       set_decl_incoming_rtl (parm, static_chain_incoming_rtx);
       SET_DECL_RTL (parm, local);
-      maybe_set_unchanging (local, parm);
       mark_reg_pointer (local, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
 
       emit_move_insn (local, static_chain_incoming_rtx);
@@ -4212,7 +4214,7 @@ do_warn_unused_parameter (tree fn)
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
-      warning ("%Junused parameter '%D'", decl, decl);
+      warning ("%Junused parameter %qD", decl, decl);
 }
 
 static GTY(()) rtx initial_trampoline;
@@ -4339,8 +4341,7 @@ expand_function_end (void)
 	  rtx real_decl_rtl = current_function_return_rtx;
 
 	  /* This should be set in assign_parms.  */
-	  if (! REG_FUNCTION_VALUE_P (real_decl_rtl))
-	    abort ();
+	  gcc_assert (REG_FUNCTION_VALUE_P (real_decl_rtl));
 
 	  /* If this is a BLKmode structure being returned in registers,
 	     then use the mode computed in expand_return.  Note that if
@@ -4388,17 +4389,22 @@ expand_function_end (void)
   if (current_function_returns_struct
       || current_function_returns_pcc_struct)
     {
-      rtx value_address
-	= XEXP (DECL_RTL (DECL_RESULT (current_function_decl)), 0);
+      rtx value_address = DECL_RTL (DECL_RESULT (current_function_decl));
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
+      rtx outgoing;
+
+      if (DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
+	type = TREE_TYPE (type);
+      else
+	value_address = XEXP (value_address, 0);
+
 #ifdef FUNCTION_OUTGOING_VALUE
-      rtx outgoing
-	= FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
-				   current_function_decl);
+      outgoing = FUNCTION_OUTGOING_VALUE (build_pointer_type (type),
+					  current_function_decl);
 #else
-      rtx outgoing
-	= FUNCTION_VALUE (build_pointer_type (type), current_function_decl);
-#endif
+      outgoing = FUNCTION_VALUE (build_pointer_type (type),
+				 current_function_decl);
+#endif 
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */
@@ -4421,20 +4427,19 @@ expand_function_end (void)
 
   /* Emit the actual code to clobber return register.  */
   {
-    rtx seq, after;
+    rtx seq;
 
     start_sequence ();
     clobber_return_register ();
+    expand_naked_return ();
     seq = get_insns ();
     end_sequence ();
 
-    after = emit_insn_after (seq, clobber_after);
+    emit_insn_after (seq, clobber_after);
   }
 
-  /* Output the label for the naked return from the function, if one is
-     expected.  This is currently used only by __builtin_return.  */
-  if (naked_return_label)
-    emit_label (naked_return_label);
+  /* Output the label for the naked return from the function.  */
+  emit_label (naked_return_label);
 
   /* ??? This should no longer be necessary since stupid is no longer with
      us, but there are some parts of the compiler (eg reload_combine, and
@@ -4693,19 +4698,27 @@ keep_stack_depressed (rtx insns)
 	      insn = next;
 	      continue;
 	    }
-	  else if (MEM_P (retaddr)
-		   && REG_P (XEXP (retaddr, 0)))
-	    base = gen_rtx_REG (Pmode, REGNO (XEXP (retaddr, 0))), offset = 0;
-	  else if (MEM_P (retaddr)
-		   && GET_CODE (XEXP (retaddr, 0)) == PLUS
-		   && REG_P (XEXP (XEXP (retaddr, 0), 0))
-		   && GET_CODE (XEXP (XEXP (retaddr, 0), 1)) == CONST_INT)
-	    {
-	      base = gen_rtx_REG (Pmode, REGNO (XEXP (XEXP (retaddr, 0), 0)));
-	      offset = INTVAL (XEXP (XEXP (retaddr, 0), 1));
-	    }
 	  else
-	    abort ();
+	    {
+	      rtx ret_ptr;
+	      gcc_assert (MEM_P (retaddr));
+
+	      ret_ptr = XEXP (retaddr, 0);
+	      
+	      if (REG_P (ret_ptr))
+		{
+		  base = gen_rtx_REG (Pmode, REGNO (ret_ptr));
+		  offset = 0;
+		}
+	      else
+		{
+		  gcc_assert (GET_CODE (ret_ptr) == PLUS
+			      && REG_P (XEXP (ret_ptr, 0))
+			      && GET_CODE (XEXP (ret_ptr, 1)) == CONST_INT);
+		  base = gen_rtx_REG (Pmode, REGNO (XEXP (ret_ptr, 0)));
+		  offset = INTVAL (XEXP (ret_ptr, 1));
+		}
+	    }
 
 	  /* If the base of the location containing the return pointer
 	     is SP, we must update it with the replacement address.  Otherwise,
@@ -4740,8 +4753,7 @@ keep_stack_depressed (rtx insns)
 		    && info.const_equiv[regno] == 0)
 		  break;
 
-	      if (regno == FIRST_PSEUDO_REGISTER)
-		abort ();
+	      gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 	      reg = gen_rtx_REG (Pmode, regno);
 	      emit_move_insn (reg, retaddr);
@@ -4753,10 +4765,8 @@ keep_stack_depressed (rtx insns)
 
 	  /* Show the SET in the above insn is a RETURN.  */
 	  jump_set = single_set (jump_insn);
-	  if (jump_set == 0)
-	    abort ();
-	  else
-	    SET_IS_RETURN_P (jump_set) = 1;
+	  gcc_assert (jump_set);
+	  SET_IS_RETURN_P (jump_set) = 1;
 	}
 
       /* If SP is not mentioned in the pattern and its equivalent register, if
@@ -4771,11 +4781,13 @@ keep_stack_depressed (rtx insns)
 	       && (info.sp_equiv_reg == stack_pointer_rtx
 		   || !reg_set_p (info.sp_equiv_reg, insn)))
 	{
-	  if (! validate_replace_rtx (stack_pointer_rtx,
-				      plus_constant (info.sp_equiv_reg,
-						     info.sp_offset),
-				      insn))
-	    abort ();
+	  int changed;
+
+	  changed = validate_replace_rtx (stack_pointer_rtx,
+					  plus_constant (info.sp_equiv_reg,
+							 info.sp_offset),
+					  insn);
+	  gcc_assert (changed);
 
 	  add_insn (insn);
 	}
@@ -4815,21 +4827,22 @@ handle_epilogue_set (rtx set, struct epi_info *p)
      set from.  If unknown, abort.  */
   if (reg_set_p (stack_pointer_rtx, set))
     {
-      if (SET_DEST (set) != stack_pointer_rtx)
-	abort ();
+      gcc_assert (SET_DEST (set) == stack_pointer_rtx);
 
       if (GET_CODE (SET_SRC (set)) == PLUS)
 	{
 	  p->new_sp_equiv_reg = XEXP (SET_SRC (set), 0);
 	  if (GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT)
 	    p->new_sp_offset = INTVAL (XEXP (SET_SRC (set), 1));
-	  else if (REG_P (XEXP (SET_SRC (set), 1))
-		   && REGNO (XEXP (SET_SRC (set), 1)) < FIRST_PSEUDO_REGISTER
-		   && p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))] != 0)
-	    p->new_sp_offset
-	      = INTVAL (p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
 	  else
-	    abort ();
+	    {
+	      gcc_assert (REG_P (XEXP (SET_SRC (set), 1))
+			  && (REGNO (XEXP (SET_SRC (set), 1))
+			      < FIRST_PSEUDO_REGISTER)
+			  && p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
+	      p->new_sp_offset
+		= INTVAL (p->const_equiv[REGNO (XEXP (SET_SRC (set), 1))]);
+	    }
 	}
       else
 	p->new_sp_equiv_reg = SET_SRC (set), p->new_sp_offset = 0;
@@ -4841,8 +4854,7 @@ handle_epilogue_set (rtx set, struct epi_info *p)
 	  p->new_sp_offset += p->sp_offset;
 	}
 
-      if (p->new_sp_equiv_reg == 0 || !REG_P (p->new_sp_equiv_reg))
-	abort ();
+      gcc_assert (p->new_sp_equiv_reg && REG_P (p->new_sp_equiv_reg));
 
       return;
     }
@@ -4857,17 +4869,16 @@ handle_epilogue_set (rtx set, struct epi_info *p)
      Pmode).  */
   else if (p->new_sp_equiv_reg != 0 && reg_set_p (p->new_sp_equiv_reg, set))
     {
-      if (p->equiv_reg_src != 0
-	  || !REG_P (p->new_sp_equiv_reg)
-	  || !REG_P (SET_DEST (set))
-	  || GET_MODE_BITSIZE (GET_MODE (SET_DEST (set))) > BITS_PER_WORD
-	  || REGNO (p->new_sp_equiv_reg) != REGNO (SET_DEST (set)))
-	abort ();
-      else
-	p->equiv_reg_src
-	  = simplify_replace_rtx (SET_SRC (set), stack_pointer_rtx,
-				  plus_constant (p->sp_equiv_reg,
-						 p->sp_offset));
+      gcc_assert (!p->equiv_reg_src
+		  && REG_P (p->new_sp_equiv_reg)
+		  && REG_P (SET_DEST (set))
+		  && (GET_MODE_BITSIZE (GET_MODE (SET_DEST (set)))
+		      <= BITS_PER_WORD)
+		  && REGNO (p->new_sp_equiv_reg) == REGNO (SET_DEST (set)));
+      p->equiv_reg_src
+	= simplify_replace_rtx (SET_SRC (set), stack_pointer_rtx,
+				plus_constant (p->sp_equiv_reg,
+					       p->sp_offset));
     }
 
   /* Otherwise, replace any references to SP in the insn to its new value
@@ -4960,6 +4971,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
 #endif
+  edge_iterator ei;
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -4979,17 +4991,16 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      if (!ENTRY_BLOCK_PTR->succ || ENTRY_BLOCK_PTR->succ->succ_next)
-	abort ();
+      gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
 
-      insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+      insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
       inserted = 1;
     }
 #endif
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FAKE) == 0)
       break;
   if (e == NULL)
@@ -5005,10 +5016,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	 emit (conditional) return instructions.  */
 
       basic_block last;
-      edge e_next;
       rtx label;
 
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (e == NULL)
@@ -5026,6 +5036,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
+	  edge_iterator ei2;
 	  rtx epilogue_line_note = NULL_RTX;
 
 	  /* Locate the line number associated with the closing brace,
@@ -5039,18 +5050,23 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  for (e = last->pred; e; e = e_next)
+	  for (ei2 = ei_start (last->preds); (e = ei_safe_edge (ei2)); )
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
-	      e_next = e->pred_next;
 	      if (bb == ENTRY_BLOCK_PTR)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      jump = BB_END (bb);
 	      if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* If we have an unconditional jump, we can replace that
 		 with a simple return instruction.  */
@@ -5065,16 +5081,25 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	      else if (condjump_p (jump))
 		{
 		  if (! redirect_jump (jump, 0, 0))
-		    continue;
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (bb->succ->succ_next == NULL)
-		    continue;
+		  if (EDGE_COUNT (bb->succs) == 1)
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 		}
 	      else
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* Fix up the CFG for the successful change we just made.  */
 	      redirect_edge_succ (e, EXIT_BLOCK_PTR);
@@ -5086,7 +5111,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  last->succ->flags &= ~EDGE_FALLTHRU;
+	  EDGE_SUCC (last, 0)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5096,7 +5121,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e == NULL)
@@ -5157,7 +5182,7 @@ epilogue_done:
 
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
@@ -5166,7 +5191,10 @@ epilogue_done:
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       start_sequence ();
       emit_insn (gen_sibcall_epilogue ());
@@ -5181,6 +5209,7 @@ epilogue_done:
 
       i = PREV_INSN (insn);
       newinsn = emit_insn_before (seq, insn);
+      ei_next (&ei);
     }
 #endif
 

@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -47,16 +47,6 @@ struct depend
   struct depend *next;
 };
 
-/* The possibilities of statement movement.  */
-
-enum move_pos
-{
-  MOVE_IMPOSSIBLE,		/* No movement -- side effect expression.  */
-  MOVE_PRESERVE_EXECUTION,	/* Must not cause the non-executed statement
-				   become executed -- memory accesses, ... */
-  MOVE_POSSIBLE			/* Unlimited movement.  */
-};
-
 /* The auxiliary data kept for each statement.  */
 
 struct lim_aux_data
@@ -86,7 +76,9 @@ struct lim_aux_data
 				   MAX_LOOP loop.  */
 };
 
-#define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
+#define LIM_DATA(STMT) (TREE_CODE (STMT) == PHI_NODE \
+			? NULL \
+			: (struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
 /* Description of a memory reference for store motion.  */
 
@@ -104,9 +96,20 @@ struct mem_ref
    block will be executed.  */
 #define ALWAYS_EXECUTED_IN(BB) ((struct loop *) (BB)->aux)
 
-/* Maximum uid in the statement in the function.  */
+static unsigned max_stmt_uid;	/* Maximal uid of a statement.  Uids to phi
+				   nodes are assigned using the versions of
+				   ssa names they define.  */
 
-static unsigned max_uid;
+/* Returns uid of statement STMT.  */
+
+static unsigned
+get_stmt_uid (tree stmt)
+{
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return SSA_NAME_VERSION (PHI_RESULT (stmt)) + max_stmt_uid;
+
+  return stmt_ann (stmt)->uid;
+}
 
 /* Calls CBCK for each index in memory reference ADDR_P.  There are two
    kinds situations handled; in each of these cases, the memory reference
@@ -125,7 +128,7 @@ static unsigned max_uid;
 bool
 for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 {
-  tree *nxt;
+  tree *nxt, *idx;
 
   for (; ; addr_p = nxt)
     {
@@ -134,14 +137,28 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case SSA_NAME:
 	  return cbck (*addr_p, addr_p, data);
 
+	case MISALIGNED_INDIRECT_REF:
+	case ALIGN_INDIRECT_REF:
 	case INDIRECT_REF:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  return cbck (*addr_p, nxt, data);
 
 	case BIT_FIELD_REF:
-	case COMPONENT_REF:
 	case VIEW_CONVERT_EXPR:
 	case ARRAY_RANGE_REF:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  break;
+
+	case COMPONENT_REF:
+	  /* If the component has varying offset, it behaves like index
+	     as well.  */
+	  idx = &TREE_OPERAND (*addr_p, 2);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 
@@ -158,7 +175,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  return true;
 
 	default:
-    	  abort ();
+    	  gcc_unreachable ();
 	}
     }
 }
@@ -170,7 +187,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
    because it may trap), return MOVE_PRESERVE_EXECUTION.
    Otherwise return MOVE_IMPOSSIBLE.  */
 
-static enum move_pos
+enum move_pos
 movement_possibility (tree stmt)
 {
   tree lhs, rhs;
@@ -214,7 +231,7 @@ movement_possibility (tree stmt)
 }
 
 /* Suppose that operand DEF is used inside the LOOP.  Returns the outermost
-   loop to that we could move the expresion using DEF if it did not have
+   loop to that we could move the expression using DEF if it did not have
    other operands, i.e. the outermost loop enclosing LOOP in that the value
    of DEF is invariant.  */
 
@@ -251,7 +268,7 @@ outermost_invariant_loop (tree def, struct loop *loop)
 static struct loop *
 outermost_invariant_loop_expr (tree expr, struct loop *loop)
 {
-  char class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
   struct loop *max_loop = superloop_at_depth (loop, 1), *aloop;
 
@@ -260,10 +277,10 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       || is_gimple_min_invariant (expr))
     return outermost_invariant_loop (expr, loop);
 
-  if (class != '1'
-      && class != '2'
-      && class != 'e'
-      && class != '<')
+  if (class != tcc_unary
+      && class != tcc_binary
+      && class != tcc_expression
+      && class != tcc_comparison)
     return NULL;
 
   nops = first_rtl_op (TREE_CODE (expr));
@@ -406,11 +423,8 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
   struct loop *loop = bb->loop_father;
   struct loop *level;
   struct lim_aux_data *lim_data = LIM_DATA (stmt);
-  use_optype uses;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  stmt_ann_t ann = stmt_ann (stmt);
-  unsigned i;
+  tree val;
+  ssa_op_iter iter;
   
   if (must_preserve_exec)
     level = ALWAYS_EXECUTED_IN (bb);
@@ -418,19 +432,12 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
     level = superloop_at_depth (loop, 1);
   lim_data->max_loop = level;
 
-  uses = USE_OPS (ann);
-  for (i = 0; i < NUM_USES (uses); i++)
-    if (!add_dependency (USE_OP (uses, i), lim_data, loop, true))
+  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_USE)
+    if (!add_dependency (val, lim_data, loop, true))
       return false;
 
-  vuses = VUSE_OPS (ann);
-  for (i = 0; i < NUM_VUSES (vuses); i++)
-    if (!add_dependency (VUSE_OP (vuses, i), lim_data, loop, false))
-      return false;
-
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    if (!add_dependency (V_MAY_DEF_OP (v_may_defs, i), lim_data, loop, false))
+  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_USES)
+    if (!add_dependency (val, lim_data, loop, false))
       return false;
 
   lim_data->cost += stmt_cost (stmt);
@@ -456,12 +463,9 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
   if (flow_loop_nested_p (stmt_loop, level))
     return;
 
-  if (!LIM_DATA (stmt))
-    abort ();
-
-  if (level != LIM_DATA (stmt)->max_loop
-      && !flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level))
-    abort ();
+  gcc_assert (LIM_DATA (stmt));
+  gcc_assert (level == LIM_DATA (stmt)->max_loop
+	      || flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level));
 
   LIM_DATA (stmt)->tgt_loop = level;
   for (dep = LIM_DATA (stmt)->depends; dep; dep = dep->next)
@@ -599,13 +603,13 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (bb->succ->dest->loop_father,
-					bb->pred->src->loop_father));
+		      find_common_loop (EDGE_SUCC (bb, 0)->dest->loop_father,
+					EDGE_PRED (bb, 0)->src->loop_father));
     }
 }
 
 /* Hoist the statements in basic block BB out of the loops prescribed by
-   data stored in LIM_DATA structres associated with each statement.  Callback
+   data stored in LIM_DATA structures associated with each statement.  Callback
    for walk_dominator_tree.  */
 
 static void
@@ -659,7 +663,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 }
 
 /* Hoist the statements out of the loops prescribed by data stored in
-   LIM_DATA structres associated with each statement.*/
+   LIM_DATA structures associated with each statement.*/
 
 static void
 move_computations (void)
@@ -675,6 +679,13 @@ move_computations (void)
 
   loop_commit_inserts ();
   rewrite_into_ssa (false);
+  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+    {
+      /* The rewrite of ssa names may cause violation of loop closed ssa
+	 form invariants.  TODO -- avoid these rewrites completely.
+	 Information in virtual phi nodes is sufficient for it.  */
+      rewrite_into_loop_closed_ssa ();
+    }
   bitmap_clear (vars_to_rename);
 }
 
@@ -709,13 +720,13 @@ may_move_till (tree ref, tree *index, void *data)
   return true;
 }
 
-/* Forces statements definining (invariant) SSA names in expression EXPR to be
+/* Forces statements defining (invariant) SSA names in expression EXPR to be
    moved out of the LOOP.  ORIG_LOOP is the loop in that EXPR is used.  */
 
 static void
 force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
 {
-  char class = TREE_CODE_CLASS (TREE_CODE (expr));
+  enum tree_code_class class = TREE_CODE_CLASS (TREE_CODE (expr));
   unsigned i, nops;
 
   if (TREE_CODE (expr) == SSA_NAME)
@@ -728,10 +739,10 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       return;
     }
 
-  if (class != '1'
-      && class != '2'
-      && class != 'e'
-      && class != '<')
+  if (class != tcc_unary
+      && class != tcc_binary
+      && class != tcc_expression
+      && class != tcc_comparison)
     return;
 
   nops = first_rtl_op (TREE_CODE (expr));
@@ -819,41 +830,126 @@ maybe_queue_var (tree var, struct loop *loop,
 	      
   if (!def_bb
       || !flow_bb_inside_loop_p (loop, def_bb)
-      || TEST_BIT (seen, stmt_ann (stmt)->uid))
+      || TEST_BIT (seen, get_stmt_uid (stmt)))
     return;
 	  
-  SET_BIT (seen, stmt_ann (stmt)->uid);
+  SET_BIT (seen, get_stmt_uid (stmt));
   queue[(*in_queue)++] = stmt;
+}
+
+/* If COMMON_REF is NULL, set COMMON_REF to *OP and return true.
+   Otherwise return true if the memory reference *OP is equal to COMMON_REF.
+   Record the reference OP to list MEM_REFS.  STMT is the statement in that
+   the reference occurs.  */
+
+struct sra_data
+{
+  struct mem_ref **mem_refs;
+  tree common_ref;
+  tree stmt;
+};
+
+static bool
+fem_single_reachable_address (tree *op, void *data)
+{
+  struct sra_data *sra_data = data;
+
+  if (sra_data->common_ref
+      && !operand_equal_p (*op, sra_data->common_ref, 0))
+    return false;
+  sra_data->common_ref = *op;
+
+  record_mem_ref (sra_data->mem_refs, sra_data->stmt, op);
+  return true;
+}
+
+/* Runs CALLBACK for each operand of STMT that is a memory reference.  DATA
+   is passed to the CALLBACK as well.  The traversal stops if CALLBACK
+   returns false, for_each_memref then returns false as well.  Otherwise
+   for_each_memref returns true.  */
+
+static bool
+for_each_memref (tree stmt, bool (*callback)(tree *, void *), void *data)
+{
+  tree *op;
+
+  if (TREE_CODE (stmt) == RETURN_EXPR)
+    stmt = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    {
+      op = &TREE_OPERAND (stmt, 0);
+      if (TREE_CODE (*op) != SSA_NAME
+	  && !callback (op, data))
+	return false;
+
+      op = &TREE_OPERAND (stmt, 1);
+      if (TREE_CODE (*op) != SSA_NAME
+	  && is_gimple_lvalue (*op)
+	  && !callback (op, data))
+	return false;
+
+      stmt = TREE_OPERAND (stmt, 1);
+    }
+
+  if (TREE_CODE (stmt) == WITH_SIZE_EXPR)
+    stmt = TREE_OPERAND (stmt, 0);
+
+  if (TREE_CODE (stmt) == CALL_EXPR)
+    {
+      tree args;
+
+      for (args = TREE_OPERAND (stmt, 1); args; args = TREE_CHAIN (args))
+	{
+	  op = &TREE_VALUE (args);
+
+	  if (TREE_CODE (*op) != SSA_NAME
+	      && is_gimple_lvalue (*op)
+	      && !callback (op, data))
+	    return false;
+	}
+    }
+
+  return true;
 }
 
 /* Determine whether all memory references inside the LOOP that correspond
    to virtual ssa names defined in statement STMT are equal.
    If so, store the list of the references to MEM_REFS, and return one
-   of them.  Otherwise store NULL to MEM_REFS and return NULL_TREE.  */
+   of them.  Otherwise store NULL to MEM_REFS and return NULL_TREE.
+   *SEEN_CALL_STMT is set to true if the virtual operands suggest
+   that the reference might be clobbered by a call inside the LOOP.  */
 
 static tree
 single_reachable_address (struct loop *loop, tree stmt,
-			  struct mem_ref **mem_refs)
+			  struct mem_ref **mem_refs,
+			  bool *seen_call_stmt)
 {
+  unsigned max_uid = max_stmt_uid + num_ssa_names;
   tree *queue = xmalloc (sizeof (tree) * max_uid);
   sbitmap seen = sbitmap_alloc (max_uid);
-  tree common_ref = NULL, *aref;
   unsigned in_queue = 1;
   dataflow_t df;
   unsigned i, n;
-  v_may_def_optype v_may_defs;
-  vuse_optype vuses;
+  struct sra_data sra_data;
+  tree call;
+  tree val;
+  ssa_op_iter iter;
 
   sbitmap_zero (seen);
 
   *mem_refs = NULL;
+  sra_data.mem_refs = mem_refs;
+  sra_data.common_ref = NULL_TREE;
 
   queue[0] = stmt;
-  SET_BIT (seen, stmt_ann (stmt)->uid);
+  SET_BIT (seen, get_stmt_uid (stmt));
+  *seen_call_stmt = false;
 
   while (in_queue)
     {
       stmt = queue[--in_queue];
+      sra_data.stmt = stmt;
 
       if (LIM_DATA (stmt)
 	  && LIM_DATA (stmt)->sm_done)
@@ -862,35 +958,33 @@ single_reachable_address (struct loop *loop, tree stmt,
       switch (TREE_CODE (stmt))
 	{
 	case MODIFY_EXPR:
-	  aref = &TREE_OPERAND (stmt, 0);
-	  if (is_gimple_reg (*aref)
-	      || !is_gimple_lvalue (*aref))
-	    aref = &TREE_OPERAND (stmt, 1);
-	  if (is_gimple_reg (*aref)
-	      || !is_gimple_lvalue (*aref)
-	      || (common_ref && !operand_equal_p (*aref, common_ref, 0)))
+	case CALL_EXPR:
+	case RETURN_EXPR:
+	  if (!for_each_memref (stmt, fem_single_reachable_address,
+				&sra_data))
 	    goto fail;
-	  common_ref = *aref;
 
-	  record_mem_ref (mem_refs, stmt, aref);
+	  /* If this is a function that may depend on the memory location,
+	     record the fact.  We cannot directly refuse call clobbered
+	     operands here, since sra_data.common_ref did not have
+	     to be set yet.  */
+	  call = get_call_expr_in (stmt);
+	  if (call
+	      && !(call_expr_flags (call) & ECF_CONST))
+	    *seen_call_stmt = true;
 
 	  /* Traverse also definitions of the VUSES (there may be other
 	     distinct from the one we used to get to this statement).  */
-	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
-	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	    maybe_queue_var (V_MAY_DEF_OP (v_may_defs, i), loop,
-			     seen, queue, &in_queue);
+	  FOR_EACH_SSA_TREE_OPERAND (val, stmt, iter, SSA_OP_VIRTUAL_USES)
+	    maybe_queue_var (val, loop, seen, queue, &in_queue);
 
-	  vuses = STMT_VUSE_OPS (stmt);
-	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    maybe_queue_var (VUSE_OP (vuses, i), loop,
-			     seen, queue, &in_queue);
 	  break;
 
 	case PHI_NODE:
 	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (stmt); i++)
-	    maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
-			     seen, queue, &in_queue);
+	    if (TREE_CODE (PHI_ARG_DEF (stmt, i)) == SSA_NAME)
+	      maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
+		               seen, queue, &in_queue);
 	  break;
 
 	default:
@@ -908,9 +1002,9 @@ single_reachable_address (struct loop *loop, tree stmt,
 	  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
 	    continue;
 
-	  if (TEST_BIT (seen, stmt_ann (stmt)->uid))
+	  if (TEST_BIT (seen, get_stmt_uid (stmt)))
 	    continue;
-	  SET_BIT (seen, stmt_ann (stmt)->uid);
+	  SET_BIT (seen, get_stmt_uid (stmt));
 
 	  queue[in_queue++] = stmt;
 	}
@@ -919,7 +1013,7 @@ single_reachable_address (struct loop *loop, tree stmt,
   free (queue);
   sbitmap_free (seen);
 
-  return common_ref;
+  return sra_data.common_ref;
 
 fail:
   free_mem_refs (*mem_refs);
@@ -935,32 +1029,15 @@ fail:
 static void
 rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
 {
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  vuse_optype vuses;
-  unsigned i;
   tree var;
+  ssa_op_iter iter;
 
   for (; mem_refs; mem_refs = mem_refs->next)
     {
-      v_may_defs = STMT_V_MAY_DEF_OPS (mem_refs->stmt);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+      FOR_EACH_SSA_TREE_OPERAND (var, mem_refs->stmt, iter,
+				 (SSA_OP_VIRTUAL_DEFS | SSA_OP_VUSE))
 	{
-	  var = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	}
-
-      v_must_defs = STMT_V_MUST_DEF_OPS (mem_refs->stmt);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  var = SSA_NAME_VAR (V_MUST_DEF_OP (v_must_defs, i));
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	}
-
-      vuses = STMT_VUSE_OPS (mem_refs->stmt);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	{
-	  var = SSA_NAME_VAR (VUSE_OP (vuses, i));
+	  var = SSA_NAME_VAR (var);
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
@@ -970,7 +1047,7 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref *mem_refs)
 }
 
 /* Records request for store motion of memory reference REF from LOOP.
-   MEM_REFS is the list of occurences of the reference REF inside LOOP;
+   MEM_REFS is the list of occurrences of the reference REF inside LOOP;
    these references are rewritten by a new temporary variable.
    Exits from the LOOP are stored in EXITS, there are N_EXITS of them.
    The initialization of the temporary variable is put to the preheader
@@ -987,6 +1064,13 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
   tree load, store;
   struct fmt_data fmt_data;
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Executing store motion of ");
+      print_generic_expr (dump_file, ref, 0);
+      fprintf (dump_file, " from loop %d\n", loop->num);
+    }
+
   tmp_var = make_rename_temp (TREE_TYPE (ref), "lsm_tmp");
 
   fmt_data.loop = loop;
@@ -1000,8 +1084,7 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
 
   /* Emit the load & stores.  */
   load = build (MODIFY_EXPR, void_type_node, tmp_var, ref);
-  modify_stmt (load);
-  stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
+  get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
 
@@ -1015,6 +1098,39 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
 		     unshare_expr (ref), tmp_var);
       bsi_insert_on_edge (exits[i], store);
     }
+}
+
+/* Returns true if REF may be clobbered by calls.  */
+
+static bool
+is_call_clobbered_ref (tree ref)
+{
+  tree base;
+
+  base = get_base_address (ref);
+  if (!base)
+    return true;
+
+  if (DECL_P (base))
+    return is_call_clobbered (base);
+
+  if (INDIRECT_REF_P (base))
+    {
+      /* Check whether the alias tags associated with the pointer
+	 are call clobbered.  */
+      tree ptr = TREE_OPERAND (base, 0);
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      tree nmt = (pi) ? pi->name_mem_tag : NULL_TREE;
+      tree tmt = var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+
+      if ((nmt && is_call_clobbered (nmt))
+	  || (tmt && is_call_clobbered (tmt)))
+	return true;
+
+      return false;
+    }
+
+  gcc_unreachable ();
 }
 
 /* Determine whether all memory references inside LOOP corresponding to the
@@ -1031,19 +1147,28 @@ determine_lsm_reg (struct loop *loop, edge *exits, unsigned n_exits, tree reg)
   tree ref;
   struct mem_ref *mem_refs, *aref;
   struct loop *must_exec;
+  bool sees_call;
   
   if (is_gimple_reg (reg))
     return;
   
-  ref = single_reachable_address (loop, SSA_NAME_DEF_STMT (reg), &mem_refs);
+  ref = single_reachable_address (loop, SSA_NAME_DEF_STMT (reg), &mem_refs,
+				  &sees_call);
   if (!ref)
     return;
 
+  /* If we cannot create a ssa name for the result, give up.  */
+  if (!is_gimple_reg_type (TREE_TYPE (ref))
+      || TREE_THIS_VOLATILE (ref))
+    goto fail;
+
+  /* If there is a call that may use the location, give up as well.  */
+  if (sees_call
+      && is_call_clobbered_ref (ref))
+    goto fail;
+
   if (!for_each_index (&ref, may_move_till, loop))
-    {
-      free_mem_refs (mem_refs);
-      return;
-    }
+    goto fail;
 
   if (tree_could_trap_p (ref))
     {
@@ -1073,13 +1198,12 @@ determine_lsm_reg (struct loop *loop, edge *exits, unsigned n_exits, tree reg)
 	}
 
       if (!aref)
-	{
-	  free_mem_refs (mem_refs);
-	  return;
-	}
+	goto fail;
     }
 
   schedule_sm (loop, exits, n_exits, ref, mem_refs);
+
+fail: ;
   free_mem_refs (mem_refs);
 }
 
@@ -1133,17 +1257,13 @@ determine_lsm (struct loops *loops)
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */
-  max_uid = 0;
+  max_stmt_uid = 0;
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
-      tree phi;
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	stmt_ann (bsi_stmt (bsi))->uid = max_uid++;
-
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	stmt_ann (phi)->uid = max_uid++;
+	stmt_ann (bsi_stmt (bsi))->uid = max_stmt_uid++;
     }
 
   compute_immediate_uses (TDFA_USE_VOPS, NULL);
@@ -1195,6 +1315,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 
       for (i = 0; i < loop->num_nodes; i++)
 	{
+	  edge_iterator ei;
 	  bb = bbs[i];
 
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -1203,7 +1324,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (!flow_bb_inside_loop_p (loop, e->dest))
 	      break;
 	  if (e)

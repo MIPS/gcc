@@ -44,6 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "target.h"
 #include "except.h"
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -268,11 +269,8 @@ ident_subst (const char* old_name,
   int prefix_len = strlen (prefix);
   int suffix_len = strlen (suffix);
   int i = prefix_len + old_length + suffix_len + 1;
-#ifdef __GNUC__
-  char buffer[i];
-#else
   char *buffer = alloca (i);
-#endif
+
   strcpy (buffer, prefix);
   for (i = 0; i < old_length; i++)
     {
@@ -428,10 +426,12 @@ push_class (tree class_type, tree class_name)
 {
   tree decl, signature;
   location_t saved_loc = input_location;
+#ifndef USE_MAPPED_LOCATION
   tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
-  CLASS_P (class_type) = 1;
   input_filename = IDENTIFIER_POINTER (source_name);
   input_line = 0;
+#endif
+  CLASS_P (class_type) = 1;
   decl = build_decl (TYPE_DECL, class_name, class_type);
 
   /* dbxout needs a DECL_SIZE if in gstabs mode */
@@ -880,8 +880,8 @@ build_utf8_ref (tree name)
   FINISH_RECORD (ctype);
   START_RECORD_CONSTRUCTOR (cinit, ctype);
   name_hash = hashUtf8String (name_ptr, name_len) & 0xFFFF;
-  PUSH_FIELD_VALUE (cinit, "hash", build_int_2 (name_hash, 0));
-  PUSH_FIELD_VALUE (cinit, "length", build_int_2 (name_len, 0));
+  PUSH_FIELD_VALUE (cinit, "hash", build_int_cst (NULL_TREE, name_hash));
+  PUSH_FIELD_VALUE (cinit, "length", build_int_cst (NULL_TREE, name_len));
   string = build_string (name_len, name_ptr);
   TREE_TYPE (string) = str_type;
   PUSH_FIELD_VALUE (cinit, "data", string);
@@ -920,9 +920,9 @@ build_utf8_ref (tree name)
   TREE_CHAIN (decl) = utf8_decl_list;
   layout_decl (decl, 0);
   pushdecl (decl);
-  rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
+  rest_of_decl_compilation (decl, global_bindings_p (), 0);
   utf8_decl_list = decl;
-  make_decl_rtl (decl, (char*) 0);
+  make_decl_rtl (decl);
   ref = build1 (ADDR_EXPR, utf8const_ptr_type, decl);
   IDENTIFIER_UTF8_REF (name) = ref;
   return ref;
@@ -985,7 +985,7 @@ build_class_ref (tree type)
 	      SET_DECL_ASSEMBLER_NAME (decl, 
 				       java_mangle_class_field
 				       (&temporary_obstack, type));
-	      make_decl_rtl (decl, NULL);
+	      make_decl_rtl (decl);
 	      pushdecl_top_level (decl);
 	    }
 	}
@@ -1037,7 +1037,8 @@ build_class_ref (tree type)
 	      TREE_STATIC (decl) = 1;
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_EXTERNAL (decl) = 1;
-	      make_decl_rtl (decl, NULL);
+	      DECL_ARTIFICIAL (decl) = 1;
+	      make_decl_rtl (decl);
 	      pushdecl_top_level (decl);
 	    }
 	}
@@ -1073,7 +1074,7 @@ build_static_field_ref (tree fdecl)
 	{
 	  if (is_compiled == 1)
 	    DECL_EXTERNAL (fdecl) = 1;
-	  make_decl_rtl (fdecl, NULL);
+	  make_decl_rtl (fdecl);
 	}
       return fdecl;
     }
@@ -1081,8 +1082,8 @@ build_static_field_ref (tree fdecl)
   if (flag_indirect_dispatch)
     {
       tree table_index 
-	= build_int_2 (get_symbol_table_index 
-		       (fdecl, &TYPE_ATABLE_METHODS (output_class)), 0);
+	= build_int_cst (NULL_TREE, get_symbol_table_index 
+			 (fdecl, &TYPE_ATABLE_METHODS (output_class)));
       tree field_address
 	= build4 (ARRAY_REF, build_pointer_type (TREE_TYPE (fdecl)), 
 		  TYPE_ATABLE_DECL (output_class), table_index,
@@ -1114,7 +1115,7 @@ build_static_field_ref (tree fdecl)
 	}
       field_index *= int_size_in_bytes (field_type_node);
       ref = fold (build2 (PLUS_EXPR, field_ptr_type_node,
-			  ref, build_int_2 (field_index, 0)));
+			  ref, build_int_cst (NULL_TREE, field_index)));
       ref = build1 (INDIRECT_REF, field_type_node, ref);
       ref = build3 (COMPONENT_REF, field_info_union_node,
 		    ref, lookup_field (&field_type_node, info_ident),
@@ -1198,6 +1199,8 @@ get_access_flags_from_decl (tree decl)
   abort ();
 }
 
+/** Make reflection data (_Jv_Field) for field FDECL. */
+
 static tree
 make_field_value (tree fdecl)
 {
@@ -1224,7 +1227,7 @@ make_field_value (tree fdecl)
   if (! resolved)
     flags |= 0x8000 /* FIELD_UNRESOLVED_FLAG */;
 
-  PUSH_FIELD_VALUE (finit, "accflags", build_int_2 (flags, 0));
+  PUSH_FIELD_VALUE (finit, "accflags", build_int_cst (NULL_TREE, flags));
   PUSH_FIELD_VALUE (finit, "bsize", TYPE_SIZE_UNIT (TREE_TYPE (fdecl)));
 
   PUSH_FIELD_VALUE
@@ -1242,6 +1245,8 @@ make_field_value (tree fdecl)
   return finit;
 }
 
+/** Make reflection data (_Jv_Method) for method MDECL. */
+
 static tree
 make_method_value (tree mdecl)
 {
@@ -1256,7 +1261,8 @@ make_method_value (tree mdecl)
   class_decl = DECL_CONTEXT (mdecl);
   /* For interfaces, the index field contains the dispatch index. */
   if (CLASS_INTERFACE (TYPE_NAME (class_decl)))
-    index = build_int_2 (get_interface_method_index (mdecl, class_decl), 0);
+    index = build_int_cst (NULL_TREE,
+			   get_interface_method_index (mdecl, class_decl));
   else if (!flag_indirect_dispatch && get_method_index (mdecl) != NULL_TREE)
     index = get_method_index (mdecl);
   else
@@ -1278,7 +1284,7 @@ make_method_value (tree mdecl)
 			(IDENTIFIER_POINTER(signature),
 			 IDENTIFIER_LENGTH(signature)))));
   }
-  PUSH_FIELD_VALUE (minit, "accflags", build_int_2 (accflags, 0));
+  PUSH_FIELD_VALUE (minit, "accflags", build_int_cst (NULL_TREE, accflags));
   PUSH_FIELD_VALUE (minit, "index", index);
   PUSH_FIELD_VALUE (minit, "ncode", code);
 
@@ -1311,7 +1317,7 @@ make_method_value (tree mdecl)
 	TREE_STATIC (array) = 1;
 	DECL_ARTIFICIAL (array) = 1;
 	DECL_IGNORED_P (array) = 1;
-	rest_of_decl_compilation (array, (char*) 0, 1, 0);
+	rest_of_decl_compilation (array, 1, 0);
 
 	table = build1 (ADDR_EXPR, ptr_type_node, array);
       }
@@ -1385,13 +1391,13 @@ get_dispatch_table (tree type, tree this_class_addr)
       else
 	{
 	  if (!DECL_RTL_SET_P (method))
-	    make_decl_rtl (method, NULL);
+	    make_decl_rtl (method);
 
 	  if (TARGET_VTABLE_USES_DESCRIPTORS)
 	    for (j = 0; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
 	      {
 		tree fdesc = build2 (FDESC_EXPR, nativecode_ptr_type_node, 
-				     method, build_int_2 (j, 0));
+				     method, build_int_cst (NULL_TREE, j));
 		TREE_CONSTANT (fdesc) = 1;
 		TREE_INVARIANT (fdesc) = 1;
 	        list = tree_cons (NULL_TREE, fdesc, list);
@@ -1504,7 +1510,8 @@ make_class_data (tree type)
   tree type_decl = TYPE_NAME (type);
   /** Offset from start of virtual function table declaration
       to where objects actually point at, following new g++ ABI. */
-  tree dtable_start_offset = build_int_2 (2 * POINTER_SIZE / BITS_PER_UNIT, 0);
+  tree dtable_start_offset = build_int_cst (NULL_TREE,
+					    2 * POINTER_SIZE / BITS_PER_UNIT);
 
   this_class_addr = build_class_ref (type);
   decl = TREE_OPERAND (this_class_addr, 0);
@@ -1528,7 +1535,7 @@ make_class_data (tree type)
 	      if (initial != NULL_TREE
 		  && TREE_TYPE (initial) == string_ptr_type_node)
 		DECL_INITIAL (field) = NULL_TREE;
-	      rest_of_decl_compilation (field, (char*) 0, 1, 1);
+	      rest_of_decl_compilation (field, 1, 1);
 	      DECL_INITIAL (field) = initial;
 	    }
 	  else
@@ -1552,7 +1559,7 @@ make_class_data (tree type)
       TREE_STATIC (fields_decl) = 1;
       DECL_ARTIFICIAL (fields_decl) = 1;
       DECL_IGNORED_P (fields_decl) = 1;
-      rest_of_decl_compilation (fields_decl, (char*) 0, 1, 0);
+      rest_of_decl_compilation (fields_decl, 1, 0);
     }
   else
     fields_decl = NULL_TREE;
@@ -1578,7 +1585,7 @@ make_class_data (tree type)
   TREE_STATIC (methods_decl) = 1;
   DECL_ARTIFICIAL (methods_decl) = 1;
   DECL_IGNORED_P (methods_decl) = 1;
-  rest_of_decl_compilation (methods_decl, (char*) 0, 1, 0);
+  rest_of_decl_compilation (methods_decl, 1, 0);
 
   if (supers_all_compiled (type) && ! CLASS_INTERFACE (type_decl)
       && !flag_indirect_dispatch)
@@ -1590,7 +1597,7 @@ make_class_data (tree type)
       DECL_ARTIFICIAL (dtable_decl) = 1;
       DECL_IGNORED_P (dtable_decl) = 1;
       TREE_PUBLIC (dtable_decl) = 1;
-      rest_of_decl_compilation (dtable_decl, (char*) 0, 1, 0);
+      rest_of_decl_compilation (dtable_decl, 1, 0);
       if (type == class_type_node)
 	class_dtable_decl = dtable_decl;
     }
@@ -1603,7 +1610,7 @@ make_class_data (tree type)
       DECL_IGNORED_P (class_dtable_decl) = 1;
       if (is_compiled_class (class_type_node) != 2)
 	DECL_EXTERNAL (class_dtable_decl) = 1;
-      rest_of_decl_compilation (class_dtable_decl, (char*) 0, 1, 0);
+      rest_of_decl_compilation (class_dtable_decl, 1, 0);
     }
 
   super = CLASSTYPE_SUPER (type);
@@ -1618,8 +1625,7 @@ make_class_data (tree type)
   else
     {
       int super_index = alloc_class_constant (super);
-      super = build_int_2 (super_index, 0);
-      TREE_TYPE (super) = ptr_type_node;
+      super = build_int_cst (ptr_type_node, super_index);
     }
 
   /* Build and emit the array of implemented interfaces. */
@@ -1648,8 +1654,7 @@ make_class_data (tree type)
 	  else
 	    {
 	      int int_index = alloc_class_constant (iclass);
-	      index = build_int_2 (int_index, 0);
-	      TREE_TYPE (index) = ptr_type_node;
+	      index = build_int_cst (ptr_type_node, int_index);
 	    }
 	  init = tree_cons (NULL_TREE, index, init); 
 	}
@@ -1658,7 +1663,7 @@ make_class_data (tree type)
       DECL_ARTIFICIAL (idecl) = 1;
       DECL_IGNORED_P (idecl) = 1;
       interfaces = build1 (ADDR_EXPR, ptr_type_node, idecl);
-      rest_of_decl_compilation (idecl,  (char*) 0, 1, 0);
+      rest_of_decl_compilation (idecl, 1, 0);
     }
 
   constant_pool_constructor = build_constants_constructor ();
@@ -1694,14 +1699,16 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "next", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "name", build_utf8_ref (DECL_NAME (type_decl)));
   PUSH_FIELD_VALUE (cons, "accflags",
-		    build_int_2 (get_access_flags_from_decl (type_decl), 0));
+		    build_int_cst (NULL_TREE,
+				   get_access_flags_from_decl (type_decl)));
 
   PUSH_FIELD_VALUE (cons, "superclass", 
 		    CLASS_INTERFACE (type_decl) ? null_pointer_node : super);
   PUSH_FIELD_VALUE (cons, "constants", constant_pool_constructor);
   PUSH_FIELD_VALUE (cons, "methods",
 		    build1 (ADDR_EXPR, method_ptr_type_node, methods_decl));
-  PUSH_FIELD_VALUE (cons, "method_count",  build_int_2 (method_count, 0));
+  PUSH_FIELD_VALUE (cons, "method_count",
+		    build_int_cst (NULL_TREE, method_count));
 
   if (flag_indirect_dispatch)
     PUSH_FIELD_VALUE (cons, "vtable_method_count", integer_minus_one_node);
@@ -1712,9 +1719,10 @@ make_class_data (tree type)
 		    fields_decl == NULL_TREE ? null_pointer_node
 		    : build1 (ADDR_EXPR, field_ptr_type_node, fields_decl));
   PUSH_FIELD_VALUE (cons, "size_in_bytes", size_in_bytes (type));
-  PUSH_FIELD_VALUE (cons, "field_count", build_int_2 (field_count, 0));
+  PUSH_FIELD_VALUE (cons, "field_count",
+		    build_int_cst (NULL_TREE, field_count));
   PUSH_FIELD_VALUE (cons, "static_field_count",
-		    build_int_2 (static_field_count, 0));
+		    build_int_cst (NULL_TREE, static_field_count));
 
   if (flag_indirect_dispatch)
     PUSH_FIELD_VALUE (cons, "vtable", null_pointer_node);
@@ -1760,7 +1768,8 @@ make_class_data (tree type)
 		    build1 (ADDR_EXPR, ptr_type_node, TYPE_CTABLE_DECL (type))); 
   PUSH_FIELD_VALUE (cons, "interfaces", interfaces);
   PUSH_FIELD_VALUE (cons, "loader", null_pointer_node);
-  PUSH_FIELD_VALUE (cons, "interface_count", build_int_2 (interface_len, 0));
+  PUSH_FIELD_VALUE (cons, "interface_count",
+		    build_int_cst (NULL_TREE, interface_len));
   PUSH_FIELD_VALUE (cons, "state", integer_zero_node);
 
   PUSH_FIELD_VALUE (cons, "thread", null_pointer_node);
@@ -1781,7 +1790,7 @@ make_class_data (tree type)
   if (flag_hash_synchronization && POINTER_SIZE < 64)
     DECL_ALIGN (decl) = 64; 
   
-  rest_of_decl_compilation (decl, (char*) 0, 1, 0);
+  rest_of_decl_compilation (decl, 1, 0);
 }
 
 void
@@ -1792,7 +1801,7 @@ finish_class (void)
   current_function_decl = NULL_TREE;
   make_class_data (current_class);
   register_class ();
-  rest_of_decl_compilation (TYPE_NAME (current_class), (char*) 0, 1, 0);
+  rest_of_decl_compilation (TYPE_NAME (current_class), 1, 0);
 }
 
 /* Return 2 if CLASS is compiled by this compilation job;
@@ -1945,9 +1954,14 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	  if (this_class)
 	    {
 	      tree this_decl = TYPE_NAME (this_class);
+#ifdef USE_MAPPED_LOCATION
+	      this_wrap = build_expr_wfl (this_class,
+					  DECL_SOURCE_LOCATION (this_decl));
+#else
 	      this_wrap = build_expr_wfl (this_class,
 					  DECL_SOURCE_FILE (this_decl),
 					  DECL_SOURCE_LINE (this_decl), 0);
+#endif
 	    }
 	  super_class = do_resolve_class (NULL_TREE, /* FIXME? */
 					  super_class, NULL_TREE, this_wrap);
@@ -1975,7 +1989,7 @@ layout_class (tree this_class)
       char *report;
       tree current;
 
-      sprintf (buffer, " with `%s'",
+      sprintf (buffer, " with '%s'",
 	       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (this_class))));
       obstack_grow (&temporary_obstack, buffer, strlen (buffer));
 
@@ -1983,7 +1997,7 @@ layout_class (tree this_class)
 	   current = TREE_CHAIN (current))
 	{
 	  tree decl = TYPE_NAME (TREE_PURPOSE (current));
-	  sprintf (buffer, "\n  which inherits from `%s' (%s:%d)",
+	  sprintf (buffer, "\n  which inherits from '%s' (%s:%d)",
 		   IDENTIFIER_POINTER (DECL_NAME (decl)),
 		   DECL_SOURCE_FILE (decl),
 		   DECL_SOURCE_LINE (decl));
@@ -2073,6 +2087,8 @@ add_miranda_methods (tree base_class, tree search_class)
       tree elt = BINFO_TYPE (base_binfo);
 
       /* Ensure that interface methods are seen in declared order.  */
+      if (!CLASS_LOADED_P (elt))
+	load_class (elt, 1);
       layout_class_methods (elt);
 
       /* All base classes will have been laid out at this point, so the order 
@@ -2189,7 +2205,7 @@ layout_class_method (tree this_class, tree super_class,
   if (! METHOD_ABSTRACT (method_decl) 
       || (CLASS_INTERFACE (TYPE_NAME (this_class)) 
 	  && (DECL_CLINIT_P (method_decl))))
-    make_decl_rtl (method_decl, NULL);
+    make_decl_rtl (method_decl);
 
   if (ID_INIT_P (method_name))
     {
@@ -2203,7 +2219,7 @@ layout_class_method (tree this_class, tree super_class,
       DECL_CONSTRUCTOR_P (method_decl) = 1;
       build_java_argument_signature (TREE_TYPE (method_decl));
     }
-  else if (! METHOD_STATIC (method_decl) && !DECL_ARTIFICIAL (method_decl))
+  else if (! METHOD_STATIC (method_decl))
     {
       tree method_sig =
 	build_java_argument_signature (TREE_TYPE (method_decl));
@@ -2292,8 +2308,11 @@ emit_register_classes (tree *list_p)
       named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
       assemble_align (POINTER_SIZE);
       for (t = registered_class; t; t = TREE_CHAIN (t))
-	assemble_integer (XEXP (DECL_RTL (t), 0),
-			  POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	{
+	  mark_decl_referenced (t);
+	  assemble_integer (XEXP (DECL_RTL (t), 0),
+			    POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	}
 #else
       abort ();
 #endif
@@ -2388,18 +2407,18 @@ emit_symbol_table (tree name, tree the_table, tree decl_list,
   DECL_INITIAL (the_syms_decl) = table;
   DECL_ARTIFICIAL (the_syms_decl) = 1;
   DECL_IGNORED_P (the_syms_decl) = 1;
-  rest_of_decl_compilation (the_syms_decl, NULL, 1, 0);
+  rest_of_decl_compilation (the_syms_decl, 1, 0);
   
   /* Now that its size is known, redefine the table as an
      uninitialized static array of INDEX + 1 elements. The extra entry
      is used by the runtime to track whether the table has been
      initialized. */
-  table_size = build_index_type (build_int_2 (index, 0));
+  table_size = build_index_type (build_int_cst (NULL_TREE, index));
   the_array_type = build_array_type (the_array_element_type, table_size);
   the_table = build_decl (VAR_DECL, name, the_array_type);
   TREE_STATIC (the_table) = 1;
   TREE_READONLY (the_table) = 1;  
-  rest_of_decl_compilation (the_table, NULL, 1, 0);
+  rest_of_decl_compilation (the_table, 1, 0);
 
   return the_table;
 }
@@ -2433,9 +2452,9 @@ emit_catch_table (tree this_class)
     tree_cons (NULL,
 	       make_catch_class_record (null_pointer_node, null_pointer_node),
 	       TYPE_CATCH_CLASSES (this_class));
-  table_size = 
-    build_index_type (build_int_2 
-		      (list_length (TYPE_CATCH_CLASSES (this_class)), 0));
+  table_size = build_index_type
+    (build_int_cst (NULL_TREE,
+		    list_length (TYPE_CATCH_CLASSES (this_class))));
   array_type 
     = build_array_type (TREE_TYPE (TREE_TYPE (TYPE_CTABLE_DECL (this_class))),
 			table_size);
@@ -2446,7 +2465,7 @@ emit_catch_table (tree this_class)
   TREE_STATIC (table) = 1;
   TREE_READONLY (table) = 1;  
   DECL_IGNORED_P (table) = 1;
-  rest_of_decl_compilation (table, NULL, 1, 0);
+  rest_of_decl_compilation (table, 1, 0);
   return table;
 }
  

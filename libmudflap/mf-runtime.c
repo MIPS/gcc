@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* These attempt to coax various unix flavours to declare all our
    needed tidbits in the system headers.  */
-#if !defined(__FreeBSD__)
+#if !defined(__FreeBSD__) && !defined(__APPLE__)
 #define _POSIX_SOURCE
 #endif /* Some BSDs break <sys/socket.h> if this is defined. */
 #define _GNU_SOURCE 
@@ -160,7 +160,7 @@ static void mfsplay_tree_rebalance (mfsplay_tree sp);
 /* Required globals.  */
 
 #define LOOKUP_CACHE_MASK_DFL 1023
-#define LOOKUP_CACHE_SIZE_MAX 4096 /* Allows max CACHE_MASK 0x0FFF */
+#define LOOKUP_CACHE_SIZE_MAX 65536 /* Allows max CACHE_MASK 0xFFFF */
 #define LOOKUP_CACHE_SHIFT_DFL 2
 
 struct __mf_cache __mf_lookup_cache [LOOKUP_CACHE_SIZE_MAX];
@@ -310,36 +310,36 @@ static struct option
       set_option,
       read_integer_option,
     } type;
-  int value;
-  int *target;
+  unsigned value;
+  unsigned *target;
 } 
 options [] =
   {
     {"mode-nop", 
      "mudflaps do nothing", 
-     set_option, (int)mode_nop, (int *)&__mf_opts.mudflap_mode},    
+     set_option, (unsigned)mode_nop, (unsigned *)&__mf_opts.mudflap_mode},    
     {"mode-populate", 
      "mudflaps populate object tree", 
-     set_option, (int)mode_populate, (int *)&__mf_opts.mudflap_mode},    
+     set_option, (unsigned)mode_populate, (unsigned *)&__mf_opts.mudflap_mode},    
     {"mode-check", 
      "mudflaps check for memory violations",
-     set_option, (int)mode_check, (int *)&__mf_opts.mudflap_mode},
+     set_option, (unsigned)mode_check, (unsigned *)&__mf_opts.mudflap_mode},
     {"mode-violate", 
      "mudflaps always cause violations (diagnostic)",
-     set_option, (int)mode_violate, (int *)&__mf_opts.mudflap_mode},
+     set_option, (unsigned)mode_violate, (unsigned *)&__mf_opts.mudflap_mode},
    
     {"viol-nop", 
      "violations do not change program execution",
-     set_option, (int)viol_nop, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_nop, (unsigned *)&__mf_opts.violation_mode},
     {"viol-abort", 
      "violations cause a call to abort()",
-     set_option, (int)viol_abort, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_abort, (unsigned *)&__mf_opts.violation_mode},
     {"viol-segv", 
      "violations are promoted to SIGSEGV signals",
-     set_option, (int)viol_segv, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_segv, (unsigned *)&__mf_opts.violation_mode},
     {"viol-gdb", 
      "violations fork a gdb process attached to current program",
-     set_option, (int)viol_gdb, (int *)&__mf_opts.violation_mode},
+     set_option, (unsigned)viol_gdb, (unsigned *)&__mf_opts.violation_mode},
     {"trace-calls", 
      "trace calls to mudflap runtime library",
      set_option, 1, &__mf_opts.trace_mf_calls},
@@ -728,6 +728,7 @@ __wrap_main (int argc, char* argv[])
 {
   extern char **environ;
   extern int main ();
+  extern int __real_main ();
   static int been_here = 0;
 
   if (__mf_opts.heur_std_data && ! been_here)
@@ -916,7 +917,7 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
                   judgement = -1;
               }
 
-            /* We now know that the access spans one or more valid objects.  */
+            /* We now know that the access spans one or more only valid objects.  */
             if (LIKELY (judgement >= 0))
               for (i = 0; i < obj_count; i++)
                 {
@@ -930,11 +931,57 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
                       entry->high = obj->high;
                       judgement = 1;
                     }
-
-                  /* XXX: Access runs off left or right side of this
-                          object.  That could be okay, if there are
-                          other objects that fill in all the holes. */
                 }
+
+            /* This access runs off the end of one valid object.  That
+                could be okay, if other valid objects fill in all the
+                holes.  We allow this only for HEAP and GUESS type
+                objects.  Accesses to STATIC and STACK variables
+                should not be allowed to span.  */
+            if (UNLIKELY ((judgement == 0) && (obj_count > 1)))
+              {
+                unsigned uncovered = 0;
+                for (i = 0; i < obj_count; i++)
+                  {
+                    __mf_object_t *obj = all_ovr_obj[i];
+                    int j, uncovered_low_p, uncovered_high_p;
+                    uintptr_t ptr_lower, ptr_higher;
+
+                    uncovered_low_p = ptr_low < obj->low;
+                    ptr_lower = CLAMPSUB (obj->low, 1);
+                    uncovered_high_p = ptr_high > obj->high;
+                    ptr_higher = CLAMPADD (obj->high, 1);
+
+                    for (j = 0; j < obj_count; j++)
+                      {
+                        __mf_object_t *obj2 = all_ovr_obj[j];
+
+                        if (i == j) continue;
+
+                        /* Filter out objects that cannot be spanned across.  */
+                        if (obj2->type == __MF_TYPE_STACK 
+                            || obj2->type == __MF_TYPE_STATIC)
+                          continue;
+
+                          /* Consider a side "covered" if obj2 includes
+                             the next byte on that side.  */
+                          if (uncovered_low_p
+                              && (ptr_lower >= obj2->low && ptr_lower <= obj2->high))
+                            uncovered_low_p = 0;
+                          if (uncovered_high_p
+                              && (ptr_high >= obj2->low && ptr_higher <= obj2->high))
+                            uncovered_high_p = 0;
+                      }
+                    
+                    if (uncovered_low_p || uncovered_high_p)
+                      uncovered ++;
+                  }
+
+                /* Success if no overlapping objects are uncovered.  */
+                if (uncovered == 0)
+                  judgement = 1;
+                }
+
 
             if (dealloc_me != NULL)
               CALL_REAL (free, dealloc_me);
@@ -1412,7 +1459,7 @@ __mf_adapt_cache ()
       cache_utilization += 1.0;
   cache_utilization /= (1 + __mf_lc_mask);
 
-  new_mask |= 0x3ff; /* XXX: force a large cache.  */
+  new_mask |= 0xffff; /* XXX: force a large cache.  */
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
 
   VERBOSE_TRACE ("adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
@@ -1614,7 +1661,8 @@ __mf_describe_object (__mf_object_t *obj)
   if (__mf_opts.abbreviate && obj->description_epoch == epoch)
     {
       fprintf (stderr,
-               "mudflap object %p: name=`%s'\n",
+               "mudflap %sobject %p: name=`%s'\n",
+               (obj->deallocated_p ? "dead " : ""),
                (void *) obj, (obj->name ? obj->name : ""));
       return;
     }
@@ -1622,13 +1670,14 @@ __mf_describe_object (__mf_object_t *obj)
     obj->description_epoch = epoch;
 
   fprintf (stderr,
-           "mudflap object %p: name=`%s'\n"
+           "mudflap %sobject %p: name=`%s'\n"
            "bounds=[%p,%p] size=%lu area=%s check=%ur/%uw liveness=%u%s\n"
            "alloc time=%lu.%06lu pc=%p"
 #ifdef LIBMUDFLAPTH
            " thread=%u"
 #endif
            "\n",
+           (obj->deallocated_p ? "dead " : ""),
            (void *) obj, (obj->name ? obj->name : ""), 
            (void *) obj->low, (void *) obj->high,
            (unsigned long) (obj->high - obj->low + 1),
@@ -2247,22 +2296,6 @@ static mfsplay_tree_node mfsplay_tree_splay_helper (mfsplay_tree,
                                                 mfsplay_tree_node *,
                                                 mfsplay_tree_node *,
                                                 mfsplay_tree_node *);
-static void *mfsplay_tree_xmalloc (size_t size);
-static void mfsplay_tree_free (void *object);
-
-
-
-/* Inline comparison function specialized for libmudflap's key type.  */
-static inline int
-compare_uintptr_t (mfsplay_tree_key k1, mfsplay_tree_key k2)
-{
-  if ((uintptr_t) k1 < (uintptr_t) k2)
-    return -1;
-  else if ((uintptr_t) k1 > (uintptr_t) k2)
-    return 1;
-  else
-    return 0;
-}
 
 
 /* Help splay SP around KEY.  PARENT and GRANDPARENT are the parent
@@ -2284,7 +2317,7 @@ mfsplay_tree_splay_helper (mfsplay_tree sp,
   if (!n)
     return *parent;
 
-  comparison = compare_uintptr_t (key, n->key);
+  comparison = ((key > n->key) ? 1 : ((key < n->key) ? -1 : 0));
 
   if (comparison == 0)
     /* We've found the target.  */
@@ -2454,7 +2487,7 @@ mfsplay_tree_splay (mfsplay_tree sp, mfsplay_tree_key key)
 
   /* If we just splayed the tree with the same key, do nothing.  */
   if (sp->last_splayed_key_p &&
-      compare_uintptr_t (sp->last_splayed_key, key) == 0)
+      (sp->last_splayed_key == key))
     return;
 
   /* Compute a maximum recursion depth for a splay tree with NUM nodes.
@@ -2514,7 +2547,8 @@ mfsplay_tree_insert (mfsplay_tree sp, mfsplay_tree_key key, mfsplay_tree_value v
   mfsplay_tree_splay (sp, key);
 
   if (sp->root)
-    comparison = compare_uintptr_t (sp->root->key, key);
+    comparison = ((sp->root->key > key) ? 1 :
+                  ((sp->root->key < key) ? -1 : 0));
 
   if (sp->root && comparison == 0)
     {
@@ -2560,7 +2594,7 @@ mfsplay_tree_remove (mfsplay_tree sp, mfsplay_tree_key key)
 {
   mfsplay_tree_splay (sp, key);
   sp->last_splayed_key_p = 0;
-  if (sp->root && compare_uintptr_t (sp->root->key, key) == 0)
+  if (sp->root && (sp->root->key == key))
     {
       mfsplay_tree_node left, right;
       left = sp->root->left;
@@ -2594,7 +2628,7 @@ static mfsplay_tree_node
 mfsplay_tree_lookup (mfsplay_tree sp, mfsplay_tree_key key)
 {
   mfsplay_tree_splay (sp, key);
-  if (sp->root && compare_uintptr_t (sp->root->key, key) == 0)
+  if (sp->root && (sp->root->key == key))
     return sp->root;
   else
     return 0;
@@ -2615,7 +2649,9 @@ mfsplay_tree_predecessor (mfsplay_tree sp, mfsplay_tree_key key)
   /* Splay the tree around KEY.  That will leave either the KEY
      itself, its predecessor, or its successor at the root.  */
   mfsplay_tree_splay (sp, key);
-  comparison = compare_uintptr_t (sp->root->key, key);
+  comparison = ((sp->root->key > key) ? 1 :
+                ((sp->root->key < key) ? -1 : 0));
+
   /* If the predecessor is at the root, just return it.  */
   if (comparison < 0)
     return sp->root;
@@ -2641,7 +2677,8 @@ mfsplay_tree_successor (mfsplay_tree sp, mfsplay_tree_key key)
   /* Splay the tree around KEY.  That will leave either the KEY
      itself, its predecessor, or its successor at the root.  */
   mfsplay_tree_splay (sp, key);
-  comparison = compare_uintptr_t (sp->root->key, key);
+  comparison = ((sp->root->key > key) ? 1 :
+                ((sp->root->key < key) ? -1 : 0));
   /* If the successor is at the root, just return it.  */
   if (comparison > 0)
     return sp->root;

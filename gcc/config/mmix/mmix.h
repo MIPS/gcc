@@ -720,8 +720,6 @@ enum reg_class
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)	\
  mmix_function_arg (&(CUM), MODE, TYPE, NAMED, 1)
 
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
-
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
@@ -890,11 +888,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define OUTPUT_QUOTED_STRING(STREAM, STRING) \
  mmix_output_quoted_string (STREAM, STRING, strlen (STRING))
 
-#define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE, COUNTER) \
- mmix_asm_output_source_line  (STREAM, LINE)
-
 #define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
-
 
 /* Node: Data Output */
 

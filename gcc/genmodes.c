@@ -1,5 +1,5 @@
 /* Generate the machine mode enumeration and associated tables.
-   Copyright (C) 2003
+   Copyright (C) 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -364,7 +364,7 @@ complete_mode (struct mode_data *m)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* If not already specified, the mode alignment defaults to the largest

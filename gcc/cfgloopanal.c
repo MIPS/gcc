@@ -209,8 +209,7 @@ check_irred (struct graph *g, struct edge *e)
 
   /* All edges should lead from a component with higher number to the
      one with lower one.  */
-  if (g->vertices[e->src].component < g->vertices[e->dest].component)
-    abort ();
+  gcc_assert (g->vertices[e->src].component >= g->vertices[e->dest].component);
 
   if (g->vertices[e->src].component != g->vertices[e->dest].component)
     return;
@@ -269,6 +268,7 @@ mark_irreducible_loops (struct loops *loops)
 {
   basic_block act;
   edge e;
+  edge_iterator ei;
   int i, src, dest;
   struct graph *g;
   int *queue1 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
@@ -280,7 +280,7 @@ mark_irreducible_loops (struct loops *loops)
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       act->flags &= ~BB_IRREDUCIBLE_LOOP;
-      for (e = act->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, act->succs)
 	e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
     }
 
@@ -288,7 +288,7 @@ mark_irreducible_loops (struct loops *loops)
   g = new_graph (last_basic_block + loops->num);
 
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    for (e = act->succ; e; e = e->succ_next)
+    FOR_EACH_EDGE (e, ei, act->succs)
       {
         /* Ignore edges to exit.  */
         if (e->dest == EXIT_BLOCK_PTR)
@@ -417,6 +417,7 @@ unsigned
 expected_loop_iterations (const struct loop *loop)
 {
   edge e;
+  edge_iterator ei;
 
   if (loop->latch->count || loop->header->count)
     {
@@ -425,7 +426,7 @@ expected_loop_iterations (const struct loop *loop)
       count_in = 0;
       count_latch = 0;
 
-      for (e = loop->header->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
 	if (e->src == loop->latch)
 	  count_latch = e->count;
 	else
@@ -446,7 +447,7 @@ expected_loop_iterations (const struct loop *loop)
       freq_in = 0;
       freq_latch = 0;
 
-      for (e = loop->header->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
 	if (e->src == loop->latch)
 	  freq_latch = EDGE_FREQUENCY (e);
 	else
@@ -498,12 +499,12 @@ seq_cost (rtx seq)
 
 /* The properties of the target.  */
 
-static unsigned avail_regs;	/* Number of available registers.  */
-static unsigned res_regs;	/* Number of reserved registers.  */
-static unsigned small_cost;	/* The cost for register when there is a free one.  */
-static unsigned pres_cost;	/* The cost for register when there are not too many
+unsigned target_avail_regs;	/* Number of available registers.  */
+unsigned target_res_regs;	/* Number of reserved registers.  */
+unsigned target_small_cost;	/* The cost for register when there is a free one.  */
+unsigned target_pres_cost;	/* The cost for register when there are not too many
 				   free ones.  */
-static unsigned spill_cost;	/* The cost for register when we need to spill.  */
+unsigned target_spill_cost;	/* The cost for register when we need to spill.  */
 
 /* Initialize the constants for computing set costs.  */
 
@@ -520,9 +521,9 @@ init_set_costs (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
 	&& !fixed_regs[i])
-      avail_regs++;
+      target_avail_regs++;
 
-  res_regs = 3;
+  target_res_regs = 3;
 
   /* These are really just heuristic values.  */
   
@@ -530,15 +531,15 @@ init_set_costs (void)
   emit_move_insn (reg1, reg2);
   seq = get_insns ();
   end_sequence ();
-  small_cost = seq_cost (seq);
-  pres_cost = 2 * small_cost;
+  target_small_cost = seq_cost (seq);
+  target_pres_cost = 2 * target_small_cost;
 
   start_sequence ();
   emit_move_insn (mem, reg1);
   emit_move_insn (reg2, mem);
   seq = get_insns ();
   end_sequence ();
-  spill_cost = seq_cost (seq);
+  target_spill_cost = seq_cost (seq);
 }
 
 /* Calculates cost for having SIZE new loop global variables.  REGS_USED is the
@@ -551,14 +552,14 @@ global_cost_for_size (unsigned size, unsigned regs_used, unsigned n_uses)
   unsigned regs_needed = regs_used + size;
   unsigned cost = 0;
 
-  if (regs_needed + res_regs <= avail_regs)
-    cost += small_cost * size;
-  else if (regs_needed <= avail_regs)
-    cost += pres_cost * size;
+  if (regs_needed + target_res_regs <= target_avail_regs)
+    cost += target_small_cost * size;
+  else if (regs_needed <= target_avail_regs)
+    cost += target_pres_cost * size;
   else
     {
-      cost += pres_cost * size;
-      cost += spill_cost * n_uses * (regs_needed - avail_regs) / regs_needed;
+      cost += target_pres_cost * size;
+      cost += target_spill_cost * n_uses * (regs_needed - target_avail_regs) / regs_needed;
     }
 
   return cost;

@@ -163,7 +163,6 @@ struct function GTY(())
 {
   struct eh_status *eh;
   struct eh_status *saved_eh;
-  struct stmt_status *stmt;
   struct expr_status *expr;
   struct emit_status *emit;
   struct varasm_status *varasm;
@@ -280,15 +279,6 @@ struct function GTY(())
 
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
-
-  /* Current nesting level for variables in a block.  */
-  int x_var_temp_slot_level;
-
-  /* When temporaries are created by TARGET_EXPRs, they are created at
-     this level of temp_slot_level, so that they can remain allocated
-     until no longer needed.  CLEANUP_POINT_EXPRs define the lifetime
-     of TARGET_EXPRs.  */
-  int x_target_temp_slot_level;
 
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
@@ -497,8 +487,6 @@ extern int trampolines_created;
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
-#define target_temp_slot_level (cfun->x_target_temp_slot_level)
-#define var_temp_slot_level (cfun->x_var_temp_slot_level)
 #define nonlocal_labels (cfun->x_nonlocal_labels)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 
@@ -533,7 +521,6 @@ extern HOST_WIDE_INT get_func_frame_size (struct function *);
 extern struct machine_function * (*init_machine_status) (void);
 
 /* Save and restore status information for a nested function.  */
-extern void restore_emit_status (struct function *);
 extern void free_after_parsing (struct function *);
 extern void free_after_compilation (struct function *);
 
@@ -560,5 +547,7 @@ extern void do_warn_unused_parameter (tree);
 
 extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 			       tree, bool);
+extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
+				     tree, bool);
 
 #endif  /* GCC_FUNCTION_H */

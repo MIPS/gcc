@@ -26,8 +26,15 @@ Boston, MA 02111-1307, USA.  */
 /* Global variables used to communicate with passes.  */
 extern FILE *dump_file;
 extern int dump_flags;
+extern const char *dump_file_name;
 
 extern struct bitmap_head_def *vars_to_rename;
+
+/* Return the dump_file_info for the given phase.  */
+extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
+
+struct cgraph_node;
+struct cgraph_varpool_node;
 
 /* Describe one pass.  */
 struct tree_opt_pass
@@ -39,9 +46,27 @@ struct tree_opt_pass
      the function returns true.  */
   bool (*gate) (void);
 
+  /* For intraprocedural passes, these hooks are used to analyze each function
+     and variable within the compilation unit, before EXECUTE hooks is called.
+     Note that some nodes may be removed or clonned before execution takes
+     place.  */
+  void (*analyze_function) (struct cgraph_node *);
+  void (*analyze_variable) (struct cgraph_varpool_node *);
+
   /* This is the code to run.  If null, then there should be sub-passes
-     otherwise this pass does nothing.  */
+     otherwise this pass does nothing. 
+     
+     For interprocuedrual passes it is supposed to optimize
+     current_function_decl, for intraprocedural passes it is supposed to walk
+     the callgraph and do the analysis from previously garthered static data
+     without actually touching the function bodies or variable initializers.
+     */
   void (*execute) (void);
+
+  /* For intraprocedural passes, these hooks are used to apply the changes
+     to each function and variable before it is compiled.  */
+  void (*modify_function) (struct cgraph_node *);
+  void (*modify_variable) (struct cgraph_varpool_node *);
 
   /* A list of sub-passes to run, dependent on gate predicate.  */
   struct tree_opt_pass *sub;
@@ -64,6 +89,20 @@ struct tree_opt_pass
   /* Flags indicating common sets things to do before and after.  */
   unsigned int todo_flags_start;
   unsigned int todo_flags_finish;
+
+  /* Letter for RTL dumps.  */
+  char letter;
+};
+
+/* Define a tree dump switch.  */
+struct dump_file_info
+{
+  const char *suffix;           /* suffix to give output file.  */
+  const char *swtch;            /* command line switch */
+  int flags;                    /* user flags */
+  int state;                    /* state of play */
+  int num;                      /* dump file number */
+  int letter;                   /* enabling letter for RTL dumps */
 };
 
 /* Pass properties.  */
@@ -88,10 +127,16 @@ struct tree_opt_pass
 #define TODO_verify_ssa		(1 << 3)
 #define TODO_verify_flow	(1 << 4)
 #define TODO_verify_stmts	(1 << 5)
+#define TODO_dump_cgraph	(1 << 6)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
 
+extern void ipa_analyze_function (struct cgraph_node *node);
+extern void ipa_analyze_variable (struct cgraph_varpool_node *vnode);
+extern void ipa_modify_function (struct cgraph_node *node);
+extern void ipa_modify_variable (struct cgraph_varpool_node *vnode);
+extern void ipa_passes (void);
 
 extern struct tree_opt_pass pass_mudflap_1;
 extern struct tree_opt_pass pass_mudflap_2;
@@ -99,15 +144,20 @@ extern struct tree_opt_pass pass_remove_useless_stmts;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
 extern struct tree_opt_pass pass_tree_profile;
-extern struct tree_opt_pass pass_referenced_vars;
-extern struct tree_opt_pass pass_build_pta;
-extern struct tree_opt_pass pass_del_pta;
 extern struct tree_opt_pass pass_sra;
+extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
 extern struct tree_opt_pass pass_loop_init;
 extern struct tree_opt_pass pass_lim;
+extern struct tree_opt_pass pass_unswitch;
+extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_record_bounds;
+extern struct tree_opt_pass pass_if_conversion;
+extern struct tree_opt_pass pass_vectorize;
+extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
@@ -136,6 +186,9 @@ extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
+extern struct tree_opt_pass pass_linear_transform;
 
+extern struct tree_opt_pass pass_ipa_inline;
+extern struct tree_opt_pass pass_ipa_static;
 
 #endif /* GCC_TREE_PASS_H */

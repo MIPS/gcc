@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
                                                                                 
 This file is part of GCC.
                                                                                 
@@ -60,7 +60,10 @@ Boston, MA 02111-1307, USA.  */
    
 /* Array of all SSA_NAMEs used in the function.  */
 varray_type ssa_names;
-                                                                                
+
+/* Bitmap of ssa names marked for rewriting.  */
+bitmap ssa_names_to_rewrite;
+
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
 static GTY (()) tree free_ssanames;
@@ -73,6 +76,64 @@ static GTY (()) tree free_ssanames;
 unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
+
+/* Returns true if ssa name VAR is marked for rewrite.  */
+
+bool
+marked_for_rewrite_p (tree var)
+{
+  if (ssa_names_to_rewrite
+      && bitmap_bit_p (ssa_names_to_rewrite, SSA_NAME_VERSION (var)))
+    return true;
+
+  return false;
+}
+
+/* Returns true if any ssa name is marked for rewrite.  */
+
+bool
+any_marked_for_rewrite_p (void)
+{
+  if (!ssa_names_to_rewrite)
+    return false;
+
+  return bitmap_first_set_bit (ssa_names_to_rewrite) != -1;
+}
+
+/* Mark ssa name VAR for rewriting.  */
+
+void
+mark_for_rewrite (tree var)
+{
+  if (!ssa_names_to_rewrite)
+    ssa_names_to_rewrite = BITMAP_XMALLOC ();
+
+  bitmap_set_bit (ssa_names_to_rewrite, SSA_NAME_VERSION (var));
+}
+
+/* Unmark all ssa names marked for rewrite.  */
+
+void
+unmark_all_for_rewrite (void)
+{
+  if (!ssa_names_to_rewrite)
+    return;
+
+  bitmap_clear (ssa_names_to_rewrite);
+}
+
+/* Return the bitmap of ssa names to rewrite.  Copy the bitmap,
+   so that the optimizers cannot access internals directly  */
+
+bitmap
+marked_ssa_names (void)
+{
+  bitmap ret = BITMAP_XMALLOC ();
+  if (ssa_names_to_rewrite)
+    bitmap_copy (ret, ssa_names_to_rewrite);
+
+  return ret;
+}
 
 /* Initialize management of SSA_NAMEs.  */
 
@@ -94,6 +155,8 @@ init_ssanames (void)
 void
 fini_ssanames (void)
 {
+  ggc_free (ssa_names);
+  ssa_names = NULL;
   free_ssanames = NULL;
 }
 
@@ -118,33 +181,24 @@ make_ssa_name (tree var, tree stmt)
 {
   tree t;
 
-#if defined ENABLE_CHECKING
-  if ((!DECL_P (var)
-       && TREE_CODE (var) != INDIRECT_REF)
-      || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != PHI_NODE))
-    abort ();
-#endif
+  gcc_assert (DECL_P (var)
+	      || TREE_CODE (var) == INDIRECT_REF);
 
-  /* If our free list has an element, then use it.  Also reuse the
-     SSA version number of the element on the free list which helps
-     keep sbitmaps and arrays sized HIGHEST_SSA_VERSION smaller.  */
+  gcc_assert (!stmt || EXPR_P (stmt) || TREE_CODE (stmt) == PHI_NODE);
+
+  /* If our free list has an element, then use it.  */
   if (free_ssanames)
     {
-      unsigned int save_version;
-
       t = free_ssanames;
       free_ssanames = TREE_CHAIN (free_ssanames);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
 
-      /* Clear the node so that it looks just like one we would have
-	 received from make_node.  */
-      save_version = SSA_NAME_VERSION (t);
-      memset (t, 0, tree_size (t));
-      TREE_SET_CODE (t, SSA_NAME);
-      SSA_NAME_VERSION (t) = save_version;
+      /* The node was cleared out when we put it on the free list, so
+	 there is no need to do so again here.  */
+      gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
+      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (t)) = t;
     }
   else
     {
@@ -177,9 +231,18 @@ make_ssa_name (tree var, tree stmt)
 void
 release_ssa_name (tree var)
 {
+  if (!var)
+    return;
+
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
   if (var == var_ann (SSA_NAME_VAR (var))->default_def)
+    return;
+
+  /* If the ssa name is marked for rewriting, it may have multiple definitions,
+     but we may happen to remove just one of them.  So do not remove the
+     ssa name now.  */
+  if (marked_for_rewrite_p (var))
     return;
 
   /* release_ssa_name can be called multiple times on a single SSA_NAME.
@@ -191,7 +254,27 @@ release_ssa_name (tree var)
      defining statement.  */
   if (! SSA_NAME_IN_FREE_LIST (var))
     {
+      tree saved_ssa_name_var = SSA_NAME_VAR (var);
+      int saved_ssa_name_version = SSA_NAME_VERSION (var);
+
+      VARRAY_TREE (ssa_names, SSA_NAME_VERSION (var)) = NULL;
+      memset (var, 0, tree_size (var));
+
+      /* First put back the right tree node so that the tree checking
+	 macros do not complain.  */
+      TREE_SET_CODE (var, SSA_NAME);
+
+      /* Restore the version number.  */
+      SSA_NAME_VERSION (var) = saved_ssa_name_version;
+
+      /* Hopefully this can go away once we have the new incremental
+         SSA updating code installed.  */
+      SSA_NAME_VAR (var) = saved_ssa_name_var;
+
+      /* Note this SSA_NAME is now in the first list.  */
       SSA_NAME_IN_FREE_LIST (var) = 1;
+
+      /* And finally link it into the free list.  */
       TREE_CHAIN (var) = free_ssanames;
       free_ssanames = var;
     }
@@ -228,25 +311,12 @@ duplicate_ssa_name (tree name, tree stmt)
 void
 release_defs (tree stmt)
 {
-  size_t i;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  def_optype defs;
-  stmt_ann_t ann;
+  tree def;
+  ssa_op_iter iter;
 
-  ann = stmt_ann (stmt);
-  defs = DEF_OPS (ann);
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  v_must_defs = V_MUST_DEF_OPS (ann);
-
-  for (i = 0; i < NUM_DEFS (defs); i++)
-    release_ssa_name (DEF_OP (defs, i));
-
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    release_ssa_name (V_MAY_DEF_RESULT (v_may_defs, i));
-
-  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-    release_ssa_name (V_MUST_DEF_OP (v_must_defs, i));
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+    if (TREE_CODE (def) == SSA_NAME)
+      release_ssa_name (def);
 }
 
 

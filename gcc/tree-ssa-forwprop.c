@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 
    Right now we only bother forward propagating into COND_EXPRs since those
    are relatively common cases where forward propagation creates valid
-   gimple code without the expression needing to fold.  ie
+   gimple code without the expression needing to fold.  i.e.
 
      bb0:
        x = a COND b;
@@ -173,7 +173,7 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 	  if (cond_code == SSA_NAME
 	      || ((cond_code == EQ_EXPR || cond_code == NE_EXPR)
 		  && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-		  && TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (cond, 1))) == 'c'
+		  && CONSTANT_CLASS_P (TREE_OPERAND (cond, 1))
 		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1)))))
 	    {
 	      tree def;
@@ -210,9 +210,14 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 		      /* The first operand must be an SSA_NAME and the second
 			 operand must be a constant.  */
 		      if (TREE_CODE (op0) != SSA_NAME
-			  || TREE_CODE_CLASS (TREE_CODE (op1)) != 'c'
+			  || !CONSTANT_CLASS_P (op1)
 			  || !INTEGRAL_TYPE_P (TREE_TYPE (op1)))
 			continue;
+		      
+		      /* Don't propagate if the first operand occurs in
+		         an abnormal PHI.  */
+		      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0))
+		        continue;
 		    }
 
 		  /* These cases require comparisons of a naked SSA_NAME or
@@ -224,7 +229,7 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 		      /* If TEST_VAR is set from a relational operation
 			 between two SSA_NAMEs or a combination of an SSA_NAME
 			 and a constant, then it is interesting.  */
-		      if (TREE_CODE_CLASS (TREE_CODE (def_rhs)) == '<')
+		      if (COMPARISON_CLASS_P (def_rhs))
 			{
 			  tree op0 = TREE_OPERAND (def_rhs, 0);
 			  tree op1 = TREE_OPERAND (def_rhs, 1);
@@ -235,6 +240,18 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 			       && !is_gimple_min_invariant (op0))
 			      || (TREE_CODE (op1) != SSA_NAME
 				  && !is_gimple_min_invariant (op1)))
+			    continue;
+		      
+			  /* Don't propagate if the first operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (op0) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0))
+			    continue;
+		      
+			  /* Don't propagate if the second operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (op1) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op1))
 			    continue;
 		        }
 
@@ -247,6 +264,12 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 			  /* DEF_RHS must be an SSA_NAME or constant.  */
 			  if (TREE_CODE (def_rhs) != SSA_NAME
 			      && !is_gimple_min_invariant (def_rhs))
+			    continue;
+		      
+			  /* Don't propagate if the operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (def_rhs) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_rhs))
 			    continue;
 			}
 
@@ -268,6 +291,13 @@ record_single_argument_cond_exprs (varray_type cond_worklist,
 				  && INTEGRAL_TYPE_P (outer_type)))
 			    ;
 			  else
+			    continue;
+		      
+			  /* Don't propagate if the operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND
+					                          (def_rhs, 0)))
 			    continue;
 			}
 		      else
@@ -365,7 +395,7 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	      new_cond = build (cond_code, boolean_type_node, op0, t);
 	    }
 	  /* If the variable is defined by a conditional expression... */
-	  else if (TREE_CODE_CLASS (def_rhs_code) == '<')
+	  else if (TREE_CODE_CLASS (def_rhs_code) == tcc_comparison)
 	    {
 	      /* TEST_VAR was set from a relational operator.  */
 	      tree op0 = TREE_OPERAND (def_rhs, 0);
@@ -383,7 +413,7 @@ substitute_single_use_vars (varray_type *cond_worklist,
 
 		  /* If we did not get a simple relational expression or
 		     bare SSA_NAME, then we can not optimize this case.  */
-		  if (TREE_CODE_CLASS (TREE_CODE (new_cond)) != '<'
+		  if (!COMPARISON_CLASS_P (new_cond)
 		      && TREE_CODE (new_cond) != SSA_NAME)
 		    continue;
 		}
@@ -513,7 +543,9 @@ gate_forwprop (void)
 struct tree_opt_pass pass_forwprop = {
   "forwprop",			/* name */
   gate_forwprop,		/* gate */
+  NULL, NULL,				/* IPA analysis */
   tree_ssa_forward_propagate_single_use_vars,	/* execute */
+  NULL, NULL,				/* IPA modification */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
@@ -524,5 +556,6 @@ struct tree_opt_pass pass_forwprop = {
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
-  | TODO_verify_ssa
+  | TODO_verify_ssa,
+  0					/* letter */
 };

@@ -35,7 +35,7 @@ struct lang_hooks_for_tree_inlining
 {
   tree (*walk_subtrees) (tree *, int *,
 			 tree (*) (tree *, int *, void *),
-			 void *, void *);
+			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
   int (*auto_var_in_fn_p) (tree, tree);
@@ -182,6 +182,15 @@ struct lang_hooks_for_decls
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
+
+  /* Return the COMDAT group into which this DECL should be placed.
+     It is known that the DECL belongs in *some* COMDAT group when
+     this hook is called.  The return value will be used immediately,
+     but not explicitly deallocated, so implementations should not use
+     xmalloc to allocate the string returned.  (Typically, the return
+     value will be the string already stored in an
+     IDENTIFIER_NODE.)  */
+  const char * (*comdat_group) (tree);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -195,9 +204,10 @@ struct lang_hooks
      identifier nodes long enough for the language-specific slots.  */
   size_t identifier_size;
 
-  /* Determines the size of any language-specific 'x' or 'c' nodes.
-     Since it is called from make_node, the only information available
-     is the tree code.  Expected to abort on unrecognized codes.  */
+  /* Determines the size of any language-specific tcc_constant or
+     tcc_exceptional nodes.  Since it is called from make_node, the
+     only information available is the tree code.  Expected to abort
+     on unrecognized codes.  */
   size_t (*tree_size) (enum tree_code);
 
   /* The first callback made to the front end, for simple
@@ -298,16 +308,11 @@ struct lang_hooks
   bool (*mark_addressable) (tree);
 
   /* Hook called by staticp for language-specific tree codes.  */
-  bool (*staticp) (tree);
+  tree (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
-
-  /* Reset argument so that it can be expanded again.
-     Modify it in-place so that all the evaluate only once
-     things are cleared out.  */
-  tree (*unsave_expr_now) (tree);
 
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
@@ -324,9 +329,6 @@ struct lang_hooks
      have their results reduced to the precision of the type.  */
   bool reduce_bit_field_operations;
 
-  /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
-  bool honor_readonly;
-
   /* Nonzero if this front end does not generate a dummy BLOCK between
      the outermost scope of the function and the FUNCTION_DECL.  See
      is_body_block in stmt.c, and its callers.  */
@@ -336,12 +338,12 @@ struct lang_hooks
      this hook.  It should output to stderr.  */
   void (*print_statistics) (void);
 
-  /* Called by print_tree when there is a tree of class 'x' that it
-     doesn't know how to display.  */
+  /* Called by print_tree when there is a tree of class tcc_exceptional
+     that it doesn't know how to display.  */
   lang_print_tree_hook print_xnode;
 
-  /* Called to print language-dependent parts of a class 'd', class
-     't', and IDENTIFIER_NODE nodes.  */
+  /* Called to print language-dependent parts of tcc_decl, tcc_type,
+     and IDENTIFIER_NODE nodes.  */
   lang_print_tree_hook print_decl;
   lang_print_tree_hook print_type;
   lang_print_tree_hook print_identifier;
@@ -406,7 +408,7 @@ struct lang_hooks
      the name to be called if we can't opencode the function.  If
      ATTRS is nonzero, use that for the function's attribute list.  */
   tree (*builtin_function) (const char *name, tree type, int function_code,
-			    enum built_in_class class,
+			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 
   /* Fold an OBJ_TYPE_REF expression to the address of a function.

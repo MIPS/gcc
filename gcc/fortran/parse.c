@@ -36,7 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 gfc_st_label *gfc_statement_label;
 
 static locus label_locus;
-static jmp_buf eof;
+static jmp_buf eof_buf;
 
 gfc_state_data *gfc_state_stack;
 
@@ -1033,7 +1033,6 @@ accept_statement (gfc_statement st)
          construct.  */
 
     case ST_ENDIF:
-    case ST_ENDDO:
     case ST_END_SELECT:
       if (gfc_statement_label != NULL)
 	{
@@ -1058,24 +1057,7 @@ accept_statement (gfc_statement st)
 
       break;
 
-    case ST_BLOCK_DATA:
-      {
-        gfc_symbol *block_data = NULL;
-        symbol_attribute attr;
-
-        gfc_get_symbol ("_BLOCK_DATA__", gfc_current_ns, &block_data);
-        gfc_clear_attr (&attr);
-        attr.flavor = FL_PROCEDURE;
-        attr.proc = PROC_UNKNOWN;
-        attr.subroutine = 1;
-        attr.access = ACCESS_PUBLIC;
-        block_data->attr = attr;
-        gfc_current_ns->proc_name = block_data;
-        gfc_commit_symbols ();
-      }
-
-      break;
-
+    case ST_ENTRY:
     case_executable:
     case_exec_markers:
       add_statement ();
@@ -1269,7 +1251,7 @@ unexpected_eof (void)
   gfc_current_ns->code = (p && p->previous) ? p->head : NULL;
   gfc_done_2 ();
 
-  longjmp (eof, 1);
+  longjmp (eof_buf, 1);
 }
 
 
@@ -2020,7 +2002,13 @@ loop:
 	  && s.ext.end_do_label != gfc_statement_label)
 	gfc_error_now
 	  ("Statement label in ENDDO at %C doesn't match DO label");
-      /* Fall through */
+
+      if (gfc_statement_label != NULL)
+	{
+	  new_st.op = EXEC_NOP;
+	  add_statement ();
+	}
+      break;
 
     case ST_IMPLIED_ENDDO:
       break;
@@ -2140,6 +2128,7 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
   gfc_symtree *st;
   gfc_symbol *old_sym;
 
+  sym->attr.referenced = 1;
   for (ns = siblings; ns; ns = ns->sibling)
     {
       gfc_find_sym_tree (sym->name, ns, 0, &st);
@@ -2174,6 +2163,7 @@ parse_contained (int module)
   gfc_state_data s1, s2;
   gfc_statement st;
   gfc_symbol *sym;
+  gfc_entry_list *el;
 
   push_state (&s1, COMP_CONTAINS, NULL);
   parent_ns = gfc_current_ns;
@@ -2201,7 +2191,7 @@ parse_contained (int module)
 		      gfc_new_block);
 
 	  /* For internal procedures, create/update the symbol in the
-	   * parent namespace */
+	     parent namespace.  */
 
 	  if (!module)
 	    {
@@ -2234,10 +2224,13 @@ parse_contained (int module)
           sym->attr.contained = 1;
 	  sym->attr.referenced = 1;
 
+	  parse_progunit (ST_NONE);
+
           /* Fix up any sibling functions that refer to this one.  */
           gfc_fixup_sibling_symbols (sym, gfc_current_ns);
-
-	  parse_progunit (ST_NONE);
+	  /* Or refer to any of its alternate entry points.  */
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    gfc_fixup_sibling_symbols (el->sym, gfc_current_ns);
 
 	  gfc_current_ns->code = s2.head;
 	  gfc_current_ns = parent_ns;
@@ -2404,6 +2397,9 @@ parse_block_data (void)
   static int blank_block=0;
   gfc_gsymbol *s;
 
+  gfc_current_ns->proc_name = gfc_new_block;
+  gfc_current_ns->is_block_data = 1;
+
   if (gfc_new_block == NULL)
     {
       if (blank_block)
@@ -2545,7 +2541,7 @@ gfc_parse_file (void)
 
   gfc_statement_label = NULL;
 
-  if (setjmp (eof))
+  if (setjmp (eof_buf))
     return FAILURE;	/* Come here on unexpected EOF */
 
   seen_program = 0;

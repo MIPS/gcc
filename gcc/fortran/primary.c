@@ -1,23 +1,23 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -204,11 +204,11 @@ match_integer_constant (gfc_expr ** result, int signflag)
 
   kind = get_kind ();
   if (kind == -2)
-    kind = gfc_default_integer_kind ();
+    kind = gfc_default_integer_kind;
   if (kind == -1)
     return MATCH_ERROR;
 
-  if (gfc_validate_kind (BT_INTEGER, kind) == -1)
+  if (gfc_validate_kind (BT_INTEGER, kind, true) < 0)
     {
       gfc_error ("Integer kind %d at %C not available", kind);
       return MATCH_ERROR;
@@ -235,7 +235,7 @@ match_integer_constant (gfc_expr ** result, int signflag)
 static match
 match_boz_constant (gfc_expr ** result)
 {
-  int radix, delim, length, x_hex;
+  int radix, delim, length, x_hex, kind;
   locus old_loc;
   char *buffer;
   gfc_expr *e;
@@ -272,6 +272,12 @@ match_boz_constant (gfc_expr ** result)
   if (delim != '\'' && delim != '\"')
     goto backup;
 
+  if (x_hex && pedantic
+      && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
+			  "constant at %C uses non-standard syntax.")
+	  == FAILURE))
+      return MATCH_ERROR;
+
   old_loc = gfc_current_locus;
 
   length = match_digits (0, radix, NULL);
@@ -293,25 +299,25 @@ match_boz_constant (gfc_expr ** result)
   memset (buffer, '\0', length + 1);
 
   match_digits (0, radix, buffer);
-  gfc_next_char ();
+  gfc_next_char ();  /* Eat delimiter.  */
 
-  e = gfc_convert_integer (buffer, gfc_default_integer_kind (), radix,
-			   &gfc_current_locus);
+  kind = get_kind ();
+  if (kind == -1)
+    return MATCH_ERROR;
+  if (kind == -2)
+    kind = gfc_default_integer_kind;
+  else if (pedantic 
+	   && (gfc_notify_std (GFC_STD_GNU, "Extension: Kind parameter "
+			       "suffix to boz literal constant at %C.")
+	       == FAILURE))
+    return MATCH_ERROR;
+
+  e = gfc_convert_integer (buffer, kind, radix, &gfc_current_locus);
 
   if (gfc_range_check (e) != ARITH_OK)
     {
-      gfc_error ("Integer too big for default integer kind at %C");
+      gfc_error ("Integer too big for integer kind %i at %C", kind);
 
-      gfc_free_expr (e);
-      return MATCH_ERROR;
-    }
-
-  if (x_hex
-      && pedantic
-      && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
-			  "constant at %C uses non-standard syntax.")
-	  == FAILURE))
-    {
       gfc_free_expr (e);
       return MATCH_ERROR;
     }
@@ -436,7 +442,7 @@ done:
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
@@ -460,7 +466,7 @@ done:
 	    ("Real number at %C has a 'd' exponent and an explicit kind");
 	  goto cleanup;
 	}
-      kind = gfc_default_double_kind ();
+      kind = gfc_default_double_kind;
       break;
 
     case 'q':
@@ -475,9 +481,9 @@ done:
 
     default:
       if (kind == -2)
-	kind = gfc_default_real_kind ();
+	kind = gfc_default_real_kind;
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  goto cleanup;
@@ -497,7 +503,7 @@ done:
     case ARITH_UNDERFLOW:
       if (gfc_option.warn_underflow)
         gfc_warning ("Real constant underflows its kind at %C");
-      mpf_set_ui(e->value.real, 0);
+      mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
       break;
 
     default:
@@ -758,7 +764,7 @@ match_string_constant (gfc_expr ** result)
   c = gfc_next_char ();
   if (c == '\'' || c == '"')
     {
-      kind = gfc_default_character_kind ();
+      kind = gfc_default_character_kind;
       goto got_delim;
     }
 
@@ -818,7 +824,7 @@ match_string_constant (gfc_expr ** result)
 	}
     }
 
-  if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Invalid kind %d for CHARACTER constant at %C", kind);
       return MATCH_ERROR;
@@ -905,9 +911,9 @@ match_logical_constant (gfc_expr ** result)
   if (kind == -1)
     return MATCH_ERROR;
   if (kind == -2)
-    kind = gfc_default_logical_kind ();
+    kind = gfc_default_logical_kind;
 
-  if (gfc_validate_kind (BT_LOGICAL, kind) == -1)
+  if (gfc_validate_kind (BT_LOGICAL, kind, true) < 0)
     gfc_error ("Bad kind for logical constant at %C");
 
   e = gfc_get_expr ();
@@ -972,7 +978,7 @@ match_sym_complex_part (gfc_expr ** result)
       break;
 
     case BT_INTEGER:
-      e = gfc_int2real (sym->value, gfc_default_real_kind ());
+      e = gfc_int2real (sym->value, gfc_default_real_kind);
       if (e == NULL)
 	goto error;
       break;
@@ -1076,12 +1082,12 @@ done:
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
       c = gfc_next_char ();
-      if (c == 'd')
+      if (c == 'd' || c == 'q')
 	c = 'e';
       *p++ = c;
       count--;
@@ -1098,7 +1104,7 @@ done:
   if (seen_dp == 0 && exp_char == ' ')
     {
       if (kind == -2)
-	kind = gfc_default_integer_kind ();
+	kind = gfc_default_integer_kind;
 
     }
   else
@@ -1111,16 +1117,16 @@ done:
 		("Real number at %C has a 'd' exponent and an explicit kind");
 	      return MATCH_ERROR;
 	    }
-	  kind = gfc_default_double_kind ();
+	  kind = gfc_default_double_kind;
 
 	}
       else
 	{
 	  if (kind == -2)
-	    kind = gfc_default_real_kind ();
+	    kind = gfc_default_real_kind;
 	}
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  return MATCH_ERROR;

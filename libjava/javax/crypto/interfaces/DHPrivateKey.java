@@ -57,8 +57,9 @@ import java.security.PrivateKey;
  */
 public interface DHPrivateKey extends DHKey, PrivateKey
 {
+
   /** Compatible with JDK1.4. */
-  long serialVersionUID = 2211791113380396553L;
+  static final long serialVersionUID = 2211791113380396553L;
 
   /**
    * Returns the private value <i>x</i>.

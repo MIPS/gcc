@@ -658,7 +658,6 @@ namespace std
       else
         {
 	  // Parse bool values as alphanumeric.
-	  typedef char_traits<_CharT>                     __traits_type;
 	  typedef typename numpunct<_CharT>::__cache_type __cache_type;
 	  __use_cache<__cache_type> __uc;
 	  const locale& __loc = __io._M_getloc();
@@ -955,10 +954,9 @@ namespace std
 	    __new[0] = __cs[0];
 	    __new[1] = __cs[1];
 	  }
-      _CharT* __p;
-      __p = std::__add_grouping(__new + __off, __sep, __grouping,
-				__grouping_size, __cs + __off,
-				__cs + __len);
+      _CharT* __p = std::__add_grouping(__new + __off, __sep, __grouping,
+					__grouping_size, __cs + __off,
+					__cs + __len);
       __len = __p - __new;
     }
 
@@ -1024,10 +1022,10 @@ namespace std
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 282. What types does numpunct grouping refer to?
       // Add grouping, if necessary.
-      _CharT* __p2;
       const int __declen = __p ? __p - __cs : __len;
-      __p2 = std::__add_grouping(__new, __sep, __grouping, __grouping_size,
-				 __cs, __cs + __declen);
+      _CharT* __p2 = std::__add_grouping(__new, __sep, __grouping,
+					 __grouping_size,
+					 __cs, __cs + __declen);
 
       // Tack on decimal part.
       int __newlen = __p2 - __new;
@@ -1162,8 +1160,8 @@ namespace std
       const ios_base::fmtflags __flags = __io.flags();
       if ((__flags & ios_base::boolalpha) == 0)
         {
-          unsigned long __uv = __v;
-          __s = _M_insert_int(__s, __io, __fill, __uv);
+          const long __l = __v;
+          __s = _M_insert_int(__s, __io, __fill, __l);
         }
       else
         {
@@ -1240,8 +1238,7 @@ namespace std
            const void* __v) const
     {
       const ios_base::fmtflags __flags = __io.flags();
-      const ios_base::fmtflags __fmt = ~(ios_base::showpos
-					 | ios_base::basefield
+      const ios_base::fmtflags __fmt = ~(ios_base::basefield
 					 | ios_base::uppercase
 					 | ios_base::internal);
       __io.flags(__flags & __fmt | (ios_base::hex | ios_base::showbase));
@@ -1689,22 +1686,22 @@ namespace std
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 328. Bad sprintf format modifier in money_put<>::do_put()
-      int __len = std::__convert_from_v(__cs, __cs_size, "%.0Lf", __units,
-					_S_get_c_locale());
+      int __len = std::__convert_from_v(__cs, __cs_size, "%.*Lf", __units,
+					_S_get_c_locale(), 0);
       // If the buffer was not large enough, try again with the correct size.
       if (__len >= __cs_size)
 	{
 	  __cs_size = __len + 1;
 	  __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-	  __len = std::__convert_from_v(__cs, __cs_size, "%.0Lf", __units,
-					_S_get_c_locale());
+	  __len = std::__convert_from_v(__cs, __cs_size, "%.*Lf", __units,
+					_S_get_c_locale(), 0);
 	}
 #else
       // max_exponent10 + 1 for the integer part, + 2 for sign and '\0'.
       const int __cs_size = numeric_limits<long double>::max_exponent10 + 3;
       char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
-      int __len = std::__convert_from_v(__cs, 0, "%.0Lf", __units,
-					_S_get_c_locale());
+      int __len = std::__convert_from_v(__cs, 0, "%.*Lf", __units,
+					_S_get_c_locale(), 0);
 #endif
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
 							   * __cs_size));
@@ -1852,8 +1849,13 @@ namespace std
 						__tm, __wcs);
 		  break;
 		case 'S':
-		  // Seconds.
-		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 59, 2,
+		  // Seconds. [tm_sec]
+		  // [00, 60] in C99 (one leap-second), [00, 61] in C89.
+#ifdef _GLIBCXX_USE_C99
+		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 60, 2,
+#else
+		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 61, 2,
+#endif
 					 __io, __err);
 		  break;
 		case 't':
@@ -2077,7 +2079,7 @@ namespace std
       const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
       const char_type*  __dates[2];
       __tp._M_date_formats(__dates);
-      __beg = _M_extract_via_format(__beg, __end, __io, __err,
+      __beg = _M_extract_via_format(__beg, __end, __io, __err, 
 				    __tm, __dates[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
@@ -2249,7 +2251,7 @@ namespace std
 
       // NB: This size is arbitrary. Should this be a data member,
       // initialized at construction?
-      const size_t __maxlen = 64;
+      const size_t __maxlen = 128;
       char_type* __res = 
        static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
 
@@ -2277,7 +2279,6 @@ namespace std
       // Write resulting, fully-formatted string to output iterator.
       return std::__write(__s, __res, char_traits<char_type>::length(__res));
     }
-
 
   // Generic version does nothing.
   template<typename _CharT>
@@ -2361,7 +2362,7 @@ namespace std
 	      __len = __res + 1;
 	      __c = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
 							  * __len));
-	      __res = _M_transform(__c, __p, __res + 1);
+	      __res = _M_transform(__c, __p, __len);
 	    }
 
 	  __ret.append(__c, __res);

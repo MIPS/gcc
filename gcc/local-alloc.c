@@ -484,7 +484,7 @@ validate_equiv_mem (rtx start, rtx reg, rtx memref)
       if (find_reg_note (insn, REG_DEAD, reg))
 	return 1;
 
-      if (CALL_P (insn) && ! RTX_UNCHANGING_P (memref)
+      if (CALL_P (insn) && ! MEM_READONLY_P (memref)
 	  && ! CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
@@ -518,7 +518,7 @@ equiv_init_varies_p (rtx x)
   switch (code)
     {
     case MEM:
-      return ! RTX_UNCHANGING_P (x) || equiv_init_varies_p (XEXP (x, 0));
+      return !MEM_READONLY_P (x) || equiv_init_varies_p (XEXP (x, 0));
 
     case CONST:
     case CONST_INT:
@@ -1010,6 +1010,11 @@ update_equiv_regs (void)
 	  if (! INSN_P (insn))
 	    continue;
 
+	  /* Don't substitute into a non-local goto, this confuses CFG.  */
+	  if (JUMP_P (insn)
+	      && find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
+	    continue;
+
 	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 	    {
 	      if (REG_NOTE_KIND (link) == REG_DEAD
@@ -1123,14 +1128,17 @@ update_equiv_regs (void)
 	    }
 	}
       else
-	EXECUTE_IF_SET_IN_REG_SET (&cleared_regs, 0, j,
-	  {
-	    FOR_EACH_BB (bb)
-	      {
-	        CLEAR_REGNO_REG_SET (bb->global_live_at_start, j);
-	        CLEAR_REGNO_REG_SET (bb->global_live_at_end, j);
-	      }
-	  });
+	{
+	  reg_set_iterator rsi;
+	  EXECUTE_IF_SET_IN_REG_SET (&cleared_regs, 0, j, rsi)
+	    {
+	      FOR_EACH_BB (bb)
+		{
+		  CLEAR_REGNO_REG_SET (bb->global_live_at_start, j);
+		  CLEAR_REGNO_REG_SET (bb->global_live_at_end, j);
+		}
+	    }
+	}
     }
 
   /* Clean up.  */

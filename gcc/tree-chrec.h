@@ -76,6 +76,7 @@ extern tree chrec_apply (unsigned, tree, tree);
 extern tree chrec_replace_initial_condition (tree, tree);
 extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
+extern tree initial_condition_in_loop_num (tree, unsigned);
 extern tree evolution_part_in_loop_num (tree, unsigned);
 extern tree hide_evolution_in_other_loops_than_loop (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
@@ -90,6 +91,7 @@ extern bool chrec_contains_undetermined (tree);
 extern bool tree_contains_chrecs (tree);
 extern bool evolution_function_is_affine_multivariate_p (tree);
 extern bool evolution_function_is_univariate_p (tree);
+extern unsigned nb_vars_in_chrec (tree);
 
 
 
@@ -105,7 +107,7 @@ build_polynomial_chrec (unsigned loop_num,
     return chrec_dont_know;
 
   return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
-		build_int_2 (loop_num, 0), left, right);
+		build_int_cst (NULL_TREE, loop_num), left, right);
 }
 
 

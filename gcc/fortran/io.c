@@ -842,7 +842,7 @@ gfc_match_format (void)
   e = gfc_get_expr();
   e->expr_type = EXPR_CONSTANT;
   e->ts.type = BT_CHARACTER;
-  e->ts.kind = gfc_default_character_kind();
+  e->ts.kind = gfc_default_character_kind;
   e->where = start;
   e->value.character.string = format_string = gfc_getmem(format_length+1);
   e->value.character.length = format_length;
@@ -1773,7 +1773,7 @@ gfc_resolve_dt (gfc_dt * dt)
   if (gfc_reference_st_label (dt->eor, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
 
-  /* Check the format label ectually exists.  */
+  /* Check the format label actually exists.  */
   if (dt->format_label && dt->format_label != &format_asterisk
       && dt->format_label->defined == ST_LABEL_UNKNOWN)
     {

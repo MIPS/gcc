@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.net;
 
 import gnu.java.net.PlainSocketImpl;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -479,7 +480,8 @@ public class Socket
 
   /**
    * Returns the local address to which this socket is bound.  If this socket
-   * is not connected, then <code>null</code> is returned.
+   * is not connected, then a wildcard address, for which
+   * @see isAnyLocalAddress() is <code>true</code>, is returned.
    *
    * @return The local address
    *
@@ -488,7 +490,7 @@ public class Socket
   public InetAddress getLocalAddress()
   {
     if (! isBound())
-      return null;
+      return InetAddress.ANY_IF;
 
     InetAddress addr = null;
 

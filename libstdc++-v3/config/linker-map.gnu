@@ -255,11 +255,48 @@ GLIBCXX_3.4.2 {
 
     _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE4fileEv;
 
-    _ZN9__gnu_cxx11__pool_base9_M_refillE[jm];
-    _ZN9__gnu_cxx11__pool_base16_M_get_free_listE[jm];
-    _ZN9__gnu_cxx11__pool_base12_M_get_mutexEv;
+    _ZN9__gnu_cxx17__pool_alloc_base9_M_refillE[jm];
+    _ZN9__gnu_cxx17__pool_alloc_base16_M_get_free_listE[jm];
+    _ZN9__gnu_cxx17__pool_alloc_base12_M_get_mutexEv;
 
 } GLIBCXX_3.4.1;
+
+GLIBCXX_3.4.3 {
+ 
+    _ZN9__gnu_cxx6__poolILb0EE13_M_initializeEv;
+    _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEPFvPvE;
+    _ZN9__gnu_cxx6__poolILb1EE21_M_destroy_thread_keyEPv;
+    _ZN9__gnu_cxx6__poolILb1EE16_M_get_thread_idEv;
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reserve_blockE[jm][jm];
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reclaim_blockEPc[jm];
+    _ZN9__gnu_cxx6__poolILb[01]EE10_M_destroyEv;
+
+    _ZN9__gnu_cxx9free_list12_S_free_listE;
+    _ZN9__gnu_cxx9free_list12_S_bfl_mutexE;
+    _ZN9__gnu_cxx9free_list6_M_getE*;
+    _ZN9__gnu_cxx9free_list8_M_clearEv;
+
+    # stub functions from libmath
+    acosf;
+    acosl;
+    asinf;
+    asinl;
+    atanf;
+    atanl;
+    ceilf;
+    ceill;
+    floorf;
+    floorl;
+    fmodf;
+    fmodl;
+    frexpf;
+    frexpl;
+    ldexpf;
+    ldexpl;
+    modff;
+    modfl;
+
+} GLIBCXX_3.4.2;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {

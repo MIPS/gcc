@@ -106,8 +106,12 @@ do { \
       fixed_regs[regno] = call_used_regs[regno] = 1;			\
   /* R8 and R9 are call-clobbered on SH5, but not on earlier SH ABIs.  */ \
   if (TARGET_SH5)							\
-    call_used_regs[FIRST_GENERAL_REG + 8]				\
-      = call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+    {									\
+      call_used_regs[FIRST_GENERAL_REG + 8]				\
+	= call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+      call_really_used_regs[FIRST_GENERAL_REG + 8]			\
+	= call_really_used_regs[FIRST_GENERAL_REG + 9] = 1;		\
+    }									\
   if (TARGET_SHMEDIA)							\
     {									\
       regno_reg_class[FIRST_GENERAL_REG] = GENERAL_REGS;		\
@@ -115,12 +119,15 @@ do { \
       regno_reg_class[FIRST_FP_REG] = FP_REGS;				\
     }									\
   if (flag_pic)								\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
+    {									\
+      fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
+      call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+    }									\
   /* Renesas saves and restores mac registers on call.  */		\
   if (TARGET_HITACHI && ! TARGET_NOMACSAVE)				\
     {									\
-      call_used_regs[MACH_REG] = 0;					\
-      call_used_regs[MACL_REG] = 0;					\
+      call_really_used_regs[MACH_REG] = 0;				\
+      call_really_used_regs[MACL_REG] = 0;				\
     }									\
   for (regno = FIRST_FP_REG + (TARGET_LITTLE_ENDIAN != 0);		\
        regno <= LAST_FP_REG; regno += 2)				\
@@ -128,12 +135,12 @@ do { \
   if (TARGET_SHMEDIA)							\
     {									\
       for (regno = FIRST_TARGET_REG; regno <= LAST_TARGET_REG; regno ++)\
-	if (! fixed_regs[regno] && call_used_regs[regno])		\
+	if (! fixed_regs[regno] && call_really_used_regs[regno])	\
 	  SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
     }									\
   else									\
     for (regno = FIRST_GENERAL_REG; regno <= LAST_GENERAL_REG; regno++)	\
-      if (! fixed_regs[regno] && call_used_regs[regno])			\
+      if (! fixed_regs[regno] && call_really_used_regs[regno])		\
 	SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
 } while (0)
 
@@ -561,6 +568,7 @@ extern int target_flags;
   {"fmovd",  	FMOVD_BIT, "" },		\
   {"hitachi",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
   {"renesas",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
+  {"no-renesas",-HITACHI_BIT,"Follow the GCC calling conventions" },	\
   {"nomacsave", NOMACSAVE_BIT, "Mark MAC register as call-clobbered" },		\
   {"ieee",  	IEEE_BIT, "Increase the IEEE compliance for floating-point code" },			\
   {"isize", 	ISIZE_BIT, "" },		\
@@ -770,8 +778,7 @@ do {									\
         but gdb doesn't implement this yet */				\
      if (0)								\
       flag_omit_frame_pointer						\
-        = (PREFERRED_DEBUGGING_TYPE == DWARF_DEBUG			\
-	   || PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);		\
+        = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);			\
      else								\
       flag_omit_frame_pointer = 0;					\
    }									\
@@ -1220,6 +1227,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
   1,									\
 }
 
+/* CONDITIONAL_REGISTER_USAGE might want to make a register call-used, yet
+   fixed, like PIC_OFFSET_TABLE_REGNUM.  */
+#define CALL_REALLY_USED_REGISTERS CALL_USED_REGISTERS
+
 /* Only the lower 32-bits of R10-R14 are guaranteed to be preserved
    across SHcompact function calls.  We can't tell whether a called
    function is SHmedia or SHcompact, so we assume it may be when
@@ -1290,14 +1301,6 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    : (REGNO) == PR_REG ? (MODE) == SImode \
    : (REGNO) == FPSCR_REG ? (MODE) == PSImode \
    : 1)
-
-/* Value is 1 if MODE is a supported vector mode.  */
-#define VECTOR_MODE_SUPPORTED_P(MODE) \
-  ((TARGET_FPU_ANY \
-    && ((MODE) == V2SFmode || (MODE) == V4SFmode || (MODE) == V16SFmode)) \
-   || (TARGET_SHMEDIA \
-       && ((MODE) == V8QImode || (MODE) == V2HImode || (MODE) == V4HImode \
-	   || (MODE) == V2SImode)))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -2088,48 +2091,10 @@ struct sh_args {
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
-  do {								\
-    (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
-    (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
-    (CUM).renesas_abi = sh_attr_renesas_p (FNTYPE) ? 1 : 0;	\
-    (CUM).force_mem						\
-      = ((TARGET_HITACHI || (CUM).renesas_abi) && (FNTYPE)	\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
-    (CUM).prototype_p = (FNTYPE) && TYPE_ARG_TYPES (FNTYPE);	\
-    (CUM).arg_count[(int) SH_ARG_INT]				\
-      = (TARGET_SH5 && (FNTYPE)					\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE), (FNDECL)));	\
-    (CUM).free_single_fp_reg = 0;				\
-    (CUM).outgoing = 1;						\
-    (CUM).stack_regs = 0;					\
-    (CUM).byref_regs = 0;					\
-    (CUM).byref = 0;						\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && (FNTYPE)				\
-	  && (CUM).arg_count[(int) SH_ARG_INT] == 0		\
-	  && (TYPE_MODE (TREE_TYPE (FNTYPE)) == BLKmode		\
-	      ? int_size_in_bytes (TREE_TYPE (FNTYPE))		\
-	      : GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (FNTYPE)))) > 4 \
-	  && (BASE_RETURN_VALUE_REG (TYPE_MODE (TREE_TYPE	\
- 						(FNTYPE)))	\
-	      == FIRST_RET_REG)));				\
-  } while (0)
+  sh_init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL), (N_NAMED_ARGS), VOIDmode)
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0, 0);	\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
-	  && BASE_RETURN_VALUE_REG (MODE) == FIRST_RET_REG));	\
-  } while (0)
-
-#define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0, 0);	\
-    (CUM).outgoing = 0;						\
-  } while (0)
+  sh_init_cumulative_args (& (CUM), NULL_TREE, (LIBNAME), NULL_TREE, 0, (MODE))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
 	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
@@ -2193,12 +2158,6 @@ struct sh_args {
    reference.  We need such arguments to be aligned to 8 byte
    boundaries, because they'll be loaded using quad loads.  */
 #define SH_MIN_ALIGN_FOR_CALLEE_COPY (8 * BITS_PER_UNIT)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM,MODE,TYPE,NAMED) \
-  ((CUM).outgoing							\
-   && (((MODE) == BLKmode ? TYPE_ALIGN (TYPE)				\
-	: GET_MODE_ALIGNMENT (MODE))					\
-       % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0))
 
 /* The SH5 ABI requires floating-point arguments to be passed to
    functions without a prototype in both an FP register and a regular
@@ -2367,9 +2326,13 @@ struct sh_args {
 #define USE_STORE_PRE_DECREMENT(mode)    ((mode == SImode || mode == DImode) \
                                            ? 0 : TARGET_SH1)
 
-#define MOVE_BY_PIECES_P(SIZE, ALIGN)  (move_by_pieces_ninsns (SIZE, ALIGN) \
-                                        < (TARGET_SMALLCODE ? 2 :           \
-                                           ((ALIGN >= 32) ? 16 : 2)))
+#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
+   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
+
+#define STORE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
+   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -2924,13 +2887,13 @@ struct sh_args {
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 /* For SHmedia, we can truncate to QImode easier using zero extension.  */
 /* FP registers can load SImode values, but don't implicitly sign-extend
    them to DImode.  */
 #define LOAD_EXTEND_OP(MODE) \
  (((MODE) == QImode  && TARGET_SHMEDIA) ? ZERO_EXTEND \
-  : (MODE) != SImode ? SIGN_EXTEND : NIL)
+  : (MODE) != SImode ? SIGN_EXTEND : UNKNOWN)
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
@@ -3428,7 +3391,6 @@ extern int rtx_equal_function_value_matters;
   {"target_reg_operand", {SUBREG, REG}},				\
   {"target_operand", {SUBREG, REG, LABEL_REF, SYMBOL_REF, CONST, UNSPEC}},\
   {"trunc_hi_operand", {SUBREG, REG, TRUNCATE}},			\
-  {"register_operand", {SUBREG, REG}},					\
   {"sh_const_vec", {CONST_VECTOR}},					\
   {"sh_1el_vec", {CONST_VECTOR, PARALLEL}},				\
   {"sh_rep_vec", {CONST_VECTOR, PARALLEL}},				\
@@ -3521,19 +3483,19 @@ extern int rtx_equal_function_value_matters;
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, EH_RETURN_STACKADJ_REGNO)
 
 /* We have to distinguish between code and data, so that we apply
-   datalabel where and only where appropriate.  Use textrel for code.  */
+   datalabel where and only where appropriate.  Use sdataN for data.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
  ((flag_pic && (GLOBAL) ? DW_EH_PE_indirect : 0) \
-  | ((CODE) ? DW_EH_PE_textrel : flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr))
+  | (flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr) \
+  | ((CODE) ? 0 : (TARGET_SHMEDIA64 ? DW_EH_PE_sdata8 : DW_EH_PE_sdata4)))
 
 /* Handle special EH pointer encodings.  Absolute, pc-relative, and
    indirect are handled automatically.  */
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
   do { \
-    if (((ENCODING) & 0x70) == DW_EH_PE_textrel) \
+    if (((ENCODING) & 0xf) != DW_EH_PE_sdata4 \
+	&& ((ENCODING) & 0xf) != DW_EH_PE_sdata8) \
       { \
-	encoding &= ~DW_EH_PE_textrel; \
-	encoding |= flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr; \
 	if (GET_CODE (ADDR) != SYMBOL_REF) \
 	  abort (); \
 	SYMBOL_REF_FLAGS (ADDR) |= SYMBOL_FLAG_FUNCTION; \

@@ -60,6 +60,13 @@ extern enum processor_type s390_arch;
 extern enum processor_flags s390_arch_flags;
 extern const char *s390_arch_string;
 
+extern const char *s390_backchain_string;
+
+extern const char *s390_warn_framesize_string;
+extern const char *s390_warn_dynamicstack_string;
+extern const char *s390_stack_size_string;
+extern const char *s390_stack_guard_string;
+
 #define TARGET_CPU_IEEE_FLOAT \
 	(s390_arch_flags & PF_IEEE_FLOAT)
 #define TARGET_CPU_ZARCH \
@@ -72,6 +79,9 @@ extern const char *s390_arch_string;
 
 
 /* Run-time target specification.  */
+
+/* This will be overridden by OS headers.  */
+#define TARGET_TPF 0
 
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
@@ -89,7 +99,6 @@ extern const char *s390_arch_string;
 extern int target_flags;
 
 #define MASK_HARD_FLOAT            0x01
-#define MASK_BACKCHAIN             0x02
 #define MASK_SMALL_EXEC            0x04
 #define MASK_DEBUG_ARG             0x08
 #define MASK_64BIT                 0x10
@@ -100,7 +109,6 @@ extern int target_flags;
 
 #define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
 #define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
-#define TARGET_BACKCHAIN           (target_flags & MASK_BACKCHAIN)
 #define TARGET_SMALL_EXEC          (target_flags & MASK_SMALL_EXEC)
 #define TARGET_DEBUG_ARG           (target_flags & MASK_DEBUG_ARG)
 #define TARGET_64BIT               (target_flags & MASK_64BIT)
@@ -110,21 +118,24 @@ extern int target_flags;
 #define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
 #define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
 
+#define TARGET_BACKCHAIN           (s390_backchain_string[0] == '1')
+#define TARGET_KERNEL_BACKCHAIN    (s390_backchain_string[0] == '2')
+
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x31
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT)
 #else
-#define TARGET_DEFAULT             0x1
+#define TARGET_DEFAULT             MASK_HARD_FLOAT
 #endif
+
+#define TARGET_DEFAULT_BACKCHAIN ""
 
 #define TARGET_SWITCHES                                                  \
 { { "hard-float",      1, N_("Use hardware fp")},                        \
   { "soft-float",     -1, N_("Don't use hardware fp")},                  \
-  { "backchain",       2, N_("Set backchain")},                          \
-  { "no-backchain",   -2, N_("Don't set backchain (faster, but debug harder")},\
   { "small-exec",      4, N_("Use bras for executable < 64k")},          \
   { "no-small-exec",  -4, N_("Don't use bras")},                         \
   { "debug",           8, N_("Additional debug prints")},                \
@@ -141,11 +152,29 @@ extern int target_flags;
   { "fused-madd",   -256, N_("enable fused multiply/add instructions")}, \
   { "", TARGET_DEFAULT, 0 } }
 
-#define TARGET_OPTIONS                                          \
-{ { "tune=",            &s390_tune_string,                      \
-    N_("Schedule code for given CPU"), 0},                      \
-  { "arch=",            &s390_arch_string,                      \
-    N_("Generate code for given CPU"), 0},                      \
+#define TARGET_OPTIONS                                                         \
+{ { "tune=",            &s390_tune_string,                                     \
+    N_("Schedule code for given CPU"), 0},                                     \
+  { "arch=",            &s390_arch_string,                                     \
+    N_("Generate code for given CPU"), 0},                                     \
+  { "backchain",        &s390_backchain_string,                                \
+    N_("Set backchain"), "1"},                                                 \
+  { "no-backchain",     &s390_backchain_string,                                \
+    N_("Do not set backchain"), ""},                                           \
+  { "kernel-backchain", &s390_backchain_string,                                \
+    N_("Set backchain appropriate for the linux kernel"), "2"},                \
+  { "warn-framesize=",   &s390_warn_framesize_string,                          \
+    N_("Warn if a single function's framesize exceeds the given framesize"),   \
+       0},                                                                     \
+  { "warn-dynamicstack", &s390_warn_dynamicstack_string,                       \
+    N_("Warn if a function uses alloca or creates an array with dynamic size"),\
+       0},                                                                     \
+  { "stack-size=",       &s390_stack_size_string,                              \
+    N_("Emit extra code in the function prologue in order to trap if the stack"\
+       "size exceeds the given limit"), 0},                                    \
+  { "stack-guard=",      &s390_stack_guard_string,                             \
+    N_("Set the max. number of bytes which has to be left to stack size "      \
+       "before a trap instruction is triggered"), 0},                          \
 }
 
 /* Support for configure-time defaults.  */
@@ -515,13 +544,14 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 
 #define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
   s390_extra_constraint_str ((OP), (C), (STR))
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)					\
+  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T' || (C) == 'A')
+#define EXTRA_ADDRESS_CONSTRAINT(C, STR)				\
   ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
-#define CONSTRAINT_LEN(C, STR)                                   \
-  ((C) == 'N' ? 5 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+#define CONSTRAINT_LEN(C, STR)                                  	\
+  ((C) == 'N' ? 5 : 							\
+   (C) == 'A' ? 2 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 
@@ -559,9 +589,13 @@ extern int current_function_outgoing_args_size;
    For frames farther back, we use the stack slot where
    the corresponding RETURN_REGNUM register was saved.  */
 
-#define DYNAMIC_CHAIN_ADDRESS(FRAME)						\
-  ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
-   plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
+#define DYNAMIC_CHAIN_ADDRESS(FRAME)                                            \
+  (TARGET_BACKCHAIN ?                                                           \
+   ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
+    plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET)) :                   \
+    ((FRAME) != hard_frame_pointer_rtx ?                                        \
+     plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) :           \
+     plus_constant (arg_pointer_rtx, -UNITS_PER_WORD)))
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)						\
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))
@@ -621,26 +655,11 @@ extern int current_function_outgoing_args_size;
  { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},     \
  { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
-#define CAN_ELIMINATE(FROM, TO) (1)
+#define CAN_ELIMINATE(FROM, TO) \
+  s390_can_eliminate ((FROM), (TO))
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			  \
-{ if ((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) 	  \
-  { (OFFSET) = 0; }     						  \
-  else  if ((FROM) == FRAME_POINTER_REGNUM                                \
-	    && (TO) == HARD_FRAME_POINTER_REGNUM)                	  \
-  { (OFFSET) = 0; }     						  \
-  else if ((FROM) == ARG_POINTER_REGNUM                                   \
-            && (TO) == HARD_FRAME_POINTER_REGNUM)                         \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)  \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == RETURN_ADDRESS_POINTER_REGNUM                        \
-            && ((TO) == STACK_POINTER_REGNUM                              \
-                || (TO) == HARD_FRAME_POINTER_REGNUM))                    \
-  { (OFFSET) = s390_return_address_offset (); }     			  \
-  else									  \
-    abort();								  \
-}
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
+  (OFFSET) = s390_initial_elimination_offset ((FROM), (TO))
 
 
 /* Stack arguments.  */
@@ -711,7 +730,7 @@ CUMULATIVE_ARGS;
 
 /* Trampolines for nested functions.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 36 : 20)
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 32 : 16)
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)                       \
    s390_initialize_trampoline ((ADDR), (FNADDR), (CXT))
@@ -791,6 +810,19 @@ CUMULATIVE_ARGS;
     goto WIN;                                                           \
 }
 
+/* Try a machine-dependent way of reloading an illegitimate address
+   operand.  If we find one, push the reload and jump to WIN.  This
+   macro is used in only one place: `find_reloads_address' in reload.c.  */
+#define LEGITIMIZE_RELOAD_ADDRESS(AD, MODE, OPNUM, TYPE, IND, WIN)	\
+do {									\
+  rtx new = legitimize_reload_address (AD, MODE, OPNUM, (int)(TYPE));	\
+  if (new)								\
+    {									\
+      (AD) = new;							\
+      goto WIN;								\
+    }									\
+} while (0)
+
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 #define LEGITIMATE_CONSTANT_P(X) \
@@ -812,6 +844,10 @@ CUMULATIVE_ARGS;
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  */
 #define SELECT_CC_MODE(OP, X, Y) s390_select_ccmode ((OP), (X), (Y))
+
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+#define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
+  s390_canonicalize_comparison (&(CODE), &(OP0), &(OP1))
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
@@ -840,9 +876,14 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 
+/* An integer expression for the size in bits of the largest integer machine
+   mode that should actually be used.  We allow pairs of registers.  */ 
+#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TARGET_64BIT ? TImode : DImode)
+
 /* The maximum number of bytes that a single instruction can move quickly
    between memory and registers or between two memory locations.  */
 #define MOVE_MAX (TARGET_64BIT ? 16 : 8)
+#define MOVE_MAX_PIECES (TARGET_64BIT ? 8 : 4)
 #define MAX_MOVE_MAX 16
 
 /* Determine whether to use move_by_pieces or block move insn.  */
@@ -854,6 +895,11 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 #define CLEAR_BY_PIECES_P(SIZE, ALIGN)		\
   ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
     || (TARGET_64BIT && (SIZE) == 8) )
+
+/* This macro is used to determine whether store_by_pieces should be
+   called to "memset" storage with byte values other than zero, or
+   to "memcpy" storage when the source is a constant string.  */
+#define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
 
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE
@@ -972,7 +1018,6 @@ do {									\
 /* Define the codes that are matched by predicates in aux-output.c.  */
 #define PREDICATE_CODES							\
   {"s_operand",       { SUBREG, MEM }},					\
-  {"s_imm_operand",   { CONST_INT, CONST_DOUBLE, SUBREG, MEM }},	\
   {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
   {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
   {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\
@@ -982,6 +1027,9 @@ do {									\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},					\
+  {"s390_comparison",     { EQ, NE, LT, GT, LE, GE, LTU, GTU, LEU, GEU,	\
+			    UNEQ, UNLT, UNGT, UNLE, UNGE, LTGT,		\
+			    UNORDERED, ORDERED }},			\
   {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
 			    LTU, GTU, LEU, GEU }},			\
   {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\

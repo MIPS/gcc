@@ -24,10 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "gengtype.h"
 #include "gtyp-gen.h"
-
-#define NO_GENRTL_H
-#include "rtl.h"
-#undef abort
+#include "errors.h"
 
 /* Nonzero iff an error has occurred.  */
 static int hit_error = 0;
@@ -334,15 +331,50 @@ note_variable (const char *s, type_p t, options_p o, struct fileloc *pos)
   variables = n;
 }
 
-/* We really don't care how long a CONST_DOUBLE is.  */
+/* We don't care how long a CONST_DOUBLE is.  */
 #define CONST_DOUBLE_FORMAT "ww"
-const char * const rtx_format[NUM_RTX_CODE] = {
+/* We don't want to see codes that are only for generator files.  */
+#undef GENERATOR_FILE
+
+enum rtx_code {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) ENUM ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+  NUM_RTX_CODE
+};
+
+static const char * const rtx_name[NUM_RTX_CODE] = {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+};
+
+static const char * const rtx_format[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
 #include "rtl.def"
 #undef DEF_RTL_EXPR
 };
 
 static int rtx_next_new[NUM_RTX_CODE];
+
+/* We also need codes and names for insn notes (not register notes).
+   Note that we do *not* bias the note values here.  */
+enum insn_note {
+#define DEF_INSN_NOTE(NAME) NAME,
+#include "insn-notes.def"
+#undef DEF_INSN_NOTE
+
+  NOTE_INSN_MAX
+};
+
+static const char *const note_insn_name[NOTE_INSN_MAX] = {
+#define DEF_INSN_NOTE(NAME) #NAME,
+#include "insn-notes.def"
+#undef DEF_INSN_NOTE
+};
+
+#undef CONST_DOUBLE_FORMAT
+#define GENERATOR_FILE
 
 /* Generate the contents of the rtx_next array.  This really doesn't belong
    in gengtype at all, but it's needed for adjust_field_rtx_def.  */
@@ -399,12 +431,6 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
   type_p rtx_tp, rtvec_tp, tree_tp, mem_attrs_tp, note_union_tp, scalar_tp;
   type_p bitmap_tp, basic_block_tp, reg_attrs_tp;
 
-  static const char * const rtx_name[NUM_RTX_CODE] = {
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
-#include "rtl.def"
-#undef DEF_RTL_EXPR
-  };
-
   if (t->kind != TYPE_UNION)
     {
       error_at_line (&lexer_line,
@@ -430,7 +456,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
     pair_p note_flds = NULL;
     int c;
 
-    for (c = NOTE_INSN_BIAS; c <= NOTE_INSN_MAX; c++)
+    for (c = 0; c <= NOTE_INSN_MAX; c++)
       {
 	pair_p old_note_flds = note_flds;
 
@@ -440,7 +466,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 	note_flds->opt = XNEW (struct options);
 	note_flds->opt->next = nodot;
 	note_flds->opt->name = "tag";
-	note_flds->opt->info = xasprintf ("%d", c);
+	note_flds->opt->info = note_insn_name[c];
 	note_flds->next = old_note_flds;
 
 	switch (c)
@@ -1056,10 +1082,10 @@ open_base_files (void)
     static const char *const ifiles [] = {
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h", 
       "hashtab.h", "splay-tree.h", "bitmap.h", "input.h", "tree.h", "rtl.h",
-      "function.h", "except.h", "insn-config.h", "expr.h", "hard-reg-set.h",
+      "function.h", "insn-config.h", "expr.h", "except.h", "hard-reg-set.h",
       "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
       "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
-      "tree-alias-type.h", "tree-flow.h", "reload.h",
+      "tree-flow.h", "reload.h",
       "cpp-id-data.h",
       "tree-chrec.h",
       NULL
@@ -1098,11 +1124,11 @@ get_file_basename (const char *f)
       s2 = lang_dir_names [i];
       l1 = strlen (s1);
       l2 = strlen (s2);
-      if (l1 >= l2 && !memcmp (s1, s2, l2))
+      if (l1 >= l2 && IS_DIR_SEPARATOR (s1[-1]) && !memcmp (s1, s2, l2))
         {
           basename -= l2 + 1;
           if ((basename - f - 1) != srcdir_len)
-            abort (); /* Match is wrong - should be preceded by $srcdir.  */
+	    fatal ("filename `%s' should be preceded by $srcdir", f);
           break;
         }
     }
@@ -1127,6 +1153,10 @@ get_base_file_bitmap (const char *input_file)
   unsigned k;
   unsigned bitmap;
 
+  /* If the file resides in a language subdirectory (e.g., 'cp'), assume that
+     it belongs to the corresponding language.  The file may belong to other
+     languages as well (which is checked for below).  */
+
   if (slashpos)
     {
       size_t i;
@@ -1136,10 +1166,7 @@ get_base_file_bitmap (const char *input_file)
           {
             /* It's in a language directory, set that language.  */
             bitmap = 1 << i;
-            return bitmap;
           }
-
-      abort (); /* Should have found the language.  */
     }
 
   /* If it's in any config-lang.in, then set for the languages
@@ -1202,11 +1229,19 @@ get_output_file_with_visibility (const char *input_file)
       memcpy (s, ".h", sizeof (".h"));
       for_name = basename;
     }
+  /* Some headers get used by more than one front-end; hence, it
+     would be inappropriate to spew them out to a single gtype-<lang>.h
+     (and gengtype doesn't know how to direct spewage into multiple
+     gtype-<lang>.h headers at this time).  Instead, we pair up these
+     headers with source files (and their special purpose gt-*.h headers).  */
   else if (strcmp (basename, "c-common.h") == 0)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
-  else
+  else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
+	   && strcmp (basename + 5, "objc-act.h") == 0)
+    output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
+  else 
     {
       size_t i;
 
@@ -1407,7 +1442,7 @@ output_mangled_typename (outf_p of, type_p t)
       }
       break;
     case TYPE_ARRAY:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1573,7 +1608,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	if (maybe_undef_p
 	    && t->u.p->u.s.line.file == NULL)
 	  {
-	    oprintf (d->of, "%*sif (%s) abort();\n", d->indent, "", d->val);
+	    oprintf (d->of, "%*sgcc_assert (!%s);\n", d->indent, "", d->val);
 	    break;
 	  }
 
@@ -1809,7 +1844,7 @@ walk_type (type_p t, struct walk_type_data *d)
 	    d->used_length = false;
 
 	    if (union_p && use_param_p && d->param == NULL)
-	      oprintf (d->of, "%*sabort();\n", d->indent, "");
+	      oprintf (d->of, "%*sgcc_unreachable ();\n", d->indent, "");
 	    else
 	      walk_type (f->type, d);
 
@@ -1865,7 +1900,7 @@ walk_type (type_p t, struct walk_type_data *d)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1922,7 +1957,7 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -2192,7 +2227,7 @@ write_types_local_process_field (type_p f, const struct walk_type_data *d)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 

@@ -48,6 +48,405 @@ static int colon_seen;
 gfc_symbol *gfc_new_block;
 
 
+/********************* DATA statement subroutines *********************/
+
+/* Free a gfc_data_variable structure and everything beneath it.  */
+
+static void
+free_variable (gfc_data_variable * p)
+{
+  gfc_data_variable *q;
+
+  for (; p; p = q)
+    {
+      q = p->next;
+      gfc_free_expr (p->expr);
+      gfc_free_iterator (&p->iter, 0);
+      free_variable (p->list);
+
+      gfc_free (p);
+    }
+}
+
+
+/* Free a gfc_data_value structure and everything beneath it.  */
+
+static void
+free_value (gfc_data_value * p)
+{
+  gfc_data_value *q;
+
+  for (; p; p = q)
+    {
+      q = p->next;
+      gfc_free_expr (p->expr);
+      gfc_free (p);
+    }
+}
+
+
+/* Free a list of gfc_data structures.  */
+
+void
+gfc_free_data (gfc_data * p)
+{
+  gfc_data *q;
+
+  for (; p; p = q)
+    {
+      q = p->next;
+
+      free_variable (p->var);
+      free_value (p->value);
+
+      gfc_free (p);
+    }
+}
+
+
+static match var_element (gfc_data_variable *);
+
+/* Match a list of variables terminated by an iterator and a right
+   parenthesis.  */
+
+static match
+var_list (gfc_data_variable * parent)
+{
+  gfc_data_variable *tail, var;
+  match m;
+
+  m = var_element (&var);
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+  if (m == MATCH_NO)
+    goto syntax;
+
+  tail = gfc_get_data_variable ();
+  *tail = var;
+
+  parent->list = tail;
+
+  for (;;)
+    {
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+
+      m = gfc_match_iterator (&parent->iter, 1);
+      if (m == MATCH_YES)
+	break;
+      if (m == MATCH_ERROR)
+	return MATCH_ERROR;
+
+      m = var_element (&var);
+      if (m == MATCH_ERROR)
+	return MATCH_ERROR;
+      if (m == MATCH_NO)
+	goto syntax;
+
+      tail->next = gfc_get_data_variable ();
+      tail = tail->next;
+
+      *tail = var;
+    }
+
+  if (gfc_match_char (')') != MATCH_YES)
+    goto syntax;
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_DATA);
+  return MATCH_ERROR;
+}
+
+
+/* Match a single element in a data variable list, which can be a
+   variable-iterator list.  */
+
+static match
+var_element (gfc_data_variable * new)
+{
+  match m;
+  gfc_symbol *sym;
+
+  memset (new, 0, sizeof (gfc_data_variable));
+
+  if (gfc_match_char ('(') == MATCH_YES)
+    return var_list (new);
+
+  m = gfc_match_variable (&new->expr, 0);
+  if (m != MATCH_YES)
+    return m;
+
+  sym = new->expr->symtree->n.sym;
+
+  if(sym->value != NULL)
+    {
+      gfc_error ("Variable '%s' at %C already has an initialization",
+		 sym->name);
+      return MATCH_ERROR;
+    }
+
+#if 0 // TODO: Find out where to move this message
+  if (sym->attr.in_common)
+    /* See if sym is in the blank common block.  */
+    for (t = &sym->ns->blank_common; t; t = t->common_next)
+      if (sym == t->head)
+	{
+	  gfc_error ("DATA statement at %C may not initialize variable "
+		     "'%s' from blank COMMON", sym->name);
+	  return MATCH_ERROR;
+	}
+#endif
+
+  if (gfc_add_data (&sym->attr, &new->expr->where) == FAILURE)
+    return MATCH_ERROR;
+
+  return MATCH_YES;
+}
+
+
+/* Match the top-level list of data variables.  */
+
+static match
+top_var_list (gfc_data * d)
+{
+  gfc_data_variable var, *tail, *new;
+  match m;
+
+  tail = NULL;
+
+  for (;;)
+    {
+      m = var_element (&var);
+      if (m == MATCH_NO)
+	goto syntax;
+      if (m == MATCH_ERROR)
+	return MATCH_ERROR;
+
+      new = gfc_get_data_variable ();
+      *new = var;
+
+      if (tail == NULL)
+	d->var = new;
+      else
+	tail->next = new;
+
+      tail = new;
+
+      if (gfc_match_char ('/') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_DATA);
+  return MATCH_ERROR;
+}
+
+
+static match
+match_data_constant (gfc_expr ** result)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol *sym;
+  gfc_expr *expr;
+  match m;
+
+  m = gfc_match_literal_constant (&expr, 1);
+  if (m == MATCH_YES)
+    {
+      *result = expr;
+      return MATCH_YES;
+    }
+
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  m = gfc_match_null (result);
+  if (m != MATCH_NO)
+    return m;
+
+  m = gfc_match_name (name);
+  if (m != MATCH_YES)
+    return m;
+
+  if (gfc_find_symbol (name, NULL, 1, &sym))
+    return MATCH_ERROR;
+
+  if (sym == NULL
+      || (sym->attr.flavor != FL_PARAMETER && sym->attr.flavor != FL_DERIVED))
+    {
+      gfc_error ("Symbol '%s' must be a PARAMETER in DATA statement at %C",
+		 name);
+      return MATCH_ERROR;
+    }
+  else if (sym->attr.flavor == FL_DERIVED)
+    return gfc_match_structure_constructor (sym, result);
+
+  *result = gfc_copy_expr (sym->value);
+  return MATCH_YES;
+}
+
+
+/* Match a list of values in a DATA statement.  The leading '/' has
+   already been seen at this point.  */
+
+static match
+top_val_list (gfc_data * data)
+{
+  gfc_data_value *new, *tail;
+  gfc_expr *expr;
+  const char *msg;
+  match m;
+
+  tail = NULL;
+
+  for (;;)
+    {
+      m = match_data_constant (&expr);
+      if (m == MATCH_NO)
+	goto syntax;
+      if (m == MATCH_ERROR)
+	return MATCH_ERROR;
+
+      new = gfc_get_data_value ();
+
+      if (tail == NULL)
+	data->value = new;
+      else
+	tail->next = new;
+
+      tail = new;
+
+      if (expr->ts.type != BT_INTEGER || gfc_match_char ('*') != MATCH_YES)
+	{
+	  tail->expr = expr;
+	  tail->repeat = 1;
+	}
+      else
+	{
+	  signed int tmp;
+	  msg = gfc_extract_int (expr, &tmp);
+	  gfc_free_expr (expr);
+	  if (msg != NULL)
+	    {
+	      gfc_error (msg);
+	      return MATCH_ERROR;
+	    }
+	  tail->repeat = tmp;
+
+	  m = match_data_constant (&tail->expr);
+	  if (m == MATCH_NO)
+	    goto syntax;
+	  if (m == MATCH_ERROR)
+	    return MATCH_ERROR;
+	}
+
+      if (gfc_match_char ('/') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') == MATCH_NO)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_DATA);
+  return MATCH_ERROR;
+}
+
+
+/* Matches an old style initialization.  */
+
+static match
+match_old_style_init (const char *name)
+{
+  match m;
+  gfc_symtree *st;
+  gfc_data *newdata;
+
+  /* Set up data structure to hold initializers.  */
+  gfc_find_sym_tree (name, NULL, 0, &st);
+	  
+  newdata = gfc_get_data ();
+  newdata->var = gfc_get_data_variable ();
+  newdata->var->expr = gfc_get_variable_expr (st);
+
+  /* Match initial value list. This also eats the terminal
+     '/'.  */
+  m = top_val_list (newdata);
+  if (m != MATCH_YES)
+    {
+      gfc_free (newdata);
+      return m;
+    }
+
+  if (gfc_pure (NULL))
+    {
+      gfc_error ("Initialization at %C is not allowed in a PURE procedure");
+      gfc_free (newdata);
+      return MATCH_ERROR;
+    }
+
+  /* Chain in namespace list of DATA initializers.  */
+  newdata->next = gfc_current_ns->data;
+  gfc_current_ns->data = newdata;
+
+  return m;
+}
+
+/* Match the stuff following a DATA statement. If ERROR_FLAG is set,
+   we are matching a DATA statement and are therefore issuing an error
+   if we encounter something unexpected, if not, we're trying to match 
+   an old-style intialization expression of the form INTEGER I /2/.   */
+
+match
+gfc_match_data (void)
+{
+  gfc_data *new;
+  match m;
+
+  for (;;)
+    {
+      new = gfc_get_data ();
+      new->where = gfc_current_locus;
+
+      m = top_var_list (new);
+      if (m != MATCH_YES)
+	goto cleanup;
+
+      m = top_val_list (new);
+      if (m != MATCH_YES)
+	goto cleanup;
+
+      new->next = gfc_current_ns->data;
+      gfc_current_ns->data = new;
+
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+
+      gfc_match_char (',');	/* Optional comma */
+    }
+
+  if (gfc_pure (NULL))
+    {
+      gfc_error ("DATA statement at %C is not allowed in a PURE procedure");
+      return MATCH_ERROR;
+    }
+
+  return MATCH_YES;
+
+cleanup:
+  gfc_free_data (new);
+  return MATCH_ERROR;
+}
+
+
+/************************ Declaration statements *********************/
+
 /* Match an intent specification.  Since this can only happen after an
    INTENT word, a legal intent-spec must follow.  */
 
@@ -186,7 +585,7 @@ get_proc_name (const char *name, gfc_symbol ** result)
   if (*result == NULL)
     return rc;
 
-  /* Deal with ENTRY problem */
+  /* ??? Deal with ENTRY problem */
 
   st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
 
@@ -305,7 +704,8 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	  return FAILURE;
 	}
 
-      /* Checking a derived type parameter has to be put off until later.  */
+      /* Check if the assignment can happen. This has to be put off
+	 until later for a derived type variable.  */
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && gfc_check_assign_symbol (sym, init) == FAILURE)
 	return FAILURE;
@@ -524,6 +924,24 @@ variable_decl (void)
       goto cleanup;
     }
 
+  /* We allow old-style initializations of the form
+       integer i /2/, j(4) /3*3, 1/
+     (if no colon has been seen). These are different from data
+     statements in that initializers are only allowed to apply to the
+     variable immediately preceding, i.e.
+       integer i, j /1, 2/
+     is not allowed. Therefore we have to do some work manually, that
+     could otherwise be left to the matchers for DATA statements.  */
+
+  if (!colon_seen && gfc_match (" /") == MATCH_YES)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Old-style "
+			  "initialization at %C") == FAILURE)
+	return MATCH_ERROR;
+     
+      return match_old_style_init (name);
+    }
+
   /* The double colon must be present in order to have initializers.
      Otherwise the statement is ambiguous with an assignment statement.  */
   if (colon_seen)
@@ -632,7 +1050,7 @@ gfc_match_old_kind_spec (gfc_typespec * ts)
   if (ts->type == BT_COMPLEX && ts->kind == 16)
     ts->kind = 8;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Old-style kind %d not supported for type %s at %C",
 		 ts->kind, gfc_basic_typename (ts->type));
@@ -692,7 +1110,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
   gfc_free_expr (e);
   e = NULL;
 
-  if (gfc_validate_kind (ts->type, ts->kind) == -1)
+  if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
       gfc_error ("Kind %d not supported for type %s at %C", ts->kind,
 		 gfc_basic_typename (ts->type));
@@ -727,7 +1145,7 @@ match_char_spec (gfc_typespec * ts)
   gfc_expr *len;
   match m;
 
-  kind = gfc_default_character_kind ();
+  kind = gfc_default_character_kind;
   len = NULL;
   seen_length = 0;
 
@@ -790,7 +1208,7 @@ match_char_spec (gfc_typespec * ts)
 
       gfc_match_small_int (&kind);
 
-      if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+      if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
 	{
 	  gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
 	  return MATCH_YES;
@@ -833,7 +1251,7 @@ syntax:
   m = MATCH_ERROR;
 
 done:
-  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (m == MATCH_YES && gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Kind %d is not a CHARACTER kind at %C", kind);
       m = MATCH_ERROR;
@@ -891,7 +1309,7 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" integer") == MATCH_YES)
     {
       ts->type = BT_INTEGER;
-      ts->kind = gfc_default_integer_kind ();
+      ts->kind = gfc_default_integer_kind;
       goto get_kind;
     }
 
@@ -907,35 +1325,35 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
   if (gfc_match (" real") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_real_kind ();
+      ts->kind = gfc_default_real_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double precision") == MATCH_YES)
     {
       ts->type = BT_REAL;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_complex_kind ();
+      ts->kind = gfc_default_complex_kind;
       goto get_kind;
     }
 
   if (gfc_match (" double complex") == MATCH_YES)
     {
       ts->type = BT_COMPLEX;
-      ts->kind = gfc_default_double_kind ();
+      ts->kind = gfc_default_double_kind;
       return MATCH_YES;
     }
 
   if (gfc_match (" logical") == MATCH_YES)
     {
       ts->type = BT_LOGICAL;
-      ts->kind = gfc_default_logical_kind ();
+      ts->kind = gfc_default_logical_kind;
       goto get_kind;
     }
 
@@ -1141,7 +1559,7 @@ gfc_match_implicit (void)
 	      /* Check for CHARACTER with no length parameter.  */
 	      if (ts.type == BT_CHARACTER && !ts.cl)
 		{
-		  ts.kind = gfc_default_character_kind ();
+		  ts.kind = gfc_default_character_kind;
 		  ts.cl = gfc_get_charlen ();
 		  ts.cl->next = gfc_current_ns->cl_list;
 		  gfc_current_ns->cl_list = ts.cl;
@@ -1871,43 +2289,58 @@ cleanup:
 match
 gfc_match_entry (void)
 {
-  gfc_symbol *function, *result, *entry;
+  gfc_symbol *proc;
+  gfc_symbol *result;
+  gfc_symbol *entry;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_compile_state state;
   match m;
+  gfc_entry_list *el;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
     return m;
 
+  state = gfc_current_state ();
+  if (state != COMP_SUBROUTINE
+      && state != COMP_FUNCTION)
+    {
+      gfc_error ("ENTRY statement at %C cannot appear within %s",
+		 gfc_state_name (gfc_current_state ()));
+      return MATCH_ERROR;
+    }
+
+  if (gfc_current_ns->parent != NULL
+      && gfc_current_ns->parent->proc_name
+      && gfc_current_ns->parent->proc_name->attr.flavor != FL_MODULE)
+    {
+      gfc_error("ENTRY statement at %C cannot appear in a "
+		"contained procedure");
+      return MATCH_ERROR;
+    }
+
   if (get_proc_name (name, &entry))
     return MATCH_ERROR;
 
-  gfc_enclosing_unit (&state);
-  switch (state)
+  proc = gfc_current_block ();
+
+  if (state == COMP_SUBROUTINE)
     {
-    case COMP_SUBROUTINE:
+      /* And entry in a subroutine.  */
       m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (gfc_current_state () != COMP_SUBROUTINE)
-	goto exec_construct;
-
       if (gfc_add_entry (&entry->attr, NULL) == FAILURE
 	  || gfc_add_subroutine (&entry->attr, NULL) == FAILURE)
 	return MATCH_ERROR;
-
-      break;
-
-    case COMP_FUNCTION:
+    }
+  else
+    {
+      /* An entry in a function.  */
       m = gfc_match_formal_arglist (entry, 0, 0);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
-
-      if (gfc_current_state () != COMP_FUNCTION)
-	goto exec_construct;
-      function = gfc_state_stack->sym;
 
       result = NULL;
 
@@ -1917,12 +2350,12 @@ gfc_match_entry (void)
 	      || gfc_add_function (&entry->attr, NULL) == FAILURE)
 	    return MATCH_ERROR;
 
-	  entry->result = function->result;
+	  entry->result = proc->result;
 
 	}
       else
 	{
-	  m = match_result (function, &result);
+	  m = match_result (proc, &result);
 	  if (m == MATCH_NO)
 	    gfc_syntax_error (ST_ENTRY);
 	  if (m != MATCH_YES)
@@ -1934,16 +2367,11 @@ gfc_match_entry (void)
 	    return MATCH_ERROR;
 	}
 
-      if (function->attr.recursive && result == NULL)
+      if (proc->attr.recursive && result == NULL)
 	{
 	  gfc_error ("RESULT attribute required in ENTRY statement at %C");
 	  return MATCH_ERROR;
 	}
-
-      break;
-
-    default:
-      goto exec_construct;
     }
 
   if (gfc_match_eos () != MATCH_YES)
@@ -1952,13 +2380,23 @@ gfc_match_entry (void)
       return MATCH_ERROR;
     }
 
+  entry->attr.recursive = proc->attr.recursive;
+  entry->attr.elemental = proc->attr.elemental;
+  entry->attr.pure = proc->attr.pure;
+
+  el = gfc_get_entry_list ();
+  el->sym = entry;
+  el->next = gfc_current_ns->entries;
+  gfc_current_ns->entries = el;
+  if (el->next)
+    el->id = el->next->id + 1;
+  else
+    el->id = 1;
+
+  new_st.op = EXEC_ENTRY;
+  new_st.ext.entry = el;
+
   return MATCH_YES;
-
-exec_construct:
-  gfc_error ("ENTRY statement at %C cannot appear within %s",
-	     gfc_state_name (gfc_current_state ()));
-
-  return MATCH_ERROR;
 }
 
 
@@ -2007,7 +2445,7 @@ gfc_match_subroutine (void)
 }
 
 
-/* Return nonzero if we're currenly compiling a contained procedure.  */
+/* Return nonzero if we're currently compiling a contained procedure.  */
 
 static int
 contained_procedure (void)

@@ -52,10 +52,6 @@ AT&T C compiler.  From the example below I would conclude the following:
 
 static GTY(()) tree anonymous_types;
 
-/* Counter for sdbout_source_line.  */
-
-static GTY(()) int sdbout_source_line_counter;
-
 /* Counter to generate unique "names" for nameless struct members.  */
 
 static GTY(()) int unnamed_struct_number;
@@ -291,11 +287,6 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
    necessary support.  */
 
 #ifdef MIPS_DEBUGGING_INFO
-
-#ifndef PUT_SDB_SRC_FILE
-#define PUT_SDB_SRC_FILE(FILENAME) \
-output_file_directive (asm_out_file, (FILENAME))
-#endif
 
 /* ECOFF linkers have an optimization that does the same kind of thing as
    N_BINCL/E_INCL in stabs: eliminate duplicate debug information in the
@@ -758,7 +749,7 @@ sdbout_symbol (tree decl, int local)
     case PARM_DECL:
       /* Parm decls go in their own separate chains
 	 and are output by sdbout_reg_parms and sdbout_parms.  */
-      abort ();
+      gcc_unreachable ();
 
     case VAR_DECL:
       /* Don't mention a variable that is external.
@@ -942,10 +933,9 @@ sdbout_toplevel_data (tree decl)
   if (DECL_IGNORED_P (decl))
     return;
 
-  if (! (TREE_CODE (decl) == VAR_DECL
-	 && MEM_P (DECL_RTL (decl))
-	 && DECL_INITIAL (decl)))
-    abort ();
+  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  gcc_assert (MEM_P (DECL_RTL (decl)));
+  gcc_assert (DECL_INITIAL (decl));
 
   PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
   PUT_SDB_VAL (XEXP (DECL_RTL (decl), 0));
@@ -1546,9 +1536,8 @@ sdbout_source_line (unsigned int line, const char *filename ATTRIBUTE_UNUSED)
   /* COFF relative line numbers must be positive.  */
   if ((int) line > sdb_begin_function_line)
     {
-#ifdef ASM_OUTPUT_SOURCE_LINE
-      sdbout_source_line_counter += 1;
-      ASM_OUTPUT_SOURCE_LINE (asm_out_file, line, sdbout_source_line_counter);
+#ifdef SDB_OUTPUT_SOURCE_LINE
+      SDB_OUTPUT_SOURCE_LINE (asm_out_file, line);
 #else
       fprintf (asm_out_file, "\t.ln\t%d\n",
 	       ((sdb_begin_function_line > -1)
@@ -1651,7 +1640,7 @@ sdbout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
   n->next = current_file;
   n->name = filename;
   current_file = n;
-  PUT_SDB_SRC_FILE (filename);
+  output_file_directive (asm_out_file, filename);
 #endif
 }
 
@@ -1666,7 +1655,7 @@ sdbout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
   next = current_file->next;
   free (current_file);
   current_file = next;
-  PUT_SDB_SRC_FILE (current_file->name);
+  output_file_directive (asm_out_file, current_file->name);
 #endif
 }
 

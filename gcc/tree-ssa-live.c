@@ -1,5 +1,5 @@
 /* Liveness for SSA trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -34,10 +34,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "varray.h"
 #include "timevar.h"
-#include "tree-alias-common.h"
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
+#include "errors.h"
 
 static void live_worklist (tree_live_info_p, varray_type, int);
 static tree_live_info_p new_tree_live_info (var_map);
@@ -133,9 +133,9 @@ var_union (var_map map, tree var1, tree var2)
       if (map->compact_to_partition)
         p2 = map->compact_to_partition[p2];
 
-      /* If there is no root_var set, or its not a user variable, set the
+      /* If there is no root_var set, or it's not a user variable, set the
 	 root_var to this one.  */
-      if (!root_var || is_gimple_tmp_var (root_var))
+      if (!root_var || (DECL_P (root_var) && DECL_IGNORED_P (root_var)))
         {
 	  other_var = root_var;
 	  root_var = var2;
@@ -144,8 +144,8 @@ var_union (var_map map, tree var1, tree var2)
 	other_var = var2;
     }
 
-  if (p1 == NO_PARTITION || p2 == NO_PARTITION)
-    abort ();
+  gcc_assert (p1 != NO_PARTITION);
+  gcc_assert (p2 != NO_PARTITION);
 
   if (p1 == p2)
     p3 = p1;
@@ -274,8 +274,7 @@ change_partition_var (var_map map, tree var, int part)
 {
   var_ann_t ann;
 
-  if (TREE_CODE (var) == SSA_NAME)
-    abort();
+  gcc_assert (TREE_CODE (var) != SSA_NAME);
 
   ann = var_ann (var);
   ann->out_of_ssa_tag = 1;
@@ -298,7 +297,7 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
   if (TREE_CODE (t) == VAR_DECL)
     set_is_used (t);
 
-  if (DECL_P (t) || TYPE_P (t))
+  if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL;
@@ -325,16 +324,11 @@ create_ssa_var_map (int flags)
   tree dest, use;
   tree stmt;
   stmt_ann_t ann;
-  use_optype uses;
-  def_optype defs;
-  unsigned x;
   var_map map;
+  ssa_op_iter iter;
 #ifdef ENABLE_CHECKING
   sbitmap used_in_real_ops;
   sbitmap used_in_virtual_ops;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
 #endif
 
   map = init_var_map (num_ssa_names + 1);
@@ -378,10 +372,8 @@ create_ssa_var_map (int flags)
 	  ann = stmt_ann (stmt);
 
 	  /* Register USE and DEF operands in each statement.  */
-	  uses = USE_OPS (ann);
-	  for (x = 0; x < NUM_USES (uses); x++)
+	  FOR_EACH_SSA_TREE_OPERAND (use , stmt, iter, SSA_OP_USE)
 	    {
-	      use = USE_OP (uses, x);
 	      register_ssa_partition (map, use, true);
 
 #ifdef ENABLE_CHECKING
@@ -389,10 +381,8 @@ create_ssa_var_map (int flags)
 #endif
 	    }
 
-	  defs = DEF_OPS (ann);
-	  for (x = 0; x < NUM_DEFS (defs); x++)
+	  FOR_EACH_SSA_TREE_OPERAND (dest, stmt, iter, SSA_OP_DEF)
 	    {
-	      dest = DEF_OP (defs, x);
 	      register_ssa_partition (map, dest, false);
 
 #ifdef ENABLE_CHECKING
@@ -402,26 +392,12 @@ create_ssa_var_map (int flags)
 
 #ifdef ENABLE_CHECKING
 	  /* Validate that virtual ops don't get used in funny ways.  */
-	  vuses = VUSE_OPS (ann);
-	  for (x = 0; x < NUM_VUSES (vuses); x++)
+	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
+				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
 	    {
-	      tree var = VUSE_OP (vuses, x);
-	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (use))->uid);
 	    }
 
-	  v_may_defs = V_MAY_DEF_OPS (ann);
-	  for (x = 0; x < NUM_V_MAY_DEFS (v_may_defs); x++)
-	    {
-	      tree var = V_MAY_DEF_OP (v_may_defs, x);
-	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
-	    }
-	    
-	  v_must_defs = V_MUST_DEF_OPS (ann);
-	  for (x = 0; x < NUM_V_MUST_DEFS (v_must_defs); x++)
-	    {
-	      tree var = V_MUST_DEF_OP (v_must_defs, x);
-	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
-	    }	    
 #endif /* ENABLE_CHECKING */
 
 	  mark_all_vars_used (bsi_stmt_ptr (bsi));
@@ -438,7 +414,7 @@ create_ssa_var_map (int flags)
 	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
 	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
 		   get_name (referenced_var (i))));
-	abort ();
+	internal_error ("SSA corruption");
       }
 
     sbitmap_free (used_in_real_ops);
@@ -512,30 +488,32 @@ live_worklist (tree_live_info_p live, varray_type stack, int i)
   basic_block def_bb = NULL;
   edge e;
   var_map map = live->map;
+  edge_iterator ei;
+  bitmap_iterator bi;
 
   var = partition_to_var (map, i);
   if (SSA_NAME_DEF_STMT (var))
     def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
 
-  EXECUTE_IF_SET_IN_BITMAP (live->livein[i], 0, b,
+  EXECUTE_IF_SET_IN_BITMAP (live->livein[i], 0, b, bi)
     {
       VARRAY_PUSH_INT (stack, b);
-    });
+    }
 
   while (VARRAY_ACTIVE_SIZE (stack) > 0)
     {
       b = VARRAY_TOP_INT (stack);
       VARRAY_POP (stack);
 
-      for (e = BASIC_BLOCK (b)->pred; e; e = e->pred_next)
-        if (e->src != ENTRY_BLOCK_PTR)
+      FOR_EACH_EDGE (e, ei, BASIC_BLOCK (b)->preds)
+	if (e->src != ENTRY_BLOCK_PTR)
 	  {
 	    /* Its not live on entry to the block its defined in.  */
 	    if (e->src == def_bb)
 	      continue;
 	    if (!bitmap_bit_p (live->livein[i], e->src->index))
 	      {
-	        bitmap_set_bit (live->livein[i], e->src->index);
+		bitmap_set_bit (live->livein[i], e->src->index);
 		VARRAY_PUSH_INT (stack, e->src->index);
 	      }
 	  }
@@ -579,7 +557,7 @@ tree_live_info_p
 calculate_live_on_entry (var_map map)
 {
   tree_live_info_p live;
-  int num, i;
+  int i;
   basic_block bb;
   bitmap saw_def;
   tree phi, var, stmt;
@@ -587,9 +565,13 @@ calculate_live_on_entry (var_map map)
   edge e;
   varray_type stack;
   block_stmt_iterator bsi;
-  use_optype uses;
-  def_optype defs;
   stmt_ann_t ann;
+  ssa_op_iter iter;
+  bitmap_iterator bi;
+#ifdef ENABLE_CHECKING
+  int num;
+  edge_iterator ei;
+#endif
 
   saw_def = BITMAP_XMALLOC ();
 
@@ -636,29 +618,23 @@ calculate_live_on_entry (var_map map)
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
 
-	  uses = USE_OPS (ann);
-	  num = NUM_USES (uses);
-	  for (i = 0; i < num; i++)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
-	      op = USE_OP (uses, i);
 	      add_livein_if_notdef (live, saw_def, op, bb);
 	    }
 
-	  defs = DEF_OPS (ann);
-	  num = NUM_DEFS (defs);
-	  for (i = 0; i < num; i++)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
 	    {
-	      op = DEF_OP (defs, i);
 	      set_if_valid (map, saw_def, op);
 	    }
 	}
     }
 
   VARRAY_INT_INIT (stack, last_basic_block, "stack");
-  EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i, bi)
     {
       live_worklist (live, stack, i);
-    });
+    }
 
 #ifdef ENABLE_CHECKING
    /* Check for live on entry partitions and report those with a DEF in
@@ -667,7 +643,7 @@ calculate_live_on_entry (var_map map)
 
   bb = ENTRY_BLOCK_PTR;
   num = 0;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       int entry_block = e->dest->index;
       if (e->dest == EXIT_BLOCK_PTR)
@@ -741,8 +717,7 @@ calculate_live_on_entry (var_map map)
 	      }
 	}
     }
-  if (num > 0)
-    abort ();
+  gcc_assert (num <= 0);
 #endif
 
   BITMAP_XFREE (saw_def);
@@ -786,13 +761,16 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
   /* Set live on exit for all predecessors of live on entry's.  */
   for (i = 0; i < num_var_partitions (map); i++)
     {
+      bitmap_iterator bi;
+
       on_entry = live_entry_blocks (liveinfo, i);
-      EXECUTE_IF_SET_IN_BITMAP (on_entry, 0, b,
+      EXECUTE_IF_SET_IN_BITMAP (on_entry, 0, b, bi)
         {
-	  for (e = BASIC_BLOCK(b)->pred; e; e = e->pred_next)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, BASIC_BLOCK (b)->preds)
 	    if (e->src != ENTRY_BLOCK_PTR)
 	      bitmap_set_bit (on_exit[e->src->index], i);
-	});
+	}
     }
 
   liveinfo->liveout = on_exit;
@@ -969,10 +947,7 @@ root_var_init (var_map map)
 
       p = var_to_partition (map, t);
 
-#ifdef ENABLE_CHECKING
-      if (p == NO_PARTITION)
-        abort ();
-#endif
+      gcc_assert (p != NO_PARTITION);
 
       /* Make sure we only put coalesced partitions into the list once.  */
       if (TEST_BIT (seen, p))
@@ -1039,16 +1014,13 @@ type_var_init (var_map map)
       	  || TREE_CODE (t) == PARM_DECL 
 	  || (DECL_P (t)
 	      && (DECL_REGISTER (t)
-		  || !DECL_ARTIFICIAL (t)
+		  || !DECL_IGNORED_P (t)
 		  || DECL_RTL_SET_P (t))))
         continue;
 
       p = var_to_partition (map, t);
 
-#ifdef ENABLE_CHECKING
-      if (p == NO_PARTITION)
-        abort ();
-#endif
+      gcc_assert (p != NO_PARTITION);
 
       /* If partitions have been coalesced, only add the representative 
 	 for the partition to the list once.  */
@@ -1169,10 +1141,7 @@ add_coalesce (coalesce_list_p cl, int p1, int p2, int value)
 {
   partition_pair_p node;
 
-#ifdef ENABLE_CHECKING
-  if (!cl->add_mode)
-    abort();
-#endif
+  gcc_assert (cl->add_mode);
 
   if (p1 == p2)
     return;
@@ -1203,8 +1172,7 @@ sort_coalesce_list (coalesce_list_p cl)
   partition_pair_p chain, p;
   partition_pair_p  *list;
 
-  if (!cl->add_mode)
-    abort();
+  gcc_assert (cl->add_mode);
 
   cl->add_mode = false;
 
@@ -1230,10 +1198,7 @@ sort_coalesce_list (coalesce_list_p cl)
       for (p = chain; p != NULL; p = p->next)
 	list[count++] = p;
 
-#ifdef ENABLE_CHECKING
-  if (count != num)
-    abort ();
-#endif
+      gcc_assert (count == num);
 	
       qsort (list, count, sizeof (partition_pair_p), compare_pairs);
 
@@ -1274,8 +1239,7 @@ pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
   partition_pair_p node;
   int ret;
 
-  if (cl->add_mode)
-    abort();
+  gcc_assert (!cl->add_mode);
 
   node = cl->list[0];
   if (!node)
@@ -1332,12 +1296,12 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   conflict_graph graph;
   var_map map;
   bitmap live;
-  int num, x, y, i;
+  int x, y, i;
   basic_block bb;
   varray_type partition_link, tpa_to_clear, tpa_nodes;
-  def_optype defs;
-  use_optype uses;
   unsigned l;
+  ssa_op_iter iter;
+  bitmap_iterator bi;
 
   map = live_var_map (liveinfo);
   graph = conflict_graph_new (num_var_partitions (map));
@@ -1415,20 +1379,13 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	  if (!is_a_copy)
 	    {
 	      tree var;
-
-	      defs = DEF_OPS (ann);
-	      num = NUM_DEFS (defs);
-	      for (x = 0; x < num; x++)
+	      FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_DEF)
 		{
-		  var = DEF_OP (defs, x);
 		  add_conflicts_if_valid (tpa, graph, map, live, var);
 		}
 
-	      uses = USE_OPS (ann);
-	      num = NUM_USES (uses);
-	      for (x = 0; x < num; x++)
+	      FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
 		{
-		  var = USE_OP (uses, x);
 		  set_if_valid (map, live, var);
 		}
 	    }
@@ -1461,7 +1418,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	 tpa_clear contains all the tpa_roots processed, and these are the only
 	 entries which need to be zero'd out for a clean restart.  */
 
-      EXECUTE_IF_SET_IN_BITMAP (live, 0, x,
+      EXECUTE_IF_SET_IN_BITMAP (live, 0, x, bi)
         {
 	  i = tpa_find_tree (tpa, x);
 	  if (i != TPA_NONE)
@@ -1478,7 +1435,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	      VARRAY_INT (tpa_nodes, i) = x + 1;
 	      VARRAY_INT (partition_link, x + 1) = start;
 	    }
-	});
+	}
 
 	/* Now clear the used tpa root references.  */
 	for (l = 0; l < VARRAY_ACTIVE_SIZE (tpa_to_clear); l++)
@@ -1795,6 +1752,7 @@ dump_live_info (FILE *f, tree_live_info_p live, int flag)
   basic_block bb;
   int i;
   var_map map = live->map;
+  bitmap_iterator bi;
 
   if ((flag & LIVEDUMP_ENTRY) && live->livein)
     {
@@ -1818,104 +1776,27 @@ dump_live_info (FILE *f, tree_live_info_p live, int flag)
       FOR_EACH_BB (bb)
 	{
 	  fprintf (f, "\nLive on exit from BB%d : ", bb->index);
-	  EXECUTE_IF_SET_IN_BITMAP (live->liveout[bb->index], 0, i,
+	  EXECUTE_IF_SET_IN_BITMAP (live->liveout[bb->index], 0, i, bi)
 	    {
 	      print_generic_expr (f, partition_to_var (map, i), TDF_SLIM);
 	      fprintf (f, "  ");
-	    });
+	    }
 	  fprintf (f, "\n");
 	}
     }
 }
 
-/* Register partitions in MAP so that we can take VARS out of SSA form. 
-   This requires a walk over all the PHI nodes and all the statements.  */
-
+#ifdef ENABLE_CHECKING
 void
-register_ssa_partitions_for_vars (bitmap vars, var_map map)
+register_ssa_partition_check (tree ssa_var)
 {
-  basic_block bb;
-
-  if (bitmap_first_set_bit (vars) >= 0)
+  gcc_assert (TREE_CODE (ssa_var) == SSA_NAME);
+  if (!is_gimple_reg (SSA_NAME_VAR (ssa_var)))
     {
-
-      /* Find every instance (SSA_NAME) of variables in VARs and
-	 register a new partition for them.  This requires examining
-	 every statement and every PHI node once.  */
-      FOR_EACH_BB (bb)
-	{
-	  block_stmt_iterator bsi;
-	  tree next;
-	  tree phi;
-
-	  /* Register partitions for SSA_NAMEs appearing in the PHI
-	     nodes in this basic block.
-
-	     Note we delete PHI nodes in this loop if they are 
-	     associated with virtual vars which are going to be
-	     renamed.  */
-	  for (phi = phi_nodes (bb); phi; phi = next)
-	    {
-	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-
-	      next = PHI_CHAIN (phi);
-	      if (bitmap_bit_p (vars, var_ann (result)->uid))
-		{
-		  if (! is_gimple_reg (result))
-		    remove_phi_node (phi, NULL_TREE, bb);
-		  else
-		    {
-		      int i;
-
-		      /* Register a partition for the result.  */
-		      register_ssa_partition (map, PHI_RESULT (phi), 0);
-
-		      /* Register a partition for each argument as needed.  */
-		      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-			{
-			  tree arg = PHI_ARG_DEF (phi, i);
-
-			  if (TREE_CODE (arg) != SSA_NAME)
-			    continue;
-			  if (!bitmap_bit_p (vars, 
-					     var_ann (SSA_NAME_VAR (arg))->uid))
-			    continue;
-
-			  register_ssa_partition (map, arg, 1);
-		        }
-		    }
-		}
-	    }
-
-	  /* Now register partitions for SSA_NAMEs appearing in each
-	     statement in this block.  */
-	  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
-	    {
-	      stmt_ann_t ann = stmt_ann (bsi_stmt (bsi));
-	      use_optype uses = USE_OPS (ann);
-	      def_optype defs = DEF_OPS (ann);
-	      unsigned int i;
-
-	      for (i = 0; i < NUM_USES (uses); i++)
-		{
-		  tree op = USE_OP (uses, i);
-
-		  if (TREE_CODE (op) == SSA_NAME
-		      && bitmap_bit_p (vars, var_ann (SSA_NAME_VAR (op))->uid))
-		    register_ssa_partition (map, op, 1);
-		}
-		    
-	      for (i = 0; i < NUM_DEFS (defs); i++)
-		{
-		  tree op = DEF_OP (defs, i);
-
-		  if (TREE_CODE (op) == SSA_NAME
-			  && bitmap_bit_p (vars,
-			     var_ann (SSA_NAME_VAR (op))->uid))
-		    register_ssa_partition (map, op, 0);
-		}
-	    }
-	}
+      fprintf (stderr, "Illegally registering a virtual SSA name :");
+      print_generic_expr (stderr, ssa_var, TDF_SLIM);
+      fprintf (stderr, " in the SSA->Normal phase.\n");
+      internal_error ("SSA corruption");
     }
 }
-
+#endif

@@ -40,9 +40,41 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "target.h"
 #include "tm_p.h"
 #include "errors.h"
 #include "hashtab.h"
+
+/* Darwin supports a feature called fix-and-continue, which is used
+   for rapid turn around debugging.  When code is compiled with the
+   -mfix-and-continue flag, two changes are made to the generated code
+   that allow the system to do things that it would normally not be
+   able to do easily.  These changes allow gdb to load in
+   recompilation of a translation unit that has been changed into a
+   running program and replace existing functions and methods of that
+   translation unit with with versions of those functions and methods
+   from the newly compiled translation unit.  The new functions access
+   the existing static data from the old translation unit, if the data
+   existed in the unit to be replaced, and from the new translation
+   unit, for new data.
+
+   The changes are to insert 4 nops at the beginning of all functions
+   and to use indirection to get at static duration data.  The 4 nops
+   are required by consumers of the generated code.  Currently, gdb
+   uses this to patch in a jump to the overriding function, this
+   allows all uses of the old name to forward to the replacement,
+   including existing function pointers and virtual methods.  See
+   rs6000_emit_prologue for the code that handles the nop insertions.
+ 
+   The added indirection allows gdb to redirect accesses to static
+   duration data from the newly loaded translation unit to the
+   existing data, if any.  @code{static} data is special and is
+   handled by setting the second word in the .non_lazy_symbol_pointer
+   data structure to the address of the data.  See indirect_data for
+   the code that handles the extra indirection, and
+   machopic_output_indirection and its use of MACHO_SYMBOL_STATIC for
+   the code that handles @code{static} data indirection.  */
+
 
 /* Nonzero if the user passes the -mone-byte-bool switch, which forces
    sizeof(bool) to be 1. */
@@ -66,9 +98,8 @@ name_needs_quotes (const char *name)
 static int
 machopic_symbol_defined_p (rtx sym_ref)
 {
-  return ((SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
-	  /* Local symbols must always be defined.  */
-	  || SYMBOL_REF_LOCAL_P (sym_ref));
+  return (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
+    || (SYMBOL_REF_LOCAL_P (sym_ref) && ! SYMBOL_REF_EXTERNAL_P (sym_ref));
 }
 
 /* This module assumes that (const (symbol_ref "foo")) is a legal pic
@@ -90,9 +121,51 @@ machopic_classify_symbol (rtx sym_ref)
 	    ? MACHOPIC_UNDEFINED_FUNCTION : MACHOPIC_UNDEFINED_DATA);
 }
 
+#ifndef TARGET_FIX_AND_CONTINUE
+#define TARGET_FIX_AND_CONTINUE 0
+#endif
+
+/* Indicate when fix-and-continue style code generation is being used
+   and when a reference to data should be indirected so that it can be
+   rebound in a new translation unit to refernce the original instance
+   of that data.  Symbol names that are for code generation local to
+   the translation unit are bound to the new translation unit;
+   currently this means symbols that begin with L or _OBJC_;
+   otherwise, we indicate that an indirect reference should be made to
+   permit the runtime to rebind new instances of the translation unit
+   to the original instance of the data.  */
+
+static int
+indirect_data (rtx sym_ref)
+{
+  int lprefix;
+  const char *name;
+
+  /* If we aren't generating fix-and-continue code, don't do anything special.  */
+  if (TARGET_FIX_AND_CONTINUE == 0)
+    return 0;
+
+  /* Otherwise, all symbol except symbols that begin with L or _OBJC_
+     are indirected.  Symbols that begin with L and _OBJC_ are always
+     bound to the current translation unit as they are used for
+     generated local data of the translation unit.  */
+
+  name = XSTR (sym_ref, 0);
+
+  lprefix = (((name[0] == '*' || name[0] == '&')
+              && (name[1] == 'L' || (name[1] == '"' && name[2] == 'L')))
+             || (strncmp (name, "_OBJC_", 6)));
+
+  return ! lprefix;
+}
+
+
 static int
 machopic_data_defined_p (rtx sym_ref)
 {
+  if (indirect_data (sym_ref))
+    return 0;
+
   switch (machopic_classify_symbol (sym_ref))
     {
     case MACHOPIC_DEFINED_DATA:
@@ -173,9 +246,8 @@ typedef struct machopic_indirection GTY (())
 {
   /* The SYMBOL_REF for the entity referenced.  */
   rtx symbol;
-  /* The IDENTIFIER_NODE giving the name of the stub or non-lazy
-     pointer.  */
-  tree ptr_name;
+  /* The name of the stub or non-lazy pointer.  */
+  const char * ptr_name;
   /* True iff this entry is for a stub (as opposed to a non-lazy
      pointer).  */
   bool stub_p;
@@ -195,7 +267,7 @@ static hashval_t
 machopic_indirection_hash (const void *slot)
 {
   const machopic_indirection *p = (const machopic_indirection *) slot;
-  return IDENTIFIER_HASH_VALUE (p->ptr_name);
+  return htab_hash_string (p->ptr_name);
 }
 
 /* Returns true if the KEY is the same as that associated with
@@ -204,7 +276,7 @@ machopic_indirection_hash (const void *slot)
 static int
 machopic_indirection_eq (const void *slot, const void *key)
 {
-  return ((const machopic_indirection *) slot)->ptr_name == (tree) key;
+  return strcmp (((const machopic_indirection *) slot)->ptr_name, key) == 0;
 }
 
 /* Return the name of the non-lazy pointer (if STUB_P is false) or
@@ -215,9 +287,9 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 {
   char *buffer;
   const char *name = XSTR (sym_ref, 0);
-  int namelen = strlen (name);
-  tree ptr_name;
+  size_t namelen = strlen (name);
   machopic_indirection *p;
+  void ** slot;
   
   /* Construct the name of the non-lazy pointer or stub.  */
   if (stub_p)
@@ -256,32 +328,29 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 		 user_label_prefix, name);
     }
 
-  /* See if we already have it.  */
-  ptr_name = maybe_get_identifier (buffer);
-  /* If not, create a mapping from the non-lazy pointer to the
-     SYMBOL_REF.  */
-  if (!ptr_name)
+  if (!machopic_indirections)
+    machopic_indirections = htab_create_ggc (37, 
+					     machopic_indirection_hash,
+					     machopic_indirection_eq,
+					     /*htab_del=*/NULL);
+  
+  slot = htab_find_slot_with_hash (machopic_indirections, buffer,
+				   htab_hash_string (buffer), INSERT);
+  if (*slot)
     {
-      void **slot;
-      ptr_name = get_identifier (buffer);
+      p = (machopic_indirection *) *slot;
+    }
+  else
+    {
       p = (machopic_indirection *) ggc_alloc (sizeof (machopic_indirection));
       p->symbol = sym_ref;
-      p->ptr_name = ptr_name;
+      p->ptr_name = xstrdup (buffer);
       p->stub_p = stub_p;
-      p->used = 0;
-      if (!machopic_indirections)
-	machopic_indirections 
-	  = htab_create_ggc (37, 
-			     machopic_indirection_hash,
-			     machopic_indirection_eq,
-			     /*htab_del=*/NULL);
-      slot = htab_find_slot_with_hash (machopic_indirections, ptr_name,
-				       IDENTIFIER_HASH_VALUE (ptr_name),
-				       INSERT);
-      *((machopic_indirection **) slot) = p;
+      p->used = false;
+      *slot = p;
     }
   
-  return IDENTIFIER_POINTER (ptr_name);
+  return p->ptr_name;
 }
 
 /* Return the name of the stub for the mcount function.  */
@@ -289,7 +358,8 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
 const char*
 machopic_mcount_stub_name (void)
 {
-  return "&L*mcount$stub";
+  rtx symbol = gen_rtx_SYMBOL_REF (Pmode, "*mcount");
+  return machopic_indirection_name (symbol, /*stub_p=*/true);
 }
 
 /* If NAME is the name of a stub or a non-lazy pointer , mark the stub
@@ -300,18 +370,27 @@ machopic_mcount_stub_name (void)
 void
 machopic_validate_stub_or_non_lazy_ptr (const char *name)
 {
-  tree ident = get_identifier (name);
-
   machopic_indirection *p;
   
   p = ((machopic_indirection *) 
-       (htab_find_with_hash (machopic_indirections, ident,
-			     IDENTIFIER_HASH_VALUE (ident))));
-  if (p)
+       (htab_find_with_hash (machopic_indirections, name,
+			     htab_hash_string (name))));
+  if (p && ! p->used)
     {
-      p->used = 1;
-      mark_referenced (ident);
-      mark_referenced (get_identifier (XSTR (p->symbol, 0)));
+      const char *real_name;
+      tree id;
+      
+      p->used = true;
+
+      /* Do what output_addr_const will do when we actually call it.  */
+      if (SYMBOL_REF_DECL (p->symbol))
+	mark_decl_referenced (SYMBOL_REF_DECL (p->symbol));
+
+      real_name = targetm.strip_name_encoding (XSTR (p->symbol, 0));
+      
+      id = maybe_get_identifier (real_name);
+      if (id)
+	mark_referenced (id);
     }
 }
 
@@ -333,8 +412,12 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       if (defined && MACHO_DYNAMIC_NO_PIC_P)
 	{
 #if defined (TARGET_TOC)
-           emit_insn (gen_macho_high (reg, orig));
-           emit_insn (gen_macho_low (reg, reg, orig));
+ 	  emit_insn (GET_MODE (orig) == DImode
+		     ? gen_macho_high_di (reg, orig)
+		     : gen_macho_high (reg, orig));
+ 	  emit_insn (GET_MODE (orig) == DImode
+		     ? gen_macho_low_di (reg, reg, orig)
+		     : gen_macho_low (reg, reg, orig));
 #else
 	   /* some other cpu -- writeme!  */
 	   abort ();
@@ -378,14 +461,14 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  return orig;
 	}
 
-      ptr_ref = (gen_rtx_SYMBOL_REF 
+      ptr_ref = (gen_rtx_SYMBOL_REF
 		 (Pmode, 
 		  machopic_indirection_name (orig, /*stub_p=*/false)));
 
-     SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
+      SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
 
-      ptr_ref = gen_rtx_MEM (Pmode, ptr_ref);
-      RTX_UNCHANGING_P (ptr_ref) = 1;
+      ptr_ref = gen_const_mem (Pmode, ptr_ref);
+      machopic_define_symbol (ptr_ref);
 
       return ptr_ref;
     }
@@ -469,7 +552,8 @@ machopic_indirect_call_target (rtx target)
       
       XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
       SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
-      RTX_UNCHANGING_P (target) = 1;
+      MEM_READONLY_P (target) = 1;
+      MEM_NOTRAP_P (target) = 1;
     }
 
   return target;
@@ -529,10 +613,11 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
-	      emit_insn (gen_macho_high (temp_reg, asym));
-	      mem = gen_rtx_MEM (GET_MODE (orig),
-				 gen_rtx_LO_SUM (Pmode, temp_reg, asym));
-	      RTX_UNCHANGING_P (mem) = 1;
+	      emit_insn (mode == DImode
+			 ? gen_macho_high_di (temp_reg, asym)
+			 : gen_macho_high (temp_reg, asym));
+	      mem = gen_const_mem (GET_MODE (orig),
+				   gen_rtx_LO_SUM (Pmode, temp_reg, asym));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other platform that can use dynamic-no-pic  */
@@ -551,7 +636,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
@@ -562,10 +647,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg, sum));
 
-	      mem = gen_rtx_MEM (GET_MODE (orig),
-				 gen_rtx_LO_SUM (Pmode, 
-						 hi_sum_reg, offset));
-	      RTX_UNCHANGING_P (mem) = 1;
+	      mem = gen_const_mem (GET_MODE (orig),
+				  gen_rtx_LO_SUM (Pmode, 
+						  hi_sum_reg, offset));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, pic_ref, 
 						    REG_NOTES (insn));
@@ -612,9 +696,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 #if !defined (TARGET_TOC)
 	  emit_move_insn (reg, pic_ref);
-	  pic_ref = gen_rtx_MEM (GET_MODE (orig), reg);
+	  pic_ref = gen_const_mem (GET_MODE (orig), reg);
 #endif
-	  RTX_UNCHANGING_P (pic_ref) = 1;
 	}
       else
 	{
@@ -634,7 +717,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  if (reload_in_progress)
 		    abort ();
 		  else
-		    reg = gen_reg_rtx (SImode);
+		    reg = gen_reg_rtx (Pmode);
 		}
 
 	      hi_sum_reg = reg;
@@ -650,7 +733,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				      gen_rtx_LO_SUM (Pmode,
 						      hi_sum_reg, offset)));
 	      pic_ref = reg;
-	      RTX_UNCHANGING_P (pic_ref) = 1;
 #else
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_HIGH (Pmode, offset)));
@@ -658,7 +740,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				      gen_rtx_LO_SUM (Pmode, reg, offset)));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
-	      RTX_UNCHANGING_P (pic_ref) = 1;
 #endif
 	    }
 	  else
@@ -732,9 +813,6 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       else
 	pic_ref = gen_rtx_PLUS (Pmode, base, orig);
 
-      if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
-	RTX_UNCHANGING_P (pic_ref) = 1;
-
       if (reg && is_complex)
 	{
 	  emit_move_insn (reg, pic_ref);
@@ -752,9 +830,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	   && GET_CODE (XEXP (orig, 0)) == SYMBOL_REF)
     {
       rtx addr = machopic_legitimize_pic_address (XEXP (orig, 0), Pmode, reg);
-
-      addr = gen_rtx_MEM (GET_MODE (orig), addr);
-      RTX_UNCHANGING_P (addr) = RTX_UNCHANGING_P (orig);
+      addr = replace_equiv_address (orig, addr);
       emit_move_insn (reg, addr);
       pic_ref = reg;
     }
@@ -780,7 +856,7 @@ machopic_output_indirection (void **slot, void *data)
 
   symbol = p->symbol;
   sym_name = XSTR (symbol, 0);
-  ptr_name = IDENTIFIER_POINTER (p->ptr_name);
+  ptr_name = p->ptr_name;
   
   if (p->stub_p)
     {
@@ -801,9 +877,11 @@ machopic_output_indirection (void **slot, void *data)
       else
 	sprintf (stub, "%s%s", user_label_prefix, ptr_name);
 
-      machopic_output_stub (asm_out_file, sym, stub);    
+      machopic_output_stub (asm_out_file, sym, stub);
     }
-  else if (machopic_symbol_defined_p (symbol))
+  else if (! indirect_data (symbol)
+	   && (machopic_symbol_defined_p (symbol)
+	       || SYMBOL_REF_LOCAL_P (symbol)))
     {
       data_section ();
       assemble_align (GET_MODE_ALIGNMENT (Pmode));
@@ -814,6 +892,8 @@ machopic_output_indirection (void **slot, void *data)
     }
   else
     {
+      rtx init = const0_rtx;
+
       machopic_nl_symbol_ptr_section ();
       assemble_name (asm_out_file, ptr_name);
       fprintf (asm_out_file, ":\n");
@@ -822,7 +902,18 @@ machopic_output_indirection (void **slot, void *data)
       assemble_name (asm_out_file, sym_name);
       fprintf (asm_out_file, "\n");
       
-      assemble_integer (const0_rtx, GET_MODE_SIZE (Pmode),
+      /* Variables that are marked with MACHO_SYMBOL_STATIC need to
+	 have their symbol name instead of 0 in the second entry of
+	 the non-lazy symbol pointer data structure when they are
+	 defined.  This allows the runtime to rebind newer instances
+	 of the translation unit with the original instance of the
+	 data.  */
+
+      if ((SYMBOL_REF_FLAGS (symbol) & MACHO_SYMBOL_STATIC)
+	  && machopic_symbol_defined_p (symbol))
+	init = gen_rtx_SYMBOL_REF (Pmode, sym_name);
+
+      assemble_integer (init, GET_MODE_SIZE (Pmode),
 			GET_MODE_ALIGNMENT (Pmode), 1);
     }
   
@@ -833,7 +924,7 @@ void
 machopic_finish (FILE *asm_out_file)
 {
   if (machopic_indirections)
-    htab_traverse_noresize (machopic_indirections, 
+    htab_traverse_noresize (machopic_indirections,
 			    machopic_output_indirection,
 			    asm_out_file);
 }
@@ -891,20 +982,42 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 	  || (!DECL_COMMON (decl) && DECL_INITIAL (decl)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
+
+  if (TREE_CODE (decl) == VAR_DECL
+      && indirect_data (sym_ref)
+      && ! TREE_PUBLIC (decl))
+    SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_STATIC;
 }
+
+static GTY(()) tree textcoal_section = 0;
+static GTY(()) tree datacoal_section = 0;
 
 void
 darwin_make_decl_one_only (tree decl)
 {
-  static const char *text_section = "__TEXT,__textcoal_nt,coalesced,no_toc";
-  static const char *data_section = "__DATA,__datacoal_nt,coalesced,no_toc";
+  tree sec = 0;
+  if (textcoal_section == 0)
+    {
+      static const char *ts = "__TEXT,__textcoal_nt,coalesced,pure_instructions";
+      static const char *ds = "__DATA,__datacoal_nt,coalesced";
+      textcoal_section = build_string (strlen (ts), ts);
+      datacoal_section = build_string (strlen (ds), ds);
+    }
 
-  const char *sec = TREE_CODE (decl) == FUNCTION_DECL
-    ? text_section
-    : data_section;
+  sec = TREE_CODE (decl) == FUNCTION_DECL
+    ? textcoal_section
+    : datacoal_section;
   TREE_PUBLIC (decl) = 1;
   DECL_ONE_ONLY (decl) = 1;
-  DECL_SECTION_NAME (decl) = build_string (strlen (sec), sec);
+  DECL_SECTION_NAME (decl) = sec;
+}
+
+void
+darwin_mark_decl_preserved (const char *name)
+{
+  fprintf (asm_out_file, ".no_dead_strip ");
+  assemble_name (asm_out_file, name);
+  fputc ('\n', asm_out_file);
 }
 
 void
@@ -1074,12 +1187,11 @@ darwin_globalize_label (FILE *stream, const char *name)
 }
 
 void
-darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
+darwin_asm_named_section (const char *name, 
+			  unsigned int flags ATTRIBUTE_UNUSED,
+			  tree decl ATTRIBUTE_UNUSED)
 {
-  if (flag_reorder_blocks_and_partition)
-    fprintf (asm_out_file, SECTION_FORMAT_STRING, name);
-  else
-    fprintf (asm_out_file, ".section %s\n", name);
+  fprintf (asm_out_file, ".section %s\n", name);
 }
 
 unsigned int
@@ -1254,6 +1366,16 @@ darwin_file_end (void)
       destructor_section ();
       ASM_OUTPUT_ALIGN (asm_out_file, 1);
     }
+  fprintf (asm_out_file, "\t.subsections_via_symbols\n");
 }
+
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 4 nops so
+   that gdb may insert code to redirect them, and for data to accessed
+   indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+int darwin_fix_and_continue;
+const char *darwin_fix_and_continue_switch;
 
 #include "gt-darwin.h"

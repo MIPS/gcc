@@ -142,6 +142,8 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_RETURN_IN_MEMORY arc_return_in_memory
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE arc_pass_by_reference
+#undef TARGET_CALLEE_COPIES
+#define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS arc_setup_incoming_varargs
@@ -1969,7 +1971,7 @@ arc_final_prescan_insn (rtx insn,
   /* BODY will hold the body of INSN.  */
   register rtx body = PATTERN (insn);
 
-  /* This will be 1 if trying to repeat the trick (ie: do the `else' part of
+  /* This will be 1 if trying to repeat the trick (i.e.: do the `else' part of
      an if/then/else), and things need to be reversed.  */
   int reverse = 0;
 
@@ -2356,4 +2358,3 @@ arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 
   return size > 8;
 }
-

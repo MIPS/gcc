@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "langhooks.h"
-#include "tree-iterator.h"
 #include "tree-chrec.h"
 
 /* Local functions, macros and variables.  */
@@ -70,7 +69,7 @@ do_niy (pretty_printer *buffer, tree node)
   pp_string (buffer, "<<< Unknown tree: ");
   pp_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+  if (EXPR_P (node))
     {
       len = first_rtl_op (TREE_CODE (node));
       for (i = 0; i < len; ++i)
@@ -162,14 +161,25 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
     {
       if (TREE_CODE (node) == LABEL_DECL
 	  && LABEL_DECL_UID (node) != -1)
-	pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
+	pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
 		   LABEL_DECL_UID (node));
       else
 	{
 	  char c = TREE_CODE (node) == CONST_DECL ? 'C' : 'D';
-	  pp_printf (buffer, "<%c%u>", c, DECL_UID (node));
+	  pp_printf (buffer, "%c.%u", c, DECL_UID (node));
 	}
     }
+}
+
+/* Like the above, but used for pretty printing function calls.  */
+
+static void
+dump_function_name (pretty_printer *buffer, tree node)
+{
+  if (DECL_NAME (node))
+    PRINT_FUNCTION_NAME (node);
+  else
+    dump_decl_name (buffer, node, 0);
 }
 
 /* Dump a function declaration.  NODE is the FUNCTION_TYPE.  BUFFER, SPC and
@@ -274,8 +284,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       break;
 
-    case TREE_VEC:
+    case TREE_BINFO:
       dump_generic_node (buffer, BINFO_TYPE (node), spc, flags, false);
+
+    case TREE_VEC:
+      {
+	size_t i;
+	if (TREE_VEC_LENGTH (node) > 0)
+	  {
+	    size_t len = TREE_VEC_LENGTH (node);
+	    for (i = 0; i < len - 1; i++)
+	      {	    
+		dump_generic_node (buffer, TREE_VEC_ELT (node, i), spc, flags,
+				   false);
+		pp_character (buffer, ',');
+		pp_space (buffer);
+	      }
+	    dump_generic_node (buffer, TREE_VEC_ELT (node, len - 1), spc, 
+			       flags, false);
+	  }
+      }
       break;
 
     case BLOCK:
@@ -292,7 +320,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case CHAR_TYPE:
       {
 	unsigned int quals = TYPE_QUALS (node);
-	char class;
+	enum tree_code_class class;
 
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
@@ -303,14 +331,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	class = TREE_CODE_CLASS (TREE_CODE (node));
 
-	if (class == 'd')
+	if (class == tcc_declaration)
 	  {
 	    if (DECL_NAME (node))
 	      dump_decl_name (buffer, node, flags);
 	    else
               pp_string (buffer, "<unnamed type decl>");
 	  }
-	else if (class == 't')
+	else if (class == tcc_type)
 	  {
 	    if (TYPE_NAME (node))
 	      {
@@ -320,7 +348,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			 && DECL_NAME (TYPE_NAME (node)))
 		  dump_decl_name (buffer, TYPE_NAME (node), flags);
 		else
-                  pp_string (buffer, "<unnamed type>");
+		  pp_string (buffer, "<unnamed type>");
+	      }
+	    else if (TREE_CODE (node) == VECTOR_TYPE)
+	      {
+		pp_string (buffer, "vector ");
+		dump_generic_node (buffer, TREE_TYPE (node), 
+				   spc, flags, false);
 	      }
 	    else
               pp_string (buffer, "<unnamed type>");
@@ -473,9 +507,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (tree_int_cst_sgn (val) < 0)
 	    {
 	      pp_character (buffer, '-');
-	      val = build_int_2 (-TREE_INT_CST_LOW (val),
-				 ~TREE_INT_CST_HIGH (val)
-				 + !TREE_INT_CST_LOW (val));
+	      val = build_int_cst_wide (NULL_TREE,
+					-TREE_INT_CST_LOW (val),
+					~TREE_INT_CST_HIGH (val)
+					+ !TREE_INT_CST_LOW (val));
 	    }
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
@@ -626,12 +661,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, str);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
 
-      op0 = component_ref_field_offset (node);
-      if (op0 && TREE_CODE (op0) != INTEGER_CST)
+      if (TREE_CODE (op0) != VALUE_HANDLE)
 	{
-	  pp_string (buffer, "{off: ");
-	  dump_generic_node (buffer, op0, spc, flags, false);
-	  pp_character (buffer, '}');
+	  op0 = component_ref_field_offset (node);
+	  if (op0 && TREE_CODE (op0) != INTEGER_CST)
+	    {
+	      pp_string (buffer, "{off: ");
+	      dump_generic_node (buffer, op0, spc, flags, false);
+	      pp_character (buffer, '}');
+	    }
 	}
       break;
 
@@ -806,9 +844,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_character (buffer, ')');
 	  /* The lowered cond_exprs should always be printed in full.  */
 	  if (COND_EXPR_THEN (node)
-	      && TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
+	      && (IS_EMPTY_STMT (COND_EXPR_THEN (node))
+		  || TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR)
 	      && COND_EXPR_ELSE (node)
-	      && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR)
+	      && (IS_EMPTY_STMT (COND_EXPR_ELSE (node))
+		  || TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR))
 	    {
 	      pp_space (buffer);
 	      dump_generic_node (buffer, COND_EXPR_THEN (node), 0, flags, true);
@@ -1003,6 +1043,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case ADDR_EXPR:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case INDIRECT_REF:
       if (TREE_CODE (node) == ADDR_EXPR
 	  && (TREE_CODE (TREE_OPERAND (node, 0)) == STRING_CST
@@ -1019,6 +1061,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       else
 	dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+
+      if (TREE_CODE (node) == MISALIGNED_INDIRECT_REF)
+        {
+          pp_string (buffer, "{misalignment: ");
+          dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+          pp_character (buffer, '}');
+        }
       break;
 
     case POSTDECREMENT_EXPR:
@@ -1073,7 +1122,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	{
 	  pp_character (buffer, '(');
 	  dump_generic_node (buffer, type, spc, flags, false);
-	  pp_string (buffer, ")");
+	  pp_string (buffer, ") ");
 	}
       if (op_prio (op0) < op_prio (node))
 	pp_character (buffer, '(');
@@ -1100,10 +1149,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "SAVE_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_character (buffer, '>');
-      break;
-
-    case ENTRY_VALUE_EXPR:
-      NIY;
       break;
 
     case COMPLEX_EXPR:
@@ -1319,9 +1364,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case GOTO_EXPR:
       op0 = GOTO_DESTINATION (node);
-      if (TREE_CODE (op0) != SSA_NAME
-	  && DECL_P (op0)
-	  && DECL_NAME (op0))
+      if (TREE_CODE (op0) != SSA_NAME && DECL_P (op0) && DECL_NAME (op0))
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
 	  if (strcmp (name, "break") == 0
@@ -1442,6 +1485,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_stmt = false;
       break;
 
+    case REALIGN_LOAD_EXPR:
+      pp_string (buffer, "REALIGN_LOAD <");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+      
+    case VEC_COND_EXPR:
+      pp_string (buffer, " VEC_COND_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " , ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
     default:
       NIY;
     }
@@ -1520,6 +1583,14 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
       /* Print variable's name.  */
       pp_space (buffer);
       dump_generic_node (buffer, t, spc, flags, false);
+    }
+
+  if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
+    {
+      pp_string (buffer, " __asm__ ");
+      pp_character (buffer, '(');
+      dump_generic_node (buffer, DECL_ASSEMBLER_NAME (t), spc, flags, false);
+      pp_character (buffer, ')');
     }
 
   /* The initial value of a function serves to determine wether the function
@@ -1701,6 +1772,8 @@ op_prio (tree op)
     case PREINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
     case NEGATE_EXPR:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case INDIRECT_REF:
     case ADDR_EXPR:
     case FLOAT_EXPR:
@@ -1744,8 +1817,7 @@ op_prio (tree op)
 static const char *
 op_symbol (tree op)
 {
-  if (op == NULL)
-    abort ();
+  gcc_assert (op);
 
   switch (TREE_CODE (op))
     {
@@ -1830,19 +1902,39 @@ op_symbol (tree op)
     case INDIRECT_REF:
       return "*";
 
+    case ALIGN_INDIRECT_REF:
+      return "A*";
+
+    case MISALIGNED_INDIRECT_REF:
+      return "M*";
+
     case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
     case RDIV_EXPR:
-    case EXACT_DIV_EXPR:
       return "/";
 
+    case CEIL_DIV_EXPR:
+      return "/[cl]";
+
+    case FLOOR_DIV_EXPR:
+      return "/[fl]";
+
+    case ROUND_DIV_EXPR:
+      return "/[rd]";
+
+    case EXACT_DIV_EXPR:
+      return "/[ex]";
+
     case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
       return "%";
+
+    case CEIL_MOD_EXPR:
+      return "%[cl]";
+
+    case FLOOR_MOD_EXPR:
+      return "%[fl]";
+
+    case ROUND_MOD_EXPR:
+      return "%[rd]";
 
     case PREDECREMENT_EXPR:
       return " --";
@@ -1868,8 +1960,7 @@ print_call_name (pretty_printer *buffer, tree node)
 {
   tree op0;
 
-  if (TREE_CODE (node) != CALL_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (node) == CALL_EXPR);
 
   op0 = TREE_OPERAND (node, 0);
 
@@ -1880,7 +1971,7 @@ print_call_name (pretty_printer *buffer, tree node)
     {
     case VAR_DECL:
     case PARM_DECL:
-      PRINT_FUNCTION_NAME (op0);
+      dump_function_name (buffer, op0);
       break;
 
     case ADDR_EXPR:
@@ -1902,7 +1993,7 @@ print_call_name (pretty_printer *buffer, tree node)
       /* The function is a pointer contained in a structure.  */
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
 	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+	dump_function_name (buffer, TREE_OPERAND (op0, 1));
       else
 	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0, false);
       /* else
@@ -1913,7 +2004,7 @@ print_call_name (pretty_printer *buffer, tree node)
 
     case ARRAY_REF:
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+	dump_function_name (buffer, TREE_OPERAND (op0, 0));
       else
 	dump_generic_node (buffer, op0, 0, 0, false);
       break;
@@ -2039,38 +2130,35 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  size_t i;
-  stmt_ann_t ann = stmt_ann (stmt);
-  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
-  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
-  vuse_optype vuses = VUSE_OPS (ann);
+  tree use, def;
+  use_operand_p use_p;
+  def_operand_p def_p;
+  ssa_op_iter iter;
 
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
     {
       pp_string (buffer, "#   ");
-      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i),
+      dump_generic_node (buffer, DEF_FROM_PTR (def_p),
                          spc + 2, flags, false);
       pp_string (buffer, " = V_MAY_DEF <");
-      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i),
+      dump_generic_node (buffer, USE_FROM_PTR (use_p),
                          spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
 
-  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMUSTDEF)
     {
-      tree v_must_def = V_MUST_DEF_OP (v_must_defs, i);
       pp_string (buffer, "#   V_MUST_DEF <");
-      dump_generic_node (buffer, v_must_def, spc + 2, flags, false);
+      dump_generic_node (buffer, def, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
 
-  for (i = 0; i < NUM_VUSES (vuses); i++)
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE)
     {
-      tree vuse = VUSE_OP (vuses, i);
       pp_string (buffer, "#   VUSE <");
-      dump_generic_node (buffer, vuse, spc + 2, flags, false);
+      dump_generic_node (buffer, use, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
@@ -2096,6 +2184,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
   tree stmt;
+  edge_iterator ei;
 
   if (flags & TDF_BLOCKS)
     {
@@ -2124,8 +2213,8 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
-      for (e = bb->pred; e; e = e->pred_next)
-        if (flags & TDF_SLIM)
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (flags & TDF_SLIM)
 	  {
 	    pp_string (buffer, " ");
 	    if (e->src == ENTRY_BLOCK_PTR)
@@ -2160,11 +2249,12 @@ static void
 dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
+  edge_iterator ei;
 
   INDENT (indent);
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     if (flags & TDF_SLIM)
       {
 	pp_string (buffer, " ");
@@ -2230,10 +2320,11 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
 {
   edge e;
+  edge_iterator ei;
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e && e->dest != bb->next_bb)

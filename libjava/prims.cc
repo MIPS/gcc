@@ -125,10 +125,11 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
+#if defined (HANDLE_SEGV) || defined(HANDLE_FPE)
 /* Unblock a signal.  Unless we do this, the signal may only be sent
    once.  */
 static void 
-unblock_signal (int signum)
+unblock_signal (int signum __attribute__ ((__unused__)))
 {
 #ifdef _POSIX_VERSION
   sigset_t sigs;
@@ -138,6 +139,7 @@ unblock_signal (int signum)
   sigprocmask (SIG_UNBLOCK, &sigs, NULL);
 #endif
 }
+#endif
 
 #ifdef HANDLE_SEGV
 SIGNAL_HANDLER (catch_segv)
@@ -255,8 +257,8 @@ _Jv_strLengthUtf8(char* str, int len)
 /* Calculate a hash value for a string encoded in Utf8 format.
  * This returns the same hash value as specified or java.lang.String.hashCode.
  */
-static jint
-hashUtf8String (char* str, int len)
+jint
+_Jv_hashUtf8String (char* str, int len)
 {
   unsigned char* ptr = (unsigned char*) str;
   unsigned char* limit = ptr + len;
@@ -272,17 +274,24 @@ hashUtf8String (char* str, int len)
   return hash;
 }
 
+void
+_Jv_Utf8Const::init(char *s, int len)
+{
+  ::memcpy (data, s, len);
+  data[len] = 0;
+  length = len;
+  hash = _Jv_hashUtf8String (s, len) & 0xFFFF;
+}
+
 _Jv_Utf8Const *
 _Jv_makeUtf8Const (char* s, int len)
 {
   if (len < 0)
     len = strlen (s);
-  Utf8Const* m = (Utf8Const*) _Jv_AllocBytes (sizeof(Utf8Const) + len + 1);
-  memcpy (m->data, s, len);
-  m->data[len] = 0;
-  m->length = len;
-  m->hash = hashUtf8String (s, len) & 0xFFFF;
-  return (m);
+  Utf8Const* m
+    = (Utf8Const*) _Jv_AllocBytes (_Jv_Utf8Const::space_needed(s, len));
+  m->init(s, len);
+  return m;
 }
 
 _Jv_Utf8Const *
@@ -357,37 +366,37 @@ void _Jv_ThrowNoMemory()
 }
 
 #ifdef ENABLE_JVMPI
+# define JVMPI_NOTIFY_ALLOC(klass,size,obj) \
+    if (__builtin_expect (_Jv_JVMPI_Notify_OBJECT_ALLOC != 0, false)) \
+      jvmpi_notify_alloc(klass,size,obj);
 static void
 jvmpi_notify_alloc(jclass klass, jint size, jobject obj)
 {
   // Service JVMPI allocation request.
-  if (__builtin_expect (_Jv_JVMPI_Notify_OBJECT_ALLOC != 0, false))
-    {
-      JVMPI_Event event;
+  JVMPI_Event event;
 
-      event.event_type = JVMPI_EVENT_OBJECT_ALLOC;
-      event.env_id = NULL;
-      event.u.obj_alloc.arena_id = 0;
-      event.u.obj_alloc.class_id = (jobjectID) klass;
-      event.u.obj_alloc.is_array = 0;
-      event.u.obj_alloc.size = size;
-      event.u.obj_alloc.obj_id = (jobjectID) obj;
+  event.event_type = JVMPI_EVENT_OBJECT_ALLOC;
+  event.env_id = NULL;
+  event.u.obj_alloc.arena_id = 0;
+  event.u.obj_alloc.class_id = (jobjectID) klass;
+  event.u.obj_alloc.is_array = 0;
+  event.u.obj_alloc.size = size;
+  event.u.obj_alloc.obj_id = (jobjectID) obj;
 
-      // FIXME:  This doesn't look right for the Boehm GC.  A GC may
-      // already be in progress.  _Jv_DisableGC () doesn't wait for it.
-      // More importantly, I don't see the need for disabling GC, since we
-      // blatantly have a pointer to obj on our stack, ensuring that the
-      // object can't be collected.  Even for a nonconservative collector,
-      // it appears to me that this must be true, since we are about to
-      // return obj. Isn't this whole approach way too intrusive for
-      // a useful profiling interface?			- HB
-      _Jv_DisableGC ();
-      (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
-      _Jv_EnableGC ();
-    }
+  // FIXME:  This doesn't look right for the Boehm GC.  A GC may
+  // already be in progress.  _Jv_DisableGC () doesn't wait for it.
+  // More importantly, I don't see the need for disabling GC, since we
+  // blatantly have a pointer to obj on our stack, ensuring that the
+  // object can't be collected.  Even for a nonconservative collector,
+  // it appears to me that this must be true, since we are about to
+  // return obj. Isn't this whole approach way too intrusive for
+  // a useful profiling interface?			- HB
+  _Jv_DisableGC ();
+  (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
+  _Jv_EnableGC ();
 }
 #else /* !ENABLE_JVMPI */
-# define jvmpi_notify_alloc(klass,size,obj) /* do nothing */
+# define JVMPI_NOTIFY_ALLOC(klass,size,obj) /* do nothing */
 #endif
 
 // Allocate a new object of class KLASS.
@@ -400,7 +409,7 @@ _Jv_AllocObjectNoInitNoFinalizer (jclass klass)
 {
   jint size = klass->size ();
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
-  jvmpi_notify_alloc (klass, size, obj);
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
   return obj;
 }
 
@@ -411,7 +420,7 @@ _Jv_AllocObjectNoFinalizer (jclass klass)
   _Jv_InitClass (klass);
   jint size = klass->size ();
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
-  jvmpi_notify_alloc (klass, size, obj);
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
   return obj;
 }
 
@@ -455,27 +464,8 @@ _Jv_AllocString(jsize len)
   obj->boffset = sizeof(java::lang::String);
   obj->count = len;
   obj->cachedHashCode = 0;
-  
-#ifdef ENABLE_JVMPI
-  // Service JVMPI request.
 
-  if (__builtin_expect (_Jv_JVMPI_Notify_OBJECT_ALLOC != 0, false))
-    {
-      JVMPI_Event event;
-
-      event.event_type = JVMPI_EVENT_OBJECT_ALLOC;
-      event.env_id = NULL;
-      event.u.obj_alloc.arena_id = 0;
-      event.u.obj_alloc.class_id = (jobjectID) &String::class$;
-      event.u.obj_alloc.is_array = 0;
-      event.u.obj_alloc.size = sz;
-      event.u.obj_alloc.obj_id = (jobjectID) obj;
-
-      _Jv_DisableGC ();
-      (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
-      _Jv_EnableGC ();
-    }
-#endif  
+  JVMPI_NOTIFY_ALLOC (&String::class$, sz, obj);
   
   return obj;
 }
@@ -492,26 +482,7 @@ _Jv_AllocPtrFreeObject (jclass klass)
 
   jobject obj = (jobject) _Jv_AllocPtrFreeObj (size, klass);
 
-#ifdef ENABLE_JVMPI
-  // Service JVMPI request.
-
-  if (__builtin_expect (_Jv_JVMPI_Notify_OBJECT_ALLOC != 0, false))
-    {
-      JVMPI_Event event;
-
-      event.event_type = JVMPI_EVENT_OBJECT_ALLOC;
-      event.env_id = NULL;
-      event.u.obj_alloc.arena_id = 0;
-      event.u.obj_alloc.class_id = (jobjectID) klass;
-      event.u.obj_alloc.is_array = 0;
-      event.u.obj_alloc.size = size;
-      event.u.obj_alloc.obj_id = (jobjectID) obj;
-
-      _Jv_DisableGC ();
-      (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (&event);
-      _Jv_EnableGC ();
-    }
-#endif
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
 
   return obj;
 }
@@ -912,18 +883,15 @@ process_gcj_properties ()
     }
   memset ((void *) &_Jv_Environment_Properties[property_count], 
 	  0, sizeof (property_pair));
-  {
-    size_t i = 0;
 
-    // Null terminate the strings.
-    while (_Jv_Environment_Properties[i].key)
-      {
-        property_pair *prop = &_Jv_Environment_Properties[i];
-	prop->key[prop->key_length] = 0;
-	prop->value[prop->value_length] = 0;
-	i++;
-      }
-  }
+  // Null terminate the strings.
+  for (property_pair *prop = &_Jv_Environment_Properties[0];
+       prop->key != NULL;
+       prop++)
+    {
+      prop->key[prop->key_length] = 0;
+      prop->value[prop->value_length] = 0;
+    }
 }
 #endif // DISABLE_GETENV_PROPERTIES
 

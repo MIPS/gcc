@@ -83,22 +83,24 @@ convert_ieee_real_to_integer (tree type, tree expr)
   tree result;
   expr = save_expr (expr);
 
-  result = build3 (COND_EXPR, type,
-		   build2 (NE_EXPR, boolean_type_node, expr, expr),
-		   convert (type, integer_zero_node),
-		   convert_to_integer (type, expr));
-		  
-  result = build3 (COND_EXPR, type, 
-		   build2 (LE_EXPR, boolean_type_node, expr, 
-			   convert (TREE_TYPE (expr), TYPE_MIN_VALUE (type))),
-		   TYPE_MIN_VALUE (type),
-		   result);
-
-  result = build3 (COND_EXPR, type,
-		   build2 (GE_EXPR, boolean_type_node, expr, 
-			   convert (TREE_TYPE (expr), TYPE_MAX_VALUE (type))),	
-		   TYPE_MAX_VALUE (type),
-		   result);
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (NE_EXPR, boolean_type_node, expr, expr)),
+			 convert (type, integer_zero_node),
+			 convert_to_integer (type, expr)));
+  
+  result = fold (build3 (COND_EXPR, type, 
+			 fold (build2 (LE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MIN_VALUE (type)))),
+			 TYPE_MIN_VALUE (type),
+			 result));
+  
+  result = fold (build3 (COND_EXPR, type,
+			 fold (build2 (GE_EXPR, boolean_type_node, expr, 
+				       convert (TREE_TYPE (expr), 
+						TYPE_MAX_VALUE (type)))),
+			 TYPE_MAX_VALUE (type),
+			 result));
 
   return result;
 }  
@@ -131,8 +133,9 @@ convert (tree type, tree expr)
     return fold (convert_to_boolean (type, expr));
   if (code == INTEGER_TYPE)
     {
-      if (! flag_unsafe_math_optimizations
-	  && ! flag_emit_class_files
+      if ((really_constant_p (expr)
+	   || (! flag_unsafe_math_optimizations
+	       && ! flag_emit_class_files))
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
 	return fold (convert_ieee_real_to_integer (type, expr));
@@ -354,8 +357,7 @@ build_prim_array_type (tree element_type, HOST_WIDE_INT length)
 
   if (length != -1)
     {
-      tree max_index = build_int_2 (length - 1, (0 == length ? -1 : 0));
-      TREE_TYPE (max_index) = sizetype;
+      tree max_index = build_int_cst (sizetype, length - 1);
       index = build_index_type (max_index);
     }
   return build_array_type (element_type, index);

@@ -183,7 +183,6 @@
 15.12.4.1-runtime-static-2
 15.12.4.1-runtime-super-1
 15.12.4.1-runtime-super-2
-15.13-anon-1
 15.14-runtime-3
 15.14-runtime-4
 15.15-precedence-5
@@ -687,6 +686,8 @@
 9.2-implicit-19
 9.2-implicit-2
 9.2-implicit-3
+9.2-implicit-6
+9.2-implicit-7
 9.3.1-illegal-forward-1
 9.3.1-illegal-forward-2
 9.3.1-init-1

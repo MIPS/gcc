@@ -247,7 +247,7 @@ package body Sem_Ch11 is
                              ("Numeric_Error is an " &
                               "obsolescent feature ('R'M 'J.6(1))?", Id);
                            Error_Msg_N
-                             ("|use Constraint_Error instead?", Id);
+                             ("\use Constraint_Error instead?", Id);
                         end if;
                      end if;
 
@@ -479,7 +479,6 @@ package body Sem_Ch11 is
             Rewrite (N, Make_Null_Statement (Sloc (N)));
          end if;
       end if;
-
    end Analyze_Raise_xxx_Error;
 
    -----------------------------

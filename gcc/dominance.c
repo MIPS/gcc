@@ -207,7 +207,8 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* We call this _only_ if bb is not already visited.  */
   edge e;
   TBB child_i, my_i = 0;
-  edge *stack;
+  edge_iterator *stack;
+  edge_iterator ei, einext;
   int sp;
   /* Start block (ENTRY_BLOCK_PTR for forward problem, EXIT_BLOCK for backward
      problem).  */
@@ -215,19 +216,19 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* Ending block.  */
   basic_block ex_block;
 
-  stack = xmalloc ((n_basic_blocks + 3) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 3) * sizeof (edge_iterator));
   sp = 0;
 
   /* Initialize our border blocks, and the first edge.  */
   if (reverse)
     {
-      e = bb->pred;
+      ei = ei_start (bb->preds);
       en_block = EXIT_BLOCK_PTR;
       ex_block = ENTRY_BLOCK_PTR;
     }
   else
     {
-      e = bb->succ;
+      ei = ei_start (bb->succs);
       en_block = ENTRY_BLOCK_PTR;
       ex_block = EXIT_BLOCK_PTR;
     }
@@ -239,9 +240,9 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 
       /* This loop traverses edges e in depth first manner, and fills the
          stack.  */
-      while (e)
+      while (!ei_end_p (ei))
 	{
-	  edge e_next;
+	  e = ei_edge (ei);
 
 	  /* Deduce from E the current and the next block (BB and BN), and the
 	     next edge.  */
@@ -254,26 +255,25 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	         with the next edge out of the current node.  */
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-		  e = e->pred_next;
+		  ei_next (&ei);
 		  continue;
 		}
 	      bb = e->dest;
-	      e_next = bn->pred;
+	      einext = ei_start (bn->preds);
 	    }
 	  else
 	    {
 	      bn = e->dest;
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-		  e = e->succ_next;
+		  ei_next (&ei);
 		  continue;
 		}
 	      bb = e->src;
-	      e_next = bn->succ;
+	      einext = ei_start (bn->succs);
 	    }
 
-	  if (bn == en_block)
-	    abort ();
+	  gcc_assert (bn != en_block);
 
 	  /* Fill the DFS tree info calculatable _before_ recursing.  */
 	  if (bb != en_block)
@@ -285,13 +285,13 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	  di->dfs_parent[child_i] = my_i;
 
 	  /* Save the current point in the CFG on the stack, and recurse.  */
-	  stack[sp++] = e;
-	  e = e_next;
+	  stack[sp++] = ei;
+	  ei = einext;
 	}
 
       if (!sp)
 	break;
-      e = stack[--sp];
+      ei = stack[--sp];
 
       /* OK.  The edge-list was exhausted, meaning normally we would
          end the recursion.  After returning from the recursive call,
@@ -302,10 +302,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
          the block not yet completed (the parent of the one above)
          in e->src.  This could be used e.g. for computing the number of
          descendants or the tree depth.  */
-      if (reverse)
-	e = e->pred_next;
-      else
-	e = e->succ_next;
+      ei_next (&ei);
     }
   free (stack);
 }
@@ -343,7 +340,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
 
       FOR_EACH_BB_REVERSE (b)
 	{
-	  if (b->succ)
+	  if (EDGE_COUNT (b->succs) > 0)
 	    {
 	      if (di->dfs_order[b->index] == 0)
 		saw_unconnected = true;
@@ -376,8 +373,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
   di->nodes = di->dfsnum - 1;
 
   /* This aborts e.g. when there is _no_ path from ENTRY to EXIT at all.  */
-  if (di->nodes != (unsigned int) n_basic_blocks + 1)
-    abort ();
+  gcc_assert (di->nodes == (unsigned int) n_basic_blocks + 1);
 }
 
 /* Compress the path from V to the root of its set and update path_min at the
@@ -481,6 +477,8 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 {
   TBB v, w, k, par;
   basic_block en_block;
+  edge_iterator ei, einext;
+
   if (reverse)
     en_block = EXIT_BLOCK_PTR;
   else
@@ -491,43 +489,38 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
   while (v > 1)
     {
       basic_block bb = di->dfs_to_bb[v];
-      edge e, e_next;
+      edge e;
 
       par = di->dfs_parent[v];
       k = v;
+
+      ei = (reverse) ? ei_start (bb->succs) : ei_start (bb->preds);
+
       if (reverse)
 	{
-	  e = bb->succ;
-
 	  /* If this block has a fake edge to exit, process that first.  */
 	  if (bitmap_bit_p (di->fake_exit_edge, bb->index))
 	    {
-	      e_next = e;
+	      einext = ei;
+	      einext.index = 0;
 	      goto do_fake_exit_edge;
 	    }
 	}
-      else
-	e = bb->pred;
 
       /* Search all direct predecessors for the smallest node with a path
          to them.  That way we have the smallest node with also a path to
          us only over nodes behind us.  In effect we search for our
          semidominator.  */
-      for (; e ; e = e_next)
+      while (!ei_end_p (ei))
 	{
 	  TBB k1;
 	  basic_block b;
 
-	  if (reverse)
-	    {
-	      b = e->dest;
-	      e_next = e->succ_next;
-	    }
-	  else
-	    {
-	      b = e->src;
-	      e_next = e->pred_next;
-	    }
+	  e = ei_edge (ei);
+	  b = (reverse) ? e->dest : e->src;
+	  einext = ei;
+	  ei_next (&einext);
+
 	  if (b == en_block)
 	    {
 	    do_fake_exit_edge:
@@ -542,6 +535,8 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 	    k1 = di->key[eval (di, k1)];
 	  if (k1 < k)
 	    k = k1;
+
+	  ei = einext;
 	}
 
       di->key[v] = k;
@@ -598,8 +593,7 @@ compute_dom_fast_query (enum cdi_direction dir)
   int num = 0;
   basic_block bb;
 
-  if (dom_computed[dir] < DOM_NO_FAST_QUERY)
-    abort ();
+  gcc_assert (dom_info_available_p (dir));
 
   if (dom_computed[dir] == DOM_OK)
     return;
@@ -625,13 +619,9 @@ calculate_dominance_info (enum cdi_direction dir)
   if (dom_computed[dir] == DOM_OK)
     return;
 
-  if (dom_computed[dir] != DOM_NO_FAST_QUERY)
+  if (!dom_info_available_p (dir))
     {
-      if (dom_computed[dir] != DOM_NONE)
-	free_dominance_info (dir);
-
-      if (n_bbs_in_dom_tree[dir])
-	abort ();
+      gcc_assert (!n_bbs_in_dom_tree[dir]);
 
       FOR_ALL_BB (b)
 	{
@@ -664,7 +654,7 @@ free_dominance_info (enum cdi_direction dir)
 {
   basic_block bb;
 
-  if (!dom_computed[dir])
+  if (!dom_info_available_p (dir))
     return;
 
   FOR_ALL_BB (bb)
@@ -673,8 +663,7 @@ free_dominance_info (enum cdi_direction dir)
     }
 
   /* If there are any nodes left, something is wrong.  */
-  if (n_bbs_in_dom_tree[dir])
-    abort ();
+  gcc_assert (!n_bbs_in_dom_tree[dir]);
 
   dom_computed[dir] = DOM_NONE;
 }
@@ -685,8 +674,7 @@ get_immediate_dominator (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *node = bb->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!node->father)
     return NULL;
@@ -702,8 +690,7 @@ set_immediate_dominator (enum cdi_direction dir, basic_block bb,
 {
   struct et_node *node = bb->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (node->father)
     {
@@ -727,8 +714,7 @@ get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)
   int n;
   struct et_node *node = bb->dom[dir], *son = node->son, *ason;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!son)
     {
@@ -747,6 +733,32 @@ get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)
   return n;
 }
 
+/* Find all basic blocks that are immediately dominated (in direction DIR)
+   by some block between N_REGION ones stored in REGION, except for blocks
+   in the REGION itself.  The found blocks are stored to DOMS and their number
+   is returned.  */
+
+unsigned
+get_dominated_by_region (enum cdi_direction dir, basic_block *region,
+			 unsigned n_region, basic_block *doms)
+{
+  unsigned n_doms = 0, i;
+  basic_block dom;
+
+  for (i = 0; i < n_region; i++)
+    region[i]->rbi->duplicated = 1;
+  for (i = 0; i < n_region; i++)
+    for (dom = first_dom_son (dir, region[i]);
+	 dom;
+	 dom = next_dom_son (dir, dom))
+      if (!dom->rbi->duplicated)
+	doms[n_doms++] = dom;
+  for (i = 0; i < n_region; i++)
+    region[i]->rbi->duplicated = 0;
+
+  return n_doms;
+}
+
 /* Redirect all edges pointing to BB to TO.  */
 void
 redirect_immediate_dominators (enum cdi_direction dir, basic_block bb,
@@ -754,8 +766,7 @@ redirect_immediate_dominators (enum cdi_direction dir, basic_block bb,
 {
   struct et_node *bb_node = bb->dom[dir], *to_node = to->dom[dir], *son;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!bb_node->son)
     return;
@@ -776,8 +787,7 @@ redirect_immediate_dominators (enum cdi_direction dir, basic_block bb,
 basic_block
 nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block bb2)
 {
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (!bb1)
     return bb2;
@@ -793,8 +803,7 @@ dominated_by_p (enum cdi_direction dir, basic_block bb1, basic_block bb2)
 { 
   struct et_node *n1 = bb1->dom[dir], *n2 = bb2->dom[dir];
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (dom_computed[dir] == DOM_OK)
     return (n1->dfs_num_in >= n2->dfs_num_in
@@ -810,24 +819,27 @@ verify_dominators (enum cdi_direction dir)
   int err = 0;
   basic_block bb;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_info_available_p (dir));
 
   FOR_EACH_BB (bb)
     {
       basic_block dom_bb;
+      basic_block imm_bb;
 
       dom_bb = recount_dominator (dir, bb);
-      if (dom_bb != get_immediate_dominator (dir, bb))
+      imm_bb = get_immediate_dominator (dir, bb);
+      if (dom_bb != imm_bb)
 	{
-	  error ("dominator of %d should be %d, not %d",
-	   bb->index, dom_bb->index, get_immediate_dominator(dir, bb)->index);
+	  if ((dom_bb == NULL) || (imm_bb == NULL))
+	    error ("dominator of %d status unknown", bb->index);
+	  else
+	    error ("dominator of %d should be %d, not %d",
+		   bb->index, dom_bb->index, imm_bb->index);
 	  err = 1;
 	}
     }
 
-  if (dir == CDI_DOMINATORS
-      && dom_computed[dir] >= DOM_NO_FAST_QUERY)
+  if (dir == CDI_DOMINATORS)
     {
       FOR_EACH_BB (bb)
 	{
@@ -839,8 +851,7 @@ verify_dominators (enum cdi_direction dir)
 	}
     }
 
-  if (err)
-    abort ();
+  gcc_assert (!err);
 }
 
 /* Determine immediate dominator (or postdominator, according to DIR) of BB,
@@ -853,13 +864,13 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 {
   basic_block dom_bb = NULL;
   edge e;
+  edge_iterator ei;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   if (dir == CDI_DOMINATORS)
     {
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  /* Ignore the predecessors that either are not reachable from
 	     the entry block, or whose dominator was not determined yet.  */
@@ -872,7 +883,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     }
   else
     {
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);
@@ -890,8 +901,7 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
   int i, changed = 1;
   basic_block old_dom, new_dom;
 
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   for (i = 0; i < n; i++)
     set_immediate_dominator (dir, bbs[i], NULL);
@@ -912,18 +922,14 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
     }
 
   for (i = 0; i < n; i++)
-    if (!get_immediate_dominator (dir, bbs[i]))
-      abort ();
+    gcc_assert (get_immediate_dominator (dir, bbs[i]));
 }
 
 void
 add_to_dominance_info (enum cdi_direction dir, basic_block bb)
 {
-  if (!dom_computed[dir])
-    abort ();
-
-  if (bb->dom[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
+  gcc_assert (!bb->dom[dir]);
 
   n_bbs_in_dom_tree[dir]++;
   
@@ -936,8 +942,7 @@ add_to_dominance_info (enum cdi_direction dir, basic_block bb)
 void
 delete_from_dominance_info (enum cdi_direction dir, basic_block bb)
 {
-  if (!dom_computed[dir])
-    abort ();
+  gcc_assert (dom_computed[dir]);
 
   et_free_tree (bb->dom[dir]);
   bb->dom[dir] = NULL;
@@ -967,6 +972,14 @@ next_dom_son (enum cdi_direction dir, basic_block bb)
   struct et_node *next = bb->dom[dir]->right;
 
   return next->father->son == next ? NULL : next->data;
+}
+
+/* Returns true if dominance information for direction DIR is available.  */
+
+bool
+dom_info_available_p (enum cdi_direction dir)
+{
+  return dom_computed[dir] != DOM_NONE;
 }
 
 void

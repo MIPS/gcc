@@ -1009,37 +1009,7 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 void
 gfc_clear_attr (symbol_attribute * attr)
 {
-
-  attr->allocatable = 0;
-  attr->dimension = 0;
-  attr->external = 0;
-  attr->intrinsic = 0;
-  attr->optional = 0;
-  attr->pointer = 0;
-  attr->save = 0;
-  attr->target = 0;
-  attr->dummy = 0;
-  attr->result = 0;
-  attr->entry = 0;
-  attr->data = 0;
-  attr->use_assoc = 0;
-  attr->in_namelist = 0;
-
-  attr->in_common = 0;
-  attr->function = 0;
-  attr->subroutine = 0;
-  attr->generic = 0;
-  attr->implicit_type = 0;
-  attr->sequence = 0;
-  attr->elemental = 0;
-  attr->pure = 0;
-  attr->recursive = 0;
-
-  attr->access = ACCESS_UNKNOWN;
-  attr->intent = INTENT_UNKNOWN;
-  attr->flavor = FL_UNKNOWN;
-  attr->proc = PROC_UNKNOWN;
-  attr->if_source = IFSRC_UNKNOWN;
+  memset (attr, 0, sizeof(symbol_attribute));
 }
 
 
@@ -1560,7 +1530,7 @@ done:
    symbols are kept in a singly linked list so that we can commit or
    undo the changes at a later time.
 
-   A symtree may point to a symbol node outside of it's namespace.  In
+   A symtree may point to a symbol node outside of its namespace.  In
    this case, that symbol has been used as a host associated variable
    at some previous time.  */
 
@@ -1605,14 +1575,16 @@ gfc_get_namespace (gfc_namespace * parent)
       if ('i' <= i && i <= 'n')
 	{
 	  ts->type = BT_INTEGER;
-	  ts->kind = gfc_default_integer_kind ();
+	  ts->kind = gfc_default_integer_kind;
 	}
       else
 	{
 	  ts->type = BT_REAL;
-	  ts->kind = gfc_default_real_kind ();
+	  ts->kind = gfc_default_real_kind;
 	}
     }
+
+  ns->refs = 1;
 
   return ns;
 }
@@ -1790,13 +1762,13 @@ ambiguous_symbol (const char *name, gfc_symtree * st)
 }
 
 
-/* Search for a symbol starting in the current namespace, resorting to
+/* Search for a symtree starting in the current namespace, resorting to
    any parent namespaces if requested by a nonzero parent_flag.
-   Returns nonzero if the symbol is ambiguous.  */
+   Returns nonzero if the name is ambiguous.  */
 
 int
 gfc_find_sym_tree (const char *name, gfc_namespace * ns, int parent_flag,
-		 gfc_symtree ** result)
+		   gfc_symtree ** result)
 {
   gfc_symtree *st;
 
@@ -1829,6 +1801,8 @@ gfc_find_sym_tree (const char *name, gfc_namespace * ns, int parent_flag,
   return 0;
 }
 
+
+/* Same, but returns the symbol instead.  */
 
 int
 gfc_find_symbol (const char *name, gfc_namespace * ns, int parent_flag,
@@ -2227,6 +2201,11 @@ gfc_free_namespace (gfc_namespace * ns)
 
   if (ns == NULL)
     return;
+
+  ns->refs--;
+  if (ns->refs > 0)
+    return;
+  gcc_assert (ns->refs == 0);
 
   gfc_free_statements (ns->code);
 

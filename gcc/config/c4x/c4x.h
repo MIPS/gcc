@@ -1372,7 +1372,7 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Descripting Relative Cost of Operations.  */
+/* Describing Relative Cost of Operations.  */
 
 #define	CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
 if (REG_P (OP1) && ! REG_P (OP0))			\
@@ -1451,8 +1451,6 @@ fini_section ()							\
       in_section = in_fini;					\
     }								\
 }
-
-#define ASM_STABS_OP "\t.stabs\t"
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section

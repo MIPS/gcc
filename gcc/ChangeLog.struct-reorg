@@ -1,3 +1,7 @@
+2004-11-21  Dale Johannesen  <dalej@apple.com>
+
+	Merge from tree-profiling-branch as of 11-17.
+
 2004-11-18  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* params.def (PARAM_COLD_FIELD_RATIO): Changed default to 5.

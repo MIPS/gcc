@@ -34,14 +34,6 @@ enum operation_type {
   binary_op
 };
 
-/* Define type of available alignment support.  */
-enum dr_alignment_support {
-  dr_unaligned_unsupported,
-  dr_unaligned_supported,
-  dr_unaligned_software_pipeline,
-  dr_aligned
-};
-
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/
@@ -129,6 +121,7 @@ vinfo_for_stmt (tree stmt)
 
 /* The misalignment of the memory access in bytes.  */
 #define DR_MISALIGNMENT(DR)   (DR)->aux
+#define MAX_NUMBER_OF_UNALIGNED_DATA_REFS 1
 
 static inline bool
 aligned_access_p (struct data_reference *data_ref_info)
@@ -170,7 +163,7 @@ typedef struct _loop_vec_info {
   int vectorization_factor;
 
   /* Unknown DRs according to which loop was peeled.  */
-  struct data_reference *unaligned_dr;
+  struct data_reference *unaligned_drs [MAX_NUMBER_OF_UNALIGNED_DATA_REFS];
 
   /* If true, loop is peeled.
    unaligned_drs show in this case DRs used for peeling.  */
@@ -194,7 +187,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
 #define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))       
 #define LOOP_DO_PEELING_FOR_ALIGNMENT(L) (L)->do_peeling_for_alignment
-#define LOOP_VINFO_UNALIGNED_DR(L)       (L)->unaligned_dr
+#define LOOP_UNALIGNED_DR(L, I)      (L)->unaligned_drs[(I)] 
   
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \

@@ -36,6 +36,8 @@ typedef struct use_operand_ptr GTY(())
   tree * GTY((skip(""))) use;
 } use_operand_p;
 
+extern def_operand_p NULL_DEF_OPERAND_P;
+extern use_operand_p NULL_USE_OPERAND_P;
 
 /* This represents the DEF operands of a stmt.  */
 typedef struct def_optype_d GTY(())
@@ -55,11 +57,19 @@ typedef struct use_optype_d GTY(())
 
 typedef use_optype_t *use_optype;
 
+/* Operand type which stores a def and a use tree.  */
+typedef struct v_may_def_operand_type GTY(())
+{
+  tree def;
+  tree use;
+} v_may_def_operand_type_t;
+
 /* This represents the MAY_DEFS for a stmt.  */
 typedef struct v_may_def_optype_d GTY(())
 {
   unsigned num_v_may_defs; 
-  tree GTY((length ("%h.num_v_may_defs * 2"))) v_may_defs[1];
+  struct v_may_def_operand_type GTY((length ("%h.num_v_may_defs")))
+							      v_may_defs[1];
 } v_may_def_optype_t;
 
 typedef v_may_def_optype_t *v_may_def_optype;
@@ -81,6 +91,21 @@ typedef struct v_must_def_optype_d GTY(())
 } v_must_def_optype_t;
 
 typedef v_must_def_optype_t *v_must_def_optype;
+
+/* This represents the operand cache fora stmt.  */
+typedef struct stmt_operands_d GTY(())
+{
+  /* Statement operands.  */
+  struct def_optype_d * GTY (()) def_ops;
+  struct use_optype_d * GTY (()) use_ops;
+
+  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
+  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
+  struct vuse_optype_d * GTY (()) vuse_ops;
+  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
+} stmt_operands_t;
+
+typedef stmt_operands_t *stmt_operands_p;
 
 #define USE_FROM_PTR(OP)	get_use_from_ptr (OP)
 #define DEF_FROM_PTR(OP)	get_def_from_ptr (OP)
@@ -157,13 +182,80 @@ typedef v_must_def_optype_t *v_must_def_optype;
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-extern void verify_start_operands (tree);
-extern void finalize_ssa_stmt_operands (tree);
-void add_vuse (tree, tree);
 extern void get_stmt_operands (tree);
-extern void remove_vuses (tree);
-extern void remove_v_may_defs (tree);
-extern void remove_v_must_defs (tree);
 extern void copy_virtual_operands (tree, tree);
+extern void create_ssa_artficial_load_stmt (stmt_operands_p, tree);
+
+
+/* This structure is used in the operand iterator loops.  It contains the 
+   items required to determine which operand is retrieved next.  During
+   optimization, this structure is scalarized, and any unused fields are 
+   optimized away, resulting in little overhead.  */
+
+typedef struct ssa_operand_iterator_d
+{
+  int num_use;
+  int num_def;
+  int num_vuse;
+  int num_v_mayu;
+  int num_v_mayd;
+  int num_v_must;
+  int use_i;
+  int def_i;
+  int vuse_i;
+  int v_mayu_i;
+  int v_mayd_i;
+  int v_must_i;
+  stmt_operands_p ops;
+  bool done;
+} ssa_op_iter;
+
+/* These flags are used to determine which operands are returned during 
+   execution of the loop.  */
+#define SSA_OP_USE		0x01	/* Real USE operands.  */
+#define SSA_OP_DEF		0x02	/* Real DEF operands.  */
+#define SSA_OP_VUSE		0x04	/* VUSE operands.  */
+#define SSA_OP_VMAYUSE		0x08	/* USE portion of V_MAY_DEFS.  */
+#define SSA_OP_VMAYDEF		0x10	/* DEF portion of V_MAY_DEFS.  */
+#define SSA_OP_VMUSTDEF		0x20	/* V_MUST_DEF definitions.  */
+
+/* These are commonly grouped operand flags.  */
+#define SSA_OP_VIRTUAL_USES	(SSA_OP_VUSE | SSA_OP_VMAYUSE)
+#define SSA_OP_VIRTUAL_DEFS	(SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF)
+#define SSA_OP_ALL_USES		(SSA_OP_VIRTUAL_USES | SSA_OP_USE)
+#define SSA_OP_ALL_DEFS		(SSA_OP_VIRTUAL_DEFS | SSA_OP_DEF)
+#define SSA_OP_ALL_OPERANDS	(SSA_OP_ALL_USES | SSA_OP_ALL_DEFS)
+
+/* This macro executes a loop over the operands of STMT specified in FLAG, 
+   returning each operand as a 'tree' in the variable TREEVAR.  ITER is an
+   ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_TREE_OPERAND(TREEVAR, STMT, ITER, FLAGS)	\
+  for (TREEVAR = op_iter_init_tree (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       TREEVAR = op_iter_next_tree (&(ITER)))
+
+/* This macro executes a loop over the operands of STMT specified in FLAG, 
+   returning each operand as a 'use_operand_p' in the variable USEVAR.  
+   ITER is an ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_USE_OPERAND(USEVAR, STMT, ITER, FLAGS)	\
+  for (USEVAR = op_iter_init_use (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       USEVAR = op_iter_next_use (&(ITER)))
+
+/* This macro executes a loop over the operands of STMT specified in FLAG, 
+   returning each operand as a 'def_operand_p' in the variable DEFVAR.  
+   ITER is an ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_DEF_OPERAND(DEFVAR, STMT, ITER, FLAGS)	\
+  for (DEFVAR = op_iter_init_def (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       DEFVAR = op_iter_next_def (&(ITER)))
+
+/* This macro executes a loop over the V_MAY_DEF operands of STMT.  The def
+   and use for each V_MAY_DEF is returned in DEFVAR and USEVAR. 
+   ITER is an ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_MAYDEF_OPERAND(DEFVAR, USEVAR, STMT, ITER)	\
+  for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR));	\
+       !op_iter_done (&(ITER));					\
+       op_iter_next_maydef (&(USEVAR), &(DEFVAR), &(ITER)))
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

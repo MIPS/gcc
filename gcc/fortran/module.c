@@ -21,7 +21,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* The syntax of g95 modules resembles that of lisp lists, ie a
+/* The syntax of gfortran modules resembles that of lisp lists, ie a
    sequence of atoms, which can be left or right parenthesis, names,
    integers or strings.  Parenthesis are always matched which allows
    us to skip over sections at high speed without having to know
@@ -71,13 +71,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <time.h>
 
 #include "gfortran.h"
+#include "arith.h"
 #include "match.h"
 #include "parse.h" /* FIXME */
 
 #define MODULE_EXTENSION ".mod"
 
 
-/* Structure that descibes a position within a module file */
+/* Structure that describes a position within a module file.  */
 
 typedef struct
 {
@@ -104,7 +105,7 @@ typedef struct fixup_t
 fixup_t;
 
 
-/* Structure for holding extra info needed for pointers being read */
+/* Structure for holding extra info needed for pointers being read.  */
 
 typedef struct pointer_info
 {
@@ -113,13 +114,13 @@ typedef struct pointer_info
   pointer_t type;
 
   /* The first component of each member of the union is the pointer
-     being stored */
+     being stored.  */
 
   fixup_t *fixup;
 
   union
   {
-    void *pointer;	/* Member for doing pointer searches */
+    void *pointer;	/* Member for doing pointer searches.  */
 
     struct
     {
@@ -152,7 +153,7 @@ pointer_info;
 #define gfc_get_pointer_info() gfc_getmem(sizeof(pointer_info))
 
 
-/* Lists of rename info for the USE statement */
+/* Lists of rename info for the USE statement.  */
 
 typedef struct gfc_use_rename
 {
@@ -196,7 +197,6 @@ static int symbol_number;	/* Counter for assigning symbol numbers */
 static void
 free_pi_tree (pointer_info * p)
 {
-
   if (p == NULL)
     return;
 
@@ -519,7 +519,7 @@ gfc_match_use (void)
 	tail->next = new;
       tail = new;
 
-      /* See what kind of interface we're dealing with.  Asusume it is
+      /* See what kind of interface we're dealing with.  Assume it is
          not an operator.  */
       new->operator = INTRINSIC_NONE;
       if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
@@ -1366,7 +1366,7 @@ mio_internal_string (char *string)
 typedef enum
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
   AB_POINTER, AB_SAVE, AB_TARGET, AB_DUMMY, AB_RESULT,
-  AB_ENTRY, AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
+  AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT
 }
@@ -1384,7 +1384,6 @@ static const mstring attr_bits[] =
     minit ("TARGET", AB_TARGET),
     minit ("DUMMY", AB_DUMMY),
     minit ("RESULT", AB_RESULT),
-    minit ("ENTRY", AB_ENTRY),
     minit ("DATA", AB_DATA),
     minit ("IN_NAMELIST", AB_IN_NAMELIST),
     minit ("IN_COMMON", AB_IN_COMMON),
@@ -1454,8 +1453,7 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_DUMMY, attr_bits);
       if (attr->result)
 	MIO_NAME(ab_attribute) (AB_RESULT, attr_bits);
-      if (attr->entry)
-	MIO_NAME(ab_attribute) (AB_ENTRY, attr_bits);
+      /* We deliberately don't preserve the "entry" flag.  */
 
       if (attr->data)
 	MIO_NAME(ab_attribute) (AB_DATA, attr_bits);
@@ -1527,9 +1525,6 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_RESULT:
 	      attr->result = 1;
-	      break;
-	    case AB_ENTRY:
-	      attr->entry = 1;
 	      break;
 	    case AB_DATA:
 	      attr->data = 1;
@@ -1710,7 +1705,7 @@ done:
    gfc_ref structure), find the corresponding array specification
    structure.  Storing the pointer in the ref structure doesn't quite
    work when loading from a module. Generating code for an array
-   reference also needs more infomation than just the array spec.  */
+   reference also needs more information than just the array spec.  */
 
 static const mstring array_ref_types[] = {
     minit ("FULL", AR_FULL),
@@ -2245,7 +2240,7 @@ mio_gmp_integer (mpz_t * integer)
 
 
 static void
-mio_gmp_real (mpf_t * real)
+mio_gmp_real (mpfr_t * real)
 {
   mp_exp_t exponent;
   char *p;
@@ -2255,14 +2250,14 @@ mio_gmp_real (mpf_t * real)
       if (parse_atom () != ATOM_STRING)
 	bad_module ("Expected real string");
 
-      mpf_init (*real);
-      mpf_set_str (*real, atom_string, -16);
+      mpfr_init (*real);
+      mpfr_set_str (*real, atom_string, 16, GFC_RND_MODE);
       gfc_free (atom_string);
 
     }
   else
     {
-      p = mpf_get_str (NULL, &exponent, 16, 0, *real);
+      p = mpfr_get_str (NULL, &exponent, 16, 0, *real, GFC_RND_MODE);
       atom_string = gfc_getmem (strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
@@ -2507,10 +2502,12 @@ mio_expr (gfc_expr ** ep)
 	  break;
 
 	case BT_REAL:
+          gfc_set_model_kind (e->ts.kind);
 	  mio_gmp_real (&e->value.real);
 	  break;
 
 	case BT_COMPLEX:
+          gfc_set_model_kind (e->ts.kind);
 	  mio_gmp_real (&e->value.complex.r);
 	  mio_gmp_real (&e->value.complex.i);
 	  break;
@@ -2572,6 +2569,7 @@ mio_interface_rest (gfc_interface ** ip)
 	    break;
 
 	  p = gfc_get_interface ();
+	  p->where = gfc_current_locus;
 	  mio_symbol_ref (&p->sym);
 
 	  if (tail == NULL)
@@ -2625,10 +2623,16 @@ mio_namespace_ref (gfc_namespace ** nsp)
   if (p->type == P_UNKNOWN)
     p->type = P_NAMESPACE;
 
-  if (iomode == IO_INPUT && p->integer != 0 && p->u.pointer == NULL)
+  if (iomode == IO_INPUT && p->integer != 0)
     {
-      ns = gfc_get_namespace (NULL);
-      associate_integer_pointer (p, ns);
+      ns = (gfc_namespace *)p->u.pointer;
+      if (ns == NULL)
+	{
+	  ns = gfc_get_namespace (NULL);
+	  associate_integer_pointer (p, ns);
+	}
+      else
+	ns->refs++;
     }
 }
 
@@ -3194,9 +3198,6 @@ write_symbol (int n, gfc_symbol * sym)
   mio_integer (&n);
   mio_internal_string (sym->name);
 
-  if (sym->module[0] == '\0')
-    strcpy (sym->module, module_name);
-
   mio_internal_string (sym->module);
   mio_pointer_ref (&sym->ns);
 
@@ -3222,6 +3223,8 @@ write_symbol0 (gfc_symtree * st)
   write_symbol0 (st->right);
 
   sym = st->n.sym;
+  if (sym->module[0] == '\0')
+    strcpy (sym->module, module_name);
 
   if (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
       && !sym->attr.subroutine && !sym->attr.function)

@@ -786,8 +786,10 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
       if (tree_int_cst_sgn (i) < 0)
         {
           pp_c_char (pp, '-');
-          i = build_int_2 (-TREE_INT_CST_LOW (i),
-                           ~TREE_INT_CST_HIGH (i) + !TREE_INT_CST_LOW (i));
+          i = build_int_cst_wide (NULL_TREE,
+				  -TREE_INT_CST_LOW (i),
+				  ~TREE_INT_CST_HIGH (i)
+				  + !TREE_INT_CST_LOW (i));
         }
       sprintf (pp_buffer (pp)->digit_buffer,
                HOST_WIDE_INT_PRINT_DOUBLE_HEX,
@@ -2137,8 +2139,7 @@ pp_c_tree_decl_identifier (c_pretty_printer *pp, tree t)
 {
   const char *name;
 
-  if (!DECL_P (t))
-    abort ();
+  gcc_assert (DECL_P (t));
 
   if (DECL_NAME (t))
     name = IDENTIFIER_POINTER (DECL_NAME (t));

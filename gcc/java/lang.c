@@ -58,7 +58,7 @@ static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
 static void java_print_error_function (diagnostic_context *, const char *);
 static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					      void *, void *);
+					      void *, struct pointer_set_t *);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
 static bool java_can_use_bit_fields_p (void);
@@ -78,9 +78,9 @@ static void java_clear_binding_stack (void);
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-const char tree_code_type[] = {
+const enum tree_code_class tree_code_type[] = {
 #include "tree.def"
-  'x',
+  tcc_exceptional,
 #include "java-tree.def"
 };
 #undef DEFTREECODE
@@ -117,12 +117,6 @@ int compiling_from_source;
 
 const char *resource_name;
 
-int flag_emit_class_files = 0;
-
-/* Nonzero if input file is a file with a list of filenames to compile. */
-
-int flag_filelist_file = 0;
-
 /* When nonzero, we emit xref strings. Values of the flag for xref
    backends are defined in xref_flag_table, xref.c.  */
 
@@ -131,56 +125,8 @@ int flag_emit_xref = 0;
 /* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
-/* When nonzero, check for redundant modifier uses.  */
-int flag_redundant = 0;
-
-/* When nonzero, call a library routine to do integer divisions. */
-int flag_use_divide_subroutine = 1;
-
-/* When nonzero, generate code for the Boehm GC.  */
-int flag_use_boehm_gc = 0;
-
-/* When nonzero, assume the runtime uses a hash table to map an
-   object to its synchronization structure.  */
-int flag_hash_synchronization;
-
-/* When nonzero, permit the use of the assert keyword.  */
-int flag_assert = 1;
-
-/* When nonzero, assume all native functions are implemented with
-   JNI, not CNI.  */
-int flag_jni = 0;
-
-/* When nonzero, warn when source file is newer than matching class
-   file.  */
-int flag_newer = 1;
-
-/* When nonzero, generate checks for references to NULL.  */
-int flag_check_references = 0;
-
 /* The encoding of the source file.  */
 const char *current_encoding = NULL;
-
-/* When nonzero, report the now deprecated empty statements.  */
-int flag_extraneous_semicolon;
-
-/* When nonzero, report use of deprecated classes, methods, or fields.  */
-int flag_deprecated = 1;
-
-/* When nonzero, always check for a non gcj generated classes archive.  */
-int flag_force_classes_archive_check;
-
-/* When zero, don't optimize static class initialization. This flag shouldn't
-   be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
-/* FIXME: Make this work with gimplify.  */
-int flag_optimize_sci = 0;
-
-/* When nonzero, use offset tables for virtual method calls
-   in order to improve binary compatibility. */
-int flag_indirect_dispatch = 0;
-
-/* When zero, don't generate runtime array store checks. */
-int flag_store_check = 1;
 
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;
@@ -279,9 +225,6 @@ java_handle_option (size_t scode, const char *arg, int value)
 
   switch (code)
     {
-    default:
-      abort();
-
     case OPT_I:
       jcf_path_include_arg (arg);
       break;
@@ -329,26 +272,6 @@ java_handle_option (size_t scode, const char *arg, int value)
       set_Wunused (value);
       break;
 
-    case OPT_Wdeprecated:
-      flag_deprecated = value;
-      break;
-
-    case OPT_Wextraneous_semicolon:
-      flag_extraneous_semicolon = value;
-      break;
-
-    case OPT_Wout_of_date:
-      flag_newer = value;
-      break;
-
-    case OPT_Wredundant_modifiers:
-      flag_redundant = value;
-      break;
-
-    case OPT_fassert:
-      flag_assert = value;
-      break;
-
     case OPT_fenable_assertions_:
       add_enable_assert (arg, value);
       break;
@@ -377,10 +300,6 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_bootclasspath_arg (arg);
       break;
 
-    case OPT_fcheck_references:
-      flag_check_references = value;
-      break;
-
     case OPT_fclasspath_:
     case OPT_fCLASSPATH_:
       jcf_path_classpath_arg (arg);
@@ -395,11 +314,6 @@ java_handle_option (size_t scode, const char *arg, int value)
 	return 0;
       break;
 
-    case OPT_femit_class_file:
-    case OPT_femit_class_files:
-      flag_emit_class_files = value;
-      break;
-
     case OPT_fencoding_:
       current_encoding = arg;
       break;
@@ -408,54 +322,23 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_extdirs_arg (arg);
       break;
 
-    case OPT_ffilelist_file:
-      flag_filelist_file = value;
-      break;
-
-    case OPT_fforce_classes_archive_check:
-      flag_force_classes_archive_check = value;
-      break;
-
-    case OPT_fhash_synchronization:
-      flag_hash_synchronization = value;
-      break;
-
-    case OPT_findirect_dispatch:
-      flag_indirect_dispatch = value;
-      break;
-
     case OPT_finline_functions:
       flag_inline_functions = value;
       flag_really_inline = value;
-      break;
-
-    case OPT_fjni:
-      flag_jni = value;
-      break;
-
-    case OPT_foptimize_static_class_initialization:
-      flag_optimize_sci = value;
       break;
 
     case OPT_foutput_class_dir_:
       jcf_write_base_directory = arg;
       break;
 
-    case OPT_fstore_check:
-      flag_store_check = value;
-      break;
-
-    case OPT_fuse_boehm_gc:
-      flag_use_boehm_gc = value;
-      break;
-
-    case OPT_fuse_divide_subroutine:
-      flag_use_divide_subroutine = value;
-      break;
-
     case OPT_version:
       v_flag = 1;
       break;
+      
+    default:
+      if (cl_options[code].flags & CL_Java)
+	break;
+      abort();
     }
 
   return 1;
@@ -547,8 +430,7 @@ put_decl_node (tree node)
       node = TREE_TYPE (node);
       was_pointer = 1;
     }
-  if (TREE_CODE_CLASS (TREE_CODE (node)) == 'd'
-      && DECL_NAME (node) != NULL_TREE)
+  if (DECL_P (node) && DECL_NAME (node) != NULL_TREE)
     {
       if (TREE_CODE (node) == FUNCTION_DECL)
 	{
@@ -581,8 +463,7 @@ put_decl_node (tree node)
       else
 	put_decl_node (DECL_NAME (node));
     }
-  else if (TREE_CODE_CLASS (TREE_CODE (node)) == 't'
-      && TYPE_NAME (node) != NULL_TREE)
+  else if (TYPE_P (node) && TYPE_NAME (node) != NULL_TREE)
     {
       if (TREE_CODE (node) == RECORD_TYPE && TYPE_ARRAY_P (node))
 	{
@@ -614,24 +495,14 @@ put_decl_node (tree node)
    which is also called directly by java_print_error_function. */
 
 const char *
-lang_printable_name (tree decl, int v  __attribute__ ((__unused__)))
+lang_printable_name (tree decl, int v)
 {
   decl_bufpos = 0;
-  put_decl_node (decl);
+  if (v == 0 && TREE_CODE (decl) == FUNCTION_DECL)
+    put_decl_node (DECL_NAME (decl));
+  else
+    put_decl_node (decl);
   put_decl_string ("", 1);
-  return decl_buf;
-}
-
-/* Does the same thing that lang_printable_name, but add a leading
-   space to the DECL name string -- With Leading Space.  */
-
-const char *
-lang_printable_name_wls (tree decl, int v  __attribute__ ((__unused__)))
-{
-  decl_bufpos = 1;
-  put_decl_node (decl);
-  put_decl_string ("", 1);
-  decl_buf [0] = ' ';
   return decl_buf;
 }
 
@@ -655,7 +526,7 @@ java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
 	fprintf (stderr, "%s: ", file);
 
       last_error_function_context = DECL_CONTEXT (current_function_decl);
-      fprintf (stderr, "In class `%s':\n",
+      fprintf (stderr, "In class '%s':\n",
 	       lang_printable_name (last_error_function_context, 0));
     }
   if (last_error_function != current_function_decl)
@@ -668,7 +539,7 @@ java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
       else
 	{
 	  const char *name = lang_printable_name (current_function_decl, 2);
-	  fprintf (stderr, "In %s `%s':\n",
+	  fprintf (stderr, "In %s '%s':\n",
 		   (DECL_CONSTRUCTOR_P (current_function_decl) ? "constructor"
 		    : "method"),
 		   name);
@@ -797,6 +668,10 @@ java_post_options (const char **pfilename)
 	    }
 	}
     }
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_ENTER, false, filename, 0);
+  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+#endif
 
   /* Initialize the compiler back end.  */
   return false;
@@ -831,7 +706,7 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
 				  int *subtrees ATTRIBUTE_UNUSED,
 				  walk_tree_fn func ATTRIBUTE_UNUSED,
 				  void *data ATTRIBUTE_UNUSED,
-				  void *htab ATTRIBUTE_UNUSED)
+				  struct pointer_set_t *pset ATTRIBUTE_UNUSED)
 {
   enum tree_code code;
   tree result;
@@ -839,7 +714,7 @@ java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
 #define WALK_SUBTREE(NODE)				\
   do							\
     {							\
-      result = walk_tree (&(NODE), func, data, htab);	\
+      result = walk_tree (&(NODE), func, data, pset);	\
       if (result)					\
 	return result;					\
     }							\

@@ -107,9 +107,10 @@ struct gcc_target
     /* Output the assembler code for function exit.  */
     void (* function_epilogue) (FILE *, HOST_WIDE_INT);
 
-    /* Switch to an arbitrary section NAME with attributes as
-       specified by FLAGS.  */
-    void (* named_section) (const char *, unsigned int);
+    /* Tell assembler to change to section NAME with attributes FLAGS.
+       If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
+       which this section is associated.  */
+    void (* named_section) (const char *name, unsigned int flags, tree decl);
 
     /* Switch to the section that holds the exception table.  */
     void (* exception_section) (void);
@@ -131,6 +132,10 @@ struct gcc_target
     /* Select a unique section name for DECL.  RELOC is the same as
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
+
+    /* Tell assembler to switch to the readonly data section associated
+       with function DECL.  */
+    void (* function_rodata_section) (tree);
 
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
@@ -168,6 +173,11 @@ struct gcc_target
     /* Output an assembler pseudo-op to declare a library function name
        external.  */
     void (*external_libcall) (rtx);
+
+     /* Output an assembler directive to mark decl live. This instructs
+	linker to not dead code strip this symbol.  */
+    void (*mark_decl_preserved) (const char *);
+
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -261,16 +271,36 @@ struct gcc_target
 
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return true if there exists a
-       dependence which is considered costly by the target, between 
-       the insn passed as the first parameter, and the insn passed as 
-       the second parameter.  The third parameter is the INSN_DEPEND 
+       dependence which is considered costly by the target, between
+       the insn passed as the first parameter, and the insn passed as
+       the second parameter.  The third parameter is the INSN_DEPEND
        link that represents the dependence between the two insns.  The
        fourth argument is the cost of the dependence as estimated by
-       the scheduler.  The last argument is the distance in cycles 
+       the scheduler.  The last argument is the distance in cycles
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
   } sched;
+
+  /* Functions relating to vectorization.  */
+  struct vectorize
+  {
+    /* The following member value is a pointer to a function called
+       by the vectorizer, and when expanding a MISALIGNED_INDIREC_REF
+       expression.  If the hook returns true (false) then a move* pattern
+       to/from memory can (cannot) be generated for this mode even if the
+       memory location is unaligned.  */
+    bool (* misaligned_mem_ok) (enum machine_mode);
+
+    /* The following member values are pointers to functions called
+       by the vectorizer, and return the decl of the target builtin
+       function.  */
+    tree (* builtin_mask_for_load) (void);
+    tree (* builtin_mask_for_store) (void);
+  } vectorize;
+
+  /* Return machine mode for filter value.  */
+  enum machine_mode (* eh_return_filter_mode) (void);
 
   /* Given two decls, merge their attributes and return the result.  */
   tree (* merge_decl_attributes) (tree, tree);
@@ -310,6 +340,9 @@ struct gcc_target
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
+
+  /* Fold a target-specific builtin.  */
+  tree (* fold_builtin) (tree exp, bool ignore);
 
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
@@ -366,8 +399,22 @@ struct gcc_target
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) (const char *);
 
+  /* If shift optabs for MODE are known to always truncate the shift count,
+     return the mask that they apply.  Return 0 otherwise.  */
+  unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
+
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
+
+  /* True if MODE is valid for the target.  By "valid", we mean able to
+     be manipulated in non-trivial ways.  In particular, this means all
+     the arithmetic is supported.  */
+  bool (* scalar_mode_supported_p) (enum machine_mode mode);
+
+  /* Similarly for vector modes.  "Supported" here is less strict.  At
+     least some operations are supported; need to check optabs or builtins
+     for further details.  */
+  bool (* vector_mode_supported_p) (enum machine_mode mode);
 
   /* True if a vector is opaque.  */
   bool (* vector_opaque_p) (tree);
@@ -441,6 +488,13 @@ struct gcc_target
      the port wishes to automatically clobber for all asms.  */
   tree (* md_asm_clobbers) (tree);
 
+  /* This target hook allows the backend to specify a calling convention
+     in the debug information.  This function actually returns an
+     enum dwarf_calling_convention, but because of forward declarations
+     and not wanting to include dwarf2.h everywhere target.h is included
+     the function is being declared as an int.  */
+  int (* dwarf_calling_convention) (tree);
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -476,6 +530,12 @@ struct gcc_target
     /* ??? This predicate should be applied strictly after pass-by-reference.
        Need audit to verify that this is the case.  */
     bool (* must_pass_in_stack) (enum machine_mode mode, tree t);
+
+    /* Return true if type TYPE, mode MODE, which is passed by reference,
+       should have the object copy generated by the callee rather than
+       the caller.  It is never called for TYPE requiring constructors.  */
+    bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			    tree type, bool named);
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -492,6 +552,17 @@ struct gcc_target
     /* Allows backends to perform additional processing when
        deciding if a class should be exported or imported.  */
     int (*import_export_class) (tree, int);
+    /* Returns true if constructors and destructors return "this".  */
+    bool (*cdtor_returns_this) (void);
+    /* Returns true if the key method for a class can be an inline
+       function, so long as it is not declared inline in the class
+       itself.  Returning true is the behavior required by the Itanium
+       C++ ABI.  */
+    bool (*key_method_may_be_inline) (void);
+    /* Returns true if all class data (virtual tables, type info,
+       etc.) should be exported from the current DLL, even when the
+       associated class is not exported.  */
+    bool (*export_class_data) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

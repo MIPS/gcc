@@ -331,7 +331,7 @@ del_scev_info (void *e)
 
 /* Get the index corresponding to VAR in the current LOOP.  If
    it's the first time we ask for this VAR, then we return
-   chrec_not_analysed_yet for this VAR and return its index.  */
+   chrec_not_analyzed_yet for this VAR and return its index.  */
 
 static tree *
 find_var_scev_info (tree var)
@@ -506,15 +506,14 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 	      /* Number of iterations is off by one (the ssa name we
 		 analyze must be defined before the exit).  */
 	      nb_iter = chrec_fold_minus (chrec_type (nb_iter),
-					  nb_iter,
-					  fold_convert (chrec_type (nb_iter),
-						        integer_one_node));
+				nb_iter,
+				build_int_cst_type (chrec_type (nb_iter), 1));
 	      
 	      /* evolution_fn is the evolution function in LOOP.  Get
 		 its value in the nb_iter-th iteration.  */
 	      res = chrec_apply (inner_loop->num, evolution_fn, nb_iter);
 	      
-	      /* Continue the computation until ending on a parent of LOOP. */
+	      /* Continue the computation until ending on a parent of LOOP.  */
 	      return compute_overall_effect_of_inner_loop (loop, res);
 	    }
 	}
@@ -571,7 +570,7 @@ chrec_is_positive (tree chrec, bool *value)
 
       nb_iter = chrec_fold_minus 
 	(chrec_type (nb_iter), nb_iter,
-	 fold_convert (chrec_type (nb_iter), integer_one_node));
+	 build_int_cst (chrec_type (nb_iter), 1));
 
 #if 0
       /* TODO -- If the test is after the exit, we may decrease the number of
@@ -579,7 +578,7 @@ chrec_is_positive (tree chrec, bool *value)
       if (after_exit)
 	nb_iter = chrec_fold_minus 
 		(chrec_type (nb_iter), nb_iter,
-		 fold_convert (chrec_type (nb_iter), integer_one_node));
+		 build_int_cst (chrec_type (nb_iter), 1));
 #endif
 
       end_value = chrec_apply (CHREC_VARIABLE (chrec), chrec, nb_iter);
@@ -704,7 +703,7 @@ add_to_evolution_1 (unsigned loop_nb,
 	    {
 	      var = loop_nb;
 	      left = chrec_before;
-	      right = fold_convert (type, integer_zero_node);
+	      right = build_int_cst (type, 0);
 	    }
 	  else
 	    {
@@ -896,7 +895,7 @@ add_to_evolution (unsigned loop_nb,
 
   if (code == MINUS_EXPR)
     to_add = chrec_fold_multiply (type, to_add, 
-				  fold_convert (type, integer_minus_one_node));
+				  build_int_cst_type (type, -1));
 
   res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
 
@@ -916,7 +915,9 @@ static inline tree
 set_nb_iterations_in_loop (struct loop *loop, 
 			   tree res)
 {
-  res = chrec_fold_plus (chrec_type (res), res, integer_one_node);
+  res = chrec_fold_plus (chrec_type (res), res,
+			 build_int_cst_type (chrec_type (res), 1));
+
   /* FIXME HWI: However we want to store one iteration less than the
      count of the loop in order to be compatible with the other
      nb_iter computations in loop-iv.  This also allows the
@@ -1001,18 +1002,17 @@ tree
 get_loop_exit_condition (struct loop *loop)
 {
   tree res = NULL_TREE;
+  edge exit_edge = loop->single_exit;
+
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(get_loop_exit_condition \n  ");
   
-  if (loop->exit_edges)
+  if (exit_edge)
     {
-      edge exit_edge;
       tree expr;
       
-      exit_edge = loop->exit_edges[0];
       expr = last_stmt (exit_edge->src);
-      
       if (analyzable_condition (expr))
 	res = expr;
     }
@@ -1039,8 +1039,7 @@ get_exit_conditions_rec (struct loop *loop,
   get_exit_conditions_rec (loop->inner, exit_conditions);
   get_exit_conditions_rec (loop->next, exit_conditions);
   
-  flow_loop_scan (loop, LOOP_EXIT_EDGES);
-  if (loop->num_exits == 1)
+  if (loop->single_exit)
     {
       tree loop_condition = get_loop_exit_condition (loop);
       
@@ -1211,8 +1210,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		      (loop->num, 
 		       chrec_fold_multiply (type_rhs, 
 					    *evolution_of_loop, 
-					    fold_convert (type_rhs,
-						          integer_minus_one_node)),
+					    build_int_cst_type (type_rhs, -1)),
 		       PLUS_EXPR, rhs0);
 		}
 	    }
@@ -1243,7 +1241,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	      (loop->num, 
 	       chrec_fold_multiply (type_rhs, 
 				    *evolution_of_loop, 
-				    fold_convert (type_rhs, integer_minus_one_node)),
+				    build_int_cst_type (type_rhs, -1)),
 	       PLUS_EXPR, rhs0);
 	}
       
@@ -1369,7 +1367,7 @@ follow_ssa_edge_in_condition_phi_branch (int i,
     }
 
   /* This case occurs when one of the condition branches sets 
-     the variable to a constant: ie. a phi-node like
+     the variable to a constant: i.e. a phi-node like
      "a_2 = PHI <a_7(5), 2(6)>;".  
 	 
      FIXME:  This case have to be refined correctly: 
@@ -1493,7 +1491,7 @@ follow_ssa_edge (struct loop *loop,
 	return true;
 	  
       /* Otherwise, the evolution of the HALTING_PHI depends
-	 on the evolution of another loop-phi-node, ie. the
+	 on the evolution of another loop-phi-node, i.e. the
 	 evolution function is a higher degree polynomial.  */
       if (def_loop == loop)
 	return false;
@@ -1566,7 +1564,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	      
       /* When it is impossible to go back on the same
 	 loop_phi_node by following the ssa edges, the
-	 evolution is represented by a peeled chrec, ie. the
+	 evolution is represented by a peeled chrec, i.e. the
 	 first iteration, EV_FN has the value INIT_COND, then
 	 all the other iterations it has the value of ARG.  
 	 For the moment, PEELED_CHREC nodes are not built.  */
@@ -1574,7 +1572,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	ev_fn = chrec_dont_know;
       
       /* When there are multiple back edges of the loop (which in fact never
-	 happens currently, but nevertheless), merge their evolutions. */
+	 happens currently, but nevertheless), merge their evolutions.  */
       evolution_function = chrec_merge (evolution_function, ev_fn);
     }
   
@@ -1750,8 +1748,7 @@ interpret_rhs_modify_expr (struct loop *loop,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10);
-      res = chrec_fold_minus (type, fold_convert (type, integer_zero_node), 
-			      chrec10);
+      res = chrec_fold_minus (type, build_int_cst (type, 0), chrec10);
       break;
 
     case MULT_EXPR:
@@ -2185,16 +2182,16 @@ number_of_iterations_in_loop (struct loop *loop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(number_of_iterations_in_loop\n");
   
-  if (!loop->exit_edges)
+  exit = loop->single_exit;
+  if (!exit)
     goto end;
-  exit = loop->exit_edges[0];
 
   if (!number_of_iterations_exit (loop, exit, &niter_desc))
     goto end;
 
   type = TREE_TYPE (niter_desc.niter);
   if (integer_nonzerop (niter_desc.may_be_zero))
-    res = fold_convert (type, integer_zero_node);
+    res = build_int_cst (type, 0);
   else if (integer_zerop (niter_desc.may_be_zero))
     res = niter_desc.niter;
   else
@@ -2458,10 +2455,7 @@ scev_initialize (struct loops *loops)
 
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
-      {
-	flow_loop_scan (loops->parray[i], LOOP_EXIT_EDGES);
-	loops->parray[i]->nb_iterations = NULL_TREE;
-      }
+      loops->parray[i]->nb_iterations = NULL_TREE;
 }
 
 /* Cleans up the information cached by the scalar evolutions analysis.  */

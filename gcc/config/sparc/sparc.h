@@ -884,7 +884,7 @@ if (TARGET_ARCH64				\
    SPARC has 32 integer registers and 32 floating point registers.
    64 bit SPARC has 32 additional fp regs, but the odd numbered ones are not
    accessible.  We still account for them to simplify register computations
-   (eg: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
+   (e.g.: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
    Register 100 is used as the integer condition code register.
    Register 101 is used as the soft frame pointer register.  */
@@ -1121,8 +1121,7 @@ extern int sparc_mode_class[];
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
    may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.
-   Used in flow.c, global.c, and reload1.c.  */
+   Used in flow.c, global.c, ra.c and reload1.c.  */
 #define FRAME_POINTER_REQUIRED	\
   (! (leaf_function_p () && only_leaf_regs_used ()))
 
@@ -1594,9 +1593,10 @@ extern char leaf_reg_remap[];
    is a leaf function, we guessed right!  */
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			\
   do {									\
-    (OFFSET) = 0;							\
     if ((TO) == STACK_POINTER_REGNUM)					\
       (OFFSET) = sparc_compute_frame_size (get_frame_size (), 1);	\
+    else								\
+      (OFFSET) = 0;							\
     (OFFSET) += SPARC_STACK_BIAS;					\
   } while (0)
 
@@ -2246,7 +2246,7 @@ do {                                                                    \
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is slow and undesirable.
@@ -2517,6 +2517,19 @@ do {									\
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
+/* Prettify the assembly.  */
+
+extern int sparc_indent_opcode;
+
+#define ASM_OUTPUT_OPCODE(FILE, PTR)	\
+  do {					\
+    if (sparc_indent_opcode)		\
+      {					\
+	putc (' ', FILE);		\
+	sparc_indent_opcode = 0;	\
+      }					\
+  } while (0)
+
 /* Emit a dtp-relative reference to a TLS variable.  */
 
 #ifdef HAVE_AS_TLS
@@ -2525,8 +2538,8 @@ do {									\
 #endif
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
-  ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^'		\
-   || (CHAR) == '(' || (CHAR) == '_' || (CHAR) == '&')
+  ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '('		\
+   || (CHAR) == ')' || (CHAR) == '_' || (CHAR) == '&')
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

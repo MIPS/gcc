@@ -152,6 +152,7 @@ AC_TYPE_OFF_T
 AC_STDC_HEADERS
 AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
+AC_CHECK_HEADERS(sys/mman.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
 
 # Check for complex math functions
@@ -160,12 +161,54 @@ AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 # Check for library functions.
 AC_CHECK_FUNCS(getrusage times)
 
-# Check for some C99 functions
-AC_CHECK_LIB([m],[round],[AC_DEFINE([HAVE_ROUND],[1],["c99 function"])])
-AC_CHECK_LIB([m],[roundf],[AC_DEFINE([HAVE_ROUNDF],[1],["c99 function"])])
-# And other IEEE math functions
+# Check libc for getgid, getpid, getuid
+AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
+AC_CHECK_LIB([c],[getpid],[AC_DEFINE([HAVE_GETPID],[1],[libc includes getpid])])
+AC_CHECK_LIB([c],[getuid],[AC_DEFINE([HAVE_GETUID],[1],[libc includes getuid])])
+
+# Check for C99 (and other IEEE) math functions
+# ??? This list seems awful long. Is there a better way to test for these?
+AC_CHECK_LIB([m],[acosf],[AC_DEFINE([HAVE_ACOSF],[1],[libm includes acosf])])
+AC_CHECK_LIB([m],[asinf],[AC_DEFINE([HAVE_ASINF],[1],[libm includes asinf])])
+AC_CHECK_LIB([m],[atan2f],[AC_DEFINE([HAVE_ATAN2F],[1],[libm includes atan2f])])
+AC_CHECK_LIB([m],[atanf],[AC_DEFINE([HAVE_ATANF],[1],[libm includes atanf])])
+AC_CHECK_LIB([m],[ceilf],[AC_DEFINE([HAVE_CEILF],[1],[libm includes ceilf])])
+AC_CHECK_LIB([m],[copysignf],[AC_DEFINE([HAVE_COPYSIGNF],[1],[libm includes copysignf])])
+AC_CHECK_LIB([m],[cosf],[AC_DEFINE([HAVE_COSF],[1],[libm includes cosf])])
+AC_CHECK_LIB([m],[coshf],[AC_DEFINE([HAVE_COSHF],[1],[libm includes coshf])])
+AC_CHECK_LIB([m],[expf],[AC_DEFINE([HAVE_EXPF],[1],[libm includes expf])])
+AC_CHECK_LIB([m],[floorf],[AC_DEFINE([HAVE_FLOORF],[1],[libm includes floorf])])
+AC_CHECK_LIB([m],[frexpf],[AC_DEFINE([HAVE_FREXPF],[1],[libm includes frexpf])])
+AC_CHECK_LIB([m],[hypotf],[AC_DEFINE([HAVE_HYPOTF],[1],[libm includes hypotf])])
+AC_CHECK_LIB([m],[logf],[AC_DEFINE([HAVE_LOGF],[1],[libm includes logf])])
+AC_CHECK_LIB([m],[log10f],[AC_DEFINE([HAVE_LOG10F],[1],[libm includes log10f])])
 AC_CHECK_LIB([m],[nextafter],[AC_DEFINE([HAVE_NEXTAFTER],[1],[libm includes nextafter])])
 AC_CHECK_LIB([m],[nextafterf],[AC_DEFINE([HAVE_NEXTAFTERF],[1],[libm includes nextafterf])])
+AC_CHECK_LIB([m],[powf],[AC_DEFINE([HAVE_POWF],[1],[libm includes powf])])
+AC_CHECK_LIB([m],[round],[AC_DEFINE([HAVE_ROUND],[1],[libm includes round])])
+AC_CHECK_LIB([m],[roundf],[AC_DEFINE([HAVE_ROUNDF],[1],[libm includes roundf])])
+AC_CHECK_LIB([m],[scalbnf],[AC_DEFINE([HAVE_SCALBNF],[1],[libm includes scalbnf])])
+AC_CHECK_LIB([m],[sinf],[AC_DEFINE([HAVE_SINF],[1],[libm includes sinf])])
+AC_CHECK_LIB([m],[sinhf],[AC_DEFINE([HAVE_SINHF],[1],[libm includes sinhf])])
+AC_CHECK_LIB([m],[sqrtf],[AC_DEFINE([HAVE_SQRTF],[1],[libm includes sqrtf])])
+AC_CHECK_LIB([m],[tanf],[AC_DEFINE([HAVE_TANF],[1],[libm includes tanf])])
+AC_CHECK_LIB([m],[tanhf],[AC_DEFINE([HAVE_TANHF],[1],[libm includes tanhf])])
+AC_CHECK_LIB([m],[erf],[AC_DEFINE([HAVE_ERF],[1],[libm includes erf])])
+AC_CHECK_LIB([m],[erfc],[AC_DEFINE([HAVE_ERFC],[1],[libm includes erfc])])
+AC_CHECK_LIB([m],[erfcf],[AC_DEFINE([HAVE_ERFCF],[1],[libm includes erfcf])])
+AC_CHECK_LIB([m],[erff],[AC_DEFINE([HAVE_ERFF],[1],[libm includes erff])])
+AC_CHECK_LIB([m],[j0],[AC_DEFINE([HAVE_J0],[1],[libm includes j0])])
+AC_CHECK_LIB([m],[j0f],[AC_DEFINE([HAVE_J0F],[1],[libm includes j0f])])
+AC_CHECK_LIB([m],[j1],[AC_DEFINE([HAVE_J1],[1],[libm includes j1])])
+AC_CHECK_LIB([m],[j1f],[AC_DEFINE([HAVE_J1F],[1],[libm includes j1f])])
+AC_CHECK_LIB([m],[jn],[AC_DEFINE([HAVE_JN],[1],[libm includes jn])])
+AC_CHECK_LIB([m],[jnf],[AC_DEFINE([HAVE_JNF],[1],[libm includes jnf])])
+AC_CHECK_LIB([m],[y0],[AC_DEFINE([HAVE_Y0],[1],[libm includes y0])])
+AC_CHECK_LIB([m],[y0f],[AC_DEFINE([HAVE_Y0F],[1],[libm includes y0f])])
+AC_CHECK_LIB([m],[y1],[AC_DEFINE([HAVE_Y1],[1],[libm includes y1])])
+AC_CHECK_LIB([m],[y1f],[AC_DEFINE([HAVE_Y1F],[1],[libm includes y1f])])
+AC_CHECK_LIB([m],[yn],[AC_DEFINE([HAVE_YN],[1],[libm includes yn])])
+AC_CHECK_LIB([m],[ynf],[AC_DEFINE([HAVE_YNF],[1],[libm includes ynf])])
 
 # Let the user override this
 AC_ARG_ENABLE(cmath,

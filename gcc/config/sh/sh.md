@@ -404,12 +404,15 @@
 	 (cond [(eq_attr "med_branch_p" "yes")
 		(const_int 2)
 		(and (eq (symbol_ref "GET_CODE (prev_nonnote_insn (insn))")
-			 (symbol_ref "INSN"))
-		     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
-			 (symbol_ref "code_for_indirect_jump_scratch")))
-		(if_then_else (eq_attr "braf_branch_p" "yes")
-			      (const_int 6)
-			      (const_int 10))
+                         (symbol_ref "INSN"))
+                     (eq (symbol_ref "INSN_CODE (prev_nonnote_insn (insn))")
+                         (symbol_ref "code_for_indirect_jump_scratch")))
+                (cond [(eq_attr "braf_branch_p" "yes")
+                       (const_int 6)
+                       (eq (symbol_ref "flag_pic") (const_int 0))
+                       (const_int 10)
+                       (ne (symbol_ref "TARGET_SH2") (const_int 0))
+                       (const_int 10)] (const_int 18))
 		(eq_attr "braf_branch_p" "yes")
 		(const_int 10)
 ;; ??? using pc is not computed transitively.
@@ -524,12 +527,16 @@
 ;; Say that we have annulled true branches, since this gives smaller and
 ;; faster code when branches are predicted as not taken.
 
+;; ??? The non-annulled condition should really be "in_delay_slot",
+;; but insns that can be filled in non-annulled get priority over insns
+;; that can only be filled in anulled.
+
 (define_delay
   (and (eq_attr "type" "cbranch")
        (ne (symbol_ref "TARGET_SH2") (const_int 0)))
   ;; SH2e has a hardware bug that pretty much prohibits the use of
   ;; annuled delay slots.
-  [(eq_attr "in_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
+  [(eq_attr "cond_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
 					(not (eq_attr "cpu" "sh2e"))) (nil)])
 
 ;; -------------------------------------------------------------------------
@@ -5793,10 +5800,18 @@
 	      if (GET_MODE (operands[0]) != DImode)
 		operands[0] = gen_rtx_SUBREG (DImode, operands[0], 0);
 	    }
-	  else
+	  else if (TARGET_SHMEDIA64)
 	    {
 	      operands[0] = shallow_copy_rtx (operands[0]);
 	      PUT_MODE (operands[0], DImode);
+	    }
+	  else
+	    {
+	      rtx reg = gen_reg_rtx (DImode);
+
+	      operands[0] = copy_to_mode_reg (SImode, operands[0]);
+	      emit_insn (gen_extendsidi2 (reg, operands[0]));
+	      operands[0] = reg;
 	    }
 	}
       if (! target_reg_operand (operands[0], DImode))
@@ -6018,10 +6033,18 @@
 	      if (GET_MODE (operands[1]) != DImode)
 		operands[1] = gen_rtx_SUBREG (DImode, operands[1], 0);
 	    }
-	  else
+	  else if (TARGET_SHMEDIA64)
 	    {
 	      operands[1] = shallow_copy_rtx (operands[1]);
 	      PUT_MODE (operands[1], DImode);
+	    }
+	  else
+	    {
+	      rtx reg = gen_reg_rtx (DImode);
+
+	      operands[1] = copy_to_mode_reg (SImode, operands[1]);
+	      emit_insn (gen_extendsidi2 (reg, operands[1]));
+	      operands[1] = reg;
 	    }
 	}
       if (! target_reg_operand (operands[1], DImode))
@@ -6762,7 +6785,7 @@
   PUT_MODE (gotsym, Pmode);
   insn = emit_insn (gen_symGOT_load (operands[0], gotsym));
 
-  RTX_UNCHANGING_P (SET_SRC (PATTERN (insn))) = 1;
+  MEM_READONLY_P (SET_SRC (PATTERN (insn))) = 1;
 
   DONE;
 }")
@@ -6846,8 +6869,8 @@
 
 (define_insn "tls_global_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(call (unspec:SI [(match_operand:SI 1 "" "")]
-			  UNSPEC_TLSGD)
+	(call (mem:SI (unspec:SI [(match_operand:SI 1 "" "")]
+				  UNSPEC_TLSGD))
 	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
@@ -6875,8 +6898,8 @@ mov.l\\t1f,r4\\n\\
 
 (define_insn "tls_local_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(call (unspec:SI [(match_operand:SI 1 "" "")]
-			  UNSPEC_TLSLDM)
+	(call (mem:SI (unspec:SI [(match_operand:SI 1 "" "")]
+				  UNSPEC_TLSLDM))
 	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
@@ -7307,7 +7330,7 @@ mov.l\\t1f,r0\\n\\
     {
       rtx r18 = gen_rtx_REG (DImode, PR_MEDIA_REG);
 
-      if (! call_used_regs[TR0_REG] || fixed_regs[TR0_REG])
+      if (! call_really_used_regs[TR0_REG] || fixed_regs[TR0_REG])
 	abort ();
       tr_regno = TR0_REG;
       tr = gen_rtx_REG (DImode, tr_regno);
@@ -9662,7 +9685,7 @@ mov.l\\t1f,r0\\n\\
 	(match_operand 1 "sh_rep_vec" ""))]
   "TARGET_SHMEDIA && reload_completed
    && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && VECTOR_MODE_SUPPORTED_P (GET_MODE (operands[0]))
+   && sh_vector_mode_supported_p (GET_MODE (operands[0]))
    && GET_MODE_SIZE (GET_MODE (operands[0])) == 8
    && (XVECEXP (operands[1], 0, 0) != const0_rtx
        || XVECEXP (operands[1], 0, 1) != const0_rtx)
@@ -9706,7 +9729,7 @@ mov.l\\t1f,r0\\n\\
 	(match_operand 1 "sh_const_vec" ""))]
   "TARGET_SHMEDIA && reload_completed
    && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && VECTOR_MODE_SUPPORTED_P (GET_MODE (operands[0]))
+   && sh_vector_mode_supported_p (GET_MODE (operands[0]))
    && operands[1] != CONST0_RTX (GET_MODE (operands[1]))"
   [(set (match_dup 0) (match_dup 1))]
   "
@@ -10928,18 +10951,45 @@ mov.l\\t1f,r0\\n\\
   "byterev	%1, %0"
   [(set_attr "type" "arith_media")])
 
-(define_insn "prefetch"
+(define_insn "prefetch_media"
   [(prefetch (match_operand:QI 0 "address_operand" "p")
              (match_operand:SI 1 "const_int_operand" "n")
              (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_SHMEDIA || TARGET_HARD_SH4"
+  "TARGET_SHMEDIA"
   "*
 {
-  if (TARGET_HARD_SH4)
-    return \"pref @%0\";
   operands[0] = gen_rtx_MEM (QImode, operands[0]);
   output_asm_insn (\"ld%M0.b    %m0,r63\", operands);
   return \"\";
 }"
   [(set_attr "type" "other")])
 
+(define_insn "prefetch_i4"
+  [(prefetch (match_operand:SI 0 "register_operand" "r")
+             (match_operand:SI 1 "const_int_operand" "n")
+             (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_HARD_SH4"
+  "*
+{
+  return \"pref @%0\";
+}"
+  [(set_attr "type" "other")])
+
+(define_expand "prefetch"
+  [(prefetch (match_operand:QI 0 "address_operand" "p")
+             (match_operand:SI 1 "const_int_operand" "n")
+             (match_operand:SI 2 "const_int_operand" "n"))]
+  "TARGET_SHMEDIA || TARGET_HARD_SH4"
+  "
+{
+  if (TARGET_HARD_SH4 && ! register_operand (operands[0], SImode))
+    {
+      rtx reg = gen_reg_rtx (SImode);
+      emit_move_insn (reg, operands[0]);
+      operands[0] = reg;
+    }
+
+  emit_insn ((TARGET_SHMEDIA ? gen_prefetch_media : gen_prefetch_i4)
+	     (operands[0], operands[1], operands[2]));
+  DONE;
+}")

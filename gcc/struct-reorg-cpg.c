@@ -119,6 +119,7 @@ update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited,
 {
   struct bb_field_access *crr, *laf;
   edge e;
+  edge_iterator ei;
 
   if ( bb == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
        || bb == EXIT_BLOCK_PTR_FOR_FUNCTION (f))
@@ -154,7 +155,7 @@ update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited,
       laf->next = new;
       laf = new;
     } 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       for (crr = laf; crr != lately_accessed_fields; crr = crr->prev)
 	crr->count = e->count;
@@ -187,6 +188,7 @@ update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp,
 		   int f1_indx, struct function *f)
 {
   edge succ;
+  edge_iterator ei;
   struct bb_field_access *first_acc;
 
   if ( e->dest == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
@@ -206,7 +208,7 @@ update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp,
     }
 
   SET_BIT (visited, e->dest->index);
-  for (succ = e->dest->succ; succ; succ = succ->succ_next)
+  FOR_EACH_EDGE (succ, ei, e->dest->succs)
      update_cpg_for_bb (cpg, succ, visited, cp, f1_indx, f);
 }
 #endif
@@ -217,6 +219,7 @@ update_cpg_for_structure (struct data_structure *ds, struct function *f)
 {
   edge e;
   sbitmap visited;
+  edge_iterator ei;
   cpg_t *cpg;
 
   if (!f)
@@ -237,7 +240,7 @@ update_cpg_for_structure (struct data_structure *ds, struct function *f)
   else
     cpg = ds->cpg;
 
-  for (e = ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->succs)
     {
       update_cpg_for_bb (cpg, e->dest, visited, NULL, f);
     }

@@ -1,4 +1,6 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-do run { target powerpc*-*-* i?86-*-* x86_64-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -36,6 +38,4 @@ int main (void)
   return main1 ();
 }
 
-/* These fail to vectorize on targets that don't have or model a vector
-   max operation.  */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* sparc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */

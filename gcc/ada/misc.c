@@ -122,8 +122,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_POST_OPTIONS		gnat_post_options
 #undef  LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		gnat_parse_file
-#undef  LANG_HOOKS_HONOR_READONLY
-#define LANG_HOOKS_HONOR_READONLY	true
 #undef  LANG_HOOKS_HASH_TYPES
 #define LANG_HOOKS_HASH_TYPES		false
 #undef  LANG_HOOKS_GETDECLS
@@ -175,9 +173,9 @@ const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-const char tree_code_type[] = {
+const enum tree_code_class tree_code_type[] = {
 #include "tree.def"
-  'x',
+  tcc_exceptional,
 #include "ada-tree.def"
 };
 #undef DEFTREECODE
@@ -520,7 +518,7 @@ gnat_print_type (FILE *file, tree node, int indent)
       break;
 
     case ENUMERAL_TYPE:
-      print_node (file, "RM size", TYPE_RM_SIZE_ENUM (node), indent + 4);
+      print_node (file, "RM size", TYPE_RM_SIZE_NUM (node), indent + 4);
       break;
 
     case INTEGER_TYPE:
@@ -534,7 +532,7 @@ gnat_print_type (FILE *file, tree node, int indent)
       else
 	print_node (file, "index type", TYPE_INDEX_TYPE (node), indent + 4);
 
-      print_node (file, "RM size", TYPE_RM_SIZE_INT (node), indent + 4);
+      print_node (file, "RM size", TYPE_RM_SIZE_NUM (node), indent + 4);
       break;
 
     case ARRAY_TYPE:
@@ -651,7 +649,7 @@ gnat_expand_body (tree gnu_decl)
   if (!DECL_INITIAL (gnu_decl) || DECL_INITIAL (gnu_decl) == error_mark_node)
     return;
 
-  tree_rest_of_compilation (gnu_decl, false);
+  tree_rest_of_compilation (gnu_decl);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been

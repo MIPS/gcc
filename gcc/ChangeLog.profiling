@@ -1,3 +1,321 @@
+2004-11-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in: Rename ipa_static-vars-anal.o to
+	ipa-static-vars-anal.o.
+	* cgraph.c (cgraph_varpool_node_name): Remove one definition.
+	(availability_names): Update for the new enum availability's.
+	* cgraph.h (enum availability): Remove one definition.
+
+2004-11-02  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_varpool_node_name): New function.
+	(availability_names): New static variable.
+	(dump_cgraph_node): Dump availability.
+	(dump_cgraph_varpool_node): New function.
+	(dump_varpool): New function.
+	(cgraph_function_body_availability): Likewise.
+	(cgraph_variable_initializer_availability): Likewise.
+	* cgraph.h (availability): New enum
+	(dump_varpool,dump_cgraph_varpool_node,
+	cgraph_function_availaibility,
+	cgraph_variable_initializer_availability): New.
+	* cgraphunit.c (cgraph_optimize): Dump varpool.
+
+2004-10-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_reset_node): Break out from ...
+	(cgraph_finalize_function): ... here.
+	(cgraph_finalize_compilation_unit): Prune out finalized functions
+	that has been taken back by frontend (ugh ugh); add sanity checking
+
+2004-10-28  Steven Bosscher  <stevenb@suse.de>
+
+	Ported from mainline:
+	2004-10-22  Kazu Hirata  <kazu@cs.umass.edu>
+	* sbitmap.h (EXECUTE_IF_SET_IN_SBITMAP): Don't access PTR
+        beyond its end.
+
+2004-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* gcc/Makefile.in: removed ggc for cgraphunit.
+	* gcc/cgraph.c.dump_cgraph_node: removed static var analysis.
+	* gcc/cgraph.h: removed static var analysis data structures and calls.
+	* gcc/cgraphunit.c:
+	cgraph_function_and_variable_visibility: removed references to 
+	external bit
+	(print_order,convert_UIDs_in_bitmap,new_static_vars_info,
+	cgraph_reset_static_var_maps,get_global_static_vars_info,
+	get_global_statics_not_read,get_global_statics_not_written,searchc,
+	cgraph_reduced_inorder,has_proper_scope_for_analysis,check_rhs_var,
+	check_lhs_var,get_asm_expr_operands,process_call_for_static_vars,
+	scan_for_static_refs,cgraph_characterize_statics_local,
+	clear_static_vars_maps,cgraph_propagate_bits,
+	cgraph_characterize_statics): removed.
+	(cgraph_optimize,init_cgraph): removed calls to static vars analysis
+	* gcc/tree-dfa.c find_referenced_vars: removed call to static vars
+	analysis
+	* gcc/tree-flow.h static_vars_info: removed
+	* gcc/tree-ssa-operands.c (add_call_clobber_ops,add_call_read_ops):
+	removed calls to static vars analysis.
+	get_call_expr_operands: removed callee variable. 
+
+2004-10-25  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c (pass_expand): Update.
+	* cgraphunit.c: Include tree-pass.h
+	(cgraph_analyze_function_inlinability): Break out from ...
+	(cgraph_analyze_function): ... here; call passmanager.
+	(cgraph_analyze_variable): Call passmanager.
+	(cgraph_decide_recursive_inlining): Use dump file.
+	(cgraph_set_inline_failed): Likewise.
+	(cgraph_decide_inlining_of_small_function): Likewise.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_apply_inline): Do the inlining, move from tree-inline.c
+	(cgraph_gate_inlining): New function.
+	(pass_ipa_inline): New structure.
+	(cgraph_optimize): Call the passmanager.
+	* gimple-low.c (pass_lower_cf, pass_remove_useless): Update.
+	* passes.c (pass_rest_of_compil): Update
+	* predict.c (pass_profile): Update
+	* tree-cfg.c (pass_build_cfg): Update.
+	(pass_remove_useless): Update.
+	(pass_split_crit_edges): Update.
+	(pass_warn_function_return): Update.
+	* tree-complex.c (pas_lower_vector_operations, pass_pre_expand): Update.
+	* tree-dfa.c (pass_referenced_vars): Update.
+	* tree-eh.c (pass_lower_eh): Update.
+	* tree-if-conv.c (pass_if_conversion): Update.
+	* tree-into-ssa.c (pass_build_ssa): Update.
+	* tree-mudflap.c (pass_mudflap_1, pass_mudflap_2): Update.
+	* tree-nomudflap.c (pass_mudflap_1, pass_mudflap_2): Update.
+	* tree-nrv.c (pass_nrv): Update.
+	* tree-optimize.c (all_ipa_passes): New static variable.
+	(execute_inline, pass_inline): Kill.
+	(pass_gimple, pass_cleanup_cfg_pre_optimizing, pass_all_optimizations,
+	pass_cleanup_cfg_post_optimizing, pass_free_datastructures,
+	pass_init_datasturcutres);  Update.
+	(register_one_dump_file): Add argument IPA, deal with IPA dumps.
+	(register_dump_files): Likewise.
+	(init_tree_optimization_passes): Do not add pass_inline; enqueue IPA passes.
+	(execute_pass_hook): New enum.
+	(execute_todo): Deal with new hooks and IPA.
+	(execute_one_pass): Likewise.
+	(ipa_analyze_function, ipa_analyze_variable, ipa_modify_function,
+	ipa_modify_variable, ipa_passes): New entry points.
+	(tree_rest_of_compilation): Execute ipa_modify_function.
+	* tree-outof-ssa.c (pass_del_ssa): Update.
+	* tree-pass.h (tree_opt_pass): Add new hooks and documentation.
+	(pass_ipa_inline): Declare.
+	(ipa_analyze_function, ipa_analyze_variable, ipa_modify_function,
+	ipa_modify_variable, ipa_passes): Declare.
+	* tree-profile.c (pass_tree_profile): Update.
+	* tree-sra.c (pass_sra): Update.
+	* tree-ssa-alias.c (pass_may_alias): Update.
+	* tree-ssa-ccp.c (pass_ccp, pass_fold_builtins): Update.
+	* tree-ssa-copyrename.c (pass_rename_ssa_copies): Update.
+	* tree-ssa-dce.c (pass_dce): Update.
+	(pass_cd_dce): Update.
+	* tree-ssa-dom.c (pass_dominator): Update.
+	* tree-ssa-dse.c (pass_dse): Update.
+	* tree-ssa-forwprop.c (gate_forwprop): Update.
+	* tree-ssa-loop-ch.c (pass_ch): Update.
+	* tree-ssa-loop.c (pass_loop, pass_loop_init, pass_lim, pass_unswitch,
+	pass_vectorize, pass_linear_transform, pass_iv_canon,
+	pass_record_bounds, pass_complete_unroll, pass_iv_optimize, 
+	pass_loop_done): Update.
+	* tree-ssa-phiopt.c (pass_phiopt): Update.
+	* tree-ssa-pre.c (pass_pre, pass_fre): Update.
+	* tree-ssa.c (pass_redundant_phi_nodes, pass_early_warn_unitialized,
+	pass_late_warn_unintialized): Update.
+	* tree-tailcall.c (pass_tail_recursion, pass_tail_calls): Update.
+
+2004-10-23  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (decide_is_variable_needed): Set externally_visible flag.
+	* cgraph.h (cgraph_local_info, cgraph_varpool_node): Add
+	externally_visible flags.
+	(decide_is_function_needed): Set externally_visible flag.
+	(cgraph_finalize_function): Mark language level entry points as reachable.
+	(record_call_1): Record extern variables too.
+	(cgraph_mark_local_and_external_functions): Rename to ...
+	(cgraph_function_and_variable_visibility): ... this one.
+	(cgraph_optimize): Update call of
+	cgraph_function_and_variable_visibility.
+	* common.opt (fwhole-program): Add.
+	* flags.h (flag_whole_program): Declare.
+	* opts.c (common_handle_option): Add OPT_fwhole_program.
+	* toplev.c (flag_whole_program): Define.
+	* invoke.texi (-fwhole-program): Document.
+
+2004-10-22  Dale Johannesen <dalej@apple.com>
+
+	* Makefile.in (value-prof.o): New dependencies on $(DIAGNOSTIC_H)
+	$(TREE_H) and $(COVERAGE_H).
+	* coverage.c (compute_checksum): Use DECL_NAME not DECL_ASSEMBLER_NAME.
+	* opts.c (common_handle_option): Enable tree-based value transforms.
+	* toplev.c (process_options): Ditto.
+	* value-prof.h (struct histogram_value_t): Redefine. "Adjust" below
+	refers to references to this type.
+	* tree-flow.h: (struct stmt_ann_d): Add histograms field.
+	* rtl-profile.c (rtl_gen_interval_profiler): Adjust. Remove checks
+	for may_be_more, may_be_less.
+	(rtl_gen_pow2_profiler): Adjust.
+	(rtl_gen_one_value_profiler_no_edge_manip): Adjust.
+	(rtl_gen_one_value_profiler): Adjust.
+	(rtl_gen_const_delta_profiler): Adjust.
+	* tree-profile.c (tree_gen_interval_profiler): Implement.
+	(tree_gen_pow2_profiler): Ditto.
+	(tree_gen_one_value_profiler): Ditto.
+	(tree_profiling): New.
+	(pass_tree_profile): Reference it.
+	* value-prof.c: Include tree-flow.h, tree-flow-inline.h, diagnostic.h,
+	tree.h, gcov-io.h.
+	(insn_divmod_values_to_profile): Rename to 
+	rtl_divmod_values_to_profile. Adjust.
+	(insn_values_to_profile): Rename to rtl_values_to_profile. Adjust.
+	(insn_prefetch_values_to_profile): Adjust.
+	(rtl_value_profile_transformations): Adjust.
+	(gen_divmod_fixed_value): Rename to rtl_divmod_fixed_value.
+	(gen_mod_pow2): Rename to rtl_mod_pow2.
+	(gen_mod_subtract): Rename to rtl_mod_subtract.
+	(divmod_fixed_value_transform): Rename to 
+	rtl_divmod_fixed_value_transform.
+	(mod_pow2_value_transform): Rename to rtl_mod_pow2_value_transform.
+	(mod_subtract_transform): Rename to rtl_mod_subtract_transform.
+	(rtl_find_values_to_profile): Adjust.
+	(tree_value_profile_transformations): Implement.
+	(tree_divmod_values_to_profile): New.
+	(tree_values_to_profile): New.
+	(tree_divmod_fixed_value): New.
+	(tree_mod_pow2): New.
+	(tree_mod_subtract): New.
+	(tree_divmod_fixed_value_transform): New.
+	(tree_mod_pow2_value_transform): New.
+	(tree_mod_subtract_transform): New.
+	(tree_find_values_to_profile): Implement.
+	* profile.c (instrument_values):  Free histograms.
+	(compute_value_histograms): Adjust. Implement tree version.
+
+2004-10-22  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profiling-merge-20041022)
+
+2004-10-17  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profiling-merge-20041017)
+
+2004-10-16  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (decide_is_variable_needed): New function.
+	(cgraph_varpool_finalize_decl): Use it.
+	* cgraphunit.c (cgraph_optimize): Assemble_pending_decls when not doing
+	unit-at-a-time.
+	* final.c (output_addr_const): Do not call mark_referenced.
+	* passes.c (rest_of_decl_compilation): ifdef out DECL_RTL_SET_P hack;
+	always go via cgraph.
+	* toplev.c (wrapup_global_declarations): Kill non-unit-at-a-time code.
+	(check_global_declarations): Ifdef out code clearing DECL_RTL.
+	* tree-optimize.c (execute_inline): Mark functions called.
+	* i386.c (output_pic_addr_const): Do not call mark_decl_referenced.
+
+2004-10-11  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_varpool_first_unanalyzed_node): New global voriable
+	(cgraph_varpool_last_needed_node): New static variable.
+	(enqueue_needed_varpool_node): Break out from ...; add items to the end of queue;
+	update first pointers.
+	(cgraph_varpool_mark_needed_node): ... here.
+	(cgraph_varpool_finalize_decl): Use enqueue_needed_varpool_node.
+	(cgraph_varpool_assemble_pending_decls): Move to cgraphunit.c
+	* cgraph.h (cgraph_varpool_node): Add analyzed field.
+	(cgraph_varpool_first_unanalyzed_node): Declare.
+	* cgraphunit.c: Include output.h.
+	(cgraph_varpool_analyze_pending_decls): New function.
+	(cgraph_varpool_assemble_pending_decls): Move from cgraph.c; bail out for errors,
+	analyze pending decls.
+	(cgraph_finalize_compilation_unit): Only analyze decls.
+	(cgraph_optimize): Assemble the decls after expanding.
+
+	* decl2.c (finish_objects): Mark ctor as needed.
+	(cp_finish_file): Output variables only in nonunit-at-a-time.
+
+	* Make-lang.in (class.o, decl.o): Depend on cgraph.h.
+	* class.c: Include cgraph.h
+	(make_local_functoin_alias): Mark aslias as needed.
+	* resource.c: Include cgraph.h
+	(compile_resource_data): Go via cgraph interface.
+
+2004-10-02  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (flag_web): Disable by default.
+
+2004-09-30  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-pre.c: Disable PRE on nops.
+
+2004-09-26  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
+2004-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* Merge form mainline (tree-profiling-merge-20040918)
+
+2004-09-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (thread_jumps): Fix profile updating.
+
+2004-09-17  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (update_bb_profile_after_threading): Declare.
+	* cfg.c (update_bb_profile_after_threading): Break out from ...
+	* cfgcleanup.c (try_forward_edges): ... here; use it.
+	* tree-ssa-dom.c (thread_across_edge): Use it.
+	* tree-ssa-threadupdate.c (create_block_for_threading): Zero out
+	profile of the new BB.
+
+2004-09-17  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (common_handle_option): Disable value profiling again.
+
+2004-09-16  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c: Synchronize with mainline.
+
+2004-09-14  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c: Fix merge problems.
+
+2004-09-12  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c:  Revert changes no longer needed.
+
+2004-09-12  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profiling-merge-20040912)
+	
+2004-09-09  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (free_after_compilation): Plug Steven's grand memory leak
+
+2004-09-09  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profile-merge-20040829)
+
+2004-08-29  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (predict_loops): Use number_of_iterations_exit.
+
+2004-08-28  Razya Ladelsky  <razya@il.ibm.com>
+
+        * ipa_prop.c: New File: IPA constant propagation. 
+        * ipa_prop.h: New File: Same.
+        * Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
+        * common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
+	constant propagation. 
+        * cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
+	constant propagation.
+
 2004-08-16  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (estimate_probability): Run BB level predictors just once per block.

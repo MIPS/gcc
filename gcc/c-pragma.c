@@ -42,7 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 typedef struct align_stack GTY(())
 {
   int                  alignment;
-  unsigned int         num_pushes;
   tree                 id;
   struct align_stack * prev;
 } align_stack;
@@ -59,8 +58,9 @@ static void handle_pragma_pack (cpp_reader *);
    happens, we restore the value to this, not to a value of 0 for
    maximum_field_alignment.  Value is in bits.  */
 static int default_alignment;
-#define SET_GLOBAL_ALIGNMENT(ALIGN) \
-  (default_alignment = maximum_field_alignment = (ALIGN))
+#define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = *(alignment_stack == NULL \
+	? &default_alignment \
+	: &alignment_stack->alignment) = (ALIGN))
 
 static void push_alignment (int, tree);
 static void pop_alignment (tree);
@@ -69,31 +69,23 @@ static void pop_alignment (tree);
 static void
 push_alignment (int alignment, tree id)
 {
-  if (alignment_stack == NULL
-      || alignment_stack->alignment != alignment
-      || id != NULL_TREE)
-    {
-      align_stack * entry;
+  align_stack * entry;
 
-      entry = ggc_alloc (sizeof (* entry));
+  entry = ggc_alloc (sizeof (* entry));
 
-      entry->alignment  = alignment;
-      entry->num_pushes = 1;
-      entry->id         = id;
-      entry->prev       = alignment_stack;
-      
-      /* The current value of maximum_field_alignment is not necessarily 
-	 0 since there may be a #pragma pack(<n>) in effect; remember it 
-	 so that we can restore it after the final #pragma pop().  */
-      if (alignment_stack == NULL)
-	default_alignment = maximum_field_alignment;
-      
-      alignment_stack = entry;
+  entry->alignment  = alignment;
+  entry->id         = id;
+  entry->prev       = alignment_stack;
+       
+  /* The current value of maximum_field_alignment is not necessarily 
+     0 since there may be a #pragma pack(<n>) in effect; remember it 
+     so that we can restore it after the final #pragma pop().  */
+  if (alignment_stack == NULL)
+    default_alignment = maximum_field_alignment;
+ 
+  alignment_stack = entry;
 
-      maximum_field_alignment = alignment;
-    }
-  else
-    alignment_stack->num_pushes ++;
+  maximum_field_alignment = alignment;
 }
 
 /* Undo a push of an alignment onto the stack.  */
@@ -103,12 +95,7 @@ pop_alignment (tree id)
   align_stack * entry;
       
   if (alignment_stack == NULL)
-    {
-      warning ("\
-#pragma pack (pop) encountered without matching #pragma pack (push, <n>)"
-	       );
-      return;
-    }
+    GCC_BAD ("#pragma pack (pop) encountered without matching #pragma pack (push)");
 
   /* If we got an identifier, strip away everything above the target
      entry so that the next step will restore the state just below it.  */
@@ -117,40 +104,35 @@ pop_alignment (tree id)
       for (entry = alignment_stack; entry; entry = entry->prev)
 	if (entry->id == id)
 	  {
-	    entry->num_pushes = 1;
 	    alignment_stack = entry;
 	    break;
 	  }
       if (entry == NULL)
 	warning ("\
-#pragma pack(pop, %s) encountered without matching #pragma pack(push, %s, <n>)"
+#pragma pack(pop, %s) encountered without matching #pragma pack(push, %s)"
 		 , IDENTIFIER_POINTER (id), IDENTIFIER_POINTER (id));
     }
 
-  if (-- alignment_stack->num_pushes == 0)
-    {
-      entry = alignment_stack->prev;
+  entry = alignment_stack->prev;
 
-      if (entry == NULL)
-	maximum_field_alignment = default_alignment;
-      else
-	maximum_field_alignment = entry->alignment;
+  maximum_field_alignment = entry ? entry->alignment : default_alignment;
 
-      alignment_stack = entry;
-    }
+  alignment_stack = entry;
 }
 #else  /* not HANDLE_PRAGMA_PACK_PUSH_POP */
 #define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = (ALIGN))
 #define push_alignment(ID, N) \
-    GCC_BAD("#pragma pack(push[, id], <n>) is not supported on this target")
+    GCC_BAD ("#pragma pack(push[, id], <n>) is not supported on this target")
 #define pop_alignment(ID) \
-    GCC_BAD("#pragma pack(pop[, id], <n>) is not supported on this target")
+    GCC_BAD ("#pragma pack(pop[, id], <n>) is not supported on this target")
 #endif /* HANDLE_PRAGMA_PACK_PUSH_POP */
 
 /* #pragma pack ()
    #pragma pack (N)
    
+   #pragma pack (push)
    #pragma pack (push, N)
+   #pragma pack (push, ID)
    #pragma pack (push, ID, N)
    #pragma pack (pop)
    #pragma pack (pop, ID) */
@@ -163,27 +145,27 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
   enum { set, push, pop } action;
 
   if (c_lex (&x) != CPP_OPEN_PAREN)
-    GCC_BAD ("missing '(' after '#pragma pack' - ignored");
+    GCC_BAD ("missing %<(%> after %<#pragma pack%> - ignored");
 
   token = c_lex (&x);
   if (token == CPP_CLOSE_PAREN)
     {
       action = set;
-      align = 0;
+      align = initial_max_fld_align;
     }
   else if (token == CPP_NUMBER)
     {
       align = TREE_INT_CST_LOW (x);
       action = set;
       if (c_lex (&x) != CPP_CLOSE_PAREN)
-	GCC_BAD ("malformed '#pragma pack' - ignored");
+	GCC_BAD ("malformed %<#pragma pack%> - ignored");
     }
   else if (token == CPP_NAME)
     {
-#define GCC_BAD_ACTION do { if (action == push) \
-	  GCC_BAD ("malformed '#pragma pack(push[, id], <n>)' - ignored"); \
+#define GCC_BAD_ACTION do { if (action != pop) \
+	  GCC_BAD ("malformed %<#pragma pack(push[, id][, <n>])%> - ignored"); \
 	else \
-	  GCC_BAD ("malformed '#pragma pack(pop[, id])' - ignored"); \
+	  GCC_BAD ("malformed %<#pragma pack(pop[, id])%> - ignored"); \
 	} while (0)
 
       const char *op = IDENTIFIER_POINTER (x);
@@ -192,33 +174,23 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
       else if (!strcmp (op, "pop"))
 	action = pop;
       else
-	GCC_BAD2 ("unknown action '%s' for '#pragma pack' - ignored", op);
+	GCC_BAD2 ("unknown action %qs for %<#pragma pack%> - ignored", op);
 
-      token = c_lex (&x);
-      if (token != CPP_COMMA && action == push)
-	GCC_BAD_ACTION;
-
-      if (token == CPP_COMMA)
+      while ((token = c_lex (&x)) == CPP_COMMA)
 	{
 	  token = c_lex (&x);
-	  if (token == CPP_NAME)
+	  if (token == CPP_NAME && id == 0)
 	    {
 	      id = x;
-	      if (action == push && c_lex (&x) != CPP_COMMA)
-		GCC_BAD_ACTION;
-	      token = c_lex (&x);
 	    }
-
-	  if (action == push)
+	  else if (token == CPP_NUMBER && action == push && align == -1)
 	    {
-	      if (token == CPP_NUMBER)
-		{
-		  align = TREE_INT_CST_LOW (x);
-		  token = c_lex (&x);
-		}
-	      else
-		GCC_BAD_ACTION;
+	      align = TREE_INT_CST_LOW (x);
+	      if (align == -1)
+		action = set;
 	    }
+	  else
+	    GCC_BAD_ACTION;
 	}
 
       if (token != CPP_CLOSE_PAREN)
@@ -226,10 +198,13 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 #undef GCC_BAD_ACTION
     }
   else
-    GCC_BAD ("malformed '#pragma pack' - ignored");
+    GCC_BAD ("malformed %<#pragma pack%> - ignored");
 
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma pack'");
+    warning ("junk at end of %<#pragma pack%>");
+
+  if (flag_pack_struct)
+    GCC_BAD ("#pragma pack has no effect with -fpack-struct - ignored");
 
   if (action != pop)
     switch (align)
@@ -242,6 +217,12 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
       case 16:
 	align *= BITS_PER_UNIT;
 	break;
+      case -1:
+	if (action == push)
+	  {
+	    align = maximum_field_alignment;
+	    break;
+	  }
       default:
 	GCC_BAD2 ("alignment must be a small power of two, not %d", align);
       }
@@ -276,7 +257,7 @@ apply_pragma_weak (tree decl, tree value)
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning ("%Japplying #pragma weak '%D' after first use results "
+    warning ("%Japplying #pragma weak %qD after first use results "
              "in unspecified behavior", decl, decl);
 
   declare_weak (decl);
@@ -298,7 +279,7 @@ maybe_apply_pragma_weak (tree decl)
     return;
   /* If it's not a function or a variable, it can't be weak.
      FIXME: what kinds of things are visible outside this file but
-     aren't functions or variables?   Should this be an abort() instead?  */
+     aren't functions or variables?   Should this be an assert instead?  */
   if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
     return;
 
@@ -335,7 +316,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
     warning ("junk at end of #pragma weak");
 
   decl = identifier_global_value (name);
-  if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (decl && DECL_P (decl))
     {
       apply_pragma_weak (decl, value);
       if (value)
@@ -597,7 +578,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
         {
           if (!visidx)
             {
-              GCC_BAD ("No matching push for '#pragma GCC visibility pop'");
+              GCC_BAD ("No matching push for %<#pragma GCC visibility pop%>");
             }
           else
             {
@@ -608,7 +589,7 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
       else
         {
           if (c_lex (&x) != CPP_OPEN_PAREN)
-            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+            GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
           token = c_lex (&x);
           if (token != CPP_NAME)
             {
@@ -637,11 +618,11 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
               visibility_options.inpragma = 1;
             }
           if (c_lex (&x) != CPP_CLOSE_PAREN)
-            GCC_BAD ("missing '(' after '#pragma GCC visibility push' - ignored");
+            GCC_BAD ("missing '(' after %<#pragma GCC visibility push%> - ignored");
         }
     }
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of '#pragma GCC visibility'");
+    warning ("junk at end of %<#pragma GCC visibility%>");
 }
 
 #endif
