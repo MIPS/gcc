@@ -174,6 +174,7 @@ struct decomposition
 
 static rtx secondary_memlocs[NUM_MACHINE_MODES];
 static rtx secondary_memlocs_elim[NUM_MACHINE_MODES][MAX_RECOG_OPERANDS];
+static int secondary_memlocs_elim_used = 0;
 #endif
 
 /* The instruction we are doing reloads for;
@@ -652,6 +653,8 @@ get_secondary_mem (x, mode, opnum, type)
     }
 
   secondary_memlocs_elim[(int) mode][opnum] = loc;
+  if (secondary_memlocs_elim_used <= opnum)
+    secondary_memlocs_elim_used = opnum + 1;
   return loc;
 }
 
@@ -2605,7 +2608,12 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
   /* The eliminated forms of any secondary memory locations are per-insn, so
      clear them out here.  */
 
-  memset ((char *) secondary_memlocs_elim, 0, sizeof secondary_memlocs_elim);
+  if (secondary_memlocs_elim_used)
+    {
+      memset (secondary_memlocs_elim, 0,
+	      sizeof (secondary_memlocs_elim[0]) * secondary_memlocs_elim_used);
+      secondary_memlocs_elim_used = 0;
+    }
 #endif
 
   /* Dispose quickly of (set (reg..) (reg..)) if both have hard regs and it
