@@ -1,5 +1,10 @@
 2003-03-25  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-simple.c: Use tree codes to document grammar for relational
+	operators &&, || and ^.
+
+2003-03-25  Diego Novillo  <dnovillo@redhat.com>
+
 	* cfg.c (dump_edge_info): Add labels for EDGE_TRUE_VALUE,
 	EDGE_FALSE_VALUE and EDGE_EXECUTABLE.
 	* tree-cfg.c (dump_tree_bb): Change formatting.  Show all

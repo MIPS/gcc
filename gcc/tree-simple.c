@@ -167,9 +167,9 @@ Boston, MA 02111-1307, USA.  */
 	      | '>='
 	      | '=='
 	      | '!='
-	      | '&&'
-	      | '||'
-	      | '^'
+	      | TRUTH_AND_EXPR
+	      | TRUTH_OR_EXPR
+	      | TRUTH_XOR_EXPR
 
       condexpr
 	      : val
