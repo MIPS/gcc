@@ -4376,8 +4376,28 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 							      + align_words),
 						 const0_rtx)));
     }
-  else if (mode == BLKmode && align_words <= (GP_ARG_NUM_REG - 1))
+  else if (ALTIVEC_VECTOR_MODE (mode) && align_words == GP_ARG_NUM_REG - 2)
     {
+      /* Varargs vector regs must be saved in R9-R10.  */
+      return gen_rtx_PARALLEL (mode,
+                               gen_rtvec (3,
+                                 gen_rtx_EXPR_LIST (VOIDmode,
+                                                     NULL_RTX, const0_rtx),
+                                 gen_rtx_EXPR_LIST (VOIDmode,
+                                                    gen_rtx_REG (SImode,
+                                                                 GP_ARG_MIN_REG
+                                                                 + align_words),
+                                                    const0_rtx),
+                                 gen_rtx_EXPR_LIST (VOIDmode,
+                                                    gen_rtx_REG (SImode,
+                                                                 GP_ARG_MIN_REG
+                                                                 + align_words + 1),
+                                                    GEN_INT (4))));
+    }
+  else if ((mode == BLKmode || ALTIVEC_VECTOR_MODE (mode))
+           && align_words <= (GP_ARG_NUM_REG - 1))
+    {
+      /* AltiVec vector regs are saved in R5-R8. */
       int k;
       int size = int_size_in_bytes (type);
       int no_units = ((size - 1) / 4) + 1;
@@ -4388,57 +4408,14 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       memset ((char *) rtlvec, 0, rtlvec_len * sizeof (rtx));
 
       for (k=0; k < rtlvec_len; k++)
-	rtlvec[k] = gen_rtx_EXPR_LIST (VOIDmode,
-				       gen_rtx_REG (SImode,
-						    GP_ARG_MIN_REG
-						    + align_words + k),
-				       k == 0 ? const0_rtx : GEN_INT (k*4));
+        rtlvec[k] = gen_rtx_EXPR_LIST (VOIDmode,
+                                       gen_rtx_REG (SImode,
+                                                    GP_ARG_MIN_REG
+                                                    + align_words + k),
+                                       k == 0 ? const0_rtx : GEN_INT (k*4));
 
-      return gen_rtx_PARALLEL (BLKmode, gen_rtvec_v (k, rtlvec));
+      return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rtlvec));
     }
-  else if (ALTIVEC_VECTOR_MODE(mode) && align_words <= (GP_ARG_NUM_REG - 1))
-    {
-      /* Varargs vector regs must be saved in R5-R8 or R9-R10.  */
-      if (align_words == GP_ARG_NUM_REG - 2)
-	{
-	  /* R9-R10  */
-	  return gen_rtx_PARALLEL (mode,
-		   gen_rtvec (3,
-			      gen_rtx_EXPR_LIST (VOIDmode,
-						 NULL_RTX, const0_rtx),
-			      gen_rtx_EXPR_LIST (VOIDmode,
-						 gen_rtx_REG (SImode,
-							      GP_ARG_MIN_REG
-							      + align_words),
-						 const0_rtx),
-			      gen_rtx_EXPR_LIST (VOIDmode,
-						 gen_rtx_REG (SImode,
-							      GP_ARG_MIN_REG
-							      + align_words+1),
-						 GEN_INT(4))));
-	}
-      else
-	{
-	  /* R5-R8 */
-      	  int k;
-      	  int size = int_size_in_bytes (type);
-      	  int no_units = ((size - 1) / 4) + 1;
-      	  int max_no_words = GP_ARG_NUM_REG - align_words;
-      	  int rtlvec_len = no_units < max_no_words ? no_units : max_no_words;
-      	  rtx *rtlvec = (rtx *) alloca (rtlvec_len * sizeof (rtx));
-      	  memset ((char *) rtlvec, 0, rtlvec_len * sizeof (rtx));
-      
-          for (k=0; k < rtlvec_len; k++)
-	    rtlvec[k] = gen_rtx_EXPR_LIST (VOIDmode,
-				           gen_rtx_REG (SImode,
-						        GP_ARG_MIN_REG
-						        + align_words + k),
-				           k == 0 ? const0_rtx : GEN_INT (k*4));
-
-      	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rtlvec));
-	}
-    }
-
   return NULL_RTX;
 }
 
@@ -15380,6 +15357,9 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 	}
     default: break;
     }
+
+  if (result && result != type && TYPE_READONLY(type))
+    result = build_qualified_type (result, TYPE_QUAL_CONST);
 
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
