@@ -196,6 +196,10 @@ struct loop
   /* The number of LABEL_REFs on exit_labels for this loop and all
      loops nested inside it.  */
   int exit_count;
+
+  /* The number of probable iterations.  This is either an INTERVAL_CHREC
+     or an INTEGER_CST.  */
+  tree nb_iterations;
 };
 
 /* Flags for state of loop structure.  */
@@ -338,3 +342,13 @@ enum
 };
 
 extern void unroll_and_peel_loops (struct loops *, int);
+
+
+static inline struct loop *loop_from_num (struct loops *, unsigned);
+
+static inline struct loop *
+loop_from_num (struct loops *loops, 
+	       unsigned num)
+{
+  return loops->parray[num];
+}

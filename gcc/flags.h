@@ -725,6 +725,12 @@ extern int flag_tree_ccp;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
+/* Enable SSA-CHREC on trees.  */
+extern int flag_scalar_evolutions;
+
+/* Enable the analysis of all the data dependences.  */
+extern int flag_all_data_deps;
+
 /* Enable SSA->normal pass memory location coalescing.  */
 extern int flag_tree_combine_temps;
 

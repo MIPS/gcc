@@ -1,0 +1,44 @@
+2003-12-27  Sebastian Pop  <s.pop@laposte.net>
+
+	* Makefile.in (OBJS-common): Added tree-chrec.o
+	tree-scalar-evolution.o, tree-data-ref.o, tree-fold-const.o.
+	(tree-optimize.o): Add dependencies on tree-fold-const.h
+	tree-chrec.h tree-scalar-evolution.h tree-data-ref.h
+	(tree-chrec.o, tree-scalar-evolution.o, tree-data-ref.o,
+	tree-fold-const.o): New rules.
+	* cfgloop.h (loop): New field nb_iterations.
+	(loop_from_num): New function.
+	* common.opt (fscalar-evolutions, fall-data-deps): Added.
+	* flags.h (flag_scalar_evolutions, flag_all_data_deps): Declared.
+	* opts.c (decode_options, common_handle_option): Initialize
+        flag_scalar_evolutions and flag_all_data_deps. 
+	* timevar.def (TV_SCALAR_EVOLUTIONS, TV_ALL_DATA_DEPS): New.
+	* toplev.c (flag_scalar_evolutions, flag_all_data_deps): Defined.
+	(lang_independent_options): Add flag_scalar_evolutions and 
+	flag_all_data_deps.
+	* tree-dump.c (scev, alldd): New extensions.
+	* tree.h (tree_dump_index): Added TDI_scev and TDI_alldd.
+	* tree-optimize.c (tree-fold-const.h, tree-chrec.h, 
+	tree-scalar-evolution.h, tree-data-ref.h): Included.
+	(optimize_function_tree): Added the entry point for the analysis of 
+	scalar evolutions and data dependences.
+	* tree-pretty-print.c (tree-fold-const.h, tree-chrec.h): Included.
+	(dump_generic_node): Added code for dumping POLYNOMIAL_CHREC, 
+	EXPONENTIAL_CHREC, PERIODIC_CHREC, and INTERVAL_CHREC.
+	* tree.def (INTERVAL_CHREC, POLYNOMIAL_CHREC, EXPONENTIAL_CHREC, 
+	PERIODIC_CHREC): New tree nodes.
+	* varray.h (index_in_varray_tree, tree_is_in_varray_tree_p, 
+	index_in_varray_int, int_is_in_varray_int_p): New inlined functions.
+	* tree-chrec.c, tree-chrec.h, tree-data-ref.c, tree-data-ref.h, 
+	tree-fold-const.c, tree-fold-const.h, tree-scalar-evolution.c, 
+	tree-scalar-evolution.h: New files.
+	* doc/invoke.texi (-fdump-scalar-evolutions, -fdump-all-data-deps): 
+	Documented.
+	* testsuite/gcc.dg/tree-ssa-chrec/ssa-chrec-[01..50].c : New testcases.
+	* testsuite/gcc.dg/tree-ssa-chrec/ssa-chrec-[01..50].c.scev: Expected 
+	outputs for the scalar evolution analyzer.  
+	* testsuite/gcc.dg/tree-ssa-chrec/ssa-chrec-{10, 30, 31, 32, 33, 34, 
+	35, 36}.c.alldd: Expected outputs for the data dependence analyzer.
+	* testsuite/gcc.dg/tree-ssa-chrec/tree-ssa-scev.exp: New file.
+	* testsuite/lib/scantree.exp (diff-tree-dumps): New procedure.
+	* ChangeLog.lno: New file.

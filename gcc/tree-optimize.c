@@ -44,6 +44,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "ggc.h"
+#include "tree-fold-const.h"
+#include "tree-chrec.h"
+#include "tree-scalar-evolution.h"
+#include "tree-data-ref.h"
 #include "cgraph.h"
 
 static void tree_ssa_finish (tree *);
@@ -233,6 +237,53 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  tree_ssa_dce (fndecl, TDI_dce_2);
 	  ggc_collect ();
 
+#if 1
+      if (flag_scalar_evolutions)
+	{
+	  unsigned int i;
+	  struct loops *loops;
+	  varray_type ev_info;
+	  varray_type loop_nests;
+	  varray_type exit_conditions;
+	  
+	  VARRAY_GENERIC_PTR_INIT (ev_info, 37, "ev_info");
+	  VARRAY_GENERIC_PTR_INIT (loop_nests, 37, "loop_nests");
+	  VARRAY_GENERIC_PTR_INIT (exit_conditions, 37, "exit_conditions");
+	  
+	  loops = loop_optimizer_init (NULL);
+	  
+	  if (loops != NULL)
+	    {
+	      initialize_scalar_evolutions_analyzer ();
+	      select_loop_nests_for_scalar_evolutions_analyzer 
+		(loops, loop_nests, exit_conditions);
+	      
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_nests); i++)
+		{
+		  struct loop *loop_nest;
+		  
+		  loop_nest = VARRAY_GENERIC_PTR (loop_nests, i);
+		  if (!loop_nest)
+		    continue;
+		  
+		  analyze_scalar_evolutions 
+		    (loops, loop_nest, ev_info, 
+		     VARRAY_GENERIC_PTR (exit_conditions, i));
+		  
+		  if (flag_all_data_deps)
+		    analyze_all_data_dependences (loop_nest);
+		}
+	      
+	      varray_clear (ev_info);
+	      varray_clear (loop_nests);
+	      varray_clear (exit_conditions);
+	      
+	      finalize_scalar_evolutions_analyzer ();
+	      loop_optimizer_finalize (loops, NULL);
+	    }
+	}
+#endif
+      
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();
 #endif

@@ -347,4 +347,61 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_TOP_EDGE(VA)		VARRAY_TOP (VA, e)
 #define VARRAY_TOP_TREE_PTR(VA)		VARRAY_TOP (VA, tp)
 
+
+
+
+static inline int index_in_varray_tree (tree, varray_type);
+static inline bool tree_is_in_varray_tree_p (tree, varray_type);
+
+static inline int index_in_varray_int (int, varray_type);
+static inline bool int_is_in_varray_int_p (int, varray_type);
+
+/* Determines the index of T in the varray_tree VT.  */
+
+static inline int
+index_in_varray_tree (tree t, 
+		      varray_type vt)
+{
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vt); i++)
+    if (t == VARRAY_TREE (vt, i))
+      return i;
+  
+  return -1;
+}
+
+/* Determines whether T is in the varray_tree VT.  */
+
+static inline bool
+tree_is_in_varray_tree_p (tree t, 
+			  varray_type vt)
+{
+  return index_in_varray_tree (t, vt) != -1;
+}
+
+/* Determines the index of T in the varray_int VT.  */
+
+static inline int
+index_in_varray_int (int t, 
+		     varray_type vt)
+{
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vt); i++)
+    if (t == VARRAY_INT (vt, i))
+      return i;
+  
+  return -1;
+}
+
+/* Determines whether T is in the varray_int VT.  */
+
+static inline bool
+int_is_in_varray_int_p (int t, 
+			varray_type vt)
+{
+  return index_in_varray_int (t, vt) != -1;
+}
+
 #endif /* ! GCC_VARRAY_H */

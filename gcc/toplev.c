@@ -976,6 +976,12 @@ int flag_tree_ccp = 0;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable the analysis of the scalar evolutions on trees.  */
+int flag_scalar_evolutions = 0;
+
+/* Enable the analysis of all data dependences.  */
+int flag_all_data_deps = 0;
+
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 int flag_tree_must_alias = 0;
 
@@ -1188,6 +1194,8 @@ static const lang_independent_options f_options[] =
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
+  { "scalar-evolutions", &flag_scalar_evolutions, 1 },
+  { "all-data-deps", &flag_all_data_deps, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },

@@ -734,6 +734,14 @@ ftree-pre
 Common
 Enable SSA-PRE optimization on trees
 
+fscalar-evolutions
+Common
+Enable the analysis of scalar evolutions on trees
+
+fall-data-deps
+Common
+Analyze all the data dependences 
+
 funit-at-a-time
 Common
 Compile whole compilation unit at a time
