@@ -2196,6 +2196,8 @@ Fri Nov 13 11:02:11 1998  Stan Cox  <scox@cygnus.com>
 =======
 I'm intentionally leaving the ChangeLogs conflicted during the merge.  robertl
 
+Mon Jan  4 11:30:58 PST 1999   Robert Lipe <robertlipe@usa.net>
+	* fixinc/*: Autoconfiscate all files.
 
 Mon Jan  4 11:19:58 PST 1999   Robert Lipe <robertlipe@usa.net>
 
