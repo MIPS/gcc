@@ -62,6 +62,7 @@ static tree maybe_layout_super_class (tree, tree);
 static void add_miranda_methods (tree, tree);
 static int assume_compiled (const char *);
 static tree build_symbol_entry (tree);
+static tree emit_assertion_table (tree);
 
 struct obstack temporary_obstack;
 
@@ -1852,16 +1853,19 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
+
   {
-    tree verify_method = TYPE_VERIFY_METHOD (type);
-    tree verify_method_ref 
-      = (verify_method 
-	 ? build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (verify_method)),
-		   verify_method)
-	 : null_pointer_node);
-    PUSH_FIELD_VALUE (cons, "verify" , verify_method_ref);
-    TYPE_VERIFY_METHOD (type) = NULL;
+    tree assertion_table_ref;
+    if (TYPE_ASSERTIONS (type) == NULL)
+      assertion_table_ref = null_pointer_node;
+    else
+      assertion_table_ref = build1 (ADDR_EXPR, 
+				    build_pointer_type (assertion_table_type),
+				    emit_assertion_table (type));
+    
+    PUSH_FIELD_VALUE (cons, "assertion_table", assertion_table_ref);
   }
+
   PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "aux_info", null_pointer_node);
@@ -2548,7 +2552,7 @@ emit_symbol_table (tree name, tree the_table, tree decl_list,
   return the_table;
 }
 
-/* make an entry for the catch_classes list.  */
+/* Make an entry for the catch_classes list.  */
 tree
 make_catch_class_record (tree catch_class, tree classname)
 {
@@ -2593,7 +2597,95 @@ emit_catch_table (tree this_class)
   rest_of_decl_compilation (table, 1, 0);
   return table;
 }
- 
+
+/* Given a type, return the signature used by
+   _Jv_FindClassFromSignature() in libgcj.  This isn't exactly the
+   same as build_java_signature() because we want the canonical array
+   type.  */
+
+static tree
+build_signature_for_libgcj (tree type)
+{
+  tree sig, ref;
+
+  sig = build_java_signature (type);
+  ref = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (sig),
+					    IDENTIFIER_LENGTH (sig)));
+  return ref;
+}
+
+/* Add an entry to the type assertion table. Callback used during hashtable
+   traversal.  */
+
+static int
+add_assertion_table_entry (void **htab_entry, void *ptr)
+{
+  tree entry;
+  tree code_val, op1_utf8, op2_utf8;
+  tree *list = (tree *) ptr;
+  type_assertion *as = (type_assertion *) *htab_entry;
+
+  code_val = build_int_cst (NULL_TREE, as->assertion_code);
+
+  if (as->op1 == NULL_TREE)
+    op1_utf8 = null_pointer_node;
+  else
+    op1_utf8 = build_signature_for_libgcj (as->op1);
+
+  if (as->op2 == NULL_TREE)
+    op2_utf8 = null_pointer_node;
+  else
+    op2_utf8 = build_signature_for_libgcj (as->op2);
+  
+  START_RECORD_CONSTRUCTOR (entry, assertion_entry_type);
+  PUSH_FIELD_VALUE (entry, "assertion_code", code_val);
+  PUSH_FIELD_VALUE (entry, "op1", op1_utf8);
+  PUSH_FIELD_VALUE (entry, "op2", op2_utf8);
+  FINISH_RECORD_CONSTRUCTOR (entry);
+  
+  *list = tree_cons (NULL_TREE, entry, *list);
+  return true;
+}
+
+/* Generate the type assertion table for CLASS, and return its DECL.  */
+
+static tree
+emit_assertion_table (tree class)
+{
+  tree null_entry, ctor, table_decl;
+  tree list = NULL_TREE;
+  htab_t assertions_htab = TYPE_ASSERTIONS (class);
+
+  /* Iterate through the hash table.  */
+  htab_traverse (assertions_htab, add_assertion_table_entry, &list);
+
+  /* Finish with a null entry.  */
+  START_RECORD_CONSTRUCTOR (null_entry, assertion_entry_type);
+  PUSH_FIELD_VALUE (null_entry, "assertion_code", integer_zero_node);
+  PUSH_FIELD_VALUE (null_entry, "op1", null_pointer_node);
+  PUSH_FIELD_VALUE (null_entry, "op2", null_pointer_node);
+  FINISH_RECORD_CONSTRUCTOR (null_entry);
+  
+  list = tree_cons (NULL_TREE, null_entry, list);
+  
+  /* Put the list in the right order and make it a constructor. */
+  list = nreverse (list);
+  ctor = build_constructor (assertion_table_type, list);
+
+  table_decl = build_decl (VAR_DECL, mangled_classname ("_type_assert_", class),
+			   assertion_table_type);
+
+  TREE_STATIC (table_decl) = 1;
+  TREE_READONLY (table_decl) = 1;
+  TREE_CONSTANT (table_decl) = 1;
+  DECL_IGNORED_P (table_decl) = 1;
+
+  DECL_INITIAL (table_decl) = ctor;
+  DECL_ARTIFICIAL (table_decl) = 1;
+  rest_of_decl_compilation (table_decl, 1, 0);
+
+  return table_decl;
+}
 
 void
 init_class_processing (void)

@@ -416,8 +416,9 @@ type_assertion_eq (const void * k1_p, const void * k2_p)
 {
   type_assertion k1 = *(type_assertion *)k1_p;
   type_assertion k2 = *(type_assertion *)k2_p;
-  return (k1.source_type == k2.source_type
-	  && k1.target_type == k2.target_type);
+  return (k1.assertion_code == k2.assertion_code
+          && k1.op1 == k2.op1
+	  && k1.op2 == k2.op2);
 }
 
 /* Hash a type assertion.  */
@@ -426,110 +427,47 @@ static hashval_t
 type_assertion_hash (const void *p)
 {
   const type_assertion *k_p = p;
-  hashval_t hash = iterative_hash (&k_p->target_type, sizeof k_p->target_type, 0);
-  return iterative_hash (&k_p->source_type, sizeof k_p->source_type, hash);
+  hashval_t hash = iterative_hash (&k_p->assertion_code, sizeof
+				   k_p->assertion_code, 0);
+  hash = iterative_hash (&k_p->op1, sizeof k_p->op1, hash);
+  return iterative_hash (&k_p->op2, sizeof k_p->op2, hash);
 }
 
-/* Given a type, return the signature used by
-   _Jv_FindClassFromSignature() in libgcj.  This isn't exactly the
-   same as build_java_signature() because we want the canonical array
-   type.  */
+/* Add an entry to the type assertion table for the given class.  
+   CLASS is the class for which this assertion will be evaluated by the 
+   runtime during loading/initialization.
+   ASSERTION_CODE is the 'opcode' or type of this assertion: see java-tree.h.
+   OP1 and OP2 are the operands. The tree type of these arguments may be
+   specific to each assertion_code. */
 
-static tree
-build_signature_for_libgcj (tree type)
+void
+add_type_assertion (tree class, int assertion_code, tree op1, tree op2)
 {
-  tree sig, ref;
+  htab_t assertions_htab;
+  type_assertion as;
+  void **as_pp;
 
-  sig = build_java_signature (type);
-  ref = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (sig),
-					    IDENTIFIER_LENGTH (sig)));
-  return ref;
-}
-
-/* Add an assertion of the form "source_type is a subclass/
-   subinterface of target_type" to the "__verify" function of the
-   current class.  */
-
-static void
-add_type_assertion (tree source_type, tree target_type)
-{
-  tree verify_method = TYPE_VERIFY_METHOD (output_class);
-  tree itype = TREE_TYPE (TREE_TYPE (soft_instanceof_node));
-  tree arg;
-
-  if (TYPE_ARRAY_P (source_type))
+  assertions_htab = TYPE_ASSERTIONS (class);
+  if (assertions_htab == NULL)
     {
-      // FIXME: This is just a placeholder for merged types.  We need to
-      // do something more real than this.
-      if (TYPE_ARRAY_ELEMENT (source_type) == object_type_node)
-	return;      
-      source_type = build_java_array_type (TYPE_ARRAY_ELEMENT (source_type), -1);
+      assertions_htab = htab_create_ggc (7, type_assertion_hash, 
+					 type_assertion_eq, NULL);
+      TYPE_ASSERTIONS (current_class) = assertions_htab;
     }
-  if (TYPE_ARRAY_P (target_type))
-    target_type = build_java_array_type (TYPE_ARRAY_ELEMENT (target_type), -1);
 
-  if (target_type == object_type_node)
+  as.assertion_code = assertion_code;
+  as.op1 = op1;
+  as.op2 = op2;
+
+  as_pp = htab_find_slot (assertions_htab, &as, true);
+
+  /* Don't add the same assertion twice.  */
+  if (*as_pp)
     return;
 
-  if (source_type == target_type)
-    return;
-
-  // FIXME: This is just a placeholder for merged types.  We need to
-  // do something more real than this.
-  if (source_type == object_type_node)
-    return;
-
-  if (! verify_method)
-    {
-      arg = build_decl (PARM_DECL, get_identifier ("classLoader"), ptr_type_node);
-      DECL_CONTEXT (arg) = verify_method;
-      DECL_ARG_TYPE (arg) = ptr_type_node;
-      verify_method 
-	= build_decl (FUNCTION_DECL, verify_identifier_node,
-		      build_function_type (ptr_type_node, end_params_node));
-      DECL_ARGUMENTS (verify_method) = arg;
-      DECL_ARTIFICIAL (verify_method) = 1;
-      TREE_PUBLIC (verify_method) = 0;
-      DECL_EXTERNAL (verify_method) = 0;
-      TREE_PRIVATE (verify_method) = 1;
-      TREE_STATIC (verify_method) = 1;
-      TYPE_VERIFY_METHOD (output_class) = verify_method;
-      build_result_decl (verify_method);
-      DECL_INITIAL (verify_method) = build (BLOCK, void_type_node);
-      DECL_CONTEXT (verify_method) = output_class;
-      TYPE_ASSERTIONS (output_class) 
-	= htab_create_ggc (42, type_assertion_hash, type_assertion_eq, NULL);
-     }
-
-  {
-    /* Don't emit the same type assertion twice.  */
-    type_assertion as; 
-    void **as_pp;
-    as.source_type = source_type;
-    as.target_type = target_type;
-    as_pp = htab_find_slot (TYPE_ASSERTIONS (output_class), &as, true);
-    if (*as_pp)
-      return;
-    *as_pp = ggc_alloc (sizeof (type_assertion));
-    **(type_assertion **)as_pp = as;
-  }
-
-  {
-    tree source_ref = build_signature_for_libgcj (source_type);
-    tree target_ref = build_signature_for_libgcj (target_type);
-    tree args, expr;
-
-    args = tree_cons (NULL_TREE, source_ref, 
-		      build_tree_list (NULL_TREE, target_ref));
-    args = chainon (build_tree_list (NULL_TREE, DECL_ARGUMENTS (verify_method)), args);
-    expr = build (CALL_EXPR, itype,
-		       build_address_of (soft_check_assignment_node),
-		       args, NULL_TREE);
-    DECL_SAVED_TREE (verify_method) 
-      = add_stmt_to_compound (DECL_SAVED_TREE (verify_method), itype, expr);
-  }
-}    
-
+  *as_pp = ggc_alloc (sizeof (type_assertion));
+  **(type_assertion **)as_pp = as;
+}
 
 
 /* Return 1 if SOURCE_TYPE can be safely widened to TARGET_TYPE.
@@ -556,12 +494,13 @@ can_widen_reference_to (tree source_type, tree target_type)
      However, we could do something more optimal.  */
   if (! flag_verify_invocations)
     {
-      add_type_assertion (source_type, target_type);
+      add_type_assertion (current_class, JV_ASSERT_TYPES_COMPATIBLE, 
+			  source_type, target_type);
 
       if (!quiet_flag)
-	warning ("assert: %s is assign compatible with %s", 
-		 xstrdup (lang_printable_name (target_type, 0)),
-		 xstrdup (lang_printable_name (source_type, 0)));
+       warning ("assert: %s is assign compatible with %s", 
+		xstrdup (lang_printable_name (target_type, 0)),
+		xstrdup (lang_printable_name (source_type, 0)));
       /* Punt everything to runtime.  */
       return 1;
     }

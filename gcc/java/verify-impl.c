@@ -221,7 +221,6 @@ typedef struct verifier_context
 static GTY(()) verifier_context *vfr;
 
 /* Local function declarations.  */
-bool is_assignable_from_slow (vfy_jclass target, vfy_jclass source);
 bool type_initialized (type *t);
 int ref_count_dimensions (ref_intersection *ref);
 
@@ -388,31 +387,31 @@ merge_refs (ref_intersection *ref1, ref_intersection *ref2)
   return tail;
 }
 
-/* See if an object of type OTHER can be assigned to an object of
-   type *THIS.  This might resolve classes in one chain or the other.  */
+/* See if an object of type SOURCE can be assigned to an object of
+   type TARGET.  This might resolve classes in one chain or the other.  */
 static bool 
-ref_compatible (ref_intersection *ref1, ref_intersection *ref2)
+ref_compatible (ref_intersection *target, ref_intersection *source)
 {
-  for (; ref1 != NULL; ref1 = ref1->ref_next)
+  for (; target != NULL; target = target->ref_next)
     {
-      ref_intersection *ref2_iter = ref2;
+      ref_intersection *source_iter = source;
 
-      for (; ref2_iter != NULL; ref2_iter = ref2_iter->ref_next)
+      for (; source_iter != NULL; source_iter = source_iter->ref_next)
 	{
 	  /* Avoid resolving if possible.  */
-	  if (! ref1->is_resolved
-	      && ! ref2_iter->is_resolved
-	      && vfy_strings_equal (ref1->data.name,
-				    ref2_iter->data.name))
+	  if (! target->is_resolved
+	      && ! source_iter->is_resolved
+	      && vfy_strings_equal (target->data.name,
+				    source_iter->data.name))
 	    continue;
 
-	  if (! ref1->is_resolved)
-	    resolve_ref (ref1);
-	  if (! ref2_iter->is_resolved)
-	    resolve_ref (ref2_iter);
+	  if (! target->is_resolved)
+	    resolve_ref (target);
+	  if (! source_iter->is_resolved)
+	    resolve_ref (source_iter);
 
-	  if (! is_assignable_from_slow (ref1->data.klass,
-					 ref2_iter->data.klass))
+	  if (! vfy_is_assignable_from (target->data.klass,
+	  			        source_iter->data.klass))
 	    return false;
 	}
     }
@@ -525,52 +524,6 @@ static type_val
 get_type_val_for_primtype (vfy_jclass k)
 {
   return get_type_val_for_signature (vfy_get_primitive_char (k));
-}
-
-/* This is like _Jv_IsAssignableFrom, but it works even if SOURCE or
-   TARGET haven't been prepared.  */
-bool
-is_assignable_from_slow (vfy_jclass target, vfy_jclass source)
-{
-  /* First, strip arrays.  */
-  while (vfy_is_array (target))
-    {
-      /* If target is array, source must be as well.  */
-      if (! vfy_is_array (source))
-	return false;
-      target = vfy_get_component_type (target);
-      source = vfy_get_component_type (source);
-    }
-
-  /* Quick success.  */
-  if (target == vfy_object_type ())
-    return true;
-
-  do
-    {
-      int i;
-      if (source == target)
-	return true;
-
-      if (vfy_is_primitive (target) || vfy_is_primitive (source))
-	return false;
-
-      if (vfy_is_interface (target))
-	{
-	  for (i = 0; i < vfy_get_interface_count (source); ++i)
-	    {
-	      /* We use a recursive call because we also need to
-	         check superinterfaces.  */
-	      if (is_assignable_from_slow (target,
-					   vfy_get_interface (source, i)))
-		return true;
-	    }
-	}
-      source = vfy_get_superclass (source);
-    }
-  while (source != NULL);
-
-  return false;
 }
 
 /* The `type' class is used to represent a single type in the verifier.  */
@@ -782,13 +735,7 @@ types_compatible (type *t, type *k)
 	return false;
     }
 
-  /* Reference types are always compatible for the BC-ABI. We defer this test
-  till runtime. 
-  FIXME: 1. type assertion generation
-         2. implement real test for old ABI ?? */
-
-  return true;
-  /* return ref_compatible (t->klass, k->klass); */
+  return ref_compatible (t->klass, k->klass);
 }
 
 static bool

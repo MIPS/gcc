@@ -735,6 +735,15 @@ java_init_decl_processing (void)
 					 one_elt_array_domain_type);
   symbols_array_ptr_type = build_pointer_type (symbols_array_type);
 
+  assertion_entry_type = make_node (RECORD_TYPE);
+  PUSH_FIELD (assertion_entry_type, field, "assertion_code", integer_type_node);
+  PUSH_FIELD (assertion_entry_type, field, "op1", utf8const_ptr_type);
+  PUSH_FIELD (assertion_entry_type, field, "op2", utf8const_ptr_type);
+  FINISH_RECORD (assertion_entry_type);
+  
+  assertion_table_type = build_array_type (assertion_entry_type,
+                                           one_elt_array_domain_type);
+
   /* As you're adding items here, please update the code right after
      this section, so that the filename containing the source code of
      the pre-defined class gets registered correctly. */
@@ -775,7 +784,6 @@ java_init_decl_processing (void)
   clinit_identifier_node = get_identifier ("<clinit>");
   finit_identifier_node = get_identifier ("finit$");
   instinit_identifier_node = get_identifier ("instinit$");
-  verify_identifier_node = get_identifier ("__verify");
   void_signature_node = get_identifier ("()V");
   length_identifier_node = get_identifier ("length");
   finalize_identifier_node = get_identifier ("finalize");
@@ -866,7 +874,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
-  PUSH_FIELD (class_type_node, field, "verify", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "assertion_table", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "aux_info", ptr_type_node);

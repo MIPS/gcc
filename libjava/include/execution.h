@@ -46,11 +46,7 @@ struct _Jv_CompiledEngine : public _Jv_ExecutionEngine
 
   static void do_verify (jclass klass)
   {
-    if (klass->verify)
-      {
-	klass->verify(klass->getClassLoaderInternal());
-	klass->verify = NULL;
-      }
+    _Jv_Linker::verify_type_assertions (klass);
   }
 
   static _Jv_ResolvedMethod *do_resolve_method (_Jv_Method *, jclass,

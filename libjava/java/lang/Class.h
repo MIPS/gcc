@@ -141,6 +141,23 @@ struct _Jv_CatchClass
   _Jv_Utf8Const *classname;
 };
 
+// Possible values for the assertion_code field in the type assertion table.
+enum
+{
+  JV_ASSERT_END_OF_TABLE = 0,
+  JV_ASSERT_TYPES_COMPATIBLE = 1,
+  JV_ASSERT_IS_INSTANTIABLE = 2
+};
+
+// Entry in the type assertion table, used to validate type constraints
+// for binary compatibility.
+struct _Jv_TypeAssertion
+{
+  jint assertion_code;
+  _Jv_Utf8Const *op1;
+  _Jv_Utf8Const *op2;
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -476,8 +493,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
-  // Pointer to verify method for this class.
-  void (*verify)(java::lang::ClassLoader *loader);
+  // Pointer to the type assertion table for this class.
+  _Jv_TypeAssertion *assertion_table;
   // Signers of this class (or null).
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.

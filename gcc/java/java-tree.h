@@ -330,7 +330,6 @@ enum java_tree_index
   JTI_CLINIT_IDENTIFIER_NODE,      
   JTI_FINIT_IDENTIFIER_NODE,      
   JTI_INSTINIT_IDENTIFIER_NODE,
-  JTI_VERIFY_IDENTIFIER_NODE,       
   JTI_VOID_SIGNATURE_NODE,       
   JTI_LENGTH_IDENTIFIER_NODE,  
   JTI_FINALIZE_IDENTIFIER_NODE,
@@ -378,6 +377,8 @@ enum java_tree_index
   JTI_SYMBOL_TYPE,
   JTI_SYMBOLS_ARRAY_TYPE,
   JTI_SYMBOLS_ARRAY_PTR_TYPE,
+  JTI_ASSERTION_ENTRY_TYPE,
+  JTI_ASSERTION_TABLE_TYPE,
 
   JTI_END_PARAMS_NODE,
 
@@ -530,8 +531,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 /* FIXME "instinit$" and "finit$" should be merged  */
 #define instinit_identifier_node \
   java_global_trees[JTI_INSTINIT_IDENTIFIER_NODE]  /* "instinit$" */
-#define verify_identifier_node \
-  java_global_trees[JTI_VERIFY_IDENTIFIER_NODE]  /* "__verify" */
 #define void_signature_node \
   java_global_trees[JTI_VOID_SIGNATURE_NODE]       /* "()V" */
 #define length_identifier_node \
@@ -622,9 +621,11 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 #define symbols_array_type \
   java_global_trees[JTI_SYMBOLS_ARRAY_TYPE]
 #define symbols_array_ptr_type \
-  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]
-#define class_refs_decl \
-  Jjava_global_trees[TI_CLASS_REFS_DECL]
+  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]  
+#define assertion_entry_type \
+  java_global_trees[JTI_ASSERTION_ENTRY_TYPE]
+#define assertion_table_type \
+  java_global_trees[JTI_ASSERTION_TABLE_TYPE]
 
 #define end_params_node \
   java_global_trees[JTI_END_PARAMS_NODE]
@@ -1013,10 +1014,20 @@ struct treetreehash_entry GTY(())
   tree value;
 };
 
+/* These represent the possible assertion_code's that can be emitted in the
+   type assertion table.  */
+enum
+{
+  JV_ASSERT_END_OF_TABLE = 0,     /* Last entry in table.  */
+  JV_ASSERT_TYPES_COMPATIBLE = 1, /* Operand A is assignable to Operand B.  */
+  JV_ASSERT_IS_INSTANTIABLE = 2   /* Operand A is an instantiable class.  */
+};
+
 typedef struct type_assertion GTY(())
 {
-  tree source_type;
-  tree target_type;
+  int assertion_code; /* 'opcode' for the type of this assertion. */
+  tree op1;           /* First operand. */
+  tree op2;           /* Second operand. */
 } type_assertion;
 
 extern tree java_treetreehash_find (htab_t, tree);
@@ -1145,6 +1156,8 @@ struct lang_type GTY(())
 				   markers.  */
 
   htab_t GTY ((param_is (struct type_assertion))) type_assertions;
+				/* Table of type assertions to be evaluated 
+  				   by the runtime when this class is loaded. */
 
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
@@ -1306,6 +1319,7 @@ extern int alloc_class_constant (tree);
 extern void init_expr_processing (void);
 extern void push_super_field (tree, tree);
 extern void init_class_processing (void);
+extern void add_type_assertion (tree, int, tree, tree);
 extern int can_widen_reference_to (tree, tree);
 extern int class_depth (tree);
 extern int verify_jvm_instructions (struct JCF *, const unsigned char *, long);
@@ -1371,7 +1385,6 @@ extern tree java_mangle_decl (struct obstack *, tree);
 extern tree java_mangle_class_field (struct obstack *, tree);
 extern tree java_mangle_class_field_from_string (struct obstack *, char *);
 extern tree java_mangle_vtable (struct obstack *, tree);
-extern const char *lang_printable_name_wls (tree, int);
 extern void append_gpp_mangled_name (const char *, int);
 
 extern void add_predefined_file (tree);

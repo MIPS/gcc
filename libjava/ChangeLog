@@ -1,3 +1,18 @@
+2004-11-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* link.cc: Include VerifyError.h. 
+	(_Jv_Linker::verify_type_assertions): New. Read and evaluate entries
+	in the type assertion table.
+	* include/execution.h (_Jv_CompiledEngine::do_verify): Use
+	verify_type_assertions.
+	* include/jvm.h (_Jv_Linker::verify_type_assertions): declare.
+	* java/lang/Class.h (JV_ASSERT_END_OF_TABLE, 
+	JV_ASSERT_TYPES_COMPATIBLE, JV_ASSERT_IS_INSTANTIABLE): Declare
+	assertion code values.
+	(struct _Jv_TypeAssertion): Declare.
+	(assertion_table): New class field.
+	(verify): Remove class field.
+
 2004-11-05  Andrew Haley  <aph@redhat.com>
 
 	* Makefile.am: Move jv_dbtool.java to

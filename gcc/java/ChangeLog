@@ -1,3 +1,39 @@
+2004-11-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_class_data): Call emit_assertion_table to set the
+	'assertion_table' field.
+	(build_signature_for_libgcj): Move here from expr.c.
+	(add_assertion_table_entry): New function. Callback for assertion
+	hashtable traversal.
+	(emit_assertion_table): New. Take class argument, and generate 
+	assertion table DECL based on the TYPE_ASSERTIONS hashtable.
+	* decl.c (init_decl_processing): Define assertion_entry_type record.
+	Push 'assertion_table' class field instead of 'verify'.
+	* expr.c (type_assertion_eq): Compare 'assertion_code' field.
+	(type_assertion_hash): Include 'assertion_code' in hash.
+	(add_type_assertion): Rewritten. Take class and assertion_code
+	arguments. Add assertions to the TYPE_ASSERTIONS hashtable.
+	(can_widen_reference_to): Use new add_type_assertion() arguments.
+	* java-tree.h (java_tree_index): Add JTI_ASSERTION_ENTRY_TYPE, 
+	JTI_ASSERTION_TABLE_TYPE. Remove JTI_VERIFY_IDENTIFIER_NODE.
+	(verify_identifier_node): Removed.
+	(assertion_entry_type, assertion_table_type): New.
+	(ASSERTION_TYPES_COMPATIBLE, ASSERTION_IS_INSTANTIABLE): New. Type
+	assertion code definitions.
+	(struct type_assertion): Add assertion_code. Rename 'source_type' and
+	'target_type' to 'op1' and 'op2'.
+	(add_type_assertion): Declare.
+	(lang_printable_name_wls): Remove unused definition.
+	* verify-glue.c: (vfy_is_assignable_from): New. Call add_type_assertion
+	to emit runtime assertion.
+	(vfy_note_stack_type): Clean up non-C90 declarations.
+	(vfy_note_local_type): Likewise.
+	* verify.h (vfy_is_assignable_from): Declare.
+	* verify-impl.c (is_assignable_from_slow): Remove unused function.
+	(ref_compatible): Rename arguments. Call vfy_is_assignable_from() 
+	instead of is_assignable_from_slow().
+	(types_compatible): Reinstate ref_compatible() call.
+
 2004-11-04  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (build_static_field_ref): Reverted previous patch.

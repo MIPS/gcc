@@ -276,6 +276,7 @@ public:
   static void wait_for_state(jclass, int);
   static _Jv_word resolve_pool_entry (jclass, int);
   static void resolve_field (_Jv_Field *, java::lang::ClassLoader *);
+  static void verify_type_assertions (jclass);
 };
 
 /* Type of pointer used as finalizer.  */

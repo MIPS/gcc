@@ -1,4 +1,4 @@
-// resolve.cc - Code for linking and resolving classes and pool entries.
+// link.cc - Code for linking and resolving classes and pool entries.
 
 /* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 
@@ -34,6 +34,7 @@ details.  */
 #include <java/lang/AbstractMethodError.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/VerifyError.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 
@@ -1590,6 +1591,66 @@ _Jv_Linker::verify_class (jclass klass)
   klass->engine->verify(klass);
 }
 
+// Check the assertions contained in the type assertion table for KLASS.
+// This is the equivilent of bytecode verification for native, BC-ABI code.
+void
+_Jv_Linker::verify_type_assertions (jclass klass)
+{
+  if (debug_link)
+    fprintf (stderr, "Evaluating type assertions for %s:\n",
+	     klass->name->chars());
+
+  if (klass->assertion_table == NULL)
+    return;
+
+  for (int i = 0;; i++)
+    {
+      int assertion_code = klass->assertion_table[i].assertion_code;
+      _Jv_Utf8Const *op1 = klass->assertion_table[i].op1;
+      _Jv_Utf8Const *op2 = klass->assertion_table[i].op2;
+      
+      if (assertion_code == JV_ASSERT_END_OF_TABLE)
+        return;
+      else if (assertion_code == JV_ASSERT_TYPES_COMPATIBLE)
+        {
+	  if (debug_link)
+	    {
+	      fprintf (stderr, "  code=%i, operand A=%s B=%s\n",
+		       assertion_code, op1->chars(), op2->chars());
+	    }
+	
+	  // The operands are class signatures. op1 is the source, 
+	  // op2 is the target.
+	  jclass cl1 = _Jv_FindClassFromSignature (op1->chars(), 
+	    klass->getClassLoaderInternal());
+	  jclass cl2 = _Jv_FindClassFromSignature (op2->chars(),
+	    klass->getClassLoaderInternal());
+	    
+	  // If the class doesn't exist, ignore the assertion. An exception
+	  // will be thrown later if an attempt is made to actually 
+	  // instantiate the class.
+	  if (cl1 == NULL || cl2 == NULL)
+	    continue;
+
+          if (! _Jv_IsAssignableFromSlow (cl2, cl1))
+	    {
+	      jstring s = JvNewStringUTF ("Incompatible types: In class ");
+	      s = s->concat (klass->getName());
+	      s = s->concat (JvNewStringUTF (": "));
+	      s = s->concat (cl1->getName());
+	      s = s->concat (JvNewStringUTF (" is not assignable to "));
+	      s = s->concat (cl2->getName());
+	      throw new java::lang::VerifyError (s);
+	    }
+	}
+      else if (assertion_code == JV_ASSERT_IS_INSTANTIABLE)
+        {
+	  // TODO: Implement this.
+	}
+      // Unknown assertion codes are ignored, for forwards-compatibility.
+    }
+}
+   
 // FIXME: mention invariants and stuff.
 void
 _Jv_Linker::wait_for_state (jclass klass, int state)

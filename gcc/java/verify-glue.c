@@ -228,6 +228,25 @@ vfy_get_class_name (vfy_jclass klass)
   return DECL_NAME (TYPE_NAME (klass));
 }
 
+bool
+vfy_is_assignable_from (vfy_jclass target, vfy_jclass source)
+{
+  /* At compile time, for the BC-ABI we assume that reference types are always 
+  compatible.  However, a type assertion table entry is emitted so that the
+  runtime can detect binary-incompatible changes.  */
+
+  /* FIXME: implement real test for old ABI.  */
+
+  /* Any class is always assignable to itself, or java.lang.Object. */
+  if (source == target || target == object_type_node)
+    return true;
+
+  /* Otherwise, a type assertion is required.  */
+  add_type_assertion (current_class, JV_ASSERT_TYPES_COMPATIBLE, source,
+		      target);
+  return true;
+}
+
 char
 vfy_get_primitive_char (vfy_jclass klass)
 {
@@ -396,13 +415,15 @@ vfy_note_stack_depth (vfy_method *method, int pc, int depth)
 void
 vfy_note_stack_type (vfy_method *method, int pc, int slot, vfy_jclass type)
 {
+  tree label, vec;
+  
   slot += method->max_locals;
 
   if (type == object_type_node)
     type = object_ptr_type_node;
 
-  tree label = lookup_label (pc);
-  tree vec = LABEL_TYPE_STATE (label);
+  label = lookup_label (pc);
+  vec = LABEL_TYPE_STATE (label);
   TREE_VEC_ELT (vec, slot) = type;
 }
 
@@ -410,11 +431,13 @@ void
 vfy_note_local_type (vfy_method *method ATTRIBUTE_UNUSED, int pc, int slot,
 		     vfy_jclass type)
 {
+  tree label, vec;
+  
   if (type == object_type_node)
     type = object_ptr_type_node;
 
-  tree label = lookup_label (pc);
-  tree vec = LABEL_TYPE_STATE (label);
+  label = lookup_label (pc);
+  vec = LABEL_TYPE_STATE (label);
   TREE_VEC_ELT (vec, slot) = type;
 }
 
