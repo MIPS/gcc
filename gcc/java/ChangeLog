@@ -1,5 +1,10 @@
 2004-10-26  Tom Tromey  <tromey@redhat.com>
 
+	* verify-impl.c (debug_print_state): Declare `i' before code.
+	(merge_types): Modify `t' when it is null_type.
+
+2004-10-26  Tom Tromey  <tromey@redhat.com>
+
 	* verify-impl.c (type_print): Renamed from print.  Now static and
 	takes an argument.
 	(debug_print_state): Use type_print.

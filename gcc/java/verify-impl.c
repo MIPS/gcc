@@ -930,7 +930,7 @@ merge_types (type *t, type *old_type, bool local_semantics)
 	;
       else if (t->key == null_type)
 	{
-	  t = old_type;
+	  *t = *old_type;
 	  changed = true;
 	}
       else if (type_initialized (t) != type_initialized (old_type))
@@ -1289,8 +1289,8 @@ static void
 debug_print_state (state *s, const char *leader, int pc, int max_stack, 
 		   int max_locals)
 {
-  debug_print ("%s [%4d]:   [stack] ", leader, pc);
   int i;
+  debug_print ("%s [%4d]:   [stack] ", leader, pc);
   for (i = 0; i < s->stacktop; ++i)
     type_print (&s->stack[i]);
   for (; i < max_stack; ++i)
@@ -1630,7 +1630,7 @@ push_exception_jump (type t, int pc)
 {
   state s;
   state_check_no_uninitialized_objects (vfr->current_state,
-                          vfr->current_method->max_locals, true);
+					vfr->current_method->max_locals, true);
   copy_state_with_stack (&s, vfr->current_state, 
 			 vfr->current_method->max_stack,
 			 vfr->current_method->max_locals);
