@@ -4451,6 +4451,7 @@ init_varasm_once (void)
 				     const_desc_eq, NULL);
 
   const_alias_set = new_alias_set ();
+  const_labelno = 0;
 }
 
 enum tls_model

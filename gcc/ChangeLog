@@ -1,6 +1,7 @@
 2003-10-29  Per Bothner  <pbothner@apple.com>
 
 	* function.c (init_function_once):  Reset funcdef_no.
+	* varasm.c (init_varasm_once):  Reset const_labelno.
 
 2003-10-29  Per Bothner  <pbothner@apple.com>
 
