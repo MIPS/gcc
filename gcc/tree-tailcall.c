@@ -192,9 +192,7 @@ eliminate_tail_call (block_stmt_iterator bsi, bool has_return, tree tmp_vars)
   bsi_s = bsi_start (ENTRY_BLOCK_PTR->succ->dest);
   if (bsi_end_p (bsi_s) || TREE_CODE (bsi_stmt (bsi_s)) != LABEL_EXPR)
     {
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_ARTIFICIAL (label) = 1;
-      DECL_CONTEXT (label) = current_function_decl;
+      label = create_artificial_label ();
       emit_label = true;
     }
   else

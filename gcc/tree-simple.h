@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "tree-iterator.h"
 
+extern tree create_artificial_label (void);
 extern tree create_tmp_var (tree, const char *);
 extern tree create_tmp_alias_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);

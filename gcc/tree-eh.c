@@ -40,17 +40,6 @@ extern int using_eh_for_cleanups_p;
 
 /* Misc functions used in this file.  */
 
-/* Create a new LABEL_DECL.  */
-/* ??? Should be moved somewhere generic; possibly tree.c.  */
-
-static tree
-make_label (void)
-{
-  tree lab = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (lab) = current_function_decl;
-  return lab;
-}
-
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangable, which is sort
    of already assumed by gcc elsewhere IIRC.  */
@@ -621,7 +610,7 @@ frob_into_branch_around (tree *tp, tree lab, tree over)
   if (block_may_fallthru_last (tsi_stmt (i)))
     {
       if (!over)
-	over = make_label ();
+	over = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, over);
       tsi_link_after (&i, x, TSI_NEW_STMT);
     }
@@ -779,7 +768,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
   if (tf->may_fallthru)
     {
       if (!tf->fallthru_label)
-	tf->fallthru_label = make_label ();
+	tf->fallthru_label = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
       tsi_link_after (&i, x, TSI_NEW_STMT);
 
@@ -814,7 +803,7 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
   if (tf->may_throw)
     lab = tf->eh_label;
   else
-    lab = make_label ();
+    lab = create_artificial_label ();
 
   finally = TREE_OPERAND (*tf->top_p, 1);
   *tf->top_p = TREE_OPERAND (*tf->top_p, 0);
@@ -880,7 +869,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
       return;
     }
 
-  finally_label = make_label ();
+  finally_label = create_artificial_label ();
   x = build1 (LABEL_EXPR, void_type_node, finally_label);
   tsi_link_after (&i, x, TSI_NEW_STMT);
 
@@ -942,7 +931,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
       tsi_link_chain_after (&i, x, TSI_CHAIN_END);
 
       if (!tf->fallthru_label)
-	tf->fallthru_label = make_label ();
+	tf->fallthru_label = create_artificial_label ();
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
       tsi_link_after (&i, x, TSI_NEW_STMT);
     }
@@ -984,7 +973,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 
 	  if (!lab)
 	    {
-	      labels[index] = lab = make_label ();
+	      labels[index] = lab = create_artificial_label ();
 	      build_p = true;
 	    }
 
@@ -1052,7 +1041,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   ndests = fallthru_index + tf->may_fallthru;
 
   finally_tmp = create_tmp_var (integer_type_node, "finally_tmp");
-  finally_label = make_label ();
+  finally_label = create_artificial_label ();
 
   case_label_vec = make_tree_vec (ndests);
   switch_stmt = build (SWITCH_EXPR, integer_type_node, finally_tmp,
@@ -1078,10 +1067,11 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	}
 
       if (!tf->fallthru_label)
-	tf->fallthru_label = make_label ();
+	tf->fallthru_label = create_artificial_label ();
 
       last_case = build (CASE_LABEL_EXPR, void_type_node,
-			 build_int_2 (fallthru_index, 0), NULL, make_label ());
+			 build_int_2 (fallthru_index, 0), NULL,
+			 create_artificial_label ());
       TREE_VEC_ELT (case_label_vec, last_case_index) = last_case;
       last_case_index++;
 
@@ -1100,7 +1090,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       tsi_link_after (&i, x, TSI_NEW_STMT);
 
       last_case = build (CASE_LABEL_EXPR, void_type_node,
-			 build_int_2 (eh_index, 0), NULL, make_label ());
+			 build_int_2 (eh_index, 0), NULL,
+			 create_artificial_label ());
       TREE_VEC_ELT (case_label_vec, last_case_index) = last_case;
       last_case_index++;
 
@@ -1144,7 +1135,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       if (!TREE_VEC_ELT (case_label_vec, case_index))
 	{
 	  last_case = build (CASE_LABEL_EXPR, void_type_node,
-			     build_int_2 (switch_id, 0), NULL, make_label ());
+			     build_int_2 (switch_id, 0), NULL,
+			     create_artificial_label ());
 	  TREE_VEC_ELT (case_label_vec, case_index) = last_case;
 
 	  tsi_link_after (&i2, last_case, TSI_NEW_STMT);
@@ -1240,7 +1232,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
     this_tf.may_throw = get_eh_region_may_contain_throw (this_tf.region);
   if (this_tf.may_throw)
     {
-      this_tf.eh_label = make_label ();
+      this_tf.eh_label = create_artificial_label ();
       set_eh_region_tree_label (this_tf.region, this_tf.eh_label);
       honor_protect_cleanup_actions (state, &this_state, &this_tf);
     }
@@ -1331,7 +1323,7 @@ lower_catch (struct leh_state *state, tree *tp)
 
       lower_eh_constructs_1 (state, &CATCH_BODY (catch));
 
-      eh_label = make_label ();
+      eh_label = create_artificial_label ();
       set_eh_region_tree_label (catch_region, eh_label);
 
       j = tsi_start (&CATCH_BODY (catch));
@@ -1341,7 +1333,7 @@ lower_catch (struct leh_state *state, tree *tp)
       if (block_may_fallthru (&CATCH_BODY (catch)))
 	{
 	  if (!out_label)
-	    out_label = make_label ();
+	    out_label = create_artificial_label ();
 
 	  j = tsi_last (&CATCH_BODY (catch));
 	  x = build1 (GOTO_EXPR, void_type_node, out_label);
@@ -1386,7 +1378,7 @@ lower_eh_filter (struct leh_state *state, tree *tp)
   lower_eh_constructs_1 (state, &EH_FILTER_FAILURE (inner));
   TREE_OPERAND (*tp, 1) = EH_FILTER_FAILURE (inner);
 
-  eh_label = make_label ();
+  eh_label = create_artificial_label ();
   set_eh_region_tree_label (this_region, eh_label);
 
   frob_into_branch_around (tp, eh_label, NULL);
@@ -1430,7 +1422,7 @@ lower_cleanup (struct leh_state *state, tree *tp)
   fake_tf.may_fallthru = block_may_fallthru (&TREE_OPERAND (*tp, 0));
   fake_tf.may_throw = true;
 
-  fake_tf.eh_label = make_label ();
+  fake_tf.eh_label = create_artificial_label ();
   set_eh_region_tree_label (this_region, fake_tf.eh_label);
 
   honor_protect_cleanup_actions (state, NULL, &fake_tf);

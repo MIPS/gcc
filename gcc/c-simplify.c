@@ -254,8 +254,7 @@ c_gimplify_stmt (tree *stmt_p)
 
 	case CASE_LABEL:
 	  {
-	    tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	    DECL_CONTEXT (label) = current_function_decl;
+	    tree label = create_artificial_label ();
 	    stmt = build (CASE_LABEL_EXPR, void_type_node,
 			  CASE_LOW (stmt), CASE_HIGH (stmt), label);
 	  }
@@ -522,9 +521,8 @@ gimplify_condition (tree *cond_p)
 static tree
 begin_bc_block (enum bc_t bc)
 {
-  tree label = build_decl (LABEL_DECL, ctxp->bc_id[bc], NULL_TREE);
-  DECL_ARTIFICIAL (label) = 1;
-  DECL_CONTEXT (label) = current_function_decl;
+  tree label = create_artificial_label ();
+  DECL_NAME (label) = ctxp->bc_id[bc];
   TREE_CHAIN (label) = ctxp->current_bc_label;
   ctxp->current_bc_label = label;
   return label;

@@ -501,8 +501,7 @@ thread_edge (edge e, basic_block dest)
   if (!dest_stmt
       || TREE_CODE (dest_stmt) != LABEL_EXPR)
     {
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (label) = current_function_decl;
+      label = create_artificial_label ();
       dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
       bsi_insert_before (&dest_iterator, dest_stmt, BSI_NEW_STMT);
     }

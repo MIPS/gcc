@@ -376,9 +376,7 @@ factor_computed_gotos ()
 
 	      /* Build a label for the new block which will contain the
 		 factored computed goto.  */
-	      factored_label_decl
-		= build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	      DECL_CONTEXT (factored_label_decl) = current_function_decl;
+	      factored_label_decl = create_artificial_label ();
 	      factored_computed_goto_label
 		= build1 (LABEL_EXPR, void_type_node, factored_label_decl);
 	      modify_stmt (factored_computed_goto_label);
@@ -2218,8 +2216,7 @@ tree_block_forwards_to (basic_block bb)
 	  if (TREE_CODE (stmt) != LABEL_EXPR)
 	    {
 	      /* DEST does not start with a label, add one.  */
-	      stmt = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	      DECL_CONTEXT (stmt) = current_function_decl;
+	      stmt = create_artificial_label ();
 	      stmt = build1 (LABEL_EXPR, void_type_node, stmt);
 	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 	    }
@@ -3938,8 +3935,7 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
   if (TREE_CODE (stmt) != LABEL_EXPR)
     {
       /* DEST does not start with a label, add one.  */
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (label) = current_function_decl;
+      label = create_artificial_label ();
       stmt = build1 (LABEL_EXPR, void_type_node, label);
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
     }
@@ -3987,8 +3983,7 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
     }
 
   tsi = tsi_last (&BIND_EXPR_BODY (SWITCH_BODY (sw_stmt)));
-  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
+  label = create_artificial_label ();
   stmt = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
 
   /* Update block in the new CE node.  */
@@ -4052,8 +4047,7 @@ handle_switch_split (basic_block src, basic_block dest)
      point.  */
   src->succ->flags |= EDGE_FALLTHRU;
 
-  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
+  label = create_artificial_label ();
   TREE_USED (label) = 1;
 
   /* Insert a goto on all edges except the one from src to this label. */

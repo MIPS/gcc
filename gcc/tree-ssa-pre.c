@@ -3123,10 +3123,7 @@ split_critical_edges (void)
     if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
       {
 	tree label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	LABEL_EXPR_LABEL (label) = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	DECL_ARTIFICIAL (LABEL_EXPR_LABEL (label)) = 1;
-	DECL_CONTEXT (LABEL_EXPR_LABEL (label)) = current_function_decl;
-
+	LABEL_EXPR_LABEL (label) = create_artificial_label ();
 	bsi_insert_on_edge (e, label);
       }
   }

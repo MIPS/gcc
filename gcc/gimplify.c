@@ -226,6 +226,18 @@ remove_suffix (char *name, int len)
     }
 }
 
+/* Create a nameless artificial label and put it in the current function
+   context.  Returns the newly created label.  */
+
+tree
+create_artificial_label (void)
+{
+  tree lab = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_ARTIFICIAL (lab) = 1;
+  DECL_CONTEXT (lab) = current_function_decl;
+  return lab;
+}
+
 /*  Create a new temporary variable declaration of type TYPE.  Returns the
     newly created decl and pushes it into the current binding.  */
 
@@ -990,9 +1002,7 @@ build_and_jump (tree *label_p)
 
   if (*label_p == NULL_TREE)
     {
-      tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_ARTIFICIAL (label) = 1;
-      DECL_CONTEXT (label) = current_function_decl;
+      tree label = create_artificial_label ();
       *label_p = label;
     }
 

@@ -1361,6 +1361,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  DECL_ARTIFICIAL (id->ret_label) = 1;
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
 
   if (! DECL_INITIAL (fn)

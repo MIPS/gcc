@@ -1,3 +1,24 @@
+2003-10-24  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gimplify.c (create_artificial_label): New function.
+	(build_and_jump): Use it.
+	* c-simplify.c (c_gimplify_stmt): Likewise.
+	(gimplify_condition): Likewise.
+	* tree-cfg.c (factor_computed_gotos, tree_block_forwards_to,
+	handle_switch_fallthru, handle_switch_split): Likewise.
+	* tree-ssa-dom.c (thread_edge): Likewise.
+	* tree-ssa-pre.c (split_critical_edges): Likewise.
+	* tree-tailcall.c (eliminate_tail_call): Likewise.
+	* tree-eh.c (frob_into_branch_around,
+	honor_protect_cleanup_actions, lower_try_finally_nofallthru,
+	lower_try_finally_onedest, lower_try_finally_copy,
+	lower_try_finally_switch, lower_catch, lower_eh_filter,
+	lower_cleanup): Likewise.
+	(make_label): Remove.
+	* tree-simple.h (create_artificial_label): Add prototype.
+	* tree-inline.c (expand_call_inline): Make return label for
+	inlined function artificial.
+
 2003-10-23  Jeff Law  <law@redhat.com>
 
 	* timevar.def (TV_TREE_SSA_THREAD_JUMPS): New timevar.
