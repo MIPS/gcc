@@ -326,6 +326,19 @@ The option @option{-ds} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.cse} to
 the input file name.
 
+@cindex value range propagation
+@item
+Value range propagation.  This pass computes what ranges are values of
+registers in.  When some register may have no value in some basic block
+it is unreachable because of conditions in the code.  The edge which
+the register may have no value on is redirected to the other which causes
+removing of dead blocks.
+
+@opindex dV
+The option @option{-dV} causes a debugging dump of the RTL code after
+this pass.  This dump file's name is made by appending @samp{.vrp} to
+the input file name.
+
 @cindex global common subexpression elimination
 @cindex constant propagation
 @cindex copy propagation

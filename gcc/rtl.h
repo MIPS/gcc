@@ -2293,4 +2293,7 @@ extern bool expensive_function_p	PARAMS ((int));
 /* In tracer.c */
 extern void tracer			PARAMS ((void));
 
+/* In vrp.c */
+extern bool value_range_propagation	PARAMS ((void));
+
 #endif /* ! GCC_RTL_H */

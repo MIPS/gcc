@@ -278,7 +278,7 @@ in the following sections.
 -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  -fsignaling-nans @gol
--fsingle-precision-constant  -fssa  -fssa-ccp  -fssa-dce @gol
+-fsingle-precision-constant  -fssa  -fssa-ccp  -fssa-dce -fvrp @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value} @gol
@@ -3123,6 +3123,9 @@ sometimes follows CSE), to @file{@var{file}.17.cse2}.
 @item u
 @opindex du
 Dump after null pointer elimination pass to @file{@var{file}.08.null}.
+@item V
+@opindex dV
+Dump after value range propagation, to @file{@var{file}.11.vrp}.
 @item w
 @opindex dw
 Dump after the second flow pass, to @file{@var{file}.26.flow2}.
@@ -3373,6 +3376,7 @@ compilation time.
 -fcrossjumping @gol
 -fif-conversion @gol
 -fif-conversion2 @gol
+-fvrp @gol
 -fdelayed-branch @gol
 -fguess-branch-probability @gol
 -fcprop-registers}
@@ -3745,6 +3749,22 @@ Use conditional execution (where available) to transform conditional jumps into
 branch-less equivalents.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fvrp
+@opindex fvrp
+Find out which range is a value of a register in.  If the register may
+have no value in some block the block is unreachable and is deleted.
+For example a @code{printf} call in following code may be deleted:
+
+@smallexample
+if (i < 0)
+@{
+  if (i > 5)
+    printf ("foo");
+@}
+@end smallexample
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks

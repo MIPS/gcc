@@ -1,3 +1,47 @@
+2003-06-19  Josef Zlomek  <zlomekj@suse.cz>
+
+	* vrp.c: New file.
+	* Makefile.in (vrp.o): Added.
+	* toplev.c (enum dump_file_index): Added DFI_vrp.
+	(struct dump_file_info): Added vrp.
+	(flag_vrp): New flag.
+	(lang_independent_options): New flag.
+	(rest_of_compilation): Run value range propagation.
+	(parse_options_and_default_flags): Run VRP at -O2.
+	* timevar.def (TV_VRP): Added.
+	* rtl.h (value_range_propagation): New extern function.
+	* doc/invoke.texi: Added -dV and -fvalue-range-propagation.
+	* doc/passes.texi: Added value range propagation pass.
+
+	Backport from mainline:
+
+	2003-05-12  Neil Booth  <neil@daikokuya.co.uk>
+
+		* alloc-pool.c (last_id): Put in ENABLE_CHECKING guards.
+
+	2003-05-12  Josef Zlomek  <zlomekj@suse.cz>
+	
+		* alloc-pool.h (ALLOC_POOL_ID_TYPE): New type.
+		(struct alloc_pool_def): New element 'id'.
+		* alloc-pool.c (fancy_abort): Extern function prototype.
+		(abort): Macro which uses fancy_abort.
+		(struct allocation_object_def): New structure.
+		(ALLOCATION_OBJECT_PTR_FROM_USER_PTR): New macro.
+		(USER_PTR_FROM_ALLOCATION_OBJECT_PTR): New macro.
+		(last_id): New variable.
+		(create_alloc_pool): Add the offset of u.data to size of element,
+		increase and use last_id.
+		(free_alloc_pool): Do the checking only when ENABLE_CHECKING.
+		(pool_alloc): Likewise. Set ID for elements.
+		(pool_free): Check whether the PTR was allocated from POOL.
+
+	2002-12-18  Daniel Berlin  <dberlin@dberlin.org>
+
+		* Makefile.in (OBJS): Add alloc-pool.o
+		(alloc-pool.o): New object.
+		* alloc-pool.c: New file.
+		* alloc-pool.h: New file.
+
 2003-06-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (vpt.o): Add flags.h, $(RECOG_H), insn-config.h

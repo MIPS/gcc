@@ -230,6 +230,7 @@ enum dump_file_index
   DFI_null,
   DFI_cse,
   DFI_addressof,
+  DFI_vrp,
   DFI_gcse,
   DFI_loop,
   DFI_cfg,
@@ -266,7 +267,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q         "
-	"       H JK   OPQ  TUV  YZ"
+	"       H JK   OPQ  TU   YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -282,6 +283,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "null",	'u', 0, 0, 0 },
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
+  { "vrp",	'V', 1, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
@@ -672,6 +674,10 @@ static int flag_if_conversion;
 /* Nonzero means perform if conversion after reload.  */
 
 static int flag_if_conversion2;
+
+/* Nonzero means perform value range propagation.  */
+
+static int flag_vrp;
 
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
@@ -1111,6 +1117,8 @@ static const lang_independent_options f_options[] =
    N_("Perform conversion of conditional jumps to branchless equivalents") },
   {"if-conversion2", &flag_if_conversion2, 1,
    N_("Perform conversion of conditional jumps to conditional execution") },
+  {"vrp", &flag_vrp, 1,
+   N_("Perform value range propagation and eliminate dead branches") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
    N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
@@ -2909,6 +2917,23 @@ rest_of_compilation (decl)
   close_dump_file (DFI_addressof, print_rtl, insns);
 
   ggc_collect ();
+
+  /* Perform value range propagation and dead blocks removal.  */
+  if (flag_vrp)
+    {
+      timevar_push (TV_VRP);
+      open_dump_file (DFI_vrp, decl);
+
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      if (value_range_propagation ())
+	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+
+      close_dump_file (DFI_vrp, print_rtl_with_bb, insns);
+      timevar_pop (TV_VRP);
+    }
 
   /* Perform global cse.  */
 
@@ -5024,6 +5049,7 @@ parse_options_and_default_flags (argc, argv)
       flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
+      flag_vrp = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
       flag_strength_reduce = 1;
