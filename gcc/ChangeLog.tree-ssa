@@ -1,5 +1,9 @@
 2003-10-17  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa-dce.c (processed): New Global vector.
+	(mark_necessary): Check if SSA_NAME has already been processed first.
+	(find_useful_stmts, process_worklist): Change call to mark_necessary().
+	(tree_ssa_dce): Initialize and free processed vector.
 	* tree-cfg.c (handle_switch_fallthru): A new basic block can result
 	from splitting edges of nested switch stmts.
 	(handle_switch_split): If a new block is created, restart the loop for

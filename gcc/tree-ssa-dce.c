@@ -81,7 +81,7 @@ static struct stmt_stats
 /* Forward function prototypes.  */
 static inline bool necessary_p (tree);
 static inline void clear_necessary (tree);
-static inline void mark_necessary (tree);
+static inline void mark_necessary (tree, tree);
 static void print_stats (void);
 static bool need_to_preserve_store (tree);
 static void find_useful_stmts (void);
@@ -92,6 +92,10 @@ static void remove_dead_stmt (block_stmt_iterator *);
 static void remove_dead_phis (basic_block);
 
 #define NECESSARY(stmt)	   stmt->common.asm_written_flag
+
+/* vector indicating an SSA name has already been processed and marked 
+   as necessary.  */
+static bool *processed;
 
 /* Is a tree necessary?  */
 
@@ -110,25 +114,37 @@ clear_necessary (tree t)
 /* Mark a tree as necessary.  */
 
 static inline void
-mark_necessary (tree t)
+mark_necessary (tree def, tree stmt)
 {
+  int ver;
 #ifdef ENABLE_CHECKING
-  if (t == NULL || t == error_mark_node || DECL_P (t))
+  if ((def == NULL && stmt == NULL) || stmt == error_mark_node 
+      || (stmt && DECL_P (stmt)))
     abort ();
 #endif 
 
-  if (necessary_p (t))
+  if (def)
+    {
+      ver = SSA_NAME_VERSION (def);
+      if (processed[ver])
+	return;
+      processed[ver] = true;
+      if (!stmt)
+	stmt = SSA_NAME_DEF_STMT (def);
+    }
+  
+  if (necessary_p (stmt))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Marking useful stmt: ");
-      print_generic_stmt (dump_file, t, TDF_SLIM);
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
-  NECESSARY (t) = 1;
-  VARRAY_PUSH_TREE (worklist, t);
+  NECESSARY (stmt) = 1;
+  VARRAY_PUSH_TREE (worklist, stmt);
 }
 
 
@@ -205,7 +221,7 @@ find_useful_stmts (void)
         {
 	  clear_necessary (phi);
 	  if (need_to_preserve_store (PHI_RESULT (phi)))
-	    mark_necessary (phi);
+	    mark_necessary (PHI_RESULT (phi), phi);
 	}
 
       /* Check all statements in the block.  */
@@ -215,7 +231,7 @@ find_useful_stmts (void)
 
 	  clear_necessary (stmt);
 	  if (stmt_useful_p (stmt))
-	    mark_necessary (stmt);
+	    mark_necessary (NULL_TREE, stmt);
 	}
     }
 }
@@ -335,7 +351,7 @@ process_worklist (void)
 	    {
 	      tree arg = PHI_ARG_DEF (i, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+		mark_necessary (arg, NULL);
 	    }
 	}
       else
@@ -354,14 +370,14 @@ process_worklist (void)
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree *use_p = VARRAY_TREE_PTR (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (*use_p));
+	      mark_necessary (*use_p, NULL_TREE);
 	    }
 
 	  ops = vuse_ops (ann);
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vuse = VARRAY_TREE (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (vuse));
+	      mark_necessary (vuse, NULL_TREE);
 	    }
 
 	  /* The operands of VDEF expressions are also needed as they
@@ -371,7 +387,7 @@ process_worklist (void)
 	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, k);
-	      mark_necessary (SSA_NAME_DEF_STMT (VDEF_OP (vdef)));
+	      mark_necessary (VDEF_OP (vdef), NULL_TREE);
 	    }
 	}
     }
@@ -508,6 +524,9 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
+  processed = (bool *)xmalloc (sizeof (bool) * next_ssa_version);
+  memset (processed, 0, sizeof (bool) * next_ssa_version);
+
   /* Initialize dump_file for debugging dumps.  */
   dump_file = dump_begin (phase, &dump_flags);
 
@@ -520,6 +539,8 @@ tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary instructions:\n");
+
+  free (processed);
 
   remove_dead_stmts ();
   cleanup_tree_cfg ();
