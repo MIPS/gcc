@@ -1,3 +1,9 @@
+2004-03-08  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-scalar-evolution.c (set_scalar_evolution,
+	set_scalar_evolution_outer_value): Compute the loop number
+	instead of passing it as a parameter.
+
 2004-03-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-live.c (coalesce_tpa_members): Update the root

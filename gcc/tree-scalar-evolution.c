@@ -266,7 +266,7 @@ static tree compute_overall_effect_of_inner_loop (tree);
 
 
 static struct scev_info_str *find_var_scev_info (tree);
-static void set_scalar_evolution (unsigned, tree, tree);
+static void set_scalar_evolution (tree, tree);
 static void set_scalar_evolution_outer_value (tree, tree);
 static tree get_scalar_evolution (unsigned, tree);
 
@@ -680,11 +680,11 @@ set_scev_keep_symbolic (tree var,
 /* Associate CHREC to SCALAR.  */
 
 static void
-set_scalar_evolution (unsigned loop_nb, 
-		      tree scalar, 
+set_scalar_evolution (tree scalar, 
 		      tree chrec)
 {
   struct scev_info_str *scalar_info;
+  unsigned loop_nb = loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (scalar)));
   
   scalar_info = find_var_scev_info (scalar);
   chrec = set_scev_keep_symbolic (scalar, chrec);
@@ -712,6 +712,7 @@ set_scalar_evolution_outer_value (tree scalar,
 				  tree chrec)
 {
   struct scev_info_str *scalar_info;
+  unsigned loop_nb = loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (scalar)));
   
   scalar_info = find_var_scev_info (scalar);
   chrec = set_scev_keep_symbolic (scalar, chrec);
@@ -719,8 +720,7 @@ set_scalar_evolution_outer_value (tree scalar,
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
       fprintf (tree_dump_file, "(set_scalar_evolution_outer_value \n");
-      fprintf (tree_dump_file, "  (loop_nb = %d)\n", 
-	       loop_num (loop_of_stmt (SSA_NAME_DEF_STMT (scalar))));
+      fprintf (tree_dump_file, "  (loop_nb = %d)\n", loop_nb);
       fprintf (tree_dump_file, "  (scalar = ");
       print_generic_expr (tree_dump_file, scalar, 0);
       fprintf (tree_dump_file, ")\n  (scalar_evolution = ");
@@ -2207,7 +2207,7 @@ interpret_loop_phi (unsigned loop_nb,
       unsigned loop_phi_nb = loop_num (loop_of_stmt (loop_phi));
       tree init_cond = analyze_initial_condition (loop_phi);
       res = analyze_evolution_in_loop (loop_phi, init_cond);
-      set_scalar_evolution (loop_phi_nb, PHI_RESULT (loop_phi), res);
+      set_scalar_evolution (PHI_RESULT (loop_phi), res);
       
       if (loop_is_strictly_included_in (loop_phi_nb, loop_nb))
 	{
@@ -2241,7 +2241,7 @@ interpret_condition_phi (unsigned loop_nb,
       res = chrec_merge (res, branch_chrec);
     }
 
-  set_scalar_evolution (loop_nb, PHI_RESULT (condition_phi), res);
+  set_scalar_evolution (PHI_RESULT (condition_phi), res);
   return res;
 }
 
@@ -2351,8 +2351,7 @@ analyze_scalar_evolution (unsigned loop_nb,
 		 this definition, we have to set the inner or outer
 		 visible value.  Examples: ssa-chrec-{01, 06}.  */
 	      if (loop_is_included_in (loop_nb, loop_num (loop_of_stmt (def))))
-		set_scalar_evolution 
-		  (loop_num (loop_of_stmt (def)), version, res);
+		set_scalar_evolution (version, res);
 	      else
 		set_scalar_evolution_outer_value (version, res);
 	      
@@ -2375,7 +2374,7 @@ analyze_scalar_evolution (unsigned loop_nb,
 	    default:
 	      res = chrec_top;
 	      if (TREE_CODE (def) != NOP_EXPR)
-		set_scalar_evolution (loop_nb, version, res);
+		set_scalar_evolution (version, res);
 	      break;
 	    }
       	}
