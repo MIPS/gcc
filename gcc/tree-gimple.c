@@ -1,5 +1,5 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
    Rewritten by Jason Merrill <jason@redhat.com>
 
@@ -79,9 +79,9 @@ Boston, MA 02111-1307, USA.  */
        GOTO_EXPR
          op0 -> LABEL_DECL | '*' ID
      | RETURN_EXPR
-         op0 -> modify-stmt | NULL_TREE
-	 (maybe -> RESULT_DECL | NULL_TREE? seems like some of expand_return
-	  depends on getting a MODIFY_EXPR.)
+         op0 -> NULL_TREE
+	      | RESULT_DECL
+	      | MODIFY_EXPR -> RESULT_DECL, varname
      | THROW_EXPR?  do we need/want such a thing for opts, perhaps
          to generate an ERT_THROW region?  I think so.
 	 Hmm...this would only work at the GIMPLE level, where we know that
@@ -111,7 +111,7 @@ Boston, MA 02111-1307, USA.  */
        op0 -> lhs
        op1 -> rhs
    call-stmt: CALL_EXPR
-     op0 -> ID | '&' ID
+     op0 -> ID | '&' ID | OBJ_TYPE_REF
      op1 -> arglist
 
    addr-expr-arg : compref | ID
@@ -119,17 +119,34 @@ Boston, MA 02111-1307, USA.  */
    min-lval: ID | '*' ID
    bitfieldref :
      BIT_FIELD_REF
-       op0 -> compref | min-lval
+       op0 -> inner_compref
        op1 -> CONST
-       op2 -> CONST
+       op2 -> var
    compref :
      COMPONENT_REF
-       op0 -> compref | min-lval
+       op0 -> inner_compref
      | ARRAY_REF
-       op0 -> compref | min-lval
+       op0 -> inner_compref
        op1 -> val
+       op2 -> val
+       op3 -> val
+     | ARRAY_RANGE_REF
+       op0 -> inner_compref
+       op1 -> val
+       op2 -> val
+       op3 -> val
      | REALPART_EXPR
+       op0 -> inner_compref
      | IMAGPART_EXPR
+       op0 -> inner_compref
+
+   inner_compref : compref | min_lval
+     | VIEW_CONVERT_EXPR
+       op0 -> inner_compref
+     | NOP_EXPR
+       op0 -> inner_compref
+     | CONVERT_EXPR
+       op0 -> inner_compref
 
    condition : val | val relop val
    val : ID | CONST
@@ -141,6 +158,7 @@ Boston, MA 02111-1307, USA.  */
 	      | unop val
 	      | val binop val
 	      | '(' cast ')' val
+	      | method_ref
 
 	      (cast here stands for all valid C typecasts)
 
@@ -223,6 +241,7 @@ is_gimple_rhs (tree t)
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
+    case OBJ_TYPE_REF:
       return 1;
 
     default:
@@ -284,9 +303,11 @@ is_gimple_addr_expr_arg (tree t)
 {
   return (is_gimple_id (t)
 	  || TREE_CODE (t) == ARRAY_REF
+	  || TREE_CODE (t) == ARRAY_RANGE_REF
 	  || TREE_CODE (t) == COMPONENT_REF
 	  || TREE_CODE (t) == REALPART_EXPR
-	  || TREE_CODE (t) == IMAGPART_EXPR);
+	  || TREE_CODE (t) == IMAGPART_EXPR
+	  || TREE_CODE (t) == INDIRECT_REF);
 }
 
 /* Return nonzero if T is function invariant.  Or rather a restricted
@@ -327,7 +348,7 @@ is_gimple_stmt (tree t)
     case BIND_EXPR:
     case COND_EXPR:
       /* These are only valid if they're void.  */
-      return VOID_TYPE_P (TREE_TYPE (t));
+      return TREE_TYPE (t) == NULL || VOID_TYPE_P (TREE_TYPE (t));
 
     case SWITCH_EXPR:
     case GOTO_EXPR:
@@ -474,6 +495,14 @@ is_gimple_cast (tree t)
           || TREE_CODE (t) == FIX_ROUND_EXPR);
 }
 
+/* Return true if T is a valid op0 of a CALL_EXPR.  */
+
+bool
+is_gimple_call_addr (tree t)
+{
+  return (TREE_CODE (t) == OBJ_TYPE_REF
+	  || is_gimple_val (t));
+}
 
 /* If T makes a function call, return the corresponding CALL_EXPR operand.
    Otherwise, return NULL_TREE.  */
@@ -573,33 +602,18 @@ rationalize_compound_expr (tree top)
 tree
 get_base_address (tree t)
 {
-  do
-    {
-      if (SSA_VAR_P (t)
-	  || TREE_CODE (t) == STRING_CST
-	  || TREE_CODE (t) == CONSTRUCTOR
-	  || TREE_CODE (t) == INDIRECT_REF)
-	return t;
-
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case BIT_FIELD_REF:
-	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return NULL_TREE;
-	}
-    }
-  while (t);
-
-  return t;
+  while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
+	 || handled_component_p (t))
+    t = TREE_OPERAND (t, 0);
+  
+  if (SSA_VAR_P (t)
+      || TREE_CODE (t) == STRING_CST
+      || TREE_CODE (t) == CONSTRUCTOR
+      || TREE_CODE (t) == INDIRECT_REF)
+    return t;
+  else
+    return NULL_TREE;
 }
-
 
 void
 recalculate_side_effects (tree t)

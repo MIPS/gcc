@@ -857,7 +857,7 @@ set_reg_attrs_from_mem (rtx reg, rtx mem)
 void
 set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 {
-  if (GET_CODE (parm_rtx) == REG)
+  if (REG_P (parm_rtx))
     set_reg_attrs_from_mem (parm_rtx, mem);
   else if (GET_CODE (parm_rtx) == PARALLEL)
     {
@@ -867,7 +867,7 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
       for (; i < XVECLEN (parm_rtx, 0); i++)
 	{
 	  rtx x = XVECEXP (parm_rtx, 0, i);
-	  if (GET_CODE (XEXP (x, 0)) == REG)
+	  if (REG_P (XEXP (x, 0)))
 	    REG_ATTRS (XEXP (x, 0))
 	      = get_reg_attrs (MEM_EXPR (mem),
 			       INTVAL (XEXP (x, 1)));
@@ -884,7 +884,7 @@ set_decl_rtl (tree t, rtx x)
   if (!x)
     return;
   /* For register, we maintain the reverse information too.  */
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     REG_ATTRS (x) = get_reg_attrs (t, 0);
   else if (GET_CODE (x) == SUBREG)
     REG_ATTRS (SUBREG_REG (x))
@@ -918,7 +918,7 @@ set_decl_incoming_rtl (tree t, rtx x)
   if (!x)
     return;
   /* For register, we maintain the reverse information too.  */
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     REG_ATTRS (x) = get_reg_attrs (t, 0);
   else if (GET_CODE (x) == SUBREG)
     REG_ATTRS (SUBREG_REG (x))
@@ -961,7 +961,7 @@ mark_user_reg (rtx reg)
       REG_USERVAR_P (XEXP (reg, 0)) = 1;
       REG_USERVAR_P (XEXP (reg, 1)) = 1;
     }
-  else if (GET_CODE (reg) == REG)
+  else if (REG_P (reg))
     REG_USERVAR_P (reg) = 1;
   else
     abort ();
@@ -1034,7 +1034,7 @@ subreg_hard_regno (rtx x, int check_mode)
   /* This is where we attempt to catch illegal subregs
      created by the compiler.  */
   if (GET_CODE (x) != SUBREG
-      || GET_CODE (reg) != REG)
+      || !REG_P (reg))
     abort ();
   base_regno = REGNO (reg);
   if (base_regno >= FIRST_PSEUDO_REGISTER)
@@ -1121,7 +1121,7 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
       else if (msize < xsize)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
-  else if (GET_CODE (x) == SUBREG || GET_CODE (x) == REG
+  else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
     return simplify_gen_subreg (mode, x, innermode, offset);
@@ -1387,7 +1387,7 @@ operand_subword_force (rtx op, unsigned int offset, enum machine_mode mode)
     {
       /* If this is a register which can not be accessed by words, copy it
 	 to a pseudo register.  */
-      if (GET_CODE (op) == REG)
+      if (REG_P (op))
 	op = copy_to_reg (op);
       else
 	op = force_reg (mode, op);
@@ -1460,8 +1460,8 @@ component_ref_for_mem_expr (tree ref)
   if (inner == TREE_OPERAND (ref, 0))
     return ref;
   else
-    return build (COMPONENT_REF, TREE_TYPE (ref), inner,
-		  TREE_OPERAND (ref, 1));
+    return build (COMPONENT_REF, TREE_TYPE (ref), inner, TREE_OPERAND (ref, 1),
+		  NULL_TREE);
 }
 
 /* Returns 1 if both MEM_EXPR can be considered equal
@@ -1543,6 +1543,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	 && (TYPE_READONLY (type) || (t != type && TREE_READONLY (t))))
 	|| (! TYPE_P (t) && TREE_CONSTANT (t)));
   MEM_POINTER (ref) = POINTER_TYPE_P (type);
+  MEM_NOTRAP_P (ref) = TREE_THIS_NOTRAP (t);
 
   /* If we are making an object of this type, or if this is a DECL, we know
      that it is a scalar if the type is not an aggregate.  */
@@ -1625,28 +1626,22 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	  do
 	    {
 	      tree index = TREE_OPERAND (t2, 1);
-	      tree array = TREE_OPERAND (t2, 0);
-	      tree domain = TYPE_DOMAIN (TREE_TYPE (array));
-	      tree low_bound = (domain ? TYPE_MIN_VALUE (domain) : 0);
-	      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (array)));
+	      tree low_bound = array_ref_low_bound (t2);
+	      tree unit_size = array_ref_element_size (t2);
 
 	      /* We assume all arrays have sizes that are a multiple of a byte.
 		 First subtract the lower bound, if any, in the type of the
-		 index, then convert to sizetype and multiply by the size of the
-		 array element.  */
-	      if (low_bound != 0 && ! integer_zerop (low_bound))
+		 index, then convert to sizetype and multiply by the size of
+		 the array element.  */
+	      if (! integer_zerop (low_bound))
 		index = fold (build (MINUS_EXPR, TREE_TYPE (index),
 				     index, low_bound));
 
-	      /* If the index has a self-referential type, instantiate it;
-		 likewise for the component size.  */
-	      index = SUBSTITUTE_PLACEHOLDER_IN_EXPR (index, t2);
-	      unit_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (unit_size, array);
-	      off_tree
-		= fold (build (PLUS_EXPR, sizetype,
-			       fold (build (MULT_EXPR, sizetype,
-					    index, unit_size)),
-			       off_tree));
+	      off_tree = size_binop (PLUS_EXPR,
+				     size_binop (MULT_EXPR, convert (sizetype,
+								     index),
+						 unit_size),
+				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
 	    }
 	  while (TREE_CODE (t2) == ARRAY_REF);
@@ -2042,6 +2037,7 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
       if (TREE_CODE (expr) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (expr, 1);
+	  tree offset = component_ref_field_offset (expr);
 
 	  if (! DECL_SIZE_UNIT (field))
 	    {
@@ -2056,17 +2052,18 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 	      && INTVAL (memoffset) >= 0)
 	    break;
 
-	  if (! host_integerp (DECL_FIELD_OFFSET (field), 1))
+	  if (! host_integerp (offset, 1))
 	    {
 	      expr = NULL_TREE;
 	      break;
 	    }
 
 	  expr = TREE_OPERAND (expr, 0);
-	  memoffset = (GEN_INT (INTVAL (memoffset)
-		       + tree_low_cst (DECL_FIELD_OFFSET (field), 1)
-		       + (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
-		          / BITS_PER_UNIT)));
+	  memoffset
+	    = (GEN_INT (INTVAL (memoffset)
+			+ tree_low_cst (offset, 1)
+			+ (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			   / BITS_PER_UNIT)));
 	}
       /* Similarly for the decl.  */
       else if (DECL_P (expr)
@@ -2148,8 +2145,8 @@ restore_emit_status (struct function *p ATTRIBUTE_UNUSED)
 /* Go through all the RTL insn bodies and copy any invalid shared
    structure.  This routine should only be called once.  */
 
-void
-unshare_all_rtl (tree fndecl, rtx insn)
+static void
+unshare_all_rtl_1 (tree fndecl, rtx insn)
 {
   tree decl;
 
@@ -2200,7 +2197,13 @@ unshare_all_rtl_again (rtx insn)
 
   reset_used_flags (stack_slot_list);
 
-  unshare_all_rtl (cfun->decl, insn);
+  unshare_all_rtl_1 (cfun->decl, insn);
+}
+
+void
+unshare_all_rtl (void)
+{
+  unshare_all_rtl_1 (current_function_decl, get_insns ());
 }
 
 /* Check that ORIG is not marked when it should not be and mark ORIG as in use,
@@ -2784,9 +2787,9 @@ make_safe_from (rtx x, rtx other)
  done:
   if ((GET_CODE (other) == MEM
        && ! CONSTANT_P (x)
-       && GET_CODE (x) != REG
+       && !REG_P (x)
        && GET_CODE (x) != SUBREG)
-      || (GET_CODE (other) == REG
+      || (REG_P (other)
 	  && (REGNO (other) < FIRST_PSEUDO_REGISTER
 	      || reg_mentioned_p (other, x))))
     {

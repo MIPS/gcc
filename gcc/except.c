@@ -82,9 +82,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 
-/* Nonzero means enable synchronous exceptions for non-call instructions.  */
-int flag_non_call_exceptions;
-
 /* Protect cleanup actions with must-not-throw regions, with a call
    to the given failure handler.  */
 tree (*lang_protect_cleanup_actions) (void);
@@ -1157,18 +1154,7 @@ remove_unreachable_regions (rtx insns)
     }
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    {
-      reachable[uid_region_num[INSN_UID (insn)]] = true;
-
-      if (GET_CODE (insn) == CALL_INSN
-	  && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	for (i = 0; i < 3; i++)
-	  {
-	    rtx sub = XEXP (PATTERN (insn), i);
-	    for (; sub ; sub = NEXT_INSN (sub))
-	      reachable[uid_region_num[INSN_UID (sub)]] = true;
-	  }
-    }
+    reachable[uid_region_num[INSN_UID (insn)]] = true;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -1187,7 +1173,7 @@ remove_unreachable_regions (rtx insns)
 
 	    case ERT_MUST_NOT_THROW:
 	      /* MUST_NOT_THROW regions are implementable solely in the
-		 runtime, but their existance continues to affect calls
+		 runtime, but their existence continues to affect calls
 		 within that region.  Never delete them here.  */
 	      kill_it = false;
 	      break;
@@ -1259,8 +1245,6 @@ convert_from_eh_region_ranges_1 (rtx *pinsns, int *orig_sp, int cur)
 	      else
 		cur = *--sp;
 
-	      /* Removing the first insn of a CALL_PLACEHOLDER sequence
-		 requires extra care to adjust sequence start.  */
 	      if (insn == *pinsns)
 		*pinsns = next;
 	      remove_insn (insn);
@@ -1284,17 +1268,6 @@ convert_from_eh_region_ranges_1 (rtx *pinsns, int *orig_sp, int cur)
 	    {
 	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (cur),
 						  REG_NOTES (insn));
-	    }
-
-	  if (GET_CODE (insn) == CALL_INSN
-	      && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	    {
-	      convert_from_eh_region_ranges_1 (&XEXP (PATTERN (insn), 0),
-					       sp, cur);
-	      convert_from_eh_region_ranges_1 (&XEXP (PATTERN (insn), 1),
-					       sp, cur);
-	      convert_from_eh_region_ranges_1 (&XEXP (PATTERN (insn), 2),
-					       sp, cur);
 	    }
 	}
     }
@@ -2766,6 +2739,20 @@ for_each_eh_label_1 (void **pentry, void *data)
   (*callback) (entry->label);
   return 1;
 }
+
+/* Invoke CALLBACK for every exception region in the current function.  */
+
+void
+for_each_eh_region (void (*callback) (struct eh_region *))
+{
+  int i, n = cfun->eh->last_region_number;
+  for (i = 1; i <= n; ++i)
+    {
+      struct eh_region *region = cfun->eh->region_array[i];
+      if (region)
+	(*callback) (region);
+    }
+}
 
 /* This section describes CFG exception edges for flow.  */
 
@@ -3127,23 +3114,14 @@ can_throw_internal (rtx insn)
   if (! INSN_P (insn))
     return false;
 
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX
+      && XINT (PATTERN (insn), 0) > 0)
+    return can_throw_internal_1 (XINT (PATTERN (insn), 0));
+
   if (GET_CODE (insn) == INSN
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
-
-  if (GET_CODE (insn) == CALL_INSN
-      && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-    {
-      int i;
-      for (i = 0; i < 3; ++i)
-	{
-	  rtx sub = XEXP (PATTERN (insn), i);
-	  for (; sub ; sub = NEXT_INSN (sub))
-	    if (can_throw_internal (sub))
-	      return true;
-	}
-      return false;
-    }
 
   /* Every insn that might throw has an EH_REGION note.  */
   note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
@@ -3191,20 +3169,6 @@ can_throw_external (rtx insn)
   if (GET_CODE (insn) == INSN
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
-
-  if (GET_CODE (insn) == CALL_INSN
-      && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-    {
-      int i;
-      for (i = 0; i < 3; ++i)
-	{
-	  rtx sub = XEXP (PATTERN (insn), i);
-	  for (; sub ; sub = NEXT_INSN (sub))
-	    if (can_throw_external (sub))
-	      return true;
-	}
-      return false;
-    }
 
   note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
   if (!note)
@@ -4121,9 +4085,12 @@ output_function_exception_table (void)
 	  if (TREE_CODE (type) == ADDR_EXPR)
 	    {
 	      type = TREE_OPERAND (type, 0);
-	      node = cgraph_varpool_node (type);
-	      if (node)
-		cgraph_varpool_mark_needed_node (node);
+	      if (TREE_CODE (type) == VAR_DECL)
+		{
+	          node = cgraph_varpool_node (type);
+	          if (node)
+		    cgraph_varpool_mark_needed_node (node);
+		}
 	    }
 	  else if (TREE_CODE (type) != INTEGER_CST)
 	    abort ();

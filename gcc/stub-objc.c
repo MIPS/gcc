@@ -63,12 +63,6 @@ objc_is_reserved_word (tree ident ATTRIBUTE_UNUSED)
 }
 
 int
-objc_is_type_qualifier (tree ident ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-int
 objc_comptypes (tree lhs ATTRIBUTE_UNUSED, tree rhs ATTRIBUTE_UNUSED,
                 int reflexive ATTRIBUTE_UNUSED)
 {
@@ -126,12 +120,9 @@ objc_finish_interface (void)
 {
 }
 
-tree
-objc_add_instance_variable (tree declarator ATTRIBUTE_UNUSED,
-			    tree declspecs ATTRIBUTE_UNUSED,
-			    tree width ATTRIBUTE_UNUSED)
+void
+objc_add_instance_variable (tree decl ATTRIBUTE_UNUSED)
 {
-  return 0;
 }
 
 void
@@ -254,4 +245,10 @@ tree
 objc_generate_static_init_call (tree ctors ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+int
+objc_is_public (tree expr ATTRIBUTE_UNUSED, tree identifier ATTRIBUTE_UNUSED)
+{
+  return 1;
 }

@@ -484,7 +484,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
       dest = XEXP (dest, 0);
     }
 
-  if (GET_CODE (dest) == REG)
+  if (REG_P (dest))
     {
       regno = REGNO (dest);
 
@@ -1123,7 +1123,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
       tmp = SET_DEST (set);
       if (GET_CODE (tmp) == SUBREG)
 	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG)
+      if (REG_P (tmp))
 	dest_regno = REGNO (tmp);
       else
 	goto end_call_group;
@@ -1133,11 +1133,11 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	tmp = SUBREG_REG (tmp);
       if ((GET_CODE (tmp) == PLUS
 	   || GET_CODE (tmp) == MINUS)
-	  && GET_CODE (XEXP (tmp, 0)) == REG
+	  && REG_P (XEXP (tmp, 0))
 	  && REGNO (XEXP (tmp, 0)) == STACK_POINTER_REGNUM
 	  && dest_regno == STACK_POINTER_REGNUM)
 	src_regno = STACK_POINTER_REGNUM;
-      else if (GET_CODE (tmp) == REG)
+      else if (REG_P (tmp))
 	src_regno = REGNO (tmp);
       else
 	goto end_call_group;
@@ -1145,13 +1145,21 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
       if (src_regno < FIRST_PSEUDO_REGISTER
 	  || dest_regno < FIRST_PSEUDO_REGISTER)
 	{
-	  set_sched_group_p (insn);
+	  /* If we are inside a post-call group right at the start of the
+	     scheduling region, we must not add a dependency.  */
+	  if (deps->in_post_call_group_p == post_call_initial)
+	    {
+	      SCHED_GROUP_P (insn) = 1;
+	      deps->in_post_call_group_p = post_call;
+	    }
+	  else
+	    set_sched_group_p (insn);
 	  CANT_MOVE (insn) = 1;
 	}
       else
 	{
 	end_call_group:
-	  deps->in_post_call_group_p = false;
+	  deps->in_post_call_group_p = not_post_call;
 	}
     }
 }
@@ -1168,6 +1176,15 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
   if (current_sched_info->use_cselib)
     cselib_init (true);
 
+  /* Before reload, if the previous block ended in a call, show that
+     we are inside a post-call group, so as to keep the lifetimes of
+     hard registers correct.  */
+  if (! reload_completed && GET_CODE (head) != CODE_LABEL)
+    {
+      insn = prev_nonnote_insn (head);
+      if (insn && GET_CODE (insn) == CALL_INSN)
+	deps->in_post_call_group_p = post_call_initial;
+    }
   for (insn = head;; insn = NEXT_INSN (insn))
     {
       rtx link, end_seq, r0, set;
@@ -1259,7 +1276,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	  /* Before reload, begin a post-call group, so as to keep the
 	     lifetimes of hard registers correct.  */
 	  if (! reload_completed)
-	    deps->in_post_call_group_p = true;
+	    deps->in_post_call_group_p = post_call;
 	}
 
       /* See comments on reemit_notes as to why we do this.
@@ -1309,8 +1326,8 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	  /* The sequence must start with a clobber of a register.  */
 	  && GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == CLOBBER
-          && (r0 = XEXP (PATTERN (insn), 0), GET_CODE (r0) == REG)
-	  && GET_CODE (XEXP (PATTERN (insn), 0)) == REG
+          && (r0 = XEXP (PATTERN (insn), 0), REG_P (r0))
+	  && REG_P (XEXP (PATTERN (insn), 0))
 	  /* The CLOBBER must also have a REG_LIBCALL note attached.  */
 	  && (link = find_reg_note (insn, REG_LIBCALL, NULL_RTX)) != 0
 	  && (end_seq = XEXP (link, 0)) != 0
@@ -1420,7 +1437,7 @@ init_deps (struct deps *deps)
   deps->last_pending_memory_flush = 0;
   deps->last_function_call = 0;
   deps->sched_before_next_call = 0;
-  deps->in_post_call_group_p = false;
+  deps->in_post_call_group_p = not_post_call;
   deps->libcall_block_tail_insn = 0;
 }
 

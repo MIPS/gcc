@@ -286,7 +286,8 @@ static void
 mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 {
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   stmt_ann_t ann;
   size_t i;
 
@@ -387,11 +388,22 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
         }
     }
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      tree vdef = VDEF_RESULT (vdefs, i);
-      if (need_to_preserve_store (vdef))
+      tree v_may_def = V_MAY_DEF_RESULT (v_may_defs, i);
+      if (need_to_preserve_store (v_may_def))
+	{
+	  mark_stmt_necessary (stmt, true);
+	  return;
+        }
+    }
+    
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree v_must_def = V_MUST_DEF_OP (v_must_defs, i);
+      if (need_to_preserve_store (v_must_def))
 	{
 	  mark_stmt_necessary (stmt, true);
 	  return;
@@ -420,7 +432,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
       tree phi;
 
       /* Check any PHI nodes in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  NECESSARY (phi) = 0;
 
@@ -469,6 +481,14 @@ static void
 mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
   int edge_number;
+
+#ifdef ENABLE_CHECKING
+  if (bb == EXIT_BLOCK_PTR)
+    abort ();
+#endif
+
+  if (bb == ENTRY_BLOCK_PTR)
+    return;
 
   EXECUTE_IF_CONTROL_DEPENDENT (bb->index, edge_number,
     {
@@ -558,10 +578,10 @@ propagate_necessity (struct edge_list *el)
       else
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
-	     VDEF operands in this statement.  Mark all the statements which
-	     feed this statement's uses as necessary.  */
+	     V_MAY_DEF operands in this statement.  Mark all the statements 
+	     which feed this statement's uses as necessary.  */
 	  vuse_optype vuses;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
 	  use_optype uses;
 	  stmt_ann_t ann;
 	  size_t k;
@@ -577,12 +597,13 @@ propagate_necessity (struct edge_list *el)
 	  for (k = 0; k < NUM_VUSES (vuses); k++)
 	    mark_operand_necessary (VUSE_OP (vuses, k));
 
-	  /* The operands of VDEF expressions are also needed as they
+	  /* The operands of V_MAY_DEF expressions are also needed as they
 	     represent potential definitions that may reach this
-	     statement (VDEF operands allow us to follow def-def links).  */
-	  vdefs = VDEF_OPS (ann);
-	  for (k = 0; k < NUM_VDEFS (vdefs); k++)
-	    mark_operand_necessary (VDEF_OP (vdefs, k));
+	     statement (V_MAY_DEF operands allow us to follow def-def 
+	     links).  */
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (k = 0; k < NUM_V_MAY_DEFS (v_may_defs); k++)
+	    mark_operand_necessary (V_MAY_DEF_OP (v_may_defs, k));
 	}
     }
 }
@@ -643,7 +664,7 @@ remove_dead_phis (basic_block bb)
 
       if (! NECESSARY (phi))
 	{
-	  tree next = TREE_CHAIN (phi);
+	  tree next = PHI_CHAIN (phi);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -659,7 +680,7 @@ remove_dead_phis (basic_block bb)
       else
 	{
 	  prev = phi;
-	  phi = TREE_CHAIN (phi);
+	  phi = PHI_CHAIN (phi);
 	}
     }
 }
@@ -778,7 +799,7 @@ tree_dce_init (bool aggressive)
       sbitmap_zero (last_stmt_necessary);
     }
 
-  processed = sbitmap_alloc (highest_ssa_version + 1);
+  processed = sbitmap_alloc (num_ssa_names + 1);
   sbitmap_zero (processed);
 
   VARRAY_TREE_INIT (worklist, 64, "work list");

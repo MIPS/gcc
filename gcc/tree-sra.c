@@ -56,7 +56,6 @@ enum sra_copy_mode { SCALAR_SCALAR, FIELD_SCALAR, SCALAR_FIELD };
 
 /* Local functions.  */
 static inline bool can_be_scalarized_p (tree);
-static inline void insert_edge_copies (tree stmt, basic_block bb);
 static tree create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode);
 static inline void scalarize_component_ref (tree, tree *tp);
 static void scalarize_structures (void);
@@ -112,22 +111,42 @@ sra_elt_eq (const void *x, const void *y)
   return true;
 }
 
-/* Mark all the variables in VDEF operands for STMT for renaming.
+/* Mark all the variables in V_MAY_DEF operands for STMT for renaming.
    This becomes necessary when we modify all of a non-scalar.  */
 
 static void
-mark_all_vdefs (tree stmt)
+mark_all_v_may_defs (tree stmt)
 {
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   size_t i, n;
 
   get_stmt_operands (stmt);
-  vdefs = VDEF_OPS (stmt_ann (stmt));
-  n = NUM_VDEFS (vdefs);
+  v_may_defs = V_MAY_DEF_OPS (stmt_ann (stmt));
+  n = NUM_V_MAY_DEFS (v_may_defs);
 
   for (i = 0; i < n; i++)
     {
-      tree sym = VDEF_RESULT (vdefs, i);
+      tree sym = V_MAY_DEF_RESULT (v_may_defs, i);
+      bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
+    }
+}
+
+/* Mark all the variables in V_MUST_DEF operands for STMT for renaming.
+   This becomes necessary when we modify all of a non-scalar.  */
+
+static void
+mark_all_v_must_defs (tree stmt)
+{
+  v_must_def_optype v_must_defs;
+  size_t i, n;
+
+  get_stmt_operands (stmt);
+  v_must_defs = V_MUST_DEF_OPS (stmt_ann (stmt));
+  n = NUM_V_MUST_DEFS (v_must_defs);
+
+  for (i = 0; i < n; i++)
+    {
+      tree sym = V_MUST_DEF_OP (v_must_defs, i);
       bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
     }
 }
@@ -536,7 +555,7 @@ find_candidates_for_sra (void)
    has more than one edge, STMT will be replicated for each edge.  Also,
    abnormal edges will be ignored.  */
 
-static inline void
+void
 insert_edge_copies (tree stmt, basic_block bb)
 {
   edge e;
@@ -587,7 +606,7 @@ csc_build_component_ref (tree base, tree field)
 	 the entire structure should be zeroed.  */
       if (CONSTRUCTOR_ELTS (base))
 	abort ();
-      return convert (TREE_TYPE (field), integer_zero_node);
+      return fold_convert (TREE_TYPE (field), integer_zero_node);
 
     default:
       /* Avoid sharing BASE when building the different COMPONENT_REFs.
@@ -602,7 +621,7 @@ csc_build_component_ref (tree base, tree field)
       break;
     }
 
-  return build (COMPONENT_REF, TREE_TYPE (field), base, field);
+  return build (COMPONENT_REF, TREE_TYPE (field), base, field, NULL_TREE);
 }
 
 /* Similarly for REALPART_EXPR and IMAGPART_EXPR for complex types.  */
@@ -685,7 +704,8 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 
       /* Mark all the variables in VDEF operands for renaming, because
 	 the VA_ARG_EXPR will now be in a different statement.  */
-      mark_all_vdefs (stmt);
+      mark_all_v_may_defs (stmt);
+      mark_all_v_must_defs (stmt);
 
       /* Set RHS to be the new temporary TMP.  */
       rhs = tmp;
@@ -784,7 +804,8 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 	  /* Otherwise, mark all the symbols in the VDEFs for the last
 	     scalarized statement just created.  Since all the statements
 	     introduce the same VDEFs, we only need to check the last one.  */
-	  mark_all_vdefs (tsi_stmt (tsi));
+	  mark_all_v_may_defs (tsi_stmt (tsi));
+	  mark_all_v_must_defs (tsi_stmt (tsi));
 	}
       else
 	abort ();
@@ -830,8 +851,9 @@ scalarize_structures (void)
 
 	/* If the statement has no virtual operands, then it doesn't make
 	   structure references that we care about.  */
-	if (NUM_VDEFS (VDEF_OPS (ann)) == 0
-	    && NUM_VUSES (VUSE_OPS (ann)) == 0)
+	if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) == 0
+	    && NUM_VUSES (VUSE_OPS (ann)) == 0
+	    && NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) == 0)
 	  continue;
 
 	/* Structure references may only appear in certain statements.  */
@@ -899,17 +921,17 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
   if (is_sra_candidate_ref (lhs, false))
     {
       tree sym;
-      vdef_optype vdefs;
+      v_may_def_optype v_may_defs;
 
       scalarize_component_ref (stmt, &TREE_OPERAND (stmt, 0));
 
       /* Mark the LHS to be renamed, as we have just removed the previous
-	 VDEF for AGGREGATE.  The statement should have exactly one VDEF
-	 for variable AGGREGATE.  */
-      vdefs = STMT_VDEF_OPS (stmt);
-      if (NUM_VDEFS (vdefs) != 1)
+	 V_MAY_DEF for AGGREGATE.  The statement should have exactly one 
+	 V_MAY_DEF for variable AGGREGATE.  */
+      v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+      if (NUM_V_MAY_DEFS (v_may_defs) != 1)
 	abort ();
-      sym = SSA_NAME_VAR (VDEF_RESULT (vdefs, 0));
+      sym = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, 0));
       bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
     }
 
@@ -989,7 +1011,7 @@ scalarize_call_expr (block_stmt_iterator *si_p)
   /* Scalarize the return value, if any.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
-      tree var = TREE_OPERAND (stmt, 0);
+      tree var = get_base_address (TREE_OPERAND (stmt, 0));
 
       /* If the LHS of the assignment is a scalarizable structure, insert
 	 copies into the scalar replacements after the call.  */
@@ -1107,16 +1129,14 @@ dump_sra_map (FILE *f)
    re-writes non-aliased structure references into scalar temporaries.  The
    goal is to expose some/all structures to the scalar optimizers.
 
-   FNDECL is the function to process.
+   Scalarization proceeds in two main phases.  First, every structure
+   referenced in the program that complies with can_be_scalarized_p is
+   marked for scalarization (find_candidates_for_sra).
    
-   VARS_TO_RENAME_P is a pointer to the set of variables that need to be
-   renamed into SSA after this pass is done.  These are going to be all the
-   new scalars created by the SRA process.  Notice that since this pass
-   creates new variables, the bitmap representing all the variables in the
-   program will be re-sized here.
-
-   PHASE indicates which dump file from the DUMP_FILES array to use when
-   dumping debugging information.
+   Second, a mapping between structure fields and scalar temporaries so
+   that every time a particular field of a particular structure is
+   referenced in the code, we replace it with its corresponding scalar
+   temporary (scalarize_structures).
 
    TODO
 

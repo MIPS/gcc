@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
-#include "expr.h"
 #include "c-tree.h"
 #include "function.h"
 #include "flags.h"
@@ -191,9 +190,7 @@ static void
 build_cdtor (int method_type, tree cdtors)
 {
   tree fnname = get_file_function_name (method_type);
-  tree body;
-  tree scope;
-  tree block;
+  tree cs;
 
   start_function (void_list_node,
 		  build_nt (CALL_EXPR, fnname,
@@ -202,8 +199,7 @@ build_cdtor (int method_type, tree cdtors)
 		  NULL_TREE);
   store_parm_decls ();
 
-  body = c_begin_compound_stmt ();
-  add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
+  cs = c_begin_compound_stmt (true);
 
   /* The Objective-C metadata initializer (if any) must be run
      _before_ all other static constructors.  */
@@ -212,16 +208,9 @@ build_cdtor (int method_type, tree cdtors)
     cdtors = objc_generate_static_init_call (cdtors);
 
   for (; cdtors; cdtors = TREE_CHAIN (cdtors))
-    add_stmt (build_stmt (EXPR_STMT,
-			  build_function_call (TREE_VALUE (cdtors), 0)));
+    add_stmt (build_function_call (TREE_VALUE (cdtors), 0));
 
-  scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-
-  block = make_node (BLOCK);
-  SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
-  SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
-
-  RECHAIN_STMTS (body, COMPOUND_BODY (body));
+  add_stmt (c_end_compound_stmt (cs, true));
 
   finish_function ();
 }
@@ -279,17 +268,15 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       break;
 
     case 'T':
-      if (TREE_CODE (t) == TYPE_DECL)
+      if (TYPE_P (t))
+	t = TYPE_NAME (t);
+      if (t && TREE_CODE (t) == TYPE_DECL)
 	{
 	  if (DECL_NAME (t))
 	    n = lang_hooks.decl_printable_name (t, 2);
 	}
-      else
-	{
-	  t = TYPE_NAME (t);
-	  if (t)
-	    n = IDENTIFIER_POINTER (t);
-	}
+      else if (t)
+	n = IDENTIFIER_POINTER (t);
       break;
 
     case 'E':
@@ -335,6 +322,13 @@ c_objc_common_truthvalue_conversion (tree expr)
   return c_common_truthvalue_conversion (expr);
 }
 
+/* In C and ObjC, all decls have "C" linkage.  */
+bool
+has_c_linkage (tree decl ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 void
 c_initialize_diagnostics (diagnostic_context *context)
 {
@@ -347,4 +341,3 @@ c_initialize_diagnostics (diagnostic_context *context)
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
 }
-

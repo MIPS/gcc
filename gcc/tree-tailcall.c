@@ -1,4 +1,4 @@
-/* Tail calls optimization on trees.
+/* Tail call optimization on trees.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 
 /* The file implements the tail recursion elimination.  It is also used to
-   analyse the tail calls in general, passing the results to the rtl level
+   analyze the tail calls in general, passing the results to the rtl level
    where they are used for sibcall optimization.
 
    In addition to the standard tail recursion elimination, we handle the most
@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
    omit the accumulator.
 
    There are three cases how the function may exit.  The first one is
-   handled in adjust_return_value, the later two in adjust_accumulator_values
+   handled in adjust_return_value, the other two in adjust_accumulator_values
    (the second case is actually a special case of the third one and we
    present it separately just for clarity):
 
@@ -80,7 +80,7 @@ Boston, MA 02111-1307, USA.  */
       We rewrite this to a gimple equivalent of return m_acc * x + a_acc.
       
    2) return f (...), where f is the current function, is rewritten in a
-      clasical tail-recursion elimination way, into assignment of arguments
+      classical tail-recursion elimination way, into assignment of arguments
       and jump to the start of the function.  Values of the accumulators
       are unchanged.
 	       
@@ -210,7 +210,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       at = SSA_NAME_DEF_STMT (expr);
       bb = bb_for_stmt (at);
 
-      /* The default defininition or defined before the chain.  */
+      /* The default definition or defined before the chain.  */
       if (!bb || !bb->aux)
 	break;
 
@@ -237,7 +237,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       if (!e)
 	abort ();
 
-      expr = phi_element_for_edge (at, e)->def;
+      expr = PHI_ARG_DEF_FROM_EDGE (at, e);
     }
 
   /* Unmark the blocks.  */
@@ -339,8 +339,8 @@ propagate_through_phis (tree var, edge e)
   basic_block dest = e->dest;
   tree phi;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
-    if (phi_element_for_edge (phi, e)->def == var)
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
+    if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var)
       return PHI_RESULT (phi);
 
   return var;
@@ -391,7 +391,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       /* If the statement has virtual operands, fail.  */
       ann = stmt_ann (stmt);
-      if (NUM_VDEFS (VDEF_OPS (ann))
+      if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann))
+          || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann))
 	  || NUM_VUSES (VUSE_OPS (ann)))
 	return;
     }
@@ -460,11 +461,6 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (TREE_CODE (stmt) != MODIFY_EXPR)
 	return;
 
-      /* Unless this is a tail recursive call, we cannot do anything with
-	 the statement anyway.  */
-      if (!tail_recursion)
-	return;
-
       if (!process_assignment (stmt, stmt, bsi, &m, &a, &ass_var))
 	return;
     }
@@ -489,6 +485,11 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
      is identical to the call's return.  */
   if (ret_var
       && (ret_var != ass_var))
+    return;
+
+  /* If this is not a tail recursive call, we cannot handle addends or
+     multiplicands.  */
+  if (!tail_recursion && (m || a))
     return;
 
   nw = xmalloc (sizeof (struct tailcall));
@@ -557,7 +558,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (a_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == a_acc)
 	  break;
 
@@ -566,7 +567,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
   if (m_acc)
     {
-      for (phi = phi_nodes (back->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (back->dest); phi; phi = PHI_CHAIN (phi))
 	if (PHI_RESULT (phi) == m_acc)
 	  break;
 
@@ -574,7 +575,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
     }
 }
 
-/* Adjust value of the return at the end of BB accodring to M and A
+/* Adjust value of the return at the end of BB according to M and A
    accumulators.  */
 
 static void
@@ -593,7 +594,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
   if (TREE_CODE (ret_var) == MODIFY_EXPR)
     {
-      ret_var->common.ann = (tree_ann) stmt_ann (ret_stmt);
+      ret_var->common.ann = (tree_ann_t) stmt_ann (ret_stmt);
       bsi_replace (&bsi, ret_var, true);
       SSA_NAME_DEF_STMT (TREE_OPERAND (ret_var, 0)) = ret_var;
       ret_var = TREE_OPERAND (ret_var, 0);
@@ -644,7 +645,7 @@ eliminate_tail_call (struct tailcall *t)
   edge e;
   tree phi;
   stmt_ann_t ann;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   unsigned i;
 
   stmt = bsi_stmt (t->call_bsi);
@@ -683,7 +684,7 @@ eliminate_tail_call (struct tailcall *t)
        args = TREE_CHAIN (args))
     {
       
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 
@@ -696,11 +697,11 @@ eliminate_tail_call (struct tailcall *t)
     }
 
   /* Add phi nodes for the call clobbered variables.  */
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      param = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
-      for (phi = phi_nodes (first); phi; phi = TREE_CHAIN (phi))
+      param = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
+      for (phi = phi_nodes (first); phi; phi = PHI_CHAIN (phi))
 	if (param == SSA_NAME_VAR (PHI_RESULT (phi)))
 	  break;
 
@@ -721,7 +722,7 @@ eliminate_tail_call (struct tailcall *t)
 	    abort ();
 	}
 
-      add_phi_arg (&phi, VDEF_OP (vdefs, i), e);
+      add_phi_arg (&phi, V_MAY_DEF_OP (v_may_defs, i), e);
     }
 
   /* Update the values of accumulators.  */
@@ -844,7 +845,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, convert (ret_type, integer_zero_node),
+	  add_phi_arg (&phi, fold_convert (ret_type, integer_zero_node),
 		       first->pred);
 	  a_acc = PHI_RESULT (phi);
 	}
@@ -857,7 +858,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, convert (ret_type, integer_one_node),
+	  add_phi_arg (&phi, fold_convert (ret_type, integer_one_node),
 		       first->pred);
 	  m_acc = PHI_RESULT (phi);
 	}

@@ -1,5 +1,5 @@
 /* String pool for GCC.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,7 +51,12 @@ static struct obstack string_stack;
 
 static hashnode alloc_node (hash_table *);
 static int mark_ident (struct cpp_reader *, hashnode, const void *);
-static int ht_copy_and_clear (struct cpp_reader *, hashnode, const void *);
+
+static void *
+stringpool_ggc_alloc (size_t x)
+{
+  return ggc_alloc (x);
+}
 
 /* Initialize the string pool.  */
 void
@@ -60,6 +65,7 @@ init_stringpool (void)
   /* Create with 16K (2^14) entries.  */
   ident_hash = ht_create (14);
   ident_hash->alloc_node = alloc_node;
+  ident_hash->alloc_subobject = stringpool_ggc_alloc;
   gcc_obstack_init (&string_stack);
 }
 
@@ -201,65 +207,28 @@ gt_pch_n_S (const void *x)
 
 struct string_pool_data GTY(())
 {
-  tree * GTY((length ("%h.nslots"))) entries;
+  struct ht_identifier * * 
+    GTY((length ("%h.nslots"),
+	 nested_ptr (union tree_node, "%h ? GCC_IDENT_TO_HT_IDENT (%h) : NULL",
+		     "%h ? HT_IDENT_TO_GCC_IDENT (%h) : NULL")))
+    entries;
   unsigned int nslots;
   unsigned int nelements;
 };
 
 static GTY(()) struct string_pool_data * spd;
 
-/* Copy HP into the corresponding entry in HT2, and then clear
-   the cpplib parts of HP.  */
-
-static int
-ht_copy_and_clear (cpp_reader *r ATTRIBUTE_UNUSED, hashnode hp, const void *ht2_p)
-{
-  cpp_hashnode *h = CPP_HASHNODE (hp);
-  struct ht *ht2 = (struct ht *) ht2_p;
-
-  if (h->type != NT_VOID
-      && (h->flags & NODE_BUILTIN) == 0)
-    {
-      cpp_hashnode *h2 = CPP_HASHNODE (ht_lookup (ht2,
-						  NODE_NAME (h),
-						  NODE_LEN (h),
-						  HT_ALLOC));
-      h2->type = h->type;
-      memcpy (&h2->value, &h->value, sizeof (h->value));
-
-      h->type = NT_VOID;
-      memset (&h->value, 0, sizeof (h->value));
-    }
-  return 1;
-}
-
-/* The hash table as it was before gt_pch_save_stringpool was called.  */
-
-static struct ht *saved_ident_hash;
-
-/* The hash table contains pointers to the cpp_hashnode inside the
-   lang_identifier.  The PCH machinery can't handle pointers that refer
-   to the inside of an object, so to save the hash table for PCH the
-   pointers are adjusted and stored in the variable SPD.  */
+/* Save the stringpool data in SPD.  */
 
 void
 gt_pch_save_stringpool (void)
 {
-  unsigned int i;
-
   spd = ggc_alloc (sizeof (*spd));
   spd->nslots = ident_hash->nslots;
   spd->nelements = ident_hash->nelements;
-  spd->entries = ggc_alloc (sizeof (tree *) * spd->nslots);
-  for (i = 0; i < spd->nslots; i++)
-    if (ident_hash->entries[i] != NULL)
-      spd->entries[i] = HT_IDENT_TO_GCC_IDENT (ident_hash->entries[i]);
-    else
-      spd->entries[i] = NULL;
-
-  saved_ident_hash = ht_create (14);
-  saved_ident_hash->alloc_node = alloc_node;
-  ht_forall (ident_hash, ht_copy_and_clear, saved_ident_hash);
+  spd->entries = ggc_alloc (sizeof (spd->entries[0]) * spd->nslots);
+  memcpy (spd->entries, ident_hash->entries,
+	  spd->nslots * sizeof (spd->entries[0]));
 }
 
 /* Return the stringpool to its state before gt_pch_save_stringpool
@@ -268,29 +237,15 @@ gt_pch_save_stringpool (void)
 void
 gt_pch_fixup_stringpool (void)
 {
-  ht_forall (saved_ident_hash, ht_copy_and_clear, ident_hash);
-  ht_destroy (saved_ident_hash);
-  saved_ident_hash = 0;
 }
 
 /* A PCH file has been restored, which loaded SPD; fill the real hash table
-   with adjusted pointers from SPD.  */
+   from SPD.  */
 
 void
 gt_pch_restore_stringpool (void)
 {
-  unsigned int i;
-
-  ident_hash->nslots = spd->nslots;
-  ident_hash->nelements = spd->nelements;
-  ident_hash->entries = xrealloc (ident_hash->entries,
-				  sizeof (hashnode) * spd->nslots);
-  for (i = 0; i < spd->nslots; i++)
-    if (spd->entries[i] != NULL)
-      ident_hash->entries[i] = GCC_IDENT_TO_HT_IDENT (spd->entries[i]);
-    else
-      ident_hash->entries[i] = NULL;
-
+  ht_load (ident_hash, spd->entries, spd->nslots, spd->nelements, false);
   spd = NULL;
 }
 

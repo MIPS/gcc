@@ -62,7 +62,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* ??? Should probably be using LABEL_NUSES instead.  It would take a
    bit of surgery to be able to use or co-opt the routines in jump.  */
 rtx label_value_list;
-rtx tail_recursion_label_list;
 
 static int can_delete_note_p (rtx);
 static int can_delete_label_p (rtx);
@@ -441,6 +440,13 @@ free_bb_for_insn (void)
       BLOCK_FOR_INSN (insn) = NULL;
 }
 
+/* Return RTX to emit after when we want to emit code on the entry of function.  */
+rtx
+entry_of_function (void)
+{
+  return (n_basic_blocks ? BB_HEAD (ENTRY_BLOCK_PTR->next_bb) : get_insns ());
+}
+
 /* Update insns block within BB.  */
 
 void
@@ -679,7 +685,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   
   if (flag_reorder_blocks_and_partition
       && find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX))
-    return false;
+    return NULL;
 
   /* Verify that all targets will be TARGET.  */
   for (tmp = src->succ; tmp; tmp = tmp->succ_next)
@@ -1337,7 +1343,19 @@ rtl_split_edge (edge edge_in)
   else
     before = NULL_RTX;
 
-  bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+  /* If this is a fall through edge to the exit block, the blocks might be
+     not adjacent, and the right place is the after the source.  */
+  if (edge_in->flags & EDGE_FALLTHRU && edge_in->dest == EXIT_BLOCK_PTR)
+    {
+      before = NEXT_INSN (BB_END (edge_in->src));
+      if (before
+	  && GET_CODE (before) == NOTE
+	  && NOTE_LINE_NUMBER (before) == NOTE_INSN_LOOP_END)
+	before = NEXT_INSN (before);
+      bb = create_basic_block (before, NULL, edge_in->src);
+    }
+  else
+    bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
 
   /* ??? This info is likely going to be out of date very soon.  */
   if (edge_in->dest->global_live_at_start)

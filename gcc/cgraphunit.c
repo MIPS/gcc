@@ -467,7 +467,9 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 
 static bool error_found;
 
-/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph nodes.  */
+/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph
+   nodes.  */
+
 static tree
 verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
 {
@@ -501,12 +503,12 @@ verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
 	  error_found = true;
 	}
     }
+
   /* Save some cycles by not walking types and declaration as we
      won't find anything useful there anyway.  */
   if (DECL_P (*tp) || TYPE_P (*tp))
-    {
-      *walk_subtrees = 0;
-    }
+    *walk_subtrees = 0;
+
   return NULL_TREE;
 }
 
@@ -804,7 +806,6 @@ cgraph_expand_function (struct cgraph_node *node)
     {
       DECL_SAVED_TREE (node->decl) = NULL;
       DECL_STRUCT_FUNCTION (node->decl) = NULL;
-      DECL_ARGUMENTS (node->decl) = NULL;
       DECL_INITIAL (node->decl) = error_mark_node;
     }
 }
@@ -965,7 +966,6 @@ cgraph_remove_unreachable_nodes (void)
 		    {
 		      DECL_SAVED_TREE (node->decl) = NULL;
 		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-		      DECL_ARGUMENTS (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
 		    }
 		  while (node->callees)
@@ -1020,7 +1020,7 @@ cgraph_estimate_growth (struct cgraph_node *node)
 
 /* E is expected to be an edge being inlined.  Clone destination node of
    the edge and redirect it to the new clone.
-   DUPLICATE is used for bookeeping on whether we are actually creating new
+   DUPLICATE is used for bookkeeping on whether we are actually creating new
    clones or re-using node originally representing out-of-line function call.
    */
 void
@@ -1078,7 +1078,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
 
   what = e->callee;
 
-  /* Now update size of caller and all functions caller is inlined into. */
+  /* Now update size of caller and all functions caller is inlined into.  */
   for (;e && !e->inline_failed; e = e->caller->callers)
     {
       old_insns = e->caller->global.insns;
@@ -1191,7 +1191,7 @@ cgraph_recursive_inlining_p (struct cgraph_node *to,
     recursive = what->decl == to->global.inlined_to->decl;
   else
     recursive = what->decl == to->decl;
-  /* Marking recursive function inlinine has sane semantic and thus we should
+  /* Marking recursive function inline has sane semantic and thus we should
      not warn on it.  */
   if (recursive && reason)
     *reason = (what->local.disregard_inline_limits
@@ -1482,7 +1482,7 @@ cgraph_decide_inlining (void)
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
 		 "\nConsidering %s %i insns (always inline)\n",
-		 cgraph_node_name (e->callee), e->callee->global.insns);
+		 cgraph_node_name (node), node->global.insns);
       old_insns = overall_insns;
       for (e = node->callers; e; e = next)
 	{
@@ -1496,8 +1496,8 @@ cgraph_decide_inlining (void)
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, 
 		     " Inlined into %s which now has %i insns.\n",
-		     cgraph_node_name (node->callees->caller),
-	             node->callees->caller->global.insns);
+		     cgraph_node_name (e->caller),
+		     e->caller->global.insns);
 	}
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file, 

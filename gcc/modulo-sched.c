@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "df.h"
 #include "ddg.h"
 
+#ifdef INSN_SCHEDULING
 
 /* This file contains the implementation of the Swing Modulo Scheduler,
    described in the following references:
@@ -57,7 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
        IEEE Trans. on Comps., 50(3), March 2001
    [2] J. Llosa, A. Gonzalez, E. Ayguade, and M. Valero.
        Swing Modulo Scheduling: A Lifetime Sensitive Approach.
-       PACT '96 , pages 80-87, October 1996 (Boston - Massachussets - USA).
+       PACT '96 , pages 80-87, October 1996 (Boston - Massachusetts - USA).
 
    The basic structure is:
    1. Build a data-dependence graph (DDG) for each loop.
@@ -156,7 +157,7 @@ void rotate_partial_schedule (partial_schedule_ptr, int);
 void set_row_column_for_ps (partial_schedule_ptr);
 
 
-/* This page defines constants and structures for the modulo scheduiing
+/* This page defines constants and structures for the modulo scheduling
    driver.  */
 
 /* As in haifa-sched.c:  */
@@ -202,7 +203,7 @@ typedef struct node_sched_params
      original register defined by the node.  */
   rtx first_reg_move;
 
-  /* The number of register-move instructions added, immediately preceeding
+  /* The number of register-move instructions added, immediately preceding
      first_reg_move.  */
   int nreg_moves;
 
@@ -210,13 +211,13 @@ typedef struct node_sched_params
   int stage;  /* Holds time / ii.  */
 
   /* The column of a node inside the ps.  If nodes u, v are on the same row,
-     u will preceed v if column (u) < column (v).  */
+     u will precede v if column (u) < column (v).  */
   int column;
 } *node_sched_params_ptr;
 
 
 /* The following three functions are copied from the current scheduler
-   code in order to use sched_analyze() for computing the dependecies.
+   code in order to use sched_analyze() for computing the dependencies.
    They are used when initializing the sched_info structure.  */
 static const char *
 sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
@@ -385,7 +386,7 @@ set_node_sched_params (ddg_ptr g)
 				sizeof (struct node_sched_params));
 
   /* Set the pointer of the general data of the node to point to the
-     appropriate sched_params strcture.  */
+     appropriate sched_params structure.  */
   for (i = 0; i < g->num_nodes; i++)
     {
       /* Watch out for aliasing problems?  */
@@ -446,7 +447,7 @@ calculate_maxii (ddg_ptr g)
    of the register live range is more than ii; the number of moves is
    determined according to the following equation:
 		SCHED_TIME (use) - SCHED_TIME (def)   { 1 broken loop-carried
-   nreg_moves = ----------------------------------- - {   dependecnce.
+   nreg_moves = ----------------------------------- - {   dependence.
 			      ii		      { 0 if not.
    This handles the modulo-variable-expansions (mve's) needed for the ps.  */
 static void
@@ -472,7 +473,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  {
 	    int nreg_moves4e = (SCHED_TIME (e->dest) - SCHED_TIME (e->src)) / ii;
 
-	    /* If dest preceeds src in the schedule of the kernel, then dest
+	    /* If dest precedes src in the schedule of the kernel, then dest
 	       will read before src writes and we can save one reg_copy.  */
 	    if (SCHED_ROW (e->dest) == SCHED_ROW (e->src)
 		&& SCHED_COLUMN (e->dest) < SCHED_COLUMN (e->src))
@@ -605,7 +606,7 @@ duplicate_insns_of_cycles (partial_schedule_ptr ps, int from_stage,
 	if (for_prolog)
 	  {
 	    /* SCHED_STAGE (u_node) >= from_stage == 0.  Generate increasing
-	       number of reg_moves starting with the second occurance of
+	       number of reg_moves starting with the second occurrence of
 	       u_node, which is generated if its SCHED_STAGE <= to_stage.  */
 	    i_reg_moves = to_stage - SCHED_STAGE (u_node);
 	    i_reg_moves = MAX (i_reg_moves, 0);
@@ -831,7 +832,7 @@ sms_schedule (FILE *dump_file)
   else
     issue_rate = 1;
 
-  /* Initilize the scheduler.  */
+  /* Initialize the scheduler.  */
   current_sched_info = &sms_sched_info;
   sched_init (NULL);
 
@@ -1525,7 +1526,7 @@ calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
   node_order_params_arr = (nopa) xcalloc (num_nodes,
 					  sizeof (struct node_order_params));
 
-  /* Set the aux pointer of each node to point to its order_params strcture.  */
+  /* Set the aux pointer of each node to point to its order_params structure.  */
   for (u = 0; u < num_nodes; u++)
     g->nodes[u].aux.info = &node_order_params_arr[u];
 
@@ -2123,3 +2124,5 @@ rotate_partial_schedule (partial_schedule_ptr ps, int start_cycle)
   ps->max_cycle -= start_cycle;
   ps->min_cycle -= start_cycle;
 }
+
+#endif /* INSN_SCHEDULING*/

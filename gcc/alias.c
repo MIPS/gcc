@@ -28,7 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "tm_p.h"
 #include "function.h"
-#include "expr.h"
+#include "alias.h"
+#include "emit-rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
@@ -182,7 +183,7 @@ static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
    Because this array contains only pseudo registers it has no effect
    after reload.  */
 static GTY((length("alias_invariant_size"))) rtx *alias_invariant;
-unsigned GTY(()) int alias_invariant_size;
+static GTY(()) unsigned int alias_invariant_size;
 
 /* Vector indexed by N giving the initial (unchanging) value known for
    pseudo-register N.  This array is initialized in init_alias_analysis,
@@ -506,6 +507,8 @@ get_alias_set (tree t)
 	      /* If we haven't computed the actual alias set, do it now.  */
 	      if (DECL_POINTER_ALIAS_SET (decl) == -2)
 		{
+		  tree pointed_to_type = TREE_TYPE (TREE_TYPE (decl));
+
 		  /* No two restricted pointers can point at the same thing.
 		     However, a restricted pointer can point at the same thing
 		     as an unrestricted pointer, if that unrestricted pointer
@@ -514,11 +517,22 @@ get_alias_set (tree t)
 		     alias set for the type pointed to by the type of the
 		     decl.  */
 		  HOST_WIDE_INT pointed_to_alias_set
-		    = get_alias_set (TREE_TYPE (TREE_TYPE (decl)));
+		    = get_alias_set (pointed_to_type);
 
 		  if (pointed_to_alias_set == 0)
 		    /* It's not legal to make a subset of alias set zero.  */
 		    DECL_POINTER_ALIAS_SET (decl) = 0;
+		  else if (AGGREGATE_TYPE_P (pointed_to_type))
+		    /* For an aggregate, we must treat the restricted
+		       pointer the same as an ordinary pointer.  If we
+		       were to make the type pointed to by the
+		       restricted pointer a subset of the pointed-to
+		       type, then we would believe that other subsets
+		       of the pointed-to type (such as fields of that
+		       type) do not conflict with the type pointed to
+		       by the restricted pointer.   */
+		    DECL_POINTER_ALIAS_SET (decl)
+		      = pointed_to_alias_set;
 		  else
 		    {
 		      DECL_POINTER_ALIAS_SET (decl) = new_alias_set ();
@@ -736,10 +750,18 @@ static GTY(()) HOST_WIDE_INT varargs_set = -1;
 HOST_WIDE_INT
 get_varargs_alias_set (void)
 {
+#if 1
+  /* We now lower VA_ARG_EXPR, and there's currently no way to attach the
+     varargs alias set to an INDIRECT_REF (FIXME!), so we can't
+     consistently use the varargs alias set for loads from the varargs
+     area.  So don't use it anywhere.  */
+  return 0;
+#else
   if (varargs_set == -1)
     varargs_set = new_alias_set ();
 
   return varargs_set;
+#endif
 }
 
 /* Likewise, but used for the fixed portions of the frame, e.g., register
@@ -933,7 +955,7 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
   rtx src;
   int n;
 
-  if (GET_CODE (dest) != REG)
+  if (!REG_P (dest))
     return;
 
   regno = REGNO (dest);
@@ -1054,7 +1076,7 @@ record_base_value (unsigned int regno, rtx val, int invariant)
   if (regno >= VARRAY_SIZE (reg_base_value))
     VARRAY_GROW (reg_base_value, max_reg_num ());
 
-  if (GET_CODE (val) == REG)
+  if (REG_P (val))
     {
       VARRAY_RTX (reg_base_value, regno)
 	 = REG_BASE_VALUE (val);
@@ -1147,7 +1169,7 @@ rtx
 canon_rtx (rtx x)
 {
   /* Recursively look for equivalences.  */
-  if (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
+  if (REG_P (x) && REGNO (x) >= FIRST_PSEUDO_REGISTER)
     {
       rtx t = get_reg_known_value (REGNO (x));
       if (t == x)
@@ -1586,7 +1608,7 @@ get_addr (rtx x)
 	if (CONSTANT_P (l->loc))
 	  return l->loc;
       for (l = v->locs; l; l = l->next)
-	if (GET_CODE (l->loc) != REG && GET_CODE (l->loc) != MEM)
+	if (!REG_P (l->loc) && GET_CODE (l->loc) != MEM)
 	  return l->loc;
       if (v->locs)
 	return v->locs->loc;
@@ -2006,11 +2028,12 @@ adjust_offset_for_component_ref (tree x, rtx offset)
   ioffset = INTVAL (offset);
   do
     {
+      tree offset = component_ref_field_offset (x);
       tree field = TREE_OPERAND (x, 1);
 
-      if (! host_integerp (DECL_FIELD_OFFSET (field), 1))
+      if (! host_integerp (offset, 1))
 	return NULL_RTX;
-      ioffset += (tree_low_cst (DECL_FIELD_OFFSET (field), 1)
+      ioffset += (tree_low_cst (offset, 1)
 		  + (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
 		     / BITS_PER_UNIT));
 
@@ -2402,7 +2425,7 @@ nonlocal_mentioned_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
   switch (GET_CODE (x))
     {
     case SUBREG:
-      if (GET_CODE (SUBREG_REG (x)) == REG)
+      if (REG_P (SUBREG_REG (x)))
 	{
 	  /* Global registers are not local.  */
 	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
@@ -2543,9 +2566,9 @@ nonlocal_referenced_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 	 mentioned in the destination.  */
       if (GET_CODE (SET_DEST (x)) != CC0
 	  && GET_CODE (SET_DEST (x)) != PC
-	  && GET_CODE (SET_DEST (x)) != REG
+	  && !REG_P (SET_DEST (x))
 	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
-		&& GET_CODE (SUBREG_REG (SET_DEST (x))) == REG
+		&& REG_P (SUBREG_REG (SET_DEST (x)))
 		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
 		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
@@ -2912,7 +2935,7 @@ init_alias_analysis (void)
 	      set = single_set (insn);
 
 	      if (set != 0
-		  && GET_CODE (SET_DEST (set)) == REG
+		  && REG_P (SET_DEST (set))
 		  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER)
 		{
 		  unsigned int regno = REGNO (SET_DEST (set));
@@ -2934,7 +2957,7 @@ init_alias_analysis (void)
 		    }
 		  else if (REG_N_SETS (regno) == 1
 			   && GET_CODE (src) == PLUS
-			   && GET_CODE (XEXP (src, 0)) == REG
+			   && REG_P (XEXP (src, 0))
 			   && (t = get_reg_known_value (REGNO (XEXP (src, 0))))
 			   && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		    {
@@ -2995,7 +3018,7 @@ init_alias_analysis (void)
       for (ui = 0; ui < maxreg; ui++)
 	{
 	  rtx base = VARRAY_RTX (reg_base_value, ui);
-	  if (base && GET_CODE (base) == REG)
+	  if (base && REG_P (base))
 	    {
 	      unsigned int base_regno = REGNO (base);
 	      if (base_regno == ui)		/* register set from itself */

@@ -305,7 +305,7 @@ prepare_call_address (rtx funexp, rtx static_chain_value,
     {
       emit_move_insn (static_chain_rtx, static_chain_value);
 
-      if (GET_CODE (static_chain_rtx) == REG)
+      if (REG_P (static_chain_rtx))
 	use_reg (call_fusage, static_chain_rtx);
     }
 
@@ -811,9 +811,9 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 	   register parameters.  This is to avoid reload conflicts while
 	   loading the parameters registers.  */
 
-	if ((! (GET_CODE (args[i].value) == REG
+	if ((! (REG_P (args[i].value)
 		|| (GET_CODE (args[i].value) == SUBREG
-		    && GET_CODE (SUBREG_REG (args[i].value)) == REG)))
+		    && REG_P (SUBREG_REG (args[i].value)))))
 	    && args[i].mode != BLKmode
 	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
 	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
@@ -1412,7 +1412,7 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 	    /* CSE will replace this only if it contains args[i].value
 	       pseudo, so convert it down to the declared mode using
 	       a SUBREG.  */
-	    if (GET_CODE (args[i].value) == REG
+	    if (REG_P (args[i].value)
 		&& GET_MODE_CLASS (args[i].mode) == MODE_INT)
 	      {
 		args[i].initial_value
@@ -1920,9 +1920,17 @@ shift_returned_value (tree type, rtx *value)
 	       - BITS_PER_UNIT * int_size_in_bytes (type));
       if (shift > 0)
 	{
+	  /* Shift the value into the low part of the register.  */
 	  *value = expand_binop (GET_MODE (*value), lshr_optab, *value,
 				 GEN_INT (shift), 0, 1, OPTAB_WIDEN);
-	  *value = convert_to_mode (TYPE_MODE (type), *value, 0);
+
+	  /* Truncate it to the type's mode, or its integer equivalent.
+	     This is subject to TRULY_NOOP_TRUNCATION.  */
+	  *value = convert_to_mode (int_mode_for_mode (TYPE_MODE (type)),
+				    *value, 0);
+
+	  /* Now convert it to the final form.  */
+	  *value = gen_lowpart (TYPE_MODE (type), *value);
 	  return true;
 	}
     }
@@ -2254,7 +2262,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 is not a REG, we must always copy it into a register.
 	 If it is virtual_outgoing_args_rtx, we must copy it to another
 	 register in some cases.  */
-      rtx temp = (GET_CODE (structure_value_addr) != REG
+      rtx temp = (!REG_P (structure_value_addr)
 		  || (ACCUMULATE_OUTGOING_ARGS
 		      && stack_arg_under_construction
 		      && structure_value_addr == virtual_outgoing_args_rtx)
@@ -2275,6 +2283,26 @@ expand_call (tree exp, rtx target, int ignore)
     num_actuals++;
 
   /* Compute number of named args.
+     First, do a raw count of the args for INIT_CUMULATIVE_ARGS.  */
+
+  if (type_arg_types != 0)
+    n_named_args
+      = (list_length (type_arg_types)
+	 /* Count the struct value address, if it is passed as a parm.  */
+	 + structure_value_addr_parm);
+  else
+    /* If we know nothing, treat all args as named.  */
+    n_named_args = num_actuals;
+
+  /* Start updating where the next arg would go.
+
+     On some machines (such as the PA) indirect calls have a different
+     calling convention than normal calls.  The fourth argument in
+     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
+     or not.  */
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
+
+  /* Now possibly adjust the number of named args.
      Normally, don't include the last named arg if anonymous args follow.
      We do include the last named arg if
      targetm.calls.strict_argument_naming() returns nonzero.
@@ -2292,26 +2320,16 @@ expand_call (tree exp, rtx target, int ignore)
      we do not have any reliable way to pass unnamed args in
      registers, so we must force them into memory.  */
 
-  if ((targetm.calls.strict_argument_naming (&args_so_far)
-       || ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
-      && type_arg_types != 0)
-    n_named_args
-      = (list_length (type_arg_types)
-	 /* Don't include the last named arg.  */
-	 - (targetm.calls.strict_argument_naming (&args_so_far) ? 0 : 1)
-	 /* Count the struct value address, if it is passed as a parm.  */
-	 + structure_value_addr_parm);
+  if (type_arg_types != 0
+      && targetm.calls.strict_argument_naming (&args_so_far))
+    ;
+  else if (type_arg_types != 0
+	   && ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
+    /* Don't include the last named arg.  */
+    --n_named_args;
   else
-    /* If we know nothing, treat all args as named.  */
+    /* Treat all args as named.  */
     n_named_args = num_actuals;
-
-  /* Start updating where the next arg would go.
-
-     On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The fourth argument in
-     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
-     or not.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
 
   /* Make a vector to hold all the information about each arg.  */
   args = alloca (num_actuals * sizeof (struct arg_data));
@@ -2904,7 +2922,7 @@ expand_call (tree exp, rtx target, int ignore)
 				     force_operand (structure_value_addr,
 						    NULL_RTX)));
 
-	  if (GET_CODE (struct_value) == REG)
+	  if (REG_P (struct_value))
 	    use_reg (&call_fusage, struct_value);
 	}
 
@@ -3162,7 +3180,7 @@ expand_call (tree exp, rtx target, int ignore)
 	{
       /* If we promoted this return value, make the proper SUBREG.  TARGET
 	 might be const0_rtx here, so be careful.  */
-      if (GET_CODE (target) == REG
+      if (REG_P (target)
 	  && TYPE_MODE (TREE_TYPE (exp)) != BLKmode
 	  && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
 	{
@@ -3313,7 +3331,7 @@ expand_call (tree exp, rtx target, int ignore)
 	break;
     }
 
-  /* If tail call production suceeded, we need to remove REG_EQUIV notes on
+  /* If tail call production succeeded, we need to remove REG_EQUIV notes on
      arguments too, as argument area is now clobbered by the call.  */
   if (tail_call_insns)
     {
@@ -3643,7 +3661,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       nargs++;
 
       /* Make sure it is a reasonable operand for a move or push insn.  */
-      if (GET_CODE (addr) != REG && GET_CODE (addr) != MEM
+      if (!REG_P (addr) && GET_CODE (addr) != MEM
 	  && ! (CONSTANT_P (addr) && LEGITIMATE_CONSTANT_P (addr)))
 	addr = force_operand (addr, NULL_RTX);
 
@@ -3689,7 +3707,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	 either emit_move_insn or emit_push_insn will do that.  */
 
       /* Make sure it is a reasonable operand for a move or push insn.  */
-      if (GET_CODE (val) != REG && GET_CODE (val) != MEM
+      if (!REG_P (val) && GET_CODE (val) != MEM
 	  && ! (CONSTANT_P (val) && LEGITIMATE_CONSTANT_P (val)))
 	val = force_operand (val, NULL_RTX);
 
@@ -4030,7 +4048,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		      force_reg (Pmode,
 				 force_operand (XEXP (mem_value, 0),
 						NULL_RTX)));
-      if (GET_CODE (struct_value) == REG)
+      if (REG_P (struct_value))
 	use_reg (&call_fusage, struct_value);
     }
 

@@ -531,7 +531,7 @@ verify_norecord_switch_expr (struct leh_state *state, tree switch_expr)
 /* Redirect a RETURN_EXPR pointed to by STMT_P to FINLAB.  Place in CONT_P
    whatever is needed to finish the return.  If MOD is non-null, insert it
    before the new branch.  RETURN_VALUE_P is a cache containing a temporary
-   variable to be used in manipulating the value returned from the function. */
+   variable to be used in manipulating the value returned from the function.  */
 
 static void
 do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
@@ -1200,8 +1200,10 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   replace_goto_queue (tf);
   last_case_index += nlabels;
 
-  /* Make sure that we have a default label, as one is required.  */
+  /* Make sure that the last case is the default label, as one is required.
+     Then sort the labels, which is also required in GIMPLE.  */
   CASE_LOW (last_case) = NULL;
+  sort_case_labels (case_label_vec);
 
   /* Need to link switch_stmt after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
@@ -1244,9 +1246,9 @@ decide_copy_try_finally (int ndests, tree finally)
 
   /* ??? These numbers are completely made up so far.  */
   if (optimize > 1)
-    return f_estimate < 100 || f_estimate * 2 < sw_estimate;
+    return f_estimate < 100 || f_estimate < sw_estimate * 2;
   else
-    return f_estimate < 40 || f_estimate * 3 < sw_estimate * 2;
+    return f_estimate < 40 || f_estimate * 2 < sw_estimate * 3;
 }
 
 /* A subroutine of lower_eh_constructs_1.  Lower a TRY_FINALLY_EXPR nodes
@@ -1680,14 +1682,17 @@ tree_could_trap_p (tree expr)
   switch (code)
     {
     case ARRAY_REF:
+    case ARRAY_RANGE_REF:
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case BIT_FIELD_REF:
       t = get_base_address (expr);
-      return !t || TREE_CODE (t) == INDIRECT_REF;
+      return !t || tree_could_trap_p (t);
 
     case INDIRECT_REF:
+      return (TREE_THIS_NOTRAP (expr) == false);
+
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1714,24 +1719,16 @@ tree_could_throw_p (tree t)
     return false;
   if (TREE_CODE (t) == MODIFY_EXPR)
     {
-      tree sub = TREE_OPERAND (t, 1);
-      if (TREE_CODE (sub) == CALL_EXPR)
-	t = sub;
-      else
-	{
-	  if (flag_non_call_exceptions)
-	    {
-	      if (tree_could_trap_p (sub))
-		return true;
-	      return tree_could_trap_p (TREE_OPERAND (t, 0));
-	    }
-	  return false;
-	}
+      if (flag_non_call_exceptions
+	  && tree_could_trap_p (TREE_OPERAND (t, 0)))
+	return true;
+      t = TREE_OPERAND (t, 1);
     }
 
   if (TREE_CODE (t) == CALL_EXPR)
     return (call_expr_flags (t) & ECF_NOTHROW) == 0;
-
+  if (flag_non_call_exceptions)
+    return tree_could_trap_p (t);
   return false;
 }
 

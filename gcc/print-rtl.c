@@ -60,9 +60,6 @@ int flag_simple = 0;
 /* Nonzero if we are dumping graphical description.  */
 int dump_for_graph;
 
-/* Nonzero to dump all call_placeholder alternatives.  */
-static int debug_call_placeholder_verbose;
-
 void
 print_mem_expr (FILE *outfile, tree expr)
 {
@@ -99,7 +96,6 @@ print_rtx (rtx in_rtx)
   int j;
   const char *format_ptr;
   int is_insn;
-  rtx tem;
 
   if (sawclose)
     {
@@ -216,7 +212,7 @@ print_rtx (rtx in_rtx)
 	   An exception is the third field of a NOTE, where it indicates
 	   that the field has several different valid contents.  */
       case '0':
-	if (i == 1 && GET_CODE (in_rtx) == REG)
+	if (i == 1 && REG_P (in_rtx))
 	  {
 	    if (REGNO (in_rtx) != ORIGINAL_REGNO (in_rtx))
 	      fprintf (outfile, " [%d]", ORIGINAL_REGNO (in_rtx));
@@ -399,10 +395,10 @@ print_rtx (rtx in_rtx)
 	    const char *name;
 
 #ifndef GENERATOR_FILE
-	    if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
+	    if (REG_P (in_rtx) && value < FIRST_PSEUDO_REGISTER)
 	      fprintf (outfile, " %d %s", REGNO (in_rtx),
 		       reg_names[REGNO (in_rtx)]);
-	    else if (GET_CODE (in_rtx) == REG
+	    else if (REG_P (in_rtx)
 		     && value <= LAST_VIRTUAL_REGISTER)
 	      {
 		if (value == VIRTUAL_INCOMING_ARGS_REGNUM)
@@ -427,7 +423,7 @@ print_rtx (rtx in_rtx)
 	    else
 	      fprintf (outfile, " %d", value);
 
-	    if (GET_CODE (in_rtx) == REG && REG_ATTRS (in_rtx))
+	    if (REG_P (in_rtx) && REG_ATTRS (in_rtx))
 	      {
 		fputs (" [", outfile);
 		if (ORIGINAL_REGNO (in_rtx) != REGNO (in_rtx))
@@ -571,49 +567,6 @@ print_rtx (rtx in_rtx)
 	  case LABEL_WEAK_ENTRY: fputs (" [weak entry]", outfile); break;
 	  default: abort();
 	}
-      break;
-
-    case CALL_PLACEHOLDER:
-      if (debug_call_placeholder_verbose)
-	{
-	  fputs (" (cond [\n  (const_string \"normal\") (sequence [", outfile);
-	  for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  tem = XEXP (in_rtx, 1);
-	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_call\") (sequence [",
-		   outfile);
-	  for (; tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  tem = XEXP (in_rtx, 2);
-	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_recursion\") (sequence [",
-		   outfile);
-	  for (; tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  fputs ("\n    ])\n  ])", outfile);
-	  break;
-	}
-
-      for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
-	if (GET_CODE (tem) == CALL_INSN)
-	  {
-	    fprintf (outfile, " ");
-	    print_rtx (tem);
-	    break;
-	  }
       break;
 
     default:

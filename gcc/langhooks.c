@@ -273,8 +273,7 @@ lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
   abort ();
 }
 
-/* This is the default expand_decl function.  */
-/* The default language-specific function for expanding a DECL_STMT.  After
+/* The default language-specific function for expanding a decl.  After
    the language-independent cases are handled, this function will be
    called.  If this function is not defined, it is assumed that
    declarations other than those for variables and labels do not require
@@ -363,16 +362,6 @@ tree
 lhd_tree_inlining_add_pending_fn_decls (void *vafnp ATTRIBUTE_UNUSED, tree pfn)
 {
   return pfn;
-}
-
-/* lang_hooks.tree_inlining.tree_chain_matters_p indicates whether the
-   TREE_CHAIN of a language-specific tree node is relevant, i.e.,
-   whether it should be walked, copied and preserved across copies.  */
-
-int
-lhd_tree_inlining_tree_chain_matters_p (tree t ATTRIBUTE_UNUSED)
-{
-  return 0;
 }
 
 /* lang_hooks.tree_inlining.auto_var_in_fn_p is called to determine

@@ -1,4 +1,4 @@
-/* Control and data flow functions for trees.
+/* Tree inlining.
    Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -250,8 +250,28 @@ remap_type (tree type, inline_data *id)
       return type;
     }
   
-  /* We do need a copy.  build and register it now.  */
-  new = copy_node (type);
+  /* We do need a copy.  build and register it now.  If this is a pointer or
+     reference type, remap the designated type and make a new pointer or
+     reference type.  */
+  if (TREE_CODE (type) == POINTER_TYPE)
+    {
+      new = build_pointer_type_for_mode (remap_type (TREE_TYPE (type), id),
+					 TYPE_MODE (type),
+					 TYPE_REF_CAN_ALIAS_ALL (type));
+      insert_decl_map (id, type, new);
+      return new;
+    }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      new = build_reference_type_for_mode (remap_type (TREE_TYPE (type), id),
+					    TYPE_MODE (type),
+					    TYPE_REF_CAN_ALIAS_ALL (type));
+      insert_decl_map (id, type, new);
+      return new;
+    }
+  else
+    new = copy_node (type);
+
   insert_decl_map (id, type, new);
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
@@ -290,19 +310,6 @@ remap_type (tree type, inline_data *id)
         walk_tree (&TYPE_MAX_VALUE (new), copy_body_r, id, NULL);
       return new;
     
-    case POINTER_TYPE:
-      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      TYPE_NEXT_PTR_TO (new) = TYPE_POINTER_TO (t);
-      TYPE_POINTER_TO (t) = new;
-      return new;
-
-    case REFERENCE_TYPE:
-      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
-      TYPE_NEXT_REF_TO (new) = TYPE_REFERENCE_TO (t);
-      TYPE_REFERENCE_TO (t) = new;
-      return new;
-
-    case METHOD_TYPE:
     case FUNCTION_TYPE:
       TREE_TYPE (new) = remap_type (TREE_TYPE (new), id);
       walk_tree (&TYPE_ARG_TYPES (new), copy_body_r, id, NULL);
@@ -446,8 +453,8 @@ copy_bind_expr (tree *tp, int *walk_subtrees, inline_data *id)
     BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), id);
 }
 
-/* Called from copy_body via walk_tree.  DATA is really an
-   `inline_data *'.  */
+/* Called from copy_body via walk_tree.  DATA is really an `inline_data *'.  */
+
 static tree
 copy_body_r (tree *tp, int *walk_subtrees, void *data)
 {
@@ -467,8 +474,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       abort ();
 #endif
 
-  /* If this is a RETURN_STMT, change it into an EXPR_STMT and a
-     GOTO_STMT with the RET_LABEL as its target.  */
+  /* If this is a RETURN_EXPR, change it into a MODIFY_EXPR and a
+     GOTO_EXPR with the RET_LABEL as its target.  */
   if (TREE_CODE (*tp) == RETURN_EXPR && id->ret_label)
     {
       tree return_stmt = *tp;
@@ -489,8 +496,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    if (TREE_CODE (assignment) == RESULT_DECL)
 	      gimplify_stmt (&assignment);
 
-	  *tp = build (BIND_EXPR, void_type_node, NULL_TREE, NULL_TREE,
-		       make_node (BLOCK));
+	  *tp = build (BIND_EXPR, void_type_node, NULL, NULL, NULL);
 	  append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
 	  append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
         }
@@ -649,9 +655,9 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    }
 	  else
 	    {
-              struct cgraph_edge *edge;
+              struct cgraph_edge *edge
+		= cgraph_edge (id->current_node, old_node);
 
-	      edge = cgraph_edge (id->current_node, old_node);
 	      if (edge)
 	        cgraph_clone_edge (edge, id->node, *tp);
 	    }
@@ -692,9 +698,8 @@ copy_body (inline_data *id)
 }
 
 static void
-setup_one_parameter (inline_data *id, tree p, tree value,
-		     tree fn, tree *init_stmts, tree *vars,
-		     bool *gimplify_init_stmts_p)
+setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
+		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
 {
   tree init_stmt;
   tree var;
@@ -735,8 +740,9 @@ setup_one_parameter (inline_data *id, tree p, tree value,
 	}
     }
 
-  /* Make an equivalent VAR_DECL.  */
+  /* Make an equivalent VAR_DECL with the remapped type.  */
   var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
+  TREE_TYPE (var) = remap_type (TREE_TYPE (var), id);
 
   /* See if the frontend wants to pass this by invisible reference.  If
      so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
@@ -779,7 +785,7 @@ setup_one_parameter (inline_data *id, tree p, tree value,
      the argument to the proper type in case it was promoted.  */
   if (value)
     {
-      tree rhs = convert (TREE_TYPE (var), value);
+      tree rhs = fold_convert (TREE_TYPE (var), value);
 
       if (rhs == error_mark_node)
 	return;
@@ -865,9 +871,9 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
 }
 
 /* Declare a return variable to replace the RESULT_DECL for the
-   function we are calling.  An appropriate DECL_STMT is returned.
-   The USE_STMT is filled in to contain a use of the declaration to
-   indicate the return value of the function.  */
+   function we are calling.  An appropriate decl is returned.
+ 
+   ??? Needs documentation of parameters. */
 
 static tree
 declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
@@ -965,7 +971,6 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (! t)
 	break;
 
-
       /* We cannot inline functions that call setjmp.  */
       if (setjmp_call_p (t))
 	{
@@ -1051,6 +1056,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  inline_forbidden_reason
 	    = N_("%Jfunction '%F' can never be inlined "
 		 "because it receives a non-local goto");
+	  return node;
 	}
       break;
 
@@ -1087,8 +1093,9 @@ static tree
 inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
-  tree ret = walk_tree_without_duplicates
-		(&DECL_SAVED_TREE (fndecl), inline_forbidden_p_1, fndecl);
+  tree ret = walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
+					   inline_forbidden_p_1, fndecl);
+
   input_location = saved_loc;
   return ret;
 }
@@ -1137,12 +1144,6 @@ inlinable_function_p (tree fn)
   else if (!DECL_INLINE (fn) && !flag_unit_at_a_time)
     inlinable = false;
 
-#ifdef INLINER_FOR_JAVA
-  /* Synchronized methods can't be inlined.  This is a bug.  */
-  else if (METHOD_SYNCHRONIZED (fn))
-    inlinable = false;
-#endif /* INLINER_FOR_JAVA */
-
   else if (inline_forbidden_p (fn))
     {
       /* See if we should warn about uninlinable functions.  Previously,
@@ -1158,8 +1159,7 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (lookup_attribute ("always_inline",
-			    DECL_ATTRIBUTES (fn)))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	sorry (inline_forbidden_reason, fn, fn);
       else if (do_warning)
 	warning (inline_forbidden_reason, fn, fn);
@@ -1175,6 +1175,7 @@ inlinable_function_p (tree fn)
 
 /* Used by estimate_num_insns.  Estimate number of instructions seen
    by given statement.  */
+
 static tree
 estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 {
@@ -1189,9 +1190,10 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
   /* Assume that constants and references counts nothing.  These should
      be majorized by amount of operations among them we count later
      and are common target of CSE and similar optimizations.  */
-  if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
+  else if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
+	   || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
     return NULL;
+
   switch (TREE_CODE (x))
     { 
     /* Containers have no cost.  */
@@ -1204,7 +1206,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case BUFFER_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
-    case VTABLE_REF:
+    case OBJ_TYPE_REF:
     case EXC_PTR_EXPR: /* ??? */
     case FILTER_EXPR: /* ??? */
     case COMPOUND_EXPR:
@@ -1238,12 +1240,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case RETURN_EXPR:
     case EXIT_EXPR:
     case LOOP_EXPR:
-    case EUSE_NODE:
-    case EKILL_NODE:
-    case EPHI_NODE:
-    case EEXIT_NODE:
     case PHI_NODE:
       break;
+
     /* We don't account constants for now.  Assume that the cost is amortized
        by operations that do use them.  We may re-consider this decision once
        we are able to optimize the tree before estimating it's size and break
@@ -1256,11 +1255,14 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case STRING_CST:
       *walk_subtrees = 0;
       return NULL;
+
     /* Recognize assignments of large structures and constructors of
        big arrays.  */
     case INIT_EXPR:
-    case TARGET_EXPR:
     case MODIFY_EXPR:
+      x = TREE_OPERAND (x, 0);
+      /* FALLTHRU */
+    case TARGET_EXPR:
     case CONSTRUCTOR:
       {
 	HOST_WIDE_INT size;
@@ -1343,7 +1345,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *count++;
       break;
 
-    /* Few special cases of expensive operations.  This is usefull
+    /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
@@ -1383,6 +1385,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 }
 
 /* Estimate number of instructions that will be created by expanding EXPR.  */
+
 int
 estimate_num_insns (tree expr)
 {
@@ -1655,13 +1658,13 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       BIND_EXPR_BODY (expr)
 	= rationalize_compound_expr (BIND_EXPR_BODY (expr));
 
-      /* We want to create a new variable to hold the result of the
-	 inlined body.  This new variable needs to be added to the
-	 function which we are inlining into, thus the saving and
-	 restoring of current_function_decl.  */
+      /* We want to create a new variable to hold the result of the inlined
+	 body.  This new variable needs to be added to the function which we
+	 are inlining into, thus the saving and restoring of
+	 current_function_decl.  */
       save_decl = current_function_decl;
       current_function_decl = id->node->decl;
-      inline_result = voidify_wrapper_expr (expr);
+      inline_result = voidify_wrapper_expr (expr, NULL);
       current_function_decl = save_decl;
 
       /* If the inlined function returns a result that we care about,
@@ -1676,18 +1679,18 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       else
 	*tp = expr;
 
-      /* When we gimplify a function call, we may clear TREE_SIDE_EFFECTS
-	 on the call if it is to a "const" function.  Thus the copy of
-	 TREE_SIDE_EFFECTS from the CALL_EXPR to the BIND_EXPR above
-	 with result in TREE_SIDE_EFFECTS not being set for the inlined
-	 copy of a "const" function.
+      /* When we gimplify a function call, we may clear TREE_SIDE_EFFECTS on
+	 the call if it is to a "const" function.  Thus the copy of
+	 TREE_SIDE_EFFECTS from the CALL_EXPR to the BIND_EXPR above with
+	 result in TREE_SIDE_EFFECTS not being set for the inlined copy of a
+	 "const" function.
 
-	 Unfortunately, that is wrong as inlining the function
-	 can create/expose interesting side effects (such as setting
-	 of a return value).
+	 Unfortunately, that is wrong as inlining the function can
+	 create/expose interesting side effects (such as setting of a return
+	 value).
 
-	 The easiest solution is to simply recalculate TREE_SIDE_EFFECTS
-	 for the toplevel expression.  */
+	 The easiest solution is to simply recalculate TREE_SIDE_EFFECTS for
+	 the toplevel expression.  */
       recalculate_side_effects (expr);
     }
   else
@@ -1751,17 +1754,21 @@ gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
       gimple_expand_calls_inline (&COND_EXPR_THEN (stmt), id);
       gimple_expand_calls_inline (&COND_EXPR_ELSE (stmt), id);
       break;
+
     case CATCH_EXPR:
       gimple_expand_calls_inline (&CATCH_BODY (stmt), id);
       break;
+
     case EH_FILTER_EXPR:
       gimple_expand_calls_inline (&EH_FILTER_FAILURE (stmt), id);
       break;
+
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:
       gimple_expand_calls_inline (&TREE_OPERAND (stmt, 0), id);
       gimple_expand_calls_inline (&TREE_OPERAND (stmt, 1), id);
       break;
+
     case BIND_EXPR:
       gimple_expand_calls_inline (&BIND_EXPR_BODY (stmt), id);
       break;
@@ -1775,13 +1782,17 @@ gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
       stmt = *stmt_p;
       if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
 	break;
+
       /* FALLTHRU */
+
     case MODIFY_EXPR:
       stmt_p = &TREE_OPERAND (stmt, 1);
       stmt = *stmt_p;
       if (TREE_CODE (stmt) != CALL_EXPR)
 	break;
+
       /* FALLTHRU */
+
     case CALL_EXPR:
       expand_call_inline (stmt_p, &dummy, id);
       break;
@@ -1844,8 +1855,7 @@ optimize_inline_calls (tree fn)
       prev_fn = current_function_decl;
     }
 
-  prev_fn = (lang_hooks.tree_inlining.add_pending_fn_decls
-	     (&id.fns, prev_fn));
+  prev_fn = lang_hooks.tree_inlining.add_pending_fn_decls (&id.fns, prev_fn);
 
   /* Create the list of functions this call will inline.  */
   VARRAY_TREE_INIT (id.inlined_fns, 32, "inlined_fns");
@@ -1856,8 +1866,7 @@ optimize_inline_calls (tree fn)
 
   /* Replace all calls to inline functions with the bodies of those
      functions.  */
-  id.tree_pruner = htab_create (37, htab_hash_pointer,
-				htab_eq_pointer, NULL);
+  id.tree_pruner = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   expand_calls_inline (&DECL_SAVED_TREE (fn), &id);
 
   /* Clean up.  */
@@ -1886,19 +1895,18 @@ optimize_inline_calls (tree fn)
 #endif
 }
 
-/* FN is a function that has a complete body, and CLONE is a function
-   whose body is to be set to a copy of FN, mapping argument
-   declarations according to the ARG_MAP splay_tree.  */
+/* FN is a function that has a complete body, and CLONE is a function whose
+   body is to be set to a copy of FN, mapping argument declarations according
+   to the ARG_MAP splay_tree.  */
 
 void
 clone_body (tree clone, tree fn, void *arg_map)
 {
   inline_data id;
 
-  /* Clone the body, as if we were making an inline call.  But, remap
-     the parameters in the callee to the parameters of caller.  If
-     there's an in-charge parameter, map it to an appropriate
-     constant.  */
+  /* Clone the body, as if we were making an inline call.  But, remap the
+     parameters in the callee to the parameters of caller.  If there's an
+     in-charge parameter, map it to an appropriate constant.  */
   memset (&id, 0, sizeof (id));
   VARRAY_TREE_INIT (id.fns, 2, "fns");
   VARRAY_PUSH_TREE (id.fns, clone);
@@ -1910,7 +1918,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.cloning_p = true;
 
   /* Actually copy the body.  */
-  TREE_CHAIN (DECL_SAVED_TREE (clone)) = copy_body (&id);
+  append_to_statement_list_force (copy_body (&id), &DECL_SAVED_TREE (clone));
 }
 
 /* Save duplicate of body in FN.  MAP is used to pass around splay tree
@@ -1928,15 +1936,18 @@ save_body (tree fn, tree *arg_copy)
   id.saving_p = true;
   id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   *arg_copy = DECL_ARGUMENTS (fn);
+
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
     {
       tree new = copy_node (*parg);
+
       lang_hooks.dup_lang_specific_decl (new);
       DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
       insert_decl_map (&id, *parg, new);
       TREE_CHAIN (new) = TREE_CHAIN (*parg);
       *parg = new;
     }
+
   insert_decl_map (&id, DECL_RESULT (fn), DECL_RESULT (fn));
 
   /* Actually copy the body.  */
@@ -1947,12 +1958,11 @@ save_body (tree fn, tree *arg_copy)
   return body;
 }
 
-/* Apply FUNC to all the sub-trees of TP in a pre-order traversal.
-   FUNC is called with the DATA and the address of each sub-tree.  If
-   FUNC returns a non-NULL value, the traversal is aborted, and the
-   value returned by FUNC is returned.  If HTAB is non-NULL it is used
-   to record the nodes visited, and to avoid visiting a node more than
-   once.  */
+/* Apply FUNC to all the sub-trees of TP in a pre-order traversal.  FUNC is
+   called with the DATA and the address of each sub-tree.  If FUNC returns a
+   non-NULL value, the traversal is aborted, and the value returned by FUNC
+   is returned.  If HTAB is non-NULL it is used to record the nodes visited,
+   and to avoid visiting a node more than once.  */
 
 tree
 walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
@@ -2010,8 +2020,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
      interesting below this point in the tree.  */
   if (!walk_subtrees)
     {
-      if (code == TREE_LIST
-	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      if (code == TREE_LIST)
 	/* But we still need to check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
       else
@@ -2023,10 +2032,63 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
   if (result || ! walk_subtrees)
     return result;
 
-  if (code != EXIT_BLOCK_EXPR
-      && code != SAVE_EXPR
-      && code != BIND_EXPR
-      && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+  /* If this is a DECL_EXPR, walk into various fields of the type or variable
+     that it's defining.  We only want to walk into these fields of a decl
+     or type in this case.
+
+     ??? Precisely which fields of types that we are supposed to walk in
+     this case vs. the normal case aren't well defined.  */
+  if (code == DECL_EXPR
+      && TREE_CODE (DECL_EXPR_DECL (*tp)) != ERROR_MARK
+      && TREE_CODE (TREE_TYPE (DECL_EXPR_DECL (*tp))) != ERROR_MARK)
+    {
+      tree decl = DECL_EXPR_DECL (*tp);
+      tree type = TREE_TYPE (decl);
+
+      /* Walk into fields of the DECL if it's not a type, then into fields
+	 of the type in both cases.  */
+
+      if (TREE_CODE (decl) != TYPE_DECL
+	  && TREE_CODE (decl) != FIELD_DECL && TREE_CODE (decl) != PARM_DECL)
+	{
+	  WALK_SUBTREE (DECL_INITIAL (decl));
+	  WALK_SUBTREE (DECL_SIZE (decl));
+	  WALK_SUBTREE (DECL_SIZE_UNIT (decl));
+	}
+
+      /* First do the common fields via recursion, then the fields we only
+	 do when we are declaring the type or object.  */
+      WALK_SUBTREE (type);
+      WALK_SUBTREE (TYPE_SIZE (type));
+      WALK_SUBTREE (TYPE_SIZE_UNIT (type));
+
+      /* If this is a record type, also walk the fields.  */
+      if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
+	  || TREE_CODE (type) == QUAL_UNION_TYPE)
+	{
+	  tree field;
+
+	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	    {
+	      /* We'd like to look at the type of the field, but we can easily
+		 get infinite recursion.  So assume it's pointed to elsewhere
+		 in the tree.  Also, ignore things that aren't fields.  */
+	      if (TREE_CODE (field) != FIELD_DECL)
+		continue;
+
+	      WALK_SUBTREE (DECL_FIELD_OFFSET (field));
+	      WALK_SUBTREE (DECL_SIZE (field));
+	      WALK_SUBTREE (DECL_SIZE_UNIT (field));
+	      if (TREE_CODE (type) == QUAL_UNION_TYPE)
+		WALK_SUBTREE (DECL_QUALIFIER (field));
+	    }
+	}
+    }
+
+  else if (code != EXIT_BLOCK_EXPR
+	   && code != SAVE_EXPR
+	   && code != BIND_EXPR
+	   && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       int i, len;
 
@@ -2037,6 +2099,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
       if (code == TARGET_EXPR
 	  && TREE_OPERAND (*tp, 3) == TREE_OPERAND (*tp, 1))
 	--len;
+
       /* Go through the subtrees.  We need to do this in forward order so
          that the scope of a FOR_EXPR is handled properly.  */
 #ifdef DEBUG_WALK_TREE
@@ -2056,24 +2119,10 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
 	}
 #endif
+    }
 
-      if (lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
-	/* Check our siblings.  */
-	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-    }
-  else if (TREE_CODE_CLASS (code) == 'd')
-    {
-      WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
-    }
   else
     {
-      if (TREE_CODE_CLASS (code) == 't')
-	{
-	  WALK_SUBTREE (TYPE_SIZE (*tp));
-	  WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
-	  /* Also examine various special fields, below.  */
-	}
-
       /* Not one of the easy cases.  We must explicitly go through the
 	 children.  */
       switch (code)
@@ -2084,24 +2133,15 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	case REAL_CST:
 	case VECTOR_CST:
 	case STRING_CST:
-	case REAL_TYPE:
-	case COMPLEX_TYPE:
 	case VECTOR_TYPE:
 	case VOID_TYPE:
-	case BOOLEAN_TYPE:
-	case UNION_TYPE:
-	case ENUMERAL_TYPE:
 	case BLOCK:
-	case RECORD_TYPE:
 	case PLACEHOLDER_EXPR:
 	case SSA_NAME:
+	case FIELD_DECL:
+	case RESULT_DECL:
 	  /* None of thse have subtrees other than those already walked
 	     above.  */
-	  break;
-
-	case POINTER_TYPE:
-	case REFERENCE_TYPE:
-	  WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
 	  break;
 
 	case TREE_LIST:
@@ -2131,34 +2171,6 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	case CONSTRUCTOR:
 	  WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
 
-	case METHOD_TYPE:
-	  WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
-	  /* Fall through.  */
-
-	case FUNCTION_TYPE:
-	  WALK_SUBTREE (TREE_TYPE (*tp));
-	  {
-	    tree arg = TYPE_ARG_TYPES (*tp);
-
-	    /* We never want to walk into default arguments.  */
-	    for (; arg; arg = TREE_CHAIN (arg))
-	      WALK_SUBTREE (TREE_VALUE (arg));
-	  }
-	  break;
-
-	case ARRAY_TYPE:
-	  WALK_SUBTREE (TREE_TYPE (*tp));
-	  WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
-
-	case INTEGER_TYPE:
-	case CHAR_TYPE:
-	  WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
-	  WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
-
-	case OFFSET_TYPE:
-	  WALK_SUBTREE (TREE_TYPE (*tp));
-	  WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
-
 	case EXIT_BLOCK_EXPR:
 	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 1));
 
@@ -2173,8 +2185,8 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 		/* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
 		   into declarations that are just mentioned, rather than
 		   declared; they don't really belong to this part of the tree.
-		   And, we can see cycles: the initializer for a declaration can
-		   refer to the declaration itself.  */
+		   And, we can see cycles: the initializer for a declaration
+		   can refer to the declaration itself.  */
 		WALK_SUBTREE (DECL_INITIAL (decl));
 		WALK_SUBTREE (DECL_SIZE (decl));
 		WALK_SUBTREE (DECL_SIZE_UNIT (decl));
@@ -2191,8 +2203,52 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 	  }
 	  break;
 
+	case POINTER_TYPE:
+	case REFERENCE_TYPE:
+	case COMPLEX_TYPE:
+	  WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
+	  break;
+
+	case METHOD_TYPE:
+	  WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
+
+	  /* Fall through.  */
+
+	case FUNCTION_TYPE:
+	  WALK_SUBTREE (TREE_TYPE (*tp));
+	  {
+	    tree arg;
+
+	    /* We never want to walk into default arguments.  */
+	    for (arg = TYPE_ARG_TYPES (*tp); arg; arg = TREE_CHAIN (arg))
+	      WALK_SUBTREE (TREE_VALUE (arg));
+	  }
+	  break;
+
+	case ARRAY_TYPE:
+	  /* Don't follow this nodes's type if a pointer for fear that we'll
+	     have infinite recursion.  Those types are uninteresting anyway. */
+	  if (!POINTER_TYPE_P (TREE_TYPE (*tp))
+	      && TREE_CODE (TREE_TYPE (*tp)) != OFFSET_TYPE)
+	    WALK_SUBTREE (TREE_TYPE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
+
+	case BOOLEAN_TYPE:
+	case ENUMERAL_TYPE:
+	case INTEGER_TYPE:
+	case CHAR_TYPE:
+	case REAL_TYPE:
+	  WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
+
+	case OFFSET_TYPE:
+	  WALK_SUBTREE (TREE_TYPE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
+
 	default:
-	  abort ();
+	  /* ??? This could be a language-defined node.  We really should make
+	     a hook for it, but right now just ignore it.  */
+	  break;
 	}
     }
 
@@ -2203,8 +2259,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
 #undef WALK_SUBTREE_TAIL
 }
 
-/* Like walk_tree, but does not walk duplicate nodes more than
-   once.  */
+/* Like walk_tree, but does not walk duplicate nodes more than once.  */
 
 tree
 walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
@@ -2230,8 +2285,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       || TREE_CODE_CLASS (code) == 'c'
       || code == TREE_LIST
       || code == TREE_VEC
-      || code == TYPE_DECL
-      || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      || code == TYPE_DECL)
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
@@ -2249,8 +2303,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
-      if (code == PARM_DECL || code == TREE_LIST
-	  || lang_hooks.tree_inlining.tree_chain_matters_p (*tp))
+      if (code == PARM_DECL || code == TREE_LIST)
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we
@@ -2258,20 +2311,21 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       if (TREE_CODE (*tp) == BIND_EXPR)
 	BIND_EXPR_BLOCK (*tp) = NULL_TREE;
     }
+ 
   else if (TREE_CODE_CLASS (code) == 't')
     *walk_subtrees = 0;
   else if (TREE_CODE_CLASS (code) == 'd')
     *walk_subtrees = 0;
-  else if (code == STATEMENT_LIST)
+ else if (code == STATEMENT_LIST)
     abort ();
 
   return NULL_TREE;
 }
 
 /* The SAVE_EXPR pointed to by TP is being copied.  If ST contains
-   information indicating to what new SAVE_EXPR this one should be
-   mapped, use that one.  Otherwise, create a new node and enter it in
-   ST.  FN is the function into which the copy will be placed.  */
+   information indicating to what new SAVE_EXPR this one should be mapped,
+   use that one.  Otherwise, create a new node and enter it in ST.  FN is the
+   function into which the copy will be placed.  */
 
 void
 remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
@@ -2309,42 +2363,28 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
   *tp = t;
 }
 
-/* Called via walk_tree.  If *TP points to a DECL_STMT for a local
-   declaration, copies the declaration and enters it in the splay_tree
-   in DATA (which is really an `inline_data *').  */
+/* Called via walk_tree.  If *TP points to a DECL_STMT for a local label,
+   copies the declaration and enters it in the splay_tree in DATA (which is
+   really an `inline_data *').  */
 
 static tree
 mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 			void *data)
 {
-  tree t = *tp;
   inline_data *id = (inline_data *) data;
-  tree decl;
 
   /* Don't walk into types.  */
-  if (TYPE_P (t))
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+
+  else if (TREE_CODE (*tp) == LABEL_EXPR)
     {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
+      tree decl = TREE_OPERAND (*tp, 0);
 
-  if (TREE_CODE (t) == LABEL_EXPR)
-    decl = TREE_OPERAND (t, 0);
-  else
-    /* We don't need to handle anything else ahead of time.  */
-    decl = NULL_TREE;
-
-  if (decl)
-    {
-      tree copy;
-
-      /* Make a copy.  */
-      copy = copy_decl_for_inlining (decl, 
-				     DECL_CONTEXT (decl), 
-				     DECL_CONTEXT (decl));
-
-      /* Remember the copy.  */
-      insert_decl_map (id, decl, copy);
+      /* Copy the decl and remember the copy.  */
+      insert_decl_map (id, decl,
+		       copy_decl_for_inlining (decl, DECL_CONTEXT (decl), 
+					       DECL_CONTEXT (decl)));
     }
 
   return NULL_TREE;
@@ -2372,6 +2412,7 @@ unsave_r (tree *tp, int *walk_subtrees, void *data)
       if (n)
 	*tp = (tree) n->value;
     }
+
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
     copy_statement_list (tp);
   else if (TREE_CODE (*tp) == BIND_EXPR)
@@ -2421,6 +2462,7 @@ lhd_unsave_expr_now (tree expr)
 }
 
 /* Allow someone to determine if SEARCH is a child of TOP from gdb.  */
+
 static tree
 debug_find_tree_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 {
@@ -2430,14 +2472,11 @@ debug_find_tree_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
     return NULL;
 }
 
-extern bool debug_find_tree (tree top, tree search);
-
 bool
 debug_find_tree (tree top, tree search)
 {
   return walk_tree_without_duplicates (&top, debug_find_tree_1, search) != 0;
 }
-
 
 /* Declare the variables created by the inliner.  Add all the variables in
    VARS to BIND_EXPR.  */
@@ -2448,6 +2487,7 @@ declare_inline_vars (tree bind_expr, tree vars)
   if (lang_hooks.gimple_before_inlining)
     {
       tree t;
+
       for (t = vars; t; t = TREE_CHAIN (t))
 	vars->decl.seen_in_bind_expr = 1;
     }

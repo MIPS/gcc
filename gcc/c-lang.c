@@ -42,8 +42,6 @@ enum c_language_kind c_language = clk_c;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
-#undef LANG_HOOKS_IDENTIFIER_SIZE
-#define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
@@ -93,7 +91,7 @@ const char *const tree_code_name[] = {
 int
 c_types_compatible_p (tree x, tree y)
 {
-    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
 }
 
 void

@@ -1065,7 +1065,7 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
 	      && (CONSTANT_P (op)
 		  || (GET_CODE (op) == SUBREG
-		      && GET_CODE (SUBREG_REG (op)) == REG
+		      && REG_P (SUBREG_REG (op))
 		      && REG_POINTER (SUBREG_REG (op))
 		      && GET_MODE (SUBREG_REG (op)) == Pmode)))
 	    return convert_memory_address (Pmode, op);
@@ -1087,7 +1087,7 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
 	      && (CONSTANT_P (op)
 		  || (GET_CODE (op) == SUBREG
-		      && GET_CODE (SUBREG_REG (op)) == REG
+		      && REG_P (SUBREG_REG (op))
 		      && REG_POINTER (SUBREG_REG (op))
 		      && GET_MODE (SUBREG_REG (op)) == Pmode)))
 	    return convert_memory_address (Pmode, op);
@@ -1275,6 +1275,41 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (code == DIV
 	      && REAL_VALUES_EQUAL (f1, dconst0)
 	      && (flag_trapping_math || ! MODE_HAS_INFINITIES (mode)))
+	    return 0;
+
+	  if (MODE_HAS_INFINITIES (mode) && HONOR_NANS (mode)
+	      && flag_trapping_math
+	      && REAL_VALUE_ISINF (f0) && REAL_VALUE_ISINF (f1))
+	    {
+	      int s0 = REAL_VALUE_NEGATIVE (f0);
+	      int s1 = REAL_VALUE_NEGATIVE (f1);
+
+	      switch (code)
+		{
+		case PLUS:
+		  /* Inf + -Inf = NaN plus exception.  */
+		  if (s0 != s1)
+		    return 0;
+		  break;
+		case MINUS:
+		  /* Inf - Inf = NaN plus exception.  */
+		  if (s0 == s1)
+		    return 0;
+		  break;
+		case DIV:
+		  /* Inf / Inf = NaN plus exception.  */
+		  return 0;
+		default:
+		  break;
+		}
+	    }
+
+	  if (code == MULT && MODE_HAS_INFINITIES (mode) && HONOR_NANS (mode)
+	      && flag_trapping_math
+	      && ((REAL_VALUE_ISINF (f0) && REAL_VALUES_EQUAL (f1, dconst0))
+		  || (REAL_VALUE_ISINF (f1)
+		      && REAL_VALUES_EQUAL (f0, dconst0))))
+	    /* Inf * 0 = NaN plus exception.  */
 	    return 0;
 
 	  REAL_ARITHMETIC (value, rtx_to_tree_code (code), f0, f1);
@@ -1584,7 +1619,7 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 #ifdef HAVE_cc0
 	      if (GET_CODE (xop00) == CC0 && GET_CODE (xop10) == CC0)
 #else
-	      if (GET_CODE (xop00) == REG && GET_CODE (xop10) == REG
+	      if (REG_P (xop00) && REG_P (xop10)
 		  && GET_MODE (xop00) == GET_MODE (xop10)
 		  && REGNO (xop00) == REGNO (xop10)
 		  && GET_MODE_CLASS (GET_MODE (xop00)) == MODE_CC
@@ -2772,8 +2807,8 @@ simplify_const_relational_operation (enum rtx_code code,
      signed comparisons for languages such as Java, so test flag_wrapv.  */
 
   if (!flag_wrapv && INTEGRAL_MODE_P (mode) && trueop1 != const0_rtx
-      && ! ((GET_CODE (op0) == REG || GET_CODE (trueop0) == CONST_INT)
-	    && (GET_CODE (op1) == REG || GET_CODE (trueop1) == CONST_INT))
+      && ! ((REG_P (op0) || GET_CODE (trueop0) == CONST_INT)
+	    && (REG_P (op1) || GET_CODE (trueop1) == CONST_INT))
       && 0 != (tem = simplify_binary_operation (MINUS, mode, op0, op1))
       /* We cannot do this for == or != if tem is a nonzero address.  */
       && ((code != EQ && code != NE) || ! nonzero_address_p (tem))

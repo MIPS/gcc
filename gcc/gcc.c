@@ -612,7 +612,7 @@ proper position among the other output files.  */
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "
+#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}" 
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -783,7 +783,8 @@ static const char *cpp_unique_options =
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
 "%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
- %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}";
+ %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}\
+ %{save-temps:-fpch-preprocess}";
 
 /* This contains cpp options which are not passed when the preprocessor
    output will be used by another program.  */
@@ -887,9 +888,9 @@ struct compiler
   const char *cpp_spec;         /* If non-NULL, substitute this spec
 				   for `%C', rather than the usual
 				   cpp_spec.  */
-  const int combinable;          /* If non-zero, compiler can deal with
+  const int combinable;          /* If nonzero, compiler can deal with
 				    multiple source files at once (IMA).  */
-  const int needs_preprocessing; /* If non-zero, source files need to
+  const int needs_preprocessing; /* If nonzero, source files need to
 				    be run through a preprocessor.  */
 };
 
@@ -6425,7 +6426,7 @@ main (int argc, const char **argv)
       else
 	{
 	  /* Since there is no compiler for this input file, assume it is a
-	     linker file. */
+	     linker file.  */
 	  explicit_link_files[i] = 1;
 	  infiles[i].incompiler = NULL;
 	}

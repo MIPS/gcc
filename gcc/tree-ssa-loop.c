@@ -104,11 +104,12 @@ mark_defs_for_rewrite (basic_block bb)
   block_stmt_iterator bsi;
   stmt_ann_t ann;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   vuse_optype vuses;
+  v_must_def_optype v_must_defs;
   unsigned i;
 
-  for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
+  for (stmt = phi_nodes (bb); stmt; stmt = PHI_CHAIN (stmt))
     {
       var = SSA_NAME_VAR (PHI_RESULT (stmt));
       bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
@@ -141,16 +142,23 @@ mark_defs_for_rewrite (basic_block bb)
 	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
-      vdefs = VDEF_OPS (ann);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  var = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
+	  var = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+	
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	{
+	  var = SSA_NAME_VAR (V_MUST_DEF_OP (v_must_defs, i));
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
       /* We also need to rewrite vuses, since we will copy the statements
 	 and the ssa versions could not be recovered in the copy.  We do
-	 not have to do this for operands of VDEFS explicitly, since
+	 not have to do this for operands of V_MAY_DEFS explicitly, since
 	 they have the same underlying variable as the results.  */
       vuses = VUSE_OPS (ann);
       for (i = 0; i < NUM_VUSES (vuses); i++)
@@ -215,9 +223,9 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	  for (e1 = new_header->succ; e1->dest != e->dest; e1 = e1->succ_next)
 	    continue;
 
-	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	    {
-	      tree def = phi_element_for_edge (phi, e)->def;
+	      tree def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      add_phi_arg (&phi, def, e1);
 	    }
 	}
@@ -268,7 +276,7 @@ copy_loop_headers (void)
 
   create_preheaders (loops, CP_SIMPLE_PREHEADERS);
 
-  /* We do not try to keep the information about irreductible regions
+  /* We do not try to keep the information about irreducible regions
      up-to-date.  */
   loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
 

@@ -58,15 +58,15 @@ ssa_remove_edge (edge e)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
       remove_phi_arg (phi, e->src);
     }
 
   remove_edge (e);
 }
 
-/* Remove remove the corresponding arguments from the PHI nodes
-   in E's destination block and redirect it to DEST.  Return redirected edge.
+/* Remove the corresponding arguments from the PHI nodes in E's
+   destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
@@ -80,7 +80,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
 
       i = phi_arg_from_edge (phi, e);
       if (i < 0)
@@ -292,8 +292,7 @@ verify_ssa (void)
 {
   bool err = false;
   basic_block bb;
-  basic_block *definition_block = xcalloc (highest_ssa_version,
-		  			   sizeof (basic_block));
+  basic_block *definition_block = xcalloc (num_ssa_names, sizeof (basic_block));
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
@@ -306,7 +305,7 @@ verify_ssa (void)
       tree phi;
       block_stmt_iterator bsi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	err |= verify_def (bb, definition_block, PHI_RESULT (phi), phi);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -314,20 +313,38 @@ verify_ssa (void)
 	  tree stmt;
 	  stmt_ann_t ann;
 	  unsigned int j;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  def_optype defs;
 
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
 	  get_stmt_operands (stmt);
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  if (ann->makes_aliased_stores && NUM_V_MAY_DEFS (v_may_defs) == 0)
+	    error ("Makes aliased stores, but no V_MAY_DEFS");
+	    
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
 	      if (is_gimple_reg (op))
 		{
 		  error ("Found a virtual definition for a GIMPLE register");
+		  debug_generic_stmt (op);
+		  debug_generic_stmt (stmt);
+		  err = true;
+		}
+	      err |= verify_def (bb, definition_block, op, stmt);
+	    }
+          
+	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
+	      if (is_gimple_reg (op))
+		{
+		  error ("Found a virtual must-def for a GIMPLE register");
 		  debug_generic_stmt (op);
 		  debug_generic_stmt (stmt);
 		  err = true;
@@ -372,22 +389,22 @@ verify_ssa (void)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	err |= verify_phi_args (phi, bb, definition_block);
 
       /* Now verify all the uses and vuses in every statement of the block. 
 
-	 Remember, the RHS of a VDEF is a use as well.  */
+	 Remember, the RHS of a V_MAY_DEF is a use as well.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  unsigned int j;
 	  vuse_optype vuses;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
 	  use_optype uses;
 
-	  vuses = VUSE_OPS (ann);
+	  vuses = VUSE_OPS (ann); 
 	  for (j = 0; j < NUM_VUSES (vuses); j++)
 	    {
 	      tree op = VUSE_OP (vuses, j);
@@ -403,10 +420,10 @@ verify_ssa (void)
 				 op, stmt, false);
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_OP (vdefs, j);
+	      tree op = V_MAY_DEF_OP (v_may_defs, j);
 
 	      if (is_gimple_reg (op))
 		{
@@ -456,20 +473,11 @@ set_is_used (tree t)
       if (SSA_VAR_P (t))
 	break;
 
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case BIT_FIELD_REF:
-	case INDIRECT_REF:
+      if (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else
+	while (handled_component_p (t))
 	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return;
-	}
     }
 
   if (TREE_CODE (t) == SSA_NAME)
@@ -489,6 +497,7 @@ init_tree_ssa (void)
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
+  vn_init ();
   global_var = NULL_TREE;
   aliases_computed_p = false;
 }
@@ -519,6 +528,7 @@ delete_tree_ssa (void)
   fini_ssanames ();
   fini_phinodes ();
   fini_ssa_operands ();
+  vn_delete ();
 
   global_var = NULL_TREE;
   BITMAP_XFREE (call_clobbered_vars);
@@ -555,7 +565,8 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-           && lang_hooks.types_compatible_p (inner_type, outer_type))
+           && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
+					     TREE_TYPE (outer_type)))
     return true;
 
   /* If both the inner and outer types are integral types, then the
@@ -687,6 +698,52 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
     }
 }
 
+/* Replaces VAR with REPL in memory reference expression *X in
+   statement STMT.  */
+
+static void
+propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
+{
+  tree new_var, ass_stmt, addr_var;
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  /* There is nothing special to handle in the other cases.  */
+  if (TREE_CODE (repl) != ADDR_EXPR)
+    return;
+  addr_var = TREE_OPERAND (repl, 0);
+
+  while (TREE_CODE (*x) == ARRAY_REF
+	 || TREE_CODE (*x) == COMPONENT_REF
+	 || TREE_CODE (*x) == BIT_FIELD_REF)
+    x = &TREE_OPERAND (*x, 0);
+
+  if (TREE_CODE (*x) != INDIRECT_REF
+      || TREE_OPERAND (*x, 0) != var)
+    return;
+
+  modify_stmt (stmt);
+  if (TREE_TYPE (*x) == TREE_TYPE (addr_var))
+    {
+      *x = addr_var;
+      mark_new_vars_to_rename (stmt, vars_to_rename);
+      return;
+    }
+
+  /* Frontends sometimes produce expressions like *&a instead of a[0].
+     Create a temporary variable to handle this case.  */
+  ass_stmt = build2 (MODIFY_EXPR, void_type_node, NULL_TREE, repl);
+  new_var = duplicate_ssa_name (var, ass_stmt);
+  TREE_OPERAND (*x, 0) = new_var;
+  TREE_OPERAND (ass_stmt, 0) = new_var;
+
+  bb = bb_for_stmt (stmt);
+  tree_block_label (bb);
+  bsi = bsi_after_labels (bb);
+  bsi_insert_after (&bsi, ass_stmt, BSI_NEW_STMT);
+
+  mark_new_vars_to_rename (stmt, vars_to_rename);
+}
 
 /* Replaces immediate uses of VAR by REPL.  */
 
@@ -695,11 +752,12 @@ replace_immediate_uses (tree var, tree repl)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   int i, j, n;
   dataflow_t df;
   tree stmt;
   stmt_ann_t ann;
+  bool mark_new_vars;
 
   df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
   n = num_immediate_uses (df);
@@ -714,7 +772,7 @@ replace_immediate_uses (tree var, tree repl)
 	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
 	    if (PHI_ARG_DEF (stmt, j) == var)
 	      {
-		PHI_ARG_DEF (stmt, j) = repl;
+		SET_PHI_ARG_DEF (stmt, j, repl);
 		if (TREE_CODE (repl) == SSA_NAME
 		    && PHI_ARG_EDGE (stmt, j)->flags & EDGE_ABNORMAL)
 		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
@@ -724,12 +782,22 @@ replace_immediate_uses (tree var, tree repl)
 	}
 
       get_stmt_operands (stmt);
+      mark_new_vars = false;
       if (is_gimple_reg (SSA_NAME_VAR (var)))
 	{
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 0), repl);
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 1), repl);
+	    }
+
 	  uses = USE_OPS (ann);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
-	      propagate_value (USE_OP_PTR (uses, j), repl);
+	      {
+		propagate_value (USE_OP_PTR (uses, j), repl);
+		mark_new_vars = POINTER_TYPE_P (TREE_TYPE (repl));
+	      }
 	}
       else
 	{
@@ -738,76 +806,108 @@ replace_immediate_uses (tree var, tree repl)
 	    if (VUSE_OP (vuses, j) == var)
 	      propagate_value (VUSE_OP_PTR (vuses, j), repl);
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
-	    if (VDEF_OP (vdefs, j) == var)
-	      propagate_value (VDEF_OP_PTR (vdefs, j), repl);
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (j = 0; j < (int) NUM_V_MAY_DEFS (v_may_defs); j++)
+	    if (V_MAY_DEF_OP (v_may_defs, j) == var)
+	      propagate_value (V_MAY_DEF_OP_PTR (v_may_defs, j), repl);
 	}
-
-      modify_stmt (stmt);
 
       /* If REPL is a pointer, it may have different memory tags associated
 	 with it.  For instance, VAR may have had a name tag while REPL
 	 only had a type tag.  In these cases, the virtual operands (if
 	 any) in the statement will refer to different symbols which need
 	 to be renamed.  */
-      if (POINTER_TYPE_P (TREE_TYPE (repl)))
+      if (mark_new_vars)
 	mark_new_vars_to_rename (stmt, vars_to_rename);
+      else
+	modify_stmt (stmt);
     }
 }
 
-/* Raises value of phi node PHI by joining it with VAL.  Processes immediate
-   uses of PHI recursively.  */
+/* Gets the value VAR is equivalent to according to EQ_TO.  */
 
-static void
-raise_value (tree phi, tree val, tree *eq_to)
+static tree
+get_eq_name (tree *eq_to, tree var)
 {
-  int i, n;
-  tree var = PHI_RESULT (phi), stmt;
-  int ver = SSA_NAME_VERSION (var);
-  dataflow_t df;
+  unsigned ver;
+  tree val = var;
 
-  if (eq_to[ver] == var)
-    return;
-
-  switch (TREE_CODE (val))
+  while (TREE_CODE (val) == SSA_NAME)
     {
-    case SSA_NAME:
-    case REAL_CST:
-    case COMPLEX_CST:
-      break;
-    case INTEGER_CST:
-      if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE)
+      ver = SSA_NAME_VERSION (val);
+      if (!eq_to[ver])
 	break;
 
-    default:
-      /* Do not propagate pointer constants.  This might require folding
-	 things like *&foo and rewriting the ssa, which is not worth the
-	 trouble.  */
-      val = var;
+      val = eq_to[ver];
     }
 
-  if (eq_to[ver])
+  while (TREE_CODE (var) == SSA_NAME)
     {
-      if (operand_equal_p (eq_to[ver], val, 0))
+      ver = SSA_NAME_VERSION (var);
+      if (!eq_to[ver])
+	break;
+
+      var = eq_to[ver];
+      eq_to[ver] = val;
+    }
+
+  return val;
+}
+
+/* Checks whether phi node PHI is redundant and if it is, records the ssa name
+   its result is redundant to to EQ_TO array.  */
+
+static void
+check_phi_redundancy (tree phi, tree *eq_to)
+{
+  tree val = NULL_TREE, def, res = PHI_RESULT (phi), stmt;
+  unsigned i, ver = SSA_NAME_VERSION (res), n;
+  dataflow_t df;
+
+  /* It is unlikely that such large phi node would be redundant.  */
+  if (PHI_NUM_ARGS (phi) > 16)
+    return;
+
+  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+    {
+      def = PHI_ARG_DEF (phi, i);
+
+      if (TREE_CODE (def) == SSA_NAME)
+	{
+	  def = get_eq_name (eq_to, def);
+	  if (def == res)
+	    continue;
+	}
+
+      if (val
+	  && !operand_equal_p (val, def, 0))
 	return;
 
-      eq_to[ver] = var;
+      val = def;
     }
-  else
-    eq_to[ver] = val;
 
-  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  /* At least one of the arguments should not be equal to the result, or
+     something strange is happening.  */
+  if (!val)
+    abort ();
+
+  if (get_eq_name (eq_to, res) == val)
+    return;
+
+  if (!may_propagate_copy (res, val))
+    return;
+
+  eq_to[ver] = val;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (res));
   n = num_immediate_uses (df);
 
   for (i = 0; i < n; i++)
     {
       stmt = immediate_use (df, i);
 
-      if (TREE_CODE (stmt) != PHI_NODE)
-	continue;
-
-      raise_value (stmt, eq_to[ver], eq_to);
+      if (TREE_CODE (stmt) == PHI_NODE)
+	check_phi_redundancy (stmt, eq_to);
     }
 }
 
@@ -831,36 +931,19 @@ raise_value (tree phi, tree val, tree *eq_to)
 static void
 kill_redundant_phi_nodes (void)
 {
-  tree *eq_to, *ssa_names;
-  unsigned i, ver, aver;
+  tree *eq_to;
+  unsigned i, old_num_ssa_names;
   basic_block bb;
-  tree phi, t, stmt, var;
+  tree phi, var, repl, stmt;
 
-  /* The EQ_TO array holds the current value of the ssa name in the
-     lattice:
-
-          top
-         / | \
-     const   variables
-         \ | /
-        bottom
-
-     Bottom is represented by NULL and top by the variable itself.
-
-     Once the dataflow stabilizes, we know that the phi nodes we need to keep
-     are exactly those with top as their result. 
-
-     The remaining phi nodes have their uses replaced with their value
-     in the lattice and the phi node itself is removed.  */
-  eq_to = xcalloc (highest_ssa_version, sizeof (tree));
-
-  /* The SSA_NAMES array holds each SSA_NAME node we encounter
-     in a PHI node (indexed by ssa version number).
-
-     One could argue that the SSA_NAME manager ought to provide a
-     generic interface to get at the SSA_NAME node for a given
-     ssa version number.  */
-  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
+  /* The EQ_TO[VER] holds the value by that the ssa name VER should be
+     replaced.  If EQ_TO[VER] is ssa name and it is decided to replace it by
+     other value, it may be necessary to follow the chain till the final value.
+     We perform path shortening (replacing the entries of the EQ_TO array with
+     heads of these chains) whenever we access the field to prevent quadratic
+     complexity (probably would not occur in practice anyway, but let us play
+     it safe).  */
+  eq_to = xcalloc (num_ssa_names, sizeof (tree));
 
   /* We have had cases where computing immediate uses takes a
      significant amount of compile time.  If we run into such
@@ -868,61 +951,44 @@ kill_redundant_phi_nodes (void)
      a subset of all the SSA_NAMEs instead of computing it for
      all of the SSA_NAMEs.  */
   compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+  old_num_ssa_names = num_ssa_names;
 
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  var = PHI_RESULT (phi);
-	  ver = SSA_NAME_VERSION (var);
-	  ssa_names[ver] = var;
-
-	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	    {
-	      t = PHI_ARG_DEF (phi, i);
-
-	      if (TREE_CODE (t) != SSA_NAME)
-		{
-		  raise_value (phi, t, eq_to);
-		  continue;
-		}
-
-	      stmt = SSA_NAME_DEF_STMT (t);
-	      aver = SSA_NAME_VERSION (t);
-	      ssa_names[aver] = t;
-
-	      /* If the defining statement for this argument is not a
-		 phi node or the argument is associated with an abnormal
-		 edge, then we need to recursively start the forward
-		 dataflow starting with PHI.  */
-	      if (TREE_CODE (stmt) != PHI_NODE
-		  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
-		{
-		  eq_to[aver] = t;
-		  raise_value (phi, t, eq_to);
-		}
-	    }
+	  check_phi_redundancy (phi, eq_to);
 	}
     }
 
   /* Now propagate the values.  */
-  for (i = 0; i < highest_ssa_version; i++)
-    if (eq_to[i]
-	&& eq_to[i] != ssa_names[i])
-      replace_immediate_uses (ssa_names[i], eq_to[i]);
+  for (i = 0; i < old_num_ssa_names; i++)
+    {
+      if (!ssa_name (i))
+	continue;
+
+      repl = get_eq_name (eq_to, ssa_name (i));
+      if (repl != ssa_name (i))
+	replace_immediate_uses (ssa_name (i), repl);
+    }
 
   /* And remove the dead phis.  */
-  for (i = 0; i < highest_ssa_version; i++)
-    if (eq_to[i]
-	&& eq_to[i] != ssa_names[i])
-      {
-	stmt = SSA_NAME_DEF_STMT (ssa_names[i]);
-	remove_phi_node (stmt, 0, bb_for_stmt (stmt));
-      }
+  for (i = 0; i < old_num_ssa_names; i++)
+    {
+      if (!ssa_name (i))
+	continue;
+
+      repl = get_eq_name (eq_to, ssa_name (i));
+      if (repl != ssa_name (i))
+	{
+	  stmt = SSA_NAME_DEF_STMT (ssa_name (i));
+	  remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+	}
+    }
 
   free_df ();
   free (eq_to);
-  free (ssa_names);
 }
 
 struct tree_opt_pass pass_redundant_phi =
@@ -1056,7 +1122,7 @@ execute_late_warn_uninitialized (void)
   execute_early_warn_uninitialized ();
 
   FOR_EACH_BB (bb)
-    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       warn_uninitialized_phi (phi);
 }
 

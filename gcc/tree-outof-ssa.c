@@ -76,7 +76,7 @@ typedef struct _elim_graph {
   /* List of nodes in the elimination graph.  */
   varray_type nodes;
 
-  /*  The predecessor and successor edge list. */
+  /*  The predecessor and successor edge list.  */
   varray_type edge_list;
 
   /* Visited vector.  */
@@ -116,7 +116,8 @@ static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
 static tree_live_info_p coalesce_ssa_name (var_map, int);
 static void assign_vars (var_map);
-static bool replace_variable (var_map, tree *, tree *);
+static bool replace_use_variable (var_map, use_operand_p, tree *);
+static bool replace_def_variable (var_map, def_operand_p, tree *);
 static void eliminate_virtual_phis (void);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
@@ -343,7 +344,7 @@ eliminate_build (elim_graph g, basic_block B, int i)
 
   clear_elim_graph (g);
   
-  for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (B); phi; phi = PHI_CHAIN (phi))
     {
       T0 = var_to_partition_to_var (g->map, PHI_RESULT (phi));
       
@@ -588,7 +589,7 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
   FOR_EACH_BB (bb)
     for (e = bb->succ; e; e = e->succ_next)
       if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
-	for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
 	    /* Visit each PHI on the destination side of this abnormal
 	       edge, and attempt to coalesce the argument with the result.  */
@@ -698,7 +699,7 @@ coalesce_ssa_name (var_map map, int flags)
       /* Add all potential copies via PHI arguments to the list.  */
       FOR_EACH_BB (bb)
 	{
-	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree res = PHI_RESULT (phi);
 	      int p = var_to_partition (map, res);
@@ -763,7 +764,7 @@ coalesce_ssa_name (var_map map, int flags)
   root_var_decompact (rv);
 
   /* First, coalesce all live on entry variables to their root variable. 
-     This will ensure the first use is coming from the correct location. */
+     This will ensure the first use is coming from the correct location.  */
 
   live = sbitmap_alloc (num_var_partitions (map));
   sbitmap_zero (live);
@@ -922,25 +923,25 @@ assign_vars (var_map map)
 }
 
 
-/* Replace *P with whatever variable it has been rewritten to based on the 
-   partitions in MAP.  EXPR is an optional expression vector over SSA versions
-   which is used to replace *P with an expression instead of a variable.  
+/* Replace use operand P with whatever variable it has been rewritten to based 
+   on the partitions in MAP.  EXPR is an optional expression vector over SSA 
+   versions which is used to replace P with an expression instead of a variable.
    If the stmt is changed, return true.  */ 
 
 static inline bool
-replace_variable (var_map map, tree *p, tree *expr)
+replace_use_variable (var_map map, use_operand_p p, tree *expr)
 {
   tree new_var;
-  tree var = *p;
+  tree var = USE_FROM_PTR (p);
 
   /* Check if we are replacing this variable with an expression.  */
   if (expr)
     {
-      int version = SSA_NAME_VERSION (*p);
+      int version = SSA_NAME_VERSION (var);
       if (expr[version])
         {
 	  tree new_expr = TREE_OPERAND (expr[version], 1);
-	  *p = new_expr;
+	  SET_USE (p, new_expr);
 	  /* Clear the stmt's RHS, or GC might bite us.  */
 	  TREE_OPERAND (expr[version], 1) = NULL_TREE;
 	  return true;
@@ -950,7 +951,43 @@ replace_variable (var_map map, tree *p, tree *expr)
   new_var = var_to_partition_to_var (map, var);
   if (new_var)
     {
-      *p = new_var;
+      SET_USE (p, new_var);
+      set_is_used (new_var);
+      return true;
+    }
+  return false;
+}
+
+
+/* Replace def operand DEF_P with whatever variable it has been rewritten to 
+   based on the partitions in MAP.  EXPR is an optional expression vector over
+   SSA versions which is used to replace DEF_P with an expression instead of a 
+   variable.  If the stmt is changed, return true.  */ 
+
+static inline bool
+replace_def_variable (var_map map, def_operand_p def_p, tree *expr)
+{
+  tree new_var;
+  tree var = DEF_FROM_PTR (def_p);
+
+  /* Check if we are replacing this variable with an expression.  */
+  if (expr)
+    {
+      int version = SSA_NAME_VERSION (var);
+      if (expr[version])
+        {
+	  tree new_expr = TREE_OPERAND (expr[version], 1);
+	  SET_DEF (def_p, new_expr);
+	  /* Clear the stmt's RHS, or GC might bite us.  */
+	  TREE_OPERAND (expr[version], 1) = NULL_TREE;
+	  return true;
+	}
+    }
+
+  new_var = var_to_partition_to_var (map, var);
+  if (new_var)
+    {
+      SET_DEF (def_p, new_var);
       set_is_used (new_var);
       return true;
     }
@@ -970,7 +1007,7 @@ eliminate_virtual_phis (void)
     {
       for (phi = phi_nodes (bb); phi; phi = next)
         {
-	  next = TREE_CHAIN (phi);
+	  next = PHI_CHAIN (phi);
 	  if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
 	    {
 #ifdef ENABLE_CHECKING
@@ -1031,7 +1068,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
     {
       tree phi, arg;
       int p;
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  p = var_to_partition (map, PHI_RESULT (phi));
 
@@ -1134,8 +1171,8 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
    dependent on any virtual variable (via a VUSE) has a dependence added
    to the special partition defined by VIRTUAL_PARTITION.
 
-   Whenever a VDEF is seen, all expressions dependent this VIRTUAL_PARTITION
-   are removed from consideration.
+   Whenever a V_MAY_DEF is seen, all expressions dependent this 
+   VIRTUAL_PARTITION are removed from consideration.
 
    At the end of a basic block, all expression are removed from consideration
    in preparation for the next block.  
@@ -1146,7 +1183,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
    it is replaced with the RHS of the defining expression.  */
 
 
-/* Dependancy list element.  This can contain either a partition index or a
+/* Dependency list element.  This can contain either a partition index or a
    version number, depending on which list it is in.  */
 
 typedef struct value_expr_d 
@@ -1171,7 +1208,7 @@ typedef struct temp_expr_table_d
   value_expr_p pending_dependence;
 } *temp_expr_table_p;
 
-/* Used to indicate a dependancy on VDEFs.  */
+/* Used to indicate a dependency on V_MAY_DEFs.  */
 #define VIRTUAL_PARTITION(table)	(table->virtual_partition)
 
 static temp_expr_table_p new_temp_expr_table (var_map);
@@ -1205,7 +1242,7 @@ new_temp_expr_table (var_map map)
   t = (temp_expr_table_p) xmalloc (sizeof (struct temp_expr_table_d));
   t->map = map;
 
-  t->version_info = xcalloc (highest_ssa_version + 1, sizeof (void *));
+  t->version_info = xcalloc (num_ssa_names + 1, sizeof (void *));
   t->partition_dep_list = xcalloc (num_var_partitions (map) + 1, 
 				   sizeof (value_expr_p));
 
@@ -1361,8 +1398,8 @@ remove_value_from_list (value_expr_p *list, int value)
 }
 
 
-/* Add a dependancy between the def of ssa VERSION and VAR.  if VAR is 
-   replaceable by an expression, add a dependance each of the elements of the 
+/* Add a dependency between the def of ssa VERSION and VAR.  If VAR is 
+   replaceable by an expression, add a dependence each of the elements of the 
    expression.  These are contained in the pending list.  TAB is the
    expression table.  */
 
@@ -1437,8 +1474,12 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   if (DECL_HARD_REGISTER (SSA_NAME_VAR (def)))
     return false;
 
-  /* There must be no VDEFS.  */
-  if (NUM_VDEFS (VDEF_OPS (ann)) != 0)
+  /* There must be no V_MAY_DEFS.  */
+  if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) != 0)
+    return false;
+
+  /* There must be no V_MUST_DEFS.  */
+  if (NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) != 0)
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
@@ -1462,7 +1503,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 
   version = SSA_NAME_VERSION (def);
 
-  /* Add this expression to the dependancy list for each use partition.  */
+  /* Add this expression to the dependency list for each use partition.  */
   for (i = 0; i < num_use_ops; i++)
     {
       var = USE_OP (uses, i);
@@ -1494,7 +1535,7 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
   value_expr_p info, tmp;
   int partition;
 
-  /* Remove this expression from its dependent lists.  The partition dependance
+  /* Remove this expression from its dependent lists.  The partition dependence
      list is retained and transfered later to whomever uses this version.  */
   for (info = (value_expr_p) tab->version_info[version]; info; info = tmp)
     {
@@ -1510,7 +1551,7 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
         abort ();
 #endif
       free_value_expr (tab, tmp);
-      /* Only clear the bit when the dependancy list is emptied via 
+      /* Only clear the bit when the dependency list is emptied via 
          a replacement. Otherwise kill_expr will take care of it.  */
       if (!(tab->partition_dep_list[partition]) && replace)
         bitmap_clear_bit (tab->partition_in_use, partition);
@@ -1569,7 +1610,7 @@ kill_expr (temp_expr_table_p tab, int partition, bool clear_bit)
 {
   value_expr_p ptr;
 
-  /* Mark every active expr dependant on this var as not replaceable.  */
+  /* Mark every active expr dependent on this var as not replaceable.  */
   while ((ptr = tab->partition_dep_list[partition]) != NULL)
     finish_expr (tab, ptr->value, false);
 
@@ -1578,7 +1619,7 @@ kill_expr (temp_expr_table_p tab, int partition, bool clear_bit)
 }
 
 
-/* This function kills all expressions in TAB which are dependant on virtual 
+/* This function kills all expressions in TAB which are dependent on virtual 
    DEFs.  CLEAR_BIT determines whether partition_in_use gets cleared.  */
 
 static inline void
@@ -1639,15 +1680,19 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       if (!ann->has_volatile_ops)
 	check_replaceable (tab, stmt);
 
-      /* Free any unused dependancy lists.  */
+      /* Free any unused dependency lists.  */
       while ((p = tab->pending_dependence))
 	{
 	  tab->pending_dependence = p->next;
 	  free_value_expr (tab, p);
 	}
 
-      /* A VDEF kills any expression using a virtual operand.  */
-      if (NUM_VDEFS (VDEF_OPS (ann)) > 0)
+      /* A V_MAY_DEF kills any expression using a virtual operand.  */
+      if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0)
+        kill_virtual_exprs (tab, true);
+	
+      /* A V_MUST_DEF kills any expression using a virtual operand.  */
+      if (NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0)
         kill_virtual_exprs (tab, true);
     }
 }
@@ -1692,7 +1737,7 @@ dump_replaceable_exprs (FILE *f, tree *expr)
   tree stmt, var;
   int x;
   fprintf (f, "\nReplacing Expressions\n");
-  for (x = 0; x < (int)highest_ssa_version + 1; x++)
+  for (x = 0; x < (int)num_ssa_names + 1; x++)
     if (expr[x])
       {
         stmt = expr[x];
@@ -1718,17 +1763,24 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 
   if (TYPE_P (t) || DECL_P (t))
     *walk_subtrees = 0;
-  else if (TREE_CODE (t) == ARRAY_REF)
+  else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
     {
-      while ((TREE_CODE (t) == ARRAY_REF
-	      && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+      while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
+	      && is_gimple_min_invariant (TREE_OPERAND (t, 1))
+	      && (!TREE_OPERAND (t, 2)
+		  || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
 	     || (TREE_CODE (t) == COMPONENT_REF
-		 || TREE_CODE (t) == BIT_FIELD_REF
-		 || TREE_CODE (t) == REALPART_EXPR
-		 || TREE_CODE (t) == IMAGPART_EXPR))
+		 && (!TREE_OPERAND (t,2)
+		     || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
+	     || TREE_CODE (t) == BIT_FIELD_REF
+	     || TREE_CODE (t) == REALPART_EXPR
+	     || TREE_CODE (t) == IMAGPART_EXPR
+	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
+	     || TREE_CODE (t) == NOP_EXPR
+	     || TREE_CODE (t) == CONVERT_EXPR)
 	t = TREE_OPERAND (t, 0);
 
-      if (TREE_CODE (t) == ARRAY_REF)
+      if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
 	  t = get_base_address (t);
 	  if (t && DECL_P (t))
@@ -1786,7 +1838,7 @@ rewrite_trees (var_map map, tree *values)
     {
       tree phi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree T0 = var_to_partition_to_var (map, PHI_RESULT (phi));
       
@@ -1824,7 +1876,7 @@ rewrite_trees (var_map map, tree *values)
 	  use_optype uses;
 	  def_optype defs;
 	  tree stmt = bsi_stmt (si);
-	  tree *use_p = NULL;
+	  use_operand_p use_p;
 	  int remove = 0, is_copy = 0;
 	  stmt_ann_t ann;
 
@@ -1842,7 +1894,7 @@ rewrite_trees (var_map map, tree *values)
 	  for (i = 0; i < num_uses; i++)
 	    {
 	      use_p = USE_OP_PTR (uses, i);
-	      if (replace_variable (map, use_p, values))
+	      if (replace_use_variable (map, use_p, values))
 	        changed = true;
 	    }
 
@@ -1863,18 +1915,16 @@ rewrite_trees (var_map map, tree *values)
 	    {
 	      for (i = 0; i < num_defs; i++)
 		{
-		  tree *def_p = DEF_OP_PTR (defs, i);
+		  def_operand_p def_p = DEF_OP_PTR (defs, i);
 
-		  if (replace_variable (map, def_p, NULL))
+		  if (replace_def_variable (map, def_p, NULL))
 		    changed = true;
 
 		  /* If both SSA_NAMEs coalesce to the same variable,
 		     mark the now redundant copy for removal.  */
 		  if (is_copy
 		      && num_uses == 1
-		      && use_p
-		      && def_p
-		      && (*def_p == *use_p))
+		      && (DEF_FROM_PTR (def_p) == USE_OP (uses, 0)))
 		    remove = 1;
 		}
 	      if (changed)
@@ -1979,7 +2029,7 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
     {
       for (phi = phi_nodes (bb); phi; phi = next)
 	{
-	  next = TREE_CHAIN (phi);
+	  next = PHI_CHAIN (phi);
 	  if ((flags & SSANORM_REMOVE_ALL_PHIS) 
 	      || var_to_partition (map, PHI_RESULT (phi)) != NO_PARTITION)
 	    remove_phi_node (phi, NULL_TREE, bb);
@@ -2021,7 +2071,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 	 to manually take variables out of SSA form here.  */
       FOR_EACH_BB (bb)
 	{
-	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 
@@ -2066,7 +2116,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 		      SSA_NAME_DEF_STMT (new_name) = copy;
 
 		      /* Now make the argument reference our new SSA_NAME.  */
-		      PHI_ARG_DEF (phi, i) = new_name;
+		      SET_PHI_ARG_DEF (phi, i, new_name);
 
 		      /* Queue the statement for insertion.  */
 		      bsi_insert_on_edge (PHI_ARG_EDGE (phi, i), copy);
@@ -2081,7 +2131,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
                                                                                 
       /* Now register partitions for all instances of the variables we
 	 are taking out of SSA form.  */
-      map = init_var_map (highest_ssa_version + 1);
+      map = init_var_map (num_ssa_names + 1);
       register_ssa_partitions_for_vars (vars, map);
 
       /* Now that we have all the partitions registered, translate the

@@ -39,6 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "flags.h"
 #include "real.h"
 #include "rtl.h"
@@ -1453,7 +1454,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      if (! frame_pointer_needed)
 		abort ();
 
-	      if (GET_CODE (XEXP (src, 0)) == REG
+	      if (REG_P (XEXP (src, 0))
 		  && (unsigned) REGNO (XEXP (src, 0)) == cfa.reg
 		  && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		{
@@ -1472,7 +1473,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		abort ();
 
 	      /* Rule 4 */
-	      if (GET_CODE (XEXP (src, 0)) == REG
+	      if (REG_P (XEXP (src, 0))
 		  && REGNO (XEXP (src, 0)) == cfa.reg
 		  && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		{
@@ -1487,7 +1488,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		}
 
 	      /* Rule 5 */
-	      else if (GET_CODE (XEXP (src, 0)) == REG
+	      else if (REG_P (XEXP (src, 0))
 		       && REGNO (XEXP (src, 0)) == cfa_temp.reg
 		       && XEXP (src, 1) == stack_pointer_rtx)
 		{
@@ -1519,7 +1520,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 	  /* Rule 7 */
 	case IOR:
-	  if (GET_CODE (XEXP (src, 0)) != REG
+	  if (!REG_P (XEXP (src, 0))
 	      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp.reg
 	      || GET_CODE (XEXP (src, 1)) != CONST_INT)
 	    abort ();
@@ -1543,7 +1544,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
       break;
 
     case MEM:
-      if (GET_CODE (src) != REG)
+      if (!REG_P (src))
 	abort ();
 
       /* Saving a register to the stack.  Make sure dest is relative to the
@@ -1650,9 +1651,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		 calculate the CFA.  */
 	      rtx x = XEXP (dest, 0);
 
-	      if (GET_CODE (x) != REG)
+	      if (!REG_P (x))
 		x = XEXP (x, 0);
-	      if (GET_CODE (x) != REG)
+	      if (!REG_P (x))
 		abort ();
 
 	      cfa.reg = REGNO (x);
@@ -1950,7 +1951,7 @@ output_call_frame_info (int for_eh)
      having an FDE kept around when the function it refers to is
      discarded. (Example where this matters: a primary function
      template in C++ requires EH information, but an explicit
-     specialization doesn't. */
+     specialization doesn't.  */
   if (TARGET_USES_WEAK_UNWIND_INFO
       && ! flag_asynchronous_unwind_tables
       && for_eh)
@@ -2081,7 +2082,11 @@ output_call_frame_info (int for_eh)
   dw2_asm_output_data_uleb128 (1, "CIE Code Alignment Factor");
   dw2_asm_output_data_sleb128 (DWARF_CIE_DATA_ALIGNMENT,
 			       "CIE Data Alignment Factor");
-  dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+
+  if (DW_CIE_VERSION == 1)
+    dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+  else
+    dw2_asm_output_data_uleb128 (DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
 
   if (augmentation[0])
     {
@@ -4007,7 +4012,7 @@ dwarf2out_set_demangle_name_func (const char *(*func) (const char *))
 static inline int
 is_pseudo_reg (rtx rtl)
 {
-  return ((GET_CODE (rtl) == REG && REGNO (rtl) >= FIRST_PSEUDO_REGISTER)
+  return ((REG_P (rtl) && REGNO (rtl) >= FIRST_PSEUDO_REGISTER)
 	  || (GET_CODE (rtl) == SUBREG
 	      && REGNO (SUBREG_REG (rtl)) >= FIRST_PSEUDO_REGISTER));
 }
@@ -8408,7 +8413,7 @@ static inline int
 is_based_loc (rtx rtl)
 {
   return (GET_CODE (rtl) == PLUS
-	  && ((GET_CODE (XEXP (rtl, 0)) == REG
+	  && ((REG_P (XEXP (rtl, 0))
 	       && REGNO (XEXP (rtl, 0)) < FIRST_PSEUDO_REGISTER
 	       && GET_CODE (XEXP (rtl, 1)) == CONST_INT)));
 }
@@ -9710,7 +9715,7 @@ rtl_for_decl_location (tree decl)
 	  && (CONSTANT_P (rtl)
 	      || (GET_CODE (rtl) == MEM
 	          && CONSTANT_P (XEXP (rtl, 0)))
-	      || (GET_CODE (rtl) == REG
+	      || (REG_P (rtl)
 	          && TREE_CODE (decl) == VAR_DECL
 		  && TREE_STATIC (decl))))
 	{
@@ -9751,7 +9756,7 @@ rtl_for_decl_location (tree decl)
 	       /* Not passed in memory.  */
 	       && GET_CODE (DECL_INCOMING_RTL (decl)) != MEM
 	       /* Not passed by invisible reference.  */
-	       && (GET_CODE (XEXP (rtl, 0)) != REG
+	       && (!REG_P (XEXP (rtl, 0))
 		   || REGNO (XEXP (rtl, 0)) == HARD_FRAME_POINTER_REGNUM
 		   || REGNO (XEXP (rtl, 0)) == STACK_POINTER_REGNUM
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"		/* For debug_hooks.  */
 #include "opts.h"
 #include "options.h"
+#include "mkdeps.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -259,6 +260,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   switch (code)
     {
     default:
+      if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
+	break;
       result = permit_fortran_options;
       break;
 
@@ -358,10 +361,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       defer_opt (code, arg);
       break;
 
-    case OPT_Wabi:
-      warn_abi = value;
-      break;
-
     case OPT_Wall:
       set_Wunused (value);
       set_Wformat (value);
@@ -404,46 +403,17 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->warn_multichar = value;	/* Was C++ only.  */
       break;
 
-    case OPT_Wbad_function_cast:
-      warn_bad_function_cast = value;
-      break;
-
-    case OPT_Wcast_qual:
-      warn_cast_qual = value;
-      break;
-
-    case OPT_Wchar_subscripts:
-      warn_char_subscripts = value;
-      break;
-
     case OPT_Wcomment:
     case OPT_Wcomments:
       cpp_opts->warn_comments = value;
       break;
 
-    case OPT_Wconversion:
-      warn_conversion = value;
-      break;
-
-    case OPT_Wctor_dtor_privacy:
-      warn_ctor_dtor_privacy = value;
-      break;
-
-    case OPT_Wdeclaration_after_statement:
-      warn_declaration_after_statement = value;
-      break;
-
     case OPT_Wdeprecated:
-      warn_deprecated = value;
       cpp_opts->warn_deprecated = value;
       break;
 
     case OPT_Wdiv_by_zero:
       warn_div_by_zero = value;
-      break;
-
-    case OPT_Weffc__:
-      warn_ecpp = value;
       break;
 
     case OPT_Wendif_labels:
@@ -458,10 +428,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       mesg_implicit_function_declaration = 2;
       break;
 
-    case OPT_Wfloat_equal:
-      warn_float_equal = value;
-      break;
-
     case OPT_Wformat:
       set_Wformat (value);
       break;
@@ -470,56 +436,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       set_Wformat (atoi (arg));
       break;
 
-    case OPT_Wformat_extra_args:
-      warn_format_extra_args = value;
-      break;
-
-    case OPT_Wformat_nonliteral:
-      warn_format_nonliteral = value;
-      break;
-
-    case OPT_Wformat_security:
-      warn_format_security = value;
-      break;
-
-    case OPT_Wformat_y2k:
-      warn_format_y2k = value;
-      break;
-
-    case OPT_Wformat_zero_length:
-      warn_format_zero_length = value;
-      break;
-
-    case OPT_Winit_self:
-      warn_init_self = value;
-      break;
-
     case OPT_Wimplicit:
       set_Wimplicit (value);
-      break;
-
-    case OPT_Wimplicit_function_declaration:
-      mesg_implicit_function_declaration = value;
-      break;
-
-    case OPT_Wimplicit_int:
-      warn_implicit_int = value;
       break;
 
     case OPT_Wimport:
       /* Silently ignore for now.  */
       break;
 
-    case OPT_Winvalid_offsetof:
-      warn_invalid_offsetof = value;
-      break;
-
     case OPT_Winvalid_pch:
       cpp_opts->warn_invalid_pch = value;
-      break;
-
-    case OPT_Wlong_long:
-      warn_long_long = value;
       break;
 
     case OPT_Wmain:
@@ -529,108 +455,16 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	warn_main = -1;
       break;
 
-    case OPT_Wmissing_braces:
-      warn_missing_braces = value;
-      break;
-
-    case OPT_Wmissing_declarations:
-      warn_missing_declarations = value;
-      break;
-
-    case OPT_Wmissing_format_attribute:
-      warn_missing_format_attribute = value;
-      break;
-
     case OPT_Wmissing_include_dirs:
       cpp_opts->warn_missing_include_dirs = value;
-      break;
-
-    case OPT_Wmissing_prototypes:
-      warn_missing_prototypes = value;
       break;
 
     case OPT_Wmultichar:
       cpp_opts->warn_multichar = value;
       break;
 
-    case OPT_Wnested_externs:
-      warn_nested_externs = value;
-      break;
-
-    case OPT_Wnon_template_friend:
-      warn_nontemplate_friend = value;
-      break;
-
-    case OPT_Wnon_virtual_dtor:
-      warn_nonvdtor = value;
-      break;
-
-    case OPT_Wnonnull:
-      warn_nonnull = value;
-      break;
-
-    case OPT_Wold_style_definition:
-      warn_old_style_definition = value;
-      break;
-
-    case OPT_Wold_style_cast:
-      warn_old_style_cast = value;
-      break;
-
-    case OPT_Woverloaded_virtual:
-      warn_overloaded_virtual = value;
-      break;
-
-    case OPT_Wparentheses:
-      warn_parentheses = value;
-      break;
-
-    case OPT_Wpmf_conversions:
-      warn_pmf2ptr = value;
-      break;
-
-    case OPT_Wpointer_arith:
-      warn_pointer_arith = value;
-      break;
-
-    case OPT_Wprotocol:
-      warn_protocol = value;
-      break;
-
-    case OPT_Wselector:
-      warn_selector = value;
-      break;
-
-    case OPT_Wredundant_decls:
-      warn_redundant_decls = value;
-      break;
-
-    case OPT_Wreorder:
-      warn_reorder = value;
-      break;
-
     case OPT_Wreturn_type:
       warn_return_type = value;
-      break;
-
-    case OPT_Wsequence_point:
-      warn_sequence_point = value;
-      break;
-
-    case OPT_Wsign_compare:
-      warn_sign_compare = value;
-      break;
-
-    case OPT_Wsign_promo:
-      warn_sign_promo = value;
-      break;
-
-    case OPT_Wstrict_prototypes:
-      warn_strict_prototypes = value;
-      break;
-
-    case OPT_Wsynth:
-      warn_synth = value;
       break;
 
     case OPT_Wsystem_headers:
@@ -638,16 +472,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wtraditional:
-      warn_traditional = value;
       cpp_opts->warn_traditional = value;
       break;
 
     case OPT_Wtrigraphs:
       cpp_opts->warn_trigraphs = value;
-      break;
-
-    case OPT_Wundeclared_selector:
-      warn_undeclared_selector = value;
       break;
 
     case OPT_Wundef:
@@ -862,6 +691,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_objc_exceptions = value;
       break;
 
+    case OPT_fobjc_sjlj_exceptions:
+      flag_objc_sjlj_exceptions = value;
+      break;
+
     case OPT_foperator_names:
       cpp_opts->operator_names = value;
       break;
@@ -872,6 +705,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fpch_deps:
       cpp_opts->restore_pch_deps = value;
+      break;
+
+    case OPT_fpch_preprocess:
+      flag_pch_preprocess = value;
       break;
 
     case OPT_fpermissive:
@@ -1108,6 +945,12 @@ c_common_post_options (const char **pfilename)
       flag_inline_functions = 0;
     }
 
+  /* Default to ObjC sjlj exception handling if NeXT runtime.  */
+  if (flag_objc_sjlj_exceptions < 0)
+    flag_objc_sjlj_exceptions = flag_next_runtime;
+  if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
+    flag_exceptions = 1;
+
   /* -Wextra implies -Wsign-compare, but not if explicitly
       overridden.  */
   if (warn_sign_compare == -1)
@@ -1322,13 +1165,22 @@ static void
 handle_deferred_opts (void)
 {
   size_t i;
+  struct deps *deps;
+
+  /* Avoid allocating the deps buffer if we don't need it.
+     (This flag may be true without there having been -MT or -MQ
+     options, but we'll still need the deps buffer.)  */
+  if (!deps_seen)
+    return;
+
+  deps = cpp_get_deps (parse_in);
 
   for (i = 0; i < deferred_count; i++)
     {
       struct deferred_opt *opt = &deferred_opts[i];
 
       if (opt->code == OPT_MT || opt->code == OPT_MQ)
-	cpp_add_dependency_target (parse_in, opt->arg, opt->code == OPT_MQ);
+	deps_add_target (deps, opt->arg, opt->code == OPT_MQ);
     }
 }
 

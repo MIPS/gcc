@@ -55,8 +55,6 @@ static void dump_generic_bb_buff (pretty_printer *, basic_block, int, int);
    lang_hooks.decl_printable_name (TREE_OPERAND (NODE, 0), 1) : \
    lang_hooks.decl_printable_name (NODE, 1))
 
-#define MASK_POINTER(P)	((unsigned)((unsigned long)(P) & 0xffff))
-
 static pretty_printer buffer;
 static int initialized = 0;
 static bool dumping_stmts;
@@ -392,6 +390,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case RECORD_TYPE:
     case UNION_TYPE:
+    case QUAL_UNION_TYPE:
       /* Print the name of the structure.  */
       if (TREE_CODE (node) == RECORD_TYPE)
 	pp_string (buffer, "struct ");
@@ -403,11 +402,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       else
 	print_struct_decl (buffer, node, spc, flags);
       break;
-
-    case QUAL_UNION_TYPE:
-      NIY;
-      break;
-
 
     case LANG_TYPE:
       NIY;
@@ -555,10 +549,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       else
 	{
-	  if (TYPE_METHODS (TREE_TYPE (node)))
+	  if ((TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
+	       || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
+	      && TYPE_METHODS (TREE_TYPE (node)))
 	    {
 	      /* The type is a c++ class: all structures have at least
-		 4 methods. */
+		 4 methods.  */
 	      pp_string (buffer, "class ");
 	      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
 	    }
@@ -598,6 +594,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_character (buffer, ')');
       pp_string (buffer, str);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      if (TREE_OPERAND (node, 2)
+	  && TREE_CODE (TREE_OPERAND (node, 2)) != INTEGER_CST)
+	{
+	  pp_string (buffer, "{off: ");
+	  dump_generic_node (buffer, TREE_OPERAND (node, 2),
+			     spc, flags, false);
+	  pp_character (buffer, '}');
+	}
       break;
 
     case BIT_FIELD_REF:
@@ -615,6 +619,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case ARRAY_REF:
+    case ARRAY_RANGE_REF:
       op0 = TREE_OPERAND (node, 0);
       if (op_prio (op0) < op_prio (node))
 	pp_character (buffer, '(');
@@ -623,11 +628,23 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_character (buffer, ')');
       pp_character (buffer, '[');
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      if (TREE_CODE (node) == ARRAY_RANGE_REF)
+	pp_string (buffer, " ...");
       pp_character (buffer, ']');
-      break;
 
-    case ARRAY_RANGE_REF:
-      NIY;
+      if ((TREE_OPERAND (node, 2)
+	   && TREE_CODE (TREE_OPERAND (node, 2)) != INTEGER_CST)
+	  || (TREE_OPERAND (node, 3)
+	      && TREE_CODE (TREE_OPERAND (node, 3)) != INTEGER_CST))
+	{
+	  pp_string (buffer, "{lb: ");
+	  dump_generic_node (buffer, TREE_OPERAND (node, 2),
+			     spc, flags, false);
+	  pp_string (buffer, " sz: ");
+	  dump_generic_node (buffer, TREE_OPERAND (node, 3),
+			     spc, flags, false);
+	  pp_character (buffer, '}');
+	}
       break;
 
     case CONSTRUCTOR:
@@ -741,14 +758,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case TARGET_EXPR:
-      dump_generic_node (buffer, TYPE_NAME (TREE_TYPE (node)), spc, flags, false);
-      pp_character (buffer, '(');
+      pp_string (buffer, "TARGET_EXPR <");
+      dump_generic_node (buffer, TARGET_EXPR_SLOT (node), spc, flags, false);
+      pp_character (buffer, ',');
+      pp_space (buffer);
       dump_generic_node (buffer, TARGET_EXPR_INITIAL (node), spc, flags, false);
-      pp_character (buffer, ')');
+      pp_character (buffer, '>');
       break;
 
     case COND_EXPR:
-      if (TREE_TYPE (node) == void_type_node)
+      if (TREE_TYPE (node) == NULL || TREE_TYPE (node) == void_type_node)
 	{
 	  pp_string (buffer, "if (");
 	  dump_generic_node (buffer, COND_EXPR_COND (node), spc, flags, false);
@@ -1348,96 +1367,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, ':');
       break;
 
-    case VTABLE_REF:
-      pp_string (buffer, "VTABLE_REF <(");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (buffer, "),");
-      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      pp_character (buffer, ',');
-      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+    case OBJ_TYPE_REF:
+      pp_string (buffer, "OBJ_TYPE_REF(");
+      dump_generic_node (buffer, OBJ_TYPE_REF_EXPR (node), spc, flags, false);
+      pp_character (buffer, ';');
+      dump_generic_node (buffer, OBJ_TYPE_REF_OBJECT (node), spc, flags, false);
+      pp_character (buffer, '-');
       pp_character (buffer, '>');
+      dump_generic_node (buffer, OBJ_TYPE_REF_TOKEN (node), spc, flags, false);
+      pp_character (buffer, ')');
       break;
 
-    case EPHI_NODE:
-      {
-	int i;
-
-	pp_string (buffer, " EPHI (");
-	dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-	pp_string (buffer, ") ");
-	pp_character (buffer, '[');
-	pp_string (buffer, " class:");
-	pp_decimal_int (buffer, EREF_CLASS (node));
-	if (EPHI_DOWNSAFE (node))
-	  pp_string (buffer, " downsafe");
-	if (EPHI_CANT_BE_AVAIL (node))
-	  pp_string (buffer, " cant_be_avail");
-	if (EPHI_STOPS (node))
-	  pp_string (buffer, " stops");
-	pp_string (buffer, " bb:");
-	pp_decimal_int (buffer, bb_for_stmt (node)->index);
-	pp_character (buffer, ']');
-	if (! (flags & TDF_SLIM))
-	  {
-	    pp_string (buffer, " <");
-	    for (i = 0; i < EPHI_NUM_ARGS (node); i++)
-	      {	    
-		if (EPHI_ARG_DEF (node, i))
-		  {
-		    newline_and_indent (buffer, spc + 2);
-		    pp_string (buffer, " edge ");
-		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->src->index);
-		    pp_string (buffer, "->");
-		    pp_decimal_int (buffer, EPHI_ARG_EDGE (node, i)->dest->index);
-		    pp_string (buffer, " [ ");
-		    if (EPHI_ARG_HAS_REAL_USE (node, i))
-		      pp_string (buffer, " real use");
-		    if (EPHI_ARG_INJURED (node, i))
-		      pp_string (buffer, " injured");
-		    if (EPHI_ARG_STOPS (node, i))
-		      pp_string (buffer, " stops");
-		    pp_string (buffer, " ] ");
-		    pp_string (buffer, " defined by:");
-		    dump_generic_node (buffer, EPHI_ARG_DEF (node, i),
-				       spc + 4, flags | TDF_SLIM, false);
-		  }
-	      }
-	  }
-	pp_string (buffer, " >");
-      }
-      break;
-    case EEXIT_NODE:
-    case EKILL_NODE:
-      if (TREE_CODE (node) == EEXIT_NODE)
-	pp_string (buffer, "EEXIT (");
-      else if (TREE_CODE (node) == EKILL_NODE)
-	pp_string (buffer, "EKILL (");
-      dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-      pp_string (buffer, ") ");
-      pp_character (buffer, '[');
-      pp_string (buffer, "class:");
-      pp_decimal_int (buffer, EREF_CLASS (node));
-      pp_string (buffer, " bb:");
-      pp_decimal_int (buffer, bb_for_stmt (node)->index);
-      pp_character (buffer, ']');
-      break;
-    case EUSE_NODE:
-      pp_string (buffer, " EUSE (");
-      dump_generic_node (buffer, EREF_NAME (node), spc, flags, false);
-
-      pp_string (buffer, ") ");
-      pp_character (buffer, '[');
-      pp_string (buffer, "class:");
-      pp_decimal_int (buffer, EREF_CLASS (node));
-      pp_string (buffer, " phiop:");
-      pp_decimal_int (buffer, EUSE_PHIOP (node));
-      pp_string (buffer, " bb:");
-      pp_decimal_int (buffer, bb_for_stmt (node)->index);
-      if (EUSE_LVAL (node))
-	pp_string (buffer, " left-occurrence");
-      pp_string (buffer, " ]");
-	
-      break;
     case PHI_NODE:
       {
 	int i;
@@ -1461,6 +1401,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, SSA_NAME_VAR (node), spc, flags, false);
       pp_string (buffer, "_");
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+      break;
+
+    case VALUE_HANDLE:
+      pp_printf (buffer, "VH.%d", VALUE_HANDLE_ID (node));
       break;
 
     default:
@@ -1568,10 +1512,10 @@ print_struct_decl (pretty_printer *buffer, tree node, int spc, int flags)
       INDENT (spc);
       if (TREE_CODE (node) == RECORD_TYPE)
 	pp_string (buffer, "struct ");
-      else if (TREE_CODE (node) == UNION_TYPE)
+      else if ((TREE_CODE (node) == UNION_TYPE
+		|| TREE_CODE (node) == QUAL_UNION_TYPE))
 	pp_string (buffer, "union ");
-      else
-	NIY;
+
       dump_generic_node (buffer, TYPE_NAME (node), spc, 0, false);
     }
 
@@ -1593,15 +1537,11 @@ print_struct_decl (pretty_printer *buffer, tree node, int spc, int flags)
 	   Maybe this could be solved by looking at the scope in which the
 	   structure was declared.  */
 	if (TREE_TYPE (tmp) != node
-	    || (TREE_CODE (TREE_TYPE (tmp)) == POINTER_TYPE &&
-		TREE_TYPE (TREE_TYPE (tmp)) != node))
+	    || (TREE_CODE (TREE_TYPE (tmp)) == POINTER_TYPE
+		&& TREE_TYPE (TREE_TYPE (tmp)) != node))
 	  {
 	    print_declaration (buffer, tmp, spc+2, flags);
 	    pp_newline (buffer);
-	  }
-	else
-	  {
-
 	  }
 	tmp = TREE_CHAIN (tmp);
       }
@@ -1734,6 +1674,7 @@ op_prio (tree op)
 
     case CALL_EXPR:
     case ARRAY_REF:
+    case ARRAY_RANGE_REF:
     case COMPONENT_REF:
       return 15;
 
@@ -1940,6 +1881,7 @@ print_call_name (pretty_printer *buffer, tree node)
       break;
 
     case SSA_NAME:
+    case OBJ_TYPE_REF:
       dump_generic_node (buffer, op0, 0, 0, false);
       break;
 
@@ -2061,15 +2003,27 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
   size_t i;
   stmt_ann_t ann = stmt_ann (stmt);
-  vdef_optype vdefs = VDEF_OPS (ann);
+  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
+  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
   vuse_optype vuses = VUSE_OPS (ann);
 
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       pp_string (buffer, "#   ");
-      dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, flags, false);
-      pp_string (buffer, " = VDEF <");
-      dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, flags, false);
+      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i), 
+                         spc + 2, flags, false);
+      pp_string (buffer, " = V_MAY_DEF <");
+      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i), 
+                         spc + 2, flags, false);
+      pp_string (buffer, ">;");
+      newline_and_indent (buffer, spc);
+    }
+
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree v_must_def = V_MUST_DEF_OP (v_must_defs, i);
+      pp_string (buffer, "#   V_MUST_DEF <");
+      dump_generic_node (buffer, v_must_def, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
@@ -2189,7 +2143,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
   if (!phi)
     return;
 
-  for (; phi; phi = TREE_CHAIN (phi))
+  for (; phi; phi = PHI_CHAIN (phi))
     {
       if (is_gimple_reg (PHI_RESULT (phi)) || (flags & TDF_VOPS))
         {
@@ -2227,7 +2181,8 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
    by INDENT spaces, with details given by FLAGS.  */
 
 static void
-dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent)
+dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
+		     int flags)
 {
   edge e;
 
@@ -2239,6 +2194,19 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent)
   if (e && e->dest != bb->next_bb)
     {
       INDENT (indent);
+
+      if ((flags & TDF_LINENO) && e->goto_locus)
+	{
+	  pp_character (buffer, '[');
+	  if (e->goto_locus->file)
+	    {
+	      pp_string (buffer, e->goto_locus->file);
+	      pp_string (buffer, " : ");
+	    }
+	  pp_decimal_int (buffer, e->goto_locus->line);
+	  pp_string (buffer, "] ");
+	}
+
       pp_cfg_jump (buffer, e->dest);
       pp_newline (buffer);
     }
@@ -2276,7 +2244,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
       pp_newline (buffer);
     }
 
-  dump_implicit_edges (buffer, bb, indent);
+  dump_implicit_edges (buffer, bb, indent, flags);
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent, flags);

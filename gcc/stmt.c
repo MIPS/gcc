@@ -382,7 +382,6 @@ static void expand_null_return_1 (rtx);
 static enum br_predictor return_prediction (rtx);
 static rtx shift_return_value (rtx);
 static void expand_value_return (rtx);
-static int tail_recursion_args (tree, tree);
 static void expand_cleanups (tree, int, int);
 static void check_seenlabel (void);
 static void do_jump_if_equal (rtx, rtx, rtx, int);
@@ -503,23 +502,8 @@ expand_computed_goto (tree exp)
   x = convert_memory_address (Pmode, x);
 
   emit_queue ();
-
-  if (! cfun->computed_goto_common_label)
-    {
-      cfun->computed_goto_common_reg = copy_to_mode_reg (Pmode, x);
-      cfun->computed_goto_common_label = gen_label_rtx ();
-
-      do_pending_stack_adjust ();
-      emit_label (cfun->computed_goto_common_label);
-      emit_indirect_jump (cfun->computed_goto_common_reg);
-
-      current_function_has_computed_jump = 1;
-    }
-  else
-    {
-      emit_move_insn (cfun->computed_goto_common_reg, x);
-      emit_jump (cfun->computed_goto_common_label);
-    }
+  do_pending_stack_adjust ();
+  emit_indirect_jump (x);
 }
 
 /* Handle goto statements and the labels that they can go to.  */
@@ -1468,7 +1452,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  && (allows_mem
 	      || is_inout
 	      || (DECL_P (val)
-		  && GET_CODE (DECL_RTL (val)) == REG
+		  && REG_P (DECL_RTL (val))
 		  && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type))))
 	lang_hooks.mark_addressable (val);
 
@@ -1530,8 +1514,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       if ((TREE_CODE (val) == INDIRECT_REF
 	   && allows_mem)
 	  || (DECL_P (val)
-	      && (allows_mem || GET_CODE (DECL_RTL (val)) == REG)
-	      && ! (GET_CODE (DECL_RTL (val)) == REG
+	      && (allows_mem || REG_P (DECL_RTL (val)))
+	      && ! (REG_P (DECL_RTL (val))
 		    && GET_MODE (DECL_RTL (val)) != TYPE_MODE (type)))
 	  || ! allows_reg
 	  || is_inout)
@@ -1640,7 +1624,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 		  else
 		    op = force_reg (TYPE_MODE (type), op);
 		}
-	      if (GET_CODE (op) == REG
+	      if (REG_P (op)
 		  || GET_CODE (op) == SUBREG
 		  || GET_CODE (op) == ADDRESSOF
 		  || GET_CODE (op) == CONCAT)
@@ -2113,7 +2097,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
       && warn_unused_value)
     {
       if (TREE_SIDE_EFFECTS (exp))
-	warn_if_unused_value (exp);
+	warn_if_unused_value (exp, emit_locus);
       else if (!VOID_TYPE_P (TREE_TYPE (exp)) && !TREE_NO_WARNING (exp))
 	warning ("%Hstatement with no effect", &emit_locus);
     }
@@ -2171,11 +2155,13 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
 }
 
 /* Warn if EXP contains any computations whose results are not used.
-   Return 1 if a warning is printed; 0 otherwise.  */
+   Return 1 if a warning is printed; 0 otherwise.  LOCUS is the 
+   (potential) location of the expression.  */
 
 int
-warn_if_unused_value (tree exp)
+warn_if_unused_value (tree exp, location_t locus)
 {
+ restart:
   if (TREE_USED (exp))
     return 0;
 
@@ -2184,6 +2170,9 @@ warn_if_unused_value (tree exp)
      to void.  */
   if (VOID_TYPE_P (TREE_TYPE (exp)))
     return 0;
+
+  if (EXPR_LOCUS (exp))
+    locus = *EXPR_LOCUS (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -2203,25 +2192,29 @@ warn_if_unused_value (tree exp)
 
     case BIND_EXPR:
       /* For a binding, warn if no side effect within it.  */
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = BIND_EXPR_BODY (exp);
+      goto restart;
 
     case SAVE_EXPR:
-      return warn_if_unused_value (TREE_OPERAND (exp, 0));
+      exp = TREE_OPERAND (exp, 0);
+      goto restart;
 
     case TRUTH_ORIF_EXPR:
     case TRUTH_ANDIF_EXPR:
       /* In && or ||, warn if 2nd operand has no side effect.  */
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = TREE_OPERAND (exp, 1);
+      goto restart;
 
     case COMPOUND_EXPR:
       if (TREE_NO_WARNING (exp))
 	return 0;
-      if (warn_if_unused_value (TREE_OPERAND (exp, 0)))
+      if (warn_if_unused_value (TREE_OPERAND (exp, 0), locus))
 	return 1;
       /* Let people do `(foo (), 0)' without a warning.  */
       if (TREE_CONSTANT (TREE_OPERAND (exp, 1)))
 	return 0;
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      exp = TREE_OPERAND (exp, 1);
+      goto restart;
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -2249,7 +2242,10 @@ warn_if_unused_value (tree exp)
       /* Don't warn about automatic dereferencing of references, since
 	 the user cannot control it.  */
       if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == REFERENCE_TYPE)
-	return warn_if_unused_value (TREE_OPERAND (exp, 0));
+	{
+	  exp = TREE_OPERAND (exp, 0);
+	  goto restart;
+	}
       /* Fall through.  */
 
     default:
@@ -2271,7 +2267,7 @@ warn_if_unused_value (tree exp)
       if (TREE_SIDE_EFFECTS (exp))
 	return 0;
 
-      warning ("%Hvalue computed is not used", &emit_locus);
+      warning ("%Hvalue computed is not used", &locus);
       return 1;
     }
 }
@@ -2334,7 +2330,7 @@ expand_end_stmt_expr (tree t)
       last_expr_alt_rtl = NULL_RTX;
       last_expr_type = void_type_node;
     }
-  else if (GET_CODE (last_expr_value) != REG && ! CONSTANT_P (last_expr_value))
+  else if (!REG_P (last_expr_value) && ! CONSTANT_P (last_expr_value))
     /* Remove any possible QUEUED.  */
     last_expr_value = protect_from_queue (last_expr_value, 0);
 
@@ -2668,39 +2664,6 @@ expand_return (tree retval)
 
   last_insn = get_last_insn ();
 
-  /* Distribute return down conditional expr if either of the sides
-     may involve tail recursion (see test below).  This enhances the number
-     of tail recursions we see.  Don't do this always since it can produce
-     sub-optimal code in some cases and we distribute assignments into
-     conditional expressions when it would help.  */
-
-  if (optimize && retval_rhs != 0
-      && frame_offset == 0
-      && TREE_CODE (retval_rhs) == COND_EXPR
-      && (TREE_CODE (TREE_OPERAND (retval_rhs, 1)) == CALL_EXPR
-	  || TREE_CODE (TREE_OPERAND (retval_rhs, 2)) == CALL_EXPR))
-    {
-      rtx label = gen_label_rtx ();
-      tree expr;
-
-      do_jump (TREE_OPERAND (retval_rhs, 0), label, NULL_RTX);
-      start_cleanup_deferral ();
-      expr = build (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (current_function_decl)),
-		    DECL_RESULT (current_function_decl),
-		    TREE_OPERAND (retval_rhs, 1));
-      TREE_SIDE_EFFECTS (expr) = 1;
-      expand_return (expr);
-      emit_label (label);
-
-      expr = build (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (current_function_decl)),
-		    DECL_RESULT (current_function_decl),
-		    TREE_OPERAND (retval_rhs, 2));
-      TREE_SIDE_EFFECTS (expr) = 1;
-      expand_return (expr);
-      end_cleanup_deferral ();
-      return;
-    }
-
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
 
   /* If the result is an aggregate that is being returned in one (or more)
@@ -2713,7 +2676,7 @@ expand_return (tree retval)
 
   if (retval_rhs != 0
       && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
-      && GET_CODE (result_rtl) == REG)
+      && REG_P (result_rtl))
     {
       int i;
       unsigned HOST_WIDE_INT bitpos, xbitpos;
@@ -2825,7 +2788,7 @@ expand_return (tree retval)
     }
   else if (retval_rhs != 0
 	   && !VOID_TYPE_P (TREE_TYPE (retval_rhs))
-	   && (GET_CODE (result_rtl) == REG
+	   && (REG_P (result_rtl)
 	       || (GET_CODE (result_rtl) == PARALLEL)))
     {
       /* Calculate the return value into a temporary (usually a pseudo
@@ -2848,114 +2811,6 @@ expand_return (tree retval)
       emit_queue ();
       expand_value_return (result_rtl);
     }
-}
-
-/* Attempt to optimize a potential tail recursion call into a goto.
-   ARGUMENTS are the arguments to a CALL_EXPR; LAST_INSN indicates
-   where to place the jump to the tail recursion label.
-
-   Return TRUE if the call was optimized into a goto.  */
-
-int
-optimize_tail_recursion (tree arguments, rtx last_insn)
-{
-  /* Finish checking validity, and if valid emit code to set the
-     argument variables for the new call.  */
-  if (tail_recursion_args (arguments, DECL_ARGUMENTS (current_function_decl)))
-    {
-      if (tail_recursion_label == 0)
-	{
-	  tail_recursion_label = gen_label_rtx ();
-	  emit_label_after (tail_recursion_label,
-			    tail_recursion_reentry);
-	}
-      emit_queue ();
-      expand_goto_internal (NULL_TREE, tail_recursion_label, last_insn);
-      emit_barrier ();
-      return 1;
-    }
-  return 0;
-}
-
-/* Emit code to alter this function's formal parms for a tail-recursive call.
-   ACTUALS is a list of actual parameter expressions (chain of TREE_LISTs).
-   FORMALS is the chain of decls of formals.
-   Return 1 if this can be done;
-   otherwise return 0 and do not emit any code.  */
-
-static int
-tail_recursion_args (tree actuals, tree formals)
-{
-  tree a = actuals, f = formals;
-  int i;
-  rtx *argvec;
-
-  /* Check that number and types of actuals are compatible
-     with the formals.  This is not always true in valid C code.
-     Also check that no formal needs to be addressable
-     and that all formals are scalars.  */
-
-  /* Also count the args.  */
-
-  for (a = actuals, f = formals, i = 0; a && f; a = TREE_CHAIN (a), f = TREE_CHAIN (f), i++)
-    {
-      if (!lang_hooks.types_compatible_p (TREE_TYPE (TREE_VALUE (a)), 
-	      TREE_TYPE (f)))
-	return 0;
-      if (GET_CODE (DECL_RTL (f)) != REG || DECL_MODE (f) == BLKmode)
-	return 0;
-    }
-  if (a != 0 || f != 0)
-    return 0;
-
-  /* Compute all the actuals.  */
-
-  argvec = alloca (i * sizeof (rtx));
-
-  for (a = actuals, i = 0; a; a = TREE_CHAIN (a), i++)
-    argvec[i] = expand_expr (TREE_VALUE (a), NULL_RTX, VOIDmode, 0);
-
-  /* Find which actual values refer to current values of previous formals.
-     Copy each of them now, before any formal is changed.  */
-
-  for (a = actuals, i = 0; a; a = TREE_CHAIN (a), i++)
-    {
-      int copy = 0;
-      int j;
-      for (f = formals, j = 0; j < i; f = TREE_CHAIN (f), j++)
-	if (reg_mentioned_p (DECL_RTL (f), argvec[i]))
-	  {
-	    copy = 1;
-	    break;
-	  }
-      if (copy)
-	argvec[i] = copy_to_reg (argvec[i]);
-    }
-
-  /* Store the values of the actuals into the formals.  */
-
-  for (f = formals, a = actuals, i = 0; f;
-       f = TREE_CHAIN (f), a = TREE_CHAIN (a), i++)
-    {
-      if (GET_MODE (DECL_RTL (f)) == GET_MODE (argvec[i]))
-	emit_move_insn (DECL_RTL (f), argvec[i]);
-      else
-	{
-	  rtx tmp = argvec[i];
-	  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (TREE_VALUE (a)));
-	  promote_mode(TREE_TYPE (TREE_VALUE (a)), GET_MODE (tmp),
-		       &unsignedp, 0);
-	  if (DECL_MODE (f) != GET_MODE (DECL_RTL (f)))
-	    {
-	      tmp = gen_reg_rtx (DECL_MODE (f));
-	      convert_move (tmp, argvec[i], unsignedp);
-	    }
-	  convert_move (DECL_RTL (f), tmp, unsignedp);
-	}
-    }
-
-  free_temp_slots ();
-  return 1;
 }
 
 /* Generate the RTL code for entering a binding contour.
@@ -3422,12 +3277,21 @@ expand_decl (tree decl)
 
       SET_DECL_RTL (decl, gen_reg_rtx (reg_mode));
 
+      /* Note if the object is a user variable.  */
       if (!DECL_ARTIFICIAL (decl))
-	mark_user_reg (DECL_RTL (decl));
+	{
+	  mark_user_reg (DECL_RTL (decl));
 
-      if (POINTER_TYPE_P (type))
-	mark_reg_pointer (DECL_RTL (decl),
-			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
+	  /* Trust user variables which have a pointer type to really
+	     be pointers.  Do not trust compiler generated temporaries
+	     as our type system is totally busted as it relates to
+	     pointer arithmetic which translates into lots of compiler
+	     generated objects with pointer types, but which are not really
+	     pointers.  */
+	  if (POINTER_TYPE_P (type))
+	    mark_reg_pointer (DECL_RTL (decl),
+			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
+	}
 
       maybe_set_unchanging (DECL_RTL (decl), decl);
 
@@ -3453,7 +3317,7 @@ expand_decl (tree decl)
       if (DECL_RTL_SET_P (decl))
 	{
 	  if (GET_CODE (DECL_RTL (decl)) != MEM
-	      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != REG)
+	      || !REG_P (XEXP (DECL_RTL (decl), 0)))
 	    abort ();
 	  oldaddr = XEXP (DECL_RTL (decl), 0);
 	}
@@ -3526,12 +3390,6 @@ expand_stack_alloc (tree alloc, tree t_size)
     abort ();
 
   type = TREE_TYPE (var);
-
-  /* In function-at-a-time mode, variable_size doesn't expand this,
-     so do it now.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
-    expand_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
-		 const0_rtx, VOIDmode, 0);
 
   /* Compute the variable's size, in bytes.  */
   size = expand_expr (t_size, NULL_RTX, VOIDmode, 0);
@@ -3789,7 +3647,7 @@ expand_anon_union_decl (tree decl, tree cleanup, tree decl_elts)
 	  else
 	    SET_DECL_RTL (decl_elt, adjust_address_nv (x, mode, 0));
 	}
-      else if (GET_CODE (x) == REG)
+      else if (REG_P (x))
 	{
 	  if (mode == GET_MODE (x))
 	    SET_DECL_RTL (decl_elt, x);
