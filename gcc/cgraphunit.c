@@ -1998,7 +1998,8 @@ cgraph_mark_nonexportable (void)
   struct cgraph_node *c_node;
   struct cgraph_varpool_node *current_varpool;
   tree var_decl;
-  
+  bool main_found = false;
+
   for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
        current_varpool = current_varpool->next_needed)
     {
@@ -2007,7 +2008,8 @@ cgraph_mark_nonexportable (void)
       if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
 	continue;
       
-      TREE_PUBLIC (var_decl) = 0;
+      if (! lookup_attribute ("global_export", DECL_ATTRIBUTES (var_decl)))
+	TREE_PUBLIC (var_decl) = 0;
     }
 
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
@@ -2018,11 +2020,16 @@ cgraph_mark_nonexportable (void)
 	  && (TREE_PUBLIC (fn_decl)))
 	{
 	  if (strcmp (IDENTIFIER_POINTER (DECL_NAME (fn_decl)), "main")
-	      != 0)
-	    TREE_PUBLIC (fn_decl) = 0;
+	      == 0)
+	    main_found = true;
+	  else
+	    if (! lookup_attribute ("global_export", DECL_ATTRIBUTES (fn_decl)))
+	      TREE_PUBLIC (fn_decl) = 0;
 	}
-
     }
+
+  if (!main_found)
+    internal_error ("No function 'main' found, with -fwhole-program flag.\n");
 }
 
 /* Perform simple optimizations based on callgraph.  */
