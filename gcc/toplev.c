@@ -3673,7 +3673,7 @@ rest_of_compilation (decl)
     }
 #endif
 
-#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+#ifdef HAVE_ATTR_length
   timevar_push (TV_SHORTEN_BRANCH);
   split_all_insns_noflow ();
   timevar_pop (TV_SHORTEN_BRANCH);

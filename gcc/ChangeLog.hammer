@@ -1,5 +1,8 @@
 Sun Mar  9 12:08:18 CET 2003  Jan Hubicka  <jh@suse.cz>
 
+	* toplev.c (rest_of_compilation): re-enable insn splitting after
+	reg-stack.
+
 	* callgraph.c (known_fns): Declare.
 	(cgraph_node): Add the decl into varray.
 	* function.c (known_fns): New static variable.
