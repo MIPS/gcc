@@ -3,12 +3,6 @@
 	* cgraphunit.c (cgraph_optimize): Do not do memory release
 	check if there have been errors.
 
-2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
-
-	PR/14362
-	* var-tracking.c (track_expr_p): Do not track variables which
-	should be ignored for debugging purposes.
-
 2004-03-03  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-phiopt.c (conditional_replacement): Clear EDGE_TRUE_VALUE
