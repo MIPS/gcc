@@ -1,3 +1,13 @@
+2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-loop-linear.c (gather_interchange_stats): Add more comments.
+	Gather also strides of accessed data.  Pass in the data references 
+	array.
+	(try_interchange_loops): Add a new heuristic for handling the temporal 
+	locality.  Pass in the data references array.
+	(linear_transform_loops): Pass the data references array to
+	try_interchange_loops.
+
 2004-09-02  Andreas Schwab  <schwab@suse.de>
 
 	* tree-loop-linear.c (linear_transform_loops): Fix call to
