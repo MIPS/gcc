@@ -1,3 +1,171 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15172
+	* typeck2.c (store_init_value): Use split_nonconstant_init even
+	for types that require construction.
+	
+2004-10-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17132
+	* pt.c (instantiate_class_template): Increment
+	processing_template_decl when substituting into a member class
+	template.
+
+2004-10-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18140
+	* parser.c (cp_parser_next_token_ends_template_argument_p): Do not
+	include ">>".
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/13560
+	* error.c (cp_error_at): Output the context as it might be
+	different file as the other location.
+
+2004-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18093
+	* search.c (current_scope): Return the innermost non-block scope,
+	not the innermost non-block, non-namespace scope.
+	(at_namespace_scope_p): Adjust accordingly.
+	(dfs_accessible_post): Do not pass namespaces to is_friend.
+	(dfs_walk_once_accessible_r): Likewise.
+	* decl.c (grokvardecl): Adjust call to current_scope.
+	(build_enumerator): Likewise.
+	* parser.c (cp_parser_using_declaration): Likewise.
+	(cp_parser_direct_declarator): Use at_namespace_scope_p instead of
+	current_scope.
+	(cp_parser_class_head): Adjust call to current_scope.
+	* name-lookup.c (do_namespace_alias): Set the DECL_CONTEXT for the
+	alias.
+
+	PR c++/18020
+	* pt.c (tusbst_copy_and_build): Resolve enumeration constants to
+	their underlying values.
+
+2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/16301
+	* name-lookup.c (parse_using_directive): If we have a
+	error_mark_node, do not set the decl namespace associations
+	on it.
+
+2004-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17976
+	* decl.c (cp_finish_decl): Do not call expand_static_init more
+	than once for a single variable.
+
+2004-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15786
+	* parser.c (cp_parser_declarator): Add member_p parameter. 
+	(cp_parser_condition): Adjust calls to cp_parser_declarator.
+	(cp_parser_explicit_instantiation): Likewise.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_direct_declarator): Add member_p parameter.  Do not
+	parse tentatively when parsing the parameters to a member.
+	(cp_parser_type_id): Adjust calls to cp_parser_declarator.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_member_declaration): Likewise.
+	(cp_parser_exception_declaration): Likewise.
+
+2004-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (finish_anon_union): Robustify.
+
+2004-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17393
+	* decl.c (grokdeclarator): Robustify error-recovery on invalid
+	declarations.
+
+2004-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17821
+	* parser.c (cp_parser_postfix_dot_deref_expression): If the
+	pseduo-destructor-name production does not work, fall back to the
+	ordinary production.
+
+	PR c++/17826
+	* tree.c (cp_tree_equal): Handle a BASELINK.
+
+2004-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17524
+	* cp-tree.h (check_var_type): New function.
+	* decl.c (check_var_type): New function, split out from ...
+	(grokdeclarator): ... here.
+	* pt.c (tsubst_decl): Use check_var_type.
+
+	PR c++/17685
+	* decl.c (grokdeclarator): Disallow declarations of operators as
+	non-functions.
+	
+2004-10-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/17868
+	* error.c (dump_expr): Add missing case for RDIV_EXPR.
+
+2004-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17829
+	* parser.c (cp_parser_postfix_expression): Inhibit Koenig when
+	unqualified lookup finds a member function.
+
+2004-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR driver/17537
+	* g++spec.c (lang_specific_driver): Unrecognized libraries, other
+	than -lc and -lm, may require linking against libstc++.
+
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17585
+	* cp-tree.h (shared_member_p): Declare.
+	* search.c (shared_member_p): Give it external linkage.
+	* semantics.c (finish_qualified_id_expr): Use it.
+	(finish_id_expression): Likewise.
+
+2004-09-22  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14179
+	* parser.c (cp_parser_initializer): Speed up parsing of simple
+	literals as initializers.
+
+2004-09-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14179
+	* decl.c (reshape_init): Extract array handling into...
+	(reshape_init_array): New function. Use integers instead of trees
+	for indices. Handle out-of-range designated initializers.
+
+2004-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17501
+	* parser.c (cp_parser_nested_name_specifier): Do not resolve
+	typename types if the user explicitly said "typename".
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16162
+	* parser.c (cp_parser_id_expression): Correct value for
+	is_declarator.
+	(cp_parser_nested_name_specifier_opt): Look through typenames as
+	necessary.
+	(cp_parser_template_name): Honor check_dependency_p.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17327
+	* pt.c (unify): Add ENUMERAL_TYPE case.  Replace sorry with
+	gcc_unreacable.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.

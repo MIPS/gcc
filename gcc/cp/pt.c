@@ -5512,14 +5512,28 @@ instantiate_class_template (tree type)
 	      tree tag = t;
 	      tree name = TYPE_IDENTIFIER (tag);
 	      tree newtag;
+	      bool class_template_p;
 
+	      class_template_p = (TREE_CODE (tag) != ENUMERAL_TYPE
+				  && TYPE_LANG_SPECIFIC (tag)
+				  && CLASSTYPE_IS_TEMPLATE (tag));
+	      /* If the member is a class template, then -- even after
+		 substituition -- there may be dependent types in the
+		 template argument list for the class.  We increment
+		 PROCESSING_TEMPLATE_DECL so that dependent_type_p, as
+		 that function will assume that no types are dependent
+		 when outside of a template.  */
+	      if (class_template_p)
+		++processing_template_decl;
 	      newtag = tsubst (tag, args, tf_error, NULL_TREE);
+	      if (class_template_p)
+		--processing_template_decl;
 	      if (newtag == error_mark_node)
 		continue;
 
 	      if (TREE_CODE (newtag) != ENUMERAL_TYPE)
 		{
-		  if (TYPE_LANG_SPECIFIC (tag) && CLASSTYPE_IS_TEMPLATE (tag))
+		  if (class_template_p)
 		    /* Unfortunately, lookup_template_class sets
 		       CLASSTYPE_IMPLICIT_INSTANTIATION for a partial
 		       instantiation (i.e., for the type of a member
@@ -6444,6 +6458,7 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	    type = complete_type (type);
 	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (r)
 	      = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (t);
+	    type = check_var_type (DECL_NAME (r), type);
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
@@ -6484,9 +6499,6 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	  register_local_specialization (r, t);
 
 	TREE_CHAIN (r) = NULL_TREE;
-	if (TREE_CODE (r) == VAR_DECL && VOID_TYPE_P (type))
-	  cp_error_at ("instantiation of `%D' as type `%T'", r, type);
-	/* Compute the size, alignment, etc. of R.  */
 	layout_decl (r, 0);
       }
       break;
@@ -8650,6 +8662,14 @@ tsubst_copy_and_build (tree t,
 			     tsubst_copy (TREE_TYPE (t), args, complain, 
 					  in_decl));
 
+    case CONST_DECL:
+      t = tsubst_copy (t, args, complain, in_decl);
+      /* As in finish_id_expression, we resolve enumeration constants
+	 to their underlying values.  */
+      if (TREE_CODE (t) == CONST_DECL)
+	return DECL_INITIAL (t);
+      return t;
+
     default:
       return tsubst_copy (t, args, complain, in_decl);
     }
@@ -9992,6 +10012,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case VECTOR_TYPE:
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
+    case ENUMERAL_TYPE:
     case VOID_TYPE:
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
@@ -10187,10 +10208,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	  else
 	    return 0;
 	}
-      else
-	sorry ("use of `%s' in template type unification",
-	       tree_code_name [(int) TREE_CODE (parm)]);
-
+      sorry ("use of `%s' in template type unification",
+	     tree_code_name [(int) TREE_CODE (parm)]);
       return 1;
     }
 }

@@ -1,3 +1,532 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/18129
+	* varasm.c (copy_constant): Don't copy STRING_CSTs if
+	flag_writable_strings.
+	(build_constant_desc): Call copy_constant unconditionally.
+
+2004-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17581
+	* cselib.c (cselib_process_insn): The last instruction of a libcall
+	block, with the REG_RETVAL note, should be considered in the libcall.
+	* gcse.c (do_local_cprop): Allow constants to be propagated outside
+	of libcall blocks.
+	(adjust_libcall_notes): Use simplify_replace_rtx instead of
+	replace_rtx to avoid creating invalid RTL in REG_RETVAL notes.
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/18186
+	* common.opt (--param): Fix spelling of parameter.
+
+2004-10-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("*subdf3_cc"): Replaced plus by minus.
+
+2004-10-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR bootstrap/15747
+	* doc/install.texi (mips-sgi-irix5): Document that /bin/sh has been
+	reported to hang during bootstrap and that CONFIG_SHELL=/bin/ksh
+	can be used to work around this.
+
+2004-10-26  Roger Sayle  <roger@eyesopen.com>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport 3.4 regression fix from mainline
+	* cse.c: Change encoding of quantity numbers to avoid undefined
+	pointer arithmetic on qty_table.
+	(REGNO_QTY_VALID_P): A quantity is now valid if it isn't negative.
+	(get_cse_reg_info): Initialize reg_qty to a unique negative value.
+	(new_basic_block): Assign "real" quantity numbers from zero.
+	(delete_reg_equiv): Do nothing if quantity is invalid.  Reset the
+	REG_QTY to its unique negative value.
+	(merge_equiv_classes): Calculate need_rehash if quantity is valid.
+	(cse_main): Don't include max_reg when determining max_qty.
+	(cse_basic_block): Avoid subtracting a large offset from qty_table,
+	which causes undefined C99 behaviour.  Only allocate needed memory.
+
+2004-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (rtl_for_decl_location): Avoid segfault if
+	DECL_INCOMING_RTL is NULL.
+
+2004-10-21  Eric Christopher  <echristo@redhat.com>
+
+	* config/rs6000/rs6000.c (setup_incoming_varargs): Align DFmode
+	saves.
+
+2004-10-22  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from the mainline:
+	2004-10-22  Peter Barada  <peter@the-baradas.com>
+	* config/m68k/m68k.h (HARD_REGNO_RENAME_OK): New macro.
+	* config/m68k/m68k.c (m68k_hard regno_rename_ok): Disallow
+	renaming of non-live registers in interrupt functions.
+	* config/m68k/m68k-protos.h (m68k_hard_regno_rename_ok): Add prototype.
+
+2004-10-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* config/arc/lib1funcs.asm (___umulsidi3): Fix typo.
+
+2004-10-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 18004.
+	* expmed.c (store_bit_field): Pass original 'value' before
+	recursing.
+
+2004-10-21  Ramana Radhakrishnan  <ramana.radhakrishnan@codito.com>
+
+	* config/arc/lib1funcs.asm (___umulsidi3): Correct usage of flags.
+
+	PR target/17317
+	* config/arc/arc.h (REGNO_OK_FOR_BASE_P,REGNO_OK_FOR_INDEX_P,
+	REG_OK_FOR_BASE, REG_OK_FOR_INDEX): Consider blink(r31) as a valid
+	base and index register for loads.
+
+	* config/arc/t-arc: Fix multilib handling.
+
+2004-10-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17684
+	* Makefile.in (clean): Remove libgcc_s$(SHLIB_EXT).1.stage?.
+	(stage1-start): Remove and copy libunwind.a and
+	libunwind*$(SHLIB_EXT) instead of libunwind*.
+	(stage2-start): Likewise.
+	(stage3-start): Likewise.
+	(stage4-start): Likewise.
+	(stageprofile-start): Likewise.
+	(stagefeedback-start): Likewise.
+
+	* config/alpha/t-osf4 (SHLIB_LINK): Use a temporary file for
+	the shared library to be created and don't remove the existing
+	shared library.
+	* config/arm/t-netbsd (SHLIB_LINK): Likewise.
+	* config/mips/t-iris5-6 (SHLIB_LINK): Likewise.
+	* config/pa/t-hpux-shlib (SHLIB_LINK): Likewise.
+	* config/sh/t-linux (SHLIB_LINK): Likewise.
+	* config/t-libunwind-elf (SHLIBUNWIND_LINK): Likewise.
+	* config/t-slibgcc-darwin (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-elf-ver (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-sld (SHLIB_LINK): Likewise.
+
+	* mklibgcc.in (libgcc-stage-start): Also move "*${objext}s"
+	files.
+
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (addqi_1_slp): Test for incdec_operand
+	operand 1 instead of 2
+
+2004-10-17  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/rs6000/sysv4.h (LINK_OS_FREEBSD_SPEC): Sync '-p' handling with
+	other FreeBSD platforms.
+
+2004-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR debug/14492
+	* dwarf2out.c (loc_descriptor_from_tree): Handle FIX_*_EXPR.
+
+2004-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR c/17023
+	* c-parse.in (compstmt_primary_start): Check last_tree non-null,
+	not current_function_decl non-null.
+
+2004-10-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/17361
+	* c-opts.c (c_common_init_options): Scan command line options for
+	"-lang-asm" and if found allow any of the C-family front-end options.
+	Likewise, scan all command line options for g77's -traditional-cpp.
+
+2004-10-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi (*-*-solaris2*): Update with info about kernel
+	patches to solve spurious testsuite failures.
+
+2004-10-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* dwarf2out.c (rtl_for_decl_location): Do not use MEM_P but use
+	GET_CODE == MEM.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+        PR debug/15860
+        * dwarf2out.c (rtl_for_decl_location): Apply big-endian correction
+        for DECL_INCOMING_RTL.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+	PR c/17384
+	* c-common.c (handle_mode_attribute): Disallow mode changes that
+	alter the CODE of the top-level type.
+
+	* crtstuff.c (__FRAME_END__): Remove mode attribute.  Find 32-bit
+	integer from internal limits macros.
+	* config/i386/emmintrin.h (__v2df): Fix base type.
+	* config/i386/xmmintrin.h (__m128, __v4sf): Likewise.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+	PR debug/13841
+	* function.c (instantiate_decl): Recurse for CONCAT.
+
+2004-10-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/14454
+	* config/sparc/sparc.c (TARGET_ASM_CAN_OUTPUT_MI_THUNK): Set to
+	sparc_can_output_mi_thunk.
+	(sparc_output_mi_thunk): Simplify handling of delta offset.  Add
+	handling of vcall offset.
+	(sparc_can_output_mi_thunk): New predicate.
+	* doc/tm.texi (TARGET_ASM_OUTPUT_MI_THUNK): Document VCALL_OFFSET.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Delete.
+	(TARGET_ASM_CAN_OUTPUT_MI_THUNK): New target hook.
+
+	* config/sparc/sparc.md (movdi): Remove redundant test.
+
+2004-10-12  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17503
+	* regclass.c (subregs_of_mode): Turn into an htab.  Make static.
+	(som_hash, som_eq): New.
+	(init_subregs_of_mode, record_subregs_of_mode): New.
+	(cannot_change_mode_set_regs): Rewrite for htab implementation.
+	(invalid_mode_change_p): Likewise.
+	* combine.c (gen_lowpart_for_combine): Use record_subregs_of_mode.
+	* flow.c (mark_used_regs): Likewise.
+	(life_analysis): Use init_subregs_of_mode.
+	* regs.h (subregs_of_mode): Remove.
+	* rtl.h (init_subregs_of_mode, record_subregs_of_mode): Declare.
+
+2004-10-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17853
+	* combine.c (combine_simplify_rtx): Don't attempt any simplifications
+	of vector mode comparison operators.
+	* cse.c (fold_rtx): Likewise.
+	* simplify-rtx.c (simplify_gen_relational):  Avoid calling
+	simplify_relational_operation with vector mode comparison operators.
+	(simplify_rtx): Likewise.
+
+2004-10-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/spe.h (atosfix16, atosfix32, atosfix64, atoufix16,
+	atoufix32, atoufix64, strtosfix16, strtosfix32, strtosfix64,
+	strtoufix16, strtoufix32, strtoufix64): Declare.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/16999
+	* c-ppoutput.c (cb_ident): Don't quote string as it is already
+	quoted.
+
+2004-10-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/17245
+	* config/sparc/sparc.c (input_operand): Remove redundant code
+	for handling LO_SUM.
+	(legitimate_address_p) <REG+REG>: Do not recheck TARGET_V9.
+	<LO_SUM>: If LO_SUM is offsettable, accept it for TFmode on V9.
+	Otherwise only accept it for TFmode if quad move insns are available.
+
+2004-10-07  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17115
+	* tree-inline.c (expand_call_inline): Do not warn for functions
+	marked with attribute noinline.
+
+2004-10-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (*-*-solaris2*): Fix marker for URL.
+
+2004-10-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/17770
+	* config/mips/mips.md (mov_lwl): Remove hazard=none attribute.
+
+2004-10-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/17027
+	Backport from mainline:
+	* cfglayout.c (fixup_fallthru_exit_predecessor): If the first block
+	falls through to exit, split it.
+	* cfgrtl.c (rtl_split_block): If no insn is specified, split on the
+	first insn in the basic block.
+
+2004-10-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.text (freorder-functions): Add a leading `.' to
+	"text.hot" and "text.unlikely" sections.
+
+2004-10-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16007
+	* doc/install.texi (*-*-solaris2*): Mention potential problem
+	with Sun assembler + GNU linker and C++ programs.
+	Document status of binutils 2.15 release.
+
+2004-10-06  Alan Modra  <amodra@bigpond.net.au>
+
+	PR 16406
+	* doc/tm.texi (LIBGCC_SPEC): Mention modifications.
+	(USE_LD_AS_NEEDED, LINK_EH_SPEC): Document.
+
+2004-10-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux.h (TARGET_C99_FUNCTIONS): Define.
+	(OS_MISSING_POWERPC64): Move, and comment.
+	* config/rs6000/linux64.h (TARGET_C99_FUNCTIONS): Define.
+	(OS_MISSING_POWERPC64): Move, and comment.
+
+2004-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy16.c (TARGET_BUILD_BUILTIN_VA_LIST_TYPE):
+	Fix typo in macro name, it should be: TARGET_BUILD_BUILTIN_VA_LIST.
+
+2004-09-30  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/qrnnd.asm: Mark for noexecstack.
+
+2004-09-30  Richard Henderson  <rth@redhat.com>
+
+	* unwind-dw2.c (_Unwind_GetGR): Honor DWARF_ZERO_REG.
+	* doc/tm.texi (DWARF_ZERO_REG): New.
+
+	* config/alpha/alpha.c (alpha_sa_mask, alpha_expand_prologue,
+	alpha_expand_epilogue): Revert 2003-09-30 change to store zero.
+	* config/alpha/alpha.h (DWARF_ZERO_REG): New.
+
+2004-09-29  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/17493
+	Backport from mainline
+	2004-07-16  Segher Boessenkool  <segher@kernel.crashing.org>
+	* config/rs6000/eabi.asm (__eabi_convert): Fix typo (cmpi vs. cmpwi).
+
+2004-09-28  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR target/14064
+	Backport from mainline
+	2004-09-01  James E Wilson  <wilson@specifixinc.com>
+	* config/avr/avr.c (avr_unique_section): Delete prototype and
+	definition.
+	(TARGET_ASM_UNIQUE_SECTION): Delete.
+
+2004-09-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/15526
+	Backport from mainline
+	2004-05-20  Falk Hueffner  <falk@debian.org>
+	* libgcc2.c (__mulvsi3): Fix overflow test.
+
+2004-09-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/9771
+	* regclass.c (CALL_REALLY_USED_REGNO_P): New macro to eliminate
+	conditional compilation in init_reg_sets_1.
+	(init_reg_sets_1): Let global_regs[i] take priority over the frame
+	(but not stack) pointer exceptions to regs_invalidated_by_call.
+	(globalize_reg): Globalizing a fixed register may need to update
+	regs_invalidated_by_call.
+
+2004-09-23  Denis Chertykov  <denisc@overta.ru>
+
+	PR target/16884
+	* config/avr/avr.md ("movmemhi"): Substitute match_dup to
+	match_scratch.
+	(*movmemqi_insn): Likewise.
+	(*movmemhi): Likewise.
+	(clrmemhi): Likewise.
+	(*clrmemqi): Likewise.
+	(*clrmemhi): Likewise.
+
+2004-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17369
+	* Makefile.in (@set_gcc_lib_path@): Added.
+
+	* configure.ac: Include ../config/gcc-lib-path.m4. Use
+	TL_AC_GNU_MAKE_GCC_LIB_PATH.
+	* configure: Regenerated.
+
+2004-09-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/16566
+	* c-typeck.c (build_component_ref): Don't special-case
+	COMPOUND_EXPR.
+
+2004-09-22  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	PR target/15583
+	* config/rs6000/rtems.h (TARGET_OS_CPP_BUILTINS): Add
+	builtin_define ("__USE_INIT_FINI__").
+
+2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/17565
+	* config/mips/mips.md (define_asm_attributes): Set can_delay to no.
+
+2004-09-15  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/17455
+	* config/ia64/ia64.c (ia64_function_ok_for_sibcall): Return false
+	if current_function_decl is a sibcall.
+
+2004-09-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Save
+	location of CR.
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Ditto.
+
+2004-09-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (sparc-sun-solaris2*): Properly format warning.
+
+2004-09-14  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17186
+	* function.c (expand_function_end): Revert last change.
+
+	* sibcall.c (call_ends_block_p): Fix thinko finding the
+	last real insn in a block.
+
+2004-09-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15498
+	* doc/invoke.texi (Environment Variables): Correct example locale.
+
+2004-09-14  Daniel Jacobowitz  <dan@debian.org>
+
+	* reload.c (find_reloads): Swap operand_loc pointers for
+	find_dummy_reload if we have swapped two operands.
+
+2004-09-13  Richard Henderson  <rth@redhat.com>
+
+	PR inline-asm/6806
+	* cselib.c (cselib_invalidate_rtx): Export.  Remove unused args.
+	(cselib_invalidate_rtx_note_stores): New.
+	(cselib_record_sets, cselib_process_insn): Update to match.
+	* cselib.h (cselib_invalidate_rtx): Declare.
+	* postreload.c (reload_cse_simplify): Invalidate asm clobbers.
+
+2004-09-11  Ramana Radhakrishnan <ramana.radhakrishnan@codito.com>
+
+	PR target/11476
+	* gcc/config/arc/arc.c (arc_va_args): Call build1 instead
+	of build for unary tree operators.
+
+2004-09-11  Andrew Pinski  <apinski@apple.com>
+
+	PR target/17167
+	backport from the mainline:
+	2004-02-28  Andrew Pinski  <pinskia@physics.uc.edu>
+	* config/darwin.h (machopic_finish): Output stub even if
+	the symbol is already defined.
+	2004-02-27  Dale Johannesen  <dalej@apple.com>
+	* config/darwin.c (machopic_output_possible_stub_label):
+	Remove.
+	config/darwin-protos.h:  Ditto.
+	config/darwin.h:  Remove call to it.
+
+2004-09-11  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/17277
+	* config/rs6000/aix.h (MD_FROB_UPDATE_CONTEXT): Use __64BIT__ to
+	choose 64-bit version.
+
+2004-09-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR 15886
+	Backport from mainline:
+	2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (ALLOCATE_INITIAL_VALUE): Use return_address_pointer_rtx.
+
+2004-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Correct alignment of
+	save_size.
+
+2004-09-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure: Regenerated.
+
+2004-09-08  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17186
+	* function.c (expand_function_end): Have fall-off-the-end
+	return path jump around return register setup.
+
+2004-09-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14925:
+	Makefile.in (LIB2ADDEHSTATIC): New.
+	(LIB2ADDEHSHARED): New.
+	(LIBUNWIND): New.
+	(LIBUNWINDDEP): New.
+	(SHLIBUNWIND_LINK): New.
+	(SHLIBUNWIND_INSTALL): New.
+	(libgcc.mk): Pass LIB2ADDEHSTATIC, LIB2ADDEHSHARED, LIBUNWIND,
+	LIBUNWINDDEP, SHLIBUNWIND_LINK and SHLIBUNWIND_INSTALL.
+	(clean): Remove libunwind*
+	(stage1-start): Remove and copy stage1/libunwind*.
+	(stage2-start): Remove and copy stage2/libunwind*.
+	(stage3-start): Remove and copy stage3/libunwind*.
+	(stage4-start): Remove and copy stage4/libunwind*.
+	(stageprofile-start): Remove and copy stageprofile/libunwind*.
+	(stagefeedback-start): Remove and copy stagefeedback/libunwind*.
+
+	* config.gcc (ia64*-*-linux*): Always add t-libunwind to
+	tmake_file. Add t-libunwind-elf and ia64/t-glibc-libunwind to
+	tmake_file if --with-system-libunwind isn't used.
+
+	* config/ia64/t-glibc-libunwind: New file.
+	* config/t-libunwind-elf: Likewise.
+	* unwind-compat.c: Likewise.
+	* unwind-compat.h: Likewise.
+	* unwind-dw2-fde-compat.c: Likewise.
+
+	* config/ia64/t-glibc (LIB2ADDEH): Updated.
+	* config/ia64/t-hpux (T_CFLAGS): Add -DUSE_LIBUNWIND_EXCEPTIONS.
+
+	* config/ia64/unwind-ia64.c: Include "unwind-compat.h". Define
+	aliases if needed.
+	* unwind-dw2-fde-glibc.c: Likewise.
+	* unwind-dw2.c: Likewise.
+
+	* config/t-libunwind (LIB2ADDEH): Updated.
+	(LIB2ADDEHSTATIC): New.
+	(T_CFLAGS): Add -DUSE_LIBUNWIND_EXCEPTIONS.
+	(TARGET_LIBGCC2_CFLAGS): Set to -DUSE_GAS_SYMVER.
+
+	* configure.ac: Change --enable-libunwind-exceptions to
+	--with-system-libunwind. Don't define USE_LIBUNWIND_EXCEPTIONS.
+	* configure: Regenerated.
+	* config.in: Updated.
+
+	* doc/install.texi (ia64-*-linux): Require libunwind 0.98 or
+	above and mention --with-system-libunwind.
+	(ia64-*-hpux*): Mention --enable-libunwind-exceptions is
+	removed in gcc 3.4.3 and later.
+
+	* gcc.c (init_spec): Add -lunwind to -lgcc_s if
+	USE_LIBUNWIND_EXCEPTIONS is defined.
+
+	* mklibgcc.in: Support libunwind.
+
+2004-09-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Restore pre-release marker.
+	* doc/include/gcc-common.texi: Set version to 3.4.3.
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.
@@ -53,9 +582,9 @@
 
 2004-09-01  Richard Henderson  <rth@redhat.com>
 
-        * config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
-        (TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
-                                                                                
+	* config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
+	(TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
+
 2004-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgcc-std.ver (GCC_3.4.2): Export also __trampoline_setup.
@@ -85,8 +614,8 @@
 
 2004-08-26  Richard Henderson  <rth@redhat.com>
 
-        * config/alpha/alpha.h (HARD_REGNO_MODE_OK): Allow complex float
-        modes.
+	* config/alpha/alpha.h (HARD_REGNO_MODE_OK): Allow complex float
+	modes.
 
 2004-08-26  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
 
@@ -125,7 +654,7 @@
 	one and two.
 
 2004-08-24  Richard Henderson  <rth@redhat.com>
-                                                                                
+
 	PR target/16298
 	* config/i386/i386.c (legitimate_constant_p): Rework to not accept
 	random codes within CONST.
@@ -181,9 +710,9 @@
 	* c-common.c (vector_size_helper): Remove; call
 	reconstruct_complex_type() instead.
 	* hooks.c (hook_constcharptr_tree_null): New hook.
-        * hooks.h (hook_constcharptr_tree_null): New prototype.
-        * target-def.h (TARGET_MANGLE_FUNDAMENTAL_TYPE): New target hook.
-        * target.h (mangle_fundamental_type): New target hook.
+	* hooks.h (hook_constcharptr_tree_null): New prototype.
+	* target-def.h (TARGET_MANGLE_FUNDAMENTAL_TYPE): New target hook.
+	* target.h (mangle_fundamental_type): New target hook.
 	* tree.c (reconstruct_complex_type): New function
 	(formerly vector_size_helper() in c-common.c).
 	(make_vector): Make externally visible.
@@ -237,16 +766,16 @@
 	(rs6000_common_init_builtins): Rename v4si_ftype_char, v8hi_ftype_char,
 	v16qi_ftype_char, v4sf_ftype_v4si_char, v4si_ftype_v4sf_char,
 	v4si_ftype_v4si_char, v8hi_ftype_v8hi_char, v16qi_ftype_v16qi_char,
-        v16qi_ftype_v16qi_v16qi_char, v8hi_ftype_v8hi_v8hi_char,
-        v4si_ftype_v4si_v4si_char and v4sf_ftype_v4sf_v4sf_char to
-        end in ..._int; change them to accept an int instead of a char
-        as the last parameter.
+	v16qi_ftype_v16qi_v16qi_char, v8hi_ftype_v8hi_v8hi_char,
+	v4si_ftype_v4si_v4si_char and v4sf_ftype_v4sf_v4sf_char to
+	end in ..._int; change them to accept an int instead of a char
+	as the last parameter.
 	(altivec_expand_dst_builtin): Treat expansion as completed even if
 	literal argument is invalid (so that other expansions are not tried
 	in vain).
 	(TARGET_MANGLE_FUNDAMENTAL_TYPE): Point target hook at
 	rs6000_mangle_fundamental_type.
-        (rs6000_mangle_fundamental_type): New function.
+	(rs6000_mangle_fundamental_type): New function.
 	* config/rs6000/rs6000.h (TARGET_OPTIONS): Describe
 	'-m[no-]-warn-altivec-long' (which '-W[no-]altivec-long-deprecated'
 	maps to).

@@ -2925,8 +2925,9 @@ have installed.
 IA-64 processor (also known as IPF, or Itanium Processor Family)
 running GNU/Linux.
 
-If you are using the optional libunwind library, then you must use
-libunwind 0.96 or later.
+If you are using the installed system libunwind library with
+@option{--with-system-libunwind}, then you must use libunwind 0.98 or
+later.
 
 None of the following versions of GCC has an ABI that is compatible
 with any of the other versions in this list, with the exception that
@@ -2948,6 +2949,8 @@ the option @option{--with-gnu-as} may be necessary.
 The GCC libunwind library has not been ported to HPUX. This means that for
 GCC versions 3.2.3 and earlier, @option{--enable-libunwind-exceptions}
 is required to build GCC. For GCC 3.3 and later, this is the default.
+For gcc 3.4.3 and later, @option{--enable-libunwind-exceptions} is
+removed and the system libunwind library will always be used.
 
 @html
 <hr />
@@ -3212,6 +3215,16 @@ later, and use the @option{--with-gnu-as} and @option{--with-gnu-ld}
 @command{configure} options when configuring GCC@.  You need to use GNU
 @command{ar} and @command{nm}, also distributed with GNU binutils.
 
+Some users have reported that @command{/bin/sh} will hang during bootstrap.
+This problem can be avoided by running the commands:
+
+@smallexample
+   % CONFIG_SHELL=/bin/ksh
+   % export CONFIG_SHELL
+@end smallexample
+
+before starting the build.
+
 @html
 <hr />
 @end html
@@ -3448,8 +3461,19 @@ have @file{/usr/xpg4/bin} in your @env{PATH}, we recommend that you place
 @file{/usr/bin} before @file{/usr/xpg4/bin} for the duration of the build.
 
 All releases of GNU binutils prior to 2.11.2 have known bugs on this
-platform.  We recommend the use of GNU binutils 2.11.2 or the vendor
-tools (Sun @command{as}, Sun @command{ld}).
+platform.  We recommend the use of GNU binutils 2.11.2 or later, or the
+vendor tools (Sun @command{as}, Sun @command{ld}).  Note that your mileage
+may vary if you use a combination of the GNU tools and the Sun tools: while
+the combination GNU @command{as} + Sun @command{ld} should reasonably work,
+the reverse combination Sun @command{as} + GNU @command{ld} is known to
+cause memory corruption at runtime in some cases for C++ programs.
+
+The stock GNU binutils 2.15 release is broken on this platform because of a
+single bug.  It has been fixed on the 2.15 branch in the CVS repository.
+You can obtain a working version by checking out the binutils-2_15-branch
+from the CVS repository or applying the patch
+@uref{http://sources.redhat.com/ml/binutils-cvs/2004-09/msg00036.html} to the
+release.
 
 Sun bug 4296832 turns up when compiling X11 headers with GCC 2.95 or
 newer: @command{g++} will complain that types are missing.  These headers assume
@@ -3464,6 +3488,17 @@ There are patches for Solaris 2.6 (105633-56 or newer for SPARC,
 106248-42 or newer for Intel), Solaris 7 (108376-21 or newer for SPARC,
 108377-20 for Intel), and Solaris 8 (108652-24 or newer for SPARC,
 108653-22 for Intel) that fix this bug.
+
+Sun bug 4927647 sometimes causes random spurious testsuite failures
+related to missing diagnostic output.  This bug doesn't affect GCC
+itself, rather it is a kernel bug triggered by the @command{expect}
+program which is used only by the GCC testsuite driver.  When the bug
+causes the @command{expect} program to miss anticipated output, extra
+testsuite failures appear.
+
+There are patches for Solaris 8 (117350-12 or newer for SPARC,
+117351-12 or newer for Intel) and Solaris 9 (117171-11 or newer for
+SPARC, 117172-11 or newer for Intel) that address this problem.
 
 @html
 <hr />
@@ -3517,11 +3552,16 @@ GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
 assembler, this change apparently runs afoul of Sun bug 4910101, for
 which (as of 2004-05-23) there is no fix.  A symptom of the problem is
 that you cannot compile C++ programs like @command{groff} 1.19.1
-without getting messages like @samp{ld: warning: relocation error:
-R_SPARC_UA32 @dots{} external symbolic relocation against
-non-allocatable section .debug_info; cannot be processed at runtime:
-relocation ignored}.  To work around this problem, compile with
-@option{-gstabs+} instead of plain @option{-g}.
+without getting messages similar to the following:
+
+@smallexample
+ld: warning: relocation error: R_SPARC_UA32: @dots{}
+  external symbolic relocation against non-allocatable section
+  .debug_info cannot be processed at runtime: relocation ignored.
+@end smallexample
+
+To work around this problem, compile with @option{-gstabs+} instead of
+plain @option{-g}.
 
 @html
 <hr />

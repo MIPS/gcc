@@ -1,3 +1,7 @@
+2004-12-30  Paul Brook  <paul@codesourcery.com>
+
+	Merge from GCC 3.4.3 release.
+
 2004-12-17  Paul Brook  <paul@codesourcery.com>
 
 	* libstdc++/libsupc++/eh_arm.cc (__cxa_begin_cleanup): Add exception

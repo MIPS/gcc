@@ -3748,6 +3748,7 @@ extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern tree cxx_builtin_type_decls              (void);
 extern void warn_extern_redeclared_static (tree, tree);
 extern const char *cxx_comdat_group (tree);
+extern tree check_var_type                      (tree, tree);
 
 extern bool have_extern_spec;
 
@@ -4035,6 +4036,7 @@ extern tree adjust_result_of_qualified_name_lookup
                                                 (tree, tree, tree);
 extern tree copied_binfo			(tree, tree);
 extern tree original_binfo			(tree, tree);
+extern int shared_member_p                      (tree);
 
 /* in semantics.c */
 extern void push_deferring_access_checks	(deferring_kind);

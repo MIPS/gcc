@@ -1487,6 +1487,7 @@ dump_expr (tree t, int flags)
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
+    case RDIV_EXPR:
       dump_binary_op ("/", t, flags);
       break;
 
@@ -2405,6 +2406,9 @@ cp_error_at (const char *msgid, ...)
   va_end (ap);
 
   va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap,
+                       input_location, DK_ERROR);
+  cp_diagnostic_starter (global_dc, &diagnostic);
   diagnostic_set_info (&diagnostic, msgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);

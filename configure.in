@@ -248,8 +248,8 @@ esac
 
 # If both --with-headers and --with-libs are specified, default to
 # --without-newlib.
-if test x"${with_headers}" != x && test x"${with_headers} != xno \
-   && test x"${with_libs}" != x && test x"${with_libs} != xno ; then
+if test x"${with_headers}" != x && test x"${with_headers}" != xno \
+   && test x"${with_libs}" != x && test x"${with_libs}" != xno ; then
   if test x"${with_newlib}" = x ; then
     with_newlib=no
   fi
@@ -1615,10 +1615,25 @@ case "${host}" in
   ;;
 esac
 
+# If no --enable-shared nor --disable-shared is specified, we set up
+# LD_LIBRARY_PATH when we build for gcc.
+case $enable_shared in
+"")
+  if test -d ${srcdir}/gcc; then
+    set_lib_path=yes
+  else 
+    set_lib_path=no
+  fi
+  ;;
+*)
+  set_lib_path=$enable_shared
+  ;;
+esac
+
 # If --enable-shared was set, we must set LD_LIBRARY_PATH so that the
 # binutils tools will find libbfd.so.
-case "${enable_shared}" in
-  no | "") SET_LIB_PATH= ;;
+case "${set_lib_path}" in
+  no) SET_LIB_PATH= ;;
   *) SET_LIB_PATH="\$(REALLY_SET_LIB_PATH)" ;;
 esac
 
@@ -2147,5 +2162,25 @@ else
 fi	
 MAINT=$MAINTAINER_MODE_TRUE
 AC_SUBST(MAINT)dnl
+
+# If gcc is built natively with shared library enabled, set
+# $RPATH_ENVVAR to make sure the newly built gcc shared librares are
+# used.
+SET_GCC_LIB_PATH=
+if test -d ${srcdir}/gcc && test x${is_cross_compiler} = xno; then
+  case "${set_lib_path}" in
+    no) ;;
+    *)
+      eval "d=\$$RPATH_ENVVAR"
+      if test x"$d" != x; then
+	d="$pwd/gcc:$d"
+      else
+	d="$pwd/gcc"
+    fi
+    SET_GCC_LIB_PATH="\$(RPATH_ENVVAR)=$d; export \$(RPATH_ENVVAR);"
+    ;;
+  esac
+fi
+AC_SUBST(SET_GCC_LIB_PATH)
 
 AC_OUTPUT(Makefile)
