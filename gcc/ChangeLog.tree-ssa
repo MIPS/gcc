@@ -1,5 +1,9 @@
 2002-10-20  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-dfa.c (ref_type_name): E_* don't have these modifier
+	fields, but may have the same bits set, so don't print the
+	modifiers on them.
+
 	* gimplify.c (create_tmp_var): New function, wraps calls to
 	create_tmp_var_1 with pushing/popping of right context.
 	All internal gimplify.c now use create_tmp_var_1.

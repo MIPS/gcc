@@ -1580,13 +1580,18 @@ ref_type_name (ref)
 	        : type == E_KILL ? "E_KILL"
 	        : "???",
 	   max);
-
+  
+  if (ref_type (ref) == E_USE 
+      || ref_type (ref) == E_KILL
+      || ref_type (ref) == E_PHI)
+    return str;
+  
   if (is_default_def (ref))
     strncat (str, "/default", max - strlen (str));
 
   if (is_may_ref (ref))
     strncat (str, "/may", max - strlen (str));
-
+  
   if (is_partial_ref (ref))
     strncat (str, "/partial", max - strlen (str));
 
