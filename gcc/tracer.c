@@ -45,6 +45,21 @@
 static int cmpblocks			PARAMS ((const void *a, const void *b));
 static void layout_traces		PARAMS ((void));
 static void construct_traces		PARAMS ((void));
+static int count_insns			PARAMS ((basic_block));
+
+/* Return number of instructions in the block.  */
+static int
+count_insns (bb)
+     basic_block bb;
+{
+  rtx insn;
+  int n = 0;
+
+  for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+    if (active_insn_p (insn))
+      n++;
+  return n;
+}
 
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
@@ -102,9 +117,13 @@ construct_traces ()
   basic_block *blocks = xmalloc (sizeof (basic_block) * n_basic_blocks);
   int i;
   int numblocks = n_basic_blocks;
+  int ninsns = 0, nduplicated = 0;
 
   for (i = 0; i < numblocks; i++)
     blocks [i] = BASIC_BLOCK (i);
+
+  for (i = 0; i < n_basic_blocks; i++)
+    ninsns += count_insns (BASIC_BLOCK (i));
  
   qsort (blocks, numblocks, sizeof (basic_block), cmpblocks);
 
@@ -112,13 +131,35 @@ construct_traces ()
     {
       basic_block bb = blocks [i];
 
-      if (!seen (bb))
+      while (!seen (bb))
 	{
 	  edge e;
-	  basic_block seed = bb;
+	  bool found = 0;
 
 	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Trace seed %i forward:\n", bb->index);
+	    fprintf (rtl_dump_file, "Trace seed %i", bb->index);
+
+	  /* Look backward for the start of trace.  */
+	  while ((e = find_best_predecessor (bb)) != NULL)
+	    {
+	      basic_block bb2 = e->src;
+	      if (find_best_successor (bb2) != e
+		  || bb2 == ENTRY_BLOCK_PTR
+		  || seen (bb2)
+		  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
+		break;
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file, " %i", bb2->index);
+	      bb = bb2;
+	    }
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "\n");
+
+	  /* Follow the trace doing duplication during process if needed.
+	     ??? This may trace terminate earlier than the loop above
+	     expects.  The Hwu algorithm first finds whole trace and then
+	     duplicates it, but this looks like more fair heuristics
+	     (definitly resulting in fewer duplicates).  */
 	  while ((e = find_best_successor (bb)) != NULL)
 	    {
 	      basic_block bb2 = e->dest;
@@ -129,52 +170,28 @@ construct_traces ()
 		break;
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "   %i", bb2->index);
-	      if (bb2->pred && bb2->pred->pred_next)
+	      if (bb2->pred && bb2->pred->pred_next
+		  && cfg_layout_can_duplicate_bb_p (bb2))
 		{
 		  if (rtl_dump_file)
 		    fprintf (rtl_dump_file, " (duplicated)\n");
-		  if (!cfg_layout_can_duplicate_bb_p (bb2))
-		    break;
 		  bb2 = cfg_layout_duplicate_bb (bb2, e);
 		}
 	      else if (rtl_dump_file)
 		fprintf (rtl_dump_file, "\n");
+	      found = 1;
 	      RBI (bb)->next = bb2;
 	      RBI (bb2)->visited = 1;
 	      bb = bb2;
+	      nduplicated += count_insns (bb2);
 	    }
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, " backward\n");
-
-	  bb = seed;
-	  while ((e = find_best_predecessor (bb)) != NULL)
-	    {
-	      basic_block bb2 = e->src;
-	      if (find_best_successor (bb2) != e
-		  || bb2 == ENTRY_BLOCK_PTR
-		  || seen (bb2)
-		  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
-		break;
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "  %i", bb2->index);
-	      if (bb->pred && bb->pred->pred_next)
-		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "(duplicated)\n");
-		  if (!cfg_layout_can_duplicate_bb_p (bb))
-		    break;
-		  bb = cfg_layout_duplicate_bb (bb, e);
-		}
-	      else if (rtl_dump_file)
-		fprintf (rtl_dump_file, "\n");
-	      RBI (bb2)->next = bb;
-	      RBI (bb)->visited = 1;
-	      bb = bb2;
-	    }
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "\n");
+	  if (!found)
+	    break;
 	}
     }
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "Duplicated %i insns (%i%%)\n", nduplicated,
+	     nduplicated * 100 / ninsns);
 
   free (blocks);
 }
