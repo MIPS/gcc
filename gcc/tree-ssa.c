@@ -261,8 +261,7 @@ search_fud_chains (bb, idom)
              CurrDef(SYM) = R
          endif
      endfor  */
-  if (BB_REFS (bb))
-    FOR_EACH_REF (ref, tmp, BB_REFS (bb))
+  FOR_EACH_REF (ref, tmp, BB_REFS (bb))
     {
       varref currdef;
       tree sym = VARREF_SYM (ref);
@@ -315,13 +314,15 @@ search_fud_chains (bb, idom)
 	  tree sym;
 	  varref currdef;
 	
-
 	  if (VARREF_TYPE (phi) != VARPHI)
 	    continue;
 
 	  sym = VARREF_SYM (phi);
 	  currdef = TREE_CURRDEF (sym);
 
+	  /* Besides storing the incoming definition CURRDEF, we also store
+	     BB, which is the basic block that we are receiving
+	     CURRDEF from.   */
 	  if (currdef)
 	    {
 	      VARRAY_PUSH_GENERIC_PTR (VARDEF_PHI_CHAIN (phi), currdef);

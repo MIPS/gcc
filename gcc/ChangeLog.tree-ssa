@@ -1,3 +1,78 @@
+2002-08-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (EDGE_TRUE_VALUE): Define.
+	(EDGE_FALSE_VALUE): Define.
+	* tree-cfg.c: Include c-tree.h.
+	(make_for_stmt_edges): Call simple_cst_equal to determine infinite
+	and zero iteration loops.
+	Set EDGE_TRUE_VALUE and EDGE_FALSE_VALUE to edges coming out of
+	predicate block.
+	(make_while_stmt_edges): Ditto.
+	(make_do_stmt_edges): Ditto.
+	(make_if_stmt_edges): Set EDGE_TRUE_VALUE and EDGE_FALSE_VALUE to
+	edges coming out of predicate block.
+
+	* c-simplify.c (simplify_compound_lval): Unshare the compound
+	reference before simplification.
+
+	* tree-cfg.c (insert_before_ctrl_stmt): Call print_c_node instead of
+	print_node_brief.
+	(insert_before_normal_stmt): Ditto.
+	(insert_after_ctrl_stmt): Ditto.
+	(insert_after_normal_stmt): Ditto.
+	(insert_after_loop_body): Ditto.
+	(replace_expr_in_tree): Ditto.
+	(tree_dump_bb): Ditto.
+
+	* tree-dfa.c: Include c-tree.h
+	(next_varref_id): New global variable.
+	(tree_find_varrefs): Initialize it to 0.
+	(create_ref): Increment it after creating a new reference.  Store
+	it in ref.common.id. 
+	Add the new reference to the list of references for the containing
+	expression.
+	(dump_varref): Show the reference ID.
+	* tree-flow.h (treeref_common): Add field 'id'.
+	(VARREF_ID): Define.
+
+	* tree-dump.c (dump_files): Re-order dump files.
+	* tree.h (tree_dump_index): Ditto.
+
+	* tree-optimize.c (optimize_function_tree): Remove blank lines.
+
+	* tree-simple.c: Remove unary operator '!' from grammar.
+
+	* tree-flow.h (tree_ann_def): Add field 'flags'.
+	(TF_FOLD): Define.
+	(TREE_ANN): Re-define into an lvalue.
+	(BB_FOR_STMT): Ditto.
+	(TREE_CURRDEF): Ditto.
+	(next_varref_id): Declare.
+	* tree-ssa-ccp.c: Include tree-simple.h
+	(ssa_edges): Convert sbitmap into varray_type.  Update all uses.
+	(decl_map): Remove.
+	(SSA_NAME): Use VARREF_ID instead of DECL_UID.
+	(visit_assignment): New function.
+	(evaluate_expr_for): New function.
+	(dump_lattice_value): New function.
+	(tree_ssa_ccp): Add debugging dumps.
+	Remove #if 0 code everywhere.
+	(visit_phi_node): Add debugging dumps.
+	Also visit PHI arguments.
+	Remove basic block argument
+	(visit_expression): Re-implement.
+	(examine_flow_edges): Add debugging dumps.
+	(ssa_ccp_substitute_constants): Add debugging dumps.
+	Update comments.
+	Mark and fold expressions with substituted constants.
+	* tree-ssa.c (search_fud_chains): Don't check if BB_REFS(bb) is
+	empty before iterating.
+	Add comment explaining how we chain PHI node arguments to their
+	originating basic block.
+
+	* Makefile.in (tree-cfg.o, tree-dfa.o, tree-ssa-ccp.o): Update 
+	dependencies.
+
 2002-07-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (tree_perform_ssapre): Ben forgot to add a

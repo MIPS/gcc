@@ -33,9 +33,11 @@ union varref_def;
 
 
 /* Common features of every variable reference.  */
-
 struct treeref_common
 {
+  /* Reference ID.  Unique within a single function.  */
+  unsigned int id;
+
   /* Base symbol.  */
   tree sym;
 
@@ -50,7 +52,6 @@ struct treeref_common
 
   /* Reference type.  */
   enum treeref_type type;
-
 };
 
 
@@ -74,7 +75,9 @@ struct exprref_common
   unsigned int class;
 };
 
+
 /* Expression PHI's */
+
 struct exprphi
 {
   struct exprref_common common;
@@ -100,6 +103,7 @@ struct exprphi
      various algorithms.  */
   bitmap processed;
 };
+
 #define EXPRPHI_PHI_CHAIN(r) (r)->ephi.phi_chain
 #define EXPRPHI_DOWNSAFE(r) (r)->ephi.downsafe
 #define EXPRPHI_CANBEAVAIL(r) (r)->ephi.can_be_avail
@@ -108,14 +112,15 @@ struct exprphi
 #define EXPRPHI_PROCESSED(r) (r)->ephi.processed
 #define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
-/* Doubly linked list of variable references.  */
 
+/* Doubly linked list of variable references.  */
 struct ref_list_node
 {
   union varref_def *ref;
   struct ref_list_node *prev;
   struct ref_list_node *next;
 };
+
 struct ref_list_priv
 {
   struct ref_list_node *first;
@@ -125,7 +130,6 @@ typedef struct ref_list_priv *ref_list;
 
 
 /* Variable definitions.  */
-
 struct vardef
 {
   struct treeref_common common;
@@ -145,12 +149,11 @@ struct vardef
   /* PHI arguments (not used with real definitions).  */
   varray_type phi_chain;
   
-  /* PHI argument BB's 
-     This is which bb this argument reaches us from, *not* which bb
-     the argument is *in*.  */
+  /* PHI argument's BB.  This field indicates the basic block that this
+     argument is reaching us from.  It does *not* indicate which block this
+     argument is *in*.  */
   varray_type phi_chain_bb;
 };
-
 
 #define VARDEF_IMM_USES(r) (r)->def.imm_uses
 #define VARDEF_SAVE_CHAIN(r) (r)->def.save_chain
@@ -161,7 +164,6 @@ struct vardef
 
 
 /* Variable uses.  */
-
 struct varuse
 {
   struct exprref_common common;
@@ -178,7 +180,6 @@ struct varuse
 
 
 /* Expressions uses.  */
-
 struct expruse
 {
   struct exprref_common common;
@@ -200,7 +201,6 @@ struct expruse
 
 
 /* Generic variable reference structure.  */
-
 union varref_def
 {
   struct treeref_common common;
@@ -213,6 +213,7 @@ union varref_def
 
 typedef union varref_def *varref;
 
+#define VARREF_ID(r) (r)->common.id
 #define VARREF_TYPE(r) (r)->common.type
 #define VARREF_BB(r) (r)->common.bb
 #define VARREF_EXPR(r) (r)->common.expr
@@ -240,13 +241,14 @@ typedef union varref_def *varref;
 
 
 /* Tree annotations stored in tree_common.aux.  */
-
 struct tree_ann_def
 {
   /* Basic block that contains this tree.  */
   basic_block bb;
 
-  /* For _DECL trees, list of references made to this variable.  */
+  /* For _DECL trees, list of references made to this variable.  For _STMT
+     trees, list of references made in this statement.  For any other
+     SIMPLE expression, list of references made in this expression.  */
   ref_list refs;
 
   /* Most recent definition for this symbol.  Used when placing FUD
@@ -255,28 +257,25 @@ struct tree_ann_def
 
   /* Immediately enclosing compound statement to which this tree belongs.  */
   tree compound_stmt;
+
+  /* Flags used to mark optimization-dependent state.  See TF_* below.  */
+  int flags;
 };
+
+#define TF_FOLD		1	/* Expression tree should be folded.  */
+
 
 typedef struct tree_ann_def *tree_ann;
 
-#define TREE_ANN(NODE)		\
-    ((tree_ann)((NODE)->common.aux))
-
-#define BB_FOR_STMT(NODE)	\
-    ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->bb : NULL)
-
-#define TREE_CURRDEF(NODE) 	\
-    ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->currdef : NULL)
-
-#define TREE_REFS(NODE)		\
-    ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->refs : NULL)
-
-#define TREE_COMPOUND_STMT(NODE)\
-    ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->compound_stmt : NULL)
+#define TREE_ANN(NODE)		((tree_ann)((NODE)->common.aux))
+#define BB_FOR_STMT(NODE)	TREE_ANN (NODE)->bb
+#define TREE_CURRDEF(NODE) 	TREE_ANN (NODE)->currdef
+#define TREE_REFS(NODE)		TREE_ANN (NODE)->refs
+#define TREE_COMPOUND_STMT(NODE) TREE_ANN (NODE)->compound_stmt
+#define TREE_FLAGS(NODE)	TREE_ANN (NODE)->flags
 
 
 /* Block annotations stored in basic_block.aux.  */
-
 struct for_header_blocks
 {
   basic_block for_init_stmt_bb;
@@ -350,16 +349,16 @@ typedef struct bb_ann_def *bb_ann;
 /* Global declarations.  */
 
 /* Nonzero to warn about variables used before they are initialized.  */
-
 extern int tree_warn_uninitialized;
 
-
 /* Array of all symbols referenced in the function.  */
-
 extern varray_type referenced_symbols;
 
-/* Accessor macros for referenced_symbols array.  */
+/* Next unique reference ID to be assigned by create_ref().  */
+extern unsigned int next_varref_id;
 
+
+/* Accessor macros for referenced_symbols array.  */
 #define NREF_SYMBOLS		VARRAY_ACTIVE_SIZE (referenced_symbols)
 #define REF_SYMBOL(N)		VARRAY_TREE (referenced_symbols, (N))
 #define ADD_REF_SYMBOL(T)	VARRAY_PUSH_TREE (referenced_symbols, (T));
@@ -437,6 +436,5 @@ extern void delete_ssa PARAMS ((void));
 
 /* Functions in tree-alias-steen.c  */
 extern void create_alias_vars PARAMS ((void));
-
 
 #endif /* _TREE_FLOW_H  */

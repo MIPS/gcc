@@ -1366,6 +1366,9 @@ simplify_compound_lval (expr_p, pre_p, post_p)
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 
+  /* Unshare the reference.  */
+  walk_tree (expr_p, copy_tree_r, NULL, NULL);
+
   /* Create a stack with all the array dimensions so that they can be
      simplified from left to right (to match user expectations).  */
   VARRAY_GENERIC_PTR_INIT (dim_stack, 10, "dim_stack");

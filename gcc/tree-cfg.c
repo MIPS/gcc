@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
+#include "c-tree.h"
 
 /* Local declarations.  */
 
@@ -792,19 +793,19 @@ make_for_stmt_edges (bb)
        of the body nor make a back edge from the latch block.  */
 
   infinite_loop = (FOR_COND (entry) == NULL
-                   || (TREE_CODE (FOR_COND (entry)) == INTEGER_CST
-		       && FOR_COND (entry) != integer_zero_node));
+                   || simple_cst_equal (FOR_COND (entry),
+		                        integer_one_node) == 1);
 
-  zero_iter_loop = (FOR_COND (entry) == integer_zero_node);
+  zero_iter_loop = simple_cst_equal (FOR_COND (entry), integer_zero_node) == 1;
 
   if (!zero_iter_loop)
     {
-      make_edge (cond_bb, body_bb, 0);
+      make_edge (cond_bb, body_bb, EDGE_TRUE_VALUE);
       make_edge (expr_bb, cond_bb, 0);
     }
 
   if (!infinite_loop)
-    make_edge (cond_bb, successor_block (bb), 0);
+    make_edge (cond_bb, successor_block (bb), EDGE_FALSE_VALUE);
 }
 
 
@@ -850,19 +851,17 @@ make_while_stmt_edges (bb)
      - For zero-iteration loops, do not make an edge into the first block
        of the body nor make a back edge from the latch block.  */
 
-  infinite_loop = (TREE_CODE (WHILE_COND (entry)) == INTEGER_CST
-                   && WHILE_COND (entry) != integer_zero_node);
-
-  zero_iter_loop = (WHILE_COND (entry) == integer_zero_node);
+  infinite_loop = simple_cst_equal (WHILE_COND (entry), integer_one_node) == 1;
+  zero_iter_loop = simple_cst_equal (WHILE_COND (entry), integer_zero_node) == 1;
 
   if (!zero_iter_loop)
     {
-      make_edge (bb, body_bb, 0);
+      make_edge (bb, body_bb, EDGE_TRUE_VALUE);
       make_edge (end_bb, bb, 0);
     }
 
   if (!infinite_loop)
-    make_edge (bb, successor_block (bb), 0);
+    make_edge (bb, successor_block (bb), EDGE_FALSE_VALUE);
 }
 
 
@@ -910,16 +909,14 @@ make_do_stmt_edges (bb)
      - For one-iteration loops (i.e., 'do {} while (0);'), do not make a
        back edge to the beginning of the loop.  */
 
-  infinite_loop = (TREE_CODE (DO_COND (entry)) == INTEGER_CST
-                   && DO_COND (entry) != integer_zero_node);
-
-  one_iter_loop = (DO_COND (entry) == integer_zero_node);
+  infinite_loop = simple_cst_equal (DO_COND (entry), integer_one_node) == 1;
+  one_iter_loop = simple_cst_equal (DO_COND (entry), integer_zero_node) == 1;
 
   if (!one_iter_loop)
-    make_edge (cond_bb, body_bb, 0);
+    make_edge (cond_bb, body_bb, EDGE_TRUE_VALUE);
 
   if (!infinite_loop)
-    make_edge (cond_bb, successor_block (bb), 0);
+    make_edge (cond_bb, successor_block (bb), EDGE_FALSE_VALUE);
 }
 
 
@@ -956,10 +953,8 @@ make_if_stmt_edges (bb)
      Either clause may be empty.  Linearize the IF statement if the
      conditional can be statically computed.  */
 
-  always_true = (TREE_CODE (IF_COND (entry)) == INTEGER_CST
-                 && IF_COND (entry) != integer_zero_node);
-
-  always_false = (IF_COND (entry) == integer_zero_node);
+  always_true = simple_cst_equal (IF_COND (entry), integer_one_node) == 1;
+  always_false = simple_cst_equal (IF_COND (entry), integer_zero_node) == 1;
 
   if (always_true)
     else_bb = NULL;
@@ -968,10 +963,10 @@ make_if_stmt_edges (bb)
     then_bb = NULL;
 
   if (then_bb)
-    make_edge (bb, then_bb, 0);
+    make_edge (bb, then_bb, EDGE_TRUE_VALUE);
 
   if (else_bb)
-    make_edge (bb, else_bb, 0);
+    make_edge (bb, else_bb, EDGE_FALSE_VALUE);
 
   /* If the conditional cannot be statically computed and the IF is missing
      one of the clauses, make an edge between the entry block and the
@@ -1690,9 +1685,9 @@ insert_before_ctrl_stmt (stmt, where, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nAbout to insert statement: ");
-      print_node_brief (dump_file, "", stmt, 0);
+      print_c_node (dump_file, stmt);
       fprintf (dump_file, "\nBefore statement: ");
-      print_node_brief (dump_file, "", parent, 0);
+      print_c_node (dump_file, parent);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -1824,9 +1819,9 @@ insert_before_normal_stmt (stmt, where, bb)
       if (dump_file)
 	{
 	  fprintf (dump_file, "\nInserted statement: ");
-	  print_node_brief (dump_file, "", stmt, 0);
+	  print_c_node (dump_file, stmt);
 	  fprintf (dump_file, "\nBefore statement  : ");
-	  print_node_brief (dump_file, "", where, 0);
+	  print_c_node (dump_file, where);
 	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
 	  fprintf (dump_file, "At basic block %d\n", bb->index);
 	}
@@ -1857,9 +1852,9 @@ insert_before_normal_stmt (stmt, where, bb)
       if (dump_file)
 	{
 	  fprintf (dump_file, "\nInserted statement: ");
-	  print_node_brief (dump_file, "", stmt, 0);
+	  print_c_node (dump_file, stmt);
 	  fprintf (dump_file, "\nBefore statement  : ");
-	  print_node_brief (dump_file, "", where, 0);
+	  print_c_node (dump_file, where);
 	  fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
 	  if (new_bb)
 	    fprintf (dump_file, "Created new basic block %d\n",
@@ -1925,9 +1920,9 @@ insert_after_ctrl_stmt (stmt, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nAbout to insert statement: ");
-      print_node_brief (dump_file, "", stmt, 0);
+      print_c_node (dump_file, stmt);
       fprintf (dump_file, "\nAfter statement: ");
-      print_node_brief (dump_file, "", parent, 0);
+      print_c_node (dump_file, parent);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (parent));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -2085,9 +2080,9 @@ insert_after_normal_stmt (stmt, where, bb)
   if (dump_file)
     {
       fprintf (dump_file, "\nInserted statement: ");
-      print_node_brief (dump_file, "", stmt, 0);
+      print_c_node (dump_file, stmt);
       fprintf (dump_file, "\nAfter statement  : ");
-      print_node_brief (dump_file, "", where, 0);
+      print_c_node (dump_file, where);
       fprintf (dump_file, " (line %d)\n", STMT_LINENO (where));
       fprintf (dump_file, "At basic block %d\n", bb->index);
     }
@@ -2144,15 +2139,15 @@ insert_after_loop_body (stmt, loop)
 }
 
 
-/*  Replace expression EXPR in statement STMT with NEW_EXPR.  */
+/*  Replace expression EXPR in tree T with NEW_EXPR.  */
 
 void
-replace_expr_in_tree (stmt, old_expr, new_expr)
-     tree stmt;
+replace_expr_in_tree (t, old_expr, new_expr)
+     tree t;
      tree old_expr;
      tree new_expr;
 {
-  tree *old_expr_p = find_expr_in_tree (stmt, old_expr);
+  tree *old_expr_p = find_expr_in_tree (t, old_expr);
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -2160,32 +2155,32 @@ replace_expr_in_tree (stmt, old_expr, new_expr)
       if (old_expr_p)
 	{
 	  fprintf (dump_file, "\nRequested expression: ");
-	  print_node_brief (dump_file, "", old_expr, 0);
+	  print_c_node (dump_file, old_expr);
 
 	  fprintf (dump_file, "\nReplaced expression:  ");
-	  print_node_brief (dump_file, "", *old_expr_p, 0);
+	  print_c_node (dump_file, *old_expr_p);
 
 	  fprintf (dump_file, "\nWith expression:      ");
-	  print_node_brief (dump_file, "", new_expr, 0);
+	  print_c_node (dump_file, new_expr);
 	}
       else
 	{
 	  fprintf (dump_file, "\nCould not find expression: ");
-	  print_node_brief (dump_file, "", old_expr, 0);
+	  print_c_node (dump_file, old_expr);
 	}
 
       fprintf (dump_file, "\nIn statement:        ");
-      print_node_brief (dump_file, "", stmt, 0);
+      print_c_node (dump_file, t);
 
       fprintf (dump_file, "\nBasic block:         ");
-      if (statement_code_p (TREE_CODE (stmt)))
-	fprintf (dump_file, "%d", BB_FOR_STMT (stmt)->index);
+      if (statement_code_p (TREE_CODE (t)))
+	fprintf (dump_file, "%d", BB_FOR_STMT (t)->index);
       else
 	fprintf (dump_file, "-1");
 
       fprintf (dump_file, "\nLine:                ");
-      if (statement_code_p (TREE_CODE (stmt)))
-	fprintf (dump_file, "%d", STMT_LINENO (stmt));
+      if (statement_code_p (TREE_CODE (t)))
+	fprintf (dump_file, "%d", STMT_LINENO (t));
       else
 	fprintf (dump_file, "-1");
 
@@ -2332,7 +2327,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (head)
     {
       lineno = (statement_code_p (TREE_CODE (head))) ? STMT_LINENO (head) : -1;
-      print_node_brief (outf, "", head, 0);
+      print_c_node (outf, head);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -2342,7 +2337,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (end)
     {
       lineno = (statement_code_p (TREE_CODE (end))) ? STMT_LINENO (end) : -1;
-      print_node_brief (outf, "", end, 0);
+      print_c_node (outf, end);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -2361,7 +2356,7 @@ tree_dump_bb (outf, prefix, bb, indent)
       lineno = (*t && statement_code_p (TREE_CODE (*t)))
 	       ? STMT_LINENO (*t)
 	       : -1;
-      print_node_brief (outf, "", *t, 0);
+      print_c_node (outf, *t);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else

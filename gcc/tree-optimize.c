@@ -74,8 +74,6 @@ optimize_function_tree (fndecl)
   delete_cfg ();
   delete_ssa ();
   referenced_symbols = NULL;
-
-
 }
 
 

@@ -4805,6 +4805,7 @@ parse_options_and_default_flags (argc, argv)
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_tree_ssa = 1;
+      /*flag_tree_ssa_ccp = 1;*/
     }
 
   if (optimize >= 2)

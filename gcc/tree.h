@@ -3071,20 +3071,20 @@ enum tree_dump_index
 {
   TDI_all,			/* dump the whole translation unit */
   TDI_class,			/* dump class hierarchy */
-  TDI_original,			/* dump each function before optimizing it */
-  TDI_optimized,		/* dump each function after optimizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
+  TDI_original,			/* dump each function before optimizing it */
+  TDI_simple,			/* dump each function before and after 
+				   simplifying it.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
-  TDI_ssa_pre,                  /* dump SSA PRE information for each
-				   function.  */
+  TDI_ssa,			/* dump SSA information for each function.  */
   TDI_ccp,			/* dump SSA CCP information for each
 				   function.  */
-  TDI_ssa,			/* dump SSA information for each function.  */
-  TDI_simple,			/* dump each function before and after 
-				   simplifying it.  */
+  TDI_ssa_pre,                  /* dump SSA PRE information for each
+				   function.  */
+  TDI_optimized,		/* dump each function after optimizing it */
   TDI_xml,                      /* dump function call graph.  */
   TDI_end
 };

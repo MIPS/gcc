@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
+#include "c-tree.h"
 
 /* Local declarations.  */
 
@@ -54,8 +55,10 @@ static void add_ref_symbol PARAMS ((tree));
 /* Global declarations.  */
 
 /* Array of all symbols referenced in the function.  */
-
 varray_type referenced_symbols;
+
+/* Next unique reference ID to be assigned by create_ref().  */
+unsigned int next_varref_id;
 
 
 /* Find variable references in the code.  */
@@ -66,6 +69,8 @@ void
 tree_find_varrefs ()
 {
   basic_block bb;
+
+  next_varref_id = 0;
 
   FOR_EACH_BB (bb)
     {
@@ -579,6 +584,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
   ref = (varref) ggc_alloc (sizeof (*ref));
   memset ((void *) ref, 0, sizeof (*ref));
 
+  VARREF_ID (ref) = next_varref_id++;
   VARREF_SYM (ref) = sym;
   VARREF_TYPE (ref) = ref_type;
   VARREF_STMT (ref) = parent_stmt;
@@ -608,6 +614,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
       EXPRPHI_LATER (ref) = 1;
       EXPRPHI_EXTRANEOUS (ref) = 1;
     }
+
   if (sym)
     {
       /* Add the symbol to the list of symbols referenced in this function.  */
@@ -621,17 +628,22 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
       if (parent_stmt)
 	add_ref_to_list_end (get_tree_ann (parent_stmt)->refs, ref);
 
+      /* Ditto for the expression containing this reference.  NOTE: This is
+	 only valid for unshared tree expressions, which are only
+	 guaranteed in SIMPLE form.  */
+      if (parent_expr)
+	add_ref_to_list_end (get_tree_ann (parent_expr)->refs, ref);
     }
 
-  /* Add this reference to the list of references for the basic
-     block. */
-  /* Make sure that PHI terms are added at the beginning of the list,
-     otherwise FUD chaining will fail to link local uses to the PHI
-     term in this basic block.  */
+  /* Add this reference to the list of references for the basic block.
+     Make sure that PHI terms are added at the beginning of the list,
+     otherwise FUD chaining will fail to link local uses to the PHI term in
+     this basic block.  */
   if (ref_type == VARPHI || ref_type == EXPRPHI)
     add_ref_to_list_begin (get_bb_ann (bb)->refs, ref);
   else
     add_ref_to_list_end (get_bb_ann (bb)->refs, ref);
+
 
   return ref;
 }
@@ -837,19 +849,19 @@ dump_varref (outf, prefix, ref, indent, details)
   bbix = (VARREF_BB (ref)) ? VARREF_BB (ref)->index : -1;
 
   type = (VARREF_TYPE (ref) == VARDEF) ? "DEF" :
-    (VARREF_TYPE (ref) == VARUSE) ? "USE" :
-    (VARREF_TYPE (ref) == VARPHI) ? "PHI" :
-    (VARREF_TYPE (ref) == EXPRPHI) ? "EXPRPHI" :
-    (VARREF_TYPE (ref) == EXPRUSE) ? "EXPRUSE" :
-    (VARREF_TYPE (ref) == EXPRKILL) ? "EXPRKILL" :
-    (VARREF_TYPE (ref) == EXPRINJ) ? "EXPRINJ" :
-    "???";
+	 (VARREF_TYPE (ref) == VARUSE) ? "USE" :
+	 (VARREF_TYPE (ref) == VARPHI) ? "PHI" :
+	 (VARREF_TYPE (ref) == EXPRPHI) ? "EXPRPHI" :
+	 (VARREF_TYPE (ref) == EXPRUSE) ? "EXPRUSE" :
+	 (VARREF_TYPE (ref) == EXPRKILL) ? "EXPRKILL" :
+	 (VARREF_TYPE (ref) == EXPRINJ) ? "EXPRINJ" :
+	 "???";
 
-  fprintf (outf, "%s%s%s(%s): line %d, bb %d, ", s_indent, prefix, type,
-	   sym, lineno, bbix);
+  fprintf (outf, "%s%s%s(%s): line %d, bb %d, id %d, ", s_indent, prefix, type,
+	   sym, lineno, bbix, VARREF_ID (ref));
 
   if (VARREF_EXPR (ref))
-    print_node_brief (outf, "", VARREF_EXPR (ref), 0);
+    print_c_node (outf, VARREF_EXPR (ref));
   else
     fprintf (outf, "<nil>");
 
