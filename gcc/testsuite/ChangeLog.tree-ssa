@@ -1,5 +1,10 @@
 2004-04-07  Diego Novillo  <dnovillo@redhat.com>
 
+	* gcc.dg/tree-ssa/20040326-2.c: Update to test for correct
+	gimplification of function call expressions.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
 	* gcc.dg/tree-ssa/20040326-2.c: New test.
 
 2003-04-04  Paul Brook  <paul@codesourcery.com>

@@ -1,5 +1,11 @@
 2004-04-07  Diego Novillo  <dnovillo@redhat.com>
 
+	* gimplify.c (gimplify_call_expr): Remove argument POST_P.
+	Update all callers.
+	Don't use POST_P when gimplifying the call expression.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
 	* doc/tree-ssa.texi: Add documentation for the dominator
 	walker.
 
