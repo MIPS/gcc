@@ -817,6 +817,7 @@ static void x86_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, tree));
 static bool x86_can_output_mi_thunk PARAMS ((tree, HOST_WIDE_INT,
 					     HOST_WIDE_INT, tree));
+bool ix86_expand_carry_flag_compare PARAMS ((enum rtx_code, rtx, rtx, rtx*));
 
 struct ix86_address
 {
@@ -9167,6 +9168,84 @@ ix86_expand_setcc (code, dest)
   return 1; /* DONE */
 }
 
+/* Expand comparison setting or clearing carry flag.  Return true when sucesfull
+   and set pop for the operation.  */
+bool
+ix86_expand_carry_flag_compare (code, op0, op1, pop)
+     rtx op0, op1, *pop;
+     enum rtx_code code;
+{
+  enum machine_mode mode =
+    GET_MODE (op0) != VOIDmode ? GET_MODE (op0) : GET_MODE (op1);
+
+  /* Do not handle DImode compares that go trought special path.  Also we can't
+     deal with FP compares yet.  This is possible to add.   */
+  if ((mode == DImode && !TARGET_64BIT) || !INTEGRAL_MODE_P (mode))
+    return false;
+  switch (code)
+    {
+    case LTU:
+    case GEU:
+      break;
+
+    /* Convert a==0 into (unsigned)a<1.  */
+    case EQ:
+    case NE:
+      if (op1 != const0_rtx)
+	return false;
+      op1 = const1_rtx;
+      code = (code == EQ ? LTU : GEU);
+      break;
+
+    /* Convert a>b into b<a or a>=b-1.  */
+    case GTU:
+    case LEU:
+      if (GET_CODE (op1) == CONST_INT)
+	{
+	  op1 = gen_int_mode (INTVAL (op1) + 1, GET_MODE (op0));
+	  /* Bail out on overflow.  We still can swap operands but that
+	     would force loading of the constant into register. */
+	  if (op1 == const0_rtx
+	      || !x86_64_immediate_operand (op1, GET_MODE (op1)))
+	    return false;
+	  code = (code == GTU ? GEU : LTU);
+	}
+      else
+	{
+	  rtx tmp = op1;
+	  op1 = op0;
+	  op0 = tmp;
+	  code = (code == GTU ? LTU : GEU);
+	}
+      break;
+
+    /* Convert a>0 into (unsigned)a<0x7fffffff.  */
+    case LT:
+    case GE:
+      if (mode == DImode || op1 != const0_rtx)
+	return false;
+      op1 = gen_int_mode (~(1 << (GET_MODE_BITSIZE (mode) - 1)), mode);
+      code = (code == LT ? GEU : LTU);
+      break;
+    case LE:
+    case GT:
+      if (mode == DImode || op1 != constm1_rtx)
+	return false;
+      op1 = gen_int_mode (~(1 << (GET_MODE_BITSIZE (mode) - 1)), mode);
+      code = (code == LE ? GEU : LTU);
+      break;
+
+    default:
+      return false;
+    }
+  ix86_compare_op0 = op0;
+  ix86_compare_op1 = op1;
+  *pop = ix86_expand_compare (code, NULL, NULL);
+  if (GET_CODE (*pop) != LTU && GET_CODE (*pop) != GEU)
+    abort ();
+  return true;
+}
+
 int
 ix86_expand_int_movcc (operands)
      rtx operands[];
@@ -9175,30 +9254,7 @@ ix86_expand_int_movcc (operands)
   rtx compare_seq, compare_op;
   rtx second_test, bypass_test;
   enum machine_mode mode = GET_MODE (operands[0]);
-
-  /* When the compare code is not LTU or GEU, we can not use sbbl case.
-     In case comparsion is done with immediate, we can convert it to LTU or
-     GEU by altering the integer.  */
-
-  if ((code == LEU || code == GTU)
-      && GET_CODE (ix86_compare_op1) == CONST_INT
-      && mode != HImode
-      && INTVAL (ix86_compare_op1) != -1
-      /* For x86-64, the immediate field in the instruction is 32-bit
-	 signed, so we can't increment a DImode value above 0x7fffffff.  */
-      && (!TARGET_64BIT
-	  || GET_MODE (ix86_compare_op0) != DImode
-	  || INTVAL (ix86_compare_op1) != 0x7fffffff)
-      && GET_CODE (operands[2]) == CONST_INT
-      && GET_CODE (operands[3]) == CONST_INT)
-    {
-      if (code == LEU)
-	code = LTU;
-      else
-	code = GEU;
-      ix86_compare_op1 = gen_int_mode (INTVAL (ix86_compare_op1) + 1,
-				       GET_MODE (ix86_compare_op0));
-    }
+  bool sign_bit_compare_p = false;;
 
   start_sequence ();
   compare_op = ix86_expand_compare (code, &second_test, &bypass_test);
@@ -9207,10 +9263,14 @@ ix86_expand_int_movcc (operands)
 
   compare_code = GET_CODE (compare_op);
 
+  if ((ix86_compare_op1 == const0_rtx && (code == GE || code == LT))
+      || (ix86_compare_op1 == constm1_rtx && (code == GT || code == LE)))
+    sign_bit_compare_p = true;
+
   /* Don't attempt mode expansion here -- if we had to expand 5 or 6
      HImode insns, we'd be swallowed in word prefix ops.  */
 
-  if (mode != HImode
+  if ((mode != HImode || TARGET_FAST_PREFIX)
       && (mode != DImode || TARGET_64BIT)
       && GET_CODE (operands[2]) == CONST_INT
       && GET_CODE (operands[3]) == CONST_INT)
@@ -9220,32 +9280,53 @@ ix86_expand_int_movcc (operands)
       HOST_WIDE_INT cf = INTVAL (operands[3]);
       HOST_WIDE_INT diff;
 
-      if ((compare_code == LTU || compare_code == GEU)
-	  && !second_test && !bypass_test)
+      diff = ct - cf;
+      /*  Sign bit compares are better done using shifts than we do by using
+ 	  sbb.  */
+      if (sign_bit_compare_p
+	  || ix86_expand_carry_flag_compare (code, ix86_compare_op0,
+					     ix86_compare_op1, &compare_op))
 	{
 	  /* Detect overlap between destination and compare sources.  */
 	  rtx tmp = out;
 
-	  /* To simplify rest of code, restrict to the GEU case.  */
-	  if (compare_code == LTU)
+          if (!sign_bit_compare_p)
 	    {
-	      int tmp = ct;
-	      ct = cf;
-	      cf = tmp;
-	      compare_code = reverse_condition (compare_code);
-	      code = reverse_condition (code);
+	      compare_code = GET_CODE (compare_op);
+
+	      /* To simplify rest of code, restrict to the GEU case.  */
+	      if (compare_code == LTU)
+		{
+		  int tmp = ct;
+		  ct = cf;
+		  cf = tmp;
+		  compare_code = reverse_condition (compare_code);
+		  code = reverse_condition (code);
+		}
+	      diff = ct - cf;
+
+	      if (reg_overlap_mentioned_p (out, ix86_compare_op0)
+		  || reg_overlap_mentioned_p (out, ix86_compare_op1))
+		tmp = gen_reg_rtx (mode);
+
+	      if (mode == DImode)
+		emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp));
+	      else
+		emit_insn (gen_x86_movsicc_0_m1 (gen_lowpart (SImode, tmp)));
 	    }
-	  diff = ct - cf;
-
-	  if (reg_overlap_mentioned_p (out, ix86_compare_op0)
-	      || reg_overlap_mentioned_p (out, ix86_compare_op1))
-	    tmp = gen_reg_rtx (mode);
-
-	  emit_insn (compare_seq);
-	  if (mode == DImode)
-	    emit_insn (gen_x86_movdicc_0_m1_rex64 (tmp));
 	  else
-	    emit_insn (gen_x86_movsicc_0_m1 (tmp));
+	    {
+	      if (code == GT || code == GE)
+		code = reverse_condition (code);
+	      else
+		{
+		  int tmp = ct;
+		  ct = cf;
+		  cf = tmp;
+		}
+	      tmp = emit_store_flag (tmp, code, ix86_compare_op0,
+				     ix86_compare_op1, VOIDmode, 0, -1);
+	    }
 
 	  if (diff == 1)
 	    {
@@ -9325,7 +9406,6 @@ ix86_expand_int_movcc (operands)
 	  return 1; /* DONE */
 	}
 
-      diff = ct - cf;
       if (diff < 0)
 	{
 	  HOST_WIDE_INT tmp;
@@ -9400,6 +9480,7 @@ ix86_expand_int_movcc (operands)
 	      return 1; /* DONE */
 	    }
 	}
+
 
       if ((diff == 1 || diff == 2 || diff == 4 || diff == 8
 	   || diff == 3 || diff == 5 || diff == 9)
@@ -9483,7 +9564,8 @@ ix86_expand_int_movcc (operands)
        * for space.
        */
 
-      if (!TARGET_CMOVE && BRANCH_COST >= 2)
+      if ((!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
+	  && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -9554,7 +9636,7 @@ ix86_expand_int_movcc (operands)
 	}
     }
 
-  if (!TARGET_CMOVE)
+  if (!TARGET_CMOVE || (mode == QImode && TARGET_PARTIAL_REG_STALL))
     {
       /* Try a few things more with specific constants and a variable.  */
 

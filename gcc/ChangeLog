@@ -1,3 +1,12 @@
+Tue Nov 26 22:27:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movhicc): Allow general operand.
+	(movqicc): New expander.
+	(movqicc_noc): New pattern.
+	* i386.c (ix86_expand_carry_flag_compare): New function.
+	(ix86_expand_int_movcc): Optimize harder using sbb; support more
+	HImode conversion; support QImode conditional moves
+
 Tue Nov 26 16:30:59 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (FAST_PROLOGUE_INSN_COUNT): Set to 20.

@@ -1,3 +1,8 @@
+Tue Nov 26 22:09:53 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-cmov[123].c: New tests for conditional move code
+	quality.
+
 2002-11-25  Andreas Bauer  <baueran@in.tum.de>
 
 	* gcc.dg/sibcall-6: New test for indirect sibcalls.
