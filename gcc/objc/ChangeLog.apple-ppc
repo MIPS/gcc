@@ -1,5 +1,10 @@
 2005-01-17  Ziemowit Laski  <zlaski@apple.com>
 
+	* objc-act.c (objc_get_class_reference): Move stray 
+	APPLE LOCAL marker.
+
+2005-01-17  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3955336
 	* objc-act.c (objc_get_class_reference): In Objective-C++,
 	make sure a type is declared in the global namespace before

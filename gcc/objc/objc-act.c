@@ -2587,9 +2587,9 @@ objc_get_class_reference (tree ident)
 #endif
   orig_ident = ident;
 
+  /* APPLE LOCAL Objective-C++ */
   if (local_scope || !(ident = objc_is_class_name (ident)))
     {
-      /* APPLE LOCAL Objective-C++ */
       error ("`%s' is not an Objective-C class name or alias",
 	     IDENTIFIER_POINTER (orig_ident));
       return error_mark_node;
