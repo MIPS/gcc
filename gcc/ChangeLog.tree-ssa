@@ -1,3 +1,13 @@
+2003-05-01  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (find_hidden_use_vars): Renamed from find_vla_decls.  
+	Now returns a value indicating if nested function was found.
+	When nested functions are found, mark suitable variables as
+	having hidden uses.
+	(find_hidden_use_vars_r): Renamed from find_vla_decls_r.
+	(compute_may_alias): Corresponding changes.  Handle
+	multiple BLOCKs at the toplevel of a function.
+
 2003-04-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree.c (build_empty_stmt): New function.
