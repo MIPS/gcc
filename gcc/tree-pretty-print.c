@@ -522,14 +522,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
         pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
 		   LABEL_DECL_UID (node));
       else
-        pp_printf (buffer, "<D%x>", DECL_UID (node));
+        pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
 
     case CONST_DECL:
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<D%x>", DECL_UID (node));
+        pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
 
     case TYPE_DECL:
@@ -566,7 +566,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<D%x>", DECL_UID (node));
+        pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
 
     case RESULT_DECL:
@@ -577,14 +577,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-	pp_printf (buffer, "<D%x>", DECL_UID (node));
+	pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
 
     case NAMESPACE_DECL:
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        pp_printf (buffer, "<D%x>", DECL_UID (node));
+        pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
 
     case COMPONENT_REF:
@@ -661,7 +661,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		if (DECL_NAME (val))
 		  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (val)));
 		else
-		  pp_printf (buffer, "<D%x>", DECL_UID (val));
+		  pp_printf (buffer, "<D%u>", DECL_UID (val));
 	      }
 	    else
 	      {

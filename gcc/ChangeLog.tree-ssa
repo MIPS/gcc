@@ -1,3 +1,8 @@
+2003-11-17  Richard Henderson  <rth@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node): Use %u not %x for
+	printing DECL_UID.
+
 2003-11-16  Richard Henderson  <rth@redhat.com>
 
         * c-common.c (c_add_case_label): Use create_artificial_label.
