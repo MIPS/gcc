@@ -1,3 +1,20 @@
+2004-10-27  David Mosberger  <davidm@hpl.hp.com>
+	    James E Wilson  <wilson@specifixinc.com>
+
+	PR target/13158
+	* config/ia64/ia64.c (ia64_expand_epilogue): Set RTX_FRAME_RELATED_P on
+	sibcall alloc instruction.
+	(process_set): Handle sibcall alloc instruction.
+
+2004-10-26  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/18010
+	* emit-rtl.c (emit_copy_of_insn_after): Copy RTX_FRAME_RELATED_P.
+
+2004-02-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/ia64/ia64.c: Use const0_rtx instead of GEN_INT (0).
+
 2004-04-13  James E Wilson  <wilson@specifixinc.com>
 
 	* c-opt.c (c_common_post_options): If this_input_filename is NULL,
