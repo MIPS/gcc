@@ -445,6 +445,10 @@ struct function GTY(())
   /* Nonzero if the loops that are possibly infinite are marked.  */
   unsigned int marked_maybe_inf_loops : 1;
   /* APPLE LOCAL end lno */
+
+  /* APPLE LOCAL begin 3837835  */
+  unsigned int uses_vector : 1;
+  /* APPLE LOCAL end 3837835  */
 };
 
 /* The function currently being compiled.  */

@@ -1,5 +1,14 @@
 2004-11-04  Devang Patel  <dpatel@apple.com>
 
+	Partial 3837835 fix.
+	* function.h (struct function): New member, uses_vector.
+	* tree-cfg.c (ivu_gate, fndecl_uses_vector_p, identify_vector_use,
+	pass_identify_vector_use): New.
+	* tree-optimzie.c (init_tree_optimization_passes): Add pass_identify_vector_use.
+	* tree-pass.h (pass_identify_vector_use): New extern decl.
+	
+2004-11-04  Devang Patel  <dpatel@apple.com>
+
 	Back out 3837840 fix.
 	* c-opts.c (c_common_handle_option): Update APPLE LOCAL marker.
 	* flags.h (flag_inline_trees): Remove extern decl.

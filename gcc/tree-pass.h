@@ -117,6 +117,8 @@ struct dump_file_info
 extern struct tree_opt_pass pass_mudflap_1;
 extern struct tree_opt_pass pass_mudflap_2;
 extern struct tree_opt_pass pass_remove_useless_stmts;
+/* APPLE LOCAL 3837835  */
+extern struct tree_opt_pass pass_identify_vector_use;
 extern struct tree_opt_pass pass_lower_cf;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
