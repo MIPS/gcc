@@ -1,3 +1,9 @@
+2004-12-17  Mike Stump  <mrs@apple.com>
+
+	Radar 3549855
+	* c-lex.c (c_lex_with_flags): Always do BOL processing for CW
+	asms.
+
 2004-12-17  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3851659
@@ -6,8 +12,8 @@
 2004-12-17  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 3914905
-	* c-typeck.c (digest_init): Handle case of vector literal initializer initializing a
-	const variable.
+	* c-typeck.c (digest_init): Handle case of vector literal
+	initializer initializing a const variable.
 	* convert.c (build_compound_literal_vector): New routine to generate a
 	COMPOUND_LITERAL_EXPR expression for a vector constant.
 	(convert_to_vector); call build_compound_literal_vector.
@@ -15,7 +21,8 @@
 2004-12-16  Stuart Hastings <stuart@apple.com>
 
 	Radar 3910248, 3915171
-	* gcc/config/rs6000/rs6000.c (output_call): correctly skip non-line-number notes.
+	* gcc/config/rs6000/rs6000.c (output_call): correctly skip
+	non-line-number notes.
 
 2004-12-16  Ziemowit Laski  <zlaski@apple.com>
 

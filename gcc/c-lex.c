@@ -373,16 +373,16 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 
  retry:
   /* APPLE LOCAL begin CW asm blocks */
+  if (cw_asm_at_bol)
+    {
+      cw_asm_at_bol = 0;
+      --c_lex_depth;
+      return CPP_BOL;
+    }
   /* If there's a token we saved while returning the special BOL
      token, return it now.  */
   if (cw_asm_saved_token)
     {
-      if (cw_asm_at_bol)
-	{
-	  cw_asm_at_bol = 0;
-	  --c_lex_depth;
-	  return CPP_BOL;
-	}
       tok = cw_asm_saved_token;
       cw_asm_saved_token = NULL;
       goto bypass;
