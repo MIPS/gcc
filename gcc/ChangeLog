@@ -1,4 +1,15 @@
+Sat Nov 16 02:17:48 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (fop_df_6): New pattern.
+	(fop_xf_4, fop_xf_5): Handle both SF and DFmode extensions.
+	(fop_xf_6): Rewrite
+	(fop_xf_7): Delete.
+	(fop_tf_4, fop_tf_5): Handle both SF and DFmode extensions.
+	(fop_tf_6): Rewrite
+	(fop_tf_7): Delete.
+
 2002-11-12  Devang Patel <dpatel@apple.com>
+
 	*gcc.c (display_help): Two new options -Xpreprocessor and -Xassembler.
 	(process_command): Same.
 	*doc/invoke.texi: Info about these two new options.
