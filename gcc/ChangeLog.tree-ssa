@@ -1,3 +1,13 @@
+2003-01-29  Andreas Jaeger  <aj@suse.de>
+
+	* tree-alias-common.c (find_func_aliases): Remove unused variable.
+	(display_points_to_set_helper): #if 0 function to avoid warning
+	about unused function.
+
+	* tree-alias-ecr.c (ECR_new): Remove ISO C style function
+	definition.
+	* disjoint-set.c (disjoint_set_new): Likewise.
+
 2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mx_xfn_indirect_ref): Use a stack of flags for

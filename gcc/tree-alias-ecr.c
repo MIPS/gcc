@@ -1,5 +1,5 @@
 /* Tree based linear points-to analysis
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -37,7 +37,7 @@ static void ECR_add_pending PARAMS ((ECR, ECR));
 
 
 ECR
-ECR_new (void)
+ECR_new ()
 {
   return ECR_new_with_type (alias_bottom, NULL);
 }

@@ -1,5 +1,5 @@
 /* Tree based linear points-to analysis
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "disjoint-set.h"
 
 disjoint_set
-disjoint_set_new (void)
+disjoint_set_new ()
 {
   disjoint_set ret = ggc_alloc (sizeof (struct disjoint_set_def));
   ret->parent = NULL;

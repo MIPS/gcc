@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -521,7 +521,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      if (TREE_CODE (op1) == CONSTRUCTOR)
 	        {
 		  varray_type ops;
-		  int i;
+
 		  VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
 		  get_values_from_constructor (op1, &ops);
 		  current_alias_ops->op_assign (current_alias_ops, lhsAV, 
@@ -923,6 +923,9 @@ create_alias_var (decl)
   return avar;
 }
 
+#if 0
+/* This function is only used in create_alias_vars where it is commented
+   out.  */
 static void display_points_to_set_helper PARAMS ((alias_typevar));
 
 static void
@@ -944,6 +947,7 @@ display_points_to_set_helper (tvar)
     }
   fprintf (stderr, " }\n");
 }
+#endif
 
 /**
    @brief Create points-to sets for a function.
