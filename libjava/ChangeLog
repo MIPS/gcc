@@ -1,3 +1,11 @@
+2004-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (libgcj-@gcc_version@.jar): Set timestamp of all files
+	and directories in the jar file to the youngest of gcc/ChangeLog,
+	gcc/java/ChangeLog and libjava/ChangeLog.  Sort the file/directory
+	list before passing it to fastjar.
+	* Makefile.in: Rebuilt.
+
 2004-07-13  Bryce McKinlay  <mckinlay@redhat.com>
 
 	PR libgcj/7587

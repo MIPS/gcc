@@ -383,9 +383,29 @@ libgcj-@gcc_version@.jar: $(all_java_source_files)
 	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
 ## Note that we explicitly want to include directory information.
-	find java gnu javax org -type d -o -type f -name '*.class' | \
-	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-	  $(ZIP) cfM0E@ $@
+	# The following is an attempt to have libgcj-*.jar files
+	# from the same GCC version identical accross the architectures.
+	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+	for d in `find java gnu javax org -type d \
+		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+	  mkdir -p $$JARDIR/$$d; \
+	done; \
+	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+	for f in `find java gnu javax org -type f -name '*.class' \
+		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+	  cp $$f $$JARDIR/$$f; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+	done; \
+	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+	cd $$JARDIR; \
+	find java gnu javax org -type d -o -type f | \
+	  LC_ALL=C sort | $(ZIP) cfM0E@ ../libjava/$@ || exit 1; \
+	cd -; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 # This next rule seems backward, but reflects the fact
 # that 1) all classfiles are compiled in one go when the
@@ -404,9 +424,29 @@ else # !ONESTEP
 libgcj-@gcc_version@.jar: $(all_java_class_files)
 	-@rm -f libgcj-@gcc_version@.jar
 ## Note that we explicitly want to include directory information.
-	find java gnu javax org -type d -o -type f -name '*.class' | \
-	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-	  $(ZIP) cfM0E@ $@
+	# The following is an attempt to have libgcj-*.jar files
+	# from the same GCC version identical accross the architectures.
+	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+	for d in `find java gnu javax org -type d \
+		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+	  mkdir -p $$JARDIR/$$d; \
+	done; \
+	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+	for f in `find java gnu javax org -type f -name '*.class' \
+		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+	  cp $$f $$JARDIR/$$f; \
+	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+	done; \
+	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+	cd $$JARDIR; \
+	find java gnu javax org -type d -o -type f | \
+	  LC_ALL=C sort | $(ZIP) cfM0E@ ../libjava/$@ || exit 1; \
+	cd -; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 endif
 

@@ -5194,9 +5194,29 @@ $(gtk_c_headers): $(gtk_awt_peer_sources)
 @ONESTEP_TRUE@	@echo Compiling Java sourcefiles...
 @ONESTEP_TRUE@	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
 @ONESTEP_TRUE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
-@ONESTEP_TRUE@	find java gnu javax org -type d -o -type f -name '*.class' | \
-@ONESTEP_TRUE@	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-@ONESTEP_TRUE@	  $(ZIP) cfM0E@ $@
+@ONESTEP_TRUE@	# The following is an attempt to have libgcj-*.jar files
+@ONESTEP_TRUE@	# from the same GCC version identical accross the architectures.
+@ONESTEP_TRUE@	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+@ONESTEP_TRUE@	for d in `find java gnu javax org -type d \
+@ONESTEP_TRUE@		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+@ONESTEP_TRUE@	  mkdir -p $$JARDIR/$$d; \
+@ONESTEP_TRUE@	done; \
+@ONESTEP_TRUE@	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_TRUE@	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+@ONESTEP_TRUE@	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_TRUE@	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+@ONESTEP_TRUE@	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_TRUE@	for f in `find java gnu javax org -type f -name '*.class' \
+@ONESTEP_TRUE@		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+@ONESTEP_TRUE@	  cp $$f $$JARDIR/$$f; \
+@ONESTEP_TRUE@	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+@ONESTEP_TRUE@	done; \
+@ONESTEP_TRUE@	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+@ONESTEP_TRUE@	cd $$JARDIR; \
+@ONESTEP_TRUE@	find java gnu javax org -type d -o -type f | \
+@ONESTEP_TRUE@	  LC_ALL=C sort | $(ZIP) cfM0E@ ../libjava/$@ || exit 1; \
+@ONESTEP_TRUE@	cd -; \
+@ONESTEP_TRUE@	rm -rf $$JARDIR $$JARDIR.stamp
 
 # This next rule seems backward, but reflects the fact
 # that 1) all classfiles are compiled in one go when the
@@ -5212,9 +5232,29 @@ $(gtk_c_headers): $(gtk_awt_peer_sources)
 
 @ONESTEP_FALSE@libgcj-@gcc_version@.jar: $(all_java_class_files)
 @ONESTEP_FALSE@	-@rm -f libgcj-@gcc_version@.jar
-@ONESTEP_FALSE@	find java gnu javax org -type d -o -type f -name '*.class' | \
-@ONESTEP_FALSE@	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-@ONESTEP_FALSE@	  $(ZIP) cfM0E@ $@
+@ONESTEP_FALSE@	# The following is an attempt to have libgcj-*.jar files
+@ONESTEP_FALSE@	# from the same GCC version identical accross the architectures.
+@ONESTEP_FALSE@	JARDIR=`mktemp -d ../$@.XXXXXX` || exit 1; \
+@ONESTEP_FALSE@	for d in `find java gnu javax org -type d \
+@ONESTEP_FALSE@		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+@ONESTEP_FALSE@	  mkdir -p $$JARDIR/$$d; \
+@ONESTEP_FALSE@	done; \
+@ONESTEP_FALSE@	touch -r $(srcdir)/../gcc/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_FALSE@	[ $(srcdir)/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+@ONESTEP_FALSE@	  && touch -r $(srcdir)/../gcc/java/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_FALSE@	[ $(srcdir)/ChangeLog -nt $$JARDIR.stamp ] \
+@ONESTEP_FALSE@	  && touch -r $(srcdir)/ChangeLog $$JARDIR.stamp; \
+@ONESTEP_FALSE@	for f in `find java gnu javax org -type f -name '*.class' \
+@ONESTEP_FALSE@		  | sed -e '/\/\./d' -e '/\/xlib/d'`; do \
+@ONESTEP_FALSE@	  cp $$f $$JARDIR/$$f; \
+@ONESTEP_FALSE@	  touch -r $$JARDIR.stamp $$JARDIR/$$f; \
+@ONESTEP_FALSE@	done; \
+@ONESTEP_FALSE@	touch -r $$JARDIR.stamp `find $$JARDIR -type d`; \
+@ONESTEP_FALSE@	cd $$JARDIR; \
+@ONESTEP_FALSE@	find java gnu javax org -type d -o -type f | \
+@ONESTEP_FALSE@	  LC_ALL=C sort | $(ZIP) cfM0E@ ../libjava/$@ || exit 1; \
+@ONESTEP_FALSE@	cd -; \
+@ONESTEP_FALSE@	rm -rf $$JARDIR $$JARDIR.stamp
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
