@@ -1,3 +1,8 @@
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+
+	* ifcvt.c: Rename from condexec.c.
+	* Makefile.in: Update all references.
+
 2000-04-26  Richard Henderson  <rth@cygnus.com>
 
 	* condexec.c (noce_emit_store_flag): New.

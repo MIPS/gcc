@@ -1,4 +1,4 @@
-/* Conditional (or predicated) execution support.
+/* If-conversion support.
    Copyright (C) 2000 Free Software Foundation, Inc.
 
    This file is part of GNU CC.
