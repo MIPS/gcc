@@ -217,7 +217,7 @@ find_refs_in_stmt (stmt_p, bb)
     @param ref_type indicates what type of reference should be created.
     @param ref_mod is the set of modifier flags for REF_TYPE.
     @param bb is the basic block in which EXPR_P is located.
-    @param parent_stmt_p is the parent statement in BB for EXPR_P.
+    @param parent_stmt_p is the parent statement in BB for EXPR_P.  **/
 
 static void
 find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)

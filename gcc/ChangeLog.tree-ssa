@@ -1,3 +1,7 @@
+2002-12-13  Ben Elliston  <bje@redhat.com>
+
+	* tree-dfa.c (find_refs_in_expr): Terminate comment.
+
 2002-12-12  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* gimplify.c (simplify_modify_expr): Break out constructors into
