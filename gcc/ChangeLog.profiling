@@ -1,5 +1,9 @@
 2004-12-01  Jan Hubicka  <jh@suse.cz>
 
+	* cfg.c (update_bb_profile_for_threading): Watch for overflow.
+
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
 	* cgraph.h (cgraph_node): Kill unused fileds brought by cfg inliner
 	patch.
 	(cgraph_edge): Add undesirable field.

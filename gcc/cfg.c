@@ -913,7 +913,11 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
     }
   else
     FOR_EACH_EDGE (c, ei, bb->succs)
-      c->probability = ((c->probability * REG_BR_PROB_BASE) / (double) prob);
+      {
+        c->probability = ((c->probability * REG_BR_PROB_BASE) / (double) prob);
+	if (c->probability > REG_BR_PROB_BASE)
+	  c->probability = REG_BR_PROB_BASE;
+      }
 
   if (bb != taken_edge->src)
     abort ();
