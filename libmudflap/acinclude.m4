@@ -557,7 +557,7 @@ test -n "$reload_flag" && reload_flag=" $reload_flag"
 #  -- PORTME fill in with the dynamic library characteristics
 # Don't cache this sucker.
 AC_DEFUN([AC_DEPLIBS_CHECK_METHOD],
-[AC_MSG_CHECKING[how to recognise dependant libraries],
+[AC_MSG_CHECKING([how to recognise dependant libraries]),
 lt_cv_file_magic_cmd='$MAGIC_CMD'
 lt_cv_file_magic_test_file=
 lt_cv_deplibs_check_method='unknown'
