@@ -69,6 +69,9 @@ static void throw_incompatible_class_change_error (jstring msg)
   throw new java::lang::IncompatibleClassChangeError (msg);
 }
 
+bool
+_Jv_ClassNameInnerClass (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2);
+
 _Jv_word
 _Jv_ResolvePoolEntry (jclass klass, int index)
 {
@@ -173,7 +176,10 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
 		      && cls->isAssignableFrom (klass))
 		  || (((field->flags & Modifier::PRIVATE) == 0)
 		      && _Jv_ClassNameSamePackage (cls->name,
-						   klass->name)))
+						   klass->name))
+		  || (((field->flags & Modifier::PRIVATE) != 0)
+		      && (_Jv_ClassNameInnerClass (cls->name, klass->name)
+			  || _Jv_ClassNameInnerClass (klass->name, cls->name))))
 		{
 		  /* resove the field using the class' own loader
 		     if necessary */

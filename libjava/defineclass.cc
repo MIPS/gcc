@@ -1629,3 +1629,33 @@ _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
     }
   return false;
 }
+
+/* Returns true, if NAME1 is an inner class inside NAME2.  */
+bool
+_Jv_ClassNameInnerClass (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
+{
+  unsigned char* ptr1 = (unsigned char*) name1->data;
+  unsigned char* limit1 = ptr1 + name1->length;
+  unsigned char* ptr2 = (unsigned char*) name2->data;
+  unsigned char* limit2 = ptr2 + name2->length;
+
+  /* name2 must be a prefix of name1, and the first character after
+     name1's length in name2 must be '$'.  */
+  while (ptr1 < limit1) {
+    int ch1 = UTF8_GET (ptr1, limit1);
+    int ch2 = UTF8_GET (ptr2, limit2);
+
+    if (ch1 != ch2) {
+      /* First differing character, so name2 must have ended, and ch1
+         must be '$'.  */
+      if (ch2 == -1 && ch1 == '$')
+        return true;
+      return false;
+    }
+
+    if (ch1 == -1)
+      return false;
+  }
+
+  return false;
+}
