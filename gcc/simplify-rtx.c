@@ -355,7 +355,7 @@ simplify_replace_rtx (rtx x, rtx old, rtx new)
 	}
       else if (code == REG)
 	{
-	  if (REG_P (old) && REGNO (x) == REGNO (old))
+	  if (rtx_equal_p (x, old))
 	    return new;
 	}
       break;
