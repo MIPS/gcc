@@ -6332,7 +6332,7 @@ expand_expr (exp, target, tmode, modifier)
 		       || TREE_CODE_CLASS (TREE_CODE (elt)) == '2'
 		       || TREE_CODE_CLASS (TREE_CODE (elt)) == 'e')
 		    ? TREE_OPERAND (elt, 0) : 0))
-	      if (POINTER_TYPE_P (TREE_TYPE (elt))
+	      if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (elt))
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (elt)))
 		      == need_type))
 		object = build1 (INDIRECT_REF, need_type, elt);

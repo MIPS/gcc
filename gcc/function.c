@@ -4793,7 +4793,7 @@ assign_parms (fndecl)
 	    }
 
 	  /* For pointer data type, suggest pointer register.  */
-	  if (POINTER_TYPE_P (TREE_TYPE (parm)))
+	  if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (parm)))
 	    mark_reg_pointer (parmreg,
 			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
 
@@ -6010,7 +6010,7 @@ init_function_start (subr, filename, line)
     warning ("function returns an aggregate");
 
   current_function_returns_pointer
-    = POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (subr)));
+    = UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (DECL_RESULT (subr)));
 }
 
 /* Make sure all values used by the optimization passes have sane

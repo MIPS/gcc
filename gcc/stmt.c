@@ -3813,7 +3813,7 @@ expand_decl (decl)
       DECL_RTL (decl) = gen_reg_rtx (reg_mode);
       mark_user_reg (DECL_RTL (decl));
 
-      if (POINTER_TYPE_P (type))
+      if (UNBOUNDED_INDIRECT_TYPE_P (type))
 	mark_reg_pointer (DECL_RTL (decl),
 			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
 

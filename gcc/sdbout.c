@@ -1060,7 +1060,7 @@ sdbout_field_types (type)
 	&& ! host_integerp (DECL_SIZE (tail), 1)
 	&& ! host_integerp (bit_position (tail), 0))
       {
-	if (POINTER_TYPE_P (TREE_TYPE (tail)))
+	if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (tail)))
 	  sdbout_one_type (TREE_TYPE (TREE_TYPE (tail)));
 	else
 	  sdbout_one_type (TREE_TYPE (tail));

@@ -162,7 +162,7 @@ enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
 	    A_NO_CHECK_MEMORY_USAGE, A_NO_INSTRUMENT_FUNCTION,
 	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
 	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS, A_MALLOC,
-	    A_NO_LIMIT_STACK, A_PURE, A_BOUNDED, A_UNBOUNDED};
+	    A_NO_LIMIT_STACK, A_PURE};
 
 enum format_type { printf_format_type, scanf_format_type,
 		   strftime_format_type };
@@ -501,8 +501,6 @@ init_attributes ()
   add_attribute (A_MALLOC, "malloc", 0, 0, 1);
   add_attribute (A_NO_LIMIT_STACK, "no_stack_limit", 0, 0, 1);
   add_attribute (A_PURE, "pure", 0, 0, 1);
-  add_attribute (A_BOUNDED, "bounded", 0, 1, 1);
-  add_attribute (A_UNBOUNDED, "unbounded", 0, 1, 1);
 }
 
 /* Default implementation of valid_lang_attribute, below.  By default, there
@@ -945,7 +943,7 @@ decl_attributes (node, attributes, prefix_attributes)
 		  ;
 
 		if (! argument
-		    || ! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_VALUE (argument))
+		    || ! ANY_POINTER_TYPE_P (TREE_VALUE (argument))
 		    || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
 			!= char_type_node))
 		  {
@@ -1018,7 +1016,7 @@ decl_attributes (node, attributes, prefix_attributes)
 		  ;
 
 		if (! argument
-		    || ! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_VALUE (argument))
+		    || ! ANY_POINTER_TYPE_P (TREE_VALUE (argument))
 		    || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
 			!= char_type_node))
 		  {
@@ -1027,7 +1025,7 @@ decl_attributes (node, attributes, prefix_attributes)
 		  }
 	      }
 
-	    if (! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (decl)))
+	    if (! ANY_POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (decl)))
 		|| (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (TREE_TYPE (decl))))
 		    != char_type_node))
 	      {
@@ -1052,24 +1050,27 @@ decl_attributes (node, attributes, prefix_attributes)
 			     "`%s' defined both normally and as an alias");
 	  else if (decl_function_context (decl) == 0)
 	    {
-	      tree id, target;
+	      tree arg, id, target_decl;
 
-	      id = expose_string_constant (TREE_VALUE (args));
-	      if (TREE_CODE (id) != STRING_CST)
+	      arg = expose_string_constant (TREE_VALUE (args));
+	      if (TREE_CODE (arg) == IDENTIFIER_NODE)
 		{
-		  error ("alias arg not a string");
-		  break;
-		}
-	      id = get_identifier (TREE_STRING_POINTER (id));
-	      target = lookup_name (id);
-	      if (target && DECL_P (target))
-		{
+		  target_decl = lookup_alias_target_name (decl, arg);
+		  if (! target_decl)
+		    break;
 		  /* Since aliases are made at the assembler level, we
 		     should use the assembler name, if one is defined.  */
-		  if (DECL_ASSEMBLER_NAME (target))
-		    id = DECL_ASSEMBLER_NAME (target);
+		  if (DECL_ASSEMBLER_NAME (target_decl))
+		    id = DECL_ASSEMBLER_NAME (target_decl);
 		  else
-		    id = DECL_NAME (target);
+		    id = DECL_NAME (target_decl);
+		}
+	      else if (TREE_CODE (arg) == STRING_CST)
+		id = get_identifier (TREE_STRING_POINTER (arg));
+	      else
+		{
+		  error ("alias arg not a string or the name of a declaration");
+		  break;
 		}
 	      /* This counts as a use of the object pointed to.  */
 	      TREE_USED (id) = 1;
@@ -1079,9 +1080,13 @@ decl_attributes (node, attributes, prefix_attributes)
 	      else
 		DECL_EXTERNAL (decl) = 0;
 	      assemble_alias (decl, id);
-	      if (target && TREE_CODE (target) == VAR_DECL && DECL_ARGUMENTS (target))
+	      /* If we are aliasing an initialized variable, and it
+		 has a high-bound symbol, then we must alias the
+		 high-bound symbol as well.  */
+	      if (target_decl && TREE_CODE (target_decl) == VAR_DECL
+		  && DECL_ARGUMENTS (target_decl))
 		{
-		  tree target_high_bound = DECL_ARGUMENTS (target);
+		  tree target_high_bound = DECL_ARGUMENTS (target_decl);
 		  tree decl_high_bound = get_high_bound_decl (decl);
 		  if (decl_high_bound)
 		    {
@@ -2570,7 +2575,7 @@ check_format_types (types)
 	 that precede the "real" argument.  */
       for (i = 0; i < types->pointer_count; ++i)
 	{
-	  if (MAYBE_BOUNDED_POINTER_TYPE_P (cur_type))
+	  if (ANY_POINTER_TYPE_P (cur_type))
 	    {
 	      cur_type = TREE_TYPE (cur_type);
 
@@ -3797,13 +3802,13 @@ c_build_qualified_type (type, type_quals)
      int type_quals;
 {
   /* A restrict-qualified pointer type must be a pointer to object or
-     incomplete type.  Note that the use of MAYBE_BOUNDED_INDIRECT_TYPE_P also allows
+     incomplete type.  Note that the use of ANY_INDIRECT_TYPE_P also allows
      REFERENCE_TYPEs, which is appropriate for C++.  Unfortunately,
      the C++ front-end also use POINTER_TYPE for pointer-to-member
      values, so even though it should be illegal to use `restrict'
      with such an entity we don't flag that here.  Thus, special case
      code for that case is required in the C++ front-end.  */
-  if (! MAYBE_BOUNDED_INDIRECT_TYPE_P (type)
+  if (! ANY_INDIRECT_TYPE_P (type)
       || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type)))
     {
       if (type_quals & TYPE_QUAL_RESTRICT)
@@ -3844,7 +3849,7 @@ c_apply_type_quals_to_decl (type_quals, decl)
   if (type_quals & TYPE_QUAL_RESTRICT)
     {
       if (!TREE_TYPE (decl)
-	  || !MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (decl))
+	  || !ANY_INDIRECT_TYPE_P (TREE_TYPE (decl))
 	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (TREE_TYPE (decl))))
 	error ("invalid use of `restrict'");
       else if (flag_strict_aliasing)
@@ -3920,7 +3925,7 @@ lang_get_alias_set (t)
       if (t1 != t)
 	return get_alias_set (t1);
     }
-  else if (MAYBE_BOUNDED_INDIRECT_TYPE_P (t))
+  else if (ANY_INDIRECT_TYPE_P (t))
     {
       tree t1;
 
@@ -4769,9 +4774,9 @@ c_add_case_label (cases, cond, low_value, high_value)
     }
 
   if ((low_value && TREE_TYPE (low_value) 
-       && POINTER_TYPE_P (TREE_TYPE (low_value))) 
+       && UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (low_value))) 
       || (high_value && TREE_TYPE (high_value)
-	  && POINTER_TYPE_P (TREE_TYPE (high_value))))
+	  && UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (high_value))))
     error ("pointers are not permitted as case values");
 
   /* Case ranges are a GNU extension.  */

@@ -127,10 +127,12 @@ static int invert_exp			PARAMS ((rtx));
 static void delete_from_jump_chain	PARAMS ((rtx));
 static int delete_labelref_insn		PARAMS ((rtx, rtx, int));
 static void mark_modified_reg		PARAMS ((rtx, rtx, void *));
+static rtx explode_condition		PARAMS ((rtx, enum rtx_code *, rtx *, rtx *, rtx *));
 static void redirect_tablejump		PARAMS ((rtx, rtx));
 static void jump_optimize_1		PARAMS ((rtx, int, int, int, int, int));
 static int returnjump_p_1	        PARAMS ((rtx *, void *));
 static void delete_prior_computation    PARAMS ((rtx, rtx));
+static void elide_redundant_cond_traps	PARAMS ((rtx, int));
 
 /* Main external entry point into the jump optimizer.  See comments before
    jump_optimize_1 for descriptions of the arguments.  */
@@ -3789,9 +3791,10 @@ thread_jumps (f, max_reg, flag_before_loop)
      senses of the two branches.  So adjust the first branch accordingly
      in this case.  */
 
-  rtx label, b1, b2, t1, t2;
+  rtx label;
   enum rtx_code code1, code2;
-  rtx b1op0, b1op1, b2op0, b2op1;
+  rtx b1, bc1, t1, cond1, b1op0, b1op1;
+  rtx b2, bc2, t2, cond2, b2op0, b2op1;
   int changed = 1;
   int i;
   int *all_reset;
@@ -3809,9 +3812,6 @@ thread_jumps (f, max_reg, flag_before_loop)
 
       for (b1 = f; b1; b1 = NEXT_INSN (b1))
 	{
-	  rtx set;
-	  rtx set2;
-
 	  /* Get to a candidate branch insn.  */
 	  if (GET_CODE (b1) != JUMP_INSN
 	      || ! any_condjump_p (b1) || JUMP_LABEL (b1) == 0)
@@ -3876,33 +3876,21 @@ thread_jumps (f, max_reg, flag_before_loop)
 	      || !any_condjump_p (b2)
 	      || !onlyjump_p (b2))
 	    continue;
-	  set = pc_set (b1);
-	  set2 = pc_set (b2);
 
 	  /* Get the comparison codes and operands, reversing the
 	     codes if appropriate.  If we don't have comparison codes,
 	     we can't do anything.  */
-	  b1op0 = XEXP (XEXP (SET_SRC (set), 0), 0);
-	  b1op1 = XEXP (XEXP (SET_SRC (set), 0), 1);
-	  code1 = GET_CODE (XEXP (SET_SRC (set), 0));
-	  if (XEXP (SET_SRC (set), 1) == pc_rtx)
-	    code1 = reverse_condition (code1);
-
-	  b2op0 = XEXP (XEXP (SET_SRC (set2), 0), 0);
-	  b2op1 = XEXP (XEXP (SET_SRC (set2), 0), 1);
-	  code2 = GET_CODE (XEXP (SET_SRC (set2), 0));
-	  if (XEXP (SET_SRC (set2), 1) == pc_rtx)
-	    code2 = reverse_condition (code2);
+	  bc1 = explode_condition (b1, &code1, &cond1, &b1op0, &b1op1);
+	  bc2 = explode_condition (b2, &code2, &cond2, &b2op0, &b2op1);
 
 	  /* If they test the same things and knowing that B1 branches
 	     tells us whether or not B2 branches, check if we
 	     can thread the branch.  */
-	  if (rtx_equal_for_thread_p (b1op0, b2op0, b2)
-	      && rtx_equal_for_thread_p (b1op1, b2op1, b2)
+	  if (rtx_equal_for_thread_p (b1op0, b2op0, bc2)
+	      && rtx_equal_for_thread_p (b1op1, b2op1, bc2)
 	      && (comparison_dominates_p (code1, code2)
-		  || (can_reverse_comparison_p (XEXP (SET_SRC (set), 0), b1)
-		      && comparison_dominates_p (code1,
-						 reverse_condition (code2)))))
+		  || (can_reverse_comparison_p (cond1, bc1)
+		      && comparison_dominates_p (code1, reverse_condition (code2)))))
 
 	    {
 	      t1 = prev_nonnote_insn (b1);
@@ -3967,13 +3955,193 @@ thread_jumps (f, max_reg, flag_before_loop)
   free (modified_regs);
   free (same_regs);
   free (all_reset);
+
+  if (default_pointer_boundedness)
+    elide_redundant_cond_traps (f, max_reg);
+}
+
+/* Extract the interesting pieces from a conditional jump or
+   conditional trap insn, and for architectures that use a
+   condition-code register, from the associated insn that sets
+   condition codes based on a comparison.  The pieces we want are the
+   condition expression, the comparison code, and the two operands of
+   the comparison.  If we needed to grope backward to find a
+   set-condition-code insn, return that insn, otherwise return the
+   given conditional jump/trap insn.  */
+
+static rtx
+explode_condition (insn, code_loc, cond_loc, op0_loc, op1_loc)
+     rtx insn;
+     enum rtx_code *code_loc;
+     rtx *cond_loc, *op0_loc, *op1_loc;
+{
+  /* set is non-NULL for cond jump, and NULL for cond trap */
+  rtx set = pc_set (insn);
+  rtx src = set ? SET_SRC (set) : PATTERN (insn);
+  rtx cond = XEXP (src, 0);
+  enum rtx_code code = GET_CODE (cond);
+  rtx op0 = XEXP (cond, 0);
+  rtx op1 = XEXP (cond, 1);
+  rtx prev;
+
+  if (set && XEXP (src, 1) == pc_rtx)
+    code = reverse_condition (code);
+
+  if (op1 == const0_rtx
+      && ((GET_CODE (op0) == REG && GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
+#ifdef HAVE_cc0
+	  || op0 == cc0_rtx
+#endif
+	  ))
+    {
+      for (prev = prev_nonnote_insn (insn);
+	   prev && GET_CODE (prev) != CODE_LABEL;
+	   prev = prev_nonnote_insn (prev))
+	if ((set = single_set (prev)) != 0
+	    && rtx_equal_p (SET_DEST (set), op0)
+	    && GET_CODE (SET_SRC (set)) == COMPARE)
+	  {
+	    op0 = XEXP (SET_SRC (set), 0);
+	    op1 = XEXP (SET_SRC (set), 1);
+	    insn = prev;
+	    break;
+	  }
+    }
+
+  *cond_loc = cond;
+  *code_loc = code;
+  *op0_loc = op0;
+  *op1_loc = op1;
+  return insn;
+}
+
+static void
+elide_redundant_cond_traps (f, max_reg)
+     rtx f;
+     int max_reg;
+{
+  /* Basic algorithm is to find a conditional branch,
+     the label it may branch to, and the branch after
+     that label.  If the two branches test the same condition,
+     walk back from both branch paths until the insn patterns
+     differ, or code labels are hit.  If we make it back to
+     the target of the first branch, then we know that the first branch
+     will either always succeed or always fail depending on the relative
+     senses of the two branches.  So adjust the first branch accordingly
+     in this case.  */
+
+  rtx b1, b2;
+  int changed = 1;
+  int i;
+  int *all_reset;
+
+  /* Allocate register tables and quick-reset table.  */
+  modified_regs = (char *) xmalloc (max_reg * sizeof (char));
+  same_regs = (int *) xmalloc (max_reg * sizeof (int));
+  all_reset = (int *) xmalloc (max_reg * sizeof (int));
+  for (i = 0; i < max_reg; i++)
+    all_reset[i] = -1;
+
+  for (b1 = f; b1; b1 = NEXT_INSN (b1))
+    {
+      rtx cond1, b1op0, b1op1;
+      rtx cond2, b2op0, b2op1;
+      enum rtx_code code1, code2;
+
+      /* Get to a candidate conditional trap.  */
+      if (GET_CODE (b1) != INSN || GET_CODE (PATTERN (b1)) != TRAP_IF)
+	continue;
+
+      bzero (modified_regs, max_reg * sizeof (char));
+      modified_mem = 0;
+
+      bcopy ((char *) all_reset, (char *) same_regs,
+	     max_reg * sizeof (int));
+      num_same_regs = 0;
+
+      cond1 = XEXP (PATTERN (b1), 0);
+      code1 = GET_CODE (cond1);
+      b1op0 = XEXP (cond1, 0);
+      b1op1 = XEXP (cond1, 1);
+
+      /* Look for a cond trap after the target.  Record any registers and
+	 memory modified between the target and the branch.  Stop when we
+	 get to a label since we can't know what was changed there.  */
+      for (b2 = NEXT_INSN (b1); b2; b2 = NEXT_INSN (b2))
+	{
+	  if (GET_CODE (b2) == CODE_LABEL)
+	    break;
+
+	  else if (GET_CODE (b2) == JUMP_INSN)
+	    {
+	      /* If this is an unconditional jump and is the only use of
+		 its target label, we can follow it.  */
+	      if (any_uncondjump_p (b2)
+		  && onlyjump_p (b2)
+		  && JUMP_LABEL (b2) != 0
+		  && LABEL_NUSES (JUMP_LABEL (b2)) == 1)
+		{
+		  b2 = JUMP_LABEL (b2);
+		  continue;
+		}
+	    }
+
+	  else if (GET_CODE (b2) == CALL_INSN)
+	    {
+	      modified_mem = 1;
+	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+		if (call_used_regs[i] && ! fixed_regs[i]
+		    && i != STACK_POINTER_REGNUM
+		    && i != FRAME_POINTER_REGNUM
+		    && i != HARD_FRAME_POINTER_REGNUM
+		    && i != ARG_POINTER_REGNUM)
+		  modified_regs[i] = 1;
+	    }
+
+	  else if (GET_CODE (b2) == INSN
+		   && GET_CODE (PATTERN (b2)) == TRAP_IF)
+	    {
+	      /* Get the comparison codes and operands, reversing the
+		 codes if appropriate.  If we don't have comparison codes,
+		 we can't do anything.  */
+	      rtx bc1 = explode_condition (b1, &code1, &cond1, &b1op0, &b1op1);
+	      explode_condition (b2, &code2, &cond2, &b2op0, &b2op1);
+
+	      /* If they test the same things and knowing that B1 branches
+		 tells us whether or not B2 branches, check if we
+		 can thread the branch.  */
+	      if (rtx_equal_for_thread_p (b1op0, b2op0, NULL_RTX)
+		  && rtx_equal_for_thread_p (b1op1, b2op1, NULL_RTX)
+		  && (comparison_dominates_p (code1, code2)
+		      || (can_reverse_comparison_p (cond1, bc1)
+			  && comparison_dominates_p (code1,
+						     reverse_condition (code2)))))
+		{
+		  PUT_CODE (b2, NOTE);
+		  NOTE_LINE_NUMBER (b2) = NOTE_INSN_DELETED;
+		  NOTE_SOURCE_FILE (b2) = 0;
+		}
+	      continue;
+	    }
+
+	  else if (GET_CODE (b2) != INSN)
+	    continue;
+
+	  note_stores (PATTERN (b2), mark_modified_reg, NULL);
+	}
+    }
+
+  /* Clean up.  */
+  free (modified_regs);
+  free (same_regs);
+  free (all_reset);
 }
 
 /* This is like RTX_EQUAL_P except that it knows about our handling of
    possibly equivalent registers and knows to consider volatile and
    modified objects as not equal.
 
-   YINSN is the insn containing Y.  */
+   If non-NULL, YINSN is the insn containing Y.  */
 
 int
 rtx_equal_for_thread_p (x, y, yinsn)
@@ -4038,7 +4206,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
 	  /* If this is the first time we are seeing a register on the `Y'
 	     side, see if it is the last use.  If not, we can't thread the
 	     jump, so mark it as not equivalent.  */
-	  if (REGNO_LAST_UID (REGNO (y)) != INSN_UID (yinsn))
+	  if (yinsn && REGNO_LAST_UID (REGNO (y)) != INSN_UID (yinsn))
 	    return 0;
 
 	  return 1;

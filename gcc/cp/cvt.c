@@ -129,7 +129,7 @@ cp_convert_to_pointer (type, expr)
 
   form = TREE_CODE (intype);
 
-  if (POINTER_TYPE_P (intype))
+  if (UNBOUNDED_INDIRECT_TYPE_P (intype))
     {
       intype = TYPE_MAIN_VARIANT (intype);
 
@@ -1016,7 +1016,7 @@ convert (type, expr)
 
   intype = TREE_TYPE (expr);
 
-  if (POINTER_TYPE_P (type) && POINTER_TYPE_P (intype)
+  if (UNBOUNDED_INDIRECT_TYPE_P (type) && UNBOUNDED_INDIRECT_TYPE_P (intype)
       && BOUNDED_POINTER_TYPE_P (type) == BOUNDED_POINTER_TYPE_P (intype))
     {
       expr = decl_constant_value (expr);

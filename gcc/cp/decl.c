@@ -6120,6 +6120,14 @@ lookup_type_current_level (name)
   return t;
 }
 
+tree
+lookup_alias_target_name (alias_decl, target_id)
+     tree alias_decl, target_id;
+{
+  error ("alias arg not a string");
+  return NULL_TREE;
+}
+
 void
 begin_only_namespace_names ()
 {
@@ -10301,7 +10309,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
     error ("conflict between `__bounded' and `__unbounded'");
   else if (xboundedp || xunboundedp)
     {
-      if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
+      if (ANY_POINTER_TYPE_P (type))
 	boundedp = xboundedp;
       else if (xboundedp)
 	error ("invalid use of `__bounded' with non-pointer type");
@@ -12098,10 +12106,10 @@ grokparms (first_parm, funcdef_flag)
 		    }
                   else if (abstract_virtuals_error (decl, type))
 		    any_error = 1;  /* Seems like a good idea. */
-		  else if (POINTER_TYPE_P (type))
+		  else if (UNBOUNDED_INDIRECT_TYPE_P (type))
 		    {
 		      tree t = type;
-		      while (POINTER_TYPE_P (t)
+		      while (UNBOUNDED_INDIRECT_TYPE_P (t)
 			     || (TREE_CODE (t) == ARRAY_TYPE
 				 && TYPE_DOMAIN (t) != NULL_TREE))
 			t = TREE_TYPE (t);

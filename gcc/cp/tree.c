@@ -557,7 +557,7 @@ cp_build_qualified_type_real (type, type_quals, complain)
      to object or incomplete type.  */
   if ((type_quals & TYPE_QUAL_RESTRICT)
       && TREE_CODE (type) != TEMPLATE_TYPE_PARM
-      && (!POINTER_TYPE_P (type)
+      && (!UNBOUNDED_INDIRECT_TYPE_P (type)
 	  || TYPE_PTRMEM_P (type)
 	  || TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE))
     {
@@ -1883,7 +1883,8 @@ can_free (obstack, t)
   int size = 0;
 
   if (TREE_CODE (t) == TREE_VEC)
-    size = (TREE_VEC_LENGTH (t)-1) * sizeof (tree) + sizeof (struct tree_vec);
+    size = (((TREE_VEC_LENGTH (t) - 1  + TREE_CODE_LENGTH (TREE_VEC)) * sizeof (tree))
+	    + sizeof (struct tree_common));
   else
     my_friendly_abort (42);
 

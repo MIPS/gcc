@@ -657,7 +657,7 @@ extern int target_flags;
 #define FUNCTION_VALUE(VALTYPE, FUNC)				\
   gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)			\
 		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-		|| POINTER_TYPE_P (VALTYPE))			\
+		|| UNBOUNDED_INDIRECT_TYPE_P (VALTYPE))			\
 	       ? word_mode : TYPE_MODE (VALTYPE),		\
 	       TREE_CODE (VALTYPE) == REAL_TYPE && !TARGET_SOFT_FLOAT ? 32 : 28)
 

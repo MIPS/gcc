@@ -286,7 +286,7 @@ find_base_decl (t)
 {
   tree d0, d1, d2;
 
-  if (t == 0 || t == error_mark_node || ! POINTER_TYPE_P (TREE_TYPE (t)))
+  if (t == 0 || t == error_mark_node || ! UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (t)))
     return 0;
 
   /* If this is a declaration, return it.  */

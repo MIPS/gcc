@@ -1010,7 +1010,7 @@ extern int alpha_memory_latency;
 #define FUNCTION_VALUE(VALTYPE, FUNC)	\
   gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)			\
 		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-		|| POINTER_TYPE_P (VALTYPE))			\
+		|| UNBOUNDED_INDIRECT_TYPE_P (VALTYPE))			\
 	       ? word_mode : TYPE_MODE (VALTYPE),		\
 	       ((TARGET_FPREGS					\
 		 && (TREE_CODE (VALTYPE) == REAL_TYPE		\

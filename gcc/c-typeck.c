@@ -1566,7 +1566,7 @@ build_array_ref (array, index)
     if (ar == error_mark_node)
       return ar;
 
-    if (! MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (ar))
+    if (! ANY_POINTER_TYPE_P (TREE_TYPE (ar))
 	|| TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) == FUNCTION_TYPE)
       {
 	error ("subscripted value is neither array nor pointer");
@@ -3295,7 +3295,7 @@ build_unary_op (code, xarg, noconvert)
 
       /* Report invalid types.  */
 
-      if (!MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (arg))
+      if (!ANY_POINTER_TYPE_P (TREE_TYPE (arg))
 	  && typecode != INTEGER_TYPE && typecode != REAL_TYPE)
 	{
 	  error ("wrong type argument to %s",
@@ -3313,7 +3313,7 @@ build_unary_op (code, xarg, noconvert)
 
 	/* Compute the increment.  */
 
-	if (MAYBE_BOUNDED_POINTER_TYPE_P (argtype))
+	if (ANY_POINTER_TYPE_P (argtype))
 	  {
 	    /* If pointer target is an undefined struct,
 	       we just cannot know how to do the arithmetic.  */
@@ -4104,7 +4104,7 @@ build_conditional_expr (ifexp, op1, op2)
 	pedwarn ("ISO C forbids conditional expr with only one void side");
       result_type = void_type_node;
     }
-  else if (MAYBE_BOUNDED_POINTER_TYPE_P (type1) && MAYBE_BOUNDED_POINTER_TYPE_P (type2))
+  else if (ANY_POINTER_TYPE_P (type1) && ANY_POINTER_TYPE_P (type2))
     {
       tree subtype1 = TREE_TYPE (type1);
       tree subtype2 = TREE_TYPE (type2);
@@ -4138,7 +4138,7 @@ build_conditional_expr (ifexp, op1, op2)
 	  result_type = ptr_type_node;
 	}
     }
-  else if (MAYBE_BOUNDED_POINTER_TYPE_P (type1) && code2 == INTEGER_TYPE)
+  else if (ANY_POINTER_TYPE_P (type1) && code2 == INTEGER_TYPE)
     {
       if (! integer_zerop (op2))
 	pedwarn ("pointer/integer type mismatch in conditional expression");
@@ -4153,7 +4153,7 @@ build_conditional_expr (ifexp, op1, op2)
 	}
       result_type = type1;
     }
-  else if (MAYBE_BOUNDED_POINTER_TYPE_P (type2) && code1 == INTEGER_TYPE)
+  else if (ANY_POINTER_TYPE_P (type2) && code1 == INTEGER_TYPE)
     {
       if (!integer_zerop (op1))
 	pedwarn ("pointer/integer type mismatch in conditional expression");
@@ -4364,8 +4364,8 @@ build_c_cast (type, expr)
       /* Optionally warn about potentially worrisome casts.  */
 
       if (warn_cast_qual
-	  && MAYBE_BOUNDED_POINTER_TYPE_P (type)
-	  && MAYBE_BOUNDED_POINTER_TYPE_P (otype))
+	  && ANY_POINTER_TYPE_P (type)
+	  && ANY_POINTER_TYPE_P (otype))
 	{
 	  tree in_type = type;
 	  tree in_otype = otype;
@@ -4382,15 +4382,15 @@ build_c_cast (type, expr)
 	      tree out_otype = in_otype;
 	      in_otype = TREE_TYPE (in_otype);
 	      in_type = TREE_TYPE (in_type);
-	      if (MAYBE_BOUNDED_POINTER_TYPE_P (in_type)
-		  && MAYBE_BOUNDED_POINTER_TYPE_P (in_otype)
+	      if (ANY_POINTER_TYPE_P (in_type)
+		  && ANY_POINTER_TYPE_P (in_otype)
 		  && (BOUNDED_POINTER_TYPE_P (out_type)
 		      != BOUNDED_POINTER_TYPE_P (out_otype)))
 		bp_warn = 1;
 	      cv_warn |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
 	    }
-	  while (MAYBE_BOUNDED_POINTER_TYPE_P (in_type)
-		 && MAYBE_BOUNDED_POINTER_TYPE_P (in_otype));
+	  while (ANY_POINTER_TYPE_P (in_type)
+		 && ANY_POINTER_TYPE_P (in_otype));
 
 	  if (cv_warn)
 	    /* There are qualifiers present in IN_OTYPE that are not
@@ -4404,8 +4404,8 @@ build_c_cast (type, expr)
 
       /* Warn about possible alignment problems.  */
       if (STRICT_ALIGNMENT && warn_cast_align
-	  && MAYBE_BOUNDED_POINTER_TYPE_P (type)
-	  && MAYBE_BOUNDED_POINTER_TYPE_P (otype)
+	  && ANY_POINTER_TYPE_P (type)
+	  && ANY_POINTER_TYPE_P (otype)
 	  && TREE_CODE (TREE_TYPE (otype)) != VOID_TYPE
 	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
 	  /* Don't warn about opaque types, where the actual alignment
@@ -4756,10 +4756,10 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 			 TYPE_MAIN_PHYSICAL_VARIANT (rhstype)))
 	    break;
 
-	  if (! MAYBE_BOUNDED_POINTER_TYPE_P (memb_type))
+	  if (! ANY_POINTER_TYPE_P (memb_type))
 	    continue;
 
-	  if (MAYBE_BOUNDED_POINTER_TYPE_P (rhstype))
+	  if (ANY_POINTER_TYPE_P (rhstype))
 	    {
 	      register tree ttl = TREE_TYPE (memb_type);
 	      register tree ttr = TREE_TYPE (rhstype);
@@ -4835,8 +4835,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     }
 
   /* Conversions among pointers */
-  else if (MAYBE_BOUNDED_INDIRECT_TYPE_P (type)
-	   && MAYBE_BOUNDED_INDIRECT_TYPE_P (rhstype))
+  else if (ANY_INDIRECT_TYPE_P (type)
+	   && ANY_INDIRECT_TYPE_P (rhstype))
     {
       register tree ttl = TREE_TYPE (type);
       register tree ttr = TREE_TYPE (rhstype);
@@ -4902,7 +4902,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	rhs = build_bounded_ptr_field_ref (rhs, 0);
       return convert (type, rhs);
     }
-  else if (MAYBE_BOUNDED_POINTER_TYPE_P (type) && coder == INTEGER_TYPE)
+  else if (ANY_POINTER_TYPE_P (type) && coder == INTEGER_TYPE)
     {
       /* An explicit constant 0 can convert to a pointer,
 	 or one that results from arithmetic, even including
@@ -4921,7 +4921,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       return (BOUNDED_POINTER_TYPE_P (type)
 	      ? null_bounded_ptr_node : null_unbounded_ptr_node);
     }
-  else if (codel == INTEGER_TYPE && MAYBE_BOUNDED_POINTER_TYPE_P (rhstype))
+  else if (codel == INTEGER_TYPE && ANY_POINTER_TYPE_P (rhstype))
     {
       warn_for_assignment ("%s makes integer from pointer without a cast",
 			   errtype, funname, parmnum);
@@ -5420,7 +5420,7 @@ digest_init (type, init, require_constant, constructor_constant)
 
   if (code == INTEGER_TYPE || code == REAL_TYPE
       || code == ENUMERAL_TYPE || code == COMPLEX_TYPE
-      || MAYBE_BOUNDED_POINTER_TYPE_P (type))
+      || ANY_POINTER_TYPE_P (type))
     {
       /* Note that convert_for_assignment calls default_conversion
 	 for arrays and functions.  We must not call it in the
@@ -7429,13 +7429,13 @@ c_expand_return (retval)
 	      {
 		tree op1 = TREE_OPERAND (inner, 1);
 
-		while (! MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (op1))
+		while (! ANY_INDIRECT_TYPE_P (TREE_TYPE (op1))
 		       && (TREE_CODE (op1) == NOP_EXPR
 			   || TREE_CODE (op1) == NON_LVALUE_EXPR
 			   || TREE_CODE (op1) == CONVERT_EXPR))
 		  op1 = TREE_OPERAND (op1, 0);
 
-		if (MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (op1)))
+		if (ANY_INDIRECT_TYPE_P (TREE_TYPE (op1)))
 		  break;
 
 		inner = TREE_OPERAND (inner, 0);

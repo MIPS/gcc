@@ -3295,6 +3295,14 @@ lookup_name_for_seizing (seize_decl)
     }
   return val;
 }
+
+tree
+lookup_alias_target_name (alias_decl, target_id)
+     tree alias_decl, target_id;
+{
+  error ("alias arg not a string");
+  return NULL_TREE;
+}
 
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *)0).

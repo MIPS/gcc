@@ -252,7 +252,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define DATA_ALIGNMENT(dummy,align)	\
 	((TREE_PUBLIC (decl) &&	\
-	 (POINTER_TYPE_P (TREE_TYPE (decl)))) ? 64: align)
+	 (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (decl)))) ? 64: align)
 
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)	\

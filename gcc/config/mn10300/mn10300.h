@@ -572,7 +572,7 @@ struct cum_arg {int nbytes; };
    otherwise, FUNC is 0.   */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) \
+  gen_rtx_REG (TYPE_MODE (VALTYPE), UNBOUNDED_INDIRECT_TYPE_P (VALTYPE) \
 	       ? FIRST_ADDRESS_REGNUM : FIRST_DATA_REGNUM)
 
 /* Define how to find the value returned by a library function

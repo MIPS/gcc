@@ -115,7 +115,7 @@ crt2.o%s "
 #define FUNCTION_VALUE(VALTYPE, FUNC)                                  \
   (TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_68881                    \
    ? gen_rtx_REG (TYPE_MODE (VALTYPE), 16)                            \
-   : (POINTER_TYPE_P (VALTYPE)		                               \
+   : (UNBOUNDED_INDIRECT_TYPE_P (VALTYPE)		                               \
       ? gen_rtx_REG (TYPE_MODE (VALTYPE), 8)                           \
       : gen_rtx_REG (TYPE_MODE (VALTYPE), 0)))
                     

@@ -687,8 +687,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	      /* If a function definition has a K&R-style declarator,
 		 convert_arguments doesn't properly convert pointer types,
 		 so we need to make an exception for BP types. */
-	      && ! (MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (arg))
-		    && MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (formal)))
+	      && ! (ANY_POINTER_TYPE_P (TREE_TYPE (arg))
+		    && ANY_POINTER_TYPE_P (TREE_TYPE (formal)))
 	      && ! TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (TREE_TYPE (arg),
 							  TREE_TYPE (formal))))
 	return (rtx) (HOST_WIDE_INT) -1;
@@ -778,7 +778,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	arg_vals[i] = copy_to_mode_reg (GET_MODE (loc), arg_vals[i]);
 
       if (arg_vals[i] != 0 && GET_CODE (arg_vals[i]) == REG
-	  && POINTER_TYPE_P (TREE_TYPE (formal)))
+	  && UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (formal)))
 	mark_reg_pointer (arg_vals[i],
 			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (formal))));
     }

@@ -5230,7 +5230,7 @@ build_const_cast (type, expr)
       return t;
     }
 
-  if (!POINTER_TYPE_P (type))
+  if (!UNBOUNDED_INDIRECT_TYPE_P (type))
     cp_error ("invalid use of const_cast with type `%T', which is not a pointer, reference, nor a pointer-to-data-member type", type);
   else if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {

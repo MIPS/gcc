@@ -558,12 +558,12 @@ get_memory_rtx (exp)
      we can.  First remove any nops.  */
   while ((TREE_CODE (exp) == NOP_EXPR || TREE_CODE (exp) == CONVERT_EXPR
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR)
-	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	 && UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
     exp = TREE_OPERAND (exp, 0);
 
   if (TREE_CODE (exp) == ADDR_EXPR)
     exp = TREE_OPERAND (exp, 0);
-  else if (POINTER_TYPE_P (TREE_TYPE (exp)))
+  else if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (exp)))
     exp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (exp)), exp);
   else
     return mem;
@@ -1196,7 +1196,7 @@ expand_builtin_constant_p (exp)
 	 when generating RTL, not later.  */
       if (TREE_SIDE_EFFECTS (arg) || cse_not_expected
 	  || AGGREGATE_TYPE_P (TREE_TYPE (arg))
-	  || POINTER_TYPE_P (TREE_TYPE (arg)))
+	  || UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (arg)))
 	return const0_rtx;
 
       /* Otherwise, emit (constant_p_rtx (ARG)) and let CSE get a
@@ -2622,7 +2622,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	  if (TREE_BOUNDED (args))
 	    args = build_bounded_ptr_field_ref (args, 0);
 
-	  if (! POINTER_TYPE_P (TREE_TYPE (func))
+	  if (! UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (func))
 	      || TREE_CODE (TREE_TYPE (args)) != POINTER_TYPE
 	      || TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE)
 	    return const0_rtx;

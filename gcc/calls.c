@@ -2301,7 +2301,7 @@ expand_call (exp, target, ignore)
 
   /* Operand 0 is a pointer-to-function; get the type of the function.  */
   funtype = TREE_TYPE (TREE_OPERAND (exp, 0));
-  if (! POINTER_TYPE_P (funtype))
+  if (! UNBOUNDED_INDIRECT_TYPE_P (funtype))
     abort ();
   funtype = TREE_TYPE (funtype);
 

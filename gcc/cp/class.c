@@ -5398,7 +5398,7 @@ resolves_to_fixed_type_p (instance, nonnull)
   tree fixed = fixed_type_or_null (instance, nonnull);
   if (fixed == NULL_TREE)
     return 0;
-  if (POINTER_TYPE_P (t))
+  if (UNBOUNDED_INDIRECT_TYPE_P (t))
     t = TREE_TYPE (t);
   return same_type_ignoring_top_level_qualifiers_p (t, fixed);
 }

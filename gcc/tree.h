@@ -406,7 +406,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 /* Nonzero if TYPE represents an unbounded pointer or unbounded
    reference type.  (It should be renamed to INDIRECT_TYPE_P.)  */
 
-#define POINTER_TYPE_P(TYPE) \
+#define UNBOUNDED_INDIRECT_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
 
 /* Nonzero if TYPE represents a bounded pointer or bounded reference type.  */
@@ -439,17 +439,17 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 /* Nonzero if TYPE represents a pointer or reference type, either
    bounded or unbounded.  */
 
-#define MAYBE_BOUNDED_INDIRECT_TYPE_P(TYPE) \
-  (POINTER_TYPE_P (TYPE) || BOUNDED_INDIRECT_TYPE_P (TYPE))
+#define ANY_INDIRECT_TYPE_P(TYPE) \
+  (UNBOUNDED_INDIRECT_TYPE_P (TYPE) || BOUNDED_INDIRECT_TYPE_P (TYPE))
 
 /* Nonzero if TYPE represents a pointer type, either bounded or unbounded.  */
 
-#define MAYBE_BOUNDED_POINTER_TYPE_P(TYPE) \
+#define ANY_POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || BOUNDED_POINTER_TYPE_P (TYPE))
 
 /* Nonzero if TYPE represents a reference type, either bounded or unbounded.  */
 
-#define MAYBE_BOUNDED_REFERENCE_TYPE_P(TYPE) \
+#define ANY_REFERENCE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == REFERENCE_TYPE || BOUNDED_REFERENCE_TYPE_P (TYPE))
 
 /* Nonzero if this type is a complete type.  */
@@ -2834,6 +2834,7 @@ extern void print_lang_identifier	PARAMS ((FILE *, tree, int));
 #endif
 extern int global_bindings_p		PARAMS ((void));
 extern void insert_block		PARAMS ((tree));
+extern tree lookup_alias_target_name	PARAMS ((tree, tree));
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));

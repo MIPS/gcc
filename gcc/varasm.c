@@ -4165,8 +4165,8 @@ initializer_constant_valid_p (value, endtype)
     case CONVERT_EXPR:
     case NOP_EXPR:
       /* Allow conversions between pointer types.  */
-      if (MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (value))
-	  && MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
+      if (ANY_INDIRECT_TYPE_P (TREE_TYPE (value))
+	  && ANY_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0), endtype);
 
       /* Allow conversions between real types.  */
@@ -4195,7 +4195,7 @@ initializer_constant_valid_p (value, endtype)
 
       /* Allow (int) &foo provided int is as wide as a pointer.  */
       if (INTEGRAL_TYPE_P (TREE_TYPE (value))
-	  && MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
+	  && ANY_INDIRECT_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0)))
 	  && (TYPE_PRECISION (TREE_TYPE (value))
 	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
@@ -4203,7 +4203,7 @@ initializer_constant_valid_p (value, endtype)
 
       /* Likewise conversions from int to pointers, but also allow
 	 conversions from 0.  */
-      if (MAYBE_BOUNDED_INDIRECT_TYPE_P (TREE_TYPE (value))
+      if (ANY_INDIRECT_TYPE_P (TREE_TYPE (value))
 	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (value, 0))))
 	{
 	  if (integer_zerop (TREE_OPERAND (value, 0)))

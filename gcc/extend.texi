@@ -1600,6 +1600,7 @@ that calls to malloc result in a pointers that cannot alias anything.
 This will often improve optimization.
 
 @item alias ("target")
+@itemx alias (@var{target})
 @cindex @code{alias} attribute
 The @code{alias} attribute causes the declaration to be emitted as an
 alias for another symbol, which must be specified.  For instance,
@@ -1609,8 +1610,15 @@ void __f () @{ /* do something */; @}
 void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
-declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
-mangled name for the target must be used.
+declares @samp{f} to be a weak alias for @samp{__f}.
+
+If "target" is a string, then it is emitted unaltered, and the compiler
+performs no error checking to ensure that the string names a valid
+declaration.  In C++, if the "target" string names a non-C-linkage
+function, the user must explicitly mangle the name.  For GNU CC only, if
+@var{target} is an identifier, then the compiler ensures that it names a
+valid declaration, and that the alias declaration and the declaration
+named by @var{target} are compitible.
 
 Not all target machines support this attribute.
 

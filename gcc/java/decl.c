@@ -1002,6 +1002,14 @@ lookup_name_current_level (name)
   return t;
 }
 
+tree
+lookup_alias_target_name (alias_decl, target_id)
+     tree alias_decl, target_id;
+{
+  error ("alias arg not a string");
+  return NULL_TREE;
+}
+
 /* Use a binding level to record a labeled block declaration */
 
 void

@@ -2955,6 +2955,40 @@ lookup_name_current_level (name)
 
   return t;
 }
+
+/* Lookup the identifier node TARGET_ID as a candidate target decl for
+   the alias ALIAS_DECL.  Return the decl associated with TARGET_ID if
+   it is compatible with ALIAS_DECL.  */
+
+tree
+lookup_alias_target_name (alias_decl, target_id)
+     tree alias_decl;
+     tree target_id;
+{
+  tree target_decl = lookup_name (target_id);
+  tree alias_id = DECL_NAME (alias_decl);
+
+  if (! target_decl || target_decl == error_mark_node)
+    error ("declaration `%s' is aliased to unknown identifier `%s'",
+	   IDENTIFIER_POINTER (alias_id), IDENTIFIER_POINTER (target_id));
+
+  else if (! DECL_P (target_decl))
+    error ("declaration `%s' is aliased to non-declaration `%s'",
+	   IDENTIFIER_POINTER (alias_id), IDENTIFIER_POINTER (target_id));
+
+  else if (TREE_CODE (alias_decl) != TREE_CODE (target_decl))
+    error ("declaration `%s' is incompatible with alias target `%s'",
+	   IDENTIFIER_POINTER (alias_id), IDENTIFIER_POINTER (target_id));
+
+  else if (! comptypes (TREE_TYPE (alias_decl), TREE_TYPE (target_decl)))
+    error ("incompatible types for `%s' and alias target `%s'",
+	   IDENTIFIER_POINTER (alias_id), IDENTIFIER_POINTER (target_id));
+    
+  else
+    return target_decl;
+
+  return NULL_TREE;
+}
 
 /* Mark ARG for GC.  */
 
@@ -4307,7 +4341,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
     error ("conflict between `__bounded' and `__unbounded'");
   else if (xboundedp || xunboundedp)
     {
-      if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
+      if (ANY_POINTER_TYPE_P (type))
 	boundedp = xboundedp;
       else if (xboundedp)
 	error ("invalid use of `__bounded' with non-pointer type");
@@ -4945,7 +4979,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 #endif
 	  }
 
-	if (MAYBE_BOUNDED_POINTER_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
+	if (ANY_POINTER_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
 	  type = build_qualified_type (type, TYPE_QUAL_BOUNDED);
 
 	decl = build_decl (VAR_DECL, declarator, type);
@@ -5077,7 +5111,7 @@ grokparms (parms_info, funcdef_flag)
 	      else
 		{
 		  /* Now warn if is a pointer to an incomplete type.  */
-		  while (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
+		  while (ANY_INDIRECT_TYPE_P (type))
 		    type = TREE_TYPE (type);
 		  type = TYPE_MAIN_VARIANT (type);
 		  if (!COMPLETE_TYPE_P (type))
@@ -6067,8 +6101,8 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
 	      break;
 
 	    case 2:
-	      if (!MAYBE_BOUNDED_POINTER_TYPE_P (type)
-		  || !MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
+	      if (!ANY_POINTER_TYPE_P (type)
+		  || !ANY_POINTER_TYPE_P (TREE_TYPE (type))
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
 		      != char_type_node))
 		pedwarn_with_decl (decl1,
@@ -6076,8 +6110,8 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
 	      break;
 
 	    case 3:
-	      if (!MAYBE_BOUNDED_POINTER_TYPE_P (type)
-		  || !MAYBE_BOUNDED_POINTER_TYPE_P (TREE_TYPE (type))
+	      if (!ANY_POINTER_TYPE_P (type)
+		  || !ANY_POINTER_TYPE_P (TREE_TYPE (type))
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
 		      != char_type_node))
 		pedwarn_with_decl (decl1,

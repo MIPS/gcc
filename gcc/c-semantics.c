@@ -262,10 +262,16 @@ expand_cond (t)
   if (t && TREE_CODE (t) == TREE_LIST)
     {
       expand_stmt (TREE_PURPOSE (t));
-      return TREE_VALUE (t);
+      t = TREE_VALUE (t);
     }
-  else 
-    return t;
+
+  if (t && TREE_BOUNDED (t))
+    /* If T is a bounded pointer, then silently strip away the
+       bounds, since we're only interested in how the pointer
+       value compares to NULL--we won't dereference it.  */
+    t = build_bounded_ptr_field_ref (t, 0);
+
+  return t;
 }
 
 /* Create RTL for the local static variable DECL.  */

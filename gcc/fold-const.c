@@ -197,7 +197,7 @@ force_fit_type (t, overflow)
   low = TREE_INT_CST_LOW (t);
   high = TREE_INT_CST_HIGH (t);
 
-  if (POINTER_TYPE_P (TREE_TYPE (t)))
+  if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (t)))
     prec = POINTER_SIZE;
   else
     prec = TYPE_PRECISION (TREE_TYPE (t));
@@ -2016,7 +2016,7 @@ fold_convert (t, arg1)
 
   if (BOUNDED_INDIRECT_TYPE_P (type))
     abort ();
-  if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
+  if (UNBOUNDED_INDIRECT_TYPE_P (type) || INTEGRAL_TYPE_P (type))
     {
       if (TREE_CODE (arg1) == INTEGER_CST)
 	{
@@ -2046,7 +2046,7 @@ fold_convert (t, arg1)
 				(TREE_INT_CST_HIGH (arg1) < 0
 				 && (TREE_UNSIGNED (type)
 				    < TREE_UNSIGNED (TREE_TYPE (arg1)))))
-		&& ! POINTER_TYPE_P (TREE_TYPE (arg1)))
+		&& ! UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (arg1)))
 	       || TREE_OVERFLOW (arg1));
 	  TREE_CONSTANT_OVERFLOW (t)
 	    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1);
@@ -5093,7 +5093,7 @@ fold (expr)
 	  else
 	    return convert (type, test);
 	}
-      else if (code == MINUS_EXPR && !MAYBE_BOUNDED_POINTER_TYPE_P (type))
+      else if (code == MINUS_EXPR && !ANY_POINTER_TYPE_P (type))
 	{
 	  /* Elide type conversions to bounded pointer in both args
 	     of a pointer-difference operation.  This prevents spurious
@@ -5165,17 +5165,17 @@ fold (expr)
 	  tree inter_type = TREE_TYPE (TREE_OPERAND (t, 0));
 	  tree final_type = TREE_TYPE (t);
 	  int inside_int = INTEGRAL_TYPE_P (inside_type);
-	  int inside_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (inside_type);
+	  int inside_ptr = ANY_INDIRECT_TYPE_P (inside_type);
 	  int inside_float = FLOAT_TYPE_P (inside_type);
 	  unsigned int inside_prec = TYPE_PRECISION (inside_type);
 	  int inside_unsignedp = TREE_UNSIGNED (inside_type);
 	  int inter_int = INTEGRAL_TYPE_P (inter_type);
-	  int inter_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (inter_type);
+	  int inter_ptr = ANY_INDIRECT_TYPE_P (inter_type);
 	  int inter_float = FLOAT_TYPE_P (inter_type);
 	  unsigned int inter_prec = TYPE_PRECISION (inter_type);
 	  int inter_unsignedp = TREE_UNSIGNED (inter_type);
 	  int final_int = INTEGRAL_TYPE_P (final_type);
-	  int final_ptr = MAYBE_BOUNDED_INDIRECT_TYPE_P (final_type);
+	  int final_ptr = ANY_INDIRECT_TYPE_P (final_type);
 	  int final_float = FLOAT_TYPE_P (final_type);
 	  unsigned int final_prec = TYPE_PRECISION (final_type);
 	  int final_unsignedp = TREE_UNSIGNED (final_type);
@@ -6223,7 +6223,7 @@ fold (expr)
 	       if CONST+INCR overflows or if foo+incr might overflow.
 	       This optimization is invalid for floating point due to rounding.
 	       For pointer types we assume overflow doesn't happen.  */
-	    if (POINTER_TYPE_P (TREE_TYPE (varop))
+	    if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (varop))
 		|| (! FLOAT_TYPE_P (TREE_TYPE (varop))
 		    && (code == EQ_EXPR || code == NE_EXPR)))
 	      {
@@ -6289,7 +6289,7 @@ fold (expr)
 	  }
 	else if (constop && TREE_CODE (varop) == POSTDECREMENT_EXPR)
 	  {
-	    if (POINTER_TYPE_P (TREE_TYPE (varop))
+	    if (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (varop))
 		|| (! FLOAT_TYPE_P (TREE_TYPE (varop))
 		    && (code == EQ_EXPR || code == NE_EXPR)))
 	      {
@@ -6565,7 +6565,7 @@ fold (expr)
       /* An unsigned comparison against 0 can be simplified.  */
       if (integer_zerop (arg1)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
-	      || POINTER_TYPE_P (TREE_TYPE (arg1)))
+	      || UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (arg1)))
 	  && TREE_UNSIGNED (TREE_TYPE (arg1)))
 	{
 	  switch (TREE_CODE (t))
@@ -6601,7 +6601,7 @@ fold (expr)
 	    && ! TREE_CONSTANT_OVERFLOW (arg1)
 	    && width <= HOST_BITS_PER_WIDE_INT
 	    && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
-		|| POINTER_TYPE_P (TREE_TYPE (arg1))))
+		|| UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (arg1))))
 	  {
 	    if (TREE_INT_CST_HIGH (arg1) == 0
 		&& (TREE_INT_CST_LOW (arg1)

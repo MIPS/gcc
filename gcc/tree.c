@@ -1614,7 +1614,8 @@ make_tree_vec (len)
      int len;
 {
   register tree t;
-  register int length = (len-1) * sizeof (tree) + sizeof (struct tree_vec);
+  register int length = (((len - 1 + TREE_CODE_LENGTH (TREE_VEC)) * sizeof (tree))
+			 + sizeof (struct tree_common));
   register struct obstack *obstack = current_obstack;
 
 #ifdef GATHER_STATISTICS
@@ -1744,7 +1745,7 @@ integer_pow2p (expr)
   if (TREE_CODE (expr) != INTEGER_CST || TREE_CONSTANT_OVERFLOW (expr))
     return 0;
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
+  prec = (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (expr))
 	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
   high = TREE_INT_CST_HIGH (expr);
   low = TREE_INT_CST_LOW (expr);
@@ -1785,7 +1786,7 @@ tree_log2 (expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
+  prec = (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (expr))
 	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
 
   high = TREE_INT_CST_HIGH (expr);
@@ -1824,7 +1825,7 @@ tree_floor_log2 (expr)
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
-  prec = (POINTER_TYPE_P (TREE_TYPE (expr))
+  prec = (UNBOUNDED_INDIRECT_TYPE_P (TREE_TYPE (expr))
 	  ? POINTER_SIZE : TYPE_PRECISION (TREE_TYPE (expr)));
 
   high = TREE_INT_CST_HIGH (expr);
@@ -3802,7 +3803,7 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 
   /* Handle putting a type attribute on pointer-to-function-type by putting
      the attribute on the function type.  */
-  else if (POINTER_TYPE_P (type)
+  else if (UNBOUNDED_INDIRECT_TYPE_P (type)
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
 	   && VALID_MACHINE_TYPE_ATTRIBUTE (TREE_TYPE (type), type_attr_list,
 					    attr_name, attr_args))
@@ -3990,11 +3991,9 @@ set_type_quals (type, type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
-  if (MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
-    TYPE_BOUNDED (type) = (BOUNDED_INDIRECT_TYPE_P (type)
-			   || TYPE_BOUNDED (TREE_TYPE (type)));
-  else
-    TYPE_BOUNDED (type) = (type_quals & TYPE_QUAL_BOUNDED) != 0;
+  TYPE_BOUNDED (type) = ((type_quals & TYPE_QUAL_BOUNDED) != 0
+			 || (ANY_INDIRECT_TYPE_P (type)
+			     && TYPE_BOUNDED (TREE_TYPE (type))));
 }
 
 /* Given a type node TYPE and a TYPE_QUALIFIER_SET, return a type for
@@ -4023,18 +4022,14 @@ build_qualified_type (type, type_quals)
 
   /* Tolerate changes in boundedness only for indirect types.  For
      other types (aggregates, functions, methods), the boundedness
-     must be derived from type components and can't be changed
+     must be derived from the type's components and can't be changed
      directly.  */
-  if (! MAYBE_BOUNDED_INDIRECT_TYPE_P (type))
+  if (! ANY_INDIRECT_TYPE_P (type))
     {
-      /* It often happens that the caller requests an "unqualified"
-	 version of an aggregate type that has bounded members.  In
-	 this case, the bounded qualifier is implicit.  */
       if (TYPE_BOUNDED (type))
 	type_quals |= TYPE_QUAL_BOUNDED;
-      /* It's a mistake to force an unbounded aggregate to be bounded.  */
-      else if (type_quals & TYPE_QUAL_BOUNDED)
-	abort ();
+      else
+	type_quals &= ~TYPE_QUAL_BOUNDED;
     }
 
   /* Search the chain of variants to see if there is already one there just
@@ -4046,12 +4041,15 @@ build_qualified_type (type, type_quals)
 	&& TYPE_POINTER_DEPTH (t) == TYPE_POINTER_DEPTH (type))
       return t;
 
-  if (POINTER_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
+  if (UNBOUNDED_INDIRECT_TYPE_P (type) && (type_quals & TYPE_QUAL_BOUNDED))
     {
-      tree subtype = build_qualified_type (type, type_quals & ~TYPE_QUAL_BOUNDED);
-      tree value = build_decl (FIELD_DECL, get_identifier ("value"), subtype);
-      tree low_bound = build_decl (FIELD_DECL, get_identifier ("low_bound"), subtype);
-      tree high_bound = build_decl (FIELD_DECL, get_identifier ("high_bound"), subtype);
+      /* To "fatten" a thin pointer type, first make a type with all
+	 the other desired qualifiers, then build a RECORD_TYPE node
+	 around it with fields having of the thin pointer type.  */
+      tree ub_type = build_qualified_type (type, type_quals & ~TYPE_QUAL_BOUNDED);
+      tree value = build_decl (FIELD_DECL, get_identifier ("value"), ub_type);
+      tree low_bound = build_decl (FIELD_DECL, get_identifier ("low_bound"), ub_type);
+      tree high_bound = build_decl (FIELD_DECL, get_identifier ("high_bound"), ub_type);
       t = build_type_copy (type);
       TREE_SET_CODE (t, RECORD_TYPE);
       TYPE_SIZE (t) = NULL_TREE;
@@ -4746,26 +4744,30 @@ build_pointer_type_2 (code, to_type)
      tree to_type;
 {
   tree t = TYPE_POINTER_TO (to_type);
+
   if (!t)
     {
       int depth = TYPE_POINTER_DEPTH (to_type);
+
+      /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
+      push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
+      t = make_node (POINTER_TYPE);
+      pop_obstacks ();
+
       if (depth < MAX_POINTER_DEPTH
-	  /* Special case for the sake of signal: pointers to functions
+	  /* Special case for the sake of signal(2): pointers to functions
 	     are always unbounded.  If the function type pointed-to has
 	     no pointers among its return or arg types, then we can consider
 	     this pointer to be as safe for exchange as a scalar, so we
-	     needn't increase its pointer depth.  Time will tell if
-	     this proves a dangerous policy...  */
+	     needn't increase its pointer depth.  */
 	  && !(TREE_CODE (to_type) == FUNCTION_TYPE && depth == 0))
 	depth++;
-      t = make_node (POINTER_TYPE);
+
       TREE_TYPE (t) = to_type;
       layout_type (t);
       TYPE_POINTER_TO (to_type) = t;
       TYPE_POINTER_DEPTH (t) = depth;
     }
-  if (TREE_CODE (t) != POINTER_TYPE)
-    abort();
 
   /* Pointers to functions are always unbounded, no matter what the
      caller thinks s/he wants.  */
@@ -4776,21 +4778,6 @@ build_pointer_type_2 (code, to_type)
     t = build_qualified_type (t, TYPE_QUAL_BOUNDED);
   else if (code != POINTER_TYPE)
     abort ();
-
-  if (!TYPE_POINTER_DEPTH (t) && TREE_CODE (to_type) != FUNCTION_TYPE)
-    abort ();
-
-  /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t)
-    return t;
-
-  /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
-  push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
-  t = make_node (POINTER_TYPE);
-  pop_obstacks ();
-
-  TREE_TYPE (t) = to_type;
 
   return t;
 }
