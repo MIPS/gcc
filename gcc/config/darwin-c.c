@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "cppdefault.h"
 #include "prefix.h"
+/* APPLE LOCAL include options.h */
+#include "options.h"
 
 /* Pragmas.  */
 
@@ -139,6 +141,20 @@ darwin_pragma_ignore (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   /* Do nothing.  */
 }
+
+/* APPLE LOCAL begin pragma fenv */
+/* #pragma GCC fenv
+   This is kept in <fenv.h>.  The point is to allow trapping
+   math to default to off.  According to C99, any program
+   that requires trapping math must include <fenv.h>, so
+   we enable trapping math when that gets included.  */
+
+void
+darwin_pragma_fenv (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  flag_trapping_math = 1;
+}
+/* APPLE LOCAL end pragma fenv */
 
 /* #pragma options align={mac68k|power|reset} */
 

@@ -79,6 +79,8 @@ extern void darwin_emit_unwind_label (FILE *, tree, int, int);
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
+/* APPLE LOCAL pragma fenv */
+extern void darwin_pragma_fenv (struct cpp_reader *);
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 extern void darwin_pragma_pack (struct cpp_reader *);

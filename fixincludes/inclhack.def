@@ -20,6 +20,43 @@ autogen definitions fixincl;
 FIXINC_DEBUG = yes;
 #endif
 
+/* APPLE LOCAL begin pragma fenv */
+/*
+ * This adds #pragma GCC fenv to <fenv.h>.  This is part of a
+ * kludge to allow no-trapping-math be the default, yet handle
+ * all the edge cases in C99 right, although FENV_ACCESS doesn't
+ * work in a useful fashion.  It should be possible to remove
+ * this if and when FENV_ACCESS is fully implemented.
+ *
+ * For Tiger the macro is already added to the standard header.
+ * This exists to support backwards compatibility in SDKs.
+ */
+fix = {
+    hackname = AAB_darwin_fenv_h;
+    files    = fenv.h;
+    mach     = '*-*-darwin*';
+    bypass   = '#pragma GCC fenv';
+
+    /*
+     * Define _DARWIN_FENV_H_WRAPPER at the end of the wrapper, not
+     * the start, so that if #include_next gets another instance of
+     * the wrapper, this will follow the #include_next chain until
+     * we arrive at the real <fenv.h>.
+     */
+    replace  = <<-  _EndOfHeader_
+	/* This file is a backwards compability hack to allow 
+	   no-trapping-math to be the default.  */
+	#ifndef _DARWIN_FENV_H_WRAPPER
+	#if defined(__GNUC__) && __GNUC__ >= 4
+	#pragma GCC fenv
+	#endif
+	#include_next <fenv.h>
+	#define _DARWIN_FENV_H_WRAPPER
+	#endif /* _DARWIN_FENV_H_WRAPPER */
+	_EndOfHeader_;
+};
+/* APPLE LOCAL end pragma fenv */
+
 /*
  *  This fixes __FD_ZERO bug for linux 2.x.y (x <= 2 && y <= some n)
  */

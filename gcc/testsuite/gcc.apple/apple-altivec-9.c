@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-faltivec" } */
+/* { dg-options "-faltivec -ftrapping-math" } */
 
 int vConvert_PlanarFtoPlanar16F( )
 {

@@ -1983,6 +1983,11 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
       /* The Darwin libraries never set errno, so we might as well
 	 avoid calling them when that's the only reason we would.  */
       flag_errno_math = 0;
+      /* Trapping math is not needed by many users, and is expensive.
+	 C99 permits us to default it off and we do that.  It is
+	 turned on when <fenv.h> is included (see darwin_pragma_fenv
+	 in darwin-c.c).  */
+      flag_trapping_math = 0;
     }
   /* APPLE LOCAL end tweak default optimizations */
 }

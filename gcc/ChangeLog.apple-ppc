@@ -1,5 +1,20 @@
 2004-12-23  Dale Johannesen  <dalej@apple.com>
 
+	* config/darwin-c.c:  Include options.h.
+	(darwin_pragma_fenv):  New.
+	* config/darwin-protos.h:  Declare it.
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):  Register it.
+	* config/t-darwin: Add new dependency.
+	* config/rs6000/rs6000.c (optimization_options): 
+	Default trapping-math off.
+	* config/i386/i386.c (optimization_options):  Ditto.
+	* fixincludes/inclhack.def:  Add #pragma GCC fenv to <fenv.h>.
+	* fixincludes/fixincl.x:  Regenerate.
+	* testsuite/gcc.apple/apple-altivec-9.c:  Add -ftrapping-math.
+	* testsuite/gcc.apple/darwin-fsel-3.c:  New.
+
+2004-12-23  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3926600
 	Following patches brought in from mainline
         * tree.c (iterative_hash_expr):  Canonicalize builtins.

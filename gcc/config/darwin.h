@@ -1237,6 +1237,8 @@ extern int flag_export_coalesced;
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    /* APPLE LOCAL pragma fenv */                               \
+    c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
   } while (0)
 
 /* APPLE LOCAL insert assembly ".abort" directive on fatal error   */

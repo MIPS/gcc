@@ -1641,6 +1641,13 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
     flag_schedule_insns = 0;
 #endif
 
+  /* APPLE LOCAL begin pragma fenv */
+  /* Trapping math is not needed by many users, and is expensive.
+     C99 permits us to default it off and we do that.  It is
+     turned on when <fenv.h> is included (see darwin_pragma_fenv
+     in darwin-c.c).  */
+  flag_trapping_math = 0;
+
   /* The default values of these switches depend on the TARGET_64BIT
      that is not known at this moment.  Mark these values with 2 and
      let user the to override these.  In case there is no command line option
