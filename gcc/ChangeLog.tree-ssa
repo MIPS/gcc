@@ -1,3 +1,9 @@
+2003-10-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	java/12211
+	* gimplify.c (gimplify_save_expr): Tolerate void-typed saved
+	expressions.
+
 2003-10-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_call_clobber_ops): If a variable is read-only,
