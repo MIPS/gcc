@@ -320,6 +320,7 @@ static unsigned int rtx_to_bits PARAMS ((rtx));
 static unsigned HOST_WIDE_INT rtx_to_undefined PARAMS ((rtx));
 static void create_insn_info PARAMS ((struct df *));
 static void free_insn_info PARAMS ((void));
+static rtx ra_emit_move_insn PARAMS ((rtx, rtx));
 static bitmap find_sub_conflicts PARAMS ((struct web_part *, unsigned int));
 static bitmap get_sub_conflicts PARAMS ((struct web_part *, unsigned int));
 static unsigned int undef_to_size_word PARAMS ((rtx, unsigned HOST_WIDE_INT *));
@@ -371,6 +372,7 @@ static int contains_pseudo PARAMS ((rtx));
 static int want_to_remat PARAMS ((rtx x));
 static void detect_remat_webs PARAMS ((void));
 static void determine_web_costs PARAMS ((void));
+static void detect_webs_set_in_cond_jump PARAMS ((void));
 static void make_webs PARAMS ((struct df *));
 static void moves_to_webs PARAMS ((struct df *));
 static void connect_rmw_web_parts PARAMS ((struct df *));
@@ -1118,8 +1120,10 @@ ra_print_rtl_with_bb (file, insn)
   last_bb = NULL;
   for (; insn; insn = NEXT_INSN (insn))
     {
-      /* Bloody flow.c sometimes deletes the varray.  Bah.  */
-      bb = (basic_block_for_insn) ? BLOCK_FOR_INSN (insn) : NULL;
+      if (GET_CODE (insn) == BARRIER)
+	bb = NULL;
+      else
+	bb = BLOCK_FOR_INSN (insn);
       if (bb != last_bb)
 	{
 	  if (last_bb)
@@ -1354,6 +1358,20 @@ copy_insn_p (insn, source, target)
   copy_cache[uid].source = s;
   copy_cache[uid].target = d;
   return 1;
+}
+
+/* Basically like emit_move_insn (i.e. validifies constants and such),
+   but also handle MODE_CC moves (but then the operands must already
+   be basically valid.  */
+static rtx
+ra_emit_move_insn (x, y)
+     rtx x, y;
+{
+  enum machine_mode mode = GET_MODE (x);
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    emit_insn (gen_move_insn (x, y));
+  else
+    emit_move_insn (x, y);
 }
 
 /* We build webs, as we process the conflicts.  For each use we go upward
@@ -2090,12 +2108,9 @@ livethrough_conflicts_bb (bb)
 static void
 init_bb_info (void)
 {
-  int b;
-  for (b = 0; b < n_basic_blocks + 2; b++)
+  basic_block bb;
+  FOR_ALL_BB (bb)
     {
-      basic_block bb = (b == n_basic_blocks) ? ENTRY_BLOCK_PTR :
-	  (b == n_basic_blocks + 1) ? EXIT_BLOCK_PTR :
-	  BASIC_BLOCK (b);
       struct ra_bb_info *info =
 	(struct ra_bb_info *) xcalloc (1, sizeof *info);
       info->regnos_mentioned = BITMAP_XMALLOC ();
@@ -2108,12 +2123,9 @@ init_bb_info (void)
 static void
 free_bb_info (void)
 {
-  int b;
-  for (b = 0; b < n_basic_blocks + 2; b++)
+  basic_block bb;
+  FOR_ALL_BB (bb)
     {
-      basic_block bb = (b == n_basic_blocks) ? ENTRY_BLOCK_PTR :
-	  (b == n_basic_blocks + 1) ? EXIT_BLOCK_PTR :
-	  BASIC_BLOCK (b);
       struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
       BITMAP_XFREE (info->regnos_mentioned);
       BITMAP_XFREE (info->live_throughout);
@@ -2130,7 +2142,7 @@ build_web_parts_and_conflicts (df)
 {
   struct df_link *link;
   struct curr_use use;
-  int b;
+  basic_block bb;
 
   number_seen = (int *) xcalloc (get_max_uid (), sizeof (int));
   visit_trace = (struct visit_trace *) xcalloc (get_max_uid (),
@@ -2164,11 +2176,8 @@ build_web_parts_and_conflicts (df)
 	  }
 
   dump_number_seen ();
-  for (b = 0; b < n_basic_blocks + 2; b++)
+  FOR_ALL_BB (bb)
     {
-      basic_block bb = (b == n_basic_blocks) ? ENTRY_BLOCK_PTR :
-	  (b == n_basic_blocks + 1) ? EXIT_BLOCK_PTR :
-	  BASIC_BLOCK (b);
       struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
       livethrough_conflicts_bb (bb);
       bitmap_zero (info->live_throughout);
@@ -3681,6 +3690,13 @@ contains_pseudo (x)
   return 0;
 }
 
+static void
+ggc_mark_rtx_ptr (elt)
+     void *elt;
+{
+  ggc_mark_rtx (*(rtx *) elt);
+}
+
 static int
 want_to_remat (x)
      rtx x;
@@ -3703,7 +3719,7 @@ want_to_remat (x)
 						   FIRST_PSEUDO_REGISTER * 2),
 				      const0_rtx));
       NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
-      ggc_add_rtx_root (&test_insn, 1);
+      ggc_add_root (&test_insn, 1, sizeof (rtx), ggc_mark_rtx_ptr);
     }
 
   /* Now make an insn like the one we would make when rematerializing
@@ -3842,6 +3858,27 @@ determine_web_costs (void)
     }
 }
 
+/* Detect webs which are set in a conditional jump insn (possibly a 
+   decrement-and-branch type of insn), and mark them not to be
+   spillable.  The stores for them would need to be placed on edges,
+   which destroys the CFG.  (Somewhen we want to deal with that XXX)  */
+static void
+detect_webs_set_in_cond_jump (void)
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    if (GET_CODE (bb->end) == JUMP_INSN)
+      {
+	struct df_link *link;
+	for (link = DF_INSN_DEFS (df, bb->end); link; link = link->next)
+	  if (link->ref && DF_REF_REGNO (link->ref) >= FIRST_PSEUDO_REGISTER)
+	    {
+	      struct web *web = def2web[DF_REF_ID (link->ref)];
+	      web->orig_spill_temp = web->spill_temp = 3;
+	    }
+      }
+}
+
 /* Converts the connected web parts to full webs.  This means, it allocates
    all webs, and initializes all fields, including detecting spill
    temporaries.  It does not distribute moves to their corresponding webs,
@@ -3855,6 +3892,7 @@ make_webs (df)
   parts_to_webs (df);
   /* Now detect spill temporaries to initialize their usable_regs set.  */
   detect_spill_temps ();
+  detect_webs_set_in_cond_jump ();
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df);
@@ -4253,8 +4291,9 @@ alloc_mem (df)
   realloc_web_parts (df);
   if (!live_at_end)
     {
-      live_at_end = (bitmap *) xmalloc ((n_basic_blocks + 2) * sizeof (bitmap));
-      for (i = 0; i < n_basic_blocks + 2; i++)
+      live_at_end = (bitmap *) xmalloc ((last_basic_block + 2)
+					* sizeof (bitmap));
+      for (i = 0; i < last_basic_block + 2; i++)
 	live_at_end[i] = BITMAP_XMALLOC ();
       live_at_end += 2;
     }
@@ -4327,7 +4366,7 @@ free_all_mem (df)
   free (copy_cache);
   copy_cache = NULL;
   live_at_end -= 2;
-  for (i = 0; i < (unsigned)n_basic_blocks + 2; i++)
+  for (i = 0; i < (unsigned)last_basic_block + 2; i++)
     BITMAP_XFREE (live_at_end[i]);
   free (live_at_end);
 
@@ -6844,10 +6883,10 @@ rewrite_program (new_deaths)
 		  source = simplify_gen_subreg (GET_MODE (target), source,
 						GET_MODE (source),
 						SUBREG_BYTE (target));
-		emit_move_insn (target, source);
+		ra_emit_move_insn (target, source);
 		insns = get_insns ();
 		end_sequence ();
-		emit_insns_before (insns, insn);
+		emit_insn_before (insns, insn);
 
 	        if (bb->head == insn)
 		  bb->head = NEXT_INSN (prev);
@@ -6892,7 +6931,7 @@ rewrite_program (new_deaths)
 		  dest = simplify_gen_subreg (GET_MODE (source), dest,
 					      GET_MODE (dest),
 					      SUBREG_BYTE (source));
-		  emit_move_insn (dest, source);
+		  ra_emit_move_insn (dest, source);
 		}
 	      else
 		{
@@ -6904,14 +6943,14 @@ rewrite_program (new_deaths)
 				       reg, 0))
 		    emit_insn (gen_move_insn (dest, reg));
 		  else*/
-		    emit_move_insn (dest, source);
+		    ra_emit_move_insn (dest, source);
 		}
 		
 	      insns = get_insns ();
 	      end_sequence ();
 	      if (insns)
 		{
-		  emit_insns_after (insns, insn);
+		  emit_insn_after (insns, insn);
 		  if (bb->end == insn)
 		    bb->end = PREV_INSN (following);
 		  for (insn = insns; insn != following; insn = NEXT_INSN (insn))
@@ -7081,12 +7120,12 @@ insert_stores (new_deaths)
 		  rtx insns, ni;
 		  last_slot = slot;
 		  remember_slot (&slots, slot);
-		  emit_move_insn (slot, source);
+		  ra_emit_move_insn (slot, source);
 		  insns = get_insns ();
 		  end_sequence ();
 		  if (insns)
 		    {
-		      emit_insns_after (insns, insn);
+		      emit_insn_after (insns, insn);
 		      if (bb->end == insn)
 			bb->end = PREV_INSN (following);
 		      for (ni = insns; ni != following; ni = NEXT_INSN (ni))
@@ -7296,7 +7335,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	    slot = simplify_gen_subreg (GET_MODE (reg), slot, GET_MODE (slot),
 					SUBREG_BYTE (reg));
 	}
-      emit_move_insn (reg, slot);
+      ra_emit_move_insn (reg, slot);
       ni = get_insns ();
       end_sequence ();
       before = web->last_use_insn;
@@ -7312,7 +7351,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	{
 	  rtx foll = NEXT_INSN (after);
 	  bb = BLOCK_FOR_INSN (after);
-	  emit_insns_after (ni, after);
+	  emit_insn_after (ni, after);
 	  if (bb->end == after)
 	    bb->end = PREV_INSN (foll);
 	  for (ni = NEXT_INSN (after); ni != foll; ni = NEXT_INSN (ni))
@@ -7325,7 +7364,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	{
 	  rtx prev = PREV_INSN (before);
 	  bb = BLOCK_FOR_INSN (before);
-	  emit_insns_before (ni, before);
+	  emit_insn_before (ni, before);
 	  if (bb->head == before)
 	    bb->head = NEXT_INSN (prev);
 	  for (; ni != before; ni = NEXT_INSN (ni))
@@ -7537,8 +7576,8 @@ static void
 rewrite_program2 (new_deaths)
      bitmap new_deaths;
 {
-  int i;
-  sbitmap changed_bbs = sbitmap_alloc (n_basic_blocks);
+  basic_block bb;
+  sbitmap changed_bbs = sbitmap_alloc (last_basic_block);
   int nl_first_reload;
   struct rewrite_info ri;
   rtx insn;
@@ -7551,19 +7590,16 @@ rewrite_program2 (new_deaths)
   sbitmap_zero (changed_bbs);
   detect_bbs_for_rewrite (changed_bbs);
 #ifndef NEW_SPILL
-  for (i = 0; i < n_basic_blocks + 2; i++)
+  FOR_ALL_BB (BB)
 #else
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
 #endif
     {
-      basic_block bb, last_bb = NULL;
+      basic_block last_bb = NULL;
       rtx last_block_insn;
-      int j;
+      int i, j;
 #ifndef NEW_SPILL
-      if (i < 2)
-	bb = (i == 0) ? EXIT_BLOCK_PTR : ENTRY_BLOCK_PTR;
-      else
-	bb = BASIC_BLOCK (i - 2);
+      i = bb->index + 2;
       if (!bb->end)
 	continue;
       if (!TEST_BIT (changed_bbs, i))
@@ -8030,7 +8066,7 @@ detect_web_parts_to_rebuild (void)
       }
 
   live_at_end -= 2;
-  for (i = 0; i < (unsigned int) n_basic_blocks + 2; i++)
+  for (i = 0; i < (unsigned int) last_basic_block + 2; i++)
     bitmap_operation (live_at_end[i], live_at_end[i], uses_as_bitmap,
 		      BITMAP_AND_COMPL);
   live_at_end += 2;
@@ -8139,6 +8175,7 @@ emit_colors (df)
   struct web *web;
   int old_max_regno = max_reg_num ();
   regset old_regs;
+  basic_block bb;
 
   /* This bitmap is freed in remove_suspicious_death_notes(),
      which is also the user of it.  */
@@ -8272,10 +8309,10 @@ emit_colors (df)
   old_regs = BITMAP_XMALLOC ();
   for (si = FIRST_PSEUDO_REGISTER; si < old_max_regno; si++)
     SET_REGNO_REG_SET (old_regs, si);
-  for (si = 0; si < n_basic_blocks; si++)
+  FOR_EACH_BB (bb)
     {
-      AND_COMPL_REG_SET (BASIC_BLOCK (si)->global_live_at_start, old_regs);
-      AND_COMPL_REG_SET (BASIC_BLOCK (si)->global_live_at_end, old_regs);
+      AND_COMPL_REG_SET (bb->global_live_at_start, old_regs);
+      AND_COMPL_REG_SET (bb->global_live_at_end, old_regs);
     }
   BITMAP_XFREE (old_regs);
 }
@@ -8995,7 +9032,7 @@ init_ra (void)
     abort ();
 
   orig_max_uid = get_max_uid ();
-  compute_bb_for_insn (get_max_uid ());
+  compute_bb_for_insn ();
   ra_reg_renumber = NULL;
   insns_with_deaths = sbitmap_alloc (orig_max_uid);
   death_insns_max_uid = orig_max_uid;
@@ -9038,16 +9075,16 @@ void calculate_pre_post ()
   sbitmap visited;
 
   /* Allocate the preorder and postorder number arrays.  */
-  pre = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
-  post = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
-  pre_inverse = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
+  pre = (int *) xcalloc (last_basic_block+1, sizeof (int));
+  post = (int *) xcalloc (last_basic_block+1, sizeof (int));
+  pre_inverse = (int *) xcalloc (last_basic_block+1, sizeof (int));
   
   /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = (edge *) xmalloc ((last_basic_block + 1) * sizeof (edge));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
-  visited = sbitmap_alloc (n_basic_blocks);
+  visited = sbitmap_alloc (last_basic_block);
 
   /* None of the nodes in the CFG have been visited yet.  */
   sbitmap_zero (visited);
@@ -9098,7 +9135,7 @@ void calculate_pre_post ()
 
   free (stack);
   sbitmap_free (visited);
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < last_basic_block; i++)
     pre_inverse[pre[i]] = i;
 }
 static basic_block
@@ -9168,7 +9205,7 @@ reach_under (block, head, loop)
   sbitmap worklist;
   edge edge;
   
-  worklist = sbitmap_alloc (n_basic_blocks + 1);
+  worklist = sbitmap_alloc (last_basic_block + 1);
   sbitmap_zero (worklist);
   SET_BIT (worklist, pre[block->index]);
   SET_BIT (worklist, pre[head->index]);
@@ -9334,20 +9371,20 @@ find_nesting_depths()
   unsigned int index = 1;
   unsigned int level = 0;
   int i;
-  int *idom = (int *)alloca (n_basic_blocks * sizeof (int));
+  int *idom = (int *)alloca (last_basic_block * sizeof (int));
   sbitmap loop;
   
-  memset (idom, -1, (size_t) n_basic_blocks * sizeof (int));
+  memset (idom, -1, (size_t) last_basic_block * sizeof (int));
   calculate_pre_post ();
-  depths = (unsigned int *)xcalloc (n_basic_blocks + 1, sizeof(unsigned int));
-  depthtemp = (unsigned int *)xcalloc (n_basic_blocks + 1, sizeof (unsigned int));
+  depths = (unsigned int *)xcalloc (last_basic_block + 1, sizeof(unsigned int));
+  depthtemp = (unsigned int *)xcalloc (last_basic_block + 1, sizeof (unsigned int));
   calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
   domtree = dom_tree_from_idoms (idom);
   dj_graph_info = (struct dj_graph_info *) ggc_alloc_cleared
-    ((n_basic_blocks + 1) * sizeof (struct dj_graph_info));
+    ((last_basic_block + 1) * sizeof (struct dj_graph_info));
   walk_dom_tree (BASIC_BLOCK (0), &index,  level);    
   levels = (struct linked_list **) ggc_alloc_cleared ((max_level + 1) * sizeof (struct linked_list *));
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < last_basic_block; i++)
     {
       basic_block block = BASIC_BLOCK (i);
       int block_num = pre[block->index];
@@ -9360,10 +9397,10 @@ find_nesting_depths()
       levels[level] = node;
     }
   index = 1;
-  visited = sbitmap_alloc (n_basic_blocks);
+  visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited);
   DFS_DJ_graph (BASIC_BLOCK (0), &index);
-  loop = sbitmap_alloc (n_basic_blocks + 1);
+  loop = sbitmap_alloc (last_basic_block + 1);
   sbitmap_zero (loop);
   
   for (i = max_level; i >= 0; i--)
@@ -9410,7 +9447,9 @@ find_nesting_depths()
 	  if (irreducible_loop)
 	    {
 	      unsigned int j;
-	      scc_info = (struct scc_info *) ggc_alloc_cleared (sizeof (struct scc_info) * (n_basic_blocks + 1));
+	      scc_info = (struct scc_info *) ggc_alloc_cleared (sizeof (struct
+									scc_info)
+								* (last_basic_block + 1));
 	      next_dfs_num = 0;
 	      for (j = i; j <= max_depth; j++)
 		{
@@ -9425,8 +9464,8 @@ find_nesting_depths()
 	    }
 	}
     }
-  memcpy (depthtemp, depths, sizeof (unsigned int) * (n_basic_blocks));
-  for (i = 0; i < n_basic_blocks; i ++)
+  memcpy (depthtemp, depths, sizeof (unsigned int) * (last_basic_block));
+  for (i = 0; i < last_basic_block; i ++)
 	depths[i] = depthtemp[pre[i]];
   free (depthtemp);
   sbitmap_free (loop);
@@ -9692,13 +9731,13 @@ dump_static_insn_cost (file, message, prefix)
   struct cost regcopy = {0, 0};
   struct cost selfcopy = {0, 0};
   struct cost overall = {0, 0};
+  basic_block bb;
 
   if (!file)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       unsigned HOST_WIDE_INT block_cost = bb->frequency;
       rtx insn, set;
       for (insn = bb->head; insn; insn = NEXT_INSN (insn))
@@ -9789,7 +9828,7 @@ reg_alloc (void)
 	      use_return_register ();
 	      insns = get_insns ();
 	      end_sequence ();
-	      emit_insns_after (insns, last);
+	      emit_insn_after (insns, last);
 	    }
 	}
     }
@@ -9821,7 +9860,7 @@ reg_alloc (void)
   pre_reload (ra_info);
   {
     allocate_reg_info (max_reg_num (), FALSE, FALSE);
-    compute_bb_for_insn (get_max_uid ());
+    compute_bb_for_insn ();
     delete_trivially_dead_insns (get_insns (), max_reg_num ());
     reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 		     max_regno);
@@ -9890,7 +9929,7 @@ reg_alloc (void)
 
       {
 	allocate_reg_info (max_reg_num (), FALSE, FALSE);
-	compute_bb_for_insn (get_max_uid ());
+	compute_bb_for_insn ();
 	delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 			 max_regno);
@@ -9960,10 +9999,9 @@ reg_alloc (void)
 	  if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
 	    rtl_dump_file = NULL;
 	  allocate_reg_info (max_reg_num (), FALSE, FALSE);
-	  compute_bb_for_insn (get_max_uid ());
+	  compute_bb_for_insn ();
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-	  reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
-			   max_regno);
+	  reg_scan_update (get_insns (), NULL, max_regno);
 	  max_regno = max_reg_num ();
 	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
 	  rtl_dump_file = ra_dump_file;
@@ -9995,7 +10033,7 @@ reg_alloc (void)
     rtl_dump_file = NULL;
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
-  /*compute_bb_for_insn (get_max_uid ());*/
+  /*compute_bb_for_insn ();*/
   while_newra = 1;
   /*store_motion ();*/
   no_new_pseudos = 1;
@@ -10006,7 +10044,7 @@ reg_alloc (void)
     rtl_dump_file = NULL;
   /*free_bb_for_insn ();
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);*/
-  /*compute_bb_for_insn (get_max_uid ());*/
+  /*compute_bb_for_insn ();*/
   /*clear_log_links (get_insns ());*/
   life_analysis (get_insns (), rtl_dump_file, 
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);

@@ -1,3 +1,21 @@
+2002-06-19  Michael Matz  <matz@suse.de>
+
+	Merge with HEAD at tag ra-merge-20020613.
+	Adjust files to make it compile.
+
+	* ra.c (ra_emit_move_insn, detect_webs_set_in_cond_jump): New.
+	(ra_print_rtl_with_bb, livethrough_conflicts_bb, init_bb_info,
+	build_web_parts_and_conflicts, alloc_mem, free_all_mem,
+	rewrite_program2, emit_colors, dump_static_insn_cost): Use new
+	CFG structure and variables.
+	(ggc_mark_rtx_ptr): New.
+	(want_to_remat): Use it to mark GC root.
+	(make_webs): Call detect_webs_set_in_cond_jump.
+	(rewrite_program): Use ra_emit_move_insn and emit_insn_xxx.
+	(calculate_pre_post, reach_under, find_nesting_depths):
+	s/n_basic_blocks/last_basic_block/ .
+	(reg_alloc): Adjust calls to compute_bb_for_insn.
+	
 2002-06-17  Michael Matz  <matz@suse.de>
 
 	* ra.c (detect_remat_webs): Fail if the first found pattern
